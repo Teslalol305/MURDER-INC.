@@ -35,6 +35,13 @@ import { clamp, paramOn } from './core/util.js';
 const POOL_LIGHTS = 6;
 const MAX_HELD_LIGHTS = 4; // acquire() leaves at least two lights for flashes
 const COMPILE_TIMEOUT_MS = 6000;
+const LOST_FATAL_MS = 5000; // a lost context that has not come back by then gets a message
+const LOST_TEXT = 'The graphics context was lost. Reload the page to continue.';
+// Narrow and portrait views: both cameras zoom out (PerspectiveCamera.zoom, which nothing else writes)
+// so the horizontal view does not collapse below what a 4:3 screen shows, up to a vertical field of
+// view of MAX_FOV degrees. Wider than 4:3, nothing changes.
+const NARROW_ASPECT = 4 / 3;
+const MAX_FOV = 105;
 
 const TONE_MAPPING = {
   aces: THREE.ACESFilmicToneMapping,
@@ -146,9 +153,18 @@ function gradeShader(feedback) {
 
 /**
  * Dynamic resolution as a small state machine (exported for tests). Feed it one timestamp per drawn
- * frame: it averages frame times over a window and moves a render scale between DR.min and 1 in
+ * frame: it judges frame times window by window and moves a render scale between DR.min and 1 in
  * DR.step steps to hold the frame rate. When the smallest scale is still too slow twice in a row it
  * asks the host to drop a quality preset.
+ *
+ * - A window is judged on a trimmed mean, after throwing out hitches: frames above
+ *   max(DR.hitchMs, DR.hitchFactor × the running average), unless most of the window is like that.
+ * - Every step down has to prove itself. If the next window is not DR.prove faster, the frame is not
+ *   limited by its pixels (a vsync cap, a CPU-bound frame): the old scale comes back and nothing steps
+ *   down again until the frame time moves out of a DR.capBand band. A preset is only dropped after a
+ *   step down that did make the frame faster.
+ * - The wait before scaling back up doubles with every step down and returns to DR.upWait after
+ *   DR.upWaitDecay seconds without one.
  *
  * @param {object} DR    config/quality.js `dynamicResolution`
  * @param {object} host  { changed(scale)  the scale moved,
@@ -156,63 +172,140 @@ function gradeShader(feedback) {
  *                         drop()          lower it }
  */
 export function createGovernor(DR, host) {
+  const steps = Math.round(1 / DR.step);
+  const buf = new Float64Array(Math.max(8, DR.windowFrames | 0) + 1);
+  const sorted = new Float64Array(buf.length);
   let scale = 1;
   let last = null; // timestamp of the previous sample
   let frames = 0;
   let total = 0; // ms in the current window
   let settleUntil = 0;
+  let average = null; // running average of the judged windows (ms), the yardstick for hitches
   let upWait = DR.upWait; // doubles every time the scale has to come down
   let upAt = 0;
+  let lastDown = -Infinity;
   let floored = 0; // consecutive slow windows at the minimum scale
+  // The step down being tried: the window it was decided on and how to undo it.
+  let trial = null; // {from, ms, upWait, upAt, deep}
+  let proven = false; // the last step down made the frame faster (a preset drop may help)
+  let capped = 0; // > 0: the frame time a failed step left us at; no stepping down near it
 
   /** Throws the current window away and measures nothing for `seconds`. */
   function settle(now, seconds) {
     frames = 0;
     total = 0;
     floored = 0;
+    last = null;
     settleUntil = now + seconds * 1000;
+  }
+
+  function apply(next, now) {
+    next = clamp(Math.round(next * steps) / steps, DR.min, 1); // exact tenths, no float drift
+    if (next === scale) return;
+    scale = next;
+    settle(now, DR.settleAfterChange);
+    host.changed(scale);
+  }
+
+  /** The window's verdict in ms, or -1 when it holds too little to go on. */
+  function judge() {
+    let n = 0;
+    const limit = Math.max(DR.hitchMs, DR.hitchFactor * (average ?? median()));
+    for (let i = 0; i < frames; i++) if (buf[i] <= limit) sorted[n++] = buf[i];
+    if (n * 2 < frames) {
+      // Mostly "hitches": that is simply how long a frame takes now.
+      n = frames;
+      for (let i = 0; i < frames; i++) sorted[i] = buf[i];
+    }
+    if (n < DR.minFrames) return -1;
+    sort(n);
+    const cut = Math.floor(n * DR.trim);
+    let sum = 0;
+    for (let i = cut; i < n - cut; i++) sum += sorted[i];
+    return sum / (n - 2 * cut);
+  }
+
+  function median() {
+    for (let i = 0; i < frames; i++) sorted[i] = buf[i];
+    sort(frames);
+    return sorted[frames >> 1];
+  }
+
+  /** Insertion sort of sorted[0..n): small n, no allocation. */
+  function sort(n) {
+    for (let i = 1; i < n; i++) {
+      const v = sorted[i];
+      let j = i - 1;
+      while (j >= 0 && sorted[j] > v) {
+        sorted[j + 1] = sorted[j];
+        j--;
+      }
+      sorted[j + 1] = v;
+    }
   }
 
   function sample(now) {
     const ms = last === null ? 0 : now - last;
     last = now;
-    // Hitches and hidden tabs are not slow frames.
-    if (now < settleUntil || ms <= 0 || ms > DR.ignoreAbove) return;
-    frames++;
+    if (now < settleUntil || ms <= 0 || ms > DR.ignoreAbove) return; // settling, or a hidden tab
+    buf[frames++] = ms;
     total += ms;
-    if (frames < DR.windowFrames && total < DR.windowMs) return; // the window is still open
+    if (frames < DR.windowFrames && total < DR.windowMs && frames < buf.length) return; // still open
 
-    const average = total / frames;
+    const ms0 = judge();
     frames = 0;
     total = 0;
+    if (ms0 < 0) return;
+    average = average === null ? ms0 : average + (ms0 - average) * 0.3;
+    if (now - lastDown > DR.upWaitDecay * 1000) upWait = DR.upWait;
+
+    // The verdict on the step down being tried.
+    if (trial) {
+      const t = trial;
+      trial = null;
+      if (ms0 > t.ms * (1 - DR.prove)) {
+        if (!t.deep && scale > DR.min + 1e-6) {
+          // Frame times come in whole vsync intervals: a small step may not show. Try the floor once.
+          trial = { ...t, deep: true };
+          apply(DR.min, now);
+          return;
+        }
+        // No faster with fewer pixels: undo it and hold.
+        upWait = t.upWait;
+        upAt = t.upAt;
+        proven = false;
+        capped = ms0;
+        floored = 0;
+        apply(t.from, now);
+        return;
+      }
+      proven = true;
+    }
+    if (capped > 0 && Math.abs(ms0 - capped) > capped * DR.capBand) capped = 0;
+
     const atFloor = scale <= DR.min + 1e-6;
     let next = scale;
-
-    if (average > DR.slow && !atFloor) {
-      next = average > DR.slowest ? DR.min : scale - DR.step * (average > DR.slower ? 2 : 1);
+    if (ms0 > DR.slow && !atFloor && !capped) {
+      next = ms0 > DR.slowest ? DR.min : scale - DR.step * (ms0 > DR.slower ? 2 : 1);
+      trial = { from: scale, ms: ms0, upWait, upAt, deep: false };
       upWait = Math.min(DR.upWaitMax, upWait * 2);
       upAt = now + upWait * 1000;
-    } else if (average < DR.fast && scale < 1 && now >= upAt) {
+      lastDown = now;
+    } else if (ms0 < DR.fast && scale < 1 && now >= upAt) {
       next = scale + DR.step;
       upAt = now + DR.upWait * 1000;
     }
 
-    floored = atFloor && average > DR.dropAbove ? floored + 1 : 0;
+    floored = atFloor && proven && !capped && ms0 > DR.dropAbove ? floored + 1 : 0;
     if (floored >= 2) {
       floored = 0;
       if (host.canDrop()) {
         host.drop();
+        proven = false;
         next = DR.dropScale;
       }
     }
-
-    const steps = Math.round(1 / DR.step);
-    next = clamp(Math.round(next * steps) / steps, DR.min, 1); // exact tenths, no float drift
-    if (next !== scale) {
-      scale = next;
-      settle(now, DR.settleAfterChange);
-      host.changed(scale);
-    }
+    apply(next, now);
   }
 
   return {
@@ -223,12 +316,32 @@ export function createGovernor(DR, host) {
       scale = 1;
       upWait = DR.upWait;
       upAt = 0;
+      lastDown = -Infinity;
+      average = null;
+      trial = null;
+      proven = false;
+      capped = 0;
       settle(now, DR.settleAfterChange);
     },
     get scale() {
       return scale;
     },
+    /** True while a failed step down holds the scale (the frame is not limited by its pixels). */
+    get capped() {
+      return capped > 0;
+    },
   };
+}
+
+/**
+ * Camera zoom for a narrow or portrait view (exported for tests): 1 at 4:3 and wider; below that the
+ * view zooms out so the horizontal field of view keeps what 4:3 shows, until the vertical one reaches
+ * MAX_FOV. Applied to both cameras, so the weapon keeps its place against the world.
+ */
+export function narrowZoom(aspect, fov) {
+  if (!(aspect < NARROW_ASPECT)) return 1;
+  const floor = Math.tan((fov * Math.PI) / 360) / Math.tan((MAX_FOV * Math.PI) / 360);
+  return clamp(Math.max(aspect / NARROW_ASPECT, floor), 0.2, 1);
 }
 
 /**
@@ -311,13 +424,17 @@ export function createRender(G) {
   vmScene.add(vmCamera);
 
   // Viewmodel lighting lives in world space so highlights slide over the weapon as the player turns.
-  {
+  // These are the night values; the weapon retunes both lights for the time of day (`vmLights`).
+  const vmLights = (() => {
     const v = LOOK.viewmodel;
-    vmScene.add(new THREE.HemisphereLight(v.ambientSky, v.ambientGround, v.ambientIntensity));
+    const hemi = new THREE.HemisphereLight(v.ambientSky, v.ambientGround, v.ambientIntensity);
+    hemi.name = 'viewmodel-ambient';
     const key = new THREE.DirectionalLight(v.keyColor, v.keyIntensity);
+    key.name = 'viewmodel-key';
     key.position.fromArray(v.keyDirection).normalize().multiplyScalar(-10);
-    vmScene.add(key);
-  }
+    vmScene.add(hemi, key);
+    return { hemi, key };
+  })();
 
   // ---------------------------------------------------------------------------------------------
   // Quality
@@ -580,14 +697,29 @@ export function createRender(G) {
     changed() {
       sizeDirty = true;
     },
-    // Only a preset that was chosen for the player may be lowered behind their back.
-    canDrop: () => autoQuality && ladder.indexOf(quality.name) > 0,
+    // Only a preset that was chosen for the player may be lowered behind their back, and only in play.
+    canDrop: () => autoQuality && ladder.indexOf(quality.name) > 0 && measuring(),
     drop() {
       setQuality(ladder[ladder.indexOf(quality.name) - 1]);
       G.events.emit('quality:auto', { name: quality.name });
     },
   });
   governor.settle(performance.now(), DR.settle);
+
+  /** Frame times only mean something in play: not on the title, not paused, not behind a card. */
+  const measuring = () => {
+    const state = G.game ? G.game.state : null;
+    return state === 'intro' || state === 'playing';
+  };
+  // Start the clock again whenever the frame rate is about to change for reasons that are not load:
+  // the end of boot, a run starting or resuming, and the first input (a cross-origin iframe runs at
+  // 30 fps until the user touches it).
+  const resettle = () => governor.settle(performance.now(), DR.settle);
+  G.events.on('boot:done', resettle);
+  G.events.on('game:state', (e) => {
+    if (e && (e.state === 'intro' || e.state === 'playing')) resettle();
+  });
+  for (const type of ['pointerdown', 'keydown']) window.addEventListener(type, resettle, { once: true, capture: true });
 
   function applySize() {
     sizeDirty = false;
@@ -680,7 +812,7 @@ export function createRender(G) {
     updateLights(dt);
     if (!draw || contextLost) return;
 
-    if (dynamic && usePost) governor.sample(performance.now());
+    if (dynamic && usePost && measuring()) governor.sample(performance.now());
     const ratio = window.devicePixelRatio || 1;
     if (ratio !== lastDpr) {
       lastDpr = ratio;
@@ -688,7 +820,9 @@ export function createRender(G) {
     }
     if (sizeDirty) applySize();
 
-    // Modules set fov / aspect freely; keep both projections and the viewmodel camera in step.
+    // Modules set fov / aspect freely; keep both projections and the viewmodel camera in step. The
+    // same zoom on both keeps the weapon's place relative to the world (muzzle, shells, flash).
+    camera.zoom = vmCamera.zoom = narrowZoom(camera.aspect, camera.fov);
     camera.updateProjectionMatrix();
     vmCamera.updateProjectionMatrix();
     camera.updateWorldMatrix(true, false);
@@ -756,7 +890,21 @@ export function createRender(G) {
     try {
       // Programs differ between the HDR target and the canvas: compile for where the frame will go.
       renderer.setRenderTarget(usePost ? sceneTarget : null);
-      const pending = Promise.all([renderer.compileAsync(scene, camera), renderer.compileAsync(vmScene, vmCamera)]);
+      // The weapon is hidden until a run starts (and its muzzle flash until a shot): compile it anyway,
+      // so the first frame of play and the first shot do not stop for a shader.
+      const revealed = [];
+      vmScene.traverse((obj) => {
+        if (!obj.visible) {
+          obj.visible = true;
+          revealed.push(obj);
+        }
+      });
+      let pending;
+      try {
+        pending = Promise.all([renderer.compileAsync(scene, camera), renderer.compileAsync(vmScene, vmCamera)]);
+      } finally {
+        for (const obj of revealed) obj.visible = false; // compile() walks the scene synchronously
+      }
       renderer.setRenderTarget(null);
       // A material that never reports ready must not hold the boot screen forever.
       await Promise.race([pending, new Promise((resolve) => setTimeout(resolve, COMPILE_TIMEOUT_MS))]);
@@ -785,6 +933,7 @@ export function createRender(G) {
     look,
     exposure: 1,
     lights,
+    vmLights,
     quality,
     setQuality,
     setEnvironment,
@@ -828,14 +977,48 @@ export function createRender(G) {
   window.addEventListener('orientationchange', markSizeDirty);
   if (typeof ResizeObserver === 'function') new ResizeObserver(markSizeDirty).observe(canvas);
 
+  // Context loss: the game is told (it pauses), and if the browser does not give the context back
+  // within a few seconds the boot screen says so. On restore, three.js re-uploads what it has a source
+  // for; render-target contents (PMREM environments) are rebuilt by their owners on `render:restored`.
+  let lostTimer = 0;
+  let lostShown = false;
+  const bootEl = () => document.getElementById('boot');
+  function showLost() {
+    const boot = bootEl();
+    const msg = document.getElementById('boot-msg');
+    if (!boot || !msg || window.__fatal) return;
+    lostShown = true;
+    boot.hidden = false;
+    boot.classList.remove('done');
+    boot.classList.add('is-fatal');
+    msg.textContent = G.config?.text?.boot?.contextLost ?? LOST_TEXT;
+    console.warn('[render] the WebGL context was lost and has not come back');
+  }
   canvas.addEventListener('webglcontextlost', (e) => {
     e.preventDefault(); // allows the context to come back
+    if (contextLost) return;
     contextLost = true;
+    clearTimeout(lostTimer);
+    lostTimer = setTimeout(showLost, LOST_FATAL_MS);
+    G.events.emit('render:lost', {});
   });
   canvas.addEventListener('webglcontextrestored', () => {
     contextLost = false;
+    clearTimeout(lostTimer);
+    if (lostShown) {
+      lostShown = false;
+      const boot = bootEl();
+      if (boot) {
+        boot.classList.remove('is-fatal');
+        boot.classList.add('done');
+        boot.hidden = true;
+      }
+    }
+    // Every GL object is gone: three.js reallocates targets, bloom mips and shadow maps on next use.
     sizeDirty = true;
     renderer.shadowMap.needsUpdate = true;
+    governor.settle(performance.now(), DR.settle); // shaders recompile over the next frames
+    G.events.emit('render:restored', {});
   });
 
   G.renderer = renderer;

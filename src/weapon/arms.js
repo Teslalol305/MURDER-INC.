@@ -289,7 +289,7 @@ function authorArm(bind, tones, { watch = false, bracelet = false } = {}) {
   const soup = new SkinSoup();
   const { skin, glove, palm, seam, pad, gold, goldDark, dial } = tones;
   const SKIN_ROUGH = 0.56;
-  const GLOVE_ROUGH = 0.84;
+  const GLOVE_ROUGH = 0.68; // synthetic leather: a soft sheen that shows the form of the hand
   const gloveSrf = (rough) => [rough, 0, 0, FINISH.glove];
   const handBind = (z) => {
     const w = sectionAt(z).hand;
@@ -704,10 +704,10 @@ function skin(arm, position, normal, base) {
 export function buildArms(material, skinHex = 0x7a4a2e, goldHex = 0xe7b53a) {
   const tones = {
     skin: scale(mix(linear(skinHex), linear(0x5b3b2b), 0.35), 0.85), // deeper and less orange: it is seen in full sun
-    glove: linear(0x151618),
-    palm: linear(0x1e1c1a), // synthetic suede
+    glove: linear(0x1e1f22),
+    palm: linear(0x2a2724), // synthetic suede
     seam: linear(0x3c3e43), // stitching
-    pad: linear(0x111113), // moulded rubber
+    pad: linear(0x18181b), // moulded rubber
     gold: linear(goldHex),
     goldDark: scale(linear(goldHex), 0.45),
     dial: linear(0x0a0a0c),

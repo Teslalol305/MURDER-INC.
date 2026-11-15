@@ -326,7 +326,7 @@ export const times = {
       vignette: 0.12,
       grain: 0.008,
       aberration: 0.0004,
-      saturation: 1.14,
+      saturation: 1.05,
     },
     sun: {
       color: 0xffe6c6,
@@ -336,7 +336,8 @@ export const times = {
       shadowBiasMetres: 0.03,
       shadowNormalBias: 0.03,
     },
-    ambient: { sky: 0xb4c4dc, ground: 0xb09474, intensity: 1.0 },
+    // A near-neutral sky fill: the blue is in the environment map already, and shade must stay grey.
+    ambient: { sky: 0xc0c6cc, ground: 0xb09474, intensity: 1.0 },
     fog: {
       haze: [0.6, 0.7, 0.86], // aerial haze; the day sky's horizon sinks into it
       density: 0.0032,

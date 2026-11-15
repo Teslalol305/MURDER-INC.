@@ -63,6 +63,8 @@ test('allocation: rays, line of sight and movement leave no garbage once warm', 
   assert.ok(physics.raycast(a, dir, 300, hit), 'the test ray hits something');
 
   assertQuiet('lineOfSight', () => physics.lineOfSight(a, b));
+  const MOVE = { movement: true };
+  assertQuiet('lineOfSight for movement', () => physics.lineOfSight(a, b, MOVE));
   assertQuiet('raycast into a reused result', () => physics.raycast(a, dir, 300, hit));
   assertQuiet('groundHeight', () => physics.groundHeight(3.3, 1.2));
   assertQuiet('overlapsCylinder', () => physics.overlapsCylinder(3.3, 1.2, 0.3, 1.1, 1.8));

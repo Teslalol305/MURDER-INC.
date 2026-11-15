@@ -159,6 +159,8 @@ holdout:wave         {wave, count}
 radio:line           {speaker, text, secs}
 train:pass           {phase, duration}                   phase: 'approach' | 'over' | 'gone'   (atmos)
 quality:auto         {name}
+render:lost          {}                                  the WebGL context is gone (game pauses; a notice after ~5 s)
+render:restored      {}                                  it is back: rebuild render-target contents (PMREM environments)
 ```
 
 Surface names (physics, fx, audio): `asphalt`, `concrete`, `metal`, `wood`, `rubber`, `glass`, `dirt`, `brick`,
@@ -183,7 +185,7 @@ physics.addOriented(center:[x,y,z], size:[sx,sy,sz], yaw, opts) → box[]   // o
 physics.removeBox(box) / physics.removeBoxes(boxes)
 physics.setBounds({minX, maxX, minZ, maxZ})    play area (nav grid extent)
 physics.raycast(origin, dir, maxDist = 500) → null | {dist, point, normal, surface, box}   // box = null for the ground
-physics.lineOfSight(a, b) → boolean
+physics.lineOfSight(a, b, {movement} = {}) → boolean   // movement: player-only boxes block, bullet-only ones do not
 physics.moveCapsule(pos, vel, dt, radius = 0.32, height = 1.8, allowStep = true) → {onGround, hitWall, hitCeil, surface}
       // mutates pos and vel; vertical cylinder vs boxes, sub-stepped, wall slide, 0.42 m step-up, ground snap going down
 physics.groundHeight(x, z, maxY = 50) → y      // highest box top under the point (0 if none)
@@ -224,6 +226,7 @@ render.look = {...}                                   bloom strength / radius / 
                                                       (defaults from src/config/look.js; atmos may tune)
 render.lights.flash(pos, color = 0xffc880, intensity = 30, range = 10, ttl = 0.06)   pooled point light, fades to 0
 render.lights.acquire() → {light, release()} | null   persistent pooled light (fires, the reel beacon)
+render.vmLights = {hemi, key}                         the viewmodel scene's ambient and key lights (the weapon tunes them by time of day)
 render.setQuality(nameOrRow), render.quality          presets in src/config/quality.js: test, low, medium, high, ultra
 render.setEnvironment(texture)                        scene.environment (atmos provides a PMREM of the night sky)
 render.frame(dt), render.resize(), render.stats()
@@ -302,8 +305,11 @@ As built (`src/mats.js`, painters in `src/mats/*`; `?tex=256|512|1024` overrides
   Most sets send normal + roughness (+ metalness) as one packed texture read by a small shader patch: **do not
   `.clone()` a mats material** (three.js does not copy `onBeforeCompile`); ask `get()` with options instead.
 - **Day and night** (11.1): `update()` follows `atmos.time` (else the `time` setting). By day sign glow drops to lit
-  signage, facade windows stop glowing (glass), the street dries to a few damp patches and the ground and concrete take
-  a lighter day albedo; at night everything is as tuned for section 5. Only uniforms change.
+  signage, facade windows and the catalogue's lit glass stop glowing (dark glass: `glass_lit_*`, `glass_car_lit`, the
+  dome-lit car glass props use), the street dries except inside the open hydrant's reach (found by name, `hydrant_open`,
+  at `boot:done`; the level's `asphalt_wet` blobs dry outside it too), the ground and concrete take a lighter day
+  albedo and their diffuse sky light loses most of its blue; `glass_skylight` turns from night-blue to daylight. At night
+  car paint and car glass mirror less (their lamp blobs would float on the bodies). Only uniforms change.
 - `drawIPX` leaves the canvas state untouched and takes a CSS colour or a hex number. The real library also has
   `stats()` (texture / material counts, atlas pages and fill) and `textureSize` (not on the stub). Texture census:
   `tools/scenarios/mats-census.cjs` (mats names every texture it makes `mats:<what>`).
@@ -604,6 +610,8 @@ level.groundSurfaceAt(x, z) → surface
 level.update(dt)                               animated props (objective beacons, truck hazards, fans)
 ```
 The level builds everything inside the play bounds, registers all colliders with `G.physics`, and calls `physics.setBounds`.
+`createLevel` is `async`: it yields a frame to the browser between its build phases (ground, El, buildings, shop, yards,
+street) and moves the boot bar from 0.36 toward 0.52 meanwhile; the shape of `G.level` is unchanged.
 
 ### 6.11 `G.atmos` — sky, light and life  (agent: atmos)
 ```
@@ -653,7 +661,8 @@ As built (atmos):
   one), far city sheet and skyline strips, train windows, steam colour, interior exposure (by day inside the shop
   exposure × 1.35). The fog shader picks its day or night tint from the luminance of `scene.fog.color` (a bright
   haze is a day haze), so the switch needs no define. atmos applies `settings.time` at boot and on
-  `settings:change` while `game.state` is `title`; the game calls it on every reset.
+  `settings:change` while `game.state` is `title`; the game calls it on every reset. On `render:restored` (a lost
+  WebGL context came back) atmos bakes both PMREM environments again and re-applies the current time.
   By day the sun travels east and a little north from 52° up (`times.day.sun.direction`): the north fronts are lit,
   the south sidewalk lies in the shade of its buildings, the El's deck shades the north half of the roadway.
 
@@ -692,9 +701,14 @@ As built (flow; rules in `src/game/*`, numbers in `config/flow.js`, copy in `con
   lastWave: {order, from, at}, grabbing, progress}` and `game.holdout` `{active, breakLeft, countdown, cleared}`.
 - `start()` without a mode uses the saved `mode` setting; `restart()` / `retry()` add one to `run.retries`, `redeploy()`
   zeroes it, all three use the 1.1 s intro. Two start requests in one frame (button + Enter) are one start.
+- A run pauses on: the pause key, losing a pointer lock it had held, the tab going hidden, the window losing
+  focus (`blur`: drag mode and touch have no lock to lose) and `render:lost` (no resume until the player asks).
+  `toTitle()` also resets the player (no low-health look on the title); audio drops the death muffle on `title`.
 - Every run reset calls `atmos.setTime(settings.time)` and puts the matching place line in `text.location.place`;
-  `menus.locationCard(true, text.location)` gets `{place, tagline}`. Card data adds `difficulty, headshots, shots,
-  hits, ratingName` to the section 10 shape; `wave` there is the number of holdout waves cleared.
+  `menus.locationCard(true, text.location)` gets `{place, tagline}` (Hold the Block: `tagline` is
+  `text.location.taglineHoldout`, and its first radio line is `text.radio.introHoldout`). Card data adds
+  `difficulty, headshots, shots, hits, ratingName` to the section 10 shape; `wave` there is the number of holdout
+  waves cleared.
 - `hud.prompt(spec)` gets `{text, glyph, code, progress}`; markers are `kind: 'reel'` per open reel, then `'exit'`.
 
 ---------------------------------------------------------------------------------------------------
@@ -775,7 +789,10 @@ in step, so if you extend an API, add the member in both places (own namespace o
   Software rasterisers auto-detect to `low`.
 - **Viewmodel**: `G.vmCamera` is a child of `G.vmScene` and copies the world camera's transform every frame. Parent the
   weapon rig to `G.vmCamera` to work in view space. Render owns the viewmodel key + hemisphere lights
-  (`config/look.js` → `viewmodel`); `setEnvironment` applies to both scenes. A fixed `?cam=` hides the viewmodel scene.
+  (`config/look.js` → `viewmodel`, the night values) and exposes them as `render.vmLights`; the weapon retunes them by
+  time of day (`config/weapons.js` `common.light.day`). `setEnvironment` applies to both scenes. Below a 4:3 aspect both
+  cameras get the same `zoom` (< 1) so a portrait view keeps its width: read `camera.getEffectiveFOV()`, not `fov`,
+  for anything that needs the true angle. A fixed `?cam=` hides the viewmodel scene.
 - **Scene ownership**: every module adds its own objects to `G.scene` (the level adds `level.root` itself).
 - **Helpers**: `expDecay(value, rate, dt)`, `damp(current, target, rate, dt)`; `rng.int(a, b)` is inclusive;
   `rng.fork('label')` gives a stream that depends only on seed + label. `mergeStatic(root)` returns a NEW group (merged
@@ -814,7 +831,11 @@ The first combined build drew 633 calls, 391 k triangles and 221 textures from t
 - **props** keeps the whole catalogue on a small set of shared materials (vertex-colour tints, its own atlas), and marks
   quads that should not cast shadows (`castShadow = false` on decals, plates, lamp lenses).
 - **level** applies the atlas `uv` rects, merges per material with `mergeStatic`, keeps decal and sign quads out of the
-  shadow pass, and owns the final count: run the census and report it.
+  shadow pass, and owns the final count: run the census and report it. The census reports the larger of two
+  consecutive frames (the shadow map is redrawn every `shadowEvery` frames): that is the frame the budget means.
+  Out of the shadow pass as well: static props no sunlight reaches by day or by night (`level.stats.sunless`), rooftop
+  clutter, the El past the closures; vehicles, pallet stacks and crates cast through a hull of a few boxes set inside
+  them (material `shadow-hull`: no colour, no depth, shadow map only).
 - **explosives / enemies / fx / atmos**: one or two draw calls per item or pool; instancing where there are many.
 
 ### 11.3 HUD data for the minimap (ui)

@@ -18,9 +18,9 @@ const MAG_AXIS = new THREE.Vector3(0, 0.968, -0.25).normalize(); // from base to
 export function buildNine(material, def, strike = 0.55, goldHex = 0xe7b53a) {
   const P = {
     slide: paint(0xaeb1b6, 0.4, 1, { finish: FINISH.brushed }),
-    frame: paint(0x17181b, 0.5, 0.65, { wear: paint(0x5b5f66, 0.35, 0.9) }),
-    grip: paint(0x0e0e10, 0.78, 0, { finish: FINISH.checker }),
-    dark: paint(0x24262a, 0.45, 0.9, { wear: paint(0x7c8188, 0.3, 1) }),
+    frame: paint(0x34363b, 0.42, 0.85, { wear: paint(0x8a9098, 0.3, 1) }),
+    grip: paint(0x1c1c1f, 0.72, 0, { finish: FINISH.checker }),
+    dark: paint(0x3c3e43, 0.42, 0.85, { wear: paint(0x8a9098, 0.3, 1) }),
     barrel: paint(0xbbbec4, 0.22, 1),
     black: paint(0x040405, 0.92, 0),
     gold: paint(goldHex, 0.24, 1),

@@ -64,10 +64,10 @@ export const panel = {
   fullscreenFail: 'Fullscreen is not available here',
   noteAuto: (tier) => `Quality was picked for this device (${tier}). Lower it if the frame rate struggles.`,
   noteManual: 'Changes apply at once. Shadows and reflections may take a moment to catch up.',
-  noteDifficulty: 'Difficulty applies to Vultures that arrive from now on.',
+  noteDifficulty: 'Difficulty changes take effect at once; Vultures already on the block keep their health.',
 };
 
-/** Controls tab: [action, keys…] rows per device. Key caps are drawn from the strings. */
+/** Controls tab: [action, keys…, extra] rows per device. Key caps are drawn from the strings (or glyphs, below). */
 export const controls = {
   kbm: {
     title: 'Keyboard · Mouse',
@@ -81,7 +81,7 @@ export const controls = {
       ['Grab a reel', ['Hold E']],
       ['Jump', ['Space']],
       ['Sprint', ['Shift']],
-      ['Crouch', ['C', 'Ctrl']],
+      ['Crouch', ['C']],
       ['Melee', ['F']],
       ['Pause', ['Esc', 'P']],
     ],
@@ -91,18 +91,23 @@ export const controls = {
   },
   touch: {
     title: 'Touch',
+    /* A key written as { glyph } is drawn with that on-screen button's own glyph (config/player.js
+       touchGlyphs), so the table shows exactly what the thumbs see; `label` adds the button's caption. */
     rows: [
       ['Move', ['Left thumb']],
       ['Look', ['Drag right side']],
-      ['Fire', ['Hold FIRE'], 'drag to track'],
-      ['Aim', ['AIM'], 'toggles'],
-      ['Reload', ['RLD']],
-      ['Swap weapon', ['SWAP'], 'or tap a weapon slot'],
-      ['Grab a reel', ['Hold USE']],
-      ['Jump', ['JUMP']],
-      ['Crouch', ['DUCK'], 'toggles'],
-      ['Melee', ['HIT']],
+      ['Fire', [{ glyph: 'fire' }], 'hold; drag to track'],
+      ['Fire, left thumb', [{ glyph: 'fire' }], 'the small trigger on the left'],
+      ['Aim', [{ glyph: 'ads' }], 'toggles'],
+      ['Reload', [{ glyph: 'reload' }]],
+      ['Swap weapon', [{ glyph: 'swap' }], 'or tap a weapon slot'],
+      ['Grab a reel', [{ glyph: 'interact', label: 'USE' }], 'hold it'],
+      ['Jump', [{ glyph: 'jump' }]],
+      ['Crouch', [{ glyph: 'crouch' }], 'toggles'],
+      ['Melee', [{ glyph: 'melee' }]],
       ['Sprint', ['Stick'], 'pushed all the way forward'],
+      ['Sprint lock', [{ glyph: 'sprint' }], 'tap the arrow above the stick to keep running'],
+      ['Pause', [{ glyph: 'pause' }], 'beside the map'],
     ],
     note: '',
   },
@@ -142,5 +147,5 @@ export const glance = [
 
 export const glanceOther = [
   ['Controller', 'Sticks · RT fire · LT aim · X reload · Y swap'],
-  ['Touch', 'Left thumb moves · right side looks · FIRE'],
+  ['Touch', 'Left thumb moves · right side looks · the bullet button fires'],
 ];

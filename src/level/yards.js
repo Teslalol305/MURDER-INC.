@@ -409,6 +409,8 @@ function buildLot(kit, mats, rng) {
   kit.cyl('metal_dark', poleX, 0, 5.6, 11.65, 0.09, 8);
   kit.solid(poleX - 0.12, poleX + 0.12, 0, 5.6, 11.53, 11.77, { surface: 'metal', tag: 'lot-sign' });
   kit.box('metal_dark', poleX - 0.1, poleX + 0.1, 3.9, 5.5, 10.75, 12.55);
+  // The sign box stops rounds too (only the pole is solid to walkers); its faces carry the neon panels.
+  kit.solid(poleX - 0.11, poleX + 0.11, 3.9, 5.5, 10.75, 12.55, { surface: 'metal', tag: 'lot-sign', bulletOnly: true, noNav: true });
   const park = mats.sign({ text: 'PARK', sub: '24 HR', w: 1.7, h: 1.5, style: 'neon', fg: 0x35e0ff, glow: 0x35e0ff });
   kit.overlay(park, '-x', poleX - 0.11, 4.7, 11.65);
   kit.overlay(park, '+x', poleX + 0.11, 4.7, 11.65);

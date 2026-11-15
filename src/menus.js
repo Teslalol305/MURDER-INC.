@@ -210,7 +210,7 @@ export function createMenus(G) {
       const hint = G.input && typeof G.input.hint === 'function' ? G.input.hint() : '';
       cardBox.append(
         cardHead(t.kicker, t.title, true),
-        hint ? el('p', 'card-hint', hint) : null,
+        hint ? el('p', 'card-hint', hint) : '', // native append() would print a null as "null"
         el(
           'div',
           'card-actions',
@@ -308,7 +308,7 @@ export function createMenus(G) {
     const src = data || text.location;
     const time = G.settings.get('time') === 'night' ? 'night' : 'day';
     const place = (src.byTime && src.byTime[time]) || copy.location[time] || src.place;
-    locPlace.textContent = place;
+    locPlace.textContent = String(place).replace(/ (AM|PM)\b/, '\u00a0$1'); // the time never splits from its AM / PM
     locTag.textContent = src.tagline || text.location.tagline;
     loc.hidden = false;
     locT = reduce ? LOCATION_WIPE_SECS : 0;
@@ -349,7 +349,12 @@ export function createMenus(G) {
     const focus = document.activeElement;
     if (nav.y) moveFocus(nav.y);
     if (nav.x) {
-      if (!(panel.isOpen && focus && panel.nudge(focus, nav.x))) {
+      if (panel.isOpen && focus && focus.getAttribute && focus.getAttribute('role') === 'tab') {
+        // The unselected tab is out of the focus order (the WAI tabs pattern): left / right switches tabs.
+        panel.setTab(panel.tab === 'settings' ? 'controls' : 'settings', true);
+        padNav(true);
+        G.events.emit('ui:hover', {});
+      } else if (!(panel.isOpen && focus && panel.nudge(focus, nav.x))) {
         // Inside a picker row left / right steps across its options; anywhere else it moves like up / down.
         const seg = focus && focus.closest ? focus.closest('.seg') : null;
         if (seg) {

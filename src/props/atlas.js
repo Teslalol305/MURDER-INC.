@@ -16,7 +16,8 @@ const PLATE = '#0f1114';
 const OXBLOOD = '#8a1820';
 const NAVY = '#16264f';
 
-const PLATES = ['HLS·2141', 'JRZ·9907', 'KQB·5530', 'DMX·4418'];
+// Invented codes only: no initials or names of real people (a brand partner reads every plate).
+export const PLATES = ['HLS·2141', 'TKV·9907', 'KQB·5530', 'LWG·4418'];
 export const MEDALLION = '5K83';
 
 // ------------------------------------------------------------------------------------------------

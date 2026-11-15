@@ -1,6 +1,10 @@
 // Background render queue: generator jobs worked through in short time slices so synthesis never blocks
 // a frame or the boot. Lower `prio` first; `promote(key)` moves a job to the front, `finish(key)` runs it
 // to the end right now. Timer and clock are injectable for the tests.
+//
+// A slice never starts a step it is not expected to finish in time: each job remembers how long its
+// last step took, and once a slice has done some work it stops before a step that would overrun it.
+// The generators keep their steps short (dsp.js stepped forms), so a slice stays near its budget.
 
 export function createQueue({ slice = 6, interval = 12, now = () => performance.now(), schedule = (fn, ms) => setTimeout(fn, ms) } = {}) {
   const jobs = []; // {key, prio, seq, iter, done(result)}
@@ -11,7 +15,7 @@ export function createQueue({ slice = 6, interval = 12, now = () => performance.
 
   function add(key, prio, iter, done) {
     if (byKey.has(key)) return;
-    const job = { key, prio, seq: seq++, iter, done };
+    const job = { key, prio, seq: seq++, iter, done, last: 0 };
     byKey.set(key, job);
     let i = jobs.length;
     while (i > 0 && (jobs[i - 1].prio > prio)) i--;
@@ -22,8 +26,10 @@ export function createQueue({ slice = 6, interval = 12, now = () => performance.
   /** Advances one job by one step; true when it finished. */
   function stepJob(job) {
     let r;
+    const t0 = now();
     try {
       r = job.iter.next();
+      job.last = now() - t0;
     } catch (err) {
       remove(job);
       console.warn(`[audio] rendering ${job.key} failed:`, err);
@@ -41,10 +47,19 @@ export function createQueue({ slice = 6, interval = 12, now = () => performance.
     if (i >= 0) jobs.splice(i, 1);
   }
 
-  /** Works for up to `budget` ms. Returns how many jobs are left. */
+  /**
+   * Works for up to `budget` ms: always one step, then more while the next job's last step still fits
+   * in what is left. Returns how many jobs are left.
+   */
   function run(budget = slice) {
     const end = now() + budget;
-    while (jobs.length && now() < end) stepJob(jobs[0]);
+    let first = true;
+    while (jobs.length) {
+      const t = now();
+      if (!first && (t >= end || t + jobs[0].last > end)) break;
+      first = false;
+      stepJob(jobs[0]);
+    }
     return jobs.length;
   }
 

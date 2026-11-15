@@ -32,6 +32,23 @@ export function wallFrame(kit, facing, plane) {
       const p1 = Math.max(a, b);
       return alongX ? kit.box(m, u0, u1, y0, y1, p0, p1, o) : kit.box(m, p0, p1, y0, y1, u0, u1, o);
     },
+    /** World bounds {min, max} of the slab u0…u1, y0…y1, d0…d1 in front of (or into) the face. */
+    bounds(u0, u1, y0, y1, d0, d1) {
+      const a = plane + sign * d0;
+      const b = plane + sign * d1;
+      const p0 = Math.min(a, b);
+      const p1 = Math.max(a, b);
+      return alongX ? { min: [u0, y0, p0], max: [u1, y1, p1] } : { min: [p0, y0, u0], max: [p1, y1, u1] };
+    },
+    /**
+     * A bullet-only skin over what stands proud of the face (piers, bulkheads, signs): rounds stop, and
+     * their marks land, on the drawn surface d out of the wall instead of on the building's collider
+     * behind it.
+     */
+    skin(u0, u1, y0, y1, d, tag = 'facade') {
+      const { min, max } = this.bounds(u0, u1, y0, y1, 0, d);
+      return kit.solid(min[0], max[0], min[1], max[1], min[2], max[2], { surface: 'brick', tag, bulletOnly: true, noNav: true });
+    },
     quad(m, u0, u1, y0, y1, d, o) {
       const [x, z] = at((u0 + u1) / 2, d);
       return kit.quad(m, facing, x, (y0 + y1) / 2, z, u1 - u0, y1 - y0, o);
@@ -108,6 +125,7 @@ function facade(kit, F, u0, u1, y0, y1, spec) {
  */
 function storefront(kit, F, u0, u1, y0, base, def) {
   const { mats } = kit;
+  const recesses = recessesOf(kit);
   const top = GROUND_FLOOR;
   const a = u0 + 0.32;
   const b = u1 - 0.32;
@@ -120,6 +138,9 @@ function storefront(kit, F, u0, u1, y0, base, def) {
   F.box(base, b, u1, y0, top, 0, 0.1);
   F.box('concrete', u0, u1, top - 0.14, top + 0.04, 0, 0.18);
   F.box(def.band || 'paint_black', a, b, head + 0.08, top - 0.14, 0, 0.13);
+  // Bullet skins over all of this, each within a few centimetres of what it covers (the fx decals are
+  // drawn a few centimetres nearer than they lie): the sign band and its belt course…
+  F.skin(u0, u1, head, top + 0.04, 0.15);
   const signW = Math.min(b - a - 0.5, def.signW || 7.5);
   const sign = mats.sign({ text: def.name, sub: def.sub, w: signW, h: def.sub ? 0.74 : 0.62, style: def.style || 'box', fg: def.fg, bg: def.bg, glow: def.glow, lit: def.signLit !== false });
   F.overlay(sign, mid, (head + 0.08 + top - 0.14) / 2, 0.15);
@@ -131,6 +152,7 @@ function storefront(kit, F, u0, u1, y0, base, def) {
     F.box('metal_dark', a, b, head, head + 0.08, 0, 0.2);
     F.box('metal_dark', a - 0.04, a + 0.06, y0, head, 0.05, 0.16);
     F.box('metal_dark', b - 0.06, b + 0.04, y0, head, 0.05, 0.16);
+    F.skin(u0, u1, y0, head, 0.1); // …and the gate between its piers
   } else {
     const glass = def.lit ? (def.light === COOL ? 'glass_lit_cool' : 'glass_lit_warm') : 'glass_store';
     const doorW = 1.25;
@@ -142,6 +164,7 @@ function storefront(kit, F, u0, u1, y0, base, def) {
       const panes = Math.max(1, Math.ceil((w1 - w0) / 1.9));
       F.box(def.bulk || 'metal_dark', w0, w1, y0, sill, 0, 0.08);
       F.quad(glass, w0, w1, sill, head, 0.035, { cast: false });
+
       for (let i = 1; i < panes; i++) {
         const u = w0 + ((w1 - w0) * i) / panes;
         F.box('metal_dark', u - 0.03, u + 0.03, sill, head, 0, 0.09);
@@ -149,8 +172,13 @@ function storefront(kit, F, u0, u1, y0, base, def) {
     }
     F.box('metal_dark', a, b, sill - 0.05, sill, 0, 0.12);
     F.box('metal_dark', a, b, head, head + 0.08, 0, 0.12);
-    // The door: set back in a shallow recess, glazed, with a kick plate and a push bar.
+    // …and the piers, bulkheads and glass on both sides of the door, whose recess stays open.
+    F.skin(u0, door0 - 0.05, y0, head, 0.06);
+    F.skin(door1 + 0.05, u1, y0, head, 0.06);
+    // The door: set back in a shallow recess, glazed, with a kick plate and a push bar. The building's
+    // collider is notched to match (see buildBuildings), so rounds reach the door.
     const back = -0.36;
+    recesses.push(F.bounds(door0, door1, y0 + 0.02, head, back, 0));
     F.box(base, door0 - 0.05, door0, y0, head, back, 0.08);
     F.box(base, door1, door1 + 0.05, y0, head, back, 0.08);
     F.box('concrete', door0, door1, y0, y0 + 0.02, back, 0, { cast: false });
@@ -184,7 +212,9 @@ function roof(kit, x0, x1, z0, z1, h, base) {
 function cornice(kit, F, u0, u1, h) {
   F.box('concrete', u0, u1, h + 0.05, h + 0.38, 0, 0.42);
   F.box('concrete', u0, u1, h - 0.18, h + 0.05, 0, 0.24);
-  for (let u = u0 + 0.3; u < u1 - 0.2; u += 0.62) F.box('concrete', u - 0.11, u + 0.11, h - 0.42, h - 0.18, 0, 0.2);
+  // The dentils always sit in the cornice's own shadow (street faces only, the key light 50° and more
+  // up): they cast nothing anyone could see. Their tops are hidden under the band.
+  for (let u = u0 + 0.3; u < u1 - 0.2; u += 0.62) F.box('concrete', u - 0.11, u + 0.11, h - 0.42, h - 0.18, 0, 0.2, { cast: false, noTop: true });
 }
 
 /** A stack of fire-escape balconies up a face, one per storey above the shops. */
@@ -196,6 +226,7 @@ function fireEscape(kit, F, u, floors) {
 function serviceDoor(kit, F, u, y0, lampColor = WARM) {
   F.box('concrete', u - 0.62, u + 0.62, y0, y0 + 2.2, 0, 0.05);
   F.box('metal_dark', u - 0.5, u + 0.5, y0, y0 + 2.1, 0.02, 0.09);
+  F.skin(u - 0.62, u + 0.62, y0, y0 + 2.2, 0.07);
   F.box('chrome', u + 0.3, u + 0.36, y0 + 1, y0 + 1.12, 0.09, 0.14, { cast: false });
   F.box('metal_dark', u - 0.12, u + 0.12, y0 + 2.42, y0 + 2.5, 0, 0.22);
   F.box(kit.glow(lampColor, 4), u - 0.08, u + 0.08, y0 + 2.3, y0 + 2.42, 0.08, 0.2, { cast: false, receive: false });
@@ -207,11 +238,6 @@ export function buildBuildings(kit) {
   const text = kit.G.config.text.world;
   const [DELI, BARBER, PAWN, RECORDS, CHICKEN, LIQUOR, NAILS, LAUNDRY, CHECKS, PIZZA] = text.storefronts;
 
-  // Colliders: every building is solid from the ground to the top of its parapet.
-  for (const b of Object.values(BUILDINGS)) {
-    const h = buildingHeight(b) + PARAPET;
-    for (const [x0, x1, z0, z1] of b.boxes) kit.solid(x0, x1, 0, h, z0, z1, { surface: 'brick', tag: b.name });
-  }
 
   /** Plain brick over a whole face (ground storey of side walls, party walls). */
   const brick = (F, base, u0, u1, y0, y1) => F.quad(base, u0, u1, y0, y1, 0);
@@ -253,9 +279,11 @@ export function buildBuildings(kit) {
     E.overlay(ad, -24.5, 11.4, 0.03);
     roof(kit, b.x0, -26.2, b.z0, b.z1, h, b.base);
     kit.flat('concrete_dark', -26.2, -24, b.z0, -16, h);
-    kit.place('water_tower', -40, -24, 0, { y: h, collide: false });
-    kit.place('ac_unit', -31, -15, 0.3, { y: h, collide: false });
-    kit.place('ac_unit', -33.5, -27, 1.2, { y: h, collide: false });
+    // Rooftop clutter casts nothing: every unit stands metres in from the parapet, so its shadow, by day
+    // or by night, falls on its own roof, which no camera ever sees.
+    kit.place('water_tower', -40, -24, 0, { y: h, collide: false, cast: false });
+    kit.place('ac_unit', -31, -15, 0.3, { y: h, collide: false, cast: false });
+    kit.place('ac_unit', -33.5, -27, 1.2, { y: h, collide: false, cast: false });
     kit.block(b.base, -37, -34, h, h + 2.6, -20, -16.5, { tag: 'bulkhead', noNav: true });
   }
 
@@ -277,9 +305,9 @@ export function buildBuildings(kit) {
     facade(kit, E, -33.5, -11, 0, h, { floors: b.floors, floorH: h / b.floors, base: b.base, bays: 6, seed: 25, lit: 0.12 });
     serviceDoor(kit, E, -27.5, 0, COOL);
     roof(kit, b.x0, b.x1, b.z0, b.z1, h, b.base);
-    kit.place('ac_unit', 14, -15, 0, { y: h, collide: false });
-    kit.place('ac_unit', 18.5, -22, 1.57, { y: h, collide: false });
-    kit.place('water_tower', 16.5, -29, 0, { y: h, collide: false });
+    kit.place('ac_unit', 14, -15, 0, { y: h, collide: false, cast: false });
+    kit.place('ac_unit', 18.5, -22, 1.57, { y: h, collide: false, cast: false });
+    kit.place('water_tower', 16.5, -29, 0, { y: h, collide: false, cast: false });
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -295,8 +323,8 @@ export function buildBuildings(kit) {
     cornice(kit, F, -46, -30, h);
     fireEscape(kit, F, -42.5, b.floors);
     roof(kit, b.x0, b.x1, b.z0, b.z1, h, b.base);
-    kit.place('ac_unit', -41, 15, 0, { y: h, collide: false });
-    kit.place('ac_unit', -34, 22, 0.8, { y: h, collide: false });
+    kit.place('ac_unit', -41, 15, 0, { y: h, collide: false, cast: false });
+    kit.place('ac_unit', -34, 22, 0.8, { y: h, collide: false, cast: false });
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -334,8 +362,8 @@ export function buildBuildings(kit) {
     brick(E, b.base, 11, 31, 0, h);
     brick(E, b.base, 31, 34, buildingHeight(BUILDINGS.garages), h);
     roof(kit, b.x0, b.x1, b.z0, b.z1, h, b.base);
-    kit.place('water_tower', -23, 24, 0, { y: h, collide: false });
-    kit.place('ac_unit', -27, 16, 0, { y: h, collide: false });
+    kit.place('water_tower', -23, 24, 0, { y: h, collide: false, cast: false });
+    kit.place('ac_unit', -27, 16, 0, { y: h, collide: false, cast: false });
     kit.block(b.base, -21, -18, h, h + 2.6, 27, 30.5, { tag: 'bulkhead', noNav: true });
   }
 
@@ -364,8 +392,9 @@ export function buildBuildings(kit) {
     facade(kit, E, 11, 26, 0, h, { floors: b.floors, floorH: h / b.floors, base: b.base, bays: 4, seed: 54, lit: 0.2 });
     const park = mats.sign({ text: 'PARK', sub: '24 HR  ·  PAY AT BOOTH', w: 5, h: 1.6, style: 'painted', fg: 0xf4f2ec, bg: 0x1f4f9a, lit: false });
     E.overlay(park, 18.5, 2.3, 0.03);
+    E.skin(18.5 - park.w / 2, 18.5 + park.w / 2, 2.3 - park.h / 2, 2.3 + park.h / 2, 0.035);
     roof(kit, b.x0, b.x1, b.z0, b.z1, h, b.base);
-    for (const [x, z, yaw] of [[1, 15, 0], [9.5, 22, 1.57], [17, 14.5, 0.4]]) kit.place('ac_unit', x, z, yaw, { y: h, collide: false });
+    for (const [x, z, yaw] of [[1, 15, 0], [9.5, 22, 1.57], [17, 14.5, 0.4]]) kit.place('ac_unit', x, z, yaw, { y: h, collide: false, cast: false });
     kit.block(b.base, 11.5, 14.5, h, h + 2.5, 19, 22.5, { tag: 'bulkhead', noNav: true });
   }
 
@@ -381,6 +410,7 @@ export function buildBuildings(kit) {
     doors.forEach((u, i) => {
       F.box('roll_gate', u - 1.7, u + 1.7, 0, 2.75, 0.02, 0.09);
       F.box('concrete', u - 1.85, u + 1.85, 2.75, 3.0, 0, 0.12);
+      F.skin(u - 1.85, u + 1.85, 0, 3.0, 0.09);
       const tag = mats.sign({ text: String(41 + i), w: 0.7, h: 0.42, style: 'stencil', fg: 0xe6e4dc, lit: false });
       F.overlay(tag, u, 3.3, 0.02);
       if (i % 3 === 1) {
@@ -396,7 +426,52 @@ export function buildBuildings(kit) {
   }
 
   buildBacks(kit, rng);
+
+  // Colliders: every building is solid from the ground to the top of its parapet, less the recesses of
+  // its shop doors (registered by storefront() above), so a round that goes into a doorway reaches the
+  // door and its mark lands there.
+  const recesses = recessesOf(kit);
+  for (const b of Object.values(BUILDINGS)) {
+    const h = buildingHeight(b) + PARAPET;
+    for (const [x0, x1, z0, z1] of b.boxes) {
+      let pieces = [{ min: [x0, 0, z0], max: [x1, h, z1] }];
+      for (const cut of recesses) pieces = pieces.flatMap((piece) => carve(piece, cut));
+      for (const { min, max } of pieces) kit.solid(min[0], max[0], min[1], max[1], min[2], max[2], { surface: 'brick', tag: b.name });
+    }
+  }
   return { shedSigns: [CHICKEN, LIQUOR, NAILS], shed: SHED };
+}
+
+const recessLists = new WeakMap();
+
+/** The door recesses storefront() has cut so far for this kit: [{min, max}] in world space. */
+function recessesOf(kit) {
+  let list = recessLists.get(kit);
+  if (!list) recessLists.set(kit, (list = []));
+  return list;
+}
+
+/**
+ * `box` less `cut` (both {min: [x, y, z], max: [x, y, z]}) as at most six boxes: the slabs of `box` on
+ * either side of the cut along x, then y, then z. A box the cut misses comes back whole.
+ */
+export function carve(box, cut) {
+  for (let a = 0; a < 3; a++) {
+    if (cut.max[a] <= box.min[a] || cut.min[a] >= box.max[a]) return [box];
+  }
+  const out = [];
+  const rest = { min: box.min.slice(), max: box.max.slice() };
+  for (let a = 0; a < 3; a++) {
+    if (rest.min[a] < cut.min[a]) {
+      out.push({ min: rest.min.slice(), max: rest.max.map((v, i) => (i === a ? cut.min[a] : v)) });
+      rest.min[a] = cut.min[a];
+    }
+    if (rest.max[a] > cut.max[a]) {
+      out.push({ min: rest.min.map((v, i) => (i === a ? cut.max[a] : v)), max: rest.max.slice() });
+      rest.max[a] = cut.max[a];
+    }
+  }
+  return out;
 }
 
 /**

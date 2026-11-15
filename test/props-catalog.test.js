@@ -258,8 +258,10 @@ test('props: geometry is shared between instances, materials follow the options'
   const lit = fresh.build('sedan', { seed: 8, lit: true });
   const glass = (prop) => prop.object.children.find((m) => m.name === '@glass');
   assert.equal(glass(lit).geometry, glass(a).geometry);
-  assert.ok(glass(lit).material.userData.opts.emissive, 'lit glass glows');
-  assert.equal(glass(fresh.build('sedan', { seed: 8, lit: false })).material.userData.opts.emissive, undefined);
+  // Lit glass is its own catalogue material (it glows at night only), the unlit one plain car glass.
+  assert.equal(glass(lit).material.name, 'glass_car_lit', 'lit glass glows');
+  assert.ok(catalog.MATERIALS.glass_car_lit.emissive, 'the lit glass carries its glow in the catalogue');
+  assert.equal(glass(fresh.build('sedan', { seed: 8, lit: false })).material.name, 'glass_car');
 });
 
 test('props: a crouched player is hidden behind a sedan, a standing one sees over the bonnet', () => {

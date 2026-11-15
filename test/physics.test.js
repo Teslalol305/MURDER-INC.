@@ -147,6 +147,29 @@ test('flags: playerOnly stops bodies but not rays, bulletOnly stops rays but not
   assert.ok(glass.playerOnly && mesh.bulletOnly);
 });
 
+test('lineOfSight {movement: true}: player-only boxes block it, bullet-only ones do not', () => {
+  const p = world();
+  // A chain-link fence: see and shoot through, not walk through. A bullet-only mesh: the other way round.
+  p.addBox({ min: [3, 0, -5], max: [3.2, 8, 5], playerOnly: true, tag: 'cage-fence' });
+  p.addBox({ min: [-3.2, 0, -5], max: [-3, 3, 5], bulletOnly: true });
+  p.addBox({ min: [-1, 0, 6], max: [1, 3, 7] });
+  const MOVE = { movement: true };
+  // Through the fence: clear to the eye, blocked for a body; a point 0.3 m past it is still behind it.
+  assert.equal(p.lineOfSight(V(0, 1, 0), V(6, 1, 0)), true, 'sight passes the fence');
+  assert.equal(p.lineOfSight(V(0, 1, 0), V(6, 1, 0), MOVE), false, 'a body does not');
+  assert.equal(p.lineOfSight(V(2, 1, 0), V(3.5, 1, 0), MOVE), false, 'just past the mesh');
+  assert.equal(p.lineOfSight(V(3.5, 1, 0), V(2, 1, 0), MOVE), false, 'and from the other side');
+  // The bullet-only box is the other way round.
+  assert.equal(p.lineOfSight(V(0, 1, 0), V(-6, 1, 0)), false);
+  assert.equal(p.lineOfSight(V(0, 1, 0), V(-6, 1, 0), MOVE), true, 'a body passes the bullet-only box');
+  // Ordinary walls block both; open ground blocks neither; an option without `movement` is plain sight.
+  assert.equal(p.lineOfSight(V(0, 1, 0), V(0, 1, 10), MOVE), false);
+  assert.equal(p.lineOfSight(V(0, 1, 0), V(2.5, 1, 3), MOVE), true);
+  assert.equal(p.lineOfSight(V(0, 1, 0), V(6, 1, 0), {}), true);
+  // Plain rays still pass the player-only box after a movement query (the mask does not stick).
+  assert.equal(p.raycast(V(0, 1, 0), V(1, 0, 0)), null);
+});
+
 test('lineOfSight: walls block, low cover does not, a point on a surface is visible', () => {
   const p = world();
   p.addBox({ min: [4, 0, -3], max: [5, 3, 3] });

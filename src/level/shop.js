@@ -66,13 +66,16 @@ export function buildShop(kit) {
 
   // Roof slab, with four skylights: night-blue panes in steel frames below, kerbs on top.
   kit.block('concrete_dark', S.minX + 0.02, S.maxX - 0.02, S.eave, S.eave + S.roof, S.minZ + 0.02, S.maxZ - 0.02, { tag: 'shop-roof', noNav: true });
-  const sky = ['glass_dark', { emissive: 0x314a78, emissiveIntensity: 0.55 }];
+  // From below the panes are the sky (night-blue, or the bright afternoon: mats follows the time of day);
+  // from above they are dark glass that mirrors it.
+  const sky = 'glass_skylight';
+  const skyTop = 'glass_dark';
   for (const [x, z] of S.skylights) {
     kit.flat(sky, x - 1.2, x + 1.2, z - 1.7, z + 1.7, S.eave - 0.012, { down: true, receive: false });
     for (const dx of [-1.2, 0, 1.2]) kit.box('metal_dark', x + dx - 0.04, x + dx + 0.04, S.eave - 0.1, S.eave, z - 1.7, z + 1.7, { cast: false });
     for (const dz of [-1.7, 0, 1.7]) kit.box('metal_dark', x - 1.2, x + 1.2, S.eave - 0.1, S.eave, z + dz - 0.04, z + dz + 0.04, { cast: false });
     kit.box('metal_galv', x - 1.35, x + 1.35, S.eave + S.roof, S.eave + S.roof + 0.3, z - 1.85, z + 1.85, { noBottom: true });
-    kit.flat(sky, x - 1.25, x + 1.25, z - 1.75, z + 1.75, S.eave + S.roof + 0.305, { receive: false });
+    kit.flat(skyTop, x - 1.25, x + 1.25, z - 1.75, z + 1.75, S.eave + S.roof + 0.305, { receive: false });
   }
   // Steel under the roof: four beams across the short span on two columns, purlins the long way.
   for (const x of [-18, -12, -6, 0]) {

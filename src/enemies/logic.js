@@ -378,3 +378,280 @@ export function planAroundDeck(px, py, pz, out, el, K) {
   out[2] = pz + (out[2] - pz) * k;
   return 3;
 }
+
+/* --------------------------------------------------------------------- flight over and out of things */
+
+/**
+ * What a Buzzard's airframe must stay out of: everything that blocks movement, except the invisible
+ * walls and see-through mesh that exist only to stop the player (the block seals, the Cage fence, which
+ * is 8 m of collider over a 3 m fence, railings). The hoist tower's netting at the end of the scaffold and
+ * the mezzanine office's glass count as solid: a drone flying through either would show.
+ */
+export const droneSolid = (q) => !q.bulletOnly && (!q.playerOnly || q.tag === 'hoist' || q.tag === 'office-glass');
+
+const POLE = 1; // narrower than this both ways is a pole (a lamp post, a column) to go around, not a wall to go over
+
+/** A lamp post, a column, a sign pole: something a drone goes around, never over (and never perches on). */
+export const isPole = (q) => q.max.x - q.min.x < POLE && q.max.z - q.min.z < POLE;
+
+/**
+ * Climbing over what lies ahead (there is no pathing). Looks along the flat leg from `pos` toward the
+ * wanted point (`want` = [x, y, z]), at most `K.climbLook` metres of it, with the leg widened by the
+ * airframe radius, at every solid box it crosses whose top is not above `K.maxAltitude`:
+ *
+ *   an obstacle (its top above the airframe's underside)   want[1] ≥ top + `K.minHeight`: climb over it
+ *   a floor (the airframe is already above its top)        want[1] ≥ top + `K.floorClearance` + `K.halfHeight`:
+ *                                                          stay above it, but free to come down to it
+ *
+ * Not counted: boxes whose underside is above both the drone and the wanted height (an overhang it
+ * passes under: a roof seen from inside, an awning), anything inside the El's footprint (planAroundDeck
+ * owns that), and poles (under `POLE` m across both ways: it steers around a lamp or a post, the
+ * collision rays handle those). The airframe's own footprint is part of the leg, so it does not sink
+ * past a roof edge it is leaving. Returns the height want[1] was raised to, or 0 when it was not (and
+ * leaves the box that decided it in `climbHit.box`).
+ *
+ * @param {Array<{min, max, bulletOnly, playerOnly, tag}>} boxes   physics.boxes
+ * @param {{x:number, y:number, z:number}} pos
+ * @param {number[]} want
+ * @param {{radius:number, halfHeight:number, minHeight:number, floorClearance:number, maxAltitude:number, climbLook:number}} K
+ * @param {{minX:number, maxX:number, minZ:number, maxZ:number}|null} el
+ */
+export function climbOver(boxes, pos, want, K, el) {
+  const x0 = pos.x;
+  const z0 = pos.z;
+  let dx = want[0] - x0;
+  let dz = want[2] - z0;
+  const len = Math.sqrt(dx * dx + dz * dz);
+  if (len > K.climbLook) {
+    const s = K.climbLook / len;
+    dx *= s;
+    dz *= s;
+  }
+  const r = K.radius;
+  const above = (pos.y > want[1] ? pos.y : want[1]) + K.halfHeight + 0.3;
+  const bottom = pos.y - K.halfHeight;
+  const overFloor = K.floorClearance + K.halfHeight;
+  let best = want[1];
+  let raised = 0;
+  climbHit.box = null;
+  for (let i = 0; i < boxes.length; i++) {
+    const q = boxes[i];
+    if (!droneSolid(q)) continue;
+    const top = q.max.y;
+    const need = top + (top > bottom ? K.minHeight : overFloor);
+    if (need <= best || top > K.maxAltitude || q.min.y > above) continue;
+    if (isPole(q)) continue;
+    if (el) {
+      const cx = (q.min.x + q.max.x) * 0.5;
+      const cz = (q.min.z + q.max.z) * 0.5;
+      if (cx >= el.minX && cx <= el.maxX && cz >= el.minZ && cz <= el.maxZ) continue;
+    }
+    const minX = q.min.x - r;
+    const maxX = q.max.x + r;
+    const minZ = q.min.z - r;
+    const maxZ = q.max.z + r;
+    let t0 = 0;
+    let t1 = 1;
+    if (Math.abs(dx) < 1e-9) {
+      if (x0 < minX || x0 > maxX) continue;
+    } else {
+      let u0 = (minX - x0) / dx;
+      let u1 = (maxX - x0) / dx;
+      if (u0 > u1) {
+        const s = u0;
+        u0 = u1;
+        u1 = s;
+      }
+      if (u0 > t0) t0 = u0;
+      if (u1 < t1) t1 = u1;
+      if (t0 > t1) continue;
+    }
+    if (Math.abs(dz) < 1e-9) {
+      if (z0 < minZ || z0 > maxZ) continue;
+    } else {
+      let u0 = (minZ - z0) / dz;
+      let u1 = (maxZ - z0) / dz;
+      if (u0 > u1) {
+        const s = u0;
+        u0 = u1;
+        u1 = s;
+      }
+      if (u0 > t0) t0 = u0;
+      if (u1 < t1) t1 = u1;
+      if (t0 > t1) continue;
+    }
+    best = need;
+    raised = need;
+    climbHit.box = q;
+  }
+  want[1] = best;
+  return raised;
+}
+
+/** The box that set the height of the last climbOver call that raised it (null when it did not). */
+export const climbHit = { box: null };
+
+const OUT_EPS = 0.02;
+
+/**
+ * Puts an airframe (an upright cylinder of `K.radius`, `K.halfHeight` either side of `pos.y`) that
+ * overlaps something solid back into free air: for each box it overlaps, the shortest way out (up,
+ * down, or sideways along x or z) that keeps it inside `bounds` less `K.boundsMargin` and above
+ * `K.floorClearance`; off a pole (isPole) always sideways. The velocity component pointing back in is dropped. After three passes only "up"
+ * is tried, so a drone wedged between two boxes always comes free. Mutates pos and vel; returns how many
+ * pushes it made (0: it was in free air).
+ */
+export function pushOut(boxes, pos, vel, K, bounds) {
+  const r = K.radius;
+  const hh = K.halfHeight;
+  const m = K.boundsMargin;
+  let pushes = 0;
+  for (let pass = 0; pass < 8; pass++) {
+    const upOnly = pass >= 3;
+    let any = false;
+    for (let i = 0; i < boxes.length; i++) {
+      const q = boxes[i];
+      if (!droneSolid(q)) continue;
+      const px = pos.x;
+      const py = pos.y;
+      const pz = pos.z;
+      if (q.max.y <= py - hh || q.min.y >= py + hh) continue;
+      const cx = px < q.min.x ? q.min.x : px > q.max.x ? q.max.x : px;
+      const cz = pz < q.min.z ? q.min.z : pz > q.max.z ? q.max.z : pz;
+      if ((px - cx) * (px - cx) + (pz - cz) * (pz - cz) >= r * r) continue;
+      let axis = 1;
+      let to = q.max.y + hh + OUT_EPS;
+      if (!upOnly) {
+        // Off a pole sideways, even when up is shorter: a drone sinking onto a lamp post would perch on it.
+        const pole = isPole(q);
+        let best = pole ? Infinity : to - py;
+        const down = q.min.y - hh - OUT_EPS;
+        if (!pole && py - down < best && down >= K.floorClearance) {
+          best = py - down;
+          to = down;
+        }
+        const left = q.min.x - r - OUT_EPS;
+        if (px - left < best && (!bounds || left >= bounds.minX + m)) {
+          best = px - left;
+          axis = 0;
+          to = left;
+        }
+        const right = q.max.x + r + OUT_EPS;
+        if (right - px < best && (!bounds || right <= bounds.maxX - m)) {
+          best = right - px;
+          axis = 0;
+          to = right;
+        }
+        const back = q.min.z - r - OUT_EPS;
+        if (pz - back < best && (!bounds || back >= bounds.minZ + m)) {
+          best = pz - back;
+          axis = 2;
+          to = back;
+        }
+        const front = q.max.z + r + OUT_EPS;
+        if (front - pz < best && (!bounds || front <= bounds.maxZ - m)) {
+          axis = 2;
+          to = front;
+        }
+      }
+      // (a pole with no way out sideways inside the bounds leaves axis = 1: up after all)
+      if (axis === 0) {
+        if (to < px ? vel.x > 0 : vel.x < 0) vel.x = 0;
+        pos.x = to;
+      } else if (axis === 2) {
+        if (to < pz ? vel.z > 0 : vel.z < 0) vel.z = 0;
+        pos.z = to;
+      } else {
+        if (to < py ? vel.y > 0 : vel.y < 0) vel.y = 0;
+        pos.y = to;
+      }
+      any = true;
+      pushes++;
+    }
+    if (!any) break;
+  }
+  return pushes;
+}
+
+/** Does the airframe overlap anything solid for a drone? (the test pushOut resolves) */
+export function droneOverlaps(boxes, pos, K) {
+  const r = K.radius;
+  const hh = K.halfHeight;
+  for (let i = 0; i < boxes.length; i++) {
+    const q = boxes[i];
+    if (!droneSolid(q)) continue;
+    if (q.max.y <= pos.y - hh || q.min.y >= pos.y + hh) continue;
+    const cx = pos.x < q.min.x ? q.min.x : pos.x > q.max.x ? q.max.x : pos.x;
+    const cz = pos.z < q.min.z ? q.min.z : pos.z > q.max.z ? q.max.z : pos.z;
+    if ((pos.x - cx) * (pos.x - cx) + (pos.z - cz) * (pos.z - cz) < r * r) return true;
+  }
+  return false;
+}
+
+/**
+ * When planAroundDeck sends a drone under the El (plan 1: low enough, go in; 3: hold outside and come
+ * down first) but climbOver finds something tall on the way in or right under the hold, the two would
+ * fight for ever. Two ways out, tried in this order by the flight code:
+ *
+ *   deckEntry   plan 1: go straight across the deck's edge from where it is (the shortest way in,
+ *               which usually clears whatever stood on the diagonal), at the plan's height
+ *   deckSlide   still blocked, or plan 3: slide `K.slide` metres along the deck's edge, away from the
+ *               box in the way (climbHit.box), at the height the climb asked for, until there is room
+ *               to come down
+ *
+ * Both rewrite `want` in place. `el` is level.el, `K` config `buzzard.deck`.
+ */
+export function deckEntry(pos, want, el, K) {
+  want[0] = pos.x < el.minX ? el.minX + 1 : pos.x > el.maxX ? el.maxX - 1 : pos.x;
+  want[2] = pos.z < el.minZ ? el.minZ + 1 : pos.z > el.maxZ ? el.maxZ - 1 : pos.z;
+  want[1] = el.y - K.under;
+}
+
+export function deckSlide(pos, want, box, K) {
+  want[0] = pos.x + (pos.x >= (box.min.x + box.max.x) * 0.5 ? K.slide : -K.slide);
+  want[2] = pos.z;
+}
+
+/* -------------------------------------------------------------------------------- indoors */
+
+const DOOR_LEVEL = 0.35; // routeIndoors: how close to the doorway's height a drone must be to go through
+
+/** Is (p.x, p.z) inside the interior box `b` shrunk by `m` on every side (and, with `checkY`, under its top)? */
+export function inRoom(b, p, m, checkY) {
+  return p.x > b.min.x + m && p.x < b.max.x - m && p.z > b.min.z + m && p.z < b.max.z - m && (!checkY || p.y < b.max.y);
+}
+
+/**
+ * Getting into an interior (the shop) without pathing. `room` is {box: {min, max}, list: [{ox, oz, ix, iz,
+ * y}]}: its openings, each a point outside the doorway and one inside it, at a height that clears the
+ * doorway's top. When the wanted point is inside the box and the drone is not, rewrites `want`: to the
+ * outside point of the opening that makes the shortest way, then, once the drone is in the doorway's
+ * corridor (between the two points, within 1 m of its centre line, within DOOR_LEVEL of its height),
+ * through it to the inside point. Returns 0 untouched, 1 heading for the doorway, 2 going through.
+ */
+export function routeIndoors(pos, want, room) {
+  const box = room.box;
+  if (!room.list.length || inRoom(box, pos, 0, true)) return 0;
+  if (!(want[0] > box.min.x + 0.2 && want[0] < box.max.x - 0.2 && want[2] > box.min.z + 0.2 && want[2] < box.max.z - 0.2)) return 0;
+  let best = null;
+  let bestCost = Infinity;
+  for (let i = 0; i < room.list.length; i++) {
+    const en = room.list[i];
+    const cost = Math.hypot(pos.x - en.ox, pos.z - en.oz) + Math.hypot(want[0] - en.ix, want[2] - en.iz);
+    if (cost < bestCost) {
+      bestCost = cost;
+      best = en;
+    }
+  }
+  // Where the drone is along the corridor from the outside point (u = 0) to the inside point (u = 1).
+  const cx = best.ix - best.ox;
+  const cz = best.iz - best.oz;
+  const len2 = cx * cx + cz * cz;
+  const u = ((pos.x - best.ox) * cx + (pos.z - best.oz) * cz) / len2;
+  const side = Math.abs((pos.x - best.ox) * cz - (pos.z - best.oz) * cx) / Math.sqrt(len2);
+  const through = u > -0.25 && u < 1.2 && side < 1 && Math.abs(pos.y - best.y) < DOOR_LEVEL;
+  want[0] = through ? best.ix : best.ox;
+  want[2] = through ? best.iz : best.oz;
+  want[1] = best.y;
+  return through ? 2 : 1;
+}

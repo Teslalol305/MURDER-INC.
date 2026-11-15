@@ -201,8 +201,10 @@ export const common = {
   // Night: `rim` [floor, gain] is a world-space light coloured by the street lamps around the player.
   // Day: the rim light is the sun (direction and colour from atmos.sun) at `sun` × its intensity, and
   // the box scales with that intensity over `sunRef`, so the gun sits in the same light as the street.
+  // Render's viewmodel ambient and key (config/look.js `viewmodel`) are the night's; by day the
+  // ambient becomes a neutral sky over warm pavement (`ambient*`) and render's key goes to `key`.
   light: {
     night: { env: 0.55, fill: 0.4, rim: [0.12, 1.3] },
-    day: { env: 0.8, fill: 0.45, sun: 0.5, sunRef: 5 },
+    day: { env: 1.0, fill: 0.45, sun: 0.85, sunRef: 5, ambient: 1.0, ambientSky: 0xc8ccd4, ambientGround: 0x8a7a66, key: 0 },
   },
 };

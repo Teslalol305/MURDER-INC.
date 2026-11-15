@@ -43,6 +43,22 @@ export function renderOrder() {
     .map((e) => e.name);
 }
 
+const LONG = 65536; // samples: past this the normalisation passes get their own steps
+
+function sum(ch) {
+  let m = 0;
+  for (let i = 0; i < ch.length; i++) m += ch[i];
+  return m;
+}
+
+function offset(ch, mean) {
+  for (let i = 0; i < ch.length; i++) ch[i] -= mean;
+}
+
+function scale(ch, g) {
+  for (let i = 0; i < ch.length; i++) ch[i] *= g;
+}
+
 /**
  * One variant, as a generator (yields between steps; the return value is the result):
  * {name, variant, sr, channels: Float32Array[]}. Peak-normalised; one-shots get click-free ends.
@@ -60,19 +76,23 @@ export function* renderVariant(name, variant = 0) {
     out = step.value;
   }
   const channels = Array.isArray(out) ? out : [out];
-  // One gain for every channel keeps a stereo image; normalise against the loudest.
+  // One gain for every channel keeps a stereo image; normalise against the loudest. A pass over a long
+  // stem is a few hundred thousand samples: the queue gets a step boundary between passes.
+  const long = channels[0].length > LONG;
   let top = 0;
   for (const ch of channels) {
-    let mean = 0;
-    for (let i = 0; i < ch.length; i++) mean += ch[i];
-    mean /= ch.length || 1;
-    for (let i = 0; i < ch.length; i++) ch[i] -= mean;
+    const mean = sum(ch) / (ch.length || 1);
+    if (long) yield;
+    offset(ch, mean);
+    if (long) yield;
     top = Math.max(top, measure(ch).peak);
+    if (long) yield;
   }
   for (const ch of channels) {
     const g = top > 1e-9 ? (def.peak || 0.8) / top : 0;
-    for (let i = 0; i < ch.length; i++) ch[i] *= g;
+    scale(ch, g);
     if (!def.loop && !def.noFade) fade(ch, sr, 0.0015, Math.min(0.02, ch.length / sr / 4));
+    if (long) yield;
   }
   return { name, variant, sr, channels };
 }

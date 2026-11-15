@@ -93,11 +93,13 @@ function hurt(c) {
 }
 
 /** The whine after a hit: two close high partials beating, fading for two seconds. */
-function earRing(c) {
+function* earRing(c) {
   const { sr } = c;
   const x = c.buf(2.4);
   tone(x, sr, 0, 2.4, 4130, 0.6, { attack: 0.02, tau: 0.7, release: 0.4 });
+  yield;
   tone(x, sr, 0, 2.4, 4171, 0.4, { attack: 0.05, tau: 0.6, release: 0.4 });
+  yield;
   tone(x, sr, 0, 2.0, 6240, 0.12, { attack: 0.03, tau: 0.35, release: 0.3 });
   return x;
 }

@@ -2,7 +2,7 @@
 // Each entry: {bus, sr, n (variants), peak (normalisation target), gen(c) → Float32Array, + playback
 // defaults read by the mixer: vol, jitter, prio, max, gap}. `c` = {sr, v, rnd, r(a, b), buf(secs)}.
 
-import { biquad, burst, drive, echo, glide, mix, reverb, ring, sweep, white, shape, fade } from './dsp.js';
+import { biquad, biquadSteps, burst, drive, echoSteps, glide, mix, reverbSteps, ring, sweep, white, shape, fade } from './dsp.js';
 
 /** A struck steel part: a few inharmonic partials plus a tick of noise. */
 function clack(x, c, at, f, amp, tau = 0.012) {
@@ -27,16 +27,22 @@ function rustle(x, c, at, dur, amp, f = 1800) {
   mix(x, n, c.sr, at, amp);
 }
 
-function chopperShot(c) {
+// The shots are the first sounds the queue renders, while the synthesis code is still cold: they yield
+// between layers so that first compile does not land in one step.
+function* chopperShot(c) {
   const { sr, rnd } = c;
   const x = c.buf(0.36);
   // The crack: the muzzle blast's first milliseconds, bright and very short.
   burst(x, sr, 0, 0.07, rnd, 1.1, { tau: 0.007, type: 'highpass', f: 1700 });
+  yield;
   // The bark: the mid band that makes it sound like a rifle and not a cap gun.
   burst(x, sr, 0, 0.2, rnd, 0.95, { tau: c.r(0.03, 0.038), type: 'bandpass', f: c.r(560, 760), q: 0.7 });
+  yield;
   // The body: a chest thump under it.
   sweep(x, sr, 0, 0.28, c.r(165, 185), 52, 1.05, { tau: 0.06, fTau: 0.028 });
+  yield;
   burst(x, sr, 0.002, 0.32, rnd, 0.55, { tau: 0.075, type: 'lowpass', f: 360 });
+  yield;
   // The action: bolt carrier back, then home.
   clack(x, c, 0.027, 1750, 0.3);
   clack(x, c, 0.066, 2300, 0.2, 0.009);
@@ -44,12 +50,15 @@ function chopperShot(c) {
   return x;
 }
 
-function nineShot(c) {
+function* nineShot(c) {
   const { sr, rnd } = c;
   const x = c.buf(0.26);
   burst(x, sr, 0, 0.05, rnd, 1.2, { tau: 0.0045, type: 'highpass', f: 2600 });
+  yield;
   burst(x, sr, 0, 0.14, rnd, 0.9, { tau: c.r(0.026, 0.032), type: 'bandpass', f: c.r(1050, 1400), q: 0.8 });
+  yield;
   sweep(x, sr, 0, 0.18, c.r(280, 320), 100, 1.0, { tau: 0.045, fTau: 0.018 });
+  yield;
   burst(x, sr, 0.001, 0.2, rnd, 0.3, { tau: 0.04, type: 'lowpass', f: 520 });
   // Slide back and forward: higher and tighter than the carbine's bolt.
   clack(x, c, 0.02, 2900, 0.3, 0.007);
@@ -59,14 +68,15 @@ function nineShot(c) {
 }
 
 /** The shot coming back off the block: slap echoes from the facades and the El, darkening as they go. */
-function streetTail(c, bright, len) {
+function* streetTail(c, bright, len) {
   const { sr, rnd } = c;
   const x = c.buf(len);
   const wash = white(x.length, rnd);
   shape(wash, sr, 0.03, len / 4.6);
-  biquad(wash, sr, 'lowpass', glide(bright, 420), 0.6);
-  biquad(wash, sr, 'highpass', 110, 0.7);
+  yield* biquadSteps(wash, sr, 'lowpass', glide(bright, 420), 0.6);
+  yield* biquadSteps(wash, sr, 'highpass', 110, 0.7);
   mix(x, wash, sr, 0, 0.55);
+  yield;
   const slaps = [0.075, 0.16, 0.25, 0.39, 0.58, 0.83];
   for (let i = 0; i < slaps.length; i++) {
     const at = slaps[i] * c.r(0.9, 1.12);
@@ -74,23 +84,26 @@ function streetTail(c, bright, len) {
     const g = 0.9 * Math.pow(0.66, i);
     burst(x, sr, at, 0.22, rnd, g, { tau: 0.05 + i * 0.012, type: 'bandpass', f: (bright * 0.22) / (1 + i * 0.35), q: 0.6 });
     sweep(x, sr, at, 0.2, 120, 60, g * 0.5, { tau: 0.06, fTau: 0.04 });
+    yield;
   }
-  const out = reverb(x, sr, { time: 0.9, damp: 0.55, mix: 0.35, size: 1.4 }).subarray(0, x.length);
+  const out = (yield* reverbSteps(x, sr, { time: 0.9, damp: 0.55, mix: 0.35, size: 1.4 })).subarray(0, x.length);
   return fade(out, sr, 0.012, 0.25);
 }
 
 /** The same shot inside the garage: dense, short, with the room's steel ringing. */
-function shopTail(c, bright, len) {
+function* shopTail(c, bright, len) {
   const { sr, rnd } = c;
   const x = c.buf(len);
   const wash = white(x.length, rnd);
   shape(wash, sr, 0.008, len / 5.5);
-  biquad(wash, sr, 'lowpass', glide(bright, 1300), 0.7);
-  biquad(wash, sr, 'highpass', 180, 0.7);
+  yield* biquadSteps(wash, sr, 'lowpass', glide(bright, 1300), 0.7);
+  yield* biquadSteps(wash, sr, 'highpass', 180, 0.7);
   mix(x, wash, sr, 0, 0.7);
+  yield;
   ring(x, sr, 0.01, [[236 * c.r(0.97, 1.03), 0.5, 0.16], [412, 0.35, 0.12], [655, 0.25, 0.09], [1180, 0.12, 0.05]], 0.5);
+  yield;
   // Flutter between the parallel walls.
-  const flutter = echo(x, sr, 0.0093, 0.55, 0.5, { lp: 5000, tail: 0.05 }).subarray(0, x.length);
+  const flutter = (yield* echoSteps(x, sr, 0.0093, 0.55, 0.5, { lp: 5000, tail: 0.05 })).subarray(0, x.length);
   return fade(flutter, sr, 0.006, 0.15);
 }
 

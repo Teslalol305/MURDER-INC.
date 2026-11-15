@@ -38,6 +38,7 @@ const MAX_CANDIDATES = 96;
 const STEP_AUDIBLE = 45; // footsteps further than this from the player are not announced
 const SEPARATION_PUSH = 2.2; // m/s at zero distance
 const PLAYER_PUSH = 3;
+const MOVEMENT = { movement: true }; // physics.lineOfSight: does anything that blocks a body lie between?
 
 export function createGoons(ctx) {
   const { G, cfg } = ctx;
@@ -53,6 +54,7 @@ export function createGoons(ctx) {
   const shotDir = new THREE.Vector3();
   const candidates = Array.from({ length: MAX_CANDIDATES }, () => ({ x: 0, z: 0, kind: 'random', sight: false, cover: false }));
   const others = Array.from({ length: cfg.pool.goon }, () => ({ x: 0, z: 0, destX: 0, destZ: 0 }));
+  const standTarget = { pos: new THREE.Vector3(), eye: new THREE.Vector3() }; // what pickStand scores against
 
   function makeGoon(slot) {
     const rig = createRig(geometries[slot % 3], material, SLOTS);
@@ -126,6 +128,16 @@ export function createGoons(ctx) {
       goalFireZ: 0,
       pickX: 0,
       pickZ: 0,
+      // An elevated last known position (the scaffold deck, the mezzanine office) is looked at from a
+      // stand-off point that sees it, never from underneath (pickStand).
+      wantStand: false,
+      hasStand: false,
+      standX: 0,
+      standZ: 0,
+      standForX: 0,
+      standForY: 0,
+      standForZ: 0,
+      standSight: false, // whether the chosen point sees the spot (if not, he picks again after a look round)
       bursts: 0,
       burstsToMove: 1,
       burstLeft: 0,
@@ -221,6 +233,7 @@ export function createGoons(ctx) {
     e.wait = ctx.random() * 1.5;
     e.onGround = true;
     e.hasFirePos = e.wantPick = e.pickAway = e.atCover = false;
+    e.wantStand = e.hasStand = false;
     e.show = opts.show || null;
     e.bursts = e.burstLeft = 0;
     e.burstsToMove = 1;
@@ -413,11 +426,14 @@ export function createGoons(ctx) {
     return n;
   }
 
+  /** `p` is what to shoot at: the player, or for a stand-off point the `standTarget` (pos + eye). */
   function addCandidate(n, x, z, kind, cover, e, t, p) {
     if (n >= MAX_CANDIDATES) return n;
     if (!inFireBand(Math.hypot(x - p.pos.x, z - p.pos.z), t) || !nav.isWalkable(x, z)) return n;
     // Relocating means going somewhere else.
     if (e.pickAway && Math.hypot(x - e.pos.x, z - e.pos.z) < t.repick.minMove) return n;
+    // A stand-off point is never under the floor it is meant to look at.
+    if (p === standTarget && G.physics.groundHeight(x, z, p.pos.y + 0.3) > e.pos.y + t.investigate.elevated) return n;
     const c = candidates[n];
     c.x = x;
     c.z = z;
@@ -481,6 +497,61 @@ export function createGoons(ctx) {
     return true;
   }
 
+  /**
+   * Where an investigating Goon looks at an elevated last known position from (budgeted like pick():
+   * ../enemies.js calls it for a Goon that set wantStand). The same candidates and scoring as a fire
+   * position (twice the random points), around that spot instead of the player, minus anything under the
+   * floor it is on: the best one that sees the spot (from gun height to eye height over it) if any does,
+   * else the best of the rest, and then he tries again after a look round (investigate.restandAfter).
+   */
+  function pickStand(e) {
+    const t = ctx.tune.goon;
+    const R = t.repick;
+    const lk = e.lastKnown;
+    e.wantStand = false;
+    e.pickAway = false;
+    e.standForX = lk.x;
+    e.standForY = lk.y;
+    e.standForZ = lk.z;
+    standTarget.pos.copy(lk);
+    standTarget.eye.set(lk.x, lk.y + t.eyeHeight, lk.z);
+    const target = standTarget;
+    let n = 0;
+    const cover = (G.level && G.level.coverPoints) || [];
+    for (let i = 0; i < cover.length; i++) {
+      const c = cover[i].pos;
+      if (Math.abs(c.y - e.pos.y) > t.cover.maxStep) continue;
+      n = addCandidate(n, c.x, c.z, 'authored', true, e, t, target);
+    }
+    // Twice the random points of a fire position: around a perch most of the band is walls and roofs.
+    for (let i = 0; i < R.randomPoints * 2; i++) {
+      const angle = ctx.random() * Math.PI * 2;
+      const r = t.rangeMin + (t.rangeMax - t.rangeMin) * Math.sqrt(ctx.random());
+      n = addCandidate(n, lk.x + Math.cos(angle) * r, lk.z + Math.sin(angle) * r, 'random', false, e, t, target);
+    }
+    const side = Math.atan2(e.pos.x - lk.x, e.pos.z - lk.z);
+    for (let i = 0; i < R.arcPoints; i++) {
+      const angle = side + R.arc * ((i / (R.arcPoints - 1)) * 2 - 1) + (ctx.random() - 0.5) * 0.3;
+      const r = ctx.range(R.arcRange);
+      n = addCandidate(n, lk.x + Math.sin(angle) * r, lk.z + Math.cos(angle) * r, 'arc', false, e, t, target);
+    }
+    e.hasStand = n > 0;
+    if (!e.hasStand) return;
+    const count = collectOthers(e);
+    let best = candidates[0];
+    let bestCost = Infinity;
+    for (let i = 0; i < n; i++) {
+      const cost = firePositionCost(candidates[i], e.pos, lk, others, count, ctx.random(), t.positionCost);
+      if (cost < bestCost) {
+        bestCost = cost;
+        best = candidates[i];
+      }
+    }
+    e.standX = best.x;
+    e.standZ = best.z;
+    e.standSight = best.sight;
+  }
+
   /** Budgeted entry point for ../enemies.js: gives an engaged Goon that asked for one a new fire position. */
   function pick(e) {
     const t = ctx.tune.goon;
@@ -530,10 +601,20 @@ export function createGoons(ctx) {
     const p = ctx.player;
     from.set(e.pos.x, e.pos.y + t.gunHeight, e.pos.z);
     to.set(p.pos.x, p.pos.y + (p.crouching ? Math.min(0.8, t.aimHeight) : t.aimHeight), p.pos.z);
+    // Up on the deck or in the office with his chest behind the parapet or the sill while his head and
+    // shoulders show: aim at what shows, shoulders first, else the head. (Only from below: cover on the
+    // street keeps its full value.)
+    // Only a strip of him shows, so he takes more care over the height (overCover.spreadY).
+    let spreadY = 1;
+    if (p.pos.y > e.pos.y + t.investigate.elevated && !G.physics.lineOfSight(from, to)) {
+      to.y = p.eye.y - t.overCover.below;
+      if (!G.physics.lineOfSight(from, to)) to.y = p.eye.y;
+      spreadY = t.overCover.spreadY;
+    }
     shotDir.subVectors(to, from).normalize();
     const spread = aimSpread(t.spreadFar, t.spreadNear, e.exposure, p.speed, t.spreadPerSpeed);
     shotDir.x += (ctx.random() * 2 - 1) * spread;
-    shotDir.y += (ctx.random() * 2 - 1) * spread;
+    shotDir.y += (ctx.random() * 2 - 1) * spread * spreadY;
     shotDir.z += (ctx.random() * 2 - 1) * spread;
     shotDir.normalize();
     const hit = G.combat.hitscan({
@@ -597,8 +678,28 @@ export function createGoons(ctx) {
     const bearing = Math.atan2(-dx, -dz);
     const I = t.investigate;
     e.lookYawRel = angleDelta(e.yaw, bearing);
-    if (d > I.stopWithin && !(e.arrived && Math.abs(e.goalX - lk.x) < 0.3 && Math.abs(e.goalZ - lk.z) < 0.3) && e.pathFails < 2) {
-      setGoal(e, lk.x, lk.z);
+    // Where to go. Somewhere up high (the scaffold deck, the mezzanine office) is looked at from a
+    // stand-off point that sees it: walking to the spot itself would park him under the floor, the one
+    // place with no sightline. Until that point is chosen (or if there is none), he stops well short.
+    let gx = lk.x;
+    let gz = lk.z;
+    let stop = I.stopWithin;
+    const elevated = lk.y > e.pos.y + I.elevated;
+    if (elevated) {
+      if (!e.wantStand && (!e.hasStand || Math.abs(lk.x - e.standForX) + Math.abs(lk.y - e.standForY) + Math.abs(lk.z - e.standForZ) > I.restand)) e.wantStand = true;
+      if (e.hasStand && !e.wantStand) {
+        gx = e.standX;
+        gz = e.standZ;
+        stop = 0.7;
+      } else {
+        stop = I.standFallback;
+      }
+      // Looking up at it.
+      e.lookPitch = Math.atan2(lk.y - e.pos.y, Math.max(d, 0.5));
+    }
+    const gd = gx === lk.x && gz === lk.z ? d : Math.hypot(gx - e.pos.x, gz - e.pos.z);
+    if (gd > stop && !(e.arrived && Math.abs(e.goalX - gx) < 0.3 && Math.abs(e.goalZ - gz) < 0.3) && e.pathFails < 2) {
+      setGoal(e, gx, gz);
       const stalking = d <= I.stalkWithin;
       e.wantSpeed = stalking ? t.stalkSpeed : t.runSpeed;
       if (stalking) {
@@ -614,12 +715,24 @@ export function createGoons(ctx) {
     e.wantSpeed = 0;
     if (e.sweep === 0) e.sweepBase = d > 0.5 ? bearing : e.yaw;
     e.sweep += dt;
+    // A stand-off point that turned out not to see the spot: after a look round, try somewhere else.
+    if (elevated && e.hasStand && !e.standSight && !e.wantStand && e.sweep > I.restandAfter) {
+      e.wantStand = true;
+      e.sweep = 0;
+    }
     e.aimYaw = wrapAngle(e.sweepBase + Math.sin(e.sweep * 1.3) * I.sweep);
     e.facing = true;
     e.faceYaw = e.aimYaw; // the body follows the gun
     e.turnScale = 0.6;
     e.lookYawRel = angleDelta(e.yaw, e.aimYaw);
     e.wantAim = 0.85;
+  }
+
+  /** Could a body get from this Goon to the player? Nothing that blocks movement between them, 1 m up. */
+  function rushClear(e, p) {
+    from.set(e.pos.x, e.pos.y + 1, e.pos.z);
+    to.set(p.pos.x, p.pos.y + 1, p.pos.z);
+    return G.physics.lineOfSight(from, to, MOVEMENT);
   }
 
   function engage(e, dt, t) {
@@ -633,11 +746,12 @@ export function createGoons(ctx) {
     e.lookYawRel = angleDelta(e.yaw, bearing);
 
     if (free) {
-      // The rush: close, on the same level, off cooldown, and nothing solid in between.
+      // The rush: close, on the same level, off cooldown, and nothing solid in between: not to the eye,
+      // and not to a body either (the Cage's chain-link is see-through but stops the dash).
       if (p.alive && e.rushCooldown <= 0 && dist < t.rush.range && Math.abs(p.pos.y - e.pos.y) < 1.4) {
         from.set(e.pos.x, e.pos.y + 1.2, e.pos.z);
         to.set(p.pos.x, p.pos.y + 1, p.pos.z);
-        if (G.physics.lineOfSight(from, to)) {
+        if (G.physics.lineOfSight(from, to) && rushClear(e, p)) {
           startRush(e);
           return;
         }
@@ -771,7 +885,7 @@ export function createGoons(ctx) {
         e.subT += dt;
         e.rushPhase = 2;
         e.rushK = Math.min(1, e.subT / t.rush.time);
-        if (!e.rushHit && p.alive && dist < t.rush.reach && Math.abs(p.pos.y - e.pos.y) < 1.3) {
+        if (!e.rushHit && p.alive && dist < t.rush.reach && Math.abs(p.pos.y - e.pos.y) < 1.3 && rushClear(e, p)) {
           e.rushHit = true;
           swing(e);
           from.set(e.pos.x, e.pos.y + 1.3, e.pos.z);
@@ -968,6 +1082,7 @@ export function createGoons(ctx) {
     onKilled,
     plan,
     pick,
+    pickStand,
     sensor,
     drawGlow,
     /** Leaving engage (lost the player, died): drop whatever the engage state machine was doing. */

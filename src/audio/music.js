@@ -2,8 +2,10 @@
 // eight bars each (so they can loop side by side forever without drifting), the riser and impact for a
 // rise to full intensity, the boombox mix the reel cases play, and four stings.
 // Pure sample math (dsp.js): no WebAudio here, so node can render and measure every part.
+// Every generator here yields between notes and runs its buffer-wide passes through the stepped forms
+// (`yield* reverbSteps(…)`), so no single step of the render queue runs long; the samples are the same.
 
-import { biquad, burst, drive, echo, fade, fm, glide, lowpass, highpass, mix, pink, reverb, ring, saw, seamless, shape, sweep, tone, white, wrap, midi, TAU } from './dsp.js';
+import { CHUNK, biquadSteps, burst, drive, driveSteps, echoSteps, fade, fm, glide, mix, pink, reverbSteps, ring, saw, sawSteps, seamless, sweep, tone, white, wrapSteps, midi, TAU } from './dsp.js';
 
 export const MUSIC_SR = 22050;
 export const BPM = 92;
@@ -84,20 +86,25 @@ function bell(x, sr, at, note, v, len = 1.6) {
   tone(x, sr, at, 0.6, f * 2.76, 0.06 * v, { attack: 0.001, tau: 0.12, release: 0.1 });
 }
 
-/** A string-section stab: three detuned saws per note under a closing low-pass. */
-function stringStab(x, sr, at, dur, notes, v) {
+/** A string-section stab: three detuned saws per note under a closing low-pass (stepped: `yield*`). */
+function* stringStab(x, sr, at, dur, notes, v) {
   const n = Math.round((dur + 0.4) * sr);
   const y = new Float32Array(n);
   for (const note of notes) {
     const f = midi(note);
     for (const d of [-0.006, 0, 0.0055]) saw(y, sr, 0, dur + 0.4, f * (1 + d), 0.16 * v, { phase: Math.abs(d) * 37 });
+    yield;
   }
-  biquad(y, sr, 'lowpass', glide(4200, 900), 0.8);
+  yield* biquadSteps(y, sr, 'lowpass', glide(4200, 900), 0.8);
+  stabEnvelope(y, sr, n, dur);
+  mix(x, y, sr, at, 1);
+}
+
+function stabEnvelope(y, sr, n, dur) {
   for (let i = 0; i < n; i++) {
     const t = i / sr;
     y[i] *= Math.min(1, t / 0.012) * Math.exp(-t / (dur * 0.55 + 0.05)) * (t > dur ? Math.exp(-(t - dur) / 0.08) : 1);
   }
-  mix(x, y, sr, at, 1);
 }
 
 function bassNote(x, sr, at, dur, note, v, glideTo = 0) {
@@ -133,9 +140,10 @@ function* drumsStem(c) {
     if (bar === BARS - 1) for (const s of [13, 14, 15]) snare(x, c, stepTime(bar, s), 0.35 + 0.15 * (s - 13)); // the turnaround
     yield;
   }
-  lowpass(x, sr, 7400, 0.6); // dusty: nothing above the old sampler's band
-  drive(x, 1.6);
-  return wrap(reverb(x, sr, { time: 0.55, damp: 0.5, mix: 0.16, size: 0.8 }), loopSamples(sr));
+  yield* biquadSteps(x, sr, 'lowpass', 7400, 0.6); // dusty: nothing above the old sampler's band
+  yield* driveSteps(x, 1.6);
+  const wet = yield* reverbSteps(x, sr, { time: 0.55, damp: 0.5, mix: 0.16, size: 0.8 });
+  return yield* wrapSteps(wet, loopSamples(sr));
 }
 
 function* hatsStem(c) {
@@ -150,7 +158,7 @@ function* hatsStem(c) {
     if (bar % 4 === 3) hat(x, c, stepTime(bar, 15), 0.35, false);
     yield;
   }
-  return wrap(x, loopSamples(c.sr));
+  return yield* wrapSteps(x, loopSamples(c.sr));
 }
 
 function* bassStem(c) {
@@ -172,8 +180,8 @@ function* bassStem(c) {
     }
     yield;
   }
-  lowpass(x, sr, 900, 0.7);
-  return wrap(x, loopSamples(sr));
+  yield* biquadSteps(x, sr, 'lowpass', 900, 0.7);
+  return yield* wrapSteps(x, loopSamples(sr));
 }
 
 function* keysStem(c) {
@@ -184,12 +192,14 @@ function* keysStem(c) {
     const at = (s) => stepTime(bar, s) + c.r(0, 0.008);
     if (bar % 2 === 0) {
       ch.slice(0, 4).forEach((n, i) => rhodes(x, sr, at(0) + i * 0.007, STEP * 7, n, 0.75));
+      yield;
       for (const n of ch.slice(3)) rhodes(x, sr, at(7), STEP * 2, n, 0.42);
       rhodes(x, sr, at(10), STEP * 2, ch[4], 0.5);
       rhodes(x, sr, at(12), STEP * 2, ch[3], 0.46);
       rhodes(x, sr, at(14), STEP * 3, ch[2], 0.44);
     } else {
       ch.slice(1).forEach((n, i) => rhodes(x, sr, at(2) + i * 0.006, STEP * 4, n, 0.58));
+      yield;
       rhodes(x, sr, at(8), STEP * 3, ch[0], 0.48);
       rhodes(x, sr, at(8), STEP * 3, ch[2], 0.44);
       rhodes(x, sr, at(12), STEP * 4, ch[4] + (bar === 7 ? 3 : 0), 0.44);
@@ -197,9 +207,17 @@ function* keysStem(c) {
     yield;
   }
   // Tremolo and a dark, close room.
-  for (let i = 0; i < x.length; i++) x[i] *= 1 + 0.16 * Math.sin((TAU * 4.6 * i) / sr);
-  lowpass(x, sr, 3000, 0.7);
-  return wrap(reverb(x, sr, { time: 1.4, damp: 0.55, mix: 0.3, size: 1.1 }), loopSamples(sr));
+  for (let from = 0; from < x.length; from += CHUNK) {
+    tremolo(x, sr, from, Math.min(x.length, from + CHUNK));
+    yield;
+  }
+  yield* biquadSteps(x, sr, 'lowpass', 3000, 0.7);
+  const wet = yield* reverbSteps(x, sr, { time: 1.4, damp: 0.55, mix: 0.3, size: 1.1 });
+  return yield* wrapSteps(wet, loopSamples(sr));
+}
+
+function tremolo(x, sr, from, to) {
+  for (let i = from; i < to; i++) x[i] *= 1 + 0.16 * Math.sin((TAU * 4.6 * i) / sr);
 }
 
 const STABS = [[0, 0, 10], [2, 6, 3], [2, 10, 3], [4, 0, 10], [6, 0, 4], [6, 6, 3], [7, 10, 2], [7, 14, 2]];
@@ -209,40 +227,52 @@ function* stringsStem(c) {
   const x = c.buf(LOOP + TAIL + 1);
   for (const [bar, step, len] of STABS) {
     const notes = VOICINGS[bar].slice(1).map((n) => n + 12);
-    stringStab(x, sr, stepTime(bar, step), STEP * len, notes, len > 5 ? 0.9 : 0.75);
+    yield* stringStab(x, sr, stepTime(bar, step), STEP * len, notes, len > 5 ? 0.9 : 0.75);
     yield;
   }
-  return wrap(reverb(x, sr, { time: 2.2, damp: 0.5, mix: 0.42, size: 1.5 }), loopSamples(sr));
+  const wet = yield* reverbSteps(x, sr, { time: 2.2, damp: 0.5, mix: 0.42, size: 1.5 });
+  return yield* wrapSteps(wet, loopSamples(sr));
 }
 
 function* bellStem(c) {
   const { sr } = c;
   const x = c.buf(LOOP + TAIL + 1);
-  for (const [bar, step, note, len] of HOOK) bell(x, sr, stepTime(bar, step), note, len >= 4 ? 0.9 : 0.75, Math.max(0.9, len * STEP + 0.6));
-  yield;
+  for (const [bar, step, note, len] of HOOK) {
+    bell(x, sr, stepTime(bar, step), note, len >= 4 ? 0.9 : 0.75, Math.max(0.9, len * STEP + 0.6));
+    yield;
+  }
   // A dub echo on the dotted eighth, then the room.
-  const wet = echo(x, sr, BEAT * 0.75, 0.38, 0.4, { lp: 2800, tail: 2 });
-  yield;
-  return wrap(reverb(wet, sr, { time: 1.6, damp: 0.5, mix: 0.25, size: 1.2 }), loopSamples(sr));
+  const wet = yield* echoSteps(x, sr, BEAT * 0.75, 0.38, 0.4, { lp: 2800, tail: 2 });
+  const room = yield* reverbSteps(wet, sr, { time: 1.6, damp: 0.5, mix: 0.25, size: 1.2 });
+  return yield* wrapSteps(room, loopSamples(sr));
 }
 
-function crackleStem(c) {
+function* crackleStem(c) {
   const { sr, rnd } = c;
   const extra = Math.round(0.5 * sr);
   const x = new Float32Array(loopSamples(sr) + extra);
   const hiss = pink(x.length, rnd);
-  biquad(hiss, sr, 'lowpass', 5000, 0.6);
-  biquad(hiss, sr, 'highpass', 700, 0.6);
+  yield;
+  yield* biquadSteps(hiss, sr, 'lowpass', 5000, 0.6);
+  yield* biquadSteps(hiss, sr, 'highpass', 700, 0.6);
   mix(x, hiss, sr, 0, 0.035);
-  for (let i = 0; i < x.length; i++) {
+  for (let from = 0; from < x.length; from += CHUNK) {
+    yield;
+    crackles(x, sr, rnd, from, Math.min(x.length, from + CHUNK));
+  }
+  yield* biquadSteps(x, sr, 'highpass', 1200, 0.7);
+  return seamless(x, sr, extra / sr);
+}
+
+/** Vinyl ticks over [from, to): the random draws come in the same order whatever the step size. */
+function crackles(x, sr, rnd, from, to) {
+  for (let i = from; i < to; i++) {
     if (rnd() < 26 / sr) {
       const a = (rnd() ** 3) * (rnd() < 0.5 ? -1 : 1);
       x[i] += a;
       if (i + 1 < x.length) x[i + 1] -= a * 0.6;
     }
   }
-  biquad(x, sr, 'highpass', 1200, 0.7);
-  return seamless(x, sr, extra / sr);
 }
 
 /** Every stem: playback gains come from layerGains() in the conductor. */
@@ -261,30 +291,34 @@ export const STEMS = {
 /** Two bars of noise and tone climbing to the downbeat it lands on (the buffer ends exactly there). */
 export const RISER_SECS = BAR * 2;
 
-function riser(c) {
+function* riser(c) {
   const { sr } = c;
   const x = c.buf(RISER_SECS);
   const n = white(x.length, c.rnd);
-  biquad(n, sr, 'bandpass', glide(300, 7500), 1.2);
+  yield* biquadSteps(n, sr, 'bandpass', glide(300, 7500), 1.2);
   mix(x, n, sr, 0, 0.8);
-  saw(x, sr, 0, RISER_SECS, (t) => 87.3 * Math.pow(4, t / RISER_SECS), 0.12);
-  saw(x, sr, 0, RISER_SECS, (t) => 130.8 * Math.pow(4, t / RISER_SECS), 0.08);
+  yield;
+  yield* sawSteps(x, sr, 0, RISER_SECS, (t) => 87.3 * Math.pow(4, t / RISER_SECS), 0.12);
+  yield* sawSteps(x, sr, 0, RISER_SECS, (t) => 130.8 * Math.pow(4, t / RISER_SECS), 0.08);
   for (let i = 0; i < x.length; i++) {
     const u = i / x.length;
     x[i] *= u ** 2.4;
+    if (i % CHUNK === CHUNK - 1) yield;
   }
-  lowpass(x, sr, 8000);
+  yield* biquadSteps(x, sr, 'lowpass', 8000);
   return fade(x, sr, 0.05, 0.004);
 }
 
-function impact(c) {
+function* impact(c) {
   const { sr } = c;
   const x = c.buf(3);
   sweep(x, sr, 0, 1.6, 85, 30, 1, { tau: 0.5, fTau: 0.18 });
+  yield;
   burst(x, sr, 0, 2.6, c.rnd, 0.55, { tau: 0.6, type: 'highpass', f: 2800 }); // the crash
+  yield;
   snare(x, c, 0, 1);
-  drive(x, 1.6);
-  return reverb(x, sr, { time: 2, damp: 0.5, mix: 0.3, size: 1.5 }).subarray(0, x.length);
+  yield* driveSteps(x, 1.6);
+  return (yield* reverbSteps(x, sr, { time: 2, damp: 0.5, mix: 0.3, size: 1.5 })).subarray(0, x.length);
 }
 
 /** The reel cases' boombox: the beat and the hook through a small, overdriven speaker. */
@@ -294,45 +328,51 @@ export function* boombox(c) {
   const gains = [0.9, 0.5, 0.7, 0.8];
   const x = new Float32Array(loopSamples(sr));
   for (let k = 0; k < parts.length; k++) {
-    const it = parts[k](c);
-    let r;
-    while (!(r = it.next()).done) yield;
-    const y = r.value;
+    const y = yield* parts[k](c);
     let peak = 0;
     for (let i = 0; i < y.length; i++) peak = Math.max(peak, Math.abs(y[i]));
-    for (let i = 0; i < x.length; i++) x[i] += (y[i] / (peak || 1)) * gains[k];
+    yield;
+    for (let i = 0; i < x.length; i++) {
+      x[i] += (y[i] / (peak || 1)) * gains[k];
+      if (i % CHUNK === CHUNK - 1) yield;
+    }
   }
-  highpass(x, sr, 260, 0.8);
-  biquad(x, sr, 'peaking', 1400, 1, 6);
-  lowpass(x, sr, 3600, 0.8);
-  drive(x, 2.4);
-  return x;
+  yield* biquadSteps(x, sr, 'highpass', 260, 0.8);
+  yield* biquadSteps(x, sr, 'peaking', 1400, 1, 6);
+  yield* biquadSteps(x, sr, 'lowpass', 3600, 0.8);
+  return yield* driveSteps(x, 2.4);
 }
 
 // Stings: each answers a moment of the run.
-function stingReel(c) {
+function* stingReel(c) {
   const { sr } = c;
   const x = c.buf(3.4);
   kick(x, c, 0, 0.9);
-  stringStab(x, sr, 0, 0.5, [65, 68, 72, 77], 0.8);
-  [[0, 77], [0.11, 80], [0.22, 84], [0.44, 89]].forEach(([t, n]) => bell(x, sr, t, n, 0.85, 1.6));
-  return reverb(x, sr, { time: 1.8, damp: 0.5, mix: 0.3, size: 1.3 }).subarray(0, x.length);
+  yield* stringStab(x, sr, 0, 0.5, [65, 68, 72, 77], 0.8);
+  for (const [t, n] of [[0, 77], [0.11, 80], [0.22, 84], [0.44, 89]]) {
+    bell(x, sr, t, n, 0.85, 1.6);
+    yield;
+  }
+  return (yield* reverbSteps(x, sr, { time: 1.8, damp: 0.5, mix: 0.3, size: 1.3 })).subarray(0, x.length);
 }
 
-function stingAll(c) {
+function* stingAll(c) {
   const { sr } = c;
   const x = c.buf(5.4);
   const hits = [[0, [61, 65, 68, 73]], [BEAT, [63, 67, 70, 75]], [BEAT * 2, [65, 68, 72, 77]]];
   for (const [t, notes] of hits) {
     kick(x, c, t, 0.85);
-    stringStab(x, sr, t, t === BEAT * 2 ? 1.6 : 0.4, notes, 0.85);
+    yield* stringStab(x, sr, t, t === BEAT * 2 ? 1.6 : 0.4, notes, 0.85);
   }
-  [77, 80, 84, 89, 92].forEach((n, i) => bell(x, sr, BEAT * 2 + i * 0.1, n, 0.8, 2.2));
+  for (let i = 0; i < 5; i++) {
+    bell(x, sr, BEAT * 2 + i * 0.1, [77, 80, 84, 89, 92][i], 0.8, 2.2);
+    yield;
+  }
   sweep(x, sr, BEAT * 2, 1.6, 70, 34, 0.8, { tau: 0.5, fTau: 0.2 });
-  return reverb(x, sr, { time: 2.4, damp: 0.5, mix: 0.35, size: 1.5 }).subarray(0, x.length);
+  return (yield* reverbSteps(x, sr, { time: 2.4, damp: 0.5, mix: 0.35, size: 1.5 })).subarray(0, x.length);
 }
 
-function stingDead(c) {
+function* stingDead(c) {
   const { sr } = c;
   const x = c.buf(4.6);
   // A low minor chord whose pitch sags like a tape machine losing power.
@@ -340,17 +380,19 @@ function stingDead(c) {
   for (const n of notes) {
     const f = midi(n);
     saw(x, sr, 0, 3.8, (t) => f * (1 - 0.45 * Math.min(1, (t / 3.2) ** 1.6)), n < 40 ? 0.22 : 0.1);
+    yield;
   }
-  biquad(x, sr, 'lowpass', glide(2400, 300), 0.8);
+  yield* biquadSteps(x, sr, 'lowpass', glide(2400, 300), 0.8);
   for (let i = 0; i < x.length; i++) {
     const t = i / sr;
     x[i] *= Math.min(1, t / 0.01) * Math.exp(-t / 1.6);
   }
+  yield;
   sweep(x, sr, 0, 1.8, 70, 26, 0.9, { tau: 0.6, fTau: 0.4 });
-  return reverb(x, sr, { time: 2.6, damp: 0.6, mix: 0.4, size: 1.6 }).subarray(0, x.length);
+  return (yield* reverbSteps(x, sr, { time: 2.6, damp: 0.6, mix: 0.4, size: 1.6 })).subarray(0, x.length);
 }
 
-function stingComplete(c) {
+function* stingComplete(c) {
   const { sr } = c;
   const x = c.buf(7);
   // Db · Eb · F major: the minor key lifts for once.
@@ -358,11 +400,17 @@ function stingComplete(c) {
   for (const [t, notes] of chords) {
     const last = t === BEAT * 4;
     kick(x, c, t, 0.8);
-    notes.forEach((n) => rhodes(x, sr, t, last ? 2.6 : BEAT * 1.8, n, 0.6));
-    stringStab(x, sr, t, last ? 2.8 : BEAT * 1.6, notes.slice(1).map((n) => n + 12), 0.7);
+    for (const n of notes) {
+      rhodes(x, sr, t, last ? 2.6 : BEAT * 1.8, n, 0.6);
+      yield;
+    }
+    yield* stringStab(x, sr, t, last ? 2.8 : BEAT * 1.6, notes.slice(1).map((n) => n + 12), 0.7);
   }
-  [81, 84, 89].forEach((n, i) => bell(x, sr, BEAT * 4 + 0.2 + i * 0.16, n, 0.8, 2.6));
-  return reverb(x, sr, { time: 2.6, damp: 0.5, mix: 0.35, size: 1.6 }).subarray(0, x.length);
+  for (let i = 0; i < 3; i++) {
+    bell(x, sr, BEAT * 4 + 0.2 + i * 0.16, [81, 84, 89][i], 0.8, 2.6);
+    yield;
+  }
+  return (yield* reverbSteps(x, sr, { time: 2.6, damp: 0.5, mix: 0.35, size: 1.6 })).subarray(0, x.length);
 }
 
 /** Music one-shots (rendered by the library like any sound; bus 'music'). */

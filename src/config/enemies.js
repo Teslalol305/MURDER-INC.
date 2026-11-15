@@ -44,10 +44,16 @@ export const buzzard = {
   patrol: { radius: [4, 9], turn: 0.28 },
   investigate: { radius: 4.5, turn: 0.5, maxHeight: 5.5 },
   maxAltitude: 15, // never climbs above this
+  climbLook: 6, // metres of the leg ahead checked for roofs to climb over (logic.js climbOver)
   boundsMargin: 1.2, // kept this far inside the play bounds
   // Flight planning around level.el (the track deck): pass `under` its underside or stay `over` its top,
   // never through it. `margin` grows the footprint, `hold` is how far outside a drone waits to descend.
-  deck: { under: 1.5, over: 3.6, thickness: 1, margin: 1.5, hold: 2.5 },
+  // `slide`: how far along the deck's edge a drone looks for room to come down when something tall stands
+  // under its hold point or across its way in (logic.js deckSlide).
+  deck: { under: 1.5, over: 3.6, thickness: 1, margin: 1.5, hold: 2.5, slide: 5 },
+  // Last resort (buzzard.js detour): wanting to be more than `far` m (|dx|+|dy|+|dz|) away but not having
+  // moved `moved` m for `after` s, it flies `distance` m off in a clear direction and `up` m higher, for `time` s.
+  detour: { far: 2.5, moved: 0.5, after: 2.5, distance: 4, up: 1.5, time: 1.5 },
   orbit: {
     radius: [14, 22], // initial personal orbit radius…
     radiusClamp: [13, 23], // …which drifts inside this band
@@ -105,6 +111,9 @@ export const goon = {
   bodyRadius: 0.27, // hit capsule from shin to shoulder
   eyeHeight: 1.6,
   gunHeight: 1.46, // shots leave from the body axis at this height (the shouldered SMG)
+  // At a player up high whose chest is hidden (the deck's parapet, the office sill): rounds go `below` his
+  // eye (or at the eye if that is hidden too), with the vertical spread × `spreadY`.
+  overCover: { below: 0.25, spreadY: 0.3 },
   reaction: 0.55,
   spawnAlertTime: 10,
 
@@ -125,7 +134,11 @@ export const goon = {
   blockedRay: { length: 0.75, perSpeed: 0.12, every: 0.12 },
   stuckTime: 0.5,
   patrol: { radius: 7, wait: [1.5, 4.5] },
-  investigate: { stalkWithin: 8, stopWithin: 2.2, sweep: 0.9 },
+  // `elevated`: a last known position this far above his feet is up on something (the scaffold deck, the
+  // mezzanine office): he looks at it from a stand-off point that sees it (goon.js pickStand), chosen
+  // again when the spot moves more than `restand` or, if the point turned out blind, after `restandAfter`
+  // seconds of looking round; until then, or if there is no point at all, he stops `standFallback` short.
+  investigate: { stalkWithin: 8, stopWithin: 2.2, sweep: 0.9, elevated: 1.2, restand: 1.5, restandAfter: 2.5, standFallback: 4.5 },
 
   // Fire positions: scored candidates between rangeMin and rangeMax from the player.
   rangeMin: 8,

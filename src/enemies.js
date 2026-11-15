@@ -137,6 +137,7 @@ export function createEnemies(G) {
   let sinceGunfire = Infinity;
   let pathCursor = 0;
   let pickCursor = 0;
+  let standCursor = 0;
 
   // Scratch.
   const sensorPos = new THREE.Vector3();
@@ -527,6 +528,14 @@ export function createEnemies(G) {
       goons.pick(e);
       pickCursor = (pickCursor + k + 1) % n;
     }
+    // Then stand-off points for Goons looking for a player up on the deck or in the office.
+    for (let k = 0; k < n && ctx.budget.picks > 0; k++) {
+      const e = pool[(standCursor + k) % n];
+      if (!e.alive || e.passive || (e.mode !== 'investigate' && e.mode !== 'search') || !e.wantStand) continue;
+      ctx.budget.picks--;
+      goons.pickStand(e);
+      standCursor = (standCursor + k + 1) % n;
+    }
     for (let k = 0; k < n && ctx.budget.paths > 0; k++) {
       const e = pool[(pathCursor + k) % n];
       if (!e.alive || !e.needPath || !e.hasGoal) continue;
@@ -641,6 +650,7 @@ export function createEnemies(G) {
         tokens: tokens.held,
         glow: glow.count,
         clock: ctx.clock.now,
+        doorways: buzzards.doorways(), // the interiors' openings the Buzzards fly in through
         tune,
       };
     },

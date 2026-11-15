@@ -42,6 +42,12 @@ import { createType, loadFonts } from './mats/type.js';
 const UNKNOWN = { color: 0x808080, roughness: 0.8, metalness: 0 };
 const NO_OPTS = Object.freeze({});
 const FENCE_TILE = 0.6; // metres per repeat of the chain-link mesh (8 diamonds)
+/**
+ * The open hydrant's reach by day, in metres: a capsule from the middle of the sheet of water at its foot
+ * (`sheet` out along the spray) to the end of the gutter it feeds (`gutter` east, `kerb` out from the
+ * kerb), `radius` wide at the sheet and at the gutter's end.
+ */
+export const WET_REACH = { sheet: 2.5, gutter: 24, kerb: 1.1, radius: [5, 0.9] };
 
 /**
  * How each catalogue material is dressed.
@@ -50,15 +56,20 @@ const FENCE_TILE = 0.6; // metres per repeat of the chain-link mesh (8 diamonds)
  *   relief  take the normal map from this set instead
  *   gloss   take the roughness map from this set instead
  *   world   [tone variation, wetness, wall grime]: gets the world shader patch (static scenery only)
+ *   soak    standing water (with world): wet at night and, by day, inside the open hydrant's reach only
  *   normal  normal-map strength (default 1)
  *   day     albedo by day (sRGB hex) where the catalogue colour is tuned for the night street: the
  *           untinted material switches between the two with atmos.time
  *   dayGlow  multiplier on the catalogue glow by day: lit windows are glass in the sun, not lamps
+ *   dayEmissive  the glow's colour by day (sRGB hex), where it is not the night's
+ *   nightEnv  multiplier on the reflections at night: car bodies and glass would mirror every lamp
+ *            blob of the night environment as a soft ball (it is captured at one point of the block)
  */
 export const LOOKS = {
   // ground
   asphalt: { set: 'asphalt', world: [0.2, 1, 0], day: 0x56575a },
-  asphalt_wet: { set: 'asphalt', normal: 0.45 },
+  // Standing water laid by the level: the street's own day albedo outside the hydrant's reach by day.
+  asphalt_wet: { set: 'asphalt', normal: 0.45, world: [0.2, 0, 0], soak: true, day: 0x56575a },
   sidewalk: { set: 'sidewalk', world: [0.16, 0.5, 0], day: 0x9a968e },
   curb: { set: 'concrete', world: [0.12, 0.3, 0], day: 0xa4a097 },
   court: { set: 'asphalt', skin: 'coat', normal: 0.5, world: [0.14, 0.5, 0] },
@@ -84,7 +95,9 @@ export const LOOKS = {
   chrome: {},
   gold: {},
   // paint and plastics
-  car_paint: { gloss: 'smudge' },
+  // A clear coat is even: a painted roughness map mottles a dark body with blurred and sharp patches
+  // of whatever it mirrors (brown, by day). One roughness all over.
+  car_paint: { nightEnv: 0.4 },
   paint_yellow: { set: 'paint' },
   paint_white: { set: 'paint' },
   paint_red: { set: 'paint' },
@@ -106,10 +119,13 @@ export const LOOKS = {
   skin: {},
   // glass
   glass_dark: { gloss: 'smudge' },
-  glass_store: { gloss: 'smudge', dayGlow: 0.3 },
-  glass_lit_warm: { gloss: 'smudge', dayGlow: 0.06 },
-  glass_lit_cool: { gloss: 'smudge', dayGlow: 0.06 },
-  glass_car: { gloss: 'smudge' },
+  glass_store: { gloss: 'smudge', dayGlow: 0.05 },
+  glass_lit_warm: { gloss: 'smudge', dayGlow: 0 },
+  glass_lit_cool: { gloss: 'smudge', dayGlow: 0 },
+  glass_car: { gloss: 'smudge', nightEnv: 0.4 },
+  glass_car_lit: { gloss: 'smudge', dayGlow: 0, nightEnv: 0.4 },
+  // The shop's skylights from below: night-blue at night, the bright afternoon sky by day.
+  glass_skylight: { gloss: 'smudge', dayGlow: 1.8, dayEmissive: 0xdfe8f2 },
 };
 const PLAIN = {};
 /** Sets that dress world-patched looks: they keep a separate ORM map (its red channel is the water level). */
@@ -146,7 +162,8 @@ export async function createMats(G) {
   const glowScale = { ...(timeOfDay() === 'night' ? NIGHT : DAY) };
   const facades = []; // facade materials, their window glow follows the time of day
   const retint = []; // {material, night, day, mean}: ground and masonry with a day albedo (LOOKS.day)
-  const windows = []; // {material, base, day}: catalogue glass that glows at night (LOOKS.dayGlow)
+  const windows = []; // {material, base, day, night, dayColor}: catalogue glass that glows at night (LOOKS.dayGlow)
+  const reflections = []; // {material, base, night}: car bodies and glass that mirror less at night (LOOKS.nightEnv)
 
   // 1 × 1 stand-ins for the slots a look leaves empty.
   const white = pixelTexture(255, 255, 255, true);
@@ -315,9 +332,14 @@ export async function createMats(G) {
 
   const macro = { value: null }; // shared by every world material
   const dry = { value: glowScale.dry }; // 0 at night (the soaked street), 1 by day; follows atmos.time in update()
+  // What stays wet by day: the open hydrant's reach (shader.js), found once the level stands (boot:done).
+  const wetLine = { value: new THREE.Vector4() };
+  const wetSize = { value: new THREE.Vector3() }; // z = 0: no open hydrant, the whole street dries
+  const soakOn = { value: 1 };
+  const soakOff = { value: 0 };
   const lookUniforms = new Map();
 
-  function worldUniforms(world) {
+  function worldUniforms(world, soak = false) {
     if (!macro.value) {
       macro.value = macroTexture(256);
       macro.value.name = 'mats:macro';
@@ -329,7 +351,31 @@ export async function createMats(G) {
       look = { value: new THREE.Vector4(world[0], world[1], world[2], 1 / MACRO_TILE) };
       lookUniforms.set(key, look);
     }
-    return { miMacro: macro, miLook: look, miDry: dry };
+    return { miMacro: macro, miLook: look, miDry: dry, miWetLine: wetLine, miWetSize: wetSize, miSoak: soak ? soakOn : soakOff };
+  }
+
+  /** Points the day's wet patch at the level's open hydrant: a sheet at its foot and the gutter running east. */
+  function findWetSpot() {
+    const root = G.level && G.level.root;
+    let hydrant = null;
+    if (root) {
+      root.updateMatrixWorld(true);
+      root.traverse((obj) => {
+        if (!hydrant && obj.name === 'hydrant_open') hydrant = obj;
+      });
+    }
+    if (!hydrant) return;
+    const e = hydrant.matrixWorld.elements;
+    const [x, z] = [e[12], e[14]];
+    const spray = hydrant.userData && hydrant.userData.spray;
+    const dir = new THREE.Vector3(0, 0, -1);
+    if (spray && Number.isFinite(spray.x)) dir.set(spray.x, 0, spray.z).transformDirection(hydrant.matrixWorld);
+    dir.y = 0;
+    if (dir.lengthSq() < 1e-6) dir.set(0, 0, -1);
+    dir.normalize();
+    const w = WET_REACH;
+    wetLine.value.set(x + dir.x * w.sheet, z + dir.z * w.sheet, x + w.gutter, z + dir.z * w.kerb);
+    wetSize.value.set(w.radius[0], w.radius[1], 1);
   }
 
   function textured(def, look, o, extra) {
@@ -371,7 +417,8 @@ export async function createMats(G) {
     if (look.doubleSide) material.side = THREE.DoubleSide;
     applyOptions(material, o, def);
     if (patched) {
-      patchWorld(material, extra && extra.facade ? { ...worldUniforms(look.world), ...extra.facade } : worldUniforms(look.world), !!packed);
+      const uniforms = worldUniforms(look.world, look.soak);
+      patchWorld(material, extra && extra.facade ? { ...uniforms, ...extra.facade } : uniforms, !!packed);
     }
     return material;
   }
@@ -442,9 +489,14 @@ export async function createMats(G) {
     material = look.cutout ? cutout(def, o) : textured(def, look, o);
     material.name = name;
     if (look.dayGlow !== undefined && o.emissive === undefined && def.emissive !== undefined) {
-      const entry = { material, base: material.emissiveIntensity, day: look.dayGlow };
+      const entry = { material, base: material.emissiveIntensity, day: look.dayGlow, night: material.emissive.getHex(), dayColor: look.dayEmissive };
       windows.push(entry);
-      if (glowScale.dry) material.emissiveIntensity = entry.base * entry.day;
+      glassTime(entry, !!glowScale.dry);
+    }
+    if (look.nightEnv !== undefined && o.envMapIntensity === undefined) {
+      const entry = { material, base: material.envMapIntensity, night: look.nightEnv };
+      reflections.push(entry);
+      if (!glowScale.dry) material.envMapIntensity = entry.base * entry.night;
     }
     cache.set(key, material);
     return material;
@@ -725,7 +777,14 @@ export async function createMats(G) {
     for (const f of flicker) f.base = SIGN_GLOW * k.neon;
     for (const m of facades) m.emissiveIntensity = FACADE_GLOW * k.facade;
     for (const r of retint) tint(r.material.color, k.dry ? r.day : r.night, r.mean);
-    for (const w of windows) w.material.emissiveIntensity = w.base * (k.dry ? w.day : 1);
+    for (const w of windows) glassTime(w, !!k.dry);
+    for (const r of reflections) r.material.envMapIntensity = r.base * (k.dry ? 1 : r.night);
+  }
+
+  /** Night glow or day glass for one `windows` entry. */
+  function glassTime(w, day) {
+    w.material.emissiveIntensity = w.base * (day ? w.day : 1);
+    if (w.dayColor !== undefined) w.material.emissive.setHex(day ? w.dayColor : w.night);
   }
 
   /** Neon hum: a small ripple on every tube, and now and then a tired one stutters. */
@@ -754,6 +813,7 @@ export async function createMats(G) {
 
   // Once the block stands, the painting scratch space can go.
   G.events.on('boot:done', () => {
+    findWetSpot();
     dropScratch();
     bank.trim();
   });

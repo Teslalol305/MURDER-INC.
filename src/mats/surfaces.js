@@ -32,7 +32,8 @@ function painter(spec, size, bank, seed) {
     bank,
     ppm: w / tu,
     rand: prng(seed),
-    albedo: canvas2d(w, h),
+    // Read back too: multiply() and the tint's average colour (mats.js meanColor) read the albedo.
+    albedo: canvas2d(w, h, true),
     height: canvas2d(w, h, true),
     _rough: null,
     _metal: null,
@@ -915,8 +916,9 @@ function paint(P) {
   fillTiled(A, bank.grey('clouds'), 1, 1, { mode: 'multiply', alpha: 0.22 });
   fillTiled(A, bank.grey('mottle'), 2, 2, { mode: 'multiply', alpha: 0.14 });
   stain(A, bank.mask('streaks', 0.55, 0.95), css(0x4a4741), { alpha: 0.3 });
-  fillTiled(R, bank.grey('clouds'), 1, 1, { mode: 'overlay', alpha: 0.8 });
-  fillTiled(R, bank.grey('streaks'), 1, 1, { mode: 'overlay', alpha: 0.5 });
+  // Gentle sheen changes only: on dark paint in the sun a strong roughness pattern reads as a blotchy stain.
+  fillTiled(R, bank.grey('clouds'), 1, 1, { mode: 'overlay', alpha: 0.45 });
+  fillTiled(R, bank.grey('streaks'), 1, 1, { mode: 'overlay', alpha: 0.3 });
   specks(P, [A, H, R], Math.round(60 * (w / P.m(1.5)) ** 2), 0.002 * ppm, 0.009 * ppm, (r) => [`rgba(52,44,38,${0.4 + r() * 0.5})`, grey(0.2, 0.8), grey(0.85)]);
   return { albedo: { base: A.canvas }, ...finish(P, { depth: 0.0012, grain: 0.02 }) };
 }

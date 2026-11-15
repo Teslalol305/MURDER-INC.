@@ -9,7 +9,8 @@
 //         playerOnly  blocks capsule movement, ignored by rays and nav
 //         noNav       not stamped into the nav grid
 //
-// Extras beyond the contract: `physics.bounds`, `physics.overlapsCylinder()`, an optional reusable
+// Extras beyond the contract: `physics.bounds`, `physics.overlapsCylinder()`, the `{movement: true}`
+// option of `lineOfSight` (player-only boxes block, bullet-only ones do not), an optional reusable
 // result object as the last argument of `raycast` / `moveCapsule` / `nav.findPath`, and a few read-only
 // nav fields for debug overlays and tests (`nav.cols`, `rows`, `origin`, `grid`, `lastExpansions`, `rebuilds`).
 
@@ -207,9 +208,11 @@ export function createPhysics(G) {
    * hitIndex / hitAxis say what and where.
    * A box that contains the origin is ignored (rays only hit faces they enter through).
    * With `any` the first hit found ends the search (occlusion queries).
+   * `skip` is the flag mask of boxes to pass through: PLAYER_ONLY for rays (the default), BULLET_ONLY
+   * for the movement test of lineOfSight(a, b, {movement: true}).
    * The three axes are written out one after the other on purpose: this is the hottest loop in the game.
    */
-  function cast(any) {
+  function cast(any, skip) {
     if (packDirty) repack();
     const ox = ray[0];
     const oy = ray[1];
@@ -224,7 +227,7 @@ export function createPhysics(G) {
     let index = -1;
     let face = 0;
     for (let i = 0, o = 0; i < count; i++, o += 6) {
-      if (flags[i] & PLAYER_ONLY) continue;
+      if (flags[i] & skip) continue;
       let tmin = 0;
       let tmax = best;
       let axis = -1;
@@ -318,7 +321,7 @@ export function createPhysics(G) {
     ray[4] = dy;
     ray[5] = dz;
     ray[6] = maxDist;
-    if (!cast(false)) return null;
+    if (!cast(false, PLAYER_ONLY)) return null;
     const dist = ray[7];
     const hit = out || { dist: 0, point: new THREE.Vector3(), normal: new THREE.Vector3(), surface: null, box: null };
     hit.dist = dist;
@@ -335,8 +338,13 @@ export function createPhysics(G) {
     return hit;
   }
 
-  /** True when nothing ray-solid lies between the two points (allocation free). */
-  function lineOfSight(a, b) {
+  /**
+   * True when nothing ray-solid lies between the two points (allocation free). With `{movement: true}`
+   * the question is whether anything that blocks movement lies between them instead: player-only boxes
+   * (the Cage's chain-link, glass, railings, invisible walls) count, bullet-only ones do not. A box that
+   * contains `a` is ignored either way.
+   */
+  function lineOfSight(a, b, opts) {
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const dz = b.z - a.z;
@@ -350,7 +358,7 @@ export function createPhysics(G) {
     ray[4] = dy * inv;
     ray[5] = dz * inv;
     ray[6] = len - LOS_SLACK;
-    return !cast(true);
+    return !cast(true, opts && opts.movement ? BULLET_ONLY : PLAYER_ONLY);
   }
 
   /** Highest walkable top at (x, z) that is not above maxY; 0 (the ground) when there is none. */

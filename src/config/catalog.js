@@ -55,9 +55,12 @@ export const MATERIALS = {
   // glass (emissive entries glow and bloom)
   glass_dark: { color: 0x0d1218, roughness: 0.08, metalness: 0.2 },
   glass_store: { color: 0x1a2630, roughness: 0.06, metalness: 0.2, emissive: 0x3a4a50, emissiveIntensity: 0.25 },
-  glass_lit_warm: { color: 0x2a2010, roughness: 0.2, metalness: 0, emissive: 0xffb45e, emissiveIntensity: 1.4 },
-  glass_lit_cool: { color: 0x101a22, roughness: 0.2, metalness: 0, emissive: 0x9fd4ff, emissiveIntensity: 1.2 },
+  // Lit shop glass: dark glass by day (mats drops the glow), a warm or cool pane at night that stays under the clip.
+  glass_lit_warm: { color: 0x0d1218, roughness: 0.08, metalness: 0, emissive: 0xffb45e, emissiveIntensity: 0.75 },
+  glass_lit_cool: { color: 0x0d1218, roughness: 0.08, metalness: 0, emissive: 0x9fd4ff, emissiveIntensity: 0.7 },
   glass_car: { color: 0x0a0d10, roughness: 0.05, metalness: 0.3 },
+  glass_car_lit: { color: 0x0a0d10, roughness: 0.05, metalness: 0.3, emissive: 0xffc890, emissiveIntensity: 0.45 }, // dome light on (night only)
+  glass_skylight: { color: 0x0d1218, roughness: 0.08, metalness: 0.2, emissive: 0x314a78, emissiveIntensity: 0.55 }, // seen from below: the sky
 };
 
 const P = (size, surface = 'metal', flags = {}) => ({ size, surface, ...flags });

@@ -278,6 +278,7 @@ export function wireEvents(A) {
   on('game:state', (p) => {
     const s = p && p.state;
     if (s === 'title') {
+      A.muffleTo(0, 0); // back from the death card: the title music is not heard through the death low-pass
       A.music('title');
       A.setAmbState(0.6);
     } else if (s === 'intro' || s === 'playing') {

@@ -4,7 +4,7 @@
 
 import { SHED, SHOP } from './layout.js';
 
-export const START = { x: -37.4, z: 8.15, yaw: -Math.PI / 2 }; // foot of the station stair, facing east
+export const START = { x: -37.4, z: 8.15, yaw: -Math.PI / 2 + 0.15 }; // foot of the station stair, facing east, a little toward the avenue
 
 /** Reel positions, in route-bullet order: the avenue, the chop shop, the cage. */
 export const REELS = [
@@ -141,24 +141,27 @@ export const EXPLOSIVES = [
 ];
 
 /**
- * Title fly-through, fourteen held compositions: under the El at the closure, Rule's kerb, down the
- * avenue past the Vultures' van to reel 1, into the shop by the roll door, across its floor and out the
- * side door, down the alley, the cage through its gate, under the El to the lot, and the truck.
- * [x, y, z, lookX, lookY, lookZ]. The straight legs between them clear every collider
- * (test/level-layout.test.js walks them).
+ * Title fly-through, fourteen held compositions: the block from under the El at the station (the opening
+ * establishing shot, high between the column rows), a slow push east past the repair scaffold, down the
+ * avenue past the Vultures' van to reel 1, into the shop by the roll door, across its floor, out the side
+ * door (held on its step: the curve itself threads the doorway) and up the alley, east down the middle of
+ * the avenue under the El (well clear of the deli awning and the dig on the north sidewalk), a look
+ * between the columns through the cage gate at reel 3, a turn under the El to the lot, and the truck.
+ * [x, y, z, lookX, lookY, lookZ]. The straight legs between them and the curve the title camera
+ * actually flies through them clear every collider (test/level-layout.test.js walks both).
  */
 export const CINEMATIC = [
-  [-42, 1.5, 1.2, -20, 2.9, 0.4],
-  [-36.5, 2.3, 8.8, -18, 1.7, 3],
-  [-21, 3.2, 2.2, -9, 1.4, 1.5],
+  [-38.6, 4.4, -1.6, -5, 2, -0.5],
+  [-31.5, 4.2, -2.5, -12, 1.8, 0.5],
+  [-21, 3.3, 2.6, -9, 1.4, 1.5],
   [-13.4, 2.4, -0.4, -3, 1, -1.5],
   [-6.6, 2.2, -4, -4, 0.8, 1],
   [-12.4, 2.3, -5.6, -11.6, 2, -14],
   [-10.2, 2.1, -13.4, -9.5, 0.9, -21.5],
-  [-14.2, 4.2, -23.2, -4, 1.2, -19],
-  [8.6, 1.9, -22.1, 8.8, 2.4, -10],
-  [8.6, 3, -9.4, 30, 2.6, -11],
-  [34.2, 3.2, -9.8, 35.25, 1, -22.5],
+  [-14.2, 4.2, -22.6, -4, 1.2, -19],
+  [6.4, 2, -22.1, 8.8, 2.4, -10],
+  [12, 3.6, -1.4, 24, 2, 1],
+  [31.5, 3.8, -3, 35.25, 1, -22.5],
   [30.5, 4.6, -1, 40, 2.4, 22],
   [32.2, 3.4, 14.6, 40.5, 1.6, 28.5],
   [34.6, 1.8, 27.8, 42, 1.7, 30.2],

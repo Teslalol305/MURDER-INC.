@@ -197,6 +197,65 @@ export function markerOverAim(x, y) {
   return Math.hypot(x, 0.6 * y) < 0.16;
 }
 
+/**
+ * Places an edge pin where it can be seen. `placed` holds the pins already drawn this frame as
+ * [x0, y0, x1, y1, …] (`count` of them); `blocks` holds the first `nBlocks` screen boxes {l, t, r, b} a pin
+ * would hide behind (kill feed, badge, minimap, thumb controls). The pin (anchor x, y in px; drawn
+ * `pin.half` px either side, from `pin.above` px over the anchor to `pin.below` px under it) looks for a
+ * spot `pin.gap` px clear of every placed pin and clear of every block:
+ *   1. along its edge (`alongY`: up / down a side edge, else across the top or bottom edge): its own spot,
+ *      then `pin.step` px either way, then two steps… within [lo, hi];
+ *   2. failing that, in from the edge toward the cross-axis coordinate `inward`, 8 px at a time, trying
+ *      up to two steps either way along the edge at each (beside the feed rather than under it);
+ *   3. failing that, along its edge clear of the pins alone; failing that, it keeps (x, y).
+ * Writes {x, y} into `out`.
+ */
+export function separatePin(x, y, placed, count, blocks, nBlocks, alongY, lo, hi, inward, out = { x: 0, y: 0 }, pin = PIN) {
+  if (pinAlong(x, y, placed, count, blocks, nBlocks, alongY, lo, hi, out, pin, 48)) return out;
+  if (nBlocks > 0) {
+    const from = alongY ? x : y;
+    const dir = Math.sign(inward - from);
+    for (let v = from + dir * 8; dir !== 0 && (inward - v) * dir >= 0; v += dir * 8) {
+      // a step in, and there a step or two either way along the edge (past a pin already moved in)
+      if (pinAlong(alongY ? v : x, alongY ? y : v, placed, count, blocks, nBlocks, alongY, lo, hi, out, pin, 4)) return out;
+    }
+    if (pinAlong(x, y, placed, count, blocks, 0, alongY, lo, hi, out, pin, 48)) return out;
+  }
+  out.x = x;
+  out.y = y;
+  return out;
+}
+
+function pinFree(px, py, placed, count, blocks, nBlocks, pin) {
+  for (let i = 0; i < count; i++) {
+    if (Math.abs(placed[2 * i] - px) < pin.gap && Math.abs(placed[2 * i + 1] - py) < pin.gap) return false;
+  }
+  for (let i = 0; i < nBlocks; i++) {
+    const b = blocks[i];
+    if (px + pin.half > b.l - 2 && px - pin.half < b.r + 2 && py + pin.below > b.t - 2 && py - pin.above < b.b + 2) return false;
+  }
+  return true;
+}
+
+function pinAlong(x, y, placed, count, blocks, nBlocks, alongY, lo, hi, out, pin, kMax) {
+  const base = alongY ? y : x;
+  for (let k = 0; k <= kMax; k++) {
+    const v = base + (k === 0 ? 0 : (k & 1 ? 1 : -1) * Math.ceil(k / 2) * pin.step);
+    if (k > 0 && (v < lo || v > hi)) continue;
+    const px = alongY ? x : v;
+    const py = alongY ? v : y;
+    if (pinFree(px, py, placed, count, blocks, nBlocks, pin)) {
+      out.x = px;
+      out.y = py;
+      return true;
+    }
+  }
+  return false;
+}
+
+/** An edge pin's footprint (px) and how it is spread: see separatePin. */
+export const PIN = { half: 14, above: 30, below: 22, gap: 26, step: 30 };
+
 // ---------------------------------------------------------------------------------------------
 // Minimap
 // ---------------------------------------------------------------------------------------------

@@ -36,7 +36,7 @@ export const MODULES = {
     'renderer', 'scene', 'camera', 'vmScene', 'vmCamera',
     'post.damage', 'post.lowHealth', 'post.ads', 'post.flash', 'post.fade', 'post.saturation',
     'exposure', 'look',
-    'lights.flash()', 'lights.acquire()',
+    'lights.flash()', 'lights.acquire()', 'vmLights.hemi', 'vmLights.key',
     'setQuality()', ...QUALITY_FIELDS.map((field) => `quality.${field}`),
     'setEnvironment()', 'frame()', 'resize()', 'stats()', 'onLevelReady()',
   ],
@@ -172,6 +172,8 @@ export const EVENTS = {
   'radio:line': ['speaker', 'text', 'secs'],
   'train:pass': ['phase', 'duration'],
   'quality:auto': ['name'],
+  'render:lost': [],
+  'render:restored': [],
 };
 
 /** Walks one member path (already split on '.') from `value`; pushes `label` on `out` when it is not there. */

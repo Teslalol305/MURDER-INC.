@@ -44,7 +44,7 @@ export function buildStreet(kit) {
   kit.place('van', 19.4, NORTH, WEST, { color: 0x8a8f96 });
   kit.place('sedan', 31.4, NORTH, WEST, { seed: 3 });
 
-  kit.place('suv', -34.3, SOUTH, 0, { color: 0x0b0c0e }); // Rule's ride
+  kit.place('suv', -40.5, SOUTH, 0, { color: 0x0b0c0e }); // Rule's ride, just behind him: the opening view is the avenue
   kit.place('taxi', -24.6, SOUTH, 0);
   kit.place('van', -18.9, SOUTH, 0, { color: 0x6a7480 });
   kit.place('van', -3, SOUTH, 0, { color: 0x1c2029 });
@@ -163,13 +163,42 @@ export function buildStreet(kit) {
   return { vantage, steam };
 }
 
+const NET_TILE = 0.48; // metres of debris netting per repeat of its picture
+const nets = new WeakMap();
+
+/**
+ * Debris netting: a loose weave of rust-orange tape, see-through enough that the scaffold's tubes and
+ * braces and the street behind read through it. One small repeating picture; its alpha is the weave.
+ */
+function debrisNet(kit) {
+  let material = nets.get(kit);
+  if (material) return material;
+  const map = kit.mats.canvasTexture(64, 64, (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = 'rgba(150, 70, 32, 0.38)'; // the fine weave between the tapes
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = 'rgba(176, 86, 38, 0.92)'; // the tapes, every 6 cm both ways
+    const pitch = w / 8;
+    for (let i = 0; i < 8; i++) {
+      ctx.fillRect(i * pitch, 0, Math.max(1, pitch * 0.28), h);
+      ctx.fillRect(0, i * pitch, w, Math.max(1, pitch * 0.28));
+    }
+  }, { wrap: 'repeat' });
+  map.name = 'level:debris-net';
+  material = new THREE.MeshStandardMaterial({ map, roughness: 0.92, metalness: 0, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+  material.forceSinglePass = true; // one pass is plenty for a sheet of cloth (docs/DEV.md, Materials)
+  material.name = 'debris-net';
+  nets.set(kit, material);
+  return material;
+}
+
 /**
  * The El repair crew's rolling scaffold: two wheeled towers bridged by a work platform under the
  * girders, wrapped in debris netting. It stands across one travel lane (long in z) and is solid.
  */
 function rollingScaffold(kit, x0, x1, z0, z1) {
   const deck = 3.7;
-  const net = ['fabric', { color: 0xb8521a, doubleSide: true }];
+  const net = debrisNet(kit);
   kit.solid(x0, x1, 0, deck + 0.1, z0, z1, { surface: 'metal', tag: 'scaffold' });
   const xs = [x0 + 0.05, x1 - 0.05];
   const zs = [z0 + 0.05, z0 + 1.5, z1 - 1.5, z1 - 0.05];
@@ -180,7 +209,7 @@ function rollingScaffold(kit, x0, x1, z0, z1) {
     }
     for (const y of [0.45, 2.1, deck - 0.12, deck + 1.0]) kit.pipe('metal_galv', [x, y, z0 + 0.05], [x, y, z1 - 0.05], 0.028, 5, { cast: false });
     // Netting on the faces the street sees, a diagonal brace showing through at each tower.
-    kit.quad(net, x === xs[0] ? '-x' : '+x', x, 2.1, (z0 + z1) / 2, z1 - z0 - 0.1, 3.3);
+    kit.quad(net, x === xs[0] ? '-x' : '+x', x, 2.1, (z0 + z1) / 2, z1 - z0 - 0.1, 3.3, { uvScale: [1 / NET_TILE, 1 / NET_TILE] });
     kit.pipe('metal_galv', [x, 0.5, zs[0]], [x, 2.05, zs[1]], 0.022, 5, { cast: false });
     kit.pipe('metal_galv', [x, 0.5, zs[3]], [x, 2.05, zs[2]], 0.022, 5, { cast: false });
   }

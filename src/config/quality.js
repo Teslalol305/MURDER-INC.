@@ -48,21 +48,31 @@ export function autoDetect({ userAgent = '', touchPoints = 0, screenMin = Infini
 /**
  * Dynamic resolution: the internal render scale moves between `min` and 1 to hold the frame rate,
  * and a device that cannot keep up even at `min` is moved one preset down (`quality:auto`).
+ * Every step down has to prove itself: if the next window is not `prove` faster, the frame was not
+ * limited by its pixels (a 30 Hz vsync cap, a CPU-bound frame), so the scale goes back and holds
+ * until the frame time moves by more than `capBand`. A preset is only dropped after a proven step.
  */
 export const dynamicResolution = {
-  settle: 3.5, // seconds after load before measuring
+  settle: 3.5, // seconds after boot, a new run, a resume or the first input before measuring
   settleAfterChange: 1,
   windowFrames: 45, // a measuring window closes after this many frames…
   windowMs: 900, // …or this long, whichever comes first
-  ignoreAbove: 1500, // ms: a hitch or a hidden tab, not a slow frame
+  minFrames: 5, // a window with fewer usable frames than this decides nothing
+  ignoreAbove: 1500, // ms: a hidden tab, never a frame
+  hitchMs: 100, // a frame above max(hitchMs, hitchFactor × the running average) is a hitch, not load…
+  hitchFactor: 4, // …unless most of the window is like that
+  trim: 1 / 6, // a window is judged on its mean with this share cut from each end
+  prove: 0.08, // a step down must make the frame at least this much faster…
+  capBand: 0.1, // …or it is undone and nothing steps down until the frame time moves by more than this
   min: 0.6,
   step: 0.1,
   slow: 21.5, // average frame ms above this: scale down one step…
   slower: 30, // …two steps…
   slowest: 45, // …or straight to `min`
   fast: 17.4, // average below this: scale back up one step
-  upWait: 2, // seconds before trying to scale up; doubles after each drop…
-  upWaitMax: 60, // …up to this
+  upWait: 2, // seconds before trying to scale up; doubles after each step down…
+  upWaitMax: 60, // …up to this…
+  upWaitDecay: 45, // …and goes back to `upWait` after this long without one
   dropAbove: 26, // two windows in a row at `min` above this average: drop a preset
   dropScale: 0.8, // dynamic scale right after a drop
 };

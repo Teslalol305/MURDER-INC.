@@ -41,8 +41,8 @@ export function fakeMats() {
   };
 }
 
-/** A fresh G with everything the level reads, and the level built into it. */
-export function buildLevel(seed = 1994) {
+/** A fresh G with everything the level reads, and the level built into it (createLevel is async). */
+export async function buildLevel(seed = 1994) {
   const G = {
     THREE,
     params: {},
@@ -57,6 +57,6 @@ export function buildLevel(seed = 1994) {
   G.mats = fakeMats();
   G.physics = createPhysics(G);
   G.props = createProps(G);
-  G.level = createLevel(G);
+  G.level = await createLevel(G);
   return G;
 }

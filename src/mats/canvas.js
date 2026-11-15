@@ -323,7 +323,7 @@ export function pixelTexture(r, g, b, srgb) {
  * Normal-map canvas from a height field (see noise.js heightToNormal for `slope`).
  */
 export function normalCanvas(height, w, h, slope, wrapX = true, wrapY = true) {
-  const ctx = canvas2d(w, h);
+  const ctx = canvas2d(w, h, true); // read back when it is packed with the ORM (mats.js packTexture)
   const image = ctx.createImageData(w, h);
   heightToNormal(height, w, h, slope, image.data, wrapX, wrapY);
   ctx.putImageData(image, 0, 0);
@@ -336,7 +336,7 @@ export function normalCanvas(height, w, h, slope, wrapX = true, wrapY = true) {
  * store their "low spots" there for the wet-street shader.
  */
 export function ormCanvas(w, h, rough, metal = null, red = null) {
-  const ctx = canvas2d(w, h);
+  const ctx = canvas2d(w, h, true); // read back when it is packed with the normal (mats.js packTexture)
   const image = ctx.createImageData(w, h);
   const data = image.data;
   for (let i = 0, o = 0; i < w * h; i++, o += 4) {

@@ -38,8 +38,8 @@ const OUTPUT = /* glsl */ `
 	#include <colorspace_fragment>
 `;
 
-const additive = (name, uniforms, vertexShader, fragmentShader, extra = {}) =>
-  new THREE.ShaderMaterial({
+const additive = (name, uniforms, vertexShader, fragmentShader, extra = {}) => {
+  const material = new THREE.ShaderMaterial({
     name,
     uniforms,
     vertexShader,
@@ -51,6 +51,11 @@ const additive = (name, uniforms, vertexShader, fragmentShader, extra = {}) =>
     fog: false,
     ...extra,
   });
+  // three.js draws a transparent double-sided material in two passes and rebuilds its program
+  // parameters for each, every frame. Additive light without depth writes is order-free: one pass.
+  if (material.side === THREE.DoubleSide) material.forceSinglePass = true;
+  return material;
+};
 
 // ------------------------------------------------------------------------------------------------
 // Pools

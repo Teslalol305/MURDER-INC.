@@ -30,15 +30,17 @@ function oval(s, y, rs, ry, x0, x1) {
 }
 
 export function buildChopper(material, def) {
-  const wear = paint(0x62666d, 0.34, 1);
+  // Blued steel: a metal with a dark grey reflectance, glossy enough that the sky, the street and the
+  // sun show in it as shapes. Chamfered edges are worn to bright steel.
+  const wear = paint(0x9aa0a8, 0.28, 1);
   const P = {
-    steel: paint(0x303236, 0.5, 0.6, { wear }),
-    cover: paint(0x2a2c30, 0.52, 0.6, { wear }),
-    dark: paint(0x1d1f22, 0.55, 0.6, { wear }),
+    steel: paint(0x5a5e65, 0.36, 0.9, { wear }),
+    cover: paint(0x53565c, 0.4, 0.9, { wear }),
+    dark: paint(0x3c3e43, 0.44, 0.85, { wear }),
     bare: paint(0xb1b6bd, 0.26, 1, { finish: FINISH.brushed }),
     wood: paint(0x6b3518, 0.42, 0, { finish: FINISH.wood }),
     black: paint(0x050506, 0.92, 0),
-    mag: paint(0x24262a, 0.5, 0.6, { wear }),
+    mag: paint(0x45484e, 0.42, 0.85, { wear }),
     brass: paint(0xcaa23d, 0.28, 1),
     copper: paint(0xb5683a, 0.3, 1),
     dot: paint(0xf2f0e4, 0.6, 0, { glow: 0.55 }),

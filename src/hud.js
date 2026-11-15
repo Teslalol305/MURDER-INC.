@@ -32,6 +32,7 @@ import {
   metres,
   reserveText,
   screenBearing,
+  separatePin,
   typedCount,
   zoneLabel,
 } from './ui/logic.js';
@@ -45,6 +46,7 @@ const MARKER_POOL = 5;
 const BANNER_SECS = 3.4;
 const GHOST_HOLD = 0.45; // the lost-health ghost waits this long before it drains
 const MAX_PIPS = 60;
+const MAX_BLOCKS = 24; // screen boxes an edge pin keeps out of (feed, badge, map, thumb controls)
 
 export function createHud(G) {
   const brand = G.config.brand;
@@ -163,7 +165,7 @@ export function createHud(G) {
   // Radio strip: outside the aria-hidden HUD, a polite live region; it also plays over the debrief.
   const radioSpeaker = el('div', 'radio-speaker');
   const radioLine = el('div', 'radio-line');
-  const radioEl = el('div', { class: 'radio', role: 'status', 'aria-live': 'polite' }, radioSpeaker, el('div', 'radio-plate', radioLine));
+  const radioEl = el('div', { class: 'radio', role: 'status', 'aria-live': 'polite' }, radioSpeaker, el('div', 'radio-plate', el('div', 'radio-text', radioLine)));
   ui.append(hud, radioEl);
 
   // ------------------------------------------------------------------------------------------------
@@ -207,14 +209,53 @@ export function createHud(G) {
   const hv = { value: 0, fill: 0, critical: false };
   const scratch = new THREE.Vector3();
   const clamped = { x: 0, y: 0, off: false };
+  const placed = new Float64Array(MARKER_POOL * 2); // edge pins drawn this frame, [x, y, …] in px
+  const pinOut = { x: 0, y: 0 };
+  // Boxes an edge pin would hide behind (every HUD plate and thumb control paints over the marker layer):
+  // the kill feed while it has lines, the badge, the minimap block and, on touch, the visible controls.
+  const blocks = [];
+  for (let i = 0; i < MAX_BLOCKS; i++) blocks.push({ l: 0, t: 0, r: 0, b: 0 });
+  let nBlocks = 0;
+  let blocksDirty = true;
+  let touchScheme = false;
+  let touchLayer = null;
+  let touchShown = false;
 
   let limDown = 0.6; // NDC: how far down a pinned marker may go (above the weapon bar)
   function measure() {
     width = window.innerWidth || width;
     height = window.innerHeight || height;
-    const top = wbar.getBoundingClientRect().top;
+    let top = wbar.getBoundingClientRect().top;
+    // Portrait touch: the thumb set spans the lower third edge to edge, so pins stop above its top.
+    if (touchScheme && height > width) {
+      for (const n of ui.querySelectorAll('.touch-btn, .touch-stick')) {
+        const r = n.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0 && r.top > height * 0.4 && r.top < top) top = r.top;
+      }
+    }
     const floor = top > 0 ? top - 34 : height * 0.8; // the pin, its distance tag, a little air
     limDown = Math.max(0.2, Math.min(0.9, (2 * floor) / height - 1));
+    blocksDirty = true;
+  }
+  function addBlock(node) {
+    if (nBlocks >= MAX_BLOCKS) return;
+    const r = node.getBoundingClientRect();
+    if (!(r.width > 0 && r.height > 0)) return;
+    const b = blocks[nBlocks++];
+    b.l = r.left;
+    b.t = r.top;
+    b.r = r.right;
+    b.b = r.bottom;
+  }
+  /** Reads the boxes once after something moved (a feed line, the objective, the touch layer, a resize). */
+  function measureBlocks() {
+    blocksDirty = false;
+    nBlocks = 0;
+    if (feed.lines.length > 0) addBlock(feedEl);
+    addBlock(badge);
+    addBlock(mapBox);
+    if (radioEl.classList.contains('is-on')) addBlock(radioEl);
+    if (touchShown) for (const n of touchLayer.querySelectorAll('.touch-btn, .touch-stick, .touch-sprint')) addBlock(n);
   }
   window.addEventListener('resize', () => {
     measured = false;
@@ -296,7 +337,10 @@ export function createHud(G) {
       objT += dt;
       const n = typedCount(objective.length, objT, OBJECTIVE_CPS);
       setText(objText, objective.slice(0, n));
-      if (n >= objective.length) objT = -1;
+      if (n >= objective.length) {
+        objT = -1;
+        blocksDirty = true; // the badge has its final size
+      }
     }
   }
 
@@ -371,11 +415,26 @@ export function createHud(G) {
     const ads = (p.ads || 0) >= 0.5;
     setClass(markerLayer, 'is-off', ads);
     if (!cam || ads) return;
+    const touchNow = rootEl.classList.contains('is-touch');
+    if (touchNow !== touchScheme) {
+      touchScheme = touchNow;
+      measured = false;
+    }
+    if (touchScheme && !touchLayer) touchLayer = ui.querySelector('.touch');
+    const touchNowShown = !!(touchScheme && touchLayer && !touchLayer.hidden);
+    if (touchNowShown !== touchShown) {
+      touchShown = touchNowShown;
+      measured = false;
+    }
     if (!measured) {
       measured = true;
       measure();
     }
+    if (blocksDirty) measureBlocks();
     cam.updateMatrixWorld();
+    let pins = 0;
+    const pinTop = Math.round(0.11 * height); // clampMarker's limY 0.78, in px
+    const pinFloor = Math.round((limDown * 0.5 + 0.5) * height);
     for (let i = 0; i < markerEls.length; i++) {
       const m = markers[i];
       const view = markerEls[i];
@@ -404,8 +463,22 @@ export function createHud(G) {
       const behind = scratch.z > 0;
       scratch.applyMatrix4(cam.projectionMatrix);
       clampMarker(scratch.x, scratch.y, behind, 0.9, 0.78, clamped, limDown);
-      const x = Math.round((clamped.x * 0.5 + 0.5) * width);
-      const y = Math.round((-clamped.y * 0.5 + 0.5) * height);
+      let x = Math.round((clamped.x * 0.5 + 0.5) * width);
+      let y = Math.round((-clamped.y * 0.5 + 0.5) * height);
+      if (clamped.off) {
+        // Pinned to the edge: not under the kill feed or another plate, and not on top of another pin.
+        const alongY = Math.abs(clamped.x) > 0.899;
+        const lo = alongY ? pinTop : Math.round(0.05 * width);
+        const hi = alongY ? pinFloor : Math.round(0.95 * width);
+        // Moving in from the edge stops a third of the way to the aim point.
+        const inward = alongY ? Math.round(width * (clamped.x < 0 ? 0.3 : 0.7)) : Math.round(height * (clamped.y > 0 ? 0.3 : 0.7));
+        separatePin(x, y, placed, pins, blocks, nBlocks, alongY, lo, hi, inward, pinOut);
+        x = Math.round(pinOut.x);
+        y = Math.round(pinOut.y);
+        placed[2 * pins] = x;
+        placed[2 * pins + 1] = y;
+        pins++;
+      }
       setStyle(node, 'transform', `translate(${x}px, ${y}px)`);
       setClass(node, 'is-edge', clamped.off);
       setClass(node, 'is-dim', !clamped.off && markerOverAim(clamped.x, clamped.y));
@@ -493,6 +566,7 @@ export function createHud(G) {
         line.op = 1;
         feedEl.append(node);
       }
+      blocksDirty = true;
     }
     for (const line of feed.lines) {
       const op = feed.opacity(line);
@@ -527,6 +601,7 @@ export function createHud(G) {
     if (line !== radioKey) {
       radioKey = line;
       radioShown = -1;
+      blocksDirty = true;
       if (line) {
         setText(radioSpeaker, line.speaker);
         radioEl.setAttribute('aria-label', `${line.speaker}: ${line.text}`);
@@ -537,20 +612,33 @@ export function createHud(G) {
     if (n !== radioShown) {
       radioShown = n;
       setText(radioLine, line.text.slice(0, n));
+      if (n >= line.text.length) blocksDirty = true; // typed out: the strip has its full size
     }
   }
 
   function updateZone() {
     const level = G.level;
     const p = G.player.pos;
-    if (!level || typeof level.zoneAt !== 'function') return;
-    let id = 'avenue';
-    try {
-      id = level.zoneAt(p.x, p.z) || 'avenue';
-    } catch {
-      /* a level without zones */
+    if (!level) return;
+    let name = '';
+    // The level knows its own places best (the roadway through the east zone is the avenue, not the lot).
+    if (typeof level.zoneName === 'function') {
+      try {
+        name = String(level.zoneName(p.x, p.z) || '');
+      } catch {
+        name = '';
+      }
     }
-    const name = typeof text.zoneName === 'function' ? text.zoneName(id, p.z) : zoneLabel(id, p.z, copy.hud.zones);
+    if (!name) {
+      if (typeof level.zoneAt !== 'function') return;
+      let id = 'avenue';
+      try {
+        id = level.zoneAt(p.x, p.z) || 'avenue';
+      } catch {
+        /* a level without zones */
+      }
+      name = typeof text.zoneName === 'function' ? text.zoneName(id, p.z) : zoneLabel(id, p.z, copy.hud.zones);
+    }
     if (name !== zoneKey) {
       zoneKey = name;
       setText(zoneBand, name);
@@ -574,7 +662,10 @@ export function createHud(G) {
     show(on) {
       shown = !!on;
       setClass(hud, 'is-on', shown);
-      if (shown) minimap.invalidate(); // the block may have changed under it since the last run
+      if (shown) {
+        minimap.invalidate(); // the block may have changed under it since the last run
+        blocksDirty = true;
+      }
     },
     reset() {
       objective = '';
@@ -630,7 +721,7 @@ export function createHud(G) {
       setClass(badge, 'is-holdout', true);
       badgeBullets.replaceChildren();
       setText(badgeCount, '');
-      setText(badgeTally, tally);
+      if (setText(badgeTally, tally)) blocksDirty = true;
     },
     setMarkers(list) {
       markers = Array.isArray(list) ? list.slice(0, MARKER_POOL) : [];
@@ -643,6 +734,7 @@ export function createHud(G) {
       if (on !== promptOn) {
         promptOn = on;
         setClass(prompt, 'is-on', on);
+        setClass(hud, 'has-prompt', on); // short screens: the centre message gives the prompt its slot
       }
       if (!spec) {
         promptProg = -1;
@@ -678,8 +770,11 @@ export function createHud(G) {
       radio.clear();
     },
     update(dt) {
-      updateRadio(dt);
-      updateFeed(dt);
+      // hud.update runs in every state: behind the pause card the radio line and the feed keep their time
+      // (the game's own radio queue is frozen too), so nothing runs out unseen.
+      const live = G.game && G.game.state === 'paused' ? 0 : dt;
+      updateRadio(live);
+      updateFeed(live);
       if (!shown) return;
       updateBadge(dt);
       updateBanner(dt);

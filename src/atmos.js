@@ -183,11 +183,12 @@ export function createAtmos(G) {
   // Image-based light
   // ---------------------------------------------------------------------------------------------
 
-  let envTarget = null;
+  // The lamp blobs of the night capture (kept: the environments are baked again after a lost context).
+  const envBlobs = [];
   {
     const cfg = look.env;
     const probe = new THREE.Vector3((bounds.minX + bounds.maxX) / 2, 1.4, avenueZ);
-    const blobs = [];
+    const blobs = envBlobs;
     for (const lamp of lamps) {
       const to = lamp.pos.clone().sub(probe);
       const dist = Math.max(to.length(), 3);
@@ -203,20 +204,25 @@ export function createAtmos(G) {
       });
     }
     blobs.sort((a, b) => b.weight - a.weight);
-    envTarget = createEnvironment(G, sky, blobs.slice(0, cfg.maxLamps));
+    blobs.length = Math.min(blobs.length, cfg.maxLamps);
   }
-  // By day: the day sky (without the sun's disc, which the key light already is) over sunlit stand-ins.
-  // The haze is part of the capture, so it is switched to the day's while the sky is painted.
-  let dayEnvTarget = null;
-  {
+  /**
+   * Bakes both PMREM environments. By night: the night sky and its lamp blobs. By day: the day sky
+   * (without the sun's disc, which the key light already is) over sunlit stand-ins; the haze is part of
+   * the capture, so it is switched to the day's while the sky is painted (setTime puts back the shown one).
+   * Render-target contents do not survive a lost WebGL context, so this runs again on `render:restored`.
+   */
+  function bakeEnvironments() {
+    const night = createEnvironment(G, sky, envBlobs);
     const day = look.times.day;
     haze.setBase(day.fog.haze, day.fog.density);
     daySky.setCapture(true, day.env.skyGain);
-    dayEnvTarget = createEnvironment(G, daySky, [], day.env);
+    const dayTarget = createEnvironment(G, daySky, [], day.env);
     daySky.setCapture(false);
     haze.setBase(look.times.night.fog.haze, look.times.night.fog.density);
+    return { day: dayTarget, night };
   }
-  const environments = { day: dayEnvTarget, night: envTarget };
+  const environments = bakeEnvironments();
 
   // ---------------------------------------------------------------------------------------------
   // Quality
@@ -340,6 +346,16 @@ export function createAtmos(G) {
   });
   // A new run clears the fx module: ask for the steam again.
   G.events.on('game:reset', () => life.hookEmitters());
+  // After a lost WebGL context the PMREM targets come back empty (render targets have no CPU-side copy):
+  // bake both again, drop the dead ones and put the shown time's environment and rig back.
+  G.events.on('render:restored', () => {
+    const fresh = bakeEnvironments();
+    for (const name of ['day', 'night']) {
+      environments[name].dispose();
+      environments[name] = fresh[name];
+    }
+    setTime(time);
+  });
 
   // ---------------------------------------------------------------------------------------------
   // Update

@@ -1,7 +1,7 @@
 // Rounds meeting the block (impacts per surface, ricochets, the whizz of a near miss), the hit and kill
 // confirms, explosions, the propane jet, and the interface ticks.
 
-import { biquad, burst, drive, echo, fade, glide, lowpass, mix, reverb, ring, seamless, shape, sweep, tone, white, brown, TAU } from './dsp.js';
+import { biquad, biquadSteps, burst, drive, driveSteps, echo, fade, glide, lowpass, mix, reverb, reverbSteps, ring, seamless, shape, sweep, tone, white, brown, TAU } from './dsp.js';
 
 function impact(c, surface) {
   const { sr, rnd } = c;
@@ -121,7 +121,7 @@ function* explosion(c, big) {
   // The roll: brown noise, darkening, with slow lumps in it.
   const roll = brown(x.length, rnd);
   shape(roll, sr, 0.03, len / 4.2);
-  biquad(roll, sr, 'lowpass', glide(big ? 2600 : 3400, 240), 0.6);
+  yield* biquadSteps(roll, sr, 'lowpass', glide(big ? 2600 : 3400, 240), 0.6);
   const lump = c.r(3, 5);
   for (let i = 0; i < roll.length; i++) roll[i] *= 0.7 + 0.3 * Math.sin((TAU * lump * i) / sr + 1);
   mix(x, roll, sr, 0.01, 1.3);
@@ -137,9 +137,8 @@ function* explosion(c, big) {
     if (c.rnd() < 0.5) ring(x, sr, at, [[f, 0.5, c.r(0.008, 0.03)], [f * 1.6, 0.3, 0.01]], c.r(0.03, 0.1));
     else burst(x, sr, at, 0.05, rnd, c.r(0.04, 0.12), { tau: 0.012, type: 'bandpass', f, q: 1 });
   }
-  yield;
-  drive(x, big ? 2.6 : 2.1);
-  const out = reverb(x, sr, { time: big ? 1.6 : 1.1, damp: 0.6, mix: 0.25, size: 1.6 }).subarray(0, x.length);
+  yield* driveSteps(x, big ? 2.6 : 2.1);
+  const out = (yield* reverbSteps(x, sr, { time: big ? 1.6 : 1.1, damp: 0.6, mix: 0.25, size: 1.6 })).subarray(0, x.length);
   return fade(out, sr, 0.001, 0.5);
 }
 

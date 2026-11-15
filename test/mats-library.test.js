@@ -102,3 +102,43 @@ test('mats: the module table in the contract lists what createMats returns', () 
     assert.ok(MODULES.mats.includes(member), member);
   }
 });
+
+test('mats: by day lit glass is dark glass, and the night lamp blobs stay off car bodies', async () => {
+  const { WET_REACH } = await import('../src/mats.js');
+  for (const name of ['glass_lit_warm', 'glass_lit_cool', 'glass_car_lit']) {
+    assert.equal(LOOKS[name].dayGlow, 0, `${name} does not glow by day`);
+    assert.ok(MATERIALS[name].emissive !== undefined, `${name} glows at night (catalogue emissive)`);
+    assert.ok(MATERIALS[name].color < 0x202020, `${name} is dark glass`);
+  }
+  assert.ok(LOOKS.glass_store.dayGlow <= 0.05);
+  // The skylights change colour, not only brightness.
+  assert.ok(LOOKS.glass_skylight.dayEmissive !== undefined && MATERIALS.glass_skylight.emissive !== LOOKS.glass_skylight.dayEmissive);
+  for (const name of ['car_paint', 'glass_car', 'glass_car_lit']) assert.ok(LOOKS[name].nightEnv > 0 && LOOKS[name].nightEnv < 1, name);
+  // Car paint is an even clear coat: no painted roughness pattern.
+  assert.equal(LOOKS.car_paint.gloss, undefined);
+  // Standing water is a world material with its own day albedo, wet only where the hydrant reaches by day.
+  for (const [name, look] of Object.entries(LOOKS)) if (look.soak) assert.ok(look.world && look.day !== undefined, name);
+  assert.ok(LOOKS.asphalt_wet.soak);
+  assert.equal(LOOKS.asphalt_wet.day, LOOKS.asphalt.day, 'outside the reach it is the dry street');
+  assert.ok(WET_REACH.radius[0] > WET_REACH.radius[1] && WET_REACH.gutter > 0);
+});
+
+test('mats: the world patch gates the wet street by the hydrant and greys the day sky light', async () => {
+  const THREE = await import('three');
+  const { patchWorld } = await import('../src/mats/shader.js');
+  const material = new THREE.MeshStandardMaterial();
+  const v = (x) => ({ value: x });
+  const uniforms = { miMacro: v(null), miLook: v(new THREE.Vector4()), miDry: v(1), miWetLine: v(new THREE.Vector4()), miWetSize: v(new THREE.Vector3()), miSoak: v(0) };
+  patchWorld(material, uniforms, true);
+  const lib = THREE.ShaderLib.physical;
+  const shader = { uniforms: {}, vertexShader: lib.vertexShader, fragmentShader: lib.fragmentShader };
+  material.onBeforeCompile(shader);
+  for (const name of ['miWetLine', 'miWetSize', 'miSoak', 'miDry']) assert.ok(shader.uniforms[name], name);
+  assert.match(shader.fragmentShader, /uniform vec4 miWetLine;/);
+  assert.match(shader.fragmentShader, /float miReach = /);
+  assert.match(shader.fragmentShader, /iblIrradiance = mix\( iblIrradiance, vec3\( dot\( iblIrradiance/);
+  // The grey-down comes after three.js gathers the image-based light.
+  const f = shader.fragmentShader;
+  assert.ok(f.indexOf('#include <lights_fragment_maps>') >= 0 && f.indexOf('iblIrradiance = mix') > f.indexOf('#include <lights_fragment_maps>'));
+  assert.ok(f.indexOf('iblIrradiance = mix') < f.indexOf('#include <lights_fragment_end>'));
+});

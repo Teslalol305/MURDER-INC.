@@ -6,9 +6,11 @@
 //   engage       orbits the player at its own radius and height, steadying to shoot; flies to the
 //                last known position when it loses sight
 //
-// No pathfinding: one ray feeler per frame (ahead, down, up in rotation) nudges it around things, the
-// flight plan around the El keeps it under or beside the track deck (logic.js planAroundDeck), and
-// collision rays along its motion stop it at any surface it still reaches.
+// No pathfinding: it climbs over whatever stands on the leg ahead (logic.js climbOver), one ray feeler
+// per frame (ahead, down, up in rotation) nudges it around things, the flight plan around the El keeps
+// it under or beside the track deck (logic.js planAroundDeck), collision rays along its motion stop it
+// at any surface it still reaches, and an airframe that ends a step overlapping something is put back
+// into free air (logic.js pushOut).
 // Attack: a telegraphed burst of slow tracer bolts with partial lead. Death: it spins down trailing
 // smoke and bursts where it lands.
 
@@ -28,7 +30,7 @@ import {
   ROTORS,
   STROBES,
 } from './buzzard-model.js';
-import { aimSpread, leadPoint, planAroundDeck } from './logic.js';
+import { aimSpread, climbHit, climbOver, deckEntry, deckSlide, inRoom, isPole, leadPoint, planAroundDeck, pushOut, routeIndoors } from './logic.js';
 import { createRig, m3Euler } from './rig.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -36,6 +38,9 @@ const DOWN = new THREE.Vector3(0, -1, 0);
 const TILT_PER_ACCEL = 0.034; // radians of bank per m/s²
 const MAX_TILT = 0.5;
 const STROBE_PERIOD = 1.3;
+const POLE_STEP = 2; // m/s sideways off a pole it was coming down onto
+const ROOM_MARGIN = 1.5; // an orbit indoors keeps this far inside the walls
+const MOVEMENT = { movement: true }; // physics.lineOfSight: nothing that blocks a body in between
 
 export function createBuzzards(ctx) {
   const { G, cfg } = ctx;
@@ -46,6 +51,7 @@ export function createBuzzards(ctx) {
   const want = [0, 0, 0];
   const aimAt = [0, 0, 0];
   const origin = new THREE.Vector3();
+  const to = new THREE.Vector3();
   const dir = new THREE.Vector3();
   const boltDir = new THREE.Vector3();
   const hit = { dist: 0, point: new THREE.Vector3(), normal: new THREE.Vector3(), surface: null, box: null };
@@ -99,6 +105,14 @@ export function createBuzzards(ctx) {
       rethinkIn: 5,
       flipIn: 0,
       push: new THREE.Vector3(), // what the feelers ask for, fading
+      stuckX: 0, // where it was when it last got anywhere, and for how long it has not (detour)
+      stuckY: 0,
+      stuckZ: 0,
+      stuckT: 0,
+      detourIn: 0,
+      detourX: 0,
+      detourY: 0,
+      detourZ: 0,
       ceiling: Infinity,
       ceilingAge: 0,
       feeler: 0,
@@ -126,6 +140,61 @@ export function createBuzzards(ctx) {
   }
 
   const pool = Array.from({ length: cfg.pool.buzzard }, (_, i) => makeBuzzard(i));
+
+  /* ------------------------------------------------------------------------------------ indoors */
+
+  // The level's interiors (level.interiorBoxes: the shop) and their doorways, found once, the first time a
+  // drone needs them, by casting rays in through the walls: a run of at least DOOR_WIDTH metres where both
+  // a low and a high ray pass, tall enough for an airframe.
+  const DOOR_WIDTH = 2;
+  const DOOR_RAYS = [2.4, 3.2];
+  let rooms = null;
+
+  function wallClear(x, y, z, dx, dz) {
+    origin.set(x, y, z);
+    dir.set(dx, 0, dz);
+    return !G.physics.raycast(origin, dir, 3.2, hit);
+  }
+
+  function findRooms() {
+    rooms = [];
+    const list = (G.level && G.level.interiorBoxes) || [];
+    for (let k = 0; k < list.length; k++) {
+      const box = list[k];
+      const room = { box, list: [] };
+      // The four walls: along x (normal ±z) and along z (normal ±x).
+      for (let w = 0; w < 4; w++) {
+        const alongX = w < 2;
+        const sign = w % 2 === 0 ? 1 : -1;
+        const wall = alongX ? (sign > 0 ? box.max.z : box.min.z) : sign > 0 ? box.max.x : box.min.x;
+        const a0 = (alongX ? box.min.x : box.min.z) + 0.6;
+        const a1 = (alongX ? box.max.x : box.max.z) - 0.6;
+        let run = 0;
+        for (let a = a0; a <= a1 + 0.25; a += 0.5) {
+          const out = wall + sign * 1.5;
+          let clear = a <= a1;
+          for (let r = 0; clear && r < DOOR_RAYS.length; r++) {
+            clear = alongX ? wallClear(a, DOOR_RAYS[r], out, 0, -sign) : wallClear(out, DOOR_RAYS[r], a, -sign, 0);
+          }
+          if (clear) {
+            run++;
+            continue;
+          }
+          if (run * 0.5 >= DOOR_WIDTH) {
+            const c = a - 0.25 * (run + 1); // centre of the run (the samples a - 0.5, a - 1, …)
+            let top = DOOR_RAYS[DOOR_RAYS.length - 1];
+            while (top < box.max.y && (alongX ? wallClear(c, top + 0.2, out, 0, -sign) : wallClear(out, top + 0.2, c, -sign, 0))) top += 0.2;
+            const y = Math.max(DOOR_RAYS[0], top - 0.6);
+            const o = wall + sign * 2.5;
+            const i = wall - sign * 2.5;
+            room.list.push(alongX ? { ox: c, oz: o, ix: c, iz: i, y } : { ox: o, oz: c, ix: i, iz: c, y });
+          }
+          run = 0;
+        }
+      }
+      rooms.push(room);
+    }
+  }
 
   /** Airframe rotation as a row-major 3 × 3 in `rot`, and the eye and muzzle in world space. */
   function place(e) {
@@ -157,6 +226,7 @@ export function createBuzzards(ctx) {
       e.pos.y = el.y - t.deck.under; // never inside the track deck
     }
     e.vel.set(0, 0, 0);
+    pushOut(G.physics.boxes, e.pos, e.vel, t, G.physics.bounds);
     e.home.copy(e.pos);
     e.yaw = opts.yaw !== undefined ? opts.yaw : ctx.random() * Math.PI * 2;
     e.cooldown = ctx.range(t.firstCooldown);
@@ -168,6 +238,10 @@ export function createBuzzards(ctx) {
     e.rethinkIn = ctx.range(t.orbit.rethink);
     e.flipIn = 0;
     e.push.set(0, 0, 0);
+    e.stuckX = e.pos.x;
+    e.stuckY = e.pos.y;
+    e.stuckZ = e.pos.z;
+    e.stuckT = e.detourIn = 0;
     e.ceiling = Infinity;
     e.ceilingAge = 0;
     e.feeler = e.slot % 3;
@@ -217,6 +291,13 @@ export function createBuzzards(ctx) {
       want[0] = p.pos.x + Math.cos(e.orbitAngle) * e.orbitRadius;
       want[1] = p.pos.y + e.altitude;
       want[2] = p.pos.z + Math.sin(e.orbitAngle) * e.orbitRadius;
+      // Indoors with him: the orbit stays inside the walls (the ceiling feeler keeps it under the roof).
+      for (let k = 0; k < rooms.length; k++) {
+        const b = rooms[k].box;
+        if (!inRoom(b, p.pos, 0, true) || !inRoom(b, e.pos, 0, true)) continue;
+        want[0] = clamp(want[0], b.min.x + ROOM_MARGIN, b.max.x - ROOM_MARGIN);
+        want[2] = clamp(want[2], b.min.z + ROOM_MARGIN, b.max.z - ROOM_MARGIN);
+      }
       return t.maxSpeed;
     }
     if (e.mode === 'patrol') {
@@ -263,18 +344,20 @@ export function createBuzzards(ctx) {
 
   /**
    * Moves along one axis with a collision ray: stops `clear` short of whatever is in the way and bounces.
-   * axis 0 = x, 1 = y, 2 = z.
+   * axis 0 = x, 1 = y, 2 = z. Returns whether it was stopped (then `hit` says by what).
    */
   function slide(e, axis, dt, clear, bounce) {
     const v = axis === 0 ? e.vel.x : axis === 1 ? e.vel.y : e.vel.z;
-    if (v === 0) return;
+    if (v === 0) return false;
     const sign = v > 0 ? 1 : -1;
     dir.set(axis === 0 ? sign : 0, axis === 1 ? sign : 0, axis === 2 ? sign : 0);
     const travel = Math.abs(v) * dt;
     let move = travel;
+    let stopped = false;
     if (G.physics.raycast(e.pos, dir, travel + clear, hit)) {
       move = Math.max(0, hit.dist - clear);
       if (move < travel) {
+        stopped = true;
         if (axis === 0) e.vel.x = v * bounce;
         else if (axis === 1) e.vel.y = v * bounce;
         else e.vel.z = v * bounce;
@@ -285,17 +368,91 @@ export function createBuzzards(ctx) {
     if (axis === 0) e.pos.x += sign * move;
     else if (axis === 1) e.pos.y += sign * move;
     else e.pos.z += sign * move;
+    return stopped;
+  }
+
+  /**
+   * The last resort: a drone that has not got anywhere for a while although it wants to (wedged between
+   * a lamp post and a wall, say, where none of the rules above sees the trap) flies off a few metres in
+   * a direction that is clear, and a little up, then carries on. Rewrites `want` while it lasts.
+   */
+  function detour(e, dt, t) {
+    const D = t.detour;
+    if (e.detourIn > 0) {
+      e.detourIn -= dt;
+      want[0] = e.detourX;
+      want[1] = e.detourY;
+      want[2] = e.detourZ;
+      return;
+    }
+    const far = Math.abs(want[0] - e.pos.x) + Math.abs(want[1] - e.pos.y) + Math.abs(want[2] - e.pos.z) > D.far;
+    const dx = e.pos.x - e.stuckX;
+    const dy = e.pos.y - e.stuckY;
+    const dz = e.pos.z - e.stuckZ;
+    if (!far || dx * dx + dy * dy + dz * dz > D.moved * D.moved) {
+      e.stuckX = e.pos.x;
+      e.stuckY = e.pos.y;
+      e.stuckZ = e.pos.z;
+      e.stuckT = 0;
+      return;
+    }
+    e.stuckT += dt;
+    if (e.stuckT < D.after) return;
+    e.stuckT = 0;
+    // A clear way out: a few random directions, the first that nothing solid blocks (to the eye or a body).
+    const up = Math.min(t.maxAltitude, e.ceiling - t.ceilingClearance, e.pos.y + D.up);
+    for (let k = 0; k < 6; k++) {
+      const a = ctx.random() * Math.PI * 2;
+      to.set(e.pos.x + Math.cos(a) * D.distance, Math.max(e.pos.y, up), e.pos.z + Math.sin(a) * D.distance);
+      if (k < 5 && !G.physics.lineOfSight(e.pos, to, MOVEMENT)) continue;
+      e.detourX = to.x;
+      e.detourY = to.y;
+      e.detourZ = to.z;
+      e.detourIn = D.time;
+      return;
+    }
   }
 
   function fly(e, dt, t) {
+    if (!rooms) findRooms();
     const cap = target(e, dt, t);
+    // Wanted inside the shop from out here: in through a doorway, not down onto the roof.
+    let indoors = 0;
+    for (let k = 0; k < rooms.length && !indoors; k++) indoors = routeIndoors(e.pos, want, rooms[k]);
     const damaged = e.hp < e.maxHp * t.damagedBelow;
+    const el = G.level && G.level.el;
 
-    // Height limits: off the ground, under any ceiling it has seen, and never through the track deck.
+    // Height limits: off the ground, under any ceiling it has seen, never through the track deck, and
+    // over the roofs on the way. The climb comes after the deck plan: a drone that must drop under the
+    // deck beyond a building first goes over the building (the plan then holds it outside the deck's
+    // footprint until it is low enough), but one already under the deck never climbs into it.
     const ground = G.physics.groundHeight(e.pos.x, e.pos.z, e.pos.y + 0.3);
     e.ceilingAge += dt;
-    want[1] = Math.min(Math.max(want[1], ground + t.minHeight), t.maxAltitude, e.ceiling - t.ceilingClearance);
-    planAroundDeck(e.pos.x, e.pos.y, e.pos.z, want, G.level && G.level.el, t.deck);
+    const top = Math.min(t.maxAltitude, e.ceiling - t.ceilingClearance);
+    want[1] = Math.min(Math.max(want[1], ground + t.minHeight), top);
+    const plan = planAroundDeck(e.pos.x, e.pos.y, e.pos.z, want, el, t.deck);
+    const dm = t.deck.margin;
+    const underDeck = el && e.pos.y < el.y && e.pos.x > el.minX - dm && e.pos.x < el.maxX + dm && e.pos.z > el.minZ - dm && e.pos.z < el.maxZ + dm;
+    if (!underDeck) {
+      climbOver(G.physics.boxes, e.pos, want, t, el);
+      // Sent under the deck and already at its edge, but something tall is in the way in or right under
+      // the hold: go straight across the edge, else slide along it until there is room to come down
+      // (logic.js deckEntry). Further out, climbing over what is in the way is the right answer.
+      if ((plan === 1 || plan === 3) && el) {
+        const ox = e.pos.x < el.minX - dm ? el.minX - dm - e.pos.x : e.pos.x > el.maxX + dm ? e.pos.x - el.maxX - dm : 0;
+        const oz = e.pos.z < el.minZ - dm ? el.minZ - dm - e.pos.z : e.pos.z > el.maxZ + dm ? e.pos.z - el.maxZ - dm : 0;
+        const free = el.y - t.deck.under + 0.6;
+        if (ox * ox + oz * oz <= (t.deck.hold + 1) * (t.deck.hold + 1) && want[1] > free) {
+          if (plan === 1) {
+            deckEntry(e.pos, want, el, t.deck);
+            climbOver(G.physics.boxes, e.pos, want, t, el);
+          }
+          if (want[1] > free && climbHit.box) deckSlide(e.pos, want, climbHit.box, t.deck);
+        }
+      }
+      if (want[1] > top) want[1] = top;
+    }
+    detour(e, dt, t);
 
     // A damped pull toward the point, plus what the feelers ask for.
     const H = t.pull.horizontal;
@@ -336,7 +493,15 @@ export function createBuzzards(ctx) {
     const pz = e.pos.z;
     slide(e, 0, dt, t.radius + 0.1, bounce);
     slide(e, 2, dt, t.radius + 0.1, bounce);
-    slide(e, 1, dt, t.halfHeight + 0.2, bounce);
+    if (slide(e, 1, dt, t.halfHeight + 0.2, bounce) && e.vel.y >= 0 && hit.box && isPole(hit.box)) {
+      // Coming down onto a lamp post or a column: step off it sideways, or it would perch there for good.
+      const q = hit.box;
+      const ox = e.pos.x - (q.min.x + q.max.x) * 0.5;
+      const oz = e.pos.z - (q.min.z + q.max.z) * 0.5;
+      const d = Math.sqrt(ox * ox + oz * oz);
+      e.vel.x = d > 0.01 ? (ox / d) * POLE_STEP : POLE_STEP;
+      e.vel.z = d > 0.01 ? (oz / d) * POLE_STEP : 0;
+    }
     if (e.pos.y < ground + t.floorClearance) {
       e.pos.y = ground + t.floorClearance;
       if (e.vel.y < 0) e.vel.y = 0;
@@ -360,6 +525,9 @@ export function createBuzzards(ctx) {
         if (e.vel.z > 0) e.vel.z = 0;
       }
     }
+    // The collision rays run from the centre: a corner beside the centre line can still end up inside
+    // the airframe. Never leave it there (and never freeze it there): back out into free air.
+    pushOut(G.physics.boxes, e.pos, e.vel, t, b);
     const moved = Math.hypot(e.pos.x - px, e.pos.y - py, e.pos.z - pz);
     if (moved > 0.02) e.lastActive = ctx.clock.now;
 
@@ -637,6 +805,11 @@ export function createBuzzards(ctx) {
     onKilled,
     sensor,
     drawGlow,
+    /** For enemies.debug(): every doorway found, as [outside x, z, inside x, z, height]. */
+    doorways() {
+      if (!rooms) findRooms();
+      return rooms.flatMap((r) => r.list.map((d) => [d.ox, d.oz, d.ix, d.iz, +d.y.toFixed(2)]));
+    },
     onLeaveEngage(e) {
       e.burstLeft = 0;
     },

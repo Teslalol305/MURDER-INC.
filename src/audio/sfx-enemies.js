@@ -4,7 +4,7 @@
 import { biquad, burst, drive, fade, formants, glide, lowpass, mix, reverb, ring, saw, seamless, shape, sweep, tone, white, TAU } from './dsp.js';
 
 /** Four motors a few Hz apart, blade noise on top. Whole-number frequencies over 1 s: the loop closes exactly. */
-function rotor(c) {
+function* rotor(c) {
   const { sr } = c;
   const x = c.buf(1);
   const motors = [187, 194, 203, 209];
@@ -14,7 +14,9 @@ function rotor(c) {
       const w = (TAU * motors[m] * h) / sr;
       const a = 0.25 / h ** 1.15;
       for (let i = 0; i < x.length; i++) x[i] += a * Math.sin(w * i + ph * h);
+      if (h % 2 === 0) yield;
     }
+    yield;
   }
   // Blade wash: noise, amplitude-modulated at the blade-pass rate.
   const wash = seamless(biquad(white(x.length + Math.round(0.1 * sr), c.rnd), sr, 'bandpass', 2400, 0.6), sr, 0.1);
@@ -189,16 +191,18 @@ function alertBuzzard(c) {
 }
 
 /** The rush: a growl coming up from the chest while the pipe drags on the asphalt. Played at 0.6 s / wind-up. */
-function goonRush(c) {
+function* goonRush(c) {
   const { sr, rnd } = c;
   const dur = 0.6;
   const x = c.buf(dur + 0.1);
   const growl = voice(c, dur, 88, 150, OH, AH, 0.5);
+  yield;
   for (let i = 0; i < growl.length; i++) {
     const u = i / growl.length;
     growl[i] *= u ** 1.4 * Math.min(1, (1 - u) * 12) * (0.75 + 0.25 * Math.sin(TAU * 27 * (i / sr))); // fry
   }
   mix(x, growl, sr, 0, 0.9);
+  yield;
   // The pipe: grains of scrape exciting a tube's partials.
   const k = c.r(0.95, 1.06);
   for (let at = 0.02; at < dur - 0.08; at += c.r(0.012, 0.03)) {

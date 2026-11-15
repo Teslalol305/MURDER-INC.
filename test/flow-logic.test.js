@@ -13,6 +13,7 @@ import { createRadio } from '../src/game/radio.js';
 import { compassSector, pickSpawn, spawnScore } from '../src/game/spawn.js';
 import { accuracy, cardData } from '../src/game/stats.js';
 import { createTitleCamera } from '../src/game/titlecam.js';
+import { introCopy } from '../src/game/intro.js';
 import { BUZZARD, GOON, holdoutOrder, holdoutWave, killScore, missionOrder, pursuitType } from '../src/game/waves.js';
 
 const near = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${a} ≉ ${b}`);
@@ -347,4 +348,25 @@ test('flow: timings and interaction numbers from the notes', () => {
   assert.deepEqual([p.firstDelay, p.minAlive, p.spawnDelay, p.realertEvery, p.realertRadius], [12, 4, 0.5, 4, 90]);
   assert.deepEqual([H.firstDelay, H.breather, H.firstSpawn, H.bannerSecs], [3.5, 9, 1.2, 3.6]);
   assert.deepEqual([flow.extraction.radius, flow.extraction.vertical, flow.extraction.refuseSecs, flow.extraction.refuseEvery], [2.5, 3.5, 3.5, 8]);
+});
+
+test('flow: the full intro speaks for the mode — Story briefs the reels, Hold the Block has none', () => {
+  const story = introCopy(true, text);
+  assert.equal(story.card, text.location);
+  assert.equal(story.line, text.radio.intro);
+  assert.match(story.line.text, /masters/);
+
+  const hold = introCopy(false, text);
+  assert.equal(hold.card.tagline, 'One block. Endless Vultures.');
+  assert.equal(hold.card.tagline, text.location.taglineHoldout);
+  assert.equal(hold.card.place, text.location.place, 'the place line is the same');
+  assert.deepEqual(hold.card.byTime, text.location.byTime, 'day / night clock still picked by the menus');
+  assert.notEqual(text.location.tagline, hold.card.tagline, 'the shared card data is not rewritten');
+  assert.equal(hold.line, text.radio.introHoldout);
+  assert.doesNotMatch(hold.line.text, /reel|master|truck/i);
+  assert.ok(hold.line.secs > 0 && hold.line.text.length > 0);
+  // Without the holdout copy the card falls back to the shared data and no line is said.
+  const bare = { location: { tagline: 'x', place: 'p' }, radio: { intro: { text: 'i', secs: 1 } } };
+  assert.equal(introCopy(false, bare).card, bare.location);
+  assert.equal(introCopy(false, bare).line, null);
 });

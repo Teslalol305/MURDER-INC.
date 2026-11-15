@@ -34,21 +34,50 @@ const NUDGE = 2.5; // how far an AI point may be moved to reach a walkable cell
 
 const v = (x, y, z) => new THREE.Vector3(x, y, z);
 
-export function createLevel(G) {
+// The boot bar's span while the level builds (src/modules.js: level 0.36, atmos 0.52).
+const BOOT_FROM = 0.36;
+const BOOT_TO = 0.52;
+
+/**
+ * Lets the browser paint between build phases (or moves on after 60 ms when the tab is hidden, like
+ * main.js paint()), nudging the boot bar along `share` of the level's span. Outside a page (node tests)
+ * it only yields to the microtask queue.
+ */
+function breathe(share) {
+  if (typeof document === 'undefined' || typeof requestAnimationFrame !== 'function') return Promise.resolve();
+  const fill = document.getElementById('boot-fill');
+  if (fill) fill.style.transform = `scaleX(${BOOT_FROM + (BOOT_TO - BOOT_FROM) * share})`;
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, 60);
+    requestAnimationFrame(() => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
+
+export async function createLevel(G) {
   const { physics } = G;
   const text = G.config.text;
   const kit = createKit(G);
 
   // ---------------------------------------------------------------------------------------------
-  // Build
+  // Build, one phase at a time: each one paints its materials, so the boot screen gets a frame between
+  // them instead of freezing for the whole block.
   // ---------------------------------------------------------------------------------------------
 
   const ground = buildGround(kit);
+  await breathe(0.1);
   const el = buildEl(kit);
+  await breathe(0.2);
   buildBuildings(kit);
+  await breathe(0.4);
   const shop = buildShop(kit);
+  await breathe(0.55);
   const yards = buildYards(kit);
+  await breathe(0.7);
   const street = buildStreet(kit);
+  await breathe(0.85);
   const animated = [...kit.animated, ...shop.animated];
 
   // Player-only walls right behind the block's edges: nothing that can be climbed leads out.
@@ -135,6 +164,7 @@ export function createLevel(G) {
 
   const root = new THREE.Group();
   root.name = 'level';
+  const sunless = stopHiddenCasters(G, kit.placed);
   const merged = mergeStatic(kit.staticRoot);
   root.add(merged, kit.dynamicRoot);
   const retint = groundRetint(G, merged);
@@ -175,12 +205,85 @@ export function createLevel(G) {
     /** Where water stands on the street: [{x, z, r}] (splash and reflection cues). */
     puddles: ground.puddles,
     /** What was built: counts for the boot log, tests and the perf scenario. */
-    stats: { ...merged.userData.mergeStats, props: kit.placed.length, colliders: physics.boxes.length, lamps: kit.lamps.length },
+    stats: { ...merged.userData.mergeStats, props: kit.placed.length, colliders: physics.boxes.length, lamps: kit.lamps.length, sunless },
     update(dt) {
       for (let i = 0; i < animated.length; i++) animated[i].update(dt);
       retint();
     },
   };
+}
+
+/**
+ * Colliders of things that stop the sun: the buildings, the shop's shell, the station, the El's steel
+ * (not its deck, whose ties let the light through in stripes) and the solid hoardings. Props, fences,
+ * the scaffold and the cage never count: light gets through or around them.
+ */
+export const SUN_BLOCKERS = new Set([
+  'tenement', 'deli', 'station house', 'pawn', 'S3', 'garages', 'backs', 'lot-wall',
+  'shop-wall', 'shop-roof', 'mezzanine', 'office', 'bulkhead', 'dock',
+  'station', 'el-girder', 'el-column', 'hoarding', 'kiosk', 'shed-deck',
+]);
+
+const SUN_INSET = 0.03; // sample points sit this far inside a prop's bounds
+const SUN_REACH = 150; // metres: past this a ray is in the open sky
+
+/** Every direction the key light travels in, one per time of day (config/look.js `times`). */
+export function sunDirections(look) {
+  const times = look && look.times ? Object.values(look.times) : [];
+  const dirs = times.filter((t) => t && t.sun && t.sun.direction).map((t) => new THREE.Vector3().fromArray(t.sun.direction).normalize());
+  if (!dirs.length && look && look.sun) dirs.push(new THREE.Vector3().fromArray(look.sun.direction).normalize());
+  return dirs;
+}
+
+/**
+ * Does the sunlight travelling along `dir` reach `point`? Walks the ray back toward the sun through
+ * props and see-through things until it meets a SUN_BLOCKERS collider (no) or open sky (yes).
+ */
+export function sunReaches(physics, point, dir, hit = { dist: 0, point: new THREE.Vector3(), normal: new THREE.Vector3(), surface: null, box: null }) {
+  const toSun = new THREE.Vector3().copy(dir).negate();
+  const o = point.clone();
+  for (let i = 0; i < 16; i++) {
+    const h = physics.raycast(o, toSun, SUN_REACH, hit);
+    if (!h) return true;
+    if (h.box && SUN_BLOCKERS.has(h.box.tag)) return false;
+    o.copy(h.point).addScaledVector(toSun, 0.02);
+  }
+  return true;
+}
+
+/**
+ * A static prop that no sunlight reaches (inside the shop, deep under the shed, in a building's own
+ * shadow) at any time of day only darkens ground that is already dark: it stops casting. Its corners
+ * and top centre are all checked; if any of them sees the sun, it keeps its shadow. Returns how many
+ * props stopped.
+ */
+function stopHiddenCasters(G, placed) {
+  const dirs = sunDirections(G.config.look);
+  if (!dirs.length) return 0;
+  const box = new THREE.Box3();
+  const p = new THREE.Vector3();
+  let count = 0;
+  for (const { prop } of placed) {
+    if (prop.dynamic || !prop.object) continue;
+    prop.object.updateMatrixWorld(true);
+    box.setFromObject(prop.object);
+    if (box.isEmpty()) continue;
+    const { min, max } = box;
+    for (const axis of ['x', 'y', 'z']) {
+      const inset = Math.min(SUN_INSET, (max[axis] - min[axis]) / 4);
+      min[axis] += inset;
+      max[axis] -= inset;
+    }
+    const samples = [[(min.x + max.x) / 2, max.y, (min.z + max.z) / 2]];
+    for (const x of [min.x, max.x]) for (const y of [min.y, max.y]) for (const z of [min.z, max.z]) samples.push([x, y, z]);
+    const lit = dirs.some((d) => samples.some(([x, y, z]) => sunReaches(G.physics, p.set(x, y, z), d)));
+    if (lit) continue;
+    prop.object.traverse((o) => {
+      if (o.isMesh) o.castShadow = false;
+    });
+    count++;
+  }
+  return count;
 }
 
 /**

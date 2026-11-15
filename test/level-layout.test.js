@@ -5,12 +5,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
+import * as flow from '../src/config/flow.js';
 import { missingMembers } from '../src/core/contract.js';
+import { createTitleCamera } from '../src/game/titlecam.js';
 import { REELS } from '../src/level/data.js';
 import { BOUNDS, BUILDINGS, CAGE, SHED, SHOP, floorAt, zoneAt } from '../src/level/layout.js';
 import { buildLevel } from './level-helpers.js';
 
-const G = buildLevel();
+const G = await buildLevel();
 const { level, physics } = G;
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const flat = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -87,8 +89,19 @@ test('objectives, extraction and start follow the blueprint', () => {
   assert.equal(zoneAt(start.pos.x, start.pos.z), 'west');
   assert.ok(start.pos.z > 7 && start.pos.z < 11, 'on the south sidewalk');
   assert.equal(start.pos.y, 0.15, 'standing on the sidewalk slab');
-  assert.ok(Math.abs(start.yaw + Math.PI / 2) < 1e-9, 'facing east');
+  // Facing east, turned a little toward the avenue (north is −Z: a yaw just above −π/2).
+  assert.ok(start.yaw > -Math.PI / 2 && start.yaw < -Math.PI / 2 + 0.3, 'facing east, toward the avenue');
   assert.equal(physics.overlapsCylinder(start.pos.x, start.pos.z, 0.32, start.pos.y + 0.45, start.pos.y + 1.8), false, 'room to stand');
+  // The first gameplay frame looks down the avenue: nothing taller than a bin within two metres in front.
+  for (let a = -0.6; a <= 0.6; a += 0.1) {
+    const dx = -Math.sin(start.yaw + a);
+    const dz = -Math.cos(start.yaw + a);
+    for (let d = 0.6; d <= 2.01; d += 0.2) {
+      const x = start.pos.x + dx * d;
+      const z = start.pos.z + dz * d;
+      assert.equal(physics.overlapsCylinder(x, z, 0.15, start.pos.y + 1.2, start.pos.y + 2.2), false, `something tall ${d.toFixed(1)} m in front of the start (${x.toFixed(1)}, ${z.toFixed(1)})`);
+    }
+  }
 });
 
 test('zones tile the block; zoneAt, floorAt, groundSurfaceAt and interiorAt answer sensibly', () => {
@@ -446,7 +459,13 @@ test('title fly-through: 10 to 14 held shots, start to truck, never inside anyth
   const closest = (target) => path.reduce((best, p, i) => (flat(p.pos, target) < flat(path[best].pos, target) ? i : best), 0);
   const order = [...level.objectives.map((o) => closest(o.pos)), closest(level.extraction.pos)];
   for (let i = 1; i < order.length; i++) assert.ok(order[i] > order[i - 1], `stop ${i + 1} comes after stop ${i}`);
-  for (const o of level.objectives) assert.ok(flat(path[closest(o.pos)].pos, o.pos) < 14, `the camera comes near ${o.id}`);
+  // Each reel is shown from close by, in clear view (reel 3 from the middle of the avenue, between the El
+  // columns and through the cage gate, so the leg stays clear of the north sidewalk's awnings and dig).
+  for (const o of level.objectives) {
+    const eye = path[closest(o.pos)].pos;
+    assert.ok(flat(eye, o.pos) < 21, `the camera comes near ${o.id}`);
+    assert.ok(physics.lineOfSight(eye, V(o.pos.x, o.pos.y + 1.3, o.pos.z)), `${o.id} is in view from there`);
+  }
 
   for (const [i, p] of path.entries()) {
     assert.ok(p.pos.isVector3 && p.look.isVector3);
@@ -462,6 +481,21 @@ test('title fly-through: 10 to 14 held shots, start to truck, never inside anyth
       assert.equal(physics.overlapsCylinder(q.x, q.z, 0.22, q.y - 0.2, q.y + 0.2), false, `leg ${i} hits something at (${q.x.toFixed(1)}, ${q.y.toFixed(1)}, ${q.z.toFixed(1)})`);
     }
   }
+});
+
+test('title fly-through: the curve the camera really flies clears every collider', () => {
+  const T = { ...flow.titleCamera, sway: { rate: 0, side: 0, lift: 0, roll: 0 } };
+  const cam = createTitleCamera(level.cinematicPath, T);
+  assert.ok(cam.usable);
+  const eye = new THREE.PerspectiveCamera();
+  const hits = [];
+  for (let t = 0; t < cam.duration; t += 0.1) {
+    cam.apply(t, eye);
+    const p = eye.position;
+    // The sway adds a few centimetres: a 0.3 m cylinder leaves room for it.
+    if (physics.overlapsCylinder(p.x, p.z, 0.3, p.y - 0.25, p.y + 0.25)) hits.push(`${t.toFixed(1)} s (${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)})`);
+  }
+  assert.deepEqual(hits.slice(0, 5), [], `${hits.length} samples inside something`);
 });
 
 test('sightlines: no clear line along the avenue runs much past 45 m at eye height', () => {
@@ -607,8 +641,8 @@ test('no pockets: every place a player can stand at ground level connects to the
   assert.ok(pockets.length <= 14, `${pockets.length} sealed-in standable cells, e.g. ${pockets.slice(0, 12).join(' ')}`);
 });
 
-test('the same seed builds the same block', () => {
-  const again = buildLevel();
+test('the same seed builds the same block', async () => {
+  const again = await buildLevel();
   assert.equal(again.physics.boxes.length, worldBoxes.length);
   assert.deepEqual(again.level.stats, level.stats);
   for (let i = 0; i < worldBoxes.length; i += 37) {

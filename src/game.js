@@ -18,6 +18,7 @@
 import * as THREE from 'three';
 import { clamp01, damp, paramOn, smoothstep } from './core/util.js';
 import { musicIntensity, waveIsOver } from './game/music.js';
+import { introCopy } from './game/intro.js';
 import { createRadio } from './game/radio.js';
 import { compassSector, pickSpawn } from './game/spawn.js';
 import { cardData } from './game/stats.js';
@@ -298,6 +299,9 @@ export function createGame(G) {
 
   function toTitle() {
     queue.length = 0;
+    // From the death card or a hurt debrief: alive and at full health again, so the low-health look
+    // (desaturation, vignette, red rim) does not stay on the title.
+    G.player.reset(G.level.playerStart);
     hushRadio();
     G.enemies.clear();
     G.fx.clear();
@@ -834,11 +838,12 @@ export function createGame(G) {
       post.fade = 1 - smoothstep(T.introFade[0], Math.min(introLength, T.introFade[1]), stateTime);
       if (fullIntro && !introCard && stateTime >= T.locationCardAt) {
         introCard = true;
-        G.menus.locationCard(true, text.location);
+        G.menus.locationCard(true, introCopy(mission(), text).card); // Hold the Block: no reels on its card
       }
       if (fullIntro && !introRadio && stateTime >= T.introRadioAt) {
         introRadio = true;
-        say(text.radio.intro);
+        const { line } = introCopy(mission(), text);
+        if (line) say(line);
       }
       if (stateTime >= introLength) finishIntro();
     } else {
@@ -918,6 +923,11 @@ export function createGame(G) {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) pause();
   });
+  // The window losing focus (a click on the chat beside the Artifact, another app) pauses too: in drag
+  // mode and on touch no lock is ever lost to say so. pause() ignores anything but a live run.
+  window.addEventListener('blur', () => pause());
+  // A lost WebGL context leaves a black canvas: nobody plays blind. A restore leaves the pause card up.
+  G.events.on('render:lost', () => pause());
 
   /** The title's primary action from a key or the gamepad: the same path as the menu button. */
   function titleStart() {

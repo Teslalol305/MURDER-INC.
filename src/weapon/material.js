@@ -32,40 +32,42 @@ float vmNoise(vec2 p) {
   f = f * f * (3.0 - 2.0 * f);
   return mix(mix(vmHash(i), vmHash(i + vec2(1.0, 0.0)), f.x), mix(vmHash(i + vec2(0.0, 1.0)), vmHash(i + vec2(1.0, 1.0)), f.x), f.y);
 }
-// x: albedo multiplier, y: roughness offset
+// x: albedo multiplier, y: roughness offset. Frequencies are per metre in model space: the gun is seen
+// from 0.2-0.6 m, where a pixel is about half a millimetre, so nothing here repeats finer than ~2 mm.
 vec2 vmFinish(float code, vec3 p) {
   if (code < 0.5) return vec2(1.0, 0.0);
   if (code < 1.5) {
-    // Brushed steel: fine streaks that run the length of the part.
-    float across = p.x * 1700.0 + p.y * 2300.0;
-    float s = vmNoise(vec2(across, p.z * 9.0)) * 0.65 + vmNoise(vec2(across * 0.31, p.z * 3.0)) * 0.35;
-    return vec2(0.86 + 0.26 * s, (s - 0.5) * 0.3);
+    // Brushed steel: streaks that run the length of the part.
+    float across = p.x * 560.0 + p.y * 760.0;
+    float s = vmNoise(vec2(across, p.z * 6.0)) * 0.65 + vmNoise(vec2(across * 0.31, p.z * 2.0)) * 0.35;
+    return vec2(0.84 + 0.3 * s, (s - 0.5) * 0.3);
   }
   if (code < 2.5) {
-    // Wood: long grain with a slow wander, a few dark pores.
-    float wander = vmNoise(p.zy * vec2(14.0, 40.0)) * 3.0;
-    float g = vmNoise(vec2(p.x * 520.0 + p.y * 760.0 + wander, p.z * 11.0));
-    float fine = vmNoise(vec2(p.x * 2600.0 + p.y * 3400.0, p.z * 60.0));
-    float v = g * 0.7 + fine * 0.3;
-    return vec2(0.58 + 0.62 * v, (0.5 - v) * 0.25);
+    // Wood: long grain with a slow wander, darker late-wood lines and a few pores.
+    float wander = vmNoise(p.zy * vec2(5.0, 14.0)) * 2.5 + vmNoise(p.zx * vec2(9.0, 30.0)) * 0.8;
+    float g = vmNoise(vec2(p.x * 150.0 + p.y * 210.0 + wander, p.z * 5.0));
+    float lines = smoothstep(0.55, 0.8, fract(g * 3.0 + wander * 0.5)) * smoothstep(0.25, 0.6, g);
+    float fine = vmNoise(vec2(p.x * 700.0 + p.y * 900.0, p.z * 18.0));
+    float v = g * 0.55 + fine * 0.2 + 0.25 - 0.45 * lines;
+    return vec2(0.5 + 0.75 * v, (0.5 - v) * 0.3 + 0.12 * lines);
   }
   if (code < 3.5) {
     // Checkering: a diagonal diamond grid pressed into the grip.
-    vec2 d = vec2(p.y + p.z, p.y - p.z) * 420.0;
+    vec2 d = vec2(p.y + p.z, p.y - p.z) * 300.0;
     vec2 c = abs(fract(d) - 0.5);
     float groove = smoothstep(0.30, 0.48, max(c.x, c.y));
-    return vec2(1.0 - 0.45 * groove, 0.12 * groove);
+    return vec2(1.0 - 0.5 * groove, 0.14 * groove);
   }
   if (code < 4.5) {
     // Skin: soft mottling so large areas are not one flat tone.
-    float m = vmNoise(p.xz * 160.0 + p.y * 90.0) * 0.6 + vmNoise(p.zy * 520.0 + p.x * 300.0) * 0.4;
-    return vec2(0.93 + 0.14 * m, (m - 0.5) * 0.12);
+    float m = vmNoise(p.xz * 70.0 + p.y * 40.0) * 0.6 + vmNoise(p.zy * 200.0 + p.x * 120.0) * 0.4;
+    return vec2(0.92 + 0.16 * m, (m - 0.5) * 0.14);
   }
-  // Glove: a fine synthetic weave with a slow sheen variation.
-  vec2 w = abs(fract(vec2(p.x * 700.0 + p.y * 480.0, p.z * 700.0 - p.y * 220.0)) - 0.5);
+  // Glove: synthetic leather with a slow sheen variation and a faint grain.
+  vec2 w = abs(fract(vec2(p.x * 300.0 + p.y * 200.0, p.z * 300.0 - p.y * 90.0)) - 0.5);
   float weave = smoothstep(0.2, 0.45, max(w.x, w.y));
-  float m = vmNoise(p.xz * 210.0 + p.y * 140.0);
-  return vec2(0.92 + 0.16 * m - 0.05 * weave, 0.05 * weave + (m - 0.5) * 0.1);
+  float m = vmNoise(p.xz * 90.0 + p.y * 60.0);
+  return vec2(0.9 + 0.2 * m - 0.06 * weave, 0.06 * weave + (m - 0.5) * 0.16);
 }
 `;
 
@@ -104,21 +106,26 @@ export function createViewMaterial(environment) {
  * A light box for the viewmodel only. Reflections are what make blued steel, brushed steel and gold
  * read, and the gun needs them whatever the world's own sky is doing.
  *   night  dark sky, a warm sodium panel overhead, a cool panel behind the shoulder, thin neon strips
- *   day    blue sky over a bright haze line, the sun, sunlit pavement below, brick on one side and the
- *          dark girders of the El overhead (hard dark bands in a bright sky are what polished steel shows)
+ *   day    the avenue at 4 PM in world orientation (the avenue runs along X): a blue sky with the sun
+ *          and a cloud, the dark girders of the El overhead, a sunlit brick row on one side and a
+ *          shaded one with bright windows on the other, the hazy vista down the street both ways,
+ *          and pavement striped with shadow. Radiances sit near the street's own, so a steel face
+ *          turned up shows sky, a face turned sideways the darker buildings, and every bevel between
+ *          the two catches a bright line: the form of the gun.
+ * `sun` is the direction the day light travels (config/look.js times.day.sun.direction).
  */
-export function buildEnvironment(renderer, time = 'night') {
+export function buildEnvironment(renderer, time = 'night', sun = [0.553, -0.788, -0.271]) {
   const day = time === 'day';
   const scene = new THREE.Scene();
-  const dome = new THREE.SphereGeometry(30, 24, 12);
+  const dome = new THREE.SphereGeometry(30, 32, 16);
   const colors = new Float32Array(dome.attributes.position.count * 3);
-  const top = day ? new THREE.Color(0.2, 0.42, 0.95).multiplyScalar(1.5) : new THREE.Color(0x0b1326).multiplyScalar(1.6);
-  const rim = day ? new THREE.Color(0.78, 0.86, 1).multiplyScalar(2.1) : new THREE.Color(0x3a2a30).multiplyScalar(1.5);
-  const floor = day ? new THREE.Color(0.5, 0.46, 0.41).multiplyScalar(0.95) : new THREE.Color(0x1a1410);
+  const top = day ? new THREE.Color(0.16, 0.34, 0.9) : new THREE.Color(0x0b1326).multiplyScalar(1.6);
+  const rim = day ? new THREE.Color(0.9, 0.95, 1.05) : new THREE.Color(0x3a2a30).multiplyScalar(1.5);
+  const floor = day ? new THREE.Color(0.36, 0.32, 0.28) : new THREE.Color(0x1a1410);
   const tint = new THREE.Color();
   for (let i = 0; i < colors.length / 3; i++) {
     const h = dome.attributes.position.getY(i) / 30;
-    if (h >= 0) tint.lerpColors(rim, top, Math.min(1, h * (day ? 1.5 : 2.2)));
+    if (h >= 0) tint.lerpColors(rim, top, Math.min(1, Math.pow(h, day ? 0.6 : 1) * (day ? 1.1 : 2.2)));
     else tint.lerpColors(rim, floor, Math.min(1, -h * 4));
     tint.toArray(colors, i * 3);
   }
@@ -136,13 +143,40 @@ export function buildEnvironment(renderer, time = 'night') {
     mesh.lookAt(0, 0, 0);
     scene.add(mesh);
     made.push(geo, mat);
+    return mesh;
+  };
+  /** The same with a linear colour [r, g, b]. */
+  const glow = (rgb, at, w, h) => {
+    const mesh = panel(0xffffff, 1, at, w, h);
+    mesh.material.color.setRGB(rgb[0], rgb[1], rgb[2]);
+    return mesh;
+  };
+  /** A horizontal panel w (along X) × d (along Z) at height y, facing the origin. */
+  const flat = (rgb, x, y, z, w, d) => {
+    const mesh = glow(rgb, [x, y, z], w, d);
+    mesh.rotation.set(y > 0 ? Math.PI / 2 : -Math.PI / 2, 0, 0);
+    return mesh;
   };
   if (day) {
-    panel(0xfff1d6, 42, [7, 20, 6], 5, 5); // the sun, high and a little behind the right shoulder
-    panel(0xffffff, 3.2, [-14, 9, -12], 9, 5); // a bright cumulus
-    panel(0x8a3b2a, 0.9, [22, 5, -3], 30, 16); // sunlit brick, right
-    panel(0x2a2d33, 0.5, [-22, 4, 4], 26, 12); // a shaded facade, left
-    for (const z of [-11, -2, 7]) panel(0x14161a, 0.6, [0, 17, z], 44, 1.7); // El girders across the sky
+    const toSun = new THREE.Vector3(-sun[0], -sun[1], -sun[2]).normalize();
+    glow([42, 39, 33], toSun.clone().multiplyScalar(24).toArray(), 2.6, 2.6); // the sun
+    glow([1.7, 1.7, 1.75], [-13, 14, 12], 10, 4); // a bright cumulus
+    glow([1.4, 1.4, 1.5], [9, 16, -10], 7, 3);
+    // The two rows of buildings, along X: the north side faces the sun, the south side is in shade.
+    const north = Math.sign(sun[2]) || -1; // the light travels this way along Z: that side is lit
+    glow([0.36, 0.17, 0.11], [0, 6.5, 18 * north], 70, 17); // sunlit brick
+    for (const x of [-21, -13, -5, 3, 11, 19]) {
+      glow([0.05, 0.055, 0.065], [x, 8.5, 17.6 * north], 3.2, 2.2); // its windows (dark glass)
+      glow([0.05, 0.055, 0.065], [x, 3.5, 17.6 * north], 3.2, 2.2);
+    }
+    glow([0.06, 0.065, 0.075], [0, 6.5, -18 * north], 70, 17); // the shaded row
+    for (const x of [-18, -8, 2, 12, 22]) glow([0.55, 0.62, 0.75], [x, 7, -17.6 * north], 3, 2.2); // sky in its windows
+    glow([0.14, 0.13, 0.12], [0, 1, -17.5 * north], 70, 2.6); // shop fronts and awnings
+    // The El overhead: two dark girders along the avenue and the cross ties between them.
+    for (const z of [-5, 5]) flat([0.025, 0.027, 0.03], 0, 16, z, 60, 2.2);
+    for (const x of [-16, -6, 4, 14]) flat([0.03, 0.032, 0.035], x, 16.5, 0, 1.4, 12);
+    // Pavement: sunlit, with the El's shadow lying across it in stripes.
+    for (const x of [-15, -5, 5, 15]) flat([0.06, 0.06, 0.065], x, -8, 0, 4, 40);
   } else {
     panel(0xffb45e, 18, [3, 16, -6], 9, 5); // sodium lamp, ahead and above
     panel(0xffc890, 8, [-12, 12, 8], 8, 8); // a second lamp behind the left shoulder
@@ -170,6 +204,7 @@ export function createFlashMaterial() {
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide,
+    forceSinglePass: true, // additive and unlit: one pass looks the same and skips a program rebuild
     uniforms: {
       uSeed: { value: 0 },
       uPower: { value: 0 }, // 0…1, falls over the life of the flash

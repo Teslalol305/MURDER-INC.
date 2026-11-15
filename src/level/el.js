@@ -37,7 +37,7 @@ export function buildEl(kit) {
     if (detailed) {
       // Batten plates tie the flanges together every metre or so: the riveted, built-up look.
       for (const y of [1.55, 2.5, 3.45, 4.4]) {
-        for (const side of [-1, 1]) kit.box(STEEL, x - 0.2, x + 0.2, y, y + 0.3, z + side * 0.2, z + side * 0.24);
+        for (const side of [-1, 1]) kit.box(STEEL, x - 0.2, x + 0.2, y, y + 0.3, z + side * 0.2, z + side * 0.24, { noTop: true });
       }
       // Knee braces: across to the cross girder and along to the longitudinal girder.
       kit.beam(STEEL, [x, 4.15, z + inward * 0.24], [x, EL.columnTop + 0.1, z + inward * 1.45], 0.16, 0.14);
@@ -52,13 +52,16 @@ export function buildEl(kit) {
     kit.box(STEEL, x - 0.2, x + 0.2, EL.columnTop, top, -5.05, 5.05);
     kit.box(STEEL, x - 0.33, x + 0.33, EL.columnTop, EL.columnTop + 0.07, -5.05, 5.05);
     if (detailed) {
-      for (let z = -4; z <= 4.01; z += 1) kit.box(STEEL, x - 0.27, x + 0.27, EL.columnTop + 0.07, top, z - 0.03, z + 0.03, { noTop: true });
+      for (let z = -4; z <= 4.01; z += 1) kit.box(STEEL, x - 0.27, x + 0.27, EL.columnTop + 0.07, top, z - 0.03, z + 0.03, { noTop: true, noBottom: true }); // standing on the flange plate
     }
     kit.solid(x - 0.3, x + 0.3, EL.columnTop, top, -5.05, 5.05, { surface: 'metal', tag: 'el-girder', noNav: true });
   }
 
   for (const x of EL.bents) bent(x, true);
+  // Past the closures: their shadows fall outside the block, so they cast none.
+  const nearOnly = kit.staticRoot.children.length;
   for (const x of EL.far) bent(x, false);
+  for (const m of kit.staticRoot.children.slice(nearOnly)) m.castShadow = false;
 
   // ---------------------------------------------------------------------------------------------
   // Longitudinal steel
@@ -105,7 +108,8 @@ export function buildEl(kit) {
 
   for (const track of EL.tracks) {
     for (let x = minX + 0.2; x < maxX; x += TIE_PITCH) {
-      kit.box(tie, x - 0.11, x + 0.11, top, EL.tieTop, track - 1.35, track + 1.35, { noBottom: false });
+      // No top face: nobody ever looks down on the ties. The undersides cast the sun's stripes.
+      kit.box(tie, x - 0.11, x + 0.11, top, EL.tieTop, track - 1.35, track + 1.35, { noTop: true });
     }
     // Past the closures nobody is ever underneath: one slab stands in for the ties.
     kit.box(tie, -FAR, minX, top, EL.tieTop, track - 1.35, track + 1.35);
@@ -126,7 +130,7 @@ export function buildEl(kit) {
     kit.box(plank, -FAR, FAR, top + 0.08, top + 0.14, Math.min(z0, z1), Math.max(z0, z1));
     const rail = side * (EL.half - 0.05);
     for (const y of [7.25, 7.75]) kit.box(STEEL, -FAR, FAR, y - 0.025, y + 0.025, rail - 0.025, rail + 0.025);
-    for (let x = minX + 1; x < maxX; x += 2.5) kit.box(STEEL, x - 0.03, x + 0.03, 6.7, 7.75, rail - 0.03, rail + 0.03);
+    for (let x = minX + 1; x < maxX; x += 2.5) kit.box(STEEL, x - 0.03, x + 0.03, 6.7, 7.75, rail - 0.03, rail + 0.03, { noTop: true, noBottom: true }); // capped by the rail, footed in the deck
   }
   kit.solid(minX, maxX, top, EL.railTop + 0.07, -EL.half, EL.half, { surface: 'metal', tag: 'el-deck', noNav: true });
 

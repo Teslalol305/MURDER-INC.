@@ -45,8 +45,11 @@ export function createViewmodel(G) {
     }
   };
   const LIGHT = common.light;
-  const environments = { night: buildEnvironment(G.renderer, 'night'), day: buildEnvironment(G.renderer, 'day') };
+  const look = G.config.look || {};
+  const sunDir = (look.times && look.times.day && look.times.day.sun && look.times.day.sun.direction) || undefined;
+  const environments = { night: buildEnvironment(G.renderer, 'night'), day: buildEnvironment(G.renderer, 'day', sunDir) };
   const material = createViewMaterial(environments.night);
+  const NIGHT_RIG = look.viewmodel || null; // render's own values for the night
 
   // ---------------------------------------------------------------------------------------------
   // Rig
@@ -91,7 +94,9 @@ export function createViewmodel(G) {
     const mesh = new THREE.Mesh(geometry, createFlashMaterial());
     mesh.name = 'muzzle-flash';
     mesh.frustumCulled = false;
-    mesh.visible = false;
+    // Visible at power 0 (additive black) until the first update hides it: the boot's shader
+    // pre-compile only sees visible objects, and the first shot must not wait for this program.
+    mesh.visible = true;
     mesh.renderOrder = 2;
     return mesh;
   })();
@@ -283,6 +288,28 @@ export function createViewmodel(G) {
     for (let c = 0; c < 6; c++) strike[c] = a[c + 1] + (b[c + 1] - a[c + 1]) * k;
   }
 
+  /**
+   * Render's own viewmodel ambient and key (CONTRACT 5.3 `vmLights`) are the night's: a cool sky and a
+   * warm street key. By day the ambient turns neutral and the sun (the rim light below) is the key.
+   */
+  function retuneRig(day) {
+    const lights = G.render && G.render.vmLights;
+    if (!lights || !lights.hemi || !lights.key) return;
+    const D = LIGHT.day;
+    const N = NIGHT_RIG;
+    if (day) {
+      lights.hemi.color.set(D.ambientSky);
+      lights.hemi.groundColor.set(D.ambientGround);
+      lights.hemi.intensity = D.ambient;
+      lights.key.intensity = D.key;
+    } else if (N) {
+      lights.hemi.color.set(N.ambientSky);
+      lights.hemi.groundColor.set(N.ambientGround);
+      lights.hemi.intensity = N.ambientIntensity;
+      lights.key.intensity = N.keyIntensity;
+    }
+  }
+
   /** Is the block in daylight? (atmos says; a build without a day rig is night.) */
   const isDay = () => !!G.atmos && G.atmos.time === 'day';
 
@@ -296,6 +323,7 @@ export function createViewmodel(G) {
         daylight = day;
         material.envMap = day ? environments.day : environments.night;
         fill.intensity = day ? LIGHT.day.fill : LIGHT.night.fill;
+        retuneRig(day);
       }
       const sun = day ? G.atmos.sun : null;
       const lamps = G.level && G.level.lamps;
@@ -779,6 +807,20 @@ export function createViewmodel(G) {
     });
     G.events.on('game:state', (e) => {
       if (e && e.state !== 'dead' && e.state !== 'playing' && e.state !== 'paused') fallen.visible = false;
+    });
+    // A restored WebGL context comes back with empty render targets: bake the reflection boxes again.
+    G.events.on('render:restored', () => {
+      for (const time of ['night', 'day']) {
+        const old = environments[time];
+        try {
+          environments[time] = buildEnvironment(G.renderer, time, sunDir);
+          old.dispose();
+        } catch (err) {
+          console.warn('[weapon] could not rebuild the viewmodel environment:', err);
+        }
+      }
+      material.envMap = daylight ? environments.day : environments.night;
+      material.needsUpdate = true;
     });
   }
 

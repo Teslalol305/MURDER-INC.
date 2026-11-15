@@ -139,22 +139,41 @@ export function createPanel(G, hooks) {
     row(el('div', { class: 'panel-label', id: invertLabel }, P.invertY), invertBtn, 'is-inline'),
     slider('volume', P.volume),
     slider('fov', P.fov),
-    fsAvailable ? row(el('div', 'panel-label', P.display), fsBtn, 'is-inline') : null,
+    fsAvailable ? row(el('div', 'panel-label', P.display), fsBtn, 'is-inline') : '', // native append(): never null
     qualityNote,
     el('p', 'panel-note', (text.notes && text.notes.difficulty) || P.noteDifficulty),
   );
 
   // ---- controls page ----------------------------------------------------------------------------
-  function keycaps(keys) {
-    return el('span', 'caps', ...keys.map((k) => el('kbd', 'cap', k)));
+  // A touch key is drawn with the on-screen button's own glyph (config/player.js touchGlyphs), the same
+  // line art the thumbs see: the buttons carry no words.
+  const touchGlyphs = (G.config.player && G.config.player.touchGlyphs) || {};
+  function keycap(k) {
+    if (!k || typeof k !== 'object') return el('kbd', 'cap', k);
+    const art = el('span', { class: 'cap-glyph', 'aria-hidden': 'true' });
+    art.innerHTML = `<svg viewBox="0 0 32 32" focusable="false">${touchGlyphs[k.glyph] || ''}</svg>`;
+    return el('kbd', { class: 'cap is-glyph', 'aria-label': k.label || k.glyph }, art, k.label ? el('span', 'cap-text', k.label) : null);
   }
+  function keycaps(keys) {
+    return el('span', 'caps', ...keys.map(keycap));
+  }
+  const sections = {};
   for (const device of ['kbm', 'touch', 'pad']) {
     const table = copy.controls[device];
     const list = el('dl', 'ctl-list');
     for (const [action, keys, extra] of table.rows) {
       list.append(el('dt', null, action), el('dd', null, keycaps(keys), extra ? el('span', 'ctl-extra', extra) : null));
     }
-    pages.controls.append(el('section', { class: 'ctl', 'aria-label': table.title }, el('h3', 'ctl-title', table.title), list, table.note ? el('p', 'panel-note', table.note) : null));
+    sections[device] = el('section', { class: 'ctl', 'aria-label': table.title }, el('h3', 'ctl-title', table.title), list, table.note ? el('p', 'panel-note', table.note) : null);
+    pages.controls.append(sections[device]);
+  }
+
+  /** The device in use comes first on the Controls tab (on a phone the touch table, not the keyboard one). */
+  function orderControls() {
+    const device = (G.input && G.input.device) || 'kbm';
+    const order = device === 'touch' ? ['touch', 'kbm', 'pad'] : device === 'pad' ? ['pad', 'kbm', 'touch'] : ['kbm', 'touch', 'pad'];
+    if (pages.controls.firstChild === sections[order[0]]) return;
+    pages.controls.append(...order.map((d) => sections[d]));
   }
 
   // ---- behaviour --------------------------------------------------------------------------------
@@ -207,6 +226,7 @@ export function createPanel(G, hooks) {
     opener = from || document.activeElement;
     open = true;
     refresh();
+    orderControls();
     setTab(name === 'controls' ? 'controls' : 'settings');
     node.hidden = false;
     scrim.hidden = false;
@@ -274,6 +294,7 @@ export function createPanel(G, hooks) {
     refresh,
     focusables,
     nudge,
+    setTab,
     get isOpen() {
       return open;
     },

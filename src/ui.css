@@ -155,6 +155,23 @@
   white-space: nowrap;
 }
 
+/* Hold the Block: no bullets, no count; the tally (the score, the one live number) gets a line of its own
+   under the IPX mark, so it never runs out of the plate. */
+.hud-badge.is-holdout .hud-badge-top {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.hud-badge.is-holdout .hud-badge-bullets,
+.hud-badge.is-holdout .hud-badge-count {
+  display: none;
+}
+
+.hud-badge.is-holdout .hud-badge-tally {
+  flex-basis: 100%;
+  margin-left: 0;
+}
+
 .hud-obj-rule {
   height: 2px;
   margin: 9px 0 6px;
@@ -728,7 +745,8 @@
 }
 
 .hud-slot-art {
-  flex: none;
+  flex: 0 1 auto; /* the art gives way before the ammo count does */
+  min-width: 30px;
   display: grid;
   place-items: center;
   width: 62px;
@@ -752,6 +770,7 @@
 }
 
 .hud-slot-info {
+  flex: none;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1168,6 +1187,39 @@
   letter-spacing: 0.04em;
   text-align: center;
   white-space: nowrap;
+}
+
+/* A touch button's own glyph as the key cap (Controls tab): the same line art as src/input.css draws. */
+.cap.is-glyph {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+.cap-glyph {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+.cap-glyph svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cap-glyph svg .fill {
+  fill: currentColor;
+  stroke: none;
 }
 
 /* ---- Title ------------------------------------------------------------------------------------ */
@@ -1797,6 +1849,24 @@
     font-size: 18px;
   }
 
+  /* The top row (IPX, three bullets, 0/3) must fit the narrow plate beside the minimap's buttons. */
+  .hud-badge-top {
+    gap: 5px;
+  }
+
+  .hud-badge-top .ipx-mark {
+    margin-right: 2px;
+  }
+
+  .hud-badge-bullets {
+    gap: 4px;
+    font-size: 12px;
+  }
+
+  .hud-badge-count {
+    padding-left: 4px;
+  }
+
   .hud-btn {
     width: 34px;
     height: 34px;
@@ -1906,10 +1976,6 @@
     font-size: 10px;
   }
 
-  .hud-prompt {
-    top: 64%;
-  }
-
   .hud-cue {
     min-height: 16px;
   }
@@ -1923,8 +1989,8 @@
   }
 
   .radio-line {
-    font-size: 14.5px;
-    line-height: 1.55;
+    font-size: 13px;
+    line-height: 1.5;
   }
 
   .scr-title {
@@ -2044,11 +2110,49 @@
     display: none;
   }
 
-  /* The radio moves up under the banner: above the weapon bar it would cover the aim point. */
+  /* The radio moves up, under the badge row: above the weapon bar it would cover the aim point. It takes the
+     gap between the top-corner blocks (as the banner does) and stops short of the aim point; a line too long
+     for that band shows its newest words (the plate is bottom-aligned and clipped at the top). */
   .radio {
-    top: calc(var(--hud-top) + 54px);
+    top: calc(var(--hud-top) + 92px);
     bottom: auto;
-    max-width: min(560px, calc(100vw - 2 * 264px));
+    max-width: calc(100vw - 2 * (var(--map) + 90px));
+  }
+
+  /* Two lines of 13 px / 1.5 (whole lines, so the clip never cuts through one), plus the strip's own padding. */
+  .radio-plate {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    max-height: 39px;
+    padding: 3px 0;
+    overflow: hidden;
+  }
+
+  /* The interaction prompt sits right on the weapon bar, under the aim point; the centre message, which
+     shares that slot, steps aside while a prompt is up. */
+  .hud-prompt {
+    top: auto;
+    bottom: calc(var(--hud-bottom) + var(--wbar-h) + 6px);
+  }
+
+  .hud.has-prompt .hud-msg {
+    opacity: 0;
+  }
+
+  /* Hold the Block: the tally's own line costs the OBJECTIVE label its line, so the badge row keeps its height. */
+  .hud-badge.is-holdout .hud-obj-label {
+    display: none;
+  }
+
+  .hud-badge.is-holdout .hud-obj-text {
+    margin-top: 0;
+  }
+
+  /* The banner stays in the top row (the narrow-screen rule below the minimap would put it on the aim point). */
+  .hud-banner {
+    top: calc(var(--hud-top) + 6px);
+    max-width: calc(100vw - 2 * (var(--map) + 90px));
   }
 
   .hud-msg {
@@ -2074,6 +2178,28 @@
   }
 }
 
+/* Small landscape phones: the badge, the banner and the minimap share one row. The badge gets narrower
+   (its objective may take two lines; the OBJECTIVE label gives up its line for it) and the banner type
+   smaller, so the centred banner clears the badge. */
+@media (max-height: 520px) and (max-width: 800px) {
+  .hud-badge {
+    max-width: calc(50vw - 128px);
+  }
+
+  .hud-obj-label {
+    display: none;
+  }
+
+  .hud-obj-text {
+    margin-top: 0;
+  }
+
+  .hud-banner-text {
+    font-size: 17px;
+    letter-spacing: 0.1em;
+  }
+}
+
 /* ---- Touch: keep the thumbs' corners clear (input.css owns the controls) ----------------------- */
 
 /* Landscape: the controls take the two bottom corners; the bottom-centre stays free. The feed sits just under
@@ -2087,8 +2213,42 @@ html.is-touch .hud-feed-line {
   padding-bottom: 4px;
 }
 
-html.is-touch .radio {
-  max-width: min(560px, calc(100vw - 2 * 264px));
+/* Small landscape phones: the right thumb cluster reaches in over the bar's melee slot, and the fist disc
+   right there does the same job, so the bar keeps its two weapons only. */
+@media (max-height: 520px) and (max-width: 720px) {
+  html.is-touch .hud-slot.is-melee {
+    display: none;
+  }
+}
+
+/* Taller touch screens (tablets): the radio stays above the weapon bar, between the thumb corners. */
+@media (min-height: 521px) {
+  html.is-touch .radio {
+    max-width: min(560px, calc(100vw - 2 * 264px));
+  }
+}
+
+/* The intro location card takes the free band between the thumb clusters, just above the weapon bar. */
+html.is-touch .loc {
+  left: 50%;
+  /* over the weapon bar's cue row, which is empty while a run starts */
+  bottom: calc(var(--hud-bottom) + var(--wbar-h) - 20px);
+  width: max-content;
+  max-width: calc(100vw - 2 * 204px);
+  transform: translateX(-50%);
+}
+
+html.is-touch .loc-inner {
+  padding: 7px 12px 8px 11px;
+}
+
+html.is-touch .loc-place {
+  font-size: clamp(15px, 2.3vw, 22px);
+}
+
+html.is-touch .loc-tag {
+  margin-top: 4px;
+  font-size: 11.5px;
 }
 
 /* Portrait: the whole thumb set stands 104 px up, above the weapon bar (input.css --rise). */
@@ -2109,10 +2269,45 @@ html.is-touch .radio {
     max-width: calc(100vw - var(--gutter-left) - var(--gutter-right));
   }
 
+  /* As on short screens: a line too long for the band above the aim point shows its newest words, two whole
+     lines of 15 px / 1.6 at a time. */
+  html.is-touch .radio-plate {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    max-height: 48px;
+    padding: 3px 0;
+    overflow: hidden;
+  }
+
   html.is-touch .hud-msg,
   html.is-touch .hud-prompt {
     top: calc(50% + 36px);
     bottom: auto;
+    max-width: calc(100vw - 2 * 80px); /* clear of the left trigger and the right cluster */
+  }
+
+  html.is-touch .hud-prompt {
+    gap: 8px;
+  }
+
+  html.is-touch .hud-prompt-plate {
+    padding: 7px 10px;
+    font-size: 12.5px;
+    letter-spacing: 0.01em;
+  }
+
+  /* The location card under the minimap, where the thumbs never are. */
+  html.is-touch .loc {
+    left: var(--gutter-left);
+    top: calc(var(--hud-top) + var(--map) + 40px);
+    bottom: auto;
+    max-width: calc(100vw - var(--gutter-left) - var(--gutter-right));
+    transform: none;
+  }
+
+  html.is-touch .loc-place {
+    font-size: 20px;
   }
 }
 

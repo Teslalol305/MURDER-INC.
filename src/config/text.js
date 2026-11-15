@@ -8,7 +8,7 @@ export const title = {
   wordmark: 'MURDER INC.',
   star: 'STARRING JA RULE',
   premise: 'The Vultures jacked three master reels. Take the block back. Get them to the truck.',
-  note: 'Every street, sound and beat is generated in your browser. Nothing is downloaded.',
+  note: 'Every street, sound and beat is generated in your browser. No art or audio files.',
   start: 'Hit the block',
   settings: 'Settings',
   controls: 'Controls',
@@ -21,6 +21,8 @@ export const title = {
 export const location = {
   place: 'Hollis, Queens · Jamaica Ave · 4:15 PM',
   tagline: 'Three reels. One block. No backup.',
+  /** Hold the Block has no reels: its card says this instead. */
+  taglineHoldout: 'One block. Endless Vultures.',
   byTime: {
     day: 'Hollis, Queens · Jamaica Ave · 4:15 PM',
     night: 'Hollis, Queens · Jamaica Ave · 02:14 AM',
@@ -115,7 +117,7 @@ export const compass = ['NORTH', 'NORTH-EAST', 'EAST', 'SOUTH-EAST', 'SOUTH', 'S
 
 /** Notes shown next to settings. */
 export const notes = {
-  difficulty: 'Difficulty applies to Vultures that arrive from now on.',
+  difficulty: 'Difficulty changes take effect at once; Vultures already on the block keep their health.',
   time: 'Time of day changes when the next run starts.',
 };
 
@@ -132,6 +134,8 @@ export const radio = {
     text: "Rule, it's the Vault. Vultures stashed your three masters on this block — the avenue, the chop shop, the cage. Bring them home.",
     secs: 4.4,
   },
+  /** Hold the Block's first line: no reels, no truck, just the block. */
+  introHoldout: { text: "Rule, it's the Vault. The Vultures want the whole block back. Hold it down as long as you can.", secs: 4.0 },
   contact: { text: 'They made you. Goons on foot, Buzzards in the air. Handle it.', secs: 3.2 },
   /** Indexed by reels secured − 1. */
   reel: [

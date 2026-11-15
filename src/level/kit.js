@@ -61,6 +61,94 @@ const LAMP_PRIORITY = { work: 10, flood: 9, street: 6, el: 5, neon: 4, window: 2
 const VEHICLES = new Set(['sedan', 'suv', 'van', 'box_truck', 'pickup']);
 const VEHICLE_PAINT = [0x14161a, 0x2a2d33, 0x8f959c, 0xd9d7d0, 0x6e1a1c, 0x1b2a4a, 0x16342a, 0xb9b4a6, 0xc9a23a];
 
+/**
+ * Props whose shadow comes from a hull of a few boxes set a little inside them (see shadowHull), and
+ * how far inside: a parked car's shadow is its body's silhouette, and the wheels, mirrors and trim inside
+ * it only cost the shadow pass triangles; a stack of pallets or a crate casts the shadow of its box.
+ */
+const BODY = { inset: 0.08, traced: true }; // a vehicle: its top surface is traced by rays, slice by slice
+const BOX = { inset: 0.03, traced: false }; // a boxy stack: its colliders, a little smaller
+const HULLED = new Map([
+  ['sedan', BODY], ['taxi', BODY], ['suv', BODY], ['van', BODY], ['pickup', BODY], ['box_truck', BODY], ['burned_car', BODY],
+  ['pallet_stack', BOX], ['crate_wood', BOX],
+]);
+const HULL = {
+  step: 0.1, // metres between height samples along the prop
+  slice: 0.3, // samples are pooled in slices this long, each slice one box
+  under: 0.06, // the hull stays this far under the top surface…
+  floor: 0.12, // …and its bottom this high (vehicles; a prop on the ground keeps its own)
+};
+
+/**
+ * Builds the shadow hull of a prop (local space, before it is placed) from its own colliders. For a
+ * vehicle (`traced`) the height of its top surface is found by casting rays down onto it: slices of
+ * boxes, each under the lowest point of the body over its length and inside the collider it belongs to.
+ * The hull's material writes neither colour nor depth: it only exists in the shadow map. Every other
+ * part stops casting.
+ */
+function shadowHull(prop, material, { inset, traced }) {
+  const object = prop.object;
+  const colliders = (prop.colliders || []).filter((c) => !c.playerOnly);
+  const targets = [];
+  object.traverse((m) => {
+    if (m.isMesh && m.castShadow) targets.push(m);
+  });
+  if (!colliders.length || !targets.length) return 0;
+  object.updateMatrixWorld(true);
+  const x0 = Math.min(...colliders.map((c) => c.min[0]));
+  const x1 = Math.max(...colliders.map((c) => c.max[0]));
+  const hz = Math.min(...colliders.map((c) => Math.min(-c.min[2], c.max[2])));
+  const raycaster = new THREE.Raycaster();
+  const origin = new THREE.Vector3();
+  const down = new THREE.Vector3(0, -1, 0);
+  const topAt = (x) => {
+    let low = Infinity;
+    for (const z of [0, hz * 0.45, -hz * 0.45]) {
+      raycaster.set(origin.set(x, 20, z), down);
+      const hit = raycaster.intersectObjects(targets, false)[0];
+      low = Math.min(low, hit ? hit.point.y : 0);
+    }
+    return low;
+  };
+  // Slices of the top surface, each at the lowest height measured along it; neighbours that sit at
+  // nearly the same height become one box.
+  const slices = [];
+  if (!traced) slices.push({ xa: x0, xb: x1, top: Infinity });
+  else for (let xa = x0; xa < x1 - 1e-6; xa += HULL.slice) {
+    const xb = Math.min(x1, xa + HULL.slice);
+    let top = Infinity;
+    for (let x = xa; x <= xb + 1e-6; x += HULL.step) top = Math.min(top, topAt(Math.min(x, xb)));
+    top -= HULL.under;
+    const last = slices[slices.length - 1];
+    if (last && Math.abs(last.top - top) < 0.1) {
+      last.xb = xb;
+      last.top = Math.min(last.top, top);
+    } else slices.push({ xa, xb, top });
+  }
+  let boxes = 0;
+  for (const { xa, xb, top } of slices) {
+    for (const c of colliders) {
+      const a = Math.max(xa, c.min[0] + inset);
+      const b = Math.min(xb, c.max[0] - inset);
+      const y0 = c.surface === 'car' || c.surface === 'glass' ? Math.max(HULL.floor, c.min[1]) : c.min[1];
+      const y1 = Math.min(top, c.max[1] - (traced ? 0 : HULL.under));
+      const w = Math.min(-c.min[2], c.max[2]) - inset;
+      if (b - a < 0.05 || y1 - y0 < 0.05 || w < 0.1) continue;
+      // No top face: the shadow pass draws the faces turned away from the light (three.js default).
+      const box = new THREE.Mesh(boxGeo(b - a, y1 - y0, 2 * w, { noTop: true }), material);
+      box.position.set((a + b) / 2, (y0 + y1) / 2, 0);
+      box.name = 'shadow-hull';
+      box.castShadow = true;
+      box.receiveShadow = false;
+      object.add(box);
+      boxes++;
+    }
+  }
+  if (!boxes) return 0;
+  for (const m of targets) m.castShadow = false;
+  return boxes;
+}
+
 function vehiclePaint(o, name) {
   if (o.color === undefined) {
     const seed = Math.imul(((o.seed ?? 0) + name.length * 7) | 0, 0x9e3779b1) >>> 0;
@@ -109,6 +197,9 @@ export function createKit(G) {
   // share one vertex-tinted material per catalogue name (mats.get tint 'vertex') or one level glow
   // material, and the colour rides on the geometry.
   const glowMaterial = new THREE.MeshBasicMaterial({ vertexColors: true });
+  // Vehicle shadow hulls: drawn into the shadow map only (no colour, no depth in the view).
+  const hullMaterial = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+  hullMaterial.name = 'shadow-hull';
   glowMaterial.name = 'level-glow';
   const tinted = new Map(); // geometry uuid | colour → coloured copy
   const _color = new THREE.Color();
@@ -487,12 +578,20 @@ export function createKit(G) {
    * Builds a catalogue prop at (x, z), turned by yaw about +Y, standing on the level's own floor there
    * (o.y overrides: decks, roofs, wall mounts). Its colliders are registered unless o.collide is false,
    * walk-over ones (flatter than 0.2 m, top under 0.3 m) are skipped, dynamic props stay out of the
-   * merge and its lamp hints join level.lamps. Remaining opts go to props.build.
+   * merge and its lamp hints join level.lamps. o.cast = false: none of its parts casts a shadow (its
+   * shadow falls where nobody looks, a roof). Remaining opts go to props.build.
    */
   function place(name, x, z, yaw = 0, o = {}) {
     const y = o.y ?? floorAt(x, z);
     if (VEHICLES.has(name)) o = { ...o, color: vehiclePaint(o, name) };
-    const prop = props.build(name, o);
+    const { cast, ...buildOpts } = o;
+    const prop = props.build(name, buildOpts);
+    if (HULLED.has(name) && !prop.dynamic && cast !== false) shadowHull(prop, hullMaterial, HULLED.get(name));
+    if (cast === false) {
+      prop.object.traverse((m) => {
+        if (m.isMesh) m.castShadow = false;
+      });
+    }
     prop.object.position.set(x, y, z);
     prop.object.rotation.y = yaw;
     if (prop.dynamic) prop.object.userData.noMerge = true;

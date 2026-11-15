@@ -116,10 +116,13 @@ export function registerStreet(R) {
   R.add('traffic_barrel', {
     build(b) {
       const orange = 'plastic_orange';
-      b.lathe('rubber', [[0, 0], [0.3, 0], [0.3, 0.06], [0.27, 0.08]]);
+      const seg = 10;
+      // The base ring has no underside (it stands on it); each band is one tapered skin, the next one
+      // a hair narrower: the step between them shows without a ledge of its own.
+      b.lathe('rubber', [[0.3, 0], [0.3, 0.06], [0.27, 0.08]], [0, 0, 0], { seg });
       const tiers = [[0.27, 0.08, 0.3, orange], [0.255, 0.3, 0.5, 'paint_white'], [0.24, 0.5, 0.68, orange], [0.225, 0.68, 0.84, 'paint_white']];
-      for (const [r, y0, y1, slot] of tiers) b.lathe(slot, [[r, y0], [r - 0.006, y1], [r - 0.02, y1]]);
-      b.lathe(orange, [[0.205, 0.84], [0.2, 0.93], [0.15, 0.96], [0, 0.96]]);
+      for (const [r, y0, y1, slot] of tiers) b.lathe(slot, [[r, y0], [r - 0.006, y1]], [0, 0, 0], { seg });
+      b.lathe(orange, [[0.205, 0.84], [0.2, 0.93], [0.15, 0.96], [0, 0.96]], [0, 0, 0], { seg });
       b.box(orange, [0.26, 0.04, 0.05], [0, 0.98, 0]);
       b.collide([-0.28, 0, -0.28], [0.28, 0.98, 0.28], { surface: 'rubber' });
     },
@@ -203,7 +206,7 @@ export function registerStreet(R) {
         const bz = z + rng.range(-0.03, 0.03);
         b.blob(slot, r, [bx, y, bz], { seed: rng.int(0, 99), rough: 0.3, scale: [1.1, 0.8, 1], crease: 62, rot: [0, rng.range(0, 6), 0] });
         // The tied neck.
-        b.lathe(slot, [[0.05, 0], [0.025, 0.04], [0.055, 0.075]], [bx, y + r * 0.6, bz], { seg: 5, rot: [rng.range(-0.3, 0.3), 0, rng.range(-0.3, 0.3)] });
+        b.lathe(slot, [[0.05, 0], [0.025, 0.04], [0.055, 0.075]], [bx, y + r * 0.6, bz], { seg: 4, rot: [rng.range(-0.3, 0.3), 0, rng.range(-0.3, 0.3)] });
       });
       b.collide([-0.66, 0, -0.48], [0.68, 0.62, 0.46], { surface: 'cloth' });
     },

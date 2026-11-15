@@ -20,7 +20,7 @@
     local('Helvetica-Bold'), local('Helvetica Bold'), local('Roboto Black'), local('Roboto-Black'), local('Inter Black'),
     local('Inter-Black'), local('Arial Bold'), local('Arial-BoldMT'), local('Liberation Sans Bold'),
     local('LiberationSans-Bold'), local('DejaVu Sans Bold'), local('DejaVuSans-Bold');
-  size-adjust: 70%;
+  size-adjust: 65%;
 }
 
 /* Brand tokens. Mirrors src/config/brand.js (colors.plateEdge ↔ --c-plate-edge, fonts.ui ↔ --font-ui):
@@ -172,7 +172,9 @@ body {
   font: 400 clamp(52px, 20.5vw, 116px) / 0.92 var(--font-display);
   letter-spacing: 0.012em;
   text-transform: uppercase;
-  white-space: nowrap;
+  /* One line in Anton; a wider fallback face (web fonts blocked or late) breaks at the space instead of
+     running off a phone screen. */
+  overflow-wrap: anywhere;
 }
 
 .boot-star {

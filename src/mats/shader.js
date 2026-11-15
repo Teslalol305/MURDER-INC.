@@ -18,6 +18,9 @@
 import { DataTexture, LinearFilter, NoColorSpace, RGBAFormat, RepeatWrapping, UnsignedByteType } from 'three';
 import { fbm } from './noise.js';
 
+/** How much of the day sky's blue the diffuse image-based light on the world materials loses (0 … 1). */
+export const DAY_IBL_GREY = 0.75;
+
 /** Metres covered by one repeat of the macro texture. */
 export const MACRO_TILE = 48;
 
@@ -69,7 +72,10 @@ const WORLD_FRAGMENT_PARS = /* glsl */ `
 varying vec3 vMiPos;
 uniform sampler2D miMacro;
 uniform vec4 miLook;   // x tone variation, y wetness, z wall grime, w 1 / macro tile in metres
-uniform float miDry;   // 0 the night street (soaked), 1 a dry afternoon (a few damp patches remain)
+uniform float miDry;   // 0 the night street (soaked), 1 a dry afternoon (wet only where the hydrant reaches)
+uniform vec4 miWetLine;   // the open hydrant's reach: a capsule from (x, y) to (z, w) on the ground (x, z)
+uniform vec3 miWetSize;   // its radius at either end in metres; z 0 when there is no open hydrant
+uniform float miSoak;     // 1 for standing water (asphalt_wet): wet at night, by day inside the reach only
 #ifdef MI_FACADE
   varying vec2 vMiUv;           // the geometry's metre UVs
   uniform sampler2D miFacade;   // atlas page: rgb paint, a coverage (windows, sills, lintels, the shop band)
@@ -109,7 +115,8 @@ vec4 miM = texture2D( miMacro, ( miUp > 0.5 ? vMiPos.xz : miWallUv ) * miLook.w 
   miF.a *= miFTop;
   diffuseColor.rgb = mix( diffuseColor.rgb, miF.rgb, miF.a );
 #endif
-diffuseColor.rgb *= 1.0 + miLook.x * ( miM.b - 0.5 ) * 2.0;
+// The tone variation is gentler on the sunlit ground than in the lamplight.
+diffuseColor.rgb *= 1.0 + miLook.x * ( 1.0 - 0.4 * miDry * miUp ) * ( miM.b - 0.5 ) * 2.0;
 float miGrime = miLook.z * ( 1.0 - miUp ) * ( 1.0 - smoothstep( 0.0, 1.7, vMiPos.y ) ) * ( 0.4 + miM.a );
 diffuseColor.rgb *= 1.0 - 0.5 * miGrime;
 `;
@@ -124,13 +131,21 @@ const WORLD_ROUGHNESS = /* glsl */ `
   float miLow = 0.5;
 #endif
 float miWet = miLook.y * miUp;
-// By day the street has dried: the glossy low spots painted into the roughness map go matte.
-roughnessFactor = mix( roughnessFactor, max( roughnessFactor, 0.86 ), miDry * miWet );
-float miDamp = miWet * smoothstep( 0.26 + 0.34 * miDry, 0.66 + 0.1 * miDry, miM.g + ( miLow - 0.5 ) * 0.5 );
-float miPuddle = miWet * smoothstep( 0.66 + 0.1 * miDry, 0.72 + 0.1 * miDry, miM.r + ( miLow - 0.5 ) * 0.3 );
+// By day the street has dried except where the open hydrant reaches (a capsule with a ragged edge).
+vec2 miPa = vMiPos.xz - miWetLine.xy;
+vec2 miBa = miWetLine.zw - miWetLine.xy;
+float miT = clamp( dot( miPa, miBa ) / max( dot( miBa, miBa ), 1e-4 ), 0.0, 1.0 );
+float miEdge = length( miPa - miBa * miT ) - mix( miWetSize.x, miWetSize.y, miT ) + 1.2 * ( miM.g - 0.5 );
+float miReach = miWetSize.z * ( 1.0 - smoothstep( -0.5, 0.5, miEdge ) );
+float miD = miDry * ( 1.0 - miReach );   // 1 where the ground is dry, 0 where it is as wet as at night
+// Dried ground: the glossy low spots painted into the roughness map go matte.
+roughnessFactor = mix( roughnessFactor, max( roughnessFactor, 0.86 ), miD * max( miWet, miSoak * miUp ) );
+float miDamp = miWet * ( 1.0 - miD ) * smoothstep( 0.26, 0.66, miM.g + ( miLow - 0.5 ) * 0.5 );
+float miPuddle = miWet * ( 1.0 - miD ) * smoothstep( 0.66, 0.72, miM.r + ( miLow - 0.5 ) * 0.3 );
 roughnessFactor = mix( roughnessFactor, roughnessFactor * 0.5, miDamp );
 roughnessFactor = mix( roughnessFactor, 0.05, miPuddle );
-diffuseColor.rgb *= 1.0 - 0.18 * miDamp - 0.3 * miPuddle;
+// Standing water takes the dry street's albedo by day (mats retints it): darken it where it is still wet.
+diffuseColor.rgb *= 1.0 - 0.18 * miDamp - 0.3 * miPuddle - 0.6 * miSoak * miDry * miReach;
 roughnessFactor = min( 1.0, roughnessFactor + 0.3 * miGrime );
 #ifdef MI_FACADE
   // The emissive layer's alpha tells glass (low) from frames and stone (1).
@@ -146,6 +161,15 @@ const WORLD_EMISSIVE = /* glsl */ `
   totalEmissiveRadiance *= miE.rgb * miFTop;
 #else
   #include <emissivemap_fragment>
+#endif
+`;
+
+// After the image-based light is gathered: by day the sky's diffuse light reaches the street and the
+// walls without its blue cast (the deck of the El and the facades hide most of the blue overhead, which
+// the environment, captured in the open, cannot know). Reflections keep the sky's colour.
+const WORLD_IBL = /* glsl */ `
+#if defined( RE_IndirectDiffuse ) && defined( USE_ENVMAP ) && defined( ENVMAP_TYPE_CUBE_UV )
+  iblIrradiance = mix( iblIrradiance, vec3( dot( iblIrradiance, vec3( 0.2126, 0.7152, 0.0722 ) ) ), MI_IBL_GREY * miDry );
 #endif
 `;
 
@@ -185,9 +209,10 @@ export function patchWorld(material, uniforms, packed = false) {
       f = inject(f, '#include <normal_fragment_maps>', WORLD_NORMAL);
     }
     f = inject(f, '#include <emissivemap_fragment>', WORLD_EMISSIVE, 'replace');
+    f = inject(f, '#include <lights_fragment_maps>', WORLD_IBL.replace('MI_IBL_GREY', DAY_IBL_GREY.toFixed(3)));
     shader.fragmentShader = f;
   };
-  material.customProgramCacheKey = () => 'mi-world-2';
+  material.customProgramCacheKey = () => 'mi-world-3';
   return material;
 }
 

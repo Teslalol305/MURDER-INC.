@@ -26,7 +26,6 @@ import { ATLAS_H, ATLAS_W, drawAtlas, layoutAtlas } from './atlas.js';
 import { RIGGED } from './kit.js';
 
 const LIT_GAIN = 1.7; // lit atlas pictures: bright enough to bloom a little
-const DOME_GLOW = { emissive: 0xffc890, emissiveIntensity: 0.45 }; // a parked car with its interior light on
 const GRID_LEVELS = 7; // 64 px down to 1 px
 
 const hasDom = typeof document !== 'undefined';
@@ -176,7 +175,8 @@ export function createPropMaterials(G) {
       if (canTint()) return mats.get(inst.paint, { tint: 'vertex' });
       return mats.get(inst.paint, inst.color === undefined ? undefined : { color: inst.color });
     }
-    if (slot === '@glass') return inst.lit ? mats.get('glass_car', DOME_GLOW) : mats.get('glass_car');
+    // A parked car with its interior light on: its own catalogue glass, which the library dims by day.
+    if (slot === '@glass') return mats.get(inst.lit ? 'glass_car_lit' : 'glass_car');
     let material = cache.get(slot);
     if (!material) cache.set(slot, (material = create(slot)));
     return material;

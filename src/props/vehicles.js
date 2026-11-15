@@ -15,7 +15,7 @@ const HULL_BEVEL = 0.04;
 const CAB_BEVEL = 0.035;
 const CAB_INSET = 0.055; // the greenhouse sits this far inside the body side
 const GLASS_LIFT = 0.012;
-const WHEEL_SEGMENTS = 12;
+const WHEEL_SEGMENTS = 10; // a wheel is mostly seen at a few metres: ten sides read round, twelve only cost triangles
 
 const DARK = 'plastic_dark';
 const TAIL = glow(0xff1a10, 0.6); // parked: lenses catching the street light
@@ -311,7 +311,7 @@ export function wheel(b, x, y, z, side, w, style, tyre = true) {
   }
   const slot = style === 'steel' ? 'metal_dark' : style === 'rust' ? 'steel_rust' : 'chrome';
   b.add(slot, latheGeo([[w.rim, half], [w.rim - 0.012, half - 0.04], [0, half - 0.012]], N), m);
-  if (style === 'steel') b.add('chrome', latheGeo([[0.075, half - 0.03], [0.055, half + 0.004], [0, half + 0.008]], 8), m);
+  if (style === 'steel') b.add('chrome', latheGeo([[0.075, half - 0.03], [0.055, half + 0.004], [0, half + 0.008]], 6), m);
   if (!tyre) b.add(slot, latheGeo([[0, -half], [w.rim, -half], [w.rim, half]], N), m);
 }
 
@@ -812,8 +812,8 @@ function buildMotorbike(b) {
   const tyre = [[0.2, -0.05], [r - 0.03, -0.062], [r, -0.03], [r, 0.03], [r - 0.03, 0.062], [0.2, 0.05]];
   for (const x of [0.66, -0.66]) {
     const m = xf(x, r, 0, Math.PI / 2, 0, 0);
-    b.add('tire', latheGeo(tyre, 14), m);
-    b.add('chrome', latheGeo([[0.2, 0.035], [0.2, -0.035]], 14), m);
+    b.add('tire', latheGeo(tyre, 12), m);
+    b.add('chrome', latheGeo([[0.2, 0.035], [0.2, -0.035]], 12), m);
     b.add('metal_dark', latheGeo([[0, -0.02], [0.2, -0.012]], 10), m);
     b.add('metal_dark', latheGeo([[0.2, 0.012], [0, 0.02]], 10), m);
     b.cyl('chrome', 0.045, 0.14, [x, r, 0], { axis: 'z', seg: 8 });

@@ -27,26 +27,23 @@ function milkCrate(b, m, color) {
   }
   soup.quad([-s, 0.004, s], [s, 0.004, s], [s, 0.004, -s], [-s, 0.004, -s]);
   b.add(lattice(color), scaleUV(soup.build(0), cells), m);
-  // Rim and base band.
-  for (const [y, t] of [[h - 0.02, 0.04], [0.02, 0.04]]) {
-    for (const k of [1, -1]) {
-      b.add('@vc', xfBox(2 * s + 0.012, t, 0.014), m.clone().multiply(xf(0, y, k * s)), color);
-      b.add('@vc', xfBox(0.014, t, 2 * s + 0.012), m.clone().multiply(xf(k * s, y, 0)), color);
-    }
-  }
+  // Rim and base band: the outside and the top of a 14 mm frame (the inside is behind the lattice).
+  for (const [y, t] of [[h - 0.02, 0.04], [0.02, 0.04]]) b.add('@vc', crateBand(s, y, t), m, color);
 }
 
-/** A plain box geometry for the vertex-coloured slot (kept tiny: no bottom face). */
-function xfBox(w, h, d) {
+/** The band round a crate at height y (t tall), half-footprint s: four outer faces and a top ring. */
+function crateBand(s, y, t) {
   const soup = new Soup();
-  const x = w / 2;
-  const y = h / 2;
-  const z = d / 2;
-  soup.quad([-x, -y, z], [x, -y, z], [x, y, z], [-x, y, z]);
-  soup.quad([x, -y, -z], [-x, -y, -z], [-x, y, -z], [x, y, -z]);
-  soup.quad([x, -y, z], [x, -y, -z], [x, y, -z], [x, y, z]);
-  soup.quad([-x, -y, -z], [-x, -y, z], [-x, y, z], [-x, y, -z]);
-  soup.quad([-x, y, z], [x, y, z], [x, y, -z], [-x, y, -z]);
+  const o = s + 0.007;
+  const i = s - 0.007;
+  const y0 = y - t / 2;
+  const y1 = y + t / 2;
+  for (const [nx, nz] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+    // u runs along the side, r out from the centre
+    const P = (u, yy, r) => (nz !== 0 ? [u, yy, nz * r] : [nx * r, yy, u]);
+    soup.quadFacing([nx, 0, nz], P(-o, y0, o), P(o, y0, o), P(o, y1, o), P(-o, y1, o));
+    soup.quadFacing([0, 1, 0], P(-o, y1, o), P(o, y1, o), P(i, y1, i), P(-i, y1, i));
+  }
   return soup.build(0);
 }
 
@@ -65,8 +62,9 @@ function pallet(b, m, full) {
 
 /** A tyre lying flat, its underside at y = 0. */
 function tyreFlat(b, m, r = 0.385, h = 0.245) {
-  const profile = [[0.2, 0.025], [r - 0.07, 0], [r - 0.01, 0.045], [r, h / 2], [r - 0.01, h - 0.045], [r - 0.07, h], [0.2, h - 0.025], [0.2, 0.025]];
-  b.add('tire', latheGeo(profile, 10, { crease: 50 }), m);
+  // Five facets round the section and eight round the ring: the smoothed normals do the rounding.
+  const profile = [[0.2, 0.025], [r - 0.05, 0], [r, h / 2], [r - 0.05, h], [0.2, h - 0.025], [0.2, 0.025]];
+  b.add('tire', latheGeo(profile, 8, { crease: 50 }), m);
 }
 
 /** A portable stereo, 0.6 wide, its back on z = 0 of its own frame and its face toward +Z. */
@@ -244,7 +242,7 @@ export function registerClutter(R) {
     build(b, o) {
       const r = 0.28;
       const profile = [
-        [0, 0], [r + 0.008, 0], [r + 0.008, 0.03], [r, 0.035],
+        [r + 0.008, 0], [r + 0.008, 0.03], [r, 0.035], // no underside: it stands on it
         [r, 0.285], [r + 0.012, 0.3], [r, 0.315],
         [r, 0.585], [r + 0.012, 0.6], [r, 0.615],
         [r, 0.865], [r + 0.008, 0.87], [r + 0.008, 0.9], [r - 0.012, 0.9], [r - 0.012, 0.872], [0, 0.872],
