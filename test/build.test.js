@@ -81,7 +81,8 @@ test('build: --artifact writes the page fragment that loads three.js from a CDN'
   assert.ok(standalone.includes('var WebGLRenderer = class'));
   assert.ok(!html.includes('var WebGLRenderer = class'));
   assert.ok(html.includes('var EffectComposer = class'));
-  assert.ok(html.length < standalone.length / 3);
+  // The fragment is smaller by about the size of three.js (well over a megabyte unminified).
+  assert.ok(standalone.length - html.length > 1e6);
 });
 
 test('build: --only for a module that has no real file yet builds with its stub and says so', () => {
