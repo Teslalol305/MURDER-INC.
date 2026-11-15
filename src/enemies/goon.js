@@ -950,7 +950,7 @@ export function createGoons(ctx) {
     const lamp = e.anim.lamp;
     if (lamp < 0.05 || !e.alive) return;
     const k = Math.min(1, lamp / 15);
-    const size = 0.1 + 0.55 * Math.sqrt(k);
+    const size = 0.15 + 0.85 * Math.sqrt(k); // a cue the player must catch at 15 m
     const level = lamp * 0.9;
     glow.flare(e.lamp.x, e.lamp.y, e.lamp.z, size, GOON_LAMP.r * level, GOON_LAMP.g * level, GOON_LAMP.b * level);
   }

@@ -67,21 +67,23 @@ module.exports = async (page, h) => {
     const p = G.player.pos;
     return G.enemies.spawn('goon', new G.THREE.Vector3(p.x + 13, 0, p.z), { alerted: true }).id;
   });
-  if (!(await waitFor(goon, "e.sub === 'telegraph' && e.subT > 0.3", 900))) throw new Error('the Goon never telegraphed');
+  if (!(await waitFor(goon, "e.sub === 'telegraph' && e.telegraph < 0.12", 900))) throw new Error('the Goon never telegraphed');
   await frame(goon, 'goon-telegraph', 3, 1.4, 0.3);
   if (!(await waitFor(goon, "e.sub === 'burst'", 60))) throw new Error('no burst after the telegraph');
   await h.skip(2);
   await frame(goon, 'goon-burst', 3.2, -2.4, 1.1);
 
-  // The rush: the player walks up to 2.5 m.
-  await h.eval((i) => {
+  // The rush: a fresh Goon 2.6 m from the player, in the open roadway.
+  const rusher = await h.eval(() => {
     const G = window.__G;
-    const e = G.enemies.list.find((x) => x.id === i);
-    G.player.reset({ pos: new G.THREE.Vector3(e.pos.x - 2.4, 0, e.pos.z), yaw: -Math.PI / 2 });
-  }, goon);
-  if (!(await waitFor(goon, "e.sub === 'windup' || e.sub === 'lunge'", 300))) throw new Error('no rush at 2.4 m');
-  await h.skip(4);
-  await frame(goon, 'goon-rush', 1.4, 3.4, 1.4);
+    const V = G.THREE.Vector3;
+    G.enemies.clear();
+    G.player.reset({ pos: new V(-23.2, 0, 4.6), yaw: -Math.PI / 2 });
+    return G.enemies.spawn('goon', new V(-20.6, 0, 4.6), { alerted: true, yaw: Math.PI / 2 }).id;
+  });
+  if (!(await waitFor(rusher, "e.sub === 'lunge'", 300))) throw new Error('no rush at 2.6 m');
+  await h.skip(3);
+  await frame(rusher, 'goon-rush', 1.0, 3.2, 0.5);
 
   // A Buzzard: telegraph (eye) and the volley.
   await h.eval(() => {
