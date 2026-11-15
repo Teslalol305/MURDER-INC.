@@ -8,6 +8,12 @@
 'use strict';
 
 module.exports = async (page, h) => {
+  // Baseline: the same 300 steps with no enemies at all.
+  await h.eval(() => window.__G.enemies.clear());
+  await h.skip(30);
+  const base0 = await h.heap(true);
+  await h.skip(300);
+  const base1 = await h.heap(false);
   await h.eval(() => {
     const G = window.__G;
     const V = G.THREE.Vector3;
@@ -16,13 +22,16 @@ module.exports = async (page, h) => {
     for (let i = 0; i < 12; i++) G.enemies.spawn('goon', new V(p.x + 14 + (i % 4) * 3, 0, p.z - 4 + Math.floor(i / 4) * 3), { alerted: true });
     for (let i = 0; i < 8; i++) G.enemies.spawn('buzzard', new V(p.x + 18 + (i % 4) * 2, 4 + (i % 2), p.z - 3 + Math.floor(i / 4) * 5), { alerted: true });
     // Time every enemies.update and count path queries.
-    const perf = (window.__perf = { n: 0, sum: 0, max: 0, paths: 0, maxPaths: 0, stepPaths: 0 });
+    const perf = (window.__perf = { n: 0, sum: 0, max: 0, paths: 0, maxPaths: 0, stepPaths: 0, bytes: 0 });
     const update = G.enemies.update;
     G.enemies.update = (dt) => {
       perf.stepPaths = 0;
+      const m0 = performance.memory.usedJSHeapSize;
       const t0 = performance.now();
       update(dt);
       const ms = performance.now() - t0;
+      const dm = performance.memory.usedJSHeapSize - m0;
+      if (dm > 0 && perf.n > 300) perf.bytes += dm; // allocated inside enemies.update (a GC inside hides some)
       perf.n++;
       perf.sum += ms;
       if (perf.n > 30) perf.max = Math.max(perf.max, ms); // after the first second (shader warm-up, first paths)
@@ -57,6 +66,8 @@ module.exports = async (page, h) => {
     pathsPerStep: +(perf.paths / perf.n).toFixed(2),
     maxPathsInStep: perf.maxPaths,
     heapGrowthKBper300: Math.round((heap1 - heap0) / 1024),
+    baselineKBper300: Math.round((base1 - base0) / 1024),
+    updateBytesPerStep: Math.round(perf.bytes / Math.max(1, perf.n - 300)),
     calls: st.calls,
     triangles: st.triangles,
     alive,

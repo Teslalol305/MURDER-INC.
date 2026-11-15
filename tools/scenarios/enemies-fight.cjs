@@ -88,7 +88,38 @@ module.exports = async (page, h) => {
       ([goons, buzz, soak]) => {
         const G = window.__G;
         if (soak && G.enemies.aliveCount() < 3) window.__spawnWave(goons, buzz);
-        return window.__checkIdle();
+        if (soak) {
+          // The player fights back: 45 damage to the nearest unit every two seconds.
+          let best = null;
+          for (const e of G.enemies.list) if (e.alive && (!best || e.pos.distanceTo(G.player.pos) < best.pos.distanceTo(G.player.pos))) best = e;
+          if (best) {
+            const dir = best.pos.clone().sub(G.player.eye).normalize();
+            G.enemies.damage(best, 45, { point: best.pos.clone(), dir, part: 'body', from: 'player', weapon: 'chopper' });
+          }
+        }
+        // How often Goons are seen at cover, and kneeling there.
+        const st = window.__en;
+        for (const e of G.enemies.list) {
+          if (!e.alive || e.type !== 'goon' || e.mode !== 'engage') continue;
+          st.engagedSamples = (st.engagedSamples || 0) + 1;
+          if (e.atCover) st.atCover = (st.atCover || 0) + 1;
+          if (e.atCover) (st.coverSub = st.coverSub || {})[e.sub + (e.arrived ? '+' : '')] = ((st.coverSub || {})[e.sub + (e.arrived ? '+' : '')] || 0) + 1;
+          if (e.atCover && e.anim.crouch > 0.5) st.kneeling = (st.kneeling || 0) + 1;
+        }
+        // Nobody inside solid geometry (a Buzzard in the El deck, a Goon in a car).
+        const clipped = [];
+        for (const e of G.enemies.list) {
+          if (!e.alive) continue;
+          const y = e.type === 'goon' ? e.pos.y + 0.9 : e.pos.y;
+          for (const b of G.physics.boxes) {
+            if (b.playerOnly || b.bulletOnly) continue;
+            if (e.pos.x > b.min.x + 0.05 && e.pos.x < b.max.x - 0.05 && y > b.min.y + 0.05 && y < b.max.y - 0.05 && e.pos.z > b.min.z + 0.05 && e.pos.z < b.max.z - 0.05) {
+              clipped.push(`${e.type}#${e.id} inside ${b.tag || b.surface} at ${e.pos.x.toFixed(1)},${e.pos.y.toFixed(1)},${e.pos.z.toFixed(1)}`);
+              break;
+            }
+          }
+        }
+        return [...window.__checkIdle(), ...clipped];
       },
       [GOONS, BUZZ, SOAK],
     );
@@ -117,7 +148,7 @@ module.exports = async (page, h) => {
   console.log(JSON.stringify(s, null, 1));
   const errors = await h.errors();
   if (errors.length) throw new Error(`page errors: ${errors[0]}`);
-  if (idle.length) throw new Error(`idle engaged units: ${[...new Set(idle)].join('; ')}`);
+  if (idle.length) throw new Error(`idle or clipped units: ${[...new Set(idle)].join('; ')}`);
   if (GOONS && !s.fire.goon) throw new Error('no Goon fired');
   if (BUZZ && !s.fire.buzzard) throw new Error('no Buzzard fired');
   if (!s.tele) throw new Error('no telegraphs');

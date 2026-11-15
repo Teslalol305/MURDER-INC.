@@ -676,8 +676,8 @@ export function createGoons(ctx) {
         e.faceYaw = bearing;
         e.aimYaw = wrapAngle(e.aimYaw + moveToward(0, angleDelta(e.aimYaw, bearing), t.aimRate * dt));
         e.wantAim = 1;
-        // Behind cover he kneels until the gun is nearly ready again.
-        if (e.sub === 'cool' && e.atCover && t.cover.crouchBetweenBursts && e.cooldown > 0.4) {
+        // Behind cover he kneels until the gun is nearly ready again (between bursts, and on arrival).
+        if (e.atCover && t.cover.crouchBetweenBursts && e.cooldown > 0.4 && Math.hypot(e.goalFireX - e.pos.x, e.goalFireZ - e.pos.z) < 1.2) {
           e.wantCrouch = 1;
           e.wantAim = 0.3;
         }
