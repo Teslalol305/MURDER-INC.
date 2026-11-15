@@ -327,7 +327,7 @@ test('input: keys — move vector, edges, repeat, modifiers, focus', () => {
 
   // Every binding of the keyboard table.
   const bindings = {
-    Space: 'jump', ShiftLeft: 'sprint', ShiftRight: 'sprint', KeyC: 'crouch', ControlLeft: 'crouch', ControlRight: 'crouch',
+    Space: 'jump', ShiftLeft: 'sprint', ShiftRight: 'sprint', KeyC: 'crouch',
     KeyR: 'reload', KeyE: 'interact', KeyF: 'melee', KeyV: 'melee', KeyQ: 'swap', Digit1: 'weapon1', Digit2: 'weapon2',
     Numpad1: 'weapon1', Numpad2: 'weapon2', Enter: 'fire', NumpadEnter: 'fire', Escape: 'pause', KeyP: 'pause',
   };
@@ -1221,17 +1221,18 @@ test('input: touch buttons — FIRE holds and tracks, AIM and DUCK toggle, USE n
   assert.equal(input.down('fire'), true, 'the button works again');
 });
 
-test('input: the Ctrl + W guard — leaving is questioned only with Ctrl down in a fight', () => {
+test('input: Ctrl is not a game key and the page never questions leaving (Ctrl + W belongs to the browser)', () => {
   const { input, env, key } = setup();
-  assert.equal(env.window.fire('beforeunload').defaultPrevented, false);
+  assert.equal(TUNING.keys.ControlLeft, undefined);
+  assert.equal(TUNING.keys.ControlRight, undefined);
+  assert.equal(TUNING.keys.KeyC, 'crouch', 'C still crouches');
   key('ControlLeft');
-  assert.equal(input.down('crouch'), true);
-  assert.equal(env.window.fire('beforeunload').defaultPrevented, true);
-  input.setGameplay(false);
-  assert.equal(env.window.fire('beforeunload').defaultPrevented, false, 'never in a menu');
-  input.setGameplay(true);
+  assert.equal(input.down('crouch'), false);
+  assert.equal(env.window.fire('beforeunload').defaultPrevented, false, 'no leave-site guard, even with Ctrl down in a fight');
   key('ControlLeft', false);
-  assert.equal(env.window.fire('beforeunload').defaultPrevented, false);
+  key('KeyC');
+  assert.equal(input.down('crouch'), true);
+  key('KeyC', false);
 });
 
 test('input: hint() follows the look mode and the game state; keyboard glyphs follow the layout', async () => {
@@ -1240,6 +1241,11 @@ test('input: hint() follows the look mode and the game state; keyboard glyphs fo
   G.game.state = 'paused';
   assert.equal(input.hint(), TUNING.hints.resume);
   input.requestLock();
+  // Paused while the lock is still held (P, pad Start, a tab switch: the release arrives later): the
+  // pause card must already say how to get the mouse back, not that it is locked in.
+  assert.equal(input.locked, true);
+  assert.equal(input.hint(), TUNING.hints.resume);
+  G.game.state = 'playing';
   assert.equal(input.hint(), TUNING.hints.locked);
   assert.deepEqual(['fire', 'ads', 'jump', 'sprint', 'crouch', 'reload', 'interact', 'swap', 'melee', 'pause'].map(input.glyph),
     ['LMB', 'RMB', 'SPACE', 'SHIFT', 'C', 'R', 'E', 'Q', 'F', 'ESC']);
