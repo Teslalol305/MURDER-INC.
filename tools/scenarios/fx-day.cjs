@@ -59,23 +59,34 @@ module.exports = async (page, h) => {
     await h.eval(() => {
       const G = window.__G;
       G.fx.clear();
-      window.__setShot({ cam: '25.6,1.6,18.2,22,1.45,16.4', fov: 55 });
-      const V = (x, y, z) => new G.THREE.Vector3(x, y, z);
-      const wall = V(1, 0, 0);
-      const up = V(0, 1, 0);
-      const shot = V(-0.8, -0.1, -0.3).normalize();
-      const surfaces = ['brick', 'concrete', 'metal', 'glass', 'wood', 'car'];
-      // Old marks first (their dust has settled), then a fresh volley to catch in the air.
+      // The brick back wall of the lot, between two parked cars (the wall is drawn on its collider).
+      const T = G.THREE;
+      const eye = new T.Vector3(24.6, 1.3, 16.6);
+      const look = new T.Vector3(22, 1.25, 16.6);
+      window.__found = `${eye.toArray()} -> ${look.toArray()}`;
+      window.__setShot({ cam: `${eye.x},${eye.y},${eye.z},${look.x},${look.y},${look.z}`, fov: 70 });
+      const ahead = look.clone().sub(eye).normalize();
+      const side = new G.THREE.Vector3(-ahead.z, 0, ahead.x).normalize();
+      const surfaces = ['brick', 'concrete', 'metal', 'glass', 'wood', 'car', 'asphalt', 'dirt', 'rubber', 'cloth', 'flesh', 'drone'];
+      window.__hitLog = [];
       window.__hits = (fresh) => {
-        surfaces.forEach((surface, i) => {
-          const y = 0.9 + (i % 2) * 0.75 + (fresh ? 0.35 : 0);
-          const z = 14.9 + i * 0.55 + (fresh ? 0.2 : 0);
-          G.fx.impact(V(22, y, z), wall, surface, shot);
-        });
-        for (let i = 0; i < 4; i++) G.fx.impact(V(23.2 + i * 0.45, 0, 16.2 + i * 0.5 + (fresh ? 0.3 : 0)), up, i % 2 ? 'asphalt' : 'concrete', V(-0.5, -0.7, -0.2).normalize());
+        let n = 0;
+        for (let row = 0; row < 3; row++) {
+          for (let col = 0; col < 4; col++) {
+            const dir = ahead.clone().addScaledVector(side, (col - 1.5) * 0.3 + (fresh ? 0.06 : 0)).add(new G.THREE.Vector3(0, 0.25 - row * 0.2 + (fresh ? 0.03 : 0), 0)).normalize();
+            const hit = G.physics.raycast(eye, dir, 40);
+            const point = hit ? hit.point : eye.clone().addScaledVector(dir, -eye.y / dir.y);
+            const normal = hit ? hit.normal : new G.THREE.Vector3(0, 1, 0);
+            const surface = surfaces[n++ % surfaces.length];
+            G.fx.impact(point, normal, surface, dir);
+            if (!fresh) window.__hitLog.push(`${surface}@${point.toArray().map((v) => v.toFixed(1))}/${hit ? hit.surface : 'ground'}`);
+          }
+        }
       };
       window.__hits(false);
     });
+    console.error(`wall: ${await h.eval(() => window.__found)}`);
+    console.error(`hits: ${(await h.eval(() => window.__hitLog)).join(' ')}`);
     await h.skip(70);
     await h.eval(() => window.__hits(true));
     for (const frame of [1, 3, 8]) {
@@ -90,8 +101,8 @@ module.exports = async (page, h) => {
 
   // ---- A blast at 10 m and at 30 m ------------------------------------------------------------------------
   for (const [part, cam, marks] of [
-    ['blast10', `${SITE[0] + 10},1.7,${SITE[2] + 0.8},${SITE[0]},2.2,${SITE[2]}`, [1, 3, 6, 12, 24, 48, 90]],
-    ['blast30', `${SITE[0] - 3},1.7,${SITE[2] - 30},${SITE[0]},3.4,${SITE[2]}`, [3, 12, 48]],
+    ['blast10', `${SITE[0] + 9.5},3.4,${SITE[2] + 2.5},${SITE[0]},1.8,${SITE[2]}`, [1, 3, 6, 12, 24, 48, 90]],
+    ['blast30', `${SITE[0] - 3},4.5,${SITE[2] - 30},${SITE[0]},3.4,${SITE[2]}`, [3, 12, 48]],
   ]) {
     if (!PARTS.includes(part)) continue;
     await h.eval(
@@ -118,7 +129,7 @@ module.exports = async (page, h) => {
     await h.eval(() => {
       const G = window.__G;
       G.fx.clear();
-      window.__setShot({ cam: '39,1.7,20.5,32,1.5,18.5', fov: 58 });
+      window.__setShot({ cam: '39.5,4.6,21.5,32,0.9,18.5', fov: 58 });
       const V = (x, y, z) => new G.THREE.Vector3(x, y, z);
       window.__emitters = [
         G.fx.addEmitter(V(31, 0.1, 15.5), 'fire', { scale: 1 }),

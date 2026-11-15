@@ -11,7 +11,7 @@
 import { canvas2d, css, mixHex, shade } from './canvas.js';
 import { prng } from './noise.js';
 
-const FACADE_PPM = { 256: 22, 512: 40, 1024: 64 };
+const FACADE_PPM = { 256: 22, 512: 32, 1024: 64 };
 
 const WARM = [0xffc070, 0xffd9a0, 0xf4a85a, 0xffcf8a];
 const CURTAINS = [0x8a3030, 0x2f506e, 0xd8cfb8, 0x5a6a3a, 0xc9a25a];

@@ -7,7 +7,7 @@
 
 import * as THREE from 'three';
 import { COLS, ROWS } from './atlas.js';
-import { FOG_GLSL } from './shared.js';
+import { DEPTH_BIAS_GLSL, FOG_GLSL } from './shared.js';
 
 const INSTANCE = 12; // xyz + size, normal xyz + roll, cell + opacity + key share + spare
 // Metres off the surface, on top of the polygon offset. Floors get more: road markings and pavement
@@ -48,6 +48,7 @@ const VERTEX = /* glsl */ `
   varying float vFog;
 
   ${FOG_GLSL}
+  ${DEPTH_BIAS_GLSL}
 
   void main() {
     vec3 n = iNrm.xyz;
@@ -59,6 +60,9 @@ const VERTEX = /* glsl */ `
     vec3 world = iPos.xyz + t * c.x + b * c.y + n * (n.y > 0.7 ? ${LIFT_FLOOR.toFixed(4)} : ${LIFT_WALL.toFixed(4)});
     vec4 mv = viewMatrix * vec4(world, 1.0);
     gl_Position = projectionMatrix * mv;
+    // Drawn where it is, depth-tested a few centimetres nearer: the drawn wall or pavement rarely lies
+    // exactly on the collision box the round was reported on (relief, kerbs, slabs, paint).
+    fxDepthBias(mv, 0.07 + 0.003 * -mv.z);
 
     vec3 light = mix(uGround, uSky, n.y * 0.5 + 0.5) + uKey * (max(dot(n, uKeyDir), 0.0) * iInfo.z);
     vLight = vec4(light * 0.31831, iInfo.y);
@@ -167,13 +171,16 @@ export function createDecals({ capacity, texture, common, renderOrder }) {
     buffer.needsUpdate = true;
   }
 
-  /** Wipes the decals within `radius` of a point (the thing they were on is gone). */
-  function removeNear(x, y, z, radius) {
+  /**
+   * Wipes the decals within `radius` of a point (the thing they were on is gone). Marks of `keepFrom`
+   * metres and more (blast scorches on the ground) stay.
+   */
+  function removeNear(x, y, z, radius, keepFrom = Infinity) {
     const r2 = radius * radius;
     let changed = false;
     for (let i = 0; i < used; i++) {
       const o = i * INSTANCE;
-      if (array[o + 9] <= 0) continue;
+      if (array[o + 9] <= 0 || array[o + 3] >= keepFrom) continue;
       const dx = array[o] - x;
       const dy = array[o + 1] - y;
       const dz = array[o + 2] - z;

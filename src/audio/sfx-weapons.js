@@ -48,13 +48,13 @@ function nineShot(c) {
   const { sr, rnd } = c;
   const x = c.buf(0.26);
   burst(x, sr, 0, 0.05, rnd, 1.2, { tau: 0.0045, type: 'highpass', f: 2600 });
-  burst(x, sr, 0, 0.12, rnd, 0.8, { tau: c.r(0.016, 0.021), type: 'bandpass', f: c.r(1150, 1500), q: 0.8 });
-  sweep(x, sr, 0, 0.16, c.r(300, 340), 110, 0.75, { tau: 0.032, fTau: 0.016 });
+  burst(x, sr, 0, 0.14, rnd, 0.9, { tau: c.r(0.026, 0.032), type: 'bandpass', f: c.r(1050, 1400), q: 0.8 });
+  sweep(x, sr, 0, 0.18, c.r(280, 320), 100, 1.0, { tau: 0.045, fTau: 0.018 });
   burst(x, sr, 0.001, 0.2, rnd, 0.3, { tau: 0.04, type: 'lowpass', f: 520 });
   // Slide back and forward: higher and tighter than the carbine's bolt.
   clack(x, c, 0.02, 2900, 0.3, 0.007);
   clack(x, c, 0.05, 3500, 0.22, 0.006);
-  drive(x, 2.0);
+  drive(x, 2.6);
   return x;
 }
 
@@ -219,7 +219,7 @@ export const WEAPONS = {
   holster: { bus: 'near', n: 1, peak: 0.4, prio: 4, gen: (c) => holster(c, false) },
   draw: { bus: 'near', n: 1, peak: 0.42, prio: 4, gen: (c) => holster(c, true) },
   whoosh: { bus: 'near', n: 2, peak: 0.5, prio: 6, jitter: 0.06, gen: whoosh },
-  melee_thud: { bus: 'near', n: 2, peak: 0.85, prio: 8, jitter: 0.05, gen: meleeThud },
+  melee_thud: { bus: 'near', n: 2, peak: 0.62, prio: 8, jitter: 0.05, gen: meleeThud },
   brass_asphalt: { bus: 'world', n: 4, peak: 0.34, prio: 2, max: 3, gap: 0.04, jitter: 0.06, ref: 1.6, roll: 1.4, gen: (c) => brass(c, false) },
   brass_metal: { bus: 'world', n: 3, peak: 0.36, prio: 2, max: 3, gap: 0.04, jitter: 0.06, ref: 1.6, roll: 1.4, gen: (c) => brass(c, true) },
 };

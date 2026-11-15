@@ -1,7 +1,10 @@
-// Atmosphere (`G.atmos`, CONTRACT 6.11): sky, light and life. Night, sodium and neon.
+// Atmosphere (`G.atmos`, CONTRACT 6.11 and 11.1): sky, light and life, by day (the default: a clear
+// summer afternoon) and by night (sodium and neon). Both rigs are built at boot; `setTime(name)` only
+// changes values, visibility and `render.look` (look.js `times`), never the number of lights or a define.
 //
 //   src/atmos/fog.js        the haze: scene.fog, thicker past the bounds, tinted by where you look
-//   src/atmos/sky.js        the sky dome and the PMREM environment captured from it
+//   src/atmos/sky.js        the night sky dome and the PMREM environments captured from either sky
+//   src/atmos/daysky.js     the day sky dome: blue gradient, the sun, drifting cumulus
 //   src/atmos/lights.js     the shadow-casting key, the ambient, real lights for the top-priority lamps
 //   src/atmos/lampfield.js  light pools, cones and glows for every lamp (three draw calls)
 //   src/atmos/farcity.js    the next blocks, the skyline rings, the El and the street beyond the bounds
@@ -23,6 +26,7 @@ import { createLampField } from './atmos/lampfield.js';
 import { createLife } from './atmos/life.js';
 import { collectLamps, createKeyLight, createLightRig } from './atmos/lights.js';
 import { continueRow, interiorTarget, rowStep } from './atmos/plan.js';
+import { createDaySky } from './atmos/daysky.js';
 import { createEnvironment, createSky } from './atmos/sky.js';
 import { createTrain } from './atmos/train.js';
 
@@ -83,6 +87,8 @@ export function createAtmos(G) {
 
   const sky = createSky(G, haze, shared.uTime);
   root.add(sky.dome);
+  const daySky = createDaySky(G, haze, shared.uTime, look.times.day.sun.direction);
+  root.add(daySky.dome);
 
   // ---------------------------------------------------------------------------------------------
   // Key light and ambient
@@ -198,20 +204,33 @@ export function createAtmos(G) {
     }
     blobs.sort((a, b) => b.weight - a.weight);
     envTarget = createEnvironment(G, sky, blobs.slice(0, cfg.maxLamps));
-    G.render.setEnvironment(envTarget.texture);
   }
+  // By day: the day sky (without the sun's disc, which the key light already is) over sunlit stand-ins.
+  // The haze is part of the capture, so it is switched to the day's while the sky is painted.
+  let dayEnvTarget = null;
+  {
+    const day = look.times.day;
+    haze.setBase(day.fog.haze, day.fog.density);
+    daySky.setCapture(true, day.env.skyGain);
+    dayEnvTarget = createEnvironment(G, daySky, [], day.env);
+    daySky.setCapture(false);
+    haze.setBase(look.times.night.fog.haze, look.times.night.fog.density);
+  }
+  const environments = { day: dayEnvTarget, night: envTarget };
 
   // ---------------------------------------------------------------------------------------------
   // Quality
   // ---------------------------------------------------------------------------------------------
 
   let shownDetail = null;
+  let time = 'night'; // what the rig shows (setTime below applies the user's setting before the first frame)
+  let timeCfg = look.times.night;
   function applyDetail() {
     const name = detailName();
     if (name === shownDetail) return;
     shownDetail = name;
     const detail = look.detail[name];
-    if (field.cones) field.cones.visible = detail.cones;
+    if (field.cones) field.cones.visible = detail.cones && timeCfg.field.cones;
     city.setDetail(detail);
     life.setDetail(detail);
     if (train) train.setDetail(detail);
@@ -222,7 +241,7 @@ export function createAtmos(G) {
   // Interior
   // ---------------------------------------------------------------------------------------------
 
-  const interiorCfg = look.interior;
+  const interiorCfg = look.interior; // rate and hold; the amounts come from the time of day
   const ambientOut = { sky: key.hemi.color.clone(), ground: key.hemi.groundColor.clone(), intensity: key.hemi.intensity };
   const ambientIn = new THREE.Color(interiorCfg.ambientSky);
   let interior = 0; // 0 on the street … 1 inside the shop (smoothed)
@@ -232,12 +251,13 @@ export function createAtmos(G) {
 
   function applyInterior(f) {
     // Exposure is shared with whoever else tunes render.look: only our own factor is swapped out.
-    const exposure = lerp(1, interiorCfg.exposure, f);
+    const inside = timeCfg.interior;
+    const exposure = lerp(1, inside.exposure, f);
     G.render.look.exposure *= exposure / appliedExposure;
     appliedExposure = exposure;
-    key.hemi.intensity = ambientOut.intensity * lerp(1, interiorCfg.ambient, f);
+    key.hemi.intensity = ambientOut.intensity * lerp(1, inside.ambient, f);
     key.hemi.color.copy(ambientOut.sky).lerp(ambientIn, f);
-    haze.setDensityScale(lerp(1, interiorCfg.fog, f));
+    haze.setDensityScale(lerp(1, inside.fog, f));
   }
 
   function setInterior(amount) {
@@ -246,10 +266,67 @@ export function createAtmos(G) {
   }
 
   // ---------------------------------------------------------------------------------------------
+  // Day and night
+  // ---------------------------------------------------------------------------------------------
+
+  /** Switches the whole rig (CONTRACT 11.1). Values, visibility and render.look only. */
+  function setTime(name) {
+    time = name === 'night' ? 'night' : 'day';
+    timeCfg = look.times[time];
+    const T = timeCfg;
+    const day = time === 'day';
+
+    sky.dome.visible = !day;
+    daySky.dome.visible = day;
+    key.setRig(T.sun, T.ambient);
+    ambientOut.sky.copy(key.hemi.color);
+    ambientOut.ground.copy(key.hemi.groundColor);
+    ambientOut.intensity = key.hemi.intensity;
+    ambientIn.set(T.interior.ambientSky);
+    haze.setBase(T.fog.haze, T.fog.density);
+    G.render.setEnvironment(environments[time].texture);
+
+    // The grade: our own interior factor stays folded into the exposure.
+    Object.assign(G.render.look, T.grade);
+    G.render.look.exposure = T.grade.exposure * appliedExposure;
+
+    if (field.pools) field.pools.visible = T.field.pools;
+    if (field.glows) field.glows.visible = T.field.glows;
+    if (field.cones) field.cones.visible = T.field.cones && !!(shownDetail && look.detail[shownDetail].cones);
+    rig.setGains(T.lampGain);
+    city.setTime(time);
+    if (train) train.setTime(T.train);
+    life.setTime(T.life);
+    applyInterior(interior);
+  }
+
+  setTime(G.settings.get('time'));
+  // Between runs only: the game calls setTime on every reset; on the title screen a change shows at once.
+  G.events.on('settings:change', ({ key: name, value }) => {
+    if (name === 'time' && (!G.game || G.game.state === 'title' || G.game.state === undefined)) setTime(value);
+  });
+
+  // ---------------------------------------------------------------------------------------------
   // Hooks into modules created after this one
   // ---------------------------------------------------------------------------------------------
 
+  // Shader warm-up: render.onLevelReady() compiles only what is visible, and much of the atmosphere is
+  // not (the other time of day, the train between passes, layers the preset hides). Everything is shown
+  // until boot is done, so every program exists before the first real frame; then the rig is re-applied.
+  const hiddenAtBoot = [];
+  root.traverse((obj) => {
+    if (!obj.visible) {
+      hiddenAtBoot.push(obj);
+      obj.visible = true;
+    }
+  });
+
   G.events.on('boot:done', () => {
+    for (const obj of hiddenAtBoot) obj.visible = false;
+    hiddenAtBoot.length = 0;
+    shownDetail = null;
+    applyDetail();
+    setTime(time);
     life.hookEmitters();
     // Upload what the first frames do not show, so the first train does not hitch.
     const textures = [...(train ? train.textures : []), ...city.textures, life.paper.texture];
@@ -293,6 +370,11 @@ export function createAtmos(G) {
 
   return {
     sun: key.sun,
+    /** 'day' | 'night': the rig that is showing (CONTRACT 11.1). */
+    get time() {
+      return time;
+    },
+    setTime,
     setInterior,
     update,
     /** Live state of the El train: {active, phase, dir, x, lo, hi, y, z, speed, length, passes}. */
@@ -321,6 +403,7 @@ export function createAtmos(G) {
         buildings: city.stats.buildings,
         cityTriangles: city.stats.triangles,
         detail: shownDetail,
+        time,
         hydrant: !!life.hydrant,
         nextTrain: train ? train.schedule.nextAt : null,
         shadow: key.fitted ? { width: key.fitted.width, height: key.fitted.height, near: key.fitted.near, far: key.fitted.far, texel: key.fitted.texel } : null,

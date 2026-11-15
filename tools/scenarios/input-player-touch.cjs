@@ -47,9 +47,11 @@ module.exports = async (page, h) => {
       fingers.set(id, [x, y]);
       await send('touchMove');
     },
+    // A touchEnd over CDP releases the points it lists (an empty list releases them all).
     async up(id) {
+      const [x, y] = fingers.get(id);
       fingers.delete(id);
-      await send('touchEnd');
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [{ id, x: Math.round(x), y: Math.round(y) }] });
     },
     async tap(id, x, y) {
       await this.down(id, x, y);
@@ -147,11 +149,12 @@ module.exports = async (page, h) => {
   // ---- 2. layout ---------------------------------------------------------------------------------
   let r = await rects();
   const names = Object.keys(r.buttons);
-  check('eight controls at rest (USE waits for a prompt)', names.sort().join() === 'ads,crouch,fire,jump,melee,pause,reload,swap', names.join());
+  check('nine controls at rest (USE waits for a prompt)', names.sort().join() === 'ads,crouch,fire,fire2,jump,melee,pause,reload,swap', names.join());
   const all = { ...r.buttons, stick: r.stick };
   const outside = Object.entries(all).filter(([, b]) => b.x < 0 || b.y < 0 || b.x + b.w > W || b.y + b.h > H).map(([n]) => n);
   check('every control is inside the viewport', outside.length === 0, outside.join() || `${W} × ${H}`);
-  const small = Object.entries(r.buttons).filter(([, b]) => Math.min(b.w, b.h) < 42).map(([n, b]) => `${n} ${f(b.w)}`);
+  // (pause is a 40 px corner disc, and only there while the HUD has no pause button of its own)
+  const small = Object.entries(r.buttons).filter(([n, b]) => Math.min(b.w, b.h) < (n === 'pause' ? 40 : 42)).map(([n, b]) => `${n} ${f(b.w)}`);
   check('every button is at least 42 px across', small.length === 0, small.join() || Object.entries(r.buttons).map(([n, b]) => `${n} ${Math.round(b.w)}`).join(' '));
   const clash = [];
   const list = Object.entries(all);
@@ -174,17 +177,18 @@ module.exports = async (page, h) => {
     }
   }
   check('no control covers a HUD block', onHud.length === 0, onHud.join() || Object.keys(r.hud).join());
-  // Thumb reach: everything but pause lies within 300 px of a bottom corner.
+  // Thumb reach: everything but pause lies within 300 px of its bottom corner (the small left FIRE: the left one).
+  const reach = (n, b) => Math.hypot((n === 'fire2' ? 0 : W) - centre(b)[0], H - centre(b)[1]);
   const far = Object.entries(r.buttons)
-    .filter(([n, b]) => n !== 'pause' && Math.hypot(W - centre(b)[0], H - centre(b)[1]) > 300)
-    .map(([n, b]) => `${n} ${Math.round(Math.hypot(W - centre(b)[0], H - centre(b)[1]))}`);
+    .filter(([n, b]) => n !== 'pause' && reach(n, b) > 300)
+    .map(([n, b]) => `${n} ${Math.round(reach(n, b))}`);
   check('the right-hand cluster is within thumb reach of the corner', far.length === 0, far.join());
   check('the stick rests in the left thumb corner', centre(r.stick)[0] < W * 0.45 && centre(r.stick)[1] > H * 0.5, centre(r.stick).map(Math.round).join());
   if (process.env.LAYOUT_ONLY === '1') return; // other screen sizes: the layout checks and the picture are enough
 
   // ---- 3. stick: move, auto-sprint ---------------------------------------------------------------
-  const sx = W * 0.2;
-  const sy = H * 0.72;
+  // (on the ring at rest: the left thumb's own corner, clear of the small left FIRE)
+  const [sx, sy] = centre(r.stick);
   await touch.down(1, sx, sy);
   await touch.move(1, sx + 20, sy - 20);
   await h.skip(steps(0.6));
@@ -192,7 +196,7 @@ module.exports = async (page, h) => {
   const unit = r.stick.w / 2;
   check('left thumb: the stick walks, analog', Math.abs(s.move.x - 20 / unit) < 0.03 && Math.abs(s.move.y - 20 / unit) < 0.03 && s.speed > 0.5 && s.speed < 3.8 && !s.sprinting,
     `move ${f(s.move.x)}, ${f(s.move.y)}, speed ${f(s.speed)}`);
-  await touch.move(1, sx, sy - 90); // all the way forward
+  await touch.move(1, sx, sy - unit * 1.25); // all the way forward (short of the sprint-lock arrow)
   await h.skip(steps(0.8));
   s = await state();
   check('pushed fully forward: sprint', s.move.y === 1 && s.sprint && s.sprinting && Math.abs(s.speed - 6.4) < 1e-6, `speed ${f(s.speed)}`);

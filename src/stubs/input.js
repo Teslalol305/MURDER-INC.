@@ -88,10 +88,15 @@ export function createInput(G) {
     rumble() {},
     setPrompt() {}, // no touch USE button, no gamepad in the stub
     menuNav: () => NO_NAV,
+    // A one-frame press asked for by the UI (a tapped weapon slot), applied at the next update.
+    tap: (action) => {
+      if (typeof action === 'string' && taps.length < 16) taps.push(action);
+    },
     update,
     endFrame,
   };
 
+  const taps = [];
   // Outside gameplay only `pause` gets through.
   const active = (action) => gameplay || action === 'pause';
   const announce = () => G.events && G.events.emit('input:lock', { locked: input.locked, mode: input.mode });
@@ -152,6 +157,8 @@ export function createInput(G) {
   }
 
   function update() {
+    for (const action of taps) if (active(action)) pressedNow[action] = true;
+    taps.length = 0;
     const k = MOUSE_RATE * input.sensitivity;
     input.look.dx = pendingX * k;
     input.look.dy = pendingY * k * (input.invertY ? -1 : 1);

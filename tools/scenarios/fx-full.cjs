@@ -8,7 +8,7 @@
 
 'use strict';
 
-const OUT = 'shots/fx';
+const OUT = process.env.FX_OUT || "shots/fx";
 
 module.exports = async (page, h) => {
   const fx = () => h.eval(() => window.__G.fx.stats());

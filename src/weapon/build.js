@@ -16,7 +16,7 @@ const X = [1, 0, 0];
 const Y = [0, 1, 0];
 const _color = new THREE.Color();
 
-export const FINISH = { plain: 0, brushed: 1, wood: 2, checker: 3, skin: 4 };
+export const FINISH = { plain: 0, brushed: 1, wood: 2, checker: 3, skin: 4, glove: 5 };
 
 /**
  * A surface description. `hex` is an sRGB colour; `wear` (optional) is what chamfered edges show.

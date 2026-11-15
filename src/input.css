@@ -212,6 +212,15 @@
     --cx: 30;
     --cy: 238;
   }
+
+  /* …and AIM and SWAP sit a little lower, under the HUD's prompt plate (centred just below the aim point). */
+  .touch-ads {
+    --cy: 132;
+  }
+
+  .touch-swap {
+    --cy: 194;
+  }
 }
 
 /* FIRE: the big one. A lighter core inside a dark band, a heavier rim; pressed, the whole disc turns yellow. */

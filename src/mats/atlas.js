@@ -66,6 +66,19 @@ export function createPacker(width, height, pad = 2, align = 1) {
           bestPage = p;
         }
       }
+      // A page whose rows are all taken may still have room at the end of a taller shelf: better a
+      // little waste there than a whole new page (every page is two or three more textures).
+      for (let p = 0; p < pages.length && !best; p++) {
+        let loose = null;
+        for (const shelf of pages[p].shelves) {
+          if (shelf.h >= bh && shelf.x + bw <= width && (!loose || shelf.h < loose.h)) loose = shelf;
+        }
+        if (loose) {
+          const rect = { page: p, x: loose.x + pad, y: loose.y + pad, w, h };
+          loose.x += bw;
+          return rect;
+        }
+      }
       if (!best) {
         bestPage = pages.length;
         openPage();
@@ -181,6 +194,51 @@ export function createAtlas({ width, height, pad = 4, opaque = false, emissive =
     O.fillRect(x0, y0, Math.ceil((rect.x + w + pad) * ORM_SCALE) - x0, Math.ceil((rect.y + h + pad) * ORM_SCALE) - y0);
 
     return { page: target, rect, uv: rectUv(rect, width, height) };
+  }
+
+  return { add, pages, fill: packer.fill, width, height };
+}
+
+/**
+ * Facade pages: each facade's window layer (RGBA overlay, full size) and its glow layer (RGBA, half
+ * size) packed alike into shared pages. A facade repeats along its wall, so the gutter left and right
+ * of every picture holds the picture's other end (the shader wraps inside the rect, see shader.js)
+ * and the gutter below repeats its foot; above the top floor it stays clear (bare wall).
+ *
+ * add(overlay, emissive) → {page, rect: [u0, v0, du, dv]}  (v up, as three.js flips canvases)
+ */
+export function createWrapAtlas({ width, height, pad = 8, onPage }) {
+  const packer = createPacker(width, height, pad, 2);
+  const pages = [];
+
+  function page(index) {
+    while (pages.length <= index) {
+      const made = { index: pages.length, overlay: canvas2d(width, height), emissive: canvas2d(width / 2, height / 2), user: null };
+      pages.push(made);
+      made.user = onPage ? onPage(made) : null;
+    }
+    return pages[index];
+  }
+
+  function blit(ctx, picture, x, y, w, h, p) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x - p, y - p, w + p * 2, h + p * 2);
+    ctx.clip();
+    for (const dx of [-w, 0, w]) {
+      ctx.drawImage(picture, x + dx, y, w, h);
+      ctx.drawImage(picture, 0, picture.height - 1, picture.width, 1, x + dx, y + h, w, p);
+    }
+    ctx.restore();
+  }
+
+  function add(overlay, emissive) {
+    const [w, h] = packer.fit(overlay.width, overlay.height);
+    const rect = packer.place(w, h);
+    const target = page(rect.page);
+    blit(target.overlay, overlay, rect.x, rect.y, w, h, pad);
+    blit(target.emissive, emissive, rect.x / 2, rect.y / 2, w / 2, h / 2, pad / 2);
+    return { page: target, rect: [rect.x / width, 1 - (rect.y + h) / height, w / width, h / height] };
   }
 
   return { add, pages, fill: packer.fill, width, height };

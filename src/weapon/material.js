@@ -56,9 +56,16 @@ vec2 vmFinish(float code, vec3 p) {
     float groove = smoothstep(0.30, 0.48, max(c.x, c.y));
     return vec2(1.0 - 0.45 * groove, 0.12 * groove);
   }
-  // Skin: soft mottling so large areas are not one flat tone.
-  float m = vmNoise(p.xz * 160.0 + p.y * 90.0) * 0.6 + vmNoise(p.zy * 520.0 + p.x * 300.0) * 0.4;
-  return vec2(0.93 + 0.14 * m, (m - 0.5) * 0.12);
+  if (code < 4.5) {
+    // Skin: soft mottling so large areas are not one flat tone.
+    float m = vmNoise(p.xz * 160.0 + p.y * 90.0) * 0.6 + vmNoise(p.zy * 520.0 + p.x * 300.0) * 0.4;
+    return vec2(0.93 + 0.14 * m, (m - 0.5) * 0.12);
+  }
+  // Glove: a fine synthetic weave with a slow sheen variation.
+  vec2 w = abs(fract(vec2(p.x * 700.0 + p.y * 480.0, p.z * 700.0 - p.y * 220.0)) - 0.5);
+  float weave = smoothstep(0.2, 0.45, max(w.x, w.y));
+  float m = vmNoise(p.xz * 210.0 + p.y * 140.0);
+  return vec2(0.92 + 0.16 * m - 0.05 * weave, 0.05 * weave + (m - 0.5) * 0.1);
 }
 `;
 

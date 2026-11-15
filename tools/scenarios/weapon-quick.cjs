@@ -33,8 +33,8 @@ module.exports = async (page, h) => {
         G.atmos.time = s.day ? 'day' : 'night';
         const sun = G.atmos.sun;
         if (s.day && sun) {
-          sun.color.set(0xfff0dc);
-          sun.intensity = 3;
+          sun.color.set(0xffe6c6);
+          sun.intensity = 5; // as atmos lights the day (config/look.js times.day.sun)
           sun.position.copy(sun.target.position).add(new G.THREE.Vector3(0.45, 1, 0.35).multiplyScalar(80));
         }
       }

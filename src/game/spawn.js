@@ -9,7 +9,7 @@
 
 /** Compass sector 0…7 of the horizontal offset (dx, dz), clockwise from north. North is −Z, east is +X. */
 export function compassSector(dx, dz) {
-  const sector = Math.round(Math.atan2(dx, -dz) / (Math.PI / 4));
+  const sector = Math.round(Math.atan2(dx, 0 - dz) / (Math.PI / 4)); // 0 − dz: no offset at all reads north, not −0 → south
   return ((sector % 8) + 8) % 8;
 }
 

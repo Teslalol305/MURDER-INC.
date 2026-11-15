@@ -30,15 +30,15 @@ function oval(s, y, rs, ry, x0, x1) {
 }
 
 export function buildChopper(material, def) {
-  const wear = paint(0x8d9299, 0.3, 1);
+  const wear = paint(0x62666d, 0.34, 1);
   const P = {
-    steel: paint(0x363a40, 0.48, 0.8, { wear }),
-    cover: paint(0x2e3136, 0.52, 0.8, { wear }),
-    dark: paint(0x202226, 0.55, 0.8, { wear }),
+    steel: paint(0x303236, 0.5, 0.6, { wear }),
+    cover: paint(0x2a2c30, 0.52, 0.6, { wear }),
+    dark: paint(0x1d1f22, 0.55, 0.6, { wear }),
     bare: paint(0xb1b6bd, 0.26, 1, { finish: FINISH.brushed }),
-    wood: paint(0x74401f, 0.38, 0, { finish: FINISH.wood }),
+    wood: paint(0x6b3518, 0.42, 0, { finish: FINISH.wood }),
     black: paint(0x050506, 0.92, 0),
-    mag: paint(0x23262a, 0.5, 0.88, { wear }),
+    mag: paint(0x24262a, 0.5, 0.6, { wear }),
     brass: paint(0xcaa23d, 0.28, 1),
     copper: paint(0xb5683a, 0.3, 1),
     dot: paint(0xf2f0e4, 0.6, 0, { glow: 0.55 }),
@@ -65,6 +65,14 @@ export function buildChopper(material, def) {
   for (const s of [0.056, 0.102, 0.148]) {
     body.add(loft([coverRing(s - 0.004, 0.0338, 0.0228), coverRing(s + 0.004, 0.0338, 0.0228)], 12), P.cover, { crease: 0.9 });
   }
+  // A short accessory rail on the cover, low enough to stay under the sight line.
+  body.add(block(0.062, 0.168, 0.0325, 0.0378, -0.0082, 0.0082, 0.0008), P.dark);
+  for (let s = 0.065; s < 0.162; s += 0.0105) body.add(block(s, s + 0.0056, 0.0378, 0.0418, -0.0104, 0.0104, 0.0009), P.dark);
+  // Stamped panel over the magazine well, both sides, and the trunnion rivets beside it.
+  const dimple = fillet([[0.168, -0.036, 0.004], [0.236, -0.036, 0.004], [0.236, -0.012, 0.004], [0.168, -0.012, 0.004]], 2);
+  for (const side of [-1, 1]) body.add(prism(dimple, 0.0014, { x: side * 0.0163, bevel: 0.0006 }), P.steel);
+  for (const [s, y] of [[0.247, -0.031], [0.247, -0.008], [0.158, -0.031]]) body.add(pin(s, y, 0.0019, -0.0172, 0.0172, 6), P.dark);
+
   // The slot the charging handle runs in (left), and the ejection port (right).
   body.add(block(0.078, 0.192, 0.012, 0.017, -0.0167, -0.0158), P.black);
   body.add(block(0.112, 0.19, 0.0122, 0.0235, 0.0152, 0.0165), P.black);
@@ -75,9 +83,9 @@ export function buildChopper(material, def) {
 
   // Rear sight: a leaf with a square notch at the back of the cover, two dots beside the notch.
   body.add(block(0.01, 0.036, 0.033, 0.0398, -0.008, 0.008, 0.0008), P.dark);
-  body.add(block(0.0215, 0.0255, 0.0395, SIGHT_Y - 0.0042, -0.0105, 0.0105, 0.0006), P.dark);
-  body.add(block(0.0215, 0.0255, SIGHT_Y - 0.0042, SIGHT_Y, -0.0105, -0.0022, 0.0006), P.dark);
-  body.add(block(0.0215, 0.0255, SIGHT_Y - 0.0042, SIGHT_Y, 0.0022, 0.0105, 0.0006), P.dark);
+  body.add(block(0.0215, 0.0255, 0.0395, SIGHT_Y - 0.0042, -0.0082, 0.0082, 0.0006), P.dark);
+  body.add(block(0.0215, 0.0255, SIGHT_Y - 0.0042, SIGHT_Y, -0.0076, -0.0022, 0.0006), P.dark);
+  body.add(block(0.0215, 0.0255, SIGHT_Y - 0.0042, SIGHT_Y, 0.0022, 0.0076, 0.0006), P.dark);
   for (const side of [-1, 1]) {
     body.add(block(0.0211, 0.0216, SIGHT_Y - 0.0034, SIGHT_Y - 0.001, side * 0.0044 - 0.0012, side * 0.0044 + 0.0012), P.dot);
   }
@@ -172,6 +180,11 @@ export function buildChopper(material, def) {
   mag.add(sweep(arc.slice(1, 8).map((a) => magPoint(a)), () => ({ w: 0.0268, d: 0.014, exp: 2 }), 8, [true, true]), P.mag, { crease: 0.9 });
   mag.add(sweep(arc.slice(1).map((a) => magPoint(a, -0.0305)), () => ({ w: 0.009, d: 0.003, exp: 2 }), 6, [true, true]), P.mag, { crease: 0.9 });
   mag.add(sweep([magPoint(MAG.to - 0.004), magPoint(MAG.to + 0.012)], () => ({ w: 0.0278, d: 0.0635, exp: 5 }), 12, [true, true]), P.dark, { crease: 0.8 });
+  // Stamped reinforcing ribs across the body.
+  for (const k of [0.22, 0.42, 0.62, 0.8]) {
+    const at = MAG.from + (MAG.to - MAG.from) * k;
+    mag.add(sweep([magPoint(at, 0.026), magPoint(at, -0.026)], () => ({ w: 0.0272, d: 0.0045, exp: 3 }), 8, [true, true]), P.mag, { crease: 0.9 });
+  }
 
   // The round on top of a loaded magazine (hidden inside the receiver when the magazine is in).
   const round = new Soup();
@@ -275,7 +288,7 @@ export function buildChopper(material, def) {
       [0.27, -0.14, 0.03, -0.16, -0.24, 1.3, -0.55],
       [0.55, 0, 0, 0, 0, 0, 0],
     ],
-    elbows: { right: new THREE.Vector3(0.3, -0.42, 0.06), left: new THREE.Vector3(-0.22, -0.44, -0.24) },
+    elbows: { right: new THREE.Vector3(0.34, -0.4, 0.02), left: new THREE.Vector3(-0.22, -0.44, -0.24) },
     magInHand,
 
     /**

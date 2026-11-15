@@ -17,7 +17,7 @@ const MAG_AXIS = new THREE.Vector3(0, 0.968, -0.25).normalize(); // from base to
 
 export function buildNine(material, def, strike = 0.55, goldHex = 0xe7b53a) {
   const P = {
-    slide: paint(0xc9ccd1, 0.34, 1, { finish: FINISH.brushed }),
+    slide: paint(0xaeb1b6, 0.4, 1, { finish: FINISH.brushed }),
     frame: paint(0x17181b, 0.5, 0.65, { wear: paint(0x5b5f66, 0.35, 0.9) }),
     grip: paint(0x0e0e10, 0.78, 0, { finish: FINISH.checker }),
     dark: paint(0x24262a, 0.45, 0.9, { wear: paint(0x7c8188, 0.3, 1) }),
@@ -204,12 +204,12 @@ export function buildNine(material, def, strike = 0.55, goldHex = 0xe7b53a) {
     /** Pistol whip: [time, x, y, z, pitch, yaw, roll] offsets from the hip pose. */
     melee: [
       [0, 0, 0, 0, 0, 0, 0],
-      [0.08, 0.03, 0.1, 0.07, 0.75, 0.15, -0.3],
-      [0.16, -0.09, -0.01, -0.19, -0.55, 0.45, -0.85],
-      [0.27, -0.1, -0.05, -0.15, -0.7, 0.5, -0.95],
+      [0.08, 0.04, 0.05, 0.06, 0.55, -0.25, 0.35], // wound up: back, up and to the right
+      [0.16, -0.1, 0.02, -0.15, 1.05, 0.35, -0.6], // butt first across the front
+      [0.27, -0.11, 0.0, -0.13, 1.1, 0.4, -0.65],
       [0.55, 0, 0, 0, 0, 0, 0],
     ],
-    elbows: { right: new THREE.Vector3(0.27, -0.42, 0.0), left: new THREE.Vector3(-0.2, -0.45, -0.12) },
+    elbows: { right: new THREE.Vector3(0.24, -0.38, -0.08), left: new THREE.Vector3(-0.15, -0.4, -0.15) },
     magInHand,
 
     animate(ctx) {

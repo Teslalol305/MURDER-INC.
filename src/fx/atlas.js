@@ -214,16 +214,19 @@ function crater(seed, chip) {
   return (u, v, out) => {
     const r = Math.hypot(u, v);
     const angle = Math.atan2(v, u);
-    const ragged = 0.34 + 0.2 * noise(angle * 2.2 + seed, 1.5, seed) + 0.1 * noise(angle * 6 + seed * 2, 4.5, seed + 3);
-    const pit = 1 - smooth(0.08, 0.17, r);
+    const ragged = 0.36 + 0.2 * noise(angle * 2.2 + seed, 1.5, seed) + 0.1 * noise(angle * 6 + seed * 2, 4.5, seed + 3);
+    // A dark pit big enough to read from across a sunlit street, broken masonry around it in the
+    // shadow of the crater, and a sooty powder halo that darkens the wall further out.
+    const pit = 1 - smooth(0.11, 0.22, r);
     const broken = (1 - smooth(ragged - 0.1, ragged, r)) * (0.75 + 0.25 * fbm(u * 7 + seed, v * 7, seed + 7, 2));
-    const halo = (1 - smooth(ragged, 0.85, r)) * 0.22 * fbm(u * 4 - seed, v * 4 + seed, seed + 11, 3);
-    const shade = 0.65 + 0.5 * fbm(u * 9, v * 9 + seed, seed + 13, 2) - v * 0.12;
-    const alpha = clamp01(Math.max(pit * 0.96, broken * 0.82, halo));
+    const halo = (1 - smooth(ragged * 0.8, 0.9, r)) * (0.3 + 0.25 * fbm(u * 4 - seed, v * 4 + seed, seed + 11, 3));
+    const shade = (0.65 + 0.5 * fbm(u * 9, v * 9 + seed, seed + 13, 2) - v * 0.12) * (0.45 + 0.4 * smooth(0.2, ragged, r));
+    const alpha = clamp01(Math.max(pit * 0.97, broken * 0.85, halo));
+    const chipped = broken > halo ? 1 : 0.15; // beyond the broken edge only soot remains
     const mix = pit;
-    out[0] = chip[0] * shade * (1 - mix) + 0.012 * mix;
-    out[1] = chip[1] * shade * (1 - mix) + 0.011 * mix;
-    out[2] = chip[2] * shade * (1 - mix) + 0.01 * mix;
+    out[0] = (chip[0] * shade * chipped + 0.02 * (1 - chipped)) * (1 - mix) + 0.012 * mix;
+    out[1] = (chip[1] * shade * chipped + 0.018 * (1 - chipped)) * (1 - mix) + 0.011 * mix;
+    out[2] = (chip[2] * shade * chipped + 0.016 * (1 - chipped)) * (1 - mix) + 0.01 * mix;
     out[3] = alpha * windowed(r);
   };
 }

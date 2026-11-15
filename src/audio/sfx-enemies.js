@@ -235,9 +235,9 @@ const world = (extra) => ({ bus: 'world', jitter: 0.05, ...extra });
 export const ENEMIES = {
   rotor: world({ n: 1, peak: 0.4, loop: true, sr: 22050, ref: 6, roll: 1, gen: rotor }),
   buzzard_charge: world({ n: 1, peak: 0.55, prio: 8, max: 3, gap: 0.05, ref: 8, roll: 0.9, jitter: 0.02, gen: charge }),
-  bolt_shot: world({ n: 3, peak: 0.8, prio: 8, max: 4, gap: 0.03, ref: 10, roll: 0.8, gen: boltShot }),
+  bolt_shot: world({ n: 3, peak: 0.66, prio: 8, max: 4, gap: 0.03, ref: 10, roll: 0.8, gen: boltShot }),
   buzzard_death: world({ n: 1, peak: 0.7, prio: 8, max: 2, ref: 9, roll: 0.9, gen: buzzardDeath }),
-  smg_shot: world({ n: 4, peak: 0.86, prio: 8, max: 5, gap: 0.035, ref: 11, roll: 0.8, jitter: 0.04, gen: smgShot }),
+  smg_shot: world({ n: 4, peak: 0.74, prio: 8, max: 5, gap: 0.035, ref: 11, roll: 0.8, jitter: 0.04, gen: smgShot }),
   goon_ready: world({ n: 1, peak: 0.42, prio: 6, max: 2, gap: 0.08, ref: 6, roll: 1, jitter: 0.03, gen: goonReady }),
   goon_rush: world({ n: 2, peak: 0.7, prio: 8, max: 2, gap: 0.1, ref: 7, roll: 0.9, jitter: 0.03, gen: goonRush }),
   pipe_swing: world({ n: 1, peak: 0.55, prio: 7, max: 2, ref: 5, roll: 1, gen: pipeSwing }),

@@ -108,6 +108,8 @@ export function createLightRig(G, lamps, budget, parent) {
   const candidates = lamps.filter((l) => !l.virtual && !l.tired && l.intensity > 0);
   const count = Math.max(0, Math.min(Math.floor(budget) || 0, candidates.length));
   const slots = [];
+  let gains = null; // per-kind gain for the current time of day (null = every kind at 1)
+  const gainOf = (lamp) => (gains ? gains[lamp.kind] ?? 1 : 1);
   const aimDir = new THREE.Vector3();
   const focus = new THREE.Vector3();
   const forward = new THREE.Vector3();
@@ -147,11 +149,11 @@ export function createLightRig(G, lamps, budget, parent) {
     focus.copy(camera.position).addScaledVector(forward, rig.lookAhead);
     for (let i = 0; i < candidates.length; i++) {
       const lamp = candidates[i];
-      lamp.claimNow = lampClaim(lamp.priority, lamp.pos.distanceTo(focus), rig.reach) * (lamp.real ? rig.keep : 1); // holders are harder to dislodge
+      lamp.claimNow = gainOf(lamp) > 0 ? lampClaim(lamp.priority, lamp.pos.distanceTo(focus), rig.reach) * (lamp.real ? rig.keep : 1) : -1; // holders are harder to dislodge
       lamp.wanted = false;
     }
     candidates.sort(byClaim);
-    for (let i = 0; i < count; i++) candidates[i].wanted = true;
+    for (let i = 0; i < count; i++) candidates[i].wanted = candidates[i].claimNow > 0;
     for (let i = 0; i < slots.length; i++) if (slots[i].next) slots[i].next.wanted = false; // already on its way
     let search = 0;
     for (let i = 0; i < slots.length; i++) {
@@ -184,10 +186,12 @@ export function createLightRig(G, lamps, budget, parent) {
           assign(slot, slot.next);
           slot.next = null;
         }
-      } else if (slot.level < 1) {
-        slot.level = Math.min(1, slot.level + dt / rig.fadeIn);
+      } else if (slot.lamp && gainOf(slot.lamp) > 0) {
+        if (slot.level < 1) slot.level = Math.min(1, slot.level + dt / rig.fadeIn);
+      } else if (slot.level > 0) {
+        slot.level = Math.max(0, slot.level - dt / rig.fadeOut); // its kind is off at this time of day
       }
-      slot.light.intensity = slot.base * slot.level;
+      slot.light.intensity = slot.lamp ? slot.base * slot.level * gainOf(slot.lamp) : 0;
     }
   }
 
@@ -218,10 +222,15 @@ export function createLightRig(G, lamps, budget, parent) {
         }
       }
       for (const slot of slots) {
-        slot.level = 1;
-        slot.light.intensity = slot.base;
+        slot.level = slot.lamp && gainOf(slot.lamp) > 0 ? 1 : 0;
+        slot.light.intensity = slot.lamp ? slot.base * slot.level * gainOf(slot.lamp) : 0;
       }
       timer = rig.interval;
+    },
+    /** Per-kind gains for a time of day ({work: 1, street: 0, …}); a kind at 0 never holds a light. */
+    setGains(map) {
+      gains = map || null;
+      timer = 0; // re-evaluate on the next update
     },
   };
 }
@@ -247,6 +256,8 @@ export function createKeyLight(G, bounds, parent) {
   let fitted = null;
   let fittedSize = 0;
   let span = [0, look.sun.shadowHeight];
+  let direction = look.sun.direction;
+  let biasMetres = look.sun.shadowBiasMetres;
 
   function fit(minY = span[0], maxY = span[1]) {
     span = [minY, maxY];
@@ -255,7 +266,7 @@ export function createKeyLight(G, bounds, parent) {
       bounds,
       minY,
       maxY,
-      dir: look.sun.direction,
+      dir: direction,
       mapSize: fittedSize,
       margin: look.sun.shadowMargin,
     });
@@ -272,15 +283,33 @@ export function createKeyLight(G, bounds, parent) {
     cam.far = fitted.far;
     cam.updateProjectionMatrix();
     // The bias is a fraction of the depth range: keep it a fixed few centimetres in the world.
-    sun.shadow.bias = -look.sun.shadowBiasMetres / (fitted.far - fitted.near);
+    sun.shadow.bias = -biasMetres / (fitted.far - fitted.near);
     sun.shadow.needsUpdate = true;
     return fitted;
+  }
+
+  /**
+   * Retunes the key and the ambient for a time of day (look.times.<name>.sun / .ambient) and re-fits
+   * the shadow frustum to the new direction. Values only: nothing is added, removed or recompiled.
+   */
+  function setRig(sunCfg, ambientCfg) {
+    sun.color.set(sunCfg.color);
+    sun.intensity = sunCfg.intensity;
+    sun.shadow.radius = sunCfg.shadowRadius ?? look.sun.shadowRadius;
+    sun.shadow.normalBias = sunCfg.shadowNormalBias ?? look.sun.shadowNormalBias;
+    biasMetres = sunCfg.shadowBiasMetres ?? look.sun.shadowBiasMetres;
+    direction = sunCfg.direction;
+    hemi.color.set(ambientCfg.sky);
+    hemi.groundColor.set(ambientCfg.ground);
+    hemi.intensity = ambientCfg.intensity;
+    fit();
   }
 
   return {
     sun,
     hemi,
     fit,
+    setRig,
     /** Re-fits when the renderer has resized the shadow map (quality change). */
     refit() {
       if (sun.shadow.mapSize.x !== fittedSize) fit();

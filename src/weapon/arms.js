@@ -1,5 +1,5 @@
-// Rule's arms: bare forearms and hands with jointed fingers, a gold watch on the left wrist and a
-// gold ring. Both arms are one mesh, skinned on the CPU from a small bone list, so they cost a single
+// Rule's arms: bare brown forearms, black gloves (stitched panels, a padded knuckle, jointed fingers),
+// a gold watch on the left wrist and a gold curb chain on the right. Both arms are one mesh, skinned on the CPU from a small bone list, so they cost a single
 // draw call and can bend smoothly at every knuckle.
 //
 // Hand space (bind pose, right hand): origin at the wrist, fingers along −Z, back of the hand +Y,
@@ -254,31 +254,51 @@ function bindMatrices(bones) {
   return out;
 }
 
-/** The whole right arm as a skinned soup in hand space. */
-function authorArm(bind, tones, { watch = false, ring = null } = {}) {
-  const soup = new SkinSoup();
-  const { skin, palm, nail, crease, gold, goldDark, dial } = tones;
-  const SKIN_ROUGH = 0.56;
+/** Forearm and hand cross-sections: [z, width, top, bottom, exponent, x shift, weight of the hand bone]. */
+const SECTIONS = [
+  [FOREARM_LENGTH + 0.06, 0.1, 0.046, 0.046, 2, 0, 0],
+  [0.24, 0.099, 0.044, 0.045, 2, 0, 0],
+  [0.16, 0.09, 0.037, 0.04, 2, 0, 0],
+  [0.09, 0.072, 0.028, 0.03, 2.1, 0, 0],
+  [0.045, 0.061, 0.0225, 0.0235, 2.2, 0, 0],
+  [0.02, 0.058, 0.0205, 0.021, 2.3, 0, 0.2],
+  [0.004, 0.058, 0.0195, 0.02, 2.4, 0, 0.5],
+  [-0.012, 0.062, 0.0185, 0.02, 2.5, -0.001, 0.85],
+  [-0.032, 0.074, 0.0165, 0.0205, 2.6, -0.002, 1],
+  [-0.06, 0.084, 0.0145, 0.018, 2.7, 0, 1],
+  [-0.086, 0.088, 0.013, 0.0145, 2.8, 0.001, 1],
+  [-0.1, 0.086, 0.0115, 0.0115, 2.8, 0.001, 1],
+  [-0.106, 0.078, 0.008, 0.008, 2.6, 0.001, 1],
+];
+/** The glove reaches this far up the wrist; the cuff covers the edge. */
+const GLOVE_TO = 0.03;
 
-  // ---- forearm and palm: one skin from the elbow to the knuckles -------------------------------
-  // [z, width, top, bottom, exponent, x shift, weight of the hand bone]
-  const sections = [
-    [FOREARM_LENGTH + 0.06, 0.1, 0.046, 0.046, 2, 0, 0],
-    [0.24, 0.099, 0.044, 0.045, 2, 0, 0],
-    [0.16, 0.09, 0.037, 0.04, 2, 0, 0],
-    [0.09, 0.072, 0.028, 0.03, 2.1, 0, 0],
-    [0.045, 0.061, 0.0225, 0.0235, 2.2, 0, 0],
-    [0.02, 0.058, 0.0205, 0.021, 2.3, 0, 0.2],
-    [0.004, 0.058, 0.0195, 0.02, 2.4, 0, 0.5],
-    [-0.012, 0.062, 0.0185, 0.02, 2.5, -0.001, 0.85],
-    [-0.032, 0.074, 0.0165, 0.0205, 2.6, -0.002, 1],
-    [-0.06, 0.084, 0.0145, 0.018, 2.7, 0, 1],
-    [-0.086, 0.088, 0.013, 0.0145, 2.8, 0.001, 1],
-    [-0.1, 0.086, 0.0115, 0.0115, 2.8, 0.001, 1],
-    [-0.106, 0.078, 0.008, 0.008, 2.6, 0.001, 1],
-  ];
-  const N = 14;
-  const armRings = sections.map(([z, w, top, bot, exp, x, hand]) => ({
+/** The arm's cross-section at z, interpolated: {w, top, bot, exp, x, hand}. */
+function sectionAt(z) {
+  let i = 0;
+  while (i < SECTIONS.length - 2 && SECTIONS[i + 1][0] > z) i++;
+  const a = SECTIONS[i];
+  const b = SECTIONS[i + 1];
+  const t = Math.max(0, Math.min(1, (a[0] - z) / (a[0] - b[0])));
+  const at = (k) => a[k] + (b[k] - a[k]) * t;
+  return { w: at(1), top: at(2), bot: at(3), exp: at(4), x: at(5), hand: at(6) };
+}
+
+/** The whole right arm as a skinned soup in hand space: bare forearm, gloved hand, jewellery. */
+function authorArm(bind, tones, { watch = false, bracelet = false } = {}) {
+  const soup = new SkinSoup();
+  const { skin, glove, palm, seam, pad, gold, goldDark, dial } = tones;
+  const SKIN_ROUGH = 0.56;
+  const GLOVE_ROUGH = 0.84;
+  const gloveSrf = (rough) => [rough, 0, 0, FINISH.glove];
+  const handBind = (z) => {
+    const w = sectionAt(z).hand;
+    return [BONE.forearm, BONE.hand, w];
+  };
+
+  // ---- forearm and hand: one skin from the elbow to the knuckles -------------------------------
+  const N = 16;
+  const armRings = SECTIONS.map(([z, w, top, bot, exp, x, hand]) => ({
     c: [x, 0, z],
     w,
     h: 0,
@@ -287,26 +307,82 @@ function authorArm(bind, tones, { watch = false, ring = null } = {}) {
     exp,
     bind: [BONE.forearm, BONE.hand, hand],
     paint: (i, n) => {
-      if (i < 0) return [...skin, SKIN_ROUGH];
-      const a = ((i + 0.5) / n) * Math.PI * 2;
+      const a = i < 0 ? -Math.PI / 2 : ((i + 0.5) / n) * Math.PI * 2;
       const under = Math.max(0, -Math.sin(a)); // 1 on the palm side
-      // Palms and the inside of the wrist are lighter; the forearm only slightly.
-      const lighten = z < 0.03 ? under : under * 0.2;
-      return [...mix(skin, palm, lighten * 0.9), SKIN_ROUGH + 0.06 * under];
+      if (z < GLOVE_TO) return [...mix(glove, palm, under * 0.85), GLOVE_ROUGH + 0.12 * under];
+      return [...mix(skin, scale(skin, 1.12), under * 0.4), SKIN_ROUGH + 0.06 * under];
     },
   }));
-  soup.add(skinLoft(armRings, N, [true, true]), { crease: 1.3 });
+  // Gloved and bare parts of the one skin take different finishes: split the loft by ring.
+  const handRings = armRings.filter((r) => r.c[2] <= 0.02);
+  const bareRings = armRings.filter((r) => r.c[2] >= 0.02); // the shared ring sits under the cuff
+  soup.add(skinLoft(bareRings, N, [true, false]), { crease: 1.3 });
+  soup.add(skinLoft(handRings, N, [false, true], FINISH.glove), { crease: 1.3 });
 
-  // Knuckle domes over the roots of the fingers.
+  /** A band around the arm at z: `grow` metres proud of the skin. */
+  const hoop = (z, grow, extra = {}) => {
+    const s = sectionAt(z);
+    return { c: [s.x, 0, z], w: s.w + grow * 2, h: 0, top: s.top + grow, bot: s.bot + grow, exp: s.exp, ...extra };
+  };
+
+  // ---- glove ------------------------------------------------------------------------------------
+  // Cuff: a padded band over the wrist with a rolled edge and a strap across the back.
+  const cuff = [hoop(0.042, 0.0018), hoop(0.039, 0.0034), hoop(0.03, 0.0036), hoop(0.012, 0.0032), hoop(0.004, 0.0016)];
+  soup.add(skinLoft(cuff.map((r) => ({ ...r, bind: handBind(r.c[2]), paint: (i, n) => [...glove, GLOVE_ROUGH] })), N, [false, false], FINISH.glove), { crease: 0.9 });
+  const edge = [hoop(0.0425, 0.0024), hoop(0.0405, 0.0042), hoop(0.0385, 0.0042), hoop(0.0368, 0.0024)];
+  soup.add(skinLoft(edge.map((r) => ({ ...r, bind: handBind(r.c[2]), paint: () => [...seam, 0.5] })), N, [false, false], FINISH.plain), { crease: 0.9 });
+  {
+    const s = sectionAt(0.022);
+    const y = s.top + 0.0034;
+    const strap = loft(
+      [-0.02, -0.012, 0, 0.012, 0.02].map((x, k) => ({ c: [x, y + (k === 0 || k === 4 ? -0.0008 : 0), 0.022], ax: [0, 0, 1], ay: [0, 1, 0], w: 0.024, h: 0, top: 0.0022, bot: 0.0012, exp: 3 })),
+      8,
+      [true, true],
+    );
+    soup.add(strap, { col: pad, srf: gloveSrf(0.5), skin: handBind(0.022), crease: 0.8 });
+    // Stitching around the strap: a slightly larger, lower plate in the seam colour.
+    const rim = loft(
+      [-0.0215, 0.0215].map((x) => ({ c: [x, y - 0.0003, 0.022], ax: [0, 0, 1], ay: [0, 1, 0], w: 0.0265, h: 0, top: 0.0019, bot: 0.001, exp: 3 })),
+      8,
+      [true, true],
+    );
+    soup.add(rim, { col: seam, srf: [0.6, 0, 0, FINISH.plain], skin: handBind(0.022), crease: 0.8 });
+  }
+
+  // Back-of-hand panel: a raised stitched panel from the wrist to the knuckle pad.
+  {
+    const rings = [];
+    const rimRings = [];
+    for (const z of [-0.004, -0.018, -0.034, -0.05, -0.064]) {
+      const s = sectionAt(z);
+      const w = s.w * (z > -0.01 ? 0.52 : 0.66);
+      rings.push({ c: [s.x, s.top - 0.0018, z], w, h: 0, top: 0.0042, bot: 0.001, exp: 2.6 });
+      rimRings.push({ c: [s.x, s.top - 0.0018, z + 0.0012], w: w + 0.0036, h: 0, top: 0.0034, bot: 0.001, exp: 2.6 });
+    }
+    soup.add(loft(rings, 12, [true, true]), { col: scale(glove, 1.15), srf: gloveSrf(0.58), skin: [BONE.hand, BONE.hand, 0], crease: 1.0 });
+    soup.add(loft(rimRings, 12, [true, true]), { col: seam, srf: [0.6, 0, 0, FINISH.plain], skin: [BONE.hand, BONE.hand, 0], crease: 1.0 });
+  }
+
+  // Padded knuckle: a moulded bar across the knuckles with one dome per finger.
+  {
+    const z = -0.084;
+    const s = sectionAt(z);
+    const bar = loft(
+      [-0.042, -0.032, 0, 0.034, 0.044].map((x, k) => ({ c: [x + s.x, s.top + (k === 0 || k === 4 ? 0.0006 : 0.0024), z], ax: [0, 0, 1], ay: [0, 1, 0], w: k === 0 || k === 4 ? 0.014 : 0.02, h: 0, top: 0.0048, bot: 0.002, exp: 2.6 })),
+      10,
+      [true, true],
+    );
+    soup.add(bar, { col: pad, srf: [0.42, 0, 0, FINISH.plain], skin: [BONE.hand, BONE.hand, 0], crease: 1.1 });
+  }
   for (const name of FINGERS) {
     const [x, y, z] = HAND.knuckle[name];
-    const r = HAND.radius[name] * 1.12;
-    const dome = new THREE.SphereGeometry(r, 7, 5);
+    const r = HAND.radius[name] * 1.2;
+    const dome = new THREE.SphereGeometry(r, 8, 6);
     dome.deleteAttribute('uv');
     dome.deleteAttribute('normal');
-    dome.scale(1, 0.72, 1.25);
-    dome.translate(x, y + 0.0025, z + 0.003);
-    soup.add(dome, { col: scale(skin, 0.93), srf: [SKIN_ROUGH, 0, 0, FINISH.skin], skin: [BONE.hand, BONE.hand, 0], crease: 1.4 });
+    dome.scale(1, 0.8, 1.2);
+    dome.translate(x, y + 0.0042, z + 0.004);
+    soup.add(dome, { col: pad, srf: [0.4, 0, 0, FINISH.plain], skin: [BONE.hand, BONE.hand, 0], crease: 1.4 });
   }
 
   // ---- a finger or the thumb: a tapered tube with three bones -----------------------------------
@@ -315,21 +391,21 @@ function authorArm(bind, tones, { watch = false, ring = null } = {}) {
     const total = l0 + l1 + l2;
     const n = 8;
     const radius = (d) => r0 + (r1 - r0) * Math.max(0, Math.min(1, d / total));
-    // [distance from the root joint, radius factor, bone A, bone B, weight of B, knuckle?]
+    // [distance from the root joint, radius factor, bone A, bone B, weight of B, joint?]
     const marks = [
-      [-rootDepth, meta ? 1.25 : 1, first, first, 0],
-      [meta ? l0 * 0.45 : 0.012, meta ? 1.12 : 1, first, first, 0],
-      [l0 - 0.007, 1, first, first + 1, 0.12],
-      [l0, 1.09, first, first + 1, 0.5, true],
-      [l0 + 0.007, 1, first, first + 1, 0.88],
-      [l0 + l1 - 0.006, 1, first + 1, first + 2, 0.12],
-      [l0 + l1, 1.08, first + 1, first + 2, 0.5, true],
-      [l0 + l1 + 0.006, 1, first + 1, first + 2, 0.88],
-      [total - 0.008, 0.98, first + 2, first + 2, 0],
-      [total - 0.0028, 0.74, first + 2, first + 2, 0],
-      [total, 0.3, first + 2, first + 2, 0],
+      [-rootDepth, meta ? 1.25 : 1.04, first, first, 0],
+      [meta ? l0 * 0.45 : 0.012, meta ? 1.12 : 1.04, first, first, 0],
+      [l0 - 0.007, 1.03, first, first + 1, 0.12],
+      [l0, 1.1, first, first + 1, 0.5, true],
+      [l0 + 0.007, 1.03, first, first + 1, 0.88],
+      [l0 + l1 - 0.006, 1.02, first + 1, first + 2, 0.12],
+      [l0 + l1, 1.09, first + 1, first + 2, 0.5, true],
+      [l0 + l1 + 0.006, 1.02, first + 1, first + 2, 0.88],
+      [total - 0.008, 1.0, first + 2, first + 2, 0],
+      [total - 0.0028, 0.8, first + 2, first + 2, 0],
+      [total, 0.34, first + 2, first + 2, 0],
     ];
-    const rings = marks.map(([d, k, a, b, w, knuckle]) => {
+    const rings = marks.map(([d, k, a, b, w, joint]) => {
       const r = radius(d) * k;
       return {
         c: [0, 0, -d],
@@ -337,63 +413,54 @@ function authorArm(bind, tones, { watch = false, ring = null } = {}) {
         h: 0,
         top: r * 0.92,
         bot: r * 0.96,
-        exp: 2.15,
+        exp: 2.2,
         bind: [a, b, w],
         paint: (i, m) => {
-          if (i < 0) return [...mix(skin, palm, 0.4), SKIN_ROUGH];
+          if (i < 0) return [...palm, GLOVE_ROUGH];
           const ang = ((i + 0.5) / m) * Math.PI * 2;
           const under = Math.max(0, -Math.sin(ang));
-          let c = mix(skin, palm, under * 0.9);
-          if (knuckle) c = mix(c, crease, Math.sin(ang) > 0 ? 0.55 : 0.35); // wrinkles over the joint, a fold under it
-          return [...c, SKIN_ROUGH + 0.06 * under];
+          let c = mix(glove, palm, under * 0.85);
+          if (joint) c = mix(c, seam, Math.sin(ang) > 0 ? 0.4 : 0.15); // creased fabric over the joint
+          return [...c, GLOVE_ROUGH + 0.1 * under];
         },
       };
     });
-    const tube = skinLoft(rings, n, [false, true]);
-    // Nail: a slim glossy plate let into the back of the last segment.
-    const rn = radius(total - 0.008);
-    const plate = skinLoft(
-      [
-        { c: [0, rn * 0.72, -(total - 0.0145)], w: rn * 1.3, h: 0, top: rn * 0.3, bot: rn * 0.1, exp: 2.6 },
-        { c: [0, rn * 0.7, -(total - 0.008)], w: rn * 1.36, h: 0, top: rn * 0.3, bot: rn * 0.1, exp: 2.6 },
-        { c: [0, rn * 0.56, -(total - 0.0022)], w: rn * 1.12, h: 0, top: rn * 0.26, bot: rn * 0.1, exp: 2.4 },
-      ].map((ring) => ({ ...ring, bind: [first + 2, first + 2, 0], paint: () => [...nail, 0.26] })),
+    soup.add(skinLoft(rings, n, [false, true], FINISH.glove), { m: bind[first], crease: 1.3 });
+    // Grip pad on the inside of the last segment.
+    const rn = radius(total - 0.012);
+    const tip = loft(
+      [total - 0.019, total - 0.012, total - 0.005].map((d, k) => ({ c: [0, -rn * 0.62, -d], w: rn * (k === 1 ? 1.5 : 1.2), h: 0, top: rn * 0.2, bot: rn * 0.42, exp: 2.4 })),
       6,
       [true, true],
-      FINISH.plain,
     );
-    soup.add(tube, { m: bind[first], crease: 1.3 });
-    soup.add(plate, { m: bind[first], crease: 1.0 });
+    soup.add(tip, { m: bind[first], col: pad, srf: [0.7, 0, 0, FINISH.plain], skin: [first + 2, first + 2, 0], crease: 1.0 });
   };
 
   FINGERS.forEach((name, f) => {
     const r = HAND.radius[name];
-    digit(BONE.finger + f * 3, HAND.length[name], r, r * 0.8, 0.01, false);
+    digit(BONE.finger + f * 3, HAND.length[name], r, r * 0.82, 0.01, false);
   });
-  digit(BONE.thumb, HAND.thumb.length, HAND.thumb.radius * 1.12, HAND.thumb.radius * 0.8, 0.008, true);
+  digit(BONE.thumb, HAND.thumb.length, HAND.thumb.radius * 1.12, HAND.thumb.radius * 0.82, 0.008, true);
 
-  // ---- jewellery -----------------------------------------------------------------------------------
+  // ---- jewellery on the bare forearm -------------------------------------------------------------
   const goldSrf = [0.24, 1, 0, FINISH.plain];
+  const fixed = { skin: [BONE.forearm, BONE.forearm, 0] };
   if (watch) {
-    // Bracelet: a belt around the forearm just above the wrist, then the case on the back of it.
-    const at = 0.041;
-    const belt = (z, grow) => ({ c: [0, 0, z], w: 0.0585 + grow * 2, h: 0, top: 0.0215 + grow, bot: 0.0225 + grow, exp: 2.25 });
-    const band = loft([belt(at - 0.0095, 0), belt(at - 0.009, 0.0022), belt(at + 0.009, 0.0022), belt(at + 0.0095, 0)], 16, [false, false]);
-    soup.add(band, { col: gold, srf: [0.3, 1, 0, FINISH.brushed], skin: [BONE.forearm, BONE.forearm, 0], crease: 0.5 });
-    // Links: darker grooves across the bracelet.
+    // Bracelet: a belt around the forearm, then the case on the back of it.
+    const at = 0.072;
+    const belt = (z, grow) => hoop(z, 0.0012 + grow);
+    const band = loft([belt(at - 0.0095, 0), belt(at - 0.009, 0.0022), belt(at + 0.009, 0.0022), belt(at + 0.0095, 0)], 18, [false, false]);
+    soup.add(band, { ...fixed, col: gold, srf: [0.3, 1, 0, FINISH.brushed], crease: 0.5 });
     for (const z of [at - 0.0045, at, at + 0.0045]) {
-      const groove = loft([belt(z - 0.0004, 0.0024), belt(z + 0.0004, 0.0024)], 16, [false, false]);
-      soup.add(groove, { col: goldDark, srf: [0.45, 1, 0, FINISH.plain], skin: [BONE.forearm, BONE.forearm, 0], crease: 0.5 });
+      const groove = loft([belt(z - 0.0004, 0.0024), belt(z + 0.0004, 0.0024)], 18, [false, false]);
+      soup.add(groove, { ...fixed, col: goldDark, srf: [0.45, 1, 0, FINISH.plain], crease: 0.5 });
     }
-    const fixed = { skin: [BONE.forearm, BONE.forearm, 0] };
-    const y0 = 0.0225;
-    soup.add(rod([0, y0, at], [0, y0 + 0.0085, at], 0.0195, 0.0195, 16), { ...fixed, col: gold, srf: goldSrf, crease: 0.5 });
-    soup.add(rod([0, y0 + 0.0075, at], [0, y0 + 0.0105, at], 0.0212, 0.0198, 16), { ...fixed, col: gold, srf: [0.2, 1, 0, FINISH.plain], crease: 0.5 });
-    soup.add(rod([0, y0 + 0.0102, at], [0, y0 + 0.0108, at], 0.0172, 0.0172, 16), { ...fixed, col: dial, srf: [0.1, 0, 0, FINISH.plain], crease: 0.5 });
-    // Hour markers and hands.
+    const y0 = sectionAt(at).top + 0.0012;
+    soup.add(rod([0, y0, at], [0, y0 + 0.0085, at], 0.0195, 0.0195, 18), { ...fixed, col: gold, srf: goldSrf, crease: 0.5 });
+    soup.add(rod([0, y0 + 0.0075, at], [0, y0 + 0.0105, at], 0.0212, 0.0198, 18), { ...fixed, col: gold, srf: [0.2, 1, 0, FINISH.plain], crease: 0.5 });
+    soup.add(rod([0, y0 + 0.0102, at], [0, y0 + 0.0108, at], 0.0172, 0.0172, 18), { ...fixed, col: dial, srf: [0.1, 0, 0, FINISH.plain], crease: 0.5 });
     for (let h = 0; h < 12; h += 3) {
-      const a = (h / 12) * Math.PI * 2;
-      const m = new THREE.Matrix4().makeRotationY(a).setPosition(0, 0, at);
+      const m = new THREE.Matrix4().makeRotationY((h / 12) * Math.PI * 2).setPosition(0, 0, at);
       soup.add(block(0.0115, 0.0155, y0 + 0.0108, y0 + 0.0113, -0.0011, 0.0011), { ...fixed, m, col: gold, srf: goldSrf, crease: 0.3 });
     }
     for (const [a, len] of [[0.9, 0.012], [-2.1, 0.009]]) {
@@ -402,17 +469,23 @@ function authorArm(bind, tones, { watch = false, ring = null } = {}) {
     }
     soup.add(rod([0.0195, y0 + 0.0045, at], [0.0235, y0 + 0.0045, at], 0.0028, 0.0028, 8), { ...fixed, col: gold, srf: goldSrf, crease: 0.5 }); // crown
   }
-  if (ring) {
-    // A signet ring: a band around the first segment of the finger with a flat face on top.
-    const f = FINGERS.indexOf(ring);
-    const first = BONE.finger + f * 3;
-    const r = HAND.radius[ring];
-    const at = 0.02;
-    const band = (d, grow, face) => ({ c: [0, 0, -d], w: (r + grow) * 2, h: 0, top: r * 0.92 + grow + face, bot: r * 0.96 + grow, exp: 2.3 });
-    const geo = loft([band(at - 0.0042, 0, 0), band(at - 0.0038, 0.0016, 0.0012), band(at + 0.0038, 0.0016, 0.0012), band(at + 0.0042, 0, 0)], 10, [false, false]);
-    soup.add(geo, { m: bind[first], col: gold, srf: goldSrf, skin: [first, first, 0], crease: 0.5 });
-    const face = block(at - 0.0036, at + 0.0036, r * 0.92 + 0.0026, r * 0.92 + 0.0038, -r * 0.62, r * 0.62, 0.0006);
-    soup.add(face, { m: bind[first], col: goldDark, srf: [0.35, 1, 0, FINISH.plain], skin: [first, first, 0], crease: 0.4 });
+  if (bracelet) {
+    // A heavy curb chain hanging loose round the forearm: links tilted alternately along a ring.
+    const at = 0.07;
+    const s = sectionAt(at);
+    const links = 26;
+    const rx = s.w / 2 + 0.0036;
+    const ry = (s.top + s.bot) / 2 + 0.0036;
+    const point = (k, lift) => {
+      const a = (k / links) * Math.PI * 2;
+      const sag = Math.max(0, -Math.sin(a)) * 0.0028; // it hangs a little under the arm
+      return [s.x + Math.cos(a) * (rx + lift), Math.sin(a) * (ry + lift) - sag, at + (k % 2 ? 0.0007 : -0.0007)];
+    };
+    for (let k = 0; k < links; k++) {
+      // Each link overlaps the next, alternately raised: the twist of a curb chain.
+      const lift = k % 2 ? 0.0008 : 0;
+      soup.add(rod(point(k - 0.1, lift), point(k + 1.1, lift), 0.0028, 0.0028, 6), { ...fixed, col: k % 2 ? gold : scale(gold, 0.78), srf: goldSrf, crease: 0.6 });
+    }
   }
   return soup;
 }
@@ -629,18 +702,18 @@ function skin(arm, position, normal, base) {
  * Returns {mesh, left, right, triangles, update()}.
  */
 export function buildArms(material, skinHex = 0x7a4a2e, goldHex = 0xe7b53a) {
-  const skin_ = linear(skinHex);
   const tones = {
-    skin: skin_,
-    palm: mix(skin_, linear(0xc08a68), 0.7),
-    nail: mix(skin_, linear(0xd9a48e), 0.75),
-    crease: scale(skin_, 0.62),
+    skin: scale(mix(linear(skinHex), linear(0x5b3b2b), 0.35), 0.85), // deeper and less orange: it is seen in full sun
+    glove: linear(0x151618),
+    palm: linear(0x1e1c1a), // synthetic suede
+    seam: linear(0x3c3e43), // stitching
+    pad: linear(0x111113), // moulded rubber
     gold: linear(goldHex),
     goldDark: scale(linear(goldHex), 0.45),
     dial: linear(0x0a0a0c),
   };
-  const right = createArm(1, tones, { watch: false, ring: 'pinky' });
-  const left = createArm(-1, tones, { watch: true, ring: null });
+  const right = createArm(1, tones, { bracelet: true });
+  const left = createArm(-1, tones, { watch: true });
   const arms = [right, left];
 
   const total = right.count + left.count;

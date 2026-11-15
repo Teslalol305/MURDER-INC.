@@ -10,6 +10,8 @@
 //   ATMOS_VIEWS=start,p3,shop     only these views (default: a representative dozen; `all` for every one)
 //   ATMOS_TAG=medium              file name suffix: shots/atmos/tour-<view>-<tag>.png
 //   ATMOS_SKIP=600                simulate this many steps first (e.g. to let a train come and go)
+//   ATMOS_TIME=night              switch the rig first (atmos.setTime); the default is the user's setting (day)
+//   ATMOS_TRAIN=1                 send a train first, overhead when the views are taken (dir +1 / -1)
 //
 // Add `q=medium`, `bloom=0`, `post=0` … to --params to compare presets. Look at the pictures.
 
@@ -29,6 +31,11 @@ const FIXED = {
   moon: [28, 1.68, 14, 80, 22, 40, 60], // up at the sky from the lot
   over: [-10, 17, 28, -4, 1, -3, 60], // the whole block from above
   far: [-14, 40, 70, 10, 0, -10, 55], // higher and further: the city around it
+  top: [-4, 52, 14, -4, 0, -1, 62], // straight down onto the avenue: where the sun and the El's shadow fall
+  shopdoor: [-9, 1.68, -4, -9, 1.5, -20, 74], // into the shop from the street, through the roll door
+  shopout: [-9, 1.68, -24, -9, 1.6, 0, 74], // from inside the shop, out through the roll door
+  avwest: [20, 1.68, 2, -60, 3, 1, 74], // mid-avenue looking west (into the sun)
+  aveast: [-24, 1.68, -2, 60, 3, -1, 74], // mid-avenue looking east
   skywest: [0, 26, 0, -200, 50, -20, 70], // above the roofs: the glow over the far skyline
   skyeast: [0, 26, 0, 200, 50, 60, 70], // and the moon
 };
@@ -55,7 +62,9 @@ module.exports = async (page, h) => {
   const wanted = asked === 'all' ? Object.keys(views) : asked.split(',').map((s) => s.trim()).filter(Boolean);
   const tag = process.env.ATMOS_TAG ? `-${process.env.ATMOS_TAG}` : '';
   const skip = Number(process.env.ATMOS_SKIP || 0);
+  if (process.env.ATMOS_TIME) await h.eval((t) => window.__G.atmos.setTime(t), process.env.ATMOS_TIME);
   if (skip > 0) await h.skip(skip);
+  if (process.env.ATMOS_TRAIN) await h.eval((d) => window.__G.atmos.passTrain(d, 1), Number(process.env.ATMOS_TRAIN));
 
   for (const name of wanted) {
     const v = views[name];

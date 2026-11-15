@@ -627,6 +627,7 @@ export function createBuzzards(ctx) {
 
   return {
     pool,
+    material,
     spawn,
     retire,
     update,

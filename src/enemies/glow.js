@@ -38,8 +38,7 @@ function glowTexture(size = 64) {
       const r = Math.min(1, Math.hypot(x - half, y - half) / half);
       const v = 0.72 * Math.exp(-r * r * 14) + 0.28 * (1 - r) ** 2.6;
       const o = (y * size + x) * 4;
-      data[o] = data[o + 1] = data[o + 2] = Math.round(255 * Math.min(1, v));
-      data[o + 3] = 255;
+      data[o] = data[o + 1] = data[o + 2] = data[o + 3] = Math.round(255 * Math.min(1, v));
     }
   }
   return dataTexture(data, size);
@@ -94,12 +93,28 @@ export function createGlow(scene, capacity = 160, discCapacity = 32) {
     fog: false,
   };
 
-  const glowMaterial = new THREE.MeshBasicMaterial({ ...additive, map: glowTexture() });
+  // Premultiplied blending: colour adds as before, and the sprite's own alpha (its falloff) × `occlude`
+  // takes that much of the background away first. 0 at night (pure additive glow); by day the core
+  // replaces a bright wall instead of washing out on it, so a red eye or bolt still reads red.
+  const occlude = { value: 0 };
+  let flareScale = 1;
+  const glowMaterial = new THREE.MeshBasicMaterial({
+    ...additive,
+    map: glowTexture(),
+    blending: THREE.CustomBlending,
+    blendEquation: THREE.AddEquation,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneMinusSrcAlphaFactor,
+  });
   glowMaterial.name = 'enemy-glow';
   glowMaterial.onBeforeCompile = (shader) => {
+    shader.uniforms.uGlowOcclude = occlude;
     shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', GLOW_VERTEX);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uGlowOcclude;')
+      .replace('#include <premultiplied_alpha_fragment>', 'gl_FragColor.a = saturate( gl_FragColor.a * uGlowOcclude );\n#include <premultiplied_alpha_fragment>');
   };
-  glowMaterial.customProgramCacheKey = () => 'enemy-glow-1';
+  glowMaterial.customProgramCacheKey = () => 'enemy-glow-2';
   const glow = instanced(new THREE.PlaneGeometry(1, 1), glowMaterial, capacity, 'enemy-glow');
 
   const discMaterial = new THREE.MeshBasicMaterial({ ...additive, map: discTexture(), side: THREE.DoubleSide });
@@ -144,10 +159,15 @@ export function createGlow(scene, capacity = 160, discCapacity = 32) {
       n = 0;
       nd = 0;
     },
+    /** Day or night: how much a sprite covers what is behind it (0…1), and a size factor for flares. */
+    setLook(cover, scale) {
+      occlude.value = cover;
+      flareScale = scale;
+    },
     /** A round sprite `size` metres across at (x, y, z); colour is linear and may exceed 1 (it blooms). */
     flare(x, y, z, size, r, g, b) {
       if (n >= capacity || size <= 0) return;
-      put(n * 16, 0, 0, 0, size, x, y, z);
+      put(n * 16, 0, 0, 0, size * flareScale, x, y, z);
       gc[n * 3] = r;
       gc[n * 3 + 1] = g;
       gc[n * 3 + 2] = b;

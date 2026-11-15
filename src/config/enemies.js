@@ -11,6 +11,18 @@ export const seed = 9001;
 /** Hard caps on simultaneous instances (pools are built once at boot). */
 export const pool = { goon: 12, buzzard: 8, bodies: 6, bolts: 32 };
 
+/**
+ * Readability per time of day (atmos.time): `glow` scales the self-lit parts (mask, oxblood trim,
+ * sneakers), `rim` the cool rim light. Night lifts the silhouettes off a dark street; in full sun the
+ * albedo reads on its own and only a trace stays. The flares (telegraph, eye, bolts) must read in
+ * sunlight too: by day they cover `cover` of the bright background behind them instead of only adding
+ * to it, and flares are `flare` times larger.
+ */
+export const look = {
+  day: { glow: 0.12, rim: 0.12, cover: 0.8, flare: 1.35 },
+  night: { glow: 1, rim: 1, cover: 0, flare: 1 },
+};
+
 export const buzzard = {
   hp: 45,
   radius: 0.5, // hit volume: one flattened ellipsoid, no weak point

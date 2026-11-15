@@ -21,7 +21,7 @@ const OVERHANG = {
   tree: { x: 2.4, z: 2.4 },
   court_light: { x: 0.5, z: 0.5 },
   hydrant_open: { x: 1.2, z: 4 },
-  master_case: { x: 0.02, z: 0.04 },
+  master_case: { x: 0.02, z: 0.04, y: 0.32 }, // the beacon mast stands clear of waist-high cover
 };
 const FIT = 0.03; // everything else: three centimetres
 
@@ -176,7 +176,7 @@ test('props: every model fits its catalogue box', () => {
     const where = `${name}: x ${box.min.x.toFixed(2)}…${box.max.x.toFixed(2)}, y ${box.min.y.toFixed(2)}…${box.max.y.toFixed(2)}, z ${box.min.z.toFixed(2)}…${box.max.z.toFixed(2)}`;
     assert.ok(box.min.x >= -L / 2 - sx && box.max.x <= L / 2 + sx, where);
     assert.ok(box.min.z >= -W / 2 - sz && box.max.z <= W / 2 + sz, where);
-    assert.ok(box.min.y >= -FIT && box.max.y <= H + FIT, where);
+    assert.ok(box.min.y >= -FIT && box.max.y <= H + FIT + (slack.y || 0), where);
     // …and fills a fair part of it: nothing is a token placeholder.
     assert.ok(box.max.y >= H * 0.6, `${name} is only ${box.max.y.toFixed(2)} m tall in a ${H} m box`);
   }
@@ -414,7 +414,7 @@ test('props: master_case states', () => {
     const p = fresh.build('master_case', { seed: 3 });
     p.setState(state, 0.5);
     const box = solidBounds(p);
-    assert.ok(box.max.y <= 1.05 + FIT && box.min.z >= -0.3 - 0.05 && box.max.z <= 0.3 + 0.05, `${state}: ${box.max.y.toFixed(2)} tall, z ${box.min.z.toFixed(2)}…${box.max.z.toFixed(2)}`);
+    assert.ok(box.max.y <= 1.05 + FIT + OVERHANG.master_case.y && box.min.z >= -0.3 - 0.05 && box.max.z <= 0.3 + 0.05, `${state}: ${box.max.y.toFixed(2)} tall, z ${box.min.z.toFixed(2)}…${box.max.z.toFixed(2)}`);
   }
 });
 

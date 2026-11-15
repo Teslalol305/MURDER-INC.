@@ -137,8 +137,9 @@ export function createLevel(G) {
   /** A sign quad on a wall that faces +Z (south) or −Z. */
   function wallSign(spec, x, y, z, facing = '+z') {
     const sign = mats.sign(spec);
-    // A sign's texture spans its quad once: UVs 0 … 1, not metres.
-    const mesh = new THREE.Mesh(planeGeo(sign.w, sign.h, { facing, uvScale: [1 / sign.w, 1 / sign.h] }), sign.material);
+    // A sign's texture spans its quad once: UVs 0 … 1, not metres, mapped into its atlas rect (CONTRACT 11.2).
+    const [u0, v0, u1, v1] = sign.uv || [0, 0, 1, 1];
+    const mesh = new THREE.Mesh(planeGeo(sign.w, sign.h, { facing, uvScale: [(u1 - u0) / sign.w, (v1 - v0) / sign.h], uvOffset: [u0, v0] }), sign.material);
     mesh.position.set(x, y, z);
     staticRoot.add(mesh);
   }
@@ -462,6 +463,10 @@ export function createLevel(G) {
     enemySpawns,
     zones,
     zoneAt,
+    zoneName: (x, z) => {
+      const id = zoneAt(x, z);
+      return id === 'lot' ? (z < 0 ? 'THE CAGE' : 'THE LOT') : { west: 'WEST END', shop: 'CHOP SHOP' }[id] || 'THE AVENUE';
+    },
     interiorBoxes,
     interiorAt,
     coverPoints,

@@ -146,6 +146,7 @@ varying vec2 vEnemyFx;
 varying vec4 vEnemyInst;
 varying vec3 vEnemyLamp;
 uniform vec4 uEnemyRim;
+uniform float uEnemyGlow;
 `;
 
 // Dissolve: an interleaved-gradient dither, so a fading body needs neither blending nor sorting.
@@ -157,8 +158,9 @@ if ( vEnemyInst.y > 0.0 ) {
 `;
 
 // Self-lit parts, the lamp, the hit flash and a view-dependent rim that lifts the silhouette off a dark street.
+// uEnemyGlow and the rim's strength follow the time of day (setEnemyLook): full at night, a trace in sunlight.
 const FRAGMENT_GLOW = /* glsl */ `
-totalEmissiveRadiance += diffuseColor.rgb * vEnemyFx.x;
+totalEmissiveRadiance += diffuseColor.rgb * ( vEnemyFx.x * uEnemyGlow );
 totalEmissiveRadiance += vEnemyLamp * ( vEnemyFx.y * vEnemyInst.z );
 totalEmissiveRadiance += vec3( 1.0, 0.82, 0.62 ) * ( vEnemyInst.x * 0.55 );
 {
@@ -169,6 +171,7 @@ totalEmissiveRadiance += vec3( 1.0, 0.82, 0.62 ) * ( vEnemyInst.x * 0.55 );
 
 function injectEnemyShader(shader) {
   shader.uniforms.uEnemyRim = this.userData.rim;
+  shader.uniforms.uEnemyGlow = this.userData.glow;
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', `#include <common>\n${VERTEX_PARS}`)
     .replace('#include <skinbase_vertex>', `#include <skinbase_vertex>\n${VERTEX_MAIN}`);
@@ -190,11 +193,23 @@ export function createEnemyMaterial(opts = {}) {
   });
   const rim = new THREE.Color(opts.rim ?? 0x8fb2ff).multiplyScalar(opts.rimStrength ?? 0.5);
   material.userData.rim = { value: new THREE.Vector4(rim.r, rim.g, rim.b, opts.rimPower ?? 2.6) };
+  material.userData.rimBase = rim.clone();
+  material.userData.glow = { value: 1 };
   material.onBeforeCompile = injectEnemyShader;
   // Every enemy material is the same program: the injected code does not depend on the options.
   material.customProgramCacheKey = () => 'enemy-rig-1';
   material.name = opts.name || 'enemy';
   return material;
+}
+
+/**
+ * Day or night for an enemy material: `glow` scales the self-lit parts, `rim` the rim light (1 = as built).
+ * Only uniform values change, never the program.
+ */
+export function setEnemyLook(material, glow, rim) {
+  const base = material.userData.rimBase;
+  material.userData.rim.value.set(base.r * rim, base.g * rim, base.b * rim, material.userData.rim.value.w);
+  material.userData.glow.value = glow;
 }
 
 /**

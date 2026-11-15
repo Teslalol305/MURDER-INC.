@@ -74,9 +74,9 @@ export const GUN = {
 export const PIPE = { tip: [0, 0.56, 0] };
 
 const COLOR = {
-  black: 0x131316,
-  jacket: 0x17171b,
-  charcoal: 0x1d1e25,
+  black: 0x232328, // black cloth: dark, but with enough albedo that folds read in the sun
+  jacket: 0x28282e,
+  charcoal: 0x30323b,
   oxblood: 0x7c151d,
   oxbloodDark: 0x4d0d13,
   mask: 0xdcd5c5,
@@ -85,7 +85,7 @@ const COLOR = {
   glove: 0x0d0d0f,
   sneaker: 0xd6d1c4,
   sole: 0xefece4,
-  denim: 0x1a1d27,
+  denim: 0x262a36,
   gun: 0x24262c,
   gunLight: 0x34373f,
   lens: 0x2a1c10,

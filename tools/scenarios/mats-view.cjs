@@ -8,8 +8,9 @@
 //   node tools/scenarios/mats-view.cjs brick asphalt signs1          views by name (default: all)
 //   node tools/scenarios/mats-view.cjs --tex 1024 --size 1280x720 facade1
 //   MATS_PARTS=ground,walls node tools/scenarios/mats-view.cjs walls1
+//   node tools/scenarios/mats-view.cjs --day signs1        a stand-in for the day rig (high sun, blue sky)
 //
-// Output: shots/mats/view-<name>.png. Exits 1 on any console error (a shader that does not compile).
+// Output: shots/mats/view-<name>.png (view-<name>-day.png with --day). Exits 1 on any console error (a shader that does not compile).
 
 'use strict';
 
@@ -30,14 +31,14 @@ import * as look from './src/config/look.js';
 import * as text from './src/config/text.js';
 import { createMats } from './src/mats.js';
 
-window.startViewer = async ({ width, height, tex, shadows, params }) => {
+window.startViewer = async ({ width, height, tex, shadows, params, day }) => {
   const canvas = document.createElement('canvas');
   document.body.appendChild(canvas);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
   renderer.setSize(width, height, false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = look.grade.exposure;
+  renderer.toneMappingExposure = day ? 1.0 : look.grade.exposure;
   renderer.shadowMap.enabled = shadows;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.debug.onShaderError = (gl, program, vs, fs) => {
@@ -45,11 +46,13 @@ window.startViewer = async ({ width, height, tex, shadows, params }) => {
   };
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(look.sky.zenith);
-  scene.fog = new THREE.FogExp2(look.fog.color, look.fog.density);
-  scene.add(new THREE.HemisphereLight(look.ambient.sky, look.ambient.ground, look.ambient.intensity));
-  const sun = new THREE.DirectionalLight(look.sun.color, look.sun.intensity);
-  const dir = new THREE.Vector3().fromArray(look.sun.direction).normalize();
+  // Day: a 4:15 PM summer sun low in the west-south-west, blue sky light (a stand-in for atmos' day rig).
+  const DAY = { sky: 0x8fb8ec, fog: 0xb9cde0, density: 0.004, hemiSky: 0xa9c8f0, hemiGround: 0x8a7a66, hemi: 0.7, sun: 0xfff1dc, sunI: 4.2, dir: [0.62, -0.62, -0.42] };
+  scene.background = new THREE.Color(day ? DAY.sky : look.sky.zenith);
+  scene.fog = new THREE.FogExp2(day ? DAY.fog : look.fog.color, day ? DAY.density : look.fog.density);
+  scene.add(day ? new THREE.HemisphereLight(DAY.hemiSky, DAY.hemiGround, DAY.hemi) : new THREE.HemisphereLight(look.ambient.sky, look.ambient.ground, look.ambient.intensity));
+  const sun = day ? new THREE.DirectionalLight(DAY.sun, DAY.sunI) : new THREE.DirectionalLight(look.sun.color, look.sun.intensity);
+  const dir = new THREE.Vector3().fromArray(day ? DAY.dir : look.sun.direction).normalize();
   sun.target.position.set(0, 0, 204);
   sun.position.copy(sun.target.position).addScaledVector(dir, -60);
   sun.castShadow = shadows;
@@ -72,9 +75,9 @@ window.startViewer = async ({ width, height, tex, shadows, params }) => {
   {
     const env = new THREE.Scene();
     const dome = new THREE.SphereGeometry(40, 24, 12);
-    const top = new THREE.Color(look.sky.zenith).multiplyScalar(2);
-    const rim = new THREE.Color(look.sky.glow).multiplyScalar(1.6);
-    const floor = new THREE.Color(look.ambient.ground).multiplyScalar(0.35);
+    const top = day ? new THREE.Color(0x6f9fdf).multiplyScalar(0.7) : new THREE.Color(look.sky.zenith).multiplyScalar(2);
+    const rim = day ? new THREE.Color(0xd8e6f2).multiplyScalar(0.9) : new THREE.Color(look.sky.glow).multiplyScalar(1.6);
+    const floor = day ? new THREE.Color(0x6a625a).multiplyScalar(0.8) : new THREE.Color(look.ambient.ground).multiplyScalar(0.35);
     const colors = new Float32Array(dome.attributes.position.count * 3);
     const tint = new THREE.Color();
     for (let i = 0; i < colors.length / 3; i++) {
@@ -86,7 +89,7 @@ window.startViewer = async ({ width, height, tex, shadows, params }) => {
     dome.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     env.add(new THREE.Mesh(dome, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
     const lamp = new THREE.MeshBasicMaterial({ color: new THREE.Color(look.palette.sodium).multiplyScalar(18) });
-    for (const [x, y, z] of [[14, 22, 6], [-16, 20, -10], [-4, 24, 18], [20, 18, -18]]) {
+    for (const [x, y, z] of day ? [] : [[14, 22, 6], [-16, 20, -10], [-4, 24, 18], [20, 18, -18]]) {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(5, 0.5, 5), lamp);
       mesh.position.set(x, y, z);
       env.add(mesh);
@@ -107,7 +110,8 @@ window.startViewer = async ({ width, height, tex, shadows, params }) => {
     renderer,
     scene,
     camera,
-    render: { lights: { acquire: () => (held < 4 ? { light: pool[held++], release() {} } : null) } },
+    render: { lights: { acquire: () => (held < 4 && !day ? { light: pool[held++], release() {} } : null) } },
+    atmos: { time: day ? 'day' : 'night' },
   };
   window.__G = G;
   G.mats = await createMats(G);
@@ -128,11 +132,12 @@ window.startViewer = async ({ width, height, tex, shadows, params }) => {
 
 async function main() {
   const args = process.argv.slice(2);
-  const opts = { tex: 512, width: 960, height: 540, shadows: true, params: {}, views: [] };
+  const opts = { tex: 512, width: 960, height: 540, shadows: true, params: {}, views: [], day: false };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--tex') opts.tex = Number(args[++i]);
     else if (args[i] === '--size') [opts.width, opts.height] = args[++i].split('x').map(Number);
     else if (args[i] === '--no-shadows') opts.shadows = false;
+    else if (args[i] === '--day') opts.day = true;
     else if (args[i] === '--params') opts.params = Object.fromEntries(new URLSearchParams(args[++i]));
     else opts.views.push(args[i]);
   }
@@ -153,14 +158,14 @@ async function main() {
     await page.setContent('<!doctype html><html><body style="margin:0;background:#000"></body></html>');
     await page.addScriptTag({ content: bundle.outputFiles[0].text });
     const t0 = Date.now();
-    await page.evaluate((o) => window.startViewer(o), { width: opts.width, height: opts.height, tex: opts.tex, shadows: opts.shadows, params: opts.params });
+    await page.evaluate((o) => window.startViewer(o), { width: opts.width, height: opts.height, tex: opts.tex, shadows: opts.shadows, params: opts.params, day: opts.day });
     const built = await page.evaluate(([fn, parts]) => (0, eval)(`(${fn})`)(parts), [gallery.buildGallery.toString(), gallery.partsFor(names)]);
     console.log(`built ${JSON.stringify(built)} in ${Date.now() - t0} ms`);
     fs.mkdirSync(OUT, { recursive: true });
     for (const name of names) {
       const [[x, y, z], [lx, ly, lz], fov] = gallery.VIEWS[name];
       const url = await page.evaluate(([cam, target, f]) => window.viewerShot(cam, target, f), [[x, y, z + 200], [lx, ly, lz + 200], fov]);
-      const file = path.join(OUT, `view-${name}.png`);
+      const file = path.join(OUT, `view-${name}${opts.day ? '-day' : ''}.png`);
       fs.writeFileSync(file, Buffer.from(url.split(',')[1], 'base64'));
       console.log(path.relative(ROOT, file));
     }

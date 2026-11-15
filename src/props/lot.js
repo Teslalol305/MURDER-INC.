@@ -298,7 +298,7 @@ export function registerLot(R) {
         const sign = env.materials.sign({ text: o.text, w: 3.4, h: 0.19, style: 'awning', fg: 0xf4f2ec, bg: o.color ?? 0x7a1f24, lit: false });
         const y = hem + 0.165;
         const z = lip[0] + 0.004;
-        b.quad(b.own(sign.material), [-1.7, y - 0.095, z], [1.7, y - 0.095, z], [1.7, y + 0.095, z], [-1.7, y + 0.095, z], { uv: [0, 0, 1, 1] });
+        b.quad(b.own(sign.material), [-1.7, y - 0.095, z], [1.7, y - 0.095, z], [1.7, y + 0.095, z], [-1.7, y + 0.095, z], { uv: sign.uv || [0, 0, 1, 1] });
       }
     },
   });

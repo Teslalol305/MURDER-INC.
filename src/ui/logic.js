@@ -163,16 +163,17 @@ export function arcOpacity(life) {
 /**
  * Where a world marker goes on screen. Input: its position in normalised device coordinates after
  * projection (x right, y up, both −1…1 on screen) and whether it is behind the camera. On screen it stays
- * where it is; otherwise it is pushed to the border of the ±limX × ±limY rectangle along its direction.
+ * where it is; otherwise it is pushed to the border of the ±limX × (−limDown … +limY) rectangle along its
+ * direction (the bottom limit keeps pinned markers above the weapon bar).
  * @returns {{x: number, y: number, off: boolean}}
  */
-export function clampMarker(x, y, behind, limX = 0.9, limY = 0.82, out = { x: 0, y: 0, off: false }) {
+export function clampMarker(x, y, behind, limX = 0.9, limY = 0.82, out = { x: 0, y: 0, off: false }, limDown = limY) {
   if (behind) {
     // A projection mirrors what is behind the lens: undo it so the direction is right again.
     x = -x;
     y = -y;
   }
-  const over = Math.max(Math.abs(x) / limX, Math.abs(y) / limY);
+  const over = Math.max(Math.abs(x) / limX, y >= 0 ? y / limY : -y / limDown);
   if (!behind && over <= 1) {
     out.x = x;
     out.y = y;
@@ -182,7 +183,7 @@ export function clampMarker(x, y, behind, limX = 0.9, limY = 0.82, out = { x: 0,
   if (over < 1e-6) {
     // Dead behind: park it at the bottom edge.
     out.x = 0;
-    out.y = -limY;
+    out.y = -limDown;
   } else {
     out.x = x / over;
     out.y = y / over;
@@ -306,8 +307,8 @@ export function createFeed(max = 4, life = 4.2, fade = 0.6) {
   let version = 0;
   return {
     lines,
-    push(text, tag = '') {
-      lines.push({ text, tag, left: life });
+    push(text, tag = '', weapon = '') {
+      lines.push({ text, tag, weapon, left: life });
       while (lines.length > max) lines.shift();
       version++;
     },

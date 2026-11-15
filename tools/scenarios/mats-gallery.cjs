@@ -57,7 +57,14 @@ function buildGallery(parts) {
   const quadFor = (item, w = item.w, h = item.h) => {
     const map = item.material.map;
     const metres = (wrap) => wrap === THREE.RepeatWrapping;
-    return scaleUv(new THREE.PlaneGeometry(w, h), () => [metres(map.wrapS) ? w : 1, metres(map.wrapT) ? h : 1]);
+    const geo = scaleUv(new THREE.PlaneGeometry(w, h), () => [metres(map.wrapS) ? w : 1, metres(map.wrapT) ? h : 1]);
+    if (item.uv) {
+      // An atlas rect (CONTRACT 11.2): u = u0 + s·(u1 − u0), v = v0 + t·(v1 − v0).
+      const [u0, v0, u1, v1] = item.uv;
+      const uv = geo.getAttribute('uv');
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, u0 + uv.getX(i) * (u1 - u0), v0 + uv.getY(i) * (v1 - v0));
+    }
+    return geo;
   };
   /** An item on a wall that faces +z (ry = 0) or −z (ry = π). */
   const onWall = (item, x, y, z, ry = 0) => add(quadFor(item), item.material, x, y, z, 0, ry);

@@ -190,8 +190,7 @@ export function createSky(G, haze, uTime) {
  * bright blob in the direction of every lamp (`blobs`: [{dir: Vector3, color: Color (radiance), size}],
  * size in radians). Returns the PMREM render target; its texture goes to render.setEnvironment().
  */
-export function createEnvironment(G, sky, blobs) {
-  const cfg = G.config.look.env;
+export function createEnvironment(G, sky, blobs, cfg = G.config.look.env) {
   const R = 60; // radius of the stand-in block around the probe
   const env = new THREE.Scene();
   const disposables = [];

@@ -23,9 +23,16 @@ import {
   Vector2,
   Vector3,
 } from 'three';
+import { MATERIALS } from '../config/catalog.js';
 import { boxGeo, cylGeo, mergeGeos, tubeGeo } from '../core/geo.js';
 
 const TAU = Math.PI * 2;
+
+/** Catalogue materials that props paint in many colours (Builder.tintSlot folds them into one each). */
+const PAINTS = new Set([
+  'car_paint', 'paint_red', 'paint_blue', 'paint_yellow', 'paint_green', 'paint_black', 'paint_white',
+  'plastic_orange', 'fabric', 'fabric_awning', 'steel_rust', 'trash_bag',
+]);
 const _color = new Color();
 const _v0 = new Vector3();
 const _v1 = new Vector3();
@@ -651,6 +658,8 @@ export class Builder {
     this.size = ctx.size;
     this.rng = ctx.rng;
     this.atlasRect = ctx.atlas;
+    this.tintable = !!ctx.tintable; // the material library offers {tint: 'vertex'} (CONTRACT 11.2)
+    this.flatten = ctx.flatten || null; // {keep: [names]}: fold every other catalogue material into '@vc'
     this.rootNode = { name: '', pivot: [0, 0, 0], parts: new Map() };
     this.nodes = [this.rootNode];
     this.current = this.rootNode;
@@ -836,26 +845,52 @@ export class Builder {
   }
 
   /**
+   * A slot whose colour can live in the geometry instead of the material: {slot, color} or null.
+   * Lattices of every colour share '@grid'; a catalogue material asked for in a colour becomes the
+   * library's shared vertex-tinted material of that name (when the library has one).
+   */
+  tintSlot(slot) {
+    if (slot.startsWith('@grid:')) return { slot: '@grid', color: parseInt(slot.slice(6), 16) };
+    const m = /^([a-z_]+)\|\{"color":(\d+)\}$/.exec(slot);
+    // A prop that cannot be merged (it moves) folds its surfaces into one vertex-coloured paint: a draw
+    // call per material per instance adds up fast.
+    const name = m ? m[1] : slot;
+    if (this.flatten && MATERIALS[name] && !(this.flatten.keep || []).includes(name)) {
+      return { slot: '@vc', color: m ? Number(m[2]) : MATERIALS[name].color };
+    }
+    if (!this.tintable) return null;
+    if (m) return { slot: M(m[1], { tint: 'vertex' }), color: Number(m[2]) };
+    // Plain paints join their tinted twins: one material per paint name for the whole catalogue.
+    return PAINTS.has(slot) ? { slot: M(slot, { tint: 'vertex' }), color: MATERIALS[slot].color } : null;
+  }
+
+  /**
    * Fuses every slot into one geometry per node. Glow slots of all colours are baked into vertex
-   * colours and share the single '@glow' slot, so a whole street of tail lights is one draw call.
+   * colours and share the single '@glow' slot, so a whole street of tail lights is one draw call;
+   * tinted slots (tintSlot) are folded the same way.
    */
   finish() {
     let triangles = 0;
     const nodes = this.nodes.map((node) => {
-      const merged = new Map();
-      const glowParts = [];
+      const groups = new Map();
+      const put = (slot, geo) => {
+        const list = groups.get(slot);
+        if (list) list.push(geo);
+        else groups.set(slot, [geo]);
+      };
       for (const [slot, list] of node.parts) {
         if (slot.startsWith('@glow:')) {
           const [, hex, intensity] = slot.split(':');
-          for (const part of list) {
-            tint(part.geo, parseInt(hex, 16), Number(intensity));
-            glowParts.push(part);
-          }
-        } else {
-          merged.set(slot, mergeGeos(list));
+          const geo = mergeGeos(list);
+          put('@glow', tint(geo, parseInt(hex, 16), Number(intensity)));
+          continue;
         }
+        const tinted = this.tintSlot(slot);
+        if (tinted) put(tinted.slot, tint(mergeGeos(list), tinted.color));
+        else put(slot, mergeGeos(list));
       }
-      if (glowParts.length) merged.set('@glow', mergeGeos(glowParts));
+      const merged = new Map();
+      for (const [slot, list] of groups) merged.set(slot, list.length === 1 ? list[0] : mergeGeos(list));
       for (const geo of merged.values()) {
         triangles += triangleCount(geo);
         // A node's geometry is authored in prop space; its group sits at the pivot.

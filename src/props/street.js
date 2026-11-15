@@ -539,10 +539,11 @@ export function registerStreet(R) {
         // A street-name blade from the material library's sign painter.
         const sign = env.materials.sign({ text: o.text || 'JAMAICA AV', w: 0.58, h: 0.15, style: 'street', lit: false });
         const slot = b.own(sign.material);
+        const uv = sign.uv || [0, 0, 1, 1]; // the library's atlas rect (the stub has none)
         const y = 2.7;
         b.box('paint_green', [0.6, 0.17, 0.012], [0, y, 0]);
-        b.quad(slot, [-0.29, y - 0.075, 0.008], [0.29, y - 0.075, 0.008], [0.29, y + 0.075, 0.008], [-0.29, y + 0.075, 0.008], { uv: [0, 0, 1, 1] });
-        b.quad(slot, [0.29, y - 0.075, -0.008], [-0.29, y - 0.075, -0.008], [-0.29, y + 0.075, -0.008], [0.29, y + 0.075, -0.008], { uv: [0, 0, 1, 1] });
+        b.quad(slot, [-0.29, y - 0.075, 0.008], [0.29, y - 0.075, 0.008], [0.29, y + 0.075, 0.008], [-0.29, y + 0.075, 0.008], { uv });
+        b.quad(slot, [0.29, y - 0.075, -0.008], [-0.29, y - 0.075, -0.008], [-0.29, y + 0.075, -0.008], [0.29, y + 0.075, -0.008], { uv });
       } else {
         const kind = SIGN_FACES[o.variant] ? o.variant : SIGN_KINDS[o.variantIndex];
         const [region, w, h] = SIGN_FACES[kind];

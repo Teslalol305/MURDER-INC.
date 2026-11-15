@@ -101,6 +101,16 @@ test('zones tile the block; zoneAt, floorAt, groundSurfaceAt and interiorAt answ
   assert.equal(level.zoneAt(35, 25), 'lot');
   assert.equal(level.zoneAt(200, 0), 'lot', 'points outside go to the nearest zone');
 
+  // Display names for the minimap band (CONTRACT 6.10 zoneName): the east zone splits at the avenue.
+  assert.deepEqual(level.zones.map((z) => z.name), ['WEST END', 'CHOP SHOP', 'THE AVENUE', 'THE LOT']);
+  assert.equal(level.zoneName(-40, 8), 'WEST END');
+  assert.equal(level.zoneName(-10, -20), 'CHOP SHOP');
+  assert.equal(level.zoneName(-4, 1), 'THE AVENUE');
+  assert.equal(level.zoneName(-10, 20), 'THE AVENUE', 'the vacant lot and the rear lane belong to the avenue');
+  assert.equal(level.zoneName(35, -22), 'THE CAGE');
+  assert.equal(level.zoneName(40, 27), 'THE LOT');
+  assert.equal(level.zoneName(35, 0), 'THE AVENUE', 'the roadway at the roadblock is still the avenue');
+
   assert.equal(floorAt(0, 0), 0, 'road');
   assert.equal(floorAt(-30, 9), 0.15, 'south sidewalk');
   assert.equal(floorAt(-12, -9), 0, 'the roll door driveway is at road level');

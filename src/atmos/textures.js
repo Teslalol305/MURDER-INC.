@@ -52,28 +52,31 @@ const LIT = [
 /**
  * @returns {{texture: THREE.Texture, lit: boolean[][]}}  lit[row 0…5 from the bottom][bay]
  */
-export function facadeSheet(size, rng, litFraction) {
+export function facadeSheet(size, rng, litFraction, day = false) {
+  // `day` paints the same sheet (same rng draws, so the same layout) as it looks in sunlight: mid brick,
+  // pale mortar and frames, glass that mirrors the sky instead of glowing.
   const lit = [];
+  const D = (night, sun) => (day ? sun : night);
   const { texture } = canvasTexture(
     size,
     size,
     (ctx, S) => {
       const c = S / 8;
       // Brick: very dark (the material lifts it), with courses and a little grain.
-      ctx.fillStyle = rgb(42, 35, 33);
+      ctx.fillStyle = D(rgb(42, 35, 33), rgb(140, 96, 80));
       ctx.fillRect(0, 0, S, S);
       const course = Math.max(2, Math.round(c / 20));
-      ctx.fillStyle = rgb(20, 17, 16, 0.45);
+      ctx.fillStyle = D(rgb(20, 17, 16, 0.45), rgb(196, 182, 166, 0.3));
       for (let y = 0; y < S; y += course) ctx.fillRect(0, y, S, 1);
       for (let i = 0; i < S * 5; i++) {
         const shade = rng.next();
-        ctx.fillStyle = shade < 0.5 ? rgb(0, 0, 0, 0.12) : rgb(120, 100, 90, 0.07);
+        ctx.fillStyle = shade < 0.5 ? rgb(0, 0, 0, D(0.12, 0.1)) : D(rgb(120, 100, 90, 0.07), rgb(196, 140, 112, 0.14));
         ctx.fillRect(rng.next() * S, rng.next() * S, c * rng.range(0.05, 0.22), course);
       }
       // Soot streaks under the sills, darker toward the top of each floor band.
       for (let row = 1; row <= 6; row++) {
         const g = ctx.createLinearGradient(0, row * c, 0, (row + 1) * c);
-        g.addColorStop(0, rgb(0, 0, 0, 0.18));
+        g.addColorStop(0, rgb(0, 0, 0, D(0.18, 0.12)));
         g.addColorStop(1, rgb(0, 0, 0, 0));
         ctx.fillStyle = g;
         ctx.fillRect(0, row * c, S, c);
@@ -92,7 +95,7 @@ export function facadeSheet(size, rng, litFraction) {
           rowLit.push(on);
 
           // Stone lintel and sill.
-          ctx.fillStyle = rgb(74, 68, 62);
+          ctx.fillStyle = D(rgb(74, 68, 62), rgb(196, 186, 168));
           ctx.fillRect(x0 - c * 0.03, y0 - c * 0.05, x1 - x0 + c * 0.06, c * 0.05);
           ctx.fillRect(x0 - c * 0.05, y1, x1 - x0 + c * 0.1, c * 0.045);
 
@@ -100,16 +103,21 @@ export function facadeSheet(size, rng, litFraction) {
             const [r, g, b] = rng.pick(LIT);
             const dim = rng.range(0.55, 1);
             const grad = ctx.createLinearGradient(0, y0, 0, y1);
-            grad.addColorStop(0, rgb(r * dim, g * dim, b * dim));
-            grad.addColorStop(1, rgb(r * dim * 0.72, g * dim * 0.68, b * dim * 0.62));
+            if (day) {
+              grad.addColorStop(0, rgb(132 * dim + 20, 150 * dim + 20, 170 * dim + 24)); // the sky in the glass
+              grad.addColorStop(1, rgb(34, 40, 50));
+            } else {
+              grad.addColorStop(0, rgb(r * dim, g * dim, b * dim));
+              grad.addColorStop(1, rgb(r * dim * 0.72, g * dim * 0.68, b * dim * 0.62));
+            }
             ctx.fillStyle = grad;
             ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
             // A blind pulled part of the way down, or a curtain to one side.
             if (rng.chance(0.55)) {
-              ctx.fillStyle = rgb(r * 0.55, g * 0.5, b * 0.42, 0.75);
+              ctx.fillStyle = D(rgb(r * 0.55, g * 0.5, b * 0.42, 0.75), rgb(r * 0.82, g * 0.8, b * 0.74, 0.85));
               ctx.fillRect(x0, y0, x1 - x0, (y1 - y0) * rng.range(0.2, 0.6));
             } else if (rng.chance(0.5)) {
-              ctx.fillStyle = rgb(40, 28, 22, 0.55);
+              ctx.fillStyle = D(rgb(40, 28, 22, 0.55), rgb(150, 70, 56, 0.7));
               ctx.fillRect(rng.chance(0.5) ? x0 : x0 + (x1 - x0) * 0.68, y0, (x1 - x0) * 0.32, y1 - y0);
             }
             // Someone, or something, on the sill.
@@ -120,24 +128,24 @@ export function facadeSheet(size, rng, litFraction) {
             }
           } else {
             const grad = ctx.createLinearGradient(0, y0, 0, y1);
-            grad.addColorStop(0, rgb(30, 38, 54)); // a little sky in the glass
-            grad.addColorStop(1, rgb(10, 12, 16));
+            grad.addColorStop(0, D(rgb(30, 38, 54), rgb(116, 134, 156))); // a little sky in the glass
+            grad.addColorStop(1, D(rgb(10, 12, 16), rgb(28, 32, 40)));
             ctx.fillStyle = grad;
             ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
             if (rng.chance(0.3)) {
-              ctx.fillStyle = rgb(60, 58, 60, 0.35); // a pale blind behind dark glass
+              ctx.fillStyle = D(rgb(60, 58, 60, 0.35), rgb(206, 200, 186, 0.6)); // a pale blind behind the glass
               ctx.fillRect(x0, y0, x1 - x0, (y1 - y0) * rng.range(0.3, 0.9));
             }
           }
           // Sash bars.
-          ctx.fillStyle = rgb(12, 11, 11);
+          ctx.fillStyle = D(rgb(12, 11, 11), rgb(222, 216, 204));
           ctx.fillRect(x0, (y0 + y1) / 2 - 1, x1 - x0, Math.max(1, c * 0.02));
           ctx.fillRect((x0 + x1) / 2 - 1, y0, Math.max(1, c * 0.02), y1 - y0);
           // The odd air conditioner.
           if (rng.chance(0.14)) {
-            ctx.fillStyle = rgb(66, 66, 64);
+            ctx.fillStyle = D(rgb(66, 66, 64), rgb(200, 200, 194));
             ctx.fillRect(x0 + (x1 - x0) * 0.2, y1 - c * 0.13, (x1 - x0) * 0.6, c * 0.15);
-            ctx.fillStyle = rgb(24, 24, 24);
+            ctx.fillStyle = D(rgb(24, 24, 24), rgb(96, 96, 94));
             ctx.fillRect(x0 + (x1 - x0) * 0.26, y1 - c * 0.1, (x1 - x0) * 0.48, c * 0.07);
           }
         }
@@ -146,7 +154,7 @@ export function facadeSheet(size, rng, litFraction) {
 
       // Ground floor (bottom row of the canvas): a sign band over gates and shop fronts.
       const gy = 7 * c;
-      ctx.fillStyle = rgb(26, 23, 22);
+      ctx.fillStyle = D(rgb(26, 23, 22), rgb(84, 74, 66));
       ctx.fillRect(0, gy, S, c);
       const signs = [[255, 70, 150], [60, 220, 255], [255, 196, 60], [255, 60, 50], [90, 255, 150], [245, 240, 225]];
       for (let bay = 0; bay < 8; bay++) {
@@ -158,7 +166,7 @@ export function facadeSheet(size, rng, litFraction) {
           // Lit sign band and its glow on the wall around it.
           const glow = ctx.createLinearGradient(0, gy, 0, gy + c * 0.34);
           glow.addColorStop(0, rgb(r, g, b, 0));
-          glow.addColorStop(0.5, rgb(r, g, b, 0.45));
+          glow.addColorStop(0.5, rgb(r, g, b, D(0.45, 0)));
           glow.addColorStop(1, rgb(r, g, b, 0));
           ctx.fillStyle = glow;
           ctx.fillRect(bay * c, gy, c, c * 0.34);
@@ -166,18 +174,18 @@ export function facadeSheet(size, rng, litFraction) {
           ctx.fillRect(x0 + bw * 0.08, gy + c * 0.12, bw * 0.84, c * 0.1);
           // Shop glass: warm inside, shelving as dark bars.
           const grad = ctx.createLinearGradient(0, gy + c * 0.3, 0, gy + c * 0.94);
-          grad.addColorStop(0, rgb(255, 226, 170));
-          grad.addColorStop(1, rgb(190, 150, 96));
+          grad.addColorStop(0, D(rgb(255, 226, 170), rgb(110, 124, 138)));
+          grad.addColorStop(1, D(rgb(190, 150, 96), rgb(40, 42, 46)));
           ctx.fillStyle = grad;
           ctx.fillRect(x0, gy + c * 0.3, bw, c * 0.64);
-          ctx.fillStyle = rgb(30, 22, 16, 0.7);
+          ctx.fillStyle = D(rgb(30, 22, 16, 0.7), rgb(20, 18, 16, 0.5));
           for (let k = 1; k < 4; k++) ctx.fillRect(x0, gy + c * (0.3 + 0.16 * k), bw, c * 0.03);
           ctx.fillRect(x0 + bw * rng.range(0.3, 0.6), gy + c * 0.3, bw * 0.05, c * 0.64);
         } else {
           // Roll-down gate.
-          ctx.fillStyle = rgb(52, 54, 58);
+          ctx.fillStyle = D(rgb(52, 54, 58), rgb(156, 158, 160));
           ctx.fillRect(x0, gy + c * 0.26, bw, c * 0.7);
-          ctx.fillStyle = rgb(22, 23, 25, 0.8);
+          ctx.fillStyle = D(rgb(22, 23, 25, 0.8), rgb(92, 94, 98, 0.8));
           for (let y = gy + c * 0.28; y < gy + c * 0.96; y += Math.max(2, c * 0.045)) ctx.fillRect(x0, y, bw, 1);
           if (rng.chance(0.6)) {
             ctx.strokeStyle = rgb(rng.range(90, 200), rng.range(60, 160), rng.range(60, 200), 0.5); // a tag
@@ -194,7 +202,7 @@ export function facadeSheet(size, rng, litFraction) {
             ctx.stroke();
           }
         }
-        ctx.fillStyle = rgb(14, 13, 13);
+        ctx.fillStyle = D(rgb(14, 13, 13), rgb(70, 60, 54));
         ctx.fillRect(bay * c, gy, c * 0.06, c); // pier between bays
       }
     },
@@ -211,7 +219,9 @@ export function facadeSheet(size, rng, litFraction) {
  * @param {object} opts  {body: [r,g,b], lit: 0…1, tall: 0…1 (a cluster of towers mid-strip), dots: px}
  * @returns {{texture, towers: [{at, top}]}}  towers: tops (u, v) worth an aviation light
  */
-export function skylineStrip(w, h, rng, { body = [15, 16, 22], lit = 0.2, tall = 0, variance = 0.3, base = 0.22 } = {}) {
+export function skylineStrip(w, h, rng, { body = [15, 16, 22], lit = 0.2, tall = 0, variance = 0.3, base = 0.22, day = false } = {}) {
+  // `day`: the same strip (same rng draws) in sunlight: `body` is then a sunlit stone colour and the
+  // windows are darker glass, not lights.
   const { texture, result } = canvasTexture(
     w,
     h,
@@ -251,7 +261,8 @@ export function skylineStrip(w, h, rng, { body = [15, 16, 22], lit = 0.2, tall =
             if (!(floorOn ? rng.chance(0.85) : rng.chance(mood))) continue;
             const warm = rng.chance(office ? 0.25 : 0.72);
             const v = rng.range(0.45, 1);
-            ctx.fillStyle = warm ? rgb(255 * v, 205 * v, 132 * v) : rgb(190 * v, 222 * v, 255 * v);
+            if (day) ctx.fillStyle = rgb(body[0] * shade * 0.55 + 30 * v, body[1] * shade * 0.6 + 34 * v, body[2] * shade * 0.66 + 44 * v);
+            else ctx.fillStyle = warm ? rgb(255 * v, 205 * v, 132 * v) : rgb(190 * v, 222 * v, 255 * v);
             ctx.fillRect(wx, wy, Math.max(1, stepX - 1), Math.max(1, stepY - 2));
           }
         }

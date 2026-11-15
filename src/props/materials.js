@@ -4,7 +4,8 @@
 //
 //   '@decal' / '@lit'   quads cut from the prop atlas (src/props/atlas.js), scene-lit or glowing
 //   '@glow'             every unlit lamp lens, tail light and LED: one vertex-coloured HDR material
-//   '@grid:rrggbb'      a cut-out lattice (milk crates, wire baskets, gratings, chain nets)
+//   '@grid'             a cut-out lattice (milk crates, wire baskets, gratings, chain nets); builders
+//                       ask for '@grid:rrggbb' and the colour is baked into the geometry
 //   '@vc'               vertex-coloured paint for small props that must stay one draw call each
 //                       ('@vchot' is the same paint glowing with heat)
 
@@ -129,10 +130,10 @@ export function createPropMaterials(G) {
       m.name = slot === '@vc' ? 'props_vc' : 'props_vc_hot';
       return m;
     }
-    if (slot.startsWith('@grid:')) {
+    if (slot === '@grid') {
       const m = new MeshStandardMaterial({
         map: grid(),
-        color: parseInt(slot.slice(6), 16),
+        vertexColors: true, // every lattice colour shares this material (Builder.tintSlot)
         alphaTest: 0.5,
         side: DoubleSide,
         roughness: 0.55,
@@ -156,8 +157,25 @@ export function createPropMaterials(G) {
    * @param {{paint: string, color?: number, lit?: boolean}} [inst]  what this particular prop asked for
    *        (only the '@paint' and '@glass' slots depend on it)
    */
+  // Does the library offer one shared vertex-tinted material per name (CONTRACT 11.2)? The stub does not:
+  // then every paint colour is a material of its own, as before.
+  let tintable = null;
+  function canTint() {
+    if (tintable === null) {
+      try {
+        tintable = !!mats.get('car_paint', { tint: 'vertex' }).vertexColors;
+      } catch {
+        tintable = false;
+      }
+    }
+    return tintable;
+  }
+
   function resolve(slot, inst = {}) {
-    if (slot === '@paint') return mats.get(inst.paint, inst.color === undefined ? undefined : { color: inst.color });
+    if (slot === '@paint') {
+      if (canTint()) return mats.get(inst.paint, { tint: 'vertex' });
+      return mats.get(inst.paint, inst.color === undefined ? undefined : { color: inst.color });
+    }
     if (slot === '@glass') return inst.lit ? mats.get('glass_car', DOME_GLOW) : mats.get('glass_car');
     let material = cache.get(slot);
     if (!material) cache.set(slot, (material = create(slot)));
@@ -242,6 +260,7 @@ export function createPropMaterials(G) {
 
   return {
     resolve,
+    canTint,
     rect: (name) => {
       const r = rects.get(name);
       if (!r) throw new Error(`no atlas region '${name}'`);

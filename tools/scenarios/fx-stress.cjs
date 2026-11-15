@@ -142,11 +142,19 @@ module.exports = async (page, h) => {
   const fx = await h.eval(() => window.__G.fx.stats());
 
   // ---- garbage: the same fire through fx alone, measured over undrawn steps ---------------------------
+  // The rest of the page (render, physics, stubs) makes garbage of its own: measured without fire first,
+  // and only what the effects add on top counts.
+  await h.eval(() => (window.__load.mode = 'off'));
+  await h.skip(450);
+  const quiet = [];
+  for (const n of [60, 120, 240]) quiet.push(await h.eval(measure, n));
+  const baseline = quiet.filter((b) => b >= 0).sort((a, b) => a - b)[0] || 0;
   await h.eval(() => (window.__load.mode = 'fx'));
   await h.skip(200); // warm: every code path compiled, pools at their working size
   const perStep = [];
   for (const n of [60, 120, 240]) perStep.push(await h.eval(measure, n));
-  const garbage = perStep.filter((b) => b >= 0).sort((a, b) => a - b)[0];
+  const busy = perStep.filter((b) => b >= 0).sort((a, b) => a - b)[0];
+  const garbage = busy === undefined ? undefined : Math.max(0, busy - baseline);
 
   // ---- everything stops: the block is clean again ---------------------------------------------------
   await h.eval(() => (window.__load.mode = 'off'));
@@ -161,7 +169,7 @@ module.exports = async (page, h) => {
     ['fx.update', `mean ${(load.sumMs / load.steps).toFixed(3)} ms, worst ${load.peak.ms.toFixed(2)} ms over ${load.steps} steps`],
     ['draw calls', `${ownCalls} by the effects at the peak (scene: ${quietCalls} quiet, ${busyCalls} busy)`],
     ['drawn frame (software GL)', `${quietFrame.toFixed(0)} ms quiet → ${busyFrame.toFixed(0)} ms with three fireballs on screen`],
-    ['garbage per step of effects', garbage === undefined ? 'unreadable' : `${Math.round(garbage)} B`],
+    ['garbage per step of effects', garbage === undefined ? 'unreadable' : `${Math.round(garbage)} B (page without fire: ${Math.round(baseline)} B)`],
     ['after 15 s of quiet', `lit ${rest.lit}, additive ${rest.additive}, debris ${rest.debris}, emitters ${rest.emitters}`],
   ];
   const width = Math.max(...rows.map((r) => r[0].length));

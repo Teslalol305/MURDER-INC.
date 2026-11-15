@@ -53,6 +53,34 @@ const SURFACE = {
 /** How much a lamp of each kind deserves one of the few real lights (atmos sorts by this). */
 const LAMP_PRIORITY = { work: 10, flood: 9, street: 6, el: 5, neon: 4, window: 2 };
 
+/**
+ * Vehicles share a small paint chart: the prop factory makes one material per body colour, so every
+ * vehicle the level places is painted from these (asked colours snap to the nearest, unpainted ones
+ * draw from it by seed).
+ */
+const VEHICLES = new Set(['sedan', 'suv', 'van', 'box_truck', 'pickup']);
+const VEHICLE_PAINT = [0x14161a, 0x2a2d33, 0x8f959c, 0xd9d7d0, 0x6e1a1c, 0x1b2a4a, 0x16342a, 0xb9b4a6, 0xc9a23a];
+
+function vehiclePaint(o, name) {
+  if (o.color === undefined) {
+    const seed = Math.imul(((o.seed ?? 0) + name.length * 7) | 0, 0x9e3779b1) >>> 0;
+    return VEHICLE_PAINT[(seed >>> 8) % (VEHICLE_PAINT.length - 1)]; // the mustard stays for box trucks asked for it
+  }
+  const rgb = (c) => [(c >> 16) & 255, (c >> 8) & 255, c & 255];
+  const [r, g, b] = rgb(o.color);
+  let best = VEHICLE_PAINT[0];
+  let bestD = Infinity;
+  for (const c of VEHICLE_PAINT) {
+    const [cr, cg, cb] = rgb(c);
+    const d = (cr - r) ** 2 + (cg - g) ** 2 + (cb - b) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = c;
+    }
+  }
+  return best;
+}
+
 const key = (n) => Math.round(n * 1000);
 const X_AXIS = new THREE.Vector3(1, 0, 0);
 const _dir = new THREE.Vector3();
@@ -75,15 +103,64 @@ export function createKit(G) {
   // Materials and meshes
   // ---------------------------------------------------------------------------------------------
 
-  const nameOf = (m) => (typeof m === 'string' ? m : Array.isArray(m) ? m[0] : m.name);
+  const nameOf = (m) => (typeof m === 'string' ? m : Array.isArray(m) ? m[0] : m.isMaterial ? m.name : 'glow');
+
+  // Colour variants ([name, {color}]) and lamp glows do not get a material each (CONTRACT 11.2): they
+  // share one vertex-tinted material per catalogue name (mats.get tint 'vertex') or one level glow
+  // material, and the colour rides on the geometry.
+  const glowMaterial = new THREE.MeshBasicMaterial({ vertexColors: true });
+  glowMaterial.name = 'level-glow';
+  const tinted = new Map(); // geometry uuid | colour → coloured copy
+  const _color = new THREE.Color();
+
+  // Painted and timber surfaces the level also builds in other colours: their plain uses join the
+  // tinted material too (catalogue colour on the vertices), so each is one material, not two. Ground
+  // materials stay plain: the library gives those a separate day albedo.
+  const catalog = G.config.catalog.MATERIALS;
+  const ONE_TINT = new Set(['paint_yellow', 'paint_white', 'paint_black', 'paint_red', 'paint_green', 'paint_blue', 'wood', 'plywood', 'fabric', 'fabric_awning', 'court', 'corrugated', 'plastic_orange']);
+
+  /** {material, color}: color (linear, may be HDR) is null when the material carries its own. */
+  function resolve(m) {
+    if (typeof m === 'string') {
+      if (ONE_TINT.has(m) && catalog[m]) return resolve([m, { color: catalog[m].color }]);
+      return { material: mats.get(m), color: null };
+    }
+    if (Array.isArray(m)) {
+      const [name, opts] = m;
+      if (!opts || opts.color === undefined || !mats.get(name, { tint: 'vertex' }).vertexColors) return { material: mats.get(name, opts), color: null };
+      const { color, ...rest } = opts;
+      return { material: mats.get(name, { ...rest, tint: 'vertex' }), color: _color.set(color).clone() };
+    }
+    if (m && m.glow) return { material: glowMaterial, color: _color.set(m.color).multiplyScalar(m.intensity).clone() };
+    return { material: m, color: null };
+  }
 
   function mat(m) {
-    if (typeof m === 'string') return mats.get(m);
-    return Array.isArray(m) ? mats.get(m[0], m[1]) : m;
+    return resolve(m).material;
+  }
+
+  /** A copy of `geo` carrying a constant colour attribute (shared per geometry and colour). */
+  function withColor(geo, color) {
+    const id = `${geo.uuid}|${color.r.toFixed(4)},${color.g.toFixed(4)},${color.b.toFixed(4)}`;
+    let out = tinted.get(id);
+    if (!out) {
+      out = geo.clone();
+      const n = out.getAttribute('position').count;
+      const arr = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) {
+        arr[i * 3] = color.r;
+        arr[i * 3 + 1] = color.g;
+        arr[i * 3 + 2] = color.b;
+      }
+      out.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+      tinted.set(id, out);
+    }
+    return out;
   }
 
   function mesh(geo, m, o = {}) {
-    const out = new THREE.Mesh(geo, mat(m));
+    const { material, color } = resolve(m);
+    const out = new THREE.Mesh(color ? withColor(geo, color) : geo, material);
     out.castShadow = o.cast !== false;
     out.receiveShadow = o.receive !== false;
     (o.parent || staticRoot).add(out);
@@ -229,10 +306,23 @@ export function createKit(G) {
     const w = o.w ?? item.w;
     const h = o.h ?? item.h;
     const map = item.material.map;
-    // A direction that repeats keeps its metre UVs (road paint, crossing bars); the other is fitted.
-    const su = map && map.wrapS === THREE.RepeatWrapping ? 1 : 1 / (w * (map ? map.repeat.x : 1));
-    const sv = map && map.wrapT === THREE.RepeatWrapping ? 1 : 1 / (h * (map ? map.repeat.y : 1));
-    const out = mesh(cachedPlane(w, h, facing, su, sv), item.material, { cast: false, receive: false, ...o });
+    let su;
+    let sv;
+    let ou = 0;
+    let ov = 0;
+    if (item.uv) {
+      // An atlas painting (CONTRACT 11.2): the quad's 0…1 maps into its rectangle on the shared page.
+      const [u0, v0, u1, v1] = item.uv;
+      su = (u1 - u0) / w;
+      sv = (v1 - v0) / h;
+      ou = u0;
+      ov = v0;
+    } else {
+      // A direction that repeats keeps its metre UVs (road paint, crossing bars); the other is fitted.
+      su = map && map.wrapS === THREE.RepeatWrapping ? 1 : 1 / (w * (map ? map.repeat.x : 1));
+      sv = map && map.wrapT === THREE.RepeatWrapping ? 1 : 1 / (h * (map ? map.repeat.y : 1));
+    }
+    const out = mesh(cachedPlane(w, h, facing, su, sv, ou, ov), item.material, { cast: false, receive: false, ...o });
     out.position.set(cx, cy, cz);
     if (o.yaw) out.rotation.y = o.yaw;
     return out;
@@ -401,6 +491,7 @@ export function createKit(G) {
    */
   function place(name, x, z, yaw = 0, o = {}) {
     const y = o.y ?? floorAt(x, z);
+    if (VEHICLES.has(name)) o = { ...o, color: vehiclePaint(o, name) };
     const prop = props.build(name, o);
     prop.object.position.set(x, y, z);
     prop.object.rotation.y = yaw;
@@ -483,6 +574,7 @@ export function createKit(G) {
     stairs,
     lamp,
     place,
-    glow: (color, intensity) => mats.emissive(color, intensity),
+    /** A lamp lens or tube that glows (HDR colour × intensity): one shared material for the block. */
+    glow: (color, intensity = 2) => ({ glow: true, color, intensity }),
   };
 }

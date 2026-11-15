@@ -1029,11 +1029,21 @@ test('input: touch — the first touch switches schemes and builds the controls;
   const layer = env.ui.children[0];
   assert.equal(layer.className, 'touch');
   assert.equal(layer.hidden, false, 'gameplay is on');
-  const names = layer.children.filter((el) => el.className.startsWith('touch-btn')).map((el) => [el.className.split('touch-')[2], el.attributes['aria-label'], el.children[0] ? el.children[0].textContent : '']);
+  // Every control is a disc with an inline SVG glyph; only USE carries a word as well.
+  const names = layer.children
+    .filter((el) => el.className.startsWith('touch-btn'))
+    .map((el) => {
+      const label = el.children.find((c) => c.className === 'touch-label');
+      assert.equal(el.children[0].className, 'touch-glyph');
+      assert.match(el.children[0].innerHTML, /^<svg viewBox="0 0 32 32"[^>]*>.+<\/svg>$/s, `${el.className} has a glyph`);
+      return [el.className.split('touch-')[2], el.attributes['aria-label'], label ? label.textContent : ''];
+    });
   assert.deepEqual(names, [
-    ['fire', 'Fire', 'FIRE'], ['ads', 'Aim', 'AIM'], ['jump', 'Jump', 'JUMP'], ['reload', 'Reload', 'RLD'], ['swap', 'Swap weapon', 'SWAP'],
-    ['melee', 'Melee strike', 'HIT'], ['crouch', 'Crouch', 'DUCK'], ['interact', 'Use', 'USE'], ['pause', 'Pause', ''],
+    ['fire', 'Fire', ''], ['fire2', 'Fire (left thumb)', ''], ['ads', 'Aim', ''], ['jump', 'Jump', ''], ['crouch', 'Crouch', ''],
+    ['reload', 'Reload', ''], ['swap', 'Swap weapon', ''], ['melee', 'Melee strike', ''], ['interact', 'Use', 'USE'], ['pause', 'Pause', ''],
   ]);
+  const stick = layer.children.find((el) => el.className === 'touch-stick');
+  assert.ok(stick && stick.children.some((c) => c.className === 'touch-sprint'), 'the move stick carries the sprint-lock arrow');
   assert.equal(input.hint(), '');
   assert.deepEqual(['fire', 'interact', 'crouch', 'melee'].map(input.glyph), ['FIRE', 'USE', 'DUCK', 'HIT']);
 
@@ -1339,4 +1349,29 @@ test('input + player: keys walk, the mouse turns the way it moves, a pad stick s
   frames(30);
   assert.ok(player.pos.distanceTo(at) < 0.5, 'coasts to a stop, no input');
   assert.equal(player.speed, 0);
+});
+
+test('input: tap(action) — the UI queues a one-frame press, read at the next update, dropped outside gameplay', () => {
+  const { input } = setup();
+  input.update(DT);
+  input.tap('weapon2'); // a HUD weapon slot tapped late in the frame, after the weapon has run…
+  assert.equal(input.pressed('weapon2'), false, '…waits for the next update');
+  input.endFrame();
+  input.update(DT);
+  assert.equal(input.pressed('weapon2'), true);
+  assert.equal(input.down('weapon2'), true);
+  input.endFrame();
+  input.update(DT);
+  assert.equal(input.pressed('weapon2'), false, 'one frame only');
+  assert.equal(input.down('weapon2'), false);
+  input.endFrame();
+  input.tap(42); // not an action
+  input.setGameplay(false);
+  input.tap('melee');
+  input.update(DT);
+  assert.equal(input.pressed('melee'), false, 'nothing gets through a menu but pause');
+  input.endFrame();
+  input.setGameplay(true);
+  input.update(DT);
+  assert.equal(input.pressed('melee'), false, 'and nothing is left over afterwards');
 });

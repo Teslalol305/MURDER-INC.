@@ -35,7 +35,7 @@ export function createMenus(G) {
   place.hidden = true;
   ui.append(card, place);
 
-  const menus = { screen: 'none', panelOpen: false, show, locationCard, update() {} };
+  const menus = { screen: 'none', panelOpen: false, show, locationCard, openPanel() {}, update() {} };
 
   function add(tag, content, style) {
     const el = document.createElement(tag);

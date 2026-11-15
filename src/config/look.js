@@ -278,6 +278,7 @@ export const life = {
   motes: { lamps: 8, perLamp: 13, size: 2.4, radiance: 1.5 },
   paper: { sheets: 7, wind: [-1.1, 0.25], gustEvery: [5, 13], gust: 3.6 },
   hydrant: { drops: 260, speed: 5.2, lift: 0.3, spread: 0.07, radiance: [0.1, 0.12, 0.14] },
+  birds: { flocks: 3, perFlock: 9, size: 1.1, color: [0.035, 0.036, 0.04] }, // pigeons, by day
 };
 
 /** Which optional layers each quality preset draws (everything is built once; these only show and hide). */
@@ -288,3 +289,88 @@ export const detail = {
   high: { cones: true, motes: true, cityFull: true, farRing: true, switchers: true, grit: true, steamPuffs: 1 },
   ultra: { cones: true, motes: true, cityFull: true, farRing: true, switchers: true, grit: true, steamPuffs: 1 },
 };
+
+// ------------------------------------------------------------------------------------------------
+// Day and night (CONTRACT 11.1). Both rigs are built at boot; `atmos.setTime(name)` only changes values,
+// visibility and `render.look`. Everything above this block is the night; `times.night` points at it.
+// Day is the default: a hot, clear summer afternoon about 4:15 PM, the sun high in the west-south-west.
+// ------------------------------------------------------------------------------------------------
+
+/** Day sky dome (src/atmos/daysky.js). Radiance is linear, like the night sky's. */
+export const daySky = {
+  zenith: [0.085, 0.2, 0.62],
+  horizon: [0.62, 0.74, 0.92],
+  horizonPower: 0.5, // how fast the blue deepens with elevation (smaller = deeper sooner)
+  sun: { radiance: [60, 54, 44], radius: 0.0105, aureole: [0.42, 0.33, 0.2], aureoleTight: [1.4, 1.1, 0.7] },
+  clouds: {
+    amount: 1, // 0 = clear sky
+    coverage: 0.6, // fbm threshold: higher = fewer, smaller clouds
+    softness: 0.2,
+    scale: 0.62,
+    drift: [0.006, 0.0018], // layer units per second
+    lit: [1.9, 1.86, 1.78], // sunlit tops
+    shade: [0.5, 0.56, 0.68], // the grey undersides
+  },
+};
+
+const DAY_SUN_DIR = [0.553, -0.788, -0.271]; // the way the light travels: east and a little north, 52° up
+
+export const times = {
+  day: {
+    grade: {
+      exposure: 1.1,
+      bloomStrength: 0.16,
+      bloomRadius: 0.42,
+      bloomThreshold: 2.4, // only the sun, glints, muzzle flashes and chrome
+      bloomKnee: 0.6,
+      vignette: 0.12,
+      grain: 0.008,
+      aberration: 0.0004,
+      saturation: 1.14,
+    },
+    sun: {
+      color: 0xffe6c6,
+      intensity: 5,
+      direction: DAY_SUN_DIR,
+      shadowRadius: 1.2, // crisp
+      shadowBiasMetres: 0.03,
+      shadowNormalBias: 0.03,
+    },
+    ambient: { sky: 0xb4c4dc, ground: 0xb09474, intensity: 1.0 },
+    fog: {
+      haze: [0.6, 0.7, 0.86], // aerial haze; the day sky's horizon sinks into it
+      density: 0.0032,
+    },
+    env: { intensity: 1, skyGain: 0.6, facade: [0.24, 0.18, 0.14], street: [0.19, 0.17, 0.15] },
+    interior: { exposure: 1.35, ambient: 0.62, ambientSky: 0xd8d0c4, fog: 0.5 }, // the eye opens up in the shop
+    // Gain of the real lamp lights per lamp kind (0 = that kind never claims a light).
+    lampGain: { street: 0, el: 0, work: 1, flood: 0, neon: 0.35, window: 0 },
+    field: { pools: false, cones: false, glows: false }, // pools of light, cones, fixture glows
+    city: { sheet: [1.08, 1.05, 1.02], windowGain: 0, skylineSunk: [0.36, 0.56], lights: false },
+    train: { emissive: 0.1, stripes: false },
+    life: { steam: [0.82, 0.83, 0.86], steamAlpha: 1.25, spray: [0.85, 0.92, 1.0], motes: false, birds: true },
+  },
+  night: {
+    grade,
+    sun: {
+      color: sun.color,
+      intensity: sun.intensity,
+      direction: sun.direction,
+      shadowRadius: sun.shadowRadius,
+      shadowBiasMetres: sun.shadowBiasMetres,
+      shadowNormalBias: sun.shadowNormalBias,
+    },
+    ambient,
+    fog: { haze: fog.haze, density: fog.density },
+    env,
+    interior,
+    lampGain: { street: 1, el: 1, work: 1, flood: 1, neon: 1, window: 1 },
+    field: { pools: true, cones: true, glows: true },
+    city: { sheet: [city.wall[0] * city.windowGain, city.wall[1] * city.windowGain, city.wall[2] * city.windowGain], windowGain: city.windowGain * 0.75, skylineSunk: city.skylineHaze, lights: true },
+    train: { emissive: 1, stripes: true },
+    life: { steam: null, steamAlpha: 1, spray: life.hydrant.radiance, motes: true, birds: false },
+  },
+};
+
+/** The haze tint by day: a little warmer and brighter toward the sun (west), cooler away from it. */
+export const dayFogTint = { west: [1.1, 1.04, 0.94], east: [0.93, 0.98, 1.06] };

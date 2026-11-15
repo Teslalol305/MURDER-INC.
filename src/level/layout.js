@@ -156,11 +156,14 @@ export const DRIVEWAYS = [
 ];
 
 export const ZONES = [
-  { id: 'west', name: 'The station end', minX: -46, maxX: -30, minZ: -34, maxZ: 34 },
-  { id: 'shop', name: 'Chop shop', minX: -30, maxX: 22, minZ: -34, maxZ: -11 },
-  { id: 'avenue', name: 'The avenue', minX: -30, maxX: 22, minZ: -11, maxZ: 34 },
-  { id: 'lot', name: 'The lot', minX: 22, maxX: 46, minZ: -34, maxZ: 34 },
+  { id: 'west', name: 'WEST END', minX: -46, maxX: -30, minZ: -34, maxZ: 34 },
+  { id: 'shop', name: 'CHOP SHOP', minX: -30, maxX: 22, minZ: -34, maxZ: -11 },
+  { id: 'avenue', name: 'THE AVENUE', minX: -30, maxX: 22, minZ: -11, maxZ: 34 },
+  { id: 'lot', name: 'THE LOT', minX: 22, maxX: 46, minZ: -34, maxZ: 34 },
 ];
+
+/** The east zone is two places: the cage north of the avenue's centre line, the parking lot south of it. */
+export const CAGE_NAME = 'THE CAGE';
 
 /** Zone id under a point; points outside every rectangle belong to the nearest one. */
 export function zoneAt(x, z) {

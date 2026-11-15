@@ -203,7 +203,8 @@ export function createGoons(ctx) {
     e.yaw = opts.yaw !== undefined ? opts.yaw : ctx.random() * Math.PI * 2;
     e.aimYaw = e.yaw;
     e.cooldown = ctx.range(t.firstCooldown);
-    e.variant = Math.floor(ctx.random() * 3) % 3;
+    const pickVariant = Math.floor(ctx.random() * 3) % 3; // drawn either way: the stream stays the same
+    e.variant = opts.variant >= 0 && opts.variant < 3 ? opts.variant | 0 : pickVariant;
     e.object.geometry = geometries[e.variant];
     e.object.visible = true;
     e.object.castShadow = true;
@@ -956,6 +957,7 @@ export function createGoons(ctx) {
 
   return {
     pool,
+    material,
     spawn,
     retire,
     update,

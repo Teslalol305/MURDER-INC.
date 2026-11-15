@@ -39,6 +39,7 @@ const LIT_VERTEX = /* glsl */ `
   uniform vec3 uLightCol[${FX_LIGHTS}];
   uniform vec3 uHeat;
   uniform float uBias;
+  uniform float uDay;
 
   varying vec2 vUv;
   varying vec4 vColor;
@@ -72,16 +73,18 @@ const LIT_VERTEX = /* glsl */ `
     vec3 light = mix(uGround, uSky, n.y * 0.5 + 0.5);
     float wrap = max(dot(n, uKeyDir) * 0.6 + 0.4, 0.0);
     light += uKey * (wrap * wrap * iMisc.z);
+    // By day the sun outshines a blast's own light: fire light on smoke is a night effect.
+    float fxShare = 1.0 - 0.7 * uDay;
     for (int i = 0; i < ${FX_LIGHTS}; i++) {
       vec3 d = uLightPos[i].xyz - world;
       float d2 = dot(d, d);
       float reach = clamp(1.0 - d2 / (uLightPos[i].w * uLightPos[i].w), 0.0, 1.0);
       float facing = dot(n, d) * inversesqrt(d2 + 0.0001) * 0.5 + 0.5;
-      light += uLightCol[i] * (reach * reach / (d2 + 1.0) * (0.3 + 0.7 * facing));
+      light += uLightCol[i] * (fxShare * reach * reach / (d2 + 1.0) * (0.3 + 0.7 * facing));
     }
 
     vColor = vec4(iCol.rgb * light * 0.31831, iCol.a);
-    vGlow = uHeat * iMisc.w;
+    vGlow = uHeat * (iMisc.w * (1.0 - 0.35 * uDay));
     vUv = atlasUv(iMisc.y, position.xy);
     // Fades the part of the quad that dips into the ground it stands on, instead of a hard cut.
     vGround = (world.y - iAxis.w) / (0.3 * size) + 0.15;
@@ -120,10 +123,12 @@ const ADD_VERTEX = /* glsl */ `
   uniform float uPixel;
   uniform float uBias;
   uniform float uWorld; // 1: world-space pool (ground fade, fog); 0: view-space pool on the viewmodel
+  uniform float uDay;
 
   varying vec2 vUv;
   varying vec3 vColor;
   varying float vGround;
+  varying float vBody;
 
   ${FOG_GLSL}
   ${ATLAS_GLSL}
@@ -156,7 +161,13 @@ const ADD_VERTEX = /* glsl */ `
     gl_Position = projectionMatrix * mv;
     fxDepthBias(mv, min(size * 0.5, uBias));
 
-    vColor = iCol.rgb * (iCol.a * gain * (1.0 - fxFog(-mv.z) * uWorld));
+    float fog = 1.0 - fxFog(-mv.z) * uWorld;
+    // By day light is added to a bright scene: the effects burn hotter to stay above it…
+    vColor = iCol.rgb * (iCol.a * gain * fog * (1.0 + uDay * 1.4));
+    // …and get a body that dims what is behind them, so fire reads as fire on a sunlit wall, not as a
+    // pale haze. Faint particles (fading embers, the tail of a flash) hide less.
+    float strength = max(iCol.r, max(iCol.g, iCol.b)) * iCol.a * gain;
+    vBody = uDay * fog * clamp(strength * 0.9, 0.0, 0.6);
     vUv = atlasUv(iMisc.y, position.xy);
   }
 `;
@@ -167,12 +178,15 @@ const ADD_FRAGMENT = /* glsl */ `
   varying vec2 vUv;
   varying vec3 vColor;
   varying float vGround;
+  varying float vBody;
 
   void main() {
     vec4 texel = texture2D(map, vUv);
     // The texture's second channel is the white-hot core.
     vec3 color = vColor * texel.r + vec3(dot(vColor, vec3(0.3333))) * texel.g * 0.7;
-    gl_FragColor = vec4(color * clamp(vGround, 0.0, 1.0), 1.0);
+    float ground = clamp(vGround, 0.0, 1.0);
+    // Premultiplied: rgb is added, alpha dims the background (0 at night: purely additive).
+    gl_FragColor = vec4(color * ground, vBody * texel.r * ground);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }
@@ -216,10 +230,12 @@ export function createPoolMesh({ kind, capacity, texture, common, name, renderOr
       uLightPos: common.uLightPos,
       uLightCol: common.uLightCol,
       uHeat: { value: new THREE.Vector3(2.2, 0.55, 0.07) }, // the glow inside fresh blast smoke
+      uDay: common.uDay,
     });
   } else {
     uniforms.uPixel = common.uPixel;
     uniforms.uWorld = { value: world ? 1 : 0 };
+    uniforms.uDay = common.uDay;
   }
 
   const material = new THREE.ShaderMaterial({
@@ -230,7 +246,12 @@ export function createPoolMesh({ kind, capacity, texture, common, name, renderOr
     transparent: true,
     depthWrite: false,
     depthTest: world, // the viewmodel pool always draws over the weapon
-    blending: lit ? THREE.NormalBlending : THREE.AdditiveBlending,
+    // Both pools write premultiplied colour; the additive one adds light, and by day also dims a little.
+    blending: lit ? THREE.NormalBlending : THREE.CustomBlending,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneMinusSrcAlphaFactor,
+    blendSrcAlpha: THREE.ZeroFactor,
+    blendDstAlpha: THREE.OneFactor,
     premultipliedAlpha: true,
     side: THREE.DoubleSide, // streaks may turn either face to the eye…
     forceSinglePass: true, // …and are still drawn once

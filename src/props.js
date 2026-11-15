@@ -14,12 +14,12 @@
 //   opts: {color, seed, variant, open, lit, on, text}
 
 import { Group, Mesh } from 'three';
-import { PROPS } from './config/catalog.js';
+import { MATERIALS, PROPS } from './config/catalog.js';
 import { palette } from './config/look.js';
 import { boxGeo } from './core/geo.js';
 import { registerClutter } from './props/clutter.js';
 import { registerGameplay } from './props/gameplay.js';
-import { Builder } from './props/kit.js';
+import { Builder, tint } from './props/kit.js';
 import { registerLot } from './props/lot.js';
 import { createPropMaterials } from './props/materials.js';
 import { registerShop } from './props/shop.js';
@@ -51,6 +51,7 @@ export function createProps(G) {
   const materials = createPropMaterials(G);
   const registry = new Map(); // name → spec
   const protos = new Map(); // shape key → built geometry, colliders, lamp hints
+  const painted = new Map(); // paint geometry uuid + colour → its tinted copy
   const warned = new Set();
   const counts = { built: 0, fallbacks: [] };
   const env = { G, materials, palette };
@@ -64,6 +65,7 @@ export function createProps(G) {
    *   color(o)           a colour forced by the options (wins over the palette, loses to opts.color)
    *   dome               chance that a parked car has its interior light on
    *   rig(prop, o, env)  per instance: moving parts, update(dt), setState()
+   *   flatten            {keep: [names]}: every other catalogue material becomes vertex-coloured '@vc'
    * }
    */
   const R = {
@@ -90,12 +92,34 @@ export function createProps(G) {
     const key = `${name}|${spec.key ? spec.key(o) : ''}|${variant}`;
     let proto = protos.get(key);
     if (!proto) {
-      const b = new Builder({ name, size: def.size, rng: G.rng.fork(`props:${key}`), atlas: materials.rect });
+      const b = new Builder({
+        name,
+        size: def.size,
+        rng: G.rng.fork(`props:${key}`),
+        atlas: materials.rect,
+        tintable: materials.canTint(),
+        flatten: spec.flatten,
+      });
       spec.build(b, { ...o, variantIndex: variant }, env);
       proto = b.finish();
       protos.set(key, proto);
     }
     return proto;
+  }
+
+  /**
+   * With a vertex-tinted paint the colour is in the geometry: one copy of a shape's paint per colour
+   * (a palette has a handful), all on the library's single shared paint material.
+   */
+  function paintGeometry(geometry, inst) {
+    const color = inst.color ?? MATERIALS[inst.paint]?.color ?? 0x808080;
+    const key = `${geometry.uuid}|${color}`;
+    let geo = painted.get(key);
+    if (!geo) {
+      geo = tint(geometry.clone(), color);
+      painted.set(key, geo);
+    }
+    return geo;
   }
 
   function construct(name, def, spec, o) {
@@ -109,6 +133,7 @@ export function createProps(G) {
       lit: o.lit ?? (spec.dome ? scramble(o.seed, 91) / 0xffff < spec.dome : false),
     };
 
+    const tinted = materials.canTint();
     const object = new Group();
     object.name = name;
     const nodes = {};
@@ -123,7 +148,8 @@ export function createProps(G) {
         nodes[node.name] = group;
       }
       for (const [slot, geometry] of node.parts) {
-        const mesh = new Mesh(geometry, proto.materials.get(slot) || materials.resolve(slot, inst));
+        const geo = slot === '@paint' && tinted ? paintGeometry(geometry, inst) : geometry;
+        const mesh = new Mesh(geo, proto.materials.get(slot) || materials.resolve(slot, inst));
         mesh.name = slot;
         mesh.castShadow = castShadows && !noShadow(slot);
         mesh.receiveShadow = slot !== '@glow' && slot !== '@lit';

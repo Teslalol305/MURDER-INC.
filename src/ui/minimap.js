@@ -15,15 +15,15 @@ const FIRE_WINDOW = 2; // an enemy shows this long after it fired
 
 // Map inks: the plate tones of the HUD, stepped so the plan reads at a glance.
 const INK = {
-  city: '#2b3038', // beyond the bounds: more city
-  ground: '#15181c', // sidewalks, lots, floors
-  road: '#22262c', // asphalt
-  dirt: '#1d1b17',
-  court: '#1c2320',
-  wall: '#5d646f', // buildings and anything too tall to see over
-  wallEdge: '#8a919c',
-  cover: '#3b414a', // cars, barriers, crates
-  rail: '#474d57',
+  city: '#0c0e11', // beyond the bounds: more city, kept dark so the block stands out
+  ground: '#2a2f36', // sidewalks, lots, floors
+  road: '#191c21', // asphalt
+  dirt: '#2b2822',
+  court: '#1e2a25',
+  wall: '#454c57', // buildings and anything too tall to see over
+  wallEdge: '#9aa1ab',
+  cover: '#7b828d', // cars, barriers, crates: lighter, so the lanes read
+  rail: '#4d5460',
   enemy: '#e2222b',
 };
 
@@ -138,6 +138,19 @@ export function createMinimap(G, canvas) {
         p.fillRect(X(box.min.x), Z(box.min.z), bw, bh);
       }
     }
+    // Building outlines: a hairline round every wall block so neighbouring buildings separate.
+    p.strokeStyle = INK.wallEdge;
+    p.globalAlpha = 0.55;
+    p.lineWidth = 1;
+    for (let i = 0; i < boxes.length; i++) {
+      const box = boxes[i];
+      if (planKind(box) !== 'wall') continue;
+      const bw = (box.max.x - box.min.x) * planScale;
+      const bh = (box.max.z - box.min.z) * planScale;
+      if (bw < 3 || bh < 3) continue;
+      p.strokeRect(X(box.min.x) + 0.5, Z(box.min.z) + 0.5, bw - 1, bh - 1);
+    }
+    p.globalAlpha = 1;
 
     // The play bounds: a hairline so the edge of the block reads.
     p.strokeStyle = INK.wallEdge;
@@ -238,7 +251,7 @@ export function createMinimap(G, canvas) {
     ctx.save();
     ctx.translate(half, half);
     ctx.fillStyle = brand.colors.ink;
-    ctx.globalAlpha = 0.1;
+    ctx.globalAlpha = 0.07;
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.arc(0, 0, half * 0.62, -Math.PI / 2 - 0.62, -Math.PI / 2 + 0.62);

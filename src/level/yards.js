@@ -135,7 +135,7 @@ function buildCage(kit) {
   const P = 'white';
   const cx = (K.x0 + K.x1) / 2;
   const cz = (K.z0 + K.z1) / 2;
-  kit.flat('court', C.minX + 0.1, C.maxX - 0.1, C.minZ + 0.1, C.maxZ - 0.1, LIFT.patch);
+  kit.flat(['court', { color: 0x2f4f46 }], C.minX + 0.1, C.maxX - 0.1, C.minZ + 0.1, C.maxZ - 0.1, LIFT.patch);
   const key = ['court', { color: 0x7a2e26 }];
   for (const end of [-1, 1]) {
     const base = end < 0 ? K.x0 : K.x1;
@@ -341,7 +341,7 @@ function buildLane(kit, steam) {
   const { mats } = kit;
   const L = LANE;
   kit.flat(['asphalt', { color: 0x121316 }], -4, L.maxX, L.minZ, L.maxZ, LIFT.patch);
-  kit.flat(['asphalt', { color: 0x2a2b2e }], 2, 9, 28, 29.4, LIFT.wet);
+  kit.flat(['asphalt', { color: 0x232427 }], 2, 9, 28, 29.4, LIFT.wet);
   blob(kit, 'asphalt_wet', 14.5, 28.6, 3, 1.1, LIFT.paint);
   blob(kit, 'asphalt_wet', -1.5, 29.6, 2.2, 0.9, LIFT.paint);
   const grime = mats.decal('grime');

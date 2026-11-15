@@ -101,7 +101,14 @@ module.exports = async (page, h) => {
 
         // Name on the ground in front, colliders as wire boxes, a striped 1.8 m post at the left.
         const tag = G.mats.sign({ text: label, w: Math.max(1.5, Math.min(L, 3)), h: 0.36, style: 'plate', lit: true });
-        const plate = new THREE.Mesh(new THREE.PlaneGeometry(tag.w, tag.h), tag.material);
+        const plateGeo = new THREE.PlaneGeometry(tag.w, tag.h);
+        if (tag.uv) {
+          // The library hands out a rect on a shared atlas page: map the quad into it.
+          const uv = plateGeo.getAttribute('uv');
+          const [u0, v0, u1, v1] = tag.uv;
+          for (let i = 0; i < uv.count; i++) uv.setXY(i, u0 + uv.getX(i) * (u1 - u0), v0 + uv.getY(i) * (v1 - v0));
+        }
+        const plate = new THREE.Mesh(plateGeo, tag.material);
         plate.rotation.x = -Math.PI / 2;
         plate.position.set(cx, 0.02, cz + Math.max(W, 1.2) / 2 + 0.45);
         stage.add(plate);
@@ -120,7 +127,11 @@ module.exports = async (page, h) => {
 
         // Measure against the catalogue box.
         prop.object.updateMatrixWorld(true);
-        const box = new THREE.Box3().setFromObject(prop.object);
+        // What is on show only: a hidden flame or wreck is not part of the prop's resting shape.
+        const box = new THREE.Box3();
+        prop.object.traverseVisible((o) => {
+          if (o.isMesh) box.union(new THREE.Box3().setFromObject(o, false));
+        });
         let triangles = 0;
         let meshes = 0;
         prop.object.traverse((o) => {

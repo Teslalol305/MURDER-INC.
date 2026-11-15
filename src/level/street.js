@@ -262,7 +262,14 @@ function buildSidewalkBlockers(kit, mats, steam) {
     tiers.forEach(([z0, z1, h], row) => {
       for (let i = 0; i < 5; i++) {
         const x = s.x0 + 0.5 + i * 0.7;
-        kit.box(['plastic_orange', { color: fruit[(i + row * 2) % fruit.length] }], x - 0.28, x + 0.28, KERB + h, KERB + h + 0.16, z0 + 0.1, Math.min(z1 - 0.06, z0 + 0.62), { cast: false });
+        // A slatted crate with a rounded heap of fruit in it.
+        const c0 = z0 + 0.1;
+        const c1 = Math.min(z1 - 0.06, z0 + 0.62);
+        const y = KERB + h;
+        const mid = (c0 + c1) / 2;
+        kit.box('wood', x - 0.28, x + 0.28, y, y + 0.1, c0, c1, { cast: false });
+        const heap = [[c0 + 0.03, y + 0.08], [c1 - 0.03, y + 0.08], [c1 - 0.08, y + 0.17], [mid + 0.1, y + 0.22], [mid - 0.1, y + 0.22], [c0 + 0.08, y + 0.17]];
+        kit.prism(['plastic_orange', { color: fruit[(i + row * 2) % fruit.length] }], heap, 'x', x - 0.25, x + 0.25, { cast: false });
       }
     });
     const bulb = kit.glow(WARM, 4);
@@ -322,7 +329,8 @@ function buildSidewalkBlockers(kit, mats, steam) {
     const base = KERB + 2.6;
     const top = 9.4;
     kit.block(['plywood', { color: HOARDING_GREEN }], t.x0, t.x1, KERB, base, t.z0, t.z1, { tag: 'hoist' });
-    kit.solid(t.x0, t.x1, base, top, t.z0, t.z1, { surface: 'cloth', tag: 'hoist', noNav: true });
+    // The netting stops climbers, not rounds: you can see (and shoot) the scaffold through it.
+    kit.solid(t.x0, t.x1, base, top, t.z0, t.z1, { surface: 'cloth', tag: 'hoist', noNav: true, playerOnly: true });
     // Scaffold standards and ledgers above the hoarding, wrapped in debris netting on the three open sides.
     for (const x of [t.x0 + 0.06, t.x1 - 0.06]) {
       for (const z of [t.z0 + 0.06, t.z1 - 0.06]) kit.cyl('metal_galv', x, base, top + 0.5, z, 0.04, 6);
@@ -332,7 +340,7 @@ function buildSidewalkBlockers(kit, mats, steam) {
       kit.pipe('metal_galv', [t.x0 + 0.06, y, t.z1 - 0.06], [t.x1 - 0.06, y, t.z1 - 0.06], 0.03, 5, { cast: false });
       for (const x of [t.x0 + 0.06, t.x1 - 0.06]) kit.pipe('metal_galv', [x, y, t.z0 + 0.06], [x, y, t.z1 - 0.06], 0.03, 5, { cast: false });
     }
-    const net = ['fabric', { color: 0x17301f, doubleSide: true }];
+    const net = ['chainlink', { color: 0x2c5a3a }]; // debris netting: a see-through green weave
     kit.quad(net, '-z', (t.x0 + t.x1) / 2, (base + top) / 2, t.z0 + 0.01, t.x1 - t.x0, top - base);
     kit.quad(net, '-x', t.x0 + 0.01, (base + top) / 2, (t.z0 + t.z1) / 2, t.z1 - t.z0, top - base);
     kit.quad(net, '+x', t.x1 - 0.01, (base + top) / 2, (t.z0 + t.z1) / 2, t.z1 - t.z0, top - base);

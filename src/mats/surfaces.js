@@ -195,7 +195,9 @@ function asphalt(P) {
   const { w, h, bank, ppm } = P;
   const A = P.albedo;
   const H = P.height;
-  fill(A, css(0x202124));
+  // A mid-grey binder (the material colour sets the final level, by day or night): the stones stay
+  // within a modest range of it so that sunlit asphalt reads as fine aggregate, not as granite.
+  fill(A, css(0x38393c));
   fill(H, grey(0.42));
 
   // Aggregate: thousands of small stones, a few of them warm or nearly white. Scattered over a
@@ -205,17 +207,17 @@ function asphalt(P) {
   const stonesA = canvas2d(hw, hh);
   const stonesH = canvas2d(hw, hh);
   specks({ w: hw, h: hh, rand: P.rand }, [stonesA, stonesH], Math.round(hw * hh * 0.03), 0.0025 * ppm, 0.01 * ppm, (rand) => {
-    const v = 0.12 + rand() * 0.17;
-    const warm = rand() < 0.16 ? 1.12 : 1;
-    const pale = rand() < 0.025 ? 1.5 : 1;
+    const v = 0.19 + rand() * 0.13;
+    const warm = rand() < 0.16 ? 1.08 : 1;
+    const pale = rand() < 0.025 ? 1.3 : 1;
     const tone = Math.min(255, v * 255 * pale);
     return [`rgba(${tone * warm},${tone},${tone * 0.96},0.75)`, grey(0.5 + rand() * 0.48, 0.9)];
   });
   fillTiled(A, stonesA.canvas, 2, 2);
   fillTiled(H, stonesH.canvas, 2, 2);
-  fillTiled(A, bank.grain(w, h), 1, 1, { mode: 'overlay', alpha: 0.42 });
+  fillTiled(A, bank.grain(w, h), 1, 1, { mode: 'overlay', alpha: 0.3 });
   fillTiled(H, bank.grain(w, h), 1, 1, { mode: 'overlay', alpha: 0.55 });
-  fillTiled(A, bank.grey('mottle'), 2, 2, { mode: 'soft-light', alpha: 0.45 });
+  fillTiled(A, bank.grey('mottle'), 2, 2, { mode: 'soft-light', alpha: 0.32 });
   fillTiled(A, bank.grey('clouds'), 1, 1, { mode: 'soft-light', alpha: 0.2 });
   fillTiled(H, bank.grey('mottle'), 2, 2, { mode: 'overlay', alpha: 0.25 });
 
@@ -244,7 +246,7 @@ function asphalt(P) {
         rough[i] = r;
         height[i] = hgt + (Math.max(hgt, LEVEL) - hgt) * puddle;
         low[i] = Math.min(1, Math.max(0, 0.5 + (0.5 - wide[i]) * 1.6 + (mottle[i] - 0.5) * 0.5));
-        dark[i] = 1 - 0.16 * damp - 0.28 * puddle * (1 - above);
+        dark[i] = 1 - 0.1 * damp - 0.28 * puddle * (1 - above);
       }
       multiply(A, dark);
       return { rough, low };

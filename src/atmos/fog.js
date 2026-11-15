@@ -34,11 +34,19 @@ export function createFog(G, bounds) {
   const k = endHazeK(cfg.endReach);
   const tintMid = cfg.tintWest.map((w, i) => (w + cfg.tintEast[i]) / 2);
   const tintDelta = cfg.tintWest.map((w, i) => (cfg.tintEast[i] - w) / 2);
+  // By day the haze leans only a little (brighter toward the sun). Which set applies is read from the fog
+  // colour itself (a bright haze is a day haze), so a day / night switch is a uniform change, not a define.
+  const day = G.config.look.dayFogTint || { west: [1, 1, 1], east: [1, 1, 1] };
+  const dayMid = day.west.map((w, i) => (w + day.east[i]) / 2);
+  const dayDelta = day.west.map((w, i) => (day.east[i] - w) / 2);
 
   // Extinction outside the bounds, and the tint (−1 looking west … +1 looking east).
   const END = `dot( atmOut, atmOut ) * ${f(k * k)}`;
   const OUT = `max( abs( WORLD_XZ - ${vec(centre)} ) - ${vec(half)}, 0.0 )`;
-  const TINT = `( ${vec(tintMid)} + ${vec(tintDelta)} * atmWest )`;
+  const DAYNESS = (c) => `smoothstep( 0.1, 0.3, dot( ${c}, vec3( 0.2126, 0.7152, 0.0722 ) ) )`;
+  const TINT_OF = (c) =>
+    `mix( ${vec(tintMid)} + ${vec(tintDelta)} * atmWest, ${vec(dayMid)} + ${vec(dayDelta)} * atmWest, ${DAYNESS(c)} )`;
+  const TINT = TINT_OF('fogColor');
 
   if (cfg.endReach > 0) {
     const chunk = THREE.ShaderChunk;
@@ -103,7 +111,7 @@ float hazeT( float viewDepth, vec2 worldXZ ) {
 	return exp( - uFogDensity * uFogDensity * viewDepth * viewDepth - ${END} );
 }
 vec3 hazeTint( float atmWest ) {
-	return ${TINT};
+	return ${TINT_OF('uFogColor')};
 }
 vec3 hazeColor( vec2 worldXZ ) {
 	vec2 atmDir = worldXZ - cameraPosition.xz;
@@ -111,7 +119,8 @@ vec3 hazeColor( vec2 worldXZ ) {
 }
 `;
 
-  const baseDensity = cfg.density;
+  let baseDensity = cfg.density;
+  let densityScale = 1;
 
   return {
     fog,
@@ -120,7 +129,14 @@ vec3 hazeColor( vec2 worldXZ ) {
     k,
     /** Thins or thickens the haze (1 = configured density). */
     setDensityScale(scale) {
+      densityScale = scale;
       fog.density = uniforms.uFogDensity.value = baseDensity * scale;
+    },
+    /** The haze of a time of day: linear colour [r, g, b] and FogExp2 density (before the interior scale). */
+    setBase(haze, density) {
+      fog.color.setRGB(haze[0], haze[1], haze[2]);
+      baseDensity = density;
+      fog.density = uniforms.uFogDensity.value = baseDensity * densityScale;
     },
   };
 }

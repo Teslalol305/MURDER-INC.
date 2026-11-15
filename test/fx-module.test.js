@@ -346,6 +346,29 @@ test('fx: decals hold the newest 256 and marks on a blown-up prop are wiped', ()
   fx.decal(V(9, 0.3, 5), V(1, 0, 0), 'metal');
   G.events.emit('explosive:blast', { item: {}, pos: V(5, 0.3, 5) });
   assert.equal(fx.stats().decals, 1, 'only the mark away from the blast is left');
+
+  // A scorch on the ground stays when the next tank in a chain goes up beside it.
+  fx.clear();
+  fx.decal(V(5, 0, 5), V(0, 1, 0), 'scorch');
+  G.events.emit('explosive:blast', { item: {}, pos: V(5.6, 0.3, 5) });
+  assert.equal(fx.stats().decals, 1, 'the scorch survives a neighbour');
+});
+
+test('fx: follows atmos.time: by day a blast flashes the screen less and its smoke is darker', () => {
+  const night = makeWorld();
+  night.G.atmos.time = 'night';
+  night.step(2);
+  night.fx.explosion(V(0, 0.3, 4), 1);
+  night.step(DT);
+  const day = makeWorld();
+  day.G.atmos.time = 'day';
+  day.step(2); // eases over
+  day.fx.explosion(V(0, 0.3, 4), 1);
+  day.step(DT);
+  assert.ok(night.G.render.post.flash > 0.05, `night flash ${night.G.render.post.flash}`);
+  assert.ok(day.G.render.post.flash < night.G.render.post.flash * 0.5, `day flash ${day.G.render.post.flash}`);
+  const shader = day.G.scene.getObjectByName('fx-additive').material.uniforms.uDay.value;
+  assert.equal(shader, 1, 'the effect shaders see full day');
 });
 
 test('fx: the public calls shrug off missing arguments', () => {

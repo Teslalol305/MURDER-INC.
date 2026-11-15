@@ -128,7 +128,7 @@ export function buildGround(kit) {
 
   // Patched repairs: utility cuts across the road and long strips where a trench was filled.
   const dark = ['asphalt', { color: 0x121316 }];
-  const pale = ['asphalt', { color: 0x2a2b2e }];
+  const pale = ['asphalt', { color: 0x232427 }];
   const patches = [
     [dark, -41, -37.5, -6.5, -1.2],
     [pale, -33.5, -32.4, -6.8, 6.8],

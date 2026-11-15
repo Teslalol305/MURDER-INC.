@@ -126,19 +126,22 @@ function buildMasterCase(b) {
   b.decal('reel_top', [0, 0.038, 0], 0.27, 0.27, '+y', { lift: 0.002 });
   b.pop();
 
-  // ---- beacon on the handle, its shaft of light, the pool on the ground ----
-  const by = 0.975;
-  b.box('plastic_dark', [0.06, 0.018, 0.06], [hx, by + 0.004, C.z]);
+  // ---- beacon on a short mast clamped to the handle (it clears waist-high cover), its shaft of light,
+  //      the pool on the ground. By day the beacon and the mast's silhouette have to do the work.
+  const by = 1.22;
+  b.stick('plastic_dark', [hx, 0.9, C.z], [hx, by, C.z], 0.011, { seg: 6 });
+  b.box('metal_galv', [0.03, 0.05, 0.05], [hx, 0.93, C.z]); // clamp
+  b.cyl('plastic_dark', 0.062, 0.03, [hx, by + 0.015, C.z], { seg: 10 });
   b.node('beacon', [hx, by, C.z]);
-  b.add(RIGGED, latheGeo([[0.028, 0.013], [0.028, 0.045], [0.016, 0.062], [0, 0.064]], 8), xf(hx, by, C.z));
-  b.node('shaft', [hx, by + 0.06, C.z]);
+  b.add(RIGGED, latheGeo([[0.052, 0.03], [0.052, 0.075], [0.04, 0.11], [0.018, 0.124], [0, 0.126]], 10), xf(hx, by, C.z));
+  b.node('shaft', [hx, by + 0.12, C.z]);
   const shaft = new Soup();
   for (let i = 0; i < 6; i++) {
     const p = (k, r, y) => {
       const a = (k / 6) * TAU;
-      return [hx + Math.cos(a) * r, by + 0.06 + y, C.z + Math.sin(a) * r];
+      return [hx + Math.cos(a) * r, by + 0.12 + y, C.z + Math.sin(a) * r];
     };
-    shaft.quad(p(i, 0.035, 0), p(i + 1, 0.035, 0), p(i + 1, 0.13, C.shaft), p(i, 0.13, C.shaft));
+    shaft.quad(p(i, 0.05, 0), p(i + 1, 0.05, 0), p(i + 1, 0.14, C.shaft), p(i, 0.14, C.shaft));
   }
   b.add(RIGGED, fadeBy(shaft.build(60), (x, y) => (1 - clamp01((y - by) / C.shaft)) ** 1.6));
   b.node('pool', [0, 0.02, 0]);
@@ -171,7 +174,7 @@ function buildMasterCase(b) {
   b.collide([C.x + C.w / 2 + 0.01, 0, -0.3], [0.45, 0.35, 0.3], { surface: 'rubber', bulletOnly: true });
   b.collide([C.x + C.w / 2 + 0.01, 0, -0.3], [0.45, 0.66, 0.3], { playerOnly: true });
   b.anchor('boombox', [C.boombox[0] + 0.08, 0.16, C.boombox[2]], [0, 0, 1]);
-  b.anchor('beacon', [hx, by + 0.1, C.z], [0, 1, 0]);
+  b.anchor('beacon', [hx, by + 0.08, C.z], [0, 1, 0]);
   b.anchor('reel', [C.x, bodyTop + 0.1, C.z], [0, 1, 0]);
 }
 
@@ -319,6 +322,8 @@ function cylinder(b, x, z, r, h, color) {
 
 export function registerGameplay(R) {
   R.add('master_case', {
+    // Three of these on the block, never merged: one paint for the case, truck and boombox, real gold for the reel.
+    flatten: { keep: ['gold'] },
     build: buildMasterCase,
     rig: rigMasterCase,
   });

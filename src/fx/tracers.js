@@ -99,10 +99,12 @@ const VERTEX = /* glsl */ `
 
   uniform vec4 uFog;
   uniform float uPixel;
+  uniform float uDay;
 
   varying vec2 vUv;
   varying vec3 vColor;
   varying float vHeadShare;
+  varying float vBody;
 
   ${FOG_GLSL}
 
@@ -114,14 +116,16 @@ const VERTEX = /* glsl */ `
     vec3 side = cross(p, along);
     float sl = length(side);
     side = sl > 1e-6 ? side / sl : vec3(1.0, 0.0, 0.0);
-    // At least a pixel and a half wide wherever it is; dimmer when it had to be widened.
-    float width = max(iTail.w, -p.z * uPixel * 1.6);
+    // At least a pixel and a half wide wherever it is (two by day); dimmer when it had to be widened.
+    float width = max(iTail.w * (1.0 + 0.5 * uDay), -p.z * uPixel * (1.6 + 0.6 * uDay));
     float gain = pow(iTail.w / width, 0.55);
     p += side * (position.x * width);
     gl_Position = projectionMatrix * vec4(p, 1.0);
     vUv = vec2(position.x * 2.0, position.y);
-    vColor = iTint.rgb * (iHead.w * gain * (1.0 - fxFog(-p.z)));
+    float fog = 1.0 - fxFog(-p.z);
+    vColor = iTint.rgb * (iHead.w * gain * fog * (1.0 + 1.2 * uDay));
     vHeadShare = iTint.w;
+    vBody = uDay * fog * iHead.w * min(1.0, gain * 1.6);
   }
 `;
 
@@ -129,6 +133,7 @@ const FRAGMENT = /* glsl */ `
   varying vec2 vUv;
   varying vec3 vColor;
   varying float vHeadShare;
+  varying float vBody;
 
   void main() {
     float across = exp(-vUv.x * vUv.x * 5.0) - 0.0067;
@@ -137,7 +142,9 @@ const FRAGMENT = /* glsl */ `
     float tip = 1.0 - smoothstep(0.985, 1.0, vUv.y);
     float core = exp(-vUv.x * vUv.x * 22.0);
     vec3 color = vColor * (body * across) + vec3(dot(vColor, vec3(0.3333))) * (head * core * 0.9);
-    gl_FragColor = vec4(max(color, 0.0) * tip, 1.0);
+    // By day a thin dark rim along the streak keeps it apart from a bright wall or the sky.
+    float rim = vBody * 0.55 * max(body, head) * exp(-vUv.x * vUv.x * 2.0);
+    gl_FragColor = vec4(max(color, 0.0) * tip, rim * tip);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }
@@ -161,12 +168,17 @@ export function createTracers({ capacity, common, renderOrder }) {
 
   const material = new THREE.ShaderMaterial({
     name: 'fx-tracers',
-    uniforms: { uFog: common.uFog, uPixel: common.uPixel },
+    uniforms: { uFog: common.uFog, uPixel: common.uPixel, uDay: common.uDay },
     vertexShader: VERTEX,
     fragmentShader: FRAGMENT,
     transparent: true,
     depthWrite: false,
-    blending: THREE.AdditiveBlending,
+    // Premultiplied: the colour is added, alpha darkens the rim (only by day).
+    blending: THREE.CustomBlending,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneMinusSrcAlphaFactor,
+    blendSrcAlpha: THREE.ZeroFactor,
+    blendDstAlpha: THREE.OneFactor,
     premultipliedAlpha: true,
     side: THREE.DoubleSide, // the ribbon may turn either face to the eye…
     forceSinglePass: true, // …and must still be drawn only once

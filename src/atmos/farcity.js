@@ -30,23 +30,48 @@ const TONES = [
   [0.84, 0.66, 0.6],
 ];
 
-/** Gathers quads with uv and vertex colour into one geometry. */
-function quadMesh() {
+// By day the sheet itself carries the brick colour: the tones only nudge it.
+const DAY_TONES = TONES.map((t) => {
+  const avg = (t[0] + t[1] + t[2]) / 3;
+  return t.map((c) => (c * 0.45 + avg * 0.55) / avg);
+});
+
+/**
+ * Gathers quads with uv and vertex colour into one geometry. Every quad also gets a day colour: its
+ * `dayBase` lit by the sun (`toSun`, a unit vector) by its facing, so the far blocks are modelled by the
+ * sun with an unlit material. `dayColors` / `nightColors` hold both sets for the colour attribute.
+ */
+function quadMesh(toSun, light) {
   const position = [];
   const uv = [];
   const color = [];
+  const dayColor = [];
   const index = [];
+  const e1 = new THREE.Vector3();
+  const e2 = new THREE.Vector3();
   return {
     /** Corners a, b (bottom, left to right seen from outside), c, d (top, right to left). */
-    quad(a, b, c, d, u0, v0, u1, v1, bottom, top) {
+    quad(a, b, c, d, u0, v0, u1, v1, bottom, top, dayBase = bottom) {
       const base = position.length / 3;
       position.push(...a, ...b, ...c, ...d);
       uv.push(u0, v0, u1, v0, u1, v1, u0, v1);
       color.push(...bottom, ...bottom, ...top, ...top);
+      e1.set(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+      e2.set(d[0] - a[0], d[1] - a[1], d[2] - a[2]);
+      const n = e1.cross(e2).normalize(); // outward
+      const k = light.ambient + light.sky * Math.max(0, n.y) + light.sun * Math.max(0, n.dot(toSun));
+      const foot = k * light.foot; // a little darker at street level
+      for (const f of [foot, foot, k, k]) dayColor.push(dayBase[0] * f, dayBase[1] * f, dayBase[2] * f);
       index.push(base, base + 1, base + 2, base, base + 2, base + 3);
     },
     get triangles() {
       return index.length / 3;
+    },
+    get nightColors() {
+      return new Float32Array(color);
+    },
+    get dayColors() {
+      return new Float32Array(dayColor);
     },
     geometry() {
       const geo = new THREE.BufferGeometry();
@@ -79,6 +104,10 @@ export function createFarCity(G, { bounds, el, elRow, deck, avenueZ, haze, share
   // ---------------------------------------------------------------------------------------------
 
   const sheet = facadeSheet(textureSize(G), rng.fork('sheet'), cfg.litWindows);
+  const sheetDay = facadeSheet(textureSize(G), rng.fork('sheet'), cfg.litWindows, true); // same layout, in sunlight
+  const times = G.config.look.times;
+  const toSun = new THREE.Vector3().fromArray(times.day.sun.direction).normalize().negate();
+  const dayLight = { ambient: 0.5, sky: 0.12, sun: 0.62, foot: 0.86 };
   const buildings = planCity(rng.fork('plan'), bounds, { avenueZ });
   const switchSpots = []; // dark windows on facades that look at the block: {p0, right, up, w, h}
 
@@ -99,7 +128,7 @@ export function createFarCity(G, { bounds, el, elRow, deck, avenueZ, haze, share
     const u1 = u0 + bays / SHEET.bays;
     const at = (p, y) => [p[0], y, p[2]];
     const band = (y0, y1, v0, v1, ua = u0, ub = u1) =>
-      mesh.quad(at(a, y0), at(b, y0), at(b, y1), at(a, y1), ua, v0 + INSET, ub, v1 - INSET, wallColor(tone, y0, height), wallColor(tone, y1, height));
+      mesh.quad(at(a, y0), at(b, y0), at(b, y1), at(a, y1), ua, v0 + INSET, ub, v1 - INSET, wallColor(tone, y0, height), wallColor(tone, y1, height), DAY_TONES[tone % DAY_TONES.length]);
 
     let y = 0;
     if (kind === 'blank') {
@@ -176,8 +205,8 @@ export function createFarCity(G, { bounds, el, elRow, deck, avenueZ, haze, share
     }
   }
 
-  const core = quadMesh();
-  const extra = quadMesh();
+  const core = quadMesh(toSun, dayLight);
+  const extra = quadMesh(toSun, dayLight);
   const roofs = []; // tallest roofs get the aviation lights
 
   for (const b of buildings) {
@@ -302,7 +331,7 @@ export function createFarCity(G, { bounds, el, elRow, deck, avenueZ, haze, share
 
   const skylineMaterials = [];
 
-  function ring(index, { radius, height, repeats, strip, haze: sunk }) {
+  function ring(index, { radius, height, repeats, strip, stripDay, haze: sunk }) {
     const SEG = 72;
     const position = [];
     const uv = [];
@@ -360,6 +389,7 @@ void main() {
       side: THREE.DoubleSide,
       fog: false,
     });
+    material.userData.maps = { night: strip.texture, day: stripDay.texture };
     skylineMaterials.push(material);
     const mesh = new THREE.Mesh(geo, material);
     mesh.name = `atmos-skyline-${index}`;
@@ -392,6 +422,7 @@ void main() {
     repeats: 3,
     haze: cfg.skylineHaze[0],
     strip: skylineStrip(stripW / 2, stripW / 8, rng.fork('skyline-near'), { body: [15, 16, 22], lit: 0.2, base: 0.2, variance: 0.42 }),
+    stripDay: skylineStrip(stripW / 2, stripW / 8, rng.fork('skyline-near'), { body: [124, 104, 96], lit: 0.2, base: 0.2, variance: 0.42, day: true }),
   });
   // The far ring wraps once and starts in the east, so its tall cluster (mid-strip) stands in the west.
   const far = ring(1, {
@@ -400,6 +431,7 @@ void main() {
     repeats: 1,
     haze: cfg.skylineHaze[1],
     strip: skylineStrip(stripW, stripW / 8, rng.fork('skyline-far'), { body: [19, 20, 28], lit: 0.26, base: 0.16, variance: 0.3, tall: 0.75 }),
+    stripDay: skylineStrip(stripW, stripW / 8, rng.fork('skyline-far'), { body: [112, 120, 136], lit: 0.26, base: 0.16, variance: 0.3, tall: 0.75, day: true }),
   });
 
   // ---------------------------------------------------------------------------------------------
@@ -556,6 +588,11 @@ void main() {
     group.add(switchers);
   }
 
+  const coreColors = { day: core.dayColors, night: core.nightColors };
+  const extraColors = { day: extra.dayColors, night: extra.nightColors };
+  let timeCfg = times.night.city;
+  let shownDetail = null;
+
   return {
     group,
     blocks,
@@ -563,13 +600,33 @@ void main() {
     near,
     far,
     switchers,
-    textures: [sheet.texture, ...skylineMaterials.map((m) => m.uniforms.uMap.value)],
+    textures: [sheet.texture, sheetDay.texture, ...skylineMaterials.flatMap((m) => [m.userData.maps.night, m.userData.maps.day])],
     stats: { buildings: buildings.length, triangles: core.triangles + extra.triangles },
     /** Shows or hides the optional layers for a quality preset (config/look.js `detail`). */
     setDetail(detail) {
+      shownDetail = detail;
       blocksFar.visible = detail.cityFull;
       far.visible = detail.farRing;
-      if (switchers) switchers.visible = detail.switchers;
+      if (switchers) switchers.visible = detail.switchers && timeCfg.lights;
+    },
+    /** Day or night: the facade sheet and its colours, the skyline strips, the switching windows. */
+    setTime(name) {
+      const t = times[name] || times.day;
+      timeCfg = t.city;
+      const day = name === 'day';
+      facadeMaterial.map = day ? sheetDay.texture : sheet.texture;
+      facadeMaterial.color.setRGB(timeCfg.sheet[0], timeCfg.sheet[1], timeCfg.sheet[2]);
+      for (const [mesh, colors] of [[blocks, coreColors], [blocksFar, extraColors]]) {
+        const attr = mesh.geometry.getAttribute('color');
+        attr.array.set(day ? colors.day : colors.night);
+        attr.needsUpdate = true;
+      }
+      skylineMaterials.forEach((m, i) => {
+        m.uniforms.uMap.value = day ? m.userData.maps.day : m.userData.maps.night;
+        m.uniforms.uWindowGain.value = timeCfg.windowGain;
+        m.uniforms.uSunk.value = timeCfg.skylineSunk[i];
+      });
+      if (switchers) switchers.visible = !!(shownDetail && shownDetail.switchers) && timeCfg.lights;
     },
   };
 }

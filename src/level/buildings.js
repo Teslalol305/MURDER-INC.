@@ -11,6 +11,8 @@ const PARAPET = 0.9;
 const BAY = 3.1; // nominal width of one window bay
 const WARM = 0xffc98a;
 const COOL = 0xcfe4ff;
+/** The one window layer every wall of a material shares (see facade()). Back walls count storeys from the ground. */
+const SHARED_FACADE = { floors: 5, bays: 4, lit: 0.24, seed: { brick_red: 11, brick_tan: 23, brick_brown: 31, brick_painted: 41 } };
 
 /** Local frame of a wall face. `facing` is the outward normal: '+x' | '-x' | '+z' | '-z'. */
 export function wallFrame(kit, facing, plane) {
@@ -69,9 +71,13 @@ function facade(kit, F, u0, u1, y0, y1, spec) {
   const yBase = spec.yBase || 0;
   const bays = spec.bays || Math.max(1, Math.round(w / BAY));
   const lit = spec.lit ?? 0.22;
-  const material = kit.mats.facade({ base: spec.base, floors: spec.floors, bays, floorH, w, lit, seed: spec.seed ?? 1, shopfront: false });
+  // One window layer per wall material for the whole block (CONTRACT 11.2): a fixed grid of BAY-wide
+  // bays and FLOOR-high storeys that repeats along any wall; the quad's own height cuts off the rows a
+  // lower building does not have. The grid is centred on the wall so both ends keep a solid pier.
+  const material = kit.mats.facade({ base: spec.base, floors: SHARED_FACADE.floors, bays: SHARED_FACADE.bays, bayW: BAY, floorH: FLOOR, lit: SHARED_FACADE.lit, seed: SHARED_FACADE.seed[spec.base] ?? 1, shopfront: false });
   if (material.userData && material.userData.facade) {
-    F.quad(material, u0, u1, y0, y1, 0, { uvOffset: [0, y0 - yBase] });
+    const margin = (w - Math.floor(w / BAY + 1e-6) * BAY) / 2;
+    F.quad(material, u0, u1, y0, y1, 0, { uvOffset: [-margin, y0 - yBase] });
     return;
   }
   F.quad(material, u0, u1, y0, y1, 0);
@@ -411,7 +417,7 @@ function buildBacks(kit) {
     const F = wallFrame(kit, facing, plane);
     const u0 = alongX ? x0 : z0;
     const u1 = alongX ? x1 : z1;
-    facade(kit, F, u0, u1, y0, h, { base, floors, floorH: h / floors, seed, lit });
+    facade(kit, F, u0, u1, y0, h, { base, floors, seed, lit });
     F.box('concrete', u0, u1, h + PARAPET - 0.1, h + PARAPET, 0, 0.1);
     F.quad(base, u0, u1, h, h + PARAPET - 0.1, 0);
     // The other three sides are bare brick: seen only at a glancing angle past a corner.

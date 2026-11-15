@@ -25,9 +25,11 @@ module.exports = async (page, h) => {
     fingers.set(id, [x, y]);
     await send('touchMove');
   };
+  // A touchEnd over CDP releases the points it lists (an empty list releases them all).
   const up = async (id) => {
+    const [x, y] = fingers.get(id);
     fingers.delete(id);
-    await send('touchEnd');
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [{ id, x: Math.round(x), y: Math.round(y) }] });
   };
   const centreOf = (selector) =>
     h.eval((sel) => {

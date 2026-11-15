@@ -61,7 +61,7 @@ export const MODULES = {
     'down()', 'pressed()', 'released()',
     'locked', 'mode', 'device', 'touch', 'sensitivity', 'invertY', 'aimSlow',
     'requestLock()', 'exitLock()', 'setGameplay()', 'glyph()', 'hint()', 'rumble()',
-    'setPrompt()', 'menuNav()',
+    'setPrompt()', 'menuNav()', 'tap()',
     'update()', 'endFrame()',
   ],
   level: [
@@ -71,7 +71,7 @@ export const MODULES = {
     'objectives[].id', 'objectives[].code', 'objectives[].label', 'objectives[].zone', 'objectives[].pos', 'objectives[].prop',
     'extraction.pos', 'extraction.radius', 'extraction.label', 'extraction.code', 'extraction.prop',
     'enemySpawns[].pos', 'enemySpawns[].zone', 'enemySpawns[].type',
-    'zones[].id', 'zones[].name', 'zones[].minX', 'zones[].maxX', 'zones[].minZ', 'zones[].maxZ', 'zoneAt()',
+    'zones[].id', 'zones[].name', 'zones[].minX', 'zones[].maxX', 'zones[].minZ', 'zones[].maxZ', 'zoneAt()', 'zoneName()',
     'interiorBoxes[].min', 'interiorBoxes[].max', 'interiorAt()',
     'coverPoints[].pos', 'coverPoints[].zone',
     'cinematicPath[].pos', 'cinematicPath[].look',
@@ -120,7 +120,7 @@ export const MODULES = {
     'show()', 'reset()', 'setObjective()', 'setReels()', 'setTally()', 'setMarkers()', 'prompt()',
     'warn()', 'message()', 'radio()', 'clearRadio()', 'update()',
   ],
-  menus: ['show()', 'screen', 'panelOpen', 'locationCard()', 'update()'],
+  menus: ['show()', 'screen', 'panelOpen', 'locationCard()', 'openPanel()', 'update()'],
   game: [
     'state', 'mode', 'difficulty',
     'run.time', 'run.reels', 'run.total', 'run.retries', 'run.wave', 'run.score', 'run.kills', 'run.shots', 'run.hits',

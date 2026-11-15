@@ -20,6 +20,7 @@ import { createBolts } from './enemies/bolts.js';
 import { createBuzzards } from './enemies/buzzard.js';
 import { createGlow } from './enemies/glow.js';
 import { createGoons } from './enemies/goon.js';
+import { setEnemyLook } from './enemies/rig.js';
 import { createTokens, exposureStep, inSight, rayCapsule, rayEllipsoid, raySphere, reactionTime, seenStep } from './enemies/logic.js';
 
 const KILLED = Object.freeze({ killed: true });
@@ -118,6 +119,19 @@ export function createEnemies(G) {
   const brains = { goon: goons, buzzard: buzzards };
   const bolts = (ctx.bolts = createBolts(ctx));
   const glow = createGlow(root, 160, cfg.pool.buzzard * 4);
+
+  /** Day or night for both materials, whenever atmos (or, without it, the setting) changes the time. */
+  let lookTime = '';
+  function followTime() {
+    const time = (G.atmos && G.atmos.time) || (G.settings && G.settings.get && G.settings.get('time')) || 'day';
+    if (time === lookTime) return;
+    lookTime = time;
+    const l = (cfg.look && cfg.look[time]) || { glow: 1, rim: 1, cover: 0, flare: 1 };
+    setEnemyLook(goons.material, l.glow, l.rim);
+    setEnemyLook(buzzards.material, l.glow, l.rim);
+    glow.setLook(l.cover || 0, l.flare || 1);
+  }
+  followTime();
 
   let nextId = 1;
   let sinceGunfire = Infinity;
@@ -523,6 +537,7 @@ export function createEnemies(G) {
   }
 
   function update(dt) {
+    followTime();
     if (!(dt > 0)) return;
     ctx.clock.now += dt;
     sinceGunfire += dt;

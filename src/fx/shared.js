@@ -26,6 +26,7 @@ export function createCommonUniforms() {
     uLightPos: { value: lightPos },
     uLightCol: { value: lightCol },
     uPixel: { value: 0.002 }, // world size of the thinnest drawable line at distance 1
+    uDay: { value: 0 }, // 0 at night … 1 in sunlight: glowing effects get a body that hides what is behind them
   };
 }
 

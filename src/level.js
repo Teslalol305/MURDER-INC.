@@ -22,7 +22,7 @@ import { AIR_SPAWNS, CINEMATIC, COVER_POINTS, EXPLOSIVES, EXTRACTION, GROUND_SPA
 import { buildEl } from './level/el.js';
 import { buildGround } from './level/ground.js';
 import { createKit } from './level/kit.js';
-import { BOUNDS, ZONES, floorAt, groundSurfaceAt, zoneAt } from './level/layout.js';
+import { BOUNDS, CAGE_NAME, ROAD_Z, ZONES, floorAt, groundSurfaceAt, zoneAt } from './level/layout.js';
 import { buildShop } from './level/shop.js';
 import { buildStreet } from './level/street.js';
 import { buildYards } from './level/yards.js';
@@ -84,7 +84,23 @@ export function createLevel(G) {
   // Data for AI, flow and atmosphere
   // ---------------------------------------------------------------------------------------------
 
-  const zones = ZONES.map((zone) => ({ ...zone }));
+  // Display names for the minimap band come from the copy deck when it has them (config/text.js zones).
+  const names = text.zones || {};
+  const zones = ZONES.map((zone) => ({ ...zone, name: names[zone.id] || zone.name }));
+  const zoneNames = Object.fromEntries(zones.map((zone) => [zone.id, zone.name]));
+  const cageName = names.cage || CAGE_NAME;
+  const avenueName = zoneNames.avenue;
+
+  /**
+   * Display name of the place at (x, z). The east zone is two places split by the avenue: the cage north
+   * of it, the parking lot south of it; the roadway between them reads as the avenue.
+   */
+  function zoneName(x, z) {
+    const id = zoneAt(x, z);
+    if (id !== 'lot') return zoneNames[id] || avenueName;
+    if (z < -ROAD_Z) return cageName;
+    return z > ROAD_Z ? zoneNames.lot : avenueName;
+  }
 
   const enemySpawns = [
     ...GROUND_SPAWNS.map(([x, z]) => ({ pos: v(x, floorAt(x, z), z), zone: zoneAt(x, z), type: 'ground' })),
@@ -121,6 +137,7 @@ export function createLevel(G) {
   root.name = 'level';
   const merged = mergeStatic(kit.staticRoot);
   root.add(merged, kit.dynamicRoot);
+  const retint = groundRetint(G, merged);
   if (G.scene) G.scene.add(root);
   physics.setBounds(BOUNDS);
 
@@ -142,6 +159,7 @@ export function createLevel(G) {
     enemySpawns,
     zones,
     zoneAt,
+    zoneName,
     interiorBoxes,
     interiorAt,
     coverPoints,
@@ -160,6 +178,47 @@ export function createLevel(G) {
     stats: { ...merged.userData.mergeStats, props: kit.placed.length, colliders: physics.boxes.length, lamps: kit.lamps.length },
     update(dt) {
       for (let i = 0; i < animated.length; i++) animated[i].update(dt);
+      retint();
     },
   };
 }
+
+/**
+ * The library lightens ground materials by day (a dry street), but only untinted ones. The level's
+ * tinted repairs (asphalt patches, authored against the catalogue's night colour) follow along: their
+ * vertex colours are scaled by how far the plain material has moved from that colour. Returns a cheap
+ * per-frame check that rewrites the colours only when the plain material changes.
+ */
+function groundRetint(G, merged) {
+  const entries = [];
+  for (const name of ['asphalt']) {
+    const tinted = G.mats.get(name, { tint: 'vertex' });
+    const def = G.config.catalog.MATERIALS[name];
+    if (!tinted.vertexColors || !def) continue;
+    const plain = G.mats.get(name);
+    const night = new THREE.Color(def.color);
+    merged.traverse((mesh) => {
+      const color = mesh.isMesh && mesh.material === tinted && mesh.geometry.getAttribute('color');
+      if (color) entries.push({ color, base: color.array.slice(), plain, tinted, night, last: -1 });
+    });
+  }
+  return () => {
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i];
+      const r = e.plain.color.r / Math.max(e.tinted.color.r, 1e-4) / Math.max(e.night.r, 1e-4);
+      const g = e.plain.color.g / Math.max(e.tinted.color.g, 1e-4) / Math.max(e.night.g, 1e-4);
+      const b = e.plain.color.b / Math.max(e.tinted.color.b, 1e-4) / Math.max(e.night.b, 1e-4);
+      const k = r + g * 7 + b * 49;
+      if (Math.abs(k - e.last) < 1e-4) continue;
+      e.last = k;
+      const out = e.color.array;
+      for (let j = 0; j < out.length; j += 3) {
+        out[j] = e.base[j] * r;
+        out[j + 1] = e.base[j + 1] * g;
+        out[j + 2] = e.base[j + 2] * b;
+      }
+      e.color.needsUpdate = true;
+    }
+  };
+}
+

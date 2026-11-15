@@ -124,6 +124,7 @@ export function createFx(G) {
   }
 
   const world = { floorAt, wallAhead };
+  const reach = { dist: 0 };
 
   // ---------------------------------------------------------------------------------------------
   // Quality and distance
@@ -147,6 +148,17 @@ export function createFx(G) {
     lit.budget = Math.round(LIT_PARTICLES * state.quality);
     add.budget = Math.round(ADD_PARTICLES * state.quality);
     debris.budget = DEBRIS * state.quality;
+  }
+
+  /** 1 by day, 0 at night: atmos.time when atmos has one, else a guess from the sampled light. */
+  function dayTarget() {
+    const time = G.atmos && G.atmos.time;
+    if (time === 'day') return 1;
+    if (time === 'night') return 0;
+    const k = common.uKey.value;
+    const s = common.uSky.value;
+    const lum = 0.3 * (k.r + k.g + k.b) * 0.33 + (s.r + s.g + s.b) * 0.33;
+    return clamp((lum - 0.6) / 0.8, 0, 1);
   }
 
   function cameraDistanceSq(x, y, z) {
@@ -275,6 +287,10 @@ export function createFx(G) {
     debris: null, // set below
     acquireLight: () => G.render.lights.acquire(),
     cameraDistance: (x, y, z) => Math.sqrt(cameraDistanceSq(x, y, z)),
+    day: () => common.uDay.value, // 0 at night … 1 by day
+    wallDistance(x, y, z, dx, dz, max) {
+      return wallAhead(x, y, z, dx, dz, max, reach) ? reach.dist : max;
+    },
   };
 
   const debris = createDebris({ capacity: DEBRIS, world });
@@ -432,13 +448,13 @@ export function createFx(G) {
 
   const sitePos = new THREE.Vector3();
 
-  function explosionAt(pos, scale, flavour) {
+  function explosionAt(pos, scale, flavour, ground = -1000) {
     if (!pos) return;
     const size = clamp(scale > 0 ? scale : 1, 0.25, 2.5);
-    recipes.explosion(pos.x, pos.y, pos.z, size, flavour);
+    recipes.explosion(pos.x, pos.y, pos.z, size, flavour, ground);
 
     // A blast on the ground leaves something burning for a while.
-    const floor = floorAt(pos.x, pos.z, pos.y + 0.3);
+    const floor = Math.max(floorAt(pos.x, pos.z, pos.y + 0.3), ground <= pos.y ? ground : -1000);
     if (pos.y - floor < 3) {
       sitePos.set(pos.x, floor + 0.1, pos.z);
       emitters.add(sitePos, 'smolder', { ttl: 5 + 2 * size, scale: 0.9 * size });
@@ -448,7 +464,9 @@ export function createFx(G) {
     const dist = Math.sqrt(cameraDistanceSq(pos.x, pos.y, pos.z));
     const near = clamp(1 - dist / (16 + 8 * size), 0, 1);
     // The screen flash of a close blast (fx owns render.post.flash only while its own value is the one there).
-    state.flash = Math.max(state.flash, near * near * 0.6 * Math.min(1.2, size));
+    // By day the eye is already full of light: a blast flashes the screen far less.
+    const flash = near * near * 0.6 * Math.min(1.2, size) * (1 - 0.7 * common.uDay.value);
+    state.flash = Math.max(state.flash, flash);
   }
 
   function explosion(pos, scale = 1) {
@@ -539,6 +557,11 @@ export function createFx(G) {
       sampler.sample();
       readFog(common, scene);
     }
+    // Day or night: eases over in a second when atmos switches its rig.
+    const day = dayTarget();
+    const u = common.uDay;
+    u.value += (day - u.value) * Math.min(1, dt * 3);
+    if (Math.abs(day - u.value) < 0.01) u.value = day;
     // Thinnest drawable streak: a pixel and a quarter at the internal resolution.
     const pixels = Math.max(240, G.renderer.domElement.height * (G.quality.scale || 1));
     common.uPixel.value = (2 * Math.tan((camera.fov * Math.PI) / 360) * 1.25) / pixels;
@@ -596,12 +619,16 @@ export function createFx(G) {
     if (!e || !e.pos) return;
     // Size from the blast radius: a propane tank (6.5 m) is 1, a Buzzard's burst about half.
     const scale = e.radius > 0 ? clamp(e.radius / 6.5, 0.4, 1.6) : e.size === 'big' ? 1 : 0.5;
-    explosionAt(e.pos, scale, e.source && e.source.type === 'buzzard' ? 'drone' : 'fuel');
+    const source = e.source;
+    // One of our explosives: its foot is the ground, even on a kerb the collision world leaves out.
+    const items = G.explosives && G.explosives.items;
+    const ground = source && source.pos && Array.isArray(items) && items.includes(source) ? source.pos.y : -1000;
+    explosionAt(e.pos, scale, source && source.type === 'buzzard' ? 'drone' : 'fuel', ground);
   });
 
   // Whatever stood there is gone: marks on it would be left hanging in the air.
   G.events.on('explosive:blast', (e) => {
-    if (e && e.pos) decals.removeNear(e.pos.x, e.pos.y, e.pos.z, 1.3);
+    if (e && e.pos) decals.removeNear(e.pos.x, e.pos.y, e.pos.z, 1.3, 1);
   });
 
   G.events.on('player:land', (e) => {
@@ -613,6 +640,7 @@ export function createFx(G) {
   sampler.scan();
   sampler.sample();
   readFog(common, scene);
+  common.uDay.value = dayTarget();
   // Lights may have been added by modules created after this one.
   G.events.on('boot:done', () => {
     sampler.scan();

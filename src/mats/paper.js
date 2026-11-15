@@ -14,8 +14,8 @@ export const POSTER_SIZE = { ipx: [0.6, 0.9], show: [0.6, 0.9], wanted: [0.45, 0
 /** Distinct paintings per kind; seeds wrap around. */
 export const POSTER_VARIANTS = { ipx: 4, show: 4, wanted: 3, ad: 4, torn: 3 };
 
-const POSTER_PPM = { 256: 150, 512: 240, 1024: 360 };
-const GRAFFITI_PPM = { 256: 90, 512: 150, 1024: 220 };
+const POSTER_PPM = { 256: 150, 512: 200, 1024: 360 };
+const GRAFFITI_PPM = { 256: 90, 512: 128, 1024: 220 };
 const SPRAY = [0xe2222b, 0xf6c21a, 0x39d0e0, 0xf4f2ec, 0xff3d9a, 0x55ff8a, 0x9a5cff, 0xff7a1a];
 
 const INK = 0x0d0e11;

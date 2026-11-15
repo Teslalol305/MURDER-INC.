@@ -298,6 +298,7 @@ void main() {
   let flashBusy = 0; // our own pooled flash is still fading: do not take a second light
   let gritIn = 0;
   let gritOn = true;
+  let stripesOn = true; // the window light through the ties (night only)
 
   function emit(phase, duration) {
     passEvent.phase = phase;
@@ -317,7 +318,7 @@ void main() {
     group.position.set(timeline.head(local), railY, state.z);
     group.rotation.y = timeline.dir > 0 ? 0 : Math.PI;
     group.visible = true;
-    stripes.visible = true;
+    stripes.visible = stripesOn;
     grit.visible = gritOn;
     uPass.value.z = state.z;
     flashIn = 0;
@@ -418,6 +419,12 @@ void main() {
     setDetail(detail) {
       gritOn = detail.grit;
       grit.visible = gritOn && state.active;
+    },
+    /** Day or night (look.times.<name>.train): lit windows, and their light on the street. */
+    setTime(t) {
+      material.emissiveIntensity = t.emissive;
+      stripesOn = t.stripes;
+      stripes.visible = stripesOn && state.active;
     },
   };
 }

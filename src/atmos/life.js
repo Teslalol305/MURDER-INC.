@@ -66,7 +66,7 @@ function buildSteam(G, columns, haze, shared) {
 
   const material = new THREE.ShaderMaterial({
     name: 'atmos-steam',
-    uniforms: { ...haze.uniforms, uTime: shared.uTime, uWind: shared.uWind, uShow: { value: 1 } },
+    uniforms: { ...haze.uniforms, uTime: shared.uTime, uWind: shared.uWind, uShow: { value: 1 }, uDayTint: { value: new THREE.Vector4(1, 1, 1, 0) }, uAlphaScale: { value: 1 } },
     vertexShader: /* glsl */ `
 attribute vec2 aCorner;
 attribute vec4 aPuff;    // phase, life (s), drift angle, sideways spread (m)
@@ -75,6 +75,8 @@ attribute vec4 aTint;    // colour, and a rank 0..1 (puffs above uShow are not d
 uniform float uTime;
 uniform vec2 uWind;
 uniform float uShow;     // fraction of the puffs that are drawn (quality)
+uniform vec4 uDayTint;   // by day every column is this colour (w = 1), sunlit, not lamp-lit
+uniform float uAlphaScale;
 varying vec2 vCorner;
 varying vec4 vColor;
 varying float vSeed;
@@ -91,11 +93,11 @@ void main() {
 	float size = mix( aShape.x, aShape.y, sqrt( t ) );
 
 	vec4 mv = viewMatrix * vec4( centre, 1.0 );
-	float alpha = aShape.w * smoothstep( 0.0, 0.1, t ) * ( 1.0 - smoothstep( 0.45, 1.0, t ) );
+	float alpha = aShape.w * uAlphaScale * smoothstep( 0.0, 0.1, t ) * ( 1.0 - smoothstep( 0.45, 1.0, t ) );
 	alpha *= step( aTint.w, uShow );
 	alpha *= smoothstep( 0.6, 2.4, - mv.z );                 // never a wall of white in the face
 	float through = hazeT( - mv.z, centre.xz );
-	vColor = vec4( mix( hazeColor( centre.xz ), aTint.rgb, through ), alpha * through );
+	vColor = vec4( mix( hazeColor( centre.xz ), mix( aTint.rgb, uDayTint.rgb, uDayTint.w ), through ), alpha * through );
 	vCorner = aCorner;
 	vSeed = aPuff.z + floor( uTime / aPuff.y + aPuff.x ) * 7.31;
 	mv.xy += aCorner * size;
@@ -435,6 +437,85 @@ function createPaper(G, bounds, el, parent) {
 
 // ------------------------------------------------------------------------------------------------
 
+// ------------------------------------------------------------------------------------------------
+// Pigeons (day only): a few loose flocks wheeling over the roofs. One draw call, moved in the shader.
+// ------------------------------------------------------------------------------------------------
+
+function buildBirds(G, flocks, haze, shared) {
+  const cfg = G.config.look.life.birds;
+  const rng = G.rng.fork('atmos-birds');
+  const position = [];
+  const aBird = [];
+  const aFlock = [];
+  const index = [];
+  // A bird is a body diamond and two wings (local x forward, z to the right, metres).
+  const S = cfg.size;
+  const shape = [
+    [0.22, 0, 0], [-0.2, 0, 0], [0, 0.02, 0.05], [0, 0.02, -0.05], // body
+    [0.06, 0, -0.04], [-0.08, 0, -0.04], [-0.04, 0, -0.34], // left wing (tip last)
+    [0.06, 0, 0.04], [-0.08, 0, 0.04], [-0.04, 0, 0.34], // right wing
+  ];
+  const tris = [0, 2, 1, 0, 1, 3, 4, 5, 6, 7, 9, 8];
+  let base = 0;
+  for (const flock of flocks) {
+    for (let i = 0; i < flock.count; i++) {
+      const bird = [rng.range(flock.radius[0], flock.radius[1]), rng.range(0.16, 0.26) * flock.turn, rng.next(), rng.range(flock.height[0], flock.height[1])];
+      for (const v of shape) {
+        position.push(v[0] * S, v[1] * S, v[2] * S);
+        aBird.push(...bird);
+        aFlock.push(flock.x, flock.z, flock.squash);
+      }
+      for (const t of tris) index.push(base + t);
+      base += shape.length;
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(position, 3));
+  geo.setAttribute('aBird', new THREE.Float32BufferAttribute(aBird, 4));
+  geo.setAttribute('aFlock', new THREE.Float32BufferAttribute(aFlock, 3));
+  geo.setIndex(index);
+  const material = new THREE.ShaderMaterial({
+    name: 'atmos-birds',
+    uniforms: { ...haze.uniforms, uTime: shared.uTime, uColor: { value: new THREE.Color().setRGB(cfg.color[0], cfg.color[1], cfg.color[2]) } },
+    vertexShader: /* glsl */ `
+attribute vec4 aBird;   // orbit radius, angular speed (sign = way round), phase, height
+attribute vec3 aFlock;  // centre x, z, how flat the orbit is
+uniform float uTime;
+uniform vec3 uColor;
+varying vec3 vColor;
+${haze.glsl}
+void main() {
+	float a = uTime * aBird.y + aBird.z * 6.2832;
+	float r = aBird.x * ( 0.85 + 0.15 * sin( uTime * 0.13 + aBird.z * 17.0 ) );
+	vec3 c = vec3( aFlock.x + cos( a ) * r, aBird.w + 1.6 * sin( a * 0.7 + aBird.z * 9.0 ), aFlock.y + sin( a ) * r * aFlock.z );
+	vec3 fwd = normalize( vec3( - sin( a ), 0.0, cos( a ) * aFlock.z ) * sign( aBird.y ) );
+	vec3 right = normalize( cross( fwd, vec3( 0.0, 1.0, 0.0 ) ) );
+	// Flap in bursts, glide in between.
+	float burst = smoothstep( 0.25, 0.35, fract( uTime * 0.21 + aBird.z * 3.7 ) );
+	float flap = sin( uTime * ( 15.0 + aBird.z * 4.0 ) + aBird.z * 20.0 ) * mix( 0.25, 1.0, burst );
+	float tip = abs( position.z ) / ${(0.34 * S).toFixed(4)};
+	vec3 p = c + fwd * position.x + right * position.z + vec3( 0.0, position.y + flap * 0.16 * clamp( tip, 0.0, 1.0 ), 0.0 );
+	vec4 mv = viewMatrix * vec4( p, 1.0 );
+	vColor = mix( hazeColor( p.xz ), uColor, hazeT( - mv.z, p.xz ) );
+	gl_Position = projectionMatrix * mv;
+}`,
+    fragmentShader: /* glsl */ `
+varying vec3 vColor;
+void main() {
+	gl_FragColor = vec4( vColor, 1.0 );
+	${OUTPUT}
+}`,
+    side: THREE.DoubleSide,
+    forceSinglePass: true,
+    fog: false,
+  });
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.name = 'atmos-birds';
+  mesh.frustumCulled = false;
+  mesh.matrixAutoUpdate = false;
+  return mesh;
+}
+
 export function createLife(G, { bounds, el, avenueZ, lamps, haze, shared, parent }) {
   const cfg = G.config.look.life;
   const steamPoints = (G.level.steam || []).filter((p) => p && Number.isFinite(p.x));
@@ -494,6 +575,18 @@ export function createLife(G, { bounds, el, avenueZ, lamps, haze, shared, parent
   const motes = buildMotes(G, lamps, haze, shared);
   if (motes) parent.add(motes);
   const paper = createPaper(G, bounds, el, parent);
+  let birds = null;
+  if (cfg.birds && cfg.birds.flocks > 0) {
+    const cx = (bounds.minX + bounds.maxX) / 2;
+    const flocks = [
+      { x: cx - 8, z: avenueZ, count: cfg.birds.perFlock, radius: [9, 22], height: [15, 24], turn: 1, squash: 0.55 },
+      { x: bounds.maxX - 10, z: avenueZ + 20, count: Math.round(cfg.birds.perFlock * 0.7), radius: [6, 14], height: [18, 30], turn: -1, squash: 0.8 },
+      { x: bounds.minX - 25, z: avenueZ - 30, count: Math.round(cfg.birds.perFlock * 0.6), radius: [10, 18], height: [24, 34], turn: 1, squash: 0.7 },
+    ].slice(0, cfg.birds.flocks);
+    birds = buildBirds(G, flocks, haze, shared);
+    birds.visible = false; // by day (setTime)
+    parent.add(birds);
+  }
 
   // The fx module's steam (real particles, lit and sorted with the rest of its smoke) on top of ours.
   let emitters = [];
@@ -513,10 +606,14 @@ export function createLife(G, { bounds, el, avenueZ, lamps, haze, shared, parent
     }
   }
 
+  let shownDetail = null;
+  let motesByTime = true;
+
   return {
     steam,
     motes,
     spray,
+    birds,
     paper,
     hydrant,
     hookEmitters,
@@ -524,8 +621,22 @@ export function createLife(G, { bounds, el, avenueZ, lamps, haze, shared, parent
       paper.update(dt, train);
     },
     setDetail(detail) {
-      if (motes) motes.visible = detail.motes;
+      shownDetail = detail;
+      if (motes) motes.visible = detail.motes && motesByTime;
       if (steam) steam.material.uniforms.uShow.value = detail.steamPuffs;
+    },
+    /** Day or night (look.times.<name>.life): steam colour and opacity, the spray, the moths. */
+    setTime(t) {
+      motesByTime = t.motes;
+      if (birds) birds.visible = !!t.birds;
+      if (motes) motes.visible = !!(shownDetail && shownDetail.motes) && motesByTime;
+      if (steam) {
+        const u = steam.material.uniforms;
+        if (t.steam) u.uDayTint.value.set(t.steam[0], t.steam[1], t.steam[2], 1);
+        else u.uDayTint.value.w = 0;
+        u.uAlphaScale.value = t.steamAlpha ?? 1;
+      }
+      if (spray && t.spray) spray.material.uniforms.uColor.value.setRGB(t.spray[0], t.spray[1], t.spray[2]);
     },
   };
 }

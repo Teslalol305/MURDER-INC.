@@ -24,9 +24,11 @@ const HEAD = glow(0xfff0d0, 3.2); // headlights that are on
 const LENS = glow(0xcfd8e0, 0.2); // …and off: glass that still finds some light
 const MARKER = glow(0xffa030, 1.6);
 
-// Believable street colours: mostly dark and metallic, a few light ones so the lanes do not go black.
+// Believable street colours in the afternoon sun: silvers, whites and greys, a few strong reds and blues,
+// one black. Nothing so dark that a row of parked cars turns into a black wall by day.
 export const CAR_COLORS = [
-  0x14161a, 0x2a2d33, 0x8f959c, 0xd9d7d0, 0x6e1a1c, 0x1b2a4a, 0x16342a, 0x9a8c72, 0x6f8aa8, 0x8f1f1c, 0x3d2a1e, 0xb9bcc0,
+  0x8f959c, 0xd9d7d0, 0xb9bcc0, 0x3a3e45, 0x9c2320, 0x24508f, 0x2c5a3e, 0xa89878, 0x6f8aa8, 0x6a1c22, 0x1e2b48,
+  0xc9bea4, 0x1a1c20, 0x5d6168,
 ];
 const SUV_COLORS = [0x0b0c0e, 0x0b0c0e, 0x14161a, 0x1c2029, 0x2a2c30, 0x3a1416]; // black, or nearly: Rule's ride
 const TRUCK_COLORS = [0xd9d7d0, 0x8f1f1c, 0x1b2a4a, 0x2a2d33, 0x16342a, 0xb9bcc0];
@@ -618,7 +620,11 @@ export function registerVehicles(R) {
   });
 
   R.add('ipx_truck', {
-    paint: 'paint_black',
+    // Gloss black in the car paint (it shares the cars' material and holds a clean sheen in the sun).
+    paint: 'car_paint',
+    color: () => 0x17191d,
+    // Never merged (doors and lamps move): the dull parts share one vertex-coloured paint.
+    flatten: { keep: ['gold', 'chrome', 'metal_galv'] },
     build: buildIpxTruck,
     rig: rigIpxTruck,
   });
@@ -753,7 +759,7 @@ function buildBoxTruck(b, o, env) {
     b.quad(
       b.own(tag.material),
       [x - s * gw, y - gh, z], [x + s * gw, y - gh, z], [x + s * gw, y + gh, z], [x - s * gw, y + gh, z],
-      { uv: [0, 0, 1, 1] },
+      { uv: tag.uv || [0, 0, 1, 1] },
     );
   });
 
@@ -873,7 +879,7 @@ function buildFoodCart(b, lit) {
   }
   b.box('@vc', [0.2, 0.1, 0.14], [0.08, 1.06, -0.3], { color: 0xd9d7d0 });
   // Sneeze guard and the menu board, on both long sides.
-  b.box(M('glass_store', { transparent: true, opacity: 0.35 }), [1.5, 0.3, 0.012], [-0.1, 1.17, 0.44]);
+  b.box(M('glass_store', { transparent: true, opacity: 0.32 }), [1.5, 0.3, 0.012], [-0.1, 1.17, 0.44]);
   for (const x of [-0.84, 0.64]) b.box('chrome', [0.02, 0.32, 0.02], [x, 1.17, 0.44]);
   b.decal('cart_menu', [-0.1, 0.62, 0.43], 1.5, 0.52, '+z');
   b.decal('cart_menu', [-0.1, 0.62, -0.43], 1.5, 0.52, '-z');

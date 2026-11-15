@@ -7,7 +7,8 @@ import { LIFT } from './ground.js';
 import { SHOP } from './layout.js';
 import { wallFrame } from './buildings.js';
 
-const WALL = 'cinder';
+// Painted block (catalogue colour) on the vertex-tinted material, the same one the dado below uses.
+const WALL = ['cinder', { color: 0x8a8880 }];
 const WORK = 0xffc48a;
 const DOWN = new THREE.Vector3(0, -1, 0);
 
@@ -85,7 +86,7 @@ export function buildShop(kit) {
   }
 
   // Painted dado on the inside of the walls, and the kind of paper a shop wall collects.
-  const dado = [WALL, { color: 0x27414b }];
+  const dado = ['cinder', { color: 0x27414b }];
   const inner = {
     n: wallFrame(kit, '+z', iz0),
     s: wallFrame(kit, '-z', iz1),

@@ -27,14 +27,14 @@
 // - Texture size follows the quality tier at boot: test 256, low 512, otherwise 1024 (`?tex=` overrides).
 
 import * as THREE from 'three';
-import { createAtlas } from './mats/atlas.js';
+import { createAtlas, createWrapAtlas } from './mats/atlas.js';
 import { canvas2d, createBank, dropScratch, makeTexture, pixelTexture, toHex } from './mats/canvas.js';
 import { DECALS, createDecalPainter } from './mats/decals.js';
 import { paintFacade } from './mats/facade.js';
 import { facadeKey, facadeLayout, facadeSpec } from './mats/layout.js';
 import { prng } from './mats/noise.js';
 import { POSTER_SIZE, POSTER_VARIANTS, createPaperPainter } from './mats/paper.js';
-import { MACRO_TILE, macroTexture, patchCutout, patchWorld } from './mats/shader.js';
+import { MACRO_TILE, macroTexture, patchCutout, patchPacked, patchWorld } from './mats/shader.js';
 import { createSignPainter } from './mats/signs.js';
 import { SETS, chainlinkPixels, paintSet } from './mats/surfaces.js';
 import { createType, loadFonts } from './mats/type.js';
@@ -51,18 +51,21 @@ const FENCE_TILE = 0.6; // metres per repeat of the chain-link mesh (8 diamonds)
  *   gloss   take the roughness map from this set instead
  *   world   [tone variation, wetness, wall grime]: gets the world shader patch (static scenery only)
  *   normal  normal-map strength (default 1)
+ *   day     albedo by day (sRGB hex) where the catalogue colour is tuned for the night street: the
+ *           untinted material switches between the two with atmos.time
+ *   dayGlow  multiplier on the catalogue glow by day: lit windows are glass in the sun, not lamps
  */
 export const LOOKS = {
   // ground
-  asphalt: { set: 'asphalt', world: [0.2, 1, 0] },
+  asphalt: { set: 'asphalt', world: [0.2, 1, 0], day: 0x56575a },
   asphalt_wet: { set: 'asphalt', normal: 0.45 },
-  sidewalk: { set: 'sidewalk', world: [0.16, 0.5, 0] },
-  curb: { set: 'concrete', world: [0.12, 0.3, 0] },
+  sidewalk: { set: 'sidewalk', world: [0.16, 0.5, 0], day: 0x9a968e },
+  curb: { set: 'concrete', world: [0.12, 0.3, 0], day: 0xa4a097 },
   court: { set: 'asphalt', skin: 'coat', normal: 0.5, world: [0.14, 0.5, 0] },
-  dirt: { set: 'dirt', world: [0.2, 0.7, 0] },
+  dirt: { set: 'dirt', world: [0.2, 0.7, 0], day: 0x625646 },
   // masonry
-  concrete: { set: 'concrete', world: [0.18, 0, 0.5] },
-  concrete_dark: { set: 'concrete', world: [0.18, 0, 0.4] },
+  concrete: { set: 'concrete', world: [0.18, 0, 0.5], day: 0x8e8c87 },
+  concrete_dark: { set: 'concrete', world: [0.18, 0, 0.4], day: 0x5e5e62 },
   cinder: { set: 'cinder', world: [0.16, 0, 0.6] },
   brick_red: { set: 'brick', skin: 'red', world: [0.18, 0, 0.7] },
   brick_brown: { set: 'brick', skin: 'brown', world: [0.18, 0, 0.7] },
@@ -103,12 +106,14 @@ export const LOOKS = {
   skin: {},
   // glass
   glass_dark: { gloss: 'smudge' },
-  glass_store: { gloss: 'smudge' },
-  glass_lit_warm: { gloss: 'smudge' },
-  glass_lit_cool: { gloss: 'smudge' },
+  glass_store: { gloss: 'smudge', dayGlow: 0.3 },
+  glass_lit_warm: { gloss: 'smudge', dayGlow: 0.06 },
+  glass_lit_cool: { gloss: 'smudge', dayGlow: 0.06 },
   glass_car: { gloss: 'smudge' },
 };
 const PLAIN = {};
+/** Sets that dress world-patched looks: they keep a separate ORM map (its red channel is the water level). */
+const WORLD_SETS = new Set(Object.values(LOOKS).filter((l) => l.world).map((l) => l.set));
 
 const WHITE = [1, 1, 1];
 const mod = (n, m) => ((Math.floor(n) % m) + m) % m;
@@ -134,14 +139,29 @@ export async function createMats(G) {
   const warned = new Set();
   const stats = { sets: 0, textures: 0, materials: 0, signs: 0, facades: 0 };
 
+  // Glow and wetness by time of day (applyTime below): multipliers on each kind's night glow.
+  const NIGHT = { sign: 1, neon: 1, facade: 1, dry: 0 };
+  const DAY = { sign: 0.3, neon: 0.55, facade: 0, dry: 1 };
+  const FACADE_GLOW = 1.6;
+  const glowScale = { ...(timeOfDay() === 'night' ? NIGHT : DAY) };
+  const facades = []; // facade materials, their window glow follows the time of day
+  const retint = []; // {material, night, day, mean}: ground and masonry with a day albedo (LOOKS.day)
+  const windows = []; // {material, base, day}: catalogue glass that glows at night (LOOKS.dayGlow)
+
   // 1 × 1 stand-ins for the slots a look leaves empty.
   const white = pixelTexture(255, 255, 255, true);
   const flat = pixelTexture(128, 128, 255, false);
   const plainOrm = pixelTexture(255, 255, 255, false);
+  white.name = 'mats:white';
+  flat.name = 'mats:flat';
+  plainOrm.name = 'mats:plainOrm';
 
-  const texture = (canvas, opts) => {
+  /** Every texture the library makes goes through here: counted, and named for census tools. */
+  const texture = (canvas, opts, label = '') => {
     stats.textures++;
-    return makeTexture(canvas, opts);
+    const t = makeTexture(canvas, opts);
+    t.name = `mats:${label}`;
+    return t;
   };
 
   // ---------------------------------------------------------------------------------------------
@@ -167,6 +187,40 @@ export async function createMats(G) {
 
   const surfaces = new Map();
 
+  /**
+   * One RGBA texture from a set's normal and ORM canvases: R, G normal x, y; B metalness (or, `blue` = 0,
+   * the ORM's red channel: the water level of a ground set); A roughness.
+   * Built from the raw pixels (a canvas would premultiply the alpha and lose the normal's precision).
+   */
+  function packTexture(normalCanvas, ormCanvas, opts, label, blue) {
+    const w = normalCanvas.width;
+    const h = normalCanvas.height;
+    const n = normalCanvas.getContext('2d').getImageData(0, 0, w, h).data;
+    const m = ormCanvas.getContext('2d').getImageData(0, 0, w, h).data;
+    const data = new Uint8Array(w * h * 4);
+    // Rows flipped here (canvas row 0 is the top; three.js flips canvases, not data, on upload).
+    for (let y = 0; y < h; y++) {
+      for (let x = 0, i = y * w * 4, o = (h - 1 - y) * w * 4; x < w; x++, i += 4, o += 4) {
+        data[o] = n[i];
+        data[o + 1] = n[i + 1];
+        data[o + 2] = m[i + blue];
+        data[o + 3] = m[i + 1];
+      }
+    }
+    const t = new THREE.DataTexture(data, w, h, THREE.RGBAFormat, THREE.UnsignedByteType);
+    t.colorSpace = THREE.NoColorSpace;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(opts.repeat[0], opts.repeat[1]);
+    t.magFilter = THREE.LinearFilter;
+    t.minFilter = THREE.LinearMipmapLinearFilter;
+    t.generateMipmaps = true;
+    t.anisotropy = opts.aniso;
+    t.needsUpdate = true;
+    t.name = `mats:${label}`;
+    stats.textures++;
+    return t;
+  }
+
   /** The textures of a surface set, painted on first use. */
   function surface(name) {
     let s = surfaces.get(name);
@@ -175,17 +229,34 @@ export async function createMats(G) {
     const painted = paintSet(name, size, bank);
     const opts = { repeat: [1 / spec.tile[0], 1 / spec.tile[1]], aniso: aniso(spec.aniso) };
     const skins = new Map();
+    let normal;
+    let orm;
+    let packed;
     s = {
       spec,
-      normal: painted.normal ? texture(painted.normal, { ...opts, srgb: false }) : null,
-      orm: painted.orm ? texture(painted.orm, { ...opts, srgb: false }) : null,
+      /** Normal + roughness / metalness in one texture (shader.js patchPacked) when both exist. */
+      packable: !!(painted.normal && painted.orm),
+      /** Dresses world-patched looks: blue holds the water level, metalness stays a plain value. */
+      world: WORLD_SETS.has(name),
+      get normal() {
+        if (normal === undefined) normal = painted.normal ? texture(painted.normal, { ...opts, srgb: false }, `${name}:normal`) : null;
+        return normal;
+      },
+      get orm() {
+        if (orm === undefined) orm = painted.orm ? texture(painted.orm, { ...opts, srgb: false }, `${name}:orm`) : null;
+        return orm;
+      },
+      get packed() {
+        if (packed === undefined) packed = s.packable ? packTexture(painted.normal, painted.orm, opts, `${name}:packed`, s.world ? 0 : 2) : null;
+        return packed;
+      },
       /** {map, mean} of one albedo, or null when the set has no colour of its own. */
       skin(key) {
         if (!painted.albedo) return null;
         if (!skins.has(key)) {
           const source = painted.albedo[key] ?? painted.albedo.base;
           const canvas = typeof source === 'function' ? source() : source;
-          skins.set(key, { map: texture(canvas, opts), mean: meanColor(canvas) });
+          skins.set(key, { map: texture(canvas, opts, `${name}:${key}`), mean: meanColor(canvas) });
         }
         return skins.get(key);
       },
@@ -200,12 +271,12 @@ export async function createMats(G) {
   // ---------------------------------------------------------------------------------------------
 
   /** A MeshStandardMaterial with all five texture slots filled. */
-  function standard({ map, normalMap, orm, emissiveMap, roughness = 0.8, metalness = 0 } = {}) {
+  function standard({ map, normalMap, orm, metalMap = orm, emissiveMap, roughness = 0.8, metalness = 0 } = {}) {
     const material = new THREE.MeshStandardMaterial({
       map: map || white,
       normalMap: normalMap || flat,
       roughnessMap: orm || plainOrm,
-      metalnessMap: orm || plainOrm,
+      metalnessMap: metalMap || plainOrm,
       emissiveMap: emissiveMap || white,
       roughness,
       metalness,
@@ -243,17 +314,22 @@ export async function createMats(G) {
   }
 
   const macro = { value: null }; // shared by every world material
+  const dry = { value: glowScale.dry }; // 0 at night (the soaked street), 1 by day; follows atmos.time in update()
   const lookUniforms = new Map();
 
   function worldUniforms(world) {
-    if (!macro.value) macro.value = macroTexture(256);
+    if (!macro.value) {
+      macro.value = macroTexture(256);
+      macro.value.name = 'mats:macro';
+      stats.textures++;
+    }
     const key = world.join(',');
     let look = lookUniforms.get(key);
     if (!look) {
       look = { value: new THREE.Vector4(world[0], world[1], world[2], 1 / MACRO_TILE) };
       lookUniforms.set(key, look);
     }
-    return { miMacro: macro, miLook: look };
+    return { miMacro: macro, miLook: look, miDry: dry };
   }
 
   function textured(def, look, o, extra) {
@@ -261,8 +337,19 @@ export async function createMats(G) {
     const skin = set ? set.skin(look.skin || 'base') : null;
     const relief = look.relief ? surface(look.relief) : set;
     const gloss = look.gloss ? surface(look.gloss) : set;
-    const orm = gloss ? gloss.orm : null;
-    const material = standard({ map: skin && skin.map, normalMap: relief && relief.normal, orm, emissiveMap: extra && extra.emissiveMap });
+    // A set that supplies both the relief and the gloss of a material without the world patch sends
+    // them as one packed texture.
+    const packed = set && relief === set && gloss === set && set.packable ? set.packed : null;
+    const orm = packed || (gloss ? gloss.orm : null);
+    const material = standard({
+      map: skin && skin.map,
+      normalMap: packed || (relief && relief.normal),
+      orm,
+      metalMap: packed && set.world ? plainOrm : orm,
+      emissiveMap: extra && extra.emissiveMap,
+    });
+    const patched = worldFx && look.world && o.local !== true;
+    if (packed && !patched) patchPacked(material);
     if (o.tint === 'vertex') {
       // The colour comes from the geometry: the material only cancels the painting's own average,
       // so a vertex colour is the colour the surface ends up with.
@@ -271,6 +358,11 @@ export async function createMats(G) {
       material.vertexColors = true;
     } else {
       tint(material.color, o.color !== undefined ? toHex(o.color, def.color) : def.color, skin ? skin.mean : WHITE);
+      if (look.day !== undefined && o.color === undefined) {
+        const entry = { material, night: def.color, day: look.day, mean: skin ? skin.mean : WHITE };
+        retint.push(entry);
+        if (glowScale.dry) tint(material.color, look.day, entry.mean);
+      }
     }
     // A painted roughness map holds absolute values around the set's own level: scale, do not replace.
     material.roughness = (o.roughness ?? def.roughness ?? 0.8) / (orm ? gloss.spec.rough : 1);
@@ -278,8 +370,8 @@ export async function createMats(G) {
     if (look.normal !== undefined) material.normalScale.setScalar(look.normal);
     if (look.doubleSide) material.side = THREE.DoubleSide;
     applyOptions(material, o, def);
-    if (worldFx && look.world && o.local !== true) {
-      patchWorld(material, extra && extra.facade ? { ...worldUniforms(look.world), miFacade: { value: extra.facade } } : worldUniforms(look.world));
+    if (patched) {
+      patchWorld(material, extra && extra.facade ? { ...worldUniforms(look.world), ...extra.facade } : worldUniforms(look.world), !!packed);
     }
     return material;
   }
@@ -299,6 +391,7 @@ export async function createMats(G) {
       map.generateMipmaps = true;
       map.anisotropy = aniso('wall');
       map.needsUpdate = true;
+      map.name = 'mats:chainlink';
       stats.textures++;
       // Wire width in texels (see chainlinkPixels: 8.5 % of the diagonal period).
       fence = { map, uniforms: { miWire: { value: new THREE.Vector3(px.size, (px.size / 8) * 0.085, 1.15) } } };
@@ -348,6 +441,11 @@ export async function createMats(G) {
     const o = opts || NO_OPTS;
     material = look.cutout ? cutout(def, o) : textured(def, look, o);
     material.name = name;
+    if (look.dayGlow !== undefined && o.emissive === undefined && def.emissive !== undefined) {
+      const entry = { material, base: material.emissiveIntensity, day: look.dayGlow };
+      windows.push(entry);
+      if (glowScale.dry) material.emissiveIntensity = entry.base * entry.day;
+    }
     cache.set(key, material);
     return material;
   }
@@ -369,7 +467,7 @@ export async function createMats(G) {
   function canvasTexture(w, h, draw, opts = {}) {
     const ctx = canvas2d(Math.max(2, w), Math.max(2, h));
     draw(ctx, ctx.canvas.width, ctx.canvas.height);
-    return texture(ctx.canvas, { aniso: 4, ...opts });
+    return texture(ctx.canvas, { aniso: 4, ...opts }, 'canvasTexture');
   }
 
   /** Turns a material into a quad that sits on a wall or the ground without z-fighting. */
@@ -391,45 +489,119 @@ export async function createMats(G) {
   const paper = createPaperPainter({ ...env, drawIPX: signs.drawIPX, ipxWidth: signs.ipxWidth });
   const decals = createDecalPainter(env);
 
-  const flicker = []; // neon tubes: {material, base, rate, phase, faulty, wait, burst}
+  const flicker = []; // neon tube materials: {material, base, rate, phase, faulty, wait, burst}
   const chance = prng(4242); // cosmetic, but seeded: screenshots repeat
 
-  function sign(spec) {
-    const o = signs.resolve(spec);
-    let material = cache.get(o.key);
-    if (!material) {
-      const painted = signs.paint(o);
-      const opts = { wrap: 'clamp', aniso: aniso('wall') };
-      material = standard({
-        map: texture(painted.albedo, opts),
-        emissiveMap: painted.emissive ? texture(painted.emissive, opts) : null,
-        roughness: o.def.roughness,
-      });
-      if (painted.emissive) {
+  // Atlas pages (CONTRACT 11.2). Two classes:
+  //   sign   opaque boards with an emissive layer: box, painted, awning, street, plate, neon
+  //   clear  alpha overlays without glow: posters, graffiti, decals, stencilled signs
+  // Every page has one material per class (plus NEON_RINGS flicker twins on sign pages that share
+  // the page textures), so a page costs two or three textures whatever it holds.
+  const PAGE = size >= 512 ? 2048 : 1024;
+  const SIGN_GLOW = 2.6; // page emissiveIntensity: the brightest style's glow, the others are baked lower
+  const NEON_RINGS = 3; // neon flicker groups (the second one is the tired tube that stutters)
+  const pageTextureOpts = { wrap: 'clamp', aniso: aniso('wall') };
+  const signPages = [];
+
+  function pageTextures(page) {
+    return {
+      map: texture(page.albedo.canvas, pageTextureOpts, 'page:albedo'),
+      emissiveMap: page.emissive ? texture(page.emissive.canvas, pageTextureOpts, 'page:emissive') : null,
+      orm: texture(page.orm.canvas, { ...pageTextureOpts, srgb: false, aniso: 1 }, 'page:orm'),
+    };
+  }
+
+  const atlases = {
+    sign: createAtlas({
+      width: PAGE,
+      height: PAGE,
+      pad: 4,
+      opaque: true,
+      emissive: true,
+      onPage(page) {
+        const t = pageTextures(page);
+        const material = standard({ map: t.map, normalMap: null, orm: t.orm, emissiveMap: t.emissiveMap, roughness: 1, metalness: 1 });
         material.emissive.setHex(0xffffff);
-        material.emissiveIntensity = o.def.glow;
-      }
-      if (o.def.overlay) {
-        asOverlay(material);
-      } else {
-        // Signs are hung a hair in front of a wall: keep them in front at any distance.
+        material.emissiveIntensity = SIGN_GLOW * glowScale.sign;
+        // Signs hang a hair in front of a wall: keep them in front at any distance.
         material.polygonOffset = true;
         material.polygonOffsetFactor = -1;
         material.polygonOffsetUnits = -1;
-      }
-      material.name = `sign:${o.style}`;
-      if (o.style === 'neon' && painted.emissive) {
-        flicker.push({ material, base: o.def.glow, rate: 9 + chance() * 6, phase: chance() * 6.28, faulty: flicker.length % 3 === 1, wait: 2 + chance() * 6, burst: 0 });
-      }
-      cache.set(o.key, material);
+        material.name = `atlas:sign:${page.index}`;
+        const neon = [];
+        for (let i = 0; i < NEON_RINGS; i++) {
+          const twin = material.clone();
+          twin.name = `atlas:neon:${page.index}:${i}`;
+          stats.materials++;
+          neon.push(twin);
+          flicker.push({ material: twin, base: SIGN_GLOW * glowScale.neon, rate: 9 + chance() * 6, phase: chance() * 6.28, faulty: i === 1, wait: 2 + chance() * 6, burst: 0 });
+        }
+        const user = { ...t, material, neon, used: 0 };
+        signPages.push(user);
+        return user;
+      },
+    }),
+    clear: createAtlas({
+      width: PAGE,
+      height: PAGE,
+      pad: 4,
+      opaque: false,
+      emissive: false,
+      onPage(page) {
+        const t = pageTextures(page);
+        const material = asOverlay(standard({ map: t.map, orm: t.orm, roughness: 1, metalness: 1 }));
+        material.name = `atlas:clear:${page.index}`;
+        return { ...t, material, used: 0 };
+      },
+    }),
+  };
+
+  /** Copies a painting into a page of `cls` and flags the page for upload. */
+  function toAtlas(cls, picture, look) {
+    const placed = atlases[cls].add(picture, look);
+    const user = placed.page.user;
+    user.map.needsUpdate = true;
+    user.orm.needsUpdate = true;
+    if (user.emissiveMap && look.emissive) user.emissiveMap.needsUpdate = true;
+    user.used++;
+    return { user, uv: placed.uv };
+  }
+
+  function sign(spec) {
+    const o = signs.resolve(spec);
+    let entry = cache.get(o.key);
+    if (!entry) {
+      const painted = signs.paint(o);
+      const cls = o.def.overlay ? 'clear' : 'sign';
+      const { user, uv } = toAtlas(cls, painted.albedo, {
+        emissive: painted.emissive,
+        glow: o.def.glow / SIGN_GLOW,
+        roughness: o.def.roughness,
+        metalness: 0,
+      });
+      let material = user.material;
+      if (o.style === 'neon' && painted.emissive) material = user.neon[stats.signs % NEON_RINGS];
+      entry = { material, w: o.w, h: o.h, uv };
+      cache.set(o.key, entry);
       stats.signs++;
     }
-    return { material, w: o.w, h: o.h };
+    return { material: entry.material, w: entry.w, h: entry.h, uv: entry.uv.slice() };
   }
 
   // ---------------------------------------------------------------------------------------------
   // Facades
   // ---------------------------------------------------------------------------------------------
+
+  // Facade window layers share pages (two textures a page instead of two a facade).
+  const facadePages = createWrapAtlas({
+    width: PAGE,
+    height: PAGE,
+    pad: 8,
+    onPage(page) {
+      const opts = { wrap: 'clamp', aniso: aniso('wall') };
+      return { overlay: texture(page.overlay.canvas, opts, 'facade:overlay'), emissive: texture(page.emissive.canvas, opts, 'facade:emissive') };
+    },
+  });
 
   function facade(spec) {
     const s = facadeSpec(spec);
@@ -447,12 +619,23 @@ export async function createMats(G) {
     if (!worldFx) return get(base); // the window layer needs the shader patch
 
     const painted = paintFacade(s, facadeLayout(s), size);
-    const opts = { repeat: [1 / s.w, 1 / s.h], wrap: ['repeat', 'clamp'], aniso: aniso('wall') };
-    const overlay = texture(painted.overlay, opts);
-    material = textured(MATERIALS[base], LOOKS[base], NO_OPTS, { emissiveMap: texture(painted.emissive, opts), facade: overlay });
+    const placed = facadePages.add(painted.overlay, painted.emissive);
+    const pageUser = placed.page.user;
+    pageUser.overlay.needsUpdate = true;
+    pageUser.emissive.needsUpdate = true;
+    const overlay = pageUser.overlay;
+    material = textured(MATERIALS[base], LOOKS[base], NO_OPTS, {
+      emissiveMap: pageUser.emissive,
+      facade: {
+        miFacade: { value: overlay },
+        miFacadeRect: { value: new THREE.Vector4().fromArray(placed.rect) },
+        miFacadeScale: { value: new THREE.Vector2(1 / s.w, 1 / s.h) },
+      },
+    });
     material.emissive.setHex(0xffffff);
-    material.emissiveIntensity = 1.6;
+    material.emissiveIntensity = FACADE_GLOW * glowScale.facade;
     material.name = `facade:${base}`;
+    facades.push(material);
     // For the level: the size one repeat covers and the grid it holds (plus the window layer itself).
     material.userData.facade = { w: s.w, h: s.h, bays: s.bays, floors: s.floors, bayW: s.bayW, floorH: s.floorH, overlay };
     cache.set(key, material);
@@ -464,22 +647,31 @@ export async function createMats(G) {
   // Posters, graffiti, decals
   // ---------------------------------------------------------------------------------------------
 
+  /**
+   * A painting for a clear quad, cached by key: on a clear atlas page, or (painted.wrap) on a
+   * repeating texture of its own, which comes back without `uv`.
+   */
   function quad(key, roughness, metalness, make) {
     let entry = cache.get(key);
     if (!entry) {
       const painted = make();
-      const material = asOverlay(
-        standard({
-          map: texture(painted.canvas, { repeat: painted.repeat, wrap: painted.wrap || 'clamp', aniso: aniso('wall') }),
-          roughness,
-          metalness,
-        }),
-      );
-      material.name = key.replace(/\|/g, ':');
-      entry = { material, w: painted.w, h: painted.h };
+      if (painted.wrap) {
+        const material = asOverlay(
+          standard({
+            map: texture(painted.canvas, { repeat: painted.repeat, wrap: painted.wrap, aniso: aniso('ground') }, key),
+            roughness,
+            metalness,
+          }),
+        );
+        material.name = key.replace(/\|/g, ':');
+        entry = { material, w: painted.w, h: painted.h, uv: null };
+      } else {
+        const { user, uv } = toAtlas('clear', painted.canvas, { roughness, metalness });
+        entry = { material: user.material, w: painted.w, h: painted.h, uv };
+      }
       cache.set(key, entry);
     }
-    return { material: entry.material, w: entry.w, h: entry.h };
+    return entry.uv ? { material: entry.material, w: entry.w, h: entry.h, uv: entry.uv.slice() } : { material: entry.material, w: entry.w, h: entry.h };
   }
 
   function poster(kind = 'ad', seed = 0) {
@@ -512,8 +704,34 @@ export async function createMats(G) {
   // Per frame
   // ---------------------------------------------------------------------------------------------
 
+  /** 'day' | 'night': what atmos shows, else the user setting. */
+  function timeOfDay() {
+    const t = (G.atmos && G.atmos.time) || (G.settings && typeof G.settings.get === 'function' && G.settings.get('time'));
+    return t === 'night' ? 'night' : 'day';
+  }
+
+  /**
+   * Day and night (CONTRACT 11.1). By day signs are lit signage, not lamps: their glow drops so the
+   * painted face carries them; windows are glass, not light; the street dries to a few damp patches.
+   * Only uniform values change (no defines, no new programs).
+   */
+  let shownTime = null;
+  function applyTime(name) {
+    shownTime = name;
+    const k = name === 'night' ? NIGHT : DAY;
+    Object.assign(glowScale, k);
+    dry.value = k.dry;
+    for (const page of signPages) page.material.emissiveIntensity = SIGN_GLOW * k.sign;
+    for (const f of flicker) f.base = SIGN_GLOW * k.neon;
+    for (const m of facades) m.emissiveIntensity = FACADE_GLOW * k.facade;
+    for (const r of retint) tint(r.material.color, k.dry ? r.day : r.night, r.mean);
+    for (const w of windows) w.material.emissiveIntensity = w.base * (k.dry ? w.day : 1);
+  }
+
   /** Neon hum: a small ripple on every tube, and now and then a tired one stutters. */
   function update(dt) {
+    const now = timeOfDay();
+    if (now !== shownTime) applyTime(now);
     const t = G.time.t;
     for (let i = 0; i < flicker.length; i++) {
       const f = flicker[i];
@@ -554,6 +772,12 @@ export async function createMats(G) {
     update,
     /** Texture tier in pixels (256 | 512 | 1024) and what has been built so far. */
     textureSize: size,
-    stats: () => ({ ...stats, size, fonts: { condensed: type.hasCondensed, hand: type.hasHand } }),
+    stats: () => ({
+      ...stats,
+      size,
+      time: shownTime,
+      atlas: { page: PAGE, sign: atlases.sign.pages.length, clear: atlases.clear.pages.length, facade: facadePages.pages.length, fill: [atlases.sign.fill(), atlases.clear.fill(), facadePages.fill()].map((f) => +f.toFixed(2)) },
+      fonts: { condensed: type.hasCondensed, hand: type.hasHand },
+    }),
   };
 }

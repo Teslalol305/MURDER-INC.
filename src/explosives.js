@@ -14,6 +14,7 @@
 // and audio answer). This module adds the shake and the wide alert of a prop going up.
 
 import * as THREE from 'three';
+import { mergeGeos } from './core/geo.js';
 
 export const KINDS = {
   propane: { prop: 'propane_tank', hp: 50, fuse: 1.6, radius: 6.5, damage: 170, size: 1.9, box: [0.32, 0.6, 0.32], jet: 0.9 },
@@ -58,7 +59,7 @@ export function createExplosives(G) {
   const centre = new THREE.Vector3();
 
   // ---------------------------------------------------------------------------------------------
-  // Building
+  // Building: every item of a type is an instance of one batch (CONTRACT 11.2)
   // ---------------------------------------------------------------------------------------------
 
   /** A plain red shape of the right size, for when the prop factory has nothing to offer. */
@@ -73,23 +74,106 @@ export function createExplosives(G) {
     return mesh;
   }
 
-  function buildItem(entry) {
-    const type = KINDS[entry.type] ? entry.type : 'propane';
+  /** One prop of the type, built once: the model every item of that type is drawn from. */
+  function buildTemplate(type) {
     const kind = KINDS[type];
     let prop = null;
     try {
-      prop = G.props && typeof G.props.build === 'function' ? G.props.build(kind.prop) : null;
+      prop = G.props && typeof G.props.build === 'function' ? G.props.build(kind.prop, { seed: 1 }) : null;
     } catch (err) {
       console.error('[explosives] props.build failed:', err);
     }
-    const object = (prop && prop.object) || fallbackObject(kind);
+    if (!prop || !prop.object) prop = { object: fallbackObject(kind), size: kind.box };
+    return prop;
+  }
+
+  /**
+   * The visible meshes of the template in one state, merged per material (and shadow flags) in the
+   * prop's own space. Null when the model cannot be batched (a multi-material mesh).
+   */
+  function partsOf(prop, state) {
+    if (typeof prop.setState === 'function') prop.setState(state);
+    else prop.object.visible = state !== 'gone';
+    const object = prop.object;
+    object.position.set(0, 0, 0);
+    object.rotation.set(0, 0, 0);
+    object.updateMatrixWorld(true);
+    const buckets = new Map();
+    let ok = true;
+    (function walk(obj) {
+      if (!obj.visible) return;
+      if (obj.isMesh && obj.geometry && obj.material) {
+        if (Array.isArray(obj.material) || obj.isInstancedMesh || obj.isSkinnedMesh) ok = false;
+        else {
+          const key = `${obj.material.uuid}|${obj.castShadow ? 1 : 0}${obj.receiveShadow ? 1 : 0}|${obj.renderOrder}`;
+          let bucket = buckets.get(key);
+          if (!bucket) buckets.set(key, (bucket = { source: obj, list: [] }));
+          bucket.list.push({ geo: obj.geometry, matrix: obj.matrixWorld.clone() });
+        }
+      }
+      for (const child of obj.children) walk(child);
+    })(object);
+    if (!ok) return null;
+    return [...buckets.values()].map(({ source, list }) => ({ source, geometry: mergeGeos(list) }));
+  }
+
+  // type -> {states: {idle, lit, gone}: InstancedMesh[], count}
+  const batches = {};
+  const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+  const hidden = new THREE.Matrix4();
+  const STATES = ['idle', 'lit', 'gone'];
+
+  function dropBatches() {
+    for (const type of Object.keys(batches)) {
+      for (const state of STATES) {
+        for (const mesh of batches[type].states[state]) {
+          root.remove(mesh);
+          mesh.geometry.dispose();
+          mesh.dispose();
+        }
+      }
+      delete batches[type];
+    }
+  }
+
+  /** Instanced meshes for `count` items of a type, or null (then each item gets its own model). */
+  function makeBatch(type, count) {
+    const prop = buildTemplate(type);
+    const states = {};
+    for (const state of STATES) {
+      const parts = partsOf(prop, state);
+      if (!parts) return null;
+      states[state] = parts.map(({ source, geometry }) => {
+        const mesh = new THREE.InstancedMesh(geometry, source.material, count);
+        mesh.name = `explosives:${type}:${state}`;
+        mesh.castShadow = source.castShadow;
+        mesh.receiveShadow = source.receiveShadow;
+        mesh.renderOrder = source.renderOrder;
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        for (let i = 0; i < count; i++) mesh.setMatrixAt(i, ZERO);
+        mesh.visible = false;
+        root.add(mesh);
+        return mesh;
+      });
+    }
+    return { states, size: prop.size || KINDS[type].box };
+  }
+
+  function buildItem(entry, slot, batch) {
+    const type = KINDS[entry.type] ? entry.type : 'propane';
+    const kind = KINDS[type];
+    // Without a batch the item carries a model of its own (only when the prop cannot be instanced).
+    const own = batch ? null : buildTemplate(type);
+    const object = own ? own.object : new THREE.Object3D();
     const yaw = entry.yaw || 0;
     object.position.copy(entry.pos);
     object.rotation.set(0, yaw, 0);
-    object.userData.noMerge = true;
-    root.add(object);
+    if (own) {
+      object.userData.noMerge = true;
+      root.add(object);
+    }
 
-    const [length, height, width] = (prop && prop.size) || kind.box;
+    const [length, height, width] = (batch && batch.size) || (own && own.size) || kind.box;
     const sin = Math.abs(Math.sin(yaw));
     const cos = Math.abs(Math.cos(yaw));
     return {
@@ -104,8 +188,11 @@ export function createExplosives(G) {
       fuse: 0, // seconds left while lit
       fuseTotal: 0, // the fuse it was lit with (for the build-up)
       yaw,
-      object,
-      prop,
+      object, // its transform (the drawn model itself when it is not instanced)
+      prop: own,
+      batch,
+      slot, // its instance index in the batch
+      shown: null, // the state it is drawn in
       height,
       // Footprint of the rotated prop as an axis-aligned half extent.
       halfX: (cos * length + sin * width) / 2,
@@ -116,8 +203,40 @@ export function createExplosives(G) {
     };
   }
 
+  /** Writes the item's transform into the instances of the state it is drawn in. */
+  function place(item) {
+    if (!item.batch) return;
+    item.object.updateMatrix();
+    // Hidden instances shrink to nothing where the item stands, so they do not stretch the bounds.
+    hidden.copy(ZERO).setPosition(item.pos);
+    for (const state of STATES) {
+      const matrix = state === item.shown ? item.object.matrix : hidden;
+      for (const mesh of item.batch.states[state]) {
+        mesh.setMatrixAt(item.slot, matrix);
+        mesh.instanceMatrix.needsUpdate = true;
+      }
+    }
+  }
+
+  /** Shows only the batch meshes some item is drawn with, and refits their bounds. */
+  function refreshBatches() {
+    for (const type of Object.keys(batches)) {
+      for (const state of STATES) {
+        const used = items.some((item) => item.batch === batches[type] && item.shown === state);
+        for (const mesh of batches[type].states[state]) {
+          mesh.visible = used;
+          mesh.computeBoundingSphere();
+        }
+      }
+    }
+  }
+
   function show(item, state) {
-    if (item.prop && typeof item.prop.setState === 'function') item.prop.setState(state);
+    item.shown = state;
+    if (item.batch) {
+      place(item);
+      refreshBatches();
+    } else if (item.prop && typeof item.prop.setState === 'function') item.prop.setState(state);
     else item.object.visible = state !== 'gone';
   }
 
@@ -175,11 +294,29 @@ export function createExplosives(G) {
       for (const item of items) {
         quench(item);
         disarm(item);
-        root.remove(item.object);
+        if (item.prop) root.remove(item.object);
       }
       items.length = 0;
-      for (const entry of list) {
-        if (entry && entry.pos) items.push(buildItem(entry));
+      dropBatches();
+      const entries = list.filter((entry) => entry && entry.pos);
+      const counts = {};
+      for (const entry of entries) {
+        const type = KINDS[entry.type] ? entry.type : 'propane';
+        counts[type] = (counts[type] || 0) + 1;
+      }
+      for (const type of Object.keys(counts)) {
+        try {
+          const batch = makeBatch(type, counts[type]);
+          if (batch) batches[type] = batch;
+        } catch (err) {
+          console.error('[explosives] could not instance', type, err);
+        }
+      }
+      const slots = {};
+      for (const entry of entries) {
+        const type = KINDS[entry.type] ? entry.type : 'propane';
+        slots[type] = (slots[type] || 0) + 1;
+        items.push(buildItem(entry, slots[type] - 1, batches[type] || null));
       }
       builtFrom = list;
     }
@@ -272,8 +409,8 @@ export function createExplosives(G) {
     item.hp = 0;
     item.fuse = 0;
     disarm(item); // before the blast, so the collider does not shield anything from it
-    show(item, 'gone');
     item.object.rotation.set(0, item.yaw, 0);
+    show(item, 'gone');
     centre.set(item.pos.x, item.pos.y + item.height / 2, item.pos.z);
     const pos = centre.clone();
     emit('explosive:blast', { item, pos: pos.clone() });
@@ -305,6 +442,7 @@ export function createExplosives(G) {
       const shake = RATTLE * (0.3 + 0.7 * build);
       item.object.rotation.x = Math.sin(clock * 71 + i) * shake;
       item.object.rotation.z = Math.sin(clock * 83 + i * 2.3) * shake;
+      place(item);
     }
   }
 

@@ -47,9 +47,9 @@ const CHIP = {
 
 // Bullet-hole decal by surface: [atlas cell, smallest size, largest size (m), opacity].
 const HOLE = {
-  asphalt: [DECAL.stone, 0.18, 0.27, 0.95],
-  concrete: [DECAL.stone, 0.19, 0.3, 1],
-  brick: [DECAL.brick, 0.19, 0.3, 1],
+  asphalt: [DECAL.stone, 0.24, 0.34, 0.95],
+  concrete: [DECAL.stone, 0.25, 0.36, 1],
+  brick: [DECAL.brick, 0.25, 0.36, 1],
   metal: [DECAL.metal, 0.12, 0.17, 1],
   car: [DECAL.metal, 0.12, 0.18, 1],
   glass: [DECAL.glass, 0.3, 0.46, 0.9],
@@ -125,6 +125,22 @@ export function createRecipes(ctx) {
   }
 
   const howMany = (n, k) => stochasticRound(n * k, random());
+
+  // Free distance around a blast in eight directions: smoke and flame that would fly into a wall are
+  // turned back or held short, so a tank against a building does not lose half its cloud inside it.
+  const room = new Float64Array(8);
+  function measureRoom(x, y, z, max) {
+    for (let j = 0; j < 8; j++) {
+      const a = (j / 8) * TAU;
+      room[j] = ctx.wallDistance ? ctx.wallDistance(x, y, z, Math.cos(a), Math.sin(a), max) : max;
+    }
+  }
+  /** Room toward angle a (radians). */
+  const roomAt = (a) => room[Math.round((a / TAU) * 8) & 7];
+  /** An outward direction with room to spare: `a`, or its opposite when a wall is close that way. */
+  const awayFromWalls = (a) => (roomAt(a) < 1.4 && roomAt(a + Math.PI) > roomAt(a) ? a + Math.PI : a);
+  /** Speed that travels no further than the room allows under exponential drag (distance ≈ v / drag). */
+  const held = (speed, a, drag) => Math.min(speed, Math.max(0.25, roomAt(a) - 0.4) * drag);
 
   // ---------------------------------------------------------------------------------------------
   // Building blocks
@@ -632,9 +648,10 @@ export function createRecipes(ctx) {
    * A blast of size `scale` (1 = a propane tank) centred at (x, y, z).
    * `flavour`: 'fuel' (default) or 'drone' (a Buzzard: more electric sparks, less fire).
    */
-  function explosion(x, y, z, scale, flavour = 'fuel') {
+  function explosion(x, y, z, scale, flavour = 'fuel', ground = -1000) {
     const k = ctx.density(x, y, z);
-    const floor = ctx.floorAt(x, z, y + 0.3);
+    // `ground`: where the thing that blew up stood, when known (a kerb the collision world leaves out).
+    const floor = Math.max(ctx.floorAt(x, z, y + 0.3), ground <= y ? ground : -1000);
     const grounded = y - floor < 2.2 * scale + 0.6;
     const shade = ctx.shadeAt(x, y + 1.5, z);
     const drone = flavour === 'drone';
@@ -671,13 +688,14 @@ export function createRecipes(ctx) {
 
     // Fireball: tongues of flame thrown outward that swell, redden and burn out. Each sprite is dim on
     // its own; only where many overlap, in the first frames, does the sum go white.
+    measureRoom(x, cy + 0.4, z, 6 * scale);
     const flames = howMany((drone ? 9 : 18) * Math.sqrt(scale), k);
     const flameGain = 0.42 / Math.max(k, 0.3); // fewer sprites at low quality, each brighter: same fire
     for (let i = 0; i < flames; i++) {
-      const a = random() * TAU;
+      const a = awayFromWalls(random() * TAU);
       const up = random.range(-0.25, 1);
       const flat = Math.sqrt(Math.max(0, 1 - up * up * 0.8));
-      const speed = random.range(3.5, 12) * scale;
+      const speed = held(random.range(3.5, 12) * scale, a, 3.2);
       resetSpec(s);
       s.x = x + Math.cos(a) * flat * 0.35 * scale;
       s.y = cy + up * 0.3 * scale;
@@ -710,11 +728,51 @@ export function createRecipes(ctx) {
       spawn(add, s);
     }
 
+    // The heart of the fireball: a few big, slow tongues that hold the centre while the rest flies out,
+    // so the blast reads as one ball of fire and not as a spray.
+    const core = howMany((drone ? 2 : 4) * Math.sqrt(scale), Math.max(k, 0.75));
+    for (let i = 0; i < core; i++) {
+      resetSpec(s);
+      s.x = x + random.signed() * 0.3 * scale;
+      s.y = cy + random.range(0.1, 0.6) * scale;
+      s.z = z + random.signed() * 0.3 * scale;
+      s.vx = random.signed() * 1.2 * scale;
+      s.vy = random.range(1.5, 3.2) * scale;
+      s.vz = random.signed() * 1.2 * scale;
+      s.life = random.range(0.55, 0.85);
+      s.size = random.range(1.6, 2.1) * scale;
+      s.size1 = random.range(3.4, 4.4) * scale;
+      s.curve = 0.45;
+      s.rot = random() * TAU;
+      s.spin = random.signed() * 1.1;
+      s.r = 0.9;
+      s.g = 0.5;
+      s.b = 0.16;
+      s.r1 = 0.32;
+      s.g1 = 0.05;
+      s.b1 = 0.006;
+      s.ramp = 0.4;
+      s.alpha = 0.5;
+      s.fadeIn = 0.02;
+      s.fadeOut = 0.45;
+      s.drag = 2.4;
+      s.gravity = -0.35;
+      s.turb = 1.4;
+      s.frame = i % 2 ? ADD.flameB : ADD.flameA;
+      s.floor = floor;
+      s.seed = random();
+      spawn(add, s);
+    }
+
+    // By day the column must stand out against a bright sky: the soot is darker, there is more of it.
+    const day = ctx.day ? ctx.day() : 0;
+    const soot = 1 - 0.45 * day;
+
     // Smoke: a column that rolls up out of the fire, lit from inside while it is young.
     const puffs = howMany((drone ? 12 : 26) * Math.sqrt(scale), k);
     for (let i = 0; i < puffs; i++) {
-      const a = random() * TAU;
-      const out = random.range(0.3, 3.4) * scale;
+      const a = awayFromWalls(random() * TAU);
+      const out = held(random.range(0.3, 3.4) * scale, a, 1.5);
       const rise = random.range(1.2, 5.6) * Math.sqrt(scale);
       const girth = random.range(0.6, 1.25);
       resetSpec(s);
@@ -730,13 +788,13 @@ export function createRecipes(ctx) {
       s.curve = 0.5;
       s.rot = random() * TAU;
       s.spin = random.signed() * 0.5;
-      const tone = random.range(0.07, 0.15);
+      const tone = random.range(0.07, 0.15) * soot;
       s.r = tone * 1.06;
       s.g = tone;
       s.b = tone * 0.95;
-      s.r1 = 0.16;
-      s.g1 = 0.16;
-      s.b1 = 0.165;
+      s.r1 = 0.16 * soot;
+      s.g1 = 0.16 * soot;
+      s.b1 = 0.165 * soot;
       s.alpha = random.range(0.72, 0.92);
       s.fadeIn = 0.05;
       s.fadeOut = 0.4;
@@ -746,6 +804,45 @@ export function createRecipes(ctx) {
       s.turb = 1.3;
       s.frame = i % 3 === 0 ? LIT.smokeA : i % 3 === 1 ? LIT.smokeB : LIT.smokeC;
       s.heat = random.range(0.4, 1.0);
+      s.shade = shade;
+      s.floor = floor;
+      s.seed = random();
+      spawn(lit, s);
+    }
+
+    // The column: puffs shot straight up out of the fire that keep climbing and spread at the top.
+    const column = drone ? 0 : howMany((6 + 6 * day) * Math.sqrt(scale), Math.max(k, 0.6));
+    for (let i = 0; i < column; i++) {
+      const lift = (i + random()) / Math.max(column, 1);
+      resetSpec(s);
+      s.x = x + random.signed() * 0.4 * scale;
+      s.y = cy + 0.4 * scale;
+      s.z = z + random.signed() * 0.4 * scale;
+      s.vx = random.signed() * 0.6;
+      s.vy = (3 + 4.5 * lift) * Math.sqrt(scale);
+      s.vz = random.signed() * 0.6;
+      s.life = random.range(4.5, 6.5) * (0.7 + 0.3 * scale);
+      s.size = 0.8 * scale;
+      s.size1 = (2.8 + 2.8 * lift) * scale;
+      s.curve = 0.6;
+      s.rot = random() * TAU;
+      s.spin = random.signed() * 0.4;
+      const tone = random.range(0.05, 0.1) * soot;
+      s.r = tone * 1.05;
+      s.g = tone;
+      s.b = tone * 0.96;
+      s.r1 = 0.2 * soot;
+      s.g1 = 0.2 * soot;
+      s.b1 = 0.21 * soot;
+      s.alpha = random.range(0.7, 0.88);
+      s.fadeIn = 0.08;
+      s.fadeOut = 0.5;
+      s.drag = 0.9;
+      s.gravity = -0.05;
+      s.wind = 1;
+      s.turb = 1;
+      s.frame = i % 2 ? LIT.smokeA : LIT.smokeC;
+      s.heat = random.range(0.3, 0.7);
       s.shade = shade;
       s.floor = floor;
       s.seed = random();
@@ -806,7 +903,7 @@ export function createRecipes(ctx) {
       const start = random() * TAU;
       for (let i = 0; i < ringN; i++) {
         const a = start + (i / ringN) * TAU + random.signed() * 0.2;
-        const speed = random.range(7, 11.5) * scale;
+        const speed = held(random.range(7, 11.5) * scale, a, 3.1);
         resetSpec(s);
         s.x = x + Math.cos(a) * 0.5 * scale;
         s.y = floor + 0.3 * scale;

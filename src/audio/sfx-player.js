@@ -160,8 +160,8 @@ for (const s of SURFACES) {
 export const PLAYER = {
   ...steps,
   jump: { bus: 'near', n: 1, peak: 0.4, prio: 4, jitter: 0.05, gen: jump },
-  land: { bus: 'near', n: 2, peak: 0.75, prio: 5, jitter: 0.05, gen: land },
-  hurt: { bus: 'dry', n: 3, peak: 0.85, prio: 9, max: 3, gap: 0.06, jitter: 0.05, gen: hurt },
+  land: { bus: 'near', n: 2, peak: 0.55, prio: 5, jitter: 0.05, gen: land },
+  hurt: { bus: 'dry', n: 3, peak: 0.6, prio: 9, max: 3, gap: 0.06, jitter: 0.05, gen: hurt },
   ear_ring: { bus: 'dry', n: 1, peak: 0.22, prio: 5, max: 1, gap: 1.8, jitter: 0.01, sr: 22050, gen: earRing },
   heartbeat: { bus: 'dry', n: 1, peak: 0.5, loop: true, sr: 22050, gen: heartbeat },
   reel_grab: { bus: 'near', n: 1, peak: 0.3, loop: true, gen: reelGrab },

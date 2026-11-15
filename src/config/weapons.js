@@ -77,9 +77,9 @@ export const chopper = {
   // Hip poses for the three "weapon position" settings (Close / Three-quarter / Compact):
   // [x right, y up, z back, pitch, yaw, roll] of the receiver's back end, in view space.
   views: [
-    [0.1, -0.115, -0.24, 0.01, 0.045, 0],
-    [0.14, -0.17, -0.38, 0.02, 0.1, -0.05],
-    [0.16, -0.165, -0.33, 0.015, 0.075, -0.03],
+    [0.15, -0.09, -0.24, 0.05, 0.28, -0.35],
+    [0.17, -0.12, -0.3, 0.04, 0.22, -0.3],
+    [0.12, -0.085, -0.25, 0.05, 0.24, -0.3],
   ],
 };
 
@@ -148,9 +148,9 @@ export const nine = {
   muzzleSmoke: false,
   // Hip poses of the back of the slide for the three "weapon position" settings (see the Chopper).
   views: [
-    [0.07, -0.105, -0.37, 0, 0.03, 0],
-    [0.105, -0.14, -0.43, 0.01, 0.07, -0.04],
-    [0.115, -0.135, -0.4, 0.01, 0.06, -0.03],
+    [0.105, -0.056, -0.36, 0.07, 0.11, -0.18],
+    [0.1, -0.075, -0.44, 0.06, 0.11, -0.2],
+    [0.075, -0.055, -0.33, 0.07, 0.15, -0.16],
   ],
 };
 
@@ -203,6 +203,6 @@ export const common = {
   // the box scales with that intensity over `sunRef`, so the gun sits in the same light as the street.
   light: {
     night: { env: 0.55, fill: 0.4, rim: [0.12, 1.3] },
-    day: { env: 1.05, fill: 0.55, sun: 0.75, sunRef: 3 },
+    day: { env: 0.8, fill: 0.45, sun: 0.5, sunRef: 5 },
   },
 };

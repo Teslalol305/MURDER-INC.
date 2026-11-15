@@ -37,11 +37,24 @@ function makeWorld(entries) {
     scene: new THREE.Scene(),
     level: { explosives: entries, groundSurfaceAt: () => 'asphalt' },
     props: {
+      built: 0,
       build(name) {
+        // Shell (cold or hot material) and a wreck, like the real props.
+        this.built++;
         const object = new THREE.Group();
-        const states = [];
         const size = name === 'propane_tank' ? [0.32, 0.6, 0.32] : [0.9, 1.6, 0.5];
-        return { object, size, states, dynamic: true, setState: (s) => states.push(s) };
+        const cold = new THREE.MeshStandardMaterial({ name: 'cold' });
+        const hot = new THREE.MeshStandardMaterial({ name: 'hot' });
+        const shell = new THREE.Mesh(new THREE.BoxGeometry(...size).translate(0, size[1] / 2, 0), cold);
+        const wreck = new THREE.Mesh(new THREE.BoxGeometry(size[0], 0.05, size[2]), new THREE.MeshStandardMaterial({ name: 'wreck' }));
+        object.add(shell, wreck);
+        const setState = (s) => {
+          shell.visible = s !== 'gone';
+          shell.material = s === 'lit' ? hot : cold;
+          wreck.visible = s === 'gone';
+        };
+        setState('idle');
+        return { object, size, dynamic: true, setState };
       },
     },
     fx: {
@@ -115,7 +128,12 @@ test('explosives: the module has the contract members and builds one solid item 
   near(r.max.x - r.min.x, 0.5, 1e-6, 'rack depth after the turn');
   near(r.max.z - r.min.z, 0.9, 1e-6, 'rack length after the turn');
   assert.equal(G.physics.raycast(V(-5, 0.3, 0), V(1, 0, 0), 50).box, tank, 'bullets stop on it');
-  assert.equal(G.scene.getObjectByName('explosives').children.length, 2, 'props are in the scene');
+  // Drawn as instances: one batch per type, a mesh per state, only the idle ones showing.
+  const meshes = G.scene.getObjectByName('explosives').children;
+  assert.ok(meshes.every((m) => m.isInstancedMesh), 'every item is an instance');
+  assert.equal(meshes.filter((m) => m.visible).length, 2, 'one visible mesh per type while idle');
+  assert.equal(G.props.built, 2, 'one model built per type, not per item');
+  assert.deepEqual(items.map((i) => i.shown), ['idle', 'idle']);
 });
 
 test('explosives: the first hit lights a 1.6 s fuse with a jet at the hole; then it blows', () => {
@@ -126,7 +144,9 @@ test('explosives: the first hit lights a 1.6 s fuse with a jet at the hole; then
   assert.equal(hit.item, tank);
   assert.equal(tank.hp, 24);
   assert.equal(tank.state, 'lit');
-  assert.deepEqual(tank.prop.states, ['idle', 'lit']);
+  assert.equal(tank.shown, 'lit');
+  const hot = G.scene.getObjectByName('explosives').children.find((m) => m.visible && m.material.name === 'hot');
+  assert.ok(hot, 'the lit tank is drawn with the hot shell');
 
   const lit = named('explosive:lit');
   assert.equal(lit.length, 1);
@@ -151,7 +171,12 @@ test('explosives: the first hit lights a 1.6 s fuse with a jet at the hole; then
   assert.equal(tank.hp, 0);
   assert.equal(tank.box, null);
   assert.ok(jet.stopped, 'the jet stops with the blast');
-  assert.deepEqual(tank.prop.states, ['idle', 'lit', 'gone']);
+  assert.equal(tank.shown, 'gone');
+  const wreck = G.scene.getObjectByName('explosives').children.find((m) => m.material.name === 'wreck' && m.visible);
+  assert.ok(wreck, 'a wreck is left');
+  const m = new THREE.Matrix4();
+  wreck.getMatrixAt(tank.slot, m);
+  assert.ok(Math.abs(m.determinant()) > 1e-6, 'the wreck instance of the blown tank is shown');
 
   const blast = named('explosion');
   assert.equal(blast.length, 1);
@@ -315,7 +340,7 @@ test('explosives: reset restores every item, its collider and its hit points, an
   assert.equal(G.physics.boxes.length, boxesBefore + 1, 'the blown tank is solid again');
   assert.ok(items.every((i) => i.box && G.physics.boxes.includes(i.box)));
   assert.ok(emitters.every((e) => e.stopped), 'no jet survives a reset');
-  assert.equal(items[1].prop.states.at(-1), 'idle');
+  assert.equal(items[1].shown, 'idle');
   step(2);
   assert.deepEqual(items.map((i) => i.state), ['idle', 'idle'], 'a reset tank does not go off by itself');
 
@@ -324,7 +349,7 @@ test('explosives: reset restores every item, its collider and its hit points, an
   G.explosives.reset();
   assert.equal(G.explosives.items.length, 1);
   assert.equal(G.explosives.items[0].type, 'rack');
-  assert.equal(G.scene.getObjectByName('explosives').children.length, 1);
+  assert.equal(G.scene.getObjectByName('explosives').children.filter((m) => m.visible).length, 1);
   assert.equal(G.physics.boxes.filter((b) => b.tag === 'explosive').length, 1);
 });
 

@@ -273,26 +273,40 @@ Texture size respects `G.quality` (`test` 256, low 512, else 1024). Wait for `do
 drawing text.
 
 As built (`src/mats.js`, painters in `src/mats/*`; `?tex=256|512|1024` overrides the tier, `?matfx=0` drops the shader patches):
-- **Quads**: everything returned as `{material, w, h}` is one painting for a quad of w × h metres whose UVs run 0 … 1
-  across it, exactly like the stub: `planeGeo(s.w, s.h, {facing, uvScale: [1 / s.w, 1 / s.h]})`. Where the texture repeats
-  (`material.map.wrapS / wrapT === RepeatWrapping`) that direction takes metre UVs instead and the quad may be any
-  length: `decal('lane' | 'lane_yellow')` tiles both ways (the quad is the line; w is its nominal 0.12 m width),
-  `decal('crosswalk')` along u (one bar per metre). `decal(kind, variant)` takes a variant index; extra kinds:
-  `lane_yellow`, `puddle`.
+- **Quads and the atlas** (11.2): `sign`, `poster`, `graffiti` and `decal` return `{material, w, h, uv}`: a painting for a
+  quad of w × h metres at `uv = [u0, v0, u1, v1]` on a shared atlas page. Build the quad with UVs 0 … 1 across it and map
+  them into the rect (`u = u0 + s·(u1 − u0)`, `v = v0 + t·(v1 − v0)`). Page classes, one material each per page: opaque
+  signs (box, painted, awning, street, plate, neon; neon uses three flicker twins of the page material that share its
+  textures) and clear overlays (posters, graffiti, decals, stencil signs: transparent, depthWrite off, polygonOffset). A
+  page is 2048 px (1024 at `test`); a result never moves once handed out. Road paint is the exception: `decal('lane' |
+  'lane_yellow')` and `decal('crosswalk')` keep a material of their own whose texture repeats (`material.map.wrapS /
+  wrapT === RepeatWrapping`) and come back **without** `uv`; the repeating direction takes metre UVs and the quad may be
+  any length (lane: both ways, w is the nominal 0.12 m width; crosswalk: along u, one bar per metre).
+  `decal(kind, variant)` takes a variant index; extra kinds: `lane_yellow`, `puddle`.
 - **Signs**: `lit` defaults to true except for `painted` (lit only when `lit: true`: gooseneck lamps) and `stencil` (never;
   a transparent overlay like a decal). A `text` that is exactly `IPX` is drawn with `drawIPX`. `plate` takes
-  `bullet` (text) and `bulletColor`; neon takes `glow` as its second tube colour. Equal specs share one material.
+  `bullet` (text) and `bulletColor`; neon takes `glow` as its second tube colour. Equal specs return the same rect.
 - **Facades**: one repeat spans `bays × bayW` by `floors × floorH` metres, v = 0 at the wall's foot; it repeats along the
   wall and is bare wall above the top floor. Pass `w` (wall width, the bays divide it exactly) or `bayW` (default 3 m).
-  `material.userData.facade = {w, h, bays, floors, bayW, floorH, overlay}`. The windows are a painted layer over the
-  tiling base (`base` must be a wall material: brick_*, cinder, concrete*, stucco), so brick stays sharp close up.
+  Geometry keeps metre UVs (an offset in v is fine). `material.userData.facade = {w, h, bays, floors, bayW, floorH,
+  overlay}` (`overlay` is the shared facade page texture). The windows are a painted layer over the tiling base (`base`
+  must be a wall material: brick_*, cinder, concrete*, stucco), packed with the other facades on shared pages and
+  wrapped inside their rect by the shader.
 - **get()**: every material carries the same five texture slots (1 × 1 stand-ins where unused), so the block stays on a
   few shader programs. `color` multiplies towards the asked colour on any material; `roughness` scales a painted roughness
-  map. Also accepted: `vertexColors, flatShading, alphaTest, depthWrite, envMapIntensity`, and `local: true` for a ground
-  or masonry material on something that moves (skips the world-space patch: tone variation, wet street, wall grime).
+  map. `tint: 'vertex'` returns one shared material with `vertexColors` on whose colour cancels the painting's own
+  average, so the geometry's colour attribute is the final colour (the geometry must carry one). Also accepted:
+  `vertexColors, flatShading, alphaTest, depthWrite, envMapIntensity`, and `local: true` for a ground or masonry material
+  on something that moves (skips the world-space patch: tone variation, wet street, wall grime).
   `chainlink` is an alpha-tested weave in the opaque pass (always double-sided; `transparent` / `opacity` are ignored).
+  Most sets send normal + roughness (+ metalness) as one packed texture read by a small shader patch: **do not
+  `.clone()` a mats material** (three.js does not copy `onBeforeCompile`); ask `get()` with options instead.
+- **Day and night** (11.1): `update()` follows `atmos.time` (else the `time` setting). By day sign glow drops to lit
+  signage, facade windows stop glowing (glass), the street dries to a few damp patches and the ground and concrete take
+  a lighter day albedo; at night everything is as tuned for section 5. Only uniforms change.
 - `drawIPX` leaves the canvas state untouched and takes a CSS colour or a hex number. The real library also has
-  `stats()` and `textureSize` (not on the stub).
+  `stats()` (texture / material counts, atlas pages and fill) and `textureSize` (not on the stub). Texture census:
+  `tools/scenarios/mats-census.cjs` (mats names every texture it makes `mats:<what>`).
 
 ### 6.2 `G.props` — prop factory  (agent: props)
 ```
@@ -323,7 +337,7 @@ Props as built (`src/props.js`, `src/props/*`; nothing here changes the shape ab
   7.8 m), `traffic_light` (mast arm 3.25 m toward +Z, heads facing ±X), `tree` (crown about 4.6 m wide above 3 m),
   `court_light` (crown 1.3 m wide at the top), `hydrant_open` (jet and wet patch reach 4 m toward +Z), a `van` with its
   back doors open, `fire_escape` with `variant: 'bottom'` (drop ladder below the landing), and the `master_case`
-  light shaft. Colliders never leave the box. Props the catalogue marks `noCollide` return no colliders.
+  beacon mast (to 1.35 m, so it shows over waist-high cover) and light shaft. Colliders never leave the box. Props the catalogue marks `noCollide` return no colliders.
 - **More fields on the result** (all optional, local space): `lights[].dir` `[x, y, z]` for lamps that aim; `anchors`
   `{name: {pos, dir}}` — attachment points: `steam` (food_cart, manhole), `propane` (food_cart: where its tank
   stands), `smolder` (burned_car), `exhaust` (generator, ipx_truck), `spray` (hydrant_open), `jet` (propane_tank,
@@ -350,7 +364,12 @@ Props as built (`src/props.js`, `src/props/*`; nothing here changes the shape ab
 - **Materials.** Surfaces are `mats.get(name[, opts])` by catalogue name, so props merge with level meshes of the
   same material. The props' own: one atlas texture for all small graphics (two overlay materials, lit and unlit),
   one vertex-coloured glow material for every lamp lens, a cut-out lattice, and a vertex-coloured paint for the
-  two explosives (one draw call each). The whole catalogue placed once is about 35 000 triangles.
+  two explosives (one draw call each). Paint (car paint, `paint_*`, `fabric*`, `plastic_orange`, `steel_rust`,
+  `trash_bag`, and any surface asked for in a colour) uses `mats.get(name, {tint: 'vertex'})` with the colour in the
+  geometry, so every colour of a paint is one material (with the stub library, a material per colour as before).
+  `master_case` and `ipx_truck` fold their dull parts into the vertex-coloured paint (fewer draw calls per unmerged
+  instance). Decals, plates, lenses and lit quads cast no shadow. The whole catalogue placed once is about 33 000
+  triangles on 47 distinct materials (`node tools/scenarios/props-census.mjs`).
 
 ### 6.3 `G.input`  (agent: input-player)
 ```
@@ -366,6 +385,7 @@ input.hint() → string             one-line look-mode description for the pause
 input.rumble(strong, weak, ms)
 input.setPrompt(on)               an interaction prompt is (not) showing: reveals the touch USE button, makes pad X mean Interact
 input.menuNav() → {x, y, accept, back, start}   gamepad menu signals for this frame, all zero / false during gameplay
+input.tap(action)                 queue a one-frame press of an action from the UI (a tapped HUD weapon slot → 'weapon1')
 input.update(dt), input.endFrame()
 ```
 Schemes, fallbacks, touch layout and gamepad mapping follow `$NOTES/01-player-input.md`. Touch-control DOM lives under
@@ -382,9 +402,14 @@ Schemes, fallbacks, touch layout and gamepad mapping follow `$NOTES/01-player-in
 - The input module plays the rumble for `player:hit` and `explosion` itself; the weapon plays its own for rounds and
   strikes through `input.rumble`. A weaker effect never cuts a stronger one short.
 - State for CSS on `<html>`: `data-device` (`kbm` | `pad` | `touch`), `data-look` (`lock` | `drag`), the classes `is-touch`
-  (touch scheme in use) and `in-play` (gameplay controls active). With `is-touch` the controls take 254 × 250 px up from
-  the bottom-right corner, 136 × 136 px in the bottom-left one and 56 × 56 px in the top-right one (plus safe areas):
-  keep HUD blocks out of those. On touch `mode` is `drag` (fingers drag to look) and `input:lock` says so.
+  (touch scheme in use) and `in-play` (gameplay controls active). With `is-touch` the controls take at most 240 × 260 px up from
+  the bottom-right corner and 230 × 220 px from the bottom-left one in landscape (measured 192 × 224 and 199 × 188 at
+  844 × 390); in portrait the set stands 104 px higher and the small left FIRE goes up the left edge (210 × 333 right,
+  144 × 380 left at 390 × 844). Plus safe areas; the bottom-centre 40 % stays free. A 40 px pause disc sits in the
+  top-right corner only while no HUD control carries `data-action="pause"`. Keep HUD blocks out of those
+  (`tools/scenarios/input-player-hud.cjs` checks it). On touch `mode` is `drag` (fingers drag to look) and `input:lock` says so.
+- `tap(action)`: a one-frame press queued by the UI (the HUD's weapon slots: `weapon1`, `weapon2`, `melee`). It reads as
+  `pressed()` and `down()` on the next frame and is dropped outside gameplay.
 - A press that comes and goes between two frames still reads as `down()` for one frame. Glyphs, key maps, pad map and
   hint copy are data in `src/config/player.js` (`glyphs`, `keys`, `padButtons`, `hints`).
 
@@ -445,6 +470,26 @@ enemies.update(dt)
 ```
 AI, perception, tokens, spawn-in behaviour and both attack patterns follow `$NOTES/03-enemies.md` with the numbers in
 DESIGN.md 3.1. Enemy guns use `G.combat.hitscan({from: enemy, …})`; Buzzard bolts are simulated projectiles.
+As built (enemies; `src/enemies.js`, `src/enemies/*`, tuning in `config/enemies.js`):
+- **`enemy.state`** is one of `'patrol'` (unaware, wandering), `'investigate'` (heard or was told of something, going
+  to look), `'search'` (lost the player, sweeping his last known position), `'engage'` (fighting: knows where the
+  player is), `'dying'` (killed: Goon collapsing / Buzzard falling; still in `list`, `alive` false), `'dead'` (a Goon
+  body, no longer in `list`) and `'idle'` (a free pool slot). Only `'engage'` means "in the fight" (minimap pips).
+- **Events**: `enemy:fire` once per round (a Goon burst is 4–6 of them, a Buzzard volley one per bolt), `type` =
+  `'goon' | 'buzzard'`, `pos` the muzzle. `enemy:telegraph` once before every burst / volley (`duration` = the
+  telegraph). `enemy:melee` `windup` when a Goon starts the rush inside 3 m, `strike` when the pipe swings.
+  `enemy:alert` when a unit starts engaging or an unaware one is sent to investigate by a noise. Player damage
+  kinds: Goon rounds `bullet` (through combat), bolts `bolt`, the pipe `melee`, a Buzzard's crash `blast`.
+- **Extras** (read-only unless noted): `enemy.mode` (= `state` while alive), `enemy.sub` (Goon engage step: `move`,
+  `aim`, `telegraph`, `burst`, `cool`, `windup`, `lunge`, `recover`), `enemy.yaw`, `vel`, `sees`, `exposure` (0…1
+  accuracy ramp), `variant` (Goon outfit 0–2). `spawn()` also takes `{yaw, variant, passive, show}` (`passive`: a
+  showcase unit that never senses or acts; `show` `{aim, crouch, speed, lamp, look}` poses a Goon). `enemies.debug()` reports
+  pools, bodies, bolts, tokens. Day / night: the self-lit trim and the rim light follow `atmos.time`
+  (`config/enemies.js` `look`); the telegraph flare and the Buzzard's eye glow either way.
+- **Drawing**: each Goon and Buzzard is one `SkinnedMesh` (rigid bone weights, gun and pipe included) on a geometry
+  and a material shared by its pool (+ its shadow); every glow (telegraph flares, eyes, strobes, bolt streaks) is
+  one additive `InstancedMesh` for the whole module, the rotor blur discs a second one. Bodies: at most 6, the
+  oldest dissolves.
 
 ### 6.7 `G.explosives`  (agent: fx)
 ```
@@ -469,6 +514,10 @@ As built (explosives):
 - Sound: while an item is lit the module holds `audio.loop('hiss', {pos, volume})` and raises its volume from 0.25 to 1
   over the fuse, stopping it at the blast: audio only has to offer a loop named `hiss` (escaping gas) and must not start
   one of its own on `explosive:lit`. That event's payload also carries `fuse` (seconds until it blows) in the real module.
+- Drawing (11.2): one prop per type is built once (`props.build(name, {seed: 1})`), and each of its states (`idle`,
+  `lit`, `gone`, via `setState`) is merged per material into an `InstancedMesh`; every item is an instance, so all the
+  explosives together cost one or two draw calls per type and state in use (about 4 + shadows on a full block).
+  A prop that cannot be merged (multi-material meshes) falls back to one model per item.
 
 ### 6.8 `G.fx`  (agent: fx)
 ```
@@ -512,6 +561,21 @@ audio.update(dt)                              listener follows G.camera
 ```
 Audio subscribes to the events in 4.2 itself (weapon, player, impact, explosion, enemy, objective, train, ui).
 `?noaudio=1` → the stub is used.
+As built (audio; `src/audio.js`, `src/audio/*`):
+- **Unlock.** The context is created by the first `unlock()` (also called by audio itself on the first pointerdown /
+  keydown / touchend anywhere). Before that `play()` returns null and `loop()` handles wait and start on unlock.
+  Under the harness (`?step=1`) the context is built but kept suspended (real-time audio means nothing there and only
+  burns the shared CPU); `?audiort=1` lets it run.
+- **Names.** `audio.debug.names()` lists every sound. Callers outside audio need only `loop('hiss')` (explosives) and
+  whatever they choose to play by hand. `play` also takes `delay` (s), `bus`, `ref` / `roll` (distance model), `prio`;
+  its handle has `stop(fade)`, `setVolume`, `setPitch`, `setPos`, `playing`. Loop handles also have `setPitch(rate)`
+  and `playing`. A loop asked for before its buffer is rendered starts when it is.
+- **Rendering.** Every sound is synthesised into AudioBuffers by a background queue that starts at `boot:done` (guns
+  first, music and beds last, about 37 MB decoded in all). A short sound asked for early is rendered on the spot.
+- Audio reads `G.atmos.time` (day / night bed), `atmos.train`, `level.interiorAt`, `level.lamps` (kind `neon`),
+  `level.steam`, `level.el`, `level.objectives` (a boombox loop at each live reel case, stopped on `objective:done`),
+  `enemies.list` (Buzzard rotor loops), `player.health` (heartbeat). Debug and verification: `audio.debug`
+  (`measureAll()`, `renderMusic(intensity, bars, opts)`, `voices()`, `loops()`, `flush()`).
 
 ### 6.10 `G.level`  (agent: level)
 ```
@@ -522,6 +586,8 @@ level.objectives [{id:'reel1'|'reel2'|'reel3', code:'1'|'2'|'3', label, zone, po
 level.extraction {pos:Vector3, radius:2.5, label:'IPX truck', code:'IPX', prop}
 level.enemySpawns [{pos:Vector3, zone, type:'ground'|'air'}]
 level.zones [{id:'west'|'avenue'|'shop'|'lot', name, minX, maxX, minZ, maxZ}], level.zoneAt(x, z) → id
+level.zoneName(x, z) → display name for the minimap band: WEST END, THE AVENUE, CHOP SHOP, THE CAGE (lot zone north
+                                               of the avenue), THE LOT (south of it); zones[].name are the same names
 level.interiorBoxes [{min:Vector3, max:Vector3}], level.interiorAt(pos) → 0..1
 level.coverPoints [{pos:Vector3, zone}]
 level.cinematicPath [{pos:Vector3, look:Vector3}]            title fly-through, 10–14 points, start → reel 1 → shop → cage → truck
@@ -574,6 +640,16 @@ As built (atmos):
   (call it every frame to drive it). Inside: exposure × 0.86, ambient × 0.62 and warmer, haze halved.
 - **Quality.** `test` / `low`: no cones, no motes, no far skyline ring, the nearer blocks only. Everything is built once;
   presets only show and hide. Debug extras: `atmos.stats()`, `atmos.settleLights()`, `atmos.interior`.
+- **Day and night** (11.1). `atmos.time` is a getter; `setTime` applies `config/look.js` `times.<name>`: the day or
+  night sky dome (both built), `atmos.sun` colour / intensity / direction (the shadow frustum is re-fitted),
+  hemisphere, `scene.fog` colour and density, one of two PMREM environments, `render.look` (all grade fields),
+  pools / cones / glows (night only), real lamp lights per kind (by day only `work` and dimmed `neon` lamps hold
+  one), far city sheet and skyline strips, train windows, steam colour, interior exposure (by day inside the shop
+  exposure × 1.35). The fog shader picks its day or night tint from the luminance of `scene.fog.color` (a bright
+  haze is a day haze), so the switch needs no define. atmos applies `settings.time` at boot and on
+  `settings:change` while `game.state` is `title`; the game calls it on every reset.
+  By day the sun travels east and a little north from 52° up (`times.day.sun.direction`): the north fronts are lit,
+  the south sidewalk lies in the shade of its buildings, the El's deck shades the north half of the roadway.
 
 ### 6.12 `G.hud` and `G.menus`  (agent: ui)
 ```
@@ -588,6 +664,7 @@ hud.update(dt)                                 compass, crosshair (from weapon.s
 menus.show(screen, data?)                      'none' | 'title' | 'paused' | 'dead' | 'complete'; data = stats for the cards
 menus.screen, menus.panelOpen
 menus.locationCard(on)                         intro card
+menus.openPanel(tab)                           settings / controls drawer over the current screen ('settings' | 'controls')
 menus.update(dt)
 ```
 Menus call the game through `G.game` only: `game.start({mode})`, `game.resume()`, `game.restart()`, `game.retry()`,
@@ -604,6 +681,15 @@ game.update(dt) → live:boolean
 ```
 Owns the state machine, the run reset, objectives and interaction, reinforcement waves, pursuit, extraction, holdout,
 radio queue, rating, the music-intensity driver, the title fly-through camera, post fades (`render.post.fade / saturation`).
+As built (flow; rules in `src/game/*`, numbers in `config/flow.js`, copy in `config/text.js`):
+- Read-only extras for tests and tuning: `game.flow` `{queue, clock, maxAlive, pursuitLeft, pursuitTimer, music,
+  lastWave: {order, from, at}, grabbing, progress}` and `game.holdout` `{active, breakLeft, countdown, cleared}`.
+- `start()` without a mode uses the saved `mode` setting; `restart()` / `retry()` add one to `run.retries`, `redeploy()`
+  zeroes it, all three use the 1.1 s intro. Two start requests in one frame (button + Enter) are one start.
+- Every run reset calls `atmos.setTime(settings.time)` and puts the matching place line in `text.location.place`;
+  `menus.locationCard(true, text.location)` gets `{place, tagline}`. Card data adds `difficulty, headshots, shots,
+  hits, ratingName` to the section 10 shape; `wave` there is the number of holdout waves cleared.
+- `hud.prompt(spec)` gets `{text, glyph, code, progress}`; markers are `kind: 'reel'` per open reel, then `'exit'`.
 
 ---------------------------------------------------------------------------------------------------
 
