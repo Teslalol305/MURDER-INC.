@@ -196,4 +196,13 @@ export const common = {
   flashSeconds: [0.036, 0.056],
   adsFlashScale: 0.62,
   explosiveHitFromEnemy: 9, // damage an enemy round does to a propane tank / welding rack
+  // How the viewmodel is lit (weapon/viewmodel.js). `env` is the strength of its own reflection box,
+  // `fill` a camera-space light that keeps the faces turned to the player from going black.
+  // Night: `rim` [floor, gain] is a world-space light coloured by the street lamps around the player.
+  // Day: the rim light is the sun (direction and colour from atmos.sun) at `sun` × its intensity, and
+  // the box scales with that intensity over `sunRef`, so the gun sits in the same light as the street.
+  light: {
+    night: { env: 0.55, fill: 0.4, rim: [0.12, 1.3] },
+    day: { env: 1.05, fill: 0.55, sun: 0.75, sunRef: 3 },
+  },
 };

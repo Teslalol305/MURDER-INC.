@@ -1,5 +1,27 @@
-/* MURDER INC. — page, canvas and boot screen.
+/* MURDER INC. — page, canvas, brand tokens, the IPX mark and the boot screen.
    Concatenated first, before ui.css (HUD + menus) and input.css (touch controls). */
+
+/* Display-face stand-ins for when the web font is blocked. The wordmark is set in a tall condensed face;
+   where the system has a condensed bold, use it as it is ('MI Narrow'), otherwise take a heavy grotesque
+   and scale it down so the same line still fits ('MI Heavy'). */
+@font-face {
+  font-family: 'MI Narrow';
+  font-weight: 100 900;
+  src: local('HelveticaNeue-CondensedBlack'), local('HelveticaNeue-CondensedBold'), local('DINCondensed-Bold'),
+    local('Roboto Condensed Bold'), local('RobotoCondensed-Bold'), local('Arial Narrow Bold'), local('ArialNarrow-Bold'),
+    local('Liberation Sans Narrow Bold'), local('LiberationSansNarrow-Bold');
+  size-adjust: 96%;
+}
+
+@font-face {
+  font-family: 'MI Heavy';
+  font-weight: 100 900;
+  src: local('Arial Black'), local('Arial-Black'), local('HelveticaNeue-Bold'), local('Helvetica Neue Bold'),
+    local('Helvetica-Bold'), local('Helvetica Bold'), local('Roboto Black'), local('Roboto-Black'), local('Inter Black'),
+    local('Inter-Black'), local('Arial Bold'), local('Arial-BoldMT'), local('Liberation Sans Bold'),
+    local('LiberationSans-Bold'), local('DejaVu Sans Bold'), local('DejaVuSans-Bold');
+  size-adjust: 70%;
+}
 
 /* Brand tokens. Mirrors src/config/brand.js (colors.plateEdge ↔ --c-plate-edge, fonts.ui ↔ --font-ui):
    change both together. Every colour on the page comes from these. */
@@ -8,18 +30,22 @@
 
   --c-bg: #07080a;
   --c-plate: #0f1114;
-  --c-plate-edge: #262a30;
+  --c-plate-edge: #2a2e35;
   --c-ink: #f4f2ec;
-  --c-ink-dim: #a9a7a0;
-  --c-ink-faint: #6c6b67;
+  --c-ink-dim: #b4b2ab;
+  --c-ink-faint: #8b8983;
   --c-gold: #f6c21a;
   --c-red: #e2222b;
   --c-oxblood: #6b1218;
   --c-cyan: #39d0e0;
+  --c-line1: #f2762e;
+  --c-line2: #1fa463;
+  --c-line3: #3b82f0;
+  --c-line-ipx: #f6c21a;
 
-  --font-display: 'Anton', 'Haettenschweiler', 'Arial Narrow Bold', Impact, 'Arial Narrow', sans-serif;
-  --font-ui: 'Archivo', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-display: 'Anton', Impact, 'Haettenschweiler', 'MI Narrow', 'MI Heavy', 'Arial Narrow', sans-serif;
+  --font-ui: 'Archivo', 'Helvetica Neue', Helvetica, Arial, 'Inter', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   /* Screen-edge insets: anything pinned to an edge adds these. */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -82,17 +108,28 @@ body {
   visibility: hidden;
 }
 
-/* The IPX wordmark, typeset until the real logo is supplied: heavy italic grotesque in a thin lozenge. */
+/* ---- The IPX mark ---------------------------------------------------------------------------
+   One component for every place the presenter appears (boot, title, pause, HUD tag, debrief). Until the
+   real logo is supplied it is typeset: "IPX" in a heavy italic grotesque inside a thin lozenge. To swap in
+   artwork, give this class a background image and hide the text; its size follows font-size. */
 .ipx-mark {
   display: inline-block;
-  padding: 0.08em 0.62em 0.06em 0.5em;
-  border: 0.09em solid currentColor;
+  flex: none;
+  box-sizing: border-box;
+  padding: 0.1em 0.6em 0.08em 0.48em;
+  border: 0.1em solid currentColor;
   border-radius: 999px;
-  font: italic 800 1em/1.1 var(--font-ui);
-  letter-spacing: 0.04em;
+  color: var(--c-ink);
+  font: italic 800 1em/1.05 var(--font-ui);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
-/* ---- Boot screen ---------------------------------------------------------------------------- */
+/* ---- Boot screen ------------------------------------------------------------------------------
+   The first thing anyone sees: a station sign. Presenter, wordmark, star line, then the thin white rule
+   with the status line under it and a route line that fills from stop to stop. */
 
 #boot {
   position: fixed;
@@ -112,82 +149,124 @@ body {
 }
 
 .boot-inner {
-  width: min(440px, 100%);
-  /* Transit-plate motif: a thin white rule above the text. */
-  border-top: 2px solid var(--c-ink);
-  padding-top: 14px;
+  width: min(520px, 100%);
 }
 
 .boot-kicker {
   display: flex;
   align-items: center;
-  gap: 0.7em;
+  gap: 0.75em;
   color: var(--c-ink-dim);
   font: 600 12px/1 var(--font-ui);
-  letter-spacing: 0.22em;
+  letter-spacing: 0.26em;
   text-transform: uppercase;
 }
 
 .boot-kicker .ipx-mark {
-  color: var(--c-ink);
-  font-size: 15px;
-  letter-spacing: 0.04em;
+  font-size: 17px;
 }
 
 .boot-mark {
-  margin: 10px 0 22px;
+  margin: 14px 0 0 -0.02em;
   color: var(--c-ink);
-  /* Sized so the wordmark also fits when the condensed display face is blocked and a wide fallback steps in. */
-  font: 400 clamp(40px, 13vw, 62px) / 0.95 var(--font-display);
-  letter-spacing: 0.01em;
+  font: 400 clamp(52px, 20.5vw, 116px) / 0.92 var(--font-display);
+  letter-spacing: 0.012em;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
-#boot-msg {
-  min-height: 1.4em;
-  color: var(--c-ink-dim);
-  font: 500 13px/1.4 var(--font-ui);
-  letter-spacing: 0.04em;
+.boot-star {
+  margin: 12px 0 0;
+  color: var(--c-gold);
+  font: 700 13px/1 var(--font-ui);
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
 }
 
+.boot-status {
+  margin-top: 26px;
+  padding-top: 12px;
+  /* Transit-plate motif: a thin white rule above the text. */
+  border-top: 2px solid var(--c-ink);
+}
+
+#boot-msg {
+  min-height: 1.4em;
+  color: var(--c-ink);
+  font: 500 14px/1.4 var(--font-ui);
+  letter-spacing: 0.02em;
+}
+
+/* The route line: a dim track with a stop every tenth, the fill riding over it. */
 .boot-bar {
-  height: 3px;
-  margin-top: 10px;
+  position: relative;
+  height: 4px;
+  margin-top: 14px;
+  border-radius: 2px;
   background: var(--c-plate-edge);
+}
+
+.boot-bar::after {
+  content: '';
+  position: absolute;
+  inset: -3px 0;
+  background: repeating-linear-gradient(to right, var(--c-bg) 0 2px, transparent 2px 10%);
+  background-position: -1px 0;
+  pointer-events: none;
 }
 
 #boot-fill {
   width: 100%;
   height: 100%;
+  border-radius: 2px;
   background: var(--c-gold);
   transform: scaleX(0);
   transform-origin: 0 50%;
-  transition: transform 0.25s ease-out;
+  transition: transform 0.3s ease-out;
 }
 
-/* Fatal start-up error: the message stays, the bar goes. */
+.boot-note {
+  margin: 14px 0 0;
+  color: var(--c-ink-faint);
+  font: 400 12px/1.45 var(--font-ui);
+}
+
+/* Fatal start-up error: the message stays, the route line goes. */
 #boot.is-fatal #boot-msg {
-  color: var(--c-ink);
   font-size: 14px;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
   -webkit-user-select: text;
   user-select: text;
 }
 
-#boot.is-fatal .boot-inner {
+#boot.is-fatal .boot-status {
   border-top-color: var(--c-red);
 }
 
-#boot.is-fatal .boot-bar {
-  visibility: hidden;
+#boot.is-fatal .boot-bar,
+#boot.is-fatal .boot-note {
+  display: none;
 }
 
 /* Landscape phones: less height to work with. */
 @media (max-height: 420px) {
   .boot-mark {
-    margin: 6px 0 12px;
-    font-size: clamp(34px, 15vh, 52px);
+    margin-top: 8px;
+    font-size: clamp(44px, 24vh, 92px);
+  }
+
+  .boot-star {
+    margin-top: 8px;
+  }
+
+  .boot-status {
+    margin-top: 14px;
+    padding-top: 9px;
+  }
+
+  .boot-note {
+    display: none;
   }
 }
 

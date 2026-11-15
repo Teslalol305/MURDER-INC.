@@ -23,8 +23,9 @@
 // The page root carries the state for CSS: `data-device` (kbm | pad | touch), `data-look` (lock | drag),
 // the classes `is-touch` (touch scheme in use) and `in-play` (gameplay controls active).
 //
-// Beyond the first contract draft: input.menuNav() (gamepad menu signals) and input.setPrompt(on)
-// (an interaction prompt is showing: reveals the touch USE button and makes pad X mean Interact).
+// Beyond the first contract draft: input.menuNav() (gamepad menu signals), input.setPrompt(on) (an
+// interaction prompt is showing: reveals the touch USE button and makes pad X mean Interact) and
+// input.tap(action) (a one-frame press from the UI: a tap on a weapon slot of the HUD).
 // createInput(G, env) accepts stand-ins for window / document / navigator, which is how the unit tests
 // drive it without a browser.
 
@@ -180,6 +181,13 @@ export function createInput(G, env = {}) {
 
   const isHeld = (action) => held[action] > 0;
 
+  // Presses asked for by the UI (a tapped weapon slot). They wait for the next update, so a tap made
+  // late in a frame (from hud.update, after the weapon has run) is not wiped by endFrame() unread.
+  const taps = [];
+  function tap(action) {
+    if (typeof action === 'string' && action && taps.length < 16) taps.push(action);
+  }
+
   /* ----------------------------------------------------------------------------------- the API */
 
   let assist = 1; // aim slow-down computed here…
@@ -220,6 +228,7 @@ export function createInput(G, env = {}) {
     exitLock,
     setGameplay,
     setPrompt,
+    tap,
     glyph: (action) => GLYPHS[input.device][action] || '',
     hint,
     menuNav: () => menu,
@@ -321,6 +330,7 @@ export function createInput(G, env = {}) {
     } else {
       drop(everything);
       for (const action in pressedNow) if (action !== 'pause') pressedNow[action] = false;
+      taps.length = 0;
       dropTouches();
       latch = false;
       mouseX = mouseY = touchX = touchY = 0;
@@ -516,7 +526,8 @@ export function createInput(G, env = {}) {
   let layer = null; // #ui > .touch
   let stickEl = null;
   let nubEl = null;
-  const buttons = []; // {el, action, finger, x, y}
+  let pauseEl = null;
+  const buttons = []; // {el, id, action, finger, x, y}
   const toggled = Object.create(null); // toggle action → on
   let stickFinger = null;
   let stickX = 0; // anchor
@@ -525,6 +536,9 @@ export function createInput(G, env = {}) {
   let stickMoveX = 0; // output, −1…1
   let stickMoveY = 0;
   let stickSprint = false;
+  let runArmed = false; // the stick finger is up on the sprint-lock arrow: letting go there keeps running
+  let runLocked = false; // running forward with no finger on the stick
+  let runFinger = null; // a finger that went down on the arrow itself
   let lookFinger = null;
   let lookX = 0;
   let lookY = 0;
@@ -537,30 +551,53 @@ export function createInput(G, env = {}) {
     return el;
   }
 
+  /** A glyph from config/player.js as an inline SVG (line art in the current colour). */
+  function glyphOf(name) {
+    const icon = make('span', 'touch-glyph');
+    icon.setAttribute('aria-hidden', 'true');
+    icon.innerHTML = `<svg viewBox="0 0 32 32" focusable="false">${TUNING.touchGlyphs[name] || ''}</svg>`;
+    return icon;
+  }
+
   function buildTouch() {
     if (layer || !doc || !ui || typeof doc.createElement !== 'function') return;
     layer = make('div', 'touch');
     layer.hidden = true;
     if (promptOn) layer.classList.add('has-prompt');
 
+    // The move stick: a ring, a knob, and the sprint-lock arrow above them.
     stickEl = make('div', 'touch-stick');
-    stickEl.setAttribute('aria-hidden', 'true');
     nubEl = make('div', 'touch-stick-nub');
-    stickEl.append(make('div', 'touch-stick-ring'), nubEl);
+    const ring = make('div', 'touch-stick-ring');
+    ring.setAttribute('aria-hidden', 'true');
+    nubEl.setAttribute('aria-hidden', 'true');
+    const arrow = make('div', 'touch-sprint');
+    arrow.setAttribute('role', 'button');
+    arrow.setAttribute('aria-label', 'Sprint lock');
+    arrow.setAttribute('aria-pressed', 'false');
+    arrow.append(glyphOf('sprint'));
+    listen(arrow, 'touchstart', onArrowStart, { passive: false });
+    listen(arrow, 'touchend', onArrowEnd, { passive: false });
+    listen(arrow, 'touchcancel', onArrowEnd, { passive: false });
+    listen(arrow, 'contextmenu', (e) => e.preventDefault());
+    stickEl.append(ring, nubEl, arrow);
+    stickEl.arrow = arrow;
     layer.append(stickEl);
 
-    for (const [action, label, name] of TUNING.touchButtons) {
-      const el = make('div', `touch-btn touch-${action}`);
+    for (const [id, action, name, caption] of TUNING.touchButtons) {
+      const el = make('div', `touch-btn touch-${id}`);
       el.setAttribute('role', 'button');
       el.setAttribute('aria-label', name);
       if (TOGGLES[action]) el.setAttribute('aria-pressed', 'false');
-      if (label) {
+      el.append(glyphOf(action));
+      if (caption) {
         const text = make('span', 'touch-label');
-        text.textContent = label;
+        text.textContent = caption;
         el.append(text);
       }
-      const button = { el, action, finger: null, x: 0, y: 0 };
+      const button = { el, id, action, finger: null, x: 0, y: 0 };
       buttons.push(button);
+      if (id === 'pause') pauseEl = el;
       listen(el, 'touchstart', (e) => onButtonStart(e, button), { passive: false });
       listen(el, 'touchmove', (e) => onButtonMove(e, button), { passive: false });
       listen(el, 'touchend', (e) => onButtonEnd(e, button), { passive: false });
@@ -572,17 +609,38 @@ export function createInput(G, env = {}) {
     showTouch();
   }
 
+  /**
+   * A HUD that draws its own pause button (the v2 HUD has one beside the minimap) makes ours a double:
+   * it steps aside. The HUD says so with `data-hud-pause` on <html>, or simply by having a control
+   * labelled "Pause" somewhere under #ui.
+   */
+  function yieldPause() {
+    if (!pauseEl || !ui || typeof ui.querySelector !== 'function') return;
+    let theirs = !!(root && root.dataset && root.dataset.hudPause !== undefined);
+    if (!theirs) {
+      try {
+        theirs = !!ui.querySelector(':scope > :not(.touch) [aria-label="Pause" i], :scope > :not(.touch) [data-action="pause"]');
+      } catch {
+        theirs = false; // a selector this browser does not know: ours stays
+      }
+    }
+    if (layer.classList) layer.classList.toggle('no-pause', theirs);
+  }
+
   /** The overlay shows only while gameplay controls are active and touch is the device in use. */
   function showTouch() {
-    if (layer) layer.hidden = !(gameplay && input.touch && input.device === 'touch');
+    if (!layer) return;
+    const show = gameplay && input.touch && input.device === 'touch';
+    if (show && layer.hidden) yieldPause();
+    layer.hidden = !show;
   }
 
   function setLatched(button, on) {
     toggled[button.action] = on;
     if (button.el.classList) button.el.classList.toggle('is-latched', on);
     button.el.setAttribute('aria-pressed', on ? 'true' : 'false');
-    if (on) press(`touch:${button.action}`, button.action);
-    else release(`touch:${button.action}`);
+    if (on) press(`touch:${button.id}`, button.action);
+    else release(`touch:${button.id}`);
   }
 
   function onButtonStart(e, button) {
@@ -595,7 +653,7 @@ export function createInput(G, env = {}) {
     button.y = t.clientY;
     if (button.el.classList) button.el.classList.add('is-on');
     if (TOGGLES[button.action]) setLatched(button, !toggled[button.action]);
-    else press(`touch:${button.action}`, button.action);
+    else press(`touch:${button.id}`, button.action);
   }
 
   function onButtonMove(e, button) {
@@ -622,7 +680,7 @@ export function createInput(G, env = {}) {
       if (e.changedTouches[i].identifier !== button.finger) continue;
       button.finger = null;
       if (button.el.classList) button.el.classList.remove('is-on');
-      if (!TOGGLES[button.action]) release(`touch:${button.action}`);
+      if (!TOGGLES[button.action]) release(`touch:${button.id}`);
     }
   }
 
@@ -638,10 +696,40 @@ export function createInput(G, env = {}) {
     if (stickEl && stickEl.classList) stickEl.classList.toggle('is-sprint', on);
   }
 
+  function setRunArmed(on) {
+    if (on === runArmed) return;
+    runArmed = on;
+    if (stickEl && stickEl.classList) stickEl.classList.toggle('is-armed', on);
+  }
+
+  /** Sprint lock: Rule keeps running forward with no finger on the stick. */
+  function setRunLocked(on) {
+    if (on === runLocked) return;
+    runLocked = on;
+    if (on) {
+      stickMoveX = 0;
+      stickMoveY = 1;
+      placeStick(0, -stickRadius);
+    } else if (stickFinger === null) {
+      stickMoveX = stickMoveY = 0;
+      placeStick(0, 0);
+    }
+    setStickSprint(on || (stickFinger !== null && stickSprint));
+    if (stickEl) {
+      if (stickEl.classList) stickEl.classList.toggle('is-locked', on);
+      if (stickEl.arrow) stickEl.arrow.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+
   function moveStick(x, y) {
     let dx = (x - stickX) / stickRadius;
     let dy = (y - stickY) / stickRadius;
     const m = Math.sqrt(dx * dx + dy * dy);
+    // Dragged on past the ring, up onto the arrow: sprint lock is armed (and stays armed until the
+    // thumb has come most of the way back).
+    const L = T.touchSprintLock;
+    const reach = runArmed ? L.reach * L.keep : L.reach;
+    setRunArmed(-dy > reach && Math.abs(dx) < L.side);
     if (m > 1) {
       dx /= m;
       dy /= m;
@@ -653,20 +741,54 @@ export function createInput(G, env = {}) {
     setStickSprint(Math.min(1, m) > T.touchSprint.magnitude && stickMoveY > T.touchSprint.forward);
   }
 
-  function dropStick() {
+  /** The stick's finger is gone. Lifted off the arrow, the run goes on; otherwise everything stops. */
+  function dropStick(lock = false) {
     stickFinger = null;
-    stickMoveX = stickMoveY = 0;
-    setStickSprint(false);
+    const keep = lock && runArmed && gameplay;
+    setRunArmed(false);
     if (stickEl) {
       if (stickEl.classList) stickEl.classList.remove('is-active');
       if (stickEl.style) stickEl.style.left = stickEl.style.top = stickEl.style.bottom = '';
+      // Back at rest the ring has its resting size again.
+      stickRadius = stickEl.offsetWidth > 0 ? stickEl.offsetWidth / 2 : T.touchStickRadius;
     }
+    if (keep) {
+      runLocked = false; // (re-enter, so the knob is placed for the resting ring)
+      setRunLocked(true);
+      return;
+    }
+    runLocked = false;
+    if (stickEl) {
+      if (stickEl.classList) stickEl.classList.remove('is-locked');
+      if (stickEl.arrow) stickEl.arrow.setAttribute('aria-pressed', 'false');
+    }
+    stickMoveX = stickMoveY = 0;
+    setStickSprint(false);
     placeStick(0, 0);
+  }
+
+  /** A tap on the arrow itself switches the sprint lock on and off. */
+  function onArrowStart(e) {
+    lastTouch = seconds();
+    if (e.cancelable !== false) e.preventDefault();
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+    if (!gameplay || runFinger !== null || stickFinger !== null || !e.changedTouches || !e.changedTouches.length) return;
+    runFinger = e.changedTouches[0].identifier;
+    setRunLocked(!runLocked);
+  }
+
+  function onArrowEnd(e) {
+    lastTouch = seconds();
+    if (e.cancelable !== false) e.preventDefault();
+    for (let i = 0; e.changedTouches && i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === runFinger) runFinger = null;
+    }
   }
 
   /** Lets go of every finger and every latch (gameplay off, focus lost, another device took over). */
   function dropTouches() {
     dropStick();
+    runFinger = null;
     lookFinger = null;
     touchX = touchY = 0;
     for (const button of buttons) {
@@ -690,7 +812,8 @@ export function createInput(G, env = {}) {
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
       if (stickFinger === null && t.clientX < width * T.touchStickZone) {
-        // The left thumb, anywhere on its side: the stick appears under it.
+        // The left thumb, anywhere on its side: the stick appears under it (and takes a locked run back).
+        if (runLocked) setRunLocked(false);
         stickFinger = t.identifier;
         stickX = t.clientX;
         stickY = t.clientY;
@@ -734,7 +857,7 @@ export function createInput(G, env = {}) {
     lastTouch = seconds();
     for (let i = 0; i < e.changedTouches.length; i++) {
       const id = e.changedTouches[i].identifier;
-      if (id === stickFinger) dropStick();
+      if (id === stickFinger) dropStick(e.type !== 'touchcancel');
       else if (id === lookFinger) lookFinger = null;
     }
   }
@@ -974,6 +1097,8 @@ export function createInput(G, env = {}) {
   function update(dt) {
     if (!(dt > 0)) dt = 0;
     tapHud();
+    for (let i = 0; i < taps.length; i++) pulse(taps[i]);
+    taps.length = 0;
     pollPad(dt);
     updateAssist(dt);
 

@@ -12,10 +12,13 @@
 //
 // Conventions
 // - Geometry UVs are in metres (core/geo.js) and tiling materials repeat at their own real size.
-// - Everything that returns {material, w, h} is one painting for a quad of w × h metres whose UVs run
-//   0 … 1 across it (as the stub has it). Where such a texture repeats (`map.wrapS / wrapT` is
-//   RepeatWrapping: road paint, the bars of a crossing) that direction takes metre UVs instead, so one
-//   quad can be any length.
+// - sign / poster / graffiti / decal return {material, w, h, uv}: a painting for a quad of w × h metres
+//   that lives on a shared atlas page (src/mats/atlas.js). `uv` = [u0, v0, u1, v1] is its rectangle on
+//   the page: map the quad's corners into it. `material` is shared by everything of the same class on
+//   the same page (lit signs, neon, clear overlays), so the block merges into a handful of meshes.
+//   Road paint is the exception: `lane`, `lane_yellow` and `crosswalk` keep a material of their own
+//   whose texture repeats (`map.wrapS / wrapT` is RepeatWrapping) and come back without `uv`: the
+//   repeating direction takes metre UVs, so one quad can be any length.
 // - Every material built here carries the same five texture slots (albedo, normal, roughness/metalness,
 //   emissive), filled with 1 × 1 stand-ins where a look does not need them. That keeps the whole block
 //   on a handful of shader programs instead of one per combination.
@@ -24,6 +27,7 @@
 // - Texture size follows the quality tier at boot: test 256, low 512, otherwise 1024 (`?tex=` overrides).
 
 import * as THREE from 'three';
+import { createAtlas } from './mats/atlas.js';
 import { canvas2d, createBank, dropScratch, makeTexture, pixelTexture, toHex } from './mats/canvas.js';
 import { DECALS, createDecalPainter } from './mats/decals.js';
 import { paintFacade } from './mats/facade.js';
@@ -259,7 +263,15 @@ export async function createMats(G) {
     const gloss = look.gloss ? surface(look.gloss) : set;
     const orm = gloss ? gloss.orm : null;
     const material = standard({ map: skin && skin.map, normalMap: relief && relief.normal, orm, emissiveMap: extra && extra.emissiveMap });
-    tint(material.color, o.color !== undefined ? toHex(o.color, def.color) : def.color, skin ? skin.mean : WHITE);
+    if (o.tint === 'vertex') {
+      // The colour comes from the geometry: the material only cancels the painting's own average,
+      // so a vertex colour is the colour the surface ends up with.
+      const mean = skin ? skin.mean : WHITE;
+      material.color.setRGB(Math.min(8, 1 / Math.max(mean[0], 0.004)), Math.min(8, 1 / Math.max(mean[1], 0.004)), Math.min(8, 1 / Math.max(mean[2], 0.004)));
+      material.vertexColors = true;
+    } else {
+      tint(material.color, o.color !== undefined ? toHex(o.color, def.color) : def.color, skin ? skin.mean : WHITE);
+    }
     // A painted roughness map holds absolute values around the set's own level: scale, do not replace.
     material.roughness = (o.roughness ?? def.roughness ?? 0.8) / (orm ? gloss.spec.rough : 1);
     material.metalness = o.metalness ?? def.metalness ?? 0;
@@ -292,7 +304,12 @@ export async function createMats(G) {
       fence = { map, uniforms: { miWire: { value: new THREE.Vector3(px.size, (px.size / 8) * 0.085, 1.15) } } };
     }
     const material = standard({ map: fence.map });
-    tint(material.color, o.color !== undefined ? toHex(o.color, def.color) : def.color, [0.55, 0.57, 0.6]);
+    if (o.tint === 'vertex') {
+      material.color.setRGB(1 / 0.55, 1 / 0.57, 1 / 0.6);
+      material.vertexColors = true;
+    } else {
+      tint(material.color, o.color !== undefined ? toHex(o.color, def.color) : def.color, [0.55, 0.57, 0.6]);
+    }
     material.roughness = o.roughness ?? def.roughness ?? 0.6;
     // Thin wire has little to mirror at night: half metal, so lamps still light it.
     material.metalness = o.metalness ?? Math.min(def.metalness ?? 0.8, 0.5);

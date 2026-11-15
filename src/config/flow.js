@@ -15,6 +15,8 @@ export const timing = {
   pauseDebounce: 0.35,
   deathCard: 1.5, // seconds after death
   debriefCard: 3.3, // seconds after reaching the truck
+  lookHintEvery: 6, // desktop, mouse not captured: the look-mode hint comes back this often…
+  lookHintSecs: 2.6, // …and stays this long
 };
 
 /** Screen treatment the game eases render.post toward: [target, rate]. */
@@ -30,6 +32,8 @@ export const titleCamera = {
   fov: 50,
   fadeIn: 1.8,
   fadeOut: 1.6,
+  ease: 0.25, // progress along the loop = ease × smoothstep + (1 − ease) × linear
+  sway: { rate: 0.42, side: 0.07, lift: 0.04, roll: 0.005 }, // a hand-held breath: rad/s, metres, metres, radians
 };
 
 /** Holding Interact on a master reel. The player stays free to move and can be shot. */
@@ -69,6 +73,9 @@ export const spawn = {
   jitter: 1.2, // ± on x and z (ground points only if still walkable)
   airMinHeight: 2.5, // Buzzards spawned lower are lifted into…
   airLift: [6, 9],
+  eyeHeight: 1.6, // sightline checks run from this high above the player's feet…
+  probeHeight: 1.2, // …to this high above a ground point
+  tooClose: 9, // a ground point picked earlier is swapped for a fresh one if the player now stands this near
   capRetry: 1, // a due spawn waits this long while the alive cap is reached
   poolRetry: 1.5, // and this long when the pool refused it…
   poolTries: 6, // …this many times before it is dropped
@@ -137,6 +144,8 @@ export const holdout = {
   countdownFrom: 3, // "Wave N in 3 / 2 / 1" during the last seconds of a breather
   firstSpawn: 1.2, // first member after the wave starts
   bannerSecs: 3.6, // "Wave N — EAST"
+  realertEvery: 5, // once a wave is all out, stragglers are pointed at the player this often…
+  realertRadius: 90, // …so a wave never stalls on someone who lost the trail
   total: (n) => Math.min(5 + 2 * n, 30),
   buzzardShare: (n) => Math.max(0.25, 0.45 - 0.02 * n),
   stagger: (n) => Math.max(0.35, 0.9 - 0.04 * n),
@@ -212,4 +221,5 @@ export const pacing = {
   radioCharsPerSec: 58,
   objectiveCharsPerSec: 46,
   countdownSecs: 1,
+  radioGap: 0.3, // silence between two queued radio lines
 };

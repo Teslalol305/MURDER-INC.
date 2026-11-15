@@ -44,8 +44,9 @@ export function createViewmodel(G) {
       return fallback;
     }
   };
-  const environment = buildEnvironment(G.renderer);
-  const material = createViewMaterial(environment);
+  const LIGHT = common.light;
+  const environments = { night: buildEnvironment(G.renderer, 'night'), day: buildEnvironment(G.renderer, 'day') };
+  const material = createViewMaterial(environments.night);
 
   // ---------------------------------------------------------------------------------------------
   // Rig
@@ -96,11 +97,11 @@ export function createViewmodel(G) {
   })();
   gunPivot.add(flash);
 
-  // Lights. Render owns a world-space key and ambient; these make the gun read at night:
+  // Lights. Render owns a world-space key and ambient; these make the gun read against the street:
   //   fill   camera space, cool: the faces turned toward the player are never black
-  //   rim    world space, coloured by the street lamps around the player
+  //   rim    world space: by night coloured by the street lamps around the player, by day the sun
   //   burst  at the muzzle, lit for the length of the flash
-  const fill = new THREE.DirectionalLight(0xc8d4ff, 0.4);
+  const fill = new THREE.DirectionalLight(0xc8d4ff, LIGHT.night.fill);
   fill.position.set(-0.7, 0.55, 0.9);
   fill.target.position.set(0.1, -0.12, -0.4);
   rig.add(fill, fill.target);
@@ -154,6 +155,8 @@ export function createViewmodel(G) {
   const lampGoal = new THREE.Color(0xffb45e);
   const lampGoalDir = lampDir.clone();
   let lampGoalPower = 0.3;
+  let daylight = null; // true / false once the first look at the sky has been taken
+  let envPower = LIGHT.night.env;
   const tint = new THREE.Color();
   let inspect = null;
   let backdrop = null;
@@ -280,39 +283,63 @@ export function createViewmodel(G) {
     for (let c = 0; c < 6; c++) strike[c] = a[c + 1] + (b[c + 1] - a[c + 1]) * k;
   }
 
-  function updateLamps(dt) {
+  /** Is the block in daylight? (atmos says; a build without a day rig is night.) */
+  const isDay = () => !!G.atmos && G.atmos.time === 'day';
+
+  /** The light on the gun follows the street: the lamps around the player by night, the sun by day. */
+  function updateLight(dt) {
     lampTimer -= dt;
-    const lamps = G.level && G.level.lamps;
-    if (lampTimer <= 0 && lamps) {
+    if (lampTimer <= 0) {
       lampTimer = LAMP_EVERY;
-      const eye = G.camera.position;
-      let r = 0;
-      let g = 0;
-      let b = 0;
-      let total = 0;
-      v1.set(0, 0, 0);
-      for (let i = 0; i < lamps.length; i++) {
-        const lamp = lamps[i];
-        const d = lamp.pos.distanceTo(eye);
-        const reach = (lamp.range || 10) * 1.4;
-        if (d >= reach) continue;
-        const fall = 1 - d / reach;
-        const w = (lamp.intensity || 10) * fall * fall;
-        tint.set(lamp.color);
-        r += tint.r * w;
-        g += tint.g * w;
-        b += tint.b * w;
-        total += w;
-        v1.addScaledVector(v0.subVectors(lamp.pos, eye).normalize(), w);
+      const day = isDay();
+      if (day !== daylight) {
+        daylight = day;
+        material.envMap = day ? environments.day : environments.night;
+        fill.intensity = day ? LIGHT.day.fill : LIGHT.night.fill;
       }
-      if (total > 0) {
-        lampGoal.setRGB(r / total, g / total, b / total);
-        lampGoalPower = clamp01(total / 30);
+      const sun = day ? G.atmos.sun : null;
+      const lamps = G.level && G.level.lamps;
+      if (sun && sun.isLight) {
+        // Daylight: one hard key from where the sun is, as strong as the street gets it.
+        const scale = sun.intensity / LIGHT.day.sunRef;
+        lampGoal.copy(sun.color);
+        lampGoalPower = LIGHT.day.sun * sun.intensity;
+        envPower = LIGHT.day.env * clamp(scale, 0.4, 2.5);
+        v1.copy(sun.position);
+        if (sun.target) v1.sub(sun.target.position);
         if (v1.lengthSq() > 1e-6) lampGoalDir.copy(v1).normalize();
       } else {
-        lampGoal.set(0x8fa4cc); // nothing near: moonlit
-        lampGoalPower = 0.12;
-        lampGoalDir.set(0.2, 1, 0.1).normalize();
+        envPower = day ? LIGHT.day.env : LIGHT.night.env;
+        const eye = G.camera.position;
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        let total = 0;
+        v1.set(0, 0, 0);
+        for (let i = 0; lamps && i < lamps.length; i++) {
+          const lamp = lamps[i];
+          const d = lamp.pos.distanceTo(eye);
+          const reach = (lamp.range || 10) * 1.4;
+          if (d >= reach) continue;
+          const fall = 1 - d / reach;
+          const w = (lamp.intensity || 10) * fall * fall;
+          tint.set(lamp.color);
+          r += tint.r * w;
+          g += tint.g * w;
+          b += tint.b * w;
+          total += w;
+          v1.addScaledVector(v0.subVectors(lamp.pos, eye).normalize(), w);
+        }
+        const [floor, gain] = LIGHT.night.rim;
+        if (total > 0) {
+          lampGoal.setRGB(r / total, g / total, b / total);
+          lampGoalPower = floor + gain * clamp01(total / 30);
+          if (v1.lengthSq() > 1e-6) lampGoalDir.copy(v1).normalize();
+        } else {
+          lampGoal.set(0x8fa4cc); // nothing near: moonlit
+          lampGoalPower = floor + gain * 0.12;
+          lampGoalDir.set(0.2, 1, 0.1).normalize();
+        }
       }
     }
     const k = 1 - Math.exp(-4 * dt);
@@ -320,8 +347,9 @@ export function createViewmodel(G) {
     lampPower += (lampGoalPower - lampPower) * k;
     lampDir.lerp(lampGoalDir, k).normalize();
     rim.color.copy(lampColor);
-    rim.intensity = 0.12 + 1.3 * lampPower;
+    rim.intensity = lampPower;
     rim.position.copy(lampDir);
+    material.envMapIntensity += (envPower - material.envMapIntensity) * k;
   }
 
   function updateFlash(dt, anim) {
@@ -427,7 +455,7 @@ export function createViewmodel(G) {
     const hip = gun.poses.hip[viewIndex] || gun.poses.hip[0];
     pos.copy(hip.pos);
     quat.copy(hip.quat);
-    if (inspect) {
+    if (inspect && !inspect.live) {
       pos.set(inspect.x || 0, inspect.y || 0, -(inspect.dist || 0.6));
       quat.setFromEuler(e0.set(inspect.pitch || 0, inspect.yaw || 0, inspect.roll || 0, 'YXZ'));
     } else {
@@ -583,7 +611,7 @@ export function createViewmodel(G) {
     arms.update();
 
     updateFlash(dt, anim);
-    updateLamps(dt);
+    updateLight(dt);
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -718,11 +746,22 @@ export function createViewmodel(G) {
       inspect = spec || null;
       const want = !!(spec && spec.backdrop);
       if (want && !backdrop) {
-        backdrop = new THREE.Mesh(new THREE.PlaneGeometry(8, 5), new THREE.MeshBasicMaterial({ color: 0x3b3f46 }));
+        // A card behind the gun: studio grey, or (backdrop: 'day') a sunlit street in three bands.
+        const geometry = new THREE.PlaneGeometry(8, 5, 1, 4);
+        geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(30), 3));
+        backdrop = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ vertexColors: true }));
         backdrop.position.z = -2.5;
         rig.add(backdrop);
       }
-      if (backdrop) backdrop.visible = want;
+      if (backdrop) {
+        backdrop.visible = want;
+        const rows = spec && spec.backdrop === 'day'
+          ? [[0.16, 0.36, 0.86], [0.42, 0.62, 0.95], [0.78, 0.74, 0.66], [0.44, 0.42, 0.4], [0.3, 0.29, 0.28]]
+          : [[0.045, 0.05, 0.06], [0.045, 0.05, 0.06], [0.045, 0.05, 0.06], [0.045, 0.05, 0.06], [0.045, 0.05, 0.06]];
+        const color = backdrop.geometry.getAttribute('color');
+        for (let i = 0; i < 10; i++) color.setXYZ(i, ...rows[i >> 1]);
+        color.needsUpdate = true;
+      }
     },
     update,
   };

@@ -165,6 +165,9 @@ export const input = {
   touchStickRadius: 58,
   touchStickZone: 0.45, // left share of the screen where a touch anchors the move stick
   touchSprint: { magnitude: 0.93, forward: 0.8 },
+  // Sprint lock: the stick thumb dragged this many ring radii straight up (the arrow sits at 1.66) arms it,
+  // stays armed down to reach × keep, and must not be further than `side` radii off to either side.
+  touchSprintLock: { reach: 1.45, keep: 0.85, side: 0.6 },
   touchQuiet: 0.8, // seconds after a touch during which mouse events are ignored (synthetic clicks)
   keyYaw: 2.1, // rad/s, not scaled by sensitivity
   keyPitch: 1.26,
@@ -307,18 +310,62 @@ export const glyphs = {
   layoutCodes: { crouch: 'KeyC', reload: 'KeyR', interact: 'KeyE', swap: 'KeyQ', melee: 'KeyF' },
 };
 
-/** On-screen buttons: [action, label, spoken name]. Sizes and places are in src/input.css. */
+/**
+ * On-screen buttons: [id, action, spoken name, caption]. The id names the element (`.touch-<id>`), its
+ * glyph in `touchGlyphs` and its held source; `fire2` is the second, smaller trigger on the left for
+ * players who aim with the right thumb. Sizes and places are in src/input.css.
+ */
 export const touchButtons = [
-  ['fire', 'FIRE', 'Fire'],
-  ['ads', 'AIM', 'Aim'],
-  ['jump', 'JUMP', 'Jump'],
-  ['reload', 'RLD', 'Reload'],
-  ['swap', 'SWAP', 'Swap weapon'],
-  ['melee', 'HIT', 'Melee strike'],
-  ['crouch', 'DUCK', 'Crouch'],
-  ['interact', 'USE', 'Use'],
-  ['pause', '', 'Pause'],
+  ['fire', 'fire', 'Fire', ''],
+  ['fire2', 'fire', 'Fire (left thumb)', ''],
+  ['ads', 'ads', 'Aim', ''],
+  ['jump', 'jump', 'Jump', ''],
+  ['crouch', 'crouch', 'Crouch', ''],
+  ['reload', 'reload', 'Reload', ''],
+  ['swap', 'swap', 'Swap weapon', ''],
+  ['melee', 'melee', 'Melee strike', ''],
+  ['interact', 'interact', 'Use', 'USE'],
+  ['pause', 'pause', 'Pause', ''],
 ];
+
+/**
+ * The glyphs on the touch controls: the inside of a 32 × 32 SVG, drawn for this game as white line art
+ * (stroke = currentColor, round caps; `class="fill"` marks the few solid shapes). `sprint` is the
+ * sprint-lock arrow above the move stick.
+ */
+export const touchGlyphs = {
+  // A cartridge, nose up and to the right.
+  fire:
+    '<g transform="rotate(42 16 16)"><path d="M12 26.5V13.5C12 8.6 14.4 5.2 16 3.4c1.6 1.8 4 5.2 4 10.1v13z"/>' +
+    '<path d="M12 14.5h8M12 22.5h8M10.6 26.5h10.8"/></g>',
+  // A reticle: ring, four ticks, a dot.
+  ads: '<circle cx="16" cy="16" r="8.2"/><path d="M16 2.8v6.4M16 22.8v6.4M2.8 16h6.4M22.8 16h6.4"/><circle class="fill" cx="16" cy="16" r="1.5"/>',
+  // A figure in mid-leap, arms thrown up, over a mark on the ground.
+  jump:
+    '<circle cx="16" cy="5.4" r="2.7"/><path d="M16 9.8v7.4M16 11.6l-6-4.8M16 11.6l6-4.8"/>' +
+    '<path d="M16 17.2l-4.8 2.8 1.6 4.6M16 17.2l4.8 2.8-1.6 4.6"/><path d="M9.5 29.2h13"/>',
+  // A figure down on one knee.
+  crouch:
+    '<circle cx="20" cy="9.8" r="2.7"/><path d="M18.2 13.8l-6.8 5.8M17 15l5.6 3.4"/>' +
+    '<path d="M11.4 19.6l7.6 1.6-3.4 6.2M11.4 19.6l-2.4 7.6"/><path d="M5.5 29.4h21"/>',
+  // A curved box magazine with a round showing at its lips.
+  reload:
+    '<path d="M10.2 7.2h9.4l3.6 16.6c.3 1.3-.5 2.4-1.8 2.7l-6 1.3c-1.3.3-2.5-.6-2.8-1.9z"/>' +
+    '<path d="M11.6 13.2l9.3-1.2M12.9 19.2l9.3-1.6M11 3.6h7.4"/>',
+  // Two arrows passing each other.
+  swap: '<path d="M6.5 11h18M19.4 6l5.6 5-5.6 5M25.5 21h-18M12.6 16l-5.6 5 5.6 5"/>',
+  // A closed fist, knuckles up.
+  melee:
+    '<path d="M7.6 17.4v-6a2.1 2.1 0 014.2 0V9.6a2.1 2.1 0 014.2 0 2.1 2.1 0 014.2 0v1.8a2.1 2.1 0 014.2 0v8.4' +
+    'c0 4-2.8 6.8-6.8 6.8h-3.2c-3.8 0-6.8-2.6-6.8-6.4z"/><path d="M11.8 11.4v4.6M16 9.6v6.4M20.2 9.6v6.4"/>' +
+    '<path d="M7.6 16.8h10.2a2.3 2.3 0 010 4.6h-4"/>',
+  // A master reel: flange, hub, three windows.
+  interact:
+    '<circle cx="16" cy="16" r="11.6"/><circle cx="16" cy="16" r="2.2"/>' +
+    '<circle cx="16" cy="9.2" r="2.5"/><circle cx="10.1" cy="19.4" r="2.5"/><circle cx="21.9" cy="19.4" r="2.5"/>',
+  pause: '<path class="fill" d="M10.5 8.5h3.6v15h-3.6zM17.9 8.5h3.6v15h-3.6z"/>',
+  sprint: '<path d="M8.5 16.5l7.5-7.5 7.5 7.5M8.5 24.5l7.5-7.5 7.5 7.5"/>',
+};
 
 /** input.hint(): one line about how looking works right now (pause card, look-mode toasts). */
 export const hints = {

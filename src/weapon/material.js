@@ -1,5 +1,6 @@
 // The viewmodel's look: one physically based material for both guns and the arms, its own small
-// environment so steel and gold have something to catch at night, and the muzzle-flash shader.
+// environments (day and night) so steel and gold always have something to catch, and the muzzle-flash
+// shader.
 //
 // The material is a MeshStandardMaterial that reads its surface from vertex attributes (build.js):
 //   color   albedo
@@ -93,21 +94,24 @@ export function createViewMaterial(environment) {
 }
 
 /**
- * A night-street light box for the viewmodel only: dark sky, a warm sodium panel overhead, a cool
- * panel behind the shoulder, thin neon strips at eye level. Reflections are what make blued steel,
- * brushed steel and gold read at 2 AM; the world's own sky is too dark to do it.
+ * A light box for the viewmodel only. Reflections are what make blued steel, brushed steel and gold
+ * read, and the gun needs them whatever the world's own sky is doing.
+ *   night  dark sky, a warm sodium panel overhead, a cool panel behind the shoulder, thin neon strips
+ *   day    blue sky over a bright haze line, the sun, sunlit pavement below, brick on one side and the
+ *          dark girders of the El overhead (hard dark bands in a bright sky are what polished steel shows)
  */
-export function buildEnvironment(renderer) {
+export function buildEnvironment(renderer, time = 'night') {
+  const day = time === 'day';
   const scene = new THREE.Scene();
   const dome = new THREE.SphereGeometry(30, 24, 12);
   const colors = new Float32Array(dome.attributes.position.count * 3);
-  const top = new THREE.Color(0x0b1326).multiplyScalar(1.6);
-  const rim = new THREE.Color(0x3a2a30).multiplyScalar(1.5);
-  const floor = new THREE.Color(0x1a1410);
+  const top = day ? new THREE.Color(0.2, 0.42, 0.95).multiplyScalar(1.5) : new THREE.Color(0x0b1326).multiplyScalar(1.6);
+  const rim = day ? new THREE.Color(0.78, 0.86, 1).multiplyScalar(2.1) : new THREE.Color(0x3a2a30).multiplyScalar(1.5);
+  const floor = day ? new THREE.Color(0.5, 0.46, 0.41).multiplyScalar(0.95) : new THREE.Color(0x1a1410);
   const tint = new THREE.Color();
   for (let i = 0; i < colors.length / 3; i++) {
     const h = dome.attributes.position.getY(i) / 30;
-    if (h >= 0) tint.lerpColors(rim, top, Math.min(1, h * 2.2));
+    if (h >= 0) tint.lerpColors(rim, top, Math.min(1, h * (day ? 1.5 : 2.2)));
     else tint.lerpColors(rim, floor, Math.min(1, -h * 4));
     tint.toArray(colors, i * 3);
   }
@@ -126,12 +130,20 @@ export function buildEnvironment(renderer) {
     scene.add(mesh);
     made.push(geo, mat);
   };
-  panel(0xffb45e, 18, [3, 16, -6], 9, 5); // sodium lamp, ahead and above
-  panel(0xffc890, 8, [-12, 12, 8], 8, 8); // a second lamp behind the left shoulder
-  panel(0x9fc0ff, 4, [-16, 6, -4], 10, 12); // cool sky fill from the left
-  panel(0xff3d9a, 2.5, [18, 2, -10], 1.2, 8); // neon, right
-  panel(0x35e0ff, 2.5, [-10, 1.5, -18], 10, 1.0); // neon, far left ahead
-  panel(0xf6c21a, 3, [8, 3, 16], 6, 2.5); // taxi-yellow shop light behind
+  if (day) {
+    panel(0xfff1d6, 42, [7, 20, 6], 5, 5); // the sun, high and a little behind the right shoulder
+    panel(0xffffff, 3.2, [-14, 9, -12], 9, 5); // a bright cumulus
+    panel(0x8a3b2a, 0.9, [22, 5, -3], 30, 16); // sunlit brick, right
+    panel(0x2a2d33, 0.5, [-22, 4, 4], 26, 12); // a shaded facade, left
+    for (const z of [-11, -2, 7]) panel(0x14161a, 0.6, [0, 17, z], 44, 1.7); // El girders across the sky
+  } else {
+    panel(0xffb45e, 18, [3, 16, -6], 9, 5); // sodium lamp, ahead and above
+    panel(0xffc890, 8, [-12, 12, 8], 8, 8); // a second lamp behind the left shoulder
+    panel(0x9fc0ff, 4, [-16, 6, -4], 10, 12); // cool sky fill from the left
+    panel(0xff3d9a, 2.5, [18, 2, -10], 1.2, 8); // neon, right
+    panel(0x35e0ff, 2.5, [-10, 1.5, -18], 10, 1.0); // neon, far left ahead
+    panel(0xf6c21a, 3, [8, 3, 16], 6, 2.5); // taxi-yellow shop light behind
+  }
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   const target = pmrem.fromScene(scene, 0.035);

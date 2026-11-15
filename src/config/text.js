@@ -4,7 +4,7 @@
 // Tone: confident, dry, New York. Short sentences.
 
 export const title = {
-  eyebrow: 'IPX PRESENTS · HOLLIS, QUEENS · 02:14 AM',
+  eyebrow: 'IPX PRESENTS · HOLLIS, QUEENS',
   wordmark: 'MURDER INC.',
   star: 'STARRING JA RULE',
   premise: 'The Vultures jacked three master reels. Take the block back. Get them to the truck.',
@@ -14,11 +14,33 @@ export const title = {
   controls: 'Controls',
 };
 
-/** Intro location card: two lines. */
+/**
+ * Intro location card: two lines. The first depends on the `time` setting: the game picks it on every
+ * run reset, writes it to `place` and also hands `{place, tagline}` to `menus.locationCard(true, data)`.
+ */
 export const location = {
-  place: 'Hollis, Queens · Jamaica Ave · 02:14 AM',
+  place: 'Hollis, Queens · Jamaica Ave · 4:15 PM',
   tagline: 'Three reels. One block. No backup.',
+  byTime: {
+    day: 'Hollis, Queens · Jamaica Ave · 4:15 PM',
+    night: 'Hollis, Queens · Jamaica Ave · 02:14 AM',
+  },
 };
+
+/**
+ * Zone display names for the band under the minimap, by `level.zoneAt()` id. The lot zone is two places:
+ * the court north of the avenue and the parking lot south of it (see `zoneName`).
+ */
+export const zones = {
+  west: 'WEST END',
+  avenue: 'THE AVENUE',
+  shop: 'CHOP SHOP',
+  lot: 'THE LOT',
+  cage: 'THE CAGE',
+};
+
+/** Display name of the zone `id` for a point at depth `z` (north is −Z): the lot zone north of the avenue is The Cage. */
+export const zoneName = (id, z = 0) => (id === 'lot' && z < -7 ? zones.cage : zones[id] || zones.avenue);
 
 export const modes = {
   mission: {
@@ -90,6 +112,12 @@ export const prompts = {
 
 /** 8-way compass sectors, clockwise from north (north = −Z, east = +X). */
 export const compass = ['NORTH', 'NORTH-EAST', 'EAST', 'SOUTH-EAST', 'SOUTH', 'SOUTH-WEST', 'WEST', 'NORTH-WEST'];
+
+/** Notes shown next to settings. */
+export const notes = {
+  difficulty: 'Difficulty applies to Vultures that arrive from now on.',
+  time: 'Time of day changes when the next run starts.',
+};
 
 export const banners = {
   contact: (dir) => `Contact — ${dir}`,
@@ -166,7 +194,7 @@ export const boot = {
   fx: 'Loading tracers and smoke',
   weapon: 'Racking the Chopper',
   enemies: 'Waking the Vultures',
-  wait: 'Waiting on the 2 AM train',
+  wait: 'Waiting on the next train',
   ready: 'Ready',
   fatal: (error) => `Murder Inc. could not start: ${error}`,
 };
