@@ -71,7 +71,7 @@ module.exports = async (page, h) => {
   await frame(goon, 'goon-telegraph', 3, 1.4, 0.3);
   if (!(await waitFor(goon, "e.sub === 'burst'", 60))) throw new Error('no burst after the telegraph');
   await h.skip(2);
-  await frame(goon, 'goon-burst', 2.4, -2.2, 0.2);
+  await frame(goon, 'goon-burst', 3.2, -2.4, 1.1);
 
   // The rush: the player walks up to 2.5 m.
   await h.eval((i) => {
@@ -81,7 +81,7 @@ module.exports = async (page, h) => {
   }, goon);
   if (!(await waitFor(goon, "e.sub === 'windup' || e.sub === 'lunge'", 300))) throw new Error('no rush at 2.4 m');
   await h.skip(4);
-  await frame(goon, 'goon-rush', 1.2, 3.2, 0.3);
+  await frame(goon, 'goon-rush', 1.4, 3.4, 1.4);
 
   // A Buzzard: telegraph (eye) and the volley.
   await h.eval(() => {

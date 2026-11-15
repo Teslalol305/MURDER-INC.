@@ -549,6 +549,12 @@ As built (fx):
   `clear()`; emitters with a `ttl` do not. 24 slots: a full house returns a handle that does nothing.
 - `stats()` → `{lit, additive, tracers, debris, shells, decals, emitters, budget{…}, spawned, recycled, refused,
   decalsPlaced, quality, ms}` (`ms` = cost of the last `update`). Seven draw calls at most, viewmodel flash included.
+- Day and night (11.1): fx follows `atmos.time` (eased over a second; without atmos it guesses from the sampled light).
+  By day the additive pool and the tracers burn 2.2–2.4× hotter and also dim what is behind them (premultiplied blend:
+  a dark rim on tracers, a body to fire), smoke takes the sun as its key and far less light from the blast itself, the
+  soot of a blast is darker with a rising column, and a close blast flashes the screen at 0.3× the night value. Smoke
+  and flame of a blast are turned away from walls closer than about 1.4 m. Decals are depth-tested 7 cm nearer than
+  they are drawn, so a mark on a collider still shows when the drawn wall or pavement sits a little in front of it.
 
 ### 6.9 `G.audio`  (agent: audio)
 ```
