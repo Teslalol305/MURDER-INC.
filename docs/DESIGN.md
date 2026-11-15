@@ -260,3 +260,67 @@ the reel cases. Use the wordmark "IPX" and the address "IPX.EXCHANGE" only. Do n
   sub bass, a dark piano / Rhodes figure, string stabs, a bell hook. Phase-locked stems mixed by an intensity value
   (0.15 calm → 0.6 alert → 1.0 wave or escape), with stings for a reel grab, all reels, death and mission complete.
   It must be an original composition: no real song, no samples.
+
+---------------------------------------------------------------------------------------------------
+
+## 8. Direction v2 — daylight and a modern mobile-shooter presentation
+
+This section supersedes sections 1, 2, 5 and 6 wherever they differ.
+
+The client supplied two reference screenshots of a current mobile military shooter and asked for the game to look like
+that. What we take from them is the **presentation of the genre**: brightness, screen composition, HUD layout and control
+layout. We do not reproduce that game's own art: none of its logos, emblems, icon drawings, HUD skin, maps, weapon skins
+or characters. Every glyph, shape and texture here is drawn fresh, in this game's identity (New York, IPX, Ja Rule).
+
+### 8.1 Daylight is the default look
+
+- A hot, clear summer afternoon, about 4:15 PM. Blue sky with a few bright cumulus clouds. A high, warm sun rakes through
+  the El so the avenue is striped with hard light and shadow. Crisp contact shadows under cars. Saturated colour: taxi
+  yellow, brick red, green and red awnings, painted signs. A little aerial haze at distance. Bright, readable, clean and
+  punchy, the way a current mobile shooter looks in daytime. Not moody, not washed out, no heavy vignette, no heavy grain.
+- Signs are simply lit signage in daylight; windows are reflective glass, not glowing rectangles. The wet street is now a
+  mostly dry street with a few wet patches near the open hydrant.
+- **Night** (the look in section 5) stays as an alternate: user setting `time: 'day' | 'night'`, default `day`, applied by
+  `atmos.setTime(name)` between runs. Day gets the polish; night must keep working and may stay as it is.
+- Copy: title eyebrow `IPX PRESENTS · HOLLIS, QUEENS`; location card `Hollis, Queens · Jamaica Ave · 4:15 PM` by day and
+  `… · 02:14 AM` by night; boot line "Waiting on the next train".
+- Enemies must read at a glance in sunlight: Goons are black and oxblood with a pale mask; muzzle flashes and tracers stay
+  visible against bright walls.
+
+### 8.2 Screen composition
+
+- **Viewmodel.** The weapon is big and detailed. At 16:9 it fills the lower-centre to lower-right of the frame: receiver
+  and stock low on the right, barrel angled up toward the middle and ending a little below the crosshair, roughly 40–45 %
+  of the screen width and 40 % of its height. The support hand grips the handguard left of the gun's centre line. Sights
+  and rail detail are readable, and aiming down the sights lines them up for real. Hands wear **black gloves** (stitched
+  panels, a padded knuckle, original design); forearms are bare, brown skin, with the **gold watch** on the left wrist
+  and a gold link bracelet on the right. Gloves are deliberate: they read far better than bare low-poly fingers.
+- **HUD layout** (the genre's standard layout, in our own transit-sign identity: black plates, white grotesque type,
+  taxi-yellow accent, coloured route bullets):
+  - **Top-left — mission badge.** The IPX lozenge, the three reel bullets (secured ones filled), and the objective line
+    under them. In Hold the Block: wave number and score.
+  - **Top-right — minimap.** A rounded square (about 150 px on desktop, 110 px on phones): a top-down plan of the block
+    drawn from the level's colliders and zones, rotating with the player (player arrow fixed in the centre). Reel bullets
+    1 / 2 / 3 and the IPX truck pinned to the rim when off the map; red pips for enemies that are engaged or fired in the
+    last two seconds. The current **zone name** sits on a dark band under the map: `WEST END`, `THE AVENUE`, `CHOP SHOP`,
+    `THE CAGE / THE LOT`. Two small round buttons beside it: pause and settings.
+  - **Bottom-centre — weapon bar and health.** Two weapon slots (CHOPPER, NINE), each a small silhouette drawn by us with
+    its ammo ("24 / 120"; the NINE shows "15 / ∞"), the active slot outlined in yellow, and a melee slot. Directly under
+    the bar: the **HP bar** with its number, always visible ("100 HP").
+  - **Centre.** Crosshair with a spread-driven gap, three-tier hit marker, damage arcs, the interaction prompt ring.
+  - **Left-middle.** Kill feed. **Top-centre.** Banner ("Contact — EAST"). **Above the weapon bar.** Radio subtitles.
+  - World-space objective markers stay. The compass strip is dropped in favour of the minimap.
+- **Touch controls** (shown on touch devices whenever gameplay is active), semi-transparent dark discs with white glyphs
+  drawn by us:
+  - left: the move stick drawn as a ring with a knob, a small sprint-lock arrow above it;
+  - right: a large round FIRE button with a bullet glyph low on the right, AIM (a reticle glyph) above and to its left,
+    JUMP and CROUCH figures along the right edge, RELOAD (a magazine), SWAP (two arrows), MELEE (a fist) and the contextual
+    USE button near the fire button; a second small FIRE button on the left side for players who aim with the right thumb.
+- Desktop shows the same HUD without the thumb controls.
+
+### 8.3 Rendering targets by day
+
+Procedural sky dome (zenith-to-horizon gradient, sun disc with a soft aureole, a few soft cumulus), a sun
+DirectionalLight with shadows plus a sky hemisphere light, an environment map captured from the day sky, subtle bloom
+(sun glints, muzzle flashes, chrome), punchy but natural saturation and contrast, light aerial haze as fog. The far city
+is a sunlit skyline: brick blocks, water towers, a couple of distant towers in haze. The El train keeps crossing.

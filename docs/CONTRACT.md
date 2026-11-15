@@ -110,7 +110,7 @@ Every call is individually try/caught; the first exception per module is logged 
 | `mats`, `props`, `input`, `level`, `atmos`, `fx`, `audio`, `player`, `explosives`, `weapon`, `enemies`, `hud`, `menus`, `game` | their agents | section 6 |
 
 ### 4.1 `G.settings`
-`{quality:'auto', sens:1, invertY:false, volume:0.8, fov:74, difficulty:'boss', mode:'mission', view:1}` stored as JSON in
+`{quality:'auto', sens:1, invertY:false, volume:0.8, fov:74, difficulty:'boss', mode:'mission', view:1, time:'day'}` stored as JSON in
 `localStorage['murderinc.settings.v1']`, validated and clamped on load. `settings.get(key)`, `settings.set(key, value)`
 (saves and emits `settings:change {key, value}`), `settings.all()`. Best holdout score: `settings.best()` /
 `settings.setBest(n)` (`murderinc.holdout.best`). Modules apply their own settings on creation and on `settings:change`
@@ -536,6 +536,8 @@ The level builds everything inside the play bounds, registers all colliders with
 ### 6.11 `G.atmos` — sky, light and life  (agent: atmos)
 ```
 atmos.sun                                      the single shadow-casting DirectionalLight
+atmos.time                                     'day' | 'night' (section 11)
+atmos.setTime(name)                            switch the whole rig between the day and the night look (between runs)
 atmos.setInterior(0..1)                        optional exposure / ambient tweak when inside the shop
 atmos.update(dt)                               sky, neon flicker, the El train, steam, moths, far skyline
 atmos.train {active, phase, dir, x, lo, hi, y, z, speed, length}   the El train right now (read-only, see below)
@@ -694,3 +696,42 @@ in step, so if you extend an API, add the member in both places (own namespace o
 - **Harness extras**: `--skip N` / `h.skip(n)` (simulate without drawing: over 100 000 steps a second), `--verbose`,
   `--cdn-fail N`, `h.click(selector)`, `h.wait(ms)`, `h.heap()`, `h.page`. `?nohud=1` hides the whole `#ui` layer.
   `tools/scenarios/foundation-slice.cjs` plays the whole stubbed game by script; read it as a worked example.
+
+---------------------------------------------------------------------------------------------------
+
+## 11. Direction v2 (read with DESIGN section 8; wins over earlier sections where they differ)
+
+### 11.1 Day and night
+- `G.settings` has `time: 'day' | 'night'` (default `day`). `atmos.time` holds the active one; `atmos.setTime(name)`
+  switches the whole rig (sky, sun / moon key light, ambient, fog, environment map, lamp pools and cones, far city, look
+  values) without creating or removing lights and without changing shader defines. The game calls it on every run reset
+  with the setting, and atmos applies the setting at boot. Both rigs are built once at boot.
+- Daylight is the default and the look to polish. Materials must look right under the sun: believable albedo (nothing
+  near-black except rubber and tinted glass), windows read as reflective glass by day.
+
+### 11.2 Draw-call and texture budget (measured with `tools/scenarios/census.cjs`)
+The first combined build drew 633 calls, 391 k triangles and 221 textures from the start view: the static block alone was
+268 meshes with 254 distinct materials. Targets with every module real, start view, quality `low`:
+**≤ 300 draw calls including the shadow pass, ≤ 300 k triangles, ≤ 90 textures, static block ≤ 70 materials.**
+- **mats** packs every `sign`, `poster`, `graffiti` and `decal` into shared atlas pages. Those four calls return
+  `{material, w, h, uv: [u0, v0, u1, v1]}`: `material` is shared by everything on the same page class (opaque lit signs,
+  alpha lit signs, alpha unlit paper / paint / decals), and the caller must map its quad's UVs into `uv`
+  (`u = u0 + s·(u1 − u0)`, `v = v0 + t·(v1 − v0)`). A missing `uv` means the full 0..1 range (the stub).
+  `mats.get(name, {tint: 'vertex'})` returns a shared material with `vertexColors` on, so differently coloured instances
+  (car paint, awnings, painted metal) tint through a vertex colour attribute instead of a material per colour.
+- **props** keeps the whole catalogue on a small set of shared materials (vertex-colour tints, its own atlas), and marks
+  quads that should not cast shadows (`castShadow = false` on decals, plates, lamp lenses).
+- **level** applies the atlas `uv` rects, merges per material with `mergeStatic`, keeps decal and sign quads out of the
+  shadow pass, and owns the final count: run the census and report it.
+- **explosives / enemies / fx / atmos**: one or two draw calls per item or pool; instancing where there are many.
+
+### 11.3 HUD data for the minimap (ui)
+The minimap is drawn on a 2D canvas from data already exposed: `G.physics.boxes` (static colliders: anything taller than
+about 2.2 m is a building or wall, lower boxes are cover), `G.level.bounds`, `level.zones` / `zoneAt`, `level.objectives`,
+`level.extraction`, `G.player.pos / yaw`, and `G.enemies.list` (show an enemy while `enemy.state` is an engaged state or
+within 2 s of an `enemy:fire` from it). Render the static plan once to an offscreen canvas, then blit it rotated each frame.
+
+### 11.4 Progress notes
+Every engineer keeps `/tmp/claude-0/-home-user-MURDER-INC-/8216c869-7bad-590e-a9d0-a1b3aca7a6d7/scratchpad/progress/<agent>.md`
+up to date (10–25 lines: done, in progress, next, known problems, how to verify). Rewrite it after each milestone. If you
+are interrupted, the next engineer starts from that file.

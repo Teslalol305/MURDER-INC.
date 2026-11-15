@@ -93,6 +93,10 @@ export function createAtmos(G) {
 
   return {
     sun,
+    time: 'day',
+    setTime(name) {
+      this.time = name === 'night' ? 'night' : 'day';
+    },
     setInterior() {},
     update() {},
     // No train in the stub: it never runs.

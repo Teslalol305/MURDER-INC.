@@ -194,7 +194,7 @@ test('settings: defaults when nothing is stored', () => {
 test('settings: stored values are validated and clamped on load', () => {
   const stored = { quality: 'ludicrous', sens: 99, invertY: 'yes', volume: -3, fov: 120.4, difficulty: 'kingpin', mode: 'holdout', view: 9, extra: 1 };
   const settings = createSettings(null, fakeStorage({ [SETTINGS_KEY]: JSON.stringify(stored) }));
-  assert.deepEqual(settings.all(), { quality: 'auto', sens: 3, invertY: false, volume: 0, fov: 95, difficulty: 'kingpin', mode: 'holdout', view: 1 });
+  assert.deepEqual(settings.all(), { quality: 'auto', sens: 3, invertY: false, volume: 0, fov: 95, difficulty: 'kingpin', mode: 'holdout', view: 1, time: 'day' });
 });
 
 test('settings: corrupt or unavailable storage falls back to defaults', () => {

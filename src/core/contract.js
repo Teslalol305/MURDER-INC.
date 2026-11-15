@@ -83,7 +83,7 @@ export const MODULES = {
     'groundSurfaceAt()', 'update()',
   ],
   atmos: [
-    'sun', 'setInterior()', 'update()',
+    'sun', 'time', 'setTime()', 'setInterior()', 'update()',
     'train.active', 'train.phase', 'train.dir', 'train.x', 'train.lo', 'train.hi', 'train.y', 'train.z', 'train.speed', 'train.length',
     'passTrain()',
   ],

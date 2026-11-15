@@ -13,6 +13,7 @@ export const DEFAULTS = Object.freeze({
   difficulty: 'boss',
   mode: 'mission',
   view: 1,
+  time: 'day',
 });
 
 const oneOf = (list) => (v) => (list.includes(v) ? v : undefined);
@@ -33,6 +34,7 @@ const VALIDATORS = {
   difficulty: oneOf(['hustler', 'boss', 'kingpin']),
   mode: oneOf(['mission', 'holdout']),
   view: (v) => oneOf([1, 2, 3])(Number(v)),
+  time: oneOf(['day', 'night']),
 };
 
 function safeStorage() {
