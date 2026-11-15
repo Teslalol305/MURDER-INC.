@@ -95,6 +95,19 @@ module.exports = async (page, h) => {
     idle.push(...r);
     if (done === 120) await look('approach', `${px - 4},6,${pz + 10},${px + 14},0.8,${pz}`);
     if (done === 300) await look('engaged', `${px + 2},3,${pz + 6},${px + 14},1,${pz}`);
+    if (done === 360 && SHOTS) {
+      // What the player sees: turn him toward the nearest Goon.
+      await h.eval(() => {
+        const G = window.__G;
+        const p = G.player.pos;
+        let best = null;
+        for (const e of G.enemies.list) if (e.alive && e.type === 'goon' && (!best || e.pos.distanceTo(p) < best.pos.distanceTo(p))) best = e;
+        if (best) G.player.yaw = Math.atan2(-(best.pos.x - p.x), -(best.pos.z - p.z));
+        G.player.pitch = 0;
+      });
+      await h.frames(2);
+      await h.shot(`${OUT}player-view.png`);
+    }
   }
   const s = await h.eval(() => {
     const G = window.__G;

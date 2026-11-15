@@ -19,8 +19,8 @@ export const pool = { goon: 12, buzzard: 8, bodies: 6, bolts: 32 };
  * to it, and flares are `flare` times larger.
  */
 export const look = {
-  day: { glow: 0.12, rim: 0.12, cover: 0.8, flare: 1.5 },
-  night: { glow: 1, rim: 1, cover: 0, flare: 1 },
+  day: { glow: 0.12, rim: 0.12, cover: 0.6, flare: 1.35 },
+  night: { glow: 1, rim: 0.8, cover: 0, flare: 1 },
 };
 
 export const buzzard = {

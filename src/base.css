@@ -105,7 +105,7 @@ body {
 
 /* ?nohud=1: clean frames for screenshots. */
 .nohud #ui {
-  visibility: hidden;
+  display: none !important;
 }
 
 /* ---- The IPX mark ---------------------------------------------------------------------------

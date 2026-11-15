@@ -33,7 +33,7 @@
 //   h.mouse(dx, dy)         relative mouse look: a `mousemove` with movementX / movementY on the canvas
 //   h.click(selector)       real click on a DOM element (menus)
 //   h.errors(), h.stats()   window.__errors / window.__stats()
-//   h.heap()                bytes of JS heap in use right now; h.heap(true) collects garbage first
+//   h.heap()                bytes of JS heap in use right now; h.heap(true) collects garbage first (needs SHOT_GC=1)
 //                           (the browser is started with gc() exposed and precise memory numbers)
 //   h.wait(ms)              real-time pause (rarely needed in step mode)
 //
@@ -48,8 +48,13 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
 const GL_ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
-// For h.heap() and scenarios that measure allocations: window.gc() and unrounded performance.memory.
-const MEMORY_ARGS = ['--js-flags=--expose-gc', '--enable-precise-memory-info'];
+// Unrounded performance.memory for h.heap(). SHOT_GC=1 also exposes window.gc() so h.heap(true) can collect first:
+// it is opt-in because with that flag V8 lets dead typed arrays pile up (gigabytes while audio renders its buffers).
+// Scenarios that measure allocations (file name contains perf / stress / heap) get it automatically.
+const memoryArgs = (scenario) =>
+  process.env.SHOT_GC || /perf|stress|heap/.test(path.basename(scenario || ''))
+    ? ['--js-flags=--expose-gc', '--enable-precise-memory-info']
+    : ['--enable-precise-memory-info'];
 const THREE_MIN = path.join(ROOT, 'node_modules', 'three', 'build', 'three.min.js');
 // Same order as build.mjs.
 const CDN_HOSTS = ['cdnjs.cloudflare.com', 'cdn.jsdelivr.net', 'unpkg.com'];
@@ -206,7 +211,7 @@ async function main() {
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => stop().then(() => process.exit(1)));
 
   try {
-    browser = await chromium.launch({ args: [...GL_ARGS, ...MEMORY_ARGS] });
+    browser = await chromium.launch({ args: [...GL_ARGS, ...memoryArgs(opts.scenario)] });
     const context = await browser.newContext({ viewport: { width: opts.width, height: opts.height }, deviceScaleFactor: 1 });
     const page = await context.newPage();
 

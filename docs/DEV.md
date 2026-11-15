@@ -147,3 +147,7 @@ from the title screen: 59 checks, a minute), `foundation-perf` (draw calls, step
   `{id: 'wave', index: n, total: n}`); the card data for `menus.show('dead' | 'complete', data)` is at the top of
   `src/stubs/menus.js`; `mats.drawIPX` takes the centre of the mark and returns its width; `G.config.<file>` is that
   file's exports (`G.config.catalog.PROPS`). Stack traces point into the built HTML: open a dev build to see sources.
+
+- `window.gc()` is exposed to the page only for scenarios whose file name contains `perf`, `stress` or `heap`, or with
+  `SHOT_GC=1`: with that flag on, V8 lets dead typed arrays pile up to gigabytes while audio renders its buffers, and a
+  full-build page (about 2.5–3 GB in software GL) gets killed. Run full-build sessions one at a time.
