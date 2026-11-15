@@ -108,6 +108,10 @@ test('governor: a truly slow GPU steps down, stays down, and only then may lose 
   near(heavy.governor.scale, settled); // and it stays there
   assert.equal(heavy.log.drops, 0); // not allowed to touch the preset
 
+  const crawl = rig({ frame: fill(650) }); // software GL: under 2 fps
+  crawl.run(20);
+  near(crawl.governor.scale, DR.min);
+
   const hopeless = rig({ canDrop: true, frame: fill(90) }); // still ~40 ms at the floor
   hopeless.run(2.2);
   near(hopeless.governor.scale, DR.min);

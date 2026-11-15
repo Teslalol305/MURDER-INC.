@@ -250,7 +250,8 @@ export function createGovernor(DR, host) {
     if (now < settleUntil || ms <= 0 || ms > DR.ignoreAbove) return; // settling, or a hidden tab
     buf[frames++] = ms;
     total += ms;
-    if (frames < DR.windowFrames && total < DR.windowMs && frames < buf.length) return; // still open
+    // Still open: until windowFrames or windowMs, but never on fewer than minFrames (a 2 fps device).
+    if (((frames < DR.windowFrames && total < DR.windowMs) || frames < DR.minFrames) && frames < buf.length) return;
 
     const ms0 = judge();
     frames = 0;
