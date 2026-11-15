@@ -1,0 +1,24 @@
+{
+  "name": "murder-inc.",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Teslalol305/MURDER-INC..git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Teslalol305/MURDER-INC./issues"
+  },
+  "homepage": "https://github.com/Teslalol305/MURDER-INC.#readme",
+  "dependencies": {
+    "esbuild": "^0.28.2",
+    "three": "^0.160.0"
+  }
+}
