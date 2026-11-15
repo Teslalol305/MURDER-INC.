@@ -1,0 +1,24 @@
+<title>Murder Inc.</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!--STYLE-->
+<div id="app"><canvas id="view" tabindex="0" aria-label="Murder Inc. game view"></canvas></div>
+<div id="ui"></div>
+<div id="boot" role="status" aria-live="polite">
+  <div class="boot-inner">
+    <div class="boot-kicker"><span class="ipx-mark">IPX</span><span>presents</span></div>
+    <div class="boot-mark">MURDER INC.</div>
+    <div id="boot-msg">Waking up the block</div>
+    <div class="boot-bar"><div id="boot-fill"></div></div>
+  </div>
+</div>
+<script>
+// The web fonts are optional and the game script below waits for their stylesheet. The link sits after
+// the boot screen so that paints at once, and if the stylesheet has still not arrived after 3 s (a
+// network that swallows the request) the wait is called off: the page runs on its fallback fonts.
+setTimeout(function () {
+  var link = document.getElementById('webfonts');
+  if (link && !link.sheet) link.remove();
+}, 3000);
+</script>
+<link id="webfonts" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:ital,wght@0,400;0,500;0,600;0,700;1,800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<!--SCRIPTS-->

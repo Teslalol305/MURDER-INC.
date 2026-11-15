@@ -1,0 +1,199 @@
+/* MURDER INC. — page, canvas and boot screen.
+   Concatenated first, before ui.css (HUD + menus) and input.css (touch controls). */
+
+/* Brand tokens. Mirrors src/config/brand.js (colors.plateEdge ↔ --c-plate-edge, fonts.ui ↔ --font-ui):
+   change both together. Every colour on the page comes from these. */
+:root {
+  color-scheme: dark;
+
+  --c-bg: #07080a;
+  --c-plate: #0f1114;
+  --c-plate-edge: #262a30;
+  --c-ink: #f4f2ec;
+  --c-ink-dim: #a9a7a0;
+  --c-ink-faint: #6c6b67;
+  --c-gold: #f6c21a;
+  --c-red: #e2222b;
+  --c-oxblood: #6b1218;
+  --c-cyan: #39d0e0;
+
+  --font-display: 'Anton', 'Haettenschweiler', 'Arial Narrow Bold', Impact, 'Arial Narrow', sans-serif;
+  --font-ui: 'Archivo', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Screen-edge insets: anything pinned to an edge adds these. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --gutter-left: max(16px, env(safe-area-inset-left, 0px));
+  --gutter-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* A full-bleed one-screen app: nothing scrolls, nothing selects, the canvas owns every gesture. */
+html,
+body {
+  height: 100%;
+}
+
+html {
+  background: var(--c-bg);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--c-bg);
+  color: var(--c-ink);
+  font: 400 15px/1.4 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  background: var(--c-bg);
+}
+
+#view {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+  touch-action: none;
+}
+
+/* HUD, menus and touch controls are injected here. The layer itself lets clicks through to the canvas. */
+#ui {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* ?nohud=1: clean frames for screenshots. */
+.nohud #ui {
+  visibility: hidden;
+}
+
+/* The IPX wordmark, typeset until the real logo is supplied: heavy italic grotesque in a thin lozenge. */
+.ipx-mark {
+  display: inline-block;
+  padding: 0.08em 0.62em 0.06em 0.5em;
+  border: 0.09em solid currentColor;
+  border-radius: 999px;
+  font: italic 800 1em/1.1 var(--font-ui);
+  letter-spacing: 0.04em;
+}
+
+/* ---- Boot screen ---------------------------------------------------------------------------- */
+
+#boot {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(24px + var(--safe-top)) var(--gutter-right) calc(24px + var(--safe-bottom)) var(--gutter-left);
+  background: var(--c-bg);
+  transition: opacity 0.6s ease;
+}
+
+#boot.done {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.boot-inner {
+  width: min(440px, 100%);
+  /* Transit-plate motif: a thin white rule above the text. */
+  border-top: 2px solid var(--c-ink);
+  padding-top: 14px;
+}
+
+.boot-kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  color: var(--c-ink-dim);
+  font: 600 12px/1 var(--font-ui);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.boot-kicker .ipx-mark {
+  color: var(--c-ink);
+  font-size: 15px;
+  letter-spacing: 0.04em;
+}
+
+.boot-mark {
+  margin: 10px 0 22px;
+  color: var(--c-ink);
+  /* Sized so the wordmark also fits when the condensed display face is blocked and a wide fallback steps in. */
+  font: 400 clamp(40px, 13vw, 62px) / 0.95 var(--font-display);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+#boot-msg {
+  min-height: 1.4em;
+  color: var(--c-ink-dim);
+  font: 500 13px/1.4 var(--font-ui);
+  letter-spacing: 0.04em;
+}
+
+.boot-bar {
+  height: 3px;
+  margin-top: 10px;
+  background: var(--c-plate-edge);
+}
+
+#boot-fill {
+  width: 100%;
+  height: 100%;
+  background: var(--c-gold);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  transition: transform 0.25s ease-out;
+}
+
+/* Fatal start-up error: the message stays, the bar goes. */
+#boot.is-fatal #boot-msg {
+  color: var(--c-ink);
+  font-size: 14px;
+  letter-spacing: 0;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+#boot.is-fatal .boot-inner {
+  border-top-color: var(--c-red);
+}
+
+#boot.is-fatal .boot-bar {
+  visibility: hidden;
+}
+
+/* Landscape phones: less height to work with. */
+@media (max-height: 420px) {
+  .boot-mark {
+    margin: 6px 0 12px;
+    font-size: clamp(34px, 15vh, 52px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #boot,
+  #boot-fill {
+    transition: none;
+  }
+}

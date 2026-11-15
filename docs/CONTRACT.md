@@ -491,3 +491,49 @@ radio queue, rating, the music-intensity driver, the title fly-through camera, p
 
 Everyone: scenarios in `tools/scenarios/<agent>-*.cjs`, tests in `test/<agent>-*.test.js`.
 If you find a bug in a foundation file, make the smallest fix and say so in your report.
+
+---------------------------------------------------------------------------------------------------
+
+## 10. Foundation notes (as built — these refine the sections above)
+
+The contract is also data: `src/core/contract.js` lists every module's members and every event's payload keys. Each module
+is checked against it at boot, and in dev builds every emitted event is checked too. A gap is a console error starting with
+`[contract]`, which lands in `__errors` and fails a harness run. `test/contract.test.js` keeps that file and this document
+in step, so if you extend an API, add the member in both places (own namespace only).
+
+- **Build**: `--only=<name>` for a module with no `src/<name>.js` yet builds its stub with a warning. `G.build = {dev, artifact, stubbed}`.
+- **Fatal modules**: `render`, `physics` and `combat` (they have no stubs). Every other module falls back to its stub.
+- **Time**: `G.time.t` advances every frame, including on the title screen and while paused.
+- **Config**: `G.config.<file>` is the module namespace of `src/config/<file>.js` (`G.config.weapons.chopper`,
+  `G.config.flow.holdout.total(n)`, `G.config.catalog.PROPS`). `text.js` and `flow.js` hold small functions for
+  parametrised lines and formulas.
+- **Events**: `objective:done.index` is the number of reels secured so far (1…total); a cleared holdout wave is
+  `{id:'wave', index:n, total:n}`. `game:state.prev` is null at boot. No `impact` event is emitted when the player is
+  hit (`player:hit` is the cue). `enemy:killed.byPlayer` is true for kills by the player's guns, melee, or any blast.
+- **Physics extras**: `physics.bounds`, `physics.overlapsCylinder`, an optional reusable result argument on `raycast` /
+  `moveCapsule` / `nav.findPath` (use it in hot paths: zero garbage), `nav.cell / cols / rows / origin / grid`.
+  The play bounds act as walls in `moveCapsule`. A nav cell is blocked when its centre is within 0.5 m of an obstacle.
+- **Combat**: `hitscan` results also carry `item` (an explosive); `explode` accepts `size`. An enemy round does a fixed
+  9 damage to an explosive. A ray that stops on an explosive's own collider (`item.box`, or a box whose `owner` is the
+  item) counts as a hit on that explosive.
+- **Render**: `render.frame(dt, draw = true)`. `lights.acquire()` returns null once 4 lights are held (2 of the 6 stay
+  free for flashes). Exposure is `render.exposure × render.look.exposure`, applied in the grade pass; bloom thresholds
+  scene values before exposure (emissive above about 1 blooms). `render.look` is a live flat object
+  `{toneMapping, exposure, bloomStrength, bloomRadius, bloomThreshold, bloomKnee, vignette, grain, aberration, saturation}`.
+  `G.quality` keeps its identity across `setQuality`. `renderer.shadowMap.autoUpdate` is false (render refreshes it).
+  Software rasterisers auto-detect to `low`.
+- **Viewmodel**: `G.vmCamera` is a child of `G.vmScene` and copies the world camera's transform every frame. Parent the
+  weapon rig to `G.vmCamera` to work in view space. Render owns the viewmodel key + hemisphere lights
+  (`config/look.js` → `viewmodel`); `setEnvironment` applies to both scenes. A fixed `?cam=` hides the viewmodel scene.
+- **Scene ownership**: every module adds its own objects to `G.scene` (the level adds `level.root` itself).
+- **Helpers**: `expDecay(value, rate, dt)`, `damp(current, target, rate, dt)`; `rng.int(a, b)` is inclusive;
+  `rng.fork('label')` gives a stream that depends only on seed + label. `mergeStatic(root)` returns a NEW group (merged
+  meshes plus everything kept: `noMerge` subtrees, lights, lines, instanced meshes) and guts the source root.
+  `mats.drawIPX(ctx, cx, cy, h, color)` takes the centre and returns the drawn width.
+- **Menus card data**: `menus.show('dead' | 'complete', data)` — the data shape is whatever `src/stubs/game.js` passes
+  and `src/stubs/menus.js` reads; the flow and UI engineers keep that shape (`{mode, time, reels, total, wave, kills,
+  score, best, newBest, accuracy, retries, rating}`), adding fields only.
+- **Page**: the Google Fonts link sits after the boot markup with a 3 s watchdog that drops it if it never arrives.
+- **Harness extras**: `--skip N` / `h.skip(n)` (simulate without drawing: over 100 000 steps a second), `--verbose`,
+  `--cdn-fail N`, `h.click(selector)`, `h.wait(ms)`, `h.heap()`, `h.page`. `?nohud=1` hides the whole `#ui` layer.
+  `tools/scenarios/foundation-slice.cjs` plays the whole stubbed game by script; read it as a worked example.
