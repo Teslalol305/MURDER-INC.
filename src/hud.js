@@ -375,7 +375,8 @@ export function createHud(G) {
     const hidden = !player.alive || (player.ads || 0) > 0.6 || (weapon && weapon.state === 'lowered');
     setClass(crosshair, 'is-off', hidden);
     if (hidden) return;
-    const fov = (G.camera && G.camera.fov) || G.settings.get('fov') || 74;
+    // The effective field of view: narrow screens widen the view with camera.zoom (render.js).
+    const fov = (G.camera && G.camera.getEffectiveFOV()) || G.settings.get('fov') || 74;
     const g = crosshairGap(weapon ? weapon.spread : undefined, fov, height, !!player.sprinting);
     if (g === gap) return;
     gap = g;

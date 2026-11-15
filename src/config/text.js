@@ -201,6 +201,7 @@ export const boot = {
   wait: 'Waiting on the next train',
   ready: 'Ready',
   fatal: (error) => `Murder Inc. could not start: ${error}`,
+  contextLost: 'The graphics context was lost. Reload the page to continue.',
 };
 
 /** Invented names for the block (docs/DESIGN.md section 4). No real brands except IPX. */

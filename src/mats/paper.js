@@ -260,7 +260,7 @@ export function createPaperPainter(env) {
       A.lineTo(cw / 2 + r * 0.7, cy + r * 0.7);
       A.stroke();
       line(A, cw, ch, 'NO BOOTLEGS', 0.7, 0.085, INK);
-      line(A, cw, ch, 'BUY IT FROM THE SOURCE', 0.82, 0.028, INK, 'ui', 0.08);
+      line(A, cw, ch, 'BUY IT FROM THE ARTIST', 0.82, 0.028, INK, 'ui', 0.08);
     }
   }
 

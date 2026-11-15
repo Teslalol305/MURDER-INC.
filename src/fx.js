@@ -564,7 +564,7 @@ export function createFx(G) {
     if (Math.abs(day - u.value) < 0.01) u.value = day;
     // Thinnest drawable streak: a pixel and a quarter at the internal resolution.
     const pixels = Math.max(240, G.renderer.domElement.height * (G.quality.scale || 1));
-    common.uPixel.value = (2 * Math.tan((camera.fov * Math.PI) / 360) * 1.25) / pixels;
+    common.uPixel.value = (2 * Math.tan((camera.getEffectiveFOV() * Math.PI) / 360) * 1.25) / pixels;
 
     // A light breeze down the avenue with slow gusts; the viewmodel flash feels none of it.
     env[0] = still[0] = dt;
