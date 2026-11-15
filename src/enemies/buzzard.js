@@ -30,14 +30,33 @@ import {
   ROTORS,
   STROBES,
 } from './buzzard-model.js';
-import { aimSpread, climbHit, climbOver, deckEntry, deckSlide, inRoom, isPole, leadPoint, planAroundDeck, pushOut, routeIndoors } from './logic.js';
-import { createRig, m3Euler } from './rig.js';
+import {
+  aimSpread,
+  climbHit,
+  climbOver,
+  createSolids,
+  deckEntry,
+  deckSlide,
+  inRoom,
+  isPole,
+  leadPoint,
+  groundHit,
+  groundUnder,
+  packSolids,
+  planAroundDeckAt,
+  pushOut,
+  routeIndoors,
+  solidsStale,
+} from './logic.js';
+import { createRig, m3EulerA } from './rig.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const DOWN = new THREE.Vector3(0, -1, 0);
 const TILT_PER_ACCEL = 0.034; // radians of bank per m/s²
 const MAX_TILT = 0.5;
 const STROBE_PERIOD = 1.3;
+// The strobes' flares: size, then linear r g b (port red, starboard green, white tail).
+const STROBE_LIGHT = [new Float64Array([0.22, 5, 0.25, 0.2]), new Float64Array([0.22, 0.25, 5, 0.6]), new Float64Array([0.26, 4.5, 4.5, 5])];
 const POLE_STEP = 2; // m/s sideways off a pole it was coming down onto
 const ROOM_MARGIN = 1.5; // an orbit indoors keeps this far inside the walls
 const MOVEMENT = { movement: true }; // physics.lineOfSight: nothing that blocks a body in between
@@ -56,6 +75,22 @@ export function createBuzzards(ctx) {
   const boltDir = new THREE.Vector3();
   const hit = { dist: 0, point: new THREE.Vector3(), normal: new THREE.Vector3(), surface: null, box: null };
   const rot = new Float64Array(9);
+  // Numbers the flight helpers hand each other (a double passed to or returned from a call that V8 did
+  // not inline is boxed on the heap: garbage every step for every drone).
+  const FL = new Float64Array(6);
+  const CAP = 0; // target(): the speed cap
+  const SPEED = 1; // feel(): the current speed
+  const CLEAR = 2; // slide(): how far short of a surface to stop…
+  const BOUNCE = 3; // …and the velocity factor when it does
+  const BEARING = 4; // attack(): bearing to the player…
+  const DIST = 5; // …and how far he is
+  const EA = new Float64Array(3); // the airframe's Euler angles, staged for m3EulerA
+  /** EA = (pitch, yaw, roll) of the airframe. */
+  function eulerOf(e) {
+    EA[0] = e.pitch;
+    EA[1] = e.yaw;
+    EA[2] = e.roll;
+  }
 
   function makeBuzzard(slot) {
     const rig = createRig(geometry, material, BZ_SLOTS);
@@ -141,6 +176,15 @@ export function createBuzzards(ctx) {
 
   const pool = Array.from({ length: cfg.pool.buzzard }, (_, i) => makeBuzzard(i));
 
+  // What the airframe must stay out of, packed for the flight loops (logic.js packSolids), refilled when
+  // the level's colliders change (an explosive goes up, a level is rebuilt).
+  const pack = createSolids();
+  function solids() {
+    const list = G.physics.boxes;
+    if (solidsStale(pack, list)) packSolids(pack, list, (G.level && G.level.el) || null);
+    return pack;
+  }
+
   /* ------------------------------------------------------------------------------------ indoors */
 
   // The level's interiors (level.interiorBoxes: the shop) and their doorways, found once, the first time a
@@ -200,7 +244,8 @@ export function createBuzzards(ctx) {
   function place(e) {
     e.object.position.copy(e.pos);
     e.object.rotation.set(e.pitch, e.yaw, e.roll);
-    m3Euler(rot, 0, e.pitch, e.yaw, e.roll);
+    eulerOf(e);
+    m3EulerA(rot, 0, EA, 0);
     const out = e.anim.out;
     for (let k = 0; k < 2; k++) {
       const o = k === 0 ? OUT_EYE : OUT_BOLT;
@@ -226,7 +271,7 @@ export function createBuzzards(ctx) {
       e.pos.y = el.y - t.deck.under; // never inside the track deck
     }
     e.vel.set(0, 0, 0);
-    pushOut(G.physics.boxes, e.pos, e.vel, t, G.physics.bounds);
+    pushOut(solids(), e.pos, e.vel, t, G.physics.bounds);
     e.home.copy(e.pos);
     e.yaw = opts.yaw !== undefined ? opts.yaw : ctx.random() * Math.PI * 2;
     e.cooldown = ctx.range(t.firstCooldown);
@@ -269,7 +314,7 @@ export function createBuzzards(ctx) {
 
   /* ------------------------------------------------------------------------------------ flight */
 
-  /** Fills `want` with the point this mode steers for; returns the speed cap. */
+  /** Fills `want` with the point this mode steers for and FL[CAP] with the speed cap. */
   function target(e, dt, t) {
     const p = ctx.player;
     if (e.mode === 'engage') {
@@ -278,7 +323,8 @@ export function createBuzzards(ctx) {
         want[0] = e.lastKnown.x;
         want[1] = e.lastKnown.y + e.altitude + 1;
         want[2] = e.lastKnown.z;
-        return t.maxSpeed;
+        FL[CAP] = t.maxSpeed;
+        return;
       }
       const steady = e.telegraph > 0 || e.burstLeft > 0;
       e.orbitAngle += (e.orbitDir * (steady ? t.orbit.speedFiring : t.orbit.speed) * dt) / e.orbitRadius;
@@ -298,24 +344,27 @@ export function createBuzzards(ctx) {
         want[0] = clamp(want[0], b.min.x + ROOM_MARGIN, b.max.x - ROOM_MARGIN);
         want[2] = clamp(want[2], b.min.z + ROOM_MARGIN, b.max.z - ROOM_MARGIN);
       }
-      return t.maxSpeed;
+      FL[CAP] = t.maxSpeed;
+      return;
     }
     if (e.mode === 'patrol') {
       e.orbitAngle += e.orbitDir * t.patrol.turn * dt;
       want[0] = e.home.x + Math.cos(e.orbitAngle) * e.patrolRadius;
       want[1] = e.home.y;
       want[2] = e.home.z + Math.sin(e.orbitAngle) * e.patrolRadius;
-      return t.patrolSpeed;
+      FL[CAP] = t.patrolSpeed;
+      return;
     }
     e.orbitAngle += e.orbitDir * t.investigate.turn * dt;
     want[0] = e.lastKnown.x + Math.cos(e.orbitAngle) * t.investigate.radius;
     want[1] = e.lastKnown.y + Math.min(e.altitude, t.investigate.maxHeight);
     want[2] = e.lastKnown.z + Math.sin(e.orbitAngle) * t.investigate.radius;
-    return t.investigateSpeed;
+    FL[CAP] = t.investigateSpeed;
   }
 
   /** One ray per frame, in rotation: ahead, down, up. What they find becomes a push that fades. */
-  function feel(e, t, speed) {
+  function feel(e, t) {
+    const speed = FL[SPEED];
     const F = t.feelers;
     e.feeler = (e.feeler + 1) % 3;
     if (e.feeler === 0) {
@@ -343,10 +392,13 @@ export function createBuzzards(ctx) {
   }
 
   /**
-   * Moves along one axis with a collision ray: stops `clear` short of whatever is in the way and bounces.
-   * axis 0 = x, 1 = y, 2 = z. Returns whether it was stopped (then `hit` says by what).
+   * Moves along one axis with a collision ray: stops FL[CLEAR] short of whatever is in the way and
+   * bounces (velocity × FL[BOUNCE]). axis 0 = x, 1 = y, 2 = z. Returns whether it was stopped (then
+   * `hit` says by what).
    */
-  function slide(e, axis, dt, clear, bounce) {
+  function slide(e, axis, dt) {
+    const clear = FL[CLEAR];
+    const bounce = FL[BOUNCE];
     const v = axis === 0 ? e.vel.x : axis === 1 ? e.vel.y : e.vel.z;
     if (v === 0) return false;
     const sign = v > 0 ? 1 : -1;
@@ -415,7 +467,8 @@ export function createBuzzards(ctx) {
 
   function fly(e, dt, t) {
     if (!rooms) findRooms();
-    const cap = target(e, dt, t);
+    target(e, dt, t);
+    const cap = FL[CAP];
     // Wanted inside the shop from out here: in through a doorway, not down onto the roof.
     let indoors = 0;
     for (let k = 0; k < rooms.length && !indoors; k++) indoors = routeIndoors(e.pos, want, rooms[k]);
@@ -426,15 +479,17 @@ export function createBuzzards(ctx) {
     // over the roofs on the way. The climb comes after the deck plan: a drone that must drop under the
     // deck beyond a building first goes over the building (the plan then holds it outside the deck's
     // footprint until it is low enough), but one already under the deck never climbs into it.
-    const ground = G.physics.groundHeight(e.pos.x, e.pos.z, e.pos.y + 0.3);
+    groundUnder(solids(), e.pos, 0.3);
+    const ground = groundHit.y;
     e.ceilingAge += dt;
     const top = Math.min(t.maxAltitude, e.ceiling - t.ceilingClearance);
     want[1] = Math.min(Math.max(want[1], ground + t.minHeight), top);
-    const plan = planAroundDeck(e.pos.x, e.pos.y, e.pos.z, want, el, t.deck);
+    const plan = planAroundDeckAt(e.pos, want, el, t.deck);
     const dm = t.deck.margin;
     const underDeck = el && e.pos.y < el.y && e.pos.x > el.minX - dm && e.pos.x < el.maxX + dm && e.pos.z > el.minZ - dm && e.pos.z < el.maxZ + dm;
-    if (!underDeck) {
-      climbOver(G.physics.boxes, e.pos, want, t, el);
+    // Going through a doorway (indoors 2), the way is known to be clear: no climbing into its lintel.
+    if (!underDeck && indoors !== 2) {
+      climbOver(solids(), e.pos, want, t);
       // Sent under the deck and already at its edge, but something tall is in the way in or right under
       // the hold: go straight across the edge, else slide along it until there is room to come down
       // (logic.js deckEntry). Further out, climbing over what is in the way is the right answer.
@@ -445,7 +500,7 @@ export function createBuzzards(ctx) {
         if (ox * ox + oz * oz <= (t.deck.hold + 1) * (t.deck.hold + 1) && want[1] > free) {
           if (plan === 1) {
             deckEntry(e.pos, want, el, t.deck);
-            climbOver(G.physics.boxes, e.pos, want, t, el);
+            climbOver(solids(), e.pos, want, t);
           }
           if (want[1] > free && climbHit.box) deckSlide(e.pos, want, climbHit.box, t.deck);
         }
@@ -466,7 +521,7 @@ export function createBuzzards(ctx) {
       ay += Math.sin(e.wobble * 7.1 + 1) * t.damagedJitter * 0.7;
       az += Math.cos(e.wobble * 4.7) * t.damagedJitter;
     }
-    const a = Math.hypot(ax, ay, az);
+    const a = Math.sqrt(ax * ax + ay * ay + az * az);
     if (a > t.accel) {
       const k = t.accel / a;
       ax *= k;
@@ -476,7 +531,7 @@ export function createBuzzards(ctx) {
     e.vel.x += ax * dt;
     e.vel.y += ay * dt;
     e.vel.z += az * dt;
-    let speed = Math.hypot(e.vel.x, e.vel.y, e.vel.z);
+    let speed = Math.sqrt(e.vel.x * e.vel.x + e.vel.y * e.vel.y + e.vel.z * e.vel.z);
     if (speed > cap) {
       e.vel.multiplyScalar(cap / speed);
       speed = cap;
@@ -484,16 +539,20 @@ export function createBuzzards(ctx) {
     const fade = Math.exp(-6 * dt);
     e.push.multiplyScalar(fade);
     e.flipIn -= dt;
-    feel(e, t, speed);
+    FL[SPEED] = speed;
+    feel(e, t);
 
     // Move, one axis at a time, never closer to a surface than its own size.
     const bounce = t.feelers.bounce;
     const px = e.pos.x;
     const py = e.pos.y;
     const pz = e.pos.z;
-    slide(e, 0, dt, t.radius + 0.1, bounce);
-    slide(e, 2, dt, t.radius + 0.1, bounce);
-    if (slide(e, 1, dt, t.halfHeight + 0.2, bounce) && e.vel.y >= 0 && hit.box && isPole(hit.box)) {
+    FL[CLEAR] = t.radius + 0.1;
+    FL[BOUNCE] = bounce;
+    slide(e, 0, dt);
+    slide(e, 2, dt);
+    FL[CLEAR] = t.halfHeight + 0.2;
+    if (slide(e, 1, dt) && e.vel.y >= 0 && hit.box && isPole(hit.box)) {
       // Coming down onto a lamp post or a column: step off it sideways, or it would perch there for good.
       const q = hit.box;
       const ox = e.pos.x - (q.min.x + q.max.x) * 0.5;
@@ -505,6 +564,10 @@ export function createBuzzards(ctx) {
     if (e.pos.y < ground + t.floorClearance) {
       e.pos.y = ground + t.floorClearance;
       if (e.vel.y < 0) e.vel.y = 0;
+    } else if (e.pos.y > t.maxAltitude + t.overshoot) {
+      // A knock-back from below never throws it out over the top of the block.
+      e.pos.y = t.maxAltitude + t.overshoot;
+      if (e.vel.y > 0) e.vel.y = 0;
     }
     // Inside the block, whatever the walls there look like.
     const b = G.physics.bounds;
@@ -527,8 +590,11 @@ export function createBuzzards(ctx) {
     }
     // The collision rays run from the centre: a corner beside the centre line can still end up inside
     // the airframe. Never leave it there (and never freeze it there): back out into free air.
-    pushOut(G.physics.boxes, e.pos, e.vel, t, b);
-    const moved = Math.hypot(e.pos.x - px, e.pos.y - py, e.pos.z - pz);
+    pushOut(solids(), e.pos, e.vel, t, b);
+    const mx = e.pos.x - px;
+    const my = e.pos.y - py;
+    const mz = e.pos.z - pz;
+    const moved = Math.sqrt(mx * mx + my * my + mz * mz);
     if (moved > 0.02) e.lastActive = ctx.clock.now;
 
     // Attitude: bank into the acceleration, wobble when damaged, shake from hits.
@@ -574,7 +640,10 @@ export function createBuzzards(ctx) {
     e.lastActive = ctx.clock.now;
   }
 
-  function attack(e, dt, t, bearing, dist) {
+  /** The telegraph, the burst and the cooldown; FL[BEARING] and FL[DIST] say where the player is. */
+  function attack(e, dt, t) {
+    const bearing = FL[BEARING];
+    const dist = FL[DIST];
     if (e.telegraph > 0) {
       e.telegraph -= dt;
       const k = 1 - Math.max(0, e.telegraph) / t.telegraph;
@@ -639,7 +708,7 @@ export function createBuzzards(ctx) {
       faceZ = e.lastKnown.z - e.pos.z;
       lookY = e.lastKnown.y + 1;
     }
-    const flat = Math.hypot(faceX, faceZ);
+    const flat = Math.sqrt(faceX * faceX + faceZ * faceZ);
     const bearing = flat > 0.3 ? Math.atan2(-faceX, -faceZ) : e.yaw;
     e.yaw = wrapAngle(e.yaw + moveToward(0, angleDelta(e.yaw, bearing), t.yawRate * dt));
     e.eyeYawWant = angleDelta(e.yaw, bearing);
@@ -648,7 +717,14 @@ export function createBuzzards(ctx) {
     // The eye: dim on patrol, searching pulse, hard red when it has you.
     e.strobe += dt;
     e.lampWant = e.mode === 'engage' ? 2.5 : e.mode === 'patrol' ? 0.7 : 1.3 + 0.6 * Math.sin(e.strobe * 6);
-    if (!e.passive) attack(e, dt, t, Math.atan2(-(p.pos.x - e.pos.x), -(p.pos.z - e.pos.z)), Math.hypot(p.pos.x - e.pos.x, p.pos.y - e.pos.y, p.pos.z - e.pos.z));
+    if (!e.passive) {
+      const px = p.pos.x - e.pos.x;
+      const py = p.pos.y - e.pos.y;
+      const pz = p.pos.z - e.pos.z;
+      FL[BEARING] = Math.atan2(-px, -pz);
+      FL[DIST] = Math.sqrt(px * px + py * py + pz * pz);
+      attack(e, dt, t);
+    }
 
     // Damage shows: smoke, the odd spark.
     if (e.hp < e.maxHp * t.damagedBelow) {
@@ -755,26 +831,32 @@ export function createBuzzards(ctx) {
 
   /** Rotor discs, the eye flare, the nav strobes. */
   function drawGlow(e, glow) {
-    m3Euler(rot, 0, e.pitch, e.yaw, e.roll);
+    // Numbers go to the batch through glow.args (glow.js: a double passed to a call is garbage).
+    const g = glow.args;
+    eulerOf(e);
+    m3EulerA(rot, 0, EA, 0);
     const level = e.anim.rotorSpeed;
     for (let i = 0; i < 4; i++) {
       if (e.anim.lost === i) continue;
       const h = ROTORS[i];
-      glow.disc(
-        e.pos.x + rot[0] * h[0] + rot[1] * (h[1] + 0.022) + rot[2] * h[2],
-        e.pos.y + rot[3] * h[0] + rot[4] * (h[1] + 0.022) + rot[5] * h[2],
-        e.pos.z + rot[6] * h[0] + rot[7] * (h[1] + 0.022) + rot[8] * h[2],
-        ROTOR_RADIUS,
-        rot,
-        0,
-        level,
-      );
+      g[0] = e.pos.x + rot[0] * h[0] + rot[1] * (h[1] + 0.022) + rot[2] * h[2];
+      g[1] = e.pos.y + rot[3] * h[0] + rot[4] * (h[1] + 0.022) + rot[5] * h[2];
+      g[2] = e.pos.z + rot[6] * h[0] + rot[7] * (h[1] + 0.022) + rot[8] * h[2];
+      g[3] = ROTOR_RADIUS;
+      g[4] = level;
+      glow.discA(rot, 0);
     }
     const lamp = e.anim.lamp;
     if (lamp > 0.05) {
       const k = Math.min(1, lamp / 18);
-      const size = 0.16 + 0.75 * Math.sqrt(k);
-      glow.flare(e.eye.x, e.eye.y, e.eye.z, size, BUZZARD_LAMP.r * lamp, BUZZARD_LAMP.g * lamp + lamp * 0.02, BUZZARD_LAMP.b * lamp);
+      g[0] = e.eye.x;
+      g[1] = e.eye.y;
+      g[2] = e.eye.z;
+      g[3] = 0.16 + 0.75 * Math.sqrt(k);
+      g[4] = BUZZARD_LAMP.r * lamp;
+      g[5] = BUZZARD_LAMP.g * lamp + lamp * 0.02;
+      g[6] = BUZZARD_LAMP.b * lamp;
+      glow.flareA();
     }
     if (!e.alive) return;
     // Strobes: red to port and green to starboard flash twice, the white tail light once, per cycle.
@@ -784,12 +866,12 @@ export function createBuzzards(ctx) {
     for (let i = 0; i < 3; i++) {
       if (i < 2 ? !side : !tail) continue;
       const s = STROBES[i];
-      const x = e.pos.x + rot[0] * s[0] + rot[1] * s[1] + rot[2] * s[2];
-      const y = e.pos.y + rot[3] * s[0] + rot[4] * s[1] + rot[5] * s[2];
-      const z = e.pos.z + rot[6] * s[0] + rot[7] * s[1] + rot[8] * s[2];
-      if (i === 0) glow.flare(x, y, z, 0.22, 5, 0.25, 0.2);
-      else if (i === 1) glow.flare(x, y, z, 0.22, 0.25, 5, 0.6);
-      else glow.flare(x, y, z, 0.26, 4.5, 4.5, 5);
+      g[0] = e.pos.x + rot[0] * s[0] + rot[1] * s[1] + rot[2] * s[2];
+      g[1] = e.pos.y + rot[3] * s[0] + rot[4] * s[1] + rot[5] * s[2];
+      g[2] = e.pos.z + rot[6] * s[0] + rot[7] * s[1] + rot[8] * s[2];
+      const light = STROBE_LIGHT[i];
+      for (let j = 0; j < 4; j++) g[3 + j] = light[j];
+      glow.flareA();
     }
   }
 

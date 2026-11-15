@@ -290,12 +290,37 @@ export function leadPoint(sx, sy, sz, tx, ty, tz, vx, vy, vz, speed, lead, out) 
 
 /** Parameter 0…1 at which the 2D segment a → b first touches the rectangle; 0 if a is inside; -1 if never. */
 export function segmentEntersRect(ax, az, bx, bz, minX, maxX, minZ, maxZ) {
+  SEG[0] = ax;
+  SEG[1] = az;
+  SEG[2] = bx;
+  SEG[3] = bz;
+  SEG[4] = minX;
+  SEG[5] = maxX;
+  SEG[6] = minZ;
+  SEG[7] = maxZ;
+  segmentEntersRectA();
+  return SEG[8];
+}
+
+// segmentEntersRectA reads (ax, az, bx, bz, minX, maxX, minZ, maxZ) from SEG[0…7] and leaves the
+// answer in SEG[8]: the flight code calls it every step, and doubles passed to a call are garbage.
+const SEG = new Float64Array(9);
+function segmentEntersRectA() {
+  SEG[8] = -1;
+  const ax = SEG[0];
+  const az = SEG[1];
+  const bx = SEG[2];
+  const bz = SEG[3];
+  const minX = SEG[4];
+  const maxX = SEG[5];
+  const minZ = SEG[6];
+  const maxZ = SEG[7];
   let t0 = 0;
   let t1 = 1;
   const dx = bx - ax;
   const dz = bz - az;
   if (Math.abs(dx) < 1e-9) {
-    if (ax < minX || ax > maxX) return -1;
+    if (ax < minX || ax > maxX) return;
   } else {
     let u0 = (minX - ax) / dx;
     let u1 = (maxX - ax) / dx;
@@ -306,10 +331,10 @@ export function segmentEntersRect(ax, az, bx, bz, minX, maxX, minZ, maxZ) {
     }
     if (u0 > t0) t0 = u0;
     if (u1 < t1) t1 = u1;
-    if (t0 > t1) return -1;
+    if (t0 > t1) return;
   }
   if (Math.abs(dz) < 1e-9) {
-    if (az < minZ || az > maxZ) return -1;
+    if (az < minZ || az > maxZ) return;
   } else {
     let u0 = (minZ - az) / dz;
     let u1 = (maxZ - az) / dz;
@@ -320,9 +345,9 @@ export function segmentEntersRect(ax, az, bx, bz, minX, maxX, minZ, maxZ) {
     }
     if (u0 > t0) t0 = u0;
     if (u1 < t1) t1 = u1;
-    if (t0 > t1) return -1;
+    if (t0 > t1) return;
   }
-  return t0;
+  SEG[8] = t0;
 }
 
 /**
@@ -339,7 +364,15 @@ export function segmentEntersRect(ax, az, bx, bz, minX, maxX, minZ, maxZ) {
  * @returns {number} 0 untouched, 1 capped under, 2 leaving over the top, 3 holding outside to descend
  */
 export function planAroundDeck(px, py, pz, out, el, K) {
+  return planAroundDeckAt({ x: px, y: py, z: pz }, out, el, K);
+}
+
+/** planAroundDeck for the drone at `pos` ({x, y, z}): the form the flight code calls (no numbers passed). */
+export function planAroundDeckAt(pos, out, el, K) {
   if (!el) return 0;
+  const px = pos.x;
+  const py = pos.y;
+  const pz = pos.z;
   const m = K.margin;
   const minX = el.minX - m;
   const maxX = el.maxX + m;
@@ -364,7 +397,16 @@ export function planAroundDeck(px, py, pz, out, el, K) {
     return 1;
   }
 
-  const enter = segmentEntersRect(px, pz, out[0], out[2], minX, maxX, minZ, maxZ);
+  SEG[0] = px;
+  SEG[1] = pz;
+  SEG[2] = out[0];
+  SEG[3] = out[2];
+  SEG[4] = minX;
+  SEG[5] = maxX;
+  SEG[6] = minZ;
+  SEG[7] = maxZ;
+  segmentEntersRectA();
+  const enter = SEG[8];
   if (enter < 0) return 0;
   // Crossing above is fine when both ends of the leg are high enough.
   if (out[1] >= highFloor && py >= highFloor - 0.5) return 0;
@@ -395,6 +437,57 @@ const POLE = 1; // narrower than this both ways is a pole (a lamp post, a column
 export const isPole = (q) => q.max.x - q.min.x < POLE && q.max.z - q.min.z < POLE;
 
 /**
+ * The boxes a drone must stay out of (droneSolid), packed for the flight loops, which run for every
+ * drone every step: STRIDE numbers a box (min x y z, max x y z, 1 if a pole, 1 if inside the El's
+ * footprint, 1 if player-only: solid for a drone, not ground) in `data`, the box objects in `boxes`. `packSolids` fills it from physics.boxes; `solidsStale` says
+ * when it must be filled again (the list changed length, or its first or last box is another one: boxes
+ * are only ever pushed on the end or spliced out).
+ */
+const STRIDE = 9;
+
+export function createSolids() {
+  return { data: new Float64Array(STRIDE * 256), boxes: [], n: 0, count: -1, first: null, last: null };
+}
+
+export const solidsStale = (pack, list) =>
+  pack.count !== list.length || pack.first !== (list.length ? list[0] : null) || pack.last !== (list.length ? list[list.length - 1] : null);
+
+/** Fills `pack` from `list` (physics.boxes); `el` (level.el or null) marks what planAroundDeck owns. */
+export function packSolids(pack, list, el) {
+  pack.count = list.length;
+  pack.first = list.length ? list[0] : null;
+  pack.last = list.length ? list[list.length - 1] : null;
+  pack.boxes.length = 0;
+  let n = 0;
+  for (let i = 0; i < list.length; i++) {
+    const q = list[i];
+    if (!droneSolid(q)) continue;
+    if (STRIDE * (n + 1) > pack.data.length) {
+      const grown = new Float64Array(pack.data.length * 2);
+      grown.set(pack.data);
+      pack.data = grown;
+    }
+    const d = pack.data;
+    const o = STRIDE * n;
+    d[o] = q.min.x;
+    d[o + 1] = q.min.y;
+    d[o + 2] = q.min.z;
+    d[o + 3] = q.max.x;
+    d[o + 4] = q.max.y;
+    d[o + 5] = q.max.z;
+    d[o + 6] = isPole(q) ? 1 : 0;
+    const cx = (q.min.x + q.max.x) * 0.5;
+    const cz = (q.min.z + q.max.z) * 0.5;
+    d[o + 7] = el && cx >= el.minX && cx <= el.maxX && cz >= el.minZ && cz <= el.maxZ ? 1 : 0;
+    d[o + 8] = q.playerOnly ? 1 : 0;
+    pack.boxes.push(q);
+    n++;
+  }
+  pack.n = n;
+  return pack;
+}
+
+/**
  * Climbing over what lies ahead (there is no pathing). Looks along the flat leg from `pos` toward the
  * wanted point (`want` = [x, y, z]), at most `K.climbLook` metres of it, with the leg widened by the
  * airframe radius, at every solid box it crosses whose top is not above `K.maxAltitude`:
@@ -407,16 +500,15 @@ export const isPole = (q) => q.max.x - q.min.x < POLE && q.max.z - q.min.z < POL
  * passes under: a roof seen from inside, an awning), anything inside the El's footprint (planAroundDeck
  * owns that), and poles (under `POLE` m across both ways: it steers around a lamp or a post, the
  * collision rays handle those). The airframe's own footprint is part of the leg, so it does not sink
- * past a roof edge it is leaving. Returns the height want[1] was raised to, or 0 when it was not (and
- * leaves the box that decided it in `climbHit.box`).
+ * past a roof edge it is leaving. Returns whether it raised want[1], and leaves the box that decided it
+ * and the height in `climbHit` (null and 0 when it did not).
  *
- * @param {Array<{min, max, bulletOnly, playerOnly, tag}>} boxes   physics.boxes
+ * @param {ReturnType<typeof createSolids>} pack   packSolids(physics.boxes, level.el)
  * @param {{x:number, y:number, z:number}} pos
  * @param {number[]} want
  * @param {{radius:number, halfHeight:number, minHeight:number, floorClearance:number, maxAltitude:number, climbLook:number}} K
- * @param {{minX:number, maxX:number, minZ:number, maxZ:number}|null} el
  */
-export function climbOver(boxes, pos, want, K, el) {
+export function climbOver(pack, pos, want, K) {
   const x0 = pos.x;
   const z0 = pos.z;
   let dx = want[0] - x0;
@@ -431,25 +523,20 @@ export function climbOver(boxes, pos, want, K, el) {
   const above = (pos.y > want[1] ? pos.y : want[1]) + K.halfHeight + 0.3;
   const bottom = pos.y - K.halfHeight;
   const overFloor = K.floorClearance + K.halfHeight;
+  const minHeight = K.minHeight;
+  const maxAltitude = K.maxAltitude;
+  const d = pack.data;
   let best = want[1];
   let raised = 0;
-  climbHit.box = null;
-  for (let i = 0; i < boxes.length; i++) {
-    const q = boxes[i];
-    if (!droneSolid(q)) continue;
-    const top = q.max.y;
-    const need = top + (top > bottom ? K.minHeight : overFloor);
-    if (need <= best || top > K.maxAltitude || q.min.y > above) continue;
-    if (isPole(q)) continue;
-    if (el) {
-      const cx = (q.min.x + q.max.x) * 0.5;
-      const cz = (q.min.z + q.max.z) * 0.5;
-      if (cx >= el.minX && cx <= el.maxX && cz >= el.minZ && cz <= el.maxZ) continue;
-    }
-    const minX = q.min.x - r;
-    const maxX = q.max.x + r;
-    const minZ = q.min.z - r;
-    const maxZ = q.max.z + r;
+  let hitAt = -1;
+  for (let i = 0, o = 0; i < pack.n; i++, o += STRIDE) {
+    const top = d[o + 4];
+    const need = top + (top > bottom ? minHeight : overFloor);
+    if (need <= best || top > maxAltitude || d[o + 1] > above || d[o + 6] !== 0 || d[o + 7] !== 0) continue;
+    const minX = d[o] - r;
+    const maxX = d[o + 3] + r;
+    const minZ = d[o + 2] - r;
+    const maxZ = d[o + 5] + r;
     let t0 = 0;
     let t1 = 1;
     if (Math.abs(dx) < 1e-9) {
@@ -482,14 +569,39 @@ export function climbOver(boxes, pos, want, K, el) {
     }
     best = need;
     raised = need;
-    climbHit.box = q;
+    hitAt = i;
   }
+  climbHit.box = hitAt >= 0 ? pack.boxes[hitAt] : null;
+  climbHit.height = raised;
   want[1] = best;
-  return raised;
+  return hitAt >= 0;
 }
 
-/** The box that set the height of the last climbOver call that raised it (null when it did not). */
-export const climbHit = { box: null };
+/** What the last climbOver call found: the box that set the height (null if none) and that height (0). */
+export const climbHit = { box: null, height: 0.5 };
+
+/**
+ * The ground under a drone at `pos`: the highest top of a solid box (not a player-only one) that holds
+ * (pos.x, pos.z) and is not above pos.y + lift, or 0. The same answer as physics.groundHeight for those
+ * boxes, read from the pack (and left in `groundHit.y`, so no number crosses the call).
+ */
+export function groundUnder(pack, pos, lift) {
+  const x = pos.x;
+  const z = pos.z;
+  const maxY = pos.y + lift;
+  const d = pack.data;
+  let h = 0;
+  for (let i = 0, o = 0; i < pack.n; i++, o += STRIDE) {
+    if (d[o + 8] !== 0) continue;
+    const top = d[o + 4];
+    if (top <= h || top > maxY) continue;
+    if (x < d[o] || x > d[o + 3] || z < d[o + 2] || z > d[o + 5]) continue;
+    h = top;
+  }
+  groundHit.y = h;
+}
+
+export const groundHit = { y: 0.5 };
 
 const OUT_EPS = 0.02;
 
@@ -497,58 +609,57 @@ const OUT_EPS = 0.02;
  * Puts an airframe (an upright cylinder of `K.radius`, `K.halfHeight` either side of `pos.y`) that
  * overlaps something solid back into free air: for each box it overlaps, the shortest way out (up,
  * down, or sideways along x or z) that keeps it inside `bounds` less `K.boundsMargin` and above
- * `K.floorClearance`; off a pole (isPole) always sideways. The velocity component pointing back in is dropped. After three passes only "up"
- * is tried, so a drone wedged between two boxes always comes free. Mutates pos and vel; returns how many
- * pushes it made (0: it was in free air).
+ * `K.floorClearance`; off a pole (isPole) always sideways. The velocity component pointing back in is
+ * dropped. After three passes only "up" is tried, so a drone wedged between two boxes always comes free.
+ * Mutates pos and vel; returns how many pushes it made (0: it was in free air).
  */
-export function pushOut(boxes, pos, vel, K, bounds) {
+export function pushOut(pack, pos, vel, K, bounds) {
   const r = K.radius;
   const hh = K.halfHeight;
   const m = K.boundsMargin;
+  const d = pack.data;
   let pushes = 0;
   for (let pass = 0; pass < 8; pass++) {
     const upOnly = pass >= 3;
     let any = false;
-    for (let i = 0; i < boxes.length; i++) {
-      const q = boxes[i];
-      if (!droneSolid(q)) continue;
+    for (let i = 0, o = 0; i < pack.n; i++, o += STRIDE) {
       const px = pos.x;
       const py = pos.y;
       const pz = pos.z;
-      if (q.max.y <= py - hh || q.min.y >= py + hh) continue;
-      const cx = px < q.min.x ? q.min.x : px > q.max.x ? q.max.x : px;
-      const cz = pz < q.min.z ? q.min.z : pz > q.max.z ? q.max.z : pz;
+      if (d[o + 4] <= py - hh || d[o + 1] >= py + hh) continue;
+      const cx = px < d[o] ? d[o] : px > d[o + 3] ? d[o + 3] : px;
+      const cz = pz < d[o + 2] ? d[o + 2] : pz > d[o + 5] ? d[o + 5] : pz;
       if ((px - cx) * (px - cx) + (pz - cz) * (pz - cz) >= r * r) continue;
       let axis = 1;
-      let to = q.max.y + hh + OUT_EPS;
+      let to = d[o + 4] + hh + OUT_EPS;
       if (!upOnly) {
         // Off a pole sideways, even when up is shorter: a drone sinking onto a lamp post would perch on it.
-        const pole = isPole(q);
+        const pole = d[o + 6] !== 0;
         let best = pole ? Infinity : to - py;
-        const down = q.min.y - hh - OUT_EPS;
+        const down = d[o + 1] - hh - OUT_EPS;
         if (!pole && py - down < best && down >= K.floorClearance) {
           best = py - down;
           to = down;
         }
-        const left = q.min.x - r - OUT_EPS;
+        const left = d[o] - r - OUT_EPS;
         if (px - left < best && (!bounds || left >= bounds.minX + m)) {
           best = px - left;
           axis = 0;
           to = left;
         }
-        const right = q.max.x + r + OUT_EPS;
+        const right = d[o + 3] + r + OUT_EPS;
         if (right - px < best && (!bounds || right <= bounds.maxX - m)) {
           best = right - px;
           axis = 0;
           to = right;
         }
-        const back = q.min.z - r - OUT_EPS;
+        const back = d[o + 2] - r - OUT_EPS;
         if (pz - back < best && (!bounds || back >= bounds.minZ + m)) {
           best = pz - back;
           axis = 2;
           to = back;
         }
-        const front = q.max.z + r + OUT_EPS;
+        const front = d[o + 5] + r + OUT_EPS;
         if (front - pz < best && (!bounds || front <= bounds.maxZ - m)) {
           axis = 2;
           to = front;
@@ -574,15 +685,14 @@ export function pushOut(boxes, pos, vel, K, bounds) {
 }
 
 /** Does the airframe overlap anything solid for a drone? (the test pushOut resolves) */
-export function droneOverlaps(boxes, pos, K) {
+export function droneOverlaps(pack, pos, K) {
   const r = K.radius;
   const hh = K.halfHeight;
-  for (let i = 0; i < boxes.length; i++) {
-    const q = boxes[i];
-    if (!droneSolid(q)) continue;
-    if (q.max.y <= pos.y - hh || q.min.y >= pos.y + hh) continue;
-    const cx = pos.x < q.min.x ? q.min.x : pos.x > q.max.x ? q.max.x : pos.x;
-    const cz = pos.z < q.min.z ? q.min.z : pos.z > q.max.z ? q.max.z : pos.z;
+  const d = pack.data;
+  for (let i = 0, o = 0; i < pack.n; i++, o += STRIDE) {
+    if (d[o + 4] <= pos.y - hh || d[o + 1] >= pos.y + hh) continue;
+    const cx = pos.x < d[o] ? d[o] : pos.x > d[o + 3] ? d[o + 3] : pos.x;
+    const cz = pos.z < d[o + 2] ? d[o + 2] : pos.z > d[o + 5] ? d[o + 5] : pos.z;
     if ((pos.x - cx) * (pos.x - cx) + (pos.z - cz) * (pos.z - cz) < r * r) return true;
   }
   return false;

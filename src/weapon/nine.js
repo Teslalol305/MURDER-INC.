@@ -6,6 +6,7 @@
 
 import * as THREE from 'three';
 import { FINISH, Soup, block, fillet, lathe, paint, pin, prism, rod } from './build.js';
+import { FINISH_BLUED } from './material.js';
 import { POSES, gunPose, handKey, sampleTrack, shiftKey } from './handling.js';
 import { ease } from './springs.js';
 
@@ -18,7 +19,7 @@ const MAG_AXIS = new THREE.Vector3(0, 0.968, -0.25).normalize(); // from base to
 export function buildNine(material, def, strike = 0.55, goldHex = 0xe7b53a) {
   const P = {
     slide: paint(0xaeb1b6, 0.4, 1, { finish: FINISH.brushed }),
-    frame: paint(0x34363b, 0.42, 0.85, { wear: paint(0x8a9098, 0.3, 1) }),
+    frame: paint(0x34363b, 0.42, 0.85, { wear: paint(0x8a9098, 0.3, 1), finish: FINISH_BLUED }),
     grip: paint(0x1c1c1f, 0.72, 0, { finish: FINISH.checker }),
     dark: paint(0x3c3e43, 0.42, 0.85, { wear: paint(0x8a9098, 0.3, 1) }),
     barrel: paint(0xbbbec4, 0.22, 1),

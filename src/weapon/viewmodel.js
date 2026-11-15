@@ -810,11 +810,11 @@ export function createViewmodel(G) {
     });
     // A restored WebGL context comes back with empty render targets: bake the reflection boxes again.
     G.events.on('render:restored', () => {
+      // (The old textures are not disposed: their GL objects died with the old context, and disposing
+      // them would hand stale handles to the new one.)
       for (const time of ['night', 'day']) {
-        const old = environments[time];
         try {
           environments[time] = buildEnvironment(G.renderer, time, sunDir);
-          old.dispose();
         } catch (err) {
           console.warn('[weapon] could not rebuild the viewmodel environment:', err);
         }

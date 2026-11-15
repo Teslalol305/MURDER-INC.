@@ -8,6 +8,10 @@
 //
 // Optional: ENEMIES_SOAK=2000 runs that many steps (with a respawn whenever the field thins out) and
 // checks the same things; ENEMIES_GOONS / ENEMIES_BUZZARDS set the spawn counts (default 4 + 2).
+// ENEMIES_POS="x,y,z" keeps the player there (the scaffold deck is 10,2.95,9.3, the shop's office
+// -21,2.8,-29) and brings the waves in from the level's own spawn points instead. A soak also fails on a
+// Buzzard whose airframe overlaps anything solid or leaves the bounds, a Buzzard that is not fighting and
+// has not moved a metre in 10 s, and a Goon that wants to walk but has not moved a metre in 10 s.
 
 'use strict';
 
@@ -16,10 +20,11 @@ const SOAK = +(process.env.ENEMIES_SOAK || 0);
 const GOONS = +(process.env.ENEMIES_GOONS || 4);
 const BUZZ = +(process.env.ENEMIES_BUZZARDS || 2);
 const SHOTS = process.env.ENEMIES_SHOTS !== '0';
+const POS = (process.env.ENEMIES_POS || '').split(',').filter(Boolean).map(Number);
 
 module.exports = async (page, h) => {
   const setup = await h.eval(
-    ([goons, buzz]) => {
+    ([goons, buzz, pos]) => {
       const G = window.__G;
       const V = G.THREE.Vector3;
       const s = (window.__en = { fire: { goon: 0, buzzard: 0 }, tele: 0, melee: 0, hits: 0, bolt: 0, bullet: 0, alert: 0, killed: 0, lastFire: {} });
@@ -41,8 +46,20 @@ module.exports = async (page, h) => {
         return damage(amount, from, kind);
       };
       G.enemies.clear();
+      if (pos.length === 3) G.player.reset({ pos: new V(pos[0], pos[1], pos[2]), yaw: 0 });
       const p = G.player.pos;
+      let wave = 0;
       window.__spawnWave = (ng, nb) => {
+        if (pos.length === 3) {
+          // From the level's own spawn points, the nearer ones first, a different few every wave.
+          const sp = G.level.enemySpawns;
+          const ground = sp.filter((q) => q.type === 'ground').sort((a, b) => a.pos.distanceTo(p) - b.pos.distanceTo(p));
+          const air = sp.filter((q) => q.type === 'air').sort((a, b) => a.pos.distanceTo(p) - b.pos.distanceTo(p));
+          for (let i = 0; i < ng; i++) G.enemies.spawn('goon', ground[(i * 2 + 1 + wave) % ground.length].pos.clone(), { alerted: true });
+          for (let i = 0; i < nb; i++) G.enemies.spawn('buzzard', air[(i * 2 + wave) % air.length].pos.clone(), { alerted: true });
+          wave++;
+          return;
+        }
         for (let i = 0; i < ng; i++) G.enemies.spawn('goon', new V(p.x + 22 + (i % 3) * 3, 0, p.z - 3 + i * 1.6), { alerted: true });
         for (let i = 0; i < nb; i++) G.enemies.spawn('buzzard', new V(p.x + 26, 4, p.z - 2 + i * 3), { alerted: true });
       };
@@ -67,7 +84,7 @@ module.exports = async (page, h) => {
       };
       return { n: G.enemies.list.length, p: [p.x, p.z] };
     },
-    [GOONS, BUZZ],
+    [GOONS, BUZZ, POS],
   );
   if (setup.n !== GOONS + BUZZ) throw new Error(`spawned ${setup.n}`);
   const [px, pz] = setup.p;
@@ -85,8 +102,9 @@ module.exports = async (page, h) => {
   for (let done = 0; done < steps; done += 60) {
     await h.skip(60);
     const r = await h.eval(
-      ([goons, buzz, soak]) => {
+      ([goons, buzz, soak, pos]) => {
         const G = window.__G;
+        if (pos.length === 3) G.player.pos.set(pos[0], pos[1], pos[2]); // he stays put
         if (soak && G.enemies.aliveCount() < 3) window.__spawnWave(goons, buzz);
         if (soak) {
           // The player fights back: 45 damage to the nearest unit every two seconds.
@@ -119,9 +137,37 @@ module.exports = async (page, h) => {
             }
           }
         }
+        if (soak) {
+          // Airframes in geometry or out of the block; anyone stuck.
+          const P = G.physics;
+          const b = P.bounds;
+          const now = G.enemies.debug().clock;
+          const trk = (window.__stuck = window.__stuck || {});
+          for (const e of G.enemies.list) {
+            if (!e.alive) continue;
+            if (e.type === 'buzzard') {
+              const q = P.boxes.find((k) => !k.bulletOnly && (!k.playerOnly || k.tag === 'hoist' || k.tag === 'office-glass') && k.max.y > e.pos.y - 0.15 && k.min.y < e.pos.y + 0.15 &&
+                Math.hypot(e.pos.x - Math.max(k.min.x, Math.min(k.max.x, e.pos.x)), e.pos.z - Math.max(k.min.z, Math.min(k.max.z, e.pos.z))) < 0.35);
+              if (q) clipped.push(`buzzard#${e.id} airframe in ${q.tag || q.surface} at ${e.pos.x.toFixed(1)},${e.pos.y.toFixed(1)},${e.pos.z.toFixed(1)}`);
+              if (e.pos.x < b.minX || e.pos.x > b.maxX || e.pos.z < b.minZ || e.pos.z > b.maxZ || e.pos.y > 16) clipped.push(`buzzard#${e.id} out of bounds at ${e.pos.x.toFixed(1)},${e.pos.y.toFixed(1)},${e.pos.z.toFixed(1)}`);
+            }
+            const t = (trk[e.id] = trk[e.id] || { x: e.pos.x, y: e.pos.y, z: e.pos.z, at: now, want: 0 });
+            if (e.type === 'goon' && e.wantSpeed > 0) t.want++;
+            const moved = Math.hypot(e.pos.x - t.x, e.pos.y - t.y, e.pos.z - t.z);
+            const span = 10; // a Goon's own give-up on a fire position it cannot reach is 7 s (goon.move.giveUp)
+            if (now - t.at >= span) {
+              if (moved < 1 && (e.type === 'goon' ? t.want >= 5 : e.mode !== 'engage')) clipped.push(`${e.type}#${e.id} stuck ${e.mode}/${e.sub || '-'} at ${e.pos.x.toFixed(1)},${e.pos.y.toFixed(1)},${e.pos.z.toFixed(1)}${e.type === 'goon' ? ` goal ${e.goalX.toFixed(1)},${e.goalZ.toFixed(1)} path=${e.hasPath} fails=${e.pathFails} speed=${e.wantSpeed.toFixed(1)}/${e.moveSpeed.toFixed(1)}` : ''}`);
+              t.x = e.pos.x;
+              t.y = e.pos.y;
+              t.z = e.pos.z;
+              t.at = now;
+              t.want = 0;
+            }
+          }
+        }
         return [...window.__checkIdle(), ...clipped];
       },
-      [GOONS, BUZZ, SOAK],
+      [GOONS, BUZZ, SOAK, POS],
     );
     idle.push(...r);
     if (done === 120) await look('approach', `${px - 4},6,${pz + 10},${px + 14},0.8,${pz}`);

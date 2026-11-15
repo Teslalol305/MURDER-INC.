@@ -73,7 +73,7 @@ const HULLED = new Map([
   ['pallet_stack', BOX], ['crate_wood', BOX],
 ]);
 const HULL = {
-  step: 0.1, // metres between height samples along the prop
+  step: 0.15, // metres between height samples along the prop
   slice: 0.3, // samples are pooled in slices this long, each slice one box
   under: 0.06, // the hull stays this far under the top surface…
   floor: 0.12, // …and its bottom this high (vehicles; a prop on the ground keeps its own)
@@ -86,7 +86,7 @@ const HULL = {
  * The hull's material writes neither colour nor depth: it only exists in the shadow map. Every other
  * part stops casting.
  */
-function shadowHull(prop, material, { inset, traced }) {
+function shadowHull(prop, material, { inset, traced }, cache) {
   const object = prop.object;
   const colliders = (prop.colliders || []).filter((c) => !c.playerOnly);
   const targets = [];
@@ -94,6 +94,26 @@ function shadowHull(prop, material, { inset, traced }) {
     if (m.isMesh && m.castShadow) targets.push(m);
   });
   if (!colliders.length || !targets.length) return 0;
+  // Props of the same shape (name, colliders, triangle count) share their hull: the rays are cast once.
+  const key = `${object.name}|${object.userData.triangles}|${JSON.stringify(colliders.map((c) => [c.min, c.max]))}`;
+  let boxes = cache.get(key);
+  if (!boxes) cache.set(key, (boxes = hullBoxes(object, targets, colliders, inset, traced)));
+  for (const [cx, cy, cz, sx, sy, sz] of boxes) {
+    // No top face: the shadow pass draws the faces turned away from the light (three.js default).
+    const box = new THREE.Mesh(boxGeo(sx, sy, sz, { noTop: true }), material);
+    box.position.set(cx, cy, cz);
+    box.name = 'shadow-hull';
+    box.castShadow = true;
+    box.receiveShadow = false;
+    object.add(box);
+  }
+  if (!boxes.length) return 0;
+  for (const m of targets) m.castShadow = false;
+  return boxes.length;
+}
+
+/** The hull of one prop shape as [centre x, y, z, size x, y, z] boxes in its own frame. */
+function hullBoxes(object, targets, colliders, inset, traced) {
   object.updateMatrixWorld(true);
   const x0 = Math.min(...colliders.map((c) => c.min[0]));
   const x1 = Math.max(...colliders.map((c) => c.max[0]));
@@ -103,7 +123,7 @@ function shadowHull(prop, material, { inset, traced }) {
   const down = new THREE.Vector3(0, -1, 0);
   const topAt = (x) => {
     let low = Infinity;
-    for (const z of [0, hz * 0.45, -hz * 0.45]) {
+    for (const z of [0, hz * 0.45]) { // the bodies are symmetric: the centre line and one side
       raycaster.set(origin.set(x, 20, z), down);
       const hit = raycaster.intersectObjects(targets, false)[0];
       low = Math.min(low, hit ? hit.point.y : 0);
@@ -125,7 +145,7 @@ function shadowHull(prop, material, { inset, traced }) {
       last.top = Math.min(last.top, top);
     } else slices.push({ xa, xb, top });
   }
-  let boxes = 0;
+  const boxes = [];
   for (const { xa, xb, top } of slices) {
     for (const c of colliders) {
       const a = Math.max(xa, c.min[0] + inset);
@@ -134,18 +154,9 @@ function shadowHull(prop, material, { inset, traced }) {
       const y1 = Math.min(top, c.max[1] - (traced ? 0 : HULL.under));
       const w = Math.min(-c.min[2], c.max[2]) - inset;
       if (b - a < 0.05 || y1 - y0 < 0.05 || w < 0.1) continue;
-      // No top face: the shadow pass draws the faces turned away from the light (three.js default).
-      const box = new THREE.Mesh(boxGeo(b - a, y1 - y0, 2 * w, { noTop: true }), material);
-      box.position.set((a + b) / 2, (y0 + y1) / 2, 0);
-      box.name = 'shadow-hull';
-      box.castShadow = true;
-      box.receiveShadow = false;
-      object.add(box);
-      boxes++;
+      boxes.push([(a + b) / 2, (y0 + y1) / 2, 0, b - a, y1 - y0, 2 * w]);
     }
   }
-  if (!boxes) return 0;
-  for (const m of targets) m.castShadow = false;
   return boxes;
 }
 
@@ -200,6 +211,7 @@ export function createKit(G) {
   // Vehicle shadow hulls: drawn into the shadow map only (no colour, no depth in the view).
   const hullMaterial = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
   hullMaterial.name = 'shadow-hull';
+  const hulls = new Map(); // shape key → hull boxes (see shadowHull)
   glowMaterial.name = 'level-glow';
   const tinted = new Map(); // geometry uuid | colour → coloured copy
   const _color = new THREE.Color();
@@ -586,7 +598,7 @@ export function createKit(G) {
     if (VEHICLES.has(name)) o = { ...o, color: vehiclePaint(o, name) };
     const { cast, ...buildOpts } = o;
     const prop = props.build(name, buildOpts);
-    if (HULLED.has(name) && !prop.dynamic && cast !== false) shadowHull(prop, hullMaterial, HULLED.get(name));
+    if (HULLED.has(name) && !prop.dynamic && cast !== false) shadowHull(prop, hullMaterial, HULLED.get(name), hulls);
     if (cast === false) {
       prop.object.traverse((m) => {
         if (m.isMesh) m.castShadow = false;

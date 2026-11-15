@@ -227,14 +227,19 @@ module.exports = async (page, h) => {
           if (!q.width || getComputedStyle(b).visibility === 'hidden') continue;
           if (Math.min(pin.right, q.right) - Math.max(pin.left, q.left) > 2 && Math.min(pin.bottom, q.bottom) - Math.max(pin.top, q.top) > 2) covered = b.className;
         }
-        out.push({ code: n.textContent, x: Math.round(x), y: Math.round(y), covered });
+        const tag = n.querySelector('.hud-mk-dist').getBoundingClientRect();
+        const all = { l: Math.min(pin.left, tag.left), t: Math.min(pin.top, tag.top), r: Math.max(pin.right, tag.right), b: Math.max(pin.bottom, tag.bottom) };
+        out.push({ code: n.textContent, x: Math.round(x), y: Math.round(y), covered, all });
       }
       return out;
     });
     console.error(`LAYOUT ${tag} markers ${JSON.stringify(mk)}`);
     for (const m of mk) if (m.covered) problems.push(`markers: pin ${m.code} is covered at ${m.x},${m.y}`);
     for (let i = 0; i < mk.length; i++)
-      for (let j = i + 1; j < mk.length; j++) if (Math.abs(mk[i].x - mk[j].x) < 20 && Math.abs(mk[i].y - mk[j].y) < 20) problems.push(`markers: pins ${mk[i].code} and ${mk[j].code} stack`);
+      for (let j = i + 1; j < mk.length; j++) {
+        const [p, q] = [mk[i].all, mk[j].all];
+        if (Math.min(p.r, q.r) - Math.max(p.l, q.l) > 2 && Math.min(p.b, q.b) - Math.max(p.t, q.t) > 2) problems.push(`markers: pins ${mk[i].code} and ${mk[j].code} overlap`);
+      }
     await measure('markers');
     await shot('markers');
     await h.eval(() => window.__G.hud.setMarkers([]));

@@ -6,7 +6,7 @@
 
 import * as THREE from 'three';
 import { damp } from '../core/util.js';
-import { createEnemyMaterial, createModelBuilder, m3Euler, P_FADE, P_FLASH, P_LAMP, P_LAMP_R, P_RIM, writeBone } from './rig.js';
+import { createEnemyMaterial, createModelBuilder, m3EulerA, P_FADE, P_FLASH, P_LAMP, P_LAMP_R, P_RIM, writeBoneA } from './rig.js';
 
 export const BZ = { BODY: 1, ROTOR: 2, GIMBAL: 6 }; // rotors: front left, front right, rear left, rear right
 export const BZ_SLOTS = 7;
@@ -125,6 +125,10 @@ export function resetBuzzardAnim(a, seed) {
 const R = new Float64Array(9 * 2);
 const J = new Float64Array(3);
 const ORIGIN = new Float64Array(3);
+// Numbers for the rig helpers travel in arrays (rig.js: a double passed to a call is garbage).
+const A = new Float64Array(4);
+const STILL = new Float64Array([0, 0, 0, 1]); // no rotation; bind joint (0, 0, 0), scale 1: the body
+const GIMBAL_BIND = new Float64Array([GIMBAL_PIVOT[0], GIMBAL_PIVOT[1], GIMBAL_PIVOT[2], 1]);
 const BLADE_RATE = 41; // rad/s at full power: slow enough to read as blades under the blur disc
 
 /**
@@ -140,22 +144,32 @@ export function poseBuzzard(e, a, dt, M) {
   a.lamp = damp(a.lamp, e.lampWant, e.lampWant > a.lamp ? 30 : 10, dt);
   a.flash = Math.max(0, a.flash - 7 * dt);
 
-  m3Euler(R, 0, 0, 0, 0);
-  writeBone(M, BZ.BODY, R, 0, ORIGIN, 0, 0, 0, 0);
+  m3EulerA(R, 0, STILL, 0);
+  writeBoneA(M, BZ.BODY, R, 0, ORIGIN, 0, STILL, 0);
   for (let i = 0; i < 4; i++) {
     const hub = ROTORS[i];
     // Neighbouring rotors turn opposite ways.
-    m3Euler(R, 0, 0, (i === 0 || i === 3 ? 1 : -1) * a.spin + i * 0.9, 0);
+    A[0] = 0;
+    A[1] = (i === 0 || i === 3 ? 1 : -1) * a.spin + i * 0.9;
+    A[2] = 0;
+    m3EulerA(R, 0, A, 0);
     J[0] = hub[0];
     J[1] = hub[1];
     J[2] = hub[2];
-    writeBone(M, BZ.ROTOR + i, R, 0, J, 0, hub[0], hub[1], hub[2], a.lost === i ? 0.001 : 1);
+    A[0] = hub[0];
+    A[1] = hub[1];
+    A[2] = hub[2];
+    A[3] = a.lost === i ? 0.001 : 1;
+    writeBoneA(M, BZ.ROTOR + i, R, 0, J, 0, A, 0);
   }
-  m3Euler(R, 9, a.eyePitch, a.eyeYaw, 0);
+  A[0] = a.eyePitch;
+  A[1] = a.eyeYaw;
+  A[2] = 0;
+  m3EulerA(R, 9, A, 0);
   J[0] = GIMBAL_PIVOT[0];
   J[1] = GIMBAL_PIVOT[1];
   J[2] = GIMBAL_PIVOT[2];
-  writeBone(M, BZ.GIMBAL, R, 9, J, 0, GIMBAL_PIVOT[0], GIMBAL_PIVOT[1], GIMBAL_PIVOT[2]);
+  writeBoneA(M, BZ.GIMBAL, R, 9, J, 0, GIMBAL_BIND, 0);
 
   M[P_FLASH] = a.flash;
   M[P_FADE] = 0;

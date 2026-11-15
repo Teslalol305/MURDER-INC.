@@ -4,7 +4,7 @@
 
 import { SHED, SHOP } from './layout.js';
 
-export const START = { x: -37.4, z: 8.15, yaw: -Math.PI / 2 + 0.15 }; // foot of the station stair, facing east, a little toward the avenue
+export const START = { x: -37.4, z: 8.15, yaw: -Math.PI / 2 + 0.08 }; // foot of the station stair, facing east, a little toward the avenue
 
 /** Reel positions, in route-bullet order: the avenue, the chop shop, the cage. */
 export const REELS = [

@@ -13,7 +13,7 @@
 
 import { clamp, clamp01, damp, lerp, moveToward, smoothstep } from '../core/util.js';
 import { B, GOON_LAMP, GUN, HEAD, LIMB, PIVOT, SLOTS } from './goon-model.js';
-import { m3Copy, m3Euler, m3Limb, m3Mul, m3Point, P_FADE, P_FLASH, P_LAMP, P_LAMP_R, P_RIM, solveLimb, writeBone } from './rig.js';
+import { m3Copy, m3Euler, m3EulerA, m3Limb, m3LimbA, m3Mul, m3Point, m3PointA, P_FADE, P_FLASH, P_LAMP, P_LAMP_R, P_RIM, solveLimbA, writeBoneA } from './rig.js';
 
 const TAU = Math.PI * 2;
 const PI = Math.PI;
@@ -26,6 +26,13 @@ const V = new Float64Array(48); // temporary vectors
 const F = new Float64Array(6); // foot cycle: z, y, pitch for the left and the right foot
 const IK = new Float64Array(9);
 const ZERO = new Float64Array(3);
+// Arguments for the rig helpers. V8 boxes a double that crosses a call it did not inline (16 bytes of
+// garbage), and poseGoon makes about two hundred such calls per Goon per frame: so the numbers travel
+// in these arrays and the helpers take array + offset (rig.js `…A` forms). Stage, then call at once.
+const A = new Float64Array(12);
+const FC = new Float64Array(6); // footCycle: phase, stance, front, back, lift, roll
+const W = new Float64Array(1); // addHold / blendHold: the weight
+const vec = (x, y, z) => new Float64Array([x, y, z]);
 
 const HIPS9 = B.HIPS * 9;
 const SPINE9 = B.SPINE * 9;
@@ -55,17 +62,41 @@ const CROUCH_WALK_DROP = 0.22;
 const BLADED = -0.32; // pelvis yaw of the shooting stance: left shoulder leads
 
 // Gun holds: grip position relative to the chest centre, and Euler angles (pitch, yaw, roll).
-const HOLD_LOW = { at: [0.1, -0.27, -0.21], rot: [-0.75, 0.55, 0.25] };
-const HOLD_PORT = { at: [0.12, -0.2, -0.2], rot: [0.55, 0.75, -0.2] };
-const HOLD_CARRY = { at: [-0.04, -0.33, -0.17], rot: [-1.0, 0.9, 0.3] };
-const HOLD_AIM = [0.125, -0.042, -0.305]; // in the aim frame: the butt sits in the right shoulder
-const WRIST_R = [0, 0.005, 0.065]; // right wrist in the gun's frame…
-const WRIST_L = [GUN.fore[0], GUN.fore[1] - 0.03, GUN.fore[2] + 0.05]; // …and the left one
+const HOLD_LOW = { at: vec(0.1, -0.27, -0.21), rot: vec(-0.75, 0.55, 0.25) };
+const HOLD_PORT = { at: vec(0.12, -0.2, -0.2), rot: vec(0.55, 0.75, -0.2) };
+const HOLD_CARRY = { at: vec(-0.04, -0.33, -0.17), rot: vec(-1.0, 0.9, 0.3) };
+const HOLD_AIM = vec(0.125, -0.042, -0.305); // in the aim frame: the butt sits in the right shoulder
+const WRIST_R = vec(0, 0.005, 0.065); // right wrist in the gun's frame…
+const WRIST_L = vec(GUN.fore[0], GUN.fore[1] - 0.03, GUN.fore[2] + 0.05); // …and the left one
 const HAND_R_PITCH = 0.86;
 const HAND_L_PITCH = 2.1;
+const HAND_R_TURN = vec(HAND_R_PITCH, 0, 0);
+const HAND_L_TURN = vec(HAND_L_PITCH, 0, 0);
+const ELBOW_POLE_R = vec(0.45, -0.8, 0.45); // elbow poles in the spine's frame
+const ELBOW_POLE_L = vec(-0.6, -0.8, 0.15);
+const CHEST = vec(0, CHEST_Y, 0);
+const HIP_L = vec(-HIP_X, HIP_DROP, 0);
+const HIP_R = vec(HIP_X, HIP_DROP, 0);
+const HEAD_AT = vec(0, HEAD.centreY, 0);
+const MUZZLE_AT = vec(GUN.muzzle[0], GUN.muzzle[1], GUN.muzzle[2]);
+const LAMP_AT = vec(GUN.lamp[0], GUN.lamp[1], GUN.lamp[2] - 0.02);
+const BODY_HIGH_AT = vec(0, -0.13, 0);
+// Bone lengths for reach(): arm (0, 1) and leg (2, 3).
+const LIMBS = new Float64Array([LIMB.upperArm, LIMB.lowerArm, LIMB.upperLeg, LIMB.lowerLeg]);
+const ARM = 0;
+const LEG = 2;
+// Every bone's bind joint and scale 1, the way writeBoneA reads them; the gun and the pipe sit at the origin.
+const BIND = new Float64Array(SLOTS * 4);
+for (let b = 0; b < SLOTS; b++) {
+  BIND[b * 4] = PIVOT[b * 3];
+  BIND[b * 4 + 1] = PIVOT[b * 3 + 1];
+  BIND[b * 4 + 2] = PIVOT[b * 3 + 2];
+  BIND[b * 4 + 3] = 1;
+}
+const ORIGIN = new Float64Array([0, 0, 0, 1]);
 
 // The pipe: where it rides on his back, and the right hand's path through the swing (chest frame).
-const PIPE_BACK = { at: [0.15, 0.06, 0.15], rot: [0.12, 0, 2.62] };
+const PIPE_BACK = { at: vec(0.15, 0.06, 0.15), rot: vec(0.12, 0, 2.62) };
 const HAND_BACK = [0.15, 0.06, 0.15];
 const HAND_COCKED = [0.3, 0.2, 0.1];
 const HAND_STRIKE = [-0.1, -0.22, -0.42];
@@ -161,8 +192,17 @@ export function kickFlinch(a, dx, dz, strength) {
   a.flash = Math.min(1, a.flash + 0.55 + 0.25 * strength);
 }
 
-/** Position of one foot in the gait cycle: writes ankle z, ankle y and foot pitch to F[o…o+2]. */
-function footCycle(p, stance, front, back, lift, roll, o) {
+/**
+ * Position of one foot in the gait cycle: writes ankle z, ankle y and foot pitch to F[o…o+2]. Reads
+ * (phase, stance, front, back, lift, roll) from FC.
+ */
+function footCycle(o) {
+  const p = FC[0];
+  const stance = FC[1];
+  const front = FC[2];
+  const back = FC[3];
+  const lift = FC[4];
+  const roll = FC[5];
   const strikePitch = 0.32 * roll;
   const offPitch = -0.9 * roll;
   // Ankle when the heel lands in front, and when the toe leaves behind.
@@ -204,26 +244,48 @@ function footCycle(p, stance, front, back, lift, roll, o) {
 function placeJoint(child, parent) {
   const c = child * 3;
   const p = parent * 3;
-  m3Point(R, parent * 9, PIVOT[c] - PIVOT[p], PIVOT[c + 1] - PIVOT[p + 1], PIVOT[c + 2] - PIVOT[p + 2], J, p, J, c);
+  A[0] = PIVOT[c] - PIVOT[p];
+  A[1] = PIVOT[c + 1] - PIVOT[p + 1];
+  A[2] = PIVOT[c + 2] - PIVOT[p + 2];
+  m3PointA(R, parent * 9, A, 0, J, p, J, c);
 }
 
 /**
- * Solves one arm or leg from joint `upper` to the target in V[t…], writes both bone rotations and the
- * joints of `lower` and `end`. `side` is +1 for a limb whose bend points at the pole like a knee (the
- * hinge is reach × pole), −1 for one that bends away from it like an elbow.
+ * Solves one arm or leg from joint `upper` to the target in V[0…2] with the pole in V[6…8], writes both
+ * bone rotations and the joints of `lower` and `end`. `limb` picks the bone lengths (ARM or LEG). `side`
+ * is +1 for a limb whose bend points at the pole like a knee (the hinge is reach × pole), −1 for one that
+ * bends away from it like an elbow.
  */
-function reach(upper, lower, end, t, l1, l2, px, py, pz, side) {
+function reach(upper, lower, end, limb, side) {
   const u3 = upper * 3;
-  solveLimb(J, u3, V[t], V[t + 1], V[t + 2], l1, l2, px, py, pz, IK);
+  const l2 = LIMBS[limb + 1];
+  const px = V[6];
+  const py = V[7];
+  const pz = V[8];
+  A[0] = V[0];
+  A[1] = V[1];
+  A[2] = V[2];
+  A[3] = LIMBS[limb];
+  A[4] = l2;
+  A[5] = px;
+  A[6] = py;
+  A[7] = pz;
+  solveLimbA(J, u3, A, 0, IK);
   // Hinge axis from the plane the limb bends in.
-  const dx = V[t] - J[u3];
-  const dy = V[t + 1] - J[u3 + 1];
-  const dz = V[t + 2] - J[u3 + 2];
-  const hx = (dy * pz - dz * py) * side;
-  const hy = (dz * px - dx * pz) * side;
-  const hz = (dx * py - dy * px) * side;
-  m3Limb(R, upper * 9, IK[0], IK[1], IK[2], hx, hy, hz);
-  m3Limb(R, lower * 9, IK[3], IK[4], IK[5], hx, hy, hz);
+  const dx = V[0] - J[u3];
+  const dy = V[1] - J[u3 + 1];
+  const dz = V[2] - J[u3 + 2];
+  A[3] = (dy * pz - dz * py) * side;
+  A[4] = (dz * px - dx * pz) * side;
+  A[5] = (dx * py - dy * px) * side;
+  A[0] = IK[0];
+  A[1] = IK[1];
+  A[2] = IK[2];
+  m3LimbA(R, upper * 9, A, 0);
+  A[0] = IK[3];
+  A[1] = IK[4];
+  A[2] = IK[5];
+  m3LimbA(R, lower * 9, A, 0);
   const l3 = lower * 3;
   J[l3] = IK[6];
   J[l3 + 1] = IK[7];
@@ -234,8 +296,9 @@ function reach(upper, lower, end, t, l1, l2, px, py, pz, side) {
   J[e3 + 2] = IK[8] + IK[5] * l2;
 }
 
-/** Adds weight w of rotation T[t…] (columns X and Y) and of the point p to the blend in V[24…35]. */
-function blendHold(w, t, px, py, pz) {
+/** Adds weight W[0] of rotation T[t…] (columns X and Y) and of the point V[36…38] to the blend in V[24…32]. */
+function blendHold(t) {
+  const w = W[0];
   if (w <= 0) return;
   V[24] += T[t] * w;
   V[25] += T[t + 3] * w;
@@ -243,24 +306,24 @@ function blendHold(w, t, px, py, pz) {
   V[27] += T[t + 1] * w;
   V[28] += T[t + 4] * w;
   V[29] += T[t + 7] * w;
-  V[30] += px * w;
-  V[31] += py * w;
-  V[32] += pz * w;
+  V[30] += V[36] * w;
+  V[31] += V[37] * w;
+  V[32] += V[38] * w;
 }
 
-/** Rotation T[t…] = R[SPINE] · Euler(hold.rot) and its grip point relative to the chest, blended in with weight w. */
-function addHold(w, hold, t) {
-  if (w <= 0) return;
-  m3Euler(T, 63, hold.rot[0], hold.rot[1], hold.rot[2]);
+/** Rotation T[t…] = R[SPINE] · Euler(hold.rot) and its grip point relative to the chest, blended in with weight W[0]. */
+function addHold(hold, t) {
+  if (W[0] <= 0) return;
+  m3EulerA(T, 63, hold.rot, 0);
   m3Mul(T, t, R, SPINE9, T, 63);
-  m3Point(R, SPINE9, hold.at[0], hold.at[1], hold.at[2], V, 21, V, 36);
-  blendHold(w, t, V[36], V[37], V[38]);
+  m3PointA(R, SPINE9, hold.at, 0, V, 21, V, 36);
+  blendHold(t);
 }
 
 function writeAll(M) {
-  for (let b = B.HIPS; b <= B.R_FOOT; b++) writeBone(M, b, R, b * 9, J, b * 3, PIVOT[b * 3], PIVOT[b * 3 + 1], PIVOT[b * 3 + 2]);
-  writeBone(M, B.GUN, R, GUN9, J, GUN3, 0, 0, 0);
-  writeBone(M, B.PIPE, R, PIPE9, J, PIPE3, 0, 0, 0);
+  for (let b = B.HIPS; b <= B.R_FOOT; b++) writeBoneA(M, b, R, b * 9, J, b * 3, BIND, b * 4);
+  writeBoneA(M, B.GUN, R, GUN9, J, GUN3, ORIGIN, 0);
+  writeBoneA(M, B.PIPE, R, PIPE9, J, PIPE3, ORIGIN, 0);
 }
 
 function writeParams(a, M) {
@@ -355,8 +418,15 @@ export function poseGoon(e, a, dt, M) {
   const front = Math.min(travel * 0.5, lerp(0.34, 0.3, runW));
   const lift = (0.07 + 0.2 * runW) * moveW + still * Math.min(turnRate, 2) * 0.025;
   const roll = clamp01(travel / 0.6);
-  footCycle(phase, stance, front, travel - front, lift, roll, 0);
-  footCycle(phase >= 0.5 ? phase - 0.5 : phase + 0.5, stance, front, travel - front, lift, roll, 3);
+  FC[1] = stance;
+  FC[2] = front;
+  FC[3] = travel - front;
+  FC[4] = lift;
+  FC[5] = roll;
+  FC[0] = phase;
+  footCycle(0);
+  FC[0] = phase >= 0.5 ? phase - 0.5 : phase + 0.5;
+  footCycle(3);
 
   // ---- hips -------------------------------------------------------------------------------------
   const kneel = crouch * still;
@@ -365,7 +435,10 @@ export function poseGoon(e, a, dt, M) {
   const pelvisYaw = -0.15 * cyc * moveW * (1 - 0.3 * runW) + BLADED * Math.max(aim, kneel) * still;
   const pelvisPitch = -0.05 * runW - 0.1 * kneel - 0.12 * strike * rw;
   const pelvisRoll = 0.04 * syc * moveW;
-  m3Euler(R, HIPS9, pelvisPitch, pelvisYaw, pelvisRoll);
+  A[0] = pelvisPitch;
+  A[1] = pelvisYaw;
+  A[2] = pelvisRoll;
+  m3EulerA(R, HIPS9, A, 0);
   J[HIPS3] = -0.016 * syc * moveW * (1 - runW) + a.flinchX * 0.05 + 0.006 * sway * still;
   J[HIPS3 + 1] =
     HIP_Y -
@@ -394,7 +467,10 @@ export function poseGoon(e, a, dt, M) {
     pelvisPitch;
   const spineY = spineYawModel - pelvisYaw;
   const spineZ = -a.flinchX * 0.55 - pelvisRoll * 0.8;
-  m3Euler(T, 0, spineX, spineY, spineZ);
+  A[0] = spineX;
+  A[1] = spineY;
+  A[2] = spineZ;
+  m3EulerA(T, 0, A, 0);
   m3Mul(R, SPINE9, R, HIPS9, T, 0);
   placeJoint(B.SPINE, B.HIPS);
 
@@ -402,13 +478,16 @@ export function poseGoon(e, a, dt, M) {
   a.headPitch = damp(a.headPitch, clamp(e.lookPitch, -0.6, 0.6), 7, dt);
   const headY = clamp(a.headYaw - spineYawModel, -1.25, 1.25);
   const headX = clamp(a.headPitch - (spineX + pelvisPitch) * 0.8, -0.7, 0.7) - a.flinchZ * 0.5;
-  m3Euler(T, 0, headX, headY, -0.1 * aim + a.flinchX * 0.4);
+  A[0] = headX;
+  A[1] = headY;
+  A[2] = -0.1 * aim + a.flinchX * 0.4;
+  m3EulerA(T, 0, A, 0);
   m3Mul(R, HEAD9, R, SPINE9, T, 0);
   placeJoint(B.HEAD, B.SPINE);
   placeJoint(B.L_UARM, B.SPINE);
   placeJoint(B.R_UARM, B.SPINE);
   // Chest centre: the middle of the shoulder line.
-  m3Point(R, SPINE9, 0, CHEST_Y, 0, J, SPINE3, V, 21);
+  m3PointA(R, SPINE9, CHEST, 0, J, SPINE3, V, 21);
 
   // ---- the gun: a blend of four holds -------------------------------------------------------------
   for (let i = 24; i < 33; i++) V[i] = 0;
@@ -416,68 +495,87 @@ export function poseGoon(e, a, dt, M) {
   const wAim = aim;
   const wPort = runW * (1 - aim) * (1 - rw);
   const wLow = Math.max(0, 1 - wCarry - wAim - wPort);
-  addHold(wLow, HOLD_LOW, 9);
-  addHold(wPort, HOLD_PORT, 18);
-  addHold(wCarry, HOLD_CARRY, 27);
+  W[0] = wLow;
+  addHold(HOLD_LOW, 9);
+  W[0] = wPort;
+  addHold(HOLD_PORT, 18);
+  W[0] = wCarry;
+  addHold(HOLD_CARRY, 27);
   if (wAim > 0) {
-    m3Euler(T, 36, a.gunPitch + 0.07 * a.recoil, a.gunYaw, 0);
-    m3Point(T, 36, HOLD_AIM[0], HOLD_AIM[1], HOLD_AIM[2] + 0.03 * a.recoil, V, 21, V, 36);
-    blendHold(wAim, 36, V[36], V[37], V[38]);
+    A[0] = a.gunPitch + 0.07 * a.recoil;
+    A[1] = a.gunYaw;
+    A[2] = 0;
+    m3EulerA(T, 36, A, 0);
+    A[0] = HOLD_AIM[0];
+    A[1] = HOLD_AIM[1];
+    A[2] = HOLD_AIM[2] + 0.03 * a.recoil;
+    m3PointA(T, 36, A, 0, V, 21, V, 36);
+    W[0] = wAim;
+    blendHold(36);
   }
-  m3Limb(R, GUN9, -V[27], -V[28], -V[29], V[24], V[25], V[26]);
+  A[0] = -V[27];
+  A[1] = -V[28];
+  A[2] = -V[29];
+  A[3] = V[24];
+  A[4] = V[25];
+  A[5] = V[26];
+  m3LimbA(R, GUN9, A, 0);
   J[GUN3] = V[30];
   J[GUN3 + 1] = V[31];
   J[GUN3 + 2] = V[32];
 
   // ---- arms ---------------------------------------------------------------------------------------
   // Right wrist: on the grip, or on the pipe's path through the rush.
-  m3Point(R, GUN9, WRIST_R[0], WRIST_R[1], WRIST_R[2], J, GUN3, V, 0);
+  m3PointA(R, GUN9, WRIST_R, 0, J, GUN3, V, 0);
   if (rw > 0.001) {
     const arc = Math.sin(PI * strike) * (1 - strike * 0.3);
     const lift = Math.sin(PI * stow);
     const hx = lerp(lerp(lerp(HAND_BACK[0], HAND_COCKED[0], cock), HAND_STRIKE[0], strike), HAND_BACK[0], stow);
     const hy = lerp(lerp(lerp(HAND_BACK[1], HAND_COCKED[1], cock), HAND_STRIKE[1], strike) + 0.14 * arc, HAND_BACK[1], stow) + 0.08 * lift;
     const hz = lerp(lerp(lerp(HAND_BACK[2], HAND_COCKED[2], cock), HAND_STRIKE[2], strike) - 0.12 * arc, HAND_BACK[2], stow) + 0.04 * lift;
-    m3Point(R, SPINE9, hx, hy, hz, V, 21, V, 3);
+    A[0] = hx;
+    A[1] = hy;
+    A[2] = hz;
+    m3PointA(R, SPINE9, A, 0, V, 21, V, 3);
     V[0] = lerp(V[0], V[3], rw);
     V[1] = lerp(V[1], V[4], rw);
     V[2] = lerp(V[2], V[5], rw);
   }
   // Elbow poles in the spine's frame: the right one down, out and back, the left one down and out.
-  m3Point(R, SPINE9, 0.45, -0.8, 0.45, ZERO, 0, V, 6);
-  reach(B.R_UARM, B.R_LARM, B.R_HAND, 0, LIMB.upperArm, LIMB.lowerArm, V[6], V[7], V[8], -1);
-  m3Point(R, GUN9, WRIST_L[0], WRIST_L[1], WRIST_L[2], J, GUN3, V, 0);
-  m3Point(R, SPINE9, -0.6, -0.8, 0.15, ZERO, 0, V, 6);
-  reach(B.L_UARM, B.L_LARM, B.L_HAND, 0, LIMB.upperArm, LIMB.lowerArm, V[6], V[7], V[8], -1);
+  m3PointA(R, SPINE9, ELBOW_POLE_R, 0, ZERO, 0, V, 6);
+  reach(B.R_UARM, B.R_LARM, B.R_HAND, ARM, -1);
+  m3PointA(R, GUN9, WRIST_L, 0, J, GUN3, V, 0);
+  m3PointA(R, SPINE9, ELBOW_POLE_L, 0, ZERO, 0, V, 6);
+  reach(B.L_UARM, B.L_LARM, B.L_HAND, ARM, -1);
   // Hands follow the gun; the right one follows the forearm while it holds the pipe.
-  m3Euler(T, 0, HAND_L_PITCH, 0, 0);
+  m3EulerA(T, 0, HAND_L_TURN, 0);
   m3Mul(R, B.L_HAND * 9, R, GUN9, T, 0);
   if (rw > 0.5) {
     m3Copy(R, B.R_HAND * 9, R, B.R_LARM * 9);
   } else {
-    m3Euler(T, 0, HAND_R_PITCH, 0, 0);
+    m3EulerA(T, 0, HAND_R_TURN, 0);
     m3Mul(R, B.R_HAND * 9, R, GUN9, T, 0);
   }
 
   // ---- the pipe -------------------------------------------------------------------------------------
-  m3Euler(T, 0, PIPE_BACK.rot[0], PIPE_BACK.rot[1], PIPE_BACK.rot[2]);
+  m3EulerA(T, 0, PIPE_BACK.rot, 0);
   m3Mul(T, 9, R, SPINE9, T, 0);
-  m3Point(R, SPINE9, PIPE_BACK.at[0], PIPE_BACK.at[1], PIPE_BACK.at[2], V, 21, V, 9);
+  m3PointA(R, SPINE9, PIPE_BACK.at, 0, V, 21, V, 9);
   if (inHand > 0.001 || a.carry > 0.001) {
-    m3Euler(T, 0, lerp(PIPE_COCKED, PIPE_STRUCK, strike), 0, -0.25);
+    A[0] = lerp(PIPE_COCKED, PIPE_STRUCK, strike);
+    A[1] = 0;
+    A[2] = -0.25;
+    m3EulerA(T, 0, A, 0);
     m3Mul(T, 18, R, SPINE9, T, 0);
     const k = inHand;
     // Blend the two rotations by their X and Y axes, and the grip from the back to the fist.
-    m3Limb(
-      R,
-      PIPE9,
-      -lerp(T[10], T[19], k),
-      -lerp(T[13], T[22], k),
-      -lerp(T[16], T[25], k),
-      lerp(T[9], T[18], k),
-      lerp(T[12], T[21], k),
-      lerp(T[15], T[24], k),
-    );
+    A[0] = -lerp(T[10], T[19], k);
+    A[1] = -lerp(T[13], T[22], k);
+    A[2] = -lerp(T[16], T[25], k);
+    A[3] = lerp(T[9], T[18], k);
+    A[4] = lerp(T[12], T[21], k);
+    A[5] = lerp(T[15], T[24], k);
+    m3LimbA(R, PIPE9, A, 0);
     const h3 = B.R_HAND * 3;
     J[PIPE3] = lerp(V[9], J[h3], a.carry);
     J[PIPE3 + 1] = lerp(V[10], J[h3 + 1], a.carry);
@@ -490,8 +588,8 @@ export function poseGoon(e, a, dt, M) {
   }
 
   // ---- legs -----------------------------------------------------------------------------------------
-  m3Point(R, HIPS9, -HIP_X, HIP_DROP, 0, J, HIPS3, J, B.L_ULEG * 3);
-  m3Point(R, HIPS9, HIP_X, HIP_DROP, 0, J, HIPS3, J, B.R_ULEG * 3);
+  m3PointA(R, HIPS9, HIP_L, 0, J, HIPS3, J, B.L_ULEG * 3);
+  m3PointA(R, HIPS9, HIP_R, 0, J, HIPS3, J, B.R_ULEG * 3);
   const gaitX = 0.11 - 0.035 * runW;
   const kneelW = kneel;
   const aimW = aim * (1 - kneel);
@@ -516,10 +614,16 @@ export function poseGoon(e, a, dt, M) {
     V[1] = y;
     V[2] = z;
     // Knees point where the pelvis faces, a little outward.
-    m3Point(R, HIPS9, side === 0 ? -0.14 : 0.14, 0.05, -1, ZERO, 0, V, 6);
+    A[0] = side === 0 ? -0.14 : 0.14;
+    A[1] = 0.05;
+    A[2] = -1;
+    m3PointA(R, HIPS9, A, 0, ZERO, 0, V, 6);
     const upper = side === 0 ? B.L_ULEG : B.R_ULEG;
-    reach(upper, upper + 1, upper + 2, 0, LIMB.upperLeg, LIMB.lowerLeg, V[6], V[7], V[8], 1);
-    m3Euler(R, (upper + 2) * 9, pitch, pelvisYaw * 0.6 + (side === 0 ? 0.1 : -0.1), 0);
+    reach(upper, upper + 1, upper + 2, LEG, 1);
+    A[0] = pitch;
+    A[1] = pelvisYaw * 0.6 + (side === 0 ? 0.1 : -0.1);
+    A[2] = 0;
+    m3EulerA(R, (upper + 2) * 9, A, 0);
   }
 
   writeAll(M);
@@ -527,16 +631,16 @@ export function poseGoon(e, a, dt, M) {
 
   // ---- what the game reads back -----------------------------------------------------------------------
   const out = a.out;
-  m3Point(R, HEAD9, 0, HEAD.centreY, 0, J, HEAD3, out, OUT_HEAD);
-  m3Point(R, GUN9, GUN.muzzle[0], GUN.muzzle[1], GUN.muzzle[2], J, GUN3, out, OUT_MUZZLE);
-  m3Point(R, GUN9, GUN.lamp[0], GUN.lamp[1], GUN.lamp[2] - 0.02, J, GUN3, out, OUT_LAMP);
+  m3PointA(R, HEAD9, HEAD_AT, 0, J, HEAD3, out, OUT_HEAD);
+  m3PointA(R, GUN9, MUZZLE_AT, 0, J, GUN3, out, OUT_MUZZLE);
+  m3PointA(R, GUN9, LAMP_AT, 0, J, GUN3, out, OUT_LAMP);
   out[OUT_AIM] = -R[GUN9 + 2];
   out[OUT_AIM + 1] = -R[GUN9 + 5];
   out[OUT_AIM + 2] = -R[GUN9 + 8];
   out[OUT_BODY_LOW] = J[HIPS3];
   out[OUT_BODY_LOW + 1] = Math.max(0.27, J[HIPS3 + 1] - 0.62);
   out[OUT_BODY_LOW + 2] = J[HIPS3 + 2];
-  m3Point(R, SPINE9, 0, -0.13, 0, J, HEAD3, out, OUT_BODY_HIGH);
+  m3PointA(R, SPINE9, BODY_HIGH_AT, 0, J, HEAD3, out, OUT_BODY_HIGH);
   out[OUT_CHEST] = V[21];
   out[OUT_CHEST + 1] = V[22];
   out[OUT_CHEST + 2] = V[23];
@@ -740,7 +844,7 @@ export function poseCollapse(a, dt, M, duration) {
     V[2] = lerp(c[src + 2], V[5], legW);
     m3Point(R, HIPS9, lerp(side === 0 ? -0.14 : 0.14, pole[0] * flip, legW), 0.05 * (1 - legW), lerp(-1, pole[2], legW), ZERO, 0, V, 6);
     const upper = side === 0 ? B.L_ULEG : B.R_ULEG;
-    reach(upper, upper + 1, upper + 2, 0, LIMB.upperLeg, LIMB.lowerLeg, V[6], V[7], V[8], 1);
+    reach(upper, upper + 1, upper + 2, LEG, 1);
     m3Euler(T, 0, pose.footPitch[mirrored], pose.footYaw[mirrored] * flip, 0);
     m3Mul(T, 9, R, HIPS9, T, 0);
     // Feet turn from flat on the street to wherever the lying pose leaves them.

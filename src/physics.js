@@ -208,7 +208,7 @@ export function createPhysics(G) {
    * hitIndex / hitAxis say what and where.
    * A box that contains the origin is ignored (rays only hit faces they enter through).
    * With `any` the first hit found ends the search (occlusion queries).
-   * `skip` is the flag mask of boxes to pass through: PLAYER_ONLY for rays (the default), BULLET_ONLY
+   * `skip` is the flag mask of boxes to pass through: PLAYER_ONLY for rays and plain sight, BULLET_ONLY
    * for the movement test of lineOfSight(a, b, {movement: true}).
    * The three axes are written out one after the other on purpose: this is the hottest loop in the game.
    */

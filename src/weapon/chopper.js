@@ -8,6 +8,7 @@
 
 import * as THREE from 'three';
 import { FINISH, Soup, block, fillet, lathe, loft, paint, pin, prism, rod, sweep } from './build.js';
+import { FINISH_BLUED } from './material.js';
 import { POSES, gunPose, handKey, sampleCurve, sampleTrack, shiftKey, turnKey } from './handling.js';
 
 export const SIGHT_Y = 0.0555; // height of the sight line over the bore
@@ -34,13 +35,13 @@ export function buildChopper(material, def) {
   // sun show in it as shapes. Chamfered edges are worn to bright steel.
   const wear = paint(0x9aa0a8, 0.28, 1);
   const P = {
-    steel: paint(0x5a5e65, 0.36, 0.9, { wear }),
-    cover: paint(0x53565c, 0.4, 0.9, { wear }),
+    steel: paint(0x5a5e65, 0.36, 0.9, { wear, finish: FINISH_BLUED }),
+    cover: paint(0x53565c, 0.4, 0.9, { wear, finish: FINISH_BLUED }),
     dark: paint(0x3c3e43, 0.44, 0.85, { wear }),
     bare: paint(0xb1b6bd, 0.26, 1, { finish: FINISH.brushed }),
-    wood: paint(0x6b3518, 0.42, 0, { finish: FINISH.wood }),
+    wood: paint(0x55301c, 0.36, 0, { finish: FINISH.wood }), // varnished laminate: red-brown, a soft gloss
     black: paint(0x050506, 0.92, 0),
-    mag: paint(0x45484e, 0.42, 0.85, { wear }),
+    mag: paint(0x45484e, 0.42, 0.85, { wear, finish: FINISH_BLUED }),
     brass: paint(0xcaa23d, 0.28, 1),
     copper: paint(0xb5683a, 0.3, 1),
     dot: paint(0xf2f0e4, 0.6, 0, { glow: 0.55 }),

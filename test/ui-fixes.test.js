@@ -21,7 +21,7 @@ test('edge pins: two pins on one point are spread along the edge', () => {
   const placed = new Float64Array([64, 345]);
   const o = L.separatePin(64, 345, placed, 1, [], 0, true, 80, 600, 384, out());
   assert.equal(o.x, 64);
-  assert.ok(Math.abs(o.y - 345) >= L.PIN.gap, `moved ${o.y}`);
+  assert.ok(Math.abs(o.y - 345) >= L.PIN.gapY, `moved ${o.y}`);
 });
 
 test('edge pins: a pin keeps out of the kill feed', () => {
@@ -47,14 +47,14 @@ test('edge pins: nowhere clear of the plates, they still do not stack', () => {
   const wall = box(0, 0, 1000, 1000);
   const placed = new Float64Array([33, 188]);
   const o = L.separatePin(33, 188, placed, 1, [wall], 1, true, 41, 300, 200, out());
-  assert.ok(Math.abs(o.y - 188) >= L.PIN.gap || Math.abs(o.x - 33) >= L.PIN.gap, JSON.stringify(o));
+  assert.ok(Math.abs(o.y - 188) >= L.PIN.gapY || Math.abs(o.x - 33) >= L.PIN.gapX, JSON.stringify(o));
 });
 
 test('edge pins along the top edge move across it, inside their range', () => {
   const placed = new Float64Array([400, 40]);
   const o = L.separatePin(400, 40, placed, 1, [], 0, false, 64, 1216, 216, out());
   assert.equal(o.y, 40);
-  assert.ok(o.x >= 64 && o.x <= 1216 && Math.abs(o.x - 400) >= L.PIN.gap);
+  assert.ok(o.x >= 64 && o.x <= 1216 && Math.abs(o.x - 400) >= L.PIN.gapX);
 });
 
 test('radio and feed hold their time while the clock passes 0 (the paused HUD)', () => {

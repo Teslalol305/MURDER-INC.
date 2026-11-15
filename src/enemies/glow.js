@@ -133,23 +133,97 @@ export function createGlow(scene, capacity = 160, discCapacity = 32) {
   let n = 0;
   let nd = 0;
 
-  function put(o, ax, ay, az, size, x, y, z) {
-    gm[o] = ax;
-    gm[o + 1] = ay;
-    gm[o + 2] = az;
+  // The numbers of one sprite. Callers in hot code fill `args` and call the …A forms: a double handed to
+  // a function V8 did not inline is boxed on the heap (see rig.js), and these run for every glow every frame.
+  //   flareA:  x y z size r g b            streakA: x0 y0 z0 x1 y1 z1 width r g b
+  //   discA:   x y z radius level          (the rotation is passed as m, o)
+  const args = new Float64Array(10);
+
+  /** Instance matrix at o: X axis (ax, ay, az), Y axis (0, size, 0), at (x, y, z); all from P[pi…pi+6]. */
+  function put(o, P, pi) {
+    gm[o] = P[pi];
+    gm[o + 1] = P[pi + 1];
+    gm[o + 2] = P[pi + 2];
     gm[o + 3] = 0;
     gm[o + 4] = 0;
-    gm[o + 5] = size;
+    gm[o + 5] = P[pi + 3];
     gm[o + 6] = 0;
     gm[o + 7] = 0;
     gm[o + 8] = 0;
     gm[o + 9] = 0;
     gm[o + 10] = 1;
     gm[o + 11] = 0;
-    gm[o + 12] = x;
-    gm[o + 13] = y;
-    gm[o + 14] = z;
+    gm[o + 12] = P[pi + 4];
+    gm[o + 13] = P[pi + 5];
+    gm[o + 14] = P[pi + 6];
     gm[o + 15] = 1;
+  }
+  const PUT = new Float64Array(7);
+
+  function flareA() {
+    const size = args[3];
+    if (n >= capacity || size <= 0) return;
+    PUT[0] = 0;
+    PUT[1] = 0;
+    PUT[2] = 0;
+    PUT[3] = size * flareScale;
+    PUT[4] = args[0];
+    PUT[5] = args[1];
+    PUT[6] = args[2];
+    put(n * 16, PUT, 0);
+    gc[n * 3] = args[4];
+    gc[n * 3 + 1] = args[5];
+    gc[n * 3 + 2] = args[6];
+    n++;
+  }
+
+  function streakA() {
+    if (n >= capacity) return;
+    const x0 = args[0];
+    const y0 = args[1];
+    const z0 = args[2];
+    const x1 = args[3];
+    const y1 = args[4];
+    const z1 = args[5];
+    PUT[0] = x1 - x0;
+    PUT[1] = y1 - y0;
+    PUT[2] = z1 - z0;
+    PUT[3] = args[6];
+    PUT[4] = (x0 + x1) * 0.5;
+    PUT[5] = (y0 + y1) * 0.5;
+    PUT[6] = (z0 + z1) * 0.5;
+    put(n * 16, PUT, 0);
+    gc[n * 3] = args[7];
+    gc[n * 3 + 1] = args[8];
+    gc[n * 3 + 2] = args[9];
+    n++;
+  }
+
+  function discA(m, o) {
+    const radius = args[3];
+    const level = args[4];
+    if (nd >= discCapacity || level <= 0.01) return;
+    const k = nd * 16;
+    dm[k] = m[o] * radius;
+    dm[k + 1] = m[o + 3] * radius;
+    dm[k + 2] = m[o + 6] * radius;
+    dm[k + 3] = 0;
+    dm[k + 4] = m[o + 1] * radius;
+    dm[k + 5] = m[o + 4] * radius;
+    dm[k + 6] = m[o + 7] * radius;
+    dm[k + 7] = 0;
+    dm[k + 8] = m[o + 2] * radius;
+    dm[k + 9] = m[o + 5] * radius;
+    dm[k + 10] = m[o + 8] * radius;
+    dm[k + 11] = 0;
+    dm[k + 12] = args[0];
+    dm[k + 13] = args[1];
+    dm[k + 14] = args[2];
+    dm[k + 15] = 1;
+    dc[nd * 3] = 0.3 * level;
+    dc[nd * 3 + 1] = 0.33 * level;
+    dc[nd * 3 + 2] = 0.4 * level;
+    nd++;
   }
 
   return {
@@ -164,52 +238,47 @@ export function createGlow(scene, capacity = 160, discCapacity = 32) {
       occlude.value = cover;
       flareScale = scale;
     },
+    args,
     /** A round sprite `size` metres across at (x, y, z); colour is linear and may exceed 1 (it blooms). */
     flare(x, y, z, size, r, g, b) {
-      if (n >= capacity || size <= 0) return;
-      put(n * 16, 0, 0, 0, size * flareScale, x, y, z);
-      gc[n * 3] = r;
-      gc[n * 3 + 1] = g;
-      gc[n * 3 + 2] = b;
-      n++;
+      args[0] = x;
+      args[1] = y;
+      args[2] = z;
+      args[3] = size;
+      args[4] = r;
+      args[5] = g;
+      args[6] = b;
+      flareA();
     },
+    flareA,
     /** A sprite stretched from (x0, y0, z0) to (x1, y1, z1), `width` metres thick. */
     streak(x0, y0, z0, x1, y1, z1, width, r, g, b) {
-      if (n >= capacity) return;
-      put(n * 16, x1 - x0, y1 - y0, z1 - z0, width, (x0 + x1) * 0.5, (y0 + y1) * 0.5, (z0 + z1) * 0.5);
-      gc[n * 3] = r;
-      gc[n * 3 + 1] = g;
-      gc[n * 3 + 2] = b;
-      n++;
+      args[0] = x0;
+      args[1] = y0;
+      args[2] = z0;
+      args[3] = x1;
+      args[4] = y1;
+      args[5] = z1;
+      args[6] = width;
+      args[7] = r;
+      args[8] = g;
+      args[9] = b;
+      streakA();
     },
+    streakA,
     /**
      * A rotor disc of `radius` at (x, y, z), tilted with the airframe: `m` is a row-major 3 × 3
      * rotation at offset `o`. `level` scales its brightness.
      */
     disc(x, y, z, radius, m, o, level) {
-      if (nd >= discCapacity || level <= 0.01) return;
-      const k = nd * 16;
-      dm[k] = m[o] * radius;
-      dm[k + 1] = m[o + 3] * radius;
-      dm[k + 2] = m[o + 6] * radius;
-      dm[k + 3] = 0;
-      dm[k + 4] = m[o + 1] * radius;
-      dm[k + 5] = m[o + 4] * radius;
-      dm[k + 6] = m[o + 7] * radius;
-      dm[k + 7] = 0;
-      dm[k + 8] = m[o + 2] * radius;
-      dm[k + 9] = m[o + 5] * radius;
-      dm[k + 10] = m[o + 8] * radius;
-      dm[k + 11] = 0;
-      dm[k + 12] = x;
-      dm[k + 13] = y;
-      dm[k + 14] = z;
-      dm[k + 15] = 1;
-      dc[nd * 3] = 0.3 * level;
-      dc[nd * 3 + 1] = 0.33 * level;
-      dc[nd * 3 + 2] = 0.4 * level;
-      nd++;
+      args[0] = x;
+      args[1] = y;
+      args[2] = z;
+      args[3] = radius;
+      args[4] = level;
+      discA(m, o);
     },
+    discA,
     end() {
       glow.count = n;
       discs.count = nd;

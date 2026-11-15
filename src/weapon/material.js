@@ -36,6 +36,13 @@ float vmNoise(vec2 p) {
 // from 0.2-0.6 m, where a pixel is about half a millimetre, so nothing here repeats finer than ~2 mm.
 vec2 vmFinish(float code, vec3 p) {
   if (code < 0.5) return vec2(1.0, 0.0);
+  if (code > 5.5) {
+    // Blued steel: uneven bluing and handling marks (a slow mottle in tone and gloss) over faint
+    // machining lines along the bore, so a flat face never reflects as one flat colour.
+    float m = vmNoise(p.zy * vec2(28.0, 40.0) + p.x * 31.0) * 0.6 + vmNoise(p.zx * vec2(90.0, 70.0) + p.y * 80.0) * 0.4;
+    float lines = vmNoise(vec2(p.y * 900.0 + p.x * 700.0, p.z * 3.0));
+    return vec2(0.86 + 0.26 * m + 0.03 * lines, (0.5 - m) * 0.16 + (lines - 0.5) * 0.04);
+  }
   if (code < 1.5) {
     // Brushed steel: streaks that run the length of the part.
     float across = p.x * 560.0 + p.y * 760.0;
@@ -48,8 +55,8 @@ vec2 vmFinish(float code, vec3 p) {
     float g = vmNoise(vec2(p.x * 150.0 + p.y * 210.0 + wander, p.z * 5.0));
     float lines = smoothstep(0.55, 0.8, fract(g * 3.0 + wander * 0.5)) * smoothstep(0.25, 0.6, g);
     float fine = vmNoise(vec2(p.x * 700.0 + p.y * 900.0, p.z * 18.0));
-    float v = g * 0.55 + fine * 0.2 + 0.25 - 0.45 * lines;
-    return vec2(0.5 + 0.75 * v, (0.5 - v) * 0.3 + 0.12 * lines);
+    float v = g * 0.55 + fine * 0.2 + 0.25 - 0.6 * lines;
+    return vec2(0.42 + 0.85 * v, (0.5 - v) * 0.3 + 0.12 * lines);
   }
   if (code < 3.5) {
     // Checkering: a diagonal diamond grid pressed into the grip.
@@ -70,6 +77,9 @@ vec2 vmFinish(float code, vec3 p) {
   return vec2(0.9 + 0.2 * m - 0.06 * weave, 0.06 * weave + (m - 0.5) * 0.16);
 }
 `;
+
+/** Finish code for blued steel (after build.js FINISH, which stops at glove = 5). */
+export const FINISH_BLUED = 6;
 
 /** The shared surface material. `environment` is a PMREM texture (see buildEnvironment). */
 export function createViewMaterial(environment) {
@@ -164,7 +174,7 @@ export function buildEnvironment(renderer, time = 'night', sun = [0.553, -0.788,
     glow([1.4, 1.4, 1.5], [9, 16, -10], 7, 3);
     // The two rows of buildings, along X: the north side faces the sun, the south side is in shade.
     const north = Math.sign(sun[2]) || -1; // the light travels this way along Z: that side is lit
-    glow([0.36, 0.17, 0.11], [0, 6.5, 18 * north], 70, 17); // sunlit brick
+    glow([0.3, 0.19, 0.14], [0, 6.5, 18 * north], 70, 17); // sunlit brick
     for (const x of [-21, -13, -5, 3, 11, 19]) {
       glow([0.05, 0.055, 0.065], [x, 8.5, 17.6 * north], 3.2, 2.2); // its windows (dark glass)
       glow([0.05, 0.055, 0.065], [x, 3.5, 17.6 * north], 3.2, 2.2);

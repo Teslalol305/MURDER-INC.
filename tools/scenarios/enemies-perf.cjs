@@ -1,5 +1,9 @@
 // Full house: 12 Goons and 8 Buzzards alive and fighting at once. Measures what enemies.update costs per
 // step (mean and worst), how many findPath calls a step makes, the garbage per step, and the draw calls.
+// Garbage two ways: `updateBytesPerStep` is the heap's growth across each enemies.update call (coarse:
+// it moves with everything else on the page), `sampledBytesPerStep` comes from the heap sampling
+// profiler (allocations made under enemies.update, attributed by call stack: the reliable number), with
+// the worst allocating functions in `topSites`.
 //
 //   node build.mjs --dev --only=enemies --out=dist/dev-enemies.html
 //   node tools/shot.cjs dist/dev-enemies.html --params "autostart=1&q=test&god=1&noaudio=1&nohud=1" \
@@ -24,7 +28,7 @@ module.exports = async (page, h) => {
     // Time every enemies.update and count path queries.
     const perf = (window.__perf = { n: 0, sum: 0, max: 0, paths: 0, maxPaths: 0, stepPaths: 0, bytes: 0 });
     const update = G.enemies.update;
-    G.enemies.update = (dt) => {
+    G.enemies.update = function timedEnemiesUpdate(dt) {
       perf.stepPaths = 0;
       const m0 = performance.memory.usedJSHeapSize;
       const t0 = performance.now();
@@ -52,6 +56,26 @@ module.exports = async (page, h) => {
   const heap0 = await h.heap(true);
   await h.skip(300);
   const heap1 = await h.heap(false);
+  // The sampling profiler over another 300 steps.
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('HeapProfiler.enable');
+  await cdp.send('HeapProfiler.startSampling', { samplingInterval: 256, includeObjectsCollectedByMajorGC: true, includeObjectsCollectedByMinorGC: true });
+  await h.skip(300);
+  const { profile } = await cdp.send('HeapProfiler.stopSampling');
+  await cdp.detach();
+  const sites = new Map();
+  let sampled = 0;
+  const walk = (node, inside) => {
+    const f = node.callFrame;
+    const here = inside || f.functionName === 'timedEnemiesUpdate';
+    if (here && node.selfSize) {
+      sampled += node.selfSize;
+      const key = `${f.functionName || '(anonymous)'}`;
+      sites.set(key, (sites.get(key) || 0) + node.selfSize);
+    }
+    for (const c of node.children) walk(c, here);
+  };
+  walk(profile.head, false);
   const p = await h.eval(() => [window.__G.player.pos.x, window.__G.player.pos.z]);
   await h.eval((c) => window.__setShot({ cam: c, fov: 60 }), `${p[0] - 2},5,${p[1] + 9},${p[0] + 16},1,${p[1]}`);
   await h.frames(2);
@@ -68,6 +92,8 @@ module.exports = async (page, h) => {
     heapGrowthKBper300: Math.round((heap1 - heap0) / 1024),
     baselineKBper300: Math.round((base1 - base0) / 1024),
     updateBytesPerStep: Math.round(perf.bytes / Math.max(1, perf.n - 300)),
+    sampledBytesPerStep: Math.round(sampled / 300),
+    topSites: [...sites.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, v]) => `${k} ${Math.round(v / 300)}`),
     calls: st.calls,
     triangles: st.triangles,
     alive,

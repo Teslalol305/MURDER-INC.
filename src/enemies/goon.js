@@ -602,9 +602,9 @@ export function createGoons(ctx) {
     from.set(e.pos.x, e.pos.y + t.gunHeight, e.pos.z);
     to.set(p.pos.x, p.pos.y + (p.crouching ? Math.min(0.8, t.aimHeight) : t.aimHeight), p.pos.z);
     // Up on the deck or in the office with his chest behind the parapet or the sill while his head and
-    // shoulders show: aim at what shows, shoulders first, else the head. (Only from below: cover on the
-    // street keeps its full value.)
-    // Only a strip of him shows, so he takes more care over the height (overCover.spreadY).
+    // shoulders show: aim at what shows, shoulders first, else the head, and with only a strip of him to
+    // hit, take more care over the height (overCover.spreadY). Only from below: cover on the street keeps
+    // its full value.
     let spreadY = 1;
     if (p.pos.y > e.pos.y + t.investigate.elevated && !G.physics.lineOfSight(from, to)) {
       to.y = p.eye.y - t.overCover.below;
@@ -691,6 +691,8 @@ export function createGoons(ctx) {
         gx = e.standX;
         gz = e.standZ;
         stop = 0.7;
+      } else if (G.physics.groundHeight(e.pos.x, e.pos.z, lk.y + 0.3) > e.pos.y + I.elevated) {
+        stop = Infinity; // no point chosen yet and already under that floor: no further in
       } else {
         stop = I.standFallback;
       }
@@ -1064,9 +1066,17 @@ export function createGoons(ctx) {
     const lamp = e.anim.lamp;
     if (lamp < 0.05 || !e.alive) return;
     const k = Math.min(1, lamp / 15);
-    const size = 0.12 + 0.62 * Math.sqrt(k); // a cue the player must catch at 15 m
     const level = lamp * 0.9;
-    glow.flare(e.lamp.x, e.lamp.y, e.lamp.z, size, GOON_LAMP.r * level, GOON_LAMP.g * level, GOON_LAMP.b * level);
+    // Through glow.args, not as arguments (glow.js: a double passed to a call is garbage).
+    const g = glow.args;
+    g[0] = e.lamp.x;
+    g[1] = e.lamp.y;
+    g[2] = e.lamp.z;
+    g[3] = 0.12 + 0.62 * Math.sqrt(k); // a cue the player must catch at 15 m
+    g[4] = GOON_LAMP.r * level;
+    g[5] = GOON_LAMP.g * level;
+    g[6] = GOON_LAMP.b * level;
+    glow.flareA();
   }
 
   return {

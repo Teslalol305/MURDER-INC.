@@ -43,7 +43,8 @@ export const buzzard = {
   feelers: { forward: 2.2, forwardPerSpeed: 0.5, down: 2.4, up: 4, bounce: -0.25 },
   patrol: { radius: [4, 9], turn: 0.28 },
   investigate: { radius: 4.5, turn: 0.5, maxHeight: 5.5 },
-  maxAltitude: 15, // never climbs above this
+  maxAltitude: 15, // never climbs above this…
+  overshoot: 0.5, // …and is never knocked more than this above it
   climbLook: 6, // metres of the leg ahead checked for roofs to climb over (logic.js climbOver)
   boundsMargin: 1.2, // kept this far inside the play bounds
   // Flight planning around level.el (the track deck): pass `under` its underside or stay `over` its top,

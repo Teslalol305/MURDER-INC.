@@ -250,9 +250,26 @@ export function createRig(geometry, material, slots) {
 //
 // Rotations live in flat typed arrays, row-major, nine numbers each, addressed by offset: the pose code
 // runs for every enemy every frame and must not allocate.
+//
+// V8 boxes a double that crosses a call it did not inline (as an argument or a result): 16 bytes of
+// garbage each, and the pose code makes hundreds of such calls per enemy per frame. So every helper that
+// takes numbers also comes as an `…A` variant that reads them from a Float64Array (a[ao], a[ao + 1], …);
+// the hot pose code stages its numbers there. The plain forms are wrappers over the same math.
+const ARGS = new Float64Array(12);
 
 /** m[o…] = Ry(y) · Rx(x) · Rz(z): yaw, then pitch, then roll (three.js Euler order 'YXZ'). */
 export function m3Euler(m, o, x, y, z) {
+  ARGS[0] = x;
+  ARGS[1] = y;
+  ARGS[2] = z;
+  m3EulerA(m, o, ARGS, 0);
+}
+
+/** m3Euler with the angles (x, y, z) in a[ao…ao+2]. */
+export function m3EulerA(m, o, a, ao) {
+  const x = a[ao];
+  const y = a[ao + 1];
+  const z = a[ao + 2];
   const cx = Math.cos(x);
   const sx = Math.sin(x);
   const cy = Math.cos(y);
@@ -288,6 +305,17 @@ export function m3Copy(out, oo, a, ao) {
 
 /** out[oo…oo+2] = base[bo…] + m[o…] · (x, y, z). */
 export function m3Point(m, o, x, y, z, base, bo, out, oo) {
+  ARGS[0] = x;
+  ARGS[1] = y;
+  ARGS[2] = z;
+  m3PointA(m, o, ARGS, 0, base, bo, out, oo);
+}
+
+/** m3Point with (x, y, z) in a[ao…ao+2]. `a` may be `out` (it is read first). */
+export function m3PointA(m, o, a, ao, base, bo, out, oo) {
+  const x = a[ao];
+  const y = a[ao + 1];
+  const z = a[ao + 2];
   out[oo] = base[bo] + m[o] * x + m[o + 1] * y + m[o + 2] * z;
   out[oo + 1] = base[bo + 1] + m[o + 3] * x + m[o + 4] * y + m[o + 5] * z;
   out[oo + 2] = base[bo + 2] + m[o + 6] * x + m[o + 7] * y + m[o + 8] * z;
@@ -299,6 +327,23 @@ export function m3Point(m, o, x, y, z, base, bo, out, oo) {
  * which also makes this the way to blend rotations: feed it the weighted sums of their −Y and X axes.
  */
 export function m3Limb(m, o, dx, dy, dz, hx, hy, hz) {
+  ARGS[0] = dx;
+  ARGS[1] = dy;
+  ARGS[2] = dz;
+  ARGS[3] = hx;
+  ARGS[4] = hy;
+  ARGS[5] = hz;
+  m3LimbA(m, o, ARGS, 0);
+}
+
+/** m3Limb with (dx, dy, dz, hx, hy, hz) in a[ao…ao+5]. */
+export function m3LimbA(m, o, a, ao) {
+  const dx = a[ao];
+  const dy = a[ao + 1];
+  const dz = a[ao + 2];
+  const hx = a[ao + 3];
+  const hy = a[ao + 4];
+  const hz = a[ao + 5];
   // Y axis: up along the bone. X axis: the hinge, made perpendicular to it. Z = X × Y.
   const dl = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
   const yx = -dx / dl;
@@ -345,6 +390,19 @@ export function m3Limb(m, o, dx, dy, dz, hx, hy, hz) {
  * sat at (px, py, pz) to rotation r[ro…] about the joint's new position p[po…], scaled uniformly by `s`.
  */
 export function writeBone(matrices, slot, r, ro, p, po, px, py, pz, s = 1) {
+  ARGS[0] = px;
+  ARGS[1] = py;
+  ARGS[2] = pz;
+  ARGS[3] = s;
+  writeBoneA(matrices, slot, r, ro, p, po, ARGS, 0);
+}
+
+/** writeBone with the bind joint (px, py, pz) and the scale s in a[ao…ao+3]. */
+export function writeBoneA(matrices, slot, r, ro, p, po, a, ao) {
+  const px = a[ao];
+  const py = a[ao + 1];
+  const pz = a[ao + 2];
+  const s = a[ao + 3];
   const o = slot * 16;
   const r0 = r[ro] * s;
   const r1 = r[ro + 1] * s;
@@ -379,6 +437,27 @@ export function writeBone(matrices, slot, r, ro, p, po, px, py, pz, s = 1) {
  * out[0…2] and out[3…5] and the middle joint to out[6…8].
  */
 export function solveLimb(r, ro, tx, ty, tz, l1, l2, kx, ky, kz, out) {
+  ARGS[0] = tx;
+  ARGS[1] = ty;
+  ARGS[2] = tz;
+  ARGS[3] = l1;
+  ARGS[4] = l2;
+  ARGS[5] = kx;
+  ARGS[6] = ky;
+  ARGS[7] = kz;
+  solveLimbA(r, ro, ARGS, 0, out);
+}
+
+/** solveLimb with (tx, ty, tz, l1, l2, kx, ky, kz) in a[ao…ao+7]. `a` may not be `out`. */
+export function solveLimbA(r, ro, a, ao, out) {
+  const tx = a[ao];
+  const ty = a[ao + 1];
+  const tz = a[ao + 2];
+  const l1 = a[ao + 3];
+  const l2 = a[ao + 4];
+  const kx = a[ao + 5];
+  const ky = a[ao + 6];
+  const kz = a[ao + 7];
   let dx = tx - r[ro];
   let dy = ty - r[ro + 1];
   let dz = tz - r[ro + 2];

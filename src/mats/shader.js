@@ -166,10 +166,14 @@ const WORLD_EMISSIVE = /* glsl */ `
 
 // After the image-based light is gathered: by day the sky's diffuse light reaches the street and the
 // walls without its blue cast (the deck of the El and the facades hide most of the blue overhead, which
-// the environment, captured in the open, cannot know). Reflections keep the sky's colour.
+// the environment, captured in the open, cannot know), and so does the blurred sheen of rough ground at
+// a glancing angle. Sharp reflections (standing water, glossy paint) keep the sky's colour.
 const WORLD_IBL = /* glsl */ `
 #if defined( RE_IndirectDiffuse ) && defined( USE_ENVMAP ) && defined( ENVMAP_TYPE_CUBE_UV )
   iblIrradiance = mix( iblIrradiance, vec3( dot( iblIrradiance, vec3( 0.2126, 0.7152, 0.0722 ) ) ), MI_IBL_GREY * miDry );
+#endif
+#if defined( RE_IndirectSpecular ) && defined( USE_ENVMAP )
+  radiance = mix( radiance, vec3( dot( radiance, vec3( 0.2126, 0.7152, 0.0722 ) ) ), MI_IBL_GREY * miDry * smoothstep( 0.35, 0.75, material.roughness ) );
 #endif
 `;
 
@@ -209,7 +213,7 @@ export function patchWorld(material, uniforms, packed = false) {
       f = inject(f, '#include <normal_fragment_maps>', WORLD_NORMAL);
     }
     f = inject(f, '#include <emissivemap_fragment>', WORLD_EMISSIVE, 'replace');
-    f = inject(f, '#include <lights_fragment_maps>', WORLD_IBL.replace('MI_IBL_GREY', DAY_IBL_GREY.toFixed(3)));
+    f = inject(f, '#include <lights_fragment_maps>', WORLD_IBL.replaceAll('MI_IBL_GREY', DAY_IBL_GREY.toFixed(3)));
     shader.fragmentShader = f;
   };
   material.customProgramCacheKey = () => 'mi-world-3';

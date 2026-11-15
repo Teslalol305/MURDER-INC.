@@ -146,11 +146,29 @@ export function createBolts(ctx) {
     const r = color.r * GLOW;
     const g = color.g * GLOW;
     const b = color.b * GLOW;
+    const a = glow.args; // through glow.args, not as arguments (glow.js: a double passed to a call is garbage)
     for (let i = 0; i < capacity; i++) {
       if (life[i] <= 0) continue;
       const tail = Math.min(STREAK, flown[i]);
-      glow.streak(px[i] - dx[i] * tail, py[i] - dy[i] * tail, pz[i] - dz[i] * tail, px[i], py[i], pz[i], WIDTH, r * 0.6, g * 0.6, b * 0.6);
-      glow.flare(px[i], py[i], pz[i], HEAD_SIZE, r, g + 1.2, b + 0.5);
+      a[0] = px[i] - dx[i] * tail;
+      a[1] = py[i] - dy[i] * tail;
+      a[2] = pz[i] - dz[i] * tail;
+      a[3] = px[i];
+      a[4] = py[i];
+      a[5] = pz[i];
+      a[6] = WIDTH;
+      a[7] = r * 0.6;
+      a[8] = g * 0.6;
+      a[9] = b * 0.6;
+      glow.streakA();
+      a[0] = px[i];
+      a[1] = py[i];
+      a[2] = pz[i];
+      a[3] = HEAD_SIZE;
+      a[4] = r;
+      a[5] = g + 1.2;
+      a[6] = b + 0.5;
+      glow.flareA();
     }
   }
 

@@ -8,13 +8,15 @@
 //   node tools/shot.cjs dist/dev-enemies.html --params "autostart=1&q=test&god=1&noaudio=1&nohud=1" \
 //        --size 320x180 --scenario tools/scenarios/enemies-climb.cjs --timeout 600
 //
-// Optional: CLIMB_POS="x,y,z" moves the player, CLIMB_SECONDS the length, CLIMB_VERBOSE=1 logs every sample.
+// Optional: CLIMB_POS="x,y,z" moves the player, CLIMB_SECONDS the length, CLIMB_VERBOSE=1 logs every sample,
+// CLIMB_SHOT=1 takes pictures of the rear-lane flight crossing S3's roof (shots/enemies/climb-*.png).
 
 'use strict';
 
 const POS = (process.env.CLIMB_POS || '5,0,-2').split(',').map(Number);
 const SECONDS = +(process.env.CLIMB_SECONDS || 60);
 const VERBOSE = process.env.CLIMB_VERBOSE === '1';
+const SHOT = process.env.CLIMB_SHOT === '1';
 
 module.exports = async (page, h) => {
   await h.skip(5);
@@ -34,6 +36,13 @@ module.exports = async (page, h) => {
   const lines = [];
   for (let i = 0; i < samples; i++) {
     await h.skip(45);
+    if (SHOT && (i === 0 || i === 1)) {
+      // From the lane side of S3, looking along its rear wall and over its roof.
+      await h.eval(() => window.__setShot({ cam: '14,6,31,2,8,20', fov: 60 }));
+      await h.frames(2);
+      await h.shot(`shots/enemies/climb-${i}.png`);
+      await h.eval(() => window.__setShot({ cam: '' }));
+    }
     lines.push(
       await h.eval((i) => {
         const G = window.__G;

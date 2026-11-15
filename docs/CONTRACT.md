@@ -490,12 +490,18 @@ As built (enemies; `src/enemies.js`, `src/enemies/*`, tuning in `config/enemies.
   `aim`, `telegraph`, `burst`, `cool`, `windup`, `lunge`, `recover`), `enemy.yaw`, `vel`, `sees`, `exposure` (0…1
   accuracy ramp), `variant` (Goon outfit 0–2). `spawn()` also takes `{yaw, variant, passive, show}` (`passive`: a
   showcase unit that never senses or acts; `show` `{aim, crouch, speed, lamp, look}` poses a Goon). `enemies.debug()` reports
-  pools, bodies, bolts, tokens. Day / night: the self-lit trim and the rim light follow `atmos.time`
+  pools, bodies, bolts, tokens and the shop doorways the Buzzards fly in through (`doorways`). Day / night: the self-lit trim and the rim light follow `atmos.time`
   (`config/enemies.js` `look`); the telegraph flare and the Buzzard's eye glow either way.
 - **Drawing**: each Goon and Buzzard is one `SkinnedMesh` (rigid bone weights, gun and pipe included) on a geometry
   and a material shared by its pool (+ its shadow); every glow (telegraph flares, eyes, strobes, bolt streaks) is
   one additive `InstancedMesh` for the whole module, the rotor blur discs a second one. Bodies: at most 6, the
   oldest dissolves.
+- **Getting about** (fix pass): a Buzzard climbs over the roofs and walls on its way (no pathing: the leg ahead is
+  checked against the colliders), comes into the shop (`level.interiorBoxes`) through a doorway it finds itself, and
+  is put back into free air if it ever overlaps geometry; it treats the player-only seals, Cage fence and railings as
+  air but the hoist netting and the office glass as solid. A Goon looking for a player up on the scaffold deck or in
+  the mezzanine office goes to a stand-off point that sees the spot, never under it. The pipe needs a clear way for
+  a body (`physics.lineOfSight(a, b, {movement: true})`): it never lands through the Cage's chain-link.
 
 ### 6.7 `G.explosives`  (agent: fx)
 ```
