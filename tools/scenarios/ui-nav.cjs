@@ -12,7 +12,7 @@ module.exports = async (page, h) => {
     lines.push(`${ok ? 'ok  ' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`);
     if (!ok) failed++;
   };
-  // Scripted gamepad: the next menus.update() reads `signal`, later ones read nothing.
+  // Scripted gamepad: every reader in the next frame sees `signal`, later frames see nothing.
   await h.eval(() => {
     const G = window.__G;
     const idle = { x: 0, y: 0, accept: false, back: false, start: false };
@@ -20,10 +20,18 @@ module.exports = async (page, h) => {
     window.__pad = (s) => {
       next = { ...idle, ...s };
     };
+    // The signal lasts one whole frame, like the real input module's: the game reads menuNav() too (Start on
+    // the title), so a read-once signal would be eaten before the menus see it.
+    let live = null;
+    let liveFrame = -1;
     G.input.menuNav = () => {
-      const out = next || idle;
-      next = null;
-      return out;
+      const frame = G.time.frame;
+      if (next) {
+        live = next;
+        next = null;
+        liveFrame = frame;
+      }
+      return live && liveFrame === frame ? live : idle;
     };
   });
   const pad = async (signal) => {
