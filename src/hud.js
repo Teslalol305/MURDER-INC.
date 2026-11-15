@@ -212,7 +212,8 @@ export function createHud(G) {
   const placed = new Float64Array(MARKER_POOL * 2); // edge pins drawn this frame, [x, y, …] in px
   const pinOut = { x: 0, y: 0 };
   // Boxes an edge pin would hide behind (every HUD plate and thumb control paints over the marker layer):
-  // the kill feed while it has lines, the badge, the minimap block and, on touch, the visible controls.
+  // the kill feed while it has lines, the badge, the minimap block, the radio strip, the prompt, the intro
+  // location card and, on touch, the visible controls.
   const blocks = [];
   for (let i = 0; i < MAX_BLOCKS; i++) blocks.push({ l: 0, t: 0, r: 0, b: 0 });
   let nBlocks = 0;
@@ -220,6 +221,8 @@ export function createHud(G) {
   let touchScheme = false;
   let touchLayer = null;
   let touchShown = false;
+  let locEl = null; // the menus' intro location card, drawn over the HUD for two seconds
+  let locShown = false;
 
   let limDown = 0.6; // NDC: how far down a pinned marker may go (above the weapon bar)
   function measure() {
@@ -255,6 +258,8 @@ export function createHud(G) {
     addBlock(badge);
     addBlock(mapBox);
     if (radioEl.classList.contains('is-on')) addBlock(radioEl);
+    if (promptOn) addBlock(prompt);
+    if (locEl && !locEl.hidden) addBlock(locEl);
     if (touchShown) for (const n of touchLayer.querySelectorAll('.touch-btn, .touch-stick, .touch-sprint')) addBlock(n);
   }
   window.addEventListener('resize', () => {
@@ -425,6 +430,12 @@ export function createHud(G) {
     if (touchNowShown !== touchShown) {
       touchShown = touchNowShown;
       measured = false;
+    }
+    if (!locEl) locEl = ui.querySelector('.loc');
+    const locNow = !!(locEl && !locEl.hidden);
+    if (locNow !== locShown) {
+      locShown = locNow;
+      blocksDirty = true;
     }
     if (!measured) {
       measured = true;
@@ -735,6 +746,7 @@ export function createHud(G) {
         promptOn = on;
         setClass(prompt, 'is-on', on);
         setClass(hud, 'has-prompt', on); // short screens: the centre message gives the prompt its slot
+        blocksDirty = true;
       }
       if (!spec) {
         promptProg = -1;
@@ -743,7 +755,7 @@ export function createHud(G) {
       const glyph = String(spec.glyph || (G.input.glyph ? G.input.glyph('interact') : 'E'));
       setText(promptGlyph, glyph);
       setClass(promptGlyph, 'is-long', glyph.length > 1);
-      setText(promptText, String(spec.text || ''));
+      if (setText(promptText, String(spec.text || ''))) blocksDirty = true;
       updatePrompt();
     },
     warn(value, secs) {
