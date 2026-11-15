@@ -231,9 +231,7 @@ export const keys = {
   Space: 'jump',
   ShiftLeft: 'sprint',
   ShiftRight: 'sprint',
-  KeyC: 'crouch',
-  ControlLeft: 'crouch',
-  ControlRight: 'crouch',
+  KeyC: 'crouch', // not Ctrl: crouch-walking with Ctrl + W would close the tab
   KeyR: 'reload',
   KeyE: 'interact',
   KeyF: 'melee',

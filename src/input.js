@@ -345,8 +345,10 @@ export function createInput(G, env = {}) {
     if (input.touch || input.device === 'touch') return HINTS.touch;
     if (input.device === 'pad') return HINTS.pad;
     if (input.mode === 'drag') return HINTS.drag;
+    // Paused first: the pause card is built while a lock that is being let go may still read as held.
+    if (G.game && G.game.state === 'paused') return HINTS.resume;
     if (input.locked) return HINTS.locked;
-    return G.game && G.game.state === 'paused' ? HINTS.resume : HINTS.click;
+    return HINTS.click;
   }
 
   /* ------------------------------------------------------------------------------ pointer lock */
@@ -452,7 +454,8 @@ export function createInput(G, env = {}) {
     }
     if (e.metaKey || e.altKey || typing(e.target)) return;
     if (BUTTON_KEYS[code] && (onButton(e.target) || onButton(doc && doc.activeElement))) return;
-    // Space must not scroll, Ctrl (crouch) + R must not reload the page, Ctrl + S must not save it.
+    // Space must not scroll, Ctrl + R must not reload the page, Ctrl + S must not save it. (Crouch is
+    // C only: Ctrl + W, Ctrl + T and Ctrl + N belong to the browser and cannot be held back.)
     if (gameplay && action !== 'pause') e.preventDefault();
     if (e.repeat) return;
     wake('kbm');
@@ -1212,13 +1215,6 @@ export function createInput(G, env = {}) {
     });
     listen(win, 'gamepaddisconnected', (e) => {
       if (pad && e.gamepad && e.gamepad.index === pad.index) padGone();
-    });
-    // Crouch is also on Ctrl, and Ctrl + W closes the tab: with Ctrl down in a fight, ask first.
-    listen(win, 'beforeunload', (e) => {
-      if (!gameplay || !(keysDown.has('ControlLeft') || keysDown.has('ControlRight'))) return undefined;
-      e.preventDefault();
-      e.returnValue = '';
-      return '';
     });
 
     if (canvas) {

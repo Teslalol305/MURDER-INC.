@@ -46,7 +46,8 @@ const THREE_CDN = [
   'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js',
   'https://unpkg.com/three@0.160.0/build/three.min.js',
 ];
-const CDN_TIMEOUT_MS = 8000;
+const CDN_TIMEOUT_MS = 8000; // per URL before the next one is started alongside it
+const CDN_DEADLINE_MS = 45000; // overall, before the error line shows
 
 /** Host-page stand-in for the standalone build: what an Artifact host wraps around the fragment. */
 const SKELETON_OPEN = `<!doctype html>
@@ -230,40 +231,75 @@ async function bundleCss(dev) {
   return (await transform(css, { loader: 'css', minify: true })).code.trim();
 }
 
-/** Loader for the artifact: tries each CDN in turn until window.THREE exists, then starts the game. */
+/**
+ * Loader for the artifact: tries each CDN in turn until window.THREE exists, then starts the game.
+ * A slow CDN is not abandoned: after its timeout the next one is started alongside it, and whichever
+ * delivers first wins. The error line only shows once every URL has failed, or after one long overall
+ * deadline; an engine that arrives after that still clears the error and boots.
+ */
 function cdnLoaderSource(failText) {
   return `(function () {
   var urls = ${JSON.stringify(THREE_CDN)};
   var started = false;
+  var failed = 0;
+  var engine = null;
+  var line = document.getElementById('boot-msg');
+  var firstLine = line ? line.textContent : '';
+  var deadline = setTimeout(fail, ${CDN_DEADLINE_MS});
   function start() {
     if (started) return;
     started = true;
+    engine = window.THREE;
+    clearTimeout(deadline);
+    if (window.__fatal) {
+      // The engine arrived after the error line went up: take the line down and carry on.
+      window.__fatal = null;
+      var boot = document.getElementById('boot');
+      if (boot) boot.classList.remove('is-fatal');
+      if (line) line.textContent = firstLine;
+    }
     window.__MI_START();
   }
   function fail() {
+    if (started) return;
     var text = ${JSON.stringify(failText)};
     window.__fatal = text;
     var boot = document.getElementById('boot');
-    var line = document.getElementById('boot-msg');
     if (boot) boot.classList.add('is-fatal');
     if (line) line.textContent = text;
   }
   function attempt(i) {
+    if (started) return;
     if (window.THREE) return start();
-    if (i >= urls.length) return fail();
+    if (i >= urls.length) return;
     var script = document.createElement('script');
-    var settled = false;
-    var timer = setTimeout(done, ${CDN_TIMEOUT_MS});
-    function done() {
-      if (settled) return;
-      settled = true;
+    var moved = false;
+    var counted = false;
+    var timer = setTimeout(next, ${CDN_TIMEOUT_MS});
+    function next() {
+      if (moved) return;
+      moved = true;
       clearTimeout(timer);
-      script.onload = script.onerror = null;
-      if (window.THREE) return start();
-      script.remove();
       attempt(i + 1);
     }
-    script.onload = script.onerror = done;
+    function errored() {
+      if (!counted) {
+        counted = true;
+        failed++;
+      }
+      next();
+      if (failed >= urls.length) fail();
+    }
+    script.onload = function () {
+      // A second copy that lands after the game started must not replace the engine it is running on.
+      if (started) {
+        if (engine) window.THREE = engine;
+        return;
+      }
+      if (window.THREE) start();
+      else errored();
+    };
+    script.onerror = errored;
     script.src = urls[i];
     (document.head || document.documentElement).appendChild(script);
   }
