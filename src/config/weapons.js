@@ -74,11 +74,12 @@ export const chopper = {
   wallPull: [1.05, 0.42], // starts / full, metres to the wall ahead
   inspectAfter: 24,
   muzzleSmoke: true,
-  // Hip offsets for the three "weapon position" settings (x right, y down, z forward).
+  // Hip poses for the three "weapon position" settings (Close / Three-quarter / Compact):
+  // [x right, y up, z back, pitch, yaw, roll] of the receiver's back end, in view space.
   views: [
-    [0.1, -0.109, -0.219],
-    [0.143, -0.173, -0.397],
-    [0.165, -0.172, -0.345],
+    [0.1, -0.115, -0.24, 0.01, 0.045, 0],
+    [0.14, -0.17, -0.38, 0.02, 0.1, -0.05],
+    [0.16, -0.165, -0.33, 0.015, 0.075, -0.03],
   ],
 };
 
@@ -145,6 +146,12 @@ export const nine = {
   rumble: { strong: 0.35, weak: 0.6, ms: 55 },
   wallPull: [0.8, 0.32],
   muzzleSmoke: false,
+  // Hip poses of the back of the slide for the three "weapon position" settings (see the Chopper).
+  views: [
+    [0.07, -0.105, -0.37, 0, 0.03, 0],
+    [0.105, -0.14, -0.43, 0.01, 0.07, -0.04],
+    [0.115, -0.135, -0.4, 0.01, 0.06, -0.03],
+  ],
 };
 
 /** Quick strike with whatever is in hand (docs/DESIGN.md 3.1). Kills count as kills, not as shots. */
@@ -157,6 +164,7 @@ export const melee = {
   cooldown: 0.75, // between strikes
   cancelsReload: true,
   blockedWhileSwitching: true,
+  shake: 0.22, // camera shake when the blow lands on a body (half of it on a wall)
 };
 
 /** Rules shared by both guns. */
@@ -168,11 +176,18 @@ export const common = {
   burstReset: 0.24, // seconds without a shot before the burst counter clears
   maxCatchUpShots: 3, // per frame, keeps the rate of fire frame-rate independent
   spreadRate: 18, // approach rate of the displayed spread
+  bloomHold: 0.15, // seconds after a round before its bloom starts to drain
   spreadSpeedRef: 6, // player speed that gives the full movement penalty
   adsRecoilScale: 0.55,
   crouchRecoilScale: 0.85,
+  sprintRate: 17, // angular frequency of the (critically damped) sprint-lower blend
+  sprintHurry: 1.5, // …times this when the player wants to fire, aim or reload
   sprintFireGate: 0.45, // sprint-lowered blend must fall below this to fire…
   sprintAdsGate: 0.35, // …and this to aim
+  firingHold: 0.14, // seconds the state reads 'firing' after a shot
+  wallEvery: 0.08, // seconds between forward probes for the wall pull-back
+  wallRate: 12, // approach rate of the pull-back
+  wallAdsScale: 0.15, // share of the pull-back that survives full aim
   heat: { perShot: 0.05, max: 1.3, cool: 0.2 },
   noise: { radius: 45, every: 0.3 }, // gunfire heard by enemies
   tracer: { color: 0xffe2a8, speed: 260 },

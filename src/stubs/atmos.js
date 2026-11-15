@@ -95,5 +95,8 @@ export function createAtmos(G) {
     sun,
     setInterior() {},
     update() {},
+    // No train in the stub: it never runs.
+    train: { active: false, phase: null, dir: 1, x: 0, lo: 0, hi: 0, y: 0, z: 0, speed: 0, length: 0 },
+    passTrain() {},
   };
 }

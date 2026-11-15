@@ -136,7 +136,8 @@ weapon:fire          {weapon, pos, dir, ads}             pos = muzzle in world s
 weapon:reload        {weapon, phase, empty}              phase: 'start'|'magout'|'magin'|'bolt'|'done'|'cancel'
 weapon:dry           {weapon}
 weapon:switch        {from, to, phase}                   phase: 'holster' | 'draw'
-weapon:melee         {hit}
+weapon:melee         {hit}                               the moment the blow lands (0.16 s into the strike)
+weapon:swing         {weapon}                            a melee strike starts (the whoosh; weapon = the gun in hand)
 shell:bounce         {pos, surface}
 impact               {point, normal, surface, dir, from, enemy}   from: 'player' | 'enemy'; enemy set when a body was hit
 explosion            {pos, radius, size, source}         size: 'small' | 'big'
@@ -271,6 +272,28 @@ Textures tile in metres: geometry UVs are in metres (core/geo.js), each material
 Texture size respects `G.quality` (`test` 256, low 512, else 1024). Wait for `document.fonts.ready` (max 1.5 s) before
 drawing text.
 
+As built (`src/mats.js`, painters in `src/mats/*`; `?tex=256|512|1024` overrides the tier, `?matfx=0` drops the shader patches):
+- **Quads**: everything returned as `{material, w, h}` is one painting for a quad of w × h metres whose UVs run 0 … 1
+  across it, exactly like the stub: `planeGeo(s.w, s.h, {facing, uvScale: [1 / s.w, 1 / s.h]})`. Where the texture repeats
+  (`material.map.wrapS / wrapT === RepeatWrapping`) that direction takes metre UVs instead and the quad may be any
+  length: `decal('lane' | 'lane_yellow')` tiles both ways (the quad is the line; w is its nominal 0.12 m width),
+  `decal('crosswalk')` along u (one bar per metre). `decal(kind, variant)` takes a variant index; extra kinds:
+  `lane_yellow`, `puddle`.
+- **Signs**: `lit` defaults to true except for `painted` (lit only when `lit: true`: gooseneck lamps) and `stencil` (never;
+  a transparent overlay like a decal). A `text` that is exactly `IPX` is drawn with `drawIPX`. `plate` takes
+  `bullet` (text) and `bulletColor`; neon takes `glow` as its second tube colour. Equal specs share one material.
+- **Facades**: one repeat spans `bays × bayW` by `floors × floorH` metres, v = 0 at the wall's foot; it repeats along the
+  wall and is bare wall above the top floor. Pass `w` (wall width, the bays divide it exactly) or `bayW` (default 3 m).
+  `material.userData.facade = {w, h, bays, floors, bayW, floorH, overlay}`. The windows are a painted layer over the
+  tiling base (`base` must be a wall material: brick_*, cinder, concrete*, stucco), so brick stays sharp close up.
+- **get()**: every material carries the same five texture slots (1 × 1 stand-ins where unused), so the block stays on a
+  few shader programs. `color` multiplies towards the asked colour on any material; `roughness` scales a painted roughness
+  map. Also accepted: `vertexColors, flatShading, alphaTest, depthWrite, envMapIntensity`, and `local: true` for a ground
+  or masonry material on something that moves (skips the world-space patch: tone variation, wet street, wall grime).
+  `chainlink` is an alpha-tested weave in the opaque pass (always double-sided; `transparent` / `opacity` are ignored).
+- `drawIPX` leaves the canvas state untouched and takes a CSS colour or a hex number. The real library also has
+  `stats()` and `textureSize` (not on the stub).
+
 ### 6.2 `G.props` — prop factory  (agent: props)
 ```
 props.build(name, opts?) → {
@@ -291,6 +314,44 @@ Stateful props:
 - `ipx_truck` — extraction. Hazard lights and rear door light; `setState('idle' | 'open')`.
 - `propane_tank`, `welding_rack` — explosive visuals; `setState('idle' | 'lit' | 'gone')`.
 
+Props as built (`src/props.js`, `src/props/*`; nothing here changes the shape above):
+- **Facing.** Vehicles point their nose at +X, and so does the `hoop` (post at −X, rim reaching toward +X). Everything
+  else with a front faces **+Z**: benches, booths, shelters, machines, racks, signs, the `billboard` face, the
+  `bleachers` (lowest row at +Z), `floodlight_stand`, the open hydrant's jet. Wall pieces (`awning`, `fire_escape`) have
+  the wall at −Z. `court_light` is the same all round.
+- **Overhang.** Models stay inside their catalogue box except: `street_lamp` (arm and head reach 2.5 m toward +Z at
+  7.8 m), `traffic_light` (mast arm 3.25 m toward +Z, heads facing ±X), `tree` (crown about 4.6 m wide above 3 m),
+  `court_light` (crown 1.3 m wide at the top), `hydrant_open` (jet and wet patch reach 4 m toward +Z), a `van` with its
+  back doors open, `fire_escape` with `variant: 'bottom'` (drop ladder below the landing), and the `master_case`
+  light shaft. Colliders never leave the box. Props the catalogue marks `noCollide` return no colliders.
+- **More fields on the result** (all optional, local space): `lights[].dir` `[x, y, z]` for lamps that aim; `anchors`
+  `{name: {pos, dir}}` — attachment points: `steam` (food_cart, manhole), `propane` (food_cart: where its tank
+  stands), `smolder` (burned_car), `exhaust` (generator, ipx_truck), `spray` (hydrant_open), `jet` (propane_tank,
+  welding_rack: valve and flame direction), `boombox` / `beacon` / `reel` (master_case), `rearDoor` (ipx_truck: a
+  point 0.9 m behind the doors); `nodes` `{name: Group}` — the moving parts of stateful props; `state`; `fallback: true`
+  on a stand-in box. `hydrant_open` also sets `object.userData.spray = {x, y, z}` (nozzle direction) for atmos.
+  The factory also has a debug `stats()` → `{built, fallbacks, shapes}`.
+- **Options.** `seed` picks shape variant, paint and plates (same seed, same prop; none = a draw from the props
+  stream). `color` repaints whatever is paint on the prop (cars, dumpster, mailbox, newspaper box, hydrant, oil drum,
+  generator, porta potty, tool chest, compressor, engine hoist, bollard, awning, the IPX truck). `lit: true | false`
+  forces a parked car's dome light, or switches off a lit prop (`phone_booth`, `bus_shelter`, `lot_booth`,
+  `vending_machine`, `billboard`, `food_cart`); `on: false` gives a dead `street_lamp` / `court_light` /
+  `floodlight_stand` (no lens glow, no lamp hint). Variants: `van` `'vulture'` (doors open unless `open: false`; any
+  van takes `open: true`), `car_lift` `'car'` (brings its own raised sedan) and `'down'` (arms lowered; by default
+  the arms are up and a car placed at y = 1.95 rests on the pads), `shopping_cart` `'tipped'`, `fence_panel` /
+  `fence_tall` `'scrim'`, `fire_escape` `'top'` (ladder to the roof) and `'bottom'`, `sign_post` `'nopark' | 'bus' |
+  'oneway' | 'stop'` and `'street'` with `text`, `awning` `'striped'` and `text` (valance lettering via `mats.sign`),
+  `hydrant_open` `spray: false` (no built-in jet mesh).
+- **State.** `master_case`: lid up with the gold reel on show while `live` / `grabbing`, the progress bar inside the
+  lid; `taken` drops the lid (animated when `update` runs), hides the reel and every light. `ipx_truck` `open` swings
+  the rear doors over 1.1 s and lights the vault; `idle` shuts them at once. Explosives: `lit` makes the shell glow
+  with heat (the flame is the explosives module's fx jet; only when fx is a stub does the prop show its own at the
+  valve), `gone` leaves a scorched foot. `traffic_light` cycles on `update`.
+- **Materials.** Surfaces are `mats.get(name[, opts])` by catalogue name, so props merge with level meshes of the
+  same material. The props' own: one atlas texture for all small graphics (two overlay materials, lit and unlit),
+  one vertex-coloured glow material for every lamp lens, a cut-out lattice, and a vertex-coloured paint for the
+  two explosives (one draw call each). The whole catalogue placed once is about 35 000 triangles.
+
 ### 6.3 `G.input`  (agent: input-player)
 ```
 input.move {x, y}                 strafe right +x, forward +y, magnitude ≤ 1
@@ -303,10 +364,29 @@ input.requestLock(), input.exitLock(), input.setGameplay(on)   on = gameplay con
 input.glyph(action) → string      label for the current device: 'E', 'X', 'USE', 'LMB', 'RT' …
 input.hint() → string             one-line look-mode description for the pause card
 input.rumble(strong, weak, ms)
+input.setPrompt(on)               an interaction prompt is (not) showing: reveals the touch USE button, makes pad X mean Interact
+input.menuNav() → {x, y, accept, back, start}   gamepad menu signals for this frame, all zero / false during gameplay
 input.update(dt), input.endFrame()
 ```
 Schemes, fallbacks, touch layout and gamepad mapping follow `$NOTES/01-player-input.md`. Touch-control DOM lives under
 `#ui > .touch` and is styled in `src/input.css`. Add a touch crouch toggle and a touch melee button (the reference lacked both).
+- `menuNav()`: call it once a frame from `menus.update`. `y` is −1 (up / previous) or +1 (down / next) from the D-pad or the
+  left stick past 0.6, repeating after 0.38 s and then every 0.17 s; `x` is −1 / +1 once per push (adjust a slider);
+  `accept` = A, `back` = B, `start` = Start (the screen's primary action), each true for one frame. Pad only: keyboard
+  and mouse use the browser's own focus handling. The object is reused: read it, do not keep it.
+- `setPrompt()`: until the HUD or the flow calls it, the input module listens in on `hud.prompt(spec | null)` itself.
+- `hint()` knows the state: empty on touch and gamepad, the fallback explanation in `drag` mode, "Esc lets it go" while
+  locked, "click to lock" while free, "Resume locks it back in" on the pause card. Use it for the look-mode toasts too.
+- `aimSlow`: whatever the weapon writes wins for 0.25 s; when nothing writes it the input module computes the slow-down
+  itself from `enemies.aimTarget()`. It always reads 1 unless the gamepad is the active device.
+- The input module plays the rumble for `player:hit` and `explosion` itself; the weapon plays its own for rounds and
+  strikes through `input.rumble`. A weaker effect never cuts a stronger one short.
+- State for CSS on `<html>`: `data-device` (`kbm` | `pad` | `touch`), `data-look` (`lock` | `drag`), the classes `is-touch`
+  (touch scheme in use) and `in-play` (gameplay controls active). With `is-touch` the controls take 254 × 250 px up from
+  the bottom-right corner, 136 × 136 px in the bottom-left one and 56 × 56 px in the top-right one (plus safe areas):
+  keep HUD blocks out of those. On touch `mode` is `drag` (fingers drag to look) and `input:lock` says so.
+- A press that comes and goes between two frames still reads as `down()` for one frame. Glyphs, key maps, pad map and
+  hint copy are data in `src/config/player.js` (`glyphs`, `keys`, `padButtons`, `hints`).
 
 ### 6.4 `G.player`  (agent: input-player)
 ```
@@ -318,6 +398,23 @@ player.addRecoil(pitch, yaw), player.addShake(trauma), player.setFov(deg), playe
 player.update(dt)                             moves, sets G.camera, emits player:* events
 ```
 When `enabled` is false the player does not move or look, and does not touch the camera (title fly-through, debrief).
+- `addRecoil(pitch, yaw)` in radians, pitch up and yaw left: 35 % goes into `player.pitch` / `yaw` for good and the aim
+  vector is refreshed at once (a second round in the same frame already starts from it); the other 65 % is a view offset
+  that snaps on and recentres. `player.forward` and the camera both carry it, so rounds follow the kicked view. Shake
+  (`addShake`, hits, hard landings, the `explosion` event by distance) turns the camera only, never `forward`.
+- `addShake(trauma)`: trauma 0…1 decays at 1.7 per second, the camera moves by trauma². A call smaller than 0.03 is a
+  trickle (a train overhead, every frame): it is read as trauma per second and holds the shake at rate / 1.7.
+  The player shakes for every `explosion` event itself ("at least 0.15 + 0.9·(1 − d/28)²", × 0.6 for `small`), so an
+  extra `addShake` from the blast's owner does not stack with it.
+- `player.eye` is the camera position: eye height plus stride bob, the landing dip and the stair glide.
+- While disabled only the screen feedback keeps settling (`render.post.damage` decays). Without a weapon module
+  `player.ads` follows the aim input; otherwise the weapon must write it every frame.
+- The death camera (0.85 s collapse onto the floor and onto the side away from the shot) runs inside `player.update`:
+  keep `enabled` true and the live update going in the `dead` state, as the stub game does.
+- `damage()` ignores non-positive amounts, a dead or invulnerable player and `?god=1`. `player:hit` always comes before
+  `player:dead`; a fatal fall emits `player:land`, `player:hit {kind: 'fall'}`, `player:dead` in that order.
+- Read-only extras: `player.stridePhase` (a whole number at every footfall, wraps at 2: sync a viewmodel bob to it),
+  `player.eyeHeight`, `player.trauma`. Tuning: `src/config/player.js`.
 
 ### 6.5 `G.weapon`  (agent: weapon)
 ```
@@ -358,6 +455,20 @@ explosives.damage(item, amount, from)
 explosives.update(dt)
 ```
 Visuals come from `G.props.build('propane_tank' | 'welding_rack')`; each has a collider (solid cover until it blows).
+As built (explosives):
+- The module builds and places the props itself from `level.explosives` (the level only lists them) and keeps one AABB
+  collider per item in `item.box` (`owner: item`, tag `explosive`, surface `metal`). `reset()` puts every item back.
+- Rules: propane tank 50 HP / fuse 1.6 s / radius 6.5 m / 170 damage; welding rack 70 / 1.1 s / 7.5 m / 210; the player
+  takes half. The first hit lights the fuse (`explosive:lit`, a `jet` emitter at the hole, the prop goes `setState('lit')`);
+  0 HP pops it 0.06 s later. `damage(item, amount, from)`: `from` an enemy object always counts 9; `from` 'blast' never
+  costs hit points, it only chains.
+- Chain: on every `explosion` event the explosives within `2.2 + 1.6 × size` m of it (size 1.9 tank, 2.3 rack, about
+  1.2 for a Buzzard) get a fuse of `0.14 + 0…0.3 + 0.03 × distance` s, line of sight or not.
+- A prop blast also shakes the camera (`player.addShake(0.15 + 0.9 g²)`, g = 1 − distance / 28) and calls
+  `enemies.alert(pos, 60)`.
+- Sound: while an item is lit the module holds `audio.loop('hiss', {pos, volume})` and raises its volume from 0.25 to 1
+  over the fuse, stopping it at the blast: audio only has to offer a loop named `hiss` (escaping gas) and must not start
+  one of its own on `explosive:lit`. That event's payload also carries `fuse` (seconds until it blows) in the real module.
 
 ### 6.8 `G.fx`  (agent: fx)
 ```
@@ -372,6 +483,23 @@ fx.addEmitter(pos, kind, {ttl, scale}) → {stop(), setPos(v)}     kinds: steam,
 fx.clear(), fx.stats(), fx.update(dt)
 ```
 Budgets scale with `G.quality.fx`. Two billboard pools (lit / additive), pooled tracers, debris, shells and decals.
+As built (fx):
+- `muzzleFlash`: `pos` and `dir` are **world space** in both modes, and fx flashes **no light**: the shooter flashes its
+  own through `render.lights.flash` (weapon and enemies both do). `world = true` (enemy guns, anything seen from outside):
+  flash sprites, sparks and a wisp of smoke in the world. `world = false` (the first-person gun): pass the muzzle point
+  the tracer starts from (the one that lines up with the viewmodel on screen); fx spits a few sparks into the world and,
+  only when nothing named `muzzle-flash` exists in `G.vmScene` (the weapon's own flash), draws the flash there itself.
+- Automatic: every `impact` event → `impact` (no mark on a body), every `explosion` event → `explosion` scaled by its
+  radius (6.5 m = 1) with a pooled light, a scorch mark, a smouldering site and a short screen flash when close;
+  `player:land` → dust; `explosive:blast` wipes the marks on the prop that is gone. Deaths are the enemies module's.
+- `smoke(pos, scale)`: dark rolling smoke; below scale 0.35 a thin pale wisp (barrel smoke). `puff(pos, hex, scale)`.
+  `debris(pos, n, hex, speed)`. `decal(point, normal, kind, size)`: kind is a surface name or `bullet`, `dent`, `crack`,
+  `soot`, `scorch`; size in metres (omit for the kind's own). `shell` kinds: `rifle` / `chopper`, `pistol` / `nine`.
+- `addEmitter` also takes `dir` (a vector: where a `jet` points) and its handle has `setDir(v)`. `fire` and `jet` hold
+  a pooled light while the camera is within about 45 m. Without `ttl` an emitter runs until stopped and survives
+  `clear()`; emitters with a `ttl` do not. 24 slots: a full house returns a handle that does nothing.
+- `stats()` → `{lit, additive, tracers, debris, shells, decals, emitters, budget{…}, spawned, recycled, refused,
+  decalsPlaced, quality, ms}` (`ms` = cost of the last `update`). Seven draw calls at most, viewmodel flash included.
 
 ### 6.9 `G.audio`  (agent: audio)
 ```
@@ -410,11 +538,40 @@ The level builds everything inside the play bounds, registers all colliders with
 atmos.sun                                      the single shadow-casting DirectionalLight
 atmos.setInterior(0..1)                        optional exposure / ambient tweak when inside the shop
 atmos.update(dt)                               sky, neon flicker, the El train, steam, moths, far skyline
+atmos.train {active, phase, dir, x, lo, hi, y, z, speed, length}   the El train right now (read-only, see below)
+atmos.passTrain(dir = 1, lead = null)          send a train now: dir +1 east / −1 west, lead = seconds until it is over the block
 ```
 Owns: sky dome and PMREM environment, fog, ambient, the shadow light, real lights for the `quality.lights` highest-priority
 `level.lamps`, additive light pools / cones for all lamps, the far skyline and rooftop silhouettes outside the bounds,
 the train that crosses `level.el` (emits `train:pass`), steam emitters at `level.steam`, and the final look tuning
 (`render.look`, `src/config/look.js`).
+As built (atmos):
+- **The train.** One sets off every 40–70 s (the first is overhead 20 s after boot), alternating direction: eastbound on
+  the south track, westbound on the north one. `train:pass` comes three times per pass: `approach` (it has appeared in
+  the haze 145 m outside the bounds; `duration` = seconds until its nose reaches the block, about 8.8), `over`
+  (`duration` = seconds until its tail has left, about 10.4), `gone` (`duration` = seconds until it has vanished, 8.8).
+  The payload also carries `dir`. `atmos.train` is live: `x` is the nose, `lo`…`hi` the extent along the street, `y` the
+  rail top, `z` the track, `phase` null between trains. Audio can place its loop at `(clamp(listener.x, lo, hi), y, z)`.
+  While it is overhead atmos calls `render.lights.flash` (one pooled light at a time), `fx.dust`, `fx.sparks` and trickles
+  `player.addShake`. Level hints it uses when present: `level.el.deckTop` (rail top) and `level.el.tracks` ([z, z]).
+- **Real lights.** `quality.lights` spot lights are created at boot and never added to or removed. They are not tied
+  to fixed lamps: every 0.2 s each lamp's claim is `(priority + 1) / (1 + (d / 14)²)`, d = its distance to the point 6 m
+  in front of the camera, and the lights fade over to the lamps with the highest claims. So `priority` still decides
+  between lamps at equal distance, and a light is real wherever the player is. Every lamp also gets an additive pool on
+  the ground (cut by the key's shadows for open-air kinds), a glow at the fixture and, from `medium` up, a cone.
+  Lamp hints: `dir` aims floods and spots; neon and window lamps find the wall behind them with a ray (pools lie in front
+  of it); a lamp over a deck at least 2.5 m wide (a platform, a mezzanine) lights that deck, not the street below.
+- **Fog.** `scene.fog` is a FogExp2, but atmos replaces three.js' fog shader chunks at boot: the haze thickens outside
+  the bounds (2 % left 105 m out) and is tinted warm toward the west, cool toward the east. Custom shaders that use
+  `#include <fog_vertex>` / `<fog_fragment>` get this for free; shaders that fog by hand can read `scene.fog.color` and
+  `.density` as before. `config/look.js` `fog.endReach = 0` leaves three.js untouched.
+- **Beyond the bounds** atmos builds the ground frame, the avenue's sidewalks, the El from wherever the level's own
+  steel stops out to 150 m, the next blocks (unlit boxes), two skyline rings, traffic and a plane. The level only needs
+  to build what the player can reach or touch.
+- **Interior.** atmos follows `level.interiorAt(camera)` by itself; `setInterior(f)` overrides that for 0.25 s per call
+  (call it every frame to drive it). Inside: exposure × 0.86, ambient × 0.62 and warmer, haze halved.
+- **Quality.** `test` / `low`: no cones, no motes, no far skyline ring, the nearer blocks only. Everything is built once;
+  presets only show and hide. Debug extras: `atmos.stats()`, `atmos.settleLights()`, `atmos.interior`.
 
 ### 6.12 `G.hud` and `G.menus`  (agent: ui)
 ```

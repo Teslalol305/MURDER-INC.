@@ -1,0 +1,442 @@
+/* MURDER INC. — touch controls and look cues (input module). Concatenated last, after base.css and ui.css.
+
+   The controls speak the same transit-sign language as the HUD: black enamel discs with a white rim and
+   white grotesque caps — route bullets — that light up taxi yellow when pressed. Every colour is a brand
+   token from base.css; translucency comes from `opacity` on a pseudo-element, never from a second colour.
+
+   Layout: one unit (--u) is 1 px on a roomy screen and shrinks on short or narrow ones, so the same
+   arrangement fits a landscape phone (844 × 390), a portrait one (390 × 844) and a small 320 px screen.
+   The right thumb gets an arc around FIRE, the left thumb a floating stick anywhere on its 45 % of the
+   screen (the ghost ring only shows where it rests). Everything adds the safe-area insets.
+
+   Room taken, for whoever lays out the HUD (`html.is-touch`): 254 × 250 units up from the bottom-right
+   corner, 136 × 136 units in the bottom-left one, 56 × 56 px in the top-right one. */
+
+.touch {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  --u: clamp(0.72px, min(0.235vh, 0.256vw), 1px);
+  /* Where the device reports no bottom inset, stay clear of its gesture bar anyway. */
+  --lift: max(0px, calc(12px - var(--safe-bottom)));
+  font-family: var(--font-ui);
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+}
+
+/* ---- Buttons ------------------------------------------------------------------------------------ */
+
+.touch-btn {
+  position: absolute;
+  right: calc(var(--r) * var(--u) + var(--safe-right));
+  bottom: calc(var(--b) * var(--u) + var(--safe-bottom) + var(--lift));
+  width: calc(var(--s) * var(--u));
+  height: calc(var(--s) * var(--u));
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--c-ink);
+  pointer-events: auto;
+  touch-action: none;
+  transition: transform 70ms ease-out;
+}
+
+/* The enamel plate… */
+.touch-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--c-plate);
+  box-shadow: 0 0 0 1px var(--c-bg);
+  opacity: 0.64;
+  transition: opacity 70ms ease-out, background-color 70ms ease-out;
+}
+
+/* …and its rim. */
+.touch-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: calc(1.5 * var(--u)) solid var(--c-ink);
+  border-radius: inherit;
+  opacity: 0.72;
+  transition: opacity 70ms ease-out, border-color 70ms ease-out;
+}
+
+.touch-label {
+  position: relative;
+  /* The tracking adds a gap after the last letter: pull it back so the word sits on the centre. */
+  margin-right: -0.12em;
+  font: 700 calc(12 * var(--u)) / 1 var(--font-ui);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Pressed: the bullet lights up. */
+.touch-btn.is-on {
+  color: var(--c-bg);
+  transform: scale(0.94);
+}
+
+.touch-btn.is-on::before {
+  background: var(--c-gold);
+  opacity: 1;
+}
+
+.touch-btn.is-on::after {
+  border-color: var(--c-gold);
+  opacity: 1;
+}
+
+/* Latched (AIM and DUCK are toggles): a yellow rim and yellow type until tapped again. */
+.touch-btn.is-latched {
+  color: var(--c-gold);
+}
+
+.touch-btn.is-latched::after {
+  border-color: var(--c-gold);
+  border-width: calc(3 * var(--u));
+  opacity: 1;
+}
+
+.touch-btn.is-latched.is-on {
+  color: var(--c-bg);
+}
+
+/* Sizes and places, in units from the bottom-right corner (reference notes 01, plus DUCK and HIT). */
+.touch-fire {
+  --s: 86;
+  --r: 20;
+  --b: 62;
+}
+
+.touch-ads {
+  --s: 60;
+  --r: 120;
+  --b: 34;
+}
+
+.touch-jump {
+  --s: 60;
+  --r: 20;
+  --b: 164;
+}
+
+.touch-reload {
+  --s: 54;
+  --r: 108;
+  --b: 126;
+}
+
+.touch-swap {
+  --s: 54;
+  --r: 92;
+  --b: 196;
+}
+
+.touch-melee {
+  --s: 54;
+  --r: 172;
+  --b: 176;
+}
+
+.touch-crouch {
+  --s: 54;
+  --r: 196;
+  --b: 24;
+}
+
+.touch-interact {
+  --s: 68;
+  --r: 186;
+  --b: 96;
+}
+
+/* FIRE: the big one, yellow rim, display face. */
+.touch-fire::after {
+  border-width: calc(2.5 * var(--u));
+  border-color: var(--c-gold);
+  opacity: 0.95;
+}
+
+.touch-fire .touch-label {
+  margin-right: -0.06em;
+  font: 400 calc(23 * var(--u)) / 1 var(--font-display);
+  letter-spacing: 0.06em;
+}
+
+.touch-ads .touch-label,
+.touch-jump .touch-label {
+  font-size: calc(13 * var(--u));
+}
+
+/* USE: only while a prompt is showing. Yellow, and it breathes so the eye finds it. */
+.touch-interact {
+  display: none;
+  color: var(--c-gold);
+}
+
+.touch.has-prompt .touch-interact {
+  display: grid;
+  animation: touch-use-in 160ms ease-out;
+}
+
+.touch-interact::after {
+  border-width: calc(2.5 * var(--u));
+  border-color: var(--c-gold);
+  opacity: 1;
+  animation: touch-use-rim 1.3s ease-in-out infinite;
+}
+
+.touch-interact .touch-label {
+  font-size: calc(15 * var(--u));
+}
+
+.touch-interact.is-on::after {
+  animation: none;
+}
+
+@keyframes touch-use-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+@keyframes touch-use-rim {
+  50% {
+    transform: scale(1.09);
+    opacity: 0.45;
+  }
+}
+
+/* Pause: a small square plate under the thin white rule, top right. */
+.touch-pause {
+  top: calc(12px + var(--safe-top));
+  right: calc(12px + var(--safe-right));
+  bottom: auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 0;
+}
+
+.touch-pause::before {
+  border-top: 2px solid var(--c-ink);
+  box-shadow: none;
+  opacity: 0.78;
+}
+
+/* The two bars. */
+.touch-pause::after {
+  inset: auto;
+  position: relative;
+  width: 5px;
+  height: 16px;
+  border: 0;
+  border-radius: 0;
+  background: var(--c-ink);
+  box-shadow: 9px 0 0 var(--c-ink);
+  opacity: 1;
+  transform: translateX(-4.5px);
+}
+
+.touch-pause.is-on::before {
+  border-top-color: var(--c-gold);
+}
+
+.touch-pause.is-on::after {
+  background: var(--c-bg);
+  box-shadow: 9px 0 0 var(--c-bg);
+}
+
+/* ---- Move stick --------------------------------------------------------------------------------- */
+
+/* At rest a ghost marks the left thumb's corner; under a thumb it jumps to the touch point (the script
+   sets left / top) and turns solid. */
+.touch-stick {
+  position: absolute;
+  left: calc(var(--gutter-left) + 62 * var(--u));
+  bottom: calc(74 * var(--u) + var(--safe-bottom) + var(--lift));
+  width: calc(116 * var(--u));
+  height: calc(116 * var(--u));
+  transform: translate(-50%, 50%);
+  opacity: 0.42;
+  transition: opacity 180ms ease-out;
+}
+
+.touch-stick.is-active {
+  transform: translate(-50%, -50%);
+  opacity: 1;
+  transition: none;
+}
+
+.touch-stick-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.touch-stick-ring::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--c-plate);
+  opacity: 0.34;
+}
+
+.touch-stick-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: calc(1.5 * var(--u)) solid var(--c-ink);
+  border-radius: inherit;
+  opacity: 0.6;
+}
+
+.touch-stick-nub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(48 * var(--u));
+  height: calc(48 * var(--u));
+  margin: calc(-24 * var(--u)) 0 0 calc(-24 * var(--u));
+  box-sizing: border-box;
+  border: calc(1.5 * var(--u)) solid var(--c-ink);
+  border-radius: 50%;
+  background: var(--c-plate);
+  box-shadow: 0 0 0 1px var(--c-bg);
+}
+
+/* Pushed all the way forward: sprinting. */
+.touch-stick.is-sprint .touch-stick-nub {
+  border-color: var(--c-gold);
+  background: var(--c-gold);
+}
+
+.touch-stick.is-sprint .touch-stick-ring::after {
+  border-color: var(--c-gold);
+  opacity: 0.9;
+}
+
+/* ---- Edge-turn cue (mouse fallback) --------------------------------------------------------------- */
+
+/* Without pointer lock a cursor resting near a screen edge keeps turning the view. A yellow wash on that
+   edge says so; the script sets its opacity to the turn rate. */
+.look-edges {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.look-edge {
+  position: absolute;
+  opacity: 0;
+  transition: opacity 120ms linear;
+}
+
+.look-edge::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.2;
+}
+
+/* A chevron pointing the way the view is turning. */
+.look-edge::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: solid var(--c-gold);
+  border-width: 2px 2px 0 0;
+}
+
+.look-edge-l,
+.look-edge-r {
+  top: 0;
+  bottom: 0;
+  width: 12%;
+}
+
+.look-edge-t,
+.look-edge-b {
+  left: 0;
+  right: 0;
+  height: 10%;
+}
+
+.look-edge-l {
+  left: 0;
+}
+
+.look-edge-r {
+  right: 0;
+}
+
+.look-edge-t {
+  top: 0;
+}
+
+.look-edge-b {
+  bottom: 0;
+}
+
+.look-edge-l::before {
+  background: linear-gradient(to right, var(--c-gold), transparent);
+}
+
+.look-edge-r::before {
+  background: linear-gradient(to left, var(--c-gold), transparent);
+}
+
+.look-edge-t::before {
+  background: linear-gradient(to bottom, var(--c-gold), transparent);
+}
+
+.look-edge-b::before {
+  background: linear-gradient(to top, var(--c-gold), transparent);
+}
+
+.look-edge-l::after {
+  left: calc(14px + var(--safe-left));
+  top: 50%;
+  transform: translateY(-50%) rotate(-135deg);
+}
+
+.look-edge-r::after {
+  right: calc(14px + var(--safe-right));
+  top: 50%;
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.look-edge-t::after {
+  top: calc(14px + var(--safe-top));
+  left: 50%;
+  transform: translateX(-50%) rotate(-45deg);
+}
+
+.look-edge-b::after {
+  bottom: calc(14px + var(--safe-bottom));
+  left: 50%;
+  transform: translateX(-50%) rotate(135deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .touch-btn,
+  .touch-btn::before,
+  .touch-btn::after,
+  .touch-stick,
+  .look-edge {
+    transition: none;
+  }
+
+  .touch.has-prompt .touch-interact,
+  .touch-interact::after {
+    animation: none;
+  }
+}

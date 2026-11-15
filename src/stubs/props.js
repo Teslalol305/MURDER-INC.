@@ -137,7 +137,9 @@ export function createProps(G) {
     // Livery on both sides and hazard lights at the rear (the nose points to +X).
     const livery = G.mats.sign({ text: 'IPX', sub: 'IPX.EXCHANGE', w: length * 0.5, h: height * 0.4, style: 'plate', lit: false });
     for (const side of [1, -1]) {
-      const quad = new THREE.Mesh(planeGeo(livery.w, livery.h, { facing: side > 0 ? '+z' : '-z' }), livery.material);
+      // The livery's texture spans its quad once: UVs 0 … 1, not metres.
+      const facing = side > 0 ? '+z' : '-z';
+      const quad = new THREE.Mesh(planeGeo(livery.w, livery.h, { facing, uvScale: [1 / livery.w, 1 / livery.h] }), livery.material);
       quad.position.set(-length * 0.1, height * 0.6, side * (width / 2 + 0.01));
       prop.object.add(quad);
     }

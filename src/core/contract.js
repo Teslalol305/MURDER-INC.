@@ -61,6 +61,7 @@ export const MODULES = {
     'down()', 'pressed()', 'released()',
     'locked', 'mode', 'device', 'touch', 'sensitivity', 'invertY', 'aimSlow',
     'requestLock()', 'exitLock()', 'setGameplay()', 'glyph()', 'hint()', 'rumble()',
+    'setPrompt()', 'menuNav()',
     'update()', 'endFrame()',
   ],
   level: [
@@ -81,7 +82,11 @@ export const MODULES = {
     'vantage.stairsFoot', 'vantage.deck',
     'groundSurfaceAt()', 'update()',
   ],
-  atmos: ['sun', 'setInterior()', 'update()'],
+  atmos: [
+    'sun', 'setInterior()', 'update()',
+    'train.active', 'train.phase', 'train.dir', 'train.x', 'train.lo', 'train.hi', 'train.y', 'train.z', 'train.speed', 'train.length',
+    'passTrain()',
+  ],
   fx: [
     'muzzleFlash()', 'tracer()', 'impact()', 'sparks()', 'smoke()', 'dust()', 'puff()', 'explosion()', 'shell()',
     'debris()', 'decal()', 'addEmitter()', 'clear()', 'stats()', 'update()',
@@ -145,6 +150,7 @@ export const EVENTS = {
   'weapon:dry': ['weapon'],
   'weapon:switch': ['from', 'to', 'phase'],
   'weapon:melee': ['hit'],
+  'weapon:swing': ['weapon'],
   'shell:bounce': ['pos', 'surface'],
   impact: ['point', 'normal', 'surface', 'dir', 'from', 'enemy'],
   explosion: ['pos', 'radius', 'size', 'source'],

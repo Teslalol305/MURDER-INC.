@@ -48,6 +48,7 @@ const GLYPHS = {
 const MOUSE_RATE = 0.0021; // radians per pixel at sensitivity 1
 const MOUSE_GLITCH = 400; // single events larger than this are pointer-lock hiccups
 const LOCK_TIMEOUT = 1200; // ms without a grant before giving up on pointer lock
+const NO_NAV = Object.freeze({ x: 0, y: 0, accept: false, back: false, start: false }); // menuNav(): no gamepad here
 
 export function createInput(G) {
   const doc = typeof document !== 'undefined' ? document : null;
@@ -85,6 +86,8 @@ export function createInput(G) {
         ? 'Mouse capture is off: move the mouse to look, click to fire.'
         : 'Click the street to grab the mouse. Esc lets it go.',
     rumble() {},
+    setPrompt() {}, // no touch USE button, no gamepad in the stub
+    menuNav: () => NO_NAV,
     update,
     endFrame,
   };

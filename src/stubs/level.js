@@ -137,7 +137,8 @@ export function createLevel(G) {
   /** A sign quad on a wall that faces +Z (south) or −Z. */
   function wallSign(spec, x, y, z, facing = '+z') {
     const sign = mats.sign(spec);
-    const mesh = new THREE.Mesh(planeGeo(sign.w, sign.h, { facing }), sign.material);
+    // A sign's texture spans its quad once: UVs 0 … 1, not metres.
+    const mesh = new THREE.Mesh(planeGeo(sign.w, sign.h, { facing, uvScale: [1 / sign.w, 1 / sign.h] }), sign.material);
     mesh.position.set(x, y, z);
     staticRoot.add(mesh);
   }

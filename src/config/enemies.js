@@ -31,6 +31,11 @@ export const buzzard = {
   feelers: { forward: 2.2, forwardPerSpeed: 0.5, down: 2.4, up: 4, bounce: -0.25 },
   patrol: { radius: [4, 9], turn: 0.28 },
   investigate: { radius: 4.5, turn: 0.5, maxHeight: 5.5 },
+  maxAltitude: 15, // never climbs above this
+  boundsMargin: 1.2, // kept this far inside the play bounds
+  // Flight planning around level.el (the track deck): pass `under` its underside or stay `over` its top,
+  // never through it. `margin` grows the footprint, `hold` is how far outside a drone waits to descend.
+  deck: { under: 1.5, over: 3.6, thickness: 1, margin: 1.5, hold: 2.5 },
   orbit: {
     radius: [14, 22], // initial personal orbit radius…
     radiusClamp: [13, 23], // …which drifts inside this band
@@ -66,6 +71,9 @@ export const buzzard = {
   // Damage and death: it spins down and bursts where it lands.
   damagedBelow: 0.5, // of max HP: wobble, smoke, spread × damagedSpread
   damagedSpread: 1.5,
+  damagedJitter: 1.6, // m/s² of sinusoidal steering noise
+  smokeEvery: [0.1, 0.22], // seconds between smoke puffs while damaged
+  hitKick: 0.5, // random roll / pitch impulse per hit, rad/s
   knockback: { perDamage: 0.09, max: 3 },
   deathKick: { up: 1.5, along: 2.5 },
   fallGravity: 9.5,
@@ -84,7 +92,7 @@ export const goon = {
   head: { radius: 0.155, height: 1.62 }, // weak point: sphere centred this high above the feet
   bodyRadius: 0.27, // hit capsule from shin to shoulder
   eyeHeight: 1.6,
-  gunHeight: 1.35,
+  gunHeight: 1.46, // shots leave from the body axis at this height (the shouldered SMG)
   reaction: 0.55,
   spawnAlertTime: 10,
 
@@ -94,7 +102,8 @@ export const goon = {
   patrolSpeed: 1.5,
   accel: 7,
   decel: 9.8,
-  turnRate: 2.5,
+  turnRate: 2.5, // standing: turning to face a target
+  pathTurnRate: 5, // walking: steering along a path
   aimRate: 4.5,
   replan: [0.6, 0.75],
   waypointReach: 0.55,
@@ -109,7 +118,7 @@ export const goon = {
   // Fire positions: scored candidates between rangeMin and rangeMax from the player.
   rangeMin: 8,
   rangeMax: 18,
-  repick: { playerMoved: 7, randomPoints: 7, arcPoints: 5, arc: 1.3, arcRange: [9, 17] },
+  repick: { playerMoved: 7, randomPoints: 7, arcPoints: 5, arc: 1.3, arcRange: [9, 17], minMove: 3 }, // minMove: a relocation goes at least this far
   positionCost: {
     travel: 0.9,
     authored: -2,
@@ -121,7 +130,7 @@ export const goon = {
     noSight: 22,
     cover: -4, // next to a level.coverPoints entry that still sees the player
   },
-  cover: { snap: 1.6, crouchBetweenBursts: true },
+  cover: { snap: 1.6, crouchBetweenBursts: true, maxStep: 1 }, // maxStep: cover points this much above / below are out of reach
   move: { aimEarlyAfter: 1.4, aimEarlyRange: [7, 20], aimEarlyChance: 0.7, giveUp: 7 },
   hold: { tooClose: 5, tooCloseTime: 0.8, noSightTime: 1.1, maxWait: 3, aimTolerance: 0.14 },
   burstsBeforeMove: { one: 0.6 }, // chance to relocate after a single burst, else after two
@@ -156,6 +165,7 @@ export const goon = {
   // Death: a short collapse, then a non-colliding body that fades when it is the oldest.
   collapse: 0.9,
   bodyFade: 3.2,
+  bodyStay: 45, // a body that is not pushed out by newer ones fades after this long
   staggerMax: 1.6, // hit reaction scale: min(staggerMax, damage / 28), cosmetic only
   score: 150,
 };
@@ -195,6 +205,11 @@ export const ai = {
     escape: 90, // centred on the player every few seconds once all reels are out
   },
   alertDefaultRadius: 40,
+  gunfireEvery: 0.3, // gunfire alerts at most this often
+
+  // Budgets: the work that is spread over frames.
+  pathsPerFrame: 2, // nav.findPath calls
+  picksPerFrame: 1, // fire-position selections (each one casts a few dozen rays)
 };
 
 /** Per-difficulty overlays (docs/DESIGN.md 3.1). Boss is the default and the fallback. */
