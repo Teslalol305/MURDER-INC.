@@ -48,6 +48,7 @@ module.exports = async (page, h) => {
         G.player.yaw = i * 0.6;
       }, [reels[k], i]);
     }
+    console.log('REEL', k, JSON.stringify(await h.eval(() => window.__G.enemies.list.filter((e) => e.alive && e.type === 'buzzard').map((e) => `${e.id} ${e.mode} ${e.pos.x.toFixed(1)},${e.pos.y.toFixed(1)},${e.pos.z.toFixed(1)} sees=${e.sees}`))));
     await h.eval(() => {
       const G = window.__G;
       for (const e of [...G.enemies.list]) if (e.alive) G.enemies.damage(e, 9999, { from: 'player', part: 'body' });
@@ -58,5 +59,6 @@ module.exports = async (page, h) => {
   const vis = s.arrivals.filter((a) => a.los);
   console.log('ARRIVALS', s.arrivals.length, 'with LOS', vis.length, 'in view', s.arrivals.filter((a) => a.inView).length);
   console.log(JSON.stringify(vis));
+  console.log('BUZZ', JSON.stringify(s.arrivals.filter((a) => a.type === 'buzzard')));
   console.log('PATROL', JSON.stringify(s.patrol));
 };

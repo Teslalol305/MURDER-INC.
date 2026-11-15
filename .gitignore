@@ -1,3 +1,4 @@
 node_modules/
 shots/
 dist/dev-*
+tools/scenarios/review-*

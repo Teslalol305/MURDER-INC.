@@ -44,6 +44,14 @@ module.exports = async (page, h) => {
       };
       window.__wave(goons, buzz);
       window.__trk = {};
+      const perf = (window.__perf = { n: 0, sum: 0, max: 0, over2: 0 });
+      const upd = G.enemies.update;
+      G.enemies.update = (dt) => {
+        const t0 = performance.now();
+        upd(dt);
+        const ms = performance.now() - t0;
+        perf.n++; perf.sum += ms; if (ms > perf.max) { perf.max = ms; perf.maxAt = perf.n; } if (ms > 20) (perf.big = perf.big || []).push([perf.n, +ms.toFixed(1)]); if (ms > 2) perf.over2++;
+      };
     },
     [POS, GOONS, BUZZ, DIFF, CROUCH],
   );
@@ -97,6 +105,18 @@ module.exports = async (page, h) => {
       [FIGHT, done, GOONS, BUZZ],
     );
     for (const k of r) note(k);
+    const snap = process.env.RV_SNAP;
+    const hit = snap && r.find((k) => k.includes(snap));
+    if (hit && !global.__snapped) {
+      global.__snapped = true;
+      const m = hit.match(/(-?[\d.]+),(-?[\d.]+),(-?[\d.]+)$/);
+      const [x, y, z] = [+m[1], +m[2], +m[3]];
+      console.log('SNAP at step', done, hit);
+      await h.eval((c) => window.__setShot({ cam: c, fov: 50 }), `${x + 2.5},${y + 0.8},${z + 3.2},${x},${y},${z - 0.3}`);
+      await h.frames(2);
+      await h.shot(`shots/review/snap-${snap.replace(/\W/g, '')}.png`);
+      await h.eval(() => window.__setShot({ cam: '' }));
+    }
   }
   const s = await h.eval(() => {
     const G = window.__G;
@@ -112,7 +132,7 @@ module.exports = async (page, h) => {
       return +best.toFixed(1);
     };
     const units = G.enemies.list.filter((e) => e.alive).map((e) => `${e.type}:${e.mode}/${e.sub || '-'}@${e.pos.x.toFixed(1)},${e.pos.y.toFixed(1)},${e.pos.z.toFixed(1)} exp${(e.exposure || 0).toFixed(2)}`);
-    return { dmg: s.dmg, n: s.n, w1: win(1), w2: win(2), w4: win(4), fire: s.fire, tele: s.tele, alerts: s.alerts, killed: s.killed, maxAttack: s.maxAttack, units, clock: G.enemies.debug().clock, player: [G.player.pos.x, G.player.pos.y, G.player.pos.z], debug: { ...G.enemies.debug(), tune: undefined } };
+    const pf = window.__perf; return { perf: { mean: +(pf.sum / pf.n).toFixed(3), max: +pf.max.toFixed(2), over2: pf.over2, n: pf.n, maxAt: pf.maxAt, big: pf.big, rebuilds: window.__G.physics.nav.rebuilds }, dmg: s.dmg, n: s.n, w1: win(1), w2: win(2), w4: win(4), fire: s.fire, tele: s.tele, alerts: s.alerts, killed: s.killed, maxAttack: s.maxAttack, units, clock: G.enemies.debug().clock, player: [G.player.pos.x, G.player.pos.y, G.player.pos.z], debug: { ...G.enemies.debug(), tune: undefined } };
   });
   console.log(JSON.stringify(s));
   console.log('ISSUES', JSON.stringify([...issues.entries()].slice(0, 40)));
