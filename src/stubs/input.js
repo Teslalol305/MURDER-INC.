@@ -1,6 +1,6 @@
 // Stub input (CONTRACT 6.3): keyboard and mouse only, no gamepad, no touch.
 //
-//   WASD move · Space jump · Shift sprint · C / Ctrl crouch · R reload · E interact · Q swap · 1 / 2 weapons
+//   WASD move · Space jump · Shift sprint · C crouch · R reload · E interact · Q swap · 1 / 2 weapons
 //   F melee · Esc / P pause · left mouse fire · right mouse aim
 //
 // Look uses pointer lock. When the browser will not grant it the stub falls back to 'drag' mode, where
@@ -18,8 +18,6 @@ const KEY_ACTIONS = {
   ShiftLeft: 'sprint',
   ShiftRight: 'sprint',
   KeyC: 'crouch',
-  ControlLeft: 'crouch',
-  ControlRight: 'crouch',
   KeyR: 'reload',
   KeyE: 'interact',
   KeyQ: 'swap',

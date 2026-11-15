@@ -26,6 +26,10 @@ RUNS=(
   "ui-nav|960x540|q=test&noaudio=1&god=1||ui-nav|500"
   "audio-full|640x360|autostart=1&q=test&god=1||audio-full|700"
   "atmos-check|960x540|shot=1&nohud=1||atmos-check|500"
+  "flow-fixes|960x540|q=test|FLOW_NOSHOTS=1|flow-fixes|900"
+  "ui-layout|1280x720|q=test&noaudio=1&god=1|UI_NOSHOTS=1|ui-layout|700"
+  "ui-layout-touch|844x390|q=test&noaudio=1&god=1|UI_TOUCH=1 UI_NOSHOTS=1|ui-layout|700"
+  "ui-layout-portrait|390x844|q=test&noaudio=1&god=1|UI_TOUCH=1 UI_NOSHOTS=1|ui-layout|700"
 )
 
 fails=0

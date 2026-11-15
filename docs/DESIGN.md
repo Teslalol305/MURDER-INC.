@@ -52,7 +52,7 @@ Tone: confident, dry, New York. Short sentences. No slurs, no profanity stronger
 
 Title screen: eyebrow `IPX PRESENTS · HOLLIS, QUEENS · 02:14 AM`; wordmark `MURDER INC.`; star line `STARRING JA RULE`;
 premise "The Vultures jacked three master reels. Take the block back. Get them to the truck.";
-note "Every street, sound and beat is generated in your browser. Nothing is downloaded.";
+note "Every street, sound and beat is generated in your browser. No art or audio files.";
 buttons `Hit the block` (start), `Settings`, `Controls`.
 
 Objective lines: "Take back the three master reels" → "Two reels left" → "Last reel" → "Get to the IPX truck".
@@ -204,7 +204,7 @@ coordinates and may adjust them; the roles, proportions and loop structure below
   The avenue's east end is sealed by a roadblock (barriers, a jack-knifed box truck) under the El.
 - Perimeter: buildings, fences with scrim, roll gates and barricades, each backed by a player-only wall so nothing can be
   hopped. Buildings are 2–5 storeys of brick with fire escapes, lit and dark windows, rooftop water towers, awnings,
-  roll-down gates, neon and box signs. Storefront names are invented: "HOLLIS DELI & GROCERY", "KINGS OF QUEENS BARBER",
+  roll-down gates, neon and box signs. Storefront names are invented: "HOLLIS DELI & GROCERY", "CROWN & FADE BARBER",
   "PAWN & GOLD", "TAPES · RECORDS · CDs", "GOLDEN BIRD CHICKEN", "WINES & LIQUORS", "LUCKY NAILS", "24 HR LAUNDROMAT",
   "CHECKS CASHED", "99¢ PIZZA".
 - Cover philosophy: dense waist-to-chest cover in every lane (a crouched player at eye 1.05 m is hidden, a standing one

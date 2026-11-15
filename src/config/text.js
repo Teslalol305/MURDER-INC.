@@ -208,7 +208,7 @@ export const world = {
   shop: 'V&R AUTO BODY',
   storefronts: [
     'HOLLIS DELI & GROCERY',
-    'KINGS OF QUEENS BARBER',
+    'CROWN & FADE BARBER',
     'PAWN & GOLD',
     'TAPES · RECORDS · CDs',
     'GOLDEN BIRD CHICKEN',

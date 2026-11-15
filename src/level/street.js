@@ -343,7 +343,7 @@ function buildSidewalkBlockers(kit, mats, steam) {
     const west = wallFrame(kit, '-x', s.x0);
     west.overlay(mats.poster('show', 0), 9.3, KERB + 1.5);
     west.overlay(mats.poster('ad', 1), 10.05, KERB + 1.45);
-    west.overlay(mats.graffiti('KOQ', 4, 0x35e0ff), 9.8, KERB + 0.7, 0.012);
+    west.overlay(mats.graffiti('QNS', 4, 0x35e0ff), 9.8, KERB + 0.7, 0.012);
     F.box('metal_dark', -16.1, -15.9, KERB + 2.5, KERB + 2.58, 0, 0.22);
     F.box(kit.glow(0xfff1d0, 3.5), -16.06, -15.94, KERB + 2.4, KERB + 2.5, 0.08, 0.2, { cast: false, receive: false });
     F.lamp(-16, KERB + 2.35, 0.4, 'work', 0xfff1d0, 9, 7, { priority: 3 });

@@ -79,7 +79,7 @@ function buildCut(kit) {
   kit.place('cardboard_boxes', 22.6, -31.9, 0.6);
   kit.place('pallet', 23.4, -13.6, 0.2);
   const wall = wallFrame(kit, '+x', CUT.minX);
-  wall.overlay(mats.graffiti('KOQ', 4, 0x35e0ff), -22.5, 1.5);
+  wall.overlay(mats.graffiti('QNS', 4, 0x35e0ff), -22.5, 1.5);
   wall.overlay(mats.poster('ipx', 31), -13.2, 1.8);
   wall.overlay(mats.poster('show', 32), -12.5, 1.75);
 }
