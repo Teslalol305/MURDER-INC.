@@ -19,6 +19,11 @@
 //   --cdn-fail N         with --artifact-cdn: make the first N CDN addresses fail (tests the fallback chain)
 //   --verbose            echo the whole page console
 //
+// Environment
+//   SHOT_CHROME=/path/to/chrome   run this browser instead of the one Playwright downloaded for itself
+//   SHOT_GPU=1                    leave WebGL to the machine's GPU: many times faster than software GL, and
+//                                 the simulation is just as deterministic; only the pictures differ a little
+//
 // The page is loaded with step=1&dt=0.0333 unless --realtime is given, so the simulation only advances
 // when asked and a run is identical on any machine. Every other network request is refused: the game
 // must work offline.
@@ -47,7 +52,9 @@ const http = require('node:http');
 const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
-const GL_ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
+const GL_ARGS = process.env.SHOT_GPU
+  ? ['--ignore-gpu-blocklist', '--enable-unsafe-swiftshader']
+  : ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 // Unrounded performance.memory for h.heap(). SHOT_GC=1 also exposes window.gc() so h.heap(true) can collect first:
 // it is opt-in because with that flag V8 lets dead typed arrays pile up (gigabytes while audio renders its buffers).
 // Scenarios that measure allocations (file name contains perf / stress / heap) get it automatically.
@@ -211,7 +218,10 @@ async function main() {
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => stop().then(() => process.exit(1)));
 
   try {
-    browser = await chromium.launch({ args: [...GL_ARGS, ...memoryArgs(opts.scenario)] });
+    browser = await chromium.launch({
+      args: [...GL_ARGS, ...memoryArgs(opts.scenario)],
+      ...(process.env.SHOT_CHROME ? { executablePath: process.env.SHOT_CHROME } : {}),
+    });
     const context = await browser.newContext({ viewport: { width: opts.width, height: opts.height }, deviceScaleFactor: 1 });
     const page = await context.newPage();
 

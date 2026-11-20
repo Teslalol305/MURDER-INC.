@@ -43,7 +43,7 @@ for run in "${RUNS[@]}"; do
   code=$?
   secs=$(( $(date +%s) - start ))
   if [ $code -eq 0 ]; then summary+=("ok    $name (${secs}s)"); else summary+=("FAIL  $name (exit $code, ${secs}s)"); fails=$((fails + 1)); fi
-  echo "${summary[-1]}"
+  echo "${summary[${#summary[@]}-1]}" # (not [-1]: macOS ships bash 3.2)
 done
 echo "---"
 printf '%s\n' "${summary[@]}"

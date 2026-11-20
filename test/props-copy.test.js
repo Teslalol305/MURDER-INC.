@@ -6,6 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PLATES } from '../src/props/atlas.js';
 
 test('plates: invented three-letter, four-digit codes, no initials of real people', () => {
@@ -37,7 +38,7 @@ function sources(dir) {
 }
 
 test('copy: no real artists, crews, gangs or brands anywhere in the source', () => {
-  const root = new URL('../src/', import.meta.url).pathname;
+  const root = fileURLToPath(new URL('../src/', import.meta.url)); // (not .pathname: a folder name with a space in it)
   const hits = [];
   for (const file of sources(root)) {
     const text = readFileSync(file, 'utf8');
