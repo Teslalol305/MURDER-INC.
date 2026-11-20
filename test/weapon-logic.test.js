@@ -11,6 +11,7 @@ import { missingMembers } from '../src/core/contract.js';
 import { createEvents } from '../src/core/events.js';
 import { createRng } from '../src/core/rng.js';
 import { createWeapon } from '../src/weapon.js';
+import { createRockets } from '../src/weapon/rockets.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const DT = 1 / 60;
@@ -1107,4 +1108,33 @@ test('weapon: the wall probe and the gamepad aim slow-down', () => {
   G.input.device = 'kbm';
   G.step(1);
   assert.equal(G.input.aimSlow, 1);
+});
+
+test('weapon: the round in flight is not drawn until it is clear of the shooter', () => {
+  // A scene and materials, nothing to hit: the model of a round is all this looks at.
+  const material = () => new THREE.MeshBasicMaterial();
+  const rockets = createRockets({ scene: new THREE.Scene(), mats: { get: material, emissive: material } });
+  const { speed, life } = rocket.projectile;
+  const eye = new THREE.Vector3(0, 1.6, 0);
+  const muzzle = new THREE.Vector3(0.04, 1.52, -0.45); // aimed: the launcher's mouth is straight ahead of the eye
+  rockets.update(1 / 60); // the models stand under the street for the shader warm-up until the first update
+  assert.ok(rockets.rounds.every((r) => r.mesh && !r.mesh.visible));
+
+  for (const fps of [30, 60, 144]) {
+    const dt = 1 / fps;
+    const round = rockets.launch(rocket, eye, new THREE.Vector3(0, 0, -1), muzzle);
+    assert.equal(round.mesh.visible, false, `${fps} fps: nothing of it on the frame of the shot`);
+    near(round.mesh.position.z, muzzle.z, 1e-9, 'it waits at the muzzle');
+    let shownAt = 0;
+    for (let flown = speed * dt; !shownAt && flown < 10; flown += speed * dt) {
+      rockets.update(dt);
+      if (round.mesh.visible) shownAt = flown;
+    }
+    assert.ok(shownAt >= 2 && shownAt < 2 + speed * dt + 1e-9, `${fps} fps: first drawn ${shownAt.toFixed(2)} m out`);
+    assert.ok(round.mesh.position.z < -2, 'ahead of the eye by then, tail and all');
+    // Spent: it goes off and is put away.
+    for (let t = 0; t < life + 0.1; t += dt) rockets.update(dt);
+    assert.equal(rockets.live, 0);
+    assert.equal(round.mesh.visible, false);
+  }
 });

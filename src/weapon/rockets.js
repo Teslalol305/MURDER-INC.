@@ -6,8 +6,9 @@
 // The blast is G.combat.explode: the Vultures take it in full, Rule `playerScale` of it.
 //
 // The flight is rules, so it runs in a unit test with no renderer. With a scene there is a pooled model
-// per round, drawn easing from the launcher's muzzle onto the true flight line, a pale smoke trail laid
-// down every metre of the way and a light that travels with it.
+// per round, drawn from two metres out (nearer, it would be in the shooter's face) and easing from the
+// launcher's muzzle onto the true flight line, a pale smoke trail laid down every metre of the way and a
+// light that travels with it.
 
 import * as THREE from 'three';
 import { cylGeo, mergeGeos } from '../core/geo.js';
@@ -16,6 +17,7 @@ const POOL = 4; // rounds in the air at once: the launcher holds one, a reload t
 const TIE = 0.03; // an explosive wins a tie with its own collider (see combat.js)
 const BACK_OFF = 0.25; // the blast is centred this far short of what was hit, so walls do not shield it
 const SETTLE = 0.22; // seconds for the drawn round to ease from the muzzle onto the flight line
+const CLEAR = 2; // metres a round flies before its model is drawn: any nearer and its fins fill the view
 const FORWARD = new THREE.Vector3(0, 0, -1);
 const SOURCE = Object.freeze({ type: 'rocket', from: 'player' });
 
@@ -77,6 +79,7 @@ export function createRockets(G) {
       dir: new THREE.Vector3(0, 0, -1),
       offset: new THREE.Vector3(), // drawn position − true position, eased to nothing
       age: 0,
+      flown: 0, // metres since the launch
       trail: 0, // metres flown since the last wisp of smoke
       glow: 0,
       mesh: null,
@@ -120,12 +123,15 @@ export function createRockets(G) {
     round.pos.copy(origin);
     round.dir.copy(dir).normalize();
     round.age = 0;
+    round.flown = 0;
     round.trail = 0;
     round.glow = 0;
     if (muzzle) round.offset.subVectors(muzzle, origin);
     else round.offset.set(0, 0, 0);
     if (round.mesh) {
-      round.mesh.visible = true;
+      // Not drawn yet: at the muzzle the model's tail would be a hand's breadth from the eye, and its
+      // fins a wall across the sights for a frame. The launcher's flash covers the first metres (draw()).
+      round.mesh.visible = false;
       round.mesh.quaternion.setFromUnitVectors(FORWARD, round.dir);
       round.mesh.position.copy(origin).add(round.offset);
     }
@@ -199,6 +205,7 @@ export function createRockets(G) {
     }
     round.pos.addScaledVector(round.dir, step);
     round.age += dt;
+    round.flown += step;
     if (round.age >= P.life) {
       detonate(round, BACK_OFF);
       return;
@@ -214,6 +221,7 @@ export function createRockets(G) {
     if (round.mesh) {
       round.mesh.position.copy(drawn);
       round.mesh.rotateZ(dt * 9); // a slow spin about its own axis
+      if (round.flown >= CLEAR) round.mesh.visible = true;
     }
     tail.copy(drawn).addScaledVector(round.dir, -0.48);
     // The trail: a wisp for every `trail` metres flown, laid back along this step so a slow frame
