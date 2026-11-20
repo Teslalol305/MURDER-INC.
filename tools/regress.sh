@@ -15,6 +15,7 @@ mkdir -p "$OUT"
 # name | size | params | env | scenario | timeout
 RUNS=(
   "flow-story|960x540|q=test&noaudio=1|FLOW_NOSHOTS=1|flow-story|900"
+  "story-bot|640x360|autostart=1&q=test&noaudio=1&nohud=1|BOT_DIFFICULTY=hustler BOT_LIMIT=400 BOT_MAX_DEATHS=0|story-bot|900"
   "flow-mission|960x540|q=test&noaudio=1&scenes=0|FLOW_NOSHOTS=1|flow-mission|900"
   "flow-death|960x540|q=test&autostart=1&noaudio=1||flow-death|600"
   "flow-pause|960x540|q=test&noaudio=1&scenes=0||flow-pause|500"
@@ -22,6 +23,7 @@ RUNS=(
   "flow-difficulty|960x540|q=test&autostart=1&noaudio=1||flow-difficulty|600"
   "enemies-fight|800x450|autostart=1&q=test&god=1&noaudio=1&nohud=1|ENEMIES_SOAK=2000|enemies-fight|900"
   "weapon-assist|960x540|autostart=1&q=test&god=1&noaudio=1|ASSIST_NOSHOTS=1|weapon-assist|300"
+  "weapon-rocket|960x540|autostart=1&q=test&god=1&noaudio=1|ROCKET_NOSHOTS=1|weapon-rocket|300"
   "input-player-full|960x540|autostart=1&q=test&noaudio=1||input-player-full|700"
   "input-player-hud|844x390|autostart=1&q=test&noaudio=1&god=1||input-player-hud|700"
   "level-walk|960x540|autostart=1&q=test&god=1&noaudio=1||level-walk|900"

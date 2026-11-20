@@ -6,8 +6,8 @@
 // The blast is G.combat.explode: the Vultures take it in full, Rule `playerScale` of it.
 //
 // The flight is rules, so it runs in a unit test with no renderer. With a scene there is a pooled model
-// per round, drawn easing from the launcher's muzzle onto the true flight line, a smoke trail and a
-// light that travels with it.
+// per round, drawn easing from the launcher's muzzle onto the true flight line, a pale smoke trail laid
+// down every metre of the way and a light that travels with it.
 
 import * as THREE from 'three';
 import { cylGeo, mergeGeos } from '../core/geo.js';
@@ -53,7 +53,8 @@ export function createRockets(G) {
   if (canDraw) {
     try {
       bodyGeo = roundGeometry();
-      glowGeo = new THREE.SphereGeometry(0.07, 8, 6).translate(0, 0, 0.31);
+      // The motor's flame: a hot cone out of the nozzle, long enough to read from across the street.
+      glowGeo = cylGeo(0.085, 0.62, 8, { radiusTop: 0.012 }).rotateX(Math.PI / 2).translate(0, 0, 0.58);
       group = new THREE.Group();
       group.name = 'rockets';
       G.scene.add(group);
@@ -72,14 +73,14 @@ export function createRockets(G) {
       dir: new THREE.Vector3(0, 0, -1),
       offset: new THREE.Vector3(), // drawn position − true position, eased to nothing
       age: 0,
-      trail: 0,
+      trail: 0, // metres flown since the last wisp of smoke
       glow: 0,
       mesh: null,
     };
     if (group) {
       const mesh = new THREE.Group();
       const body = new THREE.Mesh(bodyGeo, G.mats.get('metal_dark'));
-      const flame = new THREE.Mesh(glowGeo, G.mats.emissive(0xffb060, 6));
+      const flame = new THREE.Mesh(glowGeo, G.mats.emissive(0xffb060, 9));
       body.frustumCulled = flame.frustumCulled = false;
       mesh.add(body, flame);
       // Shown once, far under the street, so the boot's shader warm-up compiles what a round needs and
@@ -198,10 +199,10 @@ export function createRockets(G) {
       detonate(round, BACK_OFF);
       return;
     }
-    draw(round, dt);
+    draw(round, dt, step);
   }
 
-  function draw(round, dt) {
+  function draw(round, dt, step) {
     const P = round.def.projectile;
     const k = Math.exp(-dt / (SETTLE * 0.35));
     round.offset.multiplyScalar(k);
@@ -211,13 +212,18 @@ export function createRockets(G) {
       round.mesh.rotateZ(dt * 9); // a slow spin about its own axis
     }
     tail.copy(drawn).addScaledVector(round.dir, -0.34);
-    round.trail -= dt;
-    if (round.trail <= 0) {
-      round.trail = P.trailEvery;
-      const fx = G.fx;
-      if (has(fx, 'puff')) fx.puff(tail, 0xd9d6cf, 0.55);
-      if (has(fx, 'sparks')) fx.sparks(tail, back.copy(round.dir).negate(), 2);
+    // The trail: a wisp for every `trail` metres flown, laid back along this step so a slow frame
+    // leaves no gap in it. (The first metres are the launcher's own smoke.)
+    const fx = G.fx;
+    round.trail += step;
+    while (round.trail >= P.trail) {
+      round.trail -= P.trail;
+      back.copy(tail).addScaledVector(round.dir, -round.trail);
+      // Motor smoke that hangs for a second or two, and a quick pale puff inside it.
+      if (has(fx, 'smoke')) fx.smoke(back, 0.5);
+      if (has(fx, 'puff')) fx.puff(back, 0xe9e5dc, 1.7);
     }
+    if (has(fx, 'sparks')) fx.sparks(tail, back.copy(round.dir).negate(), 1);
     round.glow -= dt;
     if (round.glow <= 0) {
       round.glow = 0.05;

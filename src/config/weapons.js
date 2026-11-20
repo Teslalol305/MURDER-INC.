@@ -337,8 +337,8 @@ export const rocket = {
   kind: 'launcher',
   auto: false,
   damage: 240, // at the centre of the blast, falling to nothing at its radius
-  // `fuse`: it also goes off this close to a Vulture it would otherwise fly past.
-  projectile: { speed: 62, life: 4, radius: 6.8, playerScale: 0.3, fuse: 0.9, trailEvery: 0.028 },
+  // `fuse`: it also goes off this close to a Vulture it would otherwise fly past; `trail`: metres between two wisps of its smoke.
+  projectile: { speed: 62, life: 4, radius: 6.8, playerScale: 0.3, fuse: 0.9, trail: 1.5 },
   rpm: 60,
   magSize: 1,
   reserve: 3,
@@ -463,6 +463,7 @@ export const common = {
   tracer: { color: 0xffe2a8, speed: 260 },
   shake: { decay: 1.7 },
   lowAmmoFraction: 0.27, // of the magazine: HUD "low" cue
+  reloadWhenEmpty: 0.6, // an emptied magazine is changed by itself this long after its last round (0: never)
   flashSeconds: [0.036, 0.056],
   adsFlashScale: 0.62,
   explosiveHitFromEnemy: 9, // damage an enemy round does to a propane tank / welding rack

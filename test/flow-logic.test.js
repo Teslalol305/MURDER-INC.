@@ -359,7 +359,7 @@ test('flow: timings and interaction numbers from the notes', () => {
   const s = flow.spawn;
   assert.deepEqual([s.firstDelay, s.stagger, s.far, s.patrolMinDistance, s.capRetry, s.poolRetry, s.poolTries, s.alertRadius, s.bannerSecs], [1.6, 0.85, 18, 32, 1, 1.5, 6, 60, 3.4]);
   const p = flow.pursuit;
-  assert.deepEqual([p.firstDelay, p.minAlive, p.spawnDelay, p.realertEvery, p.realertRadius], [12, 4, 0.5, 4, 90]);
+  assert.deepEqual([p.firstDelay, p.minAlive, p.spawnDelay, p.realertEvery, p.realertRadius], [3, 4, 0.5, 4, 90]);
   assert.deepEqual([H.firstDelay, H.breather, H.firstSpawn, H.bannerSecs], [3.5, 9, 1.2, 3.6]);
   assert.deepEqual([flow.extraction.radius, flow.extraction.vertical, flow.extraction.refuseSecs, flow.extraction.refuseEvery], [2.5, 3.5, 3.5, 8]);
 });

@@ -139,9 +139,9 @@ export const spawn = {
   bannerSecs: 3.4, // "Contact — NORTH-EAST"
 };
 
-/** After the last reel: a finite pursuit while the player runs for the truck. */
+/** The last level: a finite pursuit while the player runs for the truck. */
 export const pursuit = {
-  firstDelay: 12,
+  firstDelay: 3, // the first one is on Rule's heels almost at once
   minAlive: 4, // one more spawns whenever fewer than this are alive…
   spawnDelay: 0.5,
   buzzardShare: 0.35, // …35 % Buzzard / 65 % Goon

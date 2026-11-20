@@ -450,7 +450,7 @@ test('weapon: a cancelled reload keeps the rounds only if the magazine was seate
   assert.deepEqual([M.weapon.mag, M.weapon.reserve], [18, 150]);
 });
 
-test('weapon: a dry pull clicks once and reloads by itself; an emptied magazine alone does not', () => {
+test('weapon: a dry pull clicks once and reloads at once; an emptied magazine alone a beat later', () => {
   const G = setup();
   const w = G.weapon;
   G.input.hold('fire');
@@ -467,13 +467,32 @@ test('weapon: a dry pull clicks once and reloads by itself; an emptied magazine 
   G.run(chopper.reload.empty);
   assert.deepEqual([w.mag, w.state], [30, 'idle']);
 
-  // Emptying the magazine and letting go: no click, no reload.
+  // Emptying the magazine and letting go: no click; the reload comes by itself 0.6 s after the last round.
   const H = setup();
-  H.fire(30);
-  H.run(2);
-  assert.equal(H.names('weapon:dry').length, 0);
+  H.fire(30); // (and 0.3 s to settle)
   assert.equal(H.weapon.state, 'idle');
   assert.equal(H.weapon.cue, 'reload');
+  H.run(common.reloadWhenEmpty - 0.3 - 0.05);
+  assert.equal(H.weapon.state, 'idle', 'not yet');
+  H.run(0.1);
+  assert.equal(H.weapon.state, 'reloading');
+  assert.equal(H.names('weapon:dry').length, 0);
+  H.run(chopper.reload.empty);
+  assert.deepEqual([H.weapon.mag, H.weapon.reserve, H.weapon.state], [30, 120, 'idle']);
+  // Nothing to reload with: it stays empty.
+  const E = setup();
+  E.weapon.restore({ current: 'chopper', guns: { chopper: { mag: 2, reserve: 0 } } });
+  E.fire(2);
+  E.run(2);
+  assert.deepEqual([E.weapon.mag, E.weapon.state, E.weapon.cue], [0, 'idle', 'empty']);
+  // Putting the gun away in that beat calls it off.
+  const S = setup();
+  S.fire(30);
+  S.swap();
+  S.run(1);
+  assert.equal(S.weapon.current, 'nine');
+  assert.equal(S.weapon.state, 'idle');
+  assert.equal(S.slot('chopper').mag, 0);
 
   // The Nine: a click per press, then the reload 0.28 s on.
   const N = setup();

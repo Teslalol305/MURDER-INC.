@@ -529,6 +529,8 @@ export function createGame(G) {
       pursuitLeft = diff.pursuitBudget;
       pursuitTimer = flow.pursuit.firstDelay;
     }
+    view.pursuitLeft = pursuitLeft;
+    view.pursuitTimer = pursuitTimer;
     pickups.place(L.crates);
 
     showReels();

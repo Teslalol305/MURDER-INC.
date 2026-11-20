@@ -604,8 +604,12 @@ export function createLogic(G, view = NO_VIEW, rockets = createRockets(G)) {
     if (typeof player.addShake === 'function') player.addShake(R.shake * scale);
 
     bloom = Math.min(1, bloom + def.spread.shot);
-    // A single-round gun goes straight into its reload: there is nothing to wait for.
-    if (a.mag === 0 && def.reloadAfterShot > 0 && a.reserve > 0) autoReload = def.reloadAfterShot;
+    // The last round out: the reload follows by itself after a beat (a single-round gun's own, shorter
+    // one: there is nothing to wait for). A dry pull of the trigger still brings it on sooner.
+    if (a.mag === 0 && a.reserve > 0) {
+      const wait = def.reloadAfterShot ?? common.reloadWhenEmpty;
+      if (wait > 0) autoReload = wait;
+    }
     view.fire(burst, a.mag === 0, ads, !!player.crouching);
     if (G.input && typeof G.input.rumble === 'function') G.input.rumble(def.rumble.strong, def.rumble.weak, def.rumble.ms);
   }
@@ -613,7 +617,7 @@ export function createLogic(G, view = NO_VIEW, rockets = createRockets(G)) {
   function dryFire() {
     dryLatch = true;
     if (def.dryCooldown) cooldown = def.dryCooldown;
-    if (ammo[current].reserve > 0) autoReload = def.dryReloadDelay;
+    if (ammo[current].reserve > 0) autoReload = autoReload > 0 ? Math.min(autoReload, def.dryReloadDelay) : def.dryReloadDelay;
     emit('weapon:dry', { weapon: def.id });
     view.dry();
   }

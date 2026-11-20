@@ -205,6 +205,7 @@ module.exports = async (page, h) => {
     check(`wave ${k}: first at +1.6 s, then every 0.85 s`, Math.abs(times[0] - 1.6) < 0.1 && gaps.every((g) => Math.abs(g - 0.85) < 0.1), `${times[0].toFixed(2)} / ${gaps.map((g) => g.toFixed(2)).join(' ')}`);
   }
 
+  let arrived = null;
   /** Puts the level's Vultures down a few at a time, down to the last, and sees the level out. */
   async function clearLevel(k) {
     // Down to the last few: each of them gets a marker, and the line counts on.
@@ -236,6 +237,7 @@ module.exports = async (page, h) => {
     s = await snap();
     check(`level ${k}: still playing ${(info.clear - 0.8).toFixed(1)} s on, the picture not yet dark`, s.state === 'playing' && s.run.level === k && s.post.fade < 0.2, { state: s.state, fade: s.post.fade });
     s = await until((x) => x.run.level === k + 1, 60, 1);
+    arrived = s; // the level as it was the moment it came up
     r = await rec();
     check(`level ${k + 1} comes up behind black, in its intro`, s.state === 'intro' && s.run.level === k + 1 && s.post.fade > 0.9 && s.player.alive && !s.player.invulnerable, { state: s.state, level: s.run.level, fade: s.post.fade });
     const next = info.levels[k].patrol;
@@ -299,17 +301,19 @@ module.exports = async (page, h) => {
   s = await snap();
   r = await rec();
   check('level 4: phase "truck", the objective and the one marker are the truck', s.flow.phase === 'truck' && r.hud.objective.at(-1) === 'Get to the IPX truck — follow the gold line' && JSON.stringify(r.calls.markers) === '["exit:IPX"]', { phase: s.flow.phase, objective: r.hud.objective.at(-1), markers: r.calls.markers });
-  check(`pursuit armed: budget ${info.budget}, first in 12 s`, s.flow.pursuitLeft === info.budget && s.flow.pursuitTimer > 9 && s.flow.pursuitTimer <= 12, `${s.flow.pursuitLeft} / ${s.flow.pursuitTimer.toFixed(2)}`);
+  check(`pursuit armed as the level came up: budget ${info.budget}, the first one 3 s in`, arrived.flow.pursuitLeft === info.budget && arrived.flow.pursuitTimer > 2.5 && arrived.flow.pursuitTimer <= 3, `${arrived.flow.pursuitLeft} / ${arrived.flow.pursuitTimer.toFixed(2)}`);
 
   // Pursuit: nobody left → one extra arrival, then the next `pursuitEvery` later.
   await h.eval(() => window.__fx.killAll());
-  s = await until((x) => x.flow.pursuitLeft < info.budget, 500, 3);
-  check(`pursuit: with fewer than 4 alive, one more is queued (budget ${info.budget - 1})`, s.flow.pursuitLeft === info.budget - 1, `${s.flow.pursuitLeft} at timer ${s.flow.pursuitTimer.toFixed(2)}`);
+  await h.skip(2);
+  const left0 = (await snap()).flow.pursuitLeft;
+  s = await until((x) => x.flow.pursuitLeft < left0, 500, 2);
+  check(`pursuit: with fewer than 4 alive, one more is queued (${left0} → ${left0 - 1} to come)`, left0 > 2 && s.flow.pursuitLeft === left0 - 1, `${s.flow.pursuitLeft} at timer ${s.flow.pursuitTimer.toFixed(2)}`);
   s = await until((x) => x.alive > 0, 40, 1);
   check('…and arrives 0.5 s later', s.alive === 1, `${s.alive}`);
   await h.skip(Math.round((info.every + 0.2) / (1 / 30)));
   s = await snap();
-  check(`the next one ${info.every} s later (budget ${info.budget - 2})`, s.flow.pursuitLeft === info.budget - 2, `${s.flow.pursuitLeft}`);
+  check(`the next one ${info.every} s later (${left0 - 2} to come)`, s.flow.pursuitLeft === left0 - 2, `${s.flow.pursuitLeft}`);
   await shot('05-pursuit');
 
   // ---- extraction --------------------------------------------------------------------------------
