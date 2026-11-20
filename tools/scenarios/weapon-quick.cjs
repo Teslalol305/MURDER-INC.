@@ -15,7 +15,10 @@ const DEFAULT = [{ name: 'quick', day: true, inspect: { live: true, backdrop: 'd
 
 module.exports = async (page, h) => {
   const shots = process.env.WSHOTS ? JSON.parse(process.env.WSHOTS) : DEFAULT;
-  await page.mouse.move(480, 270);
+  // The pointer rests on the middle of the view: the harness presses buttons there, and under pointer
+  // lock a pointer that had to travel first would turn Rule's head.
+  const port = page.viewportSize() || { width: 960, height: 540 };
+  await page.mouse.move(port.width / 2, port.height / 2);
   await h.eval(() => {
     const G = window.__G;
     if (G.enemies && G.enemies.clear) G.enemies.clear();
@@ -51,6 +54,11 @@ module.exports = async (page, h) => {
       await h.skip(40);
     }
     if (shot.reload !== undefined) {
+      // A reload the picture before this one stopped in runs out first: this one is timed from its own start.
+      for (let guard = 0; guard < 400; guard++) {
+        if ((await h.eval(() => window.__G.weapon.state)) === 'idle') break;
+        await h.skip(1);
+      }
       // Stop the clock part-way through a reload: fire a round (or the whole magazine) first so there is one to do.
       await h.eval((empty) => {
         const G = window.__G;
