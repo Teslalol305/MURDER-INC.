@@ -61,6 +61,12 @@
   --line: var(--c-line-ipx);
 }
 
+/* A Vulture still standing at the end of a level. */
+.rb[data-line='!'] {
+  --line: var(--c-red);
+  background: var(--c-red);
+}
+
 .rb.is-done,
 .rb-wide {
   background: var(--line);
@@ -1127,6 +1133,194 @@
 
 .menus[data-screen='title'] .menu-bars i {
   transform: none;
+}
+
+/* ---- Cutscenes: taller bars, the place line, the title card, the skip control ------------------ */
+
+.menus.has-cine .menu-bars i {
+  height: calc(11.5vh + var(--safe-top));
+  transform: none;
+  transition-duration: 0.45s;
+}
+
+.menus.has-cine .menu-bars i.is-bottom {
+  height: calc(11.5vh + var(--safe-bottom));
+}
+
+.cine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cine[hidden] {
+  display: none;
+}
+
+/* The place and the time, typed on under the top bar. */
+.cine-place {
+  position: absolute;
+  left: max(var(--gutter-left), 4vw);
+  top: calc(11.5vh + var(--safe-top) + 18px);
+  max-width: calc(100vw - 2 * var(--gutter-left));
+  padding-left: 12px;
+  border-left: 3px solid var(--c-gold);
+  color: var(--c-ink);
+  font: 400 clamp(17px, 2.2vw, 26px) / 1.15 var(--font-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 3px color-mix(in srgb, var(--c-bg) 85%, transparent);
+  animation: cine-wipe 1.3s steps(30, end) both;
+}
+
+.cine-place[hidden] {
+  display: none;
+}
+
+@keyframes cine-wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* The title card: LEVEL 2 OF 4 / THE CHOP SHOP / what it asks for. Lower left, over the picture. */
+.cine-card {
+  position: absolute;
+  left: max(var(--gutter-left), 4vw);
+  bottom: calc(11.5vh + var(--safe-bottom) + 28px);
+  max-width: min(760px, calc(100vw - 2 * var(--gutter-left)));
+  animation: cine-card-in 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.cine-card[hidden] {
+  display: none;
+}
+
+@keyframes cine-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+.cine-kicker {
+  color: var(--c-gold);
+  font: 800 clamp(11px, 1.3vw, 14px) / 1 var(--font-ui);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 2px color-mix(in srgb, var(--c-bg) 85%, transparent);
+}
+
+.cine-title {
+  margin-top: 8px;
+  color: var(--c-ink);
+  font: 400 clamp(44px, 8.2vw, 104px) / 0.92 var(--font-display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 14px color-mix(in srgb, var(--c-bg) 70%, transparent);
+}
+
+.cine-rule {
+  display: block;
+  width: min(100%, 420px);
+  height: 2px;
+  margin: 12px 0 10px;
+  background: var(--c-ink);
+  transform-origin: 0 50%;
+  animation: cine-rule-in 0.8s 0.15s ease-out both;
+}
+
+@keyframes cine-rule-in {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+.cine-sub {
+  color: var(--c-ink);
+  font: 600 clamp(14px, 1.7vw, 19px) / 1.3 var(--font-ui);
+  letter-spacing: 0.06em;
+  text-shadow: 0 1px 3px color-mix(in srgb, var(--c-bg) 85%, transparent);
+}
+
+/* Skip: in the lower bar, right. A real button for a finger or a free mouse; the key cap says the rest. */
+.cine-skip {
+  position: absolute;
+  right: max(var(--gutter-right), 3vw);
+  bottom: calc(var(--safe-bottom) + (11.5vh - 34px) / 2);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  height: 34px;
+  padding: 0 14px 0 10px;
+  border: 1px solid var(--c-plate-edge);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--c-plate) 70%, transparent);
+  color: var(--c-ink-dim);
+  font: 700 12px/1 var(--font-ui);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+  animation: scr-in 0.5s 0.9s ease-out both;
+}
+
+.cine-skip:hover,
+.cine-skip:focus-visible {
+  border-color: var(--c-gold);
+  color: var(--c-ink);
+}
+
+.cine-key {
+  font-size: 10.5px;
+}
+
+.cine-key[hidden] {
+  display: none;
+}
+
+/* The subtitles of a cutscene sit low, just above the bottom bar, wider than a radio line in a fight. */
+html.cine-on .radio {
+  bottom: calc(11.5vh + var(--safe-bottom) + 14px);
+  top: auto;
+  max-width: min(760px, calc(100vw - var(--gutter-left) - var(--gutter-right)));
+}
+
+/* …and step up out of the way while the title card is on (the place line has had its time by then). */
+html.cine-on.cine-card-on .radio {
+  bottom: auto;
+  top: calc(11.5vh + var(--safe-top) + 16px);
+}
+
+html.cine-card-on .cine-place {
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+/* On touch the radio strip is tucked between the thumbs and trimmed to two lines; a cutscene has no thumbs
+   to clear: the subtitle goes where it goes everywhere, whole. (Three classes: wins over the touch rules
+   wherever they stand in this file.) */
+html.cine-on.is-touch .radio {
+  top: auto;
+  bottom: calc(11.5vh + var(--safe-bottom) + 14px);
+  max-width: calc(100vw - var(--gutter-left) - var(--gutter-right));
+}
+
+html.cine-on.is-touch .radio-plate {
+  display: block;
+  max-height: none;
+  padding: 0;
+  overflow: visible;
+}
+
+html.cine-on.cine-card-on.is-touch .radio {
+  bottom: auto;
+  top: calc(11.5vh + var(--safe-top) + 16px);
 }
 
 .scr {
@@ -2434,6 +2628,11 @@ html.is-touch .loc-tag {
 
   html.is-touch .hud-prompt {
     gap: 8px;
+  }
+
+  /* They share the one free band under the aim point: the prompt has it while it is up. */
+  html.is-touch .hud.has-prompt .hud-msg {
+    opacity: 0;
   }
 
   html.is-touch .hud-prompt-plate {

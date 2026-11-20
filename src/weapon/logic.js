@@ -168,6 +168,9 @@ export function createLogic(G, view = NO_VIEW, rockets = createRockets(G)) {
     setView() {},
     addReserve,
     resupply,
+    loadout,
+    restore,
+    rearm,
     drop,
     update,
   };
@@ -313,6 +316,48 @@ export function createLogic(G, view = NO_VIEW, rockets = createRockets(G)) {
     }
     if (added.length) sync();
     return added;
+  }
+
+  /** What every gun holds right now (a checkpoint): {current, guns: {id: {mag, reserve}}}. */
+  function loadout() {
+    const guns = {};
+    for (const id of order) guns[id] = { mag: ammo[id].mag, reserve: ammo[id].reserve };
+    return { current, guns };
+  }
+
+  /** Puts a loadout back, gun in hand included, with nothing in progress (a level retried from its start). */
+  function restore(saved) {
+    if (!saved || !saved.guns) return;
+    reload = swap = strike = queuedSwap = null;
+    strikeWait = 0;
+    dropped = false;
+    for (const id of order) {
+      const g = saved.guns[id];
+      if (!g) continue;
+      ammo[id].mag = Math.max(0, Math.min(defs[id].magSize, g.mag | 0));
+      ammo[id].reserve = g.reserve === Infinity ? Infinity : Math.max(0, g.reserve | 0);
+    }
+    current = defs[saved.current] ? saved.current : order[0];
+    def = defs[current];
+    settle();
+    adsLinear = ads = 0;
+    assist.reset();
+    view.reset(current);
+    sync();
+  }
+
+  /**
+   * A breather between two levels: every magazine full (for free), `share` ammo drops on top, and no
+   * gun below what a run starts with.
+   */
+  function rearm(share = 1) {
+    cancelReload();
+    resupply(share);
+    for (const id of order) {
+      ammo[id].mag = defs[id].magSize;
+      if (Number.isFinite(ammo[id].reserve) && ammo[id].reserve < defs[id].reserve) ammo[id].reserve = defs[id].reserve;
+    }
+    sync();
   }
 
   /** The gun leaves Rule's hands (death). Everything in progress stops. */

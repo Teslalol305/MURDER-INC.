@@ -1,11 +1,15 @@
-// Game-flow tuning: state timings, interaction, spawning, reinforcement waves, pursuit, the holdout
-// formulas and the debrief rating. Seconds and metres. Difficulty keys: hustler / boss / kingpin.
+// Game-flow tuning: state timings, the story's levels, interaction, spawning, reinforcement waves,
+// pursuit, pickups, the guide line, the holdout formulas and the debrief rating. Seconds and metres.
+// Difficulty keys: hustler (the default, easy) / boss / kingpin.
 
-export const defaultDifficulty = 'boss';
+export const defaultDifficulty = 'hustler';
 export const difficulties = ['hustler', 'boss', 'kingpin'];
 export const modes = ['mission', 'holdout'];
 
-/** State machine: title → intro → playing ⇄ paused, playing → dead | complete. */
+/**
+ * State machine: title → (cutscene →) intro → playing ⇄ paused, playing → dead | cutscene | complete.
+ * The story plays a cutscene before every level and one after the last (src/config/story.js).
+ */
 export const timing = {
   intro: 2.4, // first start
   introQuick: 1.1, // retry / restart / redeploy
@@ -14,9 +18,60 @@ export const timing = {
   introRadioAt: 0.9, // full intro only
   pauseDebounce: 0.35,
   deathCard: 1.5, // seconds after death
-  debriefCard: 3.3, // seconds after reaching the truck
+  debriefCard: 3.3, // seconds after reaching the truck…
+  debriefAfterScene: 1.2, // …or after the closing cutscene, which has already taken its time
   lookHintEvery: 6, // desktop, mouse not captured: the look-mode hint comes back this often…
   lookHintSecs: 2.6, // …and stays this long
+};
+
+/** The story between the fights (the levels themselves are src/config/story.js). */
+export const story = {
+  levelClear: 2.4, // from the last Vulture down to the fade into the next level's cutscene
+  clearRealertEvery: 4, // while a level is being cleared, whoever is left is pointed at Rule this often…
+  clearRealertRadius: 120, // …from anywhere on the block, so the last one always comes
+  leftover: 3, // this many Vultures left or fewer: each gets a marker on the HUD
+  checkpointShare: 1, // ammo drops' worth handed out at the start of every level after the first
+  hints: { aim: 2.5, weapons: 9, path: 16 }, // seconds into level 1 at which each how-to line shows…
+  hintSecs: 5.5, // …for this long
+  cutscene: {
+    skipAfter: 0.9, // a skip press is ignored this early (the button that ended the level is still down)
+    fadeIn: 0.8, // from black at the start of a scene…
+    fadeOut: 0.55, // …and back to black at its end
+    cut: 0.12, // a blink of black on every cut between two shots
+    ease: 0.55, // camera progress along a shot = ease × smoothstep + (1 − ease) × linear
+    sway: { rate: 0.5, side: 0.035, lift: 0.02, roll: 0.004 }, // a hand-held breath, as on the title
+    bars: 0.115, // letterbox: share of the screen height, top and bottom
+  },
+};
+
+/** Ammo on the ground: the crates of a level and what a Vulture drops (src/game/pickups.js). */
+export const pickups = {
+  radius: 1.5, // walking this close picks one up…
+  vertical: 2, // …on the same floor
+  crate: 1, // a crate is this many drops' worth (config/weapons.js `pickup`) for every gun
+  drop: 0.5, // what a Vulture leaves is this much, for the bullet guns only
+  dropChance: { goon: 0.45, buzzard: 0.25 }, // per kill…
+  dropAlways: 0.34, // …and always when the gun in hand is down to this share of its starting reserve
+  dropLife: 40, // seconds a dropped pouch stays
+  maxDrops: 6, // the oldest goes when one more lands
+  fullEvery: 4, // "Ammo full": said again at most this often
+  messageSecs: 2.6,
+  bob: { rate: 2.2, lift: 0.07, spin: 0.9 }, // a crate breathes and turns so it reads as something to take
+  holdoutCrates: 4, // Hold the Block: this many crates stand on the block, refilled after every wave
+};
+
+/** The guide line on the ground (src/game/guide.js): the walkable route to the current objective. */
+export const guide = {
+  every: 0.45, // seconds between route searches
+  spacing: 1.6, // metres between two chevrons
+  first: 2.2, // the first one this far ahead of Rule…
+  reach: 46, // …the last one this far along the route
+  speed: 2.4, // chevrons run toward the objective at this pace, m/s
+  lift: 0.06, // above the floor
+  stop: 2.2, // no chevrons this close to the objective
+  size: [0.78, 0.6], // a chevron: width, length
+  fade: 5, // the line fades over its last metres
+  offRoute: 3, // Rule this far off the last route: search again at once
 };
 
 /** Screen treatment the game eases render.post toward: [target, rate]. */
@@ -95,45 +150,48 @@ export const pursuit = {
 };
 
 /**
- * Per-difficulty flow numbers (docs/DESIGN.md 3.1). `waves[n]` arrives after the (n + 1)-th reel.
- * `regen` is copied to player.regen.
+ * Per-difficulty flow numbers (docs/DESIGN.md 3.1). `regen` is copied to player.regen.
+ * `levels[n]` is the story's level n + 1 (src/config/story.js): `patrol` stands at the level's posts
+ * before Rule is seen, `wave` arrives when its reel is taken. The last level has no wave: its patrol
+ * guards the truck and the pursuit (`pursuitBudget` arrivals, one every `pursuitEvery` seconds while
+ * few are alive) does the rest. Hold the Block uses `regen` and `maxAlive` only.
  */
 export const difficulty = {
   hustler: {
+    regen: { delay: 3, rate: 30 },
+    levels: [
+      { patrol: { buzzard: 0, goon: 2 }, wave: { buzzard: 1, goon: 2 } },
+      { patrol: { buzzard: 0, goon: 3 }, wave: { buzzard: 1, goon: 3 } },
+      { patrol: { buzzard: 1, goon: 3 }, wave: { buzzard: 2, goon: 3 } },
+      { patrol: { buzzard: 0, goon: 2 }, wave: null },
+    ],
+    maxAlive: 8,
+    pursuitEvery: 8,
+    pursuitBudget: 4,
+  },
+  boss: {
     regen: { delay: 4, rate: 25 },
-    patrol: { buzzard: 1, goon: 3 },
-    waves: [
-      { buzzard: 2, goon: 3 },
-      { buzzard: 2, goon: 4 },
-      { buzzard: 3, goon: 5 },
+    levels: [
+      { patrol: { buzzard: 1, goon: 3 }, wave: { buzzard: 2, goon: 3 } },
+      { patrol: { buzzard: 1, goon: 3 }, wave: { buzzard: 2, goon: 4 } },
+      { patrol: { buzzard: 2, goon: 4 }, wave: { buzzard: 3, goon: 5 } },
+      { patrol: { buzzard: 1, goon: 3 }, wave: null },
     ],
     maxAlive: 9,
     pursuitEvery: 7,
-    pursuitBudget: 5,
+    pursuitBudget: 6,
   },
-  boss: {
+  kingpin: {
     regen: { delay: 5.5, rate: 16 },
-    patrol: { buzzard: 2, goon: 4 },
-    waves: [
-      { buzzard: 2, goon: 5 },
-      { buzzard: 3, goon: 6 },
-      { buzzard: 4, goon: 7 },
+    levels: [
+      { patrol: { buzzard: 1, goon: 4 }, wave: { buzzard: 2, goon: 5 } },
+      { patrol: { buzzard: 2, goon: 4 }, wave: { buzzard: 3, goon: 6 } },
+      { patrol: { buzzard: 2, goon: 5 }, wave: { buzzard: 4, goon: 7 } },
+      { patrol: { buzzard: 1, goon: 4 }, wave: null },
     ],
     maxAlive: 11,
     pursuitEvery: 5.5,
-    pursuitBudget: 8,
-  },
-  kingpin: {
-    regen: { delay: 7, rate: 10 },
-    patrol: { buzzard: 2, goon: 5 },
-    waves: [
-      { buzzard: 3, goon: 6 },
-      { buzzard: 4, goon: 7 },
-      { buzzard: 5, goon: 8 },
-    ],
-    maxAlive: 13,
-    pursuitEvery: 4.5,
-    pursuitBudget: 12,
+    pursuitBudget: 9,
   },
 };
 
@@ -161,18 +219,17 @@ export const holdout = {
     waveClear: (wave) => 500 * wave,
   },
   resupply: {
-    reserve: 90, // Chopper rounds…
-    reserveCap: 240, // …up to this many
+    share: 1.5, // ammo drops' worth for every gun after a wave (config/weapons.js `pickup`, up to its cap)
     heal: 35,
     explosivesEvery: 2, // explosives come back after every even wave
   },
 };
 
-/** Debrief certification: 0…5 points → config/text.js `ratings`. */
+/** Debrief certification: 0…5 points → config/text.js `ratings`. Time is the fighting only, not the cutscenes. */
 export const rating = {
   time: [
-    [270, 2], // under 270 s: 2 points
-    [400, 1],
+    [420, 2], // under seven minutes: 2 points
+    [660, 1],
   ],
   accuracy: [
     [0.5, 2], // at least 50 %: 2 points

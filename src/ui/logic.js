@@ -420,6 +420,8 @@ export function deathStats(data, labels) {
     rows.push([labels.score, score(data.score)]);
     rows.push([labels.best, score(data.best), data.newBest ? 'new' : '']);
   } else {
+    // The story: which level Rule went down in.
+    if (data.level > 0 && labels.level) rows.push([labels.level, `${data.level} of ${data.levels || data.level}${data.levelTitle ? ` · ${data.levelTitle}` : ''}`]);
     rows.push([labels.reels, `${data.reels || 0}/${data.total || 3}`]);
     if (data.kills !== undefined) rows.push([labels.kills, String(data.kills || 0)]);
   }

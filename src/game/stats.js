@@ -7,7 +7,7 @@ export const accuracy = (run) => (run.shots > 0 ? Math.min(1, run.hits / run.sho
  * The data object for menus.show('dead' | 'complete', data). One shape for both cards
  * (CONTRACT section 10): each card reads what it needs.
  * @param {object} run       game.run
- * @param {object} info      {mode, difficulty, wavesCleared, best, newBest, headshots}
+ * @param {object} info      {mode, difficulty, wavesCleared, best, newBest, headshots, levelTitle}
  * @param {object} flow      config/flow.js (ratingPoints)
  * @param {string[]} ratings config/text.js `ratings`
  */
@@ -17,6 +17,9 @@ export function cardData(run, info, flow, ratings) {
     mode: info.mode,
     difficulty: info.difficulty,
     time: run.time,
+    level: run.level || 0,
+    levels: run.levels || 0,
+    levelTitle: info.levelTitle || '',
     reels: run.reels,
     total: run.total,
     wave: info.wavesCleared || 0,

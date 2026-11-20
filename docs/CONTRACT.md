@@ -121,7 +121,7 @@ Every call is individually try/caught; the first exception per module is logged 
 ```
 boot:done            {}
 settings:change      {key, value}
-game:state           {state, prev}                       title | intro | playing | paused | dead | complete
+game:state           {state, prev}                       title | cutscene | intro | playing | paused | dead | complete
 game:reset           {mode}                              after game has reset every module for a new run
 input:lock           {locked, mode}                      mode: 'lock' | 'drag'
 input:device         {device}                            'kbm' | 'pad' | 'touch'
@@ -702,38 +702,86 @@ As built (atmos):
 ### 6.12 `G.hud` and `G.menus`  (agent: ui)
 ```
 hud.show(on), hud.reset()
+hud.setStage(text)                             the line over the objective: the level's name ("LEVEL 2 · THE CHOP SHOP"); '' = "OBJECTIVE"
 hud.setObjective(text)                         typed out
-hud.setReels(done, total) | hud.setTally(text) reel bullets "n/3", or the holdout tally line
-hud.setMarkers([{id, code, label, pos:Vector3, kind:'reel'|'exit'}])
+hud.setReels(done, total, codes?) | hud.setTally(text)   reel bullets "n/3" (codes: which ones are back), or the holdout tally line
+hud.setMarkers([{id, code, label, pos:Vector3, kind:'reel'|'exit'|'foe', enemy?}])
 hud.prompt(null | {text, glyph, progress})     interaction ring
 hud.warn(text, secs), hud.message(text, secs), hud.radio(speaker, text, secs), hud.clearRadio()
 hud.update(dt)                                 compass, crosshair (from weapon.spread), ammo block, health block, markers, kill feed,
-                                               hit markers, damage arcs — all read from G.* and events
+                                               hit markers, damage arcs, the aim-assist lock — all read from G.* and events
 menus.show(screen, data?)                      'none' | 'title' | 'paused' | 'dead' | 'complete'; data = stats for the cards
 menus.screen, menus.panelOpen
-menus.locationCard(on)                         intro card
+menus.locationCard(on, data?)                  intro card; data = {place, tagline} (a level's name and what it asks for)
+menus.cutscene(null | {place, card, key})      cutscene dressing: letterbox, the place line, a title card {kicker, title, sub},
+                                               the Skip control with its key cap; null takes it all away
 menus.openPanel(tab)                           settings / controls drawer over the current screen ('settings' | 'controls')
 menus.update(dt)
 ```
 Menus call the game through `G.game` only: `game.start({mode})`, `game.resume()`, `game.restart()`, `game.retry()`,
-`game.redeploy()`; settings through `G.settings.set`. The HUD listens to `player:hitEnemy`, `enemy:killed`, `player:hit`
-itself. Full inventory and behaviour: `$NOTES/05-ui-audio.md`, restyled per DESIGN.md 6.
+`game.redeploy()`, `game.toTitle()`, `game.skipCutscene()`; settings through `G.settings.set`. The HUD listens to
+`player:hitEnemy`, `enemy:killed`, `player:hit` itself. Full inventory and behaviour: `$NOTES/05-ui-audio.md`, restyled
+per DESIGN.md 6.
+As built (the story pass):
+- A cutscene is not a screen: `menus.screen` stays `'none'` while one plays; the HUD is hidden and the radio strip is
+  the subtitle line (it sits just above the lower bar, and steps up when a title card is on).
+- Markers of `kind: 'foe'` are the last few Vultures of a level (`code: '!'`, `pos` is the enemy's own vector, so the
+  pin follows it); the minimap draws those as pips whether they are fighting or not.
+- The minimap also draws what `G.game` publishes: `game.guide.route` (the dotted line to the objective, red while
+  it leads to a Vulture) and `game.pickups.list` (green squares: ammo crates and dropped pouches).
+- The weapon bar is built from `config.weapons.common.order`: the gun in hand is the wide plate, the others are tabs
+  (pictogram over the rounds in the magazine); a tab is a button (`input.tap('weapon3')`).
+- The pause card's last two buttons: "Restart level" in the story ("Restart run" in Hold the Block) and "Back to
+  title". The story's death card says "Retry level" and names the level it goes back to.
 
 ### 6.13 `G.game` — flow  (agent: flow)
 ```
-game.state, game.mode ('mission' | 'holdout'), game.difficulty
-game.run {time, reels, total, retries, wave, score, kills, shots, hits}
+game.state ('title'|'cutscene'|'intro'|'playing'|'paused'|'dead'|'complete'), game.mode ('mission' | 'holdout'), game.difficulty
+game.run {time, reels, total, retries, wave, score, kills, shots, hits, level, levels}   level: 1-based, 0 outside the story
 game.start({mode, skipIntro, quick}), game.pause(), game.resume(), game.restart(), game.retry(), game.redeploy(), game.toTitle()
-game.setDifficulty(name), game.debugGrab()     debugGrab instantly secures the next reel
+game.skipCutscene()                            ends the cutscene on screen (ignored in its first 0.9 s)
+game.setDifficulty(name), game.debugGrab()     debugGrab instantly takes the level's reel
 game.update(dt) → live:boolean
 ```
-Owns the state machine, the run reset, objectives and interaction, reinforcement waves, pursuit, extraction, holdout,
-radio queue, rating, the music-intensity driver, the title fly-through camera, post fades (`render.post.fade / saturation`).
+Owns the state machine, the run and level set-up, objectives and interaction, reinforcement waves, pursuit, extraction,
+holdout, radio queue, the cutscene on screen, rating, the music-intensity driver, the title fly-through camera, post
+fades (`render.post.fade / saturation`), the guide line and the ammo pickups.
 As built (flow; rules in `src/game/*`, numbers in `config/flow.js`, copy in `config/text.js`):
+- **The story** is four levels on the one block (`src/config/story.js`; `config.story`): THE AVENUE, THE CHOP SHOP,
+  THE CAGE (a reel each) and THE TRUCK. A reel level runs `reach` (get to the level's reel: one marker, the guide
+  line) → hold Interact → `clear` (the level's wave arrives; the objective line counts the Vultures left, the last
+  three get a marker each, everyone is re-pointed at Rule every 4 s) → `done` ("Level clear", 2.4 s) → the next level
+  is set up behind black and its cutscene plays. THE TRUCK is `truck`: reach the extraction with a finite pursuit
+  behind. `game.flow.phase` says which. Per-difficulty head counts: `flow.difficulty[name].levels[i]` `{patrol, wave}`.
+- **A level is a checkpoint.** `setupLevel` puts Rule at the level's start facing down the route, stands its patrol
+  at the authored posts (unaware), sets out its ammo crates, resets explosives and the HUD. Reaching a level rearms
+  (`weapon.rearm`: full magazines, one drop's worth, never below a starting reserve) and saves the rack
+  (`weapon.loadout`); `retry()` / `restart()` in the story go back to the start of the level with that rack
+  (`weapon.restore`), the level's own reel back with the Vultures, `run.retries` + 1 and no cutscene.
+  `redeploy()` starts the story over. Levels 3 and 4 play after dark unless the player already chose night
+  (`atmos.setTime` at level set-up; the title follows the setting again).
+- **Cutscenes** (`src/game/cutscene.js`, scripts in `config/story.js` `scenes`, words in `text.story.scenes`): state
+  `cutscene`. The director moves the camera shot by shot and fires cues (`say`, `place`, `card`, `train`); the game
+  owns `render.post.fade`, shows lines through `hud.radio(speaker, …)` (two voices: IPX VAULT and RULE) and dresses
+  the screen through `menus.cutscene`. `update()` still returns true, so the block lives on behind the pictures; the
+  player is disabled and invulnerable and `enemies.setBlind(true)` keeps the level's Vultures at their posts. Skip:
+  Enter / Space (the key event stops there: Enter is also Fire), the gamepad's A / Start, or the Skip button. The
+  pause key pauses a scene and Resume returns to it. `start({skipIntro})` (autostart, `?shot`) plays no cutscenes
+  unless `?scenes=1`; `?scenes=0` switches them off for any run.
+- **Guide line** (`src/game/guide.js`, `flow.guide`, the `guide` setting): `physics.nav.findPath` from Rule to the
+  objective, searched every 0.45 s, drawn as one instanced mesh of gold chevrons running along the ground toward
+  it (red while it leads to the nearest Vulture of a level being cleared, when none is within 13 m).
+- **Ammo** (`src/game/pickups.js`, `flow.pickups`): green crates at the level's authored points (`weapon.resupply(1)`
+  for every gun) and pouches Vultures drop (45 % a Goon, 25 % a Buzzard, always when the gun in hand is down to a
+  third of its starting reserve; half a drop, bullet guns only; gone after 40 s). Walking over one takes it; a full
+  rack leaves it lying. Hold the Block has five crates that refill after every wave, on top of the wave's resupply.
+- New events of the game's own (unchecked): `game:level {level, total, id, retry | cleared}`, `game:pickup {kind, pos, added}`.
 - Read-only extras for tests and tuning: `game.flow` `{queue, clock, maxAlive, pursuitLeft, pursuitTimer, music,
-  lastWave: {order, from, at}, grabbing, progress}` and `game.holdout` `{active, breakLeft, countdown, cleared}`.
+  lastWave: {order, from, at}, grabbing, progress, level, phase, left, scene, sceneTime}`, `game.holdout` `{active,
+  breakLeft, countdown, cleared}`, `game.guide` `{route, shown, hunting}`, `game.pickups` `{list, crates}`, and
+  `game.debugLevel(i)` (sets level i up and plays it, no cutscene).
 - `start()` without a mode uses the saved `mode` setting; `restart()` / `retry()` add one to `run.retries`, `redeploy()`
-  zeroes it, all three use the 1.1 s intro. Two start requests in one frame (button + Enter) are one start.
+  zeroes it. Two start requests in one frame (button + Enter) are one start.
 - A run pauses on: the pause key, losing a pointer lock it had held, the tab going hidden, the window losing
   focus (`blur`: drag mode and touch have no lock to lose) and `render:lost` (no resume until the player asks).
   `toTitle()` also resets the player (no low-health look on the title); audio drops the death muffle on `title`.
@@ -742,7 +790,8 @@ As built (flow; rules in `src/game/*`, numbers in `config/flow.js`, copy in `con
   `text.location.taglineHoldout`, and its first radio line is `text.radio.introHoldout`). Card data adds
   `difficulty, headshots, shots, hits, ratingName` to the section 10 shape; `wave` there is the number of holdout
   waves cleared.
-- `hud.prompt(spec)` gets `{text, glyph, code, progress}`; markers are `kind: 'reel'` per open reel, then `'exit'`.
+- `hud.prompt(spec)` gets `{text, glyph, code, progress}`; markers are `kind: 'reel'` for the level's reel, `'foe'`
+  for the last Vultures of a level, `'exit'` for the truck.
 
 ---------------------------------------------------------------------------------------------------
 
@@ -753,9 +802,10 @@ As built (flow; rules in `src/game/*`, numbers in `config/flow.js`, copy in `con
 | `brand.js` | title, presenter, star line, IPX wordmark text, URL text, colour tokens, storage prefix | ui |
 | `text.js` | every player-facing string from DESIGN.md 2 | flow, ui |
 | `player.js` | movement, camera, health numbers | input-player |
-| `weapons.js` | both weapons, melee, spread / recoil tables | weapon |
+| `weapons.js` | the five guns, melee, spread / recoil tables, the aim assist | weapon |
 | `enemies.js` | base stats, per-difficulty tables, AI constants | enemies |
-| `flow.js` | timings, wave tables per difficulty, pursuit, holdout formulas, rating thresholds | flow |
+| `flow.js` | timings, per-level patrols and waves per difficulty, pursuit, pickups, the guide line, holdout formulas, rating thresholds | flow |
+| `story.js` | the story's levels (start, posts, crates, time of day) and the cutscene scripts (shots, cues) | flow |
 | `quality.js` | quality presets | (foundation) |
 | `catalog.js` | `MATERIALS` (name → base colour / roughness / metalness) and `PROPS` (name → size, surface) | mats, props, level (append only, re-read before each edit) |
 | `look.js` | exposure, bloom, fog, grade defaults | atmos |

@@ -10,7 +10,7 @@ export const DEFAULTS = Object.freeze({
   invertY: false,
   volume: 0.8,
   fov: 74,
-  difficulty: 'boss',
+  difficulty: 'hustler',
   mode: 'mission',
   view: 1,
   time: 'day',

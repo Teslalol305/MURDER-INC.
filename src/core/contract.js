@@ -118,14 +118,15 @@ export const MODULES = {
     'setDifficulty()', 'setScale()', 'nearestDistance()', 'aimTarget()', 'update()',
   ],
   hud: [
-    'show()', 'reset()', 'setObjective()', 'setReels()', 'setTally()', 'setMarkers()', 'prompt()',
+    'show()', 'reset()', 'setStage()', 'setObjective()', 'setReels()', 'setTally()', 'setMarkers()', 'prompt()',
     'warn()', 'message()', 'radio()', 'clearRadio()', 'update()',
   ],
-  menus: ['show()', 'screen', 'panelOpen', 'locationCard()', 'openPanel()', 'update()'],
+  menus: ['show()', 'screen', 'panelOpen', 'locationCard()', 'cutscene()', 'openPanel()', 'update()'],
   game: [
     'state', 'mode', 'difficulty',
     'run.time', 'run.reels', 'run.total', 'run.retries', 'run.wave', 'run.score', 'run.kills', 'run.shots', 'run.hits',
-    'start()', 'pause()', 'resume()', 'restart()', 'retry()', 'redeploy()', 'toTitle()',
+    'run.level', 'run.levels',
+    'start()', 'pause()', 'resume()', 'restart()', 'retry()', 'redeploy()', 'toTitle()', 'skipCutscene()',
     'setDifficulty()', 'debugGrab()', 'update()',
   ],
 };

@@ -9,7 +9,9 @@
 // Tuning is src/config/enemies.js. setDifficulty(table) restores the base values and lays the table
 // over them; everything except hit points is read live, hit points are fixed when a unit spawns.
 //
-// Beyond the contract: spawn() also takes {yaw, passive} (passive units never sense or act: showcase),
+// Beyond the contract: setBlind(on) makes every unit lose the player (a cutscene: they go on patrolling
+// and nobody is shot while the camera is elsewhere); spawn() also takes {yaw, passive} (passive units
+// never sense or act: showcase),
 // every enemy carries `mode` / `yaw` / `vel` / `sees` / `exposure` / `lastActive`, and `enemies.debug()`
 // reports pools, tokens and budgets for tests.
 
@@ -134,6 +136,7 @@ export function createEnemies(G) {
   followTime();
 
   let nextId = 1;
+  let blind = false; // setBlind: nobody can see or find the player
   let sinceGunfire = Infinity;
   let pathCursor = 0;
   let pickCursor = 0;
@@ -506,7 +509,7 @@ export function createEnemies(G) {
     player.pos.copy(p.pos);
     if (p.eye) player.eye.copy(p.eye);
     else player.eye.set(p.pos.x, p.pos.y + 1.68, p.pos.z);
-    player.alive = p.alive !== false;
+    player.alive = p.alive !== false && !blind;
     player.crouching = !!p.crouching;
     const v = p.vel;
     player.vx = v ? v.x : 0;
@@ -628,6 +631,10 @@ export function createEnemies(G) {
       scale.hp = s.hp > 0 ? s.hp : 1;
       scale.damage = s.damage > 0 ? s.damage : 1;
       scale.cooldown = s.cooldown > 0 ? s.cooldown : 1;
+    },
+    /** While on, the player cannot be seen, heard or found: engaged units lose him, patrols carry on. */
+    setBlind(on) {
+      blind = !!on;
     },
     nearestDistance() {
       const p = G.player;

@@ -35,7 +35,8 @@ export function createMenus(G) {
   place.hidden = true;
   ui.append(card, place);
 
-  const menus = { screen: 'none', panelOpen: false, show, locationCard, openPanel() {}, update() {} };
+  // (cutscene(): the stub has no letterbox or title cards; a scene simply plays bare.)
+  const menus = { screen: 'none', panelOpen: false, show, locationCard, cutscene() {}, openPanel() {}, update() {} };
 
   function add(tag, content, style) {
     const el = document.createElement(tag);

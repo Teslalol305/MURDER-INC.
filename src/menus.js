@@ -1,5 +1,6 @@
-// G.menus (CONTRACT 6.12): the title screen, the pause / death / debrief cards, the intro location card
-// and the settings / controls drawer (src/ui/panel.js).
+// G.menus (CONTRACT 6.12): the title screen, the pause / death / debrief cards, the intro location card,
+// the dressing of a cutscene (letterbox, place line, title card, skip) and the settings / controls drawer
+// (src/ui/panel.js).
 //
 // Screens: 'none' | 'title' | 'paused' | 'dead' | 'complete'. Showing a screen fades in its veil, closes
 // the drawer and focuses the primary button after 30 ms. Menus talk to the game only through G.game and to
@@ -10,6 +11,10 @@
 // and the gamepad through input.menuNav() (D-pad / stick moves focus, left / right nudges sliders, A
 // accepts, B backs out, Start = the screen's primary action). Every press emits ui:click, every pointer
 // entering a button or gamepad move emits ui:hover.
+//
+// A cutscene is not a screen: `menus.screen` stays 'none' while one plays and the game owns its clock.
+// The Skip control is a real button (touch, or a mouse that is not captured); Enter / Space and the
+// gamepad's A / Start are the game's own.
 //
 // Beyond the contract: menus.openPanel(tab) (the HUD's settings button opens the drawer over the pause card).
 
@@ -36,6 +41,7 @@ export function createMenus(G) {
     panelOpen: false,
     show,
     locationCard,
+    cutscene,
     openPanel,
     update,
   };
@@ -151,6 +157,22 @@ export function createMenus(G) {
   const locTag = el('div', 'loc-tag');
   const loc = el('div', { class: 'loc', 'aria-hidden': 'true', hidden: true }, el('div', 'loc-inner', locPlace, locTag));
 
+  // Cutscene dressing: the place line under the top bar, the title card, the skip control in the lower bar.
+  const cinePlace = el('div', 'cine-place');
+  const cineKicker = el('div', 'cine-kicker');
+  const cineTitle = el('div', 'cine-title');
+  const cineSub = el('div', 'cine-sub');
+  const cineCard = el('div', { class: 'cine-card', hidden: true }, cineKicker, cineTitle, el('i', 'cine-rule'), cineSub);
+  const cineKey = el('kbd', 'cap cine-key');
+  const cineSkip = el('button', { class: 'cine-skip', type: 'button' }, cineKey, el('span', 'cine-skip-label', (text.story && text.story.skip) || 'Skip'));
+  cineSkip.addEventListener('click', () => {
+    G.events.emit('ui:click', {});
+    if (G.game && typeof G.game.skipCutscene === 'function') G.game.skipCutscene();
+  });
+  const cine = el('div', { class: 'cine', hidden: true }, cinePlace, cineCard, cineSkip);
+  let cineCardKey = '';
+  let cinePlaceKey = '';
+
   const panel = createPanel(G, {
     onChange(isOpen, back) {
       if (isOpen) {
@@ -165,7 +187,7 @@ export function createMenus(G) {
     },
   });
 
-  const layer = el('div', 'menus', veil, bars, title, card, loc, panel.scrim, panel.node);
+  const layer = el('div', 'menus', veil, bars, title, card, loc, cine, panel.scrim, panel.node);
   panel.scrim.hidden = true;
   hoverable(layer);
   ui.append(layer);
@@ -208,6 +230,8 @@ export function createMenus(G) {
       const t = text.cards.pause;
       const resume = button(t.resume, () => G.game.resume(), 'primary');
       const hint = G.input && typeof G.input.hint === 'function' ? G.input.hint() : '';
+      // The story restarts the level it is in; Hold the Block has only the run.
+      const story = G.game.mode === 'mission';
       cardBox.append(
         cardHead(t.kicker, t.title, true),
         hint ? el('p', 'card-hint', hint) : '', // native append() would print a null as "null"
@@ -217,20 +241,27 @@ export function createMenus(G) {
           resume,
           button(t.settings, (e, b) => openPanel('settings', b)),
           button(t.controls, (e, b) => openPanel('controls', b)),
-          button(t.restart, () => G.game.restart(), 'quiet'),
+          button(story && t.restartLevel ? t.restartLevel : t.restart, () => {
+            G.input.requestLock();
+            G.game.restart();
+          }, 'quiet'),
+          button(t.quit || copy.cards.toTitle, () => G.game.toTitle(), 'quiet'),
         ),
       );
       return resume;
     },
     dead(data) {
       const t = text.cards.dead;
-      const again = button(t.retry, () => {
+      // The story goes again from the start of the level, with what Rule had when it began.
+      const story = data.mode === 'mission' && data.level > 0;
+      const again = button(story && t.retryLevel ? t.retryLevel : t.retry, () => {
         G.input.requestLock();
         G.game.retry();
       }, 'primary');
       cardBox.append(
         cardHead(t.kicker, t.title),
         statList(deathStats(data, t.stats)),
+        story && t.checkpoint ? el('p', 'card-hint', t.checkpoint(data.level, data.levelTitle || '')) : '',
         el('div', 'card-actions', again, button(copy.cards.toTitle, () => G.game.toTitle(), 'quiet')),
       );
       return again;
@@ -307,12 +338,57 @@ export function createMenus(G) {
     }
     const src = data || text.location;
     const time = G.settings.get('time') === 'night' ? 'night' : 'day';
-    const place = (src.byTime && src.byTime[time]) || copy.location[time] || src.place;
+    // A card with a line of its own and no clock (a level's name) says that; the block's follows the time of day.
+    const place = src.place && !src.byTime ? src.place : (src.byTime && src.byTime[time]) || copy.location[time] || src.place;
     locPlace.textContent = String(place).replace(/ (AM|PM)\b/, '\u00a0$1'); // the time never splits from its AM / PM
     locTag.textContent = src.tagline || text.location.tagline;
     loc.hidden = false;
     locT = reduce ? LOCATION_WIPE_SECS : 0;
     locPlace.style.setProperty('--wipe', reduce ? '100%' : '0%');
+  }
+
+  /**
+   * Cutscene dressing. `null` takes it all away. Otherwise `{place, card: {kicker, title, sub}, key}`:
+   * the place line (typed on once), the title card (shown from the call that first carries it), and
+   * the key cap on the skip control ('' on touch: the button says it all).
+   */
+  function cutscene(data) {
+    const on = !!data;
+    cine.hidden = !on;
+    setClass(layer, 'has-cine', on);
+    setClass(rootEl, 'cine-on', on);
+    if (!on) {
+      cineCardKey = cinePlaceKey = '';
+      cineCard.hidden = true;
+      setClass(rootEl, 'cine-card-on', false);
+      cinePlace.textContent = '';
+      return;
+    }
+    const place = String(data.place || '');
+    if (place !== cinePlaceKey) {
+      cinePlaceKey = place;
+      cinePlace.textContent = place.replace(/ (AM|PM)\b/, '\u00a0$1');
+      cinePlace.hidden = !place;
+      // Restart the wipe.
+      cinePlace.style.animation = 'none';
+      void cinePlace.offsetWidth;
+      cinePlace.style.animation = '';
+    }
+    const c = data.card || null;
+    const key = c ? `${c.kicker}|${c.title}|${c.sub}` : '';
+    if (key !== cineCardKey) {
+      cineCardKey = key;
+      cineCard.hidden = !c;
+      setClass(rootEl, 'cine-card-on', !!c); // the subtitles step up out of the card's way
+      if (c) {
+        cineKicker.textContent = c.kicker || '';
+        cineTitle.textContent = c.title || '';
+        cineSub.textContent = c.sub || '';
+      }
+    }
+    const cap = String(data.key || '');
+    cineKey.textContent = cap;
+    cineKey.hidden = !cap;
   }
 
   // ------------------------------------------------------------------------------------------------

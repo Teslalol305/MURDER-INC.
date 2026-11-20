@@ -32,28 +32,42 @@ test('flow: a story wave alternates from a Buzzard, the rest follow', () => {
   assert.deepEqual(missionOrder(-1, 'x'), []);
 });
 
-test('flow: every difficulty row gives the DESIGN 3.1 wave sizes and patrols', () => {
+test('flow: every difficulty row gives the DESIGN 3.1 patrols and waves, level by level', () => {
+  // Per level: [patrol buzzards, patrol goons, wave buzzards, wave goons]; the last level has no wave.
   const want = {
-    hustler: { patrol: [1, 3], waves: [[2, 3], [2, 4], [3, 5]], maxAlive: 9, every: 7, budget: 5, regen: [4, 25] },
-    boss: { patrol: [2, 4], waves: [[2, 5], [3, 6], [4, 7]], maxAlive: 11, every: 5.5, budget: 8, regen: [5.5, 16] },
-    kingpin: { patrol: [2, 5], waves: [[3, 6], [4, 7], [5, 8]], maxAlive: 13, every: 4.5, budget: 12, regen: [7, 10] },
+    hustler: { levels: [[0, 2, 1, 2], [0, 3, 1, 3], [1, 3, 2, 3], [0, 2]], maxAlive: 8, every: 8, budget: 4, regen: [3, 30] },
+    boss: { levels: [[1, 3, 2, 3], [1, 3, 2, 4], [2, 4, 3, 5], [1, 3]], maxAlive: 9, every: 7, budget: 6, regen: [4, 25] },
+    kingpin: { levels: [[1, 4, 2, 5], [2, 4, 3, 6], [2, 5, 4, 7], [1, 4]], maxAlive: 11, every: 5.5, budget: 9, regen: [5.5, 16] },
   };
   assert.deepEqual(Object.keys(flow.difficulty), flow.difficulties);
-  assert.equal(flow.defaultDifficulty, 'boss');
+  assert.equal(flow.defaultDifficulty, 'hustler');
+  let last = null;
   for (const [name, w] of Object.entries(want)) {
     const d = flow.difficulty[name];
-    assert.deepEqual([d.patrol.buzzard, d.patrol.goon], w.patrol, name);
-    assert.deepEqual(d.waves.map((x) => [x.buzzard, x.goon]), w.waves, name);
+    assert.deepEqual(
+      d.levels.map((l) => [l.patrol.buzzard, l.patrol.goon, ...(l.wave ? [l.wave.buzzard, l.wave.goon] : [])]),
+      w.levels,
+      name,
+    );
     assert.equal(d.maxAlive, w.maxAlive);
     assert.equal(d.pursuitEvery, w.every);
     assert.equal(d.pursuitBudget, w.budget);
     assert.deepEqual([d.regen.delay, d.regen.rate], w.regen);
-    for (const x of d.waves) {
-      const order = missionOrder(x.buzzard, x.goon);
-      assert.equal(count(order, BUZZARD), x.buzzard);
-      assert.equal(count(order, GOON), x.goon);
+    let total = d.pursuitBudget;
+    for (const l of d.levels) {
+      total += l.patrol.buzzard + l.patrol.goon;
+      if (!l.wave) continue;
+      total += l.wave.buzzard + l.wave.goon;
+      const order = missionOrder(l.wave.buzzard, l.wave.goon);
+      assert.equal(count(order, BUZZARD), l.wave.buzzard);
+      assert.equal(count(order, GOON), l.wave.goon);
       assert.equal(order[0], BUZZARD);
+      // A wave never asks for more at once than the level lets stand (the rest wait their turn).
+      assert.ok(l.wave.buzzard + l.wave.goon <= d.maxAlive + 4, name);
     }
+    // Every step up the ladder is a longer, harder story.
+    if (last !== null) assert.ok(total > last, `${name}: ${total} Vultures, the one below has ${last}`);
+    last = total;
   }
 });
 
@@ -122,7 +136,7 @@ test('flow: holdout kill score and wave bonus', () => {
   assert.equal(killScore('goon', 0, S), 150);
   assert.equal(S.waveClear(1), 500);
   assert.equal(S.waveClear(4), 2000);
-  assert.deepEqual([H.resupply.reserve, H.resupply.reserveCap, H.resupply.heal, H.resupply.explosivesEvery], [90, 240, 35, 2]);
+  assert.deepEqual([H.resupply.share, H.resupply.heal, H.resupply.explosivesEvery], [1.5, 35, 2]);
 });
 
 test('flow: pursuit arrivals are 35 % Buzzard', () => {
@@ -205,13 +219,13 @@ test('flow: spawn picking prefers far, hidden and unused points of the right kin
 test('flow: the rating table, 0…5 points to Demo…Diamond', () => {
   const r = (time, shots, hits, retries) => flow.ratingPoints({ time, shots, hits, retries });
   assert.equal(r(200, 100, 60, 0), 5);
-  assert.equal(r(269.9, 100, 50, 0), 5);
-  assert.equal(r(270, 100, 50, 0), 4); // time 1
-  assert.equal(r(399, 100, 30, 0), 3); // 1 + 1 + 1
-  assert.equal(r(400, 100, 29, 0), 1); // only no retries
-  assert.equal(r(400, 100, 29, 2), 0);
+  assert.equal(r(419.9, 100, 50, 0), 5);
+  assert.equal(r(420, 100, 50, 0), 4); // time 1
+  assert.equal(r(659, 100, 30, 0), 3); // 1 + 1 + 1
+  assert.equal(r(660, 100, 29, 0), 1); // only no retries
+  assert.equal(r(660, 100, 29, 2), 0);
   assert.equal(r(100, 0, 0, 1), 2); // no shots: no accuracy points
-  assert.equal(r(300, 10, 5, 1), 3);
+  assert.equal(r(500, 10, 5, 1), 3);
   assert.deepEqual(text.ratings, ['Demo', 'Mixtape', 'Single', 'Gold', 'Platinum', 'Diamond']);
 });
 
@@ -284,8 +298,8 @@ test('flow: the radio queue types, holds, then plays the next line', () => {
   // every scripted line exists and holds as DESIGN 2 says
   const R = text.radio;
   assert.equal(R.speaker, 'IPX VAULT');
-  assert.deepEqual([R.intro.secs, R.contact.secs, R.reel[0].secs, R.reel[1].secs, R.reel[2].secs, R.lowHealth.secs, R.done.secs, R.waveClear.secs], [4.4, 3.2, 3.6, 3.6, 4.5, 3.0, 2.4, 3.4]);
-  assert.equal(R.waveClear.text(4), 'Wave 4 down. Resupply at your feet — 9 seconds.');
+  assert.deepEqual([R.intro.secs, R.contact.secs, R.reel[0].secs, R.reel[1].secs, R.reel[2].secs, R.lowHealth.secs, R.done.secs, R.waveClear.secs], [4.4, 3.2, 3.6, 3.6, 3.8, 3.0, 2.4, 3.4]);
+  assert.equal(R.waveClear.text(4), 'Wave 4 down. Fresh ammo on the block — 9 seconds.');
 });
 
 test('flow: title camera loop length, eased path and fades', () => {

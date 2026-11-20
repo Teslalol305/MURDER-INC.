@@ -40,7 +40,8 @@ module.exports = async (page, h) => {
       const b = Math.round(total * H.buzzardShare(n));
       const kills = Math.round(H.score.buzzard * H.score.killScale(n)) * b + Math.round(H.score.goon * H.score.killScale(n)) * (total - b);
       score += kills + H.score.waveClear(n);
-      waves.push({ n, total, b, g: total - b, score, scale: { hp: H.hpScale(n), damage: H.damageScale(n), cooldown: H.cooldownScale(n) }, maxAlive: 11 + H.extraAlive(n) });
+      const cap = __G.config.flow.difficulty[__G.game.difficulty].maxAlive;
+      waves.push({ n, total, b, g: total - b, score, scale: { hp: H.hpScale(n), damage: H.damageScale(n), cooldown: H.cooldownScale(n) }, maxAlive: cap + H.extraAlive(n) });
     }
     return waves;
   });
@@ -103,11 +104,11 @@ module.exports = async (page, h) => {
     check(`wave ${w.n} cleared: objective:done {id: wave, index: ${w.n}, total: ${w.n}}`, cleared && cleared[1].id === 'wave' && cleared[1].index === w.n && cleared[1].total === w.n, cleared);
     check(`score after wave ${w.n}: ${w.score}`, Math.round(s.run.score) === w.score, `${s.run.score}`);
     check('tally "Wave N · score" with separators', r.hud.tally[r.hud.tally.length - 1] === `Wave ${w.n} · ${w.score.toLocaleString('en-US')}`, r.hud.tally.slice(-1)[0]);
-    check('resupply: +90 Chopper (cap 240) and +35 HP', JSON.stringify(r.calls.addReserve[r.calls.addReserve.length - 1]) === '[90,240]' && r.calls.heal[r.calls.heal.length - 1] === 35 && s.player.health === 85, { reserve: r.calls.addReserve.slice(-1), health: s.player.health });
+    check('resupply: a drop and a half for every gun, the crates back, and +35 HP', r.calls.resupply[r.calls.resupply.length - 1] === 1.5 && r.calls.heal[r.calls.heal.length - 1] === 35 && s.player.health === 85 && (await h.eval(() => __G.game.pickups.crates)) === 4, { resupply: r.calls.resupply.slice(-1), health: s.player.health });
     const evenWave = w.n % 2 === 0;
     check(`explosives ${evenWave ? 'restored' : 'left as they are'} after wave ${w.n}`, r.calls.explosivesReset === explosives + (evenWave ? 1 : 0), `${r.calls.explosivesReset - explosives}`);
     explosives = r.calls.explosivesReset;
-    check('radio "Wave N down…" and "Catch your breath"', r.hud.radio.some((x) => x[1] === `Wave ${w.n} down. Resupply at your feet — 9 seconds.`) && r.hud.objective[r.hud.objective.length - 1] === 'Catch your breath');
+    check('radio "Wave N down…" and "Catch your breath"', r.hud.radio.some((x) => x[1] === `Wave ${w.n} down. Fresh ammo on the block — 9 seconds.`) && r.hud.objective[r.hud.objective.length - 1] === 'Catch your breath');
     t0 = s.run.time;
     if (w.n === 1) {
       // The countdown in the last three seconds of the breather.

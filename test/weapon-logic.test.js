@@ -976,6 +976,48 @@ test('weapon: an ammo drop tops up every gun by its own measure, up to its own c
   assert.deepEqual(w.resupply(0), []);
 });
 
+test('weapon: a checkpoint keeps the whole rack; a breather fills it up', () => {
+  const G = setup();
+  const w = G.weapon;
+  G.fire(12);
+  G.draw(3);
+  G.input.hold('fire');
+  G.run(0.6);
+  G.input.release('fire');
+  G.run(0.3);
+  const saved = w.loadout();
+  assert.equal(saved.current, 'ar15');
+  assert.deepEqual(saved.guns.chopper, { mag: 18, reserve: 150 });
+  assert.equal(saved.guns.ar15.mag, w.mag);
+  assert.equal(saved.guns.nine.reserve, Infinity);
+
+  // Burn through more, die, come back: the checkpoint is exactly what was there.
+  G.draw(5);
+  G.input.tap('fire');
+  G.run(3);
+  G.draw(1);
+  G.fire(10);
+  w.restore(saved);
+  assert.equal(w.current, 'ar15');
+  assert.equal(w.state, 'idle');
+  assert.deepEqual(w.loadout(), saved);
+  assert.deepEqual([G.slot('rocket').mag, G.slot('rocket').reserve], [1, 3]);
+
+  // Between two levels: full magazines, a drop's worth on top, never less than a run starts with.
+  G.draw(4);
+  G.input.hold('fire');
+  G.run(8); // the SWITCH run dry, reserve and all
+  G.input.release('fire');
+  G.run(2.5);
+  assert.ok(G.slot('switch9').reserve < switch9.reserve);
+  w.rearm(1);
+  for (const slot of w.slots) assert.equal(slot.mag, slot.magSize, `${slot.id}: magazine full`);
+  assert.ok(G.slot('switch9').reserve >= switch9.reserve);
+  assert.equal(G.slot('chopper').reserve, 150 + chopper.pickup.rounds);
+  assert.equal(G.slot('rocket').reserve, 3 + rocket.pickup.rounds);
+  assert.equal(w.state, 'idle');
+});
+
 test('weapon: dropped on death, back in hand after reset', () => {
   const G = setup();
   const w = G.weapon;

@@ -47,7 +47,7 @@ export const zoneName = (id, z = 0) => (id === 'lot' && z < -7 ? zones.cage : zo
 export const modes = {
   mission: {
     name: 'Story',
-    note: 'Take back three master reels and reach the IPX truck. About five minutes.',
+    note: 'Four levels: take back the three master reels, then get them to the IPX truck. About ten minutes.',
   },
   holdout: {
     name: 'Hold the Block',
@@ -55,7 +55,7 @@ export const modes = {
   },
 };
 
-/** Difficulty keys as stored in settings → display names. Boss is the default. */
+/** Difficulty keys as stored in settings → display names. Hustler is the default and the easy one. */
 export const difficulties = {
   hustler: 'Hustler',
   boss: 'Boss',
@@ -142,13 +142,108 @@ export const radio = {
   contact: { text: 'They made you. Goons on foot, Buzzards in the air. Handle it.', secs: 3.2 },
   /** Indexed by reels secured − 1. */
   reel: [
-    { text: 'One reel back in your hands. They felt that — more coming.', secs: 3.6 },
-    { text: "Two reels. They're throwing the whole crew at you now.", secs: 3.6 },
-    { text: "That's all three. The IPX truck is idling at the south end of the lot. Move.", secs: 4.5 },
+    { text: 'One reel back in your hands. They felt that — more coming. Clear them out.', secs: 3.6 },
+    { text: "Two reels. They're throwing the whole crew at you now. Put them down.", secs: 3.6 },
+    { text: "That's the last one. Here they come — hold your ground.", secs: 3.8 },
   ],
   lowHealth: { text: "You're hit bad. Get behind something solid and breathe.", secs: 3.0 },
   done: { text: 'Masters are in the vault. The block is yours, Rule.', secs: 2.4 },
-  waveClear: { text: (n) => `Wave ${n} down. Resupply at your feet — 9 seconds.`, secs: 3.4 },
+  waveClear: { text: (n) => `Wave ${n} down. Fresh ammo on the block — 9 seconds.`, secs: 3.4 },
+};
+
+/**
+ * The story (src/config/story.js has the levels and the camera work, this the words).
+ * Two voices: the Vault on the radio, and Rule.
+ */
+export const story = {
+  speakers: { vault: 'IPX VAULT', rule: 'RULE' },
+  /** The kicker of a level's title card, and the line over the objective on the HUD. */
+  levelOf: (n, total) => `LEVEL ${n} OF ${total}`,
+  stage: (n, title) => `LEVEL ${n} · ${title}`,
+  /** By level id: its name, what it asks for (title card and location card), the Vault's first word in it. */
+  levels: {
+    avenue: {
+      title: 'THE AVENUE',
+      brief: 'Take back the first reel',
+      go: { text: 'Reel one is down the avenue, under the El. Follow the line on the ground.', secs: 3.4 },
+      clear: { text: 'Avenue is quiet. One down, Rule.', secs: 2.2 },
+    },
+    shop: {
+      title: 'THE CHOP SHOP',
+      brief: 'Take back the second reel',
+      go: { text: 'Across the avenue and through the roll door. Reel two is on the shop floor.', secs: 3.4 },
+      clear: { text: "Shop's yours. Two down.", secs: 2.2 },
+    },
+    cage: {
+      title: 'THE CAGE',
+      brief: 'Take back the last reel',
+      go: { text: 'Out of the alley and east along the avenue. Reel three is on the court, behind the fence.', secs: 3.6 },
+      clear: { text: 'The cage is empty. You have all three.', secs: 2.4 },
+    },
+    truck: {
+      title: 'THE TRUCK',
+      brief: 'Get the reels to the IPX truck',
+      go: { text: "South through the lot. The truck's doors are open — don't stop for anything.", secs: 3.4 },
+    },
+  },
+  /** The objective line, by what the level wants right now. `guided`: the guide line is on. */
+  objectives: {
+    reach: (code, guided) => (guided ? `Get to reel ${code} — follow the gold line` : `Get to reel ${code}`),
+    grab: (glyph, code) => `Hold ${glyph} at reel ${code} to take it back`,
+    clear: (n) => (n <= 1 ? 'One Vulture left — finish it' : `Clear the block — ${n} Vultures left`),
+    truck: (guided) => (guided ? 'Get to the IPX truck — follow the gold line' : 'Get to the IPX truck'),
+    done: 'Level clear',
+  },
+  banners: {
+    clear: 'Level clear',
+    ambush: (dir) => `Ambush — ${dir}`,
+  },
+  /** The closing title card. */
+  end: { kicker: 'AN IPX PRODUCTION', title: 'MURDER INC.', sub: 'STARRING JA RULE' },
+  skip: 'Skip',
+  /** How-to lines of the first level, one at a time. `glyph` is the device's key cap. */
+  /* (Short enough for one line between a phone's thumb clusters.) */
+  hints: {
+    aim: (glyph) => `Hold ${glyph}: your sights lock on`,
+    aimTouch: 'Aim: your sights lock on',
+    weapons: 'Five guns: keys 1 to 5, or the wheel',
+    weaponsPad: 'Five guns: Y for the next one',
+    weaponsTouch: 'Tap a gun on the bar',
+    crates: 'Green crates are ammo',
+  },
+  /** Ammo picked up: a crate, a pouch a Vulture dropped, nothing because every gun is full. */
+  pickup: {
+    crate: 'Ammo: every gun topped up',
+    pouch: 'Ammo picked up',
+    full: 'Ammo full',
+  },
+  /** Cutscene lines, by scene, in the order src/config/story.js cues them. */
+  scenes: {
+    opening: [
+      { who: 'vault', text: "Rule, it's the Vault. The Vultures hit the studio last night. They walked out with your three master reels.", secs: 2.4 },
+      { who: 'vault', text: 'They stashed them right here on your block. The first one is sitting on the avenue, out in the open. They want you to see it.', secs: 2 },
+      { who: 'rule', text: 'Then they want me to come get it.', secs: 2.8 },
+    ],
+    shop: [
+      { who: 'vault', text: 'One reel back in your hands. The second is inside V&R Auto Body, the chop shop across the avenue.', secs: 2.2 },
+      { who: 'vault', text: "They cut cars in there. Tonight they're cutting your records.", secs: 2.2 },
+      { who: 'rule', text: 'Not my records.', secs: 2.6 },
+    ],
+    cage: [
+      { who: 'vault', text: 'Two down. The last reel is locked in the cage: the ball court at the east end of the avenue.', secs: 2.2 },
+      { who: 'vault', text: 'Every Vulture left on this block is standing on it.', secs: 2.6 },
+      { who: 'rule', text: 'Good. Saves me the walk.', secs: 2.8 },
+    ],
+    truck: [
+      { who: 'vault', text: "That's all three. The IPX truck is idling at the south end of the lot.", secs: 2.4 },
+      { who: 'vault', text: "Every Vulture in Queens just heard you. Don't stop for anything.", secs: 2.4 },
+      { who: 'rule', text: 'Keep the engine running.', secs: 2.6 },
+    ],
+    ending: [
+      { who: 'vault', text: 'Masters are in the vault. The block is yours, Rule.', secs: 2.6 },
+      { who: 'rule', text: 'It always was.', secs: 3 },
+    ],
+  },
 };
 
 export const cards = {
@@ -159,12 +254,15 @@ export const cards = {
     settings: 'Settings',
     controls: 'Controls',
     restart: 'Restart run',
+    restartLevel: 'Restart level',
+    quit: 'Back to title',
   },
   dead: {
     kicker: 'Rule down',
     title: 'Lights out',
     stats: {
       time: 'Time on the block',
+      level: 'Level', // value "2 of 4 · The Chop Shop"
       reels: 'Reels recovered', // value "n/3"
       waves: 'Waves cleared',
       kills: 'Vultures dropped',
@@ -172,6 +270,9 @@ export const cards = {
       best: 'Best',
     },
     retry: 'Run it back',
+    /** The story's death card: back to the start of the level, with what Rule had when it began. */
+    retryLevel: 'Retry level',
+    checkpoint: (n, title) => `You go again from the start of level ${n}, ${title}.`,
   },
   debrief: {
     kicker: 'Hollis, Queens · Debrief',

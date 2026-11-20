@@ -41,7 +41,7 @@ function tuned(name) {
 // ---------------------------------------------------------------------------------------- tokens
 
 test('tokens: the limit, the crowd limit and the gap between grants', () => {
-  const { ai } = tuned('hustler'); // 2 normal, 3 in a crowd, 1.25 s apart
+  const { ai } = tuned('boss'); // 2 normal, 3 in a crowd, 1.25 s apart
   const tokens = createTokens();
   assert.equal(tokens.limit(5, ai), 2);
   assert.equal(tokens.limit(6, ai), 3);
@@ -96,7 +96,7 @@ test('tokens: Goons and Buzzards alternate when both want to fire', () => {
 });
 
 test('tokens: one type alone is only held back by the gap, and a silent type does not block the other for long', () => {
-  const { ai } = tuned('boss'); // gap 0.85
+  const { ai } = tuned('kingpin'); // gap 0.85
   const tokens = createTokens();
   const times = [];
   for (let frame = 0; frame < 60 * 6; frame++) {
@@ -131,7 +131,7 @@ test('tokens: one type alone is only held back by the gap, and a silent type doe
 // ------------------------------------------------------------------------------------ perception
 
 test('sight: 45 m range, a 200° horizontal cone, ignored when engaged or within 3.5 m', () => {
-  const { ai } = tuned('boss');
+  const { ai } = tuned('kingpin');
   const deg = (d) => (d * Math.PI) / 180;
   near(ai.fov, deg(200));
   // Facing −Z (yaw 0): straight ahead, 99° off to either side, 101° off, directly behind.
@@ -156,7 +156,7 @@ test('sight: 45 m range, a 200° horizontal cone, ignored when engaged or within
 });
 
 test('reaction: 0.55 s for a Goon and 0.4 s for a Buzzard on patrol, × 0.45 once suspicious; peeks add up', () => {
-  const { ai, goon, buzzard } = tuned('boss');
+  const { ai, goon, buzzard } = tuned('kingpin');
   near(reactionTime(goon.reaction, 'patrol', ai), 0.55);
   near(reactionTime(buzzard.reaction, 'patrol', ai), 0.4);
   near(reactionTime(goon.reaction, 'investigate', ai), 0.2475);
@@ -173,7 +173,7 @@ test('reaction: 0.55 s for a Goon and 0.4 s for a Buzzard on patrol, × 0.45 onc
 });
 
 test('exposure: full accuracy after 1 / gain seconds in sight, gone about two seconds after breaking it', () => {
-  for (const [name, seconds] of [['hustler', 10], ['boss', 1 / 0.14], ['kingpin', 1 / 0.18]]) {
+  for (const [name, seconds] of [['hustler', 1 / 0.08], ['boss', 10], ['kingpin', 1 / 0.14]]) {
     const { ai } = tuned(name);
     let exposure = 0;
     let t = 0;
@@ -194,7 +194,7 @@ test('exposure: full accuracy after 1 / gain seconds in sight, gone about two se
 });
 
 test('spread: far → near with exposure, × (1 + speed · 0.30) for Goons and × (1 + speed · 0.45) for Buzzards', () => {
-  const { goon, buzzard } = tuned('hustler');
+  const { goon, buzzard } = tuned('boss');
   const g = (exposure, speed) => aimSpread(goon.spreadFar, goon.spreadNear, exposure, speed, goon.spreadPerSpeed);
   const b = (exposure, speed, extra) => aimSpread(buzzard.spreadFar, buzzard.spreadNear, exposure, speed, buzzard.spreadPerSpeed, extra);
   near(g(0, 0), 0.12);
@@ -207,14 +207,14 @@ test('spread: far → near with exposure, × (1 + speed · 0.30) for Goons and �
   near(b(1, 0, buzzard.damagedSpread), 0.027, 1e-9, 'a damaged Buzzard: × 1.5');
   near(g(2, 0), 0.045, 1e-9, 'exposure is clamped');
   // Sprinting (6.4 m/s) against a fresh Boss Goon: 0.095 × 2.92 rad, nearly 16° either way.
-  const boss = tuned('boss').goon;
+  const boss = tuned('kingpin').goon;
   near(aimSpread(boss.spreadFar, boss.spreadNear, 0, 6.4, boss.spreadPerSpeed), 0.095 * (1 + 6.4 * 0.3));
 });
 
 // -------------------------------------------------------------------------------- fire positions
 
 test('fire positions: the 8–18 m band, travel, kind bias, jitter', () => {
-  const { goon } = tuned('boss');
+  const { goon } = tuned('kingpin');
   assert.equal(inFireBand(7.9, goon), false);
   assert.equal(inFireBand(8, goon), true);
   assert.equal(inFireBand(18, goon), true);
@@ -240,7 +240,7 @@ test('fire positions: the 8–18 m band, travel, kind bias, jitter', () => {
 });
 
 test('fire positions: Goons spread around the player and do not stack', () => {
-  const { goon } = tuned('boss');
+  const { goon } = tuned('kingpin');
   const K = goon.positionCost;
   const player = { x: 0, z: 0 };
   const self = { x: 0, z: 14 };
@@ -270,7 +270,7 @@ test('fire positions: Goons spread around the player and do not stack', () => {
 });
 
 test('path following: full speed on heading, slow in corners, stop to turn, ease in on arrival', () => {
-  const { goon } = tuned('boss');
+  const { goon } = tuned('kingpin');
   near(followSpeed(5, 0, 10, goon), 5);
   near(followSpeed(5, 0.5, 10, goon), 3.75);
   near(followSpeed(5, 1.1, 10, goon), 2.25);

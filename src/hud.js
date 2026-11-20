@@ -1,7 +1,8 @@
 // G.hud (CONTRACT 6.12, DESIGN 8.2): the in-game heads-up display, DOM over the canvas.
 //
 // Layout (the genre's standard one, in transit-sign plates):
-//   top-left      mission badge: IPX lozenge, reel bullets 1 · 2 · 3 (or the holdout tally), objective line
+//   top-left      mission badge: IPX lozenge, reel bullets 1 · 2 · 3 (or the holdout tally), the level's
+//                 name over the objective line
 //   top-right     minimap with the zone band, pause and settings buttons beside it
 //   top-centre    banner (hud.warn) with the centre message under it
 //   left-middle   kill feed
@@ -9,7 +10,8 @@
 //                 the aim-assist lock: four red corners on the Vulture the sights are locked to
 //   bottom-centre ammo cue, weapon bar (the five guns: the one in hand wide, the rest as tabs; melee),
 //                 HP bar under it; radio subtitles above
-//   world         objective markers, clamped to the screen edge
+//   world         objective markers, clamped to the screen edge (the reel or the truck; the last few
+//                 Vultures of a level get a red one each)
 //
 // Every per-frame write is change-detected (src/ui/dom.js setText / setStyle / setClass) and anything that
 // moves does so with transforms. Pure rules and timings live in src/ui/logic.js.
@@ -191,6 +193,7 @@ export function createHud(G) {
   let objT = 0;
   let reelsDone = 0;
   let reelsTotal = 0;
+  let reelsIn = null; // codes of the reels already back, when the game says which (else: counted from the markers)
   let tally = '';
   let holdout = false;
   let markers = [];
@@ -374,7 +377,7 @@ export function createHud(G) {
     const allIn = markers.some((m) => m.kind === 'exit');
     for (let i = 1; i <= reelsTotal; i++) {
       const code = String(i);
-      const done = allIn || (anyReel ? !out.has(code) : i <= reelsDone);
+      const done = reelsIn ? reelsIn.has(code) : allIn || (anyReel ? !out.has(code) : i <= reelsDone);
       badgeBullets.append(bullet(code, done ? 'is-done' : ''));
     }
     setText(badgeCount, `${reelsDone}/${reelsTotal}`);
@@ -509,7 +512,7 @@ export function createHud(G) {
         view.code.dataset.line = code.toLowerCase();
         setClass(view.code, 'rb-wide', code.length > 1);
       }
-      scratch.set(m.pos.x, m.pos.y + (m.kind === 'exit' ? 1.2 : 1.9), m.pos.z);
+      scratch.set(m.pos.x, m.pos.y + (m.kind === 'exit' ? 1.2 : m.kind === 'foe' ? (m.enemy && m.enemy.type === 'buzzard' ? 0.9 : 2.25) : 1.9), m.pos.z);
       scratch.applyMatrix4(cam.matrixWorldInverse);
       const behind = scratch.z > 0;
       scratch.applyMatrix4(cam.projectionMatrix);
@@ -727,8 +730,10 @@ export function createHud(G) {
       objective = '';
       objT = -1;
       setText(objText, '');
+      setText(objLabel, copy.hud.objective);
       setClass(badge, 'is-empty', true);
       reelsDone = reelsTotal = 0;
+      reelsIn = null;
       tally = '';
       holdout = false;
       markers = [];
@@ -763,13 +768,19 @@ export function createHud(G) {
         badge.animate([{ boxShadow: `inset 3px 0 0 ${brand.colors.ink}` }, { boxShadow: `inset 3px 0 0 ${brand.colors.gold}` }], { duration: 900 });
       }
     },
-    setReels(done, total) {
+    /** `codes` (optional): the route-bullet codes of the reels already back, when they are not simply the first n. */
+    setReels(done, total, codes) {
       holdout = false;
       reelsDone = Math.max(0, done | 0);
       reelsTotal = Math.max(0, total | 0);
+      reelsIn = Array.isArray(codes) ? new Set(codes.map(String)) : null;
       setClass(badge, 'is-holdout', false);
       setText(badgeTally, '');
       renderBullets();
+    },
+    /** The line over the objective: the level's name ("LEVEL 2 · THE CHOP SHOP"). Empty: the plain label. */
+    setStage(value) {
+      if (setText(objLabel, String(value || '') || copy.hud.objective)) blocksDirty = true;
     },
     setTally(value) {
       holdout = true;

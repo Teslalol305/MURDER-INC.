@@ -2,8 +2,9 @@
 //
 // The static plan (ground by surface, cover, buildings and walls, the El's two tracks) is painted once to
 // an offscreen canvas from data the level already exposes; every frame that plan is blitted, rotated about
-// the player, and the live things are drawn over it: reel bullets and the truck (pinned to the rim when
-// they are off the map), red pips for enemies in the fight, the player's arrow in the middle.
+// the player, and the live things are drawn over it: the guide line (the dotted route to the objective),
+// ammo on the ground, reel bullets and the truck (pinned to the rim when they are off the map), red pips
+// for enemies in the fight and for the last few being hunted, the player's arrow in the middle.
 
 import { enemyOnMap, pinToRim, planKind, toMap } from './logic.js';
 
@@ -25,6 +26,7 @@ const INK = {
   cover: '#7b828d', // cars, barriers, crates: lighter, so the lanes read
   rail: '#4d5460',
   enemy: '#e2222b',
+  ammo: '#3fe07a', // crates and pouches: the green of their marker in the world
 };
 
 export function createMinimap(G, canvas) {
@@ -40,6 +42,7 @@ export function createMinimap(G, canvas) {
   let size = 0; // css px
   let dpr = 1;
   let markers = [];
+  const hunted = new Set(); // Vultures with a marker on them: drawn whether they are fighting or not
 
   if (ctx) {
     ctx.imageSmoothingEnabled = true;
@@ -218,7 +221,47 @@ export function createMinimap(G, canvas) {
     ctx.drawImage(plan, -(px - originX) * planScale, -(pz - originZ) * planScale);
     ctx.restore();
 
-    // Enemies in the fight.
+    // The guide line: the route to the objective, dotted, under everything else that lives.
+    const game = G.game;
+    const route = game && game.guide && game.guide.route;
+    if (route && route.length > 1) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, size, size);
+      ctx.clip();
+      ctx.strokeStyle = game.guide.hunting ? INK.enemy : brand.colors.gold;
+      ctx.lineWidth = 2;
+      ctx.lineJoin = 'round';
+      ctx.setLineDash([3, 4]);
+      ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      for (let i = 0; i < route.length; i++) {
+        toMap(route[i].x - px, route[i].z - pz, yaw, scale, point);
+        if (i === 0) ctx.moveTo(half + point.x, half + point.y);
+        else ctx.lineTo(half + point.x, half + point.y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Ammo on the ground: small green squares, only while they are on the map.
+    const drops = game && game.pickups && game.pickups.list;
+    if (drops) {
+      ctx.fillStyle = INK.ammo;
+      ctx.strokeStyle = brand.colors.bg;
+      ctx.lineWidth = 1;
+      for (let i = 0; i < drops.length; i++) {
+        const d = drops[i];
+        if (!d.live) continue;
+        toMap(d.pos.x - px, d.pos.z - pz, yaw, scale, point);
+        if (Math.abs(point.x) > half - 4 || Math.abs(point.y) > half - 4) continue;
+        const r = d.kind === 'crate' ? 3.2 : 2.2;
+        ctx.fillRect(half + point.x - r, half + point.y - r, r * 2, r * 2);
+        ctx.strokeRect(half + point.x - r, half + point.y - r, r * 2, r * 2);
+      }
+    }
+
+    // Enemies in the fight, and the last few of a level wherever they are (the HUD marks those too).
     const enemies = G.enemies && G.enemies.list;
     if (enemies) {
       const now = G.time.t;
@@ -227,7 +270,7 @@ export function createMinimap(G, canvas) {
       ctx.lineWidth = 1;
       for (let i = 0; i < enemies.length; i++) {
         const e = enemies[i];
-        if (!enemyOnMap(e, now, firedAt.get(e.id), FIRE_WINDOW)) continue;
+        if (!enemyOnMap(e, now, firedAt.get(e.id), FIRE_WINDOW) && !(e.alive && hunted.has(e))) continue;
         toMap(e.pos.x - px, e.pos.z - pz, yaw, scale, point);
         const pinned = pinToRim(point, half - 5);
         ctx.globalAlpha = pinned ? 0.6 : 1;
@@ -239,9 +282,10 @@ export function createMinimap(G, canvas) {
       ctx.globalAlpha = 1;
     }
 
-    // Objectives: the reels still out there and the truck.
+    // Objectives: the reel the level is after, or the truck.
     for (let i = 0; i < markers.length; i++) {
       const m = markers[i];
+      if (m.kind === 'foe') continue; // a Vulture: it has its pip already
       toMap(m.pos.x - px, m.pos.z - pz, yaw, scale, point);
       const pinned = pinToRim(point, half - PIN_INSET);
       drawBullet(half + point.x, half + point.y, String(m.code), pinned);
@@ -274,9 +318,11 @@ export function createMinimap(G, canvas) {
 
   return {
     draw,
-    /** The reels still out (HUD markers) plus, in Story mode, the truck: [{code, pos}]. */
+    /** The HUD's markers: the reel or the truck ([{code, pos}]), or the last Vultures of a level (kind 'foe', with `enemy`). */
     setMarkers(list) {
       markers = list || [];
+      hunted.clear();
+      for (const m of markers) if (m.kind === 'foe' && m.enemy) hunted.add(m.enemy);
     },
     /** Forces the static plan to be repainted (after the level changed). */
     invalidate() {

@@ -8,7 +8,7 @@
 //   node build.mjs --dev --out=dist/dev-fix-ui.html
 //   UI_TOUCH=1 node tools/shot.cjs dist/dev-fix-ui.html --size 844x390 --params "q=test&noaudio=1&god=1" \
 //     --scenario tools/scenarios/ui-layout.cjs --timeout 600
-//   UI_ONLY=intro,radio,holdout,markers,pause,pad selects stages; UI_NOSHOTS=1 skips the pictures.
+//   UI_ONLY=cutscene,intro,radio,holdout,markers,pause,pad selects stages; UI_NOSHOTS=1 skips the pictures.
 
 const OUT = process.env.UI_OUT || 'shots/ui';
 const ONLY = (process.env.UI_ONLY || '').split(',').filter(Boolean);
@@ -57,7 +57,7 @@ module.exports = async (page, h) => {
           const r = n.getBoundingClientRect();
           return { l: Math.round(r.left), t: Math.round(r.top), r: Math.round(r.right), b: Math.round(r.bottom) };
         };
-        const sels = ['.hud-badge', '.hud-map', '.hud-slots', '.hud-hp', '.hud-cue', '.hud-feed-line', '.radio', '.hud-prompt', '.hud-banner-text', '.hud-msg', '.loc', '.touch-btn', '.touch-stick', '.touch-sprint', '.hud-mk.is-edge .hud-mk-pin']; // (on-screen markers may pass under a plate)
+        const sels = ['.hud-badge', '.hud-map', '.hud-slots', '.hud-hp', '.hud-cue', '.hud-feed-line', '.radio', '.hud-prompt', '.hud-banner-text', '.hud-msg', '.loc', '.cine-place', '.cine-card', '.cine-skip', '.touch-btn', '.touch-stick', '.touch-sprint', '.hud-mk.is-edge .hud-mk-pin']; // (on-screen markers may pass under a plate)
         const boxes = [];
         const hudOn = document.querySelector('.hud') && document.querySelector('.hud').classList.contains('is-on');
         for (const s of sels)
@@ -83,7 +83,7 @@ module.exports = async (page, h) => {
         const off = [];
         for (const [s, r] of boxes) if (r.l < -1 || r.t < -1 || r.r > innerWidth + 1 || r.b > innerHeight + 1) off.push(`${s} ${JSON.stringify(r)}`);
         const clip = [];
-        for (const s of ['.loc-place', '.loc-tag', '.hud-zone', '.hud-obj-text', '.hud-banner-text', '.hud-slot-count', '.hud-badge-tally', '.hud-badge-count', '.hud-feed-line', '.hud-prompt-plate', '.card-title', '.card-hint'])
+        for (const s of ['.loc-place', '.loc-tag', '.hud-zone', '.hud-obj-text', '.hud-obj-label', '.hud-banner-text', '.hud-slot-count', '.hud-badge-tally', '.hud-badge-count', '.hud-feed-line', '.hud-prompt-plate', '.card-title', '.card-hint', '.cine-place', '.cine-kicker', '.cine-title', '.cine-sub'])
           for (const n of document.querySelectorAll(s)) if (vis(n) && n.scrollWidth > n.clientWidth + 1) clip.push(`${s} ${n.scrollWidth}>${n.clientWidth} "${n.textContent}"`);
         // A block running out of its plate (the badge's tally) or under the pause / settings buttons.
         const badge = document.querySelector('.hud-badge');
@@ -129,9 +129,99 @@ module.exports = async (page, h) => {
     await h.frames(2);
   }
 
-  // ---- The intro: location card + the long briefing, as a fresh run starts them ----------------------
-  if (want('intro') || want('radio')) {
+  // ---- The opening cutscene: letterbox, the place line, a long subtitle, then the title card ---------
+  if (want('cutscene') || want('intro') || want('radio')) {
     await press('.title-actions .btn-primary');
+    await h.skip(4);
+    if ((await h.eval(() => window.__G.game.state)) === 'cutscene') {
+      /** The dressing against the two bars: the place line and the card in the picture, the skip in the lower bar. */
+      const dressing = async (label) => {
+        const d = await h.eval(() => {
+          const R = (sel) => {
+            const n = document.querySelector(sel);
+            if (!n || n.hidden || getComputedStyle(n).display === 'none') return null;
+            const r = n.getBoundingClientRect();
+            return { l: Math.round(r.left), t: Math.round(r.top), r: Math.round(r.right), b: Math.round(r.bottom) };
+          };
+          return {
+            top: R('.menu-bars .is-top'),
+            bottom: R('.menu-bars .is-bottom'),
+            place: R('.cine-place'),
+            card: R('.cine-card'),
+            skip: R('.cine-skip'),
+            radio: document.querySelector('.radio').classList.contains('is-on') ? R('.radio') : null,
+            hud: document.querySelector('.hud').classList.contains('is-on'),
+            touchControls: [...document.querySelectorAll('.touch-btn, .touch-stick')].some((n) => n.offsetParent !== null && getComputedStyle(n).visibility !== 'hidden' && !n.closest('[hidden]')),
+            h: innerHeight,
+          };
+        });
+        console.error(`LAYOUT ${tag} ${label} ${JSON.stringify(d)}`);
+        if (!d.top || !d.bottom || d.top.b < d.h * 0.08 || d.bottom.t > d.h * 0.92) problems.push(`${label}: the letterbox is not on ${JSON.stringify([d.top, d.bottom])}`);
+        if (d.hud) problems.push(`${label}: the HUD is still on`);
+        if (d.touchControls) problems.push(`${label}: the thumb controls are still on`);
+        for (const key of ['place', 'card', 'radio']) {
+          const r = d[key];
+          if (!r) continue;
+          if (r.t < d.top.b - 1 || r.b > d.bottom.t + 1) problems.push(`${label}: ${key} runs into a bar ${JSON.stringify(r)}`);
+        }
+        if (!d.skip) problems.push(`${label}: no skip control`);
+        else if (d.skip.t < d.bottom.t - 1 || d.skip.b > d.h + 1 || d.skip.b - d.skip.t < 30) problems.push(`${label}: the skip control is not a finger-sized button inside the lower bar ${JSON.stringify(d.skip)}`);
+        return d;
+      };
+      if (want('cutscene')) {
+        // The longest line of the story as the subtitle, with the place line typed on.
+        await h.skip(24);
+        await h.eval(() => {
+          const G = window.__G;
+          const lines = Object.values(G.config.text.story.scenes).flat();
+          const longest = lines.reduce((a, b) => (b.text.length > a.text.length ? b : a));
+          G.hud.clearRadio();
+          G.hud.radio(G.config.text.story.speakers[longest.who], longest.text, 30);
+        });
+        await h.skip(80); // typed out
+        await h.wait(1500); // the bars, the place wipe and the HUD's fade run on the real clock
+        await h.frames(1);
+        const d = await dressing('cutscene');
+        if (!d.place) problems.push('cutscene: no place line');
+        if (!d.radio) problems.push('cutscene: no subtitle');
+        await measure('cutscene');
+        await shot('cutscene');
+        // On to the title card.
+        for (let i = 0; i < 60 && !(await h.eval(() => !document.querySelector('.cine-card').hidden)); i++) await h.skip(15);
+        await h.eval(() => {
+          const G = window.__G;
+          G.hud.clearRadio();
+          G.hud.radio(G.config.text.story.speakers.rule, 'Then they want me to come get it.', 30);
+        });
+        await h.skip(30);
+        await h.wait(1100);
+        await h.frames(1);
+        const c = await dressing('cutscene-card');
+        if (!c.card) problems.push('cutscene: no title card');
+        await measure('cutscene-card');
+        await shot('cutscene-card');
+      } else {
+        await h.skip(30);
+      }
+      // The skip control ends it: a finger on the button, or the key on its cap (a captured mouse has no
+      // pointer to click with).
+      if (tap) await press('.cine-skip');
+      else {
+        const cap = await h.eval(() => document.querySelector('.cine-key').textContent);
+        if (cap !== 'ENTER') problems.push(`cutscene: the skip control's key cap reads "${cap}"`);
+        await h.key('Enter', true);
+        await h.skip(1);
+        await h.key('Enter', false);
+      }
+      await h.skip(2);
+      const after = await h.eval(() => ({ state: window.__G.game.state, cine: !document.querySelector('.cine').hidden }));
+      if (after.state !== 'intro' || after.cine) problems.push(`cutscene: the skip control did not end it ${JSON.stringify(after)}`);
+      await h.eval(() => window.__G.hud.clearRadio());
+    }
+  }
+
+  // ---- The intro: location card + the long briefing, as a level starts them ---------------------------
+  if (want('intro') || want('radio')) {
     await h.skip(8);
     await h.eval(() => {
       const G = window.__G;

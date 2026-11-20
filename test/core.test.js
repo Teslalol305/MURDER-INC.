@@ -187,7 +187,7 @@ test('util: URL parameter helpers', () => {
 test('settings: defaults when nothing is stored', () => {
   const settings = createSettings(null, fakeStorage());
   assert.deepEqual(settings.all(), { ...DEFAULTS });
-  assert.equal(settings.get('difficulty'), 'boss');
+  assert.equal(settings.get('difficulty'), 'hustler');
   assert.equal(settings.best(), 0);
 });
 

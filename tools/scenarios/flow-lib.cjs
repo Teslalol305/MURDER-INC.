@@ -3,7 +3,7 @@
 // install() runs in the page: it records every flow event in order (with a compact payload), every line
 // the game hands the HUD (warn / message / radio / objective / tally / reels / prompt), every card the
 // menus are asked to show (with its data) and a few module calls the checks need (explosives.reset,
-// enemies.setDifficulty / setScale, atmos.setTime, weapon.addReserve, player.heal).
+// enemies.setDifficulty / setScale, atmos.setTime, weapon.addReserve / resupply, player.heal).
 //
 // The scenarios act as a director: they move the player with player.reset, hold real keys for Interact
 // and Pause, and kill enemies through enemies.damage. They work against the stubs and the full build.
@@ -23,7 +23,7 @@ function install(names) {
     progress: { count: 0, last: null, max: 0 },
     hud: { warn: [], message: [], radio: [], objective: [], tally: [], reels: [], prompt: null, prompts: 0 },
     cards: [],
-    calls: { explosivesReset: 0, setDifficulty: [], setScale: [], setTime: [], addReserve: [], heal: [], locationCard: [] },
+    calls: { explosivesReset: 0, setDifficulty: [], setScale: [], setTime: [], addReserve: [], resupply: [], heal: [], locationCard: [] },
   });
   const brief = (v) => {
     if (v && v.isVector3) return [Math.round(v.x * 100) / 100, Math.round(v.y * 100) / 100, Math.round(v.z * 100) / 100];
@@ -72,6 +72,7 @@ function install(names) {
   wrap(G.enemies, 'setScale', (s) => rec.calls.setScale.push({ ...s }));
   wrap(G.atmos, 'setTime', (t) => rec.calls.setTime.push(t));
   wrap(G.weapon, 'addReserve', (n, cap) => rec.calls.addReserve.push([n, cap]));
+  wrap(G.weapon, 'resupply', (share = 1) => rec.calls.resupply.push(share));
   wrap(G.player, 'heal', (n) => rec.calls.heal.push(n));
   Object.assign(rec.calls, { paused: [], music: null, requestLock: 0, exitLock: 0, clearRadio: 0, markers: null, hudShown: null, stings: [] });
   wrap(G.audio, 'setPaused', (on) => rec.calls.paused.push(!!on));

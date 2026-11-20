@@ -238,21 +238,24 @@ export const ai = {
   picksPerFrame: 1, // fire-position selections (each one casts a few dozen rays)
 };
 
-/** Per-difficulty overlays (docs/DESIGN.md 3.1). Boss is the default and the fallback. */
+/**
+ * Per-difficulty overlays (docs/DESIGN.md 3.1). Hustler is the default: slow to shoot, loose with it, and
+ * one gun on the player at a time. Boss is what the base tables above say (and the fallback).
+ */
 export const difficulty = {
   hustler: {
+    buzzard: { hp: 40, boltDamage: 5, telegraph: 0.65, cooldown: [2.4, 3.8], spreadFar: 0.08, spreadNear: 0.024 },
+    goon: { hp: 80, shotDamage: 3, burst: 3, cooldown: [2.2, 3.6], spreadFar: 0.14, spreadNear: 0.055, rushDamage: 12, runSpeed: 4.2 },
+    ai: { tokens: 1, tokensCrowd: 2, tokenGap: 1.6, exposureUp: 0.08, sightRange: 32 },
+  },
+  boss: {
     buzzard: { hp: 45, boltDamage: 7, telegraph: 0.55, cooldown: [1.9, 3.3], spreadFar: 0.065, spreadNear: 0.018 },
     goon: { hp: 90, shotDamage: 4, burst: 4, cooldown: [1.8, 3], spreadFar: 0.12, spreadNear: 0.045, rushDamage: 15, runSpeed: 4.5 },
     ai: { tokens: 2, tokensCrowd: 3, tokenGap: 1.25, exposureUp: 0.1 },
   },
-  boss: {
+  kingpin: {
     buzzard: { hp: 55, boltDamage: 10, telegraph: 0.46, cooldown: [1.4, 2.5], spreadFar: 0.052, spreadNear: 0.016 },
     goon: { hp: 110, shotDamage: 6, burst: 5, cooldown: [1.4, 2.4], spreadFar: 0.095, spreadNear: 0.038, rushDamage: 22, runSpeed: 5 },
     ai: { tokens: 3, tokensCrowd: 4, tokenGap: 0.85, exposureUp: 0.14 },
-  },
-  kingpin: {
-    buzzard: { hp: 60, boltDamage: 13, telegraph: 0.38, cooldown: [1, 1.9], spreadFar: 0.042, spreadNear: 0.014 },
-    goon: { hp: 130, shotDamage: 8, burst: 6, cooldown: [1, 1.9], spreadFar: 0.08, spreadNear: 0.032, rushDamage: 30, runSpeed: 5.4 },
-    ai: { tokens: 4, tokensCrowd: 5, tokenGap: 0.6, exposureUp: 0.18 },
   },
 };

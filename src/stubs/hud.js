@@ -38,6 +38,7 @@ export function createHud(G) {
   ui.append(root);
 
   let objective = '';
+  let stage = ''; // the level's name, when the game gives one
   let counter = ''; // "reels 1/3" or the holdout tally
   let markers = [];
   let feed = ''; // last kill
@@ -65,6 +66,7 @@ export function createHud(G) {
       const reserve = weapon.reserve === Infinity ? '∞' : weapon.reserve;
       out.push(`${String(weapon.def.name).padEnd(10)} ${weapon.mag} / ${reserve}${weapon.cue ? `  (${weapon.cue})` : ''}`);
     }
+    if (stage) out.push(`stage      ${stage}`);
     if (objective) out.push(`objective  ${objective}`);
     if (counter) out.push(counter);
     if (player) {
@@ -98,12 +100,15 @@ export function createHud(G) {
       root.hidden = !on;
     },
     reset() {
-      objective = counter = feed = '';
+      objective = stage = counter = feed = '';
       markers = [];
       for (const name in lines) setLine(name, '', 0);
       promptEl.hidden = true;
       lastPrompt = '';
       refresh = 0;
+    },
+    setStage(text) {
+      stage = String(text || '');
     },
     setObjective(text) {
       objective = text || '';

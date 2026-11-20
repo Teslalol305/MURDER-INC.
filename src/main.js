@@ -5,7 +5,7 @@
 //   __stats(), __setShot({cam: "x,y,z,lx,ly,lz", fov, exposure}), __step
 //   plus __skip: with ?step=1, the number of frames to simulate without drawing (fast-forward).
 // URL parameters handled here: autostart, shot, mode, seed, noaudio, god, nohud, cam, fov, exposure,
-// step, dt. The rest (q, post, bloom, eseed …) belong to the modules that read them from G.params.
+// step, dt. (An autostarted story skips its cutscenes; `scenes=1` keeps the ones between levels.) The rest (q, post, bloom, eseed …) belong to the modules that read them from G.params.
 //
 // Contract checks (src/core/contract.js): every module is held against its member list when it is
 // created, and in dev builds every event against its payload keys. A gap is a console error that starts
@@ -19,6 +19,7 @@ import * as flow from './config/flow.js';
 import * as look from './config/look.js';
 import * as playerConfig from './config/player.js';
 import * as quality from './config/quality.js';
+import * as story from './config/story.js';
 import * as text from './config/text.js';
 import * as weapons from './config/weapons.js';
 import { RENDER_GLOBALS, SHARED, missingFrom, missingKeys, missingMembers } from './core/contract.js';
@@ -114,6 +115,7 @@ const G = {
     quality,
     catalog,
     look,
+    story,
   },
   /** How this bundle was built: {dev, artifact, stubbed: [module names]}. */
   build: BUILD,

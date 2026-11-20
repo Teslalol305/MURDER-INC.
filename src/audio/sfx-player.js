@@ -150,6 +150,23 @@ function reelSecure(c) {
   return x;
 }
 
+/** Ammo scooped up: loose rounds dropping into a pouch, a magazine slapped against the others, a soft confirm. */
+function pickup(c) {
+  const { sr, rnd } = c;
+  const x = c.buf(0.5);
+  for (let k = 0; k < 5; k++) {
+    const at = 0.01 + k * 0.022 + c.r(0, 0.008);
+    const f = c.r(3400, 5200);
+    ring(x, sr, at, [[f, 0.5, 0.012], [f * 1.5, 0.3, 0.008]], 0.35 - k * 0.04);
+  }
+  burst(x, sr, 0, 0.12, rnd, 0.35, { tau: 0.035, type: 'bandpass', f: 1700, q: 0.8 });
+  sweep(x, sr, 0.1, 0.1, 170, 80, 0.7, { tau: 0.03, fTau: 0.02 });
+  ring(x, sr, 0.1, [[1250, 0.5, 0.02], [2300, 0.35, 0.012]], 0.5);
+  ring(x, sr, 0.15, [[1175, 0.5, 0.16], [2350, 0.18, 0.09]], 0.32); // D6
+  ring(x, sr, 0.23, [[1568, 0.5, 0.2], [3136, 0.16, 0.1]], 0.3); // G6
+  return x;
+}
+
 const SURFACES = ['asphalt', 'concrete', 'metal', 'wood', 'dirt'];
 const steps = {};
 for (const s of SURFACES) {
@@ -168,6 +185,7 @@ export const PLAYER = {
   heartbeat: { bus: 'dry', n: 1, peak: 0.5, loop: true, sr: 22050, gen: heartbeat },
   reel_grab: { bus: 'near', n: 1, peak: 0.3, loop: true, gen: reelGrab },
   reel_secure: { bus: 'dry', n: 1, peak: 0.6, prio: 8, gen: reelSecure },
+  pickup: { bus: 'dry', n: 2, peak: 0.5, prio: 7, max: 2, gap: 0.1, jitter: 0.04, gen: pickup },
 };
 
 export const STEP_SURFACES = SURFACES;

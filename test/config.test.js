@@ -10,6 +10,7 @@ import * as flow from '../src/config/flow.js';
 import * as look from '../src/config/look.js';
 import * as player from '../src/config/player.js';
 import * as quality from '../src/config/quality.js';
+import * as story from '../src/config/story.js';
 import * as text from '../src/config/text.js';
 import * as weapons from '../src/config/weapons.js';
 
@@ -28,32 +29,40 @@ test('flow: holdout formulas', () => {
   near(H.score.killScale(1), 1);
   near(H.score.killScale(6), 1.5);
   assert.equal(H.score.waveClear(4), 2000);
-  assert.deepEqual(H.resupply, { reserve: 90, reserveCap: 240, heal: 35, explosivesEvery: 2 });
+  assert.deepEqual(H.resupply, { share: 1.5, heal: 35, explosivesEvery: 2 });
 });
 
 test('flow: debrief rating points', () => {
   const run = (time, shots, hits, retries) => flow.ratingPoints({ time, shots, hits, retries });
+  // Time is the fighting of four levels (the cutscenes are not on the clock): seven minutes, eleven minutes.
   assert.equal(run(100, 100, 60, 0), 5);
-  assert.equal(run(269.9, 100, 50, 1), 4);
-  assert.equal(run(270, 100, 49, 0), 3); // 1 + 1 + 1
-  assert.equal(run(399, 100, 30, 2), 2);
-  assert.equal(run(400, 100, 29, 3), 0);
-  assert.equal(run(500, 0, 0, 0), 1); // no shots fired: accuracy scores nothing
+  assert.equal(run(419.9, 100, 50, 1), 4);
+  assert.equal(run(420, 100, 49, 0), 3); // 1 + 1 + 1
+  assert.equal(run(659, 100, 30, 2), 2);
+  assert.equal(run(660, 100, 29, 3), 0);
+  assert.equal(run(900, 0, 0, 0), 1); // no shots fired: accuracy scores nothing
   assert.equal(text.ratings.length, 6);
   assert.equal(text.ratings[run(100, 10, 10, 0)], 'Diamond');
 });
 
 test('flow: per-difficulty rows match the design table', () => {
   assert.deepEqual(Object.keys(flow.difficulty), flow.difficulties);
-  assert.equal(flow.defaultDifficulty, 'boss');
+  assert.equal(flow.defaultDifficulty, 'hustler');
+  // regen delay / rate, then per level "patrol b+g → wave b+g", then the alive cap and the pursuit.
+  const pair = (x) => (x ? `${x.buzzard}+${x.goon}` : '-');
   const row = (name) => {
     const d = flow.difficulty[name];
-    const waves = d.waves.map((w) => `${w.buzzard}+${w.goon}`).join(' ');
-    return [d.regen.delay, d.regen.rate, d.patrol.buzzard, d.patrol.goon, waves, d.maxAlive, d.pursuitEvery, d.pursuitBudget];
+    return [d.regen.delay, d.regen.rate, d.levels.map((l) => `${pair(l.patrol)}>${pair(l.wave)}`).join(' '), d.maxAlive, d.pursuitEvery, d.pursuitBudget];
   };
-  assert.deepEqual(row('hustler'), [4, 25, 1, 3, '2+3 2+4 3+5', 9, 7, 5]);
-  assert.deepEqual(row('boss'), [5.5, 16, 2, 4, '2+5 3+6 4+7', 11, 5.5, 8]);
-  assert.deepEqual(row('kingpin'), [7, 10, 2, 5, '3+6 4+7 5+8', 13, 4.5, 12]);
+  assert.deepEqual(row('hustler'), [3, 30, '0+2>1+2 0+3>1+3 1+3>2+3 0+2>-', 8, 8, 4]);
+  assert.deepEqual(row('boss'), [4, 25, '1+3>2+3 1+3>2+4 2+4>3+5 1+3>-', 9, 7, 6]);
+  assert.deepEqual(row('kingpin'), [5.5, 16, '1+4>2+5 2+4>3+6 2+5>4+7 1+4>-', 11, 5.5, 9]);
+  // One row per level of the story; only the last (the run to the truck) has no wave.
+  for (const name of flow.difficulties) {
+    const { levels } = flow.difficulty[name];
+    assert.equal(levels.length, story.levels.length, name);
+    levels.forEach((l, i) => assert.equal(l.wave === null, story.levels[i].goal === 'truck', `${name} level ${i + 1}`));
+  }
   assert.equal(flow.interact.hold, 2.4);
   assert.equal(flow.extraction.radius, 2.5);
   near(flow.pursuit.buzzardShare, 0.35);
@@ -66,18 +75,28 @@ test('enemies: difficulty overlays only touch fields the base tables have', () =
       for (const key of Object.keys(table[part])) assert.ok(key in enemies[part], `${name}.${part}.${key} has no base value`);
     }
   }
-  // Hustler is the base row.
+  // Boss is the base row.
   for (const part of ['buzzard', 'goon', 'ai']) {
-    for (const [key, value] of Object.entries(enemies.difficulty.hustler[part])) assert.deepEqual(enemies[part][key], value, `${part}.${key}`);
+    for (const [key, value] of Object.entries(enemies.difficulty.boss[part])) assert.deepEqual(enemies[part][key], value, `${part}.${key}`);
   }
   const row = ({ buzzard: b, goon: g, ai }) => [
     ...[b.hp, b.boltDamage, b.telegraph, ...b.cooldown, b.spreadFar, b.spreadNear],
     ...[g.hp, g.shotDamage, g.burst, ...g.cooldown, g.spreadFar, g.spreadNear, g.rushDamage, g.runSpeed],
     ...[ai.tokens, ai.tokensCrowd, ai.tokenGap, ai.exposureUp],
   ];
-  assert.deepEqual(row(enemies.difficulty.hustler), [45, 7, 0.55, 1.9, 3.3, 0.065, 0.018, 90, 4, 4, 1.8, 3, 0.12, 0.045, 15, 4.5, 2, 3, 1.25, 0.1]);
-  assert.deepEqual(row(enemies.difficulty.boss), [55, 10, 0.46, 1.4, 2.5, 0.052, 0.016, 110, 6, 5, 1.4, 2.4, 0.095, 0.038, 22, 5, 3, 4, 0.85, 0.14]);
-  assert.deepEqual(row(enemies.difficulty.kingpin), [60, 13, 0.38, 1, 1.9, 0.042, 0.014, 130, 8, 6, 1, 1.9, 0.08, 0.032, 30, 5.4, 4, 5, 0.6, 0.18]);
+  // On Hustler the Vultures are also short-sighted: 32 m against the 45 m of the base table.
+  assert.deepEqual([enemies.difficulty.hustler.ai.sightRange, enemies.ai.sightRange], [32, 45]);
+  // Hustler (the default) is the gentle one: slower, looser, and only one gun on the player at a time.
+  assert.deepEqual(row(enemies.difficulty.hustler), [40, 5, 0.65, 2.4, 3.8, 0.08, 0.024, 80, 3, 3, 2.2, 3.6, 0.14, 0.055, 12, 4.2, 1, 2, 1.6, 0.08]);
+  assert.deepEqual(row(enemies.difficulty.boss), [45, 7, 0.55, 1.9, 3.3, 0.065, 0.018, 90, 4, 4, 1.8, 3, 0.12, 0.045, 15, 4.5, 2, 3, 1.25, 0.1]);
+  assert.deepEqual(row(enemies.difficulty.kingpin), [55, 10, 0.46, 1.4, 2.5, 0.052, 0.016, 110, 6, 5, 1.4, 2.4, 0.095, 0.038, 22, 5, 3, 4, 0.85, 0.14]);
+  // Each step up is harder on every count that matters.
+  const order = flow.difficulties.map((name) => enemies.difficulty[name]);
+  for (let i = 1; i < order.length; i++) {
+    const [a, b] = [order[i - 1], order[i]];
+    assert.ok(b.goon.hp > a.goon.hp && b.goon.shotDamage > a.goon.shotDamage && b.buzzard.boltDamage > a.buzzard.boltDamage);
+    assert.ok(b.ai.tokens > a.ai.tokens && b.ai.tokenGap < a.ai.tokenGap && b.goon.spreadFar < a.goon.spreadFar);
+  }
   assert.deepEqual([enemies.pool.goon, enemies.pool.buzzard, enemies.pool.bodies], [12, 8, 6]);
   assert.deepEqual([enemies.buzzard.burstRadius, enemies.buzzard.burstDamage, enemies.buzzard.burstPlayerScale], [3, 30, 0.5]);
 });
@@ -163,8 +182,24 @@ test('text: every line the design lists is there', () => {
   assert.equal(text.radio.speaker, 'IPX VAULT');
   const R = text.radio;
   const holds = [R.intro, R.contact, ...R.reel, R.lowHealth, R.done, R.waveClear].map((line) => line.secs);
-  assert.deepEqual(holds, [4.4, 3.2, 3.6, 3.6, 4.5, 3, 2.4, 3.4]);
-  assert.equal(text.radio.waveClear.text(7), 'Wave 7 down. Resupply at your feet — 9 seconds.');
+  assert.deepEqual(holds, [4.4, 3.2, 3.6, 3.6, 3.8, 3, 2.4, 3.4]);
+  assert.equal(text.radio.waveClear.text(7), 'Wave 7 down. Fresh ammo on the block — 9 seconds.');
+  // The story: a name, a brief, a first word from the Vault for every level; a line for every gun.
+  const S = text.story;
+  assert.deepEqual(Object.keys(S.levels), story.levels.map((l) => l.id));
+  for (const [id, words] of Object.entries(S.levels)) {
+    assert.ok(words.title === words.title.toUpperCase() && words.title.length > 4, id);
+    assert.ok(words.brief && words.go && words.go.text && words.go.secs > 0, id);
+  }
+  assert.equal(S.levelOf(2, 4), 'LEVEL 2 OF 4');
+  assert.equal(S.stage(2, 'THE CHOP SHOP'), 'LEVEL 2 · THE CHOP SHOP');
+  assert.equal(S.objectives.reach('1', true), 'Get to reel 1 — follow the gold line');
+  assert.equal(S.objectives.reach('1', false), 'Get to reel 1');
+  assert.equal(S.objectives.clear(4), 'Clear the block — 4 Vultures left');
+  assert.equal(S.objectives.clear(1), 'One Vulture left — finish it');
+  assert.equal(S.banners.ambush('EAST'), 'Ambush — EAST');
+  assert.deepEqual(Object.keys(S.speakers), ['vault', 'rule']);
+  for (const id of weapons.common.order) assert.equal(text.weapons[id].name, weapons[id].name, id);
   assert.equal(text.boot.fatal('no WebGL'), 'Murder Inc. could not start: no WebGL');
   // The static first boot line in the page is the one in the text table.
   assert.ok(readFileSync(new URL('../src/page.html', import.meta.url), 'utf8').includes(`<div id="boot-msg">${text.boot.first}</div>`));

@@ -1,13 +1,14 @@
 // The fix-pass checks for flow, input and audio, against the full build with real audio:
 //   1. "Back to title" from the death card: the title has no low-health look and no death muffle.
 //   2. "Back to title" from a debrief reached hurt (25 HP): the same.
-//   3. Hold the Block's full intro: its own tagline and radio line, no reels; Story keeps its briefing.
+//   3. Hold the Block's full intro: its own tagline and radio line, no reels; a Story level says its
+//      name, what it asks for and where to go.
 //   4. A window blur pauses a live run (drag mode and touch have no pointer lock to lose).
 //   5. A real WebGL context loss pauses the run, and the restore leaves the pause card up.
 //   6. The pause card made while the lock is still held says how to get the mouse back.
 //
 //   node build.mjs --dev --out=dist/dev-fix-flow-input-audio.html
-//   node tools/shot.cjs dist/dev-fix-flow-input-audio.html --params "q=test" --size 960x540 --timeout 900 \
+//   node tools/shot.cjs dist/dev-fix-flow-input-audio.html --params "q=test&scenes=0" --size 960x540 --timeout 900 \
 //     --scenario tools/scenarios/flow-fixes.cjs
 // FLOW_NOSHOTS=1 skips the screenshots.
 
@@ -66,8 +67,7 @@ module.exports = async (page, h) => {
   await h.skip(5);
   await h.eval(() => {
     const G = window.__G;
-    G.enemies.clear();
-    for (let i = 0; i < 3; i++) G.game.debugGrab();
+    G.game.debugLevel(3); // the last level: all three reels in hand, the truck ahead
     G.enemies.clear();
     G.game.flow.queue.length = 0;
     const ex = G.level.extraction;
@@ -99,7 +99,8 @@ module.exports = async (page, h) => {
   };
   const text = await h.eval(() => {
     const t = window.__G.config.text;
-    return { tagline: t.location.tagline, holdTag: t.location.taglineHoldout, intro: t.radio.intro.text, holdIntro: t.radio.introHoldout.text };
+    const first = t.story.levels[window.__G.config.story.levels[0].id];
+    return { holdTag: t.location.taglineHoldout, holdIntro: t.radio.introHoldout.text, place: t.story.stage(1, first.title), brief: first.brief, go: first.go.text };
   });
   let it = await intro('holdout');
   check('Hold the Block intro: its own tagline on the location card', it.card.state === 'intro' && it.card.mode === 'holdout' && it.card.tag === text.holdTag && it.card.tag === 'One block. Endless Vultures.', it.card);
@@ -167,11 +168,11 @@ module.exports = async (page, h) => {
   check('paused with the lock still held: the card says Resume locks the mouse back in', held.state === 'paused' && /Resume locks the mouse/.test(held.hint) && held.card.includes(held.hint), held.hint);
   await shot('04-pause-card');
 
-  // ---- Story keeps its briefing ---------------------------------------------------------------------------
+  // ---- A Story level says where Rule is, what it asks for and where to go --------------------------------
   await h.eval(() => window.__G.game.toTitle());
   await h.skip(5);
   it = await intro('mission');
-  check('Story intro: the reels tagline and the Vault briefing', it.card.tag === text.tagline && it.lines.length === 1 && it.lines[0] === text.intro, it);
+  check("Story intro: the level's name and brief on the card, the Vault's directions on the radio", it.card.place === text.place && it.card.tag === text.brief && it.lines.length === 1 && it.lines[0] === text.go, it);
 
   await finish();
 };

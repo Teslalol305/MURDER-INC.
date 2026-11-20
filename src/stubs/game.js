@@ -5,8 +5,9 @@
 // Story: a starting patrol, hold Interact on a master reel to grab it, each reel brings a reinforcement
 // wave, after the third a short pursuit while the player runs for the IPX truck. Hold the Block: growing
 // waves with a breather and a resupply between them, score and local best.
-// Deliberately simple next to the real flow: no radio queue (a new line replaces the old one), a plain
-// camera glide behind the title, and progress on a reel is lost as soon as the player steps away.
+// Deliberately simple next to the real flow: one run with no levels and no cutscenes (the three reels
+// in any order, then the truck), no radio queue (a new line replaces the old one), a plain camera glide
+// behind the title, and progress on a reel is lost as soon as the player steps away.
 //
 // Conventions for whoever replaces this:
 //   - objective:done carries index = how many reels are now secured (1 … total); for a cleared holdout
@@ -22,7 +23,11 @@ export function createGame(G) {
   const camera = G.camera;
   const post = G.render.post;
 
-  const run = { time: 0, reels: 0, total: 3, retries: 0, wave: 0, score: 0, kills: 0, shots: 0, hits: 0 };
+  const run = { time: 0, reels: 0, total: 3, retries: 0, wave: 0, score: 0, kills: 0, shots: 0, hits: 0, level: 0, levels: 1 };
+  // The flow table is written for the story's levels: the stub takes its patrol from the first and a
+  // wave from each one that has one.
+  const patrolOf = (d) => (d.levels && d.levels[0] && d.levels[0].patrol) || d.patrol || { buzzard: 1, goon: 2 };
+  const wavesOf = (d) => (d.levels ? d.levels.map((l) => l.wave).filter(Boolean) : d.waves || [{ buzzard: 1, goon: 2 }]);
   const game = {
     state: 'title',
     mode: G.settings.get('mode'),
@@ -35,6 +40,7 @@ export function createGame(G) {
     retry,
     redeploy,
     toTitle,
+    skipCutscene() {}, // the stub has no cutscenes
     setDifficulty,
     debugGrab,
     update,
@@ -280,7 +286,7 @@ export function createGame(G) {
 
   function spawnPatrol() {
     for (const type of ['buzzard', 'goon']) {
-      for (let i = 0; i < diff.patrol[type]; i++) {
+      for (let i = 0; i < patrolOf(diff)[type]; i++) {
         const point = pickSpawn(type, flow.spawn.patrolMinDistance);
         if (point) G.enemies.spawn(type, point.pos, { alerted: false });
       }
@@ -399,7 +405,8 @@ export function createGame(G) {
     refreshObjective();
     G.events.emit('objective:done', { id: o.id, index: run.reels, total: run.total });
 
-    const wave = diff.waves[Math.min(run.reels, diff.waves.length) - 1];
+    const waves = wavesOf(diff);
+    const wave = waves[Math.min(run.reels, waves.length) - 1];
     const from = queueWave(mixedWave(wave.buzzard, wave.goon), flow.spawn.firstDelay, flow.spawn.stagger);
     G.hud.warn(text.banners.contact(from), flow.spawn.bannerSecs);
     radio(text.radio.reel[Math.min(run.reels, text.radio.reel.length) - 1]);
@@ -479,7 +486,7 @@ export function createGame(G) {
     holdout.breakLeft = H.breather;
     holdout.countdown = H.countdownFrom;
     run.score += H.score.waveClear(n);
-    G.weapon.addReserve(H.resupply.reserve, H.resupply.reserveCap);
+    if (typeof G.weapon.resupply === 'function') G.weapon.resupply(H.resupply.share);
     G.player.heal(H.resupply.heal);
     if (n % H.resupply.explosivesEvery === 0) G.explosives.reset();
     radio(text.radio.waveClear, n);

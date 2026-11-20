@@ -23,8 +23,32 @@ module.exports = async (page, h) => {
     const f = new V(p.forward.x, 0, p.forward.z).normalize();
     const r = new V(-f.z, 0, f.x);
     const at = (ahead, side, up) => new V(p.pos.x + f.x * ahead + r.x * side, p.pos.y + up, p.pos.z + f.z * ahead + r.z * side);
-    const goon = G.enemies.spawn('goon', at(14, 2.2, 0), { passive: true, yaw: p.yaw + Math.PI });
-    const buzzard = G.enemies.spawn('buzzard', at(20, -5, 5.5), { passive: true });
+    // Wherever the level put Rule down: the first spot ahead that is open ground in plain view, a little
+    // off the aim to one side; the Buzzard well off it to the other.
+    const eye = p.eye.clone();
+    const open = (pos, lift) => G.physics.lineOfSight(eye, new V(pos.x, pos.y + lift, pos.z));
+    let ground = null;
+    let side = 0;
+    for (const ahead of [14, 12, 16, 10, 18]) {
+      for (const s of [2.2, -2.2, 1.4, -1.4, 3, -3]) {
+        const c = at(ahead, s, 0);
+        if (!ground && G.physics.nav.isWalkable(c.x, c.z) && open(c, 1.3) && open(c, 0.4)) {
+          ground = c;
+          side = s;
+        }
+      }
+    }
+    let air = null;
+    for (const ahead of [20, 17, 23, 14, 26]) {
+      for (const s of side > 0 ? [-5, -7, -3.5, 6, 8] : [5, 7, 3.5, -6, -8]) {
+        for (const up of [5.5, 4.5, 3.5, 2.8]) {
+          const c = at(ahead, s, up);
+          if (!air && open(c, 0) && !G.physics.overlapsCylinder(c.x, c.z, 0.8, c.y - 0.6, c.y + 0.6)) air = c;
+        }
+      }
+    }
+    const goon = ground ? G.enemies.spawn('goon', ground, { passive: true, yaw: p.yaw + Math.PI }) : null;
+    const buzzard = air ? G.enemies.spawn('buzzard', air, { passive: true }) : null;
     return { goon: !!goon, buzzard: !!buzzard, hp: goon ? goon.hp : 0 };
   });
   if (!setup.goon || !setup.buzzard) problems.push(`could not spawn the targets ${JSON.stringify(setup)}`);
