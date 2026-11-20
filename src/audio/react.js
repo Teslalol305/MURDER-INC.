@@ -296,6 +296,11 @@ export function wireEvents(A) {
       if (!(p.prev === 'paused')) A.muffleTo(0, 0);
       A.music('play');
       A.setAmbState(1);
+    } else if (s === 'cutscene') {
+      // The block under the pictures: no death or low-health muffle left over from the fight, and the
+      // score carries on where it is (the title's theme under the opening, the run's under the rest).
+      if (!(p.prev === 'paused')) A.muffleTo(0, 0);
+      A.setAmbState(0.85);
     } else if (s === 'dead') {
       A.setAmbState(0.7);
     } else if (s === 'complete') {

@@ -202,6 +202,7 @@ export function createGame(G) {
     game.state = next;
     stateTime = 0;
     cardShown = false;
+    if (next !== 'paused') resumeTo = 'playing'; // only a pause remembers where it came from
     const active = next === 'playing' || next === 'intro';
     G.input.setGameplay(active);
     G.hud.show(active);
