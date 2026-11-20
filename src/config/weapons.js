@@ -264,13 +264,13 @@ export const switch9 = {
   dryCooldown: 0.12,
   dryReloadDelay: 0.26,
   reload: {
-    tactical: 1.46,
-    empty: 1.86,
-    magOut: 0.18,
-    magShow: 0.48,
-    magInsert: 0.88,
-    magIn: 1.1,
-    slideRelease: 1.57, // empty only
+    tactical: 1.5,
+    empty: 1.9,
+    magOut: 0.14,
+    magShow: 0.5,
+    magInsert: 0.86,
+    magIn: 1.14,
+    slideRelease: 1.6, // empty only
   },
   spread: {
     hip: 0.014,
@@ -319,9 +319,9 @@ export const switch9 = {
   wallPull: [0.8, 0.32],
   muzzleSmoke: true,
   views: [
-    [0.105, -0.058, -0.36, 0.07, 0.11, -0.18],
-    [0.1, -0.077, -0.44, 0.06, 0.11, -0.2],
-    [0.075, -0.057, -0.33, 0.07, 0.15, -0.16],
+    [0.196, -0.03, -0.4, 0.06, 0.27, 0.1],
+    [0.245, -0.03, -0.5, 0.05, 0.3, 0.1],
+    [0.235, -0.045, -0.42, 0.06, 0.32, 0.1],
   ],
 };
 
