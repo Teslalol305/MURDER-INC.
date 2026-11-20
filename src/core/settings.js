@@ -14,9 +14,12 @@ export const DEFAULTS = Object.freeze({
   mode: 'mission',
   view: 1,
   time: 'day',
+  aimAssist: true, // aiming locks on to the nearest Vulture
+  guide: true, // the line on the ground to the next objective
 });
 
 const oneOf = (list) => (v) => (list.includes(v) ? v : undefined);
+const bool = (v) => (typeof v === 'boolean' ? v : undefined);
 const numberIn = (min, max, round = false) => (v) => {
   const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v;
   if (typeof n !== 'number' || !Number.isFinite(n)) return undefined;
@@ -28,13 +31,15 @@ const numberIn = (min, max, round = false) => (v) => {
 const VALIDATORS = {
   quality: oneOf(['auto', 'low', 'medium', 'high', 'ultra']),
   sens: numberIn(0.2, 3),
-  invertY: (v) => (typeof v === 'boolean' ? v : undefined),
+  invertY: bool,
   volume: numberIn(0, 1),
   fov: numberIn(60, 95, true),
   difficulty: oneOf(['hustler', 'boss', 'kingpin']),
   mode: oneOf(['mission', 'holdout']),
   view: (v) => oneOf([1, 2, 3])(Number(v)),
   time: oneOf(['day', 'night']),
+  aimAssist: bool,
+  guide: bool,
 };
 
 function safeStorage() {

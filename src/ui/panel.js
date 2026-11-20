@@ -19,6 +19,7 @@ export function createPanel(G, hooks) {
   const P = copy.panel;
   const groups = []; // {key, buttons: [{node, value}]}
   const sliders = []; // {key, input, output, spec}
+  const toggles = []; // {key, node}
   let opener = null;
   let open = false;
   let tab = 'settings';
@@ -101,16 +102,20 @@ export function createPanel(G, hooks) {
     input.style.setProperty('--k', `${Math.round(k * 1000) / 10}%`);
   }
 
-  const invertBtn = el('button', { class: 'toggle', type: 'button', 'aria-pressed': 'false' }, el('span', 'toggle-knob'), el('span', 'toggle-text'));
-  invertBtn.addEventListener(
-    'click',
-    click(() => {
-      G.settings.set('invertY', !G.settings.get('invertY'));
-      refresh();
-    }),
-  );
-  const invertLabel = id('lbl');
-  invertBtn.setAttribute('aria-labelledby', invertLabel);
+  /** An on / off switch for a boolean setting. */
+  function toggle(key, label) {
+    const lid = id('lbl');
+    const node = el('button', { class: 'toggle', type: 'button', 'aria-pressed': 'false', 'aria-labelledby': lid }, el('span', 'toggle-knob'), el('span', 'toggle-text'));
+    node.addEventListener(
+      'click',
+      click(() => {
+        G.settings.set(key, !G.settings.get(key));
+        refresh();
+      }),
+    );
+    toggles.push({ key, node });
+    return row(el('div', { class: 'panel-label', id: lid }, label), node, 'is-inline');
+  }
 
   const fsBtn = el('button', { class: 'btn', type: 'button' }, P.fullscreenEnter);
   const fsTarget = document.documentElement;
@@ -133,10 +138,13 @@ export function createPanel(G, hooks) {
   const diffs = G.config.flow.difficulties || ['hustler', 'boss', 'kingpin'];
   pages.settings.append(
     segmented('difficulty', P.difficulty, diffs.map((d) => [d, text.difficulties[d]])),
+    toggle('aimAssist', P.aimAssist),
+    toggle('guide', P.guide),
+    el('p', 'panel-note', P.noteHelp),
     segmented('view', P.view, [1, 2, 3].map((v) => [v, P.views[v]])),
     segmented('quality', P.quality, [['auto', P.auto], ...['low', 'medium', 'high', 'ultra'].map((q) => [q, P.qualities[q]])]),
     slider('sens', P.sens),
-    row(el('div', { class: 'panel-label', id: invertLabel }, P.invertY), invertBtn, 'is-inline'),
+    toggle('invertY', P.invertY),
     slider('volume', P.volume),
     slider('fov', P.fov),
     fsAvailable ? row(el('div', 'panel-label', P.display), fsBtn, 'is-inline') : '', // native append(): never null
@@ -208,9 +216,11 @@ export function createPanel(G, hooks) {
       sl.output.textContent = sl.spec.show(v);
       paintSlider(sl.input, sl.spec);
     }
-    const inv = !!s.get('invertY');
-    invertBtn.setAttribute('aria-pressed', inv ? 'true' : 'false');
-    invertBtn.lastChild.textContent = inv ? P.on : P.off;
+    for (const t of toggles) {
+      const on = !!s.get(t.key);
+      t.node.setAttribute('aria-pressed', on ? 'true' : 'false');
+      t.node.lastChild.textContent = on ? P.on : P.off;
+    }
     const inFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
     if (fsBtn.textContent !== P.fullscreenFail) fsBtn.textContent = inFs ? P.fullscreenExit : P.fullscreenEnter;
     const tierName = P.qualities[activeTier] || activeTier;

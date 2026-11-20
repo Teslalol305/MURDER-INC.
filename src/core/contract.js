@@ -98,7 +98,7 @@ export const MODULES = {
     'pos', 'vel', 'yaw', 'pitch', 'eye', 'forward',
     'health', 'maxHealth', 'alive', 'onGround', 'sprinting', 'crouching', 'speed', 'ads', 'enabled', 'invulnerable',
     'regen.delay', 'regen.rate',
-    'reset()', 'damage()', 'heal()', 'addRecoil()', 'addShake()', 'setFov()', 'surface', 'update()',
+    'reset()', 'damage()', 'heal()', 'addRecoil()', 'turn()', 'addShake()', 'setFov()', 'surface', 'update()',
   ],
   explosives: [
     'items[].type', 'items[].pos', 'items[].hp', 'items[].state', 'items[].box',
@@ -108,7 +108,7 @@ export const MODULES = {
     'current', 'def', 'state', 'mag', 'reserve', 'magSize',
     'other.id', 'other.name', 'other.mag', 'other.reserve',
     'slots[].id', 'slots[].name', 'slots[].kind', 'slots[].mag', 'slots[].reserve', 'slots[].magSize',
-    'spread', 'cue',
+    'spread', 'cue', 'lock.on', 'lock.enemy', 'lock.point',
     'reset()', 'setVisible()', 'setView()', 'addReserve()', 'resupply()', 'drop()', 'update()',
   ],
   enemies: [

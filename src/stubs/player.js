@@ -89,6 +89,7 @@ export function createPlayer(G) {
     damage,
     heal,
     addRecoil,
+    turn,
     addShake() {}, // no screen shake in the stub
     setFov,
     update,
@@ -145,6 +146,13 @@ export function createPlayer(G) {
   function addRecoil(pitch, yaw) {
     player.pitch = clamp(player.pitch + pitch * recoil.keep, -look.pitchLimit, look.pitchLimit);
     player.yaw = wrapAngle(player.yaw + yaw * recoil.keep);
+  }
+
+  /** Turns the aim (the weapon's aim assist): yaw + to the left, pitch + up. Seen from the next update on. */
+  function turn(yaw, pitch = 0) {
+    if (!Number.isFinite(yaw) || !Number.isFinite(pitch)) return;
+    player.yaw = wrapAngle(player.yaw + yaw);
+    player.pitch = clamp(player.pitch + pitch, -look.pitchLimit, look.pitchLimit);
   }
 
   function setFov(deg) {

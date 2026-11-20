@@ -426,9 +426,13 @@ player.health, maxHealth, alive, onGround, sprinting, crouching, speed, ads (0..
 player.regen = {delay, rate}                  written by game per difficulty
 player.reset({pos, yaw}), player.damage(amount, from, kind), player.heal(n)
 player.addRecoil(pitch, yaw), player.addShake(trauma), player.setFov(deg), player.surface (surface underfoot)
+player.turn(yaw, pitch)                       turns the aim by these angles (rad; the weapon's aim assist)
 player.update(dt)                             moves, sets G.camera, emits player:* events
 ```
-When `enabled` is false the player does not move or look, and does not touch the camera (title fly-through, debrief).
+When `enabled` is false the player does not move or look, and does not touch the camera (title fly-through, cutscenes,
+debrief).
+- `turn(yaw, pitch)`: yaw + to the left, pitch + up, clamped like a look. As with a kick the aim vector and the
+  camera are refreshed at once, so a round fired later in the same frame already goes where the view was turned to.
 - `addRecoil(pitch, yaw)` in radians, pitch up and yaw left: 35 % goes into `player.pitch` / `yaw` for good and the aim
   vector is refreshed at once (a second round in the same frame already starts from it); the other 65 % is a view offset
   that snaps on and recentres. `player.forward` and the camera both carry it, so rounds follow the kicked view. Shake
@@ -455,6 +459,7 @@ weapon.mag, weapon.reserve (Infinity for the Nine), weapon.magSize
 weapon.other {id, name, mag, reserve}         the gun `swap` brings up next
 weapon.slots [{id, name, kind, mag, reserve, magSize}]   every gun carried, in weapon-bar order
 weapon.spread (current cone half-angle, rad), weapon.cue ('' | 'reloading' | 'low' | 'reload' | 'empty')
+weapon.lock {on, enemy, point}                the aim-assist lock: what the HUD brackets
 weapon.reset(), weapon.setVisible(on), weapon.setView(1|2|3), weapon.drop()
 weapon.addReserve(n, cap, id)                 n rounds for gun `id`; without an id: every bullet gun with a finite reserve
 weapon.resupply(share = 1, only) → [{id, name, rounds}]   an ammo drop: each gun's own `pickup`, up to its cap
@@ -470,6 +475,11 @@ As built (five guns, `src/config/weapons.js`; all carried from the start of ever
   `src/weapon/rockets.js`, which flies it from the eye and ends in `combat.explode({…, weapon: 'rocket'})` on the
   first thing in its way, within `fuse` metres of a Vulture, or after `life` seconds. Its rounds are not counted as
   shots (accuracy). `weapon.rockets` is the live view (`rounds`, `live`). It reloads by itself after every shot.
+- **Aim assist** (`src/weapon/assist.js`, numbers in `config/weapons.js` `assist`; the `aimAssist` setting, on by
+  default): while the aim action is down and the gun can come up, the view locks onto the Vulture nearest the
+  crosshair that the eye can see (inside a cone, within range) and is held on its chest through `player.turn`,
+  recoil included. A kill passes the lock to the next one near the aim; a hard flick of the look, a moment out of
+  sight or letting the trigger go drops it. `weapon.lock` = `{on, enemy, point}` (`point` in world space).
 - `resupply(share, only)`: `round(pickup.rounds × share)` (at least 1) for every gun with a finite reserve, never
   past `pickup.cap`; `only` is a gun id or a list of ids. The return value lists what was really added: empty means
   the rack was full and the drop should stay where it is.

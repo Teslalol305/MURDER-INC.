@@ -63,6 +63,7 @@ export function createWeapon(G) {
     ],
     spread: def.spread.hip,
     cue: '',
+    lock: { on: false, enemy: null, point: new THREE.Vector3() }, // the stub has no aim assist
     reset,
     setVisible() {}, // nothing to show
     setView() {},

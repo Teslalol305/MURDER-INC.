@@ -8,11 +8,13 @@
 // are hitscan; a gun with a `projectile` (the ROCKET) hands its round to src/weapon/rockets.js instead.
 //
 // One update, in order: rounds in flight → timers → weapon select → melee → reload → timelines (switch,
-// reload, strike) → sprint-lower blend → aim → spread → trigger → public state.
+// reload, strike) → sprint-lower blend → aim (and the aim-assist lock, src/weapon/assist.js) → spread
+// → trigger → public state.
 
 import * as THREE from 'three';
 import * as WEAPONS from '../config/weapons.js';
 import { clamp01, damp, lerp, moveToward, smootherstep } from '../core/util.js';
+import { createAssist } from './assist.js';
 import { createRockets } from './rockets.js';
 import { resetSpring, spring, stepSpring } from './springs.js';
 
@@ -54,6 +56,8 @@ export function createLogic(G, view = NO_VIEW, rockets = createRockets(G)) {
     every: pad.aimEvery ?? 0.05,
     rate: pad.aimRate ?? 14,
   };
+
+  const assist = createAssist(G, config.assist);
 
   const rng = G.rng && typeof G.rng.fork === 'function' ? G.rng.fork('weapon') : null;
   const random = rng ? rng.next : Math.random;
@@ -155,6 +159,8 @@ export function createLogic(G, view = NO_VIEW, rockets = createRockets(G)) {
     slots: order.map((id) => ({ id, name: defs[id].name, kind: defs[id].kind || 'rifle', mag: 0, reserve: 0, magSize: defs[id].magSize })),
     spread: def.spread.hip,
     cue: '',
+    /** The aim-assist lock: {on, enemy, point}. */
+    lock: assist.lock,
     anim,
     rockets,
     reset,
@@ -268,6 +274,7 @@ export function createLogic(G, view = NO_VIEW, rockets = createRockets(G)) {
     weapon.spread = def.spread.hip;
     if (G.input) G.input.aimSlow = 1;
     rockets.reset();
+    assist.reset();
     view.reset(current);
     sync();
   }
@@ -655,6 +662,7 @@ export function createLogic(G, view = NO_VIEW, rockets = createRockets(G)) {
     if (player.alive === false) {
       drop();
       setAim(player, false, dt);
+      assist.reset();
       input.aimSlow = 1;
       sync();
       return;
@@ -706,7 +714,9 @@ export function createLogic(G, view = NO_VIEW, rockets = createRockets(G)) {
     stepSpring(sprint, player.sprinting && !wantsGun ? 1 : 0, common.sprintRate * (wantsGun ? common.sprintHurry : 1), 1, dt);
     sprint.x = clamp01(sprint.x);
 
-    setAim(player, input.down('ads') && !busy() && sprint.x < common.sprintAdsGate, dt);
+    const aiming = input.down('ads') && !busy() && sprint.x < common.sprintAdsGate;
+    setAim(player, aiming, dt);
+    assist.update(dt, player, input, aiming); // before the trigger: this frame's rounds go where the lock points
 
     const s = def.spread;
     const cone =

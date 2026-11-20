@@ -420,21 +420,21 @@ export const melee = {
 };
 
 /**
- * Aim assist (the `aimAssist` setting): pulling the aim trigger locks the view onto the Vulture nearest
- * the crosshair and holds it there while the trigger stays down.
+ * Aim assist (the `aimAssist` setting, src/weapon/assist.js): pulling the aim trigger locks the view
+ * onto the Vulture nearest the crosshair and holds it there while the trigger stays down.
  */
 export const assist = {
   range: 75, // metres
   cone: 0.3, // half-angle (rad) around the crosshair in which a target is picked up…
   coneTouch: 0.42, // …wider under a thumb
-  keep: 0.6, // a locked target is let go past this angle (a hard flick away)
-  snap: 14, // rad/s the view turns while the lock is taken…
+  keep: 0.6, // a lock lets go past this angle; also how far off the aim the next target may be after a kill
+  snap: 14, // 1/s: how fast the view closes on the target while the lock is taken…
   snapSecs: 0.22, // …for this long…
-  track: 7, // …then it follows at up to this rate
+  track: 30, // …then it holds on, recoil included
   lostSecs: 0.45, // out of sight this long: the lock is dropped
-  flick: 0.035, // look input (rad in one frame) that breaks the lock and looks elsewhere
+  flickRate: 2.6, // rad/s of the player's own look that breaks the lock (a hard flick or a full stick)
   reacquire: 0.18, // seconds before a new lock after a kill or a break
-  chest: 0.7, // aim point on a Goon: this share of its height
+  chest: 0.7, // aim point on a Goon without a body pose: this share of its height
 };
 
 /** Rules shared by every gun. */

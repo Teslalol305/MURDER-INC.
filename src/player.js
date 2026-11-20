@@ -288,6 +288,7 @@ export function createPlayer(G) {
     damage,
     heal,
     addRecoil,
+    turn,
     addShake,
     setFov,
     update,
@@ -384,6 +385,17 @@ export function createPlayer(G) {
     recoil.kick(pitch, yaw);
     // The weapon runs after the player in a frame: refresh the aim so a second round fired in the same
     // frame, and this frame's picture, already carry the permanent share.
+    if (player.alive) placeView();
+  }
+
+  /**
+   * Turns the aim by these angles in radians (yaw + to the left, pitch + up): the weapon's aim assist.
+   * Like a kick, it is already in this frame's aim and picture.
+   */
+  function turn(yaw, pitch = 0) {
+    if (!Number.isFinite(yaw) || !Number.isFinite(pitch)) return;
+    player.yaw = wrapAngle(player.yaw + yaw);
+    player.pitch = clamp(player.pitch + pitch, -look.pitchLimit, look.pitchLimit);
     if (player.alive) placeView();
   }
 

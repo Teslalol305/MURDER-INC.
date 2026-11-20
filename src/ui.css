@@ -665,6 +665,66 @@
   opacity: 0.22;
 }
 
+/* ---- Aim-assist lock: four corners on the Vulture the sights are held on ------------------------- */
+
+.hud-lock {
+  --size: 60px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.hud-lock.is-on {
+  opacity: 1;
+}
+
+.hud-lock i {
+  position: absolute;
+  width: calc(var(--size) * 0.26);
+  height: calc(var(--size) * 0.26);
+  border: 0 solid var(--c-red);
+  filter: drop-shadow(0 0 2px var(--shade));
+  transition: transform 0.14s ease-out;
+  transform: translate(0, 0) scale(1.9);
+}
+
+.hud-lock.is-on i {
+  transform: none;
+}
+
+.hud-lock i:nth-child(1) {
+  left: calc(var(--size) * -0.5);
+  top: calc(var(--size) * -0.5);
+  border-width: 2.5px 0 0 2.5px;
+  transform-origin: 0 0;
+}
+
+.hud-lock i:nth-child(2) {
+  right: calc(var(--size) * -0.5);
+  top: calc(var(--size) * -0.5);
+  border-width: 2.5px 2.5px 0 0;
+  transform-origin: 100% 0;
+}
+
+.hud-lock i:nth-child(3) {
+  right: calc(var(--size) * -0.5);
+  bottom: calc(var(--size) * -0.5);
+  border-width: 0 2.5px 2.5px 0;
+  transform-origin: 100% 100%;
+}
+
+.hud-lock i:nth-child(4) {
+  left: calc(var(--size) * -0.5);
+  bottom: calc(var(--size) * -0.5);
+  border-width: 0 0 2.5px 2.5px;
+  transform-origin: 0 100%;
+}
+
 /* ---- Weapon bar and HP (bottom-centre) ---------------------------------------------------------- */
 
 .hud-wbar {

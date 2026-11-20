@@ -5,7 +5,8 @@
 //   top-right     minimap with the zone band, pause and settings buttons beside it
 //   top-centre    banner (hud.warn) with the centre message under it
 //   left-middle   kill feed
-//   centre        crosshair (gap from weapon.spread), hit marker, damage arcs, interaction prompt
+//   centre        crosshair (gap from weapon.spread), hit marker, damage arcs, interaction prompt;
+//                 the aim-assist lock: four red corners on the Vulture the sights are locked to
 //   bottom-centre ammo cue, weapon bar (the five guns: the one in hand wide, the rest as tabs; melee),
 //                 HP bar under it; radio subtitles above
 //   world         objective markers, clamped to the screen edge
@@ -107,6 +108,7 @@ export function createHud(G) {
   const ticks = ['up', 'down', 'left', 'right'].map((d) => el('i', `hud-xh-tick is-${d}`));
   const crosshair = el('div', 'hud-xh', ...ticks, el('i', 'hud-xh-dot'));
   const hit = el('div', 'hud-hit', el('i'), el('i'), el('i'), el('i'));
+  const lockEl = el('div', 'hud-lock', el('i'), el('i'), el('i'), el('i'));
   const arcLayer = el('div', 'hud-arcs');
   const arcs = [];
   for (let i = 0; i < ARC_POOL; i++) {
@@ -167,7 +169,7 @@ export function createHud(G) {
   const hp = el('div', 'hud-hp', el('span', 'hud-hp-label', copy.hud.hp), hpBar, hpNum);
   const wbar = el('div', 'hud-wbar', cue, el('div', 'hud-slots', ...gunIds.map((id) => slots[id].node), slots.melee.node), hp);
 
-  hud.append(arcLayer, markerLayer, badge, mapBox, banner, message, feedEl, crosshair, hit, prompt, wbar);
+  hud.append(arcLayer, markerLayer, lockEl, badge, mapBox, banner, message, feedEl, crosshair, hit, prompt, wbar);
 
   // Radio strip: outside the aria-hidden HUD, a polite live region; it also plays over the debrief.
   const radioSpeaker = el('div', 'radio-speaker');
@@ -212,6 +214,8 @@ export function createHud(G) {
   let gap = -1;
   let zoneKey = '';
   let mapDrawn = -1;
+  let lockOn = false;
+  let lockSize = -1;
 
   const hv = { value: 0, fill: 0, critical: false };
   const scratch = new THREE.Vector3();
@@ -388,6 +392,34 @@ export function createHud(G) {
     if (g === gap) return;
     gap = g;
     setStyle(crosshair, '--gap', `${g}px`);
+  }
+
+  /** The aim-assist lock (weapon.lock): corners around the point the sights are held on. */
+  function updateLock() {
+    const lock = G.weapon && G.weapon.lock;
+    const cam = G.camera;
+    let on = !!(lock && lock.on && cam && G.player.alive);
+    if (on) {
+      scratch.copy(lock.point).applyMatrix4(cam.matrixWorldInverse);
+      if (scratch.z >= -0.2) on = false;
+      else {
+        const dist = -scratch.z;
+        scratch.applyMatrix4(cam.projectionMatrix);
+        const x = Math.round((scratch.x * 0.5 + 0.5) * width);
+        const y = Math.round((-scratch.y * 0.5 + 0.5) * height);
+        // About a body's width at the target's distance, whatever the zoom.
+        const size = Math.round(Math.min(150, Math.max(30, (1.25 * cam.projectionMatrix.elements[5] * height * 0.5) / dist)) / 2) * 2;
+        setStyle(lockEl, 'transform', `translate(${x}px, ${y}px)`);
+        if (size !== lockSize) {
+          lockSize = size;
+          setStyle(lockEl, '--size', `${size}px`);
+        }
+      }
+    }
+    if (on !== lockOn) {
+      lockOn = on;
+      setClass(lockEl, 'is-on', on);
+    }
   }
 
   function updateHit(dt) {
@@ -809,6 +841,7 @@ export function createHud(G) {
       updateCrosshair();
       updateArcs(dt);
       updateMarkers();
+      updateLock();
       updateWeapon();
       updateHealth(dt);
       updatePrompt();
