@@ -41,9 +41,10 @@ Tone: confident, dry, New York. Short sentences. No slurs, no profanity stronger
 | Location card | `Hollis, Queens · Jamaica Ave · 02:14 AM` / `Three reels. One block. No backup.` |
 | Mode: mission | `Story` — "Take back three master reels and reach the IPX truck. About five minutes." |
 | Mode: holdout | `Hold the Block` — "Endless waves that keep growing. Resupply between waves. How long can you hold it down?" |
-| Difficulty | `Hustler` (standard) · `Boss` (default) · `Kingpin` |
+| Difficulty | `Hustler` (default, the easy one) · `Boss` · `Kingpin` (section 9.6) |
 | Weapon 1 | `CHOPPER` — compact automatic carbine, 30 rounds |
 | Weapon 2 | `NINE` — 9 mm pistol, 15 rounds, never runs dry |
+| Weapons 3 / 4 / 5 | `AR-15` · `SWITCH` · `ROCKET` (section 9.5) |
 | Melee | `Pistol whip` / rifle butt (quick strike) |
 | Objective item | `Master reel` — reels `1`, `2`, `3`: "Reel 1 — The Avenue", "Reel 2 — Chop Shop", "Reel 3 — The Cage" |
 | Extraction | `IPX truck` (marker short code `IPX`) |
@@ -99,6 +100,8 @@ Boot lines (in order): "Waking up the block" (static first line), "Warming up th
 5. After the third reel, run to the IPX truck while a finite pursuit keeps spawning. Touch the extraction zone to win.
 6. Death or completion shows a card; retry restarts the whole run. No checkpoints.
 
+(Section 9 replaces this loop with four levels, a checkpoint at each, and cutscenes between them.)
+
 Modes: **Story** (mission) and **Hold the Block** (holdout: endless growing waves, score, local best, resupply between waves).
 State machine: `title → intro → playing ⇄ paused`, `playing → dead`, `playing → complete`.
 All flow timings, the reinforcement pump, the spawn scoring, pursuit, the holdout formulas, rating thresholds and the
@@ -115,6 +118,8 @@ Player and both weapons use the reference numbers unchanged (01, 02), with these
 
 Enemies: the **Buzzard** takes the reference flyer's numbers; the **Goon** takes the reference walker's behaviour with human
 numbers, and Goons are the majority type:
+
+(This is the table as first built. The rows now sit one step down, with a new row under them: section 9.6.)
 
 | | Hustler | Boss (default) | Kingpin |
 |---|---|---|---|
@@ -324,3 +329,128 @@ Procedural sky dome (zenith-to-horizon gradient, sun disc with a soft aureole, a
 DirectionalLight with shadows plus a sky hemisphere light, an environment map captured from the day sky, subtle bloom
 (sun glints, muzzle flashes, chrome), punchy but natural saturation and contrast, light aerial haze as fog. The far city
 is a sunlit skyline: brick blocks, water towers, a couple of distant towers in haze. The El train keeps crossing.
+
+---------------------------------------------------------------------------------------------------
+
+## 9. Direction v3 — a story in four levels
+
+Where this section and an earlier one disagree, this one holds (the earlier ones are kept as the record of what was
+built first). In short: the story is told level by level with cutscenes between, the player is always told what to
+do and shown the way, aiming locks on, there are five guns and ammo to pick up, and the game is easier to win.
+
+### 9.1 The story
+
+- **Four levels on the one block**, in the order of the reels (`src/config/story.js`):
+
+  | # | Level | What it asks | Where it starts | Light |
+  |---|---|---|---|---|
+  | 1 | `THE AVENUE` | Take back the first reel | the foot of the El stairs | as the player chose |
+  | 2 | `THE CHOP SHOP` | Take back the second reel | where reel 1 stood, across from the roll door | as chosen |
+  | 3 | `THE CAGE` | Take back the last reel | the alley outside the shop's side door | after dark |
+  | 4 | `THE TRUCK` | Get the reels to the IPX truck | the cage, reel 3 in hand | after dark |
+
+- **A reel level** runs: *get to the reel* (one marker, the guide line) → hold Interact 2.4 s → the Vultures come for
+  it ("Ambush — EAST") and the level becomes *clear the block*: the objective line counts them down ("Clear the block
+  — 5 Vultures left", "One Vulture left — finish it"), the last three carry a red marker and the guide line turns red
+  and leads to the nearest one when none is near; whoever is left is pointed at Rule every 4 s, so a level never ends
+  in a search. The last one down: "Level clear", 2.4 s, black, the next level.
+- **The last level** is the run: the truck is the one marker, a few Vultures guard it, and a finite pursuit starts
+  three seconds in. Reaching the truck ends the story.
+- **Every level is a checkpoint.** Going down shows the death card with "Retry level": the level starts again with
+  the rack Rule had when it first began and its reel back with the Vultures; `run.retries` counts it. Reaching a new
+  level is a breather: full magazines, one ammo drop's worth, no gun below its starting reserve. The pause card says
+  "Restart level" and has "Back to title".
+- **The level's Vultures** stand at authored posts near its objective, none of which can see the level's start: Rule
+  gets his bearings and the Vault's first word before anyone comes at him.
+- State machine: `title → cutscene → intro → playing ⇄ paused`, `playing → dead`, `playing → cutscene → intro` (the
+  next level), `playing → cutscene → complete`.
+
+### 9.2 Cutscenes
+
+- One before every level and one after the last: **opening**, **shop**, **cage**, **truck**, **ending** (13 to 20 s
+  each). Letterbox bars, the place and the time typed on under the top bar, subtitles above the lower bar, and at the
+  end of a level's scene its title card: `LEVEL 2 OF 4` / `THE CHOP SHOP` / "Take back the second reel". The last
+  scene closes on `AN IPX PRODUCTION` / `MURDER INC.` / `STARRING JA RULE`, then the debrief card.
+- **Two voices** now: `IPX VAULT` (the radio) and `RULE`, who has the last word of every scene. The Vault says what
+  happened and where the next reel is; Rule answers in one line. No voice audio: subtitles only, with the radio squelch
+  for the Vault. All lines are in `text.story.scenes`; the tone rules of section 1 hold.
+- **Camera**: two or three shots per scene, each a straight, slow move between two of the title fly-through's
+  compositions (so every leg is known to clear every collider), the view panning evenly from one direction to the
+  other, a slow zoom on the last shot, a blink of black on every cut, a hand-held breath. An El train is sent over
+  the block on cue in the opening and the ending.
+- The block is alive behind the pictures: the level is already set up, its Vultures patrol their posts (they cannot
+  find Rule while the camera is away), crates and the reel's beacon are in view.
+- **Skipping**: Enter or Space, the gamepad's A or Start, or the Skip button in the lower bar (for a finger, or a mouse
+  that is not captured; its key cap says which key). Ignored for the first 0.9 s. The pause key pauses a scene.
+
+### 9.3 Always shown the way
+
+- **The HUD's badge** carries the level over the objective: `LEVEL 1 · THE AVENUE` / "Get to reel 1 — follow the gold
+  line". One objective at a time, one marker at a time.
+- **The guide line** (setting `Guide line`, on by default): gold chevrons on the ground along the walkable route from
+  Rule to the objective, running toward it, 1.6 m apart for up to 46 m; the same route dotted on the minimap.
+- **How-to lines** in the first level only, one at a time in the centre message: how to aim (and that the sights lock
+  on), how to pick a gun, what the green crates are.
+- The Vault's first word in every level says where to go ("Across the avenue and through the roll door…").
+
+### 9.4 Aim assist
+
+Holding the aim button (setting `Aim assist`, on by default) **locks the sights on to the Vulture nearest the
+crosshair** that Rule can see, within 75 m and a cone of 17° (24° on touch): the view swings onto its chest in about
+a fifth of a second and stays on it, recoil included, so a held burst keeps landing. A kill passes the lock to the
+next one near the aim; a hard flick of the mouse or stick lets go, as does losing sight of it for half a second or
+letting go of the button. The HUD draws four red corners on the locked target. The gamepad's slow-down under the
+crosshair stays as it was.
+
+### 9.5 Five guns, and ammo on the ground
+
+| # | Gun | What it is | Dmg | RPM | Mag / reserve | A drop adds (cap) |
+|---|---|---|---|---|---|---|
+| 1 | `CHOPPER` | compact automatic carbine | 26 | 720 | 30 / 150 | 60 (240) |
+| 2 | `NINE` | 9 mm pistol, semi-automatic | 34 | 420 | 15 / ∞ | — |
+| 3 | `AR-15` | automatic rifle: slower, flatter, far tighter | 31 | 640 | 30 / 120 | 60 (210) |
+| 4 | `SWITCH` | compact polymer 9 mm pistol with an auto-sear and a 33-round stick: full-auto | 19 | 1100 | 33 / 132 | 66 (231) |
+| 5 | `ROCKET` | reloadable shoulder launcher | 240 blast | — | 1 / 3 | 1 (6) |
+
+- All five are carried from the start of every run, in both modes. Keys `1`–`5` pick one, `Q` / wheel down the next,
+  wheel up the one before; the gamepad's `Y` and D-pad step through them; on touch the weapon bar's tabs are buttons.
+  The weapon bar shows the gun in hand as a wide plate and the other four as tabs (pictogram over the rounds in the
+  magazine).
+- The **ROCKET**'s round flies: 62 m/s, straight, from the eye along the aim; it goes off on the first thing in its
+  way, within 0.9 m of a Vulture it would pass, or after 4 s. Blast radius 6.8 m, linear falloff, 30 % to Rule
+  himself. It reloads itself after every shot (2.3 s). Its kills are credited to it in the kill feed; its rounds do
+  not count for accuracy.
+- The **SWITCH** is the full-auto pistol. (The name is the street's word for the conversion; no maker's or model's
+  name is printed anywhere, per section 1.)
+- An emptied magazine is changed by itself 0.6 s after its last round; a dry pull of the trigger brings that on at once.
+- **Ammo crates**: green boxes under a green marker, four or five set out along each level's route. Walking over one
+  gives every gun one drop ("Ammo: every gun topped up"); with a full rack it stays where it is ("Ammo full").
+  **Pouches**: a Goon leaves one 45 % of the time, a Buzzard 25 %, and either always does when the gun in hand is
+  down to a third of its starting reserve; half a drop, bullet guns only; gone after 40 s. Both show as green squares
+  on the minimap. Hold the Block has five crates that refill after every wave, on top of the wave's resupply (a drop
+  and a half for every gun, +35 HP).
+
+### 9.6 Easier
+
+- **Hustler is the default** and a new, gentler row; Boss and Kingpin are what Hustler and Boss used to be. Saved
+  settings keep their difficulty by name, so a saved `Boss` is the old Hustler.
+
+  | | Hustler (default) | Boss | Kingpin |
+  |---|---|---|---|
+  | Buzzard HP / bolt dmg / telegraph / cooldown | 40 / 5 / 0.65 / 2.4–3.8 | 45 / 7 / 0.55 / 1.9–3.3 | 55 / 10 / 0.46 / 1.4–2.5 |
+  | Goon HP / shot dmg / burst / cooldown | 80 / 3 / 3 / 2.2–3.6 | 90 / 4 / 4 / 1.8–3.0 | 110 / 6 / 5 / 1.4–2.4 |
+  | Goon spread far → near (rad) | 0.14 → 0.055 | 0.12 → 0.045 | 0.095 → 0.038 |
+  | Attack tokens (normal / crowd), gap | 1 / 2, 1.6 s | 2 / 3, 1.25 s | 3 / 4, 0.85 s |
+  | Sight range | 32 m | 45 m | 45 m |
+  | Player regen delay / rate | 3 s / 30 per s | 4 s / 25 per s | 5.5 s / 16 per s |
+  | Level 1: patrol → wave (Buzzard + Goon) | 0+2 → 1+2 | 1+3 → 2+3 | 1+4 → 2+5 |
+  | Level 2 | 0+3 → 1+3 | 1+3 → 2+4 | 2+4 → 3+6 |
+  | Level 3 | 1+3 → 2+3 | 2+4 → 3+5 | 2+5 → 4+7 |
+  | Level 4: guards, pursuit interval / budget | 0+2, 8 s / 4 | 1+3, 7 s / 6 | 1+4, 5.5 s / 9 |
+  | Alive cap | 8 | 9 | 11 |
+
+- The measure: `tools/scenarios/story-bot.cjs` is a plain player (follows the guide line, stops when it sees a
+  Vulture, aims, holds the trigger; no cover, no strafing). It must finish the story on Hustler without going down
+  once; the regression run holds it to that.
+- Rating: the time thresholds are 7 and 11 minutes of fighting (the cutscenes are not on the clock).
+
