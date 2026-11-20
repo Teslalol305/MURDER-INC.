@@ -320,8 +320,8 @@ export function zoneLabel(id, z, names) {
 // Weapon bar and health
 // ---------------------------------------------------------------------------------------------
 
-/** "Low" is the last 27 % of a magazine. */
-export const lowAmmo = (mag, magSize) => mag <= Math.ceil(magSize * 0.27);
+/** "Low" is the last 27 % of a magazine. A gun that holds a round or two (the launcher) is loaded or it is not. */
+export const lowAmmo = (mag, magSize) => magSize > 3 && mag <= Math.ceil(magSize * 0.27);
 
 /**
  * The cue line over the weapon bar, from weapon.cue and the device's glyphs.

@@ -21,18 +21,22 @@ const SOURCE = Object.freeze({ type: 'rocket', from: 'player' });
 
 const has = (obj, method) => !!obj && typeof obj[method] === 'function';
 
-/** The round: a tube with a pointed nose, four fins and a nozzle, nose toward −Z, origin at its middle. */
+/**
+ * The round as it flies: the warhead's double cone on its thin neck, the motor tube behind it with four
+ * fins sprung open. Nose toward −Z, origin at the middle of its length (the same shape the launcher shows
+ * standing out of its muzzle: src/weapon/rocket.js).
+ */
 function roundGeometry() {
-  const lie = (geo, z) => geo.rotateX(-Math.PI / 2).translate(0, 0, z);
+  // A frustum lying along the bore: `front` and `back` radii, from z0 (front) to z1 (back).
+  const lie = (front, back, z0, z1) => cylGeo(back, z1 - z0, 10, { radiusTop: front }).rotateX(-Math.PI / 2).translate(0, 0, (z0 + z1) / 2);
   const parts = [
-    lie(cylGeo(0.042, 0.46, 10), 0),
-    lie(cylGeo(0.042, 0.16, 10, { radiusTop: 0.004 }), -0.31),
-    lie(cylGeo(0.03, 0.06, 8, { radiusTop: 0.042 }), 0.26),
+    lie(0.004, 0.013, -0.46, -0.4), // fuze
+    lie(0.013, 0.0425, -0.4, -0.22), // the warhead swelling…
+    lie(0.0425, 0.02, -0.22, -0.02), // …and tapering to its neck
+    lie(0.02, 0.02, -0.02, 0.4), // motor
+    lie(0.02, 0.028, 0.4, 0.46), // nozzle
   ];
-  for (let i = 0; i < 4; i++) {
-    const fin = new THREE.BoxGeometry(0.004, 0.11, 0.12).translate(0, 0.07, 0.19).rotateZ((i * Math.PI) / 2);
-    parts.push(fin);
-  }
+  for (let i = 0; i < 4; i++) parts.push(new THREE.BoxGeometry(0.003, 0.13, 0.11).translate(0, 0.085, 0.33).rotateZ((i * Math.PI) / 2));
   return mergeGeos(parts);
 }
 
@@ -54,7 +58,7 @@ export function createRockets(G) {
     try {
       bodyGeo = roundGeometry();
       // The motor's flame: a hot cone out of the nozzle, long enough to read from across the street.
-      glowGeo = cylGeo(0.085, 0.62, 8, { radiusTop: 0.012 }).rotateX(Math.PI / 2).translate(0, 0, 0.58);
+      glowGeo = cylGeo(0.085, 0.62, 8, { radiusTop: 0.012 }).rotateX(Math.PI / 2).translate(0, 0, 0.77);
       group = new THREE.Group();
       group.name = 'rockets';
       G.scene.add(group);
@@ -79,7 +83,7 @@ export function createRockets(G) {
     };
     if (group) {
       const mesh = new THREE.Group();
-      const body = new THREE.Mesh(bodyGeo, G.mats.get('metal_dark'));
+      const body = new THREE.Mesh(bodyGeo, G.mats.get('paint_green', { color: 0x556030 })); // the warhead's drab olive
       const flame = new THREE.Mesh(glowGeo, G.mats.emissive(0xffb060, 9));
       body.frustumCulled = flame.frustumCulled = false;
       mesh.add(body, flame);
@@ -211,7 +215,7 @@ export function createRockets(G) {
       round.mesh.position.copy(drawn);
       round.mesh.rotateZ(dt * 9); // a slow spin about its own axis
     }
-    tail.copy(drawn).addScaledVector(round.dir, -0.34);
+    tail.copy(drawn).addScaledVector(round.dir, -0.48);
     // The trail: a wisp for every `trail` metres flown, laid back along this step so a slow frame
     // leaves no gap in it. (The first metres are the launcher's own smoke.)
     const fx = G.fx;

@@ -188,7 +188,8 @@ export function createLogic(G, view = NO_VIEW, rockets = createRockets(G)) {
     if (reload) return 'reloading';
     const a = ammo[current];
     if (a.mag === 0) return a.reserve > 0 ? 'reload' : 'empty';
-    return a.mag <= Math.ceil(def.magSize * common.lowAmmoFraction) ? 'low' : '';
+    // (A gun that holds a round or two is loaded or it is not: no "low".)
+    return def.magSize > 3 && a.mag <= Math.ceil(def.magSize * common.lowAmmoFraction) ? 'low' : '';
   }
 
   function stateNow() {

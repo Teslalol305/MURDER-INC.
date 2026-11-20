@@ -863,6 +863,7 @@ test('weapon: five guns on the rack: next, previous, by number, and quick presse
   assert.equal(w.current, 'rocket', 'previous wraps the other way');
   assert.equal(w.def, rocket);
   assert.deepEqual([w.mag, w.reserve, w.magSize], [1, 3, 1]);
+  assert.equal(w.cue, '', 'one round in the tube is a loaded launcher, not "low ammo"');
 
   for (const [n, id, def] of [[3, 'ar15', ar15], [4, 'switch9', switch9], [5, 'rocket', rocket], [2, 'nine', nine], [1, 'chopper', chopper]]) {
     G.draw(n);

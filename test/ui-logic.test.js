@@ -155,6 +155,8 @@ test('zone band names', () => {
 test('ammo: low at 27 %, cue lines per device', () => {
   assert.equal(L.lowAmmo(9, 30), true);
   assert.equal(L.lowAmmo(10, 30), false);
+  assert.equal(L.lowAmmo(1, 1), false, 'a single-round launcher is loaded, not low');
+  assert.equal(L.lowAmmo(9, 33), true);
   const g = { reload: 'R', swap: 'Q' };
   assert.deepEqual(L.cueLine('reload', g, 'kbm', copy.hud.cue), { text: 'R — Reload', alarm: true });
   assert.deepEqual(L.cueLine('reload', g, 'touch', copy.hud.cue), { text: 'Reload', alarm: true });
