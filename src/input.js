@@ -513,7 +513,7 @@ export function createInput(G, env = {}) {
     if (now - lastWheel < T.wheelDebounce) return;
     lastWheel = now;
     wake('kbm');
-    pulse('swap');
+    pulse(e.deltaY > 0 ? 'swap' : 'weaponPrev'); // down: the next gun along the rack; up: the one before
   }
 
   function dropAll() {

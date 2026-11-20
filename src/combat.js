@@ -9,7 +9,8 @@
 //
 // Conventions other modules can rely on:
 //   - enemies.damage(enemy, amount, {point, dir, part, from, weapon}): `from` is 'player', the shooting
-//     enemy object, or 'blast' (then `weapon` is 'blast' too); `weapon` is 'melee' for a strike.
+//     enemy object, or 'blast' (then `weapon` is 'blast' too, or whatever the blast was credited to:
+//     explode({weapon: 'rocket'})); `weapon` is 'melee' for a strike.
 //   - explosives.damage(item, amount, from): `from` is 'player', the shooting enemy object, or 'blast'.
 //     An enemy round always does the same small fixed damage to an explosive.
 //   - player.damage(amount, from, kind): `from` is a fresh Vector3 (the muzzle or the blast centre).
@@ -316,9 +317,10 @@ export function createCombat(G) {
    * Enemies take it in full, the player times `playerScale`, other explosives are damaged too (that is
    * the chain reaction). `source` is whatever blew up (it is skipped) and travels on the `explosion`
    * event; `size` ('small' | 'big') defaults from the radius.
-   * Blast kills count as kills; blast damage is not a hit for accuracy.
+   * Blast kills count as kills; blast damage is not a hit for accuracy. `weapon` is what a kill is
+   * credited to on `enemy:killed` (a gun's id for a round that went off; 'blast' otherwise).
    */
-  function explode({ pos, radius, damage, playerScale = 0.5, source = null, size }) {
+  function explode({ pos, radius, damage, playerScale = 0.5, source = null, size, weapon = 'blast' }) {
     const centre = new THREE.Vector3().copy(pos);
     emit('explosion', {
       pos: centre,
@@ -345,7 +347,7 @@ export function createCombat(G) {
         dir,
         part: 'body',
         from: 'blast',
-        weapon: 'blast',
+        weapon,
       });
       if (out && out.killed) countKill('body');
     }

@@ -177,7 +177,7 @@ export const input = {
   edgeZoneY: 0.1,
   lockTimeout: 1.2, // seconds before falling back to drag mode
   lockRetries: 3, // in drag mode a click still asks for the lock until this many clicks were refused
-  wheelDebounce: 0.28,
+  wheelDebounce: 0.12, // one notch = one gun along the rack
   pad: {
     deadzone: 0.14,
     trigger: 0.35,
@@ -203,7 +203,10 @@ export const input = {
   },
 };
 
-/** Standard-mapping gamepad buttons → actions. X (2) is Interact while a prompt shows; L3 (10) latches sprint. */
+/**
+ * Standard-mapping gamepad buttons → actions. X (2) is Interact while a prompt shows; L3 (10) latches sprint.
+ * `swap` is the next gun along the rack, `weaponPrev` the one before (D-pad: right / up next, left / down back).
+ */
 export const padButtons = {
   0: 'jump',
   1: 'crouch',
@@ -217,9 +220,9 @@ export const padButtons = {
   10: 'sprint',
   11: 'melee',
   12: 'swap',
-  13: 'swap',
-  14: 'weapon1',
-  15: 'weapon2',
+  13: 'weaponPrev',
+  14: 'weaponPrev',
+  15: 'swap',
 };
 
 /** KeyboardEvent.code → action. */
@@ -239,8 +242,14 @@ export const keys = {
   KeyQ: 'swap',
   Digit1: 'weapon1',
   Digit2: 'weapon2',
+  Digit3: 'weapon3',
+  Digit4: 'weapon4',
+  Digit5: 'weapon5',
   Numpad1: 'weapon1',
   Numpad2: 'weapon2',
+  Numpad3: 'weapon3',
+  Numpad4: 'weapon4',
+  Numpad5: 'weapon5',
   Enter: 'fire',
   NumpadEnter: 'fire',
   Escape: 'pause',
@@ -272,8 +281,12 @@ export const glyphs = {
     reload: 'R',
     interact: 'E',
     swap: 'Q',
+    weaponPrev: 'WHEEL',
     weapon1: '1',
     weapon2: '2',
+    weapon3: '3',
+    weapon4: '4',
+    weapon5: '5',
     melee: 'F',
     pause: 'ESC',
   },
@@ -286,8 +299,12 @@ export const glyphs = {
     reload: 'X',
     interact: 'X',
     swap: 'Y',
-    weapon1: '←',
-    weapon2: '→',
+    weaponPrev: '←',
+    weapon1: '',
+    weapon2: '',
+    weapon3: '',
+    weapon4: '',
+    weapon5: '',
     melee: 'RB',
     pause: 'START',
   },
@@ -300,8 +317,12 @@ export const glyphs = {
     reload: 'RLD',
     interact: 'USE',
     swap: 'SWAP',
+    weaponPrev: 'SWAP',
     weapon1: 'SWAP',
     weapon2: 'SWAP',
+    weapon3: 'SWAP',
+    weapon4: 'SWAP',
+    weapon5: 'SWAP',
     melee: 'HIT',
     pause: 'II',
   },

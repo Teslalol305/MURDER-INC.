@@ -158,7 +158,7 @@ test('ammo: low at 27 %, cue lines per device', () => {
   const g = { reload: 'R', swap: 'Q' };
   assert.deepEqual(L.cueLine('reload', g, 'kbm', copy.hud.cue), { text: 'R — Reload', alarm: true });
   assert.deepEqual(L.cueLine('reload', g, 'touch', copy.hud.cue), { text: 'Reload', alarm: true });
-  assert.equal(L.cueLine('empty', g, 'kbm', copy.hud.cue).text, 'Empty — Q swaps');
+  assert.equal(L.cueLine('empty', g, 'kbm', copy.hud.cue).text, 'Empty — Q for the next gun');
   assert.equal(L.cueLine('empty', g, 'touch', copy.hud.cue).text, copy.hud.cue.emptyTouch);
   assert.equal(L.cueLine('low', g, 'kbm', copy.hud.cue).alarm, false);
   assert.equal(L.cueLine('', g, 'kbm', copy.hud.cue).text, '');

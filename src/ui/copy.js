@@ -29,8 +29,8 @@ export const hud = {
     reloading: 'Reloading',
     low: 'Low ammo',
     reload: 'Reload',
-    emptySwap: (glyph) => `Empty — ${glyph} swaps`,
-    emptyTouch: 'Empty — swap',
+    emptySwap: (glyph) => `Empty — ${glyph} for the next gun`,
+    emptyTouch: 'Empty — pick another gun',
   },
   /** Zone band under the minimap, by level zone id (the lot zone splits into the court and the car park). */
   zones: { west: 'West End', avenue: 'The Avenue', shop: 'Chop Shop', cage: 'The Cage', lot: 'The Lot' },
@@ -77,7 +77,8 @@ export const controls = {
       ['Fire', ['LMB']],
       ['Aim', ['RMB']],
       ['Reload', ['R']],
-      ['Swap weapon', ['Q', 'Wheel', '1', '2']],
+      ['Pick a weapon', ['1', '2', '3', '4', '5']],
+      ['Next weapon', ['Q', 'Wheel']],
       ['Grab a reel', ['Hold E']],
       ['Jump', ['Space']],
       ['Sprint', ['Shift']],
@@ -100,7 +101,7 @@ export const controls = {
       ['Fire, left thumb', [{ glyph: 'fire' }], 'the small trigger on the left'],
       ['Aim', [{ glyph: 'ads' }], 'toggles'],
       ['Reload', [{ glyph: 'reload' }]],
-      ['Swap weapon', [{ glyph: 'swap' }], 'or tap a weapon slot'],
+      ['Next weapon', [{ glyph: 'swap' }], 'or tap a weapon on the bar'],
       ['Grab a reel', [{ glyph: 'interact', label: 'USE' }], 'hold it'],
       ['Jump', [{ glyph: 'jump' }]],
       ['Crouch', [{ glyph: 'crouch' }], 'toggles'],
@@ -118,7 +119,8 @@ export const controls = {
       ['Fire', ['RT']],
       ['Aim', ['LT']],
       ['Reload', ['X'], 'hold X at a reel to grab it'],
-      ['Swap weapon', ['Y', 'D-pad']],
+      ['Next weapon', ['Y', 'D-pad right']],
+      ['Previous weapon', ['D-pad left']],
       ['Jump', ['A']],
       ['Crouch', ['B', 'LB']],
       ['Sprint', ['L3']],
@@ -137,7 +139,7 @@ export const glance = [
   ['Fire', ['LMB']],
   ['Aim', ['RMB']],
   ['Reload', ['R']],
-  ['Swap', ['Q']],
+  ['Weapons', ['1', '–', '5']],
   ['Grab', ['Hold E']],
   ['Sprint', ['Shift']],
   ['Crouch', ['C']],
@@ -146,6 +148,6 @@ export const glance = [
 ];
 
 export const glanceOther = [
-  ['Controller', 'Sticks · RT fire · LT aim · X reload · Y swap'],
+  ['Controller', 'Sticks · RT fire · LT aim · X reload · Y next weapon'],
   ['Touch', 'Left thumb moves · right side looks · the bullet button fires'],
 ];

@@ -472,19 +472,21 @@ test('input: mouse look — 0.0021 rad per pixel × sensitivity, invert, glitch 
   assert.equal(env.window.fire('mouseup', { button: 3 }).defaultPrevented, true);
   assert.equal(env.window.fire('mouseup', { button: 0 }).defaultPrevented, false);
 
-  // The wheel swaps, either way, at most once per 0.28 s.
+  // The wheel steps along the rack: down is the next gun, up the one before, at most one step per 0.12 s.
   let wheel = env.window.fire('wheel', { deltaY: 120 });
   assert.equal(wheel.defaultPrevented, true, 'no page scroll, no Ctrl + wheel zoom');
   assert.equal(input.pressed('swap'), true);
+  assert.equal(input.pressed('weaponPrev'), false);
   frame();
   assert.equal(input.pressed('swap'), false);
   env.window.fire('wheel', { deltaY: -120 });
-  assert.equal(input.pressed('swap'), false, 'debounced');
-  env.advance(300);
+  assert.equal(input.pressed('swap') || input.pressed('weaponPrev'), false, 'debounced');
+  env.advance(130);
   env.window.fire('wheel', { deltaY: 0.4 });
-  assert.equal(input.pressed('swap'), false, 'a nudge under one unit');
+  assert.equal(input.pressed('swap') || input.pressed('weaponPrev'), false, 'a nudge under one unit');
   env.window.fire('wheel', { deltaY: -120 });
-  assert.equal(input.pressed('swap'), true);
+  assert.equal(input.pressed('weaponPrev'), true, 'up: the gun before');
+  assert.equal(input.pressed('swap'), false);
   frame();
   input.setGameplay(false);
   env.advance(300);
@@ -773,7 +775,7 @@ test('input: gamepad buttons — the standard mapping, analog triggers, contextu
   const { input, env, frame, G } = setup();
   const pad = gamepad();
   env.navigator.pads = [pad];
-  const map = { 0: 'jump', 1: 'crouch', 4: 'crouch', 3: 'swap', 12: 'swap', 13: 'swap', 5: 'melee', 11: 'melee', 6: 'ads', 7: 'fire', 9: 'pause', 14: 'weapon1', 15: 'weapon2', 2: 'reload' };
+  const map = { 0: 'jump', 1: 'crouch', 4: 'crouch', 3: 'swap', 12: 'swap', 15: 'swap', 13: 'weaponPrev', 14: 'weaponPrev', 5: 'melee', 11: 'melee', 6: 'ads', 7: 'fire', 9: 'pause', 2: 'reload' };
   for (const [index, action] of Object.entries(map)) {
     pad.press(Number(index));
     input.update(DT);

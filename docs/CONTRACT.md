@@ -206,7 +206,7 @@ combat.hitscan({origin, dir, range, damage, from, weapon, headMult = 1}) → res
    and the player (never other enemies). Applies the damage, emits `impact` (and `player:hitEnemy` for player shots).
    result = {type:'none'|'world'|'enemy'|'explosive'|'player', point, normal, dist, surface, enemy, part, killed, box}
 combat.melee({origin, dir, reach, cone, damage}) → result          // nearest enemy in the cone with line of sight
-combat.explode({pos, radius, damage, playerScale = 0.5, source})   // linear falloff, needs line of sight; hurts enemies,
+combat.explode({pos, radius, damage, playerScale = 0.5, source, weapon = 'blast'})   // linear falloff, needs line of sight; hurts enemies,
                                                                     // player (× playerScale) and explosives (chain); emits `explosion`
 combat.stats = {shots, hits, kills, headshots, damageTaken}         // weapon increments shots; combat the rest
 combat.reset()
@@ -382,7 +382,7 @@ Props as built (`src/props.js`, `src/props/*`; nothing here changes the shape ab
 input.move {x, y}                 strafe right +x, forward +y, magnitude ≤ 1
 input.look {dx, dy}               yaw and pitch delta for this frame, radians, already scaled by device, sensitivity and invert
 input.down(action) / input.pressed(action) / input.released(action)
-        actions: fire, ads, jump, sprint, crouch, reload, interact, swap, weapon1, weapon2, melee, pause
+        actions: fire, ads, jump, sprint, crouch, reload, interact, swap, weaponPrev, weapon1 … weapon5, melee, pause
 input.locked, input.mode ('lock' | 'drag'), input.device ('kbm' | 'pad' | 'touch'), input.touch (boolean)
 input.sensitivity, input.invertY, input.aimSlow = 1        look-rate multiplier set by weapon (gamepad aim assist)
 input.requestLock(), input.exitLock(), input.setGameplay(on)   on = gameplay controls active (shows touch controls, grabs keys)
@@ -449,13 +449,30 @@ When `enabled` is false the player does not move or look, and does not touch the
 
 ### 6.5 `G.weapon`  (agent: weapon)
 ```
-weapon.current ('chopper' | 'nine'), weapon.def, weapon.state ('idle'|'firing'|'reloading'|'switching'|'melee'|'lowered')
-weapon.mag, weapon.reserve (Infinity for the Nine), weapon.magSize, weapon.other {id, name, mag, reserve}
+weapon.current ('chopper' | 'nine' | 'ar15' | 'switch9' | 'rocket'), weapon.def
+weapon.state ('idle'|'firing'|'reloading'|'switching'|'melee'|'lowered')
+weapon.mag, weapon.reserve (Infinity for the Nine), weapon.magSize
+weapon.other {id, name, mag, reserve}         the gun `swap` brings up next
+weapon.slots [{id, name, kind, mag, reserve, magSize}]   every gun carried, in weapon-bar order
 weapon.spread (current cone half-angle, rad), weapon.cue ('' | 'reloading' | 'low' | 'reload' | 'empty')
-weapon.reset(), weapon.setVisible(on), weapon.setView(1|2|3), weapon.addReserve(n, cap), weapon.drop()
+weapon.reset(), weapon.setVisible(on), weapon.setView(1|2|3), weapon.drop()
+weapon.addReserve(n, cap, id)                 n rounds for gun `id`; without an id: every bullet gun with a finite reserve
+weapon.resupply(share = 1, only) → [{id, name, rounds}]   an ammo drop: each gun's own `pickup`, up to its cap
 weapon.update(dt)                             reads input; fires through G.combat.hitscan; writes player.ads; drives fx and events
 ```
 Viewmodel and arms are built in code and live in `G.vmScene`. Rule's forearms: bare, brown skin, a gold watch.
+As built (five guns, `src/config/weapons.js`; all carried from the start of every run):
+- `common.order` is the rack and the weapon bar: CHOPPER, NINE, AR-15, SWITCH (a full-auto 9 mm pistol), ROCKET.
+  A gun's `kind` (`rifle` | `pistol` | `launcher`) picks its casing, foley and flash. Input: `weapon1` … `weapon5`
+  draw a gun directly, `swap` the next one along, `weaponPrev` the one before; presses made while a gun is on its
+  way down only change which one comes up.
+- The ROCKET does not go through `combat.hitscan`: a gun with a `projectile` hands its round to
+  `src/weapon/rockets.js`, which flies it from the eye and ends in `combat.explode({…, weapon: 'rocket'})` on the
+  first thing in its way, within `fuse` metres of a Vulture, or after `life` seconds. Its rounds are not counted as
+  shots (accuracy). `weapon.rockets` is the live view (`rounds`, `live`). It reloads by itself after every shot.
+- `resupply(share, only)`: `round(pickup.rounds × share)` (at least 1) for every gun with a finite reserve, never
+  past `pickup.cap`; `only` is a gun id or a list of ids. The return value lists what was really added: empty means
+  the rack was full and the drop should stay where it is.
 
 ### 6.6 `G.enemies`  (agent: enemies)
 ```

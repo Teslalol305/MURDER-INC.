@@ -14,7 +14,7 @@ import { createWeapon } from '../src/weapon.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const DT = 1 / 60;
-const { chopper, nine, melee, common } = weapons;
+const { chopper, nine, ar15, switch9, rocket, melee, common } = weapons;
 
 function near(actual, expected, eps, label = '') {
   assert.ok(Math.abs(actual - expected) <= eps, `${label} expected ${expected} ± ${eps}, got ${actual}`);
@@ -60,6 +60,7 @@ function setup() {
   for (const name of ['weapon:fire', 'weapon:reload', 'weapon:dry', 'weapon:switch', 'weapon:melee', 'weapon:swing']) {
     events.on(name, (e) => log.push([name, e]));
   }
+  const blasts = []; // every combat.explode() call
   const G = {
     THREE,
     params: {},
@@ -102,7 +103,11 @@ function setup() {
         this.strikes.push({ ...spec, at: G.clock });
         return { type: this.strikeLands ? 'enemy' : 'none' };
       },
+      explode(spec) {
+        blasts.push({ ...spec, pos: spec.pos.clone(), at: G.clock });
+      },
     },
+    blasts,
     fx: {
       tracers: [],
       flashes: [],
@@ -126,11 +131,12 @@ function setup() {
         },
       },
     },
-    wallAt: Infinity, // distance of the wall the forward probe sees
+    wallAt: Infinity, // a wall across the street this far down −Z from the origin
     physics: {
       raycast: (origin, dir, maxDist, out) => {
-        if (!(G.wallAt <= maxDist)) return null;
-        out.dist = G.wallAt;
+        const dist = dir.z < 0 ? (origin.z + G.wallAt) / -dir.z : Infinity;
+        if (!(dist >= 0 && dist <= maxDist)) return null;
+        out.dist = dist;
         return out;
       },
     },
@@ -151,11 +157,18 @@ function setup() {
   G.shots = () => G.combat.rays.length;
   G.names = (name) => log.filter((e) => e[0] === name).map((e) => e[1]);
   G.phases = () => G.names('weapon:reload').map((e) => e.phase);
-  /** Swaps to the other gun and waits for the draw to finish. */
+  /** Swaps to the next gun and waits for the draw to finish. */
   G.swap = () => {
     G.input.tap('swap');
     G.run(common.holster + common.draw + 0.05);
   };
+  /** Draws gun number n (1-based, the order of the weapon bar) and waits for it. */
+  G.draw = (n) => {
+    G.input.tap(`weapon${n}`);
+    G.run(common.holster + common.draw + 0.05);
+  };
+  /** The weapon bar's entry for a gun. */
+  G.slot = (id) => G.weapon.slots.find((slot) => slot.id === id);
   /** Fires n single rounds (works for both guns), then lets the gun settle. */
   G.fire = (n) => {
     const before = G.shots();
@@ -180,6 +193,17 @@ test('weapon: exposes the contract and starts with a full Chopper', () => {
   assert.equal(w.def, chopper);
   assert.deepEqual([w.mag, w.reserve, w.magSize], [30, 150, 30]);
   assert.deepEqual(w.other, { id: 'nine', name: 'NINE', mag: 15, reserve: Infinity });
+  assert.deepEqual(
+    w.slots.map((slot) => [slot.id, slot.name, slot.kind, slot.mag, slot.reserve, slot.magSize]),
+    [
+      ['chopper', 'CHOPPER', 'rifle', 30, 150, 30],
+      ['nine', 'NINE', 'pistol', 15, Infinity, 15],
+      ['ar15', 'AR-15', 'rifle', 30, 120, 30],
+      ['switch9', 'SWITCH', 'pistol', 33, 132, 33],
+      ['rocket', 'ROCKET', 'launcher', 1, 3, 1],
+    ],
+    'all five guns are carried from the start',
+  );
   assert.equal(w.state, 'idle');
   assert.equal(w.cue, '');
   near(w.spread, chopper.spread.hip, 1e-12);
@@ -362,8 +386,11 @@ test('weapon: an empty reload takes longer, and the reserve runs out for the Cho
   w.addReserve(90, 240);
   w.addReserve(90, 240);
   w.addReserve(90, 240);
-  assert.equal(w.other.reserve, 240, 'capped');
+  assert.equal(G.slot('chopper').reserve, 240, 'capped');
   assert.equal(w.reserve, Infinity, 'the Nine is untouched');
+  assert.equal(G.slot('rocket').reserve, 3, 'rounds for the launcher do not come by the hundred');
+  w.addReserve(2, 6, 'rocket');
+  assert.equal(G.slot('rocket').reserve, 5, 'unless they are asked for by name');
 
   // The Nine never runs dry.
   G.fire(15);
@@ -399,7 +426,7 @@ test('weapon: a cancelled reload keeps the rounds only if the magazine was seate
   assert.deepEqual(G.phases(), ['start', 'magout', 'cancel']);
   G.run(1);
   assert.equal(w.current, 'nine');
-  assert.deepEqual([w.other.mag, w.other.reserve], [18, 150]);
+  assert.deepEqual([G.slot('chopper').mag, G.slot('chopper').reserve], [18, 150]);
 
   // Switching away after it is seated: the rounds are in the gun.
   const H = setup();
@@ -409,7 +436,7 @@ test('weapon: a cancelled reload keeps the rounds only if the magazine was seate
   H.input.tap('swap');
   H.run(1);
   assert.deepEqual(H.phases(), ['start', 'magout', 'magin', 'cancel']);
-  assert.deepEqual([H.weapon.other.mag, H.weapon.other.reserve], [30, 138]);
+  assert.deepEqual([H.slot('chopper').mag, H.slot('chopper').reserve], [30, 138]);
 
   // A melee strike cancels a reload too.
   const M = setup();
@@ -688,7 +715,8 @@ test('weapon: switching takes 0.28 + 0.32 s, keeps each magazine and can be reve
   assert.equal(w.current, 'nine');
   assert.equal(w.def, nine);
   assert.deepEqual([w.mag, w.reserve, w.magSize], [15, Infinity, 15]);
-  assert.deepEqual(w.other, { id: 'chopper', name: 'CHOPPER', mag: 23, reserve: 150 });
+  assert.deepEqual(w.other, { id: 'ar15', name: 'AR-15', mag: 30, reserve: 120 }, 'the next one along the rack');
+  assert.deepEqual([G.slot('chopper').mag, G.slot('chopper').reserve], [23, 150]);
   G.run(common.draw - 4 * DT);
   assert.equal(w.state, 'switching');
   assert.equal(G.shots(), 7, 'no firing mid-switch');
@@ -712,7 +740,7 @@ test('weapon: switching takes 0.28 + 0.32 s, keeps each magazine and can be reve
   // Changing your mind on the way down: the same gun comes straight back, faster than a full switch.
   G.input.tap('swap');
   G.run(0.14);
-  G.input.tap('swap');
+  G.input.tap('weapon1');
   G.step(1);
   assert.equal(w.state, 'switching');
   G.run(common.draw * 0.5 + 2 * DT);
@@ -798,7 +826,154 @@ test('weapon: a melee strike lands at 0.16 s, lasts 0.55 s and needs 0.75 s betw
   G.run(melee.duration);
   assert.equal(w.state, 'switching');
   G.run(1);
-  assert.equal(w.current, 'chopper');
+  assert.equal(w.current, 'ar15');
+});
+
+test('weapon: five guns on the rack: next, previous, by number, and quick presses run through it', () => {
+  const G = setup();
+  const w = G.weapon;
+  const seen = [];
+  for (let i = 0; i < 5; i++) {
+    G.swap();
+    seen.push(w.current);
+  }
+  assert.deepEqual(seen, ['nine', 'ar15', 'switch9', 'rocket', 'chopper'], 'swap steps to the next gun and wraps');
+
+  G.input.tap('weaponPrev');
+  G.run(common.holster + common.draw + 0.05);
+  assert.equal(w.current, 'rocket', 'previous wraps the other way');
+  assert.equal(w.def, rocket);
+  assert.deepEqual([w.mag, w.reserve, w.magSize], [1, 3, 1]);
+
+  for (const [n, id, def] of [[3, 'ar15', ar15], [4, 'switch9', switch9], [5, 'rocket', rocket], [2, 'nine', nine], [1, 'chopper', chopper]]) {
+    G.draw(n);
+    assert.equal(w.current, id, `key ${n}`);
+    assert.equal(w.def, def);
+    assert.equal(w.magSize, def.magSize);
+  }
+
+  // Three quick presses: the gun in hand goes down once and the third one along comes up.
+  const before = G.names('weapon:switch').length;
+  G.input.tap('swap');
+  G.step(2);
+  G.input.tap('swap');
+  G.step(2);
+  G.input.tap('swap');
+  G.step(1);
+  assert.equal(w.state, 'switching');
+  assert.equal(w.current, 'chopper', 'still on its way down');
+  G.run(common.holster + common.draw + 0.05);
+  assert.equal(w.current, 'switch9');
+  assert.equal(w.state, 'idle');
+  assert.deepEqual(G.names('weapon:switch').slice(before), [
+    { from: 'chopper', to: 'nine', phase: 'holster' },
+    { from: 'chopper', to: 'switch9', phase: 'draw' },
+  ]);
+});
+
+test('weapon: the AR-15 and the SWITCH are automatics with their own rate, magazine and reserve', () => {
+  for (const [n, def] of [[3, ar15], [4, switch9]]) {
+    const G = setup();
+    const w = G.weapon;
+    G.draw(n);
+    assert.equal(w.def, def);
+    G.input.hold('fire');
+    G.run(1);
+    G.input.release('fire');
+    const perSecond = def.rpm / 60;
+    assert.ok(Math.abs(G.shots() - perSecond) <= 1.01, `${def.name}: ${G.shots()} rounds in a second, wanted about ${perSecond}`);
+    assert.equal(w.mag, def.magSize - G.shots());
+    assert.ok(G.combat.rays.every((ray) => ray.weapon === def.id && ray.damage === def.damage && ray.range === def.range));
+    assert.deepEqual(new Set(G.fx.shells), new Set([def.kind === 'pistol' ? 'pistol' : 'rifle']));
+
+    // Run it dry: the reload brings a full magazine out of the gun's own reserve.
+    G.input.hold('fire');
+    G.run(def.magSize / perSecond + 0.5);
+    G.input.release('fire');
+    assert.equal(G.shots(), def.magSize);
+    G.run(def.reload.empty + def.dryReloadDelay + 0.3);
+    assert.deepEqual([w.mag, w.reserve], [def.magSize, def.reserve - def.magSize], def.name);
+    assert.equal(w.state, 'idle');
+    assert.equal(G.slot('chopper').reserve, chopper.reserve, 'every gun draws on its own reserve');
+  }
+});
+
+test('weapon: the ROCKET sends a round that flies and goes off on what it meets', () => {
+  const G = setup();
+  const w = G.weapon;
+  G.draw(5);
+  G.wallAt = 40; // metres ahead of the eye
+  G.input.tap('fire');
+  G.step(1);
+  assert.equal(G.shots(), 0, 'no ray: the round travels');
+  assert.equal(G.combat.stats.shots, 0, 'and is not counted for accuracy');
+  assert.deepEqual(G.names('weapon:fire').map((e) => e.weapon), ['rocket']);
+  assert.equal(w.rockets.live, 1);
+  assert.equal(w.mag, 0);
+  assert.deepEqual(G.fx.shells, [], 'nothing to eject');
+  assert.equal(G.blasts.length, 0);
+
+  // 40 m at 62 m/s: a little under two thirds of a second.
+  G.run(40 / rocket.projectile.speed - 0.05);
+  assert.equal(G.blasts.length, 0, 'still in the air');
+  G.run(0.1);
+  assert.equal(G.blasts.length, 1);
+  assert.equal(w.rockets.live, 0);
+  const blast = G.blasts[0];
+  assert.deepEqual([blast.radius, blast.damage, blast.playerScale], [rocket.projectile.radius, rocket.damage, rocket.projectile.playerScale]);
+  assert.equal(blast.weapon, 'rocket', 'a kill by the blast is credited to the launcher');
+  near(blast.pos.z, -40, 0.5, 'at the wall');
+  assert.ok(blast.pos.z > -40, 'a little short of it, so the wall does not shield the blast');
+
+  // One round in the tube: the next one is reached for at once, out of the reserve.
+  assert.equal(w.state, 'reloading');
+  G.run(rocket.reload.empty + rocket.reloadAfterShot);
+  assert.deepEqual([w.mag, w.reserve], [1, 2]);
+  assert.equal(w.state, 'idle');
+  assert.deepEqual(G.phases(), ['start', 'magout', 'magin', 'done']);
+
+  // With nothing in the way it goes off by itself when its motor is spent.
+  G.wallAt = Infinity;
+  G.input.tap('fire');
+  G.run(rocket.projectile.life - 0.1);
+  assert.equal(G.blasts.length, 1);
+  G.run(0.2);
+  assert.equal(G.blasts.length, 2);
+  near(G.blasts[1].pos.z, -rocket.projectile.speed * rocket.projectile.life, 3);
+
+  // A new run clears the air without a blast.
+  G.run(rocket.reload.empty + 0.1);
+  assert.deepEqual([w.mag, w.reserve], [1, 1]);
+  G.input.tap('fire');
+  G.step(2);
+  assert.equal(w.rockets.live, 1);
+  w.reset();
+  assert.equal(w.rockets.live, 0);
+  G.run(1);
+  assert.equal(G.blasts.length, 2);
+});
+
+test('weapon: an ammo drop tops up every gun by its own measure, up to its own cap', () => {
+  const G = setup();
+  const w = G.weapon;
+  assert.deepEqual(w.resupply(), [
+    { id: 'chopper', name: 'CHOPPER', rounds: chopper.pickup.rounds },
+    { id: 'ar15', name: 'AR-15', rounds: ar15.pickup.rounds },
+    { id: 'switch9', name: 'SWITCH', rounds: switch9.pickup.rounds },
+    { id: 'rocket', name: 'ROCKET', rounds: rocket.pickup.rounds },
+  ]);
+  assert.equal(w.reserve, chopper.reserve + chopper.pickup.rounds);
+  assert.equal(G.slot('nine').reserve, Infinity, 'the Nine needs none');
+
+  // Half a drop, for one gun only.
+  assert.deepEqual(w.resupply(0.5, 'ar15'), [{ id: 'ar15', name: 'AR-15', rounds: ar15.pickup.rounds / 2 }]);
+  assert.deepEqual(w.resupply(0.4, ['switch9']), [{ id: 'switch9', name: 'SWITCH', rounds: Math.round(switch9.pickup.rounds * 0.4) }]);
+
+  // Up to the cap and no further; a full rack takes nothing.
+  for (let i = 0; i < 12; i++) w.resupply();
+  for (const def of [chopper, ar15, switch9, rocket]) assert.equal(G.slot(def.id).reserve, def.pickup.cap, def.name);
+  assert.deepEqual(w.resupply(), []);
+  assert.deepEqual(w.resupply(0), []);
 });
 
 test('weapon: dropped on death, back in hand after reset', () => {

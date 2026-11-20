@@ -6,7 +6,8 @@
 //   top-centre    banner (hud.warn) with the centre message under it
 //   left-middle   kill feed
 //   centre        crosshair (gap from weapon.spread), hit marker, damage arcs, interaction prompt
-//   bottom-centre ammo cue, weapon bar (CHOPPER · NINE · melee), HP bar under it; radio subtitles above
+//   bottom-centre ammo cue, weapon bar (the five guns: the one in hand wide, the rest as tabs; melee),
+//                 HP bar under it; radio subtitles above
 //   world         objective markers, clamped to the screen edge
 //
 // Every per-frame write is change-detected (src/ui/dom.js setText / setStyle / setClass) and anything that
@@ -14,7 +15,7 @@
 
 import * as copy from './ui/copy.js';
 import { applyBrand, bullet, el, ipxMark, reducedMotion, setClass, setStyle, setText } from './ui/dom.js';
-import { chopperGlyph, damageArc, fistGlyph, gearGlyph, nineGlyph, pauseGlyph, promptRing } from './ui/glyphs.js';
+import { ar15Glyph, chopperGlyph, damageArc, fistGlyph, gearGlyph, nineGlyph, pauseGlyph, promptRing, rocketGlyph, switchGlyph } from './ui/glyphs.js';
 import {
   HIT_TIERS,
   arcOpacity,
@@ -47,6 +48,8 @@ const BANNER_SECS = 3.4;
 const GHOST_HOLD = 0.45; // the lost-health ghost waits this long before it drains
 const MAX_PIPS = 60;
 const MAX_BLOCKS = 24; // screen boxes an edge pin keeps out of (feed, badge, map, thumb controls)
+/** The pictogram of each gun, by id: weapon bar and kill feed. A gun without one gets the Chopper's. */
+const GUN_GLYPHS = { chopper: chopperGlyph, nine: nineGlyph, ar15: ar15Glyph, switch9: switchGlyph, rocket: rocketGlyph };
 
 export function createHud(G) {
   const brand = G.config.brand;
@@ -130,35 +133,39 @@ export function createHud(G) {
 
   // Weapon bar + HP (bottom-centre)
   const cue = el('div', 'hud-cue');
-  function slot(id, glyph, key) {
+  function slot(id, glyph, key, kind = '') {
     const name = el('span', 'hud-slot-name');
-    const count = el('span', 'hud-slot-count num');
+    const inMag = el('span', 'hud-slot-mag');
+    const rest = el('span', 'hud-slot-rest'); // " / reserve": a tab shows the magazine only
+    const count = el('span', 'hud-slot-count num', inMag, rest);
     const keycap = el('span', 'hud-slot-key');
     const pips = el('span', 'hud-pips');
     const node = el(
       'button',
-      { class: `hud-slot is-${id}`, type: 'button', tabindex: '-1', 'data-slot': id },
+      { class: `hud-slot is-${id}${kind ? ` is-gun is-${kind}` : ''}`, type: 'button', tabindex: '-1', 'data-slot': id },
       el('span', 'hud-slot-art', glyph),
       el('span', 'hud-slot-info', name, count),
       keycap,
       pips,
     );
-    return { id, key, node, name, count, keycap, pips, pipEls: [], pipCount: -1, spent: -1 };
+    return { id, key, node, name, count, inMag, rest, keycap, pips, pipEls: [], pipCount: -1, spent: -1 };
   }
-  const slots = {
-    chopper: slot('chopper', chopperGlyph(), 'weapon1'),
-    nine: slot('nine', nineGlyph(), 'weapon2'),
-    melee: slot('melee', fistGlyph(), 'melee'),
-  };
-  setText(slots.chopper.name, text.weapons.chopper.name);
-  setText(slots.nine.name, text.weapons.nine.name);
+  // One slot per gun carried (config/weapons.js `common.order`), then the fist.
+  const gunIds = G.config.weapons.common.order.filter((id) => G.config.weapons[id]);
+  const slots = {};
+  gunIds.forEach((id, i) => {
+    const def = G.config.weapons[id];
+    slots[id] = slot(id, (GUN_GLYPHS[id] || chopperGlyph)(), `weapon${i + 1}`, def.kind || 'rifle');
+    setText(slots[id].name, (text.weapons[id] && text.weapons[id].name) || def.name);
+  });
+  slots.melee = slot('melee', fistGlyph(), 'melee');
   setText(slots.melee.name, copy.hud.melee);
   const hpNum = el('span', 'hud-hp-num num');
   const hpFill = el('i', 'hud-hp-fill');
   const hpGhost = el('i', 'hud-hp-ghost');
   const hpBar = el('div', 'hud-hp-bar', hpGhost, hpFill);
   const hp = el('div', 'hud-hp', el('span', 'hud-hp-label', copy.hud.hp), hpBar, hpNum);
-  const wbar = el('div', 'hud-wbar', cue, el('div', 'hud-slots', slots.chopper.node, slots.nine.node, slots.melee.node), hp);
+  const wbar = el('div', 'hud-wbar', cue, el('div', 'hud-slots', ...gunIds.map((id) => slots[id].node), slots.melee.node), hp);
 
   hud.append(arcLayer, markerLayer, badge, mapBox, banner, message, feedEl, crosshair, hit, prompt, wbar);
 
@@ -273,7 +280,7 @@ export function createHud(G) {
 
   /** Keeps a press on a HUD control from also reaching the game (fire, look, pointer lock). */
   const swallow = (e) => e.stopPropagation();
-  for (const node of [pauseBtn, gearBtn, slots.chopper.node, slots.nine.node, slots.melee.node]) {
+  for (const node of [pauseBtn, gearBtn, ...Object.values(slots).map((s) => s.node)]) {
     node.addEventListener('pointerdown', swallow);
     node.addEventListener('mousedown', swallow);
     node.addEventListener('touchstart', swallow, { passive: true });
@@ -499,7 +506,8 @@ export function createHud(G) {
   }
 
   function slotAmmo(s, mag, reserve, magSize, active) {
-    setText(s.count, `${mag} / ${reserveText(reserve)}`);
+    setText(s.inMag, String(mag));
+    setText(s.rest, ` / ${reserveText(reserve)}`);
     setClass(s.node, 'is-low', active && mag > 0 && lowAmmo(mag, magSize));
     setClass(s.node, 'is-empty', active && mag <= 0);
     // The pip row: one per round of the magazine, spent ones dimmed. Built once per magazine size.
@@ -528,15 +536,19 @@ export function createHud(G) {
     const device = input.device || 'kbm';
     if (!w || !w.def) return;
     const current = w.current;
-    for (const id of ['chopper', 'nine']) {
+    const rack = Array.isArray(w.slots) ? w.slots : null;
+    for (let i = 0; i < gunIds.length; i++) {
+      const id = gunIds[i];
       const s = slots[id];
       const active = current === id;
       setClass(s.node, 'is-active', active && w.state !== 'melee');
+      setClass(s.node, 'is-current', active);
+      const mine = rack && rack.find((r) => r.id === id);
       if (active) slotAmmo(s, w.mag, w.reserve, w.magSize, true);
-      else if (w.other && w.other.id === id) {
-        const size = (G.config.weapons[id] && G.config.weapons[id].magSize) || 30;
-        slotAmmo(s, w.other.mag, w.other.reserve, size, false);
-      }
+      else if (mine) slotAmmo(s, mine.mag, mine.reserve, mine.magSize, false);
+      else if (w.other && w.other.id === id) slotAmmo(s, w.other.mag, w.other.reserve, G.config.weapons[id].magSize || 30, false);
+      // A gun with nothing left in it or behind it reads as spent on its tab.
+      setClass(s.node, 'is-dry', !active && !!mine && mine.mag <= 0 && !(mine.reserve > 0));
       setText(s.keycap, device === 'touch' ? '' : input.glyph(s.key));
     }
     setClass(slots.melee.node, 'is-active', w.state === 'melee');
@@ -572,7 +584,7 @@ export function createHud(G) {
       feedVersion = feed.version();
       feedEl.replaceChildren();
       for (const line of feed.lines) {
-        const glyph = line.weapon === 'chopper' ? chopperGlyph() : line.weapon === 'nine' ? nineGlyph() : line.weapon === 'melee' ? fistGlyph() : null;
+        const glyph = GUN_GLYPHS[line.weapon] ? GUN_GLYPHS[line.weapon]() : line.weapon === 'melee' ? fistGlyph() : null;
         const node = el('div', 'hud-feed-line', glyph ? el('span', 'hud-feed-gl', glyph) : null, el('span', 'hud-feed-text', line.text), line.tag ? el('span', 'hud-feed-tag', line.tag) : null);
         line.node = node;
         line.op = 1;

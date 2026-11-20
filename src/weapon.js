@@ -1,7 +1,8 @@
-// G.weapon (CONTRACT 6.5): the CHOPPER and the NINE.
+// G.weapon (CONTRACT 6.5): the CHOPPER, the NINE, the AR-15, the SWITCH and the ROCKET.
 //
 //   weapon/logic.js      the rules: ammo, fire control, spread, recoil, aim, reload, switching, melee
-//   weapon/viewmodel.js  what the player sees: both guns, Rule's arms, every animation, muzzle flash
+//   weapon/rockets.js    the launcher's rounds in flight, ending in combat.explode
+//   weapon/viewmodel.js  what the player sees: the guns, Rule's arms, every animation, muzzle flash
 //
 // The rules run without the viewmodel (unit tests, or a viewmodel that failed to build): the game then
 // plays the same, only with empty hands.

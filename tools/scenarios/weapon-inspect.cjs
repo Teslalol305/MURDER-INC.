@@ -7,7 +7,9 @@
 // WVIEWS (optional, JSON): [{name, spec, weapon, eval}], where spec is what G.weapon.inspect() takes:
 // {dist, x, y, yaw, pitch, roll} holds the gun in front of the camera (yaw 1.57 shows its left side),
 // null gives the live first-person pose back. `weapon` switches gun first; `eval` runs page code first.
-// WLOOK (optional): "yaw,pitch" in radians to turn the player before shooting.
+// WGUN (optional): the gun every view shows ('chopper' | 'nine' | 'ar15' | 'switch9' | 'rocket'); the
+// pictures are then named <gun>-<view>.png. WLOOK (optional): "yaw,pitch" in radians to turn the player
+// before shooting.
 
 const DEFAULT_VIEWS = [
   { name: 'inspect-left', spec: { dist: 0.55, yaw: 1.5708, x: 0.25, y: 0.07, backdrop: true } },
@@ -19,7 +21,10 @@ const DEFAULT_VIEWS = [
 ];
 
 module.exports = async (page, h) => {
-  const views = process.env.WVIEWS ? JSON.parse(process.env.WVIEWS) : DEFAULT_VIEWS;
+  const only = process.env.WGUN || '';
+  const views = (process.env.WVIEWS ? JSON.parse(process.env.WVIEWS) : DEFAULT_VIEWS).map((view) =>
+    only ? { ...view, weapon: view.weapon || only, name: `${only}-${view.name}` } : view,
+  );
   await h.eval((look) => {
     const G = window.__G;
     G.enemies.clear();
@@ -32,15 +37,18 @@ module.exports = async (page, h) => {
   for (const view of views) {
     if (view.eval) await h.eval(view.eval);
     if (view.weapon) {
-      await h.eval((id) => {
+      // The number key of the gun's place on the rack (config/weapons.js `common.order`).
+      const code = await h.eval((id) => {
         const G = window.__G;
-        if (G.weapon.current !== id) window.dispatchEvent(new KeyboardEvent('keydown', { code: id === 'nine' ? 'Digit2' : 'Digit1' }));
+        const n = G.config.weapons.common.order.indexOf(id) + 1;
+        return n > 0 && G.weapon.current !== id ? `Digit${n}` : '';
       }, view.weapon);
-      await h.skip(2);
-      await h.eval(() => {
-        for (const code of ['Digit1', 'Digit2']) window.dispatchEvent(new KeyboardEvent('keyup', { code }));
-      });
-      await h.skip(30);
+      if (code) {
+        await h.key(code, true);
+        await h.skip(2);
+        await h.key(code, false);
+        await h.skip(30);
+      }
     }
     await h.eval((spec) => window.__G.weapon.inspect(spec), view.spec || null);
     await h.frames(2);

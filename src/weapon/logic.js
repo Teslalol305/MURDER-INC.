@@ -4,12 +4,16 @@
 // viewmodel through a small `view` interface (see NO_VIEW below), so the whole rule set also runs in a
 // unit test with no renderer. Numbers live in src/config/weapons.js.
 //
-// One update, in order: timers → weapon select → melee → reload → timelines (switch, reload, strike)
-// → sprint-lower blend → aim → spread → trigger → public state.
+// The guns are whatever `common.order` lists, every one carried from the start of a run. Four of them
+// are hitscan; a gun with a `projectile` (the ROCKET) hands its round to src/weapon/rockets.js instead.
+//
+// One update, in order: rounds in flight → timers → weapon select → melee → reload → timelines (switch,
+// reload, strike) → sprint-lower blend → aim → spread → trigger → public state.
 
 import * as THREE from 'three';
 import * as WEAPONS from '../config/weapons.js';
 import { clamp01, damp, lerp, moveToward, smootherstep } from '../core/util.js';
+import { createRockets } from './rockets.js';
 import { resetSpring, spring, stepSpring } from './springs.js';
 
 const TAU = Math.PI * 2;
@@ -35,13 +39,14 @@ const NO_VIEW = {
   ejectWorld: () => false,
 };
 
-export function createLogic(G, view = NO_VIEW) {
+export function createLogic(G, view = NO_VIEW, rockets = createRockets(G)) {
   const config = (G.config && G.config.weapons) || WEAPONS;
   const common = config.common;
   const strikeDef = config.melee;
-  const order = common.order;
+  const order = common.order.filter((id) => config[id]);
   const defs = {};
   for (const id of order) defs[id] = config[id];
+  const select = order.map((id, i) => `weapon${i + 1}`); // the action that draws each gun directly
   const pad = (G.config && G.config.player && G.config.player.input && G.config.player.input.pad) || {};
   const aim = {
     slow: pad.aimSlow ?? 0.55,
@@ -144,19 +149,25 @@ export function createLogic(G, view = NO_VIEW) {
     mag: def.magSize,
     reserve: def.reserve,
     magSize: def.magSize,
+    /** The gun `swap` brings up next. */
     other: { id: '', name: '', mag: 0, reserve: 0 },
+    /** Every gun carried, in slot order: what the HUD's weapon bar shows. */
+    slots: order.map((id) => ({ id, name: defs[id].name, kind: defs[id].kind || 'rifle', mag: 0, reserve: 0, magSize: defs[id].magSize })),
     spread: def.spread.hip,
     cue: '',
     anim,
+    rockets,
     reset,
     setVisible() {},
     setView() {},
     addReserve,
+    resupply,
     drop,
     update,
   };
 
   const otherId = (id) => order[(order.indexOf(id) + 1) % order.length];
+  const prevId = (id) => order[(order.indexOf(id) + order.length - 1) % order.length];
   const busy = () => reload !== null || swap !== null || strike !== null;
 
   // ---------------------------------------------------------------------------------------------
@@ -194,6 +205,11 @@ export function createLogic(G, view = NO_VIEW) {
     weapon.other.name = defs[id].name;
     weapon.other.mag = ammo[id].mag;
     weapon.other.reserve = ammo[id].reserve;
+    for (let i = 0; i < order.length; i++) {
+      const slot = weapon.slots[i];
+      slot.mag = ammo[order[i]].mag;
+      slot.reserve = ammo[order[i]].reserve;
+    }
 
     anim.id = current;
     anim.ads = ads;
@@ -251,18 +267,45 @@ export function createLogic(G, view = NO_VIEW) {
     settle();
     weapon.spread = def.spread.hip;
     if (G.input) G.input.aimSlow = 1;
+    rockets.reset();
     view.reset(current);
     sync();
   }
 
-  /** Resupply: tops up the reserve of every gun that has a finite one (the Chopper). */
-  function addReserve(n, cap = Infinity) {
+  /**
+   * `n` rounds for the reserve of gun `id`, up to `cap`. Without an id: every gun that fires bullets
+   * from a finite reserve (not the Nine, which never runs dry, and not the launcher).
+   */
+  function addReserve(n, cap = Infinity, id = null) {
     if (!(n > 0)) return;
-    for (const id of order) {
-      const a = ammo[id];
+    for (const each of order) {
+      if (id ? each !== id : !!defs[each].projectile) continue;
+      const a = ammo[each];
       if (Number.isFinite(a.reserve) && a.reserve < cap) a.reserve = Math.min(cap, a.reserve + n);
     }
     sync();
+  }
+
+  /**
+   * An ammo drop: every gun with a finite reserve gets `share` of its own `pickup.rounds`, up to its
+   * `pickup.cap`. `only` (a gun id or a list of ids) narrows it down.
+   * @returns {{id: string, name: string, rounds: number}[]} what was actually added (empty: all full)
+   */
+  function resupply(share = 1, only = null) {
+    const added = [];
+    if (!(share > 0)) return added;
+    for (const id of order) {
+      if (only && (Array.isArray(only) ? !only.includes(id) : only !== id)) continue;
+      const give = defs[id].pickup;
+      const a = ammo[id];
+      if (!give || !Number.isFinite(a.reserve)) continue;
+      const rounds = Math.min(Math.max(1, Math.round(give.rounds * share)), Math.max(0, give.cap - a.reserve));
+      if (rounds <= 0) continue;
+      a.reserve += rounds;
+      added.push({ id, name: defs[id].name, rounds });
+    }
+    if (added.length) sync();
+    return added;
   }
 
   /** The gun leaves Rule's hands (death). Everything in progress stops. */
@@ -347,6 +390,11 @@ export function createLogic(G, view = NO_VIEW) {
       switchEvent(current, id, 'holster');
     } else if (swap.phase === 'holster') {
       if (id === swap.to) return;
+      if (id !== current) {
+        // A third gun asked for while the first goes down: that one comes up instead, nothing else changes.
+        swap.to = id;
+        return;
+      }
       // Changed their mind: the gun on its way down comes straight back up from where it got to.
       const from = swap.to;
       swap.phase = 'draw';
@@ -440,11 +488,12 @@ export function createLogic(G, view = NO_VIEW) {
 
   function shoot(player) {
     const a = ammo[current];
+    const flies = !!def.projectile; // a round that travels: no ray, and no part in the accuracy count
     a.mag--;
     burst++;
     sinceShot = 0;
     heat = Math.min(common.heat.max, heat + common.heat.perShot);
-    if (G.combat.stats) G.combat.stats.shots++;
+    if (!flies && G.combat.stats) G.combat.stats.shots++;
 
     // A uniformly random direction inside the spread cone around the aim.
     right.crossVectors(player.forward, WORLD_UP);
@@ -456,29 +505,36 @@ export function createLogic(G, view = NO_VIEW) {
     dir.copy(player.forward).addScaledVector(right, r * Math.cos(angle)).addScaledVector(up, r * Math.sin(angle)).normalize();
 
     // The round leaves the eye, not the barrel: what the crosshair covers is what gets hit.
-    const hit = G.combat.hitscan({
-      origin: player.eye,
-      dir,
-      range: def.range,
-      damage: def.damage,
-      from: 'player',
-      weapon: def.id,
-      headMult: common.headMultiplier,
-    });
+    const hit = flies
+      ? null
+      : G.combat.hitscan({
+          origin: player.eye,
+          dir,
+          range: def.range,
+          damage: def.damage,
+          from: 'player',
+          weapon: def.id,
+          headMult: common.headMultiplier,
+        });
 
     if (!view.muzzleWorld(muzzle)) guessMuzzle(player);
-    if (!view.ejectWorld(port, casing)) guessPort(player);
     const fx = G.fx;
-    if (fx) {
-      if (hit.type === 'none' || hit.dist > SHORT_TRACER) fx.tracer(muzzle, hit.point, common.tracer.color, common.tracer.speed);
-      fx.muzzleFlash(muzzle, dir, def.flash.scale * lerp(1, common.adsFlashScale, ads), false);
-      fx.shell(port, casing, def.auto ? 'rifle' : 'pistol');
+    if (flies) {
+      rockets.launch(def, player.eye, dir, muzzle);
+      if (fx) fx.muzzleFlash(muzzle, dir, def.flash.scale * lerp(1, common.adsFlashScale, ads), false);
+    } else {
+      if (!view.ejectWorld(port, casing)) guessPort(player);
+      if (fx) {
+        if (hit.type === 'none' || hit.dist > SHORT_TRACER) fx.tracer(muzzle, hit.point, common.tracer.color, common.tracer.speed);
+        fx.muzzleFlash(muzzle, dir, def.flash.scale * lerp(1, common.adsFlashScale, ads), false);
+        fx.shell(port, casing, def.kind === 'pistol' ? 'pistol' : 'rifle');
+      }
     }
     const flash = def.flash;
     if (G.render && G.render.lights) G.render.lights.flash(muzzle, flash.lightColor, flash.light, flash.lightRange, flash.lightTtl);
     emit('weapon:fire', { weapon: def.id, pos: muzzle.clone(), dir: dir.clone(), ads });
 
-    // Recoil into the camera: the Chopper climbs, then weaves; the Nine snaps.
+    // Recoil into the camera: the automatics climb, then weave; the Nine and the launcher snap.
     const scale = lerp(1, common.adsRecoilScale, ads) * (player.crouching ? common.crouchRecoilScale : 1);
     const R = def.recoil;
     let pitch = R.pitch * scale * lerp(R.pitchRandom[0], R.pitchRandom[1], random());
@@ -496,6 +552,8 @@ export function createLogic(G, view = NO_VIEW) {
     if (typeof player.addShake === 'function') player.addShake(R.shake * scale);
 
     bloom = Math.min(1, bloom + def.spread.shot);
+    // A single-round gun goes straight into its reload: there is nothing to wait for.
+    if (a.mag === 0 && def.reloadAfterShot > 0 && a.reserve > 0) autoReload = def.reloadAfterShot;
     view.fire(burst, a.mag === 0, ads, !!player.crouching);
     if (G.input && typeof G.input.rumble === 'function') G.input.rumble(def.rumble.strong, def.rumble.weak, def.rumble.ms);
   }
@@ -591,6 +649,7 @@ export function createLogic(G, view = NO_VIEW) {
   function update(dt) {
     const input = G.input;
     const player = G.player;
+    rockets.update(dt); // a round already in the air lands whatever happens to the shooter
     if (!input || !player) return;
 
     if (player.alive === false) {
@@ -618,9 +677,17 @@ export function createLogic(G, view = NO_VIEW) {
       weavePhase = random() * TAU;
     }
 
-    if (input.pressed('swap')) requestSwitch(otherId(swap && swap.phase === 'holster' ? swap.to : current));
-    else if (input.pressed('weapon1')) requestSwitch(order[0]);
-    else if (input.pressed('weapon2')) requestSwitch(order[1]);
+    // Next / previous step from the gun that is on its way up, so quick presses run through the rack.
+    const upcoming = swap && swap.phase === 'holster' ? swap.to : current;
+    if (input.pressed('swap')) requestSwitch(otherId(upcoming));
+    else if (input.pressed('weaponPrev')) requestSwitch(prevId(upcoming));
+    else {
+      for (let i = 0; i < select.length; i++) {
+        if (!input.pressed(select[i])) continue;
+        requestSwitch(order[i]);
+        break;
+      }
+    }
 
     if (input.pressed('melee') && !strike && strikeWait <= 0 && !(swap && strikeDef.blockedWhileSwitching)) startStrike();
 

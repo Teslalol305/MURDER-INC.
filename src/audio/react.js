@@ -20,7 +20,17 @@ export function wireEvents(A) {
   const tmp = new THREE.Vector3();
   const tmp2 = new THREE.Vector3();
 
-  const weaponOf = (w) => (w === 'nine' || w === 'pistol' ? 'nine' : 'chopper');
+  // Each gun's own shot; its tails and its foley are its family's (a pistol's or a long gun's).
+  const VOICE = {
+    chopper: { shot: 'chopper_shot', family: 'chopper', vol: 1 },
+    nine: { shot: 'nine_shot', family: 'nine', vol: 0.95 },
+    pistol: { shot: 'nine_shot', family: 'nine', vol: 0.95 },
+    ar15: { shot: 'ar15_shot', family: 'chopper', vol: 1 },
+    switch9: { shot: 'switch9_shot', family: 'nine', vol: 0.9 },
+    rocket: { shot: 'rocket_shot', family: 'chopper', vol: 1 },
+  };
+  const voiceOf = (w) => VOICE[w] || VOICE.chopper;
+  const weaponOf = (w) => voiceOf(w).family;
   let lastShot = -1e9;
   let lastTail = null;
   let grab = null;
@@ -34,9 +44,10 @@ export function wireEvents(A) {
 
   on('weapon:fire', (p) => {
     if (!A.unlocked) return;
-    const w = weaponOf(p && p.weapon);
+    const voice = voiceOf(p && p.weapon);
+    const w = voice.family;
     const now = A.now();
-    A.play(`${w}_shot`, { volume: w === 'nine' ? 0.95 : 1 });
+    A.play(voice.shot, { volume: voice.vol });
     // Tails: street and shop split by the interior factor (equal power). In a burst each new tail starts
     // low and only the last one is let up to full, so the burst ends on one clean slap off the block.
     const since = now - lastShot;
@@ -102,7 +113,7 @@ export function wireEvents(A) {
     const s = p.surface;
     const metal = s === 'metal' || s === 'car';
     const soft = s === 'dirt' || s === 'wood' || s === 'rubber' || s === 'cloth';
-    const nine = G.weapon && G.weapon.current === 'nine';
+    const nine = !!G.weapon && weaponOf(G.weapon.current) === 'nine';
     A.play(metal ? 'brass_metal' : 'brass_asphalt', { pos: p.pos, volume: soft ? 0.5 : 0.9, pitch: (nine ? 1.22 : 1) * (s === 'wood' ? 0.9 : 1) });
   });
 

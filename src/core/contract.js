@@ -107,8 +107,9 @@ export const MODULES = {
   weapon: [
     'current', 'def', 'state', 'mag', 'reserve', 'magSize',
     'other.id', 'other.name', 'other.mag', 'other.reserve',
+    'slots[].id', 'slots[].name', 'slots[].kind', 'slots[].mag', 'slots[].reserve', 'slots[].magSize',
     'spread', 'cue',
-    'reset()', 'setVisible()', 'setView()', 'addReserve()', 'drop()', 'update()',
+    'reset()', 'setVisible()', 'setView()', 'addReserve()', 'resupply()', 'drop()', 'update()',
   ],
   enemies: [
     'list[].id', 'list[].type', 'list[].pos', 'list[].alive', 'list[].hp', 'list[].maxHp', 'list[].radius', 'list[].height',

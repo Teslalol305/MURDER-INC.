@@ -1,19 +1,24 @@
-// What the player sees of the weapon: both guns, Rule's arms, the muzzle flash, and every motion.
+// What the player sees of the weapon: the five guns, Rule's arms, the muzzle flash, and every motion.
 //
 // Everything is procedural. Each frame the gun's place in view space is built up in layers:
 //   1. a base pose blended between HIP (three selectable views), SPRINT, RELOAD, WALL, AIM and HOLSTER
 //   2. a keyed strike when a melee blow is thrown
 //   3. small additive motion: breathing, footstep bob, look lag, movement inertia, jump / land
 //   4. spring recoil about the gun's pivot
-// The gun then says where its parts and the two hands are (chopper.js / nine.js) and the arms are solved
-// onto it (arms.js). The rig hangs off G.vmCamera, so all of this is in view space.
+// The gun then says where its parts and the two hands are (one file per gun: chopper.js, nine.js,
+// ar15.js, switch9.js, rocket.js) and the arms are solved onto it (arms.js). The rig hangs off
+// G.vmCamera, so all of this is in view space. A gun's `kind` (config/weapons.js: rifle, pistol,
+// launcher) picks the handling that is not its own: the shape of the flash, how a bolt or slide kicks.
 
 import * as THREE from 'three';
 import { clamp, clamp01, damp, lerp } from '../core/util.js';
+import { buildAr15 } from './ar15.js';
 import { blendPose, buildArms } from './arms.js';
 import { buildChopper } from './chopper.js';
 import { buildEnvironment, createFlashMaterial, createViewMaterial } from './material.js';
 import { buildNine } from './nine.js';
+import { buildRocket } from './rocket.js';
+import { buildSwitch9 } from './switch9.js';
 import { ease, easeOutBack, softLimit, spring, stepSpring } from './springs.js';
 
 // Feel of the additive layers. Lengths in metres, angles in radians.
@@ -30,6 +35,8 @@ const FEEL = {
   triggerRate: 38,
 };
 const LAMP_EVERY = 0.25; // seconds between looks at the street lamps
+// Per kind of gun: how much of the flash is a forward jet, how hard the flash lights the gun itself.
+const FLASH = { rifle: { jet: 1, light: 1.5 }, pistol: { jet: 0.3, light: 1 }, launcher: { jet: 1, light: 2.2 } };
 const ONE = new THREE.Vector3(1, 1, 1);
 
 export function createViewmodel(G) {
@@ -62,10 +69,15 @@ export function createViewmodel(G) {
   rig.add(gunPivot);
 
   const gold = materialOf('gold', 0xe7b53a);
-  const guns = {
-    chopper: buildChopper(material, config.chopper),
-    nine: buildNine(material, config.nine, config.melee.duration, gold),
+  const builders = {
+    chopper: () => buildChopper(material, config.chopper),
+    nine: () => buildNine(material, config.nine, config.melee.duration, gold),
+    ar15: () => buildAr15(material, config.ar15),
+    switch9: () => buildSwitch9(material, config.switch9, config.melee.duration, gold),
+    rocket: () => buildRocket(material, config.rocket),
   };
+  const guns = {};
+  for (const id of common.order) if (builders[id] && config[id]) guns[id] = builders[id]();
   for (const id in guns) gunPivot.add(guns[id].root);
   const arms = buildArms(material, materialOf('skin', 0x7a4a2e), gold);
   rig.add(arms.mesh);
@@ -125,9 +137,10 @@ export function createViewmodel(G) {
   // ---------------------------------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------------------------------
-  let current = 'chopper';
+  let current = common.order.find((id) => guns[id]);
   let gun = guns[current];
   let def = config[current];
+  let kind = FLASH[def.kind] || FLASH.rifle;
   let viewIndex = 0;
   let clock = 0;
   let shown = false;
@@ -246,14 +259,16 @@ export function createViewmodel(G) {
   }
 
   function show(id) {
+    if (!guns[id]) return;
     current = id;
     gun = guns[id];
     def = config[id];
+    kind = FLASH[def.kind] || FLASH.rifle;
     for (const other in guns) guns[other].root.visible = guns[other] === gun;
     gun.root.visible = true;
     flash.position.copy(gun.muzzle);
     burst.position.copy(gun.muzzle).add(v0.set(0, 0.01, -0.06));
-    flash.material.uniforms.uJet.value = def.auto ? 1 : 0.3;
+    flash.material.uniforms.uJet.value = kind.jet;
     // Aimed: the rear sight sits on the view axis, `relief` in front of the eye, the bore parallel to it.
     adsPose.pos.set(-gun.sightRear.x, -gun.sightRear.y, -gun.relief - gun.sightRear.z);
     adsPose.quat.identity();
@@ -386,7 +401,7 @@ export function createViewmodel(G) {
       const power = flashLife > 0 ? Math.sqrt(flashLife / flashTotal) : 0;
       flash.visible = power > 0;
       flash.material.uniforms.uPower.value = power;
-      burst.intensity = power * (def.auto ? 1.5 : 1.0);
+      burst.intensity = power * kind.light;
     } else if (flash.visible) {
       flash.visible = false;
       burst.intensity = 0;
@@ -673,13 +688,14 @@ export function createViewmodel(G) {
     flash.material.uniforms.uSeed.value = Math.random() * 100;
     flash.material.uniforms.uPower.value = 1;
     flash.visible = true;
-    burst.intensity = def.auto ? 1.5 : 1.0;
+    burst.intensity = kind.light;
   }
 
+  const triangles = { arms: arms.triangles };
+  for (const id in guns) triangles[id] = guns[id].triangles;
+
   const view = {
-    info: {
-      triangles: { chopper: guns.chopper.triangles, nine: guns.nine.triangles, arms: arms.triangles },
-    },
+    info: { triangles },
     equip: show,
     fire,
     dry() {
@@ -694,9 +710,9 @@ export function createViewmodel(G) {
         bump.y.v += 0.3;
         bump.pitch.v += 0.7;
       } else if (phase === 'bolt') {
-        if (def.auto) recoil.back.v += empty ? 0.5 : 0.2;
+        if (def.kind !== 'pistol') recoil.back.v += empty ? 0.5 : 0.2;
         else {
-          // The Nine's slide slams home.
+          // A pistol's slide slams home.
           recoil.pitch.v += 2.4;
           recoil.back.v -= 0.25;
         }

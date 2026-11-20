@@ -17,6 +17,7 @@
   --map: 150px;
   --slot-w: 168px;
   --slot-h: 58px;
+  --tab-w: 54px; /* a gun that is not in hand */
   --melee-w: 64px;
   --wbar-h: 118px; /* cue + slots + HP: where the radio strip sits above */
 }
@@ -753,7 +754,7 @@
   height: 30px;
 }
 
-.hud-slot.is-nine .hud-slot-art {
+.hud-slot.is-pistol .hud-slot-art {
   width: 44px;
 }
 
@@ -802,6 +803,52 @@
 }
 
 .hud-slot.is-empty .hud-slot-count {
+  color: var(--c-red);
+}
+
+/* The guns that are not in hand: a tab each, pictogram over the rounds in its magazine. */
+.hud-slot.is-gun:not(.is-current) {
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 4px;
+  width: var(--tab-w);
+  padding: 4px 3px 6px;
+}
+
+.hud-slot.is-gun:not(.is-current) .hud-slot-art {
+  width: 42px;
+  min-width: 0;
+  height: 17px;
+}
+
+.hud-slot.is-gun.is-pistol:not(.is-current) .hud-slot-art {
+  width: 27px;
+}
+
+.hud-slot.is-gun:not(.is-current) .hud-slot-info {
+  align-items: center;
+}
+
+.hud-slot.is-gun:not(.is-current) .hud-slot-name,
+.hud-slot.is-gun:not(.is-current) .hud-slot-rest {
+  display: none;
+}
+
+.hud-slot.is-gun:not(.is-current) .hud-slot-count {
+  font-size: 12px;
+}
+
+.hud-slot.is-gun:not(.is-current) .hud-slot-key {
+  right: 4px;
+  top: 3px;
+  font-size: 9px;
+}
+
+.hud-slot.is-dry {
+  color: var(--c-ink-faint);
+}
+
+.hud-slot.is-dry .hud-slot-count {
   color: var(--c-red);
 }
 
@@ -1831,6 +1878,7 @@
     --map: 110px;
     --slot-w: 138px;
     --slot-h: 50px;
+    --tab-w: 40px;
     --melee-w: 52px;
     --wbar-h: 104px;
   }
@@ -1887,12 +1935,29 @@
     max-width: calc(100vw - 32px);
   }
 
+  .hud-slots {
+    gap: 4px;
+  }
+
   .hud-slot-art {
     width: 50px;
   }
 
-  .hud-slot.is-nine .hud-slot-art {
+  .hud-slot.is-pistol .hud-slot-art {
     width: 36px;
+  }
+
+  .hud-slot.is-gun:not(.is-current) .hud-slot-art {
+    width: 32px;
+    height: 13px;
+  }
+
+  .hud-slot.is-gun.is-pistol:not(.is-current) .hud-slot-art {
+    width: 21px;
+  }
+
+  .hud-slot.is-gun:not(.is-current) .hud-slot-count {
+    font-size: 11px;
   }
 
   .hud-slot.is-active .hud-slot-count {
@@ -2213,11 +2278,31 @@ html.is-touch .hud-feed-line {
   padding-bottom: 4px;
 }
 
+/* Landscape phones: the bar lives in the band between the thumb clusters. Its tabs carry no key caps on
+   touch, so they can be narrower, and the gun in hand gives up a little width. */
+@media (max-height: 520px) {
+  html.is-touch {
+    --slot-w: 150px;
+    --tab-w: 42px;
+  }
+}
+
 /* Small landscape phones: the right thumb cluster reaches in over the bar's melee slot, and the fist disc
-   right there does the same job, so the bar keeps its two weapons only. */
-@media (max-height: 520px) and (max-width: 720px) {
+   right there does the same job, so the bar keeps its guns only. */
+@media (max-height: 520px) and (max-width: 760px) {
+  html.is-touch {
+    --slot-w: 122px;
+    --tab-w: 36px;
+  }
+
   html.is-touch .hud-slot.is-melee {
     display: none;
+  }
+
+  html.is-touch .hud-slot.is-current {
+    gap: 5px;
+    padding-left: 6px;
+    padding-right: 7px;
   }
 }
 

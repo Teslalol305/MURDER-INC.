@@ -82,17 +82,37 @@ test('enemies: difficulty overlays only touch fields the base tables have', () =
   assert.deepEqual([enemies.buzzard.burstRadius, enemies.buzzard.burstDamage, enemies.buzzard.burstPlayerScale], [3, 30, 0.5]);
 });
 
-test('weapons: the two guns and the melee strike', () => {
-  const { chopper, nine, melee, common } = weapons;
-  const gun = (w) => [w.name, w.auto, w.damage, w.rpm, w.magSize, w.reserve, w.range];
-  assert.deepEqual(gun(chopper), ['CHOPPER', true, 26, 720, 30, 150, 300]);
-  assert.deepEqual(gun(nine), ['NINE', false, 34, 420, 15, Infinity, 120]);
-  assert.ok(chopper.reload.magIn < chopper.reload.tactical && chopper.reload.tactical < chopper.reload.empty);
-  assert.ok(nine.reload.magIn < nine.reload.tactical && nine.reload.tactical < nine.reload.empty);
+test('weapons: the five guns and the melee strike', () => {
+  const { chopper, nine, ar15, switch9, rocket, melee, common } = weapons;
+  const gun = (w) => [w.name, w.kind, w.auto, w.damage, w.rpm, w.magSize, w.reserve, w.range];
+  assert.deepEqual(gun(chopper), ['CHOPPER', 'rifle', true, 26, 720, 30, 150, 300]);
+  assert.deepEqual(gun(nine), ['NINE', 'pistol', false, 34, 420, 15, Infinity, 120]);
+  assert.deepEqual(gun(ar15), ['AR-15', 'rifle', true, 31, 640, 30, 120, 320]);
+  assert.deepEqual(gun(switch9), ['SWITCH', 'pistol', true, 19, 1100, 33, 132, 110]);
+  assert.deepEqual(gun(rocket), ['ROCKET', 'launcher', false, 240, 60, 1, 3, 220]);
+  assert.deepEqual(common.order, [chopper.id, nine.id, ar15.id, switch9.id, rocket.id]);
+
+  for (const id of common.order) {
+    const w = weapons[id];
+    assert.equal(w.id, id, 'a gun is exported under its own id');
+    assert.equal(w.slot, common.order.indexOf(id) + 1, `${id}: its place on the weapon bar`);
+    const r = w.reload;
+    assert.ok(r.magOut < r.magShow && r.magShow < r.magInsert && r.magInsert < r.magIn, `${id}: the magazine comes out, a fresh one shows, goes in, is seated`);
+    assert.ok(r.magIn < r.tactical && r.tactical <= r.empty, `${id}: rounds count before the reload is over`);
+    assert.equal(w.views.length, 3, `${id}: three selectable hip views`);
+    // A drop is worth something to every gun that can run dry, and never lifts it past its cap.
+    if (Number.isFinite(w.reserve)) assert.ok(w.pickup.rounds > 0 && w.pickup.cap >= w.reserve, `${id}: pickup`);
+    else assert.equal(w.pickup, undefined, `${id} never runs dry`);
+  }
+  // The launcher's round: fast enough to lead a Buzzard, a blast like a propane tank's, kind to its owner.
+  const p = rocket.projectile;
+  assert.ok(p.speed >= 40 && p.life * p.speed >= 150);
+  assert.ok(p.radius >= 5 && p.playerScale < 0.5 && p.fuse > 0);
+  assert.ok(rocket.reloadAfterShot > 0);
+
   assert.deepEqual([melee.duration, melee.hitAt, melee.reach, melee.damage, melee.cooldown], [0.55, 0.16, 2.3, 60, 0.75]);
   near(melee.cone, (50 * Math.PI) / 180);
   assert.equal(common.headMultiplier, 2.2);
-  assert.deepEqual(common.order, [chopper.id, nine.id]);
 });
 
 test('player: body and movement numbers', () => {

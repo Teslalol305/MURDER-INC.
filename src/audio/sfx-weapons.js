@@ -67,6 +67,68 @@ function* nineShot(c) {
   return x;
 }
 
+/** The AR-15: a harder, higher crack than the Chopper, less chest, and the buffer spring singing after it. */
+function* ar15Shot(c) {
+  const { sr, rnd } = c;
+  const x = c.buf(0.34);
+  burst(x, sr, 0, 0.06, rnd, 1.25, { tau: 0.0055, type: 'highpass', f: 2300 });
+  yield;
+  burst(x, sr, 0, 0.17, rnd, 0.95, { tau: c.r(0.024, 0.03), type: 'bandpass', f: c.r(900, 1150), q: 0.75 });
+  yield;
+  sweep(x, sr, 0, 0.22, c.r(210, 235), 70, 0.85, { tau: 0.045, fTau: 0.02 });
+  yield;
+  burst(x, sr, 0.002, 0.24, rnd, 0.35, { tau: 0.05, type: 'lowpass', f: 480 });
+  yield;
+  // Bolt carrier into the buffer tube: a tick, then the spring's twang in the stock.
+  clack(x, c, 0.022, 2500, 0.26, 0.008);
+  ring(x, sr, 0.03, [[c.r(1040, 1120), 0.5, 0.05], [c.r(2150, 2300), 0.25, 0.03]], 0.22);
+  clack(x, c, 0.058, 3100, 0.16, 0.007);
+  drive(x, 2.5);
+  return x;
+}
+
+/** The SWITCH: the Nine's snap, shorter and drier, so eighteen of them a second stay apart. */
+function* switchShot(c) {
+  const { sr, rnd } = c;
+  const x = c.buf(0.19);
+  burst(x, sr, 0, 0.04, rnd, 1.2, { tau: 0.0038, type: 'highpass', f: 2900 });
+  yield;
+  burst(x, sr, 0, 0.1, rnd, 0.9, { tau: c.r(0.018, 0.023), type: 'bandpass', f: c.r(1200, 1550), q: 0.85 });
+  yield;
+  sweep(x, sr, 0, 0.12, c.r(300, 345), 120, 0.9, { tau: 0.03, fTau: 0.013 });
+  yield;
+  burst(x, sr, 0.001, 0.13, rnd, 0.24, { tau: 0.028, type: 'lowpass', f: 600 });
+  clack(x, c, 0.014, 3300, 0.3, 0.005);
+  clack(x, c, 0.034, 3900, 0.2, 0.0045);
+  drive(x, 2.7);
+  return x;
+}
+
+/** The ROCKET leaving: the booster's thump at the shoulder, then the motor tearing away down the street. */
+function* rocketShot(c) {
+  const { sr, rnd } = c;
+  const x = c.buf(1.1);
+  // The booster: a dull, heavy charge and the back-blast behind the shoulder.
+  sweep(x, sr, 0, 0.4, c.r(120, 140), 38, 1.2, { tau: 0.09, fTau: 0.05 });
+  yield;
+  burst(x, sr, 0, 0.16, rnd, 1.0, { tau: 0.03, type: 'bandpass', f: c.r(420, 520), q: 0.6 });
+  yield;
+  burst(x, sr, 0, 0.05, rnd, 0.7, { tau: 0.007, type: 'highpass', f: 1800 });
+  yield;
+  // The motor: a roar that lights a moment later and climbs in pitch as it leaves.
+  const roar = white(Math.round(0.95 * sr), rnd);
+  yield* biquadSteps(roar, sr, 'bandpass', glide(700, 2600), 0.7);
+  for (let i = 0; i < roar.length; i++) {
+    const t = i / sr;
+    roar[i] *= Math.min(1, t / 0.05) * Math.exp(-t / 0.3) * (0.75 + 0.25 * Math.sin(t * 190));
+  }
+  mix(x, roar, sr, 0.045, 0.9);
+  yield;
+  burst(x, sr, 0.05, 0.6, rnd, 0.4, { tau: 0.22, type: 'lowpass', f: 300 });
+  drive(x, 2.2);
+  return x;
+}
+
 /** The shot coming back off the block: slap echoes from the facades and the El, darkening as they go. */
 function* streetTail(c, bright, len) {
   const { sr, rnd } = c;
@@ -217,6 +279,9 @@ function brass(c, metal) {
 export const WEAPONS = {
   chopper_shot: { bus: 'gun', n: 4, peak: 0.97, vol: 1, jitter: 0.012, prio: 10, max: 5, gen: chopperShot },
   nine_shot: { bus: 'gun', n: 4, peak: 0.93, vol: 0.95, jitter: 0.012, prio: 10, max: 4, gen: nineShot },
+  ar15_shot: { bus: 'gun', n: 4, peak: 0.97, vol: 1, jitter: 0.012, prio: 10, max: 5, gen: ar15Shot },
+  switch9_shot: { bus: 'gun', n: 4, peak: 0.9, vol: 0.9, jitter: 0.016, prio: 10, max: 6, gen: switchShot },
+  rocket_shot: { bus: 'gun', n: 2, peak: 0.97, vol: 1, jitter: 0.02, prio: 10, max: 2, gen: rocketShot },
   chopper_tail_out: { bus: 'tail', n: 2, peak: 0.66, vol: 1, prio: 6, max: 3, gen: (c) => streetTail(c, 4600, 1.7) },
   chopper_tail_in: { bus: 'tail', n: 2, peak: 0.72, vol: 1, prio: 6, max: 3, gen: (c) => shopTail(c, 6500, 0.95) },
   nine_tail_out: { bus: 'tail', n: 1, peak: 0.55, vol: 1, prio: 6, max: 3, gen: (c) => streetTail(c, 5600, 1.3) },

@@ -65,7 +65,10 @@ export const difficulties = {
 export const weapons = {
   chopper: { name: 'CHOPPER', blurb: 'Compact automatic carbine, 30 rounds' },
   nine: { name: 'NINE', blurb: '9 mm pistol, 15 rounds, never runs dry' },
-  melee: { nine: 'Pistol whip', chopper: 'Rifle butt' },
+  ar15: { name: 'AR-15', blurb: 'Automatic rifle, 30 rounds, flat and tight at range' },
+  switch9: { name: 'SWITCH', blurb: 'Full-auto 9 mm pistol, 33 rounds, empties in two seconds' },
+  rocket: { name: 'ROCKET', blurb: 'Shoulder launcher, one round at a time, clears a corner' },
+  melee: { nine: 'Pistol whip', chopper: 'Rifle butt', ar15: 'Rifle butt', switch9: 'Pistol whip', rocket: 'Tube swing' },
 };
 
 /** The three objectives, in route-bullet order, and the extraction marker. */

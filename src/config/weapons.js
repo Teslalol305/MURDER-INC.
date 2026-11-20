@@ -1,15 +1,20 @@
-// Weapon tuning. Both guns are hitscan from the eye, one ray per shot, no falloff, no penetration.
-// Metres, seconds, radians. Spread values are cone half-angles.
+// Weapon tuning. The four guns are hitscan from the eye, one ray per shot, no falloff, no penetration;
+// the ROCKET flies (see its `projectile`). Metres, seconds, radians. Spread values are cone half-angles.
+//
+// `kind` is the family a gun handles like: 'rifle' (two hands on a long gun), 'pistol', 'launcher'.
+// `pickup` is what one ammo drop is worth to the gun: that many rounds for the reserve, up to `cap`.
 
 export const chopper = {
   id: 'chopper',
   name: 'CHOPPER',
   slot: 1,
+  kind: 'rifle',
   auto: true,
   damage: 26,
   rpm: 720,
   magSize: 30,
   reserve: 150, // at the start of every run
+  pickup: { rounds: 60, cap: 240 },
   range: 300,
   adsTime: 0.18, // linear ramp, then quintic smootherstep
   dryReloadDelay: 0.32, // dry trigger pull schedules a reload after this long
@@ -87,6 +92,7 @@ export const nine = {
   id: 'nine',
   name: 'NINE',
   slot: 2,
+  kind: 'pistol',
   auto: false,
   damage: 34,
   rpm: 420, // cap for semi-auto clicking
@@ -154,6 +160,252 @@ export const nine = {
   ],
 };
 
+/**
+ * The AR-15: the marksman's rifle of the five. Slower than the Chopper, flatter, far tighter: it holds
+ * a head at the far end of the avenue.
+ */
+export const ar15 = {
+  id: 'ar15',
+  name: 'AR-15',
+  slot: 3,
+  kind: 'rifle',
+  auto: true,
+  damage: 31,
+  rpm: 640,
+  magSize: 30,
+  reserve: 120,
+  pickup: { rounds: 60, cap: 210 },
+  range: 320,
+  adsTime: 0.2,
+  dryReloadDelay: 0.3,
+  // Magazine out with the button, a fresh one straight up into the well; empty: the charging handle.
+  reload: {
+    tactical: 1.96,
+    empty: 2.46,
+    magOut: 0.36,
+    magShow: 0.76,
+    magInsert: 1.1,
+    magIn: 1.36,
+    tug: 1.48,
+    boltBack: 1.8, // empty only
+    boltRelease: 2.0,
+  },
+  spread: {
+    hip: 0.011,
+    ads: 0.0008,
+    moveHip: 0.011,
+    moveAds: 0.003,
+    bloomHip: 0.005,
+    bloomAds: 0.0015,
+    air: 0.02,
+    crouch: 0.002,
+    shot: 0.13,
+    decay: 2.0,
+  },
+  recoil: {
+    pitch: 0.0052,
+    pitchRandom: [0.9, 1.1],
+    lateFrom: 8,
+    lateScale: 0.42,
+    yawEarly: 0.0008,
+    weaveFrom: 5,
+    weaveAmp: 0.0026,
+    weaveFreq: 0.5,
+    weaveRandom: 0.0008,
+    shake: 0.1,
+  },
+  kick: {
+    back: 0.7,
+    rise: 1.15,
+    yaw: 0.36,
+    roll: 0.6,
+    up: 0.09,
+    side: 0.07,
+    firstShot: 1.3,
+    secondShot: 1.15,
+    random: 0.1,
+    crouch: 0.88,
+    ads: { back: 0.75, rot: 0.1, pos: 0.9 },
+    springs: { back: [46, 0.58], pitch: [38, 0.52], yaw: [32, 0.48], roll: [33, 0.45], pos: [42, 0.52] },
+    arm: [0.5, 0.32],
+  },
+  adsSpring: [22, 0.76],
+  swaySpring: [13, 0.66],
+  swayMax: 0.065,
+  flash: { scale: 0.9, light: 42, lightColor: 0xffb020, lightRange: 9, lightTtl: 0.05 },
+  rumble: { strong: 0.16, weak: 0.45, ms: 50 },
+  wallPull: [1.15, 0.46],
+  inspectAfter: 24,
+  muzzleSmoke: true,
+  views: [
+    [0.15, -0.1, -0.2, 0.05, 0.26, -0.33],
+    [0.17, -0.13, -0.26, 0.04, 0.2, -0.28],
+    [0.12, -0.095, -0.21, 0.05, 0.22, -0.28],
+  ],
+};
+
+/**
+ * The SWITCH: a nine with a switch on the back plate and a long magazine. Empties in under two
+ * seconds, climbs hard, rules a doorway.
+ */
+export const switch9 = {
+  id: 'switch9',
+  name: 'SWITCH',
+  slot: 4,
+  kind: 'pistol',
+  auto: true,
+  damage: 19,
+  rpm: 1100,
+  magSize: 33,
+  reserve: 132,
+  pickup: { rounds: 66, cap: 231 },
+  range: 110,
+  adsTime: 0.13,
+  dryCooldown: 0.12,
+  dryReloadDelay: 0.26,
+  reload: {
+    tactical: 1.46,
+    empty: 1.86,
+    magOut: 0.18,
+    magShow: 0.48,
+    magInsert: 0.88,
+    magIn: 1.1,
+    slideRelease: 1.57, // empty only
+  },
+  spread: {
+    hip: 0.014,
+    ads: 0.003,
+    moveHip: 0.007,
+    moveAds: 0.0035,
+    bloomHip: 0.02,
+    bloomAds: 0.008,
+    air: 0.02,
+    crouch: 0.002,
+    shot: 0.1,
+    decay: 1.6,
+  },
+  recoil: {
+    pitch: 0.006,
+    pitchRandom: [0.85, 1.15],
+    lateFrom: 12,
+    lateScale: 0.5,
+    yawEarly: 0.002,
+    weaveFrom: 3,
+    weaveAmp: 0.006,
+    weaveFreq: 0.9,
+    weaveRandom: 0.002,
+    shake: 0.1,
+  },
+  kick: {
+    back: 0.4,
+    rise: 3.6,
+    yaw: 0.6,
+    roll: 1.0,
+    up: 0.13,
+    side: 0.09,
+    firstShot: 1.2,
+    secondShot: 1.1,
+    random: 0.16,
+    crouch: 0.9,
+    ads: { back: 0.8, rot: 0.5, pos: 0.8 },
+    springs: { back: [58, 0.55], pitch: [48, 0.46], yaw: [38, 0.46], roll: [38, 0.44], pos: [46, 0.5] },
+    arm: [0.8, 0.6],
+  },
+  adsSpring: [29.5, 0.75],
+  swaySpring: [19, 0.6],
+  swayMax: 0.085,
+  flash: { scale: 0.5, light: 28, lightColor: 0xffb020, lightRange: 8, lightTtl: 0.045 },
+  rumble: { strong: 0.3, weak: 0.55, ms: 40 },
+  wallPull: [0.8, 0.32],
+  muzzleSmoke: true,
+  views: [
+    [0.105, -0.058, -0.36, 0.07, 0.11, -0.18],
+    [0.1, -0.077, -0.44, 0.06, 0.11, -0.2],
+    [0.075, -0.057, -0.33, 0.07, 0.15, -0.16],
+  ],
+};
+
+/**
+ * The ROCKET: a shoulder launcher, one round up the spout. The round flies straight at `speed` and
+ * goes off on whatever it meets (or after `life` seconds): a blast like a propane tank's, of which
+ * the player takes `playerScale` (src/weapon/rockets.js). Everything else about it is slow.
+ */
+export const rocket = {
+  id: 'rocket',
+  name: 'ROCKET',
+  slot: 5,
+  kind: 'launcher',
+  auto: false,
+  damage: 240, // at the centre of the blast, falling to nothing at its radius
+  // `fuse`: it also goes off this close to a Vulture it would otherwise fly past.
+  projectile: { speed: 62, life: 4, radius: 6.8, playerScale: 0.3, fuse: 0.9, trailEvery: 0.028 },
+  rpm: 60,
+  magSize: 1,
+  reserve: 3,
+  pickup: { rounds: 1, cap: 6 },
+  range: 220,
+  adsTime: 0.24,
+  fireBuffer: 0.13,
+  dryCooldown: 0.2,
+  dryReloadDelay: 0.3,
+  reloadAfterShot: 0.5, // the next round is reached for this long after one leaves
+  // One timeline: the launcher is only ever reloaded empty. A fresh round comes up from the left and
+  // goes in nose out; `magIn` is the moment it is seated and counts.
+  reload: {
+    tactical: 2.3,
+    empty: 2.3,
+    magOut: 0.3,
+    magShow: 0.8,
+    magInsert: 1.34,
+    magIn: 1.72,
+  },
+  spread: {
+    hip: 0.012,
+    ads: 0.002,
+    moveHip: 0.01,
+    moveAds: 0.004,
+    bloomHip: 0,
+    bloomAds: 0,
+    air: 0.03,
+    crouch: 0.002,
+    shot: 0,
+    decay: 1,
+  },
+  recoil: {
+    pitch: 0.03,
+    pitchRandom: [0.9, 1.1],
+    yaw: 0.006, // random ±
+    shake: 0.4,
+  },
+  kick: {
+    back: 1.6,
+    rise: 2.6,
+    yaw: 0.5,
+    roll: 1.2,
+    up: 0.2,
+    side: 0.1,
+    firstShot: 1,
+    secondShot: 1,
+    random: 0.1,
+    crouch: 0.9,
+    ads: { back: 0.85, rot: 0.6, pos: 0.9 },
+    springs: { back: [26, 0.6], pitch: [22, 0.55], yaw: [20, 0.5], roll: [20, 0.5], pos: [24, 0.55] },
+    arm: [0.7, 0.5],
+  },
+  adsSpring: [18, 0.8],
+  swaySpring: [10, 0.7],
+  swayMax: 0.06,
+  flash: { scale: 1.5, light: 70, lightColor: 0xffa040, lightRange: 12, lightTtl: 0.09 },
+  rumble: { strong: 0.9, weak: 0.8, ms: 180 },
+  wallPull: [1.3, 0.55],
+  muzzleSmoke: true,
+  views: [
+    [0.16, -0.06, -0.1, 0.03, 0.1, -0.1],
+    [0.18, -0.08, -0.14, 0.03, 0.08, -0.1],
+    [0.14, -0.06, -0.1, 0.03, 0.1, -0.08],
+  ],
+};
+
 /** Quick strike with whatever is in hand (docs/DESIGN.md 3.1). Kills count as kills, not as shots. */
 export const melee = {
   duration: 0.55, // whole strike
@@ -167,9 +419,27 @@ export const melee = {
   shake: 0.22, // camera shake when the blow lands on a body (half of it on a wall)
 };
 
-/** Rules shared by both guns. */
+/**
+ * Aim assist (the `aimAssist` setting): pulling the aim trigger locks the view onto the Vulture nearest
+ * the crosshair and holds it there while the trigger stays down.
+ */
+export const assist = {
+  range: 75, // metres
+  cone: 0.3, // half-angle (rad) around the crosshair in which a target is picked up…
+  coneTouch: 0.42, // …wider under a thumb
+  keep: 0.6, // a locked target is let go past this angle (a hard flick away)
+  snap: 14, // rad/s the view turns while the lock is taken…
+  snapSecs: 0.22, // …for this long…
+  track: 7, // …then it follows at up to this rate
+  lostSecs: 0.45, // out of sight this long: the lock is dropped
+  flick: 0.035, // look input (rad in one frame) that breaks the lock and looks elsewhere
+  reacquire: 0.18, // seconds before a new lock after a kill or a break
+  chest: 0.7, // aim point on a Goon: this share of its height
+};
+
+/** Rules shared by every gun. */
 export const common = {
-  order: ['chopper', 'nine'],
+  order: ['chopper', 'nine', 'ar15', 'switch9', 'rocket'],
   headMultiplier: 2.2, // Goon head only
   holster: 0.28,
   draw: 0.32,

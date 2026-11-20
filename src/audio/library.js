@@ -24,7 +24,7 @@ export const DEFAULT_SR = 44100;
  */
 const ORDER = [
   /^(chopper|nine)_shot$/, /^dry_fire$/, /_tail_/, /^step_/, /^(hit_|kill_)/, /^imp_/, /^ui_/,
-  /^(rifle|pistol)_/, /^(holster|draw|cloth|whoosh|melee_thud|brass_)/, /^(hurt|land|jump|ear_ring)$/,
+  /^(rifle|pistol)_/, /^(ar15|switch9|rocket)_shot$/, /^(holster|draw|cloth|whoosh|melee_thud|brass_)/, /^(hurt|land|jump|ear_ring)$/,
   /^(smg_shot|goon_|alert_|grunt_|bolt_shot|buzzard_|rotor|whizz|ricochet|pipe_swing|body_fall)/,
   /^stem_(drums|bass|crackle|keys|hats)$/, /^bed_/, /^explosion_/, /^(hiss|reel_|heartbeat|radio_)/,
   /^stem_/, /^sting_/, /^m_/, /^boombox$/,

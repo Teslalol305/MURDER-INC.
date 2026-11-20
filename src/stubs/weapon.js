@@ -1,7 +1,8 @@
 // Stub weapon (CONTRACT 6.5): the Chopper as a bare trigger, no viewmodel.
 //
 // Hold fire for full auto through G.combat.hitscan, R reloads, right mouse aims (feeds player.ads),
-// F strikes through G.combat.melee. The Nine is listed for the HUD but never drawn: swap does nothing.
+// F strikes through G.combat.melee. The other guns are listed for the HUD but never drawn: swap does
+// nothing.
 // Emits weapon:fire / weapon:reload / weapon:dry / weapon:melee and draws a tracer per shot.
 // Numbers come from src/config/weapons.js when it is there.
 
@@ -56,6 +57,10 @@ export function createWeapon(G) {
     reserve: def.reserve,
     magSize: def.magSize,
     other: { id: nine.id, name: nine.name, mag: nine.magSize, reserve: Infinity },
+    slots: [
+      { id: def.id, name: def.name, kind: 'rifle', mag: def.magSize, reserve: def.reserve, magSize: def.magSize },
+      { id: nine.id, name: nine.name, kind: 'pistol', mag: nine.magSize, reserve: Infinity, magSize: nine.magSize },
+    ],
     spread: def.spread.hip,
     cue: '',
     reset,
@@ -63,6 +68,14 @@ export function createWeapon(G) {
     setView() {},
     addReserve(n, cap = Infinity) {
       weapon.reserve = Math.min(cap, weapon.reserve + n);
+    },
+    /** An ammo drop: `share` of the Chopper's pickup, up to its cap. Returns what was added. */
+    resupply(share = 1) {
+      const give = def.pickup || { rounds: 60, cap: 240 };
+      const rounds = Math.min(Math.max(1, Math.round(give.rounds * share)), Math.max(0, give.cap - weapon.reserve));
+      if (!(share > 0) || rounds <= 0) return [];
+      weapon.reserve += rounds;
+      return [{ id: def.id, name: def.name, rounds }];
     },
     drop() {
       cancelReload();
@@ -192,6 +205,8 @@ export function createWeapon(G) {
     }
 
     weapon.state = striking ? 'melee' : reloadLeft > 0 ? 'reloading' : sinceShot < FIRING_HOLD ? 'firing' : 'idle';
+    weapon.slots[0].mag = weapon.mag;
+    weapon.slots[0].reserve = weapon.reserve;
     weapon.cue =
       reloadLeft > 0
         ? 'reloading'

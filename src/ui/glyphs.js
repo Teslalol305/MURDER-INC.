@@ -45,6 +45,57 @@ export function nineGlyph() {
   ]);
 }
 
+/** The AR-15: a flat-top rifle in profile, muzzle to the right: collapsible stock, straight magazine, long handguard. */
+export function ar15Glyph() {
+  return icon('0 0 104 36', 'gl-ar15', [
+    path(
+      // stock on its tube, receiver, top rail and rear sight
+      'M2 11.4h13l4 2V19l-9 3.4H2ZM17 13.4h13V17H17ZM28 10h31v10.4H28ZM30 7.8h27V10H30ZM31.6 4.6h4.4v3.2h-4.4Z' +
+        // grip, trigger guard, magazine
+        'M33 20.4h7.6L37.8 31.4l-7.2-1ZM41.2 20.4h6.6v2.1h-6.6ZM48.6 20.4h9.2l2.6 13-9.4 1Z' +
+        // handguard, barrel, front sight, flash hider
+        'M59 10.8h27V18H59ZM86 13h11v2.6H86ZM87.4 13 89.6 6.4h2.2L94 13ZM96 11.9h6v4.8h-6Z',
+    ),
+    // vents along the handguard
+    path('M62.5 13.3h3.6v2.2h-3.6ZM68.5 13.3h3.6v2.2h-3.6ZM74.5 13.3h3.6v2.2h-3.6ZM80.5 13.3h3.6v2.2h-3.6Z', {
+      fill: 'var(--gl-cut, #000)',
+      opacity: '0.55',
+    }),
+  ]);
+}
+
+/** The SWITCH: a square-slide pistol in profile, muzzle to the right, a long magazine out of the grip and the switch on its back plate. */
+export function switchGlyph() {
+  return icon('0 0 60 36', 'gl-switch', [
+    path(
+      // slide with sights, the switch block behind it
+      'M6.5 6.8h44v8.4h-44ZM8.4 4.9h3.8v1.9H8.4ZM45.8 5.2h3v1.6h-3ZM2.4 8h4.1v5.4H2.4Z' +
+        // frame and dust cover
+        'M7.5 15.2h42.5v3H35.6c-2.6 0-3.4 1.3-3.4 3.2H22.2V18.2H7.5Z' +
+        // grip, raked back, and the magazine standing out of it
+        'M9.6 18.2h12.6L19.4 27.4 7.2 26.4ZM7.6 26.8l11.2 1-2 7.4-10.6-1Z',
+    ),
+    // trigger guard: a loop
+    svg('path', { d: 'M22.8 19h10.6v3.4c0 1.6-1 2.6-2.6 2.6h-8.2', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.7' }),
+    path('M8.6 29.4l9 .8-.4 1.6-9-.8Z', { fill: 'var(--gl-cut, #000)', opacity: '0.5' }),
+  ]);
+}
+
+/** The ROCKET: a shoulder launcher in profile, warhead to the right. */
+export function rocketGlyph() {
+  return icon('0 0 104 36', 'gl-rocket', [
+    path(
+      // blast cone, tube, heat shield
+      'M3 9.6 14 12.8v7L3 23ZM14 13h66v6.6H14ZM22 11.8h15v9H22Z' +
+        // sight, the two grips
+        'M41 7h11.5v6H41ZM52.5 8.6h3.2v2.6h-3.2ZM30 19.6h5.4l-1.4 8-5.2-.6ZM44.6 19.6h6l-2 10-5.6-.8Z' +
+        // the round: neck, warhead, nose
+        'M80 14.4h5.4v3.8H80ZM85.4 12.4 92 10.2l5.4 2.2 4.8 3.9-4.8 3.9L92 22.4l-6.6-2.2Z',
+    ),
+    path('M24.5 14.4h10v3.8h-10Z', { fill: 'var(--gl-cut, #000)', opacity: '0.4' }),
+  ]);
+}
+
 /** Melee: a closed fist, knuckles up. */
 export function fistGlyph() {
   return icon('0 0 36 36', 'gl-fist', [
