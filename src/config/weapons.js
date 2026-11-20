@@ -399,10 +399,12 @@ export const rocket = {
   rumble: { strong: 0.9, weak: 0.8, ms: 180 },
   wallPull: [1.3, 0.55],
   muzzleSmoke: true,
+  // Hip poses of the point on the bore over the trigger grip (see the Chopper): the tube lies on the
+  // right shoulder and runs in from the lower right, the warhead well clear of the middle of the screen.
   views: [
-    [0.16, -0.06, -0.1, 0.03, 0.1, -0.1],
-    [0.18, -0.08, -0.14, 0.03, 0.08, -0.1],
-    [0.14, -0.06, -0.1, 0.03, 0.1, -0.08],
+    [0.26, -0.125, -0.02, 0.03, 0.33, -0.2],
+    [0.21, -0.15, -0.3, 0.04, 0.3, -0.35],
+    [0.2, -0.13, -0.06, 0.025, 0.27, -0.16],
   ],
 };
 
