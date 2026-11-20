@@ -140,7 +140,7 @@ export const controls = {
 export const glance = [
   ['Move', ['W', 'A', 'S', 'D']],
   ['Fire', ['LMB']],
-  ['Aim', ['RMB']],
+  ['Aim, lock on', ['RMB']],
   ['Reload', ['R']],
   ['Weapons', ['1', '–', '5']],
   ['Grab', ['Hold E']],
@@ -151,6 +151,6 @@ export const glance = [
 ];
 
 export const glanceOther = [
-  ['Controller', 'Sticks · RT fire · LT aim · X reload · Y next weapon'],
+  ['Controller', 'Sticks · RT fire · LT aim and lock on · X reload · Y next weapon'],
   ['Touch', 'Left thumb moves · right side looks · the bullet button fires'],
 ];
