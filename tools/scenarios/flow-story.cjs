@@ -21,7 +21,10 @@ module.exports = async (page, h) => {
     await h.frames(1);
     await h.shot(`shots/story/${name}.png`);
   };
-  await page.mouse.move(480, 270);
+  // The pointer rests on the middle of the view: the harness presses buttons there, and under pointer
+  // lock a pointer that had to travel first would turn Rule's head.
+  const port = page.viewportSize() || { width: 960, height: 540 };
+  await page.mouse.move(port.width / 2, port.height / 2);
 
   /** What only the story has: the stage line, the objective, the guide line, the crates, the Vultures. */
   const story = () =>

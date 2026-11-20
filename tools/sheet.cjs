@@ -44,6 +44,10 @@ async function main() {
       cells,
   );
   fs.mkdirSync(path.dirname(out), { recursive: true });
+  // A short sheet is cut to its pictures rather than padded out to the window's height.
+  await page.evaluate(() => Promise.all(Array.from(document.images, (img) => img.decode().catch(() => {}))));
+  const height = await page.evaluate(() => Math.ceil(Math.max(...Array.from(document.images, (img) => img.getBoundingClientRect().bottom)) + 4));
+  if (height > 0 && height < 800) await page.setViewportSize({ width, height });
   await page.screenshot({ path: out, fullPage: true });
   await browser.close();
   console.log(`${out}: ${list.length} pictures`);

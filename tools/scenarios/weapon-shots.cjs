@@ -31,7 +31,10 @@ module.exports = async (page, h) => {
   });
   const problems = [];
 
-  await page.mouse.move(480, 270);
+  // The pointer rests on the middle of the view: the harness presses buttons there, and under pointer
+  // lock a pointer that had to travel first would turn Rule's head.
+  const port = page.viewportSize() || { width: 960, height: 540 };
+  await page.mouse.move(port.width / 2, port.height / 2);
   await h.eval((d) => {
     const G = window.__G;
     if (G.enemies && G.enemies.clear) G.enemies.clear();
