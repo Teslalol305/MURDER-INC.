@@ -521,7 +521,7 @@
   "enemies": {
     "ai": {
       "sightRange": 45,
-      "fov": 3.4907,
+      "fov": 3.490658503988659,
       "closeRange": 3.5,
       "senseEvery": [0.11, 0.19],
       "investigateReaction": 0.45,
@@ -2011,7 +2011,7 @@
       },
       "ai": {
         "sightRange": 45,
-        "fov": 3.4907,
+        "fov": 3.490658503988659,
         "closeRange": 3.5,
         "senseEvery": [0.11, 0.19],
         "investigateReaction": 0.45,
@@ -2180,7 +2180,7 @@
       },
       "ai": {
         "sightRange": 45,
-        "fov": 3.4907,
+        "fov": 3.490658503988659,
         "closeRange": 3.5,
         "senseEvery": [0.11, 0.19],
         "investigateReaction": 0.45,
@@ -2349,7 +2349,7 @@
       },
       "ai": {
         "sightRange": 45,
-        "fov": 3.4907,
+        "fov": 3.490658503988659,
         "closeRange": 3.5,
         "senseEvery": [0.11, 0.19],
         "investigateReaction": 0.45,

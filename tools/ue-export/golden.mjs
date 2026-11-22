@@ -25,6 +25,9 @@ import {
   approachVelocity, createPlayer, createRecoil, createShake, createSpring, sprintWanted, targetSpeed,
 } from '../../src/player.js';
 import { createWeapon } from '../../src/weapon.js';
+import * as enemiesConfig from '../../src/config/enemies.js';
+import * as flowConfig from '../../src/config/flow.js';
+import { goldenEnemies, goldenEnemyLogic, goldenFlowRules, goldenWorld, loadLevel } from './golden-ai.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const OUT = join(ROOT, 'unreal', 'MurderInc', 'Content', 'Data', 'golden');
@@ -845,6 +848,15 @@ function refineConfig() {
   walk(config.player, playerConfig);
   walk(config.weapons, weapons);
   walk(config.explosives && config.explosives.kinds, explosiveKinds);
+  walk(config.enemies, enemiesConfig);
+  walk(config.flow, flowConfig);
+  // enemiesResolved: the base tables with each difficulty's overlay laid over them (src/enemies.js retune).
+  for (const d of Object.keys(config.enemiesResolved || {})) {
+    if (!enemiesConfig.difficulty[d]) continue;
+    const merged = {};
+    for (const part of ['goon', 'buzzard', 'ai']) merged[part] = { ...enemiesConfig[part], ...(enemiesConfig.difficulty[d][part] || {}) };
+    walk(config.enemiesResolved[d], merged);
+  }
   writeFileSync(file, stringify(config, { exact: true }));
   console.log(`config.json: ${refined} numbers back to full precision`);
 }
@@ -855,3 +867,10 @@ goldenPlayerPure();
 goldenPlayerSim();
 goldenWeapon();
 goldenBlast();
+{
+  const level = loadLevel(ROOT);
+  goldenWorld(level, SEED, write, about);
+  goldenEnemyLogic(SEED, write, about);
+  goldenEnemies(level, SEED, write, about);
+  goldenFlowRules(level, SEED, write, about);
+}
