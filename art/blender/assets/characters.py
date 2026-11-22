@@ -1046,7 +1046,7 @@ def _studio(target, key=(0.6, -0.9, 0.7), strength=1.0):
     for o in list(s.objects):
         if o.type == "LIGHT":
             bpy.data.objects.remove(o)
-    w = s.world or bpy.data.worlds.new("World")
+    w = bpy.data.worlds.new("Studio")                 # a fresh world: the day rig's sky must not light the studio
     s.world = w
     bg = w.node_tree.nodes.get("Background")
     bg.inputs[0].default_value = (0.02, 0.022, 0.025, 1)
@@ -1157,8 +1157,8 @@ def on_preview(ctx, objs):
         nt.links.new(mix.outputs["Result"], b.inputs["Base Color"])
         for s_ in ob.material_slots:
             s_.material = clay
-        c = Vector(R.W) + Vector(R.fwd) * 0.03 - Vector(R.af) * 0.06
-        render.cam_look(tuple(c + Vector(R.dors) * 0.36 + Vector((0.05, -0.12, 0.08))), tuple(c), lens=50)
+        c = Vector(R.W) + Vector(R.fwd) * 0.07
+        render.cam_look(tuple(c + Vector(R.dors) * 0.30 + Vector(R.lat) * 0.10 + Vector((0, -0.06, 0.04))), tuple(c), lens=50)
         render.setup(samples=max(16, S // 3), res=(1280, 720), denoise=False)
         _studio(c)
         render.render_jpeg(os.path.join(out, "arms_wire.jpg"), max(16, S // 3))

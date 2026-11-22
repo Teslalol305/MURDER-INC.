@@ -359,6 +359,18 @@ def asset_entry(ob, family, collision="box", cover_height=None, notes="", pivot=
             rec["tint"] = [round(float(c), 3) for c in m["mi_tint"]]
         if slots and nm in slots:
             rec.update(slots[nm])
+        if rec.get("set") and rec["set"] != set_name and "tile_m" not in rec:
+            # a tinted slot whose name does not spell its set (MI_Steel_PaintBlack on TS_Steel_ScanPaintGrey):
+            # give it the set's real tile and density, as the plainly named slots get theirs
+            se2 = set_entry(rec["set"])
+            if se2:
+                rec.setdefault("textures", None)
+                rec["textures"] = rec["textures"] or se2["textures"]
+                if "tile_m" in se2:
+                    rec["tile_m"] = se2["tile_m"]
+                if "texel_density_px_per_m" in se2:
+                    rec["texel_density_px_per_m"] = se2["texel_density_px_per_m"]
+                    dens.append(se2["texel_density_px_per_m"])
         mats.append(rec)
     u = lambda v: [round(float(v[0]) * 100, 2), round(-float(v[1]) * 100, 2), round(float(v[2]) * 100, 2)]
     return {

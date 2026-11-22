@@ -383,7 +383,7 @@
    1.78
   ],
   "min": [
-   -2.664,
+   -2.663,
    -1.0,
    0.0
   ],
@@ -397,7 +397,7 @@
    0.0,
    0.0
   ],
-  "triangles": 104816,
+  "triangles": 106108,
   "slots": [
    "M_Vehicle_Pickup_Paint",
    "M_Vehicle_Pickup_Trim",
@@ -421,14 +421,21 @@
     "n": 12228
    },
    {
-    "x": 1.72,
-    "dia_z": 0.78,
-    "len_x": 0.78,
+    "x": 0.048,
+    "dia_z": 0.381,
+    "len_x": 0.018,
+    "zmin": 1.281,
+    "n": 408
+   },
+   {
+    "x": 1.628,
+    "dia_z": 1.346,
+    "len_x": 0.964,
     "zmin": 0.0,
-    "n": 9050
+    "n": 9098
    }
   ],
-  "wheelbase": 3.315,
+  "wheelbase": 3.223,
   "brief_axles": [
    1.72,
    -1.5
@@ -438,18 +445,18 @@
   "tyre_zmin": 0.0,
   "lamp_E_front_rear": {
    "front": [
-    0.96,
+    0.97,
     0.87,
-    0.7
+    0.71
    ],
    "rear": [
     0.99,
-    0.34,
-    0.2
+    0.31,
+    0.19
    ]
   },
   "glass_x_range": [
-   -1.07,
+   -0.82,
    1.26
   ],
   "glass_z_range": [
@@ -523,7 +530,7 @@
    0.0,
    0.0
   ],
-  "triangles": 119440,
+  "triangles": 122264,
   "slots": [
    "M_Vehicle_Van_Paint",
    "M_Vehicle_Van_Trim",
@@ -547,10 +554,10 @@
    },
    {
     "x": 1.7,
-    "dia_z": 0.72,
+    "dia_z": 1.812,
     "len_x": 0.72,
     "zmin": 0.0,
-    "n": 9034
+    "n": 9082
    }
   ],
   "wheelbase": 3.2,
@@ -563,19 +570,23 @@
   "tyre_zmin": 0.0,
   "lamp_E_front_rear": {
    "front": [
-    0.84,
+    0.8,
     0.78,
-    0.68
+    0.73
    ],
-   "rear": null
+   "rear": [
+    0.94,
+    0.29,
+    0.18
+   ]
   },
   "glass_x_range": [
-   0.03,
-   1.86
+   0.33,
+   2.05
   ],
   "glass_z_range": [
-   1.19,
-   1.95
+   1.14,
+   2.07
   ],
   "textures": {
    "M_Vehicle_Van_Paint.BC": "4096x4096",
