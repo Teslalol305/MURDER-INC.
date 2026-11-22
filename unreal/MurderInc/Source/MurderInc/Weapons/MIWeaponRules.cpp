@@ -390,10 +390,6 @@ void FMIWeaponRules::Shoot(IMIWeaponHost& Host)
 	Shot.Weapon = Def.Id;
 	const FMIShotResult Hit = Host.Hitscan(Shot);
 	Host.OnRoundFired(Shot, Hit, Def.FlashScale * MI::Lerp(1.0, C.AdsFlashScale, AdsValue));
-	if (Events)
-	{
-		Events->WeaponFire.Broadcast({Def.Id, Player.Eye, Dir, AdsValue});
-	}
 
 	// Recoil into the camera: the CHOPPER climbs, then weaves; the NINE snaps. Web yaw is to the left: negated.
 	const double Scale = MI::Lerp(1.0, C.AdsRecoilScale, AdsValue) * (Player.bCrouching ? C.CrouchRecoilScale : 1.0);
@@ -413,6 +409,21 @@ void FMIWeaponRules::Shoot(IMIWeaponHost& Host)
 		KickYawLeft = Burst < K.WeaveFrom
 			? Signed() * K.YawEarly * Scale
 			: (FMath::Sin(Burst * K.WeaveFreq + WeavePhase) * K.WeaveAmp + Signed() * K.WeaveRandom) * Scale;
+	}
+	// The web game says weapon:fire before the kick reaches the camera.
+	if (Events)
+	{
+		FMIShotFiredEvent Event;
+		Event.Weapon = Def.Id;
+		Event.Muzzle = Player.Eye;
+		Event.Direction = Dir;
+		Event.Ads = AdsValue;
+		Event.KickPitch = KickPitch;
+		Event.KickYaw = -KickYawLeft;
+		Event.Spread = Spread;
+		Event.Burst = Burst;
+		Event.MagLeft = A.Mag;
+		Events->WeaponFire.Broadcast(Event);
 	}
 	Host.AddRecoil(KickPitch, -KickYawLeft);
 	Host.AddShake(K.Shake * Scale);
@@ -501,6 +512,7 @@ void FMIWeaponRules::PullTrigger(const FMIWeaponInput& Input, IMIWeaponHost& Hos
 	{
 		Cooldown = -Credit;
 	}
+	bTriggerHeld = bHeld && bCanFire;
 }
 
 // ------------------------------------------------------------------------------------------------- per frame
@@ -637,4 +649,37 @@ void FMIWeaponRules::Update(double Dt, const FMIWeaponInput& Input, IMIWeaponHos
 	const FMIWeaponPlayerState After = Host.GetPlayerState();
 	ProbeWall(Dt, After, Host);
 	AssistAim(Dt, Input, After, Host);
+}
+
+FMIWeaponView FMIWeaponRules::GetView() const
+{
+	const FMIWeaponDef& Def = GetDef();
+	FMIWeaponView V;
+	V.Weapon = Def.Id;
+	V.Activity = GetActivity();
+	V.ActivityTime = GetActivityTime();
+	switch (V.Activity)
+	{
+	case EMIWeaponActivity::Reloading: V.ActivityLength = Reload.bEmpty ? Def.Reload.Empty : Def.Reload.Tactical; break;
+	case EMIWeaponActivity::Holstering: V.ActivityLength = Data.Common.Holster; break;
+	case EMIWeaponActivity::Drawing: V.ActivityLength = Data.Common.Draw; break;
+	case EMIWeaponActivity::Striking: V.ActivityLength = Data.Melee.Duration; break;
+	default: break;
+	}
+	if (Reload.bActive)
+	{
+		const TArray<FMark>& List = Marks(Current, Reload.bEmpty);
+		V.ReloadStage = Reload.Next > 0 && List.IsValidIndex(Reload.Next - 1) ? List[Reload.Next - 1].Phase : FName(TEXT("start"));
+		V.bReloadEmpty = Reload.bEmpty;
+	}
+	V.bTrigger = bTriggerHeld;
+	V.Mag = Ammo[Current].Mag;
+	V.MagSize = Def.MagSize;
+	V.Ads = AdsValue;
+	V.SprintBlend = SprintBlend.X;
+	V.Wall = Wall;
+	V.Spread = Spread;
+	V.SinceShot = SinceShot;
+	V.Burst = Burst;
+	return V;
 }

@@ -1,0 +1,10 @@
+{
+  "meta": {
+    "file": "rules.json",
+    "about": "Gameplay numbers the web game keeps as literals in its modules rather than in src/config, so tools/ue-export does not reach them. Web units (metres). Each entry names its source line.",
+    "units": "metres"
+  },
+  "player": {
+    "blastTarget": { "standing": 1.0, "crouching": 0.6, "source": "src/combat.js:356 (explode: the player's sample point above the feet)" }
+  }
+}

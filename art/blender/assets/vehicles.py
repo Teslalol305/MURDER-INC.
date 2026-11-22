@@ -895,11 +895,14 @@ def make_wheels(spec, name, yo, style, axles=None, hub_z=None, tyres=True, mats=
         for side in (1, -1):
             wp = wheel(sp, "%s_W%d%d" % (name, i, side), twin=twin)
             for k, obs in wp.items():
-                if k == "tyre" and not tyres and any(o.name.find("_Tyre") >= 0 for o in obs):
+                if k == "tyre" and not tyres:
+                    keep = []
                     for o in obs:
                         if "_Tyre" in o.name:
                             bpy.data.objects.remove(o, do_unlink=True)
-                    obs = [o for o in obs if o.name in bpy.data.objects]
+                        else:
+                            keep.append(o)
+                    obs = keep
                 m, t = (mats or {}).get(k) or tiling(WHEEL_MATS[k])
                 for p in obs:
                     if side < 0:
@@ -1936,44 +1939,42 @@ def on_preview(ctx, objs):
         ctx.log("preview %s %.0fs" % (p, sec))
 
     if want("vehicles_sedan_hero") and "SM_Vehicle_Sedan" in assets:
-        _show(assets, {"SM_Vehicle_Sedan": (0, 4.2, 0)})
-        render.cam_look((3.55, 2.35, 1.45), (0.9, 4.35, 0.72), lens=30)
+        _show(assets, {"SM_Vehicle_Sedan": (0, 3.9, 0)})
+        render.cam_look((3.55, 2.05, 1.45), (0.9, 4.05, 0.72), lens=30)
         shot("vehicles_sedan_hero.jpg")
     if want("vehicles_close") and "SM_Vehicle_Sedan" in assets:
-        _show(assets, {"SM_Vehicle_Sedan": (0, 4.2, 0)})
-        render.cam_look((1.95, 3.05, 0.95), (0.9, 5.15, 0.55), lens=30)
+        _show(assets, {"SM_Vehicle_Sedan": (0, 3.9, 0)})
+        render.cam_look((2.05, 2.25, 0.95), (0.95, 3.05, 0.58), lens=28)
         shot("vehicles_close.jpg")
     if want("vehicles_lineup_1"):
-        _show(assets, {"SM_Vehicle_Sedan": (-9.6, 4.3, 0), "SM_Vehicle_Taxi": (-4.2, 4.3, 0),
-                       "SM_Vehicle_SUV": (1.3, 4.3, 0), "SM_Vehicle_Pickup": (7.3, 4.3, 0),
-                       "SM_Vehicle_Van": (13.4, 4.3, 0)})
-        render.cam_look((4.0, -9.5, 3.2), (2.0, 4.3, 0.9), lens=24)
+        _show(assets, {"SM_Vehicle_Sedan": (-8.4, 3.9, 0), "SM_Vehicle_Taxi": (-2.9, 3.9, 0),
+                       "SM_Vehicle_SUV": (2.8, 3.85, 0), "SM_Vehicle_Pickup": (8.9, 3.85, 0)})
+        render.cam_look((-12.5, -3.6, 2.1), (0.5, 3.9, 0.9), lens=32)
         shot("vehicles_lineup_1.jpg")
     if want("vehicles_lineup_2"):
-        _show(assets, {"SM_Vehicle_Van_Vulture": (-6.5, 4.0, 180), "SM_Vehicle_BoxTruck": (2.6, 4.2, 0),
-                       "SM_Vehicle_Motorbike": (-1.6, 1.8, -30)})
-        render.cam_look((-2.0, -9.0, 3.0), (-1.0, 4.0, 1.2), lens=24)
+        _show(assets, {"SM_Vehicle_Van": (-8.6, 3.85, 0), "SM_Vehicle_Van_Vulture": (-1.0, 2.6, 160),
+                       "SM_Vehicle_Motorbike": (4.0, 4.2, 0), "SM_Vehicle_BoxTruck": (10.2, 3.6, 0)})
+        render.cam_look((-13.0, -4.2, 2.4), (1.0, 3.4, 1.2), lens=30)
         shot("vehicles_lineup_2.jpg")
     if want("vehicles_ipx_truck") and "SM_Vehicle_IPXTruck" in assets:
-        pl = {"SM_Vehicle_IPXTruck": (0, 4.0, 180), "SM_Vehicle_IPXTruck_Door": (0, 0, 0),
+        pl = {"SM_Vehicle_IPXTruck": (0, 3.6, 180), "SM_Vehicle_IPXTruck_Door": (0, 0, 0),
               "SM_Vehicle_IPXTruck_Door_Left": (0, 0, 0)}
         _show(assets, pl)
         # doors open 108.9 degrees on their hinges; the truck is turned 180 so its tail faces +X
         L = 6.81 / 2
-        for nm, s in (("SM_Vehicle_IPXTruck_Door", 1), ("SM_Vehicle_IPXTruck_Door_Left", -1)):
+        for nm, s_ in (("SM_Vehicle_IPXTruck_Door", 1), ("SM_Vehicle_IPXTruck_Door_Left", -1)):
             d = assets[nm]
-            hx, hy = -L + 0.0, -0.89 * s
-            # truck-local hinge -> world (truck turned 180 about its origin at (0, 4))
-            d.location = (-hx, 4.0 - hy, 1.05)
-            d.rotation_euler = (0, 0, math.radians(180 + s * 108.9))
-        render.cam_look((9.0, -1.2, 2.3), (2.2, 4.0, 1.5), lens=28)
+            hx, hy = -L + 0.0, -0.89 * s_
+            d.location = (-hx, 3.6 - hy, 1.05)
+            d.rotation_euler = (0, 0, math.radians(180 + s_ * 108.9))
+        render.cam_look((9.6, -1.6, 2.2), (2.0, 3.8, 1.5), lens=28)
         shot("vehicles_ipx_truck.jpg")
     if want("vehicles_wrecks"):
-        _show(assets, {"SM_Vehicle_BurnedCar": (-3.0, 4.2, 10), "SM_Vehicle_StrippedCar": (3.2, 4.0, -8)})
-        render.cam_look((0.5, -6.5, 2.6), (0.2, 4.0, 0.7), lens=28)
+        _show(assets, {"SM_Vehicle_BurnedCar": (-2.8, 3.4, 12), "SM_Vehicle_StrippedCar": (3.0, 3.3, -8)})
+        render.cam_look((0.4, -4.6, 2.5), (0.2, 3.4, 0.7), lens=28)
         shot("vehicles_wrecks.jpg")
     if want("vehicles_wire"):
-        _show(assets, {"SM_Vehicle_Sedan": (-2.6, 4.2, 0), "SM_Vehicle_SUV": (2.8, 4.2, 0)})
+        _show(assets, {"SM_Vehicle_Sedan": (-2.6, 3.9, 0), "SM_Vehicle_SUV": (2.8, 3.85, 0)})
         clay = bpy.data.materials.new("PV_Clay")
         clay.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.5, 0.5, 0.5, 1)
         vl = bpy.context.view_layer
@@ -1989,7 +1990,7 @@ def on_preview(ctx, objs):
         ls.linestyle.thickness = 0.6
         ls.linestyle.color = (0.05, 0.05, 0.06)
         vl.freestyle_settings.crease_angle = math.radians(140)
-        render.cam_look((0.2, -4.6, 2.2), (0.1, 4.2, 0.7), lens=30)
+        render.cam_look((0.2, -4.0, 2.2), (0.1, 3.9, 0.7), lens=30)
         shot("vehicles_wire.jpg")
         vl.material_override = old
         sc.render.use_freestyle = False

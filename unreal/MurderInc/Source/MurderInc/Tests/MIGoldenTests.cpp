@@ -986,8 +986,6 @@ bool FMIGoldenBlastTest::RunTest(const FString& Parameters)
 					Explode(ToUE(Arr(A[2])), Num(A, 3) * 100.0, Num(A, 4), Rules.PlayerDamageScale, INDEX_NONE);
 				}
 			}
-			// The web scenario advances its frame counter before the fuses run: what they do is logged one frame on.
-			++Frame;
 			Field.Update(Dt, [&](int32 Index)
 			{
 				const FVector Centre = Field.Blow(Index);
@@ -1001,7 +999,6 @@ bool FMIGoldenBlastTest::RunTest(const FString& Parameters)
 					Log.Add(L);
 				}
 			});
-			--Frame;
 		}
 
 		TArray<FLogged> Expected;

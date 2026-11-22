@@ -106,6 +106,26 @@ enum class EMIWeaponActivity : uint8
 	Dropped
 };
 
+/** What a presentation layer reads of the rules each frame (spec 02 2.12): state, never internals to write. */
+struct FMIWeaponView
+{
+	FName Weapon;
+	EMIWeaponActivity Activity = EMIWeaponActivity::Ready;
+	double ActivityTime = 0.0;    // s since the reload, holster, draw or strike began
+	double ActivityLength = 0.0;  // s it lasts (progress = time / length)
+	FName ReloadStage;            // the last reload mark passed: start, magout, magin, bolt
+	bool bReloadEmpty = false;
+	bool bTrigger = false;        // trigger held and allowed to fire
+	int32 Mag = 0;
+	int32 MagSize = 0;
+	double Ads = 0.0;
+	double SprintBlend = 0.0;
+	double Wall = 0.0;
+	double Spread = 0.0;          // degrees
+	double SinceShot = 0.0;       // s
+	int32 Burst = 0;
+};
+
 class MURDERINC_API FMIWeaponRules
 {
 public:
@@ -143,6 +163,7 @@ public:
 	double GetAimSlow() const { return AimSlow; }
 	EMIWeaponActivity GetActivity() const;
 	double GetActivityTime() const;
+	FMIWeaponView GetView() const;
 	bool IsDropped() const { return bDropped; }
 	const FMIWeaponsData& GetData() const { return Data; }
 
@@ -217,6 +238,7 @@ private:
 	double Heat = 0.0;
 	double FireBuffer = 0.0;
 	bool bDryLatch = false;
+	bool bTriggerHeld = false;
 	bool bSustained = false;
 	double AutoReload = 0.0;
 	double AdsLinear = 0.0;

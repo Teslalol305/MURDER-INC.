@@ -2,185 +2,399 @@
 
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/PoseableMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Core/Data/MIDataSubsystem.h"
+#include "Core/MIEvents.h"
+#include "Dom/JsonObject.h"
+#include "Engine/GameViewportClient.h"
+#include "Engine/SkeletalMesh.h"
 #include "Engine/World.h"
-#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
 #include "MurderInc.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
+#include "Player/MICharacterMovement.h"
+#include "Weapons/MICombatSubsystem.h"
+#include "Weapons/MIViewmodel.h"
+#include "Weapons/MIWeaponComponent.h"
 
 namespace MIPlayerCharacterPrivate
 {
-	/** Frame-rate independent approach, the web game's damp(): 1 - e^(-rate * dt) of the way per step. */
-	float Damp(float Current, float Target, float Rate, float DeltaSeconds)
+	double BlastStanding = 0.0;
+	double BlastCrouching = 0.0;
+	bool bBlastLoaded = false;
+
+	void LoadRules()
 	{
-		return FMath::Lerp(Current, Target, 1.f - FMath::Exp(-Rate * DeltaSeconds));
+		if (bBlastLoaded)
+		{
+			return;
+		}
+		TSharedPtr<FJsonObject> Root;
+		FString Error;
+		if (UMIDataSubsystem::LoadJsonFile(TEXT("rules.json"), Root, Error))
+		{
+			const TSharedPtr<FJsonObject> Target = Root->GetObjectField(TEXT("player"))->GetObjectField(TEXT("blastTarget"));
+			BlastStanding = Target->GetNumberField(TEXT("standing")) * 100.0;
+			BlastCrouching = Target->GetNumberField(TEXT("crouching")) * 100.0;
+			bBlastLoaded = true;
+		}
+		else
+		{
+			UE_LOG(LogMI, Error, TEXT("Player: rules.json: %s"), *Error);
+		}
 	}
 }
 
-AMIPlayerCharacter::AMIPlayerCharacter()
+void FMIPlayerLateTick::ExecuteTick(float DeltaTime, ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+{
+	if (Target && IsValid(Target) && TickType != LEVELTICK_ViewportsOnly)
+	{
+		Target->LateTick(DeltaTime);
+	}
+}
+
+AMIPlayerCharacter::AMIPlayerCharacter(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer.SetDefaultSubobjectClass<UMICharacterMovement>(ACharacter::CharacterMovementComponentName))
 {
 	PrimaryActorTick.bCanEverTick = true;
-
-	FirstPersonCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
-	FirstPersonCamera->SetupAttachment(GetCapsuleComponent());
-	FirstPersonCamera->bUsePawnControlRotation = true;
-	// The web game's field-of-view numbers are vertical: make the camera read its value as vertical.
-	FirstPersonCamera->bOverrideAspectRatioAxisConstraint = true;
-	FirstPersonCamera->SetAspectRatioAxisConstraint(AspectRatio_MaintainYFOV);
-
-	bUseControllerRotationYaw = true;
+	PrimaryActorTick.TickGroup = TG_PrePhysics;
+	bUseControllerRotationYaw = false;
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
 
-	UCharacterMovementComponent* Movement = GetCharacterMovement();
-	Movement->NavAgentProps.bCanCrouch = true;
-	Movement->bCanWalkOffLedgesWhenCrouching = true;
-	Movement->bOrientRotationToMovement = false;
-	// Stop at a constant rate (config "accel.groundStop"), as the web game does, instead of friction-based braking.
-	Movement->bUseSeparateBrakingFriction = true;
-	Movement->BrakingFriction = 0.f;
+	// The player passes through people (spec 01 4.3) and is never hit by his own rounds; enemy rounds use the
+	// player's own hit cylinder (enemies package).
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+	GetCapsuleComponent()->SetCollisionResponseToChannel(MIBulletChannel, ECR_Ignore);
+
+	FirstPersonCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
+	FirstPersonCamera->SetupAttachment(GetCapsuleComponent());
+	FirstPersonCamera->bUsePawnControlRotation = false;
+	FirstPersonCamera->bConstrainAspectRatio = false;
+	FirstPersonCamera->bEnableFirstPersonFieldOfView = true;
+	FirstPersonCamera->bEnableFirstPersonScale = true;
+
+	// The first-person gun and arms (template mannequin and weapons until the real art; presentation.json).
+	GunMesh = CreateDefaultSubobject<UPoseableMeshComponent>(TEXT("FirstPersonGun"));
+	GunMesh->SetupAttachment(FirstPersonCamera);
+	GunMesh->SetOnlyOwnerSee(true);
+	GunMesh->SetFirstPersonPrimitiveType(EFirstPersonPrimitiveType::FirstPerson);
+	GunMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	GunMesh->CastShadow = false;
+
+	ArmsMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FirstPersonArms"));
+	ArmsMesh->SetupAttachment(FirstPersonCamera);
+	ArmsMesh->SetOnlyOwnerSee(true);
+	ArmsMesh->SetFirstPersonPrimitiveType(EFirstPersonPrimitiveType::FirstPerson);
+	ArmsMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	ArmsMesh->CastShadow = false;
+	ArmsMesh->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+
+	GetMesh()->SetOwnerNoSee(true);
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	Weapon = CreateDefaultSubobject<UMIWeaponComponent>(TEXT("Weapon"));
 }
 
-void AMIPlayerCharacter::PostInitializeComponents()
+void AMIPlayerCharacter::BeginPlay()
 {
-	Super::PostInitializeComponents();
+	Super::BeginPlay();
+	Movement = Cast<UMICharacterMovement>(GetCharacterMovement());
 
-	const UWorld* World = GetWorld();
-	if (!World || !World->IsGameWorld())
+	FMIConfigData Config;
+	bool bLoaded = false;
+	if (const UMIDataSubsystem* Data = UMIDataSubsystem::Get(this); Data && Data->IsLoaded())
 	{
-		return;
-	}
-	const UMIDataSubsystem* Data = UMIDataSubsystem::Get(this);
-	if (Data && Data->IsLoaded())
-	{
-		ApplyTuning(Data->GetPlayer());
+		Config = Data->GetConfig();
+		bLoaded = true;
 	}
 	else
 	{
-		UE_LOG(LogMI, Error, TEXT("Player: no tuning data (Content/Data/config.json not loaded): %s cannot move or look"), *GetNameSafe(this));
+		FString Error;
+		bLoaded = UMIDataSubsystem::LoadConfig(Config, Error);
+		if (!bLoaded)
+		{
+			UE_LOG(LogMI, Error, TEXT("Player: config.json: %s"), *Error);
+		}
+	}
+	if (bLoaded)
+	{
+		ApplyTuning(Config);
+	}
+
+	// The rules decide before the move; the late tick runs after it.
+	if (Movement)
+	{
+		Movement->PrimaryComponentTick.AddPrerequisite(this, PrimaryActorTick);
+	}
+	LateTickFunction.Target = this;
+	LateTickFunction.TickGroup = TG_PostPhysics;
+	LateTickFunction.bCanEverTick = true;
+	LateTickFunction.bTickEvenWhenPaused = false;
+	LateTickFunction.RegisterTickFunction(GetLevel());
+	if (Movement)
+	{
+		LateTickFunction.AddPrerequisite(Movement, Movement->PrimaryComponentTick);
+	}
+
+	if (UMICombatSubsystem* Combat = UMICombatSubsystem::Get(this))
+	{
+		Combat->Register(this);
+	}
+	if (FMIGameEvents* Events = UMIEventSubsystem::Get(this))
+	{
+		Rules.SetEvents(Events);
+		Events->Explosion.AddWeakLambda(this, [this](const FMIExplosionEvent& E) { Rules.OnExplosion(E.Position, E.bBig); });
 	}
 }
 
-void AMIPlayerCharacter::ApplyTuning(const FMIPlayerData& Data)
+void AMIPlayerCharacter::EndPlay(const EEndPlayReason::Type Reason)
 {
-	Tuning = Data;
+	LateTickFunction.UnRegisterTickFunction();
+	if (UMICombatSubsystem* Combat = UMICombatSubsystem::Get(this))
+	{
+		Combat->Unregister(this);
+	}
+	Super::EndPlay(Reason);
+}
+
+void AMIPlayerCharacter::ApplyTuning(const FMIConfigData& Config)
+{
+	MIPlayerCharacterPrivate::LoadRules();
+	Tuning = Config;
+	const FMIPlayerData& P = Config.Player;
+	Rules.Init(P, UMIEventSubsystem::Get(this));
+
+	GetCapsuleComponent()->SetCapsuleSize(P.Body.Radius, P.Body.Height * 0.5);
+	if (UCharacterMovementComponent* Move = GetCharacterMovement())
+	{
+		const double WorldGravity = GetWorld() ? FMath::Abs(GetWorld()->GetDefaultGravityZ()) : 980.0;
+		Move->GravityScale = WorldGravity > 0.0 ? P.Jump.Gravity / WorldGravity : 1.0;
+		Move->MaxStepHeight = P.Body.StepHeight;
+		Move->SetCrouchedHalfHeight(P.Body.CrouchHeight * 0.5);
+		Move->NavAgentProps.bCanCrouch = true;
+		Move->NavAgentProps.bCanJump = true;
+		Move->bCanWalkOffLedgesWhenCrouching = true;
+		Move->PerchRadiusThreshold = P.Body.Radius * (1.0 - P.Body.Footprint);
+		Move->bOrientRotationToMovement = false;
+		Move->MaxAcceleration = 0.f;  // the rules own the velocity (UMICharacterMovement::CalcVelocity)
+	}
+	JumpMaxCount = 1;
+	JumpMaxHoldTime = 0.f;
+
+	if (Weapon)
+	{
+		Weapon->Setup(this, Config, FirstPersonCamera, GunMesh, ArmsMesh);
+	}
+	FMIViewmodelData View;
+	FString Error;
+	if (FMIViewmodelData::Load(View, Error))
+	{
+		FirstPersonCamera->SetFirstPersonScale(View.FirstPersonScale);
+		if (USkeletalMesh* Body = Cast<USkeletalMesh>(View.Body.TryLoad()))
+		{
+			ArmsMesh->SetSkinnedAssetAndUpdate(Body, true);
+		}
+	}
 	bHasTuning = true;
-
-	const float HalfHeight = Data.Body.Height * 0.5f;
-	const float CrouchHalfHeight = Data.Body.CrouchHeight * 0.5f;
-	GetCapsuleComponent()->SetCapsuleSize(Data.Body.Radius, HalfHeight);
-
-	UCharacterMovementComponent* Movement = GetCharacterMovement();
-	Movement->SetCrouchedHalfHeight(CrouchHalfHeight);
-	Movement->MaxWalkSpeed = Data.Speed.Walk;
-	Movement->MaxWalkSpeedCrouched = Data.Speed.Crouch;
-	Movement->MaxAcceleration = Data.Accel.Ground;
-	Movement->BrakingDecelerationWalking = Data.Accel.GroundStop;
-	Movement->BrakingDecelerationFalling = Data.Accel.AirStop;
-	Movement->AirControl = Data.Accel.Ground > 0.f ? Data.Accel.Air / Data.Accel.Ground : 0.f;
-	Movement->MaxStepHeight = Data.Body.StepHeight;
-	Movement->JumpZVelocity = Data.Jump.LaunchSpeed();
-	const float WorldGravity = GetWorld() ? FMath::Abs(GetWorld()->GetDefaultGravityZ()) : 0.f;
-	Movement->GravityScale = WorldGravity > 0.f ? Data.Jump.Gravity / WorldGravity : 1.f;
-
-	StandEyeOffset = Data.Body.Eye - HalfHeight;
-	CrouchEyeOffset = Data.Body.CrouchEye - CrouchHalfHeight;
-	CrouchedEyeHeight = CrouchEyeOffset;
-	RecalculateBaseEyeHeight();
-	CameraHeight = BaseEyeHeight;
-	FirstPersonCamera->SetRelativeLocation(FVector(0.f, 0.f, CameraHeight));
-
-	CurrentFov = Data.Fov.Base;
-	FirstPersonCamera->SetFieldOfView(CurrentFov);
+	ResetRun();
 }
 
-void AMIPlayerCharacter::RecalculateBaseEyeHeight()
+void AMIPlayerCharacter::ResetRun()
 {
-	// The engine resets this to the class default; ours comes from data.
-	BaseEyeHeight = IsCrouched() ? CrouchEyeOffset : StandEyeOffset;
-}
-
-void AMIPlayerCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
-{
-	Super::OnStartCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
-	// The capsule centre just dropped by this much: keep the camera where it was and let Tick ease it down.
-	CameraHeight += ScaledHalfHeightAdjust;
-	FirstPersonCamera->SetRelativeLocation(FVector(0.f, 0.f, CameraHeight));
-}
-
-void AMIPlayerCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
-{
-	Super::OnEndCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
-	CameraHeight -= ScaledHalfHeightAdjust;
-	FirstPersonCamera->SetRelativeLocation(FVector(0.f, 0.f, CameraHeight));
-}
-
-void AMIPlayerCharacter::AddLookInput(const FVector2D& MouseCounts)
-{
-	if (!Controller || !bHasTuning)
+	if (!bHasTuning)
 	{
 		return;
 	}
-	const float DegreesPerCount = Tuning.Look.MouseDegreesPerCount;
-	FRotator Rotation = Controller->GetControlRotation();
-	Rotation.Yaw += MouseCounts.X * DegreesPerCount;
-	Rotation.Pitch = FMath::Clamp(FRotator::NormalizeAxis(Rotation.Pitch) + MouseCounts.Y * DegreesPerCount,
-		-Tuning.Look.PitchLimit, Tuning.Look.PitchLimit);
-	Rotation.Roll = 0.f;
-	Controller->SetControlRotation(Rotation);
+	Rules.Reset(GetFeet(), GetActorRotation().Yaw);
+	if (const FMIDifficultyData* D = Tuning.FindDifficulty(Tuning.DefaultDifficulty))
+	{
+		Rules.RegenDelay = D->RegenDelay;
+		Rules.RegenRate = D->RegenRate;
+	}
+	if (Weapon)
+	{
+		Weapon->ResetRun();
+	}
+	bDeathCapsule = false;
+	GetCapsuleComponent()->SetCapsuleSize(Tuning.Player.Body.Radius, Tuning.Player.Body.Height * 0.5);
+	PlaceCamera();
+}
+
+FVector AMIPlayerCharacter::GetFeet() const
+{
+	return GetActorLocation() - FVector(0, 0, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+}
+
+bool AMIPlayerCharacter::CanStand() const
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return true;
+	}
+	const FMIPlayerBodyData& B = Tuning.Player.Body;
+	const double Radius = B.Radius * B.Footprint;
+	const double Lift = B.StandClearance;
+	const double Half = FMath::Max(Radius, (B.Height - Lift) * 0.5);
+	const FVector Centre = GetFeet() + FVector(0, 0, Lift + Half);
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(MIHeadroom), false, this);
+	return !World->OverlapBlockingTestByChannel(Centre, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(Radius, Half), Params);
 }
 
 void AMIPlayerCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-	if (!bHasTuning)
+	if (!bHasTuning || !Movement)
 	{
 		return;
 	}
-	using namespace MIPlayerCharacterPrivate;
-	UCharacterMovementComponent* Movement = GetCharacterMovement();
+	// The rules' view of the body is the capsule's.
+	Rules.Feet = GetFeet();
 
-	// Keyboard diagonals arrive as (1, 1): bring the input back onto the unit circle before any rule reads it.
-	FVector2D Input = MoveInput;
-	if (Input.SizeSquared() > 1.0)
+	FMIPlayerInputFrame Frame;
+	Frame.Move = Input.Move;
+	Frame.LookDegrees = Input.LookDegrees;
+	Frame.bSprintHeld = Input.bSprint;
+	Frame.bCrouchHeld = Input.bCrouch;
+	Frame.bFireHeld = Input.bFire;
+	Frame.bJumpPressed = Input.bJumpPressed;
+	FrameLook = Input.LookDegrees;
+	Input.LookDegrees = FVector2D::ZeroVector;
+	Input.bJumpPressed = false;
+
+	const FMIBodyMove Move = Rules.BeginFrame(DeltaSeconds, Frame, [this]() { return CanStand(); });
+	if (Controller)
 	{
-		Input.Normalize();
+		Controller->SetControlRotation(FRotator(Rules.Pitch, Rules.Yaw, 0.0));
 	}
 
-	// Hold to crouch. The engine refuses to stand up where the standing capsule does not fit.
-	if (bCrouchHeld && !IsCrouched())
+	Movement->bRuleDriven = true;
+	Movement->RuleVelocity = Move.bMove ? Move.Velocity : FVector::ZeroVector;
+	if (!Move.bMove)
 	{
-		Crouch();
+		Movement->Velocity = FVector::ZeroVector;
+		return;
 	}
-	else if (!bCrouchHeld && IsCrouched())
+	if (Move.bJumped)
 	{
-		UnCrouch();
+		Movement->Velocity.Z = Move.Velocity.Z;
+		Movement->SetMovementMode(MOVE_Falling);
 	}
-
-	// Sprint rule of the web game: held, mostly forward, not crouched.
-	const bool bSprintWanted = bSprintHeld && !IsCrouched()
-		&& Input.Y > Tuning.Sprint.MinForward && FMath::Abs(Input.X) < Tuning.Sprint.MaxStrafe;
-	Movement->MaxWalkSpeed = bSprintWanted ? Tuning.Speed.Sprint : Tuning.Speed.Walk;
-	if (Movement->IsMovingOnGround())
+	if (Move.bDead)
 	{
-		bSprinting = bSprintWanted && GetVelocity().Size2D() > Tuning.Sprint.MinSpeedFrac * Tuning.Speed.Walk;
+		Movement->bWantsToCrouch = false;
+		if (!bDeathCapsule)
+		{
+			// The body drops to a sphere on the floor; the feet stay where they are.
+			bDeathCapsule = true;
+			const FVector Feet = GetFeet();
+			const double Radius = GetCapsuleComponent()->GetScaledCapsuleRadius();
+			const double Half = FMath::Max(Radius, Move.Height * 0.5);
+			GetCapsuleComponent()->SetCapsuleSize(Radius, Half);
+			SetActorLocation(Feet + FVector(0, 0, Half));
+		}
 	}
 	else
 	{
-		bSprinting = bSprinting && bSprintWanted;
+		Movement->bWantsToCrouch = Rules.bCrouching;
 	}
+}
 
-	if (Controller && !Input.IsNearlyZero())
+void AMIPlayerCharacter::LateTick(float DeltaSeconds)
+{
+	if (!bHasTuning || !Movement)
 	{
-		AddMovementInput(GetActorForwardVector(), Input.Y);
-		AddMovementInput(GetActorRightVector(), Input.X);
+		return;
 	}
+	FMIBodyResult Body;
+	Body.Feet = GetFeet();
+	Body.Velocity = Movement->Velocity;
+	Body.bOnGround = Movement->IsMovingOnGround();
+	if (const UPhysicalMaterial* Material = Movement->CurrentFloor.HitResult.PhysMaterial.Get())
+	{
+		FString Name = Material->GetName();
+		Name.RemoveFromStart(TEXT("PM_"));
+		Body.Surface = FName(*Name.ToLower());
+	}
+	else
+	{
+		Body.Surface = NAME_None;
+	}
+	Rules.EndFrame(DeltaSeconds, Body);
 
-	// Camera: eye height eases between the stances, field of view widens while sprinting.
-	CameraHeight = Damp(CameraHeight, IsCrouched() ? CrouchEyeOffset : StandEyeOffset, Tuning.Body.EyeRate, DeltaSeconds);
-	FirstPersonCamera->SetRelativeLocation(FVector(0.f, 0.f, CameraHeight));
+	if (Weapon)
+	{
+		FMIWeaponInput W;
+		W.bFireDown = Input.bFire;
+		W.bFirePressed = Input.bFirePressed;
+		W.bAdsDown = Input.bAds;
+		W.bSwapPressed = Input.bSwapPressed;
+		W.bWeapon1Pressed = Input.bWeapon1Pressed;
+		W.bWeapon2Pressed = Input.bWeapon2Pressed;
+		W.bMeleePressed = Input.bMeleePressed;
+		W.bReloadPressed = Input.bReloadPressed;
+		W.bPadActive = Input.bPad;
+		Input.bFirePressed = Input.bSwapPressed = Input.bWeapon1Pressed = Input.bWeapon2Pressed = false;
+		Input.bMeleePressed = Input.bReloadPressed = false;
+		Weapon->Step(DeltaSeconds, W, FrameLook);
+	}
+	PlaceCamera();
+}
 
-	const float TargetFov = FMath::Clamp(Tuning.Fov.Base + (bSprinting ? Tuning.Fov.SprintAdd : 0.f), Tuning.Fov.Min, Tuning.Fov.Max + Tuning.Fov.SprintAdd);
-	CurrentFov = Damp(CurrentFov, TargetFov, Tuning.Fov.Rate, DeltaSeconds);
-	FirstPersonCamera->SetFieldOfView(CurrentFov);
+double AMIPlayerCharacter::HorizontalFov(double VerticalDegrees) const
+{
+	double Aspect = 16.0 / 9.0;
+	if (const UWorld* World = GetWorld(); World && World->GetGameViewport())
+	{
+		FVector2D Size;
+		World->GetGameViewport()->GetViewportSize(Size);
+		if (Size.X > 0.0 && Size.Y > 0.0)
+		{
+			Aspect = Size.X / Size.Y;
+		}
+	}
+	return FMath::RadiansToDegrees(2.0 * FMath::Atan(FMath::Tan(FMath::DegreesToRadians(VerticalDegrees) * 0.5) * Aspect));
+}
+
+void AMIPlayerCharacter::PlaceCamera()
+{
+	// The web game keeps the vertical field of view; the engine's camera takes a horizontal one.
+	FirstPersonCamera->SetWorldLocationAndRotation(Rules.Eye, Rules.CameraRotation);
+	FirstPersonCamera->SetFieldOfView(HorizontalFov(Rules.ViewFov));
+	FirstPersonCamera->SetFirstPersonFieldOfView(HorizontalFov(Tuning.Player.Fov.Viewmodel));
+}
+
+FName AMIPlayerCharacter::GetStance() const
+{
+	if (!Rules.bAlive) return TEXT("dead");
+	if (Rules.bCrouching) return TEXT("crouch");
+	if (Rules.bSprinting) return TEXT("sprint");
+	return TEXT("stand");
+}
+
+FMIDamageResult AMIPlayerCharacter::ApplyMIDamage(const FMIDamage& Damage)
+{
+	FMIDamageResult Result;
+	if (!Rules.bAlive || Rules.bInvulnerable || !(Damage.Amount > 0.0))
+	{
+		return Result;
+	}
+	const double Before = Rules.Health;
+	Rules.Damage(Damage.Amount, Damage.From, Damage.Kind);
+	if (Damage.From.IsSet())
+	{
+		LastDamageDirection = (Damage.From.GetValue() - Rules.Eye).GetSafeNormal();
+	}
+	Result.bAccepted = true;
+	Result.Dealt = Before - Rules.Health;
+	Result.bKilled = !Rules.bAlive;
+	return Result;
+}
+
+FVector AMIPlayerCharacter::GetMIBlastTarget() const
+{
+	using namespace MIPlayerCharacterPrivate;
+	return GetFeet() + FVector(0, 0, Rules.bCrouching ? BlastCrouching : BlastStanding);
 }

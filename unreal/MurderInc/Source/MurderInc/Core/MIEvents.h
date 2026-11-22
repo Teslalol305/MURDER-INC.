@@ -30,12 +30,18 @@ enum class EMIDamageSource : uint8
 	World
 };
 
+/** One round left the gun: what the animation layer, the HUD and the effects need, without the rule internals. */
 struct FMIShotFiredEvent
 {
 	FName Weapon;
-	FVector Muzzle = FVector::ZeroVector;
+	FVector Muzzle = FVector::ZeroVector;  // the eye: rounds leave from there (the on-screen muzzle is the viewmodel's)
 	FVector Direction = FVector::ForwardVector;
 	double Ads = 0.0;
+	double KickPitch = 0.0;  // degrees of camera recoil this round (pitch up)
+	double KickYaw = 0.0;    // degrees (yaw right)
+	double Spread = 0.0;     // degrees, the cone half-angle the round was drawn from
+	int32 Burst = 0;         // 1 for the first round of a burst
+	int32 MagLeft = 0;       // rounds left after this one
 };
 
 struct FMIReloadEvent

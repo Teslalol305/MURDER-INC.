@@ -1,0 +1,107 @@
+{
+  "meta": {
+    "file": "presentation.json",
+    "about": "How the player's guns and arms are drawn: which meshes and animations stand in (soft paths, replaced by the real art without code changes), the gun markers, the base poses, the strike keys, the moving parts and the feel of the additive layers. Everything that decides gameplay is in config.json; nothing here does. Read by MIViewmodel.cpp.",
+    "units": "web units, as in src/weapon/*.js, converted at load: view space and gun space in metres with x right, y up, z toward the viewer (a gun's muzzle is at -z); angles in radians; Euler angles in the order YXZ (src/weapon/handling.js gunPose). Times in seconds.",
+    "sources": "src/weapon/viewmodel.js (FEEL, the frame pose), src/weapon/chopper.js and nine.js (markers, poses, strikes, parts), spec 02 sections 2.13, 3.16 and 3.17"
+  },
+  "firstPerson": {
+    "body": "/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple.SKM_Manny_Simple",
+    "bodyHandSocket": "HandGrip_R",
+    "scale": 0.6,
+    "note": "The arms are the first-person body on the mannequin skeleton, placed each frame so that its bodyHandSocket holds the gun's grip (the gun's 'grip' marker). The real arms keep the skeleton and the socket."
+  },
+  "feel": {
+    "breathe": { "hz": 0.25, "y": 0.0013, "pitch": 0.0032, "roll": 0.0016 },
+    "bob": { "y": [0.0036, 0.0105], "x": [0.0034, 0.0075], "roll": [0.008, 0.032], "pitch": [0.004, 0.014], "adsPos": 0.14, "adsRot": 0.05, "crouch": 0.72, "rate": 9, "walkSpeed": 3.8, "exponent": 0.8, "moving": 0.3 },
+    "lag": { "gain": 0.5, "roll": 0.55, "shift": 0.018, "ads": 0.22 },
+    "inertia": { "rate": 7.7, "strafe": 0.0045, "surge": 0.0035, "lean": 0.045, "fall": 0.0035, "fallPitch": 0.012, "ads": 0.25, "accelLimit": 40, "leanSpeed": 6.4, "fallClamp": [-12, 8] },
+    "jump": 0.85,
+    "land": { "perSpeed": 0.075, "max": 14, "roll": 0.5, "adsY": 0.4, "pitch": 1.6, "adsPitch": 0.3 },
+    "landSpring": [15, 0.45],
+    "bumpSpring": [26, 0.5],
+    "aimArc": { "drop": 0.012, "roll": 0.07 },
+    "triggerRate": 38,
+    "reloadBlend": { "in": 0.24, "out": 0.3, "cancelRate": 16 },
+    "dropTime": 0.3,
+    "dry": { "pitch": 0.35, "y": -0.04 },
+    "magout": { "y": 0.1, "roll": 0.5 },
+    "magInsert": { "y": 0.12 },
+    "magin": { "y": 0.3, "pitch": 0.7 },
+    "tug": { "y": -0.2, "pitch": -0.5 },
+    "meleeLand": { "enemy": 1.4, "wall": 0.9, "roll": 0.8 }
+  },
+  "tracer": { "minHit": 0.9, "length": 5.72, "hidden": 1.1, "hiddenFrom": 3.3, "thickness": 0.035, "note": "spec 02 2.8: a placeholder streak (a line) until the Niagara beam exists; colour and speed are config.json weapons.common.tracer" },
+  "guns": {
+    "chopper": {
+      "mesh": "/Game/Weapons/Rifle/Meshes/SKM_Rifle.SKM_Rifle",
+      "idle": "/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS.MF_Rifle_Idle_ADS",
+      "meshOffset": { "pos": [0, -0.085, -0.04], "rot": [0, -1.5708, 0], "note": "gun space to the mesh's own space: the template rifle has its origin in the grip and its muzzle along +Y; the real SK_Chopper has its origin on the bore at the back of the receiver, muzzle along +X, and needs only the axis turn" },
+      "sockets": { "muzzle": "Muzzle", "eject": "Eject", "sightRear": "SightRear", "sightFront": "SightFront", "pivot": "RecoilPivot", "magHinge": "MagHinge", "grip": "Palm_R", "support": "Palm_L" },
+      "markers": {
+        "muzzle": [0, 0, -0.4975],
+        "eject": [0.019, 0.018, -0.15],
+        "sightRear": [0, 0.0555, -0.0235],
+        "pivot": [0, -0.03, 0.02],
+        "grip": [0.0145, -0.085, -0.04],
+        "support": [-0.01, -0.0615, -0.315]
+      },
+      "relief": 0.16,
+      "flash": { "star": 0.2, "jet": 0.34 },
+      "poses": {
+        "sprint": [0.05, -0.2, -0.27, -0.32, 0.8, -0.3],
+        "reload": [0.05, -0.105, -0.31, 0.4, 0.34, -0.55],
+        "wall": [0.09, -0.15, -0.14, 0.62, 0.12, -0.1],
+        "holster": [0.2, -0.46, -0.2, -0.55, 0.25, -0.45]
+      },
+      "melee": [
+        [0, 0, 0, 0, 0, 0, 0],
+        [0.08, 0.05, -0.02, 0.07, 0.08, -0.3, 0.15],
+        [0.16, -0.13, 0.05, -0.2, -0.18, 1.2, -0.5],
+        [0.27, -0.14, 0.03, -0.16, -0.24, 1.3, -0.55],
+        [0.55, 0, 0, 0, 0, 0, 0]
+      ],
+      "parts": {
+        "bolt": { "bone": "bolt", "axis": [0, 0, 1], "travel": 0.092, "back": 0.02, "forward": 0.045, "lockOnEmpty": false },
+        "trigger": { "bone": "trigger", "turn": 0.34 },
+        "magazine": { "bone": "magazine", "drop": [0, -0.12, 0.03], "out": "magOut", "show": "magShow", "in": "magIn" },
+        "boltReload": { "tactical": [[1.88, 0], [1.93, 0.32], [1.98, 0]], "empty": [[1.96, 0], [2.07, 1], [2.155, 1], [2.185, 0]] }
+      }
+    },
+    "nine": {
+      "mesh": "/Game/Weapons/Pistol/Meshes/SKM_Pistol.SKM_Pistol",
+      "idle": "/Game/Characters/Mannequins/Anims/Pistol/MF_Pistol_Idle_ADS.MF_Pistol_Idle_ADS",
+      "meshOffset": { "pos": [0, -0.078, -0.014], "rot": [0, -1.5708, 0], "note": "as for the CHOPPER" },
+      "sockets": { "muzzle": "Muzzle", "eject": "Eject", "sightRear": "SightRear", "sightFront": "SightFront", "pivot": "RecoilPivot", "magHinge": "MagHinge", "grip": "Palm_R", "support": "Palm_L" },
+      "markers": {
+        "muzzle": [0, 0, -0.201],
+        "eject": [0.012, 0.014, -0.105],
+        "sightRear": [0, 0.0185, -0.0125],
+        "pivot": [0, -0.085, 0.03],
+        "grip": [0.0135, -0.078, -0.014],
+        "support": [-0.0165, -0.09, -0.024]
+      },
+      "relief": 0.37,
+      "flash": { "star": 0.12, "jet": 0.13 },
+      "poses": {
+        "sprint": [0.05, -0.2, -0.3, -0.6, 0.6, -0.2],
+        "reload": [0.03, -0.085, -0.33, 0.5, 0.32, -0.5],
+        "wall": [0.07, -0.13, -0.24, 0.75, 0.1, 0],
+        "holster": [0.17, -0.44, -0.24, -0.6, 0.2, -0.4]
+      },
+      "melee": [
+        [0, 0, 0, 0, 0, 0, 0],
+        [0.08, 0.04, 0.05, 0.06, 0.55, -0.25, 0.35],
+        [0.16, -0.1, 0.02, -0.15, 1.05, 0.35, -0.6],
+        [0.27, -0.11, 0.0, -0.13, 1.1, 0.4, -0.65],
+        [0.55, 0, 0, 0, 0, 0, 0]
+      ],
+      "parts": {
+        "bolt": { "bone": "slide", "axis": [0, 0, 1], "travel": 0.044, "back": 0.018, "forward": 0.042, "lockOnEmpty": true, "releaseAt": "slideRelease", "release": 0.03 },
+        "barrel": { "bone": "barrel", "tilt": 0.04, "share": 0.333 },
+        "trigger": { "bone": "trigger", "turn": 0.3 },
+        "magazine": { "bone": "magazine", "drop": [0, -0.125, -0.032], "out": "magOut", "show": "magShow", "in": "magIn" }
+      }
+    }
+  }
+}
