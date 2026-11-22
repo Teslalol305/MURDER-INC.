@@ -54,3 +54,19 @@ of the south block face (S1 + S2 + S3, seven storefronts) with the street and th
 
 ## State at hand-off: task complete
 Known weaknesses: sign bands are flat colour placeholders; glass shows only reflections (no interior parallax yet); previews under the El stay dark; the roll-gate bay (Nails, S3) is in no preview; no rear walls or N-side buildings in the sample.
+
+---------------------------------------------------------------------------------------------------------------
+# Props family (assets/props.py), started after the facade hand-off
+
+Task: (1) scanned Poly Haven props brought to the conventions as SM_Prop_* (one slot M_<Asset>, scanned textures
+copied/atlased to art/out/textures/<Asset>/T_<Asset>_BC/N/ORM); (2) hero gameplay props SM_Gameplay_* (master case
+body / lid / reel 1-3 / beacon, propane tank, welding rack) with unique baked sets; (3) previews props_scanned.jpg and
+props_gameplay.jpg; export + manifest + validation; README family row.
+Decisions: payphone (KT / T-money marks), Television (VTech mark), Drill (trade dress), coffee-cart props (real-looking
+coffee brands), modular duct/pipe/cable kits, lamps with emissive maps, desk, stool, video camera: not imported.
+Catalogue: no resupply item exists (05b 2.5.3), so no resupply crate.
+
+## Status
+- [ ] scanned part written and exported (`build.py build props --export`)
+- [ ] gameplay part written, baked and exported (`build.py build props --bake --export`)
+- [ ] previews (`build.py build props --preview --samples 64`), README row
