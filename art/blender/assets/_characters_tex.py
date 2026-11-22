@@ -12,7 +12,7 @@ def _lin(h):
     return np.array(C.srgb(h), dtype=np.float32)
 
 
-SKIN = _lin("#684029")
+SKIN = _lin("#684029") * 0.86 + 0.14 * float(_lin("#684029") @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32))
 GLOVE = _lin("#1e1f22")
 SUEDE = _lin("#2a2724")
 THREAD = _lin("#3c3e43")
@@ -75,7 +75,7 @@ def skin_texels(R, P, N):
         d = np.abs(_angdiff(th, path)) * rr
         vis = T.smoothstep(s0, s0 + 0.025, s) * T.smoothstep(s1, s1 - 0.03, s) * fore
         v = np.exp(-(d / w) ** 2) * vis * (0.75 + 0.25 * T.noise(P, 1 / 0.015, 10 + i))
-        h += 0.00032 * v
+        h += 0.00045 * v
         bc *= (1 - 0.10 * v)[:, None]
         bc[:, 2] *= 1 + 0.06 * v
         rough -= 0.04 * v
@@ -86,10 +86,10 @@ def skin_texels(R, P, N):
     # skin microrelief (polygonal grooves), pores, faint circumferential creases
     f1, f2 = T.cells(P, 1 / 0.0011, 11)
     groove = T.smoothstep(0.12, 0.0, f2 - f1)
-    h -= 0.000018 * groove
+    h -= 0.000030 * groove
     pores = T.smoothstep(0.42, 0.78, T.noise(P, 1 / 0.00055, 12))
     pores2 = T.smoothstep(0.55, 0.85, T.noise(P, 1 / 0.0011, 13))
-    h -= 0.000030 * pores + 0.000035 * pores2
+    h -= 0.000045 * pores + 0.000050 * pores2
     rough += 0.04 * pores
     ax = np.where(up[:, None], R.bu[None], R.af[None])
     Q = P + 3.0 * (np.einsum("ij,ij->i", P, ax))[:, None] * ax
@@ -152,8 +152,8 @@ def glove_texels(R, P, N, slot, label, dors, piece):
     grain = T.smoothstep(0.0, 0.16, f2 - f1)
     lv = 1.0 + 0.05 * T.fbm(P, 1 / 0.02, 2, seed=22)
     bc_l = GLOVE[None] * (lv * (0.82 + 0.18 * grain))[:, None]
-    r_l = 0.40 + 0.14 * (1 - grain) + 0.04 * T.fbm(P, 1 / 0.01, 2, seed=23)
-    h_l = 0.000030 * grain + 0.000045 * T.fbm(P, 1 / 0.005, 3, seed=24)
+    r_l = 0.33 + 0.16 * (1 - grain) + 0.04 * T.fbm(P, 1 / 0.01, 2, seed=23)
+    h_l = 0.000050 * grain + 0.000045 * T.fbm(P, 1 / 0.005, 3, seed=24)
     # suede: short nap, fuzzy and matte
     nap = T.fbm(P, 1 / 0.00035, 3, seed=25)
     bc_s = SUEDE[None] * (1.0 + 0.10 * nap + 0.06 * T.fbm(P, 1 / 0.015, 2, seed=26))[:, None]
@@ -272,7 +272,7 @@ def glove_texels(R, P, N, slot, label, dors, piece):
                 continue
             r, cosd, t = C.finger_frame_coords(R, name, P[m])
             ang2 = np.arctan2(np.sqrt(np.maximum(1 - cosd ** 2, 0)), cosd) * r
-            h[m] += 0.00013 * np.sin(t / 0.0009 * 2 * np.pi + 0.3 * np.sin(ang2 / 0.003))
+            h[m] += 0.00005 * np.sin(t / 0.0009 * 2 * np.pi + 0.3 * np.sin(ang2 / 0.003))
             rough[m] += 0.05
 
     bc = bc * (1 - thread[:, None]) + THREAD[None] * thread[:, None]

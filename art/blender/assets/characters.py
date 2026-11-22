@@ -673,7 +673,11 @@ def bake_sets(R, skin, glove, res=4096, log=print):
         cav = np.clip(texel.blur(hd, 3) - hd, 0, None)
         ao = np.clip(1.0 - cav / 0.00025, 0.55, 1.0)
         aol = _bake._bake_ao(ob, 1024, 16, 0, 0.03, False)
-        aol = np.kron(aol, np.ones((H // 1024, W // 1024), dtype=np.float32))
+        k = H // 1024
+        m1 = mask.reshape(1024, k, 1024, k).mean(axis=(1, 3)) > 0.99      # texels fully inside an island
+        aol = texel.dilate(np.where(m1, aol, 1.0).astype(np.float32), m1, 12)
+        from PIL import Image as _Im
+        aol = np.asarray(_Im.fromarray(aol.astype(np.float32), mode="F").resize((W, H), _Im.BILINEAR), dtype=np.float32)
         ao = ao * (0.35 + 0.65 * aol)
         ch = {"bc": texel.dilate(bc.reshape(H, W, 3), mask, 24), "rough": texel.dilate(ro.reshape(H, W), mask, 24),
               "metal": np.zeros((H, W), dtype=np.float32), "normal": texel.dilate(nrm, mask, 24),
@@ -689,8 +693,8 @@ def textured_materials():
     """Preview materials on the baked sets (Unreal builds its own: skin with a subsurface profile)."""
     from mi import mat as _mat
     res = {}
-    for key, set_name, sss, sheen in (("skin", "RuleArms_Skin", 0.35, 0.0), ("leather", "RuleArms_Glove", 0.0, 0.0),
-                                      ("suede", "RuleArms_Glove", 0.0, 0.5), ("rubber", "RuleArms_Glove", 0.0, 0.0)):
+    for key, set_name, sss, sheen in (("skin", "RuleArms_Skin", 0.22, 0.0), ("leather", "RuleArms_Glove", 0.0, 0.0),
+                                      ("suede", "RuleArms_Glove", 0.0, 0.15), ("rubber", "RuleArms_Glove", 0.0, 0.0)):
         name = SLOTS[key]
         m = bpy.data.materials.get(name) or bpy.data.materials.new(name)
         nt = m.node_tree
@@ -722,7 +726,7 @@ def textured_materials():
         if sss:
             b.inputs["Subsurface Weight"].default_value = sss
             b.inputs["Subsurface Radius"].default_value = (1.0, 0.35, 0.15)
-            b.inputs["Subsurface Scale"].default_value = 0.004
+            b.inputs["Subsurface Scale"].default_value = 0.0025
         if sheen:
             b.inputs["Sheen Weight"].default_value = sheen
             b.inputs["Sheen Roughness"].default_value = 0.6
@@ -981,6 +985,13 @@ def watch(col, sec=(0.0352, 0.0279)):
             geo.transform(lug, loc=(sx * 0.0068, sy * 0.0185, z0 + 0.0022))
             parts.append(_mat_all(lug, M["gold"]))
     ob = geo.join(parts, "SM_Character_RuleWatch", col)
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-7)
+    bmesh.ops.dissolve_degenerate(bm, edges=bm.edges, dist=1e-7)
+    bm.to_mesh(ob.data)
+    bm.free()
     geo.smooth_by_angle(ob, 40)
     return ob
 
@@ -1041,8 +1052,8 @@ def _studio(target, key=(0.6, -0.9, 0.7), strength=1.0):
     bg.inputs[0].default_value = (0.02, 0.022, 0.025, 1)
     bg.inputs[1].default_value = 1.0
     t = Vector(target)
-    for off, power, size, temp in ((key, 140, 0.9, 5200), ((-0.9, -0.4, 0.3), 45, 1.2, 6500),
-                                   ((-0.3, 0.9, 0.6), 110, 0.5, 7000)):
+    for off, power, size, temp in ((key, 55, 0.9, 5200), ((-0.9, -0.4, 0.3), 14, 1.2, 6500),
+                                   ((-0.3, 0.9, 0.6), 45, 0.5, 7000)):
         l = bpy.data.lights.new("Studio", "AREA")
         l.energy = power * strength
         l.size = size

@@ -289,3 +289,26 @@ def hold(arm, gun_M, name, Rr, Rl):
         lat_l = (-Z - fwd_l * (-Z).dot(fwd_l)).normalized()
         dors_l = (fwd_l.cross(lat_l) * sl).normalized()
         ik_arm(arm, "l", Rl, pl, (fwd_l, lat_l, dors_l), Vector((-0.4, 0.4, -1)))
+    grip(arm, name, Rr, Rl)
+
+
+def reset_fingers(arm, side):
+    for f in ("index", "middle", "ring", "pinky", "thumb"):
+        for k in ("01", "02", "03"):
+            arm.pose.bones["%s_%s_%s" % (f, k, side)].matrix_basis = Matrix.Identity(4)
+    for f in ("index", "middle", "ring", "pinky"):
+        arm.pose.bones["%s_metacarpal_%s" % (f, side)].matrix_basis = Matrix.Identity(4)
+    bpy.context.view_layer.update()
+
+
+def grip(arm, name, Rr, Rl):
+    """Close the hands on the gun: firing hand round the grip with the index on the trigger, support hand
+    round the handguard (rifle) or over the firing hand (pistol)."""
+    reset_fingers(arm, "r")
+    reset_fingers(arm, "l")
+    close_fingers(arm, "r", Rr, 0.86, ("middle", "ring", "pinky"), thumb=0.85)
+    close_fingers(arm, "r", Rr, 1.0, ("index",), angles=(38, 62, 30))
+    if name == "chopper":
+        close_fingers(arm, "l", Rl, 0.62, thumb=0.35)
+    else:
+        close_fingers(arm, "l", Rl, 0.82, thumb=0.55)
