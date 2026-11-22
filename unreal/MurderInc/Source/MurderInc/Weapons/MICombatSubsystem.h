@@ -32,8 +32,8 @@ public:
 	void Register(TScriptInterface<IMIDamageable> Target);
 	void Unregister(UObject* Target);
 
-	/** An explosive prop joins the field; returns its item index. */
-	int32 AddExplosive(AMIExplosive* Actor, FName Kind);
+	/** An explosive prop joins the field (Foot: the middle of its base); returns its item index. */
+	int32 AddExplosive(AMIExplosive* Actor, FName Kind, const FVector& Foot);
 	FMIExplosiveField& GetExplosives() { return Field; }
 	const FMIExplosiveKindData* GetExplosiveKind(FName Kind) const { return Data.FindKind(Kind); }
 

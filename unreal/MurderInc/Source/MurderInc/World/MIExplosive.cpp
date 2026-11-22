@@ -33,6 +33,7 @@ void AMIExplosive::BeginPlay()
 		return;
 	}
 	// The actor stands on its foot: the box is sized from the kind (X length, Y width, Z height, cm).
+	const FVector Foot = GetActorLocation();
 	if (const FMIExplosiveKindData* K = Combat->GetExplosiveKind(Kind))
 	{
 		Height = K->Box.Z;
@@ -42,7 +43,7 @@ void AMIExplosive::BeginPlay()
 		// The root is the box centre: lift it so that the actor location given in the level stays the foot.
 		AddActorWorldOffset(FVector(0, 0, Height * 0.5));
 	}
-	Index = Combat->AddExplosive(this, Kind);
+	Index = Combat->AddExplosive(this, Kind, Foot);
 	Combat->Register(this);
 }
 

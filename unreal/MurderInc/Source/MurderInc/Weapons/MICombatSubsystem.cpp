@@ -61,14 +61,14 @@ void UMICombatSubsystem::Unregister(UObject* Target)
 	Targets.Remove(Target);
 }
 
-int32 UMICombatSubsystem::AddExplosive(AMIExplosive* Actor, FName Kind)
+int32 UMICombatSubsystem::AddExplosive(AMIExplosive* Actor, FName Kind, const FVector& Foot)
 {
 	if (!EnsureData() || !Data.FindKind(Kind))
 	{
 		UE_LOG(LogMI, Error, TEXT("Combat: unknown explosive kind '%s' on %s"), *Kind.ToString(), *GetNameSafe(Actor));
 		return INDEX_NONE;
 	}
-	const int32 Index = Field.Add(Kind, Actor->GetActorLocation());
+	const int32 Index = Field.Add(Kind, Foot);
 	ExplosiveActors.SetNum(FMath::Max(ExplosiveActors.Num(), Index + 1));
 	ExplosiveActors[Index] = Actor;
 	return Index;
