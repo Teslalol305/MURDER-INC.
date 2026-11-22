@@ -27,7 +27,9 @@ KINDS = ("textures", "hdris", "models", "path")
 def path_for(kind, slug):
     """The one file whose existence stands for the whole asset."""
     if kind == "textures":
-        return f"Textures/jpg/2k/{slug}/{slug}_diff_2k.jpg"
+        # every texture has a small glTF descriptor that lists its maps; asking for <slug>_diff_2k.jpg instead
+        # would miss the older sets whose base colour has another suffix
+        return f"Textures/gltf/2k/{slug}/{slug}_2k.gltf"
     if kind == "hdris":
         return f"HDRIs/hdr/2k/{slug}_2k.hdr"
     if kind == "models":

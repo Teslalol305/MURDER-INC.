@@ -3,3 +3,4 @@ shots/
 dist/dev-*
 tools/scenarios/review-*
 art/out/
+__pycache__/

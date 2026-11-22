@@ -138,30 +138,80 @@
    "status": 200,
    "via": "brief"
   },
+  "CashRegister_01": {
+   "bytes": 6300,
+   "status": 200,
+   "via": "probe"
+  },
+  "CoffeeCart_01": {
+   "bytes": 6637,
+   "status": 200,
+   "via": "probe"
+  },
+  "Drill_01": {
+   "bytes": 2637,
+   "status": 200,
+   "via": "probe"
+  },
   "Television_01": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "air_conditioner": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   },
   "barrel_01": {
    "bytes": 0,
    "status": 404,
    "via": "brief"
   },
+  "barrel_02": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "barrel_03": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "baseball_bat": {
+   "bytes": 2874,
+   "status": 200,
+   "via": "probe"
+  },
+  "basketball": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "basketball_hoop": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   },
   "bench_vice": {
    "bytes": 0,
    "status": 404,
    "via": "brief"
   },
+  "bicycle": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "boombox": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "caged_hanging_light": {
+   "bytes": 3098,
+   "status": 200,
+   "via": "probe"
   },
   "camping_table": {
    "bytes": 0,
@@ -178,6 +228,11 @@
    "status": 200,
    "via": "brief"
   },
+  "cardboard_box_02": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "concrete_road_barrier": {
    "bytes": 0,
    "status": 200,
@@ -188,6 +243,11 @@
    "status": 200,
    "via": "brief"
   },
+  "crowbar_01": {
+   "bytes": 2741,
+   "status": 200,
+   "via": "probe"
+  },
   "drill_01": {
    "bytes": 0,
    "status": 404,
@@ -197,6 +257,11 @@
    "bytes": 0,
    "status": 404,
    "via": "brief"
+  },
+  "euro_pallet": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   },
   "fire_extinguisher": {
    "bytes": 0,
@@ -213,6 +278,16 @@
    "status": 200,
    "via": "brief"
   },
+  "garbage_bag": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "garden_hose_wall_mounted": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "gas_cylinder": {
    "bytes": 0,
    "status": 404,
@@ -222,6 +297,16 @@
    "bytes": 0,
    "status": 404,
    "via": "brief"
+  },
+  "industrial_wall_lamp": {
+   "bytes": 5800,
+   "status": 200,
+   "via": "probe"
+  },
+  "jerry_can": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   },
   "jerrycan": {
    "bytes": 0,
@@ -233,10 +318,30 @@
    "status": 200,
    "via": "brief"
   },
+  "korean_public_payphone_01": {
+   "bytes": 2929,
+   "status": 200,
+   "via": "probe"
+  },
   "ladder": {
    "bytes": 0,
    "status": 404,
    "via": "brief"
+  },
+  "ladder_01": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "large_iron_dumpster": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "mailbox": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   },
   "mattress": {
    "bytes": 0,
@@ -248,6 +353,11 @@
    "status": 404,
    "via": "brief"
   },
+  "metal_office_desk": {
+   "bytes": 13510,
+   "status": 200,
+   "via": "probe"
+  },
   "metal_tool_chest": {
    "bytes": 0,
    "status": 200,
@@ -258,20 +368,75 @@
    "status": 200,
    "via": "brief"
   },
+  "milk_crate": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "modular_airduct_circular_01": {
+   "bytes": 26467,
+   "status": 200,
+   "via": "probe"
+  },
+  "modular_airduct_rectangular_01": {
+   "bytes": 37157,
+   "status": 200,
+   "via": "probe"
+  },
   "modular_electric_cables": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "modular_industrial_pipes_01": {
+   "bytes": 15014,
+   "status": 200,
+   "via": "probe"
+  },
+  "newspaper_box": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "oil_drum": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "old_tyre": {
+   "bytes": 2734,
+   "status": 200,
+   "via": "probe"
+  },
+  "painted_wooden_bench": {
+   "bytes": 2835,
+   "status": 200,
+   "via": "probe"
   },
   "pallet": {
    "bytes": 0,
    "status": 404,
    "via": "brief"
   },
+  "park_bench": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "parking_meter": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "plastic_chair": {
    "bytes": 0,
    "status": 404,
    "via": "brief"
+  },
+  "plastic_crate": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   },
   "plastic_monobloc_chair_01": {
    "bytes": 0,
@@ -282,6 +447,26 @@
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "road_sign": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "sandbags": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "satellite_dish": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "scaffolding": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   },
   "security_camera_01": {
    "bytes": 0,
@@ -298,15 +483,30 @@
    "status": 404,
    "via": "brief"
   },
+  "shopping_trolley": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "steel_frame_shelves_01": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
   },
+  "steel_frame_shelves_02": {
+   "bytes": 2775,
+   "status": 200,
+   "via": "probe"
+  },
   "steel_frame_shelves_03": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "stop_sign": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   },
   "street_lamp_01": {
    "bytes": 0,
@@ -317,6 +517,11 @@
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "street_lamp_03": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   },
   "tire": {
    "bytes": 0,
@@ -333,6 +538,16 @@
    "status": 404,
    "via": "brief"
   },
+  "traffic_cone_01": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "traffic_light": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "trash_can": {
    "bytes": 0,
    "status": 404,
@@ -348,15 +563,50 @@
    "status": 200,
    "via": "brief"
   },
+  "utility_pole": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "vending_machine": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "vintage_video_camera": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
   },
+  "water_tank": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "wet_floor_sign_01": {
    "bytes": 0,
    "status": 404,
    "via": "brief"
+  },
+  "wheelbarrow_01": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "wheelie_bin": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "wooden_barrels_01": {
+   "bytes": 31017,
+   "status": 200,
+   "via": "probe"
+  },
+  "wooden_crate_01": {
+   "bytes": 5612,
+   "status": 200,
+   "via": "probe"
   },
   "wooden_crate_02": {
    "bytes": 0,
@@ -391,12 +641,17 @@
    "via": "probe"
   }
  },
- "sent": 4,
+ "sent": 200,
  "textures": {
   "aerial_asphalt_01": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "aerial_asphalt_02": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   },
   "asphalt_01": {
    "bytes": 0,
@@ -407,6 +662,11 @@
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "asphalt_03": {
+   "bytes": 2766,
+   "status": 200,
+   "via": "probe"
   },
   "asphalt_04": {
    "bytes": 0,
@@ -423,35 +683,105 @@
    "status": 200,
    "via": "brief"
   },
+  "asphalt_07": {
+   "bytes": 2765,
+   "status": 200,
+   "via": "probe"
+  },
+  "asphalt_floor": {
+   "bytes": 2695,
+   "status": 200,
+   "via": "probe"
+  },
   "asphalt_pit_lane": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "asphalt_shingles": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "asphalt_snow": {
+   "bytes": 2779,
+   "status": 200,
+   "via": "probe"
   },
   "asphalt_track": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
   },
+  "awning": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "beige_wall_001": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "bitumen": {
+   "bytes": 2740,
+   "status": 200,
+   "via": "probe"
+  },
+  "bitumen_roof": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   },
   "blue_metal_plate": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
   },
+  "blue_tarp": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "box_profile_metal_sheet": {
+   "bytes": 2869,
+   "status": 200,
+   "via": "probe"
+  },
   "brick_4": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
   },
+  "brick_crosswalk": {
+   "bytes": 2805,
+   "status": 200,
+   "via": "probe"
+  },
+  "brick_floor": {
+   "bytes": 2697,
+   "status": 200,
+   "via": "probe"
+  },
+  "brick_floor_003": {
+   "bytes": 2731,
+   "status": 200,
+   "via": "probe"
+  },
+  "brick_moss_001": {
+   "bytes": 2714,
+   "status": 200,
+   "via": "probe"
+  },
   "brick_pavement_02": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "brick_villa_wall": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   },
   "brick_wall_001": {
    "bytes": 0,
@@ -473,20 +803,150 @@
    "status": 200,
    "via": "brief"
   },
+  "brick_wall_04": {
+   "bytes": 2790,
+   "status": 200,
+   "via": "probe"
+  },
+  "brick_wall_05": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "brick_wall_07": {
+   "bytes": 2790,
+   "status": 200,
+   "via": "probe"
+  },
+  "brick_wall_08": {
+   "bytes": 2790,
+   "status": 200,
+   "via": "probe"
+  },
+  "brick_wall_09": {
+   "bytes": 2788,
+   "status": 200,
+   "via": "probe"
+  },
+  "brick_wall_10": {
+   "bytes": 2790,
+   "status": 200,
+   "via": "probe"
+  },
+  "brick_wall_11": {
+   "bytes": 2785,
+   "status": 200,
+   "via": "probe"
+  },
+  "brick_wall_12": {
+   "bytes": 2790,
+   "status": 200,
+   "via": "probe"
+  },
+  "brick_wall_13": {
+   "bytes": 2788,
+   "status": 200,
+   "via": "probe"
+  },
   "brown_brick_02": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "brown_mud_dry": {
+   "bytes": 2709,
+   "status": 200,
+   "via": "probe"
   },
   "brown_mud_leaves_01": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
   },
+  "brushed_concrete": {
+   "bytes": 2731,
+   "status": 200,
+   "via": "probe"
+  },
+  "brushed_concrete_03": {
+   "bytes": 2744,
+   "status": 200,
+   "via": "probe"
+  },
+  "burned_ground_01": {
+   "bytes": 2736,
+   "status": 200,
+   "via": "probe"
+  },
+  "canvas": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "canvas_fabric": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "cardboard": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "cardboard_01": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "cast_iron": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "castle_brick_02_red": {
+   "bytes": 2755,
+   "status": 200,
+   "via": "probe"
+  },
+  "chain_link": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "chain_link_fence": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "chainlink_fence": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "checkered_pavement_tiles": {
+   "bytes": 2878,
+   "status": 200,
+   "via": "probe"
+  },
+  "chipboard": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "church_bricks_02": {
    "bytes": 0,
    "status": 404,
    "via": "brief"
+  },
+  "church_bricks_03": {
+   "bytes": 2732,
+   "status": 200,
+   "via": "probe"
+  },
+  "cinder_block_wall": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   },
   "cinder_blocks": {
    "bytes": 0,
@@ -498,10 +958,30 @@
    "status": 200,
    "via": "brief"
   },
+  "concrete_block_wall_02": {
+   "bytes": 2858,
+   "status": 200,
+   "via": "probe"
+  },
+  "concrete_blocks": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "concrete_brick_wall_001": {
    "bytes": 0,
    "status": 404,
    "via": "brief"
+  },
+  "concrete_debris": {
+   "bytes": 2805,
+   "status": 200,
+   "via": "probe"
+  },
+  "concrete_floor": {
+   "bytes": 2797,
+   "status": 200,
+   "via": "probe"
   },
   "concrete_floor_01": {
    "bytes": 0,
@@ -523,6 +1003,11 @@
    "status": 200,
    "via": "brief"
   },
+  "concrete_panels": {
+   "bytes": 2800,
+   "status": 200,
+   "via": "probe"
+  },
   "concrete_pavement": {
    "bytes": 0,
    "status": 200,
@@ -533,10 +1018,25 @@
    "status": 200,
    "via": "brief"
   },
+  "concrete_pavement_03": {
+   "bytes": 2846,
+   "status": 200,
+   "via": "probe"
+  },
+  "concrete_pavers": {
+   "bytes": 2805,
+   "status": 200,
+   "via": "probe"
+  },
   "concrete_slab_wall": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "concrete_tiles": {
+   "bytes": 2797,
+   "status": 200,
+   "via": "probe"
   },
   "concrete_tiles_01": {
    "bytes": 0,
@@ -568,6 +1068,11 @@
    "status": 200,
    "via": "brief"
   },
+  "corrugated_cardboard": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "corrugated_iron": {
    "bytes": 0,
    "status": 200,
@@ -593,10 +1098,25 @@
    "status": 200,
    "via": "brief"
   },
+  "cracked_road": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "damaged_asphalt": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "dark_brick_wall": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "dark_wooden_planks": {
+   "bytes": 2828,
+   "status": 200,
+   "via": "probe"
   },
   "denim_fabric": {
    "bytes": 0,
@@ -613,6 +1133,21 @@
    "status": 200,
    "via": "brief"
   },
+  "dirty_brick_wall": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "dry_ground_01": {
+   "bytes": 2708,
+   "status": 200,
+   "via": "probe"
+  },
+  "fabric_pattern_05": {
+   "bytes": 3594,
+   "status": 200,
+   "via": "probe"
+  },
   "fabric_pattern_07": {
    "bytes": 0,
    "status": 404,
@@ -628,15 +1163,60 @@
    "status": 200,
    "via": "brief"
   },
+  "flat_roof": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "floor_tiles_02": {
+   "bytes": 3556,
+   "status": 200,
+   "via": "probe"
+  },
+  "floor_tiles_04": {
+   "bytes": 3558,
+   "status": 200,
+   "via": "probe"
+  },
   "floor_tiles_06": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
   },
+  "floor_tiles_08": {
+   "bytes": 2714,
+   "status": 200,
+   "via": "probe"
+  },
+  "floor_tiles_09": {
+   "bytes": 3560,
+   "status": 200,
+   "via": "probe"
+  },
+  "galvanised_steel": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "galvanized_metal": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "galvanized_steel": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "galvanized_steel_01": {
    "bytes": 0,
    "status": 404,
    "via": "brief"
+  },
+  "garage_door": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   },
   "garage_floor": {
    "bytes": 0,
@@ -653,6 +1233,16 @@
    "status": 200,
    "via": "brief"
   },
+  "gravel_road": {
+   "bytes": 2772,
+   "status": 200,
+   "via": "probe"
+  },
+  "gravel_stones": {
+   "bytes": 2790,
+   "status": 200,
+   "via": "probe"
+  },
   "gravelly_sand": {
    "bytes": 0,
    "status": 200,
@@ -663,15 +1253,80 @@
    "status": 200,
    "via": "brief"
   },
+  "grey_concrete_blocks": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "hessian_230": {
+   "bytes": 3987,
+   "status": 200,
+   "via": "probe"
+  },
+  "hexagonal_concrete_paving": {
+   "bytes": 2794,
+   "status": 200,
+   "via": "probe"
+  },
+  "hollow_concrete_blocks": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "iron_plate": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "large_grey_tiles": {
+   "bytes": 3575,
+   "status": 200,
+   "via": "probe"
+  },
+  "large_red_bricks": {
+   "bytes": 3571,
+   "status": 200,
+   "via": "probe"
+  },
   "large_square_pattern_01": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
   },
+  "leafy_grass": {
+   "bytes": 2773,
+   "status": 200,
+   "via": "probe"
+  },
   "leather_white": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "long_white_tiles": {
+   "bytes": 2814,
+   "status": 200,
+   "via": "probe"
+  },
+  "manhole_cover": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "medieval_red_brick": {
+   "bytes": 2827,
+   "status": 200,
+   "via": "probe"
+  },
+  "metal_fence": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "metal_garage_door": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   },
   "metal_grate": {
    "bytes": 0,
@@ -683,6 +1338,21 @@
    "status": 200,
    "via": "brief"
   },
+  "metal_grid": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "metal_mesh": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "metal_painted": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "metal_plate": {
    "bytes": 0,
    "status": 200,
@@ -693,25 +1363,65 @@
    "status": 200,
    "via": "brief"
   },
+  "metal_shutter": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "mixed_brick_wall": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "old_asphalt": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   },
   "old_brick_wall": {
    "bytes": 0,
    "status": 404,
    "via": "brief"
   },
+  "old_linoleum_flooring_01": {
+   "bytes": 2877,
+   "status": 200,
+   "via": "probe"
+  },
   "old_planks_02": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
   },
+  "osb": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "painted_brick": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "painted_concrete": {
+   "bytes": 2727,
+   "status": 200,
+   "via": "probe"
+  },
+  "painted_concrete_02": {
+   "bytes": 2838,
+   "status": 200,
+   "via": "probe"
+  },
+  "painted_metal": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "painted_metal_01": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   },
   "painted_metal_02": {
    "bytes": 0,
@@ -728,25 +1438,100 @@
    "status": 200,
    "via": "brief"
   },
+  "painted_steel": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "patched_asphalt": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "patterned_concrete_pavement": {
    "bytes": 0,
    "status": 404,
    "via": "brief"
+  },
+  "patterned_concrete_pavers": {
+   "bytes": 2886,
+   "status": 200,
+   "via": "probe"
+  },
+  "pavement_02": {
+   "bytes": 2773,
+   "status": 200,
+   "via": "probe"
+  },
+  "pavement_03": {
+   "bytes": 2773,
+   "status": 200,
+   "via": "probe"
+  },
+  "pavement_04": {
+   "bytes": 2772,
+   "status": 200,
+   "via": "probe"
+  },
+  "pavement_05": {
+   "bytes": 2774,
+   "status": 200,
+   "via": "probe"
+  },
+  "pavement_06": {
+   "bytes": 2773,
+   "status": 200,
+   "via": "probe"
+  },
+  "pink_brick_wall": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "plaster_brick_pattern": {
+   "bytes": 2853,
+   "status": 200,
+   "via": "probe"
   },
   "plaster_grey_04": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
   },
+  "plastic_tarp": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "plywood": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
   },
+  "plywood_02": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "preconcrete_wall_001": {
+   "bytes": 2763,
+   "status": 200,
+   "via": "probe"
+  },
+  "random_bricks_thick": {
+   "bytes": 2756,
+   "status": 200,
+   "via": "probe"
+  },
   "raw_plank_wall": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "red_brick": {
+   "bytes": 2756,
+   "status": 200,
+   "via": "probe"
   },
   "red_brick_03": {
    "bytes": 0,
@@ -763,20 +1548,70 @@
    "status": 200,
    "via": "brief"
   },
+  "red_brick_wall": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "red_bricks_04": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "riveted_metal": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "riveted_steel": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   },
   "road_asphalt": {
    "bytes": 0,
    "status": 404,
    "via": "brief"
   },
+  "roller_shutter": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
   "roof_07": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "roof_09": {
+   "bytes": 3503,
+   "status": 200,
+   "via": "probe"
+  },
+  "roof_shingles": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "roof_tar": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "roofing_felt": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "rough_asphalt": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "rough_linen": {
+   "bytes": 4183,
+   "status": 200,
+   "via": "probe"
   },
   "rough_plasterbrick_05": {
    "bytes": 0,
@@ -792,6 +1627,16 @@
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "rusty_cast_iron": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "rusty_metal": {
+   "bytes": 3534,
+   "status": 200,
+   "via": "probe"
   },
   "rusty_metal_02": {
    "bytes": 0,
@@ -813,10 +1658,85 @@
    "status": 200,
    "via": "brief"
   },
+  "rusty_metal_grid": {
+   "bytes": 2814,
+   "status": 200,
+   "via": "probe"
+  },
+  "rusty_metal_sheet": {
+   "bytes": 2821,
+   "status": 200,
+   "via": "probe"
+  },
   "sandy_gravel_02": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "slab_tiles": {
+   "bytes": 2774,
+   "status": 200,
+   "via": "probe"
+  },
+  "sparse_grass": {
+   "bytes": 2779,
+   "status": 200,
+   "via": "probe"
+  },
+  "square_concrete_pavers": {
+   "bytes": 2769,
+   "status": 200,
+   "via": "probe"
+  },
+  "square_tiles_02": {
+   "bytes": 2803,
+   "status": 200,
+   "via": "probe"
+  },
+  "steel_plate": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "striped_fabric": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "tar_paper": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "tar_roof": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "tarmac": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "tarp": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "tarp_01": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "tarpaulin": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "tiled_floor_001": {
+   "bytes": 2730,
+   "status": 200,
+   "via": "probe"
   },
   "weathered_brown_planks": {
    "bytes": 0,
@@ -828,15 +1748,70 @@
    "status": 200,
    "via": "brief"
   },
+  "white_bricks": {
+   "bytes": 2698,
+   "status": 200,
+   "via": "probe"
+  },
   "white_plaster_02": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
   },
+  "white_tiles": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "whitewashed_brick": {
+   "bytes": 2821,
+   "status": 200,
+   "via": "probe"
+  },
+  "wire_fence": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "wire_mesh": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
+  },
+  "wood_floor_deck": {
+   "bytes": 2804,
+   "status": 200,
+   "via": "probe"
+  },
+  "wood_planks": {
+   "bytes": 2774,
+   "status": 200,
+   "via": "probe"
+  },
+  "wood_planks_dirt": {
+   "bytes": 3337,
+   "status": 200,
+   "via": "probe"
+  },
   "wood_planks_grey": {
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "wooden_planks": {
+   "bytes": 2709,
+   "status": 200,
+   "via": "probe"
+  },
+  "worn_asphalt": {
+   "bytes": 2780,
+   "status": 200,
+   "via": "probe"
+  },
+  "worn_corrugated_iron": {
+   "bytes": 2846,
+   "status": 200,
+   "via": "probe"
   },
   "worn_shutter": {
    "bytes": 0,
@@ -847,6 +1822,11 @@
    "bytes": 0,
    "status": 200,
    "via": "brief"
+  },
+  "zinc": {
+   "bytes": 0,
+   "status": 404,
+   "via": "probe"
   }
  }
 }
