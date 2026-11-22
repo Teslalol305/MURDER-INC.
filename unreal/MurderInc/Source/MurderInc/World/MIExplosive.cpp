@@ -37,7 +37,6 @@ void AMIExplosive::BeginPlay()
 	{
 		Height = K->Box.Z;
 		Box->SetBoxExtent(K->Box * 0.5);
-		Box->SetRelativeLocation(FVector::ZeroVector);
 		Mesh->SetRelativeLocation(FVector::ZeroVector);
 		Mesh->SetRelativeScale3D(K->Box / 100.0);  // the engine cube is 100 cm
 		// The root is the box centre: lift it so that the actor location given in the level stays the foot.
