@@ -18,6 +18,9 @@ Every script below lives in `tools/box/` and is mirrored on the box at `/project
 | Scene captures get no real-time sky light (`ReflectionEnvironmentRealTimeCapture.cpp` skips scene-capture views) and no Lumen lighting here: every shade is black, whatever the frame count. The headless level viewport is a main view, but it only draws when asked | `shot.sh ... cam=...` pilots the level editor viewport with a transient camera actor (position, rotation, field of view), forces `frames` redraws through the MCP tool `CaptureEditorViewport` so Lumen, the sky capture, auto exposure and TSR settle, then takes `HighResShot <size>` (written on a later redraw, after `r.HighResScreenshotDelay`). The old scene-capture path stays as `view=capture`. |
 | Physically based daylight overflows the default cached-lighting range: "Cached lighting in Lumen and real-time sky capture lighting is going to be clipped" on screen, and darker shade | `r.EyeAdaptation.CachedLightingPreExposure=8` in `Config/DefaultEngine.ini` `[SystemSettings]` (covers EV -4 to 16). |
 | Deleting a material that instances use orphans them; each orphan then compiles the default material synchronously on the game thread | `build_block.py` rebuilds the master material and its instances in place, never deletes them. |
+| Hardware ray tracing works on this driver (NVIDIA 620.70, Vulkan) | `vulkaninfo` lists `VK_KHR_ray_tracing_pipeline`, `VK_KHR_acceleration_structure`, `VK_KHR_ray_query` on the RTX PRO 6000; editor.log: "Ray tracing is enabled", "Ray tracing shaders are enabled", and the ray-tracing scene buffer is allocated. `Config/DefaultEngine.ini` keeps `r.RayTracing=True` and `r.Lumen.HardwareRayTracing=True`. |
+| The first editor start on a fresh box takes about 10 minutes (9p reads, shader maps), later ones about 40 s | Start the editor first, do the local work while it comes up; `editor.sh status` says when MCP answers. |
+| Editor tools refuse to run while the editor compiles shaders ("running a slow task") | Retry `block.sh start` / `shot.sh` after a few seconds; the first pictures after a material rebuild wait for the compile. |
 | Files reach the box only through git (the box pulls the public repository, it cannot push) and through the user's Higgsfield storage | Commit and push locally, then `sync.sh` on the box. Big binary inputs (the Blender art) go through storage (section 4). |
 
 ## 2. The loop
@@ -29,9 +32,9 @@ Every script below lives in `tools/box/` and is mirrored on the box at `/project
 | Tests | `bash test.sh` (all `MurderInc.*`, headless `-NullRHI` in `UnrealEditor-Cmd`), poll `bash test.sh status` | 33 s for the two current tests |
 | Editor | `bash editor.sh start [/Game/Maps/L_Block]`, `status`, `stop`, `restart` | MCP answers about 40 s after start |
 | Run editor Python | `python3 mi_mcp.py py <file.py or ->` (value of the last expression) | under 45 s per call |
-| Build the block | `bash block.sh start [steps] [force]`, `bash block.sh wait` | textures 16 s (60 textures), materials 7 s (+ shader compile on first use), meshes 68 s (16 GLBs, Nanite), level 7 s (920 actors) |
+| Build the block | `bash block.sh start [steps] [force]`, `bash block.sh wait` | textures + meshes 138 s (277 textures, 190 GLBs with Nanite), materials 65 to 96 s with force (6 masters, 160 instances; shaders compile afterwards for a minute or two), level 5 to 16 s (1,083 actors, 1,350 instances) |
 | Picture | `bash shot.sh /project/ue/logs/shots/x.jpg cam=X,Y,Z,pitch,yaw,roll fov=80 frames=60` | about 12 s at 1920 x 1080 with 60 warm-up redraws (fewer leave Lumen unsettled after a camera jump; 60 and 200 give the same picture) |
-| The four block views | `bash block-shots.sh` (detached: about 50 s) | |
+| The six block views | `bash block-shots.sh` (detached: about 75 s) | |
 | Picture to the local checkout | `media_upload` (filename `mi-x.jpg`), `bash put.sh <jpg> <upload_url> image/jpeg`, `media_confirm` (type image), local `curl -o` the url | about 10 s; several thousand tokens per picture |
 
 `mi_mcp.py` is the MCP client: `toolsets [text]`, `describe <Toolset> [Tool]`, `tool <Toolset.Tool> '<json>'`,
@@ -53,16 +56,20 @@ rebuilt on the box by committed scripts:
 
 The Blender outputs (`art/out/`, git-ignored) travel as one tar through the user's Higgsfield storage:
 
-1. Local: `tools/box/send-art.sh pack` makes `art/out/mi-art.tar`: the GLBs of the El, the street kit and the hydrant
-   (patterns are arguments), every texture set their slots name (BC, N, ORM; height maps left out), the grey-box sets
-   and `manifest.json`. 163 MB for 16 meshes and 21 sets.
-2. `mcp__Higgsfield__media_upload` with filename `mi-art-<date>.tar` gives `upload_url`, `url` and `media_id`. The
-   upload address is signed for the headers `content-type` and `if-none-match`: send
+1. Local: `tools/box/send-art.sh pack` makes `art/out/mi-art-<k>.tar` parts of at most 240 MB (the storage's upload
+   front answers 413 above about 500 MB): every `SM_El_*`, `SM_Street_*`, `SM_Facade_*`, `SM_Prop_*`,
+   `SM_Gameplay_*`, `SM_Furn_*` GLB (patterns are arguments), every texture set their slots name (BC, N, ORM, E;
+   height maps left out), the grey-box sets, `manifest.json` and `placements/*.json`. 611 MB in 3 parts for 190
+   meshes and 96 sets.
+2. `mcp__Higgsfield__media_upload` with one filename per part (`files` takes several) gives `upload_url`, `url` and
+   `media_id` each. The upload address is signed for the headers `content-type` and `if-none-match`: send
    `Content-Type: application/octet-stream` (the type the tool states) and `If-None-Match: *`.
-3. Local: `tools/box/send-art.sh put "<upload_url>" application/octet-stream` (19 s for 163 MB; retries with
-   `If-None-Match: *` on 403).
-4. `mcp__Higgsfield__media_confirm` with the `media_id` and type `file`.
-5. Box: `bash receive-art.sh "<url>"` downloads and unpacks to `/project/ue/art-in/` (4 s).
+3. Local: `tools/box/send-art.sh put "<upload_url>" application/octet-stream art/out/mi-art-<k>.tar` per part (the
+   three in parallel: about 60 s; retries with `If-None-Match: *` on 403).
+4. `mcp__Higgsfield__media_confirm` with the `media_ids` and type `file`.
+5. Box: `bash receive-art.sh "<url1>" "<url2>" ...` downloads and unpacks all parts to `/project/ue/art-in/` (about
+   30 s for 611 MB: start it detached). Several pictures come back the same way as one tar (type `file`): no image
+   tokens until a picture is opened.
 
 ## 5. GLB import: what turned out to be true
 
@@ -80,3 +87,15 @@ Measured on the first block build (2026-11-22, `build_block.py`, every result li
 | Normal maps | The sets are OpenGL (+Y up). Imported as plain textures (`AssetImportTask`), then `srgb = False`, `compression_settings = TC_NORMALMAP`, `flip_green_channel = True`, `lod_group = TEXTUREGROUP_WORLD_NORMAL_MAP`. ORM: `srgb = False`, `TC_MASKS` (sampler type Masks in the material). |
 | Vertex colours (`Wear`, COLOR_0) | Arrive, but the static mesh build stores them sRGB-encoded (`StaticMeshBuilder.cpp`: `LinearColor.ToFColor(true)`) and the vertex factory reads them back raw: the master material decodes RGB with `pow(x, 2.2)`; alpha is stored linearly. Still to prove with a ramp test asset (art bible 3.3). |
 | Material graph from Python | `MaterialExpressionCustom` inputs and outputs are built as structs property by property (`CustomInput()` then `set_editor_property`: the constructor takes no keywords). Vector parameters and the vertex colour node give float3 on their main output: alpha comes from the `"A"` output. Never delete a material that instances use: rebuild its graph in place (`delete_all_material_expressions`). |
+
+## 6. Level assembly: what turned out to be true
+
+| Question | Answer |
+|---|---|
+| Instanced meshes from Python | `SubobjectDataSubsystem.k2_gather_subobject_data_for_instance(actor)[0]` as parent, `add_new_subobject(AddNewSubobjectParams(new_class=InstancedStaticMeshComponent))`, `SubobjectDataBlueprintFunctionLibrary.get_object(get_data(handle))` gives the component; `add_instances(transforms, False, True)` (world space). Saved with the level like a component added in the details panel. One holder actor per building, props, structures and backdrop. |
+| Collision | The art carries none (`NO_COLLISION`); every movement-blocking collider of level.json stays a box: visible in a material by tag where no art draws it, hidden (`set_visibility(False)`, no shadow, no distance field) under the art. |
+| Glass | Opaque, Nanite, black base, specular 0.5, roughness 0.02: full Lumen reflections; the room behind is emission (110 nits windows, 200 nits shops), so reflections win at grazing angles as on real glass. |
+| Alpha cards | A second master `M_MI_SurfaceMasked` (two-sided, opacity mask = BC alpha); the manifest slot's `alpha` key selects it. On the opaque master the chain-link drew as a grey sheet. |
+| Decals | Deferred decal material (`MD_DEFERRED_DECAL`, translucent) with the shapes drawn in decal UV by HLSL; DecalActor `decal_size` is (depth, width, height); pitch -90 projects down. |
+| Catalogue ids | Read from the manifest notes ("Catalogue <id>:", "Stands for catalogue id '<id>'", "(catalogue <id>,"); `CATALOGUE_EXTRA` names the street and facade modules the notes do not. |
+
