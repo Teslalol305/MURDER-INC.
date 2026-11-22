@@ -18,6 +18,9 @@
 !/Content/Data/
 /Content/Data/*
 !/Content/Data/*.json
+!/Content/Data/golden/
+/Content/Data/golden/*
+!/Content/Data/golden/*.json
 !/Content/Python/
 /Content/Python/*
 !/Content/Python/*.py
