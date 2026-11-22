@@ -139,15 +139,20 @@ Decisions: textures are authored in UV space with numpy from baked geometry maps
 baking node trees; skinned assets export through mi/rig.py (export._Stubs, all bones incl. sockets) and are proven
 by re-importing the GLB in a fresh process and posing every bone.
 
-## Status
-- [x] mi/rig.py committed (armature from pivots, rigid tagging, skinned GLB, inspect_glb, verify by re-import)
-- [x] CHOPPER (57k tris) + magazine/top round, 4K/2K sets, exported, re-import proof passes (4 poses)
-- [x] NINE (37k tris) + magazine/top round, 4K/2K sets, exported, re-import proof passes (5 poses)
-- [x] casings (596 / 548 tris, 512), Goon SMG (12.8k + magazine, 2K, lens slot), pipe (3k, 1K): exported
-- [x] previews round 0: chopper_hero/_fp, nine_hero/_fp; README rows (weapons, rig, texpaint)
-- [ ] round 1 (running): re-bake all with shorter, sparser scratches, handguard swell, curved NINE grip, FP on the
-      day rig with an urban plate; renders chopper_hero/_fp, nine_hero, enemy, parts, wire
-Next step: look at the round-1 pictures, fix the worst fault, one last render (render budget: 11 of 12 used after round 1).
+## State at hand-off: task complete (render budget used: 12 of 12)
+- Exported, validated, manifest current: SK_Chopper 72.9k tris (4K set Chopper), SK_Nine 35.8k (4K set Nine), both
+  proven by re-import in a fresh process (every bone posed, max error 1e-8 m, joint axes = gun axes, SK_*.glb.verify.json);
+  SM_Weapon_ChopperMagazine 8.5k + _TopRound 3.2k (2K), SM_Weapon_NineMagazine 13.2k + _TopRound 2.7k (2K),
+  SM_Weapon_CasingRifle 596 / _CasingPistol 548 (512), SM_Weapon_GoonSMG 12.8k + _Magazine 0.8k (2K, lens slot), SM_Weapon_GoonPipe 3.0k (1K).
+- Previews: weapons_chopper_hero/_fp, weapons_nine_hero/_fp (fp rendered before round 1: older grip outline and set),
+  weapons_parts + weapons_wire (one wide render split in two), weapons_enemy. Review rounds: (1) scratches shorter and
+  sparser, handguard swell, NINE grip curves, hero framing, FP on the day rig with an urban plate instead of a column
+  shadow; (2) parts/wire framing.
+- Known weaknesses: NINE grip reads as a large flat slab (brief's 76 mm butt); ngon caps give long slivers in the wire;
+  parts picture overlaps the rocked magazine and the NINE; wood handguards are still blocky in profile; no follower model
+  in the CHOPPER magazine (the second round fills the lips); SMG is mid-detail (12.8k of 25k).
+- Exact next step if resumed: give the NINE grip finger grooves + stippled front strap, re-bake Nine
+  (`build.py build weapons --only nine --bake --rebake-unique --export`), then re-render weapons_nine_hero/_fp.
 
 ---------------------------------------------------------------------------------------------------------------
 # Vehicles (assets/vehicles.py), vehicle artist
