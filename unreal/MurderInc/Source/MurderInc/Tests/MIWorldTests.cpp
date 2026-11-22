@@ -6,6 +6,7 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
+#include "GameFramework/WorldSettings.h"
 #include "Misc/AutomationTest.h"
 #include "Weapons/MICombatSubsystem.h"
 #include "Weapons/MIViewmodel.h"
@@ -31,6 +32,11 @@ namespace MIWorldTestsPrivate
 			Context.SetCurrentWorld(World);
 			World->InitializeActorsForPlay(FURL());
 			World->BeginPlay();
+			// No game mode in a bare world: begin play the way the world settings do it for a loaded level.
+			if (!World->GetBegunPlay())
+			{
+				World->GetWorldSettings()->NotifyBeginPlay();
+			}
 		}
 		~FTestWorld()
 		{
