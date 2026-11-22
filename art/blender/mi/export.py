@@ -308,7 +308,8 @@ def set_entry(set_name):
         with open(js) as f:
             info = json.load(f)
         for k in ("kind", "surface", "params", "tile_m", "texel_density_px_per_m", "resolution", "height_range_m",
-                  "albedo_mean", "roughness_mean", "metallic_mean", "seamless", "seam", "asset"):
+                  "albedo_mean", "roughness_mean", "metallic_mean", "seamless", "seam", "asset",
+                  "face_m", "emissive_day", "alpha", "fonts", "note"):
             if k in info:
                 e[k] = info[k]
     else:

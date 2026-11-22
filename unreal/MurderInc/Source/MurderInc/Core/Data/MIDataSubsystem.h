@@ -27,6 +27,8 @@ public:
 	bool IsLoaded() const { return bLoaded; }
 	const FMIConfigData& GetConfig() const { return Config; }
 	const FMIPlayerData& GetPlayer() const { return Config.Player; }
+	const FMIWeaponsData& GetWeapons() const { return Config.Weapons; }
+	const FMIExplosivesData& GetExplosives() const { return Config.Explosives; }
 
 	/** The whole config.json document, for tables that have no struct yet. Null when loading failed. */
 	TSharedPtr<FJsonObject> GetConfigJson() const { return ConfigJson; }

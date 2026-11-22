@@ -164,7 +164,7 @@ def materials(ctx):
     M["glasswin"] = mat.make("MI_Glass_Window", "glass", Film=0.18)
     for name in SHOPS:
         s = shop_local(name)
-        m = mat.flat("M_Sign_" + name, s["colour"], 0.45)
+        m = mat.sign_face(name, s["colour"], 0.45)            # T_Sign_<Shop>_* from signs.py, else flat
         m["mi_tile_m"] = (float(s["sign"][0]), float(s["sign"][1]))       # the face is one 0..1 square
         M["sign" + name] = m
     return M

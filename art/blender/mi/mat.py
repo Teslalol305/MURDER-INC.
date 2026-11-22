@@ -1654,6 +1654,29 @@ def flat(name, color=(0.5, 0.5, 0.5), rough=0.6, metal=0.0):
     return m
 
 
+def sign_face(key, color=(0.5, 0.5, 0.5), rough=0.45):
+    """Material M_Sign_<key>: a sign face or painted graphic on 0..1 UVs. It reads the set Sign_<key>
+    (T_Sign_<key>_BC / _ORM / _E, drawn by assets/signs.py) when it exists, else a flat stand-in colour.
+    An _E map is wired at strength 1 (the night value); m["mi_emit_day"] is the day factor."""
+    from . import paths
+    d = paths.texture_set("Sign_" + key)
+    name = "M_Sign_" + key
+    if "BC" in find_set_files(d):
+        m = from_texture_set(d, name=name, masks=False, macro=0.0, ao_strength=0.0, alpha="none")
+        js = os.path.join(d, "set.json")
+        if os.path.exists(js):
+            import json
+            with open(js) as f:
+                info = json.load(f)
+            m["mi_emit_day"] = float(info.get("emissive_day", 0.3))
+            if info.get("alpha"):
+                bsdf = principled(m)
+                img = next(n for n in m.node_tree.nodes if n.bl_idname == "ShaderNodeTexImage" and "_BC" in n.image.name)
+                m.node_tree.links.new(img.outputs["Alpha"], bsdf.inputs["Alpha"])
+        return m
+    return flat(name, color, rough)
+
+
 def library():
     """[(kind, one-line description, parameter names)] for every registered surface."""
     return [(k, s.doc.split("\n")[0], [p[0] for p in COMMON + s.params]) for k, s in SURFACES.items()]
