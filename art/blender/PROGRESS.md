@@ -117,6 +117,8 @@ and the old-sign ghost are on the band face M_Sign_<Shop>).
 
 ## Status
 - [x] mat.sign_face(key, colour) added; facade.materials and furniture.materials use it (flat fallback without textures)
-- [ ] assets/signs.py written (textures + meshes)
-- [ ] `build.py build signs --export`, then `build facade --export --only <SignBand names>`, `build furniture --export --only SM_Furn_Billboard,SM_Furn_BusShelter`
-- [ ] previews, README row, report
+- [x] assets/signs.py written (textures + meshes); faces drawn (`build signs --force` redraws, ~90 s)
+- [x] `build.py build signs --export` passes (11 assets)
+- [ ] then, then `build facade --export --only <SignBand names>`, `build furniture --export --only SM_Furn_Billboard,SM_Furn_BusShelter`
+- [ ] previews: `build signs --preview --only signs_sheet --samples 64`, then `--only signs_street`, then `--only signs_ipx` (separate runs)
+- [ ] README row, report

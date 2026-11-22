@@ -403,6 +403,10 @@ def write_set(key, cv, size, rough, emis=None, meta=None, alpha=False, orm_size=
     info = dict(kind="sign", resolution=list(size), files=files, convention={"BC": "sRGB", "ORM": "linear AO, roughness, metallic",
                                                                              "E": "sRGB, night value at strength 1"})
     info.update(meta or {})
+    lin = to_lin(np.clip(cv.c, 0, 1))
+    info["albedo_mean"] = [round(float(v), 4) for v in lin.reshape(-1, 3).mean(0)]
+    info["roughness_mean"] = round(float(np.mean(np.clip(rough, 0.02, 1))), 3)
+    info["metallic_mean"] = 0.0
     if alpha:
         info["alpha"] = "BC alpha = paint coverage (opacity)"
     with open(os.path.join(d, "set.json"), "w") as f:
@@ -1186,7 +1190,7 @@ def build(ctx):
         x0, y0, z0 = mount(key)
         notes += (" Mount: on SM_Facade_SignBand_%s at band-local (%.3f, %.3f, %.3f) (the sign's back on the band's sign plate); "
                   "paired light per spec 2.17." % (key, x0, y0, z0))
-        ctx.asset(ob, collision="box", expect_size=(S["w"], None, S["h"]) if kind not in ("letters",) else None,
+        ctx.asset(ob, collision="box", expect_size=(S["w"], None, None) if kind not in ("letters",) else None,
                   notes=notes, slots=SLOT_META)
         ctx.K[key] = ob
         ctx.log("%-26s %7d tris" % (S["mesh"], geo.stats(ob)["triangles"]))
@@ -1237,6 +1241,8 @@ def relink(ob, col):
 
 def render_sheet(ctx, sun, Pv):
     """The ten signs side by side at one scale (orthographic), two columns, on a dark fascia."""
+    for ob in ctx.col.all_objects:
+        ob.hide_render = True
     col = scene.collection("SignSheet", ctx.col)
     keys = list(SIGNS)
     xs, row_h = (0.0, 9.0), 1.45
@@ -1247,6 +1253,7 @@ def render_sheet(ctx, sun, Pv):
         x = xs[c] + (8.4 - S["w"]) / 2
         z = 8.0 - r * row_h
         ob.location = (x, -DEPTH[S["kind"]], z)
+        ob.hide_render = False
         fas = geo.box((8.9, 0.02, 1.05), bevel=0.0)
         geo.transform(fas, loc=(xs[c] + 4.2, 0.0, z - 0.15))
         fas.data.materials.append(mat.flat("Fascia", (0.03, 0.03, 0.032), 0.5))
