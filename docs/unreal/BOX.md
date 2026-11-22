@@ -15,7 +15,8 @@ Every script below lives in `tools/box/` and is mirrored on the box at `/project
 | Windows abort the editor (Vulkan bridge PrimusVK) | Headless only: `-RenderOffscreen -unattended -nosplash -NoSound` (`editor.sh`). Pictures come from scene captures (`shot.sh`). |
 | The Unreal Build Accelerator asserts on the 9p volume (`rename-while-open ... .gch.tmp`) | `build.sh` always passes `-NoUBA`. |
 | The asset registry watches every directory of `Engine/Plugins` (55,000 on 9p: 10 to 25 minutes per editor start) | `-ini:Engine:[ConsoleVariables]:AssetRegistry.DisableDirectoryWatcher=1` on every editor process (`MI_EDITOR_ARGS`). Files copied into `Content/` while the editor runs are not seen until a restart or `scan_paths_synchronous`. |
-| The MCP capture tool renders one frame without temporal history: Lumen, the sky light and TSR have not settled (black shadows) | `shot.sh ... cam=...` renders the view for 24 editor ticks through a persistent scene capture (`Content/Python/mi_shot.py`) and keeps the last frame. |
+| Scene captures get no real-time sky light (`ReflectionEnvironmentRealTimeCapture.cpp` skips scene-capture views) and no Lumen lighting here: every shade is black, whatever the frame count. The headless level viewport is a main view, but it only draws when asked | `shot.sh ... cam=...` pilots the level editor viewport with a transient camera actor (position, rotation, field of view), forces `frames` redraws through the MCP tool `CaptureEditorViewport` so Lumen, the sky capture, auto exposure and TSR settle, then takes `HighResShot <size>` (written on a later redraw, after `r.HighResScreenshotDelay`). The old scene-capture path stays as `view=capture`. |
+| Physically based daylight overflows the default cached-lighting range: "Cached lighting in Lumen and real-time sky capture lighting is going to be clipped" on screen, and darker shade | `r.EyeAdaptation.CachedLightingPreExposure=8` in `Config/DefaultEngine.ini` `[SystemSettings]` (covers EV -4 to 16). |
 | Deleting a material that instances use orphans them; each orphan then compiles the default material synchronously on the game thread | `build_block.py` rebuilds the master material and its instances in place, never deletes them. |
 | Files reach the box only through git (the box pulls the public repository, it cannot push) and through the user's Higgsfield storage | Commit and push locally, then `sync.sh` on the box. Big binary inputs (the Blender art) go through storage (section 4). |
 
@@ -28,8 +29,9 @@ Every script below lives in `tools/box/` and is mirrored on the box at `/project
 | Tests | `bash test.sh` (all `MurderInc.*`, headless `-NullRHI` in `UnrealEditor-Cmd`), poll `bash test.sh status` | 33 s for the two current tests |
 | Editor | `bash editor.sh start [/Game/Maps/L_Block]`, `status`, `stop`, `restart` | MCP answers about 40 s after start |
 | Run editor Python | `python3 mi_mcp.py py <file.py or ->` (value of the last expression) | under 45 s per call |
-| Build the block | `bash block.sh start [steps] [force]`, `bash block.sh wait` | see section 5 |
-| Picture | `bash shot.sh /project/ue/logs/shots/x.jpg cam=X,Y,Z,pitch,yaw,roll fov=80` | 5 to 10 s for 24 frames at 1920 x 1080 |
+| Build the block | `bash block.sh start [steps] [force]`, `bash block.sh wait` | textures 16 s (60 textures), materials 7 s (+ shader compile on first use), meshes 68 s (16 GLBs, Nanite), level 7 s (920 actors) |
+| Picture | `bash shot.sh /project/ue/logs/shots/x.jpg cam=X,Y,Z,pitch,yaw,roll fov=80 frames=60` | about 12 s at 1920 x 1080 with 60 warm-up redraws (fewer leave Lumen unsettled after a camera jump; 60 and 200 give the same picture) |
+| The four block views | `bash block-shots.sh` (detached: about 50 s) | |
 | Picture to the local checkout | `media_upload` (filename `mi-x.jpg`), `bash put.sh <jpg> <upload_url> image/jpeg`, `media_confirm` (type image), local `curl -o` the url | about 10 s; several thousand tokens per picture |
 
 `mi_mcp.py` is the MCP client: `toolsets [text]`, `describe <Toolset> [Tool]`, `tool <Toolset.Tool> '<json>'`,
@@ -64,4 +66,17 @@ The Blender outputs (`art/out/`, git-ignored) travel as one tar through the user
 
 ## 5. GLB import: what turned out to be true
 
-(Filled in from the first block build; see `docs/unreal/PROGRESS.md` for the state.)
+Measured on the first block build (2026-11-22, `build_block.py`, every result line in
+`<project>/Saved/BuildBlock/status.txt`):
+
+| Question | Answer |
+|---|---|
+| Importer | Interchange glTF through `unreal.InterchangeManager.get_interchange_manager_scripted().import_asset(dest, create_source_data(glb), ImportAssetParameters)`; the pipeline is a transient `InterchangeGenericAssetsPipeline` passed as `override_pipelines = [SoftObjectPath(pipeline.get_path_name())]`. Synchronous; returns `(ok, objects)`. |
+| Axes | Right as they come. Blender metres (+X east, +Y north, Z up) exported with `export_yup` land as Unreal X east, Y south, Z up, unmirrored: glTF (x, y, z) becomes Unreal (x, z, y) x 100 (`GLTFCore/Private/GLTF/ConversionUtilities.h`), which is Blender (x, -y, z) x 100. No import rotation, no negative scale. |
+| Scale | Metres to centimetres by the importer. All 16 meshes match the manifest's `bounds_unreal_cm` to 0.0 cm (e.g. `SM_Street_Kerb_4m` X 0..400, Y -19..0, Z -3.5..15; `SM_El_Deck_10m` X 0..1000, Z 650..778.6). Pivots arrive as authored. |
+| Slot names | Kept exactly: the static material slots are named after the Blender materials (`MI_Steel_ScanPaintGreen`, `M_Prop_Hydrant`), so instances are assigned by name. With `material_pipeline.import_materials = False` and `texture_pipeline.import_textures = False` no stray material or texture assets are made. |
+| Combine | `mesh_pipeline.combine_static_meshes_behavior = InterchangeCombineStaticMeshesBehavior.ALL` (the old `combine_static_meshes` is deprecated in 5.9 and raises in Python). One GLB gives one `StaticMesh` named after the file (`asset_name`). |
+| Nanite | `mesh_pipeline.build_nanite = True`; the 234k-triangle road builds in 19 s. |
+| Normal maps | The sets are OpenGL (+Y up). Imported as plain textures (`AssetImportTask`), then `srgb = False`, `compression_settings = TC_NORMALMAP`, `flip_green_channel = True`, `lod_group = TEXTUREGROUP_WORLD_NORMAL_MAP`. ORM: `srgb = False`, `TC_MASKS` (sampler type Masks in the material). |
+| Vertex colours (`Wear`, COLOR_0) | Arrive, but the static mesh build stores them sRGB-encoded (`StaticMeshBuilder.cpp`: `LinearColor.ToFColor(true)`) and the vertex factory reads them back raw: the master material decodes RGB with `pow(x, 2.2)`; alpha is stored linearly. Still to prove with a ramp test asset (art bible 3.3). |
+| Material graph from Python | `MaterialExpressionCustom` inputs and outputs are built as structs property by property (`CustomInput()` then `set_editor_property`: the constructor takes no keywords). Vector parameters and the vertex colour node give float3 on their main output: alpha comes from the `"A"` output. Never delete a material that instances use: rebuild its graph in place (`delete_all_material_expressions`). |
