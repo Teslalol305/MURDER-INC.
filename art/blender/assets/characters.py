@@ -757,6 +757,8 @@ def _pack_uv(ob, margin=0.003):
 def build(ctx):
     if ctx.args.only and "roundtrip" in ctx.args.only:
         return roundtrip(ctx)
+    if ctx.args.only and "textures" in ctx.args.only:
+        return textures_only(ctx)
     arm, body = char.import_mannequin()
     body.hide_render = True
     R = ArmRig(arm, body)
@@ -764,6 +766,14 @@ def build(ctx):
     parts = build_right_arm(R, ctx.col)
     ctx.log("fields meshed")
     skin, glove = assemble_right(R, arm, body, parts, ctx.col, ctx.log)
+    keep = scene.collection("Parts_R")
+    for o in (skin, glove):
+        c = o.copy()
+        c.data = o.data.copy()
+        c.name = o.name + "_Keep"
+        keep.objects.link(c)
+        c.hide_render = True
+        c.hide_set(True)
     if ctx.args.bake:
         bake_sets(R, skin, glove, ctx.args.res, ctx.log)
     if os.path.exists(os.path.join(paths.texture_set("RuleArms_Glove"), "T_RuleArms_Glove_BC.png")):
@@ -787,9 +797,187 @@ def on_export(ctx, objs):
     ctx.log("exported %s" % p)
 
 
+def textures_only(ctx):
+    """Re-bake the two sets from the right-arm parts kept in art/out/blend/characters.blend (no remodelling)."""
+    src = os.path.join(paths.blend, "characters.blend")
+    with bpy.data.libraries.load(src, link=False) as (fr, to):
+        to.objects = [n for n in fr.objects if n in ("Skin_R_Keep", "Glove_R_Keep", "Mannequin", "Mannequin_Body")]
+    for o in to.objects:
+        ctx.col.objects.link(o)
+    arm, body = bpy.data.objects["Mannequin"], bpy.data.objects["Mannequin_Body"]
+    R = ArmRig(arm, body)
+    skin, glove = bpy.data.objects["Skin_R_Keep"], bpy.data.objects["Glove_R_Keep"]
+    for o in (skin, glove):
+        o.hide_render = False
+        o.parent = None
+        o.modifiers.clear()
+    ctx.args.export = False
+    bake_sets(R, skin, glove, ctx.args.res, ctx.log)
+    ctx.args.preview = False
+    import tempfile
+    paths.blend = tempfile.mkdtemp()          # build.py saves the scene afterwards: keep characters.blend intact
+    return []
+
+
 def roundtrip(ctx):
     arm, body = char.import_mannequin()
     p = char.export_character(body, arm, name="RT_Manny", path=os.path.join(char.EPIC, "RT_Manny.glb"), stub_materials=False)
     rep = char.round_trip_report(char.MANNEQUIN, p)
     ctx.log("round trip: " + json.dumps(rep, default=str))
     return []
+
+
+# ------------------------------------------------------------------------------------------------ watch, bracelet
+
+GOLD = (1.0, 0.766, 0.336)                 # linear reflectance of yellow gold (#e7b53a reads as this under light)
+GOLD_DARK = (0.80, 0.58, 0.20)
+
+
+def jewel_materials():
+    from mi import mat as _mat
+    gold = _mat.flat("M_Character_RuleWatch_Gold", GOLD, 0.16, 1.0)
+    brushed = _mat.flat("M_Character_RuleWatch_GoldBrushed", GOLD, 0.34, 1.0)
+    dark = _mat.flat("M_Character_RuleWatch_GoldDark", GOLD_DARK, 0.42, 1.0)
+    dial = _mat.flat("M_Character_RuleWatch_Dial", (0.003, 0.003, 0.0035), 0.07, 0.0)
+    glass = _mat.flat("M_Character_RuleWatch_Glass", (1, 1, 1), 0.0, 0.0)
+    b = glass.node_tree.nodes.get("Principled BSDF")
+    b.inputs["Transmission Weight"].default_value = 1.0
+    b.inputs["IOR"].default_value = 1.77
+    chain = _mat.flat("M_Character_RuleBracelet_Gold", GOLD, 0.14, 1.0)
+    chain2 = _mat.flat("M_Character_RuleBracelet_GoldAlt", (0.93, 0.70, 0.30), 0.18, 1.0)
+    return dict(gold=gold, brushed=brushed, dark=dark, dial=dial, glass=glass, chain=chain, chain2=chain2)
+
+
+def _mat_all(ob, m):
+    ob.data.materials.clear()
+    ob.data.materials.append(m)
+    return ob
+
+
+def _ellipse_path(a, b, n, sag=0.0):
+    """Closed path around the forearm in the local frame (X across, Z outward on the back, Y along the arm):
+    points on an ellipse x = a cos t, z = b sin t, sagging `sag` underneath (z < 0)."""
+    t = np.linspace(0, 2 * np.pi, n, endpoint=False)
+    x, z = a * np.cos(t), b * np.sin(t)
+    z = z - sag * np.clip(-np.sin(t), 0, 1) ** 2
+    return np.stack([x, np.zeros_like(x), z], axis=1), t
+
+
+def watch(col, sec=(0.0352, 0.0279)):
+    """SM_Character_RuleWatch in its attach frame: origin on the forearm axis, X across the arm, Y along it
+    (toward the elbow), Z out of the back of the forearm. sec: semi-axes of the forearm section under it."""
+    M = jewel_materials()
+    a, b = sec[0] + 0.0010, sec[1] + 0.0010              # band inner surface 1 mm off the skin
+    parts = []
+    # band: three-piece links (outer pieces brushed, centre polished), 44 segments around the arm
+    n = 44
+    pts, t = _ellipse_path(a + 0.0012, b + 0.0012, n)
+    case_half = 0.0205
+    for i in range(n):
+        p0, p1 = pts[i], pts[(i + 1) % n]
+        mid = (p0 + p1) / 2
+        if abs(mid[0]) < case_half and mid[2] > 0:
+            continue                                         # under the case
+        tang = p1 - p0
+        L = float(np.linalg.norm(tang)) - 0.0004
+        ang = math.degrees(math.atan2(tang[2], tang[0]))
+        for y0, w, m in ((-0.0065, 0.0058, M["brushed"]), (0.0, 0.0064, M["gold"]), (0.0065, 0.0058, M["brushed"])):
+            bx = geo.box((L, w, 0.0024), bevel=0.0005, segments=2, base=False, name="Link")
+            geo.transform(bx, rot=(0, -ang, 0))
+            geo.transform(bx, loc=(mid[0], y0, mid[2]))
+            parts.append(_mat_all(bx, m))
+    # case, bezel, dial, glass, hands, batons, crown (built with 12 o'clock at +Y, then turned so the crown at
+    # 3 o'clock points toward the hand, -Y), lugs
+    band = len(parts)
+    z0 = b + 0.0018
+    case = geo.revolve([(0.0, 0.0), (0.0185, 0.0), (0.0195, 0.0012), (0.0195, 0.0060), (0.0190, 0.0068), (0.0, 0.0068)],
+                       segments=96, name="Case")
+    geo.transform(case, loc=(0, 0, z0))
+    parts.append(_mat_all(case, M["gold"]))
+    bez_prof = [(0.0170, 0.0066), (0.0212, 0.0066), (0.0212, 0.0074), (0.0205, 0.0083), (0.0185, 0.0086),
+                (0.0172, 0.0084), (0.0170, 0.0066)]
+    bez = geo.revolve(bez_prof, segments=120, closed=True, name="Bezel")
+    geo.transform(bez, loc=(0, 0, z0))
+    parts.append(_mat_all(bez, M["gold"]))
+    dial = geo.cylinder(0.0172, 0.0004, 96, name="Dial")
+    geo.transform(dial, loc=(0, 0, z0 + 0.0062))
+    parts.append(_mat_all(dial, M["dial"]))
+    for k in range(4):
+        ang = k * 90
+        bt = geo.box((0.0012, 0.0048, 0.0005), bevel=0.0002, segments=1, base=True, name="Baton")
+        geo.transform(bt, loc=(0, 0.0138 if k != 0 else 0.0136, z0 + 0.0066))
+        if k == 0:
+            bt2 = geo.box((0.0012, 0.0048, 0.0005), bevel=0.0002, segments=1, base=True, name="Baton")
+            geo.transform(bt, loc=(-0.0011, 0, 0))
+            geo.transform(bt2, loc=(0.0011, 0.0136, z0 + 0.0066))
+            parts.append(_mat_all(bt2, M["gold"]))
+        geo.transform(bt, rot=(0, 0, -ang))
+        parts.append(_mat_all(bt, M["gold"]))
+    for L, w, ang, dz in ((0.012, 0.0011, -62, 0.0074), (0.009, 0.0014, 118, 0.0071)):     # 10:10 like a catalogue
+        hd = geo.box((w, L, 0.0003), bevel=0.0001, segments=1, base=True, name="Hand")
+        geo.transform(hd, loc=(0, L / 2 - 0.0015, z0 + dz - 0.0004))
+        geo.transform(hd, rot=(0, 0, ang))
+        parts.append(_mat_all(hd, M["gold"]))
+    pin = geo.cylinder(0.0009, 0.0011, 24, name="Pinion")
+    geo.transform(pin, loc=(0, 0, z0 + 0.0066))
+    parts.append(_mat_all(pin, M["gold"]))
+    glass = geo.revolve([(0.0, 0.0), (0.0171, 0.0), (0.0171, 0.0010), (0.0120, 0.0016), (0.0, 0.0019)], segments=96,
+                        name="Glass")
+    geo.transform(glass, loc=(0, 0, z0 + 0.0074))
+    parts.append(_mat_all(glass, M["glass"]))
+    crown = geo.revolve([(0.0, 0.0), (0.0028, 0.0), (0.0028, 0.0030), (0.0024, 0.0035), (0.0, 0.0035)], segments=36,
+                        name="Crown")
+    geo.transform(crown, rot=(0, 90, 0))
+    geo.transform(crown, loc=(0.0193, 0, z0 + 0.0034))
+    parts.append(_mat_all(crown, M["gold"]))
+    for pt in parts[band:]:
+        geo.transform(pt, rot=(0, 0, -90))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            lug = geo.box((0.0045, 0.0060, 0.0040), bevel=0.0008, segments=2, base=False, name="Lug")
+            geo.transform(lug, loc=(sx * 0.0068, sy * 0.0185, z0 + 0.0022))
+            parts.append(_mat_all(lug, M["gold"]))
+    ob = geo.join(parts, "SM_Character_RuleWatch", col)
+    geo.smooth_by_angle(ob, 40)
+    return ob
+
+
+def bracelet(col, sec=(0.0335, 0.0265)):
+    """SM_Character_RuleBracelet: 26 twisted curb links on a path 3.6 mm clear of the forearm, sagging 2.8 mm
+    underneath; same attach frame convention as the watch."""
+    M = jewel_materials()
+    a, b = sec[0] + 0.0036 + 0.0019, sec[1] + 0.0036 + 0.0019
+    n = 26
+    pts, t = _ellipse_path(a, b, 400, sag=0.0028)
+    seg = np.linalg.norm(np.roll(pts, -1, axis=0) - pts, axis=1)
+    cum = np.concatenate([[0], np.cumsum(seg)])
+    total = cum[-1]
+    parts = []
+    for i in range(n):
+        d = (i + 0.5) / n * total
+        k = int(np.searchsorted(cum, d) - 1) % len(pts)
+        p0, p1 = pts[k], pts[(k + 1) % len(pts)]
+        mid = p0 + (p1 - p0) * ((d - cum[k]) / max(seg[k], 1e-9))
+        tang = (p1 - p0) / max(seg[k], 1e-9)
+        lk = geo.torus(major=0.0024, minor=0.00092, seg_major=28, seg_minor=10, name="Link",
+                       stretch=total / n * 1.45 - 0.0048)
+        geo.transform(lk, scale=(1.0, 1.0, 0.72))                 # curb links are pressed flat
+        geo.transform(lk, rot=(28 if i % 2 else -28, 0, 0))       # each twisted against the next
+        ang = math.degrees(math.atan2(tang[2], tang[0]))
+        geo.transform(lk, rot=(0, -ang, 0))
+        geo.transform(lk, loc=tuple(mid))
+        parts.append(_mat_all(lk, M["chain"] if i % 2 == 0 else M["chain2"]))
+    ob = geo.join(parts, "SM_Character_RuleBracelet", col)
+    return ob
+
+
+def attach_frame(R, s):
+    """World matrix of a jewel's attach frame at s above the wrist: origin on the forearm axis, X across the arm
+    (ulnar), Y toward the elbow, Z out of the back of the forearm."""
+    c, u, v = R.fore_frame(s)
+    y = -R.af
+    x = np.cross(y, v)
+    M = Matrix.Identity(4)
+    for i in range(3):
+        M[i][0], M[i][1], M[i][2], M[i][3] = x[i], y[i], v[i], c[i]
+    return M

@@ -277,14 +277,10 @@ def mirror_x(ob, name, side_from="_r", side_to="_l"):
     me.vertices.foreach_set("co", co.ravel())
     me.flip_normals()
     me.update()
-    for g in ob.vertex_groups:
-        ng = nob.vertex_groups.new(name=g.name[:-len(side_from)] + side_to if g.name.endswith(side_from) else g.name)
-    # vertex group weights: copy by index (vertex order is unchanged)
-    names, W = weight_matrix(ob)
-    for j, n in enumerate(names):
-        vg = nob.vertex_groups[j]
-        for i in np.nonzero(W[:, j] > 0)[0]:
-            vg.add([int(i)], float(W[i, j]), "REPLACE")
+    # vertex groups travel with the mesh data (names and weights): rename them in place
+    for g in nob.vertex_groups:
+        if g.name.endswith(side_from):
+            g.name = g.name[:-len(side_from)] + side_to
     return nob
 
 
