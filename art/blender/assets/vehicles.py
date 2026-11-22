@@ -67,7 +67,7 @@ SPEC = {
     "Pickup": dict(ws_top=0.72, bn=1.12, src="pickup_hunyuan60k.glb", axis="Y", nose=-1, size=(5.32, 2.0, 1.78), axles=(1.72, -1.50),
                    r=0.39, tw=0.27, rim=0.25, belt=1.25, cowl=1.22, bpillar=0.05, rear_x=-0.45, floor=0.52,
                    wheel="steel", rear_seat=False, plate="KQB5530", paint="charcoal", cover=1.27, tris=62000),
-    "Van": dict(ws_top=1.42, side_glass=(0.60, 1.65, 1.21, 1.95), bn=1.02, src="van_hunyuan60k.glb", axis="Y", nose=-1, size=(5.21, 1.96, 2.19), axles=(1.70, -1.50),
+    "Van": dict(ws_top=1.42, side_glass=(0.60, 1.65, 1.21, 1.95), bn=1.02, src="van_hunyuan60k.glb", axis="Y", nose=1, size=(5.21, 1.96, 2.19), axles=(1.70, -1.50),
                 r=0.36, tw=0.24, rim=0.22, belt=1.16, cowl=1.92, bpillar=0.52, rear_x=0.40, floor=0.50,
                 wheel="steel", rear_seat=False, plate="TKV9907", paint="white", cover=2.14, tris=62000),
 }
@@ -1339,7 +1339,7 @@ def v_burned(ctx, P):
     geo.transform(bon, rot=(0, -15, 0))
     geo.transform(bon, loc=(hx, 0, hz))
     parts = [sh, bon]
-    parts.append(bay("Burned_Bay", 1.0, 2.15, 0.70, 0.30, 0.86, char, t_char))
+    parts.append(bay("Burned_Bay", 1.0, 1.95, 0.60, 0.32, 0.78, char, t_char))
     eng = geo.box((0.55, 0.60, 0.38), bevel=0.04, name="Burned_Engine")
     geo.transform(eng, loc=(1.55, 0, 0.32))
     parts.append(put_mat(eng, char, t_char))
@@ -1417,11 +1417,11 @@ def v_stripped(ctx, P):
     solidify(sh, 0.008, 1)
     galv = set_material("TS_Galvanised_Aged", slot="MI_Galvanised_Aged")
     t_galv = (bake.read_set("TS_Galvanised_Aged") or {}).get("tile_m", 1.0)
-    parts = [sh, bay("Stripped_Bay", 1.0, 2.15, 0.70, 0.30, 0.86, bare, t_bare)]
+    parts = [sh, bay("Stripped_Bay", 1.0, 1.95, 0.60, 0.32, 0.80, bare, t_bare)]
     lump = geo.box((0.45, 0.40, 0.30), bevel=0.03, name="Stripped_Lump")
     geo.transform(lump, loc=(1.50, 0.12, 0.34))
     parts.append(put_mat(lump, galv, t_galv))
-    fl = geo.box((2.6, 1.40, 0.02), bevel=0.0, name="Stripped_Floor")
+    fl = geo.box((2.3, 1.30, 0.02), bevel=0.0, name="Stripped_Floor")
     geo.transform(fl, loc=(-0.3, 0, 0.33))
     parts.append(put_mat(fl, bare, t_bare))
     dash = geo.box((0.30, 1.30, 0.22), bevel=0.02, name="Stripped_Dash")
@@ -1812,11 +1812,12 @@ SPEC.update({
                      r=0.44, tw=0.28, rim=0.27, belt=1.50, cowl=2.55, bpillar=1.65, rear_x=1.20, floor=1.0,
                      cabin_rear=1.25, seat_x=1.55, wheel="steel", twin=True, rear_seat=False, plate="HLS2141",
                      paint="mustard", paint2=lambda c: c[:, 0] > 1.0, paint2_colour="#d9d7d0", cover=3.30, tris=48000),
-    "IPXTruck": dict(bn=1.30, ws_top=1.57, ws_inset=0.30, cabin_inside=False, src="ipx_hunyuan80k.glb", axis="Y", nose=-1, size=(6.81, 2.48, 2.96), axles=(2.05, -1.75),
+    "IPXTruck": dict(bn=1.30, ws_top=1.57, ws_inset=0.30, cabin_inside=False, src="ipx_hunyuan80k.glb", axis="Y", nose=1, size=(6.81, 2.48, 2.96), axles=(2.05, -1.75),
                      r=0.50, tw=0.30, rim=0.30, belt=1.75, cowl=2.30, bpillar=0.70, rear_x=0.60, floor=1.05,
                      cabin_rear=0.62, seat_x=1.00, wheel="steel", twin=True, rear_seat=False, plate="KQB5530",
                      paint="#17191d", hazard_slot=True, cover=2.86, tris=50000,
-                     drop=lambda c, n, cls: (c[:, 0] < -3.33) & (c[:, 2] > 1.03) & (c[:, 2] < 2.69) & (np.abs(c[:, 1]) < 0.92)),
+                     drop=lambda c, n, cls: ((c[:, 0] < -3.10) & (n[:, 0] < -0.5) & (c[:, 2] > 1.03) & (c[:, 2] < 2.69)
+                                            & (np.abs(c[:, 1]) < 0.95))),
     "Motorbike": dict(src="moto_hunyuan100k.glb", axis="X", nose=1, paint="navy", tris=90000),
 })
 def _bed_contents(c, n, cls):
@@ -1872,7 +1873,7 @@ def build(ctx):
     need = {
         "vehicles_sedan_hero": ["Sedan"], "vehicles_lineup_1": ["Sedan", "Taxi", "SUV", "Pickup", "Van"],
         "vehicles_lineup_2": ["VanVulture", "BoxTruck", "Motorbike"], "vehicles_ipx_truck": ["IPXTruck"],
-        "vehicles_wrecks": ["BurnedCar", "StrippedCar"], "vehicles_close": ["Sedan"], "vehicles_wire": ["Sedan", "SUV"],
+        "vehicles_wrecks": ["BurnedCar", "StrippedCar"], "vehicles_close": ["Sedan"], "vehicles_wire": ["VanVulture", "SUV"],
     }
     want = set()
     for p in previews:
@@ -1915,14 +1916,14 @@ def build(ctx):
 def _street(ctx):
     """A strip of street for the cars to stand on: the street family's scanned asphalt, kerb concrete, brick wall."""
     items = []
-    road = geo.box((60.0, 14.0, 0.2), bevel=0.0, name="PV_Road")
+    road = geo.box((160.0, 14.0, 0.2), bevel=0.0, name="PV_Road")
     geo.transform(road, loc=(0, -2.0, -0.2))
     put_mat(road, set_material("TS_Asphalt_ScanWorn", slot="MI_Asphalt_ScanWorn"), mat.scan_tile("TS_Asphalt_ScanWorn"))
-    walk = geo.box((60.0, 4.0, 0.15), bevel=0.01, name="PV_Walk")
+    walk = geo.box((160.0, 4.0, 0.15), bevel=0.01, name="PV_Walk")
     geo.transform(walk, loc=(0, 7.0, 0.0))
     put_mat(walk, set_material("TS_Concrete_ScanWeathered", slot="MI_Concrete_ScanWeathered"),
             mat.scan_tile("TS_Concrete_ScanWeathered"))
-    wall = geo.box((60.0, 0.4, 9.0), bevel=0.0, name="PV_Wall")
+    wall = geo.box((160.0, 0.4, 9.0), bevel=0.0, name="PV_Wall")
     geo.transform(wall, loc=(0, 9.2, 0))
     put_mat(wall, set_material("TS_Brick_ScanRed", slot="MI_Brick_ScanRed"), mat.scan_tile("TS_Brick_ScanRed"))
     items += [road, walk, wall]
@@ -1970,9 +1971,9 @@ def on_preview(ctx, objs):
         render.cam_look((15.5, -2.6, 1.9), (-0.5, 3.9, 0.85), lens=30)
         shot("vehicles_lineup_1.jpg")
     if want("vehicles_lineup_2"):
-        _show(assets, {"SM_Vehicle_BoxTruck": (-11.0, 3.6, 0), "SM_Vehicle_Van": (-2.8, 3.85, 0),
-                       "SM_Vehicle_Van_Vulture": (3.6, 2.3, 160), "SM_Vehicle_Motorbike": (8.6, 4.4, 0)})
-        render.cam_look((15.0, -2.6, 2.1), (-1.5, 3.4, 1.1), lens=28)
+        _show(assets, {"SM_Vehicle_BoxTruck": (-10.5, 3.6, 0), "SM_Vehicle_Van": (-2.6, 3.85, 0),
+                       "SM_Vehicle_Van_Vulture": (4.2, 1.9, 200), "SM_Vehicle_Motorbike": (9.3, 4.45, 20)})
+        render.cam_look((13.6, -1.0, 1.75), (-1.0, 3.5, 1.05), lens=32)
         shot("vehicles_lineup_2.jpg")
     if want("vehicles_ipx_truck") and "SM_Vehicle_IPXTruck" in assets:
         pl = {"SM_Vehicle_IPXTruck": (0, 3.6, 180), "SM_Vehicle_IPXTruck_Door": (0, 0, 0),
@@ -1985,14 +1986,14 @@ def on_preview(ctx, objs):
             hx, hy = -L + 0.0, -0.89 * s_
             d.location = (-hx, 3.6 - hy, 1.05)
             d.rotation_euler = (0, 0, math.radians(180 + s_ * 108.9))
-        render.cam_look((9.6, -1.6, 2.2), (2.0, 3.8, 1.5), lens=28)
+        render.cam_look((10.6, 1.0, 2.0), (3.0, 3.55, 1.6), lens=28)
         shot("vehicles_ipx_truck.jpg")
     if want("vehicles_wrecks"):
         _show(assets, {"SM_Vehicle_BurnedCar": (-2.8, 3.4, 12), "SM_Vehicle_StrippedCar": (3.0, 3.3, -8)})
         render.cam_look((0.4, -4.6, 2.5), (0.2, 3.4, 0.7), lens=28)
         shot("vehicles_wrecks.jpg")
     if want("vehicles_wire"):
-        _show(assets, {"SM_Vehicle_Sedan": (-2.6, 3.9, 0), "SM_Vehicle_SUV": (2.8, 3.85, 0)})
+        _show(assets, {"SM_Vehicle_Van_Vulture": (-3.4, 3.7, 200), "SM_Vehicle_SUV": (3.2, 3.85, 0)})
         clay = bpy.data.materials.new("PV_Clay")
         clay.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.5, 0.5, 0.5, 1)
         vl = bpy.context.view_layer
@@ -2008,7 +2009,7 @@ def on_preview(ctx, objs):
         ls.linestyle.thickness = 0.6
         ls.linestyle.color = (0.05, 0.05, 0.06)
         vl.freestyle_settings.crease_angle = math.radians(140)
-        render.cam_look((0.2, -4.0, 2.2), (0.1, 3.9, 0.7), lens=30)
+        render.cam_look((1.6, -4.6, 2.6), (0.0, 3.8, 0.9), lens=28)
         shot("vehicles_wire.jpg")
         vl.material_override = old
         sc.render.use_freestyle = False
