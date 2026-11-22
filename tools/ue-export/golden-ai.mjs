@@ -149,8 +149,9 @@ export function goldenWorld(level, seed, write, about) {
 export function goldenEnemyLogic(seed, write, about) {
   const rng = createRng(seed).fork('golden-logic');
   const R = (a, b) => q(a + (b - a) * rng.next());
-  const ai = enemiesConfig.ai;
-  const goon = enemiesConfig.goon;
+  // The tables as the AI reads them on the default difficulty (base + boss overlay, config.json enemiesResolved.boss).
+  const ai = { ...enemiesConfig.ai, ...enemiesConfig.difficulty.boss.ai };
+  const goon = { ...enemiesConfig.goon, ...enemiesConfig.difficulty.boss.goon };
 
   // Tokens: a script of requests and releases at times; the answer of every request.
   const tokens = L.createTokens();
@@ -369,7 +370,7 @@ export function goldenEnemies(level, seed, write, about) {
         if (f === 400) c.damage(1, 30, 'body', [-1, 0, 0]);
         if (f === 430) c.damage(1, 40, 'head', [-1, 0, 0]);
         if (f === 460) c.damage(1, 60, 'body', [-1, 0, 0]);
-        if (f > 500) c.move(20 - (f - 500) * 0.03, 0, 20, -1.8, 0, 0);
+        if (f > 500) c.move(20 - (f - 500) * 0.0313, 0, 20, -1.878, 0, 0);
       },
     }),
     enemyScenario(level, seed, 'buzzard_engage', {
@@ -377,7 +378,7 @@ export function goldenEnemies(level, seed, write, about) {
       player: { pos: [-10, 0, 12] },
       setup: (c) => c.spawn('buzzard', [-10, 5, 0], { yaw: Math.PI }),
       script: (f, c) => {
-        if (f > 300 && f < 420) c.move(-10 + (f - 300) * 0.05, 0, 12, 3, 0, 0);
+        if (f > 300 && f < 420) c.move(-10 + (f - 300) * 0.0517, 0, 12, 3.102, 0, 0);
         if (f === 420) c.move(-4, 0, 12, 0, 0, 0);
       },
     }),
@@ -402,10 +403,10 @@ export function goldenEnemies(level, seed, write, about) {
       },
       script: (f, c) => {
         // Rule walks east along the north sidewalk, ducks, and comes back.
-        if (f >= 200 && f < 500) c.move(start.x + (f - 200) * 0.05, start.y, start.z, 3, 0, 0);
+        if (f >= 200 && f < 500) c.move(start.x + (f - 200) * 0.0517, start.y, start.z, 3.102, 0, 0);
         if (f === 500) c.crouch(true);
         if (f === 700) c.crouch(false);
-        if (f >= 700 && f < 900) c.move(start.x + 15 - (f - 700) * 0.04, start.y, start.z, -2.4, 0, 0);
+        if (f >= 700 && f < 900) c.move(start.x + 15 - (f - 700) * 0.0413, start.y, start.z, -2.478, 0, 0);
         if (f === 900) c.move(start.x + 7, start.y, start.z, 0, 0, 0);
         if (f === 1000) c.damage(4, 55, 'body', [0, 0, -1]);
       },
