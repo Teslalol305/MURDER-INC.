@@ -67,6 +67,9 @@ coffee brands), modular duct/pipe/cable kits, lamps with emissive maps, desk, st
 Catalogue: no resupply item exists (05b 2.5.3), so no resupply crate.
 
 ## Status
-- [ ] scanned part written and exported (`build.py build props --export`)
-- [ ] gameplay part written, baked and exported (`build.py build props --bake --export`)
+- [x] scanned part written and exported (`build.py build props --export`): 30 SM_Prop_*, validation clean
+- [x] gameplay part written, baked and exported (`build.py build props --only gameplay --bake --export`, 4.5 min):
+      SM_Gameplay_MasterCase, _Lid, _Beacon, MasterReel_1/2/3, PropaneTank, WeldingRack, validation clean
+- [ ] NEXT: `build.py build props --preview --samples 64` (renders props_scanned.jpg and props_gameplay.jpg), look,
+      one fix round at most (budget: 6 renders in total for this task, 0 used so far)
 - [ ] previews (`build.py build props --preview --samples 64`), README row
