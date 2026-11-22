@@ -106,3 +106,12 @@ on the forearm axis, X across the arm, Y toward the elbow, Z out of the back of 
 is written to `art/out/glb/SK_RuleArms.sockets.json`; `mi_chars.attach_transform` turns it into the transform relative
 to the bone (watch: 1.88, 0.07, -0.06 cm). `SkeletalMeshSocket` names are read-only from Python in 5.9, so the
 jewels are attached to the bone with that relative transform; the same numbers make a socket by hand.
+
+### Proof in Unreal (2026-11-22)
+
+`/Game/Characters/RuleArms/SK_RuleArms` imported on `/Game/Characters/Mannequins/Meshes/SK_Mannequin` (no new
+skeleton), four slots assigned, watch and bracelet on `lowerarm_twist_01_l` / `_r`. Left: MF_Rifle_Idle_ADS at 0.5 s;
+right: MM_Rifle_Reload at 1.25 s (one hand leaves the frame on the right). The arms are shown without a body, so the
+closed shoulder caps are visible from this camera; the first-person camera never sees them.
+
+![arms](shots/chars-arms.jpg)
