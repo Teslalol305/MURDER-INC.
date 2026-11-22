@@ -128,3 +128,19 @@ Known weaknesses: no true condensed face (Inter Display Black squeezed); neon tu
 stroke) as the brief asks, not a sign-bender's single stroke; pan-letter tubes are an inset outline; faces have no normal maps
 (seams, wrinkles, flaking are colour only); signs are not in the El hero views; Pawn's gold balls, the barber pole, the S3
 shed banners (M_Sign_ShedBanner_*), booth, flag and other furniture graphics still flat colours.
+
+---------------------------------------------------------------------------------------------------------------
+# Weapons (assets/weapons.py, mi/rig.py, mi/texpaint.py)
+
+Task: SK_Chopper and SK_Nine (skinned, one bone per moving part, sockets, unique 4K sets T_Chopper_* / T_Nine_*),
+their magazines + top rounds (2K), rifle and pistol casings (512), Goon SMG (2K) and pipe (1K); previews
+weapons_chopper_hero/_fp, weapons_nine_hero/_fp, weapons_parts, weapons_wire, weapons_enemy; README row.
+Decisions: textures are authored in UV space with numpy from baked geometry maps (mi/texpaint.py) instead of
+baking node trees; skinned assets export through mi/rig.py (export._Stubs, all bones incl. sockets) and are proven
+by re-importing the GLB in a fresh process and posing every bone.
+
+## Status
+- [x] mi/rig.py committed (armature from pivots, rigid tagging, skinned GLB, inspect_glb, verify by re-import)
+- [x] CHOPPER geometry (56k tris) + magazine/top round; draft pipeline runs end to end (--res 512)
+- [ ] CHOPPER 4K textures, previews; NINE; casings; SMG + pipe; README row
+Next step: `build.py build weapons --only chopper --bake --export` at full size, then previews.

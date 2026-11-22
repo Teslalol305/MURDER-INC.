@@ -18,6 +18,7 @@ recesses that the short-range occlusion finds, scratches along the direction of 
 
 Maps returned by geometry_maps (row 0 = v 0, column 0 = u 0; texels outside the islands carry the margin):
     mask   bool, covered (islands + margin)        id     int, the face attribute `attr` (-1 outside)
+    part   float, the face attribute `attr2` (a per-part random number, for variation between pieces)
     pos    object-space position (m)               nrm    object-space shading normal (unit)
     ao     occlusion within ao_far (1 = open)      cav    occlusion within ao_near (crevices, seams)
     edge   rounded-edge mask from a Bevel node (0 flat .. 1 sharp corner, convex and concave alike)
@@ -42,7 +43,7 @@ def _bake_material(name):
 
 
 def geometry_maps(ob, res=2048, samples=16, ao_far=0.02, ao_near=0.004, bevel_radius=0.0012, attr="mid",
-                  margin=16, verbose=True):
+                  attr2="part", margin=16, verbose=True):
     """Bake the geometry maps of `ob` through its active UV map (see module doc). The object's materials are
     swapped for one bake material during the bakes and restored after."""
     t0 = time.time()
@@ -67,6 +68,11 @@ def geometry_maps(ob, res=2048, samples=16, ao_far=0.02, ao_near=0.004, bevel_ra
     add1.inputs[1].default_value = 1.0
     ln.new(att.outputs["Fac"], add1.inputs[0])
     ln.new(add1.outputs[0], comb.inputs[0])
+    if attr2:
+        att2 = nd.new("ShaderNodeAttribute")
+        att2.attribute_type = "GEOMETRY"
+        att2.attribute_name = attr2
+        ln.new(att2.outputs["Fac"], comb.inputs[1])
     nmap = nd.new("ShaderNodeVectorMath")
     nmap.operation = "MULTIPLY_ADD"
     nmap.inputs[1].default_value = (0.5, 0.5, 0.5)
@@ -75,13 +81,13 @@ def geometry_maps(ob, res=2048, samples=16, ao_far=0.02, ao_near=0.004, bevel_ra
     aof = nd.new("ShaderNodeAmbientOcclusion")
     aof.inputs["Distance"].default_value = ao_far
     aof.only_local = True
-    aof.samples = 16
+    aof.samples = 4
     aon = nd.new("ShaderNodeAmbientOcclusion")
     aon.inputs["Distance"].default_value = ao_near
     aon.only_local = True
-    aon.samples = 16
+    aon.samples = 4
     bev = nd.new("ShaderNodeBevel")
-    bev.samples = 16
+    bev.samples = 4
     bev.inputs["Radius"].default_value = bevel_radius
     dot = nd.new("ShaderNodeVectorMath")
     dot.operation = "DOT_PRODUCT"
@@ -126,7 +132,8 @@ def geometry_maps(ob, res=2048, samples=16, ao_far=0.02, ao_near=0.004, bevel_ra
         bpy.data.materials.remove(m)
     idf = res_["id"][..., 0]
     mask = idf > 0.5
-    G = {"mask": mask, "id": np.where(mask, np.rint(idf - 1.0), -1).astype(np.int32), "pos": res_["pos"]}
+    G = {"mask": mask, "id": np.where(mask, np.rint(idf - 1.0), -1).astype(np.int32), "pos": res_["pos"],
+         "part": res_["id"][..., 1]}
     n = res_["nrm"] * 2.0 - 1.0
     n /= np.maximum(np.linalg.norm(n, axis=-1, keepdims=True), 1e-6)
     G["nrm"] = n

@@ -129,6 +129,8 @@ def validate(ob, arm, expect_size=None, rigid=True, tol=0.05):
     vertex weighted (rigid: to exactly one bone with weight 1.0; otherwise weights summing to 1), sockets carry
     no vertices, bones have the asset's axes at rest, the mesh sits at the armature origin."""
     err, warn = _export.validate(ob, expect_size, tol, strict_names=False)
+    own = "M_" + ob.name[3:]                         # SK_Chopper's unique set 'Chopper' is used through M_Chopper
+    err = [e for e in err if not e.startswith("slot '%s' " % own)]
     if not SK_RE.match(ob.name):
         err.append("name '%s' does not follow SK_<Name>" % ob.name)
     bones = {b.name: b for b in arm.data.bones}
