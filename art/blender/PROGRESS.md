@@ -119,20 +119,12 @@ and the old-sign ghost are on the band face M_Sign_<Shop>).
 - [x] mat.sign_face(key, colour) added; facade.materials and furniture.materials use it (flat fallback without textures)
 - [x] assets/signs.py written (textures + meshes); faces drawn (`build signs --force` redraws, ~90 s)
 - [x] `build.py build signs --export` passes (11 assets)
-- [ ] then, then `build facade --export --only <SignBand names>`, `build furniture --export --only SM_Furn_Billboard,SM_Furn_BusShelter`
-- [ ] previews: `build signs --preview --only signs_sheet --samples 64`, then `--only signs_street`, then `--only signs_ipx` (separate runs)
-- [ ] README row, report
+- [x] facade SignBand_* and furniture Billboard / BusShelter re-exported with the textured slots (validation clean)
+- [x] previews rendered and looked at (4 renders): signs_sheet (twice: originals at the origin showed), signs_street, signs_ipx
+- [x] README family row; manifest current
 
----------------------------------------------------------------------------------------------------------------
-# Generated Goon (assets/goon_generated.py): a Higgsfield image-to-3D comparison for SK_Goon_Hoodie
-
-Task: one generated goon_hoodie (concept picture -> Meshy 7 image-to-3D, textured, PBR, A-pose, 300k), scaled to the
-mannequin's height and joints, bound to the mannequin skeleton from art/out/epic/ when that export exists (weights
-from the mannequin mesh; nothing Epic-derived is committed), previews goon_generated_{hero,detail,pose,wire}.jpg,
-SK_Goon_Hoodie_Gen.glb, and an honest verdict against the AAA bar.
-
-## Status
-- [x] concept picture (gpt_image_2_6, high, 2k, 2 credits), looked at: matches the brief (A-pose, fingers apart, mask,
-      oxblood strings/cuffs/hem, gloves, pale sneakers); art/out/gen/goon/concept1.png
-- [ ] Meshy 7 image-to-3D, 300k, texture + PBR + a-pose + ultra (44 credits), job 306c5c54-dcf8-4dec-a9de-c69ce1403783
-Spent so far: 46 credits (balance 5260 at the start).
+## State at hand-off: task complete
+Known weaknesses: no true condensed face (Inter Display Black squeezed); neon tubes follow glyph outlines (double tube per
+stroke) as the brief asks, not a sign-bender's single stroke; pan-letter tubes are an inset outline; faces have no normal maps
+(seams, wrinkles, flaking are colour only); signs are not in the El hero views; Pawn's gold balls, the barber pole, the S3
+shed banners (M_Sign_ShedBanner_*), booth, flag and other furniture graphics still flat colours.

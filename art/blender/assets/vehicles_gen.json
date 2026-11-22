@@ -1,0 +1,17 @@
+{
+ "note": "Higgsfield generations for the vehicles family (concept pictures with gpt_image_2_6, bodies with image-to-3D). Results are downloaded to art/out/gen/vehicles/ (git-ignored). Credits as charged.",
+ "jobs": [
+  {"id": "307f604f-b486-4856-9801-d581b1cedb9a", "what": "sedan concept a (white, 3/4 front-left)", "model": "gpt_image_2_6", "credits": 2, "file": "sedan_concept_a.png"},
+  {"id": "70bfb8ff-a7f2-4867-a19d-0f4fd8fd24ec", "what": "sedan body, from concept a", "model": "meshy_v7_image_to_3d (texture, PBR, ultra, 300k, symmetry on)", "credits": 44, "file": "sedan_meshy.glb"},
+  {"id": "74adccae-b256-486e-9144-f8ec8162100b", "what": "sedan body, from concept a", "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 500k faces)", "credits": 15, "file": "sedan_hunyuan.glb"},
+  {"id": "6083d33f-bafc-4411-857d-efcd40e1ee2b", "what": "SUV concept a (rejected: too close to a real model)", "model": "gpt_image_2_6", "credits": 2, "file": "suv_concept_a.png"},
+  {"id": "3b14961e-3e88-41f2-9aa1-8043f4396c56", "what": "pickup concept a (rejected: too close to a real model)", "model": "gpt_image_2_6", "credits": 2, "file": "pickup_concept_a.png"},
+  {"id": "7e9a1fab-a31d-4794-bf76-49bb9c7ad102", "what": "van concept a", "model": "gpt_image_2_6", "credits": 2, "file": "van_concept_a.png"},
+  {"id": "ce0989d0-d2d1-476f-aff5-45f5e61e5af1", "what": "box truck concept a", "model": "gpt_image_2_6", "credits": 2, "file": "boxtruck_concept_a.png"},
+  {"id": "bb4c7efe-7a4a-42be-902c-2dcead5ac8ff", "what": "IPX truck concept a (rejected: three axles)", "model": "gpt_image_2_6", "credits": 2, "file": "ipx_concept_a.png"},
+  {"id": "2d7e91ca-158d-4057-a8fe-91c1e9df53e8", "what": "motorbike concept a (side view)", "model": "gpt_image_2_6", "credits": 2, "file": "moto_concept_a.png"},
+  {"id": "93965d46-4b06-4f11-ae5b-4c9014229c47", "what": "SUV concept b", "model": "gpt_image_2_6", "credits": 2, "file": "suv_concept_b.png"},
+  {"id": "019b0e38-0448-470b-be3d-534c4fbc8066", "what": "pickup concept b", "model": "gpt_image_2_6", "credits": 2, "file": "pickup_concept_b.png"},
+  {"id": "ae097def-3637-4ebf-8aea-aaae5ba4b550", "what": "IPX truck concept b (two axles)", "model": "gpt_image_2_6", "credits": 2, "file": "ipx_concept_b.png"}
+ ]
+}
