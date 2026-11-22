@@ -1202,6 +1202,7 @@ def build_enemy(ctx):
     smg.data.polygons.foreach_set("material_index", mi)
     smg.data.update()
     magob = split_off(smg, None, "SM_Weapon_GoonSMG_Magazine", ctx.col)
+    magob.data.materials.pop(index=1)                      # the lens slot stays on the gun only
     for o in (smg, magob):
         geo.ensure_wear(o)
     socks = {"Muzzle": (0.385, 0, 0.042), "Light": (0.318, 0, -0.002), "SupportHand": (0.17, 0, -0.012),
@@ -2175,6 +2176,63 @@ def preview_enemy(ctx):
     pipe.matrix_world = Matrix.Identity(4)
 
 
+def _layout(prefix, posed):
+    """Import both guns and their magazines; CHOPPER at the origin, NINE below its muzzle, magazines beside.
+    posed: open the actions (bolt back, trigger pulled, magazine rocked out; slide locked back, barrel tilted,
+    hammer down, slide stop up, magazine dropped). Returns the meshes."""
+    ca, cm, _ = import_asset("SK_Chopper", prefix + "Chopper")
+    _a, mm, _ = import_asset("SM_Weapon_ChopperMagazine", prefix + "ChopperMag")
+    _a, mt, _ = import_asset("SM_Weapon_ChopperMagazine_TopRound", prefix + "ChopperTop")
+    na, nm, _ = import_asset("SK_Nine", prefix + "Nine")
+    _a, nmm, _ = import_asset("SM_Weapon_NineMagazine", prefix + "NineMag")
+    _a, nmt, _ = import_asset("SM_Weapon_NineMagazine_TopRound", prefix + "NineTop")
+    a = Vector(NN["mag_axis"]).normalized()
+    if posed:
+        rig.pose_imported(ca, {"bolt": {"translate": (-CH["travel"], 0, 0)},
+                               "trigger": {"rotate": ((0, 1, 0), CH["trigger_deg"])}})
+        hz = Vector(CH["hinge"])
+        rock = Matrix.Translation(hz) @ Matrix.Rotation(math.radians(-CH["mag_deg"]), 4, "Y") @ Matrix.Translation(-hz)
+        _move(mm + mt, Matrix.Translation((0.0, 0, -0.03)) @ rock)
+        rig.pose_imported(na, {"slide": {"translate": (-NN["travel"], 0, 0)},
+                               "slide_stop": {"rotate": ((0, 1, 0), NN["stop_deg"])},
+                               "barrel": {"rotate": ((0, 1, 0), NN["barrel_deg"])},
+                               "hammer": {"rotate": ((0, 1, 0), NN["hammer_down_deg"])},
+                               "trigger": {"rotate": ((0, 1, 0), NN["trigger_deg"])}})
+    nine_M = Matrix.Translation((0.36, -0.03, -0.165))
+    _move([na], nine_M)
+    _move(nmm + nmt, nine_M @ Matrix.Translation(-a * (0.045 if posed else 0.0)))
+    return cm + mm + mt + nm + nmm + nmt
+
+
+def preview_parts_wire(ctx):
+    """One wide render split in two pictures: left half weapons_parts (both guns from their re-imported GLBs,
+    posed open, magazines out), right half weapons_wire (the same files at rest in clay with the wireframe)."""
+    from PIL import Image
+    rig_studio()
+    for o in bpy.context.scene.objects:
+        o.hide_render = o.type == "MESH"
+    left = _layout("ImpA_", True)
+    right = _layout("ImpB_", False)
+    _move([o for o in right if o.parent is None] + [o.parent for o in right if o.parent is not None], Matrix.Translation((0.80, 0, 0)))
+    wm = wire_material()
+    for o in right:
+        for sl in o.material_slots:
+            sl.material = wm
+    for o in left + right:
+        o.hide_render = False
+    c = Vector((0.265 + 0.40, 0.0, -0.140))
+    d = Vector((0.0, -1.0, 0.20)).normalized()
+    cam = render.cam_look(c + d * 2.70, c, 55.0, name="Cam_partswire", dof=(2.70, 11.0))
+    cam.data.clip_start = 0.05
+    render.setup(samples=ctx.args.samples, res=(2560, 720))
+    tmp = os.path.join(paths.out, "weapons_partswire.png")
+    render.render_png(tmp, ctx.args.samples, (2560, 720))
+    im = Image.open(tmp)
+    for name, box_ in (("weapons_parts", (0, 0, 1280, 720)), ("weapons_wire", (1280, 0, 2560, 720))):
+        render.save_jpeg(im.crop(box_), _prev(ctx, name))
+        ctx.log("preview %s" % _prev(ctx, name))
+
+
 PREVIEW_ONLY = os.environ.get("MI_PREVIEWS", "")
 
 
@@ -2203,10 +2261,4 @@ def on_preview(ctx, objs):
     have = all(os.path.exists(os.path.join(paths.glb, n + ".glb")) for n in ("SK_Chopper", "SK_Nine"))
     both = "SK_Chopper" in SKINNED and "SK_Nine" in SKINNED
     if have and (want("weapons_parts") or want("weapons_wire")) and (both or PREVIEW_ONLY):
-        cm, nm, mm, nmm, mt, nmt = preview_parts(ctx) if want("weapons_parts") else (None,) * 6
-        if want("weapons_wire"):
-            if cm is None:
-                _a, cm, _ = import_asset("SK_Chopper")
-                na, nm, _ = import_asset("SK_Nine")
-                _move([na], Matrix.Translation((0.20, -0.02, -0.205)))
-            preview_wire(ctx, [cm, nm])
+        preview_parts_wire(ctx)
