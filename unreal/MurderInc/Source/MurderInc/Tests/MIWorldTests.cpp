@@ -3,6 +3,7 @@
 // collision (no window, no GPU).
 
 #include "Core/Data/MIDataSubsystem.h"
+#include "Components/BoxComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
@@ -162,6 +163,11 @@ bool FMIHitscanDummyTest::RunTest(const FString& Parameters)
 	const double Before = Dummy->GetTotalDamage();
 	Shot.Origin = FVector(1000, 100, Propane->Box.Z * 0.5);  // clear of the dummy's capsule
 	Shot.Direction = FVector(0, 1, 0);
+	{
+		const UBoxComponent* TankBox = Tank->GetBox();
+		AddInfo(FString::Printf(TEXT("tank %d at %s, extent %s, collision %d, bullet response %d, body %d"), Tank->GetIndex(), *Tank->GetActorLocation().ToString(),
+			*TankBox->GetScaledBoxExtent().ToString(), (int32)TankBox->GetCollisionEnabled(), (int32)TankBox->GetCollisionResponseToChannel(MIBulletChannel), TankBox->GetBodyInstance() && TankBox->GetBodyInstance()->IsValidBodyInstance()));
+	}
 	TestTrue(TEXT("round reaches the tank"), Gun->Hitscan(Shot).bHit);
 	TestEqual(TEXT("tank lit"), (int32)Tank->GetState(), (int32)EMIExplosiveState::Lit);
 	W.Step(FMath::CeilToInt(Propane->Fuse * 60.0) + 2);

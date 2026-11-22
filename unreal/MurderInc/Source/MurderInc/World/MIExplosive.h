@@ -35,6 +35,7 @@ public:
 	void OnBlown();
 	void SyncFromItem(const FMIExplosiveItem& Item);
 	int32 GetIndex() const { return Index; }
+	UBoxComponent* GetBox() const { return Box; }
 	EMIExplosiveState GetState() const { return State; }
 
 protected:
