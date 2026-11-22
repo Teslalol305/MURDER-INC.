@@ -296,8 +296,22 @@ emission, M_Buzzard_Eye, M_Buzzard_Strobe: the game scales E per slot); the UV l
 from the skinned mesh (same UVs and set, slot M_Buzzard_Wreck) with jagged caps on the tiling set TS_Composite_Fracture.
 
 ## Status
-- [x] airframe, rig, skinned export + re-import proof (props turned, gimbal pitched/yawed: 5e-8 m)
-- [ ] 4K bake, effects, wreck, previews, README row
+- [x] airframe, rig, skinned export + re-import proof (props turned, gimbal pitched 77 down / 29 up, yawed 86: 5e-8 m)
+- [x] 4K set Buzzard (geometry maps 4.4 min + numpy layers 2.5 min on 3 threads), UV layout cached
+- [x] effects (blur disc, bolt, head: sets 512), 14 wreck pieces + TS_Composite_Fracture (512); all validate and export
+- [x] previews (8 renders, two review rounds): buzzard_hero x2 (backlit, then the sun side), buzzard_under x2 (blur discs
+      read as hoops, then translucent), buzzard_detail, buzzard_wire, buzzard_wreck x2 (cropped, then tighter)
+- [x] README family row
+
+## State at hand-off: task complete
+Known weaknesses: SK_Buzzard is 140k triangles (over the ~120k aim: bells, stators and screws are the bulk); the
+underside reads dark against the sky (sun above; Unreal's rim light from the spec will help); surface wear is subtle at
+2 m (dust on the deck tops is the strongest layer); the gun is box-built (receiver, rail, holes) rather than machined;
+the wreck preview rests pieces on bounding-box corners (some float a few mm) and two bent props touch the frame;
+the wreck arms are 17k triangles each (fine for Nanite, heavy for debris without it); no animation clips (the rig is
+driven by the game: spin, gimbal, bank).
 
 ## Exact next step
-`build.py build buzzard --bake --export --preview --samples 64` (needs the 4K set; the drone UVs come from the cache).
+None required. If resumed: drop the stator teeth under the windings and the bell's 56-segment rings to 40 to get to
+~120k, re-bake (`build.py build buzzard --bake --rebake-unique --force --export`: the mesh hash changes, the UV cache
+is rebuilt), then re-render `MI_PREVIEWS=buzzard_hero,buzzard_detail`.

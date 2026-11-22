@@ -1852,6 +1852,7 @@ def preview_wreck(ctx, pieces):
     for o in pieces:
         key = o.name.replace("SM_Fx_BuzzardWreck_", "")
         x, y, rz, rx = lay.get(key, (0, 0, 0, 0))
+        x, y = 0.68 * x - 0.08, 0.68 * y
         R = Matrix.Rotation(math.radians(rz), 4, "Z") @ Matrix.Rotation(math.radians(rx), 4, "X")
         lo, hi = scene.bounds(o)
         corners = [R @ Vector((a, b, c)) for a in (lo[0], hi[0]) for b in (lo[1], hi[1]) for c in (lo[2], hi[2])]
@@ -1859,9 +1860,9 @@ def preview_wreck(ctx, pieces):
         o.matrix_world = Matrix.Translation((x, y, -zmin + 0.002)) @ R
         shown.append(o)
     _hide_all_but(shown + [g])
-    c = Vector((0.05, -0.02, 0.05))
-    d = Vector((0.55, -0.80, 0.85)).normalized()
-    cam = render.cam_look(c + d * 3.2, c, 45.0, name="Cam_wreck", dof=(3.2, 8.0))
+    c = Vector((0.0, 0.0, 0.04))
+    d = Vector((0.45, -0.85, 1.05)).normalized()
+    cam = render.cam_look(c + d * 2.55, c, 40.0, name="Cam_wreck", dof=(2.55, 8.0))
     render.setup(samples=ctx.args.samples, res=(1280, 720))
     path, sec = render.render_jpeg(_prev("buzzard_wreck"), ctx.args.samples)
     ctx.log("preview %s (%.0f s)" % (path, sec))
