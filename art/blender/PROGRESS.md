@@ -180,5 +180,24 @@ previews goon_generated_{hero,detail,pose,wire}.jpg, art/out/glb/SK_Goon_Hoodie_
 - [x] bound to SKM_Manny_Simple (89 bones): limbs posed onto the mesh, weights copied from the posed mannequin body,
       fingers folded into the hands, inverse skinning back to Manny's reference pose; round trip exact; exported
       joints equal SKM_Manny_Simple.glb's (quaternions within 1e-6), so UE5 animations play without retargeting
-- [ ] previews (running): build.py build goon_generated --export --preview --samples 64
-Spent: 71 credits (2 + 44 + 2 + 23); balance 5260.03 at the start.
+- [x] `build.py build goon_generated --export --preview --samples 64` (8.5 min): art/out/glb/SK_Goon_Hoodie_Gen.glb
+      (24.3 MB, skinned to the 89 Manny joints, generated 2k maps embedded); previews looked at:
+      goon_generated_hero / _detail (3 m, 1 m) / _pose (A_rifle_jog_fwd, A_rifle_idle_ads) / _wire. 9 renders in all
+      (2 test heroes, one per take, then 7 final): one over the budget of 8.
+Spent: 71 credits (2 + 44 + 2 + 23, matched in the transaction list); balance 5260.03 at the start, 4902.42 at the
+end (the rest of the drop is the GPU box and the other agents' generations).
+
+## State at hand-off: task complete. Verdict: do not use the generated Goon as the game asset (at most as a
+## silhouette / proportion reference)
+Against "a current AAA enemy seen from 3 to 40 m": from 10 m and beyond it reads right (black figure, oxblood
+accents, pale mask, good jeans); at 3 m and closer it fails. Weaknesses, most visible first: the hoodie reads as
+glossy vinyl (flat roughness 0.7, no fabric sheen, no weave), baked seam cracks and smudges from a 2k atlas cut into
+hundreds of islands (about 7 px/cm, a hero enemy wants 4-8 4k sets), shading baked into the colour (folds darkened in
+the albedo); one fused shell (hoodie, jeans, gloves, mask in one surface, no layers to cloth-simulate, no inner hood
+or neck), irregular triangles with no edge loops at shoulders, elbows, knees (deformation is skinning-only and will
+crease and collapse at the armpit, crotch and a kneel), small tears on the left upper arm; gloves modelled flat and
+spread (fingers are bound rigid to the hands, so no grip); no crew V on the back and the back is invented; the mask is
+white rather than bone; 311k triangles with no LODs.
+Next step (if wanted): none for this asset. The hand-built Goons (assets/characters.py) stay the plan; the generated
+mesh can serve as a fold/proportion reference. To redo the comparison with the other take:
+`GOON_SRC=art/out/gen/goon/goon_hunyuan.glb venv/bin/python art/blender/build.py build goon_generated --export --preview`.
