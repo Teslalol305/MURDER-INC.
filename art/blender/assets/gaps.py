@@ -1359,7 +1359,9 @@ GROUPS = {
              "SM_Prop_EngineHoist", "SM_Prop_EngineHoist_Blue", "SM_Prop_Compressor", "SM_Prop_Compressor_Black", "SM_Prop_CarLift",
              "SM_Prop_ToolChest", "SM_Prop_CrateWood", "SM_Prop_CrateWood_B", "SM_Prop_CardboardBoxes", "SM_Prop_Tire"],
 }
-PREVIEWS = {"gaps_street": "street", "gaps_yard": "yard", "gaps_graphics": "street"}
+PREVIEWS = {"gaps_street": "street", "gaps_yard": "yard"}
+GRAPHICS = ["SM_Street_PhoneBooth", "SM_Street_SignPost", "SM_Sign_PawnBalls", "SM_Sign_BarberPole", "SM_Prop_VendingMachine",
+            "SM_Prop_CrateWood_B", "SM_Prop_CardboardBoxes", "SM_Street_FoodCart"]
 
 
 def build(ctx):
@@ -1376,6 +1378,10 @@ def build(ctx):
         for p, g in PREVIEWS.items():
             if p in o and name in GROUPS[g]:
                 return True
+        if "gaps_graphics" in o and name in GRAPHICS:
+            return True
+        if "gaps_street" in o and name == "SM_Prop_Tire":
+            return True
         return name in o
 
     jobs = [("SM_Street_PhoneBooth", phone_booth), ("SM_Street_TrafficLight", traffic_light),
@@ -1405,3 +1411,107 @@ def on_export(ctx, objs):
     for name, a in ctx.assets.items():
         export.export_asset(a["ob"], ctx.family, a["collision"], a["cover_height"], a["notes"], a["pivot"],
                             a["expect_size"], fbx=ctx.args.fbx, slots=a["slots"])
+
+
+# =============================================================================================== previews
+
+class Quiet:
+    """ctx stand-in for building furniture pieces into a preview without declaring them as assets of this family."""
+
+    def __init__(self, ctx):
+        self._ctx, self.built = ctx, []
+
+    def __getattr__(self, k):
+        return getattr(self._ctx, k)
+
+    def asset(self, ob, **kw):
+        geo.ensure_wear(ob)
+        return ob
+
+
+def ground(set_name, x0, x1, y0, y1, name="Ground"):
+    xs, ys = np.linspace(x0, x1, int((x1 - x0) * 2) + 1), np.linspace(y0, y1, int((y1 - y0) * 2) + 1)
+    pl = geo.heightfield(xs, ys, lambda X_, Y_: X_ * 0.0, name=name, tile_m=mat.scan_tile(set_name))
+    pl.data.materials.append(mat.from_scan(set_name, alpha="splash"))
+    geo.ensure_wear(pl)
+    scene.move_to(pl, scene.collection("Rig"))
+    return pl
+
+
+def wall(set_name, x0, x1, y, h, name="Wall"):
+    w = geo.box((x1 - x0, 0.3, h), bevel=0.0, name=name)
+    geo.transform(w, loc=((x0 + x1) / 2, y + 0.15, 0))
+    geo.uv_world_box(w, mat.scan_tile(set_name))
+    w.data.materials.append(mat.from_scan(set_name, alpha="splash"))
+    geo.ensure_wear(w)
+    scene.move_to(w, scene.collection("Rig"))
+    return w
+
+
+def put(assets, layout):
+    for n, ob in assets.items():
+        ob.hide_render = n not in layout
+        if n in layout:
+            x, y, *r = layout[n]
+            ob.location = (x, y, r[1] if len(r) > 1 else 0.0)
+            ob.rotation_euler = (0, 0, math.radians(r[0] if r else 0.0))
+            ob["mi_placed"] = True
+
+
+STREET_VIEW = {"SM_Street_Tree": (-6.6, 2.2, 0), "SM_Street_Tree_B": (7.2, 3.4, 40), "SM_Street_Planter": (-3.9, 0.9, 0),
+               "SM_Street_Planter_B": (-4.3, -0.8, 20), "SM_Street_PhoneBooth": (-2.3, 1.3, 0), "SM_Street_TrashCan": (-1.0, -0.2, 0),
+               "SM_Street_Bench": (0.6, 1.2, 0), "SM_Street_SignPost": (1.9, -0.4, 0), "SM_Street_FoodCart": (4.0, 0.9, -8),
+               "SM_Street_TrafficLight": (6.0, 5.0, 180), "SM_Street_JerseyBarrier": (0.5, -2.3, 4),
+               "SM_Prop_TireStack": (-2.3, -1.6, 0)}
+YARD_VIEW = {"SM_Prop_CarLift": (-4.6, 2.4, 0), "SM_Prop_CarLift_Arms": (-4.6, 2.4, 0, 1.98), "SM_Prop_Generator": (-0.9, 3.6, 0),
+             "SM_Prop_PortaPotty": (2.0, 3.7, 0), "SM_Prop_VendingMachine": (3.7, 3.8, 0), "SM_Prop_Workbench": (-1.2, 1.3, 0),
+             "SM_Prop_ToolChest": (1.0, 1.4, 0), "SM_Prop_EngineHoist": (2.9, 1.1, -25), "SM_Prop_Compressor_Black": (4.6, 0.6, 20),
+             "SM_Prop_CrateWood": (-3.3, -0.6, 12), "SM_Prop_CrateWood_B": (-2.0, -1.4, -8), "SM_Prop_CardboardBoxes": (-0.4, -1.0, 0),
+             "SM_Prop_TireStack_B": (0.9, -1.2, 0), "SM_Prop_Tire": (1.7, -1.7, 0), "SM_Prop_FloodlightStand": (5.4, -0.9, 25),
+             "SM_Prop_Compressor": (3.7, -1.6, -60)}
+GRAPHICS_VIEW = {"SM_Sign_PawnBalls": (-1.3, 2.0, 0, 2.6), "SM_Sign_BarberPole": (1.5, 2.0, 0, 1.1), "SM_Street_PhoneBooth": (-2.7, 0.9, 0),
+                 "SM_Street_SignPost": (-0.9, -0.2, 0), "SM_Prop_VendingMachine": (2.8, 1.3, 0), "SM_Prop_CrateWood_B": (0.2, 0.6, -60),
+                 "SM_Prop_CardboardBoxes": (1.3, -0.4, -15), "_meter": (-1.6, -0.9, 0), "_news": (-0.2, 1.4, 0), "_mail": (0.7, 1.5, 0),
+                 "_booth": (5.2, 1.6, 0), "_banner": (0.0, 1.98, 0, 3.4)}
+
+
+def on_preview(ctx, objs):
+    a = ctx.args
+    only = set(a.only or [])
+    assets = {n: v["ob"] for n, v in ctx.assets.items()}
+    render.setup(samples=a.samples, res=(1280, 720), threads=3)
+    render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING)
+    render.backdrop(color=(0.16, 0.155, 0.15))
+    if "gaps_street" in only:
+        g = ground("TS_Sidewalk_ScanWorn", -12, 12, -6, 10)
+        put(assets, STREET_VIEW)
+        render.cam_look((0.3, -12.0, 2.0), (0.3, 1.5, 1.9), lens=27)
+        p, sec = render.render_jpeg(os.path.join(paths.previews, "gaps_street.jpg"), a.samples)
+        ctx.log("preview %s %.0fs" % (p, sec))
+        bpy.data.objects.remove(g, do_unlink=True)
+    if "gaps_yard" in only:
+        g = ground("TS_Floor_ScanGarage", -10, 10, -6, 8)
+        w = wall("TS_Block_ScanPainted", -9, 9, 5.0, 4.5)
+        put(assets, YARD_VIEW)
+        render.cam_look((0.2, -9.0, 2.3), (0.2, 1.4, 1.0), lens=26)
+        p, sec = render.render_jpeg(os.path.join(paths.previews, "gaps_yard.jpg"), a.samples)
+        ctx.log("preview %s %.0fs" % (p, sec))
+        for o in (g, w):
+            bpy.data.objects.remove(o, do_unlink=True)
+    if "gaps_graphics" in only:
+        M = ctx.M
+        Q = Quiet(ctx)
+        extra = {"_meter": F.parking_meter(Q, M), "_news": F.newspaper_box(Q, M), "_mail": F.mailbox(Q, M), "_booth": F.lot_booth(Q, M)}
+        bb = B(299)
+        F.sign_slot(M, "ShedBanner_Chicken", 4.9, 0.78)
+        box(bb, (-2.5, 0.0, -0.05), (2.5, 0.03, 0.83), "plyGreen")
+        card(bb, (-2.45, -0.002, 0.0), (4.9, 0, 0), (0, 0, 0.78), "signShedBanner_Chicken", sign=True)
+        extra["_banner"] = bb.finish("Banner", M, ctx.col)
+        geo.ensure_wear(extra["_banner"])
+        assets.update(extra)
+        g = ground("TS_Sidewalk_ScanBroom", -10, 10, -6, 6)
+        w = wall("TS_Brick_ScanRed", -8, 8, 2.0, 5.0)
+        put(assets, GRAPHICS_VIEW)
+        render.cam_look((0.2, -6.2, 1.75), (0.6, 1.2, 1.45), lens=24)
+        p, sec = render.render_jpeg(os.path.join(paths.previews, "gaps_graphics.jpg"), a.samples)
+        ctx.log("preview %s %.0fs" % (p, sec))

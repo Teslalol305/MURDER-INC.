@@ -747,6 +747,7 @@ REEL_TILT = 50.0                                               # rotation about 
 BOX_C = (CX, 0.026, 0.616)
 HINGE = (CX, CD / 2, Z1)
 LID_OPEN = -95.0
+TRACK_Y, LOZ_Y = -0.268, -0.168                                # lid frame: progress track and inside lozenge
 
 
 def _edges(M, x0, x1, y0, y1, z0, z1, bar=0.018, proud=0.002, top=True, bottom=True, verticals=True):
@@ -853,10 +854,12 @@ def build_case_lid(ctx, M, D):
     # inside (faces -Z): lozenge 0.26 x 0.108 and the dark track 0.36 x 0.045 for the progress bar
     ins = decal("lozenge_in", decal_mat("lozenge_foam", D["lozenge_foam"], 0.7), 0.26, 0.108, shape="pill")
     X(ins, (0, 0, 0), (180, 0, 0))
-    P.append(X(ins, (0, -0.205, 0.0114)))
-    trk = X(geo.box((0.36, 0.045, 0.004), bevel=0.0012, base=False), (0, -0.075, 0.0105))
+    # (gaps pass) the lozenge and the track sit toward the free edge of the lid: open, that edge is the top, above
+    # the reel and its tape box, so the track and its progress bar read from the front
+    P.append(X(ins, (0, LOZ_Y, 0.0114)))
+    trk = X(geo.box((0.36, 0.045, 0.004), bevel=0.0012, base=False), (0, TRACK_Y, 0.0105))
     P.append(part(trk, M["darkplastic"]))
-    P.append(part(X(geo.box((0.372, 0.057, 0.002), bevel=0.0006, base=False), (0, -0.075, 0.0118)), M["alu"]))
+    P.append(part(X(geo.box((0.372, 0.057, 0.002), bevel=0.0006, base=False), (0, TRACK_Y, 0.0118)), M["alu"]))
     # hinge knuckles along the back edge
     for hx in (-0.13, 0.13):
         P.append(part(X(geo.cylinder(0.006, 0.07, 12, axis="X", base=False), (hx, 0.003, 0.0)), M["chrome"]))
@@ -1079,7 +1082,8 @@ def build_gameplay(ctx):
         ctx.asset(lid, collision="none", cover_height=None, expect_size=(0.42, 0.32, 0.12), notes=(
             "Lid of the master case, built closed with its pivot on the hinge line (back lower edge, along X). "
             "Outside: IPX lozenge 0.30 x 0.125. Inside: foam, a second lozenge and the dark track 0.36 x 0.045 that "
-            "holds the progress bar (an emissive strip scaled in engine). Open: -95 deg about X at (-0.19, 0.16, 0.53)."),
+            "holds the progress bar (SM_Gameplay_MasterCase_Progress at lid-local (-0.17, -0.268, 0.0077)), placed toward the "
+            "free edge so it shows above the reel when open. Open: -95 deg about X at (-0.19, 0.16, 0.53)."),
             pivot="hinge line: x centre, back lower edge")
         out.append(lid)
         bc = build_beacon(ctx, M)
@@ -1124,6 +1128,259 @@ def build_gameplay(ctx):
             "Effective collider 0.90 x 0.50 x 1.60."),
             pivot="centre of the footprint on the ground")
         out.append(ob)
+    out += build_gaps_pass(ctx, M, D)
+    return out
+
+
+# ------------------------------------------------------------------------------------- gaps pass (assets/gaps.py)
+# Added by the catalogue-gaps run: wrecks of the two explosives, the progress strip of the case lid, the boombox
+# level meter, and the heat-glow masks of the lit state. --only names: SM_Gameplay_PropaneTank_Wreck,
+# SM_Gameplay_WeldingRack_Wreck, SM_Gameplay_MasterCase_Progress, SM_Prop_Boombox_Meter, heat.
+
+def _lamp(name, col):
+    m = bpy.data.materials.get(name) or mat.flat(name, col, 0.2, 0.0)
+    b = mat.principled(m)
+    b.inputs["Emission Color"].default_value = (*col, 1.0)
+    b.inputs["Emission Strength"].default_value = 4.0
+    return m
+
+
+def _flat_asset(ctx, parts, name):
+    ob = geo.join(parts, name, ctx.col)
+    _degenerate(ob)
+    geo.uv_world_box(ob, 0.25)
+    geo.ensure_wear(ob)
+    return ob
+
+
+def build_progress(ctx):
+    """The gold strip 0.34 x 0.03 that fills the lid's track: pivot at its LEFT end (viewer's left with the lid open),
+    so a scale along X from 0 to 1 grows it from that end."""
+    s = part(X(geo.box((0.34, 0.03, 0.0015), bevel=0.0005, base=False), (0.17, 0.0, 0.0)), _lamp("MI_Lamp_Gold", lin("#f6c21a")))
+    return _flat_asset(ctx, [s], "SM_Gameplay_MasterCase_Progress")
+
+
+def boombox_face_y(x, z):
+    """Front face of the scanned boombox at (x, z), from its exported GLB (ray cast toward +Y)."""
+    from mathutils import Vector
+    p = os.path.join(paths.glb, "SM_Prop_Boombox.glb")
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=p)
+    new = [o for o in bpy.data.objects if o not in before]
+    ob = next(o for o in new if o.type == "MESH")
+    bpy.context.view_layer.update()
+    mw = ob.matrix_world
+    inv = mw.inverted()
+    best = None
+    for dx in (-0.004, 0.0, 0.004):
+        for dz in (-0.004, 0.0, 0.004):
+            o = inv @ Vector((x + dx, -1.0, z + dz))
+            d = (inv.to_3x3() @ Vector((0, 1, 0))).normalized()
+            hit, loc, _n, _i = ob.ray_cast(o, d)
+            if hit:
+                y = (mw @ loc).y
+                best = y if best is None else min(best, y)
+    for o in new:
+        bpy.data.objects.remove(o, do_unlink=True)
+    return best if best is not None else -0.085
+
+
+METER_X, METER_Z = -0.105, 0.201
+
+
+def build_meter(ctx, M):
+    """Five-segment level meter over the scan's printed meter area, in SM_Prop_Boombox's frame: three green and two
+    orange-red segments, each its own lens (MI_Lamp_MeterGreen / _MeterRed); the engine lights 0..5 of them."""
+    y = boombox_face_y(METER_X, METER_Z)
+    ctx.log("boombox face at y %.4f" % y)
+    P = [part(X(geo.box((0.084, 0.004, 0.017), bevel=0.0012, base=False), (METER_X, y - 0.0015, METER_Z)), mat.flat("MI_Plastic_Black", (0.012, 0.012, 0.013), 0.4))]
+    green, red = _lamp("MI_Lamp_MeterGreen", lin("#3dff7a")), _lamp("MI_Lamp_MeterRed", lin("#ff5a2a"))
+    for k in range(5):
+        x = METER_X - 0.032 + 0.016 * k
+        P.append(part(X(geo.box((0.012, 0.002, 0.009), bevel=0.0006, base=False), (x, y - 0.0040, METER_Z)), green if k < 3 else red))
+    return _flat_asset(ctx, P, "SM_Prop_Boombox_Meter")
+
+
+def _jag(ob, amount, freq, seed, axis_fn):
+    """Tear an edge: move vertices near the boundary chosen by axis_fn(co) -> weight by noise."""
+    co, _ = geo.arrays(ob)
+    rng = np.random.default_rng(seed)
+    ph = rng.uniform(0, 6.3, 3)
+    n = np.sin(co[:, 0] * freq + ph[0]) * np.sin(co[:, 1] * freq * 1.3 + ph[1]) + 0.5 * np.sin(co[:, 2] * freq * 2.1 + ph[2])
+    w = axis_fn(co)
+    co[:, 2] -= amount * w * (0.5 + 0.5 * n)
+    geo.set_verts(ob, co)
+
+
+def wreck_materials():
+    return dict(
+        soot=pm("Soot", "painted_steel", Paint_Color=lin("#0c0b0a"), Paint_Roughness=0.92, Chipping=0.55, Rust=0.4, Chalking=0.7,
+                Old_Coat=(0.05, 0.045, 0.07), Primer_Color=(0.12, 0.06, 0.035)),
+        blued=pm("HeatBlue", "painted_steel", Paint_Color=(0.055, 0.05, 0.095), Paint_Metallic=1.0, Paint_Roughness=0.42,
+                 Chipping=0.45, Rust=0.35, Chalking=0.15, Old_Coat=(0.16, 0.08, 0.035), Primer_Color=(0.03, 0.03, 0.03)),
+        scorched=pm("ScorchedPaint", "painted_steel", Paint_Color=lin("#6a6660"), Paint_Roughness=0.8, Chipping=0.7, Rust=0.5,
+                    Chalking=0.8, Old_Coat=(0.02, 0.02, 0.02), Primer_Color=(0.10, 0.05, 0.03)),
+    )
+
+
+def build_propane_wreck(ctx, M):
+    W = wreck_materials()
+    P = []
+    ring = geo.tube(0.125, 0.114, 0.045, 64, bevel=0.002)
+    geo.densify(ring, 0.01, 3)
+    geo.displace(ring, 0.004, 25.0, 11)
+    part(ring, W["soot"])
+    geo.assign(ring, W["blued"], lambda x, y, z: (z > 0.03) & (x > -0.02))
+    X(ring, (0, 0, 0), (5, -3, 0))
+    P.append(X(ring, (-0.01, 0.0, 0.004)))
+    # torn-open floor of the shell inside the ring: the bottom dome with petals curled out
+    dome = geo.revolve(geo.fillet([(0.0, 0.034), (0.10, 0.04), (0.142, 0.056), (0.150, 0.075), (0.146, 0.088)], 0.008, 2), 64, name="dome")
+    geo.densify(dome, 0.012, 3)
+    co, _ = geo.arrays(dome)
+    a = np.arctan2(co[:, 1], co[:, 0])
+    r = np.hypot(co[:, 0], co[:, 1])
+    tear = (0.5 + 0.5 * np.sin(a * 5 + 1.3)) * np.clip((r - 0.11) / 0.04, 0, 1)
+    co[:, 2] -= 0.03 * tear
+    co[:, 0] *= 1 + 0.25 * tear * np.clip((co[:, 2] - 0.05) / 0.03, 0, 1)
+    co[:, 1] *= 1 + 0.25 * tear * np.clip((co[:, 2] - 0.05) / 0.03, 0, 1)
+    geo.set_verts(dome, co)
+    geo.displace(dome, 0.003, 30.0, 12)
+    part(dome, W["blued"])
+    geo.assign(dome, W["soot"], lambda x, y, z: z < 0.05)
+    P.append(X(dome, (-0.01, 0.0, -0.03), (5, -3, 0)))
+    # the torn plate shard 0.16 x 0.11 lying beside it, painted face up, scorched
+    sh = geo.plate(outline=[(-0.08, -0.05), (-0.02, -0.058), (0.05, -0.052), (0.08, -0.02), (0.07, 0.03), (0.03, 0.055),
+                            (-0.03, 0.05), (-0.07, 0.035), (-0.085, -0.01)], thickness=0.0025)
+    geo.densify(sh, 0.01, 3)
+    co, _ = geo.arrays(sh)
+    co[:, 2] += 0.152 - np.sqrt(np.maximum(0.152 ** 2 - co[:, 0] ** 2, 0))                     # cylinder curvature
+    geo.set_verts(sh, co)
+    part(sh, W["scorched"])
+    geo.assign(sh, W["soot"], lambda x, y, z: z < 0.0012)
+    P.append(X(sh, (0.07, 0.07, 0.008), (8, -6, 35)))
+    for k, (x, y, sz) in enumerate(((-0.12, -0.10, 0.02), (0.10, -0.09, 0.015), (-0.08, 0.12, 0.018))):
+        f = geo.box((sz * 1.6, sz, 0.002), bevel=0.0005)
+        P.append(part(X(f, (x, y, 0.0), (rng_ := k * 13 % 7, 0, k * 47)), W["soot"]))
+    ob = finish_hero(ctx, P, "SM_Gameplay_PropaneTank_Wreck", 1024, densify=0.015,
+                     wear_kw=dict(leak=0.0, splash=1.0, cavity=1.0, edge=0.6))
+    return ob
+
+
+def build_rack_wreck(ctx, M):
+    W = wreck_materials()
+    P = []
+    pl = geo.box((0.86, 0.46, 0.035), bevel=0.003)
+    geo.densify(pl, 0.03, 4)
+    co, _ = geo.arrays(pl)
+    co[:, 2] += 0.035 * np.sin(np.pi * (co[:, 0] / 0.86 + 0.5)) * (0.4 + co[:, 1] / 0.46) + 0.02 * (co[:, 0] > 0.3) * ((co[:, 0] - 0.3) / 0.13) ** 2
+    geo.set_verts(pl, co)
+    geo.displace(pl, 0.003, 12.0, 21)
+    part(pl, W["soot"])
+    geo.assign(pl, W["blued"], lambda x, y, z: (np.sin(x * 9.0 + 1.0) + np.cos(y * 11.0) + 0.6 * np.sin(x * 23 + y * 17)) > 0.9)
+    P.append(pl)
+    for sx in (-1, 1):                                                       # two bent posts leaning out
+        path = [(sx * 0.41, 0.20, 0.03), (sx * 0.42, 0.21, 0.18), (sx * 0.47, 0.24, 0.31), (sx * 0.55, 0.28, 0.40), (sx * 0.57, 0.29, 0.43)]
+        post = geo.pipe(path, radius=0.02, segments=4, bend_radius=0.08, bend_segments=6)
+        part(post, W["soot"])
+        geo.assign(post, W["blued"], lambda x, y, z: z > 0.3)
+        P.append(post)
+        stub = geo.box((0.04, 0.04, 0.06), bevel=0.003)
+        P.append(part(X(stub, (sx * 0.41, 0.20, 0.03)), W["soot"]))
+    for k, (x, y, rz, ang, h) in enumerate(((-0.22, -0.22, 20, 80, 0.30), (0.22, -0.24, -35, 110, 0.36), (0.36, 0.05, 70, 60, 0.24),
+                                             (-0.40, 0.10, 120, 90, 0.20))):
+        r = 0.115 if k != 1 else 0.14                                            # burst cylinder shells lying on the ground
+        sh = geo.revolve([(r, 0.0), (r, h)], 24, angle=ang, name="shell")
+        geo.densify(sh, 0.02, 3)
+        co, _ = geo.arrays(sh)
+        co[:, 0] += 0.02 * np.sin(co[:, 2] * 25 + k)
+        geo.set_verts(sh, co)
+        _jag(sh, 0.0, 1.0, k, lambda c: 0 * c[:, 0])
+        sol = geo.revolve([(r - 0.004, 0.0), (r, 0.0), (r, h), (r - 0.004, h)], 24, closed=True, angle=ang, name="shellT")
+        bpy.data.objects.remove(sh, do_unlink=True)
+        part(sol, W["blued"] if k % 2 == 0 else W["soot"])
+        X(sol, (-h / 2, 0, 0), (0, 90, 0))
+        X(sol, (0, 0, 0), (rz * 0.5, 0, 0))
+        co_, _ = geo.arrays(sol)
+        X(sol, (0, 0, -float(co_[:, 2].min()) - 0.004))
+        P.append(X(sol, (x, y, 0.0), (0, 0, rz)))
+    brass = pm("BrassScorch", "painted_steel", Paint_Color=lin("#7a5a2a"), Paint_Metallic=1.0, Paint_Roughness=0.55, Chipping=0.5,
+               Rust=0.3, Chalking=0.4, Old_Coat=(0.03, 0.03, 0.03), Primer_Color=(0.05, 0.04, 0.03))
+    P.append(part(X(geo.cylinder(0.02, 0.06, 6, bevel=0.002, axis="X", base=False), (0.15, 0.22, 0.02), (0, 0, 30)), brass))
+    P.append(part(X(geo.cylinder(0.026, 0.05, 20, bevel=0.003, axis="Y", base=False), (-0.18, -0.27, 0.026)), brass))
+    P.append(part(geo.chain([(-0.40, -0.05, 0.04), (-0.2, -0.12, 0.006), (0.05, -0.16, 0.006), (0.3, -0.12, 0.04)], link_len=0.032,
+                            wire=0.0045), W["soot"]))
+    return finish_hero(ctx, P, "SM_Gameplay_WeldingRack_Wreck", 2048, densify=0.03,
+                       wear_kw=dict(leak=0.0, splash=1.0, cavity=1.0, edge=0.6))
+
+
+def heat_masks(ctx, M, D):
+    """Heat-glow masks of the lit state through the unique UVs of the two explosives: T_<Set>_Heat.png (linear 0..1,
+    multiply by #b8400f x 0.6 x the burn parameter in engine) - hot where the flame licks: round the valve and the
+    shoulder of the tank, the regulators, valves and the tops of the cylinders on the rack, broken by blotches."""
+    from mi import texpaint as tp
+    from PIL import Image
+    for name, fn, hot in (("PropaneTank", build_propane, [((0.0, -0.05, 0.50), 0.09), ((0.0, 0.0, 0.46), 0.11)]),
+                          ("WeldingRack", build_welding_rack, [((0.28, -0.03, 1.20), 0.16), ((0.0, -0.03, 1.47), 0.13), ((0.28, 0.045, 1.08), 0.15)])):
+        ob = fn(ctx, M, D)
+        G = tp.geometry_maps(ob, res=1024, samples=4)
+        m = G["mask"]
+        p = G["pos"][m]
+        N = tp.Noise(7)
+        h = np.zeros(len(p), np.float32)
+        for c, r in hot:
+            d = np.linalg.norm(p - np.asarray(c), axis=1)
+            h = np.maximum(h, np.exp(-(d / r) ** 2))
+        blot = 0.5 + 0.5 * N.fbm(p, 18.0, 4)
+        h = np.clip(h * (0.45 + 1.0 * blot) - 0.25, 0, 1) ** 1.5 * (0.6 + 0.4 * G["ao"][m])
+        img = tp.dilate(tp.scatter(m, h), m, 8)
+        d = paths.texture_set("Gameplay_" + name)
+        fn_ = "T_Gameplay_%s_Heat.png" % name
+        Image.fromarray((np.clip(img[::-1], 0, 1) * 255).astype(np.uint8), "L").save(os.path.join(d, fn_))
+        js = os.path.join(d, "set.json")
+        import json
+        with open(js) as f:
+            info = json.load(f)
+        info["files"]["Heat"] = fn_
+        info.setdefault("convention", {})["Heat"] = "linear heat-glow mask of the lit state: emissive = Heat x #b8400f x 0.6 x burn"
+        with open(js, "w") as f:
+            json.dump(info, f, indent=1, sort_keys=True)
+        ctx.log("heat mask %s: %s (mean %.3f)" % (name, fn_, float(h.mean())))
+        bpy.data.objects.remove(ob, do_unlink=True)
+
+
+def build_gaps_pass(ctx, M, D):
+    o = ctx.args.only or []
+    out = []
+    if "SM_Gameplay_MasterCase_Progress" in o or not o:
+        ob = build_progress(ctx)
+        ctx.asset(ob, collision="none", expect_size=(0.34, 0.03, None), notes=(
+            "Progress bar of the master case: gold emissive strip 0.34 x 0.03 (MI_Lamp_Gold, #f6c21a) under the lid's track. "
+            "Pivot at its left end: attach to SM_Gameplay_MasterCase_Lid at lid-local (-0.17, -0.268, 0.0077) and scale X "
+            "0..1 over the 2.4 s grab."), pivot="left end of the strip")
+        out.append(ob)
+    if "SM_Prop_Boombox_Meter" in o or not o:
+        ob = build_meter(ctx, M)
+        ctx.asset(ob, collision="none", notes=(
+            "Five-segment level meter of SM_Prop_Boombox, in its frame (place at identity under the boombox): segments 1-3 "
+            "MI_Lamp_MeterGreen #3dff7a, 4-5 MI_Lamp_MeterRed #ff5a2a, each a separate lens; light 0..5 of them to the music."),
+            pivot="SM_Prop_Boombox frame")
+        out.append(ob)
+    if "SM_Gameplay_PropaneTank_Wreck" in o or not o:
+        ob = build_propane_wreck(ctx, M)
+        ctx.asset(ob, collision="none", notes=(
+            "What is left after the propane tank blows (gone state): the scorched foot ring tilted, the torn-open floor of the "
+            "shell with petals curled out, a torn plate shard 0.16 x 0.11 and small fragments; soot black and heat-blued "
+            "steel. Nothing above 0.1 m; no collision."), pivot="centre of the tank's footprint")
+        out.append(ob)
+    if "SM_Gameplay_WeldingRack_Wreck" in o or not o:
+        ob = build_rack_wreck(ctx, M)
+        ctx.asset(ob, collision="none", expect_size=(1.18, None, None), notes=(
+            "What is left after the welding rack blows (gone state): the scorched, buckled base plate 0.86 x 0.46, two bent "
+            "frame posts leaning out of it, four burst cylinder shells, a brass valve and regulator body, the fallen chain. "
+            "Soot black and heat-blued; no collision."), pivot="centre of the rack's footprint")
+        out.append(ob)
+    if "heat" in o:
+        heat_masks(ctx, M, D)
     return out
 
 
@@ -1214,3 +1471,60 @@ def on_preview(ctx, objs):
         render.cam_look((0.05, -4.0, 1.75), (0.1, 0.35, 0.55), lens=32)
         p, sec = render.render_jpeg(os.path.join(paths.previews, "props_gameplay.jpg"), a.samples)
         ctx.log("preview %s %.0fs" % (p, sec))
+    if "gaps_gameplay" in only:
+        _gaps_gameplay_preview(ctx, assets)
+
+
+def _heat_glow(ob, name, strength=2.5):
+    """Preview only: light the lit state (heat mask x #b8400f) on the baked material."""
+    d = paths.texture_set("Gameplay_" + name)
+    p = os.path.join(d, "T_Gameplay_%s_Heat.png" % name)
+    if not os.path.exists(p):
+        return
+    for sl in ob.material_slots:
+        m = sl.material
+        nt = m.node_tree
+        b = mat.principled(m)
+        t = nt.nodes.new("ShaderNodeTexImage")
+        t.image = bpy.data.images.load(p, check_existing=True)
+        t.image.colorspace_settings.name = "Non-Color"
+        mul = nt.nodes.new("ShaderNodeMixRGB")
+        mul.blend_type = "MULTIPLY"
+        mul.inputs[0].default_value = 1.0
+        nt.links.new(t.outputs["Color"], mul.inputs[1])
+        mul.inputs[2].default_value = (*lin("#b8400f"), 1.0)
+        nt.links.new(mul.outputs[0], b.inputs["Emission Color"])
+        b.inputs["Emission Strength"].default_value = strength
+
+
+def _gaps_gameplay_preview(ctx, assets):
+    a = ctx.args
+    place = {
+        "SM_Gameplay_MasterCase": (0, 0, 0, 0), "SM_Gameplay_MasterCase_Beacon": (0, 0, 0, 0),
+        "SM_Gameplay_MasterReel_1": (0, 0, 0, 0), "SM_Prop_Boombox": (0.21, 0.05, 0, 66), "SM_Prop_Boombox_Meter": (0.21, 0.05, 0, 66),
+        "SM_Gameplay_PropaneTank": (-1.10, 0.25, 0, 0), "SM_Gameplay_PropaneTank_Wreck": (-0.95, -0.55, 0, 0),
+        "SM_Gameplay_WeldingRack": (1.55, 0.9, 0, -20), "SM_Gameplay_WeldingRack_Wreck": (1.25, -0.45, 0, -10),
+    }
+    for n, ob in assets.items():
+        ob.hide_render = n not in place and n not in ("SM_Gameplay_MasterCase_Lid", "SM_Gameplay_MasterCase_Progress")
+        if n in place:
+            x, y, z, yaw = place[n]
+            ob.location = (x, y, z)
+            ob.rotation_euler = (0, 0, math.radians(yaw))
+    lid, strip = assets.get("SM_Gameplay_MasterCase_Lid"), assets.get("SM_Gameplay_MasterCase_Progress")
+    if lid and strip:
+        strip.parent = lid
+        strip.location = (-0.17, TRACK_Y, 0.0077)
+        strip.scale = (0.62, 1.0, 1.0)
+    for n in ("PropaneTank", "WeldingRack"):
+        if "SM_Gameplay_" + n in assets:
+            _heat_glow(assets["SM_Gameplay_" + n], n)
+    for n in ("SM_Prop_Boombox_Meter",):
+        ob = assets.get(n)
+        if ob:
+            for k, sl in enumerate(ob.material_slots):
+                if "Meter" in sl.material.name:
+                    mat.principled(sl.material).inputs["Emission Strength"].default_value = 6.0
+    render.cam_look((0.15, -3.3, 1.45), (0.15, 0.2, 0.55), lens=32)
+    p, sec = render.render_jpeg(os.path.join(paths.previews, "gaps_gameplay.jpg"), a.samples)
+    ctx.log("preview %s %.0fs" % (p, sec))

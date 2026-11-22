@@ -43,6 +43,7 @@ SLOT_META = {
     "MI_Steel_PaintBlack": {"set": "TS_Steel_ScanPaintGrey", "workflow": "tiling", "tint": [0.07, 0.07, 0.075]},
     "MI_Steel_IronDark": {"set": "TS_Steel_ScanPaintGrey", "workflow": "tiling", "tint": [0.10, 0.12, 0.22], "note": "#23262a"},
     "MI_Steel_ElGreen": {"set": "TS_Steel_ScanPaintGreen", "workflow": "tiling", "tint": [0.30, 0.32, 0.55], "note": "#1f2a26"},
+    "MI_Steel_PaintWhiteClean": {"workflow": "tiling", "note": "clean neutral white enamel #e6e4dc (booth, backboard, barricade)"},
     "MI_Steel_PaintCream": {"set": "TS_Steel_ScanPaintWhite", "workflow": "tiling", "tint": [1.7, 2.3, 3.4], "note": "#e6e4dc"},
     "MI_Steel_PaintOrange": {"set": "TS_Steel_ScanPaintWhite", "workflow": "tiling", "tint": [1.75, 0.25, 0.07], "note": "#d9521a"},
     "MI_Steel_DrumBlue": {"set": "TS_Steel_ScanPaintBlue", "workflow": "tiling", "tint": [0.65, 1.55, 4.2]},
@@ -166,7 +167,14 @@ def materials(ctx):
     M["black"] = sc("TS_Steel_ScanPaintGrey", slot="MI_Steel_PaintBlack", tint=(0.07, 0.07, 0.075), blend_start=0.45, **rust)
     M["dark"] = sc("TS_Steel_ScanPaintGrey", slot="MI_Steel_IronDark", tint=(0.10, 0.12, 0.22), blend_start=0.5, **rust)
     M["elgreen"] = sc("TS_Steel_ScanPaintGreen", slot="MI_Steel_ElGreen", tint=(0.30, 0.32, 0.55), blend_start=0.4, **rust)
-    M["cream"] = sc("TS_Steel_ScanPaintWhite", slot="MI_Steel_PaintCream", tint=(1.7, 2.3, 3.4), blend_start=0.8, **rust)
+    # white enamel (booth, hoop backboard, barricade): the clean neutral procedural set from assets/gaps.py when it is
+    # baked (build.py build gaps --bake), else the tinted scan, which reads warm and rust-spotted
+    if os.path.exists(os.path.join(paths.texture_set("TS_Steel_PaintWhiteClean"), "set.json")):
+        M["cream"] = ts("TS_Steel_PaintWhiteClean", "painted_steel", tile_m=1.0, res=1024,
+                        **{"Paint Color": (0.74, 0.74, 0.72), "Paint Roughness": 0.40, "Chipping": 0.10, "Rust": 0.03,
+                           "Chalking": 0.30, "Old Coat": (0.50, 0.51, 0.51), "Primer Color": (0.42, 0.43, 0.43)})
+    else:
+        M["cream"] = sc("TS_Steel_ScanPaintWhite", slot="MI_Steel_PaintCream", tint=(1.7, 2.3, 3.4), blend_start=0.8, **rust)
     M["orange"] = sc("TS_Steel_ScanPaintWhite", slot="MI_Steel_PaintOrange", tint=(1.75, 0.25, 0.07), blend_start=0.5, **rust)
     M["drumBlue"] = sc("TS_Steel_ScanPaintBlue", slot="MI_Steel_DrumBlue", tint=(0.65, 1.55, 4.2), blend_start=0.35, **rust)
     M["drumGrey"] = sc("TS_Steel_ScanPaintGrey", slot="MI_Steel_DrumGrey", tint=(0.75, 0.95, 1.6), blend_start=0.35, **rust)
