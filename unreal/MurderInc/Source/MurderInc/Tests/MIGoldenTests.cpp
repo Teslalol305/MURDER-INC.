@@ -118,8 +118,9 @@ namespace MIGoldenPrivate
 		FLogged L;
 		L.Frame = static_cast<int32>(A[0]->AsNumber());
 		L.Name = A[1]->AsString();
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& Field : A[2]->AsObject()->Values)
+		for (const auto& Pair : A[2]->AsObject()->Values)
 		{
+			const TPair<FString, TSharedPtr<FJsonValue>> Field(FString(*Pair.Key), Pair.Value);
 			if (Field.Value->Type == EJson::Number)
 			{
 				L.Numbers.Add(Field.Key, Field.Value->AsNumber());
@@ -188,8 +189,9 @@ bool FMIGoldenRngTest::RunTest(const FString& Parameters)
 	{
 		C.Near(FString::Printf(TEXT("next %d"), I), Rng.Next(), Num(Next, I), 1e-11);
 	}
-	for (const TPair<FString, TSharedPtr<FJsonValue>>& Fork : Root->GetObjectField(TEXT("forks"))->Values)
+	for (const auto& Pair : Root->GetObjectField(TEXT("forks"))->Values)
 	{
+		const TPair<FString, TSharedPtr<FJsonValue>> Fork(FString(*Pair.Key), Pair.Value);
 		FMIRng Child = FMIRng(Seed).Fork(Fork.Key);
 		const TSharedPtr<FJsonObject> F = Fork.Value->AsObject();
 		C.Same(Fork.Key + TEXT(" seed"), Child.Seed, static_cast<int64>(F->GetNumberField(TEXT("seed"))));

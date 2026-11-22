@@ -463,8 +463,9 @@ namespace MIDataSubsystemParse
 		const TSharedPtr<FJsonObject> Kinds = In.Object(TEXT("explosives.kinds"));
 		if (Kinds.IsValid())
 		{
-			for (const TPair<FString, TSharedPtr<FJsonValue>>& Entry : Kinds->Values)
+			for (const auto& Pair : Kinds->Values)
 			{
+				const TPair<FString, TSharedPtr<FJsonValue>> Entry(FString(*Pair.Key), Pair.Value);
 				const auto Path = [&Entry](const TCHAR* Leaf) { return FString::Printf(TEXT("explosives.kinds.%s.%s"), *Entry.Key, Leaf); };
 				FMIExplosiveKindData& K = E.Kinds.AddDefaulted_GetRef();
 				K.Id = FName(*Entry.Key);
@@ -633,8 +634,9 @@ bool UMIDataSubsystem::ParseConfig(const TSharedPtr<FJsonObject>& Root, FMIConfi
 	const TSharedPtr<FJsonObject> Difficulty = In.Object(TEXT("flow.difficulty"));
 	if (Difficulty.IsValid())
 	{
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& Entry : Difficulty->Values)
+		for (const auto& Pair : Difficulty->Values)
 		{
+			const TPair<FString, TSharedPtr<FJsonValue>> Entry(FString(*Pair.Key), Pair.Value);
 			FMIDifficultyData D;
 			D.Id = FName(*Entry.Key);
 			D.RegenDelay = In.Number(*FString::Printf(TEXT("flow.difficulty.%s.regen.delay"), *Entry.Key));

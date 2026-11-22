@@ -6,7 +6,7 @@
  * Tuning tables read from Content/Data/config.json by UMIDataSubsystem.
  * Everything here is already in Unreal units: centimetres, degrees, seconds (the file holds metres and radians).
  * Rates (1/s), times (s), shares and trauma are unit-free and unchanged. The web names are kept so that every number
- * can be diffed against src/config/*.js; the comment gives the unit after conversion.
+ * can be diffed against src/config/<name>.js; the comment gives the unit after conversion.
  */
 
 /** config.json "player.body" */
