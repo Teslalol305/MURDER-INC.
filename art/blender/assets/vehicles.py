@@ -1820,8 +1820,10 @@ SPEC.update({
                      r=0.50, tw=0.30, rim=0.30, belt=1.75, cowl=2.30, bpillar=0.70, rear_x=0.60, floor=1.05,
                      cabin_rear=0.62, seat_x=1.00, wheel="steel", twin=True, rear_seat=False, plate="KQB5530",
                      paint="#17191d", hazard_slot=True, cover=2.86, tris=50000,
-                     drop=lambda c, n, cls: ((c[:, 0] < -2.82) & (c[:, 2] > 1.03) & (c[:, 2] < 2.69)
-                                            & (np.abs(c[:, 1]) < 0.95))),
+                     drop=lambda c, n, cls: (((c[:, 0] < -2.82) & (c[:, 2] > 1.03) & (c[:, 2] < 2.69) & (np.abs(c[:, 1]) < 0.95))
+                                            # generated partitions inside the vault (seen through the open doors)
+                                            | ((c[:, 0] < 0.50) & (c[:, 0] > -2.82) & (c[:, 2] > 1.06) & (c[:, 2] < 2.78)
+                                               & (np.abs(c[:, 1]) < 1.02)))),
     "Motorbike": dict(src="moto_hunyuan100k.glb", axis="X", nose=1, paint="navy", tris=90000),
 })
 def _bed_contents(c, n, cls):

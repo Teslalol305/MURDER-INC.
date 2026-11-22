@@ -174,19 +174,26 @@ Ledger of every generation: art/blender/assets/vehicles_gen.json (job ids, model
 - Glass is see-through (tinted, translucent) with a dark interior behind it rather than the brief's opaque near-black:
   the task asks for interiors; Unreal can still darken the tint.
 
-## Status
-- [x] Credits: balance 5254.24 at start; vehicles spent 302 (ledger, checked against the transaction list).
-- [x] `build.py build vehicles --export --force` (about 4 min): 13 assets validate and export, 58k-149k triangles
-      (Sedan 120k, SUV 111k, Pickup 105k, Van 122k, Taxi 119k, BurnedCar 77k, StrippedCar 58k, Van_Vulture 119k,
-      BoxTruck 141k, IPXTruck 149k, IPXTruck_Door / _Door_Left 0.8k, Motorbike 90k); manifest current.
-- [x] Hero round 1 fixed: texture rows (write_set wants row 0 at the bottom), glass rule (dark + greenhouse +
-      windscreen by position + majority fill), plate orientation, dash and plate backing to the interior slot.
-- [ ] Previews: hero, close, lineup_1, lineup_2, ipx_truck, wrecks rendering from the saved blend (no rebuild):
-      scratch script opens art/out/blend/vehicles.blend and calls vehicles.on_preview; then vehicles_wire.
+## State at hand-off
+- Credits: balance 5254.24 at the start, 4500.02 at the end; the vehicles spent 302 (2 x 13 concept pictures at 2,
+  Meshy sedan 44, six 500k Hunyuan bodies at 15, seven 60-100k Hunyuan bodies at 19), every job in
+  assets/vehicles_gen.json, matched in the transaction list; the rest of the drop is the GPU box and other agents.
+- 13 assets export and validate (`build.py build vehicles --export --force`, about 4 min): Sedan 120k tris, SUV 111k,
+  Pickup 105k, Van 119k, Taxi 119k, BurnedCar 77k, StrippedCar 58k, Van_Vulture 118k, BoxTruck 141k, IPXTruck 136k,
+  IPXTruck_Door / _Door_Left 0.8k each, Motorbike 90k. Manifest current; README rows (gen3d, vehicles).
+- Previews (14 renders, the cap): vehicles_sedan_hero, _close, _lineup_1 (final); vehicles_lineup_2, _ipx_truck and
+  _wrecks were rendered BEFORE their last fixes (Van and IPX noses were reversed: fixed; IPX vault still showed a
+  generated internal partition: removed and verified on the mesh; wreck engine bays trimmed). vehicles_wire not
+  rendered (cap reached). Re-render those four first.
+- Known weaknesses: generated paint keeps some soft blotches of baked light; glass detection is per-vehicle rules
+  (the van's rear doors keep large windows, light glass in the picture read as paint); wipers/cowl read as a black
+  plank; the van's front overhang is squashed by the warp onto the briefed axles (generated wheelbase 2.8 vs 3.2);
+  the stripped car is a gutted shell with a crude floor; interiors are simple boxes; decals are flat cards.
 
 ## Exact next step
-Look at art/previews/vehicles_*.jpg, fix the worst fault, re-render that one (`build.py build vehicles --export`
-then `--preview --only <name> --samples 40`, or the blend-only script), then vehicles_wire, then final report.
+`build.py build vehicles --export --force`, then render from the saved blend without a rebuild (the scratch script
+pattern: open art/out/blend/vehicles.blend, ctx.assets = SM_Vehicle_* objects, vehicles.on_preview(ctx, [])) with
+`--only vehicles_lineup_2,vehicles_ipx_truck,vehicles_wrecks,vehicles_wire --samples 40` and look at each.
 
 ---------------------------------------------------------------------------------------------------------------
 # Generated Goon (assets/goon_generated.py), character technical artist: a Higgsfield image-to-3D comparison
