@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Measure what is in art/out and write the numbers back into art/scans/sets.json.
 
-    python3 art/scans/calibrate.py [--only set ...] [--cards DIR] [--check]
+    python3 art/scans/calibrate.py [--only set ...] [--kind texture|hdri|model] [--cards DIR] [--fast] [--check]
+    python3 art/scans/calibrate.py --readme
 
 For every tiling set (reads the convention files that fetch.py wrote):
   * px                real pixel size of the maps;
@@ -527,6 +528,61 @@ def card(entry, dest):
     sheet.save(dest, quality=88)
 
 
+# ------------------------------------------------------------------------------------------------------- README
+
+def basis_text(entry):
+    b = entry.get("basis", {})
+    if b.get("kind") == "count":
+        return "; ".join(f"{b[a]['count']:g} {b[a]['feature']} x {b[a]['unit_mm']:g} mm" for a in ("x", "y") if a in b)
+    return f"stated {b.get('stated_m')} m, checked" if b.get("kind") == "stated" else ""
+
+
+def markdown_tables(cat):
+    """The three tables of the README, straight from the catalogue."""
+    out = ["### Tiling sets", "",
+           "| Set | Slug | Tile x by y (m) | px/m | How the size was fixed | Seam | Where it goes |",
+           "|---|---|---|---|---|---|---|"]
+    for e in cat["sets"]:
+        if e["kind"] != "texture":
+            continue
+        m = e.get("measured", {})
+        t = e["tile_m"]
+        seam = "ok" if m.get("seam_verdict", "ok") == "ok" else "see notes"
+        out.append(f"| `{e['set']}` | {e['slug']} | {t[0]:.3f} x {t[1]:.3f} | {m.get('px_per_m', '')} | {basis_text(e)} | {seam} "
+                   f"| {e.get('use', '')} |")
+    out += ["", "### Skies", "",
+            "| Sky | Use | Key light elevation | Its share of the light | Exposure for an 18 % card (EV) | Z rotation for the 4:15 PM sun |",
+            "|---|---|---|---|---|---|"]
+    for e in cat["sets"]:
+        if e["kind"] != "hdri":
+            continue
+        m = e.get("measured", {})
+        rot = f"{m.get('rotation_z_for_design_sun_deg', 0):.1f}" if m.get("has_sun") else "n/a"
+        out.append(f"| `{e['set']}` | {e.get('use', '')} | {m.get('sun_elevation_deg', 0):.0f} deg | "
+                   f"{100 * m.get('sun_share_of_irradiance', 0):.0f} % | {m.get('ev_for_grey_card', 0):+.2f} | {rot} |")
+    out += ["", "### Props", "",
+            "| Model | Size x by y by z (m) | Triangles | Textures | Use | To meet the conventions |",
+            "|---|---|---|---|---|---|"]
+    for e in cat["sets"]:
+        if e["kind"] != "model":
+            continue
+        m = e.get("measured", {})
+        size = " x ".join(f"{v:.2f}" for v in m.get("size_m", []))
+        out.append(f"| `{e['set']}` | {size} | {m.get('triangles', '')} | {len(m.get('textures', []))} | {e.get('use', '')} | {e.get('fix', '')} |")
+    return "\n".join(out) + "\n"
+
+
+def write_readme_tables(cat):
+    readme = Path(__file__).resolve().parent / "README.md"
+    text = readme.read_text()
+    start, end = "<!-- tables:start -->", "<!-- tables:end -->"
+    if start not in text or end not in text:
+        raise SystemExit("README.md has no table markers")
+    head, rest = text.split(start, 1)
+    tail = rest.split(end, 1)[1]
+    readme.write_text(head + start + "\n" + markdown_tables(cat) + end + tail)
+
+
 # --------------------------------------------------------------------------------------------------------- main
 
 def main(argv=None):
@@ -536,8 +592,12 @@ def main(argv=None):
     ap.add_argument("--cards", metavar="DIR", help="write a scale-check picture per tiling set into DIR")
     ap.add_argument("--check", action="store_true", help="do not write; fail if the catalogue disagrees with the files")
     ap.add_argument("--fast", action="store_true", help="recompute tile sizes and cards only (skip the image analysis)")
+    ap.add_argument("--readme", action="store_true", help="only rewrite the tables in README.md from the catalogue")
     args = ap.parse_args(argv)
     cat = json.loads(CATALOGUE.read_text())
+    if args.readme:
+        write_readme_tables(cat)
+        return 0
     names = set(args.only or [])
     problems = []
     for entry in cat["sets"]:

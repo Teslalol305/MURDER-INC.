@@ -1130,6 +1130,221 @@
    "preview": "ground"
   },
   {
+   "set": "TS_Asphalt_ScanDirty",
+   "slug": "worn_asphalt",
+   "kind": "texture",
+   "surface": "dark asphalt with soil and leaf litter",
+   "use": "Rear service lane, the kerb line of the parking lot, the edge of the vacant lot: asphalt that nobody sweeps.",
+   "tile_m": [
+    2.0,
+    2.0
+   ],
+   "tile_method": "",
+   "basis": {
+    "kind": "stated",
+    "stated_m": 2.0
+   },
+   "publisher_sphere_m": 2.0,
+   "resolution": "2k",
+   "px": [
+    2048,
+    2048
+   ],
+   "files": {
+    "BC": {
+     "out": "textures/TS_Asphalt_ScanDirty/T_TS_Asphalt_ScanDirty_BC.jpg",
+     "src": "Textures/jpg/{res}/worn_asphalt/worn_asphalt_diff_{res}.jpg"
+    },
+    "N": {
+     "out": "textures/TS_Asphalt_ScanDirty/T_TS_Asphalt_ScanDirty_N.jpg",
+     "src": "Textures/jpg/{res}/worn_asphalt/worn_asphalt_nor_gl_{res}.jpg"
+    },
+    "ORM": {
+     "out": "textures/TS_Asphalt_ScanDirty/T_TS_Asphalt_ScanDirty_ORM.jpg",
+     "src": "Textures/jpg/{res}/worn_asphalt/worn_asphalt_arm_{res}.jpg"
+    },
+    "H": {
+     "out": "textures/TS_Asphalt_ScanDirty/T_TS_Asphalt_ScanDirty_H.png",
+     "src": "Textures/png/{res}/worn_asphalt/worn_asphalt_disp_{res}.png"
+    }
+   },
+   "colour": "Dark with red-brown litter: fine as is.",
+   "licence": "CC0, Poly Haven",
+   "preview": "ground",
+   "measured": {
+    "px": [
+     2048,
+     2048
+    ],
+    "height_bits": 16,
+    "repeat": {
+     "base_colour": {
+      "x": [
+       [
+        6,
+        0.055
+       ],
+       [
+        21,
+        0.046
+       ],
+       [
+        19,
+        0.044
+       ]
+      ],
+      "y": [
+       [
+        2,
+        0.051
+       ],
+       [
+        7,
+        0.034
+       ],
+       [
+        20,
+        0.03
+       ]
+      ]
+     },
+     "base_colour_lines": {
+      "x": [],
+      "y": []
+     },
+     "height": {
+      "x": [
+       [
+        10,
+        0.098
+       ],
+       [
+        9,
+        0.082
+       ],
+       [
+        11,
+        0.068
+       ]
+      ],
+      "y": [
+       [
+        2,
+        0.154
+       ],
+       [
+        17,
+        0.086
+       ],
+       [
+        7,
+        0.051
+       ]
+      ]
+     },
+     "height_lines": {
+      "x": [],
+      "y": []
+     }
+    },
+    "grain_px": 6.3,
+    "grain_mm": 6.2,
+    "px_per_m": 1024,
+    "height_range": [
+     0.0002,
+     0.1491,
+     0.5845,
+     0.9987
+    ],
+    "height_mid": 0.3228,
+    "relief_fit": 0.78,
+    "height_scale_frac": 0.007511,
+    "height_scale_mm": 15.0,
+    "relief_mm": 6.5,
+    "normal_mean": [
+     0.5,
+     0.501,
+     0.898
+    ],
+    "seam": {
+     "base_colour": {
+      "x": {
+       "px1": [
+        1.03,
+        0.779
+       ],
+       "px4": [
+        1.01,
+        0.583
+       ],
+       "px16": [
+        1.01,
+        0.52
+       ]
+      },
+      "y": {
+       "px1": [
+        0.98,
+        0.299
+       ],
+       "px4": [
+        0.93,
+        0.053
+       ],
+       "px16": [
+        0.92,
+        0.142
+       ]
+      }
+     },
+     "height": {
+      "x": {
+       "px1": [
+        0.96,
+        0.295
+       ],
+       "px4": [
+        0.95,
+        0.268
+       ],
+       "px16": [
+        0.99,
+        0.465
+       ]
+      },
+      "y": {
+       "px1": [
+        0.86,
+        0.014
+       ],
+       "px4": [
+        0.9,
+        0.063
+       ],
+       "px16": [
+        0.98,
+        0.323
+       ]
+      }
+     }
+    },
+    "seam_verdict": "ok",
+    "albedo": {
+     "linear_rgb": [
+      0.065,
+      0.042,
+      0.029
+     ],
+     "luminance": 0.046,
+     "p5": 0.025,
+     "p95": 0.086
+    },
+    "ao": 0.641,
+    "roughness": 0.875,
+    "metallic": 0.009
+   }
+  },
+  {
    "set": "TS_Asphalt_ScanAerial",
    "slug": "aerial_asphalt_01",
    "kind": "texture",
@@ -4453,6 +4668,289 @@
     "metallic": 0.006
    },
    "preview": "ground"
+  },
+  {
+   "set": "TS_Floor_ScanLino",
+   "slug": "old_linoleum_flooring_01",
+   "kind": "texture",
+   "surface": "old patterned sheet vinyl",
+   "use": "Mezzanine office floor in V&R Auto Body; the attendant booth.",
+   "tile_m": [
+    1.99,
+    1.99
+   ],
+   "tile_method": "",
+   "basis": {
+    "kind": "stated",
+    "stated_m": 1.99
+   },
+   "publisher_sphere_m": 1.99,
+   "resolution": "2k",
+   "px": [
+    2048,
+    2048
+   ],
+   "files": {
+    "BC": {
+     "out": "textures/TS_Floor_ScanLino/T_TS_Floor_ScanLino_BC.jpg",
+     "src": "Textures/jpg/{res}/old_linoleum_flooring_01/old_linoleum_flooring_01_diff_{res}.jpg"
+    },
+    "N": {
+     "out": "textures/TS_Floor_ScanLino/T_TS_Floor_ScanLino_N.jpg",
+     "src": "Textures/jpg/{res}/old_linoleum_flooring_01/old_linoleum_flooring_01_nor_gl_{res}.jpg"
+    },
+    "ORM": {
+     "out": "textures/TS_Floor_ScanLino/T_TS_Floor_ScanLino_ORM.jpg",
+     "src": "Textures/jpg/{res}/old_linoleum_flooring_01/old_linoleum_flooring_01_arm_{res}.jpg"
+    },
+    "H": {
+     "out": "textures/TS_Floor_ScanLino/T_TS_Floor_ScanLino_H.png",
+     "src": "Textures/png/{res}/old_linoleum_flooring_01/old_linoleum_flooring_01_disp_{res}.png"
+    }
+   },
+   "colour": "Tan and orange: fine as is (a 1970s floor in a 1990s office).",
+   "licence": "CC0, Poly Haven",
+   "preview": "ground",
+   "measured": {
+    "px": [
+     2048,
+     2048
+    ],
+    "height_bits": 16,
+    "repeat": {
+     "base_colour": {
+      "x": [
+       [
+        12,
+        0.823
+       ],
+       [
+        24,
+        0.119
+       ],
+       [
+        60,
+        0.008
+       ]
+      ],
+      "y": [
+       [
+        12,
+        0.814
+       ],
+       [
+        24,
+        0.121
+       ],
+       [
+        4,
+        0.01
+       ]
+      ]
+     },
+     "base_colour_lines": {
+      "x": [
+       [
+        3.0,
+        0.688
+       ],
+       [
+        6.0,
+        0.605
+       ],
+       [
+        12.0,
+        0.593
+       ],
+       [
+        4.0,
+        0.576
+       ]
+      ],
+      "y": [
+       [
+        6.0,
+        0.602
+       ],
+       [
+        12.0,
+        0.588
+       ],
+       [
+        4.0,
+        0.585
+       ],
+       [
+        2.0,
+        0.581
+       ]
+      ]
+     },
+     "height": {
+      "x": [
+       [
+        60,
+        0.099
+       ],
+       [
+        48,
+        0.069
+       ],
+       [
+        96,
+        0.067
+       ]
+      ],
+      "y": [
+       [
+        24,
+        0.087
+       ],
+       [
+        60,
+        0.067
+       ],
+       [
+        72,
+        0.056
+       ]
+      ]
+     },
+     "height_lines": {
+      "x": [
+       [
+        12.0,
+        0.556
+       ],
+       [
+        3.0,
+        0.545
+       ],
+       [
+        6.0,
+        0.532
+       ],
+       [
+        4.0,
+        0.527
+       ]
+      ],
+      "y": [
+       [
+        6.0,
+        0.557
+       ],
+       [
+        12.0,
+        0.555
+       ],
+       [
+        4.0,
+        0.548
+       ],
+       [
+        2.0,
+        0.534
+       ]
+      ]
+     }
+    },
+    "grain_px": 24.0,
+    "grain_mm": 23.3,
+    "px_per_m": 1029,
+    "height_range": [
+     0.0915,
+     0.1662,
+     0.3095,
+     0.644
+    ],
+    "height_mid": 0.2666,
+    "relief_fit": 0.96,
+    "height_scale_frac": 0.000971,
+    "height_scale_mm": 1.9,
+    "relief_mm": 0.3,
+    "normal_mean": [
+     0.5,
+     0.5,
+     1.0
+    ],
+    "seam": {
+     "base_colour": {
+      "x": {
+       "px1": [
+        2.38,
+        0.995
+       ],
+       "px4": [
+        1.41,
+        0.953
+       ],
+       "px16": [
+        0.75,
+        0.417
+       ]
+      },
+      "y": {
+       "px1": [
+        2.24,
+        0.99
+       ],
+       "px4": [
+        1.12,
+        0.834
+       ],
+       "px16": [
+        0.67,
+        0.346
+       ]
+      }
+     },
+     "height": {
+      "x": {
+       "px1": [
+        1.08,
+        0.736
+       ],
+       "px4": [
+        1.18,
+        0.877
+       ],
+       "px16": [
+        0.7,
+        0.228
+       ]
+      },
+      "y": {
+       "px1": [
+        1.22,
+        0.957
+       ],
+       "px4": [
+        1.09,
+        0.634
+       ],
+       "px16": [
+        0.62,
+        0.063
+       ]
+      }
+     }
+    },
+    "seam_verdict": "ok",
+    "albedo": {
+     "linear_rgb": [
+      0.441,
+      0.235,
+      0.087
+     ],
+     "luminance": 0.268,
+     "p5": 0.144,
+     "p95": 0.373
+    },
+    "ao": 0.991,
+    "roughness": 0.31,
+    "metallic": 0.002
+   }
   },
   {
    "set": "TS_Brick_ScanRedDark",
@@ -18509,6 +19007,221 @@
     "metallic": 0.001
    },
    "preview": "ground"
+  },
+  {
+   "set": "TS_Roof_ScanGravel",
+   "slug": "gravel_stones",
+   "kind": "texture",
+   "surface": "dark stone chips bedded in bitumen",
+   "use": "Flat roofs: the gravel surfacing of a built-up tar roof (tenements, the S3 row, the auto body shop).",
+   "tile_m": [
+    2.06,
+    2.06
+   ],
+   "tile_method": "",
+   "basis": {
+    "kind": "stated",
+    "stated_m": 2.06
+   },
+   "publisher_sphere_m": 2.06,
+   "resolution": "2k",
+   "px": [
+    2048,
+    2048
+   ],
+   "files": {
+    "BC": {
+     "out": "textures/TS_Roof_ScanGravel/T_TS_Roof_ScanGravel_BC.jpg",
+     "src": "Textures/jpg/{res}/gravel_stones/gravel_stones_diff_{res}.jpg"
+    },
+    "N": {
+     "out": "textures/TS_Roof_ScanGravel/T_TS_Roof_ScanGravel_N.jpg",
+     "src": "Textures/jpg/{res}/gravel_stones/gravel_stones_nor_gl_{res}.jpg"
+    },
+    "ORM": {
+     "out": "textures/TS_Roof_ScanGravel/T_TS_Roof_ScanGravel_ORM.jpg",
+     "src": "Textures/jpg/{res}/gravel_stones/gravel_stones_arm_{res}.jpg"
+    },
+    "H": {
+     "out": "textures/TS_Roof_ScanGravel/T_TS_Roof_ScanGravel_H.png",
+     "src": "Textures/png/{res}/gravel_stones/gravel_stones_disp_{res}.png"
+    }
+   },
+   "colour": "Dark grey chips: fine as is.",
+   "licence": "CC0, Poly Haven",
+   "preview": "ground",
+   "measured": {
+    "px": [
+     2048,
+     2048
+    ],
+    "height_bits": 16,
+    "repeat": {
+     "base_colour": {
+      "x": [
+       [
+        3,
+        0.193
+       ],
+       [
+        2,
+        0.085
+       ],
+       [
+        19,
+        0.03
+       ]
+      ],
+      "y": [
+       [
+        2,
+        0.088
+       ],
+       [
+        4,
+        0.046
+       ],
+       [
+        5,
+        0.034
+       ]
+      ]
+     },
+     "base_colour_lines": {
+      "x": [],
+      "y": []
+     },
+     "height": {
+      "x": [
+       [
+        2,
+        0.438
+       ],
+       [
+        3,
+        0.215
+       ],
+       [
+        5,
+        0.027
+       ]
+      ],
+      "y": [
+       [
+        3,
+        0.294
+       ],
+       [
+        4,
+        0.198
+       ],
+       [
+        2,
+        0.174
+       ]
+      ]
+     },
+     "height_lines": {
+      "x": [],
+      "y": []
+     }
+    },
+    "grain_px": 6.3,
+    "grain_mm": 6.3,
+    "px_per_m": 994,
+    "height_range": [
+     0.0788,
+     0.402,
+     0.8182,
+     0.9996
+    ],
+    "height_mid": 0.6263,
+    "relief_fit": 0.72,
+    "height_scale_frac": 0.017263,
+    "height_scale_mm": 35.6,
+    "relief_mm": 14.8,
+    "normal_mean": [
+     0.5,
+     0.507,
+     0.87
+    ],
+    "seam": {
+     "base_colour": {
+      "x": {
+       "px1": [
+        0.98,
+        0.268
+       ],
+       "px4": [
+        0.97,
+        0.303
+       ],
+       "px16": [
+        1.03,
+        0.638
+       ]
+      },
+      "y": {
+       "px1": [
+        1.02,
+        0.698
+       ],
+       "px4": [
+        0.94,
+        0.133
+       ],
+       "px16": [
+        0.92,
+        0.11
+       ]
+      }
+     },
+     "height": {
+      "x": {
+       "px1": [
+        1.0,
+        0.48
+       ],
+       "px4": [
+        1.02,
+        0.601
+       ],
+       "px16": [
+        1.03,
+        0.63
+       ]
+      },
+      "y": {
+       "px1": [
+        0.95,
+        0.307
+       ],
+       "px4": [
+        0.97,
+        0.344
+       ],
+       "px16": [
+        1.03,
+        0.661
+       ]
+      }
+     }
+    },
+    "seam_verdict": "ok",
+    "albedo": {
+     "linear_rgb": [
+      0.082,
+      0.081,
+      0.076
+     ],
+     "luminance": 0.08,
+     "p5": 0.047,
+     "p95": 0.144
+    },
+    "ao": 0.668,
+    "roughness": 0.78,
+    "metallic": 0.006
+   }
   },
   {
    "set": "TS_Rubber_ScanTiles",

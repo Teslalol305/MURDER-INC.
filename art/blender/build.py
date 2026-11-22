@@ -12,7 +12,7 @@ Runs with the bpy module (pip install bpy==5.3.0 numpy pillow) or inside Blender
     blender -b -P art/blender/build.py -- build street --bake --export --preview
 
 A family is a module art/blender/assets/<family>.py with FAMILY = {"name": ..., "description": ...} and
-build(ctx) -> list of objects. Optional hooks: bake(ctx, objs), export(ctx, objs), preview(ctx, objs).
+build(ctx) -> list of objects. Optional hooks: on_bake(ctx, objs), on_export(ctx, objs), on_preview(ctx, objs).
 Without hooks, --export exports every returned object whose name starts with SM_ using the metadata set by
 ctx.asset(...), and --preview renders one three-quarter view per asset into a contact sheet.
 """
@@ -140,12 +140,12 @@ def cmd_build(args):
     ctx.log("build %s: %s" % (mod.FAMILY["name"], mod.FAMILY["description"]))
     objs = mod.build(ctx) or []
     ctx.log("built %d objects" % len(objs))
-    if args.bake and hasattr(mod, "bake"):
-        mod.bake(ctx, objs)
+    if args.bake and hasattr(mod, "on_bake"):
+        mod.on_bake(ctx, objs)
     if args.export:
         paths.ensure(paths.glb)
-        if hasattr(mod, "export"):
-            mod.export(ctx, objs)
+        if hasattr(mod, "on_export"):
+            mod.on_export(ctx, objs)
         else:
             for name, a in ctx.assets.items():
                 if ctx.want(name):
@@ -155,8 +155,8 @@ def cmd_build(args):
         ctx.log("manifest: %s" % paths.manifest)
     if args.preview:
         paths.ensure(paths.previews)
-        if hasattr(mod, "preview"):
-            mod.preview(ctx, objs)
+        if hasattr(mod, "on_preview"):
+            mod.on_preview(ctx, objs)
         else:
             _default_preview(ctx, objs)
     out = os.path.join(paths.blend, mod.FAMILY["name"] + ".blend")

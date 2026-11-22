@@ -382,14 +382,14 @@ def do_texture(entry, res, cache):
                 row["wrote"] += 1
         elif role == "H" and local.get(role) and png_header(local[role])[3] != 1:
             # the source PNG carries the height in RGB or grey+alpha: keep channel 0 at its full depth
-            if stale(dest, local[role]) or png_header(dest)[3] != 1:
+            if stale(dest, local[role]) or png_header(dest)[3] != 1 or png_header(dest)[:2] != png_header(local[role])[:2]:
                 write_grey(read_png(local[role])[..., 0], dest)
                 row["wrote"] += 1
         elif "src" in spec and local.get(role):
             row["wrote"] += copy_if_changed(local[role], dest)
         elif spec.get("pack") and local.get(f"{role}.rough"):
             parts = [local.get(f"{role}.{c}") for c in ("ao", "rough", "metal")]
-            if stale(dest, *parts):
+            if stale(dest, *parts) or quick_size(dest) != quick_size(local[f"{role}.rough"]):
                 pack_orm(*parts, dest)
                 row["wrote"] += 1
         else:

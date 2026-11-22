@@ -979,11 +979,12 @@ def uv_unwrap(ob, res=2048, angle=66.0, margin_px=8, method="SMART", pack="AABB"
     bpy.ops.uv.select_all(action="SELECT")
     bpy.ops.uv.pack_islands(rotate=True, margin_method="FRACTION", margin=margin, shape_method=pack)
     bpy.ops.object.mode_set(mode="OBJECT")
-    return uv_texel_density(ob, res)
+    return uv_texel_density(ob, res, faces=None if weights is None else np.asarray(weights) >= np.max(weights) - 1e-6)
 
 
-def uv_texel_density(ob, res=2048, layer=None):
-    """Median texel density (px per metre) of the active UV layer at a texture resolution."""
+def uv_texel_density(ob, res=2048, layer=None, faces=None):
+    """Median texel density (px per metre) of the active UV layer at a texture resolution.
+    faces: optional bool array per polygon to measure only those faces."""
     me = ob.data
     uvl = me.uv_layers.get(layer) if layer else me.uv_layers.active
     if uvl is None or len(me.polygons) == 0:
@@ -1005,6 +1006,10 @@ def uv_texel_density(ob, res=2048, layer=None):
     q = uv[tl]
     a2 = 0.5 * np.abs((q[:, 1, 0] - q[:, 0, 0]) * (q[:, 2, 1] - q[:, 0, 1]) - (q[:, 2, 0] - q[:, 0, 0]) * (q[:, 1, 1] - q[:, 0, 1]))
     ok = (a3 > 1e-12) & (a2 > 1e-14)
+    if faces is not None:
+        tp = np.empty(nt, dtype=np.int32)
+        me.loop_triangles.foreach_get("polygon_index", tp)
+        ok &= np.asarray(faces, dtype=bool)[tp]
     if not ok.any():
         return 0.0
     dens = np.sqrt(a2[ok] / a3[ok]) * res

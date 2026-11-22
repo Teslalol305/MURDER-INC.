@@ -435,7 +435,7 @@ def do_surfaces(cat, sky, only, samples, force):
             sheet.paste(Image.open(main).convert("RGB").resize(size, Image.LANCZOS), (x, y + LABEL_H))
             s = 132
             mac = Image.open(inset).convert("RGB").resize((s, s), Image.LANCZOS)
-            ix, iy = x + cw - s - 4, y + LABEL_H + 4
+            ix, iy = x + 4, y + LABEL_H + 4  # top left: the box stands at the right in every cell
             d.rectangle((ix - 2, iy - 2, ix + s + 1, iy + s + 1), fill=(255, 255, 255))
             sheet.paste(mac, (ix, iy))
             d.rectangle((ix, iy + s - 15, ix + 70, iy + s), fill=(0, 0, 0))

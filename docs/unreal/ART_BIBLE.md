@@ -26,7 +26,7 @@ calibration checks in 2.12.
 
 Contents: 0 conventions · 1 the target · 2 lighting · 3 materials · 4 modelling · 5 signage and branding ·
 6 characters, weapons, vehicles · 7 effects and audio · 8 priorities and definition of done · 9 performance ·
-10 open questions.
+10 open questions · 11 sources.
 
 ---------------------------------------------------------------------------------------------------
 
@@ -83,7 +83,8 @@ is invented. Everything in it could be measured with a tape.
 | **Taxpayer strips** | One- or two-storey commercial rows put up cheaply to earn the land tax: a line of shop bays under a continuous sign band and a low parapet. | Aluminium storefront framing, a bulkhead of tile, brick or metal panel, plate glass, a recessed tiled entry, a 0.91 m door with a transom. Roll-down gate in side guides with its hood under the sign band. An awning. Conduit, junction boxes, a through-the-transom air conditioner dripping on the sidewalk, a steel cellar hatch in the sidewalk, a standpipe connection, stickers and handbills. |
 | **Cinder-block auto body shop** | A 1950s–70s single-storey block garage, 6 m to the eave. | Painted block in two tones with a dark dado, steel lintels with rust bleeding below them, a 6 m sectional steel door, yellow concrete-filled pipe bollards (chipped, leaning) at the jambs, a steel man-door with wired glass, hand-painted service lists, exhaust fans. Roof of steel joists with wired-glass skylights. An oil-black apron with tyre stacks and drums. |
 | **Chain-link ball court** | A city playground court. | 4 m galvanised chain-link (50 mm mesh) on pipe posts every 3 m in a 0.5 m concrete knee wall, top rails bent, mesh bulged and patched. Asphalt under a worn acrylic colour coat. Steel backboards on gooseneck posts, chain nets or none. Aluminium bleachers. Flood lights on 9 m poles. |
-| **Attended parking lot** | An asphalt lot behind a low wall. | A prefabricated attendant booth with a sliding window, a rate board and a window air conditioner. Faded stall lines, wheel stops, an oil spot in every bay, weeds in the cracks, light poles, a billboard on a steel frame over the corner. |
+| **Attended parking lot** | An asphalt lot behind a low wall. | A prefabricated attendant booth with a sliding window, a rate board and a window air conditioner. Faded stall lines, wheel stops, an oil spot in every bay, weeds in the cracks, light poles, a pole sign, a barrier arm, a billboard on a steel frame over the corner. |
+| **The street's working clutter** | What a repair job and a shopping street leave on the sidewalks: the game's hard cover and sightline breaks. | A sidewalk shed of scaffold tube and hunter-green plywood with caged bulbs underneath. Rolling repair scaffolds in orange debris netting, a hoist tower, a plywood site shanty. Shut sheet-steel news kiosks, a tyre cage, a produce stand under a tarp. A utility dig behind barriers with a striped steam stack. Parked cars, cabs, a van, a box truck, a food cart, refuse sacks, mailboxes, a bus shelter. |
 
 ### 1.4 Period: present day, in layers
 
@@ -123,6 +124,20 @@ name, logo or person from it.
 | Over-grading | Heavy vignette, grain, teal-and-orange, crushed blacks. | The grade in 2.4 and 2.8. Day is bright, punchy and natural. |
 | Derelict or dystopian dressing | This is a working block on a normal day, emptied by a road closure. | Shops are in business. Litter is a day's worth, not a decade's. |
 
+### 1.7 Ten rules, if you read nothing else
+
+1. Build to the tape measure: the dimensions in 4.1, and the catalogue box and cover height of every prop.
+2. Base colour inside the measured range; nothing near black, nothing pure (3.1). The web game's hex values are
+   intent, not albedo.
+3. Metallic is 0 or 1. Roughness always varies, and for a reason.
+4. Patterns are real size: a brick course is 67.7 mm, a sidewalk flag 1.5 m, a rivet head 36 mm.
+5. Every edge is bevelled; anything deeper than 5 mm is geometry (4.2, 4.3).
+6. Wear has a cause and a place. Paint the `Wear` mask from causes, then tell one specific story (3.3, 3.5).
+7. Nothing is straight, level or identical (4.4).
+8. Every light is a fixture with a wire; every sign is a built object (2.6, 5.2).
+9. No real brand, mark, face or scannable code. IPX is "IPX" and "IPX.EXCHANGE" only (5.7).
+10. Judge it in the two lighting rigs, at 0.5 m and at 40 m, beside a 1.8 m figure, against a real photograph.
+
 ---------------------------------------------------------------------------------------------------
 
 ## 2. Lighting
@@ -131,6 +146,10 @@ Two lighting scenarios, chosen between runs by the `time` setting. There is no m
 
 - **DAY** (default, gets the polish): a hot, clear summer afternoon, "4:15 PM".
 - **NIGHT** (alternate): "02:14 AM", sodium and neon, the street hosed down.
+
+Geometry and materials are shared. Each scenario is a rig (a sub-level or data layer) that owns the lights, sky,
+fog and post-process volume and sets three global material values: the signage emissive scale (2.7), the street
+wetness (2.9) and whether windows are lit.
 
 ### 2.1 DAY, physically
 
@@ -149,7 +168,7 @@ Two lighting scenarios, chosen between runs by the `time` setting. There is no m
 | Sky colour | 9,000 to 12,000 K overhead, paler and warmer at the horizon | measured |
 | Sky luminance | zenith 2,000 to 4,000 nits, horizon 6,000 to 10,000, sunlit cumulus 10,000 to 25,000 | measured |
 | Clouds | a few bright cumulus, 15 to 25 % cover, never over the sun | chosen |
-| Haze | visibility 5 to 8 km: 8 to 11 % veil at the far end of the avenue (150 m), 40 to 75 % on the skyline | chosen |
+| Haze | visibility 5 to 8 km: a 7 to 11 % veil at the far end of the avenue (150 m), 40 to 80 % on a skyline 1 to 2 km away | chosen |
 
 **Why this sun.** It is the web game's sun, and the shadow layout it makes is level design: which fronts are lit,
 where the stripes fall, where the deep shade is. It also puts the sun behind the player, who starts in the west and
@@ -258,6 +277,22 @@ opened, highlights held, colour natural.
 | Anti-aliasing | TSR. Chain-link, wires and lattice are the test (4.7). |
 | Emissive | Signs at their physical luminance (2.7). Windows are not emissive by day. Street lamps off. |
 
+Project switches this look depends on. The project's configuration is authoritative
+(`docs/unreal/spec/00-unreal-scout.md` 2.2 lists the full file); these are the ones the art assumes:
+
+```
+r.DynamicGlobalIlluminationMethod=1   ; Lumen global illumination
+r.ReflectionMethod=1                  ; Lumen reflections
+r.Shadow.Virtual.Enable=1             ; virtual shadow maps
+r.Nanite.ProjectEnabled=True
+r.GenerateMeshDistanceFields=True     ; software Lumen, distance-field occlusion on Low
+r.RayTracing=True                     ; lets Lumen use hardware ray tracing
+r.Lumen.HardwareRayTracing=True
+r.AntiAliasingMethod=4                ; TSR
+r.AllowStaticLighting=False           ; nothing is baked: both scenarios are fully dynamic
+r.VirtualTextures=True                ; the mural and other very large unique textures
+```
+
 ### 2.5 The shop interior (both scenarios)
 
 A body shop is a bright workplace, and play goes in and out of its doors, so light it generously.
@@ -313,6 +348,9 @@ signage by 0.2** (one material parameter; tune it between 0.1 and 0.25 on hero v
 hold their hue and pink and green show only a pale core). The paired lights keep their physical output. Lamps,
 windows and headlights are not scaled: a clipped white lamp is what a photograph shows.
 
+`T_<Set>_E` stores the emitter's colour and relative intensity (0 to 1). The luminance in nits is a parameter of
+the material instance, taken from this table, and the scenario's signage scale multiplies it.
+
 | Emitter | Physical luminance | DAY in engine | NIGHT in engine | Its light is carried by |
 |---|---|---|---|---|
 | Neon tube, red | 2,000 to 3,000 | physical: a coloured line in shade, nearly invisible in sun | 400 to 600 | rect light, 250 lm per metre of tube |
@@ -344,7 +382,9 @@ Gameplay emitters are authored **relative to scene white**, so they read the sam
 | Explosion fireball | 20 to 50 × white, falling over 0.5 s | black-body orange to yellow |
 
 By day that makes a tracer brighter than anything real. It is the one place where readability is chosen over the
-photograph (DESIGN 8.1: tracers must stay visible against bright walls).
+photograph (DESIGN 8.1: tracers must stay visible against bright walls). The reel's 6 m shaft of gold light and
+its glow on the ground *(game)* are kept for the same reason: draw them as a faint column of lit haze, strongest
+at night; by day the mast and its emissive lens do the work.
 
 Every neon sign has a backing panel whose emissive map carries a blurred copy of its tubes at 10 to 15 % of the
 tube luminance. Thin tubes are too small for Lumen's surface cache; the panel is what bounce light and rough
@@ -393,7 +433,8 @@ Reflections of neon on damp asphalt are long vertical streaks. Do not fake them;
 Positions are the camera. Web coordinates in metres (x east, y up, z south), then Unreal centimetres. Yaw is
 Unreal's (0° east, +90° south). FOV is vertical, at 16:9. Each view has a reference board of real photographs and
 is signed off against it. The gameplay camera is wider (74° vertical, a 16 mm lens): every view must also hold at
-that width with the weapon in frame.
+that width with the weapon in frame. The level spec lists 37 reference cameras of the web game
+(`docs/unreal/spec/05-level.md` 5.4): those must be matched for content; these eight must reach photograph quality.
 
 | # | View | Scenario | Camera (web m) | Camera (Unreal cm) | Yaw, pitch | FOV | What must read |
 |---|---|---|---|---|---|---|---|
@@ -468,9 +509,11 @@ Base colours below are sRGB hex with the linear luminance in brackets. A range i
 **Where surfaces come from**, in order of preference:
 
 1. **Scans.** `art/scans/sets.json` already catalogues about 80 Poly Haven sets (CC0) by surface and place. Quixel
-   Megascans is reported free again on Fab since November 2026: a much larger library with urban surfaces and
-   street props, but it needs the client's Epic account (open question 2). Where a scan's `use` note names a
-   different brick for a building than the table in 4.8, the table decides and the note is an alternative.
+   Megascans is reported free again on Fab since 5 November 2026 (over 23,000 scans, Fab Standard Licence, usable
+   in any tool): a much larger library with urban surfaces and street props. That is newer than the note in
+   `docs/unreal/spec/00-unreal-scout.md` 5.6, it needs the client's Epic account, and `fab.com` is not reachable
+   from the build container (open question 2). Where a scan's `use` note names a different brick for a building
+   than the table in 4.8, the table decides and the note is an alternative.
 2. **Procedural Blender surfaces** (`art/blender/mi/mat.py`) baked to sets, for what scans do not cover: painted
    riveted steel in El green, roll-gate slats, chain-link, awning vinyl, the court coating.
 3. **Hand-made**, for signage and unique artwork.
@@ -533,10 +576,10 @@ wear mask adds dirt.
 | Asphalt, avenue | T | worn `#4E4D4B` to `#666461` [0.07 to 0.13]; fresh patch `#333334` to `#3A3A3B` [0.03 to 0.04] | 0.75 to 0.95; polished wheel paths 0.6 | 0 | Stones of 5 to 12 mm in a dark binder. Utility-cut patches of 0.6 to 1.5 m with tar-sealed edges 50 to 100 mm wide. | Paler and stonier in the wheel paths (binder worn off). A dark oil stripe 0.4 to 0.6 m wide down the middle of every lane, blotched at each parking spot. Alligator cracking where buses stop. Rust-brown dust and paint flakes in two lines under the El's edges and around every column. Concrete collars round manholes. One pothole may show the old granite blocks beneath. |
 | Asphalt, parking lot | T | oxidised `#6F6D69` [0.15] | 0.8 to 0.95 | 0 | As above, older. | An oil spot in every bay, weeds in the cracks, faded 100 mm stall lines, tyre arcs at the entry. |
 | Road paint (thermoplastic) | decal | white `#D2D0C8` [0.63] clean, to [0.35] dirty; yellow `#E0B21A` [0.48] | 0.5 to 0.65 | 0 | Lines 100 to 150 mm wide, 2 to 3 mm thick (a normal map, not geometry). Crossing bars as in the level data. | Worn through in the wheel paths, cracked across, black tyre scuffs, glass-bead sparkle when new. |
-| Concrete sidewalk | T | `#8E8B85` to `#B0ACA3` [0.26 to 0.41]; a new flag `#C2BEB4` [0.52] | 0.7 to 0.9; 0.5 to 0.6 on thresholds polished by feet | 0 | Flags scored at 1.52 m (5 ft). Broom finish across the walking direction, with a smooth tooled band 40 to 50 mm wide along every joint. Expansion joints with black filler every 6 m. | Gum: black spots of 20 to 40 mm, thickest at doors, the bus shelter and corners. A grease trail from each food shop door to the kerb. Rust rings under sign posts and hatches. Cracked and lifted flags at tree pits, mismatched replacement flags. Dark drip patches under every air conditioner. |
+| Concrete sidewalk | T | `#8E8B85` to `#B0ACA3` [0.26 to 0.41]; a new flag `#C2BEB4` [0.52] | 0.7 to 0.9; 0.5 to 0.6 on thresholds polished by feet | 0 | Flags scored at 1.5 m (the real standard is 5 ft, 1.52 m; 1.5 fits the level's 3 m sidewalk modules). Broom finish across the walking direction, with a smooth tooled band 40 to 50 mm wide along every joint. Expansion joints with black filler every 6 m. | Gum: black spots of 20 to 40 mm, thickest at doors, the bus shelter and corners. A grease trail from each food shop door to the kerb. Rust rings under sign posts and hatches. Cracked and lifted flags at tree pits, mismatched replacement flags. Dark drip patches under every air conditioner. |
 | Kerb | T (trim) | concrete as sidewalk; steel face rust `#7A4428` [0.08] | concrete 0.8; steel 0.5 to 0.9 | steel 1 where tyres polish it | 150 mm reveal, 150 to 180 mm top, a steel angle on the nose. | Tyre rubber and paint scrapes on the face, chips at driveways, yellow or red paint at hydrants, litter and silt in the gutter line. |
 | Shop floor slab | T | sealed concrete `#8E8B85` [0.26] with oil-black patches [0.03 to 0.05] | 0.35 to 0.6; oil 0.15 to 0.3 | 0 | Saw-cut joints at 4 to 6 m, a floor drain, yellow safety lines. | Black under each lift and along the walls, clean tracks where cars roll, absorbent granules on fresh spills, weld spatter by the welding rack. |
-| Court coating | T | green `#386148` to `#3F6B52` [0.10 to 0.12]; lines `#E4E2DA` [0.76] | 0.7 to 0.85 (sanded acrylic) | 0 | Lines 50 mm. | Worn to asphalt in the keys and under the hoops, black crack sealant, puddle rings, leaves and litter along the fence foot. |
+| Court coating | T | green `#386148` to `#3F6B52` [0.10 to 0.12]; keys in brick red `#8A3B30` [0.09] *(game: red-brown keys)*; lines `#E4E2DA` [0.76] | 0.7 to 0.85 (sanded acrylic) | 0 | Lines 50 mm. | Worn to asphalt in the keys and under the hoops, black crack sealant, puddle rings, leaves and litter along the fence foot. |
 | Dirt (vacant lot) | T | `#54493C` to `#6B5E4E` [0.07 to 0.12] | 0.9 to 1.0 | 0 | Compacted fill with brick rubble, glass and cinders. | A trodden path, tyre ruts, weeds along the fences, a burnt patch under the car. |
 
 **Masonry**
@@ -548,7 +591,7 @@ wear mask adds dirt.
 | Tan and buff brick (deli, S3 row) | T | `#A08766` to `#C2AA86` [0.26 to 0.42], iron-spot speckle | 0.75 to 0.9 | As face brick, with soldier courses over openings and a cast-stone coping. | Grey-black soot streaks show strongly on pale brick, rust bleeds from lintels, splash-back darkening at the base. |
 | Brown brick (station house block) | T | `#5C4336` to `#6A4E3E` [0.07 to 0.09] | 0.8 to 0.95 | As face brick. | White lime runs from the joints, pale repointing. |
 | Painted brick and block | T | the paint, for example off-white `#C9C4B6` [0.55], dirty `#AAA699` [0.38] | 0.6 to 0.75 | Paint fills the pores and softens the joints; the bond still shows. | Peeling in sheets from damp at the base and below the coping, rectangles of mismatched overpaint where tags were covered, hand-height grime. |
-| Concrete block (V&R Auto Body) | T | raw `#979590` to `#A8A59E` [0.30 to 0.38] | 0.9 to 0.95, open-pored | 397 × 194 mm face, 10 mm joints, running bond. | Stair-step cracks from the corners of openings, chipped corners at bumper height, a dark dado band of paint to 1.2 m, rust below the steel lintel, exhaust soot above each door. |
+| Concrete block (V&R Auto Body) | T | raw `#979590` to `#A8A59E` [0.30 to 0.38] | 0.9 to 0.95, open-pored | 397 × 194 mm face, 10 mm joints, running bond. | Stair-step cracks from the corners of openings, chipped corners at bumper height, a dark blue-green dado band of paint to 1.2 m (game hue `#27414B`), rust below the steel lintel, exhaust soot above each door. |
 | Mortar | in the brick sets | grey-buff `#9A968C` [0.31]; sooty `#6E6A62` [0.15] | 0.9 | Recessed 2 to 6 mm (a normal and height map). | Eroded deeper on weather sides, lighter and harder-edged where repointed. |
 | Stucco and cement patch | T | `#B7AE9A` [0.43] | 0.85 to 0.95 | Trowel sweeps of 0.3 to 0.6 m. | Map cracking, damp lines, the scar where a cornice came off. |
 | Glazed tile (bulkheads) | T | white `#D9D6CC` [0.67]; grout [0.10] | 0.08 to 0.2, crazed | 75 × 150 mm or 100 mm square. | Cracked and missing tiles at kick height, grime in the grout, splash-back. |
@@ -565,7 +608,7 @@ wear mask adds dirt.
 | Raw steel with mill scale (road plates, new repair steel) | T | `#6E7175` [0.16]; wheel-polished `#C5C7C8` | 0.45 to 0.6; polished 0.25 to 0.35 | 1 | Plates 1.2 × 2.4 m, 25 mm thick. | Bright in the wheel tracks, orange at the edges, a sprayed owner's mark (invented). |
 | Galvanised steel | T | new `#C3C7CA` [0.57]; weathered `#9DA1A4` [0.35] | new 0.35 to 0.5 with spangle crystals of 5 to 20 mm; weathered 0.55 to 0.7 | 1; white-rust patches 0 | Pipe 42 to 73 mm, sheet, wire. | Dull grey with age, white bloom where water sits, red rust at cut ends, welds and scratches. |
 | Chain-link | T, alpha | as galvanised | as galvanised | 1 | 50 mm diamond, 3.0 to 3.8 mm wire, knuckled or twisted at the top. | Bulged where people lean and balls hit, curled up at the bottom where people crawl under, wire patches, plastic bags and a litter line at the foot, torn scrim on cable ties. |
-| Corrugated and box-profile sheet | T | galvanised or painted | 0.45 to 0.7 | 1 where bare | Corrugation 76 mm pitch, 19 mm deep (geometry). | Rust along laps and at every fixing, dents, paint peeling in sheets. |
+| Corrugated and box-profile sheet | T | galvanised or painted | 0.45 to 0.7 | 1 where bare | Corrugation 68 mm pitch, 22 mm deep, or 64 × 13 mm (geometry). | Rust along laps and at every fixing, dents, paint peeling in sheets. |
 | Cast iron (hydrants, covers, grates) | U or T | polished high spots `#8A8C8E` [0.26]; recesses hold dirt [0.03 to 0.06] | 0.35 to 0.5 polished; 0.9 in recesses | 1 on polished iron, 0 elsewhere | Cover patterns 3 to 5 mm high (normal map). Covers sit 5 to 20 mm proud or sunk (geometry). | Tyre-polished on the road, rust-brown on sidewalks, asphalt lapped over the frame. Covers carry generic words only: SEWER, WATER, ELECTRIC. |
 | Tread plate (cellar hatches, steps) | T | painted or galvanised | 0.4 to 0.6 | 1 where worn | Lugs 25 to 30 mm long, 1.5 to 2 mm high (normal map). | Paint gone and lugs bright down the middle, rust at hinges, a padlock. |
 | Aluminium storefront framing | T (trim) | clear anodised `#D6D8DA` [0.69], or dark bronze | 0.3 to 0.45, fine extrusion lines | 1 | Mullions 45 to 50 mm wide. | Scratches and tape residue at hand height, white corrosion at the sill, mastic smears. |
@@ -577,7 +620,7 @@ wear mask adds dirt.
 
 | Family | Set | Values | Real scale | Wear |
 |---|---|---|---|---|
-| Storefront plate glass | T (dirt) | F0 0.04, roughness 0 to 0.05, a faint green tint at the edges | 10 to 12 mm, in panes up to 2.4 m wide. Tempered glass shows a slight roller wave: reflections of the El bend a little. | A dirty film in the bottom 0.4 m (splash-back), handprints at the pull, tape and sticker ghosts, a paper sign taped inside, a security grille or a display behind. |
+| Storefront plate glass | T (dirt) | F0 0.04, roughness 0 to 0.05, a faint green tint at the edges | 6 to 10 mm, in panes up to 2.4 m wide. Tempered glass shows a slight roller wave: reflections of the El bend a little. | A dirty film in the bottom 0.4 m (splash-back), handprints at the pull, tape and sticker ghosts, a paper sign taped inside, a security grille or a display behind. |
 | Upper-storey windows | T | as above. Opaque glass with a parallax room behind it for upper floors; real shallow rooms at street level | Double-hung, 1.1 × 1.65 m opening *(game)* | Rain-spotted dust, one pane cracked and taped, blinds half down, foil, a fan, a plant. By day they mirror the sky and the facade opposite; you see in only where the reflection is dark. |
 | Wired glass (shop doors, skylights) | T | translucent, pebbled, roughness 0.3 to 0.5 | 12 mm square wire mesh | Yellowed, cracked along the wires, paint overspray. |
 | Vehicle glass | U | tinted green-grey, darker privacy glass on the SUV | Dotted black border, heater lines, inspection and registration stickers (invented) | Wiper arcs in the dust, bird marks, a parking ticket (invented form). |
@@ -589,6 +632,7 @@ wear mask adds dirt.
 | Roll-gate slats | T | painted grey, brown, black or forest green, or bare galvanised | 0.4 to 0.6 | 1 only where rubbed bare | Curved slats at 75 mm pitch (geometry), side guides 60 to 75 mm deep, a hood box 0.35 to 0.4 m square, a bottom bar with padlock hasps. Newer gates are perforated or open grille. | Dented in the bottom third (kicks, hand trucks), bright rub tracks in the guides, rust at slat ends and below the hood, layers of tags and paint-out rectangles. |
 | Awning vinyl | T | green `#1F5A3A` [0.08], red `#B3261E` [0.11], navy `#1C2F5A` [0.03] *(game colours)* | 0.35 to 0.5; sun-chalked 0.6 to 0.7 | 0 | Laminated fabric on a welded 25 mm square-tube frame. Valance 0.2 to 0.3 m. | Sagging between frame bars with a pooled-water stain, dirt runs from the top edge, faded on the side the sun reaches, guano, a torn corner. One frame on the block has lost its fabric. |
 | Canvas | T | natural `#B8AE98` [0.43] or dyed, stripes 100 to 150 mm | 0.85 to 0.95 | 0 | Weave visible only within 0.5 m (detail set). | Mildew spots in the folds, bleached where sunlit, frayed edges. |
+| Debris netting, scrim, tarpaulin | T, alpha for netting | netting rust-orange `#C4571A` [0.19] *(game)*; fence scrim and tarps dark green `#2C5A3A` [0.08] | 0.6 to 0.8 | 0 | Knitted mesh with 2 to 4 mm holes and reinforcing tapes every 60 mm; hemmed edges with eyelets every 0.5 m. | It reads as solid from the street because its collision is solid: dense, dusty, doubled where it laps. Torn at corners, sagging between ties, bleached in bands, snagged litter. |
 | Moulded plastic (crates, barrels, cones, bins, toilet) | U | traffic orange `#E8641B` [0.26]; bins dark green or grey; crates red, blue, black | 0.4 to 0.6; sun-chalked 0.7 | 0 | Milk crate 330 × 330 × 280 mm. Barrel bands of reflective sheeting 100 to 150 mm. | Scuffed white at edges, chalky and faded on the sun side, tyre rubber on barrels, cracked corners. No dairy names on crates. |
 | Black trim plastic (vehicles) | U | `#2B2B2D` [0.02]; faded `#56565A` [0.09] | 0.55 to 0.75, fine grain | 0 | n/a | Greys with sun, wax residue in the grain. |
 | Refuse sacks | U | black `#2A2A2C` [0.02]; clear recycling sacks show cans and bottles | 0.2 to 0.4, sharp wrinkles | 0 | 0.5 to 0.7 m sacks, piled at the kerb. | Stretched pale at the knot, a split with something spilling, a wet patch beneath. |
@@ -599,8 +643,8 @@ wear mask adds dirt.
 | Family | Set | Base colour | Roughness | Real pattern scale | Where it wears, and why |
 |---|---|---|---|---|---|
 | Track ties | T | creosoted `#3E352D` [0.04] to weathered `#5A5148` and `#6E665C` [0.09 to 0.14] | 0.6 to 0.85 | 220 × 180 mm section, 2.7 m long, every 0.56 m *(game)*. Checks (splits along the grain) 2 to 10 mm wide. | Seen from below: rust-orange brake dust, black grease drips, guano, tie plates and spikes bleeding rust. |
-| Planks and scaffold boards | T | `#7A6E5E` [0.16]; new boards paler | 0.75 to 0.9 | 225 × 38 mm boards, 3.9 m long, banded ends. | Grey with weather, concrete splashes, boot-polished centres. |
-| Plywood | T | raw `#A98A5C` [0.27]; hunter green paint `#355E3B` [0.09], faded `#4A6B50` [0.13] | 0.7 to 0.9 | 1.22 × 2.44 m sheets, face grain running the long way. | Delaminating at the bottom edge, patches of newer green, "POST NO BILLS" stencil, paste and poster layers. |
+| Planks and scaffold boards | T | `#7A6E5E` [0.16]; new boards paler | 0.75 to 0.9 | 235 × 38 mm planks, 2.4 to 4.9 m long, ends cleated or banded. | Grey with weather, concrete splashes, boot-polished centres. |
+| Plywood | T | raw `#A98A5C` [0.27]; hunter green paint `#355E3B` [0.09], faded `#4A6B50` [0.13] (the game's hoarding green is `#23463C`: keep that hue, at these values) | 0.7 to 0.9 | 1.22 × 2.44 m sheets, face grain running the long way. | Delaminating at the bottom edge, patches of newer green, "POST NO BILLS" stencil, paste and poster layers. |
 | Pallets, crates, cardboard | U or T | wood as planks; cardboard `#9A7B52` [0.22] | 0.85 to 0.95 | Pallet 1.2 × 1.0 × 0.144 m. | Broken boards, strap marks; cardboard dark and slumped where it has been wet. |
 | Roofing | T | bitumen `#2F2F31` [0.03]; silver coating `#A9ACAE` [0.41] | bitumen 0.8 to 0.95; silver 0.5 to 0.6 | Rolls 1 m wide with lapped seams, flashing up the parapet. | Ponding rings, patches of fresh tar, blisters, gravel drifted to the drains. Seen from the title camera only. |
 | Water-tank staves | T | weathered cedar `#6E665C` [0.14] | 0.8 to 0.9 | Staves 100 to 150 mm, steel hoops closer together toward the bottom. | Dark and green below the overflow, rust lines under every hoop. |
@@ -682,7 +726,7 @@ is an invented string.
 | Brick | 194 × 57 × 92 mm with joints of about 10 mm, on the 8-inch module: 3 courses = 203 mm, 10 stretchers = 2.03 m | measured |
 | Concrete block | 397 × 194 mm face, joints of about 10 mm: 5 blocks = 2.03 m, 10 courses = 2.03 m | measured |
 | Kerb | 150 mm reveal, 150 to 180 mm top, steel-faced nose | game, measured |
-| Sidewalk flag | 1.52 m square, score joints 8 mm wide and 10 mm deep | measured |
+| Sidewalk flag | 1.5 m square (real 1.52 m, trimmed to fit the 3 m sidewalk modules), score joints 8 mm wide and 10 mm deep | chosen |
 | Door leaf | 2.03 × 0.91 m, in a 50 mm frame | measured |
 | Shop door opening | 1.25 m wide: one 0.91 m leaf with a fixed sidelight, or a pair of narrow leaves | game |
 | Storefront | bulkhead top 0.78 m, glass head 2.84 m, sign band from 2.84 to 3.8 m | game |
@@ -708,10 +752,16 @@ is an invented string.
 | People | Goon 1.80 m; the player's eye at 1.68 m standing, 1.05 m crouched | game |
 
 **The gameplay silhouette contract.** Every prop fills its catalogue box (`src/config/catalog.js`, length × height ×
-width) within 5 % (2 cm at least), and its cover height is exact to 2 cm: car bonnets 1.0 m, sedan roofs 1.45 m,
-jersey barriers 0.81 m, refuse-sack piles 0.7 m, crate stacks 1.0 m, traffic barrels 1.0 m, newspaper boxes 1.1 m,
-mailboxes 1.25 m, dumpsters 1.35 m. Collision is the port's simple boxes, never the render mesh, so the mesh must
-not be visibly smaller than its box (bullets would stop in air) nor larger (the player would clip through it).
+width) within 5 % (2 cm at least), and its cover top is exact to 2 cm. The code's collider tops are the truth
+(`docs/unreal/spec/05b-props.md` 2.3; they differ a little from the round numbers in DESIGN section 4): sedan and
+taxi body 1.08 m and cabin 1.45 m, SUV body 1.24 m, jersey barrier 0.81 m, refuse-sack pile 0.62 m, crate stack
+0.90 m, traffic barrel 0.98 m, newspaper box 1.08 m, mailbox 1.20 m, dumpster 1.30 m. A crouched eye is at 1.05 m,
+a standing one at 1.68 m: those two lines decide what is cover. Collision is the port's simple boxes, never the
+render mesh, so the mesh must not be visibly smaller than its box (rounds would stop in air) nor larger (the
+player would clip through it). Level modules keep their collision faces, cover heights and openings exactly
+(`docs/unreal/spec/05-level.md` 5.1); relief that carries no collision (piers, cornices, awnings, sign boxes) may
+stand proud. Where the web game draws mesh or netting over a solid collider, make the thing look as solid as it
+plays: scrim, tarp, stacked contents.
 
 ### 4.2 Bevels
 
@@ -846,6 +896,15 @@ and it is what makes a row read as real.
 on 150 m each way. Past that the city is painted cards sunk in the haze: low brick blocks, water tanks, a couple of
 distant towers. No recognisable landmark.
 
+**The four gameplay props** are hero objects: the player stands over them and looks at them on purpose.
+
+| Prop (catalogue id) | What it is | Must show |
+|---|---|---|
+| `master_case` (0.9 × 1.05 × 0.6 m with the lid up) | A touring flight case: black laminate panels in aluminium edge extrusion, steel ball corners, butterfly latches, recessed handles, foam inside. On the foam, a gold 267 mm tape reel with its tape pack. A small display in the lid shows the grab progress. A beacon mast to 1.35 m with a gold lamp, so it shows over waist-high cover. An IPX tracker tag on the handle. | Scuffed laminate, dented extrusion, sticker ghosts, the reel immaculate. Lid shut and lamp off once taken. |
+| `boombox` (0.6 × 0.35 × 0.25 m) | A portable stereo of an invented make beside each case. | Moving speaker cones, a level meter, worn buttons. |
+| `propane_tank` (0.32 × 0.6 m) | A painted steel cylinder with a collar, a valve and a foot ring. | Chipped paint, rust at the foot ring, generic warning stencils; glows dull red while its fuse burns; a scorched foot remains. |
+| `welding_rack` (0.9 × 1.6 × 0.5 m) | Two gas cylinders chained to a hand truck, with regulators, twin hose and a torch. | Cylinders in two colours with worn shoulders, cracked hose, soot. |
+
 ---------------------------------------------------------------------------------------------------
 
 ## 5. Signage and branding
@@ -856,8 +915,8 @@ distant towers. No recognisable landmark.
   person appears anywhere, at any size, including look-alikes.
 - IPX is the only real brand: the wordmark "IPX" and the address "IPX.EXCHANGE". No slogan, no invented IPX
   product or claim.
-- The only real person connected to the game is the player character, who is never seen. "RULE" appears as
-  lettering only. No face or likeness of anyone appears on a poster, mural or screen.
+- The only real person connected to the game is the player character, who is never seen. "RULE" and "JA RULE"
+  appear as lettering only. No face or likeness of anyone appears on a poster, mural or screen.
 - A sign is an object before it is a picture: a carrier, a face, a light source, wiring, fixings. Model those,
   then apply the artwork.
 
@@ -886,7 +945,7 @@ distant towers. No recognisable landmark.
 | CROWN & FADE BARBER | N1 | 8.2 m | Exposed red glass neon on a black pan; navy canvas awning; a turning barber pole in a glass cylinder with chrome caps | neon `#FF3030`; awning `#1C2F5A` | Neon on, pole lit |
 | 24 HR LAUNDROMAT | N1 | 8.8 m | Lightbox; full-height glass showing rows of machines | dark blue field `#0D3550`, off-white letters | Lit, with a cold 5,000 K interior |
 | V&R AUTO BODY | the shop, over the roll door | 8.0 × 1.05 m | Lightbox with an opaque black face and translucent gold letters, so only the letters glow | black, gold `#F6C21A` | Letters lit |
-| "TIRES · BRAKES · EXHAUST", "INSPECTIONS · 24 HR TOWING" | shop front | 5.4 and 5.6 m | Hand-painted on the block | cream `#E9E2CF` on blue-grey `#1A2B3A` | Unlit |
+| "TIRES · BRAKES · EXHAUST", "INSPECTIONS · 24 HR TOWING" | the shop's fascia: a corrugated steel band 29.4 × 1.3 m across the whole front | 5.4 and 5.6 m | Hand-painted on the corrugated sheet, the brush riding the ribs | cream `#E9E2CF` on the fascia's blue-grey `#1A2B3A` | Unlit |
 | "FLAT FIX / NO APPOINTMENT", "USED TIRES" | shop front | 2.6 m, 2.0 m | Stencil | off-white; taxi yellow | Unlit |
 | V&R AUTO BODY · "COLLISION · FRAME · PAINT" | tenement's east party wall, above the shop roof | 12 × 3.2 m | Painted straight on common brick, twenty years faded | cream on `#1D2F3F` | Unlit |
 | CHECKS CASHED · "MONEY ORDERS · BILLS PAID" | S1 | 7.7 m | Green neon in open-face letters on a raceway; second line in white cut vinyl on the window band | neon `#55FF8A` | Neon on |
@@ -898,7 +957,7 @@ distant towers. No recognisable landmark.
 | LUCKY NAILS · "MANICURE · PEDICURE" | S3, behind the shed | 8.5 m | Pink LED flex in an acrylic box, above a solid roll gate that is down and tagged | pink `#FF3D9A` | Sign on, shop shut |
 | The three S3 names again | on the shed parapet, facing the street | 4.9 × 0.78 m each | Printed vinyl banners tied to the hunter-green boards | chicken: red on yellow; liquor: red on black; nails: pink on dark plum `#2A0F1E` | Lit by the shed bulbs and the street |
 | "SIDEWALK SHED · PERMIT 0214 · STORES OPEN DURING WORK", "POST NO BILLS" | shed skirt and hoardings | 5.6 m; 1.5 m | Stencil on green boards | off-white `#E6E4DC` | Unlit |
-| PARK · "24 HR · PAY AT BOOTH" | lot | 5 × 1.6 m; neon 1.7 × 1.5 m | Painted board on the wall; cyan neon on the booth | white on blue `#1F4F9A`; neon `#35E0FF` | Neon on |
+| PARK · "24 HR · PAY AT BOOTH" | lot | wall sign 5 × 1.6 m; pylon 1.8 m wide and 5.6 m tall with a 1.7 × 1.5 m neon face | Painted board on the wall; a pole-mounted cabinet with cyan neon at the entry | white on blue `#1F4F9A`; neon `#35E0FF` | Neon on |
 | 188 ST · "ELEVATED · CLOSED 1 AM – 5 AM", "STATION CLOSED" | station mezzanine and stairs | 4.6 × 0.82 m; 1.5 × 0.42 m | Enamel plates | black, white | Small fixtures; green globes at the stair foot |
 | ROAD CLOSED, SIDEWALK CLOSED, EL REPAIRS, DANGER | closures and shed | 1.3 to 3.4 m | Road-work plates and boards | orange `#E8641B`, black; white and red | Reflective |
 
@@ -927,7 +986,7 @@ in the exported data. Graffiti is spray paint: soft-edged, dripping, layered, in
 | IPX truck livery | Cut vinyl on gloss black armour: the lozenge, a thin gold rule, "IPX.EXCHANGE"; a gold waist band; the lozenge again on the bonnet; yellow and black chevrons on the rear step | flank mark 3.5 × 0.875 m; band 110 mm; bonnet mark 0.8 × 0.33 m *(game)* | Immaculate. The cleanest object on the block. |
 | Billboard | Printed vinyl stretched over panel sections on a steel frame with a grating catwalk, a caged ladder and four lamp arms | face 8.9 × 4.0 m, underside at 6.7 m, on two legs *(game)* | Black field, white lozenge, gold rule, the address. Strap wrinkles at the corners, panel seams showing through, an older poster edge at one side. |
 | Mural | Masonry paint on the pawn building's common-brick side wall | 12 × 7.6 m *(game)* | See 5.5. |
-| Bus-shelter advert | Back-lit poster behind glass in the shelter's end panel | 1.2 × 1.8 m | Lozenge and address on black. |
+| Bus-shelter advert | Back-lit poster behind glass in the shelter's advert box, both faces | 1.14 × 1.72 m *(game)* | The game's own one-sheet *(game)*: "IPX PRESENTS", the title in two lines ("MURDER" white, "INC." gold), "STARRING JA RULE", a gold rule, the lozenge, the address. Lettering only, no portrait. |
 | Reel-case tracker tags | Moulded white plastic hang tag on a cable tie: lozenge, "TRACKER", a barcode pattern that encodes nothing | 80 × 40 mm | Clean, new. |
 | Posters | Wheat-pasted paper | 0.6 × 0.9 m | Wrinkled, overlapped, torn. |
 
@@ -963,8 +1022,11 @@ the faces and the spacing accordingly.
   bullets (1, 2, 3 and IPX in the game's colours) are the only route bullets.
 - No postal eagle, no city or police or fire insignia, no real taxi authority logo. The cab says "NYC TAXI" in a
   plain face with an invented medallion number *(game)*.
-- Licence plates: a plain pale plate with dark characters and "NEW YORK" in a plain face, no state artwork, no
-  readable words in the characters.
+- Licence plates *(game)*: a plain pale plate with dark characters, "NEW YORK" in a plain face and a gold band
+  along the bottom; the cab's is yellow with a navy band. No state artwork. The five plate strings are the game's
+  (`docs/unreal/spec/05b-props.md` 2.4); none reads as a word or a name.
+- The names that do appear, by design: the title "MURDER INC.", "JA RULE" and "RULE", "IPX" and "IPX.EXCHANGE", and
+  real places ("NEW YORK", "NYC", "QUEENS", "HOLLIS", "JAMAICA AV"). Everything else is invented.
 - Phone numbers use (718) 555-01xx. Web addresses other than IPX.EXCHANGE are not shown.
 - QR codes and barcodes are patterns that do not scan.
 - Paint and print colours stay inside the base-colour range of 3.1.
@@ -1046,25 +1108,27 @@ at slightly different angles to the kerb.
 | Option | You get | Cost | Verdict |
 |---|---|---|---|
 | A. All in Blender | Invented makes by construction, sizes exact. | No money. Car surfacing to this bar is three to six weeks of a vehicle artist's time per car; scripted modelling gives a plausible but simpler body. | Use for the special vehicles and for placeholders. |
-| B. City Sample Vehicles (Fab) | Thirteen driveable, unbranded, production-quality vehicles made by Epic, with interiors and damage. | Free. Licensed for Unreal Engine projects only. A multi-gigabyte download through the client's Epic account. Sizes must be matched to the catalogue. | **Recommended for the ordinary fleet.** |
+| B. City Sample Vehicles (Fab) | Thirteen driveable, unbadged, production-quality vehicles made by Epic, with interiors and damage. | Free. Licensed for Unreal Engine projects only. A multi-gigabyte download through the client's Epic account. Sizes must be matched to the catalogue. The shapes echo real cars: check each against 5.7 and restyle grille, lamps and badge areas where one is too close to a real model. | **Recommended for the ordinary fleet.** |
 | C. Marketplace vehicle packs | Variety. | Roughly 50 to 400 US dollars. Real-make look-alikes are common: a trade-dress risk. | Avoid. |
 
-| Vehicle (catalogue id) | Box L × H × W (m) | Cover height | Source |
+| Vehicle (catalogue id) | Box L × H × W (m) | Collider tops (m) | Source |
 |---|---|---|---|
-| `sedan` | 4.6 × 1.45 × 1.85 | bonnet 1.0, roof 1.45 | City Sample, repainted in the fleet colours |
-| `taxi` | 4.7 × 1.55 × 1.85 | as sedan; roof light above | City Sample sedan plus a Blender kit: roof light, livery, partition |
-| `suv` (Rule's is black) | 4.9 × 1.82 × 2.0 | 1.82 | City Sample |
-| `pickup` | 5.3 × 1.8 × 2.0 | bed sides about 1.3 | City Sample |
-| `van`, and the Vultures' van with its doors open | 5.2 × 2.2 × 2.0 | hard cover | City Sample if its rear doors open; otherwise Blender |
-| `box_truck` | 7.4 × 3.3 × 2.45 | hard cover | City Sample or Blender (a box is easy) |
-| `burned_car` | 4.5 × 1.3 × 1.8 | 1.3 | Blender, from a sedan body |
-| `ipx_truck` | 6.8 × 3.0 × 2.5 | hard cover, extraction | **Blender**: a unique hero, flat armour plate suits the pipeline |
-| `motorbike` | 2.0 × 1.1 × 0.7 | 1.1 | Blender (a delivery moped), or a marketplace model checked against 5.7 |
-| `food_cart` | 2.4 × 2.25 × 1.4 | hard cover | Blender |
+| `sedan` | 4.6 × 1.45 × 1.85 | body 1.08, cabin 1.45 | City Sample, repainted in the fleet colours |
+| `taxi` | 4.7 × 1.55 × 1.85 | body 1.08, cabin 1.45; roof light above | City Sample sedan plus a Blender kit: roof light, livery, partition |
+| `suv` (Rule's is black) | 4.9 × 1.82 × 2.0 | body 1.24, cabin 1.78 | City Sample |
+| `pickup` | 5.3 × 1.8 × 2.0 | body 1.27, cabin 1.78 | City Sample |
+| `van`, and the Vultures' van with its doors open | 5.2 × 2.2 × 2.0 | 2.14 | City Sample if its rear doors open; otherwise Blender |
+| `box_truck` | 7.4 × 3.3 × 2.45 | cab 2.28, box 3.30 | City Sample or Blender (a box is easy) |
+| `burned_car` | 4.5 × 1.3 × 1.8 | body 0.96 | Blender, from a sedan body |
+| `ipx_truck` | 6.8 × 3.0 × 2.5 | cab 2.58, vault 2.86; the extraction point | **Blender**: a unique hero, flat armour plate suits the pipeline |
+| `motorbike` | 2.0 × 1.1 × 0.7 | 0.95 | Blender (a delivery moped), or a marketplace model checked against 5.7 |
+| `food_cart` | 2.4 × 2.25 × 1.4 | 1.25 | Blender |
 | The train (five cars, 15.4 × 3.55 × 2.9 m each) | n/a | n/a | Blender: unbranded stainless cars, trucks and shoes modelled, amber destination text of our own |
 
-Whatever the source, each vehicle is scaled to its box within 3 % and its bonnet and roof are checked against the
-cover heights. Until the Fab vehicles are in the project, Blender proxies of the same names and sizes stand in.
+Whatever the source, each vehicle is scaled to its box within 3 % and its body and cabin are checked against the
+collider tops: a sourced sedan whose bonnet is lower than about 0.95 m leaves the player's cover invisible. The
+web game's car glass is near-black; the rebuild uses a medium tint, so every car needs its simple interior. Until
+the Fab vehicles are in the project, Blender proxies of the same names and sizes stand in.
 
 ---------------------------------------------------------------------------------------------------
 
@@ -1077,7 +1141,7 @@ lamps), cast shadows where they are dense, and never glow by default.
 |---|---|---|
 | **Muzzle flash** | One to three milliseconds: a single frame. The CHOPPER's booster throws a ball with side jets; the NINE a small bloom above the slide. | One frame of flash (flipbook variants, random roll), a one-frame light that casts first-person shadows, a wisp of grey gas that drifts with the wind, heat shimmer after a long burst. Never a lingering fireball. Brass ejects as modelled casings that bounce, ring and stay a few seconds. |
 | **Tracers** | A thin streak. | Levels and colours as 2.7. A faint heat ripple behind it by day so it shows against a bright wall. |
-| **Impacts** | Each surface answers differently. | Brick: orange-red dust and chips, a pale pock. Concrete: grey-white dust, a crater showing aggregate. Asphalt: dark grit, a small divot. Car body: a one-frame spark, a dimpled hole with a bright ring and flaked paint. Car glass: side windows crumble to cubes, windscreens star and whiten. Shop glass: a starred hole. Wood: pale splinters. Dirt: clods. Water: a splash. Chain-link: a spark and a ring of the mesh. Sandbag: a trickle of sand. A Goon: a puff of cloth fibre and dust, no blood (DESIGN section 1). Decals are parallax or mesh-backed holes, not flat stickers. |
+| **Impacts** | Each surface answers differently. | Brick: orange-red dust and chips, a pale pock. Concrete: grey-white dust, a crater showing aggregate. Asphalt: dark grit, a small divot. Car body: a one-frame spark, a dimpled hole with a bright ring and flaked paint. Car glass: a starred, whitened crater; it does not shatter, because car glass stops rounds in the game. Shop glass: a starred hole. Wood: pale splinters. Dirt: clods. Water: a splash. Chain-link: a spark and a ring of the mesh. Sandbag: a trickle of sand. A Goon: a puff of cloth fibre and dust, no blood (DESIGN section 1). Decals are parallax or mesh-backed holes, not flat stickers. |
 | **Explosions** | Propane: a roaring jet for the fuse (1.6 s), then a rolling fireball 4 to 5 m across that lifts and blackens in under a second. Welding rack: sharper and whiter, with a shower of sparks. | Flipbooks rendered from a fluid simulation, lit sparks with collision, tank halves and shrapnel as meshes, a dust ring racing along the ground, a scorch decal, a smoke column for 6 to 10 s leaning with the wind, a flash light that falls over 0.3 s, shop glass rattling in its frames. |
 | **Steam** | White when the sun is behind it, grey when lit from the front, the colour of the nearest lamp at night. | Volumetric-lit sprites or a fluid sprite sheet rising about 6 m and shearing in the wind; thin (you see through it). |
 | **Dust and grit** | The El sheds rust flakes and dust when a train passes; a car lot is dusty. | Curtains of fine dust in the bars of sun under the deck, heavier flakes falling straight; a puff at the feet on landing; dust kicked by impacts and blasts hangs in the shafts of light. |
@@ -1107,6 +1171,10 @@ with intensity stems: render or re-record it, never replace it with a real song 
 
 ### 8.1 Build order
 
+Every module and prop, with its mesh name, size, count and gameplay role, is listed in
+`docs/unreal/spec/05-level.md` 5.1 and `docs/unreal/spec/05b-props.md` 5.1 (briefs in `docs/unreal/spec/assets/`).
+Where those lists give a priority, the tiers below refine it: Tier 0 comes first whatever else is ready.
+
 **Tier 0: the benchmark photograph.** One bay of the avenue, finished, before anything else is started. It is hero
 view H1 and it proves the whole look.
 
@@ -1124,8 +1192,9 @@ view H1 and it proves the whole look.
 
 | Group | Assets |
 |---|---|
-| Architecture | Tan-brick taxpayer row (S3), V&R Auto Body shell and interior, deli block, station house block, pawn and records block, rear-lane garages, the sealed station and its stairs, the sidewalk shed |
-| Yards | Fence kit (the Cage, vacant lot, alley gate), court surface, hoops, bleachers, flood poles, lot booth, low wall, light poles, billboard, mural |
+| Architecture | Tan-brick taxpayer row (S3), V&R Auto Body shell and interior, deli block, station house block, pawn and records block, rear-lane garages and loading dock, the sealed station and its stairs |
+| Street structures (hard cover and sightline breaks) | The sidewalk shed, hoardings, the two rolling repair scaffolds with their debris netting, the hoist tower, the two shut kiosks, the tyre cage, the produce stand, the utility dig with its steam stack, the site shanty |
+| Yards | Fence kit (the Cage, vacant lot, alley gate), court surface, hoops, bleachers, flood poles, lot booth, low wall and rail, barrier arm, PARK pylon, light poles, billboard, mural |
 | Vehicles | `suv`, `van` (and the Vultures' van), `box_truck`, `pickup`, `burned_car`, `ipx_truck` |
 | Cover props | `jersey_barrier`, `dumpster`, `trash_bags`, `milk_crates`, `traffic_barrel`, `newspaper_box`, `mailbox`, `hydrant` and `hydrant_open`, `bus_shelter`, `food_cart`, `pallet_stack`, `crate_wood`, `tire_stack`, `oil_drum`, `sandbags`, `barricade` |
 | Gameplay props | `master_case` with the reel and boombox, `propane_tank`, `welding_rack` |
@@ -1247,7 +1316,7 @@ Without MegaLights the night scene fits only inside the shadow budget of 2.8 (24
 | Draw calls outside Nanite | 1,500 |
 | Local lights at night | 80 in the level; without MegaLights 24 shadowed near the player, 4 to 6 overlapping per pixel |
 | Translucent overdraw | four layers at most over any quarter of the screen |
-| Enemies | 12 Goons and 8 Buzzards at most alive *(game)*, six bodies |
+| Enemies | at most 13 alive at once, from pools of 12 Goons and 8 Buzzards *(game)*; six bodies |
 | Processor | game thread 6 ms, render thread 6 ms |
 
 ### 9.3 What scales, in this order
@@ -1291,12 +1360,13 @@ enemy readability (pale mask, tracers, muzzle flashes), sign legibility, cover s
 
 For the client or the art lead. Each has a default, used until someone decides otherwise.
 
-1. **Platform and engine version.** Which platforms and minimum card, and which Unreal version? Default: PC,
-   the target tier of 9.1, Unreal 5.8 (MegaLights is production-ready there, which the night scene wants).
+1. **Platform and minimum card.** The port targets Unreal 5.8 (`docs/unreal/spec/00-unreal-scout.md`), which
+   suits the look: MegaLights is production-ready there and the night scene wants it. Which platforms, and what
+   is the weakest card that must run it? Default: PC, the tiers of 9.1.
 2. **Epic-account content.** May the project depend on City Sample Vehicles, MetaHuman, Lyra and the Game Animation
-   Sample (free, Unreal-only licences), and on Megascans (reported free again since November 2026)? Someone with
-   the client's Epic account must download them; the build container cannot. Default: yes, with Blender proxies
-   until they arrive.
+   Sample (free, Unreal-only licences), and on Megascans (reported free again since 5 November 2026)? Someone with
+   the client's Epic account must download them; the build container cannot reach `fab.com`. Default: yes, with
+   Blender proxies and the Poly Haven scans until they arrive.
 3. **IPX identity.** The real logo as a vector, the brand colours and typeface, and sign-off on the truck livery,
    billboard and mural artwork. Default: the typeset lozenge.
 4. **Rule's arms.** Skin-tone reference for the star's forearms; whether tattoos appear (they need his approval
@@ -1320,3 +1390,24 @@ For the client or the art lead. Each has a default, used until someone decides o
     set for a figure nobody sees. Default: yes to the shadow, no to visible legs and reflections.
 13. **Reference photography.** Who collects the reference boards for the eight hero views, and where are they
     kept? Default: the art lead, outside the repository.
+
+---------------------------------------------------------------------------------------------------
+
+## 11. Sources for the time-sensitive claims
+
+Checked by web search in November 2026. The pages themselves could not be opened from the build container
+(`www.unrealengine.com` and `dev.epicgames.com` are outside its allowed network), so confirm each before relying
+on it. Everything else in this document is physics, standard dimensions, the web game, or art direction.
+
+| Claim | Where |
+|---|---|
+| Unreal 5.8 (June 2026): MegaLights production-ready, Lumen Lite in beta, last planned major 5.x release | [Unreal Engine 5.8 is now available](https://www.unrealengine.com/news/unreal-engine-5-8-is-now-available), [5.8 release notes](https://dev.epicgames.com/documentation/unreal-engine/unreal-engine-5-8-release-notes) |
+| Unreal 5.7 (November 2025): MegaLights beta, Substrate production-ready | [Unreal Engine 5.7 is now available](https://www.unrealengine.com/news/unreal-engine-5-7-is-now-available) |
+| Low and Medium scalability switch Lumen off by default; High targets 60 frames per second on consoles, Epic 30 | [Lumen performance guide](https://dev.epicgames.com/documentation/unreal-engine/lumen-performance-guide-for-unreal-engine) |
+| Emissive is expressed in cd/m², exposure in EV100 | [Using physical lighting units](https://dev.epicgames.com/documentation/unreal-engine/using-physical-lighting-units-in-unreal-engine) |
+| MetaHuman is licensed under the Unreal Engine licence from 5.6 | [MetaHuman licence](https://www.metahuman.com/license) |
+| City Sample Vehicles: 13 driveable vehicles, licensed for Unreal Engine products only | [Fab listing](https://www.fab.com/listings/2909157b-ddfa-4cef-a925-69dc2467021f) |
+| Megascans free again on Fab (announced 5 November 2026; Fab Standard Licence covers any engine or tool) | [CG Channel](https://cgchannel.com/2026/11/epic-has-made-megascans-free-again-for-good-this-time), [Digital Production](https://digitalproduction.com/2026/11/13/quixel-megascans-free-again), [Creative Bloq](https://creativebloq.com/news/the-worlds-biggest-library-of-scanned-assets-for-3d-artists-is-now-free-and-it-seems-that-this-time-its-for-good) |
+| New York street lamps: LED, 3,000 K specified now, 4,000 K installed earlier across Queens | [NYC street design manual, lighting](https://www.nycstreetdesign.info/lighting/photometric-standards) |
+| Sidewalk sheds: hunter green was the rule until 2025 | [Local Law 47 of 2025](https://www.nyc.gov/assets/buildings/local_laws/ll47of2025.pdf) |
+| Old solid roll-down gates remain legal until replaced (deadline repealed June 2026) | [NY1](https://ny1.com/nyc/all-boroughs/news/2026/07/02/city-council-votes-to-repeal-deadline-for-new-roll-down-security-gates) |

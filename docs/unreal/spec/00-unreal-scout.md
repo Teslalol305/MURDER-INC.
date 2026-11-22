@@ -19,7 +19,7 @@ Copy names from the code spans verbatim.
 | Key | URL |
 |---|---|
 | `PY:Name` | Epic's Python API reference, class page for 5.8: `https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/Name?application_version=5.8` (each cited page was fetched) |
-| `PY57:Name` | the same page with `application_version=5.7` |
+| `PY57:Name`, `PY56:Name`, `PY55:Name` | the same page with `application_version=5.7`, `5.6`, `5.5` |
 | `PY:index` | `https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/?application_version=5.8` |
 | `PY:module` | `https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/module/unreal?application_version=5.8` |
 | `F:id` / `F:id/n` | Epic Developer Community forum topic `https://forums.unrealengine.com/t/id` (post `n`); the short URL redirects to the full one |
@@ -53,6 +53,39 @@ The Python reference lists reflected C++ members in snake_case. The C++ spelling
 values keep their C++ spelling in upper case with underscores (`MovementMode.MOVE_WALKING` is
 `EMovementMode::MOVE_Walking`). Where a C++ spelling in this file comes only from this rule it is still marked
 `[V PY:...]` for the member's existence and order, not for the exact C++ signature.
+
+### 0.5 The short list
+
+The facts most likely to save a failed build or a wrong import. Details and evidence are in the numbered sections.
+
+1. Target **5.8** (5.8.4 or later), `"EngineAssociation": "5.8"`. 5.9 is a Preview. (1.1)
+2. MCP server: plugins `ModelContextProtocol` and `AllToolsets`, both referenced with `"Optional": true` and
+   `"TargetAllowList": [ "Editor" ]`; endpoint `http://127.0.0.1:8000/mcp`; console `ModelContextProtocol.StartServer`. (1.2, 1.3)
+3. Blender `(x, y, z)` metres is expected to arrive as Unreal `(x, -y, z) * 100`. The Blender half is measured, the
+   Unreal half is memory: run Appendix A first. (5.1)
+4. Meshes: GLB through `unreal.AssetImportTask` with `options = unreal.InterchangePipelineStackOverride()`;
+   Nanite with `mesh_pipeline.build_nanite`. (3.2)
+5. `AssetImportTask.destination_name` is ignored by Interchange: name each source file after its asset. (3.2)
+6. Textures are imported separately and set explicitly; every `T_<Set>_N` gets `flip_green_channel = True`,
+   `TC_NORMALMAP`, `srgb = False`; `T_<Set>_ORM` gets `TC_MASKS`, `srgb = False`. (3.4, 5.4)
+7. Python traps: `unreal.Rotator(roll, pitch, yaw)`, `unreal.Color(b, g, r, a)`, `unreal.LinearColor` alpha
+   defaults to 0. (3.1)
+8. Use the subsystems (`LevelEditorSubsystem`, `EditorActorSubsystem`, `StaticMeshEditorSubsystem`);
+   `EditorLevelLibrary` and `EditorStaticMeshLibrary` are deprecated. (3.1)
+9. Navigation: `RuntimeGeneration=Dynamic` in the ini; a scripted `BuildPaths` right after a level load is silently
+   refused in 5.8.3. (3.9)
+10. Enhanced Input: fill a context with `MapKey` only; the `Mappings` array is deprecated since 5.7. (4.4)
+11. `FPointDamageEvent` needs `#include "Engine/DamageEvents.h"`; deriving from `AAIController` needs the
+    `GameplayTasks` module. (4.6, 4.1)
+12. `UCameraComponent::FieldOfView` is horizontal; the web game's is vertical. (4.3)
+13. Nanite: no translucent materials, masked is allowed, not for skeletal meshes. (5.3)
+14. No static lighting (`r.AllowStaticLighting=False`), so no lightmap UVs. (2.2, 5.5)
+15. Megascans stopped being free on 2025-01-01, apart from a free selection. (5.6)
+16. Headless Python: `-run=pythonscript -script="..."` (no editor ticks) or `-ExecutePythonScript="..."` (full
+    editor, exits after the script unless `set_keep_python_script_alive(True)`). (3.10)
+17. A reported 5.8.4 problem: the self-updating Fab plugin 0.0.22 stops every C++ project build with a
+    `RulesError`. (4.16)
+18. Substrate stays off (`r.Substrate=False`); materials use the classic root pins. (2.3)
 
 ---
 
@@ -125,10 +158,11 @@ Use at least 5.8.1: its notes list "[ModelContextProtocol][HTTPServer] Fix tools
   ```
 
 - With tool search on (default) `tools/list` returns only `list_toolsets`, `describe_toolset`, `call_tool`. `[V LP:operations.md]`
-- Toolsets present as classes in the 5.8 Python reference (base `ToolsetDefinition`, no C++ source, so written in
-  Python): `ActorTools`, `BlueprintTools`, `StaticMeshTools`, `SkeletalMeshTools`, `MaterialTools`,
-  `MaterialInstanceTools`, `TextureTools`, `SceneTools`, `ObjectTools`, `PrimitiveTools`, `DataTableTools`,
-  `ProgrammaticToolset`, `AgentSkillToolset`. `[V PY:ActorTools ... PY:AgentSkillToolset]` Listed in the index and not
+- Toolsets present as classes in the 5.8 Python reference (base `ToolsetDefinition`): `ActorTools`,
+  `BlueprintTools`, `StaticMeshTools`, `SkeletalMeshTools`, `MaterialTools`, `MaterialInstanceTools`, `TextureTools`,
+  `SceneTools`, `ObjectTools`, `PrimitiveTools`, `DataTableTools`, `ProgrammaticToolset`, `AgentSkillToolset`. All
+  but `AgentSkillToolset` (File `AgentSkill.h`) list no C++ source, so they are written in Python.
+  `[V PY:ActorTools ... PY:AgentSkillToolset]` Listed in the index and not
   opened: `BehaviorTreeTools`, `ControlRigTools`, `CurveTableTools`, `DataAssetTools`, `SequencerTools` (and six more
   `Sequencer...Tools`), `StateTreeTools`, `StringTableTools`. `[V PY:index]`
 - `ProgrammaticToolset.execute_tool_script` runs Python inside the editor process. `[V LP:README.md]`
@@ -190,9 +224,9 @@ section 3 `[V PY:EditorPythonScripting, PY:EditorAssetLibrary]`; they are believ
 - The section name pattern `[/Script/<Module>.<Class>]` with the C++ property name as key is shown in Epic's own
   text ("[/Script/Engine.Actor] DefaultUpdateOverlapsMethodDuringLevelStreaming = OnlyUpdateMovable"). `[V PY:Character]`
 
-Every other renderer key below was **seen verbatim in a `DefaultEngine.ini` that the editor had written** and a
-user posted: a 5.7 project in an Epic support thread (`F:2687111/5`), a 2026 project (`F:2742734`), a 2025 project in
-an Epic support thread (`F:2664001/2`). They are tagged `[M+]`.
+Every other renderer key below was **seen verbatim in a project's `DefaultEngine.ini` that a user posted**: a 5.7
+project in an Epic support thread (`F:2687111/5`), a 2026 project (`F:2742734`), a 2025 project in an Epic support
+thread (`F:2664001/2`). They are tagged `[M+]`.
 
 ### 2.2 `Config/DefaultEngine.ini`
 
@@ -282,9 +316,9 @@ Other keys seen in those files, for later use `[M+ F:2687111/5, F:2742734, F:266
 `r.MegaLights.EnableForProject=True`, `r.Lumen.TraceMeshSDFs=0`, `r.Lumen.TranslucencyReflections.FrontLayer.EnableForProject=False`,
 `r.RayTracing.RayTracingProxies.ProjectEnabled=True`, `r.Substrate.ProjectGBufferFormat=0`, `r.CustomDepth=3`,
 `r.DefaultFeature.LightUnits=2`, `r.DefaultFeature.LocalExposure.HighlightContrastScale=0.8`,
-`r.DefaultFeature.LocalExposure.ShadowContrastScale=0.8`, `r.DefaultFeature.AutoExposure.Bias=1.000000`,
-`r.FirstPerson.SelfShadow=1`, `r.Nanite.AllowTessellation=1`, `r.TemporalAA.Upsampling=True`, `r.MSAACount=2`,
-`[/Script/AIModule.AISystem] bForgetStaleActors=True`.
+`r.DefaultFeature.LocalExposure.ShadowContrastScale=0.8`, `r.FirstPerson.SelfShadow=1`,
+`r.Nanite.AllowTessellation=1`, `r.TemporalAA.Upsampling=True`, `r.MSAACount=2`,
+`[/Script/AIModule.AISystem] bForgetStaleActors=True`; and `r.DefaultFeature.AutoExposure.Bias=1.000000` `[M+ F:2693657]`.
 
 ### 2.3 Substrate, Lumen, ray tracing: state and choice
 
@@ -313,7 +347,7 @@ Spawn these classes in the level (section 3.7) and set properties on their compo
 | `SkyLight` | `light_component` | `real_time_capture`, `source_type`, `intensity`, `light_color`, `lower_hemisphere_is_black`, `lower_hemisphere_color`, `cubemap`; functions `recapture_sky()`, `set_real_time_capture(bool)`, `set_intensity(float)` |
 | `SkyAtmosphere` | `sky_atmosphere_component` | `rayleigh_scattering_scale`, `mie_scattering_scale`, `mie_anisotropy`, `multi_scattering_factor`, `aerial_pespective_view_distance_scale` (sic), `height_fog_contribution`, `sky_luminance_factor`, `ground_albedo`, `bottom_radius`, `atmosphere_height` |
 | `VolumetricCloud` | `volumetric_cloud_component` | `layer_bottom_altitude`, `layer_height` (kilometres), `tracing_max_distance`, `material` ("must be a Volume domain material"), `view_sample_count_scale`, `sky_light_cloud_bottom_occlusion` |
-| `ExponentialHeightFog` | `component` | `fog_density`, `fog_height_falloff`, `fog_inscattering_luminance`, `fog_max_opacity`, `start_distance`, `enable_volumetric_fog` ("Whether to enable Volumetric fog. Scalability settings control the resolution"), `volumetric_fog_scattering_distribution`, `volumetric_fog_albedo`, `volumetric_fog_extinction_scale`, `volumetric_fog_distance`; functions `set_fog_density`, `set_volumetric_fog(bool)` |
+| `ExponentialHeightFog` | `component` | `fog_density`, `fog_height_falloff`, `fog_inscattering_luminance`, `fog_max_opacity`, `start_distance`, `enable_volumetric_fog` ("Whether to enable Volumetric fog. Scalability settings control the resolution of the fog simulation."), `volumetric_fog_scattering_distribution`, `volumetric_fog_albedo`, `volumetric_fog_extinction_scale`, `volumetric_fog_distance`; functions `set_fog_density`, `set_volumetric_fog(bool)` |
 | `PostProcessVolume` | (on the actor) `unbound`, `settings`, `priority`, `blend_weight`, `enabled` | `settings` is a `PostProcessSettings` |
 
 Exposure and grade fields of `PostProcessSettings` `[V PY:PostProcessSettings]`: `auto_exposure_method`,
@@ -460,7 +494,8 @@ def import_static_mesh(glb_path: str, dest: str, nanite: bool) -> list:
     mesh.set_editor_property("import_static_meshes", True)
     mesh.set_editor_property("import_skeletal_meshes", False)
     mesh.set_editor_property("build_nanite", nanite)
-    mesh.set_editor_property("combine_static_meshes_behavior", unreal.InterchangeCombineStaticMeshesBehavior.ALL)
+    mesh.set_editor_property("combine_static_meshes_behavior",
+                             unreal.InterchangeCombineStaticMeshesBehavior.DO_NOT_COMBINE)
     mesh.set_editor_property("collision", True)
     mesh.set_editor_property("import_collision_according_to_mesh_name", True)
     mesh.set_editor_property("generate_lightmap_u_vs", False)
@@ -485,10 +520,15 @@ def import_static_mesh(glb_path: str, dest: str, nanite: bool) -> list:
     return list(task.get_objects())
 ```
 
+The recipe assumes one mesh object per GLB (plus optional `UCX_` hulls): with `DO_NOT_COMBINE` a file with several
+mesh objects gives several assets, with `ALL` they are merged ("Combine all the meshes into a single Static Mesh").
+`[V PY:InterchangeCombineStaticMeshesBehavior]`
+
 Not verified about this recipe: that a pipeline object created with `unreal.InterchangeGenericAssetsPipeline()` and
 passed through `add_pipeline` is honoured for `.glb`; that material slots keep the glTF material names when
-`import_materials` is `False`. Run Appendix A.2 once in a real editor. Fallback: duplicate the engine's default
-pipeline asset into `/Game`, edit and save it, and pass its path in `ImportAssetParameters.override_pipelines` `[M]`.
+`import_materials` is `False`; how `UCX_` meshes behave under `ALL`. Run Appendix A.2 once in a real editor.
+Fallback: duplicate the engine's default pipeline asset into `/Game`, edit and save it, and pass its path in
+`ImportAssetParameters.override_pipelines` `[M]`.
 
 ### 3.3 Nanite and collision on an imported static mesh
 
@@ -578,7 +618,8 @@ Create with `asset_tools.create_asset("M_Standard", "/Game/Materials", unreal.Ma
 `MP_NORMAL`, `MP_EMISSIVE_COLOR`, `MP_OPACITY`, `MP_OPACITY_MASK`, `MP_AMBIENT_OCCLUSION`, `MP_WORLD_POSITION_OFFSET`,
 `MP_SUBSURFACE_COLOR`, `MP_ANISOTROPY`, `MP_TANGENT`, `MP_REFRACTION`, `MP_FRONT_MATERIAL`, `MP_MATERIAL_ATTRIBUTES`.
 
-Expression classes (all Module `Engine`, header named after the class) `[V PY:<each>]`:
+Expression classes (all Module `Engine`; header named after the class, except `MaterialExpressionSubstrateSlabBSDF`
+in `MaterialExpressionSubstrate.h`) `[V PY:<each>]`:
 `MaterialExpressionTextureSampleParameter2D` (`parameter_name`, `texture`, `sampler_type`, `group`, `sort_priority`),
 `MaterialExpressionTextureSample`, `MaterialExpressionScalarParameter` (`parameter_name`, `default_value`),
 `MaterialExpressionVectorParameter` (`parameter_name`, `default_value`), `MaterialExpressionStaticSwitchParameter`,
@@ -611,11 +652,13 @@ Factories that exist in 5.8 `[V PY:<each>]`: `SoundAttenuationFactory`, `SoundSu
 `SoundCueFactoryNew` (Module `AudioEditor`); `PhysicalMaterialFactoryNew`, `DataTableFactory`, `CurveFactory`,
 `BlueprintFactory`, `FontFactory`, `FontFileImportFactory`, `WorldFactory` (Module `UnrealEd`). Sounds: a `.wav`
 through an `AssetImportTask` becomes a `unreal.SoundWave` (`looping`, `volume`, `pitch`, `sound_group`,
-`loading_behavior`, `sound_asset_compression_type`, read-only `duration`, `num_channels`, `sample_rate`); 5.7 and 5.8
-also have `InterchangeAudioTranslator_WAV` and `InterchangeGenericAudioPipeline` (`import_sounds`). `[V PY:SoundWave, PY:InterchangeAudioTranslator_WAV, PY:InterchangeGenericAudioPipeline, PY:SoundFactory]`
+`loading_behavior`, `sound_asset_compression_type`, read-only `duration`, `num_channels`, `sample_rate`); 5.8 has
+`InterchangeAudioTranslator_WAV` (also in 5.7) and `InterchangeGenericAudioPipeline` (`import_sounds`); the old
+`SoundFactory` (`auto_create_cue`, ...) is still listed. `[V PY:SoundWave, PY:InterchangeAudioTranslator_WAV, PY57:InterchangeAudioTranslator_WAV, PY:InterchangeGenericAudioPipeline, PY:SoundFactory]`
 
 Niagara: the index lists `NiagaraSystemFactoryNew` and `NiagaraEmitterFactoryNew`, but no documented way to add
-emitters or modules by script was found. 5.9 Preview announces "Expanded Python APIs covering ... Niagara". `[V PY:index, F:2852840]`
+emitters or modules by script was found. 5.9 Preview announces "expanded Python APIs covering audio, MetaSounds,
+modeling, physics, Niagara, materials, PCG, networking, and UI". `[V PY:index, F:2852840]`
 Plan effects so that they do not depend on scripted Niagara authoring in 5.8.
 
 ### 3.7 Levels and actors
@@ -628,8 +671,10 @@ Plan effects so that they do not depend on scripted Niagara authoring in 5.8.
 
 `unreal.EditorActorSubsystem` (Module `UnrealEd`) `[V PY:EditorActorSubsystem]`:
 `spawn_actor_from_class(actor_class, location, rotation=..., transient=False)`,
-`spawn_actor_from_object(object_to_use, location, rotation=..., transient=False)` (pass a `StaticMesh` asset to get
-a `StaticMeshActor`), `get_all_level_actors()`, `destroy_actor(actor)`, `destroy_actors(actors)`,
+`spawn_actor_from_object(object_to_use, location, rotation=..., transient=False)` ("The Actor can be created from a
+Factory, Archetype, Blueprint, Class or an Asset. The actor will be created in the current level and will be
+selected."; a `StaticMesh` asset gives a `StaticMeshActor` `[M]`), `get_all_level_actors()`, `destroy_actor(actor)`,
+`destroy_actors(actors)`,
 `set_actor_transform(actor, world_transform)`, `duplicate_actor(...)`, `convert_actors(...)`.
 
 `unreal.EditorLoadingAndSavingUtils` (Module `UnrealEd`, File `FileHelpers.h`) `[V PY:EditorLoadingAndSavingUtils]`:
@@ -704,8 +749,8 @@ Levels are saved with `LevelEditorSubsystem.save_current_level()` or `EditorLoad
   commandline tool)". Keep it open with `unreal.EditorPythonScripting.set_keep_python_script_alive(True)` and leave
   with `unreal.SystemLibrary.quit_editor()`. `[V PY:EditorPythonScripting, PY:SystemLibrary]`
 - Log to the console: `-stdout -FullStdOutLogOutput`; add `-log` to also write the file. `[M+ F:1538861]`
-- Usual companions: `-unattended -nosplash -nopause -nullrhi`. `[M+ F:2763115]` (`-nullrhi` removes rendering, so no
-  screenshots).
+- Usual companions: `-unattended -nosplash -nullrhi` `[M+ F:2763115]`, `-nopause` `[M]` (`-nullrhi` removes
+  rendering, so no screenshots).
 - The commandlet does not tick the editor; work that needs ticks (navigation build, asynchronous import, shader
   compilation callbacks) belongs in `-ExecutePythonScript`. `[M+ F:724404, F:2849553]`
 - Linux: the same flags on `Engine/Binaries/Linux/UnrealEditor-Cmd` `[M]`; a 2026 CI script runs
@@ -843,7 +888,7 @@ Module and header file name are `[V PY:<Python name>]`. The folder in front of t
 Not reflected, so `[M]` entirely: `Misc/FileHelper.h`, `Misc/Paths.h`, `Dom/JsonObject.h`,
 `Serialization/JsonReader.h`, `Serialization/JsonSerializer.h`, `JsonObjectConverter.h`, `TimerManager.h`,
 `Misc/AutomationTest.h`, `CollisionQueryParams.h`, `Engine/Engine.h` (`GEngine`), `Engine/GameViewportClient.h`,
-`Widgets/SCompoundWidget.h`, `Widgets/DeclarativeSyntaxSupport.h`, `Widgets/SOverlay.h`, `Widgets/SCanvas.h`,
+`Widgets/SCompoundWidget.h`, `Widgets/DeclarativeSyntaxSupport.h`, `Widgets/SWeakWidget.h`, `Widgets/SOverlay.h`, `Widgets/SCanvas.h`,
 `Widgets/Layout/SConstraintCanvas.h`, `Widgets/Layout/SBox.h`, `Widgets/Layout/SBorder.h`,
 `Widgets/Text/STextBlock.h`, `Widgets/Images/SImage.h`, `Widgets/SLeafWidget.h`, `Rendering/DrawElements.h`,
 `Styling/CoreStyle.h`.
@@ -902,7 +947,8 @@ Defaults believed correct `[M]`: capsule radius 34, half height 88; `MaxWalkSpee
 (`[/Script/Engine.PhysicsSettings] DefaultGravityZ`, property `default_gravity_z` `[V PY:PhysicsSettings]`). Set every
 tuning value explicitly from the web game's numbers (metres times 100) instead of trusting these.
 
-First-person view model, present in 5.5 to 5.8 `[V PY:PrimitiveComponent, PY:CameraComponent, PY:FirstPersonPrimitiveType]`:
+First-person view model (the enum is in the 5.5, 5.6, 5.7 and 5.8 references; the properties were read in 5.8)
+`[V PY:PrimitiveComponent, PY:CameraComponent, PY:FirstPersonPrimitiveType, PY57/PY56/PY55:FirstPersonPrimitiveType]`:
 `UPrimitiveComponent::FirstPersonPrimitiveType` with `EFirstPersonPrimitiveType`: `NONE` 0, `FIRST_PERSON` 1
 ("rendered as first person and affected by first person properties on the camera"), `WORLD_SPACE_REPRESENTATION` 2
 ("the primitive that other players would see and is used to cast shadow onto the ground"); setter
@@ -927,7 +973,7 @@ Verified `[V PY:InputAction, PY:InputMappingContext, PY:EnhancedActionKeyMapping
   (`map_key(action, to_key) -> EnhancedActionKeyMapping`); also `UnmapKey`, `UnmapAllKeysFromAction`, `UnmapAll`.
 - **The `Mappings` array is deprecated since 5.7** ("Use the DefaultKeyMappings struct instead"; new property
   `default_key_mappings` of type `InputMappingContextMappingData` with a `mappings` array). 5.6 had no such note.
-  Build contexts with `MapKey` only. `[V PY:InputMappingContext, PY57:InputMappingContext]`
+  Build contexts with `MapKey` only. `[V PY:InputMappingContext, PY57:InputMappingContext, PY56:InputMappingContext, PY:InputMappingContextMappingData]`
 - `FEnhancedActionKeyMapping` fields: `Action`, `Key`, `Modifiers`, `Triggers`.
 - `UEnhancedInputLocalPlayerSubsystem`: `add_mapping_context(mapping_context, priority, options)`,
   `remove_mapping_context(mapping_context, options)`, `clear_all_mappings()`, `has_mapping_context(...)`,
@@ -980,15 +1026,20 @@ void AMIPlayerCharacter::OnMove(const FInputActionValue& Value) { const FVector2
 ```
 
 `SetupPlayerInputComponent` can run before `BeginPlay`: create the actions in one function that both call. Keep
-every created object in a `UPROPERTY` member or it is garbage collected. Mouse look is `EKeys::Mouse2D` on an
-`Axis2D` action; check the pitch sign once in play.
+every created object in a `UPROPERTY` member or it is garbage collected. Finish with one returned mapping reference
+before calling `MapKey` again: the next call can move the array. Mouse look is `EKeys::Mouse2D` on an `Axis2D`
+action; check the pitch sign once in play.
 
 ### 4.5 Line traces and collision channels
 
-- Blueprint-style library, verified signatures: `UKismetSystemLibrary::LineTraceSingle(WorldContextObject, Start, End, TraceChannel, bTraceComplex, ActorsToIgnore, DrawDebugType, OutHit, bIgnoreSelf, TraceColor, TraceHitColor, DrawTime)`;
-  also `LineTraceMulti`, `LineTraceSingleByProfile(..., ProfileName, ...)`, `LineTraceSingleForObjects(..., ObjectTypes, ...)`,
-  `SphereTraceSingle(..., Radius, ...)`, `CapsuleTraceSingle`, `BoxTraceSingle`, `SphereOverlapActors(WorldContextObject, SpherePos, SphereRadius, ObjectTypes, ActorClassFilter, ActorsToIgnore, OutActors)`.
-  `TraceChannel` there is an `ETraceTypeQuery`. `[V PY:SystemLibrary, PY:TraceTypeQuery]`
+- Blueprint-style library, as the reference lists it:
+  `line_trace_single(world_context_object, start, end, trace_channel, trace_complex, actors_to_ignore, draw_debug_type, ignore_self=True, trace_color, trace_hit_color, draw_time=5.0)`
+  returning the hit or `None`; also `line_trace_multi`, `line_trace_single_by_profile(..., profile_name, ...)`,
+  `line_trace_single_for_objects(..., object_types, ...)`, `sphere_trace_single(..., radius, ...)`,
+  `capsule_trace_single`, `box_trace_single`,
+  `sphere_overlap_actors(world_context_object, sphere_pos, sphere_radius, object_types, actor_class_filter, actors_to_ignore)`.
+  `trace_channel` there is a `TraceTypeQuery`. `[V PY:SystemLibrary, PY:TraceTypeQuery]` In C++ these are
+  `UKismetSystemLibrary::LineTraceSingle(...)` etc. with the hit as an out parameter after `DrawDebugType` `[M]`.
 - Native call `[M]`:
   `GetWorld()->LineTraceSingleByChannel(FHitResult& OutHit, const FVector& Start, const FVector& End, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params)`;
   `FCollisionQueryParams Params(SCENE_QUERY_STAT(MIWeaponTrace), /*bTraceComplex*/ true, /*IgnoreActor*/ this);`
@@ -1008,7 +1059,8 @@ every created object in a `UPROPERTY` member or it is garbage collected. Mouse l
 - On a component `[V PY:PrimitiveComponent]`: `SetCollisionProfileName(FName, bool bUpdateOverlaps = true)`,
   `SetCollisionEnabled(ECollisionEnabled::Type)`, `SetCollisionObjectType(ECollisionChannel)`,
   `SetCollisionResponseToChannel(ECollisionChannel, ECollisionResponse)`, `SetCollisionResponseToAllChannels(ECollisionResponse)`,
-  `SetGenerateOverlapEvents`, `SetSimulatePhysics(bool)`, `AddImpulse(FVector, FName BoneName = NAME_None, bool bVelChange = false)`.
+  `SetSimulatePhysics(bool)`, `AddImpulse(FVector, FName BoneName = NAME_None, bool bVelChange = false)`,
+  `GetOverlappingActors(...)`, property `generate_overlap_events` (C++ `SetGenerateOverlapEvents(bool)` `[M]`).
 - Naming a custom channel and profile in `DefaultEngine.ini` `[M]`:
 
   ```ini
@@ -1063,13 +1115,16 @@ if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
 - Stop a move: `StopMovement()` on the controller `[M]`.
 - Possession: on the pawn set `AIControllerClass` and `AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned`
   (property names `[V PY:Character]`, enum value spelling `[M]`).
-- `UNavigationSystemV1` `[V PY:NavigationSystemV1]`: `GetNavigationSystem(WorldContextObject)` (C++ also
-  `FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld())` `[M]`),
-  `K2_GetRandomReachablePointInRadius` / `K2_ProjectPointToNavigation` / `FindPathToLocationSynchronously(WorldContextObject, PathStart, PathEnd, PathfindingContext, FilterClass)` /
-  `GetPathLength` / `NavigationRaycast` as Blueprint entry points. Native overloads `[M]`:
-  `bool GetRandomReachablePointInRadius(const FVector& Origin, float Radius, FNavLocation& Result)`,
-  `bool ProjectPointToNavigation(const FVector& Point, FNavLocation& OutLocation, const FVector& Extent)`.
-  `GetRandomPointInNavigableRadius` is deprecated in favour of `GetRandomLocationInNavigableRadius`. `[V PY:NavigationSystemV1]`
+- `UNavigationSystemV1` `[V PY:NavigationSystemV1]`: static `get_navigation_system(world_context_object)`,
+  `get_random_reachable_point_in_radius(world_context_object, origin, radius, nav_data=None, filter_class=None)`,
+  `project_point_to_navigation(world_context_object, point, nav_data, filter_class, query_extent)`,
+  `find_path_to_location_synchronously(world_context_object, path_start, path_end, pathfinding_context=None, filter_class=None)`,
+  `get_path_length(...)`, `navigation_raycast(...)`, `is_navigation_being_built(world_context_object)`.
+  `GetRandomPointInNavigableRadius` is deprecated in favour of `GetRandomLocationInNavigableRadius`.
+  In C++ `[M]`: `UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());`
+  `bool Nav->GetRandomReachablePointInRadius(const FVector& Origin, float Radius, FNavLocation& Result)`,
+  `bool Nav->ProjectPointToNavigation(const FVector& Point, FNavLocation& OutLocation, const FVector& Extent)`;
+  the reflected Blueprint versions of the two point queries carry a `K2_` prefix.
 - Flying enemies do not use the navmesh: move them yourself (`MOVE_Flying` or a plain actor).
 - `UPawnSensingComponent` `[V PY:PawnSensingComponent]`: `SightRadius`, `SensingInterval`, `bOnlySensePlayers`
   ("Default: true"), `bSeePawns`, `bHearNoises`, `HearingThreshold`, `LOSHearingThreshold`, `HearingMaxSoundAge`,
@@ -1097,9 +1152,11 @@ if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
 
 ### 4.8 Timers
 
-- Reflected form: `UKismetSystemLibrary::K2_SetTimer(Object, FunctionName, Time, bLooping, bMaxOncePerFrame = false, InitialStartDelay = 0, InitialStartDelayVariance = 0)`,
-  `K2_ClearTimerHandle(WorldContextObject, Handle)`, `K2_SetTimerForNextTick`; `K2_ClearTimer(Object, FunctionName)` is
-  deprecated ("Use Clear Timer by Handle"). `[V PY:SystemLibrary]`
+- Reflected form in `UKismetSystemLibrary`, as the reference lists it:
+  `set_timer(object, function_name, time, looping, max_once_per_frame=False, initial_start_delay=0.0, initial_start_delay_variance=0.0)`
+  returning a `TimerHandle`, `set_timer_delegate(delegate, time, looping, ...)`, `set_timer_for_next_tick(object, function_name)`,
+  `clear_timer_handle(world_context_object, handle)`, `clear_timer(object, function_name)`; `clear_timer_delegate`
+  is deprecated ("Use Clear Timer by Handle"). `[V PY:SystemLibrary]` The C++ names carry a `K2_` prefix `[M]`.
 - Native `[M]`: `#include "TimerManager.h"`;
   `FTimerHandle Handle; GetWorldTimerManager().SetTimer(Handle, this, &AMyActor::Fire, Rate, /*bLoop*/ true, /*FirstDelay*/ 0.f);`
   `GetWorldTimerManager().ClearTimer(Handle);` `GetWorldTimerManager().SetTimerForNextTick(this, &AMyActor::F);`
@@ -1110,10 +1167,14 @@ if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
 
 ### 4.9 UMG in C++ and Slate
 
-Verified function names `[V PY:UserWidget, PY:PanelWidget, PY:CanvasPanel, PY:CanvasPanelSlot, PY:Overlay, PY:OverlaySlot, PY:HorizontalBox, PY:VerticalBox, PY:TextBlock, PY:ProgressBar, PY:Image, PY:Border, PY:SizeBox, PY:WidgetLibrary, PY:WidgetLayoutLibrary, PY:GameViewportSubsystem]`:
+Verified function names `[V PY:Widget, PY:UserWidget, PY:PanelWidget, PY:CanvasPanel, PY:CanvasPanelSlot, PY:Overlay, PY:OverlaySlot, PY:HorizontalBox, PY:VerticalBox, PY:TextBlock, PY:ProgressBar, PY:Image, PY:Border, PY:SizeBox, PY:WidgetLibrary, PY:WidgetLayoutLibrary, PY:GameViewportSubsystem, PY:SlateVisibility, PY:TextJustify, PY:TextLayoutWidget]`:
 
-- `UUserWidget`: `AddToViewport(int32 ZOrder = 0)`, `AddToPlayerScreen(int32 ZOrder = 0)`, `RemoveFromParent()`
-  (`RemoveFromViewport` is deprecated), `SetVisibility(ESlateVisibility)`, `SetPositionInViewport(FVector2D, bool bRemoveDPIScale = true)`,
+- `UWidget` (base of everything): `SetVisibility(ESlateVisibility)` with `Visible`, `Collapsed`, `Hidden`,
+  `HitTestInvisible`, `SelfHitTestInvisible`; `RemoveFromParent()`, `SetRenderOpacity(float)`, `SetIsEnabled(bool)`,
+  `SetRenderTransform`, `SetRenderScale`, `SetRenderTranslation`, `IsVisible()`, `GetDesiredSize()`,
+  `GetCachedGeometry()`, `ForceLayoutPrepass()`.
+- `UUserWidget`: `AddToViewport(int32 ZOrder = 0)`, `AddToPlayerScreen(int32 ZOrder = 0)` (`RemoveFromViewport` is
+  deprecated: "Use RemoveFromParent instead"), `SetPositionInViewport(FVector2D, bool bRemoveDPIScale = true)`,
   `SetDesiredSizeInViewport`, `SetAnchorsInViewport`, `SetAlignmentInViewport`, `SetOwningPlayer`,
   `PlayAnimation(...)`; overridable events `on_initialized`, `pre_construct`, `construct`, `destruct`, `tick`,
   `on_paint`, `on_key_down`, `on_mouse_button_down` (C++ `NativeOnInitialized`, `NativePreConstruct`,
@@ -1125,18 +1186,21 @@ Verified function names `[V PY:UserWidget, PY:PanelWidget, PY:CanvasPanel, PY:Ca
 - `UOverlay::AddChildToOverlay`, `UHorizontalBox::AddChildToHorizontalBox`, `UVerticalBox::AddChildToVerticalBox`;
   slots: `SetPadding(FMargin)`, `SetHorizontalAlignment`, `SetVerticalAlignment`, `SetSize` (box slots).
 - `UTextBlock`: `SetText(FText)`, `SetColorAndOpacity(FSlateColor)`, `SetFont(FSlateFontInfo)`, `SetOpacity(float)`,
-  `SetShadowOffset`, `SetShadowColorAndOpacity`, `SetAutoWrapText`, `SetTextTransformPolicy`. `SetJustification` is on
-  the base class `UTextLayoutWidget` `[M]`.
+  `SetShadowOffset`, `SetShadowColorAndOpacity`, `SetAutoWrapText`, `SetTextTransformPolicy`, `SetFontSize`.
+  Justification belongs to the base class `UTextLayoutWidget` (File `TextWidgetTypes.h`), enum `ETextJustify`:
+  `Left`, `Center`, `Right`, `InvariantLeft`, `InvariantRight`; the setter `SetJustification(...)` is `[M]`.
 - `UProgressBar`: `SetPercent(float)`, `SetFillColorAndOpacity(FLinearColor)`.
 - `UImage`: `SetBrushFromTexture(UTexture2D*, bool bMatchSize = false)`, `SetBrushFromMaterial(UMaterialInterface*)`,
   `SetColorAndOpacity(FLinearColor)`, `SetOpacity(float)`, `SetBrush(const FSlateBrush&)`, `SetDesiredSizeOverride(FVector2D)`,
   `GetDynamicMaterial()`.
 - `UBorder`: `SetBrushColor(FLinearColor)`, `SetPadding(FMargin)`, `SetContentColorAndOpacity`, `SetBrushFromTexture`.
 - `USizeBox`: `SetWidthOverride`, `SetHeightOverride`, `SetMinDesiredWidth`, ...
-- `UWidgetBlueprintLibrary`: `SetInputMode_GameOnly(PlayerController, bFlushInput = false)`,
-  `SetInputMode_UIOnlyEx(PlayerController, WidgetToFocus = nullptr, MouseLockMode = DoNotLock, bFlushInput = false)`,
-  `SetInputMode_GameAndUIEx(PlayerController, WidgetToFocus = nullptr, MouseLockMode = DoNotLock, bHideCursorDuringCapture = true, bFlushInput = false)`,
-  `GetAllWidgetsOfClass`, `DrawLine`, `DrawBox`, `DrawText` (for `on_paint`).
+- `UWidgetBlueprintLibrary` (Python `WidgetLibrary`): `set_input_mode_game_only(player_controller, flush_input=False)`,
+  `set_input_mode_ui_only_ex(player_controller, widget_to_focus=None, mouse_lock_mode=DO_NOT_LOCK, flush_input=False)`,
+  `set_input_mode_game_and_ui_ex(player_controller, widget_to_focus=None, mouse_lock_mode=DO_NOT_LOCK, hide_cursor_during_capture=True, flush_input=False)`,
+  `get_all_widgets_of_class`, `draw_line`, `draw_box`, `draw_text` (for `on_paint`). C++ spellings
+  `SetInputMode_GameOnly`, `SetInputMode_UIOnlyEx`, `SetInputMode_GameAndUIEx` and the native alternative
+  `PlayerController->SetInputMode(FInputModeGameOnly())` / `FInputModeUIOnly` / `FInputModeGameAndUI` are `[M]`.
 - `UWidgetLayoutLibrary`: `GetViewportSize`, `GetViewportScale`, `ProjectWorldLocationToWidgetPosition(PlayerController, WorldLocation, OutScreenPosition, bPlayerViewportRelative)`,
   `RemoveAllWidgets`. `UGameplayStatics::ProjectWorldToScreen(Player, WorldPosition, OutScreenPosition, bPlayerViewportRelative = false)`. `[V PY:GameplayStatics]`
 - `FSlateFontInfo` fields: `FontObject`, `TypefaceFontName`, `Size` ("The font size is a measure in point values. The
@@ -1156,13 +1220,17 @@ virtual TSharedRef<SWidget> RebuildWidget() override
         UCanvasPanel* Root = WidgetTree->ConstructWidget<UCanvasPanel>(UCanvasPanel::StaticClass(), TEXT("Root"));
         WidgetTree->RootWidget = Root;
         UTextBlock* Hp = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("Hp"));
-        UCanvasPanelSlot* Slot = Root->AddChildToCanvas(Hp);
-        Slot->SetAnchors(FAnchors(0.5f, 1.0f)); Slot->SetAlignment(FVector2D(0.5, 1.0)); Slot->SetAutoSize(true);
+        UCanvasPanelSlot* HpSlot = Root->AddChildToCanvas(Hp);
+        HpSlot->SetAnchors(FAnchors(0.5f, 1.0f)); HpSlot->SetAlignment(FVector2D(0.5, 1.0)); HpSlot->SetAutoSize(true);
     }
     return Super::RebuildWidget();
 }
 // create: UMIHudWidget* W = CreateWidget<UMIHudWidget>(PlayerController, UMIHudWidget::StaticClass()); W->AddToViewport(0);
 ```
+
+Do not name a local variable `Slot` inside a widget class: `UWidget` has a member `Slot`, and Unreal builds treat a
+local that hides a member as an error `[M]`. The same goes for locals named like any inherited member (`Owner`,
+`Instigator`, `Tags`, `RootComponent` in actors).
 
 Slate alone `[M]`: `class SMIHud : public SCompoundWidget { SLATE_BEGIN_ARGS(SMIHud) {} SLATE_END_ARGS() void Construct(const FArguments&); };`
 add with `GEngine->GameViewport->AddViewportWidgetContent(SNew(SWeakWidget).PossiblyNullContent(Hud.ToSharedRef()), ZOrder);`
@@ -1212,9 +1280,10 @@ to `<Project>/Saved/SaveGames/<Slot>.sav` `[M]`. `ULocalPlayerSaveGame` adds
 - Module `Niagara`, plugin `Niagara`. A system is an asset; load it with
   `LoadObject<UNiagaraSystem>(nullptr, TEXT("/Game/VFX/NS_X.NS_X"))` `[M]`. See 3.6 on authoring.
 - Old particle systems: `UGameplayStatics::SpawnEmitterAtLocation(WorldContextObject, EmitterTemplate, Location, Rotation, Scale, bAutoDestroy, PoolingMethod, bAutoActivateSystem)`.
-  Decals: `UGameplayStatics::SpawnDecalAtLocation(WorldContextObject, DecalMaterial, DecalSize, Location, Rotation = FRotator(0, -90, 0)? , LifeSpan = 0)`
-  (the reference prints the default rotation as `[0.000000, -90.000000, 0.000000]` in roll, pitch, yaw display order;
-  pass the rotation explicitly) and `SpawnDecalAttached(...)`. `[V PY:GameplayStatics]`
+  Decals: `UGameplayStatics::SpawnDecalAtLocation(WorldContextObject, DecalMaterial, DecalSize, Location, Rotation, LifeSpan = 0)`
+  and `SpawnDecalAttached(DecalMaterial, DecalSize, AttachToComponent, AttachPointName, Location, Rotation, LocationType, LifeSpan)`.
+  The reference prints the default rotation as `[0.000000, -90.000000, 0.000000]`, which in Python's roll, pitch, yaw
+  order is pitch -90 (facing down); pass the rotation explicitly. `[V PY:GameplayStatics]`
 
 ### 4.13 Audio
 
@@ -1298,7 +1367,8 @@ Modules `Json` (and `JsonUtilities` for `FJsonObjectConverter::JsonObjectStringT
 
 Staging: "Additional Non-Asset Directories to Package (Copy)" is `DirectoriesToAlwaysStageAsUFS` /
 `DirectoriesToAlwaysStageAsNonUFS`, **paths relative to the project's `Content` directory**, and everything except
-`.uasset` and `.umap` in them is staged. `[V F:2717162/2]` (Epic staff) In `Config/DefaultGame.ini`:
+`.uasset` and `.umap` in them is staged. `[V F:2717162/2]` (the answer in an Epic support thread, in Japanese)
+In `Config/DefaultGame.ini`:
 
 ```ini
 [/Script/UnrealEd.ProjectPackagingSettings]
@@ -1307,7 +1377,7 @@ Staging: "Additional Non-Asset Directories to Package (Copy)" is `DirectoriesToA
 
 Section and syntax `[M+ F:428070/8]`. "NonUFS" copies loose files next to the pak (readable with `FFileHelper` at
 `FPaths::ProjectContentDir()/Data`); "UFS" puts them in the pak, which `FFileHelper` also reads `[M]`. An alternative
-named by the same Epic post is `RuntimeDependencies` in `Build.cs`.
+named by the same answer is `RuntimeDependencies` in `Build.cs`.
 
 ### 4.15 Automation tests
 
@@ -1368,7 +1438,7 @@ Linux:
 ```
 
 `Build.sh` runs `dotnet Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll <Target> Linux Development <uproject> -waitmutex`. `[M+ F:1985382]`
-Epic support wording for UAT on Linux: `Engine/Build/BatchFiles/RunUAT.sh BuildCookRun -project=MyProject.uproject -clientconfig=Development`. `[V F:463127/2]`
+A support-style reply gives `Engine/Build/BatchFiles/RunUAT.sh BuildCookRun -project=MyProject.uproject -clientconfig=Development`. `[M+ F:463127/2]`
 
 Things to know before the first build:
 
@@ -1398,7 +1468,12 @@ Measured with Blender 5.3.0 (`BL:run`, Appendix A.1). A point at Blender `(x, y,
 | FBX, `apply_scale_options='FBX_SCALE_UNITS'` | `UnitScaleFactor=100.0` (metres), no scale on the object, rotation `(-90, 0, 0)` | `[V BL:run]` |
 | FBX, `bake_space_transform=True` | vertices baked to `(100, 300, -200)`, no object rotation or scale | `[V BL:run]` |
 
-What Unreal does with it `[M]` (Unreal is left-handed, Z up, centimetres):
+Units: Epic's glTF exporter has `export_uniform_scale`, "Scale factor used for exporting all assets (0.01 by
+default) for conversion from centimeters (Unreal default) to meters (glTF)". `[V PY:GLTFExportOptions]` So Unreal
+units are centimetres, glTF units are metres, and the factor between them is 100; that the importer applies it by
+itself is the expected mirror image, not something read.
+
+What Unreal does with the axes `[M]` (Unreal is left-handed, Z up):
 
 - glTF import swaps Y and Z and multiplies by 100: glTF `(x, y, z)` becomes Unreal `(x, z, y) * 100`. Combined:
   **Blender `(x, y, z)` m becomes Unreal `(x, -y, z) * 100` cm.** Blender +X stays +X, Blender +Y becomes -Y,
@@ -1441,12 +1516,12 @@ names, is in section 6.
 
 - Enable on import with `build_nanite` (3.2) or afterwards with `set_nanite_settings` (3.3). `[V PY:InterchangeGenericMeshPipeline, PY:StaticMeshEditorSubsystem]`
 - "Nanite isn't compatible with translucent materials. Masked materials can be used on Nanite meshes, but they're
-  not as efficient as opaque materials." `[V F:2600473/3]` (Epic staff, 2025-06) A translucent material on a Nanite
+  not as efficient as opaque materials." `[V F:2600473/3]` (answer in an Epic support thread, 2025-06) A translucent material on a Nanite
   mesh makes it render its fallback mesh. `[M+ F:2738542/2]` Split glass and other translucent parts into separate
   meshes without Nanite.
 - A material needs `used_with_nanite`. `[V PY:Material]` (the editor sets usage flags when it can `[M]`)
 - "Nanite Skeletal Mesh feature is still experimental and is not recommended for production use." `[V F:2675029/3]`
-  (Epic staff, 2025-10, 5.6/5.7 era) `USkeletalMesh` has a `nanite_settings` property in 5.8. `[V PY:SkeletalMesh]`
+  (answer in an Epic support thread, 2025-10-14, so before 5.7) `USkeletalMesh` has a `nanite_settings` property in 5.8. `[V PY:SkeletalMesh]`
   Its 5.8 status was not verified: do not enable Nanite on characters, arms or weapons.
 - Mesh guidance from the same Epic post: keep the vertex count below the triangle count where possible (a 2:1
   vertex-to-triangle ratio signals a problem, 3:1 is fully faceted); long thin triangles cluster badly; kitbashing is
@@ -1465,8 +1540,10 @@ names, is in section 6.
   and metallic channels". `[V BL:gltf]` This is the project's `T_<Set>_ORM`; import it linear with `TC_MASKS` (3.4).
 - Blender and glTF normal maps are tangent space with **+Y up** (OpenGL): "Normal Map (tangent space, +Y up)"; bake
   with "space: Tangent, R: +X, G: +Y, B: +Z". `[V BL:gltf]`
-- Unreal expects the green channel the other way (DirectX, Y down). `[M+ F:761255/9, F:2725536/6]` Keep the files as
-  Blender bakes them and set `flip_green_channel = True` on every `T_<Set>_N` at import (3.4). `[V PY:Texture]`
+- Unreal's normal maps have the green channel the other way: Epic's glTF exporter option `adjust_normalmaps` reads
+  "exported normalmaps will be adjusted from Unreal to glTF convention (i.e. the green channel is flipped)".
+  `[V PY:GLTFExportOptions]` (users call the Unreal side "DirectX, Y down" `[M+ F:761255/9, F:2725536/6]`) Keep the
+  files as Blender bakes them and set `flip_green_channel = True` on every `T_<Set>_N` at import (3.4). `[V PY:Texture]`
 - Tangent basis: let Unreal compute MikkTSpace tangents from imported normals (`use_mikk_t_space`,
   `recompute_tangents`) and do not export tangents from Blender (its default). `[V PY:InterchangeGenericCommonMeshesProperties, BL:run]`
   Blender bakes in the same MikkTSpace basis `[M]`.
@@ -1486,7 +1563,8 @@ names, is in section 6.
 
 ### 5.6 Fab, Megascans, City Sample
 
-- Fab (`fab.com`) replaced the Unreal Engine Marketplace and Quixel on 2024-10-22. `[V F:2083493]`
+- Fab (`fab.com`) went live for everyone on 2024-10-22; it unifies the Unreal Engine Marketplace, Quixel and
+  Sketchfab. `[V F:2083493, F:2033839]`
 - **Megascans are not free any more.** "The Megascans library on Fab.com will no longer be free after December 31,
   2024." Assets claimed before that date stay usable under the Fab Standard License. "Beginning January 1, 2025, we
   will offer a selection of 1500+ Megascans assets for free on Fab.com ... under the Fab Standard License." Prices
@@ -1503,9 +1581,8 @@ names, is in section 6.
   purchased assets directly into your projects". `[V F:2852840]` Not in 5.8.
 - City Sample (project, Buildings, Vehicles, Crowds): Epic sample content marked "UE-Only Content - Licensed for Use
   Only with Unreal Engine-based Products"; it may ship inside an Unreal game and may not be sold on its own.
-  `[M+ F:1528806]` Current listing, price and supported engine versions were not checked (fab.com unreachable). Its
-  vehicles and buildings are modelled on real-world designs; this game's rule is "no real brands except IPX", so
-  check each asset before use.
+  `[M+ F:1528806]` Current listing, price and supported engine versions were not checked (fab.com unreachable).
+  Check each asset against this game's rule "no real brands except IPX" before use.
 - Imported Fab or Megascans packs often arrive with wrong texture settings and Nanite off (a 2026-11 tool
   announcement lists exactly that `[M+ F:2860134]`): run the same normalising pass over them as over our own assets.
 
@@ -1573,7 +1650,7 @@ attached to this session.
 ### A.1 Blender side (run here, results in 5.1 and 5.2)
 
 ```python
-# <blender python> make_probe.py  ->  writes MI_Probe.glb next to the script
+# <blender python> make_probe.py  ->  writes SM_MI_Probe.glb next to the script
 import bpy, os
 bpy.ops.wm.read_factory_settings(use_empty=True)
 mesh = bpy.data.meshes.new("SM_MI_Probe")
@@ -1664,10 +1741,11 @@ Expected if section 5.1 is right: one static mesh, `min = [100, -300, 300]`, `ma
 | `F:2673913` | Unreal Engine 5.7 Released; post 149 a user's ini | Epic / user |
 | `F:2538952` | Unreal Engine 5.6 Released | Epic |
 | `F:883977` | TSR feedback thread | Epic (TSR author) |
-| `F:724404` | Interchange with Python in an Unreal commandlet; posts 2 and 4 | Epic staff |
-| `F:2600473/3`, `F:2675029/3`, `F:2567476/3` | Nanite answers in Epic support threads | Epic staff |
-| `F:2717162/2` | Staging non-asset directories (Japanese) | Epic staff |
-| `F:463127/2` | RunUAT on Linux | Epic support |
+| `F:724404` | Interchange with Python in an Unreal commandlet; posts 2 and 4 | Epic staff (`UE_` account) |
+| `F:2600473/3`, `F:2675029/3`, `F:2567476/3` | Nanite answers in Epic support threads | the answering side of Epic's support forum |
+| `F:2717162/2` | Staging non-asset directories (Japanese) | the answering side of Epic's support forum |
+| `F:463127/2` | RunUAT on Linux | anonymous, support-style reply |
+| `F:2693657` | A project ini with `r.DefaultFeature.AutoExposure.Bias` | user |
 | `F:2203090`, `F:2033839`, `F:2083493` | Megascans and Fab transition | Epic |
 | `F:2687111/5` | Rendering differences between 5.5 and 5.7: a 5.7 project's renderer ini | customer in Epic support thread |
 | `F:2664001/2` | Path tracer thread: renderer ini | customer in Epic support thread |

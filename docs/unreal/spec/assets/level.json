@@ -1,0 +1,1912 @@
+[
+  {
+    "id": "storefront_laundromat",
+    "name": "SM_Architecture_Storefront_Laundromat",
+    "family": "architecture",
+    "size_m": [
+      8.8,
+      0.54,
+      3.69
+    ],
+    "count": 1,
+    "description": "Ground-floor shopfront of a five-storey brick tenement, 8.8 m wide, north side of the avenue (web x -46 to -37.2, faces south). Heights above the sidewalk: brick end piers 0.32 m wide standing 0.10 m proud; white glazed-tile stall riser to 0.63 m; aluminium-framed display glazing from 0.63 to 2.69 m in panes no wider than 1.9 m (three panes left of the door, one right); sill and head rails; a glazed aluminium door 1.25 m wide in a recess 0.36 m deep, door centre 6.35 m from the left end, with kick plate, transom panel and chrome push bar; a dark-metal sign band from 2.77 to 3.51 m carrying an internally lit box sign 7.5 x 0.62 m reading 24 HR LAUNDROMAT; a cast-concrete belt course 3.51 to 3.69 m projecting 0.18 m. Interior is lit (cool white): build a shallow dressed interior or an interior-mapping card with rows of washers and dryers.",
+    "materials": [
+      "brick_red",
+      "tile_white",
+      "metal_dark",
+      "glass_lit_cool",
+      "concrete",
+      "chrome"
+    ],
+    "colours": [
+      "#0d3550 sign ground",
+      "#f4f2ec sign letters",
+      "#cfe4ff sign and interior glow",
+      "#7a3327 brick"
+    ],
+    "gameplay": "none: flush with the building line, no cover; door recess 0.36 m deep",
+    "source": "src/level/buildings.js:252",
+    "priority": 1
+  },
+  {
+    "id": "storefront_barber",
+    "name": "SM_Architecture_Storefront_Barber",
+    "family": "architecture",
+    "size_m": [
+      8.2,
+      1.71,
+      3.69
+    ],
+    "count": 1,
+    "description": "Barber shop front in the same tenement, 8.2 m wide (web x -34.4 to -26.2, faces south). Same kit as the laundromat: brick end piers, white-tile stall riser to 0.63 m, display glazing 0.63 to 2.69 m (one pane left of the door, three right), door 1.25 m wide in a 0.36 m recess with its centre 2.03 m from the left end, black painted sign band with red neon tube lettering CROWN & FADE BARBER (7.06 x 0.62 m), concrete belt course. A navy canvas lean-to awning 7.46 m long fixed at 2.75 to 2.85 m, projecting 1.35 m, front edge at 2.37 m with a 0.22 m valance, on two steel arms. A revolving barber pole (separate brief) stands on the left pier. Unlit interior behind dark glass: two barber chairs and mirrors.",
+    "materials": [
+      "brick_red",
+      "tile_white",
+      "metal_dark",
+      "glass_store",
+      "paint_black",
+      "fabric_awning",
+      "concrete",
+      "chrome"
+    ],
+    "colours": [
+      "#ff3030 neon",
+      "#1c2f5a awning",
+      "#101113 sign band",
+      "#7a3327 brick"
+    ],
+    "gameplay": "none: flush with the building line, no cover; door recess 0.36 m deep; the awning has no collision",
+    "source": "src/level/buildings.js:261",
+    "priority": 1
+  },
+  {
+    "id": "storefront_deli",
+    "name": "SM_Architecture_Storefront_Deli",
+    "family": "architecture",
+    "size_m": [
+      11,
+      1.71,
+      3.69
+    ],
+    "count": 1,
+    "description": "Corner deli and grocery occupying the whole 11 m front of a three-storey tan-brick building (web x 11 to 22, faces south). Brick end piers, dark-metal stall riser to 0.63 m, display glazing 0.63 to 2.69 m (three panes each side), centred door 1.25 m wide in a 0.36 m recess (centre 5.5 m from the left end), black sign band with an internally lit yellow box sign 8.4 x 0.74 m: HOLLIS DELI & GROCERY over OPEN 24 HRS, COLD CUTS, COFFEE, LOTTO in dark red. A green canvas awning 10.26 m long (fixed at 2.75 to 2.85 m, projecting 1.35 m, front edge 2.37 m, valance 0.22 m). Warm lit interior: shelves, a deli counter, a drinks fridge. A produce stand (separate brief) stands against its left half.",
+    "materials": [
+      "brick_tan",
+      "metal_dark",
+      "glass_lit_warm",
+      "paint_black",
+      "fabric_awning",
+      "concrete",
+      "chrome"
+    ],
+    "colours": [
+      "#f2c21a sign ground",
+      "#8a1410 sign letters",
+      "#ffd24a sign glow",
+      "#1f5a3a awning",
+      "#9a8262 brick"
+    ],
+    "gameplay": "none: flush with the building line, no cover; door recess 0.36 m deep; the awning has no collision",
+    "source": "src/level/buildings.js:297",
+    "priority": 1
+  },
+  {
+    "id": "storefront_checks_cashed",
+    "name": "SM_Architecture_Storefront_ChecksCashed",
+    "family": "architecture",
+    "size_m": [
+      7.7,
+      0.54,
+      3.69
+    ],
+    "count": 1,
+    "description": "Cheque-cashing office front in the three-storey brown-brick station house block, 7.7 m wide, south side of the avenue (web x -46 to -38.3, faces north; the module's left end is its east end). Brick end piers, dark-metal stall riser to 0.63 m, display glazing 0.63 to 2.69 m (three panes left of the door, one right, seen from the street), door 1.25 m wide in a 0.36 m recess with its centre 4.93 m from the left end, black sign band with green neon lettering CHECKS CASHED over MONEY ORDERS, BILLS PAID (6.56 x 0.74 m), concrete belt course. Unlit interior: a teller wall with bandit-proof glass. The candy kiosk and the station stair stand in front of its west end.",
+    "materials": [
+      "brick_brown",
+      "metal_dark",
+      "glass_store",
+      "paint_black",
+      "concrete",
+      "chrome"
+    ],
+    "colours": [
+      "#55ff8a neon",
+      "#101113 sign band",
+      "#5a4032 brick"
+    ],
+    "gameplay": "none: flush with the building line, no cover; door recess 0.36 m deep",
+    "source": "src/level/buildings.js:320",
+    "priority": 1
+  },
+  {
+    "id": "storefront_pizza",
+    "name": "SM_Architecture_Storefront_Pizza",
+    "family": "architecture",
+    "size_m": [
+      8.3,
+      1.71,
+      3.69
+    ],
+    "count": 1,
+    "description": "Slice counter front in the station house block, 8.3 m wide (web x -38.3 to -30, faces north; left end = east end). It is the first shop the player sees: the start pose is 3 m in front of it. Brick end piers, white-tile stall riser to 0.63 m, display glazing 0.63 to 2.69 m (one pane left of the door, three right), door 1.25 m wide in a 0.36 m recess with its centre 2.65 m from the left end, black sign band with an internally lit red box sign 7.16 x 0.74 m: 99c PIZZA (with the cent sign) over SLICES ALL NIGHT in cream, concrete belt course. A red canvas awning 7.56 m long (fixed at 2.75 to 2.85 m, projecting 1.35 m, front edge 2.37 m, valance 0.22 m). Warm lit interior: a counter, a pizza oven, a menu board.",
+    "materials": [
+      "brick_brown",
+      "tile_white",
+      "metal_dark",
+      "glass_lit_warm",
+      "paint_black",
+      "fabric_awning",
+      "concrete",
+      "chrome"
+    ],
+    "colours": [
+      "#b3261e sign ground and awning",
+      "#fff1d0 sign letters",
+      "#ff5a3a sign glow",
+      "#5a4032 brick"
+    ],
+    "gameplay": "none: flush with the building line, no cover; door recess 0.36 m deep; the awning has no collision",
+    "source": "src/level/buildings.js:321",
+    "priority": 1
+  },
+  {
+    "id": "storefront_pawn",
+    "name": "SM_Architecture_Storefront_Pawn",
+    "family": "architecture",
+    "size_m": [
+      6,
+      0.54,
+      3.69
+    ],
+    "count": 1,
+    "description": "Pawn shop front in a four-storey red-brick building, 6.0 m wide (web x -30 to -24, faces north; left end = east end, which meets the shared vestibule). Brick end piers, dark-metal stall riser to 0.63 m, display glazing 0.63 to 2.69 m with security bars behind the glass (a narrow 0.57 m pane left of the door, two panes right), door 1.25 m wide in a 0.36 m recess with its centre 1.52 m from the left end, black sign band with gold neon lettering PAWN & GOLD over WE BUY GOLD, LOANS (4.86 x 0.74 m), concrete belt course. Unlit interior: glass counters, guitars and electronics on the back wall.",
+    "materials": [
+      "brick_red",
+      "metal_dark",
+      "glass_store",
+      "paint_black",
+      "concrete",
+      "chrome"
+    ],
+    "colours": [
+      "#f6c21a neon",
+      "#101113 sign band",
+      "#7a3327 brick"
+    ],
+    "gameplay": "none: flush with the building line, no cover; door recess 0.36 m deep",
+    "source": "src/level/buildings.js:337",
+    "priority": 1
+  },
+  {
+    "id": "storefront_records",
+    "name": "SM_Architecture_Storefront_Records",
+    "family": "architecture",
+    "size_m": [
+      5.8,
+      0.54,
+      3.69
+    ],
+    "count": 1,
+    "description": "Record store front in the same building, 5.8 m wide (web x -21.8 to -16, faces north; left end = east end, at the vacant lot's hoarding). Brick end piers, timber stall riser to 0.63 m, display glazing 0.63 to 2.69 m (two panes left of the door, a narrow 0.55 m pane right), door 1.25 m wide in a 0.36 m recess with its centre 4.30 m from the left end, black sign band with cyan neon lettering TAPES, RECORDS, CDs separated by raised dots (4.66 x 0.62 m), concrete belt course. Unlit interior: record bins, posters, a counter.",
+    "materials": [
+      "brick_red",
+      "wood",
+      "metal_dark",
+      "glass_store",
+      "paint_black",
+      "concrete",
+      "chrome"
+    ],
+    "colours": [
+      "#35e0ff neon",
+      "#101113 sign band",
+      "#7a3327 brick"
+    ],
+    "gameplay": "none: flush with the building line, no cover; door recess 0.36 m deep",
+    "source": "src/level/buildings.js:338",
+    "priority": 1
+  },
+  {
+    "id": "storefront_chicken",
+    "name": "SM_Architecture_Storefront_Chicken",
+    "family": "architecture",
+    "size_m": [
+      9,
+      0.54,
+      3.69
+    ],
+    "count": 1,
+    "description": "Fried-chicken takeaway front in a two-storey tan-brick building, 9.0 m wide (web x -4 to 5, faces north; left end = east end). Brick end piers, white-tile stall riser to 0.63 m, display glazing 0.63 to 2.69 m (three panes left of the door, one right), door 1.25 m wide in a 0.36 m recess with its centre 6.18 m from the left end, black sign band with an internally lit yellow box sign 7.5 x 0.74 m: GOLDEN BIRD CHICKEN over FRIED, WINGS, BISCUITS in red, concrete belt course. Warm lit interior: a counter with a heated display and a backlit menu. The sidewalk shed's stair climbs across the middle of its front and its east 4 m are under the shed.",
+    "materials": [
+      "brick_tan",
+      "tile_white",
+      "metal_dark",
+      "glass_lit_warm",
+      "paint_black",
+      "concrete",
+      "chrome"
+    ],
+    "colours": [
+      "#f2c21a sign ground",
+      "#b3261e sign letters",
+      "#ffc84a sign glow",
+      "#9a8262 brick"
+    ],
+    "gameplay": "none: flush with the building line, no cover; door recess 0.36 m deep",
+    "source": "src/level/buildings.js:377",
+    "priority": 2
+  },
+  {
+    "id": "storefront_liquor",
+    "name": "SM_Architecture_Storefront_Liquor",
+    "family": "architecture",
+    "size_m": [
+      8.5,
+      0.54,
+      3.69
+    ],
+    "count": 1,
+    "description": "Liquor store front in the same building, 8.5 m wide (web x 5 to 13.5, faces north), entirely under the sidewalk shed. Brick end piers, dark-metal stall riser to 0.63 m, display glazing 0.63 to 2.69 m (two panes each side), centred door 1.25 m wide in a 0.36 m recess (centre 4.25 m from the left end), black sign band with red neon lettering WINES & LIQUORS (7.36 x 0.62 m), concrete belt course. Unlit interior: bottle shelves behind a plexiglass counter.",
+    "materials": [
+      "brick_tan",
+      "metal_dark",
+      "glass_store",
+      "paint_black",
+      "concrete",
+      "chrome"
+    ],
+    "colours": [
+      "#ff3030 neon",
+      "#101113 sign band",
+      "#9a8262 brick"
+    ],
+    "gameplay": "none: flush with the building line, no cover; door recess 0.36 m deep",
+    "source": "src/level/buildings.js:378",
+    "priority": 2
+  },
+  {
+    "id": "storefront_nails",
+    "name": "SM_Architecture_Storefront_Nails",
+    "family": "architecture",
+    "size_m": [
+      8.5,
+      0.54,
+      3.69
+    ],
+    "count": 1,
+    "description": "Shuttered nail salon front in the same building, 8.5 m wide (web x 13.5 to 22, faces north), under the east half of the sidewalk shed. Brick end piers; a ribbed galvanised roll-down security gate fills the whole opening between the piers from the sidewalk to 2.69 m, with a roller housing 0.08 m high above it and guide rails 0.10 m wide at both sides; black sign band with pink neon lettering LUCKY NAILS over MANICURE, PEDICURE (7.36 x 0.74 m); concrete belt course. No door or glass is visible.",
+    "materials": [
+      "brick_tan",
+      "roll_gate",
+      "metal_dark",
+      "paint_black",
+      "concrete"
+    ],
+    "colours": [
+      "#ff3d9a neon",
+      "#101113 sign band",
+      "#6c7074 gate",
+      "#9a8262 brick"
+    ],
+    "gameplay": "none: flush with the building line, no cover; door recess 0.36 m deep",
+    "source": "src/level/buildings.js:379",
+    "priority": 2
+  },
+  {
+    "id": "residents_entrance",
+    "name": "SM_Architecture_ResidentsEntrance",
+    "family": "architecture",
+    "size_m": [
+      2.8,
+      0.75,
+      3.65
+    ],
+    "count": 1,
+    "description": "Street entrance to the flats of the tenement, between the laundromat and the barber (web x -37.2 to -34.4, faces south). A brick panel the full height of the shop storey; a stoop of two cast-concrete steps (first 1.8 m wide, second 1.4 m wide, each 0.16 m high, reaching 0.75 m onto the sidewalk); a panelled timber door 1.0 m wide and 2.03 m high standing on the stoop; a glazed transom 1.0 x 0.45 m, lit from the hallway; a concrete lintel 1.4 m wide and 0.20 m high. Add what a real entrance has: a buzzer panel, a house number, a mail slot.",
+    "materials": [
+      "brick_red",
+      "concrete",
+      "wood",
+      "glass_lit_warm"
+    ],
+    "colours": [
+      "#7a3327 brick",
+      "#6d5236 door",
+      "#ffc98a transom light"
+    ],
+    "gameplay": "none in the web game (the stoop has no collision); give the steps simple collision in the rebuild",
+    "source": "src/level/buildings.js:253-260",
+    "priority": 2
+  },
+  {
+    "id": "pawn_vestibule",
+    "name": "SM_Architecture_PawnVestibule",
+    "family": "architecture",
+    "size_m": [
+      2.2,
+      2.4,
+      3.65
+    ],
+    "count": 1,
+    "description": "Recessed entry shared by the pawn shop and the record store (web x -24 to -21.8, z 11 to 13.4): a pocket 2.2 m wide and 2.4 m deep open to the sidewalk, with a concrete floor at sidewalk height. Both side walls are shop display windows (dark-metal stall riser to 0.63 m, glass 0.63 to 2.55 m, head rail to 2.63 m); the back wall is brick with a roll-down gate 1.4 m wide and 2.25 m high over the door; a flat concrete soffit at 2.63 m with one recessed light. An enemy spawn point stands inside it.",
+    "materials": [
+      "brick_red",
+      "metal_dark",
+      "glass_store",
+      "roll_gate",
+      "concrete"
+    ],
+    "colours": [
+      "#7a3327 brick",
+      "#ffc98a soffit lamp"
+    ],
+    "gameplay": "a walk-in pocket 2.2 x 2.4 m, 2.63 m headroom; walls solid; ground spawn G8 inside",
+    "source": "src/level/buildings.js:339-355",
+    "priority": 2
+  },
+  {
+    "id": "facade_bay_upper",
+    "name": "SM_Architecture_FacadeBay_Upper",
+    "family": "architecture",
+    "size_m": [
+      3.1,
+      0.3,
+      3.1
+    ],
+    "count": 60,
+    "description": "One window bay of one upper storey of a street front: a brick wall panel 3.1 m wide and 3.1 m high with a centred double-hung sash window, opening 1.24 m wide and 1.736 m high, sill 0.60 m above the floor line, with a projecting stone sill and a stone, soldier-course brick or steel-angle lintel. Variants: red brick (tenement 24 bays, pawn building 12), tan brick (deli 6, S3 8), brown brick (station house 10). Dress about 45 % with half-drawn blinds, 30 % with curtains and one window in six with a window air-conditioner on the sill with rust streaks beneath. Glass is dark and reflective by day; an emissive mask lets about a quarter of the windows glow warm (a few television-blue) at night. End piers of 0.25 to 0.85 m of plain brick finish each front.",
+    "materials": [
+      "brick_red",
+      "brick_tan",
+      "brick_brown",
+      "concrete",
+      "glass_dark",
+      "glass_lit_warm",
+      "metal_dark"
+    ],
+    "colours": [
+      "#7a3327 red brick",
+      "#9a8262 tan brick",
+      "#5a4032 brown brick",
+      "#ffb45e lit window (night)"
+    ],
+    "gameplay": "none (solid wall above the shops, no collision detail)",
+    "source": "src/level/buildings.js:85-99; src/mats/layout.js:75-78",
+    "priority": 1
+  },
+  {
+    "id": "facade_bay_rear",
+    "name": "SM_Architecture_FacadeBay_Rear",
+    "family": "architecture",
+    "size_m": [
+      3.1,
+      0.3,
+      3.1
+    ],
+    "count": 208,
+    "description": "Window bay of the plainer side and rear elevations (deli's alley and cut sides, S3's three free sides, the seven neighbours' backs): common brick, 3.1 m wide and 3.1 m high, the same 1.24 x 1.736 m double-hung window with its sill 0.60 m above the floor line and a plain lintel. Ground-row variant (59 bays): the window is barred. Door variant, about one ground bay in four: a steel back door 1.1 x 2.3 m instead of the window. The web game lays this 3.1 m grid from the ground although the buildings' floors are at 3.8 + 3.1 n, so the top of each wall cuts a row; redesign the rear elevations on the real floor levels. Variants in tan, red and brown brick.",
+    "materials": [
+      "brick_tan",
+      "brick_red",
+      "brick_brown",
+      "concrete",
+      "glass_dark",
+      "metal_dark"
+    ],
+    "colours": [
+      "#9a8262 tan brick",
+      "#7a3327 red brick",
+      "#5a4032 brown brick"
+    ],
+    "gameplay": "none (solid wall)",
+    "source": "src/level/buildings.js:301-305, 383-392, 487-516",
+    "priority": 2
+  },
+  {
+    "id": "brick_wall_blind",
+    "name": "SM_Architecture_BrickWall_Blind",
+    "family": "architecture",
+    "size_m": [
+      3.1,
+      0.3,
+      3.1
+    ],
+    "count": null,
+    "description": "Windowless brick wall panel for party walls and returns: the tenement's east wall above the shop roof (18 m long, from 6.0 to 16.2 m), both walls of the gangway beside it, the pawn building's west wall above the station house (23 x 3.1 m) and its whole east wall (the mural wall, 20 m long and 13.1 m high, plus 3 m above the garages), the garages' gable. Common bond with the wear of a lot-line wall: patched pointing, ghost outline of a demolished neighbour, tie-rod plates.",
+    "materials": [
+      "brick_red",
+      "brick_painted"
+    ],
+    "colours": [
+      "#7a3327 red brick",
+      "#b9b4a6 painted brick"
+    ],
+    "gameplay": "none (solid wall)",
+    "source": "src/level/buildings.js:243, 270-277, 360-363, 425",
+    "priority": 2
+  },
+  {
+    "id": "cornice_dentil",
+    "name": "SM_Architecture_Cornice",
+    "family": "architecture",
+    "size_m": [
+      3.1,
+      0.42,
+      0.8
+    ],
+    "count": 28,
+    "description": "Projecting cornice along the top of every street front (86.8 m in all: 19.8, 11, 16, 14 and 26 m runs): a top band 0.33 m high projecting 0.42 m, a lower band 0.23 m high projecting 0.24 m, and a row of dentil blocks 0.22 m wide, 0.24 m high and 0.20 m deep at 0.62 m centres under it. The real thing is pressed galvanised sheet metal or cast stone, painted and weathered, with end returns and a drip edge; model a 3.1 m run plus left and right end caps.",
+    "materials": [
+      "concrete"
+    ],
+    "colours": [
+      "#7b7a76 cornice"
+    ],
+    "gameplay": "none (no collision)",
+    "source": "src/level/buildings.js:212-218",
+    "priority": 2
+  },
+  {
+    "id": "parapet_coping",
+    "name": "SM_Architecture_Parapet",
+    "family": "architecture",
+    "size_m": [
+      3.1,
+      0.38,
+      0.97
+    ],
+    "count": 125,
+    "description": "Roof parapet in the building's brick, 0.30 m thick and 0.90 m high above the roof deck, capped with a concrete or terracotta coping 0.07 m thick that overhangs 0.04 m each side; straight run and corner pieces. Runs round all five walk-up roofs (about 388 m); only the street-side runs show from the ground, above the cornice. The roof deck inside is dark bitumen felt.",
+    "materials": [
+      "brick_red",
+      "brick_tan",
+      "brick_brown",
+      "concrete",
+      "concrete_dark"
+    ],
+    "colours": [
+      "#7b7a76 coping",
+      "#44444a roof deck"
+    ],
+    "gameplay": "none (roofs are out of reach; the building collider ends at the parapet top)",
+    "source": "src/level/buildings.js:202-209",
+    "priority": 3
+  },
+  {
+    "id": "roof_bulkhead",
+    "name": "SM_Architecture_RoofBulkhead",
+    "family": "architecture",
+    "size_m": [
+      3,
+      3.5,
+      2.6
+    ],
+    "count": 3,
+    "description": "Stair bulkhead on a roof: a brick box 3.0 x 3.5 m in plan and 2.6 m high (2.5 m on S3) where the staircase comes out, with a steel door, a flat roof and a short vent pipe. On the tenement (web x -37 to -34, z -20 to -16.5), the pawn building (x -21 to -18, z 27 to 30.5) and S3 (x 11.5 to 14.5, z 19 to 22.5).",
+    "materials": [
+      "brick_red",
+      "brick_tan",
+      "metal_dark",
+      "concrete_dark"
+    ],
+    "colours": [
+      "#7a3327 red brick",
+      "#9a8262 tan brick"
+    ],
+    "gameplay": "solid, on roofs: only a flying Buzzard can meet it",
+    "source": "src/level/buildings.js:287, 367, 398",
+    "priority": 3
+  },
+  {
+    "id": "service_door",
+    "name": "SM_Architecture_ServiceDoor",
+    "family": "architecture",
+    "size_m": [
+      1.24,
+      0.22,
+      2.5
+    ],
+    "count": 6,
+    "description": "Steel back door set in a brick wall: a concrete surround 1.24 m wide and 2.20 m high, a flush hollow-metal door leaf 1.00 x 2.10 m with a lever handle on the right, kick plate and scuffs, and a caged bulkhead lamp on a bracket 0.3 m above the head. In the gangway (web -25.1, -16), on the deli's alley side (11, -15.5) and cut side (22, -27.5), on S3's vacant-lot side (-4, 22.8) and twice on its back (-1.6, 26) and (17.4, 26). Four lamps are warm, two cool white.",
+    "materials": [
+      "concrete",
+      "metal_dark",
+      "chrome"
+    ],
+    "colours": [
+      "#23262a door",
+      "#ffc98a warm lamp",
+      "#cfe4ff cool lamp"
+    ],
+    "gameplay": "none (flush; a bullet-only skin 0.07 m deep in the web game)",
+    "source": "src/level/buildings.js:226-234",
+    "priority": 2
+  },
+  {
+    "id": "wall_lamp_caged",
+    "name": "SM_Architecture_WallLamp_Caged",
+    "family": "architecture",
+    "size_m": [
+      0.3,
+      0.3,
+      0.22
+    ],
+    "count": 11,
+    "description": "Vapour-proof bulkhead wall lamp: a cast aluminium back box on a short bracket with a glass jar under a wire guard, lens about 0.16 x 0.12 x 0.12 m. Over the six service doors, on the garages to the right of doors 42, 45 and 48 (lens 0.2 m wide, at 3.1 m), over the shop's side door on the alley face (at 2.9 m) and over the site shanty's door (at 2.6 m). Emissive lens with a parameter for day and night.",
+    "materials": [
+      "metal_dark",
+      "glass_lit_warm"
+    ],
+    "colours": [
+      "#ffc98a warm lens (service doors)",
+      "#cfe4ff cool lens (two service doors)",
+      "#ffb45e lens on the garages",
+      "#ffc48a lens over the shop side door",
+      "#fff1d0 lens on the shanty"
+    ],
+    "gameplay": "none",
+    "source": "src/level/buildings.js:231-233, 417-419; src/level/shop.js:133-136; src/level/street.js:347-349",
+    "priority": 3
+  },
+  {
+    "id": "delivery_shutter",
+    "name": "SM_Architecture_DeliveryShutter",
+    "family": "architecture",
+    "size_m": [
+      3.8,
+      0.16,
+      2.7
+    ],
+    "count": 2,
+    "description": "Roll-down delivery shutter in a brick back wall, closed: ribbed galvanised curtain in side guides under a steel roller hood 0.20 m high that stands 0.16 m proud. Two on the back of S3: one at ground level 2.6 m wide and 2.7 m high (web x 13.2 to 15.8), one over the loading dock 3.6 m wide and 2.5 m high starting 1.0 m above the lane (x 7.6 to 11.2).",
+    "materials": [
+      "roll_gate",
+      "metal_dark"
+    ],
+    "colours": [
+      "#6c7074 curtain",
+      "#23262a hood"
+    ],
+    "gameplay": "none (flush)",
+    "source": "src/level/buildings.js:389-390; src/level/yards.js:361-362",
+    "priority": 3
+  },
+  {
+    "id": "garage_bay",
+    "name": "SM_Architecture_GarageBay",
+    "family": "architecture",
+    "size_m": [
+      4.4,
+      3,
+      4.1
+    ],
+    "count": 8,
+    "description": "One bay of a row of eight lock-up garages on the south side of the rear lane (web x -16 to 22, z 31 to 34, facing north): painted brick 3.8 m high with a concrete coping to 4.1 m and a flat roof; a roll-up steel door 3.4 m wide and 2.75 m high under a concrete lintel 3.7 m wide and 0.25 m high; a stencilled number above the door (41 to 48, off-white, 0.7 x 0.42 m, centred 3.3 m up). Door centres are 4.4 m apart; a 0.7 m end pier at the west end and 3.1 m of wall at the east end complete the 38 m row, whose gable closes the parking lot's south-west corner. A caged wall lamp stands to the right of the 2nd, 5th and 8th doors.",
+    "materials": [
+      "brick_painted",
+      "roll_gate",
+      "concrete",
+      "concrete_dark"
+    ],
+    "colours": [
+      "#b9b4a6 painted brick",
+      "#6c7074 doors",
+      "#e6e4dc numbers",
+      "#ffb45e lamps"
+    ],
+    "gameplay": "solid wall 4.7 m high along the whole south side of the lane; a welding rack stands between doors 45 and 46",
+    "source": "src/level/buildings.js:404-426",
+    "priority": 2
+  },
+  {
+    "id": "loading_dock",
+    "name": "SM_Architecture_LoadingDock",
+    "family": "architecture",
+    "size_m": [
+      7,
+      1.5,
+      1
+    ],
+    "count": 1,
+    "description": "Concrete loading dock on the back of S3 in the rear lane: a platform 6.0 m long, 1.5 m deep and 1.0 m high (web x 6.4 to 12.4, z 26 to 27.5) with a yellow-painted leading edge, three moulded rubber dock bumpers 0.30 m wide and 0.45 m high on its face, and a flight of four concrete steps (0.25 m rise, 0.25 m going, 1.5 m wide) at its west end. Chipped arrises, tyre rub marks, a steel angle nosing.",
+    "materials": [
+      "concrete",
+      "rubber",
+      "paint_yellow"
+    ],
+    "colours": [
+      "#7b7a76 concrete",
+      "#f2c21a edge",
+      "#121212 bumpers"
+    ],
+    "gameplay": "hard cover 1.0 m high; walkable top reached by its steps; ground spawn G17 at the steps, a pallet stack and boxes on top",
+    "source": "src/level/yards.js:352-364",
+    "priority": 2
+  },
+  {
+    "id": "neighbour_back",
+    "name": "SM_Architecture_NeighbourBack",
+    "family": "architecture",
+    "size_m": [
+      38,
+      3,
+      14
+    ],
+    "count": 7,
+    "description": "The rear of a neighbouring brick building standing just outside the block, which closes one stretch of the perimeter: a wall of windows (rear-elevation bays) with a brick band and a concrete coping on top; the other three sides are never seen square-on. Seven instances, as length x roof height (collider top 0.9 m higher): north behind the chop shop 30 x 13.1 m in brown brick (visible only above 6.5 m); north across the alley's end 5 x 13.1 m brown; north behind the cut and the cage 27 x 10.0 m red; east beside the cage 21.3 x 10.0 m tan; east beside the parking lot 26 x 6.9 m brown; south behind the garages 38 x 13.1 m red (visible above 3.8 m); south behind the parking lot 24 x 10.0 m tan. In the rebuild give them real depth and roofs: they are the backdrop of every yard.",
+    "materials": [
+      "brick_brown",
+      "brick_red",
+      "brick_tan",
+      "concrete",
+      "glass_dark",
+      "concrete_dark"
+    ],
+    "colours": [
+      "#5a4032 brown brick",
+      "#7a3327 red brick",
+      "#9a8262 tan brick"
+    ],
+    "gameplay": "solid perimeter wall, full height; stops rounds",
+    "source": "src/level/buildings.js:482-516",
+    "priority": 2
+  },
+  {
+    "id": "chopshop_shell",
+    "name": "SM_Architecture_ChopShop_Shell",
+    "family": "architecture",
+    "size_m": [
+      30,
+      20,
+      6.98
+    ],
+    "count": 1,
+    "description": "V&R AUTO BODY, a one-storey concrete-block garage and the only interior of the game (web x -24 to 6, z -31 to -11; the south wall is the street front). Four painted cinder-block walls 0.40 m thick and 6.9 m high (the top 0.6 m is parapet above the roof) with a concrete coping on the south and east walls. Openings: in the south wall a vehicle door 6.0 m wide and 4.3 m high (x -15 to -9) and a second bay 3.8 m wide and 3.5 m high (x -3.2 to 0.6); in the east wall a personnel door 2.0 m wide and 2.5 m high (z -23.1 to -21.1) with an extractor-fan opening 1.2 x 1.2 m above it at 3.9 to 5.1 m. Inside, the walls carry a dark teal painted dado to 1.35 m with a 7 cm yellow stripe above it (not behind the mezzanine). Floor: a sealed concrete slab running out through all three thresholds, with three yellow bay outlines, a 0.7 m floor drain, oil stains and tyre marks. Model lintels, block coursing (0.2 x 0.4 m), conduit runs and wall-mounted services.",
+    "materials": [
+      "cinder",
+      "concrete_dark",
+      "concrete",
+      "paint_yellow"
+    ],
+    "colours": [
+      "#8a8880 block walls",
+      "#27414b dado",
+      "#f2c21a stripe and floor lines",
+      "#44444a floor"
+    ],
+    "gameplay": "hard cover and the walls of the reel 2 arena; three ways in (two bays on the avenue, the side door to the alley); interior volume for audio and exposure",
+    "source": "src/level/shop.js:27-116; src/level/layout.js:51-78",
+    "priority": 1
+  },
+  {
+    "id": "chopshop_roof",
+    "name": "SM_Architecture_ChopShop_Roof",
+    "family": "architecture",
+    "size_m": [
+      30,
+      20,
+      1.05
+    ],
+    "count": 1,
+    "description": "The shop's flat roof and the steel under it. A slab 0.30 m thick with its underside at 6.0 m; four rooflights, each a glazed opening 2.4 x 3.4 m with a steel glazing grid (bars at thirds) seen from below and a galvanised upstand kerb 2.7 x 3.7 x 0.3 m with wired glass on top, centred on web (-18.5, -19.5), (-9, -24.5), (-9, -15.5), (0.5, -20.5). Four rolled-steel roof beams 0.45 m deep with 0.40 m flanges span the 19.2 m north to south at x -18, -12, -6 and 0; four purlins 0.12 x 0.16 m run east to west on them at z -27, -22.6, -18.2, -13.8. Two steel columns 0.28 m square and 5.55 m high stand at (-18, -21) and (-6, -21), painted yellow to 1.2 m. On top: two packaged air-conditioning units and a galvanised vent stack 0.44 m in diameter and 1.3 m high. In the rebuild the rooflights are real openings that let daylight in; the glass must still stop players and rounds.",
+    "materials": [
+      "concrete_dark",
+      "steel_el",
+      "metal_dark",
+      "metal_galv",
+      "glass_skylight",
+      "glass_dark",
+      "paint_yellow"
+    ],
+    "colours": [
+      "#1f2a26 steel",
+      "#f2c21a column sleeves",
+      "#44444a slab"
+    ],
+    "gameplay": "solid ceiling at 6.0 m (nothing passes a rooflight); the two columns are slim hard cover",
+    "source": "src/level/shop.js:67-89, 326-328",
+    "priority": 1
+  },
+  {
+    "id": "chopshop_rollup_door",
+    "name": "SM_Architecture_ChopShop_RollUpDoor",
+    "family": "architecture",
+    "size_m": [
+      6.2,
+      0.58,
+      4.72
+    ],
+    "count": 2,
+    "description": "Industrial roll-up door in the open position: steel guide channels 0.10 m wide the full height of the opening, a hood box 0.42 m high and 0.34 m deep inside above the head containing the rolled curtain, and the last 0.55 m of ribbed slats with a 7 cm bottom bar hanging in the opening. Two sizes: 6.0 x 4.3 m (main door) and 3.8 x 3.5 m (second bay). Chain hoist on one jamb, a worn stencilled bay number. A yellow steel bollard 1.0 m high stands outside each jamb (catalogue prop).",
+    "materials": [
+      "roll_gate",
+      "metal_dark"
+    ],
+    "colours": [
+      "#6c7074 slats",
+      "#23262a hood and guides"
+    ],
+    "gameplay": "none: the doors never close; clear opening is the full 4.3 m / 3.5 m height minus the 0.62 m of hanging slats (no collision on the slats)",
+    "source": "src/level/shop.js:122-129",
+    "priority": 1
+  },
+  {
+    "id": "chopshop_side_door",
+    "name": "SM_Architecture_ChopShop_SideDoor",
+    "family": "architecture",
+    "size_m": [
+      2,
+      1.9,
+      2.5
+    ],
+    "count": 1,
+    "description": "Steel personnel door in the shop's east wall, propped fully open: a pressed-steel frame round an opening 2.0 m wide and 2.5 m high, and one wide hollow-metal leaf 1.9 x 2.42 m swung 180 degrees back flat against the alley face of the wall, with a closer arm, a pull handle and a kick plate. A lit EXIT box sign hangs inside over the head and a caged lamp outside.",
+    "materials": [
+      "metal_dark"
+    ],
+    "colours": [
+      "#23262a door and frame"
+    ],
+    "gameplay": "open doorway 2.0 x 2.5 m linking the shop floor and the alley (the leaf has no collision)",
+    "source": "src/level/shop.js:130-136",
+    "priority": 1
+  },
+  {
+    "id": "chopshop_extractor_fan",
+    "name": "SM_Architecture_ChopShop_ExtractorFan",
+    "family": "architecture",
+    "size_m": [
+      1.2,
+      0.4,
+      1.2
+    ],
+    "count": 1,
+    "description": "Wall-mounted axial extractor fan in a 1.2 m square opening through the 0.4 m east wall above the side door (centre 4.5 m up): a wire guard of five horizontal bars on each face and a four-blade rotor about 1.1 m in diameter (blades 0.5 x 0.2 m pitched about 29 degrees) on a belt-driven hub. The rotor is a separate part that spins about the wall normal at 1.7 rad/s (97 degrees per second).",
+    "materials": [
+      "metal_dark",
+      "metal_galv"
+    ],
+    "colours": [
+      "#8d949a blades",
+      "#23262a guards"
+    ],
+    "gameplay": "none (the opening is solid to rounds and walkers); a looping sound source",
+    "source": "src/level/shop.js:42-48, 138-156",
+    "priority": 2
+  },
+  {
+    "id": "chopshop_mezzanine",
+    "name": "SM_Architecture_ChopShop_Mezzanine",
+    "family": "architecture",
+    "size_m": [
+      8.2,
+      5.6,
+      3.85
+    ],
+    "count": 1,
+    "description": "Steel storage mezzanine in the shop's north-west corner (web x -23.6 to -15.4, z -30.6 to -25): a chequer-plate deck 0.12 m thick with its top 2.8 m above the floor, yellow edge beams 0.30 m deep along the two open edges, four square steel posts 0.16 m (three under the front edge, one under the north-east corner), and a yellow tubular guard rail (top rail 1.05 m, mid rail 0.55 m, posts about every 1.4 m) along the whole front edge and along the east edge except the 1.3 m stair head. The space beneath is storage (tyres, drums, boxes, a compressor) lit by one wall-mounted fluorescent tube.",
+    "materials": [
+      "metal_dark",
+      "steel_el",
+      "paint_yellow"
+    ],
+    "colours": [
+      "#f2c21a rails and edge beams",
+      "#23262a deck",
+      "#1f2a26 posts"
+    ],
+    "gameplay": "second floor at 2.8 m reached only by its stair; the railing stops walkers but not rounds; one AI cover point on the deck; the space beneath is 2.68 m high (2.5 m under the edge beams) and holds a ground spawn",
+    "source": "src/level/shop.js:161-170, 208-222",
+    "priority": 1
+  },
+  {
+    "id": "chopshop_mezz_stair",
+    "name": "SM_Architecture_ChopShop_MezzStair",
+    "family": "architecture",
+    "size_m": [
+      3.36,
+      1.3,
+      3.85
+    ],
+    "count": 1,
+    "description": "Open steel stair from the shop floor up to the mezzanine's east edge (web x -12.04 at the foot to -15.4 at the top, z -26.3 to -25): twelve open chequer-plate treads 1.3 m wide, rise 0.233 m, going 0.28 m (about 40 degrees), on two steel channel stringers 0.26 m deep, with yellow tubular handrails 1.0 m above the pitch line on both sides and three balusters a side.",
+    "materials": [
+      "metal_dark",
+      "steel_el",
+      "paint_yellow"
+    ],
+    "colours": [
+      "#f2c21a handrails",
+      "#23262a treads"
+    ],
+    "gameplay": "walkable flight (every rise under the 0.42 m step-up); solid from the sides; handrails stop walkers only; a welding rack stands at its foot",
+    "source": "src/level/shop.js:224-235; src/level/layout.js:65",
+    "priority": 1
+  },
+  {
+    "id": "chopshop_office",
+    "name": "SM_Architecture_ChopShop_Office",
+    "family": "architecture",
+    "size_m": [
+      6.25,
+      3.55,
+      2.6
+    ],
+    "count": 1,
+    "description": "Foreman's office on the back of the mezzanine (web x -23.6 to -17.4, z -30.6 to -27.1), enclosed on its south front and east side: stained timber panelling 0.95 m high, a band of glazing 1.2 m high in slim steel mullions (three bays on the front, two on the side), a 0.30 m steel head, and a flat ceiling panel 0.10 m thick at 2.5 m. A doorway 1.6 m wide and 2.1 m high at the east end of the front has a steel frame and no door. Inside: a desk (catalogue workbench), a tool chest, a floor safe 0.8 x 0.8 x 0.85 m with a chrome handle against the back wall, one 1.6 m fluorescent tube on the ceiling, pin-ups and an IPX poster.",
+    "materials": [
+      "plywood",
+      "metal_dark",
+      "glass_store",
+      "chrome"
+    ],
+    "colours": [
+      "#6b5a43 timber panel",
+      "#23262a frames and safe",
+      "#fff1d0 tube"
+    ],
+    "gameplay": "the timber panel is hard cover 0.95 m high on the deck; the glass above stops walkers but not rounds; the safe is solid",
+    "source": "src/level/shop.js:172-206",
+    "priority": 1
+  },
+  {
+    "id": "chopshop_fascia",
+    "name": "SM_Sign_ChopShop_Fascia",
+    "family": "sign",
+    "size_m": [
+      29.4,
+      0.13,
+      1.3
+    ],
+    "count": 1,
+    "description": "Sign fascia across the shop's avenue front: a band of dark blue painted corrugated steel 29.4 m long and 1.3 m high, its foot 4.75 m above the ground, 0.10 m proud of the block wall. On it: an internally lit box sign 8.0 x 1.05 m reading V&R AUTO BODY in taxi yellow on black with a thin yellow keyline, centred over the main door; and two sign-written panels in cream on the fascia colour, TIRES, BRAKES, EXHAUST (5.4 x 0.6 m, over the second bay) and INSPECTIONS, 24 HR TOWING (5.6 x 0.6 m, at the west end), words separated by raised dots.",
+    "materials": [
+      "corrugated",
+      "paint_black"
+    ],
+    "colours": [
+      "#1a2b3a fascia",
+      "#f6c21a main sign letters and glow",
+      "#101113 main sign ground",
+      "#e9e2cf painted letters"
+    ],
+    "gameplay": "none",
+    "source": "src/level/shop.js:301-310",
+    "priority": 1
+  },
+  {
+    "id": "gooseneck_lamp",
+    "name": "SM_Architecture_GooseneckLamp",
+    "family": "architecture",
+    "size_m": [
+      0.34,
+      0.9,
+      0.4
+    ],
+    "count": 3,
+    "description": "Gooseneck sign lamp over the shop fascia: a conduit stem rising 0.4 m up the parapet, a swan-neck arm reaching 0.62 m out from the wall, and a shallow enamelled reflector shade 0.34 m across with the lamp beneath it, 6.3 m above the road. At web x -21.5, -12 and -1.3.",
+    "materials": [
+      "metal_dark",
+      "glass_lit_warm"
+    ],
+    "colours": [
+      "#23262a shade and arm",
+      "#ffc48a lamp"
+    ],
+    "gameplay": "none",
+    "source": "src/level/shop.js:316-323",
+    "priority": 2
+  },
+  {
+    "id": "highbay_worklight",
+    "name": "SM_Architecture_HighBayLight",
+    "family": "architecture",
+    "size_m": [
+      0.72,
+      0.72,
+      0.78
+    ],
+    "count": 4,
+    "description": "High-bay industrial pendant: a conduit drop 0.5 m long from the purlins, a spun-aluminium reflector 0.72 m in diameter and 0.26 m deep, and a lamp with a glass lens 0.48 m across whose face is 5.06 m above the floor. The four real lights of the shop, at web (-18.2, -17.2), (-9.2, -22.4), (-9.2, -14.6), (0.6, -21.2).",
+    "materials": [
+      "metal_dark",
+      "glass_lit_warm"
+    ],
+    "colours": [
+      "#ffd9a8 lens",
+      "#ffc48a light",
+      "#23262a reflector outside"
+    ],
+    "gameplay": "none (the shop interior is lit by these four)",
+    "source": "src/level/shop.js:289-296; src/level/layout.js:72-77",
+    "priority": 2
+  },
+  {
+    "id": "barber_pole",
+    "name": "SM_Architecture_BarberPole",
+    "family": "architecture",
+    "size_m": [
+      0.18,
+      0.18,
+      0.86
+    ],
+    "count": 1,
+    "description": "Wall-mounted barber pole beside the barber's door (web -34.05, -10.78), its foot 1.32 m above the sidewalk: an illuminated glass cylinder 0.15 m in diameter and 0.70 m long with red, white and blue helical stripes between two chrome end caps 0.18 m across, on two short wall brackets. The web version is a plain glowing white cylinder; the stripes may rotate.",
+    "materials": [
+      "chrome",
+      "glass_lit_cool"
+    ],
+    "colours": [
+      "#f4f2ec glow",
+      "#b3261e stripe",
+      "#1f4f9a stripe"
+    ],
+    "gameplay": "none",
+    "source": "src/level/buildings.js:262-265",
+    "priority": 3
+  },
+  {
+    "id": "wall_ad_vr_auto_body",
+    "name": "SM_Sign_WallAd_VRAutoBody",
+    "family": "sign",
+    "size_m": [
+      12,
+      0.03,
+      3.2
+    ],
+    "count": 1,
+    "description": "Sign-painted advertisement on the tenement's blind east wall above the shop roof, 12 m wide and 3.2 m high, centred 11.4 m above the street (web x -24, z -30.5 to -18.5, facing east): V&R AUTO BODY in cream block letters over COLLISION, FRAME, PAINT on a slate-blue field with a painted border, weathered into the brick joints. A decal or a painted layer of the wall material.",
+    "materials": [
+      "brick_red"
+    ],
+    "colours": [
+      "#1d2f3f field",
+      "#e9e2cf letters"
+    ],
+    "gameplay": "none",
+    "source": "src/level/buildings.js:275-279",
+    "priority": 2
+  },
+  {
+    "id": "wall_sign_park",
+    "name": "SM_Sign_WallSign_Park",
+    "family": "sign",
+    "size_m": [
+      5,
+      0.03,
+      1.6
+    ],
+    "count": 1,
+    "description": "Painted wall sign on S3's east wall facing the parking lot, 5.0 x 1.6 m, centred 2.3 m above the ground at web z 18.5: PARK in off-white on blue over 24 HR, PAY AT BOOTH. Unlit sign-writer's paint on brick.",
+    "materials": [
+      "brick_tan"
+    ],
+    "colours": [
+      "#1f4f9a field",
+      "#f4f2ec letters"
+    ],
+    "gameplay": "none",
+    "source": "src/level/buildings.js:393-395",
+    "priority": 3
+  },
+  {
+    "id": "mural_ipx_rule",
+    "name": "SM_Sign_Mural_IPX",
+    "family": "sign",
+    "size_m": [
+      12,
+      0.03,
+      7.6
+    ],
+    "count": 1,
+    "description": "The mural on the pawn building's east wall over the vacant lot: a painting 12 m wide and 7.6 m high whose foot is 0.7 m above the ground (web x -16, z 12.4 to 24.4, facing east; its left edge is the south end). A field graded from night blue at the top through oxblood to near black; a gold record 6.08 m across, centred 3.6 m from the left edge and 4.04 m above the ground, rising like a sun with 18 alternating gold and red rays behind it, fine dark grooves, an oxblood label and a spindle hole; the El in black silhouette along the bottom (deck, columns with knee braces every 1.38 m, a ground band); the IPX wordmark in off-white, 1.29 m high, centred 9.24 m from the left edge and 3.74 m up, with IPX.EXCHANGE beneath; a thin gold frame. No slogan. Sprayed over it by a surer hand: RULE in gold, 6.4 x 2.3 m, upper right. Smaller tags HOLLIS, QUEENS and NO SLEEP along the foot of the wall. Paint follows the brick relief; use the real IPX mark when supplied.",
+    "materials": [
+      "brick_red"
+    ],
+    "colours": [
+      "#111a33 field top",
+      "#3b1420 field middle",
+      "#0b0c12 field bottom",
+      "#d9a514 record",
+      "#8a1a22 label",
+      "#07080c El silhouette",
+      "#f4f2ec IPX mark",
+      "#f6c21a frame and RULE"
+    ],
+    "gameplay": "none (landmark of the vacant lot)",
+    "source": "src/level/yards.js:189-269",
+    "priority": 1
+  },
+  {
+    "id": "park_pylon_sign",
+    "name": "SM_Sign_ParkPylon",
+    "family": "sign",
+    "size_m": [
+      1.8,
+      0.24,
+      5.6
+    ],
+    "count": 1,
+    "description": "Parking pylon sign at the east side of the lot entrance (web 35.35, 11.65): a steel pole 0.18 m in diameter and 5.6 m high carrying a double-sided sign cabinet 1.8 m wide, 1.6 m high and 0.2 m thick between 3.9 and 5.5 m, with a cyan neon PARK over 24 HR in a neon border on both faces (looking west and east along the sidewalk).",
+    "materials": [
+      "metal_dark"
+    ],
+    "colours": [
+      "#35e0ff neon",
+      "#23262a cabinet and pole"
+    ],
+    "gameplay": "the pole is slim hard cover; the cabinet stops rounds only",
+    "source": "src/level/yards.js:408-417",
+    "priority": 2
+  },
+  {
+    "id": "station_name_plates",
+    "name": "SM_Sign_Station_188St",
+    "family": "sign",
+    "size_m": [
+      4.6,
+      0.03,
+      0.82
+    ],
+    "count": 3,
+    "description": "Transit signs of the closed station in the game's enamel-plate style (black plate, white grotesque type, a thin white rule above the text): the name plate 188 ST over ELEVATED, CLOSED 1 AM - 5 AM, 4.6 x 0.82 m, on the east face of the mezzanine 4.47 m up; and two plates 188 ST over STATION CLOSED, 1.5 x 0.42 m, over the folding gate at the foot of each stair. If the fiction moves to daytime the closing hours need a new line (see the spec's open questions).",
+    "materials": [
+      "paint_black"
+    ],
+    "colours": [
+      "#0f1114 plate",
+      "#f4f2ec type"
+    ],
+    "gameplay": "none",
+    "source": "src/level/el.js:179-180, 238-239",
+    "priority": 1
+  },
+  {
+    "id": "construction_signs",
+    "name": "SM_Sign_Construction_Set",
+    "family": "sign",
+    "size_m": [
+      3.4,
+      0.02,
+      1.05
+    ],
+    "count": 10,
+    "description": "Unlit orange construction boards with black lettering, screwed to hoardings and scaffolds: ROAD CLOSED over EL STRUCTURE REPAIRS, NO THRU TRAFFIC (3.4 x 1.05 m, two on the west hoarding); SIDEWALK CLOSED over USE WALKWAY (2.2 x 0.7 m, two on the hoist tower); EL REPAIRS over KEEP CLEAR (1.3 x 0.5 m, one on each long face of both rolling scaffolds); and a red-on-white DANGER over STEAM, KEEP OUT (1.5 x 0.6 m, two on the dig pen).",
+    "materials": [
+      "plastic_orange"
+    ],
+    "colours": [
+      "#e8641b board",
+      "#101113 letters",
+      "#f4f2ec danger board",
+      "#b3261e danger letters"
+    ],
+    "gameplay": "none",
+    "source": "src/level/street.js:222-224, 320-322, 377-379, 402-404",
+    "priority": 2
+  },
+  {
+    "id": "shed_banners",
+    "name": "SM_Sign_ShedBanner",
+    "family": "sign",
+    "size_m": [
+      4.9,
+      0.02,
+      0.78
+    ],
+    "count": 3,
+    "description": "Vinyl banners tied to the street side of the sidewalk shed's parapet, 4.9 x 0.78 m each, centred 3.5 m above the road, repeating the names of the shops the shed hides: GOLDEN BIRD CHICKEN (red on yellow), WINES & LIQUORS (red on black), LUCKY NAILS (pink on aubergine). Eyelets, cable ties, sagging corners.",
+    "materials": [
+      "fabric"
+    ],
+    "colours": [
+      "#f2c21a / #b3261e chicken",
+      "#101113 / #ff3030 liquor",
+      "#2a0f1e / #ff3d9a nails"
+    ],
+    "gameplay": "none",
+    "source": "src/level/street.js:498-506",
+    "priority": 2
+  },
+  {
+    "id": "stencil_signs",
+    "name": "SM_Sign_Stencil_Set",
+    "family": "sign",
+    "size_m": null,
+    "count": 16,
+    "description": "Sprayed stencil lettering with no background, off-white unless noted, applied as decals: FLAT FIX over NO APPOINTMENT (2.6 x 1.1 m, shop front); POST NO BILLS (1.5 x 0.24 m, on both runs of the vacant-lot hoarding and on the site shanty); NO PARKING over LOADING ZONE (1.6 x 0.6 m, back of S3); VIOLATORS TOWED over AT OWNER'S EXPENSE (3.4 x 0.9 m, faded, east wall of the lot); USED TIRES over ALL SIZES, MOUNTED FREE in yellow on a dark steel board 2.4 x 0.56 m above the tyre cage; SIDEWALK SHED, PERMIT 0214, STORES OPEN DURING WORK (5.6 x 0.24 m, on the shed's skirt board); the garage numbers 41 to 48 (0.7 x 0.42 m).",
+    "materials": [],
+    "colours": [
+      "#e6e4dc stencil paint",
+      "#f2c21a USED TIRES"
+    ],
+    "gameplay": "none",
+    "source": "src/level/shop.js:311-312; src/level/yards.js:289-290, 367, 473; src/level/street.js:274-276, 342, 507; src/level/buildings.js:414-415",
+    "priority": 3
+  },
+  {
+    "id": "el_column",
+    "name": "SM_El_Column",
+    "family": "el",
+    "size_m": [
+      1.04,
+      1.04,
+      5.3
+    ],
+    "count": 20,
+    "description": "Column of an early-1900s New York elevated railway, the block's signature object: a riveted built-up steel H 5.3 m tall. From the ground: a concrete footing 1.04 m square and 0.26 m high; a flared cast base tapering from 0.89 m square to 0.51 m square over 0.94 m; the shaft, two flange plates 0.48 m wide and 0.06 m thick 0.50 m apart (facing along the street) on a web 0.38 x 0.10 m, laced on its two open faces with batten plates 0.40 x 0.30 m at about 0.95 m centres (four each side); a cap plate 0.62 m square and 0.22 m thick. Three riveted knee braces leave near the top: one reaching 1.2 m toward the middle of the street (rising from 4.15 m to the cross girder) and one each way along the street (from 4.35 m up to the longitudinal girder, reaching 1.1 m). Thick dark green-black paint, rivet heads, rust at the base, bumper scrapes, paste-ups and a stencilled column number. Twenty stand in the block at web x -45 to 45 every 10 m, z -4.6 and +4.6; sixteen more beyond the closures can be a lower level of detail.",
+    "materials": [
+      "steel_el",
+      "concrete"
+    ],
+    "colours": [
+      "#1f2a26 El paint",
+      "#7b7a76 footing"
+    ],
+    "gameplay": "hard cover, full height, 0.64 x 0.64 m collider: the most dependable cover on the avenue, between every travel lane and parking lane",
+    "source": "src/level/el.js:27-47; src/level/layout.js:30-42",
+    "priority": 1
+  },
+  {
+    "id": "el_cross_girder",
+    "name": "SM_El_CrossGirder",
+    "family": "el",
+    "size_m": [
+      0.66,
+      10.1,
+      1.2
+    ],
+    "count": 10,
+    "description": "Riveted plate girder spanning the street on each pair of columns: a web 1.20 m deep and 10.1 m long (underside 5.3 m above the road), a bottom flange plate 0.66 m wide, flange angles top and bottom, and nine vertical angle stiffeners at 1 m centres on each face. Gusset plates where the knee braces and the longitudinal girders meet it.",
+    "materials": [
+      "steel_el"
+    ],
+    "colours": [
+      "#1f2a26 El paint"
+    ],
+    "gameplay": "overhead: lowest steel over the road at 5.3 m; stops rounds; blocks flight between 5.3 and 6.5 m",
+    "source": "src/level/el.js:49-58",
+    "priority": 1
+  },
+  {
+    "id": "el_span_structure",
+    "name": "SM_El_Span_Structure",
+    "family": "el",
+    "size_m": [
+      10,
+      10.8,
+      1.22
+    ],
+    "count": 9,
+    "description": "The steel between two bents, one 10 m span seen from below against the sky: two longitudinal plate girders 1.0 m deep over the column rows (web 0.34 m, bottom flange 0.58 m, a stiffener every 2.5 m), four rail stringers 0.20 x 0.58 m under the rails, a cross frame 0.40 m deep at mid-span, six diagonal lateral braces 0.09 m square zigzagging between the girder and stringer lines just under the ties, and along each edge a fascia plate 0.57 m high on cantilever brackets every 2.5 m (deck edge 5.4 m from the centre line). Nine spans inside the block (x -45 to 45); about ten more run on to x +/-96 beyond the closures and need less detail.",
+    "materials": [
+      "steel_el"
+    ],
+    "colours": [
+      "#1f2a26 El paint"
+    ],
+    "gameplay": "overhead: girders stop rounds; the two longitudinal girders are 0.4 m wide colliders 5.5 to 6.5 m up",
+    "source": "src/level/el.js:66-103",
+    "priority": 1
+  },
+  {
+    "id": "el_span_deck",
+    "name": "SM_El_Span_Deck",
+    "family": "el",
+    "size_m": [
+      10,
+      10.8,
+      1.27
+    ],
+    "count": 9,
+    "description": "The open track deck of one 10 m span, top 6.5 to 7.75 m above the road: two tracks 4.2 m apart; creosoted timber ties 0.22 x 0.18 x 2.70 m at 0.56 m centres (18 per track per span), with daylight between them: the gaps throw the striped shadows that define the avenue, so they must be real geometry; running rails at standard gauge 1.435 m, 0.15 m high, on tie plates; a third rail on the outer side of each track under a timber cover board; plank walkways 1.2 m wide between the tracks and 1.4 m wide along both edges; a two-rail pipe handrail 1.1 m above the walkway on posts every 2.5 m along each edge. Signal cable troughs, rust-stained ties, pigeon mess.",
+    "materials": [
+      "wood",
+      "metal_dark",
+      "steel_el"
+    ],
+    "colours": [
+      "#2b221b creosoted ties",
+      "#4a3c2c planks",
+      "#23262a rails",
+      "#1f2a26 handrails"
+    ],
+    "gameplay": "solid slab to movement and rounds from 6.5 to 6.9 m; the train runs on it; Buzzards pass under or beside it, never over the tracks",
+    "source": "src/level/el.js:105-135",
+    "priority": 1
+  },
+  {
+    "id": "el_underdeck_lamp",
+    "name": "SM_El_UnderdeckLamp",
+    "family": "el",
+    "size_m": [
+      0.6,
+      0.6,
+      0.46
+    ],
+    "count": 9,
+    "description": "Street lamp hung under the El, one per span over alternate lanes (web x -40 to 40 every 10 m, z +2.1 and -2.1 alternately): a 0.28 m conduit drop from the cross frame, a deep enamelled dish reflector 0.60 m across, and a sodium lamp behind a glass bowl 0.40 m across, 5.56 m above the road. Warm sodium colour at night, off by day.",
+    "materials": [
+      "metal_dark",
+      "glass_lit_warm"
+    ],
+    "colours": [
+      "#ffb45e sodium light",
+      "#23262a reflector"
+    ],
+    "gameplay": "none",
+    "source": "src/level/el.js:137-149",
+    "priority": 2
+  },
+  {
+    "id": "el_station_mezzanine",
+    "name": "SM_El_Station_Mezzanine",
+    "family": "el",
+    "size_m": [
+      6.6,
+      8.2,
+      2.4
+    ],
+    "count": 1,
+    "description": "Fare-control mezzanine of the 188 St station, hung under the tracks at the west end (web x -46 to -39.4, z -4.1 to 4.1, underside 3.9 m, top 6.3 m): a riveted steel floor 0.16 m deep, walls of painted sheet steel in panels, and a band of small-paned windows 0.8 m high (six panes on the east face, four on each street side, a few lit from inside) between steel trim. The station name plate hangs on the east face. Pigeon netting, peeling green paint, conduit.",
+    "materials": [
+      "steel_el",
+      "corrugated",
+      "glass_dark",
+      "glass_lit_warm"
+    ],
+    "colours": [
+      "#2f4038 painted sheet steel",
+      "#1f2a26 steel",
+      "#ffc98a lit panes"
+    ],
+    "gameplay": "solid overhead box from 3.9 m: the lowest thing over the street; not reachable",
+    "source": "src/level/el.js:164-182; src/level/layout.js:44-49",
+    "priority": 1
+  },
+  {
+    "id": "el_station_stair",
+    "name": "SM_El_Station_Stair",
+    "family": "el",
+    "size_m": [
+      7.85,
+      5.1,
+      6.25
+    ],
+    "count": 2,
+    "description": "Covered street stair of the station with its bridge, one on each sidewalk (mirror images). The bridge: a covered walk 1.7 m wide from the mezzanine out over the parking lane (4.95 m long), steel floor at 3.9 m, sheet-steel sides 1.1 m high, a flat roof at 6.2 m and an end wall, standing on two posts on the sidewalk. The stair: 20 steel treads 1.8 m wide (rise 0.1875 m, going 0.27 m, 35 degrees) descending 5.4 m eastward to the sidewalk between sheet-steel balustrades about 1.05 m high, on a mid-flight trestle, under a sloping roof 2.5 m above the nosings. At the foot a portal of two posts 2.5 m high, each topped with a green glass globe 0.34 m across (the old subway entrance lamps), a scissor folding gate drawn shut across the opening, and a STATION CLOSED plate. The south one is beside the player's start: it is the first thing behind him.",
+    "materials": [
+      "steel_el",
+      "corrugated",
+      "roll_gate"
+    ],
+    "colours": [
+      "#2f4038 sheet-steel panels",
+      "#1c2224 roofing",
+      "#1f2a26 steel",
+      "#55ff8a globes"
+    ],
+    "gameplay": "sealed scenery: the gate and the flight are solid; it is the hard west edge of the south (and north) sidewalk beside the start",
+    "source": "src/level/el.js:184-246",
+    "priority": 1
+  },
+  {
+    "id": "el_station_platform",
+    "name": "SM_El_Station_Platform",
+    "family": "el",
+    "size_m": [
+      10,
+      3.5,
+      4.3
+    ],
+    "count": 14,
+    "description": "Side platform of the station, a 10 m module, one each side of the tracks from the block's west end out to x -96 (its east end is at x -29.5, inside the block): a concrete slab 3.3 m wide and 0.2 m thick with its top 7.75 m above the street and a yellow edge strip, cantilevered on steel brackets with knee braces from the girders; on the street edge a sheet-steel windscreen 2.4 m high with a band of windows 1.7 x 0.75 m at 2.4 m centres; a canopy sloping down from 10.5 m at the track edge to 10.15 m outside the windscreen on posts every 10 m; fluorescent tubes 1.2 m long under the canopy; a plate railing 1.1 m high across the platform end. About two modules per side are inside the block, seen from below and from the lot; the rest are set extension.",
+    "materials": [
+      "concrete",
+      "steel_el",
+      "corrugated",
+      "glass_dark",
+      "glass_lit_cool",
+      "paint_yellow"
+    ],
+    "colours": [
+      "#2f4038 windscreen",
+      "#1c2224 canopy",
+      "#f2c21a edge strip",
+      "#cfe4ff tubes"
+    ],
+    "gameplay": "overhead, out of reach; solid slab and windscreen; Buzzards treat it as part of the El",
+    "source": "src/level/el.js:248-279",
+    "priority": 2
+  },
+  {
+    "id": "street_ground",
+    "name": "SM_Street_Ground_Block",
+    "family": "street",
+    "size_m": [
+      220,
+      144,
+      0
+    ],
+    "count": 1,
+    "description": "The ground of the block as material zones on one level plane (the sidewalks are separate slabs): worn city asphalt under everything (roadway 14 m wide between the kerbs, the parking lot, the lane's west end), with 14 rectangular utility-cut patches in darker and paler asphalt; darker asphalt in the alley (5 m wide, with a 0.7 m concrete gutter down its middle) and in the rear lane east of x -4; sealed dark concrete on the chop shop floor; broom-finished concrete in the cut (3 m wide); compacted dirt with rubble and weeds in the vacant lot (12 x 15 m); concrete aprons at the five dropped kerbs. A few wet patches near the open hydrant at x -12 on the south kerb; the web game's 24 other puddles are dry by day. The avenue runs on to x +/-96 beyond both closures as set extension.",
+    "materials": [
+      "asphalt",
+      "asphalt_wet",
+      "concrete",
+      "concrete_dark",
+      "dirt"
+    ],
+    "colours": [
+      "#1b1c1f asphalt (night value: lighten for day)",
+      "#121316 dark patches and alley",
+      "#232427 pale patches",
+      "#44444a shop floor",
+      "#7b7a76 concrete",
+      "#3a3229 dirt"
+    ],
+    "gameplay": "walking surface at height 0; footstep and impact surfaces: asphalt, concrete (shop, cage, aprons), dirt (vacant lot)",
+    "source": "src/level/ground.js:49, 130-148; src/level/yards.js:31-32, 75, 274, 343; src/level/shop.js:51-54",
+    "priority": 1
+  },
+  {
+    "id": "sidewalk_slab",
+    "name": "SM_Street_Sidewalk",
+    "family": "street",
+    "size_m": [
+      3,
+      4,
+      0.15
+    ],
+    "count": 52,
+    "description": "New York sidewalk, 4 m deep from the building line to the kerb and 0.15 m above the road: concrete flags about 1.5 m square with tooled joints, gum spots, cracks and patches, and a separate kerb stone 0.28 m wide along the road edge (granite or steel-faced concrete). A 3 m module; 74 m on the north side and 81 m on the south side inside the block in eight runs broken by five dropped kerbs, plus 50 m of extension beyond each closure. The run in front of The Cage (x 25 to 46) is 5.2 m deep.",
+    "materials": [
+      "sidewalk",
+      "curb"
+    ],
+    "colours": [
+      "#6f6c66 flags",
+      "#85827a kerb stone"
+    ],
+    "gameplay": "walkable step 0.15 m high (walked up without jumping); surface concrete",
+    "source": "src/level/ground.js:55-68; src/level/layout.js:133-144",
+    "priority": 1
+  },
+  {
+    "id": "dropped_kerb",
+    "name": "SM_Street_DroppedKerb",
+    "family": "street",
+    "size_m": [
+      8.4,
+      4,
+      0.15
+    ],
+    "count": 5,
+    "description": "Driveway crossing of the sidewalk: the kerb drops flush (a 3 cm kerb stone) and a concrete apron at road level runs the 4 m depth of the sidewalk, with a 0.9 m flared slope up to the sidewalk at each end. Five widths: 8.4 m (shop main door), 4.6 m (second bay), 5.0 m (alley mouth), 4.6 m (vacant-lot gateway) and 6.4 m (parking-lot entry). Oil drips, tyre scrub.",
+    "materials": [
+      "concrete",
+      "curb",
+      "sidewalk"
+    ],
+    "colours": [
+      "#7b7a76 apron"
+    ],
+    "gameplay": "road-level gaps in the sidewalk (no step); surface concrete",
+    "source": "src/level/ground.js:70-79; src/level/layout.js:149-156",
+    "priority": 2
+  },
+  {
+    "id": "road_markings",
+    "name": "SM_Street_RoadMarkings",
+    "family": "street",
+    "size_m": null,
+    "count": null,
+    "description": "Worn thermoplastic road paint, as decals: a double yellow centre line (two 0.12 m lines 0.30 m apart) broken at the crossing; white parking-stall ticks 0.12 m wide and 1.9 m long every 5.8 m in both parking lanes; a ladder crossing 3.6 m wide (white bars one per metre) across the whole roadway at x 23 to 26.6 with a 0.4 m stop bar 1.1 m before it for each direction; four white lane arrows; two yellow-painted kerb lengths (hydrant, bus stop); white parking-bay lines 0.10 m wide in the lot (three rows of four bays 2.6 m wide and 5 m deep) with two arrows; three yellow bay outlines on the shop floor.",
+    "materials": [
+      "paint_white",
+      "paint_yellow"
+    ],
+    "colours": [
+      "#e6e4dc white paint",
+      "#f2c21a yellow paint"
+    ],
+    "gameplay": "none",
+    "source": "src/level/ground.js:85-123; src/level/yards.js:419-432; src/level/shop.js:55-59",
+    "priority": 2
+  },
+  {
+    "id": "court_surface",
+    "name": "SM_Street_CourtSurface",
+    "family": "street",
+    "size_m": [
+      20.2,
+      20.6,
+      0
+    ],
+    "count": 1,
+    "description": "The playing surface of The Cage: green acrylic sports coating over asphalt covering the whole enclosure (20.2 x 20.6 m), with a street-sized basketball court painted on it in white 7 cm lines: boundary 17.3 x 14.8 m, half-court line, centre circle radius 1.8 m, and at each end a red key 4.6 x 3.6 m, a free-throw semicircle radius 1.8 m and a three-point arc radius 6.2 m from the hoop joined to the baseline by straight lines. Scuffed paint, cracks with weeds, puddle stains, VULTURES sprayed in oxblood near the south-east quarter.",
+    "materials": [
+      "court",
+      "paint_white"
+    ],
+    "colours": [
+      "#2f4f46 court green",
+      "#7a2e26 keys",
+      "#e6e4dc lines",
+      "#8a1a22 tag"
+    ],
+    "gameplay": "floor of the reel 3 arena (reel at the centre circle); surface concrete; 0.15 m below the sidewalk at the south gate",
+    "source": "src/level/yards.js:132-160, 182",
+    "priority": 1
+  },
+  {
+    "id": "hoarding_panel",
+    "name": "SM_Street_Hoarding",
+    "family": "street",
+    "size_m": [
+      2.44,
+      0.13,
+      2.7
+    ],
+    "count": 28,
+    "description": "Site hoarding of painted plywood sheets (2.44 m wide) on timber posts 9 cm square at the back, with a timber cap rail, 8 cm thick over the boards. Dark green and 2.7 m high across the avenue's west end (22 m, wall to wall) and 2.55 m high along the vacant lot (two runs of 4.1 and 4.7 m either side of a gateway); orange and 2.2 m high round the utility dig; green and 1.1 m high as the parapet of the sidewalk shed (about 23 m). Bill posters, POST NO BILLS stencils, splash dirt along the foot, knot holes.",
+    "materials": [
+      "plywood",
+      "wood"
+    ],
+    "colours": [
+      "#23463c hoarding green",
+      "#c4571a utility orange",
+      "#6d5236 timber"
+    ],
+    "gameplay": "hard cover: solid to rounds and walkers at its full height (1.1 m parapet = crouch cover on the shed deck)",
+    "source": "src/level/fences.js:29-45; src/level/street.js:393-399, 315-318, 490-493; src/level/yards.js:278-291",
+    "priority": 1
+  },
+  {
+    "id": "chainlink_panel",
+    "name": "SM_Street_ChainLink_Panel",
+    "family": "street",
+    "size_m": [
+      2.4,
+      0.36,
+      2.62
+    ],
+    "count": 10,
+    "description": "Temporary chain-link fence panel 2.4 m wide and 2.5 m high on galvanised posts (38 to 50 mm tube, end posts taller by 0.12 m) with top and bottom rails, standing in precast concrete feet 0.36 x 0.70 x 0.14 m, with a dark green debris scrim 2.1 m high cable-tied to the street side. Ten panels make the Vultures' roadblock across the avenue's east end (23.2 m at web x 45.25), tagged VULTURES and VLTR in oxblood. The same mesh, rails and posts are reused for the tyre cage and the gate leaves.",
+    "materials": [
+      "chainlink",
+      "metal_galv",
+      "fabric",
+      "concrete"
+    ],
+    "colours": [
+      "#9aa0a4 galvanised mesh",
+      "#1f3a2c scrim",
+      "#8a1a22 tags"
+    ],
+    "gameplay": "solid to rounds and walkers here (the scrim makes it opaque); 2.5 m high",
+    "source": "src/level/fences.js:8-27; src/level/street.js:428-438",
+    "priority": 2
+  },
+  {
+    "id": "alley_gate",
+    "name": "SM_Street_AlleyGate",
+    "family": "street",
+    "size_m": [
+      5,
+      0.1,
+      2.72
+    ],
+    "count": 1,
+    "description": "Chained chain-link gate closing the north end of the alley (web z -31.4): a pair of leaves spanning 5 m between the walls, 2.6 m high, posts every 2.5 m, with a dark green tarpaulin 4.6 x 2.1 m tied across it and a heavy chain and padlock at the meeting stiles.",
+    "materials": [
+      "chainlink",
+      "metal_galv",
+      "fabric",
+      "metal_dark"
+    ],
+    "colours": [
+      "#1f3a2c tarp",
+      "#9aa0a4 mesh"
+    ],
+    "gameplay": "solid dead end (stops rounds too); the 2.6 m behind it is out of bounds",
+    "source": "src/level/yards.js:60-66",
+    "priority": 2
+  },
+  {
+    "id": "cage_fence_panel",
+    "name": "SM_Street_CageFence_Panel",
+    "family": "street",
+    "size_m": [
+      3,
+      0.2,
+      4.12
+    ],
+    "count": 26,
+    "description": "Playground fence of The Cage, a 3 m panel: a cast-concrete knee wall 0.2 m thick and 0.5 m high, and above it galvanised chain-link to 4.0 m on posts at 3 m centres with top, middle and bottom pipe rails. About 76 m in all round the court (web x 25 to 45.4, z -33 to -12.2) less two 3 m gateways. On the south side the wall stands on the sidewalk, so its top is 0.5 m above the sidewalk and 0.65 m above the court. Bent mesh, a sagging corner, shoes over the top rail.",
+    "materials": [
+      "chainlink",
+      "metal_galv",
+      "concrete"
+    ],
+    "colours": [
+      "#9aa0a4 mesh and posts",
+      "#7b7a76 knee wall"
+    ],
+    "gameplay": "knee wall: low hard cover 0.5 m (0.65 m from the court on the south side). Mesh: stops walkers, lets rounds and sight through. Cannot be climbed",
+    "source": "src/level/yards.js:97-118; src/level/layout.js:83-93",
+    "priority": 1
+  },
+  {
+    "id": "cage_gate",
+    "name": "SM_Street_CageGate",
+    "family": "street",
+    "size_m": [
+      3.14,
+      1.7,
+      4.5
+    ],
+    "count": 2,
+    "description": "Gateway of The Cage, 3.0 m clear: two heavy posts 0.14 m in diameter and 4.5 m high joined by a header pipe at 4.4 m, and a pair of chain-link leaves 1.45 m wide and 2.2 m high swung fully open and chained back flat against the inside of the fence. One in the south fence (web x 33 to 36) with a concrete threshold strip, one in the west fence (z -29.4 to -26.4) onto the cut.",
+    "materials": [
+      "chainlink",
+      "metal_galv",
+      "concrete"
+    ],
+    "colours": [
+      "#9aa0a4 galvanised"
+    ],
+    "gameplay": "open gateway 3.0 m wide: the only ways into the court (leaves have no collision)",
+    "source": "src/level/yards.js:120-130",
+    "priority": 1
+  },
+  {
+    "id": "vacant_lot_gate",
+    "name": "SM_Street_VacantLotGate",
+    "family": "street",
+    "size_m": [
+      3.2,
+      1.8,
+      2.75
+    ],
+    "count": 1,
+    "description": "Gateway in the vacant lot's hoarding (web x -11.9 to -8.7, z 11.14): two galvanised posts 0.12 m in diameter and 2.75 m high, and a pair of chain-link leaves 1.58 m wide and 2.2 m high standing open inside the lot, folded back parallel to the hoarding. A rusty chain hangs from one leaf.",
+    "materials": [
+      "chainlink",
+      "metal_galv"
+    ],
+    "colours": [
+      "#9aa0a4 galvanised"
+    ],
+    "gameplay": "open gateway 3.2 m wide from the south sidewalk into the vacant lot",
+    "source": "src/level/yards.js:292-294",
+    "priority": 2
+  },
+  {
+    "id": "sidewalk_shed",
+    "name": "SM_Street_SidewalkShed",
+    "family": "street",
+    "size_m": [
+      21.6,
+      3.5,
+      3.9
+    ],
+    "count": 1,
+    "description": "New York construction sidewalk shed over the south sidewalk in front of S3 (web x 1 to 19, z 7.45 to 10.95), the level's one raised vantage. Fourteen galvanised scaffold posts in two rows 3.2 m apart at 2.96 m centres on timber mud sills, tube ledgers and knee braces above head height, timber joists at 1.2 m, and a plywood deck 18 x 3.5 m whose top is 2.8 m above the sidewalk. A green plywood parapet 1.1 m high on the street side, the east end and half the west end; a green skirt board 0.5 m deep hiding the joists; three shop banners on the parapet; six caged bulbs on a string under the deck. At the west end a scaffold stair against the building: twelve open plywood treads 2 m wide (rise 0.233 m, going 0.30 m) on timber stringers with a tube handrail on the street side. The deck carries two sandbag walls, a crate, boxes and a pallet.",
+    "materials": [
+      "plywood",
+      "wood",
+      "metal_galv"
+    ],
+    "colours": [
+      "#23463c parapet and skirt",
+      "#a98a5c plywood deck",
+      "#8d949a scaffold tube",
+      "#fff1d0 bulbs"
+    ],
+    "gameplay": "vantage: walkable deck 2.8 m above the sidewalk reached by the stair; parapet 1.1 m = crouch cover, shoot over standing; posts are slim cover; the sidewalk underneath stays walkable; two AI cover points and a propane tank on the deck",
+    "source": "src/level/street.js:454-547; src/level/layout.js:105-114",
+    "priority": 1
+  },
+  {
+    "id": "rolling_scaffold",
+    "name": "SM_Street_RollingScaffold",
+    "family": "street",
+    "size_m": [
+      1.6,
+      5,
+      4.75
+    ],
+    "count": 2,
+    "description": "Rolling scaffold tower of the El repair crew, standing across one travel lane: two coupled towers 1.6 m wide and about 5 m long in all, eight galvanised standards on locking rubber castors, ledgers at 0.45, 2.1 and 3.6 m, diagonal braces, a plywood work platform at 3.7 m with toe boards and a guard rail at 4.7 m, wrapped on both long faces in rust-orange debris netting 3.3 m high, with an EL REPAIRS, KEEP CLEAR board on each long face. One at web x -30.2 to -28.6, z -0.3 to 4.7 (eastbound lane); one at x -1.9 to -0.3, z -4.7 to 0.4 (westbound lane, closing the reel 1 arena).",
+    "materials": [
+      "metal_galv",
+      "plywood",
+      "wood",
+      "rubber",
+      "fabric"
+    ],
+    "colours": [
+      "#b05626 netting",
+      "#8d949a tube",
+      "#e8641b sign boards"
+    ],
+    "gameplay": "hard cover: one solid box 1.6 x 5 x 3.8 m that blocks rounds and sight (the netting must read as opaque enough to justify it, or the collision must change with it)",
+    "source": "src/level/street.js:166-225",
+    "priority": 1
+  },
+  {
+    "id": "hoist_tower",
+    "name": "SM_Street_HoistTower",
+    "family": "street",
+    "size_m": [
+      2.94,
+      3.93,
+      9.75
+    ],
+    "count": 1,
+    "description": "Material hoist tower at the east end of the sidewalk shed, filling the south sidewalk from kerb to wall (web x 19.06 to 22, z 7.04 to 10.97): a green plywood hoarding base 2.6 m high, and above it a scaffold tower of four standards to 9.75 m above the sidewalk with ledgers every 1.9 m and a timber top deck at 9.25 m, wrapped in green debris netting on the street, west and east sides. SIDEWALK CLOSED, USE WALKWAY boards on its street and east faces.",
+    "materials": [
+      "plywood",
+      "metal_galv",
+      "chainlink",
+      "wood"
+    ],
+    "colours": [
+      "#23463c base",
+      "#2c5a3a netting",
+      "#8d949a tube"
+    ],
+    "gameplay": "base: hard cover 2.6 m high that closes the sidewalk (walk round it in the parking lane). Netting above: stops walkers only, rounds pass",
+    "source": "src/level/street.js:354-382",
+    "priority": 2
+  },
+  {
+    "id": "kiosk_news",
+    "name": "SM_Street_Kiosk",
+    "family": "street",
+    "size_m": [
+      3.5,
+      2.96,
+      2.6
+    ],
+    "count": 2,
+    "description": "Shut sidewalk newsstand: a sheet-steel box painted dark green, 2.5 m high, with a flat roof overhanging 0.25 m all round, a roll shutter 1.25 m high over a counter shelf on its front, a sign-written fascia strip, and fly-posters on the front. Two sizes: the newsstand at the north kerb, body 3.0 x 2.46 m, front to the sidewalk (north), lettered NEWS, MAGAZINES, LOTTO; the candy kiosk beside the south station stair, body 2.74 x 1.65 m, front to the east, lettered CANDY, SODA.",
+    "materials": [
+      "corrugated",
+      "metal_dark",
+      "roll_gate"
+    ],
+    "colours": [
+      "#24463a body",
+      "#f4f2ec lettering",
+      "#23262a roof"
+    ],
+    "gameplay": "hard cover 2.5 m high, one solid box; the newsstand is the kerb-side piece of the first sightline curtain",
+    "source": "src/level/street.js:232-253, 421",
+    "priority": 2
+  },
+  {
+    "id": "tyre_cage",
+    "name": "SM_Street_TyreCage",
+    "family": "street",
+    "size_m": [
+      2.64,
+      2.51,
+      2.89
+    ],
+    "count": 1,
+    "description": "Lock-up tyre cage against the shop's front wall on the north sidewalk (web x -20.4 to -18, z -10.96 to -8.6): four steel corner posts, chain-link on the front and both ends, a corrugated sheet roof 2.25 m above the sidewalk, and nine stacks of used tyres inside (0.68 m across, 1.55 to 2.15 m high) filling it to the roof. A dark steel price board above the front reads USED TIRES, ALL SIZES, MOUNTED FREE in yellow stencil. A welding rack stands just west of it.",
+    "materials": [
+      "metal_dark",
+      "chainlink",
+      "metal_galv",
+      "corrugated",
+      "tire",
+      "rubber"
+    ],
+    "colours": [
+      "#0e0e0f tyres",
+      "#1c2224 roof",
+      "#f2c21a lettering"
+    ],
+    "gameplay": "hard cover 2.25 m high, one solid box (surface rubber): the wall-side piece of the first sightline curtain",
+    "source": "src/level/street.js:254-277",
+    "priority": 2
+  },
+  {
+    "id": "produce_stand",
+    "name": "SM_Street_ProduceStand",
+    "family": "street",
+    "size_m": [
+      4,
+      2.63,
+      2.85
+    ],
+    "count": 1,
+    "description": "The deli's sidewalk produce stand against its front wall (web x 11.4 to 15.2, z -10.98 to -8.6): green plywood end screens 2.35 m high, a green canvas canopy sloping from 2.85 m at the wall to 2.25 m over the sidewalk, three stepped tiers of timber staging (0.5, 0.82 and 1.14 m high) carrying fifteen slatted crates of fruit and vegetables (oranges, apples, lemons, greens, plums), price cards, a hanging scale, and two bare bulbs under the canopy.",
+    "materials": [
+      "plywood",
+      "wood",
+      "fabric_awning",
+      "plastic_orange"
+    ],
+    "colours": [
+      "#2d5a3a screens",
+      "#1f5a3a canopy",
+      "#d9601a oranges",
+      "#b3261e apples",
+      "#d9b23a lemons",
+      "#3f7a2e greens",
+      "#8a2a5a plums",
+      "#ffc98a bulbs"
+    ],
+    "gameplay": "hard cover 2.35 m high, one solid box (surface wood): the wall-side piece of the second sightline curtain",
+    "source": "src/level/street.js:279-309",
+    "priority": 2
+  },
+  {
+    "id": "utility_dig",
+    "name": "SM_Street_UtilityDig",
+    "family": "street",
+    "size_m": [
+      3.4,
+      2.24,
+      3.6
+    ],
+    "count": 1,
+    "description": "Utility excavation at the north kerb (web x 17.8 to 21.2, z -9.2 to -7.04): an orange plywood pen 2.2 m high on all four sides round an open steam vault, DANGER boards on two faces, and rising from the middle a steam vent stack of nine orange and white banded rings 0.42 m in diameter to 3.6 m above the sidewalk, venting steam from its top.",
+    "materials": [
+      "plywood",
+      "wood",
+      "plastic_orange",
+      "paint_white"
+    ],
+    "colours": [
+      "#c4571a pen",
+      "#e8641b stack orange",
+      "#e6e4dc stack white"
+    ],
+    "gameplay": "hard cover 2.2 m high, one solid box: the kerb-side piece of the second sightline curtain; a steam emitter 3.7 m above the sidewalk",
+    "source": "src/level/street.js:310-331",
+    "priority": 2
+  },
+  {
+    "id": "site_shanty",
+    "name": "SM_Street_SiteShanty",
+    "family": "street",
+    "size_m": [
+      3.1,
+      2.58,
+      3.06
+    ],
+    "count": 1,
+    "description": "Contractor's site hut against the wall on the south sidewalk (web x -17.4 to -14.6, z 8.6 to 10.98): a green plywood box 2.8 x 2.38 m and 2.7 m high with a lean-to corrugated roof rising toward the wall, a ledged timber door 1.0 x 2.05 m with a hasp and chain on its street face, a caged lamp over the door, POST NO BILLS stencil, posters on its west end.",
+    "materials": [
+      "plywood",
+      "wood",
+      "corrugated",
+      "chrome"
+    ],
+    "colours": [
+      "#23463c walls",
+      "#1c2224 roof",
+      "#fff1d0 lamp"
+    ],
+    "gameplay": "hard cover 2.7 m high, one solid box: the wall-side piece of the first sightline curtain on the south sidewalk",
+    "source": "src/level/street.js:333-350",
+    "priority": 2
+  },
+  {
+    "id": "lot_wall_rail",
+    "name": "SM_Street_LotWall",
+    "family": "street",
+    "size_m": [
+      3,
+      0.3,
+      1.13
+    ],
+    "count": 5,
+    "description": "Low boundary wall of the parking lot along the sidewalk: cast concrete 0.3 m thick and 0.62 m above the sidewalk (0.77 m above the lot) with a galvanised pipe rail 0.36 m above it on stanchions about every 2.2 m. Two runs, 4.05 m west of the booth and 11 m east of the entry.",
+    "materials": [
+      "concrete",
+      "metal_galv"
+    ],
+    "colours": [
+      "#7b7a76 wall",
+      "#8d949a rail"
+    ],
+    "gameplay": "low hard cover 0.77 m high between the south sidewalk and the lot (crouch cover); the rail has no collision",
+    "source": "src/level/yards.js:393-400",
+    "priority": 2
+  },
+  {
+    "id": "lot_barrier_arm",
+    "name": "SM_Street_LotBarrierArm",
+    "family": "street",
+    "size_m": [
+      1.9,
+      0.22,
+      3.65
+    ],
+    "count": 1,
+    "description": "Parking-lot barrier gate at the booth: a yellow steel housing 0.22 m square and 1.1 m high, and a white boom 3.1 m long with a red band, raised to 57 degrees.",
+    "materials": [
+      "paint_yellow",
+      "paint_white",
+      "paint_red"
+    ],
+    "colours": [
+      "#f2c21a housing",
+      "#e6e4dc boom",
+      "#b3261e band"
+    ],
+    "gameplay": "the housing is a small solid post; the raised boom has no collision",
+    "source": "src/level/yards.js:404-407",
+    "priority": 3
+  },
+  {
+    "id": "wheel_stop",
+    "name": "SM_Street_WheelStop",
+    "family": "street",
+    "size_m": [
+      0.22,
+      1.8,
+      0.12
+    ],
+    "count": 4,
+    "description": "Precast concrete parking wheel stop 1.8 m long, 0.22 m wide and 0.12 m high with chamfered edges and two rebar pins, at the head of the four bays against S3's wall.",
+    "materials": [
+      "concrete"
+    ],
+    "colours": [
+      "#7b7a76 concrete"
+    ],
+    "gameplay": "none (walked over)",
+    "source": "src/level/yards.js:428-429",
+    "priority": 3
+  },
+  {
+    "id": "steam_grate",
+    "name": "SM_Street_SteamGrate",
+    "family": "street",
+    "size_m": [
+      0.8,
+      0.8,
+      0.02
+    ],
+    "count": 3,
+    "description": "Cast-iron grating set flush in the ground: two 0.8 m square steam gratings (alley at web 8.5, -24.6; rear lane at 1.8, 28.4) and a 0.7 m square floor drain in the shop (-4.85, -16.95).",
+    "materials": [
+      "metal_dark"
+    ],
+    "colours": [
+      "#23262a iron"
+    ],
+    "gameplay": "none (flush); the two outdoor ones are steam emitters",
+    "source": "src/level/yards.js:47-48, 380-381; src/level/shop.js:60",
+    "priority": 3
+  },
+  {
+    "id": "weeds",
+    "name": "SM_Street_Weeds",
+    "family": "street",
+    "size_m": [
+      0.6,
+      0.6,
+      0.6
+    ],
+    "count": 26,
+    "description": "Clumps of weeds and rank grass 0.25 to 0.6 m high along the walls and the hoarding of the vacant lot (a few variants: grass tuft, dock, ailanthus seedling).",
+    "materials": [
+      "leaves"
+    ],
+    "colours": [
+      "#1f3322 foliage (night value: a livelier green by day)"
+    ],
+    "gameplay": "none (no collision, nothing to hide behind)",
+    "source": "src/level/yards.js:321-333",
+    "priority": 3
+  }
+]

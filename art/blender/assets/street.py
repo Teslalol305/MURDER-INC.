@@ -879,7 +879,7 @@ def _dress(ctx):
     return out
 
 
-def preview(ctx, objs):
+def on_preview(ctx, objs):
     a = ctx.args
     P = paths.previews
     A = ctx.A
