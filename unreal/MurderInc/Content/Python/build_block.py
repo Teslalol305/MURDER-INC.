@@ -631,6 +631,14 @@ def level_units(force):
     yield "save", save
 
 
+def setp(target, name, value):
+    """Set a property; a renamed one is logged, not fatal (the rig must still come up)."""
+    try:
+        target.set_editor_property(name, value)
+    except Exception as error:   # noqa: BLE001
+        unreal.log_warning("build_block: %s.%s: %s" % (target.get_class().get_name(), name, error))
+
+
 def build_day_rig(day):
     key = day["key"]
     r = key["ue"]["rotator"]
@@ -641,24 +649,24 @@ def build_day_rig(day):
     sun = spawn_class(unreal.DirectionalLight, "Sun", "Block/Light", (0, 0, 2000), (r["Pitch"], r["Yaw"], r["Roll"]))
     light = sun.get_component_by_class(unreal.DirectionalLightComponent)
     light.set_mobility(unreal.ComponentMobility.MOVABLE)
-    light.set_editor_property("intensity", lux)
-    light.set_editor_property("light_color", unreal.Color(255, 255, 255, 255))   # the atmosphere warms it
-    light.set_editor_property("atmosphere_sun_light", True)
-    light.set_editor_property("light_source_angle", SUN_SOURCE_ANGLE)
-    light.set_editor_property("cast_shadows", True)
-    light.set_editor_property("cast_volumetric_shadow", True)
+    setp(light, "intensity", lux)
+    setp(light, "light_color", unreal.Color(255, 255, 255, 255))   # the atmosphere warms it
+    setp(light, "atmosphere_sun_light", True)
+    setp(light, "light_source_angle", SUN_SOURCE_ANGLE)
+    setp(light, "cast_shadows", True)
+    setp(light, "cast_volumetric_shadow", True)
 
     atmosphere = spawn_class(unreal.SkyAtmosphere, "SkyAtmosphere", "Block/Light")
     sky_atmosphere = atmosphere.get_component_by_class(unreal.SkyAtmosphereComponent)
     # Humid summer air: aerosol (Mie) scattering about 2.5 x Earth's default (art bible 2.4).
-    sky_atmosphere.set_editor_property("mie_scattering_scale",
+    setp(sky_atmosphere, "mie_scattering_scale",
                                        sky_atmosphere.get_editor_property("mie_scattering_scale") * 2.5)
 
     sky = spawn_class(unreal.SkyLight, "SkyLight", "Block/Light", (0, 0, 1000))
     sky_light = sky.get_component_by_class(unreal.SkyLightComponent)
     sky_light.set_mobility(unreal.ComponentMobility.MOVABLE)
-    sky_light.set_editor_property("real_time_capture", True)
-    sky_light.set_editor_property("intensity", 1.0)
+    setp(sky_light, "real_time_capture", True)
+    setp(sky_light, "intensity", 1.0)
 
     # Haze: the web's day haze reaches 8 % at 92 m (atmos.json fog.opacityAt). Height fog extinction is
     # density x 0.001 per cm here, flat (tiny falloff): 1 - exp(-d * 0.001 * 9200) = 0.083 at d ~ 0.0094.
@@ -667,11 +675,11 @@ def build_day_rig(day):
     density = -math.log(1.0 - target) / (0.001 * 9200) * 0.5
     fog = spawn_class(unreal.ExponentialHeightFog, "HeightFog", "Block/Light", (0, 0, 0))
     fog_component = fog.get_component_by_class(unreal.ExponentialHeightFogComponent)
-    fog_component.set_editor_property("fog_density", density)
-    fog_component.set_editor_property("fog_height_falloff", 0.02)
-    fog_component.set_editor_property("fog_inscattering_luminance", unreal.LinearColor(0, 0, 0, 1))
-    fog_component.set_editor_property("volumetric_fog", True)
-    fog_component.set_editor_property("volumetric_fog_scattering_distribution", 0.7)
+    setp(fog_component, "fog_density", density)
+    setp(fog_component, "fog_height_falloff", 0.02)
+    setp(fog_component, "fog_inscattering_luminance", unreal.LinearColor(0, 0, 0, 1))
+    setp(fog_component, "enable_volumetric_fog", True)
+    setp(fog_component, "volumetric_fog_scattering_distribution", 0.7)
 
     grade = day["grade"]
     volume = spawn_class(unreal.PostProcessVolume, "PostProcess", "Block/Light")
