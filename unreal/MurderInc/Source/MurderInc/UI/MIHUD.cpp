@@ -61,7 +61,7 @@ void AMIHUD::DrawHUD()
 	{
 		DrawText(Cue.ToString().ToUpper(), FLinearColor(1.f, 0.8f, 0.3f, 1.f), W - TW - W * 0.03, H - 2.2 * TH - H * 0.04, Font, 1.2f);
 	}
-	const FString Health = FString::Printf(TEXT("HEALTH %d"), FMath::CeilToInt(Rules.Health));
+	const FString Health = FString::Printf(TEXT("HEALTH %d"), FMath::CeilToInt32(Rules.Health));
 	DrawText(Health, Rules.Health < Rules.MaxHealth * 0.3 ? FLinearColor(1.f, 0.3f, 0.25f, 1.f) : White, W * 0.03, H - TH - H * 0.04, Font, 1.5f);
 	if (Rules.Hurt > 0.0)
 	{

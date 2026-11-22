@@ -8,6 +8,7 @@
 #include "Core/MIDamageable.h"
 #include "Core/MIEvents.h"
 #include "Engine/SkeletalMesh.h"
+#include "Engine/OverlapResult.h"
 #include "Engine/World.h"
 #include "MurderInc.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
