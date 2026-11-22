@@ -434,9 +434,6 @@ def face_lightbox(key, S, rng):
         sl, sw_, _ = cv.text(S["sub"], "bold", S["subcap"], w / 2, S["subcy"] * h, 0.92, 0.06, max_w=inner)
         cv.put(sl, ink)                                       # headline colour (the web's pale sub line cannot be read)
         letters = np.maximum(letters, sl)
-        rule_y = (S["cy"] * h + S["cap"] / 2 + S["subcy"] * h - S["subcap"] / 2) / 2
-        rl = cv.rect(w / 2 - sw_ / 2, rule_y - 0.003, w / 2 + sw_ / 2, rule_y + 0.003)
-        cv.put(rl, ink, 0.9)
     # stars each side of the headline and the shop's phone number at the right end, where there is room
     free = (w - hw) / 2 - ki - 0.12
     if free > 0.5:
@@ -550,9 +547,10 @@ def face_wood(key, S, rng):
     ph, _w, _ = cv.text(S["phone"], "bold", 0.030, w - i0 - 0.14, h - i0 - 0.055, 0.9, 0.06, align="r")
     cv.put(ph * (0.8 + 0.3 * wob), stripe)
     flake = vnoise(rng, cv.H, cv.W, k * 0.08)
-    fm = sstep(0.80, 0.86, flake * (0.75 + 0.4 * (cv.y / h)))
+    flake = flake * (0.70 + 0.35 * (cv.y / h)) * (0.8 + 0.25 * vnoise(rng, cv.H, cv.W, k * 0.5))
+    fm = sstep(0.86, 0.90, flake)
     cv.put(fm, paint("#9a958a"))                                              # primer
-    fm2 = sstep(0.88, 0.92, flake * (0.75 + 0.4 * (cv.y / h)))
+    fm2 = sstep(0.93, 0.96, flake)
     cv.put(fm2, paint("#6b5236"))                                             # bare wood
     rough = 0.6 + weather_face(cv, rng, S["age"], top_fade=0.35, grime=0.3) + 0.2 * fm
     meta = dict(face_m=[w, h], note="hand-painted plywood fascia under the cyan neon: enamel %s, pinstripe %s" % (S["board"], S["stripe"]))
@@ -654,7 +652,7 @@ def face_mural(rng):
     sil = sil.astype(np.float32)
     for i, xc in enumerate(np.arange(0.06 * w, w, 0.115 * w)):
         col_ = (np.abs(cv.x - xc) < 0.012 * w) & (v > 0.825)
-        hy = (v > 0.825) & (v < 0.87) & (np.abs(cv.x - xc) < 0.012 * w + (0.87 - v) * h * 0.9)
+        hy = (v > 0.825) & (v < 0.87) & (np.abs(cv.x - xc) < 0.012 * w + (0.87 - v) * h * 0.45)
         sil = np.maximum(sil, (col_ | hy).astype(np.float32))
     cv.put(sil, el)
     ink = paint("#f4f2ec")
@@ -664,7 +662,7 @@ def face_mural(rng):
     fr = cv.rect(0.02 * h, 0.02 * h, w - 0.02 * h, h - 0.02 * h, outline=0.012 * h)
     cv.put(fr, paint("#f6c21a"))
     # RULE, sprayed big over it: soft edges, overspray, drips (6.4 x 2.3 m, centre at 73 % W, 23 % H)
-    rx, ry, rw, rh = 0.733 * w, 0.230 * h, 6.4, 2.3
+    rx, ry, rw, rh = 0.733 * w - 0.2, 0.230 * h, 6.4, 2.3
     m, (i0, i1), tp, bs = text_mask("RULE", "heavyIt", cap_px=rh * k * 0.86, cond=1.0, track_em=-0.02)
     rows = np.where(m.max(axis=1) > 0.02)[0]
     m = m[rows[0]:rows[-1] + 1, i0:i1]
@@ -719,8 +717,8 @@ def face_mural(rng):
     cv.put(lime, paint("#d8d4c8"), 0.75)
     holes = vnoise(rng, cv.H, cv.W, k * 0.06)
     base_peel = sstep(1.3, 0.2, h - cv.y)                                       # peeling over the lowest metre or so
-    alpha = 1.0 - sstep(0.62, 0.70, holes * (0.55 + 0.6 * base_peel) + 0.15 * n1)
-    chips = sstep(0.93, 0.96, vnoise(rng, cv.H, cv.W, k * 0.015))
+    alpha = 1.0 - sstep(0.62, 0.70, holes * (0.35 + 0.75 * base_peel) + 0.10 * n1)
+    chips = sstep(0.975, 0.99, vnoise(rng, cv.H, cv.W, k * 0.03)) * (0.3 + 0.7 * base_peel)
     alpha = np.clip(alpha - chips, 0, 1)
     edge = np.clip(np.asarray(Image.fromarray((alpha * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(3)), np.float32) / 255, 0, 1)
     cv.put(alpha - edge, paint("#d8d2c0"), 0.6)                                 # flake edges catch light
