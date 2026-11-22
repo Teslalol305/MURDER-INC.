@@ -67,8 +67,11 @@ SPEC = {
     "Pickup": dict(ws_top=0.72, bn=1.12, src="pickup_hunyuan60k.glb", axis="Y", nose=-1, size=(5.32, 2.0, 1.78), axles=(1.72, -1.50),
                    r=0.39, tw=0.27, rim=0.25, belt=1.25, cowl=1.22, bpillar=0.05, rear_x=-0.45, floor=0.52,
                    wheel="steel", rear_seat=False, plate="KQB5530", paint="charcoal", cover=1.27, tris=62000),
-    "Van": dict(ws_top=1.42, side_glass=(0.60, 1.65, 1.21, 1.95), bn=1.02, src="van_hunyuan60k.glb", axis="Y", nose=-1, size=(5.21, 1.96, 2.19), axles=(1.70, -1.50),
-                r=0.36, tw=0.24, rim=0.22, belt=1.16, cowl=1.92, bpillar=0.52, rear_x=0.40, floor=0.50,
+    # Van: windscreen, cab side and rear glass measured on the turned body (dark texels, lum < 0.25)
+    "Van": dict(ws_top=1.62, ws_z1=2.02, glass_boxes=[(1.00, 1.95, 1.2, 1.40, 2.02, "y", 0.25),
+                                                       (-2.75, -2.30, 0.72, 1.42, 2.03, "x", 0.25)],
+                bn=1.02, src="van_hunyuan60k.glb", axis="Y", nose=-1, size=(5.21, 1.96, 2.19), axles=(1.70, -1.50),
+                r=0.36, tw=0.24, rim=0.22, belt=1.40, cowl=2.12, bpillar=0.98, rear_x=0.95, floor=0.50, seat_x=1.30,
                 wheel="steel", rear_seat=False, plate="TKV9907", paint="white", cover=2.14, tris=62000),
 }
 
@@ -448,8 +451,12 @@ def classify(ob, tex, spec):
     if "ws_top" in spec:              # windscreen by position: everything between the A pillars, cowl to roof
         hwz = spec["size"][1] / 2 - spec.get("ws_inset", 0.17)
         ws = ((c[:, 0] > spec["ws_top"] - 0.03) & (c[:, 0] < spec["cowl"] + 0.03) & (np.abs(c[:, 1]) < hwz)
-              & (c[:, 2] > spec["belt"] + 0.03) & (c[:, 2] < spec["size"][2] - 0.05) & (n[:, 0] > 0.25))
+              & (c[:, 2] > spec["belt"] + 0.03) & (c[:, 2] < spec.get("ws_z1", spec["size"][2] - 0.05)) & (n[:, 0] > 0.25))
         glass |= ws
+    for (x0, x1, ym, z0, z1, ax, lmax) in spec.get("glass_boxes", []):      # measured window boxes, dark texels
+        nn = n[:, 1] if ax == "y" else n[:, 0]
+        glass |= ((c[:, 0] > x0) & (c[:, 0] < x1) & (np.abs(c[:, 1]) < ym) & (c[:, 2] > z0) & (c[:, 2] < z1)
+                  & (np.abs(nn) > 0.6) & (lum < lmax))
     if "side_glass" in spec:          # side glass by position (vans with light-coloured glass in the picture)
         x0, x1, z0, z1 = spec["side_glass"]
         glass |= ((c[:, 0] > x0) & (c[:, 0] < x1) & (c[:, 2] > z0) & (c[:, 2] < z1) & (np.abs(n[:, 1]) > 0.75))
@@ -909,18 +916,69 @@ def cowl_plank(c, n, cls, spec):
     """The generated wiper / cowl plank: dark faces lying on the windscreen base between the A pillars."""
     hw = spec["size"][1] / 2
     cw, belt = spec["cowl"], spec["belt"]
-    return ((c[:, 0] > cw - 0.20) & (c[:, 0] < cw + 0.12) & (c[:, 2] > belt - 0.14) & (c[:, 2] < belt + 0.10)
-            & (np.abs(c[:, 1]) < hw - 0.10) & (cls == CLS["trim"]) & (n[:, 2] > -0.2))
+    return ((c[:, 0] > cw - 0.14) & (c[:, 0] < cw + 0.12) & (c[:, 2] > belt - 0.14) & (c[:, 2] < belt + 0.08)
+            & (np.abs(c[:, 1]) < hw - 0.10) & (cls == CLS["trim"]) & (n[:, 2] > 0.35))
+
+
+def smooth_normals(ob, iters=10, cos_min=0.8, keep_deg=50.0):
+    """Reflection clean-up of the paint: per-vertex normals of the paint faces diffused over their paint neighbours
+    (bilateral: only neighbours within ~37 degrees), written as custom split normals on the paint corners. The
+    silhouettes keep the generated shape; the dents and ripples stop showing in the clear-coat reflections. Corners
+    of faces more than keep_deg off the smoothed normal (creases) keep their own normal."""
+    me = ob.data
+    names = [m.name if m else "" for m in me.materials]
+    pslots = [i for i, nm in enumerate(names) if nm.endswith("_Paint") or nm.endswith("_PaintCab")]
+    if not pslots:
+        return 0
+    nf, nl, nv = len(me.polygons), len(me.loops), len(me.vertices)
+    mi = np.empty(nf, np.int32)
+    me.polygons.foreach_get("material_index", mi)
+    lt = np.empty(nf, np.int64)
+    me.polygons.foreach_get("loop_total", lt)
+    lv = np.empty(nl, np.int64)
+    me.loops.foreach_get("vertex_index", lv)
+    fn = np.empty(nf * 3)
+    me.polygons.foreach_get("normal", fn)
+    fn = fn.reshape(-1, 3)
+    fa = np.empty(nf)
+    me.polygons.foreach_get("area", fa)
+    lf = np.repeat(np.arange(nf), lt)
+    lp = np.isin(mi, pslots)[lf]
+    vn = np.zeros((nv, 3))
+    np.add.at(vn, lv[lp], fn[lf[lp]] * fa[lf[lp]][:, None])
+    inp = np.zeros(nv, bool)
+    inp[lv[lp]] = True
+    unit = lambda a: a / (np.linalg.norm(a, axis=1)[:, None] + 1e-12)
+    vn = unit(vn)
+    ev = np.empty(len(me.edges) * 2, np.int64)
+    me.edges.foreach_get("vertices", ev)
+    e = ev.reshape(-1, 2)
+    e = e[inp[e[:, 0]] & inp[e[:, 1]]]
+    for _ in range(iters):
+        w = ((vn[e[:, 0]] * vn[e[:, 1]]).sum(1) > cos_min).astype(np.float64)[:, None]
+        s_ = vn.copy()
+        np.add.at(s_, e[:, 0], vn[e[:, 1]] * w)
+        np.add.at(s_, e[:, 1], vn[e[:, 0]] * w)
+        vn = np.where(inp[:, None], unit(s_), vn)
+    cn = np.empty(nl * 3)
+    me.corner_normals.foreach_get("vector", cn)
+    cn = cn.reshape(-1, 3)
+    new = vn[lv]
+    ok = lp & ((new * fn[lf]).sum(1) > math.cos(math.radians(keep_deg)))
+    cn[ok] = new[ok]
+    me.normals_split_custom_set([tuple(v) for v in cn])
+    return int(ok.sum())
 
 
 def cowl_panel(c, k, spec, name):
     """Modelled cowl: a black plastic panel with louvre ribs over the area of the deleted generated plank, fitted
     to the plank faces (x extent, slope of z over x)."""
     x, z = c[k, 0], c[k, 2]
-    x0, x1 = np.percentile(x, [4, 96])
+    x0, x1 = np.percentile(x, [6, 94])
     A = np.stack([np.ones_like(x), x - x.mean()], 1)
     za, zb = np.linalg.lstsq(A, z, rcond=None)[0]
-    zb = float(np.clip(zb, -1.2, 0.6))
+    za = float(np.median(z))
+    zb = float(np.clip(zb, -0.45, 0.10))          # the cowl lies about flat, falling gently toward the bonnet
     hw = float(np.percentile(np.abs(c[k, 1]), 97)) + 0.03
     xm = float((x0 + x1) / 2)
     zm = float(za + zb * (xm - x.mean()))
@@ -1041,6 +1099,8 @@ def make_parts(ctx, key):
         ck = cowl_plank(c, n, cls, spec)
         ctx.log("%s: cowl plank %d faces" % (key, int(ck.sum())))
         if ck.sum() >= 30:
+            ctx.log("%s: cowl x %.2f..%.2f z %.2f..%.2f" % ((key,) + tuple(np.percentile(c[ck, 0], [5, 95]))
+                                                            + tuple(np.percentile(c[ck, 2], [5, 95]))))
             cowl_ob = cowl_panel(c, ck, spec, name)
             cls[ck] = CLS["drop"]
     js = os.path.join(paths.texture_set(set_name), "set.json")
@@ -1070,8 +1130,8 @@ def make_parts(ctx, key):
     gen3d.set_face_materials(ob, idx)
     tri0 = geo.stats(ob)["triangles"]
     gen3d.decimate(ob, 1.0, target=spec["tris"])
-    if spec.get("smooth", 12):
-        nfree = smooth_paint(ob, [0] + ([p2] if p2 else []), pairs=spec.get("smooth", 12))
+    if spec.get("smooth", 30):
+        nfree = smooth_paint(ob, [0] + ([p2] if p2 else []), pairs=spec.get("smooth", 30))
         ctx.log("%s: paint panels smoothed (%d free vertices)" % (key, nfree))
     W, D, H = spec["size"]
     gen3d.clamp_box(ob, (-W / 2, -D / 2, 0.0), (W / 2, D / 2, H))
@@ -1160,6 +1220,8 @@ def assemble(ctx, name, objs, dirt=0.35):
         o.hide_viewport = False
     ob = geo.join(objs, name, ctx.col)
     finish(ob, dirt)
+    nc = smooth_normals(ob)
+    ctx.log("%s: paint normals smoothed on %d corners" % (name, nc))
     return ob
 
 
@@ -1812,7 +1874,7 @@ def ipx_door(ctx, right=True):
     ctx.asset(ob, collision="none", cover_height=None, notes="IPX vault door leaf (%s), pivot on the hinge line at the "
               "outer edge, closed pose: outer face toward -X, leaf toward the centre seam. On the truck: hinge at "
               "(%.2f, %+.3f, 1.05); opens %s108.9 degrees about Z in 1.1 s. No collision." %
-              (IPX_DOOR_X, "right, -Y side of the truck" if right else "left, +Y side", -0.89 * s, "+" if right else "-"),
+              ("right, -Y side of the truck" if right else "left, +Y side", IPX_DOOR_X, -0.89 * s, "+" if right else "-"),
               expect_size=(0.07, 0.89, 1.62), slots=slot_records(ob))
     return ob
 
@@ -1831,7 +1893,7 @@ def _uv_card(ob, uv, s):
             uvl.data[li].uv = (u0 + (u1 - u0) * fu, v0 + (v1 - v0) * fv)
 
 
-IPX_DOOR_X = -3.00          # x of the rear door plane of the generated IPX body (measured on the fitted mesh)
+IPX_DOOR_X = -3.259         # x of the rear door plane of the generated IPX body (measured on the fitted mesh by _ipx_drop)
 
 
 def v_ipx(ctx):
@@ -1844,6 +1906,7 @@ def v_ipx(ctx):
     t_galv = (bake.read_set("TS_Galvanised_Aged") or {}).get("tile_m", 1.0)
     tail = -sp["size"][0] / 2
     door_x = IPX_DOOR_X                         # the generated rear door plane (the step bumper reaches the tail)
+    ctx.log("IPXTruck: rear door plane measured at x %.3f" % door_x)
     # vault lining 3.58 x 1.80 x 1.56, floor 1.02, open at the tail
     x1 = door_x + 0.02
     lin = geo.box((3.58, 1.80, 1.56), bevel=0.0, name="IPX_Vault")
@@ -2019,34 +2082,14 @@ def pickup_extra(ctx, P):
     """Spare tyre lying flat and a timber crate in the bed (the generated bed contents were dropped)."""
     sp = SPEC["Pickup"]
     out = []
-    # (review fix) cab back wall with the rear window, measured on the shell: the roof's rear edge
+    # (review fix) the seats stood behind the generated cab back wall (in the bed): moved inside the cab, headrest
+    # 0.08 ahead of the wall, measured on the shell (the roof's rear edge)
     c, n, _ = gen3d.face_arrays(P["raw"])
     H = sp["size"][2]
     roof = (n[:, 2] > 0.8) & (c[:, 2] > H - 0.15) & (np.abs(c[:, 1]) < 0.5)
     cab_x = float(np.percentile(c[roof, 0], 1)) if roof.sum() > 20 else -0.45
     roof_z = float(np.percentile(c[roof, 2], 50)) if roof.sum() > 20 else H - 0.03
-    hw = sp["size"][1] / 2 - 0.11
-    z0, zw0, zw1, z1 = 0.56, sp["belt"] + 0.04, roof_z - 0.11, roof_z - 0.025
-    wy = 0.56
     t_ = 0.035
-    xw = cab_x + 0.004 + t_ / 2
-    mpaint = P["shell"].material_slots[0].material
-    wall = []
-    for (sy, sz, y, z) in ((2 * hw, zw0 - z0, 0.0, z0), (2 * hw, z1 - zw1, 0.0, zw1),
-                           (hw - wy, zw1 - zw0, (hw + wy) / 2, zw0), (hw - wy, zw1 - zw0, -(hw + wy) / 2, zw0)):
-        b = geo.box((t_, sy, sz), bevel=0.006, name="Pickup_CabBack")
-        geo.transform(b, loc=(xw, y, z))
-        wall.append(uv_point(put_mat(b, mpaint), "Vehicle_Pickup"))
-    out += wall
-    m_glass, t_glass = tiling("TS_Glass_CarTint")
-    pane = geo.box((0.006, 2 * wy + 0.02, zw1 - zw0 + 0.02), bevel=0.002, name="Pickup_RearGlass")
-    geo.transform(pane, loc=(xw - t_ / 2 + 0.004, 0, zw0 - 0.01))
-    out.append(put_mat(pane, m_glass, t_glass))
-    m_rub, t_rub = tiling("TS_Rubber_Tyre")
-    xs = xw - t_ / 2 - 0.004
-    seal = geo.pipe([(xs, -wy, zw0), (xs, wy, zw0), (xs, wy, zw1), (xs, -wy, zw1), (xs, -wy, zw0)], 0.009,
-                    segments=8, bend_radius=0.04, name="Pickup_RearSeal")
-    out.append(put_mat(seal, m_rub, t_rub))
     # the seats inside the cab: headrest back 0.08 ahead of the wall
     fx = sp.get("seat_x", sp["bpillar"] - 0.12)
     shift = max(0.0, cab_x + t_ + 0.42 - fx)
@@ -2069,15 +2112,16 @@ def pickup_extra(ctx, P):
 
 
 SPEC.update({
-    "VanVulture": dict(SPEC["Van"], set="Vehicle_Van", paint="black", plate="LWG4418",
+    "VanVulture": dict(SPEC["Van"], set="Vehicle_Van", paint="black", plate="LWG4418", glass_boxes=SPEC["Van"]["glass_boxes"][:1],
                        drop=lambda c, n, cls: (c[:, 0] < -2.45) & (c[:, 2] > 0.58) & (c[:, 2] < 2.08) & (np.abs(c[:, 1]) < 0.87)),
     "BoxTruck": dict(bn=1.30, ws_top=2.18, ws_inset=0.30, cabin_inside=False, src="boxtruck_hunyuan80k.glb", axis="Y", nose=-1, size=(7.39, 2.44, 3.31), axles=(2.95, -2.09),
                      r=0.44, tw=0.28, rim=0.27, belt=1.50, cowl=2.55, bpillar=1.65, rear_x=1.20, floor=1.0,
                      cabin_rear=1.25, seat_x=1.55, wheel="steel", twin=True, rear_seat=False, plate="HLS2141",
                      paint="mustard", paint2=lambda c: c[:, 0] > _box_front(c) + 0.03, paint2_colour="#d9d7d0", cover=3.30, tris=48000),
-    "IPXTruck": dict(bn=1.30, ws_top=1.57, ws_inset=0.30, cabin_inside=False, src="ipx_hunyuan80k.glb", axis="Y", nose=-1, size=(6.81, 2.48, 2.96), axles=(2.05, -1.75),
-                     r=0.50, tw=0.30, rim=0.30, belt=1.75, cowl=2.30, bpillar=0.70, rear_x=0.60, floor=1.05,
-                     cabin_rear=0.62, seat_x=1.00, wheel="steel", twin=True, rear_seat=False, plate="KQB5530",
+    # IPX: a conventional cab (windscreen at x 1.4-1.6, z 2.22-2.72, bonnet to the nose), measured on the turned body
+    "IPXTruck": dict(bn=1.80, ws_top=1.36, ws_z1=2.74, ws_inset=0.42, cabin_inside=False, src="ipx_hunyuan80k.glb", axis="Y", nose=-1, size=(6.81, 2.48, 2.96), axles=(2.05, -1.75),
+                     r=0.50, tw=0.30, rim=0.30, belt=2.20, cowl=1.62, bpillar=0.70, rear_x=0.60, floor=1.05,
+                     cabin_rear=0.62, seat_x=0.95, wheel="steel", twin=True, rear_seat=False, plate="KQB5530",
                      paint="#17191d", hazard_slot=True, cover=2.86, tris=50000,
                      drop=lambda c, n, cls: _ipx_drop(c, n, cls)),
     "Motorbike": dict(src="moto_hunyuan100k.glb", axis="X", nose=1, paint="navy", tris=90000),
@@ -2107,7 +2151,7 @@ def _pickup_reclass(c, n, cls):
     """The bed inside reads as black bedliner (the generated paint / trim sawtooth on the arch housings goes)."""
     bed = (c[:, 0] < -0.70) & (c[:, 0] > -2.55) & (np.abs(c[:, 1]) < 0.96) & (c[:, 2] > 0.50) & (c[:, 2] < 1.10)
     inner = bed & ((n[:, 2] > 0.6) | (n[:, 1] * np.sign(c[:, 1]) < -0.3) | (n[:, 0] > 0.6))
-    cls[inner & np.isin(cls, [CLS["paint"], CLS["trim"], CLS["inside"]])] = CLS["trim"]
+    cls[inner & np.isin(cls, [CLS["paint"], CLS["trim"], CLS["inside"], CLS["amber"], CLS["head"]])] = CLS["trim"]
 
 
 def _bed_contents(c, n, cls):

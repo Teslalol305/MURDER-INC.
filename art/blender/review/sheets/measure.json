@@ -26,7 +26,7 @@
    0.0,
    0.0
   ],
-  "triangles": 120276,
+  "triangles": 119544,
   "slots": [
    "M_Vehicle_Sedan_Paint",
    "M_Vehicle_Sedan_Trim",
@@ -49,6 +49,13 @@
     "n": 9522
    },
    {
+    "x": 0.76,
+    "dia_z": 0.025,
+    "len_x": 0.007,
+    "zmin": 1.071,
+    "n": 48
+   },
+   {
     "x": 1.42,
     "dia_z": 0.65,
     "len_x": 0.65,
@@ -66,7 +73,7 @@
   "tyre_zmin": 0.0,
   "lamp_E_front_rear": {
    "front": [
-    0.85,
+    0.84,
     0.82,
     0.76
    ],
@@ -530,7 +537,7 @@
    0.0,
    0.0
   ],
-  "triangles": 122264,
+  "triangles": 121384,
   "slots": [
    "M_Vehicle_Van_Paint",
    "M_Vehicle_Van_Trim",
@@ -553,14 +560,14 @@
     "n": 9034
    },
    {
-    "x": 1.7,
-    "dia_z": 1.812,
-    "len_x": 0.72,
+    "x": 1.717,
+    "dia_z": 1.619,
+    "len_x": 0.754,
     "zmin": 0.0,
     "n": 9082
    }
   ],
-  "wheelbase": 3.2,
+  "wheelbase": 3.217,
   "brief_axles": [
    1.7,
    -1.5
@@ -581,12 +588,12 @@
    ]
   },
   "glass_x_range": [
-   0.33,
-   2.05
+   -2.54,
+   2.2
   ],
   "glass_z_range": [
-   1.14,
-   2.07
+   1.36,
+   2.03
   ],
   "textures": {
    "M_Vehicle_Van_Paint.BC": "4096x4096",
@@ -651,7 +658,7 @@
    -0.134,
    0.0
   ],
-  "triangles": 117830,
+  "triangles": 117598,
   "slots": [
    "M_Vehicle_VanVulture_Paint",
    "M_Vehicle_VanVulture_Trim",
@@ -678,14 +685,14 @@
     "n": 9034
    },
    {
-    "x": 1.7,
-    "dia_z": 0.72,
-    "len_x": 0.72,
+    "x": 1.717,
+    "dia_z": 1.619,
+    "len_x": 0.754,
     "zmin": 0.0,
-    "n": 9034
+    "n": 9082
    }
   ],
-  "wheelbase": 3.2,
+  "wheelbase": 3.217,
   "brief_axles": [
    1.7,
    -1.5
@@ -695,19 +702,23 @@
   "tyre_zmin": 0.0,
   "lamp_E_front_rear": {
    "front": [
-    0.84,
+    0.8,
     0.78,
-    0.68
+    0.73
    ],
-   "rear": null
+   "rear": [
+    0.81,
+    0.21,
+    0.14
+   ]
   },
   "glass_x_range": [
    -3.23,
-   1.86
+   2.2
   ],
   "glass_z_range": [
-   1.19,
-   1.95
+   1.36,
+   2.03
   ],
   "textures": {
    "M_Vehicle_VanVulture_Paint.BC": "4096x4096",
@@ -892,7 +903,7 @@
   "asset": "SM_Vehicle_IPXTruck",
   "size": [
    6.81,
-   2.48,
+   2.49,
    2.96
   ],
   "brief_size": [
@@ -907,15 +918,15 @@
   ],
   "max": [
    3.405,
-   1.24,
+   1.25,
    2.96
   ],
   "origin_offset_from_ground_centre": [
    0.0,
-   0.0,
+   0.005,
    0.0
   ],
-  "triangles": 136178,
+  "triangles": 144970,
   "slots": [
    "M_Vehicle_IPXTruck_Paint",
    "M_Vehicle_IPXTruck_Trim",
@@ -931,7 +942,7 @@
    "MI_Galvanised_Aged",
    "M_Vehicle_IPXTruck_Decals"
   ],
-  "verts_below_1cm": 674,
+  "verts_below_1cm": 648,
   "wheels": [
    {
     "x": -1.75,
@@ -958,23 +969,23 @@
   "tyre_zmin": 0.0,
   "lamp_E_front_rear": {
    "front": [
-    0.99,
-    0.95,
-    0.87
+    0.67,
+    0.64,
+    0.6
    ],
    "rear": [
-    0.26,
-    0.16,
-    0.06
+    0.0,
+    0.0,
+    0.0
    ]
   },
   "glass_x_range": [
-   0.57,
-   2.42
+   0.75,
+   1.71
   ],
   "glass_z_range": [
-   2.12,
-   2.3
+   2.13,
+   2.77
   ],
   "textures": {
    "M_Vehicle_IPXTruck_Paint.BC": "4096x4096",
@@ -1014,10 +1025,10 @@
    "M_Vehicle_Plate_KQB5530.BC": "1024x512",
    "M_Vehicle_Plate_KQB5530.N": "1024x512",
    "M_Vehicle_Plate_KQB5530.ORM": "1024x512",
-   "MI_Galvanised_Aged.BC": "1024x1024",
-   "MI_Galvanised_Aged.H": "1024x1024",
-   "MI_Galvanised_Aged.N": "1024x1024",
-   "MI_Galvanised_Aged.ORM": "1024x1024",
+   "MI_Galvanised_Aged.BC": "2048x2048",
+   "MI_Galvanised_Aged.H": "2048x2048",
+   "MI_Galvanised_Aged.N": "2048x2048",
+   "MI_Galvanised_Aged.ORM": "2048x2048",
    "M_Vehicle_IPXTruck_Decals.BC": "2048x2048",
    "M_Vehicle_IPXTruck_Decals.N": "2048x2048",
    "M_Vehicle_IPXTruck_Decals.ORM": "2048x2048"

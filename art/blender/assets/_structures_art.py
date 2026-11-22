@@ -66,15 +66,15 @@ def kiosk_posters(cv, rng):
     # left: a cold-drink ad (no brand), right: lottery-style jackpot board with a fictional game name
     rect(cv, 0, 0, 0.6, 0.9, "#c81f2a")
     rect(cv, 0.04, 0.55, 0.56, 0.86, "#f4f2ec")
-    txt(cv, "ICE", 0.16, 0.3, 0.16, "#f4f2ec", "heavy")
-    txt(cv, "COLD", 0.16, 0.3, 0.34, "#f4f2ec", "heavy")
+    txt(cv, "ICE", 0.14, 0.3, 0.14, "#f4f2ec", "heavy")
+    txt(cv, "COLD", 0.14, 0.3, 0.36, "#f4f2ec", "heavy", max_w=0.5)
     txt(cv, "SODA · JUICE · WATER", 0.035, 0.3, 0.62, "#c81f2a", "bold")
     txt(cv, "75¢", 0.13, 0.3, 0.76, "#101113", "heavy")
     rect(cv, 0.6, 0, 1.2, 0.9, "#1b2f6b")
     txt(cv, "QUICK 6", 0.085, 0.9, 0.10, "#f6c21a", "heavyIt")
     txt(cv, "JACKPOT", 0.06, 0.9, 0.24, "#f4f2ec", "heavy")
-    txt(cv, "$4", 0.17, 0.82, 0.45, "#f6c21a", "heavy")
-    txt(cv, "MILLION", 0.05, 1.03, 0.47, "#f6c21a", "heavy")
+    txt(cv, "$4", 0.17, 0.9, 0.42, "#f6c21a", "heavy")
+    txt(cv, "MILLION", 0.05, 0.9, 0.58, "#f6c21a", "heavy")
     txt(cv, "PLAY HERE", 0.06, 0.9, 0.70, "#f4f2ec", "heavy")
     greek(cv, 0.66, 0.78, 1.14, 0.86, line=0.008, col="#9fb0d8", seed=3)
 
@@ -83,7 +83,7 @@ def road_closed(cv, rng):
     rect(cv, 0, 0, 3.4, 1.05, "#e8641b")
     rect(cv, 0.04, 0.04, 3.36, 1.01, "#e8641b", outline=0.02)
     cv.put(cv.rect(0.04, 0.04, 3.36, 1.01, 0.02, 0.02), paint("#101113"))
-    txt(cv, "ROAD CLOSED", 0.36, 1.7, 0.40, "#101113", "heavy", cond=0.9, track=0.03)
+    txt(cv, "ROAD CLOSED", 0.36, 1.7, 0.40, "#101113", "heavy", cond=0.9, track=0.03, max_w=3.0)
     txt(cv, "EL STRUCTURE REPAIRS  ·  NO THRU TRAFFIC", 0.11, 1.7, 0.82, "#101113", "bold", max_w=3.1)
 
 
@@ -118,7 +118,7 @@ def _bill(cv, x0, y0, w, h, kind, rng):
     elif kind == "hoops":
         rect(cv, x0, y0, x0 + w, y0 + h, "#f4f2ec")
         rect(cv, x0, y0, x0 + w, y0 + 0.22, "#1b2f6b")
-        txt(cv, "SUMMER HOOPS", 0.06, cx, y0 + 0.11, "#f4f2ec", "heavy")
+        txt(cv, "SUMMER HOOPS", 0.05, cx, y0 + 0.11, "#f4f2ec", "heavy", max_w=w - 0.06)
         def ball(d, k):
             d.ellipse([(cx - 0.13) * k, (y0 + 0.28) * k, (cx + 0.13) * k, (y0 + 0.54) * k], fill=255)
         cv.put(cv.draw(ball), paint("#d9521a"))
@@ -195,7 +195,8 @@ def price_cards(cv, rng):
         rect(cv, x0 + 0.004, y0 + 0.004, x0 + 0.116, y0 + 0.116, ["#f2efe4", "#f6e35a", "#ff9fbd", "#9fe08a"][i % 4])
         a, b = (t.split("\n") + [""])[:2]
         txt(cv, a, 0.018 if len(a) > 5 else 0.026, x0 + 0.06, y0 + 0.038, "#101113", "heavy", max_w=0.1)
-        txt(cv, b, 0.028, x0 + 0.06, y0 + 0.082, "#c81f2a", "heavy", max_w=0.1)
+        if b:
+            txt(cv, b, 0.028, x0 + 0.06, y0 + 0.082, "#c81f2a", "heavy", max_w=0.1)
 
 
 def scale_dial(cv, rng):
@@ -213,13 +214,14 @@ def scale_dial(cv, rng):
 
 
 def garage_numbers(cv, rng):
-    cv.c[:] = paint("#b9b4a6")
+    a = cv.blank()
+    n = S.vnoise(rng, cv.H, cv.W, cv.k * 0.008)
     for i in range(8):
         x0, y0 = (i % 4) * 0.7, (i // 4) * 0.42
         m, _, _ = cv.text(str(41 + i), "heavy", 0.30, x0 + 0.35, y0 + 0.21, cond=0.85)
-        n = S.vnoise(rng, cv.H, cv.W, cv.k * 0.008)
-        cv.put(np.clip(m * (0.75 + 0.35 * n), 0, 1), paint("#e6e4dc"))
-    cv.a = np.clip(cv.a if getattr(cv, "a", None) is not None else 1.0, 0, 1)
+        a = np.maximum(a, m)
+    cv.c[:] = paint("#e6e4dc")
+    cv.a = np.clip(a * (0.7 + 0.35 * n), 0, 1)
 
 
 def shop_posters(cv, rng):
@@ -300,7 +302,7 @@ def draw_all(force=False):
         ("PostNoBills", 1.5, 0.24, 1536, (0.9, 0.9, 0.88), post_no_bills, dict(rough=0.6, age=0, grime_amt=0, alpha=True)),
         ("PriceCards", PRICE_M[0], PRICE_M[1], 1280, "#f2efe4", price_cards, dict(rough=0.6, age=0.6, grime_amt=0.3)),
         ("ScaleDial", 0.2, 0.2, 512, "#e9e7df", scale_dial, dict(rough=0.1, age=0.6, grime_amt=0.4)),
-        ("GarageNumbers", GARAGE_M[0], GARAGE_M[1], 2048, "#b9b4a6", garage_numbers, dict(rough=0.7, age=0, grime_amt=0)),
+        ("GarageNumbers", GARAGE_M[0], GARAGE_M[1], 2048, (0.9, 0.9, 0.88), garage_numbers, dict(rough=0.7, age=0, grime_amt=0, alpha=True)),
         ("ShopPosters", SHOP_M[0], SHOP_M[1], 2048, "#f2efe4", shop_posters, dict(rough=0.65, age=1.6)),
         ("ExitBox", 0.7, 0.3, 768, "#7a1410", exit_box, dict(rough=0.2, age=0.6, meta=dict(emissive_day=0.5))),
         ("OilStain", 1.0, 1.0, 1024, (0.05, 0.04, 0.03), oil_stain, dict(rough=0.15, age=0, grime_amt=0, alpha=True)),

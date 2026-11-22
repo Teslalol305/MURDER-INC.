@@ -231,8 +231,9 @@ export function goldenEnemyLogic(seed, write, about) {
     const t = [R(-10, 10), R(0, 2), R(-10, 10)];
     const v = [R(-5, 5), R(-1, 1), R(-5, 5)];
     const out = [0, 0, 0];
-    L.leadPoint(...s, ...t, ...v, 70, R(0, 1), out);
-    lead.push([s, t, v, out]);
+    const share = R(0, 1);
+    L.leadPoint(...s, ...t, ...v, 70, share, out);
+    lead.push([s, t, v, share, out]);
   }
   write('enemy_logic.json', { about: about('src/enemies/logic.js'), ai, tokens: tokenScript, sight, accum, spread, cost, follow, rays, upright, lead });
 }
