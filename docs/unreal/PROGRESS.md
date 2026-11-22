@@ -21,6 +21,21 @@ What is verified on the box, newest first. Every entry says how it was verified.
    `send-art.sh pack` + transfer + `block.sh start textures,materials force` + `block.sh start meshes,level` when it
    is finished: sign slots without a set show the neutral stand-in `SIGN_STAND_IN`.
 
+## Gameplay (slice 2: the enemies and the flow) — in progress
+
+Contracts: `docs/unreal/GAMEPLAY.md` section 6 on. Built and tested in `/project/ue/repo-gameplay` (MCP 8001).
+
+**Verified 2026-11-22**
+- **Build green, 12 of 12 tests pass** (`test.sh` TESTS OK passed=12, 24 s). New:
+  `MurderInc.Golden.World` (the box world, a port of `src/physics.js` filled with level.json's 777 colliders: 160
+  rays, 160 sight lines, 120 floors, three capsule walks of 300 to 500 frames, the nav grid equal to level.json cell
+  for cell, 60 paths, 100 straight lines, 40 random points, 60 snaps: 7,268 checks, 0 mismatches),
+  `Golden.EnemyLogic` (logic.js: tokens, sight, accumulators, spread, fire-position cost, follow speed, hit-volume
+  rays, the bolt sweep, lead: 1,237 checks, 0 mismatches), `Golden.Enemies` (six fights of the web game's own
+  `src/enemies.js` replayed frame by frame: goon_engage, goon_rush, goon_patrol_hear_hit_kill, buzzard_engage,
+  buzzard_deck_and_crash, squad (3 Goons, 2 Buzzards, 1,200 frames); every unit's mode, step, position, heading,
+  health, exposure, sight accumulator and every event with its direction and amount: 107,772 checks, 0 mismatches).
+
 ## Gameplay (slice 1: the player and the two guns)
 
 Contracts: `docs/unreal/GAMEPLAY.md`. Built and tested in the second clone `/project/ue/repo-gameplay` (MCP 8001).
