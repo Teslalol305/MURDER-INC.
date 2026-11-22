@@ -1402,6 +1402,7 @@ def fx_material(name, set_dir, strength):
 
 FRACTURE = "TS_Composite_Fracture"
 FRACTURE_TILE = 0.08
+NOSE_CUT_BACK = Vector((-1.0, 0.0, 0.18)).normalized()
 
 
 def pnoise(rng, shape, fx, fy):
@@ -1484,18 +1485,19 @@ def break_off(ob, co, no, jag=0.004, seed=0, splinters=0):
         spokes = [e for e in bm.edges if (e.verts[0] in cverts) != (e.verts[1] in cverts)]
         bmesh.ops.subdivide_edges(bm, edges=spokes, cuts=2, use_grid_fill=False)
     capf = [f for f in bm.faces if f.material_index == 1]
-    inner = set(v for f in capf for v in f.verts) - rim
+    capv = set(v for f in capf for v in f.verts)
+    rim = set(v for v in capv if any(f.material_index != 1 for f in v.link_faces))
+    inner = capv - rim
     for v in inner:
         v.co += no * float(rng.uniform(-1.0, 0.6) * jag) + Vector(rng.normal(0, jag * 0.15, 3))
     for v in rim:
         v.co += no * float(rng.uniform(-0.5, 0.5) * jag * 0.5)
+    bm.normal_update()
     uvl = bm.loops.layers.uv.active
     ua = no.orthogonal().normalized()
     va = no.cross(ua)
     for f in capf:
         f.smooth = False
-        if f.normal.dot(no) > 0:
-            f.normal_flip()
         for lp in f.loops:
             lp[uvl].uv = (lp.vert.co.dot(ua) / FRACTURE_TILE, lp.vert.co.dot(va) / FRACTURE_TILE)
     # splinters: thin slivers of carbon standing out of the break
@@ -1515,6 +1517,21 @@ def break_off(ob, co, no, jag=0.004, seed=0, splinters=0):
             f.smooth = False
             for lp in f.loops:
                 lp[uvl].uv = (lp.vert.co.dot(ua) / FRACTURE_TILE, lp.vert.co.dot(va) / FRACTURE_TILE)
+    # winding: every shell that got a cap (and every splinter) is closed now: recalculate it as a whole
+    seen, shell = set(), []
+    stack = [f for f in bm.faces if f.material_index == 1]
+    while stack:
+        f = stack.pop()
+        if f in seen:
+            continue
+        seen.add(f)
+        shell.append(f)
+        for e in f.edges:
+            for g in e.link_faces:
+                if g not in seen:
+                    stack.append(g)
+    if shell:
+        bmesh.ops.recalc_face_normals(bm, faces=shell)
     geo.bm_to(ob, bm)
     return ob
 
@@ -1636,8 +1653,13 @@ def build_wreck(ctx):
         h = geo.join(parts, "SM_Fx_BuzzardWreck_" + nm, col)
         nrm = Vector((0.10 * side, 1.0 * side, 0.04)).normalized()
         break_off(h, (0.0, 0.0, 0.0), nrm, 0.007, 50 + side, 0)
-        finish(h, "Hull half (%s) with the oxblood spine split down the middle, deck, beak, gimbal mount and the arm roots."
-               % ("left, +Y" if side > 0 else "right, -Y"), [((0, 0, 0), tuple(nrm))], 60 + side)
+        break_off(h, (0.215, 0.0, 0.0), NOSE_CUT_BACK, 0.006, 55 + side, 0)
+        finish(h, "Hull half (%s) with the oxblood spine split down the middle, deck, gimbal mount and the arm roots; "
+               "the beak broke away (SM_Fx_BuzzardWreck_Nose)." % ("left, +Y" if side > 0 else "right, -Y"),
+               [((0, 0, 0), tuple(nrm)), ((0.215, 0, 0), tuple(NOSE_CUT_BACK))], 60 + side)
+    nose = extract(src, [1], "SM_Fx_BuzzardWreck_Nose", col)
+    break_off(nose, (0.215, 0.0, 0.0), -NOSE_CUT_BACK, 0.006, 57, 0)
+    finish(nose, "The hooked beak with the oxblood brow, broken off the hull's nose.", [((0.215, 0, 0), tuple(NOSE_CUT_BACK))], 58)
     for ai in inner:
         bpy.data.objects.remove(ai)
     t = extract(src, [3], "SM_Fx_BuzzardWreck_Tail", col)
@@ -1814,7 +1836,7 @@ def preview_wreck(ctx, pieces):
     lay = {"HullLeft": (-0.15, 0.30, 90, 0), "HullRight": (0.35, -0.25, -80, 180), "ArmFL": (0.75, 0.55, 30, 0),
            "ArmFR": (0.95, -0.45, -40, 0), "ArmRL": (-0.65, 0.65, 120, 0), "ArmRR": (-0.55, -0.70, 200, 180),
            "Tail": (-0.95, -0.05, 15, 0), "Gimbal": (0.30, 0.55, 40, 0), "Gun": (0.10, -0.70, -25, 90),
-           "Skids": (-0.25, -0.20, 60, 0), "PropClean": (1.25, 0.20, 70, 0), "PropBentA": (-1.05, 0.95, -20, 0),
+           "Skids": (-0.25, -0.20, 60, 0), "Nose": (1.05, -0.05, -150, 30), "PropClean": (1.25, 0.20, 70, 0), "PropBentA": (-1.05, 0.95, -20, 0),
            "PropBentB": (0.65, -0.95, 150, 0)}
     shown = []
     for o in pieces:
