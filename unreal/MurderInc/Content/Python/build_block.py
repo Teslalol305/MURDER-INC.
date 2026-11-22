@@ -63,7 +63,7 @@ DAY_EV100 = (12.3, 14.2)         # art bible 2.3: auto exposure clamped; open su
 SUN_SOURCE_ANGLE = 0.5357        # art bible 2.4
 SUN_SHAFTS = 3.0                 # sun volumetric scattering: visible shafts through the El ties
 CONTACT_SHADOW = 0.03            # screen-space contact shadow length of the sun
-FOG_VOLUME_EXTINCTION = 2.0      # volumetric fog only: enough medium for the shafts, the far haze stays the fog's
+FOG_VOLUME_EXTINCTION = 5.0      # volumetric fog only: enough medium for the shafts, the far haze stays the fog's
 LOCAL_SHADOW_CONTRAST = 0.45     # local exposure lifts the shade under the El without flattening the sun
 CLOUD_MATERIAL = "/Engine/EngineSky/VolumetricClouds/m_SimpleVolumetricCloud_Inst"
 CLOUD_LAYER = {"layer_bottom_altitude": 1.6, "layer_height": 6.0}   # km: fair-weather cumulus bases
@@ -124,8 +124,8 @@ SIGN_STAND_IN = ((0.42, 0.42, 0.4), 0.55, 0.0, 0.0)               # neutral sign
 # 310 above the 380 cm shop floor line; Y: 550 so that both building lines, Y -1100 and +1100, are cell walls),
 # interior luminance in nits (rooms behind daylit windows are about a tenth of the facade), shop mode.
 GLASS_SLOTS = {
-    "MI_Glass_Window": dict(room=(310.0, 550.0, 310.0), offset=(0.0, 0.0, 70.0), nits=260.0, shop=0.0, sill=0.19),
-    "MI_Glass_Store": dict(room=(310.0, 550.0, 310.0), offset=(0.0, 0.0, 70.0), nits=520.0, shop=1.0, sill=0.03),
+    "MI_Glass_Window": dict(room=(310.0, 550.0, 310.0), offset=(0.0, 0.0, 70.0), nits=110.0, shop=0.0, sill=0.19),
+    "MI_Glass_Store": dict(room=(310.0, 550.0, 310.0), offset=(0.0, 0.0, 70.0), nits=200.0, shop=1.0, sill=0.03),
 }
 BACKDROP_AVENUE_CM = 45000      # the avenue's street walls continue this far east and west of the centre
 # Catalogue ids whose mesh notes do not name them (the street and facade families).
@@ -524,11 +524,15 @@ else
     float fz = f.z;
     if (Shop > 0.5)
     {
-        // Shelving on every wall: dark uprights, bands of packed goods.
+        // Shelving on every wall: dark uprights, bands of packed goods in muted packaging colours, a counter.
+        colour = float3(0.42, 0.41, 0.38) * (back ? 1.0 : 0.8);
         float band = frac(fz * 6.0);
-        float goods = step(0.25, band) * step(fz, 0.82) * step(0.08, fz);
-        float3 stock = lerp(float3(0.5, 0.18, 0.1), float3(0.2, 0.32, 0.5), frac(floor((f.x + f.y) * 9.0) * 0.37 + h2));
-        colour = lerp(colour * 0.5, stock, goods);
+        float slot = floor((f.x + f.y) * 14.0);
+        float pick = frac(sin(slot * 12.31 + h2 * 7.0) * 3758.5);
+        float goods = step(0.3, band) * step(fz, 0.8) * step(0.12, fz) * step(0.08, frac((f.x + f.y) * 14.0));
+        float3 stock = lerp(float3(0.36, 0.26, 0.2), float3(0.24, 0.27, 0.3), pick) * (0.6 + 0.6 * frac(pick * 7.3));
+        colour = lerp(colour, stock, goods);
+        colour = lerp(colour, float3(0.08, 0.07, 0.06), step(band, 0.3) * step(fz, 0.8) * step(0.12, fz) * 0.6);
     }
     else
     {
@@ -651,6 +655,145 @@ def build_flat_master(force):
     return "created"
 
 
+DECAL_MASTER = MAT_DIR + "/M_MI_Decal"
+DECAL_KINDS = ("Crack", "Patch", "Oil", "Gum", "Rust", "Stain", "Tyre")   # Kind parameter 0..6
+# Procedural street storytelling in decal UV space (0..1); the coarse world position varies each placement.
+DECAL_HLSL = r"""
+float2 uv = UV;
+float2 c = uv - 0.5;
+float r = length(c) * 2.0;
+float3 V = floor(WP / 397.0);
+float seed = frac(sin(dot(V, float3(12.9898, 78.233, 37.719))) * 43758.5453);
+float2 jitter = float2(seed, frac(seed * 7.13)) * 10.0;
+// value noise in uv
+float n1 = 0.0, amp = 0.5, freq = 4.0;
+for (int o = 0; o < 4; o++)
+{
+    float2 P = uv * freq + jitter + o * 3.1;
+    float2 I = floor(P), F = frac(P);
+    F = F * F * (3.0 - 2.0 * F);
+    float a = frac(sin(dot(I, float2(127.1, 311.7))) * 43758.5);
+    float b = frac(sin(dot(I + float2(1, 0), float2(127.1, 311.7))) * 43758.5);
+    float cc = frac(sin(dot(I + float2(0, 1), float2(127.1, 311.7))) * 43758.5);
+    float d = frac(sin(dot(I + float2(1, 1), float2(127.1, 311.7))) * 43758.5);
+    n1 += amp * lerp(lerp(a, b, F.x), lerp(cc, d, F.x), F.y);
+    amp *= 0.5; freq *= 2.0;
+}
+float3 colour = float3(0.02, 0.02, 0.02);
+float rough = 0.9;
+float alpha = 0.0;
+int k = (int)(Kind + 0.5);
+if (k == 0)
+{   // crack network: cell edges (F2 - F1) of a jittered grid, fading out from the centre
+    float2 P = uv * 5.0 + jitter;
+    float2 I = floor(P);
+    float f1 = 9.0, f2 = 9.0;
+    for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++)
+    {
+        float2 g = I + float2(x, y);
+        float2 o = float2(frac(sin(dot(g, float2(269.5, 183.3))) * 43758.5), frac(sin(dot(g, float2(113.5, 271.9))) * 43758.5));
+        float dd = length(g + o - P);
+        if (dd < f1) { f2 = f1; f1 = dd; } else if (dd < f2) f2 = dd;
+    }
+    float edge = 1.0 - smoothstep(0.02, 0.06 + 0.04 * n1, f2 - f1);
+    alpha = edge * saturate(1.3 - r * 1.2) * step(0.35, n1);
+    colour = float3(0.015, 0.014, 0.013);
+}
+else if (k == 1)
+{   // asphalt patch: a darker, smoother rectangle with a sealed seam
+    float2 e = abs(c) * 2.0;
+    float inside = step(max(e.x, e.y), 0.92 + 0.05 * n1);
+    float seam = inside * smoothstep(0.82, 0.92, max(e.x, e.y));
+    colour = lerp(float3(0.05, 0.05, 0.052), float3(0.012, 0.012, 0.012), seam) * (0.8 + 0.4 * n1);
+    rough = lerp(0.82, 0.55, seam);
+    alpha = inside * 0.92;
+}
+else if (k == 2)
+{   // oil: an irregular blot, darker and slick in the middle
+    float blot = saturate((0.75 + (n1 - 0.5) * 0.9 - r) * 4.0);
+    colour = float3(0.01, 0.009, 0.008);
+    rough = lerp(0.6, 0.18, blot);
+    alpha = blot * 0.85;
+}
+else if (k == 3)
+{   // gum and spots: sparse flattened discs on a 14 x 14 grid
+    float2 P = uv * 14.0 + jitter;
+    float2 I = floor(P);
+    float h = frac(sin(dot(I, float2(41.3, 289.1))) * 43758.5);
+    float2 o = float2(frac(h * 13.7), frac(h * 71.3)) * 0.6 + 0.2;
+    float d = length(frac(P) - o);
+    float rad = 0.07 + 0.08 * frac(h * 5.1);
+    float spot = step(0.72, h) * (1.0 - smoothstep(rad * 0.8, rad, d));
+    colour = (frac(h * 3.3) > 0.4) ? float3(0.16, 0.155, 0.15) : float3(0.025, 0.024, 0.024);
+    rough = 0.55;
+    alpha = spot;
+}
+else if (k == 4)
+{   // rust streak: runs down from the top edge (decal Z up), narrowing and fading
+    float x = abs(c.x) * 2.0;
+    float run = saturate(1.0 - uv.y * (0.9 + 0.5 * n1));
+    float lanes = smoothstep(0.65, 0.3, x + (n1 - 0.5) * 0.6);
+    float streaks = 0.6 + 0.4 * frac(sin(floor(uv.x * 23.0 + jitter.x) * 91.7) * 4375.5);
+    colour = lerp(float3(0.16, 0.06, 0.02), float3(0.07, 0.035, 0.02), n1);
+    alpha = run * lanes * streaks * 0.75;
+}
+else if (k == 5)
+{   // stain round a casting: a damp dark ring and silt
+    float ring = saturate(1.0 - abs(r - 0.62) * 3.0) * (0.6 + 0.6 * n1);
+    colour = float3(0.025, 0.024, 0.022);
+    rough = 0.7;
+    alpha = saturate(ring) * saturate(1.0 - r) * 1.6 * 0.6;
+}
+else
+{   // tyre marks: two dark bands along U, broken up
+    float band = smoothstep(0.1, 0.04, abs(abs(c.y) - 0.28));
+    colour = float3(0.012, 0.012, 0.012);
+    rough = 0.7;
+    alpha = band * saturate((n1 - 0.25) * 2.0) * saturate(1.0 - abs(c.x) * 2.0) * 0.7;
+}
+Rough = rough;
+Alpha = saturate(alpha);
+return colour;
+"""
+
+
+def build_decal_master(force):
+    """M_MI_Decal: deferred (DBuffer) decal with the procedural kinds of DECAL_HLSL."""
+    if ASSETS.does_asset_exist(DECAL_MASTER):
+        if not force:
+            return "exists"
+        material = unreal.load_asset(DECAL_MASTER)
+        LIB.delete_all_material_expressions(material)
+    else:
+        material = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+            "M_MI_Decal", MAT_DIR, unreal.Material, unreal.MaterialFactoryNew())
+    setp(material, "material_domain", unreal.MaterialDomain.MD_DEFERRED_DECAL)
+    setp(material, "blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+    uv = expr(material, unreal.MaterialExpressionTextureCoordinate, -1000, 0)
+    wp = world_position(material, -1000, 120)
+    kind = expr(material, unreal.MaterialExpressionScalarParameter, -1000, 260, parameter_name="Kind", default_value=0.0)
+    node = custom(material, -600, 100, DECAL_HLSL, ["UV", "WP", "Kind"], unreal.CustomMaterialOutputType.CMOT_FLOAT3,
+                  ["Rough", "Alpha"])
+    LIB.connect_material_expressions(uv, "", node, "UV")
+    LIB.connect_material_expressions(wp, "", node, "WP")
+    LIB.connect_material_expressions(kind, "", node, "Kind")
+    LIB.connect_material_property(node, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    LIB.connect_material_property(node, "Rough", unreal.MaterialProperty.MP_ROUGHNESS)
+    LIB.connect_material_property(node, "Alpha", unreal.MaterialProperty.MP_OPACITY)
+    LIB.recompile_material(material)
+    ASSETS.save_asset(DECAL_MASTER, only_if_is_dirty=False)
+    return "created"
+
+
+def make_decal_instance(kind, force):
+    name = "MI_Decal_" + DECAL_KINDS[kind]
+    instance = instance_of(name, DECAL_MASTER, force)
+    if instance is None:
+        return "exists"
+    LIB.set_material_instance_scalar_parameter_value(instance, "Kind", float(kind))
+    return finish_instance(instance, name)
+
+
 def instance_of(name, parent_path, force):
     """Load or create the instance `name` under parent_path; None when it exists and force is off."""
     path = "%s/%s" % (MAT_DIR, name)
@@ -751,6 +894,9 @@ def material_units(force):
     yield "master material", lambda: build_master(defaults, force)
     yield "glass master", lambda: build_glass_master(force)
     yield "flat master", lambda: build_flat_master(force)
+    yield "decal master", lambda: build_decal_master(force)
+    for kind in range(len(DECAL_KINDS)):
+        yield "decal " + DECAL_KINDS[kind], (lambda k=kind: make_decal_instance(k, force))
     seen = set()
     for asset in art_assets(man).values():
         for slot in asset.get("material_slots", []):
@@ -1044,6 +1190,7 @@ def level_units(force):
         yield "grey-box %d of %d" % (start, len(boxes)), grey_chunk
 
     yield "backdrop", lambda: build_backdrop(level, facade)
+    yield "decals", lambda: place_decals(decal_placements(level, facade))
 
     def start_and_rig():
         start = level["playerStart"]["ue"]
@@ -1295,6 +1442,16 @@ def structure_placements(level):
                 pieces = [p for q in pieces for p in ((q[0], min(q[1], c0)), (max(q[0], c1), q[1])) if p[1] - p[0] > 1]
             for p0, p1 in pieces:
                 out.extend(tile(axis, line, p0, p1, positive, "SM_Furn_BlockWall_200", 200.0))
+    # Rolling scaffolds: a chain-link enclosure on all four sides of the collider (the tower is fenced off).
+    for scaffold in [b for b in boxes if b["tag"] == "scaffold" and b["owner"]["kind"] == "level"]:
+        mn, mx = scaffold["ue"]["min"], scaffold["ue"]["max"]
+        if not have("SM_Furn_ChainLink_300x400"):
+            break
+        k = (mx["Z"] - mn["Z"]) / 400.0
+        for axis, line, a, b, positive in (("x", mn["Y"], mn["X"], mx["X"], False), ("x", mx["Y"], mn["X"], mx["X"], True),
+                                           ("y", mn["X"], mn["Y"], mx["Y"], False), ("y", mx["X"], mn["Y"], mx["Y"], True)):
+            out.extend(tile(axis, line, a, b, positive, "SM_Furn_ChainLink_300x400", 300.0, mn["Z"], k))
+        drawn.add(scaffold["index"])
     # The Cage: concrete knee walls, chain-link panels on them, an end post closing each run.
     for plinth in [b for b in boxes if b["tag"] == "cage-plinth"]:
         mn, mx = plinth["ue"]["min"], plinth["ue"]["max"]
@@ -1330,6 +1487,68 @@ def place_structures(items):
     for mesh, transforms in sorted(groups.items()):
         add_instances(holder, "%s/%s" % (MESH_DIR, mesh), transforms, None, collide=False)
     return "%d instances: %s" % (len(items), ", ".join("%s x%d" % (m, len(t)) for m, t in sorted(groups.items())))
+
+
+def decal_placements(level, facade):
+    """Street storytelling placed by rule (seeded, so every build is the same): cracks and patches in the road, oil
+    and tyre marks in the parking lanes by the kerb, gum on the sidewalks, stains round the manholes, leaks on the
+    road under the El's deck edges and rails, rust streaks under a share of the window sills. Returns
+    [(kind, location, rotation (pitch, yaw, roll), size (depth, width, height))]."""
+    rng = random.Random(4242)
+    bounds = level["bounds"]["ue"]
+    x0, x1 = bounds["minX"] + 100, bounds["maxX"] - 100
+    down = -90.0
+    out = []
+    for k in range(22):                                   # cracks in the travel lanes
+        size = rng.uniform(220, 420)
+        out.append((0, (rng.uniform(x0, x1), rng.uniform(-480, 480), 0), (down, rng.uniform(0, 360), 0), (40, size, size)))
+    for k in range(7):                                    # patches
+        out.append((1, (rng.uniform(x0, x1), rng.uniform(-450, 450), 0), (down, rng.choice((0, 90)), 0),
+                    (40, rng.uniform(120, 260), rng.uniform(150, 420))))
+    for side in (-1, 1):                                  # parking lanes by the kerb (gutter at 700)
+        for k in range(10):
+            out.append((2, (rng.uniform(x0, x1), side * rng.uniform(520, 660), 0), (down, rng.uniform(0, 360), 0),
+                        (40, rng.uniform(80, 170), rng.uniform(80, 170))))
+        for k in range(5):
+            out.append((6, (rng.uniform(x0, x1), side * rng.uniform(480, 640), 0), (down, rng.uniform(-8, 8), 0),
+                        (40, rng.uniform(300, 600), 160)))
+        x = x0                                            # gum on the sidewalk, one patch every 3 to 5 m
+        while x < x1:
+            out.append((3, (x, side * rng.uniform(780, 1020), 15), (down, rng.uniform(0, 360), 0), (40, 300, 300)))
+            x += rng.uniform(300, 500)
+    for prop in game_data("props")["instances"]["list"]:  # stains round the castings
+        if prop["name"] == "manhole":
+            p = prop["ue"]["pos"]
+            out.append((5, (p["X"], p["Y"], 0), (down, rng.uniform(0, 360), 0), (40, 230, 230)))
+    deck = level["el"]["deck"]["ue"]                      # leaks under the deck edges and the rails
+    for y in (deck["minY"] + 20, deck["maxY"] - 20) + tuple(deck["tracksY"]):
+        for k in range(6):
+            out.append((5 if k % 2 else 2, (rng.uniform(x0, x1), y + rng.uniform(-40, 40), 0),
+                        (down, rng.uniform(0, 360), 0), (40, rng.uniform(70, 140), rng.uniform(70, 140))))
+    for entry in facade["instances"]:                     # rust streaks under one sill in four
+        if not entry["mesh"].startswith("SM_Facade_BayWindow") or rng.random() > 0.25:
+            continue
+        yaw = entry["yaw"]
+        c, s_ = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
+        lx, ly = 155.0 + rng.uniform(-30, 30), 0.0
+        loc = (entry["location"][0] + c * lx - s_ * ly, entry["location"][1] + s_ * lx + c * ly,
+               entry["location"][2] + 60 - 75)
+        out.append((4, loc, (0.0, yaw - 90.0, 0.0), (30, rng.uniform(40, 90), 150)))
+    return out
+
+
+def place_decals(items):
+    materials = {k: unreal.load_asset("%s/MI_Decal_%s" % (MAT_DIR, DECAL_KINDS[k])) for k in range(len(DECAL_KINDS))}
+    for n, (kind, location, rot, size) in enumerate(items):
+        actor = ACTORS.spawn_actor_from_class(unreal.DecalActor, unreal.Vector(*location), rotator(*rot))
+        component = actor.decal
+        component.set_decal_material(materials[kind])
+        setp(component, "decal_size", unreal.Vector(*size))
+        tag(actor, "Decal_%s_%03d" % (DECAL_KINDS[kind], n), "Block/Decals")
+    counts = {}
+    for kind, *_ in items:
+        counts[DECAL_KINDS[kind]] = counts.get(DECAL_KINDS[kind], 0) + 1
+    return "%d decals: %s" % (len(items), ", ".join("%s %d" % kv for kv in sorted(counts.items())))
 
 
 def build_backdrop(level, facade):
