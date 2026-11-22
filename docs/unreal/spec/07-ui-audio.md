@@ -1468,19 +1468,26 @@ world marker: nx = (v · R) / (|v · F| · tan(hfov / 2))    ny = (v · U) / (|v
 | Boombox in phase | Loop started at the score's phase | Start the boombox components on the same Quartz bar as the stems and keep them running (volume 0 once their reel is taken), or start them with a start time equal to the clock's position in the eight bars |
 | While paused | Music at 45 %, low-passed | `SCL_Music` flagged to play while paused, plus the pause mix |
 
-### 4.8 Data worth exporting next to the level data
+### 4.8 Data: what is already exported and what is missing
 
-Suggested files under `unreal/MurderInc/Content/Data/` (none exists yet for this subsystem):
+The level exporter already writes most of what this subsystem reads, under `unreal/MurderInc/Content/Data/`:
 
-- `ui_text.json`: `src/config/text.js` and `src/ui/copy.js` as data (the small functions as format strings).
-- `ui_brand.json`: `src/config/brand.js` plus the map inks and the derived opacities of 2.2 and 2.7.
-- `audio_sounds.json`: for every name of 2.12 its bus, variant count, sample rate, measured length, peak, volume,
-  jitter, priority, max voices, gap, reference distance, roll-off, loop and stereo flags, pan.
-- `audio_events.json`: the table of 2.15 and the schedule of 2.14 as data.
-- The minimap needs no file of its own, but it does need these from the level export: every static collider with
-  its box, tag and flags (player-only, bullet-only, owner), the play bounds, the ground surface per square metre (or
-  the rectangles behind it), the zones, the El track lines, the reel and truck positions, the neon lamps and steam
-  vents (for the emitters of 3.23) and the shop's interior box.
+| File | Keys this subsystem uses |
+|---|---|
+| `text.json` | `text` (the copy deck of `src/config/text.js`: objectives, banners, radio, cards, ratings, zones, boot lines), `interface` (`src/ui/copy.js`: HUD words, cue lines, settings labels, controls tables), `input.glyphs` and `input.hints`, `brand` (title, presenter and star lines, the IPX marks). Parametrised lines are stored as templates |
+| `config.json` | `brand.colors`, `brand.fonts`, `brand.lines`; `settings.defaults`; `flow.music`, `flow.pacing`, `flow.timing`, `flow.interact`, `flow.rating`; `player.input.pad.nav` |
+| `level.json` | Minimap: `colliders.boxes` (box, tag, owner, `flags.playerOnly` / `bulletOnly`, in web and Unreal units), `bounds`, `ground.surfaces`, `el.layout` (tracks). Zone band: `places.regions` (the named rectangles of 3.4). Markers: `objectives`, `extraction`. Audio: `interior` (boxes and fade), `steam.vents`, `el`, `train` |
+| `atmos.json` | `lamps.list` filtered by `kind: "neon"` (19 lamps) for the neon emitters |
+
+Not exported anywhere yet (nothing in those files mentions audio):
+
+- The sound definitions of 2.12 (bus, variants, rate, measured length, peak, volume, jitter, priority, max voices,
+  gap, reference distance, roll-off, loop and stereo flags, pan): a suggested `audio.json`, written by the same
+  script that renders the WAV files (5.3).
+- The event table of 2.15, the ambience schedule of 2.14, the mixer constants of 2.11 and the music tables of 2.13.
+  They are small: carry them in `audio.json` too, or type them into the Unreal data assets from this spec.
+- The ten map inks of 2.7 and the derived opacities of 2.2 (they live in `src/ui/minimap.js` and `src/ui.css`, not
+  in the brand file).
 
 ---------------------------------------------------------------------------------------------------
 
@@ -1563,7 +1570,7 @@ for name in renderOrder():
         write a PCM WAV (24-bit, r.sr, r.channels.length channels) → <out>/<name>_<v + 1>.wav
 for (file, secs, seed, options) in the two impulse responses:
     write a stereo WAV of [impulse(48000, secs, seeded(seed), options), impulse(48000, secs, seeded(seed + 31), options)]
-write audio_sounds.json from SOUNDS and the measured lengths (4.8)
+write audio.json from SOUNDS and the measured lengths (4.8)
 ```
 
 This was run as a scratch test for this spec (not committed): 188 WAV files and 2 impulse responses, 28.6 MB as
