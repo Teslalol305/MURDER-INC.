@@ -33,7 +33,7 @@ main() {
   fi
 
   "$MI_BOX_DIR/editor.sh" stop >/dev/null 2>&1
-  pkill -x UnrealEditor-Cm 2>/dev/null
+  local p; for p in $(mi_pids_of UnrealEditor-Cm); do kill "$p" 2>/dev/null; done
 
   if [ "$1" = clean ]; then
     shift

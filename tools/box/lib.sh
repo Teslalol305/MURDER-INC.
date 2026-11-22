@@ -5,15 +5,28 @@
 MI_BRANCH=${MI_BRANCH:-claude/tender-albattani-5q78qr}
 MI_UE=${MI_UE:-/project/ue}
 MI_ENGINE=$MI_UE/UnrealEngine
-MI_REPO=$MI_UE/repo
+MI_BOX_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# The clone these scripts belong to (tools/box is two levels below its root). Several clones can share the box:
+# /project/ue/repo (the level work, logs in /project/ue/logs, MCP port 8000) and others such as
+# /project/ue/repo-gameplay (logs in /project/ue/logs/repo-gameplay, MCP port 8001), each with its own
+# Binaries, Intermediate and Saved. Every process a script starts, stops or waits for is matched to this clone's
+# project file, never to a bare process name, so one clone never stops another clone's editor or test run.
+MI_REPO=$(cd "$MI_BOX_DIR/../.." && pwd)
+MI_CLONE=$(basename "$MI_REPO")
 MI_PROJECT_DIR=$MI_REPO/unreal/MurderInc
 MI_UPROJECT=$MI_PROJECT_DIR/MurderInc.uproject
-MI_LOGS=$MI_UE/logs
+if [ "$MI_CLONE" = repo ]; then
+  MI_LOGS=$MI_UE/logs
+  MI_MCP_PORT=${MI_MCP_PORT:-8000}
+else
+  MI_LOGS=$MI_UE/logs/$MI_CLONE
+  MI_MCP_PORT=${MI_MCP_PORT:-8001}
+fi
 MI_DDC=$MI_UE/ddc
 MI_RUN_EDITOR=$MI_UE/bin/run-editor.sh
-MI_BOX_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MI_MCP_URL=${MI_MCP_URL:-http://127.0.0.1:8000/mcp}
+MI_MCP_URL=${MI_MCP_URL:-http://127.0.0.1:$MI_MCP_PORT/mcp}
 export MI_MCP_URL
+mkdir -p "$MI_LOGS" 2>/dev/null
 
 # Cache arguments that every editor or commandlet start needs on this box: the stock Zen local cache
 # cannot be reached here, so a file-system cache graph is used and Zen auto-launch is off.
@@ -54,7 +67,15 @@ mi_python() {
 
 mi_mcp() { "$(mi_python)" "$MI_BOX_DIR/mi_mcp.py" "$@"; }
 
-mi_editor_pid() { pgrep -x UnrealEditor | head -1; }
+# Process ids with this name (cut to 15 characters, as pgrep -x sees it) whose command line names this clone's project.
+mi_pids_of() {
+  local p
+  for p in $(pgrep -x "$1"); do
+    tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -qF "$MI_UPROJECT" && echo "$p"
+  done
+}
+
+mi_editor_pid() { mi_pids_of UnrealEditor | head -1; }
 
 # Seconds since a file was last written, or an empty string when it does not exist.
 mi_age() { [ -e "$1" ] && echo $(( $(date +%s) - $(stat -c %Y "$1") )); }

@@ -1,5 +1,6 @@
 #!/bin/bash
-# The headless editor on the MurderInc project, with its MCP server on http://127.0.0.1:8000/mcp.
+# The headless editor on this clone's MurderInc project, with its MCP server on http://127.0.0.1:<port>/mcp
+# (8000 for /project/ue/repo, 8001 for other clones: MI_MCP_PORT in lib.sh).
 # Usage: editor.sh start [extra editor arguments, for example /Game/Maps/L_Bootstrap]
 #        editor.sh stop | restart | status
 # Windows do not work on this box (the editor aborts when it opens one), so it always runs with -RenderOffscreen.
@@ -39,7 +40,7 @@ editor_start() {
   ensure_mcp_autostart
   [ -f "$MI_LOGS/editor.log" ] && mv -f "$MI_LOGS/editor.log" "$MI_LOGS/editor.prev.log"
   date +%s > "$MI_LOGS/editor.start"
-  setsid nohup "$MI_RUN_EDITOR" "$MI_UPROJECT" "$@" "${MI_EDITOR_ARGS[@]}" -RenderOffscreen -unattended -nosplash -NoSound > "$MI_LOGS/editor.log" 2>&1 &
+  setsid nohup "$MI_RUN_EDITOR" "$MI_UPROJECT" "$@" "${MI_EDITOR_ARGS[@]}" "-ModelContextProtocolPort=$MI_MCP_PORT" -RenderOffscreen -unattended -nosplash -NoSound > "$MI_LOGS/editor.log" 2>&1 &
   local i
   for i in $(seq 1 17); do
     sleep 2
@@ -60,11 +61,12 @@ editor_start() {
 editor_stop() {
   local pid; pid=$(mi_editor_pid)
   if [ -z "$pid" ]; then echo "EDITOR not running"; return 0; fi
-  pkill -TERM -x UnrealEditor
+  # Only this clone's editor: another clone's editor may be running on the same box.
+  kill -TERM $(mi_pids_of UnrealEditor) 2>/dev/null
   local i
   for i in $(seq 1 15); do [ -z "$(mi_editor_pid)" ] && break; sleep 1; done
-  if [ -n "$(mi_editor_pid)" ]; then pkill -KILL -x UnrealEditor; sleep 1; fi
-  pkill -x CrashReportClie 2>/dev/null
+  if [ -n "$(mi_editor_pid)" ]; then kill -KILL $(mi_pids_of UnrealEditor) 2>/dev/null; sleep 1; fi
+  [ -z "$(pgrep -x UnrealEditor)" ] && pkill -x CrashReportClie 2>/dev/null
   echo "EDITOR STOPPED (was pid $pid)"
 }
 
