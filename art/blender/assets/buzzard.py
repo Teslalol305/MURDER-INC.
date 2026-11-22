@@ -1091,12 +1091,14 @@ def tex_res(ctx, full):
 
 
 def unwrap(ob, res):
+    """Smart projection at 66 degrees, 2 px margins (at 2048; the painter pads 8 px more): about 54 % coverage. The
+    parts the camera looks at get more texels, the stator and magnets inside the bells fewer."""
     mid = np.rint(face_array(ob, "mid"))
     w = np.ones(len(mid), np.float32)
-    w[np.isin(mid, [STATOR, MAGNET, BORE])] = 0.35
-    w[np.isin(mid, [COPPER])] = 0.5
-    return geo.uv_unwrap(ob, res=res, angle=52.0, margin_px=5, pack="AABB", weights=w)
-
+    w[np.isin(mid, [STATOR, MAGNET, BORE])] = 0.4
+    w[np.isin(mid, [COPPER, STRAP, BATTERY])] = 0.7
+    w[np.isin(mid, [CARBON, PROPC, OXBLOOD, LENS, GUN, BALL, BARREL])] = 1.3
+    return geo.uv_unwrap(ob, res=res, angle=66.0, margin_px=2, pack="AABB", weights=w)
 
 
 def write_unique(ctx, ob, set_name, res, painter, **kw):
@@ -1174,6 +1176,649 @@ DRONE_NOTES = (
     "Strobe_Port, Strobe_Starboard, Strobe_Tail, Hub_FL/FR/RL/RR on body (blur discs at hub + 0.022 Z). Slots: "
     "M_Buzzard (unique 4K set Buzzard: BC, N, ORM, E; no emission on this slot), M_Buzzard_Eye (lens: E x eye "
     "brightness, linear (1, 0.09, 0.05)), M_Buzzard_Strobe (three strobe lenses: E x flash).")
+
+
+# ================================================================================================== EFFECTS
+
+def _rgba_png(path, rgb_lin, alpha):
+    from PIL import Image
+    rgb = bake.srgb_encode(np.clip(rgb_lin, 0, 1))
+    a = np.concatenate([rgb, np.clip(alpha, 0, 1)[..., None]], -1)[::-1]          # row 0 = v 0 at the bottom
+    Image.fromarray((a * 255 + 0.5).astype(np.uint8), "RGBA").save(path)
+
+
+def fx_set(ctx, set_name, rgb, alpha, emit, res):
+    """Write a small effect set: BC (RGBA: colour, opacity in alpha), N flat, ORM (1, 1, 0), E."""
+    old = bake.read_set(set_name)
+    if old and not ctx.args.force and not ctx.args.bake:
+        ctx.sets.append(set_name)
+        return paths.texture_set(set_name)
+    ch = {"bc": rgb, "rough": np.ones((res, res), np.float32), "metal": np.zeros((res, res), np.float32),
+          "ao": np.ones((res, res), np.float32), "emit": emit}
+    bake.write_set(set_name, ch, meta={"kind": "fx", "alpha": "BC alpha = opacity", "authoring": "assets/buzzard.py (numpy)"})
+    d = paths.texture_set(set_name)
+    _rgba_png(os.path.join(d, "T_%s_BC.png" % set_name), rgb, alpha)
+    if set_name not in ctx.sets:
+        ctx.sets.append(set_name)
+    return d
+
+
+def blur_texture(res=512):
+    """Radial blur of a spinning two-blade prop over the disc's planar 0..1 UVs: faint in the middle, brightest
+    in a band at 86 % of the radius (the tips), soft at the edge; two faint lobes and concentric tip traces."""
+    y, x = (np.mgrid[0:res, 0:res] + 0.5) / res * 2 - 1
+    r = np.hypot(x, y)
+    th = np.arctan2(y, x)
+    a = 0.06 + 0.22 * r + 0.16 * np.exp(-((r - 0.42) / 0.22) ** 2) + 0.95 * np.exp(-((r - 0.86) / 0.055) ** 2)
+    a *= 1 + 0.10 * np.cos(2 * th) + 0.05 * np.sin(r * 140.0) * np.exp(-((r - 0.8) / 0.15) ** 2)
+    a *= tp.smooth(1.0 - r, 0.0, 0.07) * tp.smooth(r, 0.03, 0.10)
+    a = np.clip(a / a.max(), 0, 1).astype(np.float32)
+    tint = lin("959baa")
+    rgb = np.broadcast_to(tint, (res, res, 3)).astype(np.float32).copy()
+    return rgb, a, (rgb * a[..., None]).astype(np.float32)
+
+
+def bolt_texture(res=512):
+    """u (columns) = along the streak, 0 at the head -> 1 at the tail; rows v < 0.78 the streak, v > 0.80 the hot
+    head shell. E = colour (the material multiplies: about 5 x for the streak, 9 x for the head); alpha = opacity
+    of the partly opaque core by day."""
+    v, u = (np.mgrid[0:res, 0:res] + 0.5) / res
+    red = lin("ff3a22")
+    hot = np.array([1.0, 0.42, 0.22], np.float32)
+    fade = np.clip(1 - u, 0, 1) ** 1.8
+    headmix = tp.smooth(0.10 - u, 0.0, 0.10)
+    col = red[None, None, :] * (1 - headmix[..., None]) + hot[None, None, :] * headmix[..., None]
+    e = col * (0.15 + 0.85 * fade)[..., None]
+    a = (0.85 * np.clip(1 - u, 0, 1) ** 1.3)
+    head = v > 0.79
+    e[head] = hot
+    a[head] = 0.9
+    return col.astype(np.float32), a.astype(np.float32), e.astype(np.float32)
+
+
+def disc_mesh(R, rings, seg=64, name="Disc"):
+    bm = bmesh.new()
+    centre = bm.verts.new((0, 0, 0))
+    prev = None
+    for r in rings:
+        ring = [bm.verts.new((r * math.cos(a), r * math.sin(a), 0.0)) for a in np.linspace(0, 2 * math.pi, seg, endpoint=False)]
+        if prev is None:
+            for i in range(seg):
+                bm.faces.new((centre, ring[i], ring[(i + 1) % seg]))
+        else:
+            for i in range(seg):
+                j = (i + 1) % seg
+                bm.faces.new((prev[i], ring[i], ring[j], prev[j]))
+        prev = ring
+    ob = geo.new(name, bm, smooth=None)
+    me = ob.data
+    co = np.empty(len(me.vertices) * 3, np.float32)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    lv = np.empty(len(me.loops), np.int32)
+    me.loops.foreach_get("vertex_index", lv)
+    uv = np.stack([co[lv, 0] / (2 * R) + 0.5, co[lv, 1] / (2 * R) + 0.5], -1)
+    me.uv_layers.active.data.foreach_set("uv", uv.ravel())
+    me.shade_smooth()
+    return ob
+
+
+def bolt_mesh(seg=16):
+    """Teardrop streak along X: nose at +0.04, widest (0.11) at -0.03, tail tapering to nothing at -2.36."""
+    xs = [0.04, 0.035, 0.02, 0.0, -0.03] + list(-0.03 - 2.33 * (np.linspace(0, 1, 26)[1:] ** 1.35))
+    prof = []
+    for x in xs:
+        if x >= -0.03:
+            r = 0.055 * math.sqrt(max(0.0, 1 - ((x + 0.03) / 0.07) ** 2))
+        else:
+            t = (-0.03 - x) / 2.33
+            r = 0.055 * (1 - t) ** 1.7
+        prof.append((x, r))
+    prof[0] = (0.04, 0.0)
+    prof[-1] = (prof[-1][0], 0.0)
+    ob = lathe([(t, r) for t, r in prof[::-1]], seg, axis="X", name="Bolt")
+    me = ob.data
+    co = np.empty(len(me.vertices) * 3, np.float32)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    lv = np.empty(len(me.loops), np.int32)
+    me.loops.foreach_get("vertex_index", lv)
+    u = np.clip((0.04 - co[lv, 0]) / 2.4, 0, 1)
+    vv = 0.05 + 0.70 * (np.arctan2(co[lv, 2], co[lv, 1]) / (2 * math.pi) + 0.5)
+    if not me.uv_layers:
+        me.uv_layers.new(name=geo.UV)
+    me.uv_layers.active.data.foreach_set("uv", np.stack([u, vv], -1).ravel())
+    me.shade_smooth()
+    return ob
+
+
+def build_fx(ctx):
+    col = ctx.col
+    rgb, a, e = blur_texture()
+    d = fx_set(ctx, "Fx_BuzzardRotorBlur", rgb, a, e, 512)
+    disc = disc_mesh(0.185, [0.012, 0.03, 0.06, 0.09, 0.12, 0.145, 0.16, 0.172, 0.185], 72, "SM_Fx_BuzzardRotorBlur")
+    scene.move_to(disc, col)
+    disc.data.materials.append(fx_material("M_Fx_BuzzardRotorBlur", d, 1.0))
+    ctx.asset(disc, collision="none", expect_size=(0.37, 0.37, 0.01), notes=(
+        "Blur of a spinning Buzzard prop: flat disc r 0.185 m, origin at its centre, facing +Z, planar UVs 0..1 over the "
+        "disc (the radial profile is in the texture: faint middle, brightest band at 86 % of the radius, soft edge). "
+        "Place at each Hub_* socket + 0.022 Z. Material: unlit, two-sided, translucent, no shadow; colour = BC (tint "
+        "#959baa, linear 0.3/0.33/0.4 at full power), opacity = BC alpha x rotor power (0.25 dying, 0.75..1 in flight). "
+        "Set Fx_BuzzardRotorBlur (512)."))
+    rgb, a, e = bolt_texture()
+    d2 = fx_set(ctx, "Fx_BuzzardBolt", rgb, a, e, 512)
+    bolt = bolt_mesh()
+    bolt.name = bolt.data.name = "SM_Fx_BuzzardBolt"
+    scene.move_to(bolt, col)
+    m2 = fx_material("M_Fx_BuzzardBolt", d2, 5.0)
+    bolt.data.materials.append(m2)
+    ctx.asset(bolt, collision="none", expect_size=(2.4, 0.11, 0.11), notes=(
+        "The Buzzard's tracer bolt: stretched teardrop along X, head at +X, origin at the head (nose 0.04 ahead, "
+        "widest 0.11 m at -0.03, tail to -2.36). UV u = 0 at the head .. 1 at the tail (scale the tail in with flight "
+        "distance: it grows to 2.4 m over the first 2.4 m). Unlit: emissive = E x 5 (#ff3a22), opacity = BC alpha "
+        "(partly opaque core by day, additive at night), no shadow. Head shell: SM_Fx_BuzzardBolt_Head."))
+    head = geo.sphere(0.17, 24, 12, "SM_Fx_BuzzardBolt_Head")
+    me = head.data
+    lv = np.empty(len(me.loops), np.int32)
+    me.loops.foreach_get("vertex_index", lv)
+    co = np.empty(len(me.vertices) * 3, np.float32)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    uv = np.stack([0.02 + 0.03 * (np.arctan2(co[lv, 1], co[lv, 0]) / (2 * math.pi) + 0.5), 0.82 + 0.15 * (co[lv, 2] / 0.17 * 0.5 + 0.5)], -1)
+    me.uv_layers.active.data.foreach_set("uv", uv.ravel())
+    scene.move_to(head, col)
+    head.data.materials.append(fx_material("M_Fx_BuzzardBolt_Head", d2, 9.0))
+    ctx.asset(head, collision="none", expect_size=(0.34, 0.34, 0.34), slots={"M_Fx_BuzzardBolt_Head": {"set": "Fx_BuzzardBolt"}},
+              notes=("Hot head of the bolt: a sphere 0.34 m across at the bolt's origin, UVs in the set's hot rows "
+                     "(v > 0.8). Unlit: emissive = E x 9 (orange-white), opacity 0.9 x a view-facing falloff (fresnel) in "
+                     "the material. Set Fx_BuzzardBolt."))
+    return [disc, bolt, head]
+
+
+def fx_material(name, set_dir, strength):
+    """Preview stand-in for an unlit translucent effect: emission = E x strength, opacity = BC alpha."""
+    m = bpy.data.materials.get(name) or bpy.data.materials.new(name)
+    nt = m.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    files = mat.find_set_files(set_dir)
+    t_bc = nt.nodes.new("ShaderNodeTexImage")
+    t_bc.image = bpy.data.images.load(os.path.join(set_dir, os.path.basename(files["BC"])), check_existing=True)
+    t_e = nt.nodes.new("ShaderNodeTexImage")
+    t_e.image = bpy.data.images.load(os.path.join(set_dir, os.path.basename(files["E"])), check_existing=True)
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.inputs["Strength"].default_value = strength
+    nt.links.new(t_e.outputs["Color"], em.inputs["Color"])
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    mul = nt.nodes.new("ShaderNodeMath")
+    mul.operation = "MULTIPLY"
+    mul.inputs[1].default_value = 1.0
+    nt.links.new(t_bc.outputs["Alpha"], mul.inputs[0])
+    nt.links.new(mul.outputs[0], mix.inputs[0])
+    nt.links.new(tr.outputs[0], mix.inputs[1])
+    nt.links.new(em.outputs[0], mix.inputs[2])
+    nt.links.new(mix.outputs[0], out.inputs["Surface"])
+    m["mi_opacity_node"] = mul.name
+    return m
+
+
+# ================================================================================================== WRECK
+
+FRACTURE = "TS_Composite_Fracture"
+FRACTURE_TILE = 0.08
+
+
+def pnoise(rng, shape, fx, fy):
+    """Periodic (tileable) noise: white noise filtered in Fourier space, unit variance."""
+    F = np.fft.fft2(rng.standard_normal(shape))
+    ky = np.fft.fftfreq(shape[0])[:, None] * shape[0]
+    kx = np.fft.fftfreq(shape[1])[None, :] * shape[1]
+    n = np.real(np.fft.ifft2(F * np.exp(-((kx / fx) ** 2 + (ky / fy) ** 2))))
+    return ((n - n.mean()) / (n.std() + 1e-9)).astype(np.float32)
+
+
+def fracture_set(ctx, res=512):
+    """Tiling set (0.08 m) of snapped carbon and fractured composite: frayed fibre ends in streaks, broken resin
+    chunks, char. Drawn with numpy (periodic noise), used through MI_Composite_Fracture on the wreck's break faces."""
+    if bake.read_set(FRACTURE) and not ctx.args.force and not ctx.args.bake:
+        if FRACTURE not in ctx.sets:
+            ctx.sets.append(FRACTURE)
+        return paths.texture_set(FRACTURE)
+    rng = np.random.default_rng(41)
+    fib = pnoise(rng, (res, res), 5.0, 90.0)          # streaks along u (fibres)
+    fib2 = pnoise(rng, (res, res), 3.0, 160.0)
+    chunk = pnoise(rng, (res, res), 9.0, 9.0)
+    fine = pnoise(rng, (res, res), 70.0, 70.0)
+    char = tp.smooth(pnoise(rng, (res, res), 4.0, 4.0), 0.2, 1.2)
+    ends = tp.smooth(fib * 0.7 + fib2 * 0.5, 0.6, 1.6)
+    base = lin("1a1b1f")
+    pale = lin("6a6862")
+    col = base[None, None, :] * (0.8 + 0.15 * chunk[..., None] + 0.08 * fine[..., None])
+    col = col + (pale - col) * (ends * 0.65)[..., None]
+    col = col * (1 - 0.75 * char[..., None]) + lin("0b0a09") * 0.0
+    h = 0.0006 * (0.45 * fib + 0.35 * fib2 + 0.25 * chunk + 0.08 * fine)
+    nrm = bake.normal_from_height(h, FRACTURE_TILE / res, wrap=True, strength=1.0)
+    rough = np.clip(0.72 - 0.18 * ends + 0.15 * char + 0.03 * fine, 0.3, 1.0).astype(np.float32)
+    ao = np.clip(1.0 - 0.35 * tp.smooth(-(0.45 * fib + 0.35 * fib2 + 0.25 * chunk), 0.2, 1.5), 0, 1).astype(np.float32)
+    bake.write_set(FRACTURE, {"bc": np.clip(col, 0, 1).astype(np.float32), "rough": rough, "metal": np.zeros_like(rough),
+                              "ao": ao, "normal": nrm, "height": h},
+                   meta={"kind": "tiling", "tile_m": FRACTURE_TILE, "authoring": "assets/buzzard.py fracture_set (numpy, periodic)"})
+    if FRACTURE not in ctx.sets:
+        ctx.sets.append(FRACTURE)
+    return paths.texture_set(FRACTURE)
+
+
+def extract(src, grps, name, col):
+    cp = src.copy()
+    cp.data = src.data.copy()
+    col.objects.link(cp)
+    cp.parent = None
+    cp.matrix_world = Matrix.Identity(4)
+    cp.modifiers.clear()
+    cp.vertex_groups.clear()
+    keep = np.isin(np.rint(face_array(cp, "grp")), grps)
+    bm = geo.bm_of(cp)
+    bm.faces.ensure_lookup_table()
+    bmesh.ops.delete(bm, geom=[bm.faces[i] for i in np.nonzero(~keep)[0]], context="FACES")
+    geo.bm_to(cp, bm)
+    me = cp.data
+    me.polygons.foreach_set("material_index", np.zeros(len(me.polygons), np.int32))
+    cp.name = me.name = name
+    return cp
+
+
+def break_off(ob, co, no, jag=0.004, seed=0, splinters=0):
+    """Cut ob by the plane (co, no), keep the side the normal points to, close every cut loop with a jagged cap on
+    material index 1 (planar UVs in metres / the fracture tile), optionally carbon splinters standing out of it."""
+    co, no = Vector(co), Vector(no).normalized()
+    rng = np.random.default_rng(seed)
+    bm = geo.bm_of(ob)
+    bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], dist=1e-7, plane_co=co, plane_no=no,
+                           clear_inner=True)
+    on = lambda v: abs((v.co - co).dot(no)) < 2e-5
+    edges = [e for e in bm.edges if e.is_boundary and on(e.verts[0]) and on(e.verts[1])]
+    fill = bmesh.ops.holes_fill(bm, edges=edges, sides=0)
+    caps = fill["faces"]
+    for f in caps:
+        f.material_index = 1
+    rim = set(v for e in edges for v in e.verts)
+    if caps:
+        pk = bmesh.ops.poke(bm, faces=caps)
+        cverts = set(pk["verts"])
+        spokes = [e for e in bm.edges if (e.verts[0] in cverts) != (e.verts[1] in cverts)]
+        bmesh.ops.subdivide_edges(bm, edges=spokes, cuts=2, use_grid_fill=False)
+    capf = [f for f in bm.faces if f.material_index == 1]
+    inner = set(v for f in capf for v in f.verts) - rim
+    for v in inner:
+        v.co += no * float(rng.uniform(-1.0, 0.6) * jag) + Vector(rng.normal(0, jag * 0.15, 3))
+    for v in rim:
+        v.co += no * float(rng.uniform(-0.5, 0.5) * jag * 0.5)
+    uvl = bm.loops.layers.uv.active
+    ua = no.orthogonal().normalized()
+    va = no.cross(ua)
+    for f in capf:
+        f.smooth = False
+        if f.normal.dot(no) > 0:
+            f.normal_flip()
+        for lp in f.loops:
+            lp[uvl].uv = (lp.vert.co.dot(ua) / FRACTURE_TILE, lp.vert.co.dot(va) / FRACTURE_TILE)
+    # splinters: thin slivers of carbon standing out of the break
+    rimv = list(rim)
+    for k in range(splinters if rimv else 0):
+        c = rimv[int(rng.integers(len(rimv)))].co.copy()
+        d = (-no + Vector(rng.normal(0, 0.35, 3))).normalized()
+        length = float(rng.uniform(0.004, 0.014))
+        s1 = d.orthogonal().normalized() * 0.0012
+        s2 = d.cross(s1).normalized() * 0.0007
+        b = [bm.verts.new(c + s1), bm.verts.new(c - s1 + s2), bm.verts.new(c - s1 - s2)]
+        tip = bm.verts.new(c + d * length)
+        fs = [bm.faces.new((b[0], b[1], tip)), bm.faces.new((b[1], b[2], tip)), bm.faces.new((b[2], b[0], tip)),
+              bm.faces.new((b[2], b[1], b[0]))]
+        for f in fs:
+            f.material_index = 1
+            f.smooth = False
+            for lp in f.loops:
+                lp[uvl].uv = (lp.vert.co.dot(ua) / FRACTURE_TILE, lp.vert.co.dot(va) / FRACTURE_TILE)
+    geo.bm_to(ob, bm)
+    return ob
+
+
+def bend_blades(ob, hub, s0, deg_pos, deg_neg, twist=0.0):
+    """Curl the blades of a prop parked along Y: beyond |y - hub| > s0 each blade rotates about the X axis by an
+    angle growing with the distance (deg at the tip), plus a twist about the blade."""
+    me = ob.data
+    co = np.empty(len(me.vertices) * 3, np.float64)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    rel = co - np.asarray(hub)
+    s = rel[:, 1]
+    zb = BZ["blade_z"] - hub[2]
+    for sign, deg in ((1, deg_pos), (-1, deg_neg)):
+        sel = s * sign > s0
+        if not sel.any():
+            continue
+        t = (np.abs(s[sel]) - s0) / (BZ["prop_r"] - s0)
+        phi = sign * np.radians(deg) * t ** 1.3            # deg > 0 curls the blade tip up
+        yy, zz = rel[sel, 1] - sign * s0, rel[sel, 2] - zb
+        rel[sel, 1] = sign * s0 + yy * np.cos(phi) - zz * np.sin(phi)
+        rel[sel, 2] = zb + yy * np.sin(phi) + zz * np.cos(phi)
+        if twist:
+            tw = np.radians(twist) * t
+            xx, z2 = rel[sel, 0].copy(), rel[sel, 2] - zb
+            rel[sel, 0] = xx * np.cos(tw) - z2 * np.sin(tw)
+            rel[sel, 2] = zb + xx * np.sin(tw) + z2 * np.cos(tw)
+    me.vertices.foreach_set("co", (rel + np.asarray(hub)).ravel())
+    me.update()
+    return ob
+
+
+def scorch(ob, planes, reach=0.07, seed=0, amount=1.0):
+    """Wear R (dirt -> scorch #101010 in the wreck material) near the breaks and in random patches; B soot runs."""
+    me = ob.data
+    co = np.empty(len(me.vertices) * 3, np.float32)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    N = tp.Noise(seed)
+    near = np.zeros(len(co), np.float32)
+    for c, n in planes:
+        d = np.abs((co - np.asarray(c, np.float32)) @ np.asarray(n, np.float32))
+        near = np.maximum(near, np.clip(1 - d / reach, 0, 1))
+    patch = tp.smooth(N.fbm(co, 18.0, 3), 0.05, 0.45)
+    w = geo.get_wear(ob)
+    w[:, 0] = np.clip(np.maximum(near * (0.7 + 0.3 * N.fbm(co, 60.0, 2, octave0=3)), patch * 0.8) * amount, 0, 1)
+    w[:, 2] = np.clip(near * 0.5 * tp.smooth(N.fbm(co * np.array([1, 1, 0.2], np.float32), 40.0, 2, octave0=5), 0.0, 0.5), 0, 1)
+    geo.set_wear(ob, w)
+    return ob
+
+
+def recentre(ob):
+    lo, hi = scene.bounds(ob)
+    c = (lo + hi) / 2
+    ob.data.transform(Matrix.Translation(Vector(-c)))
+    ob.data.update()
+    return [round(float(v), 4) for v in c]
+
+
+WRECK_NOTES = ("Wreck piece of SK_Buzzard (cosmetic, no collision, short-lived). Origin = centre of the piece's bounds; "
+               "at the moment of the kill spawn it at the drone's transform x offset {off} (drone space, metres; Unreal cm "
+               "{off_u}). Slots: M_Buzzard_Wreck (instance of M_Buzzard on the Buzzard set, no emission, Wear R = scorch "
+               "#101010, B = soot runs), MI_Composite_Fracture (break faces, tiling set TS_Composite_Fracture, UVs in "
+               "metres / 0.08). {what}")
+
+
+def build_wreck(ctx):
+    src = SKINNED["SK_Buzzard"]["ob"]
+    col = scene.collection("Wreck")
+    fd = fracture_set(ctx)
+    wmat = bpy.data.materials.get("M_Buzzard_Wreck") or mat.from_texture_set(
+        paths.texture_set("Buzzard"), name="M_Buzzard_Wreck", masks=True, macro=0.0, ao_strength=0.0, alpha="none",
+        dirt_color=(0.006, 0.006, 0.006), dirt_rough=0.95, leak_color=(0.01, 0.01, 0.01))
+    b = mat.principled(wmat)
+    if "Emission Strength" in b.inputs:
+        b.inputs["Emission Strength"].default_value = 0.0
+    fmat = bpy.data.materials.get("MI_Composite_Fracture") or mat.from_texture_set(
+        fd, name="MI_Composite_Fracture", masks=True, macro=0.0, ao_strength=0.5, alpha="none", dirt_color=(0.006, 0.006, 0.006))
+    out = []
+
+    def finish(ob, what, planes, seed):
+        me = ob.data
+        me.materials.clear()
+        me.materials.append(wmat)
+        me.materials.append(fmat)
+        geo.smooth_by_angle(ob, 48.0)
+        geo.weighted_normals(ob)
+        scorch(ob, planes, seed=seed)
+        off = recentre(ob)
+        ob["mi_rest_offset"] = off
+        ctx.asset(ob, collision="none", expect_size=None, notes=WRECK_NOTES.format(
+            off=off, off_u=[round(off[0] * 100, 1), round(-off[1] * 100, 1), round(off[2] * 100, 1)], what=what),
+            slots={"M_Buzzard_Wreck": {"set": "Buzzard", "workflow": "unique",
+                                       "textures": (export.set_entry("Buzzard") or {}).get("textures")}})
+        out.append(ob)
+
+    gk = {"fl": 4, "fr": 5, "rl": 6, "rr": 7}
+    inner = []
+    for i, (k, g) in enumerate(gk.items()):
+        hx, hy, _ = BZ["hubs"][k]
+        d = Vector((hx, hy, 0.0)).normalized()
+        cut_at = 0.232 + 0.012 * (i % 2)
+        a = extract(src, [g], "SM_Fx_BuzzardWreck_Arm" + k.upper(), col)
+        break_off(a, d * cut_at + Vector((0, 0, 0.012)), (d + Vector((0, 0, 0.25 * (-1) ** i))).normalized(), 0.004, 10 + i, 7)
+        finish(a, "Arm stub with its motor pod (%s): carbon snapped %.2f m from the centre, loom torn." % (k.upper(), cut_at),
+               [(tuple(d * cut_at), tuple(d))], 20 + i)
+        ai = extract(src, [g], "ArmInner_" + k, col)
+        break_off(ai, d * cut_at + Vector((0, 0, 0.012)), (-(d + Vector((0, 0, 0.25 * (-1) ** i)))).normalized(), 0.004, 30 + i, 5)
+        inner.append(ai)
+    # hull halves: hull, deck, spine, beak, gimbal mount plus the inner arm stubs, split along a slanted crack
+    for side, nm in ((1, "HullLeft"), (-1, "HullRight")):
+        parts = [extract(src, [1], "Hull_" + nm, col)]
+        for ai in inner:
+            cp = ai.copy()
+            cp.data = ai.data.copy()
+            col.objects.link(cp)
+            parts.append(cp)
+        h = geo.join(parts, "SM_Fx_BuzzardWreck_" + nm, col)
+        nrm = Vector((0.10 * side, 1.0 * side, 0.04)).normalized()
+        break_off(h, (0.0, 0.0, 0.0), nrm, 0.007, 50 + side, 0)
+        finish(h, "Hull half (%s) with the oxblood spine split down the middle, deck, beak, gimbal mount and the arm roots."
+               % ("left, +Y" if side > 0 else "right, -Y"), [((0, 0, 0), tuple(nrm))], 60 + side)
+    for ai in inner:
+        bpy.data.objects.remove(ai)
+    t = extract(src, [3], "SM_Fx_BuzzardWreck_Tail", col)
+    tn = Vector((-1.0, 0.0, 0.12)).normalized()
+    break_off(t, (-0.295, 0.0, 0.0), tn, 0.004, 70, 6)
+    finish(t, "Tail boom snapped at its root with the V tail and the white strobe (dead).", [((-0.295, 0, 0), tuple(tn))], 71)
+    g = extract(src, [13], "SM_Fx_BuzzardWreck_Gimbal", col)
+    finish(g, "Gimbal ball with the dead lens (no emission), yaw collar, pitch caps and the loom.", [], 72)
+    gn = extract(src, [14], "SM_Fx_BuzzardWreck_Gun", col)
+    finish(gn, "The slung gun on its mount bar with the hose clamps, solenoid and ammunition box.", [], 73)
+    sk = extract(src, [12], "SM_Fx_BuzzardWreck_Skids", col)
+    break_off(sk, (0.0, 0.0, -0.052), (0.0, 0.0, -1.0), 0.003, 74, 0)
+    finish(sk, "Both skids with their struts and cross tubes, torn off at the top of the struts.", [((0, 0, -0.052), (0, 0, -1))], 75)
+    p1 = extract(src, [8], "SM_Fx_BuzzardWreck_PropClean", col)
+    finish(p1, "The clean prop (0.37 m) that flies off the moment the drone is killed (hub, nut, both blades).", [], 76)
+    hub = BZ["hubs"]["fr"]
+    p2 = extract(src, [9], "SM_Fx_BuzzardWreck_PropBentA", col)
+    bend_blades(p2, hub, 0.05, 38.0, -52.0, twist=14.0)
+    finish(p2, "Bent prop: both blades curled (one up, one down) and twisted.", [], 77)
+    hub = BZ["hubs"]["rl"]
+    p3 = extract(src, [10], "SM_Fx_BuzzardWreck_PropBentB", col)
+    break_off(p3, (hub[0], hub[1] + 0.105, 0.0), (0.0, -1.0, 0.15), 0.003, 78, 5)
+    bend_blades(p3, hub, 0.045, 0.0, 30.0, twist=-10.0)
+    finish(p3, "Bent prop: one blade snapped at 0.105 m, the other bent.", [((hub[0], hub[1] + 0.105, 0), (0, 1, 0))], 79)
+    return out
+
+
+# ================================================================================================== PREVIEWS
+
+PREVIEW_ONLY = os.environ.get("MI_PREVIEWS", "")
+
+
+def _prev(name):
+    return os.path.join(paths.previews, name + ".jpg")
+
+
+def pose_gimbal(arm, yaw=0.0, pitch=0.0, props=None):
+    """Pose in place: gimbal yaw (about Z, +left) then pitch (about Y, + = down), props turned by degrees."""
+    W_ = arm.matrix_world
+    for pb in arm.pose.bones:
+        pb.matrix_basis = Matrix.Identity(4)
+    bpy.context.view_layer.update()
+    pb = arm.pose.bones["gimbal"]
+    p = Vector(BZ["gimbal"])
+    M = Matrix.Translation(p) @ Matrix.Rotation(math.radians(yaw), 4, "Z") @ Matrix.Rotation(math.radians(pitch), 4, "Y") @ Matrix.Translation(-p)
+    pb.matrix = W_.inverted() @ (W_ @ M @ W_.inverted()) @ W_ @ pb.bone.matrix_local
+    for k, deg in (props or {}).items():
+        b = arm.pose.bones[PROP_BONES[k]]
+        h = Vector(BZ["hubs"][k])
+        Mk = Matrix.Translation(h) @ Matrix.Rotation(math.radians(deg), 4, "Z") @ Matrix.Translation(-h)
+        b.matrix = Mk @ b.bone.matrix_local
+    bpy.context.view_layer.update()
+
+
+def ground():
+    return bpy.data.objects.get("Ground") or W._ground_day()
+
+
+def _hide_all_but(keep):
+    keep = set(keep)
+    for o in bpy.context.scene.objects:
+        if o.type in ("MESH", "CURVE"):
+            o.hide_render = o not in keep
+
+
+def place(arm, loc, yaw=0.0, roll=0.0, pitch=0.0):
+    arm.matrix_world = Matrix.Translation(loc) @ Matrix.Rotation(math.radians(yaw), 4, "Z") @ \
+        Matrix.Rotation(math.radians(pitch), 4, "Y") @ Matrix.Rotation(math.radians(roll), 4, "X")
+    bpy.context.view_layer.update()
+
+
+def blur_discs(arm, opacity):
+    """Linked copies of SM_Fx_BuzzardRotorBlur on the four hubs (+0.022), parented to the drone, no shadow."""
+    src = bpy.data.objects.get("SM_Fx_BuzzardRotorBlur")
+    out = []
+    if src is None:
+        return out
+    m = src.data.materials[0]
+    m.node_tree.nodes[m["mi_opacity_node"]].inputs[1].default_value = opacity
+    for k, h in BZ["hubs"].items():
+        d = bpy.data.objects.new("Blur_" + k, src.data)
+        scene.collection("Rig").objects.link(d)
+        d.parent = arm
+        d.matrix_parent_inverse = Matrix.Identity(4)
+        d.location = (h[0], h[1], h[2] + BZ["blur_lift"])
+        d.visible_shadow = False
+        out.append(d)
+    bpy.context.view_layer.update()
+    return out
+
+
+def preview_hero(ctx, ob, arm):
+    """Three-quarter from below against the clear sky: flying attitude (nose down 6 deg, banked 8), gimbal and gun
+    turned toward the camera, blades crisp."""
+    render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=0.7)
+    g = ground()
+    place(arm, (0.0, 0.0, 6.0), yaw=-18.0, roll=-8.0, pitch=6.0)
+    pose_gimbal(arm, yaw=-28.0, pitch=22.0, props={"fl": 20, "fr": 75, "rl": -30, "rr": 50})
+    _hide_all_but([ob, g])
+    c = arm.matrix_world @ Vector((0.02, 0.0, -0.03))
+    d = Vector((0.62, -0.70, -0.36)).normalized()
+    cam = render.cam_look(c + d * 1.75, c, 50.0, name="Cam_hero", dof=(1.75, 5.6))
+    cam.data.clip_start = 0.02
+    render.setup(samples=ctx.args.samples, res=(1280, 720))
+    path, sec = render.render_jpeg(_prev("buzzard_hero"), ctx.args.samples)
+    ctx.log("preview %s (%.0f s)" % (path, sec))
+
+
+def preview_under(ctx, ob, arm):
+    """As the player sees it: 5 m away, the drone 5.3 m up beside the El, nose and gun toward the player's chest,
+    rotors at speed (blur discs at 0.85 over the slowly turning blades)."""
+    rd = render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=1.0)
+    g = ground()
+    el = W._el_context()
+    discs = blur_discs(arm, 0.85)
+    eye = Vector((1.8, -13.6, 1.62))
+    loc = Vector((2.6, -9.9, 5.3))
+    yaw = math.degrees(math.atan2(eye.y - loc.y, eye.x - loc.x))
+    place(arm, loc, yaw=yaw, pitch=4.0, roll=3.0)
+    pose_gimbal(arm, yaw=0.0, pitch=34.0, props={"fl": 30, "fr": 80, "rl": -20, "rr": 140})
+    _hide_all_but([ob, g] + el + discs)
+    cam = render.cam_look(eye, loc + Vector((0.0, 0.0, 0.25)), 40.0, name="Cam_under")
+    render.setup(samples=ctx.args.samples, res=(1280, 720))
+    path, sec = render.render_jpeg(_prev("buzzard_under"), ctx.args.samples)
+    ctx.log("preview %s (%.0f s)" % (path, sec))
+    for d in discs:
+        bpy.data.objects.remove(d)
+
+
+def preview_detail(ctx, ob, arm):
+    """The gun mount and the gimbal close: bar, L bracket, hose clamps, solenoid, feed chute, loom, the eye."""
+    render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=0.8)
+    g = ground()
+    place(arm, (0.0, 0.0, 6.0), yaw=0.0)
+    pose_gimbal(arm, yaw=-12.0, pitch=8.0)
+    _hide_all_but([ob, g])
+    M = arm.matrix_world
+    c = M @ Vector((0.225, -0.045, -0.118))
+    d = Vector((0.52, -0.78, -0.34)).normalized()
+    cam = render.cam_look(c + d * 0.50, c, 50.0, name="Cam_detail", dof=(0.50, 7.1))
+    cam.data.clip_start = 0.01
+    render.setup(samples=ctx.args.samples, res=(1280, 720))
+    path, sec = render.render_jpeg(_prev("buzzard_detail"), ctx.args.samples)
+    ctx.log("preview %s (%.0f s)" % (path, sec))
+
+
+def preview_wire(ctx):
+    """The exported file re-imported (props turned, gimbal pitched down through the bones) in clay with its wireframe."""
+    arm, meshes, _ = rig.import_glb(os.path.join(paths.glb, "SK_Buzzard.glb"), "Imp_Wire")
+    rig.pose_imported(arm, {"prop_fl": {"rotate": ((0, 0, 1), 60.0)}, "prop_rr": {"rotate": ((0, 0, 1), 60.0)},
+                            "prop_fr": {"rotate": ((0, 0, 1), -45.0)}, "prop_rl": {"rotate": ((0, 0, 1), -45.0)}})
+    rig.pose_imported(arm, {"gimbal": {"rotate": ((0, 1, 0), 30.0)}})
+    wm = W.wire_material()
+    for o in meshes:
+        for sl in o.material_slots:
+            sl.material = wm
+    W.rig_studio(strength=1.3)
+    _hide_all_but(meshes)
+    arm.matrix_world = Matrix.Translation((0, 0, 0))
+    c = Vector((0.0, 0.0, -0.01))
+    d = Vector((0.70, -0.72, -0.30)).normalized()
+    cam = render.cam_look(c + d * 1.85, c, 50.0, name="Cam_wire")
+    s = max(32, ctx.args.samples // 2)
+    render.setup(samples=s, res=(1280, 720))
+    path, sec = render.render_jpeg(_prev("buzzard_wire"), s)
+    ctx.log("preview %s (%.0f s)" % (path, sec))
+
+
+def preview_wreck(ctx, pieces):
+    """The wreck pieces scattered on the asphalt where the drone came down."""
+    render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, exposure=None)
+    g = ground()
+    rng = np.random.default_rng(5)
+    lay = {"HullLeft": (-0.15, 0.30, 90, 0), "HullRight": (0.35, -0.25, -80, 180), "ArmFL": (0.75, 0.55, 30, 0),
+           "ArmFR": (0.95, -0.45, -40, 0), "ArmRL": (-0.65, 0.65, 120, 0), "ArmRR": (-0.55, -0.70, 200, 180),
+           "Tail": (-0.95, -0.05, 15, 0), "Gimbal": (0.30, 0.55, 40, 0), "Gun": (0.10, -0.70, -25, 90),
+           "Skids": (-0.25, -0.20, 60, 0), "PropClean": (1.25, 0.20, 70, 0), "PropBentA": (-1.05, 0.95, -20, 0),
+           "PropBentB": (0.65, -0.95, 150, 0)}
+    shown = []
+    for o in pieces:
+        key = o.name.replace("SM_Fx_BuzzardWreck_", "")
+        x, y, rz, rx = lay.get(key, (0, 0, 0, 0))
+        R = Matrix.Rotation(math.radians(rz), 4, "Z") @ Matrix.Rotation(math.radians(rx), 4, "X")
+        lo, hi = scene.bounds(o)
+        corners = [R @ Vector((a, b, c)) for a in (lo[0], hi[0]) for b in (lo[1], hi[1]) for c in (lo[2], hi[2])]
+        zmin = min(v.z for v in corners)
+        o.matrix_world = Matrix.Translation((x, y, -zmin + 0.002)) @ R
+        shown.append(o)
+    _hide_all_but(shown + [g])
+    c = Vector((0.05, -0.02, 0.05))
+    d = Vector((0.55, -0.80, 0.85)).normalized()
+    cam = render.cam_look(c + d * 3.2, c, 45.0, name="Cam_wreck", dof=(3.2, 8.0))
+    render.setup(samples=ctx.args.samples, res=(1280, 720))
+    path, sec = render.render_jpeg(_prev("buzzard_wreck"), ctx.args.samples)
+    ctx.log("preview %s (%.0f s)" % (path, sec))
+    for o in shown:
+        o.matrix_world = Matrix.Identity(4)
+
+
+def on_preview(ctx, objs):
+    want = lambda n: not PREVIEW_ONLY or n in PREVIEW_ONLY.split(",")
+    s = SKINNED.get("SK_Buzzard")
+    if s:
+        ob, arm = s["ob"], s["arm"]
+        for name, fn in (("buzzard_hero", preview_hero), ("buzzard_under", preview_under), ("buzzard_detail", preview_detail)):
+            if want(name):
+                fn(ctx, ob, arm)
+                arm.matrix_world = Matrix.Identity(4)
+                for pb in arm.pose.bones:
+                    pb.matrix_basis = Matrix.Identity(4)
+    if want("buzzard_wreck"):
+        pieces = [o for o in bpy.data.objects if o.name.startswith("SM_Fx_BuzzardWreck_")]
+        if pieces:
+            preview_wreck(ctx, pieces)
+    if want("buzzard_wire") and os.path.exists(os.path.join(paths.glb, "SK_Buzzard.glb")):
+        preview_wire(ctx)
 
 
 # --------------------------------------------------------------------------------------------------- build hooks

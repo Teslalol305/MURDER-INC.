@@ -101,7 +101,7 @@ def build_material(rec, old):
             nt.links.new(col_out, mul.inputs["A"])
             mul.inputs["B"].default_value = (*rec["paint_default"], 1.0)
             col_out = mul.outputs["Result"]
-            bs.inputs["Coat Weight"].default_value = 1.0
+            bs.inputs["Coat Weight"].default_value = 0.0 if rec.get("matte") else 1.0
             bs.inputs["Coat Roughness"].default_value = 0.04
         if "Decals" in slot or "Plate" in slot:
             nt.links.new(bc.outputs["Alpha"], bs.inputs["Alpha"])
@@ -140,6 +140,30 @@ def build_material(rec, old):
     return m
 
 
+def _lin(h):
+    h = h.lstrip("#")
+    c = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    return [x / 12.92 if x <= 0.04045 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
+
+
+def resolve(rec, man):
+    """Slots the manifest leaves without textures, filled the way the build meant them (vehicles.py): the IPX
+    door's paint is the truck's slot, the stripped car's primer reads Vehicle_Sedan tinted #7a3b2c; a paint slot
+    without paint_default takes the brief's first colour (motorbike: navy #1b2a4a)."""
+    slot = rec.get("slot", "")
+    if not rec.get("textures"):
+        for a in man.values():
+            for r in a.get("material_slots") or []:
+                if r["slot"] == slot and r.get("textures"):
+                    return dict(r)
+        if slot.endswith("_Primer"):
+            src = man["SM_Vehicle_Sedan"]["material_slots"][0]
+            return dict(src, slot=slot, paint_default=_lin("#7a3b2c"), matte=True)
+    if slot == "M_Vehicle_Motorbike_Paint" and "paint_default" not in rec:
+        return dict(rec, paint_default=_lin("#1b2a4a"))
+    return rec
+
+
 def import_glb(path, man):
     before = set(bpy.data.objects)
     bpy.ops.import_scene.gltf(filepath=path)
@@ -152,7 +176,7 @@ def import_glb(path, man):
         for i, ms in enumerate(o.material_slots):
             old = ms.material
             key = re.sub(r"\.\d+$", "", old.name) if old else None
-            rec = recs.get(key, {"slot": key or "none"})
+            rec = resolve(recs.get(key, {"slot": key or "none"}), man)
             o.material_slots[i].material = build_material(rec, old)
     return [o for o in obs if o.type == "MESH"]
 
@@ -340,6 +364,7 @@ def load_vehicle(name, man):
             d = import_glb(os.path.join(paths.glb, "SM_Vehicle_%s.glb" % nm), man)
             for o in d:
                 o.location = hinge
+                o.rotation_mode = "XYZ"
                 o.rotation_euler = (0, 0, math.radians(ang))
             obs += d
         bpy.context.view_layer.update()
