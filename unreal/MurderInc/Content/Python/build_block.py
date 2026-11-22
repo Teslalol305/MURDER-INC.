@@ -58,13 +58,13 @@ CUBE = "/Engine/BasicShapes/Cube.Cube"          # 100 cm, centred on its origin
 # docs/unreal/spec/06-look-fx.md 4.5). The day rig's own numbers come from atmos.json.
 EL_LAMP_MOUNT_Z = 602.0          # top of the lamp canopy under the deck (README: lamps at (x + 5, +-2.1, 6.02))
 LUX_PER_GAME_LUX = 24400.0       # spec 4.5: the web sun (5 game lux x colour luminance 0.819) anchored at 100,000 lx
-DAY_EV100 = (12.9, 14.2)         # art bible 2.3: auto exposure clamped; open sun near 14.2, under the El about 13.2,
+DAY_EV100 = (12.3, 14.2)         # art bible 2.3: auto exposure clamped; open sun near 14.2, under the El about 13.2,
                                  # the lower clamp is the readability dial (spec 4.5 puts the web's fixed 1.1 at 13.4)
 SUN_SOURCE_ANGLE = 0.5357        # art bible 2.4
 SUN_SHAFTS = 3.0                 # sun volumetric scattering: visible shafts through the El ties
 CONTACT_SHADOW = 0.03            # screen-space contact shadow length of the sun
 FOG_VOLUME_EXTINCTION = 2.0      # volumetric fog only: enough medium for the shafts, the far haze stays the fog's
-LOCAL_SHADOW_CONTRAST = 0.55     # local exposure lifts the shade under the El without flattening the sun
+LOCAL_SHADOW_CONTRAST = 0.45     # local exposure lifts the shade under the El without flattening the sun
 CLOUD_MATERIAL = "/Engine/EngineSky/VolumetricClouds/m_SimpleVolumetricCloud_Inst"
 CLOUD_LAYER = {"layer_bottom_altitude": 1.6, "layer_height": 6.0}   # km: fair-weather cumulus bases
 STREET_EXTENT_CM = 7000          # street kit runs this far east and west of the centre (the bounds end at 4,600)
@@ -73,11 +73,34 @@ GREY_SURFACE = {                 # collider surface -> (grey-box instance, textu
     "concrete": ("MI_Grey_Concrete", "TS_Concrete_ScanWeathered", (1.0, 1.0, 1.0)),
     "metal": ("MI_Grey_Metal", "TS_Concrete_ScanWeathered", (0.42, 0.45, 0.5)),
     "wood": ("MI_Grey_Wood", "TS_Concrete_ScanWeathered", (0.8, 0.58, 0.4)),
-    "car": ("MI_Grey_Car", "TS_Concrete_ScanWeathered", (0.55, 0.55, 0.6)),
-    "glass": ("MI_Grey_Glass", "TS_Concrete_ScanWeathered", (0.28, 0.32, 0.36)),
+    "car": ("MI_Grey_Car", None, ((0.045, 0.05, 0.058), 0.32, 0.6, 0.0)),        # vehicles stay masses: dark paint
+    "glass": ("MI_Grey_Glass", None, ((0.01, 0.011, 0.012), 0.05, 0.0, 0.0)),
     "other": ("MI_Grey_Other", "TS_Concrete_ScanWeathered", (0.6, 0.55, 0.5)),
 }
 ROOF_SET = "TS_Concrete_ScanWeathered"   # upward faces of the brick massing
+# Colliders the art has no module for keep their box, dressed in the material of what they are (05-level): tag ->
+# (instance, texture set world-projected, tint). Sets None: flat values; "glass": the glass with rooms.
+TAG_SURFACE = {
+    "station": ("MI_Box_ElGreen", "TS_Steel_ScanPaintGreen", (0.84, 1.0, 1.3)),
+    "kiosk": ("MI_Box_SteelDark", "TS_Steel_ScanPaintGrey", (0.3, 0.3, 0.32)),
+    "hoarding": ("MI_Box_PlywoodGreen", "TS_Plywood_ScanLauan", (0.17, 0.93, 0.83)),
+    "dig": ("MI_Box_Plywood", "TS_Plywood_ScanLauan", (1.0, 1.0, 1.0)),
+    "produce-stand": ("MI_Box_WoodPainted", "TS_Wood_ScanPlankPainted", (1.0, 1.0, 1.0)),
+    "shanty": ("MI_Box_Plywood", "TS_Plywood_ScanLauan", (1.0, 1.0, 1.0)),
+    "hoist": ("MI_Box_Plywood", "TS_Plywood_ScanLauan", (1.0, 1.0, 1.0)),
+    "backs": ("MI_Box_BrickWindows", "TS_Brick_ScanRedCommon", (1.0, 1.0, 1.0)),
+    "seal": ("MI_Box_BrickBrown", "TS_Brick_ScanBrown", (1.0, 1.0, 1.0)),
+    "garages": ("MI_Box_BrickPainted", "TS_BrickPainted_ScanWhitewash", (1.0, 1.0, 1.0)),
+    "office-glass": ("MI_Box_Glass", "glass", None),
+    "shop-wall": ("MI_Box_BlockPainted", "TS_Block_ScanPainted", (0.61, 0.74, 1.06)),
+}
+for _tag in ("office", "mezzanine", "railing", "shop-stair", "shop-column", "safe", "roadblock", "scaffold",
+             "tyre-cage", "alley-gate", "lot-gate", "lot-sign"):
+    TAG_SURFACE[_tag] = ("MI_Box_SteelGrey", "TS_Steel_ScanPaintGrey", (1.0, 1.0, 1.0))
+ROOFED = {"MI_Grey_Brick", "MI_Box_BrickWindows", "MI_Box_BrickBrown", "MI_Box_BrickPainted", "MI_Backdrop_Brick"}
+WINDOWED = {"MI_Box_BrickWindows", "MI_Backdrop_Brick", "MI_Backdrop_Concrete"}
+BACKDROP_SURFACE = {"brick": ("MI_Backdrop_Brick", "TS_Brick_ScanRedCommon", (1.0, 1.0, 1.0)),
+                    "concrete": ("MI_Backdrop_Concrete", "TS_Concrete_ScanWeathered", (0.9, 0.88, 0.85))}
 GROUND_SURFACE = {               # level.json ground surface -> (instance, texture set, tint)
     "asphalt": ("MI_Ground_Asphalt", "TS_Asphalt_ScanWorn", (1.0, 1.0, 1.0)),
     "concrete": ("MI_Ground_Concrete", "TS_Concrete_ScanRough", (1.0, 1.0, 1.0)),
@@ -275,6 +298,22 @@ rough += (macro - 0.5) * 0.12 * Macro.x;
 // Detail layer (Macro.y): the set's own roughness at the detail scale fades in within 3 m of the eye.
 float near = saturate((300.0 - Depth) / 150.0) * Macro.y;
 rough += (ORMD.g - 0.5) * 0.35 * near;
+// Windows (Windows.x): a grid of dark glazed openings on the vertical faces of world-projected masses (the
+// backdrop and the neighbours' backs): bay Windows.y, storey Windows.z, from the first floor line (3.8 m) up,
+// sill 19 %, head 75 % (vector parameters reach the HLSL as float3: no w).
+if (Windows.x > 0.5 && abs(NW.z) < 0.3)
+{
+    float u = (abs(NW.x) > abs(NW.y)) ? WP.y : WP.x;
+    float bay = frac(u / Windows.y);
+    float storey = frac((WP.z - 380.0) / Windows.z);
+    float inWindow = step(0.3, bay) * step(bay, 0.7) * step(0.19, storey) * step(storey, 0.75) * step(380.0, WP.z);
+    float id = frac(sin(dot(floor(float2(u / Windows.y, (WP.z - 380.0) / Windows.z)), float2(12.99, 78.23))) * 43758.5);
+    float3 glass = lerp(float3(0.012, 0.014, 0.016), float3(0.05, 0.045, 0.04), step(0.7, id));
+    bc = lerp(bc, glass, inWindow);
+    rough = lerp(rough, 0.06 + 0.1 * id, inWindow);
+    metal = lerp(metal, 0.0, inWindow);
+    ao = lerp(ao, 1.0, inWindow);
+}
 Rough = saturate(rough);
 Metal = saturate(metal);
 AO = saturate(ao);
@@ -410,10 +449,12 @@ def build_master(defaults, force):
     amount = vector("WearAmount", (1, 0, 0, 0), -900, 1400)  # x: 0 switches the masks off (meshes without Wear);
     #                                                          y: 1 puts the second set on upward faces (roofs)
     macro = vector("Macro", (1, 1, 0, 0), -900, 1550)        # x: macro variation, y: detail layer (0 on unique sets)
+    windows = expr(material, unreal.MaterialExpressionVectorParameter, -900, 1600, parameter_name="Windows",
+                   default_value=unreal.LinearColor(0, 310, 310, 380))
     vertex_colour = expr(material, unreal.MaterialExpressionVertexColor, -900, 1500)
     wear = custom(material, -500, 300, WEAR_HLSL,
                   ["BC", "ORM", "BC2", "ORM2", "VC", "VA", "WP", "Tint", "DirtColor", "LeakColor", "SplashColor",
-                   "Modes", "Wetness", "Amount", "NW", "Macro", "ORMD", "Depth"],
+                   "Modes", "Wetness", "Amount", "NW", "Macro", "ORMD", "Depth", "Windows"],
                   unreal.CustomMaterialOutputType.CMOT_FLOAT3, ["Rough", "Metal", "AO", "Edge"])
     for name, source, output in (("BC", samplers["BC"], "RGB"), ("ORM", samplers["ORM"], "RGB"),
                                  ("BC2", samplers["BC2"], "RGB"), ("ORM2", samplers["ORM2"], "RGB"),
@@ -421,7 +462,8 @@ def build_master(defaults, force):
                                  ("Tint", tint, ""), ("Wetness", modes, "A"),
                                  ("DirtColor", dirt, ""), ("LeakColor", leak, ""), ("SplashColor", splash, ""),
                                  ("Modes", modes, ""), ("Amount", amount, ""), ("NW", normal_ws, ""),
-                                 ("Macro", macro, ""), ("ORMD", samplers["ORMD"], "RGB"), ("Depth", depth, "")):
+                                 ("Macro", macro, ""), ("ORMD", samplers["ORMD"], "RGB"), ("Depth", depth, ""),
+                                 ("Windows", windows, "")):
         if not LIB.connect_material_expressions(source, output, wear, name):
             raise RuntimeError("cannot connect %s output '%s' to the wear node" % (name, output))
 
@@ -653,7 +695,7 @@ def make_glass_instance(name, values, force):
 
 
 def make_instance(name, set_name, tint=(1, 1, 1), blend_set=None, alpha_means=None, world_tile_m=None,
-                  wear=1.0, force=False, roof_set=None):
+                  wear=1.0, force=False, roof_set=None, macro=None, windows=False):
     path = "%s/%s" % (MAT_DIR, name)
     if ASSETS.does_asset_exist(path):
         if not force:
@@ -672,8 +714,11 @@ def make_instance(name, set_name, tint=(1, 1, 1), blend_set=None, alpha_means=No
         second = unreal.load_asset(texture_path(other, kind)) if other and has_set(other) else texture
         LIB.set_material_instance_texture_parameter_value(instance, kind + "2", second)
     # Unique (baked) sets: no macro variation and no detail resample (their UVs are an atlas).
+    macro = (wear > 0) if macro is None else macro
     LIB.set_material_instance_vector_parameter_value(instance, "Macro", unreal.LinearColor(
-        1.0 if wear > 0 else 0.0, 1.0 if wear > 0 else 0.0, 0, 0))
+        1.0 if macro else 0.0, 1.0 if macro else 0.0, 0, 0))
+    LIB.set_material_instance_vector_parameter_value(instance, "Windows", unreal.LinearColor(
+        1.0 if windows else 0.0, 310.0, 310.0, 380.0))
     if ASSETS.does_asset_exist(texture_path(set_name, "E")):
         LIB.set_material_instance_texture_parameter_value(instance, "E", unreal.load_asset(texture_path(set_name, "E")))
         LIB.set_material_instance_scalar_parameter_value(instance, "EmissiveScale", SIGN_NITS)
@@ -731,13 +776,21 @@ def material_units(force):
     for shop, tint in sorted(awning_tints().items()):
         yield "awning " + shop, (lambda n="MI_Fabric_ScanCanvas_" + shop, t=tint:
                                  make_instance(n, "TS_Fabric_ScanCanvas", t, None, "splash", None, 1.0, force))
-    for name, set_name, tint in list(GREY_SURFACE.values()) + list(GROUND_SURFACE.values()):
+    for name, set_name, tint in list(GREY_SURFACE.values()) + list(GROUND_SURFACE.values()) + \
+            [(v[0], v[1], v[2]) for v in TAG_SURFACE.values()] + list(BACKDROP_SURFACE.values()):
         if name in seen:
             continue
         seen.add(name)
-        roof = ROOF_SET if name == GREY_SURFACE["brick"][0] else None
-        yield "instance " + name, (lambda n=name, s=set_name, t=tint, r=roof:
-                                   make_instance(n, s, t, None, None, set_tile_m(man, s), 0.0, force, r))
+        if set_name is None:                       # flat (vehicle paint and glass stand-ins)
+            yield "flat " + name, (lambda n=name, v=tint: make_flat_instance(n, v, force))
+            continue
+        if set_name == "glass":
+            yield "glass " + name, (lambda n=name: make_glass_instance(n, GLASS_SLOTS["MI_Glass_Window"], force))
+            continue
+        roof = ROOF_SET if name in ROOFED else None
+        windows = name in WINDOWED
+        yield "instance " + name, (lambda n=name, s=set_name, t=tint, r=roof, w=windows:
+                                   make_instance(n, s, t, None, None, set_tile_m(man, s), 0.0, force, r, True, w))
 
 
 def placements():
@@ -952,9 +1005,11 @@ def level_units(force):
         faced.add("bulkhead")            # the stair bulkheads on their roofs are kit modules too
     props = prop_placements(facade)
     placed_props = {entry["prop"] for entry in props}
+    structures, structure_boxes = structure_placements(level)
     for building in sorted(facade.get("buildings", {})):
         yield "facade " + building, (lambda b=building: place_facade(facade, b))
     yield "props", lambda: place_props(props)
+    yield "structures", lambda: place_structures(structures)
 
     # Grey-box massing: every movement-blocking static collider the meshes above do not already draw. The colliders
     # of what the art now draws stay as invisible blocking boxes: the tuned cover and openings do not change.
@@ -964,12 +1019,14 @@ def level_units(force):
     def drawn_by_art(box):
         owner = box["owner"]
         return (owner["kind"] == "level" and box["tag"] in faced) or \
-            (owner["kind"] == "prop" and owner.get("prop") in placed_props)
+            (owner["kind"] == "prop" and owner.get("prop") in placed_props) or box["index"] in structure_boxes
     for start in range(0, len(boxes), 120):
         def grey_chunk(items=boxes[start:start + 120]):
             hidden = 0
             for box in items:
                 name = GREY_SURFACE.get(box["surface"], GREY_SURFACE["other"])[0]
+                if box["owner"]["kind"] == "level" and box["tag"] in TAG_SURFACE:
+                    name = TAG_SURFACE[box["tag"]][0]
                 material = unreal.load_asset("%s/%s" % (MAT_DIR, name))
                 c, e = box["ue"]["center"], box["ue"]["extent"]
                 art = drawn_by_art(box)
@@ -1136,13 +1193,152 @@ def place_props(props):
     return "%d props of %d catalogue ids with %d meshes: %s" % (len(props), len(names), len(groups), ",".join(names))
 
 
+# Wall openings of the auto body shop (05-level 2.6.2): opening width x height -> (wall module, pier, door module).
+OPENINGS = {(600, 430): ("SM_Furn_BlockWall_Opening_600x430", 20, "SM_Furn_RollUpDoor_600x430_Open"),
+            (380, 350): ("SM_Furn_BlockWall_Opening_380x350", 20, "SM_Furn_RollUpDoor_380x350_Open"),
+            (200, 250): ("SM_Furn_BlockWall_Door_200x250", 40, None)}
+
+
+def placed_at_note(mesh):
+    """The Unreal location a module's manifest note gives ("place at Blender (x, y, z)")."""
+    notes = manifest()["assets"].get(mesh, {}).get("notes") or ""
+    match = re.search(r"place at Blender \(([-\d.]+), ([-\d.]+), ([-\d.]+)\)", notes)
+    if not match:
+        return None
+    x, y, z = (float(v) for v in match.groups())
+    return (x * 100.0, -y * 100.0, z * 100.0)
+
+
+def wall_runs(boxes):
+    """Thin collider boxes as runs: (axis 'x' or 'y', line coordinate of the outer face, start, end, zmin, zmax,
+    index), the outer face being the side away from the centre of all of them."""
+    xs = [b["ue"]["center"]["X"] for b in boxes]
+    ys = [b["ue"]["center"]["Y"] for b in boxes]
+    cx, cy = (min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0
+    runs = []
+    for b in boxes:
+        mn, mx = b["ue"]["min"], b["ue"]["max"]
+        if mx["X"] - mn["X"] >= mx["Y"] - mn["Y"]:
+            line = mx["Y"] if b["ue"]["center"]["Y"] > cy else mn["Y"]
+            runs.append(("x", line, mn["X"], mx["X"], mn["Z"], mx["Z"], b["index"], line > cy))
+        else:
+            line = mx["X"] if b["ue"]["center"]["X"] > cx else mn["X"]
+            runs.append(("y", line, mn["Y"], mx["Y"], mn["Z"], mx["Z"], b["index"], line > cx))
+    return runs
+
+
+def run_transform(axis, line, along, positive_side):
+    """Location and yaw of a module whose pivot is the bottom-left of its outer face (+Y local outward, running +X)
+    for a run along `axis`; the outer face looks toward +axis' normal when positive_side."""
+    if axis == "x":
+        # outer face toward +Y: yaw 0 runs +X; toward -Y: yaw 180 runs -X (pivot at the run's far end)
+        return ((along, line, 0.0), 0.0) if positive_side else ((along, line, 0.0), 180.0)
+    # outer face toward +X: yaw -90 (local +Y -> +X) runs -Y; toward -X: yaw 90 runs +Y
+    return ((line, along, 0.0), -90.0) if positive_side else ((line, along, 0.0), 90.0)
+
+
+def tile(axis, line, start, end, positive_side, mesh, width, z=0.0, scale_z=1.0):
+    """Modules of `width` from start to end (the last scaled so the run closes exactly), as (mesh, loc, yaw, scale)."""
+    out = []
+    length = end - start
+    if length < 5:
+        return out
+    count = max(1, int(math.ceil(length / width - 0.05)))
+    k = length / (count * width)
+    for i in range(count):
+        a, b = start + i * width * k, start + (i + 1) * width * k
+        # The pivot is the module's left end seen from outside: start of the run going +, its end going -.
+        positive_run = (axis == "x" and positive_side) or (axis == "y" and not positive_side)
+        loc, yaw = run_transform(axis, line, a if positive_run else b, positive_side)
+        out.append((mesh, (loc[0], loc[1], z), yaw, (k, 1.0, scale_z)))
+    return out
+
+
+def structure_placements(level):
+    """Furniture-family modules for the level structures that have them: the sidewalk shed and its stair (at the
+    manifest's placement), the auto body shop's block walls with their openings and roll-up doors, the Cage's
+    plinths and chain-link. Returns (instances, collider indices they draw)."""
+    have = lambda mesh: ASSETS.does_asset_exist("%s/%s" % (MESH_DIR, mesh))
+    boxes = level["colliders"]["boxes"]
+    out, drawn = [], set()
+    # Sidewalk shed over the south sidewalk in front of S3, and its stair.
+    for mesh, tags in (("SM_Furn_SidewalkShed", ("shed-deck", "shed-post")), ("SM_Furn_ShedStair", ("shed-stair",))):
+        at = placed_at_note(mesh)
+        if at and have(mesh):
+            out.append((mesh, at, 0.0, (1.0, 1.0, 1.0)))
+            drawn |= {b["index"] for b in boxes if b["tag"] in tags}
+    # The auto body shop: openings first (a collider that starts above the ground over a gap), then plain wall.
+    walls = [b for b in boxes if b["tag"] == "shop-wall" and b["owner"]["kind"] == "level"]
+    if walls and have("SM_Furn_BlockWall_200"):
+        runs = wall_runs(walls)
+        cut = {}
+        for axis, line, a, b, z0, z1, index, positive in runs:
+            if z0 <= 1:
+                continue
+            key = min(OPENINGS, key=lambda o: abs(o[0] - (b - a)) + abs(o[1] - z0))
+            if abs(key[0] - (b - a)) > 10 or abs(key[1] - z0) > 10 or (axis, line, a) in cut:
+                continue
+            module, pier, door = OPENINGS[key]
+            cut[(axis, line, a)] = (a - pier, b + pier)
+            out.extend(tile(axis, line, a - pier, a - pier + manifest_width(module), positive, module,
+                            manifest_width(module)))
+            if door and have(door):
+                out.extend(tile(axis, line, a, a + key[0], positive, door, key[0]))
+        for axis, line, a, b, z0, z1, index, positive in runs:
+            drawn.add(index)
+            if z0 > 1:
+                continue
+            pieces = [(a, b)]
+            for (cut_axis, cut_line, _), (c0, c1) in cut.items():
+                if cut_axis != axis or abs(cut_line - line) > 1:
+                    continue
+                pieces = [p for q in pieces for p in ((q[0], min(q[1], c0)), (max(q[0], c1), q[1])) if p[1] - p[0] > 1]
+            for p0, p1 in pieces:
+                out.extend(tile(axis, line, p0, p1, positive, "SM_Furn_BlockWall_200", 200.0))
+    # The Cage: concrete knee walls, chain-link panels on them, an end post closing each run.
+    for plinth in [b for b in boxes if b["tag"] == "cage-plinth"]:
+        mn, mx = plinth["ue"]["min"], plinth["ue"]["max"]
+        fence = [b for b in boxes if b["tag"] == "cage-fence" and abs(b["ue"]["min"]["X"] - mn["X"]) < 1
+                 and abs(b["ue"]["min"]["Y"] - mn["Y"]) < 1]
+        along_x = mx["X"] - mn["X"] >= mx["Y"] - mn["Y"]
+        axis = "x" if along_x else "y"
+        line = (mn["Y"] + mx["Y"]) / 2.0 if along_x else (mn["X"] + mx["X"]) / 2.0
+        a, b = (mn["X"], mx["X"]) if along_x else (mn["Y"], mx["Y"])
+        top = mx["Z"]
+        if have("SM_Furn_CagePlinth_300"):
+            out.extend(tile(axis, line, a, b, along_x, "SM_Furn_CagePlinth_300", 300.0, 0.0, top / 50.0))
+            drawn.add(plinth["index"])
+        if fence and have("SM_Furn_ChainLink_300x350"):
+            out.extend(tile(axis, line, a, b, along_x, "SM_Furn_ChainLink_300x350", 300.0, top))
+            end_loc, end_yaw = run_transform(axis, line, b, along_x)
+            out.append(("SM_Furn_ChainLink_EndPost_350", (end_loc[0], end_loc[1], top), end_yaw + 180.0,
+                        (1.0, 1.0, 1.0)))
+            drawn |= {f["index"] for f in fence}
+    return out, drawn
+
+
+def manifest_width(mesh):
+    box = manifest()["assets"][mesh]["bounds_unreal_cm"]
+    return box["max"][0] - max(box["min"][0], 0.0)
+
+
+def place_structures(items):
+    groups = {}
+    for mesh, location, yaw, scale in items:
+        groups.setdefault(mesh, []).append(transform(location, yaw, scale))
+    holder = instance_holder("Structures", "Block/Structures")
+    for mesh, transforms in sorted(groups.items()):
+        add_instances(holder, "%s/%s" % (MESH_DIR, mesh), transforms, None, collide=False)
+    return "%d instances: %s" % (len(items), ", ".join("%s x%d" % (m, len(t)) for m, t in sorted(groups.items())))
+
+
 def build_backdrop(level, facade):
     """What the player sees past the bounds: the avenue's own buildings continuing east and west, the neighbours'
     backs, then a distant skyline in the haze. Deterministic (seeded) masses with the scanned brick and concrete
     (world-projected), no collision: nobody reaches them."""
     rng = random.Random(1937)
-    brick = unreal.load_asset("%s/%s" % (MAT_DIR, GREY_SURFACE["brick"][0]))
-    concrete = unreal.load_asset("%s/%s" % (MAT_DIR, GREY_SURFACE["concrete"][0]))
+    brick = unreal.load_asset("%s/%s" % (MAT_DIR, BACKDROP_SURFACE["brick"][0]))
+    concrete = unreal.load_asset("%s/%s" % (MAT_DIR, BACKDROP_SURFACE["concrete"][0]))
     bounds = level["bounds"]["ue"]
     holder_near, holder_far = [], []
     # The avenue continues: street walls from the bounds out to 450 m, lots 8 to 30 m wide, 2 to 6 storeys.
