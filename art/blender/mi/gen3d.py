@@ -38,9 +38,22 @@ def _image_array(img, srgb, cache_dir=None):
     return _bake.srgb_decode(a) if srgb else a
 
 
-def load(path, name, col=None):
+def weld(ob, dist=1e-5):
+    """Merge the vertices the glTF importer split along UV seams (the UVs stay per corner), so the surface is
+    one connected sheet again: solidify and decimation then see real borders only."""
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=dist)
+    bm.to_mesh(ob.data)
+    bm.free()
+    ob.data.update()
+    return ob
+
+
+def load(path, name, col=None, merge=True):
     """Import a generated GLB, join every mesh into one object (transforms applied) and read its PBR maps.
-    Returns (object, tex). The imported material stays on the object (slot 0) until it is replaced."""
+    Returns (object, tex). The imported material stays on the object (slot 0) until it is replaced.
+    merge: weld the seam-split vertices (weld())."""
     before = set(bpy.data.objects)
     bpy.ops.import_scene.gltf(filepath=path)
     new = [o for o in bpy.data.objects if o not in before]
@@ -65,6 +78,8 @@ def load(path, name, col=None):
             bpy.data.objects.remove(o, do_unlink=True)
     ob.name = name
     ob.data.name = name
+    if merge:
+        weld(ob)
     if col is not None:
         _scene.move_to(ob, col)
     tex = {}
@@ -235,17 +250,30 @@ def set_face_materials(ob, index):
     ob.data.update()
 
 
-def decimate(ob, ratio, triangulate=True):
-    """Collapse decimation that keeps UV seams and the material borders."""
-    md = ob.modifiers.new("Decimate", "DECIMATE")
-    md.decimate_type = "COLLAPSE"
-    md.ratio = ratio
-    md.use_collapse_triangulate = triangulate
-    md.delimit = {"UV", "MATERIAL", "SEAM"} if hasattr(md, "delimit") else set()
-    _scene.select_only(ob)
-    bpy.context.view_layer.objects.active = ob
-    bpy.ops.object.modifier_apply(modifier=md.name)
+def decimate(ob, ratio, triangulate=True, target=None):
+    """Collapse decimation. With target (triangles), repeats until the mesh is at most 10 % over it (UV seams
+    hold collapses back, so one pass often stops short)."""
+    from . import geo as _geo
+    for _ in range(4 if target else 1):
+        if target:
+            t = _geo.stats(ob)["triangles"]
+            if t <= target * 1.1:
+                break
+            ratio = target / t
+        md = ob.modifiers.new("Decimate", "DECIMATE")
+        md.decimate_type = "COLLAPSE"
+        md.ratio = ratio
+        md.use_collapse_triangulate = triangulate
+        _scene.select_only(ob)
+        bpy.context.view_layer.objects.active = ob
+        bpy.ops.object.modifier_apply(modifier=md.name)
     return ob
+
+
+def clamp_box(ob, lo, hi):
+    """Clamp the vertices into the box lo..hi (decimation can push a curved roof a centimetre out)."""
+    co = verts(ob)
+    set_verts(ob, np.clip(co, lo, hi))
 
 
 def save_texture(arr, path, srgb=True):

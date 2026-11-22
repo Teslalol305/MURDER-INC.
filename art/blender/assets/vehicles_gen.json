@@ -13,14 +13,16 @@
    "what": "sedan body, from concept a",
    "model": "meshy_v7_image_to_3d (texture, PBR, ultra, 300k, symmetry on)",
    "credits": 44,
-   "file": "sedan_meshy.glb"
+   "file": "sedan_meshy.glb",
+   "verdict": "provider comparison: clean surfaces but a flat underside and 2K maps for 44 credits; Hunyuan (4K maps, modelled underside, 15-19 credits) kept"
   },
   {
    "id": "74adccae-b256-486e-9144-f8ec8162100b",
    "what": "sedan body, from concept a",
    "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 500k faces)",
    "credits": 15,
-   "file": "sedan_hunyuan.glb"
+   "file": "sedan_hunyuan.glb",
+   "verdict": "500k faces: decimating it after welding the UV seams breaks the atlas (faces across seams); replaced by the 60-100k generation"
   },
   {
    "id": "6083d33f-bafc-4411-857d-efcd40e1ee2b",
@@ -90,42 +92,97 @@
    "what": "suv body, from suv_concept_b",
    "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 500k faces)",
    "credits": 15,
-   "file": "suv_hunyuan.glb"
+   "file": "suv_hunyuan.glb",
+   "verdict": "500k faces: decimating it after welding the UV seams breaks the atlas (faces across seams); replaced by the 60-100k generation"
   },
   {
    "id": "2bafbfa8-9ced-423b-8b0d-a0071a0f3c10",
    "what": "pickup body, from pickup_concept_b",
    "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 500k faces)",
    "credits": 15,
-   "file": "pickup_hunyuan.glb"
+   "file": "pickup_hunyuan.glb",
+   "verdict": "500k faces: decimating it after welding the UV seams breaks the atlas (faces across seams); replaced by the 60-100k generation"
   },
   {
    "id": "abf0a7ec-c7f9-4bef-ac7b-b590763d7633",
    "what": "van body, from van_concept_a",
    "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 500k faces)",
    "credits": 15,
-   "file": "van_hunyuan.glb"
+   "file": "van_hunyuan.glb",
+   "verdict": "500k faces: decimating it after welding the UV seams breaks the atlas (faces across seams); replaced by the 60-100k generation"
   },
   {
    "id": "74c29fb5-787d-4594-bfca-72760f07d3b8",
    "what": "boxtruck body, from boxtruck_concept_a",
    "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 500k faces)",
    "credits": 15,
-   "file": "boxtruck_hunyuan.glb"
+   "file": "boxtruck_hunyuan.glb",
+   "verdict": "500k faces: decimating it after welding the UV seams breaks the atlas (faces across seams); replaced by the 60-100k generation"
   },
   {
    "id": "898909ff-b691-40b8-b13f-6a9eb9cc7a54",
    "what": "ipx body, from ipx_concept_b",
    "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 500k faces)",
    "credits": 15,
-   "file": "ipx_hunyuan.glb"
+   "file": "ipx_hunyuan.glb",
+   "verdict": "500k faces: decimating it after welding the UV seams breaks the atlas (faces across seams); replaced by the 60-100k generation"
   },
   {
    "id": "b2fe4f35-f756-4494-a6fb-b11bb5850738",
    "what": "moto body, from moto_concept_a",
    "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 500k faces)",
    "credits": 15,
-   "file": "moto_hunyuan.glb"
+   "file": "moto_hunyuan.glb",
+   "verdict": "500k faces: decimating it after welding the UV seams breaks the atlas (faces across seams); replaced by the 60-100k generation"
+  },
+  {
+   "id": "7a60100c-96d4-45d0-9c8a-0f71c2692c1f",
+   "what": "sedan body at 60000 faces, from sedan concept a",
+   "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 60000 faces)",
+   "credits": 19,
+   "file": "sedan_hunyuan60k.glb"
+  },
+  {
+   "id": "cb602b72-390c-4246-aad7-f7d7b2c33b65",
+   "what": "suv body at 60000 faces, from suv concept b",
+   "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 60000 faces)",
+   "credits": 19,
+   "file": "suv_hunyuan60k.glb"
+  },
+  {
+   "id": "905c05c4-7742-4dc6-ab9b-5d072ddf72d7",
+   "what": "pickup body at 60000 faces, from pickup concept b",
+   "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 60000 faces)",
+   "credits": 19,
+   "file": "pickup_hunyuan60k.glb"
+  },
+  {
+   "id": "28006b79-7ef2-49e3-bb05-02b2886dd217",
+   "what": "van body at 60000 faces, from van concept a",
+   "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 60000 faces)",
+   "credits": 19,
+   "file": "van_hunyuan60k.glb"
+  },
+  {
+   "id": "9a09a717-c429-4350-ba3d-6ba6c2e1bf85",
+   "what": "boxtruck body at 80000 faces, from box truck concept a",
+   "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 80000 faces)",
+   "credits": 19,
+   "file": "boxtruck_hunyuan80k.glb"
+  },
+  {
+   "id": "cdce688b-3736-42ee-9ade-844ad5a9283e",
+   "what": "ipx body at 80000 faces, from ipx concept b",
+   "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 80000 faces)",
+   "credits": 19,
+   "file": "ipx_hunyuan80k.glb"
+  },
+  {
+   "id": "9c505e8e-1235-4530-bbd8-80313905259b",
+   "what": "moto body at 100000 faces, from moto concept a",
+   "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 100000 faces)",
+   "credits": 19,
+   "file": "moto_hunyuan100k.glb"
   }
  ]
 }
