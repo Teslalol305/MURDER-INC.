@@ -131,7 +131,7 @@ def leaf_set(kind, force=False, n=512):
     tert = sstep(0.75, 0.95, 1 - np.abs(np.tanh(2 * net))) * 0.5
     fine = pnoise(rng, n, n, 1.0)
     big = pnoise(rng, n, n, 60)
-    base = np.array([0.030, 0.062, 0.022] if kind == "pear" else [0.020, 0.045, 0.016], np.float32)
+    base = np.array([0.052, 0.098, 0.028] if kind == "pear" else [0.034, 0.070, 0.022], np.float32)
     bc = base * (0.82 + 0.18 * big[..., None]) * (0.95 + 0.05 * fine[..., None])
     vein_col = np.array([0.075, 0.105, 0.040], np.float32)
     vm = np.clip(mid + 0.65 * sec + 0.25 * tert, 0, 1)[..., None]

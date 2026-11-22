@@ -525,8 +525,9 @@ def street_tree(ctx, M, variant):
         bend = np.outer(t ** 2, np.array([0, 0, 0.35]))                                  # boughs turn upward
         bough = fork + np.outer(t * L, d0) + bend * L * 0.3 + np.outer(np.sin(t * 3.0), rng.normal(0, 0.05, 3))
         stems.append((bough, 0.075 * (1 - 0.75 * t) + 0.012))
-        for j in range(int(L / 0.30)):                                                    # secondary branches
-            tt = 0.18 + 0.82 * (j + rng.uniform(0, 0.6)) / int(L / 0.30)
+        nsec = int(L / 0.17)
+        for j in range(nsec):                                                             # secondary branches
+            tt = 0.15 + 0.85 * (j + rng.uniform(0, 0.6)) / nsec
             i = min(10, int(tt * 11))
             p0 = bough[i] + (bough[i + 1] - bough[i]) * (tt * 11 - i)
             if p0[2] < cz0 - 0.2:
@@ -547,7 +548,7 @@ def street_tree(ctx, M, variant):
             rb = 0.024 * (1 - 0.7 * np.linspace(0, 1, len(pts))) + 0.004
             stems.append((pts, rb))
             for m_ in range(1, len(pts)):                                                # twigs with leaf sprays
-                for _ in range(2):
+                for _ in range(3):
                     tw_dir = steel.unit(out + rng.normal(0, 0.7, 3))
                     q0 = pts[m_]
                     q1 = q0 + tw_dir * rng.uniform(0.12, 0.30)
@@ -559,13 +560,13 @@ def street_tree(ctx, M, variant):
     # leaves: 14 per spray, petioles on the spur, blades hanging and turned to the light
     leaves = []
     for (p, d) in sprays:
-        for _ in range(14):
-            o = p + rng.normal(0, 0.035, 3)
+        for _ in range(15):
+            o = p + rng.normal(0, 0.05, 3)
             along = steel.unit(rng.normal(0, 1, 3) + 0.6 * d + np.array([0, 0, -0.25]))
             up = steel.unit(np.array([0, 0, 1.0]) + rng.normal(0, 0.45, 3))
             side = steel.unit(np.cross(up, along))
             nrm = steel.unit(np.cross(along, side))
-            L = rng.uniform(0.060, 0.085)
+            L = rng.uniform(0.065, 0.095)
             leaves.append((o, along, side, nrm, L, L * 0.62, rng.uniform(0.2, 0.9)))
     # stretch the crown to its brief width (the envelope test keeps it inside but leaves it narrow)
     allp = np.concatenate([np.concatenate([p for p, _ in stems]), np.array([l[0] for l in leaves])])
@@ -1331,7 +1332,7 @@ def barber_pole(ctx, M):
     lathe(b, [(0.0, 0.0), (0.06, 0.0), (0.10, 0.04), (0.10, 0.10), (0.095, 0.11), (0.0, 0.11)], "chrome", 40, loc=(0, yc, 0.0))
     lathe(b, [(0.0, 0.0), (0.095, 0.0), (0.10, 0.01), (0.10, 0.05), (0.07, 0.10), (0.03, 0.12), (0.0, 0.125)], "chrome", 40, loc=(0, yc, 0.83))
     gob(geo.sphere(0.04, 24, 12), b, "chrome", loc=(0, yc, 1.0))
-    lathe(b, [(r, 0.0), (r + 0.004, 0.0), (r + 0.004, 0.72), (r, 0.72)], "glass", 40, loc=(0, yc, 0.11), closed=True)
+    gob(geo.tube(r + 0.004, r, 0.72, 40, name="glass"), b, "glass", loc=(0, yc, 0.11))
     pole = b.finish("SM_Sign_BarberPole_frame", M, ctx.col)
     F.weather(ctx, b, pole, "barber", ground=False, ao=None)
     V, Q, T, UV = tube_mesh(np.array([[0, yc, 0.11], [0, yc, 0.83]]), np.array([0.075, 0.075]), 40, 2 * np.pi * 0.075, 0.72, cap=False)
@@ -1469,9 +1470,9 @@ YARD_VIEW = {"SM_Prop_CarLift": (-4.6, 2.4, 0), "SM_Prop_CarLift_Arms": (-4.6, 2
              "SM_Prop_CrateWood": (-3.3, -0.6, 12), "SM_Prop_CrateWood_B": (-2.0, -1.4, -8), "SM_Prop_CardboardBoxes": (-0.4, -1.0, 0),
              "SM_Prop_TireStack_B": (0.9, -1.2, 0), "SM_Prop_Tire": (1.7, -1.7, 0), "SM_Prop_FloodlightStand": (5.4, -0.9, 25),
              "SM_Prop_Compressor": (3.7, -1.6, -60)}
-GRAPHICS_VIEW = {"SM_Sign_PawnBalls": (-1.3, 2.0, 0, 2.6), "SM_Sign_BarberPole": (1.5, 2.0, 0, 1.1), "SM_Street_PhoneBooth": (-2.7, 0.9, 0),
-                 "SM_Street_SignPost": (-0.9, -0.2, 0), "SM_Prop_VendingMachine": (2.8, 1.3, 0), "SM_Prop_CrateWood_B": (0.2, 0.6, -60),
-                 "SM_Prop_CardboardBoxes": (1.3, -0.4, -15), "_meter": (-1.6, -0.9, 0), "_news": (-0.2, 1.4, 0), "_mail": (0.7, 1.5, 0),
+GRAPHICS_VIEW = {"SM_Sign_PawnBalls": (-1.0, 2.0, 0, 2.6), "SM_Sign_BarberPole": (1.6, 2.0, 0, 1.15), "SM_Street_PhoneBooth": (-2.7, 0.9, 0),
+                 "SM_Street_SignPost": (0.35, -0.5, 0), "SM_Prop_VendingMachine": (2.9, 1.3, 0), "SM_Prop_CrateWood_B": (1.1, 0.0, -60),
+                 "SM_Prop_CardboardBoxes": (2.1, -0.9, -15), "_meter": (-1.6, -0.9, 0), "_news": (-1.15, 1.3, 0), "_mail": (-0.35, 1.35, 0),
                  "_booth": (5.2, 1.6, 0), "_banner": (0.0, 1.98, 0, 3.4)}
 
 

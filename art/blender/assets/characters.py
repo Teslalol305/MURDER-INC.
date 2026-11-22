@@ -28,7 +28,7 @@ FAMILY = {"name": "characters", "description": "First-person arms on the UE5 man
 
 SKIN_H = 0.0026          # surface nets spacing of the skin (metres)
 GLOVE_H = 0.00135        # of the glove
-PIECE_H = 0.0006         # of the rubber pieces
+PIECE_H = 0.0008         # of the rubber pieces
 GLOVE_T = 0.0012         # glove material over the hand
 CUFF_TOP = 0.042         # padded cuff from 4 to 42 mm above the wrist (brief)
 SKIN_CUT = 0.024         # the skin mesh starts inside the cuff (hidden overlap 18 mm)
@@ -321,8 +321,8 @@ def glove_sdf(R):
         cuff = sdf.smax(cuff, 0.004 - s, 0.0025)
         cuff = sdf.smax(cuff, s - CUFF_TOP, 0.0025)
         d = np.minimum(d, cuff)
-        ring = np.sqrt((s - (CUFF_TOP - 0.0012)) ** 2 + (de - 0.0040) ** 2) - 0.0040
-        d = np.minimum(d, ring)
+        ring = np.sqrt((s - (CUFF_TOP - 0.0016)) ** 2 + (de - 0.0042) ** 2) - 0.0026
+        d = sdf.smin(d, ring, 0.0012)
         # raised back panel (wrist to 64 mm ahead of it, about 58 % of the hand's width), 1 mm proud
         q = sdf.local(p, W + fwd * 0.034, hf)
         foot = sdf.rect2(q[:, 0], q[:, 1] - 0.003, 0.033, 0.0235, 0.012)
@@ -441,8 +441,8 @@ def build_right_arm(R, col):
     """Skin, glove and rubber pieces of the right arm as separate objects (rest pose)."""
     out = {}
     fs = skin_sdf(R)
-    lo = np.minimum.reduce([R.S, R.E, R.W]) - 0.075
-    hi = np.maximum.reduce([R.S, R.E, R.W]) + 0.075
+    lo = np.minimum.reduce([R.S, R.E, R.W, R.S + R.bu * 0.07]) - 0.075
+    hi = np.maximum.reduce([R.S, R.E, R.W, R.S + R.bu * 0.07]) + 0.075
     c = (lo + hi) / 2
     out["skin"] = mesh_field("Skin_R", fs, c, np.eye(3), (hi - lo) / 2, SKIN_H, col)
     s, _ = R.forearm_section(face_centres(out["skin"]))
@@ -470,17 +470,220 @@ def build_right_arm(R, col):
     return out
 
 
+TRI_BUDGET = {"skin": 12000, "glove": 34000, "KnuckleBar_R": 3000, "Strap_R": 1600, "pads": 3600}
+SLOTS = {"skin": "M_RuleArms_Skin", "leather": "M_RuleArms_GloveLeather", "suede": "M_RuleArms_GloveSuede",
+         "rubber": "M_RuleArms_Rubber"}
+
+
+def decimate(ob, tris):
+    n = sum(len(p.vertices) - 2 for p in ob.data.polygons)
+    if n <= tris:
+        return ob
+    md = ob.modifiers.new("dec", "DECIMATE")
+    md.decimate_type = "COLLAPSE"
+    md.ratio = tris / n
+    md.use_collapse_triangulate = True
+    geo._apply_modifier(ob, md)
+    return ob
+
+
+def verts(ob):
+    co = np.empty(len(ob.data.vertices) * 3)
+    ob.data.vertices.foreach_get("co", co)
+    return co.reshape(-1, 3)
+
+
+def finger_frame_coords(R, n, p):
+    """Nearest point on finger n's chain: (distance from the axis, dorsal cosine, t along the chain in metres)."""
+    P = R.chain[n]["P"]
+    best = None
+    t0 = 0.0
+    for i in range(3):
+        a, b = P[i], P[i + 1]
+        ab = b - a
+        L = np.linalg.norm(ab)
+        t = np.clip(((p - a) @ ab) / (L * L), 0, 1)
+        q = a + t[:, None] * ab
+        d = np.linalg.norm(p - q, axis=1)
+        tt = t0 + t * L
+        if best is None:
+            best = [d, q, tt]
+        else:
+            m = d < best[0]
+            best[0][m], best[1][m], best[2][m] = d[m], q[m], tt[m]
+        t0 += L
+    r = p - best[1]
+    cosd = (r @ R.chain[n]["dors"]) / np.maximum(np.linalg.norm(r, axis=1), 1e-9)
+    return best[0], cosd, best[2]
+
+
+def glove_regions(R, p):
+    """Per point: label (0 hand/cuff, 1..5 finger), dorsal (bool), cuff (bool)."""
+    palm = palm_sdf(R, GLOVE_T)(p)
+    lab = np.zeros(len(p), dtype=np.int64)
+    best = palm - 0.0015
+    dors = ((p - R.W) @ R.dors) > -0.0035
+    for i, n in enumerate(FINGERS):
+        fd = finger_sdf(R, n, GLOVE_T)(p)
+        m = fd < best
+        lab[m] = i + 1
+        best = np.where(m, fd, best)
+        _, cosd, _ = finger_frame_coords(R, n, p[m])
+        dors[m] = cosd > 0
+    s, x, y = R.fore_coords(p)
+    cuff = s > 0.004
+    dors[cuff] = y[cuff] > 0
+    return lab, dors, cuff
+
+
+def source_labels(body, side="r"):
+    """Mannequin vertices: 1..5 dominated by a finger's bones, 0 by another bone of the arm, -1 elsewhere."""
+    names, W = char.weight_matrix(body)
+    dom = np.array(names)[W.argmax(axis=1)]
+    lab = -np.ones(len(dom), dtype=np.int64)
+    lab[np.isin(dom, char.ARM_BONES[side])] = 0
+    for i, n in enumerate(FINGERS):
+        bones = ["%s_%s_%s" % (n, k, side) for k in ("01", "02", "03")]
+        lab[np.isin(dom, bones)] = i + 1
+    return lab
+
+
+def skin_seams(R, ob):
+    """Cut the arm tube along the ulnar border (forearm) and the medial side (upper arm), and around the
+    shoulder cap."""
+    p = verts(ob)
+    s, x, y = R.fore_coords(p)
+    su, xu, yu = R.upper_coords(p)
+    up = s > R.L + 0.01
+    ang = np.where(up, np.arctan2(yu, -xu), np.arctan2(y, x))      # branch cut at +u (ulnar) / -latu (medial)
+    cap = su > R.Lu - 0.035
+    me = ob.data
+    e = np.empty(len(me.edges) * 2, dtype=np.int64)
+    me.edges.foreach_get("vertices", e)
+    e = e.reshape(-1, 2)
+    jump = np.abs(ang[e[:, 0]] - ang[e[:, 1]]) > np.pi
+    near = np.minimum(np.abs(ang[e[:, 0]]), np.abs(ang[e[:, 1]])) > np.pi / 2
+    ring = cap[e[:, 0]] != cap[e[:, 1]]
+    return (jump & near & ~cap[e[:, 0]]) | ring
+
+
+def set_material_ids(ob, mats, ids):
+    me = ob.data
+    for m in mats:
+        me.materials.append(m)
+    me.polygons.foreach_set("material_index", np.asarray(ids, dtype=np.int32))
+
+
+def flat_material(name, colour, rough, sheen=0.0):
+    m = bpy.data.materials.get(name) or bpy.data.materials.new(name)
+    b = m.node_tree.nodes.get("Principled BSDF")
+    b.inputs["Base Color"].default_value = (*colour, 1)
+    b.inputs["Roughness"].default_value = rough
+    if sheen:
+        b.inputs["Sheen Weight"].default_value = sheen
+    return m
+
+
+def srgb(h):
+    h = h.lstrip("#")
+    c = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    return tuple(v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in c)
+
+
+def materials():
+    return {"skin": flat_material(SLOTS["skin"], srgb("#684029"), 0.48),
+            "leather": flat_material(SLOTS["leather"], srgb("#1e1f22"), 0.42),
+            "suede": flat_material(SLOTS["suede"], srgb("#2a2724"), 0.85, sheen=0.4),
+            "rubber": flat_material(SLOTS["rubber"], srgb("#18181b"), 0.62)}
+
+
+def assemble_right(R, arm, body, parts, col, log=print):
+    """Decimate, label, UV, material ids and weights of the right arm's parts; returns (skin, glove) objects
+    (the glove object carries the rubber pieces)."""
+    mats = materials()
+    for k, ob in parts.items():
+        decimate(ob, TRI_BUDGET[k])
+    skin, glove = parts["skin"], parts["glove"]
+    pieces = [parts["KnuckleBar_R"], parts["Strap_R"], parts["pads"]]
+    # skin
+    char.uv_from_seams(skin, skin_seams(R, skin), method="ANGLE_BASED")
+    set_material_ids(skin, [mats["skin"]], np.zeros(len(skin.data.polygons)))
+    # glove: panels (dorsal = leather back, palmar = suede palm), the cuff in leather
+    fc = face_centres(glove)
+    lab, dors, cuff = glove_regions(R, fc)
+    panel = np.where(dors, 0, 1)
+    char.uv_from_seams(glove, char.seams_between(glove, panel), method="ANGLE_BASED", pack=False)
+    set_material_ids(glove, [mats["leather"], mats["suede"], mats["rubber"]], np.where(dors | cuff, 0, 1))
+    for pc in pieces:
+        _smart_uv(pc)
+        set_material_ids(pc, [mats["leather"], mats["suede"], mats["rubber"]], np.full(len(pc.data.polygons), 2))
+    # weights: from the mannequin's own arm, per finger
+    sl = source_labels(body, R.side)
+    bones = char.ARM_BONES[R.side]
+    for ob, labels in ((skin, np.zeros(len(skin.data.vertices), dtype=np.int64)),
+                       (glove, glove_regions(R, verts(glove))[0]),
+                       (parts["KnuckleBar_R"], np.zeros(len(parts["KnuckleBar_R"].data.vertices), dtype=np.int64)),
+                       (parts["Strap_R"], np.zeros(len(parts["Strap_R"].data.vertices), dtype=np.int64)),
+                       (parts["pads"], glove_regions(R, verts(parts["pads"]))[0])):
+        names, W = char.transfer_weights(ob, body, bones, limit=6, target_labels=labels, source_labels=sl)
+        char.smooth_weights(ob, iterations=3, strength=0.4, limit=6, names=names, W=W)
+        log("weights %s: %d vertices" % (ob.name, len(ob.data.vertices)))
+    glove = geo.join([glove] + pieces, "Glove_R", col)
+    _pack_uv(glove)
+    return skin, glove
+
+
+def _smart_uv(ob):
+    me = ob.data
+    if not me.uv_layers:
+        me.uv_layers.new(name="UVMap")
+    scene.select_only(ob)
+    bpy.context.view_layer.objects.active = ob
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.004, area_weight=0.0,
+                             correct_aspect=True, scale_to_bounds=False)
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+
+def _pack_uv(ob, margin=0.003):
+    scene.select_only(ob)
+    bpy.context.view_layer.objects.active = ob
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.uv.select_all(action="SELECT")
+    bpy.ops.uv.average_islands_scale()
+    bpy.ops.uv.pack_islands(rotate=True, margin_method="FRACTION", margin=margin, shape_method="CONCAVE")
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+
 def build(ctx):
-    if ctx.want("roundtrip") and ctx.args.only and "roundtrip" in ctx.args.only:
+    if ctx.args.only and "roundtrip" in ctx.args.only:
         return roundtrip(ctx)
     arm, body = char.import_mannequin()
+    body.hide_render = True
     R = ArmRig(arm, body)
     ctx.log("arm: forearm %.3f m, upper arm %.3f m, twist %.1f deg" % (R.L, R.Lu, math.degrees(R.twist)))
     parts = build_right_arm(R, ctx.col)
-    for k, ob in parts.items():
-        if ob is not None:
-            ctx.log("%s: %d faces" % (k, len(ob.data.polygons)))
-    return [o for o in parts.values() if o is not None]
+    ctx.log("fields meshed")
+    skin, glove = assemble_right(R, arm, body, parts, ctx.col, ctx.log)
+    skin_l = char.mirror_x(skin, "Skin_L")
+    glove_l = char.mirror_x(glove, "Glove_L")
+    ob = geo.join([skin, glove, skin_l, glove_l], "SK_RuleArms", ctx.col)
+    geo.weighted_normals(ob, weight=50, keep_sharp=False)
+    from mi import rig
+    rig.bind(ob, arm)
+    ctx.log("SK_RuleArms: %d triangles" % sum(len(p.vertices) - 2 for p in ob.data.polygons))
+    ctx.rule = dict(R=R, arm=arm, body=body, ob=ob)
+    return [ob]
+
+
+def on_export(ctx, objs):
+    r = getattr(ctx, "rule", None)
+    if not r:
+        return
+    p = char.export_character(r["ob"], r["arm"])
+    ctx.log("exported %s" % p)
 
 
 def roundtrip(ctx):

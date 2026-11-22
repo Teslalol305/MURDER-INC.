@@ -148,32 +148,55 @@ def set_weights(ob, names, W, limit=4, prune=0.01):
     return W
 
 
-def transfer_weights(target, source, bones=None, limit=4):
+def transfer_weights(target, source, bones=None, limit=4, target_labels=None, source_labels=None, apply=True):
     """Skin weights from the surface of `source` (a skinned mesh in the same rest pose) onto `target`: each
     target vertex takes the barycentric blend of the weights at the nearest point of the source surface.
-    `bones`: only these groups are transferred (the rest renormalised). Returns (names, W)."""
+    `bones`: only these groups are transferred (the rest renormalised).
+    Labels keep regions apart (a finger never takes its neighbour's weights): target_labels (n_target,) ints and
+    source_labels (n_source,) ints; a target vertex only looks at source triangles of its own label (a triangle's
+    label is the majority of its corners; label < 0 = never used). Returns (names, W)."""
     names, Ws = weight_matrix(source, bones)
     me = source.data
     Ms = np.array(source.matrix_world)
-    co = np.array([Ms[:3, :3] @ np.array(v.co) + Ms[:3, 3] for v in me.vertices])
+    co = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3) @ Ms[:3, :3].T + Ms[:3, 3]
     bm = bmesh.new()
     bm.from_mesh(me)
     bm.transform(source.matrix_world)
     bmesh.ops.triangulate(bm, faces=bm.faces[:])
     bm.faces.ensure_lookup_table()
     tri = np.array([[v.index for v in f.verts] for f in bm.faces])
-    bvh = BVHTree.FromBMesh(bm)
     bm.free()
-    Mt = target.matrix_world
-    Wt = np.zeros((len(target.data.vertices), len(names)))
-    for v in target.data.vertices:
-        p = Mt @ v.co
+    if source_labels is None:
+        groups = {None: np.arange(len(tri))}
+    else:
+        sl = np.asarray(source_labels)[tri]
+        tl = np.where(sl[:, 0] == sl[:, 1], sl[:, 0], np.where(sl[:, 1] == sl[:, 2], sl[:, 1], sl[:, 2]))
+        groups = {int(k): np.nonzero(tl == k)[0] for k in np.unique(tl) if k >= 0}
+    trees = {}
+    for k, idx in groups.items():
+        verts = [tuple(v) for v in co]
+        trees[k] = (BVHTree.FromPolygons(verts, [tuple(t) for t in tri[idx]], all_triangles=True), idx)
+    Mt = np.array(target.matrix_world)
+    tco = np.empty(len(target.data.vertices) * 3)
+    target.data.vertices.foreach_get("co", tco)
+    tco = tco.reshape(-1, 3) @ Mt[:3, :3].T + Mt[:3, 3]
+    Wt = np.zeros((len(tco), len(names)))
+    for i, p in enumerate(tco):
+        key = None if target_labels is None else int(target_labels[i])
+        bvh, idx = trees.get(key, trees.get(0) if key is not None else None) or (None, None)
+        if bvh is None:
+            continue
         loc, _n, fi, _d = bvh.find_nearest(p)
         if fi is None:
             continue
-        a, b, c = co[tri[fi]]
+        t = tri[idx[fi]]
+        a, b, c = co[t]
         bc = _barycentric(np.array(loc), a, b, c)
-        Wt[v.index] = bc @ Ws[tri[fi]]
+        Wt[i] = bc @ Ws[t]
+    if not apply:
+        return names, Wt
     return names, set_weights(target, names, Wt, limit=limit)
 
 
@@ -189,6 +212,68 @@ def _barycentric(p, a, b, c):
     u = 1.0 - v - w
     bc = np.clip(np.array([u, v, w]), 0, 1)
     return bc / max(bc.sum(), 1e-12)
+
+
+def uv_from_seams(ob, seam_edges, method="ANGLE_BASED", margin=0.004, pack=True, uv_name="UVMap"):
+    """Unwrap along given seams: seam_edges is a boolean array over ob.data.edges (True = cut). Islands are
+    packed into 0..1 with a margin (fraction of the square)."""
+    me = ob.data
+    if not me.uv_layers:
+        me.uv_layers.new(name=uv_name)
+    me.edges.foreach_set("use_seam", np.asarray(seam_edges, dtype=bool))
+    _scene.select_only(ob)
+    bpy.context.view_layer.objects.active = ob
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.uv.unwrap(method=method, margin=margin)
+    if pack:
+        bpy.ops.uv.select_all(action="SELECT")
+        bpy.ops.uv.pack_islands(rotate=True, margin_method="FRACTION", margin=margin, shape_method="CONCAVE")
+    bpy.ops.object.mode_set(mode="OBJECT")
+    return ob
+
+
+def seams_between(ob, face_ids):
+    """Boolean edge mask: edges whose two faces carry different ids (and boundary edges)."""
+    me = ob.data
+    fid = np.asarray(face_ids)
+    owner = {}
+    mask = np.zeros(len(me.edges), dtype=bool)
+    ek = {tuple(sorted(e.vertices)): e.index for e in me.edges}
+    for p in me.polygons:
+        for k in p.edge_keys:
+            ei = ek[tuple(sorted(k))]
+            if ei in owner:
+                if fid[owner[ei]] != fid[p.index]:
+                    mask[ei] = True
+            else:
+                owner[ei] = p.index
+    return mask
+
+
+def mirror_x(ob, name, side_from="_r", side_to="_l"):
+    """Copy of a (skinned) mesh mirrored across X = 0, winding and normals fixed, vertex groups renamed
+    *_r -> *_l. UVs are kept (both arms share one texture set)."""
+    me = ob.data.copy()
+    nob = bpy.data.objects.new(name, me)
+    for c in ob.users_collection:
+        c.objects.link(nob)
+    co = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    co[:, 0] *= -1
+    me.vertices.foreach_set("co", co.ravel())
+    me.flip_normals()
+    me.update()
+    for g in ob.vertex_groups:
+        ng = nob.vertex_groups.new(name=g.name[:-len(side_from)] + side_to if g.name.endswith(side_from) else g.name)
+    # vertex group weights: copy by index (vertex order is unchanged)
+    names, W = weight_matrix(ob)
+    for j, n in enumerate(names):
+        vg = nob.vertex_groups[j]
+        for i in np.nonzero(W[:, j] > 0)[0]:
+            vg.add([int(i)], float(W[i, j]), "REPLACE")
+    return nob
 
 
 def adjacency(ob):

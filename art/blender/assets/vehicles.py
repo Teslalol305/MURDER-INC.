@@ -57,17 +57,17 @@ CHART = {"black": "#14161a", "charcoal": "#2a2d33", "silver": "#8f959c", "white"
 # belt: base of the side glass; cowl, bpillar: x of the windscreen base and the B pillar; floor: cabin floor z;
 # wheel: face style; cls: classification overrides.
 SPEC = {
-    "Sedan": dict(bn=0.90, src="sedan_hunyuan60k.glb", axis="Y", nose=-1, size=(4.61, 1.85, 1.45), axles=(1.42, -1.38),
+    "Sedan": dict(ws_top=0.30, bn=0.90, src="sedan_hunyuan60k.glb", axis="Y", nose=-1, size=(4.61, 1.85, 1.45), axles=(1.42, -1.38),
                   r=0.325, tw=0.21, rim=0.22, belt=1.02, cowl=0.98, bpillar=-0.20, rear_x=-1.52, floor=0.36,
                   wheel="cap", rear_seat=True, plate="HLS2141", paint="maroon", cover=1.08,
                   tris=60000),
-    "SUV": dict(bn=1.12, src="suv_hunyuan60k.glb", axis="Y", nose=-1, size=(4.91, 2.0, 1.82), axles=(1.50, -1.42),
+    "SUV": dict(ws_top=0.45, bn=1.12, src="suv_hunyuan60k.glb", axis="Y", nose=-1, size=(4.91, 2.0, 1.82), axles=(1.50, -1.42),
                 r=0.40, tw=0.27, rim=0.27, belt=1.22, cowl=1.00, bpillar=-0.12, rear_x=-2.12, floor=0.48,
                 wheel="alloy", rear_seat=True, plate="TKV9907", paint="black", cover=1.24, tris=62000),
-    "Pickup": dict(bn=1.12, src="pickup_hunyuan60k.glb", axis="Y", nose=-1, size=(5.32, 2.0, 1.78), axles=(1.72, -1.50),
+    "Pickup": dict(ws_top=0.72, bn=1.12, src="pickup_hunyuan60k.glb", axis="Y", nose=-1, size=(5.32, 2.0, 1.78), axles=(1.72, -1.50),
                    r=0.39, tw=0.27, rim=0.25, belt=1.25, cowl=1.22, bpillar=0.05, rear_x=-0.45, floor=0.52,
                    wheel="steel", rear_seat=False, plate="KQB5530", paint="charcoal", cover=1.27, tris=62000),
-    "Van": dict(bn=1.02, src="van_hunyuan60k.glb", axis="Y", nose=-1, size=(5.21, 1.96, 2.19), axles=(1.70, -1.50),
+    "Van": dict(ws_top=1.42, side_glass=(0.60, 1.65, 1.21, 1.95), bn=1.02, src="van_hunyuan60k.glb", axis="Y", nose=-1, size=(5.21, 1.96, 2.19), axles=(1.70, -1.50),
                 r=0.36, tw=0.24, rim=0.22, belt=1.16, cowl=1.92, bpillar=0.52, rear_x=0.40, floor=0.50,
                 wheel="steel", rear_seat=False, plate="TKV9907", paint="white", cover=2.14, tris=62000),
 }
@@ -445,6 +445,14 @@ def classify(ob, tex, spec):
              & (n[:, 2] > -0.3) & (c[:, 2] < spec["size"][2] - 0.08))
     glass &= ~((c[:, 0] > spec["cowl"] - 0.30) & (c[:, 2] < spec["belt"] + 0.07))
     glass &= ~((np.abs(c[:, 0] - spec["bpillar"]) < 0.05) & (np.abs(c[:, 1]) > spec["size"][1] / 2 - 0.35))
+    if "ws_top" in spec:              # windscreen by position: everything between the A pillars, cowl to roof
+        hwz = spec["size"][1] / 2 - spec.get("ws_inset", 0.17)
+        ws = ((c[:, 0] > spec["ws_top"] - 0.03) & (c[:, 0] < spec["cowl"] + 0.03) & (np.abs(c[:, 1]) < hwz)
+              & (c[:, 2] > spec["belt"] + 0.03) & (c[:, 2] < spec["size"][2] - 0.05) & (n[:, 0] > 0.25))
+        glass |= ws
+    if "side_glass" in spec:          # side glass by position (vans with light-coloured glass in the picture)
+        x0, x1, z0, z1 = spec["side_glass"]
+        glass |= ((c[:, 0] > x0) & (c[:, 0] < x1) & (c[:, 2] > z0) & (c[:, 2] < z1) & (np.abs(n[:, 1]) > 0.75))
     if "glass" in spec:
         glass = spec["glass"](c, n, lum, rough, glass)
     # glass highlights: faces in the greenhouse mostly surrounded by glass become glass (majority filter)
@@ -471,6 +479,7 @@ def classify(ob, tex, spec):
     red = (rgb[:, 0] > 0.08) & (rgb[:, 0] > 3 * rgb[:, 1]) & (c[:, 0] < 0)
     cls[red] = CLS["tail"]
     amber = (rgb[:, 0] > 0.2) & (rgb[:, 1] > 0.05) & (rgb[:, 1] < 0.6 * rgb[:, 0]) & (rgb[:, 2] < 0.4 * rgb[:, 1])
+    amber &= (np.abs(n[:, 2]) < 0.6) | (c[:, 2] > spec["size"][2] - 0.15)        # lenses, roof markers; not floors
     cls[amber] = CLS["amber"]
     return cls, c, n
 
