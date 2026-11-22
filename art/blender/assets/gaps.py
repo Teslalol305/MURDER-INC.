@@ -77,6 +77,7 @@ NEW_SIGNS = {   # key: (flat colour, note)
     "CartonLabel": ((0.8, 0.8, 0.78), "shipping label with barcode, 0.15 x 0.10"),
     "StreetBlade": ((0.02, 0.1, 0.04), "JAMAICA AV street-name blade, 0.60 x 0.17, both faces"),
     "BarberPole": ((0.8, 0.8, 0.78), "red, white and blue helix on 0..1, panned in engine"),
+    "LicensePlate": ((0.8, 0.8, 0.78), "licence plate HLS-2141, 0.30 x 0.15; swaps Sign_LicensePlate_TKV9907 / _KQB5530 / _LWG4418 / _Taxi"),
 }
 for _k, (_c, _d) in NEW_SIGNS.items():
     META["M_Sign_" + _k] = {"workflow": "sign", "uv": "0..1 over the face", "note": _d}
@@ -110,6 +111,8 @@ def materials(ctx):
     if not os.path.exists(os.path.join(paths.texture_set("Sign_PhoneHead"), "set.json")) or ctx.want("art"):
         ART.furniture_faces()
         ART.new_faces()
+    if not os.path.exists(os.path.join(paths.texture_set("Sign_LicensePlate"), "set.json")) or ctx.want("art"):
+        ART.plate_faces()
     M = F.materials(ctx)
     sc, ts = ctx.scan_set, ctx.tiling_set
     M["white"] = ts(WHITE, "painted_steel", tile_m=1.0, res=1024, **WHITE_PARAMS)
@@ -1350,12 +1353,67 @@ def barber_pole(ctx, M):
     return ob
 
 
+def hydrant_open(ctx, M):
+    """Catalogue street_hydrant_open: red post hydrant with its front (pumper) cap off and lying on the ground, the
+    open dark mouth toward -Y. The jet and the wet patches are engine effects."""
+    b = B(290)
+    lathe(b, [(0.0, 0.0), (0.15, 0.0), (0.15, 0.025), (0.125, 0.03), (0.105, 0.06), (0.10, 0.11), (0.11, 0.125), (0.11, 0.145),
+              (0.098, 0.15), (0.095, 0.56), (0.11, 0.57), (0.11, 0.59), (0.0, 0.59)], "red", 48)          # foot flange, barrel
+    for k in range(6):
+        a = 2 * math.pi * k / 6 + 0.3
+        lathe(b, [(0.0, 0.0), (0.012, 0.0), (0.012, 0.012), (0.0, 0.014)], "galv", 6, loc=(0.128 * math.cos(a), 0.128 * math.sin(a), 0.03))
+    for z in (0.30, 0.42):
+        lathe(b, [(0.094, z - 0.01), (0.1, z - 0.006), (0.1, z + 0.006), (0.094, z + 0.01)], "red", 48, closed=True)
+    lathe(b, [(0.0, 0.0), (0.112, 0.0), (0.112, 0.02), (0.10, 0.025), (0.09, 0.07), (0.06, 0.11), (0.035, 0.12), (0.0, 0.122)],
+          "drumGrey", 48, loc=(0, 0, 0.59))                                                               # bonnet
+    lathe(b, [(0.0, 0.0), (0.02, 0.0), (0.02, 0.035), (0.0, 0.035)], "drumGrey", 5, loc=(0, 0, 0.71))      # operating nut
+    for s in (-1, 1):                                                                                     # side hose nozzles, capped
+        lathe(b, [(0.0, 0.0), (0.05, 0.0), (0.045, 0.07), (0.0, 0.07)], "red", 32, loc=(s * 0.06, 0, 0.46), rot=(0, s * 90, 0))
+        lathe(b, [(0.0, 0.0), (0.048, 0.0), (0.05, 0.005), (0.05, 0.035), (0.03, 0.04), (0.0, 0.04)], "drumGrey", 32,
+              loc=(s * 0.13, 0, 0.46), rot=(0, s * 90, 0))
+        lathe(b, [(0.0, 0.0), (0.016, 0.0), (0.016, 0.02), (0.0, 0.02)], "drumGrey", 5, loc=(s * 0.17, 0, 0.46), rot=(0, s * 90, 0))
+    # front pumper outlet toward -Y, cap off: threaded nozzle and the open, dark, wet mouth
+    lathe(b, [(0.0, 0.0), (0.075, 0.0), (0.068, 0.07), (0.0, 0.07)], "red", 36, loc=(0, -0.06, 0.47), rot=(90, 0, 0))
+    gob(geo.tube(0.066, 0.052, 0.04, 36), b, "galv", loc=(0, -0.13, 0.47), rot=(90, 0, 0))
+    for k in range(5):
+        gob(geo.torus(0.066, 0.0016, 36, 6), b, "galv", loc=(0, -0.135 - 0.006 * k, 0.47), rot=(90, 0, 0))
+    lathe(b, [(0.0, 0.0), (0.054, 0.0), (0.0, 0.001)], "interior", 24, loc=(0, -0.10, 0.47), rot=(90, 0, 0))
+    # the pumper cap lying on the ground, chain to it
+    cap = [(0.0, 0.0), (0.075, 0.0), (0.078, 0.006), (0.078, 0.05), (0.05, 0.058), (0.0, 0.06)]
+    lathe(b, cap, "drumGrey", 32, loc=(0.16, -0.20, 0.0), rot=(0, 0, 0))
+    lathe(b, [(0.0, 0.0), (0.024, 0.0), (0.024, 0.025), (0.0, 0.025)], "drumGrey", 5, loc=(0.16, -0.20, 0.06))
+    b.absorb(geo.chain([(0.05, -0.08, 0.40), (0.06, -0.14, 0.16), (0.10, -0.18, 0.02), (0.14, -0.20, 0.03)], link_len=0.024, wire=0.0032), "galv")
+    return done(ctx, b, "SM_Street_Hydrant_Open", M, "Catalogue street_hydrant_open: red post hydrant (#b3261e, grey #8d949a bonnet "
+                "and caps) with the front pumper cap off - the open dark mouth (MI_Interior_Dark) at 0.47 toward -Y - and the cap "
+                "lying on the ground 0.2 away on its chain. Jet (2.8 m arc toward -Y) and wet patches are engine effects; jet "
+                "anchor (0, -0.15, 0.47).", (0.44, None, None), collision="convex", cover=0.74, ctr=False)
+
+
+def license_plate(ctx, M):
+    """Catalogue sign_license_plate: pressed steel plate 0.30 x 0.15 with a rounded outline, raised rim and four
+    mounting slots; the face is M_Sign_LicensePlate (swap the texture set for the other codes)."""
+    sign_slot(M, "LicensePlate", 0.30, 0.15)
+    b = B(291)
+    ol = [(0.15 - 0.012 + 0.012 * math.cos(a), 0.075 - 0.012 + 0.012 * math.sin(a)) for a in np.linspace(0, math.pi / 2, 4)]
+    ol = ol + [(-x, y) for x, y in ol[::-1]]
+    ol = ol + [(x, -y) for x, y in ol[::-1]]
+    b.poly_plate([(x, 0.0, z) for x, z in ol][::-1], 0.0012, "galv", step=0.5)
+    card(b, (-0.15, -0.0002, -0.075), (0.30, 0, 0), (0, 0, 0.15), "signLicensePlate", sign=True)
+    for s in (-1, 1):
+        box(b, (-0.145, -0.0018, s * 0.072 - 0.0015), (0.145, -0.0002, s * 0.072 + 0.0015), "galv", ch=0.0)
+        box(b, (s * 0.147 - 0.0015, -0.0018, -0.07), (s * 0.147 + 0.0015, -0.0002, 0.07), "galv", ch=0.0)
+    return done(ctx, b, "SM_Sign_LicensePlate", M, "Catalogue sign_license_plate: pressed steel plate 0.30 x 0.15, rounded corners, "
+                "raised rim, face toward -Y (M_Sign_LicensePlate = HLS-2141; the other invented codes are the texture sets "
+                "Sign_LicensePlate_TKV9907, _KQB5530, _LWG4418 and the yellow taxi plate _Taxi, T-5K83). Pivot at the plate "
+                "centre on its back face.", (0.30, None, 0.15), collision="none", ground=False, ao=None, ctr=False)
+
+
 # =============================================================================================== build
 
 GROUPS = {
     "street": ["SM_Street_PhoneBooth", "SM_Street_TrafficLight", "SM_Street_Planter", "SM_Street_Planter_B", "SM_Street_Tree",
                "SM_Street_Tree_B", "SM_Street_Tree_C", "SM_Street_TrashCan", "SM_Street_Bench", "SM_Street_FoodCart",
-               "SM_Street_SignPost", "SM_Sign_PawnBalls", "SM_Sign_BarberPole"],
+               "SM_Street_SignPost", "SM_Sign_PawnBalls", "SM_Sign_BarberPole", "SM_Street_Hydrant_Open", "SM_Sign_LicensePlate"],
     "yard": ["SM_Prop_Generator", "SM_Prop_FloodlightStand", "SM_Prop_PortaPotty", "SM_Prop_VendingMachine", "SM_Prop_Workbench",
              "SM_Prop_EngineHoist", "SM_Prop_EngineHoist_Blue", "SM_Prop_Compressor", "SM_Prop_Compressor_Black", "SM_Prop_CarLift",
              "SM_Prop_ToolChest", "SM_Prop_CrateWood", "SM_Prop_CrateWood_B", "SM_Prop_CardboardBoxes", "SM_Prop_Tire"],
@@ -1397,7 +1455,8 @@ def build(ctx):
             ("SM_Prop_Compressor", lambda c, m: compressor(c, m, 0)), ("SM_Prop_Compressor_Black", lambda c, m: compressor(c, m, 1)),
             ("SM_Prop_CarLift", car_lift), ("SM_Prop_ToolChest", tool_chest),
             ("SM_Prop_CrateWood", lambda c, m: crate_wood(c, m, 0)), ("SM_Prop_CrateWood_B", lambda c, m: crate_wood(c, m, 1)),
-            ("SM_Prop_CardboardBoxes", cardboard_boxes), ("SM_Prop_Tire", tyres)]
+            ("SM_Prop_CardboardBoxes", cardboard_boxes), ("SM_Prop_Tire", tyres),
+            ("SM_Street_Hydrant_Open", hydrant_open), ("SM_Sign_LicensePlate", license_plate)]
     for name, fn in jobs:
         if want(name):
             ctx.log("building %s" % name)

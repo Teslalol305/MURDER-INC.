@@ -677,7 +677,33 @@ def new_faces():
          meta=dict(note="u around the inner cylinder, v up: two turns of each colour; pan V at -0.25/s in engine to turn it"))
 
 
+PLATES = {"LicensePlate": "HLS\u00b72141", "LicensePlate_TKV9907": "TKV\u00b79907", "LicensePlate_KQB5530": "KQB\u00b75530",
+          "LicensePlate_LWG4418": "LWG\u00b74418", "LicensePlate_Taxi": "T\u00b75K83"}
+
+
+def plate_faces():
+    """Licence plates 0.30 x 0.15 (invented codes, catalogue sign_license_plate): off-white, navy border and number,
+    NEW YORK header, gold band along the bottom; the taxi plate yellow with a navy band."""
+    for key, code in PLATES.items():
+        taxi = key.endswith("Taxi")
+        ground_ = "#f0c63a" if taxi else "#f1efe6"
+
+        def pl(cv, rng, code=code, taxi=taxi, ground_=ground_):
+            rect(cv, 0.0, 0.0, 0.30, 0.15, ground_, r=0.012)
+            rect(cv, 0.004, 0.004, 0.296, 0.146, "#16264f", r=0.01, outline=0.0035)
+            txt(cv, "NEW YORK", 0.014, 0.15, 0.022, "#16264f", "bold", track=0.12)
+            txt(cv, code, 0.062, 0.15, 0.078, "#16264f", "heavy", cond=0.78, max_w=0.26)
+            rect(cv, 0.006, 0.118, 0.294, 0.142, "#16264f" if taxi else "#d9a21c", r=0.006)
+            if taxi:
+                txt(cv, "T & LC", 0.010, 0.15, 0.13, "#f0c63a", "bold", track=0.1)
+            for x in (0.035, 0.265):
+                for y in (0.022, 0.128):
+                    rect(cv, x - 0.006, y - 0.0035, x + 0.006, y + 0.0035, "#2a2a2c", r=0.003)
+        face(key, 0.30, 0.15, 512, ground_, pl, rough=0.35, age=1.3, meta=dict(note="licence plate face, code %s" % code))
+
+
 def draw_all(force=False):
     draw_sets(force)
     furniture_faces()
     new_faces()
+    plate_faces()

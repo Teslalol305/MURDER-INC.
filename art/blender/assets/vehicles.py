@@ -480,6 +480,7 @@ def classify(ob, tex, spec):
     cls[red] = CLS["tail"]
     amber = (rgb[:, 0] > 0.2) & (rgb[:, 1] > 0.05) & (rgb[:, 1] < 0.6 * rgb[:, 0]) & (rgb[:, 2] < 0.4 * rgb[:, 1])
     amber &= (np.abs(n[:, 2]) < 0.6) | (c[:, 2] > spec["size"][2] - 0.15)        # lenses, roof markers; not floors
+    amber &= metal < 0.5
     cls[amber] = CLS["amber"]
     return cls, c, n
 
@@ -1546,30 +1547,30 @@ def ipx_door(ctx, right=True):
     name = "SM_Vehicle_IPXTruck_Door" + ("" if right else "_Left")
     paint = set_material("Vehicle_IPXTruck", slot="M_Vehicle_IPXTruck_Paint", coat=1.0, tint=hexcol("#17191d"))
     s = 1 if right else -1
-    panel = geo.box((0.07, 0.89, 1.62), bevel=0.012, name=name + "_Panel")
+    panel = geo.box((0.06, 0.89, 1.62), bevel=0.010, name=name + "_Panel")
     geo.transform(panel, loc=(0, s * 0.445, 0))
     uv_point(put_mat(panel, paint), "Vehicle_IPXTruck")
     dark, t_dark = tiling("TS_Steel_CargoDark")
     inset = geo.box((0.012, 0.66, 0.70), bevel=0.004, name=name + "_Inset")
-    geo.transform(inset, loc=(-0.038, s * 0.46, 0.12))
+    geo.transform(inset, loc=(-0.033, s * 0.46, 0.12))
     m_glass, t_glass = tiling("TS_Glass_CarTint")
     port = geo.box((0.02, 0.34, 0.22), bevel=0.006, name=name + "_Port")
-    geo.transform(port, loc=(-0.032, s * 0.46, 1.25))
+    geo.transform(port, loc=(-0.027, s * 0.46, 1.25))
     chrome, t_chrome = tiling("TS_Chrome_Polished")
-    bar = geo.cylinder(0.016, 0.90, 16, name=name + "_LockBar")
-    geo.transform(bar, loc=(-0.06, s * 0.80, 0.36))
-    boss = geo.cylinder(0.045, 0.03, 24, bevel=0.006, base=False, name=name + "_Boss", axis="X")
-    geo.transform(boss, loc=(-0.05, s * 0.80, 0.82))
+    bar = geo.cylinder(0.014, 0.90, 16, name=name + "_LockBar")
+    geo.transform(bar, loc=(-0.042, s * 0.80, 0.36))
+    boss = geo.cylinder(0.045, 0.02, 24, bevel=0.005, base=False, name=name + "_Boss", axis="X")
+    geo.transform(boss, loc=(-0.042, s * 0.80, 0.82))
     parts = [panel, put_mat(inset, dark, t_dark), put_mat(port, m_glass, t_glass), put_mat(bar, chrome, t_chrome),
              put_mat(boss, chrome, t_chrome)]
     for z in (0.25, 1.35):
         h = geo.cylinder(0.025, 0.16, 16, name=name + "_Hinge")
-        geo.transform(h, loc=(-0.02, s * 0.01, z))
+        geo.transform(h, loc=(-0.012, s * 0.01, z))
         parts.append(put_mat(h, chrome, t_chrome))
     dm = decal_mat(ipx_decals())
     # gold band across the leaf at truck height 1.36 (door base at 1.05) and the art at 1.75
     band = geo.box((0.002, 0.88, 0.11), bevel=0.0, name=name + "_Band")
-    geo.transform(band, loc=(-0.036, s * 0.445, 1.36 - 1.05 - 0.055))
+    geo.transform(band, loc=(-0.031, s * 0.445, 1.36 - 1.05 - 0.055))
     _uv_card(band, (0.0, 1 - 663 / 2048, 1.0, 1 - 600 / 2048), s)
     parts.append(put_mat(band, dm))
     if right:
@@ -1578,7 +1579,7 @@ def ipx_door(ctx, right=True):
     else:
         art = geo.box((0.002, 0.74, 0.092), bevel=0.0, name=name + "_Art")
         _uv_card(art, (0.5, 1 - 928 / 2048, 1.0, 1 - 800 / 2048), s)
-    geo.transform(art, loc=(-0.037, s * 0.445, 1.75 - 1.05 - art.dimensions.z / 2))
+    geo.transform(art, loc=(-0.032, s * 0.445, 1.75 - 1.05 - art.dimensions.z / 2))
     parts.append(put_mat(art, dm))
     ob = geo.join(parts, name, ctx.col)
     finish(ob, 0.25)
@@ -1799,14 +1800,14 @@ def pickup_extra(ctx, P):
 SPEC.update({
     "VanVulture": dict(SPEC["Van"], set="Vehicle_Van", paint="black", plate="LWG4418",
                        drop=lambda c, n, cls: (c[:, 0] < -2.45) & (c[:, 2] > 0.58) & (c[:, 2] < 2.08) & (np.abs(c[:, 1]) < 0.87)),
-    "BoxTruck": dict(bn=1.30, src="boxtruck_hunyuan80k.glb", axis="Y", nose=-1, size=(7.39, 2.44, 3.31), axles=(2.95, -2.09),
-                     r=0.44, tw=0.28, rim=0.27, belt=1.50, cowl=2.62, bpillar=1.65, rear_x=1.20, floor=1.0,
+    "BoxTruck": dict(bn=1.30, ws_top=2.18, ws_inset=0.30, cabin_inside=False, src="boxtruck_hunyuan80k.glb", axis="Y", nose=-1, size=(7.39, 2.44, 3.31), axles=(2.95, -2.09),
+                     r=0.44, tw=0.28, rim=0.27, belt=1.50, cowl=2.55, bpillar=1.65, rear_x=1.20, floor=1.0,
                      cabin_rear=1.25, seat_x=1.55, wheel="steel", twin=True, rear_seat=False, plate="HLS2141",
-                     paint="mustard", paint2=lambda c: c[:, 0] > 1.0, paint2_colour="#d9d7d0", cover=3.30, tris=70000),
-    "IPXTruck": dict(bn=1.30, src="ipx_hunyuan80k.glb", axis="Y", nose=-1, size=(6.81, 2.48, 2.96), axles=(2.05, -1.75),
-                     r=0.50, tw=0.30, rim=0.30, belt=1.75, cowl=1.95, bpillar=0.70, rear_x=0.60, floor=1.05,
+                     paint="mustard", paint2=lambda c: c[:, 0] > 1.0, paint2_colour="#d9d7d0", cover=3.30, tris=48000),
+    "IPXTruck": dict(bn=1.30, ws_top=1.57, ws_inset=0.30, cabin_inside=False, src="ipx_hunyuan80k.glb", axis="Y", nose=-1, size=(6.81, 2.48, 2.96), axles=(2.05, -1.75),
+                     r=0.50, tw=0.30, rim=0.30, belt=1.75, cowl=2.30, bpillar=0.70, rear_x=0.60, floor=1.05,
                      cabin_rear=0.62, seat_x=1.00, wheel="steel", twin=True, rear_seat=False, plate="KQB5530",
-                     paint="#17191d", hazard_slot=True, cover=2.86, tris=70000,
+                     paint="#17191d", hazard_slot=True, cover=2.86, tris=50000,
                      drop=lambda c, n, cls: (c[:, 0] < -3.33) & (c[:, 2] > 1.03) & (c[:, 2] < 2.69) & (np.abs(c[:, 1]) < 0.92)),
     "Motorbike": dict(src="moto_hunyuan100k.glb", axis="X", nose=1, paint="navy", tris=90000),
 })

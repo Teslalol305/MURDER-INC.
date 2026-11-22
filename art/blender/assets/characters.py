@@ -628,9 +628,106 @@ def assemble_right(R, arm, body, parts, col, log=print):
         names, W = char.transfer_weights(ob, body, bones, limit=6, target_labels=labels, source_labels=sl)
         char.smooth_weights(ob, iterations=3, strength=0.4, limit=6, names=names, W=W)
         log("weights %s: %d vertices" % (ob.name, len(ob.data.vertices)))
+    # face attributes for the texel patterns: finger label, back/palm, piece
+    for ob, piece in ((glove, 0), (parts["KnuckleBar_R"], 1), (parts["Strap_R"], 2), (parts["pads"], 3)):
+        lab_f, dors_f, _cuff = glove_regions(R, face_centres(ob))
+        for nm, val in (("mi_label", lab_f), ("mi_dors", dors_f), ("mi_piece", np.full(len(lab_f), piece))):
+            a = ob.data.attributes.get(nm) or ob.data.attributes.new(nm, "FLOAT", "FACE")
+            a.data.foreach_set("value", np.asarray(val, dtype=np.float32))
     glove = geo.join([glove] + pieces, "Glove_R", col)
     _pack_uv(glove)
     return skin, glove
+
+
+TEX_DIR = lambda set_name: paths.texture_set(set_name)
+
+
+def bake_sets(R, skin, glove, res=4096, log=print):
+    """The two unique 4K sets: RuleArms_Skin (slot M_RuleArms_Skin) and RuleArms_Glove (leather, suede and
+    rubber slots), computed per texel from the right arm's rest positions."""
+    from assets import _characters_tex as X
+    from mi import bake as _bake, texel
+    out = {}
+    for ob, set_name in ((skin, "RuleArms_Skin"), (glove, "RuleArms_Glove")):
+        attrs = ["mi_label", "mi_dors", "mi_piece"] if ob is glove else []
+        maps = texel.bake_maps(ob, res, face_attrs=attrs)
+        log("  %s: maps baked, coverage %.1f %%" % (set_name, 100 * maps["mask"].mean()))
+        H, W = maps["mask"].shape
+        idx = np.nonzero(maps["mask"].ravel())[0]
+        bc = np.zeros((H * W, 3), dtype=np.float32)
+        ro = np.full(H * W, 0.5, dtype=np.float32)
+        hh = np.zeros(H * W, dtype=np.float32)
+        Pf, Nf = maps["pos"].reshape(-1, 3), maps["normal"].reshape(-1, 3)
+        for sl in texel.chunks(idx, 1_000_000):
+            P, N = Pf[sl].astype(np.float64), Nf[sl]
+            if ob is skin:
+                c, r, h = X.skin_texels(R, P, N)
+            else:
+                c, r, h = X.glove_texels(R, P, N, maps["slot"].ravel()[sl], np.rint(maps["mi_label"].ravel()[sl]).astype(int),
+                                         maps["mi_dors"].ravel()[sl], np.rint(maps["mi_piece"].ravel()[sl]).astype(int))
+            bc[sl], ro[sl], hh[sl] = c, r, h
+        mask = maps["mask"]
+        hh = hh.reshape(H, W)
+        hd = texel.dilate(hh, mask, 4)
+        nrm = texel.normal_from_height(hd, maps["pos"], mask)
+        cav = np.clip(texel.blur(hd, 3) - hd, 0, None)
+        ao = np.clip(1.0 - cav / 0.00025, 0.55, 1.0)
+        aol = _bake._bake_ao(ob, 1024, 16, 0, 0.03, False)
+        aol = np.kron(aol, np.ones((H // 1024, W // 1024), dtype=np.float32))
+        ao = ao * (0.35 + 0.65 * aol)
+        ch = {"bc": texel.dilate(bc.reshape(H, W, 3), mask, 24), "rough": texel.dilate(ro.reshape(H, W), mask, 24),
+              "metal": np.zeros((H, W), dtype=np.float32), "normal": texel.dilate(nrm, mask, 24),
+              "ao": texel.dilate(ao, mask, 24), "height": hd}
+        info = _bake.write_set(set_name, ch, meta={"kind": "unique", "asset": "SK_RuleArms", "resolution_px": res})
+        log("  %s written: %s" % (set_name, info["files"]))
+        out[set_name] = info
+        del maps, bc, ro, hh, ch
+    return out
+
+
+def textured_materials():
+    """Preview materials on the baked sets (Unreal builds its own: skin with a subsurface profile)."""
+    from mi import mat as _mat
+    res = {}
+    for key, set_name, sss, sheen in (("skin", "RuleArms_Skin", 0.35, 0.0), ("leather", "RuleArms_Glove", 0.0, 0.0),
+                                      ("suede", "RuleArms_Glove", 0.0, 0.5), ("rubber", "RuleArms_Glove", 0.0, 0.0)):
+        name = SLOTS[key]
+        m = bpy.data.materials.get(name) or bpy.data.materials.new(name)
+        nt = m.node_tree
+        for nd in list(nt.nodes):
+            nt.nodes.remove(nd)
+        out = nt.nodes.new("ShaderNodeOutputMaterial")
+        b = nt.nodes.new("ShaderNodeBsdfPrincipled")
+        nt.links.new(b.outputs[0], out.inputs["Surface"])
+        d = paths.texture_set(set_name)
+        def img(tag, data):
+            t = nt.nodes.new("ShaderNodeTexImage")
+            t.image = bpy.data.images.load(os.path.join(d, "T_%s_%s.png" % (set_name, tag)), check_existing=True)
+            t.image.colorspace_settings.name = "Non-Color" if data else "sRGB"
+            return t
+        bc, nm, orm = img("BC", False), img("N", True), img("ORM", True)
+        sep = nt.nodes.new("ShaderNodeSeparateColor")
+        nt.links.new(orm.outputs["Color"], sep.inputs[0])
+        mix = nt.nodes.new("ShaderNodeMix")
+        mix.data_type = "RGBA"
+        mix.blend_type = "MULTIPLY"
+        mix.inputs["Factor"].default_value = 1.0
+        nt.links.new(bc.outputs["Color"], mix.inputs["A"])
+        nt.links.new(sep.outputs["Red"], mix.inputs["B"])
+        nt.links.new(mix.outputs["Result"], b.inputs["Base Color"])
+        nt.links.new(sep.outputs["Green"], b.inputs["Roughness"])
+        nmap = nt.nodes.new("ShaderNodeNormalMap")
+        nt.links.new(nm.outputs["Color"], nmap.inputs["Color"])
+        nt.links.new(nmap.outputs["Normal"], b.inputs["Normal"])
+        if sss:
+            b.inputs["Subsurface Weight"].default_value = sss
+            b.inputs["Subsurface Radius"].default_value = (1.0, 0.35, 0.15)
+            b.inputs["Subsurface Scale"].default_value = 0.004
+        if sheen:
+            b.inputs["Sheen Weight"].default_value = sheen
+            b.inputs["Sheen Roughness"].default_value = 0.6
+        res[key] = m
+    return res
 
 
 def _smart_uv(ob):
@@ -667,6 +764,10 @@ def build(ctx):
     parts = build_right_arm(R, ctx.col)
     ctx.log("fields meshed")
     skin, glove = assemble_right(R, arm, body, parts, ctx.col, ctx.log)
+    if ctx.args.bake:
+        bake_sets(R, skin, glove, ctx.args.res, ctx.log)
+    if os.path.exists(os.path.join(paths.texture_set("RuleArms_Glove"), "T_RuleArms_Glove_BC.png")):
+        textured_materials()
     skin_l = char.mirror_x(skin, "Skin_L")
     glove_l = char.mirror_x(glove, "Glove_L")
     ob = geo.join([skin, glove, skin_l, glove_l], "SK_RuleArms", ctx.col)

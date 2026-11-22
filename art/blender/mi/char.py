@@ -22,8 +22,8 @@ from the imported armature, never typed in.
 import json
 import os
 
-import bmesh
 import bpy
+import bmesh
 import numpy as np
 from mathutils import Matrix, Vector
 from mathutils.bvhtree import BVHTree
@@ -88,10 +88,22 @@ def pose_from_clip(arm, clip, frame=None, src=None):
 
 
 def pose_from_armature(arm, src):
+    """Copy the pose of `src` onto `arm` bone by bone in armature space (parents first). Robust when the clip's
+    file carries another rest pose than the mesh's (the glTF exporter may write the clip's first frame as rest)."""
     bpy.context.view_layer.update()
-    for pb in arm.pose.bones:
+    Ma, Ms = arm.matrix_world, src.matrix_world
+    order = sorted(arm.pose.bones, key=lambda p: len(p.parent_recursive))
+    depth = -1
+    for pb in order:
+        d = len(pb.parent_recursive)
+        if d != depth:
+            bpy.context.view_layer.update()
+            depth = d
         sp = src.pose.bones.get(pb.name)
-        pb.matrix_basis = sp.matrix_basis.copy() if sp else Matrix.Identity(4)
+        if sp is None:
+            pb.matrix_basis = Matrix.Identity(4)
+            continue
+        pb.matrix = Ma.inverted() @ Ms @ sp.matrix
     bpy.context.view_layer.update()
 
 
