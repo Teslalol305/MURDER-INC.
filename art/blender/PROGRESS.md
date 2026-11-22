@@ -35,3 +35,20 @@ Run: `python art/blender/build.py build el --export` and read the validation out
 - Nothing is pending. Known weaknesses (for a later pass): preview dressing is blank brick massing and a low yard
   wall; guard rails are timber only (no steel inner guard rail); the street's utility patch reads as a flat dark
   rectangle; wear masks are per-vertex at about 0.15 m, so rust edges are soft until Unreal adds detail noise.
+
+---------------------------------------------------------------------------------------------------------------
+# Facade kit (assets/facade.py), started after the El hand-off
+
+Task: modular street-front kit (ground floor, upper floors, top, fire escape, roof items), assembly helper, sample
+of the south block face (S1 + S2 + S3, seven storefronts) with the street and three El bays, four previews
+(facade_day_hero / facade_day_street / facade_storefront / facade_wire), GLB export + manifest + validation, README.
+
+## Status
+- [ ] assets/facade.py written (modules + `assemble_front` helper + on_preview)
+- [ ] `build.py build facade --export` passes validation
+- [ ] previews round 1 rendered and looked at
+- [ ] review fixes + round 2
+- [ ] README family row
+
+## Exact next step
+Write assets/facade.py, then `python art/blender/build.py build facade --export`.
