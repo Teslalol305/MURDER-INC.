@@ -206,6 +206,31 @@ def pick_world(mcp, view):
     return chosen
 
 
+def shot_frames(mcp, out_path, numbers, fov, width, height, frames, game):
+    """A converged picture: Content/Python/mi_shot.py renders the view once per editor tick for `frames` frames."""
+    done = out_path + ".done"
+    mcp.python(
+        "import importlib, sys, unreal\n"
+        "path = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir()) + 'Python'\n"
+        "sys.path.insert(0, path) if path not in sys.path else None\n"
+        "import mi_shot\n"
+        "importlib.reload(mi_shot)\n"
+        "mi_shot.start(%r, %r, %r, fov=%r, width=%d, height=%d, frames=%d, game=%r)\n"
+        % (out_path, tuple(numbers[:3]), tuple(numbers[3:6]), fov, width, height, frames, game))
+    deadline = time.time() + 38
+    while not os.path.exists(done):
+        if time.time() > deadline:
+            raise McpError("no picture after 38 s (%d frames): the editor is not ticking, or use fewer frames" % frames)
+        time.sleep(0.4)
+    with open(done, encoding="utf-8") as handle:
+        text = handle.read()
+    os.remove(done)
+    if text != "OK":
+        raise McpError("mi_shot: " + text)
+    with open(out_path, "rb") as handle:
+        return handle.read()
+
+
 def shot(mcp, out_path, options):
     """Save a capture to out_path and return a one-line report."""
     width, height = (int(v) for v in options.get("size", "1920x1080").lower().split("x"))
@@ -220,7 +245,14 @@ def shot(mcp, out_path, options):
     is_game = world.get("worldType") in ("PIE", "Game")
     via = None
     content = []
-    if "cam" in options:
+    data = None
+    frames = int(options.get("frames", 24))
+    if "cam" in options and frames > 0:
+        numbers = [float(v) for v in options["cam"].split(",")]
+        numbers += [0.0] * (6 - len(numbers))
+        data = shot_frames(mcp, out_path, numbers, float(options.get("fov", 90)), width, height, frames, view != "editor")
+        via = "mi_shot %d frames, %s world" % (frames, world.get("worldType"))
+    elif "cam" in options:
         numbers = [float(v) for v in options["cam"].split(",")]
         numbers += [0.0] * (6 - len(numbers))
         camera = {"location": {"x": numbers[0], "y": numbers[1], "z": numbers[2]},
@@ -246,7 +278,7 @@ def shot(mcp, out_path, options):
     else:
         _, content = mcp.tool(CAPTURE_TOOLSET + ".CaptureActiveEditorView", {"mode": mode, "options": capture_options})
         via = "CaptureActiveEditorView"
-    data = find_image(content)
+    data = data or find_image(content)
     if not data:
         raise McpError("the capture returned no image: " + json.dumps(content)[:400])
     with open(out_path, "wb") as handle:

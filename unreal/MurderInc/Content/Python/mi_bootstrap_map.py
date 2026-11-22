@@ -84,7 +84,7 @@ def build():
 
     spawn(unreal.PlayerStart, "PlayerStart", (0, 0, 100), (0, 0, 0))
 
-    sun = spawn(unreal.DirectionalLight, "Sun", (0, 0, 800), (-38, 145, 0))
+    sun = spawn(unreal.DirectionalLight, "Sun", (0, 0, 800), (-40, 35, 0))   # light travels east-south-east, down
     sun_component = sun.get_component_by_class(unreal.DirectionalLightComponent)
     sun_component.set_mobility(unreal.ComponentMobility.MOVABLE)
     sun_component.set_editor_property("intensity", 10.0)                # lux
