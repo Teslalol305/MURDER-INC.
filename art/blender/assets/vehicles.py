@@ -1593,7 +1593,7 @@ def ipx_door(ctx, right=True):
     finish(ob, 0.25)
     ctx.asset(ob, collision="none", cover_height=None, notes="IPX vault door leaf (%s), pivot on the hinge line at the "
               "outer edge, closed pose: outer face toward -X, leaf toward the centre seam. On the truck: hinge at "
-              "(-3.405, %+.3f, 1.05); opens %s108.9 degrees about Z in 1.1 s. No collision." %
+              "(-3.00, %+.3f, 1.05); opens %s108.9 degrees about Z in 1.1 s. No collision." %
               ("right, -Y side of the truck" if right else "left, +Y side", -0.89 * s, "+" if right else "-"),
               expect_size=(0.07, 0.89, 1.62))
     return ob
@@ -1613,6 +1613,9 @@ def _uv_card(ob, uv, s):
             uvl.data[li].uv = (u0 + (u1 - u0) * fu, v0 + (v1 - v0) * fv)
 
 
+IPX_DOOR_X = -3.00          # x of the rear door plane of the generated IPX body (measured on the fitted mesh)
+
+
 def v_ipx(ctx):
     P = make_parts(ctx, "IPXTruck")
     sp = P["spec"]
@@ -1622,8 +1625,9 @@ def v_ipx(ctx):
     galv = set_material("TS_Galvanised_Aged", slot="MI_Galvanised_Aged")
     t_galv = (bake.read_set("TS_Galvanised_Aged") or {}).get("tile_m", 1.0)
     tail = -sp["size"][0] / 2
+    door_x = IPX_DOOR_X                         # the generated rear door plane (the step bumper reaches the tail)
     # vault lining 3.58 x 1.80 x 1.56, floor 1.02, open at the tail
-    x1 = tail + 0.06
+    x1 = door_x + 0.02
     lin = geo.box((3.58, 1.80, 1.56), bevel=0.0, name="IPX_Vault")
     geo.transform(lin, loc=(x1 + 1.79, 0, 1.02))
     bm = bmesh.new()
@@ -1816,7 +1820,7 @@ SPEC.update({
                      r=0.50, tw=0.30, rim=0.30, belt=1.75, cowl=2.30, bpillar=0.70, rear_x=0.60, floor=1.05,
                      cabin_rear=0.62, seat_x=1.00, wheel="steel", twin=True, rear_seat=False, plate="KQB5530",
                      paint="#17191d", hazard_slot=True, cover=2.86, tris=50000,
-                     drop=lambda c, n, cls: ((c[:, 0] < -3.10) & (n[:, 0] < -0.5) & (c[:, 2] > 1.03) & (c[:, 2] < 2.69)
+                     drop=lambda c, n, cls: ((c[:, 0] < -2.82) & (c[:, 2] > 1.03) & (c[:, 2] < 2.69)
                                             & (np.abs(c[:, 1]) < 0.95))),
     "Motorbike": dict(src="moto_hunyuan100k.glb", axis="X", nose=1, paint="navy", tris=90000),
 })
@@ -1983,7 +1987,7 @@ def on_preview(ctx, objs):
         L = 6.81 / 2
         for nm, s_ in (("SM_Vehicle_IPXTruck_Door", 1), ("SM_Vehicle_IPXTruck_Door_Left", -1)):
             d = assets[nm]
-            hx, hy = -L + 0.0, -0.89 * s_
+            hx, hy = IPX_DOOR_X, -0.89 * s_
             d.location = (-hx, 3.6 - hy, 1.05)
             d.rotation_euler = (0, 0, math.radians(180 + s_ * 108.9))
         render.cam_look((10.6, 1.0, 2.0), (3.0, 3.55, 1.6), lens=28)
