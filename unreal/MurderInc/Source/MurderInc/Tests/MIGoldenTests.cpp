@@ -47,6 +47,18 @@ namespace MIGoldenPrivate
 	double Num(const FJsonArray& A, int32 I) { return A[I]->AsNumber(); }
 	bool IsNull(const TSharedPtr<FJsonValue>& V) { return !V.IsValid() || V->IsNull(); }
 
+	/**
+	 * The step the scenario ran with. The files hold 1/60 as 0.016666666666666666, and the engine's number parser
+	 * can land one unit in the last place away from the double that JavaScript's 1 / 60 is; nine such steps then
+	 * cross a 0.15 s hold one frame early. A step within 1e-12 of 1/n is taken as exactly 1.0 / n.
+	 */
+	double StepOf(const TSharedPtr<FJsonObject>& O)
+	{
+		const double Dt = O->GetNumberField(TEXT("dt"));
+		const double N = FMath::RoundToDouble(1.0 / Dt);
+		return N > 0.0 && FMath::Abs(Dt - 1.0 / N) < 1e-12 ? 1.0 / N : Dt;
+	}
+
 	/** Web metres (x, y, z) to Unreal centimetres. */
 	FVector ToUE(double X, double Y, double Z) { return FVector(X, Z, Y) * 100.0; }
 	FVector ToUE(const FJsonArray& A) { return ToUE(Num(A, 0), Num(A, 1), Num(A, 2)); }
@@ -245,7 +257,7 @@ bool FMIGoldenPlayerPureTest::RunTest(const FString& Parameters)
 		const FJsonArray& Wish = Arr(O, TEXT("wish"));
 		double X = Num(Vel, 0) * 100.0, Y = Num(Vel, 1) * 100.0;
 		const double Rate = O->GetNumberField(TEXT("rate")) * 100.0;
-		const double Dt = O->GetNumberField(TEXT("dt"));
+		const double Dt = StepOf(O);
 		const bool bSnap = O->GetBoolField(TEXT("snap"));
 		const FJsonArray& Out = Arr(O, TEXT("out"));
 		for (int32 I = 0; I < Out.Num(); ++I)
@@ -318,7 +330,7 @@ bool FMIGoldenPlayerPureTest::RunTest(const FString& Parameters)
 		const double Damping = Tune->GetNumberField(TEXT("damping"));
 		const double Min = Tune->GetNumberField(TEXT("min")) * 100.0;
 		const double Max = Tune->GetNumberField(TEXT("max")) * 100.0;
-		const double Dt = O->GetNumberField(TEXT("dt"));
+		const double Dt = StepOf(O);
 		const TSharedPtr<FJsonObject> Kicks = O->GetObjectField(TEXT("kicks"));
 		FMIClampedSpring Spring;
 		Spring.Offset = O->GetNumberField(TEXT("start")) * 100.0;
@@ -407,7 +419,7 @@ bool FMIGoldenPlayerSimTest::RunTest(const FString& Parameters)
 	{
 		const TSharedPtr<FJsonObject> S = SV->AsObject();
 		C.Context = S->GetStringField(TEXT("name"));
-		const double Dt = S->GetNumberField(TEXT("dt"));
+		const double Dt = StepOf(S);
 
 		FMIGameEvents Events;
 		TArray<FLogged> Log;
@@ -633,7 +645,7 @@ bool FMIGoldenWeaponTest::RunTest(const FString& Parameters)
 	{
 		const TSharedPtr<FJsonObject> S = SV->AsObject();
 		C.Context = S->GetStringField(TEXT("name"));
-		const double Dt = S->GetNumberField(TEXT("dt"));
+		const double Dt = StepOf(S);
 
 		FMIGameEvents Events;
 		TArray<FLogged> Log;
@@ -851,7 +863,7 @@ bool FMIGoldenBlastTest::RunTest(const FString& Parameters)
 	{
 		const TSharedPtr<FJsonObject> S = SV->AsObject();
 		C.Context = S->GetStringField(TEXT("name"));
-		const double Dt = S->GetNumberField(TEXT("dt"));
+		const double Dt = StepOf(S);
 		int32 Frame = 0;
 		TArray<FLogged> Log;
 		FMIGameEvents Events;
@@ -974,6 +986,8 @@ bool FMIGoldenBlastTest::RunTest(const FString& Parameters)
 					Explode(ToUE(Arr(A[2])), Num(A, 3) * 100.0, Num(A, 4), Rules.PlayerDamageScale, INDEX_NONE);
 				}
 			}
+			// The web scenario advances its frame counter before the fuses run: what they do is logged one frame on.
+			++Frame;
 			Field.Update(Dt, [&](int32 Index)
 			{
 				const FVector Centre = Field.Blow(Index);
@@ -987,6 +1001,7 @@ bool FMIGoldenBlastTest::RunTest(const FString& Parameters)
 					Log.Add(L);
 				}
 			});
+			--Frame;
 		}
 
 		TArray<FLogged> Expected;

@@ -228,7 +228,7 @@
         "nav": { "stick": 0.6, "first": 0.38, "repeat": 0.17 }
       },
       "rumble": {
-        "hit": { "base": 0.45, "perDamage": 0.0333, "weak": 0.3, "ms": 160 },
+        "hit": { "base": 0.45, "perDamage": 0.03333333333333333, "weak": 0.3, "ms": 160 },
         "blast": { "range": 22, "size": { "small": 1, "big": 1.2 }, "weak": 0.8, "ms": 240, "msExtra": 200 }
       }
     },
@@ -290,7 +290,7 @@
       "yaw": 0.03,
       "roll": 0.045,
       "freq": { "pitch": [43, 72], "yaw": [37, 84], "roll": [30, 61] },
-      "onHit": { "base": 0.22, "perDamage": 0.0143 },
+      "onHit": { "base": 0.22, "perDamage": 0.014285714285714285 },
       "onBlast": { "range": 28, "base": 0.15, "scale": 0.9, "small": 0.6 },
       "sustain": { "below": 0.03, "max": 0.6, "rate": 6 }
     },
@@ -446,7 +446,7 @@
       "duration": 0.55,
       "hitAt": 0.16,
       "reach": 2.3,
-      "cone": 0.8727,
+      "cone": 0.8726646259971648,
       "damage": 60,
       "cooldown": 0.75,
       "cancelsReload": true,

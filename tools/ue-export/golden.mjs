@@ -9,7 +9,8 @@
 // Every file is in web units (metres, seconds, radians, +Y up, yaw 0 = north, + = left); the C++ tests convert.
 // Harnesses follow test/input-player-player.test.js, test/weapon-logic.test.js and test/fx-explosives.test.js.
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as THREE from 'three';
@@ -18,7 +19,7 @@ import * as playerConfig from '../../src/config/player.js';
 import * as weapons from '../../src/config/weapons.js';
 import { createEvents } from '../../src/core/events.js';
 import { createRng } from '../../src/core/rng.js';
-import { createExplosives } from '../../src/explosives.js';
+import { KINDS as explosiveKinds, createExplosives } from '../../src/explosives.js';
 import { createPhysics } from '../../src/physics.js';
 import {
   approachVelocity, createPlayer, createRecoil, createShake, createSpring, sprintWanted, targetSpeed,
@@ -817,6 +818,38 @@ function goldenBlast() {
   write('blast.json', { about: about('src/explosives.js and src/combat.js on src/physics.js'), seed: SEED, scenarios });
 }
 
+/**
+ * config.json is written with every number rounded to four decimals (lib/convert.cjs), which is not the game:
+ * shake.onHit.perDamage is 1/70, not 0.0143, and the replay drifts by it. Every number of the player, weapon and
+ * explosive tables whose source value rounds to the exported one is put back to the source value; nothing else
+ * changes (a value the running game overrides differs from its module value and is left as exported).
+ */
+function refineConfig() {
+  const file = join(ROOT, 'unreal', 'MurderInc', 'Content', 'Data', 'config.json');
+  const { round, stringify } = createRequire(import.meta.url)('./lib/convert.cjs');
+  const config = JSON.parse(readFileSync(file, 'utf8'));
+  let refined = 0;
+  const walk = (exported, source) => {
+    if (!exported || !source || typeof exported !== 'object' || typeof source !== 'object') return;
+    for (const key of Object.keys(exported)) {
+      const e = exported[key];
+      const v = source[key];
+      if (typeof e === 'number' && typeof v === 'number' && v !== e && Number.isFinite(v) && round(v) === e) {
+        exported[key] = v;
+        refined++;
+      } else {
+        walk(e, v);
+      }
+    }
+  };
+  walk(config.player, playerConfig);
+  walk(config.weapons, weapons);
+  walk(config.explosives && config.explosives.kinds, explosiveKinds);
+  writeFileSync(file, stringify(config, { exact: true }));
+  console.log(`config.json: ${refined} numbers back to full precision`);
+}
+
+refineConfig();
 goldenRng();
 goldenPlayerPure();
 goldenPlayerSim();

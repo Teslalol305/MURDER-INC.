@@ -192,10 +192,11 @@ const INLINE_WIDTH = 132;
 /**
  * Pretty JSON with a stable shape: two-space indentation, keys in the order they were built, numbers
  * rounded to four decimals, and any array or object that fits on one line written on one line (a
- * position is one line, not five).
+ * position is one line, not five). `exact`: numbers are written as they are (golden.mjs uses it to put the
+ * tuning numbers back to full precision).
  */
-function stringify(value) {
-  const rounded = roundDeep(value);
+function stringify(value, { exact = false } = {}) {
+  const rounded = exact ? value : roundDeep(value);
   const flat = (v) => {
     if (v === null || typeof v !== 'object') return JSON.stringify(v);
     if (Array.isArray(v)) return `[${v.map(flat).join(', ')}]`;
