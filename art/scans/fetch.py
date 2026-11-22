@@ -12,7 +12,9 @@ What it does, in order:
         art/out/textures/<Set>/T_<Set>_N.jpg    tangent-space normal, OpenGL (source JPEG bytes, untouched)
         art/out/textures/<Set>/T_<Set>_ORM.jpg  R = AO, G = roughness, B = metallic, linear
                                                 (the source _arm JPEG as it is, or packed here from separate maps)
-        art/out/textures/<Set>/T_<Set>_H.png    height, 16-bit                (source PNG bytes, untouched)
+        art/out/textures/<Set>/T_<Set>_H.png    height, 16-bit                (source PNG bytes, or made single-channel)
+        art/out/textures/<Set>/set.json         tile size, texel density, height range, albedo: the same record
+                                                the Blender pipeline writes for the sets it bakes
         art/out/hdri/<slug>_<res>.hdr
         art/out/scans/models/<slug>/...         exactly as downloaded (.gltf, .bin, textures/*.jpg: the layout
                                                 the .gltf itself refers to, so it opens as it is)
@@ -101,9 +103,11 @@ class Cache:
                     self.fetched.append((rel, got))
                 return dest
             except urllib.error.HTTPError as e:
-                if e.code in (403, 404, 410):  # an answer, not a failure: remember it and never ask again
+                if e.code in (404, 410):  # an answer, not a failure: remember it and never ask again
                     self._note_missing(rel, e.code)
                     return None
+                if e.code in (401, 403, 407):  # refused (a proxy or policy): retrying or recording it would be wrong
+                    raise IOError(f"{rel}: the request was refused with HTTP {e.code}; nothing was recorded") from e
                 last = e
             except Exception as e:  # timeouts, resets: try again, slowly
                 last = e
@@ -131,7 +135,7 @@ def image_info(path):
 
 
 def hdr_header(path):
-    """(width, height) of a Radiance .hdr, checking the magic, the format line and the first scanline marker."""
+    """(width, height) of a Radiance .hdr, checking the magic, the format line and the orientation."""
     with open(path, "rb") as f:
         head = f.read(4096)
     if not head.startswith(b"#?RADIANCE") and not head.startswith(b"#?RGBE"):
@@ -356,6 +360,49 @@ def pack_orm(ao, rough, metal, dest):
     os.replace(tmp, dest)
 
 
+def set_json(entry, size):
+    """The set.json the Blender pipeline (art/blender/mi) writes beside the sets it bakes, for a scanned set, so that
+    its loaders and its export manifest treat both alike. Same keys, same meaning; the scan-only keys are extra."""
+    m = entry.get("measured", {})
+    tile = entry["tile_m"]
+    info = {
+        "set": entry["set"], "kind": "tiling", "surface": "scan",
+        "source": {"publisher": "Poly Haven", "slug": entry["slug"], "licence": entry.get("licence", "")},
+        "description": entry.get("surface", ""), "use": entry.get("use", ""),
+        "tile_m": tile, "texel_density_px_per_m": round(size[0] / tile[0], 1), "resolution": [size[0], size[1]],
+        "files": {role: Path(spec["out"]).name for role, spec in entry["files"].items()},
+        "convention": {"BC": "sRGB base colour", "N": "tangent-space normal, OpenGL (+Y up)",
+                       "ORM": "linear: R = ambient occlusion, G = roughness, B = metallic",
+                       "H": "height, 0..1 over height_range_m (metres)"},
+        "tile_method": entry.get("tile_method", ""), "confidence": entry.get("confidence", ""),
+        "orientation": entry.get("orientation", ""), "colour": entry.get("colour", ""), "notes": entry.get("notes", ""),
+    }
+    if "height_scale_mm" in m:
+        scale = max(m["height_scale_mm"], 0.1) / 1000.0  # metres per unit of the map
+        mid = m.get("height_mid", 0.5)
+        info["height_range_m"] = [round(-mid * scale, 5), round((1.0 - mid) * scale, 5)]
+        info["height_reliable"] = bool(m.get("relief_fit", 0) >= 0.5)
+    if "albedo" in m:
+        a = m["albedo"]
+        info["albedo_mean"] = a["linear_rgb"]
+        if "p50" in a:
+            info["albedo_luminance_p01_p50_p99"] = [a["p1"], a["p50"], a["p99"]]
+        info["roughness_mean"], info["metallic_mean"] = m.get("roughness"), m.get("metallic")
+    if "seam_verdict" in m:
+        info["seamless"] = m["seam_verdict"] == "ok"
+        info["seam"] = {"verdict": m["seam_verdict"], "measure": m.get("seam", {})}
+    return info
+
+
+def write_if_changed(dest, text):
+    if dest.is_file() and dest.read_text() == text:
+        return False
+    tmp = dest.with_name(dest.name + ".tmp")
+    tmp.write_text(text)
+    os.replace(tmp, dest)
+    return True
+
+
 # ---------------------------------------------------------------------------------------------------- the work
 
 def do_texture(entry, res, cache):
@@ -426,6 +473,9 @@ def do_texture(entry, res, cache):
     if len(set(sizes.values())) > 1:
         row["problems"].append(f"maps differ in size: {sizes}")
     size = sizes.get("BC") or (next(iter(sizes.values())) if sizes else None)
+    if size and entry.get("tile_m"):
+        text = json.dumps(set_json(entry, size), indent=1, sort_keys=True, ensure_ascii=False) + "\n"
+        row["wrote"] += write_if_changed(out_path(entry, "BC", res).parent / "set.json", text)
     row["px"] = f"{size[0]}x{size[1]}" if size else "-"
     tile = entry.get("tile_m")
     row["tile"] = f"{tile[0]:.2f} x {tile[1]:.2f}" if tile else "-"
@@ -449,6 +499,9 @@ def do_hdri(entry, res, cache):
         row["px"] = f"{w}x{h}"
         if (w, h) != (RES_PX[res], RES_PX[res] // 2):
             row["problems"].append(f"{w}x{h}, expected {RES_PX[res]}x{RES_PX[res] // 2}")
+        pixels = read_hdr(dest)  # decode every scanline: a truncated file fails here
+        if pixels.shape != (h, w, 3) or not float(pixels.max()) > 0.0:
+            row["problems"].append("decodes to nothing")
     except Exception as e:
         row["problems"].append(f"does not open ({e})")
     row["bytes"] = dest.stat().st_size
@@ -531,14 +584,19 @@ def main(argv=None):
             return 2
     cache = Cache(offline=args.offline)
     t0 = time.time()
-    cache.get_many(plan_downloads(entries, args.res))
-    parts = []
-    for e in entries:
-        if e["kind"] == "model":
-            rel = remote(e["files"]["GLTF"]["src"], args.res)
-            if cache.has(rel):
-                parts += [model_part(rel, u) for u in gltf_files(cache.path(rel))[1]]
-    cache.get_many(parts)
+    try:
+        cache.get_many(plan_downloads(entries, args.res))
+        parts = []
+        for e in entries:
+            if e["kind"] == "model":
+                rel = remote(e["files"]["GLTF"]["src"], args.res)
+                if cache.has(rel):
+                    parts += [model_part(rel, u) for u in gltf_files(cache.path(rel))[1]]
+        cache.get_many(parts)
+    except IOError as e:
+        print(f"DOWNLOAD FAILED: {e}")
+        print("What is already in the cache is kept; run again when the host can be reached.")
+        return 1
 
     work = {"texture": do_texture, "hdri": do_hdri, "model": do_model}
     rows = [work[e["kind"]](e, args.res, cache) for e in entries]

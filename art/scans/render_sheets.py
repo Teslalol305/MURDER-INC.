@@ -134,6 +134,32 @@ def add_box(name, lo, hi, material):
     return add_mesh(name, v, f, material)
 
 
+def add_sphere(name, centre, radius, material, segments=64, rings=32):
+    """A smooth UV sphere built from plain data (no operators: they need a window context this module lacks)."""
+    verts = [(centre[0], centre[1], centre[2] + radius)]
+    for r in range(1, rings):
+        phi = math.pi * r / rings
+        for seg in range(segments):
+            th = math.tau * seg / segments
+            verts.append((centre[0] + radius * math.sin(phi) * math.cos(th), centre[1] + radius * math.sin(phi) * math.sin(th),
+                          centre[2] + radius * math.cos(phi)))
+    verts.append((centre[0], centre[1], centre[2] - radius))
+    faces = []
+    last = len(verts) - 1
+    for seg in range(segments):
+        nxt = (seg + 1) % segments
+        faces.append((0, 1 + seg, 1 + nxt))
+        for r in range(rings - 2):
+            a, b = 1 + r * segments, 1 + (r + 1) * segments
+            faces.append((a + seg, b + seg, b + nxt, a + nxt))
+        base = 1 + (rings - 2) * segments
+        faces.append((base + seg, last, base + nxt))
+    obj = add_mesh(name, verts, faces, material)
+    obj.data.polygons.foreach_set("use_smooth", [True] * len(obj.data.polygons))
+    obj.data.update()
+    return obj
+
+
 def scale_props(box_at, stick_from, stick_axis):
     """The 1.8 m box (18 % grey) and the 1 m stick: decimetre bands, the last decimetre cut into centimetres."""
     grey = flat_material("ScaleGrey", (0.18, 0.18, 0.18))
@@ -314,8 +340,7 @@ def model_cell(entry, sky, path, size, samples):
     scale_props(box_at=(half.x + 0.45, 0.0), stick_from=(half.x + 0.2, -half.y - 0.12, 0.015), stick_axis=(-1, 0, 0))
     arrow("AxisX", (0, -half.y - 0.3, 0), (0.4, -half.y - 0.3, 0), (0.9, 0.05, 0.05))
     arrow("AxisY", (0, -half.y - 0.3, 0), (0, -half.y + 0.1, 0), (0.05, 0.7, 0.05))
-    # the model's own origin
-    origin = shift * fix if fix != 1.0 else shift
+    # the model's own origin: it was at the world origin before the shift
     marker = flat_material("Origin", (0.9, 0.0, 0.9), 0.4, emission=(0.6, 0.0, 0.6))
     r = max(0.012, min(0.04, max(size_m) * 0.03))
     add_box("Origin", (shift.x - r, shift.y - r, shift.z - r), (shift.x + r, shift.y + r, shift.z + r), marker)
@@ -345,12 +370,9 @@ def sky_cell(entry, path, size, samples):
     grey = flat_material("Grey", (0.18, 0.18, 0.18), 0.6)
     disc = flat_material("Disc", (0.18, 0.18, 0.18), 0.9)
     for x, mat in ((-0.56, chrome), (0.56, grey)):
-        bpy.ops.mesh.primitive_uv_sphere_add(segments=64, ring_count=32, radius=0.5, location=(x, 0.0, 0.5))
-        ball = bpy.context.object
-        bpy.ops.object.shade_smooth()
-        ball.data.materials.append(mat)
-    bpy.ops.mesh.primitive_circle_add(vertices=64, radius=2.2, fill_type="NGON", location=(0, 0, 0))
-    bpy.context.object.data.materials.append(disc)
+        add_sphere("Ball", (x, 0.0, 0.5), 0.5, mat)
+    ring = [(2.2 * math.cos(i * math.tau / 96), 2.2 * math.sin(i * math.tau / 96), 0.0) for i in range(96)]
+    add_mesh("Disc", ring, [tuple(range(96))], disc)
     cam = add_camera("Main", (0.0, -5.4, 1.05), (0.0, 0.0, 0.52), lens=58)
     render(scene, cam, path)
 

@@ -487,7 +487,7 @@ def plate(size=(0.3, 0.2), thickness=0.01, holes=(), bevel=0.002, hole_segments=
             a = -2 * math.pi * k / hole_segments
             coords.append(Vector((hx + hr * math.cos(a), hy + hr * math.sin(a))))
         faces_in.append(list(range(start, start + hole_segments)))
-    vc, _e, tris, *_ = geometry.delaunay_2d_cdt(coords, [], faces_in, 3, 1e-7)
+    vc, _e, tris, *_ = geometry.delaunay_2d_cdt(coords, [], faces_in, 2, 1e-7)   # 2 = triangles inside, holes omitted
     bm = bmesh.new()
     top = [bm.verts.new((v.x, v.y, thickness)) for v in vc]
     bot = [bm.verts.new((v.x, v.y, 0.0)) for v in vc]
@@ -580,7 +580,7 @@ def cut_hole(ob, polygon, z=None, pad=None, name_attr=None):
     coords = [Vector((v.co.x, v.co.y)) for v in ring] + [Vector((v.co.x, v.co.y)) for v in new_v]
     nr = len(ring)
     faces_in = [list(range(nr)), list(range(nr, nr + len(new_v)))]
-    vc, _e, tris, ov, *_ = geometry.delaunay_2d_cdt(coords, [], faces_in, 3, 1e-7)
+    vc, _e, tris, ov, *_ = geometry.delaunay_2d_cdt(coords, [], faces_in, 2, 1e-7)   # 2 = triangles inside, holes omitted
     allv = ring + new_v
     lut = []
     for k, v2 in enumerate(vc):
@@ -938,7 +938,9 @@ def uv_world_box(ob, tile_m=2.0, offset=(0.0, 0.0), rotate90=False, layer=UV):
 
 
 def uv_unwrap(ob, res=2048, angle=66.0, margin_px=8, method="SMART", pack="AABB", weights=None):
-    """Unique-set UVs: smart project (or 'ANGLE' unwrap along sharp edges), then pack with a pixel margin.
+    """Unique-set UVs: smart project (or 'ANGLE' unwrap along sharp edges), then pack with a margin.
+    margin_px is measured at 2048 px whatever `res` is, so the layout is the same for every bake resolution
+    (res only scales the density that is returned).
     pack: 'AABB' (instant), 'CONVEX' or 'CONCAVE' (tighter, but minutes on meshes with many islands).
     weights: optional per-polygon UV scale (array, or function of the face centre (x, y, z)): give hidden or
     unimportant faces 0.3 and the visible ones get the texels. Returns the median texel density in px per metre."""
@@ -948,7 +950,7 @@ def uv_unwrap(ob, res=2048, angle=66.0, margin_px=8, method="SMART", pack="AABB"
     _scene.select_only(ob)
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
-    margin = margin_px / float(res)
+    margin = margin_px / 2048.0
     if method == "SMART":
         bpy.ops.uv.smart_project(angle_limit=math.radians(angle), margin_method="FRACTION", island_margin=margin,
                                  area_weight=0.0, correct_aspect=True, scale_to_bounds=False)
@@ -980,6 +982,17 @@ def uv_unwrap(ob, res=2048, angle=66.0, margin_px=8, method="SMART", pack="AABB"
     bpy.ops.uv.pack_islands(rotate=True, margin_method="FRACTION", margin=margin, shape_method=pack)
     bpy.ops.object.mode_set(mode="OBJECT")
     return uv_texel_density(ob, res, faces=None if weights is None else np.asarray(weights) >= np.max(weights) - 1e-6)
+
+
+def uv_hash(ob):
+    """Short hash of the UV layout: bakes store it, so a texture set can tell when the mesh was re-unwrapped."""
+    import hashlib
+    me = ob.data
+    if not me.uv_layers:
+        return ""
+    uv = np.empty(len(me.loops) * 2, dtype=np.float32)
+    me.uv_layers.active.data.foreach_get("uv", uv)
+    return hashlib.sha1(np.round(uv, 4).tobytes()).hexdigest()[:16]
 
 
 def uv_texel_density(ob, res=2048, layer=None, faces=None):

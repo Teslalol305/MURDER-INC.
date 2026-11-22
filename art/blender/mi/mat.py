@@ -681,8 +681,8 @@ def set_params(material, **params):
 
 # ============================================================================================== shared ingredients
 
-RUST = [(0.0, (0.060, 0.028, 0.016)), (0.35, (0.115, 0.050, 0.024)), (0.65, (0.190, 0.085, 0.035)),
-        (0.85, (0.270, 0.130, 0.050)), (1.0, (0.330, 0.190, 0.085))]
+RUST = [(0.0, (0.038, 0.022, 0.016)), (0.30, (0.072, 0.036, 0.021)), (0.60, (0.120, 0.056, 0.027)),
+        (0.84, (0.185, 0.090, 0.038)), (1.0, (0.250, 0.140, 0.065))]
 GRIME = (0.045, 0.040, 0.034)
 DUST = (0.215, 0.195, 0.165)
 
@@ -691,7 +691,7 @@ def _rust(g, c, k=0.0):
     """Rust colour, roughness and pitting height for one position: (color, rough, height)."""
     n1 = g.noise(c.P.off(40 + k), scale=38.0, detail=4.0, rough=0.62)
     n2 = g.noise(c.P.off(41 + k), scale=260.0, detail=2.0, rough=0.5)
-    t = g.clamp(g.add(g.mul(g.sub(n1, 0.5), 1.7), 0.5, g.mul(g.sub(n2, 0.5), 0.5)))
+    t = g.clamp(g.add(g.mul(g.sub(n1, 0.5), 1.7), 0.42, g.mul(g.sub(n2, 0.5), 0.5)))
     col = g.ramp(t, RUST)
     rough = g.lerp(n2, 0.78, 0.96)
     h = g.mul(g.sub(n2, 0.5), 0.00022)
@@ -857,8 +857,8 @@ def concrete(g, c):
     p, P = c.p, c.P
     macro = g.noise(P.off(1), scale=0.5, detail=4.0, rough=0.55)
     meso = g.noise(P.off(2), scale=5.5, detail=4.0, rough=0.62)
-    fine = g.noise(P.off(3), scale=420.0, detail=2.0, rough=0.55)
-    sand = g.noise(P.off(4), scale=1400.0, detail=1.0, rough=0.5)
+    fine = g.noise(P.off(3), scale=120.0, detail=2.0, rough=0.6)
+    sand = g.noise(P.off(4), scale=300.0, detail=1.0, rough=0.6)
     # ---- flags: tooled joints on a lattice, each flag its own shade
     sp = g.max(p["Joint Spacing"], 0.05)
     has_j = g.gt(p["Joint Spacing"], 0.051)
@@ -872,8 +872,20 @@ def concrete(g, c):
     f1, f2, _ = g.sep_rgb(flag_rnd)
     flag_tone = g.lerp(has_j, 1.0, g.lerp(f1, 0.86, 1.10))
     # ---- paste, sand and exposed stone
-    col = g.tint(p["Base Color"], g.mul(g.lerp(macro, 0.86, 1.12), g.lerp(meso, 0.93, 1.07), flag_tone))
-    col = g.tint(col, g.lerp(sand, 0.90, 1.08))
+    col = g.tint(p["Base Color"], g.mul(g.lerp(macro, 0.86, 1.12), g.lerp(meso, 0.88, 1.10), flag_tone))
+    col = g.tint(col, g.mul(g.lerp(sand, 0.84, 1.13), g.lerp(fine, 0.92, 1.07)))
+    # sand grains at the surface: dark and pale specks a millimetre or two across
+    kd, kc = g.voronoi(P.off(16), scale=170.0, outs=("Distance", "Color"))
+    k1, k2, k3 = g.sep_rgb(kc)
+    speck = g.sstep(g.lerp(k2, 0.14, 0.30), g.lerp(k2, 0.08, 0.20), kd)
+    col = g.tint(col, g.lerp(g.mul(speck, g.lt(k1, 0.30)), 1.0, g.lerp(k3, 0.45, 0.75)))
+    col = g.tint(col, g.lerp(g.mul(speck, g.gt(k1, 0.88)), 1.0, 1.32))
+    # cement paste is never one colour: warm and cool patches a hand wide
+    hue = g.noise(P.off(17), scale=9.0, detail=3.0, rough=0.6)
+    col = g.mixc(g.mul(g.sstep(0.45, 0.75, hue), 0.22), col, g.mixc(1.0, col, (1.06, 0.99, 0.88), "MULTIPLY"))
+    craze_e = g.voronoi(P.off(18).warp(0.02, 14.0, 3.0), scale=11.0, feature="DISTANCE_TO_EDGE")
+    craze = g.mul(g.sstep(0.022, 0.004, craze_e), g.sstep(0.42, 0.62, g.noise(P.off(19), scale=2.3, detail=2.0)), g.lerp(p["Cracks"], 0.25, 1.0))
+    col = g.tint(col, g.lerp(craze, 1.0, 0.72))
     sd, sc = g.voronoi(P.off(5), scale=85.0, outs=("Distance", "Color"))
     sr, sr2, _ = g.sep_rgb(sc)
     expose = g.clamp(g.add(g.mul(p["Aggregate"], 0.8), g.mul(c.wear, 0.9), g.mul(g.sub(meso, 0.5), 0.5), -0.25))
@@ -882,14 +894,15 @@ def concrete(g, c):
                             (1.0, (0.52, 0.50, 0.46))])
     col = g.mixc(g.mul(stone, 0.85), col, stone_col)
     # ---- broom finish across the walking direction (u), and the trowelled margin by the joints
-    broom_n = g.noise(c.uvdir(480.0, 5.0).off(6), scale=1.0, detail=1.0, rough=0.5)
+    broom_n = g.noise(c.uvdir(230.0, 4.0).off(6), scale=1.0, detail=1.0, rough=0.5)
     broom = g.mul(g.sub(broom_n, 0.5), p["Broom"], g.inv(lip))
-    pits_d = g.voronoi(P.off(7), scale=160.0)
-    pit_gate = g.sstep(0.62, 0.75, g.noise(P.off(8), scale=30.0, detail=2.0))
-    pits = g.mul(g.sstep(0.22, 0.08, pits_d), pit_gate)
-    height = g.add(g.mul(broom, 0.0007), g.mul(g.sub(fine, 0.5), 0.00035), g.mul(stone, 0.00025))
-    height = g.sub(height, g.mul(pits, 0.0012))
-    col = g.tint(col, g.lerp(pits, 1.0, 0.6))
+    pits_d = g.voronoi(P.off(7), scale=110.0)
+    pit_gate = g.sstep(0.55, 0.7, g.noise(P.off(8), scale=30.0, detail=2.0))
+    pits = g.mul(g.sstep(0.26, 0.10, pits_d), pit_gate)
+    height = g.add(g.mul(broom, 0.0007), g.mul(g.sub(fine, 0.5), 0.00035), g.mul(g.sub(sand, 0.5), 0.00018), g.mul(stone, 0.00025))
+    height = g.sub(g.sub(height, g.mul(pits, 0.0012)), g.mul(craze, 0.0003))
+    col = g.tint(col, g.lerp(pits, 1.0, 0.5))
+    col = g.tint(col, g.lerp(g.mul(g.sstep(0.55, 0.2, broom_n), p["Broom"], g.inv(lip)), 1.0, 0.93))   # fines in the broom grooves
     rough = g.add(0.80, g.mul(g.sub(fine, 0.5), 0.14))
     rough = g.lerp(g.mul(c.wear, g.inv(stone)), rough, 0.68)
     # ---- form panels and tie holes for cast-in-place walls
@@ -908,8 +921,9 @@ def concrete(g, c):
     streak = g.noise(c.streak(22.0, 0.7).off(9), scale=1.0, detail=3.0, rough=0.6)
     wstreak = g.mul(g.sstep(0.5, 0.78, streak), p["Weathering"], fw)
     blot = g.noise(P.off(10), scale=1.7, detail=5.0, rough=0.68)
-    stain = g.mul(g.sstep(0.48, 0.72, g.add(blot, g.mul(g.sub(p["Stains"], 0.5), 0.45))), g.sstep(0.0, 0.1, p["Stains"]))
-    col = g.tint(col, g.lerp(g.max(wstreak, g.mul(stain, 0.8)), 1.0, 0.62))
+    stain = g.mul(g.sstep(0.48, 0.66, g.add(blot, g.mul(g.sub(p["Stains"], 0.5), 0.45))), g.sstep(0.0, 0.1, p["Stains"]))
+    col = g.tint(col, g.lerp(g.max(wstreak, g.mul(stain, 0.8)), 1.0, 0.66))
+    col = g.mixc(g.mul(stain, 0.25), col, g.mixc(1.0, col, (0.95, 0.86, 0.70), "MULTIPLY"))
     # ---- craze and structural cracks
     cr_e = g.voronoi(P.off(11).warp(0.16, 1.6), scale=0.95, feature="DISTANCE_TO_EDGE")
     cr_gate = g.sstep(0.0, 0.2, g.sub(g.add(g.noise(P.off(12), scale=0.45, detail=2.0), g.mul(p["Cracks"], 0.8)), 0.72))
@@ -1085,7 +1099,7 @@ def steel(g, c):
     rough = g.lerp(scratch, rough, 0.3)
     rcol, rrough, rh = _rust(g, c)
     drive = g.add(g.mul(p["Rust"], 0.8), g.mul(c.dirt, 0.7), g.mul(c.leak, 0.8), g.mul(c.splash, 0.4))
-    rm = g.sstep(0.5, 0.64, g.add(g.mul(g.sub(mid, 0.5), 0.9), g.mul(g.sub(big, 0.5), 0.6), drive))
+    rm = g.sstep(0.44, 0.60, g.add(g.mul(g.sub(mid, 0.5), 0.9), g.mul(g.sub(big, 0.5), 0.6), drive))
     rm = g.mul(rm, g.sstep(0.0, 0.06, drive), g.inv(g.mul(g.sstep(0.55, 0.9, c.wear), 0.85)))
     thin = g.mul(g.sstep(0.36, 0.5, g.add(g.mul(g.sub(mid, 0.5), 0.9), drive)), g.inv(rm), g.sstep(0.0, 0.06, drive), 0.5)
     col = g.mixc(thin, col, g.tint(rcol, 1.2))
@@ -1403,7 +1417,7 @@ def _wet_group():
     return tree
 
 
-def from_texture_set(directory, name=None, tile_m=None, masks=True, alpha="wet", blend=None, porosity=0.5,
+def from_texture_set(directory, name=None, tile_m=None, masks=True, alpha="wet", blend=None, blend_start=0.5, porosity=0.5,
                      dirt_color=(0.10, 0.09, 0.075), wear_tint=(1.12, 1.12, 1.12), wear_rough=-0.12,
                      leak_color=(0.20, 0.105, 0.045), leak_rough=0.0, ao_strength=0.5, macro=0.12,
                      normal_strength=1.0, Wetness=0.0, uv_map=""):
@@ -1412,8 +1426,9 @@ def from_texture_set(directory, name=None, tile_m=None, masks=True, alpha="wet",
     on the mesh:
 
         R dirt   darkens toward dirt_color, filling the low points of the height map first
-        G wear   height-blends to a second set when `blend` is given (directory of e.g. TS_Asphalt_Cracked),
-                 otherwise brightens by wear_tint and shifts roughness by wear_rough (polish)
+        G wear   polish: multiplies the colour by wear_tint and shifts roughness by wear_rough as G goes 0 -> 0.5.
+                 When `blend` is given (directory of e.g. TS_Asphalt_Cracked) the surface then height-blends to
+                 that second set as G goes blend_start -> 1 (worn paint uses blend_start=0: no polish stage)
         B leak   stains toward leak_color and shifts roughness by leak_rough (oil: dark and a little glossy)
         A        wetness with height-driven puddles (alpha='wet') or pale road dust (alpha='splash')
 
@@ -1463,20 +1478,21 @@ def from_texture_set(directory, name=None, tile_m=None, masks=True, alpha="wet",
         bc = g.tint(bc, g.add(1.0, g.add(g.mul(g.sub(big, 0.5), 2.0 * macro), g.mul(g.sub(mid, 0.5), macro))))
         ro = g.clamp(g.add(ro, g.mul(g.sub(big, 0.5), macro * 0.6)))
     # ---- G: blend to a second set through the height maps, or generic polish
-    if blend:
+    if _is_sock(mg_) and (blend_start > 0 or not blend):
+        top = blend_start if blend else 1.0
+        f = g.sstep(0.0, top, g.add(mg_, g.mul(g.sub(mid, 0.5), g.mul(mg_, 0.5))))
+        bc = g.mixc(f, bc, g.mixc(1.0, bc, wear_tint, "MULTIPLY"))
+        ro = g.clamp(g.add(ro, g.mul(f, wear_rough)))
+    if blend and _is_sock(mg_):
         bfiles = find_set_files(blend)
         bc2, ao2, ro2, me2, nrm2, h2 = read(bfiles)
-        f = g.sstep(0.0, 0.22, g.sub(g.add(g.mul(mg_, 1.35), g.mul(g.sub(mid, 0.5), 0.35)), g.add(0.38, g.mul(h2, 0.35))))
-        f = g.mul(f, g.sstep(0.0, 0.05, mg_)) if _is_sock(mg_) else 0.0
+        gb = g.remap(mg_, blend_start, 1.0, 0.0, 1.0)
+        f = g.sstep(0.0, 0.22, g.sub(g.add(g.mul(gb, 1.35), g.mul(g.sub(mid, 0.5), 0.35)), g.add(0.2, g.mul(h2, 0.9))))
+        f = g.mul(f, g.sstep(0.0, 0.05, gb))
         bc = g.mixc(f, bc, bc2)
         ro, me, ao = g.lerp(f, ro, ro2), g.lerp(f, me, me2), g.lerp(f, ao, ao2)
         nrm = g.mixc(f, nrm, nrm2)
         h = g.lerp(f, h, h2)
-    elif _is_sock(mg_):
-        f = g.sstep(0.05, 0.9, g.add(mg_, g.mul(g.sub(mid, 0.5), 0.3)))
-        f = g.mul(f, g.sstep(0.0, 0.05, mg_))
-        bc = g.mixc(f, bc, g.mixc(1.0, bc, wear_tint, "MULTIPLY"))
-        ro = g.clamp(g.add(ro, g.mul(f, wear_rough)))
     # ---- B: leak stains
     if _is_sock(mb):
         f = g.mul(g.sstep(0.2, 0.8, g.add(mb, g.mul(g.sub(mid, 0.5), 0.45))), g.sstep(0.0, 0.05, mb))
@@ -1486,8 +1502,10 @@ def from_texture_set(directory, name=None, tile_m=None, masks=True, alpha="wet",
             ro = g.clamp(g.add(ro, g.mul(f, leak_rough)))
     # ---- R: dirt in the low points
     if _is_sock(mr):
-        f = g.sstep(0.0, 0.4, g.sub(g.add(g.mul(mr, 1.45), g.mul(g.sub(mid, 0.5), 0.35)), g.add(0.2, g.mul(h, 0.55))))
-        f = g.mul(f, g.sstep(0.0, 0.05, mr))
+        # a film whose thickness follows the mask: thicker in the low points of the height map, broken up in
+        # proportion to its own strength so clean areas stay clean and nothing turns into a hard-edged blotch
+        f = g.clamp(g.mul(mr, g.add(g.lerp(h, 1.45, 0.75), g.mul(g.sub(mid, 0.5), 0.9), g.mul(g.sub(big, 0.5), 0.5))))
+        f = g.sstep(0.0, 1.0, f)
         bc = g.mixc(g.mul(f, 0.88), bc, dirt_color)
         ro = g.lerp(f, ro, g.max(ro, 0.9))
         nrm = g.mixc(g.mul(f, 0.5), nrm, (0.5, 0.5, 1.0))

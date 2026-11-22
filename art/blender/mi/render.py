@@ -21,8 +21,9 @@ from mathutils import Vector
 
 from . import scene as _scene
 
-# View exposure (stops) that puts a sunlit 18 % grey card at middle grey under each rig.
-EXPOSURE = {"DAY": -5.0, "NIGHT": 3.2}
+# View exposure in stops. DAY puts a sunlit 18 % grey card at middle grey under the physical sky (sunlit grey
+# reads 6.2 scene-linear). NIGHT suits the rig_night lamp wattages (about 3 W/m2 on the ground under a lamp).
+EXPOSURE = {"DAY": -5.0, "NIGHT": -0.2}
 VIEW = "AgX"                      # 5.3 view transforms: Standard, ACES 1.3, ACES 2.0, Khronos PBR Neutral, AgX,
 LOOK_DAY = "AgX - Medium High Contrast"   # Filmic, Filmic Log, False Color, Raw. AgX looks are 'AgX - <name>'.
 LOOK_NIGHT = "AgX - Medium High Contrast"
@@ -63,7 +64,7 @@ def _clear_rig():
     col = bpy.data.collections.get("Rig")
     if col:
         for o in list(col.objects):
-            if o.type == "LIGHT":
+            if o.type == "LIGHT" or o.name.startswith("Sign"):
                 bpy.data.objects.remove(o, do_unlink=True)
     return _scene.collection("Rig")
 
@@ -159,6 +160,57 @@ def rig_night(lamp=(0.0, 0.0, 8.5), lamp_target=None, lamp_watts=2600.0, sign=No
         lights.append(o)
     look(VIEW, LOOK_NIGHT, EXPOSURE["NIGHT"] if exposure is None else exposure)
     return {"world": w, "lights": lights}
+
+
+def mirror_source(camera_pos, ground_point, source_height, ground_z=0.0):
+    """Where to hang a light so that its mirror image shows at a point on wet ground, as seen from the camera.
+    Returns (x, y, z). Use it for night shots: put a lamp or a sign there and the puddle at ground_point
+    reflects it."""
+    cx, cy, cz = camera_pos
+    px, py = ground_point[0], ground_point[1]
+    hc = cz - ground_z
+    k = (hc + (source_height - ground_z)) / hc
+    return (cx + (px - cx) * k, cy + (py - cy) * k, source_height)
+
+
+def sign(location, size=(2.4, 0.7), color=(1.0, 0.12, 0.38), watts=300.0, facing=(0.0, -1.0, 0.0), name="Sign",
+         strength=8.0):
+    """A lit sign: an emissive panel (so reflections have something to show) plus an area light of the same colour
+    just in front of it. facing: the direction the sign looks. Returns (panel, light)."""
+    import bmesh
+    f = Vector(facing).normalized()
+    me = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=0.5)
+    bmesh.ops.scale(bm, vec=(size[0], size[1], 1.0), verts=bm.verts)
+    bm.to_mesh(me)
+    bm.free()
+    panel = bpy.data.objects.new(name, me)
+    q = f.to_track_quat("Z", "Y")
+    panel.rotation_euler = q.to_euler()
+    panel.location = Vector(location)
+    m = bpy.data.materials.new(name + "_Mat")
+    nt = m.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.inputs["Color"].default_value = (*color, 1.0)
+    em.inputs["Strength"].default_value = strength
+    nt.links.new(em.outputs[0], out.inputs["Surface"])
+    me.materials.append(m)
+    col = _scene.collection("Rig")
+    col.objects.link(panel)
+    L = bpy.data.lights.new(name + "_Light", "AREA")
+    L.shape = "RECTANGLE"
+    L.size, L.size_y = size
+    L.energy = watts
+    L.color = color
+    lo = bpy.data.objects.new(name + "_Light", L)
+    lo.location = Vector(location) + f * 0.06
+    lo.rotation_euler = f.to_track_quat("-Z", "Y").to_euler()
+    lo.visible_camera = False
+    col.objects.link(lo)
+    return panel, lo
 
 
 # ------------------------------------------------------------------------------------------------------- cameras

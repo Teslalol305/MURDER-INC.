@@ -401,12 +401,18 @@ def read_set(set_name, out_dir=None):
 
 
 def _source_hash(kind, extra):
+    """Cache key of a tiling bake: the surface function, the shared helpers it actually uses, and the arguments."""
     sf = _mat.SURFACES.get(kind)
     src = inspect.getsource(sf.fn) if sf else ""
     if kind == "road_paint":
         src += inspect.getsource(_mat.SURFACES["asphalt"].fn)
-    for fn in (_mat._rust, _mat._grime, _mat._dust, _mat.group, _mat.Ctx, _mat.Co):
-        src += inspect.getsource(fn)
+    for fn in (_mat._rust, _mat._grime, _mat._dust, _mat._grain):
+        if fn.__name__ + "(" in src:
+            src += inspect.getsource(fn)
+    for const in ("RUST", "GRIME", "DUST"):
+        if const in src:
+            src += repr(getattr(_mat, const))
+    src += inspect.getsource(_mat.group) + inspect.getsource(_mat.Ctx) + inspect.getsource(_mat.Co)
     return hashlib.sha1((src + repr(extra)).encode()).hexdigest()[:16]
 
 
@@ -424,7 +430,7 @@ def bake_object(ob, set_name=None, res=2048, samples=4, margin=12, ao_samples=16
     ch = bake_channels(ob, res, samples, margin, True, True, ao_samples, None, ground, verbose)
     from . import geo as _geo
     info = {"kind": "unique", "asset": ob.name, "texel_density_px_per_m": round(_geo.uv_texel_density(ob, res), 1),
-            "seconds": None}
+            "uv_hash": _geo.uv_hash(ob), "seconds": None}
     info.update(meta or {})
     info = write_set(set_name, ch, out_dir, info)
     info["seconds"] = round(time.time() - t, 1)

@@ -16,7 +16,7 @@ How to read this document:
   night (`src/config/look.js:7`).
 - Light numbers are three.js r160 physical-light numbers, not SI. A directional or hemisphere `intensity` E is an
   irradiance: a matte surface of albedo ρ returns the radiance ρ · E / π. A point or spot `intensity` I behaves like
-  candela: E = I / d². This file calls them "game lux" and "game cd"; 4.4 maps both to SI.
+  candela: E = I / d². This file calls them "game lux" and "game cd"; 4.5 and 4.6 map both to SI.
 - `rand(a, b)` is a uniform draw. `k` in the effect tables is the particle density at the spot: `quality.fx` (0.4 … 1),
   halved beyond 55 m from the camera, zero beyond 150 m (`src/fx.js:39`, `src/fx.js:173`).
 - Sign, poster and decal positions are the centre of the quad. Text strings are verbatim; where a string has two
@@ -314,7 +314,9 @@ band); the level never asks for it (always `shopfront: false`), the real storefr
 
 `mats.sign(spec)` paints a sign of `w` × `h` metres in one of seven styles (`STYLES`, `src/mats/signs.js:447`). "Glow" is
 the emissive value a white texel of a lit sign reaches at night; by day every sign glow is × 0.3 and neon × 0.55
-(`src/mats.js:159`, `:553`). Pixel density 256 px / m at the top texture tier (`src/mats/signs.js:14`).
+(`src/mats.js:159`, `:553`). Pixel density 256 px / m at the top texture tier (`src/mats/signs.js:14`). Letter heights in
+the layout column are ink heights (the height of the capitals) and upper limits: a line that would be wider than the
+space it has is scaled down to fit (`fit`, `src/mats/type.js:89`).
 
 | Style | The real object | Default colours | Glow night → day | Rough | Layout (fractions of the sign height unless noted) |
 |---|---|---|---|---|---|
@@ -335,22 +337,23 @@ sub line = Archivo. Neon takes a second tube colour only when a sub line exists 
 
 42 distinct paintings **(measured)**. `N`, `S`, `E`, `W` is the way the sign faces.
 
-**Storefront bands** (`storefront`, `src/level/buildings.js:145`): band centre 3.29 m up, 0.15 m proud of the wall,
+**Storefront bands** (`storefront`, `src/level/buildings.js:145`): band centre at y = 3.29 m (3.14 m above the 0.15 m
+sidewalk), on a black fascia from y 2.92 to 3.66 m, 0.15 m proud of the wall,
 z = −10.85 on the north side (faces S), z = +10.85 on the south side (faces N). A lit band also registers a lamp
 (2.17).
 
 | Headline | Sub line | Style | W × H (m) | Colours | x | Side | Source |
 |---|---|---|---|---|---|---|---|
-| `24 HR LAUNDROMAT` | – | box | 7.5 × 0.62 | `#f4f2ec` on `#0d3550` | −41.6 | N side | `buildings.js:252` |
-| `CROWN & FADE BARBER` | – | neon | 7.06 × 0.62 | red `#ff3030` | −30.3 | N side | `:261` |
-| `HOLLIS DELI & GROCERY` | `OPEN 24 HRS  ·  COLD CUTS  ·  COFFEE  ·  LOTTO` | box | 8.4 × 0.74 | `#8a1410` on `#f2c21a`, sub `#ffd24a` | 16.5 | N side | `:297` |
-| `CHECKS CASHED` | `MONEY ORDERS  ·  BILLS PAID` | neon | 6.56 × 0.74 | green `#55ff8a` | −42.15 | S side | `:320` |
-| `99¢ PIZZA` | `SLICES ALL NIGHT` | box | 7.16 × 0.74 | `#fff1d0` on `#b3261e`, sub `#ff5a3a` | −34.15 | S side | `:321` |
-| `PAWN & GOLD` | `WE BUY GOLD  ·  LOANS` | neon | 4.86 × 0.74 | gold `#f6c21a` | −27.0 | S side | `:337` |
-| `TAPES · RECORDS · CDs` | – | neon | 4.66 × 0.62 | cyan `#35e0ff` | −18.9 | S side | `:338` |
-| `GOLDEN BIRD CHICKEN` | `FRIED  ·  WINGS  ·  BISCUITS` | box | 7.5 × 0.74 | `#b3261e` on `#f2c21a`, sub `#ffc84a` | 0.5 | S side | `:377` |
-| `WINES & LIQUORS` | – | neon | 7.36 × 0.62 | red `#ff3030` | 9.25 | S side | `:378` |
-| `LUCKY NAILS` | `MANICURE  ·  PEDICURE` | neon | 7.36 × 0.74 | pink `#ff3d9a` | 17.75 | S side | `:379` |
+| `24 HR LAUNDROMAT` | – | box | 7.5 × 0.62 | `#f4f2ec` on `#0d3550` | −41.6 | N side | `src/level/buildings.js:252` |
+| `CROWN & FADE BARBER` | – | neon | 7.06 × 0.62 | red `#ff3030` | −30.3 | N side | `src/level/buildings.js:261` |
+| `HOLLIS DELI & GROCERY` | `OPEN 24 HRS  ·  COLD CUTS  ·  COFFEE  ·  LOTTO` | box | 8.4 × 0.74 | `#8a1410` on `#f2c21a`, sub `#ffd24a` | 16.5 | N side | `src/level/buildings.js:297` |
+| `CHECKS CASHED` | `MONEY ORDERS  ·  BILLS PAID` | neon | 6.56 × 0.74 | green `#55ff8a` | −42.15 | S side | `src/level/buildings.js:320` |
+| `99¢ PIZZA` | `SLICES ALL NIGHT` | box | 7.16 × 0.74 | `#fff1d0` on `#b3261e`, sub `#ff5a3a` | −34.15 | S side | `src/level/buildings.js:321` |
+| `PAWN & GOLD` | `WE BUY GOLD  ·  LOANS` | neon | 4.86 × 0.74 | gold `#f6c21a` | −27.0 | S side | `src/level/buildings.js:337` |
+| `TAPES · RECORDS · CDs` | – | neon | 4.66 × 0.62 | cyan `#35e0ff` | −18.9 | S side | `src/level/buildings.js:338` |
+| `GOLDEN BIRD CHICKEN` | `FRIED  ·  WINGS  ·  BISCUITS` | box | 7.5 × 0.74 | `#b3261e` on `#f2c21a`, sub `#ffc84a` | 0.5 | S side | `src/level/buildings.js:377` |
+| `WINES & LIQUORS` | – | neon | 7.36 × 0.62 | red `#ff3030` | 9.25 | S side | `src/level/buildings.js:378` |
+| `LUCKY NAILS` | `MANICURE  ·  PEDICURE` | neon | 7.36 × 0.74 | pink `#ff3d9a` | 17.75 | S side | `src/level/buildings.js:379` |
 
 The three south-side signs at x 0.5 … 17.75 hang behind the sidewalk shed, which is why the same three names hang
 again as banners on its parapet (below). Awnings under the bands: barber navy `#1c2f5a`, deli green `#1f5a3a`, pizza
@@ -361,30 +364,30 @@ red `#b3261e`.
 | Text (headline / sub line) | Style | W × H (m) | Colours | Lit | Centre (x, y, z), facing | Source |
 |---|---|---|---|---|---|---|
 | `V&R AUTO BODY` | box | 8 × 1.05 | `#f6c21a` on `#101113` | yes | (−12, 5.4, −10.87) S, on the shop's corrugated fascia `#1a2b3a` (y 4.75 … 6.05) | `src/level/shop.js:304` |
-| `TIRES  ·  BRAKES  ·  EXHAUST` | painted | 5.4 × 0.6 | `#e9e2cf` on `#1a2b3a` | no | (−1.3, 5.4, −10.87) S | `shop.js:307` |
-| `INSPECTIONS  ·  24 HR TOWING` | painted | 5.6 × 0.6 | same | no | (−19.6, 5.4, −10.87) S | `shop.js:309` |
-| `FLAT FIX` / `NO APPOINTMENT` | stencil | 2.6 × 1.1 | `#e6e4dc` | no | (−6.1, 2.6, −10.98) S | `shop.js:311` |
-| `EXIT` | box | 0.7 × 0.3 | `#fff1d0` on `#7a1410` | yes | (5.57, 2.85, −22.1) W, inside the shop over the side door | `shop.js:114` |
-| `V&R AUTO BODY` / `COLLISION  ·  FRAME  ·  PAINT` | painted | 12 × 3.2 | `#e9e2cf` on `#1d2f3f` | no | (−23.97, 11.4, −24.5) E, the tenement's party wall above the shop roof | `buildings.js:278` |
-| `PARK` / `24 HR  ·  PAY AT BOOTH` | painted | 5 × 1.6 | `#f4f2ec` on `#1f4f9a` | no | (22.03, 2.3, 18.5) E, wall of S3 on the lot | `buildings.js:393` |
+| `TIRES  ·  BRAKES  ·  EXHAUST` | painted | 5.4 × 0.6 | `#e9e2cf` on `#1a2b3a` | no | (−1.3, 5.4, −10.87) S | `src/level/shop.js:307` |
+| `INSPECTIONS  ·  24 HR TOWING` | painted | 5.6 × 0.6 | same | no | (−19.6, 5.4, −10.87) S | `src/level/shop.js:309` |
+| `FLAT FIX` / `NO APPOINTMENT` | stencil | 2.6 × 1.1 | `#e6e4dc` | no | (−6.1, 2.6, −10.98) S | `src/level/shop.js:311` |
+| `EXIT` | box | 0.7 × 0.3 | `#fff1d0` on `#7a1410` | yes | (5.57, 2.85, −22.1) W, inside the shop over the side door | `src/level/shop.js:114` |
+| `V&R AUTO BODY` / `COLLISION  ·  FRAME  ·  PAINT` | painted | 12 × 3.2 | `#e9e2cf` on `#1d2f3f` | no | (−23.97, 11.4, −24.5) E, the tenement's party wall above the shop roof | `src/level/buildings.js:278` |
+| `PARK` / `24 HR  ·  PAY AT BOOTH` | painted | 5 × 1.6 | `#f4f2ec` on `#1f4f9a` | no | (22.03, 2.3, 18.5) E, wall of S3 on the lot | `src/level/buildings.js:393` |
 | `188 ST` / `ELEVATED  ·  CLOSED 1 AM – 5 AM` | plate | 4.6 × 0.82 | default | yes | (−39.37, 4.47, 0) E, station mezzanine | `src/level/el.js:179` |
-| `188 ST` / `STATION CLOSED` (× 2) | plate | 1.5 × 0.42 | default | yes | (−38.46, 2.39, ±8.15) E, over each stair gate | `el.js:238` |
+| `188 ST` / `STATION CLOSED` (× 2) | plate | 1.5 × 0.42 | default | yes | (−38.46, 2.39, ±8.15) E, over each stair gate | `src/level/el.js:238` |
 | `ROAD CLOSED` / `EL STRUCTURE REPAIRS  ·  NO THRU TRAFFIC` (× 2) | box | 3.4 × 1.05 | `#101113` on orange `#e8641b` | no | (−45.25, 1.75, −2.6) and (−45.25, 1.75, 3.4) E, west hoarding | `src/level/street.js:402` |
-| `SIDEWALK CLOSED` / `USE WALKWAY` (× 2) | box | 2.2 × 0.7 | same orange | no | (22.01, 1.75, 9.0) E and (20.53, 1.75, 7.03) N, hoist tower | `street.js:377` |
-| `EL REPAIRS` / `KEEP CLEAR` (× 4) | box | 1.3 × 0.5 | same orange | no | (−30.22, 1.5, 2.2) W, (−28.58, 1.5, 2.2) E, (−1.92, 1.5, −2.15) W, (−0.28, 1.5, −2.15) E, on the two rolling scaffolds | `street.js:222` |
-| `DANGER` / `STEAM  ·  KEEP OUT` (× 2) | box | 1.5 × 0.6 | `#b3261e` on `#f4f2ec` | no | (18.9, 1.65, −6.99) S and (20.1, 1.65, −9.25) N, the dig pen | `street.js:320` |
-| `NEWS  ·  MAGAZINES  ·  LOTTO` | painted | 2.4 × 0.26 | `#f4f2ec` on `#24463a` | no | (−28.7, 2.42, −9.51) N, shut news kiosk | `street.js:253` |
-| `CANDY  ·  SODA` | painted | 1.35 × 0.26 | same | no | (−42.49, 2.42, 10.08) E, kiosk beside the south stair | `street.js:421` |
-| `GOLDEN BIRD CHICKEN` | awning | 4.9 × 0.78 | `#b3261e` on `#f2c21a` | no | (4.1, 3.5, 7.44) N, banner on the shed parapet | `street.js:498` |
-| `WINES & LIQUORS` | awning | 4.9 × 0.78 | `#ff3030` on `#101113` | no | (10, 3.5, 7.44) N | `street.js:498` |
-| `LUCKY NAILS` | awning | 4.9 × 0.78 | `#ff3d9a` on `#2a0f1e` | no | (15.9, 3.5, 7.44) N | `street.js:498` |
-| `SIDEWALK SHED  ·  PERMIT 0214  ·  STORES OPEN DURING WORK` | stencil | 5.6 × 0.24 | `#e6e4dc` | no | (10, 2.7, 7.41) N, shed skirt | `street.js:507` |
-| `POST NO BILLS` (× 3) | stencil | 1.5 × 0.24 | `#e6e4dc` | no | (−16, 2.55, 8.59) N shanty; (−13.95, 2.3, 11.09) and (−6.35, 2.3, 11.09) N lot hoarding | `street.js:342`, `src/level/yards.js:289` |
-| `USED TIRES` / `ALL SIZES  ·  MOUNTED FREE` | stencil | 2 × 0.5 | yellow `#f2c21a` | no | (−19.2, 2.76, −8.5) S, on a dark steel plate over the tyre cage | `street.js:274` |
-| `NO PARKING` / `LOADING ZONE` | stencil | 1.6 × 0.6 | `#e6e4dc` | no | (16, 2.6, 26.02) S, back wall of S3 | `yards.js:367` |
-| `VIOLATORS TOWED` / `AT OWNER'S EXPENSE` | stencil | 3.4 × 0.9 | `#e6e4dc` | no | (45.98, 2.4, 19.5) W, lot east wall | `yards.js:473` |
-| `41`, `42`, … `48` | stencil | 0.7 × 0.42 | `#e6e4dc` | no | (x, 3.3, 30.98) N over the garage doors, x = −13.6, −9.2, −4.8, −0.4, 4, 8.4, 12.8, 17.2 | `buildings.js:414` |
-| `PARK` / `24 HR` (both faces) | neon | 1.7 × 1.5 | cyan `#35e0ff` | yes | (35.24, 4.7, 11.65) W and (35.46, 4.7, 11.65) E: a sign box 0.2 × 1.8 × 1.6 m (y 3.9 … 5.5) on a 5.6 m pole at the lot entrance | `yards.js:414` |
+| `SIDEWALK CLOSED` / `USE WALKWAY` (× 2) | box | 2.2 × 0.7 | same orange | no | (22.01, 1.75, 9.0) E and (20.53, 1.75, 7.03) N, hoist tower | `src/level/street.js:377` |
+| `EL REPAIRS` / `KEEP CLEAR` (× 4) | box | 1.3 × 0.5 | same orange | no | (−30.22, 1.5, 2.2) W, (−28.58, 1.5, 2.2) E, (−1.92, 1.5, −2.15) W, (−0.28, 1.5, −2.15) E, on the two rolling scaffolds | `src/level/street.js:222` |
+| `DANGER` / `STEAM  ·  KEEP OUT` (× 2) | box | 1.5 × 0.6 | `#b3261e` on `#f4f2ec` | no | (18.9, 1.65, −6.99) S and (20.1, 1.65, −9.25) N, the dig pen | `src/level/street.js:320` |
+| `NEWS  ·  MAGAZINES  ·  LOTTO` | painted | 2.4 × 0.26 | `#f4f2ec` on `#24463a` | no | (−28.7, 2.42, −9.51) N, shut news kiosk | `src/level/street.js:253` |
+| `CANDY  ·  SODA` | painted | 1.35 × 0.26 | same | no | (−42.49, 2.42, 10.08) E, kiosk beside the south stair | `src/level/street.js:421` |
+| `GOLDEN BIRD CHICKEN` | awning | 4.9 × 0.78 | `#b3261e` on `#f2c21a` | no | (4.1, 3.5, 7.44) N, banner on the shed parapet | `src/level/street.js:498` |
+| `WINES & LIQUORS` | awning | 4.9 × 0.78 | `#ff3030` on `#101113` | no | (10, 3.5, 7.44) N | `src/level/street.js:498` |
+| `LUCKY NAILS` | awning | 4.9 × 0.78 | `#ff3d9a` on `#2a0f1e` | no | (15.9, 3.5, 7.44) N | `src/level/street.js:498` |
+| `SIDEWALK SHED  ·  PERMIT 0214  ·  STORES OPEN DURING WORK` | stencil | 5.6 × 0.24 | `#e6e4dc` | no | (10, 2.7, 7.41) N, shed skirt | `src/level/street.js:507` |
+| `POST NO BILLS` (× 3) | stencil | 1.5 × 0.24 | `#e6e4dc` | no | (−16, 2.55, 8.59) N shanty; (−13.95, 2.3, 11.09) and (−6.35, 2.3, 11.09) N lot hoarding | `src/level/street.js:342`, `src/level/yards.js:289` |
+| `USED TIRES` / `ALL SIZES  ·  MOUNTED FREE` | stencil | 2 × 0.5 | yellow `#f2c21a` | no | (−19.2, 2.76, −8.5) S, on a dark steel plate over the tyre cage | `src/level/street.js:274` |
+| `NO PARKING` / `LOADING ZONE` | stencil | 1.6 × 0.6 | `#e6e4dc` | no | (16, 2.6, 26.02) S, back wall of S3 | `src/level/yards.js:367` |
+| `VIOLATORS TOWED` / `AT OWNER'S EXPENSE` | stencil | 3.4 × 0.9 | `#e6e4dc` | no | (45.98, 2.4, 19.5) W, lot east wall | `src/level/yards.js:473` |
+| `41`, `42`, … `48` | stencil | 0.7 × 0.42 | `#e6e4dc` | no | (x, 3.3, 30.98) N over the garage doors, x = −13.6, −9.2, −4.8, −0.4, 4, 8.4, 12.8, 17.2 | `src/level/buildings.js:414` |
+| `PARK` / `24 HR` (both faces) | neon | 1.7 × 1.5 | cyan `#35e0ff` | yes | (35.24, 4.7, 11.65) W and (35.46, 4.7, 11.65) E: a sign box 0.2 × 1.8 × 1.6 m (y 3.9 … 5.5) on a 5.6 m pole at the lot entrance | `src/level/yards.js:414` |
 
 Not placed by the level, but in the kit: the `street` style (prop `sign_post` variant `street`, default text
 `JAMAICA AV`, blade 0.58 × 0.15 m: `src/props/street.js:543`) and route bullets on plates.
@@ -397,37 +400,37 @@ roughness 0.88. Every poster is aged: paste ridges, dirt, about 28 nibbles out o
 
 | Kind · variant | Size (m) | Content, top to bottom | Source |
 |---|---|---|---|
-| `ipx` · 0 / 1 / 2 / 3 | 0.6 × 0.9 | A rule, the IPX mark (at most 30 % of the sheet height), `IPX.EXCHANGE`, a rule. Paper / ink: black / gold, gold / black, cream / black, oxblood `#6b1218` / cream. Nothing else | `paper.js:91` |
-| `show` · 0 | 0.6 × 0.9 | Black sheet with a gold band: `ONE NIGHT ONLY` / `RULE` (27 % of the height, black on the band) / `HOLLIS · QUEENS` / IPX mark / `IPX.EXCHANGE` | `paper.js:104` |
-| `show` · 1 | 0.6 × 0.9 | Red `#c9281e` with a 24-ray sunburst: `BLOCK` / `PARTY` (cream `#f1e6c8`); black band `SATURDAY · SUNDOWN` (gold); `DJs · OPEN MIC · ALL AGES` | `paper.js:115` |
-| `show` · 2 | 0.6 × 0.9 | Blue `#1c3a6e`: a large cassette; `THE HOLLIS` / `SESSIONS` (gold) / `LIVE ON TAPE · VOL. 3` | `paper.js:137` |
-| `show` · 3 | 0.6 × 0.9 | Yellow `#f2c21a`: a record (black disc, red label); `TAPE SWAP`; black band `RECORDS · TAPES · CDs`; `EVERY SUNDAY` | `paper.js:163` |
-| `wanted` · 0 | 0.45 × 0.6 | Paper `#e9e0c6`, black frame: `WANTED`; a hooded head and shoulders in a pale mask `#d9d4c6` with an oxblood chest band; `THE VULTURES`; `BOOTLEG CREW · REWARD` (red) | `paper.js:210` |
-| `wanted` · 1 | 0.45 × 0.6 | `MISSING` (red); three tape reels; `3 MASTER REELS`; `LAST SEEN ON THE AVENUE`; `NO QUESTIONS ASKED` (red) | `paper.js:222` |
-| `wanted` · 2 | 0.45 × 0.6 | Paper `#e6d9a8`: a struck-through cassette; `NO BOOTLEGS`; `BUY IT FROM THE ARTIST` | `paper.js:247` |
-| `ad` · 0 | 1.2 × 1.8 | Yellow with a red top band: `GOLDEN BIRD` / `CHICKEN`; a 14-point red star with `2 PC` / `$1.99`; `OPEN LATE · JAMAICA AVE` | `paper.js:269` |
-| `ad` · 1 | 1.2 × 1.8 | Cream with a green `#1f6b3a` top and a red bottom band: `99¢` / `PIZZA`; one slice; `OPEN LATE` | `paper.js:280` |
-| `ad` · 2 | 1.2 × 1.8 | Pink `#f2a6c0` over teal `#1f8a8a`, sparkles: `LUCKY` / `NAILS`; `MANICURE · PEDICURE`; `WALK-INS WELCOME` | `paper.js:312` |
-| `ad` · 3 | 1.2 × 1.8 | Blue `#1f4f9a` with bubbles: `24 HR` (gold) / `LAUNDROMAT`; `WASH · DRY · FOLD`; `DROP OFF BY 9` | `paper.js:323` |
-| `torn` · 0 / 1 / 2 | 0.5 × 0.7 | What is left of older posters: a tilted word `LIVE` (red sheet), `SALE` (yellow), `TONITE` (blue), three to five ragged tears with white fibre rims | `paper.js:343` |
+| `ipx` · 0 / 1 / 2 / 3 | 0.6 × 0.9 | A rule, the IPX mark (at most 30 % of the sheet height), `IPX.EXCHANGE`, a rule. Paper / ink: black / gold, gold / black, cream / black, oxblood `#6b1218` / cream. Nothing else | `src/mats/paper.js:91` |
+| `show` · 0 | 0.6 × 0.9 | Black sheet with a gold band: `ONE NIGHT ONLY` / `RULE` (27 % of the height, black on the band) / `HOLLIS · QUEENS` / IPX mark / `IPX.EXCHANGE` | `src/mats/paper.js:104` |
+| `show` · 1 | 0.6 × 0.9 | Red `#c9281e` with a 24-ray sunburst: `BLOCK` / `PARTY` (cream `#f1e6c8`); black band `SATURDAY · SUNDOWN` (gold); `DJs · OPEN MIC · ALL AGES` | `src/mats/paper.js:115` |
+| `show` · 2 | 0.6 × 0.9 | Blue `#1c3a6e`: a large cassette; `THE HOLLIS` / `SESSIONS` (gold) / `LIVE ON TAPE · VOL. 3` | `src/mats/paper.js:137` |
+| `show` · 3 | 0.6 × 0.9 | Yellow `#f2c21a`: a record (black disc, red label); `TAPE SWAP`; black band `RECORDS · TAPES · CDs`; `EVERY SUNDAY` | `src/mats/paper.js:163` |
+| `wanted` · 0 | 0.45 × 0.6 | Paper `#e9e0c6`, black frame: `WANTED`; a hooded head and shoulders in a pale mask `#d9d4c6` with an oxblood chest band; `THE VULTURES`; `BOOTLEG CREW · REWARD` (red) | `src/mats/paper.js:210` |
+| `wanted` · 1 | 0.45 × 0.6 | `MISSING` (red); three tape reels; `3 MASTER REELS`; `LAST SEEN ON THE AVENUE`; `NO QUESTIONS ASKED` (red) | `src/mats/paper.js:222` |
+| `wanted` · 2 | 0.45 × 0.6 | Paper `#e6d9a8`: a struck-through cassette; `NO BOOTLEGS`; `BUY IT FROM THE ARTIST` | `src/mats/paper.js:247` |
+| `ad` · 0 | 1.2 × 1.8 | Yellow with a red top band: `GOLDEN BIRD` / `CHICKEN`; a 14-point red star with `2 PC` / `$1.99`; `OPEN LATE · JAMAICA AVE` | `src/mats/paper.js:269` |
+| `ad` · 1 | 1.2 × 1.8 | Cream with a green `#1f6b3a` top and a red bottom band: `99¢` / `PIZZA`; one slice; `OPEN LATE` | `src/mats/paper.js:280` |
+| `ad` · 2 | 1.2 × 1.8 | Pink `#f2a6c0` over teal `#1f8a8a`, sparkles: `LUCKY` / `NAILS`; `MANICURE · PEDICURE`; `WALK-INS WELCOME` | `src/mats/paper.js:312` |
+| `ad` · 3 | 1.2 × 1.8 | Blue `#1f4f9a` with bubbles: `24 HR` (gold) / `LAUNDROMAT`; `WASH · DRY · FOLD`; `DROP OFF BY 9` | `src/mats/paper.js:323` |
+| `torn` · 0 / 1 / 2 | 0.5 × 0.7 | What is left of older posters: a tilted word `LIVE` (red sheet), `SALE` (yellow), `TONITE` (blue), three to five ragged tears with white fibre rims | `src/mats/paper.js:343` |
 
 35 posters are up **(measured)**; `wanted` · 0 and `ipx` · 0 exist but are not placed.
 
 | Where (facing) | Posters as kind · variant at the given spot |
 |---|---|
-| News kiosk, face at z −9.51 (N) | show · 2 at (−29.7, 0.57); torn · 1 at (−27.75, 0.55) (`street.js:246`) |
+| News kiosk, face at z −9.51 (N) | show · 2 at (−29.7, 0.57); torn · 1 at (−27.75, 0.55) (`src/level/street.js:246`) |
 | Candy kiosk, face at x −42.49 (E) | show · 2 at (z 9.75, y 0.57); torn · 1 at (z 10.35, y 0.55) |
-| West hoarding, x −45.25 (E) | show · 1 at (z −5.6, y 1.4); ipx · 1 at (z −4.9, y 1.45); torn · 2 at (z 5.8, y 1.3) (`street.js:406`) |
-| Site shanty, x −17.42 (W) | show · 0 at (z 9.3, y 1.65); ad · 1 at (z 10.05, y 1.6) (`street.js:344`) |
-| Hoist tower, x 22.02 (E) | ipx · 1 at (z 10.3, y 1.35) (`street.js:380`) |
-| Shop front, z −10.98 (S) | show · 0 at (2.2, 1.7); torn · 1 at (2.95, 1.6) (`shop.js:314`) |
-| Shop interior | north wall: ad · 3 (−2.6, 2.3), show · 1 (−1.2, 2.2), wanted · 2 (2.6, 2.0); east wall: show · 1 (z −15, y 2.2), torn · 1 (z −14.2, y 2.05); west wall: ad · 2 (z −17.6, y 2.3); office: ad · 0 (−20.2, 4.5) on its north wall, ipx · 1 (z −28.6, y 4.4) on its west wall (`shop.js:107`, `:205`) |
-| Alley, deli wall x 10.98 (W) | show · 1 (z −17.4, y 1.7); torn · 1 (z −16.7, y 1.6); wanted · 2 (z −28.6, y 1.6) (`yards.js:56`) |
-| The cut, x 22.02 (E) | ipx · 3 (z −13.2, y 1.8); show · 0 (z −12.5, y 1.75) (`yards.js:83`) |
-| Vacant-lot hoarding, z 11.09 (N) | A row, bottom edges 1.05 m up ± 0.06, gaps 0.08 … 0.5 m: west of the gateway show · 0, ad · 1, torn · 0; east of it wanted · 1, show · 1, ipx · 2, show · 3 (`yards.js:282`) |
-| Vacant lot, east wall x −4.02 (W) | ad · 3 (z 13.1, y 1.9) (`yards.js:319`) |
-| Rear lane, z 26.02 (S) | torn · 1 (4.4, 1.7) (`yards.js:366`) |
-| Lot south wall, z 33.98 (N) | ipx · 3 (38.2, 1.8) (`yards.js:477`) |
+| West hoarding, x −45.25 (E) | show · 1 at (z −5.6, y 1.4); ipx · 1 at (z −4.9, y 1.45); torn · 2 at (z 5.8, y 1.3) (`src/level/street.js:406`) |
+| Site shanty, x −17.42 (W) | show · 0 at (z 9.3, y 1.65); ad · 1 at (z 10.05, y 1.6) (`src/level/street.js:344`) |
+| Hoist tower, x 22.02 (E) | ipx · 1 at (z 10.3, y 1.35) (`src/level/street.js:380`) |
+| Shop front, z −10.98 (S) | show · 0 at (2.2, 1.7); torn · 1 at (2.95, 1.6) (`src/level/shop.js:314`) |
+| Shop interior | north wall: ad · 3 (−2.6, 2.3), show · 1 (−1.2, 2.2), wanted · 2 (2.6, 2.0); east wall: show · 1 (z −15, y 2.2), torn · 1 (z −14.2, y 2.05); west wall: ad · 2 (z −17.6, y 2.3); office: ad · 0 (−20.2, 4.5) on its north wall, ipx · 1 (z −28.6, y 4.4) on its west wall (`src/level/shop.js:107`, `:205`) |
+| Alley, deli wall x 10.98 (W) | show · 1 (z −17.4, y 1.7); torn · 1 (z −16.7, y 1.6); wanted · 2 (z −28.6, y 1.6) (`src/level/yards.js:56`) |
+| The cut, x 22.02 (E) | ipx · 3 (z −13.2, y 1.8); show · 0 (z −12.5, y 1.75) (`src/level/yards.js:83`) |
+| Vacant-lot hoarding, z 11.09 (N) | A row, bottom edges 1.05 m up ± 0.06, gaps 0.08 … 0.5 m: west of the gateway show · 0, ad · 1, torn · 0; east of it wanted · 1, show · 1, ipx · 2, show · 3 (`src/level/yards.js:282`) |
+| Vacant lot, east wall x −4.02 (W) | ad · 3 (z 13.1, y 1.9) (`src/level/yards.js:319`) |
+| Rear lane, z 26.02 (S) | torn · 1 (4.4, 1.7) (`src/level/yards.js:366`) |
+| Lot south wall, z 33.98 (N) | ipx · 3 (38.2, 1.8) (`src/level/yards.js:477`) |
 
 ### 2.11 Graffiti
 
@@ -445,29 +448,29 @@ the wall (a 55 % wear mask); roughness 0.7. 23 tags are on the block **(measured
 
 | Text | Seed · hand | Colour | Drawn (m) | Centre (x, y, z), facing | Source |
 |---|---|---|---|---|---|
-| `VULTURES` | 21 · marker | `#8a1a22` | 3.4 × 1.0 | (−3.4, 0.03, −0.7) on the road at reel 1, yaw −0.3 rad | `street.js:82` |
-| `VULTURES` | 5 · throw-up | `#8a1a22` | 3.6 × 1.1 | (45.20, 1.4, −4.6) W, roadblock scrim | `street.js:450` |
-| `VLTR` | 3 · marker | `#8a1a22` | 1.68 × 0.9 | (45.20, 1.2, 5.4) W, roadblock | `street.js:451` |
-| `VLTR` | 3 · marker | `#8a1a22` | 1.68 × 0.9 | (19.96, 0.95, 7.03) N, hoist tower | `street.js:381` |
-| `HOLLIS` | 6 · marker | `#f4f2ec` | 2.52 × 0.9 | (−45.25, 0.9, 0.4) E, west hoarding | `street.js:405` |
-| `QNS` | 4 · spray | `#35e0ff` | 1.26 × 0.9 | (−17.42, 0.85, 9.8) W, shanty | `street.js:346` |
-| `188` | 2 · throw-up | `#55ff8a` | 2.36 × 1.4 | (18.9, 1.05, −9.25) N, dig pen | `street.js:323` |
-| `VULTURES` | 5 · throw-up | `#8a1a22` | 3.2 × 1.0 | (6.02, 1.7, −15.2) E, alley, shop wall | `yards.js:53` |
-| `188` | 2 · throw-up | `#55ff8a` | 2.36 × 1.4 | (6.02, 1.5, −26.2) E, alley | `yards.js:54` |
-| `HOLLIS` | 9 · marker | `#f4f2ec` | 2.8 × 1.0 | (10.98, 1.6, −24.5) W, alley, deli wall | `yards.js:55` |
-| `QNS` | 4 · spray | `#35e0ff` | 1.26 × 0.9 | (22.02, 1.5, −22.5) E, the cut | `yards.js:82` |
-| `VULTURES` | 11 · throw-up | `#8a1a22` | 4.2 × 1.2 | (38.65, 0.03, −18.2) on the court floor, yaw 0.25 rad | `yards.js:182` |
-| `RULE` | 1 · spray | `#f6c21a` | 6.4 × 2.3 | (−15.97, 6.55, 15.6) E, across the mural | `yards.js:265` |
-| `HOLLIS` | 6 · marker | `#f4f2ec` | 2.6 × 0.8 | (−15.97, 1.25, 22.9) E, mural wall | `yards.js:266` |
-| `QUEENS` | 8 · throw-up | `#35e0ff` | 2.2 × 0.75 | (−15.97, 1.05, 12.6) E, mural wall | `yards.js:267` |
-| `NO SLEEP` | 14 · throw-up | `#9a5cff` | 5.46 × 1.4 | (−15.97, 1.4, 26.6) E, mural wall toward the lane | `yards.js:268` |
-| `VLTR` | 3 · marker | `#8a1a22` | 2.4 × 0.9 | (−4.02, 1.5, 15.2) W, vacant lot | `yards.js:317` |
-| `JAMAICA AVE` | 10 · spray | `#55ff8a` | 4.62 × 0.9 | (−4.02, 1.2, 19) W, vacant lot | `yards.js:318` |
-| `INC` | 12 · marker | `#f6c21a` | 1.26 × 0.9 | (2.4, 1.5, 26.02) S, rear lane | `yards.js:365` |
-| `188` | 16 · spray | `#ff3d9a` | 1.26 × 0.9 | (45.98, 1.4, 26.4) W, lot east wall | `yards.js:474` |
-| `QUEENS` | 15 · marker | `#f6c21a` | 2.8 × 0.95 | (27.2, 1.5, 33.98) N, lot south wall | `yards.js:476` |
-| `VULTURES` | 3 · marker | `#8a1a22` | 3.6 × 1.1 | (−6.1, 2.5, −11.42) N, inside the shop | `shop.js:113` |
-| `VLTR` | 7 · spray | `#8a1a22` | 1.68 × 0.9 | (3.6, 1.5, −10.98) S, shop front | `shop.js:313` |
+| `VULTURES` | 21 · marker | `#8a1a22` | 3.4 × 1.0 | (−3.4, 0.03, −0.7) on the road at reel 1, yaw −0.3 rad | `src/level/street.js:82` |
+| `VULTURES` | 5 · throw-up | `#8a1a22` | 3.6 × 1.1 | (45.20, 1.4, −4.6) W, roadblock scrim | `src/level/street.js:450` |
+| `VLTR` | 3 · marker | `#8a1a22` | 1.68 × 0.9 | (45.20, 1.2, 5.4) W, roadblock | `src/level/street.js:451` |
+| `VLTR` | 3 · marker | `#8a1a22` | 1.68 × 0.9 | (19.96, 0.95, 7.03) N, hoist tower | `src/level/street.js:381` |
+| `HOLLIS` | 6 · marker | `#f4f2ec` | 2.52 × 0.9 | (−45.25, 0.9, 0.4) E, west hoarding | `src/level/street.js:405` |
+| `QNS` | 4 · spray | `#35e0ff` | 1.26 × 0.9 | (−17.42, 0.85, 9.8) W, shanty | `src/level/street.js:346` |
+| `188` | 2 · throw-up | `#55ff8a` | 2.36 × 1.4 | (18.9, 1.05, −9.25) N, dig pen | `src/level/street.js:323` |
+| `VULTURES` | 5 · throw-up | `#8a1a22` | 3.2 × 1.0 | (6.02, 1.7, −15.2) E, alley, shop wall | `src/level/yards.js:53` |
+| `188` | 2 · throw-up | `#55ff8a` | 2.36 × 1.4 | (6.02, 1.5, −26.2) E, alley | `src/level/yards.js:54` |
+| `HOLLIS` | 9 · marker | `#f4f2ec` | 2.8 × 1.0 | (10.98, 1.6, −24.5) W, alley, deli wall | `src/level/yards.js:55` |
+| `QNS` | 4 · spray | `#35e0ff` | 1.26 × 0.9 | (22.02, 1.5, −22.5) E, the cut | `src/level/yards.js:82` |
+| `VULTURES` | 11 · throw-up | `#8a1a22` | 4.2 × 1.2 | (38.65, 0.03, −18.2) on the court floor, yaw 0.25 rad | `src/level/yards.js:182` |
+| `RULE` | 1 · spray | `#f6c21a` | 6.4 × 2.3 | (−15.97, 6.55, 15.6) E, across the mural | `src/level/yards.js:265` |
+| `HOLLIS` | 6 · marker | `#f4f2ec` | 2.6 × 0.8 | (−15.97, 1.25, 22.9) E, mural wall | `src/level/yards.js:266` |
+| `QUEENS` | 8 · throw-up | `#35e0ff` | 2.2 × 0.75 | (−15.97, 1.05, 12.6) E, mural wall | `src/level/yards.js:267` |
+| `NO SLEEP` | 14 · throw-up | `#9a5cff` | 5.46 × 1.4 | (−15.97, 1.4, 26.6) E, mural wall toward the lane | `src/level/yards.js:268` |
+| `VLTR` | 3 · marker | `#8a1a22` | 2.4 × 0.9 | (−4.02, 1.5, 15.2) W, vacant lot | `src/level/yards.js:317` |
+| `JAMAICA AVE` | 10 · spray | `#55ff8a` | 4.62 × 0.9 | (−4.02, 1.2, 19) W, vacant lot | `src/level/yards.js:318` |
+| `INC` | 12 · marker | `#f6c21a` | 1.26 × 0.9 | (2.4, 1.5, 26.02) S, rear lane | `src/level/yards.js:365` |
+| `188` | 16 · spray | `#ff3d9a` | 1.26 × 0.9 | (45.98, 1.4, 26.4) W, lot east wall | `src/level/yards.js:474` |
+| `QUEENS` | 15 · marker | `#f6c21a` | 2.8 × 0.95 | (27.2, 1.5, 33.98) N, lot south wall | `src/level/yards.js:476` |
+| `VULTURES` | 3 · marker | `#8a1a22` | 3.6 × 1.1 | (−6.1, 2.5, −11.42) N, inside the shop | `src/level/shop.js:113` |
+| `VLTR` | 7 · spray | `#8a1a22` | 1.68 × 0.9 | (3.6, 1.5, −10.98) S, shop front | `src/level/shop.js:313` |
 
 Every box truck also carries `RULE` (cream `#e9e4d6`) on one flank and `HOLLIS` (gold `#f6c21a`) on the other, scaled to
 fit 2.6 × 1.2 m (`src/props/vehicles.js:749`).
@@ -556,19 +559,19 @@ Source of every region: `src/props/atlas.js:274` to `:858`; plates `src/props/at
 | Kind | Size (m) | Variants | Rough | Look | Where the level uses it |
 |---|---|---|---|---|---|
 | `lane` | any length × 0.12 | 1 | 0.6 | Worn white road paint `rgb(226,224,214)`, scuffed, pin-holed, cracked crust; tiles every metre | Parking ticks every 5.8 m at both kerbs (\|z\| 5.1 … 6.98), stop bars 0.4 m wide at x 21.9 and 27.7, lot bays 0.1 m, court lines 0.07 m (`src/level/ground.js:94`, `:110`) |
-| `lane_yellow` | any × 0.12 | 1 | 0.6 | Worn yellow `rgb(222,170,28)` | Double centre line at z ± 0.15 from x −96 to 22.6 and 27 to 96 (`ground.js:86`) |
-| `crosswalk` | 4 × 3 nominal | 1 | 0.6 | Ladder crossing: one bar per metre, 0.45 m wide, running the depth | One mid-block crossing x 23 … 26.6 across 13.6 m of road (`ground.js:102`) |
-| `arrow` | 1.2 × 3 | 1 | 0.6 | Straight-ahead lane arrow | Avenue: (−29, 2.3) and (15.5, 2.3) pointing east, (−12, −2.3) and (34, −2.3) pointing west; two in the lot (`ground.js:114`, `yards.js:430`) |
+| `lane_yellow` | any × 0.12 | 1 | 0.6 | Worn yellow `rgb(222,170,28)` | Double centre line at z ± 0.15 from x −96 to 22.6 and 27 to 96 (`src/level/ground.js:86`) |
+| `crosswalk` | 4 × 3 nominal | 1 | 0.6 | Ladder crossing: one bar per metre, 0.45 m wide, running the depth | One mid-block crossing x 23 … 26.6 across 13.6 m of road (`src/level/ground.js:102`) |
+| `arrow` | 1.2 × 3 | 1 | 0.6 | Straight-ahead lane arrow | Avenue: (−29, 2.3) and (15.5, 2.3) pointing east, (−12, −2.3) and (34, −2.3) pointing west; two in the lot (`src/level/ground.js:114`, `src/level/yards.js:430`) |
 | `oil` | 1.6 × 1.2 | 3 | 0.16 | Sump oil, black at the heart, faint rainbow arcs at the rim | 14 at random along both parking lanes; shop floor; lane; lot |
 | `crack` | 2 × 0.6 | 3 | 0.95 | A branching crack with crumbled shoulders | 16 at random across the roadway; 4 in the lot |
 | `grime` | 2 × 2 | 3 | 0.95 | Ground-in dirt | 12 along the gutters; alley; lane; shop floor |
-| `scorch` | 3 × 3 | 2 | 1.0 | Blast mark: burnt black centre, 46 soot rays | Under the burned-out car in the vacant lot, stretched to 5.5 × 4.2 (`yards.js:296`) |
+| `scorch` | 3 × 3 | 2 | 1.0 | Blast mark: burnt black centre, 46 soot rays | Under the burned-out car in the vacant lot, stretched to 5.5 × 4.2 (`src/level/yards.js:296`) |
 | `manhole` | 0.9 × 0.9 | 1 | 0.55, metal 0.65 | Cast-iron cover with waffle tread, two pick holes, a tar collar | Available; the six manholes of the level are props |
 | `bullet` | 0.12 × 0.12 | 3 | 0.9 | A dark hole in a pale crater with hairline cracks | Available; live bullet holes come from the effects system (2.24) |
 | `puddle` | 2.4 × 1.6 | 3 | 0.04 | Standing water, nearly black, firm shoreline | Available; the level uses `asphalt_wet` blobs instead |
 
 Yellow kerb paint (solid `paint_yellow`): south kerb x −16.4 … −12.6 at the hydrant, north kerb x 27.2 … 31.2 at the bus
-stop (`ground.js:120`). The random street decals are seeded (same every run with the default seed 1994).
+stop (`src/level/ground.js:120`). The random street decals are seeded (same every run with the default seed 1994).
 
 ### 2.15 The two rigs: day (default) and night
 
@@ -578,42 +581,42 @@ effective values **(measured)** against the constants.
 
 | | DAY (default, "4:15 PM") | NIGHT ("02:14 AM") | Source |
 |---|---|---|---|
-| Key light: what it is | The sun | "Steep, warm, standing in for the street lights". Not the moon | `look.js:95`, `:331` |
-| Key: direction the light travels | (0.553, −0.788, −0.271) | (−0.38, −1, −0.3), normalised (−0.342, −0.900, −0.270) | `look.js:316`, `:99` |
+| Key light: what it is | The sun | "Steep, warm, standing in for the street lights". Not the moon | `src/config/look.js:95`, `:331` |
+| Key: direction the light travels | (0.553, −0.788, −0.271) | (−0.38, −1, −0.3), normalised (−0.342, −0.900, −0.270) | `src/config/look.js:316`, `:99` |
 | Key: where it stands in the sky **(derived)** | Elevation 52.0°, compass bearing 243.9° (west-south-west) | Elevation 64.2°, bearing 128.3° (south-east) | – |
-| Key: colour, intensity | `#ffe6c6`, 5 game lux | `#ffb873`, 2.6 game lux | `look.js:332`, `:97` |
-| Key: shadows | One shadow map over the whole block, depth bias 0.03 m, normal bias 0.03 | Same map, bias 0.045 m, normal bias 0.035 | `look.js:336`, `:101` |
+| Key: colour, intensity | `#ffe6c6`, 5 game lux | `#ffb873`, 2.6 game lux | `src/config/look.js:332`, `:97` |
+| Key: shadows | One shadow map over the whole block, depth bias 0.03 m, normal bias 0.03 | Same map, bias 0.045 m, normal bias 0.035 | `src/config/look.js:336`, `:101` |
 | Shadow frustum (fitted, **measured**) | Orthographic 106 m × 107 m, 89 m deep; 2.6 cm texels at 4096, 5.2 cm at 2048 | 115 m × 117 m, 72 m deep; 2.8 cm at 4096 | `src/atmos/plan.js:53` |
-| Ambient hemisphere | sky `#c0c6cc`, ground `#b09474`, intensity 1.0: "a near-neutral sky fill: the blue is in the environment map already, and shade must stay grey" | sky `#6e86be`, ground `#4a3a2c`, intensity 1.7: "shadows must stay readable at night: a dark figure against a dim wall at 40 m" | `look.js:340`, `:89` |
-| Haze colour (linear) | [0.6, 0.7, 0.86] | [0.03, 0.03, 0.036] | `look.js:342`, `:78` |
-| Haze density (squared-exponential) | 0.0032: 1.6 % at 40 m, 8.3 % at 92 m, 34 % at 200 m, 81 % at 400 m | 0.006: 5.6 % at 40 m, 26 % at 92 m, 76 % at 200 m | `look.js:343`, `:79` |
-| Haze tint by view direction (× the colour) | toward west [1.1, 1.04, 0.94], toward east [0.93, 0.98, 1.06] | toward west [3.1, 1.5, 0.68] (the city glow), toward east [0.72, 0.9, 1.22] (the moon side) | `look.js:377`, `:80` |
-| Haze outside the bounds | Extra: starts 4 m past the bounds, 2 % of the scene left 105 m out (both rigs) | same | `look.js:84` |
-| Sky dome | Day sky (2.16) | Night sky (2.16) | `atmos.js:285` |
-| Image-based light | Day sky at × 0.6 without the sun disc, over stand-ins: facades [0.24, 0.18, 0.14], street [0.19, 0.17, 0.15] | Night sky over facades [0.03, 0.022, 0.02], street [0.02, 0.017, 0.016], plus a soft blob for each of the 48 strongest lamps (colour × 9 × kind factor) | `look.js:345`, `:138`; `src/atmos/sky.js:193` |
-| Tone mapping | ACES filmic (three.js fit, scene × exposure / 0.6) | same | `look.js:12`, `src/render.js:408` |
-| Exposure | 1.1 | 1.4 | `look.js:321`, `:13` |
-| Bloom: strength / radius / threshold / knee | 0.16 / 0.42 / 2.4 / 0.6 ("only the sun, glints, muzzle flashes and chrome") | 0.4 / 0.62 / 1.05 / 0.4 ("emissive values above about 1 bloom, lit asphalt and brick never do") | `look.js:322`, `:14` |
-| Vignette / grain / chromatic aberration / saturation | 0.12 / 0.008 / 0.0004 / 1.05 | 0.34 / 0.03 / 0.001 / 1.08 | `look.js:326`, `:18` |
-| Inside the shop | exposure × 1.35 ("the eye opens up"), ambient × 0.62 and its sky colour toward `#d8d0c4`, haze × 0.5 | exposure × 0.86 ("the eye is on bright tungsten"), ambient × 0.62 toward `#a9a0a0`, haze × 0.5 | `look.js:346`, `:228` |
-| Real lamp lights by kind (gain) | work 1, neon 0.35, street / el / flood / window 0 | all 1 | `look.js:348`, `:368` |
-| Light pools, cones, fixture glows | hidden | shown | `look.js:349`, `:369` |
+| Ambient hemisphere | sky `#c0c6cc`, ground `#b09474`, intensity 1.0: "a near-neutral sky fill: the blue is in the environment map already, and shade must stay grey" | sky `#6e86be`, ground `#4a3a2c`, intensity 1.7: "shadows must stay readable at night: a dark figure against a dim wall at 40 m" | `src/config/look.js:340`, `:89` |
+| Haze colour (linear) | [0.6, 0.7, 0.86] | [0.03, 0.03, 0.036] | `src/config/look.js:342`, `:78` |
+| Haze density (squared-exponential) | 0.0032: 1.6 % at 40 m, 8.3 % at 92 m, 34 % at 200 m, 81 % at 400 m | 0.006: 5.6 % at 40 m, 26 % at 92 m, 76 % at 200 m | `src/config/look.js:343`, `:79` |
+| Haze tint by view direction (× the colour) | toward west [1.1, 1.04, 0.94], toward east [0.93, 0.98, 1.06] | toward west [3.1, 1.5, 0.68] (the city glow), toward east [0.72, 0.9, 1.22] (the moon side) | `src/config/look.js:377`, `:80` |
+| Haze outside the bounds | Extra: starts 4 m past the bounds, 2 % of the scene left 105 m out (both rigs) | same | `src/config/look.js:84` |
+| Sky dome | Day sky (2.16) | Night sky (2.16) | `src/atmos.js:285` |
+| Image-based light | Day sky at × 0.6 without the sun disc, over stand-ins: facades [0.24, 0.18, 0.14], street [0.19, 0.17, 0.15] | Night sky over facades [0.03, 0.022, 0.02], street [0.02, 0.017, 0.016], plus a soft blob for each of the 48 strongest lamps (colour × 9 × kind factor) | `src/config/look.js:345`, `:138`; `src/atmos/sky.js:193` |
+| Tone mapping | ACES filmic (three.js fit, scene × exposure / 0.6) | same | `src/config/look.js:12`, `src/render.js:408` |
+| Exposure | 1.1 | 1.4 | `src/config/look.js:321`, `:13` |
+| Bloom: strength / radius / threshold / knee | 0.16 / 0.42 / 2.4 / 0.6 ("only the sun, glints, muzzle flashes and chrome") | 0.4 / 0.62 / 1.05 / 0.4 ("emissive values above about 1 bloom, lit asphalt and brick never do") | `src/config/look.js:322`, `:14` |
+| Vignette / grain / chromatic aberration / saturation | 0.12 / 0.008 / 0.0004 / 1.05 | 0.34 / 0.03 / 0.001 / 1.08 | `src/config/look.js:326`, `:18` |
+| Inside the shop | exposure × 1.35 ("the eye opens up"), ambient × 0.62 and its sky colour toward `#d8d0c4`, haze × 0.5 | exposure × 0.86 ("the eye is on bright tungsten"), ambient × 0.62 toward `#a9a0a0`, haze × 0.5 | `src/config/look.js:346`, `:228` |
+| Real lamp lights by kind (gain) | work 1, neon 0.35, street / el / flood / window 0 | all 1 | `src/config/look.js:348`, `:368` |
+| Light pools, cones, fixture glows | hidden | shown | `src/config/look.js:349`, `:369` |
 | Sign glow / neon glow / window layer glow | × 0.3 / × 0.55 / × 0 | × 1 / × 1 / × 1 (window layer emissive 1.6) | `src/mats.js:159` |
-| Lit glass (`glass_lit_*`, `glass_car_lit`) | glow 0: dark glass | glows | `mats.js:122` |
-| Street | dry; wet only in the hydrant's reach (2.6); ground albedo switches to the day colours | soaked | `mats.js:334` |
-| Car paint and car glass reflections | × 1 | × 0.4 (lamp blobs of the single capture would float on the bodies) | `mats.js:100` |
-| Far city sheet / skyline | sunlit sheet × [1.08, 1.05, 1.02]; no window glow; skyline sunk 36 % / 56 % into the haze; no lights | dark sheet × [0.952, 0.918, 0.935] (wall 0.56 × window gain 1.7); skyline window gain 1.275; sunk 50 % / 74 %; switching windows, aviation lights, traffic, plane | `look.js:350`, `:370` |
-| Train windows | emissive × 0.1, no stripes on the road | emissive × 1, stripes | `look.js:351`, `:371` |
-| Steam | colour [0.82, 0.83, 0.86] (sunlit white), opacity × 1.25 | tinted by the lamps near each column, opacity × 1 | `look.js:352`, `:372` |
+| Lit glass (`glass_lit_*`, `glass_car_lit`) | glow 0: dark glass | glows | `src/mats.js:122` |
+| Street | dry; wet only in the hydrant's reach (2.6); ground albedo switches to the day colours | soaked | `src/mats.js:334` |
+| Car paint and car glass reflections | × 1 | × 0.4 (lamp blobs of the single capture would float on the bodies) | `src/mats.js:100` |
+| Far city sheet / skyline | sunlit sheet × [1.08, 1.05, 1.02]; no window glow; skyline sunk 36 % / 56 % into the haze; no lights | dark sheet × [0.952, 0.918, 0.935] (wall 0.56 × window gain 1.7); skyline window gain 1.275; sunk 50 % / 74 %; switching windows, aviation lights, traffic, plane | `src/config/look.js:350`, `:370` |
+| Train windows | emissive × 0.1, no stripes on the road | emissive × 1, stripes | `src/config/look.js:351`, `:371` |
+| Steam | colour [0.82, 0.83, 0.86] (sunlit white), opacity × 1.25 | tinted by the lamps near each column, opacity × 1 | `src/config/look.js:352`, `:372` |
 | Hydrant spray | [0.85, 0.92, 1.0] | [0.1, 0.12, 0.14] | same |
 | Moths and dust motes / pigeons | off / on | on / off | same |
 | Effects (2.23) | additive × 2.4, tracers × 2.2, both get a dark body; darker blast soot; screen flash × 0.3 | as authored | `src/fx/particles.js:166`, `src/fx/tracers.js:126` |
 
-Notes. The `shadowRadius` constants (1.2 by day, 2.5 at night: `look.js:335`, `:103`) have **no effect**: the renderer
+Notes. The `shadowRadius` constants (1.2 by day, 2.5 at night: `src/config/look.js:335`, `:103`) have **no effect**: the renderer
 uses the fixed-kernel soft filter (`src/render.js:412`), which ignores the radius, so shadow softness is about two texels
 in both rigs. Lamp lenses, tail lights and other self-lit props are not part of the switch: they keep their night
 values by day (2.17). The viewmodel has its own two lights (hemisphere `#8fa4cc` / `#4a3626` × 3.5, key `#ffc890`
-× 2.6 along the night key's direction: `look.js:109`), which the weapon retunes by day (weapon spec).
+× 2.6 along the night key's direction: `src/config/look.js:109`), which the weapon retunes by day (weapon spec).
 
 ### 2.16 The sky domes
 
@@ -630,7 +633,7 @@ Both skies are shaders on a box drawn at the far plane, rotating with the camera
 | Horizon | Below about 5° of elevation the sky blends into the haze colour × its directional tint (the dome is also the "ground" beyond the world) |
 | For the image-based light | Captured once at 0.6 × brightness with the disc removed |
 
-**Night sky** (`sky`, `look.js:44`; `src/atmos/sky.js:75`).
+**Night sky** (`sky`, `src/config/look.js:44`; `src/atmos/sky.js:75`).
 
 | Element | Value |
 |---|---|
@@ -646,7 +649,7 @@ Both skies are shaders on a box drawn at the far plane, rotating with the camera
 The level registers **90 lamp hints** **(measured)**; the atmosphere adds 40 virtual ones outside the bounds (30 El
 lamps every 10 m out to 150 m, 10 street lamps every 31 m). A hint is {position, colour, intensity in game cd, range,
 kind, priority, optional aim} (`src/level/kit.js:571`; default priority by kind: work 10, flood 9, street 6, el 5,
-neon 4, window 2, `kit.js:54`).
+neon 4, window 2, `src/level/kit.js:54`).
 
 | Group | Count | Kind | Colour | Intensity / range | Where (x, y, z) |
 |---|---|---|---|---|---|
@@ -658,7 +661,7 @@ neon 4, window 2, `kit.js:54`).
 | Storefront sign lamps | 10 | neon | the sign's glow: `#cfe4ff` laundromat, `#ff3030` barber, `#ffd24a` deli, `#55ff8a` checks, `#ff5a3a` pizza, `#f6c21a` pawn, `#35e0ff` records, `#ffc84a` chicken, `#ff3030` liquor, `#ff3d9a` nails | 12 (neon signs) or 9 (box signs) / 9 | (sign x, 3.25, ∓10.3) (`src/level/buildings.js:147`) |
 | Lit shop interiors | 4 | window | cool `#cfe4ff` laundromat; warm `#ffc98a` deli, pizza, chicken | 10 / 9 | (sign x, 1.9, ∓9.5) |
 | Other windows | 8 | window | `#ffc98a`, `#ffc48a`, `#dfe8ff` | 6 … 14 / 4.5 … 8 | Residents' door transom, pawn vestibule, produce stand, lot booth, three phone booths, bus shelter |
-| Service-door bulkheads | 6 | street | warm `#ffc98a` (4), cool `#cfe4ff` (2) | 14 / 8 | 2.3 m up over each back door (`buildings.js:233`) |
+| Service-door bulkheads | 6 | street | warm `#ffc98a` (4), cool `#cfe4ff` (2) | 14 / 8 | 2.3 m up over each back door (`src/level/buildings.js:233`) |
 | Garage lamps | 3 | street | `#ffb45e` | 18 / 10 | (−7.1 / 6.1 / 19.3, 3.0, 30.6) |
 | Shop high-bay work lights | 4 | work | `#ffc48a` | 34 / 13 | (−18.2, 5, −17.2), (−9.2, 5, −22.4), (−9.2, 5, −14.6), (0.6, 5, −21.2), aimed down (`src/level/shop.js:295`) |
 | Shop: office tube, under-mezzanine tube, side-door lamp, three fascia goosenecks | 6 | work, work, street, street | `#fff1d0`, `#cfe4ff`, `#ffc48a` | 14 / 8, 8 / 6, 16 / 9, 16 / 10 | (−20.6, 5.0, −28.8), (−20, 2.4, −30.2), (6.5, 2.85, −22.1), (−21.5 / −12 / −1.3, 6.2, −10.28) |
@@ -690,7 +693,7 @@ surface it lights (at least 2 m): 0.078 under a cobra head, 0.060 under an El la
 0.38 under a cage flood, 0.28 in front of a neon sign **(derived)** (`src/atmos/lampfield.js:188`). Pools are never an
 even disc (a 0.62 … 1.0 noise at 2.4 m and 0.4 m scales) and keep 22 % inside a shadow of the key light. On top, one
 faint "sheen" of street light `#f0b888` × 0.02 covers the whole block and is cut by the key's shadows, so near-black
-asphalt still carries the stripes of the El and the shadow of whoever stands on it (`look.js:161`). Glows never
+asphalt still carries the stripes of the El and the shadow of whoever stands on it (`src/config/look.js:161`). Glows never
 shrink below 0.0035 rad, so far lamps stay points of light. Two "tired" sodium lamps (chosen by the seed among
 street and El lamps of priority under 6) buzz and drop out (3.6).
 
@@ -734,12 +737,12 @@ All of it is unlit and fogged by the haze.
 | Thing | Facts | Source |
 |---|---|---|
 | Steam columns | At the 6 `level.steam` points **(measured)**: manholes (−22.5, −1.8), (6.4, −2.4), (30.5, −0.9); the alley grate (8.5, −24.6); the rear-lane grate (1.8, 28.4); the striped vent stack over the dig (19.5, 3.85, −8.1). Each: 11 soft puffs (60 % of them at `low`), rising 6.2 m in 4.96 s (fast out of the grate, slowing), drifting 1.5 m sideways, growing from 0.55 m to 2.6 m radius, opacity 0.2, never opaque within 0.6 … 2.4 m of the camera. Colour: day [0.82, 0.83, 0.86]; night [0.2, 0.18, 0.17] plus the light of lamps within 14 m. Leans west with a 1.1 m / s breeze. On top of each column the effects system runs a `steam` emitter (2.25) | `src/config/look.js:277`, `src/atmos/life.js:28` |
-| Open hydrant | 260 droplets in a ballistic arc from the nozzle (−12.25, 0.5, 7.12) heading north: 5.2 m / s out, 1.56 m / s up, ± 7 % spread, landing about 2.7 m out after 0.52 s; two low mist columns where it lands (3.2 m and 1.8 m out, 1.5 m tall, opacity 0.1 and 0.06) | `look.js:280`, `life.js:209`, `:551` |
-| Moths and dust (night, medium and up) | Around the 8 brightest open-air lamps: 13 points each, 6 of them moths (orbit radius 0.25 … 0.9 m, 2.2 … 5.5 rad / s, 0.25 m under the lamp), 7 dust motes (0.4 … 2.2 m, 0.08 … 0.3 rad / s, 0.6 … 3.2 m below); 1 … 3.5 px points in the lamp's colour × 1.5 | `look.js:278`, `life.js:136` |
-| Loose paper | 7 newspaper sheets 0.22 × 0.30 m on the avenue. A steady draught (−1.1, 0.25) m / s moves only what is already loose (15 %); a gust of 2.2 … 3.6 m / s down the avenue (either way, ± 0.5 rad) every 5 … 13 s for 1.6 … 3.2 s lifts anything; a passing train adds 3.2 m / s along its direction within 8 m of the track. Above 1.1 m / s a sheet lifts (up to 0.28 m) and tumbles; it slides along cars and walls, and re-appears elsewhere if wedged for 6 s out of sight (25 m) | `look.js:279`, `life.js:304` |
-| Pigeons (day) | 20 birds in three loose flocks wheeling over the roofs: 9 around (−8, 0) at 15 … 24 m, radius 9 … 22 m; 6 around (36, 20) at 18 … 30 m, radius 6 … 14 m, the other way round; 5 around (−71, −30) at 24 … 34 m, radius 10 … 18 m. 0.16 … 0.26 rad / s, orbits flattened to 55 … 80 % north-south, bobbing ± 1.6 m; wings flap at about 15 … 19 rad / s in bursts and glide in between. Body 0.46 m, wingspan 0.75 m, near-black silhouettes [0.035, 0.036, 0.04] | `look.js:281`, `life.js:444`, `:581` |
+| Open hydrant | 260 droplets in a ballistic arc from the nozzle (−12.25, 0.5, 7.12) heading north: 5.2 m / s out, 1.56 m / s up, ± 7 % spread, landing about 2.7 m out after 0.52 s; two low mist columns where it lands (3.2 m and 1.8 m out, 1.5 m tall, opacity 0.1 and 0.06) | `src/config/look.js:280`, `src/atmos/life.js:209`, `:551` |
+| Moths and dust (night, medium and up) | Around the 8 brightest open-air lamps: 13 points each, 6 of them moths (orbit radius 0.25 … 0.9 m, 2.2 … 5.5 rad / s, 0.25 m under the lamp), 7 dust motes (0.4 … 2.2 m, 0.08 … 0.3 rad / s, 0.6 … 3.2 m below); 1 … 3.5 px points in the lamp's colour × 1.5 | `src/config/look.js:278`, `src/atmos/life.js:136` |
+| Loose paper | 7 newspaper sheets 0.22 × 0.30 m on the avenue. A steady draught (−1.1, 0.25) m / s moves only what is already loose (15 %); a gust of 2.2 … 3.6 m / s down the avenue (either way, ± 0.5 rad) every 5 … 13 s for 1.6 … 3.2 s lifts anything; a passing train adds 3.2 m / s along its direction within 8 m of the track. Above 1.1 m / s a sheet lifts (up to 0.28 m) and tumbles; it slides along cars and walls, and re-appears elsewhere if wedged for 6 s out of sight (25 m) | `src/config/look.js:279`, `src/atmos/life.js:304` |
+| Pigeons (day) | 20 birds in three loose flocks wheeling over the roofs: 9 around (−8, 0) at 15 … 24 m, radius 9 … 22 m; 6 around (36, 20) at 18 … 30 m, radius 6 … 14 m, the other way round; 5 around (−71, −30) at 24 … 34 m, radius 10 … 18 m. 0.16 … 0.26 rad / s, orbits flattened to 55 … 80 % north-south, bobbing ± 1.6 m; wings flap at about 15 … 19 rad / s in bursts and glide in between. Body 0.46 m, wingspan 0.75 m, near-black silhouettes [0.035, 0.036, 0.04] | `src/config/look.js:281`, `src/atmos/life.js:444`, `:581` |
 | Neon hum | Every neon sign ripples ± 3 % and ± 2 % at two rates (9 … 15 rad / s); a "tired tube" stutter exists (3.6) | `src/mats.js:791` |
-| Tired lamps | Two sodium lamps buzz and drop out (3.6) | `look.js:222` |
+| Tired lamps | Two sodium lamps buzz and drop out (3.6) | `src/config/look.js:222` |
 | The train | 2.20 | |
 
 ### 2.20 The El train
@@ -860,7 +863,7 @@ Everything the effects system draws comes out of fixed pools (`src/fx.js:29`). N
 | Additive billboards: flashes, sparks, flames, embers, glints | 3,040 | yes | same |
 | First-person flash sprites | 32 | no | Only used when the weapon has no flash of its own: never in the shipped game |
 | Tracers | 48 | no | Entries are overwritten in turn (`src/fx/tracers.js:25`) |
-| Debris bodies (chips, splinters, fragments) | 256 | yes | Oldest overwritten |
+| Debris bodies (chips, splinters, fragments) | 256 | yes | The body nearest the end of its life is replaced (`src/fx/bits.js:293`) |
 | Shell casings | 60 | no | Ring buffer: a casing lies where it came to rest until its slot comes round again |
 | Decals (bullet holes, scorch) | 256 | no | Ring buffer: the oldest mark disappears |
 | Emitters | 24 | no | The finite emitter nearest its end is replaced; endless ones never (`src/fx/emitters.js:506`) |
@@ -962,15 +965,16 @@ Counts are at `k` = 1. "Size a → b" is the billboard's diameter at birth and a
 are linear HDR values (additive) or albedo (lit).
 
 **Muzzle flash, third person** (`muzzleFlash`, `src/fx/recipes.js:576`): what an enemy gun shows, and what a
-spectator would see of the player's. `s` = the caller's scale. All flash parts live one draw of 0.036 … 0.056 s.
+spectator would see of the player's. `S` = the caller's scale (a plain number). All flash parts live one draw of
+0.036 … 0.056 seconds.
 
 | Part | Count | Where | Size | Colour | Motion |
 |---|---|---|---|---|---|
-| Core | 1 glow | 0.05 m ahead of the muzzle | 0.3 s → × 1.5 | [3.6, 2.7, 1.5] | – |
-| Star | 1 | 0.08 m ahead | 0.5 s × rand(0.8, 1.3) → × 1.5, random roll | [2.2, 1.5, 0.75] | – |
-| Flame tongues | 2 streaks | 0.16 s and 0.32 s ahead | 0.2 s and 0.13 s wide, stretched 0.045 s seconds of travel | [2.4, 1.5, 0.6] | 7 m / s along the bore |
+| Core | 1 glow | 0.05 m ahead of the muzzle | 0.3 S m → × 1.5 | [3.6, 2.7, 1.5] | – |
+| Star | 1 | 0.08 m ahead | 0.5 S m × rand(0.8, 1.3) → × 1.5, random roll | [2.2, 1.5, 0.75] | – |
+| Flame tongues | 2 streaks | 0.16 S and 0.32 S m ahead | 0.2 S and 0.13 S m wide, drawn as long as they travel in 0.045 S seconds | [2.4, 1.5, 0.6] | 7 m / s along the bore |
 | Sparks | 3 | muzzle | 1.6 … 3 cm → half | hot sparks × 3.5 | cone 0.3 rad, 8 … 17 m / s, life 0.1 … 0.22 s, gravity, bounce |
-| Smoke | 1 lit puff (`steam` cell, soft) | 0.2 m ahead | 0.1 s → 0.5 s | `#b5b0a8`, opacity 0.14 | 1.1 m / s forward + 0.35 up, life 0.45 … 0.75 s |
+| Smoke | 1 lit puff (`steam` cell, soft) | 0.2 m ahead | 0.1 S → 0.5 S m | `#b5b0a8`, opacity 0.14 | 1.1 m / s forward + 0.35 up, life 0.45 … 0.75 s |
 
 Callers: Goon rifle scale 0.7, with a light `#ff7a3c` 14 game cd, range 7 m, 0.05 s on every other shot
 (`src/enemies/goon.js:628`); Buzzard scale 0.6, light `#ff3a22` 10 / 6 m / 0.05 s (`src/enemies/buzzard.js:637`).
@@ -981,15 +985,15 @@ Callers: Goon rifle scale 0.7, with a light `#ff7a3c` 14 game cd, range 7 m, 0.0
 
 | | CHOPPER | NINE | Source |
 |---|---|---|---|
-| Shape | A star card facing the shooter plus two crossed cards along the bore (a jet seen from the side) | same | `viewmodel.js:73` |
+| Shape | A star card facing the shooter plus two crossed cards along the bore (a jet seen from the side) | same | `src/weapon/viewmodel.js:73` |
 | Star size / jet length | 0.20 m / 0.34 m | 0.12 m / 0.13 m | `src/weapon/chopper.js:278`, `src/weapon/nine.js:197` |
 | Size per shot | × rand(0.8, 1.3) × (1 → 0.62 when aiming) | same | `src/config/weapons.js:197` |
-| Life | rand(0.036, 0.056) s; brightness × √(life left / life) | same | `weapons.js:196` |
+| Life | rand(0.036, 0.056) s; brightness × √(life left / life) | same | `src/config/weapons.js:196` |
 | Colour | edge [1, 0.42, 0.08] → core [1, 0.93, 0.74], × 9 | same | `src/weapon/material.js:210` |
-| Side jet strength | 1 | 0.3 | `viewmodel.js:256` |
-| Light on the weapon | point `#ffb060`, range 2.5 m, 1.5 game cd | 1.0 | `viewmodel.js:116` |
-| Light on the world | `#ffb020`, 45 game cd, range 9 m, 0.05 s | `#ffb020`, 30 game cd, range 9 m, 0.05 s | `weapons.js:72`, `:145`; `src/weapon/logic.js:478` |
-| Barrel smoke | After sustained fire (heat above 0.4): a pale wisp (`fx.smoke` scale 0.22) from the muzzle every 0.085 s for 1.6 s | – | `viewmodel.js:395` |
+| Side jet strength | 1 | 0.3 | `src/weapon/viewmodel.js:256` |
+| Light on the weapon | point `#ffb060`, range 2.5 m, 1.5 game cd | 1.0 | `src/weapon/viewmodel.js:116` |
+| Light on the world | `#ffb020`, 45 game cd, range 9 m, 0.05 s | `#ffb020`, 30 game cd, range 9 m, 0.05 s | `src/config/weapons.js:72`, `:145`; `src/weapon/logic.js:478` |
+| Barrel smoke | After sustained fire (heat above 0.4): a pale wisp (`fx.smoke` scale 0.22) from the muzzle every 0.085 s for 1.6 s | – | `src/weapon/viewmodel.js:395` |
 
 **Tracers** (`src/fx.js:360`, `src/fx/tracers.js`): one camera-facing ribbon per shot from muzzle to hit point.
 
@@ -1043,52 +1047,53 @@ it, m = normalise(0.6 n + 0.4 r): debris leaves along m, ricochets along r. Ever
 
 | Block | Recipe | Source |
 |---|---|---|
-| `dustPuff(scale)` | 2 puffs, a third with probability k − 0.5. Fast jet: 3.5 … 6 × √scale m / s along the normal, 0.1 → 0.6 × rand(0.85, 1.2) × scale m, life 0.3 … 0.45 s, opacity 0.7, drag 6. Slow cloud: 0.8 … 1.9 × √scale m / s, 0.16 → 0.95 × scale m, life 0.65 … 1.05 s, opacity 0.5, drag 3.2. Both swell fast then linger (curve 0.55), rise slightly, spin ± 0.9 rad / s. Never thinned out: "without them a hit on masonry does not read at night" | `recipes.js:248` |
-| Hot spark | Streak 1.6 … 3 cm → half, colour → 40 % toward the end tint, fade from 55 % of its life, drag 1.3, full gravity, stretched 0.03 … 0.05 s of travel, bounces | `recipes.js:153` |
-| `fx.sparks(pos, dir, n = 8)` | n hot sparks in a cone of 0.6 rad round `dir` (or 1.9 rad round straight up without one), 4 … 15 m / s, × 4.2, 0.25 … 0.7 s; a glow 0.22 m for 0.05 s [2.6, 1.9, 1.0] | `recipes.js:344` |
-| `fx.smoke(pos, scale)` | scale under 0.35: one pale wisp 0.25 s → 1.1 … 1.6 s (s = scale), life 0.7 … 1.2 s, opacity 0.2, rising 0.25 … 0.5 m / s. Otherwise 3 dark rolling puffs 0.3 s → 1.0 … 1.5 s, life 1.3 … 2.3 × √s seconds, opacity 0.55, rising 0.5 … 1.2 m / s | `recipes.js:359` |
-| `fx.dust(pos, scale)` | 3 pale puffs (`#b5b0a8`) 0.25 s → 0.8 … 1.2 s, life 0.8 … 1.3 s, opacity 0.32, spreading ± 0.9 m / s, kept above the ground | `recipes.js:396` |
-| `fx.puff(pos, colour, scale)` | A dust puff 0.08 → 0.42 × scale m (0.35 … 0.55 s, opacity 0.5) at 1.6 m / s along the normal, plus lint and grit 0.12 → 0.5 × scale m (0.3 … 0.5 s, opacity 0.85) at 2.6 m / s that falls (gravity 0.25 g) | `recipes.js:424` |
+| `dustPuff(scale)` | 2 puffs, a third with probability k − 0.5. Fast jet: 3.5 … 6 × √scale m / s along the normal, 0.1 → 0.6 × rand(0.85, 1.2) × scale m, life 0.3 … 0.45 s, opacity 0.7, drag 6. Slow cloud: 0.8 … 1.9 × √scale m / s, 0.16 → 0.95 × scale m, life 0.65 … 1.05 s, opacity 0.5, drag 3.2. Both swell fast then linger (curve 0.55), rise slightly, spin ± 0.9 rad / s. Never thinned out: "without them a hit on masonry does not read at night" | `src/fx/recipes.js:248` |
+| Hot spark | Streak 1.6 … 3 cm → half, colour → 40 % toward the end tint, fade from 55 % of its life, drag 1.3, full gravity, stretched 0.03 … 0.05 s of travel, bounces | `src/fx/recipes.js:153` |
+| `fx.sparks(pos, dir, n = 8)` | n hot sparks in a cone of 0.6 rad round `dir` (or 1.9 rad round straight up without one), 4 … 15 m / s, × 4.2, 0.25 … 0.7 s; a glow 0.22 m for 0.05 s [2.6, 1.9, 1.0] | `src/fx/recipes.js:344` |
+| `fx.smoke(pos, scale)` | Scale S under 0.35: one pale wisp 0.25 S → 1.1 … 1.6 S m, life 0.7 … 1.2 s, opacity 0.2, rising 0.25 … 0.5 m / s. Otherwise 3 dark rolling puffs 0.3 S → 1.0 … 1.5 S m, life 1.3 … 2.3 × √S seconds, opacity 0.55, rising 0.5 … 1.2 m / s | `src/fx/recipes.js:359` |
+| `fx.dust(pos, scale)` | 3 pale puffs (`#b5b0a8`) 0.25 S → 0.8 … 1.2 S m (S = scale), life 0.8 … 1.3 s, opacity 0.32, spreading ± 0.9 m / s, kept above the ground | `src/fx/recipes.js:396` |
+| `fx.puff(pos, colour, scale)` | A dust puff 0.08 → 0.42 × scale m (0.35 … 0.55 s, opacity 0.5) at 1.6 m / s along the normal, plus lint and grit 0.12 → 0.5 × scale m (0.3 … 0.5 s, opacity 0.85) at 2.6 m / s that falls (gravity 0.25 g) | `src/fx/recipes.js:424` |
 | `fx.debris(pos, n = 6, colour, speed = 5)` | n lumps 3 … 9 cm (up to twice as long), thrown out 0.3 … 1 × speed and up 0.4 … 1.1 × speed, life 1.8 … 3.4 s | `src/fx.js:481` |
-| Landing dust | When the player lands faster than 2.5 m / s: 3 + 4 × strength puffs in a ring at 1.2 … 2.4 × (0.6 + strength) m / s, 0.2 → 0.6 … 0.95 × (0.7 + 0.5 × strength) m, life 0.55 … 0.9 s, opacity 0.16 + 0.14 × strength, in the dust colour of the surface. strength = 0.1 below 5 m / s, else clamp((speed − 5) / 6 + 0.4, 0.4, 1) | `recipes.js:941`, `src/fx.js:634` |
+| Landing dust | When the player lands faster than 2.5 m / s: 3 + 4 × strength puffs in a ring at 1.2 … 2.4 × (0.6 + strength) m / s, 0.2 → 0.6 … 0.95 × (0.7 + 0.5 × strength) m, life 0.55 … 0.9 s, opacity 0.16 + 0.14 × strength, in the dust colour of the surface. strength = 0.1 below 5 m / s, else clamp((speed − 5) / 6 + 0.4, 0.4, 1) | `src/fx/recipes.js:941`, `src/fx.js:634` |
 
-**Explosion** (`explosion`, `src/fx/recipes.js:651`). s = blast scale = clamp(blast radius / 6.5, 0.4, 1.6), then
-clamped 0.25 … 2.5 (`src/fx.js:453`, `:621`): propane tank (radius 6.5 m) s = 1; welding rack (7.5 m) s = 1.15; a
-Buzzard's burst (3 m) s = 0.46 with the `drone` flavour. The centre is lifted to at least 0.35 s above the ground.
+**Explosion** (`explosion`, `src/fx/recipes.js:651`). S = blast scale = clamp(blast radius / 6.5, 0.4, 1.6), then
+clamped 0.25 … 2.5 (`src/fx.js:453`, `:621`): propane tank (radius 6.5 m) S = 1; welding rack (7.5 m) S = 1.15; a
+Buzzard's burst (3 m) S = 0.46 with the `drone` flavour. The centre is lifted to at least 0.35 S m above the ground.
+In the table S is always this scale; speeds are in m / s and the last column is in seconds.
 
 | Part | Count (drone) | Motion | Size a → b (m) | Colour | Life (s) |
 |---|---|---|---|---|---|
-| Light | 1 pooled point light, `#ffa040`, 120 × s^1.5 game cd, range 10 + 8 s m, 0.36 s, 0.5 s above the centre; it also lights the smoke for 0.58 s | – | – | – | – |
-| Scorch decal | 1 if grounded (2.24) | – | 3.4 … 4.3 × s | – | permanent |
-| Flash | 1 glow | – | 2.2 s → 3.3 s | [4.2, 3.4, 2.2] | 0.07 |
-| Wide bloom | 1 glow | – | 6.5 s → 9.75 s | [0.7, 0.36, 0.14] | 0.14 |
-| Shock ring | 1 `ring` | – | 1.5 s → 9 s | [0.9, 0.6, 0.35] × 0.22 | 0.2 |
-| Fireball flames | 18 √s (9) | outward 3.5 … 12 × s m / s in any direction from −0.25 below to straight up, plus 1.8 s up; drag 3.2, rises (gravity −0.3 g), turbulence 2 | 0.8 … 1.2 s → 2.3 … 3.4 s | [0.85, 0.42, 0.12] → [0.3, 0.03, 0.004], each × 0.42 / max(k, 0.3): dim alone, white where many overlap | 0.32 … 0.68 |
-| Core tongues | 4 √s (2) | slow: ± 1.2 s sideways, 1.5 … 3.2 s up; drag 2.4, gravity −0.35 g | 1.6 … 2.1 s → 3.4 … 4.4 s | [0.9, 0.5, 0.16] → [0.32, 0.05, 0.006] × 0.5 | 0.55 … 0.85 |
-| Smoke | 26 √s (12) | out 0.3 … 3.4 × s m / s, up 1.2 … 5.6 × √s; drag 1.5, gravity −0.11 g, wind 0.8, turbulence 1.3 | 0.9 g s → 2.8 … 4.0 g s, girth g = 0.6 … 1.25 | soot 0.07 … 0.15 → 0.16 (× 0.55 by day), opacity 0.72 … 0.92, heat 0.4 … 1 (lit from inside while young) | 2.6 … 4.8 × (0.6 + 0.4 s) |
-| Smoke column (fuel only) | 6 √s at night, 12 √s by day | straight up 3 … 7.5 × √s m / s (the later the faster); drag 0.9 | 0.8 s → 2.8 … 5.6 s | soot 0.05 … 0.1 → 0.2 (× 0.55 by day), opacity 0.7 … 0.88, heat 0.3 … 0.7 | 4.5 … 6.5 × (0.7 + 0.3 s) |
-| Sparks | 34 s (18) | all round and up (cone 1.75 rad about vertical), 8 s … 26 s m / s, bounce | 1.6 … 3 cm | hot × 4.5 | 0.45 … 1.3 |
+| Light | 1 pooled point light, `#ffa040`, 120 × S^1.5 game cd, range 10 + 8 S m, lasting 0.36 seconds, 0.5 S m above the centre; it also lights the smoke for 0.58 seconds | – | – | – | – |
+| Scorch decal | 1 if grounded (2.24) | – | 3.4 … 4.3 × S | – | permanent |
+| Flash | 1 glow | – | 2.2 S → 3.3 S | [4.2, 3.4, 2.2] | 0.07 |
+| Wide bloom | 1 glow | – | 6.5 S → 9.75 S | [0.7, 0.36, 0.14] | 0.14 |
+| Shock ring | 1 `ring` | – | 1.5 S → 9 S | [0.9, 0.6, 0.35] × 0.22 | 0.2 |
+| Fireball flames | 18 √S (9) | outward 3.5 … 12 × S m / s in any direction from a little below level to straight up, plus 1.8 S m / s upward; drag 3.2, rises (gravity −0.3 g), turbulence 2 | 0.8 … 1.2 S → 2.3 … 3.4 S | [0.85, 0.42, 0.12] → [0.3, 0.03, 0.004], each × 0.42 / max(k, 0.3): dim alone, white where many overlap | 0.32 … 0.68 |
+| Core tongues | 4 √S (2) | slow: ± 1.2 S m / s sideways, 1.5 … 3.2 S m / s up; drag 2.4, gravity −0.35 g | 1.6 … 2.1 S → 3.4 … 4.4 S | [0.9, 0.5, 0.16] → [0.32, 0.05, 0.006] × 0.5 | 0.55 … 0.85 |
+| Smoke | 26 √S (12) | out 0.3 … 3.4 × S m / s, up 1.2 … 5.6 × √S m / s; drag 1.5, gravity −0.11 g, wind 0.8, turbulence 1.3 | 0.9 w S → 2.8 … 4.0 w S, girth w = 0.6 … 1.25 | soot 0.07 … 0.15 → 0.16 (× 0.55 by day), opacity 0.72 … 0.92, heat 0.4 … 1 (lit from inside while young) | 2.6 … 4.8 × (0.6 + 0.4 S) |
+| Smoke column (fuel only) | 6 √S at night, 12 √S by day | straight up 3 … 7.5 × √S m / s (the later the faster); drag 0.9 | 0.8 S → 2.8 … 5.6 S | soot 0.05 … 0.1 → 0.2 (× 0.55 by day), opacity 0.7 … 0.88, heat 0.3 … 0.7 | 4.5 … 6.5 × (0.7 + 0.3 S) |
+| Sparks | 34 S (18) | all round and up (cone 1.75 rad about vertical), 8 S … 26 S m / s, bounce | 1.6 … 3 cm | hot × 4.5 | 0.45 … 1.3 |
 | Electric sparks (drone only) | 16 | cone 1.9 rad, 5 … 16 m / s | 1.6 … 3 cm | electric × 5.5 | 0.2 … 0.6 |
-| Embers | 14 s | out 1 … 5 × s, up 2 … 7 × √s; drag 1.3, gravity 0.22 g, turbulence 3.2; die on the floor | 3.5 … 6.5 cm | [3.2, 1.5, 0.4] → [1.2, 0.2, 0.03] | 1.2 … 2.8 |
-| Fragments | 13 s (7) debris bodies | out 3 … 11 × √s, up 3 … 10 × √s | 4 … 11 cm × √s, up to 2.4 × longer | near-black 0.02 … 0.09 | 2.2 … 4 |
-| Ground dust ring | 14 √s if grounded | outward along the ground at 7 … 11.5 × s m / s, drag 3.1 | 0.7 s → 1.9 … 2.7 s | `#8a857e`, opacity 0.3 … 0.42 | 0.9 … 1.6 |
-| Afterwards (blast under 3 m above the ground) | `smolder` emitter for 5 + 2 s seconds at scale 0.9 s; `embers` emitter for 1.6 + s seconds | | | | |
+| Embers | 14 S | out 1 … 5 × S m / s, up 2 … 7 × √S m / s; drag 1.3, gravity 0.22 g, turbulence 3.2; die on the floor | 3.5 … 6.5 cm | [3.2, 1.5, 0.4] → [1.2, 0.2, 0.03] | 1.2 … 2.8 |
+| Fragments | 13 S (7) debris bodies | out 3 … 11 × √S m / s, up 3 … 10 × √S m / s | 4 … 11 cm × √S, up to 2.4 × longer | near-black 0.02 … 0.09 | 2.2 … 4 |
+| Ground dust ring | 14 √S if grounded | outward along the ground at 7 … 11.5 × S m / s, drag 3.1 | 0.7 S → 1.9 … 2.7 S | `#8a857e`, opacity 0.3 … 0.42 | 0.9 … 1.6 |
+| Afterwards (blast under 3 m above the ground) | `smolder` emitter for 5 + 2 S seconds at scale 0.9 S; `embers` emitter for 1.6 + S seconds at scale S | | | | |
 | Screen flash | 2.21 | | | | |
 
-Flames and smoke are kept out of walls: the free distance is measured in eight directions (up to 6 s metres); a
+Flames and smoke are kept out of walls: the free distance is measured in eight directions (up to 6 S metres); a
 direction with a wall nearer than 1.4 m is swapped for its opposite when that is more open, and speeds are held to
 what the room allows (`src/fx/recipes.js:129`).
 
-**Emitters** (`src/fx/emitters.js`). Rates are per second at k = 1; s = the emitter's scale. One stream never emits
+**Emitters** (`src/fx/emitters.js`). Rates are per second at k = 1; S = the emitter's scale. One stream never emits
 more than 10 particles in a frame.
 
 | Kind | Used by | Streams |
 |---|---|---|
-| `steam` | The 6 steam points of the level, endless (`src/atmos/life.js:593`) | 13 / s soft lit puffs from a disc of radius 0.16 s: up 0.9 … 1.6 × √s m / s, 0.32 s → 1.3 … 1.9 s, life 2.4 … 3.8 s, `#d9dde0`, opacity 0.13 … 0.2, drag 0.55, full wind, turbulence 0.55 |
-| `jet` | A hit propane tank or welding rack until it blows (`src/explosives.js:332`) | Pressure builds: reach = s × (0.75 → 1.25 over the fuse). **Blue cone** 95 / s: 9 … 13 × reach m / s, life 0.06 … 0.095 s, 0.075 s → 0.2 s, [0.55, 0.85, 1.7] → [1.5, 0.85, 0.35] × 0.8, stretched. **Orange tongue** 150 / s: 8 … 12.5 × reach m / s, life 0.13 … 0.24 s, 0.11 s → 0.36 … 0.52 s, [1.15, 0.62, 0.18] → [0.6, 0.08, 0.01] × 0.5, drag 2.6, curls upward (−0.45 g), turbulence 4. **Sparks** 18 / s: 6 … 13 × reach ± 2.4 m / s, life 0.25 … 0.6 s, [4.2, 3, 1.5] → [1.6, 0.5, 0.1], bounce. Never thinned below k = 0.7. Visible flame length about 1.5 × reach **(derived)**: 1.0 m growing to 1.7 m on a propane tank, 1.35 m growing to 2.25 m on the rack. Light: `#ffa050`, 9 ± 5 game cd × s, range 7.5 √s m, one s metre along the jet |
-| `smolder` | Every blast site | 9 / s × (share of life left): dark wisps [0.11, 0.105, 0.1], up 0.6 … 1.2 m / s, 0.22 s → 0.9 … 1.4 s, life 1.8 … 3.1 s, opacity 0.26 … 0.4 thinning to 40 % |
-| `embers` | Every blast site | 8 / s glowing motes from a 0.25 s disc: up 0.9 … 2.3 m / s, 2.8 … 5 cm, [3, 1.4, 0.35] → [1.1, 0.18, 0.02], life 1.2 … 2.5 s, turbulence 3.4 |
-| `fire` | Nothing in the shipped game | 38 / s flame tongues (0.42 … 0.6 s → 0.14 s, life 0.45 … 0.85 s, [1.35, 0.8, 0.28] → [0.75, 0.11, 0.012] × 0.5, up 1.5 … 2.9 √s m / s), a bed glow 7 / s (1.0 s, [0.95, 0.42, 0.1]), smoke 4 / s (0.4 s → 1.4 … 2.0 s, life 2 … 3.4 s), embers 3 / s. Light `#ff8a3a`, 14 ± 10 game cd × s, range 9 √s m |
+| `steam` | The 6 steam points of the level, endless (`src/atmos/life.js:593`) | 13 / s soft lit puffs from a disc of radius 0.16 S m: up 0.9 … 1.6 × √S m / s, 0.32 S → 1.3 … 1.9 S m, life 2.4 … 3.8 s, `#d9dde0`, opacity 0.13 … 0.2, drag 0.55, full wind, turbulence 0.55 |
+| `jet` | A hit propane tank or welding rack until it blows (`src/explosives.js:332`) | Pressure builds: reach = S × (0.75 → 1.25 over the fuse). **Blue cone** 95 / s: 9 … 13 × reach m / s, life 0.06 … 0.095 s, 0.075 S → 0.2 S m, [0.55, 0.85, 1.7] → [1.5, 0.85, 0.35] × 0.8, stretched. **Orange tongue** 150 / s: 8 … 12.5 × reach m / s, life 0.13 … 0.24 s, 0.11 S → 0.36 … 0.52 S m, [1.15, 0.62, 0.18] → [0.6, 0.08, 0.01] × 0.5, drag 2.6, curls upward (−0.45 g), turbulence 4. **Sparks** 18 / s: 6 … 13 × reach ± 2.4 m / s, life 0.25 … 0.6 s, [4.2, 3, 1.5] → [1.6, 0.5, 0.1], bounce. Never thinned below k = 0.7. Visible flame length about 1.5 × reach **(derived)**: 1.0 m growing to 1.7 m on a propane tank, 1.35 m growing to 2.25 m on the rack. Light: `#ffa050`, 9 ± 5 game cd × S, range 7.5 √S m, placed S metres along the jet |
+| `smolder` | Every blast site | 9 / s × (share of life left): dark wisps [0.11, 0.105, 0.1], up 0.6 … 1.2 m / s, 0.22 S → 0.9 … 1.4 S m, life 1.8 … 3.1 s, opacity 0.26 … 0.4 thinning to 40 % |
+| `embers` | Every blast site | 8 / s glowing motes from a disc of 0.25 S m: up 0.9 … 2.3 m / s, 2.8 … 5 cm, [3, 1.4, 0.35] → [1.1, 0.18, 0.02], life 1.2 … 2.5 s, turbulence 3.4 |
+| `fire` | Nothing in the shipped game | 38 / s flame tongues (0.42 … 0.6 S → 0.14 S m, life 0.45 … 0.85 s, [1.35, 0.8, 0.28] → [0.75, 0.11, 0.012] × 0.5, up 1.5 … 2.9 √S m / s), a bed glow 7 / s (1.0 S m, [0.95, 0.42, 0.1]), smoke 4 / s (0.4 S → 1.4 … 2.0 S m, life 2 … 3.4 s), embers 3 / s. Light `#ff8a3a`, 14 ± 10 game cd × S, range 9 √S m |
 | `drip` | Nothing in the shipped game | 1.6 drops / s falling under gravity as a 2.2 cm streak [0.55, 0.68, 0.82], with a 3-speck splash where it lands |
 
 Emitter lights: taken from the pool when the camera comes within 42 m, given back beyond 52 m, checked every 0.3 s;
@@ -1111,11 +1116,11 @@ Other callers:
 |---|---|---|
 | Goon collapsing | `fx.dust` scale 0.8 where the body lands | `src/enemies/goon.js:1037` |
 | Buzzard, damaged | `fx.smoke` 0.45 every 0.1 … 0.22 s; 5 sparks every 0.5 … 1.7 s | `src/enemies/buzzard.js:734` |
-| Buzzard, killed | 10 sparks, 4 debris lumps `#30333a` at speed 5, smoke 0.8; while falling smoke 0.7 every 0.05 s and 4 sparks every 0.16 s; then its burst (radius 3 m) | `buzzard.js:769`, `:801`, `:818` |
+| Buzzard, killed | 10 sparks, 4 debris lumps `#30333a` at speed 5, smoke 0.8; while falling smoke 0.7 every 0.05 s and 4 sparks every 0.16 s; then its burst (radius 3 m) | `src/enemies/buzzard.js:769`, `:801`, `:818` |
 | The train | `fx.dust` 0.5 … 1.1 under the deck, 6 sparks under an arc (2.20) | `src/atmos/train.js:339` |
 | The weapon | Barrel smoke wisps (above) | `src/weapon/viewmodel.js:395` |
 
-### 2.26 Defined but never used by the shipped game
+### 2.26 Defined but never used by the shipped game, or not what the name says
 
 Do not spend port effort on these unless a designer asks for them.
 
@@ -1123,7 +1128,7 @@ Do not spend port effort on these unless a designer asks for them.
 |---|---|---|
 | `shadowRadius` 1.2 (day) / 2.5 (night) | `src/config/look.js:103`, `:335` | Written to the light, ignored by the soft shadow filter in use (`src/render.js:412`) |
 | Neon "tired tube" stutter | `src/mats.js:589`, `:791` | The stuttering group is one of three; all 7 neon signs of the level landed in the other two **(measured)**, so no sign stutters |
-| `city.aviation` 9 | `src/config/look.js:243` | The builder caps per ring and per roof instead: 13 lights exist |
+| `city.aviation` 9 | `src/config/look.js:243` | Not a total: it is read as a cap of 5 per skyline ring and 4 on the near roofs (`src/atmos/farcity.js:401`, `:442`), so up to 14 lights exist; 13 at the default seed |
 | Emitter kinds `fire`, `drip` | `src/fx/emitters.js:202`, `:295` | No caller |
 | `fx.puff`, `fx.decal`, `fx.explosion` as direct calls | `src/fx.js:440`, `:511`, `:472` | No caller: puffs, decals and blasts all arrive through the `impact` and `explosion` events |
 | `viewFlash` and its 32-sprite pool | `src/fx/recipes.js:617` | Fallback for a weapon without its own flash |
@@ -1218,7 +1223,7 @@ by the same sun, plus its four work lights, which are the only lamp kind at full
 ### 3.4 The real lamp lights
 
 The web game cannot afford 90 lights, so a fixed set of spot lights (4 … 12 by preset, none casting shadows) moves
-between lamps (`createLightRig`, `src/atmos/lights.js:105`). Unreal does not need this mechanism (4.4); it is
+between lamps (`createLightRig`, `src/atmos/lights.js:105`). Unreal does not need this mechanism (4.6); it is
 described so nobody mistakes its side effects for intent.
 
 - Candidates: every lamp that is not virtual and not "tired".
@@ -1250,7 +1255,7 @@ range. Measured results are in 2.15.
 | Neon signs | brightness × (1 + 0.03 sin(rate × t + φ) + 0.02 sin(2.63 × rate × t + 1.7 φ)), rate 9 … 15 rad / s and phase φ per group. Signs are dealt into 3 groups in the order they are painted (`count mod 3`) | `src/mats.js:589`, `:791` |
 | Tired tube (group 1 only; unused, 2.26) | After 2 … 8 s, then every 3 … 11 s: for 0.25 … 0.85 s the brightness drops to × 0.3 whenever sin(47 t + φ) × sin(13.1 t) > 0.12 | `src/mats.js:800` |
 | Tired sodium lamps (2 of them; pool, cone and glow together) | on = 1 − (0.22 + 0.2 × sin(37 t + 50 p) × sin(11.3 t + 9 p) + 0.55 × drop); drop = 1 during a random 20 % of the sixth-of-a-second slots, p = the lamp's phase. They never hold a real light | `src/atmos/lampfield.js:15` |
-| Lamps under the El while a train is over them | on × (1 − presence × (0.28 + 0.24 sin(43 t + 1.7 x))), for lamps with x inside the train's extent | `lampfield.js:27` |
+| Lamps under the El while a train is over them | on × (1 − presence × (0.28 + 0.24 sin(43 t + 1.7 x))), for lamps with x inside the train's extent | `src/atmos/lampfield.js:27` |
 | Emitter lights (jet, fire) | 2.25 | `src/fx/emitters.js:490` |
 | Aviation lights, plane strobe, far windows, stars | 2.18, 2.16 | |
 | Train stripes | × (0.86 + 0.14 sin(31 t + 0.7 x)) | `src/atmos/train.js:147` |
@@ -1433,9 +1438,11 @@ A governor fed one timestamp per drawn frame (`createGovernor`, `src/render.js:1
   over the road. This is how the level is built; treat it as ground truth for placement.
 - Side and back walls 10 m tall show a 0.1 m sliver of a fourth window row at their top edge (the window layer's
   storey is 3.1 m and the layer is not clipped to whole storeys).
-- Sub lines on box signs are painted in the sign's glow colour: `OPEN 24 HRS · COLD CUTS · COFFEE · LOTTO` is pale
-  yellow `#ffd24a` on taxi yellow and `FRIED · WINGS · BISCUITS` is `#ffc84a` on yellow, both nearly invisible (2.9).
-  Almost certainly unintended.
+- Sub lines on box signs are painted in the sign's `glow` colour, which the level also uses as the colour of the
+  sign's lamp (`src/mats/signs.js:178`): `OPEN 24 HRS · COLD CUTS · COFFEE · LOTTO` is pale yellow `#ffd24a` on taxi
+  yellow, `FRIED · WINGS · BISCUITS` is `#ffc84a` on yellow and `SLICES ALL NIGHT` is `#ff5a3a` on red `#b3261e`: the
+  first two are nearly invisible, the third is weak (2.9). Box signs that pass no glow (the road-work boards) get
+  their sub line in the headline colour. Almost certainly unintended.
 - The stripes under the train use a tie pitch of 0.62 m while the modelled ties are 0.56 m apart
   (`src/level/el.js:14`); the wheel-clack audio assumes 16.3 m cars against 16.1 m (15.4 + 0.7).
 - The headless measurement ran with fallback fonts: glyph widths of signs in this spec's tables are layout sizes, not
@@ -1552,15 +1559,18 @@ east (+X), +90° faces south (+Y). A light's rotation is given for the direction
   100 cm. Damp halves the roughness and darkens 18 %; puddles are roughness 0.05, 30 % darker, normals flattened.
   The 37 `asphalt_wet` blobs of the level (28 on the avenue, listed in `level.json` → `puddles`, and 9 in the
   yards) are the same puddles placed by hand: by day only those inside the capsule stay wet.
-- **Upper-storey windows (2.7).** The painted window layer becomes real geometry: window, sill, lintel, AC unit,
-  bars, door and cornice modules (briefs `facade_*`), laid out on the grids of 2.7 (`level.json` → `facades.grids`
-  and `facades.faces`). Lit rooms at night are emissive interiors or simple room cards behind the glass: 5 of 19
-  windows per 12.4 m × 15.5 m repeat, in the pattern of 2.7; by day all glass is reflective.
+- **Upper-storey windows (2.7).** The painted window layer becomes real geometry: wall bays with a sash window,
+  sill, lintel, blinds, AC units, bars and back doors (briefs `facade_bay_upper`, `facade_bay_rear` and
+  `cornice_dentil` in `assets/level.json`), laid out on the grids of 2.7 (`level.json` → `facades.grids` and
+  `facades.faces`: 240 windows on 17 wall faces, 8 of them with an AC unit). Lit rooms at night are emissive
+  interiors or simple room cards behind the glass: 79 of the 240 (78 warm, 1 television) in the pattern of 2.7; by
+  day all glass is reflective.
 
 ### 4.4 Signage, posters, graffiti, decals
 
-- **Signs are objects** (art bible 5.2, 5.3 choose the construction of each): a carrier mesh from the briefs
-  (`sign_*`), the artwork as a unique texture set, an emissive map for lit ones, and the paired light of 2.17. Sizes
+- **Signs are objects** (art bible 5.2, 5.3 choose the construction of each): a carrier mesh (the ten storefront
+  band signs are briefed in `assets/signs-fx.json`, every other carrier in `assets/level.json`: see 5), the artwork
+  as a unique texture set, an emissive map for lit ones, and the paired light of 2.17. Sizes
   and centres in 2.9 are the web quads: keep the centre, the width and the height; depth is new. Web signs stand
   0.15 m (15 cm) proud of the storefront wall.
 - **Lit or not** is a fact of the web game (2.9, column "Lit"; 17 lit faces). How bright in nits is the art bible's
@@ -1703,7 +1713,7 @@ geometry); additive pool → unlit additive.
 | `NS_Impact_Metal`, `_Car`, `_Glass`, `_Wood`, `_Rubber`, `_Dirt`, `_Cloth` | 2.25 | `impact` event |
 | `NS_Impact_Body` | The dry puff: `flesh` | A hit on a Goon |
 | `NS_Impact_Drone` | Electric sparks | A hit on a Buzzard |
-| `NS_Explosion_Fuel`, `NS_Explosion_Drone` | 2.25 with scale parameter s | `explosion` event |
+| `NS_Explosion_Fuel`, `NS_Explosion_Drone` | 2.25 with the scale parameter S | `explosion` event |
 | `NS_PropaneJet` | Emitter `jet`: scale and a 0 … 1 pressure parameter | Explosive prop, for its fuse |
 | `NS_Smolder`, `NS_Embers` | Emitters | Blast site |
 | `NS_Steam` | Emitter `steam` + the column of 2.19 | Level vents |
@@ -1727,7 +1737,7 @@ additive one, or a single translucent material that both darkens and adds, enabl
 ### 4.10 Decals, casings, debris
 
 - **Bullet holes and scorch**: deferred decals from the decal set of 2.24, sizes × 100 (for example brick
-  25 … 36 cm, metal 12 … 17 cm, glass 30 … 46 cm, scorch 340 … 430 cm × s), random roll, in a ring buffer of 256
+  25 … 36 cm, metal 12 … 17 cm, glass 30 … 46 cm, scorch 340 … 430 cm × blast scale), random roll, in a ring buffer of 256
   with no fade. None on characters, none on moving doors. The art bible asks for parallax or mesh-backed holes.
 - **Removal**: when an explosive prop blows, delete decals within 130 cm of it that sit at least 100 cm above the
   ground.
@@ -1759,14 +1769,31 @@ floor 60 %) describe a 60 Hz target and can seed the engine's settings, but the 
 
 ## 5. Art and audio implications
 
-**Asset briefs**: `docs/unreal/spec/assets/signs-fx.json` holds one brief per thing this subsystem needs modelled:
-the storefront and street signs with their exact text, the construction boards, plates and banners, the mural, poster
-and graffiti sets, road markings and ground decals, the window kit of the upper storeys, the El train car, the far
-city blocks and skyline rings, the debris meshes, the loose paper sheet, the pigeon, the bullet-hole and scorch decal
-sets and the flipbook sources. Related briefs owned by other specs, not repeated there: shell casings and the
-first-person flash cards (`assets/weapons.json`), the Buzzard bolt and wreck (`assets/characters.json`), licence
-plates, the IPX billboard with its face, the bus shelter with its one-sheet, the IPX truck livery, traffic-sign
-faces, street lamps, court lights, floodlight stands and the water tower (`assets/props.json`).
+**Asset briefs**: `docs/unreal/spec/assets/signs-fx.json` holds 35 briefs, one per thing that only this subsystem
+describes: the ten storefront band signs (neon and lightbox) with their exact text, the five poster kinds, the
+graffiti set, the ground stains, the El train car, the far walk-up blocks and the two skyline rings, five debris
+sets, the loose paper sheet, the pigeon, the bullet-hole and scorch decal sets and five flipbook sources.
+
+Everything the level code builds is briefed in `assets/level.json` and not repeated. Those briefs paraphrase the
+lettering (commas where the signs have ` · ` separators): **the strings, colours and letter sizes in 2.9 to 2.14 of
+this spec are the ones to paint.**
+
+| Brief in `assets/level.json` | Its lettering and artwork are specified in |
+|---|---|
+| `storefront_laundromat` … `storefront_nails` (ten shop fronts) | 2.9, first table. Each carries one of the ten `sign_*` briefs of `assets/signs-fx.json`: build that sign once, as its own mesh |
+| `chopshop_fascia` (main sign and two painted strips), `chopshop_side_door` (the `EXIT` box) | 2.9, second table |
+| `wall_ad_vr_auto_body`, `wall_sign_park`, `park_pylon_sign` | 2.9, second table; neon layout in 2.8 |
+| `station_name_plates` | 2.9; plate layout in 2.8 (`plate`) |
+| `construction_signs`, `shed_banners`, `stencil_signs`, `kiosk_news` | 2.9; styles `box`, `awning`, `stencil`, `painted` in 2.8 |
+| `mural_ipx_rule` | 2.12 (layer by layer); the tags on its wall are in 2.11 |
+| `road_markings` | 2.14 |
+| `facade_bay_upper`, `facade_bay_rear`, `cornice_dentil` | 2.7 (window sizes, dressing shares, which windows are lit) |
+| `barber_pole`, `gooseneck_lamp`, `highbay_worklight`, `el_underdeck_lamp`, `wall_lamp_caged` | 2.17 (lens colours and what each lamp does by day and by night) |
+
+Other related briefs, also not repeated: shell casings and the first-person flash cards (`assets/weapons.json`), the
+Buzzard bolt and wreck (`assets/characters.json`), licence plates, the IPX billboard with its face, the bus shelter
+with its one-sheet, the IPX truck livery, traffic-sign faces, street lamps, court lights, floodlight stands and the
+water tower (`assets/props.json`).
 
 **What the art has to carry that the web game faked:**
 
@@ -1795,7 +1822,7 @@ decals, the train car (exterior and interior), the far walk-up fronts and the tw
 | `impact` (consumed, not raised, by effects) | Every bullet strike | point, normal, surface (`asphalt`, `concrete`, `brick`, `wood`, `dirt`, `metal`, `car`, `rubber`, `glass`, `cloth`, `flesh`, `drone`), direction |
 | `explosion` (consumed) | Every blast | position, radius, source |
 | Propane hiss | While a jet burns: volume rises 25 % → 100 % over the fuse | – |
-| Steam hiss, neon buzz | Loops at the 6 vents and near lit neon | positions from the level and the lamp list |
+| Steam hiss, neon buzz | Loops at the nearest 3 steam points within 24 m and at the nearest 3 lamps of kind `neon` within 15 m; the buzz at half volume by day (`src/audio/ambience.js:27`, `:117`) | positions from the level's steam list and lamp list (2.19, 2.17) |
 | Arc under the train | With each arc flash (22 % of strobe flashes) | No sound in the web game; a crackle would fit |
 
 ---------------------------------------------------------------------------------------------------
@@ -1808,8 +1835,9 @@ decals, the train car (exterior and interior), the far walk-up fronts and the tw
 2. **Lamps and signs by day.** The web game leaves lamp lenses, tail lights and the billboard at night brightness
    by day and signs at 30 … 55 %; `docs/DESIGN.md` says "simply lit signage" and the art bible says lamps off. Confirm
    that the web behaviour is an omission and not a wanted look.
-3. **Sub lines on the deli and chicken signs** are painted pale yellow on yellow and cannot be read (3.15). Fix
-   the colour (the headline colour is the obvious choice) or reproduce the web game?
+3. **Sub lines on the deli, chicken and pizza signs** are painted in the lamp colour of the sign, pale yellow on
+   yellow or orange on red, and can hardly be read (3.15). Fix the colour (the headline colour is the obvious
+   choice) or reproduce the web game?
 4. **Neon stutter.** No sign stutters in the web game, by accident of the grouping (2.26). The art bible wants one
    flickering stroke of neon: which sign?
 5. **Two winds.** Effects drift east at about 0.5 m / s; steam columns and paper drift west at 1.1 m / s (4.2). One

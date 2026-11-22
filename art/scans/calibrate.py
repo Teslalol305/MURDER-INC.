@@ -28,7 +28,6 @@ catalogue and the files disagree. Standard library, pillow and numpy only.
 import argparse
 import json
 import math
-import struct
 import sys
 from pathlib import Path
 
@@ -164,7 +163,7 @@ def relief_fraction(height, normal):
     The normal map stores slopes: dz/dx = -nx/nz, dz/dy = -ny/nz (OpenGL convention, +Y up in the image).
     If z = A * h with h in 0..1 and x in pixels, then A [px] is the least-squares factor between the two
     gradient fields. Both are band-limited (2 px blur) so that sharp detail present in only one of them does
-    not decide the answer. Returns (A / width, correlation).
+    not decide the answer. Returns (A / width, correlation, [correlation of red, correlation of green]).
     """
     n = normal * 2.0 - 1.0
     nz = np.clip(n[..., 2], 0.05, None)
@@ -179,10 +178,14 @@ def relief_fraction(height, normal):
     num = float((hx * sx).sum() + (hy * sy).sum())
     den = float((hx * hx).sum() + (hy * hy).sum())
     if den <= 0:
-        return 0.0, 0.0
+        return 0.0, 0.0, [0.0, 0.0]
     amp_px = num / den
     corr = num / math.sqrt(den * float((sx * sx).sum() + (sy * sy).sum()) + 1e-30)
-    return amp_px / height.shape[1], corr
+    # each channel on its own: red against the slope to the right, green against the slope up the image.
+    # A DirectX-style map would give a negative second number.
+    per_axis = [float((a * b).sum() / math.sqrt(float((a * a).sum()) * float((b * b).sum()) + 1e-30))
+                for a, b in ((hx, sx), (hy, sy))]
+    return amp_px / height.shape[1], corr, [round(v, 2) for v in per_axis]
 
 
 def seam_measure(img):
@@ -275,15 +278,17 @@ def measure_texture(entry):
         m["px_per_m"] = round(w / tile[0])
     if height is not None and "N" in files:
         nrm = load_rgb(files["N"])
-        frac, corr = relief_fraction(height, nrm)
+        frac, corr, per_axis = relief_fraction(height, nrm)
+        m["normal_fit_red_green"] = per_axis  # green > 0: the normal map is OpenGL style (+Y up)
         lo, hi = np.percentile(height, [1, 99])
         m["height_range"] = [round(float(height.min()), 4), round(float(lo), 4), round(float(hi), 4), round(float(height.max()), 4)]
         m["height_mid"] = round(float(np.median(height)), 4)
         m["relief_fit"] = round(corr, 2)
-        m["height_scale_frac"] = round(frac, 6)  # metres of height per unit of map value, per metre of tile width
+        m["height_scale_px"] = round(frac * w, 3)  # height per unit of map value, in pixels of the map
         if tile:
-            m["height_scale_mm"] = round(frac * tile[0] * 1000.0, 1)
-            m["relief_mm"] = round(frac * tile[0] * 1000.0 * float(hi - lo), 1)
+            mm_per_px = (tile[0] / w + tile[1] / h) / 2 * 1000.0  # mean of the two axes where the tile is not square
+            m["height_scale_mm"] = round(m["height_scale_px"] * mm_per_px, 1)
+            m["relief_mm"] = round(m["height_scale_mm"] * float(hi - lo), 1)
         m["normal_mean"] = [round(float(v), 3) for v in nrm.reshape(-1, 3).mean(axis=0)]
     seams = {"base_colour": seam_measure(bc)}
     if height is not None:
@@ -292,9 +297,10 @@ def measure_texture(entry):
     m["seam_verdict"] = seam_verdict(seams)
     orm = load_rgb(files["ORM"])
     mean_lin = lin.reshape(-1, 3).mean(axis=0)
-    p5, p95 = np.percentile(lum, [5, 95])
-    m["albedo"] = {"linear_rgb": [round(float(v), 3) for v in mean_lin], "luminance": round(float(lum.mean()), 3),
-                   "p5": round(float(p5), 3), "p95": round(float(p95), 3)}
+    p1, p5, p50, p95, p99 = np.percentile(lum, [1, 5, 50, 95, 99])
+    m["albedo"] = {"linear_rgb": [round(float(v), 4) for v in mean_lin], "luminance": round(float(lum.mean()), 4),
+                   "p1": round(float(p1), 4), "p5": round(float(p5), 4), "p50": round(float(p50), 4),
+                   "p95": round(float(p95), 4), "p99": round(float(p99), 4)}
     m["ao"] = round(float(orm[..., 0].mean()), 3)
     m["roughness"] = round(float(orm[..., 1].mean()), 3)
     m["metallic"] = round(float(orm[..., 2].mean()), 3)
@@ -528,6 +534,34 @@ def card(entry, dest):
     sheet.save(dest, quality=88)
 
 
+# ---------------------------------------------------------------------------------------------- catalogue on disk
+
+def to_json(obj, indent=0, width=124):
+    """JSON text with short lists and flat dictionaries kept on one line: readable by people, small in a diff."""
+    flat = json.dumps(obj, ensure_ascii=False)
+    simple = not isinstance(obj, (dict, list)) or (
+        len(flat) + indent <= width
+        and not any(isinstance(v, dict) for v in (obj.values() if isinstance(obj, dict) else obj)))
+    if simple:
+        return flat
+    pad, inner = " " * indent, " " * (indent + 1)
+    if isinstance(obj, dict):
+        rows = [f"{inner}{json.dumps(k, ensure_ascii=False)}: {to_json(v, indent + 1, width)}" for k, v in obj.items()]
+        return "{\n" + ",\n".join(rows) + f"\n{pad}}}"
+    rows = [f"{inner}{to_json(v, indent + 1, width)}" for v in obj]
+    return "[\n" + ",\n".join(rows) + f"\n{pad}]"
+
+
+def write_catalogue(cat, path=None):
+    """Write the catalogue in one move, so that nobody ever reads half a file."""
+    path = Path(path or CATALOGUE)
+    text = to_json(cat) + "\n"
+    json.loads(text)  # refuse to write what would not read back
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(text)
+    tmp.replace(path)
+
+
 # ------------------------------------------------------------------------------------------------------- README
 
 def basis_text(entry):
@@ -623,8 +657,11 @@ def main(argv=None):
                 if tile:
                     m["px_per_m"] = round(m["px"][0] / tile[0])
                     m["grain_mm"] = round(m["grain_px"] / m["px"][0] * tile[0] * 1000.0, 1)
-                    if "height_scale_frac" in m:
-                        m["height_scale_mm"] = round(m["height_scale_frac"] * tile[0] * 1000.0, 1)
+                    if "height_scale_frac" in m:  # written by an earlier version of this script
+                        m["height_scale_px"] = round(m.pop("height_scale_frac") * m["px"][0], 3)
+                    if "height_scale_px" in m:
+                        mm_per_px = (tile[0] / m["px"][0] + tile[1] / m["px"][1]) / 2 * 1000.0
+                        m["height_scale_mm"] = round(m["height_scale_px"] * mm_per_px, 1)
                         m["relief_mm"] = round(m["height_scale_mm"] * (m["height_range"][2] - m["height_range"][1]), 1)
                 entry["measured"] = m
                 if args.cards and entry.get("tile_m"):
@@ -650,10 +687,7 @@ def main(argv=None):
     for p in problems:
         print("PROBLEM", p)
     if not args.check:
-        text = json.dumps(cat, indent=1, ensure_ascii=False) + "\n"  # encode first: a failure must not truncate the file
-        tmp = CATALOGUE.with_suffix(".tmp")
-        tmp.write_text(text)
-        tmp.replace(CATALOGUE)
+        write_catalogue(cat)
     return 1 if problems else 0
 
 

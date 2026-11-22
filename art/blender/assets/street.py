@@ -39,6 +39,8 @@ MANHOLE_R = 0.45
 DRAIN = (13.4, 14.6, -7.0, -6.4)       # x0, x1, y0, y1 of the grate frame
 PATCH = (6.0, 8.4, -4.0, -2.6)         # utility patch
 HYDRANT = (5.0, -7.65)                 # on the south sidewalk, 0.65 m behind the kerb face
+HERO_CAM = (-1.2, -8.9, KERB_H + 1.65)   # eye level on the south sidewalk
+HERO_AIM = (12.0, -6.2, 0.30)            # looking east along the street
 YELLOW = (0.50, 0.345, 0.03)
 WHITE = (0.60, 0.59, 0.56)
 
@@ -102,13 +104,14 @@ def materials(ctx):
     ts = ctx.tiling_set
     cracked = ts("TS_Asphalt_Cracked", "asphalt", Alligator=1.0, Cracks=0.45, Age=0.8)
     as_kw = dict(dirt_color=(0.105, 0.092, 0.075), leak_color=(0.028, 0.026, 0.024), leak_rough=-0.24,
-                 wear_tint=(1.1, 1.1, 1.1), macro=0.16)
+                 wear_tint=(1.16, 1.15, 1.13), wear_rough=-0.16, macro=0.18)
     M["asphalt"] = ts("TS_Asphalt_Aged", "asphalt", blend="TS_Asphalt_Cracked", mat_kw=as_kw, Cracks=0.22, Age=0.75)
     M["patch"] = ts("TS_Asphalt_Patch", "asphalt", mat_kw=as_kw, Age=0.15, Aggregate_Scale=150.0, Cracks=0.0,
                     Tint=(0.86, 0.86, 0.88))
-    M["yellow"] = ts("TS_RoadPaint_Yellow", "road_paint", blend="TS_Asphalt_Aged", mat_kw=as_kw, Paint_Color=YELLOW,
+    pt_kw = dict(as_kw, blend_start=0.0, wear_tint=(1.0, 1.0, 1.0))
+    M["yellow"] = ts("TS_RoadPaint_Yellow", "road_paint", blend="TS_Asphalt_Aged", mat_kw=pt_kw, Paint_Color=YELLOW,
                      Paint_Wear=0.36)
-    M["white"] = ts("TS_RoadPaint_White", "road_paint", blend="TS_Asphalt_Aged", mat_kw=as_kw, Paint_Color=WHITE,
+    M["white"] = ts("TS_RoadPaint_White", "road_paint", blend="TS_Asphalt_Aged", mat_kw=pt_kw, Paint_Color=WHITE,
                     Paint_Wear=0.40)
     M["tar"] = ts("TS_Tar_Sealant", "tar", tile_m=1.0, res=1024, mat_kw=dict(macro=0.2, dirt_color=(0.11, 0.1, 0.085)),
                   Dust_Amount=0.35)
@@ -120,6 +123,13 @@ def materials(ctx):
     M["steel"] = ts("TS_Steel_Rusted", "steel", tile_m=1.0, res=1024, alpha="wet", mat_kw=dict(
         wear_tint=(1.9, 1.75, 1.6), wear_rough=-0.3, dirt_color=(0.07, 0.062, 0.052), macro=0.2, porosity=0.25),
         Rust=0.72, Mill_Scale=0.35, Scratches=0.5)
+    # New York common brick: 9 stretchers x 30 courses per tile, so the bond wraps exactly (dressing walls here,
+    # and the set every facade family can start from)
+    bl, bh = 0.2032 + 0.0095, 0.0572 + 0.0095
+    M["brick"] = ts("TS_Brick_Common", "brick", tile_m=(9 * bl, 30 * bh), alpha="splash", mat_kw=dict(
+        dirt_color=(0.05, 0.046, 0.042), leak_color=(0.55, 0.53, 0.5), wear_tint=(1.1, 1.08, 1.05), macro=0.14),
+        Wrap_U=9.0, Wrap_V=30.0, Color_A=(0.205, 0.070, 0.046), Color_B=(0.275, 0.102, 0.062), Color_C=(0.098, 0.058, 0.050),
+        Mortar_Color=(0.30, 0.285, 0.26), Soot=0.3, Efflorescence=0.12, Chipping=0.45, Variation=0.8)
     return M
 
 
@@ -303,8 +313,8 @@ def paint_road(ctx, road, shape, rng):
         ya = np.abs(y_)
         centre = np.where(ya < 1.0, 0.10, LANE)
         edge = np.abs(ya - centre) / 0.05                    # 0 on the line axis, 1 on its edge
-        base = np.where(ya < 1.0, 0.16, 0.36)
-        return np.clip(base + 0.30 * edge ** 2 + 0.26 * long_w(x, y_ * 0.2) + 0.10 * (fine.u(x, y_) - 0.5), 0, 1)
+        base = np.where(ya < 1.0, 0.22, 0.40)
+        return np.clip(base + 0.30 * edge ** 2 + 0.10 * long_w(x, y_ * 0.2) + 0.12 * (fine.u(x, y_) - 0.5), 0, 1)
     for nm in ("MI_RoadPaint_Yellow", "MI_RoadPaint_White"):
         if nm in names:
             geo.paint(road, "G", paint_wear, "set", faces=names.index(nm))
@@ -848,7 +858,7 @@ def _dress(ctx):
     street (instances), and a dark ground beyond. Nothing here is exported."""
     col = scene.collection("Dressing", ctx.col)
     out = []
-    for k in (-2, -1, 1, 2, 3):
+    for k in (-3, -2, -1, 1, 2, 3, 4, 5, 6, 7):
         for ob in ctx.placed:
             if ob.data is ctx.A["hydrant"].data:
                 continue
@@ -857,20 +867,29 @@ def _dress(ctx):
             out.append(d)
     out.append(render.backdrop(600.0, (0.075, 0.073, 0.07), z=-0.06))
     # stand-in massing at the building lines: a tall blank party wall on the north side (it faces the sun and
-    # throws its shadow away from the street) and a low yard wall on the south side
-    wall_n = geo.box((220.0, 0.5, 10.5), bevel=0.0, name="DressWallN")
-    geo.transform(wall_n, loc=(L / 2, HALF + WALK1 + 0.27, KERB_H))
-    wall_s = geo.box((220.0, 0.32, 1.05), bevel=0.01, name="DressWallS")
-    geo.transform(wall_s, loc=(L / 2, -(HALF + WALK1 + 0.18), KERB_H))
-    cope = geo.box((220.0, 0.42, 0.07), bevel=0.012, name="DressCope")
-    geo.transform(cope, loc=(L / 2, -(HALF + WALK1 + 0.18), KERB_H + 1.05))
-    brick = ctx.M.get("brick") or mat.flat("M_Dress_Brick", (0.21, 0.095, 0.07), 0.85)
-    for wl in (wall_n, wall_s):
-        geo.uv_world_box(wl, brick.get("mi_tile_m", (2.0, 2.0)))
+    # throws its shadow away from the street), a low yard wall on the south side, and a block closing each end
+    brick = ctx.M["brick"]
+    tile = tuple(brick.get("mi_tile_m", (2.0, 2.0)))
+    rng = ctx.rng("dress")
+    streak = Waves(rng, 3.0)
+    blotch = Waves(rng, 6.0)
+    specs = [("DressWallN", (240.0, 0.5, 10.5), (L / 2 + 40, HALF + WALK1 + 0.27, KERB_H)),
+             ("DressWallS", (240.0, 0.32, 1.05), (L / 2 + 40, -(HALF + WALK1 + 0.18), KERB_H)),
+             ("DressEndE", (8.0, 70.0, 13.0), (184.0, 0.0, 0.0)), ("DressEndW", (8.0, 70.0, 13.0), (-64.0, 0.0, 0.0))]
+    for nm, size, loc in specs:
+        wl = geo.box(size, bevel=0.0, name=nm)
+        geo.transform(wl, loc=loc)
+        geo.densify(wl, 0.75, 9)
+        geo.uv_world_box(wl, tile)
         wl.data.materials.append(brick)
-        geo.ensure_wear(wl)
+        top = loc[2] + size[2]
+        geo.paint(wl, "A", lambda x, y, z: np.clip(np.exp(-(z - KERB_H) / 0.22) * (0.6 + 0.5 * streak.u(x + y, z)), 0, 1))
+        geo.paint(wl, "R", lambda x, y, z: np.clip(0.75 * sstep(1.6, 0.0, top - z) * streak.u((x + y) * 3.0, z * 0.2) + 0.25 * blotch.u(x + y, z), 0, 1))
+        geo.paint(wl, "B", lambda x, y, z: np.clip((blotch.u(x * 1.7 + y, z * 2.0 + 9.0) - 0.72) * 3.0, 0, 1))
         scene.move_to(wl, col)
         out.append(wl)
+    cope = geo.box((240.0, 0.42, 0.07), bevel=0.012, name="DressCope")
+    geo.transform(cope, loc=(L / 2 + 40, -(HALF + WALK1 + 0.18), KERB_H + 1.05))
     geo.uv_world_box(cope, 2.0)
     cope.data.materials.append(ctx.M["concrete"])
     geo.ensure_wear(cope)
@@ -897,11 +916,11 @@ def on_preview(ctx, objs):
     # ---- day
     render.rig_day(sun_elevation=45.0, sun_azimuth=235.0)
     if want("street_day_hero"):
-        render.cam_look((0.6, -8.55, KERB_H + 1.65), (14.0, -5.6, 0.25), lens=30, name="Cam_Hero")
+        render.cam_look(HERO_CAM, HERO_AIM, lens=30, name="Cam_Hero")
         _p, sec = render.render_jpeg(os.path.join(P, "street_day_hero.jpg"), a.samples)
         ctx.log("preview street_day_hero.jpg %.0fs" % sec)
     if want("hydrant_day"):
-        render.cam_look((HYDRANT[0] - 1.25, HYDRANT[1] + 1.55, KERB_H + 0.62), (HYDRANT[0] + 0.02, HYDRANT[1] - 0.02, KERB_H + 0.40), lens=58,
+        render.cam_look((HYDRANT[0] - 1.55, HYDRANT[1] + 1.45, KERB_H + 0.78), (HYDRANT[0] + 0.03, HYDRANT[1] + 0.05, KERB_H + 0.40), lens=50,
                         name="Cam_Hydrant")
         _p, sec = render.render_jpeg(os.path.join(P, "hydrant_day.jpg"), a.samples)
         ctx.log("preview hydrant_day.jpg %.0fs" % sec)
@@ -931,18 +950,14 @@ def on_preview(ctx, objs):
         for d in dress:
             d.hide_render = False
         ctx.log("preview street_day_top.jpg")
-    # ---- night: sodium lamps hung under the El line, a pink sign on the south side, a green one across
+    # ---- night: sodium lamps hung under the El line, lit signs on the north wall. The lamps down the street
+    #      hang exactly where their mirror images fall on the wet gutter as seen from the hero camera
     if want("street_night_hero"):
-        render.rig_night(lamp=(8.5, -3.2, 6.3), lamp_watts=2400.0, extra_lamps=[(27.0, -3.0, 6.3), (44.0, -2.9, 6.3), (-12.0, -3.2, 6.3)],
-                         sign=(9.5, -10.9, 3.3), sign_color=(1.0, 0.10, 0.36), sign_watts=420.0, sign_target=(9.5, -7.0, 0.0))
-        col = scene.collection("Rig")
-        g = bpy.data.lights.new("Sign_Green", "AREA")
-        g.shape, g.size, g.size_y, g.energy, g.color = "RECTANGLE", 3.0, 0.8, 700.0, (0.15, 1.0, 0.45)
-        go = bpy.data.objects.new("Sign_Green", g)
-        go.location = (30.0, 10.9, 3.6)
-        from mathutils import Vector
-        go.rotation_euler = (Vector((24.0, 0.0, 0.0)) - Vector(go.location)).to_track_quat("-Z", "Y").to_euler()
-        col.objects.link(go)
-        render.cam_look((0.6, -8.55, KERB_H + 1.65), (14.0, -5.6, 0.25), lens=30, name="Cam_Hero_Night")
+        glints = [render.mirror_source(HERO_CAM, (gx, -6.86), 6.3) for gx in (6.4, 8.7, 10.6, 12.4)]
+        render.rig_night(lamp=(6.5, -3.4, 6.3), lamp_watts=1500.0, extra_lamps=glints + [(-14.0, -1.5, 6.3)])
+        render.sign((16.0, HALF + WALK1 - 0.02, KERB_H + 3.3), (3.2, 0.8), (1.0, 0.10, 0.34), 900.0, (0, -1, 0), "Sign_Pink")
+        render.sign((33.0, HALF + WALK1 - 0.02, KERB_H + 3.6), (2.6, 0.9), (0.10, 0.9, 0.75), 700.0, (0, -1, 0), "Sign_Cyan")
+        render.sign((52.0, HALF + WALK1 - 0.02, KERB_H + 4.2), (4.0, 1.1), (1.0, 0.75, 0.25), 900.0, (0, -1, 0), "Sign_Amber")
+        render.cam_look(HERO_CAM, HERO_AIM, lens=30, name="Cam_Hero_Night")
         _p, sec = render.render_jpeg(os.path.join(P, "street_night_hero.jpg"), int(a.samples * 1.5))
         ctx.log("preview street_night_hero.jpg %.0fs" % sec)

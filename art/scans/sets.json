@@ -1,5 +1,54 @@
 {
  "schema": 1,
+ "about": "Scanned surfaces, skies and props for the Hollis block (MURDER INC., Unreal Engine 5 rebuild). Everything listed under sets is fetched by art/scans/fetch.py; the numbers under measured are written by art/scans/calibrate.py.",
+ "source": {
+  "publisher": "Poly Haven",
+  "licence": "CC0 1.0 Universal (public domain dedication): no attribution required, commercial use allowed",
+  "host": "https://dl.polyhaven.org/file/ph-assets",
+  "rule": "Direct file URLs on the download host only. Never the Poly Haven API. User-Agent asset-pipeline/1.0, at most 4 requests at a time, every file cached and asked for once.",
+  "paths": {
+   "texture map": "Textures/<jpg|png|exr>/<res>/<slug>/<slug>_<map>_<res>.<ext>   maps: diff (a few old sets: diffuse, col_01), nor_gl, nor_dx, rough, arm, ao, disp",
+   "texture descriptor": "Textures/gltf/<res>/<slug>/<slug>_<res>.gltf   lists the maps; its preview sphere is as wide as the publisher says the tile is",
+   "sky": "HDRIs/<hdr|exr>/<res>/<slug>_<res>.<ext>",
+   "model": "Models/gltf/<res>/<slug>/<slug>_<res>.gltf and its .bin beside it",
+   "model texture": "Models/jpg/<res>/<slug>/<file>   (the .gltf says textures/<file>; the host does not keep them there)"
+  }
+ },
+ "conventions": {
+  "units": "metres; Blender axes: Z up, east = +X, north = +Y",
+  "tile_m": "[x, y]: metres of real surface covered by one repeat of the maps. x is image right, y is image up. UV = (world_x / tile_m[0], world_y / tile_m[1]).",
+  "files": "paths under art/out/. BC = sRGB base colour; N = tangent-space normal, OpenGL (+Y up); ORM = R ambient occlusion, G roughness, B metallic, linear; H = height, single channel, 16 bit (8 bit for TS_Brick_ScanRedEnglish).",
+  "height": "world height in mm = (H value in 0..1 - measured.height_mid) x measured.height_scale_mm; measured.relief_fit is the correlation between the height map's slopes and the normal map (below 0.5: do not trust the height map).",
+  "sky rotation": "world azimuth of the key light = measured.sun_azimuth_unrotated_deg - Z rotation of the Mapping node in front of the Environment Texture (Cycles: image column u = 0.5 faces +X, u = 0.25 faces +Y).",
+  "props": "forward = +X, pivot at the centre of the footprint on the ground; each model's fix says what to do to get there"
+ },
+ "design_sun": {
+  "place": "Hollis, Queens, 40.71 N 73.76 W",
+  "time": "15 July, 4:15 PM daylight time (solar time 15:14)",
+  "elevation_deg": 45.0,
+  "bearing_deg": 260.0,
+  "azimuth_ccw_from_east_deg": 190.0,
+  "note": "10 degrees south of due west: the sun shines down Jamaica Avenue from the west end and the El ties stripe the roadway across."
+ },
+ "units_mm": {
+  "US modular brick course (brick + joint)": 67.7,
+  "US modular brick length (brick + joint)": 203.2,
+  "US concrete block course": 203.2,
+  "US concrete block length": 406.4,
+  "rolling-door slat (2 5/8 in)": 66.7,
+  "corrugated sheet pitch (3 in; US 2.67 in is 67.8)": 76.2,
+  "mini-corrugated pitch (1 1/4 in)": 31.75,
+  "tie top face (9 in)": 228.6,
+  "2 x 8 board": 184.2,
+  "2 x 10 scaffold plank": 235.0,
+  "1 x 4 pallet board": 88.9,
+  "New York sidewalk flag (5 ft, not in any scan)": 1524.0,
+  "Parks hexagon block across the flats": 203.2,
+  "plywood sheet": [
+   1219.2,
+   2438.4
+  ]
+ },
  "sets": [
   {
    "set": "TS_Asphalt_ScanCracked",
@@ -7,16 +56,19 @@
    "kind": "texture",
    "surface": "road asphalt, aged, with long cracks",
    "use": "Jamaica Ave travel and parking lanes. The cracks are distinctive: offset and rotate per road segment, or blend with TS_Asphalt_ScanWorn through a mask, so the repeat does not show.",
+   "preview": "ground",
    "tile_m": [
     3.01,
     3.01
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: stones 4 to 12 mm across against the centimetre scale (most asphalt aggregate is 5 to 20 mm); cracks 5 to 20 mm wide.",
    "basis": {
     "kind": "stated",
     "stated_m": 3.01
    },
-   "publisher_sphere_m": 3.014,
+   "confidence": "high",
+   "publisher_stated_m": 3.01,
+   "orientation": "the long cracks run along y: lay y along the lane",
    "resolution": "2k",
    "px": [
     2048,
@@ -218,8 +270,7 @@
     "ao": 0.72,
     "roughness": 0.77,
     "metallic": 0.015
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Asphalt_ScanWorn",
@@ -227,16 +278,18 @@
    "kind": "texture",
    "surface": "road asphalt, aged, even (no cracks)",
    "use": "Blend partner for TS_Asphalt_ScanCracked on the avenue (wheel paths, crack-free stretches); rear service lane.",
+   "preview": "ground",
    "tile_m": [
     2.08,
     2.08
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: exposed stones 5 to 10 mm across.",
    "basis": {
     "kind": "stated",
     "stated_m": 2.08
    },
-   "publisher_sphere_m": 2.084,
+   "confidence": "high",
+   "publisher_stated_m": 2.08,
    "resolution": "2k",
    "px": [
     2048,
@@ -455,8 +508,7 @@
     "ao": 0.715,
     "roughness": 0.77,
     "metallic": 0.008
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Asphalt_ScanFresh",
@@ -464,16 +516,18 @@
    "kind": "texture",
    "surface": "fresh black asphalt (the patch material)",
    "use": "The 'patched' road variant: utility-cut patches and the repaved strip on Jamaica Ave. Mask it over TS_Asphalt_ScanCracked with hard-edged rectangles and a tar-seal border; no scan with real patch seams exists on Poly Haven.",
+   "preview": "ground",
    "tile_m": [
     2.06,
     2.06
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: stones 4 to 10 mm across.",
    "basis": {
     "kind": "stated",
     "stated_m": 2.06
    },
-   "publisher_sphere_m": 2.065,
+   "confidence": "high",
+   "publisher_stated_m": 2.06,
    "resolution": "2k",
    "px": [
     2048,
@@ -670,8 +724,7 @@
     "ao": 0.93,
     "roughness": 0.831,
     "metallic": 0.003
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Asphalt_ScanCoarse",
@@ -679,16 +732,18 @@
    "kind": "texture",
    "surface": "coarse dark asphalt",
    "use": "Parking lot surface; parking lanes and the kerb-side strip of the avenue.",
+   "preview": "ground",
    "tile_m": [
     1.99,
     1.99
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: stones 5 to 15 mm across.",
    "basis": {
     "kind": "stated",
     "stated_m": 1.99
    },
-   "publisher_sphere_m": 1.991,
+   "confidence": "high",
+   "publisher_stated_m": 1.99,
    "resolution": "2k",
    "px": [
     2048,
@@ -885,8 +940,7 @@
     "ao": 0.903,
     "roughness": 0.832,
     "metallic": 0.003
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Asphalt_ScanBleached",
@@ -894,16 +948,18 @@
    "kind": "texture",
    "surface": "bleached, smooth asphalt",
    "use": "The Cage ball court (under the painted lines and colour coat) and the oldest part of the parking lot.",
+   "preview": "ground",
    "tile_m": [
     4.04,
     4.04
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: fines 4 to 10 mm with a few stones of 20 to 30 mm.",
    "basis": {
     "kind": "stated",
     "stated_m": 4.04
    },
-   "publisher_sphere_m": 4.04,
+   "confidence": "high",
+   "publisher_stated_m": 4.04,
    "resolution": "2k",
    "px": [
     2048,
@@ -1126,8 +1182,7 @@
     "ao": 0.966,
     "roughness": 0.932,
     "metallic": 0.003
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Asphalt_ScanDirty",
@@ -1135,16 +1190,18 @@
    "kind": "texture",
    "surface": "dark asphalt with soil and leaf litter",
    "use": "Rear service lane, the kerb line of the parking lot, the edge of the vacant lot: asphalt that nobody sweeps.",
+   "preview": "ground",
    "tile_m": [
     2.0,
     2.0
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: stones 5 to 12 mm, leaf fragments 10 to 30 mm long.",
    "basis": {
     "kind": "stated",
     "stated_m": 2.0
    },
-   "publisher_sphere_m": 2.0,
+   "confidence": "high",
+   "publisher_stated_m": 2.0,
    "resolution": "2k",
    "px": [
     2048,
@@ -1170,7 +1227,6 @@
    },
    "colour": "Dark with red-brown litter: fine as is.",
    "licence": "CC0, Poly Haven",
-   "preview": "ground",
    "measured": {
     "px": [
      2048,
@@ -1350,16 +1406,19 @@
    "kind": "texture",
    "surface": "asphalt from the air, 30 m across: macro variation",
    "use": "Macro layer for the avenue and the lot: tyre arcs, long cracks and stains at 30 m scale, multiplied over the detail sets to break up tiling. Too coarse to use alone up close.",
+   "preview": "ground",
    "tile_m": [
     29.96,
     29.96
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: one pixel is 15 mm, so single stones are not resolved; the tyre scrub arcs are 0.6 to 0.9 m wide (truck dual tyres) and the crack network has cells of 3 to 6 m.",
    "basis": {
     "kind": "stated",
     "stated_m": 29.96
    },
-   "publisher_sphere_m": 29.964,
+   "confidence": "medium",
+   "publisher_stated_m": 29.96,
+   "notes": "A macro layer only: 68 px/m at 2k.",
    "resolution": "2k",
    "px": [
     2048,
@@ -1573,8 +1632,7 @@
     "ao": 0.753,
     "roughness": 0.775,
     "metallic": 0.008
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Sidewalk_ScanBroom",
@@ -1582,16 +1640,19 @@
    "kind": "texture",
    "surface": "broom-finished concrete",
    "use": "Sidewalk flags on both sides of Jamaica Ave. The 5 ft (1.524 m) flag joints are not in the scan: cut them in geometry or decals. Turn the set so the broom lines run kerb to building line.",
+   "preview": "ground",
    "tile_m": [
     2.0,
     2.0
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: the broom streaks are 10 to 13 mm apart, the track of the tufts of a stiff broom; the 2 to 4 mm bristle lines inside them are below the 1 mm pixel. Sand grains are not resolved, so the size cannot be confirmed more closely than that.",
    "basis": {
     "kind": "stated",
     "stated_m": 2.0
    },
-   "publisher_sphere_m": 2.002,
+   "confidence": "medium",
+   "publisher_stated_m": 2.0,
+   "orientation": "broom streaks run along x: lay x from kerb to building line (across the walking direction)",
    "resolution": "2k",
    "px": [
     2048,
@@ -1819,8 +1880,7 @@
     "ao": 0.895,
     "roughness": 0.854,
     "metallic": 0.003
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Sidewalk_ScanWorn",
@@ -1828,16 +1888,18 @@
    "kind": "texture",
    "surface": "worn concrete, paste worn off the fines",
    "use": "Older sidewalk flags, kerb tops, the loading dock slab, pedestrian ramps.",
+   "preview": "ground",
    "tile_m": [
     2.1,
     2.1
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: exposed fine aggregate 2 to 8 mm across.",
    "basis": {
     "kind": "stated",
     "stated_m": 2.1
    },
-   "publisher_sphere_m": 2.102,
+   "confidence": "high",
+   "publisher_stated_m": 2.1,
    "resolution": "2k",
    "px": [
     2048,
@@ -2052,8 +2114,7 @@
     "ao": 0.967,
     "roughness": 0.862,
     "metallic": 0.002
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Paver_ScanFlag",
@@ -2061,11 +2122,12 @@
    "kind": "texture",
    "surface": "precast concrete flags, running bond",
    "use": "Sidewalk laid in precast flags (24 x 12 in): the kerb strip and the sidewalk in front of the station house; also the best light-grey concrete colour reference for grading the cast sidewalk sets.",
+   "preview": "ground",
    "tile_m": [
     1.829,
     1.829
    ],
-   "tile_method": "",
+   "tile_method": "3 flags x 609.6 mm (24 in) across, 6 rows x 304.8 mm (12 in) up. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.80 m gives 600 x 300 mm.",
    "basis": {
     "kind": "count",
     "x": {
@@ -2079,7 +2141,9 @@
      "feature": "flag rows"
     }
    },
-   "publisher_sphere_m": 1.802,
+   "confidence": "high",
+   "publisher_stated_m": 1.8,
+   "orientation": "flags run along x in running bond",
    "resolution": "2k",
    "px": [
     2048,
@@ -2308,8 +2372,7 @@
     "ao": 0.817,
     "roughness": 0.862,
     "metallic": 0.006
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Paver_ScanSquare",
@@ -2317,11 +2380,12 @@
    "kind": "texture",
    "surface": "precast concrete pavers",
    "use": "Paved strip at the station house and the ball court gate; bus shelter pad.",
+   "preview": "ground",
    "tile_m": [
     1.829,
     1.829
    ],
-   "tile_method": "",
+   "tile_method": "6 pavers x 304.8 mm (12 in) each way. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.80 m gives 300 mm.",
    "basis": {
     "kind": "count",
     "x": {
@@ -2330,7 +2394,10 @@
      "feature": "pavers"
     }
    },
-   "publisher_sphere_m": 1.803,
+   "confidence": "high",
+   "publisher_stated_m": 1.8,
+   "orientation": "stack bond",
+   "notes": "The height map has a hard seam in y (a paver joint lies on the wrap): invisible in base colour, keep parallax low.",
    "resolution": "2k",
    "px": [
     2048,
@@ -2575,8 +2642,7 @@
     "ao": 0.917,
     "roughness": 0.784,
     "metallic": 0.003
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Paver_ScanHex",
@@ -2584,11 +2650,12 @@
    "kind": "texture",
    "surface": "hexagonal pavers",
    "use": "Sidewalk strip along The Cage: the New York City Parks hexagon block look.",
+   "preview": "ground",
    "tile_m": [
     1.829,
     1.76
    ],
-   "tile_method": "",
+   "tile_method": "9 hexagons x 203.2 mm (8 in across the flats: the New York City Parks hexagon block) across, 5 double rows x 352.0 mm (three times the 117.3 mm side) up. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.60 m gives 178 mm hexagons.",
    "basis": {
     "kind": "count",
     "x": {
@@ -2602,7 +2669,10 @@
      "feature": "double rows"
     }
    },
-   "publisher_sphere_m": 1.604,
+   "confidence": "high",
+   "publisher_stated_m": 1.6,
+   "orientation": "flats face left and right, points up and down",
+   "notes": "Mapped 4 % wider in x than square pixels would give, which makes the scanned hexagons regular.",
    "resolution": "2k",
    "px": [
     2048,
@@ -2855,8 +2925,7 @@
     "ao": 0.98,
     "roughness": 0.871,
     "metallic": 0.01
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Concrete_ScanFormed",
@@ -2864,16 +2933,20 @@
    "kind": "texture",
    "surface": "cast-in-place concrete with form-tie holes",
    "use": "El column footings, loading dock wall, retaining walls, the attendant booth base.",
+   "preview": "wall",
    "tile_m": [
     2.71,
     2.71
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: form-tie holes 22 mm across and 0.45 m apart (US snap ties leave 25 mm cones at 16 to 24 in); form panels 0.68 x 1.36 m.",
    "basis": {
     "kind": "stated",
     "stated_m": 2.71
    },
-   "publisher_sphere_m": 2.712,
+   "confidence": "high",
+   "publisher_stated_m": 2.71,
+   "orientation": "form panels stand upright",
+   "notes": "The pattern repeats twice across and twice up inside one tile.",
    "resolution": "2k",
    "px": [
     2048,
@@ -3110,8 +3183,7 @@
     "ao": 0.969,
     "roughness": 0.737,
     "metallic": 0.003
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Concrete_ScanRough",
@@ -3119,16 +3191,18 @@
    "kind": "texture",
    "surface": "rough weathered concrete",
    "use": "Kerbs, jersey barriers (where the scanned barrier prop is not used), bollard bases, patch repairs.",
+   "preview": "wall",
    "tile_m": [
     1.5,
     1.5
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: pits and shell fragments 5 to 15 mm across.",
    "basis": {
     "kind": "stated",
     "stated_m": 1.5
    },
-   "publisher_sphere_m": 1.501,
+   "confidence": "medium",
+   "publisher_stated_m": 1.5,
    "resolution": "2k",
    "px": [
     2048,
@@ -3325,8 +3399,7 @@
     "ao": 0.88,
     "roughness": 0.746,
     "metallic": 0.009
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Concrete_ScanStained",
@@ -3334,16 +3407,19 @@
    "kind": "texture",
    "surface": "dark stained concrete with tie holes",
    "use": "El footings in shadow, alley walls, the rear of the S3 row.",
+   "preview": "wall",
    "tile_m": [
     2.04,
     2.04
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: tie holes 20 to 30 mm across, about 0.5 m apart; run-off streaks 20 to 60 mm wide.",
    "basis": {
     "kind": "stated",
     "stated_m": 2.04
    },
-   "publisher_sphere_m": 2.035,
+   "confidence": "medium",
+   "publisher_stated_m": 2.04,
+   "orientation": "run-off streaks run down y",
    "resolution": "2k",
    "px": [
     2048,
@@ -3554,8 +3630,7 @@
     "ao": 0.711,
     "roughness": 0.771,
     "metallic": 0.007
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Concrete_ScanAggregate",
@@ -3563,16 +3638,18 @@
    "kind": "texture",
    "surface": "exposed-aggregate concrete",
    "use": "Kerb faces, the worn crossing ramp, the old foundation slab in the vacant lot.",
+   "preview": "ground",
    "tile_m": [
     2.0,
     2.0
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: pebbles mostly 10 to 25 mm, a few up to 60 mm: a coarse river-gravel mix, at the upper end of what is plausible.",
    "basis": {
     "kind": "stated",
     "stated_m": 2.0
    },
-   "publisher_sphere_m": 1.999,
+   "confidence": "medium",
+   "publisher_stated_m": 2.0,
    "resolution": "2k",
    "px": [
     2048,
@@ -3769,8 +3846,7 @@
     "ao": 0.814,
     "roughness": 0.525,
     "metallic": 0.007
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Concrete_ScanWeathered",
@@ -3778,16 +3854,18 @@
    "kind": "texture",
    "surface": "weathered concrete with a pale crust",
    "use": "Foundation remains in the vacant lot, roof parapet copings.",
+   "preview": "ground",
    "tile_m": [
     1.99,
     1.99
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: crust patches 20 to 80 mm, pits 3 to 8 mm; no feature of standard size in the picture.",
    "basis": {
     "kind": "stated",
     "stated_m": 1.99
    },
-   "publisher_sphere_m": 1.992,
+   "confidence": "low",
+   "publisher_stated_m": 1.99,
    "resolution": "2k",
    "px": [
     2048,
@@ -3994,8 +4072,7 @@
     "ao": 0.827,
     "roughness": 0.517,
     "metallic": 0.007
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Floor_ScanGarage",
@@ -4003,16 +4080,18 @@
    "kind": "texture",
    "surface": "stained garage floor concrete",
    "use": "V&R Auto Body: the main shop floor.",
+   "preview": "ground",
    "tile_m": [
     1.88,
     1.88
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: stones 5 to 7 mm, hairline cracks, stains 0.1 to 0.4 m across.",
    "basis": {
     "kind": "stated",
     "stated_m": 1.88
    },
-   "publisher_sphere_m": 1.88,
+   "confidence": "medium",
+   "publisher_stated_m": 1.88,
    "resolution": "2k",
    "px": [
     2048,
@@ -4209,8 +4288,7 @@
     "ao": 0.848,
     "roughness": 0.636,
     "metallic": 0.005
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Floor_ScanPaintWorn",
@@ -4218,16 +4296,18 @@
    "kind": "texture",
    "surface": "floor paint worn through to concrete",
    "use": "V&R Auto Body: the bays around the lifts, the mezzanine stair landing.",
+   "preview": "ground",
    "tile_m": [
     2.0,
     2.0
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: paint wear patches 10 to 150 mm; no feature of standard size in the picture.",
    "basis": {
     "kind": "stated",
     "stated_m": 2.0
    },
-   "publisher_sphere_m": 1.999,
+   "confidence": "low",
+   "publisher_stated_m": 2.0,
    "resolution": "2k",
    "px": [
     2048,
@@ -4446,8 +4526,7 @@
     "ao": 0.479,
     "roughness": 0.749,
     "metallic": 0.013
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Floor_ScanSealed",
@@ -4455,16 +4534,19 @@
    "kind": "texture",
    "surface": "sealed smooth concrete with scratches",
    "use": "Mezzanine office floor, attendant booth floor.",
+   "preview": "ground",
    "tile_m": [
     3.0,
     3.0
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: scratches and scuffs only; no feature of standard size in the picture.",
    "basis": {
     "kind": "stated",
     "stated_m": 3.0
    },
-   "publisher_sphere_m": 3.003,
+   "confidence": "low",
+   "publisher_stated_m": 3.0,
+   "notes": "The height map does not agree with the normal map (fit 0): use the normal map only.",
    "resolution": "2k",
    "px": [
     2048,
@@ -4666,8 +4748,7 @@
     "ao": 0.957,
     "roughness": 0.541,
     "metallic": 0.006
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Floor_ScanLino",
@@ -4675,16 +4756,19 @@
    "kind": "texture",
    "surface": "old patterned sheet vinyl",
    "use": "Mezzanine office floor in V&R Auto Body; the attendant booth.",
+   "preview": "ground",
    "tile_m": [
     1.99,
     1.99
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: 18 octagons across, a 110 mm pattern repeat.",
    "basis": {
     "kind": "stated",
     "stated_m": 1.99
    },
-   "publisher_sphere_m": 1.99,
+   "confidence": "medium",
+   "publisher_stated_m": 1.99,
+   "orientation": "pattern square to the axes",
    "resolution": "2k",
    "px": [
     2048,
@@ -4710,7 +4794,6 @@
    },
    "colour": "Tan and orange: fine as is (a 1970s floor in a 1990s office).",
    "licence": "CC0, Poly Haven",
-   "preview": "ground",
    "measured": {
     "px": [
      2048,
@@ -4958,11 +5041,12 @@
    "kind": "texture",
    "surface": "dark red face brick, running bond",
    "use": "Tenement N1 street front; upper storeys of S2 (pawn and records).",
+   "preview": "wall",
    "tile_m": [
     0.992,
     0.948
    ],
-   "tile_method": "",
+   "tile_method": "14 courses x 67.7 mm (2 2/3 in: three US modular courses to 8 in) up, 4.88 stretchers x 203.2 mm (8 in) across. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.03 m would make a course 73 mm, a European 65 mm brick with its joint: the count is confirmed, the scale is set to the New York brick.",
    "basis": {
     "kind": "count",
     "x": {
@@ -4976,7 +5060,10 @@
      "feature": "brick courses"
     }
    },
-   "publisher_sphere_m": 1.028,
+   "confidence": "high",
+   "publisher_stated_m": 1.03,
+   "orientation": "courses run along x (image right); y is up the wall",
+   "notes": "Bricks vary in length: 4.88 is the mean count. Mapped 5 % wider in x than square pixels would give, so that both the course and the stretcher land on the US module.",
    "resolution": "2k",
    "px": [
     2048,
@@ -5217,8 +5304,7 @@
     "ao": 0.78,
     "roughness": 0.532,
     "metallic": 0.006
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Brick_ScanRed",
@@ -5226,11 +5312,12 @@
    "kind": "texture",
    "surface": "red face brick, running bond",
    "use": "Deli N2 and the S3 row above the shop fronts.",
+   "preview": "wall",
    "tile_m": [
     1.219,
     1.354
    ],
-   "tile_method": "",
+   "tile_method": "20 courses x 67.7 mm (2 2/3 in: three US modular courses to 8 in) up, 6 stretchers x 203.2 mm (8 in) across. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.39 m would make a course 70 mm, the same module: the count is confirmed, the scale is set to the New York brick.",
    "basis": {
     "kind": "count",
     "x": {
@@ -5244,7 +5331,10 @@
      "feature": "brick courses"
     }
    },
-   "publisher_sphere_m": 1.391,
+   "confidence": "high",
+   "publisher_stated_m": 1.39,
+   "orientation": "courses run along x (image right); y is up the wall",
+   "notes": "Mapped 10 % narrower in x than square pixels would give, so that both the course and the stretcher land on the US module.",
    "resolution": "2k",
    "px": [
     2048,
@@ -5493,8 +5583,7 @@
     "ao": 0.928,
     "roughness": 0.923,
     "metallic": 0.004
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Brick_ScanRedOld",
@@ -5502,11 +5591,12 @@
    "kind": "texture",
    "surface": "old red common brick",
    "use": "Side and rear walls of the tenements, the alley.",
+   "preview": "wall",
    "tile_m": [
     1.731,
     2.031
    ],
-   "tile_method": "",
+   "tile_method": "30 courses x 67.7 mm (2 2/3 in: three US modular courses to 8 in) up, 8.52 stretchers x 203.2 mm (8 in) across. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 2.04 m would make a course 68 mm, the same module: the count is confirmed, the scale is set to the New York brick.",
    "basis": {
     "kind": "count",
     "x": {
@@ -5520,7 +5610,10 @@
      "feature": "brick courses"
     }
    },
-   "publisher_sphere_m": 2.042,
+   "confidence": "high",
+   "publisher_stated_m": 2.04,
+   "orientation": "courses run along x (image right); y is up the wall",
+   "notes": "Hand-made bricks of uneven length: 8.52 is the mean count. Mapped 15 % narrower in x than square pixels would give, so that both the course and the stretcher land on the US module.",
    "resolution": "2k",
    "px": [
     2048,
@@ -5785,8 +5878,7 @@
     "ao": 0.87,
     "roughness": 0.937,
     "metallic": 0.004
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Brick_ScanRedCommon",
@@ -5794,11 +5886,12 @@
    "kind": "texture",
    "surface": "red common brick, large area",
    "use": "Large blank party walls (the mural wall, the alley) and distant skyline blocks: the big tile hides repetition.",
+   "preview": "wall",
    "tile_m": [
     2.164,
     2.64
    ],
-   "tile_method": "",
+   "tile_method": "39 courses x 67.7 mm (2 2/3 in: three US modular courses to 8 in) up, 10.65 stretchers x 203.2 mm (8 in) across. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 3.08 m would make a course 79 mm, a European 65 mm brick with its joint: the count is confirmed, the scale is set to the New York brick.",
    "basis": {
     "kind": "count",
     "x": {
@@ -5812,7 +5905,10 @@
      "feature": "brick courses"
     }
    },
-   "publisher_sphere_m": 3.079,
+   "confidence": "high",
+   "publisher_stated_m": 3.08,
+   "orientation": "courses run along x (image right); y is up the wall",
+   "notes": "Uneven bricks: 10.65 is the mean count. Mapped 18 % narrower in x than square pixels would give, so that both the course and the stretcher land on the US module.",
    "resolution": "2k",
    "px": [
     2048,
@@ -6077,8 +6173,7 @@
     "ao": 0.838,
     "roughness": 0.787,
     "metallic": 0.003
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Brick_ScanRedEnglish",
@@ -6086,11 +6181,12 @@
    "kind": "texture",
    "surface": "red brick with header courses",
    "use": "Station house S1 (the older municipal building), parapets.",
+   "preview": "wall",
    "tile_m": [
     0.782,
     0.948
    ],
-   "tile_method": "",
+   "tile_method": "14 courses x 67.7 mm (2 2/3 in: three US modular courses to 8 in) up, 3.85 stretchers x 203.2 mm (8 in) across. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 0.51 m would make a course 36 mm, which no brick has: the publisher's figure is wrong for this old scan: the count is confirmed, the scale is set to the New York brick.",
    "basis": {
     "kind": "count",
     "x": {
@@ -6104,7 +6200,10 @@
      "feature": "brick courses"
     }
    },
-   "publisher_sphere_m": 0.508,
+   "confidence": "high",
+   "publisher_stated_m": 0.51,
+   "orientation": "courses run along x (image right); y is up the wall",
+   "notes": "Stretcher courses alternate with header courses; 3.85 is the mean stretcher count. Mapped 18 % narrower in x than square pixels would give, so that both the course and the stretcher land on the US module.",
    "resolution": "2k",
    "px": [
     2048,
@@ -6357,8 +6456,7 @@
     "ao": 0.934,
     "roughness": 0.775,
     "metallic": 0.015
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Brick_ScanBrown",
@@ -6366,11 +6464,12 @@
    "kind": "texture",
    "surface": "dark brown ironspot brick",
    "use": "Shop-front piers and bulkheads, the 1930s apartment block.",
+   "preview": "wall",
    "tile_m": [
     1.626,
     1.489
    ],
-   "tile_method": "",
+   "tile_method": "22 courses x 67.7 mm (2 2/3 in: three US modular courses to 8 in) up, 8 stretchers x 203.2 mm (8 in) across. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.91 m would make a course 87 mm, a South African imperial brick (73 mm) with its joint: the count is confirmed, the scale is set to the New York brick.",
    "basis": {
     "kind": "count",
     "x": {
@@ -6384,7 +6483,10 @@
      "feature": "brick courses"
     }
    },
-   "publisher_sphere_m": 1.911,
+   "confidence": "high",
+   "publisher_stated_m": 1.91,
+   "orientation": "courses run along x (image right); y is up the wall",
+   "notes": "Mapped 9 % wider in x than square pixels would give, so that both the course and the stretcher land on the US module.",
    "resolution": "2k",
    "px": [
     2048,
@@ -6649,8 +6751,7 @@
     "ao": 0.846,
     "roughness": 0.787,
     "metallic": 0.003
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Brick_ScanBrownBlend",
@@ -6658,11 +6759,12 @@
    "kind": "texture",
    "surface": "pink-brown blended brick",
    "use": "S3 row upper floors, the far skyline.",
+   "preview": "wall",
    "tile_m": [
     2.032,
     2.031
    ],
-   "tile_method": "",
+   "tile_method": "30 courses x 67.7 mm (2 2/3 in: three US modular courses to 8 in) up, 10 stretchers x 203.2 mm (8 in) across. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 2.04 m would make a course 68 mm, the same module: the count is confirmed, the scale is set to the New York brick.",
    "basis": {
     "kind": "count",
     "x": {
@@ -6676,7 +6778,9 @@
      "feature": "brick courses"
     }
    },
-   "publisher_sphere_m": 2.037,
+   "confidence": "high",
+   "publisher_stated_m": 2.04,
+   "orientation": "courses run along x (image right); y is up the wall",
    "resolution": "2k",
    "px": [
     2048,
@@ -6929,8 +7033,7 @@
     "ao": 0.941,
     "roughness": 0.932,
     "metallic": 0.004
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Brick_ScanBlack",
@@ -6938,11 +7041,12 @@
    "kind": "texture",
    "surface": "black brick with tan joints",
    "use": "Modern shop-front infill, the liquor store base.",
+   "preview": "wall",
    "tile_m": [
     0.87,
     0.812
    ],
-   "tile_method": "",
+   "tile_method": "12 courses x 67.7 mm (2 2/3 in: three US modular courses to 8 in) up, 4.28 stretchers x 203.2 mm (8 in) across. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.06 m would make a course 89 mm, a South African imperial brick (73 mm) with its joint: the count is confirmed, the scale is set to the New York brick.",
    "basis": {
     "kind": "count",
     "x": {
@@ -6956,7 +7060,10 @@
      "feature": "brick courses"
     }
    },
-   "publisher_sphere_m": 1.065,
+   "confidence": "high",
+   "publisher_stated_m": 1.06,
+   "orientation": "courses run along x (image right); y is up the wall",
+   "notes": "Rock-faced bricks with closers: 4.28 is the mean count. Mapped 7 % wider in x than square pixels would give, so that both the course and the stretcher land on the US module.",
    "resolution": "2k",
    "px": [
     2048,
@@ -7221,8 +7328,7 @@
     "ao": 0.866,
     "roughness": 0.813,
     "metallic": 0.005
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Brick_ScanBuff",
@@ -7230,11 +7336,12 @@
    "kind": "texture",
    "surface": "buff brick",
    "use": "The Queens buff brick: deli N2 upper floors or the station house.",
+   "preview": "wall",
    "tile_m": [
     1.626,
     1.489
    ],
-   "tile_method": "",
+   "tile_method": "22 courses x 67.7 mm (2 2/3 in: three US modular courses to 8 in) up, 8 stretchers x 203.2 mm (8 in) across. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.91 m would make a course 87 mm, a South African imperial brick (73 mm) with its joint: the count is confirmed, the scale is set to the New York brick.",
    "basis": {
     "kind": "count",
     "x": {
@@ -7248,7 +7355,10 @@
      "feature": "brick courses"
     }
    },
-   "publisher_sphere_m": 1.909,
+   "confidence": "high",
+   "publisher_stated_m": 1.91,
+   "orientation": "courses run along x (image right); y is up the wall",
+   "notes": "Mapped 9 % wider in x than square pixels would give, so that both the course and the stretcher land on the US module.",
    "resolution": "2k",
    "px": [
     2048,
@@ -7509,8 +7619,7 @@
     "ao": 0.738,
     "roughness": 0.944,
     "metallic": 0.005
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Brick_ScanIronspot",
@@ -7518,11 +7627,12 @@
    "kind": "texture",
    "surface": "orange ironspot brick",
    "use": "1950s infill block (liquor, nails).",
+   "preview": "wall",
    "tile_m": [
     1.422,
     1.354
    ],
-   "tile_method": "",
+   "tile_method": "20 courses x 67.7 mm (2 2/3 in: three US modular courses to 8 in) up, 7 stretchers x 203.2 mm (8 in) across. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.73 m would make a course 86 mm, a South African imperial brick (73 mm) with its joint: the count is confirmed, the scale is set to the New York brick.",
    "basis": {
     "kind": "count",
     "x": {
@@ -7536,7 +7646,10 @@
      "feature": "brick courses"
     }
    },
-   "publisher_sphere_m": 1.726,
+   "confidence": "high",
+   "publisher_stated_m": 1.73,
+   "orientation": "courses run along x (image right); y is up the wall",
+   "notes": "Mapped 5 % wider in x than square pixels would give, so that both the course and the stretcher land on the US module.",
    "resolution": "2k",
    "px": [
     2048,
@@ -7772,8 +7885,7 @@
     "ao": 0.775,
     "roughness": 0.694,
     "metallic": 0.005
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Brick_ScanAlleyMixed",
@@ -7781,11 +7893,12 @@
    "kind": "texture",
    "surface": "grimy mixed brick with painted leftovers",
    "use": "Alley walls, the rear service lane, under the mural.",
+   "preview": "wall",
    "tile_m": [
     1.4,
     1.354
    ],
-   "tile_method": "",
+   "tile_method": "20 courses x 67.7 mm (2 2/3 in: three US modular courses to 8 in) up, 6.89 stretchers x 203.2 mm (8 in) across. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.70 m would make a course 85 mm, a South African imperial brick (73 mm) with its joint: the count is confirmed, the scale is set to the New York brick.",
    "basis": {
     "kind": "count",
     "x": {
@@ -7799,7 +7912,10 @@
      "feature": "brick courses"
     }
    },
-   "publisher_sphere_m": 1.699,
+   "confidence": "high",
+   "publisher_stated_m": 1.7,
+   "orientation": "courses run along x (image right); y is up the wall",
+   "notes": "Uneven bricks: 6.89 is the mean count. Mapped 3 % wider in x than square pixels would give, so that both the course and the stretcher land on the US module.",
    "resolution": "2k",
    "px": [
     2048,
@@ -8019,8 +8135,7 @@
     "ao": 0.866,
     "roughness": 0.833,
     "metallic": 0.004
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Brick_ScanAlleyPatched",
@@ -8028,11 +8143,12 @@
    "kind": "texture",
    "surface": "damaged brick with plaster remains",
    "use": "Vacant lot party walls: the ghost of the demolished building.",
+   "preview": "wall",
    "tile_m": [
     1.341,
     1.354
    ],
-   "tile_method": "",
+   "tile_method": "20 courses x 67.7 mm (2 2/3 in: three US modular courses to 8 in) up, 6.6 stretchers x 203.2 mm (8 in) across. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.54 m would make a course 77 mm, a European 65 mm brick with its joint: the count is confirmed, the scale is set to the New York brick.",
    "basis": {
     "kind": "count",
     "x": {
@@ -8046,7 +8162,10 @@
      "feature": "brick courses"
     }
    },
-   "publisher_sphere_m": 1.544,
+   "confidence": "high",
+   "publisher_stated_m": 1.54,
+   "orientation": "courses run along x (image right); y is up the wall",
+   "notes": "Uneven bricks: 6.6 is the mean count.",
    "resolution": "2k",
    "px": [
     2048,
@@ -8286,8 +8405,7 @@
     "ao": 0.778,
     "roughness": 0.518,
     "metallic": 0.004
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_BrickPainted_ScanBlue",
@@ -8295,11 +8413,12 @@
    "kind": "texture",
    "surface": "painted brick, peeling",
    "use": "A painted shop ground floor (the barber); any colour by hue shift.",
+   "preview": "wall",
    "tile_m": [
     1.422,
     1.489
    ],
-   "tile_method": "",
+   "tile_method": "22 courses x 67.7 mm (2 2/3 in: three US modular courses to 8 in) up, 7 stretchers x 203.2 mm (8 in) across. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.84 m would make a course 84 mm, a South African imperial brick (73 mm) with its joint: the count is confirmed, the scale is set to the New York brick.",
    "basis": {
     "kind": "count",
     "x": {
@@ -8313,7 +8432,10 @@
      "feature": "brick courses"
     }
    },
-   "publisher_sphere_m": 1.843,
+   "confidence": "high",
+   "publisher_stated_m": 1.84,
+   "orientation": "courses run along x (image right); y is up the wall",
+   "notes": "Mapped 4 % narrower in x than square pixels would give, so that both the course and the stretcher land on the US module.",
    "resolution": "2k",
    "px": [
     2048,
@@ -8558,8 +8680,7 @@
     "ao": 0.86,
     "roughness": 0.933,
     "metallic": 0.002
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Brick_ScanCement",
@@ -8567,11 +8688,12 @@
    "kind": "texture",
    "surface": "grey concrete brick, flush joints",
    "use": "V&R Auto Body side walls and rear extensions; and the neutral base for painted brick in any shop colour (multiply a tint over it).",
+   "preview": "wall",
    "tile_m": [
     2.032,
     1.76
    ],
-   "tile_method": "",
+   "tile_method": "26 courses x 67.7 mm (2 2/3 in: three US modular courses to 8 in) up, 10 stretchers x 203.2 mm (8 in) across. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 2.02 m would make a course 78 mm, a European 65 mm brick with its joint: the count is confirmed, the scale is set to the New York brick.",
    "basis": {
     "kind": "count",
     "x": {
@@ -8585,7 +8707,10 @@
      "feature": "brick courses"
     }
    },
-   "publisher_sphere_m": 2.024,
+   "confidence": "high",
+   "publisher_stated_m": 2.02,
+   "orientation": "courses run along x (image right); y is up the wall",
+   "notes": "Mapped 15 % wider in x than square pixels would give, so that both the course and the stretcher land on the US module.",
    "resolution": "2k",
    "px": [
     2048,
@@ -8830,8 +8955,7 @@
     "ao": 0.982,
     "roughness": 0.95,
     "metallic": 0.002
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_BrickPainted_ScanWhitewash",
@@ -8839,11 +8963,12 @@
    "kind": "texture",
    "surface": "whitewashed brick",
    "use": "Whitewashed side wall, base coat under the mural.",
+   "preview": "wall",
    "tile_m": [
     1.829,
     1.896
    ],
-   "tile_method": "",
+   "tile_method": "28 courses x 67.7 mm (2 2/3 in: three US modular courses to 8 in) up, 9 stretchers x 203.2 mm (8 in) across. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 2.00 m would make a course 71 mm, the same module: the count is confirmed, the scale is set to the New York brick.",
    "basis": {
     "kind": "count",
     "x": {
@@ -8857,7 +8982,10 @@
      "feature": "brick courses"
     }
    },
-   "publisher_sphere_m": 2.001,
+   "confidence": "high",
+   "publisher_stated_m": 2.0,
+   "orientation": "courses run along x (image right); y is up the wall",
+   "notes": "Mapped 4 % narrower in x than square pixels would give, so that both the course and the stretcher land on the US module.",
    "resolution": "2k",
    "px": [
     2048,
@@ -9122,8 +9250,7 @@
     "ao": 0.877,
     "roughness": 0.929,
     "metallic": 0.003
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Block_ScanBare",
@@ -9131,11 +9258,12 @@
    "kind": "texture",
    "surface": "concrete block, bare",
    "use": "V&R Auto Body side and rear walls, the alley, lot walls.",
+   "preview": "wall",
    "tile_m": [
     2.032,
     1.626
    ],
-   "tile_method": "",
+   "tile_method": "8 courses x 203.2 mm (8 in) up, 5 blocks x 406.4 mm (16 in) across. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 2.04 m gives 408 mm blocks, the same length; the scan's blocks are squarer than a US block (1.6 : 1 instead of 2 : 1).",
    "basis": {
     "kind": "count",
     "x": {
@@ -9149,7 +9277,10 @@
      "feature": "block courses"
     }
    },
-   "publisher_sphere_m": 2.04,
+   "confidence": "high",
+   "publisher_stated_m": 2.04,
+   "orientation": "courses run along x; y is up the wall",
+   "notes": "Mapped 20 % shorter in y than square pixels would give, so that courses are 8 in. Running bond.",
    "resolution": "2k",
    "px": [
     2048,
@@ -9385,8 +9516,7 @@
     "ao": 0.93,
     "roughness": 0.926,
     "metallic": 0.002
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Block_ScanPainted",
@@ -9394,11 +9524,12 @@
    "kind": "texture",
    "surface": "painted block pattern",
    "use": "V&R Auto Body street front and interior walls (tint white or cream; the dado stripe is a material layer).",
+   "preview": "wall",
    "tile_m": [
     2.032,
     2.438
    ],
-   "tile_method": "",
+   "tile_method": "12 courses x 203.2 mm (8 in) up, 5 units x 406.4 mm (16 in) across. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 2.00 m gives 400 mm units.",
    "basis": {
     "kind": "count",
     "x": {
@@ -9412,7 +9543,10 @@
      "feature": "block courses"
     }
    },
-   "publisher_sphere_m": 2.0,
+   "confidence": "medium",
+   "publisher_stated_m": 2.0,
+   "orientation": "courses run along x; y is up the wall",
+   "notes": "This is plaster scored to look like block, with units 2.4 : 1: mapped 20 % taller in y than square pixels would give, so that courses are 8 in.",
    "resolution": "2k",
    "px": [
     2048,
@@ -9669,8 +9803,7 @@
     "ao": 0.924,
     "roughness": 0.958,
     "metallic": 0.003
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Stucco_ScanGrey",
@@ -9678,16 +9811,18 @@
    "kind": "texture",
    "surface": "cement render",
    "use": "Rear of the S3 row, parapet backs.",
+   "preview": "wall",
    "tile_m": [
     1.5,
     1.5
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: float texture with sand grains at the 1 mm pixel; no feature of standard size in the picture.",
    "basis": {
     "kind": "stated",
     "stated_m": 1.5
    },
-   "publisher_sphere_m": 1.503,
+   "confidence": "low",
+   "publisher_stated_m": 1.5,
    "resolution": "2k",
    "px": [
     2048,
@@ -9884,8 +10019,7 @@
     "ao": 0.48,
     "roughness": 0.833,
     "metallic": 0.009
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Stucco_ScanPainted",
@@ -9893,16 +10027,18 @@
    "kind": "texture",
    "surface": "painted fine stucco",
    "use": "Shop fronts above the signs, the mezzanine office walls.",
+   "preview": "wall",
    "tile_m": [
     2.01,
     2.01
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: roller stipple and hairline cracks; no feature of standard size in the picture.",
    "basis": {
     "kind": "stated",
     "stated_m": 2.01
    },
-   "publisher_sphere_m": 2.009,
+   "confidence": "low",
+   "publisher_stated_m": 2.01,
    "resolution": "2k",
    "px": [
     2048,
@@ -10104,8 +10240,7 @@
     "ao": 0.957,
     "roughness": 0.919,
     "metallic": 0.002
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Stucco_ScanRough",
@@ -10113,16 +10248,18 @@
    "kind": "texture",
    "surface": "rough-cast stucco",
    "use": "Gable walls and bulkheads.",
+   "preview": "wall",
    "tile_m": [
     1.0,
     1.0
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: dash grains 1 to 3 mm against the centimetre scale.",
    "basis": {
     "kind": "stated",
     "stated_m": 1.0
    },
-   "publisher_sphere_m": 0.999,
+   "confidence": "medium",
+   "publisher_stated_m": 1.0,
    "resolution": "2k",
    "px": [
     2048,
@@ -10353,8 +10490,7 @@
     "ao": 0.673,
     "roughness": 0.907,
     "metallic": 0.008
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Stucco_ScanStained",
@@ -10362,16 +10498,19 @@
    "kind": "texture",
    "surface": "damp-stained render",
    "use": "The alley and the wall under the fire escape.",
+   "preview": "wall",
    "tile_m": [
     3.02,
     3.02
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: damp stains 0.3 to 1 m across; no feature of standard size in the picture.",
    "basis": {
     "kind": "stated",
     "stated_m": 3.02
    },
-   "publisher_sphere_m": 3.021,
+   "confidence": "low",
+   "publisher_stated_m": 3.02,
+   "orientation": "stains run down y",
    "resolution": "2k",
    "px": [
     2048,
@@ -10568,8 +10707,7 @@
     "ao": 0.959,
     "roughness": 0.619,
     "metallic": 0.008
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Stucco_ScanPeeling",
@@ -10577,16 +10715,18 @@
    "kind": "texture",
    "surface": "render peeling off its base",
    "use": "The vacant lot wall.",
+   "preview": "wall",
    "tile_m": [
     1.01,
     1.01
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: render flakes 30 to 200 mm across; no feature of standard size in the picture.",
    "basis": {
     "kind": "stated",
     "stated_m": 1.01
    },
-   "publisher_sphere_m": 1.008,
+   "confidence": "low",
+   "publisher_stated_m": 1.01,
    "resolution": "2k",
    "px": [
     2048,
@@ -10783,8 +10923,7 @@
     "ao": 0.921,
     "roughness": 0.47,
     "metallic": 0.004
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Paint_ScanGreenPeeling",
@@ -10792,16 +10931,18 @@
    "kind": "texture",
    "surface": "peeling green paint on concrete",
    "use": "Shop interior lower walls, alley door surrounds.",
+   "preview": "wall",
    "tile_m": [
     2.0,
     2.0
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: paint flakes 5 to 40 mm across; no feature of standard size in the picture.",
    "basis": {
     "kind": "stated",
     "stated_m": 2.0
    },
-   "publisher_sphere_m": 2.001,
+   "confidence": "low",
+   "publisher_stated_m": 2.0,
    "resolution": "2k",
    "px": [
     2048,
@@ -10998,8 +11139,7 @@
     "ao": 0.75,
     "roughness": 0.772,
     "metallic": 0.009
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Shutter_ScanGrey",
@@ -11007,11 +11147,12 @@
    "kind": "texture",
    "surface": "roll-down shutter, painted steel",
    "use": "Roll-down gates on the closed shops; the shop's 6 m roll-up door.",
+   "preview": "wall",
    "tile_m": [
     2.068,
     2.068
    ],
-   "tile_method": "",
+   "tile_method": "31 slats x 66.7 mm (2 5/8 in, the US rolling-door slat). Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 2.01 m gives 64.8 mm slats: agreement within 3 %.",
    "basis": {
     "kind": "count",
     "y": {
@@ -11020,7 +11161,9 @@
      "feature": "slats"
     }
    },
-   "publisher_sphere_m": 2.006,
+   "confidence": "high",
+   "publisher_stated_m": 2.01,
+   "orientation": "slats run along x (horizontal), as on a closed gate",
    "resolution": "2k",
    "px": [
     2048,
@@ -11251,8 +11394,7 @@
     "ao": 0.88,
     "roughness": 0.633,
     "metallic": 0.004
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Shutter_ScanBrown",
@@ -11260,11 +11402,12 @@
    "kind": "texture",
    "surface": "roll-down shutter, worn",
    "use": "Older gates (pawn shop, checks cashed).",
+   "preview": "wall",
    "tile_m": [
     1.934,
     1.934
    ],
-   "tile_method": "",
+   "tile_method": "29 slats x 66.7 mm (2 5/8 in). Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.42 m gives 48.9 mm slats (a 2 in slat): the scan is used 36 % larger than life so that both gates share the US slat.",
    "basis": {
     "kind": "count",
     "y": {
@@ -11273,7 +11416,9 @@
      "feature": "slats"
     }
    },
-   "publisher_sphere_m": 1.418,
+   "confidence": "medium",
+   "publisher_stated_m": 1.42,
+   "orientation": "slats run along x (horizontal)",
    "resolution": "2k",
    "px": [
     2048,
@@ -11504,8 +11649,7 @@
     "ao": 0.828,
     "roughness": 0.73,
     "metallic": 0.002
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_GarageDoor_ScanRust",
@@ -11513,11 +11657,12 @@
    "kind": "texture",
    "surface": "rusted ribbed steel door",
    "use": "Garage doors in the rear service lane.",
+   "preview": "wall",
    "tile_m": [
     1.524,
     1.524
    ],
-   "tile_method": "",
+   "tile_method": "10 ribs x 152.4 mm (6 in). Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.51 m gives 150.6 mm.",
    "basis": {
     "kind": "count",
     "y": {
@@ -11526,7 +11671,9 @@
      "feature": "ribs"
     }
    },
-   "publisher_sphere_m": 1.506,
+   "confidence": "high",
+   "publisher_stated_m": 1.51,
+   "orientation": "ribs run along x (horizontal)",
    "resolution": "2k",
    "px": [
     2048,
@@ -11757,8 +11904,7 @@
     "ao": 0.712,
     "roughness": 0.524,
     "metallic": 0.004
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Corrugated_ScanGalv",
@@ -11766,11 +11912,12 @@
    "kind": "texture",
    "surface": "corrugated sheet, new galvanised",
    "use": "Vacant lot fence panels, attendant booth roof, scaffold shed roof.",
+   "preview": "wall",
    "tile_m": [
     1.143,
     1.143
    ],
-   "tile_method": "",
+   "tile_method": "15 corrugations x 76.2 mm (3 in pitch). Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.137 m gives 75.8 mm, and the height map fitted to the normal map gives corrugations 18.6 mm deep: this is the 76 x 19 mm sheet.",
    "basis": {
     "kind": "count",
     "x": {
@@ -11779,7 +11926,10 @@
      "feature": "corrugations"
     }
    },
-   "publisher_sphere_m": 1.137,
+   "confidence": "high",
+   "publisher_stated_m": 1.14,
+   "orientation": "corrugations run along y (vertical): turn a quarter for a roof",
+   "notes": "The US 2.67 x 7/8 in sheet is the same picture at 0.89 scale.",
    "resolution": "2k",
    "px": [
     2048,
@@ -12027,8 +12177,7 @@
     "ao": 0.998,
     "roughness": 0.703,
     "metallic": 0.987
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Corrugated_ScanWeathered",
@@ -12036,11 +12185,12 @@
    "kind": "texture",
    "surface": "corrugated sheet, old and dark",
    "use": "Lot fence, shed roofs.",
+   "preview": "wall",
    "tile_m": [
     2.134,
     2.134
    ],
-   "tile_method": "",
+   "tile_method": "28 corrugations x 76.2 mm (3 in pitch). Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 2.71 m would make the pitch 96.8 mm, which is no stock profile; the profile is shallow (a tenth of the pitch deep).",
    "basis": {
     "kind": "count",
     "x": {
@@ -12049,7 +12199,9 @@
      "feature": "corrugations"
     }
    },
-   "publisher_sphere_m": 2.709,
+   "confidence": "medium",
+   "publisher_stated_m": 2.71,
+   "orientation": "corrugations run along y (vertical)",
    "resolution": "2k",
    "px": [
     2048,
@@ -12297,8 +12449,7 @@
     "ao": 0.864,
     "roughness": 0.521,
     "metallic": 0.199
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Corrugated_ScanBlue",
@@ -12306,11 +12457,12 @@
    "kind": "texture",
    "surface": "fine-rib sheet, painted",
    "use": "Hoarding and the backing of fence scrim.",
+   "preview": "wall",
    "tile_m": [
     1.937,
     1.937
    ],
-   "tile_method": "",
+   "tile_method": "61 corrugations x 31.75 mm (1 1/4 in mini-corrugated). Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 2.00 m gives 32.9 mm.",
    "basis": {
     "kind": "count",
     "x": {
@@ -12319,7 +12471,9 @@
      "feature": "corrugations"
     }
    },
-   "publisher_sphere_m": 2.004,
+   "confidence": "high",
+   "publisher_stated_m": 2.0,
+   "orientation": "corrugations run along y (vertical); rows of fixings every 0.6 m up the sheet",
    "resolution": "2k",
    "px": [
     2048,
@@ -12555,8 +12709,7 @@
     "ao": 0.838,
     "roughness": 0.757,
     "metallic": 0.001
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Corrugated_ScanPeeling",
@@ -12564,11 +12717,12 @@
    "kind": "texture",
    "surface": "corrugated sheet, paint peeling",
    "use": "Vacant lot fence, back of the billboard.",
+   "preview": "wall",
    "tile_m": [
     1.219,
     1.219
    ],
-   "tile_method": "",
+   "tile_method": "16 corrugations x 76.2 mm (3 in pitch). Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.82 m would make the pitch 113.5 mm, which is no stock profile; depth over pitch is 0.23, that of the 76 x 19 mm sheet.",
    "basis": {
     "kind": "count",
     "x": {
@@ -12577,7 +12731,9 @@
      "feature": "corrugations"
     }
    },
-   "publisher_sphere_m": 1.816,
+   "confidence": "medium",
+   "publisher_stated_m": 1.82,
+   "orientation": "corrugations run along y (vertical)",
    "resolution": "2k",
    "px": [
     2048,
@@ -12808,8 +12964,7 @@
     "ao": 0.875,
     "roughness": 0.617,
     "metallic": 0.004
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_BoxProfile_ScanRed",
@@ -12817,11 +12972,12 @@
    "kind": "texture",
    "surface": "box-profile cladding sheet",
    "use": "Back of the IPX billboard, construction hoarding.",
+   "preview": "wall",
    "tile_m": [
     2.0,
     2.0
    ],
-   "tile_method": "",
+   "tile_method": "10 ribs x 200 mm. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 2.01 m gives 201 mm.",
    "basis": {
     "kind": "count",
     "x": {
@@ -12830,7 +12986,9 @@
      "feature": "ribs"
     }
    },
-   "publisher_sphere_m": 2.01,
+   "confidence": "high",
+   "publisher_stated_m": 2.01,
+   "orientation": "ribs run along y (vertical)",
    "resolution": "2k",
    "px": [
     2048,
@@ -13066,8 +13224,7 @@
     "ao": 0.866,
     "roughness": 0.446,
     "metallic": 0.004
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Steel_ScanPaintGreen",
@@ -13075,16 +13232,19 @@
    "kind": "texture",
    "surface": "painted steel, dark green with rust blisters",
    "use": "THE EL: columns, girders, bracing.",
+   "preview": "wall",
    "tile_m": [
     1.0,
     1.0
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: rust blisters 2 to 10 mm, runs 5 to 15 mm wide.",
    "basis": {
     "kind": "stated",
     "stated_m": 1.0
    },
-   "publisher_sphere_m": 1.001,
+   "confidence": "medium",
+   "publisher_stated_m": 1.0,
+   "orientation": "runs go down y",
    "resolution": "2k",
    "px": [
     2048,
@@ -13281,8 +13441,7 @@
     "ao": 0.876,
     "roughness": 0.504,
     "metallic": 0.004
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Steel_ScanPaintGrey",
@@ -13290,16 +13449,18 @@
    "kind": "texture",
    "surface": "painted steel, grey with rust bloom",
    "use": "El deck plates seen from below, lamp posts, signal poles, utility boxes.",
+   "preview": "wall",
    "tile_m": [
     2.0,
     2.0
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: rust bloom spots 2 to 20 mm.",
    "basis": {
     "kind": "stated",
     "stated_m": 2.0
    },
-   "publisher_sphere_m": 2.0,
+   "confidence": "medium",
+   "publisher_stated_m": 2.0,
    "resolution": "2k",
    "px": [
     2048,
@@ -13515,8 +13676,7 @@
     "ao": 0.973,
     "roughness": 0.82,
     "metallic": 0.003
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Steel_ScanPaintBlue",
@@ -13524,11 +13684,12 @@
    "kind": "texture",
    "surface": "painted steel plate with seams",
    "use": "Plate girders, mailbox blue, dumpsters; hue-shift to El green or black.",
+   "preview": "wall",
    "tile_m": [
     2.438,
     2.438
    ],
-   "tile_method": "",
+   "tile_method": "2 plates x 1219.2 mm (4 ft sheet). Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 2.50 m gives 1.25 m plates (the metric sheet).",
    "basis": {
     "kind": "count",
     "x": {
@@ -13537,7 +13698,9 @@
      "feature": "plates"
     }
    },
-   "publisher_sphere_m": 2.502,
+   "confidence": "high",
+   "publisher_stated_m": 2.5,
+   "orientation": "plate seams run along y",
    "resolution": "2k",
    "px": [
     2048,
@@ -13744,8 +13907,7 @@
     "ao": 0.995,
     "roughness": 0.285,
     "metallic": 0.002
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Steel_ScanPanelTeal",
@@ -13753,11 +13915,12 @@
    "kind": "texture",
    "surface": "painted steel panel with welded frame",
    "use": "Dumpster sides, gate panels.",
+   "preview": "wall",
    "tile_m": [
     1.829,
     1.829
    ],
-   "tile_method": "",
+   "tile_method": "3 panels x 609.6 mm (2 ft) each way. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.83 m gives 611 mm.",
    "basis": {
     "kind": "count",
     "x": {
@@ -13766,7 +13929,9 @@
      "feature": "panels"
     }
    },
-   "publisher_sphere_m": 1.833,
+   "confidence": "high",
+   "publisher_stated_m": 1.83,
+   "orientation": "a 3 x 3 grid of framed panels",
    "resolution": "2k",
    "px": [
     2048,
@@ -13995,8 +14160,7 @@
     "ao": 0.915,
     "roughness": 0.85,
     "metallic": 0.002
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Steel_ScanPaintWhite",
@@ -14004,16 +14168,19 @@
    "kind": "texture",
    "surface": "white painted steel with rust spots",
    "use": "Box truck bodies, sign backs, the food cart.",
+   "preview": "wall",
    "tile_m": [
     1.0,
     1.0
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: rust spots 5 to 40 mm.",
    "basis": {
     "kind": "stated",
     "stated_m": 1.0
    },
-   "publisher_sphere_m": 1.001,
+   "confidence": "medium",
+   "publisher_stated_m": 1.0,
+   "notes": "The height map has a hard seam in x (1.8 times a normal neighbour difference) and fits the normal map poorly: use the normal map only.",
    "resolution": "2k",
    "px": [
     2048,
@@ -14210,8 +14377,7 @@
     "ao": 0.767,
     "roughness": 0.423,
     "metallic": 0.006
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Steel_ScanPaintYellow",
@@ -14219,16 +14385,19 @@
    "kind": "texture",
    "surface": "yellow painted steel, rusted",
    "use": "Bollards, road-work plant, the car lifts.",
+   "preview": "wall",
    "tile_m": [
     1.35,
     1.35
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: rust runs 10 to 40 mm wide.",
    "basis": {
     "kind": "stated",
     "stated_m": 1.35
    },
-   "publisher_sphere_m": 1.349,
+   "confidence": "medium",
+   "publisher_stated_m": 1.35,
+   "orientation": "runs go down y",
    "resolution": "2k",
    "px": [
     2048,
@@ -14434,8 +14603,7 @@
     "ao": 0.92,
     "roughness": 0.811,
     "metallic": 0.002
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Steel_ScanPaintPeeled",
@@ -14443,16 +14611,18 @@
    "kind": "texture",
    "surface": "paint peeled to heavy rust",
    "use": "Neglected El steel (station stair stringers), fire escapes.",
+   "preview": "wall",
    "tile_m": [
     2.0,
     2.0
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: paint islands 20 to 300 mm, pitting 2 to 5 mm.",
    "basis": {
     "kind": "stated",
     "stated_m": 2.0
    },
-   "publisher_sphere_m": 1.999,
+   "confidence": "medium",
+   "publisher_stated_m": 2.0,
    "resolution": "2k",
    "px": [
     2048,
@@ -14684,8 +14854,7 @@
     "ao": 0.989,
     "roughness": 0.703,
     "metallic": 0.213
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Steel_ScanRust",
@@ -14693,16 +14862,18 @@
    "kind": "texture",
    "surface": "bare rusted steel",
    "use": "Rail webs, fence posts, the burned-out car.",
+   "preview": "wall",
    "tile_m": [
     2.2,
     2.2
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: rust scale 2 to 6 mm.",
    "basis": {
     "kind": "stated",
     "stated_m": 2.2
    },
-   "publisher_sphere_m": 2.2,
+   "confidence": "medium",
+   "publisher_stated_m": 2.2,
    "resolution": "2k",
    "px": [
     2048,
@@ -14917,8 +15088,7 @@
     "ao": 0.936,
     "roughness": 0.777,
     "metallic": 0.006
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Steel_ScanRustHeavy",
@@ -14926,16 +15096,18 @@
    "kind": "texture",
    "surface": "heavily rusted plate",
    "use": "The burned-out car, dumpster floors.",
+   "preview": "wall",
    "tile_m": [
     1.25,
     1.25
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: rust scale and streaks; no feature of standard size in the picture.",
    "basis": {
     "kind": "stated",
     "stated_m": 1.25
    },
-   "publisher_sphere_m": 1.248,
+   "confidence": "low",
+   "publisher_stated_m": 1.25,
    "resolution": "2k",
    "px": [
     2048,
@@ -15137,8 +15309,7 @@
     "ao": 0.989,
     "roughness": 0.855,
     "metallic": 0.002
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Plate_ScanDiamond",
@@ -15146,16 +15317,19 @@
    "kind": "texture",
    "surface": "diamond tread plate",
    "use": "El station stair treads, loading dock edge, truck steps.",
+   "preview": "ground",
    "tile_m": [
     0.51,
     0.51
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: 13 lugs across and 11 double rows up: lug pitch 39 x 46 mm (tread plate lugs sit 30 to 50 mm apart).",
    "basis": {
     "kind": "stated",
     "stated_m": 0.51
    },
-   "publisher_sphere_m": 0.505,
+   "confidence": "high",
+   "publisher_stated_m": 0.51,
+   "orientation": "lugs alternate at 45 degrees",
    "resolution": "2k",
    "px": [
     2048,
@@ -15420,8 +15594,7 @@
     "ao": 0.872,
     "roughness": 0.589,
     "metallic": 0.386
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Plate_ScanSeamed",
@@ -15429,16 +15602,19 @@
    "kind": "texture",
    "surface": "worn bare steel floor plates with seams",
    "use": "Small seamed floor plates (about 0.33 x 0.5 m each): mezzanine floor, lift platforms, booth and truck floors, cellar hatch frames. Not a road plate: those are single sheets 1.2 x 2.4 m and larger (use TS_Steel_ScanRust with real edges).",
+   "preview": "ground",
    "tile_m": [
     2.0,
     2.0
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: 6 plates across and 4 up: plates 0.33 x 0.5 m.",
    "basis": {
     "kind": "stated",
     "stated_m": 2.0
    },
-   "publisher_sphere_m": 2.003,
+   "confidence": "medium",
+   "publisher_stated_m": 2.0,
+   "orientation": "plates staggered by row",
    "resolution": "2k",
    "px": [
     2048,
@@ -15666,8 +15842,7 @@
     "ao": 0.957,
     "roughness": 0.659,
     "metallic": 0.91
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Plate_ScanDurbar",
@@ -15675,16 +15850,18 @@
    "kind": "texture",
    "surface": "rusted pattern plate",
    "use": "Sidewalk cellar hatches, manhole surrounds.",
+   "preview": "ground",
    "tile_m": [
     0.5,
     0.5
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: 7 units across and 6 up: 71 x 83 mm units with raised bars about 45 x 12 mm.",
    "basis": {
     "kind": "stated",
     "stated_m": 0.5
    },
-   "publisher_sphere_m": 0.502,
+   "confidence": "medium",
+   "publisher_stated_m": 0.5,
    "resolution": "2k",
    "px": [
     2048,
@@ -15937,8 +16114,7 @@
     "ao": 0.957,
     "roughness": 0.723,
     "metallic": 0.086
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Wood_ScanTie",
@@ -15946,11 +16122,12 @@
    "kind": "texture",
    "surface": "weathered grey timber",
    "use": "El track ties and walkway boards.",
+   "preview": "ground",
    "tile_m": [
     1.143,
     1.143
    ],
-   "tile_method": "",
+   "tile_method": "5 boards x 228.6 mm (9 in: the top face of a 7 x 9 in tie). Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.50 m gives 300 mm boards: the scan is used 24 % smaller than life so that one board is one tie.",
    "basis": {
     "kind": "count",
     "x": {
@@ -15959,7 +16136,9 @@
      "feature": "boards"
     }
    },
-   "publisher_sphere_m": 1.503,
+   "confidence": "medium",
+   "publisher_stated_m": 1.5,
+   "orientation": "boards run along y; one board per tie (or per walkway plank)",
    "resolution": "2k",
    "px": [
     2048,
@@ -16187,8 +16366,7 @@
     "ao": 0.977,
     "roughness": 0.843,
     "metallic": 0.007
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Wood_ScanPlankDark",
@@ -16196,11 +16374,12 @@
    "kind": "texture",
    "surface": "rough-sawn dark planks",
    "use": "Scaffold shed deck (old planks), El walkway.",
+   "preview": "ground",
    "tile_m": [
     2.057,
     2.057
    ],
-   "tile_method": "",
+   "tile_method": "9 boards x 228.6 mm (9 in; a 2 x 10 scaffold plank is 235 mm). Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 2.04 m gives 227 mm.",
    "basis": {
     "kind": "count",
     "x": {
@@ -16209,7 +16388,9 @@
      "feature": "boards"
     }
    },
-   "publisher_sphere_m": 2.044,
+   "confidence": "high",
+   "publisher_stated_m": 2.04,
+   "orientation": "boards run along y",
    "resolution": "2k",
    "px": [
     2048,
@@ -16440,8 +16621,7 @@
     "ao": 0.894,
     "roughness": 0.736,
     "metallic": 0.003
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Wood_ScanPlankNew",
@@ -16449,11 +16629,12 @@
    "kind": "texture",
    "surface": "clean wide planks",
    "use": "Scaffold shed deck and toe boards (new planks).",
+   "preview": "ground",
    "tile_m": [
     1.658,
     1.658
    ],
-   "tile_method": "",
+   "tile_method": "9 boards x 184.2 mm (2 x 8 lumber, 7 1/4 in). Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.50 m gives 167 mm.",
    "basis": {
     "kind": "count",
     "y": {
@@ -16462,7 +16643,10 @@
      "feature": "boards"
     }
    },
-   "publisher_sphere_m": 1.503,
+   "confidence": "medium",
+   "publisher_stated_m": 1.5,
+   "orientation": "boards run along x",
+   "notes": "Every board ends at the tile edge in x: the wrap is a straight line of butt joints once per tile (1.66 m). Right for a deck laid in bays; elsewhere offset alternate rows by half a tile.",
    "resolution": "2k",
    "px": [
     2048,
@@ -16693,8 +16877,7 @@
     "ao": 0.961,
     "roughness": 0.862,
     "metallic": 0.001
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Wood_ScanPlankPainted",
@@ -16702,11 +16885,12 @@
    "kind": "texture",
    "surface": "boards with paint peeling",
    "use": "Vacant lot board fence.",
+   "preview": "wall",
    "tile_m": [
     2.032,
     2.032
    ],
-   "tile_method": "",
+   "tile_method": "10 boards x 203.2 mm (8 in). Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 2.01 m gives 201 mm.",
    "basis": {
     "kind": "count",
     "x": {
@@ -16715,7 +16899,9 @@
      "feature": "boards"
     }
    },
-   "publisher_sphere_m": 2.007,
+   "confidence": "high",
+   "publisher_stated_m": 2.01,
+   "orientation": "boards run along y (a board fence)",
    "resolution": "2k",
    "px": [
     2048,
@@ -16946,8 +17132,7 @@
     "ao": 0.978,
     "roughness": 0.894,
     "metallic": 0.004
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Wood_ScanPallet",
@@ -16955,11 +17140,12 @@
    "kind": "texture",
    "surface": "pallet boards",
    "use": "Pallets, crate sides, boarded-up windows.",
+   "preview": "wall",
    "tile_m": [
     1.689,
     1.689
    ],
-   "tile_method": "",
+   "tile_method": "19 board rows x 88.9 mm (1 x 4, 3 1/2 in: the US pallet deck board). Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 1.90 m gives 100 mm (the Euro pallet board).",
    "basis": {
     "kind": "count",
     "y": {
@@ -16968,7 +17154,9 @@
      "feature": "board rows"
     }
    },
-   "publisher_sphere_m": 1.902,
+   "confidence": "medium",
+   "publisher_stated_m": 1.9,
+   "orientation": "boards run along x, in short random lengths",
    "resolution": "2k",
    "px": [
     2048,
@@ -17191,8 +17379,7 @@
     "ao": 0.891,
     "roughness": 0.717,
     "metallic": 0.004
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Plywood_ScanLauan",
@@ -17200,16 +17387,19 @@
    "kind": "texture",
    "surface": "plywood face veneer",
    "use": "Hoardings, the sidewalk shed parapet, boarded doors (paint it hunter green for a New York sidewalk shed).",
+   "preview": "wall",
    "tile_m": [
     1.0,
     1.0
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: rotary-cut face grain only; no feature of standard size in the picture. The sheet (1.22 x 2.44 m) and its edges are geometry.",
    "basis": {
     "kind": "stated",
     "stated_m": 1.0
    },
-   "publisher_sphere_m": 1.0,
+   "confidence": "low",
+   "publisher_stated_m": 1.0,
+   "orientation": "grain runs along x: lay x along the long side of the sheet",
    "resolution": "2k",
    "px": [
     2048,
@@ -17420,8 +17610,7 @@
     "ao": 0.888,
     "roughness": 0.748,
     "metallic": 0.012
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Ground_ScanDirt",
@@ -17429,16 +17618,18 @@
    "kind": "texture",
    "surface": "dry dirt",
    "use": "Vacant lot: the trodden cut-through path.",
+   "preview": "ground",
    "tile_m": [
     2.09,
     2.09
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: straw and wood chips 10 to 60 mm long, a leaf of 60 mm.",
    "basis": {
     "kind": "stated",
     "stated_m": 2.09
    },
-   "publisher_sphere_m": 2.086,
+   "confidence": "medium",
+   "publisher_stated_m": 2.09,
    "resolution": "2k",
    "px": [
     2048,
@@ -17640,8 +17831,7 @@
     "ao": 0.901,
     "roughness": 0.92,
     "metallic": 0.003
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Ground_ScanWeeds",
@@ -17649,16 +17839,18 @@
    "kind": "texture",
    "surface": "mud with creeping weeds",
    "use": "Vacant lot edges and fence lines.",
+   "preview": "ground",
    "tile_m": [
     1.29,
     1.29
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: leaves 25 to 38 mm long.",
    "basis": {
     "kind": "stated",
     "stated_m": 1.29
    },
-   "publisher_sphere_m": 1.294,
+   "confidence": "medium",
+   "publisher_stated_m": 1.29,
    "resolution": "2k",
    "px": [
     2048,
@@ -17855,8 +18047,7 @@
     "ao": 0.775,
     "roughness": 0.92,
     "metallic": 0.006
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Ground_ScanSoil",
@@ -17864,16 +18055,18 @@
    "kind": "texture",
    "surface": "clumpy dry soil",
    "use": "Vacant lot fill, tree pits on the sidewalk.",
+   "preview": "ground",
    "tile_m": [
     1.32,
     1.32
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: clods 10 to 40 mm.",
    "basis": {
     "kind": "stated",
     "stated_m": 1.32
    },
-   "publisher_sphere_m": 1.319,
+   "confidence": "medium",
+   "publisher_stated_m": 1.32,
    "resolution": "2k",
    "px": [
     2048,
@@ -18070,8 +18263,7 @@
     "ao": 0.586,
     "roughness": 0.527,
     "metallic": 0.009
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Ground_ScanRubble",
@@ -18079,16 +18271,18 @@
    "kind": "texture",
    "surface": "compacted demolition rubble",
    "use": "Vacant lot: where the building stood.",
+   "preview": "ground",
    "tile_m": [
     2.02,
     2.02
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: brick and concrete fragments 10 to 60 mm.",
    "basis": {
     "kind": "stated",
     "stated_m": 2.02
    },
-   "publisher_sphere_m": 2.017,
+   "confidence": "medium",
+   "publisher_stated_m": 2.02,
    "resolution": "2k",
    "px": [
     2048,
@@ -18290,8 +18484,7 @@
     "ao": 0.638,
     "roughness": 0.857,
     "metallic": 0.005
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Ground_ScanBurnt",
@@ -18299,16 +18492,18 @@
    "kind": "texture",
    "surface": "burnt ground",
    "use": "Under and around the burned-out car.",
+   "preview": "ground",
    "tile_m": [
     1.05,
     1.05
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: pine needles 40 to 70 mm long.",
    "basis": {
     "kind": "stated",
     "stated_m": 1.05
    },
-   "publisher_sphere_m": 1.051,
+   "confidence": "medium",
+   "publisher_stated_m": 1.05,
    "resolution": "2k",
    "px": [
     2048,
@@ -18519,8 +18714,7 @@
     "ao": 0.604,
     "roughness": 0.519,
     "metallic": 0.008
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Gravel_ScanWhite",
@@ -18528,16 +18722,18 @@
    "kind": "texture",
    "surface": "crushed stone, 10 to 20 mm",
    "use": "Roof ballast on the flat roofs; gravel strip in the lot.",
+   "preview": "ground",
    "tile_m": [
     2.03,
     2.03
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: crushed stone 8 to 15 mm against the centimetre scale.",
    "basis": {
     "kind": "stated",
     "stated_m": 2.03
    },
-   "publisher_sphere_m": 2.03,
+   "confidence": "high",
+   "publisher_stated_m": 2.03,
    "resolution": "2k",
    "px": [
     2048,
@@ -18734,8 +18930,7 @@
     "ao": 0.671,
     "roughness": 0.473,
     "metallic": 0.008
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Roof_ScanBitumen",
@@ -18743,11 +18938,12 @@
    "kind": "texture",
    "surface": "bitumen surface",
    "use": "Flat roofs.",
+   "preview": "ground",
    "tile_m": [
     5.4,
     5.4
    ],
-   "tile_method": "",
+   "tile_method": "6 bands x 900 mm (a 1 m roofing roll less its side lap). NOT the size of the scanned surface: the publisher states 20 m, and the picture agrees (bitumen sprayed on a road seen from the air; the spray-bar streaks are 100 mm apart at 20 m). Re-used at roofing scale because its bands read as roll courses.",
    "basis": {
     "kind": "count",
     "y": {
@@ -18756,7 +18952,10 @@
      "feature": "bands"
     }
    },
-   "publisher_sphere_m": 20.003,
+   "confidence": "stand-in",
+   "publisher_stated_m": 20.0,
+   "orientation": "bands run along x: lay them across the roof fall",
+   "notes": "At 5.4 m the 2k maps give 379 px/m: for roofs seen from the El deck and above, not for close-ups. A scan of real roofing membrane does not exist on Poly Haven.",
    "resolution": "2k",
    "px": [
     2048,
@@ -19005,8 +19204,7 @@
     "ao": 0.997,
     "roughness": 0.938,
     "metallic": 0.001
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Roof_ScanGravel",
@@ -19014,16 +19212,18 @@
    "kind": "texture",
    "surface": "dark stone chips bedded in bitumen",
    "use": "Flat roofs: the gravel surfacing of a built-up tar roof (tenements, the S3 row, the auto body shop).",
+   "preview": "ground",
    "tile_m": [
     2.06,
     2.06
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: stone chips 5 to 25 mm (roofing gravel is 6 to 16 mm).",
    "basis": {
     "kind": "stated",
     "stated_m": 2.06
    },
-   "publisher_sphere_m": 2.06,
+   "confidence": "high",
+   "publisher_stated_m": 2.06,
    "resolution": "2k",
    "px": [
     2048,
@@ -19049,7 +19249,6 @@
    },
    "colour": "Dark grey chips: fine as is.",
    "licence": "CC0, Poly Haven",
-   "preview": "ground",
    "measured": {
     "px": [
      2048,
@@ -19229,11 +19428,12 @@
    "kind": "texture",
    "surface": "rubber floor tiles",
    "use": "Shop anti-fatigue mats, the mat under the bleachers; base for tyre rubber.",
+   "preview": "ground",
    "tile_m": [
     2.0,
     2.0
    ],
-   "tile_method": "",
+   "tile_method": "4 tiles x 500 mm each way. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 2.02 m gives 504 mm.",
    "basis": {
     "kind": "count",
     "x": {
@@ -19242,7 +19442,10 @@
      "feature": "tiles"
     }
    },
-   "publisher_sphere_m": 2.017,
+   "confidence": "high",
+   "publisher_stated_m": 2.02,
+   "orientation": "tiles staggered by column",
+   "notes": "The wrap in x falls on a tile joint (measured as a hard seam, 3.5 times a normal neighbour difference in base colour): it reads as one more joint.",
    "resolution": "2k",
    "px": [
     2048,
@@ -19487,8 +19690,7 @@
     "ao": 0.972,
     "roughness": 0.75,
     "metallic": 0.006
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Fabric_ScanCanvas",
@@ -19496,16 +19698,20 @@
    "kind": "texture",
    "surface": "plain-weave fabric",
    "use": "Shop awnings (tint green, red or blue).",
+   "preview": "wall",
    "tile_m": [
     0.27,
     0.27
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: 249 threads across and 186 up: 1.1 x 1.5 mm thread pitch.",
    "basis": {
     "kind": "stated",
     "stated_m": 0.27
    },
-   "publisher_sphere_m": 0.271,
+   "confidence": "high",
+   "publisher_stated_m": 0.27,
+   "orientation": "warp runs along y",
+   "notes": "The scan is 2048 x 2052 px: resampled to 2048 x 2048 here (0.2 % squeeze in y).",
    "resolution": "2k",
    "px": [
     2048,
@@ -19770,8 +19976,7 @@
     "ao": 0.772,
     "roughness": 0.659,
     "metallic": 0.025
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Fabric_ScanBurlap",
@@ -19779,16 +19984,20 @@
    "kind": "texture",
    "surface": "burlap",
    "use": "Sandbags on the scaffold shed.",
+   "preview": "wall",
    "tile_m": [
     0.27,
     0.27
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: 82 threads across and 86 up: 3.3 mm pitch (burlap has 3 to 4.5 threads per cm).",
    "basis": {
     "kind": "stated",
     "stated_m": 0.27
    },
-   "publisher_sphere_m": 0.268,
+   "confidence": "high",
+   "publisher_stated_m": 0.27,
+   "orientation": "plain weave square to the axes",
+   "notes": "The scan is 2048 x 2036 px: resampled to 2048 x 2048 here (0.6 % stretch in y). The ORM marks the gaps in the weave as metal (mean 0.25): ignore the metallic channel.",
    "resolution": "2k",
    "px": [
     2048,
@@ -20053,8 +20262,7 @@
     "ao": 0.902,
     "roughness": 0.584,
     "metallic": 0.248
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "TS_Tile_ScanChecker",
@@ -20062,11 +20270,12 @@
    "kind": "texture",
    "surface": "small checker floor tiles",
    "use": "Deli and pizza shop floors seen through the doors.",
+   "preview": "ground",
    "tile_m": [
     2.032,
     2.032
    ],
-   "tile_method": "",
+   "tile_method": "10 tiles x 203.2 mm (8 in) each way. Counted on the height map (power spectrum of the row and column profiles, line-by-line autocorrelation for units that are staggered from row to row) and confirmed by eye against a ruler overlay. The publisher's stated 2.01 m gives 201 mm.",
    "basis": {
     "kind": "count",
     "x": {
@@ -20075,7 +20284,10 @@
      "feature": "tiles"
     }
    },
-   "publisher_sphere_m": 2.006,
+   "confidence": "high",
+   "publisher_stated_m": 2.01,
+   "orientation": "checker of two tones",
+   "notes": "The height map is flat (no relief stored). The base colour has a tone step across the wrap in y at 1/16 scale: the checker phase, not a visible seam.",
    "resolution": "2k",
    "px": [
     2048,
@@ -20324,8 +20536,7 @@
     "ao": 0.969,
     "roughness": 0.721,
     "metallic": 0.004
-   },
-   "preview": "ground"
+   }
   },
   {
    "set": "TS_Tile_ScanWhite",
@@ -20333,16 +20544,20 @@
    "kind": "texture",
    "surface": "white glazed wall tiles",
    "use": "El station stair walls.",
+   "preview": "wall",
    "tile_m": [
     1.27,
     1.27
    ],
-   "tile_method": "",
+   "tile_method": "Publisher's stated size (read off the preview sphere in the texture's own glTF), kept because the picture agrees with it: 33 tiles across and 10 up: glazed finger tiles 38.5 x 127 mm, stack bond.",
    "basis": {
     "kind": "stated",
     "stated_m": 1.27
    },
-   "publisher_sphere_m": 1.275,
+   "confidence": "high",
+   "publisher_stated_m": 1.27,
+   "orientation": "tiles stand upright (long side along y)",
+   "notes": "Not the 3 x 6 in subway tile: that one has to be made.",
    "resolution": "2k",
    "px": [
     2048,
@@ -20607,8 +20822,7 @@
     "ao": 0.925,
     "roughness": 0.243,
     "metallic": 0.003
-   },
-   "preview": "wall"
+   }
   },
   {
    "set": "kloofendal_48d_partly_cloudy_puresky",
@@ -20654,6 +20868,7 @@
    "set": "kloofendal_43d_clear_puresky",
    "slug": "kloofendal_43d_clear_puresky",
    "kind": "hdri",
+   "role": "preview light",
    "use": "",
    "resolution": "2k",
    "files": {
@@ -20688,8 +20903,7 @@
      0.868,
      0.968
     ]
-   },
-   "role": "preview light"
+   }
   },
   {
    "set": "qwantani_afternoon_puresky",
@@ -23327,6 +23541,7 @@
     }
    },
    "fix": "",
+   "preview_scale": 0.1,
    "licence": "CC0, Poly Haven",
    "measured": {
     "size_m": [
@@ -23363,8 +23578,7 @@
      2048
     ],
     "generator": "Khronos glTF Blender I/O v1.7.33"
-   },
-   "preview_scale": 0.1
+   }
   },
   {
    "set": "steel_frame_shelves_02",
@@ -25509,6 +25723,368 @@
     ],
     "generator": "Khronos glTF Blender I/O v3.6.27"
    }
+  }
+ ],
+ "not_used": [
+  {
+   "slug": "asphalt_03",
+   "kind": "texture",
+   "why": "dark even asphalt: the same look as TS_Asphalt_ScanWorn"
+  },
+  {
+   "slug": "asphalt_07",
+   "kind": "texture",
+   "why": "dark even asphalt: the same look as TS_Asphalt_ScanWorn"
+  },
+  {
+   "slug": "asphalt_05",
+   "kind": "texture",
+   "why": "orange-brown or pink-tan: the wrong colour for New York"
+  },
+  {
+   "slug": "asphalt_floor",
+   "kind": "texture",
+   "why": "orange-brown or pink-tan: the wrong colour for New York"
+  },
+  {
+   "slug": "asphalt_06",
+   "kind": "texture",
+   "why": "pale and streaked, reads as concrete; TS_Asphalt_ScanBleached covers bleached asphalt"
+  },
+  {
+   "slug": "asphalt_snow",
+   "kind": "texture",
+   "why": "snow cover: the block is a summer afternoon"
+  },
+  {
+   "slug": "beige_wall_001",
+   "kind": "texture",
+   "why": "featureless beige paint: a flat colour does the same"
+  },
+  {
+   "slug": "brick_crosswalk",
+   "kind": "texture",
+   "why": "brick paving: there is none on the block"
+  },
+  {
+   "slug": "brick_floor",
+   "kind": "texture",
+   "why": "brick paving: there is none on the block"
+  },
+  {
+   "slug": "brick_floor_003",
+   "kind": "texture",
+   "why": "brick paving: there is none on the block"
+  },
+  {
+   "slug": "brick_moss_001",
+   "kind": "texture",
+   "why": "brick paving: there is none on the block"
+  },
+  {
+   "slug": "brick_pavement_02",
+   "kind": "texture",
+   "why": "brick paving: there is none on the block"
+  },
+  {
+   "slug": "brick_wall_02",
+   "kind": "texture",
+   "why": "only 10 courses per tile: at brick size it would repeat every 0.68 m"
+  },
+  {
+   "slug": "large_red_bricks",
+   "kind": "texture",
+   "why": "only 9 courses per tile: at brick size it would repeat every 0.61 m"
+  },
+  {
+   "slug": "brick_wall_04",
+   "kind": "texture",
+   "why": "rustic brick with squeezed-out mortar: not a New York wall"
+  },
+  {
+   "slug": "brick_wall_08",
+   "kind": "texture",
+   "why": "grey brick: TS_Brick_ScanCement covers it"
+  },
+  {
+   "slug": "brick_wall_11",
+   "kind": "texture",
+   "why": "4 m of small brown brick, too coarse up close; TS_Brick_ScanBrownBlend covers the colour"
+  },
+  {
+   "slug": "brown_brick_02",
+   "kind": "texture",
+   "why": "sandstone-like, mossy London stock or whitewashed rubble brick: not New York"
+  },
+  {
+   "slug": "yellow_bricks",
+   "kind": "texture",
+   "why": "sandstone-like, mossy London stock or whitewashed rubble brick: not New York"
+  },
+  {
+   "slug": "white_bricks",
+   "kind": "texture",
+   "why": "sandstone-like, mossy London stock or whitewashed rubble brick: not New York"
+  },
+  {
+   "slug": "random_bricks_thick",
+   "kind": "texture",
+   "why": "sandstone-like, mossy London stock or whitewashed rubble brick: not New York"
+  },
+  {
+   "slug": "castle_brick_02_red",
+   "kind": "texture",
+   "why": "ruined or very irregular old brick: TS_Brick_ScanRedOld and TS_Brick_ScanAlleyPatched cover it"
+  },
+  {
+   "slug": "church_bricks_03",
+   "kind": "texture",
+   "why": "ruined or very irregular old brick: TS_Brick_ScanRedOld and TS_Brick_ScanAlleyPatched cover it"
+  },
+  {
+   "slug": "red_bricks_04",
+   "kind": "texture",
+   "why": "dark orange-red brick between TS_Brick_ScanRedDark and TS_Brick_ScanRedCommon: nothing new"
+  },
+  {
+   "slug": "brushed_concrete",
+   "kind": "texture",
+   "why": "trowelled in arcs: not a sidewalk finish"
+  },
+  {
+   "slug": "concrete_floor",
+   "kind": "texture",
+   "why": "tan screed: the wrong colour"
+  },
+  {
+   "slug": "concrete_wall_001",
+   "kind": "texture",
+   "why": "clean pale board-marked concrete: TS_Concrete_ScanFormed covers cast concrete"
+  },
+  {
+   "slug": "concrete_panels",
+   "kind": "texture",
+   "why": "4 to 8 m tiles of precast panels and peeling plaster: no such wall on the block"
+  },
+  {
+   "slug": "preconcrete_wall_001",
+   "kind": "texture",
+   "why": "4 to 8 m tiles of precast panels and peeling plaster: no such wall on the block"
+  },
+  {
+   "slug": "concrete_slab_wall",
+   "kind": "texture",
+   "why": "ribbed precast fence slabs and diagonal rock-faced block: wall types New York does not have"
+  },
+  {
+   "slug": "concrete_block_wall_02",
+   "kind": "texture",
+   "why": "ribbed precast fence slabs and diagonal rock-faced block: wall types New York does not have"
+  },
+  {
+   "slug": "concrete_pavement_03",
+   "kind": "texture",
+   "why": "decorative, interlocking or natural-stone paving: Hollis sidewalks are cast concrete"
+  },
+  {
+   "slug": "concrete_pavers",
+   "kind": "texture",
+   "why": "decorative, interlocking or natural-stone paving: Hollis sidewalks are cast concrete"
+  },
+  {
+   "slug": "concrete_tiles",
+   "kind": "texture",
+   "why": "decorative, interlocking or natural-stone paving: Hollis sidewalks are cast concrete"
+  },
+  {
+   "slug": "concrete_tiles_02",
+   "kind": "texture",
+   "why": "decorative, interlocking or natural-stone paving: Hollis sidewalks are cast concrete"
+  },
+  {
+   "slug": "patterned_concrete_pavers",
+   "kind": "texture",
+   "why": "decorative, interlocking or natural-stone paving: Hollis sidewalks are cast concrete"
+  },
+  {
+   "slug": "pavement_02",
+   "kind": "texture",
+   "why": "decorative, interlocking or natural-stone paving: Hollis sidewalks are cast concrete"
+  },
+  {
+   "slug": "pavement_03",
+   "kind": "texture",
+   "why": "decorative, interlocking or natural-stone paving: Hollis sidewalks are cast concrete"
+  },
+  {
+   "slug": "pavement_04",
+   "kind": "texture",
+   "why": "decorative, interlocking or natural-stone paving: Hollis sidewalks are cast concrete"
+  },
+  {
+   "slug": "pavement_05",
+   "kind": "texture",
+   "why": "decorative, interlocking or natural-stone paving: Hollis sidewalks are cast concrete"
+  },
+  {
+   "slug": "pavement_06",
+   "kind": "texture",
+   "why": "decorative, interlocking or natural-stone paving: Hollis sidewalks are cast concrete"
+  },
+  {
+   "slug": "square_concrete_pavers",
+   "kind": "texture",
+   "why": "decorative, interlocking or natural-stone paving: Hollis sidewalks are cast concrete"
+  },
+  {
+   "slug": "slab_tiles",
+   "kind": "texture",
+   "why": "decorative, interlocking or natural-stone paving: Hollis sidewalks are cast concrete"
+  },
+  {
+   "slug": "large_grey_tiles",
+   "kind": "texture",
+   "why": "decorative, interlocking or natural-stone paving: Hollis sidewalks are cast concrete"
+  },
+  {
+   "slug": "large_square_pattern_01",
+   "kind": "texture",
+   "why": "1 m garden flags with 40 mm gravel joints and moss: reads as a yard, not a sidewalk"
+  },
+  {
+   "slug": "floor_tiles_02",
+   "kind": "texture",
+   "why": "stone, terracotta and mosaic floors of interiors that are never entered"
+  },
+  {
+   "slug": "floor_tiles_04",
+   "kind": "texture",
+   "why": "stone, terracotta and mosaic floors of interiors that are never entered"
+  },
+  {
+   "slug": "floor_tiles_06",
+   "kind": "texture",
+   "why": "stone, terracotta and mosaic floors of interiors that are never entered"
+  },
+  {
+   "slug": "floor_tiles_08",
+   "kind": "texture",
+   "why": "stone, terracotta and mosaic floors of interiors that are never entered"
+  },
+  {
+   "slug": "floor_tiles_09",
+   "kind": "texture",
+   "why": "stone, terracotta and mosaic floors of interiors that are never entered"
+  },
+  {
+   "slug": "tiled_floor_001",
+   "kind": "texture",
+   "why": "stone, terracotta and mosaic floors of interiors that are never entered"
+  },
+  {
+   "slug": "square_tiles_02",
+   "kind": "texture",
+   "why": "stone, terracotta and mosaic floors of interiors that are never entered"
+  },
+  {
+   "slug": "painted_concrete_02",
+   "kind": "texture",
+   "why": "plain dark painted floor over 4 m: too little detail"
+  },
+  {
+   "slug": "dark_wooden_planks",
+   "kind": "texture",
+   "why": "boards that duplicate the five timber sets (or are varnished)"
+  },
+  {
+   "slug": "weathered_brown_planks",
+   "kind": "texture",
+   "why": "boards that duplicate the five timber sets (or are varnished)"
+  },
+  {
+   "slug": "old_planks_02",
+   "kind": "texture",
+   "why": "boards that duplicate the five timber sets (or are varnished)"
+  },
+  {
+   "slug": "wooden_planks",
+   "kind": "texture",
+   "why": "boards that duplicate the five timber sets (or are varnished)"
+  },
+  {
+   "slug": "wood_floor_deck",
+   "kind": "texture",
+   "why": "boards that duplicate the five timber sets (or are varnished)"
+  },
+  {
+   "slug": "denim_fabric",
+   "kind": "texture",
+   "why": "clothing and upholstery: nothing on the block is made of it"
+  },
+  {
+   "slug": "leather_white",
+   "kind": "texture",
+   "why": "clothing and upholstery: nothing on the block is made of it"
+  },
+  {
+   "slug": "fabric_pattern_05",
+   "kind": "texture",
+   "why": "clothing and upholstery: nothing on the block is made of it"
+  },
+  {
+   "slug": "factory_wall",
+   "kind": "texture",
+   "why": "green translucent corrugated sheet"
+  },
+  {
+   "slug": "dry_ground_01",
+   "kind": "texture",
+   "why": "cracked mud and orange sand: the wrong soil; TS_Ground_ScanDirt covers bare ground"
+  },
+  {
+   "slug": "gravel_road",
+   "kind": "texture",
+   "why": "cracked mud and orange sand: the wrong soil; TS_Ground_ScanDirt covers bare ground"
+  },
+  {
+   "slug": "gravelly_sand",
+   "kind": "texture",
+   "why": "cracked mud and orange sand: the wrong soil; TS_Ground_ScanDirt covers bare ground"
+  },
+  {
+   "slug": "sandy_gravel_02",
+   "kind": "texture",
+   "why": "cracked mud and orange sand: the wrong soil; TS_Ground_ScanDirt covers bare ground"
+  },
+  {
+   "slug": "leafy_grass",
+   "kind": "texture",
+   "why": "lawn: the vacant lot is dirt and weeds"
+  },
+  {
+   "slug": "sparse_grass",
+   "kind": "texture",
+   "why": "lawn: the vacant lot is dirt and weeds"
+  },
+  {
+   "slug": "roof_07",
+   "kind": "texture",
+   "why": "slate and clay tiles for pitched roofs: New York roofs are flat"
+  },
+  {
+   "slug": "roof_09",
+   "kind": "texture",
+   "why": "slate and clay tiles for pitched roofs: New York roofs are flat"
+  },
+  {
+   "slug": "CashRegister_01",
+   "kind": "model",
+   "why": "a shop counter prop: the shops are not entered"
+  },
+  {
+   "slug": "wooden_barrels_01",
+   "kind": "model",
+   "why": "wine barrels"
   }
  ]
 }

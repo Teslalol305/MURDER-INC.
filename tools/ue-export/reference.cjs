@@ -8,6 +8,11 @@
 // subset by file name). The page runs in step mode with a fixed seed: the pictures repeat exactly.
 // Every camera below is in web space (metres, +Y up, north = -Z): "x,y,z, lookX,lookY,lookZ".
 //
+// A full-depth screenshot of this renderer weighs 1.3 MB, twenty of them far more than the directory may
+// (12 MB). Each picture is therefore rewritten with its colour channels rounded to 40 evenly spaced
+// levels (lib/png.cjs): the largest change is 3 parts in 255, the file is half the size.
+// REF_LEVELS=256 keeps the frames untouched.
+//
 //   title                          the title screen, 5 s into its fly-through
 //   hud-start                      the HUD in play at the start pose
 //   day-*   (6)                    fixed cameras by day: the default look
@@ -19,12 +24,16 @@
 
 'use strict';
 
+const path = require('node:path');
+const { reduceLevels } = require('./lib/png.cjs');
+
 const OUT = process.env.REF_OUT || 'docs/unreal/reference';
 const ONLY = process.env.REF_ONLY ? process.env.REF_ONLY.split(',') : null;
+const LEVELS = Number(process.env.REF_LEVELS || 40);
 
 /** Fixed cameras: [name, camera, field of view]. Eye level is 1.68 m above the ground. */
 const VIEWS = [
-  ['avenue-east', '-33.5,1.68,1.3, 20,2.4,-0.4', 62], // under the El, between the column rows, looking east
+  ['avenue-east', '-27.5,1.68,0.4, 20,2.3,0.2', 62], // under the El between the column rows, just past the west closure, looking east
   ['chop-shop', '-1.6,1.68,-13.4, -15,2.1,-24.5', 68], // inside V&R AUTO BODY from the small bay: lifts, reel 2, the mezzanine
   ['alley', '8.6,1.68,-9.2, 8.3,2.6,-30', 62], // from the alley mouth to the gate at its north end
   ['vacant-lot-mural', '-5.4,1.68,20.5, -16,3.6,18.5', 66], // across the vacant lot to the mural on the pawn shop
@@ -36,8 +45,10 @@ const NIGHT = ['avenue-east', 'parking-lot-ipx-truck'];
 module.exports = async (page, h) => {
   const want = (name) => !ONLY || ONLY.includes(name);
   const shot = async (name) => {
-    await h.shot(`${OUT}/${name}.png`);
-    console.error(`[reference] ${name}.png`);
+    const file = path.resolve(OUT, `${name}.png`);
+    await h.shot(file);
+    const size = LEVELS >= 2 && LEVELS < 256 ? reduceLevels(file, LEVELS) : null;
+    console.error(`[reference] ${name}.png${size ? ` ${Math.round(size.before / 1024)} kB -> ${Math.round(size.after / 1024)} kB` : ''}`);
   };
   const hud = (on) => h.eval((show) => document.documentElement.classList.toggle('nohud', !show), on);
   /** A fixed outside camera (hides the viewmodel); '' gives the player's own view back. */
@@ -92,27 +103,28 @@ module.exports = async (page, h) => {
   // The Vultures: passive showcase units (they hold a pose and never act)
   // ---------------------------------------------------------------------------------------------
 
-  if (want('enemy-goon') || want('enemy-buzzard')) {
-    await h.eval(() => {
+  // In the sun on the shop's driveway apron, in front of the cinder-block wall between its two doors,
+  // facing the avenue (a yaw of π looks at +Z, south). One at a time, seen three-quarter on.
+  const pose = (type, y, opts) =>
+    h.eval(([t, height, o]) => {
       const G = window.__G;
-      const V = G.THREE.Vector3;
       G.enemies.clear();
-      // On the south sidewalk in front of the pawn shop, facing the avenue (yaw π looks at +Z, 0 at −Z).
-      G.enemies.spawn('goon', new V(-20.2, 0.15, 9.4), { passive: true, yaw: 0, show: { aim: 1 } });
-      G.enemies.spawn('buzzard', new V(-16.2, 2.5, 8.6), { passive: true, yaw: 0 });
-    });
-    if (want('enemy-goon')) {
-      await camera('-19.3,1.35,6.6, -20.2,1.05,9.4', 44);
-      await settle(60);
-      await shot('enemy-goon');
-    }
-    if (want('enemy-buzzard')) {
-      await camera('-15.4,2.75,6.9, -16.2,2.5,8.6', 44);
-      await settle(60);
-      await shot('enemy-buzzard');
-    }
-    await h.eval(() => window.__G.enemies.clear());
+      const e = G.enemies.spawn(t, new G.THREE.Vector3(-8.6, height, -8.8), { passive: true, yaw: Math.PI, ...o });
+      return !!e;
+    }, [type, y, opts]);
+  if (want('enemy-goon')) {
+    if (!(await pose('goon', 0, { show: { aim: 1 } }))) throw new Error('the Goon could not be spawned');
+    await camera('-10.5,1.4,-6.1, -8.6,1.0,-8.8', 44);
+    await settle(60);
+    await shot('enemy-goon');
   }
+  if (want('enemy-buzzard')) {
+    if (!(await pose('buzzard', 2.2, {}))) throw new Error('the Buzzard could not be spawned');
+    await camera('-10.2,2.05,-6.4, -8.6,2.2,-8.8', 40);
+    await settle(60);
+    await shot('enemy-buzzard');
+  }
+  if (want('enemy-goon') || want('enemy-buzzard')) await h.eval(() => window.__G.enemies.clear());
 
   // ---------------------------------------------------------------------------------------------
   // The guns: the player's own view at the start pose, then the inspect pose

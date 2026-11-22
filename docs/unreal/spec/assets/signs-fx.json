@@ -1,0 +1,877 @@
+[
+  {
+    "id": "sign_laundromat",
+    "name": "SM_Sign_Laundromat",
+    "family": "sign",
+    "size_m": [
+      7.5,
+      0.15,
+      0.62
+    ],
+    "count": 1,
+    "description": "Back-lit cabinet sign (lightbox): an aluminium box with a dark retainer frame 4.5 percent of the sign height wide (#1b1c20), a translucent face with film graphics, a thin keyline in the lettering colour inside the frame, and face panel seams every 1.22 m. Lit at night: brightest along two horizontal bands at 28 and 72 percent of the height (the tubes inside), falling to about 62 percent at the top and bottom edges and 70 percent at both ends. Lettering in the condensed display face (Anton), centred. Letter heights given here are the height of the capitals and are upper limits: the web layout scales a line down when it would be wider than the face. It hangs on the storefront's sign band (a black fascia 0.74 m tall between 2.92 and 3.66 m above the roadway, which is 2.77 to 3.51 m above the 0.15 m sidewalk), sign centre 3.29 m above the roadway, face 0.15 m proud of the wall: that 0.15 is the depth given here. Pivot at the bottom-left corner of the face, running along +X, face toward -Y. Text, one line: \"24 HR LAUNDROMAT\", capitals 0.335 m tall (54 percent of the sign height). North side of the avenue, sign centre at web x -41.6, facing south. Paired light: cool white, kind neon, 9 game cd. Overlap to resolve: the brief storefront_laundromat in assets/level.json describes the whole shop front including this sign. Build the sign once, as this separate mesh (it needs its own emissive material, paired light and flicker), and mount it on that module's sign band.",
+    "materials": [
+      "painted aluminium cabinet",
+      "translucent acrylic face (emissive at night)",
+      "vinyl film lettering"
+    ],
+    "colours": [
+      "#0d3550 face field (dark blue)",
+      "#f4f2ec lettering and keyline",
+      "#1b1c20 frame",
+      "#cfe4ff light it throws"
+    ],
+    "gameplay": "none",
+    "source": "src/level/buildings.js:252",
+    "priority": 1
+  },
+  {
+    "id": "sign_crown_fade_barber",
+    "name": "SM_Sign_CrownFadeBarber",
+    "family": "sign",
+    "size_m": [
+      7.06,
+      0.15,
+      0.62
+    ],
+    "count": 1,
+    "description": "Exposed glass neon on a dark backing pan (web: board #0b0b0e, the glass of an unlit tube reads as the tube colour greyed 55 percent toward #9a9aa2). The tube follows the OUTLINE of each capital of the condensed display face (Anton), so every letter is a closed loop of tube; a border tube runs round the sign as a rounded rectangle inset 9 percent of the sign height from the edge with corner radius 14 percent. Web tube width is 28 mm on this sign; real glass is 12 to 15 mm on standoffs 30 to 40 mm off the pan, with electrode boots, black blocking paint between letters and a transformer box. Lit at night with a white-hot core 42 percent of the tube width and a soft wash on the pan; by day the tubes are milky. Letter heights given here are the height of the capitals and are upper limits: the web layout scales a line down when it would be wider than the face. It hangs on the storefront's sign band (a black fascia 0.74 m tall between 2.92 and 3.66 m above the roadway, which is 2.77 to 3.51 m above the 0.15 m sidewalk), sign centre 3.29 m above the roadway, face 0.15 m proud of the wall: that 0.15 is the depth given here. Pivot at the bottom-left corner of the face, running along +X, face toward -Y. Text, one line: \"CROWN & FADE BARBER\", letter outlines 0.285 m tall (46 percent of the sign height), all one colour, red. North side, sign centre at web x -30.3, facing south, above a navy canvas awning (#1c2f5a). In direct afternoon sun by day. Paired light: red, kind neon, 12 game cd. Overlap to resolve: the brief storefront_barber in assets/level.json describes the whole shop front including this sign. Build the sign once, as this separate mesh (it needs its own emissive material, paired light and flicker), and mount it on that module's sign band.",
+    "materials": [
+      "glass neon tube (emissive)",
+      "painted steel pan",
+      "glass standoffs, electrode boots, cable"
+    ],
+    "colours": [
+      "#ff3030 tubes (red)",
+      "#0b0b0e pan",
+      "#ff3030 light it throws"
+    ],
+    "gameplay": "none",
+    "source": "src/level/buildings.js:261",
+    "priority": 1
+  },
+  {
+    "id": "sign_hollis_deli",
+    "name": "SM_Sign_HollisDeli",
+    "family": "sign",
+    "size_m": [
+      8.4,
+      0.15,
+      0.74
+    ],
+    "count": 1,
+    "description": "Back-lit cabinet sign (lightbox): an aluminium box with a dark retainer frame 4.5 percent of the sign height wide (#1b1c20), a translucent face with film graphics, a thin keyline in the lettering colour inside the frame, and face panel seams every 1.22 m. Lit at night: brightest along two horizontal bands at 28 and 72 percent of the height (the tubes inside), falling to about 62 percent at the top and bottom edges and 70 percent at both ends. Lettering in the condensed display face (Anton), centred. Letter heights given here are the height of the capitals and are upper limits: the web layout scales a line down when it would be wider than the face. It hangs on the storefront's sign band (a black fascia 0.74 m tall between 2.92 and 3.66 m above the roadway, which is 2.77 to 3.51 m above the 0.15 m sidewalk), sign centre 3.29 m above the roadway, face 0.15 m proud of the wall: that 0.15 is the depth given here. Pivot at the bottom-left corner of the face, running along +X, face toward -Y. Text: headline \"HOLLIS DELI & GROCERY\" 0.296 m tall (40 percent of the sign height, centred at 40 percent down); sub line \"OPEN 24 HRS  ·  COLD CUTS  ·  COFFEE  ·  LOTTO\" 0.104 m tall in a bold grotesque (Archivo 700), centred 78 percent down. The web game paints the sub line in pale yellow #ffd24a on the yellow face, which cannot be read (spec 3.15, open question 3): use the headline colour unless told otherwise. North side, sign centre at web x 16.5, facing south, above a green awning (#1f5a3a). Paired light: #ffd24a, kind neon, 9 game cd. Hero view H2 of the art bible. Overlap to resolve: the brief storefront_deli in assets/level.json describes the whole shop front including this sign. Build the sign once, as this separate mesh (it needs its own emissive material, paired light and flicker), and mount it on that module's sign band.",
+    "materials": [
+      "painted aluminium cabinet",
+      "translucent flex face (emissive at night)",
+      "vinyl film lettering"
+    ],
+    "colours": [
+      "#f2c21a face field (taxi yellow)",
+      "#8a1410 headline (dark red)",
+      "#ffd24a sub line as painted in the web game",
+      "#1b1c20 frame"
+    ],
+    "gameplay": "none",
+    "source": "src/level/buildings.js:297",
+    "priority": 1
+  },
+  {
+    "id": "sign_checks_cashed",
+    "name": "SM_Sign_ChecksCashed",
+    "family": "sign",
+    "size_m": [
+      6.56,
+      0.15,
+      0.74
+    ],
+    "count": 1,
+    "description": "Exposed glass neon on a dark backing pan (web: board #0b0b0e, the glass of an unlit tube reads as the tube colour greyed 55 percent toward #9a9aa2). The tube follows the OUTLINE of each capital of the condensed display face (Anton), so every letter is a closed loop of tube; a border tube runs round the sign as a rounded rectangle inset 9 percent of the sign height from the edge with corner radius 14 percent. Web tube width is 28 mm on this sign; real glass is 12 to 15 mm on standoffs 30 to 40 mm off the pan, with electrode boots, black blocking paint between letters and a transformer box. Lit at night with a white-hot core 42 percent of the tube width and a soft wash on the pan; by day the tubes are milky. Letter heights given here are the height of the capitals and are upper limits: the web layout scales a line down when it would be wider than the face. It hangs on the storefront's sign band (a black fascia 0.74 m tall between 2.92 and 3.66 m above the roadway, which is 2.77 to 3.51 m above the 0.15 m sidewalk), sign centre 3.29 m above the roadway, face 0.15 m proud of the wall: that 0.15 is the depth given here. Pivot at the bottom-left corner of the face, running along +X, face toward -Y. Text: headline \"CHECKS CASHED\", letter outlines 0.266 m tall (36 percent of the sign height, centred 40 percent down); sub line \"MONEY ORDERS  ·  BILLS PAID\" 0.096 m tall (Archivo 700) centred 76 percent down, in the web game also a green tube line. The art bible builds the headline as open-face pan letters on a raceway and moves the sub line to white cut vinyl on the window band; keep the text and the overall size either way. South side, sign centre at web x -42.15, facing north. Paired light: green, 12 game cd. Overlap to resolve: the brief storefront_checks_cashed in assets/level.json describes the whole shop front including this sign. Build the sign once, as this separate mesh (it needs its own emissive material, paired light and flicker), and mount it on that module's sign band.",
+    "materials": [
+      "glass neon tube (emissive)",
+      "painted steel pan or pan letters",
+      "raceway, standoffs, cable"
+    ],
+    "colours": [
+      "#55ff8a tubes (green)",
+      "#0b0b0e pan",
+      "#55ff8a light it throws"
+    ],
+    "gameplay": "none",
+    "source": "src/level/buildings.js:320",
+    "priority": 1
+  },
+  {
+    "id": "sign_99c_pizza",
+    "name": "SM_Sign_99cPizza",
+    "family": "sign",
+    "size_m": [
+      7.16,
+      0.15,
+      0.74
+    ],
+    "count": 1,
+    "description": "Back-lit cabinet sign (lightbox): an aluminium box with a dark retainer frame 4.5 percent of the sign height wide (#1b1c20), a translucent face with film graphics, a thin keyline in the lettering colour inside the frame, and face panel seams every 1.22 m. Lit at night: brightest along two horizontal bands at 28 and 72 percent of the height (the tubes inside), falling to about 62 percent at the top and bottom edges and 70 percent at both ends. Lettering in the condensed display face (Anton), centred. Letter heights given here are the height of the capitals and are upper limits: the web layout scales a line down when it would be wider than the face. It hangs on the storefront's sign band (a black fascia 0.74 m tall between 2.92 and 3.66 m above the roadway, which is 2.77 to 3.51 m above the 0.15 m sidewalk), sign centre 3.29 m above the roadway, face 0.15 m proud of the wall: that 0.15 is the depth given here. Pivot at the bottom-left corner of the face, running along +X, face toward -Y. Text: headline \"99¢ PIZZA\" 0.296 m tall; sub line \"SLICES ALL NIGHT\" 0.104 m tall (Archivo 700) centred 78 percent down, painted #ff5a3a on the red face in the web game (low contrast, see open question 3). South side, sign centre at web x -34.15, facing north, above a red awning (#b3261e). Paired light: #ff5a3a, kind neon, 9 game cd. Overlap to resolve: the brief storefront_pizza in assets/level.json describes the whole shop front including this sign. Build the sign once, as this separate mesh (it needs its own emissive material, paired light and flicker), and mount it on that module's sign band.",
+    "materials": [
+      "painted aluminium cabinet",
+      "translucent acrylic face (emissive at night)",
+      "vinyl film lettering"
+    ],
+    "colours": [
+      "#b3261e face field (red)",
+      "#fff1d0 headline (cream)",
+      "#ff5a3a sub line as painted in the web game",
+      "#1b1c20 frame"
+    ],
+    "gameplay": "none",
+    "source": "src/level/buildings.js:321",
+    "priority": 1
+  },
+  {
+    "id": "sign_pawn_gold",
+    "name": "SM_Sign_PawnGold",
+    "family": "sign",
+    "size_m": [
+      4.86,
+      0.15,
+      0.74
+    ],
+    "count": 1,
+    "description": "Exposed glass neon on a dark backing pan (web: board #0b0b0e, the glass of an unlit tube reads as the tube colour greyed 55 percent toward #9a9aa2). The tube follows the OUTLINE of each capital of the condensed display face (Anton), so every letter is a closed loop of tube; a border tube runs round the sign as a rounded rectangle inset 9 percent of the sign height from the edge with corner radius 14 percent. Web tube width is 28 mm on this sign; real glass is 12 to 15 mm on standoffs 30 to 40 mm off the pan, with electrode boots, black blocking paint between letters and a transformer box. Lit at night with a white-hot core 42 percent of the tube width and a soft wash on the pan; by day the tubes are milky. Letter heights given here are the height of the capitals and are upper limits: the web layout scales a line down when it would be wider than the face. It hangs on the storefront's sign band (a black fascia 0.74 m tall between 2.92 and 3.66 m above the roadway, which is 2.77 to 3.51 m above the 0.15 m sidewalk), sign centre 3.29 m above the roadway, face 0.15 m proud of the wall: that 0.15 is the depth given here. Pivot at the bottom-left corner of the face, running along +X, face toward -Y. Text: headline \"PAWN & GOLD\", letter outlines 0.266 m tall; sub line \"WE BUY GOLD  ·  LOANS\" 0.096 m tall centred 76 percent down, same gold tube. South side, sign centre at web x -27.0, facing north. Paired light: gold, 12 game cd. (The art bible adds three hanging gold balls and a grille over the vestibule windows: not in the web game.) Overlap to resolve: the brief storefront_pawn in assets/level.json describes the whole shop front including this sign. Build the sign once, as this separate mesh (it needs its own emissive material, paired light and flicker), and mount it on that module's sign band.",
+    "materials": [
+      "glass neon tube (emissive)",
+      "painted steel pan",
+      "standoffs, electrode boots, cable"
+    ],
+    "colours": [
+      "#f6c21a tubes (gold)",
+      "#0b0b0e pan",
+      "#f6c21a light it throws"
+    ],
+    "gameplay": "none",
+    "source": "src/level/buildings.js:337",
+    "priority": 1
+  },
+  {
+    "id": "sign_tapes_records",
+    "name": "SM_Sign_TapesRecords",
+    "family": "sign",
+    "size_m": [
+      4.66,
+      0.15,
+      0.62
+    ],
+    "count": 1,
+    "description": "Exposed glass neon on a dark backing pan (web: board #0b0b0e, the glass of an unlit tube reads as the tube colour greyed 55 percent toward #9a9aa2). The tube follows the OUTLINE of each capital of the condensed display face (Anton), so every letter is a closed loop of tube; a border tube runs round the sign as a rounded rectangle inset 9 percent of the sign height from the edge with corner radius 14 percent. Web tube width is 28 mm on this sign; real glass is 12 to 15 mm on standoffs 30 to 40 mm off the pan, with electrode boots, black blocking paint between letters and a transformer box. Lit at night with a white-hot core 42 percent of the tube width and a soft wash on the pan; by day the tubes are milky. Letter heights given here are the height of the capitals and are upper limits: the web layout scales a line down when it would be wider than the face. It hangs on the storefront's sign band (a black fascia 0.74 m tall between 2.92 and 3.66 m above the roadway, which is 2.77 to 3.51 m above the 0.15 m sidewalk), sign centre 3.29 m above the roadway, face 0.15 m proud of the wall: that 0.15 is the depth given here. Pivot at the bottom-left corner of the face, running along +X, face toward -Y. Text, one line, with a lower-case s as written: \"TAPES · RECORDS · CDs\", letter outlines 0.285 m tall, cyan. South side, sign centre at web x -18.9, facing north. Paired light: cyan, 12 game cd. (The art bible mounts the tubes over a hand-painted wooden fascia.) Overlap to resolve: the brief storefront_records in assets/level.json describes the whole shop front including this sign. Build the sign once, as this separate mesh (it needs its own emissive material, paired light and flicker), and mount it on that module's sign band.",
+    "materials": [
+      "glass neon tube (emissive)",
+      "painted pan or painted wooden fascia",
+      "standoffs, cable"
+    ],
+    "colours": [
+      "#35e0ff tubes (cyan)",
+      "#0b0b0e pan",
+      "#35e0ff light it throws"
+    ],
+    "gameplay": "none",
+    "source": "src/level/buildings.js:338",
+    "priority": 1
+  },
+  {
+    "id": "sign_golden_bird",
+    "name": "SM_Sign_GoldenBird",
+    "family": "sign",
+    "size_m": [
+      7.5,
+      0.15,
+      0.74
+    ],
+    "count": 1,
+    "description": "Back-lit cabinet sign (lightbox): an aluminium box with a dark retainer frame 4.5 percent of the sign height wide (#1b1c20), a translucent face with film graphics, a thin keyline in the lettering colour inside the frame, and face panel seams every 1.22 m. Lit at night: brightest along two horizontal bands at 28 and 72 percent of the height (the tubes inside), falling to about 62 percent at the top and bottom edges and 70 percent at both ends. Lettering in the condensed display face (Anton), centred. Letter heights given here are the height of the capitals and are upper limits: the web layout scales a line down when it would be wider than the face. It hangs on the storefront's sign band (a black fascia 0.74 m tall between 2.92 and 3.66 m above the roadway, which is 2.77 to 3.51 m above the 0.15 m sidewalk), sign centre 3.29 m above the roadway, face 0.15 m proud of the wall: that 0.15 is the depth given here. Pivot at the bottom-left corner of the face, running along +X, face toward -Y. Text: headline \"GOLDEN BIRD CHICKEN\" 0.296 m tall; sub line \"FRIED  ·  WINGS  ·  BISCUITS\" 0.104 m tall centred 78 percent down, painted #ffc84a on the yellow face in the web game (unreadable, see open question 3). South side, sign centre at web x 0.5, facing north, behind and level with the deck of the sidewalk shed (2.95 m): a player on the shed stands next to it, so it must hold at 0.5 m. Paired light: #ffc84a, kind neon, 9 game cd. Overlap to resolve: the brief storefront_chicken in assets/level.json describes the whole shop front including this sign. Build the sign once, as this separate mesh (it needs its own emissive material, paired light and flicker), and mount it on that module's sign band.",
+    "materials": [
+      "painted aluminium cabinet",
+      "translucent acrylic face (emissive at night)",
+      "vinyl film lettering"
+    ],
+    "colours": [
+      "#f2c21a face field (yellow)",
+      "#b3261e headline (red)",
+      "#ffc84a sub line as painted in the web game",
+      "#1b1c20 frame"
+    ],
+    "gameplay": "none",
+    "source": "src/level/buildings.js:377",
+    "priority": 1
+  },
+  {
+    "id": "sign_wines_liquors",
+    "name": "SM_Sign_WinesLiquors",
+    "family": "sign",
+    "size_m": [
+      7.36,
+      0.15,
+      0.62
+    ],
+    "count": 1,
+    "description": "Exposed glass neon on a dark backing pan (web: board #0b0b0e, the glass of an unlit tube reads as the tube colour greyed 55 percent toward #9a9aa2). The tube follows the OUTLINE of each capital of the condensed display face (Anton), so every letter is a closed loop of tube; a border tube runs round the sign as a rounded rectangle inset 9 percent of the sign height from the edge with corner radius 14 percent. Web tube width is 28 mm on this sign; real glass is 12 to 15 mm on standoffs 30 to 40 mm off the pan, with electrode boots, black blocking paint between letters and a transformer box. Lit at night with a white-hot core 42 percent of the tube width and a soft wash on the pan; by day the tubes are milky. Letter heights given here are the height of the capitals and are upper limits: the web layout scales a line down when it would be wider than the face. It hangs on the storefront's sign band (a black fascia 0.74 m tall between 2.92 and 3.66 m above the roadway, which is 2.77 to 3.51 m above the 0.15 m sidewalk), sign centre 3.29 m above the roadway, face 0.15 m proud of the wall: that 0.15 is the depth given here. Pivot at the bottom-left corner of the face, running along +X, face toward -Y. Text, one line: \"WINES & LIQUORS\", letter outlines 0.285 m tall, red. South side, sign centre at web x 9.25, facing north, behind the sidewalk shed (close-up asset, as the chicken sign). Paired light: red, 12 game cd. (The art bible builds it as open-face pan letters.) Overlap to resolve: the brief storefront_liquor in assets/level.json describes the whole shop front including this sign. Build the sign once, as this separate mesh (it needs its own emissive material, paired light and flicker), and mount it on that module's sign band.",
+    "materials": [
+      "glass neon tube (emissive)",
+      "painted steel pan or pan letters",
+      "standoffs, cable"
+    ],
+    "colours": [
+      "#ff3030 tubes (red)",
+      "#0b0b0e pan",
+      "#ff3030 light it throws"
+    ],
+    "gameplay": "none",
+    "source": "src/level/buildings.js:378",
+    "priority": 1
+  },
+  {
+    "id": "sign_lucky_nails",
+    "name": "SM_Sign_LuckyNails",
+    "family": "sign",
+    "size_m": [
+      7.36,
+      0.15,
+      0.74
+    ],
+    "count": 1,
+    "description": "Exposed glass neon on a dark backing pan (web: board #0b0b0e, the glass of an unlit tube reads as the tube colour greyed 55 percent toward #9a9aa2). The tube follows the OUTLINE of each capital of the condensed display face (Anton), so every letter is a closed loop of tube; a border tube runs round the sign as a rounded rectangle inset 9 percent of the sign height from the edge with corner radius 14 percent. Web tube width is 28 mm on this sign; real glass is 12 to 15 mm on standoffs 30 to 40 mm off the pan, with electrode boots, black blocking paint between letters and a transformer box. Lit at night with a white-hot core 42 percent of the tube width and a soft wash on the pan; by day the tubes are milky. Letter heights given here are the height of the capitals and are upper limits: the web layout scales a line down when it would be wider than the face. It hangs on the storefront's sign band (a black fascia 0.74 m tall between 2.92 and 3.66 m above the roadway, which is 2.77 to 3.51 m above the 0.15 m sidewalk), sign centre 3.29 m above the roadway, face 0.15 m proud of the wall: that 0.15 is the depth given here. Pivot at the bottom-left corner of the face, running along +X, face toward -Y. Text: headline \"LUCKY NAILS\", letter outlines 0.266 m tall; sub line \"MANICURE  ·  PEDICURE\" 0.096 m tall centred 76 percent down, same pink. South side, sign centre at web x 17.75, facing north, behind the sidewalk shed (close-up asset). Paired light: pink, 12 game cd. (The art bible builds it as pink LED flex in an acrylic box above a shut roll gate.) Overlap to resolve: the brief storefront_nails in assets/level.json describes the whole shop front including this sign. Build the sign once, as this separate mesh (it needs its own emissive material, paired light and flicker), and mount it on that module's sign band.",
+    "materials": [
+      "glass neon tube or LED flex (emissive)",
+      "painted pan or acrylic backer",
+      "standoffs, cable"
+    ],
+    "colours": [
+      "#ff3d9a tubes (pink)",
+      "#0b0b0e pan",
+      "#ff3d9a light it throws"
+    ],
+    "gameplay": "none",
+    "source": "src/level/buildings.js:379",
+    "priority": 1
+  },
+  {
+    "id": "poster_ipx",
+    "name": "SM_Sign_Poster_IPX",
+    "family": "sign",
+    "size_m": [
+      0.6,
+      0.0,
+      0.9
+    ],
+    "count": 6,
+    "description": "Wheat-pasted paper sheet: a thin mesh with a slight curl and paste ridges, or a decal. Aged as in the web game: dirt, about 28 nibbles out of the edges, a corner torn off on six sheets in ten. Ink #0d0e11 and paper #f1ede2 unless noted; roughness 0.88. Headlines in the condensed display face (Anton), small type in the grotesque (Archivo). The IPX one-sheet, 0.6 x 0.9 m: a thin rule, the IPX lozenge (at most 30 percent of the sheet height), the address \"IPX.EXCHANGE\", a thin rule. Nothing else: no slogan. Four colourways (paper / ink): 0 black / gold, 1 gold / black, 2 cream / black, 3 oxblood / cream. Placed: variant 1 three times (west hoarding, hoist tower, shop office), variant 3 twice (the cut, lot south wall), variant 2 once (vacant-lot hoarding); variant 0 exists but is not placed. Exact spots: spec 2.10.",
+    "materials": [
+      "paper with paste (unique texture per variant)"
+    ],
+    "colours": [
+      "#0f1114 black",
+      "#f6c21a gold",
+      "#f1ede2 cream",
+      "#6b1218 oxblood",
+      "#f4f2ec IPX mark on dark sheets"
+    ],
+    "gameplay": "none",
+    "source": "src/mats/paper.js:91",
+    "priority": 1
+  },
+  {
+    "id": "poster_show",
+    "name": "SM_Sign_Poster_Show",
+    "family": "sign",
+    "size_m": [
+      0.6,
+      0.0,
+      0.9
+    ],
+    "count": 12,
+    "description": "Wheat-pasted paper sheet: a thin mesh with a slight curl and paste ridges, or a decal. Aged as in the web game: dirt, about 28 nibbles out of the edges, a corner torn off on six sheets in ten. Ink #0d0e11 and paper #f1ede2 unless noted; roughness 0.88. Headlines in the condensed display face (Anton), small type in the grotesque (Archivo). Gig posters, 0.6 x 0.9 m, four designs. 0: black sheet with a gold band: \"ONE NIGHT ONLY\", then \"RULE\" in black on the band (27 percent of the sheet height), \"HOLLIS · QUEENS\", the IPX lozenge, \"IPX.EXCHANGE\". 1: red #c9281e with a 24-ray sunburst: \"BLOCK\" over \"PARTY\" in cream #f1e6c8; a black band with \"SATURDAY · SUNDOWN\" in gold; \"DJs · OPEN MIC · ALL AGES\". 2: blue #1c3a6e: a large drawn cassette; \"THE HOLLIS\" over \"SESSIONS\" in gold; \"LIVE ON TAPE · VOL. 3\". 3: yellow #f2c21a: a record (black disc, red label); \"TAPE SWAP\"; a black band with \"RECORDS · TAPES · CDs\"; \"EVERY SUNDAY\". No real artist, venue, label or face. Twelve are up: spots in spec 2.10.",
+    "materials": [
+      "paper with paste (unique texture per variant)"
+    ],
+    "colours": [
+      "#0d0e11 black",
+      "#f6c21a gold",
+      "#c9281e red",
+      "#f1e6c8 cream",
+      "#1c3a6e blue",
+      "#f2c21a yellow"
+    ],
+    "gameplay": "none",
+    "source": "src/mats/paper.js:104",
+    "priority": 1
+  },
+  {
+    "id": "poster_wanted",
+    "name": "SM_Sign_Poster_Wanted",
+    "family": "sign",
+    "size_m": [
+      0.45,
+      0.0,
+      0.6
+    ],
+    "count": 3,
+    "description": "Wheat-pasted paper sheet: a thin mesh with a slight curl and paste ridges, or a decal. Aged as in the web game: dirt, about 28 nibbles out of the edges, a corner torn off on six sheets in ten. Ink #0d0e11 and paper #f1ede2 unless noted; roughness 0.88. Headlines in the condensed display face (Anton), small type in the grotesque (Archivo). Small notices, 0.45 x 0.6 m, three designs. 0 (not placed): paper #e9e0c6 with a black frame: \"WANTED\"; a hooded head and shoulders in a pale mask #d9d4c6 with an oxblood chest band (a mask, not a face); \"THE VULTURES\"; \"BOOTLEG CREW · REWARD\" in red. 1: \"MISSING\" in red; three tape reels; \"3 MASTER REELS\"; \"LAST SEEN ON THE AVENUE\"; \"NO QUESTIONS ASKED\" in red. 2: paper #e6d9a8: a struck-through cassette; \"NO BOOTLEGS\"; \"BUY IT FROM THE ARTIST\". Placed: variant 2 twice (shop interior, alley), variant 1 once (vacant-lot hoarding).",
+    "materials": [
+      "paper with paste (unique texture per variant)"
+    ],
+    "colours": [
+      "#e9e0c6 paper",
+      "#e6d9a8 paper of variant 2",
+      "#0d0e11 ink",
+      "#e2222b red lines",
+      "#6b1218 oxblood band",
+      "#d9d4c6 mask"
+    ],
+    "gameplay": "none",
+    "source": "src/mats/paper.js:210",
+    "priority": 2
+  },
+  {
+    "id": "poster_ad",
+    "name": "SM_Sign_Poster_Ad",
+    "family": "sign",
+    "size_m": [
+      1.2,
+      0.0,
+      1.8
+    ],
+    "count": 6,
+    "description": "Wheat-pasted paper sheet: a thin mesh with a slight curl and paste ridges, or a decal. Aged as in the web game: dirt, about 28 nibbles out of the edges, a corner torn off on six sheets in ten. Ink #0d0e11 and paper #f1ede2 unless noted; roughness 0.88. Headlines in the condensed display face (Anton), small type in the grotesque (Archivo). Large advertising one-sheets, 1.2 x 1.8 m, for the block's own shops, four designs. 0: yellow with a red top band: \"GOLDEN BIRD\" over \"CHICKEN\"; a 14-point red star with \"2 PC\" and \"$1.99\"; \"OPEN LATE · JAMAICA AVE\". 1: cream with a green #1f6b3a top band and a red bottom band: \"99¢\" over \"PIZZA\"; one drawn slice; \"OPEN LATE\". 2: pink #f2a6c0 over teal #1f8a8a with sparkles: \"LUCKY\" over \"NAILS\"; \"MANICURE · PEDICURE\"; \"WALK-INS WELCOME\". 3: blue #1f4f9a with bubbles: \"24 HR\" in gold over \"LAUNDROMAT\"; \"WASH · DRY · FOLD\"; \"DROP OFF BY 9\". Placed: variant 1 twice, variant 3 twice, variants 0 and 2 once each (spec 2.10).",
+    "materials": [
+      "paper with paste (unique texture per variant)"
+    ],
+    "colours": [
+      "#f2c21a yellow",
+      "#b3261e red",
+      "#1f6b3a green",
+      "#f2a6c0 pink",
+      "#1f8a8a teal",
+      "#1f4f9a blue",
+      "#f1ede2 cream"
+    ],
+    "gameplay": "none",
+    "source": "src/mats/paper.js:269",
+    "priority": 2
+  },
+  {
+    "id": "poster_torn",
+    "name": "SM_Sign_Poster_Torn",
+    "family": "sign",
+    "size_m": [
+      0.5,
+      0.0,
+      0.7
+    ],
+    "count": 8,
+    "description": "Wheat-pasted paper sheet: a thin mesh with a slight curl and paste ridges, or a decal. Aged as in the web game: dirt, about 28 nibbles out of the edges, a corner torn off on six sheets in ten. Ink #0d0e11 and paper #f1ede2 unless noted; roughness 0.88. Headlines in the condensed display face (Anton), small type in the grotesque (Archivo). What is left of older posters, 0.5 x 0.7 m: three to five ragged tears with white fibre rims through a sheet that carries one tilted word. Three designs: 0 \"LIVE\" on a red sheet, 1 \"SALE\" on yellow, 2 \"TONITE\" on blue. Layer them under and beside the whole posters. Placed: variant 1 six times, variants 0 and 2 once each (spec 2.10).",
+    "materials": [
+      "torn paper with paste (unique texture per variant)"
+    ],
+    "colours": [
+      "#c9281e red sheet",
+      "#f2c21a yellow sheet",
+      "#1c3a6e blue sheet",
+      "#f1ede2 torn paper fibre"
+    ],
+    "gameplay": "none",
+    "source": "src/mats/paper.js:343",
+    "priority": 3
+  },
+  {
+    "id": "graffiti_tag_set",
+    "name": "SM_Sign_GraffitiSet",
+    "family": "sign",
+    "size_m": null,
+    "count": 29,
+    "description": "Spray paint and marker on walls, road and trucks: decals, no carrier. Paint misses the pits and joints of the wall (the web game masks 55 percent of it away); roughness 0.7. Three hands. Marker tag: fat-cap marker, slanted, letters a little off true, underlined in one stroke that ends in an arrowhead, three ticks over the last letter, a drip on three letters in ten; natural size about 0.42 m per letter wide x 0.9 m tall. Spray tag: soft edges, a faint wide overspray of the same letters, a ring thrown round the tag, flecks, long drips on nearly half the letters; same natural size. Throw-up: bubble letters, a fill inside a heavy near-black outline, a hard offset shadow, a white shine stroke on every letter, two four-point sparkles and a cloud of a second colour behind; about (0.62 m per letter + 0.5 m) wide x 1.4 m tall. Texts and colours on the block: \"VULTURES\" and \"VLTR\" in the crew's oxblood #8a1a22 (nine times, as marker, spray and throw-up); \"HOLLIS\" off-white marker (three); \"QNS\" cyan spray (two); \"188\" green throw-up (two) and pink spray (one); \"QUEENS\" cyan throw-up and gold marker; \"NO SLEEP\" violet throw-up 5.46 x 1.4 m; \"JAMAICA AVE\" green spray 4.62 x 0.9 m; \"INC\" gold marker; \"RULE\" gold spray 6.4 x 2.3 m across the mural. Two lie on the ground: \"VULTURES\" 3.4 x 1.0 m on the road at the first reel and 4.2 x 1.2 m on the court. Every box truck carries \"RULE\" (cream #e9e4d6) on one flank and \"HOLLIS\" (gold) on the other, fitted into 2.6 x 1.2 m. Sizes, positions and hands of all 23 wall and ground tags: spec 2.11. No real crew names, no real tags. The mural brief mural_ipx_rule in assets/level.json mentions four of them (RULE, HOLLIS, QUEENS, NO SLEEP): they are decals from this set, not part of the mural painting.",
+    "materials": [
+      "spray paint and marker (decals)"
+    ],
+    "colours": [
+      "#8a1a22 Vulture oxblood",
+      "#f4f2ec off-white",
+      "#35e0ff cyan",
+      "#55ff8a green",
+      "#f6c21a gold",
+      "#ff3d9a pink",
+      "#9a5cff violet",
+      "#e2222b red",
+      "#ff7a1a orange",
+      "#0b0b0d outline of throw-ups"
+    ],
+    "gameplay": "none",
+    "source": "src/mats/paper.js:599",
+    "priority": 1
+  },
+  {
+    "id": "street_ground_decals",
+    "name": "SM_Street_GroundDecals",
+    "family": "street",
+    "size_m": null,
+    "count": 72,
+    "description": "Stains and damage on the ground, as decals with roughness. Oil: sump-oil patches 1.6 x 1.2 m, black at the heart with faint rainbow arcs at the rim, glossy (roughness 0.16), three shapes, 27 placed (parking lanes, shop floor, rear lane, lot). Cracks: a branching crack 2 x 0.6 m with crumbled shoulders, three shapes, 20 placed (roadway, lot). Grime: ground-in dirt 2 x 2 m, three shapes, 24 placed (gutters, alley, lane, shop floor). Scorch: a burnt-black blast mark with soot rays, 3 x 3 m, stretched to 5.5 x 4.2 m under the burned-out car in the vacant lot. Positions are seeded and exported (level.json, signage.placements).",
+    "materials": [
+      "oil film",
+      "cracked asphalt",
+      "dirt",
+      "soot"
+    ],
+    "colours": [
+      "#060608 oil",
+      "#080809 crack",
+      "#78766e crumbled shoulders of a crack",
+      "#0a0908 grime",
+      "#040404 scorch heart",
+      "#18120c scorch fringe"
+    ],
+    "gameplay": "none",
+    "source": "src/mats/decals.js:17",
+    "priority": 2
+  },
+  {
+    "id": "el_train_car",
+    "name": "SM_El_TrainCar",
+    "family": "el",
+    "size_m": [
+      15.4,
+      2.9,
+      3.55
+    ],
+    "count": 5,
+    "description": "One car of the elevated train; five identical cars make the consist, coupled 0.7 m apart (79.8 m nose to tail), running at 16.5 m/s on the rails 6.83 m above the street. Forward = +X; pivot at the centre of the footprint on the rail top. Body 15.4 m long x 2.9 m wide x 3.55 m tall above the rail: floor 0.42 m above the rail, flat sides up to 3.29 m, then roof shoulders set in 0.42 m to a flat roof; an underframe box under the middle of the car (from 3.9 m inside each end, 0.14 to 0.42 m above the rail, 1.9 m wide); two trucks (bogies) 2.5 m long x 2.2 m wide centred 2.5 m from each end, with wheels, which the web game leaves as boxes. Each side: four pairs of sliding doors centred at 11.5, 37, 63 and 88.5 percent of the length, 1.31 m wide; a band of windows between them from 1.80 to 2.72 m above the rail. Each end: a door between two windows with an amber destination bar over it; two headlights and two red tail lights 0.85 m either side of the centre line, 1.2 m above the rail (the leading end of the consist shows white, the trailing end red). Finish: unpainted brushed stainless steel with fluted lower panels, a dark skirt, a blue belt line, a darker roof edge, street grime heavier toward the bottom. No operator name, no logo, no real route letter or number. Interior visible through the windows: fluorescent light, grab poles, seats, the odd rider as a silhouette; windows glow at night and are dim by day. It casts the moving shadow that darkens the avenue by day. Seen from below and from the sidewalk shed (hero view H7): the underside, trucks and third-rail shoes matter more than the roof.",
+    "materials": [
+      "brushed stainless steel (roughness 0.42, metal)",
+      "painted steel underframe and trucks",
+      "window glass (emissive interior at night)",
+      "rubber door seals",
+      "lamp lenses (emissive)"
+    ],
+    "colours": [
+      "#767b82 stainless body",
+      "#222428 skirt",
+      "#182860 blue belt line",
+      "#585c62 roof edge",
+      "#ff961e amber destination bar",
+      "#fffaea headlights (web linear 1, 0.96, 0.82)",
+      "#ff3f30 tail lights (web linear 1, 0.05, 0.03)",
+      "#f7ffee interior light through the windows (web radiance 1.9, 2.05, 1.75)"
+    ],
+    "gameplay": "none (no collision, cannot be shot; its pass shakes the camera and gusts loose paper)",
+    "source": "src/atmos/train.js:24",
+    "priority": 1
+  },
+  {
+    "id": "architecture_far_walkup",
+    "name": "SM_Architecture_FarWalkup",
+    "family": "architecture",
+    "size_m": [
+      12.8,
+      16.0,
+      16.5
+    ],
+    "count": 66,
+    "description": "The next blocks beyond the play area: low-detail walk-up buildings seen only from inside the block, through haze, from just outside its walls to about 130 m beyond them. No collision, never entered. A kit, not one mesh: width 3 to 6 bays of 3.2 m (9.6 to 19.2 m), depth 14 to 19 m, a ground storey 4.1 m tall and upper storeys of 3.1 m, a parapet 0.6 to 1.4 m, flat tar roof. The size given is a typical one: 4 bays, 16 m deep, ground storey plus four floors. Heights by row: 10 to 20 m along the avenue's continuation (130 m past each end), 11 to 20 m for the backs across a 4 m alley behind the north and south edges, 17 to 30 m for a taller row 40 to 58 m further back, 10 to 22 m for the fronts on the two cross streets. Fronts on the avenue or a cross street: a ground row of roll-down gates (six in ten) and open shop fronts under coloured sign bands with no readable names, then rows of windows with stone lintels and sills, the odd blind, curtain and window air conditioner. Backs: plain windows. Side walls: blank brick. Four brick tints. Roof clutter: a water tower on a fifth to two fifths of the roofs (brief architecture_water_tower in props.json; here 3.1 m across, tank 3.1 m tall on 2.4 m legs, cone 1.1 m, scaled 0.85 to 1.15), a stair bulkhead 3 x 4 x 2.3 to 3 m on six roofs in ten, a chimney 0.7 x 0.7 x 1.5 to 3 m on four in ten. At night about a fifth of the windows are lit (tungsten, kitchen fluorescent, television blue, a red curtain) and 22 of them switch on and off. Pivot at the bottom-left corner of the street face, running along +X, face toward -Y. Plan rules: spec 2.18.",
+    "materials": [
+      "brick (four tints), low detail",
+      "window cards or simple openings",
+      "roll-down gates",
+      "tar roof",
+      "painted sign bands"
+    ],
+    "colours": [
+      "#8c6050 sunlit brick of the day sheet",
+      "#ff4696 sign band",
+      "#3cdcff sign band",
+      "#ffc43c sign band",
+      "#ff3c32 sign band",
+      "#5aff96 sign band",
+      "#f5f0e1 sign band",
+      "#ffd696 tungsten window at night",
+      "#d0e8da kitchen fluorescent window",
+      "#80a8ff television window",
+      "#ff8460 red-curtained window"
+    ],
+    "gameplay": "none (outside the player-only walls)",
+    "source": "src/atmos/plan.js:274",
+    "priority": 2
+  },
+  {
+    "id": "architecture_skyline_near",
+    "name": "SM_Architecture_SkylineNear",
+    "family": "architecture",
+    "size_m": [
+      430.0,
+      430.0,
+      72.0
+    ],
+    "count": 1,
+    "description": "The near skyline: a ring of city silhouette 215 m from the centre of the block and 72 m tall, three repeats of one strip round the circle, standing 3 m below street level so its foot is never seen. Roof line of flat-topped blocks of uneven height (the lowest a fifth of the strip height, most between a fifth and a half), the odd taller tower, roof tanks and masts. By day: sunlit stone and brick with darker glass, more than a third dissolved into the haze (36 percent, more at street level). By night: near-black bodies with one window dot in five lit (seven in ten warm, the rest cool; office floors stay lit in whole rows), half sunk into the haze, up to five red aviation lights on its tallest tops. Build as a ring of cards or as low-detail distant meshes; nothing on it may read as a real landmark.",
+    "materials": [
+      "painted card or low-detail distant mesh, unlit"
+    ],
+    "colours": [
+      "#7c6860 day body (sunlit stone)",
+      "#0f1016 night body",
+      "#ffcd84 warm window dots",
+      "#bedeff cool window dots",
+      "#ff3f30 aviation lights (web linear 1, 0.05, 0.03)"
+    ],
+    "gameplay": "none",
+    "source": "src/atmos/farcity.js:419",
+    "priority": 2
+  },
+  {
+    "id": "architecture_skyline_far",
+    "name": "SM_Architecture_SkylineFar",
+    "family": "architecture",
+    "size_m": [
+      790.0,
+      790.0,
+      118.0
+    ],
+    "count": 1,
+    "description": "The far skyline: a ring 395 m from the centre and 118 m tall that wraps once, lower and more even than the near ring except for a cluster of towers in the west (the far downtown, under the night glow and in front of the afternoon sun's quarter of the sky). By day blue-grey and more than half dissolved (56 percent); by night 26 percent of its window dots lit and three quarters sunk into the haze, with up to five red aviation lights. Dropped on the two lowest quality tiers of the web game. No real landmark silhouettes.",
+    "materials": [
+      "painted card or low-detail distant mesh, unlit"
+    ],
+    "colours": [
+      "#707888 day body (hazy blue-grey)",
+      "#13141c night body",
+      "#ffcd84 warm window dots",
+      "#bedeff cool window dots",
+      "#ff3f30 aviation lights (web linear 1, 0.05, 0.03)"
+    ],
+    "gameplay": "none",
+    "source": "src/atmos/farcity.js:428",
+    "priority": 3
+  },
+  {
+    "id": "fx_debris_masonry_chips",
+    "name": "SM_Fx_DebrisMasonry",
+    "family": "fx",
+    "size_m": [
+      0.035,
+      0.03,
+      0.025
+    ],
+    "count": 6,
+    "description": "Chips knocked out of asphalt, concrete, brick and dirt by bullets: a set of six small faceted lumps, 1.2 to 5 cm across (asphalt, concrete, brick 1.4 to 3.5 cm; dirt clods 2 to 5 cm), irregular, with one freshly broken face. Thrown as physics debris: 2 to 6 m/s off the surface, bounce up to three times, lie for 1.6 to 2.8 s and shrink away. One mesh set, tinted by surface. Up to 256 debris bodies of all kinds exist at once.",
+    "materials": [
+      "broken stone or brick, matt"
+    ],
+    "colours": [
+      "#3a3a3c asphalt chip",
+      "#8c8a84 concrete chip",
+      "#7a3a2a brick chip",
+      "#4a3a28 dirt clod"
+    ],
+    "gameplay": "none (cosmetic)",
+    "source": "src/fx/recipes.js:275",
+    "priority": 2
+  },
+  {
+    "id": "fx_debris_wood_splinters",
+    "name": "SM_Fx_DebrisWoodSplinters",
+    "family": "fx",
+    "size_m": [
+      0.07,
+      0.012,
+      0.01
+    ],
+    "count": 4,
+    "description": "Splinters torn out of timber by a bullet: four long slivers 0.8 to 1.6 cm thick and 3.5 to 6 times as long (about 3 to 10 cm), pale and fibrous, one end feathered. Five fly per hit at 2.5 to 7 m/s.",
+    "materials": [
+      "raw split softwood"
+    ],
+    "colours": [
+      "#9a7a4c splinter"
+    ],
+    "gameplay": "none (cosmetic)",
+    "source": "src/fx/recipes.js:523",
+    "priority": 3
+  },
+  {
+    "id": "fx_debris_glass_shards",
+    "name": "SM_Fx_DebrisGlassShards",
+    "family": "fx",
+    "size_m": [
+      0.03,
+      0.02,
+      0.006
+    ],
+    "count": 5,
+    "description": "Glass thrown by a shot through a pane: five small shards and cubes 1.2 to 3 cm across, pale blue-green, sharp-edged, catching the light. The web game shows twelve glinting crosses 3.5 to 9 cm that tumble (spin up to 14 rad/s), fall and wink out within a second, plus two solid chips; the mesh set replaces the chips and can carry the glints as a sparkle on its facets.",
+    "materials": [
+      "window glass, clear with a green edge"
+    ],
+    "colours": [
+      "#a8c0c8 shard",
+      "#d8e2e6 glass dust"
+    ],
+    "gameplay": "none (cosmetic)",
+    "source": "src/fx/recipes.js:488",
+    "priority": 3
+  },
+  {
+    "id": "fx_debris_metal_scrap",
+    "name": "SM_Fx_DebrisMetalScrap",
+    "family": "fx",
+    "size_m": [
+      0.04,
+      0.03,
+      0.015
+    ],
+    "count": 5,
+    "description": "Small scraps of sheet metal and plastic: paint chips off a car body 1.2 to 2.5 cm, bits of a Buzzard's shell 1.5 to 3.5 cm on a hit, and four lumps 3 to 9 cm (up to twice as long) when a Buzzard is killed. Five bent, torn pieces, one mesh set tinted by source.",
+    "materials": [
+      "torn painted sheet steel",
+      "moulded dark plastic"
+    ],
+    "colours": [
+      "#44484e car chip",
+      "#2a2c30 drone chip",
+      "#30333a Buzzard debris",
+      "#121213 rubber chip"
+    ],
+    "gameplay": "none (cosmetic)",
+    "source": "src/fx/recipes.js:484",
+    "priority": 3
+  },
+  {
+    "id": "fx_debris_blast_fragments",
+    "name": "SM_Fx_DebrisBlastFragments",
+    "family": "fx",
+    "size_m": [
+      0.11,
+      0.07,
+      0.05
+    ],
+    "count": 6,
+    "description": "Fragments thrown by an exploding propane tank or welding rack: six charred, torn pieces of steel plate and fittings, 4 to 11 cm across and up to 2.4 times as long, near-black to dark grey. Thirteen fly per tank blast at 3 to 11 m/s outward and 3 to 10 m/s upward, bounce, and lie for 2.2 to 4 s. (The tank halves themselves are the wreck briefs in props.json.)",
+    "materials": [
+      "charred sheet steel"
+    ],
+    "colours": [
+      "#272624 darkest fragment (web linear 0.02)",
+      "#555350 lightest fragment (web linear 0.09)"
+    ],
+    "gameplay": "none (cosmetic; blast damage is computed separately)",
+    "source": "src/fx/recipes.js:887",
+    "priority": 2
+  },
+  {
+    "id": "fx_paper_sheet",
+    "name": "SM_Fx_PaperSheet",
+    "family": "fx",
+    "size_m": [
+      0.22,
+      0.3,
+      0.0
+    ],
+    "count": 7,
+    "description": "A loose sheet of newspaper, 0.22 x 0.30 m, lying on the avenue: seven of them slide, lift up to 0.28 m and tumble when a gust or a train passes. Two-sided; a soft, slightly creased page: a dark headline bar across the top (8 to 20 percent down, 80 percent of the width), ragged lines of grey text below it, a faint brown stain band across the page. No readable words in the web game; if a masthead is wanted it is the block's own invented paper, \"QUEENS NIGHT LEDGER\". A flat sheet with a few bend loops so it can curl as it tumbles.",
+    "materials": [
+      "newsprint, two-sided"
+    ],
+    "colours": [
+      "#c4beae newsprint",
+      "#282624 headline bar",
+      "#3c3a36 text lines",
+      "#5a4628 stain"
+    ],
+    "gameplay": "none (slides round cars and walls, no collision with players)",
+    "source": "src/atmos/life.js:304",
+    "priority": 3
+  },
+  {
+    "id": "fx_pigeon",
+    "name": "SK_Pigeon",
+    "family": "fx",
+    "size_m": [
+      0.46,
+      0.75,
+      0.15
+    ],
+    "count": 20,
+    "description": "A city pigeon in flight, seen from below against the sky at 15 to 34 m: 20 birds in three flocks wheel over the roofs by day. Web size: body 0.46 m long, wingspan 0.75 m (a real rock pigeon is about 0.34 m long with a 0.68 m span; the height given is a modelling choice). Forward = +X. Needs a flap cycle (wings beat at about 15 to 19 rad/s in bursts) and a glide pose with the wings held out; banks into its turn. The web game draws near-black silhouettes; a lit grey bird with darker wing bars and a paler rump reads the same at that distance. Perched and startled birds (art bible) are an addition with no web behaviour.",
+    "materials": [
+      "feathers (simple shaded mesh; alpha cards for wing tips if needed)"
+    ],
+    "colours": [
+      "#353538 web silhouette (linear 0.035, 0.036, 0.04, drawn unlit)"
+    ],
+    "gameplay": "none",
+    "source": "src/atmos/life.js:444",
+    "priority": 3
+  },
+  {
+    "id": "fx_decal_bullet_holes",
+    "name": "SM_Fx_DecalBulletHoles",
+    "family": "fx",
+    "size_m": null,
+    "count": 256,
+    "description": "Bullet-hole decal set, one design per surface group, each with base colour, normal and opacity (the art bible asks for parallax or mesh-backed holes, not flat stickers). Sizes are the diameter of the whole mark. Stone (asphalt 0.24 to 0.34 m, concrete 0.25 to 0.36 m): a dark pit about a fifth of the diameter, a ragged crater of freshly broken pale material, a sooty powder halo. Brick (0.25 to 0.36 m): the same with broken faces in brick red. Metal (0.12 to 0.17 m; car bodies to 0.18 m): a black hole about a sixth of the diameter, a rim of bare bright metal, flaked paint, a little soot. Glass (0.30 to 0.46 m): a small hole, a crushed white ring, nine radial cracks joined by two rings. Wood (0.15 to 0.22 m): a dark hole with pale splinters torn out along the grain, which runs vertically. Soot (rubber 0.08 to 0.12 m, dirt 0.20 to 0.30 m, cloth 0.07 to 0.10 m): a dark smudge with a small hole. Random roll except wood. 256 marks at most, the oldest replaced; none on characters.",
+    "materials": [
+      "decal: broken masonry",
+      "decal: punched sheet metal",
+      "decal: cracked glass",
+      "decal: splintered wood",
+      "decal: soot"
+    ],
+    "colours": [
+      "#95938e fresh stone chip (web linear 0.3, 0.29, 0.27)",
+      "#9e6550 fresh brick chip (web linear 0.34, 0.13, 0.08)",
+      "#c7c4ca bare metal rim (web linear 0.42 to 0.72)",
+      "#c7ced2 crushed glass",
+      "#bca27c torn wood fibre",
+      "#1f1d1b soot"
+    ],
+    "gameplay": "none (marks only; no penetration is modelled)",
+    "source": "src/fx/recipes.js:49",
+    "priority": 1
+  },
+  {
+    "id": "fx_decal_scorch",
+    "name": "SM_Fx_DecalScorch",
+    "family": "fx",
+    "size_m": [
+      4.3,
+      4.3,
+      0.0
+    ],
+    "count": 2,
+    "description": "Blast scorch on the ground, two designs: a burnt-black heart about 40 percent of the diameter, soot streaks thrown outward to between half and nine tenths of the radius, a brown singed fringe. Drawn 3.4 to 4.3 m across for a propane tank, scaled with the blast (about 1.6 to 2 m for a Buzzard, up to 5 m for a welding rack), opacity 0.92, random roll. Matt soot over whatever is there; one is left under every blast whose centre is less than 2.2 x scale + 0.6 m above the ground (2.8 m for a tank).",
+    "materials": [
+      "decal: soot and scorched ground"
+    ],
+    "colours": [
+      "#161414 charcoal heart (web linear 0.008)",
+      "#372b21 singed fringe"
+    ],
+    "gameplay": "none",
+    "source": "src/fx/atlas.js:309",
+    "priority": 1
+  },
+  {
+    "id": "fx_flipbook_fireball",
+    "name": "SM_Fx_FlipbookFireball",
+    "family": "fx",
+    "size_m": [
+      5.0,
+      5.0,
+      4.0
+    ],
+    "count": 2,
+    "description": "Flipbook source for a Niagara sprite effect: simulate in Blender (smoke and fire domain) and render to a sprite sheet with its lighting channels (for example six-way light maps), not baked colour. The web game uses hand-painted static sprites, so there is no flipbook to match, only the motion and sizes below. The fireball of a propane blast at scale 1: one white-hot frame 2.2 m across, then tongues of flame thrown outward at 3.5 to 12 m/s that slow within a metre or two, swell from about 1 m to 2.3 to 3.4 m, redden from orange to deep red and burn out in 0.3 to 0.7 s, with a slower core (1.6 to 2.1 m swelling to 3.4 to 4.4 m, 0.55 to 0.85 s) that holds the centre and lifts. A ball of fire 4 to 5 m across that rises and blackens in under a second. Two variants so repeats do not match. Scales with the blast: 0.46 for a Buzzard (half the flame, with blue-white electric sparks), 1.15 for a welding rack.",
+    "materials": [
+      "fire and soot simulation, rendered sprite sheet"
+    ],
+    "colours": [
+      "#edad61 flame at birth (web linear 0.85, 0.42, 0.12; many sprites sum to white)",
+      "#95300d flame at death (web linear 0.3, 0.03, 0.004)",
+      "#ffa040 light of the blast"
+    ],
+    "gameplay": "explosive: visual of the blast only (damage radius 6.5 m for a tank, 7.5 m for a rack)",
+    "source": "src/fx/recipes.js:689",
+    "priority": 1
+  },
+  {
+    "id": "fx_flipbook_smoke_column",
+    "name": "SM_Fx_FlipbookSmokeColumn",
+    "family": "fx",
+    "size_m": [
+      4.0,
+      4.0,
+      4.0
+    ],
+    "count": 3,
+    "description": "Flipbook source for a Niagara sprite effect: simulate in Blender (smoke and fire domain) and render to a sprite sheet with its lighting channels (for example six-way light maps), not baked colour. The web game uses hand-painted static sprites, so there is no flipbook to match, only the motion and sizes below. Rolling black smoke of a fuel blast. Puffs are born 0.9 m across inside the fireball, glowing orange from within for the first half second, roll outward at up to 3.4 m/s and up at 1.2 to 5.6 m/s, swell to 2.8 to 4 m and thin out over 2.6 to 4.8 s; a column of bigger puffs (to 5.6 m) climbs at 3 to 7.5 m/s for 4.5 to 6.5 s and leans with the wind. Sooty black-brown by day (it must stand out against a bright sky), dark grey at night, lit by the sun or the lamps. Three puff variants. The same puffs, smaller and fewer, serve burning Buzzards and smouldering wreckage.",
+    "materials": [
+      "smoke simulation, rendered sprite sheet with light maps"
+    ],
+    "colours": [
+      "#605d5b young smoke albedo at night (web linear 0.07 to 0.15; 45 percent darker by day)",
+      "#6f6f71 old smoke albedo (web linear 0.16)",
+      "#ff8932 inner glow while young (web 2.2, 0.55, 0.07)"
+    ],
+    "gameplay": "none",
+    "source": "src/fx/recipes.js:771",
+    "priority": 1
+  },
+  {
+    "id": "fx_flipbook_dust",
+    "name": "SM_Fx_FlipbookDust",
+    "family": "fx",
+    "size_m": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "count": 3,
+    "description": "Flipbook source for a Niagara sprite effect: simulate in Blender (smoke and fire domain) and render to a sprite sheet with its lighting channels (for example six-way light maps), not baked colour. The web game uses hand-painted static sprites, so there is no flipbook to match, only the motion and sizes below. Dust knocked off a surface: a fast jet along the surface normal (3.5 to 6 m/s, 0.1 m swelling to 0.6 m, gone in 0.3 to 0.45 s) and a slower cloud that hangs (0.16 m swelling to 0.95 m over 0.65 to 1.05 s). Also the low rolling ring a blast kicks along the ground (0.7 m swelling to 1.9 to 2.7 m, racing out at 7 to 11.5 m/s) and the puff at the feet on a hard landing. Three variants: a soft grainy cloud, a ground-hugging roll, a scatter of lint and fibres for hits on cloth and bodies. Tinted per surface; lit by the scene.",
+    "materials": [
+      "dust simulation, rendered sprite sheet with light maps"
+    ],
+    "colours": [
+      "#8a857e asphalt dust",
+      "#b5b0a8 concrete dust",
+      "#a8674f brick dust",
+      "#b09468 wood dust",
+      "#8a6f4f dirt dust",
+      "#9a6a64 body-hit puff (cloth dust with a faint dark-red tint, nothing wet)"
+    ],
+    "gameplay": "none",
+    "source": "src/fx/recipes.js:248",
+    "priority": 1
+  },
+  {
+    "id": "fx_flipbook_steam",
+    "name": "SM_Fx_FlipbookSteam",
+    "family": "fx",
+    "size_m": [
+      2.6,
+      2.6,
+      6.2
+    ],
+    "count": 2,
+    "description": "Flipbook source for a Niagara sprite effect: simulate in Blender (smoke and fire domain) and render to a sprite sheet with its lighting channels (for example six-way light maps), not baked colour. The web game uses hand-painted static sprites, so there is no flipbook to match, only the motion and sizes below. Steam from a manhole or vent stack: a thin white column that rises 6.2 m in about 5 s (fast out of the grate, then slowing), drifts 1.5 m sideways and leans with the wind, each puff growing from 0.3 to 0.55 m to between 1.3 and 2.6 m. See-through: you look through it at the street. White in sun, grey when front-lit, the colour of the nearest lamp at night. Six columns on the block. Two variants.",
+    "materials": [
+      "vapour simulation, rendered sprite sheet with light maps"
+    ],
+    "colours": [
+      "#d9dde0 steam",
+      "#eaebef sunlit steam of the day rig (web linear 0.82, 0.83, 0.86)"
+    ],
+    "gameplay": "none (does not block sight lines for the enemies; thin enough to see through)",
+    "source": "src/fx/emitters.js:98",
+    "priority": 2
+  },
+  {
+    "id": "fx_flipbook_propane_jet",
+    "name": "SM_Fx_FlipbookPropaneJet",
+    "family": "fx",
+    "size_m": [
+      2.25,
+      0.5,
+      0.5
+    ],
+    "count": 1,
+    "description": "Flipbook source for a Niagara sprite effect: simulate in Blender (smoke and fire domain) and render to a sprite sheet with its lighting channels (for example six-way light maps), not baked colour. The web game uses hand-painted static sprites, so there is no flipbook to match, only the motion and sizes below. The roaring jet of a hit propane tank or welding rack during its fuse (1.6 s for a tank, 1.1 s for a rack): a tight blue-white cone at the valve or the bullet hole, 7 to 20 cm wide, turning into an orange tongue that slows, swells to 0.36 to 0.52 m, curls upward and breaks up, with sparks spat along it. It lengthens as the pressure builds: about 1.0 m growing to 1.7 m on a tank, 1.35 m growing to 2.25 m on a rack. Forward = +X from the valve. It throws a flickering orange light (range 7.5 m).",
+    "materials": [
+      "fire simulation, rendered sprite sheet"
+    ],
+    "colours": [
+      "#9abcff blue cone at the valve (web 0.55, 0.85, 1.7)",
+      "#ffc26e orange tongue (web 1.15, 0.62, 0.18)",
+      "#ff6623 tongue as it dies (web 0.6, 0.08, 0.01)",
+      "#ffa050 its light"
+    ],
+    "gameplay": "explosive: the visible warning that the tank is about to blow",
+    "source": "src/fx/emitters.js:358",
+    "priority": 1
+  }
+]

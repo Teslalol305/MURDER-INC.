@@ -26,7 +26,7 @@ Copy names from the code spans verbatim.
 | `BL:gltf` | Blender 5.3 manual, glTF 2.0: `https://docs.blender.org/manual/en/latest/addons/scene_gltf2.html` |
 | `BL:fbx` | Blender 5.3 manual, FBX: `https://docs.blender.org/manual/en/latest/files/import_export/fbx.html` |
 | `BL:run` | measured here with Blender 5.3.0 as a Python module (scripts in Appendix A) |
-| `LP:file` | Epic's "Unreal Engine Skills for Claude Code" plugin v3.1.1 installed on this machine (author field: an Epic Games address; MIT). Local files, no URL: `README.md`, `skills/unreal-mcp/references/setup.md`, `.../operations.md`, `skills/create-toolset/SKILL.md` |
+| `LP:file` | Epic's "Unreal Engine Skills for Claude Code" plugin v3.1.1 installed on this machine (author field: an Epic Games address; MIT). Local files, no URL: `README.md`, `skills/unreal-mcp/references/setup.md`, `.../operations.md`, `skills/create-toolset/SKILL.md`. Readable in a Claude Code session as the skills `unreal-engine-skills-for-claude-code:unreal-mcp` and `unreal-engine-skills-for-claude-code:create-toolset` |
 
 ### 0.3 What could not be read at all
 
@@ -150,7 +150,9 @@ Use at least 5.8.1: its notes list "[ModelContextProtocol][HTTPServer] Fix tools
   ```
 
   or on the command line: `-ModelContextProtocolStartServer` and `-ModelContextProtocolPort=<port>`. `[V LP:setup.md]`
-  In 5.9 Preview "Unreal MCP launches automatically with the editor". `[V F:2852840]`
+  In 5.9 Preview "Unreal MCP launches automatically with the editor" `[V F:2852840]`; its first build left the
+  toolset plugins off in new projects (known issue UE-412135) and a quick fix made `AllToolsets` on by default.
+  `[V F:2852840/3, F:2829/20]` So on 5.9 the explicit `.uproject` entries below are harmless and on 5.8 they are needed.
 - Client file `.mcp.json` (next to the `.uproject` for a launcher build, next to `Engine/` for a source build) `[V LP:setup.md]`:
 
   ```json
@@ -336,6 +338,11 @@ Other keys seen in those files, for later use `[M+ F:2687111/5, F:2742734, F:266
 - **MegaLights** (many shadowed lights; relevant to the night look) is production-ready in 5.8 `[V F:2729274]`; key
   `r.MegaLights.EnableForProject=True` `[M+ F:2664001/2]`. Its hardware requirements were not verified.
 - **Lumen Lite** is new in 5.8 for low-end targets `[V F:2729274]`; its setting name was not found.
+- **Volumetric fog, volumetric clouds, sky atmosphere** need no extra project switch beyond the two
+  `r.SupportSkyAtmosphere...` keys: fog is `enable_volumetric_fog` on the height fog component, the cloud layer and
+  the atmosphere are actors (2.4). Their cost follows scalability cvars such as `r.VolumetricFog` and
+  `r.VolumetricCloud` `[M]`.
+- **Nanite and Lumen on Linux** need the Vulkan SM6 shader platform (`SF_VULKAN_SM6` above) `[M]`.
 
 ### 2.4 Sky, clouds, fog, exposure: actor classes and properties
 

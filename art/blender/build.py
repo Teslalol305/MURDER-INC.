@@ -95,15 +95,20 @@ class Ctx:
         m["mi_alpha"] = alpha
         return m
 
-    def unique_set(self, ob, res=None, ground=False, samples=4, set_name=None):
+    def unique_set(self, ob, res=None, ground=False, samples=4, set_name=None, meta=None):
         """Bake the object's procedural materials into its unique set and replace them by one M_<Asset>
         material that reads the baked textures. Without --bake an existing set is reused; if there is none the
         procedural materials stay (and the slot names will not pass export validation)."""
         set_name = set_name or ob.name.replace("SM_", "", 1)
         d = paths.texture_set(set_name)
         js = os.path.join(d, "set.json")
-        if self.args.bake and (self.args.force or not os.path.exists(js) or self.args.rebake_unique):
-            bake.bake_object(ob, set_name, res or self.args.res, samples, ground=ground)
+        old = bake.read_set(set_name)
+        stale = bool(old) and (old.get("uv_hash") != geo.uv_hash(ob) or old.get("resolution", [0])[0] != (res or self.args.res))
+        if self.args.bake and (self.args.force or not old or stale or self.args.rebake_unique):
+            bake.bake_object(ob, set_name, res or self.args.res, samples, ground=ground, meta=meta)
+            stale = False
+        elif stale and old.get("uv_hash") != geo.uv_hash(ob):
+            print("  WARNING %s: the mesh was re-unwrapped since its set was baked; run with --bake" % set_name)
         if os.path.exists(js):
             m = mat.from_texture_set(d, name="M_" + set_name, masks=False, macro=0.0, ao_strength=0.0, alpha="none")
             ob.data.materials.clear()
