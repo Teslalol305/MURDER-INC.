@@ -102,7 +102,7 @@ def main():
         export_gltf(p, "A_%s.glb" % key)
         export_fbx(p, "A_%s.fbx" % key, anim=True)
     for key, path in GUNS.items():
-        for p in assets_under(path):
+        for p in assets_under(path, "StaticMesh"):
             n = p.rsplit("/", 1)[1]
             export_gltf(p, "%s.glb" % n)
             export_fbx(p, "%s.fbx" % n)
