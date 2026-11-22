@@ -912,14 +912,6 @@ def smooth_paint(ob, slots, pairs=12, lam=0.5, mu=-0.53):
     return int(free.sum())
 
 
-def cowl_plank(c, n, cls, spec):
-    """The generated wiper / cowl plank: dark faces lying on the windscreen base between the A pillars."""
-    hw = spec["size"][1] / 2
-    cw, belt = spec["cowl"], spec["belt"]
-    return ((c[:, 0] > cw - 0.14) & (c[:, 0] < cw + 0.12) & (c[:, 2] > belt - 0.14) & (c[:, 2] < belt + 0.08)
-            & (np.abs(c[:, 1]) < hw - 0.10) & (cls == CLS["trim"]) & (n[:, 2] > 0.35))
-
-
 def smooth_normals(ob, iters=10, cos_min=0.8, keep_deg=50.0):
     """Reflection clean-up of the paint: per-vertex normals of the paint faces diffused over their paint neighbours
     (bilateral: only neighbours within ~37 degrees), written as custom split normals on the paint corners. The
@@ -970,32 +962,91 @@ def smooth_normals(ob, iters=10, cos_min=0.8, keep_deg=50.0):
     return int(ok.sum())
 
 
-def cowl_panel(c, k, spec, name):
-    """Modelled cowl: a black plastic panel with louvre ribs over the area of the deleted generated plank, fitted
-    to the plank faces (x extent, slope of z over x)."""
-    x, z = c[k, 0], c[k, 2]
-    x0, x1 = np.percentile(x, [6, 94])
-    A = np.stack([np.ones_like(x), x - x.mean()], 1)
-    za, zb = np.linalg.lstsq(A, z, rcond=None)[0]
-    za = float(np.median(z))
-    zb = float(np.clip(zb, -0.45, 0.10))          # the cowl lies about flat, falling gently toward the bonnet
-    hw = float(np.percentile(np.abs(c[k, 1]), 97)) + 0.03
-    xm = float((x0 + x1) / 2)
-    zm = float(za + zb * (xm - x.mean()))
-    ln = float(x1 - x0) + 0.04
-    parts = [geo.box((ln, 2 * hw, 0.014), bevel=0.003, base=False, name=name + "_Cowl")]
-    ny = int(2 * (hw - 0.06) / 0.032)
-    for i in range(ny):
-        r = geo.box((ln * 0.62, 0.007, 0.008), bevel=0.0, base=False, name=name + "_Louvre")
-        geo.transform(r, loc=(0, -hw + 0.06 + 0.032 * (i + 0.5), 0.010))
-        parts.append(r)
-    ob = geo.join(parts, name + "_Cowl")
-    geo.transform(ob, rot=(0, -math.degrees(math.atan(zb)), 0))
-    geo.transform(ob, loc=(xm, 0, zm + 0.004))
-    return ob
+def cowl_plank(c, n, cls, spec):
+    """The generated wiper / cowl plank: dark faces lying on the windscreen base between the A pillars."""
+    hw = spec["size"][1] / 2
+    cw, belt = spec["cowl"], spec["belt"]
+    return ((c[:, 0] > cw - 0.14) & (c[:, 0] < cw + 0.12) & (c[:, 2] > belt - 0.14) & (c[:, 2] < belt + 0.08)
+            & (np.abs(c[:, 1]) < hw - 0.10) & (cls == CLS["trim"]) & (n[:, 2] > 0.35))
 
 
-def wipers(glass, spec, name):
+def cowl_fit(c, n, cls, k, spec):
+    """Surface of the cowl from the plank faces: z = a + b (x - xm) + q y^2 (least squares), its x span and half
+    width (inside the A pillars); and the faces to delete under and just above it (plank, wiper lumps, the dash
+    'teeth' standing between the plank and the glass)."""
+    x, y, z = c[k, 0], c[k, 1], c[k, 2]
+    xm = float(np.median(x))
+    A = np.stack([np.ones_like(x), x - xm, y * y], 1)
+    a, b, q = np.linalg.lstsq(A, z, rcond=None)[0]
+    b = float(np.clip(b, -0.45, 0.10))
+    q = float(np.clip(q, -0.25, 0.0))
+    a = float(np.median(z - b * (x - xm) - q * y * y))
+    x0, x1 = (float(v) for v in np.percentile(x, [5, 95]))
+    hwc = float(np.percentile(np.abs(y), 99.5) + 0.01)          # the whole plank, A pillar to A pillar
+    fit = dict(a=a, b=b, q=q, xm=xm, x0=x0 - 0.01, x1=x1 + 0.01, hw=hwc)
+    zf = a + b * (c[:, 0] - xm) + q * c[:, 1] ** 2
+    kill = ((c[:, 0] > fit["x0"] - 0.01) & (c[:, 0] < fit["x1"] + 0.01) & (np.abs(c[:, 1]) < hwc + 0.02)
+            & (c[:, 2] > zf - 0.06) & (c[:, 2] < zf + 0.09) & np.isin(cls, [CLS["trim"], CLS["inside"]]))
+    return fit, kill | k
+
+
+def cowl_z(fit, x, y):
+    return fit["a"] + fit["b"] * (x - fit["xm"]) + fit["q"] * y * y
+
+
+def cowl_panel(fit, name, glass=None):
+    """Modelled cowl: a 8 mm black plastic panel from under the bonnet's rear edge (fitted cowl surface) to under the
+    windscreen's lower edge (found by ray casts on the glass), with fine louvre ribs: no gap into the cabin."""
+    bvh = None
+    if glass is not None:
+        from mathutils.bvhtree import BVHTree
+        bm_t = bmesh.new()
+        bm_t.from_mesh(glass.data)
+        bvh = BVHTree.FromBMesh(bm_t)
+        bm_t.free()
+    bm = bmesh.new()
+    nx, ny = 6, 48
+    x0, x1, hw = fit["x0"], fit["x1"], fit["hw"]
+    g = {}
+    for j in range(ny + 1):
+        y = -hw + 2 * hw * j / ny
+        xr, zr = x0, cowl_z(fit, x0, y)
+        if bvh is not None:
+            for x in np.arange(x1, x1 - 0.45, -0.005):
+                h = bvh.ray_cast(Vector((float(x), y, 6.0)), Vector((0, 0, -1)), 12.0)
+                if h[0] is not None:
+                    xr, zr = h[0].x - 0.012, h[0].z - 0.004
+                    break
+        zr = max(zr, cowl_z(fit, xr, y))
+        for i in range(nx + 1):
+            t = i / nx
+            x = xr + (x1 - xr) * t
+            zl = zr + (cowl_z(fit, x1, y) - zr) * t
+            g[i, j] = bm.verts.new((x, y, max(zl, cowl_z(fit, x, y)) + 0.006))
+    for i in range(nx):
+        for j in range(ny):
+            bm.faces.new([g[i, j], g[i, j + 1], g[i + 1, j + 1], g[i + 1, j]])
+    ob = geo.new(name + "_Cowl", bm, uv=False, smooth=30)
+    geo.recalc_normals(ob)
+    m_int, t_int = tiling("TS_Plastic_CarInterior")
+    put_mat(ob, m_int, t_int)
+    solidify(ob, 0.008, 0)
+    ribs = []
+    xc = x1 - 0.24 * (x1 - x0)
+    ln = 0.30 * (x1 - x0)
+    ang = -math.degrees(math.atan(fit["b"]))
+    yy = -hw + 0.05
+    while yy < hw - 0.05:
+        r = geo.box((ln, 0.004, 0.005), bevel=0.0, base=False, name=name + "_Louvre")
+        geo.transform(r, rot=(0, ang, 0))
+        geo.transform(r, loc=(xc, yy, cowl_z(fit, xc, yy) + 0.0085))
+        ribs.append(r)
+        yy += 0.019
+    ob = geo.join([ob] + ribs, name + "_Cowl")
+    return put_mat(ob, m_int, t_int)
+
+
+def wipers(glass, spec, name, fit=None):
     """Two parked wipers lying on the windscreen base: pivot caps, arms and blades (spine and rubber), fitted to the
     glass by ray casts from above."""
     from mathutils.bvhtree import BVHTree
@@ -1032,6 +1083,9 @@ def wipers(glass, spec, name):
         spine = [e + up * 0.016 for e in ends]
         rub = [e + up * 0.005 for e in ends]
         piv = Vector((base.x + 0.035, yp, base.z + 0.005))
+        if fit is not None:                       # pivot on the modelled cowl, in front of the glass base
+            px = min(base.x + 0.035, fit["x1"] - 0.03)
+            piv = Vector((px, yp, cowl_z(fit, px, yp) + 0.016))
         tip = ends[1] + up * 0.026
         arm = geo.pipe([tuple(piv), tuple(piv + up * 0.03), tuple(tip)], 0.0065, segments=8, name=name + "_WiperArm")
         cap = geo.cylinder(0.019, 0.03, 16, bevel=0.004, name=name + "_WiperCap")
@@ -1086,6 +1140,9 @@ def make_parts(ctx, key):
     plates = []
     for front in (True, False):
         pc = find_plate(c, n, cls, front)
+        if pc is not None:                    # the card (6 mm, set 4 mm proud) stays inside the briefed length
+            Lh = spec["size"][0] / 2
+            pc[0] = float(np.clip(pc[0], -Lh + 0.008, Lh - 0.008))
         if pc is not None and not (not front and spec.get("no_rear_plate")):
             plates.append((pc, 1 if front else -1))
             # the generated plate under the modelled one: dark backing (interior plastic)
@@ -1095,14 +1152,16 @@ def make_parts(ctx, key):
                      & (cls == CLS["paint"]) & (n[:, 0] * (1 if front else -1) > 0.5))
             cls[under] = CLS["inside"]
     cowl_ob = None
+    P_cowl = None
     if spec.get("wipers"):
         ck = cowl_plank(c, n, cls, spec)
         ctx.log("%s: cowl plank %d faces" % (key, int(ck.sum())))
         if ck.sum() >= 30:
             ctx.log("%s: cowl x %.2f..%.2f z %.2f..%.2f" % ((key,) + tuple(np.percentile(c[ck, 0], [5, 95]))
                                                             + tuple(np.percentile(c[ck, 2], [5, 95]))))
-            cowl_ob = cowl_panel(c, ck, spec, name)
-            cls[ck] = CLS["drop"]
+            fit, kill = cowl_fit(c, n, cls, ck, spec)
+            P_cowl = fit
+            cls[kill] = CLS["drop"]
     js = os.path.join(paths.texture_set(set_name), "set.json")
     if not spec.get("set") and (ctx.args.force or not os.path.exists(js) or ctx.args.bake):
         cm = cls.copy()
@@ -1141,6 +1200,7 @@ def make_parts(ctx, key):
     raw.hide_viewport = True
     if spec.get("solid", True):
         solidify(ob, 0.010, len(ms) - 1)
+        gen3d.clamp_box(ob, (-W / 2, -D / 2, 0.0), (W / 2, D / 2, H))     # rims at open borders stay in the box
     ctx.log("%s: shell %d -> %d tris" % (key, tri0, geo.stats(ob)["triangles"]))
     P = dict(raw=raw, shell=ob, glass=None, wheels=[], wells=[], interior=[], seats=[], extra=[], plates=plates,
              yo=yo, spec=spec, name=name)
@@ -1162,9 +1222,9 @@ def make_parts(ctx, key):
         P["seats"] = [put_mat(p, m_seat, t_seat) for p in ip["seat"]]
     if spec.get("wipers"):
         m_int, t_int = tiling("TS_Plastic_CarInterior")
-        if cowl_ob is not None:
-            P["extra"].append(put_mat(cowl_ob, m_int, t_int))
-        P["extra"] += wipers(P["glass"], spec, name)
+        if P_cowl is not None:
+            P["extra"].append(cowl_panel(P_cowl, name, P["glass"]))
+        P["extra"] += wipers(P["glass"], spec, name, P_cowl)
     return P
 
 
@@ -1219,6 +1279,11 @@ def assemble(ctx, name, objs, dirt=0.35):
         o.hide_render = False
         o.hide_viewport = False
     ob = geo.join(objs, name, ctx.col)
+    bm = bmesh.new()                    # slivers left by the smoothing of the generated panels
+    bm.from_mesh(ob.data)
+    bmesh.ops.dissolve_degenerate(bm, dist=1e-5, edges=bm.edges[:])
+    bm.to_mesh(ob.data)
+    bm.free()
     finish(ob, dirt)
     nc = smooth_normals(ob)
     ctx.log("%s: paint normals smoothed on %d corners" % (name, nc))
@@ -1602,11 +1667,20 @@ def v_burned(ctx, P):
     rust = set_material("TS_Steel_ScanRustHeavy", slot="MI_Steel_ScanRustHeavy")
     t_rust = mat.scan_tile("TS_Steel_ScanRustHeavy")
     char, t_char = tiling("TS_Char_Burnt")
+    rng = np.random.default_rng(7)
     for o in (sh, bon):
         o.data.materials.clear()
         o.data.materials.append(rust)
         o.data.materials.append(char)
-        gen3d.set_face_materials(o, np.zeros(len(o.data.polygons), np.int32))
+        # (review fix) burned, not just rusty: char (soot-black) around the window frames, over the roof and the
+        # cabin, on the bonnet's rear and edges; rust where the paint burned through lower down
+        c, n, a = gen3d.face_arrays(o)
+        r = rng.random(len(c))
+        ch = ((c[:, 2] > 1.02) & (r < 0.80)) | ((c[:, 2] > 0.88) & (np.abs(c[:, 0]) < 1.1) & (r < 0.55))
+        ch |= (c[:, 0] > 0.95) & (c[:, 0] < 1.35) & (c[:, 2] > 0.75) & (r < 0.6)
+        ch |= (np.abs(c[:, 1]) < 0.55) & (n[:, 2] > 0.7) & (c[:, 0] > 1.2) & (r < 0.35)
+        cl = class_vote(o, ch.astype(np.int32), 4)
+        gen3d.set_face_materials(o, cl)
         solidify(o, 0.008, 1)
         geo.uv_world_box(o, t_rust)
     # bonnet sprung 15 degrees on its hinge at the cowl
@@ -1748,9 +1822,15 @@ def v_vulture(ctx):
     parts += [plate("LWG4418", (pc[0] + f * 0.004, pc[1], pc[2]), f, size=(pc[3], pc[4]), name="Vulture_Plate")
               for pc, f in P["plates"] if f > 0]
     bare, t_bare = tiling("TS_Steel_CargoDark")
-    # load space 2.94 x 1.52 x 1.44, floor 0.60, open at the tail
-    ls = geo.box((2.94, 1.52, 1.44), bevel=0.0, name="Vulture_Load")
-    geo.transform(ls, loc=(-2.53 + 1.47 + 0.02, 0, 0.60))
+    m_int, t_int = tiling("TS_Plastic_CarInterior")
+    m_rub, t_rub = tiling("TS_Rubber_Tyre")
+    chrome, t_chrome = tiling("TS_Chrome_Polished")
+    galv = set_material("TS_Galvanised_Aged", slot="MI_Galvanised_Aged")
+    t_galv = (bake.read_set("TS_Galvanised_Aged") or {}).get("tile_m", 1.0)
+    # load space 2.94 x 1.46 x 1.30, floor 0.60, open at the tail (inside the flanks' tumblehome up to the roof)
+    LX0, LX1, LW, LZ0, LH = -2.51, 0.43, 0.70, 0.60, 1.30
+    ls = geo.box((LX1 - LX0, 2 * LW, LH), bevel=0.0, name="Vulture_Load")
+    geo.transform(ls, loc=((LX0 + LX1) / 2, 0, LZ0))
     bm = bmesh.new()
     bm.from_mesh(ls.data)
     bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.normal.x < -0.9], context="FACES")
@@ -1758,38 +1838,100 @@ def v_vulture(ctx):
     bm.to_mesh(ls.data)
     bm.free()
     parts.append(put_mat(ls, bare, t_bare))
-    # door frame around the opening
+    # ribbed walls: hat-section ribs every 0.42 m, a cant rail, wheel-arch boxes over the rear axle, floor tie-downs
+    ribs = []
+    for x in np.arange(LX0 + 0.30, LX1 - 0.10, 0.42):
+        for sd in (1, -1):
+            r = geo.box((0.06, 0.035, LH - 0.16), bevel=0.008, name="Vulture_Rib")
+            geo.transform(r, loc=(float(x), sd * (LW - 0.0175), LZ0 + 0.01))
+            ribs.append(r)
+        r = geo.box((0.06, 2 * LW - 0.30, 0.035), bevel=0.008, base=False, name="Vulture_RoofRib")
+        geo.transform(r, loc=(float(x), 0, LZ0 + LH - 0.02))
+        ribs.append(r)
+    for sd in (1, -1):
+        cr_ = geo.box((LX1 - LX0 - 0.04, 0.05, 0.05), bevel=0.008, base=False, name="Vulture_CantRail")
+        geo.transform(cr_, loc=((LX0 + LX1) / 2, sd * (LW - 0.03), LZ0 + LH - 0.16))
+        ribs.append(cr_)
+        arch = geo.box((0.96, 0.24, 0.30), bevel=0.03, name="Vulture_Arch")
+        geo.transform(arch, loc=(sp["axles"][1], sd * (LW - 0.12), LZ0))
+        ribs.append(arch)
+    parts.append(put_mat(geo.join(ribs, "Vulture_Ribs"), bare, t_bare))
+    tie = []
+    for x in (LX0 + 0.35, -1.0, 0.0):
+        for sd in (1, -1):
+            ring = geo.torus(0.028, 0.006, 16, 6, name="Vulture_TieDown")
+            geo.transform(ring, loc=(x, sd * (LW - 0.10), LZ0 + 0.008))
+            tie.append(ring)
+    parts.append(put_mat(geo.join(tie, "Vulture_TieDowns"), galv, t_galv))
+    # door aperture: painted frame members and a rubber seal around the opening
+    mpaint = P["shell"].material_slots[0].material
     fr = []
-    for (sx, sy, sz, x, y, z) in ((0.06, 1.78, 0.08, -2.55, 0, 2.06), (0.06, 1.78, 0.06, -2.55, 0, 0.56),
-                                  (0.06, 0.10, 1.52, -2.55, 0.84, 0.56), (0.06, 0.10, 1.52, -2.55, -0.84, 0.56)):
+    for (sx, sy, sz, x, y, z) in ((0.06, 1.70, 0.07, -2.55, 0, LZ0 + LH), (0.06, 1.70, 0.05, -2.55, 0, LZ0 - 0.05),
+                                  (0.06, 0.08, LH + 0.05, -2.55, LW + 0.04, LZ0 - 0.05),
+                                  (0.06, 0.08, LH + 0.05, -2.55, -LW - 0.04, LZ0 - 0.05)):
         b = geo.box((sx, sy, sz), bevel=0.01, name="Vulture_Frame")
         geo.transform(b, loc=(x, y, z))
         fr.append(b)
-    mpaint = P["shell"].material_slots[0].material
     parts += [uv_point(put_mat(b, mpaint), "Vehicle_Van") for b in fr]
-    # the two leaves
+    xs = -2.585
+    seal = geo.pipe([(xs, -LW, LZ0 + 0.01), (xs, LW, LZ0 + 0.01), (xs, LW, LZ0 + LH - 0.01), (xs, -LW, LZ0 + LH - 0.01),
+                     (xs, -LW, LZ0 + 0.01)], 0.012, segments=8, bend_radius=0.05, name="Vulture_Seal")
+    parts.append(put_mat(seal, m_rub, t_rub))
+    # the two leaves: outer skin with a pressed panel, inner skin with lightening holes, lock rod, window, handle,
+    # two exposed hinges each on the body corner and a check strap
     dm = decal_mat(vulture_decals())
     m_glass, t_glass = tiling("TS_Glass_CarTint")
-    m_int, t_int = tiling("TS_Plastic_CarInterior")
-    chrome, t_chrome = tiling("TS_Chrome_Polished")
     for side, ang in ((-1, 111.7), (1, -88.8)):
-        leaf = geo.box((0.045, 0.85, 1.44), bevel=0.008, name="Vulture_Leaf")
-        geo.transform(leaf, loc=(0, -side * 0.425, 0))
-        uv_point(put_mat(leaf, mpaint), "Vehicle_Van")
-        inner = geo.box((0.012, 0.70, 1.20), bevel=0.004, name="Vulture_LeafInner")
-        geo.transform(inner, loc=(0.028, -side * 0.425, 0.10))
-        put_mat(inner, m_int, t_int)
-        pane = geo.box((0.012, 0.50, 0.36), bevel=0.004, name="Vulture_Pane")
-        geo.transform(pane, loc=(-0.020, -side * 0.45, 1.62 - 0.60 - 0.18))
+        s_ = -side
+        leaf = geo.box((0.030, 0.85, 1.40), bevel=0.010, name="Vulture_Leaf")
+        geo.transform(leaf, loc=(-0.010, s_ * 0.425, 0))
+        press = geo.box((0.010, 0.62, 0.50), bevel=0.012, name="Vulture_Press")
+        geo.transform(press, loc=(-0.028, s_ * 0.45, 0.16))
+        leafp = geo.join([leaf, press])
+        uv_point(put_mat(leafp, mpaint), "Vehicle_Van")
+        inner = geo.box((0.012, 0.78, 1.30), bevel=0.004, name="Vulture_LeafInner")
+        geo.transform(inner, loc=(0.011, s_ * 0.43, 0.05))
+        uv_point(put_mat(inner, mpaint), "Vehicle_Van")
+        holes = []
+        for (hz, hh) in ((0.18, 0.36), (0.62, 0.30)):
+            for hy in (0.24, 0.60):
+                hl = geo.box((0.006, 0.24, hh), bevel=0.03, name="Vulture_Hole")
+                geo.transform(hl, loc=(0.0185, s_ * hy, hz))
+                holes.append(hl)
+        holes = put_mat(geo.join(holes), bare, t_bare)
+        pane = geo.box((0.034, 0.50, 0.36), bevel=0.006, name="Vulture_Pane")
+        geo.transform(pane, loc=(-0.008, s_ * 0.45, 1.02))
         put_mat(pane, m_glass, t_glass)
+        rod = geo.cylinder(0.009, 1.26, 12, name="Vulture_LockRod")
+        geo.transform(rod, loc=(0.026, s_ * 0.74, 0.07))
+        put_mat(rod, chrome, t_chrome)
         hnd = geo.box((0.03, 0.14, 0.03), bevel=0.006, name="Vulture_Handle")
-        geo.transform(hnd, loc=(-0.035, -side * 0.78, 0.55))
+        geo.transform(hnd, loc=(-0.035, s_ * 0.74, 0.62))
         put_mat(hnd, chrome, t_chrome)
-        lf = geo.join([leaf, inner, pane, hnd], "Vulture_Door")
-        geo.transform(lf, loc=(0, 0, 0.60))
+        hinges = []
+        for hz in (0.22, 1.12):
+            kn = geo.cylinder(0.016, 0.11, 16, name="Vulture_Knuckle")
+            geo.transform(kn, loc=(-0.03, 0.0, hz))
+            st = geo.box((0.008, 0.16, 0.06), bevel=0.003, name="Vulture_Strap")
+            geo.transform(st, loc=(-0.032, s_ * 0.08, hz + 0.025))
+            hinges += [kn, st]
+        hinges = put_mat(geo.join(hinges), bare, t_bare)
+        strap = geo.box((0.02, 0.22, 0.02), bevel=0.004, name="Vulture_Check")
+        geo.transform(strap, loc=(0.03, s_ * 0.11, 0.95))
+        put_mat(strap, m_rub, t_rub)
+        lf = geo.join([leafp, inner, holes, pane, rod, hnd, hinges, strap], "Vulture_Door")
+        geo.transform(lf, loc=(0, 0, LZ0 + 0.02))
         geo.transform(lf, rot=(0, 0, ang))
         geo.transform(lf, loc=(-2.53, side * 0.89, 0))
         parts.append(lf)
+    # the hinge pins' brackets on the body corners
+    brk = []
+    for side in (1, -1):
+        for hz in (0.22, 1.12):
+            b = geo.box((0.06, 0.05, 0.09), bevel=0.006, name="Vulture_HingeBracket")
+            geo.transform(b, loc=(-2.56, side * 0.91, LZ0 + 0.02 + hz - 0.02))
+            brk.append(b)
+    parts.append(put_mat(geo.join(brk, "Vulture_Brackets"), bare, t_bare))
     # cargo
     card = set_material("TS_Fabric_ScanBurlap", slot="MI_Fabric_ScanBurlap") if os.path.exists(
         paths.texture_set("TS_Fabric_ScanBurlap")) else m_int
@@ -1797,12 +1939,12 @@ def v_vulture(ctx):
     t_wood = mat.scan_tile("TS_Wood_ScanPallet")
     c1 = geo.box((0.50, 0.42, 0.36), bevel=0.01, name="Vulture_Carton")
     geo.transform(c1, rot=(0, 0, 8))
-    geo.transform(c1, loc=(-1.9, 0.35, 0.60))
+    geo.transform(c1, loc=(-2.15, 0.28, 0.60))
     c2 = geo.box((0.40, 0.36, 0.30), bevel=0.01, name="Vulture_Carton")
     geo.transform(c2, rot=(0, 0, -5))
-    geo.transform(c2, loc=(-1.88, 0.33, 0.96))
+    geo.transform(c2, loc=(-2.13, 0.26, 0.96))
     cr = geo.box((0.70, 0.50, 0.34), bevel=0.008, name="Vulture_Crate")
-    geo.transform(cr, loc=(-1.6, -0.40, 0.60))
+    geo.transform(cr, loc=(-0.55, -0.32, 0.60))
     cardboard = set_material("Prop_CardboardBox", slot="M_Prop_CardboardBox") if os.path.exists(
         paths.texture_set("Prop_CardboardBox")) else card
     for o in (c1, c2):
@@ -1918,6 +2060,11 @@ def v_ipx(ctx):
     bm.to_mesh(lin.data)
     bm.free()
     parts.append(put_mat(lin, galv, t_galv))
+    # door sill: a galvanised tread plate from the tail step into the vault (covers the generated step's crumple)
+    sx0, sx1 = max(door_x - 0.26, tail + 0.03), door_x + 0.04
+    sill = geo.box((sx1 - sx0, 1.86, 0.04), bevel=0.006, name="IPX_Sill")
+    geo.transform(sill, loc=((sx0 + sx1) / 2, 0, 1.0))
+    parts.append(put_mat(sill, galv, t_galv))
     for side in (1, -1):
         for z in (1.40, 1.80, 2.20):
             sh = geo.box((3.2, 0.30, 0.025), bevel=0.004, name="IPX_Shelf")
