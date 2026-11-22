@@ -49,8 +49,8 @@ of the south block face (S1 + S2 + S3, seven storefronts) with the street and th
 - [x] previews round 1 rendered and looked at (wire, hero, storefront, street)
 - [x] round 1 fixes in code: glass film/dirt much lighter (store glass read milky), hero +0.5 and storefront +0.9 stops,
       cornice run stops 2 mm inside the end block (coplanar caps rendered as a black patch in clay)
-- [ ] round 2 (last): `build facade --preview --only facade_day_hero,facade_storefront,facade_wire --samples 64`
-- [ ] README family row
+- [x] round 2 (last) rendered and looked at: glass clear with reflections, clay corners clean
+- [x] README family row; final `build facade --export`: 77 GLBs, no validation errors or warnings, manifest current
 
-## Exact next step
-Round 2 renders (above), then final `build facade --export`, README row, report.
+## State at hand-off: task complete
+Known weaknesses: sign bands are flat colour placeholders; glass shows only reflections (no interior parallax yet); previews under the El stay dark; the roll-gate bay (Nails, S3) is in no preview; no rear walls or N-side buildings in the sample.
