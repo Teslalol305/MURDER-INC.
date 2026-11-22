@@ -305,24 +305,18 @@ def ue_from_blender(m16):
     return um.transform()
 
 
-def add_socket(mesh_path, socket, bone, world_m16):
-    """Socket on the skeletal mesh at a Blender rest-pose world placement (relative to the bone's reference
-    pose in component space)."""
+def attach_transform(mesh_path, bone, world_m16):
+    """Transform of an attachment relative to `bone` (its reference pose, component space) from the Blender rest
+    world placement. (SkeletalMeshSocket names are read-only from Python in 5.9: the jewels attach to the bone
+    with this relative transform; the same numbers make a socket by hand.)"""
     sk = unreal.load_asset(mesh_path)
-    a = ACTORS.spawn_actor_from_class(unreal.SkeletalMeshActor, unreal.Vector(0, 0, 0))
+    a = ACTORS.spawn_actor_from_class(unreal.SkeletalMeshActor, unreal.Vector(0, 0, -3000))
     a.skeletal_mesh_component.set_skinned_asset_and_update(sk)
     bone_cs = a.skeletal_mesh_component.get_socket_transform(bone, unreal.RelativeTransformSpace.RTS_COMPONENT)
+    bone_cs = unreal.Transform(bone_cs.translation - unreal.Vector(0, 0, 0), bone_cs.rotation, bone_cs.scale3d)
     ACTORS.destroy_actor(a)
     want = ue_from_blender(world_m16)
-    rel = want.make_relative(bone_cs)
-    s = sk.find_socket(socket) if hasattr(sk, "find_socket") else None
-    if s is None:
-        s = unreal.SkeletalMeshSocket(outer=sk)
-        sk.add_socket(s, False)
-    _set(s, socket_name=socket, bone_name=bone, relative_location=rel.translation,
-         relative_rotation=rel.rotation.rotator(), relative_scale=unreal.Vector(1, 1, 1))
-    ASSETS.save_loaded_asset(sk)
-    return {"socket": socket, "bone": bone, "loc": [round(v, 3) for v in (rel.translation.x, rel.translation.y, rel.translation.z)]}
+    return want.make_relative(bone_cs)
 
 
 def simple_material(name, colour, rough, metal, dest="/Game/Characters/RuleArms/Materials", translucent=False):
@@ -391,23 +385,30 @@ def setup_arms(src="/project/ue/chars/in"):
                                                  "M_Character_RuleWatch_Gold": gold, "M_Character_RuleWatch_Dial": dial,
                                                  "M_Character_RuleWatch_Glass": glass, "M_Character_RuleBracelet_GoldAlt": alt,
                                                  "M_Character_RuleBracelet_Gold": gold})
-        try:
-            rep["sockets_" + name] = add_socket(dest + "/SK_RuleArms", sk["socket"], sk["bone"], sk["blender_world_rest"])
-        except Exception as e:  # noqa: BLE001
-            rep["socket_error_" + name] = str(e)[:300]
+        rel = attach_transform(dest + "/SK_RuleArms", sk["bone"], sk["blender_world_rest"])
+        r = rel.rotation.rotator()
+        ATTACH[name] = (sk["bone"], rel)
+        rep["attach_" + name] = {"bone": sk["bone"], "loc_cm": [round(v, 3) for v in (rel.translation.x, rel.translation.y, rel.translation.z)],
+                                 "rot_deg_rpy": [round(v, 3) for v in (r.roll, r.pitch, r.yaw)]}
     unreal.log_warning("MI: setup_arms " + json.dumps(rep)[:3000])
     return rep
 
 
-def arms_actor(mesh_path, anim_path, loc, yaw, time, label, jewels=(("SM_Character_RuleWatch", "Socket_Watch"),
-                                                                    ("SM_Character_RuleBracelet", "Socket_Bracelet"))):
-    """The arms playing a clip frozen at `time`, with the watch and bracelet attached at their sockets."""
+ATTACH = {}
+
+
+def arms_actor(mesh_path, anim_path, loc, yaw, time, label, src="/project/ue/chars/in"):
+    """The arms playing a clip frozen at `time`, with the watch and bracelet attached to their bones."""
     a = actor(mesh_path, anim_path, loc, yaw=yaw, time=time, label=label)
-    for mesh, sock in jewels:
+    sockets = json.load(open(os.path.join(src, "SK_RuleArms.sockets.json")))
+    for mesh, sk in sockets.items():
+        rel = attach_transform(mesh_path, sk["bone"], sk["blender_world_rest"])
         j = ACTORS.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(*loc))
         j.tags = ["MIStage"]
-        j.static_mesh_component.set_static_mesh(unreal.load_asset("/Game/Characters/RuleArms/" + mesh))
+        j.set_actor_label(label + "_" + mesh[13:])
         j.static_mesh_component.set_mobility(unreal.ComponentMobility.MOVABLE)
-        j.attach_to_actor(a, sock, unreal.AttachmentRule.SNAP_TO_TARGET, unreal.AttachmentRule.SNAP_TO_TARGET,
+        j.static_mesh_component.set_static_mesh(unreal.load_asset("/Game/Characters/RuleArms/" + mesh))
+        j.attach_to_actor(a, sk["bone"], unreal.AttachmentRule.SNAP_TO_TARGET, unreal.AttachmentRule.SNAP_TO_TARGET,
                           unreal.AttachmentRule.KEEP_WORLD, False)
+        j.root_component.set_relative_transform(rel, False, False)
     return a
