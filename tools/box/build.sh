@@ -2,7 +2,9 @@
 # Build the editor target (MurderIncEditor Linux Development) on the box.
 # Stops a running editor or test run first: they hold the module library that the build replaces.
 # The build runs detached and this script returns at once; poll with build-status.sh.
-# Usage: build.sh [clean] [extra UnrealBuildTool arguments, for example -NoUBA or -MaxParallelActions=8]
+# Usage: build.sh [clean] [extra UnrealBuildTool arguments, for example -MaxParallelActions=8]
+# Always passes -NoUBA: the Unreal Build Accelerator executor asserts on /project (a 9p network file system):
+# "ASSERT: rename: cross-process rename-while-open ... .gch.tmp" while it writes the precompiled header.
 #   clean   delete the project's Binaries and Intermediate/Build first (full rebuild of the game module)
 # Files in /project/ue/logs: build.log (full output), build.status (one word: RUNNING, OK or FAILED),
 # build.start / build.end (epoch seconds), build.pid (the runner).
@@ -16,7 +18,7 @@ main() {
     echo $$ > "$MI_LOGS/build.pid"
     echo RUNNING > "$st"; date +%s > "$MI_LOGS/build.start"; rm -f "$MI_LOGS/build.end"
     cd "$MI_ENGINE" || exit 1
-    ./Engine/Build/BatchFiles/Linux/Build.sh MurderIncEditor Linux Development "-project=$MI_UPROJECT" -waitmutex "$@" > "$MI_LOGS/build.log" 2>&1
+    ./Engine/Build/BatchFiles/Linux/Build.sh MurderIncEditor Linux Development "-project=$MI_UPROJECT" -waitmutex -NoUBA "$@" > "$MI_LOGS/build.log" 2>&1
     local rc=$?
     date +%s > "$MI_LOGS/build.end"
     echo "build exit code $rc" >> "$MI_LOGS/build.log"
