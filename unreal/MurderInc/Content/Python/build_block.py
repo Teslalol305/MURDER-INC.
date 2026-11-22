@@ -277,12 +277,16 @@ def custom(material, x, y, code, inputs, output_type, extra_outputs=()):
 
 def build_master(defaults, force):
     """M_MI_Surface: tiling texture set (+ optional second set on G), tint, Wear vertex-colour masks."""
+    # Rebuilt in place, never deleted: deleting a parent orphans its instances, and every orphan then compiles
+    # the default material synchronously on the game thread (minutes).
     if ASSETS.does_asset_exist(MASTER):
         if not force:
             return "exists"
-        ASSETS.delete_asset(MASTER)
-    tools = unreal.AssetToolsHelpers.get_asset_tools()
-    material = tools.create_asset("M_MI_Surface", MAT_DIR, unreal.Material, unreal.MaterialFactoryNew())
+        material = unreal.load_asset(MASTER)
+        LIB.delete_all_material_expressions(material)
+    else:
+        tools = unreal.AssetToolsHelpers.get_asset_tools()
+        material = tools.create_asset("M_MI_Surface", MAT_DIR, unreal.Material, unreal.MaterialFactoryNew())
 
     # UVs: mesh UV0 (already in repeats of the set's tile) x UVScale, or the world box projection.
     uv0 = expr(material, unreal.MaterialExpressionTextureCoordinate, -2200, 0)
@@ -361,10 +365,11 @@ def make_instance(name, set_name, tint=(1, 1, 1), blend_set=None, alpha_means=No
     if ASSETS.does_asset_exist(path):
         if not force:
             return "exists"
-        ASSETS.delete_asset(path)
-    tools = unreal.AssetToolsHelpers.get_asset_tools()
-    instance = tools.create_asset(name, MAT_DIR, unreal.MaterialInstanceConstant,
-                                  unreal.MaterialInstanceConstantFactoryNew())
+        instance = unreal.load_asset(path)          # updated in place (meshes keep their references)
+    else:
+        tools = unreal.AssetToolsHelpers.get_asset_tools()
+        instance = tools.create_asset(name, MAT_DIR, unreal.MaterialInstanceConstant,
+                                      unreal.MaterialInstanceConstantFactoryNew())
     LIB.set_material_instance_parent(instance, unreal.load_asset(MASTER))
     for kind in ("BC", "N", "ORM"):
         texture = unreal.load_asset(texture_path(set_name, kind))
