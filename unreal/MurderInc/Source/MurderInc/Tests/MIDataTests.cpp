@@ -91,8 +91,8 @@ bool FMIGameClassesTest::RunTest(const FString& Parameters)
 	const UInputMappingContext* Context = Controller->GetMappingContext();
 	if (TestNotNull(TEXT("mapping context"), Context))
 	{
-		// W A S D, left stick, mouse, jump x2, sprint x3, crouch x2
-		TestEqual(TEXT("key mappings"), Context->GetMappings().Num(), 13);
+		// W A S D, left stick, mouse; jump 2, sprint 3, crouch 3, fire 3, aim 2, reload 2, swap 6, weapon 3 + 3, melee 5
+		TestEqual(TEXT("key mappings"), Context->GetMappings().Num(), 38);
 	}
 	return true;
 }

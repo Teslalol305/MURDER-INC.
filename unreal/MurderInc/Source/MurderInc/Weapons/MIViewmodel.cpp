@@ -291,41 +291,41 @@ bool FMIViewmodelData::Parse(const TSharedPtr<FJsonObject>& Presentation, const 
 				Row.SetNumZeroed(7);
 			}
 		}
-		const auto Part = [&P, &G](const TCHAR* Name, FMIGunPartData& Out)
+		const auto Part = [&P, &G](const TCHAR* Name, FMIGunPartData& PartOut)
 		{
 			const FString Base = G + TEXT("parts.") + Name + TEXT(".");
-			Out.Bone = FName(*P.StrOr(Base + TEXT("bone")));
+			PartOut.Bone = FName(*P.StrOr(Base + TEXT("bone")));
 			if (const TSharedPtr<FJsonValue> Axis = P.Value(Base + TEXT("axis")); Axis.IsValid())
 			{
-				Out.Axis = P.Vec(Base + TEXT("axis")).GetSafeNormal();
+				PartOut.Axis = P.Vec(Base + TEXT("axis")).GetSafeNormal();
 			}
-			Out.Travel = P.NumOr(Base + TEXT("travel"), P.NumOr(Base + TEXT("turn"), P.NumOr(Base + TEXT("tilt"), 0.0)));
-			Out.Back = P.NumOr(Base + TEXT("back"), 0.0);
-			Out.Forward = P.NumOr(Base + TEXT("forward"), 0.0);
-			Out.bLockOnEmpty = P.Bool(Base + TEXT("lockOnEmpty"));
-			Out.ReleaseAt = FName(*P.StrOr(Base + TEXT("releaseAt")));
-			Out.Release = P.NumOr(Base + TEXT("release"), 0.0);
-			Out.Share = P.NumOr(Base + TEXT("share"), 0.0);
+			PartOut.Travel = P.NumOr(Base + TEXT("travel"), P.NumOr(Base + TEXT("turn"), P.NumOr(Base + TEXT("tilt"), 0.0)));
+			PartOut.Back = P.NumOr(Base + TEXT("back"), 0.0);
+			PartOut.Forward = P.NumOr(Base + TEXT("forward"), 0.0);
+			PartOut.bLockOnEmpty = P.Bool(Base + TEXT("lockOnEmpty"));
+			PartOut.ReleaseAt = FName(*P.StrOr(Base + TEXT("releaseAt")));
+			PartOut.Release = P.NumOr(Base + TEXT("release"), 0.0);
+			PartOut.Share = P.NumOr(Base + TEXT("share"), 0.0);
 			if (P.Value(Base + TEXT("drop")).IsValid())
 			{
-				Out.Drop = P.Vec(Base + TEXT("drop"));
+				PartOut.Drop = P.Vec(Base + TEXT("drop"));
 			}
-			Out.OutMark = FName(*P.StrOr(Base + TEXT("out")));
-			Out.ShowMark = FName(*P.StrOr(Base + TEXT("show")));
-			Out.InMark = FName(*P.StrOr(Base + TEXT("in")));
+			PartOut.OutMark = FName(*P.StrOr(Base + TEXT("out")));
+			PartOut.ShowMark = FName(*P.StrOr(Base + TEXT("show")));
+			PartOut.InMark = FName(*P.StrOr(Base + TEXT("in")));
 		};
 		Part(TEXT("bolt"), D.Bolt);
 		Part(TEXT("barrel"), D.Barrel);
 		Part(TEXT("trigger"), D.Trigger);
 		Part(TEXT("magazine"), D.Magazine);
-		const auto Keys = [&P, &G](const TCHAR* Name, TArray<FVector2D>& Out)
+		const auto Keys = [&P, &G](const TCHAR* Name, TArray<FVector2D>& KeysOut)
 		{
 			if (const TSharedPtr<FJsonValue> V = P.Value(G + TEXT("parts.boltReload.") + Name); V.IsValid() && V->Type == EJson::Array)
 			{
 				for (const TSharedPtr<FJsonValue>& K : V->AsArray())
 				{
 					const TArray<TSharedPtr<FJsonValue>>& A = K->AsArray();
-					if (A.Num() == 2) Out.Add(FVector2D(A[0]->AsNumber(), A[1]->AsNumber()));
+					if (A.Num() == 2) KeysOut.Add(FVector2D(A[0]->AsNumber(), A[1]->AsNumber()));
 				}
 			}
 		};

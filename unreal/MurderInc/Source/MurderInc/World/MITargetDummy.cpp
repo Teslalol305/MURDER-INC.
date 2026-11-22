@@ -70,7 +70,7 @@ void AMITargetDummy::ApplyTuning()
 	// The body capsule runs from the shin to the shoulder (spec 02 2.8): it stops where the head sphere starts.
 	const double Top = HeadHeight - HeadRadius;
 	const double Bottom = BodyRadius;
-	Body->SetCapsuleSize(BodyRadius, FMath::Max(BodyRadius, (Top - Bottom) * 0.5 + BodyRadius));
+	Body->SetCapsuleSize(BodyRadius, FMath::Max(BodyRadius, (Top - Bottom) * 0.5));
 	Body->SetRelativeLocation(FVector(0, 0, (Top + Bottom) * 0.5));
 	Head->SetSphereRadius(HeadRadius);
 	Head->SetRelativeLocation(FVector(0, 0, HeadHeight));
