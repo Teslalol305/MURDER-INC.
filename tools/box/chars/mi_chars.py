@@ -313,7 +313,6 @@ def attach_transform(mesh_path, bone, world_m16):
     a = ACTORS.spawn_actor_from_class(unreal.SkeletalMeshActor, unreal.Vector(0, 0, -3000))
     a.skeletal_mesh_component.set_skinned_asset_and_update(sk)
     bone_cs = a.skeletal_mesh_component.get_socket_transform(bone, unreal.RelativeTransformSpace.RTS_COMPONENT)
-    bone_cs = unreal.Transform(bone_cs.translation - unreal.Vector(0, 0, 0), bone_cs.rotation, bone_cs.scale3d)
     ACTORS.destroy_actor(a)
     want = ue_from_blender(world_m16)
     return want.make_relative(bone_cs)
