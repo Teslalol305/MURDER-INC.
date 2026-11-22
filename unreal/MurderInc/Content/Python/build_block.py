@@ -521,8 +521,11 @@ def spawn_class(cls, label, folder, location=(0, 0, 0), rot=(0, 0, 0)):
 
 
 def open_block_map():
-    if ASSETS.does_asset_exist(MAP_PATH):
-        LEVELS.load_level(MAP_PATH)
+    world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
+    current = world.get_path_name().split(".")[0] if world else ""
+    if current == MAP_PATH or ASSETS.does_asset_exist(MAP_PATH):
+        if current != MAP_PATH:
+            LEVELS.load_level(MAP_PATH)
         doomed = [a for a in ACTORS.get_all_level_actors() if TAG in [str(t) for t in a.tags]]
         for actor in doomed:
             ACTORS.destroy_actor(actor)
