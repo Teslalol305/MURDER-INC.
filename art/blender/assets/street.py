@@ -914,7 +914,6 @@ def _dress(ctx):
         top = loc[2] + size[2]
         geo.paint(wl, "A", lambda x, y, z: np.clip(np.exp(-(z - KERB_H) / 0.22) * (0.6 + 0.5 * streak.u(x + y, z)), 0, 1))
         geo.paint(wl, "R", lambda x, y, z: np.clip(0.75 * sstep(1.6, 0.0, top - z) * streak.u((x + y) * 3.0, z * 0.2) + 0.25 * blotch.u(x + y, z), 0, 1))
-        geo.paint(wl, "B", lambda x, y, z: np.clip((blotch.u(x * 1.7 + y, z * 2.0 + 9.0) - 0.72) * 3.0, 0, 1))
         scene.move_to(wl, col)
         out.append(wl)
     cope = geo.box((240.0, 0.42, 0.07), bevel=0.012, name="DressCope")

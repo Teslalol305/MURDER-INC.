@@ -16,7 +16,7 @@ main() {
   before=$(find "$c" -name '*.uasset' 2>/dev/null | wc -l)
   seed() {  # seed <source directory> <folder under Content>
     [ -d "$1" ] || { echo "  missing in this engine: ${1#$t/}"; return; }
-    mkdir -p "$c/$2" && cp -rn "$1/." "$c/$2/"
+    mkdir -p "$c/$2" && cp -rn "$1/." "$c/$2/" 2>/dev/null
   }
   seed "$t/TemplateResources/High/Characters/Content"       Characters
   seed "$t/TemplateResources/High/Input/Content"            Input

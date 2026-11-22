@@ -1,0 +1,129 @@
+# MURDER INC. art pipeline (Blender, scripted)
+
+Every asset of the Unreal rebuild is authored by a Python script: reproducible, reviewable, no hand-saved `.blend`.
+`art/blender/` is committed; everything generated goes to `art/out/` (git-ignored) except the preview pictures in
+`art/previews/`.
+
+## Set-up
+
+```
+python3 -m venv venv && venv/bin/pip install bpy==5.3.0 numpy pillow     # Blender 5.3 as a Python module
+python3 art/scans/fetch.py                                               # scanned textures, skies (art/scans/README.md)
+
+venv/bin/python art/blender/build.py list
+venv/bin/python art/blender/build.py build el --export                   # GLB + manifest + validation, about 6 s
+venv/bin/python art/blender/build.py build el --preview --samples 64     # look-dev pictures, about 3 min each on 3 threads
+venv/bin/python art/blender/build.py build el --preview --only el_day_hero
+venv/bin/python art/blender/build.py build street --bake --export --preview
+blender -b -P art/blender/build.py -- build street --export             # the same inside a full Blender
+```
+
+Outputs: `art/out/glb/SM_*.glb`, `art/out/blend/<family>.blend`, `art/out/textures/<Set>/T_<Set>_{BC,N,ORM,H}.*`,
+`art/out/manifest.json` (assets, slots, sets, tile sizes, bounds, collision hints), `art/previews/*.jpg`
+(1280 x 720, at most 300 kB).
+
+## Conventions
+
+- Metres, Z up, east = +X, north = +Y. Web game (x, y, z) = Blender (x, -z, y). Unreal = (x, -y, z) x 100
+  (`scene.web_to_blender`, `scene.blender_to_unreal`).
+- Pivots. Props: centre of the footprint on the ground, forward +X. Modular street and structure pieces: west end,
+  centre line, ground level, running +X. Wall modules: bottom-left corner of the outer face, running +X, outer face
+  toward -Y.
+- Names. Meshes `SM_<Family>_<Name>[_<Variant>]`. Tiling sets `TS_<Surface>_<Variant>` are used through slots named
+  `MI_<Surface>_<Variant>`; a prop's unique baked set is named after the asset and used through `M_<Asset>`.
+  Textures `T_<Set>_BC`, `_N` (OpenGL, +Y up), `_ORM` (AO, roughness, metallic), `_H`.
+- Large and modular surfaces use tiling sets with UVs in real metres divided by the set's tile size
+  (`mat.scan_tile(set)`; 1 UV unit = one repeat). They are never baked uniquely.
+- The colour attribute `Wear` (exported as COLOR_0) drives the material layers:
+  R dirt in cavities, G edge wear (and the blend to a second set, e.g. paint to rust), B downward leaks and rust
+  runs, A splash-back dust (`alpha="splash"`) or wetness with puddles (`alpha="wet"`).
+- Geometry: anything real that is larger than about 5 mm is modelled (rivets, bolt heads, plate edges); hard edges
+  are bevelled or chamfered; a module stays under about 300k triangles.
+
+## The library (`art/blender/mi`)
+
+| Module | What matters |
+|---|---|
+| `scene` | `reset()`, `collection`, `new_object`, `duplicate(ob, linked=True)`, `place(ob, loc, rot_z_deg)`, `bounds`, `set_pivot`, `rng(*key)` (seeded numpy generator), `save_blend`. |
+| `geo` | Primitives, bevelled by default: `box`, `cylinder`, `tube`, `revolve`, `sweep`, `pipe`, `plate` (with holes), `heightfield`, `text`, `hex_bolt`, `rivet`, `nut`; `instances(proto, matrices)` with `ring_/line_/grid_matrices`; `join`, `transform`, `densify`, `boolean`, `bevel_edges`, `smooth_by_angle`, `weighted_normals`. UVs: `uv_world_box(ob, tile_m)` (box projection in metres), `uv_rescale_by_slot`, `uv_unwrap(ob, res)` for unique sets, `uv_texel_density`. Wear: `ensure_wear`, `paint(ob, "R", fn(x, y, z))`, `get_wear` / `set_wear(ob, rgba, per="vertex" or "corner")`, `wear_from_geometry(ob)` (curvature + ray-cast occlusion + height), `curvature`, `occlusion`. `stats(ob)`. |
+| `steel` | `Builder`: built-up steelwork assembled in numpy. `box` (plate), `prism(profile, origin, u, v, ext, slot)` with the profiles `angle`, `ibeam`, `channel`, `rail`, `rect`; `plate_rows` / `poly_plate` (gussets); `rivets(points, normal, slot)`; `absorb(ob, slot)` for any Blender mesh; `finish(name, {slot: material}, col)`. Each face is UV-projected in its own plane in real metres. `loops(ob)` gives per-corner position, normal, convex / concave tags and occlusion to paint masks from; `streaks(...)` paints runs below rivets and connections. |
+| `mat` | `from_scan("TS_...", blend="TS_...", alpha=..., tint=..., **layers)`: a material on a catalogued scan (textures from `art/out/textures/<Set>/`, tile size from `art/scans/sets.json`, stored as `m["mi_tile_m"]`). `from_texture_set(dir, ...)`: the same on any `T_*` files (baked sets). `make(name, kind, ...)`: the procedural surfaces (`build.py list`), used for what scans cannot give (road markings, patches, tar, the wet gutter). All three share the Wear and wetness interface, so swapping one for another changes nothing on the mesh. `scan_tile`, `scan_info`, `flat`. |
+| `bake` | `bake_tiling_set` (procedural surface to a seamless set), `bake_object` (unique set of a prop), `tiled_preview`. |
+| `export` | `validate(ob, expect_size)` and `export_asset(...)`: GLB (optionally FBX) with the pivot at the file origin, slots by name without embedded textures, manifest entry. Validation fails on: bad name, unapplied scale, zero-area faces, inconsistent winding, inside-out closed meshes, empty or misnamed slots, no UV map, no Wear attribute, size outside the brief; it warns over 300k triangles. |
+| `render` | `setup(samples)`, `rig_day(sun_azimuth=compass bearing, stops=0)`, `rig_night(...)`, `sign(...)`, `cam_look`, `cam_eye`, `cam_hero`, `cam_top`, `render_jpeg(path, samples)` (keeps under 300 kB), `contact_sheet`, `backdrop`. |
+
+`build.py` gives a family's `build(ctx)` a context: `ctx.col`, `ctx.rng(*key)`, `ctx.log`,
+`ctx.scan_set(set, blend=..., **kw)`, `ctx.tiling_set(set, kind, ...)` (procedural, baked with `--bake`),
+`ctx.unique_set(ob)`, `ctx.asset(ob, collision, cover_height, notes, expect_size, slots)`.
+Optional hooks in the family module: `on_bake`, `on_export`, `on_preview(ctx, objs)`.
+
+### Day lighting
+
+`render.rig_day` lights with a scanned clear-sky dome from the catalogue (`render.DAY_HDRI`,
+`kloofendal_43d_clear_puresky`, sun 42.9 degrees up). The dome is turned so its sun stands at the compass bearing
+`sun_azimuth` (the design sun, 4:15 PM, is `render.DESIGN_SUN_BEARING` = 260), and the view exposure is the
+catalogue's measured value at which an 18 % card lying in the open renders at 18 %, plus `stops` (about +1 under
+the El). `hdri=None`, or a missing file, falls back to the analytic sky. View transform: AgX, medium-high contrast.
+
+## Families
+
+| Family | Assets |
+|---|---|
+| `street` | `SM_Street_Road_20m`, `SM_Street_Kerb_4m[_B,_Wet]`, `SM_Street_Sidewalk_4m[_B,_C,_Wet]`, `SM_Street_ManholeCover`, `SM_Street_DrainInlet`, `SM_Prop_Hydrant`. Scans for asphalt, concrete, kerb steel and brick; procedural layers for markings, patch, tar and the wet gutter. |
+| `el` | `SM_El_Column`, `SM_El_Bent`, `SM_El_GirderSpan_10m`, `SM_El_Deck_10m`, `SM_El_Lamp`. Placement: bents at x = 10 k; columns at (x, +-4.6, 0); bent, span and deck at (x, 0, 0); lamps at (x + 5, +-2.1, 6.02). Dimensions are the game's (`src/level/el.js`, `docs/unreal/spec/05-level.md`). |
+
+## Adding a family (under 40 lines)
+
+Save as `art/blender/assets/crate.py`, then `build.py build crate --export --preview`. (This example was run
+through `export.validate` and passes.)
+
+```python
+"""Example family: a timber crate on steel skids."""
+from mi import geo, mat
+
+FAMILY = {"name": "crate", "description": "Timber shipping crate on steel skids"}
+WOOD, STEEL = "TS_Wood_ScanTie", "TS_Steel_ScanPaintGreen"
+
+
+def part(size, loc, set_name, material):
+    ob = geo.box(size, bevel=0.005)                       # bevelled, centred in x and y, sitting on z = 0
+    geo.transform(ob, loc=loc)
+    geo.densify(ob, 0.10)                                 # vertices for the wear masks to live on
+    geo.uv_world_box(ob, mat.scan_tile(set_name))         # real metres / the set's real tile size
+    ob.data.materials.append(material)
+    return ob
+
+
+def build(ctx):
+    wood = ctx.scan_set(WOOD, alpha="splash")                         # slot MI_Wood_ScanTie
+    steel = ctx.scan_set(STEEL, blend="TS_Steel_ScanRust")            # G blends the paint to the rust scan
+    parts = [part((1.2, 0.8, 0.7), (0, 0, 0.08), WOOD, wood)]
+    parts += [part((1.2, 0.08, 0.08), (0, y, 0), STEEL, steel) for y in (-0.3, 0.3)]
+    ob = geo.join(parts, "SM_Prop_Crate", ctx.col)                    # pivot: centre of the footprint, on the ground
+    geo.wear_from_geometry(ob)                                        # R cavities, G edges, B leaks, A splash-back
+    ctx.asset(ob, collision="box", cover_height=0.78, expect_size=(1.2, 0.8, 0.78),
+              notes="Shipping crate, waist-high cover.")
+    return [ob]
+```
+
+Without hooks, `--export` validates and exports every asset declared with `ctx.asset`, and `--preview` renders a
+contact sheet. For custom pictures add `on_preview(ctx, objs)` (see `assets/el.py`).
+
+## Blender 5.3 notes (confirmed on bpy 5.3.0)
+
+- `Mesh.use_auto_smooth` is gone: shade smooth and mark sharp edges (`Mesh.set_sharp_from_angle`, wrapped by
+  `geo.smooth_by_angle`).
+- Materials and worlds have a node tree from creation; `use_nodes` is deprecated (removal announced for 6.0).
+- Sky Texture types are `SINGLE_SCATTERING`, `MULTIPLE_SCATTERING`, `PREETHAM`, `HOSEK_WILKIE` (no `NISHITA`).
+- Boolean solvers: `FLOAT`, `EXACT`, `MANIFOLD`.
+- Principled BSDF socket names: `Emission Color`, `Emission Strength`, `Specular IOR Level`, `Transmission Weight`,
+  `Coat Weight`, `Sheen Weight`, `Subsurface Weight`.
+- Lights take a colour temperature directly (`use_temperature`, `temperature`).
+- View transforms and render engines are registered at run time: read them from a live scene, not from the RNA
+  enum. The transforms are Standard, ACES 1.3, ACES 2.0, Khronos PBR Neutral, AgX, Filmic, Filmic Log, False Color,
+  Raw; AgX looks are named `AgX - <name>`.
+- `ImageFormatSettings` has a `media_type` property next to `file_format`.
+- The pip module has no GPU (the "CUEW initialization failed" line is harmless) and no Draco or MeshOptimizer
+  libraries (the two ERROR lines at export are harmless: GLB files are written uncompressed).
+- glTF export: vertex colours are written with `export_vertex_color="ACTIVE"` plus
+  `export_all_vertex_colors` / `export_active_vertex_color_when_no_material`; `export_yup=True` converts to +Y up.

@@ -771,6 +771,8 @@ def on_preview(ctx, objs):
     more = layout(ctx, ctx.A, range(-3, 1), x_off, skip=(0,)) + layout(ctx, ctx.A, range(3, 9), x_off, skip=(3,))
     render.setup(samples=a.samples)
     kerb = street.KERB_H
+    # day shots: the lamps are off (the slot keeps its emitter for Unreal, where the level drives it)
+    mat.principled(ctx.M["glow"]).inputs["Emission Strength"].default_value = 0.0
     if want("el_wire"):
         clay = mat.flat("Clay", (0.55, 0.55, 0.55), 0.55)
         vl = bpy.context.view_layer
@@ -783,12 +785,12 @@ def on_preview(ctx, objs):
     # the design sun: 4:15 PM, bearing 260 (10 degrees south of due west), so the ties stripe the roadway
     if want("el_day_hero"):
         render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=0.7)
-        render.cam_look((-3.0, -8.7, kerb + 1.65), (40.0, -2.2, 3.4), lens=24, name="Cam_ElHero")
+        render.cam_look((-3.0, -7.55, kerb + 1.65), (40.0, 3.0, 2.7), lens=22, name="Cam_ElHero")
         _p, sec = render.render_jpeg(os.path.join(P, "el_day_hero.jpg"), a.samples)
         ctx.log("preview el_day_hero.jpg %.0fs" % sec)
     if want("el_day_column"):
         render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=0.9)
-        render.cam_look((x_off - 2.9, -7.3, 1.62), (x_off + 0.05, -4.6, 1.45), lens=30, name="Cam_ElColumn")
+        render.cam_look((x_off - 2.9, -7.3, 1.62), (x_off + 0.05, -4.6, 1.12), lens=26, name="Cam_ElColumn")
         _p, sec = render.render_jpeg(os.path.join(P, "el_day_column.jpg"), a.samples)
         ctx.log("preview el_day_column.jpg %.0fs" % sec)
     if want("el_day_under"):
