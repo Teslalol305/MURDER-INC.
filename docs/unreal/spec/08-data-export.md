@@ -269,7 +269,9 @@ The nine templates: `banners.contact` `Contact — {dir}`, `banners.wave` `Wave 
 `Wave {n} down. Resupply at your feet — 9 seconds.`, `interface.hud.cue.emptySwap` `Empty — {glyph} swaps`,
 `interface.panel.noteAuto` `Quality was picked for this device ({tier}). …`.
 
-Where `text` and `interface` overlap (zone names, the location card) `text` wins in the web game (`src/menus.js`).
+Where `text` and `interface` overlap (zone names, the location card, the title eyebrow) the web game reads `text` first
+and falls back to the interface table (`src/menus.js`, `src/hud.js`): port `text`. The title screen draws the leading
+`IPX` of `text.title.eyebrow` as the IPX mark and the rest as type.
 Section 8.1 of `docs/DESIGN.md` is already applied in the copy: the title eyebrow carries no time, the location card
 follows the time of day (`location.byTime`), the boot line is "Waiting on the next train".
 
@@ -395,7 +397,7 @@ closed), and it is what the minimap is drawn from.
 |---|---|
 | `signage.paintings[87]` | `index`, `kind` (`sign`, `poster`, `graffiti`, `decal`), `uses`, `tiles`, `web {width, height}`, `ue {…}` (its natural size). A sign adds `text`, `sub`, `style` (`neon`, `box`, `painted`, `awning`, `street`, `stencil`, `plate`), `lit`, `fg`, `bg`, `glow`, `bullet`, `bulletColor`; a poster `poster`, `variant`; graffiti `text`, `variant`, `color`; a decal `decal` (`lane`, `lane_yellow`, `crosswalk`, `arrow`, `crack`, `oil`, `grime`, …), `variant` |
 | `signage.placements[347]` | `index`, `painting`, `kind`, `label`, `zone`, `place`, `interior`, `onGround`, and the face (section 3.4). A decal, poster or tag may be stretched: the placement's `width` / `height` are the quad's own. A `tiles` painting (lane paint, the crosswalk) repeats along a quad of any length |
-| `glazing.panes[192]` | `index`, `material` (`glass_dark`, `glass_store`, `glass_lit_warm`, `glass_lit_cool`, `glass_skylight`), `zone`, `place`, `interior`, and the face. Storefront windows and doors, the station's window bands, transoms, the shop's four skylights, the glass of the bus shelter and the booths. Car glass is part of the vehicle props and is not listed |
+| `glazing.panes[192]` | `index`, `material` (`glass_dark`, `glass_store`, `glass_lit_warm`, `glass_lit_cool`, `glass_skylight`), `prop`, `zone`, `place`, `interior`, and the face. Storefront windows and doors, the station's window bands, transoms, the shop's four skylights. `prop` is null for those; a pane that is part of a placed prop (the bus shelter, the phone booths, the lot booth, the food cart, the newspaper boxes) carries that prop's index into `props.json` and comes with the prop's mesh. Car glass is not listed |
 | `facades.grids` | by material name (`facade:brick_red`, `facade:brick_tan`, `facade:brick_brown`): `base`, `seed`, `litFraction`, `bays`, `floors`, `web {bayWidth, floorHeight, width, height, windowWidth, windowHeight, sill}`, `ue {…}`, `style {frame, stone, lintel, paired}`, `windowsPerRepeat`, `litPerRepeat`. One repeat is 4 bays × 5 storeys of 3.1 m; it repeats along a wall and is bare above its top floor |
 | `facades.faces[17]` | `index`, `grid`, `base`, `zone`, `place`, `gridOrigin {u, v}` (the face's bottom-left corner in grid metres), the face, and `windows[] {floor, bay, state, ac, web {pos}, ue {pos}}`: the centre of every window that is wholly on the face. `state`: `dark`, `warm` (a lamp-lit room) or `tv`; `ac`: a window unit on the sill |
 
@@ -559,7 +561,7 @@ the camera looks at, a real spot light (4 to 12 by quality). In Unreal every lam
 | `signLights.signs[17]` | every lit sign quad: `placement` (index into `level.json` `signage.placements`), `text`, `sub`, `style`, `fg`, `bg`, `glow`, `zone`, `place`, and the face in both spaces |
 | `windowLights.lamps[13]` | indices of the `window` lamps |
 | `windowLights.materials` | the glow of `glass_lit_warm`, `glass_lit_cool`, `glass_skylight` (`emissive {hex, linear}`, `emissiveIntensity`); `facade.warm[]` / `curtains[]`: the tones the facade painter draws lit windows and curtains with |
-| `windowLights.glass[57]` | the lit panes: `pane` (index into `level.json` `glazing.panes`), `material`, `zone`, `place`, `interior`, and the face |
+| `windowLights.glass[57]` | the lit panes: `pane` (index into `level.json` `glazing.panes`), `material`, `prop` (set when the pane is part of a prop: the lot booth), `zone`, `place`, `interior`, and the face |
 | `windowLights.facadeWindows[79]` | the lit facade windows: `face` (index into `level.json` `facades.faces`), `grid`, `state` (`warm` \| `tv`), `zone`, `place`, `web {pos, normal}`, `ue {pos, normal}` |
 
 All of it glows at night only. By day signs are lit signage without glow and every window is dark reflective glass.
@@ -624,7 +626,7 @@ within the configured interval.
 | the difficulty table (13 rows × 3 difficulties), melee, weak point, pool caps, pursuit mix, holdout formulas, score, resupply, explosive numbers, the Buzzard's crash, magazines | the tables and sentences of `docs/DESIGN.md` 3.1, read from the document |
 | radio lines and hold times, rating ladder, objective lines, names, the day / night copy of 8.1, storefront names | `docs/DESIGN.md` 2 and 8.1 |
 | `text.json` text, brand, input, interface, page, lettering | `src/config/text.js`, `brand.js`, `player.js`, `src/ui/copy.js`, `src/page.html`, `level.json` |
-| **every web / ue pair of all five files** (9 600 pairs): positions, directions, boxes, rectangles, lengths, yaws, rotators | its own arithmetic (not `lib/convert.cjs`) |
+| **every web / ue pair of all five files** (3 386 pairs, 33 000 comparisons): positions, directions, boxes, rectangles, lengths, yaws, rotators | its own arithmetic (not `lib/convert.cjs`) |
 | **five landmarks**: the start, the three reels, the IPX truck | within 4 m of the coordinates `docs/DESIGN.md` 4 gives; converted exactly; the start faces east, the truck stands nose east; the same objects found in `props.json` |
 | **counts**: 29 ground + 17 air spawn points, none in the west zone; 100 cover points; 21 explosives; three reels | "about 28 ground + 16 air", "50+", "about 18–22" of `docs/DESIGN.md` 4 |
 | bounds, zones, ground regions, sidewalks, layout table | `src/level/layout.js` |
@@ -676,8 +678,8 @@ node tools/shot.cjs dist/index.html --size 1280x720 --timeout 1500 \
 ```
 
 The scenario runs in the existing harness in step mode with a fixed seed, so the pictures repeat. Quality `high`
-(internal scale 1, 4× MSAA, 4096 shadow map). It takes about 8 minutes in software WebGL. `REF_ONLY=name,name` shoots a
-subset, `REF_OUT=<dir>` writes elsewhere.
+(internal scale 1, 4× MSAA, 4096 shadow map). It takes 8 to 20 minutes in software WebGL, depending on what else the
+machine is doing. `REF_ONLY=name,name` shoots a subset, `REF_OUT=<dir>` writes elsewhere.
 
 | Picture | What | Camera (web metres: position → look-at, field of view) |
 |---|---|---|

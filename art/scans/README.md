@@ -77,6 +77,7 @@ art/out/textures/<Set>/T_<Set>_BC.jpg    sRGB base colour                       
 art/out/textures/<Set>/T_<Set>_N.jpg     tangent-space normal, OpenGL (+Y up)          source JPEG bytes, untouched
 art/out/textures/<Set>/T_<Set>_ORM.jpg   R ambient occlusion, G roughness, B metallic  the source _arm JPEG, untouched
 art/out/textures/<Set>/T_<Set>_H.png     height, one channel, 16 bit                   source PNG bytes, or converted (below)
+art/out/textures/<Set>/set.json          tile size, density, height range, albedo      written from the catalogue
 art/out/hdri/<slug>_2k.hdr               Radiance HDR, 2048 x 1024
 art/out/scans/models/<slug>/             <slug>_2k.gltf, <slug>.bin, textures/*.jpg: as downloaded, in the layout the .gltf expects
 art/out/scans/raw/                       the download cache (do not edit)
@@ -99,7 +100,11 @@ Where the bytes are not the publisher's:
 - `tile_m` is `[x, y]`: the metres of real surface one repeat covers, x along the image's width and y up its height.
   Map with `UV = (world_x / tile_m[0], world_y / tile_m[1])`. Do not assume the tile is square: many brick and block
   sets are mapped a few per cent away from square pixels so that both the course and the unit length land on the US
-  module (the entry's `notes` say by how much).
+  module (the entry's `notes` say by how much; the normal map is used as it is, so its slopes are off by the same few
+  per cent along one axis).
+- Each set folder also holds a `set.json` with the tile size, texel density, height range in metres, mean albedo and
+  seam result, in the format the Blender pipeline (`art/blender/mi`) writes for the sets it bakes: its
+  `mat.from_texture_set()` and its export manifest read scanned and baked sets alike.
 - `orientation` says which way courses, slats, ribs, boards or cracks run. Walls are stored with y up the wall.
 - Height: world height in mm = (H in 0..1 - `measured.height_mid`) x `measured.height_scale_mm`. The scale is the
   amplitude at which the height map's slopes agree with the normal map at the stated tile size; `measured.relief_fit`
@@ -156,8 +161,10 @@ last and the first row (column) is compared with the differences between ordinar
 SEAM_SUMMARY
 
 **Relief.** The height-from-normal fit was validated on the one surface with a known profile: `TS_Corrugated_ScanGalv`
-comes out 18.6 mm deep, and the stock sheet is 19 mm. Three sets have height maps that do not agree with their normal
-maps (`TS_Floor_ScanSealed`, `TS_Tile_ScanChecker`, `TS_Sidewalk_ScanBroom`): use their normal maps alone.
+comes out 18.6 mm deep, and the stock sheet is 19 mm. LOWFIT_SENTENCE
+
+**Normal maps.** They are OpenGL style (+Y up), as the convention asks: in every set whose height map is usable, the
+green channel rises with the slope up the image (`measured.normal_fit_red_green`). NORMAL_SENTENCE
 
 **Skies.** The sun elevation measured in the two Kloofendal skies is 42.9 and 47.9 degrees, as their names say (43d,
 48d), and a rendered shadow of a 1 m pole gave 42.5 degrees and landed at the requested azimuth to 0.1 degree, which

@@ -8,8 +8,9 @@
                                                bands, the last decimetre in centimetres); the inset is a straight-on
                                                view 0.4 m across at the centimetre end of the stick
   models    art/previews/scans_models.jpg      every scanned prop at its real size beside the same box and stick;
-            art/previews/scans_models_detail_<n>.jpg   the same cells, larger. Red arrow = +X, green = +Y (Blender
-                                               axes after glTF import), magenta ball = the model's own origin
+            art/previews/scans_models_detail_<n>.jpg   each prop alone and close. Red arrow = +X, green = +Y
+                                               (Blender axes after glTF import), magenta block = the model's own
+                                               origin. Both are seen from the -Y side, a little from the right
   skies     art/previews/scans_skies.jpg       a chrome and an 18 % grey sphere under every sky, each exposed so that
                                                a horizontal grey card reads mid grey (the label gives the shift)
 
@@ -303,18 +304,21 @@ def world_bounds(objects):
 
 
 def arrow(name, start, end, colour):
+    """A flat arrow on the ground, as wide as a twentieth of its length."""
     mat = flat_material(name, colour, 0.5, emission=tuple(c * 0.6 for c in colour))
     a, b = Vector(start), Vector(end)
+    length = (b - a).length
     d = (b - a).normalized()
-    side = Vector((0, 0, 1)).cross(d).normalized() * 0.012
-    up = Vector((0, 0, 0.006))
+    side = Vector((0, 0, 1)).cross(d).normalized() * (0.025 * length)
+    up = Vector((0, 0, 0.004 + 0.004 * length))
     verts = [tuple(a - side + up), tuple(a + side + up), tuple(b + side + up), tuple(b - side + up),
-             tuple(b - side * 4 + up), tuple(b + side * 4 + up), tuple(b + d * 0.09 + up)]
+             tuple(b - side * 4 + up), tuple(b + side * 4 + up), tuple(b + d * 0.22 * length + up)]
     add_mesh(name, verts, [(0, 1, 2, 3), (4, 5, 6)], mat)
 
 
-def model_cell(entry, sky, path, size, samples):
-    """One prop standing on the ground at its real size. Returns what the camera framed, for the label."""
+def model_cell(entry, sky, path, close_path, size, samples):
+    """One prop on the ground at its real size: once beside the box and the stick, once alone and close with its
+    axes (red +X, green +Y, as Blender has them after the glTF import) and its own origin (magenta block)."""
     scene = reset(samples, size)
     folder = OUT / entry["files"]["GLTF"]["out"]
     gltf = folder / Path(entry["files"]["GLTF"]["src"].replace("{res}", entry.get("resolution", "2k"))).name
@@ -328,35 +332,51 @@ def model_cell(entry, sky, path, size, samples):
             o.matrix_world = Matrix.Scale(fix, 4) @ o.matrix_world
         bpy.context.view_layer.update()
         lo, hi = world_bounds(objs)
-    # stand it on the ground with the footprint centre at the world origin (preview only)
+    # stand it on the ground with the footprint centre at the world origin (in this picture only)
     shift = Vector((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -lo.z))
     for o in roots:
         o.matrix_world = Matrix.Translation(shift) @ o.matrix_world
     bpy.context.view_layer.update()
     size_m = hi - lo
+    half = size_m / 2
     ground = flat_material("Ground", (0.18, 0.18, 0.18), 0.9)
     add_mesh("Ground", [(-40, -40, 0), (40, -40, 0), (40, 40, 0), (-40, 40, 0)], [(0, 1, 2, 3)], ground)
-    half = size_m / 2
     scale_props(box_at=(half.x + 0.45, 0.0), stick_from=(half.x + 0.2, -half.y - 0.12, 0.015), stick_axis=(-1, 0, 0))
-    arrow("AxisX", (0, -half.y - 0.3, 0), (0.4, -half.y - 0.3, 0), (0.9, 0.05, 0.05))
-    arrow("AxisY", (0, -half.y - 0.3, 0), (0, -half.y + 0.1, 0), (0.05, 0.7, 0.05))
+    span = max(size_m.x, size_m.y)
+    length = min(max(0.55 * span, 0.08), 1.0)
+    y0 = -half.y - 0.2 * length - (0.2 if span > 0.5 else 0.0)
+    arrow("AxisX", (0, y0, 0), (length, y0, 0), (0.9, 0.05, 0.05))
+    arrow("AxisY", (0, y0, 0), (0, y0 + length, 0), (0.05, 0.7, 0.05))
     # the model's own origin: it was at the world origin before the shift
     marker = flat_material("Origin", (0.9, 0.0, 0.9), 0.4, emission=(0.6, 0.0, 0.6))
-    r = max(0.012, min(0.04, max(size_m) * 0.03))
+    r = max(0.006, min(0.04, max(size_m) * 0.025))
     add_box("Origin", (shift.x - r, shift.y - r, shift.z - r), (shift.x + r, shift.y + r, shift.z + r), marker)
     ev = sky["measured"]["ev_for_grey_card"]
     hdr = OUT / sky["files"]["HDR"]["out"].replace("{res}", sky.get("resolution", "2k"))
     set_world(scene, hdr, sky["measured"]["sun_uv"][0], 200.0, ev)
-    # frame the prop and the 1 m stick; small props all get the same frame, so they compare with the whole box
-    reach = max(size_m.x / 2 + 0.75, size_m.z * 0.62, size_m.y / 2 + 0.5, 1.05)
-    centre = Vector((0.3, 0.0, min(max(size_m.z, 1.8), reach * 1.25) * 0.47))
-    az, el = math.radians(-60.0), math.radians(18.0)
+    aspect = size[0] / size[1]
     lens = 60.0
-    fov_v = 2 * math.atan((36.0 / (size[0] / size[1])) / 2 / lens)
-    dist = reach * 1.06 / math.tan(fov_v / 2)
-    pos = centre + Vector((math.cos(el) * math.cos(az), math.cos(el) * math.sin(az), math.sin(el))) * dist
-    cam = add_camera("Main", pos, centre, lens=lens)
-    render(scene, cam, path)
+    fov_v = 2 * math.atan((36.0 / aspect) / 2 / lens)
+
+    def view(centre, half_height, azimuth_deg, elevation_deg):
+        az, el = math.radians(azimuth_deg), math.radians(elevation_deg)
+        dist = half_height / math.tan(fov_v / 2)
+        pos = Vector(centre) + Vector((math.cos(el) * math.cos(az), math.cos(el) * math.sin(az), math.sin(el))) * dist
+        return add_camera("Cam", pos, centre, lens=lens)
+
+    # 1. real size: the whole box and the whole prop, seen from the -Y side, a little from the right
+    tall = max(size_m.z, 1.8)
+    across = 0.87 * (size_m.x + 0.95) + 0.5 * max(size_m.y, 0.25)  # what the frame has to hold from left to right
+    half_height = max(tall / 2 + 0.09, (across / 2 + 0.12) / aspect)
+    render(scene, view((0.34, 0.0, tall / 2), half_height, -60.0, 16.0), path)
+    # 2. close: the prop alone
+    for o in bpy.data.objects:
+        if o.name.startswith(("ScaleBox", "Stick")):
+            o.hide_render = True
+    radius = 0.5 * math.sqrt(size_m.x ** 2 + size_m.y ** 2 + size_m.z ** 2)
+    across = 0.87 * max(size_m.x, length * 1.3) + 0.5 * size_m.y + 0.4 * length
+    half_height = max(radius * 0.92, size_m.z / 2 * 1.12 + 0.12 * length, (across / 2) / aspect)
+    render(scene, view((0.05 * size_m.x, -0.1 * length, size_m.z * 0.46), half_height, -60.0, 24.0), close_path)
 
 
 # -------------------------------------------------------------------------------------------------------- skies
@@ -482,11 +502,11 @@ def do_models(cat, sky, only, samples, force):
     for e in models:
         if only and e["set"] not in only:
             continue
-        cell = CELLS / f"model_{e['set']}.png"
+        cell, close = CELLS / f"model_{e['set']}.png", CELLS / f"model_{e['set']}_close.png"
         key = cell_key(e, [samples, size, sky["set"]])
-        if cached(cell, key, force):
+        if cached(cell, key, force) and close.is_file():
             continue
-        model_cell(e, sky, cell, size, samples)
+        model_cell(e, sky, cell, close, size, samples)
         stamp(cell, key)
         print("rendered", e["set"], flush=True)
 
@@ -495,7 +515,7 @@ def do_models(cat, sky, only, samples, force):
         k = e.get("preview_scale", 1.0)
         return "{:.2f} x {:.2f} x {:.2f} m".format(*(v * k for v in s)) if s else ""
 
-    # the overview: everything in one picture
+    # the overview: every prop at real size beside the box, in one picture
     cols = 8
     rows = math.ceil(len(models) / cols)
     cw, ch = SHEET[0] // cols, SHEET[1] // rows
@@ -513,7 +533,7 @@ def do_models(cat, sky, only, samples, force):
         d.rectangle((x, y, x + cw - 1, y + ch - 1), outline=(60, 60, 60))
     q = save_jpeg(sheet, PREVIEWS / "scans_models.jpg")
     print(f"scans_models.jpg: {(PREVIEWS / 'scans_models.jpg').stat().st_size / 1000:.0f} kB (quality {q})")
-    # the same cells at full size, 20 to a picture
+    # the close views with axes and origin, 20 to a picture
     cols, rows = 5, 4
     cw, ch = SHEET[0] // cols, SHEET[1] // rows
     names = []
@@ -522,10 +542,9 @@ def do_models(cat, sky, only, samples, force):
         d = ImageDraw.Draw(sheet)
         for i, e in enumerate(models[n:n + cols * rows]):
             x, y = (i % cols) * cw, (i // cols) * ch
-            cell = CELLS / f"model_{e['set']}.png"
+            cell = CELLS / f"model_{e['set']}_close.png"
             if cell.is_file():
-                im = Image.open(cell).convert("RGB")
-                sheet.paste(im.crop((0, 0, cw, ch)), (x, y))
+                sheet.paste(Image.open(cell).convert("RGB").crop((0, 0, cw, ch)), (x, y))
             d.rectangle((x, y, x + cw - 1, y + 16), fill=(0, 0, 0))
             label(d, (x + 3, y + 1), f"{e['set']}  {dims(e)}", 12, width=cw - 6)
             d.rectangle((x, y, x + cw - 1, y + ch - 1), outline=(60, 60, 60))

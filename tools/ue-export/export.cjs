@@ -9,6 +9,8 @@
 //   --page <file.html>   a built page to read (default: dist/dev-export.html, rebuilt first)
 //   --out <dir>          where the JSON goes (default unreal/MurderInc/Content/Data)
 //   --seed <n>           world seed (default 1994, the game's own default)
+//   --quality <name>     preset the page boots with: test | low | medium | high | ultra (default low: the
+//                        quickest; nothing that is exported depends on it)
 //   --raw <dir>          also dump what the page collectors answered, untouched (debugging)
 //   --verbose            echo the page console
 //
@@ -36,7 +38,7 @@ const SCHEMA = 1;
 // ------------------------------------------------------------------------------------------------
 
 function parseArgs(argv) {
-  const opts = { page: null, out: path.join(ROOT, 'unreal', 'MurderInc', 'Content', 'Data'), seed: 1994, raw: null, verbose: false, help: false };
+  const opts = { page: null, out: path.join(ROOT, 'unreal', 'MurderInc', 'Content', 'Data'), seed: 1994, quality: 'low', raw: null, verbose: false, help: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     const eq = arg.startsWith('--') ? arg.indexOf('=') : -1;
@@ -50,6 +52,7 @@ function parseArgs(argv) {
       case '--page': opts.page = path.resolve(value()); break;
       case '--out': opts.out = path.resolve(value()); break;
       case '--seed': opts.seed = Number(value()); break;
+      case '--quality': opts.quality = value(); break;
       case '--raw': opts.raw = path.resolve(value()); break;
       case '--verbose': opts.verbose = true; break;
       case '--help': case '-h': opts.help = true; break;
@@ -57,10 +60,11 @@ function parseArgs(argv) {
     }
   }
   if (!Number.isInteger(opts.seed) || opts.seed < 0) throw new Error('--seed needs a whole number');
+  if (!['test', 'low', 'medium', 'high', 'ultra'].includes(opts.quality)) throw new Error('--quality needs test, low, medium, high or ultra');
   return opts;
 }
 
-const USAGE = 'usage: node tools/ue-export/export.cjs [--page <file.html>] [--out <dir>] [--seed <n>] [--raw <dir>] [--verbose]';
+const USAGE = 'usage: node tools/ue-export/export.cjs [--page <file.html>] [--out <dir>] [--seed <n>] [--quality <name>] [--raw <dir>] [--verbose]';
 
 /** Stops the export: a check that guards the correctness of the files did not hold. */
 function fail(message) {
@@ -201,7 +205,7 @@ function meta(file, run, about) {
     generator: 'tools/ue-export/export.cjs',
     spec: 'docs/unreal/spec/08-data-export.md',
     seed: run.seed,
-    readFrom: 'the running web game (window.__G, three.js r' + run.three + '), every module real',
+    readFrom: 'the running web game (window.__G, three.js r' + run.three + '), every module real except audio (stubbed by ?noaudio=1: it holds nothing that is exported)',
     units: {
       web: 'metres, seconds, radians; +Y up, north = -Z, east = +X (right-handed)',
       ue: 'centimetres, degrees; +Z up, X = east, Y = south (left-handed)',
@@ -382,6 +386,8 @@ function buildLevel(run, raw, node, propNames) {
   const L = raw.level;
   const consts = node.physics;
 
+  if (!sameJson(L.bounds, L.physicsBounds)) fail('the play bounds of the level and of the physics differ');
+
   // -- Colliders
   const nav = rebuildNavGrid(L.colliders, L.bounds, consts);
   if (nav.cols !== L.nav.cols || nav.rows !== L.nav.rows || !sameJson(nav.grid, L.nav.grid)) {
@@ -534,7 +540,28 @@ function buildLevel(run, raw, node, propNames) {
 
   const signage = buildSignage(raw.signage);
 
-  const panes = raw.glass.panes.filter((p) => !p.material.startsWith('glass_car'));
+  // Window glass. A pane that lies inside a placed prop which is built with that glass (a bus shelter, a
+  // booth) belongs to the prop; the rest is the level's own glazing.
+  const propOfPane = (pane) => {
+    const list = raw.props.instances;
+    for (let i = 0; i < list.length; i++) {
+      const inst = list[i];
+      const d = raw.props.described[inst.name][inst.proto];
+      if (!d || !d.bounds || !d.slots.some((slot) => slot.split('|')[0] === pane.material)) continue;
+      const dx = pane.pos.x - inst.pos.x;
+      const dy = pane.pos.y - inst.pos.y;
+      const dz = pane.pos.z - inst.pos.z;
+      const cos = Math.cos(inst.rotation.y);
+      const sin = Math.sin(inst.rotation.y);
+      const lx = dx * cos - dz * sin; // back into the prop's own frame
+      const lz = dx * sin + dz * cos;
+      const b = d.bounds;
+      const e = 0.03;
+      if (lx >= b.min.x - e && lx <= b.max.x + e && dy >= b.min.y - e && dy <= b.max.y + e && lz >= b.min.z - e && lz <= b.max.z + e) return i;
+    }
+    return null;
+  };
+  const panes = raw.glass.panes.filter((p) => !p.material.startsWith('glass_car')).map((p) => ({ ...p, prop: propOfPane(p) }));
 
   // -- Buildings: the layout table's footprints, with the colliders the level made of them
   const buildings = Object.entries(node.layout.BUILDINGS).map(([id, b]) => {
@@ -614,7 +641,7 @@ function buildLevel(run, raw, node, propNames) {
       },
     },
     enemySpawns: {
-      source: "G.level.enemySpawns (after the level moved blocked points to walkable cells). `facing` is NOT game data: the game keeps none and gives a new enemy a random yaw. It is derived here: a ground point looks toward the walkable nav cells it can reach in a straight line within 6 m ('opening'), an air point toward the middle of the block ('centre').",
+      source: `G.level.enemySpawns (after the level moved blocked points to walkable cells). \`facing\` is NOT game data: the game keeps none and gives a new enemy a random yaw. It is derived here: a ground point looks toward the walkable nav cells it can reach in a straight line within ${L.spawnReach} m ('opening'), an air point toward the middle of the block ('centre').`,
       points: L.spawns.map((s, index) => ({
         index,
         type: s.type,
@@ -746,9 +773,9 @@ function buildLevel(run, raw, node, propNames) {
     },
     signage,
     glazing: {
-      source: "every flat four-cornered face of the level drawn with one of the catalogue's window glass materials (read from the merged level meshes). glass_lit_warm / glass_lit_cool glow at night (config.json catalog.MATERIALS); by day all of them are dark reflective glass. Car glass is part of the vehicle props and is not listed.",
+      source: "every flat four-cornered face of the level drawn with one of the catalogue's window glass materials (read from the merged level meshes). glass_lit_warm / glass_lit_cool glow at night (config.json catalog.MATERIALS); by day all of them are dark reflective glass. prop: the placed prop the pane is part of (a bus shelter, a booth: props.json instance), null for the level's own windows. Car glass is not listed.",
       byMaterial: tally(panes, (p) => p.material),
-      panes: panes.map((p, index) => ({ index, material: p.material, zone: p.zone, place: p.place, interior: p.interior > 0.5, ...faceBlocks(p) })),
+      panes: panes.map((p, index) => ({ index, material: p.material, prop: p.prop, zone: p.zone, place: p.place, interior: p.interior > 0.5, ...faceBlocks(p) })),
     },
     facades: {
       source: 'wall faces that carry a painted window grid (G.mats.facade), read from the merged level meshes; the windows are placed with the painter\'s own layout (src/mats/layout.js facadeLayout, imported in Node). The grid repeats along the wall every `grid.width` and is bare wall above its top floor. state: dark | warm (a lamp-lit room) | tv (television blue): lit ones glow at night only.',
@@ -866,6 +893,8 @@ function buildProps(run, raw, node) {
   const catalog = raw.config.config.catalog.PROPS;
   const probes = new Map(raw.probe.map((p) => [`${p.name}|${optionsKey(p.opts)}`, p]));
   const objectiveOf = new Map(L.objectives.map((o) => [o.prop, o.id]));
+
+  if (L.propsStats && L.propsStats.fallbacks.length) fail(`prop builders failed and plain boxes stand in: ${L.propsStats.fallbacks.join(', ')}`);
 
   // -- Catalogue
   const types = {};
@@ -1113,7 +1142,7 @@ function buildAtmos(run, raw, node, built) {
   const litGlass = built.panes
     .map((p, index) => ({ p, index }))
     .filter(({ p }) => ['glass_lit_warm', 'glass_lit_cool', 'glass_skylight'].includes(p.material))
-    .map(({ p, index }) => ({ pane: index, material: p.material, zone: p.zone, place: p.place, interior: p.interior > 0.5, ...faceBlocks(p) }));
+    .map(({ p, index }) => ({ pane: index, material: p.material, prop: p.prop, zone: p.zone, place: p.place, interior: p.interior > 0.5, ...faceBlocks(p) }));
   const litWindows = [];
   for (const f of built.facades) {
     for (const w of f.windows) {
@@ -1165,7 +1194,7 @@ function buildAtmos(run, raw, node, built) {
       farCity: encodeConfig(look.city, ['look', 'city'], describe),
     },
     lamps: {
-      source: 'G.level.lamps: every light fixture of the block (the lamp hints of placed props included: `prop` is the index into props.json instances). aim: how the lamp shines when it holds one of the real lights, by the rule of src/atmos/lights.js (its own direction; a flood without one at the nearest reel; a sign or lit window out from the wall behind it and 35 degrees down; anything else straight down), checked here against the game\'s own spot lights for ' + A.aimCheck.held + ' of the ' + lamps.length + ' lamps. overDeck: the lamp hangs over a floor of the level (a platform, the mezzanine, the shed deck) at that height. By day only `work` lamps and dimmed `neon` lamps are lit (rigs.day.lampGain).',
+      source: 'G.level.lamps: every light fixture of the block (the lamp hints of placed props included: `prop` is the index into props.json instances). aim: how the lamp shines when it holds one of the real lights, by the rule of src/atmos/lights.js (its own direction; a flood without one at the nearest reel; a sign or lit window out from the wall behind it and 35 degrees down; anything else straight down), checked by the exporter against the game\'s own spot lights. overDeck: the lamp hangs over a floor of the level (a platform, the mezzanine, the shed deck) at that height. By day only `work` lamps and dimmed `neon` lamps are lit (rigs.day.lampGain).',
       kinds: {
         source: 'G.config.look.lamps: how each kind is drawn (ground pool, fixture glow, cone) and how strong its real light is',
         ...encodeConfig(look.lamps, ['look', 'lamps'], describe),
@@ -1428,7 +1457,7 @@ async function collect(opts) {
   const node = await readSources();
   node.interfaceCopy = await interfaceCopy(node.copy);
 
-  const game = await openGame(file, { q: 'low', noaudio: '1', seed: String(opts.seed) }, { verbose: opts.verbose });
+  const game = await openGame(file, { q: opts.quality, noaudio: '1', seed: String(opts.seed) }, { verbose: opts.verbose });
   try {
     const { page } = game;
     await page.evaluate(C.installHelpers);
@@ -1525,7 +1554,8 @@ async function main() {
   console.log(
     `seed ${run.seed}: ${L.colliders} colliders, ${P.instances} props (${P.placedByLevel} level + ${P.placedByExplosives} explosives) of ${P.typesPlaced} types, ` +
       `${L.enemySpawns.ground} ground + ${L.enemySpawns.air} air spawn points, ${L.coverPoints} cover points, ${L.explosives} explosives, ` +
-      `${files['atmos.json'].meta.counts.lamps} lamps. Booted in ${(bootMs / 1000).toFixed(1)} s, done in ${((Date.now() - t0) / 1000).toFixed(1)} s.`,
+      `${files['atmos.json'].meta.counts.lamps} lamps (the aim of ${raw.atmos.aimCheck.held} checked against the game's own lights). ` +
+      `Booted in ${(bootMs / 1000).toFixed(1)} s, done in ${((Date.now() - t0) / 1000).toFixed(1)} s.`,
   );
 }
 

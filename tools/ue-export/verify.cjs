@@ -874,7 +874,17 @@ function checkLevel(data, src, design) {
       t.eq(f.windows.filter((w) => w.state !== 'dark').length, lit, `face ${f.index} lit windows`);
       t.ok(Math.abs(f.web.normal.y) < 1e-6 && f.web.up.y === 1, `face ${f.index} is not an upright wall`);
     }
-    for (const p of level.glazing.panes) t.ok(/^glass_/.test(p.material) && src.config.catalog.MATERIALS[p.material], `pane ${p.index}: unknown material ${p.material}`);
+    const list = data['props.json'].instances.list;
+    for (const p of level.glazing.panes) {
+      t.ok(/^glass_/.test(p.material) && src.config.catalog.MATERIALS[p.material], `pane ${p.index}: unknown material ${p.material}`);
+      // A pane of a prop lies within that prop's reach (its catalogue box, overhangs allowed for).
+      if (p.prop !== null) {
+        const inst = list[p.prop];
+        const size = inst && data['props.json'].catalogue.types[inst.name].size.web;
+        t.ok(inst && Math.hypot(p.web.pos.x - inst.web.pos.x, p.web.pos.z - inst.web.pos.z) <= Math.hypot(size.length, size.width) / 2 + 1.5, `pane ${p.index} is not near prop ${p.prop}`);
+      }
+    }
+
     return `${S.placements.length} placements of ${S.paintings.length} paintings, ${level.facades.faces.reduce((n, f) => n + f.windows.length, 0)} facade windows, ${level.glazing.panes.length} panes`;
   });
 }

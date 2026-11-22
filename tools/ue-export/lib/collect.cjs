@@ -532,7 +532,7 @@ function collectLevel() {
 
   return {
     bounds: plain(L.bounds),
-    physicsBounds: plain(P.bounds),
+    physicsBounds: plain(P.bounds), // the same rectangle: the level hands it to physics.setBounds
     playerStart: { pos: v3(L.playerStart.pos), yaw: L.playerStart.yaw },
     objectives: L.objectives.map((o) => ({
       id: o.id,
@@ -678,19 +678,13 @@ function collectProps() {
       colliders: (b.prop.boxes || []).map((box) => (boxIndex.has(box) ? boxIndex.get(box) : null)),
       lamps: [...lampOwner.entries()].filter(([, owner]) => owner === index).map(([lamp]) => lamp),
       state: b.prop.state ?? null,
-      inScene: (() => {
-        // A static prop is merged into the level's meshes and its own object is emptied or detached.
-        let top = o;
-        while (top.parent) top = top.parent;
-        return top === G.scene;
-      })(),
     };
   });
 
   // What other modules built after the level (the explosives' two templates).
   const others = rec.builds.filter((b) => b.by !== 'level').map((b) => ({ name: b.name, opts: plain(b.opts), seed: b.seed, by: b.by, proto: describe(b), shape: shapeOf(b.prop), paint: paintOf(b.prop) }));
 
-  return { instances, others, described, lampOwners: [...lampOwner.entries()] };
+  return { instances, others, described };
 }
 
 /**
