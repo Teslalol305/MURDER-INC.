@@ -1094,7 +1094,8 @@ def on_preview(ctx, objs):
             name = "arms_fp_" + gun
             if not want(name):
                 continue
-            char.pose_from_clip(arm, clip, 0)
+            char.rest_pose(arm)                      # the torso at rest; the arms are solved onto the gun
+            arm.location = (0, 0, 0)
             g, real = PZ.load_gun(gun, col)
             cam = PZ.eye_camera(arm, col)
             M = PZ.gun_from_camera(cam, gun, "hip")
@@ -1122,6 +1123,7 @@ def on_preview(ctx, objs):
             render.cam_look(tuple(cam_pos), tuple(c), lens=55)
             render.setup(samples=S, res=(640, 720))
             _studio(c)
+            _studio(c, key=tuple(Vector(R.lat) * 0.7 + Vector(R.dors) * 0.25 + Vector((0, 0.3, 0.5))))
             p = os.path.join(tempfile.gettempdir(), "mi_hands_%s.png" % label.replace(" ", "_"))
             render.render_png(p, S, (640, 720))
             shots.append(p)

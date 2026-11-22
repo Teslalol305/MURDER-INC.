@@ -65,9 +65,9 @@ def skin_texels(R, P, N):
     fold = np.sin(dO / 0.0021 * 2 * np.pi + 3 * T.fbm(P, 1 / 0.008, 2, seed=7))
     h += 0.00012 * elbow * fold
     # inner elbow crease
-    cr = np.abs((P - R.E) @ R.bu - 0.004 + 0.002 * T.noise(P, 1 / 0.01, 8)) < 0.0012
-    ant = ((P - R.E) @ R.ant) > 0.02
-    h -= 0.00018 * (cr & ant)
+    cr = np.exp(-(((P - R.E) @ R.bu - 0.004 + 0.002 * T.noise(P, 1 / 0.01, 8)) / 0.0025) ** 2)
+    ant = T.smoothstep(0.01, 0.035, (P - R.E) @ R.ant)
+    h -= 0.00006 * cr * ant
     # veins and wrist tendons (forearm only)
     fore = (~up) & (s > 0.03)
     for i, (a0, wander, ph, s0, s1, w) in enumerate(VEINS):

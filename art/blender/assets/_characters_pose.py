@@ -239,7 +239,7 @@ def gun_from_camera(cam, name, pose="hip"):
     return cam.matrix_world @ Matrix.Translation((px, py, pz)) @ Rm @ C
 
 
-def reach_forward(arm, targets, slack=0.90, forward=Vector((0, -1, 0))):
+def reach_forward(arm, targets, slack=0.90, forward=Vector((0, -1, 0)), limit=0.09):
     """First-person arms are placed for the camera, not the neck: slide the whole rig forward (and the
     shoulders with it) until every palm target is within `slack` of the arm's reach."""
     bpy.context.view_layer.update()
@@ -252,6 +252,7 @@ def reach_forward(arm, targets, slack=0.90, forward=Vector((0, -1, 0))):
             if ((S + forward * d) - Vector(p)).length <= reach:
                 break
         need = max(need, d)
+    need = min(need, limit)                  # the shoulders must stay behind the camera
     arm.location = arm.location + forward * need
     bpy.context.view_layer.update()
     return need

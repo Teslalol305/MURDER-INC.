@@ -264,3 +264,23 @@ Known weaknesses: trees are 200k triangles each (Nanite only; build a LOD/impost
 procedural, not a botanical model; the props unique unwrap is not deterministic between runs (MasterCase warns "re-unwrapped"
 when rebuilt without --bake: always export it together with --bake); vulture stencil reads more hen than vulture; licence-plate
 characters are printed, not embossed; heat masks are distance fields round the valves, not a simulated scorch.
+
+---------------------------------------------------------------------------------------------------------------
+# Characters (mi/char.py, mi/sdf.py, mi/texel.py, assets/characters.py, tools/box/chars/), pipeline and the player's arms
+
+Task: scratch Unreal project /project/ue/chars (MCP 8002); Epic mannequin, clips and template guns exported to
+art/out/epic (never committed); round-trip proof; SK_RuleArms on SK_Mannequin (skin, glove leather, glove suede,
+rubber; 4K sets), SM_Character_RuleWatch, SM_Character_RuleBracelet; pose tests; proof in Unreal.
+
+## Status
+- [x] scratch project, export (glTF + FBX) of SKM_Manny_Simple, 7 clips, SM_Rifle, SM_Pistol -> art/out/epic
+- [x] round-trip proof (docs/unreal/CHARACTERS.md, shots/chars-roundtrip.jpg): 0.00008 cm per bone in Unreal
+- [x] SK_RuleArms: SDF anatomy and glove on the mannequin's bones, glove-pattern UVs, per-finger weight transfer,
+      mirrored left arm, 108,398 triangles, two 4K sets computed per texel; watch and bracelet with attach frames
+- [x] pose tests (viewmodel camera at 54 deg, arm IK onto SK_Chopper / SK_Nine, finger curls): two fix rounds
+- [x] Unreal: imported on SK_Mannequin with textures, subsurface skin, jewels on their bones, rifle idle and reload
+
+Next step: the hands are the weakest part (rounded fingers without knuckle definition, grips are hinge curls, not
+authored grip poses): sculpt-level finger shapes (flatter backs, knuckle creases), per-gun grip poses from the briefed
+grip sizes, a socket on SK_RuleArms made by hand in the editor (numbers in docs/unreal/CHARACTERS.md), then the Goons
+on the same pipeline (mi/char.transfer_weights, export_character).
