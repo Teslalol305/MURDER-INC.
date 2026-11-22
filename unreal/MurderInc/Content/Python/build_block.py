@@ -164,10 +164,11 @@ def import_texture(set_name, file_path, kind, force):
 
 # One HLSL node does all the wear-mask work (ART_BIBLE.md 3.3). Inputs arrive as the node's named inputs.
 WEAR_HLSL = r"""
+// Vector parameters and the vertex colour node give float3 on their main output: alpha and w come separately.
 // Vertex colours are stored sRGB-encoded (StaticMeshBuilder: ToFColor(true)) and read back raw: decode RGB.
 // Alpha is stored linearly.
 float3 m = pow(saturate(VC.rgb), 2.2) * Amount.x;
-float  a = saturate(VC.a) * Amount.x;
+float  a = saturate(VA) * Amount.x;
 // Value noise at two scales breaks up the soft, low-frequency masks into crisp, irregular edges.
 float n[3];
 float3 scales = float3(1.0 / 6.0, 1.0 / 23.0, 1.0);
@@ -217,7 +218,7 @@ bc = lerp(bc, SplashColor, splash * 0.55);
 rough = lerp(rough, 0.95, splash);
 float silt = a * Modes.z;   // ground: a dry silt stain where water collects
 bc *= 1.0 - 0.25 * silt;
-float wet = saturate(a * Modes.w);
+float wet = saturate(a * Wetness);
 bc *= lerp(1.0, 0.55, wet);
 rough = lerp(rough, 0.08, wet);
 Rough = saturate(rough);
@@ -327,15 +328,17 @@ def build_master(defaults, force):
     amount = vector("WearAmount", (1, 0, 0, 0), -900, 1400)  # x: 0 switches the masks off (meshes without Wear)
     vertex_colour = expr(material, unreal.MaterialExpressionVertexColor, -900, 1500)
     wear = custom(material, -500, 300, WEAR_HLSL,
-                  ["BC", "ORM", "BC2", "ORM2", "VC", "WP", "Tint", "DirtColor", "LeakColor", "SplashColor", "Modes",
-                   "Amount"],
+                  ["BC", "ORM", "BC2", "ORM2", "VC", "VA", "WP", "Tint", "DirtColor", "LeakColor", "SplashColor",
+                   "Modes", "Wetness", "Amount"],
                   unreal.CustomMaterialOutputType.CMOT_FLOAT3, ["Rough", "Metal", "AO", "Edge"])
     for name, source, output in (("BC", samplers["BC"], "RGB"), ("ORM", samplers["ORM"], "RGB"),
                                  ("BC2", samplers["BC2"], "RGB"), ("ORM2", samplers["ORM2"], "RGB"),
-                                 ("VC", vertex_colour, ""), ("WP", wp, ""), ("Tint", tint, ""),
+                                 ("VC", vertex_colour, ""), ("VA", vertex_colour, "A"), ("WP", wp, ""),
+                                 ("Tint", tint, ""), ("Wetness", modes, "A"),
                                  ("DirtColor", dirt, ""), ("LeakColor", leak, ""), ("SplashColor", splash, ""),
                                  ("Modes", modes, ""), ("Amount", amount, "")):
-        LIB.connect_material_expressions(source, output, wear, name)
+        if not LIB.connect_material_expressions(source, output, wear, name):
+            raise RuntimeError("cannot connect %s output '%s' to the wear node" % (name, output))
 
     normal_blend = expr(material, unreal.MaterialExpressionLinearInterpolate, -200, 600)
     LIB.connect_material_expressions(samplers["N"], "RGB", normal_blend, "A")
