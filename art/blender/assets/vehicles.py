@@ -467,6 +467,10 @@ def classify(ob, tex, spec):
     hw = spec["size"][1] / 2
     inside = ((np.abs(c[:, 1]) < hw - 0.25) & (c[:, 2] > spec["floor"] - 0.05) & (c[:, 2] < spec["belt"] + 0.05)
               & (c[:, 0] > spec["rear_x"] + 0.10) & (c[:, 0] < spec["cowl"] - 0.15) & ~glass)
+    # the dash top under the windscreen (generated, light): interior as well
+    inside |= ((np.abs(c[:, 1]) < hw - 0.25) & (c[:, 2] > spec["belt"] - 0.10) & (c[:, 2] < spec["belt"] + 0.14)
+               & (c[:, 0] > spec["cowl"] - 0.45) & (c[:, 0] < spec["cowl"] + 0.02) & ~glass & (n[:, 2] > -0.2)
+               & (lum > 0.06))
     cls[glass] = CLS["glass"]
     if spec.get("cabin_inside", True):
         cls[inside] = CLS["inside"]
@@ -826,6 +830,15 @@ def make_parts(ctx, key):
         cls[k] = 8
     if os.environ.get("VEH_DEBUG"):
         debug_classes(ob, cls, os.path.join(GEN, "debug_%s.jpg" % key))
+    plates = []
+    for front in (True, False):
+        pc = find_plate(c, n, cls, front)
+        if pc is not None and not (not front and spec.get("no_rear_plate")):
+            plates.append((pc, 1 if front else -1))
+            # the generated plate under the modelled one: dark backing (interior plastic)
+            under = ((np.abs(c[:, 0] - pc[0]) < 0.12) & (np.abs(c[:, 1] - pc[1]) < pc[3] / 2 + 0.03)
+                     & (np.abs(c[:, 2] - pc[2]) < pc[4] / 2 + 0.04) & (cls == CLS["paint"]) & (n[:, 0] * (1 if front else -1) > 0.5))
+            cls[under] = CLS["inside"]
     js = os.path.join(paths.texture_set(set_name), "set.json")
     if not spec.get("set") and (ctx.args.force or not os.path.exists(js) or ctx.args.bake):
         cm = cls.copy()
@@ -836,11 +849,6 @@ def make_parts(ctx, key):
                                        "source": "art/out/gen/vehicles/" + spec["src"]})
         ctx.log("%s: set %s written" % (key, set_name))
     del tex
-    plates = []
-    for front in (True, False):
-        pc = find_plate(c, n, cls, front)
-        if pc is not None and not (not front and spec.get("no_rear_plate")):
-            plates.append((pc, 1 if front else -1))
     gmask = cls == CLS["glass"]
     glass = gen3d.split_faces(ob, gmask, name + "_Glass") if gmask.any() else None
     cls = cls[~gmask]
@@ -1959,12 +1967,12 @@ def on_preview(ctx, objs):
     if want("vehicles_lineup_1"):
         _show(assets, {"SM_Vehicle_Sedan": (-8.4, 3.9, 0), "SM_Vehicle_Taxi": (-2.9, 3.9, 0),
                        "SM_Vehicle_SUV": (2.8, 3.85, 0), "SM_Vehicle_Pickup": (8.9, 3.85, 0)})
-        render.cam_look((-12.5, -3.6, 2.1), (0.5, 3.9, 0.9), lens=32)
+        render.cam_look((15.5, -2.6, 1.9), (-0.5, 3.9, 0.85), lens=30)
         shot("vehicles_lineup_1.jpg")
     if want("vehicles_lineup_2"):
-        _show(assets, {"SM_Vehicle_Van": (-8.6, 3.85, 0), "SM_Vehicle_Van_Vulture": (-1.0, 2.6, 160),
-                       "SM_Vehicle_Motorbike": (4.0, 4.2, 0), "SM_Vehicle_BoxTruck": (10.2, 3.6, 0)})
-        render.cam_look((-13.0, -4.2, 2.4), (1.0, 3.4, 1.2), lens=30)
+        _show(assets, {"SM_Vehicle_BoxTruck": (-11.0, 3.6, 0), "SM_Vehicle_Van": (-2.8, 3.85, 0),
+                       "SM_Vehicle_Van_Vulture": (3.6, 2.3, 160), "SM_Vehicle_Motorbike": (8.6, 4.4, 0)})
+        render.cam_look((15.0, -2.6, 2.1), (-1.5, 3.4, 1.1), lens=28)
         shot("vehicles_lineup_2.jpg")
     if want("vehicles_ipx_truck") and "SM_Vehicle_IPXTruck" in assets:
         pl = {"SM_Vehicle_IPXTruck": (0, 3.6, 180), "SM_Vehicle_IPXTruck_Door": (0, 0, 0),

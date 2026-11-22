@@ -170,13 +170,18 @@ Ledger of every generation: art/blender/assets/vehicles_gen.json (job ids, model
   the task asks for interiors; Unreal can still darken the tint.
 
 ## Status
-- [x] Credits: balance 5254.24 at start; vehicles spent 302 (ledger, checked against transactions).
-- [x] Sedan end to end, hero preview round 1 (fixes: texture rows flipped, glass rule, plate orientation).
-- [ ] Full build of all 12 assets (running), then previews: lineup_1, lineup_2, ipx_truck, wrecks, close, wire.
+- [x] Credits: balance 5254.24 at start; vehicles spent 302 (ledger, checked against the transaction list).
+- [x] `build.py build vehicles --export --force` (about 4 min): 13 assets validate and export, 58k-149k triangles
+      (Sedan 120k, SUV 111k, Pickup 105k, Van 122k, Taxi 119k, BurnedCar 77k, StrippedCar 58k, Van_Vulture 119k,
+      BoxTruck 141k, IPXTruck 149k, IPXTruck_Door / _Door_Left 0.8k, Motorbike 90k); manifest current.
+- [x] Hero round 1 fixed: texture rows (write_set wants row 0 at the bottom), glass rule (dark + greenhouse +
+      windscreen by position + majority fill), plate orientation, dash and plate backing to the interior slot.
+- [ ] Previews: hero, close, lineup_1, lineup_2, ipx_truck, wrecks rendering from the saved blend (no rebuild):
+      scratch script opens art/out/blend/vehicles.blend and calls vehicles.on_preview; then vehicles_wire.
 
 ## Exact next step
-`VEH_DEBUG=1 build.py build vehicles --export --force` (all), look at art/out/gen/vehicles/debug_*.jpg, then
-`build.py build vehicles --preview --only vehicles_sedan_hero,vehicles_close --samples 48` and the other previews.
+Look at art/previews/vehicles_*.jpg, fix the worst fault, re-render that one (`build.py build vehicles --export`
+then `--preview --only <name> --samples 40`, or the blend-only script), then vehicles_wire, then final report.
 
 ---------------------------------------------------------------------------------------------------------------
 # Generated Goon (assets/goon_generated.py), character technical artist: a Higgsfield image-to-3D comparison
