@@ -4,7 +4,7 @@
 // runs inside the booted game page (page.evaluate), so none of them can close over anything in this
 // file: they share code through window.__ue.h, which `installHelpers` puts there first.
 //
-// Everything is returned in web space (metres, +Y up, north = −Z) as plain JSON; the Node side
+// Everything is returned in web space (metres, radians, +Y up, north = −Z) as plain JSON; the Node side
 // (export.cjs) adds the Unreal-space twins, rounds and writes.
 
 /** Shared helpers, stored on window.__ue.h. */
@@ -43,7 +43,7 @@ function installHelpers() {
   }
 
   /** The props the level placed, in placement order (everything built while the level was being made). */
-  const placed = () => rec.builds.filter((b) => b.after === 'input');
+  const placed = () => rec.builds.filter((b) => b.by === 'level');
 
   const scratch = new T.Color();
   /** sRGB hex of a linear colour triple (what a vertex-tinted paint carries). */
@@ -74,7 +74,7 @@ function installHelpers() {
   function domeOf(prop) {
     let lit = null;
     prop.object.traverse((m) => {
-      if (m.isMesh && m.name === '@glass' && m.material) lit = m.material.name === 'glass_car_lit' || m.material === G.mats.get('glass_car_lit');
+      if (m.isMesh && m.name === '@glass' && m.material) lit = m.material.name === 'glass_car_lit';
     });
     return lit;
   }
@@ -98,7 +98,10 @@ function installHelpers() {
     return box.isEmpty() ? null : { min: v3(box.min), max: v3(box.max) };
   }
 
-  /** A short hash of a prop's shape: two props built from the same shape variant share it. */
+  /**
+   * A short hash of a prop's geometry: mesh slots, vertex counts and bounds in its own frame. Two props
+   * with the same hash look the same apart from paint and the small graphics drawn on them.
+   */
   function shapeOf(prop) {
     const object = prop.object;
     object.updateMatrixWorld(true);
@@ -122,6 +125,18 @@ function installHelpers() {
     return (hash >>> 0).toString(16).padStart(8, '0');
   }
 
+  /**
+   * Which of the factory's cached shapes a prop was made from. The factory builds each shape once and
+   * every instance shares its geometries (src/props.js protoFor), so the geometry objects themselves
+   * say it; only the paint is copied per colour, so that slot is left out.
+   */
+  function protoOf(prop) {
+    const ids = [];
+    for (const mesh of modelMeshes(prop.object)) if (mesh.name !== '@paint') ids.push(`${mesh.name}=${mesh.geometry.uuid}`);
+    ids.sort();
+    return ids.length ? ids.join(',') : `shape=${shapeOf(prop)}`;
+  }
+
   /** What a built prop says about its type: colliders, bounds, lamp hints, anchors, moving parts. */
   function describeProp(prop) {
     return {
@@ -133,6 +148,7 @@ function installHelpers() {
       animated: typeof prop.update === 'function',
       triangles: prop.object.userData.triangles ?? null,
       shape: shapeOf(prop),
+      slots: [...new Set(modelMeshes(prop.object).map((m) => m.name))].sort(),
       bounds: localBounds(prop),
       colliders: (prop.colliders || []).map((c) => ({
         min: { x: c.min[0], y: c.min[1], z: c.min[2] },
@@ -204,13 +220,123 @@ function installHelpers() {
     return out;
   }
 
-  rec.h = { num, v3, plain, placed, paintOf, domeOf, localBounds, shapeOf, describeProp, rectsOf, modelMeshes };
+  const pa = new T.Vector3();
+  const pb = new T.Vector3();
+  const pc = new T.Vector3();
+  const pd = new T.Vector3();
+  const eu = new T.Vector3();
+  const ev = new T.Vector3();
+  const nn = new T.Vector3();
+
+  /**
+   * The flat four-cornered faces of a mesh, in world space. The level builds every sign, pane and wall
+   * face as one plane and the static merge keeps planes whole (four vertices, two triangles), so the
+   * merged meshes still say where each one is. A face comes back as
+   *   {pos, right, up, normal, w, h, u0, u1, v0, v1}
+   * `right` and `up` are the directions in which its texture coordinates u and v grow (so `right` is the
+   * reading direction of a sign), `normal` = right × up is the side it shows.
+   * `corner(u, v)` may be given to say which texture corner counts as bottom-left (a flipped atlas rect).
+   */
+  function quadsOf(mesh, visit) {
+    const position = mesh.geometry.getAttribute('position');
+    const uv = mesh.geometry.getAttribute('uv');
+    const index = mesh.geometry.index;
+    if (!position || !uv || !index) return;
+    mesh.updateMatrixWorld(true);
+    const tri = (t, k) => index.getX(t * 3 + k);
+    const triangles = index.count / 3;
+    for (let t = 0; t + 1 < triangles; ) {
+      const ids = new Set([tri(t, 0), tri(t, 1), tri(t, 2), tri(t + 1, 0), tri(t + 1, 1), tri(t + 1, 2)]);
+      if (ids.size !== 4) {
+        t += 1;
+        continue;
+      }
+      t += 2;
+      const corner = [...ids];
+      let u0 = Infinity;
+      let u1 = -Infinity;
+      let v0 = Infinity;
+      let v1 = -Infinity;
+      for (const id of corner) {
+        u0 = Math.min(u0, uv.getX(id));
+        u1 = Math.max(u1, uv.getX(id));
+        v0 = Math.min(v0, uv.getY(id));
+        v1 = Math.max(v1, uv.getY(id));
+      }
+      if (!(u1 - u0 > 1e-9) || !(v1 - v0 > 1e-9)) continue;
+      const pick = (u, v) =>
+        corner.reduce((best, id) => {
+          const e = Math.abs(uv.getX(id) - u) / (u1 - u0) + Math.abs(uv.getY(id) - v) / (v1 - v0);
+          return best === null || e < best.e ? { id, e } : best;
+        }, null).id;
+      pa.fromBufferAttribute(position, pick(u0, v0)).applyMatrix4(mesh.matrixWorld);
+      pb.fromBufferAttribute(position, pick(u1, v0)).applyMatrix4(mesh.matrixWorld);
+      pc.fromBufferAttribute(position, pick(u0, v1)).applyMatrix4(mesh.matrixWorld);
+      pd.fromBufferAttribute(position, pick(u1, v1)).applyMatrix4(mesh.matrixWorld);
+      eu.subVectors(pb, pa);
+      ev.subVectors(pc, pa);
+      const w = eu.length();
+      const h = ev.length();
+      if (!(w > 1e-6) || !(h > 1e-6)) continue;
+      nn.crossVectors(eu, ev).normalize();
+      visit({
+        pos: { x: (pa.x + pb.x + pc.x + pd.x) / 4, y: (pa.y + pb.y + pc.y + pd.y) / 4, z: (pa.z + pb.z + pc.z + pd.z) / 4 },
+        right: { x: eu.x / w, y: eu.y / w, z: eu.z / w },
+        up: { x: ev.x / h, y: ev.y / h, z: ev.z / h },
+        normal: v3(nn),
+        w,
+        h,
+        u0,
+        u1,
+        v0,
+        v1,
+      });
+    }
+  }
+
+  rec.h = { num, v3, plain, placed, paintOf, domeOf, localBounds, shapeOf, protoOf, describeProp, rectsOf, modelMeshes, quadsOf };
   return true;
 }
 
 // -------------------------------------------------------------------------------------------------
-// Tuning
+// The run itself, and tuning
 // -------------------------------------------------------------------------------------------------
+
+/** What was booted: seed, build, errors, the static strings of the page. */
+function collectMeta() {
+  const rec = window.__ue;
+  const G = window.__G;
+  const { plain } = rec.h;
+  const text = (selector) => {
+    const el = document.querySelector(selector);
+    return el ? el.textContent.replace(/\s+/g, ' ').trim() : null;
+  };
+  const view = document.getElementById('view');
+  const stats = window.__stats();
+  return {
+    seed: G.rng.seed,
+    params: { ...G.params },
+    build: plain(G.build),
+    order: rec.order.slice(),
+    state: G.game.state,
+    mode: G.game.mode,
+    difficulty: G.game.difficulty,
+    time: G.atmos.time,
+    quality: plain(G.quality),
+    stubbed: stats.stubbed,
+    errors: (window.__errors || []).slice(),
+    fatal: window.__fatal || null,
+    three: G.THREE.REVISION,
+    page: {
+      title: document.title,
+      bootPresenter: [text('#boot .boot-kicker .ipx-mark'), text('#boot .boot-kicker span:last-child')],
+      bootMark: text('#boot .boot-mark'),
+      bootStar: text('#boot .boot-star'),
+      bootNote: text('#boot .boot-note'),
+      canvasLabel: view ? view.getAttribute('aria-label') : null,
+    },
+  };
+}
 
 /** G.config as the game holds it, the default settings, and the tables the modules derive from them. */
 function collectConfig() {
@@ -237,32 +363,14 @@ function collectConfig() {
   return {
     config: plain(G.config),
     settings: plain(G.settings.all()),
-    difficulty: G.game.difficulty,
-    mode: G.game.mode,
-    seed: G.rng.seed,
-    build: plain(G.build),
-    order: rec.order.slice(),
     explosiveKinds: kinds,
     enemiesResolved: resolved,
-    quality: plain(G.quality),
-    errors: (window.__errors || []).slice(),
-    fatal: window.__fatal || null,
-    stats: window.__stats(),
-    page: {
-      title: document.title,
-      boot: Object.fromEntries(
-        [['kicker', '.boot-kicker'], ['mark', '.boot-mark'], ['star', '.boot-star'], ['note', '.boot-note']]
-          .map(([key, selector]) => [key, (document.querySelector(`#boot ${selector}`) || {}).textContent || null])
-          .map(([key, text]) => [key, text ? text.replace(/\s+/g, ' ').trim() : null]),
-      ),
-      canvasLabel: (document.getElementById('view') || { getAttribute: () => null }).getAttribute('aria-label'),
-    },
   };
 }
 
 /**
  * Calls config functions in the page: [{path: ['flow', 'holdout', 'total'], calls: [[1], [2]]}] →
- * [[value, value]]. A call that throws answers {$error}.
+ * [[value, value]]. A call that throws answers {$error}; a path that is no function answers null.
  */
 function callConfigFunctions(requests) {
   const G = window.__G;
@@ -304,7 +412,7 @@ function collectLevel() {
   const boxIndex = new Map(P.boxes.map((b, i) => [b, i]));
 
   const colliders = P.boxes.map((b) => {
-    const info = rec.boxes.get(b) || { via: null, after: null, oriented: null, slice: 0 };
+    const info = rec.boxes.get(b) || { by: null, oriented: null };
     return {
       min: v3(b.min),
       max: v3(b.max),
@@ -316,8 +424,7 @@ function collectLevel() {
       prop: placement.has(b.owner) ? placement.get(b.owner) : null,
       explosive: itemIndex.has(b.owner) ? itemIndex.get(b.owner) : null,
       oriented: info.oriented ? orientedIndex.get(info.oriented) : null,
-      slice: info.oriented ? info.slice : null,
-      addedBy: info.after === 'input' ? 'level' : info.after === 'combat' ? 'explosives' : info.after,
+      by: info.by,
     };
   });
 
@@ -325,6 +432,7 @@ function collectLevel() {
     center: { x: o.center[0], y: o.center[1], z: o.center[2] },
     size: { x: o.size[0], y: o.size[1], z: o.size[2] },
     yaw: o.yaw,
+    by: o.by,
     boxes: o.boxes.map((b) => (boxIndex.has(b) ? boxIndex.get(b) : null)),
   }));
 
@@ -344,7 +452,9 @@ function collectLevel() {
     navRows.push(line);
   }
 
-  // Which way a ground spawn point opens: toward the walkable cells it can reach in a straight line.
+  // The game keeps no facing for a spawn point (a new enemy gets a random yaw). For the port each point
+  // gets one anyway: a ground point looks toward the walkable cells it can reach in a straight line (out
+  // of its pocket), an air point toward the middle of the block.
   const centre = { x: (L.bounds.minX + L.bounds.maxX) / 2, z: (L.bounds.minZ + L.bounds.maxZ) / 2 };
   const origin = nav.origin;
   const cell = nav.cell;
@@ -379,10 +489,8 @@ function collectLevel() {
     let dx = centre.x - s.pos.x;
     let dz = centre.z - s.pos.z;
     let source = 'centre';
-    let cells = 0;
     if (s.type !== 'air') {
       const open = opening(s.pos, SPAWN_REACH);
-      cells = open.cells;
       if (Math.hypot(open.x, open.z) > 0.25) {
         dx = open.x;
         dz = open.z;
@@ -396,20 +504,31 @@ function collectLevel() {
       pos: v3(s.pos),
       place: L.zoneName(s.pos.x, s.pos.z),
       walkable: s.type === 'air' ? null : nav.isWalkable(s.pos.x, s.pos.z),
+      interior: L.interiorAt(s.pos),
       facing: { x: dx / length, y: 0, z: dz / length },
       facingSource: source,
-      facingCells: cells,
     };
   });
 
   const debug = typeof G.enemies.debug === 'function' ? G.enemies.debug() : null;
 
-  // Regions of constant answer of the level's own queries, sampled on a 0.1 m grid.
+  // Regions of constant answer of the level's own queries, sampled on a 0.1 m grid (every edge of the
+  // layout lies on it).
   const STEP = 0.1;
   const places = rectsOf(L.bounds, STEP, (x, z) => L.zoneName(x, z));
   const zoneRects = rectsOf(L.bounds, STEP, (x, z) => L.zoneAt(x, z));
   const surfaces = rectsOf(L.bounds, STEP, (x, z) => L.groundSurfaceAt(x, z));
   const floors = rectsOf(L.bounds, STEP, (x, z) => L.floorAt(x, z));
+
+  // How far outside an interior box interiorAt() still answers: probe the live function. It falls
+  // linearly from 1 at the wall to 0 at the fade distance.
+  let interiorFade = null;
+  if (L.interiorBoxes.length) {
+    const b = L.interiorBoxes[0];
+    const probe = new G.THREE.Vector3(b.max.x + 0.5, (b.min.y + b.max.y) / 2, (b.min.z + b.max.z) / 2);
+    const at = L.interiorAt(probe);
+    if (at > 0 && at < 1) interiorFade = 0.5 / (1 - at);
+  }
 
   return {
     bounds: plain(L.bounds),
@@ -467,17 +586,16 @@ function collectLevel() {
           ? {
               hp: item.hp,
               state: item.state,
-              height: item.height,
-              halfX: item.halfX,
-              halfZ: item.halfZ,
+              yaw: item.yaw ?? null,
+              prop: item.kind ? item.kind.prop : null,
               collider: item.box && boxIndex.has(item.box) ? boxIndex.get(item.box) : null,
-              instanced: !!item.batch,
             }
           : null,
       };
     }),
     explosiveItems: items.length,
     interiorBoxes: L.interiorBoxes.map((b) => ({ min: v3(b.min), max: v3(b.max) })),
+    interiorFade,
     doorways: debug && debug.doorways ? plain(debug.doorways) : null,
     vantage: L.vantage ? { stairsFoot: v3(L.vantage.stairsFoot), deck: v3(L.vantage.deck) } : null,
     el: plain(L.el),
@@ -493,7 +611,6 @@ function collectLevel() {
       origin: { x: origin.x, z: origin.z },
       free,
       blocked: cols * rows - free,
-      rebuilds: nav.rebuilds,
       grid: navRows,
     },
     propsStats: typeof G.props.stats === 'function' ? plain(G.props.stats()) : null,
@@ -508,7 +625,7 @@ function collectLevel() {
 function collectProps() {
   const rec = window.__ue;
   const G = window.__G;
-  const { plain, v3, placed, paintOf, domeOf, shapeOf, describeProp } = rec.h;
+  const { plain, v3, placed, paintOf, domeOf, shapeOf, protoOf, describeProp } = rec.h;
   const L = G.level;
   const boxIndex = new Map(G.physics.boxes.map((b, i) => [b, i]));
 
@@ -530,12 +647,17 @@ function collectProps() {
     }
   });
 
-  const describedTypes = {};
+  const described = {}; // name → proto id → description
+  const describe = (b) => {
+    const proto = protoOf(b.prop);
+    if (!described[b.name]) described[b.name] = {};
+    if (!described[b.name][proto]) described[b.name][proto] = describeProp(b.prop);
+    return proto;
+  };
+
   const instances = list.map((b, index) => {
     const o = b.prop.object;
-    const shape = shapeOf(b.prop);
-    if (!describedTypes[b.name]) describedTypes[b.name] = {};
-    if (!describedTypes[b.name][shape]) describedTypes[b.name][shape] = describeProp(b.prop);
+    const proto = describe(b);
     return {
       name: b.name,
       opts: plain(b.opts),
@@ -551,22 +673,24 @@ function collectProps() {
       fallback: !!b.prop.fallback,
       paint: paintOf(b.prop),
       dome: domeOf(b.prop),
-      shape,
+      shape: shapeOf(b.prop),
+      proto,
       colliders: (b.prop.boxes || []).map((box) => (boxIndex.has(box) ? boxIndex.get(box) : null)),
       lamps: [...lampOwner.entries()].filter(([, owner]) => owner === index).map(([lamp]) => lamp),
       state: b.prop.state ?? null,
+      inScene: (() => {
+        // A static prop is merged into the level's meshes and its own object is emptied or detached.
+        let top = o;
+        while (top.parent) top = top.parent;
+        return top === G.scene;
+      })(),
     };
   });
 
-  // The explosives module builds one template per type (after the level): describe those too.
-  for (const b of rec.builds) {
-    if (b.after === 'input') continue;
-    const shape = shapeOf(b.prop);
-    if (!describedTypes[b.name]) describedTypes[b.name] = {};
-    if (!describedTypes[b.name][shape]) describedTypes[b.name][shape] = describeProp(b.prop);
-  }
+  // What other modules built after the level (the explosives' two templates).
+  const others = rec.builds.filter((b) => b.by !== 'level').map((b) => ({ name: b.name, opts: plain(b.opts), seed: b.seed, by: b.by, proto: describe(b), shape: shapeOf(b.prop), paint: paintOf(b.prop) }));
 
-  return { instances, describedTypes, lampOwners: [...lampOwner.entries()] };
+  return { instances, others, described, lampOwners: [...lampOwner.entries()] };
 }
 
 /**
@@ -578,9 +702,10 @@ function collectProps() {
 function probeCatalog({ requests, seeds }) {
   const rec = window.__ue;
   const G = window.__G;
-  const { paintOf, domeOf, shapeOf, describeProp } = rec.h;
+  const { paintOf, domeOf, shapeOf, protoOf, describeProp } = rec.h;
   return requests.map(({ name, opts }) => {
-    const shapes = []; // by seed
+    const protos = []; // by seed
+    const shapes = [];
     const paints = [];
     const domes = [];
     const described = {};
@@ -588,18 +713,188 @@ function probeCatalog({ requests, seeds }) {
     for (let seed = 0; seed < seeds; seed++) {
       try {
         const prop = G.props.build(name, { ...opts, seed });
-        const shape = shapeOf(prop);
-        shapes.push(shape);
+        const proto = protoOf(prop);
+        protos.push(proto);
+        shapes.push(shapeOf(prop));
         paints.push(paintOf(prop));
         domes.push(domeOf(prop));
-        if (!described[shape]) described[shape] = describeProp(prop);
+        if (!described[proto]) described[proto] = describeProp(prop);
       } catch (err) {
         error = String((err && err.message) || err);
         break;
       }
     }
-    return { name, opts, shapes, paints, domes, described, error };
+    return { name, opts, protos, shapes, paints, domes, described, error };
   });
+}
+
+// -------------------------------------------------------------------------------------------------
+// Signs, posters, graffiti and decals; glass; facades
+// -------------------------------------------------------------------------------------------------
+
+/**
+ * Where every painting ended up. The level maps each one onto a single quad whose UVs are the
+ * painting's rectangle on its atlas page (CONTRACT 11.2), so a quad of a page material whose UVs are
+ * that rectangle is that painting.
+ */
+function collectSignage() {
+  const rec = window.__ue;
+  const G = window.__G;
+  const { plain, quadsOf } = rec.h;
+  const L = G.level;
+
+  // Paintings by material: a painting asked for twice is one entry.
+  const byMaterial = new Map();
+  const seen = new Map();
+  const paintings = [];
+  for (const p of rec.paintings) {
+    if (!p.out || !p.out.material) continue;
+    const uv = p.out.uv ? p.out.uv.slice() : null;
+    const key = `${p.out.material.uuid}|${uv ? uv.map((n) => Math.round(n * 1e6)).join(',') : 'tile'}|${p.kind}`;
+    if (seen.has(key)) {
+      const entry = seen.get(key);
+      if (!entry.by.includes(p.by)) entry.by.push(p.by);
+      continue;
+    }
+    const map = p.out.material.map;
+    const entry = {
+      kind: p.kind,
+      args: plain(p.args),
+      w: p.out.w,
+      h: p.out.h,
+      uv,
+      tiles: !uv,
+      material: p.out.material.name || null,
+      by: [p.by],
+      repeat: !uv && map ? { x: map.repeat.x, y: map.repeat.y } : null,
+      placed: 0,
+    };
+    seen.set(key, entry);
+    paintings.push(entry);
+    if (!byMaterial.has(p.out.material)) byMaterial.set(p.out.material, []);
+    byMaterial.get(p.out.material).push(entry);
+  }
+
+  const quads = [];
+  let unmatched = 0;
+  L.root.updateMatrixWorld(true);
+  L.root.traverse((mesh) => {
+    if (!mesh.isMesh || !byMaterial.has(mesh.material)) return;
+    const candidates = byMaterial.get(mesh.material);
+    quadsOf(mesh, (q) => {
+      // Which painting: the one whose atlas rectangle these UVs are (tiling road paint has none).
+      let match = null;
+      for (const p of candidates) {
+        if (!p.uv) {
+          if (!match) match = p;
+          continue;
+        }
+        const [a0, b0, a1, b1] = p.uv;
+        if (Math.abs(q.u0 - Math.min(a0, a1)) < 2e-4 && Math.abs(q.u1 - Math.max(a0, a1)) < 2e-4 && Math.abs(q.v0 - Math.min(b0, b1)) < 2e-4 && Math.abs(q.v1 - Math.max(b0, b1)) < 2e-4) {
+          match = p;
+          break;
+        }
+      }
+      if (!match) {
+        unmatched++;
+        return;
+      }
+      // An atlas rectangle given right-to-left or top-to-bottom turns the picture: follow it.
+      const flipU = match.uv ? match.uv[2] < match.uv[0] : false;
+      const flipV = match.uv ? match.uv[3] < match.uv[1] : false;
+      const right = flipU ? { x: -q.right.x, y: -q.right.y, z: -q.right.z } : q.right;
+      const up = flipV ? { x: -q.up.x, y: -q.up.y, z: -q.up.z } : q.up;
+      const normal = flipU !== flipV ? { x: -q.normal.x, y: -q.normal.y, z: -q.normal.z } : q.normal;
+      match.placed++;
+      quads.push({
+        painting: paintings.indexOf(match),
+        pos: q.pos,
+        normal,
+        right,
+        up,
+        w: q.w,
+        h: q.h,
+        zone: L.zoneAt(q.pos.x, q.pos.z),
+        place: L.zoneName(q.pos.x, q.pos.z),
+        interior: L.interiorAt(q.pos),
+        dynamic: !mesh.name.startsWith('merged:'),
+      });
+    });
+  });
+
+  return { paintings, quads, unmatched };
+}
+
+/**
+ * Flat faces of the level's glass and of its window facades.
+ *   panes    every four-cornered face drawn with one of the catalogue's glass materials
+ *   facades  every wall face that carries a painted window grid (mats.facade): where it is and which
+ *            part of the repeating grid it shows (u along the wall, v up, in metres)
+ */
+function collectGlass() {
+  const rec = window.__ue;
+  const G = window.__G;
+  const { plain, quadsOf } = rec.h;
+  const L = G.level;
+  const GLASS = ['glass_dark', 'glass_store', 'glass_lit_warm', 'glass_lit_cool', 'glass_skylight', 'glass_car', 'glass_car_lit'];
+  const panes = [];
+  const faces = [];
+  L.root.updateMatrixWorld(true);
+  L.root.traverse((mesh) => {
+    if (!mesh.isMesh || !mesh.material || Array.isArray(mesh.material)) return;
+    const material = mesh.material;
+    const grid = material.userData && material.userData.facade;
+    if (grid) {
+      quadsOf(mesh, (q) => {
+        faces.push({
+          material: material.name,
+          pos: q.pos,
+          normal: q.normal,
+          right: q.right,
+          up: q.up,
+          w: q.w,
+          h: q.h,
+          u0: q.u0,
+          v0: q.v0,
+          zone: L.zoneAt(q.pos.x, q.pos.z),
+          place: L.zoneName(q.pos.x, q.pos.z),
+        });
+      });
+      return;
+    }
+    if (!GLASS.includes(material.name)) return;
+    quadsOf(mesh, (q) => {
+      panes.push({
+        material: material.name,
+        pos: q.pos,
+        normal: q.normal,
+        right: q.right,
+        up: q.up,
+        w: q.w,
+        h: q.h,
+        zone: L.zoneAt(q.pos.x, q.pos.z),
+        place: L.zoneName(q.pos.x, q.pos.z),
+        interior: L.interiorAt(q.pos),
+        dynamic: !mesh.name.startsWith('merged:'),
+      });
+    });
+  });
+
+  // The facade grids the level asked for (one material per distinct spec).
+  const grids = [];
+  const seen = new Set();
+  for (const f of rec.facades) {
+    if (!f.material || seen.has(f.material)) continue;
+    seen.add(f.material);
+    const u = f.material.userData && f.material.userData.facade;
+    grids.push({
+      material: f.material.name,
+      spec: plain(f.spec),
+      grid: u ? { w: u.w, h: u.h, bays: u.bays, floors: u.floors, bayW: u.bayW, floorH: u.floorH } : null,
+      asked: rec.facades.filter((g) => g.material === f.material).length,
+    });
+  }
+  return { panes, faces, grids };
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -610,115 +905,220 @@ function probeCatalog({ requests, seeds }) {
 function collectAtmos() {
   const rec = window.__ue;
   const G = window.__G;
-  const { plain, v3 } = rec.h;
+  const { plain, v3, placed } = rec.h;
+  const T = G.THREE;
   const L = G.level;
   const A = G.atmos;
   const shown = A.time;
 
-  let hemi = null;
+  const hemi = G.scene.getObjectByName('ambient');
   const spots = [];
   G.scene.traverse((o) => {
-    if (o.isHemisphereLight && !hemi) hemi = o;
-    if (o.isSpotLight) spots.push(o);
+    if (o.isSpotLight && /^lamp-light-/.test(o.name)) spots.push(o);
   });
 
   const color = (c) => ({ hex: c.getHex(), linear: [c.r, c.g, c.b] });
-  const direction = new G.THREE.Vector3();
+  const direction = new T.Vector3();
 
+  // -- The lamps, and how each one would shine as a real light (src/atmos/lights.js collectLamps and
+  //    createLightRig assign): along its own `dir`; a flood without one at the nearest objective; a sign
+  //    or lit window out from the wall behind it and down onto the sidewalk; anything else straight down.
+  const avenueZ = L.el ? (L.el.minZ + L.el.maxZ) / 2 : (L.bounds.minZ + L.bounds.maxZ) / 2;
+  const CARDINALS = [new T.Vector3(1, 0, 0), new T.Vector3(-1, 0, 0), new T.Vector3(0, 0, 1), new T.Vector3(0, 0, -1)];
+  const DOWN = new T.Vector3(0, -1, 0);
+  const hit = { dist: 0, point: new T.Vector3(), normal: new T.Vector3(), surface: null, box: null };
+  const probe = new T.Vector3();
+  const explosive = new Set(G.explosives.items.map((item) => item.box));
+  const lamps = L.lamps.map((l) => {
+    const pos = l.pos;
+    let aim = null;
+    let aimSource = 'down';
+    let wall = null;
+    if (l.dir) {
+      aim = l.dir.clone().normalize();
+      aimSource = 'dir';
+    } else if (l.kind === 'flood') {
+      let best = null;
+      let bestD = 38;
+      for (const o of L.objectives) {
+        const d = Math.hypot(o.pos.x - pos.x, o.pos.z - pos.z);
+        if (d < bestD) {
+          bestD = d;
+          best = o.pos;
+        }
+      }
+      aim = best ? new T.Vector3(best.x - pos.x, 0.4 - pos.y, best.z - pos.z).normalize() : DOWN.clone();
+      aimSource = best ? 'objective' : 'down';
+    }
+    if (l.kind === 'neon' || l.kind === 'window') {
+      let bestD = 2.2;
+      for (const c of CARDINALS) {
+        const h = G.physics.raycast(pos, c, bestD, hit);
+        // The explosives were not standing yet when the atmosphere looked for its walls.
+        if (h && h.dist < bestD && !explosive.has(h.box)) {
+          bestD = h.dist;
+          wall = new T.Vector3(-c.x, 0, -c.z);
+        }
+      }
+      if (!wall && Math.abs(pos.z - avenueZ) > 6) wall = new T.Vector3(0, 0, pos.z > avenueZ ? -1 : 1);
+      if (!aim && wall) {
+        aim = wall.clone().setY(-0.7).normalize();
+        aimSource = 'wall';
+      }
+    }
+    if (!aim) aim = DOWN.clone();
+    let floor = 0;
+    probe.set(pos.x, pos.y - 0.25, pos.z);
+    const below = G.physics.raycast(probe, DOWN, pos.y + 1, hit);
+    if (below && below.box && below.point.y > 0.6) {
+      const b = below.box;
+      if (b.max.x - b.min.x >= 2.5 && b.max.z - b.min.z >= 2.5) floor = below.point.y;
+    }
+    return {
+      kind: l.kind,
+      pos: v3(pos),
+      color: l.color,
+      intensity: l.intensity,
+      range: l.range,
+      priority: l.priority,
+      dir: l.dir ? v3(l.dir) : null,
+      aim: v3(aim),
+      aimSource,
+      wall: wall ? v3(wall) : null,
+      floor,
+      zone: L.zoneAt(pos.x, pos.z),
+      place: L.zoneName(pos.x, pos.z),
+      interior: L.interiorAt(pos),
+    };
+  });
+
+  // -- Check that reading against the game's own lights: with the camera's point of interest on a lamp,
+  //    the lamp usually holds one of the real lights, which then stands where it is and points how it
+  //    shines. Night: every kind may hold one.
+  const check = { held: 0, mismatched: [] };
+  const cam = G.camera;
+  const savedPos = cam.position.clone();
+  const savedQuat = cam.quaternion.clone();
+  A.setTime('night');
+  if (typeof A.settleLights === 'function') {
+    const seenHeld = new Set();
+    for (let i = 0; i < lamps.length; i++) {
+      const p = L.lamps[i].pos;
+      cam.position.set(p.x, p.y, p.z + 6); // the rig looks 6 m ahead of the camera
+      cam.lookAt(p.x, p.y, p.z);
+      cam.updateMatrixWorld(true);
+      A.settleLights();
+      for (const s of spots) {
+        if (!(s.intensity > 0)) continue;
+        const j = L.lamps.findIndex((l) => l.pos.distanceTo(s.position) < 1e-6);
+        if (j < 0 || seenHeld.has(j)) continue;
+        seenHeld.add(j);
+        direction.copy(s.target.position).sub(s.position).normalize();
+        const a = lamps[j].aim;
+        if (Math.hypot(a.x - direction.x, a.y - direction.y, a.z - direction.z) > 1e-4) check.mismatched.push({ lamp: j, game: v3(direction), export: a });
+      }
+    }
+    check.held = seenHeld.size;
+  }
+  cam.position.copy(savedPos);
+  cam.quaternion.copy(savedQuat);
+  cam.updateMatrixWorld(true);
+
+  // -- Both rigs.
   const times = {};
   for (const name of ['day', 'night']) {
     A.setTime(name);
-    if (typeof A.settleLights === 'function') A.settleLights();
     const sun = A.sun;
     direction.copy(sun.target.position).sub(sun.position).normalize();
-    const cam = sun.shadow.camera;
     const fog = G.scene.fog;
     times[name] = {
       time: A.time,
       sun: {
         color: color(sun.color),
         intensity: sun.intensity,
-        position: v3(sun.position),
-        target: v3(sun.target.position),
         direction: v3(direction),
         castShadow: sun.castShadow,
-        shadow: {
-          mapSize: sun.shadow.mapSize.x,
-          bias: sun.shadow.bias,
-          normalBias: sun.shadow.normalBias,
-          radius: sun.shadow.radius,
-          left: cam.left,
-          right: cam.right,
-          top: cam.top,
-          bottom: cam.bottom,
-          near: cam.near,
-          far: cam.far,
-        },
+        shadowRadius: sun.shadow.radius,
+        shadowNormalBias: sun.shadow.normalBias,
       },
       ambient: hemi ? { sky: color(hemi.color), ground: color(hemi.groundColor), intensity: hemi.intensity } : null,
       fog: fog ? { type: fog.isFogExp2 ? 'FogExp2' : 'Fog', color: color(fog.color), density: fog.density } : null,
       look: plain(G.render.look),
       exposure: G.render.exposure,
-      realLights: spots.map((s) => ({
-        pos: v3(s.position),
-        target: v3(s.target.position),
-        color: color(s.color),
-        intensity: s.intensity,
-        distance: s.distance,
-        angle: s.angle,
-        penumbra: s.penumbra,
-        decay: s.decay,
-      })),
-      stats: plain(A.stats()),
+      environmentSet: !!G.scene.environment,
     };
   }
   A.setTime(shown);
   if (typeof A.settleLights === 'function') A.settleLights();
 
+  const stats = A.stats();
+  const owners = new Map();
+  placed().forEach((b, index) => {
+    const o = b.prop.object;
+    const sin = Math.sin(o.rotation.y);
+    const cos = Math.cos(o.rotation.y);
+    for (const hint of b.prop.lights || []) {
+      const [hx, hy, hz] = hint.pos;
+      const x = o.position.x + hx * cos + hz * sin;
+      const y = o.position.y + hy;
+      const z = o.position.z - hx * sin + hz * cos;
+      L.lamps.forEach((lamp, i) => {
+        if (!owners.has(i) && Math.abs(lamp.pos.x - x) < 1e-6 && Math.abs(lamp.pos.y - y) < 1e-6 && Math.abs(lamp.pos.z - z) < 1e-6) owners.set(i, index);
+      });
+    }
+  });
+  lamps.forEach((lamp, i) => {
+    lamp.prop = owners.has(i) ? owners.get(i) : null;
+  });
+
   return {
     shown,
     times,
-    lamps: L.lamps.map((l) => ({
-      kind: l.kind,
-      pos: v3(l.pos),
-      color: l.color,
-      intensity: l.intensity,
-      range: l.range,
-      priority: l.priority,
-      dir: l.dir ? v3(l.dir) : null,
-      zone: L.zoneAt(l.pos.x, l.pos.z),
-      place: L.zoneName(l.pos.x, l.pos.z),
-      interior: L.interiorAt(l.pos),
-    })),
+    lamps,
+    aimCheck: check,
+    counts: { lamps: stats.lamps, levelLamps: stats.levelLamps, realLights: stats.realLights, buildings: stats.buildings },
     train: plain(A.train),
-    stats: plain(A.stats()),
-    quality: plain(G.quality),
-    toneMappingExposure: G.renderer.toneMappingExposure,
-    facades: rec.facades.map((f) => ({
-      spec: plain(f.spec),
-      facade: f.material && f.material.userData && f.material.userData.facade
-        ? { w: f.material.userData.facade.w, h: f.material.userData.facade.h, bays: f.material.userData.facade.bays, floors: f.material.userData.facade.floors, bayW: f.material.userData.facade.bayW, floorH: f.material.userData.facade.floorH }
-        : null,
-      material: f.material ? f.material.name : null,
-    })),
+    nextTrain: stats.nextTrain,
+    clock: stats.clock,
+    hasAmbient: !!hemi,
+    realLights: spots.length,
   };
 }
 
 /**
- * Sends a train across (atmos.passTrain) and records what the game announces: called once to start a
- * pass, then polled while the harness steps the simulation. `dir` +1 east, −1 west.
+ * Listens for the El train. Call once; then let the simulation run and read `readTrainWatch`.
+ * Every `train:pass` event is kept with the atmosphere's clock and the train's state at that moment.
  */
-function startTrainWatch(dir) {
+function startTrainWatch() {
   const rec = window.__ue;
   const G = window.__G;
-  if (!rec.train) {
-    rec.train = { events: [], samples: [] };
-    G.events.on('train:pass', (e) => {
-      rec.train.events.push({ phase: e.phase, duration: e.duration, dir: e.dir, clock: G.atmos.stats().clock, x: G.atmos.train.x, z: G.atmos.train.z, y: G.atmos.train.y });
-    });
-  }
-  rec.train.events.length = 0;
-  G.atmos.passTrain(dir, null);
+  if (rec.train) return false;
+  rec.train = { events: [], begun: [] };
+  let wasActive = G.atmos.train.active;
+  let passes = G.atmos.train.passes;
+  G.events.on('train:pass', (e) => {
+    const t = G.atmos.train;
+    rec.train.events.push({ phase: e.phase, duration: e.duration, dir: e.dir, clock: G.atmos.stats().clock, x: t.x, lo: t.lo, hi: t.hi, y: t.y, z: t.z, pass: t.passes });
+  });
+  // The end of a pass has no event: watch the state once per step (level.update runs with atmos.update).
+  const watch = () => {
+    const t = G.atmos.train;
+    if (t.passes !== passes) {
+      passes = t.passes;
+      rec.train.begun.push({ pass: t.passes, clock: G.atmos.stats().clock, dir: t.dir, z: t.z, x: t.x });
+    }
+    if (wasActive && !t.active) rec.train.events.push({ phase: 'ended', duration: 0, dir: t.dir, clock: G.atmos.stats().clock, x: t.x, lo: t.lo, hi: t.hi, y: t.y, z: t.z, pass: t.passes });
+    wasActive = t.active;
+  };
+  const update = G.atmos.update;
+  G.atmos.update = function watchedUpdate(dt) {
+    const out = update.call(this, dt);
+    watch();
+    return out;
+  };
+  rec.train.restore = () => {
+    G.atmos.update = update;
+  };
   return true;
 }
 
@@ -726,138 +1126,28 @@ function readTrainWatch() {
   const rec = window.__ue;
   const G = window.__G;
   const { plain } = rec.h;
-  return { events: rec.train ? rec.train.events.slice() : [], state: plain(G.atmos.train), clock: G.atmos.stats().clock };
+  const stats = G.atmos.stats();
+  return { events: rec.train ? rec.train.events.slice() : [], begun: rec.train ? rec.train.begun.slice() : [], state: plain(G.atmos.train), clock: stats.clock, nextTrain: stats.nextTrain };
 }
 
-// -------------------------------------------------------------------------------------------------
-// Signs, posters, graffiti and decals
-// -------------------------------------------------------------------------------------------------
-
-/**
- * Where every painting ended up. The level maps each one onto a single quad whose UVs are the
- * painting's rectangle on its atlas page (CONTRACT 11.2), and the static merge keeps quads whole, so
- * the merged meshes still say where each one hangs: its centre, its size and which way it faces.
- */
-function collectSignage() {
+function stopTrainWatch() {
   const rec = window.__ue;
-  const G = window.__G;
-  const { plain, v3 } = rec.h;
-  const L = G.level;
-  const T = G.THREE;
-
-  // Paintings by material: [{kind, args, w, h, uv}] (a painting asked for twice is one entry).
-  const byMaterial = new Map();
-  const seen = new Set();
-  const paintings = [];
-  for (const p of rec.paintings) {
-    if (p.after !== 'input' || !p.out || !p.out.material) continue;
-    const uv = p.out.uv ? p.out.uv.map((n) => Math.round(n * 1e6) / 1e6) : null;
-    const key = `${p.out.material.uuid}|${uv ? uv.join(',') : 'tile'}|${p.kind}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const entry = { kind: p.kind, args: plain(p.args), w: p.out.w, h: p.out.h, uv, material: p.out.material.name || null, placed: 0 };
-    paintings.push(entry);
-    if (!byMaterial.has(p.out.material)) byMaterial.set(p.out.material, []);
-    byMaterial.get(p.out.material).push(entry);
-  }
-
-  const a = new T.Vector3();
-  const b = new T.Vector3();
-  const c = new T.Vector3();
-  const d = new T.Vector3();
-  const eu = new T.Vector3();
-  const ev = new T.Vector3();
-  const normal = new T.Vector3();
-  const quads = [];
-  let unmatched = 0;
-
-  L.root.updateMatrixWorld(true);
-  L.root.traverse((mesh) => {
-    if (!mesh.isMesh || !byMaterial.has(mesh.material)) return;
-    const candidates = byMaterial.get(mesh.material);
-    const position = mesh.geometry.getAttribute('position');
-    const uvAttr = mesh.geometry.getAttribute('uv');
-    const index = mesh.geometry.index;
-    if (!position || !uvAttr || !index) return;
-    // Every source was one plane: four corners, two triangles, in order.
-    for (let t = 0; t + 5 < index.count; t += 6) {
-      const ids = new Set();
-      for (let k = 0; k < 6; k++) ids.add(index.getX(t + k));
-      if (ids.size !== 4) continue;
-      const corner = [...ids];
-      let u0 = Infinity;
-      let u1 = -Infinity;
-      let v0 = Infinity;
-      let v1 = -Infinity;
-      for (const id of corner) {
-        u0 = Math.min(u0, uvAttr.getX(id));
-        u1 = Math.max(u1, uvAttr.getX(id));
-        v0 = Math.min(v0, uvAttr.getY(id));
-        v1 = Math.max(v1, uvAttr.getY(id));
-      }
-      // The corners at (u0, v0), (u1, v0) and (u0, v1) give the quad's two edges.
-      const pick = (u, v) => corner.reduce((best, id) => {
-        const e = Math.abs(uvAttr.getX(id) - u) + Math.abs(uvAttr.getY(id) - v);
-        return best === null || e < best.e ? { id, e } : best;
-      }, null).id;
-      a.fromBufferAttribute(position, pick(u0, v0)).applyMatrix4(mesh.matrixWorld);
-      b.fromBufferAttribute(position, pick(u1, v0)).applyMatrix4(mesh.matrixWorld);
-      c.fromBufferAttribute(position, pick(u0, v1)).applyMatrix4(mesh.matrixWorld);
-      d.fromBufferAttribute(position, pick(u1, v1)).applyMatrix4(mesh.matrixWorld);
-      eu.subVectors(b, a);
-      ev.subVectors(c, a);
-      normal.crossVectors(eu, ev).normalize();
-      const w = eu.length();
-      const h = ev.length();
-      const centre = { x: (a.x + b.x + c.x + d.x) / 4, y: (a.y + b.y + c.y + d.y) / 4, z: (a.z + b.z + c.z + d.z) / 4 };
-
-      // Which painting: the one whose atlas rectangle these UVs are (tiling road paint has none).
-      let match = null;
-      for (const p of candidates) {
-        if (!p.uv) {
-          if (!match) match = p;
-          continue;
-        }
-        const [pu0, pv0, pu1, pv1] = p.uv;
-        const lo = Math.min(pv0, pv1);
-        const hi = Math.max(pv0, pv1);
-        if (Math.abs(u0 - Math.min(pu0, pu1)) < 2e-4 && Math.abs(u1 - Math.max(pu0, pu1)) < 2e-4 && Math.abs(v0 - lo) < 2e-4 && Math.abs(v1 - hi) < 2e-4) {
-          match = p;
-          break;
-        }
-      }
-      if (!match) {
-        unmatched++;
-        continue;
-      }
-      match.placed++;
-      quads.push({
-        painting: paintings.indexOf(match),
-        pos: centre,
-        normal: v3(normal),
-        right: { x: eu.x / (w || 1), y: eu.y / (w || 1), z: eu.z / (w || 1) },
-        up: { x: ev.x / (h || 1), y: ev.y / (h || 1), z: ev.z / (h || 1) },
-        w,
-        h,
-        zone: L.zoneAt(centre.x, centre.z),
-        place: L.zoneName(centre.x, centre.z),
-        castShadow: mesh.castShadow,
-      });
-    }
-  });
-
-  return { paintings, quads, unmatched };
+  if (rec.train && rec.train.restore) rec.train.restore();
+  return true;
 }
 
 module.exports = {
   installHelpers,
+  collectMeta,
   collectConfig,
   callConfigFunctions,
   collectLevel,
   collectProps,
   probeCatalog,
+  collectSignage,
+  collectGlass,
   collectAtmos,
   startTrainWatch,
   readTrainWatch,
-  collectSignage,
+  stopTrainWatch,
 };

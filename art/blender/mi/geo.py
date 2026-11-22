@@ -722,6 +722,31 @@ def text_on_arc(body, radius, size=0.05, depth=0.003, bevel=0.0005, centre_deg=9
     return join(out, name)
 
 
+def recalc_normals(ob, inside=False):
+    """Make face winding consistent and outward (closed shapes). inside=True flips the result."""
+    bm = bm_of(ob)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    if inside:
+        bmesh.ops.reverse_faces(bm, faces=bm.faces)
+    return bm_to(ob, bm)
+
+
+def face_toward(ob, point, away=False):
+    """Flip the whole mesh if its faces do not look toward `point` (open shells: basin walls, skins)."""
+    me = ob.data
+    n = len(me.polygons)
+    c = np.empty(n * 3, dtype=np.float32)
+    nrm = np.empty(n * 3, dtype=np.float32)
+    me.polygons.foreach_get("center", c)
+    me.polygons.foreach_get("normal", nrm)
+    d = np.asarray(point, dtype=np.float32)[None, :] - c.reshape(-1, 3)
+    s_ = float(np.einsum("ij,ij->i", d, nrm.reshape(-1, 3)).sum())
+    if (s_ < 0) != bool(away):
+        me.flip_normals()
+        me.update()
+    return ob
+
+
 # ------------------------------------------------------------------------------------------- fasteners and instances
 
 def hex_bolt(d=0.016, head_h=None, washer=True, name="Bolt", chamfer=True):
@@ -912,9 +937,11 @@ def uv_world_box(ob, tile_m=2.0, offset=(0.0, 0.0), rotate90=False, layer=UV):
     return ob
 
 
-def uv_unwrap(ob, res=2048, angle=66.0, margin_px=8, method="SMART"):
+def uv_unwrap(ob, res=2048, angle=66.0, margin_px=8, method="SMART", pack="AABB", weights=None):
     """Unique-set UVs: smart project (or 'ANGLE' unwrap along sharp edges), then pack with a pixel margin.
-    Returns the texel density in px per metre at the given resolution."""
+    pack: 'AABB' (instant), 'CONVEX' or 'CONCAVE' (tighter, but minutes on meshes with many islands).
+    weights: optional per-polygon UV scale (array, or function of the face centre (x, y, z)): give hidden or
+    unimportant faces 0.3 and the visible ones get the texels. Returns the median texel density in px per metre."""
     me = ob.data
     if not me.uv_layers:
         me.uv_layers.new(name=UV)
@@ -923,19 +950,34 @@ def uv_unwrap(ob, res=2048, angle=66.0, margin_px=8, method="SMART"):
     bpy.ops.mesh.select_all(action="SELECT")
     margin = margin_px / float(res)
     if method == "SMART":
-        bpy.ops.uv.smart_project(angle_limit=math.radians(angle), island_margin=margin, area_weight=0.0,
-                                 correct_aspect=True, scale_to_bounds=False)
+        bpy.ops.uv.smart_project(angle_limit=math.radians(angle), margin_method="FRACTION", island_margin=margin,
+                                 area_weight=0.0, correct_aspect=True, scale_to_bounds=False)
     else:
         bpy.ops.mesh.mark_seam(clear=True)
+        bpy.ops.mesh.select_all(action="DESELECT")
         bpy.ops.mesh.edges_select_sharp(sharpness=math.radians(angle))
         bpy.ops.mesh.mark_seam(clear=False)
         bpy.ops.mesh.select_all(action="SELECT")
         bpy.ops.uv.unwrap(method="ANGLE_BASED", margin=margin)
+    if weights is not None:
+        bpy.ops.object.mode_set(mode="OBJECT")
+        npoly = len(me.polygons)
+        if callable(weights):
+            c = np.empty(npoly * 3, dtype=np.float32)
+            me.polygons.foreach_get("center", c)
+            c = c.reshape(-1, 3)
+            weights = weights(c[:, 0], c[:, 1], c[:, 2])
+        lt = np.empty(npoly, dtype=np.int32)
+        me.polygons.foreach_get("loop_total", lt)
+        wl = np.repeat(np.asarray(weights, dtype=np.float32), lt)
+        uv = np.empty(len(me.loops) * 2, dtype=np.float32)
+        me.uv_layers.active.data.foreach_get("uv", uv)
+        uv = uv.reshape(-1, 2) * wl[:, None]
+        me.uv_layers.active.data.foreach_set("uv", uv.ravel())
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.uv.select_all(action="SELECT")
-    try:
-        bpy.ops.uv.pack_islands(rotate=True, margin_method="FRACTION", margin=margin, shape_method="CONCAVE")
-    except TypeError:
-        bpy.ops.uv.pack_islands(rotate=True, margin=margin)
+    bpy.ops.uv.pack_islands(rotate=True, margin_method="FRACTION", margin=margin, shape_method=pack)
     bpy.ops.object.mode_set(mode="OBJECT")
     return uv_texel_density(ob, res)
 

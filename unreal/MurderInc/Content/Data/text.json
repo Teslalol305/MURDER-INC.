@@ -1,0 +1,578 @@
+{
+  "meta": {
+    "file": "text.json",
+    "about": "Every string table a player can read: the copy deck (G.config.text), the brand lines, the input glyph and hint tables, the interface labels, the static text of the page, and the lettering painted in the world.",
+    "game": "MURDER INC.",
+    "schema": 1,
+    "generator": "tools/ue-export/export.cjs",
+    "spec": "docs/unreal/spec/08-data-export.md",
+    "seed": 1994,
+    "readFrom": "the running web game (window.__G, three.js r160), every module real",
+    "units": {
+      "web": "metres, seconds, radians; +Y up, north = -Z, east = +X (right-handed)",
+      "ue": "centimetres, degrees; +Z up, X = east, Y = south (left-handed)"
+    },
+    "conversion": "ue (X, Y, Z) = web (x, z, y) * 100; ue yaw = atan2(web z, web x) of a direction = -rotationY of a prop, in degrees",
+    "numbers": "rounded to 4 decimals",
+    "encoding": {
+      "templates": "a line that takes a value is written as {\"$template\": {template, params, formats, source, example}}: `template` has the parameters as {name}; `formats` says how a number is written",
+      "functions": "a function that is not a plain template is written as {\"$function\": {params, source, samples}}"
+    }
+  },
+  "brand": {
+    "source": "G.config.brand (src/config/brand.js); its colour and font tokens are in config.json",
+    "title": "MURDER INC.",
+    "titlePlain": "Murder Inc.",
+    "presenter": "IPX PRESENTS",
+    "starLine": "STARRING JA RULE",
+    "ipx": { "wordmark": "IPX", "url": "IPX.EXCHANGE" }
+  },
+  "text": {
+    "source": "G.config.text (src/config/text.js)",
+    "banners": {
+      "contact": {
+        "$template": {
+          "template": "Contact — {dir}",
+          "params": ["dir"],
+          "formats": {},
+          "source": "(dir) => `Contact — ${dir}`",
+          "example": { "args": ["NORTH-EAST"], "value": "Contact — NORTH-EAST" }
+        }
+      },
+      "wave": {
+        "$template": {
+          "template": "Wave {n} — {dir}",
+          "params": ["n", "dir"],
+          "formats": {},
+          "source": "(n, dir) => `Wave ${n} — ${dir}`",
+          "example": { "args": [3, "EAST"], "value": "Wave 3 — EAST" }
+        }
+      },
+      "countdown": {
+        "$template": {
+          "template": "Wave {n} in {secs}",
+          "params": ["n", "secs"],
+          "formats": {},
+          "source": "(n, secs) => `Wave ${n} in ${secs}`",
+          "example": { "args": [3, 3], "value": "Wave 3 in 3" }
+        }
+      }
+    },
+    "boot": {
+      "first": "Waking up the block",
+      "render": "Warming up the renderer",
+      "mats": "Mixing brick, chrome and neon",
+      "props": "Parking cars on the avenue",
+      "level": "Raising the El",
+      "atmos": "Lighting the block",
+      "fx": "Loading tracers and smoke",
+      "weapon": "Racking the Chopper",
+      "enemies": "Waking the Vultures",
+      "wait": "Waiting on the next train",
+      "ready": "Ready",
+      "fatal": {
+        "$template": {
+          "template": "Murder Inc. could not start: {error}",
+          "params": ["error"],
+          "formats": {},
+          "source": "(error) => `Murder Inc. could not start: ${error}`",
+          "example": { "args": ["WebGL is not available"], "value": "Murder Inc. could not start: WebGL is not available" }
+        }
+      },
+      "contextLost": "The graphics context was lost. Reload the page to continue."
+    },
+    "cards": {
+      "pause": {
+        "kicker": "Hold up",
+        "title": "Paused",
+        "resume": "Resume",
+        "settings": "Settings",
+        "controls": "Controls",
+        "restart": "Restart run"
+      },
+      "dead": {
+        "kicker": "Rule down",
+        "title": "Lights out",
+        "stats": {
+          "time": "Time on the block",
+          "reels": "Reels recovered",
+          "waves": "Waves cleared",
+          "kills": "Vultures dropped",
+          "score": "Score",
+          "best": "Best"
+        },
+        "retry": "Run it back"
+      },
+      "debrief": {
+        "kicker": "Hollis, Queens · Debrief",
+        "title": "The block is yours",
+        "stats": {
+          "rating": "Certification",
+          "time": "Time",
+          "accuracy": "Accuracy",
+          "kills": "Vultures dropped",
+          "retries": "Retries"
+        },
+        "again": "Run it back"
+      }
+    },
+    "compass": ["NORTH", "NORTH-EAST", "EAST", "SOUTH-EAST", "SOUTH", "SOUTH-WEST", "WEST", "NORTH-WEST"],
+    "difficulties": { "hustler": "Hustler", "boss": "Boss", "kingpin": "Kingpin" },
+    "enemies": {
+      "goon": { "name": "Goon", "down": "Goon down" },
+      "buzzard": { "name": "Buzzard", "down": "Buzzard down" },
+      "headshot": "Headshot"
+    },
+    "explosives": { "propane": "Propane tank", "rack": "Welding rack" },
+    "extraction": { "label": "IPX truck", "code": "IPX" },
+    "location": {
+      "place": "Hollis, Queens · Jamaica Ave · 4:15 PM",
+      "tagline": "Three reels. One block. No backup.",
+      "taglineHoldout": "One block. Endless Vultures.",
+      "byTime": { "day": "Hollis, Queens · Jamaica Ave · 4:15 PM", "night": "Hollis, Queens · Jamaica Ave · 02:14 AM" }
+    },
+    "modes": {
+      "mission": { "name": "Story", "note": "Take back three master reels and reach the IPX truck. About five minutes." },
+      "holdout": {
+        "name": "Hold the Block",
+        "note": "Endless waves that keep growing. Resupply between waves. How long can you hold it down?"
+      }
+    },
+    "notes": {
+      "difficulty": "Difficulty changes take effect at once; Vultures already on the block keep their health.",
+      "time": "Time of day changes when the next run starts."
+    },
+    "objectives": {
+      "mission": ["Take back the three master reels", "Two reels left", "Last reel", "Get to the IPX truck"],
+      "holdout": { "inbound": "Vultures inbound", "hold": "Hold the block", "breather": "Catch your breath" },
+      "tally": {
+        "standby": "Stand by",
+        "wave": {
+          "$template": {
+            "template": "Wave {n} · {score}",
+            "params": ["n", "score"],
+            "formats": { "score": "rounded to a whole number, en-US digit grouping (12,345)" },
+            "source": "(n, score) => `Wave ${n} · ${Math.round(score).toLocaleString('en-US')}`",
+            "example": { "args": [3, 12345], "value": "Wave 3 · 12,345" }
+          }
+        }
+      }
+    },
+    "prompts": {
+      "grab": {
+        "$template": {
+          "template": "Hold {glyph} — Grab reel {code}",
+          "params": ["glyph", "code"],
+          "formats": {},
+          "source": "(glyph, code) => `Hold ${glyph} — Grab reel ${code}`",
+          "example": { "args": ["E", "1"], "value": "Hold E — Grab reel 1" }
+        }
+      },
+      "refuse": "Reels still out there — the truck won't roll without all three"
+    },
+    "radio": {
+      "speaker": "IPX VAULT",
+      "intro": {
+        "text": "Rule, it's the Vault. Vultures stashed your three masters on this block — the avenue, the chop shop, the cage. Bring them home.",
+        "secs": 4.4
+      },
+      "introHoldout": {
+        "text": "Rule, it's the Vault. The Vultures want the whole block back. Hold it down as long as you can.",
+        "secs": 4
+      },
+      "contact": { "text": "They made you. Goons on foot, Buzzards in the air. Handle it.", "secs": 3.2 },
+      "reel": [
+        { "text": "One reel back in your hands. They felt that — more coming.", "secs": 3.6 },
+        { "text": "Two reels. They're throwing the whole crew at you now.", "secs": 3.6 },
+        { "text": "That's all three. The IPX truck is idling at the south end of the lot. Move.", "secs": 4.5 }
+      ],
+      "lowHealth": { "text": "You're hit bad. Get behind something solid and breathe.", "secs": 3 },
+      "done": { "text": "Masters are in the vault. The block is yours, Rule.", "secs": 2.4 },
+      "waveClear": {
+        "text": {
+          "$template": {
+            "template": "Wave {n} down. Resupply at your feet — 9 seconds.",
+            "params": ["n"],
+            "formats": {},
+            "source": "(n) => `Wave ${n} down. Resupply at your feet — 9 seconds.`",
+            "example": { "args": [3], "value": "Wave 3 down. Resupply at your feet — 9 seconds." }
+          }
+        },
+        "secs": 3.4
+      }
+    },
+    "ratings": ["Demo", "Mixtape", "Single", "Gold", "Platinum", "Diamond"],
+    "reels": {
+      "item": "Master reel",
+      "list": [
+        { "id": "reel1", "code": "1", "label": "Reel 1 — The Avenue" },
+        { "id": "reel2", "code": "2", "label": "Reel 2 — Chop Shop" },
+        { "id": "reel3", "code": "3", "label": "Reel 3 — The Cage" }
+      ]
+    },
+    "title": {
+      "eyebrow": "IPX PRESENTS · HOLLIS, QUEENS",
+      "wordmark": "MURDER INC.",
+      "star": "STARRING JA RULE",
+      "premise": "The Vultures jacked three master reels. Take the block back. Get them to the truck.",
+      "note": "Every street, sound and beat is generated in your browser. No art or audio files.",
+      "start": "Hit the block",
+      "settings": "Settings",
+      "controls": "Controls"
+    },
+    "weapons": {
+      "chopper": { "name": "CHOPPER", "blurb": "Compact automatic carbine, 30 rounds" },
+      "nine": { "name": "NINE", "blurb": "9 mm pistol, 15 rounds, never runs dry" },
+      "melee": { "nine": "Pistol whip", "chopper": "Rifle butt" }
+    },
+    "world": {
+      "shop": "V&R AUTO BODY",
+      "storefronts": [
+        "HOLLIS DELI & GROCERY",
+        "CROWN & FADE BARBER",
+        "PAWN & GOLD",
+        "TAPES · RECORDS · CDs",
+        "GOLDEN BIRD CHICKEN",
+        "WINES & LIQUORS",
+        "LUCKY NAILS",
+        "24 HR LAUNDROMAT",
+        "CHECKS CASHED",
+        "99¢ PIZZA"
+      ]
+    },
+    "zoneName": {
+      "$function": {
+        "params": ["id", "z"],
+        "source": "(id, z = 0) => (id === 'lot' && z < -7 ? zones.cage : zones[id] || zones.avenue)",
+        "samples": [
+          { "args": ["west", -20], "value": "WEST END" },
+          { "args": ["west", -7], "value": "WEST END" },
+          { "args": ["west", 0], "value": "WEST END" },
+          { "args": ["west", 20], "value": "WEST END" },
+          { "args": ["avenue", -20], "value": "THE AVENUE" },
+          { "args": ["avenue", -7], "value": "THE AVENUE" },
+          { "args": ["avenue", 0], "value": "THE AVENUE" },
+          { "args": ["avenue", 20], "value": "THE AVENUE" },
+          { "args": ["shop", -20], "value": "CHOP SHOP" },
+          { "args": ["shop", -7], "value": "CHOP SHOP" },
+          { "args": ["shop", 0], "value": "CHOP SHOP" },
+          { "args": ["shop", 20], "value": "CHOP SHOP" },
+          { "args": ["lot", -20], "value": "THE CAGE" },
+          { "args": ["lot", -7], "value": "THE LOT" },
+          { "args": ["lot", 0], "value": "THE LOT" },
+          { "args": ["lot", 20], "value": "THE LOT" },
+          { "args": ["cage", -20], "value": "THE CAGE" },
+          { "args": ["cage", -7], "value": "THE CAGE" },
+          { "args": ["cage", 0], "value": "THE CAGE" },
+          { "args": ["cage", 20], "value": "THE CAGE" },
+          { "args": ["nowhere", -20], "value": "THE AVENUE" },
+          { "args": ["nowhere", -7], "value": "THE AVENUE" },
+          { "args": ["nowhere", 0], "value": "THE AVENUE" },
+          { "args": ["nowhere", 20], "value": "THE AVENUE" }
+        ]
+      }
+    },
+    "zones": { "west": "WEST END", "avenue": "THE AVENUE", "shop": "CHOP SHOP", "lot": "THE LOT", "cage": "THE CAGE" }
+  },
+  "input": {
+    "source": "G.config.player (src/config/player.js): what a control is called on each device, the look-mode hints, the captions of the touch buttons [id, glyph, label, caption]",
+    "glyphs": {
+      "kbm": {
+        "fire": "LMB",
+        "ads": "RMB",
+        "jump": "SPACE",
+        "sprint": "SHIFT",
+        "crouch": "C",
+        "reload": "R",
+        "interact": "E",
+        "swap": "Q",
+        "weapon1": "1",
+        "weapon2": "2",
+        "melee": "F",
+        "pause": "ESC"
+      },
+      "pad": {
+        "fire": "RT",
+        "ads": "LT",
+        "jump": "A",
+        "sprint": "L3",
+        "crouch": "B",
+        "reload": "X",
+        "interact": "X",
+        "swap": "Y",
+        "weapon1": "←",
+        "weapon2": "→",
+        "melee": "RB",
+        "pause": "START"
+      },
+      "touch": {
+        "fire": "FIRE",
+        "ads": "AIM",
+        "jump": "JUMP",
+        "sprint": "STICK",
+        "crouch": "DUCK",
+        "reload": "RLD",
+        "interact": "USE",
+        "swap": "SWAP",
+        "weapon1": "SWAP",
+        "weapon2": "SWAP",
+        "melee": "HIT",
+        "pause": "II"
+      },
+      "layoutCodes": { "crouch": "KeyC", "reload": "KeyR", "interact": "KeyE", "swap": "KeyQ", "melee": "KeyF" }
+    },
+    "hints": {
+      "locked": "Mouse is locked in. Esc lets it go.",
+      "click": "Click the street once to lock the mouse in.",
+      "resume": "Resume locks the mouse back in.",
+      "drag": "This browser won't lock the mouse: move it to look, rest it at a screen edge to keep turning. Click fires. Arrows or I J K L turn too.",
+      "pad": "",
+      "touch": ""
+    },
+    "touchButtons": [
+      ["fire", "fire", "Fire", ""],
+      ["fire2", "fire", "Fire (left thumb)", ""],
+      ["ads", "ads", "Aim", ""],
+      ["jump", "jump", "Jump", ""],
+      ["crouch", "crouch", "Crouch", ""],
+      ["reload", "reload", "Reload", ""],
+      ["swap", "swap", "Swap weapon", ""],
+      ["melee", "melee", "Melee strike", ""],
+      ["interact", "interact", "Use", "USE"],
+      ["pause", "pause", "Pause", ""]
+    ]
+  },
+  "interface": {
+    "source": "src/ui/copy.js imported in Node: the HUD and the menus import this file directly, it is not reachable from window.__G",
+    "cards": { "toTitle": "Back to title", "newBest": "New best", "ipxLine": "An IPX production" },
+    "controls": {
+      "kbm": {
+        "title": "Keyboard · Mouse",
+        "rows": [
+          ["Move", ["W", "A", "S", "D"]],
+          ["Look", ["Mouse"]],
+          ["Fire", ["LMB"]],
+          ["Aim", ["RMB"]],
+          ["Reload", ["R"]],
+          ["Swap weapon", ["Q", "Wheel", "1", "2"]],
+          ["Grab a reel", ["Hold E"]],
+          ["Jump", ["Space"]],
+          ["Sprint", ["Shift"]],
+          ["Crouch", ["C"]],
+          ["Melee", ["F"]],
+          ["Pause", ["Esc", "P"]]
+        ],
+        "note": "If the browser won't lock the mouse, move it to look and rest it at a screen edge to keep turning. Arrows or I J K L turn too, and Enter fires."
+      },
+      "touch": {
+        "title": "Touch",
+        "rows": [
+          ["Move", ["Left thumb"]],
+          ["Look", ["Drag right side"]],
+          ["Fire", [{ "glyph": "fire" }], "hold; drag to track"],
+          ["Fire, left thumb", [{ "glyph": "fire" }], "the small trigger on the left"],
+          ["Aim", [{ "glyph": "ads" }], "toggles"],
+          ["Reload", [{ "glyph": "reload" }]],
+          ["Swap weapon", [{ "glyph": "swap" }], "or tap a weapon slot"],
+          ["Grab a reel", [{ "glyph": "interact", "label": "USE" }], "hold it"],
+          ["Jump", [{ "glyph": "jump" }]],
+          ["Crouch", [{ "glyph": "crouch" }], "toggles"],
+          ["Melee", [{ "glyph": "melee" }]],
+          ["Sprint", ["Stick"], "pushed all the way forward"],
+          ["Sprint lock", [{ "glyph": "sprint" }], "tap the arrow above the stick to keep running"],
+          ["Pause", [{ "glyph": "pause" }], "beside the map"]
+        ],
+        "note": ""
+      },
+      "pad": {
+        "title": "Controller",
+        "rows": [
+          ["Move / look", ["L stick", "R stick"]],
+          ["Fire", ["RT"]],
+          ["Aim", ["LT"]],
+          ["Reload", ["X"], "hold X at a reel to grab it"],
+          ["Swap weapon", ["Y", "D-pad"]],
+          ["Jump", ["A"]],
+          ["Crouch", ["B", "LB"]],
+          ["Sprint", ["L3"]],
+          ["Melee", ["RB", "R3"]],
+          ["Pause", ["Start"]]
+        ],
+        "note": "In menus the D-pad or left stick moves the selection, A accepts, B goes back. Browsers only start sound after a click or a key press, so a controller-only start can be silent until one click."
+      }
+    },
+    "glance": [
+      ["Move", ["W", "A", "S", "D"]],
+      ["Fire", ["LMB"]],
+      ["Aim", ["RMB"]],
+      ["Reload", ["R"]],
+      ["Swap", ["Q"]],
+      ["Grab", ["Hold E"]],
+      ["Sprint", ["Shift"]],
+      ["Crouch", ["C"]],
+      ["Melee", ["F"]],
+      ["Pause", ["Esc"]]
+    ],
+    "glanceOther": [
+      ["Controller", "Sticks · RT fire · LT aim · X reload · Y swap"],
+      ["Touch", "Left thumb moves · right side looks · the bullet button fires"]
+    ],
+    "hud": {
+      "objective": "Objective",
+      "wave": "Wave",
+      "hp": "HP",
+      "melee": "Melee",
+      "pause": "Pause",
+      "settings": "Settings",
+      "cue": {
+        "reloading": "Reloading",
+        "low": "Low ammo",
+        "reload": "Reload",
+        "emptySwap": {
+          "$template": {
+            "template": "Empty — {glyph} swaps",
+            "params": ["glyph"],
+            "formats": {},
+            "source": "(glyph) => `Empty — ${glyph} swaps`",
+            "example": { "args": ["Q"], "value": "Empty — Q swaps" }
+          }
+        },
+        "emptyTouch": "Empty — swap"
+      },
+      "zones": { "west": "West End", "avenue": "The Avenue", "shop": "Chop Shop", "cage": "The Cage", "lot": "The Lot" }
+    },
+    "location": { "day": "Hollis, Queens · Jamaica Ave · 4:15 PM", "night": "Hollis, Queens · Jamaica Ave · 02:14 AM" },
+    "panel": {
+      "label": "Settings and controls",
+      "close": "Close",
+      "tabs": { "settings": "Settings", "controls": "Controls" },
+      "difficulty": "Difficulty",
+      "view": "Weapon position",
+      "views": { "1": "Close", "2": "Three-quarter", "3": "Compact" },
+      "quality": "Graphics quality",
+      "qualities": { "low": "Low", "medium": "Medium", "high": "High", "ultra": "Ultra" },
+      "auto": "Auto",
+      "sens": "Look sensitivity",
+      "invertY": "Invert Y",
+      "on": "On",
+      "off": "Off",
+      "volume": "Master volume",
+      "fov": "Field of view",
+      "display": "Display",
+      "fullscreenEnter": "Enter fullscreen",
+      "fullscreenExit": "Exit fullscreen",
+      "fullscreenFail": "Fullscreen is not available here",
+      "noteAuto": {
+        "$template": {
+          "template": "Quality was picked for this device ({tier}). Lower it if the frame rate struggles.",
+          "params": ["tier"],
+          "formats": {},
+          "source": "(tier) => `Quality was picked for this device (${tier}). Lower it if the frame rate struggles.`",
+          "example": {
+            "args": ["medium"],
+            "value": "Quality was picked for this device (medium). Lower it if the frame rate struggles."
+          }
+        }
+      },
+      "noteManual": "Changes apply at once. Shadows and reflections may take a moment to catch up.",
+      "noteDifficulty": "Difficulty changes take effect at once; Vultures already on the block keep their health."
+    },
+    "title": {
+      "eyebrow": "Presents · Hollis, Queens",
+      "modeLabel": "Mode",
+      "difficultyLabel": "Difficulty",
+      "timeLabel": "Time",
+      "times": { "day": "Day", "night": "Night" },
+      "timeNotes": { "day": "4:15 PM. Sun through the El.", "night": "02:14 AM. Sodium and neon." },
+      "glance": "Controls at a glance"
+    }
+  },
+  "page": {
+    "source": "the static markup of the page as the browser shows it (src/page.html): tab title, boot screen, canvas label",
+    "title": "Murder Inc.",
+    "boot": {
+      "presenter": ["IPX", "presents"],
+      "wordmark": "MURDER INC.",
+      "star": "Starring Ja Rule",
+      "note": "Every street, sound and beat is generated in your browser. No art or audio files."
+    },
+    "canvasLabel": "Murder Inc. game view"
+  },
+  "lettering": {
+    "source": "what the level asked the materials library to paint (G.mats.sign / graffiti / poster, heard by lib/hooks.cjs): `uses` is how many quads carry it. Where each one hangs is in level.json `signage`. Poster artwork is drawn by src/mats/paper.js and has no text table.",
+    "signs": [
+      { "text": "188 ST", "sub": "ELEVATED  ·  CLOSED 1 AM – 5 AM", "style": "plate", "uses": 1 },
+      { "text": "188 ST", "sub": "STATION CLOSED", "style": "plate", "uses": 2 },
+      { "text": "24 HR LAUNDROMAT", "sub": null, "style": "box", "uses": 1 },
+      { "text": "CROWN & FADE BARBER", "sub": null, "style": "neon", "uses": 1 },
+      { "text": "V&R AUTO BODY", "sub": "COLLISION  ·  FRAME  ·  PAINT", "style": "painted", "uses": 1 },
+      { "text": "HOLLIS DELI & GROCERY", "sub": "OPEN 24 HRS  ·  COLD CUTS  ·  COFFEE  ·  LOTTO", "style": "box", "uses": 1 },
+      { "text": "CHECKS CASHED", "sub": "MONEY ORDERS  ·  BILLS PAID", "style": "neon", "uses": 1 },
+      { "text": "99¢ PIZZA", "sub": "SLICES ALL NIGHT", "style": "box", "uses": 1 },
+      { "text": "PAWN & GOLD", "sub": "WE BUY GOLD  ·  LOANS", "style": "neon", "uses": 1 },
+      { "text": "TAPES · RECORDS · CDs", "sub": null, "style": "neon", "uses": 1 },
+      { "text": "GOLDEN BIRD CHICKEN", "sub": "FRIED  ·  WINGS  ·  BISCUITS", "style": "box", "uses": 1 },
+      { "text": "WINES & LIQUORS", "sub": null, "style": "neon", "uses": 1 },
+      { "text": "LUCKY NAILS", "sub": "MANICURE  ·  PEDICURE", "style": "neon", "uses": 1 },
+      { "text": "PARK", "sub": "24 HR  ·  PAY AT BOOTH", "style": "painted", "uses": 1 },
+      { "text": "41", "sub": null, "style": "stencil", "uses": 1 },
+      { "text": "42", "sub": null, "style": "stencil", "uses": 1 },
+      { "text": "43", "sub": null, "style": "stencil", "uses": 1 },
+      { "text": "44", "sub": null, "style": "stencil", "uses": 1 },
+      { "text": "45", "sub": null, "style": "stencil", "uses": 1 },
+      { "text": "46", "sub": null, "style": "stencil", "uses": 1 },
+      { "text": "47", "sub": null, "style": "stencil", "uses": 1 },
+      { "text": "48", "sub": null, "style": "stencil", "uses": 1 },
+      { "text": "EXIT", "sub": null, "style": "box", "uses": 1 },
+      { "text": "V&R AUTO BODY", "sub": null, "style": "box", "uses": 1 },
+      { "text": "TIRES  ·  BRAKES  ·  EXHAUST", "sub": null, "style": "painted", "uses": 1 },
+      { "text": "INSPECTIONS  ·  24 HR TOWING", "sub": null, "style": "painted", "uses": 1 },
+      { "text": "FLAT FIX", "sub": "NO APPOINTMENT", "style": "stencil", "uses": 1 },
+      { "text": "POST NO BILLS", "sub": null, "style": "stencil", "uses": 3 },
+      { "text": "NO PARKING", "sub": "LOADING ZONE", "style": "stencil", "uses": 1 },
+      { "text": "PARK", "sub": "24 HR", "style": "neon", "uses": 2 },
+      { "text": "VIOLATORS TOWED", "sub": "AT OWNER'S EXPENSE", "style": "stencil", "uses": 1 },
+      { "text": "ROAD CLOSED", "sub": "EL STRUCTURE REPAIRS  ·  NO THRU TRAFFIC", "style": "box", "uses": 2 },
+      { "text": "CANDY  ·  SODA", "sub": null, "style": "painted", "uses": 1 },
+      { "text": "GOLDEN BIRD CHICKEN", "sub": null, "style": "awning", "uses": 1 },
+      { "text": "WINES & LIQUORS", "sub": null, "style": "awning", "uses": 1 },
+      { "text": "LUCKY NAILS", "sub": null, "style": "awning", "uses": 1 },
+      { "text": "SIDEWALK SHED  ·  PERMIT 0214  ·  STORES OPEN DURING WORK", "sub": null, "style": "stencil", "uses": 1 },
+      { "text": "NEWS  ·  MAGAZINES  ·  LOTTO", "sub": null, "style": "painted", "uses": 1 },
+      { "text": "USED TIRES", "sub": "ALL SIZES  ·  MOUNTED FREE", "style": "stencil", "uses": 1 },
+      { "text": "DANGER", "sub": "STEAM  ·  KEEP OUT", "style": "box", "uses": 2 },
+      { "text": "SIDEWALK CLOSED", "sub": "USE WALKWAY", "style": "box", "uses": 2 },
+      { "text": "EL REPAIRS", "sub": "KEEP CLEAR", "style": "box", "uses": 4 }
+    ],
+    "graffiti": [
+      { "text": "VULTURES", "uses": 5 },
+      { "text": "VLTR", "uses": 4 },
+      { "text": "188", "uses": 3 },
+      { "text": "HOLLIS", "uses": 6 },
+      { "text": "QNS", "uses": 2 },
+      { "text": "RULE", "uses": 4 },
+      { "text": "QUEENS", "uses": 2 },
+      { "text": "NO SLEEP", "uses": 1 },
+      { "text": "JAMAICA AVE", "uses": 1 },
+      { "text": "INC", "uses": 1 }
+    ],
+    "posters": [
+      { "kind": "ad", "variant": 3, "uses": 2 },
+      { "kind": "show", "variant": 5, "uses": 5 },
+      { "kind": "wanted", "variant": 2, "uses": 2 },
+      { "kind": "torn", "variant": 4, "uses": 6 },
+      { "kind": "ad", "variant": 6, "uses": 1 },
+      { "kind": "ad", "variant": 8, "uses": 1 },
+      { "kind": "ipx", "variant": 1, "uses": 3 },
+      { "kind": "show", "variant": 12, "uses": 4 },
+      { "kind": "ipx", "variant": 31, "uses": 2 },
+      { "kind": "ad", "variant": 41, "uses": 2 },
+      { "kind": "torn", "variant": 42, "uses": 1 },
+      { "kind": "wanted", "variant": 40, "uses": 1 },
+      { "kind": "ipx", "variant": 42, "uses": 1 },
+      { "kind": "show", "variant": 43, "uses": 1 },
+      { "kind": "torn", "variant": 2, "uses": 1 },
+      { "kind": "show", "variant": 2, "uses": 2 }
+    ]
+  }
+}

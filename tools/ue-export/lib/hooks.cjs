@@ -4,12 +4,13 @@
 // (page.addInitScript) and runs before any game script.
 //
 // Most of what the export needs hangs off window.__G once the game has booted. Three things do not:
-// the list of placed props lives in the level's building kit (a closure), an oriented collider is
-// sliced into axis-aligned pieces before anyone can see it whole, and a sign's text is gone once it has
-// been painted onto an atlas page. So the hooks listen in on the four calls that carry that knowledge:
+// the list of placed props lives in the level's building kit (a closure) and the static ones are merged
+// away, an oriented collider is sliced into axis-aligned pieces before anyone can see it whole, and a
+// sign's text is gone once it has been painted onto an atlas page. So the hooks listen in on the calls
+// that carry that knowledge:
 //
-//   G.props.build(name, opts)                    every prop the level places (and the seed it drew)
-//   G.physics.addBox / addOriented               which call made each collider; the whole oriented box
+//   G.props.build(name, opts)                    every prop that is built (and the seed it drew)
+//   G.physics.addBox / addOriented               who added each collider; the whole oriented box
 //   G.mats.sign / poster / graffiti / decal      what was painted, and the atlas rectangle it landed on
 //   G.mats.facade                                the window grids of the facades
 //
@@ -17,7 +18,7 @@
 // and hands back the same result; it only remembers what it saw in window.__ue. The accessors that catch
 // the modules as main.js assigns them are turned back into plain properties when the last one is in.
 
-/** Module names in boot order (src/modules.js MODULES). A name missing here is simply not tracked. */
+/** Module names in boot order (src/modules.js MODULES). export.cjs checks the page booted in this order. */
 const MODULES = [
   'render', 'mats', 'physics', 'props', 'input', 'level', 'atmos', 'fx', 'audio', 'player', 'combat',
   'explosives', 'weapon', 'enemies', 'hud', 'menus', 'game',
@@ -26,36 +27,38 @@ const MODULES = [
 function installHooks(moduleNames) {
   const rec = {
     order: [], // module names, in the order main.js created them
-    builds: [], // {name, opts, prop, after, seed}: every props.build call
-    boxes: new Map(), // collider → {via: 'addBox' | 'addOriented', after, oriented, slice}
-    oriented: [], // {center, size, yaw, boxes, after}: every physics.addOriented call
-    paintings: [], // {kind, args, out, after}: every mats.sign / poster / graffiti / decal call
-    facades: [], // {spec, material, after}: every mats.facade call
+    builds: [], // {name, opts, prop, by, seed, seedGiven}: every props.build call
+    boxes: new Map(), // collider → {by, oriented}
+    oriented: [], // {center, size, yaw, boxes, by}: every physics.addOriented call
+    paintings: [], // {kind, args, out, by}: every mats.sign / poster / graffiti / decal call
+    facades: [], // {spec, material, by}: every mats.facade call
     drawn: null, // the last seed the prop factory drew from its own stream
     h: null, // page helpers, installed later (lib/collect.cjs)
   };
   window.__ue = rec;
 
-  const last = () => (rec.order.length ? rec.order[rec.order.length - 1] : null);
+  /** The module main.js is creating right now ('run' once the game has booted). */
+  const creating = () => moduleNames[rec.order.length] || 'run';
 
   function hookPhysics(api) {
     const { addBox, addOriented } = api;
     api.addBox = function hookedAddBox(spec) {
       const box = addBox.call(this, spec);
-      rec.boxes.set(box, { via: 'addBox', after: last(), oriented: null, slice: 0 });
+      rec.boxes.set(box, { by: creating(), oriented: null });
       return box;
     };
     api.addOriented = function hookedAddOriented(center, size, yaw = 0, opts = {}) {
+      // addOriented makes its pieces with the module's own addBox, not the wrapper above: label them here.
       const out = addOriented.call(this, center, size, yaw, opts);
       const entry = {
         center: Array.isArray(center) ? center.slice() : [center.x, center.y, center.z],
         size: Array.isArray(size) ? size.slice() : [size.x, size.y, size.z],
         yaw,
         boxes: out,
-        after: last(),
+        by: creating(),
       };
       rec.oriented.push(entry);
-      for (let i = 0; i < out.length; i++) rec.boxes.set(out[i], { via: 'addOriented', after: last(), oriented: entry, slice: i });
+      for (const box of out) rec.boxes.set(box, { by: entry.by, oriented: entry });
       return out;
     };
   }
@@ -67,7 +70,7 @@ function installHooks(moduleNames) {
       const prop = build.call(this, name, opts);
       // The factory draws a seed from its own stream when the caller gave none (src/props.js build()).
       const given = Number.isFinite(opts.seed);
-      rec.builds.push({ name, opts: { ...opts }, prop, after: last(), seed: given ? Math.abs(Math.floor(opts.seed)) : rec.drawn, seedGiven: given });
+      rec.builds.push({ name, opts: { ...opts }, prop, by: creating(), seed: given ? Math.abs(Math.floor(opts.seed)) : rec.drawn, seedGiven: given });
       return prop;
     };
   }
@@ -78,7 +81,7 @@ function installHooks(moduleNames) {
       if (typeof paint !== 'function') continue;
       api[kind] = function hookedPaint(...args) {
         const out = paint.apply(this, args);
-        rec.paintings.push({ kind, args: args.map((a) => (a && typeof a === 'object' ? { ...a } : a)), out, after: last() });
+        rec.paintings.push({ kind, args: args.map((a) => (a && typeof a === 'object' ? { ...a } : a)), out, by: creating() });
         return out;
       };
     }
@@ -86,7 +89,7 @@ function installHooks(moduleNames) {
     if (typeof facade === 'function') {
       api.facade = function hookedFacade(spec) {
         const material = facade.call(this, spec);
-        rec.facades.push({ spec: { ...spec }, material, after: last() });
+        rec.facades.push({ spec: { ...spec }, material, by: creating() });
         return material;
       };
     }

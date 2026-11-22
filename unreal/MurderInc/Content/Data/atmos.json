@@ -1,0 +1,5070 @@
+{
+  "meta": {
+    "file": "atmos.json",
+    "about": "Light and sky: both lighting rigs as the running game sets them, the sky and haze parameters, every lamp of the block, the lit signs and the windows that glow at night.",
+    "game": "MURDER INC.",
+    "schema": 1,
+    "generator": "tools/ue-export/export.cjs",
+    "spec": "docs/unreal/spec/08-data-export.md",
+    "seed": 1994,
+    "readFrom": "the running web game (window.__G, three.js r160), every module real",
+    "units": {
+      "web": "metres, seconds, radians; +Y up, north = -Z, east = +X (right-handed)",
+      "ue": "centimetres, degrees; +Z up, X = east, Y = south (left-handed)"
+    },
+    "conversion": "ue (X, Y, Z) = web (x, z, y) * 100; ue yaw = atan2(web z, web x) of a direction = -rotationY of a prop, in degrees",
+    "numbers": "rounded to 4 decimals",
+    "colours": "`hex` is sRGB, `linear` is linear RGB (what an FLinearColor takes); radiance triples are scene-referred linear values where 1 is where bloom starts at night",
+    "intensities": "three.js r160 light units as the game sets them (the key and the ambient as directional / hemisphere intensities, a lamp as the intensity of the spot light it gets). They were tuned by eye against the exposure of the same rig: use them for the balance between lights, not as photometric values.",
+    "counts": {
+      "lamps": 90,
+      "lampsByKind": { "el": 15, "window": 13, "neon": 19, "street": 22, "work": 17, "flood": 4 },
+      "litSigns": 17,
+      "litGlass": 57,
+      "litFacadeWindows": 79
+    },
+    "default": "day"
+  },
+  "rigs": {
+    "source": "read from the scene after G.atmos.setTime(name): G.atmos.sun (the one shadow-casting directional light), the hemisphere light, scene.fog, G.render.look (the grade). The remaining fields of each rig are G.config.look.times[name].",
+    "day": {
+      "key": {
+        "role": "the sun",
+        "color": { "hex": "#ffe6c6", "linear": [1, 0.7913, 0.5647] },
+        "intensity": 5,
+        "castsShadow": true,
+        "elevation": 51.9919,
+        "web": { "direction": { "x": 0.5529, "y": -0.7879, "z": -0.271 }, "toLight": { "x": -0.5529, "y": 0.7879, "z": 0.271 } },
+        "ue": {
+          "direction": { "X": 0.5529, "Y": -0.271, "Z": -0.7879 },
+          "toLight": { "X": -0.5529, "Y": 0.271, "Z": 0.7879 },
+          "rotator": { "Pitch": -51.9919, "Yaw": -26.1074, "Roll": 0 }
+        },
+        "shadow": { "radius": 1.2, "normalBias": 0.03, "biasMetres": 0.03 }
+      },
+      "ambient": {
+        "type": "hemisphere",
+        "sky": { "hex": "#c0c6cc", "linear": [0.5271, 0.5647, 0.6038] },
+        "ground": { "hex": "#b09474", "linear": [0.4342, 0.2961, 0.1746] },
+        "intensity": 1
+      },
+      "fog": {
+        "type": "FogExp2",
+        "color": { "hex": "#cbdaef", "linear": [0.6, 0.7, 0.86] },
+        "density": 0.0032,
+        "rule": "opacity = 1 - exp(-(density * distance in metres)^2) (three.js FogExp2); past the play bounds the haze thickens (config.json look.fog.endReach / endClear) and is tinted warm toward the west, cool toward the east (look.fog.tintWest / tintEast by night, look.dayFogTint by day)",
+        "opacityAt": [
+          { "web": 10, "ue": 1000, "opacity": 0.001 },
+          { "web": 25, "ue": 2500, "opacity": 0.0064 },
+          { "web": 50, "ue": 5000, "opacity": 0.0253 },
+          { "web": 92, "ue": 9200, "opacity": 0.083 },
+          { "web": 150, "ue": 15000, "opacity": 0.2058 },
+          { "web": 300, "ue": 30000, "opacity": 0.6021 }
+        ]
+      },
+      "grade": {
+        "toneMapping": "aces",
+        "exposure": 1.1,
+        "bloomStrength": 0.16,
+        "bloomRadius": 0.42,
+        "bloomThreshold": 2.4,
+        "bloomKnee": 0.6,
+        "vignette": 0.12,
+        "grain": 0.008,
+        "aberration": 0.0004,
+        "saturation": 1.05
+      },
+      "exposure": {
+        "toneMapping": "aces",
+        "exposure": 1.1,
+        "multiplier": 1,
+        "note": "final exposure = exposure x multiplier (G.render.exposure), applied before the tone map; inside the shop it is multiplied by `interior.exposure`"
+      },
+      "bloom": {
+        "strength": 0.16,
+        "radius": 0.42,
+        "threshold": 2.4,
+        "knee": 0.6,
+        "note": "threshold is scene-referred linear radiance before exposure"
+      },
+      "environment": { "intensity": 1, "skyGain": 0.6, "facade": [0.24, 0.18, 0.14], "street": [0.19, 0.17, 0.15] },
+      "interior": { "exposure": 1.35, "ambient": 0.62, "ambientSky": "#d8d0c4", "fog": 0.5 },
+      "lampGain": { "street": 0, "el": 0, "work": 1, "flood": 0, "neon": 0.35, "window": 0 },
+      "lampField": { "pools": false, "cones": false, "glows": false },
+      "city": { "sheet": [1.08, 1.05, 1.02], "windowGain": 0, "skylineSunk": [0.36, 0.56], "lights": false },
+      "train": { "emissive": 0.1, "stripes": false },
+      "life": { "steam": [0.82, 0.83, 0.86], "steamAlpha": 1.25, "spray": [0.85, 0.92, 1], "motes": false, "birds": true }
+    },
+    "night": {
+      "key": {
+        "role": "one steep warm key standing in for the street lights (the moon in the sky is `sky.night.moon`)",
+        "color": { "hex": "#ffb873", "linear": [1, 0.4793, 0.1714] },
+        "intensity": 2.6,
+        "castsShadow": true,
+        "elevation": 64.1661,
+        "web": { "direction": { "x": -0.342, "y": -0.9001, "z": -0.27 }, "toLight": { "x": 0.342, "y": 0.9001, "z": 0.27 } },
+        "ue": {
+          "direction": { "X": -0.342, "Y": -0.27, "Z": -0.9001 },
+          "toLight": { "X": 0.342, "Y": 0.27, "Z": 0.9001 },
+          "rotator": { "Pitch": -64.1661, "Yaw": -141.7098, "Roll": 0 }
+        },
+        "shadow": { "radius": 2.5, "normalBias": 0.035, "biasMetres": 0.045 }
+      },
+      "ambient": {
+        "type": "hemisphere",
+        "sky": { "hex": "#6e86be", "linear": [0.1559, 0.2384, 0.5149] },
+        "ground": { "hex": "#4a3a2c", "linear": [0.0685, 0.0423, 0.0252] },
+        "intensity": 1.7
+      },
+      "fog": {
+        "type": "FogExp2",
+        "color": { "hex": "#303035", "linear": [0.03, 0.03, 0.036] },
+        "density": 0.006,
+        "rule": "opacity = 1 - exp(-(density * distance in metres)^2) (three.js FogExp2); past the play bounds the haze thickens (config.json look.fog.endReach / endClear) and is tinted warm toward the west, cool toward the east (look.fog.tintWest / tintEast by night, look.dayFogTint by day)",
+        "opacityAt": [
+          { "web": 10, "ue": 1000, "opacity": 0.0036 },
+          { "web": 25, "ue": 2500, "opacity": 0.0222 },
+          { "web": 50, "ue": 5000, "opacity": 0.0861 },
+          { "web": 92, "ue": 9200, "opacity": 0.2627 },
+          { "web": 150, "ue": 15000, "opacity": 0.5551 },
+          { "web": 300, "ue": 30000, "opacity": 0.9608 }
+        ]
+      },
+      "grade": {
+        "toneMapping": "aces",
+        "exposure": 1.4,
+        "bloomStrength": 0.4,
+        "bloomRadius": 0.62,
+        "bloomThreshold": 1.05,
+        "bloomKnee": 0.4,
+        "vignette": 0.34,
+        "grain": 0.03,
+        "aberration": 0.001,
+        "saturation": 1.08
+      },
+      "exposure": {
+        "toneMapping": "aces",
+        "exposure": 1.4,
+        "multiplier": 1,
+        "note": "final exposure = exposure x multiplier (G.render.exposure), applied before the tone map; inside the shop it is multiplied by `interior.exposure`"
+      },
+      "bloom": {
+        "strength": 0.4,
+        "radius": 0.62,
+        "threshold": 1.05,
+        "knee": 0.4,
+        "note": "threshold is scene-referred linear radiance before exposure"
+      },
+      "environment": {
+        "intensity": 1,
+        "facade": [0.03, 0.022, 0.02],
+        "street": [0.02, 0.017, 0.016],
+        "lampGain": 9,
+        "maxLamps": 48
+      },
+      "interior": { "exposure": 0.86, "ambient": 0.62, "ambientSky": "#a9a0a0", "fog": 0.5, "rate": 2.2, "holdExplicit": 0.25 },
+      "lampGain": { "street": 1, "el": 1, "work": 1, "flood": 1, "neon": 1, "window": 1 },
+      "lampField": { "pools": true, "cones": true, "glows": true },
+      "city": { "sheet": [0.952, 0.918, 0.935], "windowGain": 1.275, "skylineSunk": [0.5, 0.74], "lights": true },
+      "train": { "emissive": 1, "stripes": true },
+      "life": { "steam": null, "steamAlpha": 1, "spray": [0.1, 0.12, 0.14], "motes": true, "birds": false }
+    }
+  },
+  "sky": {
+    "source": "G.config.look (src/config/look.js): what the two sky domes are painted from. Radiance triples are linear.",
+    "day": {
+      "zenith": [0.085, 0.2, 0.62],
+      "horizon": [0.62, 0.74, 0.92],
+      "horizonPower": 0.5,
+      "sun": { "radiance": [60, 54, 44], "radius": 0.0105, "aureole": [0.42, 0.33, 0.2], "aureoleTight": [1.4, 1.1, 0.7] },
+      "clouds": {
+        "amount": 1,
+        "coverage": 0.6,
+        "softness": 0.2,
+        "scale": 0.62,
+        "drift": [0.006, 0.0018],
+        "lit": [1.9, 1.86, 1.78],
+        "shade": [0.5, 0.56, 0.68]
+      },
+      "sunDisc": {
+        "note": "the disc stands where the key light comes from",
+        "web": { "toSun": { "x": -0.5529, "y": 0.7879, "z": 0.271 } },
+        "ue": { "toSun": { "X": -0.5529, "Y": 0.271, "Z": 0.7879 } }
+      },
+      "fogTint": { "west": [1.1, 1.04, 0.94], "east": [0.93, 0.98, 1.06] }
+    },
+    "night": {
+      "zenith": "#070b16",
+      "horizon": "#1a1522",
+      "glow": "#3a2a26",
+      "zenithRadiance": [0.0032, 0.0058, 0.0145],
+      "horizonRadiance": [0.011, 0.0135, 0.025],
+      "glowWest": [0.3, 0.115, 0.03],
+      "glowEast": [0.034, 0.026, 0.03],
+      "glowHeight": [0.07, 0.14],
+      "clouds": {
+        "amount": 0.75,
+        "scale": 1.15,
+        "stretch": [0.5, 1.5],
+        "drift": [0.011, 0.0035],
+        "litByGlow": 0.42,
+        "moonlit": [0.012, 0.016, 0.026]
+      },
+      "stars": { "density": 0.0016, "brightness": 0.55 },
+      "moon": { "direction": [0.86, 0.29, 0.42], "radius": 0.017, "radiance": [2.5, 2.35, 2], "halo": 0.22 },
+      "moonDisc": {
+        "note": "the moon is sky decoration; the night key light does not come from it",
+        "web": { "toMoon": { "x": 0.86, "y": 0.29, "z": 0.42 } },
+        "ue": { "toMoon": { "X": 0.86, "Y": 0.42, "Z": 0.29 } },
+        "elevation": 16.8571
+      },
+      "fogTint": { "west": [3.1, 1.5, 0.68], "east": [0.72, 0.9, 1.22] }
+    },
+    "clearColor": "#04050a",
+    "farCity": {
+      "wall": [0.56, 0.54, 0.55],
+      "windowGain": 1.7,
+      "litWindows": 0.2,
+      "switchers": 22,
+      "aviation": 9,
+      "skylineRadius": [215, 395],
+      "skylineHeight": [72, 118],
+      "skylineHaze": [0.5, 0.74],
+      "traffic": 5,
+      "plane": { "every": 85, "height": 150, "distance": 360, "speed": 46 }
+    }
+  },
+  "lamps": {
+    "source": "G.level.lamps: every light fixture of the block (the lamp hints of placed props included: `prop` is the index into props.json instances). aim: how the lamp shines when it holds one of the real lights, by the rule of src/atmos/lights.js (its own direction; a flood without one at the nearest reel; a sign or lit window out from the wall behind it and 35 degrees down; anything else straight down), checked here against the game's own spot lights for 56 of the 90 lamps. overDeck: the lamp hangs over a floor of the level (a platform, the mezzanine, the shed deck) at that height. By day only `work` lamps and dimmed `neon` lamps are lit (rigs.day.lampGain).",
+    "kinds": {
+      "source": "G.config.look.lamps: how each kind is drawn (ground pool, fixture glow, cone) and how strong its real light is",
+      "poolGain": 0.05,
+      "poolShadowFloor": 0.22,
+      "sheen": { "gain": 0.02, "color": "#f0b888", "cell": 2.3 },
+      "glowMinAngle": 0.0035,
+      "realGain": 1,
+      "rig": {
+        "reach": 14,
+        "lookAhead": 6,
+        "keep": 1.3,
+        "interval": 0.2,
+        "fadeOut": 0.3,
+        "fadeIn": 0.4,
+        "rangeScale": 1.2,
+        "spot": { "angle": 76, "penumbra": 0.7 }
+      },
+      "kinds": {
+        "street": {
+          "ref": 90,
+          "realGain": 1.3,
+          "pool": { "radius": 0.36, "min": 4.5, "max": 8, "gain": 1, "shadowed": true },
+          "glow": { "size": 1.5, "core": 5, "halo": 0.34 },
+          "cone": { "angle": 37, "gain": 0.03 },
+          "env": 1
+        },
+        "el": {
+          "ref": 30,
+          "realGain": 1.5,
+          "pool": { "radius": 0.34, "min": 3, "max": 5, "gain": 1.2 },
+          "glow": { "size": 0.95, "core": 4.2, "halo": 0.3 },
+          "cone": { "angle": 34, "gain": 0.028 },
+          "env": 0.8
+        },
+        "work": {
+          "ref": 34,
+          "realGain": 3.4,
+          "pool": { "radius": 0.4, "min": 3.5, "max": 6.5, "gain": 1.5 },
+          "glow": { "size": 0.7, "core": 4.5, "halo": 0.22 },
+          "cone": null,
+          "env": 0.9
+        },
+        "flood": {
+          "ref": 160,
+          "realGain": 1.7,
+          "spot": { "angle": 52, "penumbra": 0.28 },
+          "pool": { "radius": 0.36, "min": 7, "max": 13, "gain": 3.4, "hard": 0.75, "cap": 0.5, "shadowed": true },
+          "glow": { "size": 2.7, "core": 9, "halo": 0.4 },
+          "cone": { "angle": 30, "gain": 0.02, "length": 0.95 },
+          "env": 1.3
+        },
+        "neon": {
+          "ref": 12,
+          "realGain": 1.4,
+          "spot": { "angle": 86, "penumbra": 0.8 },
+          "pool": { "radius": 0.5, "min": 3, "max": 5.5, "gain": 4.5, "cap": 0.3, "stretch": 1.7 },
+          "glow": { "size": 2.6, "core": 0, "halo": 0.035 },
+          "cone": null,
+          "env": 1.2
+        },
+        "window": {
+          "ref": 10,
+          "realGain": 1,
+          "spot": { "angle": 86, "penumbra": 0.8 },
+          "pool": { "radius": 0.5, "min": 2, "max": 4, "gain": 0.8 },
+          "glow": { "size": 1.2, "core": 0, "halo": 0.08 },
+          "cone": null,
+          "env": 0.5
+        }
+      },
+      "fallbackKind": "street",
+      "flicker": { "count": 2, "kinds": ["street", "el"], "belowPriority": 6 },
+      "beyond": {
+        "reach": 150,
+        "streetEvery": 31,
+        "streetIntensity": 90,
+        "streetRange": 20,
+        "streetHeight": 7.7,
+        "elIntensity": 30,
+        "elRange": 12
+      }
+    },
+    "byKind": { "el": 15, "window": 13, "neon": 19, "street": 22, "work": 17, "flood": 4 },
+    "list": [
+      {
+        "index": 0,
+        "kind": "el",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 30,
+        "range": { "web": 13, "ue": 1300 },
+        "priority": 5,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": null,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": -40, "y": 5.5, "z": 2.1 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -4000, "Y": 210, "Z": 550 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 1,
+        "kind": "el",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 30,
+        "range": { "web": 13, "ue": 1300 },
+        "priority": 5,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": null,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": -30, "y": 5.5, "z": -2.1 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -3000, "Y": -210, "Z": 550 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 2,
+        "kind": "el",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 30,
+        "range": { "web": 13, "ue": 1300 },
+        "priority": 5,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": -20, "y": 5.5, "z": 2.1 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -2000, "Y": 210, "Z": 550 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 3,
+        "kind": "el",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 30,
+        "range": { "web": 13, "ue": 1300 },
+        "priority": 5,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": -10, "y": 5.5, "z": -2.1 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -1000, "Y": -210, "Z": 550 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 4,
+        "kind": "el",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 30,
+        "range": { "web": 13, "ue": 1300 },
+        "priority": 5,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 0, "y": 5.5, "z": 2.1 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 0, "Y": 210, "Z": 550 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 5,
+        "kind": "el",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 30,
+        "range": { "web": 13, "ue": 1300 },
+        "priority": 5,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 10, "y": 5.5, "z": -2.1 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 1000, "Y": -210, "Z": 550 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 6,
+        "kind": "el",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 30,
+        "range": { "web": 13, "ue": 1300 },
+        "priority": 5,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 20, "y": 5.5, "z": 2.1 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 2000, "Y": 210, "Z": 550 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 7,
+        "kind": "el",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 30,
+        "range": { "web": 13, "ue": 1300 },
+        "priority": 5,
+        "zone": "lot",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 30, "y": 5.5, "z": -2.1 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 3000, "Y": -210, "Z": 550 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 8,
+        "kind": "el",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 30,
+        "range": { "web": 13, "ue": 1300 },
+        "priority": 5,
+        "zone": "lot",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "dir",
+        "overDeck": { "web": 3.3, "ue": 330 },
+        "web": { "pos": { "x": 40, "y": 5.5, "z": 2.1 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 4000, "Y": 210, "Z": 550 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 9,
+        "kind": "window",
+        "color": { "hex": "#ffc98a", "linear": [1, 0.5841, 0.2542] },
+        "intensity": 8,
+        "range": { "web": 7, "ue": 700 },
+        "priority": 2,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": -38.8, "y": 5.3, "z": 0 },
+          "aim": { "x": 0.8192, "y": -0.5735, "z": 0 },
+          "wall": { "x": 1, "y": 0, "z": 0 }
+        },
+        "ue": {
+          "pos": { "X": -3880, "Y": 0, "Z": 530 },
+          "aim": { "X": 0.8192, "Y": 0, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 0, "Roll": 0 },
+          "wall": { "X": 1, "Y": 0, "Z": 0 }
+        }
+      },
+      {
+        "index": 10,
+        "kind": "neon",
+        "color": { "hex": "#55ff8a", "linear": [0.0908, 1, 0.2542] },
+        "intensity": 6,
+        "range": { "web": 6, "ue": 600 },
+        "priority": 3,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": -38.54, "y": 3.15, "z": -8.15 },
+          "aim": { "x": 0, "y": -0.5735, "z": 0.8192 },
+          "wall": { "x": 0, "y": 0, "z": 1 }
+        },
+        "ue": {
+          "pos": { "X": -3854, "Y": -815, "Z": 315 },
+          "aim": { "X": 0, "Y": 0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 90, "Roll": 0 },
+          "wall": { "X": 0, "Y": 1, "Z": 0 }
+        }
+      },
+      {
+        "index": 11,
+        "kind": "el",
+        "color": { "hex": "#cfe4ff", "linear": [0.624, 0.7758, 1] },
+        "intensity": 10,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 2,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": { "web": 7.75, "ue": 775 },
+        "web": { "pos": { "x": -43.5, "y": 9.9, "z": -5.4 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -4350, "Y": -540, "Z": 990 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 12,
+        "kind": "el",
+        "color": { "hex": "#cfe4ff", "linear": [0.624, 0.7758, 1] },
+        "intensity": 10,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 2,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": { "web": 7.75, "ue": 775 },
+        "web": { "pos": { "x": -38, "y": 9.9, "z": -5.4 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -3800, "Y": -540, "Z": 990 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 13,
+        "kind": "el",
+        "color": { "hex": "#cfe4ff", "linear": [0.624, 0.7758, 1] },
+        "intensity": 10,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 2,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": { "web": 7.75, "ue": 775 },
+        "web": { "pos": { "x": -32.5, "y": 9.9, "z": -5.4 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -3250, "Y": -540, "Z": 990 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 14,
+        "kind": "neon",
+        "color": { "hex": "#55ff8a", "linear": [0.0908, 1, 0.2542] },
+        "intensity": 6,
+        "range": { "web": 6, "ue": 600 },
+        "priority": 3,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": -38.54, "y": 3.15, "z": 8.15 },
+          "aim": { "x": 0, "y": -0.5735, "z": -0.8192 },
+          "wall": { "x": 0, "y": 0, "z": -1 }
+        },
+        "ue": {
+          "pos": { "X": -3854, "Y": 815, "Z": 315 },
+          "aim": { "X": 0, "Y": -0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": -90, "Roll": 0 },
+          "wall": { "X": 0, "Y": -1, "Z": 0 }
+        }
+      },
+      {
+        "index": 15,
+        "kind": "el",
+        "color": { "hex": "#cfe4ff", "linear": [0.624, 0.7758, 1] },
+        "intensity": 10,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 2,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": { "web": 7.75, "ue": 775 },
+        "web": { "pos": { "x": -43.5, "y": 9.9, "z": 5.4 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -4350, "Y": 540, "Z": 990 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 16,
+        "kind": "el",
+        "color": { "hex": "#cfe4ff", "linear": [0.624, 0.7758, 1] },
+        "intensity": 10,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 2,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": { "web": 7.75, "ue": 775 },
+        "web": { "pos": { "x": -38, "y": 9.9, "z": 5.4 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -3800, "Y": 540, "Z": 990 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 17,
+        "kind": "el",
+        "color": { "hex": "#cfe4ff", "linear": [0.624, 0.7758, 1] },
+        "intensity": 10,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 2,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": { "web": 7.75, "ue": 775 },
+        "web": { "pos": { "x": -32.5, "y": 9.9, "z": 5.4 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -3250, "Y": 540, "Z": 990 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 18,
+        "kind": "neon",
+        "color": { "hex": "#cfe4ff", "linear": [0.624, 0.7758, 1] },
+        "intensity": 9,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 4,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": -41.6, "y": 3.25, "z": -10.3 },
+          "aim": { "x": 0, "y": -0.5735, "z": 0.8192 },
+          "wall": { "x": 0, "y": 0, "z": 1 }
+        },
+        "ue": {
+          "pos": { "X": -4160, "Y": -1030, "Z": 325 },
+          "aim": { "X": 0, "Y": 0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 90, "Roll": 0 },
+          "wall": { "X": 0, "Y": 1, "Z": 0 }
+        }
+      },
+      {
+        "index": 19,
+        "kind": "window",
+        "color": { "hex": "#cfe4ff", "linear": [0.624, 0.7758, 1] },
+        "intensity": 10,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 2,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": -41.6, "y": 1.9, "z": -9.5 },
+          "aim": { "x": 0, "y": -0.5735, "z": -0.8192 },
+          "wall": { "x": 0, "y": 0, "z": -1 }
+        },
+        "ue": {
+          "pos": { "X": -4160, "Y": -950, "Z": 190 },
+          "aim": { "X": 0, "Y": -0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": -90, "Roll": 0 },
+          "wall": { "X": 0, "Y": -1, "Z": 0 }
+        }
+      },
+      {
+        "index": 20,
+        "kind": "window",
+        "color": { "hex": "#ffc98a", "linear": [1, 0.5841, 0.2542] },
+        "intensity": 6,
+        "range": { "web": 6, "ue": 600 },
+        "priority": 2,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": -35.8, "y": 2.8, "z": -10.5 },
+          "aim": { "x": 0, "y": -0.5735, "z": 0.8192 },
+          "wall": { "x": 0, "y": 0, "z": 1 }
+        },
+        "ue": {
+          "pos": { "X": -3580, "Y": -1050, "Z": 280 },
+          "aim": { "X": 0, "Y": 0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 90, "Roll": 0 },
+          "wall": { "X": 0, "Y": 1, "Z": 0 }
+        }
+      },
+      {
+        "index": 21,
+        "kind": "neon",
+        "color": { "hex": "#ff3030", "linear": [1, 0.0296, 0.0296] },
+        "intensity": 12,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 4,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": -30.3, "y": 3.25, "z": -10.3 },
+          "aim": { "x": 0, "y": -0.5735, "z": 0.8192 },
+          "wall": { "x": 0, "y": 0, "z": 1 }
+        },
+        "ue": {
+          "pos": { "X": -3030, "Y": -1030, "Z": 325 },
+          "aim": { "X": 0, "Y": 0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 90, "Roll": 0 },
+          "wall": { "X": 0, "Y": 1, "Z": 0 }
+        }
+      },
+      {
+        "index": 22,
+        "kind": "street",
+        "color": { "hex": "#ffc98a", "linear": [1, 0.5841, 0.2542] },
+        "intensity": 14,
+        "range": { "web": 8, "ue": 800 },
+        "priority": 3,
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": null,
+        "web": { "pos": { "x": -25.1, "y": 2.3, "z": -15.6 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -2510, "Y": -1560, "Z": 230 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 23,
+        "kind": "neon",
+        "color": { "hex": "#ffd24a", "linear": [1, 0.6445, 0.0685] },
+        "intensity": 9,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 4,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": 16.5, "y": 3.25, "z": -10.3 },
+          "aim": { "x": 0, "y": -0.5735, "z": 0.8192 },
+          "wall": { "x": 0, "y": 0, "z": 1 }
+        },
+        "ue": {
+          "pos": { "X": 1650, "Y": -1030, "Z": 325 },
+          "aim": { "X": 0, "Y": 0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 90, "Roll": 0 },
+          "wall": { "X": 0, "Y": 1, "Z": 0 }
+        }
+      },
+      {
+        "index": 24,
+        "kind": "window",
+        "color": { "hex": "#ffc98a", "linear": [1, 0.5841, 0.2542] },
+        "intensity": 10,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 2,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": 16.5, "y": 1.9, "z": -9.5 },
+          "aim": { "x": 0.8192, "y": -0.5735, "z": 0 },
+          "wall": { "x": 1, "y": 0, "z": 0 }
+        },
+        "ue": {
+          "pos": { "X": 1650, "Y": -950, "Z": 190 },
+          "aim": { "X": 0.8192, "Y": 0, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 0, "Roll": 0 },
+          "wall": { "X": 1, "Y": 0, "Z": 0 }
+        }
+      },
+      {
+        "index": 25,
+        "kind": "street",
+        "color": { "hex": "#ffc98a", "linear": [1, 0.5841, 0.2542] },
+        "intensity": 14,
+        "range": { "web": 8, "ue": 800 },
+        "priority": 3,
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": null,
+        "web": { "pos": { "x": 10.6, "y": 2.3, "z": -15.5 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 1060, "Y": -1550, "Z": 230 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 26,
+        "kind": "street",
+        "color": { "hex": "#cfe4ff", "linear": [0.624, 0.7758, 1] },
+        "intensity": 14,
+        "range": { "web": 8, "ue": 800 },
+        "priority": 3,
+        "zone": "lot",
+        "place": "THE CAGE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": null,
+        "web": { "pos": { "x": 22.4, "y": 2.3, "z": -27.5 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 2240, "Y": -2750, "Z": 230 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 27,
+        "kind": "neon",
+        "color": { "hex": "#55ff8a", "linear": [0.0908, 1, 0.2542] },
+        "intensity": 12,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 4,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": -42.15, "y": 3.25, "z": 10.3 },
+          "aim": { "x": 0, "y": -0.5735, "z": -0.8192 },
+          "wall": { "x": 0, "y": 0, "z": -1 }
+        },
+        "ue": {
+          "pos": { "X": -4215, "Y": 1030, "Z": 325 },
+          "aim": { "X": 0, "Y": -0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": -90, "Roll": 0 },
+          "wall": { "X": 0, "Y": -1, "Z": 0 }
+        }
+      },
+      {
+        "index": 28,
+        "kind": "neon",
+        "color": { "hex": "#ff5a3a", "linear": [1, 0.1022, 0.0423] },
+        "intensity": 9,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 4,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": -34.15, "y": 3.25, "z": 10.3 },
+          "aim": { "x": 0, "y": -0.5735, "z": -0.8192 },
+          "wall": { "x": 0, "y": 0, "z": -1 }
+        },
+        "ue": {
+          "pos": { "X": -3415, "Y": 1030, "Z": 325 },
+          "aim": { "X": 0, "Y": -0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": -90, "Roll": 0 },
+          "wall": { "X": 0, "Y": -1, "Z": 0 }
+        }
+      },
+      {
+        "index": 29,
+        "kind": "window",
+        "color": { "hex": "#ffc98a", "linear": [1, 0.5841, 0.2542] },
+        "intensity": 10,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 2,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": -34.15, "y": 1.9, "z": 9.5 },
+          "aim": { "x": 0, "y": -0.5735, "z": -0.8192 },
+          "wall": { "x": 0, "y": 0, "z": -1 }
+        },
+        "ue": {
+          "pos": { "X": -3415, "Y": 950, "Z": 190 },
+          "aim": { "X": 0, "Y": -0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": -90, "Roll": 0 },
+          "wall": { "X": 0, "Y": -1, "Z": 0 }
+        }
+      },
+      {
+        "index": 30,
+        "kind": "neon",
+        "color": { "hex": "#f6c21a", "linear": [0.9216, 0.5395, 0.0103] },
+        "intensity": 12,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 4,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": -27, "y": 3.25, "z": 10.3 },
+          "aim": { "x": 0, "y": -0.5735, "z": -0.8192 },
+          "wall": { "x": 0, "y": 0, "z": -1 }
+        },
+        "ue": {
+          "pos": { "X": -2700, "Y": 1030, "Z": 325 },
+          "aim": { "X": 0, "Y": -0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": -90, "Roll": 0 },
+          "wall": { "X": 0, "Y": -1, "Z": 0 }
+        }
+      },
+      {
+        "index": 31,
+        "kind": "neon",
+        "color": { "hex": "#35e0ff", "linear": [0.0356, 0.7454, 1] },
+        "intensity": 12,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 4,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": -18.9, "y": 3.25, "z": 10.3 },
+          "aim": { "x": 0, "y": -0.5735, "z": -0.8192 },
+          "wall": { "x": 0, "y": 0, "z": -1 }
+        },
+        "ue": {
+          "pos": { "X": -1890, "Y": 1030, "Z": 325 },
+          "aim": { "X": 0, "Y": -0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": -90, "Roll": 0 },
+          "wall": { "X": 0, "Y": -1, "Z": 0 }
+        }
+      },
+      {
+        "index": 32,
+        "kind": "window",
+        "color": { "hex": "#ffc98a", "linear": [1, 0.5841, 0.2542] },
+        "intensity": 7,
+        "range": { "web": 6, "ue": 600 },
+        "priority": 2,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": -22.9, "y": 2.6, "z": 12.2 },
+          "aim": { "x": -0.8192, "y": -0.5735, "z": 0 },
+          "wall": { "x": -1, "y": 0, "z": 0 }
+        },
+        "ue": {
+          "pos": { "X": -2290, "Y": 1220, "Z": 260 },
+          "aim": { "X": -0.8192, "Y": 0, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 180, "Roll": 0 },
+          "wall": { "X": -1, "Y": 0, "Z": 0 }
+        }
+      },
+      {
+        "index": 33,
+        "kind": "neon",
+        "color": { "hex": "#ffc84a", "linear": [1, 0.5776, 0.0685] },
+        "intensity": 9,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 4,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": 0.5, "y": 3.25, "z": 10.3 },
+          "aim": { "x": 0, "y": -0.5735, "z": -0.8192 },
+          "wall": { "x": 0, "y": 0, "z": -1 }
+        },
+        "ue": {
+          "pos": { "X": 50, "Y": 1030, "Z": 325 },
+          "aim": { "X": 0, "Y": -0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": -90, "Roll": 0 },
+          "wall": { "X": 0, "Y": -1, "Z": 0 }
+        }
+      },
+      {
+        "index": 34,
+        "kind": "window",
+        "color": { "hex": "#ffc98a", "linear": [1, 0.5841, 0.2542] },
+        "intensity": 10,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 2,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": 0.5, "y": 1.9, "z": 9.5 },
+          "aim": { "x": 0.8192, "y": -0.5735, "z": 0 },
+          "wall": { "x": 1, "y": 0, "z": 0 }
+        },
+        "ue": {
+          "pos": { "X": 50, "Y": 950, "Z": 190 },
+          "aim": { "X": 0.8192, "Y": 0, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 0, "Roll": 0 },
+          "wall": { "X": 1, "Y": 0, "Z": 0 }
+        }
+      },
+      {
+        "index": 35,
+        "kind": "neon",
+        "color": { "hex": "#ff3030", "linear": [1, 0.0296, 0.0296] },
+        "intensity": 12,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 4,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": { "web": 2.95, "ue": 295 },
+        "web": {
+          "pos": { "x": 9.25, "y": 3.25, "z": 10.3 },
+          "aim": { "x": 0, "y": -0.5735, "z": -0.8192 },
+          "wall": { "x": 0, "y": 0, "z": -1 }
+        },
+        "ue": {
+          "pos": { "X": 925, "Y": 1030, "Z": 325 },
+          "aim": { "X": 0, "Y": -0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": -90, "Roll": 0 },
+          "wall": { "X": 0, "Y": -1, "Z": 0 }
+        }
+      },
+      {
+        "index": 36,
+        "kind": "neon",
+        "color": { "hex": "#ff3d9a", "linear": [1, 0.0467, 0.3231] },
+        "intensity": 12,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 4,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": { "web": 2.95, "ue": 295 },
+        "web": {
+          "pos": { "x": 17.75, "y": 3.25, "z": 10.3 },
+          "aim": { "x": 0.8192, "y": -0.5735, "z": 0 },
+          "wall": { "x": 1, "y": 0, "z": 0 }
+        },
+        "ue": {
+          "pos": { "X": 1775, "Y": 1030, "Z": 325 },
+          "aim": { "X": 0.8192, "Y": 0, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 0, "Roll": 0 },
+          "wall": { "X": 1, "Y": 0, "Z": 0 }
+        }
+      },
+      {
+        "index": 37,
+        "kind": "street",
+        "color": { "hex": "#ffc98a", "linear": [1, 0.5841, 0.2542] },
+        "intensity": 14,
+        "range": { "web": 8, "ue": 800 },
+        "priority": 3,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": null,
+        "web": { "pos": { "x": -4.4, "y": 2.3, "z": 22.8 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -440, "Y": 2280, "Z": 230 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 38,
+        "kind": "street",
+        "color": { "hex": "#ffc98a", "linear": [1, 0.5841, 0.2542] },
+        "intensity": 14,
+        "range": { "web": 8, "ue": 800 },
+        "priority": 3,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": null,
+        "web": { "pos": { "x": -1.6, "y": 2.3, "z": 26.4 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -160, "Y": 2640, "Z": 230 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 39,
+        "kind": "street",
+        "color": { "hex": "#cfe4ff", "linear": [0.624, 0.7758, 1] },
+        "intensity": 14,
+        "range": { "web": 8, "ue": 800 },
+        "priority": 3,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": null,
+        "web": { "pos": { "x": 17.4, "y": 2.3, "z": 26.4 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 1740, "Y": 2640, "Z": 230 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 40,
+        "kind": "street",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 18,
+        "range": { "web": 10, "ue": 1000 },
+        "priority": 4,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": null,
+        "web": { "pos": { "x": -7.1, "y": 3, "z": 30.6 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -710, "Y": 3060, "Z": 300 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 41,
+        "kind": "street",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 18,
+        "range": { "web": 10, "ue": 1000 },
+        "priority": 4,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": null,
+        "web": { "pos": { "x": 6.1, "y": 3, "z": 30.6 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 610, "Y": 3060, "Z": 300 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 42,
+        "kind": "street",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 18,
+        "range": { "web": 10, "ue": 1000 },
+        "priority": 4,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": null,
+        "web": { "pos": { "x": 19.3, "y": 3, "z": 30.6 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 1930, "Y": 3060, "Z": 300 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 43,
+        "kind": "neon",
+        "color": { "hex": "#ff3030", "linear": [1, 0.0296, 0.0296] },
+        "intensity": 4,
+        "range": { "web": 4, "ue": 400 },
+        "priority": 2,
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "interior": true,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": 5.3, "y": 2.85, "z": -22.1 },
+          "aim": { "x": -0.8192, "y": -0.5735, "z": 0 },
+          "wall": { "x": -1, "y": 0, "z": 0 }
+        },
+        "ue": {
+          "pos": { "X": 530, "Y": -2210, "Z": 285 },
+          "aim": { "X": -0.8192, "Y": 0, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 180, "Roll": 0 },
+          "wall": { "X": -1, "Y": 0, "Z": 0 }
+        }
+      },
+      {
+        "index": 44,
+        "kind": "street",
+        "color": { "hex": "#ffc48a", "linear": [1, 0.552, 0.2542] },
+        "intensity": 16,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 4,
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "interior": true,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": null,
+        "web": { "pos": { "x": 6.5, "y": 2.85, "z": -22.1 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 650, "Y": -2210, "Z": 285 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 45,
+        "kind": "work",
+        "color": { "hex": "#fff1d0", "linear": [1, 0.8796, 0.6308] },
+        "intensity": 14,
+        "range": { "web": 8, "ue": 800 },
+        "priority": 5,
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "interior": true,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": { "web": 2.8, "ue": 280 },
+        "web": { "pos": { "x": -20.6, "y": 5, "z": -28.8 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -2060, "Y": -2880, "Z": 500 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 46,
+        "kind": "work",
+        "color": { "hex": "#cfe4ff", "linear": [0.624, 0.7758, 1] },
+        "intensity": 8,
+        "range": { "web": 6, "ue": 600 },
+        "priority": 3,
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "interior": true,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": null,
+        "web": { "pos": { "x": -20, "y": 2.4, "z": -30.2 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -2000, "Y": -3020, "Z": 240 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 47,
+        "kind": "neon",
+        "color": { "hex": "#9fd4ff", "linear": [0.3467, 0.6584, 1] },
+        "intensity": 12,
+        "range": { "web": 5, "ue": 500 },
+        "priority": 4,
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "interior": true,
+        "prop": 65,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": 4.5, "y": 1.2, "z": -13.3 },
+          "aim": { "x": -0.8192, "y": -0.5735, "z": 0 },
+          "wall": { "x": -1, "y": 0, "z": 0 }
+        },
+        "ue": {
+          "pos": { "X": 450, "Y": -1330, "Z": 120 },
+          "aim": { "X": -0.8192, "Y": 0, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 180, "Roll": 0 },
+          "wall": { "X": -1, "Y": 0, "Z": 0 }
+        }
+      },
+      {
+        "index": 48,
+        "kind": "work",
+        "color": { "hex": "#ffc48a", "linear": [1, 0.552, 0.2542] },
+        "intensity": 34,
+        "range": { "web": 13, "ue": 1300 },
+        "priority": 10,
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "interior": true,
+        "prop": null,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": -18.2, "y": 5, "z": -17.2 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -1820, "Y": -1720, "Z": 500 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 49,
+        "kind": "work",
+        "color": { "hex": "#ffc48a", "linear": [1, 0.552, 0.2542] },
+        "intensity": 34,
+        "range": { "web": 13, "ue": 1300 },
+        "priority": 10,
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "interior": true,
+        "prop": null,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": -9.2, "y": 5, "z": -22.4 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -920, "Y": -2240, "Z": 500 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 50,
+        "kind": "work",
+        "color": { "hex": "#ffc48a", "linear": [1, 0.552, 0.2542] },
+        "intensity": 34,
+        "range": { "web": 13, "ue": 1300 },
+        "priority": 10,
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "interior": true,
+        "prop": null,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": -9.2, "y": 5, "z": -14.6 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -920, "Y": -1460, "Z": 500 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 51,
+        "kind": "work",
+        "color": { "hex": "#ffc48a", "linear": [1, 0.552, 0.2542] },
+        "intensity": 34,
+        "range": { "web": 13, "ue": 1300 },
+        "priority": 10,
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "interior": true,
+        "prop": null,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 0.6, "y": 5, "z": -21.2 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 60, "Y": -2120, "Z": 500 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 52,
+        "kind": "neon",
+        "color": { "hex": "#f6c21a", "linear": [0.9216, 0.5395, 0.0103] },
+        "intensity": 14,
+        "range": { "web": 10, "ue": 1000 },
+        "priority": 4,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": -12, "y": 5.4, "z": -10.2 },
+          "aim": { "x": 0, "y": -0.5735, "z": 0.8192 },
+          "wall": { "x": 0, "y": 0, "z": 1 }
+        },
+        "ue": {
+          "pos": { "X": -1200, "Y": -1020, "Z": 540 },
+          "aim": { "X": 0, "Y": 0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 90, "Roll": 0 },
+          "wall": { "X": 0, "Y": 1, "Z": 0 }
+        }
+      },
+      {
+        "index": 53,
+        "kind": "street",
+        "color": { "hex": "#ffc48a", "linear": [1, 0.552, 0.2542] },
+        "intensity": 16,
+        "range": { "web": 10, "ue": 1000 },
+        "priority": 4,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": true,
+        "prop": null,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": -21.5, "y": 6.2, "z": -10.28 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -2150, "Y": -1028, "Z": 620 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 54,
+        "kind": "street",
+        "color": { "hex": "#ffc48a", "linear": [1, 0.552, 0.2542] },
+        "intensity": 16,
+        "range": { "web": 10, "ue": 1000 },
+        "priority": 4,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": true,
+        "prop": null,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": -12, "y": 6.2, "z": -10.28 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -1200, "Y": -1028, "Z": 620 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 55,
+        "kind": "street",
+        "color": { "hex": "#ffc48a", "linear": [1, 0.552, 0.2542] },
+        "intensity": 16,
+        "range": { "web": 10, "ue": 1000 },
+        "priority": 4,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": true,
+        "prop": null,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": -1.3, "y": 6.2, "z": -10.28 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -130, "Y": -1028, "Z": 620 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 56,
+        "kind": "flood",
+        "color": { "hex": "#dfe8ff", "linear": [0.7379, 0.807, 1] },
+        "intensity": 160,
+        "range": { "web": 30, "ue": 3000 },
+        "priority": 9,
+        "zone": "lot",
+        "place": "THE CAGE",
+        "interior": false,
+        "prop": 95,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 25.6, "y": 8.5, "z": -12.95 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 2560, "Y": -1295, "Z": 850 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 57,
+        "kind": "flood",
+        "color": { "hex": "#dfe8ff", "linear": [0.7379, 0.807, 1] },
+        "intensity": 160,
+        "range": { "web": 30, "ue": 3000 },
+        "priority": 9,
+        "zone": "lot",
+        "place": "THE CAGE",
+        "interior": false,
+        "prop": 96,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 44.8, "y": 8.5, "z": -32.3 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 4480, "Y": -3230, "Z": 850 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 58,
+        "kind": "work",
+        "color": { "hex": "#fff1d0", "linear": [1, 0.8796, 0.6308] },
+        "intensity": 60,
+        "range": { "web": 14, "ue": 1400 },
+        "priority": 6,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": 124,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": -9.6, "y": 2, "z": 13.05 }, "aim": { "x": 0, "y": -0.3192, "z": -0.9477 }, "wall": null },
+        "ue": {
+          "pos": { "X": -960, "Y": 1305, "Z": 200 },
+          "aim": { "X": 0, "Y": -0.9477, "Z": -0.3192 },
+          "rotator": { "Pitch": -18.6157, "Yaw": -90, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 59,
+        "kind": "window",
+        "color": { "hex": "#ffc48a", "linear": [1, 0.552, 0.2542] },
+        "intensity": 14,
+        "range": { "web": 6, "ue": 600 },
+        "priority": 2,
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "prop": 138,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": 27.3, "y": 1.6, "z": 13.55 },
+          "aim": { "x": 0, "y": -0.5735, "z": 0.8192 },
+          "wall": { "x": 0, "y": 0, "z": 1 }
+        },
+        "ue": {
+          "pos": { "X": 2730, "Y": 1355, "Z": 160 },
+          "aim": { "X": 0, "Y": 0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 90, "Roll": 0 },
+          "wall": { "X": 0, "Y": 1, "Z": 0 }
+        }
+      },
+      {
+        "index": 60,
+        "kind": "neon",
+        "color": { "hex": "#f6c21a", "linear": [0.9216, 0.5395, 0.0103] },
+        "intensity": 6,
+        "range": { "web": 4, "ue": 400 },
+        "priority": 4,
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "prop": 138,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": 27.3, "y": 0.6, "z": 13.55 },
+          "aim": { "x": 0, "y": -0.5735, "z": 0.8192 },
+          "wall": { "x": 0, "y": 0, "z": 1 }
+        },
+        "ue": {
+          "pos": { "X": 2730, "Y": 1355, "Z": 60 },
+          "aim": { "X": 0, "Y": 0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 90, "Roll": 0 },
+          "wall": { "X": 0, "Y": 1, "Z": 0 }
+        }
+      },
+      {
+        "index": 61,
+        "kind": "neon",
+        "color": { "hex": "#35e0ff", "linear": [0.0356, 0.7454, 1] },
+        "intensity": 12,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 4,
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": 34.65, "y": 4.7, "z": 11.65 },
+          "aim": { "x": -0.8192, "y": -0.5735, "z": 0 },
+          "wall": { "x": -1, "y": 0, "z": 0 }
+        },
+        "ue": {
+          "pos": { "X": 3465, "Y": 1165, "Z": 470 },
+          "aim": { "X": -0.8192, "Y": 0, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 180, "Roll": 0 },
+          "wall": { "X": -1, "Y": 0, "Z": 0 }
+        }
+      },
+      {
+        "index": 62,
+        "kind": "flood",
+        "color": { "hex": "#fff1d6", "linear": [1, 0.8796, 0.6724] },
+        "intensity": 40,
+        "range": { "web": 12, "ue": 1200 },
+        "priority": 9,
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "prop": 159,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 38.5, "y": 7.1, "z": 13 }, "aim": { "x": 0, "y": 0.8984, "z": -0.4392 }, "wall": null },
+        "ue": {
+          "pos": { "X": 3850, "Y": 1300, "Z": 710 },
+          "aim": { "X": 0, "Y": -0.4392, "Z": 0.8984 },
+          "rotator": { "Pitch": 63.9465, "Yaw": -90, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 63,
+        "kind": "flood",
+        "color": { "hex": "#fff1d6", "linear": [1, 0.8796, 0.6724] },
+        "intensity": 40,
+        "range": { "web": 12, "ue": 1200 },
+        "priority": 9,
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "prop": 159,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 42.9, "y": 7.1, "z": 13 }, "aim": { "x": 0, "y": 0.8984, "z": -0.4392 }, "wall": null },
+        "ue": {
+          "pos": { "X": 4290, "Y": 1300, "Z": 710 },
+          "aim": { "X": 0, "Y": -0.4392, "Z": 0.8984 },
+          "rotator": { "Pitch": 63.9465, "Yaw": -90, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 64,
+        "kind": "street",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 90,
+        "range": { "web": 20, "ue": 2000 },
+        "priority": 6,
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "prop": 160,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 39.3, "y": 7.6, "z": 16.11 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 3930, "Y": 1611, "Z": 760 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 65,
+        "kind": "street",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 90,
+        "range": { "web": 20, "ue": 2000 },
+        "priority": 6,
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "prop": 161,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 30.9, "y": 7.6, "z": 31.29 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 3090, "Y": 3129, "Z": 760 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 66,
+        "kind": "work",
+        "color": { "hex": "#fff0d0", "linear": [1, 0.8714, 0.6308] },
+        "intensity": 22,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 6,
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "prop": 162,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 45.3, "y": 0.9, "z": 30.38 }, "aim": { "x": 0.9701, "y": -0.2425, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 4530, "Y": 3038, "Z": 90 },
+          "aim": { "X": 0.9701, "Y": 0, "Z": -0.2425 },
+          "rotator": { "Pitch": -14.0362, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 67,
+        "kind": "work",
+        "color": { "hex": "#fff0d0", "linear": [1, 0.8714, 0.6308] },
+        "intensity": 22,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 6,
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "prop": 162,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 45.3, "y": 0.9, "z": 29.02 }, "aim": { "x": 0.9701, "y": -0.2425, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 4530, "Y": 2902, "Z": 90 },
+          "aim": { "X": 0.9701, "Y": 0, "Z": -0.2425 },
+          "rotator": { "Pitch": -14.0362, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 68,
+        "kind": "work",
+        "color": { "hex": "#fff1d6", "linear": [1, 0.8796, 0.6724] },
+        "intensity": 26,
+        "range": { "web": 9, "ue": 900 },
+        "priority": 6,
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "prop": 162,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 37.5, "y": 2.46, "z": 29.7 }, "aim": { "x": -0.2873, "y": -0.9578, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 3750, "Y": 2970, "Z": 246 },
+          "aim": { "X": -0.2873, "Y": 0, "Z": -0.9578 },
+          "rotator": { "Pitch": -73.3008, "Yaw": 180, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 69,
+        "kind": "work",
+        "color": { "hex": "#fff1d0", "linear": [1, 0.8796, 0.6308] },
+        "intensity": 60,
+        "range": { "web": 14, "ue": 1400 },
+        "priority": 6,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": 170,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": -44.9, "y": 2, "z": -2.9 }, "aim": { "x": -0.9477, "y": -0.3192, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -4490, "Y": -290, "Z": 200 },
+          "aim": { "X": -0.9477, "Y": 0, "Z": -0.3192 },
+          "rotator": { "Pitch": -18.6157, "Yaw": 180, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 70,
+        "kind": "work",
+        "color": { "hex": "#fff1d0", "linear": [1, 0.8796, 0.6308] },
+        "intensity": 60,
+        "range": { "web": 14, "ue": 1400 },
+        "priority": 6,
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "prop": 182,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 44.45, "y": 2.15, "z": 7.9 }, "aim": { "x": 0.9477, "y": -0.3192, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 4445, "Y": 790, "Z": 215 },
+          "aim": { "X": 0.9477, "Y": 0, "Z": -0.3192 },
+          "rotator": { "Pitch": -18.6157, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 71,
+        "kind": "work",
+        "color": { "hex": "#fff1d0", "linear": [1, 0.8796, 0.6308] },
+        "intensity": 9,
+        "range": { "web": 7, "ue": 700 },
+        "priority": 3,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": null,
+        "web": { "pos": { "x": 2.6, "y": 2.45, "z": 9.2 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 260, "Y": 920, "Z": 245 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 72,
+        "kind": "work",
+        "color": { "hex": "#fff1d0", "linear": [1, 0.8796, 0.6308] },
+        "intensity": 9,
+        "range": { "web": 7, "ue": 700 },
+        "priority": 3,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": null,
+        "web": { "pos": { "x": 8.52, "y": 2.45, "z": 9.2 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 852, "Y": 920, "Z": 245 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 73,
+        "kind": "work",
+        "color": { "hex": "#fff1d0", "linear": [1, 0.8796, 0.6308] },
+        "intensity": 9,
+        "range": { "web": 7, "ue": 700 },
+        "priority": 3,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": null,
+        "web": { "pos": { "x": 14.44, "y": 2.45, "z": 9.2 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 1444, "Y": 920, "Z": 245 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 74,
+        "kind": "window",
+        "color": { "hex": "#ffc98a", "linear": [1, 0.5841, 0.2542] },
+        "intensity": 12,
+        "range": { "web": 8, "ue": 800 },
+        "priority": 3,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": 13.3, "y": 2.4, "z": -9.2 },
+          "aim": { "x": 0, "y": -0.5735, "z": 0.8192 },
+          "wall": { "x": 0, "y": 0, "z": 1 }
+        },
+        "ue": {
+          "pos": { "X": 1330, "Y": -920, "Z": 240 },
+          "aim": { "X": 0, "Y": 0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 90, "Roll": 0 },
+          "wall": { "X": 0, "Y": 1, "Z": 0 }
+        }
+      },
+      {
+        "index": 75,
+        "kind": "work",
+        "color": { "hex": "#fff1d0", "linear": [1, 0.8796, 0.6308] },
+        "intensity": 9,
+        "range": { "web": 7, "ue": 700 },
+        "priority": 3,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": null,
+        "aimSource": "down",
+        "overDeck": null,
+        "web": { "pos": { "x": -16, "y": 2.5, "z": 8.2 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -1600, "Y": 820, "Z": 250 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 76,
+        "kind": "window",
+        "color": { "hex": "#dfe8ff", "linear": [0.7379, 0.807, 1] },
+        "intensity": 7,
+        "range": { "web": 4.5, "ue": 450 },
+        "priority": 2,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": 243,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": -44.5, "y": 2.05, "z": -10.15 },
+          "aim": { "x": 0.8192, "y": -0.5735, "z": 0 },
+          "wall": { "x": 1, "y": 0, "z": 0 }
+        },
+        "ue": {
+          "pos": { "X": -4450, "Y": -1015, "Z": 205 },
+          "aim": { "X": 0.8192, "Y": 0, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 0, "Roll": 0 },
+          "wall": { "X": 1, "Y": 0, "Z": 0 }
+        }
+      },
+      {
+        "index": 77,
+        "kind": "street",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 90,
+        "range": { "web": 20, "ue": 2000 },
+        "priority": 6,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": 247,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": -22.4, "y": 7.75, "z": -9.78 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -2240, "Y": -978, "Z": 775 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 78,
+        "kind": "work",
+        "color": { "hex": "#ffd9a0", "linear": [1, 0.6939, 0.3515] },
+        "intensity": 16,
+        "range": { "web": 6, "ue": 600 },
+        "priority": 6,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": 250,
+        "aimSource": "down",
+        "overDeck": null,
+        "web": { "pos": { "x": -5.5, "y": 1.85, "z": -8.2 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -550, "Y": -820, "Z": 185 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 79,
+        "kind": "neon",
+        "color": { "hex": "#9fd4ff", "linear": [0.3467, 0.6584, 1] },
+        "intensity": 12,
+        "range": { "web": 5, "ue": 500 },
+        "priority": 4,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": 251,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": 3.4, "y": 1.35, "z": -9.95 },
+          "aim": { "x": 0, "y": -0.5735, "z": 0.8192 },
+          "wall": { "x": 0, "y": 0, "z": 1 }
+        },
+        "ue": {
+          "pos": { "X": 340, "Y": -995, "Z": 135 },
+          "aim": { "X": 0, "Y": 0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 90, "Roll": 0 },
+          "wall": { "X": 0, "Y": 1, "Z": 0 }
+        }
+      },
+      {
+        "index": 80,
+        "kind": "street",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 90,
+        "range": { "web": 20, "ue": 2000 },
+        "priority": 6,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": 253,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 2.6, "y": 7.75, "z": -9.78 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 260, "Y": -978, "Z": 775 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 81,
+        "kind": "street",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 90,
+        "range": { "web": 20, "ue": 2000 },
+        "priority": 6,
+        "zone": "lot",
+        "place": "THE CAGE",
+        "interior": false,
+        "prop": 255,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 23.9, "y": 7.75, "z": -9.78 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 2390, "Y": -978, "Z": 775 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 82,
+        "kind": "neon",
+        "color": { "hex": "#dfe8ff", "linear": [0.7379, 0.807, 1] },
+        "intensity": 12,
+        "range": { "web": 6, "ue": 600 },
+        "priority": 4,
+        "zone": "lot",
+        "place": "THE CAGE",
+        "interior": false,
+        "prop": 257,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": 27.8, "y": 1.45, "z": -7.85 },
+          "aim": { "x": 0.8192, "y": -0.5735, "z": 0 },
+          "wall": { "x": 1, "y": 0, "z": 0 }
+        },
+        "ue": {
+          "pos": { "X": 2780, "Y": -785, "Z": 145 },
+          "aim": { "X": 0.8192, "Y": 0, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 0, "Roll": 0 },
+          "wall": { "X": 1, "Y": 0, "Z": 0 }
+        }
+      },
+      {
+        "index": 83,
+        "kind": "window",
+        "color": { "hex": "#dfe8ff", "linear": [0.7379, 0.807, 1] },
+        "intensity": 10,
+        "range": { "web": 5, "ue": 500 },
+        "priority": 2,
+        "zone": "lot",
+        "place": "THE CAGE",
+        "interior": false,
+        "prop": 257,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": 29.6, "y": 2.35, "z": -7.95 },
+          "aim": { "x": 0, "y": -0.5735, "z": 0.8192 },
+          "wall": { "x": 0, "y": 0, "z": 1 }
+        },
+        "ue": {
+          "pos": { "X": 2960, "Y": -795, "Z": 235 },
+          "aim": { "X": 0, "Y": 0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": 90, "Roll": 0 },
+          "wall": { "X": 0, "Y": 1, "Z": 0 }
+        }
+      },
+      {
+        "index": 84,
+        "kind": "street",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 90,
+        "range": { "web": 20, "ue": 2000 },
+        "priority": 6,
+        "zone": "lot",
+        "place": "THE CAGE",
+        "interior": false,
+        "prop": 263,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 41.6, "y": 7.75, "z": -9.78 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 4160, "Y": -978, "Z": 775 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 85,
+        "kind": "street",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 90,
+        "range": { "web": 20, "ue": 2000 },
+        "priority": 6,
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "prop": 272,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": -31.4, "y": 7.75, "z": 9.78 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": -3140, "Y": 978, "Z": 775 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 86,
+        "kind": "window",
+        "color": { "hex": "#dfe8ff", "linear": [0.7379, 0.807, 1] },
+        "intensity": 7,
+        "range": { "web": 4.5, "ue": 450 },
+        "priority": 2,
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "prop": 273,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": -29.2, "y": 2.05, "z": 10.15 },
+          "aim": { "x": 0, "y": -0.5735, "z": -0.8192 },
+          "wall": { "x": 0, "y": 0, "z": -1 }
+        },
+        "ue": {
+          "pos": { "X": -2920, "Y": 1015, "Z": 205 },
+          "aim": { "X": 0, "Y": -0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": -90, "Roll": 0 },
+          "wall": { "X": 0, "Y": -1, "Z": 0 }
+        }
+      },
+      {
+        "index": 87,
+        "kind": "street",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 90,
+        "range": { "web": 20, "ue": 2000 },
+        "priority": 6,
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "prop": 282,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 22.9, "y": 7.75, "z": 9.78 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 2290, "Y": 978, "Z": 775 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      },
+      {
+        "index": 88,
+        "kind": "window",
+        "color": { "hex": "#dfe8ff", "linear": [0.7379, 0.807, 1] },
+        "intensity": 7,
+        "range": { "web": 4.5, "ue": 450 },
+        "priority": 2,
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "prop": 285,
+        "aimSource": "wall",
+        "overDeck": null,
+        "web": {
+          "pos": { "x": 27.3, "y": 2.05, "z": 10.15 },
+          "aim": { "x": 0, "y": -0.5735, "z": -0.8192 },
+          "wall": { "x": 0, "y": 0, "z": -1 }
+        },
+        "ue": {
+          "pos": { "X": 2730, "Y": 1015, "Z": 205 },
+          "aim": { "X": 0, "Y": -0.8192, "Z": -0.5735 },
+          "rotator": { "Pitch": -34.992, "Yaw": -90, "Roll": 0 },
+          "wall": { "X": 0, "Y": -1, "Z": 0 }
+        }
+      },
+      {
+        "index": 89,
+        "kind": "street",
+        "color": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] },
+        "intensity": 90,
+        "range": { "web": 20, "ue": 2000 },
+        "priority": 6,
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "prop": 286,
+        "aimSource": "dir",
+        "overDeck": null,
+        "web": { "pos": { "x": 36.4, "y": 7.75, "z": 9.78 }, "aim": { "x": 0, "y": -1, "z": 0 }, "wall": null },
+        "ue": {
+          "pos": { "X": 3640, "Y": 978, "Z": 775 },
+          "aim": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": -90, "Yaw": 0, "Roll": 0 },
+          "wall": null
+        }
+      }
+    ]
+  },
+  "signLights": {
+    "source": "lamps: the `neon` entries of `lamps.list` (the light a sign throws on the sidewalk). signs: every lit sign quad (level.json signage; style 'neon' flickers, the others are lit boards), with its colours.",
+    "lamps": [10, 14, 18, 21, 23, 27, 28, 30, 31, 33, 35, 36, 43, 47, 52, 60, 61, 79, 82],
+    "signs": [
+      {
+        "placement": 305,
+        "text": "188 ST",
+        "sub": "ELEVATED  ·  CLOSED 1 AM – 5 AM",
+        "style": "plate",
+        "fg": null,
+        "bg": null,
+        "glow": null,
+        "zone": "west",
+        "place": "WEST END",
+        "web": {
+          "pos": { "x": -39.37, "y": 4.47, "z": 0 },
+          "corner": { "x": -39.37, "y": 4.06, "z": 2.3 },
+          "right": { "x": 0, "y": 0, "z": -1 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 1, "y": 0, "z": 0 },
+          "width": 4.6,
+          "height": 0.82
+        },
+        "ue": {
+          "pos": { "X": -3937, "Y": 0, "Z": 447 },
+          "corner": { "X": -3937, "Y": 230, "Z": 406 },
+          "right": { "X": 0, "Y": -1, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 1, "Y": 0, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": -90, "Roll": 0 },
+          "width": 460,
+          "height": 82
+        }
+      },
+      {
+        "placement": 306,
+        "text": "188 ST",
+        "sub": "STATION CLOSED",
+        "style": "plate",
+        "fg": null,
+        "bg": null,
+        "glow": null,
+        "zone": "west",
+        "place": "WEST END",
+        "web": {
+          "pos": { "x": -38.46, "y": 2.39, "z": -8.15 },
+          "corner": { "x": -38.46, "y": 2.18, "z": -7.4 },
+          "right": { "x": 0, "y": 0, "z": -1 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 1, "y": 0, "z": 0 },
+          "width": 1.5,
+          "height": 0.42
+        },
+        "ue": {
+          "pos": { "X": -3846, "Y": -815, "Z": 239 },
+          "corner": { "X": -3846, "Y": -740, "Z": 218 },
+          "right": { "X": 0, "Y": -1, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 1, "Y": 0, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": -90, "Roll": 0 },
+          "width": 150,
+          "height": 42
+        }
+      },
+      {
+        "placement": 307,
+        "text": "188 ST",
+        "sub": "STATION CLOSED",
+        "style": "plate",
+        "fg": null,
+        "bg": null,
+        "glow": null,
+        "zone": "west",
+        "place": "WEST END",
+        "web": {
+          "pos": { "x": -38.46, "y": 2.39, "z": 8.15 },
+          "corner": { "x": -38.46, "y": 2.18, "z": 8.9 },
+          "right": { "x": 0, "y": 0, "z": -1 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 1, "y": 0, "z": 0 },
+          "width": 1.5,
+          "height": 0.42
+        },
+        "ue": {
+          "pos": { "X": -3846, "Y": 815, "Z": 239 },
+          "corner": { "X": -3846, "Y": 890, "Z": 218 },
+          "right": { "X": 0, "Y": -1, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 1, "Y": 0, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": -90, "Roll": 0 },
+          "width": 150,
+          "height": 42
+        }
+      },
+      {
+        "placement": 308,
+        "text": "24 HR LAUNDROMAT",
+        "sub": null,
+        "style": "box",
+        "fg": "#f4f2ec",
+        "bg": "#0d3550",
+        "glow": "#cfe4ff",
+        "zone": "west",
+        "place": "WEST END",
+        "web": {
+          "pos": { "x": -41.6, "y": 3.29, "z": -10.85 },
+          "corner": { "x": -45.35, "y": 2.98, "z": -10.85 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 7.5,
+          "height": 0.62
+        },
+        "ue": {
+          "pos": { "X": -4160, "Y": -1085, "Z": 329 },
+          "corner": { "X": -4535, "Y": -1085, "Z": 298 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 750,
+          "height": 62
+        }
+      },
+      {
+        "placement": 310,
+        "text": "HOLLIS DELI & GROCERY",
+        "sub": "OPEN 24 HRS  ·  COLD CUTS  ·  COFFEE  ·  LOTTO",
+        "style": "box",
+        "fg": "#8a1410",
+        "bg": "#f2c21a",
+        "glow": "#ffd24a",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": {
+          "pos": { "x": 16.5, "y": 3.29, "z": -10.85 },
+          "corner": { "x": 12.3, "y": 2.92, "z": -10.85 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 8.4,
+          "height": 0.74
+        },
+        "ue": {
+          "pos": { "X": 1650, "Y": -1085, "Z": 329 },
+          "corner": { "X": 1230, "Y": -1085, "Z": 292 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 840,
+          "height": 74
+        }
+      },
+      {
+        "placement": 311,
+        "text": "99¢ PIZZA",
+        "sub": "SLICES ALL NIGHT",
+        "style": "box",
+        "fg": "#fff1d0",
+        "bg": "#b3261e",
+        "glow": "#ff5a3a",
+        "zone": "west",
+        "place": "WEST END",
+        "web": {
+          "pos": { "x": -34.15, "y": 3.29, "z": 10.85 },
+          "corner": { "x": -30.57, "y": 2.92, "z": 10.85 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 7.16,
+          "height": 0.74
+        },
+        "ue": {
+          "pos": { "X": -3415, "Y": 1085, "Z": 329 },
+          "corner": { "X": -3057, "Y": 1085, "Z": 292 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 716,
+          "height": 74
+        }
+      },
+      {
+        "placement": 312,
+        "text": "GOLDEN BIRD CHICKEN",
+        "sub": "FRIED  ·  WINGS  ·  BISCUITS",
+        "style": "box",
+        "fg": "#b3261e",
+        "bg": "#f2c21a",
+        "glow": "#ffc84a",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": {
+          "pos": { "x": 0.5, "y": 3.29, "z": 10.85 },
+          "corner": { "x": 4.25, "y": 2.92, "z": 10.85 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 7.5,
+          "height": 0.74
+        },
+        "ue": {
+          "pos": { "X": 50, "Y": 1085, "Z": 329 },
+          "corner": { "X": 425, "Y": 1085, "Z": 292 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 750,
+          "height": 74
+        }
+      },
+      {
+        "placement": 314,
+        "text": "EXIT",
+        "sub": null,
+        "style": "box",
+        "fg": "#fff1d0",
+        "bg": "#7a1410",
+        "glow": "#ff3030",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": {
+          "pos": { "x": 5.57, "y": 2.85, "z": -22.1 },
+          "corner": { "x": 5.57, "y": 2.7, "z": -22.45 },
+          "right": { "x": 0, "y": 0, "z": 1 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": -1, "y": 0, "z": 0 },
+          "width": 0.7,
+          "height": 0.3
+        },
+        "ue": {
+          "pos": { "X": 557, "Y": -2210, "Z": 285 },
+          "corner": { "X": 557, "Y": -2245, "Z": 270 },
+          "right": { "X": 0, "Y": 1, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": -1, "Y": 0, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 90, "Roll": 0 },
+          "width": 70,
+          "height": 30
+        }
+      },
+      {
+        "placement": 315,
+        "text": "V&R AUTO BODY",
+        "sub": null,
+        "style": "box",
+        "fg": "#f6c21a",
+        "bg": "#101113",
+        "glow": "#f6c21a",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": {
+          "pos": { "x": -12, "y": 5.4, "z": -10.87 },
+          "corner": { "x": -16, "y": 4.875, "z": -10.87 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 8,
+          "height": 1.05
+        },
+        "ue": {
+          "pos": { "X": -1200, "Y": -1087, "Z": 540 },
+          "corner": { "X": -1600, "Y": -1087, "Z": 487.5 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 800,
+          "height": 105
+        }
+      },
+      {
+        "placement": 333,
+        "text": "CROWN & FADE BARBER",
+        "sub": null,
+        "style": "neon",
+        "fg": "#ff3030",
+        "bg": null,
+        "glow": "#ff3030",
+        "zone": "west",
+        "place": "WEST END",
+        "web": {
+          "pos": { "x": -30.3, "y": 3.29, "z": -10.85 },
+          "corner": { "x": -33.83, "y": 2.98, "z": -10.85 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 7.06,
+          "height": 0.62
+        },
+        "ue": {
+          "pos": { "X": -3030, "Y": -1085, "Z": 329 },
+          "corner": { "X": -3383, "Y": -1085, "Z": 298 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 706,
+          "height": 62
+        }
+      },
+      {
+        "placement": 334,
+        "text": "CHECKS CASHED",
+        "sub": "MONEY ORDERS  ·  BILLS PAID",
+        "style": "neon",
+        "fg": "#55ff8a",
+        "bg": null,
+        "glow": "#55ff8a",
+        "zone": "west",
+        "place": "WEST END",
+        "web": {
+          "pos": { "x": -42.15, "y": 3.29, "z": 10.85 },
+          "corner": { "x": -38.87, "y": 2.92, "z": 10.85 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 6.56,
+          "height": 0.74
+        },
+        "ue": {
+          "pos": { "X": -4215, "Y": 1085, "Z": 329 },
+          "corner": { "X": -3887, "Y": 1085, "Z": 292 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 656,
+          "height": 74
+        }
+      },
+      {
+        "placement": 335,
+        "text": "TAPES · RECORDS · CDs",
+        "sub": null,
+        "style": "neon",
+        "fg": "#35e0ff",
+        "bg": null,
+        "glow": "#35e0ff",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": {
+          "pos": { "x": -18.9, "y": 3.29, "z": 10.85 },
+          "corner": { "x": -16.57, "y": 2.98, "z": 10.85 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 4.66,
+          "height": 0.62
+        },
+        "ue": {
+          "pos": { "X": -1890, "Y": 1085, "Z": 329 },
+          "corner": { "X": -1657, "Y": 1085, "Z": 298 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 466,
+          "height": 62
+        }
+      },
+      {
+        "placement": 336,
+        "text": "LUCKY NAILS",
+        "sub": "MANICURE  ·  PEDICURE",
+        "style": "neon",
+        "fg": "#ff3d9a",
+        "bg": null,
+        "glow": "#ff3d9a",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": {
+          "pos": { "x": 17.75, "y": 3.29, "z": 10.85 },
+          "corner": { "x": 21.43, "y": 2.92, "z": 10.85 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 7.36,
+          "height": 0.74
+        },
+        "ue": {
+          "pos": { "X": 1775, "Y": 1085, "Z": 329 },
+          "corner": { "X": 2143, "Y": 1085, "Z": 292 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 736,
+          "height": 74
+        }
+      },
+      {
+        "placement": 337,
+        "text": "PAWN & GOLD",
+        "sub": "WE BUY GOLD  ·  LOANS",
+        "style": "neon",
+        "fg": "#f6c21a",
+        "bg": null,
+        "glow": "#f6c21a",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": {
+          "pos": { "x": -27, "y": 3.29, "z": 10.85 },
+          "corner": { "x": -24.57, "y": 2.92, "z": 10.85 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 4.86,
+          "height": 0.74
+        },
+        "ue": {
+          "pos": { "X": -2700, "Y": 1085, "Z": 329 },
+          "corner": { "X": -2457, "Y": 1085, "Z": 292 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 486,
+          "height": 74
+        }
+      },
+      {
+        "placement": 338,
+        "text": "WINES & LIQUORS",
+        "sub": null,
+        "style": "neon",
+        "fg": "#ff3030",
+        "bg": null,
+        "glow": "#ff3030",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": {
+          "pos": { "x": 9.25, "y": 3.29, "z": 10.85 },
+          "corner": { "x": 12.93, "y": 2.98, "z": 10.85 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 7.36,
+          "height": 0.62
+        },
+        "ue": {
+          "pos": { "X": 925, "Y": 1085, "Z": 329 },
+          "corner": { "X": 1293, "Y": 1085, "Z": 298 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 736,
+          "height": 62
+        }
+      },
+      {
+        "placement": 339,
+        "text": "PARK",
+        "sub": "24 HR",
+        "style": "neon",
+        "fg": "#35e0ff",
+        "bg": null,
+        "glow": "#35e0ff",
+        "zone": "lot",
+        "place": "THE LOT",
+        "web": {
+          "pos": { "x": 35.24, "y": 4.7, "z": 11.65 },
+          "corner": { "x": 35.24, "y": 3.95, "z": 10.8 },
+          "right": { "x": 0, "y": 0, "z": 1 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": -1, "y": 0, "z": 0 },
+          "width": 1.7,
+          "height": 1.5
+        },
+        "ue": {
+          "pos": { "X": 3524, "Y": 1165, "Z": 470 },
+          "corner": { "X": 3524, "Y": 1080, "Z": 395 },
+          "right": { "X": 0, "Y": 1, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": -1, "Y": 0, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 90, "Roll": 0 },
+          "width": 170,
+          "height": 150
+        }
+      },
+      {
+        "placement": 340,
+        "text": "PARK",
+        "sub": "24 HR",
+        "style": "neon",
+        "fg": "#35e0ff",
+        "bg": null,
+        "glow": "#35e0ff",
+        "zone": "lot",
+        "place": "THE LOT",
+        "web": {
+          "pos": { "x": 35.46, "y": 4.7, "z": 11.65 },
+          "corner": { "x": 35.46, "y": 3.95, "z": 12.5 },
+          "right": { "x": 0, "y": 0, "z": -1 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 1, "y": 0, "z": 0 },
+          "width": 1.7,
+          "height": 1.5
+        },
+        "ue": {
+          "pos": { "X": 3546, "Y": 1165, "Z": 470 },
+          "corner": { "X": 3546, "Y": 1250, "Z": 395 },
+          "right": { "X": 0, "Y": -1, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 1, "Y": 0, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": -90, "Roll": 0 },
+          "width": 170,
+          "height": 150
+        }
+      }
+    ]
+  },
+  "windowLights": {
+    "source": "lamps: the `window` entries of `lamps.list` (the light a lit shop throws out). glass: the level's lit panes (level.json glazing: storefronts, the station, transoms, the shop's skylights). facadeWindows: the lit windows of the painted facade grids (level.json facades). All of it glows at night only.",
+    "lamps": [9, 19, 20, 24, 29, 32, 34, 59, 74, 76, 83, 86, 88],
+    "materials": {
+      "glass_lit_warm": { "emissive": { "hex": "#ffb45e", "linear": [1, 0.4564, 0.1119] }, "emissiveIntensity": 0.75 },
+      "glass_lit_cool": { "emissive": { "hex": "#9fd4ff", "linear": [0.3467, 0.6584, 1] }, "emissiveIntensity": 0.7 },
+      "glass_skylight": { "emissive": { "hex": "#314a78", "linear": [0.0307, 0.0685, 0.1878] }, "emissiveIntensity": 0.55 },
+      "facade": {
+        "source": "src/mats/facade.js, read from the source text: a warm window takes one of `warm`; a tv window is a blue gradient",
+        "warm": ["#ffc070", "#ffd9a0", "#f4a85a", "#ffcf8a"],
+        "curtains": ["#8a3030", "#2f506e", "#d8cfb8", "#5a6a3a", "#c9a25a"]
+      }
+    },
+    "glass": [
+      {
+        "pane": 15,
+        "material": "glass_lit_warm",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -39.388, "y": 5.35, "z": -2.03 },
+          "corner": { "x": -39.388, "y": 4.95, "z": -1.48 },
+          "right": { "x": 0, "y": 0, "z": -1 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 1, "y": 0, "z": 0 },
+          "width": 1.1,
+          "height": 0.8
+        },
+        "ue": {
+          "pos": { "X": -3938.8, "Y": -203, "Z": 535 },
+          "corner": { "X": -3938.8, "Y": -148, "Z": 495 },
+          "right": { "X": 0, "Y": -1, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 1, "Y": 0, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": -90, "Roll": 0 },
+          "width": 110,
+          "height": 80
+        }
+      },
+      {
+        "pane": 16,
+        "material": "glass_lit_warm",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -39.388, "y": 5.35, "z": 1.93 },
+          "corner": { "x": -39.388, "y": 4.95, "z": 2.48 },
+          "right": { "x": 0, "y": 0, "z": -1 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 1, "y": 0, "z": 0 },
+          "width": 1.1,
+          "height": 0.8
+        },
+        "ue": {
+          "pos": { "X": -3938.8, "Y": 193, "Z": 535 },
+          "corner": { "X": -3938.8, "Y": 248, "Z": 495 },
+          "right": { "X": 0, "Y": -1, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 1, "Y": 0, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": -90, "Roll": 0 },
+          "width": 110,
+          "height": 80
+        }
+      },
+      {
+        "pane": 17,
+        "material": "glass_lit_warm",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -42.05, "y": 5.35, "z": -4.112 },
+          "corner": { "x": -41.45, "y": 4.95, "z": -4.112 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 1.2,
+          "height": 0.8
+        },
+        "ue": {
+          "pos": { "X": -4205, "Y": -411.2, "Z": 535 },
+          "corner": { "X": -4145, "Y": -411.2, "Z": 495 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 120,
+          "height": 80
+        }
+      },
+      {
+        "pane": 18,
+        "material": "glass_lit_warm",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -42.05, "y": 5.35, "z": 4.112 },
+          "corner": { "x": -42.65, "y": 4.95, "z": 4.112 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 1.2,
+          "height": 0.8
+        },
+        "ue": {
+          "pos": { "X": -4205, "Y": 411.2, "Z": 535 },
+          "corner": { "X": -4265, "Y": 411.2, "Z": 495 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 120,
+          "height": 80
+        }
+      },
+      {
+        "pane": 19,
+        "material": "glass_lit_warm",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -35.8, "y": 2.775, "z": -10.87 },
+          "corner": { "x": -36.3, "y": 2.55, "z": -10.87 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 1,
+          "height": 0.45
+        },
+        "ue": {
+          "pos": { "X": -3580, "Y": -1087, "Z": 277.5 },
+          "corner": { "X": -3630, "Y": -1087, "Z": 255 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 100,
+          "height": 45
+        }
+      },
+      {
+        "pane": 20,
+        "material": "glass_lit_warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "web": {
+          "pos": { "x": 13.5975, "y": 1.81, "z": -10.965 },
+          "corner": { "x": 11.32, "y": 0.78, "z": -10.965 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 4.555,
+          "height": 2.06
+        },
+        "ue": {
+          "pos": { "X": 1359.75, "Y": -1096.5, "Z": 181 },
+          "corner": { "X": 1132, "Y": -1096.5, "Z": 78 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 455.5,
+          "height": 206
+        }
+      },
+      {
+        "pane": 21,
+        "material": "glass_lit_warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "web": {
+          "pos": { "x": 19.4025, "y": 1.81, "z": -10.965 },
+          "corner": { "x": 17.125, "y": 0.78, "z": -10.965 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 4.555,
+          "height": 2.06
+        },
+        "ue": {
+          "pos": { "X": 1940.25, "Y": -1096.5, "Z": 181 },
+          "corner": { "X": 1712.5, "Y": -1096.5, "Z": 78 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 455.5,
+          "height": 206
+        }
+      },
+      {
+        "pane": 22,
+        "material": "glass_lit_warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "interior": false,
+        "web": {
+          "pos": { "x": 16.5, "y": 1.425, "z": -11.33 },
+          "corner": { "x": 15.955, "y": 0.45, "z": -11.33 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 1.09,
+          "height": 1.95
+        },
+        "ue": {
+          "pos": { "X": 1650, "Y": -1133, "Z": 142.5 },
+          "corner": { "X": 1595.5, "Y": -1133, "Z": 45 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 109,
+          "height": 195
+        }
+      },
+      {
+        "pane": 23,
+        "material": "glass_lit_warm",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -35.6262, "y": 1.81, "z": 10.965 },
+          "corner": { "x": -33.2725, "y": 0.78, "z": 10.965 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 4.7075,
+          "height": 2.06
+        },
+        "ue": {
+          "pos": { "X": -3562.62, "Y": 1096.5, "Z": 181 },
+          "corner": { "X": -3327.25, "Y": 1096.5, "Z": 78 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 470.75,
+          "height": 206
+        }
+      },
+      {
+        "pane": 24,
+        "material": "glass_lit_warm",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -31.1712, "y": 1.81, "z": 10.965 },
+          "corner": { "x": -30.32, "y": 0.78, "z": 10.965 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 1.7025,
+          "height": 2.06
+        },
+        "ue": {
+          "pos": { "X": -3117.12, "Y": 1096.5, "Z": 181 },
+          "corner": { "X": -3032, "Y": 1096.5, "Z": 78 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 170.25,
+          "height": 206
+        }
+      },
+      {
+        "pane": 25,
+        "material": "glass_lit_warm",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -32.6475, "y": 1.425, "z": 11.33 },
+          "corner": { "x": -32.1025, "y": 0.45, "z": 11.33 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 1.09,
+          "height": 1.95
+        },
+        "ue": {
+          "pos": { "X": -3264.75, "Y": 1133, "Z": 142.5 },
+          "corner": { "X": -3210.25, "Y": 1133, "Z": 45 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 109,
+          "height": 195
+        }
+      },
+      {
+        "pane": 26,
+        "material": "glass_lit_warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "web": {
+          "pos": { "x": -2.7413, "y": 1.81, "z": 10.965 },
+          "corner": { "x": -1.8025, "y": 0.78, "z": 10.965 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 1.8775,
+          "height": 2.06
+        },
+        "ue": {
+          "pos": { "X": -274.13, "Y": 1096.5, "Z": 181 },
+          "corner": { "X": -180.25, "Y": 1096.5, "Z": 78 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 187.75,
+          "height": 206
+        }
+      },
+      {
+        "pane": 27,
+        "material": "glass_lit_warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "web": {
+          "pos": { "x": 2.0637, "y": 1.81, "z": 10.965 },
+          "corner": { "x": 4.68, "y": 0.78, "z": 10.965 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 5.2325,
+          "height": 2.06
+        },
+        "ue": {
+          "pos": { "X": 206.37, "Y": 1096.5, "Z": 181 },
+          "corner": { "X": 468, "Y": 1096.5, "Z": 78 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 523.25,
+          "height": 206
+        }
+      },
+      {
+        "pane": 28,
+        "material": "glass_lit_warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "interior": false,
+        "web": {
+          "pos": { "x": -1.1775, "y": 1.425, "z": 11.33 },
+          "corner": { "x": -0.6325, "y": 0.45, "z": 11.33 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 1.09,
+          "height": 1.95
+        },
+        "ue": {
+          "pos": { "X": -117.75, "Y": 1133, "Z": 142.5 },
+          "corner": { "X": -63.25, "Y": 1133, "Z": 45 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 109,
+          "height": 195
+        }
+      },
+      {
+        "pane": 29,
+        "material": "glass_lit_cool",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -45.2, "y": 9.05, "z": -7.062 },
+          "corner": { "x": -44.35, "y": 8.675, "z": -7.062 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 1.7,
+          "height": 0.75
+        },
+        "ue": {
+          "pos": { "X": -4520, "Y": -706.2, "Z": 905 },
+          "corner": { "X": -4435, "Y": -706.2, "Z": 867.5 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 170,
+          "height": 75
+        }
+      },
+      {
+        "pane": 30,
+        "material": "glass_lit_cool",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -42.8, "y": 9.05, "z": -7.062 },
+          "corner": { "x": -41.95, "y": 8.675, "z": -7.062 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 1.7,
+          "height": 0.75
+        },
+        "ue": {
+          "pos": { "X": -4280, "Y": -706.2, "Z": 905 },
+          "corner": { "X": -4195, "Y": -706.2, "Z": 867.5 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 170,
+          "height": 75
+        }
+      },
+      {
+        "pane": 31,
+        "material": "glass_lit_cool",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -40.4, "y": 9.05, "z": -7.062 },
+          "corner": { "x": -39.55, "y": 8.675, "z": -7.062 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 1.7,
+          "height": 0.75
+        },
+        "ue": {
+          "pos": { "X": -4040, "Y": -706.2, "Z": 905 },
+          "corner": { "X": -3955, "Y": -706.2, "Z": 867.5 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 170,
+          "height": 75
+        }
+      },
+      {
+        "pane": 32,
+        "material": "glass_lit_cool",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -38, "y": 9.05, "z": -7.062 },
+          "corner": { "x": -37.15, "y": 8.675, "z": -7.062 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 1.7,
+          "height": 0.75
+        },
+        "ue": {
+          "pos": { "X": -3800, "Y": -706.2, "Z": 905 },
+          "corner": { "X": -3715, "Y": -706.2, "Z": 867.5 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 170,
+          "height": 75
+        }
+      },
+      {
+        "pane": 33,
+        "material": "glass_lit_cool",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -35.6, "y": 9.05, "z": -7.062 },
+          "corner": { "x": -34.75, "y": 8.675, "z": -7.062 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 1.7,
+          "height": 0.75
+        },
+        "ue": {
+          "pos": { "X": -3560, "Y": -706.2, "Z": 905 },
+          "corner": { "X": -3475, "Y": -706.2, "Z": 867.5 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 170,
+          "height": 75
+        }
+      },
+      {
+        "pane": 34,
+        "material": "glass_lit_cool",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -33.2, "y": 9.05, "z": -7.062 },
+          "corner": { "x": -32.35, "y": 8.675, "z": -7.062 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 1.7,
+          "height": 0.75
+        },
+        "ue": {
+          "pos": { "X": -3320, "Y": -706.2, "Z": 905 },
+          "corner": { "X": -3235, "Y": -706.2, "Z": 867.5 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 170,
+          "height": 75
+        }
+      },
+      {
+        "pane": 35,
+        "material": "glass_lit_cool",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -45.2, "y": 9.05, "z": 7.062 },
+          "corner": { "x": -46.05, "y": 8.675, "z": 7.062 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 1.7,
+          "height": 0.75
+        },
+        "ue": {
+          "pos": { "X": -4520, "Y": 706.2, "Z": 905 },
+          "corner": { "X": -4605, "Y": 706.2, "Z": 867.5 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 170,
+          "height": 75
+        }
+      },
+      {
+        "pane": 36,
+        "material": "glass_lit_cool",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -42.8, "y": 9.05, "z": 7.062 },
+          "corner": { "x": -43.65, "y": 8.675, "z": 7.062 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 1.7,
+          "height": 0.75
+        },
+        "ue": {
+          "pos": { "X": -4280, "Y": 706.2, "Z": 905 },
+          "corner": { "X": -4365, "Y": 706.2, "Z": 867.5 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 170,
+          "height": 75
+        }
+      },
+      {
+        "pane": 37,
+        "material": "glass_lit_cool",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -40.4, "y": 9.05, "z": 7.062 },
+          "corner": { "x": -41.25, "y": 8.675, "z": 7.062 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 1.7,
+          "height": 0.75
+        },
+        "ue": {
+          "pos": { "X": -4040, "Y": 706.2, "Z": 905 },
+          "corner": { "X": -4125, "Y": 706.2, "Z": 867.5 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 170,
+          "height": 75
+        }
+      },
+      {
+        "pane": 38,
+        "material": "glass_lit_cool",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -38, "y": 9.05, "z": 7.062 },
+          "corner": { "x": -38.85, "y": 8.675, "z": 7.062 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 1.7,
+          "height": 0.75
+        },
+        "ue": {
+          "pos": { "X": -3800, "Y": 706.2, "Z": 905 },
+          "corner": { "X": -3885, "Y": 706.2, "Z": 867.5 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 170,
+          "height": 75
+        }
+      },
+      {
+        "pane": 39,
+        "material": "glass_lit_cool",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -35.6, "y": 9.05, "z": 7.062 },
+          "corner": { "x": -36.45, "y": 8.675, "z": 7.062 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 1.7,
+          "height": 0.75
+        },
+        "ue": {
+          "pos": { "X": -3560, "Y": 706.2, "Z": 905 },
+          "corner": { "X": -3645, "Y": 706.2, "Z": 867.5 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 170,
+          "height": 75
+        }
+      },
+      {
+        "pane": 40,
+        "material": "glass_lit_cool",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -33.2, "y": 9.05, "z": 7.062 },
+          "corner": { "x": -34.05, "y": 8.675, "z": 7.062 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 1.7,
+          "height": 0.75
+        },
+        "ue": {
+          "pos": { "X": -3320, "Y": 706.2, "Z": 905 },
+          "corner": { "X": -3405, "Y": 706.2, "Z": 867.5 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 170,
+          "height": 75
+        }
+      },
+      {
+        "pane": 41,
+        "material": "glass_lit_cool",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -42.976, "y": 1.81, "z": -10.965 },
+          "corner": { "x": -45.68, "y": 0.78, "z": -10.965 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 5.408,
+          "height": 2.06
+        },
+        "ue": {
+          "pos": { "X": -4297.6, "Y": -1096.5, "Z": 181 },
+          "corner": { "X": -4568, "Y": -1096.5, "Z": 78 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 540.8,
+          "height": 206
+        }
+      },
+      {
+        "pane": 42,
+        "material": "glass_lit_cool",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -38.271, "y": 1.81, "z": -10.965 },
+          "corner": { "x": -39.022, "y": 0.78, "z": -10.965 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 1.502,
+          "height": 2.06
+        },
+        "ue": {
+          "pos": { "X": -3827.1, "Y": -1096.5, "Z": 181 },
+          "corner": { "X": -3902.2, "Y": -1096.5, "Z": 78 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 150.2,
+          "height": 206
+        }
+      },
+      {
+        "pane": 43,
+        "material": "glass_lit_cool",
+        "zone": "west",
+        "place": "WEST END",
+        "interior": false,
+        "web": {
+          "pos": { "x": -39.647, "y": 1.425, "z": -11.33 },
+          "corner": { "x": -40.192, "y": 0.45, "z": -11.33 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 1.09,
+          "height": 1.95
+        },
+        "ue": {
+          "pos": { "X": -3964.7, "Y": -1133, "Z": 142.5 },
+          "corner": { "X": -4019.2, "Y": -1133, "Z": 45 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 109,
+          "height": 195
+        }
+      },
+      {
+        "pane": 56,
+        "material": "glass_skylight",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "interior": true,
+        "web": {
+          "pos": { "x": -18.5, "y": 5.988, "z": -19.5 },
+          "corner": { "x": -19.7, "y": 5.988, "z": -21.2 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 0, "z": 1 },
+          "normal": { "x": 0, "y": -1, "z": 0 },
+          "width": 2.4,
+          "height": 3.4
+        },
+        "ue": {
+          "pos": { "X": -1850, "Y": -1950, "Z": 598.8 },
+          "corner": { "X": -1970, "Y": -2120, "Z": 598.8 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 1, "Z": 0 },
+          "normal": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 90 },
+          "width": 240,
+          "height": 340
+        }
+      },
+      {
+        "pane": 57,
+        "material": "glass_skylight",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "interior": true,
+        "web": {
+          "pos": { "x": -9, "y": 5.988, "z": -24.5 },
+          "corner": { "x": -10.2, "y": 5.988, "z": -26.2 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 0, "z": 1 },
+          "normal": { "x": 0, "y": -1, "z": 0 },
+          "width": 2.4,
+          "height": 3.4
+        },
+        "ue": {
+          "pos": { "X": -900, "Y": -2450, "Z": 598.8 },
+          "corner": { "X": -1020, "Y": -2620, "Z": 598.8 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 1, "Z": 0 },
+          "normal": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 90 },
+          "width": 240,
+          "height": 340
+        }
+      },
+      {
+        "pane": 58,
+        "material": "glass_skylight",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "interior": true,
+        "web": {
+          "pos": { "x": -9, "y": 5.988, "z": -15.5 },
+          "corner": { "x": -10.2, "y": 5.988, "z": -17.2 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 0, "z": 1 },
+          "normal": { "x": 0, "y": -1, "z": 0 },
+          "width": 2.4,
+          "height": 3.4
+        },
+        "ue": {
+          "pos": { "X": -900, "Y": -1550, "Z": 598.8 },
+          "corner": { "X": -1020, "Y": -1720, "Z": 598.8 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 1, "Z": 0 },
+          "normal": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 90 },
+          "width": 240,
+          "height": 340
+        }
+      },
+      {
+        "pane": 59,
+        "material": "glass_skylight",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "interior": true,
+        "web": {
+          "pos": { "x": 0.5, "y": 5.988, "z": -20.5 },
+          "corner": { "x": -0.7, "y": 5.988, "z": -22.2 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 0, "z": 1 },
+          "normal": { "x": 0, "y": -1, "z": 0 },
+          "width": 2.4,
+          "height": 3.4
+        },
+        "ue": {
+          "pos": { "X": 50, "Y": -2050, "Z": 598.8 },
+          "corner": { "X": -70, "Y": -2220, "Z": 598.8 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 1, "Z": 0 },
+          "normal": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 90 },
+          "width": 240,
+          "height": 340
+        }
+      },
+      {
+        "pane": 66,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 27.3, "y": 1.64, "z": 13.385 },
+          "corner": { "x": 26.34, "y": 1.09, "z": 13.385 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 1.92,
+          "height": 1.1
+        },
+        "ue": {
+          "pos": { "X": 2730, "Y": 1338.5, "Z": 164 },
+          "corner": { "X": 2634, "Y": 1338.5, "Z": 109 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 192,
+          "height": 110
+        }
+      },
+      {
+        "pane": 67,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 27.3, "y": 1.64, "z": 13.355 },
+          "corner": { "x": 28.26, "y": 1.09, "z": 13.355 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 1.92,
+          "height": 1.1
+        },
+        "ue": {
+          "pos": { "X": 2730, "Y": 1335.5, "Z": 164 },
+          "corner": { "X": 2826, "Y": 1335.5, "Z": 109 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 192,
+          "height": 110
+        }
+      },
+      {
+        "pane": 68,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 28.26, "y": 1.64, "z": 13.37 },
+          "corner": { "x": 28.26, "y": 1.09, "z": 13.385 },
+          "right": { "x": 0, "y": 0, "z": -1 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 1, "y": 0, "z": 0 },
+          "width": 0.03,
+          "height": 1.1
+        },
+        "ue": {
+          "pos": { "X": 2826, "Y": 1337, "Z": 164 },
+          "corner": { "X": 2826, "Y": 1338.5, "Z": 109 },
+          "right": { "X": 0, "Y": -1, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 1, "Y": 0, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": -90, "Roll": 0 },
+          "width": 3,
+          "height": 110
+        }
+      },
+      {
+        "pane": 69,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 26.34, "y": 1.64, "z": 13.37 },
+          "corner": { "x": 26.34, "y": 1.09, "z": 13.355 },
+          "right": { "x": 0, "y": 0, "z": 1 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": -1, "y": 0, "z": 0 },
+          "width": 0.03,
+          "height": 1.1
+        },
+        "ue": {
+          "pos": { "X": 2634, "Y": 1337, "Z": 164 },
+          "corner": { "X": 2634, "Y": 1335.5, "Z": 109 },
+          "right": { "X": 0, "Y": 1, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": -1, "Y": 0, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 90, "Roll": 0 },
+          "width": 3,
+          "height": 110
+        }
+      },
+      {
+        "pane": 70,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 27.3, "y": 2.19, "z": 13.37 },
+          "corner": { "x": 26.34, "y": 2.19, "z": 13.385 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 0, "z": -1 },
+          "normal": { "x": 0, "y": 1, "z": 0 },
+          "width": 1.92,
+          "height": 0.03
+        },
+        "ue": {
+          "pos": { "X": 2730, "Y": 1337, "Z": 219 },
+          "corner": { "X": 2634, "Y": 1338.5, "Z": 219 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": -1, "Z": 0 },
+          "normal": { "X": 0, "Y": 0, "Z": 1 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": -90 },
+          "width": 192,
+          "height": 3
+        }
+      },
+      {
+        "pane": 71,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 27.3, "y": 1.09, "z": 13.37 },
+          "corner": { "x": 26.34, "y": 1.09, "z": 13.355 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 0, "z": 1 },
+          "normal": { "x": 0, "y": -1, "z": 0 },
+          "width": 1.92,
+          "height": 0.03
+        },
+        "ue": {
+          "pos": { "X": 2730, "Y": 1337, "Z": 109 },
+          "corner": { "X": 2634, "Y": 1335.5, "Z": 109 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 1, "Z": 0 },
+          "normal": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 90 },
+          "width": 192,
+          "height": 3
+        }
+      },
+      {
+        "pane": 72,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 26.28, "y": 1.64, "z": 13.31 },
+          "corner": { "x": 26.265, "y": 1.09, "z": 13.31 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 0.03,
+          "height": 1.1
+        },
+        "ue": {
+          "pos": { "X": 2628, "Y": 1331, "Z": 164 },
+          "corner": { "X": 2626.5, "Y": 1331, "Z": 109 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 3,
+          "height": 110
+        }
+      },
+      {
+        "pane": 73,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 26.28, "y": 1.64, "z": 11.79 },
+          "corner": { "x": 26.295, "y": 1.09, "z": 11.79 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 0.03,
+          "height": 1.1
+        },
+        "ue": {
+          "pos": { "X": 2628, "Y": 1179, "Z": 164 },
+          "corner": { "X": 2629.5, "Y": 1179, "Z": 109 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 3,
+          "height": 110
+        }
+      },
+      {
+        "pane": 74,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 26.295, "y": 1.64, "z": 12.55 },
+          "corner": { "x": 26.295, "y": 1.09, "z": 13.31 },
+          "right": { "x": 0, "y": 0, "z": -1 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 1, "y": 0, "z": 0 },
+          "width": 1.52,
+          "height": 1.1
+        },
+        "ue": {
+          "pos": { "X": 2629.5, "Y": 1255, "Z": 164 },
+          "corner": { "X": 2629.5, "Y": 1331, "Z": 109 },
+          "right": { "X": 0, "Y": -1, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 1, "Y": 0, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": -90, "Roll": 0 },
+          "width": 152,
+          "height": 110
+        }
+      },
+      {
+        "pane": 75,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 26.265, "y": 1.64, "z": 12.55 },
+          "corner": { "x": 26.265, "y": 1.09, "z": 11.79 },
+          "right": { "x": 0, "y": 0, "z": 1 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": -1, "y": 0, "z": 0 },
+          "width": 1.52,
+          "height": 1.1
+        },
+        "ue": {
+          "pos": { "X": 2626.5, "Y": 1255, "Z": 164 },
+          "corner": { "X": 2626.5, "Y": 1179, "Z": 109 },
+          "right": { "X": 0, "Y": 1, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": -1, "Y": 0, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 90, "Roll": 0 },
+          "width": 152,
+          "height": 110
+        }
+      },
+      {
+        "pane": 76,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 26.28, "y": 2.19, "z": 12.55 },
+          "corner": { "x": 26.265, "y": 2.19, "z": 13.31 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 0, "z": -1 },
+          "normal": { "x": 0, "y": 1, "z": 0 },
+          "width": 0.03,
+          "height": 1.52
+        },
+        "ue": {
+          "pos": { "X": 2628, "Y": 1255, "Z": 219 },
+          "corner": { "X": 2626.5, "Y": 1331, "Z": 219 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": -1, "Z": 0 },
+          "normal": { "X": 0, "Y": 0, "Z": 1 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": -90 },
+          "width": 3,
+          "height": 152
+        }
+      },
+      {
+        "pane": 77,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 26.28, "y": 1.09, "z": 12.55 },
+          "corner": { "x": 26.265, "y": 1.09, "z": 11.79 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 0, "z": 1 },
+          "normal": { "x": 0, "y": -1, "z": 0 },
+          "width": 0.03,
+          "height": 1.52
+        },
+        "ue": {
+          "pos": { "X": 2628, "Y": 1255, "Z": 109 },
+          "corner": { "X": 2626.5, "Y": 1179, "Z": 109 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 1, "Z": 0 },
+          "normal": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 90 },
+          "width": 3,
+          "height": 152
+        }
+      },
+      {
+        "pane": 78,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 28.355, "y": 1.6, "z": 12.5 },
+          "corner": { "x": 28.34, "y": 1.25, "z": 12.5 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 0.03,
+          "height": 0.7
+        },
+        "ue": {
+          "pos": { "X": 2835.5, "Y": 1250, "Z": 160 },
+          "corner": { "X": 2834, "Y": 1250, "Z": 125 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 3,
+          "height": 70
+        }
+      },
+      {
+        "pane": 79,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 28.355, "y": 1.6, "z": 12 },
+          "corner": { "x": 28.37, "y": 1.25, "z": 12 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 0.03,
+          "height": 0.7
+        },
+        "ue": {
+          "pos": { "X": 2835.5, "Y": 1200, "Z": 160 },
+          "corner": { "X": 2837, "Y": 1200, "Z": 125 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 3,
+          "height": 70
+        }
+      },
+      {
+        "pane": 80,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 28.37, "y": 1.6, "z": 12.25 },
+          "corner": { "x": 28.37, "y": 1.25, "z": 12.5 },
+          "right": { "x": 0, "y": 0, "z": -1 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 1, "y": 0, "z": 0 },
+          "width": 0.5,
+          "height": 0.7
+        },
+        "ue": {
+          "pos": { "X": 2837, "Y": 1225, "Z": 160 },
+          "corner": { "X": 2837, "Y": 1250, "Z": 125 },
+          "right": { "X": 0, "Y": -1, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 1, "Y": 0, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": -90, "Roll": 0 },
+          "width": 50,
+          "height": 70
+        }
+      },
+      {
+        "pane": 81,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 28.34, "y": 1.6, "z": 12.25 },
+          "corner": { "x": 28.34, "y": 1.25, "z": 12 },
+          "right": { "x": 0, "y": 0, "z": 1 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": -1, "y": 0, "z": 0 },
+          "width": 0.5,
+          "height": 0.7
+        },
+        "ue": {
+          "pos": { "X": 2834, "Y": 1225, "Z": 160 },
+          "corner": { "X": 2834, "Y": 1200, "Z": 125 },
+          "right": { "X": 0, "Y": 1, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": -1, "Y": 0, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 90, "Roll": 0 },
+          "width": 50,
+          "height": 70
+        }
+      },
+      {
+        "pane": 82,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 28.355, "y": 1.95, "z": 12.25 },
+          "corner": { "x": 28.34, "y": 1.95, "z": 12.5 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 0, "z": -1 },
+          "normal": { "x": 0, "y": 1, "z": 0 },
+          "width": 0.03,
+          "height": 0.5
+        },
+        "ue": {
+          "pos": { "X": 2835.5, "Y": 1225, "Z": 195 },
+          "corner": { "X": 2834, "Y": 1250, "Z": 195 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": -1, "Z": 0 },
+          "normal": { "X": 0, "Y": 0, "Z": 1 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": -90 },
+          "width": 3,
+          "height": 50
+        }
+      },
+      {
+        "pane": 83,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 28.355, "y": 1.25, "z": 12.25 },
+          "corner": { "x": 28.34, "y": 1.25, "z": 12 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 0, "z": 1 },
+          "normal": { "x": 0, "y": -1, "z": 0 },
+          "width": 0.03,
+          "height": 0.5
+        },
+        "ue": {
+          "pos": { "X": 2835.5, "Y": 1225, "Z": 125 },
+          "corner": { "X": 2834, "Y": 1200, "Z": 125 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 1, "Z": 0 },
+          "normal": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 90 },
+          "width": 3,
+          "height": 50
+        }
+      },
+      {
+        "pane": 84,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 28.32, "y": 1.64, "z": 13.3 },
+          "corner": { "x": 28.305, "y": 1.09, "z": 13.3 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 },
+          "width": 0.03,
+          "height": 1.1
+        },
+        "ue": {
+          "pos": { "X": 2832, "Y": 1330, "Z": 164 },
+          "corner": { "X": 2830.5, "Y": 1330, "Z": 109 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": 1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 0 },
+          "width": 3,
+          "height": 110
+        }
+      },
+      {
+        "pane": 85,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 28.32, "y": 1.64, "z": 12.68 },
+          "corner": { "x": 28.335, "y": 1.09, "z": 12.68 },
+          "right": { "x": -1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": -1 },
+          "width": 0.03,
+          "height": 1.1
+        },
+        "ue": {
+          "pos": { "X": 2832, "Y": 1268, "Z": 164 },
+          "corner": { "X": 2833.5, "Y": 1268, "Z": 109 },
+          "right": { "X": -1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 0, "Y": -1, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 180, "Roll": 0 },
+          "width": 3,
+          "height": 110
+        }
+      },
+      {
+        "pane": 86,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 28.335, "y": 1.64, "z": 12.99 },
+          "corner": { "x": 28.335, "y": 1.09, "z": 13.3 },
+          "right": { "x": 0, "y": 0, "z": -1 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 1, "y": 0, "z": 0 },
+          "width": 0.62,
+          "height": 1.1
+        },
+        "ue": {
+          "pos": { "X": 2833.5, "Y": 1299, "Z": 164 },
+          "corner": { "X": 2833.5, "Y": 1330, "Z": 109 },
+          "right": { "X": 0, "Y": -1, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": 1, "Y": 0, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": -90, "Roll": 0 },
+          "width": 62,
+          "height": 110
+        }
+      },
+      {
+        "pane": 87,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 28.305, "y": 1.64, "z": 12.99 },
+          "corner": { "x": 28.305, "y": 1.09, "z": 12.68 },
+          "right": { "x": 0, "y": 0, "z": 1 },
+          "up": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": -1, "y": 0, "z": 0 },
+          "width": 0.62,
+          "height": 1.1
+        },
+        "ue": {
+          "pos": { "X": 2830.5, "Y": 1299, "Z": 164 },
+          "corner": { "X": 2830.5, "Y": 1268, "Z": 109 },
+          "right": { "X": 0, "Y": 1, "Z": 0 },
+          "up": { "X": 0, "Y": 0, "Z": 1 },
+          "normal": { "X": -1, "Y": 0, "Z": 0 },
+          "rotator": { "Pitch": 0, "Yaw": 90, "Roll": 0 },
+          "width": 62,
+          "height": 110
+        }
+      },
+      {
+        "pane": 88,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 28.32, "y": 2.19, "z": 12.99 },
+          "corner": { "x": 28.305, "y": 2.19, "z": 13.3 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 0, "z": -1 },
+          "normal": { "x": 0, "y": 1, "z": 0 },
+          "width": 0.03,
+          "height": 0.62
+        },
+        "ue": {
+          "pos": { "X": 2832, "Y": 1299, "Z": 219 },
+          "corner": { "X": 2830.5, "Y": 1330, "Z": 219 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": -1, "Z": 0 },
+          "normal": { "X": 0, "Y": 0, "Z": 1 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": -90 },
+          "width": 3,
+          "height": 62
+        }
+      },
+      {
+        "pane": 89,
+        "material": "glass_lit_warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "interior": false,
+        "web": {
+          "pos": { "x": 28.32, "y": 1.09, "z": 12.99 },
+          "corner": { "x": 28.305, "y": 1.09, "z": 12.68 },
+          "right": { "x": 1, "y": 0, "z": 0 },
+          "up": { "x": 0, "y": 0, "z": 1 },
+          "normal": { "x": 0, "y": -1, "z": 0 },
+          "width": 0.03,
+          "height": 0.62
+        },
+        "ue": {
+          "pos": { "X": 2832, "Y": 1299, "Z": 109 },
+          "corner": { "X": 2830.5, "Y": 1268, "Z": 109 },
+          "right": { "X": 1, "Y": 0, "Z": 0 },
+          "up": { "X": 0, "Y": 1, "Z": 0 },
+          "normal": { "X": 0, "Y": 0, "Z": -1 },
+          "rotator": { "Pitch": 0, "Yaw": 0, "Roll": 90 },
+          "width": 3,
+          "height": 62
+        }
+      }
+    ],
+    "facadeWindows": [
+      {
+        "face": 0,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "west",
+        "place": "WEST END",
+        "web": { "pos": { "x": -40.75, "y": 5.2682, "z": -11 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": -4075, "Y": -1100, "Z": 526.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 0,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "west",
+        "place": "WEST END",
+        "web": { "pos": { "x": -28.35, "y": 5.2682, "z": -11 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": -2835, "Y": -1100, "Z": 526.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 0,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "west",
+        "place": "WEST END",
+        "web": { "pos": { "x": -43.85, "y": 8.3682, "z": -11 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": -4385, "Y": -1100, "Z": 836.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 0,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "west",
+        "place": "WEST END",
+        "web": { "pos": { "x": -34.55, "y": 8.3682, "z": -11 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": -3455, "Y": -1100, "Z": 836.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 0,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "west",
+        "place": "WEST END",
+        "web": { "pos": { "x": -31.45, "y": 8.3682, "z": -11 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": -3145, "Y": -1100, "Z": 836.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 0,
+        "grid": "facade:brick_red",
+        "state": "tv",
+        "zone": "west",
+        "place": "WEST END",
+        "web": { "pos": { "x": -37.65, "y": 14.5682, "z": -11 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": -3765, "Y": -1100, "Z": 1456.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 1,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": -21.45, "y": 5.2682, "z": 11 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": -2145, "Y": 1100, "Z": 526.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 1,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": -18.35, "y": 8.3682, "z": 11 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": -1835, "Y": 1100, "Z": 836.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 1,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": -27.65, "y": 8.3682, "z": 11 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": -2765, "Y": 1100, "Z": 836.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 2,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE CAGE",
+        "web": { "pos": { "x": 27.75, "y": 1.4682, "z": -33.5 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": 2775, "Y": -3350, "Z": 146.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 2,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE CAGE",
+        "web": { "pos": { "x": 40.15, "y": 1.4682, "z": -33.5 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": 4015, "Y": -3350, "Z": 146.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 2,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE CAGE",
+        "web": { "pos": { "x": 27.75, "y": 4.5682, "z": -33.5 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": 2775, "Y": -3350, "Z": 456.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 2,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE CAGE",
+        "web": { "pos": { "x": 40.15, "y": 4.5682, "z": -33.5 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": 4015, "Y": -3350, "Z": 456.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 2,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE CAGE",
+        "web": { "pos": { "x": 24.65, "y": 7.6682, "z": -33.5 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": 2465, "Y": -3350, "Z": 766.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 2,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE CAGE",
+        "web": { "pos": { "x": 33.95, "y": 7.6682, "z": -33.5 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": 3395, "Y": -3350, "Z": 766.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 2,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE CAGE",
+        "web": { "pos": { "x": 37.05, "y": 7.6682, "z": -33.5 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": 3705, "Y": -3350, "Z": 766.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 2,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE CAGE",
+        "web": { "pos": { "x": 46.35, "y": 7.6682, "z": -33.5 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": 4635, "Y": -3350, "Z": 766.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 3,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": 20.05, "y": 7.6682, "z": 34 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": 2005, "Y": 3400, "Z": 766.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 3,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": 10.75, "y": 7.6682, "z": 34 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": 1075, "Y": 3400, "Z": 766.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 3,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": 7.65, "y": 7.6682, "z": 34 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": 765, "Y": 3400, "Z": 766.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 3,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": -1.65, "y": 7.6682, "z": 34 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": -165, "Y": 3400, "Z": 766.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 3,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": -4.75, "y": 7.6682, "z": 34 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": -475, "Y": 3400, "Z": 766.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 3,
+        "grid": "facade:brick_red",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": -14.05, "y": 7.6682, "z": 34 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": -1405, "Y": 3400, "Z": 766.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 4,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 13.4, "y": 5.2682, "z": -11 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": 1340, "Y": -1100, "Z": 526.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 4,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 13.4, "y": 8.3682, "z": -11 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": 1340, "Y": -1100, "Z": 836.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 5,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 11, "y": 1.4682, "z": -28.95 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 1100, "Y": -2895, "Z": 146.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 5,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 11, "y": 1.4682, "z": -16.55 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 1100, "Y": -1655, "Z": 146.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 5,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 11, "y": 4.5682, "z": -28.95 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 1100, "Y": -2895, "Z": 456.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 5,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 11, "y": 4.5682, "z": -19.65 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 1100, "Y": -1965, "Z": 456.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 5,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 11, "y": 4.5682, "z": -16.55 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 1100, "Y": -1655, "Z": 456.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 5,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 11, "y": 7.6682, "z": -28.95 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 1100, "Y": -2895, "Z": 766.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 5,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 11, "y": 7.6682, "z": -16.55 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 1100, "Y": -1655, "Z": 766.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 6,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 22, "y": 1.4682, "z": -12.95 }, "normal": { "x": 1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 2200, "Y": -1295, "Z": 146.82 }, "normal": { "X": 1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 6,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 22, "y": 1.4682, "z": -25.35 }, "normal": { "x": 1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 2200, "Y": -2535, "Z": 146.82 }, "normal": { "X": 1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 6,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 22, "y": 4.5682, "z": -12.95 }, "normal": { "x": 1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 2200, "Y": -1295, "Z": 456.82 }, "normal": { "X": 1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 6,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 22, "y": 4.5682, "z": -22.25 }, "normal": { "x": 1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 2200, "Y": -2225, "Z": 456.82 }, "normal": { "X": 1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 6,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 22, "y": 4.5682, "z": -25.35 }, "normal": { "x": 1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 2200, "Y": -2535, "Z": 456.82 }, "normal": { "X": 1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 6,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 22, "y": 7.6682, "z": -12.95 }, "normal": { "x": 1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 2200, "Y": -1295, "Z": 766.82 }, "normal": { "X": 1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 6,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 22, "y": 7.6682, "z": -25.35 }, "normal": { "x": 1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 2200, "Y": -2535, "Z": 766.82 }, "normal": { "X": 1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 7,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": 19.85, "y": 5.2682, "z": 11 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": 1985, "Y": 1100, "Z": 526.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 7,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": 10.55, "y": 5.2682, "z": 11 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": 1055, "Y": 1100, "Z": 526.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 7,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": 7.45, "y": 5.2682, "z": 11 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": 745, "Y": 1100, "Z": 526.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 7,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": -1.85, "y": 5.2682, "z": 11 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": -185, "Y": 1100, "Z": 526.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 8,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": -4, "y": 1.4682, "z": 13.85 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": -400, "Y": 1385, "Z": 146.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 8,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": -4, "y": 4.5682, "z": 13.85 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": -400, "Y": 1385, "Z": 456.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 8,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": -4, "y": 4.5682, "z": 23.15 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": -400, "Y": 2315, "Z": 456.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 9,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": -1.85, "y": 1.4682, "z": 26 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": -185, "Y": 2600, "Z": 146.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 9,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": 10.55, "y": 1.4682, "z": 26 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": 1055, "Y": 2600, "Z": 146.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 9,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": -1.85, "y": 4.5682, "z": 26 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": -185, "Y": 2600, "Z": 456.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 9,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": 7.45, "y": 4.5682, "z": 26 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": 745, "Y": 2600, "Z": 456.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 9,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": 10.55, "y": 4.5682, "z": 26 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": 1055, "Y": 2600, "Z": 456.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 9,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": 19.85, "y": 4.5682, "z": 26 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": 1985, "Y": 2600, "Z": 456.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 10,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": 22, "y": 1.4682, "z": 23.15 }, "normal": { "x": 1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 2200, "Y": 2315, "Z": 146.82 }, "normal": { "X": 1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 10,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": 22, "y": 4.5682, "z": 23.15 }, "normal": { "x": 1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 2200, "Y": 2315, "Z": 456.82 }, "normal": { "X": 1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 10,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "avenue",
+        "place": "THE AVENUE",
+        "web": { "pos": { "x": 22, "y": 4.5682, "z": 13.85 }, "normal": { "x": 1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 2200, "Y": 1385, "Z": 456.82 }, "normal": { "X": 1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 11,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE CAGE",
+        "web": { "pos": { "x": 45.8, "y": 1.4682, "z": -30.6 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 4580, "Y": -3060, "Z": 146.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 11,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE CAGE",
+        "web": { "pos": { "x": 45.8, "y": 1.4682, "z": -18.2 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 4580, "Y": -1820, "Z": 146.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 11,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE CAGE",
+        "web": { "pos": { "x": 45.8, "y": 4.5682, "z": -30.6 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 4580, "Y": -3060, "Z": 456.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 11,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE CAGE",
+        "web": { "pos": { "x": 45.8, "y": 4.5682, "z": -21.3 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 4580, "Y": -2130, "Z": 456.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 11,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE CAGE",
+        "web": { "pos": { "x": 45.8, "y": 4.5682, "z": -18.2 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 4580, "Y": -1820, "Z": 456.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 11,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE CAGE",
+        "web": { "pos": { "x": 45.8, "y": 7.6682, "z": -30.6 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 4580, "Y": -3060, "Z": 766.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 11,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE CAGE",
+        "web": { "pos": { "x": 45.8, "y": 7.6682, "z": -18.2 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 4580, "Y": -1820, "Z": 766.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 12,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "web": { "pos": { "x": 43.3, "y": 1.4682, "z": 34 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": 4330, "Y": 3400, "Z": 146.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 12,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "web": { "pos": { "x": 30.9, "y": 1.4682, "z": 34 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": 3090, "Y": 3400, "Z": 146.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 12,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "web": { "pos": { "x": 43.3, "y": 4.5682, "z": 34 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": 4330, "Y": 3400, "Z": 456.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 12,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "web": { "pos": { "x": 34, "y": 4.5682, "z": 34 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": 3400, "Y": 3400, "Z": 456.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 12,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "web": { "pos": { "x": 30.9, "y": 4.5682, "z": 34 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": 3090, "Y": 3400, "Z": 456.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 12,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "web": { "pos": { "x": 43.3, "y": 7.6682, "z": 34 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": 4330, "Y": 3400, "Z": 766.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 12,
+        "grid": "facade:brick_tan",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "web": { "pos": { "x": 30.9, "y": 7.6682, "z": 34 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": 3090, "Y": 3400, "Z": 766.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 13,
+        "grid": "facade:brick_brown",
+        "state": "warm",
+        "zone": "west",
+        "place": "WEST END",
+        "web": { "pos": { "x": -31.8, "y": 5.2682, "z": 11 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": -3180, "Y": 1100, "Z": 526.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 13,
+        "grid": "facade:brick_brown",
+        "state": "warm",
+        "zone": "west",
+        "place": "WEST END",
+        "web": { "pos": { "x": -44.2, "y": 5.2682, "z": 11 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": -4420, "Y": 1100, "Z": 526.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 13,
+        "grid": "facade:brick_brown",
+        "state": "warm",
+        "zone": "west",
+        "place": "WEST END",
+        "web": { "pos": { "x": -41.1, "y": 8.3682, "z": 11 }, "normal": { "x": 0, "y": 0, "z": -1 } },
+        "ue": { "pos": { "X": -4110, "Y": 1100, "Z": 836.82 }, "normal": { "X": 0, "Y": -1, "Z": 0 } }
+      },
+      {
+        "face": 14,
+        "grid": "facade:brick_brown",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": -12.1, "y": 7.6682, "z": -31 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": -1210, "Y": -3100, "Z": 766.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 14,
+        "grid": "facade:brick_brown",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 0.3, "y": 7.6682, "z": -31 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": 30, "Y": -3100, "Z": 766.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 14,
+        "grid": "facade:brick_brown",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": -12.1, "y": 10.7682, "z": -31 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": -1210, "Y": -3100, "Z": 1076.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 14,
+        "grid": "facade:brick_brown",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 0.3, "y": 10.7682, "z": -31 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": 30, "Y": -3100, "Z": 1076.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 15,
+        "grid": "facade:brick_brown",
+        "state": "warm",
+        "zone": "shop",
+        "place": "CHOP SHOP",
+        "web": { "pos": { "x": 8.5, "y": 4.5682, "z": -34 }, "normal": { "x": 0, "y": 0, "z": 1 } },
+        "ue": { "pos": { "X": 850, "Y": -3400, "Z": 456.82 }, "normal": { "X": 0, "Y": 1, "Z": 0 } }
+      },
+      {
+        "face": 16,
+        "grid": "facade:brick_brown",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "web": { "pos": { "x": 46, "y": 4.5682, "z": 13.15 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 4600, "Y": 1315, "Z": 456.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      },
+      {
+        "face": 16,
+        "grid": "facade:brick_brown",
+        "state": "warm",
+        "zone": "lot",
+        "place": "THE LOT",
+        "web": { "pos": { "x": 46, "y": 4.5682, "z": 25.55 }, "normal": { "x": -1, "y": 0, "z": 0 } },
+        "ue": { "pos": { "X": 4600, "Y": 2555, "Z": 456.82 }, "normal": { "X": -1, "Y": 0, "Z": 0 } }
+      }
+    ]
+  }
+}

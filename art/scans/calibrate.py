@@ -97,27 +97,64 @@ def repeat_counts(img, top=3):
     return out
 
 
+def line_counts(img, top=4):
+    """Repeat counts of what lies along single lines: bricks along a course, boards across a deck.
+
+    A running bond shifts every course by half a brick, so the column profile of repeat_counts() sees nothing;
+    but each row on its own is periodic with the brick length. The autocorrelation is therefore taken line by
+    line and averaged, and its peaks are reported as counts per tile (not whole numbers when the units are
+    irregular, as hand-laid bricks are). Returns {"x": [[count, correlation], ...], "y": [...]}.
+    """
+    out = {}
+    for name, axis in (("x", 1), ("y", 0)):
+        a = img - img.mean(axis=axis, keepdims=True)
+        spec = np.fft.rfft(a, axis=axis)
+        power = (spec.real ** 2 + spec.imag ** 2).mean(axis=1 - axis)
+        acf = np.fft.irfft(power, n=img.shape[axis])
+        acf = acf / (acf[0] or 1.0)
+        n = len(acf)
+        peaks = []
+        for lag in range(8, n // 2 + 1):
+            w = max(2, lag // 16)
+            lo, hi = max(1, lag - w), min(n // 2, lag + w)
+            if acf[lag] >= acf[lo:hi + 1].max() and acf[lag] > 0.03:
+                # refine the peak position with a parabola through its neighbours
+                y0, y1, y2 = acf[lag - 1], acf[lag], acf[min(lag + 1, n - 1)]
+                den = y0 - 2 * y1 + y2
+                pos = lag + (0.5 * (y0 - y2) / den if den else 0.0)
+                peaks.append([round(float(n / pos), 2), round(float(acf[lag]), 3)])
+        peaks.sort(key=lambda p: -p[1])
+        out[name] = peaks[:top]
+    return out
+
+
 def grain_px(lum):
-    """Dominant blob diameter in pixels: the scale where the difference-of-Gaussians energy peaks."""
+    """Typical grain diameter in pixels, from the correlation length of the base colour.
+
+    Variation broader than about 100 px is removed first (stains, shading). The radially averaged
+    autocorrelation of what is left falls to one half at r_half; for a surface made of round grains of diameter
+    D lying at random, that happens at 0.404 D (the overlap of two discs), so D = r_half / 0.404.
+    Good for aggregate, grit and weave; meaningless on a surface whose detail is joints or boards.
+    """
+    h, w = lum.shape
     spec = np.fft.rfft2(lum - lum.mean())
-    sigmas = [1.0 * 2 ** (i / 2.0) for i in range(0, 13)]  # 1 .. 64 px
-    blur = [gaussian_fft(lum.shape, s) for s in sigmas]
-    n = lum.size
-    energy = []
-    for a, b in zip(blur[:-1], blur[1:]):
-        band = spec * (a - b)
-        # Parseval for the half spectrum: every bin but the first and last column counts twice
-        p = np.abs(band) ** 2
-        e = (2 * p.sum() - p[:, 0].sum() - (p[:, -1].sum() if lum.shape[1] % 2 == 0 else 0)) / (n * n)
-        energy.append(float(e))
-    i = int(np.argmax(energy))
-    if 0 < i < len(energy) - 1:  # parabolic refinement in log scale
-        a, b, c = energy[i - 1], energy[i], energy[i + 1]
-        shift = 0.5 * (a - c) / (a - 2 * b + c) if (a - 2 * b + c) != 0 else 0.0
-    else:
-        shift = 0.0
-    sigma = sigmas[0] * 2 ** ((i + shift) / 2.0) * 2 ** 0.25  # centre of the band between sigma and sigma*sqrt2
-    return 2.0 * math.sqrt(2.0) * sigma, [round(e / max(energy), 3) for e in energy]
+    spec *= 1.0 - gaussian_fft(lum.shape, 24.0)
+    power = (spec.real ** 2 + spec.imag ** 2)
+    acf = np.fft.irfft2(power, s=lum.shape)
+    acf /= acf[0, 0] or 1.0
+    # radial average out to 64 px: sample along rows, columns and both diagonals of the wrapped correlation
+    radii = np.arange(0, 65)
+    prof = np.zeros(len(radii))
+    for i, r in enumerate(radii):
+        d = int(round(r / math.sqrt(2)))
+        vals = [acf[0, r % w], acf[r % h, 0], acf[d % h, d % w], acf[d % h, -d % w]] if r else [1.0]
+        prof[i] = float(np.mean(vals))
+    below = np.nonzero(prof < 0.5)[0]
+    if not len(below):
+        return 2.0 * 64 / 0.404, [round(float(v), 3) for v in prof[:16]]
+    i = int(below[0])
+    r_half = (i - 1) + (prof[i - 1] - 0.5) / (prof[i - 1] - prof[i]) if i > 0 else 0.5
+    return r_half / 0.404, [round(float(v), 3) for v in prof[:16]]
 
 
 def relief_fraction(height, normal):
@@ -148,27 +185,27 @@ def relief_fraction(height, normal):
 
 
 def seam_measure(img):
-    """How the wrapped edge compares with ordinary neighbours, per axis.
+    """How the wrapped edge compares with ordinary neighbours, per axis and at three scales.
 
-    pixel: mean absolute difference between the last and the first column (row) divided by the median of the
-           same difference between adjacent interior columns (rows); "rank" is the share of interior pairs that
-           differ less than the wrapped pair (1.0 = the seam is the worst line in the image).
-    band:  the same with the image averaged into 32 bands, which catches a brightness step or gradient that a
-           pixel-level blend hides.
+    At each scale (full size, 1/4, 1/16, box-filtered) the mean absolute difference between the last and the
+    first column (row) is divided by the median of the same difference between adjacent interior columns
+    (rows); "rank" is the share of interior pairs that differ less than the wrapped pair (1.0 = the seam is the
+    worst line in the picture). The coarse scales catch a soft seam: a tone step that was feathered over a few
+    pixels and so passes at pixel scale.
     """
     a = img if img.ndim == 3 else img[..., None]
     out = {}
     for name, axis in (("x", 1), ("y", 0)):
         m = np.moveaxis(a, axis, 0)
-        d = np.abs(np.roll(m, -1, axis=0) - m).mean(axis=(1, 2))  # d[-1] is the wrapped pair
-        wrap, inner = float(d[-1]), d[:-1]
-        med = float(np.median(inner)) or 1e-9
-        bands = m.reshape(32, m.shape[0] // 32, *m.shape[1:]).mean(axis=1) if m.shape[0] % 32 == 0 else \
-            np.stack([c.mean(axis=0) for c in np.array_split(m, 32, axis=0)])
-        bd = np.abs(np.roll(bands, -1, axis=0) - bands).mean(axis=(1, 2))
-        bmed = float(np.median(bd[:-1])) or 1e-9
-        out[name] = {"pixel": round(wrap / med, 2), "rank": round(float((inner < wrap).mean()), 3),
-                     "band": round(float(bd[-1]) / bmed, 2), "band_rank": round(float((bd[:-1] < bd[-1]).mean()), 3)}
+        res = {}
+        for label, f in (("px1", 1), ("px4", 4), ("px16", 16)):
+            n = (m.shape[0] // f) * f
+            mm = m[:n].reshape(n // f, f, *m.shape[1:]).mean(axis=1) if f > 1 else m
+            d = np.abs(np.roll(mm, -1, axis=0) - mm).mean(axis=(1, 2))  # d[-1] is the wrapped pair
+            wrap, inner = float(d[-1]), d[:-1]
+            med = float(np.median(inner)) or 1e-9
+            res[label] = [round(wrap / med, 2), round(float((inner < wrap).mean()), 3)]
+        out[name] = res
     return out
 
 
@@ -178,10 +215,12 @@ def seam_verdict(seams):
     for mapname, s in seams.items():
         for axis in ("x", "y"):
             v = s[axis]
-            if v["pixel"] > 1.6 and v["rank"] > 0.995:
-                notes.append(f"{mapname} {axis}: hard seam ({v['pixel']}x a normal neighbour)")
-            elif v["band"] > 3.0 and v["band_rank"] >= 0.97:
-                notes.append(f"{mapname} {axis}: tone step across the wrap ({v['band']}x a normal band step)")
+            if v["px1"][0] > 1.6 and v["px1"][1] > 0.995:
+                notes.append(f"{mapname} {axis}: hard seam ({v['px1'][0]}x a normal neighbour)")
+            elif v["px4"][0] > 1.6 and v["px4"][1] > 0.995:
+                notes.append(f"{mapname} {axis}: soft seam ({v['px4'][0]}x at 1/4 size)")
+            elif v["px16"][0] > 2.0 and v["px16"][1] > 0.995:
+                notes.append(f"{mapname} {axis}: tone step across the wrap ({v['px16'][0]}x at 1/16 size)")
     return "ok" if not notes else "; ".join(notes)
 
 
@@ -224,10 +263,11 @@ def measure_texture(entry):
     m["height_bits"] = head[24]
     tile, _ = tile_from_basis(entry, (w, h))
     tile = tile or entry.get("tile_m")
-    m["repeat"] = {"base_colour": repeat_counts(luminance(bc))}
+    m["repeat"] = {"base_colour": repeat_counts(luminance(bc)), "base_colour_lines": line_counts(luminance(bc))}
     if height is not None:
         m["repeat"]["height"] = repeat_counts(height)
-    g, curve = grain_px(luminance(bc))
+        m["repeat"]["height_lines"] = line_counts(height)
+    g, _ = grain_px(luminance(bc))
     m["grain_px"] = round(g, 1)
     if tile:
         m["grain_mm"] = round(g / w * tile[0] * 1000.0, 1)
@@ -235,10 +275,14 @@ def measure_texture(entry):
     if height is not None and "N" in files:
         nrm = load_rgb(files["N"])
         frac, corr = relief_fraction(height, nrm)
+        lo, hi = np.percentile(height, [1, 99])
+        m["height_range"] = [round(float(height.min()), 4), round(float(lo), 4), round(float(hi), 4), round(float(height.max()), 4)]
+        m["height_mid"] = round(float(np.median(height)), 4)
         m["relief_fit"] = round(corr, 2)
+        m["height_scale_frac"] = round(frac, 6)  # metres of height per unit of map value, per metre of tile width
         if tile:
-            m["relief_mm"] = round(frac * tile[0] * 1000.0, 1)
-        nz = nrm[..., 2].mean()
+            m["height_scale_mm"] = round(frac * tile[0] * 1000.0, 1)
+            m["relief_mm"] = round(frac * tile[0] * 1000.0 * float(hi - lo), 1)
         m["normal_mean"] = [round(float(v), 3) for v in nrm.reshape(-1, 3).mean(axis=0)]
     seams = {"base_colour": seam_measure(bc)}
     if height is not None:
@@ -257,6 +301,11 @@ def measure_texture(entry):
 
 
 # -------------------------------------------------------------------------------------------------------- skies
+
+# Hollis, Queens (40.71 N, 73.76 W), 15 July, 4:15 PM daylight time: solar time 15:14, declination 21.5 deg.
+# Elevation 45 deg, bearing 260 deg (10 deg south of due west). In project axes (east = +X, north = +Y) the sun
+# stands at 190 deg counter-clockwise from +X: it shines down Jamaica Avenue from the west end.
+DESIGN_SUN = {"elevation_deg": 45.0, "bearing_deg": 260.0, "azimuth_deg": 190.0}
 
 def measure_hdri(entry, res="2k"):
     path = OUT / fetch.remote(entry["files"]["HDR"]["out"], res)
@@ -282,16 +331,26 @@ def measure_hdri(entry, res="2k"):
     cosz = np.clip(np.cos(theta), 0, None)[:, None]
     e_total = float((lum * solid * cosz).sum())
     e_sun = float(((lum * solid * cosz))[near].sum())
-    upper = lum[: h // 2]
+    share = e_sun / e_total if e_total else 0.0
+    image_azimuth = (360.0 * (0.5 - u)) % 360.0  # Cycles: column u = 0.5 of an unrotated equirect faces +X, u = 0.25 faces +Y
     return {
         "px": [w, h],
+        # the brightest source: the sun by day, the moon or a lamp at night
         "sun_uv": [round(u, 4), round((y + 0.5) / h, 4)],
         "sun_elevation_deg": round(elev, 1),
+        "sun_share_of_irradiance": round(share, 3),
+        "has_sun": bool(share >= 0.3 and peak >= 1000.0),
         "peak_radiance": round(peak, 1),
-        "sky_mean_radiance": round(float((upper * solid[: h // 2]).sum() / solid[: h // 2].sum()), 3),
+        "sky_mean_radiance": round(float((lum[: h // 2] * solid[: h // 2]).sum() / solid[: h // 2].sum()), 3),
         "ground_mean_radiance": round(float((lum[h // 2:] * solid[h // 2:]).sum() / solid[h // 2:].sum()), 3),
-        "horizontal_irradiance": round(e_total, 2),
-        "sun_share_of_irradiance": round(e_sun / e_total, 3) if e_total else 0.0,
+        "horizontal_irradiance": round(e_total, 3),
+        # exposure shift (stops) at which an 18 % grey card lying flat under this sky renders at 18 %
+        "ev_for_grey_card": round(math.log2(math.pi / e_total), 2) if e_total > 0 else 0.0,
+        # where the source stands in an unrotated Blender world (degrees counter-clockwise from +X = east)
+        "sun_azimuth_unrotated_deg": round(image_azimuth, 1),
+        # Z rotation of the Mapping node in front of the Environment Texture that puts it where the design wants
+        # the 4:15 PM sun (see DESIGN_SUN): world azimuth = unrotated azimuth - rotation
+        "rotation_z_for_design_sun_deg": round((image_azimuth - DESIGN_SUN["azimuth_deg"]) % 360.0, 1),
         "mean_rgb": [round(float(v), 3) for v in (img * solid[..., None]).sum(axis=(0, 1)) / solid.sum()],
     }
 
@@ -356,7 +415,10 @@ def measure_model(entry, res="2k"):
                 if prim.get("mode", 4) == 4:
                     tris += (doc["accessors"][prim["indices"]]["count"] if "indices" in prim else len(pos)) // 3
             lo, hi = np.minimum(lo, plo), np.maximum(hi, phi)
-            parts.append(node.get("name", mesh.get("name", "")))
+            # Blender axes: x = x, y = -z, z = y
+            parts.append({"name": node.get("name", mesh.get("name", "")),
+                          "size_m": [round(float(phi[0] - plo[0]), 3), round(float(phi[2] - plo[2]), 3), round(float(phi[1] - plo[1]), 3)],
+                          "centre_m": [round(float((plo[0] + phi[0]) / 2), 3), round(float(-(plo[2] + phi[2]) / 2), 3), round(float((plo[1] + phi[1]) / 2), 3)]})
         for child in node.get("children", []):
             walk(child, world)
 
@@ -378,6 +440,7 @@ def measure_model(entry, res="2k"):
         "triangles": int(tris),
         "vertices": int(verts),
         "mesh_nodes": len(parts),
+        "nodes": parts if len(parts) > 1 else [],
         "materials": len(doc.get("materials", [])),
         "textures": images,
         "texture_px": tex_px,
@@ -469,6 +532,7 @@ def card(entry, dest):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--only", nargs="+", metavar="SET")
+    ap.add_argument("--kind", choices=("texture", "hdri", "model"), help="only entries of this kind")
     ap.add_argument("--cards", metavar="DIR", help="write a scale-check picture per tiling set into DIR")
     ap.add_argument("--check", action="store_true", help="do not write; fail if the catalogue disagrees with the files")
     ap.add_argument("--fast", action="store_true", help="recompute tile sizes and cards only (skip the image analysis)")
@@ -478,6 +542,8 @@ def main(argv=None):
     problems = []
     for entry in cat["sets"]:
         if names and entry["set"] not in names and entry["slug"] not in names:
+            continue
+        if args.kind and entry["kind"] != args.kind:
             continue
         try:
             if entry["kind"] == "texture":
@@ -497,17 +563,18 @@ def main(argv=None):
                 if tile:
                     m["px_per_m"] = round(m["px"][0] / tile[0])
                     m["grain_mm"] = round(m["grain_px"] / m["px"][0] * tile[0] * 1000.0, 1)
-                    if "relief_mm" in m and old.get("px_per_m") and args.fast:
-                        m["relief_mm"] = round(m["relief_mm"] * old["px_per_m"] / m["px_per_m"], 1)
+                    if "height_scale_frac" in m:
+                        m["height_scale_mm"] = round(m["height_scale_frac"] * tile[0] * 1000.0, 1)
+                        m["relief_mm"] = round(m["height_scale_mm"] * (m["height_range"][2] - m["height_range"][1]), 1)
                 entry["measured"] = m
                 if args.cards and entry.get("tile_m"):
                     Path(args.cards).mkdir(parents=True, exist_ok=True)
                     card(entry, Path(args.cards) / f"card_{entry['set']}.jpg")
                 rep = m["repeat"].get("height", m["repeat"]["base_colour"])
                 print(f"{entry['set']:32s} {m['px'][0]}x{m['px'][1]}  tile {entry.get('tile_m')}  "
-                      f"repeat x{rep['x'][:2]} y{rep['y'][:2]}  grain {m.get('grain_mm')} mm  relief {m.get('relief_mm')} mm "
-                      f"(fit {m.get('relief_fit')})  albedo {m['albedo']['luminance']}  R {m['roughness']} M {m['metallic']}  "
-                      f"seam {m['seam_verdict']}")
+                      f"repeat x{rep['x'][:2]} y{rep['y'][:2]} lines x{m['repeat']['base_colour_lines']['x'][:3]}  grain {m.get('grain_mm')} mm  relief {m.get('relief_mm')} mm "
+                      f"(scale {m.get('height_scale_mm')} mm, fit {m.get('relief_fit')})  albedo {m['albedo']['luminance']}  "
+                      f"R {m['roughness']} M {m['metallic']}  seam {m['seam_verdict']}")
             elif entry["kind"] == "hdri" and not args.fast:
                 entry["measured"] = measure_hdri(entry)
                 m = entry["measured"]
@@ -523,7 +590,10 @@ def main(argv=None):
     for p in problems:
         print("PROBLEM", p)
     if not args.check:
-        CATALOGUE.write_text(json.dumps(cat, indent=1, ensure_ascii=False) + "\n")
+        text = json.dumps(cat, indent=1, ensure_ascii=False) + "\n"  # encode first: a failure must not truncate the file
+        tmp = CATALOGUE.with_suffix(".tmp")
+        tmp.write_text(text)
+        tmp.replace(CATALOGUE)
     return 1 if problems else 0
 
 

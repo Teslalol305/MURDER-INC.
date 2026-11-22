@@ -103,9 +103,14 @@ def move_to(ob, col):
 def select_only(*obs):
     """Deselect everything, select obs, make the first active. Operators (bake, export, uv) rely on this."""
     vl = bpy.context.view_layer
-    for o in vl.objects:
-        o.select_set(False)
+    vl.update()                      # after objects were removed the layer can still list dead entries
+    for o in list(vl.objects):
+        if o is not None:
+            o.select_set(False)
     for o in obs:
+        if o.name not in vl.objects:
+            bpy.context.scene.collection.objects.link(o)
+            vl.update()
         o.hide_set(False)
         o.select_set(True)
     if obs:

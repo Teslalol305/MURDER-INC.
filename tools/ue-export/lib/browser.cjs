@@ -7,9 +7,16 @@
 const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 const { installHooks, MODULES } = require('./hooks.cjs');
 
 const GL_ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
+
+/** Builds the unminified page the exporter reads (dist/dev-* is git-ignored). */
+function buildDevPage(root, out) {
+  const run = spawnSync(process.execPath, ['build.mjs', '--dev', `--out=${path.relative(root, out)}`], { cwd: root, encoding: 'utf8' });
+  if (run.status !== 0) throw new Error(`the build failed (run "npm install" first if esbuild is missing):\n${run.stdout}${run.stderr}`);
+}
 
 /** Serves one directory on a free local port. */
 function serve(dir) {
@@ -37,7 +44,8 @@ function serve(dir) {
 
 /**
  * Opens `file` with `params` (an object) and waits until the game has drawn its second frame.
- * @returns {Promise<{page, close: () => Promise<void>, skip: (steps: number) => Promise<void>, bootMs: number}>}
+ * Throws when the page reports an error while booting, or boots its modules in an unexpected order.
+ * @returns {Promise<{page, close: () => Promise<void>, skip: (steps: number) => Promise<void>, bootMs: number, url: string}>}
  */
 async function openGame(file, params, { timeout = 300, verbose = false, width = 640, height = 360 } = {}) {
   const { chromium } = require('playwright');
@@ -67,10 +75,17 @@ async function openGame(file, params, { timeout = 300, verbose = false, width = 
     const t0 = Date.now();
     await page.goto(url, { waitUntil: 'load', timeout: timeout * 1000 });
     await page.waitForFunction(() => window.__ready === true || !!window.__fatal, null, { timeout: timeout * 1000 });
-    const state = await page.evaluate(() => ({ fatal: window.__fatal || null, errors: (window.__errors || []).slice(), hooked: !!window.__ue && window.__ue.order.length }));
+    const state = await page.evaluate(() => ({
+      fatal: window.__fatal || null,
+      errors: (window.__errors || []).slice(),
+      order: window.__ue ? window.__ue.order.slice() : null,
+    }));
     if (state.fatal) throw new Error(`the game did not start: ${state.fatal}`);
     if (state.errors.length || pageErrors.length) throw new Error(`the page reported errors while booting:\n  ${[...state.errors, ...pageErrors].join('\n  ')}`);
-    if (!state.hooked) throw new Error('the capture hooks did not see the game boot (window.__G was not assigned before the modules were created)');
+    if (!state.order) throw new Error('the capture hooks did not see the game boot (window.__G was not assigned before the modules were created)');
+    if (state.order.join() !== MODULES.join()) {
+      throw new Error(`the page created its modules in another order than lib/hooks.cjs expects:\n  page:  ${state.order.join(', ')}\n  hooks: ${MODULES.join(', ')}`);
+    }
 
     /** Advances the simulation `steps` fixed steps without drawing. */
     const skip = async (steps) => {
@@ -87,4 +102,4 @@ async function openGame(file, params, { timeout = 300, verbose = false, width = 
   }
 }
 
-module.exports = { openGame };
+module.exports = { openGame, buildDevPage };

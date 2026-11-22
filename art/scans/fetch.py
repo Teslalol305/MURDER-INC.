@@ -14,7 +14,8 @@ What it does, in order:
                                                 (the source _arm JPEG as it is, or packed here from separate maps)
         art/out/textures/<Set>/T_<Set>_H.png    height, 16-bit                (source PNG bytes, untouched)
         art/out/hdri/<slug>_<res>.hdr
-        art/out/scans/models/<slug>/...         exactly as downloaded (.gltf, .bin, textures/)
+        art/out/scans/models/<slug>/...         exactly as downloaded (.gltf, .bin, textures/*.jpg: the layout
+                                                the .gltf itself refers to, so it opens as it is)
   4. verifies that every image opens and has the size the catalogue promises, that every glTF buffer is complete;
   5. prints a table and exits non-zero if anything is missing or wrong.
 
@@ -82,15 +83,16 @@ class Cache:
         if rel in self.missing or self.offline:
             return None
         url = f"{BASE}/{urllib.parse.quote(rel)}"
-        dest.parent.mkdir(parents=True, exist_ok=True)
         part = dest.with_name(dest.name + ".part")
         last = None
         for attempt in range(4):
             try:
                 req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-                with urllib.request.urlopen(req, timeout=120) as r, open(part, "wb") as f:
+                with urllib.request.urlopen(req, timeout=120) as r:
                     want = int(r.headers.get("Content-Length") or 0)
-                    shutil.copyfileobj(r, f, 1 << 20)
+                    dest.parent.mkdir(parents=True, exist_ok=True)  # only once the host has said yes
+                    with open(part, "wb") as f:
+                        shutil.copyfileobj(r, f, 1 << 20)
                 got = part.stat().st_size
                 if want and got != want:
                     raise IOError(f"short read: {got} of {want} bytes")
@@ -234,12 +236,39 @@ def read_png(path):
     return (out[..., 0] << 8) | out[..., 1]
 
 
-def write_grey16(height, dest):
-    """Save a uint16 array as a 16-bit greyscale PNG."""
+def write_grey(height, dest):
+    """Save a uint8 or uint16 array as a greyscale PNG of the same depth."""
     from PIL import Image
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_name(dest.name + ".tmp")
     Image.fromarray(height).save(tmp, "PNG", optimize=False, compress_level=6)
+    os.replace(tmp, dest)
+
+
+def power_of_two(v):
+    """The power of two nearest to v (ties go up)."""
+    lo = 1 << (max(1, int(v)).bit_length() - 1)
+    return lo if v - lo < lo * 2 - v else lo * 2
+
+
+def resample(src, dest, size, role):
+    """Re-encode one map at `size`: for the few scans that are a handful of pixels off square (a game engine
+    wants powers of two for mip-mapping and streaming). The picture is squeezed, not cropped, so it still tiles;
+    the tile keeps its size in metres."""
+    import numpy as np
+    from PIL import Image
+    Image.MAX_IMAGE_PIXELS = None
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_name(dest.name + ".tmp")
+    if role == "H":
+        arr = read_png(src)[..., 0]
+        full = 65535.0 if arr.dtype == np.uint16 else 255.0
+        f = Image.fromarray(arr.astype(np.float32)).resize(size, Image.LANCZOS)
+        out = np.clip(np.rint(np.asarray(f)), 0, full).astype(arr.dtype)
+        Image.fromarray(out).save(tmp, "PNG", compress_level=6)
+    else:
+        im = Image.open(src).convert("RGB").resize(size, Image.LANCZOS)
+        im.save(tmp, "JPEG", quality=95, subsampling=0, optimize=True)
     os.replace(tmp, dest)
 
 
@@ -249,6 +278,19 @@ def gltf_files(gltf_path):
     uris = [b["uri"] for b in doc.get("buffers", []) if "uri" in b and not b["uri"].startswith("data:")]
     uris += [i["uri"] for i in doc.get("images", []) if "uri" in i and not i["uri"].startswith("data:")]
     return doc, list(dict.fromkeys(urllib.parse.unquote(u) for u in uris))
+
+
+def model_part(gltf_rel, uri):
+    """Remote path of a file a model's .gltf refers to.
+
+    The buffer sits beside the .gltf. The textures do not, although the .gltf says "textures/<file>": the host
+    keeps them by format and resolution, Models/<jpg|png>/<res>/<slug>/<file>.
+    """
+    kind, res, slug = gltf_rel.split("/")[1:4]
+    if uri.startswith("textures/"):
+        name = uri.split("/", 1)[1]
+        return f"Models/{name.rsplit('.', 1)[-1].lower()}/{res}/{slug}/{name}"
+    return f"Models/{kind}/{res}/{slug}/{uri}"
 
 
 # -------------------------------------------------------------------------------------------- catalogue helpers
@@ -284,6 +326,18 @@ def copy_if_changed(src, dest):
     return True
 
 
+def stale(dest, *sources):
+    """True when a derived file is missing or older than what it is made from."""
+    return not dest.is_file() or any(dest.stat().st_mtime < src.stat().st_mtime for src in sources if src)
+
+
+def quick_size(path):
+    """(width, height) from the header only."""
+    from PIL import Image
+    with Image.open(path) as im:
+        return im.size
+
+
 def pack_orm(ao, rough, metal, dest):
     """Build T_<Set>_ORM.jpg from separate greyscale maps. A missing AO becomes white, a missing metallic black."""
     from PIL import Image
@@ -311,19 +365,31 @@ def do_texture(entry, res, cache):
     local = {role: cache.path(rel) if cache.has(rel) else None for role, rel in srcs.items()}
     sizes = {}
     maps = []
+    target = None  # set when the source is not a power of two on both sides
+    if local.get("BC"):
+        from PIL import Image
+        with Image.open(local["BC"]) as im:
+            src_size = im.size
+        pot = (power_of_two(src_size[0]), power_of_two(src_size[1]))
+        if pot != src_size:
+            target = pot
+            row["resampled"] = f"{src_size[0]}x{src_size[1]}"
     for role, spec in entry["files"].items():
         dest = out_path(entry, role, res)
-        if "src" in spec and local.get(role) and spec.get("convert") == "grey16":
-            # the source PNG carries the height in RGB or grey+alpha: keep channel 0 at its full 16 bits
-            if not dest.is_file() or dest.stat().st_mtime < local[role].stat().st_mtime:
-                write_grey16(read_png(local[role])[..., 0], dest)
+        if target and "src" in spec and local.get(role):
+            if stale(dest, local[role]) or quick_size(dest) != target:
+                resample(local[role], dest, target, role)
+                row["wrote"] += 1
+        elif role == "H" and local.get(role) and png_header(local[role])[3] != 1:
+            # the source PNG carries the height in RGB or grey+alpha: keep channel 0 at its full depth
+            if stale(dest, local[role]) or png_header(dest)[3] != 1:
+                write_grey(read_png(local[role])[..., 0], dest)
                 row["wrote"] += 1
         elif "src" in spec and local.get(role):
             row["wrote"] += copy_if_changed(local[role], dest)
         elif spec.get("pack") and local.get(f"{role}.rough"):
             parts = [local.get(f"{role}.{c}") for c in ("ao", "rough", "metal")]
-            newest = max(p.stat().st_mtime for p in parts if p)
-            if not dest.is_file() or dest.stat().st_mtime < newest:
+            if stale(dest, *parts):
                 pack_orm(*parts, dest)
                 row["wrote"] += 1
         else:
@@ -351,8 +417,10 @@ def do_texture(entry, res, cache):
     scale = want / RES_PX[entry.get("resolution", "2k")]
     expect = tuple(round(v * scale) for v in entry["px"]) if entry.get("px") else None
     for role, size in sizes.items():
-        if max(size) != want:
-            row["problems"].append(f"{role}: {size[0]}x{size[1]}, longest side should be {want}")
+        if size[0] != want:
+            row["problems"].append(f"{role}: {size[0]}x{size[1]}, width should be {want}")
+        if size[0] & (size[0] - 1) or size[1] & (size[1] - 1):
+            row["problems"].append(f"{role}: {size[0]}x{size[1]} is not a power of two")
         if expect and size != expect:
             row["problems"].append(f"{role}: {size[0]}x{size[1]}, catalogue says {expect[0]}x{expect[1]}")
     if len(set(sizes.values())) > 1:
@@ -362,7 +430,7 @@ def do_texture(entry, res, cache):
     tile = entry.get("tile_m")
     row["tile"] = f"{tile[0]:.2f} x {tile[1]:.2f}" if tile else "-"
     row["density"] = f"{size[0] / tile[0]:.0f}" if size and tile else "-"
-    row["maps"] = " ".join(maps)
+    row["maps"] = " ".join(maps) + (" (resampled)" if target else "")
     return row
 
 
@@ -398,12 +466,11 @@ def do_model(entry, res, cache):
         row["problems"].append("gltf missing")
         return row
     doc, uris = gltf_files(src)
-    folder = rel.rsplit("/", 1)[0]
     row["wrote"] += copy_if_changed(src, dest_dir / src.name)
     row["bytes"] += src.stat().st_size
     n_img = 0
     for uri in uris:
-        part = cache.path(f"{folder}/{uri}")
+        part = cache.path(model_part(rel, uri))
         if not part.is_file():
             row["problems"].append(f"{uri}: missing")
             continue
@@ -470,8 +537,7 @@ def main(argv=None):
         if e["kind"] == "model":
             rel = remote(e["files"]["GLTF"]["src"], args.res)
             if cache.has(rel):
-                folder = rel.rsplit("/", 1)[0]
-                parts += [f"{folder}/{u}" for u in gltf_files(cache.path(rel))[1]]
+                parts += [model_part(rel, u) for u in gltf_files(cache.path(rel))[1]]
     cache.get_many(parts)
 
     work = {"texture": do_texture, "hdri": do_hdri, "model": do_model}

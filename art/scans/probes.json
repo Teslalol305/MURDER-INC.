@@ -620,6 +620,11 @@
   }
  },
  "path": {
+  "Models/jpg/2k/boombox/boombox_diff_2k.jpg": {
+   "bytes": 1703290,
+   "status": 200,
+   "via": "probe"
+  },
   "Textures/gltf/2k/asphalt_02/asphalt_02_2k.gltf": {
    "bytes": 2683,
    "status": 200,
@@ -641,7 +646,7 @@
    "via": "probe"
   }
  },
- "sent": 200,
+ "sent": 201,
  "textures": {
   "aerial_asphalt_01": {
    "bytes": 0,

@@ -1,0 +1,224 @@
+[
+  {
+    "id": "weapon_chopper",
+    "name": "SK_Chopper",
+    "family": "weapon",
+    "size_m": [0.502, 0.065, 0.292],
+    "count": 1,
+    "description": "The CHOPPER, player weapon 1: a compact wood-and-steel automatic carbine of the Kalashnikov pattern in its shortest form (stock folded, 0.50 m long), no maker's marks. Forward = +X (muzzle), up = +Z. Origin on the bore axis at the back end of the receiver; every pose, socket and hand position is given from it. Size is length x width x height: 0.502 long, 0.046 wide at the body (0.065 with the charging handle), 0.292 high from the magazine floor to the front-sight ears. Rigid parts that need their own pivot (bones or separate objects): body, bolt carrier with charging handle (slides 0.092 back), trigger (pivot X 0.108, Z -0.038; turns 19.5 deg), magazine (separate brief). Body parts, X = distance forward, Z = height over the bore, metres: stamped receiver X -0.004..0.256, Z -0.040..0.012, 0.032 wide, rivets and pins; ribbed half-round top cover X 0.002..0.186 rising to Z 0.034 with three stamped ribs; a short accessory rail on the cover X 0.062..0.168 topping out at Z 0.042 (10 lugs); rear sight leaf at X 0.0235 with a square notch 4.4 mm wide x 4.2 mm deep, top at Z 0.0555, two white dots; sight block X 0.186..0.256 up to Z 0.032; laminated-wood lower handguard X 0.250..0.385 (0.046 wide, Z -0.042..-0.004, three cooling slots per side) and upper handguard X 0.262..0.372 (0.034 wide, up to Z 0.033, two vents per side) with the barrel showing between them; steel retaining band at X 0.385; barrel radius 8.5 mm and gas tube radius 6.5 mm (axis Z 0.019); gas block X 0.3925..0.426 carrying a hooded front sight (two ear plates to Z 0.063, post tip at X 0.409, Z 0.0555, white strip on its rear face); stubby muzzle booster X 0.426..0.4975, body radius 12.8 mm with one groove, flaring to radius 16.2 mm at the mouth; raked wooden pistol grip from Z -0.034 down to -0.148; steel trigger guard X 0.088..0.156 down to Z -0.079; paddle magazine catch behind it; under-folding stock: two flat steel arms along the receiver sides from a pivot at X 0.022 to a pin at X 0.236, butt plate tucked under the handguard X 0.234..0.337 at Z -0.06. Deliberate fiction kept from the original: the charging handle (a round knob 12 mm across at X 0.180, Z 0.0145, reaching 42 mm left of the bore axis, 26 mm proud of the receiver) and the selector lever are on the LEFT side, the ejection port on the right. Sockets (X, Y, Z with +Y left): Muzzle 0.4975, 0, 0; Eject 0.150, -0.019, 0.018; SightRear 0.0235, 0, 0.0555; RecoilPivot -0.020, 0, -0.030; MagHinge 0.222, 0, -0.040; right-hand palm on the right face of the grip near X 0.040, Z -0.085; left-hand palm under the handguard near X 0.315, Z -0.0615. Nothing between the sights may rise above Z 0.0555.",
+    "materials": [
+      "blued steel with edges worn bright (receiver, top cover, sight block, gas block, booster, stock, trigger guard)",
+      "dark steel (pins, rail, sights, barrel, gas tube, selector, magazine catch, charging handle)",
+      "bare brushed steel (bolt carrier seen through the port)",
+      "varnished laminated wood (handguards, pistol grip)",
+      "white sight paint, faintly self-lit"
+    ],
+    "colours": [
+      "#5a5e65 blued steel",
+      "#9aa0a8 worn chamfers",
+      "#53565c top cover",
+      "#3c3e43 dark steel parts",
+      "#b1b6bd bolt carrier",
+      "#55301c laminated wood, red-brown with a soft gloss",
+      "#050506 bore, slots and vents",
+      "#f2f0e4 sight dots"
+    ],
+    "gameplay": "none (first-person weapon; thrown to the ground as a physics object when the player dies)",
+    "source": "src/weapon/chopper.js:33",
+    "priority": 1
+  },
+  {
+    "id": "weapon_chopper_magazine",
+    "name": "SM_Weapon_ChopperMagazine",
+    "family": "weapon",
+    "size_m": [0.152, 0.027, 0.208],
+    "count": 1,
+    "description": "The CHOPPER's curved 30-round steel magazine, a separate object because the left hand carries it during the reload (a second copy is the fresh magazine). In place on the gun it spans X 0.160..0.312, Z -0.229..-0.021 in the gun's space; keep the gun's origin as this mesh's origin, or put a socket at the front lip of the magazine well (X 0.222, Z -0.040), which is the hinge it rocks about by 24 deg when it is removed and inserted. Shape: a stamped box 25.5 mm wide and 62 mm deep (59 mm at the bottom) following an arc of radius 0.26 m over 46 deg, leaning forward as it goes down; a raised rib along each side, a spine strip on the back, four stamped reinforcing ribs across the body, a slightly wider floor plate (27.8 x 63.5 mm). The top round is part of this asset as a separate hideable piece: brass case radius 5.6 mm, copper bullet, 50 mm overall, lying along the bore direction 19.5 mm below the bore axis, X 0.172..0.222; it is shown whenever the magazine holds rounds.",
+    "materials": [
+      "blued stamped steel (body, ribs)",
+      "dark steel (floor plate)",
+      "brass and copper (the visible cartridge)"
+    ],
+    "colours": [
+      "#45484e magazine body",
+      "#3c3e43 floor plate",
+      "#9aa0a8 worn edges",
+      "#caa23d brass case",
+      "#b5683a copper bullet"
+    ],
+    "gameplay": "none (animated by the reload; ammunition is counted by the rules, not by this mesh)",
+    "source": "src/weapon/chopper.js:179",
+    "priority": 1
+  },
+  {
+    "id": "weapon_nine",
+    "name": "SK_Nine",
+    "family": "weapon",
+    "size_m": [0.234, 0.031, 0.153],
+    "count": 1,
+    "description": "The NINE, player weapon 2: a full-size, hammer-fired 9 mm service pistol in two tones, no maker's marks. Forward = +X, up = +Z. Origin on the bore axis at the back face of the slide. Size is length x width x height: 0.234 from the muzzle to the back of the grip, 0.031 wide, 0.153 high. Rigid parts with their own pivot: frame, slide (travels 0.044 back and locks back on an empty magazine), barrel (tilts 2.3 deg about a lug at X 0.070, Z -0.008 as the slide unlocks), trigger (pivot X 0.091, Z -0.031; turns 17 deg), magazine (separate brief); the cocked hammer, slide stop and magazine button may be static. Parts, X forward and Z over the bore, metres: black frame 24.5 mm wide from X -0.033 to 0.196, rail line at Z -0.0135, dust cover with three accessory-rail lugs at X 0.142, 0.156, 0.170, trigger guard down to Z -0.0715 with an opening X 0.073..0.1235, grip raked back about 15 deg at the back strap and 20 deg at the front strap with the butt at Z -0.128 and a short beavertail; black checkered grip panels 3.4 mm thick with two screws each; exposed hammer spur behind the slide up to Z 0.0105; on the left side a slide stop (X 0.058..0.100), a thumb safety (X 0.004..0.030) and a round magazine button at X 0.0625, Z -0.0405; brushed stainless slide X 0..0.196, Z -0.0135..0.0125, 27 mm wide with rounded top edges, seven cocking serrations at the rear on both sides, ejection port top right at X 0.086..0.126 with the polished barrel hood showing; three-dot sights: rear notch 4.2 mm wide x 3.9 mm deep with the top at Z 0.0185 and X 0.007..0.018, front blade 3.4 mm wide with the top at X 0.1835..0.1885, Z 0.0185; polished barrel radius 6.8 mm standing 5 mm proud of the slide nose (muzzle at X 0.201), 9 mm bore; recoil-spring guide rod showing under the barrel; gold trigger. Sockets (+Y left): Muzzle 0.201, 0, 0; Eject 0.105, -0.012, 0.014; SightRear 0.0125, 0, 0.0185; RecoilPivot -0.030, 0, -0.085; right-hand palm on the right grip panel near X 0.014, Z -0.078; the support hand wraps over the firing hand's fingers.",
+    "materials": [
+      "brushed stainless steel (slide)",
+      "blued black steel with edges worn bright (frame)",
+      "black checkered polymer or hard rubber (grip panels)",
+      "dark steel (hammer, slide stop, safety, magazine button, sights)",
+      "polished steel (barrel, guide rod)",
+      "polished gold plate (trigger)",
+      "white sight paint, faintly self-lit"
+    ],
+    "colours": [
+      "#aeb1b6 slide",
+      "#34363b frame",
+      "#8a9098 worn chamfers",
+      "#1c1c1f grip panels",
+      "#3c3e43 small parts",
+      "#bbbec4 barrel",
+      "#e7b53a gold trigger",
+      "#040405 bore and serrations",
+      "#f2f0e4 sight dots"
+    ],
+    "gameplay": "none (first-person weapon; thrown to the ground as a physics object when the player dies)",
+    "source": "src/weapon/nine.js:19",
+    "priority": 1
+  },
+  {
+    "id": "weapon_nine_magazine",
+    "name": "SM_Weapon_NineMagazine",
+    "family": "weapon",
+    "size_m": [0.074, 0.026, 0.098],
+    "count": 1,
+    "description": "The NINE's 15-round double-stack magazine, a separate object: the old one drops free out of the grip at every reload and a fresh one is carried in by the left hand and slapped home with the palm. In place it spans X -0.029..0.045, Z -0.1345..-0.037 in the pistol's space and slides along the grip axis (direction X 0.250, Z 0.968 from base to lips). Steel body 19.5 mm wide and 34 mm front to back, raked with the grip, three round witness holes per side; a rounded gold base pad 76 mm long, 26 mm wide, 7 mm thick that stays visible under the grip. The top round is a separate hideable piece: brass case radius 4.8 mm, copper bullet, 30 mm overall, lying along the bore direction 33.5 mm below the bore axis.",
+    "materials": [
+      "brushed steel (body)",
+      "polished gold plate (base pad)",
+      "brass and copper (the visible cartridge)"
+    ],
+    "colours": [
+      "#9da1a7 magazine body",
+      "#e7b53a gold base pad",
+      "#040405 witness holes",
+      "#caa23d brass case",
+      "#b5683a copper bullet"
+    ],
+    "gameplay": "none (animated by the reload)",
+    "source": "src/weapon/nine.js:115",
+    "priority": 1
+  },
+  {
+    "id": "weapon_casing_rifle",
+    "name": "SM_Weapon_CasingRifle",
+    "family": "weapon",
+    "size_m": [0.058, 0.017, 0.017],
+    "count": null,
+    "description": "A spent rifle case ejected by the CHOPPER on every round: a bottlenecked, rimless brass case, open at the mouth, with a struck primer. The size given is what the original draws, a third larger than life so brass reads on the ground (length 58 mm, radius 8.5 mm); the real case of this class is about 39 mm long and 11.4 mm across at the base, so model it at real size and let the effect scale it if wanted. Long axis = +X. Up to 60 casings from both guns lie on the ground at once.",
+    "materials": [
+      "brass, lightly scorched at the mouth"
+    ],
+    "colours": [
+      "#c9a24a brass"
+    ],
+    "gameplay": "none (cosmetic; makes a sound when it bounces)",
+    "source": "src/fx/bits.js:117",
+    "priority": 3
+  },
+  {
+    "id": "weapon_casing_pistol",
+    "name": "SM_Weapon_CasingPistol",
+    "family": "weapon",
+    "size_m": [0.027, 0.017, 0.017],
+    "count": null,
+    "description": "A spent 9 mm pistol case ejected by the NINE: a straight-walled rimless brass case, open at the mouth, with a struck primer. The size given is what the original draws (length 27 mm, radius 8.5 mm, larger than life); the real case is about 19 mm long and 9.9 mm across, so model it at real size and let the effect scale it if wanted. Long axis = +X.",
+    "materials": [
+      "brass"
+    ],
+    "colours": [
+      "#c9a24a brass"
+    ],
+    "gameplay": "none (cosmetic; makes a sound when it bounces)",
+    "source": "src/fx/bits.js:117",
+    "priority": 3
+  },
+  {
+    "id": "character_rule_arms",
+    "name": "SK_RuleArms",
+    "family": "character",
+    "size_m": [0.144, 0.575, 0.096],
+    "count": 1,
+    "description": "Rule's first-person arms: two bare, brown forearms and two hands in black tactical gloves. The size is ONE arm of the original in its bind pose (width with the thumb x length wrist-to-elbow-end plus hand x thickness); the original stops 0.37 m behind the wrist, the rebuild must continue past the elbow (to mid upper arm at least) so no cut end ever shows in a reload or a strike. Forearm: oval sections 100 x 92 mm at the elbow end, 90 x 77 mm at 0.16 m from the wrist, 72 x 58 mm at 0.09 m, 58 x 40 mm at the wrist. Hand: 0.205 m from the wrist to the middle fingertip, 74 mm wide at the heel and 88 mm at the knuckles. Finger segment lengths (knuckle, middle, tip) and base radius: index 44, 26, 22, r 9.3 mm; middle 49, 30, 23, r 9.7; ring 45, 28, 22, r 9.1; little 35, 20, 19, r 8.0; thumb 44, 34, 28, r 13.2; each tapers to about 82 percent. Glove, to be modelled as the hand's surface: synthetic-leather body reaching 30 mm above the wrist; suede palm; a padded cuff from 4 to 42 mm above the wrist with a rolled edge; a rubber strap 40 x 24 mm across the back of the wrist on a stitched plate; a raised stitched panel on the back of the hand from the wrist to 64 mm ahead of it, half to two thirds of the hand's width; a moulded rubber knuckle bar 86 mm long and 20 mm wide with one dome per knuckle; creased fabric over every finger joint; a rubber grip pad inside every fingertip. Skeleton: the original has forearm, hand and three bones per finger and thumb (17 per arm); the rebuild should use the project's arm skeleton with full finger chains. The hands must close convincingly around a 30 x 45 mm rifle grip, a 46 mm wide handguard, a pistol grip, a magazine, and hook two fingers over a 12 mm charging-handle knob. The watch and the bracelet are separate briefs.",
+    "materials": [
+      "skin (bare forearm, brown, soft mottling)",
+      "black synthetic leather (glove back and fingers)",
+      "dark synthetic suede (palm and inside of the fingers)",
+      "moulded black rubber (knuckle bar, wrist strap, fingertip pads)",
+      "grey stitching and seams"
+    ],
+    "colours": [
+      "#684029 forearm skin (catalogue skin #7a4a2e deepened for sunlight)",
+      "#1e1f22 glove",
+      "#2a2724 palm suede",
+      "#3c3e43 seams and stitching",
+      "#18181b rubber pads"
+    ],
+    "gameplay": "none (the player is never seen from outside; these are the only visible part of Rule)",
+    "source": "src/weapon/arms.js:288",
+    "priority": 1
+  },
+  {
+    "id": "character_rule_watch",
+    "name": "SM_Character_RuleWatch",
+    "family": "character",
+    "size_m": [0.074, 0.042, 0.069],
+    "count": 1,
+    "description": "The gold wristwatch on Rule's LEFT forearm, worn 72 mm above the wrist joint so it clears the glove cuff; it faces the player whenever the left hand supports a gun. Rigid, attached to the left forearm. A bracelet-style metal band 19 mm wide standing 3.4 mm off the skin, brushed, with three darker link lines along it; a round case on the back of the forearm 39 mm across and 8.5 mm high; a polished bezel 42.4 mm across; a gloss black dial 34.4 mm across with four gold batons at 12, 3, 6 and 9 and two gold hands (12 mm and 9 mm long); a crown 5.6 mm across on the side. Size is width across the arm x length along the arm x height including the band around a 68 x 53 mm forearm. An original design: no brand, no logo, no text on the dial.",
+    "materials": [
+      "polished yellow gold (case, bezel, hands, batons, crown)",
+      "brushed yellow gold (band)",
+      "black lacquer dial under glass"
+    ],
+    "colours": [
+      "#e7b53a gold",
+      "#a27e26 dark link lines",
+      "#0a0a0c dial"
+    ],
+    "gameplay": "none",
+    "source": "src/weapon/arms.js:448",
+    "priority": 1
+  },
+  {
+    "id": "character_rule_bracelet",
+    "name": "SM_Character_RuleBracelet",
+    "family": "character",
+    "size_m": [0.082, 0.007, 0.07],
+    "count": 1,
+    "description": "The gold bracelet on Rule's RIGHT forearm, 70 mm above the wrist joint: a heavy curb chain of 26 overlapping links of 5.6 mm wire, hanging loose about 3.6 mm clear of the arm all round and sagging 2.8 mm underneath, each link twisted against the next. Rigid on the right forearm in the original; a little secondary motion on recoil would suit the rebuild. Size is width across the arm x length along the arm x height around a 67 x 53 mm forearm.",
+    "materials": [
+      "polished yellow gold"
+    ],
+    "colours": [
+      "#e7b53a gold",
+      "#cfa233 alternate links, a shade darker"
+    ],
+    "gameplay": "none",
+    "source": "src/weapon/arms.js:472",
+    "priority": 2
+  },
+  {
+    "id": "fx_muzzle_flash_cards",
+    "name": "SM_Fx_MuzzleFlashCards",
+    "family": "fx",
+    "size_m": [1.02, 1, 1],
+    "count": 1,
+    "description": "The carrier mesh of the first-person muzzle flash, only needed if the flash is not built from engine sprites: three unit quads sharing the muzzle point. One quad of 1 x 1 in the plane across the bore (the star seen from behind the gun), and two quads of 1 x 1 crossing at right angles along the bore from 0.02 behind the muzzle to 1.0 ahead of it (the forward jet seen from the side), with UVs running 0 at the muzzle to 1 at the tip. Forward = +X. Scaled per gun at run time: star 0.20 m and jet 0.34 m for the CHOPPER, star 0.12 m and jet 0.13 m for the NINE, times 0.8 to 1.3 at random and times 0.62 when aiming. The flash lives 0.036 to 0.056 s: a white-hot core with five or six uneven petals and a teardrop jet, shading to orange at the edges.",
+    "materials": [
+      "additive unlit flash material (shape made in the shader or from a flipbook)"
+    ],
+    "colours": [
+      "#ffedbd white-hot core (shader value 1.0, 0.93, 0.74, times an HDR gain of 9)",
+      "#ff6b14 orange edge (shader value 1.0, 0.42, 0.08)",
+      "#ffb020 light the flash throws on the street"
+    ],
+    "gameplay": "none",
+    "source": "src/weapon/viewmodel.js:74",
+    "priority": 3
+  }
+]
