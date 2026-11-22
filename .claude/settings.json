@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Higgsfield__gpu_rental_exec",
+      "mcp__Higgsfield__gpu_rental",
+      "mcp__Higgsfield__gpu_rental_logs",
+      "mcp__Higgsfield__gpu_show_computer",
+      "mcp__Higgsfield__gpu_my",
+      "mcp__Higgsfield__gpu_list_gpus",
+      "mcp__Higgsfield__balance",
+      "mcp__Higgsfield__media_upload",
+      "mcp__Higgsfield__media_confirm",
+      "mcp__Higgsfield__get_preset_instructions"
+    ]
+  }
+}

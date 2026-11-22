@@ -160,8 +160,8 @@ def materials(ctx):
     M["chrome"] = mat.flat("MI_Metal_Chrome", (0.77, 0.77, 0.77), 0.10, 1.0)
     M["interior"] = mat.flat("MI_Interior_Dark", (0.022, 0.021, 0.02), 0.9)
     M["blind"] = mat.flat("MI_Fabric_Blind", (0.56, 0.53, 0.45), 0.85)
-    M["glass"] = mat.make("MI_Glass_Store", "glass", Film=0.28)
-    M["glasswin"] = mat.make("MI_Glass_Window", "glass", Film=0.42)
+    M["glass"] = mat.make("MI_Glass_Store", "glass", Film=0.08)
+    M["glasswin"] = mat.make("MI_Glass_Window", "glass", Film=0.18)
     for name in SHOPS:
         s = shop_local(name)
         m = mat.flat("M_Sign_" + name, s["colour"], 0.45)
@@ -299,7 +299,7 @@ def weather(ctx, b, ob, key, ledges=(), ground=False, fade=None):
         A = np.clip(np.exp(-np.clip(z, 0, None) / 0.22) * (0.55 + 0.5 * c), 0, 1) * (1 - 0.5 * up)
         R = R + 0.30 * sstep(1.3, 0.0, z) * (0.3 + 0.7 * bb)                   # hands, dogs, road spray
         G = np.where(met, np.maximum(G, 0.7 * sstep(0.45, 0.0, z) * sstep(0.4, 0.75, a)), G)   # kicked and scraped
-    R = np.where(gls, 0.10 + 0.25 * a + (0.45 * sstep(BULK + 0.55, BULK, z) if ground else 0.0), R)
+    R = np.where(gls, 0.03 + 0.10 * a + (0.22 * sstep(BULK + 0.45, BULK, z) if ground else 0.0), R)
     G = np.where(gls | soft, 0.0, G)
     if "fabric" in names:
         fab = of("fabric")
@@ -706,7 +706,8 @@ BRACKET = [(0.025, -0.42), (0.07, -0.42), (0.085, -0.40), (0.09, -0.36), (0.11, 
 def cornice_parts(b, length, end=None, S="grey"):
     """Pressed-metal cornice at the roof line (z = 0): crown 0.42 proud, bed mould, a row of scrolled brackets
     0.22 wide at 0.62 m centres, small dentils. end 'L' or 'R': an end block with a drop console."""
-    run(b, CORNICE, 0.0, length, S, pin=False, pstep=0.12)
+    # with an end block the run stops 2 mm inside it: coplanar end caps would shadow each other in a path tracer
+    run(b, CORNICE, 0.002 if end == "L" else 0.0, length - (0.002 if end == "R" else 0.0), S, pin=False, pstep=0.12)
     n = int(round(length / 0.62))
     if n >= 1:
         for i in range(n):
@@ -815,8 +816,8 @@ def m_tank(ctx, M):
         p = b.parts[-1]
         ca, sa = math.cos(a), math.sin(a)
         v = p["v"].copy()
-        p["v"][:, 0] = (r + 0.02 + v[:, 1]) * ca - v[:, 0] * sa
-        p["v"][:, 1] = (r + 0.02 + v[:, 1]) * sa + v[:, 0] * ca
+        p["v"][:, 0] = (r + 0.02 + v[:, 1]) * ca + v[:, 0] * sa
+        p["v"][:, 1] = (r + 0.02 + v[:, 1]) * sa - v[:, 0] * ca
         b.leaks.append(((r + 0.01) * ca, (r + 0.01) * sa, zh))
     cone = geo.revolve([(0.0, 4.07), (1.40, 4.07), (1.40, 4.11), (0.10, 4.94), (0.0, 4.98)], 44)
     b.absorb(cone, "timber")
@@ -1248,7 +1249,7 @@ def on_preview(ctx, objs):
         ctx.log("preview facade_wire.jpg %.0fs" % sec)
     sun = render.DESIGN_SUN_BEARING
     if want("facade_day_hero"):
-        render.rig_day(sun_azimuth=sun, stops=1.3)
+        render.rig_day(sun_azimuth=sun, stops=1.8)
         render.cam_look((-20.5, 8.6, eye), (-33.0, -11.0, 2.9), lens=24, name="Cam_Hero")
         _p, sec = render.render_jpeg(os.path.join(Pv, "facade_day_hero.jpg"), a.samples)
         ctx.log("preview facade_day_hero.jpg %.0fs" % sec)
@@ -1258,7 +1259,7 @@ def on_preview(ctx, objs):
         _p, sec = render.render_jpeg(os.path.join(Pv, "facade_day_street.jpg"), a.samples)
         ctx.log("preview facade_day_street.jpg %.0fs" % sec)
     if want("facade_storefront"):
-        render.rig_day(sun_azimuth=sun, stops=1.5)
+        render.rig_day(sun_azimuth=sun, stops=2.4)
         render.cam_look((-36.6, -7.25, eye), (-33.6, -11.0, 1.75), lens=24, name="Cam_Storefront")
         _p, sec = render.render_jpeg(os.path.join(Pv, "facade_storefront.jpg"), a.samples)
         ctx.log("preview facade_storefront.jpg %.0fs" % sec)

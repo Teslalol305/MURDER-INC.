@@ -44,11 +44,13 @@ of the south block face (S1 + S2 + S3, seven storefronts) with the street and th
 (facade_day_hero / facade_day_street / facade_storefront / facade_wire), GLB export + manifest + validation, README.
 
 ## Status
-- [ ] assets/facade.py written (modules + `assemble_front` helper + on_preview)
-- [ ] `build.py build facade --export` passes validation
-- [ ] previews round 1 rendered and looked at
-- [ ] review fixes + round 2
+- [x] assets/facade.py written (modules + `assemble_front` / `assemble_shell` helpers + on_preview)
+- [x] `build.py build facade --export` passes validation: 77 modules, no warnings (run 3 fixed the mirrored hoop lugs of the water tank)
+- [x] previews round 1 rendered and looked at (wire, hero, storefront, street)
+- [x] round 1 fixes in code: glass film/dirt much lighter (store glass read milky), hero +0.5 and storefront +0.9 stops,
+      cornice run stops 2 mm inside the end block (coplanar caps rendered as a black patch in clay)
+- [ ] round 2 (last): `build facade --preview --only facade_day_hero,facade_storefront,facade_wire --samples 64`
 - [ ] README family row
 
 ## Exact next step
-Write assets/facade.py, then `python art/blender/build.py build facade --export`.
+Round 2 renders (above), then final `build facade --export`, README row, report.
