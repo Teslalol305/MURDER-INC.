@@ -1,13 +1,14 @@
 #!/bin/bash
 # Capture a picture of the level that is open in the running headless editor and save it as a JPEG.
 # Usage: shot.sh <out.jpg> [cam=X,Y,Z,pitch,yaw,roll] [fov=90] [size=1920x1080] [frames=24] [mode=Lit]
-#                          [view=auto|editor|game] [wait=seconds] [exec="console command"]...
+#                          [view=viewport|capture|game] [wait=seconds] [exec="console command"]...
 #   cam    camera in Unreal units (centimetres, degrees); without it: the editor viewport's camera, or the
 #          player's view when play-in-editor is running
-#   frames with cam: render the view for this many editor ticks and keep the last frame, so that Lumen, the sky
-#          light and temporal anti-aliasing have settled (Content/Python/mi_shot.py; editor world only: while
-#          play-in-editor runs the MCP capture is used). frames=0: one frame through
-#          the MCP capture tool, without temporal history (black shadows), which also takes mode= (see ListModes)
+#   view   with cam, editor world: viewport (default) pilots the level editor viewport with a transient camera
+#          (fov honoured), redraws it `frames` times (default 10) so Lumen and TSR settle, then takes HighResShot at
+#          `size`. The only path with the real-time sky light and Lumen: scene captures get neither (black shade).
+#          view=capture: the older scene-capture path (Content/Python/mi_shot.py, `frames` ticks, default 24);
+#          frames=0 with view=capture: one MCP capture frame, which also takes mode= (see ListModes)
 #   wait   seconds to wait before capturing (use it after loading a level: Lumen and shaders need a few seconds)
 # Prints: SHOT OK|BLACK <file> <width>x<height> <bytes> bytes mean=<0-255> near-black=<percent>. Exit code 4 = black.
 main() {

@@ -231,6 +231,74 @@ def shot_frames(mcp, out_path, numbers, fov, width, height, frames):
         return handle.read()
 
 
+VIEWPORT_SETUP = """
+import unreal, glob, os
+ues = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
+les = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
+actors = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+world = ues.get_editor_world()
+les.eject_pilot_level_actor()
+for old in [a for a in actors.get_all_level_actors() if "MIShotCamera" in [str(t) for t in a.tags]]:
+    actors.destroy_actor(old)
+for command in ("r.HighResScreenshotDelay 6", "r.EyeAdaptation.CachedLightingPreExposure 8"):
+    unreal.SystemLibrary.execute_console_command(world, command)
+location = unreal.Vector(%r, %r, %r)
+rotation = unreal.Rotator(roll=%r, pitch=%r, yaw=%r)
+ues.set_level_viewport_camera_info(location, rotation)
+camera = actors.spawn_actor_from_class(unreal.CameraActor, location, rotation, transient=True)
+camera.tags = ["MIShotCamera"]
+component = camera.get_component_by_class(unreal.CameraComponent)
+component.set_editor_property("field_of_view", %r)
+component.set_editor_property("constrain_aspect_ratio", False)
+les.pilot_level_actor(camera)
+les.editor_set_game_view(True)
+folder = unreal.Paths.convert_relative_path_to_full(unreal.Paths.screen_shot_dir())
+for old in glob.glob(os.path.join(folder, "**", "HighresScreenshot*.png"), recursive=True):
+    os.remove(old)
+folder
+"""
+
+VIEWPORT_TEARDOWN = """
+import unreal
+les = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
+actors = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+les.eject_pilot_level_actor()
+for old in [a for a in actors.get_all_level_actors() if "MIShotCamera" in [str(t) for t in a.tags]]:
+    actors.destroy_actor(old)
+"""
+
+
+def shot_viewport(mcp, numbers, fov, width, height, frames):
+    """A picture through the level editor viewport: a main view, so the real-time sky light capture and Lumen work
+    (a scene capture gets neither: ReflectionEnvironmentRealTimeCapture skips scene-capture views, and the headless
+    viewport only draws when asked). The viewport pilots a transient camera actor (position, rotation, field of
+    view); CaptureEditorViewport redraws it `frames` times so Lumen and TSR settle, then HighResShot renders the
+    requested size into Saved/Screenshots (it is taken on a later redraw, after r.HighResScreenshotDelay)."""
+    import glob
+    folder = mcp.python(VIEWPORT_SETUP % (numbers[0], numbers[1], numbers[2], numbers[5], numbers[3], numbers[4], fov))
+    redraw = CAPTURE_TOOLSET + ".CaptureEditorViewport"
+    try:
+        for _ in range(max(1, frames)):
+            mcp.tool(redraw, {})
+        run_console(mcp, "HighResShot %dx%d" % (width, height))
+        deadline = time.time() + 30
+        while time.time() < deadline:
+            mcp.tool(redraw, {})
+            found = glob.glob(os.path.join(str(folder), "**", "HighresScreenshot*.png"), recursive=True)
+            if found:
+                time.sleep(0.5)                       # the file is written by a task: let it finish
+                with open(found[0], "rb") as handle:
+                    data = handle.read()
+                os.remove(found[0])
+                return data
+        raise McpError("HighResShot wrote no file in 30 s (folder %s)" % folder)
+    finally:
+        try:
+            mcp.python(VIEWPORT_TEARDOWN)
+        except McpError:
+            pass
+
+
 def shot(mcp, out_path, options):
     """Save a capture to out_path and return a one-line report."""
     width, height = (int(v) for v in options.get("size", "1920x1080").lower().split("x"))
@@ -247,7 +315,13 @@ def shot(mcp, out_path, options):
     content = []
     data = None
     frames = int(options.get("frames", 24))
-    if "cam" in options and frames > 0 and not is_game:
+    if "cam" in options and not is_game and options.get("view", "viewport") in ("viewport", "auto"):
+        numbers = [float(v) for v in options["cam"].split(",")]
+        numbers += [0.0] * (6 - len(numbers))
+        data = shot_viewport(mcp, numbers, float(options.get("fov", 90)), width, height,
+                             int(options.get("frames", 10)))
+        via = "editor viewport HighResShot, %s frames of warm-up" % options.get("frames", 10)
+    elif "cam" in options and frames > 0 and not is_game:
         numbers = [float(v) for v in options["cam"].split(",")]
         numbers += [0.0] * (6 - len(numbers))
         data = shot_frames(mcp, out_path, numbers, float(options.get("fov", 90)), width, height, frames)
