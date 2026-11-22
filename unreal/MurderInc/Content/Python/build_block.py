@@ -47,6 +47,7 @@ ROOT = "/Game/Art"
 TEX_DIR, MAT_DIR, MESH_DIR = ROOT + "/Textures", ROOT + "/Materials", ROOT + "/Meshes"
 MAP_PATH = "/Game/Maps/L_Block"
 MASTER = MAT_DIR + "/M_MI_Surface"
+MASKED_MASTER = MAT_DIR + "/M_MI_SurfaceMasked"
 GLASS_MASTER = MAT_DIR + "/M_MI_Glass"
 FLAT_MASTER = MAT_DIR + "/M_MI_Flat"
 BLACK_TEXTURE = "/Engine/EngineResources/Black.Black"
@@ -99,7 +100,7 @@ for _tag in ("office", "mezzanine", "railing", "shop-stair", "shop-column", "saf
     TAG_SURFACE[_tag] = ("MI_Box_SteelGrey", "TS_Steel_ScanPaintGrey", (1.0, 1.0, 1.0))
 ROOFED = {"MI_Grey_Brick", "MI_Box_BrickWindows", "MI_Box_BrickBrown", "MI_Box_BrickPainted", "MI_Backdrop_Brick"}
 WINDOWED = {"MI_Box_BrickWindows", "MI_Backdrop_Brick", "MI_Backdrop_Concrete"}
-BACKDROP_SURFACE = {"brick": ("MI_Backdrop_Brick", "TS_Brick_ScanRedCommon", (1.0, 1.0, 1.0)),
+BACKDROP_SURFACE = {"brick": ("MI_Backdrop_Brick", "TS_Brick_ScanRedCommon", (0.72, 0.64, 0.6)),
                     "concrete": ("MI_Backdrop_Concrete", "TS_Concrete_ScanWeathered", (0.9, 0.88, 0.85))}
 GROUND_SURFACE = {               # level.json ground surface -> (instance, texture set, tint)
     "asphalt": ("MI_Ground_Asphalt", "TS_Asphalt_ScanWorn", (1.0, 1.0, 1.0)),
@@ -375,18 +376,22 @@ def custom(material, x, y, code, inputs, output_type, extra_outputs=()):
     return node
 
 
-def build_master(defaults, force):
+def build_master(defaults, force, path=None, masked=False):
     """M_MI_Surface: tiling texture set (+ optional second set on G), tint, Wear vertex-colour masks."""
     # Rebuilt in place, never deleted: deleting a parent orphans its instances, and every orphan then compiles
     # the default material synchronously on the game thread (minutes).
-    if ASSETS.does_asset_exist(MASTER):
+    path = path or MASTER
+    if ASSETS.does_asset_exist(path):
         if not force:
             return "exists"
-        material = unreal.load_asset(MASTER)
+        material = unreal.load_asset(path)
         LIB.delete_all_material_expressions(material)
     else:
         tools = unreal.AssetToolsHelpers.get_asset_tools()
-        material = tools.create_asset("M_MI_Surface", MAT_DIR, unreal.Material, unreal.MaterialFactoryNew())
+        material = tools.create_asset(path.rsplit("/", 1)[1], MAT_DIR, unreal.Material, unreal.MaterialFactoryNew())
+    if masked:          # alpha-tested cards (chain-link): BC alpha clips at 0.5, both faces drawn
+        setp(material, "blend_mode", unreal.BlendMode.BLEND_MASKED)
+        setp(material, "two_sided", True)
 
     # UVs: mesh UV0 (already in repeats of the set's tile) x UVScale, or the world box projection.
     uv0 = expr(material, unreal.MaterialExpressionTextureCoordinate, -2200, 0)
@@ -490,8 +495,10 @@ def build_master(defaults, force):
     LIB.connect_material_property(wear, "AO", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION)
     LIB.connect_material_property(detail_normal, "", unreal.MaterialProperty.MP_NORMAL)
     LIB.connect_material_property(emissive, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    if masked:
+        LIB.connect_material_property(samplers["BC"], "A", unreal.MaterialProperty.MP_OPACITY_MASK)
     LIB.recompile_material(material)
-    ASSETS.save_asset(MASTER, only_if_is_dirty=False)
+    ASSETS.save_asset(path, only_if_is_dirty=False)
     return "created"
 
 
@@ -722,9 +729,9 @@ else if (k == 3)
     float h = frac(sin(dot(I, float2(41.3, 289.1))) * 43758.5);
     float2 o = float2(frac(h * 13.7), frac(h * 71.3)) * 0.6 + 0.2;
     float d = length(frac(P) - o);
-    float rad = 0.07 + 0.08 * frac(h * 5.1);
-    float spot = step(0.72, h) * (1.0 - smoothstep(rad * 0.8, rad, d));
-    colour = (frac(h * 3.3) > 0.4) ? float3(0.16, 0.155, 0.15) : float3(0.025, 0.024, 0.024);
+    float rad = 0.04 + 0.06 * frac(h * 5.1);
+    float spot = step(0.93, h) * (1.0 - smoothstep(rad * 0.7, rad, d));
+    colour = (frac(h * 3.3) > 0.7) ? float3(0.12, 0.115, 0.11) : float3(0.03, 0.029, 0.028);
     rough = 0.55;
     alpha = spot;
 }
@@ -838,7 +845,7 @@ def make_glass_instance(name, values, force):
 
 
 def make_instance(name, set_name, tint=(1, 1, 1), blend_set=None, alpha_means=None, world_tile_m=None,
-                  wear=1.0, force=False, roof_set=None, macro=None, windows=False):
+                  wear=1.0, force=False, roof_set=None, macro=None, windows=False, parent=None):
     path = "%s/%s" % (MAT_DIR, name)
     if ASSETS.does_asset_exist(path):
         if not force:
@@ -848,7 +855,7 @@ def make_instance(name, set_name, tint=(1, 1, 1), blend_set=None, alpha_means=No
         tools = unreal.AssetToolsHelpers.get_asset_tools()
         instance = tools.create_asset(name, MAT_DIR, unreal.MaterialInstanceConstant,
                                       unreal.MaterialInstanceConstantFactoryNew())
-    LIB.set_material_instance_parent(instance, unreal.load_asset(MASTER))
+    LIB.set_material_instance_parent(instance, unreal.load_asset(parent or MASTER))
     for kind in ("BC", "N", "ORM"):
         texture = unreal.load_asset(texture_path(set_name, kind)) if ASSETS.does_asset_exist(
             texture_path(set_name, kind)) else unreal.load_asset(FLAT_NORMAL if kind == "N" else BLACK_TEXTURE)
@@ -892,6 +899,7 @@ def material_units(force):
     defaults_set = "TS_Concrete_ScanFormed"
     defaults = {kind: unreal.load_asset(texture_path(defaults_set, kind)) for kind in ("BC", "N", "ORM")}
     yield "master material", lambda: build_master(defaults, force)
+    yield "masked master", lambda: build_master(defaults, force, MASKED_MASTER, True)
     yield "glass master", lambda: build_glass_master(force)
     yield "flat master", lambda: build_flat_master(force)
     yield "decal master", lambda: build_decal_master(force)
@@ -915,9 +923,10 @@ def material_units(force):
             set_name = slot["set"]
             tint = slot.get("tint") or (1, 1, 1)
             wear = 0.0 if slot.get("workflow") in ("unique", "sign") else 1.0   # unique sets carry their wear baked
+            parent = MASKED_MASTER if slot.get("alpha") else MASTER
             yield "instance " + name, (lambda n=name, s=set_name, t=tint, b=slot.get("blend_set_G"),
-                                       a=slot.get("alpha_means"), w=wear:
-                                       make_instance(n, s, t, b, a, None, w, force))
+                                       a=slot.get("alpha_means"), w=wear, p=parent:
+                                       make_instance(n, s, t, b, a, None, w, force, parent=p))
     # One awning cloth per shop colour (placements carry the shop's sRGB colour).
     for shop, tint in sorted(awning_tints().items()):
         yield "awning " + shop, (lambda n="MI_Fabric_ScanCanvas_" + shop, t=tint:
@@ -958,7 +967,8 @@ def awning_tints():
     for entry in placements()["instances"]:
         if entry.get("shop") and entry.get("tint"):
             colour = srgb_to_linear(entry["tint"])
-            tints[entry["shop"]] = tuple(c / m for c, m in zip(colour, AWNING_SCAN_MEAN))
+            mean = manifest().get("texture_sets", {}).get("TS_Fabric_ScanCanvas", {}).get("albedo_mean") or AWNING_SCAN_MEAN
+            tints[entry["shop"]] = tuple(c / m for c, m in zip(colour, mean))
     return tints
 
 
