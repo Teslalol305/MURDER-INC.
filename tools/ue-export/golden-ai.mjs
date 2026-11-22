@@ -25,6 +25,8 @@ import { holdoutOrder, holdoutWave, killScore, missionOrder, pursuitType } from 
 import { createPhysics } from '../../src/physics.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
+/** Inputs are drawn at the 12 digits the files keep, so the C++ reads exactly what the web game was given. */
+const q = (x) => Number(x.toPrecision(12));
 const vec = (v) => [v.x, v.y, v.z];
 
 export function loadLevel(root) {
@@ -61,7 +63,7 @@ function blockLevel(level) {
 
 export function goldenWorld(level, seed, write, about) {
   const rng = createRng(seed).fork('golden-world');
-  const R = (a, b) => a + (b - a) * rng.next();
+  const R = (a, b) => q(a + (b - a) * rng.next());
   const physics = blockPhysics(level, { rng: createRng(seed) });
   const b = level.bounds.web;
   const rays = [];
@@ -146,7 +148,7 @@ export function goldenWorld(level, seed, write, about) {
 
 export function goldenEnemyLogic(seed, write, about) {
   const rng = createRng(seed).fork('golden-logic');
-  const R = (a, b) => a + (b - a) * rng.next();
+  const R = (a, b) => q(a + (b - a) * rng.next());
   const ai = enemiesConfig.ai;
   const goon = enemiesConfig.goon;
 
@@ -156,8 +158,8 @@ export function goldenEnemyLogic(seed, write, about) {
   let now = 0;
   for (let k = 0; k < 200; k++) {
     now += R(0, 0.6);
-    const op = rng.next() < 0.7 ? 'request' : 'release';
-    const type = rng.next() < 0.5 ? 'goon' : 'buzzard';
+    const op = q(rng.next()) < 0.7 ? 'request' : 'release';
+    const type = q(rng.next()) < 0.5 ? 'goon' : 'buzzard';
     const alive = 1 + Math.floor(R(0, 9));
     const result = op === 'request' ? tokens.request(type, now, alive, ai) : (tokens.release(), null);
     tokenScript.push([op, type, now, alive, result, tokens.held]);
@@ -168,13 +170,13 @@ export function goldenEnemyLogic(seed, write, about) {
     const dx = R(-1, 1);
     const dz = R(-1, 1);
     const yaw = R(-Math.PI, Math.PI);
-    const engaged = rng.next() < 0.3;
+    const engaged = q(rng.next()) < 0.3;
     sight.push([dist, dx, dz, yaw, engaged, L.inSight(dist, dx, dz, yaw, engaged, ai), L.inFov(yaw, dx, dz, ai.fov)]);
   }
   const accum = [];
   for (let k = 0; k < 60; k++) {
     const seen = R(0, 1);
-    const vis = rng.next() < 0.5;
+    const vis = q(rng.next()) < 0.5;
     const tick = R(0.11, 0.19);
     const exp = R(0, 1);
     const dt = R(0, 0.05);
@@ -191,11 +193,11 @@ export function goldenEnemyLogic(seed, write, about) {
   const cost = [];
   const kinds = ['authored', 'random', 'arc'];
   for (let k = 0; k < 60; k++) {
-    const c = { x: R(-20, 20), z: R(-20, 20), kind: kinds[k % 3], sight: rng.next() < 0.7, cover: rng.next() < 0.4 };
+    const c = { x: R(-20, 20), z: R(-20, 20), kind: kinds[k % 3], sight: q(rng.next()) < 0.7, cover: q(rng.next()) < 0.4 };
     const self = { x: R(-20, 20), z: R(-20, 20) };
     const player = { x: R(-5, 5), z: R(-5, 5) };
     const others = Array.from({ length: k % 4 }, () => ({ x: R(-20, 20), z: R(-20, 20), destX: R(-20, 20), destZ: R(-20, 20) }));
-    const jitter = rng.next();
+    const jitter = q(rng.next());
     cost.push([c, self, player, others, jitter, L.firePositionCost(c, self, player, others, others.length, jitter, goon.positionCost)]);
   }
   const follow = [];
@@ -418,39 +420,39 @@ export function goldenFlowRules(level, seed, write, about) {
   const S = flowConfig.spawn.score;
   const sectors = [];
   for (let k = 0; k < 40; k++) {
-    const dx = k === 0 ? 0 : (rng.next() * 2 - 1) * 30;
-    const dz = k === 0 ? 0 : (rng.next() * 2 - 1) * 30;
+    const dx = k === 0 ? 0 : q((rng.next() * 2 - 1) * 30);
+    const dz = k === 0 ? 0 : q((rng.next() * 2 - 1) * 30);
     sectors.push([dx, dz, compassSector(dx, dz)]);
   }
   const scores = [];
   for (let k = 0; k < 40; k++) {
-    const c = { distance: rng.next() * 50, hidden: rng.next() < 0.5, usedAgo: rng.next() < 0.3 ? Infinity : rng.next() * 12, random: rng.next() };
+    const c = { distance: q(rng.next() * 50), hidden: q(rng.next()) < 0.5, usedAgo: q(rng.next()) < 0.3 ? Infinity : q(rng.next() * 12), random: q(rng.next()) };
     scores.push([c.distance, c.hidden, Number.isFinite(c.usedAgo) ? c.usedAgo : -1, c.random, spawnScore(c, S, flowConfig.spawn.far)]);
   }
   // pickSpawn over the level's points with recorded answers for hidden / usedAgo / random.
   const points = level.enemySpawns.points.map((p) => ({ index: p.index, pos: p.web.pos, type: p.type }));
   const picks = [];
   for (let k = 0; k < 30; k++) {
-    const q = { x: (rng.next() * 2 - 1) * 40, z: (rng.next() * 2 - 1) * 30, minDistance: k % 3 === 0 ? flowConfig.spawn.patrolMinDistance : flowConfig.spawn.far, strict: k % 2 === 0 };
+    const query = { x: q((rng.next() * 2 - 1) * 40), z: q((rng.next() * 2 - 1) * 30), minDistance: k % 3 === 0 ? flowConfig.spawn.patrolMinDistance : flowConfig.spawn.far, strict: k % 2 === 0 };
     const wanted = k % 4 === 3 ? 'air' : 'ground';
     const answers = [];
-    q.hidden = (p) => {
-      const h = rng.next() < 0.5;
+    query.hidden = (p) => {
+      const h = q(rng.next()) < 0.5;
       answers.push(['hidden', p.index, h]);
       return h;
     };
-    q.usedAgo = (p) => {
-      const u = rng.next() < 0.7 ? Infinity : rng.next() * 10;
+    query.usedAgo = (p) => {
+      const u = q(rng.next()) < 0.7 ? Infinity : q(rng.next() * 10);
       answers.push(['usedAgo', p.index, Number.isFinite(u) ? u : -1]);
       return u;
     };
-    q.random = () => {
-      const r = rng.next();
+    query.random = () => {
+      const r = q(rng.next());
       answers.push(['random', -1, r]);
       return r;
     };
-    const best = pickSpawn(points, wanted, q, S);
-    picks.push({ q: { x: q.x, z: q.z, minDistance: q.minDistance, strict: q.strict }, wanted, answers, best: best ? best.index : -1 });
+    const best = pickSpawn(points, wanted, query, S);
+    picks.push({ q: { x: query.x, z: query.z, minDistance: query.minDistance, strict: query.strict }, wanted, answers, best: best ? best.index : -1 });
   }
   const mission = [];
   for (const [b, g] of [[0, 0], [2, 5], [3, 6], [4, 7], [5, 8], [1, 3], [2, 4], [0, 3], [3, 0]]) mission.push([b, g, missionOrder(b, g)]);
@@ -463,15 +465,15 @@ export function goldenFlowRules(level, seed, write, about) {
   for (const [t, b] of [[7, 3], [9, 4], [30, 8], [5, 5], [6, 0], [10, 1]]) orders.push([t, b, holdoutOrder(t, b)]);
   const pursuit = [];
   for (let k = 0; k < 20; k++) {
-    const r = rng.next();
+    const r = q(rng.next());
     pursuit.push([r, pursuitType(r, flowConfig.pursuit.buzzardShare)]);
   }
   const cards = [];
   const ratings = textConfig.ratings;
   for (let k = 0; k < 40; k++) {
-    const run = { time: rng.next() * 600, reels: k % 4, total: 3, retries: k % 3 === 0 ? 1 : 0, wave: 0, score: rng.next() * 9000, kills: Math.floor(rng.next() * 40), shots: k % 7 === 0 ? 0 : Math.floor(rng.next() * 300), hits: 0 };
-    run.hits = Math.floor(run.shots * rng.next());
-    const info = { mode: k % 2 ? 'holdout' : 'mission', difficulty: flowConfig.difficulties[k % 3], wavesCleared: k % 5, best: Math.floor(rng.next() * 8000), newBest: k % 6 === 0, headshots: k % 4 };
+    const run = { time: q(rng.next() * 600), reels: k % 4, total: 3, retries: k % 3 === 0 ? 1 : 0, wave: 0, score: q(rng.next() * 9000), kills: Math.floor(q(rng.next()) * 40), shots: k % 7 === 0 ? 0 : Math.floor(q(rng.next()) * 300), hits: 0 };
+    run.hits = Math.floor(run.shots * q(rng.next()));
+    const info = { mode: k % 2 ? 'holdout' : 'mission', difficulty: flowConfig.difficulties[k % 3], wavesCleared: k % 5, best: Math.floor(q(rng.next()) * 8000), newBest: k % 6 === 0, headshots: k % 4 };
     const c = cardData(run, info, flowConfig, ratings);
     cards.push({ run, info, card: { ...c, accuracy: c.accuracy === null ? -1 : c.accuracy }, accuracy: accuracy(run) === null ? -1 : accuracy(run) });
   }
