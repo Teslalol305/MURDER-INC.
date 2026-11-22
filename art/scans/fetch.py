@@ -26,12 +26,14 @@ import concurrent.futures as cf
 import json
 import os
 import shutil
+import struct
 import sys
 import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import zlib
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -174,6 +176,73 @@ def read_hdr(path):
     return rgbe[..., :3].astype(np.float32) * scale[..., None]
 
 
+def png_header(path):
+    """(width, height, bit depth, channels) straight from the IHDR chunk."""
+    with open(path, "rb") as f:
+        head = f.read(33)
+    if head[:8] != b"\x89PNG\r\n\x1a\n" or head[12:16] != b"IHDR":
+        raise ValueError("not a PNG")
+    w, h, depth, ctype = struct.unpack(">IIBB", head[16:26])
+    return w, h, depth, {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}[ctype]
+
+
+def read_png(path):
+    """Decode a non-interlaced 8- or 16-bit PNG at full depth: (height, width, channels), uint8 or uint16.
+
+    Pillow keeps 16 bits only for plain greyscale; a 16-bit grey+alpha or RGB file comes back with 8 bits per
+    channel, which would throw away most of a height map. The filters make every byte depend on its left, upper
+    and upper-left neighbours, so the bytes on one anti-diagonal are independent of each other: the picture is
+    rebuilt one anti-diagonal at a time, each as a single numpy operation.
+    """
+    import numpy as np
+    data = Path(path).read_bytes()
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ValueError("not a PNG")
+    pos, idat, ihdr = 8, [], None
+    while pos < len(data):
+        n, kind = struct.unpack(">I4s", data[pos:pos + 8])
+        if kind == b"IHDR":
+            ihdr = struct.unpack(">IIBBBBB", data[pos + 8:pos + 8 + n])
+        elif kind == b"IDAT":
+            idat.append(data[pos + 8:pos + 8 + n])
+        elif kind == b"IEND":
+            break
+        pos += 12 + n
+    w, h, depth, ctype, _, _, interlace = ihdr
+    if interlace or depth not in (8, 16) or ctype not in (0, 2, 4, 6):
+        raise ValueError(f"unsupported PNG (depth {depth}, colour type {ctype}, interlace {interlace})")
+    channels = {0: 1, 2: 3, 4: 2, 6: 4}[ctype]
+    bpp = channels * depth // 8
+    raw = np.frombuffer(zlib.decompress(b"".join(idat)), np.uint8).reshape(h, 1 + w * bpp)
+    kind = raw[:, 0].astype(np.int16)
+    filt = raw[:, 1:].reshape(h, w, bpp).astype(np.int16)
+    rec = np.zeros((h + 1, w + 1, bpp), np.int16)  # row 0 and column 0 are the zeros the filters assume
+    for t in range(w + h - 1):
+        ys = np.arange(max(0, t - w + 1), min(h - 1, t) + 1)
+        xs = t - ys
+        k = kind[ys][:, None]
+        a, b, c = rec[ys + 1, xs], rec[ys, xs + 1], rec[ys, xs]  # left, up, upper left
+        p = a + b - c
+        pa, pb, pc = np.abs(p - a), np.abs(p - b), np.abs(p - c)
+        paeth = np.where((pa <= pb) & (pa <= pc), a, np.where(pb <= pc, b, c))
+        pred = np.where(k == 1, a, np.where(k == 2, b, np.where(k == 3, (a + b) >> 1, np.where(k == 4, paeth, 0))))
+        rec[ys + 1, xs + 1] = (filt[ys, xs] + pred) & 255
+    out = rec[1:, 1:].astype(np.uint8)
+    if depth == 8:
+        return out.reshape(h, w, channels)
+    out = out.reshape(h, w, channels, 2).astype(np.uint16)
+    return (out[..., 0] << 8) | out[..., 1]
+
+
+def write_grey16(height, dest):
+    """Save a uint16 array as a 16-bit greyscale PNG."""
+    from PIL import Image
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_name(dest.name + ".tmp")
+    Image.fromarray(height).save(tmp, "PNG", optimize=False, compress_level=6)
+    os.replace(tmp, dest)
+
+
 def gltf_files(gltf_path):
     """Relative URIs a .gltf needs beside it (buffers first, then images)."""
     doc = json.loads(Path(gltf_path).read_text())
@@ -244,7 +313,12 @@ def do_texture(entry, res, cache):
     maps = []
     for role, spec in entry["files"].items():
         dest = out_path(entry, role, res)
-        if "src" in spec and local.get(role):
+        if "src" in spec and local.get(role) and spec.get("convert") == "grey16":
+            # the source PNG carries the height in RGB or grey+alpha: keep channel 0 at its full 16 bits
+            if not dest.is_file() or dest.stat().st_mtime < local[role].stat().st_mtime:
+                write_grey16(read_png(local[role])[..., 0], dest)
+                row["wrote"] += 1
+        elif "src" in spec and local.get(role):
             row["wrote"] += copy_if_changed(local[role], dest)
         elif spec.get("pack") and local.get(f"{role}.rough"):
             parts = [local.get(f"{role}.{c}") for c in ("ao", "rough", "metal")]
@@ -266,7 +340,10 @@ def do_texture(entry, res, cache):
         if role == "ORM":
             tag += "(packed)" if spec.get("pack") and "src" not in spec else ""
         if role == "H":
-            tag += "16" if mode.startswith("I") else "8"
+            _, _, depth, channels = png_header(dest)
+            tag += str(depth)
+            if channels != 1:
+                row["problems"].append(f"H has {channels} channels, expected a single grey channel")
         maps.append(tag)
         if role == "BC" and mode != "RGB":
             row["problems"].append(f"BC is {mode}, expected RGB")
