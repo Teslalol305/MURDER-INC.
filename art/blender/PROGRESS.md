@@ -177,3 +177,61 @@ Ledger of every generation: art/blender/assets/vehicles_gen.json (job ids, model
 ## Exact next step
 `VEH_DEBUG=1 build.py build vehicles --export --force` (all), look at art/out/gen/vehicles/debug_*.jpg, then
 `build.py build vehicles --preview --only vehicles_sedan_hero,vehicles_close --samples 48` and the other previews.
+
+---------------------------------------------------------------------------------------------------------------
+# Generated Goon (assets/goon_generated.py), character technical artist: a Higgsfield image-to-3D comparison
+
+Task: one generated goon_hoodie (concept picture -> image-to-3D, textured, PBR, A-pose, high poly), scaled and bound to
+the mannequin skeleton from art/out/epic/ (weights from the mannequin mesh; nothing Epic-derived is committed),
+previews goon_generated_{hero,detail,pose,wire}.jpg, art/out/glb/SK_Goon_Hoodie_Gen.glb, and a verdict.
+
+## Status
+- [x] concept front (gpt_image_2_6 high 2k, 2 cr) and back view with the crew V (2 cr): art/out/gen/goon/concept1*.png
+- [x] take 1: meshy_v7_image_to_3d, texture + PBR + a-pose + ultra, 300k target (44 cr): 311k tris, one 2k atlas
+      (BC, metal-rough, normal): goon_meshy.glb. KEPT (black reads black, mask slits modelled, closest to the brief)
+- [x] take 2: hunyuan3d_v3_image_to_3d front + back views, PBR, 300k faces (23 cr): 4k maps, but washed-out greys,
+      shiny light jeans, an invented red glyph on the chest, flat mask: goon_hunyuan.glb (not used;
+      GOON_SRC=art/out/gen/goon/goon_hunyuan.glb build ... runs it through the same script)
+- [x] bound to SKM_Manny_Simple (89 bones): limbs posed onto the mesh, weights copied from the posed mannequin body,
+      fingers folded into the hands, inverse skinning back to Manny's reference pose; round trip exact; exported
+      joints equal SKM_Manny_Simple.glb's (quaternions within 1e-6), so UE5 animations play without retargeting
+- [x] `build.py build goon_generated --export --preview --samples 64` (8.5 min): art/out/glb/SK_Goon_Hoodie_Gen.glb
+      (24.3 MB, skinned to the 89 Manny joints, generated 2k maps embedded); previews looked at:
+      goon_generated_hero / _detail (3 m, 1 m) / _pose (A_rifle_jog_fwd, A_rifle_idle_ads) / _wire. 9 renders in all
+      (2 test heroes, one per take, then 7 final): one over the budget of 8.
+Spent: 71 credits (2 + 44 + 2 + 23, matched in the transaction list); balance 5260.03 at the start, 4902.42 at the
+end (the rest of the drop is the GPU box and the other agents' generations).
+
+## State at hand-off: task complete. Verdict: do not use the generated Goon as the game asset (at most as a
+## silhouette / proportion reference)
+Against "a current AAA enemy seen from 3 to 40 m": from 10 m and beyond it reads right (black figure, oxblood
+accents, pale mask, good jeans); at 3 m and closer it fails. Weaknesses, most visible first: the hoodie reads as
+glossy vinyl (flat roughness 0.7, no fabric sheen, no weave), baked seam cracks and smudges from a 2k atlas cut into
+hundreds of islands (about 7 px/cm, a hero enemy wants 4-8 4k sets), shading baked into the colour (folds darkened in
+the albedo); one fused shell (hoodie, jeans, gloves, mask in one surface, no layers to cloth-simulate, no inner hood
+or neck), irregular triangles with no edge loops at shoulders, elbows, knees (deformation is skinning-only and will
+crease and collapse at the armpit, crotch and a kneel), small tears on the left upper arm; gloves modelled flat and
+spread (fingers are bound rigid to the hands, so no grip); no crew V on the back and the back is invented; the mask is
+white rather than bone; 311k triangles with no LODs.
+Next step (if wanted): none for this asset. The hand-built Goons (assets/characters.py) stay the plan; the generated
+mesh can serve as a fold/proportion reference. To redo the comparison with the other take:
+`GOON_SRC=art/out/gen/goon/goon_hunyuan.glb venv/bin/python art/blender/build.py build goon_generated --export --preview`.
+
+---------------------------------------------------------------------------------------------------------------
+# Catalogue gaps (assets/gaps.py, assets/_gaps_art.py), started after the signs hand-off
+
+Task: (1) every non-vehicle catalogue id without a mesh; (2) properly sized modelled versions of the mismatched scans,
+named as the catalogue names them; (3) gameplay wrecks, progress strip, boombox meter, heat masks, master-case lid fix;
+(4) the flat placeholder graphics drawn, gold balls and barber pole, a clean white painted-steel set. Previews
+gaps_street / gaps_yard / gaps_gameplay / gaps_graphics.
+Decisions: trees and hedges have MODELLED leaves (8-triangle polygons cut to the drawn leaf outline, opaque, no alpha):
+Nanite draws opaque geometric foliage cheaply and Lumen lights it correctly, masked cards cost overdraw and break
+Nanite culling. No bark or leaf scan is catalogued, so bark, leaves, kraft board and brushed stainless are drawn with
+numpy as tiling sets. SM_Furn_StreetLamp already is the 7.88 m cobra head (0.34 x 2.74 x 7.88): no new lamp.
+
+## Status
+- [x] _gaps_art.py: numpy sets TS_Bark_Pear, TS_Leaf_Pear, TS_Leaf_Privet, TS_Cardboard_Kraft, TS_Steel_Stainless; 24 faces
+- [x] gaps.py street + yard: 32 assets exported, validation clean (`build.py build gaps --bake --export --res 1024`)
+- [ ] gameplay (props.py): wrecks, progress strip, boombox meter, heat masks, lid fix
+- [ ] furniture re-export with drawn faces and TS_Steel_PaintWhiteClean
+- [ ] previews (2 review rounds), README rows
