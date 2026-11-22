@@ -39,7 +39,7 @@ editor_start() {
   ensure_mcp_autostart
   [ -f "$MI_LOGS/editor.log" ] && mv -f "$MI_LOGS/editor.log" "$MI_LOGS/editor.prev.log"
   date +%s > "$MI_LOGS/editor.start"
-  setsid nohup "$MI_RUN_EDITOR" "$MI_UPROJECT" "$@" -RenderOffscreen -unattended -nosplash -NoSound > "$MI_LOGS/editor.log" 2>&1 &
+  setsid nohup "$MI_RUN_EDITOR" "$MI_UPROJECT" "$@" "${MI_EDITOR_ARGS[@]}" -RenderOffscreen -unattended -nosplash -NoSound > "$MI_LOGS/editor.log" 2>&1 &
   local i
   for i in $(seq 1 17); do
     sleep 2

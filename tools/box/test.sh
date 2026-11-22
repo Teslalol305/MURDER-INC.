@@ -17,7 +17,7 @@ main() {
     cd "$MI_ENGINE" || exit 1
     env "UE-LocalDataCachePath=$MI_DDC" ./Engine/Binaries/Linux/UnrealEditor-Cmd "$MI_UPROJECT" \
       "-ExecCmds=Automation RunTests $filter;Quit" "-TestExit=Automation Test Queue Empty" "-ReportExportPath=$report" \
-      -unattended -nosplash -NoSound -NullRHI -nopause -stdout -FullStdOutLogOutput "${MI_CACHE_ARGS[@]}" > "$log" 2>&1
+      -unattended -nosplash -NoSound -NullRHI -nopause -stdout -FullStdOutLogOutput "${MI_CACHE_ARGS[@]}" "${MI_EDITOR_ARGS[@]}" > "$log" 2>&1
     echo "exit code $?" >> "$log"
     date +%s > "$MI_LOGS/test.end"
     echo DONE > "$st"

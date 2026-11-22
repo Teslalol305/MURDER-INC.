@@ -20,6 +20,12 @@ export MI_MCP_URL
 # Same values as /project/ue/bin/run-editor.sh (which also sets UE-LocalDataCachePath).
 MI_CACHE_ARGS=('-DDC=(ProjectPak,InstalledProjectPak,EnginePak=InstalledEnginePak,EnterprisePak,InstalledLocal)' '-ini:Engine:[Zen]:AutoLaunch=false')
 
+# The asset registry watches the whole Engine/Plugins tree for file changes. On Linux that is one inotify watch per
+# directory, set up on the game thread: 55,000 directories on the 9p volume cost 10 to 25 minutes per editor start.
+# Off for every editor process on the box. Consequence: files copied into Content while the editor runs are not
+# seen until the editor restarts or unreal.AssetRegistryHelpers.get_asset_registry().scan_paths_synchronous() runs.
+MI_EDITOR_ARGS=('-ini:Engine:[ConsoleVariables]:AssetRegistry.DisableDirectoryWatcher=1')
+
 mi_die() { echo "$*"; exit 1; }
 
 # The environment run-editor.sh gives the editor, for the other engine programs (UnrealEditor-Cmd):
