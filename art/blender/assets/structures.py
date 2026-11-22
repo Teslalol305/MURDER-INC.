@@ -1656,7 +1656,7 @@ def _put(proto, loc, yaw=0.0, scale=1.0, col_=None):
     return ob
 
 
-def context_dress(ctx, x_range=(-60, 30), shop=False):
+def context_dress(ctx, x_range=(-60, 30)):
     """The block round the structures for the pictures: El, street, the facade kit from buildings.json, shop walls."""
     dcol = scene.collection("Dress")
     el = _append("el", ["SM_El_Column", "SM_El_Bent", "SM_El_GirderSpan_10m", "SM_El_Deck_10m", "SM_El_Lamp"])
@@ -1688,8 +1688,14 @@ def context_dress(ctx, x_range=(-60, 30), shop=False):
         if not (x_range[0] - 6 < x < x_range[1] + 6):
             continue
         _put(fac[e["mesh"]], (x, -Y_ / 100.0, Z_ / 100.0), -e["yaw"], (e.get("scale") or [1.0])[0], col_=dcol)
-    if shop:
-        fw = _append("furniture", ["SM_Furn_BlockWall_200", "SM_Furn_SidewalkShed", "SM_Furn_ShedStair"])
+    return dcol
+
+
+def shop_walls():
+    """The auto body shop's block walls (furniture modules) round the interior, doorways left open."""
+    dcol = scene.collection("DressShop")
+    if True:
+        fw = _append("furniture", ["SM_Furn_BlockWall_200"])
         w = fw.get("SM_Furn_BlockWall_200")
         if w:
             for x in np.arange(-24.0, 6.0, 2.0):
@@ -1758,7 +1764,7 @@ def on_preview(ctx, objs):
         vl = bpy.context.view_layer
         vl.material_override = _clay_wire()
         render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=0.3)
-        render.cam_look((-36.6, -11.6, 1.55), (-40.2, -8.2, 2.3), lens=30, name="Cam_Wire")
+        render.cam_look((-36.2, -10.6, 1.6), (-40.2, -8.0, 2.4), lens=30, name="Cam_Wire")
         _p, sec = render.render_jpeg(os.path.join(P, "structures_wire.jpg"), max(24, a.samples // 2))
         vl.material_override = None
         ctx.log("preview structures_wire.jpg %.0fs" % sec)
@@ -1776,13 +1782,15 @@ def on_preview(ctx, objs):
         # the news kiosk is moved in beside the produce stand and the dig pen for this one picture
         kn = bpy.data.objects.get("SM_Struct_Kiosk_News")
         if kn:
-            kn.matrix_world = Matrix.Translation((8.4, 8.27, 0.15))
+            kn.matrix_world = Matrix.Translation((5.5, 8.27, 0.15))
         render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=0.5)
-        render.cam_look((5.2, 4.6, 1.65), (14.6, 9.0, 1.35), lens=26, name="Cam_Street")
+        render.cam_look((1.0, 5.8, 1.65), (13.0, 9.2, 1.4), lens=26, name="Cam_Street")
         _p, sec = render.render_jpeg(os.path.join(P, "structures_street.jpg"), a.samples)
         ctx.log("preview structures_street.jpg %.0fs" % sec)
     if want("structures_chopshop"):
-        context_dress(ctx, (-30, 10), shop=True) if not (want("structures_station")) else None
+        if not bpy.data.collections.get("Dress"):
+            context_dress(ctx, (-30, 10))
+        shop_walls()
         render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=3.2)
         for k in ("lampWork", "tube"):
             mat.principled(ctx.M[k]).inputs["Emission Strength"].default_value /= 0.15

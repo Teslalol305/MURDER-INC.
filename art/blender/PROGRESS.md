@@ -315,3 +315,22 @@ driven by the game: spin, gimbal, bank).
 None required. If resumed: drop the stator teeth under the windings and the bell's 56-segment rings to 40 to get to
 ~120k, re-bake (`build.py build buzzard --bake --rebake-unique --force --export`: the mesh hash changes, the UV cache
 is rebuilt), then re-render `MI_PREVIEWS=buzzard_hero,buzzard_detail`.
+
+---------------------------------------------------------------------------------------------------------------
+# Structures (assets/structures.py, assets/_structures_art.py, upgrade_sets.py), level-structure artist
+
+Task: the level structures still drawn as boxes in Unreal (El station stairs / mezzanine / bridges / platforms,
+kiosks, produce stand, hoardings, dig pen, loading dock, garages, the chop shop's inside), fitted to their colliders,
+placement data art/out/placements/structures.json; texture-density pass (9 scans to 4K, galvanised + road paint
+re-baked at 2048, tile sizes for the tinted slots); previews structures_*.jpg.
+
+## Status
+- [x] 4K scans fetched (`fetch.py --res 4k --only ...`, 41 s); TS_Galvanised_Aged, TS_RoadPaint_White/_Yellow re-baked at
+      2048 (upgrade_sets.py); manifest: 167 slots given a tile size; mi/export.py fills it for future exports
+- [x] 16 faces drawn (Sign_StationName ... Sign_LoadingZone), 27 assets built and exported, validation clean
+- [x] fit: every asset measured against its colliders: no vertex outside them or its listed overhead regions, except
+      SM_Struct_Kiosk_Candy (18 vertices of the padlock, 16 mm)
+- [ ] previews round 1 (5 renders), round 2
+
+## Exact next step
+Look at art/previews/structures_*.jpg, fix, re-render the worst (at most 3 more renders), commit.
