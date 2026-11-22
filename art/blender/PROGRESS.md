@@ -162,3 +162,23 @@ Ledger of every generation: art/blender/assets/vehicles_gen.json (job ids, model
       for the provider comparison still running).
 - [x] Sedan face classification proven (glass by low roughness + dark, lamps by colour and position).
 - [ ] vehicles.py: sedan end to end, hero preview, then the rest.
+
+---------------------------------------------------------------------------------------------------------------
+# Generated Goon (assets/goon_generated.py), character technical artist: a Higgsfield image-to-3D comparison
+
+Task: one generated goon_hoodie (concept picture -> image-to-3D, textured, PBR, A-pose, high poly), scaled and bound to
+the mannequin skeleton from art/out/epic/ (weights from the mannequin mesh; nothing Epic-derived is committed),
+previews goon_generated_{hero,detail,pose,wire}.jpg, art/out/glb/SK_Goon_Hoodie_Gen.glb, and a verdict.
+
+## Status
+- [x] concept front (gpt_image_2_6 high 2k, 2 cr) and back view with the crew V (2 cr): art/out/gen/goon/concept1*.png
+- [x] take 1: meshy_v7_image_to_3d, texture + PBR + a-pose + ultra, 300k target (44 cr): 311k tris, one 2k atlas
+      (BC, metal-rough, normal): goon_meshy.glb. KEPT (black reads black, mask slits modelled, closest to the brief)
+- [x] take 2: hunyuan3d_v3_image_to_3d front + back views, PBR, 300k faces (23 cr): 4k maps, but washed-out greys,
+      shiny light jeans, an invented red glyph on the chest, flat mask: goon_hunyuan.glb (not used;
+      GOON_SRC=art/out/gen/goon/goon_hunyuan.glb build ... runs it through the same script)
+- [x] bound to SKM_Manny_Simple (89 bones): limbs posed onto the mesh, weights copied from the posed mannequin body,
+      fingers folded into the hands, inverse skinning back to Manny's reference pose; round trip exact; exported
+      joints equal SKM_Manny_Simple.glb's (quaternions within 1e-6), so UE5 animations play without retargeting
+- [ ] previews (running): build.py build goon_generated --export --preview --samples 64
+Spent: 71 credits (2 + 44 + 2 + 23); balance 5260.03 at the start.

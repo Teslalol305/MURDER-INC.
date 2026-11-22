@@ -39,7 +39,8 @@ FAMILY = {"name": "goon_generated", "description": "Generated (Higgsfield image-
 NAME = "SK_Goon_Hoodie_Gen"
 SLOT = "M_Goon_Hoodie_Gen"
 GEN = os.path.join(paths.out, "gen", "goon")
-SRC = os.path.join(GEN, "goon_meshy.glb")
+SRC = os.environ.get("GOON_SRC") or os.path.join(GEN, "goon_meshy.glb")     # GOON_SRC=... to try another take
+FINGERS = ("thumb", "index", "middle", "ring", "pinky")
 EPIC = os.path.join(paths.out, "epic")
 BRIEF_TOP = 1.78          # over the hood (brief: 1.75 m man in sneakers, 1.78 m over the hood)
 HOOD_OVER_HEAD = 1.78 / 1.75
@@ -157,41 +158,42 @@ def find_mannequin():
 
 
 def find_anims():
+    """The exported animation clips (A_*.glb; the FBX twins are skipped)."""
     if not os.path.isdir(EPIC):
         return []
-    out = []
-    for ext in ("glb", "gltf", "fbx"):
-        out += glob.glob(os.path.join(EPIC, "**", "*.%s" % ext), recursive=True)
-    return sorted(p for p in out if p != find_mannequin())
+    return sorted(glob.glob(os.path.join(EPIC, "A_*.glb")))
 
 
 def load_mannequin(path, col):
+    """The mannequin armature and its skinned body (the GLB from the character agent: metres, facing -Y, identity
+    object transforms; a file in centimetres or facing another way is brought to that)."""
     objs = _import(path, col)
     arm = next(o for o in objs if o.type == "ARMATURE")
     meshes = [o for o in objs if o.type == "MESH" and any(m.type == "ARMATURE" for m in o.modifiers)]
     body = max(meshes, key=lambda o: len(o.data.vertices))
-    for o in objs:
-        if o.type == "MESH" and o is not body:
-            bpy.data.objects.remove(o, do_unlink=True)
-    for o in objs:                                        # keep the armature at the root, the body as its child
-        if o.type == "EMPTY":
-            for ch in o.children:
-                mw = ch.matrix_world.copy()
-                ch.parent = None
-                ch.matrix_world = mw
-    # bake every object transform into the data: armature at the origin with identity transform, metres, facing -Y
+    keep = {arm.name, body.name}
+    for o in objs:                                        # bone-shape spheres, extra meshes, empties
+        if o.name not in keep:
+            for ch in list(o.children):
+                if ch.name in keep:
+                    mw = ch.matrix_world.copy()
+                    ch.parent = None
+                    ch.matrix_world = mw
+    for nm in [o.name for o in objs if o.name not in keep]:
+        bpy.data.objects.remove(bpy.data.objects[nm], do_unlink=True)
+    for pb in arm.pose.bones:
+        pb.custom_shape = None
     bpy.context.view_layer.update()
-    for o in list(objs):
-        if o.name in bpy.data.objects and o.type == "EMPTY":
-            bpy.data.objects.remove(o, do_unlink=True)
-    _apply_object_transform(arm, body)
+    ident = all((np.abs(np.array(o.matrix_world) - np.eye(4)) < 1e-6).all() for o in (arm, body))
+    if not ident:
+        _apply_object_transform(arm, body)
     co, _t = _evaluated(body)
     h = co[:, 2].max() - co[:, 2].min()
     if h > 10:                                            # centimetres
         _scale_rig(arm, body, 0.01)
     fwd = _forward(arm)
     ang = math.atan2(fwd[0], -fwd[1])                     # rotate so forward is -Y
-    if abs(ang) > math.radians(5):
+    if abs(ang) > math.radians(30):                   # splayed feet are about 7 degrees off
         _rotate_rig(arm, body, -ang)
     return arm, body
 
@@ -455,6 +457,12 @@ def bind_to_mannequin(ctx, ob, path):
     ctx.log("transferring weights from %d mannequin vertices to %d" % (len(pco), len(co)))
     W, dist = transfer_weights(co, pco, btris, BW)
     ctx.log("  surface distance: median %.3f m, 99th pct %.3f m" % (np.median(dist), np.percentile(dist, 99)))
+    # the generated gloves are spread flat, the mannequin's fingers are relaxed: they do not line up, so the
+    # finger weights go to the hand (rigid gloves) rather than bending the wrong fingers
+    for j, nm in enumerate(names):
+        if nm.startswith(FINGERS) and nm[-2:] in ("_l", "_r") and ("hand" + nm[-2:]) in names:
+            W[:, names.index("hand" + nm[-2:])] += W[:, j]
+            W[:, j] = 0
     W = limit_normalise(smooth_weights(ob, W), 4)
     fits = bone_fit_matrices(arm)
     rest = unpose(co, names, W, fits)
@@ -505,11 +513,11 @@ def on_export(ctx, objs):
 
 def _ground():
     g = render.backdrop(size=60.0, color=(0.16, 0.155, 0.15), z=0.0)
-    m = mat.from_scan("TS_Concrete_ScanSidewalk") if _has_set("TS_Concrete_ScanSidewalk") else None
+    m = mat.from_scan("TS_Sidewalk_ScanBroom") if _has_set("TS_Sidewalk_ScanBroom") else None
     if m:
         g.data.materials.clear()
         g.data.materials.append(m)
-        geo.uv_world_box(g, mat.scan_tile("TS_Concrete_ScanSidewalk"))
+        geo.uv_world_box(g, mat.scan_tile("TS_Sidewalk_ScanBroom"))
     return g
 
 
@@ -536,12 +544,9 @@ def apply_anim_pose(ctx, path, frac):
     for pb in ctx.arm.pose.bones:
         s = src.pose.bones.get(pb.name)
         pb.matrix_basis = s.matrix_basis.copy() if s else Matrix.Identity(4)
-    if "root" in ctx.arm.pose.bones:
+    if "root" in ctx.arm.pose.bones:                      # keep the figure on its spot (root motion off)
         ctx.arm.pose.bones["root"].matrix_basis = Matrix.Identity(4)
-    if "pelvis" in ctx.arm.pose.bones:                   # keep the figure on its spot (root motion off)
-        pb = ctx.arm.pose.bones["pelvis"]
-        pb.location = (0, pb.location[1], 0) if False else pb.location
-    name = act.name
+    name = os.path.splitext(os.path.basename(path))[0]
     for o in objs:
         bpy.data.objects.remove(o, do_unlink=True)
     bpy.context.view_layer.update()
@@ -565,10 +570,10 @@ def on_preview(ctx, objs):
         if ctx.bound:
             twin.modifiers["Armature"].object = ctx.arm
         twin.parent = None
-        twin.matrix_world = Matrix.Translation((1.05, 0.35, 0)) @ Matrix.Rotation(math.radians(160), 4, "Z")
+        twin.matrix_world = Matrix.Translation((1.45, 0.45, 0)) @ Matrix.Rotation(math.radians(160), 4, "Z")
         ob_mw = ob.matrix_world.copy()
         render.rig_day(sun_azimuth=215.0, stops=0.4)
-        render.cam_look((0.9, -4.6, 1.25), (0.5, 0.1, 0.92), lens=40, name="Cam_Hero")
+        render.cam_look((1.05, -4.9, 1.25), (0.7, 0.1, 0.92), lens=40, name="Cam_Hero")
         _p, sec = render.render_jpeg(os.path.join(P, "goon_generated_hero.jpg"), a.samples)
         bpy.data.objects.remove(twin, do_unlink=True)
         ob.matrix_world = ob_mw
@@ -586,13 +591,14 @@ def on_preview(ctx, objs):
         render.render_png(p2, a.samples, (640, 720))
         shots.append(p2)
         render.contact_sheet(shots, os.path.join(P, "goon_generated_detail.jpg"), cols=2,
-                             labels=["3 m", "1 m"], cell=(638, 720))
+                             labels=["3 m", "1 m"])
         ctx.log("preview goon_generated_detail.jpg")
 
     if want("goon_generated_pose") and ctx.bound:
         anims = find_anims()
-        picks = [p for p in anims if any(k in os.path.basename(p).lower() for k in ("run", "jog", "fire", "aim", "idle"))]
-        picks = (picks or anims)[:2]
+        # a run and a shouldered aim (the brief's deformation cases), else whatever clips there are
+        pref = ("A_rifle_jog_fwd", "A_rifle_idle_ads", "A_unarmed_attack", "A_death_front")
+        picks = [p for k in pref for p in anims if os.path.basename(p).startswith(k)][:2] or anims[:2]
         shots, labels = [], []
         render.rig_day(sun_azimuth=215.0, stops=0.4)
         for i, p in enumerate(picks or [None]):
@@ -607,8 +613,7 @@ def on_preview(ctx, objs):
             labels.append(name)
         for pb in ctx.arm.pose.bones:
             pb.matrix_basis = Matrix.Identity(4)
-        render.contact_sheet(shots, os.path.join(P, "goon_generated_pose.jpg"), cols=2, labels=labels,
-                             cell=(638, 720))
+        render.contact_sheet(shots, os.path.join(P, "goon_generated_pose.jpg"), cols=2, labels=labels)
         ctx.log("preview goon_generated_pose.jpg (%s)" % ", ".join(labels))
 
     if want("goon_generated_wire"):
@@ -639,7 +644,7 @@ def on_preview(ctx, objs):
             s.material = m
         bpy.data.objects.remove(wire, do_unlink=True)
         render.contact_sheet([p2, p1], os.path.join(P, "goon_generated_wire.jpg"), cols=2,
-                             labels=["clay", "wire, 1.3 m"], cell=(638, 720))
+                             labels=["clay", "wire, 1.3 m"])
         ctx.log("preview goon_generated_wire.jpg")
 
 
