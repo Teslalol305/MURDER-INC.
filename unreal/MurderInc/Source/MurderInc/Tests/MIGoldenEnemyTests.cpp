@@ -218,7 +218,7 @@ bool FMIGoldenEnemiesTest::RunTest(const FString& Parameters)
 			Player.Vel = FVector(Num(Pl, 3), Num(Pl, 4), Num(Pl, 5));
 			Player.bCrouching = Num(Pl, 6) != 0;
 			Player.bAlive = Num(Pl, 7) != 0;
-			Player.Eye = Player.Pos + FVector(0, Player.bCrouching ? 1.15 : 1.68, 0);
+			Player.Eye = FVector(Num(Pl, 8), Num(Pl, 9), Num(Pl, 10));
 			Field.Update(Dt, Player);
 			Rec.Drain();
 

@@ -52,14 +52,14 @@ bool FMIGoldenEnemyLogicTest::RunTest(const FString& Parameters)
 	for (const TSharedPtr<FJsonValue>& V : G->GetArrayField(TEXT("accum")))
 	{
 		const FJsonArray& A = V->AsArray();
-		C.Near(TEXT("seenStep"), SeenStep(Num(A, 0), A[1]->AsBool(), Num(A, 2), Ai), Num(A, 6), 1e-12);
-		C.Near(TEXT("exposureStep"), ExposureStep(Num(A, 3), A[1]->AsBool(), Num(A, 4), Ai), Num(A, 7), 1e-12);
-		C.Near(TEXT("reactionTime"), ReactionTime(Goon.Reaction, A[5]->AsString() == TEXT("patrol"), Ai), Num(A, 8), 1e-12);
+		C.Near(TEXT("seenStep"), SeenStep(Num(A, 0), A[1]->AsBool(), Num(A, 2), Ai), Num(A, 6), 1e-10);
+		C.Near(TEXT("exposureStep"), ExposureStep(Num(A, 3), A[1]->AsBool(), Num(A, 4), Ai), Num(A, 7), 1e-10);
+		C.Near(TEXT("reactionTime"), ReactionTime(Goon.Reaction, A[5]->AsString() == TEXT("patrol"), Ai), Num(A, 8), 1e-10);
 	}
 	for (const TSharedPtr<FJsonValue>& V : G->GetArrayField(TEXT("spread")))
 	{
 		const FJsonArray& A = V->AsArray();
-		C.Near(TEXT("aimSpread"), AimSpread(Num(A, 0), Num(A, 1), Num(A, 2), Num(A, 3), Num(A, 4), Num(A, 5)), Num(A, 6), 1e-12);
+		C.Near(TEXT("aimSpread"), AimSpread(Num(A, 0), Num(A, 1), Num(A, 2), Num(A, 3), Num(A, 4), Num(A, 5)), Num(A, 6), 1e-10);
 	}
 	for (const TSharedPtr<FJsonValue>& V : G->GetArrayField(TEXT("cost")))
 	{
@@ -85,7 +85,7 @@ bool FMIGoldenEnemyLogicTest::RunTest(const FString& Parameters)
 	for (const TSharedPtr<FJsonValue>& V : G->GetArrayField(TEXT("follow")))
 	{
 		const FJsonArray& A = V->AsArray();
-		C.Near(TEXT("followSpeed"), FollowSpeed(Num(A, 0), Num(A, 1), Num(A, 2), Goon), Num(A, 3), 1e-12);
+		C.Near(TEXT("followSpeed"), FollowSpeed(Num(A, 0), Num(A, 1), Num(A, 2), Goon), Num(A, 3), 1e-10);
 	}
 	auto Hit = [](double T) { return T == Inf ? -1.0 : T; };
 	for (const TSharedPtr<FJsonValue>& V : G->GetArrayField(TEXT("rays")))

@@ -331,7 +331,7 @@ function enemyScenario(level, seed, name, { frames, player, setup, script, dt = 
   const players = [];
   for (frame = 0; frame < frames; frame++) {
     script(frame, ctl);
-    players.push([P.pos.x, P.pos.y, P.pos.z, P.vel.x, P.vel.y, P.vel.z, P.crouching ? 1 : 0, P.alive ? 1 : 0]);
+    players.push([P.pos.x, P.pos.y, P.pos.z, P.vel.x, P.vel.y, P.vel.z, P.crouching ? 1 : 0, P.alive ? 1 : 0, P.eye.x, P.eye.y, P.eye.z]);
     E.update(dt);
     const row = [];
     for (const e of [...E.list].sort((a, b) => a.id - b.id)) {
