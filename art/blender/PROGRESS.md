@@ -201,3 +201,22 @@ white rather than bone; 311k triangles with no LODs.
 Next step (if wanted): none for this asset. The hand-built Goons (assets/characters.py) stay the plan; the generated
 mesh can serve as a fold/proportion reference. To redo the comparison with the other take:
 `GOON_SRC=art/out/gen/goon/goon_hunyuan.glb venv/bin/python art/blender/build.py build goon_generated --export --preview`.
+
+---------------------------------------------------------------------------------------------------------------
+# Catalogue gaps (assets/gaps.py, assets/_gaps_art.py), started after the signs hand-off
+
+Task: (1) every non-vehicle catalogue id without a mesh; (2) properly sized modelled versions of the mismatched scans,
+named as the catalogue names them; (3) gameplay wrecks, progress strip, boombox meter, heat masks, master-case lid fix;
+(4) the flat placeholder graphics drawn, gold balls and barber pole, a clean white painted-steel set. Previews
+gaps_street / gaps_yard / gaps_gameplay / gaps_graphics.
+Decisions: trees and hedges have MODELLED leaves (8-triangle polygons cut to the drawn leaf outline, opaque, no alpha):
+Nanite draws opaque geometric foliage cheaply and Lumen lights it correctly, masked cards cost overdraw and break
+Nanite culling. No bark or leaf scan is catalogued, so bark, leaves, kraft board and brushed stainless are drawn with
+numpy as tiling sets. SM_Furn_StreetLamp already is the 7.88 m cobra head (0.34 x 2.74 x 7.88): no new lamp.
+
+## Status
+- [x] _gaps_art.py: numpy sets TS_Bark_Pear, TS_Leaf_Pear, TS_Leaf_Privet, TS_Cardboard_Kraft, TS_Steel_Stainless; 24 faces
+- [x] gaps.py street + yard: 32 assets exported, validation clean (`build.py build gaps --bake --export --res 1024`)
+- [ ] gameplay (props.py): wrecks, progress strip, boombox meter, heat masks, lid fix
+- [ ] furniture re-export with drawn faces and TS_Steel_PaintWhiteClean
+- [ ] previews (2 review rounds), README rows
