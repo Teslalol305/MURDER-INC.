@@ -41,7 +41,7 @@ editor_start() {
   date +%s > "$MI_LOGS/editor.start"
   setsid nohup "$MI_RUN_EDITOR" "$MI_UPROJECT" "$@" -RenderOffscreen -unattended -nosplash -NoSound > "$MI_LOGS/editor.log" 2>&1 &
   local i
-  for i in $(seq 1 21); do
+  for i in $(seq 1 17); do
     sleep 2
     if [ -z "$(mi_editor_pid)" ]; then
       echo "EDITOR FAILED: the process exited during start. Last lines of editor.log:"

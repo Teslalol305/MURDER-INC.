@@ -22,6 +22,14 @@ MI_CACHE_ARGS=('-DDC=(ProjectPak,InstalledProjectPak,EnginePak=InstalledEnginePa
 
 mi_die() { echo "$*"; exit 1; }
 
+# The environment run-editor.sh gives the editor, for the other engine programs (UnrealEditor-Cmd):
+# HOME of ue4, and its Epic settings folder kept on persistent storage.
+mi_engine_env() {
+  export HOME=/home/ue4 DISPLAY=${DISPLAY:-:1}
+  mkdir -p /home/ue4/.config "$MI_UE/home/Epic" "$MI_LOGS"
+  [ -L /home/ue4/.config/Epic ] || { rm -rf /home/ue4/.config/Epic; ln -sfn "$MI_UE/home/Epic" /home/ue4/.config/Epic; }
+}
+
 # The engine refuses to run as root, and the mirror belongs to ue4: re-run the calling script as ue4.
 mi_become_ue4() {
   if [ "$(id -un)" = ue4 ]; then return 0; fi
