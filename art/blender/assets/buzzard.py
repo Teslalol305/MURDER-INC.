@@ -1101,6 +1101,41 @@ def unwrap(ob, res):
     return geo.uv_unwrap(ob, res=res, angle=66.0, margin_px=2, pack="AABB", weights=w)
 
 
+def mesh_key(ob):
+    """Hash of the mesh topology and rounded positions (the UV cache key)."""
+    import hashlib
+    me = ob.data
+    co = np.empty(len(me.vertices) * 3, np.float32)
+    me.vertices.foreach_get("co", co)
+    lv = np.empty(len(me.loops), np.int32)
+    me.loops.foreach_get("vertex_index", lv)
+    h = hashlib.sha1(np.round(co, 5).tobytes())
+    h.update(lv.tobytes())
+    return h.hexdigest()
+
+
+def unwrap_cached(ob, res, ctx):
+    """Smart projection is not reproducible between processes, so the layout the set was painted on is kept in
+    art/out/textures/Buzzard/uv_cache.npz (keyed by the mesh hash) and reused until the mesh changes."""
+    path = os.path.join(paths.texture_set("Buzzard"), "uv_cache.npz")
+    key = mesh_key(ob)
+    me = ob.data
+    if os.path.exists(path) and not ctx.args.force:
+        z = np.load(path)
+        if str(z["key"]) == key and len(z["uv"]) == len(me.loops) * 2:
+            if not me.uv_layers:
+                me.uv_layers.new(name=geo.UV)
+            me.uv_layers.active.data.foreach_set("uv", z["uv"])
+            ctx.log("SK_Buzzard: UV layout from the cache")
+            return geo.uv_texel_density(ob, res)
+    dens = unwrap(ob, res)
+    uv = np.empty(len(me.loops) * 2, np.float32)
+    me.uv_layers.active.data.foreach_get("uv", uv)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    np.savez(path, key=key, uv=uv)
+    return dens
+
+
 def write_unique(ctx, ob, set_name, res, painter, **kw):
     d = paths.texture_set(set_name)
     old = bake.read_set(set_name)
@@ -1144,7 +1179,7 @@ def build_drone(ctx):
     arm = rig.armature("SKEL_Buzzard", BONES, col)
     names = assign_slots(ob)
     res = tex_res(ctx, 4096)
-    dens = unwrap(ob, res)
+    dens = unwrap_cached(ob, res, ctx)
     ctx.log("SK_Buzzard: %d tris, %.0f px/m" % (geo.stats(ob)["triangles"], dens))
     d = write_unique(ctx, ob, "Buzzard", res, paint_buzzard)
     mats = preview_materials(d, names, eye=6.0, strobe=4.0)
