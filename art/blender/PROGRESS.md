@@ -235,3 +235,18 @@ numpy as tiling sets. SM_Furn_StreetLamp already is the 7.88 m cobra head (0.34 
 - [ ] gameplay (props.py): wrecks, progress strip, boombox meter, heat masks, lid fix
 - [ ] furniture re-export with drawn faces and TS_Steel_PaintWhiteClean
 - [ ] previews (2 review rounds), README rows
+
+---------------------------------------------------------------------------------------------------------------
+# Characters (mi/char.py, mi/sdf.py, assets/characters.py, tools/box/chars/), character pipeline and the player's arms
+
+Task: scratch Unreal project /project/ue/chars (MCP 8002); Epic mannequin, clips and template guns exported to
+art/out/epic (never committed); round-trip proof; SK_RuleArms on SK_Mannequin (skin, glove leather, glove suede,
+rubber; 4K sets), SM_Character_RuleWatch, SM_Character_RuleBracelet; pose tests; proof in Unreal.
+
+## Status
+- [x] scratch project, export (glTF + FBX) of SKM_Manny_Simple, 7 clips, SM_Rifle, SM_Pistol -> art/out/epic
+- [x] round-trip proof (docs/unreal/CHARACTERS.md, shots/chars-roundtrip.jpg): 0.00008 cm per bone in Unreal
+- [ ] arms geometry (SDF on the mannequin's bones), UVs, weights, mirror
+- [ ] textures 4K, watch, bracelet, export, pose tests, previews, Unreal proof
+
+Next step: finish assets/characters.py geometry (build_right_arm) and look at it.

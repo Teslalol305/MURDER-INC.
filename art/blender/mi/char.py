@@ -16,8 +16,8 @@ glTF exporter. docs/unreal/CHARACTERS.md has the proof that this path round-trip
 Axes and bones. The glTF importer runs with bone_heuristic BLENDER: every bone is turned +90 deg about its local X
 for display and the exporter turns it back (io_scene_gltf2 blender/exp/tree.py), so the joint rest rotations and
 translations written by export_character are the ones Unreal wrote, to float precision (round_trip_report).
-Blender scene: metres, Z up, the mannequin faces -Y (Unreal +X forward = Blender -Y? no: see CHARACTERS.md) - all
-positions here are simply read from the imported armature, never typed in.
+Blender scene: metres, Z up, the mannequin stands at the origin facing -Y (Unreal +Y). Bone positions are read
+from the imported armature, never typed in.
 """
 import json
 import os
