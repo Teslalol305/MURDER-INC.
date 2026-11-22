@@ -239,6 +239,24 @@ def gun_from_camera(cam, name, pose="hip"):
     return cam.matrix_world @ Matrix.Translation((px, py, pz)) @ Rm @ C
 
 
+def reach_forward(arm, targets, slack=0.90, forward=Vector((0, -1, 0))):
+    """First-person arms are placed for the camera, not the neck: slide the whole rig forward (and the
+    shoulders with it) until every palm target is within `slack` of the arm's reach."""
+    bpy.context.view_layer.update()
+    need = 0.0
+    for side, p, R in targets:
+        S = (arm.matrix_world @ arm.pose.bones["upperarm_" + side].matrix).to_translation()
+        reach = (R.Lu + R.L + 0.06) * slack
+        for k in range(60):
+            d = k * 0.01
+            if ((S + forward * d) - Vector(p)).length <= reach:
+                break
+        need = max(need, d)
+    arm.location = arm.location + forward * need
+    bpy.context.view_layer.update()
+    return need
+
+
 def hold(arm, gun_M, name, Rr, Rl):
     """IK both arms onto the gun: right palm on the grip, left palm under the handguard (rifle) or over the
     firing hand (pistol). Hand frames are built in gun space and carried to the world."""
@@ -254,6 +272,8 @@ def hold(arm, gun_M, name, Rr, Rl):
     lat = down
     dors = (fwd.cross(lat) * sr).normalized()
     pr = gun_M @ Vector(g["palm_r"])
+    pl0 = gun_M @ Vector(g["palm_l"] if g["palm_l"] else (0.020, 0.036, -0.080))
+    reach_forward(arm, [("r", pr, Rr), ("l", pl0, Rl)])
     ik_arm(arm, "r", Rr, pr, (fwd, lat, dors), Vector((0.3, 0.6, -1)))
     if name == "chopper":
         # left hand cupping the handguard from below, fingers rising on the right side, thumb on the left

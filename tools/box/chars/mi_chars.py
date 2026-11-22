@@ -325,13 +325,89 @@ def add_socket(mesh_path, socket, bone, world_m16):
     return {"socket": socket, "bone": bone, "loc": [round(v, 3) for v in (rel.translation.x, rel.translation.y, rel.translation.z)]}
 
 
-def arms_actor(mesh_path, anim_path, loc, yaw, time, jewels, label):
+def simple_material(name, colour, rough, metal, dest="/Game/Characters/RuleArms/Materials", translucent=False):
+    path = dest + "/" + name
+    m = unreal.load_asset(path) if ASSETS.does_asset_exist(path) else TOOLS.create_asset(name, dest, unreal.Material, unreal.MaterialFactoryNew())
+    MEL.delete_all_material_expressions(m)
+    c = MEL.create_material_expression(m, unreal.MaterialExpressionConstant3Vector, -400, 0)
+    c.constant = unreal.LinearColor(*colour, 1)
+    MEL.connect_material_property(c, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    for v, prop, y in ((rough, unreal.MaterialProperty.MP_ROUGHNESS, 200), (metal, unreal.MaterialProperty.MP_METALLIC, 300)):
+        k = MEL.create_material_expression(m, unreal.MaterialExpressionConstant, -400, y)
+        k.r = v
+        MEL.connect_material_property(k, "", prop)
+    if translucent:
+        _set(m, blend_mode=unreal.BlendMode.BLEND_TRANSLUCENT)
+        k = MEL.create_material_expression(m, unreal.MaterialExpressionConstant, -400, 400)
+        k.r = 0.08
+        MEL.connect_material_property(k, "", unreal.MaterialProperty.MP_OPACITY)
+    _set(m, used_with_skeletal_mesh=True)
+    MEL.recompile_material(m)
+    ASSETS.save_loaded_asset(m)
+    return path
+
+
+def assign_static(mesh_path, mats):
+    sm = unreal.load_asset(mesh_path)
+    ms = list(sm.get_editor_property("static_materials"))
+    done = []
+    for i, e in enumerate(ms):
+        n = str(e.get_editor_property("material_slot_name"))
+        for k, v in mats.items():
+            if n == k or n.startswith(k):
+                e.set_editor_property("material_interface", unreal.load_asset(v))
+                ms[i] = e
+                done.append(n)
+                break
+    sm.set_editor_property("static_materials", ms)
+    ASSETS.save_loaded_asset(sm)
+    return done
+
+
+def setup_arms(src="/project/ue/chars/in"):
+    """Everything SK_RuleArms needs in the scratch project: mesh on SK_Mannequin, textures, materials, the
+    watch and the bracelet with their sockets. Returns a report."""
+    rep = {}
+    dest = "/Game/Characters/RuleArms"
+    rep["mesh"] = import_on_mannequin(os.path.join(src, "SK_RuleArms.glb"), dest, "SK_RuleArms")
+    rep["textures"] = import_textures(os.path.join(src, "tex"), dest + "/Textures")
+    make_material("M_RuleArms_Skin", "RuleArms_Skin", skin=True)
+    make_material("M_RuleArms_Glove", "RuleArms_Glove")
+    g = dest + "/Materials/M_RuleArms_Glove"
+    rep["slots"] = assign_slots(dest + "/SK_RuleArms", {"M_RuleArms_Skin": dest + "/Materials/M_RuleArms_Skin",
+                                                        "M_RuleArms_GloveLeather": g, "M_RuleArms_GloveSuede": g,
+                                                        "M_RuleArms_Rubber": g})
+    gold = simple_material("M_RuleGold", (1.0, 0.766, 0.336), 0.16, 1.0)
+    brushed = simple_material("M_RuleGoldBrushed", (1.0, 0.766, 0.336), 0.34, 1.0)
+    dark = simple_material("M_RuleGoldDark", (0.8, 0.58, 0.2), 0.42, 1.0)
+    dial = simple_material("M_RuleDial", (0.003, 0.003, 0.0035), 0.07, 0.0)
+    glass = simple_material("M_RuleGlass", (0.9, 0.9, 0.9), 0.02, 0.0, translucent=True)
+    alt = simple_material("M_RuleGoldAlt", (0.93, 0.70, 0.30), 0.18, 1.0)
+    sockets = json.load(open(os.path.join(src, "SK_RuleArms.sockets.json")))
+    rep["jewels"] = {}
+    for name, sk in sockets.items():
+        mp = import_static(os.path.join(src, name + ".glb"), dest, name)
+        rep["jewels"][name] = assign_static(mp, {"M_Character_RuleWatch_GoldBrushed": brushed, "M_Character_RuleWatch_GoldDark": dark,
+                                                 "M_Character_RuleWatch_Gold": gold, "M_Character_RuleWatch_Dial": dial,
+                                                 "M_Character_RuleWatch_Glass": glass, "M_Character_RuleBracelet_GoldAlt": alt,
+                                                 "M_Character_RuleBracelet_Gold": gold})
+        try:
+            rep["sockets_" + name] = add_socket(dest + "/SK_RuleArms", sk["socket"], sk["bone"], sk["blender_world_rest"])
+        except Exception as e:  # noqa: BLE001
+            rep["socket_error_" + name] = str(e)[:300]
+    unreal.log_warning("MI: setup_arms " + json.dumps(rep)[:3000])
+    return rep
+
+
+def arms_actor(mesh_path, anim_path, loc, yaw, time, label, jewels=(("SM_Character_RuleWatch", "Socket_Watch"),
+                                                                    ("SM_Character_RuleBracelet", "Socket_Bracelet"))):
+    """The arms playing a clip frozen at `time`, with the watch and bracelet attached at their sockets."""
     a = actor(mesh_path, anim_path, loc, yaw=yaw, time=time, label=label)
     for mesh, sock in jewels:
-        c = unreal.StaticMeshComponent(outer=a, name=sock + "_C")
-        c.set_static_mesh(unreal.load_asset(mesh))
-        c.attach_to_component(a.skeletal_mesh_component, sock, unreal.AttachmentRule.SNAP_TO_TARGET,
-                              unreal.AttachmentRule.SNAP_TO_TARGET, unreal.AttachmentRule.KEEP_RELATIVE, False)
-        a.add_instance_component(c) if hasattr(a, "add_instance_component") else None
-        c.register_component() if hasattr(c, "register_component") else None
+        j = ACTORS.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(*loc))
+        j.tags = ["MIStage"]
+        j.static_mesh_component.set_static_mesh(unreal.load_asset("/Game/Characters/RuleArms/" + mesh))
+        j.static_mesh_component.set_mobility(unreal.ComponentMobility.MOVABLE)
+        j.attach_to_actor(a, sock, unreal.AttachmentRule.SNAP_TO_TARGET, unreal.AttachmentRule.SNAP_TO_TARGET,
+                          unreal.AttachmentRule.KEEP_WORLD, False)
     return a
