@@ -99,3 +99,17 @@ Measured on the first block build (2026-11-22, `build_block.py`, every result li
 | Decals | Deferred decal material (`MD_DEFERRED_DECAL`, translucent) with the shapes drawn in decal UV by HLSL; DecalActor `decal_size` is (depth, width, height); pitch -90 projects down. |
 | Catalogue ids | Read from the manifest notes ("Catalogue <id>:", "Stands for catalogue id '<id>'", "(catalogue <id>,"); `CATALOGUE_EXTRA` names the street and facade modules the notes do not. |
 
+
+## 7. Gameplay clone and C++: what turned out to be true
+
+| Fact | Consequence |
+|---|---|
+| Two clones share the box: `/project/ue/repo` (level, logs in `/project/ue/logs`, MCP 8000) and `/project/ue/repo-gameplay` (logs in `/project/ue/logs/repo-gameplay`, MCP 8001) | Every script takes the clone from its own location (`lib.sh`) and stops only processes whose command line names its own project. Run `seed-content.sh` once per clone (208 template assets). |
+| The first build of a clone on a fresh box takes about 12 minutes (makefile, UHT 88 s, the module); later C++ changes 60 to 270 s | Any change to `Config/DefaultEngine.ini` invalidates the makefile and adds about a minute. |
+| 5.9: `FJsonObject::Values` keys are `UE::TSharedString`, not `FString` | Iterate with `const auto& Pair`, convert with `FString(*Pair.Key)`. |
+| `FMath::CeilToInt(double)` returns `int64`: `Printf("%d")` fails at compile time (consteval format check) | Use `CeilToInt32`. `FOverlapResult` needs `Engine/OverlapResult.h`. |
+| The engine's JSON reader can return 1/60 one unit in the last place off JavaScript's `1 / 60`; nine steps then cross a 0.15 s hold a frame early | The golden tests take a step within 1e-12 of 1/n as exactly `1.0 / n` (`StepOf`). |
+| A character's movement component already ticks before its actor: making it wait for the actor's tick is a cycle (`LogTick` warning every frame, the prerequisite is dropped) | `AMIPlayerCharacter` runs its frame in two own tick functions: pre-physics (a prerequisite of the movement component) and post-physics (after it). |
+| A bare `UWorld::CreateWorld(Game)` has no game mode: `BeginPlay` does not reach the actors | Tests call `GetWorldSettings()->NotifyBeginPlay()` and `World->EndPlay` before destroying it (`Tests/MIWorldTests.cpp`). |
+| Play in editor works headless on the level viewport; `HighResShot` from the PIE world writes `Saved/Screenshots/LinuxEditor/*.png` after a few `CaptureEditorViewport` redraws. A second shot in the same session once captured the editor camera instead | `tools/box/pie.sh` (`pie_start`, `pie_con`, `pie_shot`, `pie_state`); input by console: `MIInput <action> <value>`. Python sent through MCP runs inside the editor: it does not see the client's environment, and sleeping in it stops the game. |
+| `unreal.Rotator(a, b, c)` in Python is (roll, pitch, yaw) | Name the fields. |

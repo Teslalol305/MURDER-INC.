@@ -21,6 +21,38 @@ What is verified on the box, newest first. Every entry says how it was verified.
    `send-art.sh pack` + transfer + `block.sh start textures,materials force` + `block.sh start meshes,level` when it
    is finished: sign slots without a set show the neutral stand-in `SIGN_STAND_IN`.
 
+## Gameplay (slice 1: the player and the two guns)
+
+Contracts: `docs/unreal/GAMEPLAY.md`. Built and tested in the second clone `/project/ue/repo-gameplay` (MCP 8001).
+
+**Verified 2026-11-22**
+- **Build green, 9 of 9 tests pass** (`build-status.sh` BUILD OK; `test.sh` TESTS OK passed=9 failed=0, 22 s):
+  `MurderInc.Core.DataLoads`, `Core.GameClasses` (38 key mappings), `Golden.Rng`, `Golden.PlayerPure`,
+  `Golden.PlayerSim`, `Golden.Weapon`, `Golden.Blast` (the C++ rules replay every frame of the web game's own
+  modules: `node tools/ue-export/golden.mjs` writes `Content/Data/golden/*.json`), `Weapons.ViewmodelRig` (aimed, the
+  rear sight sits on the view axis within 0.02 cm at 16.0 cm relief for the CHOPPER and 37.0 cm for the NINE; a round
+  kicks the gun more than 2 mm and it settles within 0.3 mm), `Weapons.HitscanDummyBlast` (in a world with collision:
+  a body round deals 26, a head round 26 x 2.2, a miss misses, a player round lights a propane tank, the fuse runs
+  out and the blast hurts the dummy by 170 x (1 - d / 650 cm)).
+- **Play in editor** on `/Game/Maps/L_GameplayTest` (`mi_gameplay_testmap.py`, `tools/box/pie.sh`): the player stands
+  (feet on the floor, eye 168 cm), the HUD draws health, ammunition and the crosshair, the template rifle sits at the
+  CHOPPER's hip pose (`docs/unreal/shots/gameplay-v0-hip.jpg`); `MIInput ads 1` brings the sight onto the crosshair
+  (`gameplay-v0-ads.jpg`); `MIInput fire 1` for 0.6 s killed the dummy 7 m ahead (it keeled over). No tick cycle
+  warnings after moving the frame into two tick functions.
+- `config.json` numbers were rounded to 4 decimals by the exporter (shake.onHit.perDamage 0.0143 for 1/70);
+  `golden.mjs` restores full precision for the player, weapon and explosive tables (3 numbers changed).
+
+**Open (most important first)**
+1. The arms are the template mannequin placed by its right-hand socket on the gun's grip, playing one ADS idle: the
+   left hand does not hold the handguard at the hip and the reload, draw and strike have no hand animation. Needs the
+   animation layer (two-bone IK to `Palm_R` / `Palm_L`, reload montages to spec 02 3.17) on the real arms.
+2. Not ported yet: the air step (8 cm), the play-bounds clamp and fall-out teleport, gamepad look curve and aim
+   slow-down input, the mouse-wheel swap debounce, rumble, muzzle flash, casings, impact effects, sounds, the
+   damage post-process, the explosives' wreck meshes and jets (grey boxes), the settings menu.
+3. Tracers are line-batcher streaks (no Niagara yet). The dummy and the explosive are engine basic shapes.
+4. The movement is the stock walking and falling with the rules' velocity: the golden replay covers the rules on
+   flat ground; steps, ledges and the parity table of spec 01 4.9 are not measured in a level yet.
+
 ## 2026-11-22
 
 - **block-v1: the avenue with the facade kit, props, furniture, decals and backdrop** (`docs/unreal/shots/block-v1-1.jpg`
