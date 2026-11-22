@@ -1,17 +1,131 @@
 {
  "note": "Higgsfield generations for the vehicles family (concept pictures with gpt_image_2_6, bodies with image-to-3D). Results are downloaded to art/out/gen/vehicles/ (git-ignored). Credits as charged.",
  "jobs": [
-  {"id": "307f604f-b486-4856-9801-d581b1cedb9a", "what": "sedan concept a (white, 3/4 front-left)", "model": "gpt_image_2_6", "credits": 2, "file": "sedan_concept_a.png"},
-  {"id": "70bfb8ff-a7f2-4867-a19d-0f4fd8fd24ec", "what": "sedan body, from concept a", "model": "meshy_v7_image_to_3d (texture, PBR, ultra, 300k, symmetry on)", "credits": 44, "file": "sedan_meshy.glb"},
-  {"id": "74adccae-b256-486e-9144-f8ec8162100b", "what": "sedan body, from concept a", "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 500k faces)", "credits": 15, "file": "sedan_hunyuan.glb"},
-  {"id": "6083d33f-bafc-4411-857d-efcd40e1ee2b", "what": "SUV concept a (rejected: too close to a real model)", "model": "gpt_image_2_6", "credits": 2, "file": "suv_concept_a.png"},
-  {"id": "3b14961e-3e88-41f2-9aa1-8043f4396c56", "what": "pickup concept a (rejected: too close to a real model)", "model": "gpt_image_2_6", "credits": 2, "file": "pickup_concept_a.png"},
-  {"id": "7e9a1fab-a31d-4794-bf76-49bb9c7ad102", "what": "van concept a", "model": "gpt_image_2_6", "credits": 2, "file": "van_concept_a.png"},
-  {"id": "ce0989d0-d2d1-476f-aff5-45f5e61e5af1", "what": "box truck concept a", "model": "gpt_image_2_6", "credits": 2, "file": "boxtruck_concept_a.png"},
-  {"id": "bb4c7efe-7a4a-42be-902c-2dcead5ac8ff", "what": "IPX truck concept a (rejected: three axles)", "model": "gpt_image_2_6", "credits": 2, "file": "ipx_concept_a.png"},
-  {"id": "2d7e91ca-158d-4057-a8fe-91c1e9df53e8", "what": "motorbike concept a (side view)", "model": "gpt_image_2_6", "credits": 2, "file": "moto_concept_a.png"},
-  {"id": "93965d46-4b06-4f11-ae5b-4c9014229c47", "what": "SUV concept b", "model": "gpt_image_2_6", "credits": 2, "file": "suv_concept_b.png"},
-  {"id": "019b0e38-0448-470b-be3d-534c4fbc8066", "what": "pickup concept b", "model": "gpt_image_2_6", "credits": 2, "file": "pickup_concept_b.png"},
-  {"id": "ae097def-3637-4ebf-8aea-aaae5ba4b550", "what": "IPX truck concept b (two axles)", "model": "gpt_image_2_6", "credits": 2, "file": "ipx_concept_b.png"}
+  {
+   "id": "307f604f-b486-4856-9801-d581b1cedb9a",
+   "what": "sedan concept a (white, 3/4 front-left)",
+   "model": "gpt_image_2_6",
+   "credits": 2,
+   "file": "sedan_concept_a.png"
+  },
+  {
+   "id": "70bfb8ff-a7f2-4867-a19d-0f4fd8fd24ec",
+   "what": "sedan body, from concept a",
+   "model": "meshy_v7_image_to_3d (texture, PBR, ultra, 300k, symmetry on)",
+   "credits": 44,
+   "file": "sedan_meshy.glb"
+  },
+  {
+   "id": "74adccae-b256-486e-9144-f8ec8162100b",
+   "what": "sedan body, from concept a",
+   "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 500k faces)",
+   "credits": 15,
+   "file": "sedan_hunyuan.glb"
+  },
+  {
+   "id": "6083d33f-bafc-4411-857d-efcd40e1ee2b",
+   "what": "SUV concept a (rejected: too close to a real model)",
+   "model": "gpt_image_2_6",
+   "credits": 2,
+   "file": "suv_concept_a.png"
+  },
+  {
+   "id": "3b14961e-3e88-41f2-9aa1-8043f4396c56",
+   "what": "pickup concept a (rejected: too close to a real model)",
+   "model": "gpt_image_2_6",
+   "credits": 2,
+   "file": "pickup_concept_a.png"
+  },
+  {
+   "id": "7e9a1fab-a31d-4794-bf76-49bb9c7ad102",
+   "what": "van concept a",
+   "model": "gpt_image_2_6",
+   "credits": 2,
+   "file": "van_concept_a.png"
+  },
+  {
+   "id": "ce0989d0-d2d1-476f-aff5-45f5e61e5af1",
+   "what": "box truck concept a",
+   "model": "gpt_image_2_6",
+   "credits": 2,
+   "file": "boxtruck_concept_a.png"
+  },
+  {
+   "id": "bb4c7efe-7a4a-42be-902c-2dcead5ac8ff",
+   "what": "IPX truck concept a (rejected: three axles)",
+   "model": "gpt_image_2_6",
+   "credits": 2,
+   "file": "ipx_concept_a.png"
+  },
+  {
+   "id": "2d7e91ca-158d-4057-a8fe-91c1e9df53e8",
+   "what": "motorbike concept a (side view)",
+   "model": "gpt_image_2_6",
+   "credits": 2,
+   "file": "moto_concept_a.png"
+  },
+  {
+   "id": "93965d46-4b06-4f11-ae5b-4c9014229c47",
+   "what": "SUV concept b",
+   "model": "gpt_image_2_6",
+   "credits": 2,
+   "file": "suv_concept_b.png"
+  },
+  {
+   "id": "019b0e38-0448-470b-be3d-534c4fbc8066",
+   "what": "pickup concept b",
+   "model": "gpt_image_2_6",
+   "credits": 2,
+   "file": "pickup_concept_b.png"
+  },
+  {
+   "id": "ae097def-3637-4ebf-8aea-aaae5ba4b550",
+   "what": "IPX truck concept b (two axles)",
+   "model": "gpt_image_2_6",
+   "credits": 2,
+   "file": "ipx_concept_b.png"
+  },
+  {
+   "id": "2d45cb07-c55c-4c80-9d4e-6203d017ca75",
+   "what": "suv body, from suv_concept_b",
+   "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 500k faces)",
+   "credits": 15,
+   "file": "suv_hunyuan.glb"
+  },
+  {
+   "id": "2bafbfa8-9ced-423b-8b0d-a0071a0f3c10",
+   "what": "pickup body, from pickup_concept_b",
+   "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 500k faces)",
+   "credits": 15,
+   "file": "pickup_hunyuan.glb"
+  },
+  {
+   "id": "abf0a7ec-c7f9-4bef-ac7b-b590763d7633",
+   "what": "van body, from van_concept_a",
+   "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 500k faces)",
+   "credits": 15,
+   "file": "van_hunyuan.glb"
+  },
+  {
+   "id": "74c29fb5-787d-4594-bfca-72760f07d3b8",
+   "what": "boxtruck body, from boxtruck_concept_a",
+   "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 500k faces)",
+   "credits": 15,
+   "file": "boxtruck_hunyuan.glb"
+  },
+  {
+   "id": "898909ff-b691-40b8-b13f-6a9eb9cc7a54",
+   "what": "ipx body, from ipx_concept_b",
+   "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 500k faces)",
+   "credits": 15,
+   "file": "ipx_hunyuan.glb"
+  },
+  {
+   "id": "b2fe4f35-f756-4494-a6fb-b11bb5850738",
+   "what": "moto body, from moto_concept_a",
+   "model": "hunyuan3d_v3_image_to_3d (Normal, PBR, 500k faces)",
+   "credits": 15,
+   "file": "moto_hunyuan.glb"
+  }
  ]
 }

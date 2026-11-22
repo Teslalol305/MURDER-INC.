@@ -144,3 +144,21 @@ by re-importing the GLB in a fresh process and posing every bone.
 - [x] CHOPPER geometry (56k tris) + magazine/top round; draft pipeline runs end to end (--res 512)
 - [ ] CHOPPER 4K textures, previews; NINE; casings; SMG + pipe; README row
 Next step: `build.py build weapons --only chopper --bake --export` at full size, then previews.
+
+---------------------------------------------------------------------------------------------------------------
+# Vehicles (assets/vehicles.py), vehicle artist
+
+Task: the eleven vehicles of props.json (vehicle_*), generated bodies (Higgsfield) cleaned and completed by script,
+GLB + manifest + validation, previews vehicles_*.jpg, README row.
+Method: concept picture (gpt_image_2_6, 2 credits) -> hunyuan3d_v3_image_to_3d (500k faces, PBR, 15 credits)
+-> mi/gen3d.py (new module: load GLB + maps, orient, fit to the brief box, warp x onto the briefed axles, per-face
+texture sampling) -> vehicles.py (classify faces by colour/roughness/position into paint, trim, lamps, glass;
+modelled wheels, interiors, plates, liveries).
+Ledger of every generation: art/blender/assets/vehicles_gen.json (job ids, models, credits, files).
+
+## Status
+- [x] Higgsfield: balance 5254 at start. Concepts for all bodies, Hunyuan bodies for sedan, SUV, pickup, van,
+      box truck, IPX truck, motorbike downloaded to art/out/gen/vehicles/. Spent so far: 169 credits (Meshy sedan
+      for the provider comparison still running).
+- [x] Sedan face classification proven (glass by low roughness + dark, lamps by colour and position).
+- [ ] vehicles.py: sedan end to end, hero preview, then the rest.
