@@ -57,17 +57,17 @@ CHART = {"black": "#14161a", "charcoal": "#2a2d33", "silver": "#8f959c", "white"
 # belt: base of the side glass; cowl, bpillar: x of the windscreen base and the B pillar; floor: cabin floor z;
 # wheel: face style; cls: classification overrides.
 SPEC = {
-    "Sedan": dict(src="sedan_hunyuan60k.glb", axis="Y", nose=-1, size=(4.61, 1.85, 1.45), axles=(1.42, -1.38),
+    "Sedan": dict(bn=0.90, src="sedan_hunyuan60k.glb", axis="Y", nose=-1, size=(4.61, 1.85, 1.45), axles=(1.42, -1.38),
                   r=0.325, tw=0.21, rim=0.22, belt=1.02, cowl=0.98, bpillar=-0.20, rear_x=-1.52, floor=0.36,
                   wheel="cap", rear_seat=True, plate="HLS2141", paint="maroon", cover=1.08,
                   tris=60000),
-    "SUV": dict(src="suv_hunyuan60k.glb", axis="Y", nose=-1, size=(4.91, 2.0, 1.82), axles=(1.50, -1.42),
+    "SUV": dict(bn=1.12, src="suv_hunyuan60k.glb", axis="Y", nose=-1, size=(4.91, 2.0, 1.82), axles=(1.50, -1.42),
                 r=0.40, tw=0.27, rim=0.27, belt=1.22, cowl=1.00, bpillar=-0.12, rear_x=-2.12, floor=0.48,
                 wheel="alloy", rear_seat=True, plate="TKV9907", paint="black", cover=1.24, tris=62000),
-    "Pickup": dict(src="pickup_hunyuan60k.glb", axis="Y", nose=-1, size=(5.32, 2.0, 1.78), axles=(1.72, -1.50),
+    "Pickup": dict(bn=1.12, src="pickup_hunyuan60k.glb", axis="Y", nose=-1, size=(5.32, 2.0, 1.78), axles=(1.72, -1.50),
                    r=0.39, tw=0.27, rim=0.25, belt=1.25, cowl=1.22, bpillar=0.05, rear_x=-0.45, floor=0.52,
                    wheel="steel", rear_seat=False, plate="KQB5530", paint="charcoal", cover=1.27, tris=62000),
-    "Van": dict(src="van_hunyuan60k.glb", axis="Y", nose=-1, size=(5.21, 1.96, 2.19), axles=(1.70, -1.50),
+    "Van": dict(bn=1.02, src="van_hunyuan60k.glb", axis="Y", nose=-1, size=(5.21, 1.96, 2.19), axles=(1.70, -1.50),
                 r=0.36, tw=0.24, rim=0.22, belt=1.16, cowl=1.92, bpillar=0.52, rear_x=0.40, floor=0.50,
                 wheel="steel", rear_seat=False, plate="TKV9907", paint="white", cover=2.14, tris=62000),
 }
@@ -404,6 +404,29 @@ def find_wheels(ob, spec):
     return res, hubs
 
 
+def face_neighbours(ob, k=3):
+    """(n, k) indices of faces sharing an edge with each face (-1 padded)."""
+    me = ob.data
+    n = len(me.polygons)
+    ek = np.empty(len(me.loops), dtype=np.int64)
+    me.loops.foreach_get("edge_index", ek)
+    lt = np.empty(n, dtype=np.int64)
+    me.polygons.foreach_get("loop_total", lt)
+    fi = np.repeat(np.arange(n), lt)
+    order = np.argsort(ek, kind="stable")
+    e, f = ek[order], fi[order]
+    same = e[1:] == e[:-1]
+    a, b = f[:-1][same], f[1:][same]
+    nb = np.full((n, k), -1, dtype=np.int64)
+    cnt = np.zeros(n, dtype=np.int64)
+    for x, y in ((a, b), (b, a)):
+        for i, j in zip(x, y):
+            if cnt[i] < k:
+                nb[i, cnt[i]] = j
+                cnt[i] += 1
+    return nb
+
+
 def classify(ob, tex, spec):
     """Class per face (CLS) from the generated maps and the face position."""
     c, n, a = gen3d.face_arrays(ob)
@@ -419,21 +442,31 @@ def classify(ob, tex, spec):
     gx0 = spec.get("glass_x0", spec["rear_x"] - 0.12)
     gx1 = spec.get("glass_x1", spec["cowl"] + 0.08)
     glass = ((lum < k.get("glass_lum", 0.06)) & (c[:, 2] > spec["belt"] - 0.05) & (c[:, 0] > gx0) & (c[:, 0] < gx1)
-             & (n[:, 2] > -0.3))
+             & (n[:, 2] > -0.3) & (c[:, 2] < spec["size"][2] - 0.08))
     glass &= ~((c[:, 0] > spec["cowl"] - 0.30) & (c[:, 2] < spec["belt"] + 0.07))
     glass &= ~((np.abs(c[:, 0] - spec["bpillar"]) < 0.05) & (np.abs(c[:, 1]) > spec["size"][1] / 2 - 0.35))
     if "glass" in spec:
         glass = spec["glass"](c, n, lum, rough, glass)
-    # generated faces inside the cabin (seen through the glass): interior
+    # glass highlights: faces in the greenhouse mostly surrounded by glass become glass (majority filter)
+    region = ((c[:, 2] > spec["belt"] - 0.05) & (c[:, 2] < spec["size"][2] - 0.08) & (c[:, 0] > gx0) & (c[:, 0] < gx1)
+              & (lum < 0.45))
+    nb = face_neighbours(ob)
+    for _ in range(8):
+        g = glass.astype(np.float32)
+        frac = (g[nb] * (nb >= 0)).sum(1) / np.maximum((nb >= 0).sum(1), 1)
+        glass = glass | (region & (frac >= 0.6))
+    # generated faces inside the cabin below the window line (seen through the glass): interior
     hw = spec["size"][1] / 2
-    inside = ((np.abs(c[:, 1]) < hw - 0.22) & (c[:, 2] > spec["belt"] - 0.25) & (c[:, 2] < spec["size"][2] - 0.10)
-              & (c[:, 0] > spec["rear_x"] + 0.05) & (c[:, 0] < spec["cowl"] - 0.12) & ~glass)
+    inside = ((np.abs(c[:, 1]) < hw - 0.25) & (c[:, 2] > spec["floor"] - 0.05) & (c[:, 2] < spec["belt"] + 0.05)
+              & (c[:, 0] > spec["rear_x"] + 0.10) & (c[:, 0] < spec["cowl"] - 0.15) & ~glass)
+    cls[glass] = CLS["glass"]
     if spec.get("cabin_inside", True):
         cls[inside] = CLS["inside"]
-    cls[glass] = CLS["glass"]
-    hz = k.get("head_z", (spec["r"] + 0.20, spec["belt"] - 0.18))
+    bn = spec.get("bn", spec["belt"] - 0.12)
+    hz = k.get("head_z", (bn - 0.34, bn - 0.06))
     head = ((c[:, 0] > L - k.get("head_depth", 0.42)) & (c[:, 2] > hz[0]) & (c[:, 2] < hz[1]) & (n[:, 0] > 0.15)
-            & (lum > 0.08) & (lum < k.get("head_lum", 0.47)) & (sat < 0.035))
+            & (np.abs(c[:, 1]) > k.get("grille_hw", 0.30)) & (lum > 0.08) & (lum < k.get("head_lum", 0.47))
+            & (sat < 0.035))
     cls[head] = CLS["head"]
     red = (rgb[:, 0] > 0.08) & (rgb[:, 0] > 3 * rgb[:, 1]) & (c[:, 0] < 0)
     cls[red] = CLS["tail"]
@@ -1159,9 +1192,18 @@ def decal_mat(set_name):
 
 
 # ------------------------------------------------------------------------------------------------- the vehicles
-def v_simple(ctx, key, notes):
+def v_simple(ctx, key, notes, keep=False):
     P = make_parts(ctx, key)
     sp = P["spec"]
+    if keep:                                   # copies for the variants (taxi, wrecks): the parts are joined below
+        K = dict(P)
+        for k in ("shell", "glass"):
+            K[k] = dup(P[k], P[k].name + "_Keep")
+        for k in ("interior", "seats"):
+            K[k] = [dup(o, o.name + "_Keep") for o in P[k]]
+        for o in [K["shell"], K["glass"]] + K["interior"] + K["seats"]:
+            o.hide_render = True
+        P_keep = K
     parts = [P["shell"], P["glass"]] + P["wheels"] + P["wells"] + P["interior"] + P["seats"]
     parts += make_plates(P, sp["plate"]) + P.get("extra", [])
     extra = sp.get("extra")
@@ -1169,7 +1211,7 @@ def v_simple(ctx, key, notes):
         parts += extra(ctx, P)
     ob = assemble(ctx, P["name"], parts)
     declare(ctx, ob, key, notes, sp["cover"])
-    return ob, P
+    return ob, (P_keep if keep else P)
 
 
 def v_taxi(ctx, P):
@@ -1745,19 +1787,25 @@ def pickup_extra(ctx, P):
 SPEC.update({
     "VanVulture": dict(SPEC["Van"], set="Vehicle_Van", paint="black", plate="LWG4418",
                        drop=lambda c, n, cls: (c[:, 0] < -2.45) & (c[:, 2] > 0.58) & (c[:, 2] < 2.08) & (np.abs(c[:, 1]) < 0.87)),
-    "BoxTruck": dict(src="boxtruck_hunyuan80k.glb", axis="Y", nose=-1, size=(7.39, 2.44, 3.31), axles=(2.95, -2.09),
+    "BoxTruck": dict(bn=1.30, src="boxtruck_hunyuan80k.glb", axis="Y", nose=-1, size=(7.39, 2.44, 3.31), axles=(2.95, -2.09),
                      r=0.44, tw=0.28, rim=0.27, belt=1.50, cowl=2.62, bpillar=1.65, rear_x=1.20, floor=1.0,
                      cabin_rear=1.25, seat_x=1.55, wheel="steel", twin=True, rear_seat=False, plate="HLS2141",
                      paint="mustard", paint2=lambda c: c[:, 0] > 1.0, paint2_colour="#d9d7d0", cover=3.30, tris=70000),
-    "IPXTruck": dict(src="ipx_hunyuan80k.glb", axis="Y", nose=-1, size=(6.81, 2.48, 2.96), axles=(2.05, -1.75),
+    "IPXTruck": dict(bn=1.30, src="ipx_hunyuan80k.glb", axis="Y", nose=-1, size=(6.81, 2.48, 2.96), axles=(2.05, -1.75),
                      r=0.50, tw=0.30, rim=0.30, belt=1.75, cowl=1.95, bpillar=0.70, rear_x=0.60, floor=1.05,
                      cabin_rear=0.62, seat_x=1.00, wheel="steel", twin=True, rear_seat=False, plate="KQB5530",
                      paint="#17191d", hazard_slot=True, cover=2.86, tris=70000,
                      drop=lambda c, n, cls: (c[:, 0] < -3.33) & (c[:, 2] > 1.03) & (c[:, 2] < 2.69) & (np.abs(c[:, 1]) < 0.92)),
     "Motorbike": dict(src="moto_hunyuan100k.glb", axis="X", nose=1, paint="navy", tris=90000),
 })
-SPEC["Pickup"]["drop"] = lambda c, n, cls: ((c[:, 0] < -0.62) & (c[:, 0] > -2.5) & (c[:, 2] > 0.97) & (c[:, 2] < 1.45)
-                                             & (np.abs(c[:, 1]) < 0.78))
+def _bed_contents(c, n, cls):
+    bed = (c[:, 0] < -0.75) & (c[:, 0] > -2.45) & (np.abs(c[:, 1]) < 0.70)
+    up = bed & (n[:, 2] > 0.85) & (c[:, 2] < 1.2)
+    floor = float(np.percentile(c[up, 2], 10)) if up.sum() > 20 else 0.92
+    return bed & (c[:, 2] > floor + 0.04) & (c[:, 2] < 1.5)
+
+
+SPEC["Pickup"]["drop"] = _bed_contents
 SPEC["Pickup"]["extra"] = pickup_extra
 
 
@@ -1818,7 +1866,7 @@ def build(ctx):
     out = []
     sedan = None
     if W("Sedan") or W("Taxi") or W("BurnedCar") or W("StrippedCar"):
-        ob, sedan = v_simple(ctx, "Sedan", NOTES["Sedan"])
+        ob, sedan = v_simple(ctx, "Sedan", NOTES["Sedan"], keep=True)
         out.append(ob)
     for k in ("SUV", "Pickup", "Van"):
         if W(k):
