@@ -438,7 +438,8 @@ def import_mesh(name, asset, force):
         pipeline.material_pipeline.set_editor_property("import_materials", False)
         pipeline.material_pipeline.texture_pipeline.set_editor_property("import_textures", False)
         pipeline.mesh_pipeline.set_editor_property("build_nanite", True)
-        pipeline.mesh_pipeline.set_editor_property("combine_static_meshes", True)
+        pipeline.mesh_pipeline.set_editor_property("combine_static_meshes_behavior",
+                                                   unreal.InterchangeCombineStaticMeshesBehavior.ALL)
         pipeline.mesh_pipeline.set_editor_property("import_skeletal_meshes", False)
         pipeline.set_editor_property("asset_name", name)
         parameters = unreal.ImportAssetParameters()
@@ -742,7 +743,7 @@ def _tick(delta_seconds):
     except StopIteration:
         _finish("DONE %d units in %.0f s" % (job["done"], time.time() - job["t0"]))
     except Exception:   # noqa: BLE001 - every failure ends the job with its traceback in the status file
-        _finish("FAILED " + traceback.format_exc()[-1500:].replace("\n", " | "))
+        _finish("FAILED " + traceback.format_exc()[-700:].replace("\n", " | "))
     if job:
         job["busy"] = False
 
