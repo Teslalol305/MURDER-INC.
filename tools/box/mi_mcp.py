@@ -206,7 +206,7 @@ def pick_world(mcp, view):
     return chosen
 
 
-def shot_frames(mcp, out_path, numbers, fov, width, height, frames, game):
+def shot_frames(mcp, out_path, numbers, fov, width, height, frames):
     """A converged picture: Content/Python/mi_shot.py renders the view once per editor tick for `frames` frames."""
     done = out_path + ".done"
     mcp.python(
@@ -215,8 +215,8 @@ def shot_frames(mcp, out_path, numbers, fov, width, height, frames, game):
         "sys.path.insert(0, path) if path not in sys.path else None\n"
         "import mi_shot\n"
         "importlib.reload(mi_shot)\n"
-        "mi_shot.start(%r, %r, %r, fov=%r, width=%d, height=%d, frames=%d, game=%r)\n"
-        % (out_path, tuple(numbers[:3]), tuple(numbers[3:6]), fov, width, height, frames, game))
+        "mi_shot.start(%r, %r, %r, fov=%r, width=%d, height=%d, frames=%d)\n"
+        % (out_path, tuple(numbers[:3]), tuple(numbers[3:6]), fov, width, height, frames))
     deadline = time.time() + 38
     while not os.path.exists(done):
         if time.time() > deadline:
@@ -247,10 +247,10 @@ def shot(mcp, out_path, options):
     content = []
     data = None
     frames = int(options.get("frames", 24))
-    if "cam" in options and frames > 0:
+    if "cam" in options and frames > 0 and not is_game:
         numbers = [float(v) for v in options["cam"].split(",")]
         numbers += [0.0] * (6 - len(numbers))
-        data = shot_frames(mcp, out_path, numbers, float(options.get("fov", 90)), width, height, frames, view != "editor")
+        data = shot_frames(mcp, out_path, numbers, float(options.get("fov", 90)), width, height, frames)
         via = "mi_shot %d frames, %s world" % (frames, world.get("worldType"))
     elif "cam" in options:
         numbers = [float(v) for v in options["cam"].split(",")]

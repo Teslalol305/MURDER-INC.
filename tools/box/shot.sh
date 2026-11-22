@@ -5,7 +5,8 @@
 #   cam    camera in Unreal units (centimetres, degrees); without it: the editor viewport's camera, or the
 #          player's view when play-in-editor is running
 #   frames with cam: render the view for this many editor ticks and keep the last frame, so that Lumen, the sky
-#          light and temporal anti-aliasing have settled (Content/Python/mi_shot.py). frames=0: one frame through
+#          light and temporal anti-aliasing have settled (Content/Python/mi_shot.py; editor world only: while
+#          play-in-editor runs the MCP capture is used). frames=0: one frame through
 #          the MCP capture tool, without temporal history (black shadows), which also takes mode= (see ListModes)
 #   wait   seconds to wait before capturing (use it after loading a level: Lumen and shaders need a few seconds)
 # Prints: SHOT OK|BLACK <file> <width>x<height> <bytes> bytes mean=<0-255> near-black=<percent>. Exit code 4 = black.

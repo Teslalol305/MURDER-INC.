@@ -18,19 +18,16 @@ _JOBS = []
 
 
 class _Job:
-    def __init__(self, out_png, location, rotation, fov, width, height, frames, game):
+    def __init__(self, out_png, location, rotation, fov, width, height, frames):
         self.out_png = out_png
         self.frames_left = max(1, int(frames))
-        editor = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
-        self.world = (editor.get_game_world() if game else None) or editor.get_editor_world()
+        self.world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
         self.target = unreal.RenderingLibrary.create_render_target2d(
             self.world, int(width), int(height), unreal.TextureRenderTargetFormat.RTF_RGBA8)
-        transform = unreal.Transform(
-            unreal.Vector(*location), unreal.Rotator(roll=rotation[2], pitch=rotation[0], yaw=rotation[1]))
-        # Spawned straight into the world (not through the editor's actor subsystem): no undo record, and removed again.
-        self.actor = unreal.GameplayStatics.finish_spawning_actor(
-            unreal.GameplayStatics.begin_deferred_actor_spawn_from_class(self.world, unreal.SceneCapture2D, transform),
-            transform)
+        # Transient: the actor is never saved with the level, and it is destroyed when the picture is written.
+        self.actor = unreal.get_editor_subsystem(unreal.EditorActorSubsystem).spawn_actor_from_class(
+            unreal.SceneCapture2D, unreal.Vector(*location),
+            unreal.Rotator(roll=rotation[2], pitch=rotation[0], yaw=rotation[1]), transient=True)
         component = self.actor.capture_component2d
         component.set_editor_property("texture_target", self.target)
         component.set_editor_property("capture_source", unreal.SceneCaptureSource.SCS_FINAL_COLOR_LDR)
@@ -46,7 +43,7 @@ class _Job:
         unreal.unregister_slate_post_tick_callback(self.handle)
         try:
             self.actor.destroy_actor()
-        except Exception:  # noqa: BLE001 - the world may already be gone (play-in-editor stopped)
+        except Exception:  # noqa: BLE001 - the level may have been replaced meanwhile
             pass
         with open(self.out_png + ".done", "w", encoding="utf-8") as handle:
             handle.write(text)
@@ -66,10 +63,10 @@ class _Job:
             self.finish("ERROR " + traceback.format_exc()[-600:])
 
 
-def start(out_png, location, rotation, fov=90.0, width=1920, height=1080, frames=24, game=True):
-    """game=True uses the play-in-editor world when one is running, else the editor world."""
+def start(out_png, location, rotation, fov=90.0, width=1920, height=1080, frames=24):
+    """Editor world only: Python cannot spawn into a play-in-editor world (shot.sh uses the MCP capture there)."""
     for path in (out_png, out_png + ".done"):
         if os.path.exists(path):
             os.remove(path)
-    _JOBS.append(_Job(out_png, location, rotation, fov, width, height, frames, game))
+    _JOBS.append(_Job(out_png, location, rotation, fov, width, height, frames))
     return "started: %d frames to %s" % (frames, out_png)
