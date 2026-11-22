@@ -141,9 +141,13 @@ by re-importing the GLB in a fresh process and posing every bone.
 
 ## Status
 - [x] mi/rig.py committed (armature from pivots, rigid tagging, skinned GLB, inspect_glb, verify by re-import)
-- [x] CHOPPER geometry (56k tris) + magazine/top round; draft pipeline runs end to end (--res 512)
-- [ ] CHOPPER 4K textures, previews; NINE; casings; SMG + pipe; README row
-Next step: `build.py build weapons --only chopper --bake --export` at full size, then previews.
+- [x] CHOPPER (57k tris) + magazine/top round, 4K/2K sets, exported, re-import proof passes (4 poses)
+- [x] NINE (37k tris) + magazine/top round, 4K/2K sets, exported, re-import proof passes (5 poses)
+- [x] casings (596 / 548 tris, 512), Goon SMG (12.8k + magazine, 2K, lens slot), pipe (3k, 1K): exported
+- [x] previews round 0: chopper_hero/_fp, nine_hero/_fp; README rows (weapons, rig, texpaint)
+- [ ] round 1 (running): re-bake all with shorter, sparser scratches, handguard swell, curved NINE grip, FP on the
+      day rig with an urban plate; renders chopper_hero/_fp, nine_hero, enemy, parts, wire
+Next step: look at the round-1 pictures, fix the worst fault, one last render (render budget: 11 of 12 used after round 1).
 
 ---------------------------------------------------------------------------------------------------------------
 # Vehicles (assets/vehicles.py), vehicle artist
