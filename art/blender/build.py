@@ -38,7 +38,8 @@ class Ctx:
     ctx.col         the family's collection: link what you build there (scene.new_object(..., ctx.col))
     ctx.rng(*key)   seeded numpy Generator: same key and --seed, same numbers
     ctx.asset(ob, ...)      declare an exportable asset and its manifest metadata
-    ctx.tiling_set(...)     bake (or reuse) a tiling set and get its material
+    ctx.tiling_set(...)     bake (or reuse) a procedural tiling set and get its material
+    ctx.scan_set(name)      material on a scanned tiling set from the catalogue (art/scans/sets.json)
     ctx.unique_set(ob)      bake (or reuse) the unique set of a prop and switch it to the baked material
     """
 
@@ -84,6 +85,8 @@ class Ctx:
                 self.sets.append(set_name)
         if os.path.exists(os.path.join(d, "set.json")) and not use_proc:
             kw = dict(alpha=alpha, porosity=sf.porosity)
+            if blend:
+                kw["blend_tile_m"] = mat.scan_tile(blend)      # the partner keeps its own real tile size
             kw.update(mat_kw or {})
             m = mat.from_texture_set(d, name=slot, tile_m=tile_m, blend=paths.texture_set(blend) if blend else None, **kw)
             if set_name not in self.sets:
@@ -93,6 +96,16 @@ class Ctx:
         if blend:
             m["mi_blend_set"] = blend
         m["mi_alpha"] = alpha
+        return m
+
+    def scan_set(self, set_name, slot=None, blend=None, **mat_kw):
+        """Material for a slot on a catalogued scan (art/scans/sets.json): textures from art/out/textures/<Set>/,
+        real tile size from the catalogue (m["mi_tile_m"]). blend: second set name for the G channel.
+        Keyword arguments go to mat.from_texture_set (alpha, tint, dirt_color, wear_tint, wear_metal ...)."""
+        m = mat.from_scan(set_name, name=slot, blend=blend, **mat_kw)
+        for s_ in (set_name, blend):
+            if s_ and s_ not in self.sets:
+                self.sets.append(s_)
         return m
 
     def unique_set(self, ob, res=None, ground=False, samples=4, set_name=None, meta=None):

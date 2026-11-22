@@ -1420,7 +1420,8 @@ def _wet_group():
 def from_texture_set(directory, name=None, tile_m=None, masks=True, alpha="wet", blend=None, blend_start=0.5, porosity=0.5,
                      dirt_color=(0.10, 0.09, 0.075), wear_tint=(1.12, 1.12, 1.12), wear_rough=-0.12,
                      leak_color=(0.20, 0.105, 0.045), leak_rough=0.0, ao_strength=0.5, macro=0.12,
-                     normal_strength=1.0, Wetness=0.0, uv_map=""):
+                     normal_strength=1.0, Wetness=0.0, uv_map="", tint=None, wear_metal=0.0,
+                     wear_color=(0.56, 0.57, 0.58), blend_tile_m=None, blend_tint=None, dirt_rough=0.9):
     """Material from T_<Set>_BC / _N / _ORM (/ _H, _E) files on disk: baked by bake.py or dropped-in scans.
     It has the same wear interface as the procedural surfaces, so swapping one for the other changes nothing
     on the mesh:
@@ -1434,7 +1435,11 @@ def from_texture_set(directory, name=None, tile_m=None, masks=True, alpha="wet",
 
     The same formulas are what the Unreal master material implements (README, 'Runtime layers').
     tile_m is only bookkeeping (stored on the material): UVs already carry the scale, 1 UV unit = one tile.
-    macro: strength of the metre-scale brightness variation that hides the repeat (0 = off)."""
+    macro: strength of the metre-scale brightness variation that hides the repeat (0 = off).
+    tint: (r, g, b) multiplied into the base colour (creosote on a grey timber scan, the El's bluer green).
+    wear_metal: 0..1, how far full G wear goes to bare polished metal of wear_color (rail heads, kerb noses).
+    blend_tile_m: tile size of the blend set when it differs from tile_m (its UVs are rescaled to stay real size).
+    blend_tint: tint of the blend set. dirt_rough: roughness the R film goes to."""
     files = find_set_files(directory)
     if "BC" not in files:
         raise FileNotFoundError("no T_*_BC.* in %s" % directory)
@@ -1447,23 +1452,25 @@ def from_texture_set(directory, name=None, tile_m=None, masks=True, alpha="wet",
     bsdf = g.node("ShaderNodeBsdfPrincipled")
     uv = g.node("ShaderNodeUVMap", uv_map=uv_map).outputs[0]
 
-    def tex(path, srgb):
+    def tex(path, srgb, vec=None):
         nd = g.node("ShaderNodeTexImage", interpolation="Linear")
         nd.image = _image(path, srgb)
-        g.l.new(uv, nd.inputs["Vector"])
+        g.l.new(vec if vec is not None else uv, nd.inputs["Vector"])
         return nd
 
-    def read(fs):
-        bc = tex(fs["BC"], True).outputs["Color"]
+    def read(fs, vec=None, tnt=None):
+        bc = tex(fs["BC"], True, vec).outputs["Color"]
+        if tnt is not None:
+            bc = g.mixc(1.0, bc, tuple(tnt), "MULTIPLY")
         if "ORM" in fs:
-            ao, ro, me = g.sep_rgb(tex(fs["ORM"], False).outputs["Color"])
+            ao, ro, me = g.sep_rgb(tex(fs["ORM"], False, vec).outputs["Color"])
         else:
             ao, ro, me = 1.0, 0.6, 0.0
-        nrm = tex(fs["N"], False).outputs["Color"] if "N" in fs else (0.5, 0.5, 1.0)
-        h = tex(fs["H"], False).outputs["Color"] if "H" in fs else 0.5
+        nrm = tex(fs["N"], False, vec).outputs["Color"] if "N" in fs else (0.5, 0.5, 1.0)
+        h = tex(fs["H"], False, vec).outputs["Color"] if "H" in fs else 0.5
         return bc, ao, ro, me, nrm, h
 
-    bc, ao, ro, me, nrm, h = read(files)
+    bc, ao, ro, me, nrm, h = read(files, None, tint)
     if masks:
         att = g.node("ShaderNodeAttribute", attribute_type="GEOMETRY", attribute_name=_geo.WEAR)
         mr, mg_, mb = g.sep_rgb(att.outputs["Color"])
@@ -1483,9 +1490,23 @@ def from_texture_set(directory, name=None, tile_m=None, masks=True, alpha="wet",
         f = g.sstep(0.0, top, g.add(mg_, g.mul(g.sub(mid, 0.5), g.mul(mg_, 0.5))))
         bc = g.mixc(f, bc, g.mixc(1.0, bc, wear_tint, "MULTIPLY"))
         ro = g.clamp(g.add(ro, g.mul(f, wear_rough)))
+        if wear_metal:
+            # bare metal where the wear is complete: the last third of the mask, broken up by the height map
+            fm = g.mul(g.sstep(0.55, 0.9, g.add(mg_, g.mul(g.sub(h, 0.5), 0.25))), wear_metal)
+            bc = g.mixc(fm, bc, tuple(wear_color))
+            me = g.lerp(fm, me, 1.0)
     if blend and _is_sock(mg_):
         bfiles = find_set_files(blend)
-        bc2, ao2, ro2, me2, nrm2, h2 = read(bfiles)
+        vec2 = None
+        if blend_tile_m is not None and tile_m is not None:
+            ta = (float(tile_m),) * 2 if _num(tile_m) else tuple(float(x) for x in tile_m)
+            tb = (float(blend_tile_m),) * 2 if _num(blend_tile_m) else tuple(float(x) for x in blend_tile_m)
+            if abs(ta[0] - tb[0]) > 1e-6 or abs(ta[1] - tb[1]) > 1e-6:
+                mp = g.node("ShaderNodeMapping", vector_type="POINT")
+                mp.inputs["Scale"].default_value = (ta[0] / tb[0], ta[1] / tb[1], 1.0)
+                g.l.new(uv, mp.inputs["Vector"])
+                vec2 = mp.outputs[0]
+        bc2, ao2, ro2, me2, nrm2, h2 = read(bfiles, vec2, blend_tint)
         gb = g.remap(mg_, blend_start, 1.0, 0.0, 1.0)
         f = g.sstep(0.0, 0.22, g.sub(g.add(g.mul(gb, 1.35), g.mul(g.sub(mid, 0.5), 0.35)), g.add(0.2, g.mul(h2, 0.9))))
         f = g.mul(f, g.sstep(0.0, 0.05, gb))
@@ -1507,7 +1528,7 @@ def from_texture_set(directory, name=None, tile_m=None, masks=True, alpha="wet",
         f = g.clamp(g.mul(mr, g.add(g.lerp(h, 1.45, 0.75), g.mul(g.sub(mid, 0.5), 0.9), g.mul(g.sub(big, 0.5), 0.5))))
         f = g.sstep(0.0, 1.0, f)
         bc = g.mixc(g.mul(f, 0.88), bc, dirt_color)
-        ro = g.lerp(f, ro, g.max(ro, 0.9))
+        ro = g.lerp(f, ro, g.max(ro, dirt_rough))
         nrm = g.mixc(g.mul(f, 0.5), nrm, (0.5, 0.5, 1.0))
     if ao_strength:
         bc = g.tint(bc, g.lerp(ao_strength, 1.0, ao))
@@ -1547,6 +1568,74 @@ def from_texture_set(directory, name=None, tile_m=None, masks=True, alpha="wet",
     m["mi_set"] = set_name
     if tile_m is not None:
         m["mi_tile_m"] = (float(tile_m), float(tile_m)) if _num(tile_m) else tuple(float(x) for x in tile_m)
+    return m
+
+
+# ------------------------------------------------------------------------------------------------ scan catalogue
+
+_CATALOGUE = None
+
+
+def catalogue():
+    """{set name: record} of art/scans/sets.json (tiling sets, HDRIs by slug, models by slug). Cached."""
+    global _CATALOGUE
+    if _CATALOGUE is None:
+        import json
+        from . import paths
+        p = os.path.join(paths.art, "scans", "sets.json")
+        _CATALOGUE = {}
+        if os.path.exists(p):
+            with open(p) as f:
+                for rec in json.load(f).get("sets", []):
+                    _CATALOGUE[rec.get("set") or rec.get("slug")] = rec
+    return _CATALOGUE
+
+
+def scan_info(set_name):
+    """Catalogue record of a scanned set (tile_m, surface, orientation, measured ...), or None."""
+    return catalogue().get(set_name)
+
+
+def scan_tile(set_name, default=2.0):
+    """(u, v) metres covered by one repeat of a set: the catalogue for scans, set.json for baked sets."""
+    rec = scan_info(set_name)
+    if rec and rec.get("tile_m"):
+        t = rec["tile_m"]
+        return (float(t[0]), float(t[1]))
+    from . import paths
+    js = os.path.join(paths.texture_set(set_name), "set.json")
+    if os.path.exists(js):
+        import json
+        with open(js) as f:
+            t = json.load(f).get("tile_m", default)
+        return (float(t), float(t)) if _num(t) else (float(t[0]), float(t[1]))
+    return (float(default), float(default))
+
+
+def from_scan(set_name, name=None, blend=None, alpha="splash", **kw):
+    """Material from a catalogued scan by name: mat.from_scan("TS_Steel_ScanPaintGreen", blend="TS_Steel_ScanRust").
+    Textures come from art/out/textures/<Set>/ (art/scans/fetch.py puts them there), the real tile size from
+    art/scans/sets.json; the material stores it as m["mi_tile_m"], which is what the UVs must be divided by
+    (geo.uv_world_box(ob, mat.scan_tile(set)) or geo.uv_rescale_by_slot). Same wear-mask and wetness interface
+    as from_texture_set, whose keyword arguments all pass through. blend: name of a second set (scan or baked)
+    that G blends to; it keeps its own real tile size. Default slot name: MI_<Surface>_<Variant>."""
+    from . import paths
+    rec = scan_info(set_name)
+    if rec is None:
+        raise KeyError("%s is not in art/scans/sets.json" % set_name)
+    d = paths.texture_set(set_name)
+    if "BC" not in find_set_files(d):
+        raise FileNotFoundError("%s has no textures in %s: run art/scans/fetch.py" % (set_name, d))
+    if blend:
+        kw.setdefault("blend_tile_m", scan_tile(blend))
+    m = from_texture_set(d, name=name or "MI_" + set_name[3:], tile_m=scan_tile(set_name), alpha=alpha,
+                         blend=paths.texture_set(blend) if blend else None, **kw)
+    m["mi_scan"] = rec.get("slug", "")
+    m["mi_alpha"] = alpha
+    if blend:
+        m["mi_blend_set"] = blend
+    if kw.get("tint") is not None:
+        m["mi_tint"] = tuple(float(c) for c in kw["tint"])
     return m
 
 

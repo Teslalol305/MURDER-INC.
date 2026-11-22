@@ -937,6 +937,36 @@ def uv_world_box(ob, tile_m=2.0, offset=(0.0, 0.0), rotate90=False, layer=UV):
     return ob
 
 
+def uv_rescale_by_slot(ob, base_tile=2.0, layer=UV):
+    """After uv_world_box(ob, base_tile) on a mesh whose slots use sets of different real sizes: rescale the UVs
+    of each face so that 1 UV unit = the tile of the face's own slot (material["mi_tile_m"], set by
+    mat.from_texture_set / mat.from_scan). Slots without the property keep base_tile. Call it once, after the
+    slots are assigned."""
+    me = ob.data
+    bu, bv = (base_tile, base_tile) if np.isscalar(base_tile) else base_tile
+    npoly = len(me.polygons)
+    mi_ = np.empty(npoly, dtype=np.int32)
+    lt = np.empty(npoly, dtype=np.int32)
+    me.polygons.foreach_get("material_index", mi_)
+    me.polygons.foreach_get("loop_total", lt)
+    su = np.ones(max(1, len(me.materials)))
+    sv = np.ones(max(1, len(me.materials)))
+    for i, m in enumerate(me.materials):
+        t = m.get("mi_tile_m") if m is not None else None
+        if t is not None:
+            su[i], sv[i] = bu / float(t[0]), bv / float(t[1])
+    uvl = me.uv_layers.get(layer)
+    uv = np.empty(len(me.loops) * 2, dtype=np.float32)
+    uvl.data.foreach_get("uv", uv)
+    uv = uv.reshape(-1, 2)
+    lm = np.repeat(mi_, lt)
+    uv[:, 0] *= su[lm]
+    uv[:, 1] *= sv[lm]
+    uvl.data.foreach_set("uv", uv.ravel())
+    me.update()
+    return ob
+
+
 def uv_unwrap(ob, res=2048, angle=66.0, margin_px=8, method="SMART", pack="AABB", weights=None):
     """Unique-set UVs: smart project (or 'ANGLE' unwrap along sharp edges), then pack with a margin.
     margin_px is measured at 2048 px whatever `res` is, so the layout is the same for every bake resolution

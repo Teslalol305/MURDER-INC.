@@ -1,7 +1,7 @@
 """Look-dev rigs, cameras and preview output.
 
     from mi import render
-    render.rig_day()                                   # clear New York summer afternoon, sun 45 deg from the SW
+    render.rig_day(sun_azimuth=260)                    # scanned clear-sky HDRI turned to the design sun (4:15 PM)
     render.rig_night(lamp=(5, -6, 8.5), sign=(8, -10.5, 3.0), sign_color=(1.0, 0.1, 0.35))
     cam = render.cam_eye((1, -9), (20, -6.5))          # 1.65 m eye level
     cam = render.cam_hero(ob)                          # three-quarter view that frames an object
@@ -69,15 +69,55 @@ def _clear_rig():
     return _scene.collection("Rig")
 
 
+DAY_HDRI = "kloofendal_43d_clear_puresky"      # clear summer sky, sun 42.9 deg up (art/scans/sets.json)
+DESIGN_SUN_BEARING = 260.0                     # compass bearing of the 4:15 PM sun over Hollis (sets.json design_sun)
+
+
+def hdri_path(slug, res="2k"):
+    from . import paths
+    return os.path.join(paths.out, "hdri", "%s_%s.hdr" % (slug, res))
+
+
 def rig_day(sun_elevation=45.0, sun_azimuth=235.0, exposure=None, haze=1.6, sun_intensity=1.0, sky_strength=1.0,
-            clouds=0.0):
-    """Physically based sun and sky (Sky Texture, multiple scattering) for a clear summer afternoon in New York
-    at about 4:15 PM: sun 45 degrees up, from the south-west (bearing 235). haze = aerosol density (1 = clean air,
-    2-3 = humid city summer). The sun disc is part of the sky, so shadows have the right half-degree softness."""
+            clouds=0.0, hdri="auto", stops=0.0):
+    """DAY rig. Lit by a scanned clear-sky HDRI from the catalogue (hdri = slug; "auto" = DAY_HDRI when its file is
+    in art/out/hdri, None = analytic sky): the dome is turned so its sun stands at the compass bearing
+    sun_azimuth (0 = north, 90 = east; the design sun is 260), the elevation is the HDRI's own (42.9 degrees for
+    the default) and the view exposure is the catalogue's measured ev_for_grey_card (an 18 % card lying flat in
+    the open renders at 18 %) plus `stops` (use about +1 under the El, as the art bible's exposure clamp does).
+    The sun is part of the dome (3 pixels across in the 2k file), so shadows keep a believable penumbra.
+
+    Fallback / hdri=None: physically based Sky Texture (multiple scattering) with the sun at sun_elevation;
+    haze = aerosol density (1 = clean air, 2-3 = humid city summer)."""
     _clear_rig()
     w, nt = _world()
     out = nt.nodes.new("ShaderNodeOutputWorld")
     bg = nt.nodes.new("ShaderNodeBackground")
+    slug = DAY_HDRI if hdri == "auto" else hdri
+    if slug and os.path.exists(hdri_path(slug)):
+        from . import mat as _mat
+        ms = (_mat.scan_info(slug) or {}).get("measured", {})
+        env = nt.nodes.new("ShaderNodeTexEnvironment")
+        env.image = bpy.data.images.load(hdri_path(slug), check_existing=True)
+        env.interpolation = "Linear"
+        tc = nt.nodes.new("ShaderNodeTexCoord")
+        mp = nt.nodes.new("ShaderNodeMapping")
+        mp.vector_type = "POINT"
+        # catalogue: world azimuth (counter-clockwise from east) = unrotated azimuth - Z rotation
+        rot = (ms.get("sun_azimuth_unrotated_deg", 0.0) - (90.0 - sun_azimuth)) % 360.0
+        mp.inputs["Rotation"].default_value = (0.0, 0.0, math.radians(rot))
+        nt.links.new(tc.outputs["Generated"], mp.inputs["Vector"])
+        nt.links.new(mp.outputs[0], env.inputs["Vector"])
+        nt.links.new(env.outputs[0], bg.inputs["Color"])
+        bg.inputs["Strength"].default_value = sky_strength
+        nt.links.new(bg.outputs[0], out.inputs["Surface"])
+        ex = (ms.get("ev_for_grey_card", EXPOSURE["DAY"]) + stops) if exposure is None else exposure
+        look(VIEW, LOOK_DAY, ex)
+        el = ms.get("sun_elevation_deg", sun_elevation)
+        return {"world": w, "sky": env, "hdri": slug, "exposure": ex, "sun_elevation": el,
+                "sun_dir": sun_direction(el, sun_azimuth)}
+    if slug:
+        print("  rig_day: %s is missing (python art/scans/fetch.py), using the analytic sky" % hdri_path(slug))
     sky = nt.nodes.new("ShaderNodeTexSky")
     sky.sky_type = "MULTIPLE_SCATTERING"        # 5.x names: SINGLE_SCATTERING, MULTIPLE_SCATTERING, PREETHAM, HOSEK_WILKIE
     sky.sun_disc = True
@@ -91,8 +131,9 @@ def rig_day(sun_elevation=45.0, sun_azimuth=235.0, exposure=None, haze=1.6, sun_
     bg.inputs["Strength"].default_value = sky_strength
     nt.links.new(sky.outputs[0], bg.inputs["Color"])
     nt.links.new(bg.outputs[0], out.inputs["Surface"])
-    look(VIEW, LOOK_DAY, EXPOSURE["DAY"] if exposure is None else exposure)
-    return {"world": w, "sky": sky, "sun_dir": sun_direction(sun_elevation, sun_azimuth)}
+    look(VIEW, LOOK_DAY, (EXPOSURE["DAY"] + stops) if exposure is None else exposure)
+    return {"world": w, "sky": sky, "hdri": None, "sun_elevation": sun_elevation,
+            "sun_dir": sun_direction(sun_elevation, sun_azimuth)}
 
 
 def sun_direction(elevation_deg, azimuth_deg):

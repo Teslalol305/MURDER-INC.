@@ -45,6 +45,12 @@ YELLOW = (0.50, 0.345, 0.03)
 WHITE = (0.60, 0.59, 0.56)
 
 
+# One slot name is one material everywhere (one material instance in Unreal): families that share a slot share
+# its parameters. MI_Steel_ScanRust: rusty steel whose G wear polishes through to bare metal (kerb noses, rails).
+STEEL_RUST = dict(alpha="wet", porosity=0.25, wear_tint=(1.5, 1.45, 1.4), wear_rough=-0.3, wear_metal=0.85,
+                  dirt_color=(0.07, 0.062, 0.052), macro=0.2)
+
+
 # ------------------------------------------------------------------------------------------------- small helpers
 
 def sstep(a, b, x):
@@ -99,37 +105,54 @@ def delete_faces(ob, where):
 # ------------------------------------------------------------------------------------------------------ materials
 
 def materials(ctx):
-    """Tiling sets of the street. With --bake they are baked (cached); the materials then read the textures."""
+    """Slots of the street. Scanned sets from the catalogue (art/scans/sets.json) wherever one fits; procedural
+    sets (baked with --bake, cached) for what scans cannot give: road markings, tar bands, crack fill. Without
+    the downloaded scans (python art/scans/fetch.py) the procedural surfaces stand in."""
     M = {}
     ts = ctx.tiling_set
-    cracked = ts("TS_Asphalt_Cracked", "asphalt", Alligator=1.0, Cracks=0.45, Age=0.8)
     as_kw = dict(dirt_color=(0.105, 0.092, 0.075), leak_color=(0.028, 0.026, 0.024), leak_rough=-0.24,
                  wear_tint=(1.16, 1.15, 1.13), wear_rough=-0.16, macro=0.18)
-    M["asphalt"] = ts("TS_Asphalt_Aged", "asphalt", blend="TS_Asphalt_Cracked", mat_kw=as_kw, Cracks=0.22, Age=0.75)
-    M["patch"] = ts("TS_Asphalt_Patch", "asphalt", mat_kw=as_kw, Age=0.15, Aggregate_Scale=150.0, Cracks=0.0,
-                    Tint=(0.86, 0.86, 0.88))
+    scans = all(os.path.isdir(paths.texture_set(n)) for n in (
+        "TS_Asphalt_ScanWorn", "TS_Asphalt_ScanCracked", "TS_Asphalt_ScanFresh", "TS_Sidewalk_ScanBroom",
+        "TS_Steel_ScanRust", "TS_Brick_ScanRedCommon"))
+    if scans:
+        sc = ctx.scan_set
+        # aged even asphalt; G blends to the cracked scan (each set keeps its own real tile size)
+        M["asphalt"] = sc("TS_Asphalt_ScanWorn", blend="TS_Asphalt_ScanCracked", alpha="wet", porosity=0.62, **as_kw)
+        M["patch"] = sc("TS_Asphalt_ScanFresh", alpha="wet", porosity=0.5, **as_kw)
+        base = "TS_Asphalt_ScanWorn"
+        M["concrete"] = sc("TS_Sidewalk_ScanBroom", alpha="wet", porosity=0.5, dirt_color=(0.125, 0.112, 0.095),
+                           wear_tint=(1.07, 1.06, 1.04), wear_rough=-0.1, leak_color=(0.20, 0.105, 0.045), macro=0.10)
+        M["steel"] = sc("TS_Steel_ScanRust", **STEEL_RUST)
+        M["brick"] = sc("TS_Brick_ScanRedCommon", alpha="splash", dirt_color=(0.05, 0.046, 0.042),
+                        leak_color=(0.55, 0.53, 0.5), wear_tint=(1.1, 1.08, 1.05), macro=0.14)
+    else:
+        ts("TS_Asphalt_Cracked", "asphalt", Alligator=1.0, Cracks=0.45, Age=0.8)
+        M["asphalt"] = ts("TS_Asphalt_Aged", "asphalt", blend="TS_Asphalt_Cracked", mat_kw=as_kw, Cracks=0.22, Age=0.75)
+        M["patch"] = ts("TS_Asphalt_Patch", "asphalt", mat_kw=as_kw, Age=0.15, Aggregate_Scale=150.0, Cracks=0.0,
+                        Tint=(0.86, 0.86, 0.88))
+        base = "TS_Asphalt_Aged"
+        M["concrete"] = ts("TS_Concrete_Sidewalk", "concrete", mat_kw=dict(
+            dirt_color=(0.125, 0.112, 0.095), wear_tint=(1.07, 1.06, 1.04), wear_rough=-0.1, leak_color=(0.20, 0.105, 0.045),
+            macro=0.10), Gum=0.55, Stains=0.4, Broom=0.6, Cracks=0.12, Aggregate=0.25)
+        M["steel"] = ts("TS_Steel_Rusted", "steel", tile_m=1.0, res=1024, alpha="wet", mat_kw=dict(
+            wear_tint=(1.9, 1.75, 1.6), wear_rough=-0.3, dirt_color=(0.07, 0.062, 0.052), macro=0.2, porosity=0.25),
+            Rust=0.72, Mill_Scale=0.35, Scratches=0.5)
+        # New York common brick: 9 stretchers x 30 courses per tile, so the bond wraps exactly
+        bl, bh = 0.2032 + 0.0095, 0.0572 + 0.0095
+        M["brick"] = ts("TS_Brick_Common", "brick", tile_m=(9 * bl, 30 * bh), alpha="splash", mat_kw=dict(
+            dirt_color=(0.05, 0.046, 0.042), leak_color=(0.55, 0.53, 0.5), wear_tint=(1.1, 1.08, 1.05), macro=0.14),
+            Wrap_U=9.0, Wrap_V=30.0, Color_A=(0.205, 0.070, 0.046), Color_B=(0.275, 0.102, 0.062), Color_C=(0.098, 0.058, 0.050),
+            Mortar_Color=(0.30, 0.285, 0.26), Soot=0.3, Efflorescence=0.12, Chipping=0.45, Variation=0.8)
+    # procedural layers: thermoplastic markings (G wears them through to the asphalt under them), tar, crack fill
     pt_kw = dict(as_kw, blend_start=0.0, wear_tint=(1.0, 1.0, 1.0))
-    M["yellow"] = ts("TS_RoadPaint_Yellow", "road_paint", blend="TS_Asphalt_Aged", mat_kw=pt_kw, Paint_Color=YELLOW,
-                     Paint_Wear=0.36)
-    M["white"] = ts("TS_RoadPaint_White", "road_paint", blend="TS_Asphalt_Aged", mat_kw=pt_kw, Paint_Color=WHITE,
-                    Paint_Wear=0.40)
+    M["yellow"] = ts("TS_RoadPaint_Yellow", "road_paint", blend=base, mat_kw=pt_kw, Paint_Color=YELLOW, Paint_Wear=0.36)
+    M["white"] = ts("TS_RoadPaint_White", "road_paint", blend=base, mat_kw=pt_kw, Paint_Color=WHITE, Paint_Wear=0.40)
     M["tar"] = ts("TS_Tar_Sealant", "tar", tile_m=1.0, res=1024, mat_kw=dict(macro=0.2, dirt_color=(0.11, 0.1, 0.085)),
                   Dust_Amount=0.35)
     M["crack"] = ts("TS_Asphalt_CrackFill", "tar", tile_m=0.5, res=512, mat_kw=dict(macro=0.0), Dust_Amount=0.1,
                     Matte=1.0)
-    M["concrete"] = ts("TS_Concrete_Sidewalk", "concrete", mat_kw=dict(
-        dirt_color=(0.125, 0.112, 0.095), wear_tint=(1.07, 1.06, 1.04), wear_rough=-0.1, leak_color=(0.20, 0.105, 0.045),
-        macro=0.10), Gum=0.55, Stains=0.4, Broom=0.6, Cracks=0.12, Aggregate=0.25)
-    M["steel"] = ts("TS_Steel_Rusted", "steel", tile_m=1.0, res=1024, alpha="wet", mat_kw=dict(
-        wear_tint=(1.9, 1.75, 1.6), wear_rough=-0.3, dirt_color=(0.07, 0.062, 0.052), macro=0.2, porosity=0.25),
-        Rust=0.72, Mill_Scale=0.35, Scratches=0.5)
-    # New York common brick: 9 stretchers x 30 courses per tile, so the bond wraps exactly (dressing walls here,
-    # and the set every facade family can start from)
-    bl, bh = 0.2032 + 0.0095, 0.0572 + 0.0095
-    M["brick"] = ts("TS_Brick_Common", "brick", tile_m=(9 * bl, 30 * bh), alpha="splash", mat_kw=dict(
-        dirt_color=(0.05, 0.046, 0.042), leak_color=(0.55, 0.53, 0.5), wear_tint=(1.1, 1.08, 1.05), macro=0.14),
-        Wrap_U=9.0, Wrap_V=30.0, Color_A=(0.205, 0.070, 0.046), Color_B=(0.275, 0.102, 0.062), Color_C=(0.098, 0.058, 0.050),
-        Mortar_Color=(0.30, 0.285, 0.26), Soot=0.3, Efflorescence=0.12, Chipping=0.45, Variation=0.8)
+    M["scans"] = scans
     return M
 
 
@@ -211,6 +234,7 @@ def build_road(ctx, M):
     geo.assign(road, M["patch"], lambda x, y, z: (x > px0) & (x < px1) & (y > py0) & (y < py1))
     geo.assign(road, M["yellow"], lambda x, y, z: (np.abs(y) > 0.05) & (np.abs(y) < 0.15))
     geo.assign(road, M["white"], lambda x, y, z: (np.abs(np.abs(y) - LANE) < 0.05))
+    geo.uv_rescale_by_slot(road, 2.0)            # each slot's set has its own real tile size
     paint_road(ctx, road, shape, rng)
     # ---- ribbons: tar-sealed cracks, the tar band round the patch, open cracks
     parts = [road]
@@ -318,9 +342,10 @@ def paint_road(ctx, road, shape, rng):
     for nm in ("MI_RoadPaint_Yellow", "MI_RoadPaint_White"):
         if nm in names:
             geo.paint(road, "G", paint_wear, "set", faces=names.index(nm))
-    if "MI_Asphalt_Patch" in names:
-        geo.paint(road, "G", lambda x, y_, z: 0.05 + 0.0 * x, "set", faces=names.index("MI_Asphalt_Patch"))
-        geo.paint(road, "R", lambda x, y_, z: 0.04 + 0.05 * blot.u(x, y_), "set", faces=names.index("MI_Asphalt_Patch"))
+    for nm in ("MI_Asphalt_Patch", "MI_Asphalt_ScanFresh"):       # the patch is new: no traffic wear, little dirt
+        if nm in names:
+            geo.paint(road, "G", lambda x, y_, z: 0.05 + 0.0 * x, "set", faces=names.index(nm))
+            geo.paint(road, "R", lambda x, y_, z: 0.04 + 0.05 * blot.u(x, y_), "set", faces=names.index(nm))
 
 
 # ---------------------------------------------------------------------------------------------------------- kerb
@@ -386,6 +411,7 @@ def build_kerb(ctx, M, variant=""):
     geo.assign(ob, M["steel"], fslot == "steel")
     geo.assign(ob, M["concrete"], fslot == "concrete")
     geo.assign(ob, M["tar"], fslot == "tar")
+    geo.uv_rescale_by_slot(ob, 2.0)
     # ---- masks
     co, _ = geo.arrays(ob)
     x, y, z = co[:, 0], co[:, 1], co[:, 2]
@@ -490,6 +516,8 @@ def build_sidewalk(ctx, M, variant=""):
     scene.move_to(ob, ctx.col)
     geo.assign(ob, M["concrete"])
     geo.smooth_by_angle(ob, 60)
+    geo.uv_world_box(ob, 2.0, rotate90=True)     # broom streaks run from the kerb to the building line
+    geo.uv_rescale_by_slot(ob, 2.0)
     # ---- masks
     co, _ = geo.arrays(ob)
     X, Y = co[:, 0], co[:, 1]
@@ -833,7 +861,8 @@ def layout(ctx, A):
 
 def build(ctx):
     M = materials(ctx)
-    ctx.log("materials ready (%s)" % ("texture sets" if any(m.get("mi_set") for m in M.values()) else "procedural"))
+    scans = M.pop("scans")
+    ctx.log("materials ready (%s)" % ("scanned sets + procedural layers" if scans else "procedural"))
     road, shape = build_road(ctx, M)
     ctx.log("road: %d tris" % geo.stats(road)["triangles"])
     A = {"road": road, "shape": shape, "kerb": {}, "walk": {}}
@@ -890,7 +919,7 @@ def _dress(ctx):
         out.append(wl)
     cope = geo.box((240.0, 0.42, 0.07), bevel=0.012, name="DressCope")
     geo.transform(cope, loc=(L / 2 + 40, -(HALF + WALK1 + 0.18), KERB_H + 1.05))
-    geo.uv_world_box(cope, 2.0)
+    geo.uv_world_box(cope, tuple(ctx.M["concrete"].get("mi_tile_m", (2.0, 2.0))))
     cope.data.materials.append(ctx.M["concrete"])
     geo.ensure_wear(cope)
     scene.move_to(cope, col)
@@ -914,7 +943,7 @@ def on_preview(ctx, objs):
     dress = _dress(ctx)
     render.setup(samples=a.samples)
     # ---- day
-    render.rig_day(sun_elevation=45.0, sun_azimuth=235.0)
+    render.rig_day(sun_azimuth=235.0)            # scanned clear sky, sun from the south-west
     if want("street_day_hero"):
         render.cam_look(HERO_CAM, HERO_AIM, lens=30, name="Cam_Hero")
         _p, sec = render.render_jpeg(os.path.join(P, "street_day_hero.jpg"), a.samples)

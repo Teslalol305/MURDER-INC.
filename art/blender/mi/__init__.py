@@ -1,14 +1,14 @@
 """mi: the MURDER INC. Blender art library.
 
     import sys; sys.path.insert(0, "art/blender")
-    from mi import scene, geo, mat, bake, export, render
+    from mi import scene, geo, mat, bake, export, render, steel
 
 Everything is metres, Z up, east = +X, north = +Y (see art/blender/README.md for the shared conventions).
 The modules only depend on bpy, bmesh, mathutils, numpy and (for JPEG/PNG packing) pillow.
 """
 import os
 
-__all__ = ["scene", "geo", "mat", "bake", "export", "render", "paths"]
+__all__ = ["scene", "geo", "mat", "bake", "export", "render", "steel", "paths"]
 
 # art/ directory (this file is art/blender/mi/__init__.py)
 ART_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))

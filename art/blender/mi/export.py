@@ -311,6 +311,20 @@ def set_entry(set_name):
                   "albedo_mean", "roughness_mean", "metallic_mean", "seamless", "seam", "asset"):
             if k in info:
                 e[k] = info[k]
+    else:
+        rec = _mat.scan_info(set_name)          # a scanned set: the catalogue knows its real size
+        if rec:
+            e["kind"] = "scan"
+            e["source"] = "Poly Haven '%s' (CC0)" % rec.get("slug", "")
+            for k in ("surface", "tile_m", "orientation", "px"):
+                if rec.get(k):
+                    e[k] = rec[k]
+            if rec.get("tile_m") and rec.get("px"):
+                e["texel_density_px_per_m"] = round(rec["px"][0] / rec["tile_m"][0], 1)
+            ms = rec.get("measured") or {}
+            if "height_scale_mm" in ms:
+                e["height_scale_mm"] = ms["height_scale_mm"]
+                e["height_mid"] = ms.get("height_mid")
     return e
 
 
@@ -340,6 +354,8 @@ def asset_entry(ob, family, collision="box", cover_height=None, notes="", pivot=
             rec["blend_set_G"] = m["mi_blend_set"]
         if m is not None and m.get("mi_alpha"):
             rec["alpha_means"] = m["mi_alpha"]
+        if m is not None and m.get("mi_tint"):
+            rec["tint"] = [round(float(c), 3) for c in m["mi_tint"]]
         if slots and nm in slots:
             rec.update(slots[nm])
         mats.append(rec)
