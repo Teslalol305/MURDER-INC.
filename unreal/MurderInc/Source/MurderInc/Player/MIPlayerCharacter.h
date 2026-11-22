@@ -16,20 +16,26 @@ class UMIWeaponComponent;
 class UPoseableMeshComponent;
 class USkeletalMeshComponent;
 
-/** The second half of the player's frame, after the body has moved (spec 01 3.1): view, weapon, viewmodel. */
+/**
+ * The two halves of the player's frame (spec 01 3.1): the early one (pre-physics, a prerequisite of the movement
+ * component) decides; the late one (post-physics, after the movement component) reads the moved body and runs the
+ * view, the weapon and the viewmodel. The actor's own tick cannot be the early half: the character's movement
+ * component already has the actor tick after it (adding the reverse forms a cycle).
+ */
 USTRUCT()
-struct FMIPlayerLateTick : public FTickFunction
+struct FMIPlayerFrameTick : public FTickFunction
 {
 	GENERATED_BODY()
 
 	AMIPlayerCharacter* Target = nullptr;
+	bool bLate = false;
 
 	virtual void ExecuteTick(float DeltaTime, ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
-	virtual FString DiagnosticMessage() override { return TEXT("AMIPlayerCharacter late tick"); }
+	virtual FString DiagnosticMessage() override { return bLate ? TEXT("AMIPlayerCharacter late frame") : TEXT("AMIPlayerCharacter early frame"); }
 };
 
 template<>
-struct TStructOpsTypeTraits<FMIPlayerLateTick> : public TStructOpsTypeTraitsBase2<FMIPlayerLateTick>
+struct TStructOpsTypeTraits<FMIPlayerFrameTick> : public TStructOpsTypeTraitsBase2<FMIPlayerFrameTick>
 {
 	enum { WithCopy = false };
 };
@@ -61,9 +67,9 @@ public:
 
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type Reason) override;
-	virtual void Tick(float DeltaSeconds) override;
-
-	/** The second half of the frame (FMIPlayerLateTick). */
+	/** The first half of the frame: the rules decide, the movement component is told (FMIPlayerFrameTick). */
+	void EarlyTick(float DeltaSeconds);
+	/** The second half of the frame (FMIPlayerFrameTick). */
 	void LateTick(float DeltaSeconds);
 
 	/** Copies the tuning into the rules, the capsule, the movement component and the weapons; resets the run. */
@@ -116,7 +122,8 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UMICharacterMovement> Movement;
 
-	FMIPlayerLateTick LateTickFunction;
+	FMIPlayerFrameTick EarlyTickFunction;
+	FMIPlayerFrameTick LateTickFunction;
 	FMIConfigData Tuning;
 	FMIPlayerRules Rules;
 	FMIPlayerInputState Input;

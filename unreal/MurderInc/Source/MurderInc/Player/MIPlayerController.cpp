@@ -153,3 +153,28 @@ AMIPlayerCharacter* AMIPlayerController::GetMICharacter() const
 {
 	return Cast<AMIPlayerCharacter>(GetPawn());
 }
+
+void AMIPlayerController::MIInput(const FString& Action, float Value)
+{
+	AMIPlayerCharacter* C = GetMICharacter();
+	if (!C)
+	{
+		return;
+	}
+	FMIPlayerInputState& S = C->GetInput();
+	const bool bDown = Value != 0.f;
+	const FString A = Action.ToLower();
+	if (A == TEXT("fire")) { S.bFire = bDown; S.bFirePressed |= bDown; }
+	else if (A == TEXT("ads")) S.bAds = bDown;
+	else if (A == TEXT("sprint")) S.bSprint = bDown;
+	else if (A == TEXT("crouch")) S.bCrouch = bDown;
+	else if (A == TEXT("jump")) S.bJumpPressed |= bDown;
+	else if (A == TEXT("reload")) S.bReloadPressed |= bDown;
+	else if (A == TEXT("swap")) S.bSwapPressed |= bDown;
+	else if (A == TEXT("melee")) S.bMeleePressed |= bDown;
+	else if (A == TEXT("weapon1")) S.bWeapon1Pressed |= bDown;
+	else if (A == TEXT("weapon2")) S.bWeapon2Pressed |= bDown;
+	else if (A == TEXT("forward")) S.Move.Y = FMath::Clamp(Value, -1.f, 1.f);
+	else if (A == TEXT("right")) S.Move.X = FMath::Clamp(Value, -1.f, 1.f);
+	else UE_LOG(LogMI, Warning, TEXT("MIInput: unknown action '%s'"), *Action);
+}

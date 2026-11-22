@@ -161,6 +161,13 @@ bool FMIViewmodelData::Parse(const TSharedPtr<FJsonObject>& Presentation, const 
 	Out.Body = FSoftObjectPath(P.Str(TEXT("firstPerson.body")));
 	Out.BodyHandSocket = FName(*P.Str(TEXT("firstPerson.bodyHandSocket")));
 	Out.FirstPersonScale = P.Num(TEXT("firstPerson.scale"));
+	if (const TSharedPtr<FJsonValue> Hidden = P.Value(TEXT("firstPerson.hideBones")); Hidden.IsValid() && Hidden->Type == EJson::Array)
+	{
+		for (const TSharedPtr<FJsonValue>& Bone : Hidden->AsArray())
+		{
+			Out.BodyHiddenBones.Add(FName(*Bone->AsString()));
+		}
+	}
 	Out.ViewmodelFov = C.Num(TEXT("player.fov.viewmodel"));
 	Out.StrideWalk = C.Num(TEXT("player.stride.walk"));
 	Out.StrideSprint = C.Num(TEXT("player.stride.sprint"));

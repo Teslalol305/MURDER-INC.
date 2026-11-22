@@ -24,6 +24,13 @@ public:
 	/** Creates the actions and the key mappings; safe to call more than once. Public for the tests. */
 	void BuildInputAssets();
 
+	/**
+	 * Console input for headless checks: MIInput <fire|ads|sprint|crouch|jump|reload|swap|melee|weapon1|weapon2|forward|right> <value>.
+	 * Buttons: 1 presses and holds, 0 releases. forward and right set the move axis (-1..1).
+	 */
+	UFUNCTION(Exec)
+	void MIInput(const FString& Action, float Value);
+
 	/** User settings (spec 01 4.8). */
 	double Sensitivity = 1.0;
 	bool bInvertY = false;

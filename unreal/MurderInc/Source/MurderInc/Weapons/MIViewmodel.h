@@ -90,6 +90,7 @@ struct FMIViewmodelData
 {
 	FSoftObjectPath Body;
 	FName BodyHandSocket;
+	TArray<FName> BodyHiddenBones;  // the parts of the first-person body that must not show (head, legs)
 	double FirstPersonScale = 1.0;
 	double ViewmodelFov = 0.0;  // vertical degrees (config player.fov.viewmodel)
 	double StrideWalk = 0, StrideSprint = 0, StrideCrouch = 0;  // m per footstep (config player.stride)

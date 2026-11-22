@@ -46,19 +46,25 @@ namespace MIPlayerCharacterPrivate
 	}
 }
 
-void FMIPlayerLateTick::ExecuteTick(float DeltaTime, ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+void FMIPlayerFrameTick::ExecuteTick(float DeltaTime, ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
 	if (Target && IsValid(Target) && TickType != LEVELTICK_ViewportsOnly)
 	{
-		Target->LateTick(DeltaTime);
+		if (bLate)
+		{
+			Target->LateTick(DeltaTime);
+		}
+		else
+		{
+			Target->EarlyTick(DeltaTime);
+		}
 	}
 }
 
 AMIPlayerCharacter::AMIPlayerCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UMICharacterMovement>(ACharacter::CharacterMovementComponentName))
 {
-	PrimaryActorTick.bCanEverTick = true;
-	PrimaryActorTick.TickGroup = TG_PrePhysics;
+	PrimaryActorTick.bCanEverTick = false;  // the frame runs in FMIPlayerFrameTick
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
@@ -123,18 +129,20 @@ void AMIPlayerCharacter::BeginPlay()
 		ApplyTuning(Config);
 	}
 
-	// The rules decide before the move; the late tick runs after it.
-	if (Movement)
-	{
-		Movement->PrimaryComponentTick.AddPrerequisite(this, PrimaryActorTick);
-	}
+	// The rules decide before the move; the late half runs after it.
+	EarlyTickFunction.Target = this;
+	EarlyTickFunction.bLate = false;
+	EarlyTickFunction.TickGroup = TG_PrePhysics;
+	EarlyTickFunction.bCanEverTick = true;
+	EarlyTickFunction.RegisterTickFunction(GetLevel());
 	LateTickFunction.Target = this;
+	LateTickFunction.bLate = true;
 	LateTickFunction.TickGroup = TG_PostPhysics;
 	LateTickFunction.bCanEverTick = true;
-	LateTickFunction.bTickEvenWhenPaused = false;
 	LateTickFunction.RegisterTickFunction(GetLevel());
 	if (Movement)
 	{
+		Movement->PrimaryComponentTick.AddPrerequisite(this, EarlyTickFunction);
 		LateTickFunction.AddPrerequisite(Movement, Movement->PrimaryComponentTick);
 	}
 
@@ -151,6 +159,7 @@ void AMIPlayerCharacter::BeginPlay()
 
 void AMIPlayerCharacter::EndPlay(const EEndPlayReason::Type Reason)
 {
+	EarlyTickFunction.UnRegisterTickFunction();
 	LateTickFunction.UnRegisterTickFunction();
 	if (UMICombatSubsystem* Combat = UMICombatSubsystem::Get(this))
 	{
@@ -195,6 +204,10 @@ void AMIPlayerCharacter::ApplyTuning(const FMIConfigData& Config)
 		if (USkeletalMesh* Body = Cast<USkeletalMesh>(View.Body.TryLoad()))
 		{
 			ArmsMesh->SetSkinnedAssetAndUpdate(Body, true);
+			for (const FName Bone : View.BodyHiddenBones)
+			{
+				ArmsMesh->HideBoneByName(Bone, PBO_None);
+			}
 		}
 	}
 	bHasTuning = true;
@@ -243,9 +256,8 @@ bool AMIPlayerCharacter::CanStand() const
 	return !World->OverlapBlockingTestByChannel(Centre, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(Radius, Half), Params);
 }
 
-void AMIPlayerCharacter::Tick(float DeltaSeconds)
+void AMIPlayerCharacter::EarlyTick(float DeltaSeconds)
 {
-	Super::Tick(DeltaSeconds);
 	if (!bHasTuning || !Movement)
 	{
 		return;
