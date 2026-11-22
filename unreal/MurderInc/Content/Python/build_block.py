@@ -254,15 +254,23 @@ def world_position(material, x, y):
     return position
 
 
+def make_struct(cls, **props):
+    """Unreal structs take no keyword arguments in their constructor here: set each property."""
+    value = cls()
+    for key, item in props.items():
+        value.set_editor_property(key, item)
+    return value
+
+
 def custom(material, x, y, code, inputs, output_type, extra_outputs=()):
     node = expr(material, unreal.MaterialExpressionCustom, x, y)
     node.set_editor_property("code", code)
     node.set_editor_property("output_type", output_type)
-    node.set_editor_property("inputs", [unreal.CustomInput(input_name=name) for name in inputs])
+    node.set_editor_property("inputs", [make_struct(unreal.CustomInput, input_name=name) for name in inputs])
     if extra_outputs:
         node.set_editor_property("additional_outputs", [
-            unreal.CustomOutput(output_name=name, output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT1)
-            for name in extra_outputs])
+            make_struct(unreal.CustomOutput, output_name=name,
+                        output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT1) for name in extra_outputs])
     return node
 
 
