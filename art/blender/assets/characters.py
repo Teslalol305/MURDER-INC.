@@ -785,16 +785,59 @@ def build(ctx):
     from mi import rig
     rig.bind(ob, arm)
     ctx.log("SK_RuleArms: %d triangles" % sum(len(p.vertices) - 2 for p in ob.data.polygons))
-    ctx.rule = dict(R=R, arm=arm, body=body, ob=ob)
-    return [ob]
+    # the watch (left forearm, 72 mm above the wrist) and the bracelet (right forearm, 70 mm), in their attach frames
+    Rl = ArmRig(arm, body, "l")
+    jewels = {}
+    for name, fn, rig_, s_ in (("SM_Character_RuleWatch", watch, Rl, 0.072), ("SM_Character_RuleBracelet", bracelet, R, 0.070)):
+        sec = (_interp(FOREARM, s_, 1) / 2, _interp(FOREARM, s_, 2) / 2)
+        j = fn(ctx.col, sec)
+        _smart_uv(j)
+        geo.ensure_wear(j)
+        tri = sum(len(p.vertices) - 2 for p in j.data.polygons)
+        ctx.asset(j, collision="none", notes="Attach frame origin on the forearm axis %d mm above the wrist; socket %s "
+                  "on %s (see characters.JEWELS)." % (s_ * 1000, JEWELS[name][0], JEWELS[name][1]))
+        jewels[name] = (j, attach_frame(rig_, s_))
+        ctx.log("%s: %d triangles" % (name, tri))
+    ctx.rule = dict(R=R, Rl=Rl, arm=arm, body=body, ob=ob, jewels=jewels)
+    return [ob] + [j for j, _m in jewels.values()]
+
+
+JEWELS = {"SM_Character_RuleWatch": ("Socket_Watch", "lowerarm_twist_01_l"),
+          "SM_Character_RuleBracelet": ("Socket_Bracelet", "lowerarm_twist_01_r")}
 
 
 def on_export(ctx, objs):
     r = getattr(ctx, "rule", None)
     if not r:
         return
+    from mi import export as _export
     p = char.export_character(r["ob"], r["arm"])
     ctx.log("exported %s" % p)
+    for name, (j, M) in r["jewels"].items():
+        a = ctx.assets[name]
+        _export.export_asset(j, ctx.family, "none", None, a["notes"], None, None, slots=None, strict=False)
+    # sockets for Unreal: the attach frames in Blender world rest space (tools/box/chars/mi_chars.add_socket)
+    sockets = {name: {"socket": JEWELS[name][0], "bone": JEWELS[name][1],
+                      "blender_world_rest": [round(v, 6) for row in M for v in row]}
+               for name, (j, M) in r["jewels"].items()}
+    with open(os.path.join(paths.glb, "SK_RuleArms.sockets.json"), "w") as f:
+        json.dump(sockets, f, indent=1)
+    ctx.log("sockets: %s" % list(sockets))
+
+
+def place_jewels(r):
+    """Parent the watch and bracelet to their bones at their rest attach frames (for posed previews)."""
+    arm = r["arm"]
+    for name, (j, M) in r["jewels"].items():
+        bone = JEWELS[name][1]
+        j.parent = arm
+        j.parent_type = "BONE"
+        j.parent_bone = bone
+        bpy.context.view_layer.update()
+        pb = arm.pose.bones[bone]
+        rest_bone = arm.matrix_world @ arm.data.bones[bone].matrix_local @ Matrix.Translation((0, arm.data.bones[bone].length, 0))
+        j.matrix_parent_inverse = rest_bone.inverted()
+        j.matrix_basis = M
 
 
 def textures_only(ctx):
@@ -981,3 +1024,131 @@ def attach_frame(R, s):
     for i in range(3):
         M[i][0], M[i][1], M[i][2], M[i][3] = x[i], y[i], v[i], c[i]
     return M
+
+
+# ------------------------------------------------------------------------------------------------ previews
+
+
+def _studio(target, key=(0.6, -0.9, 0.7), strength=1.0):
+    """Studio rig around a point: soft key, fill and rim area lights, dark seamless world."""
+    s = bpy.context.scene
+    for o in list(s.objects):
+        if o.type == "LIGHT":
+            bpy.data.objects.remove(o)
+    w = s.world or bpy.data.worlds.new("World")
+    s.world = w
+    bg = w.node_tree.nodes.get("Background")
+    bg.inputs[0].default_value = (0.02, 0.022, 0.025, 1)
+    bg.inputs[1].default_value = 1.0
+    t = Vector(target)
+    for off, power, size, temp in ((key, 140, 0.9, 5200), ((-0.9, -0.4, 0.3), 45, 1.2, 6500),
+                                   ((-0.3, 0.9, 0.6), 110, 0.5, 7000)):
+        l = bpy.data.lights.new("Studio", "AREA")
+        l.energy = power * strength
+        l.size = size
+        l.use_temperature = True if hasattr(l, "use_temperature") else False
+        if hasattr(l, "temperature"):
+            l.temperature = temp
+        o = bpy.data.objects.new("Studio", l)
+        s.collection.objects.link(o)
+        o.location = t + Vector(off)
+        o.rotation_euler = (t - o.location).to_track_quat("-Z", "Y").to_euler()
+    from mi import render
+    render.look("AgX", "AgX - Medium High Contrast", exposure=0.0)
+
+
+def _day():
+    from mi import render
+    render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING if hasattr(render, "DESIGN_SUN_BEARING") else 235.0)
+
+
+def on_preview(ctx, objs):
+    """arms_hero (studio), arms_fp_chopper, arms_fp_nine (first person, day light), arms_hands (fist, trigger,
+    open), arms_wire."""
+    from mi import render
+    from assets import _characters_pose as PZ
+    r = getattr(ctx, "rule", None)
+    if not r:
+        return
+    arm, ob, R, Rl = r["arm"], r["ob"], r["R"], r["Rl"]
+    r["body"].hide_render = True
+    place_jewels(r)
+    only = ctx.args.only or []
+    want = lambda n: not only or n in only
+    S = ctx.args.samples
+    out = paths.previews
+    col = scene.collection("Preview")
+    if want("arms_fp_chopper") or want("arms_fp_nine"):
+        for gun, clip in (("chopper", "rifle_idle_ads"), ("nine", "pistol_idle_ads")):
+            name = "arms_fp_" + gun
+            if not want(name):
+                continue
+            char.pose_from_clip(arm, clip, 0)
+            g, real = PZ.load_gun(gun, col)
+            cam = PZ.eye_camera(arm, col)
+            M = PZ.gun_from_camera(cam, gun, "hip")
+            g.matrix_world = M
+            PZ.hold(arm, M, gun, R, Rl)
+            render.setup(samples=S, res=(1280, 720))
+            _day()
+            render.render_jpeg(os.path.join(out, name + ".jpg"), S)
+            ctx.log("preview %s (gun file %s)" % (name, real))
+            for o in list(col.objects):
+                if o.type != "CAMERA":
+                    o.hide_render = True
+    if want("arms_hands"):
+        import tempfile
+        shots = []
+        for label, fn in (("fist", lambda: PZ.close_fingers(arm, "r", R, 1.0, thumb=1.0)),
+                          ("trigger pull", lambda: (PZ.close_fingers(arm, "r", R, 0.9, ("middle", "ring", "pinky"), thumb=0.7),
+                                                    PZ.close_fingers(arm, "r", R, 0.42, ("index",), angles=(35, 80, 40)))),
+                          ("open hand", lambda: None)):
+            char.rest_pose(arm)
+            fn()
+            hr = (arm.matrix_world @ arm.pose.bones["hand_r"].matrix).to_translation()
+            c = Vector(hr) + Vector(R.fwd) * 0.06
+            cam_pos = c + Vector(R.dors) * 0.32 + Vector(R.lat) * -0.12 + Vector((0, -0.05, 0.05))
+            render.cam_look(tuple(cam_pos), tuple(c), lens=55)
+            render.setup(samples=S, res=(640, 720))
+            _studio(c)
+            p = os.path.join(tempfile.gettempdir(), "mi_hands_%s.png" % label.replace(" ", "_"))
+            render.render_png(p, S, (640, 720))
+            shots.append(p)
+        render.contact_sheet(shots, os.path.join(out, "arms_hands.jpg"), cols=3, labels=["fist", "trigger pull", "open hand"])
+        ctx.log("preview arms_hands")
+    char.rest_pose(arm)
+    if want("arms_hero"):
+        char.pose_from_clip(arm, "rifle_idle_ads", 0)
+        hl = (arm.matrix_world @ arm.pose.bones["hand_l"].matrix).to_translation()
+        hr = (arm.matrix_world @ arm.pose.bones["hand_r"].matrix).to_translation()
+        c = (hl + hr) / 2
+        render.cam_look(tuple(c + Vector((0.55, -0.75, 0.12))), tuple(c + Vector((0.02, 0.06, -0.03))), lens=45)
+        render.setup(samples=S, res=(1280, 720))
+        _studio(c)
+        render.render_jpeg(os.path.join(out, "arms_hero.jpg"), S)
+        ctx.log("preview arms_hero")
+    if want("arms_wire"):
+        char.rest_pose(arm)
+        saved = [s_.material for s_ in ob.material_slots]
+        clay = bpy.data.materials.new("Clay")
+        nt = clay.node_tree
+        b = nt.nodes.get("Principled BSDF")
+        wf = nt.nodes.new("ShaderNodeWireframe")
+        wf.use_pixel_size = True
+        wf.inputs[0].default_value = 0.9
+        mix = nt.nodes.new("ShaderNodeMix")
+        mix.data_type = "RGBA"
+        mix.inputs["A"].default_value = (0.55, 0.55, 0.56, 1)
+        mix.inputs["B"].default_value = (0.03, 0.03, 0.035, 1)
+        nt.links.new(wf.outputs[0], mix.inputs["Factor"])
+        nt.links.new(mix.outputs["Result"], b.inputs["Base Color"])
+        for s_ in ob.material_slots:
+            s_.material = clay
+        c = Vector(R.W) + Vector(R.fwd) * 0.03 - Vector(R.af) * 0.06
+        render.cam_look(tuple(c + Vector(R.dors) * 0.36 + Vector((0.05, -0.12, 0.08))), tuple(c), lens=50)
+        render.setup(samples=max(16, S // 3), res=(1280, 720), denoise=False)
+        _studio(c)
+        render.render_jpeg(os.path.join(out, "arms_wire.jpg"), max(16, S // 3))
+        for s_, m in zip(ob.material_slots, saved):
+            s_.material = m
+        ctx.log("preview arms_wire")

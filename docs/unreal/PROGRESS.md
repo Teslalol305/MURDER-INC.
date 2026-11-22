@@ -5,17 +5,62 @@ What is verified on the box, newest first. Every entry says how it was verified.
 
 ## Exact next step
 
-1. Facade kit: when `art/out/glb/SM_Facade_*.glb` is complete, `tools/box/send-art.sh pack 'SM_El_*' 'SM_Street_*'
-   'SM_Prop_Hydrant' 'SM_Facade_*'`, transfer (BOX.md section 4), `block.sh start textures,materials,meshes`, then
-   replace the brick grey-box of the `facade` colliders in `build_block.py` with facade modules (spec 05-level.md
-   facade layout, level.json `buildings`). Their glass, interior and chrome slots need flat (untextured) instances:
-   the master has no flat mode yet.
-2. Prove the vertex-colour decode with a ramp test asset (art bible 3.3): a strip painted 0, 0.25, 0.5, 0.75, 1 per
-   channel, read back in the material (BOX.md section 5).
-3. The day sky: volumetric clouds at low cover; the far ground plane is a flat tinted asphalt slab (the web game's
-   far city sheet and skyline rings are not built).
+1. Level structures still drawn as boxes in their material (05-level): the El station stairs and mezzanine
+   (`station`, 23 colliders, the biggest walk-up box at the player start), the kiosk, the produce stand, hoardings,
+   the dock, the garages, the chop shop's office, mezzanine, stair and roof. Each needs a furniture-family module
+   (art side) or a placement rule in `build_block.py` `structure_placements` like the shop walls and the Cage.
+2. Texture sets under about 1,024 px/m near the player (manifest `texel_density_px_per_m`): roof bitumen 379,
+   galvanised 512, road paint 512, El column concrete 756, Steel_ScanRust 931, Brick_ScanRedCommon 946,
+   Sidewalk_ScanWorn 975, Asphalt_ScanWorn 985, Shutter 990, Asphalt_ScanFresh 994, Wood_ScanPlankDark 996:
+   `art/scans/fetch.py` can fetch 4K versions. The tinted paint slots (Steel_Paint*) carry no tile size.
+3. Vehicles stay dark-paint masses until the vehicle family arrives; the explosives (21) and the master cases (3) are
+   gameplay actors (props.json role `explosive` / `objective`) and stay boxes in L_Block until the gameplay side
+   spawns them.
+4. Prove the vertex-colour decode with a ramp test asset (art bible 3.3), BOX.md section 5.
+5. Signs: 14 `Sign_*` sets were in the transfer (BC, ORM, E); the signs family was still being made. Re-run
+   `send-art.sh pack` + transfer + `block.sh start textures,materials force` + `block.sh start meshes,level` when it
+   is finished: sign slots without a set show the neutral stand-in `SIGN_STAND_IN`.
 
 ## 2026-11-22
+
+- **block-v1: the avenue with the facade kit, props, furniture, decals and backdrop** (`docs/unreal/shots/block-v1-1.jpg`
+  ... `-6.jpg`, 1920 x 1080, `shot.sh` through the piloted viewport, 60 warm-up frames): 1 eye level at the start pose
+  looking east; 2 the south block face from the north sidewalk; 3 the pizza shop front up close; 4 under the El
+  looking up; 5 the avenue from mid-block looking west; 6 high overview. Three picture rounds (sheets looked at each
+  time): round 1 found every remaining box textured as concrete, cameras inside the produce stand and behind vans,
+  pastel shop interiors and black shade; round 2 found the chain-link drawn opaque, gum spots too dense, the backdrop
+  brick too pink; round 3 is the committed set.
+  - **Facade kit on the five street-facing buildings** n1, n2, s1, s2, s3: 985 instances of 77 modules from
+    `art/out/placements/buildings.json` (`art/blender/place_buildings.py`: the kit's own `assemble_front` /
+    `assemble_shell` plus closing walls for the backs), one actor per building with one InstancedStaticMeshComponent
+    per module (added through `SubobjectDataSubsystem`, saved with the level), no collision; awnings per shop colour
+    (`MI_Fabric_ScanCanvas_<Shop>`). The buildings' 337 colliders stay as invisible blocking boxes (`Block/Collision`):
+    the tuned cover and openings are unchanged. Every imported mesh matched its manifest bounds to 0.0 cm (190 GLBs).
+  - **Props from props.json** by catalogue id where a mesh exists (catalogue ids parsed from the manifest notes; the
+    modelled furniture before the scans): 217 dressing props of 36 ids, footprint centre aligned to the catalogue
+    shape's (the fire-escape balcony's pivot is its left end); fire escapes the facade kit already draws are skipped.
+  - **Level structures from the furniture family**: the auto body shop's block walls tiled along its colliders with
+    the 6.0 x 4.3 and 3.8 x 3.5 openings, open roll-up doors and the side-door module; the Cage's knee walls,
+    chain-link panels and end posts; chain-link round both rolling scaffolds; the sidewalk shed and its stair at the
+    manifest's placement. Remaining boxes wear the material of what they are (`TAG_SURFACE`: El green steel for the
+    station, plywood hoardings, painted block, brick backs with windows); vehicles are dark paint.
+  - **Materials**: `M_MI_Surface` gained a detail layer (the set's own normal and roughness at 4.37 x, faded in within
+    3 m), macro variation (value, hue and roughness noise at 4 and 14 m), sign emission (E maps, 900 nits) and a
+    window grid for world-projected masses; `M_MI_SurfaceMasked` (two-sided, BC alpha clip) for chain-link;
+    `M_MI_Glass` (opaque glass, Lumen reflections, a world-space interior room per window: wall paint, furniture or
+    shop shelving, lamp on in one room in six, grime at the sill); `M_MI_Flat` for chrome, aluminium, blinds, lenses and
+    sign stand-ins; `M_MI_Decal` with seven procedural kinds.
+  - **Decals by rule** (seeded): 153 (22 road cracks, 7 patches, 32 oil, 10 tyre marks, 48 gum patches, 18 stains at
+    the manholes and under the El's edges and rails, 16 rust streaks under window sills).
+  - **Sky and backdrop**: volumetric clouds (engine simple cloud material, layer 1.6 to 7.6 km), far ground to 5 km,
+    the avenue's street walls continued to 450 m, 318 city and skyline masses out to 4.5 km, all with windows.
+    Exposure: auto exposure EV100 12.3 to 14.2, local exposure shadow contrast 0.45, sun shafts (volumetric scattering
+    3, volumetric fog extinction x 5): the shade under the El reads and the shafts show through the ties.
+  - **Hardware ray tracing on this box's Vulkan driver**: NVIDIA 620.70 exposes VK_KHR_ray_tracing_pipeline,
+    VK_KHR_acceleration_structure and VK_KHR_ray_query; editor.log says "Ray tracing is enabled", "Ray tracing
+    shaders are enabled" and allocates the ray-tracing scene (`FRayTracingScene::SceneBuffer`); the project sets
+    `r.RayTracing=True`, `r.Lumen.HardwareRayTracing=True` (BOX.md section 1).
+  - Editor stopped at the end (`editor.sh stop`, by process id).
 
 - **The block in Unreal, first pictures** (`docs/unreal/shots/block-v0-1.jpg` ... `-4.jpg`, 1920 x 1080, through
   `tools/box/block-shots.sh`): eye level at the player start looking east under the El; a south-row column and its

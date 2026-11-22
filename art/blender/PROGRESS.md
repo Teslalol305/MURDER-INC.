@@ -235,23 +235,20 @@ Nanite culling. No bark or leaf scan is catalogued, so bark, leaves, kraft board
 numpy as tiling sets. SM_Furn_StreetLamp already is the 7.88 m cobra head (0.34 x 2.74 x 7.88): no new lamp.
 
 ## Status
-- [x] _gaps_art.py: numpy sets TS_Bark_Pear, TS_Leaf_Pear, TS_Leaf_Privet, TS_Cardboard_Kraft, TS_Steel_Stainless; 24 faces
-- [x] gaps.py street + yard: 32 assets exported, validation clean (`build.py build gaps --bake --export --res 1024`)
-- [ ] gameplay (props.py): wrecks, progress strip, boombox meter, heat masks, lid fix
-- [ ] furniture re-export with drawn faces and TS_Steel_PaintWhiteClean
-- [ ] previews (2 review rounds), README rows
+- [x] _gaps_art.py: numpy sets TS_Bark_Pear, TS_Leaf_Pear, TS_Leaf_Privet, TS_Cardboard_Kraft, TS_Steel_Stainless; 30 faces
+      (furniture graphics, new faces, five licence plates)
+- [x] gaps.py: 36 assets exported, validation clean (`build.py build gaps --bake --export --res 1024`), incl. the two ids found
+      with no mesh at all besides the briefed list: street_hydrant_open (SM_Street_Hydrant_Open), sign_license_plate
+- [x] props.py `build_gaps_pass`: PropaneTank_Wreck, WeldingRack_Wreck (unique bakes), MasterCase_Progress, Boombox_Meter,
+      heat masks T_Gameplay_<Name>_Heat.png (`--only heat`), lid track + lozenge moved to the free edge (lid rebaked)
+- [x] furniture: drawn faces picked up, white = TS_Steel_PaintWhiteClean; re-exported (`build furniture --export --res 1024`)
+- [x] previews: 8 renders in two rounds (gaps_gameplay x2, gaps_street x2, gaps_yard, gaps_graphics x3 incl. a fix check)
+- [x] README family row
 
----------------------------------------------------------------------------------------------------------------
-# Characters (mi/char.py, mi/sdf.py, assets/characters.py, tools/box/chars/), character pipeline and the player's arms
-
-Task: scratch Unreal project /project/ue/chars (MCP 8002); Epic mannequin, clips and template guns exported to
-art/out/epic (never committed); round-trip proof; SK_RuleArms on SK_Mannequin (skin, glove leather, glove suede,
-rubber; 4K sets), SM_Character_RuleWatch, SM_Character_RuleBracelet; pose tests; proof in Unreal.
-
-## Status
-- [x] scratch project, export (glTF + FBX) of SKM_Manny_Simple, 7 clips, SM_Rifle, SM_Pistol -> art/out/epic
-- [x] round-trip proof (docs/unreal/CHARACTERS.md, shots/chars-roundtrip.jpg): 0.00008 cm per bone in Unreal
-- [ ] arms geometry (SDF on the mannequin's bones), UVs, weights, mirror
-- [ ] textures 4K, watch, bracelet, export, pose tests, previews, Unreal proof
-
-Next step: finish assets/characters.py geometry (build_right_arm) and look at it.
+## State at hand-off
+Every non-vehicle catalogue id now has a mesh. Ids whose mesh exists only under another family's name (SM_Furn_*, SM_Facade_*,
+SM_Prop_* scans, SM_Gameplay_MasterReel_1/2/3, SM_Street_ManholeCover): the level must map them (aliases not exported).
+Known weaknesses: trees are 200k triangles each (Nanite only; build a LOD/impostor for non-Nanite paths) and their branching is
+procedural, not a botanical model; the props unique unwrap is not deterministic between runs (MasterCase warns "re-unwrapped"
+when rebuilt without --bake: always export it together with --bake); vulture stencil reads more hen than vulture; licence-plate
+characters are printed, not embossed; heat masks are distance fields round the valves, not a simulated scorch.
