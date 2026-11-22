@@ -660,8 +660,10 @@ def gimbal_parts():
                  (0.164, z1), (0.160, z1 - 0.006)], y0, y1, axis="Y", bevel=0.0014, seg=2)
     port = box(0.235, 0.285, y0 - 0.002, y0 + 0.0035, gcz - 0.007, gcz + 0.009, bevel=0.0008)
     cut(rec, port)
-    for xx in (0.18, 0.20, 0.32, 0.34):
-        cut(rec, box(xx - 0.004, xx + 0.004, y0 - 0.001, y0 + 0.0018, z0 + 0.007, z1 - 0.007, bevel=0.0005))
+    for xx in (0.176, 0.192, 0.208, 0.308, 0.324, 0.340):
+        hole = cyl(0.0042, 0.0, 0.004, 16, axis="Y", at=(xx, gcz - 0.002))
+        geo.transform(hole, loc=(0, y0 - 0.002, 0))
+        cut(rec, hole)
     round_edges(rec, 0.0006, 1, 40.0)
     gim.append(P(rec, GUN, "gimbal", 14))
     bolt = box(0.240, 0.272, y0 + 0.0025, y0 + 0.006, gcz - 0.0055, gcz + 0.0075, bevel=0.0010)
