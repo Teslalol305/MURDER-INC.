@@ -93,14 +93,8 @@ def actor(mesh_path, anim_path, loc, yaw=0.0, time=0.0, label=None, material=Non
         for i in range(c.get_num_materials()):
             c.set_material(i, unreal.load_asset(material))
     if anim_path:
-        c.set_animation_mode(unreal.AnimationMode.ANIMATION_SINGLE_NODE)
-        c.set_animation(unreal.load_asset(anim_path))
-        c.set_position(float(time), False)
-        c.set_play_rate(0.0)
-        c.play(False)
-        c.set_position(float(time), False)
-        c.tick_animation(0.0, False)
-        c.refresh_bone_transforms()
+        c.set_update_animation_in_editor(True)
+        c.override_animation_data(unreal.load_asset(anim_path), False, False, float(time), 0.0)
     return a
 
 
@@ -122,9 +116,36 @@ def bones_match(a, b, bones):
     return {"max_cm": round(dp, 5), "max_deg": round(dr, 4), "worst": worst}
 
 
+def ref_pose_match(mesh_a, mesh_b):
+    """Reference pose of two skeletal meshes bone by bone (local transforms): max cm and degrees apart."""
+    import math
+    out = {}
+    comps = []
+    for m in (mesh_a, mesh_b):
+        a = ACTORS.spawn_actor_from_class(unreal.SkeletalMeshActor, unreal.Vector(0, 0, -5000))
+        a.skeletal_mesh_component.set_skinned_asset_and_update(unreal.load_asset(m))
+        comps.append(a)
+    ca, cb = (a.skeletal_mesh_component for a in comps)
+    na = [str(ca.get_bone_name(i)) for i in range(ca.get_num_bones())]
+    nb = [str(cb.get_bone_name(i)) for i in range(cb.get_num_bones())]
+    dp = dr = 0.0
+    for i, n in enumerate(na):
+        if n not in nb:
+            continue
+        ta, tb = ca.get_ref_pose_transform(i), cb.get_ref_pose_transform(nb.index(n))
+        dp = max(dp, (ta.translation - tb.translation).length())
+        qa, qb = ta.rotation, tb.rotation
+        dot = min(1.0, abs(qa.x * qb.x + qa.y * qb.y + qa.z * qb.z + qa.w * qb.w))
+        dr = max(dr, 2 * math.degrees(math.acos(dot)))
+    out = {"bones_a": len(na), "bones_b": len(nb), "same_order": na == nb, "missing_in_b": [n for n in na if n not in nb],
+           "max_cm": round(dp, 6), "max_deg": round(dr, 5)}
+    for a in comps:
+        ACTORS.destroy_actor(a)
+    return out
+
+
 def bone_names(mesh_path):
     m = unreal.load_asset(mesh_path)
-    c = unreal.SkeletalMeshEditorSubsystem if False else None  # noqa: F841
     a = ACTORS.spawn_actor_from_class(unreal.SkeletalMeshActor, unreal.Vector(0, 0, -5000))
     a.skeletal_mesh_component.set_skinned_asset_and_update(m)
     names = [str(a.skeletal_mesh_component.get_bone_name(i)) for i in range(a.skeletal_mesh_component.get_num_bones())]
@@ -142,6 +163,23 @@ def stage_pairs(test_mesh, pairs, spacing=110.0, gap=55.0, ref_mesh=MANNY, test_
         y = (i - (len(pairs) - 1) / 2.0) * spacing * 2
         ra = actor(ref_mesh, anim, (0, y - gap, 0), yaw=0, time=t, label="Ref_%d" % i)
         ta = actor(test_mesh, anim, (0, y + gap, 0), yaw=0, time=t, label="Test_%d" % i, material=test_material)
-        rep.append({"anim": anim, "time": t, **bones_match(ra, ta, names)})
+        rep.append({"anim": anim, "time": t, "ref": ra.get_actor_label(), "test": ta.get_actor_label()})
     unreal.log_warning("MI: pairs " + json.dumps(rep))
     return rep
+
+
+def compare_staged(bones=None):
+    """After the viewport has redrawn (the animations are evaluated): bone transforms of each Ref_i / Test_i pair."""
+    acts = {a.get_actor_label(): a for a in ACTORS.get_all_level_actors() if "MIStage" in [str(t) for t in a.tags]}
+    out = []
+    for k in sorted(acts):
+        if k.startswith("Ref_") and ("Test_" + k[4:]) in acts:
+            a, b = acts[k], acts["Test_" + k[4:]]
+            names = bones or [str(a.skeletal_mesh_component.get_bone_name(i)) for i in range(a.skeletal_mesh_component.get_num_bones())]
+            r = bones_match(a, b, names)
+            r["pair"] = k[4:]
+            # pose is really animated: distance of hand_r from its reference-pose place
+            ha = a.skeletal_mesh_component.get_socket_transform("hand_r", unreal.RelativeTransformSpace.RTS_COMPONENT)
+            r["hand_r_cm"] = [round(v, 2) for v in (ha.translation.x, ha.translation.y, ha.translation.z)]
+            out.append(r)
+    return out
