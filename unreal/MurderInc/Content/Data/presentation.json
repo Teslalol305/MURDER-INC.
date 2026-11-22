@@ -36,8 +36,8 @@
     "chopper": {
       "mesh": "/Game/Weapons/Rifle/Meshes/SKM_Rifle.SKM_Rifle",
       "idle": "/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS.MF_Rifle_Idle_ADS",
-      "meshOffset": { "pos": [0, -0.085, -0.04], "rot": [0, -1.5708, 0], "note": "gun space to the mesh's own space: the template rifle has its origin in the grip and its muzzle along +Y; the real SK_Chopper has its origin on the bore at the back of the receiver, muzzle along +X, and needs only the axis turn" },
-      "sockets": { "muzzle": "Muzzle", "eject": "Eject", "sightRear": "SightRear", "sightFront": "SightFront", "pivot": "RecoilPivot", "magHinge": "MagHinge", "grip": "Palm_R", "support": "Palm_L" },
+      "meshOffset": { "pos": [0, -0.1045, -0.0235], "rot": [0, 1.5708, 0], "note": "where the mesh's own frame sits in gun space. The template rifle (placeholder) has its origin in the grip, its muzzle along +Y and its sight about 16 cm over the grip: it is turned to face -z and lifted so that its sight lies on the CHOPPER's sight line. The real SK_Chopper (origin on the bore at the back of the receiver, muzzle +X) needs pos [0, 0, 0] and rot [0, 1.5708, 0]" },
+      "sockets": { "muzzle": "Muzzle", "eject": "Eject", "sightRear": "SightRear", "sightFront": "SightFront", "pivot": "RecoilPivot", "magHinge": "MagHinge", "grip": "GripPoint", "support": "Palm_L", "note": "grip: GripPoint on the template rifle, Palm_R on SK_Chopper" },
       "markers": {
         "muzzle": [0, 0, -0.4975],
         "eject": [0.019, 0.018, -0.15],
@@ -71,8 +71,8 @@
     "nine": {
       "mesh": "/Game/Weapons/Pistol/Meshes/SKM_Pistol.SKM_Pistol",
       "idle": "/Game/Characters/Mannequins/Anims/Pistol/MF_Pistol_Idle_ADS.MF_Pistol_Idle_ADS",
-      "meshOffset": { "pos": [0, -0.078, -0.014], "rot": [0, -1.5708, 0], "note": "as for the CHOPPER" },
-      "sockets": { "muzzle": "Muzzle", "eject": "Eject", "sightRear": "SightRear", "sightFront": "SightFront", "pivot": "RecoilPivot", "magHinge": "MagHinge", "grip": "Palm_R", "support": "Palm_L" },
+      "meshOffset": { "pos": [0, -0.1015, -0.0425], "rot": [0, 1.5708, 0], "note": "as for the CHOPPER: the template pistol has its origin in the grip, muzzle along +Y, rear sight about 12 cm up and 3 cm back; the real SK_Nine needs pos [0, 0, 0]" },
+      "sockets": { "muzzle": "Muzzle", "eject": "ShellEject", "sightRear": "SightRear", "sightFront": "SightFront", "pivot": "RecoilPivot", "magHinge": "MagHinge", "grip": "Root", "support": "Palm_L", "note": "grip: the Root bone of the template pistol (its origin), Palm_R on SK_Nine; eject: ShellEject on the template, Eject on SK_Nine" },
       "markers": {
         "muzzle": [0, 0, -0.201],
         "eject": [0.012, 0.014, -0.105],
