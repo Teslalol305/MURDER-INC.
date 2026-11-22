@@ -14,14 +14,21 @@ Inputs
   Content/Data/level.json, atmos.json: the web game's block and its day rig
 
 Steps
-  textures   /Game/Art/Textures/<Set>/T_<Set>_*: BC sRGB; N linear normal map with the green channel flipped
-             (the sets are OpenGL, +Y up; Unreal wants DirectX); ORM linear masks
-  materials  /Game/Art/Materials/M_MI_Surface (master) and one instance per manifest slot (MI_<Surface>_<Variant>,
-             MI_<Asset> for a slot M_<Asset>), plus the grey-box and ground instances (MI_Grey_*, MI_Ground_*)
+  textures   /Game/Art/Textures/<Set>/T_<Set>_*: BC and E (sign emission) sRGB; N linear normal map with the green
+             channel flipped (the sets are OpenGL, +Y up; Unreal wants DirectX); ORM linear masks
+  materials  /Game/Art/Materials/M_MI_Surface (master: tiling or unique sets, wear masks, detail layer near the
+             eye, macro variation, sign emission), M_MI_Glass (window and shop glass over a world-space interior
+             room per window), M_MI_Flat (untextured slots: chrome, aluminium, blinds, lenses, sign stand-ins) and one
+             instance per manifest slot (MI_<Surface>_<Variant>, MI_<Asset> for a slot M_<Asset>), the per-shop
+             awning cloths, plus the grey-box and ground instances (MI_Grey_*, MI_Ground_*)
   meshes     /Game/Art/Meshes/SM_*: Interchange glTF, Nanite on, no glTF materials; slots assigned by name;
              bounds checked against the manifest (proves the axes and the scale)
   level      /Game/Maps/L_Block: street kit tiled along the avenue, El modules at the data's bents and columns,
-             every movement-blocking static collider as grey-box massing, ground slabs, player start, day rig
+             the facade kit on every street-facing building (art-in/placements/buildings.json, instanced static
+             meshes), the catalogue props of props.json that have a mesh, every other movement-blocking static
+             collider as grey-box massing; the colliders the art replaces stay as invisible blocking boxes (the
+             tuned cover does not change); ground slabs, the backdrop (the avenue's continuation and a distant
+             skyline), player start, day rig with volumetric clouds
 
 Units are Unreal's: centimetres, Z up, X east, Y south. Every spawned actor carries the tag MIBlock.
 """
@@ -29,6 +36,7 @@ import json
 import math
 import os
 import random
+import re
 import time
 import traceback
 
@@ -39,6 +47,10 @@ ROOT = "/Game/Art"
 TEX_DIR, MAT_DIR, MESH_DIR = ROOT + "/Textures", ROOT + "/Materials", ROOT + "/Meshes"
 MAP_PATH = "/Game/Maps/L_Block"
 MASTER = MAT_DIR + "/M_MI_Surface"
+GLASS_MASTER = MAT_DIR + "/M_MI_Glass"
+FLAT_MASTER = MAT_DIR + "/M_MI_Flat"
+BLACK_TEXTURE = "/Engine/EngineResources/Black.Black"
+FLAT_NORMAL = "/Engine/EngineMaterials/FlatNormal.FlatNormal"
 TAG = "MIBlock"
 CUBE = "/Engine/BasicShapes/Cube.Cube"          # 100 cm, centred on its origin
 
@@ -49,6 +61,12 @@ LUX_PER_GAME_LUX = 24400.0       # spec 4.5: the web sun (5 game lux x colour lu
 DAY_EV100 = (12.9, 14.2)         # art bible 2.3: auto exposure clamped; open sun near 14.2, under the El about 13.2,
                                  # the lower clamp is the readability dial (spec 4.5 puts the web's fixed 1.1 at 13.4)
 SUN_SOURCE_ANGLE = 0.5357        # art bible 2.4
+SUN_SHAFTS = 3.0                 # sun volumetric scattering: visible shafts through the El ties
+CONTACT_SHADOW = 0.03            # screen-space contact shadow length of the sun
+FOG_VOLUME_EXTINCTION = 2.0      # volumetric fog only: enough medium for the shafts, the far haze stays the fog's
+LOCAL_SHADOW_CONTRAST = 0.55     # local exposure lifts the shade under the El without flattening the sun
+CLOUD_MATERIAL = "/Engine/EngineSky/VolumetricClouds/m_SimpleVolumetricCloud_Inst"
+CLOUD_LAYER = {"layer_bottom_altitude": 1.6, "layer_height": 6.0}   # km: fair-weather cumulus bases
 STREET_EXTENT_CM = 7000          # street kit runs this far east and west of the centre (the bounds end at 4,600)
 GREY_SURFACE = {                 # collider surface -> (grey-box instance, texture set, tint)
     "brick": ("MI_Grey_Brick", "TS_Brick_ScanRedCommon", (1.0, 1.0, 1.0)),       # roofs: ROOF_SET
@@ -67,6 +85,30 @@ GROUND_SURFACE = {               # level.json ground surface -> (instance, textu
     "far": ("MI_Ground_Far", "TS_Asphalt_ScanWorn", (0.8, 0.8, 0.8)),
 }
 SKIP_COLLIDER_TAGS = {"el-column", "el-girder", "el-deck", "sidewalk"}   # drawn by the El and street meshes
+DETAIL_SCALE = 4.37              # detail layer: the set again at 4.37 x its repeat (an odd ratio: no visible beat)
+SIGN_NITS = 900.0                # sign faces with an emission map: a lit lightbox reads in daylight at about 900 nits
+# Untextured manifest slots (workflow "flat"): base colour (linear), roughness, metallic, emissive nits.
+FLAT_SLOTS = {
+    "MI_Metal_Chrome": ((0.93, 0.93, 0.93), 0.08, 1.0, 0.0),
+    "MI_Metal_Aluminium": ((0.86, 0.87, 0.88), 0.34, 1.0, 0.0),
+    "MI_Fabric_Blind": ((0.56, 0.52, 0.44), 0.88, 0.0, 0.0),       # parchment roller blind
+    "MI_Interior_Dark": ((0.018, 0.017, 0.016), 0.9, 0.0, 0.0),
+    "MI_Lamp_Lens": ((0.72, 0.68, 0.6), 0.15, 0.0, 0.0),           # unlit by day
+    "MI_Glass_SodiumLens": ((0.6, 0.45, 0.25), 0.12, 0.0, 0.0),
+}
+SIGN_STAND_IN = ((0.42, 0.42, 0.4), 0.55, 0.0, 0.0)               # neutral sign face until the art arrives
+# Glass over a world-space interior room per window (M_MI_Glass): room cell size and offset in cm (Z: storeys of
+# 310 above the 380 cm shop floor line; Y: 550 so that both building lines, Y -1100 and +1100, are cell walls),
+# interior luminance in nits (rooms behind daylit windows are about a tenth of the facade), shop mode.
+GLASS_SLOTS = {
+    "MI_Glass_Window": dict(room=(310.0, 550.0, 310.0), offset=(0.0, 0.0, 70.0), nits=260.0, shop=0.0, sill=0.19),
+    "MI_Glass_Store": dict(room=(310.0, 550.0, 310.0), offset=(0.0, 0.0, 70.0), nits=520.0, shop=1.0, sill=0.03),
+}
+BACKDROP_AVENUE_CM = 45000      # the avenue's street walls continue this far east and west of the centre
+# Catalogue ids whose mesh notes do not name them (the street and facade families).
+CATALOGUE_EXTRA = {"manhole": ["SM_Street_ManholeCover"], "water_tower": ["SM_Facade_WaterTank"],
+                   "fire_escape": ["SM_Facade_FireEscape_Balcony"], "hydrant": ["SM_Prop_Hydrant"]}
+AWNING_SCAN_MEAN = (0.284, 0.408, 0.613)   # mean linear albedo of TS_Fabric_ScanCanvas BC: tint = cloth / scan
 
 LIB = unreal.MaterialEditingLibrary
 ASSETS = unreal.EditorAssetLibrary
@@ -127,7 +169,7 @@ def texture_units(force):
         for file_name in sorted(os.listdir(os.path.join(root, set_name))):
             stem, ext = os.path.splitext(file_name)
             kind = stem.rsplit("_", 1)[-1]
-            if ext.lower() not in (".jpg", ".jpeg", ".png") or kind not in ("BC", "N", "ORM"):
+            if ext.lower() not in (".jpg", ".jpeg", ".png") or kind not in ("BC", "N", "ORM", "E"):
                 continue
             yield "texture " + stem, (lambda s=set_name, f=os.path.join(root, set_name, file_name), k=kind:
                                        import_texture(s, f, k, force))
@@ -172,11 +214,12 @@ WEAR_HLSL = r"""
 float3 m = pow(saturate(VC.rgb), 2.2) * Amount.x;
 float  a = saturate(VA) * Amount.x;
 // Value noise at two scales breaks up the soft, low-frequency masks into crisp, irregular edges.
-float n[3];
-float3 scales = float3(1.0 / 6.0, 1.0 / 23.0, 1.0);
-for (int o = 0; o < 3; o++)
+// Octaves 3 and 4 (14 m and 4.3 m) are the macro variation that hides the tile repeat over 10 to 20 m.
+float n[5];
+float scales[5] = {1.0 / 6.0, 1.0 / 23.0, 1.0, 1.0 / 1400.0, 1.0 / 430.0};
+for (int o = 0; o < 5; o++)
 {
-    float3 P = (o < 2) ? WP * scales[o] + o * 17.31 : WP * float3(1.0 / 22.0, 1.0 / 22.0, 1.0 / 260.0);
+    float3 P = (o == 2) ? WP * float3(1.0 / 22.0, 1.0 / 22.0, 1.0 / 260.0) : WP * scales[o] + o * 17.31;
     float3 I = floor(P);
     float3 F = frac(P);
     F = F * F * (3.0 - 2.0 * F);
@@ -224,11 +267,26 @@ bc *= 1.0 - 0.25 * silt;
 float wet = saturate(a * Wetness);
 bc *= lerp(1.0, 0.55, wet);
 rough = lerp(rough, 0.08, wet);
+// Macro variation (Macro.x): value, a slight warm-cool shift and roughness drift over 4 to 14 m.
+float macro = 0.6 * n[3] + 0.4 * n[4];
+float3 hue = lerp(float3(1.03, 1.0, 0.95), float3(0.96, 1.0, 1.05), n[4]);
+bc *= lerp(float3(1.0, 1.0, 1.0), (1.0 + (macro - 0.5) * 0.32) * hue, Macro.x);
+rough += (macro - 0.5) * 0.12 * Macro.x;
+// Detail layer (Macro.y): the set's own roughness at the detail scale fades in within 3 m of the eye.
+float near = saturate((300.0 - Depth) / 150.0) * Macro.y;
+rough += (ORMD.g - 0.5) * 0.35 * near;
 Rough = saturate(rough);
 Metal = saturate(metal);
 AO = saturate(ao);
 Edge = set2;
 return bc;
+"""
+
+# Detail normal: the set's normal sampled again at the detail scale, whiteout-blended in within 3 m of the eye.
+DETAIL_NORMAL_HLSL = r"""
+float near = saturate((300.0 - Depth) / 150.0) * Amount;
+float3 d = lerp(float3(0.0, 0.0, 1.0), ND, near);
+return normalize(float3(NA.xy + d.xy, NA.z * d.z));
 """
 
 # Box projection in world space for the grey-box cubes and ground slabs: the dominant axis of the normal picks the
@@ -322,6 +380,23 @@ def build_master(defaults, force):
                         texture=defaults[kind])
             LIB.connect_material_expressions(uv_switch, "", node, "UVs")
             samplers[kind + suffix] = node
+    # The detail layer: the same N and ORM parameters sampled at DetailScale x the surface UVs.
+    detail_scale = expr(material, unreal.MaterialExpressionScalarParameter, -1800, 1700, parameter_name="DetailScale",
+                        default_value=DETAIL_SCALE)
+    detail_uv = expr(material, unreal.MaterialExpressionMultiply, -1650, 1700)
+    LIB.connect_material_expressions(uv_switch, "", detail_uv, "A")
+    LIB.connect_material_expressions(detail_scale, "", detail_uv, "B")
+    for kind, sampler, y in (("N", unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL, 1700),
+                             ("ORM", unreal.MaterialSamplerType.SAMPLERTYPE_MASKS, 1950)):
+        node = expr(material, unreal.MaterialExpressionTextureSampleParameter2D, -1500, y, parameter_name=kind,
+                    sampler_type=sampler, texture=defaults[kind])
+        LIB.connect_material_expressions(detail_uv, "", node, "UVs")
+        samplers[kind + "D"] = node
+    emission = expr(material, unreal.MaterialExpressionTextureSampleParameter2D, -1500, 2200, parameter_name="E",
+                    sampler_type=unreal.MaterialSamplerType.SAMPLERTYPE_COLOR,
+                    texture=unreal.load_asset(BLACK_TEXTURE))
+    LIB.connect_material_expressions(uv_switch, "", emission, "UVs")
+    depth = expr(material, unreal.MaterialExpressionPixelDepth, -900, 1650)
 
     def vector(name, value, x, y):
         return expr(material, unreal.MaterialExpressionVectorParameter, x, y, parameter_name=name,
@@ -334,17 +409,19 @@ def build_master(defaults, force):
     modes = vector("Modes", (0, 1, 0, 0), -900, 1300)       # x blend set on G, y splash on A, z silt on A, w wetness
     amount = vector("WearAmount", (1, 0, 0, 0), -900, 1400)  # x: 0 switches the masks off (meshes without Wear);
     #                                                          y: 1 puts the second set on upward faces (roofs)
+    macro = vector("Macro", (1, 1, 0, 0), -900, 1550)        # x: macro variation, y: detail layer (0 on unique sets)
     vertex_colour = expr(material, unreal.MaterialExpressionVertexColor, -900, 1500)
     wear = custom(material, -500, 300, WEAR_HLSL,
                   ["BC", "ORM", "BC2", "ORM2", "VC", "VA", "WP", "Tint", "DirtColor", "LeakColor", "SplashColor",
-                   "Modes", "Wetness", "Amount", "NW"],
+                   "Modes", "Wetness", "Amount", "NW", "Macro", "ORMD", "Depth"],
                   unreal.CustomMaterialOutputType.CMOT_FLOAT3, ["Rough", "Metal", "AO", "Edge"])
     for name, source, output in (("BC", samplers["BC"], "RGB"), ("ORM", samplers["ORM"], "RGB"),
                                  ("BC2", samplers["BC2"], "RGB"), ("ORM2", samplers["ORM2"], "RGB"),
                                  ("VC", vertex_colour, ""), ("VA", vertex_colour, "A"), ("WP", wp, ""),
                                  ("Tint", tint, ""), ("Wetness", modes, "A"),
                                  ("DirtColor", dirt, ""), ("LeakColor", leak, ""), ("SplashColor", splash, ""),
-                                 ("Modes", modes, ""), ("Amount", amount, ""), ("NW", normal_ws, "")):
+                                 ("Modes", modes, ""), ("Amount", amount, ""), ("NW", normal_ws, ""),
+                                 ("Macro", macro, ""), ("ORMD", samplers["ORMD"], "RGB"), ("Depth", depth, "")):
         if not LIB.connect_material_expressions(source, output, wear, name):
             raise RuntimeError("cannot connect %s output '%s' to the wear node" % (name, output))
 
@@ -353,14 +430,226 @@ def build_master(defaults, force):
     LIB.connect_material_expressions(samplers["N2"], "RGB", normal_blend, "B")
     LIB.connect_material_expressions(wear, "Edge", normal_blend, "Alpha")
 
+    detail_normal = custom(material, 0, 600, DETAIL_NORMAL_HLSL, ["NA", "ND", "Depth", "Amount"],
+                           unreal.CustomMaterialOutputType.CMOT_FLOAT3)
+    LIB.connect_material_expressions(normal_blend, "", detail_normal, "NA")
+    LIB.connect_material_expressions(samplers["ND"], "RGB", detail_normal, "ND")
+    LIB.connect_material_expressions(depth, "", detail_normal, "Depth")
+    LIB.connect_material_expressions(macro, "G", detail_normal, "Amount")
+    emissive_scale = expr(material, unreal.MaterialExpressionScalarParameter, -900, 2300,
+                          parameter_name="EmissiveScale", default_value=0.0)
+    emissive = expr(material, unreal.MaterialExpressionMultiply, -600, 2250)
+    LIB.connect_material_expressions(emission, "RGB", emissive, "A")
+    LIB.connect_material_expressions(emissive_scale, "", emissive, "B")
+
     LIB.connect_material_property(wear, "", unreal.MaterialProperty.MP_BASE_COLOR)
     LIB.connect_material_property(wear, "Rough", unreal.MaterialProperty.MP_ROUGHNESS)
     LIB.connect_material_property(wear, "Metal", unreal.MaterialProperty.MP_METALLIC)
     LIB.connect_material_property(wear, "AO", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION)
-    LIB.connect_material_property(normal_blend, "", unreal.MaterialProperty.MP_NORMAL)
+    LIB.connect_material_property(detail_normal, "", unreal.MaterialProperty.MP_NORMAL)
+    LIB.connect_material_property(emissive, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     LIB.recompile_material(material)
     ASSETS.save_asset(MASTER, only_if_is_dirty=False)
     return "created"
+
+
+# World-space interior mapping: the eye ray enters the room cell behind the pane and the first wall it meets gives
+# the colour; every cell hashes its own wall paint, lamp state and furniture band, so no two windows match.
+GLASS_HLSL = r"""
+float3 V = -normalize(CamV);                        // from the eye into the building
+float3 P = WP;
+float3 cellP = (WP - N * 40.0 - Offset) / Room;     // the cell behind the pane, whatever the pane's inset
+float3 cell = floor(cellP);
+float3 far = (cell + step(0.0, V)) * Room + Offset;
+float3 safeV = sign(V) * max(abs(V), 1e-4);
+float3 t = (far - P) / safeV;
+float tm = min(t.x, min(t.y, t.z));
+float3 hit = P + V * tm;
+float3 f = (hit - Offset) / Room - cell;            // 0..1 inside the cell
+float h1 = frac(sin(dot(cell, float3(12.9898, 78.233, 37.719))) * 43758.5453);
+float h2 = frac(sin(dot(cell, float3(39.346, 11.135, 83.155))) * 24634.6345);
+float h3 = frac(sin(dot(cell, float3(73.156, 52.235, 9.151))) * 35791.4351);
+float3 paints[4] = {float3(0.42, 0.38, 0.30), float3(0.30, 0.33, 0.30), float3(0.45, 0.42, 0.38), float3(0.36, 0.27, 0.22)};
+float3 wall = paints[(int)(h1 * 3.99)];
+float3 colour;
+float3 an = abs(t - tm);
+if (t.z <= t.x && t.z <= t.y)
+    colour = (V.z < 0.0) ? float3(0.16, 0.11, 0.07) : float3(0.55, 0.53, 0.5);   // floor boards : ceiling
+else
+{
+    bool back = (abs(N.x) > abs(N.y)) ? (t.x <= t.y) : (t.y <= t.x);
+    colour = wall * (back ? 1.0 : 0.75);
+    float fz = f.z;
+    if (Shop > 0.5)
+    {
+        // Shelving on every wall: dark uprights, bands of packed goods.
+        float band = frac(fz * 6.0);
+        float goods = step(0.25, band) * step(fz, 0.82) * step(0.08, fz);
+        float3 stock = lerp(float3(0.5, 0.18, 0.1), float3(0.2, 0.32, 0.5), frac(floor((f.x + f.y) * 9.0) * 0.37 + h2));
+        colour = lerp(colour * 0.5, stock, goods);
+    }
+    else
+    {
+        // A dark furniture band (sofa, dresser) along the back wall in most rooms, a picture in some.
+        float w0 = 0.15 + 0.3 * h2, w1 = w0 + 0.3 + 0.3 * h3;
+        float side = (abs(N.x) > abs(N.y)) ? f.y : f.x;
+        float furn = step(fz, 0.28 + 0.12 * h3) * step(w0, side) * step(side, w1) * (back ? 1.0 : 0.0);
+        colour = lerp(colour, float3(0.06, 0.05, 0.05), furn);
+    }
+}
+// Light falls off into the room; a lamp is on in about one room in six.
+float depthK = saturate(1.0 - tm / (Room.y * 1.6));
+float lit = (0.35 + 0.65 * depthK) * (0.55 + 0.9 * h3) * ((h2 > 0.84) ? 2.2 : 1.0);
+float3 room = colour * lit * Nits;
+// Grime: a film near the sill and in streaks, plus the mesh's own Wear R.
+float3 q = (WP - Offset) / Room;
+float sillDist = frac(q.z) - Sill;
+float noise = frac(sin(dot(floor(WP * float3(1.0 / 9.0, 1.0 / 9.0, 1.0 / 35.0)), float3(7.1, 3.7, 1.3))) * 9631.71);
+Dirt = saturate(saturate(1.0 - sillDist / 0.09) * 0.7 + noise * 0.25 + VC * 0.8);
+return room * (1.0 - 0.6 * Dirt);
+"""
+
+
+def build_glass_master(force):
+    """M_MI_Glass: opaque glazing (Nanite, full Lumen reflections) whose emission is the room behind it."""
+    if ASSETS.does_asset_exist(GLASS_MASTER):
+        if not force:
+            return "exists"
+        material = unreal.load_asset(GLASS_MASTER)
+        LIB.delete_all_material_expressions(material)
+    else:
+        material = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+            "M_MI_Glass", MAT_DIR, unreal.Material, unreal.MaterialFactoryNew())
+    wp = world_position(material, -1400, 0)
+    camera = expr(material, unreal.MaterialExpressionCameraVectorWS, -1400, 150)
+    normal_ws = expr(material, unreal.MaterialExpressionVertexNormalWS, -1400, 250)
+    vertex_colour = expr(material, unreal.MaterialExpressionVertexColor, -1400, 350)
+
+    def param(cls, name, value, y):
+        if cls is unreal.MaterialExpressionVectorParameter:
+            return expr(material, cls, -1400, y, parameter_name=name, default_value=unreal.LinearColor(*value))
+        return expr(material, cls, -1400, y, parameter_name=name, default_value=value)
+    room = param(unreal.MaterialExpressionVectorParameter, "Room", (310, 550, 310, 0), 450)
+    offset = param(unreal.MaterialExpressionVectorParameter, "Offset", (0, 0, 70, 0), 550)
+    nits = param(unreal.MaterialExpressionScalarParameter, "Nits", 260.0, 650)
+    shop = param(unreal.MaterialExpressionScalarParameter, "Shop", 0.0, 750)
+    sill = param(unreal.MaterialExpressionScalarParameter, "Sill", 0.19, 850)
+    node = custom(material, -900, 300, GLASS_HLSL, ["WP", "CamV", "N", "VC", "Room", "Offset", "Nits", "Shop", "Sill"],
+                  unreal.CustomMaterialOutputType.CMOT_FLOAT3, ["Dirt"])
+    for name, source, output in (("WP", wp, ""), ("CamV", camera, ""), ("N", normal_ws, ""),
+                                 ("VC", vertex_colour, "R"), ("Room", room, ""), ("Offset", offset, ""),
+                                 ("Nits", nits, ""), ("Shop", shop, ""), ("Sill", sill, "")):
+        if not LIB.connect_material_expressions(source, output, node, name):
+            raise RuntimeError("cannot connect %s to the glass node" % name)
+    # Clean glass: black base, specular 0.5 (F0 0.04), roughness 0.02; grime greys and roughens it.
+    base = expr(material, unreal.MaterialExpressionMultiply, -500, 0)
+    grime = expr(material, unreal.MaterialExpressionConstant3Vector, -700, -100,
+                  constant=unreal.LinearColor(0.09, 0.085, 0.075, 1))
+    LIB.connect_material_expressions(grime, "", base, "A")
+    LIB.connect_material_expressions(node, "Dirt", base, "B")
+    rough = expr(material, unreal.MaterialExpressionLinearInterpolate, -500, 150)
+    LIB.connect_material_expressions(expr(material, unreal.MaterialExpressionConstant, -700, 120, r=0.02), "", rough, "A")
+    LIB.connect_material_expressions(expr(material, unreal.MaterialExpressionConstant, -700, 200, r=0.45), "", rough, "B")
+    LIB.connect_material_expressions(node, "Dirt", rough, "Alpha")
+    LIB.connect_material_property(base, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    LIB.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    LIB.connect_material_property(expr(material, unreal.MaterialExpressionConstant, -500, 300, r=0.5), "",
+                                  unreal.MaterialProperty.MP_SPECULAR)
+    LIB.connect_material_property(node, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    LIB.recompile_material(material)
+    ASSETS.save_asset(GLASS_MASTER, only_if_is_dirty=False)
+    return "created"
+
+
+FLAT_HLSL = r"""
+// Flat slots still get a little life: slow value noise moves value and roughness, Wear R adds grime.
+float3 I = floor(WP / 37.0);
+float v = frac(sin(dot(I, float3(127.1, 311.7, 74.7))) * 43758.5453);
+float dirt = saturate(VC * 0.8);
+Rough = saturate(Roughness + (v - 0.5) * 0.08 + dirt * 0.3);
+return lerp(Colour * (0.94 + 0.12 * v), float3(0.05, 0.045, 0.04), dirt * 0.6);
+"""
+
+
+def build_flat_master(force):
+    """M_MI_Flat: untextured surfaces (chrome, aluminium, blinds, lenses, sign stand-ins)."""
+    if ASSETS.does_asset_exist(FLAT_MASTER):
+        if not force:
+            return "exists"
+        material = unreal.load_asset(FLAT_MASTER)
+        LIB.delete_all_material_expressions(material)
+    else:
+        material = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+            "M_MI_Flat", MAT_DIR, unreal.Material, unreal.MaterialFactoryNew())
+    wp = world_position(material, -1200, 0)
+    vertex_colour = expr(material, unreal.MaterialExpressionVertexColor, -1200, 120)
+    colour = expr(material, unreal.MaterialExpressionVectorParameter, -1200, 240, parameter_name="Colour",
+                  default_value=unreal.LinearColor(0.5, 0.5, 0.5, 1))
+    rough = expr(material, unreal.MaterialExpressionScalarParameter, -1200, 360, parameter_name="Roughness",
+                 default_value=0.5)
+    metal = expr(material, unreal.MaterialExpressionScalarParameter, -1200, 460, parameter_name="Metallic",
+                 default_value=0.0)
+    emissive = expr(material, unreal.MaterialExpressionScalarParameter, -1200, 560, parameter_name="EmissiveNits",
+                    default_value=0.0)
+    node = custom(material, -800, 200, FLAT_HLSL, ["WP", "VC", "Colour", "Roughness"],
+                  unreal.CustomMaterialOutputType.CMOT_FLOAT3, ["Rough"])
+    LIB.connect_material_expressions(wp, "", node, "WP")
+    LIB.connect_material_expressions(vertex_colour, "R", node, "VC")
+    LIB.connect_material_expressions(colour, "", node, "Colour")
+    LIB.connect_material_expressions(rough, "", node, "Roughness")
+    glow = expr(material, unreal.MaterialExpressionMultiply, -500, 500)
+    LIB.connect_material_expressions(colour, "", glow, "A")
+    LIB.connect_material_expressions(emissive, "", glow, "B")
+    LIB.connect_material_property(node, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    LIB.connect_material_property(node, "Rough", unreal.MaterialProperty.MP_ROUGHNESS)
+    LIB.connect_material_property(metal, "", unreal.MaterialProperty.MP_METALLIC)
+    LIB.connect_material_property(glow, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    LIB.recompile_material(material)
+    ASSETS.save_asset(FLAT_MASTER, only_if_is_dirty=False)
+    return "created"
+
+
+def instance_of(name, parent_path, force):
+    """Load or create the instance `name` under parent_path; None when it exists and force is off."""
+    path = "%s/%s" % (MAT_DIR, name)
+    if ASSETS.does_asset_exist(path):
+        if not force:
+            return None
+        instance = unreal.load_asset(path)
+    else:
+        instance = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+            name, MAT_DIR, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
+    LIB.set_material_instance_parent(instance, unreal.load_asset(parent_path))
+    return instance
+
+
+def finish_instance(instance, name):
+    LIB.update_material_instance(instance)
+    ASSETS.save_asset("%s/%s" % (MAT_DIR, name), only_if_is_dirty=False)
+    return "created"
+
+
+def make_flat_instance(name, values, force):
+    instance = instance_of(name, FLAT_MASTER, force)
+    if instance is None:
+        return "exists"
+    colour, rough, metal, nits = values
+    LIB.set_material_instance_vector_parameter_value(instance, "Colour", unreal.LinearColor(colour[0], colour[1], colour[2], 1))
+    LIB.set_material_instance_scalar_parameter_value(instance, "Roughness", rough)
+    LIB.set_material_instance_scalar_parameter_value(instance, "Metallic", metal)
+    LIB.set_material_instance_scalar_parameter_value(instance, "EmissiveNits", nits)
+    return finish_instance(instance, name)
+
+
+def make_glass_instance(name, values, force):
+    instance = instance_of(name, GLASS_MASTER, force)
+    if instance is None:
+        return "exists"
+    LIB.set_material_instance_vector_parameter_value(instance, "Room", unreal.LinearColor(*(values["room"] + (0,))))
+    LIB.set_material_instance_vector_parameter_value(instance, "Offset", unreal.LinearColor(*(values["offset"] + (0,))))
+    for key, param in (("nits", "Nits"), ("shop", "Shop"), ("sill", "Sill")):
+        LIB.set_material_instance_scalar_parameter_value(instance, param, values[key])
+    return finish_instance(instance, name)
 
 
 def make_instance(name, set_name, tint=(1, 1, 1), blend_set=None, alpha_means=None, world_tile_m=None,
@@ -376,11 +665,18 @@ def make_instance(name, set_name, tint=(1, 1, 1), blend_set=None, alpha_means=No
                                       unreal.MaterialInstanceConstantFactoryNew())
     LIB.set_material_instance_parent(instance, unreal.load_asset(MASTER))
     for kind in ("BC", "N", "ORM"):
-        texture = unreal.load_asset(texture_path(set_name, kind))
+        texture = unreal.load_asset(texture_path(set_name, kind)) if ASSETS.does_asset_exist(
+            texture_path(set_name, kind)) else unreal.load_asset(FLAT_NORMAL if kind == "N" else BLACK_TEXTURE)
         LIB.set_material_instance_texture_parameter_value(instance, kind, texture)
         other = blend_set or roof_set
         second = unreal.load_asset(texture_path(other, kind)) if other and has_set(other) else texture
         LIB.set_material_instance_texture_parameter_value(instance, kind + "2", second)
+    # Unique (baked) sets: no macro variation and no detail resample (their UVs are an atlas).
+    LIB.set_material_instance_vector_parameter_value(instance, "Macro", unreal.LinearColor(
+        1.0 if wear > 0 else 0.0, 1.0 if wear > 0 else 0.0, 0, 0))
+    if ASSETS.does_asset_exist(texture_path(set_name, "E")):
+        LIB.set_material_instance_texture_parameter_value(instance, "E", unreal.load_asset(texture_path(set_name, "E")))
+        LIB.set_material_instance_scalar_parameter_value(instance, "EmissiveScale", SIGN_NITS)
     LIB.set_material_instance_vector_parameter_value(instance, "Tint", unreal.LinearColor(tint[0], tint[1], tint[2], 1))
     modes = (1.0 if blend_set and has_set(blend_set) else 0.0,
              1.0 if alpha_means == "splash" else 0.0,
@@ -408,6 +704,8 @@ def material_units(force):
     defaults_set = "TS_Concrete_ScanFormed"
     defaults = {kind: unreal.load_asset(texture_path(defaults_set, kind)) for kind in ("BC", "N", "ORM")}
     yield "master material", lambda: build_master(defaults, force)
+    yield "glass master", lambda: build_glass_master(force)
+    yield "flat master", lambda: build_flat_master(force)
     seen = set()
     for asset in art_assets(man).values():
         for slot in asset.get("material_slots", []):
@@ -415,12 +713,24 @@ def material_units(force):
             if name in seen:
                 continue
             seen.add(name)
-            set_name = slot["set"] if has_set(slot["set"]) else defaults_set    # stand-in for a missing set
-            tint = slot.get("tint") or ((1.0, 0.75, 0.45) if set_name != slot["set"] else (1, 1, 1))
-            wear = 0.0 if slot.get("workflow") == "unique" else 1.0           # unique sets carry their wear baked
+            if name in GLASS_SLOTS or slot.get("workflow") == "glass":
+                values = GLASS_SLOTS.get(name, GLASS_SLOTS["MI_Glass_Window"])
+                yield "glass " + name, (lambda n=name, v=values: make_glass_instance(n, v, force))
+                continue
+            if name in FLAT_SLOTS or (slot.get("workflow") == "flat") or not has_set(slot["set"]):
+                values = FLAT_SLOTS.get(name, SIGN_STAND_IN)
+                yield "flat " + name, (lambda n=name, v=values: make_flat_instance(n, v, force))
+                continue
+            set_name = slot["set"]
+            tint = slot.get("tint") or (1, 1, 1)
+            wear = 0.0 if slot.get("workflow") in ("unique", "sign") else 1.0   # unique sets carry their wear baked
             yield "instance " + name, (lambda n=name, s=set_name, t=tint, b=slot.get("blend_set_G"),
                                        a=slot.get("alpha_means"), w=wear:
                                        make_instance(n, s, t, b, a, None, w, force))
+    # One awning cloth per shop colour (placements carry the shop's sRGB colour).
+    for shop, tint in sorted(awning_tints().items()):
+        yield "awning " + shop, (lambda n="MI_Fabric_ScanCanvas_" + shop, t=tint:
+                                 make_instance(n, "TS_Fabric_ScanCanvas", t, None, "splash", None, 1.0, force))
     for name, set_name, tint in list(GREY_SURFACE.values()) + list(GROUND_SURFACE.values()):
         if name in seen:
             continue
@@ -428,6 +738,29 @@ def material_units(force):
         roof = ROOF_SET if name == GREY_SURFACE["brick"][0] else None
         yield "instance " + name, (lambda n=name, s=set_name, t=tint, r=roof:
                                    make_instance(n, s, t, None, None, set_tile_m(man, s), 0.0, force, r))
+
+
+def placements():
+    path = os.path.join(ART_IN, "placements", "buildings.json")
+    return load_json(path) if os.path.exists(path) else {"instances": []}
+
+
+def srgb_to_linear(hex_colour):
+    out = []
+    for k in (1, 3, 5):
+        c = int(hex_colour[k:k + 2], 16) / 255.0
+        out.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
+    return out
+
+
+def awning_tints():
+    """{shop: tint} for the awnings of the placements: the shop's cloth colour over the canvas scan's mean."""
+    tints = {}
+    for entry in placements()["instances"]:
+        if entry.get("shop") and entry.get("tint"):
+            colour = srgb_to_linear(entry["tint"])
+            tints[entry["shop"]] = tuple(c / m for c, m in zip(colour, AWNING_SCAN_MEAN))
+    return tints
 
 
 # ------------------------------------------------------------------------------------------------------- meshes
@@ -608,23 +941,52 @@ def level_units(force):
             spawn_box("Ground_%02d_%s" % (k, surface["surface"]), "Block/Ground", center, extent, material)
             count += 1
         far = unreal.load_asset("%s/%s" % (MAT_DIR, GROUND_SURFACE["far"][0]))
-        spawn_box("Ground_Far", "Block/Ground", (0, 0, -12.0), (30000, 30000, 10.0), far)
+        spawn_box("Ground_Far", "Block/Ground", (0, 0, -12.0), (500000, 500000, 10.0), far)
         return "%d slabs and the far ground" % count
     yield "ground", ground_chunk
 
-    # Grey-box massing: every movement-blocking static collider the meshes above do not already draw.
+    # The facade kit on the street-facing buildings, the catalogue props that have a mesh.
+    facade = placements()
+    faced = {b["name"] for b in level["buildings"]["list"] if b["id"] in facade.get("buildings", {})}
+    if faced:
+        faced.add("bulkhead")            # the stair bulkheads on their roofs are kit modules too
+    props = prop_placements(facade)
+    placed_props = {entry["prop"] for entry in props}
+    for building in sorted(facade.get("buildings", {})):
+        yield "facade " + building, (lambda b=building: place_facade(facade, b))
+    yield "props", lambda: place_props(props)
+
+    # Grey-box massing: every movement-blocking static collider the meshes above do not already draw. The colliders
+    # of what the art now draws stay as invisible blocking boxes: the tuned cover and openings do not change.
     boxes = [b for b in level["colliders"]["boxes"]
              if b["tag"] not in SKIP_COLLIDER_TAGS and b["blocks"]["movement"] and not b["flags"]["bulletOnly"]]
+
+    def drawn_by_art(box):
+        owner = box["owner"]
+        return (owner["kind"] == "level" and box["tag"] in faced) or \
+            (owner["kind"] == "prop" and owner.get("prop") in placed_props)
     for start in range(0, len(boxes), 120):
         def grey_chunk(items=boxes[start:start + 120]):
+            hidden = 0
             for box in items:
                 name = GREY_SURFACE.get(box["surface"], GREY_SURFACE["other"])[0]
                 material = unreal.load_asset("%s/%s" % (MAT_DIR, name))
                 c, e = box["ue"]["center"], box["ue"]["extent"]
-                spawn_box("Grey_%03d_%s" % (box["index"], box["tag"].replace(" ", "_")), "Block/GreyBox",
-                          (c["X"], c["Y"], c["Z"]), (e["X"], e["Y"], e["Z"]), material)
-            return "%d boxes" % len(items)
+                art = drawn_by_art(box)
+                actor = spawn_box("%s_%03d_%s" % ("Collision" if art else "Grey", box["index"], box["tag"].replace(" ", "_")),
+                                  "Block/Collision" if art else "Block/GreyBox",
+                                  (c["X"], c["Y"], c["Z"]), (e["X"], e["Y"], e["Z"]), material)
+                if art:
+                    component = actor.static_mesh_component
+                    component.set_visibility(False)
+                    component.set_hidden_in_game(True)
+                    setp(component, "cast_shadow", False)
+                    setp(component, "affect_distance_field_lighting", False)
+                    hidden += 1
+            return "%d boxes, %d of them invisible collision under art" % (len(items), hidden)
         yield "grey-box %d of %d" % (start, len(boxes)), grey_chunk
+
+    yield "backdrop", lambda: build_backdrop(level, facade)
 
     def start_and_rig():
         start = level["playerStart"]["ue"]
@@ -639,6 +1001,186 @@ def level_units(force):
         count = len([a for a in ACTORS.get_all_level_actors() if TAG in [str(t) for t in a.tags]])
         return "saved=%s, %d actors" % (saved, count)
     yield "save", save
+
+
+# ------------------------------------------------------------------------------------------- instanced art
+
+def transform(location, yaw=0.0, scale=(1.0, 1.0, 1.0)):
+    return unreal.Transform(unreal.Vector(*location), rotator(yaw=yaw), unreal.Vector(*scale))
+
+
+def instance_holder(label, folder):
+    """An empty static mesh actor whose root carries the instanced static mesh components."""
+    actor = ACTORS.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(0, 0, 0), rotator())
+    actor.static_mesh_component.set_mobility(unreal.ComponentMobility.STATIC)
+    return tag(actor, label, folder)
+
+
+def add_instances(actor, mesh_path, transforms, material=None, collide=False):
+    """One InstancedStaticMeshComponent on `actor` with `transforms` (world space), added the way the details panel
+    adds a component (SubobjectDataSubsystem), so it is saved with the level."""
+    subsystem = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
+    root = subsystem.k2_gather_subobject_data_for_instance(actor)[0]
+    params = make_struct(unreal.AddNewSubobjectParams, parent_handle=root,
+                         new_class=unreal.InstancedStaticMeshComponent)
+    handle, reason = subsystem.add_new_subobject(params)
+    data = unreal.SubobjectDataBlueprintFunctionLibrary.get_data(handle)
+    component = unreal.SubobjectDataBlueprintFunctionLibrary.get_object(data)
+    if component is None:
+        raise RuntimeError("cannot add an instanced mesh component: %s" % reason)
+    subsystem.rename_subobject(handle, unreal.Text(mesh_path.rsplit("/", 1)[-1]))
+    component.set_mobility(unreal.ComponentMobility.STATIC)
+    component.set_static_mesh(unreal.load_asset(mesh_path))
+    if material is not None:
+        for index in range(component.get_num_materials()):
+            component.set_material(index, material)
+    if not collide:
+        component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+    component.add_instances(transforms, False, True)
+    return component
+
+
+def place_facade(facade, building):
+    """Every module instance of one building, one instanced component per module (and per awning colour)."""
+    groups = {}
+    for entry in facade["instances"]:
+        if entry["building"] != building:
+            continue
+        mesh = entry["mesh"]
+        if not ASSETS.does_asset_exist("%s/%s" % (MESH_DIR, mesh)):
+            groups.setdefault(("missing", mesh), []).append(entry)
+            continue
+        key = (mesh, entry.get("shop") if entry.get("tint") else None)
+        scale = tuple(entry.get("scale", (1.0, 1.0, 1.0)))
+        groups.setdefault(key, []).append(transform(entry["location"], entry["yaw"], scale))
+    holder = instance_holder("Facade_" + building, "Block/Facades")
+    count, missing = 0, []
+    for (mesh, shop), items in sorted(groups.items(), key=lambda kv: (kv[0][0], kv[0][1] or "")):
+        if mesh == "missing":
+            missing.append(shop)
+            continue
+        material = None
+        if shop:
+            path = "%s/MI_Fabric_ScanCanvas_%s" % (MAT_DIR, shop)
+            material = unreal.load_asset(path) if ASSETS.does_asset_exist(path) else None
+        add_instances(holder, "%s/%s" % (MESH_DIR, mesh), items, material, collide=False)
+        count += len(items)
+    return "%d instances of %d modules%s" % (count, len(groups) - len(missing),
+                                             (", missing meshes " + ",".join(missing)) if missing else "")
+
+
+def catalogue_meshes():
+    """{catalogue id: [mesh names]} from the manifest notes ("Catalogue <id>: ...", "Stands for catalogue id '<id>'",
+    "(catalogue <id>, ..."), the modelled furniture before the scans when both exist (they have the catalogue size)."""
+    found = {}
+    for name, asset in art_assets(manifest()).items():
+        notes = asset.get("notes") or ""
+        ids = re.findall(r"^Catalogue ([a-z_]+)", notes) + re.findall(r"catalogue id '([a-z_]+)'", notes) + \
+            re.findall(r"\(catalogue ([a-z_]+)[,)]", notes)
+        for cid in ids:
+            found.setdefault(cid, [])
+            if name not in found[cid]:
+                found[cid].append(name)
+    for cid, names in CATALOGUE_EXTRA.items():
+        found.setdefault(cid, [])
+        found[cid] = [n for n in names if ASSETS.does_asset_exist("%s/%s" % (MESH_DIR, n))] + found[cid]
+    for cid, names in found.items():
+        modelled = [n for n in names if n.startswith("SM_Furn_")]
+        if modelled:
+            found[cid] = modelled
+    return {cid: names for cid, names in found.items() if names}
+
+
+def prop_placements(facade):
+    """[{prop, mesh, location, yaw, scale}] for the dressing props of props.json that have a mesh. The mesh's
+    footprint centre goes where the catalogue shape's footprint centre is (pivots differ: the fire-escape balcony
+    has its pivot at its left end on the wall). Props the facade kit already draws (its fire escapes) are skipped."""
+    data = game_data("props")
+    types = data["catalogue"]["types"]
+    meshes = catalogue_meshes()
+    man = manifest()["assets"]
+    balconies = [e for e in facade["instances"] if e["mesh"] == "SM_Facade_FireEscape_Balcony"]
+    out = []
+    for prop in data["instances"]["list"]:
+        names = meshes.get(prop["name"])
+        if not names or prop["role"]["kind"] != "dressing" or prop["dynamic"]:
+            continue
+        mesh = names[prop["seed"] % len(names)]
+        ue = prop["ue"]
+        yaw = ue["yaw"]
+        scale = (ue["scale"]["X"], ue["scale"]["Y"], ue["scale"]["Z"])
+        variants = types[prop["name"]]["variants"]
+        want = variants[min(prop.get("shapeVariant") or 0, len(variants) - 1)]["bounds"]["ue"]["center"]
+        box = man[mesh]["bounds_unreal_cm"]
+        have = ((box["min"][0] + box["max"][0]) / 2.0, (box["min"][1] + box["max"][1]) / 2.0)
+        dx, dy = (want["X"] - have[0]) * scale[0], (want["Y"] - have[1]) * scale[1]
+        c, s_ = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
+        location = (ue["pos"]["X"] + c * dx - s_ * dy, ue["pos"]["Y"] + s_ * dx + c * dy, ue["pos"]["Z"])
+        if prop["name"] == "fire_escape" and any(
+                abs(b["location"][0] + 149.5 * math.cos(math.radians(b["yaw"])) - ue["pos"]["X"]) < 150 and
+                abs(b["location"][1] - ue["pos"]["Y"]) < 150 and abs(b["location"][2] - ue["pos"]["Z"]) < 50
+                for b in balconies):
+            continue
+        out.append(dict(prop=prop["index"], name=prop["name"], mesh=mesh, location=location, yaw=yaw, scale=scale))
+    return out
+
+
+def place_props(props):
+    groups = {}
+    for entry in props:
+        groups.setdefault(entry["mesh"], []).append(transform(entry["location"], entry["yaw"], entry["scale"]))
+    holder = instance_holder("Props", "Block/Props")
+    for mesh, items in sorted(groups.items()):
+        add_instances(holder, "%s/%s" % (MESH_DIR, mesh), items, None, collide=False)
+    names = sorted({e["name"] for e in props})
+    return "%d props of %d catalogue ids with %d meshes: %s" % (len(props), len(names), len(groups), ",".join(names))
+
+
+def build_backdrop(level, facade):
+    """What the player sees past the bounds: the avenue's own buildings continuing east and west, the neighbours'
+    backs, then a distant skyline in the haze. Deterministic (seeded) masses with the scanned brick and concrete
+    (world-projected), no collision: nobody reaches them."""
+    rng = random.Random(1937)
+    brick = unreal.load_asset("%s/%s" % (MAT_DIR, GREY_SURFACE["brick"][0]))
+    concrete = unreal.load_asset("%s/%s" % (MAT_DIR, GREY_SURFACE["concrete"][0]))
+    bounds = level["bounds"]["ue"]
+    holder_near, holder_far = [], []
+    # The avenue continues: street walls from the bounds out to 450 m, lots 8 to 30 m wide, 2 to 6 storeys.
+    for side in (-1, 1):
+        for direction in (-1, 1):
+            x = bounds["maxX"] if direction > 0 else bounds["minX"]
+            while abs(x) < BACKDROP_AVENUE_CM:
+                width = rng.uniform(800, 3000)
+                storeys = rng.randint(2, 6)
+                height = 380 + 310 * (storeys - 1) + 90
+                depth = rng.uniform(1500, 2500)
+                x0, x1 = (x, x + width) if direction > 0 else (x - width, x)
+                y0 = 1100 * side
+                centre = ((x0 + x1) / 2.0, y0 + side * depth / 2.0, height / 2.0)
+                holder_near.append((centre, ((x1 - x0) / 2.0 - 10, depth / 2.0, height / 2.0)))
+                x = x1 if direction > 0 else x0
+    # The blocks behind: rows of 4 to 8 storeys out to 300 m, avenue gap kept clear.
+    for k in range(260):
+        cx, cy = rng.uniform(-30000, 30000), rng.uniform(-30000, 30000)
+        if abs(cy) < 4000 + rng.uniform(0, 1500) or (abs(cx) < 5200 and abs(cy) < 5200):
+            continue
+        storeys = rng.randint(4, 8) if math.hypot(cx, cy) < 15000 else rng.randint(6, 30)
+        height = 310 * storeys + 400
+        holder_far.append(((cx, cy, height / 2.0), (rng.uniform(800, 2500), rng.uniform(800, 2500), height / 2.0)))
+    # A distant skyline to the west and south-west, 2.5 to 4.5 km off: towers 40 to 300 m.
+    for k in range(90):
+        angle = math.radians(rng.uniform(150, 235))
+        distance = rng.uniform(250000, 450000)
+        height = rng.uniform(8000, 30000) if rng.random() < 0.35 else rng.uniform(4000, 12000)
+        cx, cy = math.cos(angle) * distance, -math.sin(angle) * distance
+        holder_far.append(((cx, cy, height / 2.0), (rng.uniform(1500, 4000), rng.uniform(1500, 4000), height / 2.0)))
+    near = instance_holder("Backdrop_Avenue", "Block/Backdrop")
+    far = instance_holder("Backdrop_City", "Block/Backdrop")
+    add_instances(near, CUBE.split(".")[0], [transform(c, 0.0, (e[0] / 50.0, e[1] / 50.0, e[2] / 50.0))
+                                             for c, e in holder_near], brick)
+    add_instances(far, CUBE.split(".")[0], [transform(c, 0.0, (e[0] / 50.0, e[1] / 50.0, e[2] / 50.0))
+                                            for c, e in holder_far], concrete)
+    return "%d avenue masses, %d city and skyline masses" % (len(holder_near), len(holder_far))
 
 
 def setp(target, name, value):
@@ -665,6 +1207,18 @@ def build_day_rig(day):
     setp(light, "light_source_angle", SUN_SOURCE_ANGLE)
     setp(light, "cast_shadows", True)
     setp(light, "cast_volumetric_shadow", True)
+    setp(light, "volumetric_scattering_intensity", SUN_SHAFTS)      # shafts through the El ties in the haze
+    setp(light, "contact_shadow_length", CONTACT_SHADOW)            # bolts, kerbs and sills keep a dark line
+    setp(light, "cast_cloud_shadows", True)
+
+    # A clear afternoon with a few cumulus: the engine's volumetric cloud layer at low cover.
+    clouds = spawn_class(unreal.VolumetricCloud, "Clouds", "Block/Light")
+    cloud_component = clouds.get_component_by_class(unreal.VolumetricCloudComponent)
+    cloud_material = unreal.load_asset(CLOUD_MATERIAL)
+    if cloud_material is not None:
+        setp(cloud_component, "material", cloud_material)
+    for name, value in CLOUD_LAYER.items():
+        setp(cloud_component, name, value)
 
     atmosphere = spawn_class(unreal.SkyAtmosphere, "SkyAtmosphere", "Block/Light")
     sky_atmosphere = atmosphere.get_component_by_class(unreal.SkyAtmosphereComponent)
@@ -690,6 +1244,7 @@ def build_day_rig(day):
     setp(fog_component, "fog_inscattering_luminance", unreal.LinearColor(0, 0, 0, 1))
     setp(fog_component, "enable_volumetric_fog", True)
     setp(fog_component, "volumetric_fog_scattering_distribution", 0.7)
+    setp(fog_component, "volumetric_fog_extinction_scale", FOG_VOLUME_EXTINCTION)
 
     grade = day["grade"]
     volume = spawn_class(unreal.PostProcessVolume, "PostProcess", "Block/Light")
@@ -709,7 +1264,7 @@ def build_day_rig(day):
         ("vignette_intensity", 0.15),
         ("white_temp", 6300.0),
         ("local_exposure_highlight_contrast_scale", 0.8),
-        ("local_exposure_shadow_contrast_scale", 0.72),
+        ("local_exposure_shadow_contrast_scale", LOCAL_SHADOW_CONTRAST),
         ("lumen_final_gather_quality", 1.0),
         ("lumen_scene_detail", 2.0),
     )
