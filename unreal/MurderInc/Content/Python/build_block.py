@@ -46,7 +46,8 @@ CUBE = "/Engine/BasicShapes/Cube.Cube"          # 100 cm, centred on its origin
 # docs/unreal/spec/06-look-fx.md 4.5). The day rig's own numbers come from atmos.json.
 EL_LAMP_MOUNT_Z = 602.0          # top of the lamp canopy under the deck (README: lamps at (x + 5, +-2.1, 6.02))
 LUX_PER_GAME_LUX = 24400.0       # spec 4.5: the web sun (5 game lux x colour luminance 0.819) anchored at 100,000 lx
-DAY_EV100 = 13.4                 # spec 4.5: the web day exposure in physical terms
+DAY_EV100 = (12.9, 14.2)         # art bible 2.3: auto exposure clamped; open sun near 14.2, under the El about 13.2,
+                                 # the lower clamp is the readability dial (spec 4.5 puts the web's fixed 1.1 at 13.4)
 SUN_SOURCE_ANGLE = 0.5357        # art bible 2.4
 STREET_EXTENT_CM = 7000          # street kit runs this far east and west of the centre (the bounds end at 4,600)
 GREY_SURFACE = {                 # collider surface -> (grey-box instance, texture set, tint)
@@ -692,15 +693,17 @@ def build_day_rig(day):
         ("dynamic_global_illumination_method", unreal.DynamicGlobalIlluminationMethod.LUMEN),
         ("reflection_method", unreal.ReflectionMethod.LUMEN),
         ("auto_exposure_method", unreal.AutoExposureMethod.AEM_HISTOGRAM),
-        ("auto_exposure_min_brightness", DAY_EV100),          # min = max: a fixed exposure, no adaptation history
-        ("auto_exposure_max_brightness", DAY_EV100),
+        ("auto_exposure_min_brightness", DAY_EV100[0]),
+        ("auto_exposure_max_brightness", DAY_EV100[1]),
         ("auto_exposure_bias", 0.0),
+        ("auto_exposure_speed_up", 6.0),                      # settles within the shot warm-up
+        ("auto_exposure_speed_down", 6.0),
         ("bloom_intensity", 0.25),                            # art bible 2.3: restrained, no threshold
         ("bloom_threshold", -1.0),
         ("vignette_intensity", 0.15),
         ("white_temp", 6300.0),
         ("local_exposure_highlight_contrast_scale", 0.8),
-        ("local_exposure_shadow_contrast_scale", 0.8),
+        ("local_exposure_shadow_contrast_scale", 0.72),
         ("lumen_final_gather_quality", 1.0),
         ("lumen_scene_detail", 2.0),
     )
@@ -716,8 +719,8 @@ def build_day_rig(day):
                                                                     grade["saturation"], 1.0))
     settings.set_editor_property("override_color_saturation", True)
     volume.set_editor_property("settings", settings)
-    return "sun %.0f lx at pitch %.1f yaw %.1f, fog density %.4f, EV100 %.1f, %d post settings" % (
-        lux, r["Pitch"], r["Yaw"], density, DAY_EV100, len(applied))
+    return "sun %.0f lx at pitch %.1f yaw %.1f, fog density %.4f, EV100 %.1f..%.1f, %d post settings" % (
+        lux, r["Pitch"], r["Yaw"], density, DAY_EV100[0], DAY_EV100[1], len(applied))
 
 
 # ------------------------------------------------------------------------------------------------------ the job
