@@ -1276,7 +1276,6 @@ def build_rack_wreck(ctx, M):
     geo.set_verts(pl, co)
     geo.displace(pl, 0.003, 12.0, 21)
     part(pl, W["soot"])
-    geo.assign(pl, W["blued"], lambda x, y, z: (np.sin(x * 9.0 + 1.0) + np.cos(y * 11.0) + 0.6 * np.sin(x * 23 + y * 17)) > 0.9)
     P.append(pl)
     for sx in (-1, 1):                                                       # two bent posts leaning out
         path = [(sx * 0.41, 0.20, 0.03), (sx * 0.42, 0.21, 0.18), (sx * 0.47, 0.24, 0.31), (sx * 0.55, 0.28, 0.40), (sx * 0.57, 0.29, 0.43)]
@@ -1286,8 +1285,8 @@ def build_rack_wreck(ctx, M):
         P.append(post)
         stub = geo.box((0.04, 0.04, 0.06), bevel=0.003)
         P.append(part(X(stub, (sx * 0.41, 0.20, 0.03)), W["soot"]))
-    for k, (x, y, rz, ang, h) in enumerate(((-0.22, -0.22, 20, 80, 0.30), (0.22, -0.24, -35, 110, 0.36), (0.36, 0.05, 70, 60, 0.24),
-                                             (-0.40, 0.10, 120, 90, 0.20))):
+    for k, (x, y, rz, ang, h) in enumerate(((-0.22, -0.24, 20, 80, 0.18), (0.24, -0.26, -35, 100, 0.22), (0.40, 0.10, 70, 60, 0.15),
+                                             (-0.42, 0.12, 120, 90, 0.14))):
         r = 0.115 if k != 1 else 0.14                                            # burst cylinder shells lying on the ground
         sh = geo.revolve([(r, 0.0), (r, h)], 24, angle=ang, name="shell")
         geo.densify(sh, 0.02, 3)

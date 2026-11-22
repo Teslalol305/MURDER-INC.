@@ -1419,7 +1419,7 @@ GROUPS = {
              "SM_Prop_ToolChest", "SM_Prop_CrateWood", "SM_Prop_CrateWood_B", "SM_Prop_CardboardBoxes", "SM_Prop_Tire"],
 }
 PREVIEWS = {"gaps_street": "street", "gaps_yard": "yard"}
-GRAPHICS = ["SM_Street_PhoneBooth", "SM_Street_SignPost", "SM_Sign_PawnBalls", "SM_Sign_BarberPole", "SM_Prop_VendingMachine",
+GRAPHICS = ["SM_Street_Hydrant_Open", "SM_Sign_LicensePlate", "SM_Street_PhoneBooth", "SM_Street_SignPost", "SM_Sign_PawnBalls", "SM_Sign_BarberPole", "SM_Prop_VendingMachine",
             "SM_Prop_CrateWood_B", "SM_Prop_CardboardBoxes", "SM_Street_FoodCart"]
 
 
@@ -1532,7 +1532,23 @@ YARD_VIEW = {"SM_Prop_CarLift": (-4.6, 2.4, 0), "SM_Prop_CarLift_Arms": (-4.6, 2
 GRAPHICS_VIEW = {"SM_Sign_PawnBalls": (-1.0, 2.0, 0, 2.6), "SM_Sign_BarberPole": (1.6, 2.0, 0, 1.15), "SM_Street_PhoneBooth": (-2.7, 0.9, 0),
                  "SM_Street_SignPost": (0.35, -0.5, 0), "SM_Prop_VendingMachine": (2.9, 1.3, 0), "SM_Prop_CrateWood_B": (1.1, 0.0, -60),
                  "SM_Prop_CardboardBoxes": (2.1, -0.9, -15), "_meter": (-1.6, -0.9, 0), "_news": (-1.15, 1.3, 0), "_mail": (-0.35, 1.35, 0),
-                 "_booth": (5.2, 1.6, 0), "_banner": (0.0, 1.98, 0, 3.4)}
+                 "_booth": (5.2, 1.6, 0), "_banner": (0.0, 1.98, 0, 3.4), "SM_Street_Hydrant_Open": (-1.9, 0.2, 0),
+                 "SM_Sign_LicensePlate": (-2.05, 1.995, 0, 1.45)}
+
+
+def glass_shadows_pass(m):
+    """Preview only: Cycles renders no caustics, so anything behind glass sits in its shadow (black barber pole);
+    Unreal translucency does not shadow like that. Let shadow rays through the glass."""
+    nt = m.node_tree
+    out = next(n for n in nt.nodes if n.bl_idname == "ShaderNodeOutputMaterial")
+    src = out.inputs["Surface"].links[0].from_socket
+    lp = nt.nodes.new("ShaderNodeLightPath")
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(lp.outputs["Is Shadow Ray"], mix.inputs[0])
+    nt.links.new(src, mix.inputs[1])
+    nt.links.new(tr.outputs[0], mix.inputs[2])
+    nt.links.new(mix.outputs[0], out.inputs["Surface"])
 
 
 def on_preview(ctx, objs):
@@ -1560,6 +1576,7 @@ def on_preview(ctx, objs):
             bpy.data.objects.remove(o, do_unlink=True)
     if "gaps_graphics" in only:
         M = ctx.M
+        glass_shadows_pass(M["glass"])
         Q = Quiet(ctx)
         extra = {"_meter": F.parking_meter(Q, M), "_news": F.newspaper_box(Q, M), "_mail": F.mailbox(Q, M), "_booth": F.lot_booth(Q, M)}
         bb = B(299)
