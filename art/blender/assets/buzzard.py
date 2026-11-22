@@ -1751,17 +1751,26 @@ def blur_discs(arm, opacity):
     return out
 
 
+def set_emission(name, strength):
+    m = bpy.data.materials.get(name)
+    if m is not None:
+        b = mat.principled(m)
+        if b is not None and "Emission Strength" in b.inputs:
+            b.inputs["Emission Strength"].default_value = strength
+
+
 def preview_hero(ctx, ob, arm):
-    """Three-quarter from below against the clear sky: flying attitude (nose down 6 deg, banked 8), gimbal and gun
-    turned toward the camera, blades crisp."""
-    render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=0.7)
+    """Three-quarter from below against the clear sky, on the sun side (the design sun stands in the west): flying
+    attitude (nose down 6 deg, banked 8), gimbal and gun turned a little toward the camera, blades crisp."""
+    render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=0.9)
     g = ground()
-    place(arm, (0.0, 0.0, 6.0), yaw=-18.0, roll=-8.0, pitch=6.0)
-    pose_gimbal(arm, yaw=-28.0, pitch=22.0, props={"fl": 20, "fr": 75, "rl": -30, "rr": 50})
+    place(arm, (0.0, 0.0, 6.0), yaw=-112.0, roll=-7.0, pitch=6.0)
+    pose_gimbal(arm, yaw=-14.0, pitch=18.0, props={"fl": 20, "fr": 75, "rl": -30, "rr": 50})
+    set_emission("M_Buzzard_Eye", 2.2)
     _hide_all_but([ob, g])
-    c = arm.matrix_world @ Vector((0.02, 0.0, -0.03))
-    d = Vector((0.62, -0.70, -0.36)).normalized()
-    cam = render.cam_look(c + d * 1.75, c, 50.0, name="Cam_hero", dof=(1.75, 5.6))
+    c = arm.matrix_world @ Vector((0.0, 0.0, -0.02))
+    d = Vector((-0.74, -0.56, -0.38)).normalized()
+    cam = render.cam_look(c + d * 2.05, c, 50.0, name="Cam_hero", dof=(2.05, 5.6))
     cam.data.clip_start = 0.02
     render.setup(samples=ctx.args.samples, res=(1280, 720))
     path, sec = render.render_jpeg(_prev("buzzard_hero"), ctx.args.samples)
@@ -1780,6 +1789,7 @@ def preview_under(ctx, ob, arm):
     yaw = math.degrees(math.atan2(eye.y - loc.y, eye.x - loc.x))
     place(arm, loc, yaw=yaw, pitch=4.0, roll=3.0)
     pose_gimbal(arm, yaw=0.0, pitch=34.0, props={"fl": 30, "fr": 80, "rl": -20, "rr": 140})
+    set_emission("M_Buzzard_Eye", 4.0)
     _hide_all_but([ob, g] + el + discs)
     cam = render.cam_look(eye, loc + Vector((0.0, 0.0, 0.25)), 40.0, name="Cam_under")
     render.setup(samples=ctx.args.samples, res=(1280, 720))
