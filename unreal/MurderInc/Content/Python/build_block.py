@@ -51,7 +51,7 @@ DAY_EV100 = (12.9, 14.2)         # art bible 2.3: auto exposure clamped; open su
 SUN_SOURCE_ANGLE = 0.5357        # art bible 2.4
 STREET_EXTENT_CM = 7000          # street kit runs this far east and west of the centre (the bounds end at 4,600)
 GREY_SURFACE = {                 # collider surface -> (grey-box instance, texture set, tint)
-    "brick": ("MI_Grey_Brick", "TS_Brick_ScanRedCommon", (1.0, 1.0, 1.0)),
+    "brick": ("MI_Grey_Brick", "TS_Brick_ScanRedCommon", (1.0, 1.0, 1.0)),       # roofs: ROOF_SET
     "concrete": ("MI_Grey_Concrete", "TS_Concrete_ScanWeathered", (1.0, 1.0, 1.0)),
     "metal": ("MI_Grey_Metal", "TS_Concrete_ScanWeathered", (0.42, 0.45, 0.5)),
     "wood": ("MI_Grey_Wood", "TS_Concrete_ScanWeathered", (0.8, 0.58, 0.4)),
@@ -59,6 +59,7 @@ GREY_SURFACE = {                 # collider surface -> (grey-box instance, textu
     "glass": ("MI_Grey_Glass", "TS_Concrete_ScanWeathered", (0.28, 0.32, 0.36)),
     "other": ("MI_Grey_Other", "TS_Concrete_ScanWeathered", (0.6, 0.55, 0.5)),
 }
+ROOF_SET = "TS_Concrete_ScanWeathered"   # upward faces of the brick massing
 GROUND_SURFACE = {               # level.json ground surface -> (instance, texture set, tint)
     "asphalt": ("MI_Ground_Asphalt", "TS_Asphalt_ScanWorn", (1.0, 1.0, 1.0)),
     "concrete": ("MI_Ground_Concrete", "TS_Concrete_ScanRough", (1.0, 1.0, 1.0)),
@@ -199,14 +200,15 @@ float3 bc = BC * Tint;
 float rough = ORM.g;
 float metal = ORM.b;
 float ao = ORM.r;
-if (Modes.x > 0.5)          // G reveals the second set (paint to rust, paint to asphalt)
-{
-    bc = lerp(bc, BC2, edge);
-    rough = lerp(rough, ORM2.g, edge);
-    metal = lerp(metal, ORM2.b, edge);
-    ao = lerp(ao, ORM2.r, edge);
-}
-else                        // G: paler, smoother worn edges and traffic polish
+// The second set shows where G wears through (paint to rust, paint to asphalt) and, on grey-box massing with
+// Amount.y = 1, on every upward face (a brick block gets a concrete roof).
+float set2 = (Modes.x > 0.5) ? edge : 0.0;
+set2 = max(set2, Amount.y * step(0.7, NW.z));
+bc = lerp(bc, BC2, set2);
+rough = lerp(rough, ORM2.g, set2);
+metal = lerp(metal, ORM2.b, set2);
+ao = lerp(ao, ORM2.r, set2);
+if (Modes.x <= 0.5)         // G: paler, smoother worn edges and traffic polish
 {
     bc = lerp(bc, saturate(bc * 1.4 + 0.02), edge * 0.7);
     rough = lerp(rough, rough * 0.8, edge);
@@ -225,7 +227,7 @@ rough = lerp(rough, 0.08, wet);
 Rough = saturate(rough);
 Metal = saturate(metal);
 AO = saturate(ao);
-Edge = (Modes.x > 0.5) ? edge : 0.0;
+Edge = set2;
 return bc;
 """
 
@@ -330,18 +332,19 @@ def build_master(defaults, force):
     leak = vector("LeakColor", (0.2, 0.06, 0.02, 1), -900, 1100)         # rust #7A4428
     splash = vector("SplashColor", (0.22, 0.2, 0.17, 1), -900, 1200)     # dust #8A8172
     modes = vector("Modes", (0, 1, 0, 0), -900, 1300)       # x blend set on G, y splash on A, z silt on A, w wetness
-    amount = vector("WearAmount", (1, 0, 0, 0), -900, 1400)  # x: 0 switches the masks off (meshes without Wear)
+    amount = vector("WearAmount", (1, 0, 0, 0), -900, 1400)  # x: 0 switches the masks off (meshes without Wear);
+    #                                                          y: 1 puts the second set on upward faces (roofs)
     vertex_colour = expr(material, unreal.MaterialExpressionVertexColor, -900, 1500)
     wear = custom(material, -500, 300, WEAR_HLSL,
                   ["BC", "ORM", "BC2", "ORM2", "VC", "VA", "WP", "Tint", "DirtColor", "LeakColor", "SplashColor",
-                   "Modes", "Wetness", "Amount"],
+                   "Modes", "Wetness", "Amount", "NW"],
                   unreal.CustomMaterialOutputType.CMOT_FLOAT3, ["Rough", "Metal", "AO", "Edge"])
     for name, source, output in (("BC", samplers["BC"], "RGB"), ("ORM", samplers["ORM"], "RGB"),
                                  ("BC2", samplers["BC2"], "RGB"), ("ORM2", samplers["ORM2"], "RGB"),
                                  ("VC", vertex_colour, ""), ("VA", vertex_colour, "A"), ("WP", wp, ""),
                                  ("Tint", tint, ""), ("Wetness", modes, "A"),
                                  ("DirtColor", dirt, ""), ("LeakColor", leak, ""), ("SplashColor", splash, ""),
-                                 ("Modes", modes, ""), ("Amount", amount, "")):
+                                 ("Modes", modes, ""), ("Amount", amount, ""), ("NW", normal_ws, "")):
         if not LIB.connect_material_expressions(source, output, wear, name):
             raise RuntimeError("cannot connect %s output '%s' to the wear node" % (name, output))
 
@@ -361,7 +364,7 @@ def build_master(defaults, force):
 
 
 def make_instance(name, set_name, tint=(1, 1, 1), blend_set=None, alpha_means=None, world_tile_m=None,
-                  wear=1.0, force=False):
+                  wear=1.0, force=False, roof_set=None):
     path = "%s/%s" % (MAT_DIR, name)
     if ASSETS.does_asset_exist(path):
         if not force:
@@ -375,7 +378,8 @@ def make_instance(name, set_name, tint=(1, 1, 1), blend_set=None, alpha_means=No
     for kind in ("BC", "N", "ORM"):
         texture = unreal.load_asset(texture_path(set_name, kind))
         LIB.set_material_instance_texture_parameter_value(instance, kind, texture)
-        second = unreal.load_asset(texture_path(blend_set, kind)) if blend_set and has_set(blend_set) else texture
+        other = blend_set or roof_set
+        second = unreal.load_asset(texture_path(other, kind)) if other and has_set(other) else texture
         LIB.set_material_instance_texture_parameter_value(instance, kind + "2", second)
     LIB.set_material_instance_vector_parameter_value(instance, "Tint", unreal.LinearColor(tint[0], tint[1], tint[2], 1))
     modes = (1.0 if blend_set and has_set(blend_set) else 0.0,
@@ -383,7 +387,8 @@ def make_instance(name, set_name, tint=(1, 1, 1), blend_set=None, alpha_means=No
              1.0 if alpha_means == "wet" else 0.0,
              0.0)                                    # day: dry street (wetness 0)
     LIB.set_material_instance_vector_parameter_value(instance, "Modes", unreal.LinearColor(*modes))
-    LIB.set_material_instance_vector_parameter_value(instance, "WearAmount", unreal.LinearColor(wear, 0, 0, 0))
+    LIB.set_material_instance_vector_parameter_value(instance, "WearAmount",
+                                                     unreal.LinearColor(wear, 1.0 if roof_set else 0.0, 0, 0))
     if world_tile_m:
         LIB.set_material_instance_static_switch_parameter_value(instance, "WorldBoxUV", True)
         LIB.set_material_instance_scalar_parameter_value(instance, "TileCm", world_tile_m * 100.0)
@@ -420,8 +425,9 @@ def material_units(force):
         if name in seen:
             continue
         seen.add(name)
-        yield "instance " + name, (lambda n=name, s=set_name, t=tint:
-                                   make_instance(n, s, t, None, None, set_tile_m(man, s), 0.0, force))
+        roof = ROOF_SET if name == GREY_SURFACE["brick"][0] else None
+        yield "instance " + name, (lambda n=name, s=set_name, t=tint, r=roof:
+                                   make_instance(n, s, t, None, None, set_tile_m(man, s), 0.0, force, r))
 
 
 # ------------------------------------------------------------------------------------------------------- meshes
