@@ -284,3 +284,20 @@ Next step: the hands are the weakest part (rounded fingers without knuckle defin
 authored grip poses): sculpt-level finger shapes (flatter backs, knuckle creases), per-gun grip poses from the briefed
 grip sizes, a socket on SK_RuleArms made by hand in the editor (numbers in docs/unreal/CHARACTERS.md), then the Goons
 on the same pipeline (mi/char.transfer_weights, export_character).
+
+---------------------------------------------------------------------------------------------------------------
+# Buzzard (assets/buzzard.py), drone artist
+
+Task: SK_Buzzard (skinned, six bones + sockets, unique 4K set Buzzard), SM_Fx_BuzzardRotorBlur, SM_Fx_BuzzardBolt
+(+ _Head), the wreck pieces SM_Fx_BuzzardWreck_*, previews buzzard_hero/_under/_detail/_wire/_wreck, README row.
+Decisions: reuse weapons.py's modelling kit and texpaint Surf; one unique 4K set read by three slots (M_Buzzard with no
+emission, M_Buzzard_Eye, M_Buzzard_Strobe: the game scales E per slot); the UV layout is cached by mesh hash
+(art/out/textures/Buzzard/uv_cache.npz) because smart projection differs between processes; wreck pieces are cut
+from the skinned mesh (same UVs and set, slot M_Buzzard_Wreck) with jagged caps on the tiling set TS_Composite_Fracture.
+
+## Status
+- [x] airframe, rig, skinned export + re-import proof (props turned, gimbal pitched/yawed: 5e-8 m)
+- [ ] 4K bake, effects, wreck, previews, README row
+
+## Exact next step
+`build.py build buzzard --bake --export --preview --samples 64` (needs the 4K set; the drone UVs come from the cache).
