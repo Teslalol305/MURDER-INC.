@@ -503,3 +503,6 @@ previews goons_lineup/_hoodie_hero/_detail/_poses/_wire, CHARACTERS.md.
 - Known weaknesses: green globe lamps read as flat uniform spheres; the mezzanine office in the chop shop is dark;
   oil stains are soft uniform blobs; open-web joists read as plain beams from the floor; the kiosk padlock pokes
   16 mm outside collider 490.
+- [x] structures_station_up.jpg rendered (2K texture cap, 966 s) and looked at: treads, nosings, lattice
+      balustrades, canopy and bridge enclosure read; the doorway into the bridge at the head is black (no daytime light
+      inside the bridge). Task complete; all five previews in art/previews.
