@@ -792,6 +792,8 @@ def gen_body(ctx, key, spec, name):
     H = spec["size"][2]
     if abs(zc - spec["r"]) > 0.01:
         gen3d.warp(ob, 2, [(0.0, 0.0), (zc, spec["r"]), (H, H)])
+    if spec.get("xwarp"):                 # (close-up pass 4) a second remap of x between the axles (pickup cab)
+        gen3d.warp(ob, 0, spec["xwarp"])
     ctx.log("%s: contacts x %.3f / %.3f -> %.2f / %.2f, hub z %.3f -> %.3f, tyre |y| %.3f" % (
         key, xf, xr, ax_f, ax_r, zc, spec["r"], max(yf, yr)))
     cls, c, n = classify(ob, tex, spec)
@@ -1299,6 +1301,8 @@ def make_parts(ctx, key):
     # (close-up pass 3) lamps, grille and mirrors are planned on the uncut body and modelled after the clean-up
     lamp_plan = plan_lamps(ob, c, n, cls, spec) if spec.get("modelled_lamps") else []
     mirror_mounts = plan_mirrors(c, n, cls, spec) if spec.get("modelled_mirrors") else []
+    if spec.get("paint2"):                # (close-up pass 4) lamp faces turned paint keep the cab colour
+        cls[(cls == CLS["paint"]) & spec["paint2"](c)] = 8
     for hx, hz, ex, ez in spec.get("flat_boxes", []):    # generated handles, flaps: paint (then flattened)
         cls[(np.abs(c[:, 0] - hx) < ex) & (np.abs(c[:, 2] - hz) < ez) & (np.abs(c[:, 1]) > 0.55)
             & np.isin(cls, [CLS["trim"], CLS["inside"], CLS["amber"], CLS["head"], CLS["tail"]])] = CLS["paint"]
@@ -1307,7 +1311,12 @@ def make_parts(ctx, key):
         kb = ((cls == CLS["trim"]) & (c[:, 2] > spec["belt"] + b0_) & (c[:, 2] < spec["belt"] + b1_)
               & (np.abs(c[:, 1]) > spec["size"][1] / 2 - 0.22) & (np.abs(c[:, 0]) < spec["size"][0] / 2 - 0.45))
         cls[kb] = CLS["paint"]
-        ctx.log("%s: belt slab %d faces to paint" % (key, int(kb.sum())))
+        # its upward-facing top (the wide flat sill that caught the sky as a grey slab) is the black weatherstrip
+        ks = ((np.isin(cls, [CLS["paint"], CLS["trim"]])) & (c[:, 2] > spec["belt"] - 0.035) & (c[:, 2] < spec["belt"] + 0.06)
+              & (n[:, 2] > 0.30) & (np.abs(c[:, 1]) > spec["size"][1] / 2 - 0.16)
+              & (np.abs(c[:, 0]) < spec["size"][0] / 2 - 0.60))
+        cls[ks] = CLS["inside"]
+        ctx.log("%s: belt slab %d faces to paint, %d sill faces to black" % (key, int(kb.sum()), int(ks.sum())))
     ctx.log("%s: %d lamps / grilles planned, %d mirrors" % (key, len(lamp_plan), len(mirror_mounts)))
     if os.environ.get("VEH_DEBUG"):
         debug_classes(ob, cls, os.path.join(GEN, "debug_%s.jpg" % key))
@@ -1387,12 +1396,14 @@ def make_parts(ctx, key):
     gen3d.set_face_materials(ob, idx)
     tri0 = geo.stats(ob)["triangles"]
     gen3d.decimate(ob, 1.0, target=spec["tris"])
-    # (close-up pass 4) paint faces wound inward: their solidified inner layer (light headliner cloth) stood 1 cm
-    # proud of the paint as the torn white fragments; flipped before the smoothing and the solidify
+    # (close-up pass 4) paint faces looking into the body (folded-back layers of crumpled seams): their solidified
+    # inner layer (light headliner cloth) stood 1 cm proud of the paint as the torn white fragments; deleted
+    # before the smoothing and the solidify
     mi0 = np.empty(len(ob.data.polygons), np.int32)
     ob.data.polygons.foreach_get("material_index", mi0)
     pm0 = np.isin(mi0, [0, 1] + ([p2] if p2 else []))
-    ctx.log("%s: %d inward paint faces flipped" % (key, carfix.orient_outward(ob, keep=lambda c_, n_: pm0)))
+    ctx.log("%s: %d inward folded paint / trim faces deleted" % (key, carfix.orient_outward(
+        ob, keep=lambda c_, n_: pm0, delete=True)))
     if spec.get("smooth", 30):
         nfree = smooth_paint(ob, [0] + ([p2] if p2 else []), pairs=spec.get("smooth", 30))
         ctx.log("%s: paint panels smoothed (%d free vertices)" % (key, nfree))
@@ -1416,6 +1427,8 @@ def make_parts(ctx, key):
             geo.transform(ob, rot=(0, 0, -90))
             ctx.log("%s: %s flattened (%d vertices)" % (key, key_f, nf_))
     lamp_objs = build_lamps(ob, lamp_plan, spec, name) if lamp_plan else []
+    if spec.get("fog_fill"):              # (close-up pass 4) holes in the bumper face: modelled fog lamps
+        lamp_objs += fog_fill(ob, spec, name)
     if spec.get("rear_panes"):            # (close-up pass 4) the van's barn doors: seam, two panes, two handles
         lamp_objs += van_rear(ob, spec, name, len(ms) - 1)
     if spec.get("handles"):
@@ -1558,6 +1571,37 @@ def cabin(spec, name, **kw):
         c["shelf"] = (spec["rear_x"] - 0.06, spec["rear_x"] + 0.16, belt - 0.03)
     c.update(kw)
     return cp_objs(cp.interior(c, name=name + "_Cabin"))
+
+
+def fog_fill(ob, spec, name):
+    """(close-up pass 4) Open holes of the generated nose (the box truck's fog-lamp holes) filled with round fog
+    lamps: every border loop of the shell whose centre lies in spec fog_fill = (x min, z0, z1, |y| min, |y| max)
+    and whose size is 6-30 cm gets a lamp (black bucket, chrome bowl, clear fluted lens, chrome bezel) on the
+    surface fitted round it."""
+    from mathutils.bvhtree import BVHTree
+    xm, z0, z1, ya, yb = spec["fog_fill"]
+    co, _no = geo.arrays(ob)
+    out = []
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    bvh = BVHTree.FromBMesh(bm)
+    bm.free()
+    for lp in cp.boundary_loops(ob):
+        P = co[lp]
+        c_ = P.mean(0)
+        sy, sz = np.ptp(P[:, 1]), np.ptp(P[:, 2])
+        if not (c_[0] > xm and z0 < c_[2] < z1 and ya < abs(c_[1]) < yb and 0.06 < max(sy, sz) < 0.30):
+            continue
+        r = 0.5 * max(sy, sz) + 0.012
+        hits = _ray_hits(bvh, np.linspace(c_[1] - r - 0.05, c_[1] + r + 0.05, 9), np.linspace(c_[2] - r - 0.05, c_[2] + r + 0.05, 9),
+                         1, x_min=xm - 0.2)
+        if len(hits) < 12:
+            continue
+        fx = cp.fit_surface(hits, 1, deg=(1, 1))
+        d = cp.surface_lamp(fx, c_[1] - r, c_[1] + r, c_[2] - r, c_[2] + r, (("clear", 1.0),), facing=1, depth=0.06,
+                            cells=1, bezel_key="chrome", corner=r * 0.25, name=name + "_Fog")
+        out += cp_objs(d)
+    return out
 
 
 def van_rear(ob, spec, name, dark_slot):
@@ -2060,33 +2104,52 @@ def vulture_decals():
     # stencil 1.15 x 0.92 -> (0,0)-(1280,1024): (close-up pass 3) a hunched vulture on a wire, cut-stencil style:
     # heavy rounded back, wings drooped like a cloak past the wire with ragged primaries, a ruff at the shoulder,
     # a long bare neck reaching forward and down, a small bald head with a hooked beak
+    # (close-up pass 4) redrawn so it reads at 2 m: a side-on perched vulture facing the cab, hunched shoulders,
+    # the folded wing set off from the body by cut lines with ragged primaries hanging past the tail, a spiky ruff,
+    # a bare S-neck, a small bald head with a big hooked beak, two legs with curled talons gripping a wire that
+    # runs past the bird; sprayed bone white with an overspray haze
     st = Image.new("L", (1280, 1024), 0)
     sd = ImageDraw.Draw(st)
-    sd.line((40, 880, 1240, 850), fill=255, width=16)                         # the wire
-    body = [(360, 860), (330, 700), (380, 520), (500, 400), (640, 330), (760, 330), (850, 390), (900, 500),
-            (900, 650), (840, 800), (760, 870)]
+    sd.line((30, 772, 1250, 748), fill=255, width=18)                         # the wire, past the bird
+    body = [(330, 900), (350, 760), (400, 600), (470, 450), (570, 340), (690, 300), (800, 330), (860, 420),
+            (870, 540), (830, 650), (760, 720), (650, 745), (540, 770), (440, 830)]
     sd.polygon(body, fill=255)
-    wing = [(330, 560), (450, 420), (620, 360), (760, 400), (800, 560), (790, 760), (760, 1000), (700, 960),
-            (660, 1010), (600, 950), (550, 1005), (500, 940), (440, 990), (400, 920), (330, 950), (300, 840)]
-    sd.polygon(wing, fill=255)
-    for k in range(9):                                                         # ruff: a jagged collar
-        a0 = math.radians(200 + 20 * k)
-        cx_, cy_ = 880, 430
-        sd.polygon([(cx_ + 55 * math.cos(a0), cy_ + 45 * math.sin(a0)), (cx_ + 105 * math.cos(a0 + 0.17), cy_ + 85 * math.sin(a0 + 0.17)),
-                    (cx_ + 55 * math.cos(a0 + 0.35), cy_ + 45 * math.sin(a0 + 0.35))], fill=255)
-    sd.ellipse((820, 380, 960, 490), fill=255)
-    sd.line([(930, 430), (985, 360), (1040, 345), (1085, 380)], fill=255, width=34, joint="curve")   # bare neck
-    sd.ellipse((1060, 360, 1140, 440), fill=255)                               # bald head
-    sd.polygon([(1125, 380), (1190, 400), (1200, 440), (1175, 455), (1170, 425), (1130, 420)], fill=255)  # hooked beak
-    sd.polygon([(640, 860), (650, 930), (690, 930), (690, 860)], fill=255)    # talons over the wire
-    sd.polygon([(740, 860), (750, 930), (790, 930), (790, 860)], fill=255)
-    for y in (520, 660, 800):                                                   # stencil bridges across the wing
-        sd.line((380, y, 800, y - 50), fill=0, width=14)
-    sd.line((900, 470, 1000, 380), fill=0, width=10)                           # bridge between ruff and neck
-    sd.ellipse((1092, 382, 1110, 400), fill=0)                                 # eye
-    st = st.filter(ImageFilter.GaussianBlur(3))
+    tail = [(330, 880), (290, 1000), (330, 990), (360, 1010), (390, 980), (430, 1000), (440, 860)]
+    sd.polygon(tail, fill=255)
+    prim = [(360, 820), (250, 960), (300, 935), (285, 985), (345, 950), (345, 1000), (400, 940), (420, 990),
+            (450, 900)]                                                        # primaries hanging past the tail
+    sd.polygon(prim, fill=255)
+    for k in range(11):                                                        # ruff: spiky collar at the neck base
+        a0 = math.radians(150 + 22 * k)
+        cx_, cy_ = 860, 420
+        sd.polygon([(cx_ + 60 * math.cos(a0), cy_ + 52 * math.sin(a0)),
+                    (cx_ + 112 * math.cos(a0 + 0.19), cy_ + 96 * math.sin(a0 + 0.19)),
+                    (cx_ + 60 * math.cos(a0 + 0.38), cy_ + 52 * math.sin(a0 + 0.38))], fill=255)
+    sd.ellipse((790, 360, 935, 480), fill=255)
+    sd.line([(900, 400), (950, 330), (1000, 300), (1050, 310)], fill=255, width=30, joint="curve")   # bare S-neck
+    sd.ellipse((1030, 268, 1112, 345), fill=255)                               # small bald head
+    sd.polygon([(1095, 278), (1150, 285), (1190, 305), (1205, 335), (1196, 372), (1180, 380), (1178, 350),
+                (1160, 330), (1100, 335)], fill=255)                           # big hooked beak
+    for lx in (640, 735):                                                      # legs and talons on the wire
+        sd.polygon([(lx - 22, 700), (lx + 22, 700), (lx + 16, 760), (lx - 16, 760)], fill=255)
+        for dx_ in (-34, 0, 34):
+            sd.arc((lx + dx_ - 24, 740, lx + dx_ + 24, 800), 200, 340 if dx_ < 0 else 20, fill=255, width=14)
+            sd.arc((lx + dx_ - 22, 745, lx + dx_ + 22, 805), 20, 110, fill=255, width=12)
+    # cut lines: the folded wing's lower edge, two feather bands, the ruff edge, the eye and the beak's gape
+    sd.line([(855, 500), (790, 610), (680, 700), (540, 745), (430, 805), (365, 870)], fill=0, width=16, joint="curve")
+    sd.line([(470, 560), (600, 470), (760, 430)], fill=0, width=12, joint="curve")
+    sd.line([(430, 690), (580, 610), (780, 550)], fill=0, width=12, joint="curve")
+    sd.line([(380, 900), (330, 965)], fill=0, width=9)
+    sd.line([(410, 905), (395, 975)], fill=0, width=9)
+    sd.arc((780, 360, 940, 500), 100, 200, fill=0, width=10)
+    sd.ellipse((1064, 288, 1084, 308), fill=0)                                 # eye
+    sd.line([(1110, 330), (1170, 345)], fill=0, width=6)                       # gape
+    sd.line((30, 762, 1250, 738), fill=0, width=3)                             # wire highlight cut
+    hard = st.filter(ImageFilter.GaussianBlur(2.5))
+    haze = st.filter(ImageFilter.GaussianBlur(14))
     n = _noise((1024, 1280), 10.0, 7)
-    a = np.asarray(st, dtype=np.float32) / 255.0 * np.clip((n - 0.12) * 2.5, 0, 1)
+    a = np.maximum(np.asarray(hard, dtype=np.float32) / 255.0 * np.clip((n - 0.10) * 2.5, 0, 1),
+                   np.asarray(haze, dtype=np.float32) / 255.0 * 0.28 * (0.6 + 0.8 * n))
     lay = np.zeros((1024, 1280, 4), np.uint8)
     lay[..., :3] = bone[:3]
     lay[..., 3] = (np.clip(a, 0, 1) * 235).astype(np.uint8)
@@ -2268,6 +2331,8 @@ def _shell_variant(P, name, keep_bonnet=True):
     # (review fix) bumpers in any colour, the plate holders and the dark lamp lenses: the brief has none
     kill |= (np.abs(c[:, 0]) > 2.04) & (c[:, 2] < 0.64)
     kill |= (mi >= 1) & (np.abs(c[:, 0]) > 1.92) & (c[:, 2] < 1.0) & (np.abs(c[:, 1]) > 0.35)
+    # (close-up pass 4) body-colour mirror blobs: a wreck has none
+    kill |= (np.abs(c[:, 1]) > 0.875) & (c[:, 2] > 0.85) & (c[:, 2] < 1.30) & (c[:, 0] > 0.35) & (c[:, 0] < 1.25)
     gen3d.delete_faces(sh, kill)
     return sh
 
@@ -2303,9 +2368,12 @@ def v_burned(ctx, P):
     sh = _shell_variant(P, "Burned_Shell")
     k = _bonnet(sh)
     bon = gen3d.split_faces(sh, k, "Burned_Bonnet")
-    rust = set_material("TS_Steel_ScanRustHeavy", slot="MI_Steel_ScanRustHeavy")
+    # (close-up pass 4) the rust scan graded warm (its pale blue patches out) on the car's own slot
+    rust = set_material("TS_Steel_ScanRustHeavy", slot="M_Vehicle_BurnedCar_Rust", tint=(1.0, 0.80, 0.60))
     t_rust = mat.scan_tile("TS_Steel_ScanRustHeavy")
     char, t_char = tiling("TS_Char_Burnt")
+    soot_m = decal_mat(soot_set())
+    soot_parts = []
     rng = np.random.default_rng(7)
     for o in (sh, bon):
         o.data.materials.clear()
@@ -2316,19 +2384,36 @@ def v_burned(ctx, P):
         c, n, a = gen3d.face_arrays(o)
         # (review pass 2) soot by height in coherent 0.22 m blotches (not per face): black over the cabin and the
         # bonnet's rear, patchy down the flanks, rust where the paint burned through low down and on the arches
-        cell = np.floor(c / 0.22).astype(np.int64)
-        hsh = (cell[:, 0] * 73856093) ^ (cell[:, 1] * 19349663) ^ (cell[:, 2] * 83492791)
-        rc = (np.abs(hsh) % 1009) / 1009.0
-        p = np.clip((c[:, 2] - 0.40) / 0.55, 0.10, 0.92)
-        p = np.where(np.abs(c[:, 0]) < 1.2, np.minimum(p + 0.15, 0.95), p)     # the cabin burned hottest
-        p = np.where((c[:, 0] > 0.95) & (c[:, 0] < 1.45) & (c[:, 2] > 0.70), 0.9, p)
-        ch = rc < p
-        cl = class_vote(o, ch.astype(np.int32), 3)
-        gen3d.set_face_materials(o, cl)
+        # (close-up pass 4) no rust islands pasted on char: rust over the whole shell, charred only above a
+        # wavy line at the belt (pillars, roof) and inside the cabin; a soot overlay (alpha rising with height)
+        # blends the two with no hard island edges
+        ch = (c[:, 2] > 1.00 + 0.03 * np.sin(c[:, 0] * 3.1)) | ((np.abs(c[:, 1]) < 0.62) & (np.abs(c[:, 0]) < 1.25)
+                                                                  & (c[:, 2] > 0.40))
+        gen3d.set_face_materials(o, ch.astype(np.int32))
         # hanging lower-edge fragments of the overhangs go, and loose shards
         low = (np.abs(c[:, 0]) > 1.95) & (c[:, 2] < 0.26)
         low |= fragment_mask(o, ~low, min_faces=30, min_area=0.003)
         gen3d.delete_faces(o, low)
+        if o is not sh:                                 # (the sprung bonnet is charred: no overlay)
+            solidify(o, 0.008, 1)
+            geo.uv_world_box(o, t_rust, rotate90=True)
+            continue
+        so = dup(o, o.name + "_Soot")                   # soot overlay: the outer faces above the sills, 2 mm out
+        cs_, ns_, _a = gen3d.face_arrays(so)
+        gen3d.delete_faces(so, (cs_[:, 2] < 0.50) | ((np.abs(cs_[:, 1]) < 0.62) & (np.abs(cs_[:, 0]) < 1.25)
+                                                      & (ns_[:, 2] < 0.5)))
+        co_, no_ = geo.arrays(so)
+        gen3d.set_verts(so, co_ + 0.002 * no_)
+        me_ = so.data
+        uvl_ = me_.uv_layers.get(geo.UV) or me_.uv_layers.new(name=geo.UV)
+        lv_ = np.empty(len(me_.loops), np.int64)
+        me_.loops.foreach_get("vertex_index", lv_)
+        pv = co_[lv_]
+        uvs_ = np.stack([(pv[:, 0] + 0.6 * pv[:, 1] + 2.5) / 2.4, np.clip((pv[:, 2] - 0.50) / 0.55, 0.01, 0.99)], 1)
+        uvl_.data.foreach_set("uv", uvs_.ravel())
+        so.data.materials.clear()
+        so.data.materials.append(soot_m)
+        soot_parts.append(so)
         solidify(o, 0.008, 1)
         geo.uv_world_box(o, t_rust, rotate90=True)      # the scan's streaks run down the panels, not along X
     # bonnet sprung 15 degrees on its hinge at the cowl
@@ -2337,7 +2422,7 @@ def v_burned(ctx, P):
     geo.transform(bon, loc=(-hx, 0, -hz))
     geo.transform(bon, rot=(0, -15, 0))
     geo.transform(bon, loc=(hx, 0, hz))
-    parts = [sh, bon]
+    parts = [sh, bon] + soot_parts
     parts.append(bay("Burned_Bay", 1.0, 1.95, 0.60, 0.32, 0.78, char, t_char))
     eng = geo.box((0.55, 0.60, 0.38), bevel=0.04, name="Burned_Engine")
     geo.transform(eng, loc=(1.55, 0, 0.32))
@@ -2377,13 +2462,45 @@ def v_burned(ctx, P):
     co[:, 1] *= 1.72 / (hi[1] - lo[1])
     gen3d.set_verts(wj, co)
     ob = geo.join([ob, wj], "SM_Vehicle_BurnedCar", ctx.col)
+    _ground(ob)
     finish(ob, 0.8)
-    ctx.asset(ob, collision="box", cover_height=0.96, notes="Burned-out saloon from the sedan shell: rusted "
-              "(MI_Steel_ScanRustHeavy), charred inside (MI_Char_Burnt), no glass, lamps, bumpers or tyres, bonnet "
+    ctx.asset(ob, collision="box", cover_height=0.96, slots=slot_records(ob, {"M_Vehicle_BurnedCar_Rust": {
+              "tint": [1.0, 0.8, 0.6], "shading": "rust scan TS_Steel_ScanRustHeavy multiplied by tint (grades its "
+              "blue patches to brown)"}}), notes="Burned-out saloon from the sedan shell: rusted "
+              "(M_Vehicle_BurnedCar_Rust), soot overlay M_Vehicle_BurnedCar_Soot (masked alpha rising with height), "
+              "charred above the belt and inside (MI_Char_Burnt), no glass, lamps, bumpers or tyres, bonnet "
               "sprung 15 degrees over a black bay, seat frames and steering wheel, bare rims. Bullet-only box over the "
               "cabin x -1.30..0.65, y +-0.72, z 0.96..1.30. Anchor 'smolder' at (1.5, 0, 1.0).",
               expect_size=(4.38, 1.72, 1.30))
     return ob
+
+
+def _ground(ob):
+    """(close-up pass 4) the lowest point on the ground plane (the wrecks sank 8 mm)."""
+    co = gen3d.verts(ob)
+    if co[:, 2].min() < 0:
+        co[:, 2] -= co[:, 2].min()
+        gen3d.set_verts(ob, co)
+
+
+def soot_set():
+    """(close-up pass 4) Soot overlay for the burned car: alpha rising with height (v) and broken by two scales of
+    noise, near-black with a brown cast. 1024 x 512, masked alpha."""
+    from PIL import Image
+    W, H = 1024, 512
+    v = np.linspace(1, 0, H)[:, None] * np.ones((1, W))         # row 0 is the top (v = 1)
+    n1 = _noise((H, W), 60.0, 11)
+    n2 = _noise((H, W), 9.0, 12)
+    ramp = np.clip((v - 0.05) / 0.80, 0, 1)
+    ramp = ramp * ramp * (3 - 2 * ramp)
+    al = np.clip(ramp * (0.70 + 0.6 * n1) + 0.30 * (n2 - 0.5), 0, 1)
+    al = np.where(v > 0.93, 1.0, al)
+    lin = np.stack([0.020 + 0.012 * n2, 0.017 + 0.009 * n2, 0.014 + 0.006 * n2], -1)
+    rgb = bake.srgb_encode(lin)
+    img = np.concatenate([rgb, al[..., None]], -1)
+    return decal_set("Vehicle_BurnedCar_Soot", Image.fromarray((np.clip(img, 0, 1) * 255).astype(np.uint8), "RGBA"),
+                     "soot over the burned shell: alpha rises from the sills to the roof (v = height 0.50..1.05 m), "
+                     "broken by noise; masked")
 
 
 def jack_stand(m, t, name="Stand"):
@@ -2553,6 +2670,7 @@ def v_stripped(ctx, P):
             geo.transform(s, loc=(x, y, 0))
             stands.append(s)
     ob = geo.join([ob] + stands, "SM_Vehicle_StrippedCar", ctx.col)
+    _ground(ob)
     finish(ob, 0.6)
     ctx.asset(ob, collision="box", cover_height=1.23, notes="Sedan shell stripped in the chop shop: red-oxide primer "
               "(M_Vehicle_StrippedCar_Primer reads Vehicle_Sedan; tint #7a3b2c, roughness 0.78, no clear coat), "
@@ -2652,7 +2770,33 @@ def v_vulture(ctx):
         put_mat(pane, m_glass, t_glass)
         rod = geo.cylinder(0.009, 1.26, 12, name="Vulture_LockRod")
         geo.transform(rod, loc=(0.026, s_ * 0.74, 0.07))
-        put_mat(rod, chrome, t_chrome)
+        # (close-up pass 4) the inside of the leaf: a second lock rod, rod guides and end keepers, the pane's seal
+        # seen from inside, pressed ribs on the inner skin, longer strap hinges with bolts and pin caps
+        rod2 = geo.cylinder(0.009, 1.26, 12, name="Vulture_LockRod2")
+        geo.transform(rod2, loc=(0.026, s_ * 0.58, 0.07))
+        rbits = [rod, rod2]
+        for ry_ in (0.74, 0.58):
+            for gz_ in (0.15, 0.55, 0.95, 1.25):
+                g_ = geo.box((0.022, 0.034, 0.028), bevel=0.003, name="Vulture_RodGuide")
+                geo.transform(g_, loc=(0.024, s_ * ry_, gz_))
+                rbits.append(g_)
+            for kz_ in (0.03, 1.34):
+                k_ = geo.box((0.03, 0.04, 0.05), bevel=0.004, name="Vulture_Keeper")
+                geo.transform(k_, loc=(0.022, s_ * ry_, kz_))
+                rbits.append(k_)
+        rod = put_mat(geo.join(rbits, "Vulture_Rods"), chrome, t_chrome)
+        ribs = []
+        for rz_ in (0.47, 0.88):
+            rb_ = cp.rbox((0.012, 0.70, 0.035), r=0.008, name="Vulture_Rib")
+            geo.transform(rb_, loc=(0.020, s_ * 0.43, rz_))
+            ribs.append(rb_)
+        inner = geo.join([inner] + [put_mat(r_, *tiling("TS_Paint_PrimerGrey")) for r_ in ribs])
+        sl_ = []
+        for xo_ in (-0.026, 0.020):
+            ol_ = [(xo_, s_ * (0.45 + dy_), 1.02 + dz_) for dy_, dz_ in
+                   ((-0.25, -0.18), (0.25, -0.18), (0.25, 0.18), (-0.25, 0.18), (-0.25, -0.18))]
+            sl_.append(geo.pipe(ol_, 0.008, segments=6, bend_radius=0.03, name="Vulture_PaneSeal"))
+        seal_l = put_mat(geo.join(sl_, "Vulture_PaneSeals"), m_rub, t_rub)
         hnd = geo.box((0.03, 0.14, 0.03), bevel=0.006, name="Vulture_Handle")
         geo.transform(hnd, loc=(-0.035, s_ * 0.74, 0.62))
         put_mat(hnd, chrome, t_chrome)
@@ -2660,14 +2804,20 @@ def v_vulture(ctx):
         for hz in (0.22, 1.12):
             kn = geo.cylinder(0.016, 0.11, 16, name="Vulture_Knuckle")
             geo.transform(kn, loc=(-0.03, 0.0, hz))
-            st = geo.box((0.008, 0.16, 0.06), bevel=0.003, name="Vulture_Strap")
-            geo.transform(st, loc=(-0.032, s_ * 0.08, hz + 0.025))
-            hinges += [kn, st]
+            st = geo.box((0.008, 0.30, 0.06), bevel=0.003, name="Vulture_Strap")
+            geo.transform(st, loc=(-0.032, s_ * 0.15, hz + 0.025))
+            pin = geo.cylinder(0.011, 0.012, 12, bevel=0.003, name="Vulture_PinCap")
+            geo.transform(pin, loc=(-0.03, 0.0, hz + 0.11))
+            hinges += [kn, st, pin]
+            for by_ in (0.10, 0.19, 0.28):
+                bt_ = geo.cylinder(0.008, 0.006, 6, bevel=0.002, name="Vulture_StrapBolt", axis="X")
+                geo.transform(bt_, loc=(-0.042, s_ * by_, hz + 0.055))
+                hinges.append(bt_)
         hinges = put_mat(geo.join(hinges), bare, t_bare)
-        strap = geo.box((0.02, 0.22, 0.02), bevel=0.004, name="Vulture_Check")
-        geo.transform(strap, loc=(0.03, s_ * 0.11, 0.95))
+        strap = geo.box((0.006, 0.34, 0.035), bevel=0.002, name="Vulture_Check")
+        geo.transform(strap, loc=(0.03, s_ * 0.17, 0.95))
         put_mat(strap, m_rub, t_rub)
-        lf = geo.join([leafp, inner, holes, pane, rod, hnd, hinges, strap], "Vulture_Door")
+        lf = geo.join([leafp, inner, holes, pane, rod, hnd, hinges, strap, seal_l], "Vulture_Door")
         geo.transform(lf, loc=(0, 0, LZ0 + 0.02))
         geo.transform(lf, rot=(0, 0, ang))
         geo.transform(lf, loc=(-2.53, side * 0.89, 0))
@@ -3101,6 +3251,13 @@ def v_moto(ctx):
     co[:, 2] *= 1.10 / co[:, 2].max()
     co[:, 1] -= (co[:, 1].min() + co[:, 1].max()) / 2
     gen3d.set_verts(ob, co)
+    # (close-up pass 4) the generated bars carry two pairs of mirrors (heads at x 0.12-0.27 and 0.31-0.37, measured
+    # above z 0.97): the rear pair and its stems above the bar go, the front pair on the clamps stays
+    cm_, _n, _a = gen3d.face_arrays(ob)
+    km_ = (cm_[:, 0] > 0.10) & (cm_[:, 0] < 0.285) & (np.abs(cm_[:, 1]) > 0.15) & (np.abs(cm_[:, 1]) < 0.33) \
+        & (cm_[:, 2] > 0.955)
+    gen3d.delete_faces(ob, km_)
+    ctx.log("Motorbike: %d faces of the second mirror pair dropped" % int(km_.sum()))
     finish(ob, 0.3)
     se = export.set_entry(set_name)
     slots = {m.name: {"set": set_name, "textures": se["textures"] if se else None} for m in ms}
@@ -3395,13 +3552,13 @@ def _ipx_reclass(c, n, cls):
 
 def _pickup_reclass(c, n, cls):
     """The bed inside reads as black bedliner (the generated paint / trim sawtooth on the arch housings goes)."""
-    bed = (c[:, 0] < -0.70) & (c[:, 0] > -2.55) & (np.abs(c[:, 1]) < 0.96) & (c[:, 2] > 0.50) & (c[:, 2] < 1.10)
+    bed = (c[:, 0] < -0.58) & (c[:, 0] > -2.55) & (np.abs(c[:, 1]) < 0.96) & (c[:, 2] > 0.50) & (c[:, 2] < 1.10)
     inner = bed & ((n[:, 2] > 0.6) | (n[:, 1] * np.sign(c[:, 1]) < -0.3) | (n[:, 0] > 0.6))
     cls[inner & np.isin(cls, [CLS["paint"], CLS["trim"], CLS["inside"], CLS["amber"], CLS["head"]])] = CLS["trim"]
 
 
 def _bed_contents(c, n, cls):
-    bed = (c[:, 0] < -0.75) & (c[:, 0] > -2.45) & (np.abs(c[:, 1]) < 0.70)
+    bed = (c[:, 0] < -0.62) & (c[:, 0] > -2.45) & (np.abs(c[:, 1]) < 0.70)
     up = bed & (n[:, 2] > 0.85) & (c[:, 2] < 1.2)
     floor = float(np.percentile(c[up, 2], 10)) if up.sum() > 20 else 0.92
     return bed & (c[:, 2] > floor + 0.04) & (c[:, 2] < 1.5)
@@ -3441,6 +3598,7 @@ SPEC["Van"]["plate"] = "RJM6072"              # (close-up pass 3) the van's own 
 for _k in ("BoxTruck", "IPXTruck"):     # (the cab glass is above standing eye height: the simple cabin, budget)
     SPEC[_k].update(modelled_mirrors=True, truck_mirror=True, cabin=False, clean_glass=True,
                     modelled_lamps=("head", "grille"), dash_depth=0.45, head_amber=0.0)
+SPEC["BoxTruck"].update(amber_paint=True, fog_fill=(3.3, 0.55, 1.00, 0.15, 1.0))
 SPEC["BoxTruck"].update(lamps={"head": (0.64, 0.94, 0.99, 1.21)}, grille=(0.57, 0.99, 1.40, "bars"), roof=2.18,
                         front_face=(1.0, 0.66, 0.98),
                         bumper=(3.58, 3.69, 0.42, 0.70, 1.15), mirror_box=(2.15, 2.95, 1.30, 1.95))
@@ -3457,7 +3615,12 @@ for _k in ("Sedan", "SUV", "Pickup", "Van", "VanVulture"):
 SPEC["Van"].update(glass_boxes=SPEC["Van"]["glass_boxes"][:1], rear_face=(0.80, 0.62, 1.98),
                    rear_panes=[(0.38, 1.62, 0.50, 0.36), (-0.38, 1.62, 0.50, 0.36)],
                    reclass=lambda c, n, cls: cls.__setitem__((cls == CLS["glass"]) & (c[:, 0] < -2.2), CLS["paint"]))
-SPEC["Pickup"].update(seat_x=0.43, dash_depth=0.45, pane_drop=lambda cen: cen[0] < -0.15)
+# the generated cab (a regular cab whose back wall stands at x +0.01, right behind the door) is moved back to the
+# brief's bed front (x -0.56): the bed ahead of the rear arch is compressed and the 12 cm behind the door
+# stretched into the cab's rear corner; door, window, cowl and front end are untouched
+_L_pk = SPEC["Pickup"]["size"][0] / 2
+SPEC["Pickup"].update(xwarp=[(-_L_pk, -_L_pk), (-0.98, -0.98), (0.012, -0.50), (0.06, 0.06), (_L_pk, _L_pk)],
+                      seat_x=0.02, dash_depth=0.45, pane_drop=lambda cen: cen[0] < -0.64)
 
 
 def declare(ctx, ob, key, notes, cover, collision="box", expect=None):

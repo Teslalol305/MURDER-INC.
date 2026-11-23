@@ -36,9 +36,11 @@ def bvh_of(*obs):
     return t
 
 
-def orient_outward(ob, keep=None, eps=0.002, reach=5.0):
-    """Flip the faces whose normal points into the body: a ray along +n is blocked and a ray along -n escapes.
-    keep(c, n) -> bool array limits the test (flanks, the exterior). Returns the number of flipped faces."""
+def orient_outward(ob, keep=None, eps=0.002, reach=5.0, delete=False):
+    """Faces whose normal points into the body (a ray along +n is blocked and a ray along -n escapes) are flipped,
+    or with delete=True removed: on a generated shell they are the folded-back middle layers of crumpled seams,
+    wound consistently with their sheet, so flipping them would break the winding. keep(c, n) -> bool array
+    limits the test. Returns the number of faces changed."""
     bm = geo.bm_of(ob)
     bm.faces.ensure_lookup_table()
     bvh = BVHTree.FromBMesh(bm)
@@ -52,11 +54,16 @@ def orient_outward(ob, keep=None, eps=0.002, reach=5.0):
         if nv.length < 0.5:
             continue
         cv = Vector(c[i])
-        if bvh.ray_cast(cv + nv * eps, nv, reach)[0] is None:
+        h = bvh.ray_cast(cv + nv * eps, nv, reach)
+        if h[0] is None or h[1].dot(nv) <= 0.0:      # the front side must look at the back of another face
             continue
-        if bvh.ray_cast(cv - nv * eps, -nv, reach)[0] is None:
+        hb = bvh.ray_cast(cv - nv * eps, -nv, reach)
+        if hb[0] is None or hb[1].dot(-nv) < 0.0:      # and behind it lies the outside
             flip.append(bm.faces[i])
-    if flip:
+    if flip and delete:
+        bmesh.ops.delete(bm, geom=flip, context="FACES")
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+    elif flip:
         bmesh.ops.reverse_faces(bm, faces=flip)
     geo.bm_to(ob, bm)
     return len(flip)
@@ -163,7 +170,7 @@ SIDE_TERMS = [(0, 0), (1, 0), (0, 1), (0, 2), (1, 1), (2, 0)]          # y = f(x
 SCREEN_TERMS = [(0, 0), (1, 0), (0, 1), (2, 0), (1, 1), (0, 2), (4, 0)]   # x = f(y, z): wrap across y
 
 
-def rebuild_panes(ob, min_area=0.035, step=0.03, smooth_iters=30, name="Glass", drop=None):
+def rebuild_panes(ob, min_area=0.035, step=0.045, smooth_iters=30, name="Glass", drop=None):
     """Replace every pane of a generated glass object by a clean one (in place). drop(c) -> bool removes panes
     whose centre it flags. Returns [(loop (k, 3) array, outward normal, kind 'side'/'screen')]."""
     bm = geo.bm_of(ob)
@@ -276,7 +283,7 @@ def belt_strips(panes, belt, h=0.025, t=0.008, name="Belt"):
         pts = L[low]
         pts = pts[np.argsort(pts[:, 0])]
         side = 1.0 if nm[1] > 0 else -1.0
-        path = [(float(p[0]), float(p[1] + side * (t / 2 + 0.002)), float(p[2] - h / 2 + 0.006)) for p in pts]
+        path = [(float(p[0]), float(p[1] + side * (t / 2 + 0.002)), float(p[2] + 0.004)) for p in pts]
         dedup = [path[0]]
         for p in path[1:]:
             if abs(p[0] - dedup[-1][0]) > 0.02:
