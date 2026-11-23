@@ -90,6 +90,7 @@ con MIInput weapon2 1                     # the NINE
 wait 1.4
 fight 10 1 1 4
 auto 0
+con MIInput weapon1 1                     # back to the CHOPPER (the take crashed twice blowing a tank with the NINE up)
 goto -1000 -150
 lookat -420 -800 60 2
 blow 6                                    # the propane tanks in the garage
@@ -100,7 +101,6 @@ auto 0
 lookat -400 100 60 1.5
 grab 6                                    # the last reel
 wait 1.0
-con MIInput weapon1 1
 auto 1 0
 goto 3590 2970 1                          # to the IPX truck
 waitstate complete 20
