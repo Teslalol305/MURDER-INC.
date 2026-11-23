@@ -761,9 +761,10 @@ def stock(parts):
         union(bp, fix_normals(lug))
     round_edges(bp, 0.0003, 2, 45)
     parts.append(P(bp, BLUED, "body", FRONT))
-    pz = [-0.0055, -0.0050, -0.0040, -0.0026]
-    ps = [K.rrect(0.2780 + 0.0006 * (z < -0.0052), 0.3335 - 0.0006 * (z < -0.0052), 0.0122 - 0.0006 * (z < -0.0052),
-                  0.0030, 0.0030, K=200) for z in pz]
+    # a 10 mm rubber recoil pad (its face under Palm_L), corners rounded, the bottom edge softened
+    pz = [-0.0125, -0.0122, -0.0115, -0.0100, -0.0060, -0.0026]
+    pi_ = [0.0014, 0.0007, 0.0002, 0.0, 0.0, 0.0]
+    ps = [K.rrect(0.2780 + i, 0.3335 - i, 0.0122 - i, 0.0040, 0.0040, K=200) for i in pi_]
     pad = K.loft_z(ps, pz, 64, name="Pad")
     K.deform(pad, lambda co: np.c_[co[:, 0], co[:, 1], co[:, 2] + Z_TOP - (co[:, 0] - xm) ** 2 / (2 * R)])
     parts.append(P(pad, POLYMER, "body", FRONT))
@@ -1187,7 +1188,7 @@ def chopper_magazine(col):
         secs.append(K.rrect(-0.03175 + ins, 0.03175 - ins, 0.0139 - ins, 0.0035 - ins * 0.5, 0.0035 - ins * 0.5, K=200))
     fp = K.loft_z(secs, zs_, 96, name="Floor")
     cut(fp, W.box(-0.0302, 0.0302, -0.0124, 0.0124, -0.0001, 0.003))        # the turned edges stand round the body
-    union(fp, W.box(-0.0360, -0.0300, -0.0045, 0.0045, -0.0036, 0.0060, bevel=0.0006, seg=2))   # retaining tab
+    union(fp, W.box(-0.0318, -0.0292, -0.0045, 0.0045, -0.0030, 0.0068, bevel=0.0006, seg=2))   # retaining tab
     dm = geo.sphere(1.0, 24, 12)
     geo.transform(dm, scale=(0.006, 0.006, 0.0012))
     geo.transform(dm, loc=(-0.012, 0.0, -0.0050))
