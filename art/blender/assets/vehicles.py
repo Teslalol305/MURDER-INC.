@@ -3825,7 +3825,7 @@ def on_preview(ctx, objs):
         shot("vehicles_ipx_truck.jpg")
     if want("vehicles_wrecks"):
         _show(assets, {"SM_Vehicle_BurnedCar": (-2.8, 3.4, 12), "SM_Vehicle_StrippedCar": (3.0, 3.3, -8)})
-        render.cam_look((0.4, -4.6, 2.5), (0.2, 3.4, 0.7), lens=28)
+        render.cam_look((0.4, -5.6, 2.6), (0.2, 3.4, 0.7), lens=24)     # (pass 4) both wrecks whole in frame
         shot("vehicles_wrecks.jpg")
     if want("vehicles_wire"):
         _show(assets, {"SM_Vehicle_Van_Vulture": (-3.4, 3.7, 200), "SM_Vehicle_SUV": (3.2, 3.85, 0)})
