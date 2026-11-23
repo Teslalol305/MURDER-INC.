@@ -483,13 +483,13 @@ void UMIGameSubsystem::ApplyCrewLines(FName Crew)
 bool UMIGameSubsystem::ApplySetup(const FMIRunSetup& Setup)
 {
 	UMIRunSetupSubsystem* RunSetup = UMIRunSetupSubsystem::Get(this);
-	const FMILoadoutData* Data = RunSetup ? RunSetup->GetData() : nullptr;
+	const FMILoadoutData* Data = RunSetup ? RunSetup->GetData() : (FrontEnd ? &FrontEnd->GetRules().GetData() : nullptr);
 	AMIPlayerCharacter* P = GetPlayer();
 	if (!Data || !P || !P->GetWeapon() || !ResolverConfig.IsValid())
 	{
 		return false;
 	}
-	const FMIReadiness Ready = RunSetup->MakeReadiness();
+	const FMIReadiness Ready = RunSetup ? RunSetup->MakeReadiness() : FrontEnd->GetReadiness();
 	FMIRunSetup S = Setup;
 	Ready.Validate(S);
 	FMIResolvedRun Run;

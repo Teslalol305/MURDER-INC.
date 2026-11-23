@@ -73,6 +73,7 @@ private:
 	TUniquePtr<FMILoadoutResolver> Resolver;
 	FMIFrontEndRules Rules;
 	TUniquePtr<FMIViewmodelData> ViewData;
+	TUniquePtr<FMILoadoutData> OwnData;  // without a game instance (headless world tests) the front end loads its own
 	EMIFrontScreen StageScreen = EMIFrontScreen::Home;
 	FString StageKey;
 	int32 Version = 0;

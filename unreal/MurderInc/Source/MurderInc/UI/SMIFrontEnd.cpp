@@ -117,7 +117,7 @@ void SMIFrontEnd::Construct(const FArguments& InArgs)
 	Rebuild();
 }
 
-void SMIFrontEnd::Tick(const FAllottedGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+void SMIFrontEnd::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
 	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 	if (Owner.IsValid() && Owner->GetVersion() != Built)

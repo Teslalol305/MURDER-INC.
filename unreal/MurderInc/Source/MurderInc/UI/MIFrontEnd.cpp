@@ -14,6 +14,7 @@
 #include "Player/MIPlayerCharacter.h"
 #include "UI/MIShowroom.h"
 #include "UI/SMIFrontEnd.h"
+#include "Weapons/MIWeaponComponent.h"
 #include "Widgets/SWeakWidget.h"
 
 namespace MIFrontEndObjPrivate
@@ -35,6 +36,11 @@ bool UMIFrontEnd::Init(UMIGameSubsystem* InGame)
 	UMIRunSetupSubsystem* Setup = UMIRunSetupSubsystem::Get(InGame);
 	const FMILoadoutData* Data = Setup ? Setup->GetData() : nullptr;
 	FString Error;
+	if (!Setup)
+	{
+		OwnData = MakeUnique<FMILoadoutData>();
+		Data = FMILoadoutData::Load(*OwnData, Error) ? OwnData.Get() : nullptr;
+	}
 	if (!Data || !FMILoadoutResolver::LoadRoots(ConfigRoot, PresentationRoot, Error) || !UMIDataSubsystem::LoadJsonFile(TEXT("text.json"), TextRoot, Error))
 	{
 		UE_LOG(LogMI, Error, TEXT("Front end: no loadout data (%s): the canvas title stays"), *Error);
@@ -43,12 +49,22 @@ bool UMIFrontEnd::Init(UMIGameSubsystem* InGame)
 	Resolver = MakeUnique<FMILoadoutResolver>(*Data, ConfigRoot, PresentationRoot);
 	Rules.TextJson = TextRoot;
 	Rules.ConfigJson = ConfigRoot;
-	FMIRunSetup Saved = Setup->GetSetup();
 	const FMISettings& S = InGame->GetSettings();
+	FMIRunSetup Saved = Setup && Setup->HasSetup() ? Setup->GetSetup() : Data->ParitySetup(S.Mode, S.Difficulty, S.Time);
 	Saved.Mode = S.Mode;
 	Saved.Difficulty = S.Difficulty;
 	Saved.Time = S.Time;
-	Rules.Init(Data, Setup->MakeReadiness(), Resolver.Get(), Saved);
+	FMIReadiness Ready;
+	if (Setup)
+	{
+		Ready = Setup->MakeReadiness();
+	}
+	else
+	{
+		Ready.Data = Data;
+		Ready.AssetExists = FMIReadiness::PackageExists();
+	}
+	Rules.Init(Data, Ready, Resolver.Get(), Saved);
 	ViewData = MakeUnique<FMIViewmodelData>();
 	FMIViewmodelData::Load(*ViewData, Error);
 

@@ -18,6 +18,9 @@
 #include "Weapons/MIWeaponComponent.h"
 #include "World/MILevelData.h"
 #include "World/MIObjectiveActors.h"
+#include "Player/MISwitchInput.h"
+#include "UI/MIFrontEnd.h"
+#include "Weapons/MILoadoutResolver.h"
 
 #if WITH_AUTOMATION_TESTS
 
@@ -509,6 +512,149 @@ bool FMIRunMenusTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("resumed"), (int32)W.State(), (int32)EMIGameState::Playing);
 	TestEqual(TEXT("no menu in play"), (int32)M.Screen, (int32)EMIMenuScreen::None);
 	return true;
+}
+
+// LOADOUT.md 8.5: the whole set-up flow in a world, driven as MIMenu fe drives it, into a run and back.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIFrontendWalkWorldTest, "MurderInc.Frontend.WalkWorld", MITest::Flags)
+
+bool FMIFrontendWalkWorldTest::RunTest(const FString& Parameters)
+{
+	using namespace MIRunTestsPrivate;
+	FRunWorld W;
+	FMIBootOptions O;
+	O.bPersist = false;
+	O.bDrawGrey = false;
+	if (!TestTrue(TEXT("boots on the title"), W.Game && W.Game->Boot(O)))
+	{
+		return false;
+	}
+	W.Step();
+	UMIFrontEnd* F = W.Game->GetFrontEnd();
+	if (!TestNotNull(TEXT("the set-up flow replaces the canvas title"), F))
+	{
+		return false;
+	}
+	TestTrue(TEXT("shown on the title"), F->IsShown());
+	TestEqual(TEXT("Home"), F->GetRules().GetScreen(), EMIFrontScreen::Home);
+	// The first Hit the block opens Crew; three Nexts reach the Briefing; Hit the block starts.
+	F->Act(TEXT("hit"));
+	TestEqual(TEXT("first time: Crew"), F->GetRules().GetScreen(), EMIFrontScreen::Crew);
+	F->Act(TEXT("next"));
+	TestEqual(TEXT("Loadout"), F->GetRules().GetScreen(), EMIFrontScreen::Loadout);
+	TestEqual(TEXT("the parity guns"), F->GetRules().GetSetup().Guns, TArray<FName>{TEXT("chopper"), TEXT("nine")});
+	F->Act(TEXT("bench"), TEXT("chopper"));
+	TestEqual(TEXT("Workbench: no parts on the CHOPPER yet"), F->GetRules().BenchSlots().Num(), 0);
+	F->Act(TEXT("done"));
+	F->Act(TEXT("next"));
+	TestEqual(TEXT("Block & Style"), F->GetRules().GetScreen(), EMIFrontScreen::Where);
+	F->Act(TEXT("next"));
+	TestEqual(TEXT("Briefing"), F->GetRules().GetScreen(), EMIFrontScreen::Briefing);
+	for (int32 I = 0; I < 3; ++I) W.Step();
+	F->Act(TEXT("hit"));
+	TestEqual(TEXT("Hit the block: the intro"), (int32)W.State(), (int32)EMIGameState::Intro);
+	TestFalse(TEXT("the front end is down in the run"), F->IsShown());
+
+	// Loadout.ParityPIE's first half: after the run reset from the front end, the weapon's data is the resolver's
+	// parity output, which is config.json's.
+	const FMIWeaponRules& Rules = W.Player->GetWeapon()->GetRules();
+	FMIConfigData Config;
+	FString Error;
+	if (UMIDataSubsystem::LoadConfig(Config, Error) && TestEqual(TEXT("two guns"), Rules.NumGuns(), 2))
+	{
+		for (int32 I = 0; I < 2; ++I)
+		{
+			const FMIWeaponDef& A = Rules.GetData().Guns[I];
+			const FMIWeaponDef& B = Config.Weapons.Guns[I];
+			TestTrue(FString::Printf(TEXT("gun %d is config.json's"), I), A.Id == B.Id && A.Damage == B.Damage && A.Rpm == B.Rpm && A.AdsTime == B.AdsTime
+				&& A.Spread.Hip == B.Spread.Hip && A.Recoil.Pitch == B.Recoil.Pitch && A.Holster == B.Holster && A.Draw == B.Draw && A.NoiseRadius == B.NoiseRadius
+				&& A.Reload.Tactical == B.Reload.Tactical && A.WallStart == B.WallStart && A.FalloffStart == B.FalloffStart);
+		}
+		TestEqual(TEXT("the bag is the CHOPPER's reserve"), Rules.GetBag(), 150.0);
+	}
+	return !HasAnyErrors();
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMILoadoutParityPIETest, "MurderInc.Loadout.ParityPIE", MITest::Flags)
+
+bool FMILoadoutParityPIETest::RunTest(const FString& Parameters)
+{
+	using namespace MIRunTestsPrivate;
+	FRunWorld W;
+	FMIBootOptions O;
+	O.bPersist = false;
+	O.bDrawGrey = false;
+	if (!TestTrue(TEXT("boots on the title"), W.Game && W.Game->Boot(O)) || !TestNotNull(TEXT("front end"), W.Game->GetFrontEnd()))
+	{
+		return false;
+	}
+	W.Step();
+	UMIFrontEnd* F = W.Game->GetFrontEnd();
+	F->GetRules().EditSetup().bPlayed = true;
+	F->Act(TEXT("hit"));  // played: Hit the block starts at once with the remembered (default) set-up
+	TestEqual(TEXT("a returning player starts in one press"), (int32)W.State(), (int32)EMIGameState::Intro);
+	for (int32 I = 0; I < 30 * 3; ++I) W.Step();
+	TestEqual(TEXT("playing"), (int32)W.State(), (int32)EMIGameState::Playing);
+	// The resolver's parity output in the weapon component.
+	FMILoadoutData D;
+	TSharedPtr<FJsonObject> Config, Presentation;
+	FMIResolvedRun Run;
+	FString Error;
+	if (FMILoadoutData::Load(D, Error) && FMILoadoutResolver::LoadRoots(Config, Presentation, Error)
+		&& FMILoadoutResolver(D, Config, Presentation).Resolve(D.ParitySetup(TEXT("mission"), TEXT("boss"), TEXT("day")), nullptr, Run, Error))
+	{
+		const FMIWeaponRules& Rules = W.Player->GetWeapon()->GetRules();
+		for (int32 I = 0; I < FMath::Min(2, Rules.NumGuns()); ++I)
+		{
+			const FMIWeaponDef& A = Rules.GetData().Guns[I];
+			const FMIWeaponDef& B = Run.Weapons.Guns[I];
+			TestTrue(FString::Printf(TEXT("gun %d = the resolver's parity output"), I), A.Id == B.Id && A.Damage == B.Damage && A.Interval() == B.Interval()
+				&& A.Spread.Ads == B.Spread.Ads && A.Recoil.WeaveAmp == B.Recoil.WeaveAmp && A.FireModes == B.FireModes && A.AdsFov == B.AdsFov);
+		}
+	}
+	// Holding Q for 1 s with two guns opens no wheel and gives exactly one swap, on the press frame.
+	FMISwitchInput Q;
+	Q.SetGuns(W.Player->GetWeapon()->GetRules().NumGuns());
+	int32 Switches = 0;
+	FDelegateHandle H;
+	if (FMIGameEvents* Events = UMIEventSubsystem::Get(W.World))
+	{
+		H = Events->WeaponSwitch.AddLambda([&Switches](const FMISwitchEvent& E) { if (E.Phase == TEXT("holster")) ++Switches; });
+	}
+	const double T0 = 100.0;
+	for (int32 I = 0; I <= 30; ++I)
+	{
+		if (I == 0) Q.SwapDown(T0);
+		Q.Tick(T0 + I * Dt);
+		const FMISwitchFrame Frame = Q.Consume();
+		FMIPlayerInputState& In = W.Player->GetInput();
+		In.bSwapPressed |= Frame.bSwap;
+		TestFalse(TEXT("no wheel with two guns"), Q.IsWheelOpen());
+		W.Step();
+		if (I == 0) TestEqual(TEXT("the swap starts on the press frame"), Switches, 1);
+	}
+	Q.SwapUp(T0 + 1.0);
+	W.Player->GetInput().bSwapPressed |= Q.Consume().bSwap;
+	W.Step();
+	TestEqual(TEXT("exactly one swap for a 1 s hold"), Switches, 1);
+	if (FMIGameEvents* Events = UMIEventSubsystem::Get(W.World))
+	{
+		Events->WeaponSwitch.Remove(H);
+	}
+	// After a death: Change set-up opens the Briefing on the title; Back to title opens Home.
+	W.Game->DamagePlayer(1000.0, W.Player->GetActorLocation() + FVector(100, 0, 0), TEXT("bullet"));
+	for (int32 I = 0; I < 30 * 3 && W.Game->GetMenu().Screen != EMIMenuScreen::Dead; ++I) W.Step();
+	FMIMenu& M = W.Game->GetMenu();
+	if (TestEqual(TEXT("the death card"), (int32)M.Screen, (int32)EMIMenuScreen::Dead))
+	{
+		const int32 Change = M.IndexOf(TEXT("changesetup"));
+		TestTrue(TEXT("Change set-up between Run it back and Back to title"), Change > M.IndexOf(TEXT("retry")) && Change < M.IndexOf(TEXT("totitle")));
+		M.Selected = Change;
+		W.Game->MenuConfirm();
+		TestEqual(TEXT("Change set-up: the title"), (int32)W.State(), (int32)EMIGameState::Title);
+		TestEqual(TEXT("... on the Briefing"), F->GetRules().GetScreen(), EMIFrontScreen::Briefing);
+		TestTrue(TEXT("the front end is up"), F->IsShown());
+	}
+	return !HasAnyErrors();
 }
 
 #endif
