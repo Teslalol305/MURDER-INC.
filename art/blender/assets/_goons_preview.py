@@ -78,6 +78,35 @@ def hide_all_but(keep):
             o.hide_render = o not in keep
 
 
+def frame(objs, direction, lens=50.0, margin=1.08, aspect=16 / 9, lift=0.0):
+    """Camera along `direction` (from the subject) at the distance where the posed meshes' bounds fill the frame."""
+    import math
+    from mi import scene as _sc
+    lo = np.full(3, np.inf)
+    hi = np.full(3, -np.inf)
+    dg = bpy.context.evaluated_depsgraph_get()
+    for o in objs:
+        ev = o.evaluated_get(dg)
+        m = ev.to_mesh()
+        co = np.empty(len(m.vertices) * 3)
+        m.vertices.foreach_get("co", co)
+        ev.to_mesh_clear()
+        co = co.reshape(-1, 3) @ np.array(o.matrix_world)[:3, :3].T + np.array(o.matrix_world)[:3, 3]
+        lo, hi = np.minimum(lo, co.min(axis=0)), np.maximum(hi, co.max(axis=0))
+    c = (lo + hi) / 2 + np.array([0, 0, lift])
+    d = np.asarray(direction, dtype=float)
+    d /= np.linalg.norm(d)
+    side = np.cross(d, [0, 0, 1.0])
+    side /= np.linalg.norm(side)
+    ext = hi - lo
+    half_w = 0.5 * abs(ext @ np.abs(side)) if False else 0.5 * float(np.abs(side) @ ext)
+    half_h = 0.5 * ext[2]
+    fh = math.atan(18.0 / lens)
+    fv = math.atan(18.0 / lens / aspect)
+    dist = max(half_w / math.tan(fh), half_h / math.tan(fv)) * margin + 0.5 * float(np.abs(d) @ ext)
+    return render.cam_look(tuple(c + d * dist), tuple(c), lens)
+
+
 def day():
     render.rig_day(sun_azimuth=225.0)
 
@@ -109,18 +138,18 @@ def previews(ctx, objs):
         inst = []
         names = [n for n in ("Puffer", "Hoodie", "Tracksuit") if n in outs]
         for i, n in enumerate(names):
-            x = (i - (len(names) - 1) / 2) * 1.0
+            x = (i - (len(names) - 1) / 2) * 1.3
             inst.append(instance(outs[n], arm, "L_" + n, (x, 0, 0), np.radians([18, 0, -18][i] if len(names) == 3 else 0)))
         hide_all_but([m for a, m in inst] + [gr])
         bpy.context.view_layer.update()
-        render.cam_hero([m for a, m in inst], direction=(0.12, -1.0, 0.10), lens=45, margin=1.12)
+        frame([m for a, m in inst], (0.12, -1.0, 0.08), lens=45, margin=1.1)
         shoot("goons_lineup")
     if "goons_hoodie_hero" in want and "Hoodie" in outs:
         a2, m2 = instance(outs["Hoodie"], arm, "H_Hero", (0, 0, 0), np.radians(-28))
         pose(a2, "rifle_idle_ads", 0.3)
         hide_all_but([m2, gr])
         bpy.context.view_layer.update()
-        render.cam_hero([m2], direction=(0.55, -1.0, 0.12), lens=55, margin=1.08)
+        frame([m2], (0.55, -1.0, 0.1), lens=55, margin=1.12)
         shoot("goons_hoodie_hero")
     if "goons_detail" in want and outs:
         n = "Hoodie" if "Hoodie" in outs else list(outs)[0]
@@ -149,7 +178,7 @@ def previews(ctx, objs):
             inst.append(m2)
         hide_all_but(inst + [gr])
         bpy.context.view_layer.update()
-        render.cam_hero(inst, direction=(0.15, -1.0, 0.22), lens=40, margin=1.1)
+        frame(inst, (0.15, -1.0, 0.18), lens=40, margin=1.1)
         shoot("goons_poses")
     if "goons_wire" in want and outs:
         n = "Hoodie" if "Hoodie" in outs else list(outs)[0]
