@@ -104,14 +104,14 @@ C = cm.get_camera_location()
 cr = cm.get_camera_rotation()
 F = cr.get_forward_vector()
 Rv = cr.get_right_vector()
-cur = unreal.MathLibrary.make_rot_from_xy(A, n).quaternion()
-tgt = unreal.MathLibrary.make_rot_from_xy(Rv * (1.0 if sx == "l" else -1.0), F * -1.0).quaternion()
-d = tgt * cur.inverse()
-t = arms.get_world_transform()
-newrot = (d * t.rotation).rotator()
+# a frame on the tattoo (x along the forearm, y out of the skin) mapped onto a frame 42 cm in front of the eye
+# (x across the screen, y toward the eye): arms' new world transform = arms x cur^-1 x tgt
+M = unreal.MathLibrary
 newp = C + F * 42.0
-newloc = newp - d.rotate_vector(p - t.translation)
-arms.set_world_location_and_rotation(newloc, newrot, False, True)
+cur = unreal.Transform(p, M.make_rot_from_xy(A, n), unreal.Vector(1, 1, 1))
+tgt = unreal.Transform(newp, M.make_rot_from_xy(Rv * (1.0 if sx == "l" else -1.0), F * -1.0), unreal.Vector(1, 1, 1))
+t = M.compose_transforms(M.compose_transforms(arms.get_world_transform(), M.invert_transform(cur)), tgt)
+arms.set_world_transform(t, False, True)
 "forearm %s: tattoo point moved to %.0f %.0f %.0f, 42 cm in front of the eye" % (sx, newp.x, newp.y, newp.z)
 PY
 cat > "$PIE_PY/_unpause.py" <<'PY'
