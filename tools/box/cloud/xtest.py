@@ -1,13 +1,14 @@
 # The in-game half of the browser features, tested on the box without WebRTC (stream-test.sh xtest <out> [config]):
-# the packaged game in a window on a private virtual screen (Xvfb :99, drawn on the GPU through desktop-run
-# --vulkan), started as under Pixel Streaming (-MICloud), driven with XTEST input (what a stream's input becomes):
+# the packaged game in a window on the box's own desktop (:1, drawn on the GPU through desktop-run --vulkan; the
+# rental forbids starting another X server), started as under Pixel Streaming (-MICloud), driven with XTEST input
+# (what a stream's input becomes); stop the demo game first (tools/box/demo/stop.sh) so the window is on top:
 # the click card, the first click, the set-up flow into a run, mouse look, P to pause and resume.
 # Pictures with PIL from the virtual screen. Run with /opt/venv/bin/python3 -I as root.
 import json, os, re, subprocess, sys, time
 from PIL import ImageGrab
 
 OUT = sys.argv[1]; CFG = sys.argv[2] if len(sys.argv) > 2 else 'Development'
-RUN = '/project/ue/cloud/run'; LOG = f'{RUN}/cloud.log'; DISP = ':99'
+RUN = '/project/ue/cloud/run'; LOG = f'{RUN}/cloud.log'; DISP = ':1'
 os.makedirs(OUT, exist_ok=True)
 R = {}
 def note(k, v): R[k] = v; print(k, json.dumps(v)); json.dump(R, open(f'{OUT}/results.json', 'w'), indent=1)
@@ -25,9 +26,6 @@ def grab(n): ImageGrab.grab(xdisplay=DISP).convert('RGB').save(f'{OUT}/{n}.jpg',
 def yaw_after():
     n = len(probes()); wait(lambda: len(probes()) >= n + 2, 5); return last().get('yaw', 0)
 
-if subprocess.run(['pgrep', '-x', 'Xvfb'], capture_output=True).returncode != 0:
-    subprocess.Popen(['Xvfb', DISP, '-screen', '0', '1920x1080x24', '-ac', '-nolisten', 'tcp'], start_new_session=True,
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(2)
 if os.path.exists(LOG): os.remove(LOG)
 L = f'/project/ue/cloud/build-{CFG}/Linux'
 cmd = (f'cd {RUN} && HOME=/home/ue4 DISPLAY={DISP} XDG_RUNTIME_DIR=/tmp/studio/xdg setsid nohup desktop-run --vulkan {L}/MurderInc.sh '
