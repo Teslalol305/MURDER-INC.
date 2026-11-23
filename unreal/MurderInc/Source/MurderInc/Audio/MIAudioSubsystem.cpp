@@ -466,6 +466,12 @@ void UMIAudioSubsystem::Tick(float DeltaTime)
 	}
 	ApplyMix();
 	ApplyReverb();
+	if (MasterChain.Num() > 0 && ChainRefreshes < 120)
+	{
+		// The first two seconds after the chain went on: its instances pick up the settings (FMIMasterChain::Refresh).
+		FMIMasterChain::FromData(Data).Refresh(MasterChain);
+		++ChainRefreshes;
+	}
 	if (bRecording)
 	{
 		RecordClock += Dt;

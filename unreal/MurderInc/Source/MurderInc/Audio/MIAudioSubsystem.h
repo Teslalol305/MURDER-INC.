@@ -81,6 +81,7 @@ private:
 	bool bRecording = false;
 	double RecordClock = 0.0;
 	double ObserveTimer = 0.0;
+	int32 ChainRefreshes = 0;
 
 	TMap<int32, FPlaying> Components;
 	TMap<FString, TWeakObjectPtr<USoundWave>> Waves;

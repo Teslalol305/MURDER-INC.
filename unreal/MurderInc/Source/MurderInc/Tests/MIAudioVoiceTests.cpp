@@ -22,9 +22,9 @@
 
 namespace MIAudioVoicePrivate
 {
-	constexpr EAutomationTestFlags Flags = EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter;
+	constexpr EAutomationTestFlags VoiceFlags = EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter;
 
-	FMIFlowEvent Flow(const TCHAR* Name, const TCHAR* Text = TEXT(""), double A = 0, double B = 0)
+	FMIFlowEvent VFlow(const TCHAR* Name, const TCHAR* Text = TEXT(""), double A = 0, double B = 0)
 	{
 		FMIFlowEvent F;
 		F.Name = Name;
@@ -34,7 +34,7 @@ namespace MIAudioVoicePrivate
 		return F;
 	}
 
-	FMIEnemyEvent Kill(int32 Id, FName Part, FName Weapon, bool bBuzzard = false)
+	FMIEnemyEvent VKill(int32 Id, FName Part, FName Weapon, bool bBuzzard = false)
 	{
 		FMIEnemyEvent E;
 		E.Kind = FMIEnemyEvent::EKind::Killed;
@@ -187,7 +187,7 @@ namespace MIAudioVoicePrivate
 			const bool bBuzzard = K < B;
 			const FName Part = !bBuzzard && Rng.FRand() < 0.25 ? FName(TEXT("head")) : FName(TEXT("body"));
 			const FName Weapon = Id % 17 == 9 ? FName(TEXT("melee")) : Id % 23 == 11 ? FName(TEXT("blast")) : FName(TEXT("chopper"));
-			S.KillAt(T, Kill(Id++, Part, Weapon, bBuzzard));
+			S.KillAt(T, VKill(Id++, Part, Weapon, bBuzzard));
 		}
 		for (double H = Start + Rng.FRandRange(1.5, 5.0); H < T; H += Rng.FRandRange(1.5, 5.0))
 		{
@@ -201,7 +201,7 @@ namespace MIAudioVoicePrivate
 
 using namespace MIAudioVoicePrivate;
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioVoiceWinTest, "MurderInc.Audio.VoiceWin", Flags)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioVoiceWinTest, "MurderInc.Audio.VoiceWin", VoiceFlags)
 bool FMIAudioVoiceWinTest::RunTest(const FString& Parameters)
 {
 	FMIVoiceData D;
@@ -215,13 +215,13 @@ bool FMIAudioVoiceWinTest::RunTest(const FString& Parameters)
 	{
 		FSim S;
 		S.Init(D, Seed);
-		S.FlowAt(0.0, Flow(TEXT("game:state"), TEXT("intro")));
-		S.FlowAt(2.0, Flow(TEXT("game:state"), TEXT("playing")));
+		S.FlowAt(0.0, VFlow(TEXT("game:state"), TEXT("intro")));
+		S.FlowAt(2.0, VFlow(TEXT("game:state"), TEXT("playing")));
 		for (int32 K = 0; K < 20; ++K)
 		{
-			S.KillAt(10.0 + K * 1.0, Kill(K, TEXT("body"), TEXT("chopper")));
+			S.KillAt(10.0 + K * 1.0, VKill(K, TEXT("body"), TEXT("chopper")));
 		}
-		S.FlowAt(54.0, Flow(TEXT("extraction:reached")));
+		S.FlowAt(54.0, VFlow(TEXT("extraction:reached")));
 		S.Run(64.0);
 		const FMIVoicePlay* Streak = S.Plays.FindByPredicate([](const FMIVoicePlay& P) { return P.Line == TEXT("name") && P.Trigger == TEXT("kill.streak"); });
 		const FMIVoicePlay* Win = S.Plays.FindByPredicate([](const FMIVoicePlay& P) { return P.Line == TEXT("name") && P.Trigger == TEXT("run.win"); });
@@ -272,7 +272,7 @@ bool FMIAudioVoiceWinTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioVoiceBurstTest, "MurderInc.Audio.VoiceBurst", Flags)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioVoiceBurstTest, "MurderInc.Audio.VoiceBurst", VoiceFlags)
 bool FMIAudioVoiceBurstTest::RunTest(const FString& Parameters)
 {
 	FMIVoiceData D;
@@ -286,11 +286,11 @@ bool FMIAudioVoiceBurstTest::RunTest(const FString& Parameters)
 	{
 		FSim S;
 		S.Init(D, Seed);
-		S.FlowAt(0.0, Flow(TEXT("game:state"), TEXT("title")));
-		S.FlowAt(0.1, Flow(TEXT("game:state"), TEXT("playing")));
+		S.FlowAt(0.0, VFlow(TEXT("game:state"), TEXT("title")));
+		S.FlowAt(0.1, VFlow(TEXT("game:state"), TEXT("playing")));
 		for (int32 K = 0; K < 10; ++K)
 		{
-			S.KillAt(10.0 + K * 0.3, Kill(K, K % 3 == 2 ? FName(TEXT("head")) : FName(TEXT("body")), TEXT("chopper")));
+			S.KillAt(10.0 + K * 0.3, VKill(K, K % 3 == 2 ? FName(TEXT("head")) : FName(TEXT("body")), TEXT("chopper")));
 		}
 		S.Run(16.0);
 		const int32 N = S.Plays.FilterByPredicate([](const FMIVoicePlay& P) { return P.Start >= 9.0; }).Num();
@@ -308,7 +308,7 @@ bool FMIAudioVoiceBurstTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioVoiceDirectorTest, "MurderInc.Audio.VoiceDirector", Flags)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioVoiceDirectorTest, "MurderInc.Audio.VoiceDirector", VoiceFlags)
 bool FMIAudioVoiceDirectorTest::RunTest(const FString& Parameters)
 {
 	// The voice through the whole director, as the game runs it: the event bus in, audio commands out.
@@ -376,8 +376,8 @@ bool FMIAudioVoiceDirectorTest::RunTest(const FString& Parameters)
 		TFunction<void(FName, int32)> Forward = T.OnTrigger;
 		TArray<FString>* Log = &Rig.Triggers;
 		T.OnTrigger = [Forward, Log](FName N, int32 V) { Log->Add(N.ToString()); Forward(N, V); };
-		Rig.Bus.Flow.Broadcast(Flow(TEXT("game:state"), TEXT("title")));
-		Rig.Bus.Flow.Broadcast(Flow(TEXT("game:state"), TEXT("playing")));
+		Rig.Bus.Flow.Broadcast(VFlow(TEXT("game:state"), TEXT("title")));
+		Rig.Bus.Flow.Broadcast(VFlow(TEXT("game:state"), TEXT("playing")));
 		Rig.Step(8.0);  // past the run start's line
 	};
 
@@ -388,7 +388,7 @@ bool FMIAudioVoiceDirectorTest::RunTest(const FString& Parameters)
 		const double T0 = Rig.A.Now();
 		for (int32 K = 0; K < 10; ++K)
 		{
-			Rig.Bus.Enemy.Broadcast(Kill(K, K % 3 == 2 ? FName(TEXT("head")) : FName(TEXT("body")), TEXT("chopper")));
+			Rig.Bus.Enemy.Broadcast(VKill(K, K % 3 == 2 ? FName(TEXT("head")) : FName(TEXT("body")), TEXT("chopper")));
 			Rig.Step(0.3);
 		}
 		Rig.Step(3.0);
@@ -405,15 +405,15 @@ bool FMIAudioVoiceDirectorTest::RunTest(const FString& Parameters)
 		Hit.Amount = 30;
 		Hit.Health = 20;
 		Rig.Bus.PlayerHit.Broadcast(Hit);
-		Rig.Bus.Flow.Broadcast(Flow(TEXT("extraction:reached")));
+		Rig.Bus.Flow.Broadcast(VFlow(TEXT("extraction:reached")));
 		Rig.Step(0.5);
 		const int32 Before = Rig.Lines.Num();
 		TestTrue(TEXT("director: the win line starts"), Before >= 1 && Rig.Lines.Last().Value.StartsWith(TEXT("name_")));
-		Rig.Bus.Flow.Broadcast(Flow(TEXT("game:state"), TEXT("paused")));
+		Rig.Bus.Flow.Broadcast(VFlow(TEXT("game:state"), TEXT("paused")));
 		Rig.Step(12.0);
 		TestEqual(TEXT("director: nothing starts while paused (not even the crowd)"), Rig.Lines.Num(), Before);
 		TestFalse(TEXT("director: no close call survived on the frozen clock"), Rig.Triggers.Contains(TEXT("health.lowSurvived")));
-		Rig.Bus.Flow.Broadcast(Flow(TEXT("game:state"), TEXT("playing")));
+		Rig.Bus.Flow.Broadcast(VFlow(TEXT("game:state"), TEXT("playing")));
 		Rig.Step(4.0);
 		TestEqual(TEXT("director: after the pause the crowd answers"), Rig.LinesAfter(0.0, TEXT("rule_chant")), 1);
 		Rig.Step(6.0);
@@ -424,15 +424,15 @@ bool FMIAudioVoiceDirectorTest::RunTest(const FString& Parameters)
 	{
 		FRig Rig;
 		Make(Rig, Base);
-		Rig.Bus.Flow.Broadcast(Flow(TEXT("extraction:reached")));
+		Rig.Bus.Flow.Broadcast(VFlow(TEXT("extraction:reached")));
 		Rig.Step(0.5);
-		Rig.Bus.Flow.Broadcast(Flow(TEXT("objective:all")));  // a queueable 'Rule Baby!' waiting behind it
+		Rig.Bus.Flow.Broadcast(VFlow(TEXT("objective:all")));  // a queueable 'Rule Baby!' waiting behind it
 		Rig.Step(0.4);
-		Rig.Bus.Flow.Broadcast(Flow(TEXT("game:state"), TEXT("paused")));
+		Rig.Bus.Flow.Broadcast(VFlow(TEXT("game:state"), TEXT("paused")));
 		Rig.Step(0.5);
 		const double T0 = Rig.A.Now();
-		Rig.Bus.Flow.Broadcast(Flow(TEXT("player:reset")));
-		Rig.Bus.Flow.Broadcast(Flow(TEXT("game:state"), TEXT("intro")));
+		Rig.Bus.Flow.Broadcast(VFlow(TEXT("player:reset")));
+		Rig.Bus.Flow.Broadcast(VFlow(TEXT("game:state"), TEXT("intro")));
 		Rig.Step(5.0);
 		TestTrue(TEXT("director: the old line is stopped"), Rig.VoiceStops >= 1);
 		TestEqual(TEXT("director: no crowd answer after a restart"), Rig.LinesAfter(T0, TEXT("rule_chant")), 0);
@@ -457,9 +457,9 @@ bool FMIAudioVoiceDirectorTest::RunTest(const FString& Parameters)
 		FRig Rig;
 		Make(Rig, V);
 		const double T0 = Rig.A.Now();
-		Rig.Bus.Enemy.Broadcast(Kill(1, TEXT("body"), TEXT("melee")));
+		Rig.Bus.Enemy.Broadcast(VKill(1, TEXT("body"), TEXT("melee")));
 		Rig.Step(0.35);  // the bark starts at the end of its 0.3 s window; the reel comes while it speaks
-		Rig.Bus.Flow.Broadcast(Flow(TEXT("objective:done"), TEXT("reel_1"), 1, 3));
+		Rig.Bus.Flow.Broadcast(VFlow(TEXT("objective:done"), TEXT("reel_1"), 1, 3));
 		Rig.Step(1.0);
 		const bool bOrder = Rig.LinesAfter(T0) == 2 && Rig.Lines[Rig.Lines.Num() - 2].Value.StartsWith(TEXT("holla")) && Rig.Lines.Last().Value.StartsWith(TEXT("rulebaby"));
 		TestTrue(TEXT("director: 'Rule Baby!' cuts 'Holla, holla!'"), bOrder);
@@ -469,7 +469,7 @@ bool FMIAudioVoiceDirectorTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioVoiceRateTest, "MurderInc.Audio.VoiceRate", Flags)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioVoiceRateTest, "MurderInc.Audio.VoiceRate", VoiceFlags)
 bool FMIAudioVoiceRateTest::RunTest(const FString& Parameters)
 {
 	// A Story run on Boss as spec 04 2.10 and config.json have it: the patrol (4 Goons, 2 Buzzards), a wave after each
@@ -493,9 +493,9 @@ bool FMIAudioVoiceRateTest::RunTest(const FString& Parameters)
 		FRandomStream Rng(1000 + Seed);
 		int32 Id = 0;
 		double Health = 100.0;
-		S.FlowAt(0.0, Flow(TEXT("game:state"), TEXT("intro")));
-		S.FlowAt(4.0, Flow(TEXT("game:state"), TEXT("playing")));
-		S.FlowAt(4.05, Flow(TEXT("hud:objective"), TEXT("Find the first reel")));
+		S.FlowAt(0.0, VFlow(TEXT("game:state"), TEXT("intro")));
+		S.FlowAt(4.0, VFlow(TEXT("game:state"), TEXT("playing")));
+		S.FlowAt(4.05, VFlow(TEXT("hud:objective"), TEXT("Find the first reel")));
 		double T = Fight(S, Rng, 20.0, F.PatrolGoons + F.PatrolBuzzards, F.PatrolBuzzards, Id, Health, F.GoonShot, F.GoonRush);
 		const int32 Reels = F.Waves.Num();
 		int32 Pursuit = F.PursuitBudget;
@@ -503,12 +503,12 @@ bool FMIAudioVoiceRateTest::RunTest(const FString& Parameters)
 		{
 			T += Rng.FRandRange(30.0, 50.0);  // the search, the walk to the reel and the grab (about five minutes a run)
 			Health = 100.0;
-			S.FlowAt(T, Flow(TEXT("objective:done"), *FString::Printf(TEXT("reel_%d"), Reel), Reel, Reels));
+			S.FlowAt(T, VFlow(TEXT("objective:done"), *FString::Printf(TEXT("reel_%d"), Reel), Reel, Reels));
 			if (Reel == Reels)
 			{
-				S.FlowAt(T, Flow(TEXT("objective:all")));
+				S.FlowAt(T, VFlow(TEXT("objective:all")));
 			}
-			S.FlowAt(T + 0.5, Flow(TEXT("hud:objective"), Reel == Reels ? TEXT("Get to the truck") : TEXT("Find the next reel")));
+			S.FlowAt(T + 0.5, VFlow(TEXT("hud:objective"), Reel == Reels ? TEXT("Get to the truck") : TEXT("Find the next reel")));
 			const FIntPoint W = F.Waves[Reel - 1];
 			// The pursuit's arrivals join the waves (budget spread over the three).
 			const int32 Extra = Reel == Reels ? Pursuit : FMath::Min(Pursuit, F.PursuitBudget / Reels);
@@ -516,9 +516,9 @@ bool FMIAudioVoiceRateTest::RunTest(const FString& Parameters)
 			T = Fight(S, Rng, T + 3.0, W.X + W.Y + Extra, W.Y, Id, Health, F.GoonShot, F.GoonRush);
 		}
 		T += Rng.FRandRange(20.0, 35.0);  // the run to the truck
-		S.FlowAt(T, Flow(TEXT("extraction:reached")));
-		S.FlowAt(T + 0.1, Flow(TEXT("game:state"), TEXT("complete")));
-		S.FlowAt(T + 4.0, Flow(TEXT("menus:card"), TEXT("complete")));
+		S.FlowAt(T, VFlow(TEXT("extraction:reached")));
+		S.FlowAt(T + 0.1, VFlow(TEXT("game:state"), TEXT("complete")));
+		S.FlowAt(T + 4.0, VFlow(TEXT("menus:card"), TEXT("complete")));
 		const double End = T + 8.0;
 		S.Run(End);
 		Minutes += End / 60.0;
@@ -548,7 +548,7 @@ bool FMIAudioVoiceRateTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioVoiceRateHoldoutTest, "MurderInc.Audio.VoiceRateHoldout", Flags)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioVoiceRateHoldoutTest, "MurderInc.Audio.VoiceRateHoldout", VoiceFlags)
 bool FMIAudioVoiceRateHoldoutTest::RunTest(const FString& Parameters)
 {
 	// Hold the Block as spec 04 2.11 has it: waves of min(5 + 2n, 30) enemies (a third Buzzards), a 9 s breather after
@@ -572,18 +572,18 @@ bool FMIAudioVoiceRateHoldoutTest::RunTest(const FString& Parameters)
 		FRandomStream Rng(5000 + Seed);
 		int32 Id = 0;
 		double Health = 100.0;
-		S.FlowAt(0.0, Flow(TEXT("game:state"), TEXT("title")));
-		S.FlowAt(0.5, Flow(TEXT("game:state"), TEXT("playing")));
+		S.FlowAt(0.0, VFlow(TEXT("game:state"), TEXT("title")));
+		S.FlowAt(0.5, VFlow(TEXT("game:state"), TEXT("playing")));
 		double T = 0.5 + F.FirstDelay;
 		double WaveTen = 0.0;
 		for (int32 N = 1; N <= LastWave; ++N)
 		{
 			const int32 Count = FMath::Min(5 + 2 * N, 30);
-			S.FlowAt(T, Flow(TEXT("holdout:wave"), TEXT(""), N, Count));
+			S.FlowAt(T, VFlow(TEXT("holdout:wave"), TEXT(""), N, Count));
 			Health = 100.0;  // the resupply heals between waves
 			T = Fight(S, Rng, T + 1.2, Count, Count / 3, Id, Health, F.GoonShot, F.GoonRush, FMath::Min(2.0, 1.0 + 0.05 * (N - 1)));
-			S.FlowAt(T + 0.01, Flow(TEXT("objective:done"), TEXT("wave"), N, N));
-			S.FlowAt(T + 0.01, Flow(TEXT("audio:sting"), TEXT("reel")));
+			S.FlowAt(T + 0.01, VFlow(TEXT("objective:done"), TEXT("wave"), N, N));
+			S.FlowAt(T + 0.01, VFlow(TEXT("audio:sting"), TEXT("reel")));
 			if (N == 10)
 			{
 				WaveTen = T + 3.0;
@@ -591,8 +591,8 @@ bool FMIAudioVoiceRateHoldoutTest::RunTest(const FString& Parameters)
 			T += F.Breather + 3.0;  // breather and countdown
 		}
 		S.At(T, [&S]() { S.T.OnPlayerDead(S.Now); });
-		S.FlowAt(T, Flow(TEXT("game:state"), TEXT("dead")));
-		S.FlowAt(T + 3.0, Flow(TEXT("menus:card"), TEXT("dead"), 2, 30000));
+		S.FlowAt(T, VFlow(TEXT("game:state"), TEXT("dead")));
+		S.FlowAt(T + 3.0, VFlow(TEXT("menus:card"), TEXT("dead"), 2, 30000));
 		const double End = T + 8.0;
 		S.Run(End);
 		Minutes += End / 60.0;
@@ -620,7 +620,7 @@ bool FMIAudioVoiceRateHoldoutTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioGenFilesTest, "MurderInc.Audio.GenFiles", Flags)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioGenFilesTest, "MurderInc.Audio.GenFiles", VoiceFlags)
 bool FMIAudioGenFilesTest::RunTest(const FString& Parameters)
 {
 	// The generated effects (Content/Audio/Gen, tools/audio/sfx_process.py): each variant set of a replacement layer is
@@ -733,7 +733,7 @@ bool FMIAudioGenFilesTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioMasterChainTest, "MurderInc.Audio.MasterChain", Flags)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioMasterChainTest, "MurderInc.Audio.MasterChain", VoiceFlags)
 bool FMIAudioMasterChainTest::RunTest(const FString& Parameters)
 {
 	// Spec 07 2.11: compressor -6 dB threshold, 8 dB knee, 2.5 : 1, attack 6 ms, release 140 ms, x 1.15, soft clip;

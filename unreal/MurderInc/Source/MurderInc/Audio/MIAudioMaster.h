@@ -38,6 +38,12 @@ struct MURDERINC_API FMIMasterChain
 	 */
 	bool Install(UObject* WorldContext, TArray<TObjectPtr<USoundEffectSubmixPreset>>& OutKeep) const;
 	static void Uninstall(UObject* WorldContext);
+	/**
+	 * Push the presets' settings to their live effect instances. The device creates the instances on its own thread
+	 * after Install, and an instance only reads its preset's settings when they change: call this for the first
+	 * frames after Install (UMIAudioSubsystem and the engine render do), or the processors run on their defaults.
+	 */
+	void Refresh(const TArray<TObjectPtr<USoundEffectSubmixPreset>>& Presets) const;
 };
 
 /** The chain sample by sample, stereo-linked (the offline mix and the tests). */

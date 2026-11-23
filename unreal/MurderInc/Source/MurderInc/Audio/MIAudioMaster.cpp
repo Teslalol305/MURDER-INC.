@@ -22,6 +22,31 @@ namespace MIAudioMasterPrivate
 	/** The main submix's own chain before ours went on (restored by Uninstall). */
 	TArray<TObjectPtr<USoundEffectSubmixPreset>> SavedChain;
 	bool bSaved = false;
+
+	/** The two processors' settings from the chain's numbers. */
+	void Settings(const FMIMasterChain& Ch, FSubmixEffectDynamicsProcessorSettings& S, FSubmixEffectDynamicsProcessorSettings& C)
+	{
+		S.DynamicsProcessorType = ESubmixEffectDynamicsProcessorType::Compressor;
+		S.PeakMode = ESubmixEffectDynamicsPeakMode::Peak;
+		S.LinkMode = ESubmixEffectDynamicsChannelLinkMode::Peak;
+		S.ThresholdDb = (float)Ch.ThresholdDb;
+		S.Ratio = (float)Ch.Ratio;
+		S.KneeBandwidthDb = (float)Ch.KneeDb;
+		S.AttackTimeMsec = (float)Ch.AttackMs;
+		S.ReleaseTimeMsec = (float)Ch.ReleaseMs;
+		S.LookAheadMsec = 0.f;
+		S.InputGainDb = 0.f;
+		S.OutputGainDb = (float)(20.0 * FMath::LogX(10.0, FMath::Max(1e-6, Ch.Makeup)));
+		C = S;
+		C.DynamicsProcessorType = ESubmixEffectDynamicsProcessorType::Limiter;
+		C.ThresholdDb = (float)Ch.ClipThresholdDb;
+		C.KneeBandwidthDb = (float)Ch.ClipKneeDb;
+		C.Ratio = 20.f;
+		C.AttackTimeMsec = (float)Ch.ClipAttackMs;
+		C.ReleaseTimeMsec = (float)Ch.ClipReleaseMs;
+		C.LookAheadMsec = (float)Ch.ClipLookAheadMs;
+		C.OutputGainDb = 0.f;
+	}
 }
 
 FMIMasterChain FMIMasterChain::FromData(const FMIAudioData& Data)
@@ -61,30 +86,10 @@ bool FMIMasterChain::Install(UObject* WorldContext, TArray<TObjectPtr<USoundEffe
 	OutKeep.Reset();
 
 	USubmixEffectDynamicsProcessorPreset* Comp = NewObject<USubmixEffectDynamicsProcessorPreset>(GetTransientPackage());
-	FSubmixEffectDynamicsProcessorSettings S;
-	S.DynamicsProcessorType = ESubmixEffectDynamicsProcessorType::Compressor;
-	S.PeakMode = ESubmixEffectDynamicsPeakMode::Peak;
-	S.LinkMode = ESubmixEffectDynamicsChannelLinkMode::Peak;
-	S.ThresholdDb = (float)ThresholdDb;
-	S.Ratio = (float)Ratio;
-	S.KneeBandwidthDb = (float)KneeDb;
-	S.AttackTimeMsec = (float)AttackMs;
-	S.ReleaseTimeMsec = (float)ReleaseMs;
-	S.LookAheadMsec = 0.f;
-	S.InputGainDb = 0.f;
-	S.OutputGainDb = (float)(20.0 * FMath::LogX(10.0, FMath::Max(1e-6, Makeup)));
-	Comp->SetSettings(S);
-
 	USubmixEffectDynamicsProcessorPreset* Clip = NewObject<USubmixEffectDynamicsProcessorPreset>(GetTransientPackage());
-	FSubmixEffectDynamicsProcessorSettings C = S;
-	C.DynamicsProcessorType = ESubmixEffectDynamicsProcessorType::Limiter;
-	C.ThresholdDb = (float)ClipThresholdDb;
-	C.KneeBandwidthDb = (float)ClipKneeDb;
-	C.Ratio = 20.f;
-	C.AttackTimeMsec = (float)ClipAttackMs;
-	C.ReleaseTimeMsec = (float)ClipReleaseMs;
-	C.LookAheadMsec = (float)ClipLookAheadMs;
-	C.OutputGainDb = 0.f;
+	FSubmixEffectDynamicsProcessorSettings S, C;
+	MIAudioMasterPrivate::Settings(*this, S, C);
+	Comp->SetSettings(S);
 	Clip->SetSettings(C);
 
 	OutKeep.Add(Comp);
@@ -123,6 +128,19 @@ void FMIMasterChain::Uninstall(UObject* WorldContext)
 			Main->SubmixEffectChain = SavedChain;
 			World->GetAudioDeviceRaw()->RegisterSoundSubmix(Main, true);
 			bSaved = false;
+		}
+	}
+}
+
+void FMIMasterChain::Refresh(const TArray<TObjectPtr<USoundEffectSubmixPreset>>& Presets) const
+{
+	FSubmixEffectDynamicsProcessorSettings S, C;
+	MIAudioMasterPrivate::Settings(*this, S, C);
+	for (int32 I = 0; I < Presets.Num(); ++I)
+	{
+		if (USubmixEffectDynamicsProcessorPreset* D = Cast<USubmixEffectDynamicsProcessorPreset>(Presets[I].Get()))
+		{
+			D->SetSettings(I == 0 ? S : C);
 		}
 	}
 }

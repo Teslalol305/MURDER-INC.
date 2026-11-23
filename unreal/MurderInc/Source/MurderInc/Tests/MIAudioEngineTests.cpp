@@ -86,6 +86,10 @@ public:
 		TArray<FMIAudioCmd> Cmds;
 		X.Director.TakeCommands(Cmds);
 		const FMIMixState& M = X.Director.GetMix();
+		if (Now < 2.0)
+		{
+			FMIMasterChain::FromData(X.Data).Refresh(X.Master);  // the device made the chain's instances on its thread: give them their settings
+		}
 		for (const FMIAudioCmd& C : Cmds)
 		{
 			if (C.Type == EMIAudioCmd::Start)

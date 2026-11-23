@@ -1,34 +1,14 @@
 #include "Audio/MIVoiceRules.h"
 
+#include "Audio/MIAudioData.h"
+
 #include "Core/Data/MIDataSubsystem.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
 
 namespace MIVoicePrivate
 {
-	double Num(const TSharedPtr<FJsonObject>& O, const TCHAR* Key, double Default)
-	{
-		double V = Default;
-		return O.IsValid() && O->TryGetNumberField(Key, V) ? V : Default;
-	}
-
-	bool Flag(const TSharedPtr<FJsonObject>& O, const TCHAR* Key, bool Default)
-	{
-		bool V = Default;
-		return O.IsValid() && O->TryGetBoolField(Key, V) ? V : Default;
-	}
-
-	FString Str(const TSharedPtr<FJsonObject>& O, const TCHAR* Key, const FString& Default = FString())
-	{
-		FString V;
-		return O.IsValid() && O->TryGetStringField(Key, V) ? V : Default;
-	}
-
-	TSharedPtr<FJsonObject> Obj(const TSharedPtr<FJsonObject>& O, const TCHAR* Key)
-	{
-		const TSharedPtr<FJsonObject>* V = nullptr;
-		return O.IsValid() && O->TryGetObjectField(Key, V) && V ? *V : nullptr;
-	}
+	using namespace MIAudioJson;  // Num, Flag, Str, Obj (Audio/MIAudioData.h)
 
 	void Takes(const TSharedPtr<FJsonObject>& O, const TCHAR* Key, TArray<FMIVoiceTake>& Out)
 	{
