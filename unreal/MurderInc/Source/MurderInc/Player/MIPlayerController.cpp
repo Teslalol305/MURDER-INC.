@@ -359,7 +359,18 @@ void AMIPlayerController::MIFreezeOn(const FString& Event, float Delay)
 	if (Events && !bFreezeBound)
 	{
 		bFreezeBound = true;
-		const auto Arm = [this](FName Kind) { if (FreezeEvent == Kind) { FreezeIn = FreezeDelay; FreezeEvent = NAME_None; } };
+		const auto Arm = [this](FName Kind)
+		{
+			if (FreezeEvent == Kind)
+			{
+				FreezeIn = FreezeDelay;
+				FreezeEvent = NAME_None;
+				if (Kind == TEXT("enemyfire"))
+				{
+					MIFaceEnemy(-1.f);  // look at the shooter (the nearest one) for the picture
+				}
+			}
+		};
 		Events->Enemy.AddWeakLambda(this, [Arm](const FMIEnemyEvent& E) { if (E.Kind == FMIEnemyEvent::EKind::Fire) Arm(TEXT("enemyfire")); });
 		Events->Explosion.AddWeakLambda(this, [Arm](const FMIExplosionEvent&) { Arm(TEXT("explosion")); });
 		Events->WeaponFire.AddWeakLambda(this, [Arm](const FMIShotFiredEvent&) { Arm(TEXT("fire")); });
@@ -568,6 +579,6 @@ void AMIPlayerController::MIFaceEnemy(float Metres)
 {
 	if (UMIGameSubsystem* G = UMIGameSubsystem::Get(this))
 	{
-		G->FaceNearestEnemy(Metres > 0.f ? Metres : 8.0);
+		G->FaceNearestEnemy(Metres != 0.f ? Metres : 8.0);  // negative: turn only
 	}
 }

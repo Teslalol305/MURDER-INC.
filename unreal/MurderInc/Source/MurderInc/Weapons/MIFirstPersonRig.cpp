@@ -302,13 +302,12 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 	}
 	PackGun->AttachToComponent(Arms, FAttachmentTransformRules::SnapToTargetNotIncludingScale, FName(*MIJson::StringOr(Set, TEXT("gunSocket"), TEXT("ik_hand_gun"))));
 	PackGun->SetRelativeTransform(FTransform::Identity);
+	// The mesh first, so the parts find their sockets (the assembly already holds this base mesh's name from the
+	// placeholder gun and would not load it again).
+	PackGun->SetSkinnedAssetAndUpdate(GunMesh, true);
 	if (Assembly)
 	{
-		Assembly->Assemble(PackGun, *Resolved, true);
-	}
-	else
-	{
-		PackGun->SetSkinnedAssetAndUpdate(GunMesh, true);
+		Assembly->Assemble(PackGun, *Resolved, false);
 	}
 	Arms->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 	Arms->SetAnimInstanceClass(UMIFPAnimInstance::StaticClass());

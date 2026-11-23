@@ -43,7 +43,7 @@ c "MIInput ads 1"; run 0.8; shot fp-irons
 c "MIInput ads 0"
 # 4 mid tactical reload (five rounds spent, the fresh magazine on its way up)
 c "MIPose -2900 80 0 0 6"; c "MIInput fire 1"; run 0.4; c "MIInput fire 0"; run 0.3
-c "MIInput reload 1"; c "MIFreezeOn reload 1.2"; sleep 5; c "MIInput reload 0"; shot fp-reload-tactical
+c "MIFreezeOn reload 1.2"; c "MIInput reload 1"; sleep 5; c "MIInput reload 0"; shot fp-reload-tactical
 # 5 mid empty reload: the magazine dropped and falling (the auto reload after the last round)
 c "MIInput fire 1"; c "MIFreezeOn reload 0.48"; sleep 12; c "MIInput fire 0"; shot fp-reload-empty
 run 3.0
@@ -57,7 +57,7 @@ c "MIInput ads 0"
 c "MIInput weapon2 1"; run 1.0; c "MIInput weapon2 0"; c "MIPose 170 -380 0 -35 -2"; c "MIInput ads 1"; run 0.8; shot fp-nine
 c "MIInput ads 0"; c "MIInput weapon1 1"; run 1.0; c "MIInput weapon1 0"
 # 9 a Goon firing at the player from 10 m (frozen on its round)
-c "MIFaceEnemy 10"; c "MIFreezeOn enemyfire 0.01"; sleep 20; shot fp-goon
+c "MIFaceEnemy 10"; c "MIFreezeOn enemyfire 0.012"; c "slomo 1"; sleep 20; shot fp-goon
 # 10 an explosion: the nearest explosive, from 9 m, shot until it blows
 cat > "$PIE_PY/_boom.py" <<'PY'
 import math, unreal
@@ -75,8 +75,8 @@ d, l = best
 ux, uy = (me.x - l.x) / max(d, 1), (me.y - l.y) / max(d, 1)
 fx, fy = l.x + ux * 900, l.y + uy * 900
 yaw = math.degrees(math.atan2(l.y - fy, l.x - fx))
-pitch = math.degrees(math.atan2((l.z + 40) - (l.z + 160), 900))
-unreal.SystemLibrary.execute_console_command(w, "MIPose %.0f %.0f %.0f %.1f %.1f" % (fx, fy, l.z - 40, yaw, pitch))
+pitch = math.degrees(math.atan2((l.z + 25) - 160.0, 900))   # street level 0, the eye about 160 cm over the feet
+unreal.SystemLibrary.execute_console_command(w, "MIPose %.0f %.0f 0 %.1f %.1f" % (fx, fy, yaw, pitch))
 "explosive at %.0f %.0f %.0f" % (l.x, l.y, l.z)
 PY
 pie_mcp py "$PIE_PY/_boom.py"; run 0.6

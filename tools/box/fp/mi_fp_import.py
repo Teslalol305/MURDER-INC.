@@ -179,12 +179,26 @@ def nail_material(path=ARMS + "/Materials/M_RuleArms_Nail"):
     return _finish(m, path)
 
 
+def game_skin_profile(path=ARMS + "/Materials/SP_RuleSkin"):
+    """The game's subsurface profile for the arms: the scatter of mi_chars.make_material bled the whole forearm to
+    orange-red in the street's direct sun (fp-*.jpg, first pass), so the game keeps a shorter, less saturated mean
+    free path (UE's Burley model: albedo tint, red-weighted path 0.32 cm). Saved here: make_material leaves it unsaved."""
+    prof = unreal.load_asset(path)
+    st = prof.get_editor_property("settings")
+    _set(st, surface_albedo=unreal.LinearColor(0.72, 0.48, 0.36, 1), mean_free_path_color=unreal.LinearColor(1.0, 0.52, 0.32, 1),
+         mean_free_path_distance=0.32, world_unit_scale=0.1)
+    prof.set_editor_property("settings", st)
+    ASSETS.save_asset(path, only_if_is_dirty=False)
+    return path
+
+
 def arms():
     rep = {}
     rep["mesh"] = C.import_on_mannequin(os.path.join(IN, "glb", "SK_RuleArms.glb"), ARMS, "SK_RuleArms")
     rep["build"] = C.keep_exported_normals(ARMS + "/SK_RuleArms")
     rep["textures"] = C.import_textures(os.path.join(IN, "textures", "RuleArms_Skin"), ARMS + "/Textures")
     C.make_material("M_RuleArms_Skin", "RuleArms_Skin", skin=True)
+    game_skin_profile()
     nail_material()
     rep["slots"] = _assign_all(ARMS + "/SK_RuleArms", {"M_RuleArms_Skin": ARMS + "/Materials/M_RuleArms_Skin",
                                                        "M_RuleArms_Nail": ARMS + "/Materials/M_RuleArms_Nail"})
