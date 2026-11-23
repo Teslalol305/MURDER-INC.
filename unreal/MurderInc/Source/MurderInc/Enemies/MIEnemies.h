@@ -198,6 +198,9 @@ public:
 	void Hear(const FVector& Pos, double Radius);
 	/** The player's gun went off (weapon:fire): alerts at most every gunfireEvery seconds. */
 	void Gunfire(const FVector& Pos);
+	/** A round heard RadiusM metres out (LOADOUT.md 4.5: a silencer shrinks it). The throttle stays, except that a
+	 *  round heard further than the last alert in the window still alerts (never when every radius is equal). */
+	void Gunfire(const FVector& Pos, double RadiusM);
 	void Explosion(const FVector& Pos, double Radius) { Alert(Pos, Radius); }
 
 	int32 AliveCount() const;
@@ -313,6 +316,7 @@ private:
 	int32 Alive = 0;
 	int32 NextId = 1;
 	double SinceGunfire = MIEnemy::Inf;
+	double LastGunfireRadius = 0.0;
 	int32 BudgetPaths = 0, BudgetPicks = 0;
 	int32 PathCursor = 0, PickCursor = 0, StandCursor = 0;
 	TArray<MIEnemy::FCandidate> Candidates;

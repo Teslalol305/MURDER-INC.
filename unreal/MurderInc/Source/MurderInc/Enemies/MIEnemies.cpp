@@ -73,6 +73,7 @@ void FMIEnemyField::Init(const FMIEnemyTune& InTune, const FMILevelData* InLevel
 	Now = 0;
 	NextId = 1;
 	SinceGunfire = Inf;
+	LastGunfireRadius = 0.0;
 	PathCursor = PickCursor = StandCursor = 0;
 	ScaleHp = ScaleDamage = ScaleCooldown = 1;
 	PlayerSpeed = 0;
@@ -470,12 +471,18 @@ void FMIEnemyField::Hear(const FVector& Pos, double Radius)
 
 void FMIEnemyField::Gunfire(const FVector& Pos)
 {
-	if (SinceGunfire < Tune.Ai.GunfireEvery)
+	Gunfire(Pos, Tune.Ai.HearGunfire);
+}
+
+void FMIEnemyField::Gunfire(const FVector& Pos, double RadiusM)
+{
+	if (SinceGunfire < Tune.Ai.GunfireEvery && !(RadiusM > LastGunfireRadius))
 	{
 		return;
 	}
 	SinceGunfire = 0;
-	Alert(Pos, Tune.Ai.HearGunfire);
+	LastGunfireRadius = RadiusM;
+	Alert(Pos, RadiusM);
 }
 
 void FMIEnemyField::SpendBudgets()

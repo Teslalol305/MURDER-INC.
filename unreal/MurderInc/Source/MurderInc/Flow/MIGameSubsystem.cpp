@@ -272,7 +272,15 @@ void UMIGameSubsystem::BindEvents()
 	Events->WeaponFire.AddWeakLambda(this, [this](const FMIShotFiredEvent& E)
 	{
 		RunStats.Shots++;
-		Field.Gunfire(FromUnreal(E.Muzzle));
+		// The gun's noise radius (a silencer shrinks it); the default radius takes the web's own call.
+		if (E.NoiseRadius > 0.0 && E.NoiseRadius != Field.GetTune().Ai.HearGunfire * 100.0)
+		{
+			Field.Gunfire(FromUnreal(E.Muzzle), E.NoiseRadius / 100.0);
+		}
+		else
+		{
+			Field.Gunfire(FromUnreal(E.Muzzle));
+		}
 	});
 	Events->PlayerHitEnemy.AddWeakLambda(this, [this](const FMIHitEnemyEvent& E)
 	{

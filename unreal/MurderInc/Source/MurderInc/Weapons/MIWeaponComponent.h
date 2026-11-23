@@ -51,6 +51,7 @@ public:
 	// IMIWeaponHost
 	virtual FMIWeaponPlayerState GetPlayerState() const override;
 	virtual void SetPlayerAds(double Ads) override;
+	virtual void SetPlayerAimView(double AdsFov, double AdsLook) override;
 	virtual void AddRecoil(double PitchDeg, double YawDeg) override;
 	virtual void AddShake(double Trauma) override;
 	virtual FMIShotResult Hitscan(const FMIShotRequest& Shot) override;

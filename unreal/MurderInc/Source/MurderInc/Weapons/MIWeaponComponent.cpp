@@ -289,6 +289,12 @@ void UMIWeaponComponent::SetPlayerAds(double Ads)
 	Player->GetPlayerRules().Ads = Ads;
 }
 
+void UMIWeaponComponent::SetPlayerAimView(double AdsFov, double AdsLook)
+{
+	Player->GetPlayerRules().AimFov = AdsFov;
+	Player->GetPlayerRules().AimLook = AdsLook;
+}
+
 void UMIWeaponComponent::AddRecoil(double PitchDeg, double YawDeg)
 {
 	Player->GetPlayerRules().AddRecoil(PitchDeg, YawDeg);
@@ -331,7 +337,8 @@ FMIShotResult UMIWeaponComponent::Hitscan(const FMIShotRequest& Shot)
 		const bool bEnemy = Target->GetMIDamageableKind() == TEXT("enemy");
 		const bool bHead = bEnemy && IsHead(Hit);
 		FMIDamage Damage;
-		Damage.Amount = Shot.Damage * (bHead ? Shot.HeadMultiplier : 1.0);
+		// Falloff first (skipped up to its start), then the head multiplier (LOADOUT.md 4.5).
+		Damage.Amount = Shot.DamageAt(Hit.Distance) * (bHead ? Shot.HeadMultiplier : 1.0);
 		Damage.Kind = EMIDamageKind::Bullet;
 		Damage.Source = EMIDamageSource::Player;
 		Damage.From = Shot.Origin;

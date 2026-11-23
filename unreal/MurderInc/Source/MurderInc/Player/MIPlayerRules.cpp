@@ -351,7 +351,7 @@ FMIBodyMove FMIPlayerRules::BeginFrame(double Dt, const FMIPlayerInputFrame& Inp
 	// Look. Aiming slows every device alike.
 	if (FMath::IsFinite(Input.LookDegrees.X) && FMath::IsFinite(Input.LookDegrees.Y))
 	{
-		const double K = MI::Lerp(1.0, T.Look.AdsScale, MI::Clamp01(Ads));
+		const double K = MI::Lerp(1.0, T.Look.AdsScale * AimLook, MI::Clamp01(Ads));
 		Yaw = MI::WrapDegrees(Yaw + Input.LookDegrees.X * K);
 		Pitch = FMath::Clamp(Pitch - Input.LookDegrees.Y * K, -T.Look.PitchLimit, T.Look.PitchLimit);
 	}
@@ -484,7 +484,7 @@ void FMIPlayerRules::EndFrame(double Dt, const FMIBodyResult& Body)
 
 	EyeHeight = MI::Damp(EyeHeight, bCrouching ? T.Body.CrouchEye : T.Body.Eye, T.Body.EyeRate, Dt);
 	const double A = MI::Clamp01(Ads);
-	const double FovTarget = MI::Lerp(BaseFov + (bSprinting ? T.Fov.SprintAdd : 0.0), T.Fov.Ads, A);
+	const double FovTarget = MI::Lerp(BaseFov + (bSprinting ? T.Fov.SprintAdd : 0.0), AimFov > 0.0 ? AimFov : T.Fov.Ads, A);
 	const bool bAiming = A > T.Fov.AdsBandLow && A < T.Fov.AdsBandHigh;
 	ViewFov = MI::Damp(ViewFov, FovTarget, bAiming ? T.Fov.RateAds : T.Fov.Rate, Dt);
 

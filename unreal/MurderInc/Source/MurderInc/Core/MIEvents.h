@@ -42,6 +42,8 @@ struct FMIShotFiredEvent
 	double Spread = 0.0;     // degrees, the cone half-angle the round was drawn from
 	int32 Burst = 0;         // 1 for the first round of a burst
 	int32 MagLeft = 0;       // rounds left after this one
+	double NoiseRadius = 0.0;  // cm: enemies within it hear the round (LOADOUT.md 4.5)
+	bool bSuppressed = false;  // a silencer is fitted: the suppressed sound set
 };
 
 struct FMIReloadEvent
@@ -123,6 +125,8 @@ struct FMIGameEvents
 	TMulticastDelegate<void(const FMIReloadEvent&)> WeaponReload;
 	TMulticastDelegate<void(const FMISwitchEvent&)> WeaponSwitch;
 	TMulticastDelegate<void(FName /*Weapon*/)> WeaponSwing;
+	/** The fire selector flipped (LOADOUT.md 4.4). Never fires in a parity run. */
+	TMulticastDelegate<void(FName /*Weapon*/, bool /*bSemi*/)> WeaponMode;
 	TMulticastDelegate<void(bool /*bHit*/)> WeaponMelee;
 	TMulticastDelegate<void(const FMIImpactEvent&)> Impact;
 	TMulticastDelegate<void(const FMIHitEnemyEvent&)> PlayerHitEnemy;

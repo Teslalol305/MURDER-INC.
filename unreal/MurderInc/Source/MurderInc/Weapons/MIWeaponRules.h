@@ -39,6 +39,13 @@ struct FMIWeaponInput
 	bool bMeleePressed = false;
 	bool bReloadPressed = false;
 	bool bPadActive = false;  // the gamepad is the active device (aim slow-down)
+	// LOADOUT.md 4.2: four guns. All default to off, so the golden harness is unchanged.
+	bool bWeapon3Pressed = false;
+	bool bWeapon4Pressed = false;
+	bool bNextPressed = false;      // mouse wheel down, D-pad up
+	bool bPreviousPressed = false;  // mouse wheel up, D-pad down
+	int32 WheelPick = INDEX_NONE;   // the gun chosen on the weapon wheel this frame
+	bool bFireModePressed = false;  // the selector (B, View tap)
 };
 
 struct FMIShotRequest
@@ -49,6 +56,26 @@ struct FMIShotRequest
 	double Damage = 0.0;
 	double HeadMultiplier = 1.0;
 	FName Weapon;
+	// LOADOUT.md 4.5: damage x 1 up to FalloffStart (cm), linear to FalloffMin at FalloffEnd, FalloffMin beyond.
+	double FalloffStart = TNumericLimits<double>::Max();
+	double FalloffEnd = TNumericLimits<double>::Max();
+	double FalloffMin = 1.0;
+	double NoiseRadius = 0.0;  // cm
+	bool bSuppressed = false;
+
+	/** Damage at Distance cm: the branch is skipped while Distance <= FalloffStart, so no factor of 1 is computed. */
+	double DamageAt(double Distance) const
+	{
+		if (!(Distance > FalloffStart))
+		{
+			return Damage;
+		}
+		if (!(FalloffEnd > FalloffStart) || Distance >= FalloffEnd)
+		{
+			return Damage * FalloffMin;
+		}
+		return Damage * (1.0 + (FalloffMin - 1.0) * (Distance - FalloffStart) / (FalloffEnd - FalloffStart));
+	}
 };
 
 struct FMIShotResult
@@ -82,6 +109,8 @@ public:
 	/** Read again before every round: a kick moves the aim of the next catch-up round. */
 	virtual FMIWeaponPlayerState GetPlayerState() const = 0;
 	virtual void SetPlayerAds(double Ads) = 0;
+	/** The gun in hand's aimed field of view (vertical degrees) and aimed look factor, every frame (LOADOUT.md 4.5). */
+	virtual void SetPlayerAimView(double AdsFov, double AdsLook) {}
 	virtual void AddRecoil(double PitchDeg, double YawDeg) = 0;
 	virtual void AddShake(double Trauma) = 0;
 	virtual FMIShotResult Hitscan(const FMIShotRequest& Shot) = 0;
@@ -103,7 +132,8 @@ enum class EMIWeaponActivity : uint8
 	Holstering,
 	Drawing,
 	Striking,
-	Dropped
+	Dropped,
+	Selector   // the fire selector moving (LOADOUT.md 4.4)
 };
 
 /** What a presentation layer reads of the rules each frame (spec 02 2.12): state, never internals to write. */
@@ -146,10 +176,21 @@ public:
 	int32 GetCurrentIndex() const { return Current; }
 	FName GetCurrentId() const { return GetDef().Id; }
 	int32 GetMag() const { return Ammo[Current].Mag; }
-	double GetReserve() const { return Ammo[Current].Reserve; }
-	int32 GetOtherIndex() const { return OtherOf(Current); }
+	double GetReserve() const { return Pools[Ammo[Current].Pool]; }
+	/** The gun last put away (the quick swap's target); with two guns, the other one. */
+	int32 GetOtherIndex() const { return LastUsed; }
+	int32 GetLastUsed() const { return LastUsed; }
 	int32 GetMagOf(int32 Gun) const { return Ammo[Gun].Mag; }
-	double GetReserveOf(int32 Gun) const { return Ammo[Gun].Reserve; }
+	double GetReserveOf(int32 Gun) const { return Pools[Ammo[Gun].Pool]; }
+	int32 NumGuns() const { return Data.Guns.Num(); }
+	/** The shared bag of rounds (LOADOUT.md 3.2.3): the first finite pool, or a negative number when none. */
+	double GetBag() const;
+	bool IsSemi(int32 Gun) const { return SemiMode.IsValidIndex(Gun) && SemiMode[Gun]; }
+	bool HasTwoModes(int32 Gun) const { return Data.Guns.IsValidIndex(Gun) && Data.Guns[Gun].HasFireMode(TEXT("auto")) && Data.Guns[Gun].HasFireMode(TEXT("semi")); }
+	double HolsterOf(int32 Gun) const;
+	double DrawOf(int32 Gun) const;
+	/** The gun the holster is heading to (Swap.To), or the gun in hand. */
+	int32 GetAimIndex() const { return Swap.bActive && Swap.bHolster ? Swap.To : Current; }
 	/** idle, firing, reloading, switching, melee, lowered */
 	FName GetState() const;
 	/** empty string, reloading, low, reload, empty */
@@ -171,7 +212,7 @@ private:
 	struct FAmmo
 	{
 		int32 Mag = 0;
-		double Reserve = 0.0;
+		int32 Pool = 0;  // index into Pools: one finite pool (the bag) for every finite gun, one infinite per other gun
 	};
 	struct FMark
 	{
@@ -200,7 +241,8 @@ private:
 	};
 
 	int32 OtherOf(int32 Gun) const { return (Gun + 1) % Data.Guns.Num(); }
-	bool Busy() const { return Reload.bActive || Swap.bActive || Strike.bActive; }
+	bool Busy() const { return Reload.bActive || Swap.bActive || Strike.bActive || Selector.bActive; }
+	double& PoolOf(int32 Gun) { return Pools[Ammo[Gun].Pool]; }
 	const TArray<FMark>& Marks(int32 Gun, bool bEmpty) const { return Timelines[Gun * 2 + (bEmpty ? 1 : 0)]; }
 	double Random() { return Rng.Next(); }
 	double Signed() { return Random() * 2.0 - 1.0; }
@@ -212,6 +254,8 @@ private:
 	void CancelReload();
 	void AdvanceReload(double Dt);
 	void SwitchEvent(int32 From, int32 To, bool bHolster);
+	void CancelSelector();
+	void AdvanceSelector(double Dt);
 	void RequestSwitch(int32 Gun);
 	void AdvanceSwitch(double Dt);
 	void StartStrike();
@@ -228,6 +272,15 @@ private:
 	FMIRng Rng;
 	TArray<TArray<FMark>> Timelines;
 	TArray<FAmmo> Ammo;
+	TArray<double> Pools;
+	TArray<bool> SemiMode;
+	int32 LastUsed = 0;
+	struct FSelector
+	{
+		bool bActive = false;
+		double T = 0.0;
+	} Selector;
+	bool bReloadAfterSelector = false;
 
 	int32 Current = 0;
 	double Cooldown = 0.0;

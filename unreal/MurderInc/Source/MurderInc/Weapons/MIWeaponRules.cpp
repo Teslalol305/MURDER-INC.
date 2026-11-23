@@ -20,6 +20,26 @@ void FMIWeaponRules::Init(const FMIWeaponsData& InData, uint32 Seed, FMIGameEven
 	Rng = FMIRng(Seed).Fork(TEXT("weapon"));
 	Timelines.Reset();
 	Ammo.SetNum(Data.Guns.Num());
+	SemiMode.SetNum(Data.Guns.Num());
+	// Pools (LOADOUT.md 4.3): every finite gun draws on its named pool (the bag); an infinite gun has its own.
+	Pools.Reset();
+	TMap<FName, int32> Named;
+	for (int32 I = 0; I < Data.Guns.Num(); ++I)
+	{
+		const FMIWeaponDef& Gun = Data.Guns[I];
+		if (FMath::IsFinite(Gun.Reserve))
+		{
+			const FName Name = Gun.Pool.IsNone() ? FName(TEXT("bag")) : Gun.Pool;
+			if (const int32* Found = Named.Find(Name))
+			{
+				Ammo[I].Pool = *Found;
+				continue;
+			}
+			Named.Add(Name, Pools.Num());
+		}
+		Ammo[I].Pool = Pools.Num();
+		Pools.Add(0.0);
+	}
 	for (const FMIWeaponDef& Gun : Data.Guns)
 	{
 		for (int32 Empty = 0; Empty < 2; ++Empty)
@@ -53,17 +73,31 @@ void FMIWeaponRules::Settle()
 
 void FMIWeaponRules::Equip(int32 Gun)
 {
+	if (Gun != Current)
+	{
+		LastUsed = Current;
+	}
 	Current = Gun;
 	Settle();
 }
 
 void FMIWeaponRules::Reset()
 {
+	// The bag starts with the largest reserve among its guns (150 for every gun of the roster: the web CHOPPER's).
+	for (double& P : Pools)
+	{
+		P = -1.0;
+	}
 	for (int32 I = 0; I < Data.Guns.Num(); ++I)
 	{
 		Ammo[I].Mag = Data.Guns[I].MagSize;
-		Ammo[I].Reserve = Data.Guns[I].Reserve;
+		double& P = PoolOf(I);
+		P = P < 0.0 ? Data.Guns[I].Reserve : FMath::Max(P, Data.Guns[I].Reserve);
+		// Every run starts each gun in fireModes[0] (no fire mode is saved).
+		SemiMode[I] = Data.Guns[I].FireModes.Num() > 0 ? Data.Guns[I].FireModes[0] == TEXT("semi") : !Data.Guns[I].bAuto;
 	}
+	Selector = FSelector();
+	bReloadAfterSelector = false;
 	Reload = FReload();
 	Swap = FSwap();
 	Strike = FStrike();
@@ -77,6 +111,7 @@ void FMIWeaponRules::Reset()
 	AimTargetValue = 1.0;
 	AimSlow = 1.0;
 	Current = 0;
+	LastUsed = Data.Guns.Num() > 1 ? 1 : 0;
 	Settle();
 	Spread = Data.Guns.Num() > 0 ? Data.Guns[0].Spread.Hip : 0.0;
 }
@@ -87,11 +122,12 @@ void FMIWeaponRules::AddReserve(double Rounds, double Cap)
 	{
 		return;
 	}
-	for (FAmmo& A : Ammo)
+	// Once per pool, not per gun: with one finite gun that is the web's arithmetic.
+	for (double& P : Pools)
 	{
-		if (FMath::IsFinite(A.Reserve) && A.Reserve < Cap)
+		if (FMath::IsFinite(P) && P < Cap)
 		{
-			A.Reserve = FMath::Min(Cap, A.Reserve + Rounds);
+			P = FMath::Min(Cap, P + Rounds);
 		}
 	}
 }
@@ -103,6 +139,7 @@ void FMIWeaponRules::Drop()
 		return;
 	}
 	CancelReload();
+	CancelSelector();
 	Swap = FSwap();
 	Strike = FStrike();
 	QueuedSwap = INDEX_NONE;
@@ -117,6 +154,7 @@ FName FMIWeaponRules::GetState() const
 	if (Swap.bActive) return TEXT("switching");
 	if (Strike.bActive) return TEXT("melee");
 	if (Reload.bActive) return TEXT("reloading");
+	if (Selector.bActive) return TEXT("selector");
 	if (SprintBlend.X > 0.5) return TEXT("lowered");
 	return SinceShot < Data.Common.FiringHold ? TEXT("firing") : TEXT("idle");
 }
@@ -126,7 +164,7 @@ FName FMIWeaponRules::GetCue() const
 	if (bDropped || Swap.bActive) return NAME_None;
 	if (Reload.bActive) return TEXT("reloading");
 	const FAmmo& A = Ammo[Current];
-	if (A.Mag == 0) return A.Reserve > 0.0 ? TEXT("reload") : TEXT("empty");
+	if (A.Mag == 0) return Pools[A.Pool] > 0.0 ? TEXT("reload") : TEXT("empty");
 	return A.Mag <= FMath::CeilToInt(GetDef().MagSize * Data.Common.LowAmmoFraction) ? FName(TEXT("low")) : NAME_None;
 }
 
@@ -136,7 +174,29 @@ EMIWeaponActivity FMIWeaponRules::GetActivity() const
 	if (Swap.bActive) return Swap.bHolster ? EMIWeaponActivity::Holstering : EMIWeaponActivity::Drawing;
 	if (Strike.bActive) return EMIWeaponActivity::Striking;
 	if (Reload.bActive) return EMIWeaponActivity::Reloading;
+	if (Selector.bActive) return EMIWeaponActivity::Selector;
 	return EMIWeaponActivity::Ready;
+}
+
+double FMIWeaponRules::GetBag() const
+{
+	for (const double P : Pools)
+	{
+		if (FMath::IsFinite(P)) return P;
+	}
+	return -1.0;
+}
+
+double FMIWeaponRules::HolsterOf(int32 Gun) const
+{
+	const double H = Data.Guns.IsValidIndex(Gun) ? Data.Guns[Gun].Holster : 0.0;
+	return H > 0.0 ? H : Data.Common.Holster;
+}
+
+double FMIWeaponRules::DrawOf(int32 Gun) const
+{
+	const double D = Data.Guns.IsValidIndex(Gun) ? Data.Guns[Gun].Draw : 0.0;
+	return D > 0.0 ? D : Data.Common.Draw;
 }
 
 double FMIWeaponRules::GetActivityTime() const
@@ -144,6 +204,7 @@ double FMIWeaponRules::GetActivityTime() const
 	if (Swap.bActive) return Swap.T;
 	if (Strike.bActive) return Strike.T;
 	if (Reload.bActive) return Reload.T;
+	if (Selector.bActive) return Selector.T;
 	return 0.0;
 }
 
@@ -160,7 +221,7 @@ void FMIWeaponRules::ReloadEvent(FName Phase, bool bEmpty)
 bool FMIWeaponRules::StartReload()
 {
 	const FAmmo& A = Ammo[Current];
-	if (Busy() || bDropped || A.Mag >= GetDef().MagSize || A.Reserve <= 0.0)
+	if (Busy() || bDropped || A.Mag >= GetDef().MagSize || Pools[A.Pool] <= 0.0)
 	{
 		return false;
 	}
@@ -199,9 +260,10 @@ void FMIWeaponRules::AdvanceReload(double Dt)
 		{
 			// The rounds count from the moment the magazine is seated, not from the end of the reload.
 			FAmmo& A = Ammo[Current];
-			const double N = FMath::Min(static_cast<double>(GetDef().MagSize - A.Mag), A.Reserve);
+			double& Reserve = Pools[A.Pool];
+			const double N = FMath::Min(static_cast<double>(GetDef().MagSize - A.Mag), Reserve);
 			A.Mag += static_cast<int32>(N);
-			A.Reserve -= N;
+			Reserve -= N;
 		}
 		else if (Phase == Done)
 		{
@@ -232,7 +294,10 @@ void FMIWeaponRules::RequestSwitch(int32 Gun)
 		QueuedSwap = Gun;  // goes through when the strike is over
 		return;
 	}
-	const FMIWeaponCommonData& C = Data.Common;
+	if (Selector.bActive && Gun != Current)
+	{
+		CancelSelector();  // a switch request cancels the selector without flipping
+	}
 	if (!Swap.bActive)
 	{
 		if (Gun == Current)
@@ -254,18 +319,25 @@ void FMIWeaponRules::RequestSwitch(int32 Gun)
 		{
 			return;
 		}
+		if (Gun != Current)
+		{
+			// A third gun while holstering: the holster runs on toward the new choice (never with two guns).
+			Swap.To = Gun;
+			SwitchEvent(Current, Gun, true);
+			return;
+		}
 		// Changed their mind: the gun on its way down comes straight back up from where it got to.
 		const int32 From = Swap.To;
 		Swap.bHolster = false;
-		Swap.T = C.Draw * (1.0 - Swap.T / C.Holster);
+		Swap.T = DrawOf(Current) * (1.0 - Swap.T / HolsterOf(Current));
 		Swap.To = Current;
 		SwitchEvent(From, Current, false);
 	}
 	else if (Gun != Current)
 	{
-		// Mid-draw and they want the other gun back: holster again, as far along as the draw was short.
+		// Mid-draw and they want another gun: holster again, as far along as the draw was short.
 		Swap.bHolster = true;
-		Swap.T = C.Holster * (1.0 - Swap.T / C.Draw);
+		Swap.T = HolsterOf(Current) * (1.0 - Swap.T / DrawOf(Current));
 		Swap.To = Gun;
 		SwitchEvent(Current, Gun, true);
 	}
@@ -273,19 +345,47 @@ void FMIWeaponRules::RequestSwitch(int32 Gun)
 
 void FMIWeaponRules::AdvanceSwitch(double Dt)
 {
-	const FMIWeaponCommonData& C = Data.Common;
 	Swap.T += Dt;
-	if (Swap.bHolster && Swap.T >= C.Holster)
+	if (Swap.bHolster && Swap.T >= HolsterOf(Current))
 	{
 		const int32 From = Current;
+		const double Holster = HolsterOf(Current);
 		Equip(Swap.To);
 		Swap.bHolster = false;
-		Swap.T -= C.Holster;
+		Swap.T -= Holster;
 		SwitchEvent(From, Current, false);
 	}
-	if (!Swap.bHolster && Swap.T >= C.Draw)
+	if (!Swap.bHolster && Swap.T >= DrawOf(Current))
 	{
 		Swap = FSwap();
+	}
+}
+
+// ------------------------------------------------------------------------------------------------- selector
+
+void FMIWeaponRules::CancelSelector()
+{
+	Selector = FSelector();
+	bReloadAfterSelector = false;
+}
+
+void FMIWeaponRules::AdvanceSelector(double Dt)
+{
+	Selector.T += Dt;
+	if (Selector.T >= GetDef().ModeSwitch)
+	{
+		Selector = FSelector();
+		SemiMode[Current] = !SemiMode[Current];
+		if (Events)
+		{
+			Events->WeaponMode.Broadcast(GetDef().Id, SemiMode[Current]);
+		}
+		if (bReloadAfterSelector)
+		{
+			// A dry fire's auto reload that fell due meanwhile runs now.
+			bReloadAfterSelector = false;
+			StartReload();
+		}
 	}
 }
 
@@ -301,6 +401,7 @@ void FMIWeaponRules::StartStrike()
 		}
 		CancelReload();
 	}
+	CancelSelector();
 	AutoReload = 0.0;
 	FireBuffer = 0.0;
 	Strike.bActive = true;
@@ -388,6 +489,11 @@ void FMIWeaponRules::Shoot(IMIWeaponHost& Host)
 	Shot.Damage = Def.Damage;
 	Shot.HeadMultiplier = C.HeadMultiplier;
 	Shot.Weapon = Def.Id;
+	Shot.FalloffStart = Def.FalloffStart;
+	Shot.FalloffEnd = Def.FalloffEnd;
+	Shot.FalloffMin = Def.FalloffMin;
+	Shot.NoiseRadius = Def.NoiseRadius;
+	Shot.bSuppressed = Def.bSuppressed;
 	const FMIShotResult Hit = Host.Hitscan(Shot);
 	Host.OnRoundFired(Shot, Hit, Def.FlashScale * MI::Lerp(1.0, C.AdsFlashScale, AdsValue));
 
@@ -423,6 +529,8 @@ void FMIWeaponRules::Shoot(IMIWeaponHost& Host)
 		Event.Spread = Spread;
 		Event.Burst = Burst;
 		Event.MagLeft = A.Mag;
+		Event.NoiseRadius = Def.NoiseRadius;
+		Event.bSuppressed = Def.bSuppressed;
 		Events->WeaponFire.Broadcast(Event);
 	}
 	Host.AddRecoil(KickPitch, -KickYawLeft);
@@ -440,7 +548,7 @@ void FMIWeaponRules::DryFire(IMIWeaponHost& Host)
 	{
 		Cooldown = Def.DryCooldown;
 	}
-	if (Ammo[Current].Reserve > 0.0)
+	if (PoolOf(Current) > 0.0)
 	{
 		AutoReload = Def.DryReloadDelay;
 	}
@@ -458,20 +566,22 @@ void FMIWeaponRules::PullTrigger(const FMIWeaponInput& Input, IMIWeaponHost& Hos
 	FAmmo& A = Ammo[Current];
 	const bool bHeld = Input.bFireDown;
 	const bool bCanFire = !Busy() && SprintBlend.X < Data.Common.SprintFireGate;
+	// An automatic gun on its semi setting fires as a semi-automatic (LOADOUT.md 4.4).
+	const bool bAuto = Def.bAuto && !SemiMode[Current];
 	if (!bHeld)
 	{
 		bDryLatch = false;
 	}
 
 	// Only a gun that was already firing carries time over from the last frame; a fresh pull banks nothing.
-	const bool bFiring = Def.bAuto && bHeld && bCanFire && A.Mag > 0;
+	const bool bFiring = bAuto && bHeld && bCanFire && A.Mag > 0;
 	if (!(bFiring && bSustained) && Cooldown < -Credit)
 	{
 		Cooldown = -Credit;
 	}
 	bSustained = bFiring;
 
-	if (Def.bAuto)
+	if (bAuto)
 	{
 		if (bFiring)
 		{
@@ -492,7 +602,7 @@ void FMIWeaponRules::PullTrigger(const FMIWeaponInput& Input, IMIWeaponHost& Hos
 		// Semi-automatic: one round per press; a press a moment early still counts.
 		if (Input.bFirePressed)
 		{
-			FireBuffer = Def.FireBuffer;
+			FireBuffer = Def.FireBuffer > 0.0 ? Def.FireBuffer : Def.SemiFireBuffer;
 		}
 		if (FireBuffer > 0.0 && bCanFire && Cooldown <= 0.0)
 		{
@@ -553,6 +663,7 @@ void FMIWeaponRules::SetAim(IMIWeaponHost& Host, bool bWant, double Dt)
 {
 	AdsLinear = MI::MoveToward(AdsLinear, bWant ? 1.0 : 0.0, Dt / GetDef().AdsTime);
 	AdsValue = MI::SmootherStep(0.0, 1.0, AdsLinear);
+	Host.SetPlayerAimView(GetDef().AdsFov, GetDef().AdsLook);
 	Host.SetPlayerAds(AdsValue);
 }
 
@@ -589,9 +700,20 @@ void FMIWeaponRules::Update(double Dt, const FMIWeaponInput& Input, IMIWeaponHos
 		WeavePhase = Random() * UE_DOUBLE_TWO_PI;
 	}
 
+	// Precedence within a frame: swap, next, previous, slots 1 to 4, wheel (LOADOUT.md 4.2). With two guns every
+	// one of them picks the gun the web's swap picked: (Aim +- 1) mod 2 is OtherOf(Aim), LastUsed is OtherOf(Current).
+	const int32 N = Data.Guns.Num();
 	if (Input.bSwapPressed)
 	{
-		RequestSwitch(OtherOf(Swap.bActive && Swap.bHolster ? Swap.To : Current));
+		RequestSwitch(Swap.bActive && Swap.bHolster ? Current : LastUsed);
+	}
+	else if (Input.bNextPressed && N > 0)
+	{
+		RequestSwitch((GetAimIndex() + 1) % N);
+	}
+	else if (Input.bPreviousPressed && N > 0)
+	{
+		RequestSwitch((GetAimIndex() - 1 + N) % N);
 	}
 	else if (Input.bWeapon1Pressed)
 	{
@@ -600,6 +722,24 @@ void FMIWeaponRules::Update(double Dt, const FMIWeaponInput& Input, IMIWeaponHos
 	else if (Input.bWeapon2Pressed)
 	{
 		RequestSwitch(1);
+	}
+	else if (Input.bWeapon3Pressed)
+	{
+		RequestSwitch(2);
+	}
+	else if (Input.bWeapon4Pressed)
+	{
+		RequestSwitch(3);
+	}
+	else if (Input.WheelPick != INDEX_NONE)
+	{
+		RequestSwitch(Input.WheelPick);
+	}
+
+	if (Input.bFireModePressed && HasTwoModes(Current) && !Busy() && !bDropped)
+	{
+		Selector.bActive = true;
+		Selector.T = 0.0;
 	}
 
 	if (Input.bMeleePressed && !Strike.bActive && StrikeWait <= 0.0 && !(Swap.bActive && Data.Melee.bBlockedWhileSwitching))
@@ -614,7 +754,14 @@ void FMIWeaponRules::Update(double Dt, const FMIWeaponInput& Input, IMIWeaponHos
 	if (AutoReload > 0.0 && (AutoReload -= Dt) <= 0.0)
 	{
 		AutoReload = 0.0;
-		StartReload();
+		if (Selector.bActive)
+		{
+			bReloadAfterSelector = true;  // stays pending until the selector ends
+		}
+		else
+		{
+			StartReload();
+		}
 	}
 
 	if (Swap.bActive)
@@ -628,6 +775,10 @@ void FMIWeaponRules::Update(double Dt, const FMIWeaponInput& Input, IMIWeaponHos
 	if (Strike.bActive)
 	{
 		AdvanceStrike(Dt, Host);
+	}
+	if (Selector.bActive)
+	{
+		AdvanceSelector(Dt);
 	}
 
 	// Sprinting lowers the gun; wanting to use it brings it back up, a little faster.
@@ -661,8 +812,9 @@ FMIWeaponView FMIWeaponRules::GetView() const
 	switch (V.Activity)
 	{
 	case EMIWeaponActivity::Reloading: V.ActivityLength = Reload.bEmpty ? Def.Reload.Empty : Def.Reload.Tactical; break;
-	case EMIWeaponActivity::Holstering: V.ActivityLength = Data.Common.Holster; break;
-	case EMIWeaponActivity::Drawing: V.ActivityLength = Data.Common.Draw; break;
+	case EMIWeaponActivity::Holstering: V.ActivityLength = HolsterOf(Current); break;
+	case EMIWeaponActivity::Drawing: V.ActivityLength = DrawOf(Current); break;
+	case EMIWeaponActivity::Selector: V.ActivityLength = Def.ModeSwitch; break;
 	case EMIWeaponActivity::Striking: V.ActivityLength = Data.Melee.Duration; break;
 	default: break;
 	}

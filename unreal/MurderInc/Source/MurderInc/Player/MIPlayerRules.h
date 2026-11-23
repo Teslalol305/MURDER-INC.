@@ -140,6 +140,10 @@ public:
 	bool bInvulnerable = false;
 	double Speed = 0.0;  // horizontal, cm/s
 	double Ads = 0.0;    // written by the weapon every frame
+	/** The gun in hand's aimed field of view (vertical degrees; 0 = player.fov.ads) and aimed look factor
+	 *  (LOADOUT.md 4.5), written by the weapon every frame. */
+	double AimFov = 0.0;
+	double AimLook = 1.0;
 	double RegenDelay = 0.0;
 	double RegenRate = 0.0;
 	FName Surface = TEXT("asphalt");

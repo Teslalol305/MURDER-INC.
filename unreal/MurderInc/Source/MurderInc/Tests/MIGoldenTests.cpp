@@ -11,8 +11,27 @@
 #include "Player/MIPlayerRules.h"
 #include "Weapons/MIExplosiveRules.h"
 #include "Weapons/MIWeaponRules.h"
+#include "Weapons/MILoadoutResolver.h"
 
 #if WITH_AUTOMATION_TESTS
+
+namespace MIGoldenPrivate
+{
+	/** The parity set-up (frontend.json parity) through FMILoadoutResolver. */
+	bool ResolveParity(FAutomationTestBase& Test, FMIResolvedRun& Out)
+	{
+		FMILoadoutData D;
+		TSharedPtr<FJsonObject> Config, Presentation;
+		FString Error;
+		if (!FMILoadoutData::Load(D, Error) || !FMILoadoutResolver::LoadRoots(Config, Presentation, Error)
+			|| !FMILoadoutResolver(D, Config, Presentation).Resolve(D.ParitySetup(TEXT("mission"), TEXT("boss"), TEXT("day")), nullptr, Out, Error))
+		{
+			Test.AddError(TEXT("parity set-up: ") + Error);
+			return false;
+		}
+		return true;
+	}
+}
 
 namespace MIGoldenPrivate
 {
@@ -629,17 +648,21 @@ namespace MIGoldenPrivate
 	};
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIGoldenWeaponTest, "MurderInc.Golden.Weapon", MIGoldenPrivate::Flags)
-
-bool FMIGoldenWeaponTest::RunTest(const FString& Parameters)
+namespace MIGoldenPrivate
+{
+/**
+ * The 13 weapon scenarios of golden/weapon.json. Weapons: the guns to run (null: config.json's); SwapAs: the web's
+ * swap press goes in as bSwapPressed (0), bNextPressed (1) or bPreviousPressed (2) (LOADOUT.md 8.1).
+ */
+bool ReplayWeaponGolden(FAutomationTestBase& Test, const FMIWeaponsData* Weapons, int32 SwapAs)
 {
 	FMIConfigData Config;
-	const TSharedPtr<FJsonObject> Root = Load(*this, TEXT("weapon.json"));
-	if (!Root || !LoadConfig(*this, Config))
+	const TSharedPtr<FJsonObject> Root = Load(Test, TEXT("weapon.json"));
+	if (!Root || !LoadConfig(Test, Config))
 	{
 		return false;
 	}
-	FChecker C(*this);
+	FChecker C(Test);
 	const uint32 Seed = static_cast<uint32>(Root->GetNumberField(TEXT("seed")));
 	for (const TSharedPtr<FJsonValue>& SV : Arr(Root, TEXT("scenarios")))
 	{
@@ -662,7 +685,7 @@ bool FMIGoldenWeaponTest::RunTest(const FString& Parameters)
 		Events.WeaponMelee.AddLambda([&](bool bHit) { Add(TEXT("weapon:melee"), [&](FLogged& L) { L.Numbers.Add(TEXT("hit"), bHit ? 1.0 : 0.0); }); });
 
 		FMIWeaponRules Rules;
-		Rules.Init(Config.Weapons, Seed, &Events);
+		Rules.Init(Weapons ? *Weapons : Config.Weapons, Seed, &Events);
 		Host.Rules = &Rules;
 
 		TSet<FString> Held;
@@ -720,7 +743,9 @@ bool FMIGoldenWeaponTest::RunTest(const FString& Parameters)
 			Input.bFireDown = Held.Contains(TEXT("fire"));
 			Input.bFirePressed = Edges.Contains(TEXT("fire"));
 			Input.bAdsDown = Held.Contains(TEXT("ads"));
-			Input.bSwapPressed = Edges.Contains(TEXT("swap"));
+			Input.bSwapPressed = SwapAs == 0 && Edges.Contains(TEXT("swap"));
+			Input.bNextPressed = SwapAs == 1 && Edges.Contains(TEXT("swap"));
+			Input.bPreviousPressed = SwapAs == 2 && Edges.Contains(TEXT("swap"));
 			Input.bWeapon1Pressed = Edges.Contains(TEXT("weapon1"));
 			Input.bWeapon2Pressed = Edges.Contains(TEXT("weapon2"));
 			Input.bMeleePressed = Edges.Contains(TEXT("melee"));
@@ -784,7 +809,44 @@ bool FMIGoldenWeaponTest::RunTest(const FString& Parameters)
 		}
 		CompareLogs(C, Log, Expected, [](const FString&, double V) { return V; });
 	}
+	Test.AddInfo(FString::Printf(TEXT("weapon scenarios: %d mismatches"), C.Failures));
 	return C.Failures == 0;
+}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIGoldenWeaponTest, "MurderInc.Golden.Weapon", MIGoldenPrivate::Flags)
+
+bool FMIGoldenWeaponTest::RunTest(const FString& Parameters)
+{
+	return MIGoldenPrivate::ReplayWeaponGolden(*this, nullptr, 0);
+}
+
+// LOADOUT.md 8.1: the default set-up, through the resolver, replays the web game's weapon scenarios.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMILoadoutParityGoldenTest, "MurderInc.Loadout.ParityGolden", MIGoldenPrivate::Flags)
+
+bool FMILoadoutParityGoldenTest::RunTest(const FString& Parameters)
+{
+	FMIResolvedRun Run;
+	if (!MIGoldenPrivate::ResolveParity(*this, Run))
+	{
+		return false;
+	}
+	return MIGoldenPrivate::ReplayWeaponGolden(*this, &Run.Weapons, 0);
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMILoadoutParityNextPreviousTest, "MurderInc.Loadout.ParityNextPrevious", MIGoldenPrivate::Flags)
+
+bool FMILoadoutParityNextPreviousTest::RunTest(const FString& Parameters)
+{
+	FMIResolvedRun Run;
+	if (!MIGoldenPrivate::ResolveParity(*this, Run))
+	{
+		return false;
+	}
+	// Every scenario (switch_reverse and nine_presses among them) with the swap press as next, then as previous.
+	const bool bNext = MIGoldenPrivate::ReplayWeaponGolden(*this, &Run.Weapons, 1);
+	const bool bPrevious = MIGoldenPrivate::ReplayWeaponGolden(*this, &Run.Weapons, 2);
+	return bNext && bPrevious;
 }
 
 // ----------------------------------------------------------------------------------------------- explosives, blast
