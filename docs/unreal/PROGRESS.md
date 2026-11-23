@@ -229,6 +229,46 @@ Spec: `docs/unreal/LOADOUT.md`. Built and tested in `/project/ue/repo-gameplay` 
 Final suite (2026-11-23): `test.sh MurderInc` TESTS FAILED passed=93 failed=1 (`Audio.EventTable`: 188 web sound
 files missing, the audio agent's).
 
+Correction (fix pass below): items 1 and 6 above and the note on the pictures are out of date. The animation agent's
+commit 464cb44 already names the pack meshes in guns.json and attachments.json, and the box offers SHORTY, STICK,
+STRETCH and every part but the folded stock with no overlay. `loadout-shots.sh` no longer takes an overlay.
+
+### Loadout fix pass (independent review, 2026-11-23)
+
+- **Order on a pad and the keyboard.** Start is Next on every set-up screen (Hit the block on Home and the Briefing);
+  the jump to the Briefing is Ctrl+Enter or View+Start. Next takes the focus: Tab cycles rack, slots, Next; Down past
+  the last row lands on it; Enter / A there advances. `Frontend.WalkWorld` (keyboard) and `Frontend.WalkPad` walk Home
+  to the run with real key events only (`UMIFrontEnd::PressKey` → `FSlateApplication::ProcessKeyDownEvent`; the
+  screens sit in a virtual window in the test world). Console `MIKey <key>` does the same in play in editor.
+- **Glyphs.** Marks, arrows and pips are shapes (`SMIMark`); every face falls back to the engine's Droid Sans Fallback
+  (Noto Sans Symbols 2 was tried: it has no arrows). The front end logs characters no face has; `Frontend.Glyphs`
+  reads the fonts' character maps and fails on any character of frontend_text.json or text.json without a glyph.
+  Key names come from `frontend.glyphs.<kbm|pad>` (new keys back, next, toBriefing, prevGun, nextGun, reset, bench,
+  melee, empty, panes) for the device used last; no string is written in the code (the HUD's "Pick a gun" too).
+- **Layout.** Every control of every set-up screen lives in the left 40 % column (the slots are a strip under the
+  rack, the effect lines wrap beside the bars, the Briefing's Carrying line wraps name plus pips, the controls strip
+  wraps); focus rings pad their row; the smallest text is 14 pt. The world's objective markers hide while the wheel
+  is open. `MIViewSize <w> <h>` resizes the window around the play viewport for pictures at 16:9, 21:9 and 4K.
+- **Stage.** The turntable fits the gun from its mesh bounds into the free 60 % at the viewport's aspect ratio; on the
+  Workbench it aims at the slot's mount socket (frontend.json offset only without a socket), turns that side to the
+  camera, stops spinning and lights the mount with its own spot; the room lights aim at the gun (they aimed 86 cm
+  below it). Crew shows the member's own arms (placed on the grip every frame, as in play) or, while those arms are
+  not in the project, the turntable; the Briefing hides the template arms (hand-off below).
+- **NEW.** The card focused when Loadout opens is seen; `WalkWorld` checks a focused card loses NEW and keeps it
+  through a save.
+- **Tests added:** `Loadout.MountsExist` (13 pack meshes, 83 sockets on the box; says so and passes when the pack is
+  absent), `Loadout.BuildPIE` (STICK with scope and silencer plus a bare CHOPPER through the run reset: the weapon's
+  data is the resolver's, the view at full aim 30°, the silenced round heard at 15 m and not 30 m, the bare one at
+  30 m), `Enemies.GunfireRadius` (the throttle exception), `Player.ControllerKeys` (a local player and the
+  controller's own mapping context through `InputKey`: 3, Q tap and hold, D-pad right, wheel, B), `Frontend.WalkPad`,
+  `Frontend.Glyphs`. Each was seen red with its rule broken on the box (Start back to the Briefing jump, Next not
+  focusable, no seen-on-arrival, no throttle exception, no symbol face, no `ApplyRun`, noise / 10 instead of / 100,
+  the 3 key unmapped), then green.
+- `MISetup overlay`, `MIKey`, `MIViewSize` and `EditLoadoutForDev` are compiled out of shipping builds.
+- **Hand-off (characters / animation):** in first person the template body's upper arm and a black disc cover the
+  lower left, the support arm stretches sideways when aiming and the pack STICK sits low; hide or cull the template
+  upper arm and clamp the support-hand reach. The Briefing hides the arms until then.
+
 ## Gameplay (slice 2: the enemies and the flow) — in progress
 
 Contracts: `docs/unreal/GAMEPLAY.md` sections 6 to 11. Built and tested in `/project/ue/repo-gameplay` (MCP 8001).

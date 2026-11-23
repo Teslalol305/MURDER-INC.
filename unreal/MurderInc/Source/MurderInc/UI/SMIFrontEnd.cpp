@@ -386,7 +386,7 @@ TSharedRef<SWidget> SMIFrontEnd::Home()
 
 	TSharedRef<SVerticalBox> Col = SNew(SVerticalBox)
 		+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(TEXT("text.title.eyebrow")), Spaced(Body(15.f, true), 240), Gold(), true)]
-		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)[Txt(R.Text(TEXT("text.title.wordmark")), Display(118.f), Ink(), true)]
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)[Txt(R.Text(TEXT("text.title.wordmark")), Display(96.f), Ink(), true)]
 		+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(TEXT("text.title.star")), Spaced(Body(16.f, true), 280), InkDim(), true)]
 		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 14.f, 0.f, 20.f)[Txt(R.Text(TEXT("text.title.premise")), Body(18.f), Ink(), true)]
 		+ SVerticalBox::Slot().AutoHeight()

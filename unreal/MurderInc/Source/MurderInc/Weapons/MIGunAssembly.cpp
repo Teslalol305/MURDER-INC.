@@ -102,12 +102,12 @@ void UMIGunAssembly::Assemble(USkinnedMeshComponent* InBase, const FMIResolvedGu
 		FTransform Rest = FTransform::Identity;
 		if (!R.Socket.IsNone() && Base->DoesSocketExist(R.Socket))
 		{
-			C->AttachToComponent(Base, FAttachmentTransformRules::SnapToTargetNotIncludingScale, R.Socket);
+			C->AttachToComponent(Base, FAttachmentTransformRules::SnapToTargetIncludingScale, R.Socket);  // the part takes the gun's scale (a swap can be mid scale-out)
 		}
 		else
 		{
 			// No socket on the mesh yet: the slot's marker from the data (provisional until the socket pass).
-			C->AttachToComponent(Base, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+			C->AttachToComponent(Base, FAttachmentTransformRules::SnapToTargetIncludingScale);
 			const FVector* At = MarkerFallback.Find(FallbackMarker(R.Slot));
 			Rest.SetLocation(At ? *At : FVector::ZeroVector);
 			C->SetRelativeTransform(Rest);
