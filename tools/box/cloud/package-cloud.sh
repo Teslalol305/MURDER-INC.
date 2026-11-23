@@ -34,7 +34,7 @@ say() { echo "[$(date +%H:%M:%S)] $*"; }
 as_ue4() { su ue4 -c "$(printf '%q ' "$@")"; }
 
 src() {
-  local url; url=$(git -C /project/ue/repo remote get-url origin 2>/dev/null)
+  local url; url=$(as_ue4 git -C /project/ue/repo remote get-url origin 2>/dev/null)
   [ -n "$url" ] || { say "no origin url in /project/ue/repo"; return 1; }
   if [ ! -d "$C/src/.git" ]; then
     rm -rf "$C/src" && mkdir -p "$C" && chown ue4 "$C"
