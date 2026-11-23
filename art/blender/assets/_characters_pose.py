@@ -173,13 +173,16 @@ def ik_arm(arm, side, R, palm_target, hand_axes_target, pole):
     hand's (fwd, lat, dors) to hand_axes_target, the elbow toward `pole` (a world direction). The forearm twist
     is shared by the two twist bones (2/3 and 1/3) so the wrist does not wrap. Fingers keep their pose."""
     bpy.context.view_layer.update()
-    rest = {n: Vector(arm.data.bones[n + "_" + side].head_local) for n in ("upperarm", "lowerarm", "hand")}
+    # rest heads in WORLD space: reach_forward moves the armature object, and _set_bone composes with
+    # arm.matrix_world (armature-local heads here put both palms off by that move)
+    MW = arm.matrix_world
+    rest = {n: MW @ Vector(arm.data.bones[n + "_" + side].head_local) for n in ("upperarm", "lowerarm", "hand")}
     S = (arm.matrix_world @ arm.pose.bones["upperarm_" + side].matrix).to_translation()
     fwd_t, lat_t, dors_t = (Vector(v).normalized() for v in hand_axes_target)
     Rrest = Matrix((Vector(R.fwd), Vector(R.lat), Vector(R.dors))).transposed()
     Rtgt = Matrix((fwd_t, lat_t, dors_t)).transposed()
     Rhand = Rtgt @ Rrest.inverted()
-    palm0 = Vector(palm_rest(R))
+    palm0 = MW @ Vector(palm_rest(R))
     Wt = Vector(palm_target) - Rhand @ (palm0 - rest["hand"])
     Lu = (rest["lowerarm"] - rest["upperarm"]).length
     Lf = (rest["hand"] - rest["lowerarm"]).length
@@ -207,7 +210,7 @@ def ik_arm(arm, side, R, palm_target, hand_axes_target, pole):
     _set_bone(arm, "lowerarm_" + side, Rf.to_3x3(), E, rest["lowerarm"])
     for tw, k in (("lowerarm_twist_01_", 0.35), ("lowerarm_twist_02_", 0.0)):
         b = tw + side
-        rh = Vector(arm.data.bones[b].head_local)
+        rh = MW @ Vector(arm.data.bones[b].head_local)
         new_head = E + Rf @ (rh - rest["lowerarm"])
         _set_bone(arm, b, (Matrix.Rotation(roll * k, 3, ax) @ Rf).to_3x3(), new_head, rh)
     _set_bone(arm, "hand_" + side, Rhand.to_3x3(), Wt, rest["hand"])
@@ -258,6 +261,35 @@ def reach_forward(arm, targets, slack=0.90, forward=Vector((0, -1, 0)), limit=0.
     return need
 
 
+def protract(arm, side, target, R, slack=0.93, max_deg=32.0):
+    """Bring a shoulder forward and in (the clavicle swings about its sternal end, as the support shoulder does
+    on a long gun) until the palm target is within `slack` of the arm's reach, at most max_deg."""
+    bpy.context.view_layer.update()
+    reach = (R.Lu + R.L + 0.06) * slack
+    cb = "clavicle_" + side
+    if cb not in arm.pose.bones:
+        return 0.0
+    pb = arm.pose.bones[cb]
+    M0 = arm.matrix_world @ pb.matrix
+    piv = M0.to_translation()
+    S0 = (arm.matrix_world @ arm.pose.bones["upperarm_" + side].matrix).to_translation()
+    tgt = Vector(target)
+    best = 0.0
+    for k in range(0, int(max_deg) + 1):
+        ang = math.radians(k)
+        # swing about the vertical through the sternal end, toward the target's side, and a little down
+        sgn = 1.0 if (S0 - piv).cross(tgt - piv).z > 0 else -1.0
+        Rm = Matrix.Rotation(sgn * ang, 3, "Z")
+        S = piv + Rm @ (S0 - piv)
+        best = k
+        if (S - tgt).length <= reach:
+            break
+    Rm4 = Matrix.Translation(piv) @ Matrix.Rotation(sgn * math.radians(best), 4, "Z") @ Matrix.Translation(-piv)
+    pb.matrix = arm.matrix_world.inverted() @ Rm4 @ M0
+    bpy.context.view_layer.update()
+    return best
+
+
 def hold(arm, gun_M, name, Rr, Rl):
     """IK both arms onto the gun: right palm on the grip, left palm under the handguard (rifle) or over the
     firing hand (pistol). Hand frames are built in gun space and carried to the world."""
@@ -274,16 +306,21 @@ def hold(arm, gun_M, name, Rr, Rl):
     dors = (fwd.cross(lat) * sr).normalized()
     pr = gun_M @ Vector(g["palm_r"])
     pl0 = gun_M @ Vector(g["palm_l"] if g["palm_l"] else (0.020, 0.036, -0.080))
-    reach_forward(arm, [("r", pr, Rr), ("l", pl0, Rl)])
+    # the rig may come 12 cm forward of the neck (first-person arms are placed for the camera); the support
+    # shoulder protracts for the rest of a long gun's reach
+    reach_forward(arm, [("r", pr, Rr), ("l", pl0, Rl)], slack=0.93, limit=0.12)
+    if name == "chopper":
+        protract(arm, "l", pl0, Rl)
     ik_arm(arm, "r", Rr, pr, (fwd, lat, dors), Vector((0.3, 0.6, -1)))
     if name == "chopper":
-        # left hand cupping the handguard from below, fingers rising on the right side, thumb on the left
-        pl = gun_M @ Vector(g["palm_l"]) + Z * -0.004
-        fwd_l = (-Y * 0.75 + X * 0.55 + Z * 0.15).normalized()
+        # left hand cupping the 46 mm handguard from below: palm up under it, fingers wrapping up its right
+        # side, thumb along its left side; the palm's flesh 1.2 cm under the handguard's lower face
+        pl = gun_M @ Vector(g["palm_l"]) + Z * -0.012
+        fwd_l = (-Y * 0.80 + X * 0.50 + Z * 0.10).normalized()
         dors_l = -Z
         lat_l = (dors_l.cross(fwd_l) * sl).normalized()
         dors_l = (fwd_l.cross(lat_l) * sl).normalized()
-        ik_arm(arm, "l", Rl, pl, (fwd_l, lat_l, dors_l), Vector((-0.2, 0.3, -1)))
+        ik_arm(arm, "l", Rl, pl, (fwd_l, lat_l, dors_l), Vector((0.1, 0.2, -1)))
     else:
         pl = gun_M @ Vector((0.020, 0.036, -0.080))
         fwd_l = (X * 0.75 - Z * 0.45 - Y * 0.2).normalized()
@@ -310,6 +347,8 @@ def grip(arm, name, Rr, Rl):
     close_fingers(arm, "r", Rr, 0.86, ("middle", "ring", "pinky"), thumb=0.85)
     close_fingers(arm, "r", Rr, 1.0, ("index",), angles=(38, 62, 30))
     if name == "chopper":
-        close_fingers(arm, "l", Rl, 0.62, thumb=0.35)
+        # round a 46 mm handguard: the four fingers curl up its right side, the thumb lies along its left
+        close_fingers(arm, "l", Rl, 0.80, angles=(55, 70, 40))
+        close_fingers(arm, "l", Rl, 0.6, (), thumb=0.6)
     else:
         close_fingers(arm, "l", Rl, 0.82, thumb=0.55)

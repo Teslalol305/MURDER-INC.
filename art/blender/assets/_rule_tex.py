@@ -18,11 +18,25 @@ from . import _characters_tex as X
 
 # his skin, measured on the reference sheet under even light (sRGB): back of the forearm, palm, nail bed
 SKIN = np.array(C.srgb("#6f4a39"), dtype=np.float32)
-PALM = np.array(C.srgb("#a7796a"), dtype=np.float32)
-KNUCKLE = np.array(C.srgb("#4e3022"), dtype=np.float32)
-NAIL = np.array(C.srgb("#b88f7f"), dtype=np.float32)
-LUNULA = np.array(C.srgb("#d6b8ab"), dtype=np.float32)
+PALM = np.array(C.srgb("#a07060"), dtype=np.float32)
+KNUCKLE = np.array(C.srgb("#432717"), dtype=np.float32)
+# review round 1: one skin albedo for the arms, the head and the body, warmed and deepened toward the photo
+# (cheeks #ba633b-#c26d41 and forearms #b66136 under its flash; albedo kept at the photo's hue, r/g 2.1 linear).
+# Linear median of the forearm, back of the hand, face; every skin map is graded to it (grade_skin).
+SKIN_TARGET = np.array([0.165, 0.079, 0.038], dtype=np.float32)
+# natural short nails: a pink-brown bed matched to the skin, a faint lunula, a thin off-white free edge
+NAIL = SKIN_TARGET * np.array([1.50, 1.42, 1.80], dtype=np.float32)
+LUNULA = SKIN_TARGET * np.array([1.85, 1.85, 2.30], dtype=np.float32)
+FREE_EDGE = np.array([0.40, 0.33, 0.27], dtype=np.float32)
 INK = np.array([0.020, 0.026, 0.030], dtype=np.float32)          # healed black ink under brown skin: blue-green black
+
+
+def grade_skin(bc, sel, target=SKIN_TARGET, keep_spread=True):
+    """Per-channel gain in linear space taking the median of bc[sel] to `target` (n, 3) -> (n, 3); returns the
+    gains too. Applied to every skin texel so relative structure (palm, knuckles, mottling) is kept."""
+    m = np.median(bc[sel], axis=0)
+    k = target / np.maximum(m, 1e-5)
+    return bc * k[None], k
 
 TATTOO_FILE = os.path.join(paths.out, "ref", "tattoos.json")
 DEFAULT_TATTOOS = {"right": [{"text": "RULE", "style": "blackletter"}, {"text": "Inc.", "style": "script"}],
@@ -76,6 +90,22 @@ def _poly_dist(u, v, pts):
         d = np.hypot(u - a[0] - t * ab[0], v - a[1] - t * ab[1])
         best = np.minimum(best, d)
     return best
+
+
+def _vein_sum(R, P):
+    """The first version's forearm vein masks (_characters_tex.skin_texels, same formula), summed."""
+    s, x, y = R.fore_coords(P)
+    rr = np.sqrt(x * x + y * y)
+    th = np.arctan2(y, x)
+    up = s > R.L + 0.004
+    fore = (~up) & (s > 0.03)
+    out = np.zeros(len(P), dtype=np.float32)
+    for i, (a0, wander, ph, s0, s1, w) in enumerate(X.VEINS):
+        path = a0 + wander * np.sin(s * 17 + ph) + 0.10 * T.noise(np.stack([s * 30, s * 0 + i, s * 0], 1), 1.0, 9)
+        d = np.abs(X._angdiff(th, path)) * rr
+        vis = T.smoothstep(s0, s0 + 0.025, s) * T.smoothstep(s1, s1 - 0.03, s) * fore
+        out += (np.exp(-(d / w) ** 2) * vis * (0.75 + 0.25 * T.noise(P, 1 / 0.015, 10 + i))).astype(np.float32)
+    return out
 
 
 # ------------------------------------------------------------------------------------------------ tattoos
@@ -162,6 +192,10 @@ def skin_texels(R, P, N, region, side, charts):
     # creases, hair, elbow) recoloured to his skin
     bc, rough, h = X.skin_texels(R, Q, M)
     bc = bc / X.SKIN[None] * SKIN[None]
+    # review round 1: the forearm's vein ridges read as long stretched streaks in first person: 40 % of the height
+    vs = _vein_sum(R, Q)
+    h -= 0.6 * 0.00045 * vs
+    rough += 0.6 * 0.04 * vs
     bc *= (1.0 + 0.05 * T.fbm(P, 1 / 0.05, 2, seed=31))[:, None]           # left and right differ
     s, x, y = R.fore_coords(Q)
     u, v, w = hand_coords(R, Q)
@@ -190,7 +224,7 @@ def skin_texels(R, P, N, region, side, charts):
             if j == 0:                                     # behind the knuckle the chain is clipped (t = 0): the
                 ring *= T.smoothstep(0.0005, 0.006, tt[m])  # metacarpal head darkening below covers it smoothly
             dark = ring * k * (0.75 + 0.25 * T.noise(P[m], 1 / 0.004, 40 + j))
-            bc[m] = bc[m] * (1 - 0.45 * dark)[:, None] + KNUCKLE[None] * (0.45 * dark)[:, None]
+            bc[m] = bc[m] * (1 - 0.62 * dark)[:, None] + KNUCKLE[None] * (0.62 * dark)[:, None]
             # wrinkles across the joint, curved toward the tip at the sides
             wr = np.sin((dj + 0.0012 * (1 - cosd[m] ** 2)) / 0.00085 * np.pi + 2 * T.noise(P[m], 1 / 0.003, 50 + j))
             h[m] -= 0.000045 * ring * np.clip(wr, 0, 1) * (1.4 if j == 1 else 1.0)
@@ -199,7 +233,7 @@ def skin_texels(R, P, N, region, side, charts):
             for off in ((0.0045,) if j == 0 else (-0.0011, 0.0011) if j == 1 else (0.0,)):
                 cr = np.exp(-((dj - off - 0.0004 * T.noise(P[m], 1 / 0.006, 60 + j)) / 0.00032) ** 2) * palm_side
                 h[m] -= 0.00010 * cr
-                bc[m] *= (1 - 0.18 * cr)[:, None]
+                bc[m] *= (1 - 0.34 * cr)[:, None]
         # fingerprint ridges on the pad of the last segment, a whorl round the pad's centre
         tip = T.smoothstep(js[2] + 0.004, js[2] + 0.010, tt[m]) * T.smoothstep(0.1, -0.6, cosd[m])
         c = R.chain[f]["P"][2] + (R.chain[f]["P"][3] - R.chain[f]["P"][2]) * 0.55
@@ -214,8 +248,8 @@ def skin_texels(R, P, N, region, side, charts):
     # metacarpal knuckles (back of the hand) and the hand's dorsal veins
     for f in C.FINGERS[:4]:
         dk = np.linalg.norm(Q - (R.mcp[f] + R.dors * R.chain[f]["r"][0] * 0.9), axis=1)
-        k = np.exp(-(dk / 0.008) ** 2) * hand
-        bc = bc * (1 - 0.35 * k)[:, None] + KNUCKLE[None] * (0.35 * k)[:, None]
+        k = np.exp(-(dk / 0.009) ** 2) * hand
+        bc = bc * (1 - 0.50 * k)[:, None] + KNUCKLE[None] * (0.50 * k)[:, None]
     back = hand * (1 - pal) * (lab == 0)
     for a0, a1 in (((0.060, 0.010), (0.018, -0.006)), ((0.058, -0.014), (0.012, 0.010)), ((0.040, 0.026), (0.004, 0.018)),
                    ((0.030, -0.020), (0.030, 0.022))):
@@ -231,12 +265,31 @@ def skin_texels(R, P, N, region, side, charts):
         dc = _poly_dist(u + 0.0006 * T.noise(Q, 1 / 0.01, 90), v, pts)
         cr = np.exp(-(dc / 0.0005) ** 2) * palm
         h -= depth * cr
-        bc *= (1 - 0.25 * cr)[:, None]
+        bc *= (1 - 0.42 * cr)[:, None]
     fine = T.ridged(np.stack([u / 0.003, v / 0.0045, w * 0], 1), 1.0, seed=91) * palm
     h -= 0.000012 * fine
     for off in (0.000, 0.006):
         wc = np.exp(-((s - 0.003 - off + 0.001 * T.noise(Q, 1 / 0.02, 92)) / 0.0006) ** 2) * T.smoothstep(0.0, -0.5, y / np.maximum(np.hypot(x, y), 1e-6))
         h -= 0.00008 * wc
+    # review round 1: the hands read as sculpted clay: pores and fine hair over the back of the hand and the
+    # fingers, warmer (better perfused) knuckles and fingertips, a slightly uneven tone
+    onhand = hand * (reg != 3)
+    pores = T.smoothstep(0.42, 0.80, T.noise(P, 1 / 0.00062, 120)) * onhand
+    pores2 = T.smoothstep(0.55, 0.85, T.noise(P, 1 / 0.0013, 121)) * onhand
+    h -= 0.000060 * pores + 0.000045 * pores2
+    bc *= (1 - 0.05 * pores)[:, None]
+    rough += 0.04 * pores
+    backh = onhand * (1 - pal)
+    Hq = np.stack([Q @ R.fwd / 0.0040, Q @ R.lat / 0.00016, Q @ R.dors / 0.0040], axis=1)
+    hair = T.smoothstep(0.58, 0.84, T.noise(Hq, 1.0, 122)) * backh * T.smoothstep(-0.2, 0.6, T.fbm(P, 1 / 0.02, 2, seed=123))
+    hair *= np.where(lab > 0, T.smoothstep(0.012, 0.004, np.abs(tt - 0.012)), 1.0)   # fingers: first segment only
+    bc = bc * (1 - 0.40 * hair)[:, None] + np.array([0.010, 0.007, 0.005], dtype=np.float32)[None] * (0.40 * hair)[:, None]
+    h += 0.000015 * hair
+    tone = 1.0 + 0.08 * T.fbm(P, 1 / 0.010, 3, seed=124) * onhand
+    bc *= tone[:, None]
+    warm = onhand * np.clip(T.smoothstep(0.03, 0.0, fd) * 0.0 + (lab > 0) * T.smoothstep(0.03, 0.06, tt), 0, 1)
+    bc[:, 0] *= 1 + 0.10 * warm
+    bc[:, 2] *= 1 - 0.05 * warm
     # tattoos on the forearms, as healed ink in the skin
     fore = (s > 0.04) & (s < 0.27)
     if fore.any():
@@ -252,21 +305,25 @@ def skin_texels(R, P, N, region, side, charts):
         b = bc[fore]
         bc[fore] = b * (1 - 0.82 * ink)[:, None] + INK[None] * (0.82 * ink)[:, None] * (b / SKIN[None]).mean(1, keepdims=True)
         rough[fore] += 0.03 * ink
-    # nails: plate over the bed, lighter lunula at the root, whiter free edge, fine lengthwise ridges, glossier
+    # nails (review round 1: no French-manicure band): a pink-brown bed matched to the skin, a faint lunula, a
+    # thin off-white free edge (under 1 mm), fine lengthwise ridges, roughness about 0.35
     nail = reg == 3
     if nail.any():
         ln, ttn, _cd, _fd = finger_info(R, Q[nail])
         js_end = np.array([_joint_ts(R, C.FINGERS[max(l - 1, 0)])[2] for l in ln])
         along = ttn - js_end
         L3 = np.array([_joint_ts(R, C.FINGERS[max(l - 1, 0)])[3] - _joint_ts(R, C.FINGERS[max(l - 1, 0)])[2] for l in ln])
-        f = np.clip(along / np.maximum(L3, 1e-4), 0, 1.4)
-        col = NAIL[None] * (1 + 0.06 * T.fbm(P[nail], 1 / 0.002, 2, seed=96))[:, None]
-        lun = T.smoothstep(0.42, 0.30, f)
-        col = col * (1 - 0.5 * lun)[:, None] + LUNULA[None] * (0.5 * lun)[:, None]
-        edge = T.smoothstep(0.95, 1.08, f)
-        col = col * (1 - 0.6 * edge)[:, None] + np.array([0.62, 0.55, 0.50], dtype=np.float32)[None] * (0.6 * edge)[:, None]
+        col = NAIL[None] * (1 + 0.07 * T.fbm(P[nail], 1 / 0.002, 2, seed=96))[:, None]
+        lun = T.smoothstep(L3 * 0.48, L3 * 0.40, along)
+        col = col * (1 - 0.35 * lun)[:, None] + LUNULA[None] * (0.35 * lun)[:, None]
+        r3 = np.array([R.chain[C.FINGERS[max(l - 1, 0)]]["r"][3] for l in ln])
+        tipd = (L3 + 0.78 * r3) - along                    # distance (m) back from the nail's free end
+        edge = T.smoothstep(0.0009, 0.0003, tipd)
+        col = col * (1 - 0.8 * edge)[:, None] + FREE_EDGE[None] * (0.8 * edge)[:, None]
+        side_d = T.smoothstep(0.35, 0.95, np.abs(_cd))      # darker at the lateral folds
+        col *= (1 - 0.18 * side_d)[:, None]
         bc[nail] = col
-        rough[nail] = 0.22 + 0.06 * T.fbm(P[nail], 1 / 0.003, 2, seed=97)
+        rough[nail] = 0.35 + 0.04 * T.fbm(P[nail], 1 / 0.003, 2, seed=97) + 0.06 * edge
         Qn = Q[nail]
         ridges = T.noise(np.stack([Qn @ R.lat / 0.00025, Qn @ R.fwd / 0.02, Qn[:, 2] * 0], 1), 1.0, 98)
         h[nail] = 0.000006 * ridges

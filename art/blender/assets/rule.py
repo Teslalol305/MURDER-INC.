@@ -304,9 +304,41 @@ def regions(R, ob):
     for i, n in enumerate(C.FINGERS):
         dv[lab == i + 1] = R.chain[n]["dors"]
     dors = np.einsum("ij,ij->i", fn, dv) > np.where(lab > 0, -0.10, -0.25)
+    # review round 1 (a pale square on the back of the wrist): the back half of the hand's body is never palm,
+    # whatever a wrinkle's normal says
+    w = (fc - R.W) @ R.dors
+    dors |= (lab == 0) & (w > -0.004)
     reg = np.where(dors, 1, 2)
     reg[s > 0.022] = 0
+    # majority filter over neighbouring faces: no isolated islands of the other colour
+    nb = _face_neighbours(ob)
+    for _ in range(2):
+        new = reg.copy()
+        for i, ns in enumerate(nb):
+            if reg[i] == 0 or len(ns) == 0:
+                continue
+            vals = reg[ns]
+            other = vals[vals != reg[i]]
+            if len(other) * 2 > len(ns):
+                new[i] = np.bincount(other).argmax()
+        reg = new
     return reg
+
+
+def _face_neighbours(ob):
+    """Edge-adjacent faces per face (lists of face indices)."""
+    me = ob.data
+    em = {}
+    for p in me.polygons:
+        for k in p.edge_keys:
+            em.setdefault(k, []).append(p.index)
+    out = [[] for _ in me.polygons]
+    for fs in em.values():
+        if len(fs) == 2:
+            a, b = fs
+            out[a].append(b)
+            out[b].append(a)
+    return [np.array(x, dtype=np.int64) for x in out]
 
 
 def set_face_attr(ob, name, vals):
@@ -499,24 +531,26 @@ def build_arms(ctx):
     ctx.asset(br, collision="none", notes="Silver curb chain, attach frame origin on the right forearm axis %d mm above "
               "the wrist; Socket_Bracelet on lowerarm_twist_01_r (SK_RuleArms.sockets.json)." % (BRACELET_S * 1000))
     ctx.log("SM_Character_RuleBracelet: %d triangles" % sum(len(p.vertices) - 2 for p in br.data.polygons))
-    ctx.rule = dict(R=R, Rl=C.ArmRig(arm, body, "l"), arm=arm, body=body, ob=ob, bracelet=br, F=F)
+    ctx.rule = dict(R=R, Rl=C.ArmRig(arm, body, "l"), arm=arm, body=body, ob=ob, bracelet=br, F=F, hand=hand)
     return ob
 
 
 # ------------------------------------------------------------------------------------------------ bracelet
 
 
-def bracelet(col, R):
-    """SM_Character_RuleBracelet: a heavy silver curb chain, 24 links of 4.2 mm wire pressed flat and twisted
-    against each other, hanging loose round the wrist (3 mm clear, 4 mm sag underneath), with a box clasp.
-    Origin = attach frame (characters.attach_frame): X across the arm, Y toward the elbow, Z out of the back."""
-    from mi import mat as _mat
-    silver = _mat.flat("M_Character_RuleBracelet_Silver", (0.96, 0.95, 0.93), 0.12, 1.0)
-    silver2 = _mat.flat("M_Character_RuleBracelet_SilverWorn", (0.90, 0.89, 0.87), 0.22, 1.0)
-    a = C._interp(FOREARM, BRACELET_S, 1) / 2 + 0.0030 + 0.0032
-    b = C._interp(FOREARM, BRACELET_S, 2) / 2 + 0.0030 + 0.0032
-    n = 24
-    pts, _t = C._ellipse_path(a, b, 600, sag=0.004)
+def bracelet(col, R=None, sec=None):
+    """SM_Character_RuleBracelet: a chunky silver curb chain (review round 1: tighter, chunkier links as in the
+    photo): 18 links of 5.6 mm wire pressed flat and twisted against each other, close round the wrist (1.5 mm
+    clear, 2.5 mm sag underneath), with a box clasp. Origin = attach frame (characters.attach_frame): X across the
+    arm, Y toward the elbow, Z out of the back. sec: the forearm's semi-axes under it (default: SK_RuleArms')."""
+    silver, silver2 = bracelet_materials()
+    if sec is None:
+        sec = (C._interp(FOREARM, BRACELET_S, 1) / 2, C._interp(FOREARM, BRACELET_S, 2) / 2)
+    major, minor = 0.0042, 0.0028
+    a = sec[0] + 0.0015 + minor * 1.25
+    b = sec[1] + 0.0015 + minor * 1.25
+    n = 18
+    pts, _t = C._ellipse_path(a, b, 600, sag=0.0025)
     seg = np.linalg.norm(np.roll(pts, -1, axis=0) - pts, axis=1)
     cum = np.concatenate([[0], np.cumsum(seg)])
     total = cum[-1]
@@ -527,24 +561,40 @@ def bracelet(col, R):
         p0, p1 = pts[k], pts[(k + 1) % len(pts)]
         mid = p0 + (p1 - p0) * ((d - cum[k]) / max(seg[k], 1e-9))
         tang = (p1 - p0) / max(seg[k], 1e-9)
+        ang = math.degrees(math.atan2(tang[2], tang[0]))
         if i == 0:                                         # box clasp on the back of the wrist
-            bx = geo.box((0.0165, 0.0115, 0.0042), bevel=0.0009, segments=3, base=False, name="Clasp")
-            ang = math.degrees(math.atan2(tang[2], tang[0]))
+            bx = geo.box((0.0185, 0.0150, 0.0050), bevel=0.0011, segments=3, base=False, name="Clasp")
             geo.transform(bx, rot=(0, -ang, 0))
             geo.transform(bx, loc=tuple(mid))
             parts.append(C._mat_all(bx, silver))
             continue
-        lk = geo.torus(major=0.0031, minor=0.0021, seg_major=30, seg_minor=10, name="Link",
-                       stretch=max(total / n * 1.9 - 0.0104, 0.001))
-        geo.transform(lk, scale=(1.0, 1.0, 0.55))
-        geo.transform(lk, rot=(40 if i % 2 else -40, 0, 0))
-        ang = math.degrees(math.atan2(tang[2], tang[0]))
+        lk = geo.torus(major=major, minor=minor, seg_major=32, seg_minor=12, name="Link",
+                       stretch=max(total / n * 1.85 - 2 * (major + minor), 0.001))
+        geo.transform(lk, scale=(1.0, 1.0, 0.50))
+        geo.transform(lk, rot=(34 if i % 2 else -34, 0, 0))
         geo.transform(lk, rot=(0, -ang, 0))
         geo.transform(lk, loc=tuple(mid))
         parts.append(C._mat_all(lk, silver if i % 3 else silver2))
     ob = geo.join(parts, "SM_Character_RuleBracelet", col)
     C._smart_uv(ob)
     return ob
+
+
+def bracelet_materials():
+    """Polished and worn silver (metallic 1, roughness 0.16 / 0.28): the values ship in the GLB (export_plain)."""
+    from mi import mat as _mat
+    return (_mat.flat("M_Character_RuleBracelet_Silver", (0.96, 0.95, 0.93), 0.16, 1.0),
+            _mat.flat("M_Character_RuleBracelet_SilverWorn", (0.90, 0.89, 0.87), 0.28, 1.0))
+
+
+def export_plain(ob, path):
+    """GLB of one rigid object with its own flat PBR factors (the pipeline's export writes stub materials)."""
+    scene.select_only(ob)
+    bpy.ops.export_scene.gltf(
+        filepath=path, export_format="GLB", use_selection=True, export_yup=True, export_apply=True,
+        export_materials="EXPORT", export_image_format="NONE", export_texcoords=True, export_normals=True,
+        export_tangents=False, export_animations=False, export_skins=False, export_morph=False,
+        export_cameras=False, export_lights=False, export_extras=False, export_vertex_color="NONE")
 
 
 # ------------------------------------------------------------------------------------------------ textures
@@ -563,10 +613,24 @@ def bake_skin(ctx, ob, res):
     hh = np.zeros(H * W, dtype=np.float32)
     Pf, Nf = maps["pos"].reshape(-1, 3), maps["normal"].reshape(-1, 3)
     charts = {"right": X.tattoo_chart("right"), "left": X.tattoo_chart("left")}
+    hand = ctx.rule.get("hand")
     for sl in texel.chunks(idx, 600_000):
-        c, r, h = X.skin_texels(R, Pf[sl].astype(np.float64), Nf[sl].astype(np.float64),
-                                maps["mi_region"].ravel()[sl], maps["mi_side"].ravel()[sl], charts)
+        Pc = Pf[sl].astype(np.float64)
+        reg_c, side_c = maps["mi_region"].ravel()[sl], maps["mi_side"].ravel()[sl]
+        c, r, h = X.skin_texels(R, Pc, Nf[sl].astype(np.float64), reg_c, side_c, charts)
+        if hand is not None:
+            c, r = nail_folds(R, hand, Pc, reg_c, side_c, c, r)
         bc[sl], ro[sl], hh[sl] = c, r, h
+    # review round 1: one skin colour with the head and the body: every skin texel (not the nails) graded so the
+    # forearm's median is the shared target (_rule_tex.SKIN_TARGET)
+    regf = np.rint(maps["mi_region"].ravel()[idx]).astype(int)
+    skin_sel = regf != 3
+    arm_sel = regf == 0
+    sub = bc[idx]
+    graded, k = X.grade_skin(sub[skin_sel], arm_sel[skin_sel])
+    sub[skin_sel] = graded
+    bc[idx] = sub
+    ctx.log("  RuleArms_Skin: graded to the shared skin target, gains %s" % np.round(k, 3).tolist())
     mask = maps["mask"]
     hh = hh.reshape(H, W)
     hd = texel.dilate(hh, mask, 4)
@@ -592,6 +656,32 @@ def bake_skin(ctx, ob, res):
     info = _bake.write_set("RuleArms_Skin", ch, meta={"kind": "unique", "asset": "SK_RuleArms", "resolution_px": res,
                                                       "slots": ["M_RuleArms_Skin", "M_RuleArms_Nail"]})
     ctx.log("  RuleArms_Skin written: %s" % info["files"])
+
+
+def nail_folds(R, hand, P, region, side, bc, rough):
+    """Darker cuticle and nail folds round each nail (skin texels within 2.5 mm of the nail's root and sides),
+    on the right arm's frame (the left arm is mirrored onto it)."""
+    from mi import texel as T
+    Q = P.copy()
+    m = side > 0.5
+    Q[m, 0] *= -1
+    sk = np.rint(region).astype(int) != 3
+    fold = np.zeros(len(P), dtype=np.float32)
+    for n in C.FINGERS:
+        nf = hand.nails[n]
+        near = sk & (np.linalg.norm(Q - nf["c"], axis=1) < nf["hl"] + 0.006)
+        if not near.any():
+            continue
+        rd, q = hand.nail_rect(Q[near], n, 0.0)
+        top = T.smoothstep(-nf["r"] * 0.1, nf["r"] * 0.3, q[:, 2])
+        root = T.smoothstep(0.0028, 0.0006, -(q[:, 0] + nf["hl"])) * T.smoothstep(0.0, 0.0012, -(q[:, 0] + nf["hl"]) + 0.0012)
+        root *= T.smoothstep(nf["hw"] + 0.0015, nf["hw"] - 0.001, np.abs(q[:, 1]))
+        sidef = T.smoothstep(0.0018, 0.0002, rd) * T.smoothstep(0.0, 0.0006, rd)
+        fold[near] = np.maximum(fold[near], np.clip(0.9 * root + 0.6 * sidef, 0, 1) * top)
+    from assets import _rule_tex as X
+    bc = bc * (1 - 0.45 * fold)[:, None] + X.KNUCKLE[None] * (0.45 * fold)[:, None]
+    rough = rough + 0.06 * fold
+    return bc, rough
 
 
 def textured_materials():
@@ -710,6 +800,14 @@ def on_export(ctx, objs):
         ctx.log("exported %s" % p)
         a = ctx.assets["SM_Character_RuleBracelet"]
         _export.export_asset(r["bracelet"], ctx.family, "none", None, a["notes"], None, None, slots=None, strict=False)
+        # review round 1: the silver values ship with the asset (export_asset writes grey non-metal stubs)
+        br = r["bracelet"]
+        saved = (br.parent, br.matrix_world.copy())
+        br.parent = None
+        br.matrix_world = Matrix.Identity(4)
+        export_plain(br, os.path.join(paths.glb, "SM_Character_RuleBracelet.glb"))
+        br.parent = saved[0]
+        br.matrix_world = saved[1]
         M = C.attach_frame(r["R"], BRACELET_S)
         sk_path = os.path.join(paths.glb, "SK_RuleArms.sockets.json")
         sockets = json.load(open(sk_path)) if os.path.exists(sk_path) else {}
