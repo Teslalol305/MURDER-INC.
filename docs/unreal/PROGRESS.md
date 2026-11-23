@@ -120,6 +120,18 @@ L_Block, pictures retaken with `tools/box/fp/fp-shots.sh` and looked at.
 - Effects remain code on pooled components, not Niagara systems (no scriptable Niagara authoring here); no smoke
   flipbook texture exists.
 
+## Rule's arms in the game: hands-and-tattoos pass (character and technical artist)
+
+**Verified 2026-11-23** in the gameplay clone (`import-chars.sh arms`, then `tools/box/fp/fp-arms-shots.sh`, play in
+editor in L_Block; pictures `shots/fp-arms-*.jpg`, each looked at). Cause and fix: `CHARACTERS.md`, "SK_RuleArms,
+hands-and-tattoos pass". In play `ListTextures` lists the four arms textures at full size and not streamed; the skin is
+on the Standard Subsurface model (no red fringes on the sun-stripe shadow edges), R/B 2.5 brown; knuckle wrinkles,
+wrist creases and the thumb nail read at the hip; the tattoos sit on the thumb side of the upper forearm (outside the
+hip frame, as in the photo: `fp-arms-forearm-l/r` turn the arms to the eye to show them).
+Open (for the next pass): the NINE's support hand and the hip hold still come from the template pistol clip (the gun
+rests on the palm, the fingers do not wrap); no per-gun finger pose ships; the pack clips' finger poses were not
+measured against this hand's thickness.
+
 ## Exact next step (level)
 
 1. Still boxes in L_Block, with no art anywhere: the building backs (`backs`, 7 brick masses with the window grid),

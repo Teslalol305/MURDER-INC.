@@ -4,8 +4,8 @@
 #   fp-arms-hip-sun    CHOPPER at the hip in the sun        fp-arms-hip-el     at the hip under the El
 #   fp-arms-irons      aimed through the irons               fp-arms-nine       the NINE at the hip, the hand on the grip
 #   fp-arms-forearm-l  fp-arms-forearm-r   a close look at each forearm's tattoos: the world frozen in the CHOPPER's
-#                      idle, the world paused, the arms component turned and moved so that the tattoo faces the eye
-#                      42 cm away (the arms keep their pose, material, lighting and first-person pass)
+#                      idle in the sun, the world paused, the arms component turned and moved so that the tattoo faces
+#                      the eye 30 cm away (the arms keep their pose, material, lighting and first-person pass)
 # and the texture residency of the arms' textures (ListTextures, "MI-ARMS-TEX" lines in the log): the evidence that
 # the textures are at full resolution in play.
 # Run detached with L_Block open (editor.sh start /Game/Maps/L_Block):  setsid nohup bash fp-arms-shots.sh [out] > log 2>&1 &
@@ -80,7 +80,7 @@ for comp in pawn.get_components_by_class(unreal.SkeletalMeshComponent):
         arms = comp
 if arms is None:
     raise RuntimeError("no visible SK_RuleArms on the player")
-# the world paused (no rig update), the arms component turned and moved so the tattoo faces the eye at 42 cm
+# the world paused (no rig update), the arms component turned and moved so the tattoo faces the eye at 30 cm
 unreal.GameplayStatics.set_game_paused(w, True)
 sx = "l" if side == "l" else "r"
 e = arms.get_socket_location("lowerarm_" + sx)
@@ -107,12 +107,12 @@ Rv = cr.get_right_vector()
 # a frame on the tattoo (x along the forearm, y out of the skin) mapped onto a frame 42 cm in front of the eye
 # (x across the screen, y toward the eye): arms' new world transform = arms x cur^-1 x tgt
 M = unreal.MathLibrary
-newp = C + F * 42.0
+newp = C + F * 30.0
 cur = unreal.Transform(p, M.make_rot_from_xy(A, n), unreal.Vector(1, 1, 1))
 tgt = unreal.Transform(newp, M.make_rot_from_xy(Rv * (1.0 if sx == "l" else -1.0), F * -1.0), unreal.Vector(1, 1, 1))
 t = M.compose_transforms(M.compose_transforms(arms.get_world_transform(), M.invert_transform(cur)), tgt)
 arms.set_world_transform(t, False, True)
-"forearm %s: tattoo point moved to %.0f %.0f %.0f, 42 cm in front of the eye" % (sx, newp.x, newp.y, newp.z)
+"forearm %s: tattoo point moved to %.0f %.0f %.0f, 30 cm in front of the eye" % (sx, newp.x, newp.y, newp.z)
 PY
 cat > "$PIE_PY/_unpause.py" <<'PY'
 import unreal
@@ -120,6 +120,8 @@ w = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world()
 unreal.GameplayStatics.set_game_paused(w, False)
 "unpaused"
 PY
+# in the sun on the north lane, the eye turned so the sun falls on the arms from over the shoulder
+if want fp-arms-forearm-l || want fp-arms-forearm-r; then c "MIPose 170 -380 0 -35 -4"; run 1.2; fi
 for sd in l r; do
   echo "$sd" > "$MI_PROJECT_DIR/Saved/mi_forearm_side.txt"
   if want fp-arms-forearm-$sd; then pie_mcp py "$PIE_PY/_forearm.py" | tail -3; shot fp-arms-forearm-$sd 40; pie_mcp py "$PIE_PY/_unpause.py" > /dev/null; run 0.3; fi
