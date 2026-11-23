@@ -128,6 +128,13 @@ is the audio test that needs `node tools/ue-export/audio.mjs` run on the box); p
 - **Photos of the business partner**: head straight on, three-quarter both sides, both profiles, at eye level in even
   light; one front and one side without the bandana; square-on close-ups of each forearm tattoo with readable text; the
   bracelet close up; optional full body front and back.
+- **MetaHuman sign-in (the biggest quality lever for characters).** A scout proved that MetaHuman Creator runs headless
+  on the box and builds far more realistic people than the Blender Goons (`docs/unreal/METAHUMAN.md`,
+  `docs/unreal/shots/metahuman-goon-1m.jpg`). The last step, turning a character into a game-ready MetaHuman, needs
+  Epic's cloud face auto-rig and texture download, which need one Epic account sign-in. Options: the owner signs in
+  to MetaHuman Creator in a windowed Unreal Editor 5.9 on their own computer, runs Auto-Rig and Download Texture
+  Sources per character, and the saved assets travel to the box; or a one-time sign-in on the box's desktop is tried.
+  Never ask for or type the owner's password.
 - **Real voice recordings** of the five lines and the crowd answer, per `AUDIO.md` section 5.
 - Optional purchases that would lift quality most: a pistol pack with first-person animations (for the NINE), Epic's
   free City Sample Vehicles and Game Animation Sample.
