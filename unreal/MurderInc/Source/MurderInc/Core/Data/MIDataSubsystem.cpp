@@ -536,6 +536,25 @@ void UMIDataSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		ConfigJson.Reset();
 		UE_LOG(LogMI, Error, TEXT("Data: %s"), *Error);
 	}
+
+	// The loadout files never fail the config load: without them the front end offers only the parity set-up.
+	FString LoadoutError;
+	bLoadoutLoaded = bLoaded && FMILoadoutData::Load(Loadout, LoadoutError);
+	if (bLoadoutLoaded)
+	{
+		TArray<FString> Problems;
+		Loadout.ValidateData(Problems);
+		for (const FString& P : Problems)
+		{
+			UE_LOG(LogMI, Error, TEXT("Data: loadout: %s"), *P);
+		}
+		UE_LOG(LogMI, Log, TEXT("Data: loadout loaded (%d guns, %d parts, %d crew, %d levels, %d problems)"),
+			Loadout.Guns.Num(), Loadout.Attachments.Num(), Loadout.Crew.Num(), Loadout.Levels.Num(), Problems.Num());
+	}
+	else if (bLoaded)
+	{
+		UE_LOG(LogMI, Error, TEXT("Data: loadout files did not load, only the parity set-up is offered: %s"), *LoadoutError);
+	}
 }
 
 const UMIDataSubsystem* UMIDataSubsystem::Get(const UObject* WorldContextObject)

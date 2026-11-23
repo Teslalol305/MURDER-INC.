@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Core/Data/MIData.h"
+#include "Core/Data/MILoadoutData.h"
 #include "MIDataSubsystem.generated.h"
 
 class FJsonObject;
@@ -30,6 +31,10 @@ public:
 	const FMIWeaponsData& GetWeapons() const { return Config.Weapons; }
 	const FMIExplosivesData& GetExplosives() const { return Config.Explosives; }
 
+	/** The loadout files (LOADOUT.md 3.1), loaded on their own error path: false means only the parity set-up. */
+	bool IsLoadoutLoaded() const { return bLoadoutLoaded; }
+	const FMILoadoutData& GetLoadout() const { return Loadout; }
+
 	/** The whole config.json document, for tables that have no struct yet. Null when loading failed. */
 	TSharedPtr<FJsonObject> GetConfigJson() const { return ConfigJson; }
 
@@ -49,4 +54,6 @@ private:
 	FMIConfigData Config;
 	TSharedPtr<FJsonObject> ConfigJson;
 	bool bLoaded = false;
+	FMILoadoutData Loadout;
+	bool bLoadoutLoaded = false;
 };
