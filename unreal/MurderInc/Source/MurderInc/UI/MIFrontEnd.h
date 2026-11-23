@@ -79,5 +79,6 @@ private:
 	int32 Version = 0;
 	bool bShown = false;
 	bool bResetDown = false;
+	bool bInputMode = false;  // the UI-only input mode, set once the player controller exists
 	int32 ViewTargetFor = -1;
 };

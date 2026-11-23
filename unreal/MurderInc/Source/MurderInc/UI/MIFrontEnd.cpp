@@ -96,14 +96,7 @@ void UMIFrontEnd::Show()
 	{
 		Viewport->AddViewportWidgetContent(Widget.ToSharedRef(), 10);
 	}
-	if (APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr)
-	{
-		FInputModeUIOnly Mode;
-		Mode.SetWidgetToFocus(Widget);
-		Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-		PC->SetInputMode(Mode);
-		PC->bShowMouseCursor = true;
-	}
+	bInputMode = false;
 	ViewTargetFor = -1;
 	Focus = 0;
 	Changed();
@@ -529,6 +522,19 @@ void UMIFrontEnd::Tick(double Dt)
 	if (!bShown)
 	{
 		return;
+	}
+	if (!bInputMode && Game.IsValid() && Game->GetWorld())
+	{
+		// The player controller may join after the boot: the screens take the keyboard, mouse and pad once it does.
+		if (APlayerController* PC = Game->GetWorld()->GetFirstPlayerController())
+		{
+			FInputModeUIOnly Mode;
+			Mode.SetWidgetToFocus(Widget);
+			Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+			PC->SetInputMode(Mode);
+			PC->bShowMouseCursor = true;
+			bInputMode = true;
+		}
 	}
 	if (Rules.GetScreen() == EMIFrontScreen::Workbench)
 	{
