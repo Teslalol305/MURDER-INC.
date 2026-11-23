@@ -294,6 +294,14 @@ def uv_layout(R, ob, side_attr):
     ob.data.vertices.foreach_set("co", q.ravel())
     seam = C.skin_seams(R, ob)
     ob.data.vertices.foreach_set("co", tmp.ravel())
+    # a ring at the elbow: the forearm and upper-arm tubes are cut lengthwise at different angles, so each is
+    # its own island (one island over both would have to flatten a closed band)
+    sf, _x, _y = R.fore_coords(q)
+    up = sf > R.L + 0.01
+    ev = np.empty(len(me.edges) * 2, dtype=np.int64)
+    me.edges.foreach_get("vertices", ev)
+    ev = ev.reshape(-1, 2)
+    seam |= up[ev[:, 0]] != up[ev[:, 1]]
     fid = (reg * 2 + fs).astype(int)
     seam |= char.seams_between(ob, fid)
     me.edges.foreach_set("use_seam", seam)
@@ -309,12 +317,18 @@ def uv_layout(R, ob, side_attr):
     cp = ob.copy()
     cp.data = ob.data.copy()
     bpy.context.scene.collection.objects.link(cp)
-    hv = np.zeros(len(co), dtype=bool)
+    hv = np.ones(len(co), dtype=bool)                     # vertices whose every face is on the hand
     for p in me.polygons:
-        if reg[p.index] > 0.5:
-            hv[list(p.vertices)] = True
+        if reg[p.index] < 0.5:
+            hv[list(p.vertices)] = False
     c2 = co.copy()
-    c2[hv] = c2[hv] * HAND_UV_BOOST
+    Wm = np.where((side > 0.5)[:, None], R.W * [-1, 1, 1], R.W[None])
+    c2[hv] = Wm[hv] + (c2[hv] - Wm[hv]) * HAND_UV_BOOST
+    # the upper arm is rarely seen from the first-person camera: two thirds of the forearm's density
+    sf3, _x, _y = R.fore_coords(q)
+    uv_up = sf3 > R.L + 0.02
+    Em = np.where((side > 0.5)[:, None], R.E * [-1, 1, 1], R.E[None])
+    c2[uv_up] = Em[uv_up] + (c2[uv_up] - Em[uv_up]) * 0.62
     cp.data.vertices.foreach_set("co", c2.ravel())
     cp.data.update()
     scene.select_only(cp)
@@ -329,6 +343,26 @@ def uv_layout(R, ob, side_attr):
     cp.data.uv_layers.active.data.foreach_get("uv", uv)
     me.uv_layers.active.data.foreach_set("uv", uv)
     bpy.data.objects.remove(cp, do_unlink=True)
+    # report: share of the UV square per part (texel density check)
+    uv = uv.reshape(-1, 2)
+    ls = np.empty(len(me.polygons), dtype=np.int64)
+    me.polygons.foreach_get("loop_start", ls)
+    lt = np.empty(len(me.polygons), dtype=np.int64)
+    me.polygons.foreach_get("loop_total", lt)
+    a3 = np.empty(len(me.polygons))
+    me.polygons.foreach_get("area", a3)
+    a2 = np.zeros(len(me.polygons))
+    for k in range(1, lt.max() - 1):
+        m = lt > k + 1
+        p0, p1, p2 = uv[ls[m]], uv[ls[m] + k], uv[ls[m] + k + 1]
+        a2[m] += 0.5 * np.abs((p1[:, 0] - p0[:, 0]) * (p2[:, 1] - p0[:, 1]) - (p2[:, 0] - p0[:, 0]) * (p1[:, 1] - p0[:, 1]))
+    fc = C.face_centres(ob)
+    fc[fs > 0.5, 0] *= -1
+    sf2, _x, _y = R.fore_coords(fc)
+    out = {}
+    for name, m in (("hand", reg > 0.5), ("forearm", (reg < 0.5) & (sf2 <= R.L)), ("upper arm", (reg < 0.5) & (sf2 > R.L))):
+        out[name] = (a2[m].sum(), (a2[m].sum() / max(a3[m].sum(), 1e-12)) ** 0.5 * 4096)
+    return out
 
 
 def _cached_mesh(R, hand, ctx):
@@ -398,7 +432,8 @@ def build_arms(ctx):
     left = char.mirror_x(right, "Skin_L")
     set_face_attr(left, "mi_side", np.ones(len(left.data.polygons)))
     ob = geo.join([right, left], "SK_RuleArms", ctx.col)
-    uv_layout(R, ob, "mi_side")
+    for k, (share, dens) in uv_layout(R, ob, "mi_side").items():
+        ctx.log("  UV %-9s %.1f %% of the square, %.0f px/m at 4K" % (k, 100 * share, dens))
     geo.weighted_normals(ob, weight=50, keep_sharp=False)
     ctx.log("SK_RuleArms: %d triangles" % sum(len(p.vertices) - 2 for p in ob.data.polygons))
     br = bracelet(ctx.col, R)
