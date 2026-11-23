@@ -732,6 +732,11 @@ void UMIFrontEnd::SyncViewTarget()
 	{
 		return;
 	}
+	if (CameraCutFrames > 0 && PC->PlayerCameraManager)
+	{
+		PC->PlayerCameraManager->SetGameCameraCutThisFrame();
+		--CameraCutFrames;
+	}
 	const EMIFrontScreen S = Rules.GetScreen();
 	const int32 Want = (S == EMIFrontScreen::Home || S == EMIFrontScreen::Where) ? 0 : S == EMIFrontScreen::Briefing ? 2 : 1;
 	if (Want == ViewTargetFor)
@@ -760,11 +765,23 @@ void UMIFrontEnd::SyncViewTarget()
 	if (Target)
 	{
 		PC->SetViewTarget(Target);
+		CutCamera();
 	}
 	// View-target changes fade through black (0.3 s), never two renders.
 	if (!bFirst && PC->PlayerCameraManager)
 	{
 		PC->PlayerCameraManager->StartCameraFade(1.f, 0.f, 0.3f, FLinearColor::Black, false, false);
+	}
+}
+
+void UMIFrontEnd::CutCamera()
+{
+	CameraCutFrames = 2;
+	UWorld* World = Game.IsValid() ? Game->GetWorld() : nullptr;
+	APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr;
+	if (PC && PC->PlayerCameraManager)
+	{
+		PC->PlayerCameraManager->SetGameCameraCutThisFrame();
 	}
 }
 
@@ -808,6 +825,7 @@ void UMIFrontEnd::SyncStage(bool bForce)
 		return;
 	}
 	StageKey = Key;
+	CutCamera();  // a new gun, crew or slot reframes the stage camera in one step
 	FMIResolvedGun G;
 	if (Gun.IsNone() || !ResolveShown(Gun, &Build, G))
 	{

@@ -965,11 +965,13 @@ void UMIGameSubsystem::ApplyState()
 			if (!FrontEnd)
 			{
 				PC->SetViewTarget(TitleCamera);  // the front end picks the view per screen
+				if (PC->PlayerCameraManager) PC->PlayerCameraManager->SetGameCameraCutThisFrame();
 			}
 		}
 		else if (P && PC->GetViewTarget() != P)
 		{
 			PC->SetViewTarget(P);
+			if (PC->PlayerCameraManager) PC->PlayerCameraManager->SetGameCameraCutThisFrame();  // no history from the stage
 		}
 	}
 }

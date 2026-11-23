@@ -86,6 +86,9 @@ private:
 	void Activate();
 	void WriteSetting(FName Which, FName Value);
 	void AfterScreenChange();
+	/** Marks a camera cut on this frame and the next (fix pass: TSR and Lumen kept the last view's history, vertical
+	 *  banding for a few frames after each stage cut). */
+	void CutCamera();
 
 	TWeakObjectPtr<UMIGameSubsystem> Game;
 	UPROPERTY(Transient) TObjectPtr<AMIShowroom> Showroom;
@@ -105,4 +108,5 @@ private:
 	bool bPad = false;
 	bool bViewHeld = false;   // the pad's View button, held: View+Start jumps to the Briefing
 	int32 ViewTargetFor = -1;
+	int32 CameraCutFrames = 0;  // frames still to mark as camera cuts
 };
