@@ -739,7 +739,7 @@ bool UMIDemoDirector::Step(float Dt)
 				D.Source = EMIDamageSource::Player;
 				D.From = P->GetPlayerRules().Eye;
 				D.Point = X->GetActorLocation();
-				D.Direction = (X->GetActorLocation() - D.From).GetSafeNormal();
+				D.Direction = (X->GetActorLocation() - P->GetPlayerRules().Eye).GetSafeNormal();
 				D.Instigator = P;
 				Cast<AMIExplosive>(X)->ApplyMIDamage(D);
 			}
