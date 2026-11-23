@@ -23,6 +23,8 @@
 #include "HAL/PlatformTime.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/AutomationTest.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "Misc/PackageName.h"
 #include "Misc/Paths.h"
 #include "Sound/SoundEffectSubmix.h"
@@ -54,6 +56,7 @@ namespace MIAudioEnginePrivate
 		double ClockStart = 0.0, ClockSpan = 0.0;  // the audio device's own clock (its rendered time)
 		TArray<TObjectPtr<USoundEffectSubmixPreset>> Master;
 		FAutomationTestBase* Test = nullptr;
+		bool bDeviceClock = false;
 	};
 
 	UWorld* AudioWorld()
@@ -78,7 +81,10 @@ public:
 	virtual bool Update() override
 	{
 		MIAudioEnginePrivate::FRender& X = *R;
-		const double Now = FPlatformTime::Seconds() - X.Start;
+		// A demo stream (-MIAudioStream=) is placed on the device's own clock, so the recording lines up with the
+		// captured picture frame for frame; the test's own fight keeps the wall clock.
+		const double Now = X.bDeviceClock && X.World->GetAudioDeviceRaw() ? X.World->GetAudioDeviceRaw()->GetAudioClock() - X.ClockStart
+			: FPlatformTime::Seconds() - X.Start;
 		const double Dt = Now - X.Last;
 		X.Log.ReplayRange(X.Last - (X.Last == 0.0 ? 1.0 : 0.0), Now, X.Bus, &X.Director);
 		X.Last = Now;
@@ -163,7 +169,7 @@ public:
 		{
 			// The WAV export is written on a background task: wait for the file below.
 			X.ClockSpan = X.World->GetAudioDeviceRaw() ? X.World->GetAudioDeviceRaw()->GetAudioClock() - X.ClockStart : Now;
-			X.bMade = UAudioMixerBlueprintLibrary::StopRecordingOutputToAnyPath(X.World, EAudioRecordingExportType::WavFile, TEXT("engine_render"), FPaths::GetPath(X.Out)) != nullptr;
+			X.bMade = UAudioMixerBlueprintLibrary::StopRecordingOutputToAnyPath(X.World, EAudioRecordingExportType::WavFile, FPaths::GetBaseFilename(X.Out), FPaths::GetPath(X.Out)) != nullptr;
 			for (auto& Pair : X.Live)
 			{
 				Pair.Value->Stop();
@@ -245,16 +251,26 @@ bool FMIAudioEngineRenderTest::RunTest(const FString& Parameters)
 	}
 	TSharedPtr<FRender> R = MakeShared<FRender>();
 	FString Error;
+	// The demo capture (tools/box/demo/): -MIAudioStream=<recorded json> -MIAudioOut=<name> -MIAudioSeed=7
+	// -MIAudioFrequency=often -MIAudioClean renders a stream recorded with MIAudio.Record in the capture run, with
+	// the live director's seed and options, for its whole length, on the device's clock.
+	FString Stream, OutName = TEXT("engine_render"), Frequency;
+	int32 Seed = 11;
+	const bool bDemo = FParse::Value(FCommandLine::Get(), TEXT("MIAudioStream="), Stream);
+	FParse::Value(FCommandLine::Get(), TEXT("MIAudioOut="), OutName);
+	FParse::Value(FCommandLine::Get(), TEXT("MIAudioSeed="), Seed);
+	FParse::Value(FCommandLine::Get(), TEXT("MIAudioFrequency="), Frequency);
 	if (!FMIAudioData::Load(R->Data, Error) || !FMIVoiceData::Load(R->Voice, Error)
-		|| !R->Log.Load(FPaths::Combine(UMIDataSubsystem::GetDataDir(), TEXT("audio_fight.json")), Error))
+		|| !R->Log.Load(bDemo ? Stream : FPaths::Combine(UMIDataSubsystem::GetDataDir(), TEXT("audio_fight.json")), Error))
 	{
 		AddError(Error);
 		return false;
 	}
 	R->World = World;
 	R->Test = this;
-	R->Secs = FCString::Atod(*Parameters) > 0.0 ? FCString::Atod(*Parameters) : FMath::Min(R->Log.Duration() + 3.0, 56.0);
-	R->Out = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Audio"), TEXT("engine_render.wav")));
+	R->Secs = FCString::Atod(*Parameters) > 0.0 ? FCString::Atod(*Parameters) : bDemo ? R->Log.Duration() + 1.0 : FMath::Min(R->Log.Duration() + 3.0, 56.0);
+	R->bDeviceClock = bDemo;
+	R->Out = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Audio"), OutName + TEXT(".wav")));
 	// A complete file from an earlier run would pass the wait below at once: this run's recording must replace it.
 	IFileManager::Get().Delete(*R->Out, false, true, true);
 	if (IFileManager::Get().FileExists(*R->Out))
@@ -273,7 +289,18 @@ bool FMIAudioEngineRenderTest::RunTest(const FString& Parameters)
 		const USoundWave* W = LoadObject<USoundWave>(nullptr, *FMIAudioData::AssetPath(F), nullptr, LOAD_NoWarn | LOAD_Quiet);
 		return W ? (double)W->Duration : 0.0;
 	};
-	R->Director.Init(&R->Data, &R->Voice, 11);
+	R->Director.Init(&R->Data, &R->Voice, Seed);
+	if (bDemo)
+	{
+		FMIAudioOptions O;
+		if (!Frequency.IsEmpty())
+		{
+			O.Voice.Frequency = FName(*Frequency);
+		}
+		O.Voice.bClean = FParse::Param(FCommandLine::Get(), TEXT("MIAudioClean"));
+		R->Director.SetOptions(O);
+		AddInfo(FString::Printf(TEXT("demo stream %s: %.1f s, seed %d, frequency %s, clean %d -> %s"), *Stream, R->Log.Duration(), Seed, *O.Voice.Frequency.ToString(), O.Voice.bClean ? 1 : 0, *R->Out));
+	}
 	R->Director.Bind(R->Bus);
 	if (FMIMasterChain::FromData(R->Data).Install(World, R->Master))
 	{

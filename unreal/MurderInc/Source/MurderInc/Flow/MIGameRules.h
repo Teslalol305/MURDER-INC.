@@ -139,6 +139,9 @@ public:
 	int32 GrabbingObjective() const { return GrabTarget; }
 	bool AllSecured() const { return Mode == FName(TEXT("mission")) && Run.Total > 0 && Run.Reels >= Run.Total; }
 	bool IsSecured(int32 Objective) const { return Secured.Contains(Objective); }
+	/** Dev (the demo capture, MIDemo `secure`): counts an objective as taken with no event, no radio and no wave,
+	 *  as if it had been taken earlier in the run. Not in shipping builds. */
+	void DevSecureQuietly(int32 Objective);
 	int32 WavesCleared() const { return Cleared; }
 	bool HoldoutActive() const { return bHoldoutActive; }
 

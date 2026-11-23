@@ -636,6 +636,21 @@ void FMIGameRules::Secure(int32 O)
 	}
 }
 
+void FMIGameRules::DevSecureQuietly(int32 O)
+{
+#if !UE_BUILD_SHIPPING
+	if (!Level || !Level->Objectives.IsValidIndex(O) || Secured.Contains(O))
+	{
+		return;
+	}
+	Secured.Add(O);
+	Run.Reels = Secured.Num();
+	ViewState.Reels = Run.Reels;
+	Note(TEXT("hud:reels"), FString(), Run.Reels, Run.Total);
+	RefreshObjective();
+#endif
+}
+
 void FMIGameRules::UpdatePursuit(double Dt)
 {
 	PursuitTimer -= Dt;
