@@ -218,6 +218,8 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 	using namespace MIFirstPersonRigPrivate;
 	GunId = Gun;
 	Mode = EMIFPMode::Template;
+	IronZero = FQuat::Identity;
+	IronZeroDeg = 0.0;
 	Clips = FClipSet();
 	Loaded.Reset();
 	Set.Reset();
@@ -599,7 +601,24 @@ void UMIFirstPersonRig::Update(double Dt, const FMIWeaponView& W, const FMIViewm
 	}
 	// The arms on the camera by the recipe, the rig's procedural motion on top; with an optic the eye moves onto
 	// the optic's axis as the gun comes up (ANIMATION.md 9: minus the sight point's offset from SightRear).
-	FTransform T = ArmsRest * Rig.GetLayerTransform();
+	// Irons zeroed to the aim point (review 2026-11-23: the front post sat about 1.3 degrees under the screen centre):
+	// on the clip's own pose (the rig's layers taken off), the front sight's direction from the eye is turned onto
+	// the camera axis about the eye, by smoothstep(Ads). Recoil, sway and the aim arc stay on top.
+	// The turn is measured once the gun is fully up (Ads > 0.95) and kept per gun, so it never pops mid-blend.
+	if (!bOptic && W.Ads > 0.95 && PackGun->DoesSocketExist(TEXT("SightFront")))
+	{
+		const FTransform GunInArms = CameraSpace(PackGun->GetComponentTransform()) * Arms->GetRelativeTransform().Inverse();
+		const FVector Front = (PackGun->GetSocketTransform(TEXT("SightFront"), RTS_Component) * GunInArms * ArmsRest).GetLocation();
+		const FVector D = Front.GetSafeNormal();
+		const double Off = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(D.X, -1.0, 1.0)));
+		if (D.X > 0.0 && Off < 4.0)
+		{
+			IronZeroDeg = Off;
+			IronZero = FQuat::Slerp(IronZero, FQuat::FindBetweenNormals(D, FVector::ForwardVector), FMath::Min(1.0, 20.0 * Dt)).GetNormalized();
+		}
+	}
+	const FTransform Zero(bOptic ? FQuat::Identity : FQuat::Slerp(FQuat::Identity, IronZero, Smooth(W.Ads)));
+	FTransform T = ArmsRest * Zero * Rig.GetLayerTransform();
 	if (bOptic && W.Ads > 0.0 && PackGun->DoesSocketExist(TEXT("SightRear")))
 	{
 		TArray<USceneComponent*> Children;

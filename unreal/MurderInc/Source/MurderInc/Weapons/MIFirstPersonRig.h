@@ -51,6 +51,8 @@ public:
 	/** The gun in hand changed. Returns the mode it is drawn in. */
 	EMIFPMode Equip(FName Gun, const FMIGunViewData* View, const FMIResolvedGun* Resolved, UMIGunAssembly* Assembly, class USkinnedMeshComponent* LegacyGun);
 	EMIFPMode GetMode() const { return Mode; }
+	/** Degrees the irons' front sight sat off the camera axis in the clip's aimed pose (the zeroing turn). */
+	double GetIronZeroDeg() const { return IronZeroDeg; }
 
 	/** One frame after the rules and the procedural rig. */
 	void Update(double Dt, const FMIWeaponView& Weapon, const FMIViewmodelRig& Rig, const FMIViewmodelPlayer& Player, double ViewYawDeg);
@@ -142,6 +144,8 @@ private:
 	FClipSet Clips;
 	FReloadMap ReloadTactical, ReloadEmpty;
 	EMIFPMode Mode = EMIFPMode::Template;
+	double IronZeroDeg = 0.0;
+	FQuat IronZero = FQuat::Identity;  // the irons' zeroing turn of the gun in hand (reset on equip)
 	FName GunId;
 	FTransform ArmsRest = FTransform::Identity;
 	double FovIrons = 38.0, FovOptic = 32.0;
