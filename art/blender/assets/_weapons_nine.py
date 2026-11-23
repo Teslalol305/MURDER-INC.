@@ -46,8 +46,9 @@ BACK = K.spline([(-0.0330, -0.0128), (-0.0312, -0.0150), (-0.0272, -0.0189), (-0
                  (-0.0258, -0.0870), (-0.0279, -0.0960), (-0.0298, -0.1060), (-0.0314, -0.1150),
                  (-0.0323, -0.1220), (-0.0326, -0.1275)], 10)
 # front strap below the guard (slightly convex, ~16 deg rake), the undercut fillet is added in front_x()
-FRONT = K.spline([(0.0312, -0.0775), (0.0301, -0.0830), (0.0276, -0.0920), (0.0248, -0.1020),
-                  (0.0218, -0.1120), (0.0188, -0.1210), (0.0170, -0.1275)], 10)
+FRONT_X0 = 0.0294                    # front strap at the undercut (grip ~54 mm horizontal, 52 mm across the rake)
+FRONT = K.spline([(0.0294, -0.0775), (0.0283, -0.0830), (0.0258, -0.0920), (0.0231, -0.1020),
+                  (0.0202, -0.1120), (0.0174, -0.1210), (0.0158, -0.1275)], 10)
 GUARD_BOTTOM = -0.0715
 UNDERCUT_R = 0.006
 
@@ -68,7 +69,7 @@ def front_x(z):
     z = np.asarray(z, dtype=np.float64)
     zc = -0.0775
     x_strap = K.x_of_z(FRONT, np.minimum(z, zc))
-    cx = 0.0312 + UNDERCUT_R
+    cx = FRONT_X0 + UNDERCUT_R
     fil = cx - np.sqrt(np.clip(UNDERCUT_R ** 2 - (z - zc) ** 2, 0, None))
     return np.where(z <= zc, x_strap, np.where(z <= GUARD_BOTTOM, fil, 0.0500))
 
@@ -117,8 +118,8 @@ def panel_front_x(z):
 def build_panel(side):
     """Grip panel on one side (side=-1 right, +1 left): a shell over the frame side flat that wraps 4.5 mm round
     the back and front corners, 3.4 mm thick at the crown, rounded borders."""
-    zs = np.linspace(PANEL_TOP, PANEL_BOT, 64)
-    nu = 34
+    zs = np.linspace(PANEL_TOP, PANEL_BOT, 50)
+    nu = 28
     wrap = 0.0045
     s0, s1 = [], []
     secs = [grip_section(z) for z in zs]
@@ -457,25 +458,24 @@ def nine_moving(parts):
     round_edges(st, 0.0002, 2, 50)
     parts.append(P(st, DARK, "slide_stop"))
     parts.append(P(pin_head((NN["stop_pivot"][0], 0.0134, NN["stop_pivot"][2]), "Y", r=0.0023, h=0.0006), DARK, "slide_stop"))
-    # hammer: body 6.2 mm with hollowed sides, 9 mm spur (thumb face checkered in the normal map), strut pin
-    ham = prism([(-0.0185, -0.0150), (-0.0090, -0.0150), (-0.0072, -0.0100), (-0.0080, -0.0040), (-0.0120, 0.0030),
-                 (-0.0170, 0.0078), (-0.0195, 0.0098), (-0.0270, 0.0098), (-0.0296, 0.0084), (-0.0300, 0.0066),
-                 (-0.0262, 0.0030), (-0.0222, -0.0020), (-0.0200, -0.0080)], -0.0031, 0.0031, bevel=0.0005, seg=2,
-                fillet=0.0015, name="Hammer")
+    # hammer: one forged piece, 6.2 mm through the body widening to a 9 mm spur (top Z 0.0105), the spur's back
+    # face checkered (normal map), shallow hollows milled into both sides, the strut pin through the body
+    ham = prism([(-0.0185, -0.0150), (-0.0092, -0.0150), (-0.0074, -0.0105), (-0.0078, -0.0045), (-0.0105, 0.0020),
+                 (-0.0150, 0.0074), (-0.0192, 0.0102), (-0.0232, 0.0105), (-0.0272, 0.0098), (-0.0298, 0.0081),
+                 (-0.0306, 0.0058), (-0.0298, 0.0034), (-0.0262, 0.0010), (-0.0226, -0.0028), (-0.0206, -0.0080)],
+                -0.0031, 0.0031, bevel=0.0007, seg=3, fillet=0.0018, name="Hammer")
+    K.subdivide(ham, 1)
+    K.deform(ham, lambda co: np.c_[co[:, 0], co[:, 1] * np.interp(co[:, 2], [-0.0030, 0.0055], [1.0, 1.45]), co[:, 2]])
     hollows = []
     for s in (1, -1):
         e = geo.sphere(1.0, 32, 16, name="Hollow")
-        geo.transform(e, scale=(0.0055, 0.0030, 0.0070))
-        geo.transform(e, loc=(-0.0160, s * (0.0031 + 0.0030 - 0.0007), -0.0005))
+        geo.transform(e, scale=(0.0050, 0.0030, 0.0060))
+        geo.transform(e, loc=(-0.0150, s * (0.0031 + 0.0030 - 0.00045), -0.0040))
         hollows.append(e)
     cut(ham, *hollows)
-    spur = prism([(-0.0195, 0.0105), (-0.0270, 0.0105), (-0.0296, 0.0092), (-0.0302, 0.0068), (-0.0278, 0.0046),
-                  (-0.0205, 0.0058), (-0.0182, 0.0084)], -0.0045, 0.0045, bevel=0.0012, seg=3, fillet=0.0014,
-                 name="Spur", corner=25)
-    union(ham, spur)
     round_edges(ham, 0.0002, 2, 50)
     parts.append(P(ham, DARK, "hammer"))
-    pin = lathe([(-0.0034, 0.0), (-0.0034, 0.0010), (0.0034, 0.0010), (0.0034, 0.0)], 20, axis="Y",
+    pin = lathe([(-0.0039, 0.0), (-0.0039, 0.0010), (0.0039, 0.0010), (0.0039, 0.0)], 20, axis="Y",
                 at=(-0.0160, 0.0, -0.0005), fillet=0.0002)
     parts.append(P(pin, POLISHED, "hammer"))
     # gold trigger: curved blade, rounded edges, serrated face (normal map)
@@ -521,8 +521,15 @@ def nine_magazine(col):
     sec = geo.fillet(sec, 0.0018, 3, closed=True)
     inner = [(u * (D - 0.0007) / D, v * (Wm - 0.0007) / Wm) for u, v in sec]
     ring = lambda t, s: [tuple(b + A * t + F * u + np.array([0, 1.0, 0]) * v) for u, v in s]
-    t_lo = -0.004
-    body = loft([ring(t_lo, sec), ring(top_t - 0.004, sec)], cap0=True, cap1=False, name="NMagBody")
+
+    def ring_flat(zt, s):
+        # bottom of the body cut level with the butt (it seats in the pad), not square to the axis
+        out = []
+        for u, v in s:
+            c = b + F * u + np.array([0, 1.0, 0]) * v
+            out.append(tuple(c + A * ((zt - c[2]) / A[2])))
+        return out
+    body = loft([ring_flat(BUTT_Z - 0.0035, sec), ring(top_t - 0.004, sec)], cap0=True, cap1=False, name="NMagBody")
     inn = loft([ring(top_t - 0.004 - 0.030, inner), ring(top_t - 0.004, inner)], cap0=True, cap1=False, name="NMagIn")
     bm = geo.bm_of(inn)
     for fc in bm.faces:
@@ -571,9 +578,6 @@ def nine_magazine(col):
         lip = 0.0030 * np.clip((BUTT_Z - 0.0010 - z) / 0.0055, 0, 1) ** 1.5    # the front flares forward going down
         secs.append(K.rrect(x0 + inset, x1 + lip - inset, wp - inset, 0.0062 - inset * 0.7, 0.0060 - inset * 0.7))
     pad = K.loft_z(secs, zs, 64, name="Pad")
-    # finger lip: the front underside curls slightly down
-    K.deform(pad, lambda co: np.c_[co[:, 0], co[:, 1], co[:, 2] - 0.0006 * np.clip((co[:, 0] - (x1 - 0.004)) / 0.006, 0, 1)
-                                   * (co[:, 2] < BUTT_Z - 0.004)])
     parts.append(P(pad, GOLD, None))
     body = geo.join(parts, "SM_Weapon_NineMagazine", col)
     ctop = b + A * top_t

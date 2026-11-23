@@ -778,7 +778,7 @@ def nine_barrel(parts):
     spring = []
     for k in range(int((0.188 - 0.100) / 0.0036)):
         x = 0.100 + k * 0.0036
-        t = geo.torus(0.0031, 0.0005, 20, 8, name="Coil")
+        t = geo.torus(0.0031, 0.0005, 14, 6, name="Coil")
         geo.transform(t, rot=(0, 90 + 8, 0))
         geo.transform(t, loc=(x, 0, -0.0118))
         spring.append(t)
@@ -1754,7 +1754,7 @@ def build_nine(ctx):
     res = tex_res(ctx, "SK_Nine")
     dens = unwrap(gun, res)
     ctx.log("SK_Nine: %d tris, %.0f px/m" % (geo.stats(gun)["triangles"], dens))
-    texture(ctx, gun, paint_nine, res)
+    texture(ctx, gun, TX.paint_nine, res)
     geo.ensure_wear(gun)
     SKINNED["SK_Nine"] = {"ob": gun, "arm": arm, "expect_size": (0.234, 0.031, 0.153), "poses": nine_poses(),
                           "notes": NINE_NOTES}
@@ -1764,14 +1764,16 @@ def build_nine(ctx):
     mag = geo.join([body, top], "SM_Weapon_NineMagazine", ctx.col)
     mres = tex_res(ctx, "SM_Weapon_NineMagazine")
     unwrap(mag, mres)
-    texture(ctx, mag, paint_magazine, mres, body_col=L["nine_mag"], floor_col=L["dark"], seed=9, bright_body=True)
+    texture(ctx, mag, TX.paint_nine_mag, mres)
     top = split_off(mag, None, "SM_Weapon_NineMagazine_TopRound", ctx.col)
     for o in (mag, top):
         geo.ensure_wear(o)
     ctx.asset(mag, collision="none", expect_size=(0.074, 0.026, 0.098), notes=(
         "NINE 15-round magazine: brushed steel body raked with the grip, three witness holes per side (the stack "
-        "shows through), feed lips, gold base pad. Origin = pistol origin (in place X -0.029..0.045, Z "
-        "-0.1345..-0.037); it slides along (X 0.250, Z 0.968), base to lips. Top round: SM_Weapon_NineMagazine_TopRound."))
+        "shows through), feed lips, flat polished gold base pad following the butt (1 mm overhang, flared finger lip). "
+        "Origin = pistol origin (in place X -0.034..0.033, Z -0.1345..-0.033: rebuild round 1 moved the magazine "
+        "line 12 mm back so the grip is 52 mm deep; direction unchanged); it slides along (X 0.250, Z 0.968), base "
+        "to lips. Top round: SM_Weapon_NineMagazine_TopRound."))
     ctx.asset(top, collision="none", expect_size=None, notes=(
         "The NINE magazine's visible top round, a separate hideable piece sharing the magazine's set; origin = "
         "pistol origin, 33.5 mm below the bore axis."))
@@ -1796,7 +1798,8 @@ NINE_NOTES = (
     "down = +36 deg about +Y), slide_stop (left; pivot X 0.0955 Z -0.0165, up = +7 deg about +Y), magazine "
     "(attach bone at the origin for SM_Weapon_NineMagazine; it slides along (0.250, 0, 0.968)). Sockets: Muzzle, "
     "Eject, SightRear, SightFront, RecoilPivot, Palm_R, Palm_L (support hand over the firing hand's fingers). "
-    "Grip checkering is in the normal map (1.25 mm pyramids). One slot M_Nine, set Nine (4K, E = sight dots).")
+    "Grip panels are modelled shells (3.4 mm crown) with 1.3 mm pyramid checkering in the normal map; front and back "
+    "straps stippled. One slot M_Nine, set Nine (4K, E = sight dots).")
 
 
 def build(ctx):
@@ -2267,3 +2270,4 @@ def on_preview(ctx, objs):
 # rebuild round 1: the new part builders (they use the kit above, so they are imported last)
 from assets import _weapons_kit as KIT  # noqa: E402
 from assets import _weapons_nine as N9  # noqa: E402
+from assets import _weapons_tex as TX  # noqa: E402
