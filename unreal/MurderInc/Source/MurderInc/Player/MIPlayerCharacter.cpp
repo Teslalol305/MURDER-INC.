@@ -22,6 +22,7 @@ namespace MIPlayerCharacterPrivate
 {
 	double BlastStanding = 0.0;
 	double BlastCrouching = 0.0;
+	double FallOutBelow = -3000.0;  // cm
 	bool bBlastLoaded = false;
 
 	void LoadRules()
@@ -37,6 +38,11 @@ namespace MIPlayerCharacterPrivate
 			const TSharedPtr<FJsonObject> Target = Root->GetObjectField(TEXT("player"))->GetObjectField(TEXT("blastTarget"));
 			BlastStanding = Target->GetNumberField(TEXT("standing")) * 100.0;
 			BlastCrouching = Target->GetNumberField(TEXT("crouching")) * 100.0;
+			const TSharedPtr<FJsonObject>* FallOut = nullptr;
+			if (Root->GetObjectField(TEXT("player"))->TryGetObjectField(TEXT("fallOut"), FallOut))
+			{
+				FallOutBelow = (*FallOut)->GetNumberField(TEXT("below")) * 100.0;
+			}
 			bBlastLoaded = true;
 		}
 		else
@@ -235,6 +241,133 @@ void AMIPlayerCharacter::ResetRun()
 	PlaceCamera();
 }
 
+void AMIPlayerCharacter::ResetAt(const FVector& Feet, double Yaw)
+{
+	if (Movement)
+	{
+		Movement->bWantsToCrouch = false;
+		if (bIsCrouched)
+		{
+			Movement->UnCrouch(false);
+		}
+		Movement->StopMovementImmediately();
+		Movement->SetMovementMode(MOVE_Walking);
+	}
+	if (bHasTuning)
+	{
+		GetCapsuleComponent()->SetCapsuleSize(Tuning.Player.Body.Radius, Tuning.Player.Body.Height * 0.5);
+	}
+	bDeathCapsule = false;
+	SetActorLocationAndRotation(Feet + FVector(0, 0, GetCapsuleComponent()->GetScaledCapsuleHalfHeight()), FRotator(0, Yaw, 0), false, nullptr, ETeleportType::TeleportPhysics);
+	if (Controller)
+	{
+		Controller->SetControlRotation(FRotator(0, Yaw, 0));
+	}
+	Input = FMIPlayerInputState();
+	LastGroundFeet = Feet;
+	bHaveGround = true;
+	ResetRun();
+}
+
+void AMIPlayerCharacter::TeleportFeet(const FVector& Feet)
+{
+	SetActorLocation(Feet + FVector(0, 0, GetCapsuleComponent()->GetScaledCapsuleHalfHeight()), false, nullptr, ETeleportType::TeleportPhysics);
+	Rules.Feet = Feet;
+	if (Movement)
+	{
+		Movement->StopMovementImmediately();
+		Movement->SetMovementMode(MOVE_Walking);
+	}
+}
+
+void AMIPlayerCharacter::SetViewmodelVisible(bool bVisible)
+{
+	if (GunMesh->IsVisible() != bVisible)
+	{
+		GunMesh->SetVisibility(bVisible);
+		ArmsMesh->SetVisibility(bVisible);
+	}
+}
+
+void AMIPlayerCharacter::AirStep(float DeltaSeconds)
+{
+	const UWorld* World = GetWorld();
+	const double Step = Tuning.Player.Body.AirStepHeight;
+	if (!World || !Movement || Movement->IsMovingOnGround() || Step <= 0.0 || !Rules.bAlive)
+	{
+		return;
+	}
+	const FVector Wish(Movement->RuleVelocity.X, Movement->RuleVelocity.Y, 0.0);
+	if (Wish.SizeSquared() < 1.0)
+	{
+		return;
+	}
+	const UCapsuleComponent* Capsule = GetCapsuleComponent();
+	const double Radius = Capsule->GetScaledCapsuleRadius();
+	const double Half = Capsule->GetScaledCapsuleHalfHeight();
+	const FVector Dir = Wish.GetSafeNormal();
+	const double Reach = FMath::Max(2.0, Wish.Size() * DeltaSeconds);
+	const FCollisionShape Shape = FCollisionShape::MakeCapsule(Radius, Half);
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(MIAirStep), false, this);
+	const FVector At = GetActorLocation();
+	FHitResult Hit;
+	// Blocked where it is, free once lifted by the air step: a ledge whose top is within the step.
+	if (!World->SweepSingleByChannel(Hit, At, At + Dir * Reach, FQuat::Identity, ECC_Pawn, Shape, Params) || Hit.ImpactNormal.Z > 0.7)
+	{
+		return;
+	}
+	const FVector Lifted = At + FVector(0, 0, Step);
+	if (World->OverlapBlockingTestByChannel(Lifted, FQuat::Identity, ECC_Pawn, Shape, Params)
+		|| World->SweepSingleByChannel(Hit, Lifted, Lifted + Dir * Reach, FQuat::Identity, ECC_Pawn, Shape, Params))
+	{
+		return;
+	}
+	// Land on the top: down from the lifted, advanced place.
+	const FVector Ahead = Lifted + Dir * Reach;
+	if (World->SweepSingleByChannel(Hit, Ahead, Ahead - FVector(0, 0, Step + 1.0), FQuat::Identity, ECC_Pawn, Shape, Params) && Hit.ImpactNormal.Z > 0.7)
+	{
+		SetActorLocation(Hit.Location, false, nullptr, ETeleportType::TeleportPhysics);
+		Movement->Velocity.Z = 0.0;
+		Movement->SetMovementMode(MOVE_Walking);
+	}
+}
+
+void AMIPlayerCharacter::KeepInside()
+{
+	using namespace MIPlayerCharacterPrivate;
+	FVector Location = GetActorLocation();
+	const FVector Feet = GetFeet();
+	if (!Location.ContainsNaN() && Feet.Z >= FallOutBelow && Movement && Movement->IsMovingOnGround())
+	{
+		LastGroundFeet = Feet;
+		bHaveGround = true;
+	}
+	if (Location.ContainsNaN() || Feet.Z < FallOutBelow)
+	{
+		if (bHaveGround)
+		{
+			TeleportFeet(LastGroundFeet);
+		}
+		return;
+	}
+	if (!PlayBounds.bIsValid)
+	{
+		return;
+	}
+	const double M = Tuning.Player.Body.BoundsMargin;
+	const double X = FMath::Clamp(Location.X, PlayBounds.Min.X + M, PlayBounds.Max.X - M);
+	const double Y = FMath::Clamp(Location.Y, PlayBounds.Min.Y + M, PlayBounds.Max.Y - M);
+	if (X != Location.X || Y != Location.Y)
+	{
+		SetActorLocation(FVector(X, Y, Location.Z), false, nullptr, ETeleportType::TeleportPhysics);
+		if (Movement)
+		{
+			if (X != Location.X) Movement->Velocity.X = 0.0;
+			if (Y != Location.Y) Movement->Velocity.Y = 0.0;
+		}
+	}
+}
+
 FVector AMIPlayerCharacter::GetFeet() const
 {
 	return GetActorLocation() - FVector(0, 0, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
@@ -261,6 +394,16 @@ void AMIPlayerCharacter::EarlyTick(float DeltaSeconds)
 	if (!bHasTuning || !Movement)
 	{
 		return;
+	}
+	if (!bSimLive)
+	{
+		Movement->RuleVelocity = FVector::ZeroVector;
+		Movement->Velocity = FVector::ZeroVector;
+		return;
+	}
+	if (!bGameplayInput)
+	{
+		Input = FMIPlayerInputState();
 	}
 	// The rules' view of the body is the capsule's.
 	Rules.Feet = GetFeet();
@@ -320,6 +463,13 @@ void AMIPlayerCharacter::LateTick(float DeltaSeconds)
 	{
 		return;
 	}
+	if (!bSimLive)
+	{
+		PlaceCamera();
+		return;
+	}
+	AirStep(DeltaSeconds);
+	KeepInside();
 	FMIBodyResult Body;
 	Body.Feet = GetFeet();
 	Body.Velocity = Movement->Velocity;

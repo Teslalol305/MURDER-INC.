@@ -4,10 +4,15 @@
 #include "GameFramework/HUD.h"
 #include "MIHUD.generated.h"
 
+class UFont;
+class UMIGameSubsystem;
+
 /**
- * The minimal heads-up display of slice 1, drawn on the canvas: the crosshair whose gap is the weapon's spread
- * cone projected with the current field of view, the hit marker (white, red on a kill), ammunition and health.
- * The real HUD (spec 07) replaces it; it reads only public state of the player and the weapon.
+ * The heads-up display and the menus, drawn on the canvas (functional and legible; the real HUD of spec 07 and its
+ * styling come later): the crosshair whose gap is the weapon's spread cone, the hit marker, ammunition and health;
+ * the flow's lines (objective, tally, reels, the hold prompt with its fill, messages, the wave banner, the radio
+ * strip, the location card, objective markers); and the cards and menus of UMIGameSubsystem's FMIMenu. It reads
+ * only public state.
  */
 UCLASS()
 class MURDERINC_API AMIHUD : public AHUD
@@ -16,4 +21,10 @@ class MURDERINC_API AMIHUD : public AHUD
 
 public:
 	virtual void DrawHUD() override;
+
+private:
+	void DrawPlay(UFont* Font);
+	void DrawFlow(UMIGameSubsystem& Game, UFont* Font);
+	void DrawMenu(UMIGameSubsystem& Game, UFont* Font);
+	void Centered(const FString& Text, double Y, const FLinearColor& Colour, UFont* Font, float Scale);
 };

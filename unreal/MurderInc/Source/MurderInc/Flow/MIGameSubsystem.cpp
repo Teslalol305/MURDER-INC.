@@ -540,8 +540,18 @@ void UMIGameSubsystem::FlowFrame(double Dt)
 	AMIPlayerCharacter* P = GetPlayer();
 	if (P && !bPrerequisite)
 	{
+		// The player joined (the game mode spawns him after the boot): the flow runs before his frame, he keeps
+		// inside the play bounds and stands at the level's start.
 		P->AddFramePrerequisite(this, FlowTick);
+		const FVector Lo = ToUnreal(FVector(Level->Bounds.MinX, 0, Level->Bounds.MinZ));
+		const FVector Hi = ToUnreal(FVector(Level->Bounds.MaxX, 0, Level->Bounds.MaxZ));
+		P->SetPlayBounds(FBox2D(FVector2D(FMath::Min(Lo.X, Hi.X), FMath::Min(Lo.Y, Hi.Y)), FVector2D(FMath::Max(Lo.X, Hi.X), FMath::Max(Lo.Y, Hi.Y))));
 		bPrerequisite = true;
+		ApplySettings();
+		if (Rules.GetState() == EMIGameState::Title)
+		{
+			ResetPlayer(Level->PlayerStart.Pos, Level->PlayerStart.Yaw);
+		}
 	}
 	FMIFlowPlayer FP;
 	if (P)

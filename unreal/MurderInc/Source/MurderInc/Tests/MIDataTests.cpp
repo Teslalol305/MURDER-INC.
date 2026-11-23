@@ -92,7 +92,7 @@ bool FMIGameClassesTest::RunTest(const FString& Parameters)
 	if (TestNotNull(TEXT("mapping context"), Context))
 	{
 		// W A S D, left stick, mouse; jump 2, sprint 3, crouch 3, fire 3, aim 2, reload 2, swap 6, weapon 3 + 3, melee 5
-		TestEqual(TEXT("key mappings"), Context->GetMappings().Num(), 38);
+		TestEqual(TEXT("key mappings (play 40, flow and menus 20)"), Context->GetMappings().Num(), 60);
 	}
 	return true;
 }

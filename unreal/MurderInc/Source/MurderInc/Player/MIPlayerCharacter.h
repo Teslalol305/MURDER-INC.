@@ -77,6 +77,22 @@ public:
 	bool HasTuning() const { return bHasTuning; }
 	/** Start of a run: full health, the first gun, every camera layer cleared, at the current place. */
 	void ResetRun();
+	/** Start of a run at a place: standing at Feet facing Yaw (Unreal degrees), then ResetRun. */
+	void ResetAt(const FVector& Feet, double Yaw);
+	/** Moves the body so that its feet are at Feet (keeps the view and the run). */
+	void TeleportFeet(const FVector& Feet);
+
+	// --- what the game flow switches (UMIGameSubsystem, spec 04 3.2) ---------------------------------------
+	/** Off on the title and while paused: nothing of the player updates, the camera stays. */
+	void SetSimulationLive(bool bLive) { bSimLive = bLive; }
+	/** Off outside intro and playing: the input of the frame is dropped. */
+	void SetGameplayInput(bool bOn) { bGameplayInput = bOn; }
+	void SetViewmodelVisible(bool bVisible);
+	/** The play bounds (cm, X and Y); the body centre is kept body.boundsMargin inside them. */
+	void SetPlayBounds(const FBox2D& Bounds) { PlayBounds = Bounds; }
+	/** Runs the player's early frame after Tick (the flow comes first). */
+	void AddFramePrerequisite(UObject* Object, FTickFunction& Tick) { EarlyTickFunction.AddPrerequisite(Object, Tick); }
+	FTickFunction& GetLateTickFunction() { return LateTickFunction; }
 
 	FMIPlayerInputState& GetInput() { return Input; }
 	FMIPlayerRules& GetPlayerRules() { return Rules; }
@@ -103,6 +119,10 @@ public:
 
 private:
 	bool CanStand() const;
+	/** The 8 cm air step (spec 01 4.3 item 5): airborne and blocked by a ledge at most AirStepHeight above the feet. */
+	void AirStep(float DeltaSeconds);
+	/** The bounds clamp and the fall-out return (src/player.js:564-592). */
+	void KeepInside();
 	void PlaceCamera();
 	double HorizontalFov(double VerticalDegrees) const;
 	FVector GetFeet() const;
@@ -131,4 +151,9 @@ private:
 	FVector LastDamageDirection = FVector::ZeroVector;
 	bool bHasTuning = false;
 	bool bDeathCapsule = false;
+	bool bSimLive = true;
+	bool bGameplayInput = true;
+	FBox2D PlayBounds = FBox2D(ForceInit);
+	FVector LastGroundFeet = FVector::ZeroVector;
+	bool bHaveGround = false;
 };
