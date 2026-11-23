@@ -72,7 +72,8 @@ namespace MIJson
 	{
 		TArray<TPair<FString, int32>> Keys;
 		Split(Path, Keys);
-		TSharedPtr<FJsonValue> V = Root.IsValid() ? MakeShared<FJsonValueObject>(Root) : nullptr;
+		TSharedPtr<FJsonValue> V;
+		if (Root.IsValid()) V = MakeShared<FJsonValueObject>(Root);
 		for (const TPair<FString, int32>& K : Keys)
 		{
 			if (!V.IsValid() || V->Type != EJson::Object)
@@ -304,7 +305,8 @@ namespace MILoadoutPrivate
 			Out->SetField(FString(*Pair.Key), R);
 		}
 		// Unchanged subtrees keep their identity, so a $ref target stays the very object of its file.
-		return bChanged ? MakeShared<FJsonValueObject>(Out) : V;
+		if (bChanged) return MakeShared<FJsonValueObject>(Out);
+		return V;
 	}
 
 	TSharedPtr<FJsonObject> Obj(const TSharedPtr<FJsonObject>& Root, const FString& Path)
