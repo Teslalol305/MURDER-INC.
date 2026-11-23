@@ -381,7 +381,7 @@ void AMIPlayerController::MIFreezeOn(const FString& Event, float Delay)
 			{
 				return;
 			}
-			const FVector Head = MI::Web::ToUnreal(E.Pos) + FVector(0, 0, 150.0);
+			const FVector Head = MI::Web::ToUnreal(E.Pos);  // the round's origin: the Goon's muzzle
 			const FVector Eye = C->GetPlayerRules().Eye;
 			FHitResult Hit;
 			FCollisionQueryParams Q(SCENE_QUERY_STAT(MIFreezeSight), false, C);
@@ -389,7 +389,7 @@ void AMIPlayerController::MIFreezeOn(const FString& Event, float Delay)
 			{
 				return;
 			}
-			const FVector D = Head - FVector(0, 0, 30.0) - Eye;
+			const FVector D = Head - Eye;
 			C->GetPlayerRules().Yaw = FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X));
 			C->GetPlayerRules().Pitch = FMath::RadiansToDegrees(FMath::Atan2(D.Z, D.Size2D()));
 			Arm(TEXT("enemyfire"));

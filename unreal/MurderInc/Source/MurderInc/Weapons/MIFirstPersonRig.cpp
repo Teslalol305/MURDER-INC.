@@ -797,6 +797,7 @@ void UMIFirstPersonRig::DropMagazine(bool bFull)
 	const FQuat Rot = Camera->GetComponentQuat() * CS.GetRotation();
 	const FVector Vel = Camera->GetComponentQuat().RotateVector(MagVel) + FVector(0, 0, -60.0);
 	UMIEffects::SpawnBody(this, Mesh, FTransform(Rot, Pos), Vel, FVector(FMath::FRandRange(-200.0, 200.0), FMath::FRandRange(-300.0, 300.0), 0.0), 8.0);
+	UE_LOG(LogMI, Log, TEXT("First person: magazine dropped at %s, %.0f cm/s"), *Pos.ToCompactString(), Vel.Size());
 }
 
 void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)

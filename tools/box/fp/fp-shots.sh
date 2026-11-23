@@ -18,6 +18,8 @@ c() { pie_con "$*" > /dev/null; }
 # run <seconds>: let that much game time pass, then freeze (the wall clock waits generously)
 run() { c "MIFreezeAfter $1"; sleep "$(python3 -c "print(max(2.0, $1 * 3.0 + 1.5))")"; }
 shot() { settle "${2:-30}"; pie_shot "$out/$1.jpg"; }
+# ONLY="fp-goon fp-explosion" takes only those pictures (the set-up and the poses before them still run)
+want() { [ -z "${ONLY:-}" ] || [[ " $ONLY " == *" $1 "* ]]; }
 
 pie_start > /dev/null
 for i in $(seq 1 40); do tail -n +"$mark" "$log" | grep -q 'Play in editor total start time' && break; sleep 2; done
@@ -35,26 +37,27 @@ tail -n +"$mark" "$log" | grep -E "Set-up:|First person:" | tail -5 | cut -c1-26
 c "MIInput weapon1 1"; run 1.0; c "MIInput weapon1 0"
 
 # 1 hip, CHOPPER, in the sun on the north lane
-c "MIPose 170 -380 0 -35 -4"; run 1.2; shot fp-hip-sun
+c "MIPose 170 -380 0 -35 -4"; run 1.2; want fp-hip-sun && shot fp-hip-sun
 # 2 hip under the El
-c "MIPose -2900 80 0 0 -3"; run 1.2; shot fp-hip-el
+c "MIPose -2900 80 0 0 -3"; run 1.2; want fp-hip-el && shot fp-hip-el
 # 3 aimed through the irons
-c "MIInput ads 1"; run 0.8; shot fp-irons
+c "MIInput ads 1"; run 0.8; want fp-irons && shot fp-irons
 c "MIInput ads 0"
 # 4 mid tactical reload (five rounds spent, the fresh magazine on its way up)
 c "MIPose -2900 80 0 0 6"; c "MIInput fire 1"; run 0.4; c "MIInput fire 0"; run 0.3
-c "MIFreezeOn reload 1.2"; c "MIInput reload 1"; sleep 5; c "MIInput reload 0"; shot fp-reload-tactical
+c "MIFreezeOn reload 1.2"; c "MIInput reload 1"; sleep 5; c "MIInput reload 0"; want fp-reload-tactical && shot fp-reload-tactical
 # 5 mid empty reload: the magazine dropped and falling (the auto reload after the last round)
-c "MIInput fire 1"; c "MIFreezeOn reload 0.44"; sleep 12; c "MIInput fire 0"; shot fp-reload-empty
+c "MIPose -2900 80 0 0 -18"; run 0.3
+c "MIInput fire 1"; c "MIFreezeOn reload 0.56"; sleep 12; c "MIInput fire 0"; want fp-reload-empty && shot fp-reload-empty
 run 3.0
 # 6 the inspect (a full magazine after the reload)
-c "MIPose 170 -380 0 -35 -4"; run 0.5; c "MIInput inspect 1"; run 2.4; c "MIInput inspect 0"; shot fp-inspect
+c "MIPose 170 -380 0 -35 -4"; run 0.5; c "MIInput inspect 1"; run 2.4; c "MIInput inspect 0"; want fp-inspect && shot fp-inspect
 run 4.0
 # 7 the STICK aimed through the scope
-c "MIInput weapon3 1"; run 1.0; c "MIInput weapon3 0"; c "MIPose -2900 80 0 0 0"; c "MIInput ads 1"; run 0.9; shot fp-scope
+c "MIInput weapon3 1"; run 1.0; c "MIInput weapon3 0"; c "MIPose -2900 80 0 0 0"; c "MIInput ads 1"; run 0.9; want fp-scope && shot fp-scope
 c "MIInput ads 0"
 # 8 the NINE aimed
-c "MIInput weapon2 1"; run 1.0; c "MIInput weapon2 0"; c "MIPose 170 -380 0 -35 -2"; c "MIInput ads 1"; run 0.8; shot fp-nine
+c "MIInput weapon2 1"; run 1.0; c "MIInput weapon2 0"; c "MIPose 170 -380 0 -35 -2"; c "MIInput ads 1"; run 0.8; want fp-nine && shot fp-nine
 c "MIInput ads 0"; c "MIInput weapon1 1"; run 1.0; c "MIInput weapon1 0"
 # 9 a Goon firing at the player from 10 m (frozen on its round)
 # (MIFreezeOn enemyfire waits for a Goon in plain sight within 13 m and turns the view onto it)
@@ -64,7 +67,7 @@ for i in 1 2 3 4 5 6 7 8; do
   tail -n +"$m2" "$log" | grep -q "MIFreezeOn: enemyfire" && break
 done
 tail -n +"$m2" "$log" | grep -m1 "MIFreezeOn: enemyfire" || echo "no Goon fired in sight"
-shot fp-goon
+want fp-goon && shot fp-goon
 # 10 an explosion: the nearest explosive, from 9 m, shot until it blows
 cat > "$PIE_PY/_boom.py" <<'PY'
 import math, unreal
@@ -87,7 +90,8 @@ unreal.SystemLibrary.execute_console_command(w, "MIPose %.0f %.0f 0 %.1f %.1f" %
 "explosive at %.0f %.0f %.0f" % (l.x, l.y, l.z)
 PY
 pie_mcp py "$PIE_PY/_boom.py"; run 0.6
-c "MIFreezeOn explosion 0.18"; c "MIBlowNearest"; sleep 6; shot fp-explosion
+c "MIInput ads 1"; run 0.3; c "MIInput ads 0"; run 0.4   # ends any idle inspect
+c "MIFreezeOn explosion 0.18"; c "MIBlowNearest"; sleep 6; want fp-explosion && shot fp-explosion
 c "slomo 1"
 tail -n +"$mark" "$log" | grep -E "First person|Effects|Error" | tail -8 | cut -c1-240
 pie_stop > /dev/null
