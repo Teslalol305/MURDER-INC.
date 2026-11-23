@@ -3,6 +3,54 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## First person (the player's arms and guns, the Goons, the effects) — first pass done
+
+Built in the gameplay clone `/project/ue/repo-gameplay` (MCP 8001). Contracts: `docs/unreal/GAMEPLAY.md` 15 to 19.
+
+**Verified 2026-11-23**
+- **Art in the game project** by one re-runnable command (`tools/box/fp/fp-art.sh pack | put | unpack`, then
+  `tools/box/fp/import-chars.sh all`, 2 to 3 minutes headless): `SK_RuleArms` on SK_Mannequin (Recompute Normals off,
+  `M_RuleArms_Skin` with `SP_RuleSkin`, `M_RuleArms_Nail`, the silver bracelet), the three Goons r3 by
+  `mi_chars.setup_goons` (Cloth shading, exported normals), `SK_Nine` with its magazine, `SM_Weapon_GoonSMG`, `SK_Buzzard`,
+  the CHOPPER's dark-earth instances on the pack's own textures, and the /Game/FX materials. The pack was already in the
+  project (the loadout agent's `import-animpack.sh all`): not re-imported. Re-run after any re-export by the character
+  agents: assets are replaced in place, no data change.
+- **The real paths are data** (the dev overlay is gone): presentation.json `firstPerson.arms`, `.jewels`, `.recipe`,
+  `.animSets`, `guns.chopper.realMesh` + `real` (the Short pack rifle, its sockets, `animSet` and finish), `guns.nine.realMesh`
+  + `real` (SK_Nine), `enemies.goon.variants` (the Goons, `variantsFallback` the mannequins), `meshScale` 0.98, the SMG on
+  `hand_r`; guns.json `animSet` on SHORTY, STICK, STRETCH; `opticMesh` read by `FMIReadiness::BaseMesh`. A clean checkout
+  keeps the templates (`FirstPerson.RealArt` checks both ways).
+- **Pictures through the player's eyes** (`tools/box/fp/fp-shots.sh`, play in editor in L_Block, Story on Hustler, set-up
+  CHOPPER + NINE + STICK with scope and vertical grip made on the set-up screens; 1920 x 1080, each looked at):
+  `shots/fp-hip-sun.jpg`, `fp-hip-el.jpg` (the CHOPPER as the pack's Short rifle in its dark-earth finish, the bare
+  tattooed arms in the pack's idle), `fp-irons.jpg` (Aim_Pose, the rear aperture on the screen centre at 38 degrees),
+  `fp-scope.jpg` (the STICK, irons folded under the scope, the window on the eye line at 32 degrees),
+  `fp-reload-tactical.jpg` (Reload_Quick warped onto 2.24 s), `fp-reload-empty.jpg` (Reload_Empty onto 2.72 s, the
+  magazine dropped as a body: logged at 1.1 to 1.4 m/s), `fp-inspect.jpg`, `fp-nine.jpg` (SK_Nine in both hands, the
+  palms pulled onto its Palm sockets, the bracelet), `fp-goon.jpg` (a Goon at about 12 m firing at the player: its
+  SMG's flash and the tracer; frozen on its round), `fp-explosion.jpg` (a propane tank blown at 9 m).
+- **Rules untouched.** The pack's clips play at the rules' times (reloads warped piecewise onto the stage times), never
+  the other way round; `Loadout.ParityGolden` and every `Golden.*` replay still pass with 0 mismatches.
+- **Suite** (`tools/box/test.sh MurderInc`, 2026-11-23, after the web sound files were copied into the clone from a local
+  `node tools/ue-export/audio.mjs` output): **TESTS OK passed=104 failed=0** (new: `FirstPerson.RealArt`, `.OpticTwin`,
+  `.Clips`: 31 clips on the right skeletons).
+
+**Open (most important first)**
+1. Effects read weakly in daylight: the explosion is a hot glow with a pale haze at 0.4 s, the strike dust and marks
+   are small; the smoke wants a lit flipbook or a Niagara system (none is built: everything is code on pooled cards, so
+   there is no Niagara asset to tune). No casing or impact picture was taken.
+2. The bare forearm in direct sun reads orange-red under the El (`fp-hip-el`, `fp-irons`) even with the game's shorter
+   scatter (`SP_RuleSkin` 0.22 cm, Opacity 0.45): for the character agent (skin albedo / profile), see Handoffs.
+3. The scope's reticle dot (1.5 mrad) is about 3 px at 32 degrees and sits under the HUD crosshair: hide the crosshair
+   while aimed through an optic, or enlarge the dot (`M_TFA_AR_Reticle`, animation agent).
+4. NINE: template third-person pistol clips (idle, fire); no pistol reload, holster, draw or inspect clips (the rig's
+   procedural poses play them). A first-person pistol pack is still the recommended route (DECISIONS.md).
+5. Goons: template rifle anim set with the SMG on `hand_r` at the CHARACTERS.md offset; no left-hand IK onto the SMG,
+   no fire, reload or hit montages; the Buzzard is still the placeholder (`SK_Buzzard` imported, not driven).
+6. A run started with the console `MIStart` (no set-up screens) uses presentation.json's own guns: the template way.
+   The set-up flow (`fe hit`, the saved set-up) resolves the real art.
+7. The CHOPPER's mounts stay `missing` (parity): DECISIONS.md allows the Short rifle's parts; not offered yet.
+
 ## Exact next step (level)
 
 1. Still boxes in L_Block, with no art anywhere: the building backs (`backs`, 7 brick masses with the window grid),
