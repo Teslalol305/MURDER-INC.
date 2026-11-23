@@ -750,6 +750,10 @@ def bake_skin(ctx, ob, res):
     from PIL import Image as _Im
     aol = np.asarray(_Im.fromarray(aol.astype(np.float32), mode="F").resize((W, H), _Im.BILINEAR), dtype=np.float32)
     ao = ao * (0.4 + 0.6 * aol)
+    # review round 3 (black nails): the thin nail plates read as occluded in the 1K AO bake (0.62): they are open
+    # to the light, AO at least 0.92 on their texels
+    nail_t = np.rint(maps["mi_region"]).astype(int) == 3
+    ao = np.where(nail_t, np.maximum(ao, 0.92), ao)
     ch = {"bc": texel.dilate(bc.reshape(H, W, 3), mask, 24), "rough": texel.dilate(ro.reshape(H, W), mask, 24),
           "metal": np.zeros((H, W), dtype=np.float32), "normal": texel.dilate(nrm, mask, 24),
           "ao": texel.dilate(ao, mask, 24), "height": hd}

@@ -835,3 +835,56 @@ blend across the two atlases; armhole rim weights per pose (aimed idle); correct
 - CHOPPER rear trunnion dome is built from scaled rings (soft creases from the corners show at grazing light).
 - Magazine sets are flagged "stale" by the preview session (uv_hash rounding); the exported GLBs and their sets
   come from the same run.
+
+---------------------------------------------------------------------------------------------------------------
+# Rule, review round 3 rebuild (assets/rule.py, _rule_tex.py, _rule_gate.py, _characters_pose.py, _rule_head.py, _rule_body.py, _rule_bodytex.py), character artist
+
+Review (art/blender/review/rule_review_r3.py, sheets/rule_r3): arms_fp 1.5, hands 2, tattoos 1.5, face 2, body 3.
+## Done
+- Weights (the worst fault): every bone may only weight its own stretch of the arm, measured along the
+  shoulder-elbow-wrist chain (rule.SEGMENT, chain_height, segment_mask before and after the smoothing): 9,004 cross
+  segment weights removed per arm, 0 hand / finger weights above 6 cm over the wrist (was 1,867 vertices per arm on the
+  triceps); one 5.4 cm wrist ramp between hand and lowerarm_twist_01 (wrist_ramp).
+- Posed export gate (_rule_gate.py, run by on_export, result in SK_RuleArms.glb.check.json "posed_gate", a failure
+  stops the export): 104 poses (rifle / pistol aim, both reloads, unarmed attack, jog every 6 frames; both guns at the
+  hip and aimed with the hands solved): 0 failed, nearest skin to the eye 12.4 cm, worst capsule excess -0.8 cm.
+- Skin (_rule_tex.skin_texels rewritten, no longer the first version's recoloured patterns): target albedo
+  0.115 / 0.062 / 0.038 (R/B 3.0, was 4.3; shared with the head and the body), melanin variation, lighter inner
+  forearm, darker elbows / knuckles / nail folds, veins as soft raised forms with a slight cool shift, skin-line grooves,
+  creases round the limb and the forearm's own skin lines, pores only as a light breakup, hair as soft strands lying
+  toward the elbow; roughness 0.55-0.7 with cavity and low-frequency breakup; the streak layer is gone; AO / cavity blur
+  normalised by the island mask (no smearing at island edges). Preview material: subsurface 1.0, radius
+  1.0 / 0.4 / 0.25 (3.5 mm scale), specular 0.35, a thin coat as the second lobe (SP_RuleSkin values in CHARACTERS.md).
+- Palms: by the surface's own direction against the back of the hand / finger, blended over about 1-1.4 cm round
+  the palmar border, 15-25 % lighter and warmer; flexion creases, thenar / hypothenar and finger pads as height.
+- Tattoos: UnifrakturMaguntia (blackletter), Pinyon Script, Old Standard Bold (OFL, art/blender/fonts) at the photo's
+  scale (word 28 mm caps, script 17 mm, numerals 22 mm in two rows), blue-black ink (linear 0.02-0.03) bled 0.4 mm with
+  a halo, roughness calmed over it. The private tattoos.json now sets the word as the game's name (no real name).
+- Hands on the guns (_characters_pose.hold): palm on the gun's Palm_R / Palm_L (read from the file), the rig placed by
+  a search over slide, drop and the hand's tilt for the least wrist bend, fingers brought together, then each finger
+  closed onto the gun's BVH (coupled sweep, then the end joints) to 1.5 mm, trigger pad and both thumbs on a grid, the
+  NINE's support hand over the firing fingers, the CHOPPER's support knuckles at the handguard's lower right edge; the
+  aimed CHOPPER is solved on the aimed pose itself.
+- Preview tooling: recipe eye (head joint - 0.58 cm), Euler YXZ, views read from config.json; FP previews at 1920x1080.
+- Framing: config views[0] re-authored (CHOPPER 0.125, -0.07, -0.215, 0.05, 0.24, -0.34; NINE 0.06, -0.045, -0.26,
+  0.06, 0.09, -0.16) in src/config/weapons.js and config.json (verify.cjs: the views agree; its two failing checks,
+  canonical decimals and level glazing, were failing before).
+- Face (_rule_head.warp_points): brows 5 mm lower with the lid skin folded under them, lid aperture 3.6 mm (was 4.8:
+  the lids cover the iris top), heavier hood, face 3.5 % shorter below the eyes, jaw angle and cheek mass +7 / +6 %;
+  low thick brows painted with strokes; less shiny forehead (T-zone 0.42). Bandana: paisley 2.5x, white border print.
+- Body: SK_RuleArms' skin and tattoos on the body's forearms and upper arms (arm rig from the fitted pose), palms
+  toward SK_RuleArms' palm; shirt cleaned to its fold shading with a jersey knit, ghosts of the generated print removed.
+- Nails: AO floored at 0.92 on the nail texels (the 1K AO bake made them read black).
+- Exports: SK_RuleArms 131,594 tris (check ok), SM_Character_RuleBracelet 21,504, SK_Rule 204,482 (56 MB).
+- Previews after the last change: rule_arms_fp, rule_fp_nine (new), rule_hands, rule_arms_hero, rule_body_hero,
+  rule_face, rule_turntable, rule_wire. Higgsfield: 0 credits this round.
+## Not done (next)
+- Corrective shapes (MCP / PIP knuckle crease, pad compression, wrist flexion): none in the GLB; the wrist still pleats
+  in deep flexion (rule_arms_hero) and the elbow crease folds on the upper arm.
+- The firing wrist sits at the bottom edge of the frame at the hip: the grip is 8.5 cm under the receiver, so only a
+  much higher or farther gun would show it; to be judged in the engine with look.viewmodel's lights.
+- The per-gun hand poses are previews only: export them as pose clips on SK_Mannequin for the game's hands.
+- NINE support hand: fingers over the firing fingers read better, but its thumb and the left index are not ideal.
+- Face: no new multi-view photos, so the large forms and the skin texture are still the generated head's (2K upscaled);
+  the neck join still shows a faint band and crease. Bandana: still the generated cap shape (no folded band, knot
+  remodel or bare scalp above it).
