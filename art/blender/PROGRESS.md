@@ -459,3 +459,18 @@ previews goons_lineup/_hoodie_hero/_detail/_poses/_wire, CHARACTERS.md.
 
 ## Exact next step
 `build.py build goons --bake` (4K/2K sets), `--export`, previews, then Unreal (tools/box/chars/mi_chars.setup_goons).
+## State at hand-off (round 1 rebuild)
+- Exported and proven: SK_Chopper 137.8k tris, three 4K sets Chopper (10,074 px/m on the faces in view; hidden faces
+  UV weight 0.3), Chopper_Furniture (12,500), Chopper_Front (8,470); SM_Weapon_ChopperMagazine 18.2k (2K, 6,350 px/m);
+  SK_Nine 83.9k (Nine 4K, 7,380), SM_Weapon_NineMagazine 15.1k (2K). Re-import pose proofs ok (errors < 2e-8 m).
+- `_weapons_check.py`: every bone/socket head unchanged (1e-5 m), length/height = brief, rear notch and front post
+  profiles identical, sight line clear (first hit = front post), CHOPPER bore ray as before, NINE bore ray stops at the
+  breech face, Palm_R 0.2 / 0.1 mm from the surface, CHOPPER Palm_L 1.4 mm (on the shoulder pad), NINE Palm_L 6.7 mm ahead
+  of the front strap (over the fingers, as briefed). Metallic between 0.3 and 0.9: 1.9 % (Chopper), 2.4 % (Nine) of texels.
+- Previews (after the last change): weapons_chopper_hero/_fp, weapons_nine_hero/_fp, weapons_parts, weapons_wire.
+- For other agents: SK_Chopper now has three slots (M_Chopper, M_Chopper_Furniture, M_Chopper_Front);
+  tools/box/anim/mi_stage.py assigns M_Chopper to the whole mesh and needs the two new sets. The NINE magazine line moved
+  12 mm back (direction unchanged): magazine in place X -0.034..0.033. TS_GunDetail_Steel (detail normal + roughness
+  offset, 20 mm tile) is recorded per slot in the manifest but not wired into an Unreal material yet.
+- Not rebuilt this round: the CHOPPER top cover and its rear sight leaf (first-pass loft, reused), the rail; NINE slide
+  stop/safety are prisms with domed pads; anisotropic brushing is approximated (directional normal + streaked roughness).
