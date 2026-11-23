@@ -1574,33 +1574,59 @@ def cabin(spec, name, **kw):
 
 
 def fog_fill(ob, spec, name):
-    """(close-up pass 4) Open holes of the generated nose (the box truck's fog-lamp holes) filled with round fog
-    lamps: every border loop of the shell whose centre lies in spec fog_fill = (x min, z0, z1, |y| min, |y| max)
-    and whose size is 6-30 cm gets a lamp (black bucket, chrome bowl, clear fluted lens, chrome bezel) on the
-    surface fitted round it."""
+    """(close-up pass 4) The generated fog-lamp pockets of a nose (the box truck's lower panel) filled with modelled
+    fog lamps: the panel in spec fog_fill = (x min, z0, z1, |y| min, |y| max) is fitted from a 2 cm grid of ray
+    casts (robust: the pockets do not pull the fit), grid points lying 3 cm or more behind the fit (or missed)
+    are pocket; each connected pocket of 6-30 cm gets a lamp (black bucket, chrome bowl, clear fluted lens,
+    chrome bezel) on the fitted surface."""
     from mathutils.bvhtree import BVHTree
     xm, z0, z1, ya, yb = spec["fog_fill"]
-    co, _no = geo.arrays(ob)
-    out = []
     bm = bmesh.new()
     bm.from_mesh(ob.data)
     bvh = BVHTree.FromBMesh(bm)
     bm.free()
-    for lp in cp.boundary_loops(ob):
-        P = co[lp]
-        c_ = P.mean(0)
-        sy, sz = np.ptp(P[:, 1]), np.ptp(P[:, 2])
-        if not (c_[0] > xm and z0 < c_[2] < z1 and ya < abs(c_[1]) < yb and 0.06 < max(sy, sz) < 0.30):
-            continue
-        r = 0.5 * max(sy, sz) + 0.012
-        hits = _ray_hits(bvh, np.linspace(c_[1] - r - 0.05, c_[1] + r + 0.05, 9), np.linspace(c_[2] - r - 0.05, c_[2] + r + 0.05, 9),
-                         1, x_min=xm - 0.2)
-        if len(hits) < 12:
-            continue
-        fx = cp.fit_surface(hits, 1, deg=(1, 1))
-        d = cp.surface_lamp(fx, c_[1] - r, c_[1] + r, c_[2] - r, c_[2] + r, (("clear", 1.0),), facing=1, depth=0.06,
-                            cells=1, bezel_key="chrome", corner=r * 0.25, name=name + "_Fog")
-        out += cp_objs(d)
+    ys = np.arange(-yb, yb + 1e-6, 0.02)
+    zs = np.arange(z0, z1 + 1e-6, 0.02)
+    X = np.full((len(ys), len(zs)), np.nan)
+    for i, y in enumerate(ys):
+        for j, z in enumerate(zs):
+            h = bvh.ray_cast(Vector((6.0, float(y), float(z))), Vector((-1, 0, 0)), 12.0)
+            if h[0] is not None and h[0].x > xm - 0.3:
+                X[i, j] = h[0].x
+    ok = ~np.isnan(X)
+    if ok.sum() < 30:
+        return []
+    Y, Z = np.meshgrid(ys, zs, indexing="ij")
+    fx = cp.fit_surface(list(zip(X[ok], Y[ok], Z[ok])), 1, deg=(2, 1))
+    pocket = (~ok) | (X < fx(Y, Z) - 0.03)
+    pocket &= (np.abs(Y) > ya)
+    out = []
+    seen = np.zeros_like(pocket)
+    for i in range(len(ys)):
+        for j in range(len(zs)):
+            if not pocket[i, j] or seen[i, j]:
+                continue
+            st, comp = [(i, j)], []
+            seen[i, j] = True
+            while st:
+                a, b = st.pop()
+                comp.append((a, b))
+                for da, db in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    p_, q_ = a + da, b + db
+                    if 0 <= p_ < len(ys) and 0 <= q_ < len(zs) and pocket[p_, q_] and not seen[p_, q_]:
+                        seen[p_, q_] = True
+                        st.append((p_, q_))
+            cy = np.array([ys[a] for a, _b in comp])
+            cz = np.array([zs[b] for _a, b in comp])
+            w, h = np.ptp(cy) + 0.02, np.ptp(cz) + 0.02
+            if not (0.06 <= max(w, h) <= 0.30 and min(w, h) >= 0.04) or cz.min() <= z0 or cz.max() >= z1:
+                continue
+            y0_, y1_ = cy.min() - 0.025, cy.max() + 0.025
+            z0_, z1_ = cz.min() - 0.025, cz.max() + 0.025
+            d = cp.surface_lamp(fx, y0_, y1_, z0_, z1_, (("clear", 1.0),), facing=1, depth=0.06, cells=1,
+                                bezel_key="chrome", corner=0.25 * min(y1_ - y0_, z1_ - z0_), name=name + "_Fog")
+            out += cp_objs(d)
+    print("fog lamps: %d parts" % len(out))
     return out
 
 
@@ -2050,6 +2076,12 @@ def taxi_decals():
     # medallion for the roof light faces: region (1024, 0)-(2048, 200) on a lit yellow ground
     d.rectangle((1024, 0, 2047, 200), fill=(255, 214, 90, 255))
     d.text((1536, 100), "5K83", font=_font("InterDisplay-Black.otf", 150), fill=ink, anchor="mm")
+    # (close-up pass 4) the roof-light faces on their own full-width region (0, 640)-(2048, 1024): 2048 px over the
+    # 0.40 face, the number at 60 mm cap height (271 px at 4518 px/m) in black on a white field, a yellow rim
+    d.rectangle((0, 640, 2047, 1023), fill=(250, 248, 240, 255))
+    d.rectangle((0, 640, 2047, 1023), outline=(255, 205, 60, 255), width=26)
+    fnt = _font("InterDisplay-Black.otf", 376)
+    d.text((1024, 832), "5K83", font=fnt, fill=ink, anchor="mm")
     return decal_set("Vehicle_Taxi_Decals", im, "taxi lettering (invented: no real fleet or medallion), checker band, "
                      "roof-light medallion (the roof light region is lit: E = BC there)")
 
@@ -2222,11 +2254,11 @@ def ipx_decals():
         d.rectangle((x0 * pxm, cy - h * pxm / 2, x1 * pxm, cy + h * pxm / 2), fill=gold)
     d.rectangle((0, 0, W - 1, 511), fill=white)             # right flank: ports at u 0.87-1.15 and 2.64-2.96 m
     lozenge(0.47 * pxm, 256, 0.70 * pxm, 0.30 * pxm, ink, white)
-    word(1.24, 2.56, 256)
+    word(1.24, 2.42, 256)
     gold_bar(3.04, 3.40, 256)
     d.rectangle((0, 1300, W - 1, 1811), fill=white)         # left flank: ports at u 0.54-0.86 and 2.35-2.63 m
-    gold_bar(0.10, 0.46, 1556)
-    word(0.94, 2.27, 1556)
+    gold_bar(0.04, 0.30, 1556)          # (the ports' dark mounting blocks reach about 15 cm past the boss)
+    word(1.00, 2.24, 1556)
     lozenge(3.06 * pxm, 1556, 0.70 * pxm, 0.30 * pxm, ink, white)
     d.rectangle((0, 600, W - 1, 663), fill=gold)
     lozenge(512, 1011, 980, 400, white, ink)
@@ -2285,7 +2317,8 @@ def v_taxi(ctx, P):
     dset = taxi_decals()
     dm = decal_mat(dset)
     for side in (1, -1):
-        parts.append(decal(shell, "Taxi_Door", 0.39 - 0.46, 0.39 + 0.46, 0.73 - 0.185, 0.73 + 0.185, side,
+        # (close-up pass 4) the door panel moved 4 cm clear of the front door's handle (x -0.16..-0.04)
+        parts.append(decal(shell, "Taxi_Door", 0.0, 0.92, 0.73 - 0.185, 0.73 + 0.185, side,
                            (0.0, 1 - 412 / 1024, 0.5, 1.0), dm, nx=30, nz=10))
         parts.append(decal(shell, "Taxi_Check", -1.47, 0.93, 0.93 - 0.035, 0.93 + 0.035, side,
                            (0.0, 1 - 572 / 1024, 1.0, 1 - 512 / 1024), dm, nx=60, nz=2))
@@ -2305,8 +2338,8 @@ def v_taxi(ctx, P):
         for li in p.loop_indices:
             v = me.vertices[me.loops[li].vertex_index].co
             fx = 1 if p.normal.x >= 0 else -1
-            u = 0.5 + 0.5 * (0.5 + fx * v.y / 0.40)
-            uvl.data[li].uv = (min(max(u, 0.5), 1.0), 1 - 200 / 1024 + (v.z - (1.55 - 0.085)) / 0.085 * (200 / 1024))
+            u = 0.5 + fx * v.y / 0.40                 # (pass 4) the full-width roof-light region, rows 640-1024
+            uvl.data[li].uv = (min(max(u, 0.0), 1.0), (v.z - (1.55 - 0.085)) / 0.085 * (384 / 1024))
     lm = set_material(dset, slot="M_Vehicle_Taxi_RoofLight", emit_strength=0.0)
     box.data.materials.append(lm)
     parts.append(box)
@@ -2901,14 +2934,14 @@ def ipx_door(ctx, right=True):
     pg_ = geo.box((0.004, 0.33, 0.21), bevel=0.001, name=name + "_PortGlass", base=False)
     geo.transform(pg_, loc=(-0.043, s * 0.46, 1.25))
     bar = geo.cylinder(0.014, 0.90, 16, name=name + "_LockBar")
-    geo.transform(bar, loc=(-0.048, s * 0.80, 0.36))
+    geo.transform(bar, loc=(-0.042, s * 0.80, 0.36))
     guides = []
     for gz_ in (0.42, 0.80, 1.18):               # three guides on the lock bar
         g_ = geo.box((0.030, 0.050, 0.035), bevel=0.004, name=name + "_Guide")
-        geo.transform(g_, loc=(-0.040, s * 0.80, gz_))
+        geo.transform(g_, loc=(-0.034, s * 0.80, gz_))
         guides.append(g_)
     boss = geo.cylinder(0.045, 0.02, 24, bevel=0.005, base=False, name=name + "_Boss", axis="X")
-    geo.transform(boss, loc=(-0.050, s * 0.80, 0.82))
+    geo.transform(boss, loc=(-0.042, s * 0.80, 0.82))
     parts = [panel, put_mat(inset, dark, t_dark), put_mat(geo.join(fr_, name + "_Frames"), dark, t_dark),
              put_mat(pf_, blk, t_blk), put_mat(pg_, m_glass, t_glass),
              put_mat(bar, chrome, t_chrome), put_mat(geo.join(guides, name + "_Guides"), dark, t_dark),

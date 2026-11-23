@@ -263,14 +263,19 @@ def seals(panes, radius=0.0055, grow=0.0, name="Seal"):
         if len(pts) < 4:
             continue
         pts.append(pts[0])
-        out.append(geo.pipe(pts, radius, segments=6, name=name))
+        out.append(geo.pipe(pts, radius, segments=5, name=name))
     return geo.join(out, name + "s") if out else None
 
 
-def belt_strips(panes, belt, h=0.025, t=0.008, name="Belt"):
-    """A black belt moulding (h tall, t thick, rounded) along the bottom edge of each side pane, just outboard of
-    the glass: the run of the border loop lying within 6 cm of the pane's lowest point near the belt."""
+def belt_strips(panes, belt, w=0.075, cap=0.014, leg=0.06, name="Belt"):
+    """The belt weatherstrip along the bottom edge of each side pane: a black U section w wide (from the glass out
+    over the door's top edge), its cap 14 mm thick just over the glass base, legs reaching 6 cm down behind the
+    door skin, so the gap between the generated door top and the glass (through which the light door card showed
+    as a grey slab) is closed. The run is the border loop within 5 cm of the pane's lowest point near the belt."""
     out = []
+    t = 0.006
+    prof = [(-w / 2, -leg), (-w / 2 + t, -leg), (-w / 2 + t, 0.0), (w / 2 - t, 0.0), (w / 2 - t, -leg), (w / 2, -leg),
+            (w / 2, cap), (-w / 2, cap)]
     for L, nm, kind in panes:
         if kind != "side":
             continue
@@ -283,15 +288,14 @@ def belt_strips(panes, belt, h=0.025, t=0.008, name="Belt"):
         pts = L[low]
         pts = pts[np.argsort(pts[:, 0])]
         side = 1.0 if nm[1] > 0 else -1.0
-        path = [(float(p[0]), float(p[1] + side * (t / 2 + 0.002)), float(p[2] + 0.004)) for p in pts]
+        path = [(float(p[0]), float(p[1] + side * (w / 2 - 0.004)), float(zmin + 0.002)) for p in pts]
         dedup = [path[0]]
         for p in path[1:]:
             if abs(p[0] - dedup[-1][0]) > 0.02:
                 dedup.append(p)
         if len(dedup) < 2:
             continue
-        prof = [(-t / 2, -h / 2), (t / 2, -h / 2), (t / 2, h / 2), (-t / 2, h / 2)]
-        out.append(geo.sweep(prof, dedup, name=name, up=(0, 0, 1), bevel=0.003, bevel_segments=2))
+        out.append(geo.sweep(prof, dedup, name=name, up=(0, 0, 1)))
     return out
 
 
