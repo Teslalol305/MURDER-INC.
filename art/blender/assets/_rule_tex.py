@@ -297,7 +297,8 @@ def skin_texels(R, P, N, region, side, charts):
             bc[m] = bc[m] * (1 - 0.55 * dark)[:, None] + (bc[m] * KN[None]) * (0.55 * dark)[:, None]
             # knuckle wrinkles: concentric folds across the joint, curved toward the tip at the sides
             wr = np.sin((dj + 0.0013 * (1 - cosd[m] ** 2)) / 0.0011 * np.pi + 2 * T.noise(P[m], 1 / 0.003, 250 + j))
-            h[m] -= 0.000075 * ring * np.clip(wr, 0, 1) * (1.3 if j == 1 else 1.0)
+            # hands-and-tattoos pass: deeper (75 -> 120 um), the r3 review found no dorsal joint wrinkles
+            h[m] -= 0.000120 * ring * np.clip(wr, 0, 1) * (1.3 if j == 1 else 1.0)
             # palmar flexion creases as grooves (one at the base, two at the middle joint, one at the end)
             for off in ((0.0045,) if j == 0 else (-0.0012, 0.0012) if j == 1 else (0.0,)):
                 c_ = np.exp(-((dj - off - 0.0004 * T.noise(P[m], 1 / 0.006, 260 + j)) / 0.00055) ** 2) * palm_side

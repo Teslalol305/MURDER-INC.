@@ -639,7 +639,8 @@ def build_arms(ctx):
     left = char.mirror_x(right, "Skin_L")
     set_face_attr(left, "mi_side", np.ones(len(left.data.polygons)))
     ob = geo.join([right, left], "SK_RuleArms", ctx.col)
-    for k, (share, dens) in uv_layout(R, ob, "mi_side").items():
+    uvrep = uv_layout(R, ob, "mi_side")
+    for k, (share, dens) in uvrep.items():
         ctx.log("  UV %-9s %.1f %% of the square, %.0f px/m at 4K" % (k, 100 * share, dens))
     geo.weighted_normals(ob, weight=50, keep_sharp=False)
     ctx.log("SK_RuleArms: %d triangles" % sum(len(p.vertices) - 2 for p in ob.data.polygons))
@@ -648,7 +649,8 @@ def build_arms(ctx):
     ctx.asset(br, collision="none", notes="Silver curb chain, attach frame origin on the right forearm axis %d mm above "
               "the wrist; Socket_Bracelet on lowerarm_twist_01_r (SK_RuleArms.sockets.json)." % (BRACELET_S * 1000))
     ctx.log("SM_Character_RuleBracelet: %d triangles" % sum(len(p.vertices) - 2 for p in br.data.polygons))
-    ctx.rule = dict(R=R, Rl=C.ArmRig(arm, body, "l"), arm=arm, body=body, ob=ob, bracelet=br, F=F, hand=hand)
+    ctx.rule = dict(R=R, Rl=C.ArmRig(arm, body, "l"), arm=arm, body=body, ob=ob, bracelet=br, F=F, hand=hand,
+                    uv={k: round(float(v[1]), 1) for k, v in uvrep.items()})
     return ob
 
 
@@ -774,9 +776,17 @@ def bake_skin(ctx, ob, res):
     ch = {"bc": texel.dilate(bc.reshape(H, W, 3), mask, 24), "rough": texel.dilate(ro.reshape(H, W), mask, 24),
           "metal": np.zeros((H, W), dtype=np.float32), "normal": texel.dilate(nrm, mask, 24),
           "ao": texel.dilate(ao, mask, 24), "height": hd}
+    uvd = ctx.rule.get("uv", {})
+    # the forearm's texel density sets the tiling of the skin grain in Unreal (mi_fp_import.skin_material)
     info = _bake.write_set("RuleArms_Skin", ch, meta={"kind": "unique", "asset": "SK_RuleArms", "resolution_px": res,
-                                                      "slots": ["M_RuleArms_Skin", "M_RuleArms_Nail"]})
+                                                      "slots": ["M_RuleArms_Skin", "M_RuleArms_Nail"],
+                                                      "forearm_px_per_m": uvd.get("forearm"), "hand_px_per_m": uvd.get("hand"),
+                                                      "detail": "T_RuleArms_SkinDetail_N.png"})
     ctx.log("  RuleArms_Skin written: %s" % info["files"])
+    # hands-and-tattoos pass: the tiling skin grain (pores, skin lines) the baked map is too coarse to hold
+    from assets import _rule_detail as D
+    dp, dinfo = D.write(paths.texture_set("RuleArms_Skin"))
+    ctx.log("  %s written (%s)" % (os.path.basename(dp), dinfo))
 
 
 def nail_folds(R, hand, P, region, side, bc, rough):

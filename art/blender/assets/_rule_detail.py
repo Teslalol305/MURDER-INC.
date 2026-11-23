@@ -48,23 +48,21 @@ def _cells(rng, n, count):
 
 def height(seed=7, n=RES):
     """Height in metres over the tile: skin-line grooves (a 0.6-1.4 mm network), pores (0.10-0.18 mm pits) and a
-    faint fine wrinkle grain. Depths are those of forearm skin: lines 25-40 um, pores about 20 um."""
+    faint fine wrinkle grain. Depths are those of forearm skin: lines 10-20 um, pores about 25 um."""
     rng = np.random.default_rng(seed)
     px_m = DETAIL_TILE_M / n
     h = np.zeros((n, n), dtype=np.float64)
-    # skin lines: the edges of a cell network about 1 mm across, wandering
-    warp = _band_noise(rng, n, 20, 80) * 3.0
+    # skin lines: the edges of a cell network about 1 mm across
     f1, f2 = _cells(rng, n, int((DETAIL_TILE_M / 0.0011) ** 2))
-    edge = np.clip(1.0 - (f2 - f1) / 4.0, 0, 1) ** 2
-    edge = np.roll(edge, (int(warp.mean()),), axis=(0,))
-    h -= 32e-6 * edge
+    edge = np.clip(1.0 - (f2 - f1) / 3.0, 0, 1) ** 2
+    h -= 18e-6 * edge
     # a second, finer and shallower network (the triangles inside the large cells)
     g1, g2 = _cells(rng, n, int((DETAIL_TILE_M / 0.00045) ** 2))
-    h -= 12e-6 * np.clip(1.0 - (g2 - g1) / 2.5, 0, 1) ** 2
+    h -= 9e-6 * np.clip(1.0 - (g2 - g1) / 2.0, 0, 1) ** 2
     # pores: small pits at the cell nodes and scattered between, 0.10-0.18 mm
     p1, _ = _cells(rng, n, int((DETAIL_TILE_M / 0.00055) ** 2))
-    r_px = (0.00007 + 0.00003 * rng.random()) / px_m
-    h -= 20e-6 * np.exp(-(p1 / r_px) ** 2)
+    r_px = 0.000065 / px_m
+    h -= 26e-6 * np.exp(-(p1 / r_px) ** 2)
     # the skin's soft relief between the lines
     h += 6e-6 * _band_noise(rng, n, 8, 40)
     return h.astype(np.float32), px_m

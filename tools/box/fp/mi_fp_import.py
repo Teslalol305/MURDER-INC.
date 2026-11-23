@@ -165,11 +165,11 @@ def nail_material(path=ARMS + "/Materials/M_RuleArms_Nail"):
     m = _material(path)
     bc = _tex(m, ARMS + "/Textures/T_RuleArms_Skin_BC", -800, -200, "color")
     nm = _tex(m, ARMS + "/Textures/T_RuleArms_Skin_N", -800, 300, "normal")
-    tint = _vector(m, "NailTint", (0.78, 0.55, 0.48), -800, 0)
+    tint = _vector(m, "NailTint", (0.62, 0.45, 0.40), -800, 0)
     lerp = _expr(m, unreal.MaterialExpressionLinearInterpolate, -450, -100)
     MEL.connect_material_expressions(bc, "RGB", lerp, "A")
     MEL.connect_material_expressions(tint, "", lerp, "B")
-    a = _scalar(m, "TintAmount", 0.45, -800, 150)
+    a = _scalar(m, "TintAmount", 0.25, -800, 150)       # the texture's lunula and free edge must still read
     MEL.connect_material_expressions(a, "", lerp, "Alpha")
     MEL.connect_material_property(lerp, "", unreal.MaterialProperty.MP_BASE_COLOR)
     MEL.connect_material_property(_scalar(m, "Roughness", 0.32, -450, 100), "", unreal.MaterialProperty.MP_ROUGHNESS)
@@ -179,34 +179,109 @@ def nail_material(path=ARMS + "/Materials/M_RuleArms_Nail"):
     return _finish(m, path)
 
 
+# Hands-and-tattoos pass (CHARACTERS.md, "Why the game showed a smooth tan tube"): the arms' textures are always on
+# screen in first person, but the level's texture set is far larger than the streaming pool (r.Streaming.PoolSize
+# 1000 MB against about 9 GB of 4K / 8K level sets), so the streamer kept the arms at a few hundred pixels: the
+# tattoos, veins and knuckles averaged away. They are kept fully resident (never streamed): about 55 MB.
+ARMS_TEX = ("T_RuleArms_Skin_BC", "T_RuleArms_Skin_N", "T_RuleArms_Skin_ORM", "T_RuleArms_SkinDetail_N")
+# the tiling skin grain (assets/_rule_detail.py: one tile = 24 mm of forearm skin); repeats per UV unit at the
+# forearm's texel density of the 4K set (printed by the Blender build: "UV forearm ... px/m at 4K")
+DETAIL_TILE_M = 0.024
+
+
+def arms_textures(folder, dest=ARMS + "/Textures"):
+    """mi_chars.import_textures (sRGB BC, flip-green normals, linear ORM), then every arms texture never streamed,
+    full resolution (no LOD bias), mips kept for filtering."""
+    names = C.import_textures(folder, dest)
+    rep = {}
+    for n in ARMS_TEX:
+        t = unreal.load_asset(dest + "/" + n)
+        if t is None:
+            continue
+        _set(t, never_stream=True, lod_bias=0, max_texture_size=0)
+        if n.endswith("SkinDetail_N"):
+            _set(t, lod_group=unreal.TextureGroup.TEXTUREGROUP_CHARACTER_NORMAL_MAP)
+        ASSETS.save_loaded_asset(t)
+        rep[n] = {"size": [t.blueprint_get_size_x(), t.blueprint_get_size_y()], "srgb": bool(t.get_editor_property("srgb")),
+                  "never_stream": bool(t.get_editor_property("never_stream")),
+                  "flip_green": bool(t.get_editor_property("flip_green_channel"))}
+    return {"imported": names, "settings": rep}
+
+
 def game_skin_profile(path=ARMS + "/Materials/SP_RuleSkin"):
-    """The game's subsurface profile for the arms: the scatter of mi_chars.make_material bled the whole forearm to
-    orange-red in the street's direct sun (fp-*.jpg, first pass), so the game keeps a shorter, less saturated mean
-    free path (UE's Burley model: albedo tint, red-weighted path 0.32 cm). Saved here: make_material leaves it unsaved."""
-    prof = unreal.load_asset(path)
+    """The game's subsurface profile for the arms. Hands-and-tattoos pass: the sunlit forearm read orange-red with red
+    fringes 1-2 cm wide along every shadow edge (fp-hip-el, fp-irons): the red mean free path reached too far and the
+    profile's albedo was a saturated orange. Now a short, nearly neutral scatter (red 0.12 cm, green 0.05, blue 0.035)
+    with a brown albedo: the skin softens without glowing."""
+    prof = unreal.load_asset(path) if ASSETS.does_asset_exist(path) else TOOLS.create_asset(
+        "SP_RuleSkin", path.rsplit("/", 1)[0], unreal.SubsurfaceProfile, unreal.SubsurfaceProfileFactory())
     st = prof.get_editor_property("settings")
-    _set(st, surface_albedo=unreal.LinearColor(0.72, 0.48, 0.36, 1), mean_free_path_color=unreal.LinearColor(1.0, 0.52, 0.32, 1),
-         mean_free_path_distance=0.22, world_unit_scale=0.1)
+    _set(st, surface_albedo=unreal.LinearColor(0.55, 0.40, 0.33, 1), mean_free_path_color=unreal.LinearColor(1.0, 0.42, 0.30, 1),
+         mean_free_path_distance=0.12, world_unit_scale=0.1)
     prof.set_editor_property("settings", st)
     ASSETS.save_asset(path, only_if_is_dirty=False)
-    # the scatter's strength (Opacity on the subsurface-profile model): 1.0 bled the sunlit forearm orange-red
-    skin = ARMS + "/Materials/M_RuleArms_Skin"
-    m = unreal.load_asset(skin)
-    node = MEL.get_material_property_input_node(m, unreal.MaterialProperty.MP_OPACITY)
-    if node is not None and isinstance(node, unreal.MaterialExpressionConstant):
-        node.set_editor_property("r", 0.45)
-        MEL.recompile_material(m)
-        ASSETS.save_asset(skin, only_if_is_dirty=False)
-    return path
+    return prof
+
+
+def skin_material(path=ARMS + "/Materials/M_RuleArms_Skin", tex=ARMS + "/Textures", forearm_px_per_m=None):
+    """M_RuleArms_Skin rebuilt with parameters (crew instances override them): base colour = BC x SkinTint; roughness
+    = ORM.G x RoughnessScale; AO = ORM.R; Specular 0.35; normal = the baked N with the tiling skin grain added
+    (whiteout blend, DetailStrength); Subsurface Profile SP_RuleSkin, scatter amount (Opacity) Scatter 0.35."""
+    prof = game_skin_profile()
+    m = _material(path)
+    bc = _tex(m, tex + "/T_RuleArms_Skin_BC", -1400, -300, "color")
+    orm = _tex(m, tex + "/T_RuleArms_Skin_ORM", -1400, 0, "masks")
+    nm = _tex(m, tex + "/T_RuleArms_Skin_N", -1400, 300, "normal")
+    tint = _vector(m, "SkinTint", (1.0, 1.0, 1.0), -1100, -420)
+    col = _expr(m, unreal.MaterialExpressionMultiply, -900, -300)
+    MEL.connect_material_expressions(bc, "RGB", col, "A")
+    MEL.connect_material_expressions(tint, "", col, "B")
+    MEL.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    rs = _expr(m, unreal.MaterialExpressionMultiply, -900, 0)
+    MEL.connect_material_expressions(orm, "G", rs, "A")
+    MEL.connect_material_expressions(_scalar(m, "RoughnessScale", 1.0, -1100, 80), "", rs, "B")
+    MEL.connect_material_property(rs, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    MEL.connect_material_property(orm, "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION)
+    MEL.connect_material_property(_scalar(m, "Specular", 0.35, -600, 120), "", unreal.MaterialProperty.MP_SPECULAR)
+    MEL.connect_material_property(_scalar(m, "Scatter", 0.35, -600, 700), "", unreal.MaterialProperty.MP_OPACITY)
+    detail = tex + "/T_RuleArms_SkinDetail_N"
+    if ASSETS.does_asset_exist(detail):
+        tiling = (4096.0 / forearm_px_per_m) / DETAIL_TILE_M if forearm_px_per_m else 150.0
+        uv = _expr(m, unreal.MaterialExpressionTextureCoordinate, -1900, 560)
+        uvt = _expr(m, unreal.MaterialExpressionMultiply, -1750, 560)
+        MEL.connect_material_expressions(uv, "", uvt, "A")
+        MEL.connect_material_expressions(_scalar(m, "DetailTiling", round(tiling, 1), -1900, 660), "", uvt, "B")
+        dn = _tex(m, detail, -1400, 600, "normal")
+        MEL.connect_material_expressions(uvt, "", dn, "UVs")
+        blend = _custom(m, -800, 450, "float3 d = lerp(float3(0, 0, 1), D, S);\nreturn normalize(float3(B.xy + d.xy, B.z * d.z));",
+                        ["B", "D", "S"], out=unreal.CustomMaterialOutputType.CMOT_FLOAT3)
+        MEL.connect_material_expressions(nm, "RGB", blend, "B")
+        MEL.connect_material_expressions(dn, "RGB", blend, "D")
+        MEL.connect_material_expressions(_scalar(m, "DetailStrength", 0.8, -1100, 760), "", blend, "S")
+        MEL.connect_material_property(blend, "", unreal.MaterialProperty.MP_NORMAL)
+    else:
+        MEL.connect_material_property(nm, "RGB", unreal.MaterialProperty.MP_NORMAL)
+    _set(m, shading_model=unreal.MaterialShadingModel.MSM_SUBSURFACE_PROFILE, subsurface_profile=prof,
+         used_with_skeletal_mesh=True)
+    MEL.recompile_material(m)
+    try:
+        MEL.get_statistics(m)
+    except Exception as e:
+        unreal.log_error("MI: M_RuleArms_Skin: %s" % e)
+        raise
+    return _finish(m, path)
 
 
 def arms():
     rep = {}
     rep["mesh"] = C.import_on_mannequin(os.path.join(IN, "glb", "SK_RuleArms.glb"), ARMS, "SK_RuleArms")
     rep["build"] = C.keep_exported_normals(ARMS + "/SK_RuleArms")
-    rep["textures"] = C.import_textures(os.path.join(IN, "textures", "RuleArms_Skin"), ARMS + "/Textures")
-    C.make_material("M_RuleArms_Skin", "RuleArms_Skin", skin=True)
-    game_skin_profile()
+    rep["textures"] = arms_textures(os.path.join(IN, "textures", "RuleArms_Skin"))
+    uvd = None
+    meta = os.path.join(IN, "textures", "RuleArms_Skin", "set.json")
+    if os.path.exists(meta):
+        uvd = json.load(open(meta)).get("forearm_px_per_m")
+    rep["skin"] = skin_material(forearm_px_per_m=uvd)
     nail_material()
     rep["slots"] = _assign_all(ARMS + "/SK_RuleArms", {"M_RuleArms_Skin": ARMS + "/Materials/M_RuleArms_Skin",
                                                        "M_RuleArms_Nail": ARMS + "/Materials/M_RuleArms_Nail"})

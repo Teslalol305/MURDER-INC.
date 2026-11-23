@@ -21,7 +21,7 @@ case "${1:-}" in
     cp_set() { mkdir -p $S/textures/$1; for k in BC N ORM E A; do [ -f $O/textures/$1/T_$1_$k.png ] && cp $O/textures/$1/T_$1_$k.png $S/textures/$1/; done; return 0; }
     # characters
     cp $O/glb/SK_RuleArms.glb $O/glb/SK_RuleArms.sockets.json $O/glb/SM_Character_RuleBracelet.glb $O/glb/SM_Character_RuleWatch.glb $S/glb/
-    cp_set RuleArms_Skin
+    cp_set RuleArms_Skin; cp $O/textures/RuleArms_Skin/T_RuleArms_SkinDetail_N.png $S/textures/RuleArms_Skin/ 2>/dev/null
     for g in Hoodie Puffer Tracksuit; do cp $O/glb/SK_Goon_$g.glb $S/glb/; cp_set Goon${g}_Cloth; cp_set Goon${g}_Head; done
     cp_set GoonFabric_Detail; cp $O/goons/goons_ue.json $S/ 2>/dev/null
     tar -cf $O/fp-chars.tar -C $S . && ls -la $O/fp-chars.tar
