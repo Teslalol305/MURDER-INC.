@@ -492,3 +492,43 @@ def paint_chopper_mag(G):
             octave=10)
     S.dirt(0.8)
     return S.channels(height_blur=0.4)
+
+
+# ================================================================================================= detail set
+
+DETAIL_SET = "TS_GunDetail_Steel"
+DETAIL_TILE_M = 0.02
+
+
+def detail_set(res=1024, tile=DETAIL_TILE_M, seed=11):
+    """Tiling micro-detail for the gun materials (the 4K unique sets stop at ~0.1 mm per texel): periodic band-passed
+    noise at 0.2 mm (main) and 0.6 mm (weak) as a tangent-space normal, and a roughness offset in ORM.G
+    (0.5 = no change; use rough + (G - 0.5)). Tile 20 mm; in the guns' UV layouts that is a repeat of
+    (4096 / density) / 0.02 per UV unit (see the set's meta)."""
+    from mi import bake as _bake
+    rng = np.random.default_rng(seed)
+
+    def band(f0, bw):
+        wn = rng.standard_normal((res, res)).astype(np.float32)
+        F = np.fft.rfft2(wn)
+        fy = np.fft.fftfreq(res)[:, None] * res
+        fx = np.fft.rfftfreq(res)[None, :] * res
+        fr = np.sqrt(fx * fx + fy * fy)
+        k = np.exp(-0.5 * ((fr - f0) / bw) ** 2)
+        a = np.fft.irfft2(F * k, s=(res, res)).astype(np.float32)
+        return a / max(float(a.std()), 1e-9)
+    f_main = tile / 0.0002
+    h = 1.2e-6 * band(f_main, f_main * 0.35) + 0.8e-6 * band(f_main / 3, f_main / 9)
+    px = tile / res
+    dx = (np.roll(h, -1, 1) - np.roll(h, 1, 1)) / (2 * px)
+    dy = (np.roll(h, -1, 0) - np.roll(h, 1, 0)) / (2 * px)
+    n = np.stack([-dx, -dy, np.ones_like(h)], -1)
+    n /= np.linalg.norm(n, axis=-1, keepdims=True)
+    rough = np.clip(0.5 + 0.05 * band(f_main / 2, f_main / 5) + 0.03 * band(f_main / 12, f_main / 30), 0, 1)
+    ch = {"bc": np.full((res, res, 3), 0.5, np.float32), "rough": rough.astype(np.float32),
+          "metal": np.ones((res, res), np.float32), "ao": np.ones((res, res), np.float32),
+          "normal": (n * 0.5 + 0.5).astype(np.float32)}
+    return _bake.write_set(DETAIL_SET, ch, meta={
+        "kind": "tiling", "tile_m": tile, "authoring": "assets/_weapons_tex.py detail_set (periodic band-passed noise)",
+        "use": "detail normal (blend over the unique N) and roughness offset (ORM.G - 0.5) for SK_Chopper and SK_Nine; "
+               "repeat per UV unit = (4096 / slot texel density px/m) / tile_m"})

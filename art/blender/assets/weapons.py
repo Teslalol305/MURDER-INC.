@@ -1844,8 +1844,17 @@ def on_export(ctx, objs):
         if not ok:
             raise ValueError("%s: re-import proof failed: %s" % (name, json.dumps(rep)[:2000]))
         sockets = {b.name: [round(v, 5) for v in b.head_local] for b in arm.data.bones if not b.use_deform}
-        entry = rig.manifest_entry(ob, arm, ctx.family, path, s["notes"], sockets=sockets, poses_report=rep)
-        export.write_manifest([entry], [m.name[2:] for m in ob.data.materials if m and m.name.startswith("M_")])
+        slots = {}
+        for m in ob.data.materials:
+            if m is None:
+                continue
+            meta = bake.read_set(m.name[2:]) or {}
+            dens = meta.get("texel_density_px_per_m")
+            slots[m.name] = {"detail_set": TX.DETAIL_SET, "detail_tile_m": TX.DETAIL_TILE_M,
+                             "detail_repeat_per_uv": round(4096.0 / dens / TX.DETAIL_TILE_M, 2) if dens else None}
+        entry = rig.manifest_entry(ob, arm, ctx.family, path, s["notes"], slots=slots, sockets=sockets, poses_report=rep)
+        export.write_manifest([entry], [m.name[2:] for m in ob.data.materials if m and m.name.startswith("M_")]
+                              + [TX.DETAIL_SET])
 
 
 # ================================================================================================ previews
