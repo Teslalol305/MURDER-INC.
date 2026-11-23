@@ -86,8 +86,8 @@ sx = "l" if side == "l" else "r"
 e = arms.get_socket_location("lowerarm_" + sx)
 wr = arms.get_socket_location("hand_" + sx)
 # the back of the forearm: the lowerarm bones' Z axis on the left arm, -Z on the right (the mannequin's mirrored
-# right-arm bones), averaged over the forearm and its wrist twist bone; the thumb (radial) side is their Y axis (-Y on
-# the right). The tattoos sit about 38 degrees round from the back toward the thumb side (_rule_tex.tattoo_chart)
+# right-arm bones), averaged over the forearm and its wrist twist bone; the thumb (radial) side is their -Y axis (+Y on
+# the right; measured in play: +Y put the tattoos on the far edge). The tattoos sit about 38 degrees round from the back toward the thumb side (_rule_tex.tattoo_chart)
 z = unreal.Vector(0, 0, 0)
 y = unreal.Vector(0, 0, 0)
 for b in ("lowerarm_", "lowerarm_twist_01_"):
@@ -95,7 +95,7 @@ for b in ("lowerarm_", "lowerarm_twist_01_"):
     z = z + q.get_axis_z()
     y = y + q.get_axis_y()
 sg = 1.0 if sx == "l" else -1.0
-n = (z.normal() * 0.79 + y.normal() * 0.62).normal() * sg
+n = (z.normal() * 0.79 - y.normal() * 0.62).normal() * sg
 L = (e - wr).length()
 p = wr + (e - wr) * ((0.18 if sx == "l" else 0.19) * 100.0 / L)     # the tattoo's height above the wrist
 A = (e - wr).normal()
