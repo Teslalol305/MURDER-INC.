@@ -126,8 +126,8 @@ F = cr.get_forward_vector()
 # a frame 30 cm in front of the eye (y toward the eye, x up the screen): the lines, which run round the forearm with the
 # letters' tops toward the elbow, read upright. The left tattoo is seen square on. The right one faces the inside of the
 # bent elbow in the CHOPPER's hold: square on, the right upper arm came straight at the eye and filled the frame (an
-# end-on disc with the word at its rim), so it is seen from 45 degrees toward the wrist, past the upper arm
-th = 0.0 if sx == "l" else 45.0
+# end-on disc with the word at its rim), so it is seen from 30 degrees toward the wrist, past the upper arm
+th = 0.0 if sx == "l" else 30.0
 # the gun hidden for the close-up (the CHOPPER's pistol grip, in the right hand, stands between the eye and the word)
 # (everything attached under the arms but the bracelet; the guns are not the pawn's own components)
 hidden = []
