@@ -11,6 +11,7 @@
 #include "MurderInc.h"
 #include "Flow/MIGameSubsystem.h"
 #include "Player/MIPlayerCharacter.h"
+#include "Weapons/MIWeaponComponent.h"
 
 UInputAction* AMIPlayerController::MakeAction(const TCHAR* Name, bool bAxis2D)
 {
@@ -62,11 +63,21 @@ void AMIPlayerController::BuildInputAssets()
 	Button(TEXT("IA_Fire"), {EKeys::LeftMouseButton, EKeys::Enter, EKeys::Gamepad_RightTrigger});
 	Button(TEXT("IA_Aim"), {EKeys::RightMouseButton, EKeys::Gamepad_LeftTrigger});
 	Button(TEXT("IA_Reload"), {EKeys::R, EKeys::Gamepad_FaceButton_Left});
-	Button(TEXT("IA_Swap"), {EKeys::Q, EKeys::Gamepad_FaceButton_Top, EKeys::Gamepad_DPad_Up, EKeys::Gamepad_DPad_Down});
-	// The wheel swaps at most once per player.input.wheelDebounce (spec 01 2.12).
-	Button(TEXT("IA_SwapWheel"), {EKeys::MouseScrollUp, EKeys::MouseScrollDown});
+	Button(TEXT("IA_Swap"), {EKeys::Q, EKeys::Gamepad_FaceButton_Top});
+	// LOADOUT.md 4.2 (frontend.json input.game): the wheel and D-pad up / down are next and previous; with two guns
+	// they give the gun the web's swap gave. The mouse wheel steps at most once per player.input.wheelDebounce.
+	Button(TEXT("IA_NextWheel"), {EKeys::MouseScrollDown});
+	Button(TEXT("IA_PreviousWheel"), {EKeys::MouseScrollUp});
+	Button(TEXT("IA_NextPad"), {EKeys::Gamepad_DPad_Up});
+	Button(TEXT("IA_PreviousPad"), {EKeys::Gamepad_DPad_Down});
 	Button(TEXT("IA_Weapon1"), {EKeys::One, EKeys::NumPadOne, EKeys::Gamepad_DPad_Left});
 	Button(TEXT("IA_Weapon2"), {EKeys::Two, EKeys::NumPadTwo, EKeys::Gamepad_DPad_Right});
+	Button(TEXT("IA_Weapon3"), {EKeys::Three, EKeys::NumPadThree});
+	Button(TEXT("IA_Weapon4"), {EKeys::Four, EKeys::NumPadFour});
+	Button(TEXT("IA_FireMode"), {EKeys::B});
+	Button(TEXT("IA_Inspect"), {EKeys::T});
+	Button(TEXT("IA_View"), {EKeys::Gamepad_Special_Left});  // a tap is the selector, a hold inspects
+	Map(MakeAction(TEXT("IA_WheelStick"), true), EKeys::Gamepad_Right2D);
 	Button(TEXT("IA_Melee"), {EKeys::F, EKeys::V, EKeys::MiddleMouseButton, EKeys::Gamepad_RightShoulder, EKeys::Gamepad_RightThumbstick});
 	Button(TEXT("IA_Interact"), {EKeys::E, EKeys::Gamepad_FaceButton_Left});
 
@@ -100,6 +111,16 @@ void AMIPlayerController::BeginPlay()
 	}
 	MouseDegreesPerCount = Config.Player.Look.MouseDegreesPerCount;
 	WheelDebounce = Config.Player.Look.WheelDebounce;
+	Switch.Config.WheelDebounce = WheelDebounce;
+	if (const UMIDataSubsystem* Data = UMIDataSubsystem::Get(this); Data && Data->IsLoadoutLoaded())
+	{
+		const FMILoadoutData& L = Data->GetLoadout();
+		Switch.Config.WheelMinGuns = L.WheelMinGuns;
+		Switch.Config.WheelHold = L.WheelHold;
+		Switch.Config.InspectHold = L.InspectHold;
+		Switch.Config.Deadzone = L.WheelDeadzone;
+		Switch.Config.MouseRadius = L.WheelMouseRadius;
+	}
 	Sensitivity = Config.Settings.Sensitivity;
 	bInvertY = Config.Settings.bInvertY;
 	// The pawn's view is the rules' camera; the legacy look scales must not stack on top.
@@ -129,9 +150,14 @@ void AMIPlayerController::SetupInputComponent()
 	In->BindActionValueLambda(Actions[TEXT("IA_Move")], ETriggerEvent::Completed, [State](const FInputActionValue&) { if (FMIPlayerInputState* S = State()) S->Move = FVector2D::ZeroVector; });
 	In->BindActionValueLambda(Actions[TEXT("IA_Look")], ETriggerEvent::Triggered, [this, State](const FInputActionValue& V)
 	{
+		const FVector2D Counts = V.Get<FVector2D>();
+		if (Switch.BlocksLook())
+		{
+			Switch.MouseMove(Counts);  // the weapon wheel takes the mouse while it is open
+			return;
+		}
 		if (FMIPlayerInputState* S = State())
 		{
-			const FVector2D Counts = V.Get<FVector2D>();
 			const double K = MouseDegreesPerCount * Sensitivity;
 			// Mouse up is +Y here; the rules look down for +Y.
 			S->LookDegrees += FVector2D(Counts.X * K, -Counts.Y * K * (bInvertY ? -1.0 : 1.0));
@@ -162,20 +188,31 @@ void AMIPlayerController::SetupInputComponent()
 	Hold(TEXT("IA_Fire"), &FMIPlayerInputState::bFire, &FMIPlayerInputState::bFirePressed);
 	Hold(TEXT("IA_Aim"), &FMIPlayerInputState::bAds, nullptr);
 	Hold(TEXT("IA_Reload"), nullptr, &FMIPlayerInputState::bReloadPressed);
-	Hold(TEXT("IA_Swap"), nullptr, &FMIPlayerInputState::bSwapPressed);
 	Hold(TEXT("IA_Weapon1"), nullptr, &FMIPlayerInputState::bWeapon1Pressed);
 	Hold(TEXT("IA_Weapon2"), nullptr, &FMIPlayerInputState::bWeapon2Pressed);
+	Hold(TEXT("IA_Weapon3"), nullptr, &FMIPlayerInputState::bWeapon3Pressed);
+	Hold(TEXT("IA_Weapon4"), nullptr, &FMIPlayerInputState::bWeapon4Pressed);
 	Hold(TEXT("IA_Melee"), nullptr, &FMIPlayerInputState::bMeleePressed);
-	In->BindActionValueLambda(Actions[TEXT("IA_SwapWheel")], ETriggerEvent::Started, [this, State](const FInputActionValue&)
+	const auto Edge = [&In, this](const TCHAR* Name, ETriggerEvent Event, TFunction<void(FMISwitchInput&)> Do)
 	{
-		const double Now = GetWorld() ? GetWorld()->GetRealTimeSeconds() : 0.0;
-		FMIPlayerInputState* S = State();
-		if (S && Now - LastWheel >= WheelDebounce)
+		In->BindActionValueLambda(Actions[FName(Name)], Event, [this, Do](const FInputActionValue&)
 		{
-			S->bSwapPressed = true;
-			LastWheel = Now;
-		}
-	});
+			Do(Switch);
+			FlushSwitch();
+		});
+	};
+	Edge(TEXT("IA_Swap"), ETriggerEvent::Started, [this](FMISwitchInput& S) { S.SwapDown(Now()); });
+	Edge(TEXT("IA_Swap"), ETriggerEvent::Completed, [this](FMISwitchInput& S) { S.SwapUp(Now()); });
+	Edge(TEXT("IA_NextWheel"), ETriggerEvent::Started, [this](FMISwitchInput& S) { S.WheelStep(1, Now()); });
+	Edge(TEXT("IA_PreviousWheel"), ETriggerEvent::Started, [this](FMISwitchInput& S) { S.WheelStep(-1, Now()); });
+	Edge(TEXT("IA_NextPad"), ETriggerEvent::Started, [](FMISwitchInput& S) { S.PadStep(1); });
+	Edge(TEXT("IA_PreviousPad"), ETriggerEvent::Started, [](FMISwitchInput& S) { S.PadStep(-1); });
+	Edge(TEXT("IA_FireMode"), ETriggerEvent::Started, [](FMISwitchInput& S) { S.FireModeKey(); });
+	Edge(TEXT("IA_Inspect"), ETriggerEvent::Started, [](FMISwitchInput& S) { S.InspectKey(); });
+	Edge(TEXT("IA_View"), ETriggerEvent::Started, [this](FMISwitchInput& S) { S.ViewDown(Now()); });
+	Edge(TEXT("IA_View"), ETriggerEvent::Completed, [this](FMISwitchInput& S) { S.ViewUp(Now()); });
+	In->BindActionValueLambda(Actions[TEXT("IA_WheelStick")], ETriggerEvent::Triggered, [this](const FInputActionValue& V) { Switch.Stick(V.Get<FVector2D>()); });
+	In->BindActionValueLambda(Actions[TEXT("IA_WheelStick")], ETriggerEvent::Completed, [this](const FInputActionValue&) { Switch.Stick(FVector2D::ZeroVector); });
 	const auto Game = [this]() { return UMIGameSubsystem::Get(this); };
 	In->BindActionValueLambda(Actions[TEXT("IA_Interact")], ETriggerEvent::Started, [Game](const FInputActionValue&) { if (UMIGameSubsystem* G = Game()) G->SetInteractHeld(true); });
 	In->BindActionValueLambda(Actions[TEXT("IA_Interact")], ETriggerEvent::Completed, [Game](const FInputActionValue&) { if (UMIGameSubsystem* G = Game()) G->SetInteractHeld(false); });
@@ -204,6 +241,46 @@ AMIPlayerCharacter* AMIPlayerController::GetMICharacter() const
 	return Cast<AMIPlayerCharacter>(GetPawn());
 }
 
+double AMIPlayerController::Now() const
+{
+	return GetWorld() ? GetWorld()->GetRealTimeSeconds() : 0.0;
+}
+
+void AMIPlayerController::FlushSwitch()
+{
+	AMIPlayerCharacter* C = GetMICharacter();
+	if (C && C->GetWeapon())
+	{
+		Switch.SetGuns(C->GetWeapon()->GetRules().NumGuns());
+	}
+	const FMISwitchFrame F = Switch.Consume();
+	if (!C)
+	{
+		return;
+	}
+	FMIPlayerInputState& S = C->GetInput();
+	S.bSwapPressed |= F.bSwap;
+	S.bNextPressed |= F.bNext;
+	S.bPreviousPressed |= F.bPrevious;
+	S.bFireModePressed |= F.bFireMode;
+	S.bInspectPressed |= F.bInspect;
+	if (F.WheelPick != INDEX_NONE)
+	{
+		S.WheelPick = F.WheelPick;
+	}
+	if (Switch.IsWheelOpen())
+	{
+		S.bFire = S.bFirePressed = false;  // no fire while choosing
+	}
+}
+
+void AMIPlayerController::PlayerTick(float DeltaTime)
+{
+	Super::PlayerTick(DeltaTime);
+	Switch.Tick(Now());
+	FlushSwitch();
+}
+
 void AMIPlayerController::MIInput(const FString& Action, float Value)
 {
 	AMIPlayerCharacter* C = GetMICharacter();
@@ -220,7 +297,20 @@ void AMIPlayerController::MIInput(const FString& Action, float Value)
 	else if (A == TEXT("crouch")) S.bCrouch = bDown;
 	else if (A == TEXT("jump")) S.bJumpPressed |= bDown;
 	else if (A == TEXT("reload")) S.bReloadPressed |= bDown;
-	else if (A == TEXT("swap")) S.bSwapPressed |= bDown;
+	else if (A == TEXT("swap"))
+	{
+		// Through the switch layer, as Q: with two guns a press swaps; with three or more a tap swaps on release
+		// and a hold opens the wheel.
+		bDown ? Switch.SwapDown(Now()) : Switch.SwapUp(Now());
+		FlushSwitch();
+	}
+	else if (A == TEXT("weapon3")) S.bWeapon3Pressed |= bDown;
+	else if (A == TEXT("weapon4")) S.bWeapon4Pressed |= bDown;
+	else if (A == TEXT("next")) S.bNextPressed |= bDown;
+	else if (A == TEXT("previous")) S.bPreviousPressed |= bDown;
+	else if (A == TEXT("firemode")) S.bFireModePressed |= bDown;
+	else if (A == TEXT("wheelx")) Switch.Stick(FVector2D(Value, 0.0));
+	else if (A == TEXT("wheely")) Switch.Stick(FVector2D(0.0, Value));
 	else if (A == TEXT("melee")) S.bMeleePressed |= bDown;
 	else if (A == TEXT("weapon1")) S.bWeapon1Pressed |= bDown;
 	else if (A == TEXT("weapon2")) S.bWeapon2Pressed |= bDown;

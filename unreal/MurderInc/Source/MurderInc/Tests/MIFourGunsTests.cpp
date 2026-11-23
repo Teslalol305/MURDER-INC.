@@ -4,6 +4,7 @@
 #include "Misc/AutomationTest.h"
 #include "Weapons/MILoadoutResolver.h"
 #include "Weapons/MIWeaponRules.h"
+#include "Player/MISwitchInput.h"
 
 #if WITH_AUTOMATION_TESTS
 
@@ -61,8 +62,8 @@ namespace MIFourGunsPrivate
 		void Press(bool FMIWeaponInput::*Flag) { FMIWeaponInput In; In.*Flag = true; Step(In); }
 		void Select(int32 Slot)
 		{
-			static bool FMIWeaponInput::*Flags[] = {&FMIWeaponInput::bWeapon1Pressed, &FMIWeaponInput::bWeapon2Pressed, &FMIWeaponInput::bWeapon3Pressed, &FMIWeaponInput::bWeapon4Pressed};
-			Press(Flags[Slot]);
+			static bool FMIWeaponInput::*SlotFlags[] = {&FMIWeaponInput::bWeapon1Pressed, &FMIWeaponInput::bWeapon2Pressed, &FMIWeaponInput::bWeapon3Pressed, &FMIWeaponInput::bWeapon4Pressed};
+			Press(SlotFlags[Slot]);
 			Settle();
 		}
 	};
@@ -235,6 +236,101 @@ bool FMIFourGunsTest::RunTest(const FString& Parameters)
 		}
 		TestTrue(TEXT("one gun: no switch"), One.Switches.Num() == 0 && One.Rules.GetActivity() == EMIWeaponActivity::Ready);
 	}
+	return !HasAnyErrors();
+}
+
+// LOADOUT.md 8.4: the input layer the controller feeds, with synthetic key events and their times.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIControllerSwitchingTest, "MurderInc.Player.ControllerSwitching", MIFourGunsPrivate::Flags)
+
+bool FMIControllerSwitchingTest::RunTest(const FString& Parameters)
+{
+	using namespace MIFourGunsPrivate;
+	FMISwitchInput S;
+	S.Config.WheelDebounce = 0.28;
+	// N = 2: a Q press swaps on the press frame, held or not, and never opens the wheel.
+	S.SetGuns(2);
+	double T = 10.0;
+	S.SwapDown(T);
+	FMISwitchFrame F = S.Consume();
+	TestTrue(TEXT("N=2: swap on the press frame"), F.bSwap);
+	int32 Swaps = 0;
+	for (int32 I = 1; I <= 60; ++I)
+	{
+		S.Tick(T + I * Dt);
+		Swaps += S.Consume().bSwap ? 1 : 0;
+		TestFalse(TEXT("N=2: holding Q opens no wheel"), S.IsWheelOpen());
+	}
+	S.SwapUp(T + 1.0);
+	Swaps += S.Consume().bSwap ? 1 : 0;
+	TestEqual(TEXT("N=2: a 1 s hold gives no second swap"), Swaps, 0);
+	// The mouse wheel: next / previous, no closer than wheelDebounce.
+	S.WheelStep(1, 20.0);
+	TestTrue(TEXT("wheel down: next"), S.Consume().bNext);
+	S.WheelStep(1, 20.1);
+	TestFalse(TEXT("wheel inside the debounce: nothing"), S.Consume().bNext);
+	S.WheelStep(-1, 20.29);
+	TestTrue(TEXT("wheel up after the debounce: previous"), S.Consume().bPrevious);
+	S.PadStep(1);
+	TestTrue(TEXT("D-pad up: next"), S.Consume().bNext);
+
+	// N = 3: a tap swaps on release; a hold opens the wheel at wheel.hold with no flag set.
+	S.SetGuns(3);
+	T = 30.0;
+	S.SwapDown(T);
+	TestFalse(TEXT("N=3: no swap on press"), S.Consume().bSwap);
+	S.Tick(T + 0.05);
+	S.SwapUp(T + 0.1);
+	TestTrue(TEXT("N=3: a 0.1 s tap swaps on release"), S.Consume().bSwap);
+	T = 40.0;
+	S.SwapDown(T);
+	S.Tick(T + 0.2);
+	TestFalse(TEXT("N=3: the wheel is shut at 0.2 s"), S.IsWheelOpen());
+	S.Tick(T + 0.25);
+	TestTrue(TEXT("N=3: the wheel opens at 0.25 s"), S.IsWheelOpen());
+	F = S.Consume();
+	TestTrue(TEXT("N=3: opening sets no flag"), !F.bSwap && F.WheelPick == INDEX_NONE);
+	S.MouseMove(FVector2D(55.0, -10.0));  // to the right: slot 2 of three (top, lower right, lower left)
+	TestEqual(TEXT("N=3: the mouse selects"), S.GetSelection(), 1);
+	S.SwapUp(T + 0.3);
+	F = S.Consume();
+	TestEqual(TEXT("N=3: a pick on release"), F.WheelPick, 1);
+	TestFalse(TEXT("N=3: the pick is no swap"), F.bSwap);
+	TestFalse(TEXT("N=3: the wheel shuts"), S.IsWheelOpen());
+	// A release in the dead zone picks nothing.
+	S.SwapDown(50.0);
+	S.Tick(50.3);
+	S.MouseMove(FVector2D(10.0, 10.0));
+	S.SwapUp(50.4);
+	F = S.Consume();
+	TestTrue(TEXT("N=3: dead zone picks nothing"), F.WheelPick == INDEX_NONE && !F.bSwap);
+	// The stick selects on a pad: up is slot 1.
+	S.SwapDown(60.0);
+	S.Tick(60.3);
+	S.Stick(FVector2D(0.0, 0.9));
+	S.SwapUp(60.5);
+	TestEqual(TEXT("stick up: slot 1"), S.Consume().WheelPick, 0);
+	// N = 4, the stick to the left: slot 4.
+	S.SetGuns(4);
+	S.SwapDown(70.0);
+	S.Tick(70.3);
+	S.Stick(FVector2D(-0.9, 0.0));
+	TestEqual(TEXT("N=4 stick left: slot 4"), S.GetSelection(), 3);
+	S.SwapUp(70.4);
+	S.Consume();
+
+	// View: a tap is the selector, a 0.4 s hold inspects.
+	S.ViewDown(80.0);
+	S.Tick(80.1);
+	S.ViewUp(80.15);
+	F = S.Consume();
+	TestTrue(TEXT("View tap: fire mode"), F.bFireMode && !F.bInspect);
+	S.ViewDown(90.0);
+	S.Tick(90.2);
+	TestFalse(TEXT("View 0.2 s: nothing yet"), S.Consume().bInspect);
+	S.Tick(90.4);
+	TestTrue(TEXT("View 0.4 s: inspect"), S.Consume().bInspect);
+	S.ViewUp(90.6);
+	TestFalse(TEXT("View release after an inspect: no fire mode"), S.Consume().bFireMode);
 	return !HasAnyErrors();
 }
 

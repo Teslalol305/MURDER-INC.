@@ -91,8 +91,10 @@ bool FMIGameClassesTest::RunTest(const FString& Parameters)
 	const UInputMappingContext* Context = Controller->GetMappingContext();
 	if (TestNotNull(TEXT("mapping context"), Context))
 	{
-		// W A S D, left stick, mouse; jump 2, sprint 3, crouch 3, fire 3, aim 2, reload 2, swap 6, weapon 3 + 3, melee 5
-		TestEqual(TEXT("key mappings (play 40, flow and menus 20)"), Context->GetMappings().Num(), 60);
+		// W A S D, left stick, mouse; jump 2, sprint 3, crouch 3, fire 3, aim 2, reload 2, swap 2, next / previous 4
+		// (wheel, D-pad), weapon 3 + 3 + 2 + 2, melee 5, fire mode 1, inspect 1, View 1, wheel stick 1 (LOADOUT.md 8.7:
+		// the actions of frontend.json input.game; the mapping count is not a parity number)
+		TestEqual(TEXT("key mappings (play 48, flow and menus 20)"), Context->GetMappings().Num(), 68);
 	}
 	return true;
 }

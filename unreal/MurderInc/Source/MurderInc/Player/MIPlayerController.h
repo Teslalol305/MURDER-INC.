@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "Player/MISwitchInput.h"
 #include "MIPlayerController.generated.h"
 
 class AMIPlayerCharacter;
@@ -45,6 +46,10 @@ public:
 	UFUNCTION(Exec)
 	void MIFaceEnemy(float Metres);
 
+	/** The four-gun input layer: the wheel's state for the HUD (LOADOUT.md 4.6). */
+	const FMISwitchInput& GetSwitch() const { return Switch; }
+	FMISwitchInput& GetSwitch() { return Switch; }
+
 	/** User settings (spec 01 4.8). */
 	double Sensitivity = 1.0;
 	bool bInvertY = false;
@@ -52,10 +57,16 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
+	virtual void PlayerTick(float DeltaTime) override;
 
 private:
 	AMIPlayerCharacter* GetMICharacter() const;
 	UInputAction* MakeAction(const TCHAR* Name, bool bAxis2D);
+	/** Moves the switch layer's edges into the pawn's input state (same frame as the key event). */
+	void FlushSwitch();
+	double Now() const;
+
+	FMISwitchInput Switch;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UInputMappingContext> MappingContext;
@@ -65,5 +76,4 @@ private:
 
 	double MouseDegreesPerCount = 0.0;
 	double WheelDebounce = 0.0;
-	double LastWheel = -1e9;
 };

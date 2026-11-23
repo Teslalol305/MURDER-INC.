@@ -498,6 +498,15 @@ void AMIPlayerCharacter::LateTick(float DeltaSeconds)
 		W.bMeleePressed = Input.bMeleePressed;
 		W.bReloadPressed = Input.bReloadPressed;
 		W.bPadActive = Input.bPad;
+		W.bWeapon3Pressed = Input.bWeapon3Pressed;
+		W.bWeapon4Pressed = Input.bWeapon4Pressed;
+		W.bNextPressed = Input.bNextPressed;
+		W.bPreviousPressed = Input.bPreviousPressed;
+		W.WheelPick = Input.WheelPick;
+		W.bFireModePressed = Input.bFireModePressed;
+		Input.bWeapon3Pressed = Input.bWeapon4Pressed = Input.bNextPressed = Input.bPreviousPressed = Input.bFireModePressed = false;
+		Input.bInspectPressed = false;
+		Input.WheelPick = INDEX_NONE;
 		Input.bFirePressed = Input.bSwapPressed = Input.bWeapon1Pressed = Input.bWeapon2Pressed = false;
 		Input.bMeleePressed = Input.bReloadPressed = false;
 		Weapon->Step(DeltaSeconds, W, FrameLook);
