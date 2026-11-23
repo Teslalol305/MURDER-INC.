@@ -27,7 +27,10 @@
 #include "UI/MIStyle.h"
 
 #if MI_WITH_PIXELSTREAMING2
+#include "IPixelStreaming2Module.h"
+#include "IPixelStreaming2Streamer.h"
 #include "PixelStreaming2Delegates.h"
+#include "PixelStreaming2VideoProducers.h"
 #endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogMICloud, Log, All);
@@ -331,11 +334,43 @@ void UMICloudSubsystem::EnsureOverlay()
 	}
 }
 
+void UMICloudSubsystem::EnsureVideoProducer()
+{
+#if MI_WITH_PIXELSTREAMING2
+	// In a packaged game the plugin makes its default streamer before Slate is up, and the back-buffer video source
+	// refuses to exist then (VideoProducerBackBuffer.cpp: "if (!FSlateApplication::IsInitialized()) return nullptr"):
+	// the stream carries sound and input but no picture. Give the streamer its source once Slate is there.
+	if (bVideoChecked || !IPixelStreaming2Module::IsAvailable() || !FSlateApplication::IsInitialized())
+	{
+		return;
+	}
+	IPixelStreaming2Module& Module = IPixelStreaming2Module::Get();
+	if (!Module.IsReady())
+	{
+		return;
+	}
+	bVideoChecked = true;
+	if (TSharedPtr<IPixelStreaming2Streamer> Streamer = Module.FindStreamer(Module.GetDefaultStreamerID()))
+	{
+		if (!Streamer->GetVideoProducer().IsValid())
+		{
+			Streamer->SetVideoProducer(UE::PixelStreaming2::CreateVideoProducerBackBuffer());
+			UE_LOG(LogMICloud, Display, TEXT("Pixel Streaming: the default streamer had no video source; it streams the back buffer now"));
+		}
+		else
+		{
+			UE_LOG(LogMICloud, Display, TEXT("Pixel Streaming: the default streamer has its video source"));
+		}
+	}
+#endif
+}
+
 bool UMICloudSubsystem::Tick(float DeltaTime)
 {
 	if (bStreamed)
 	{
 		EnsureOverlay();
+		EnsureVideoProducer();
 	}
 	if (ProbePeriod > 0.f)
 	{

@@ -49,6 +49,7 @@ private:
 	void BecomeStreamed(const TCHAR* Why);
 	bool Tick(float DeltaTime);
 	void EnsureOverlay();
+	void EnsureVideoProducer();
 	void OnViewerJoined();
 	void OnAllViewersLeft();
 	void Probe(float DeltaTime);
@@ -57,6 +58,7 @@ private:
 	bool bProfileApplied = false;
 	bool bWaitingForClick = false;
 	bool bConnectionLost = false;
+	bool bVideoChecked = false;
 	FTSTicker::FDelegateHandle TickHandle;
 	TSharedPtr<SMICloudOverlay> Overlay;
 	TSharedPtr<FMICloudInput> Input;

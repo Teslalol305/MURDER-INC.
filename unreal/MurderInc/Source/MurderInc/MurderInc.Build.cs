@@ -31,7 +31,7 @@ public class MurderInc : ModuleRules
 			&& (Target.Platform == UnrealTargetPlatform.Linux || Target.Platform == UnrealTargetPlatform.Win64);
 		if (bPixelStreaming)
 		{
-			PrivateDependencyModuleNames.Add("PixelStreaming2");
+			PrivateDependencyModuleNames.AddRange(new string[] { "PixelStreaming2", "PixelStreaming2Core" });
 		}
 		PublicDefinitions.Add("MI_WITH_PIXELSTREAMING2=" + (bPixelStreaming ? "1" : "0"));
 
