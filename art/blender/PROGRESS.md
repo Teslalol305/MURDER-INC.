@@ -447,10 +447,13 @@ in any prompt, file or request; tattoo lettering is read from art/out/ref/tattoo
 - [x] SK_RuleArms bare: 131,594 tris (64k skin per arm + 10 nails), RuleArms_Skin 4K baked (hand 6.9k px/m,
       forearm 3.9k, upper arm 2.7k), tattoos from charts; bracelet silver on the right wrist (24k tris)
 - [x] SK_Rule: 120,624 tris, head bust on the generated body at the collar, bound, exported (46 MB, 4K maps)
-- [ ] previews round 1 (running: build rule --preview --samples 64), round 2
+- [x] previews round 1 (10 renders, committed). Worst faults: arms: a swollen ring at the wrist (a wide smooth
+      union of the arm and the hand's coincident wrist piece), palm colour on the back of the hand, speckled
+      normals on island edges, orange skin; body: the bust's neck edge just above the collar at the front
+- [ ] round 2 (running: arms re-meshed with a near-plain union, re-baked; fp, hands, arms hero, face, wire)
 ## Exact next step
-Look at art/previews/rule_*.jpg, compare rule_face with the photo privately (art/out/gen/rule/compare_face.jpg),
-fix the worst fault, re-render at most 2 pictures, commit the previews.
+When round 2 is done: look at the five pictures, commit them; the face against the photo is in
+art/out/gen/rule/compare_face.jpg (private).
 
 ---------------------------------------------------------------------------------------------------------------
 # Goons (assets/goons.py, _goons_*.py, mi/cloth.py), senior character artist: SK_Goon_Hoodie / _Puffer / _Tracksuit
