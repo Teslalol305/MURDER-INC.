@@ -141,8 +141,10 @@ for comp in comps:
     mesh = comp.static_mesh if isinstance(comp, unreal.StaticMeshComponent) else None
     if mesh and "Bracelet" in mesh.get_name():
         continue
-    comp.set_hidden_in_game(True, True)
-    comp.set_visibility(False, True)
+    if not comp.is_visible():
+        continue
+    comp.set_hidden_in_game(True, False)    # not propagated: the arms hang under some of these
+    comp.set_visibility(False, False)
     hidden.append(comp.get_name())
 hidden = sorted(set(hidden))
 v = (n * M.cos(M.degrees_to_radians(th)) - A * M.sin(M.degrees_to_radians(th))).normal()
