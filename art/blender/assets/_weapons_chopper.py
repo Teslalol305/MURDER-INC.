@@ -233,9 +233,9 @@ def chopper_receiver(parts):
     # grip tang of the rear trunnion under the floor, two rivets
     tang = prism([(-0.002, -0.0405), (0.036, -0.0405), (0.040, -0.0410), (0.040, -0.0418), (-0.002, -0.0418)],
                   -0.0085, 0.0085, bevel=0.0004, seg=2, fillet=0.0015, name="Tang")
-    parts.append(P(tang, BLUED, "body", REAR))
+    parts.append(P(tang, BLUED, "body", FRONT))
     for x in (0.006, 0.030):
-        parts.append(P(dome_rivet((x, 0.0, -0.0417), "Z", d=0.0038, h=0.0006, sign=-1), BLUED, "body", REAR))
+        parts.append(P(dome_rivet((x, 0.0, -0.0417), "Z", d=0.0038, h=0.0006, sign=-1), BLUED, "body", FRONT))
     for x in (0.150, 0.158):
         parts.append(P(dome_rivet((x, 0.0, -0.0414), "Z", d=0.0036, h=0.0006, sign=-1), BLUED, "body", REAR))
 
@@ -535,10 +535,10 @@ def pistol_grip(parts):
     zc = [GZ[1] + 0.0004, GZ[1] - 0.0002, GZ[1] - 0.0008, GZ[1] - 0.0010]
     cs = [grip_section(GZ[1], 0.0016 + i) for i in (0.0, 0.0, 0.0003, 0.0009)]
     cap = K.loft_z(cs, zc, 88, name="GripCap")
-    parts.append(P(cap, BLUED, "body", REAR))
+    parts.append(P(cap, BLUED, "body", FRONT))
     xm = (c.x0 + c.x1) / 2
     parts.append(P(pin_head((xm, 0, GZ[1] - 0.0010), "Z", r=0.0034, h=0.0010, sign=-1, slot=True, seg=32), DARK,
-                   "body", REAR))
+                   "body", FRONT))
 
 
 # ----------------------------------------------------------------------------------------------- guard, catch, trigger
@@ -580,15 +580,15 @@ def trigger_guard(parts):
     if d_mid < d_all:
         tg = geo.sweep(guard_profile(-1.0), seg, up=(0, 1, 0), name="Guard")
         fix_normals(tg)
-    parts.append(P(tg, BLUED, "body", REAR))
+    parts.append(P(tg, BLUED, "body", FRONT))
     # catch housing: the rear end of the strip widens into a pressed box round the catch pivot
     hs = prism([(0.1500, -0.0410), (0.1650, -0.0410), (0.1650, -0.0470), (0.1620, -0.0505), (0.1530, -0.0505), (0.1500, -0.0470)],
                -0.0080, 0.0080, bevel=0.0010, seg=3, fillet=0.0015, name="CatchHousing")
     cut(hs, box(0.1525, 0.1630, -0.0068, 0.0068, -0.060, -0.0430))
     round_edges(hs, 0.0003, 2, 50)
-    parts.append(P(hs, BLUED, "body", REAR))
+    parts.append(P(hs, BLUED, "body", FRONT))
     for s in (1, -1):
-        parts.append(P(pin_head((0.1575, s * 0.0080, -0.0458), "Y", r=0.0016, h=0.0004, sign=s, seg=16), DARK, "body", REAR))
+        parts.append(P(pin_head((0.1575, s * 0.0080, -0.0458), "Y", r=0.0016, h=0.0004, sign=s, seg=16), DARK, "body", FRONT))
     # catch paddle: 22 mm stamped lever with a dished thumb pad facing back
     pad_c = (0.1660, 0.0, -0.0645)
     cp = prism([(0.1560, -0.0440), (0.1600, -0.0440), (0.1625, -0.0540), (0.1680, -0.0610), (0.1640, -0.0650),
@@ -604,12 +604,12 @@ def trigger_guard(parts):
     geo.transform(hollow, loc=(pad_c[0] - 0.0011, 0.0, pad_c[2] - 0.0008))
     cut(cp, hollow)
     round_edges(cp, 0.0003, 2, 50)
-    parts.append(P(cp, DARK, "body", REAR))
+    parts.append(P(cp, DARK, "body", FRONT))
     # trigger (pivot X 0.108, Z -0.038), curved blade with a rounded face
     t = [(0.1045, -0.0345), (0.1125, -0.0345), (0.1135, -0.044), (0.1125, -0.052), (0.1085, -0.061), (0.1030, -0.0685),
          (0.1005, -0.0675), (0.1040, -0.060), (0.1065, -0.052), (0.1060, -0.044)]
     trg = prism(t, -0.0031, 0.0031, bevel=0.0011, seg=3, fillet=0.0012, name="Trigger")
-    parts.append(P(trg, DARK, "trigger", REAR))
+    parts.append(P(trg, DARK, "trigger", FRONT))
 
 
 # ----------------------------------------------------------------------------------------------- stock
@@ -763,6 +763,40 @@ def cover(parts):
 
 
 # ----------------------------------------------------------------------------------------------- build
+
+def uv_weights(ob):
+    """Per-face UV scale for a CHOPPER piece: hidden faces (inside the receiver and cover, barrel and gas tube
+    under the wood, liners, piston, bore) get few texels so the faces the eye sees get the density."""
+    me = ob.data
+    n = len(me.polygons)
+    mid = np.empty(n, np.float32)
+    me.attributes["mid"].data.foreach_get("value", mid)
+    mid = np.rint(mid).astype(int)
+    c = np.empty(n * 3, np.float32)
+    me.polygons.foreach_get("center", c)
+    c = c.reshape(-1, 3)
+    nr = np.empty(n * 3, np.float32)
+    me.polygons.foreach_get("normal", nr)
+    nr = nr.reshape(-1, 3)
+    x, y, z = c[:, 0], c[:, 1], c[:, 2]
+    w = np.ones(n, np.float32)
+    w[mid == BORE] = 0.35
+    w[(mid == BLUED) & (np.abs(y) < 0.0153) & (z > -0.0385) & (z < 0.0105) & (x > 0.0045) & (x < 0.1895)] = 0.3
+    w[(mid == COVER) & ((nr[:, 1] * y + nr[:, 2] * (z - 0.0115)) < 0)] = 0.3
+    dark = mid == DARK
+    w[dark & (x > 0.250) & (x < 0.3815) & (np.hypot(y, z) < 0.0088)] = 0.45
+    w[dark & (x > 0.256) & (x < 0.372) & (np.hypot(y, z - 0.019) < 0.0068)] = 0.45
+    w[dark & (x > 0.2520) & (x < 0.3795) & (np.abs(y) < 0.0170) & (z < -0.004)] = 0.4
+    w[dark & (x > 0.2600) & (x < 0.3740) & (np.hypot(y, z - 0.0178) < 0.0112) & (z > 0.006)] = 0.4
+    w[(mid == BRIGHT) & (x > 0.200) & (np.hypot(y, z - 0.019) < 0.0047)] = 0.3
+    # carrier faces other than its right side (the port) are seen only through the left slot
+    w[(mid == BRIGHT) & (x < 0.2045) & (nr[:, 1] > -0.5)] = np.minimum(w[(mid == BRIGHT) & (x < 0.2045) & (nr[:, 1] > -0.5)], 0.55)
+    # receiver: the rails under the cover, the trunnion top under the sight block, the floor
+    rec = (mid == BLUED) & (np.abs(y) < 0.0165)
+    w[rec & (nr[:, 2] > 0.7) & (z > 0.0105) & (z < 0.0125)] = 0.3
+    w[rec & (nr[:, 2] < -0.7) & (z < -0.0395) & (x > 0.040) & (x < 0.150)] = 0.6
+    return w
+
 
 def chopper_parts():
     parts = []

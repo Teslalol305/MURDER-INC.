@@ -343,10 +343,10 @@ def chopper_handling(p, n):
     H += (x > 0.150) * (x < 0.232) * (z < -0.033) * (z > -0.046) * 0.7                 # magazine well lips
     H += gauss(p, (0.409, 0.0, 0.060), 0.010, 0.8) + gauss(p, (0.0235, 0.0, 0.052), 0.012, 0.7)  # sight ears
     H += gauss(p, (0.0, 0.0, -0.010), 0.020, 0.55)                                   # rear end
-    H += gauss(p, (0.315, 0.0, -0.055), 0.040, 0.6) * (z < -0.030)                   # left palm, butt plate
+    H += gauss(p, (0.315, 0.0, -0.040), 0.030, 0.6) * (z < -0.030) * (z > -0.050)   # left palm on the handguard
     H += gauss(p, (0.040, -0.016, -0.085), 0.030, 0.7) + gauss(p, (0.110, 0.0, -0.065), 0.018, 0.6)  # grip, trigger
     H += gauss(p, (0.386, -0.025, -0.012), 0.008, 0.8)                               # band lever
-    H += (x > 0.234) * (x < 0.338) * (z < -0.054) * 0.35                              # shoulder piece edges
+    H += (x > 0.234) * (x < 0.338) * (z < -0.050) * 0.20                              # shoulder piece edges
     H += (x > 0.060) * (x < 0.170) * (z > 0.036) * 0.45                               # rail lugs
     H += gauss(p, (0.258, -0.014, 0.019), 0.006, 0.8)                                # retainer lever pad
     return np.clip(H, 0, 1)

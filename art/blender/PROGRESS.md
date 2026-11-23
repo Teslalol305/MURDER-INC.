@@ -411,3 +411,15 @@ New code: assets/_weapons_kit.py (sections, splines, lofts), assets/_weapons_nin
 assets/_weapons_tex.py; weapons.py keeps the pipeline (rig, export, previews).
 ## Status
 - started: reading the briefs, the critique and the review measurements.
+- (resumed after the restart) NINE rebuilt and exported: SK_Nine 83.9k tris, set Nine 4K at 7,380 px/m (Weapon_NineMagazine
+  2K 9,100 px/m), re-import proof ok. Grip 54.7 mm horizontal / 53 mm across the rake at mid height (was 72), 29.8 mm wide;
+  forged hammer (one piece, 9 mm spur, hollows, pin); magazine line 12 mm back (direction kept), body seated level in a
+  flat pad ending at Z -0.1345 (brief); bore ray now stops at the breech face (X 0.0045, was the hammer at -0.010).
+- Surfaces: assets/_weapons_tex.py (Surf2: metallic 1.0 on all steel/gold, dirt/carbon switch it off with a narrow step;
+  wear = convex x handling; brushed / machined direction in the height; checkering 1.3 mm with a 2 mm border; stipple).
+- CHOPPER rebuilt (assets/_weapons_chopper.py), 137.8k tris; three 4K sets: Chopper (receiver, cover, rear sight, bolt:
+  10,074 px/m), Chopper_Furniture (12,568), Chopper_Front (~8,400); hidden faces get UV weight 0.3-0.45.
+- Proof script: `python art/blender/assets/_weapons_check.py` (director's measure() on the re-imported GLBs vs the brief and
+  the first-pass measurement) -> art/out/glb/weapons_fixed_points.json.
+- Next: 4K CHOPPER bake + export (running), fixed-point check, previews (MI_PREVIEWS=... build weapons --only chopper,nine
+  --preview), commit.

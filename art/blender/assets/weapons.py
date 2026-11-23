@@ -1705,7 +1705,8 @@ def build_chopper(ctx):
 
     def finish(ob, set_name):
         # one unique 4K set per piece: receiver and rear (the eye is 16 cm away when aimed), furniture, front end
-        dens = unwrap(ob, res)
+        dens = geo.uv_unwrap(ob, res=res, angle=52.0, margin_px=6, pack="CONVEX",
+                             weights=CH9.uv_weights(ob))
         ctx.log("%s: %d tris, %.0f px/m" % (set_name, geo.stats(ob)["triangles"], dens))
         texture(ctx, ob, TX.paint_chopper, res, set_name=set_name)
     gun, arm = CH9.chopper_build(ctx, finish)
