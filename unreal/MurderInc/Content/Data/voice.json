@@ -104,7 +104,7 @@
           "text": "It's Murda!",
           "about": "The signature: headshots, multi-kills, the last enemy of a wave (half the time; the wave's own 'Rule Baby!' speaks only when this did not).",
           "priority": 50,
-          "cooldown": 30.0,
+          "cooldown": 35.0,
           "interruptible": true,
           "volume": 1.0,
           "triggers": {

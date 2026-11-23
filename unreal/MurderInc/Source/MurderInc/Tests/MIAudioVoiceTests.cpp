@@ -320,6 +320,12 @@ bool FMIAudioVoiceDirectorTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	FMIOfflineMix Files;
+	Files.Root = FMIAudioData::AudioDir();
+	if (Files.FileSecs(TEXT("Voice/rule/holla_01.wav")) <= 0.0)
+	{
+		AddError(TEXT("the take lengths cannot be read (Content/Audio/Voice/rule)"));
+		return false;
+	}
 	struct FRig
 	{
 		FMIAudioDirector A;
