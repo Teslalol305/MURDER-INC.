@@ -22,6 +22,7 @@
 #include "Weapons/MICombatSubsystem.h"
 #include "Weapons/MIWeaponComponent.h"
 #include "Widgets/SViewport.h"
+#include "World/MIBoxWorld.h"
 #include "World/MIExplosive.h"
 #include "World/MILevelData.h"
 #include "World/MIObjectiveActors.h"
@@ -321,6 +322,10 @@ void UMIDemoDirector::Tick(float DeltaTime)
 	{
 		P->GetInput().bAds = false;
 	}
+	if (bHunting && !bEngaged)
+	{
+		Hunt(Dt);
+	}
 	if (bWalking && !bEngaged)
 	{
 		Move(Dt);
@@ -482,6 +487,44 @@ bool UMIDemoDirector::Begin(const FAction& A)
 		bFighting = true;
 		return false;
 	}
+	if (V == TEXT("hunt"))
+	{
+		// hunt <limit s> [kills] [head 0|1]: fight what is in sight; with nothing in sight walk the nav path toward
+		// the nearest living enemy (replanned every 1.5 s)
+		ActionLimit = Arg(A, 0, 20.0);
+		KillsWanted = (int32)Arg(A, 1, 1.0);
+		bHead = Arg(A, 2, 1.0) != 0.0;
+		CalmEnd = 1e9;
+		KillsAtStart = G ? G->GetStats().Kills : 0;
+		bFighting = true;
+		bHunting = true;
+		ReplanIn = 0.0;
+		return false;
+	}
+	if (V == TEXT("hide"))
+	{
+		// hide <label part> ...: hides in game every actor whose editor label (or name) contains one of the parts
+		int32 N = 0;
+		for (TActorIterator<AActor> It(GetWorld()); It; ++It)
+		{
+#if WITH_EDITOR
+			const FString Label = It->GetActorLabel();
+#else
+			const FString Label = It->GetName();
+#endif
+			for (const FString& Part : A.Args)
+			{
+				if (Label.Contains(Part))
+				{
+					It->SetActorHiddenInGame(true);
+					++N;
+					break;
+				}
+			}
+		}
+		Log(FString::Printf(TEXT("hid %d actors"), N));
+		return true;
+	}
 	if (V == TEXT("blow"))
 	{
 		// blow [limit s]: the nearest live explosive in front, shot until it goes
@@ -585,6 +628,26 @@ bool UMIDemoDirector::Step(float Dt)
 			return true;
 		}
 		return false;
+	}
+	if (V == TEXT("hunt"))
+	{
+		const int32 Kills = G ? G->GetStats().Kills - KillsAtStart : 0;
+		const bool bAlive = G && G->GetEnemies().AliveCount() > 0;
+		const bool bDone = bTimedOut || (Kills >= KillsWanted && AfterKill <= -0.2) || (!bAlive && AfterKill <= -0.2);
+		if (bDone)
+		{
+			Log(FString::Printf(TEXT("hunt done: %d kills, %s"), Kills, bTimedOut ? TEXT("time") : TEXT("kills")));
+			bFighting = bHunting = bWalking = false;
+			Route.Reset();
+			Target = INDEX_NONE;
+			ReleaseTrigger();
+			if (P)
+			{
+				P->GetInput().bAds = false;
+				P->GetInput().Move = FVector2D::ZeroVector;
+			}
+		}
+		return bDone;
 	}
 	if (V == TEXT("fight"))
 	{
@@ -718,6 +781,67 @@ void UMIDemoDirector::Move(float Dt)
 	FMIPlayerInputState& In = P->GetInput();
 	In.Move = FVector2D(FMath::Sin(Rel), FMath::Cos(Rel)) * Mag;
 	In.bSprint = bSprint && FMath::Cos(Rel) > 0.85 && Dist > 250.0;
+}
+
+void UMIDemoDirector::Hunt(float Dt)
+{
+	UMIGameSubsystem* G = Game();
+	AMIPlayerCharacter* P = Player();
+	ReplanIn -= Dt;
+	if (!G || !P || ReplanIn > 0.0)
+	{
+		return;
+	}
+	ReplanIn = 1.5;
+	const FVector Me = G->PlayerFeetWeb();
+	const TArray<FMIEnemy>& Slots = G->GetEnemies().GetSlots();
+	const FMIEnemy* Near = nullptr;
+	for (const FMIEnemy& E : Slots)
+	{
+		if (E.bAlive && E.Type == MIEnemy::EType::Goon && (!Near || FVector::Dist(E.Pos, Me) < FVector::Dist(Near->Pos, Me)))
+		{
+			Near = &E;
+		}
+	}
+	TArray<FVector> Path;
+	if (!Near || FVector::Dist2D(FVector(Near->Pos.X, Near->Pos.Z, 0), FVector(Me.X, Me.Z, 0)) < 6.0
+		|| !G->GetBoxWorld().FindPath(Me, Near->Pos, Path) || Path.Num() < 2)
+	{
+		bWalking = false;
+		Route.Reset();
+		return;
+	}
+	Route.Reset();
+	Route.Add(FVector2D(P->GetActorLocation().X, P->GetActorLocation().Y));
+	for (int32 I = 1; I < Path.Num(); ++I)
+	{
+		const FVector U = MI::Web::ToUnreal(Path[I]);
+		Route.Add(FVector2D(U.X, U.Y));
+	}
+	// Stop about 7 m short of the enemy: walk the route, not into him.
+	double Keep = 700.0;
+	while (Route.Num() >= 2 && Keep > 0.0)
+	{
+		const double L = FVector2D::Distance(Route.Last(), Route[Route.Num() - 2]);
+		if (L > Keep)
+		{
+			Route.Last() = Route.Last() + (Route[Route.Num() - 2] - Route.Last()) * (Keep / L);
+			break;
+		}
+		Keep -= L;
+		Route.Pop();
+	}
+	if (Route.Num() < 2)
+	{
+		bWalking = false;
+		Route.Reset();
+		return;
+	}
+	RouteSeg = 0;
+	WalkTo = Route.Last();
+	bSprint = false;
+	bWalking = true;
+	bWalkFacesPath = true;
 }
 
 void UMIDemoDirector::AdvanceRoute(const FVector2D& Feet)

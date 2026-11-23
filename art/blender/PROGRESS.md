@@ -1003,3 +1003,14 @@ Cause, fix and the in-game proof: `docs/unreal/CHARACTERS.md`, "SK_RuleArms, han
   records the forearm's texel density (3,902 px/m at 4K) for its tiling in Unreal.
 - Export: 131,598 triangles, posed gate 104 poses, 0 failed. Previews rule_arms_fp, rule_hands re-rendered.
   Higgsfield: 0 credits.
+## Restart after the usage limit (same pass)
+- The in-game forearm close-ups of the cut-off run showed no ink. Cause found: not the art. The tattoo centres measured
+  on the exported mesh (vertices in each tattoo's UV box) put the numerals 18.3 cm and the word 19.4 cm above the wrist,
+  4.3-4.4 cm off the forearm axis; comparing the GLB's bone frames with the imported asset showed that Unreal's glTF
+  import swaps every bone's local Y and Z, so the close-up camera, aimed by glTF-frame axes, looked at the wrong side.
+  `tools/box/fp/fp-arms-shots.sh` now aims at the measured point; both tattoos read in play (`docs/unreal/shots/fp-arms-forearm-l/r.jpg`).
+- Game skin: less red scatter (`SubsurfaceTint` 0.26 / 0.14 / 0.09, `Scatter` 0.6, `SkinTint` B 1.08) after the sunlit
+  forearm under the El still read salmon; re-imported with `import-chars.sh arms`, all six arms pictures retaken.
+- No art change (no re-export): the GLB and textures of 15:03 are the ones in the game. Previews `rule_arms_fp`,
+  `rule_hands` are from that export. Higgsfield: 0 credits.
+- Not done: per-gun finger poses in the game (the NINE rests on the firing hand, fingers straight); corrective shapes.

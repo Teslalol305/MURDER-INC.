@@ -125,6 +125,10 @@ private:
 	int32 ReelsAtStart = 0;
 
 	bool bGod = false;
+	/** hunt: walk the nav path toward the nearest living enemy whenever none is in sight. */
+	bool bHunting = false;
+	double ReplanIn = 0.0;
+	void Hunt(float Dt);
 
 	// Capture.
 	FILE* Pipe = nullptr;

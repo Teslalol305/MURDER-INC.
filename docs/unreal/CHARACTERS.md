@@ -166,7 +166,7 @@ wide along every sun-stripe shadow edge, a mitten-like hand.
 
 | Item | Now |
 |---|---|
-| `M_RuleArms_Skin` | rebuilt with parameters on the **Standard Subsurface** model (no screen-space blur): base colour BC x `SkinTint` (0.92, 1.0, 1.12: his R/B 3.0 albedo read orange in the street's sun under ACES, now 2.5), roughness ORM.G x `RoughnessScale`, AO ORM.R, `Specular` 0.35, Subsurface Colour BC x `SubsurfaceTint` (0.40, 0.16, 0.10), Opacity `Scatter` 0.92 (a little light through thin fingers); normal = the baked N with the tiling skin grain `T_RuleArms_SkinDetail_N` added (whiteout blend, `DetailStrength` 0.8, `DetailTiling` from the forearm's texel density in `set.json`: 3,904 px/m at 4K, one 24 mm tile, 43.7 repeats per UV unit) |
+| `M_RuleArms_Skin` | rebuilt with parameters on the **Standard Subsurface** model (no screen-space blur): base colour BC x `SkinTint` (0.92, 1.0, 1.08: his R/B 3.0 albedo read orange in the street's sun under ACES, now 2.6; more blue than that reads pink), roughness ORM.G x `RoughnessScale`, AO ORM.R, `Specular` 0.35, Subsurface Colour BC x `SubsurfaceTint` (0.26, 0.14, 0.09), Opacity `Scatter` 0.6 (a little light through thin fingers; the first values of this pass, 0.40 / 0.16 / 0.10 at 0.92, still read salmon on the sunlit forearm under the El: this model adds the scatter term to the lit diffuse, so its red rides on top of the albedo; `ev-el-oldskin` in `fp-arms-shots.sh` shows the same frame with those values); normal = the baked N with the tiling skin grain `T_RuleArms_SkinDetail_N` added (whiteout blend, `DetailStrength` 0.8, `DetailTiling` from the forearm's texel density in `set.json`: 3,904 px/m at 4K, one 24 mm tile, 43.7 repeats per UV unit) |
 | `M_RuleArms_SkinProfile` | the same graph on the Subsurface Profile model with a shorter, nearly neutral `SP_RuleSkin` (red 0.12 cm, mean free path colour 1.0 / 0.42 / 0.30, albedo 0.55 / 0.40 / 0.33): kept only for comparison in play (`fp-arms-shots.sh` takes `ev-profile.jpg` with it) |
 | Textures | `T_RuleArms_Skin_BC/N/ORM` 4096 and `T_RuleArms_SkinDetail_N` 1024 never streamed (`arms_textures`) |
 | `M_RuleArms_Nail` | tint toward keratin 0.12 (was 0.45: the plate read pale pink-white and hid the texture's lunula and free edge), roughness 0.38 |
@@ -189,16 +189,31 @@ wide along every sun-stripe shadow edge, a mitten-like hand.
 | `shots/fp-arms-hip-sun.jpg` | the CHOPPER at the hip in the sun: a brown hand on the handguard with the thumb's knuckle wrinkles and nail, wrist creases, no orange |
 | `shots/fp-arms-hip-el.jpg` | under the El: crisp sun-stripe shadow edges on the forearm (no red fringe), warm brown in the sun |
 | `shots/fp-arms-irons.jpg` | aimed through the irons |
-| `shots/fp-arms-forearm-l.jpg`, `fp-arms-forearm-r.jpg` | the world paused in the hip idle in the sun and the arms component turned so each tattoo faces the eye at 30 cm (pose, material, light and the first-person pass as in play): the numerals and the word with its script line |
+| `shots/fp-arms-forearm-l.jpg`, `fp-arms-forearm-r.jpg` | the world paused in the CHOPPER's hip idle and the arms component moved so each tattoo is 30 cm from the eye, the gun hidden (pose, material, light and the first-person pass as in play): XXIII over XVII on the left forearm, square on; the word with its script line on the right forearm, seen from 45 degrees toward the wrist (square on, the bent elbow's upper arm comes straight at the eye) |
 | `shots/fp-arms-nine.jpg` | the NINE at the hip, the bracelet |
 
 `ListTextures` in the same session: the four arms textures at full size, `Streaming NO`. Evidence frames (not
-committed): `ev-unlit` (base colour only) and `ev-profile` (the profile variant on the same frame).
+committed): `ev-unlit` (base colour only), `ev-profile` (the profile variant on the same frame) and `ev-el-oldskin`.
+
+**The close-ups, and why the first ones showed no tattoo.** The first forearm close-ups of this pass (and the run cut
+off by the usage limit) aimed the camera at a side of the forearm guessed from the forearm bones' axes, and showed a
+bare brown forearm (or the ink on the far edge), which looked like the tattoos were missing in the game. They are not:
+the tattoo centres were measured on the exported mesh (the vertices inside each tattoo's UV box of the BC, rest pose:
+left numerals 18.3 cm above the wrist, right word 19.4 cm, both 4.3-4.4 cm off the forearm's axis) and written in the
+wrist twist bone's frame, and the bones' frames compared between the GLB and the imported asset: **Unreal's glTF
+import swaps the bones' local Y and Z** (`thumb_01_l` sits at (1.99, -2.58, -1.36) cm from `hand_l` in the GLB and at
+(1.99, -1.36, -2.58) in Unreal; the same for every arm bone), so an axis taken from the Blender / glTF frame points
+90 degrees off in the game. `fp-arms-shots.sh` now places the camera from that measured point (`lowerarm_twist_01_l`
+(-9.45, 3.50, -1.90) cm, `_r` (10.45, -3.41, 1.74) cm in Unreal's bone frame) and the ink shows at once. Anything that
+places a decal, socket or camera on SK_RuleArms from Blender numbers has to apply the same swap.
 
 Not fixed in this pass: the hands' grip comes from the pack's and the template's clips. The CHOPPER's support hand reads
 well on the handguard at the hip, but no per-gun finger pose ships, and the NINE's hold (template third-person pistol
 idle plus the palm IK) rests the gun on the palm with the fingers not wrapped round the grip. The pack clips' finger
-contact was not measured against this hand's thickness.
+contact was not measured against this hand's thickness. In `fp-arms-nine.jpg` (re-taken after the restart) the NINE
+still sits on top of the firing hand with the fingers straight under it. The fix belongs in the rig and its clips (a
+per-gun finger pose layered over the template pistol idle, the firing fingers closed round `SK_Nine`'s grip as
+`assets/_characters_pose.py` solves them for the previews), not in the mesh: it is the next step.
 
 ## The Goons (art/blender/assets/goons.py)
 

@@ -128,6 +128,10 @@ hands-and-tattoos pass". In play `ListTextures` lists the four arms textures at 
 on the Standard Subsurface model (no red fringes on the sun-stripe shadow edges), R/B 2.5 brown; knuckle wrinkles,
 wrist creases and the thumb nail read at the hip; the tattoos sit on the thumb side of the upper forearm (outside the
 hip frame, as in the photo: `fp-arms-forearm-l/r` turn the arms to the eye to show them).
+Restart (same day): the forearm close-ups now aim at the tattoo centres measured on the mesh (Unreal's glTF import
+swaps the bones' local Y and Z, which had pointed the earlier close-ups at bare skin), and both tattoos read in play;
+the skin's scatter is toned down (`SubsurfaceTint` 0.26 / 0.14 / 0.09, `Scatter` 0.6) after the sunlit forearm under
+the El read salmon. All six `fp-arms-*.jpg` retaken after `import-chars.sh arms`.
 Open (for the next pass): the NINE's support hand and the hip hold still come from the template pistol clip (the gun
 rests on the palm, the fingers do not wrap); no per-gun finger pose ships; the pack clips' finger poses were not
 measured against this hand's thickness.
