@@ -1798,6 +1798,72 @@ def structure_placements(level):
             out.append(("SM_Furn_ChainLink_EndPost_350", (end_loc[0], end_loc[1], top), end_yaw + 180.0,
                         (1.0, 1.0, 1.0)))
             drawn |= {f["index"] for f in fence}
+
+    # The last colliders that had no module (polish pass, 2026-11-23): each now carries catalogue art.
+    def sides(b):
+        mn, mx = b["ue"]["min"], b["ue"]["max"]
+        return (("x", mn["Y"], mn["X"], mx["X"], False), ("x", mx["Y"], mn["X"], mx["X"], True),
+                ("y", mn["X"], mn["Y"], mx["Y"], False), ("y", mx["X"], mn["Y"], mx["Y"], True))
+
+    def fence_round(b, mesh, width, height):
+        """Chain-link on all four sides, stacked in rows no taller than the panel (one stretched panel reads wrong)."""
+        mn, mx = b["ue"]["min"], b["ue"]["max"]
+        rows = max(1, int(math.ceil((mx["Z"] - mn["Z"]) / height - 0.05)))
+        k = (mx["Z"] - mn["Z"]) / (rows * height)
+        for r in range(rows):
+            for axis, line, a, e, positive in sides(b):
+                out.extend(tile(axis, line, a, e, positive, mesh, width, mn["Z"] + r * height * k, k))
+    # The shanty by the El: the plywood dig pen fitted to its box (a plywood shack).
+    for shanty in [b for b in boxes if b["tag"] == "shanty" and b["owner"]["kind"] == "level"]:
+        if not have("SM_Struct_DigPen"):
+            break
+        mn, mx = shanty["ue"]["min"], shanty["ue"]["max"]
+        sx, sy = mx["X"] - mn["X"], mx["Y"] - mn["Y"]
+        yaw, (lx, ly) = (0.0, (sx, sy)) if sx >= sy else (90.0, (sy, sx))
+        out.append(("SM_Struct_DigPen", ((mn["X"] + mx["X"]) / 2.0, (mn["Y"] + mx["Y"]) / 2.0, mn["Z"]), yaw,
+                    (lx / 348.0, ly / 224.0, (mx["Z"] - mn["Z"]) / 360.0)))
+        drawn.add(shanty["index"])
+    # The material hoist in the lot: a chain-link cage up the whole tower, pallet stacks at its foot.
+    for hoist in [b for b in boxes if b["tag"] == "hoist" and b["owner"]["kind"] == "level"]:
+        if not have("SM_Furn_ChainLink_300x400"):
+            break
+        fence_round(hoist, "SM_Furn_ChainLink_300x400", 300.0, 400.0)
+        mn, mx = hoist["ue"]["min"], hoist["ue"]["max"]
+        if mn["Z"] < 50 and have("SM_Furn_PalletStack_A"):
+            for i, (fx, fy) in enumerate(((0.3, 0.3), (0.7, 0.62))):
+                out.append(("SM_Furn_PalletStack_A" if i == 0 or not have("SM_Furn_PalletStack_B")
+                            else "SM_Furn_PalletStack_B",
+                            (mn["X"] + fx * (mx["X"] - mn["X"]), mn["Y"] + fy * (mx["Y"] - mn["Y"]), mn["Z"]),
+                            i * 90.0 + 8.0, (1.0, 1.0, 1.0)))
+        drawn.add(hoist["index"])
+    # The lot sign's pole: a painted steel column at its box.
+    for pole in [b for b in boxes if b["tag"] == "lot-sign" and b["owner"]["kind"] == "level"
+                 and b["blocks"]["movement"]]:
+        if not have("SM_Struct_ShopColumn"):
+            break
+        mn, mx = pole["ue"]["min"], pole["ue"]["max"]
+        out.append(("SM_Struct_ShopColumn", ((mn["X"] + mx["X"]) / 2.0, (mn["Y"] + mx["Y"]) / 2.0, mn["Z"]), 0.0,
+                    ((mx["X"] - mn["X"]) / 28.0, (mx["Y"] - mn["Y"]) / 28.0, (mx["Z"] - mn["Z"]) / 555.0)))
+        drawn.add(pole["index"])
+    # The neighbours' backs keep their brick mass (window grid, tar roof) and get the facade kit's parapet round the
+    # roof, a water tank and a stair bulkhead on the big ones: no plain box top against the sky.
+    parapet = "SM_Facade_Parapet_310_Red"
+    for back in [b for b in boxes if b["tag"] == "backs" and b["owner"]["kind"] == "level"]:
+        if not have(parapet):
+            break
+        mn, mx = back["ue"]["min"], back["ue"]["max"]
+        for axis, line, a, e, positive in sides(back):
+            out.extend(tile(axis, line, a, e, positive, parapet, 310.0, mx["Z"]))
+        sx, sy = mx["X"] - mn["X"], mx["Y"] - mn["Y"]
+        cx, cy = (mn["X"] + mx["X"]) / 2.0, (mn["Y"] + mx["Y"]) / 2.0
+        along_x = sx >= sy
+        if min(sx, sy) >= 290 and have("SM_Facade_WaterTank"):
+            at = (cx + 0.3 * (sx - 300), cy) if along_x else (cx, cy + 0.3 * (sy - 300))
+            out.append(("SM_Facade_WaterTank", (at[0], at[1], mx["Z"]), 0.0, (1.0, 1.0, 1.0)))
+        if min(sx, sy) >= 380 and max(sx, sy) >= 1500 and have("SM_Facade_StairBulkhead_Red"):
+            at = (cx - 0.3 * (sx - 340), cy) if along_x else (cx, cy - 0.3 * (sy - 340))
+            out.append(("SM_Facade_StairBulkhead_Red", (at[0], at[1], mx["Z"]), 0.0 if along_x else 90.0,
+                        (1.0, 1.0, 1.0)))
     return out, drawn
 
 
