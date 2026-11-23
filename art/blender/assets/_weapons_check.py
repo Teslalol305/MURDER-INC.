@@ -142,8 +142,14 @@ def check(name, base):
         {"brief": want[0], "first_pass": [lo0[0], hi0[0]], "now": [lo1[0], hi1[0]]})
     add("overall height (brief)", abs(lo1[2] - want[1][0]) <= 5e-4 and abs(hi1[2] - want[1][1]) <= 2e-4,
         {"brief": want[1], "first_pass": [lo0[2], hi0[2]], "now": [lo1[2], hi1[2]]})
-    add("overall box y (width)", abs((hi1[1] - lo1[1]) - (hi0[1] - lo0[1])) <= 1e-3,
-        {"was": hi0[1] - lo0[1], "now": hi1[1] - lo1[1]})
+    if name == "Chopper":
+        # round 3 (critique): the stock no longer widens the body (52.8 mm); the brief's 46 mm body, 65 mm with
+        # the charging handle (knob 42 mm left of the bore)
+        add("overall width: body within the brief's 46 mm, charging knob at Y 0.042",
+            lo1[1] >= -0.0235 and abs(hi1[1] - 0.042) <= 5e-4, {"was": [lo0[1], hi0[1]], "now": [lo1[1], hi1[1]]})
+    else:
+        add("overall box y (width)", abs((hi1[1] - lo1[1]) - (hi0[1] - lo0[1])) <= 1e-3,
+            {"was": hi0[1] - lo0[1], "now": hi1[1] - lo1[1]})
     sz = 0.0555 if name == "Chopper" else 0.0185
     add("nothing between the sights above the sight line", m["max_z_between_sights"] <= sz + 1e-5,
         {"max_z": m["max_z_between_sights"], "sight_z": sz})
@@ -176,15 +182,24 @@ def check(name, base):
             continue
         add("%s within 1.5 mm of the surface" % s, dd <= 0.0015, {"distance_mm": round(dd * 1000, 2)})
     if name == "Nine":
-        # round 2 (critique): the front strap rises straight into the back of the guard, ~35 mm from the trigger face
-        trig = bvh.ray_cast(Vector((0.115, 0, -0.046)), Vector((-1, 0, 0)), 0.1)[0]
-        strap = bvh.ray_cast(Vector((0.115, 0, -0.0800)), Vector((-1, 0, 0)), 0.2)[0]
-        under = bvh.ray_cast(Vector((0.115, 0, -0.0745)), Vector((-1, 0, 0)), 0.2)[0]
-        reach = (trig.x - strap.x) * 1000 if trig and strap else None
-        add("NINE trigger face to front strap ~35 mm, strap right under the guard (no flat web)",
-            reach is not None and 32 <= reach <= 38 and under is not None and under.x >= 0.060,
-            {"trigger_face_x": round(trig.x, 4) if trig else None, "strap_x": round(strap.x, 4) if strap else None,
-             "reach_mm": round(reach, 1) if reach else None, "front_under_guard_x": round(under.x, 4) if under else None})
+        # round 3 (critique): a service pistol's grip, 52-57 mm fore-aft at mid grip, back strap raked 15-18 deg,
+        # front strap 18-20 deg
+        def fb(z):
+            f = bvh.ray_cast(Vector((0.115, 0, z)), Vector((-1, 0, 0)), 0.3)[0]
+            b = bvh.ray_cast(Vector((-0.2, 0, z)), Vector((1, 0, 0)), 0.3)[0]
+            return (f.x if f else None), (b.x if b else None)
+        f80, b80 = fb(-0.080)
+        f90, b90 = fb(-0.090)
+        f60, b60 = fb(-0.060)
+        f115, b115 = fb(-0.115)
+        import math as _m
+        back_rake = _m.degrees(_m.atan2(b60 - b115, 0.055))
+        front_rake = _m.degrees(_m.atan2(f90 - f115, 0.025))
+        d80, d90 = (f80 - b80) * 1000, (f90 - b90) * 1000
+        add("NINE grip 52-57 mm fore-aft at mid grip (Z -0.080 / -0.090), back strap 15-18 deg, front strap 17-21 deg",
+            52 <= d80 <= 57.5 and 52 <= d90 <= 57.5 and 15 <= back_rake <= 18 and 17 <= front_rake <= 21,
+            {"depth_mm": [round(d80, 1), round(d90, 1)], "back_rake_deg": round(back_rake, 1),
+             "front_rake_deg": round(front_rake, 1), "first_pass_mm": "87-90"})
         z = -0.0900
         w = bvh.ray_cast(Vector((0.015, 0.2, z)), Vector((0, -1, 0)), 1)[0]
         w2 = bvh.ray_cast(Vector((0.015, -0.2, z)), Vector((0, 1, 0)), 1)[0]
@@ -192,8 +207,10 @@ def check(name, base):
         mags = [o for o in meshes if o.name.startswith("SM_Weapon_NineMagazine")]
         if mags:
             cm = np.vstack([np.array([tuple(o.matrix_world @ v.co) for v in o.data.vertices]) for o in mags])
-            add("magazine in place X -0.029..0.045, Z -0.1345..-0.037 (brief; round 1 had moved it 12 mm back)",
-                abs(cm[:, 0].min() + 0.029) <= 0.0012 and abs(cm[:, 0].max() - 0.045) <= 0.0012
+            # round 3 brief decision: the body stays on the brief's line (lips front X 0.045, slides along 0.250 /
+            # 0.968); the blocky model's 76 mm pad (rear X -0.029) is a real 43 mm pad, rear X -0.0135
+            add("magazine in place: body front X 0.045, pad X -0.0135..0.030 (43 mm), floor Z -0.1345",
+                abs(cm[:, 0].min() + 0.0135) <= 0.0010 and abs(cm[:, 0].max() - 0.045) <= 0.0012
                 and abs(cm[:, 2].min() + 0.1345) <= 0.0003,
                 {"x": [round(float(cm[:, 0].min()), 4), round(float(cm[:, 0].max()), 4)],
                  "z": [round(float(cm[:, 2].min()), 4), round(float(cm[:, 2].max()), 4)]})

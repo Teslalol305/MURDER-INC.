@@ -1755,7 +1755,9 @@ CHOPPER_NOTES = (
     "+Y), selector (left side, pivot X 0.012 Z -0.004; safe at rest, about +7 / +14 deg about +Y for auto / "
     "semi, marked S A 1), magazine (attach bone at the gun origin: parent SM_Weapon_ChopperMagazine to it; "
     "rocks -24 deg about +Y through the socket MagHinge). Sockets: Muzzle, Eject, SightRear, SightFront, "
-    "RecoilPivot, MagHinge, Palm_R, Palm_L (brief positions). Three slots, each a unique 4K set: M_Chopper (set "
+    "RecoilPivot, MagHinge, Palm_R, Palm_L (brief positions). Round 3: under-folding stock of stamped "
+    "channel arms along the lower receiver (pivot X 0.022, cross pin X 0.236), 38 mm over the arms; laminate "
+    "textured from a 3D ply field (plies stacked across the gun). Three slots, each a unique 4K set: M_Chopper (set "
     "Chopper: receiver, cover, rear sight, bolt, trigger group, hinge; E = sight paint), M_Chopper_Furniture (set "
     "Chopper_Furniture: laminated handguards and grip), M_Chopper_Front (set Chopper_Front: sight block, barrel, gas "
     "block, booster, band, liners, stock arms and shoulder piece).")
@@ -1788,10 +1790,12 @@ def build_nine(ctx):
         geo.ensure_wear(o)
     ctx.asset(mag, collision="none", expect_size=(0.074, 0.026, 0.098), notes=(
         "NINE 15-round magazine: brushed steel body raked with the grip, three witness holes per side (the stack "
-        "shows through), feed lips, flat polished gold base pad following the butt (1 mm overhang, flared finger lip). "
-        "Origin = pistol origin (in place X -0.029..0.045, Z -0.1345..-0.029: the brief's magazine line, restored in "
-        "rebuild round 2); it slides along (X 0.250, Z 0.968), base to lips. Gold base pad 75 x 26 x 7 mm, domed "
-        "bottom, finger flare, parting line. Top round: SM_Weapon_NineMagazine_TopRound."))
+        "shows through), feed lips, one moulded polished gold base pad (R 1.5 top edge, R 3 bottom edge, a front lip "
+        "with a 2 mm finger relief; bottom flats scuffed, brass at the corners). Origin = pistol origin; the body is on "
+        "the brief's line (lips front X 0.045, Z -0.037) and slides along (X 0.250, Z 0.968), base to lips. Brief "
+        "decision (round 3): the pad is a real 43 x 26 x 7 mm pad (X -0.0135..0.030), not the blocky model's 76 mm, "
+        "so the grip could be slimmed to 56 mm; in place X -0.0135..0.045, Z -0.1345..-0.033. Top round: "
+        "SM_Weapon_NineMagazine_TopRound."))
     ctx.asset(top, collision="none", expect_size=None, notes=(
         "The NINE magazine's visible top round, a separate hideable piece sharing the magazine's set; origin = "
         "pistol origin, 33.5 mm below the bore axis."))
@@ -1816,10 +1820,13 @@ NINE_NOTES = (
     "down = +36 deg about +Y), slide_stop (left; pivot X 0.0955 Z -0.0165, up = +7 deg about +Y), magazine "
     "(attach bone at the origin for SM_Weapon_NineMagazine; it slides along (0.250, 0, 0.968)). Sockets: Muzzle, "
     "Eject, SightRear, SightFront, RecoilPivot, Palm_R, Palm_L (support hand over the firing hand's fingers). "
-    "Grip panels are modelled shells (3.4 mm, 1 mm crown) with 20 LPI checkering in the normal map inside a 2.5 mm "
-    "border; front strap 20 LPI band, back strap stippled. One slot M_Nine, set Nine (4K, E = sight dots). The slide's "
-    "skin is one UV shell with U along +X (the brushing direction: the mesh tangent is the anisotropy direction). "
-    "A 9.5 mm hammer channel under the slide's rear lets the slide travel over the static cocked hammer.")
+    "Round 3: grip 56 mm fore-aft at mid grip (back strap 16 deg, front strap 18 deg, egg section with a palm "
+    "swell), D-section trigger guard, slide with R 3 shoulders into a 7 mm flat top, 20 deg dehorned nose, seven "
+    "3 mm-pitch serrations. Grip panels (3.4 mm crown, 2 mm edges) with the checkered field recessed 0.3 mm inside a "
+    "2.5 mm border and 20 LPI checkering in the normal map; front and back straps 20 LPI. One slot M_Nine, set Nine "
+    "(4K, E = sight dots, A = anisotropy along the mesh tangent: the slide's skin is one UV shell with U along +X, "
+    "the brushing direction; drive Unreal Anisotropy with A x 0.75). A 6.8 mm hammer channel under the slide's rear "
+    "lets the slide travel over the static cocked hammer.")
 
 
 def build(ctx):
