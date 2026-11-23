@@ -13,8 +13,9 @@ What is verified on the box, newest first. Every entry says how it was verified.
    manifest), modelled sofas and beds from the art side, a lamps-on variant for the night rig.
 3. Day only: vehicle lamps, neon and station lamps have day values (vehicle `E` scaled 0, neon 550 nits); the night
    rig needs lamp parameters driven by the level.
-4. Not checked in a picture: the rust-streak decals' direction (none in frame in `block-v2-upper`); the facade seam
-   run is `block-v2-seams.jpg` (one block face, north row).
+4. Not checked in a picture: the rust-streak decals' direction (none in frame in `block-v2-upper`), and the facade
+   modules' seams at arm's length: `block-v2-seams.jpg` (north sidewalk at X -2600, looking east) shows the chop
+   shop's block wall and the tyre cage, not facade modules: move it to n1/n2's shop fronts.
 5. Backdrop: parapets and tar roofs everywhere, roof clutter (water tanks, bulkheads, condensers) within 300 m only;
    from far above it still reads as boxes with a window grid.
 
@@ -38,7 +39,9 @@ What is verified on the box, newest first. Every entry says how it was verified.
   `objectives.truck.art`, `explosives.<kind>.mesh`; `AMIReelCase` with lid on its hinge, reel per objective and
   beacon, `AMITruck` with `SM_Vehicle_IPXTruck` and both door leaves on their hinges (+-108.9 deg), `AMIExplosive`
   propane tank / welding rack and their wrecks as modelled). Without the art in the project the basic shapes stay.
-  The level draws hidden-in-game previews of them for editor pictures and no boxes for them.
+  The level draws hidden-in-game previews of them for editor pictures and no boxes for them. Build green at e2cfe9c
+  (113 s); `test.sh`: 35 of 38 pass, every `Run.*` and `Golden.*` with the changed actors; the 3 failures are
+  `MurderInc.Audio.EventTable`, `.VoiceDirector`, `.VoiceRateHoldout` (the audio work in progress, not these files).
 - **Structures family**: 38 instances from `placements/structures.json` (station mezzanine, stairs, bridges,
   platforms, kiosks, produce stand, hoardings, dig pen, dock, garages, the chop shop's floor, roof, mezzanine,
   stair, safe, fan); new rules: chain-link on the roadblock and the alley gate, jersey barriers across the road
