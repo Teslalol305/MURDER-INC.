@@ -151,10 +151,23 @@ def collider_of(obs, name, col, ratio=0.5, inflate=0.0):
     return ob
 
 
-def thicken_edges(ob, depth=0.018, thickness=0.003, which=None):
+def smooth_loop(ob, loop, iters=8, lam=0.5):
+    """1D smoothing of an open edge along itself (and a little into the next ring), so a draped hem runs clean."""
+    co = GC.verts(ob)
+    L = np.asarray(loop)
+    for _ in range(iters):
+        P = co[L]
+        co[L] = P + lam * (0.5 * (np.roll(P, 1, axis=0) + np.roll(P, -1, axis=0)) - P)
+    GC.set_verts(ob, co)
+
+
+def thicken_edges(ob, depth=0.018, thickness=0.003, which=None, smooth=0):
     """Turned hems on the open loops (all, or those which(points) accepts)."""
     co = GC.verts(ob)
     loops = [L for L in cloth.boundary_loops(ob) if which is None or which(co[L])]
+    if smooth:
+        for L in loops:
+            smooth_loop(ob, L, smooth)
     if loops:
         cloth.hem_facing(ob, depth=depth, thickness=thickness, steps=1, loops=loops)
     return ob
@@ -213,7 +226,7 @@ def mask_piece(man, bottom=1.45):
     return ob
 
 
-def hood_piece(man, hoodie, mask, name="Hood", version="h6"):
+def hood_piece(man, hoodie, mask, name="Hood", version="h7"):
     """The hood up: an offset of the head and shoulders (more room at the back and the crown, where a hood stands
     off), open at the face (the opening closes under the chin) and at the neckline, draped over the mask with the
     neckline pinned (the crown sags, folds gather at the neck), the face opening turned in as the drawstring channel."""
@@ -258,8 +271,8 @@ def hood_piece(man, hoodie, mask, name="Hood", version="h6"):
         mc = collider_of([mask], "Col_Mask", man.work, ratio=0.4, inflate=0.002)
         cloth.drape(hd, [mc, man.body_col], frames=30, pin=pin, shrink=grow, shrink_min=-0.04, bending=1.5,
                     mass=0.2, log=man.log)
-        cloth.smooth(hd, 2)
-        thicken_edges(hd, depth=0.014, thickness=0.005, which=lambda P: P[:, 1].mean() < j[1] - 0.02)
+        cloth.smooth(hd, 3)
+        thicken_edges(hd, depth=0.014, thickness=0.005, which=lambda P: P[:, 1].mean() < j[1] - 0.02, smooth=12)
         return hd
     return cached(name, version, col, make)
 
@@ -282,7 +295,7 @@ def hoodie_outfit(man, parts, shoes):
     for k, o in bands.items():
         thicken_edges(o, depth=0.012, thickness=0.004, which=lambda P: P[:, 2].mean() < 0.9 or k != "waistband")
         GK.decimate(o, BUDGET["Waistband" if k == "waistband" else "Cuff"])
-        parts.append((k.capitalize(), tag(o, "rib", "darkox"), "cloth", None))
+        parts.append((k.capitalize(), tag(o, "rib", "darkox"), "cloth", ("cuff", k[-1]) if k.startswith("cuff") else None))
     mask = mask_piece(man)
     hood = hood_piece(man, hoodie, mask)
     S = GK.Surface(hoodie)
@@ -340,6 +353,13 @@ def weights(man, name, ob, region):
         bones = ["foot_" + s, "ball_" + s, "calf_" + s]
         names, W = char.transfer_weights(ob, body, bones, limit=3)
         char.smooth_weights(ob, iterations=2, strength=0.5, limit=3, names=names, W=W)
+        return
+    if region and region[0] == "cuff":
+        s = region[1]
+        bones = [b % s for b in ("upperarm_%s", "upperarm_twist_01_%s", "upperarm_twist_02_%s", "lowerarm_%s",
+                                 "lowerarm_twist_01_%s", "lowerarm_twist_02_%s")]
+        names, W = char.transfer_weights(ob, body, bones, limit=4)
+        char.smooth_weights(ob, iterations=3, strength=0.5, limit=4, names=names, W=W)
         return
     if region == "head":
         char.set_weights(ob, ["head"], np.ones((len(ob.data.vertices), 1)))
