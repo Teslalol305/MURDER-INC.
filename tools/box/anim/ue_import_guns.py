@@ -64,16 +64,37 @@ def _set(obj, **kw):
 
 
 # ---------------------------------------------------------------- sockets (gun space, cm, from measured geometry)
+def _project_facts():
+    """<project>/Saved/AnimPack: where import-animpack.sh puts the Blender facts and icons of THIS project."""
+    try:
+        return os.path.join(os.path.abspath(unreal.Paths.project_saved_dir()), "AnimPack")
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def measure_sources(path=None):
+    """The digest files tried, in order: an explicit path; $MI_FACTS (the FACTS folder import-animpack.sh measured
+    into, passed to the commandlet); <project>/Saved/AnimPack/facts; the scratch project's facts; the committed copy."""
+    env = os.environ.get("MI_FACTS")
+    pf = _project_facts()
+    return [p for p in (path, env and os.path.join(env, "pack_measure.json"),
+                        pf and os.path.join(pf, "facts", "pack_measure.json"),
+                        "/project/ue/animpack/facts/pack_measure.json", os.path.join(HERE, "pack_measure.json")) if p]
+
+
 def measure(path=None):
-    for p in (path, "/project/ue/animpack/facts/pack_measure.json", os.path.join(HERE, "pack_measure.json")):
-        if p and os.path.exists(p):
-            return json.load(open(p))
+    for p in measure_sources(path):
+        if os.path.exists(p):
+            m = json.load(open(p))
+            m["_source"] = p
+            return m
     raise RuntimeError("pack_measure.json not found (run bl_measure.py)")
 
 
 def socket_table(m=None):
-    """{length: {socket: (bone, (x, y, z) gun space)}} and {part: {socket: (x, y, z) local}}; rotations identity
-    (every socket's +Y is the gun's forward, +Z up, as the pack's own frames)."""
+    """{length: {socket: (bone, (x, y, z) gun space)}} and {part: {socket: (x, y, z) local}}. Rotation: identity in
+    gun space (+Y the gun's forward, +X its left, +Z up) on every socket except those in BONE_FRAME, which keep their
+    bone's frame (Eject: the Eject_Casing bone's +X points out of the port, the casing's exit direction)."""
     m = m or measure()
     a = m["author_sockets"]
     out = {}
@@ -126,6 +147,13 @@ def _bone_cs(mesh):
             for n in unreal.AnimPoseExtensions.get_bone_names(pose)}
 
 
+# sockets that keep their bone's own frame instead of the gun-space identity. Eject: the Eject_Casing bone's frame
+# is (pitch 9.8, yaw 180, roll 180) in gun space, so its +X = (-0.985, 0, 0.170): out of the right-side port, 9.8 deg
+# up. The bone does not move in any weapon clip (A_TFA_FP_WEP_AR_Fire measured): its frame is the author's casing
+# exit direction. Spawn casings along GetSocketRotation(Eject).Vector() (ANIMATION.md 8.3).
+BONE_FRAME = {"Eject"}
+
+
 def _put_skel_socket(mesh, name, bone, loc_cs, bones):
     s = mesh.find_socket(name)
     if s is None:
@@ -133,12 +161,17 @@ def _put_skel_socket(mesh, name, bone, loc_cs, bones):
         mesh.add_socket(s, False)
         mesh.rename_socket(s.socket_name, name)
         s = mesh.find_socket(name)
-    rel = bones[bone].inverse_transform_location(unreal.Vector(*loc_cs))
+    if name in BONE_FRAME:
+        rel, rot = bones[bone].inverse_transform_location(unreal.Vector(*loc_cs)), unreal.Rotator(0, 0, 0)
+    else:   # identity in gun space whatever the bone's own rotation: socket = rel * bone
+        r = unreal.MathLibrary.make_relative_transform(
+            unreal.Transform(unreal.Vector(*loc_cs), unreal.Rotator(0, 0, 0), unreal.Vector(1, 1, 1)), bones[bone])
+        rel, rot = r.translation, r.rotation.rotator()
     s.set_socket_parent(mesh, bone)             # BoneName is read-only from Python too
     try:
-        _set(s, relative_location=rel, relative_rotation=unreal.Rotator(0, 0, 0), relative_scale=unreal.Vector(1, 1, 1))
+        _set(s, relative_location=rel, relative_rotation=rot, relative_scale=unreal.Vector(1, 1, 1))
     except Exception:  # noqa: BLE001
-        s.set_socket_local_transform(mesh, unreal.Transform(rel, unreal.Rotator(0, 0, 0), unreal.Vector(1, 1, 1)))
+        s.set_socket_local_transform(mesh, unreal.Transform(rel, rot, unreal.Vector(1, 1, 1)))
     return [round(rel.x, 3), round(rel.y, 3), round(rel.z, 3)]
 
 
@@ -154,8 +187,9 @@ def _put_static_socket(mesh, name, loc):
 
 
 def sockets():
-    table, parts = socket_table()
-    rep = {}
+    m = measure()
+    table, parts = socket_table(m)
+    rep = {"_measure": m.get("_source")}
     for r in RIFLES:
         path = DEST + "/" + r
         if not ASSETS.does_asset_exist(path):
@@ -330,6 +364,13 @@ def reticle():
     return m
 
 
+# RoughnessScale per instance. The attachment sets' roughness (ORM green) is lower than the receiver's: medians 0.43
+# (Attachments_01: scope, silencer), 0.47 (_02: laser, vertical grip), 0.47 (_03: angled grip) against 0.52 to 0.56
+# on the rifle sets 01 to 03, with most texels metallic, so the parts read as glossy black plastic. These scales put
+# the parts' medians at 0.56 to 0.60, the receiver's matte anodised range (measured on the 4K maps, 8x reduced).
+ROUGHNESS = {"MI_TFA_AR_ATT_01": 1.4, "MI_TFA_AR_ATT_02": 1.25, "MI_TFA_AR_ATT_03": 1.2}
+
+
 def materials():
     master = master_surface()
     g = glass()
@@ -345,6 +386,7 @@ def materials():
         MEL.set_material_instance_parent(mi, master)
         for p, suf in (("BaseColor", "D"), ("Normal", "N"), ("ORM", "ORM")):
             MEL.set_material_instance_texture_parameter_value(mi, p, unreal.load_asset("%s/T_TFA_AR_%s_%s" % (TEX, s, suf)))
+        MEL.set_material_instance_scalar_parameter_value(mi, "RoughnessScale", ROUGHNESS.get(slot, 1.0))
         MEL.update_material_instance(mi)
         ASSETS.save_loaded_asset(mi)
         out[slot] = path
@@ -441,12 +483,23 @@ def import_mesh(name, dest, skeletal, skeleton_path=None):
 
 
 # ---------------------------------------------------------------- icons (rendered by bl_icons.py, box only)
-ICONS_IN = os.environ.get("MI_ICONS", "/project/ue/animpack/icons")
+def _icons_in():
+    """$MI_ICONS (import-animpack.sh), else <project>/Saved/AnimPack/icons, else the scratch project's icons."""
+    if os.environ.get("MI_ICONS"):
+        return os.environ["MI_ICONS"]
+    pf = _project_facts()
+    if pf and os.path.isdir(os.path.join(pf, "icons")):
+        return os.path.join(pf, "icons")
+    return "/project/ue/animpack/icons"
+
+
+ICONS_IN = _icons_in()
 ICONS = "/Game/UI/Icons"
 
 
-def import_icons(folder=ICONS_IN):
+def import_icons(folder=None):
     """T_UI_Gun_* and T_UI_Att_* as UI textures (sRGB, UserInterface2D, no mips) under /Game/UI/Icons."""
+    folder = folder or _icons_in()
     if not os.path.isdir(folder):
         return "no icons in %s (run bl_icons.py)" % folder
     tasks = []

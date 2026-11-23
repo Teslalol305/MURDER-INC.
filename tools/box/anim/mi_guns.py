@@ -217,15 +217,68 @@ WEPA = W + "/Anims/FP/"
 EYE = (0.0, 0.66, 162.0)
 
 
+# First-person (arms and gun) field of view, vertical degrees, blended by Ads (ANIMATION.md 9). Hip 54 (84.3 h at
+# 16:9); aimed it narrows so the sight picture reads at the size of current shooters: irons 38 (63.0 h), any optic
+# 32 (54.0 h). The world FOV stays the rules' (74 / 52 aimed / 30 scope).
+FP_FOV_V = {"hip": 54.0, "irons": 38.0, "optic": 32.0}
+
+
+def fov_h(v_deg, aspect=16.0 / 9.0):
+    return math.degrees(2.0 * math.atan(math.tan(math.radians(v_deg) / 2.0) * aspect))
+
+
+def fp_fov(ads=0.0, optic=False, aspect=16.0 / 9.0):
+    """The recipe's arms FOV, horizontal degrees, at Ads 0..1 (linear in the vertical angle, as the rules blend)."""
+    v = FP_FOV_V["hip"] + (FP_FOV_V["optic" if optic else "irons"] - FP_FOV_V["hip"]) * max(0.0, min(1.0, ads))
+    return fov_h(v, aspect)
+
+
+# The pack rifle's two magazine bones during its reloads (A_TFA_FP_WEP_AR_*, measured every 1/15 s with AnimPose):
+# Magazine carries the old magazine, Magazine_Reserve the fresh one from the chest pouch (36 cm from the seat in
+# gun space, where it rests outside the reloads). In first person there is no pouch: hide a magazine that rests there.
+#   reserve: the left hand has the fresh magazine from this time (before it, hide Magazine_Reserve's mesh)
+#   out:     the old magazine leaves the seat
+#   drop:    True = it falls free (spawn a physics SM_TFA_AR_Magazine_Empty / _Full at the Magazine bone with the
+#            bone's velocity at `out` and hide the bone's mesh to the end); False = retained, carried to the pouch
+#   stow:    retained only: the hand lets go of it in the pouch (hide the Magazine bone's mesh from here)
+#   seated:  the fresh magazine is home (Magazine_Reserve on the seat to the end of the clip)
+# At the end of every clip the bones swap back (the idle has Magazine on the seat, Magazine_Reserve in the pouch):
+# show the magazine mesh on Magazine (MagHinge) with the fresh magazine's rounds, hide Magazine_Reserve's.
+RELOAD_MAGS = {
+    "A_TFA_FP_WEP_AR_Reload": {"reserve": 0.267, "out": 0.867, "drop": False, "stow": 2.067, "seated": 1.40},
+    "A_TFA_FP_WEP_AR_Reload_Empty_Retain": {"reserve": 0.267, "out": 0.867, "drop": False, "stow": 2.133,
+                                            "seated": 1.40},
+    "A_TFA_FP_WEP_AR_Reload_Empty": {"reserve": 0.267, "out": 0.333, "drop": True, "stow": None, "seated": 1.333},
+    "A_TFA_FP_WEP_AR_Reload_Quick": {"reserve": 0.267, "out": 0.40, "drop": True, "stow": None, "seated": 1.467},
+}
+
+
+def mag_shown(wep, t):
+    """(old magazine on Magazine shown, fresh one on Magazine_Reserve shown) at t of a weapon reload clip."""
+    r = RELOAD_MAGS.get(wep)
+    if r is None:
+        return True, False
+    old = t < r["out"] if r["drop"] else t < r["stow"]
+    return old, t >= r["reserve"]
+
+
 def fp(clip, t, wep=None, length="Default", parts=(), mesh=ARMS, mag="standard", rounds=30, reserve=False,
        label="FP", sight=None):
     """Arms (or the mannequin) playing a pack FP clip at t with the pack rifle on ik_hand_gun (identity) playing
     the matching weapon clip; returns the camera 'x,y,z,pitch,yaw,roll' of the recipe. sight: None = the recipe's
-    eye; 'irons' / 'scope' = the eye moved onto that sight's axis (the aimed-state correction for the optic)."""
+    eye; 'irons' / 'scope' = the eye moved onto that sight's axis (the aimed-state correction for the optic).
+    The magazines follow RELOAD_MAGS (a dropped or stowed magazine hidden, the reserve shown once in hand); the
+    picture's FOV is fp_fov(Ads, optic)."""
     a = _skel(mesh, (0, 0, 0), unreal.Rotator(0, 0, 0), label, CHAR + clip, t)
     g_labels = rifle(length, parts, loc=(0, 0, 0), yaw=0.0, label=label + "_Gun",
                      anim=(WEPA + wep) if wep else None, t=t, parent=a, parent_socket="ik_hand_gun")
-    if reserve:
+    old_shown, res_shown = mag_shown(wep, t)
+    if not old_shown:
+        for x in ACTORS.get_all_level_actors():
+            if x.get_actor_label().startswith(label + "_Gun_Mag"):
+                x.set_actor_hidden_in_game(True)
+                x.set_is_temporarily_hidden_in_editor(True)
+    if reserve and res_shown:
         m = _static(ATT + "/SM_TFA_AR_Magazine_Full", label + "_Reserve")
         _attach(m, actor(label + "_Gun"), "Magazine_Reserve")
     eye = EYE

@@ -18,9 +18,10 @@
 #   import-animpack.sh <Project.uproject> guns      the six rifles (3 lengths x irons up / folded), every part, the
 #                                                   magazines, the pack's 4K materials, the scope reticle, the loadout
 #                                                   sockets and the UI icons (needs `pack` first for the two skeletons):
-#                                                   bl_measure.py + bl_icons.py (bpy at /opt/blpy; without it the
-#                                                   committed pack_measure.json and any icons already rendered are
-#                                                   used), then ue_import_guns.py headless -> /Game/ThirdParty/InfimaTFA/
+#                                                   bl_measure.py + bl_icons.py (bpy at /opt/blpy) into FACTS and
+#                                                   MI_ICONS (default <project>/Saved/AnimPack/{facts,icons}; without
+#                                                   bpy the committed pack_measure.json and any icons already there
+#                                                   are used), then ue_import_guns.py headless -> /Game/ThirdParty/InfimaTFA/
 #                                                   Weapon{,/Attachments,/Materials,/Textures}, /Game/UI/Icons
 #   import-animpack.sh <Project.uproject> all       pack + guns
 #   import-animpack.sh <Project.uproject> chopper   re-import a re-exported CHOPPER and rebuild its whole adaptation:
@@ -37,7 +38,10 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ -f "$UP" ] || { echo "usage: import-animpack.sh <Project.uproject> pack|adapted|adapt|guns|all|chopper"; exit 2; }
 if [ "$(id -un)" != ue4 ] && { [ "$MODE" = guns ] || [ "$MODE" = all ]; }; then
   # bpy lives in root's uv tree (/opt/blpy -> /root/.local/...): the Blender steps run here, before the switch to ue4
-  BL=${BL:-/opt/blpy/bin/python}; FACTS=${FACTS:-/project/ue/animpack/facts}; ICONS=${MI_ICONS:-/project/ue/animpack/icons}
+  # facts and icons of THIS project by default: <project>/Saved/AnimPack/{facts,icons} (FACTS= / MI_ICONS= override)
+  SAVED=$(dirname "$UP")/Saved; mkdir -p "$SAVED/AnimPack"; chown ue4 "$SAVED" "$SAVED/AnimPack"
+  BL=${BL:-/opt/blpy/bin/python}; FACTS=${FACTS:-$SAVED/AnimPack/facts}; ICONS=${MI_ICONS:-$SAVED/AnimPack/icons}
+  export FACTS MI_ICONS=$ICONS
   BLEND=${BLEND:-/project/ue/packs/tactical-rifle/Blender_Source_Files_TacticalAssaultRifle/Rigs/RIG_InfimaGames_TFA_AssaultRifle.blend}
   LOG=/project/ue/logs/animpack; mkdir -p $LOG
   if [ -x "$BL" ]; then
@@ -46,13 +50,17 @@ if [ "$(id -un)" != ue4 ] && { [ "$MODE" = guns ] || [ "$MODE" = all ]; }; then
     [ -f "$FACTS/rig.json" ] || "$BL" -I "$HERE/bl_rig.py" "$BLEND" "$FACTS/rig.json" > $LOG/bl_rig.log 2>&1
     "$BL" -I "$HERE/bl_measure.py" "$PACK" "$FACTS/meshes.json" "$FACTS/pack_sockets.json" > $LOG/bl_measure.log 2>&1 && echo "measured: $FACTS/pack_measure.json"
     "$BL" -I "$HERE/bl_icons.py" "$PACK" "$ICONS" > $LOG/bl_icons.log 2>&1 && echo "icons: $(ls $ICONS | wc -l) in $ICONS"
-    chmod -R a+rX "$FACTS" "$ICONS"
+    chown -R ue4 "$FACTS" "$ICONS"; chmod -R a+rX "$FACTS" "$ICONS"
   else
     echo "no bpy at $BL (/project/ue/bl/install.sh makes it): the committed $HERE/pack_measure.json and the icons already in $ICONS are used"
   fi
 fi
-if [ "$(id -un)" != ue4 ]; then exec su ue4 -c "$(printf '%q ' env MI_ICONS="${MI_ICONS:-/project/ue/animpack/icons}" bash "$0" "$@")"; fi
+if [ "$(id -un)" != ue4 ]; then exec su ue4 -c "$(printf '%q ' env MI_FACTS="${FACTS:-}" MI_ICONS="${MI_ICONS:-}" bash "$0" "$@")"; fi
 PROJ=$(dirname "$UP"); LOG=/project/ue/logs/animpack; mkdir -p $LOG
+# the commandlet reads the digest and icons this run made: $MI_FACTS/pack_measure.json, $MI_ICONS (ue_import_guns.measure
+# and import_icons try them first; unset, they default to <project>/Saved/AnimPack/{facts,icons})
+MI_FACTS=${MI_FACTS:-${FACTS:-$PROJ/Saved/AnimPack/facts}}; MI_ICONS=${MI_ICONS:-$PROJ/Saved/AnimPack/icons}
+export MI_FACTS MI_ICONS
 for p in $(pgrep -x UnrealEditor) $(pgrep -x UnrealEditor-Cm); do  # pgrep -x sees 15 characters
   tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -qF "$UP" && { echo "the editor of $UP is running (pid $p): stop it first"; exit 3; }
 done
@@ -104,8 +112,8 @@ PY
     run /tmp/mi-chopper-cmdlet.py ;;
   guns|all)
     if [ "$MODE" = all ]; then MODE=pack; run "$HERE/ue_import_pack.py --pack $PACK --dest /Game/ThirdParty/InfimaTFA${ONLY:+ --only $ONLY}"; MODE=guns; fi
-    ICONS=${MI_ICONS:-/project/ue/animpack/icons}
-    export MI_ICONS=$ICONS; run "$HERE/ue_import_guns.py --sync"
-    grep -E "MI-GUNS" "$LOG/import-guns.log" | tail -1 | cut -c1-600 ;;
+    run "$HERE/ue_import_guns.py --sync"
+    grep -E "MI-GUNS" "$LOG/import-guns.log" | tail -1 | cut -c1-600
+    grep -o '"_measure": "[^"]*"' "$PROJ/Saved/AnimPack/sockets.json" 2>/dev/null | head -1 ;;
   *) echo "mode: pack | adapted | adapt | guns | all | chopper"; exit 2 ;;
 esac
