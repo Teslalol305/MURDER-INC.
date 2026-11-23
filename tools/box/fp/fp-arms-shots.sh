@@ -129,17 +129,23 @@ F = cr.get_forward_vector()
 # end-on disc with the word at its rim), so it is seen from 45 degrees toward the wrist, past the upper arm
 th = 0.0 if sx == "l" else 45.0
 # the gun hidden for the close-up (the CHOPPER's pistol grip, in the right hand, stands between the eye and the word)
-for comp in pawn.get_components_by_class(unreal.SkeletalMeshComponent):
-    a = comp.get_skinned_asset()
-    if comp != arms and a and a.get_name() != "SK_RuleArms" and comp.is_visible():
-        comp.set_visibility(False, True)
+# (everything attached under the arms but the bracelet; the guns are not the pawn's own components)
+hidden = []
+for comp in arms.get_children_components(True):
+    if not isinstance(comp, unreal.PrimitiveComponent) or not comp.is_visible():
+        continue
+    mesh = comp.static_mesh if isinstance(comp, unreal.StaticMeshComponent) else None
+    if mesh and "Bracelet" in mesh.get_name():
+        continue
+    comp.set_visibility(False, False)
+    hidden.append(comp.get_name())
 v = (n * M.cos(M.degrees_to_radians(th)) - A * M.sin(M.degrees_to_radians(th))).normal()
 newp = C + F * 30.0
 cur = unreal.Transform(p, M.make_rot_from_yx(v, A), unreal.Vector(1, 1, 1))
 tgt = unreal.Transform(newp, M.make_rot_from_yx(F * -1.0, cr.get_up_vector()), unreal.Vector(1, 1, 1))
 t = M.compose_transforms(M.compose_transforms(arms.get_world_transform(), M.invert_transform(cur)), tgt)
 arms.set_world_transform(t, False, True)
-"forearm %s: tattoo point moved to %.0f %.0f %.0f, 30 cm in front of the eye" % (sx, newp.x, newp.y, newp.z)
+"forearm %s: tattoo point moved to %.0f %.0f %.0f, 30 cm in front of the eye; hidden %s" % (sx, newp.x, newp.y, newp.z, hidden)
 PY
 cat > "$PIE_PY/_unpause.py" <<'PY'
 import unreal
