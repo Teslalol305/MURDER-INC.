@@ -44,6 +44,24 @@ c "MIInput weapon1 1"; run 1.0; c "MIInput weapon1 0"
 
 c "MIPose 170 -380 0 -35 -4"; run 1.2; want fp-arms-hip-sun && shot fp-arms-hip-sun
 textures hip-sun
+# evidence (not committed: ev-*.jpg): the same frame unlit (the base colour as the arms receive it) and with the
+# Subsurface Profile variant of the skin (M_RuleArms_SkinProfile), against the game's Standard Subsurface material
+if [ -z "${ONLY:-}" ] || want ev; then
+  c "viewmode unlit"; shot ev-unlit 20; c "viewmode lit"
+  cat > "$PIE_PY/_skinmat.py" <<'PY'
+import unreal
+which = open(unreal.Paths.project_saved_dir() + "/mi_skinmat.txt").read().strip()
+w = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world()
+pawn = unreal.GameplayStatics.get_player_pawn(w, 0)
+for comp in pawn.get_components_by_class(unreal.SkeletalMeshComponent):
+    a = comp.get_skinned_asset()
+    if a and a.get_name() == "SK_RuleArms":
+        comp.set_material_by_name("M_RuleArms_Skin", unreal.load_asset("/Game/Characters/RuleArms/Materials/" + which))
+which
+PY
+  echo M_RuleArms_SkinProfile > "$MI_PROJECT_DIR/Saved/mi_skinmat.txt"; pie_mcp py "$PIE_PY/_skinmat.py" | tail -1; shot ev-profile 30
+  echo M_RuleArms_Skin > "$MI_PROJECT_DIR/Saved/mi_skinmat.txt"; pie_mcp py "$PIE_PY/_skinmat.py" | tail -1
+fi
 c "MIPose -2900 80 0 0 -3"; run 1.2; want fp-arms-hip-el && shot fp-arms-hip-el
 c "MIInput ads 1"; run 0.8; want fp-arms-irons && shot fp-arms-irons
 c "MIInput ads 0"; run 0.6

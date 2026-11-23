@@ -165,14 +165,14 @@ def nail_material(path=ARMS + "/Materials/M_RuleArms_Nail"):
     m = _material(path)
     bc = _tex(m, ARMS + "/Textures/T_RuleArms_Skin_BC", -800, -200, "color")
     nm = _tex(m, ARMS + "/Textures/T_RuleArms_Skin_N", -800, 300, "normal")
-    tint = _vector(m, "NailTint", (0.62, 0.45, 0.40), -800, 0)
+    tint = _vector(m, "NailTint", (0.50, 0.36, 0.32), -800, 0)
     lerp = _expr(m, unreal.MaterialExpressionLinearInterpolate, -450, -100)
     MEL.connect_material_expressions(bc, "RGB", lerp, "A")
     MEL.connect_material_expressions(tint, "", lerp, "B")
-    a = _scalar(m, "TintAmount", 0.25, -800, 150)       # the texture's lunula and free edge must still read
+    a = _scalar(m, "TintAmount", 0.12, -800, 150)       # the texture's lunula and free edge must still read
     MEL.connect_material_expressions(a, "", lerp, "Alpha")
     MEL.connect_material_property(lerp, "", unreal.MaterialProperty.MP_BASE_COLOR)
-    MEL.connect_material_property(_scalar(m, "Roughness", 0.32, -450, 100), "", unreal.MaterialProperty.MP_ROUGHNESS)
+    MEL.connect_material_property(_scalar(m, "Roughness", 0.38, -450, 100), "", unreal.MaterialProperty.MP_ROUGHNESS)
     MEL.connect_material_property(_scalar(m, "Specular", 0.55, -450, 180), "", unreal.MaterialProperty.MP_SPECULAR)
     MEL.connect_material_property(nm, "RGB", unreal.MaterialProperty.MP_NORMAL)
     _set(m, used_with_skeletal_mesh=True)
@@ -223,10 +223,14 @@ def game_skin_profile(path=ARMS + "/Materials/SP_RuleSkin"):
     return prof
 
 
-def skin_material(path=ARMS + "/Materials/M_RuleArms_Skin", tex=ARMS + "/Textures", forearm_px_per_m=None):
+def skin_material(path=ARMS + "/Materials/M_RuleArms_Skin", tex=ARMS + "/Textures", forearm_px_per_m=None, shading="subsurface"):
     """M_RuleArms_Skin rebuilt with parameters (crew instances override them): base colour = BC x SkinTint; roughness
     = ORM.G x RoughnessScale; AO = ORM.R; Specular 0.35; normal = the baked N with the tiling skin grain added
-    (whiteout blend, DetailStrength); Subsurface Profile SP_RuleSkin, scatter amount (Opacity) Scatter 0.35."""
+    (whiteout blend, DetailStrength).
+    shading "subsurface" (the game's): the Standard Subsurface model, no screen-space blur: Subsurface Colour a deep
+    red-brown (SubsurfaceTint x BC), Opacity Scatter 0.8 (light through thin fingers and ear-thin edges only).
+    shading "profile": the Subsurface Profile model with SP_RuleSkin, scatter amount (Opacity) Scatter 0.35. On the
+    first-person pass the screen-space scatter of this model averaged the whole forearm: see CHARACTERS.md."""
     prof = game_skin_profile()
     m = _material(path)
     bc = _tex(m, tex + "/T_RuleArms_Skin_BC", -1400, -300, "color")
@@ -243,7 +247,14 @@ def skin_material(path=ARMS + "/Materials/M_RuleArms_Skin", tex=ARMS + "/Texture
     MEL.connect_material_property(rs, "", unreal.MaterialProperty.MP_ROUGHNESS)
     MEL.connect_material_property(orm, "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION)
     MEL.connect_material_property(_scalar(m, "Specular", 0.35, -600, 120), "", unreal.MaterialProperty.MP_SPECULAR)
-    MEL.connect_material_property(_scalar(m, "Scatter", 0.35, -600, 700), "", unreal.MaterialProperty.MP_OPACITY)
+    if shading == "profile":
+        MEL.connect_material_property(_scalar(m, "Scatter", 0.35, -600, 700), "", unreal.MaterialProperty.MP_OPACITY)
+    else:
+        MEL.connect_material_property(_scalar(m, "Scatter", 0.8, -600, 700), "", unreal.MaterialProperty.MP_OPACITY)
+        sc = _expr(m, unreal.MaterialExpressionMultiply, -700, -150)
+        MEL.connect_material_expressions(col, "", sc, "A")
+        MEL.connect_material_expressions(_vector(m, "SubsurfaceTint", (1.6, 0.55, 0.35), -900, -150), "", sc, "B")
+        MEL.connect_material_property(sc, "", unreal.MaterialProperty.MP_SUBSURFACE_COLOR)
     detail = tex + "/T_RuleArms_SkinDetail_N"
     if ASSETS.does_asset_exist(detail):
         tiling = (4096.0 / forearm_px_per_m) / DETAIL_TILE_M if forearm_px_per_m else 150.0
@@ -261,8 +272,11 @@ def skin_material(path=ARMS + "/Materials/M_RuleArms_Skin", tex=ARMS + "/Texture
         MEL.connect_material_property(blend, "", unreal.MaterialProperty.MP_NORMAL)
     else:
         MEL.connect_material_property(nm, "RGB", unreal.MaterialProperty.MP_NORMAL)
-    _set(m, shading_model=unreal.MaterialShadingModel.MSM_SUBSURFACE_PROFILE, subsurface_profile=prof,
-         used_with_skeletal_mesh=True)
+    if shading == "profile":
+        _set(m, shading_model=unreal.MaterialShadingModel.MSM_SUBSURFACE_PROFILE, subsurface_profile=prof,
+             used_with_skeletal_mesh=True)
+    else:
+        _set(m, shading_model=unreal.MaterialShadingModel.MSM_SUBSURFACE, used_with_skeletal_mesh=True)
     MEL.recompile_material(m)
     try:
         MEL.get_statistics(m)
@@ -281,7 +295,9 @@ def arms():
     meta = os.path.join(IN, "textures", "RuleArms_Skin", "set.json")
     if os.path.exists(meta):
         uvd = json.load(open(meta)).get("forearm_px_per_m")
-    rep["skin"] = skin_material(forearm_px_per_m=uvd)
+    rep["skin"] = skin_material(forearm_px_per_m=uvd, shading=os.environ.get("MI_ARMS_SHADING", "subsurface"))
+    # the other model, kept for comparison in play (fp-arms-shots.sh, MI_ARMS_ALT)
+    rep["skin_alt"] = skin_material(ARMS + "/Materials/M_RuleArms_SkinProfile", forearm_px_per_m=uvd, shading="profile")
     nail_material()
     rep["slots"] = _assign_all(ARMS + "/SK_RuleArms", {"M_RuleArms_Skin": ARMS + "/Materials/M_RuleArms_Skin",
                                                        "M_RuleArms_Nail": ARMS + "/Materials/M_RuleArms_Nail"})
