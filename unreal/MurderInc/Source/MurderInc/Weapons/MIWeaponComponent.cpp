@@ -210,7 +210,9 @@ void UMIWeaponComponent::Step(double Dt, const FMIWeaponInput& Input, const FVec
 	{
 		FPRig->UpdateHands(GunMesh);
 	}
-	FlashAge += Dt;
+	// At most a 60 fps frame per step: the flash stays up for its life's worth of frames even when a frame is long
+	// (the headless editor runs at 10 to 20 fps: one step hid it before it was ever drawn).
+	FlashAge += FMath::Min(Dt, 1.0 / 60.0);
 	if (FlashAge >= FlashLife)
 	{
 		for (UStaticMeshComponent* C : FlashCards)

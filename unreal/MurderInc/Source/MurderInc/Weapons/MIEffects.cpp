@@ -503,6 +503,9 @@ void UMIEffects::Tick(float DeltaTime)
 		return;
 	}
 	const double Dt = DeltaTime;
+	// Flashes, lights and tracers advance at most a 60 fps frame per frame, so each is drawn for its life's worth of
+	// frames however long a frame takes (a 0.1 s frame ended a 0.045 s flash or a 0.09 s tracer before it was drawn).
+	const double FrameDt = FMath::Min(Dt, 1.0 / 60.0);
 	FVector Cam = FVector::ZeroVector;
 	if (const APlayerController* PC = World->GetFirstPlayerController(); PC && PC->PlayerCameraManager)
 	{
@@ -538,7 +541,7 @@ void UMIEffects::Tick(float DeltaTime)
 	}
 	for (FCard& X : Cards)
 	{
-		if (X.Age < X.Life && (X.Age += Dt) >= X.Life)
+		if (X.Age < X.Life && (X.Age += FrameDt) >= X.Life)
 		{
 			X.Mesh->SetVisibility(false);
 		}
@@ -549,7 +552,7 @@ void UMIEffects::Tick(float DeltaTime)
 		{
 			continue;
 		}
-		X.Age += Dt;
+		X.Age += FrameDt;
 		const double K = FMath::Clamp(X.Age / X.Life, 0.0, 1.0);
 		X.Light->SetIntensity(static_cast<float>(X.Peak * FMath::Square(1.0 - K)));
 		if (X.Age >= X.Life) X.Light->SetVisibility(false);
@@ -571,7 +574,7 @@ void UMIEffects::Tick(float DeltaTime)
 		{
 			continue;
 		}
-		X.Age += Dt;
+		X.Age += FrameDt;
 		if (X.Age >= X.Life)
 		{
 			X.Mesh->SetVisibility(false);

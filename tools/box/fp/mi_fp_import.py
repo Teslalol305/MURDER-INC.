@@ -551,7 +551,11 @@ def fx():
     _set(m, blend_mode=unreal.BlendMode.BLEND_ADDITIVE, shading_model=unreal.MaterialShadingModel.MSM_UNLIT, two_sided=True)
     rep["flash"] = _finish(m, p)
 
-    # smoke, dust, mist, fireball: lit translucent puff (volumetric lighting, so the sun shades it), depth-faded
+    # smoke, dust, mist, fireball. Fix pass (review 2026-11-23): as a translucent card (lit or unlit) the dark puffs never
+    # showed in play: a bright card on the same material did (fx_diag.py), a smoke-coloured one at opacity 0.5 left
+    # the street behind it untouched. The puff is now a lit, masked card whose coverage is dithered per pixel
+    # (DitherTemporalAA: TSR resolves the dither into a soft edge), so it takes the sun, the sky and Lumen like any
+    # surface and never goes through the translucency pass. Base colour = Color; the fireball's glow stays emissive.
     p = FX + "/M_FX_Smoke"
     m = _material(p)
     uv = _expr(m, unreal.MaterialExpressionTextureCoordinate, -900, 0)
@@ -562,26 +566,23 @@ def fx():
     op = _expr(m, unreal.MaterialExpressionMultiply, -350, 0)
     MEL.connect_material_expressions(c, "", op, "A")
     MEL.connect_material_expressions(_scalar(m, "Opacity", 0.5, -600, 120), "", op, "B")
-    df = _expr(m, unreal.MaterialExpressionDepthFade, -200, 0)
-    df.set_editor_property("fade_distance_default", 40.0)
-    MEL.connect_material_expressions(op, "", df, "Opacity")
-    MEL.connect_material_property(df, "", unreal.MaterialProperty.MP_OPACITY)
-    # Unlit: the lit volumetric translucency drew nothing in the game's pictures (first pass), so the puff carries
-    # its own daylight: colour x Light (nits; the street in sun is about 10,000), plus the fireball's own glow.
-    lit = _expr(m, unreal.MaterialExpressionMultiply, -350, 200)
-    MEL.connect_material_expressions(_vector(m, "Color", (0.42, 0.40, 0.37), -600, 200), "", lit, "A")
-    MEL.connect_material_expressions(_scalar(m, "Light", 6000.0, -600, 280), "", lit, "B")
+    dither = _expr(m, unreal.MaterialExpressionDitherTemporalAA, -200, 0)
+    MEL.connect_material_expressions(op, "", dither, "AlphaThreshold")
+    MEL.connect_material_property(dither, "", unreal.MaterialProperty.MP_OPACITY_MASK)
+    col = _vector(m, "Color", (0.42, 0.40, 0.37), -600, 200)
+    MEL.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    MEL.connect_material_property(_scalar(m, "Roughness", 1.0, -600, 260), "", unreal.MaterialProperty.MP_ROUGHNESS)
+    MEL.connect_material_property(_scalar(m, "Specular", 0.1, -600, 300), "", unreal.MaterialProperty.MP_SPECULAR)
+    _scalar(m, "Light", 6000.0, -900, 420)   # kept for the effects code (unused: the puff is lit now)
     fire = _expr(m, unreal.MaterialExpressionMultiply, -350, 320)
     MEL.connect_material_expressions(_vector(m, "FireColor", (1.0, 0.45, 0.12), -600, 320), "", fire, "A")
     MEL.connect_material_expressions(_scalar(m, "Fire", 0.0, -600, 420), "", fire, "B")
     fire2 = _expr(m, unreal.MaterialExpressionMultiply, -200, 320)
     MEL.connect_material_expressions(fire, "", fire2, "A")
     MEL.connect_material_expressions(c, "", fire2, "B")
-    glow = _expr(m, unreal.MaterialExpressionAdd, -100, 260)
-    MEL.connect_material_expressions(lit, "", glow, "A")
-    MEL.connect_material_expressions(fire2, "", glow, "B")
-    MEL.connect_material_property(glow, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
-    _set(m, blend_mode=unreal.BlendMode.BLEND_TRANSLUCENT, shading_model=unreal.MaterialShadingModel.MSM_UNLIT, two_sided=True)
+    MEL.connect_material_property(fire2, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    _set(m, blend_mode=unreal.BlendMode.BLEND_MASKED, shading_model=unreal.MaterialShadingModel.MSM_DEFAULT_LIT, two_sided=True,
+         opacity_mask_clip_value=0.3333)
     rep["smoke"] = _finish(m, p)
 
     # tracer: a thin hot streak (unlit additive)
