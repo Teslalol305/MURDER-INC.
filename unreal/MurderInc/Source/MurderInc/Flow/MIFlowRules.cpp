@@ -278,13 +278,13 @@ bool FMIFlowTune::Parse(const TSharedPtr<FJsonObject>& Config, FMIFlowTune& O, F
 	O.ResupplyReserveCap = R.N(TEXT("flow.holdout.resupply.reserveCap"));
 	O.ResupplyHeal = R.N(TEXT("flow.holdout.resupply.heal"));
 	O.ExplosivesEvery = R.I(TEXT("flow.holdout.resupply.explosivesEvery"));
-	for (const FString Table : {FString(TEXT("time")), FString(TEXT("accuracy"))})
+	for (const TCHAR* Table : {TEXT("time"), TEXT("accuracy")})
 	{
-		if (TSharedPtr<FJsonValue> V = R.Find(TEXT("flow.rating.") + Table))
+		if (TSharedPtr<FJsonValue> V = R.Find(FString(TEXT("flow.rating.")) + Table))
 		{
 			for (const TSharedPtr<FJsonValue>& Row : V->AsArray())
 			{
-				(Table == TEXT("time") ? O.RatingTime : O.RatingAccuracy).Add({Row->AsArray()[0]->AsNumber(), static_cast<int32>(Row->AsArray()[1]->AsNumber())});
+				(FCString::Strcmp(Table, TEXT("time")) == 0 ? O.RatingTime : O.RatingAccuracy).Add({Row->AsArray()[0]->AsNumber(), static_cast<int32>(Row->AsArray()[1]->AsNumber())});
 			}
 		}
 	}
