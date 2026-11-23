@@ -1701,7 +1701,7 @@ def mark_piece(ob, value=1.0):
 
 
 def build_chopper(ctx):
-    gun, arm = chopper_build(ctx)
+    gun, arm = CH9.chopper_build(ctx)
     res = tex_res(ctx, "SK_Chopper")
     dens = unwrap(gun, res)
     ctx.log("SK_Chopper: %d tris, %.0f px/m" % (geo.stats(gun)["triangles"], dens))
@@ -1709,7 +1709,7 @@ def build_chopper(ctx):
     geo.ensure_wear(gun)
     SKINNED["SK_Chopper"] = {"ob": gun, "arm": arm, "expect_size": (0.502, 0.065, None), "poses": chopper_poses(),
                              "notes": CHOPPER_NOTES}
-    body, top = chopper_magazine(ctx.col)
+    body, top = CH9.chopper_magazine(ctx.col)
     mark_piece(body, 0.0)
     mark_piece(top, 1.0)
     mag = geo.join([body, top], "SM_Weapon_ChopperMagazine", ctx.col)
@@ -2271,3 +2271,4 @@ def on_preview(ctx, objs):
 from assets import _weapons_kit as KIT  # noqa: E402
 from assets import _weapons_nine as N9  # noqa: E402
 from assets import _weapons_tex as TX  # noqa: E402
+from assets import _weapons_chopper as CH9  # noqa: E402
