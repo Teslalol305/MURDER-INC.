@@ -62,7 +62,7 @@ start() {
   fi
   export HOME=/home/ue4
   mkdir -p /home/ue4/.config; [ -L /home/ue4/.config/Epic ] || ln -sfn /project/ue/home/Epic /home/ue4/.config/Epic
-  echo RUNNING > "$ST"; date +%s > "$WORK/package.start"
+  echo RUNNING > "$ST"; date +%s > "$WORK/package.start"; rm -f "$WORK/package.end"
   setsid nohup bash -c '
     echo $$ > '"$WORK"'/package.pid
     cd '"$ENGINE"' && env UE-LocalDataCachePath=/project/ue/ddc ./Engine/Build/BatchFiles/RunUAT.sh BuildCookRun -project='"$DEMO"'/MurderInc.uproject \
