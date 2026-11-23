@@ -157,10 +157,11 @@
       "note": "a cyclorama room; engine cube walls until the art exists (status missing)"
     },
     "lights": [
-      {"kind": "rect", "at": [-180, -160, 140], "aim": [0, 0, 106], "lux": 1800, "kelvin": 4300, "size": [120, 60]},
-      {"kind": "rect", "at": [160, -120, 90], "aim": [0, 0, 106], "lux": 600, "kelvin": 5600, "size": [80, 80]},
-      {"kind": "spot", "at": [0, 180, 160], "aim": [0, 0, 106], "lux": 1200, "kelvin": 3600, "cone": 35}
+      {"kind": "rect", "at": [-180, -160, 140], "aim": [0, 0, 106], "lux": 2600, "kelvin": 4300, "size": [120, 60]},
+      {"kind": "rect", "at": [-150, 120, 100], "aim": [0, 0, 106], "lux": 900, "kelvin": 5600, "size": [100, 100]},
+      {"kind": "spot", "at": [180, 120, 170], "aim": [0, 0, 106], "lux": 2400, "kelvin": 3600, "cone": 30}
     ],
+    "lightsNote": "key (front left), fill (front right, on the camera's side: a rect light lights only what is in front of its plane, and the old fill behind the gun drew a hard lit-to-unlit seam across the back wall, fix pass) and a rim from behind right on the gun's top and back edges",
     "exposure": {"ev100": 9.5, "fixed": true},
     "bench": {
       "at": [0, 0, 0],
