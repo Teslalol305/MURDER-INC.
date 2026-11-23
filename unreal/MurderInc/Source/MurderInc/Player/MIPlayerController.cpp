@@ -440,7 +440,7 @@ void AMIPlayerController::MIBlowNearest()
 		D.Source = EMIDamageSource::Player;
 		D.From = C->GetPlayerRules().Eye;
 		D.Point = Best->GetActorLocation();
-		D.Direction = (D.Point - D.From).GetSafeNormal();
+		D.Direction = (Best->GetActorLocation() - C->GetPlayerRules().Eye).GetSafeNormal();
 		D.Instigator = C;
 		Best->ApplyMIDamage(D);
 		UE_LOG(LogMI, Log, TEXT("MIBlowNearest: %s at %.0f m"), *Best->GetName(), BestD / 100.0);

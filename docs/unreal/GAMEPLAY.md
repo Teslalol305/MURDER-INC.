@@ -237,3 +237,102 @@ alerts. The HUD bar shows the four slots and the bag; the world's objective mark
 player and the controller's own mappings through `InputKey`), `Frontend.Walk` (rules), `Frontend.WalkWorld` and
 `Frontend.WalkPad` (Home to the run with Slate key events only), `Frontend.Glyphs` (the fonts' character maps),
 `Enemies.GunfireRadius`, `Save.SetupRoundTrip`, `Save.SetupValidation`.
+
+# First person and the enemies as drawn (the pack clips, the real arms, the Goons, the effects)
+
+## 15. The viewmodel
+
+`UMIFirstPersonRig` (`Weapons/MIFirstPersonRig`) owns how the arms and the gun in hand are drawn; `UMIWeaponComponent`
+steps it after the rules and the procedural rig every frame. A gun is drawn one of three ways, chosen when it is
+equipped from its resolved presentation's `animSet` (presentation.json `firstPerson.animSets`):
+
+| Mode | When | Arms | Gun |
+|---|---|---|---|
+| Pack | set `rifle` (`mode: pack`): the CHOPPER (when its `realMesh`, the pack's Short rifle, exists), SHORTY, STICK, STRETCH | `SK_RuleArms` on the camera by the recipe of ANIMATION.md 9 (component (-0.66, 0, -162), yaw -90), playing the pack's FP clips | the pack rifle (`USkeletalMeshComponent`) on the arms' `ik_hand_gun`, identity, playing the pack's weapon clips; parts by `UMIGunAssembly` on it |
+| HandIK | set `pistol` (`mode: ik`): the NINE when `SK_Nine` exists | `SK_RuleArms` placed so the template body's `HandGrip_R` socket (read from `SKM_Manny_Simple`, same skeleton) holds the gun's grip, playing the template `MF_Pistol_Idle_ADS` with `MM_Pistol_Fire` added per round; both palms pulled onto `SK_Nine`'s `Palm_L` / `Palm_R` by two-bone IK (the `middle_metacarpal` point lands on the socket) | the procedural rig poses `SK_Nine`, its slide, barrel, trigger and magazine bones as before; `SM_Weapon_NineMagazine` rides the `magazine` bone |
+| Template | nothing above exists (a clean checkout) | the template body, as before | the template rifle or pistol, as before |
+
+Every choice falls back: a missing arms mesh, clip, gun mesh or a clip on another skeleton keeps the template way and
+logs why. `UMIFPAnimInstance` (`Weapons/MIFirstPersonAnim`) has no graph: the game thread hands it a stack of clips at
+times (`FMIFPPose`: override layers blended in order, additive layers relative to the clip's own first frame) and hand
+IK targets, and its proxy samples and blends them on the worker thread. It never decides timing.
+
+**The pack state mapping** (ANIMATION.md 4, roles in `animSets.rifle.arms` / `.gun`):
+
+| Rules state / event | Arms | Gun |
+|---|---|---|
+| Ready | `idle` (crouched: `crouch`) looped; `walkF/B/L/R` by the velocity's direction in the view, weight by speed / `walkSpeed`; `sprint` by `SprintBlend`; `fall` while airborne; `jumpStart` on `PlayerJump`, `jumpEnd` on `PlayerLand` (weight by fall speed) | `base` (the reference pose) |
+| Aim (`Ads`) | `aim` (`Aim_Pose`; `aimGripVertical` / `aimGripAngled` with that grip) blended by smoothstep(Ads): the pack's aim transitions are too slow for the rules' aim time | |
+| Each round (`WeaponFire`) | `fire` (hip) / `fireAimed` restarted, additive, weight `fireWeight` | `fire` restarted at `fireRate` |
+| Reloading | `reloadTactical` (Reload_Quick) or `reloadEmpty` (Reload_Empty), clip time = a piecewise-linear map of the rule's activity time through the marks: (0, 0), (magOut, 0.40 / 0.333), (magIn, 1.467 / 1.333), empty only (boltRelease or slideRelease, 2.15), (the rule's total, the clip's length). Every pack mark lands on the gun's own stage time (config / guns.json `reload`) | the same clip of the gun at the same time |
+| Holstering, Drawing | `holster` over the activity; `draw` (Equip_Quick, 0..0.53 s) over the activity; the rig's holster / draw offset stays on top | |
+| Striking | `melee` (Melee_Swing_L, 0..1.0 s) over the strike | |
+| Selector | `modeSwitch` (FireModeSwitch) at its own rate | |
+| Inspect key (T, View held; `MIInput inspect 1`) | `inspect`, or `magCheck` when the magazine is not full; also the idle flourish after `inspectAfter` (24 s) of calm; any activity, aim, sprint or shot ends it. Presentation only: the rules have no inspect | `inspect` / `magCheck` |
+
+Actions blend in over 0.08 s and out over 0.18 s; gun clips snap (their last frame is the reference pose).
+
+**Magazines (ANIMATION.md 9.1).** The seated magazine is the build's magazine part (`UMIGunAssembly::PartMesh`) or the
+rig's own `SM_TFA_AR_Magazine_Full` on `MagHinge`; a reserve one rides `Magazine_Reserve` with the hinge socket's frame.
+In a reload the reserve shows from `reserve` to the end; at `out` the seated one hides and a physics copy (`_Full` for
+the tactical, `_Empty` for the empty reload) is spawned where it appears on screen (`FirstPersonToWorld`) with the
+bone's velocity (`UMIEffects::SpawnBody`, 8 s); outside a reload the seated one shows and the reserve hides.
+
+**The procedural layers stay on top.** In Pack mode `FMIViewmodelRig::SetClipDriven(true, bobScale)` drops the rig's
+own sprint, reload, aim and strike poses; `GetLayerTransform()` (hip view to the final pose, camera space) carries the
+wall pull, holster and draw offsets, footstep bob (x `bobScale` 0.45: the walk loops bob too), breathing, look lag,
+inertia, jump and landing, bumps, the aim arc and the six recoil springs, and is applied to the arms' rest transform.
+
+**Camera.** First-person field of view: config `player.fov.viewmodel` (54 vertical) blended by Ads to `recipe.fovIrons`
+38 or, with any optic, `recipe.fovOptic` 32 (`UMIWeaponComponent::GetFirstPersonFov`; `FirstPersonToWorld` uses the
+current value). Near plane `recipe.nearClip` 1 cm (`GNearClippingPlane`, game worlds only). With an optic the arms move
+by minus the scope's `SightEye` offset from `SightRear` across the bore, times smoothstep(Ads), so the eye sits on the
+optic's axis. An optic other than the irons switches the base mesh to `variants.<v>.opticMesh` (the irons-folded twin:
+`FMIReadiness::BaseMesh`).
+
+**The CHOPPER's stand-in** (DECISIONS.md 2026-11-23): presentation.json `guns.chopper.realMesh` is the pack's Short
+rifle; `guns.chopper.real` (and `guns.nine.real` for `SK_Nine`) is merged over the gun's presentation by the resolver
+only when that mesh is the one drawn: its sockets, mesh frame, `animSet` and `materials` (slot -> material: the dark-earth
+`MI_Chopper_DarkEarth_01` / `_03` of `tools/box/fp/mi_fp_import.py paint_master`, a worn cerakote over the pack's own
+albedo that keeps the bright edges bare). The rules are never touched (`FirstPerson.RealArt`).
+
+**Arms.** presentation.json `firstPerson.arms` (`SK_RuleArms`) replaces the template body when it exists; its jewels
+(`firstPerson.jewels`: the silver bracelet; the watch is not worn on these arms) are placed from their Blender rest
+placement made relative to the bone's reference pose at run time.
+
+## 16. The enemies as drawn
+
+presentation.json `enemies.goon`: `variants` are `SK_Goon_Hoodie`, `_Puffer`, `_Tracksuit` (cycled by the rules'
+outfit index across the slots) at `meshScale` 0.98; when any is missing the `variantsFallback` mannequins at scale 1.
+The weapon is `SM_Weapon_GoonSMG` (a static mesh, origin at the grip) on bone `hand_r` at `weaponOffset` (CHARACTERS.md;
+socket names cannot be set from Python in 5.9), its muzzle at `muzzleOffset` (39, 0, 4.2) cm (weapons.py: bore 4.2 cm
+over the grip, muzzle device ends at 0.39 m); without it the template rifle on `HandGrip_R`. Animation as before
+(`ABP_TP_Rifle`). The Buzzard keeps its placeholder (`SK_Buzzard` is imported, not yet driven).
+
+## 17. Effects
+
+`UMIEffects` (`Weapons/MIEffects`, a tickable world subsystem, game worlds only) on the /Game/FX materials of
+`tools/box/fp/mi_fp_import.py fx`; tuning in presentation.json `fx`. Built in code on pooled components (no Niagara
+asset: the effect materials are procedural HLSL, the motion is the subsystem's):
+
+| Hook | Effect |
+|---|---|
+| Player round (`OnRoundFired`) | three first-person flash cards at the muzzle (the star across the bore, two crossed jets along it; `flash.life` 0.045 s) and a 0.05 s point light in the world (none at all with a silencer); a brass casing from `Eject` along its +X with the body's velocity (`SM_TFA_AR_Bullet_Casing` on the pack rifles, else a brass cylinder); the tracer as a moving streak (the old line tracer when the materials are absent) |
+| Enemy `Fire` (`AMIGoon::OnRuleEvent`) | a world flash at the SMG's muzzle with its light, the tracer to the first thing the round meets |
+| `Impact` on the world | two dust puffs in the surface's colour (`fx.surfaces`), a strike mark (deferred decal, 30 s), a spark card on metal |
+| `Impact` on an enemy | a short blood mist both ways and a spatter on the wall behind within 2.6 m |
+| `Explosion` | a 0.45 s light, a fireball (seven emissive puffs), twelve smoke puffs rising for 5 to 8 s, a dust ring, ten debris bodies, a scorch mark |
+
+## 18. Dev console (not in shipping builds)
+
+`MIPose <x> <y> <feet z> <yaw> <pitch>`, `MIFreezeAfter <s>` (world time dilation 0.0001 after that much game time),
+`MIFreezeOn <fire|reload|explosion|enemyfire> [delay]` (enemyfire: a Goon in sight within 16 m, the view turned onto
+it), `MIBlowNearest`, `MIInput inspect 1`, `MIFaceEnemy -1` (turn only). `tools/box/fp/fp-shots.sh` uses them for the
+pictures `docs/unreal/shots/fp-*.jpg`.
+
+## 19. Tests (first person)
+
+`FirstPerson.RealArt` (the CHOPPER and NINE resolve the real mesh, anim set, sockets and finish only when the art
+exists; the CHOPPER's rules JSON stays config.json's and its stage times 2.24 / 2.72), `FirstPerson.OpticTwin` (the
+three pack rifles take the irons-folded twin with the scope), `FirstPerson.Clips` (on the box: every clip of every anim
+set loads on the right skeleton, the reload marks rise; a clean checkout says so and passes).
