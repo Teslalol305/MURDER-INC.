@@ -7,7 +7,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/PoseableMeshComponent.h"
-#include "Animation/AnimationRuntime.h"
+#include "AnimationRuntime.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/SphereComponent.h"

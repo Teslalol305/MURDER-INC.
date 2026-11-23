@@ -30,8 +30,11 @@ void UMIGoonMeshComponent::FinalizeBoneTransform()
 			CS[L] = LT;
 			CS[E] = ET;
 			// Every descendant of the three follows its parent (children come after their parents in the array).
-			TBitArray<> Moved(false, CS.Num());
-			Moved[U] = Moved[L] = Moved[E] = true;
+			TArray<bool> Moved;
+			Moved.Init(false, CS.Num());
+			Moved[U] = true;
+			Moved[L] = true;
+			Moved[E] = true;
 			for (int32 I = U + 1; I < CS.Num(); ++I)
 			{
 				if (I == L || I == E)

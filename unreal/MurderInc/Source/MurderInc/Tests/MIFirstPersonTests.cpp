@@ -9,7 +9,7 @@
 #include "Weapons/MILoadoutResolver.h"
 #include "Weapons/MIFirstPersonRig.h"
 #include "Engine/StaticMesh.h"
-#include "Animation/AnimationRuntime.h"
+#include "AnimationRuntime.h"
 
 #if WITH_AUTOMATION_TESTS
 
