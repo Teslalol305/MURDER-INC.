@@ -16,8 +16,9 @@ out = []
 
 
 def screen(p):
-    ok, s = unreal.GameplayStatics.project_world_to_screen(pc, p, False)
-    return "(%.0f, %.0f)" % (s.x, s.y) if ok else "off"
+    r = unreal.GameplayStatics.project_world_to_screen(pc, p, False)
+    s = r[1] if isinstance(r, tuple) else r
+    return "(%.0f, %.0f)" % (s.x, s.y) if s is not None else "off"
 
 
 if MODE == "list":

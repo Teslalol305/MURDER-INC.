@@ -18,7 +18,7 @@ fe() { pie_con "MIMenu fe $*" > /dev/null; }
 c() { pie_con "$*" > /dev/null; }
 run() { c "MIFreezeAfter $1"; sleep "$(python3 -c "print(max(2.0, $1 * 3.0 + 1.5))")"; }
 shot() { settle "${2:-30}"; pie_shot "$out/$1.jpg"; }
-probe() { sed "1s/.*/MODE = \"$1\"/" fp/flash_probe.py > "$PIE_PY/_probe.py"; pie_mcp py "$PIE_PY/_probe.py" | sed "s/^/FLASH-$2: /"; }
+probe() { sed "s/^MODE = .*/MODE = \"$1\"/" fp/flash_probe.py > "$PIE_PY/_probe.py"; pie_mcp py "$PIE_PY/_probe.py" | sed "s/^/FLASH-$2: /"; }
 fire_frozen() { c "MIFreezeOn fire ${1:-0.02}"; c "MIInput fire 1"; sleep 3; c "MIInput fire 0"; }
 
 pie_start > /dev/null
