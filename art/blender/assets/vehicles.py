@@ -2864,6 +2864,7 @@ def _show(assets, placed):
         if n in placed:
             x, y, yaw = placed[n]
             o.location = (x, y, 0)
+            o.rotation_mode = "XYZ"              # the built objects come in as quaternion: the yaw was ignored
             o.rotation_euler = (0, 0, math.radians(yaw))
 
 

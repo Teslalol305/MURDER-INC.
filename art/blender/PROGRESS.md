@@ -251,10 +251,14 @@ Ledger of every generation: art/blender/assets/vehicles_gen.json (job ids, model
   glass-base hits (the ragged glass border pulled grey 'teeth' up the windscreen), it is no wider than the glass
   base (no block past the A pillar), the plank kill reaches the A pillars, and the generated dash top under the
   glass base is dropped so the modelled dash shows (Sedan 188, SUV 284, Pickup 49 faces).
+- Previews: _show() set rotation_euler on objects in QUATERNION mode, so every preview yaw was ignored (that is
+  why older IPX / Vulture previews showed the cabs): rotation_mode is now XYZ. All seven previews re-rendered
+  after the last asset change, one preview per process (the shared memory cgroup OOM-killed a batch run).
 - Credits: none spent (no body needed regeneration for the faults fixed).
 - Still open: SUV rear quarter panel keeps a light crumpled patch at the C pillar and a corner-lamp shard; the
   stripped car's fender tops and rear-screen frame keep some ragged edges; the Van's windscreen base still shows
-  torn white edges at the cowl; interiors are simple boxes; Pickup bed is reclassed, not a modelled liner.
+  torn white edges at the cowl; the sedan's front door / fender seam shows a generated crease in reflections;
+  interiors are simple boxes; Pickup bed is reclassed, not a modelled liner.
 
 ## Exact next step
 Previews are rendered from the saved blend without a rebuild (scratch: open art/out/blend/vehicles.blend,
