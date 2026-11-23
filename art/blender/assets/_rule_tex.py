@@ -139,7 +139,7 @@ def tattoo_chart(side, px_per_m=8000):
     the arm) and about 7 cm long (round the arm), the script line beside it toward the wrist (16 mm). Left forearm,
     upper third: two rows of bold serif numerals 14 mm tall, 2.6 cm apart along the arm. The left arm is the mirror
     image of the right arm's frame, so its chart is drawn mirrored to read correctly from outside. Healed ink: dense
-    blue-black, bled 0.3 mm with a faint halo, slightly ragged edges and uneven take-up (texel noise in skin_texels).
+    blue-black, bled 0.4 mm with a faint halo, slightly ragged edges and uneven take-up (texel noise in skin_texels).
     """
     from PIL import Image, ImageDraw, ImageFilter
     spec = DEFAULT_TATTOOS
@@ -189,9 +189,9 @@ def tattoo_chart(side, px_per_m=8000):
                      dtype=np.float32) / 255.0
     a = np.clip((a - 0.5) * 1.0 + (jit - 0.5) * 0.9 + 0.5, 0, 1)
     base = Image.fromarray((a * 255).astype(np.uint8))
-    core = np.asarray(base.filter(ImageFilter.GaussianBlur(px_per_m * 0.00016)), dtype=np.float32) / 255.0
+    core = np.asarray(base.filter(ImageFilter.GaussianBlur(px_per_m * 0.00022)), dtype=np.float32) / 255.0
     halo = np.asarray(base.filter(ImageFilter.GaussianBlur(px_per_m * 0.0006)), dtype=np.float32) / 255.0
-    a = np.maximum(np.clip((core - 0.5) * 1.6 + 0.5, 0, 1), 0.22 * halo)
+    a = np.maximum(np.clip((core - 0.5) * 1.3 + 0.5, 0, 1), 0.25 * halo)
     return np.clip(a, 0, 1), s0, a0, px_per_m
 
 
@@ -416,7 +416,7 @@ def skin_texels(R, P, N, region, side, charts):
         b = bc[fo]
         lum = (b @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)) / float(base @ np.array([0.2126, 0.7152, 0.0722]))
         inkc = INK_REL[None] * lum[:, None]                                      # ink under this skin's own shade
-        bc[fo] = b * (1 - 0.94 * ink)[:, None] + inkc * (0.94 * ink)[:, None]
+        bc[fo] = b * (1 - 0.90 * ink)[:, None] + inkc * (0.90 * ink)[:, None]      # the skin's grain shows through
         rough[fo] = rough[fo] * (1 - 0.5 * ink) + 0.62 * 0.5 * ink
 
     # ---- nails: a pink-brown bed matched to the skin, faint lunula, thin free edge, fine ridges
@@ -444,7 +444,7 @@ def skin_texels(R, P, N, region, side, charts):
 
 # blue-black healed ink relative to the skin's mean, slight green-blue ageing. Hands-and-tattoos pass: the photo's
 # ink is about a fifth of the skin's luminance (it read as a faded grey smudge at a third): linear 0.010-0.016
-INK_REL = np.array([0.0105, 0.0135, 0.0160], dtype=np.float32) / float(SKIN_TARGET.mean())
+INK_REL = np.array([0.0115, 0.0150, 0.0185], dtype=np.float32) / float(SKIN_TARGET.mean())
 
 
 def backh_density(R, Q, lab, tt, cosd, pal, hand):

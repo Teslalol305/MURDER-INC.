@@ -228,7 +228,7 @@ def skin_material(path=ARMS + "/Materials/M_RuleArms_Skin", tex=ARMS + "/Texture
     = ORM.G x RoughnessScale; AO = ORM.R; Specular 0.35; normal = the baked N with the tiling skin grain added
     (whiteout blend, DetailStrength).
     shading "subsurface" (the game's): the Standard Subsurface model, no screen-space blur: Subsurface Colour a deep
-    red-brown (SubsurfaceTint x BC), Opacity Scatter 0.8 (light through thin fingers and ear-thin edges only).
+    red-brown (SubsurfaceTint 0.55 / 0.20 / 0.12 x BC), Opacity Scatter 0.92 (a little light through thin fingers and edges; 1.6 / 0.55 / 0.35 at 0.8 turned the whole arm orange).
     shading "profile": the Subsurface Profile model with SP_RuleSkin, scatter amount (Opacity) Scatter 0.35. On the
     first-person pass the screen-space scatter of this model averaged the whole forearm: see CHARACTERS.md."""
     prof = game_skin_profile()
@@ -250,10 +250,10 @@ def skin_material(path=ARMS + "/Materials/M_RuleArms_Skin", tex=ARMS + "/Texture
     if shading == "profile":
         MEL.connect_material_property(_scalar(m, "Scatter", 0.35, -600, 700), "", unreal.MaterialProperty.MP_OPACITY)
     else:
-        MEL.connect_material_property(_scalar(m, "Scatter", 0.8, -600, 700), "", unreal.MaterialProperty.MP_OPACITY)
+        MEL.connect_material_property(_scalar(m, "Scatter", 0.92, -600, 700), "", unreal.MaterialProperty.MP_OPACITY)
         sc = _expr(m, unreal.MaterialExpressionMultiply, -700, -150)
         MEL.connect_material_expressions(col, "", sc, "A")
-        MEL.connect_material_expressions(_vector(m, "SubsurfaceTint", (1.6, 0.55, 0.35), -900, -150), "", sc, "B")
+        MEL.connect_material_expressions(_vector(m, "SubsurfaceTint", (0.55, 0.20, 0.12), -900, -150), "", sc, "B")
         MEL.connect_material_property(sc, "", unreal.MaterialProperty.MP_SUBSURFACE_COLOR)
     detail = tex + "/T_RuleArms_SkinDetail_N"
     if ASSETS.does_asset_exist(detail):
