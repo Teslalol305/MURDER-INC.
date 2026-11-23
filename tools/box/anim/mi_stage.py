@@ -132,6 +132,7 @@ def import_chopper(src=IN):
     _assign(out["SM_Weapon_ChopperMagazine_TopRound"], out["M_Mag"])
     _assign(out["SM_Weapon_GoonSMG"], out["M_SMG"])
     sk = unreal.load_asset(out["SK_Chopper"]).get_editor_property("skeleton")
+    ASSETS.save_loaded_asset(sk)          # the importer leaves the new skeleton unsaved: an editor restart loses it
     out["skeleton"] = sk.get_path_name()
     out["bones"] = chopper_ref()
     return out

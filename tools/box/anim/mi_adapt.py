@@ -534,6 +534,17 @@ def write_clip(dest_path, frames, rate=FPS, skeleton_path=SKELETON, curves=None,
             c.add_bone_track(b, False)
             c.set_bone_track_keys(b, pos, rot, scl, False)
     c.close_bracket(False)
+    # The compressor samples at the sequence's target frame rate (30 unless told): a clip whose length is not a
+    # whole number of target frames trips an assertion in AnimCompressionTypes.cpp and takes the editor down.
+    try:
+        p = anim.get_editor_property("platform_target_frame_rate")
+        p.set_editor_property("default", unreal.FrameRate(rate, 1))
+        anim.set_editor_property("platform_target_frame_rate", p)
+    except Exception:  # noqa: BLE001
+        if abs((len(frames) - 1) / rate * 30.0 - round((len(frames) - 1) / rate * 30.0)) > 1e-6:
+            ASSETS.delete_asset(dest_path)
+            raise RuntimeError("%s: %d frames at %d fps is not a whole number of 30 fps frames" %
+                               (dest_path, len(frames) - 1, rate))
     if curves:
         for cname, pts in curves.items():
             try:
