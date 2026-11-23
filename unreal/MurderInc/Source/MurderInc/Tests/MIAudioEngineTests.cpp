@@ -51,6 +51,7 @@ namespace MIAudioEnginePrivate
 		bool bMade = false;
 		FString Out;
 		TArray<FString> Said;
+		double ClockStart = 0.0, ClockSpan = 0.0;  // the audio device's own clock (its rendered time)
 		TArray<TObjectPtr<USoundEffectSubmixPreset>> Master;
 		FAutomationTestBase* Test = nullptr;
 	};
@@ -110,7 +111,9 @@ public:
 				A->Play();
 				if (C.Category == TEXT("voice") && C.File.StartsWith(TEXT("Voice/")))
 				{
-					X.Said.Add(FString::Printf(TEXT("%.1f:%s"), Now, *FPaths::GetBaseFilename(C.File)));
+					// On the device's clock, so the time matches the recording (the dummy driver's clock drifts from the wall clock).
+					const double At = X.World->GetAudioDeviceRaw() ? X.World->GetAudioDeviceRaw()->GetAudioClock() - X.ClockStart : Now;
+					X.Said.Add(FString::Printf(TEXT("%.2f:%s"), At, *FPaths::GetBaseFilename(C.File)));
 				}
 				X.Live.Add(C.Id, TStrongObjectPtr<UAudioComponent>(A));
 				X.Base.Add(C.Id, G);
@@ -155,6 +158,7 @@ public:
 		if (!X.bStopped)
 		{
 			// The WAV export is written on a background task: wait for the file below.
+			X.ClockSpan = X.World->GetAudioDeviceRaw() ? X.World->GetAudioDeviceRaw()->GetAudioClock() - X.ClockStart : Now;
 			X.bMade = UAudioMixerBlueprintLibrary::StopRecordingOutputToAnyPath(X.World, EAudioRecordingExportType::WavFile, TEXT("engine_render"), FPaths::GetPath(X.Out)) != nullptr;
 			for (auto& Pair : X.Live)
 			{
@@ -203,8 +207,12 @@ public:
 		}
 		const double PeakDb = 20.0 * FMath::LogX(10.0, FMath::Max(1e-12, (double)Wav.Peak()));
 		const double RmsDb = 20.0 * FMath::LogX(10.0, FMath::Max(1e-12, Wav.Rms()));
-		X.Test->AddInfo(FString::Printf(TEXT("recording: %.2f s, %d channels at %d Hz, peak %.1f dBFS, RMS %.1f dBFS (stream %.1f s)"), Wav.Secs(), Wav.Channels, Wav.Rate, PeakDb, RmsDb, X.StoppedAt));
-		X.Test->TestTrue(FString::Printf(TEXT("the recording (%.2f s) is as long as the stream it rendered (%.1f s)"), Wav.Secs(), X.StoppedAt), Wav.Secs() >= X.StoppedAt - 1.0);
+		X.Test->AddInfo(FString::Printf(TEXT("recording: %.2f s, %d channels at %d Hz, peak %.1f dBFS, RMS %.1f dBFS (stream %.1f s of wall clock, %.2f s of the device's clock)"),
+			Wav.Secs(), Wav.Channels, Wav.Rate, PeakDb, RmsDb, X.StoppedAt, X.ClockSpan));
+		// The whole stream: everything the device rendered between start and stop (its own clock), and never far
+		// from the wall clock (a device that stalls renders less).
+		X.Test->TestTrue(FString::Printf(TEXT("the recording (%.2f s) holds what the device rendered (%.2f s)"), Wav.Secs(), X.ClockSpan), Wav.Secs() >= X.ClockSpan - 0.5);
+		X.Test->TestTrue(FString::Printf(TEXT("the recording (%.2f s) is at least 90 %% of the stream (%.1f s)"), Wav.Secs(), X.StoppedAt), Wav.Secs() >= 0.9 * X.StoppedAt);
 		X.Test->TestTrue(FString::Printf(TEXT("the recording is not silent (peak %.1f dBFS, want above -40)"), PeakDb), PeakDb > -40.0);
 		X.Test->TestTrue(TEXT("the voice spoke in the render"), X.Said.Num() >= 3);
 		return true;
@@ -275,6 +283,7 @@ bool FMIAudioEngineRenderTest::RunTest(const FString& Parameters)
 		AddWarning(TEXT("the master chain could not be installed"));
 	}
 	UAudioMixerBlueprintLibrary::StartRecordingOutput(World, (float)R->Secs + 2.f);
+	R->ClockStart = World->GetAudioDeviceRaw()->GetAudioClock();
 	R->Start = FPlatformTime::Seconds();
 	ADD_LATENT_AUTOMATION_COMMAND(FMIAudioEngineRenderCommand(R));
 	return true;
