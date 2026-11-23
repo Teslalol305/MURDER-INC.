@@ -1,5 +1,7 @@
 #include "Player/MIPlayerController.h"
 
+#include "Camera/PlayerCameraManager.h"
+
 #include "Weapons/MIFirstPersonRig.h"
 #include "Weapons/MIWeaponComponent.h"
 
@@ -412,6 +414,7 @@ void AMIPlayerController::MIPose(float X, float Y, float Z, float Yaw, float Pit
 		C->TeleportFeet(FVector(X, Y, Z));
 		C->GetPlayerRules().Yaw = Yaw;
 		C->GetPlayerRules().Pitch = Pitch;
+		if (PlayerCameraManager) PlayerCameraManager->SetGameCameraCutThisFrame();  // a teleport: no history from before
 	}
 #endif
 }
@@ -650,5 +653,8 @@ void AMIPlayerController::MIFaceEnemy(float Metres)
 	if (UMIGameSubsystem* G = UMIGameSubsystem::Get(this))
 	{
 		G->FaceNearestEnemy(Metres != 0.f ? Metres : 8.0);  // negative: turn only
+		// A snap turn: no history from before it (fix pass: polish-hold showed the forearm's last place as an orange
+		// ghost on the pavement; a turn in play, frame to frame, is the check that the viewmodel itself does not ghost).
+		if (PlayerCameraManager) PlayerCameraManager->SetGameCameraCutThisFrame();
 	}
 }
