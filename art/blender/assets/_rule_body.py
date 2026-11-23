@@ -30,7 +30,7 @@ GEN = os.path.join(paths.out, "gen", "rule")
 BODY = os.path.join(GEN, "body_meshy.glb")
 HEAD = os.path.join(GEN, "head_meshy.glb")
 NAME = "SK_Rule"
-HEAD_TRIS = 40000
+HEAD_TRIS = 50000
 BODY_TRIS = 80000
 TUCK = 0.045
 
@@ -137,7 +137,11 @@ def _largest_part(ob):
     ob.data.update()
 
 
-def swap_head(body, btex, head, htex, log=print):
+NECK_CENTRE = [0.0, 0.0]
+
+
+def swap_head(body, btex, head, htex, log=print, keep_neck=False):
+    """keep_neck (review round 1): the body keeps its own neck, _rule_head.neck_join cuts both on one plane."""
     cb, nb, ab = gen3d.face_arrays(body)
     redb, greyb, _ = _classes(body, btex)
     topb = cb[:, 2].max()
@@ -146,6 +150,9 @@ def swap_head(body, btex, head, htex, log=print):
     hx, hy = _mid(cb[sl, 0]), _mid(cb[sl, 1])                       # centre of the neck's section
     near = np.hypot(cb[:, 0] - hx, cb[:, 1] - hy) < 0.085          # the neck, not the shoulders or arms
     kill = (cb[:, 2] > zb + 0.06) | ((cb[:, 2] > zb - 0.03) & ~redb & near)
+    if keep_neck:
+        kill = cb[:, 2] > zb + 0.06
+    NECK_CENTRE[:] = [hx, hy]
     gen3d.delete_faces(body, kill)
     log("  body: neckline z %.3f of %.3f, head and neck removed (%d faces)" % (zb, topb, kill.sum()))
     ch, nh, ah = gen3d.face_arrays(head)
@@ -167,6 +174,9 @@ def swap_head(body, btex, head, htex, log=print):
     dx, dy = hx - _mid(ch2[sl, 0]), hy - _mid(ch2[sl, 1])
     co += [dx, dy, zb]
     gen3d.set_verts(head, co)
+    if keep_neck:
+        log("  head: neckline %.3f of %.3f in the bust, scale %.3f, bust moved by (%.3f, %.3f)" % (zh, toph, s, dx, dy))
+        return zb
     # the cut edge of the bust's neck is carried 1.8 cm down (and its next ring half as far), so it ends under
     # the body's collar all round instead of just above it at the front
     import bmesh
@@ -237,13 +247,50 @@ def build(ctx):
     bco, btris = GG._evaluated(mbody)
     top = bco[:, 2].max() * 1.01
     GG._normalise(body, top)
-    zb = swap_head(body, btex, head, htex, ctx.log)
+    from assets import _rule_head as HD
+    zb = swap_head(body, btex, head, htex, ctx.log, keep_neck=True)
+    HD.check_landmarks(zb, ctx.log)
+    hx, hy = NECK_CENTRE
+    # review round 1: a clean neck join, the proportions, the ears (on the full-resolution bust)
+    ring, plane = HD.neck_join(body, head, None, zb, hx, hy, ctx.log)
+    HD.clean_neck_flaps(head, zb, hx, hy, ctx.log)
+    HD.warp_face(head, ctx.log)
+    HD.ears(head, ctx.log)
+    redb, _g, _rgb = _classes(body, btex)
+    HD.reshape_body_neck(body, redb, ring, plane, hx, hy, ctx.log)
+    HD.tuck_bust(head, plane, hx, hy, ctx.log)
     gen3d.decimate(head, 1.0, target=HEAD_TRIS)
     gen3d.decimate(body, 1.0, target=BODY_TRIS)
     for ob, slot in ((head, "M_Rule_Head"), (body, "M_Rule_Body")):
         if ob.data.materials and ob.data.materials[0]:
             ob.data.materials[0].name = slot
-    eyes = eye_covers(head, htex, col)
+    # real eyes in sockets, then the head's own maps (graded, cleaned, lids, hair, bandana print, pores, ORM)
+    cen = HD.eye_geometry(head, col, ctx.log)
+    eyes = HD.eye_parts(cen, col, ctx.log)
+    res = getattr(ctx.args, "res", None) or 4096
+    m = HD.head_textures(head, min(int(res), 4096), log=ctx.log)
+    old = head.data.materials[0]
+    head.data.materials[0] = m
+    if old is not None:
+        old.name = "M_Rule_Head__generated"
+    m.name = "M_Rule_Head"
+    from assets import _rule_bodytex as BT
+    GG.fit_pose(arm, gen3d.verts(body))
+    bpy.context.view_layer.update()
+    wrists = [np.array(arm.matrix_world @ arm.pose.bones["hand_" + sd].head) for sd in ("l", "r")]
+    for pb in arm.pose.bones:
+        pb.matrix_basis = Matrix.Identity(4)
+    bpy.context.view_layer.update()
+    BT.body_textures(body, btex, ctx.log, wrists=wrists)
+    red_v = np.zeros(len(body.data.vertices), dtype=bool)
+    redf, _g2, _r2 = _classes(body, btex)
+    for p in body.data.polygons:
+        if redf[p.index]:
+            red_v[list(p.vertices)] = True
+    skin_v = np.zeros(len(body.data.vertices), dtype=bool)
+    for p in body.data.polygons:
+        if not redf[p.index]:
+            skin_v[list(p.vertices)] = True
     ob = geo.join([body, head] + eyes, NAME, col)
     for p in ob.data.polygons:
         p.use_smooth = True
@@ -271,6 +318,7 @@ def build(ctx):
         s = Wk.sum(1)
         ok = hz & (s > 1e-3)
         W[ok] = Wk[ok] / s[ok, None]
+    W = shirt_weights(co, names, W, red_v, skin_v, ctx.log)
     W = GG.limit_normalise(GG.smooth_weights(ob, W), 4)
     fits = GG.bone_fit_matrices(arm)
     rest = GG.unpose(co, names, W, fits)
@@ -291,7 +339,9 @@ def build(ctx):
     for pb in arm.pose.bones:
         pb.matrix_basis = Matrix.Identity(4)
     bpy.context.view_layer.update()
+    ob = body_bracelet(ob, arm, col, ctx.log)
     geo.ensure_wear(ob)
+    n_tri = sum(len(p.vertices) - 2 for p in ob.data.polygons)
     ctx.body = dict(ob=ob, arm=arm, mbody=mbody, tris=n_tri)
     return [ob]
 
@@ -302,6 +352,7 @@ def export(ctx):
     ob, arm = b["ob"], b["arm"]
     path = os.path.join(paths.glb, NAME + ".glb")
     char.rest_pose(arm)
+    ob.data.validate(clean_customdata=False)
     scene.select_only(ob, arm)
     bpy.ops.export_scene.gltf(
         filepath=path, export_format="GLB", use_selection=True, export_yup=True, export_apply=False,
@@ -311,3 +362,83 @@ def export(ctx):
         export_influence_nb=4, export_morph=False, export_cameras=False, export_lights=False, export_extras=False,
         export_vertex_color="NONE")
     ctx.log("exported %s (%.1f MB)" % (path, os.path.getsize(path) / 1e6))
+    from assets import rule as RU
+    RU.export_checks(ob, arm, path, ctx.log)
+
+
+def shirt_weights(co, names, W, red_v, skin_v, log=print):
+    """Review round 1 (the shirt's side and armhole flared like a wing in the jog): the sleeveless shirt follows
+    the chest, not the arm. On shirt vertices the upper arm's share goes to the clavicle above the armpit and to
+    spine_03 below it; at the armhole's rim 30 % of it is kept, fading to none 8 cm in."""
+    from mathutils import kdtree
+    nb = len(red_v)
+    out = W.copy()
+    moved = 0
+    for sd in ("l", "r"):
+        ups = [names.index(n) for n in names if n.startswith("upperarm") and n.endswith("_" + sd)]
+        if not ups:
+            continue
+        cl = names.index("clavicle_" + sd) if ("clavicle_" + sd) in names else None
+        sp = names.index("spine_03") if "spine_03" in names else None
+        side = np.sign(co[:nb, 0]) == (1 if sd == "l" else -1)
+        rim = np.nonzero(red_v & skin_v & side & (co[:nb, 2] > 1.15) & (np.abs(co[:nb, 0]) > 0.10))[0]
+        if not len(rim):
+            continue
+        z_pit = float(np.percentile(co[rim, 2], 10))
+        kd = kdtree.KDTree(len(rim))
+        for i, v in enumerate(rim):
+            kd.insert(co[v], i)
+        kd.balance()
+        sel = np.nonzero(red_v & ~skin_v & side & (co[:nb, 2] > 1.0))[0]
+        for v in sel:
+            _c, _i, d = kd.find(co[v])
+            share = W[v, ups].sum()
+            if share < 1e-4:
+                continue
+            keep = 0.30 * (1.0 - min(d / 0.08, 1.0))
+            give = share * (1 - keep)
+            out[v, ups] *= keep
+            tgt = cl if (co[v, 2] > z_pit + 0.03 and cl is not None) else sp
+            if tgt is not None:
+                out[v, tgt] += give
+            moved += 1
+    log("  shirt: upper-arm weight moved to the clavicle / spine_03 on %d vertices" % moved)
+    return out
+
+
+def body_bracelet(ob, arm, col, log=print):
+    """The arms' bracelet (rule.bracelet) fitted to SK_Rule's right forearm 3 cm above the wrist, at this body's
+    own section there, rigid on lowerarm_twist_01_r; joined into SK_Rule (slots M_Character_RuleBracelet_*)."""
+    from assets import rule as RU
+    bpy.context.view_layer.update()
+    bones = arm.data.bones
+    E = np.array(arm.matrix_world @ bones["lowerarm_r"].head_local)
+    Wr = np.array(arm.matrix_world @ bones["hand_r"].head_local)
+    af = (Wr - E) / np.linalg.norm(Wr - E)
+    c = Wr - af * RU.BRACELET_S
+    up = np.array([0.0, 0.0, 1.0])
+    v = up - af * (up @ af)
+    v /= np.linalg.norm(v)
+    xax = np.cross(-af, v)
+    co = gen3d.verts(ob)
+    q = co - c
+    t = q @ af
+    rad = q - t[:, None] * af
+    near = (np.abs(t) < 0.008) & (np.linalg.norm(rad, axis=1) < 0.07)
+    # the section's outer surface: the farthest 10 % in each direction
+    a = float(np.percentile(np.abs(rad[near] @ xax), 92)) if near.sum() > 20 else 0.030
+    b = float(np.percentile(np.abs(rad[near] @ v), 92)) if near.sum() > 20 else 0.024
+    br = RU.bracelet(col, sec=(a, b))
+    M = Matrix.Identity(4)
+    for i in range(3):
+        M[i][0], M[i][1], M[i][2], M[i][3] = xax[i], -af[i], v[i], c[i]
+    br.matrix_world = M
+    scene.apply_transforms(br)
+    bone = "lowerarm_twist_01_r" if "lowerarm_twist_01_r" in bones else "lowerarm_r"
+    g = br.vertex_groups.new(name=bone)
+    g.add(list(range(len(br.data.vertices))), 1.0, "REPLACE")
+    n = sum(len(p.vertices) - 2 for p in br.data.polygons)
+    ob = geo.join([ob, br])
+    log("  bracelet fitted on the right forearm (section %.1f x %.1f mm, %d triangles, rigid on %s)"
+        % (2000 * a, 2000 * b, n, bone))
+    return ob

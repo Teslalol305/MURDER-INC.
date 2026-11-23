@@ -798,6 +798,7 @@ def on_export(ctx, objs):
     if r and "ob" in r:
         p = char.export_character(r["ob"], r["arm"], name="SK_RuleArms")
         ctx.log("exported %s" % p)
+        export_checks(r["ob"], r["arm"], p, ctx.log)
         a = ctx.assets["SM_Character_RuleBracelet"]
         _export.export_asset(r["bracelet"], ctx.family, "none", None, a["notes"], None, None, slots=None, strict=False)
         # review round 1: the silver values ship with the asset (export_asset writes grey non-metal stubs)
@@ -821,6 +822,46 @@ def on_export(ctx, objs):
     if getattr(ctx, "body", None):
         from assets import _rule_body as B
         B.export(ctx)
+
+
+def export_checks(ob, arm, path, log=print):
+    """The pipeline's checks around a skinned export: mi.export.validate on the mesh (logged, not fatal: the
+    generated body is not a closed manifold), the skeleton round trip against the mannequin export
+    (char.round_trip_report), and a re-import of the GLB: triangles, bounds, joints, materials, every vertex
+    weighted. Writes <glb>.check.json and returns it."""
+    from mi import export as _export
+    err, warn = _export.validate(ob, None, strict_names=False)
+    rep = {"validate_errors": err, "validate_warnings": warn[:12]}
+    rep["round_trip"] = char.round_trip_report(char.MANNEQUIN, path)
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=path)
+    new = [o for o in bpy.data.objects if o not in before]
+    # the importer's bone-shape icosphere is not part of the asset: skinned meshes only
+    meshes = [o for o in new if o.type == "MESH" and len(o.vertex_groups)]
+    arms = [o for o in new if o.type == "ARMATURE"]
+    tri = sum(sum(len(p.vertices) - 2 for p in m.data.polygons) for m in meshes)
+    src_tri = sum(len(p.vertices) - 2 for p in ob.data.polygons)
+    unweighted = 0
+    for m in meshes:
+        for v in m.data.vertices:
+            if not any(g.weight > 1e-6 for g in v.groups):
+                unweighted += 1
+    co = np.vstack([np.array([m.matrix_world @ v.co for v in m.data.vertices]) for m in meshes]) if meshes else np.zeros((1, 3))
+    src = np.array([v.co for v in ob.data.vertices])
+    rep["reimport"] = {"meshes": len(meshes), "triangles": tri, "source_triangles": src_tri,
+                       "joints": len(arms[0].data.bones) if arms else 0,
+                       "materials": sorted({s.material.name for m in meshes for s in m.material_slots if s.material}),
+                       "unweighted_vertices": unweighted,
+                       "bounds_m": [np.round(co.min(0), 4).tolist(), np.round(co.max(0), 4).tolist()],
+                       "source_bounds_m": [np.round(src.min(0), 4).tolist(), np.round(src.max(0), 4).tolist()]}
+    rep["ok"] = bool(rep["round_trip"]["ok"] and tri == src_tri and unweighted == 0 and arms)
+    for o in new:
+        bpy.data.objects.remove(o, do_unlink=True)
+    with open(path + ".check.json", "w") as f:
+        json.dump(rep, f, indent=1, default=str)
+    log("  export check %s: round trip %s, re-import %d tris of %d, %d joints, %d unweighted, %d validation errors"
+        % (os.path.basename(path), rep["round_trip"]["ok"], tri, src_tri, rep["reimport"]["joints"], unweighted, len(err)))
+    return rep
 
 
 def place_bracelet(r):
