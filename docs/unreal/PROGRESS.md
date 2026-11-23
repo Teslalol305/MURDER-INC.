@@ -92,9 +92,10 @@ L_Block, pictures retaken with `tools/box/fp/fp-shots.sh` and looked at.
   asked distance with a clear line (10.4 m for 10; `fp-goon.jpg`, and `fp-goon-5.jpg` at 5 m).
 - **The Buzzard** is SK_Buzzard (props spun, gimbal on the eye, lens lit), the grey disc only in a clean checkout.
 - **Goons:** the support hand is pulled onto the SMG's SupportHand point by two-bone IK after the animation
-  blueprint (`UMIGoonMeshComponent`), and the drawn body turns onto the rules' aim.
-- **NINE:** the support fingers wrap (a finger-only layer from the pack idle); in a reload the support hand follows
-  the magazine's base pad.
+  blueprint (`UMIGoonMeshComponent`), and the drawn body turns onto the rules' aim. Not yet seen up close: at 10 m
+  (`fp-goon.jpg`) the hands are a few pixels, and the 5 m picture caught no Goon in sight (not committed).
+- **NINE:** a finger-only layer (the pack idle's wrap) on the support hand, and in a reload the support hand follows
+  the magazine's base pad. In `fp-nine.jpg` the support fingers still read straight: the wrap needs its own pose.
 - Arms re-imported from the current export (`fp-art.sh pack|put|unpack`, `import-chars.sh arms`); the dev overlay
   file on the box is deleted (the data path is presentation.json since the first pass).
 - Suite: **TESTS OK passed=105 failed=0** (every `Golden.*` replay and `Loadout.ParityGolden` among them).
