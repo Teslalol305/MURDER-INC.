@@ -251,9 +251,9 @@ def import_texture(set_name, file_path, kind, force):
 # One HLSL node does all the wear-mask work (ART_BIBLE.md 3.3). Inputs arrive as the node's named inputs.
 WEAR_HLSL = r"""
 // Vector parameters and the vertex colour node give float3 on their main output: alpha and w come separately.
-// Vertex colours are stored sRGB-encoded (StaticMeshBuilder: ToFColor(true)) and read back raw: decode RGB.
-// Alpha is stored linearly.
-float3 m = pow(saturate(VC.rgb), 2.2) * Amount.x;
+// Vertex colours reach the shader linear, as the art exports them: the ramp test (mi_ramp_test.py) reads k / 10
+// back within 8-bit steps through the art's import path, so no decode (the earlier pow 2.2 crushed mid masks).
+float3 m = saturate(VC.rgb) * Amount.x;
 float  a = saturate(VA) * Amount.x;
 // Value noise at two scales breaks up the soft, low-frequency masks into crisp, irregular edges.
 // Octaves 3 and 4 (14 m and 4.3 m) are the macro variation that hides the tile repeat over 10 to 20 m.

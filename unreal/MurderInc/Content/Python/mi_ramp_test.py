@@ -136,7 +136,7 @@ def read():
     rows = []
     for k in range(STEPS):
         v = k / (STEPS - 1.0)
-        column = 20 * k + 20
+        column = 20 * (STEPS - 1 - k) + 20                # the capture looks +Y: Unreal +X runs to the left
         a = pixels[(H // 2 + 20) * W + column]          # z = 10: 20 rows below the centre (z 30)
         b = pixels[(H // 2 - 20) * W + column]          # z = 50
         srgb = v * 12.92 if v <= 0.0031308 else 1.055 * v ** (1 / 2.4) - 0.055
