@@ -34,6 +34,8 @@ public:
 	/** The loadout files (LOADOUT.md 3.1), loaded on their own error path: false means only the parity set-up. */
 	bool IsLoadoutLoaded() const { return bLoadoutLoaded; }
 	const FMILoadoutData& GetLoadout() const { return Loadout; }
+	/** Dev only: the console's MISetup overlay patches the loaded data in memory. */
+	FMILoadoutData& EditLoadoutForDev() { return Loadout; }
 
 	/** The whole config.json document, for tables that have no struct yet. Null when loading failed. */
 	TSharedPtr<FJsonObject> GetConfigJson() const { return ConfigJson; }

@@ -46,6 +46,8 @@ public:
 	const FMIRunSetup& GetSetup() const { return Setup; }
 	FMIRunSetup& EditSetup() { return Setup; }
 	const FMIReadiness& GetReadiness() const { return Ready; }
+	/** mi.Setup.ShowUnready: the rack also shows the guns that are not ready, tagged DEV. */
+	void SetShowUnready(bool bOn) { Ready.bShowUnready = bOn; }
 	const FMILoadoutData& GetData() const { return *Data; }
 	/** At least one gun carried and every required slot filled (always true after validation). */
 	bool IsValid() const;

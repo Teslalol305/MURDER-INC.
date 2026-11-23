@@ -778,6 +778,56 @@ bool FMILoadoutData::Parse(const TMap<FString, TSharedPtr<FJsonObject>>& Files, 
 	return true;
 }
 
+int32 FMILoadoutData::ApplyOverlay(const TSharedPtr<FJsonObject>& Overlay)
+{
+	int32 N = 0;
+	if (!Overlay.IsValid())
+	{
+		return 0;
+	}
+	if (const TSharedPtr<FJsonValue> G = Overlay->TryGetField(TEXT("guns")); G.IsValid() && G->Type == EJson::Object)
+	{
+		for (const auto& Pair : G->AsObject()->Values)
+		{
+			FMIGunEntry* Gun = Guns.Find(FName(*FString(*Pair.Key)));
+			if (!Gun || Pair.Value->Type != EJson::Object) continue;
+			const TSharedPtr<FJsonObject> O = Pair.Value->AsObject();
+			if (const TSharedPtr<FJsonValue> V = O->TryGetField(TEXT("variants")); V.IsValid() && V->Type == EJson::Object)
+			{
+				for (const auto& Var : V->AsObject()->Values)
+				{
+					FMIGunVariant& Target = Gun->Variants.FindOrAdd(FName(*FString(*Var.Key)));
+					const TSharedPtr<FJsonObject> VO = Var.Value->AsObject();
+					FString S;
+					if (VO->TryGetStringField(TEXT("mesh"), S)) { Target.Mesh = S; ++N; }
+					if (VO->TryGetStringField(TEXT("status"), S)) { Target.Status = FName(*S); ++N; }
+				}
+			}
+			if (const TSharedPtr<FJsonValue> M = O->TryGetField(TEXT("mounts")); M.IsValid() && M->Type == EJson::Object)
+			{
+				for (const auto& Mount : M->AsObject()->Values)
+				{
+					if (FMIGunMount* Target = Gun->Mounts.Find(FName(*FString(*Mount.Key))))
+					{
+						FString S;
+						if (Mount.Value->AsObject()->TryGetStringField(TEXT("status"), S)) { Target->Status = FName(*S); ++N; }
+					}
+				}
+			}
+		}
+	}
+	if (const TSharedPtr<FJsonValue> A = Overlay->TryGetField(TEXT("attachments")); A.IsValid() && A->Type == EJson::Object)
+	{
+		for (const auto& Pair : A->AsObject()->Values)
+		{
+			FMIAttachmentDef* Part = Attachments.Find(FName(*FString(*Pair.Key)));
+			FString S;
+			if (Part && Pair.Value->Type == EJson::Object && Pair.Value->AsObject()->TryGetStringField(TEXT("mesh"), S)) { Part->Mesh = S; ++N; }
+		}
+	}
+	return N;
+}
+
 void FMILoadoutData::ValidateData(TArray<FString>& P) const
 {
 	for (const FString& U : Unresolved)

@@ -282,6 +282,7 @@ bool UMIFrontEnd::Act(const FString& Action, const FString& Arg)
 	else if (A == TEXT("level")) Rules.SetLevel(N);
 	else if (A == TEXT("time") || A == TEXT("mode") || A == TEXT("difficulty")) WriteSetting(FName(*A), N);
 	else if (A == TEXT("home")) Rules.OpenHome();
+	else if (A == TEXT("unready")) Rules.SetShowUnready(Arg != TEXT("0"));
 	else if (A == TEXT("showbriefing")) Rules.OpenBriefing();
 	else bOk = false;
 	if (Rules.GetScreen() != Before || Rules.ConsumeRemember())

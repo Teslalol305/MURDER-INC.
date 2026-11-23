@@ -12,6 +12,9 @@
 #include "Flow/MIGameSubsystem.h"
 #include "Player/MIPlayerCharacter.h"
 #include "Flow/MIRunSetupSubsystem.h"
+#include "Misc/FileHelper.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 #include "UI/MIFrontEnd.h"
 #include "Weapons/MIWeaponComponent.h"
 
@@ -381,6 +384,32 @@ void AMIPlayerController::MIMenu(const FString& Command)
 void AMIPlayerController::MISetup(const FString& Command)
 {
 	// MISetup dump: the set-up as JSON, for bug reports (LOADOUT.md 7).
+	// MISetup overlay <file>: dev only, patches mesh paths and statuses in memory (the pack import's future data).
+	FString Verb, Arg;
+	if (!Command.Split(TEXT(" "), &Verb, &Arg))
+	{
+		Verb = Command;
+	}
+	if (Verb == TEXT("overlay"))
+	{
+		UMIDataSubsystem* Data = GetGameInstance() ? GetGameInstance()->GetSubsystem<UMIDataSubsystem>() : nullptr;
+		FString Text;
+		TSharedPtr<FJsonObject> Root;
+		if (Data && FFileHelper::LoadFileToString(Text, *Arg) && FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Text), Root))
+		{
+			const int32 N = Data->EditLoadoutForDev().ApplyOverlay(Root);
+			UE_LOG(LogMI, Warning, TEXT("MISetup overlay: %d field(s) patched in memory from %s (dev only, nothing written)"), N, *Arg);
+			if (UMIGameSubsystem* G = UMIGameSubsystem::Get(this); G && G->GetFrontEnd())
+			{
+				G->GetFrontEnd()->Changed();
+			}
+		}
+		else
+		{
+			UE_LOG(LogMI, Error, TEXT("MISetup overlay: cannot read %s"), *Arg);
+		}
+		return;
+	}
 	if (const UMIRunSetupSubsystem* S = UMIRunSetupSubsystem::Get(this))
 	{
 		UE_LOG(LogMI, Log, TEXT("MISetup: %s"), *S->GetSetup().ToJsonString());

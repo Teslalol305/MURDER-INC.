@@ -263,6 +263,11 @@ struct MURDERINC_API FMILoadoutData
 	/** Parses already loaded documents (tests hand in fixtures). Files names the documents a $ref may point at. */
 	static bool Parse(const TMap<FString, TSharedPtr<FJsonObject>>& Files, FMILoadoutData& Out, FString& OutError);
 
+	/** Dev only (console MISetup overlay <file>): patches statuses and mesh paths in memory, as the pack import will
+	 *  write them (guns.<id>.variants.<v>.{mesh,status}, guns.<id>.mounts.<slot>.status, attachments.<id>.mesh).
+	 *  Nothing is written back. Returns the number of fields changed. */
+	int32 ApplyOverlay(const TSharedPtr<FJsonObject>& Overlay);
+
 	/** The checks of LOADOUT.md 3.1 that need only the data (no resolver). Every problem is listed. */
 	void ValidateData(TArray<FString>& OutProblems) const;
 };
