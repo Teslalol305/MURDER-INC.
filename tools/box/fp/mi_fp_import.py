@@ -540,10 +540,9 @@ return col;
 """
 
 
-def fx():
-    rep = {}
-    # muzzle flash: unlit, additive, two-sided
-    p = FX + "/M_FX_Flash"
+def _flash(p, overlay=False):
+    """The muzzle flash: unlit, additive, two-sided. overlay: depth testing off (M_FX_FlashView, the player's own flash
+    only: the gun's front end hides the muzzle from the eye at the hip, and this draws the flash over it)."""
     m = _material(p)
     uv = _expr(m, unreal.MaterialExpressionTextureCoordinate, -900, 0)
     c = _custom(m, -600, 0, FLASH_HLSL, ["UV", "Mode", "Seed"])
@@ -559,8 +558,15 @@ def fx():
     MEL.connect_material_expressions(e1, "", e2, "A")
     MEL.connect_material_expressions(k, "", e2, "B")
     MEL.connect_material_property(e2, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
-    _set(m, blend_mode=unreal.BlendMode.BLEND_ADDITIVE, shading_model=unreal.MaterialShadingModel.MSM_UNLIT, two_sided=True)
-    rep["flash"] = _finish(m, p)
+    _set(m, blend_mode=unreal.BlendMode.BLEND_ADDITIVE, shading_model=unreal.MaterialShadingModel.MSM_UNLIT, two_sided=True,
+         disable_depth_test=bool(overlay))
+    return _finish(m, p)
+
+
+def fx():
+    rep = {}
+    rep["flash"] = _flash(FX + "/M_FX_Flash")
+    rep["flashView"] = _flash(FX + "/M_FX_FlashView", overlay=True)
 
     # smoke, dust, mist, fireball. Fix pass (review 2026-11-23): as a translucent card (lit or unlit) the dark puffs never
     # showed in play: a bright card on the same material did (fx_diag.py), a smoke-coloured one at opacity 0.5 left

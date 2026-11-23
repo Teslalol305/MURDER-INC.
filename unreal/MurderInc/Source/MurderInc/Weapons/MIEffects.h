@@ -40,7 +40,10 @@ public:
 	 *  pull: the fraction of the distance kept, sizes scaled alike) so they draw over the gun's front end, which hides
 	 *  the muzzle itself from the eye at the hip. Same pixels, same apparent size. Aimed (Ads) the pull eases to
 	 *  flash.view.pullAimed (1: none): pulled in, the cards fell behind the rear sight, the nearest thing to the eye;
-	 *  on the muzzle their upper half shows through the aperture round the front post. */
+	 *  on the muzzle their upper half shows through the aperture round the front post.
+	 *  With fx.materials.flashView (M_FX_FlashView: the flash material with depth testing off) the player's flash has its
+	 *  own cards in that material: they sit on the muzzle's true first-person point and draw over the gun's front end
+	 *  without being pulled in (fx.flash.view.pullOverlay, 1 = none), and enemy flashes never recycle them (fix pass). */
 	void ViewFlash(const FVector& Muzzle, const FVector& Dir, const FVector& Eye, double Scale, double Ads = 0.0);
 	/** The player's own flash light. */
 	void FlashLight(const FVector& At, double Scale);
@@ -107,6 +110,8 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UMaterialInterface> FlashMat;
 	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> FlashViewMat;  // optional: depth test off, the player's own flash only
+	UPROPERTY(Transient)
 	TObjectPtr<UMaterialInterface> SmokeMat;
 	UPROPERTY(Transient)
 	TObjectPtr<UMaterialInterface> TracerMat;
@@ -125,10 +130,11 @@ private:
 
 	TArray<FPuff> Puffs;
 	TArray<FCard> Cards;
+	TArray<FCard> ViewCards;  // the player's flash in FlashViewMat (empty without it: ViewFlash uses Cards)
 	TArray<FLight> Lights;
 	TArray<FMark> Marks;
 	TArray<FStreak> Streaks;
-	int32 NextPuff = 0, NextCard = 0, NextLight = 0, NextMark = 0, NextStreak = 0;
+	int32 NextPuff = 0, NextCard = 0, NextViewCard = 0, NextLight = 0, NextMark = 0, NextStreak = 0;
 	TArray<FDelegateHandle> Handles;
 	TSharedPtr<class FJsonObject> Fx;
 	bool bReady = false;

@@ -14,12 +14,13 @@
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Misc/PackageName.h"
 #include "Weapons/MICombatSubsystem.h"
 #include "MurderInc.h"
 
 namespace MIEffectsPrivate
 {
-	constexpr int32 NumPuffs = 96, NumCards = 36, NumLights = 6, NumMarks = 72, NumStreaks = 24;  // cards: three per flash; 9 let three Goon shots recycle the player's own flash within its 0.045 s (polish pass)
+	constexpr int32 NumPuffs = 96, NumCards = 36, NumLights = 6, NumMarks = 72, NumStreaks = 24, NumViewCards = 6;  // cards: three per flash; 9 let three Goon shots recycle the player's own flash within its 0.045 s (polish pass)
 
 	template <typename T>
 	T* LoadAs(const FString& Path)
@@ -80,6 +81,10 @@ void UMIEffects::OnWorldBeginPlay(UWorld& InWorld)
 	const TSharedPtr<FJsonValue> F = MIJson::Get(Root, TEXT("fx"));
 	Fx = F.IsValid() && F->Type == EJson::Object ? F->AsObject() : nullptr;
 	FlashMat = LoadAs<UMaterialInterface>(MIJson::StringOr(Fx, TEXT("materials.flash")));
+	// Optional (made by mi_fp_import.py fx since the fix pass): looked for first, so a project without it loads quietly.
+	const FString FlashViewPath = MIJson::StringOr(Fx, TEXT("materials.flashView"));
+	FlashViewMat = !FlashViewPath.IsEmpty() && FPackageName::DoesPackageExist(FSoftObjectPath(FlashViewPath).GetLongPackageName())
+		? LoadAs<UMaterialInterface>(FlashViewPath) : nullptr;
 	SmokeMat = LoadAs<UMaterialInterface>(MIJson::StringOr(Fx, TEXT("materials.smoke")));
 	TracerMat = LoadAs<UMaterialInterface>(MIJson::StringOr(Fx, TEXT("materials.tracer")));
 	MarkMat = LoadAs<UMaterialInterface>(MIJson::StringOr(Fx, TEXT("materials.mark")));
@@ -132,6 +137,16 @@ void UMIEffects::OnWorldBeginPlay(UWorld& InWorld)
 		X.Mat = Mid;
 		if (Mid) Mid->SetScalarParameterValue(TEXT("Intensity"), FlashNits);
 	}
+	// The player's own flash: two flashes' worth of cards in the depth-test-off material, drawn over the viewmodel.
+	for (int32 I = 0; I < NumViewCards && FlashViewMat; ++I)
+	{
+		FCard& X = ViewCards.AddDefaulted_GetRef();
+		UMaterialInstanceDynamic* Mid = nullptr;
+		X.Mesh = Mesh(Plane, FlashViewMat, Mid);
+		X.Mat = Mid;
+		X.Mesh->SetTranslucentSortPriority(10);
+		if (Mid) Mid->SetScalarParameterValue(TEXT("Intensity"), FlashNits);
+	}
 	for (int32 I = 0; I < NumStreaks && TracerMat && Cylinder; ++I)
 	{
 		FStreak& X = Streaks.AddDefaulted_GetRef();
@@ -165,7 +180,7 @@ void UMIEffects::OnWorldBeginPlay(UWorld& InWorld)
 	}
 	Bind();
 	bReady = true;
-	UE_LOG(LogMI, Log, TEXT("Effects: ready (%d puffs, %d cards, %d lights, %d marks, %d streaks)"), Puffs.Num(), Cards.Num(), Lights.Num(), Marks.Num(), Streaks.Num());
+	UE_LOG(LogMI, Log, TEXT("Effects: ready (%d puffs, %d cards, %d view cards, %d lights, %d marks, %d streaks)"), Puffs.Num(), Cards.Num(), ViewCards.Num(), Lights.Num(), Marks.Num(), Streaks.Num());
 }
 
 void UMIEffects::Bind()
@@ -315,19 +330,26 @@ void UMIEffects::WorldFlash(const FVector& Muzzle, const FVector& Dir, double Sc
 
 void UMIEffects::ViewFlash(const FVector& Muzzle, const FVector& Dir, const FVector& Eye, double Scale, double Ads)
 {
-	if (Cards.Num() < 3)
+	// Its own cards in the depth-test-off material when the project has it: drawn over the gun's front end where they
+	// are, so they stay on the muzzle (no pull); else the shared cards pulled toward the eye (polish pass).
+	const bool bOverlay = ViewCards.Num() >= 3;
+	TArray<FCard>& Pool = bOverlay ? ViewCards : Cards;
+	int32& Next = bOverlay ? NextViewCard : NextCard;
+	if (Pool.Num() < 3)
 	{
 		return;
 	}
 	const double L = MIJson::NumberOr(Fx, TEXT("flash.life"), 0.045);
 	const double A = FMath::SmoothStep(0.0, 1.0, FMath::Clamp(Ads, 0.0, 1.0));
-	const double Keep = FMath::Clamp(FMath::Lerp(MIJson::NumberOr(Fx, TEXT("flash.view.pull"), 0.5), MIJson::NumberOr(Fx, TEXT("flash.view.pullAimed"), 1.0), A), 0.1, 1.0);
+	const double Keep = bOverlay
+		? FMath::Clamp(MIJson::NumberOr(Fx, TEXT("flash.view.pullOverlay"), 1.0), 0.1, 1.0)
+		: FMath::Clamp(FMath::Lerp(MIJson::NumberOr(Fx, TEXT("flash.view.pull"), 0.5), MIJson::NumberOr(Fx, TEXT("flash.view.pullAimed"), 1.0), A), 0.1, 1.0);
 	const double S = Scale * MIJson::NumberOr(Fx, TEXT("flash.view.scale"), 1.0);
 	const FVector D = Dir.GetSafeNormal();
 	for (int32 K = 0; K < 3; ++K)
 	{
-		FCard& X = Cards[NextCard];
-		NextCard = (NextCard + 1) % Cards.Num();
+		FCard& X = Pool[Next];
+		Next = (Next + 1) % Pool.Num();
 		X.Age = 0.0;
 		X.Life = L;
 		const double Len = (K == 0 ? 14.0 : 26.0) * S;
@@ -605,11 +627,14 @@ void UMIEffects::Tick(float DeltaTime)
 			X.Mat->SetScalarParameterValue(TEXT("Fire"), static_cast<float>(X.Fire * FMath::Pow(FMath::Max(0.0, 1.0 - K * 1.8), 2.0)));
 		}
 	}
-	for (FCard& X : Cards)
+	for (TArray<FCard>* Pool : {&Cards, &ViewCards})
 	{
-		if (X.Age < X.Life && (X.Age += FrameDt) >= X.Life)
+		for (FCard& X : *Pool)
 		{
-			X.Mesh->SetVisibility(false);
+			if (X.Age < X.Life && (X.Age += FrameDt) >= X.Life)
+			{
+				X.Mesh->SetVisibility(false);
+			}
 		}
 	}
 	for (FLight& X : Lights)
