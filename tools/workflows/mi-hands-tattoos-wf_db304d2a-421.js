@@ -31,7 +31,10 @@ Reply through the structured output: cause (what made the tattoos and detail dis
 const F_SCHEMA = { type: 'object', properties: { cause: { type: 'string' }, summary: { type: 'string' }, fixed: { type: 'array', items: { type: 'string' } }, not_fixed: { type: 'array', items: { type: 'string' } }, pictures: { type: 'array', items: { type: 'string' } }, credits_spent: { type: 'number' } }, required: ['cause', 'summary', 'fixed', 'not_fixed'] }
 
 phase('Fix')
-const f1 = await agent(FIX, { label: 'arms:fix', phase: 'Fix', schema: F_SCHEMA, effort: 'high', model: 'opus' })
+const RESUME = `
+
+RESTART NOTE (newer than everything above): an earlier run of this exact task was cut off by a usage limit after a lot of work. Its commits are on the branch (git log: 'Arms:' and 'fp-arms-shots:' commits, the work-in-progress commit bfd17cd) and the Rule section of art/blender/PROGRESS.md says how far it got: tattoos moved to the thumb side and darkened, numerals unmirrored, knuckle and tendon forms, tiling skin grain, game skin on the Standard Subsurface model, nails 0.6 mm proud, forearm close-up shots in progress. Also read art/blender/review/rule_r3_final_review.json (an independent review with measured grip gaps). Continue from where it stopped; do not start over. Check on the box what is still running under your projects before you start anything (the box may have been replaced: cat the session file).`
+const f1 = await agent(FIX + RESUME, { label: 'arms:fix', phase: 'Fix', schema: F_SCHEMA, effort: 'high', model: 'opus' })
 if (!f1) return { f1: null }
 
 phase('Check')
