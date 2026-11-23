@@ -74,11 +74,16 @@ def slit_field(H, p, grow=0.0):
     return d
 
 
-def mask(H, col, bottom_z, h=0.0024, slits=True):
+def mask(H, col, bottom_z, h=0.0024, slits=True, neck=None):
     """The knitted ski mask: the head and neck grown by the fabric, open only at the bottom (inside the collar),
-    the eye slits sunk 9 mm into it (their floor is the black inside)."""
+    the eye slits sunk 9 mm into it (their floor is the black inside). Below the jaw it is held to a tube round
+    the neck (`neck`: the neck joint), so it tucks into the collar instead of spreading over the shoulders."""
     def f(p):
         d = H(p) - MASK_T
+        if neck is not None:
+            r = np.sqrt((p[:, 0] - neck[0]) ** 2 + ((p[:, 1] - neck[1] + 0.012) / 1.12) ** 2)
+            tube = r - 0.072 - 0.2 * np.clip((p[:, 2] - neck[2] - 0.03) / 0.05, 0, 1)
+            d = sdf.smax(d, tube, 0.01)
         if slits:
             d = np.maximum(d, -slit_field(H, p))
         return d

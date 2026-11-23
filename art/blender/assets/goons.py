@@ -208,37 +208,60 @@ def shoe_collider(man, parts):
 
 
 def mask_piece(man, bottom=1.45):
-    ob = cached("Mask", "m2", man.col, lambda: GH.mask(man.H, man.col, bottom_z=bottom))
+    ob = cached("Mask", "m3", man.col, lambda: GH.mask(man.H, man.col, bottom_z=bottom, neck=man.M.neck))
     GK.decimate(ob, BUDGET["Mask"])
     return ob
 
 
-def hood_piece(man, hoodie, mask, name="Hood"):
-    """The hood up: the head grown into a loose bag, its bottom sewn into the hoodie's neckline, draped over the mask
-    (the crown sags, folds gather at the neck), the face opening turned in as the drawstring channel."""
-    H, col = man.H, man.col
+def hood_piece(man, hoodie, mask, name="Hood", version="h6"):
+    """The hood up: an offset of the head and shoulders (more room at the back and the crown, where a hood stands
+    off), open at the face (the opening closes under the chin) and at the neckline, draped over the mask with the
+    neckline pinned (the crown sags, folds gather at the neck), the face opening turned in as the drawstring channel."""
+    H, BF, col = man.H, man.BF, man.col
+    j = H.j
 
     def make():
         L, ring = ordered_ring(hoodie, lambda P: P[:, 2].mean())
-        hd, cuts = GH.hood(H, col, ring, ease=0.03, back=0.05)
+        ring_z = float(ring[:, 2].mean())
+
+        rc = ring.mean(axis=0)
+        ax_ = (ring[:, 0].max() - ring[:, 0].min()) / 2 + 0.006
+        ay_ = (ring[:, 1].max() - ring[:, 1].min()) / 2 + 0.006
+
+        def f(p):
+            # below the jaw the hood narrows into the hoodie's neckline (an elliptic wall down to the seam)
+            q = np.sqrt(((p[:, 0] - rc[0]) / ax_) ** 2 + ((p[:, 1] - rc[1]) / ay_) ** 2)
+            wall = (q - 1.0) * min(ax_, ay_) - 0.12 * np.clip((p[:, 2] - ring_z - 0.05) / 0.06, 0, 1)
+            y, z = p[:, 1] - j[1], p[:, 2] - j[2]
+            e = 0.026 + 0.045 * np.clip((y + 0.02) / 0.12, 0, 1) * np.clip((z + 0.02) / 0.12, 0.3, 1) \
+                + 0.012 * np.clip(z / 0.15, 0, 1)
+            e = 0.024 + (e - 0.024) * np.clip((p[:, 2] - ring_z) / 0.07, 0, 1)
+            return sdf.smax(np.minimum(H(p), BF(p)) - e, wall, 0.015)
+        fc = j + np.array([0, -0.05, 0.035])
+        cuts = [((fc[0], fc[1] - 0.035, fc[2]), GH.unit((0, -1.0, -0.42)), 0.10), ((0, 0, ring_z), (0, 0, -1))]
+        lo = np.array([j[0] - 0.2, j[1] - 0.2, ring_z - 0.03])
+        hi = np.array([j[0] + 0.2, j[1] + 0.22, H.top + 0.09])
+        hd = cloth.garment_mesh("Hood", f, lo, hi, 0.0105, cuts=cuts, col=col, relax=4)
         co = GC.verts(hd)
         loops = cloth.boundary_loops(hd)
         if len(loops) != 2:
             raise RuntimeError("hood: expected a face opening and a neckline, got %d open loops" % len(loops))
         bottom = min(loops, key=lambda L: co[L][:, 2].mean())
-        co[bottom] = GC.snap_to_polyline(co[bottom], ring - np.array([0, 0, 0.004]))
-        GC.set_verts(hd, co)
         pin = np.zeros(len(co))
         pin[bottom] = 1.0
-        grow = GC.grow_weights(co, [H.j + np.array([0, 0.09, 0.10]), H.j + np.array([0, 0.03, 0.17])], 0.16)
+        near = GC.grow_weights(co, co[bottom], 0.05)
+        pin = np.maximum(pin, 0.6 * near)
+        face = max(loops, key=lambda L: co[L][:, 2].mean())
+        pin[face] = np.maximum(pin[face], 0.55)
+        grow = GC.grow_weights(co, [j + np.array([0, 0.09, 0.10]), j + np.array([0, 0.03, 0.17])], 0.16)
         grow = np.maximum(grow, 0.3) * (1 - pin)
         mc = collider_of([mask], "Col_Mask", man.work, ratio=0.4, inflate=0.002)
-        cloth.drape(hd, [mc, man.body_col], frames=30, pin=pin, shrink=grow, shrink_min=-0.05, bending=1.5,
+        cloth.drape(hd, [mc, man.body_col], frames=30, pin=pin, shrink=grow, shrink_min=-0.04, bending=1.5,
                     mass=0.2, log=man.log)
         cloth.smooth(hd, 2)
-        thicken_edges(hd, depth=0.028, thickness=0.006, which=lambda P: P[:, 1].mean() < H.j[1] - 0.02)
+        thicken_edges(hd, depth=0.014, thickness=0.005, which=lambda P: P[:, 1].mean() < j[1] - 0.02)
         return hd
-    return cached(name, "h3", col, make)
+    return cached(name, version, col, make)
 
 
 def hoodie_outfit(man, parts, shoes):
@@ -251,10 +274,10 @@ def hoodie_outfit(man, parts, shoes):
 
     def shell():
         ob, L = GC.hoodie_shell(B, M, BF, col, [man.body_col, jc], log=log, sleeve=0.019, grow=-0.035, ease=0.022,
-                                band_level=0.022, cuff_level=0.012)
+                                band_level=0.022, cuff_level=0.012, bending=2.2)
         cloth.smooth(ob, 2)
         return ob
-    hoodie = cached("Hoodie", "hd3", col, shell)
+    hoodie = cached("Hoodie", "hd4", col, shell)
     bands = GC.bands_for(B, M, BF, col, band_level=0.022, cuff_level=0.012)
     for k, o in bands.items():
         thicken_edges(o, depth=0.012, thickness=0.004, which=lambda P: P[:, 2].mean() < 0.9 or k != "waistband")
