@@ -102,7 +102,9 @@ lookat -400 100 60 1.5
 grab 6                                    # the last reel
 wait 1.0
 auto 0                                    # no stopping now: the pursuit would hold the run off the truck
-goto 3480 2970 1                          # to the IPX truck (the extraction zone is 2.5 m round its doors)
+goto 3475 2525 1                          # to the lot beside the IPX truck
+face point 4130 2970 170                  # then onto its rear doors (the extraction zone is 2.5 m round them)
+walk 3480 2930 0 60 8
 waitstate complete 20
 wait 6
 capture off
