@@ -25,6 +25,7 @@ The owner's standing instructions (verbatim):
 - Voice lines on kills and progress: "It's Murda!", "Holla, holla!", "Rule Baby!", "What's my motherf***in' name?!"
   (crowd answers "R-U-L-E!"), "I-N-C!".
 - Use Opus for background agents.
+- "this game will live on the IPX.exchange Game OS website": delivered by streaming the Unreal build into the page (Pixel Streaming), the owner's choice (`DECISIONS.md`).
 
 ## 2. Rules that stay in force
 

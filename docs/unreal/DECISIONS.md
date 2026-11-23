@@ -30,3 +30,23 @@ forward: buy gun packs, generate source models, keep hand-building, or use the p
   first-person pistol clips remain an open item: a matching pistol pack is the recommended route.
 - **Licence:** unchanged. Nothing from the pack is committed; the stand-in works on the box and falls back to the
   template rifle in a clean checkout.
+
+## 2026-11-23: the game lives on the IPX.exchange Game OS website, streamed
+
+**Owner:** "this game will live on the IPX.exchange Game OS website". Asked how, since Unreal Engine 5 cannot run
+inside a web page, the owner chose **"Stream Unreal"**: the full Unreal build runs on cloud GPUs and is streamed into
+the IPX.exchange page (Pixel Streaming), playable with keyboard, mouse or gamepad.
+
+**What this means for the build:**
+
+- The delivery target is a **Linux server build with Pixel Streaming 2**, not a desktop package. Everything else
+  (art, gameplay, menus) stays as it is.
+- The website embeds the Pixel Streaming player (a web component or iframe) in a Game OS page. The site's own code is
+  not in this repository; the build provides the player front end, the signalling server and a matchmaker that hands
+  each visitor a free game instance, plus the instructions for the site to embed it.
+- Each concurrent player needs one GPU game instance (or a share of a large GPU). Hosting cost scales with players:
+  measure instances per GPU and cost per player-hour, and write them down.
+- Input and UI must work in a browser tab: pointer lock for mouse look, keyboard, gamepad through the browser, a
+  click-to-start overlay, audio started on the first click, and graceful handling of a lost connection.
+- Latency budget for a shooter: aim for under 80 ms from input to picture on a good connection; measure it.
+- The demo playable route (`docs/DEMO.md`) is the first step of this: the same Pixel Streaming set-up, on the box.
