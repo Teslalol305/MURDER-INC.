@@ -139,6 +139,8 @@ GLASS_SLOTS = {
     "MI_Glass_Window": dict(room=(310.0, 550.0, 310.0), offset=(0.0, 0.0, 70.0), nits=110.0, shop=0.0, sill=0.19),
     "MI_Glass_Store": dict(room=(310.0, 550.0, 310.0), offset=(0.0, 0.0, 70.0), nits=200.0, shop=1.0, sill=0.03),
 }
+INTERIOR_CUBES = {"shop": ("ShopGrocery", "ShopParlour", "ShopStore"),       # mi_interiors.ROOMS
+                  "home": ("HomeLiving", "HomeBedroom", "HomeVacant")}
 BACKDROP_AVENUE_CM = 45000      # the avenue's street walls continue this far east and west of the centre
 AWNING_SCAN_MEAN = (0.284, 0.408, 0.613)   # mean linear albedo of TS_Fabric_ScanCanvas BC: tint = cloth / scan
 
@@ -578,6 +580,35 @@ return room * (1.0 - 0.6 * Dirt);
 """
 
 
+# Interior by cube map (mi_interiors.py bakes the rooms): the eye ray's hit on the far walls of the window's room cell,
+# seen from the cell centre, in the baked room's frame (X across the window, Y into the room, Z up) and size; one of
+# three cubes per cell, half of them mirrored, the lamp level varied.
+CUBE_HLSL = r"""
+float3 V = -normalize(CamV);
+float3 cellP = (WP - N * 40.0 - Offset) / Room;
+float3 cell = floor(cellP);
+float3 far = (cell + step(0.0, V)) * Room + Offset;
+float3 safeV = sign(V) * max(abs(V), 1e-4);
+float3 t = (far - WP) / safeV;
+float tm = min(t.x, min(t.y, t.z));
+float3 d = WP + V * tm - ((cell + 0.5) * Room + Offset);
+float h1 = frac(sin(dot(cell, float3(12.9898, 78.233, 37.719))) * 43758.5453);
+float h2 = frac(sin(dot(cell, float3(39.346, 11.135, 83.155))) * 24634.6345);
+float h3 = frac(sin(dot(cell, float3(73.156, 52.235, 9.151))) * 35791.4351);
+float3 L;
+if (abs(N.y) >= abs(N.x))
+    L = float3(d.x / Room.x, -sign(N.y) * d.y / Room.y, d.z / Room.z) * Bake;
+else
+    L = float3(d.y / Room.y, -sign(N.x) * d.x / Room.x, d.z / Room.z) * Bake;
+if (h2 > 0.5) L.x = -L.x;
+WA = step(h1, 0.3333);
+WB = step(0.3333, h1) * step(h1, 0.6666);
+WC = step(0.6666, h1);
+Lit = (0.55 + 0.7 * h3) * ((h2 > 0.88) ? 0.25 : 1.0);
+return L;
+"""
+
+
 def build_glass_master(force):
     """M_MI_Glass: opaque glazing (Nanite, full Lumen reflections) whose emission is the room behind it."""
     if ASSETS.does_asset_exist(GLASS_MASTER):
@@ -609,6 +640,49 @@ def build_glass_master(force):
                                  ("Nits", nits, ""), ("Shop", shop, ""), ("Sill", sill, "")):
         if not LIB.connect_material_expressions(source, output, node, name):
             raise RuntimeError("cannot connect %s to the glass node" % name)
+    # The baked rooms: three cube parameters, one picked per cell; CubeScale turns the capture into nits.
+    bake = param(unreal.MaterialExpressionVectorParameter, "Bake", (310, 550, 310, 0), 950)
+    cube_node = custom(material, -900, 900, CUBE_HLSL, ["WP", "CamV", "N", "Room", "Offset", "Bake"],
+                       unreal.CustomMaterialOutputType.CMOT_FLOAT3, ["WA", "WB", "WC", "Lit"])
+    for name, source in (("WP", wp), ("CamV", camera), ("N", normal_ws), ("Room", room), ("Offset", offset),
+                         ("Bake", bake)):
+        LIB.connect_material_expressions(source, "", cube_node, name)
+    default_cube = unreal.load_asset("/Engine/EngineResources/GrayDarkTextureCube.GrayDarkTextureCube")
+    total = None
+    for k, (cube_name, weight) in enumerate((("CubeA", "WA"), ("CubeB", "WB"), ("CubeC", "WC"))):
+        sample = expr(material, unreal.MaterialExpressionTextureSampleParameterCube, -500, 800 + k * 220,
+                      parameter_name=cube_name, texture=default_cube)
+        LIB.connect_material_expressions(cube_node, "", sample, "UVs")
+        weighted = expr(material, unreal.MaterialExpressionMultiply, -300, 800 + k * 220)
+        LIB.connect_material_expressions(sample, "RGB", weighted, "A")
+        LIB.connect_material_expressions(cube_node, weight, weighted, "B")
+        if total is None:
+            total = weighted
+        else:
+            summed = expr(material, unreal.MaterialExpressionAdd, -150, 800 + k * 220)
+            LIB.connect_material_expressions(total, "", summed, "A")
+            LIB.connect_material_expressions(weighted, "", summed, "B")
+            total = summed
+    cube_scale = param(unreal.MaterialExpressionScalarParameter, "CubeScale", 1.0, 1450)
+    lit = expr(material, unreal.MaterialExpressionMultiply, 0, 900)
+    LIB.connect_material_expressions(cube_node, "Lit", lit, "A")
+    LIB.connect_material_expressions(cube_scale, "", lit, "B")
+    cube_room = expr(material, unreal.MaterialExpressionMultiply, 150, 850)
+    LIB.connect_material_expressions(total, "", cube_room, "A")
+    LIB.connect_material_expressions(lit, "", cube_room, "B")
+    clean = expr(material, unreal.MaterialExpressionOneMinus, 0, 1000)
+    dirt_k = expr(material, unreal.MaterialExpressionMultiply, -150, 1000)
+    LIB.connect_material_expressions(node, "Dirt", dirt_k, "A")
+    LIB.connect_material_expressions(expr(material, unreal.MaterialExpressionConstant, -300, 1050, r=0.6), "", dirt_k, "B")
+    LIB.connect_material_expressions(dirt_k, "", clean, "")
+    cube_final = expr(material, unreal.MaterialExpressionMultiply, 300, 900)
+    LIB.connect_material_expressions(cube_room, "", cube_final, "A")
+    LIB.connect_material_expressions(clean, "", cube_final, "B")
+    use_cubes = param(unreal.MaterialExpressionScalarParameter, "UseCubes", 0.0, 1550)
+    room_colour = expr(material, unreal.MaterialExpressionLinearInterpolate, 450, 500)
+    LIB.connect_material_expressions(node, "", room_colour, "A")
+    LIB.connect_material_expressions(cube_final, "", room_colour, "B")
+    LIB.connect_material_expressions(use_cubes, "", room_colour, "Alpha")
     # Clean glass: black base, specular 0.5 (F0 0.04), roughness 0.02; grime greys and roughens it.
     base = expr(material, unreal.MaterialExpressionMultiply, -500, 0)
     grime = expr(material, unreal.MaterialExpressionConstant3Vector, -700, -100,
@@ -623,7 +697,7 @@ def build_glass_master(force):
     LIB.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
     LIB.connect_material_property(expr(material, unreal.MaterialExpressionConstant, -500, 300, r=0.5), "",
                                   unreal.MaterialProperty.MP_SPECULAR)
-    LIB.connect_material_property(node, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    LIB.connect_material_property(room_colour, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     LIB.recompile_material(material)
     ASSETS.save_asset(GLASS_MASTER, only_if_is_dirty=False)
     return "created"
@@ -856,6 +930,14 @@ def make_glass_instance(name, values, force):
     LIB.set_material_instance_vector_parameter_value(instance, "Offset", unreal.LinearColor(*(values["offset"] + (0,))))
     for key, param in (("nits", "Nits"), ("shop", "Shop"), ("sill", "Sill")):
         LIB.set_material_instance_scalar_parameter_value(instance, param, values[key])
+    # The baked rooms (mi_interiors.py), shops or homes, when they exist.
+    rooms = INTERIOR_CUBES["shop" if values["shop"] > 0.5 else "home"]
+    paths = ["%s/Interiors/TC_%s" % (ROOT, r) for r in rooms]
+    if all(ASSETS.does_asset_exist(p) for p in paths):
+        for cube_name, path in zip(("CubeA", "CubeB", "CubeC"), paths):
+            LIB.set_material_instance_texture_parameter_value(instance, cube_name, unreal.load_asset(path))
+        LIB.set_material_instance_scalar_parameter_value(instance, "UseCubes", 1.0)
+        LIB.set_material_instance_scalar_parameter_value(instance, "CubeScale", values.get("cube_scale", 1.0))
     return finish_instance(instance, name)
 
 
@@ -1887,7 +1969,15 @@ def build_day_rig(day):
 
 # ------------------------------------------------------------------------------------------------------ the job
 
-STEPS = {"textures": texture_units, "materials": material_units, "meshes": mesh_units, "level": level_units}
+def interior_units(force):
+    import importlib
+    import mi_interiors
+    importlib.reload(mi_interiors)
+    return mi_interiors.interior_units(force)
+
+
+STEPS = {"textures": texture_units, "materials": material_units, "meshes": mesh_units, "interiors": interior_units,
+         "level": level_units}
 _JOB = {}
 
 
