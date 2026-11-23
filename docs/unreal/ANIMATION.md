@@ -412,6 +412,9 @@ The fix pass changed only this page, `tools/box/anim/` and the two data files. T
 | Body | arms only: `SK_RuleArms` (the same skeleton). With a full mannequin on the FP clips, hide `neck_01` (the head sits on the camera) and `thigh_l` / `thigh_r` (`HideBoneByName`, `PBO_None`), and draw the full body as `WorldSpaceRepresentation` / owner-no-see for shadows |
 | Aim, irons | blend to `Aim_Pose` by `Ads`: `SightRear` lands on the camera axis (measured 0.001 cm off), eye relief 11.56 cm to the aperture, the front post centred in it arms FOV 38° vertical (`packguns-fp-irons.jpg`) |
 | Aim, scope | base mesh switches to `_Folded` (irons down; not yet in the game's assembly, 8.7); the scope's `SightEye` axis is 0.40 cm above the iron line (10.056 against 9.656 over the gun origin), so the aimed pose adds **-0.40 cm along the gun's up axis × Ads** (generally: minus the sight point's offset from `SightRear` across the bore); eye 14.33 cm behind `SightEye` (a collimated sight: relief does not matter), arms FOV 32° vertical (`packguns-fp-scope.jpg`) |
+| Irons zero (game) | the clip's `Aim_Pose` leaves the front sight a little off the camera axis in the game's rig (the reviewer measured the post about 35 px under the screen centre at 38 degrees). `UMIFirstPersonRig` measures the front sight's direction from the eye in the clip's own pose once the gun is fully up and turns the arms about the eye by that angle, by smoothstep(Ads), kept per gun |
+| Support elbow (game) | aimed, the left arm's IK pole moves (0, 0, -45) cm (component space) with the hand kept where the clip has it: the forearm drops out of the sight picture (`animSets.rifle.supportElbowDrop`) |
+| Effects on the first-person pass | flash cards, casings and the dropped magazine are drawn at the first-person depth: camera-space (s x, s k y, s k z), scale s k, s = `FirstPersonScale` 0.6, k = tan(world fov/2) / tan(first-person fov/2) (`UMIWeaponComponent::FirstPersonToNearWorld`) |
 | Sprint, reload, inspect | the clips as they are; the camera stays on the head (it never moves); camera kick and sway stay the rules'; the magazines as in 9.1 |
 
 ### 9.1 The magazines in the pack's reloads
@@ -436,6 +439,10 @@ The rule (`mi_guns.RELOAD_MAGS`, `mag_shown()`; the game's `UMIWeaponComponent` 
    `SM_TFA_AR_Magazine_Empty` (`_Full` for the quick reload, the clear twins with the clear magazine) at the
    `Magazine` bone's world transform with the bone's velocity; let it fall and despawn after a few seconds.
 3. **Retained** (`Reload`, `Reload_Empty_Retain`): hide the mesh on `Magazine` from "let go" (it is in the pouch).
+   **The game stows on the tactical reload too** (fix pass 2026-11-23, presentation `reloads.tactical.stow`): with
+   `Reload_Quick` the old magazine is hidden at "leaves the seat" (0.40) and no body is spawned, so a partly used
+   magazine is never thrown away; only the empty reload drops one. At 7 m/s it leaves the frame within two frames
+   of 0.40 either way.
 4. At the end of every reload (or when it is cancelled): show the mesh on `Magazine` (back on `MagHinge` in the idle)
    with the fresh magazine's rounds (`RoundsShown`), hide `Magazine_Reserve`'s.
 

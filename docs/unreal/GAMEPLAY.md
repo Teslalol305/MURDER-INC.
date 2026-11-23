@@ -249,7 +249,7 @@ equipped from its resolved presentation's `animSet` (presentation.json `firstPer
 | Mode | When | Arms | Gun |
 |---|---|---|---|
 | Pack | set `rifle` (`mode: pack`): the CHOPPER (when its `realMesh`, the pack's Short rifle, exists), SHORTY, STICK, STRETCH | `SK_RuleArms` on the camera by the recipe of ANIMATION.md 9 (component (-0.66, 0, -162), yaw -90), playing the pack's FP clips | the pack rifle (`USkeletalMeshComponent`) on the arms' `ik_hand_gun`, identity, playing the pack's weapon clips; parts by `UMIGunAssembly` on it |
-| HandIK | set `pistol` (`mode: ik`): the NINE when `SK_Nine` exists | `SK_RuleArms` placed so the template body's `HandGrip_R` socket (read from `SKM_Manny_Simple`, same skeleton) holds the gun's grip, playing the template `MF_Pistol_Idle_ADS` with `MM_Pistol_Fire` added per round; both palms pulled onto `SK_Nine`'s `Palm_L` / `Palm_R` by two-bone IK (the `middle_metacarpal` point lands on the socket) | the procedural rig poses `SK_Nine`, its slide, barrel, trigger and magazine bones as before; `SM_Weapon_NineMagazine` rides the `magazine` bone |
+| HandIK | set `pistol` (`mode: ik`): the NINE when `SK_Nine` exists | `SK_RuleArms` placed so the template body's `HandGrip_R` socket (read from `SKM_Manny_Simple`, same skeleton) holds the gun's grip, playing the template `MF_Pistol_Idle_ADS` with `MM_Pistol_Fire` added per round; both palms pulled onto `SK_Nine`'s `Palm_L` / `Palm_R` by two-bone IK (the `middle_metacarpal` point lands on the socket); the support hand's fingers (the bones below `hand_l`) take the pack idle's wrap (`fingerCurl`, a finger-only layer: `FMIFPLayer::Branch`; without the pack the template fingers stay) | the procedural rig poses `SK_Nine`, its slide, barrel, trigger and magazine bones as before; `SM_Weapon_NineMagazine` rides the `magazine` bone **at the inverse of that bone's reference pose** (`UMIFirstPersonRig::MeshSpacePartOnBone`: the magazine is modelled in the pistol's space, so snapped to the bone's frame it floated 10 to 20 cm beside the gun, turned 90 degrees; `FirstPerson.NineMagazine`) |
 | Template | nothing above exists (a clean checkout) | the template body, as before | the template rifle or pistol, as before |
 
 Every choice falls back: a missing arms mesh, clip, gun mesh or a clip on another skeleton keeps the template way and
@@ -274,9 +274,27 @@ Actions blend in over 0.08 s and out over 0.18 s; gun clips snap (their last fra
 
 **Magazines (ANIMATION.md 9.1).** The seated magazine is the build's magazine part (`UMIGunAssembly::PartMesh`) or the
 rig's own `SM_TFA_AR_Magazine_Full` on `MagHinge`; a reserve one rides `Magazine_Reserve` with the hinge socket's frame.
-In a reload the reserve shows from `reserve` to the end; at `out` the seated one hides and a physics copy (`_Full` for
-the tactical, `_Empty` for the empty reload) is spawned where it appears on screen (`FirstPersonToWorld`) with the
-bone's velocity (`UMIEffects::SpawnBody`, 8 s); outside a reload the seated one shows and the reserve hides.
+In a reload the reserve shows from `reserve` to the end; at `out` the seated one hides. **The tactical reload stows
+it** (`reloads.tactical.stow`: hidden, kept, no body: a partly used magazine is never thrown away); the empty reload
+drops a physics `_Empty` copy where it appears on screen with the bone's velocity (`UMIEffects::SpawnBody`, 8 s).
+Outside a reload the seated one shows and the reserve hides.
+
+**Drawn at the first-person depth.** The first-person pass draws the arms and gun with their own field of view and
+the camera's `FirstPersonScale` (0.6): a world object at the gun's world point sits behind the gun. The muzzle flash,
+the casings and the dropped magazine therefore go through `UMIWeaponComponent::FirstPersonToNearWorld`: location
+(s x, s k y, s k z) in camera space, scale s k (s = FirstPersonScale, k = tan(world fov / 2) / tan(first-person fov /
+2)). They land on exactly the pixels of the muzzle, port or well, in front of the world as the gun is. The player's
+flash uses the effects' own world cards (`UMIEffects::WorldFlash`, the cards the Goons' flashes use) at that point:
+cards attached to the camera (first-person primitives in the first pass, plain primitives in this one) were read back
+visible, placed and sized right in play and still never drew in a picture.
+
+**Aimed.** The irons are zeroed: once the gun is fully up, the front sight's direction from the eye in the clip's
+own pose (the rig's layers taken off) is measured and the arms are turned about the eye by that angle, by
+smoothstep(Ads), kept per gun (`GetIronZeroDeg`), so the post sits on the screen centre where the rounds go. The
+support elbow drops (`animSets.rifle.supportElbowDrop` (0, 0, -45) cm on the left arm's IK pole, the hand kept where
+the clip has it): the forearm leaves the sight picture. The HUD crosshair fades out with smoothstep(0.05, 0.55, Ads).
+The pack optics get daylight values (`firstPerson.opticMaterials`: the reticle's `Brightness` 25,000 nits, the
+glass `Opacity` 0.05) on dynamic instances.
 
 **The procedural layers stay on top.** In Pack mode `FMIViewmodelRig::SetClipDriven(true, bobScale)` drops the rig's
 own sprint, reload, aim and strike poses; `GetLayerTransform()` (hip view to the final pose, camera space) carries the
@@ -307,24 +325,55 @@ outfit index across the slots) at `meshScale` 0.98; when any is missing the `var
 The weapon is `SM_Weapon_GoonSMG` (a static mesh, origin at the grip) on bone `hand_r` at `weaponOffset` (CHARACTERS.md;
 socket names cannot be set from Python in 5.9), its muzzle at `muzzleOffset` (39, 0, 4.2) cm (weapons.py: bore 4.2 cm
 over the grip, muzzle device ends at 0.39 m); without it the template rifle on `HandGrip_R`. Animation as before
-(`ABP_TP_Rifle`). The Buzzard keeps its placeholder (`SK_Buzzard` is imported, not yet driven).
+(`ABP_TP_Rifle`), with two presentation fixes on top:
+
+- **The support hand holds the SMG.** The Goon's mesh is `UMIGoonMeshComponent` (`Enemies/MIGoonMesh`): after the
+  animation blueprint's pose, in `FinalizeBoneTransform`, the left arm is solved by two-bone IK in component space so
+  the palm's centre (`middle_metacarpal_l`) lands on `supportGrip` (17, 0, -3) cm in the SMG's frame (weapons.py's
+  `SupportHand` socket, 1.8 cm under it), every descendant of the arm following. Weight 1 while alive, fading out
+  over 0.25 s in the death clip.
+- **The body turns onto the aim.** The template set aims along the body; the drawn mesh turns by the rules' aim yaw
+  (`AimYawRel` x the aim weight, eased, at most 75 degrees). The hit volumes stay the rules'.
+
+**The Buzzard** is `SK_Buzzard` when it is in the project (`enemies.buzzard.mesh`): a `UPoseableMeshComponent`, the
+four props spun about their hubs by the rules' rotor angle (fl and rr counter-clockwise from above), a lost rotor
+scaled to nothing, the gimbal turned to the rules' eye yaw and pitch, the lens lit through `eyeMaterial` (the
+additive tracer material, `Intensity` = lamp x `eyeNits`); the placeholder shapes only in a clean checkout.
 
 ## 17. Effects
 
 `UMIEffects` (`Weapons/MIEffects`, a tickable world subsystem, game worlds only) on the /Game/FX materials of
 `tools/box/fp/mi_fp_import.py fx`; tuning in presentation.json `fx`. Built in code on pooled components (no Niagara
-asset: the effect materials are procedural HLSL, the motion is the subsystem's):
+asset: the effect materials are procedural HLSL, the motion is the subsystem's).
+
+Two things the fix pass (2026-11-23) found by measuring in play, not by reading the code:
+
+- **Long frames ate the short effects.** The headless editor plays at 10 to 20 frames a second; one step of 0.05 to
+  0.1 s aged a 0.045 s flash, a 0.05 s light or a 0.09 s tracer past its life before it was ever drawn (the cards
+  existed, placed and sized right, but hidden: read back from Python). Flashes, lights and tracers now advance at
+  most 1/60 s per frame, so each is drawn for its life's worth of frames at any frame rate.
+- **Dark translucent puffs drew nothing.** A bright card on M_FX_Smoke showed (`tools/box/fp/fx_diag.py`, in the
+  editor and in play), 53 smoke-coloured cards at opacity 0.5, facing the camera at 7 to 9 m, left the street behind
+  them untouched. M_FX_Smoke is now a **lit, masked** card whose coverage is dithered per pixel (`DitherTemporalAA`,
+  resolved by TSR into a soft edge): it takes the sun, the sky and Lumen like any surface; the fireball's glow stays
+  emissive. The parameters (Color, Opacity, Seed, Erode, Fire) are unchanged.
+
 
 | Hook | Effect |
 |---|---|
-| Player round (`OnRoundFired`) | three first-person flash cards at the muzzle (the star across the bore, two crossed jets along it; `flash.life` 0.045 s) and a 0.05 s point light in the world (none at all with a silencer); a brass casing from `Eject` along its +X with the body's velocity (`SM_TFA_AR_Bullet_Casing` on the pack rifles, else a brass cylinder); the tracer as a moving streak (the old line tracer when the materials are absent) |
+| Player round (`OnRoundFired`) | three world flash cards (`WorldFlash`) on the muzzle at the first-person depth (the star across the bore, two crossed jets along it; `flash.life` 0.045 s, nearly three frames at 60 fps) and a 0.05 s point light in the world (none at all with a silencer); a brass casing from `Eject` along its +X with the body's velocity, at the first-person depth and size (`SM_TFA_AR_Bullet_Casing` on the pack rifles, else a brass cylinder); the tracer as a moving streak from 1 m past the muzzle (more when the rules hide the first stretch), 1 cm radius, 60,000 nits (the old line tracer when the materials are absent); every streak starts one frame in flight |
 | Enemy `Fire` (`AMIGoon::OnRuleEvent`) | a world flash at the SMG's muzzle with its light, the tracer to the first thing the round meets |
 | `Impact` on the world | two dust puffs in the surface's colour (`fx.surfaces`), a strike mark (deferred decal, 30 s), a spark card on metal |
 | `Impact` on an enemy | a short blood mist both ways and a spatter on the wall behind within 2.6 m |
+| `PlayerHit` (HUD, `AMIHUD::DrawHurt`) | the rules' `Hurt` drawn at the frame's edges: twelve bands thickening to the edge (at most about 0.6 alpha at the very edge), a 9 % wash in the centre (the old full-frame 25 % tint flattened the picture), and for 1.5 s a red wedge on a ring round the crosshair pointing at `PlayerHit.From` |
 | `Explosion` | a 0.45 s light, a fireball (seven emissive puffs), twelve smoke puffs rising for 5 to 8 s, a dust ring, ten debris bodies, a scorch mark |
 
 ## 18. Dev console (not in shipping builds)
 
+`MIStart [mode] [skip]` resolves the saved set-up (or the parity one) through the loadout resolver before the run,
+like the set-up screens (`UMIGameSubsystem::StartRunWithSetup`), so a console run draws the real arms and guns too.
+`MIFaceEnemy <m>` stands the player on a walkable spot the asked distance (within 0.75 m) from the nearest Goon with a
+clear line to its chest, the bearings fanned out 15 degrees at a time from the line Goon -> player.
 `MIPose <x> <y> <feet z> <yaw> <pitch>`, `MIFreezeAfter <s>` (world time dilation 0.0001 after that much game time),
 `MIFreezeOn <fire|reload|explosion|enemyfire> [delay]` (enemyfire: a Goon in sight within 16 m, the view turned onto
 it), `MIBlowNearest`, `MIInput inspect 1`, `MIFaceEnemy -1` (turn only). `tools/box/fp/fp-shots.sh` uses them for the
@@ -332,7 +381,8 @@ pictures `docs/unreal/shots/fp-*.jpg`.
 
 ## 19. Tests (first person)
 
-`FirstPerson.RealArt` (the CHOPPER and NINE resolve the real mesh, anim set, sockets and finish only when the art
+`FirstPerson.NineMagazine` (on the box: `SM_Weapon_NineMagazine` on SK_Nine's `magazine` bone sits inside the gun's
+bounds, below the bore, centred in the grip, upright), `FirstPerson.RealArt` (the CHOPPER and NINE resolve the real mesh, anim set, sockets and finish only when the art
 exists; the CHOPPER's rules JSON stays config.json's and its stage times 2.24 / 2.72), `FirstPerson.OpticTwin` (the
 three pack rifles take the irons-folded twin with the scope), `FirstPerson.Clips` (on the box: every clip of every anim
 set loads on the right skeleton, the reload marks rise; a clean checkout says so and passes).

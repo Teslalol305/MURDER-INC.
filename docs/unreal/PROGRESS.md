@@ -55,6 +55,60 @@ Built in the gameplay clone `/project/ue/repo-gameplay` (MCP 8001). Contracts: `
    The set-up flow (`fe hit`, the saved set-up) resolves the real art.
 7. The CHOPPER's mounts stay `missing` (parity): DECISIONS.md allows the Short rifle's parts; not offered yet.
 
+### First-person fix pass (independent review, 2026-11-23: grades 2 and 2)
+
+Box re-rented (the old one had ended idle). Everything below was verified in the gameplay clone, play in editor in
+L_Block, pictures retaken with `tools/box/fp/fp-shots.sh` and looked at.
+
+**Fixed, most visible first**
+- **The NINE's magazine** sits in the grip: `SM_Weapon_NineMagazine` is modelled in the pistol's space, so it rides
+  the `magazine` bone at the inverse of that bone's reference pose (`UMIFirstPersonRig::MeshSpacePartOnBone`).
+  New test `FirstPerson.NineMagazine`: magazine box (-1.35..4.53, +-1.3, -13.45..-3.3) cm inside SK_Nine's box, below
+  the bore, centred, upright (`fp-nine.jpg`).
+- **Muzzle flash, tracer, casing.** Two causes, both measured in play: the headless editor plays at 10 to 20 frames
+  a second and one long step aged the 0.045 s flash and the 0.09 s tracer past their life before they were drawn
+  (the cards existed, placed and sized right, hidden); flashes, lights and tracers now advance at most 1/60 s a
+  frame. And world objects at the gun's world point sit behind the first-person gun: the flash, casings and the
+  dropped magazine are drawn at the first-person depth (`FirstPersonToNearWorld`); the flash through the effects'
+  world cards (camera-attached cards read back visible and placed right still never drew). Tracers start 1 m past the
+  muzzle, 1 cm radius, 60,000 nits (`fp-fire.jpg` 0.02 s, `fp-fire-early.jpg` 0.006 s after a round).
+- **Smoke, dust and blood mist** never drew: a bright card on M_FX_Smoke showed, 53 smoke-coloured cards at opacity
+  0.5 facing the camera at 7 to 9 m left the street untouched (`fx_diag.py`, read-back from Python). M_FX_Smoke is now
+  a lit, masked, dithered card (DitherTemporalAA, TSR resolves it): it takes the sun and Lumen; blast smoke lighter
+  (albedo 0.07) (`fp-explosion.jpg` 0.42 s, `fp-explosion-late.jpg` 1.6 s).
+- **Aiming.** The HUD crosshair fades out with smoothstep(Ads); the irons are zeroed (the front sight's direction in
+  the clip's aimed pose turned onto the camera axis, per gun); the support elbow drops when aimed
+  (`supportElbowDrop`, the hand kept on the handguard); the optic's reticle lit to 25,000 nits and the glass nearly
+  clear (`firstPerson.opticMaterials`) (`fp-irons.jpg`, `fp-scope.jpg`).
+- **Tactical reload stows** the partly used magazine (hidden at magOut, no body); only the empty reload drops one,
+  drawn at the first-person depth so it is seen leaving the well (`fp-reload-tactical.jpg`, `fp-reload-empty.jpg`
+  0.1 s after magOut).
+- **Damage** at the edges (twelve bands, a 9 % centre wash, not the old 25 % full-frame tint) with a red wedge toward
+  the hit for 1.5 s (`fp-explosion-late.jpg`).
+- **MIStart** resolves the saved (or parity) set-up through the loadout resolver: a console run draws the pack rifle
+  and the real arms ("chopper drawn with the pack's clips" in the log). **MIFaceEnemy** finds a walkable spot at the
+  asked distance with a clear line (10.4 m for 10; `fp-goon.jpg`, and `fp-goon-5.jpg` at 5 m).
+- **The Buzzard** is SK_Buzzard (props spun, gimbal on the eye, lens lit), the grey disc only in a clean checkout.
+- **Goons:** the support hand is pulled onto the SMG's SupportHand point by two-bone IK after the animation
+  blueprint (`UMIGoonMeshComponent`), and the drawn body turns onto the rules' aim.
+- **NINE:** the support fingers wrap (a finger-only layer from the pack idle); in a reload the support hand follows
+  the magazine's base pad.
+- Arms re-imported from the current export (`fp-art.sh pack|put|unpack`, `import-chars.sh arms`); the dev overlay
+  file on the box is deleted (the data path is presentation.json since the first pass).
+- Suite: **TESTS OK passed=105 failed=0** (every `Golden.*` replay and `Loadout.ParityGolden` among them).
+
+**Not fixed (why)**
+- The arms' skin (saturated orange, red stripes at the El's slat shadows, tattoos, hair, pores) is the character
+  agent's pass in progress (commit 5667229: resident textures, detail normal, shorter scatter, re-lettered tattoos);
+  the game picks it up by re-running `fp-art.sh` + `import-chars.sh arms`. Support fingers wrapping the rail at the
+  hip need per-finger targets on the rail: not done (the elbow drop only acts when aimed).
+- The grey-box blockers in L_Block are the level's colliders drawn by tag (`build_block.py`, level agent): hand-off.
+- Goon motion stays the template rifle set (no SMG or pistol aim set exists in the project); mask and cloth
+  materials are the Goons agent's.
+- NINE reload, draw and holster clips do not exist (no pistol pack); the rig's procedural poses play them.
+- Effects remain code on pooled components, not Niagara systems (no scriptable Niagara authoring here); no smoke
+  flipbook texture exists.
+
 ## Exact next step (level)
 
 1. Still boxes in L_Block, with no art anywhere: the building backs (`backs`, 7 brick masses with the window grid),

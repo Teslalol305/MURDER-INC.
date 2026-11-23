@@ -131,6 +131,47 @@ The arms the player sees are now the bare `SK_RuleArms` (the gloved build above 
 | Hip view | `config.json weapons.chopper.views[0]` = (0.125, -0.07, -0.215, 0.05, 0.24, -0.34), `weapons.nine.views[0]` = (0.06, -0.045, -0.26, 0.06, 0.09, -0.16) (and `src/config/weapons.js`): 2.5-10 cm closer, higher and nearer the centre than before, so the bare forearms and the support hand fill the lower third at 54 deg. To judge in the engine with `look.viewmodel`'s lights |
 | Grips | The previews solve each hand onto the gun (`assets/_characters_pose.py`: palm on `Palm_R` / `Palm_L`, fingers closed to 1.5 mm of the gun's surface, the trigger pad and both thumbs searched, fingers brought together). These finger angles are not exported as clips yet: the game's hands come from its animation; a per-gun hand pose (pose asset) is the next step. No corrective shapes ship (knuckle, pad and wrist flexion): none are in the GLB |
 
+### SK_RuleArms, hands-and-tattoos pass (2026-11-23): why the game showed a smooth tan tube, and the fix
+
+The owner: "fix the hands and arm tatoos". In play (`shots/fp-hip-sun.jpg`, `fp-hip-el.jpg`, `fp-irons.jpg`) the
+forearm and hand read as one smooth orange-tan tube: no tattoo, no pores, veins, knuckles or tendons, red fringes 1-2 cm
+wide along every sun-stripe shadow edge, a mitten-like hand.
+
+**What it was not** (each checked on the box):
+
+| Suspect | Evidence |
+|---|---|
+| Material not bound / fallback colour | The game's `M_RuleArms_Skin` read back from the asset: BC, ORM and N texture samples wired to Base Colour, AO / Roughness / Metallic and Normal, UV 0; slots `M_RuleArms_Skin` and `M_RuleArms_Nail` assigned on `SK_RuleArms`; and in play the arms component (`FirstPersonArms`) carries exactly these two materials |
+| Texture settings | BC sRGB, N `TC_NORMALMAP` with the green channel flipped (OpenGL to Unreal), ORM linear `TC_MASKS`: all right |
+| Wrong UVs | The game project's own `.uasset` files copied into the characters project render the tattoos, veins and knuckles at 30 cm in a lit view and in a base-colour capture |
+| Streaming | `ListTextures` during play: `T_RuleArms_Skin_BC`, `_N`, `_ORM` 4096 x 4096 in memory (full size), yet the frame still showed the smooth tube. (A low mip does give exactly this look: LOD bias 5 in the characters project reproduces it; the pool is 1000 MB against about 9 GB of level sets, so the arms' textures are now never streamed: about 55 MB resident) |
+
+**The cause: the Subsurface Profile model on the first-person pass.** The arms are a first-person primitive
+(`FirstPersonPrimitiveType` FirstPerson, the camera's `FirstPersonScale` 0.6 and its own field of view). The screen-space
+subsurface pass of the Subsurface Profile model scattered the arms' lighting over a radius far larger than the profile's
+(the red fringes 1-2 cm wide where the profile asks for 2 mm): every lighting detail of the normal map (veins, tendons,
+knuckles, pores, the finger separations) was averaged away, and the profile's saturated red-orange scatter tinted the
+forearm. EVIDENCE_PLACEHOLDER
+
+**The fix, at the source** (`tools/box/fp/mi_fp_import.py`, re-run by `import-chars.sh arms`):
+
+| Item | Now |
+|---|---|
+| `M_RuleArms_Skin` | rebuilt with parameters on the **Standard Subsurface** model (no screen-space blur): base colour BC x `SkinTint` (0.92, 1.0, 1.12: his R/B 3.0 albedo read orange in the street's sun under ACES, now 2.5), roughness ORM.G x `RoughnessScale`, AO ORM.R, `Specular` 0.35, Subsurface Colour BC x `SubsurfaceTint` (0.40, 0.16, 0.10), Opacity `Scatter` 0.92 (a little light through thin fingers); normal = the baked N with the tiling skin grain `T_RuleArms_SkinDetail_N` added (whiteout blend, `DetailStrength` 0.8, `DetailTiling` from the forearm's texel density in `set.json`: 3,904 px/m at 4K, one 24 mm tile, 43.7 repeats per UV unit) |
+| `M_RuleArms_SkinProfile` | the same graph on the Subsurface Profile model with a shorter, nearly neutral `SP_RuleSkin` (red 0.12 cm, mean free path colour 1.0 / 0.42 / 0.30, albedo 0.55 / 0.40 / 0.33): kept only for comparison in play (`fp-arms-shots.sh` takes `ev-profile.jpg` with it) |
+| Textures | `T_RuleArms_Skin_BC/N/ORM` 4096 and `T_RuleArms_SkinDetail_N` 1024 never streamed (`arms_textures`) |
+| `M_RuleArms_Nail` | tint toward keratin 0.12 (was 0.45: the plate read pale pink-white and hid the texture's lunula and free edge), roughness 0.38 |
+
+**The art** (`art/blender/assets/_rule_tex.py`, `rule.py`, `_rule_detail.py`; build `build.py build rule --only arms --bake --res 4096 --export`):
+
+| Item | Now |
+|---|---|
+| Tattoos | every line runs **across** the forearm (round it), the letters' tops toward the elbow, as in the photo (r3 ran them along the arm); centred 2.6-3.2 cm round from the back of the forearm toward the thumb side, the face the photo's crossed arms show and the face the first-person camera sees of the support forearm. Right forearm near the elbow: the word in heavy serif capitals (Old Standard Bold; the photo's lettering is a serif roman, not blackletter) 21 mm tall, about 7 cm round the arm, 20 cm above the wrist; the script line 16 mm beside it toward the wrist. Left forearm, upper third: XVII and XXIII (r3's IIIXX was the mirror reading) 14 mm tall, rows 2.6 cm apart at 17-19.5 cm above the wrist. The left arm's chart is drawn mirrored (the left arm is the mirror image of the right arm's frame), so the numerals read correctly from outside |
+| Ink | healed blue-black at about a fifth of the skin's luminance (r3: a third, a grey smudge), 90 % cover so the skin's grain shows through, 0.15 mm ragged needle edge, 0.4 mm bleed, a faint 0.6 mm halo, uneven take-up |
+| Hands (forms) | extensor tendons on the back of the hand 1.1 mm high (r3 0.5), PIP and DIP knuckles swell on the back, the finger shafts slim 0.35-0.45 mm between the joints (no longer even "sausages"), a fuller thenar pad; dorsal knuckle wrinkles 120 um deep in the normal map (r3 75) |
+| Skin grain | `T_RuleArms_SkinDetail_N`: a periodic 24 mm tile of skin lines (a 1.1 mm cell network 18 um deep with a finer 0.45 mm one), pores (0.13 mm, 26 um) and a soft relief |
+| Export | 131,598 triangles, the posed gate 104 poses, 0 failed (nearest skin to the eye 12.4 cm) |
+
 ## The Goons (art/blender/assets/goons.py)
 
 Three skinned meshes on `SK_Mannequin`, one man in three outfits (briefs `docs/unreal/spec/assets/characters.json`

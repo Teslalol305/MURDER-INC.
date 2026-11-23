@@ -293,7 +293,10 @@ def mesh_nails(R, hand, col):
 
         def f(p, n=n, nf=nf):
             d0 = base(p)
-            plate = np.maximum(d0 - 0.00030, -0.00040 - d0)                 # 0.7 mm plate, 0.3 mm proud
+            # hands-and-tattoos pass: 0.7 mm plate, 0.6 mm proud of the unrecessed finger (r3: 0.3 mm, and the 64k
+            # decimation of the skin smoothed the 0.38 mm nail bed away, so the skin covered the middle of each plate
+            # and only its rim showed: black nails with a pale U in every Cycles preview)
+            plate = np.maximum(d0 - 0.00060, -0.00010 - d0)
             rd, q = hand.nail_rect(p, n, 0.0)
             plate = sdf.smax(plate, rd, 0.0003)
             return sdf.smax(plate, nf["r"] * 0.15 - q[:, 2], 0.0004)          # the top of the finger only
