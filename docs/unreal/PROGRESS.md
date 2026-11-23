@@ -221,6 +221,13 @@ Spec: `docs/unreal/LOADOUT.md`. Built and tested in `/project/ue/repo-gameplay` 
    silenced round), a second level (the split Block / Style screens and level travel), the gun silhouettes and part
    pips as icons (names and squares stand in), `Ops` / `Clamps` fixtures as files (built in code).
 5. `Audio.EventTable` asks for the new `WeaponMode` bus delegate to be bound in `FMIAudioDirector` (audio agent).
+6. Seen in the pictures: the Crew stage shows the first gun first-person but not the template arms; the rack's
+   turntable frames the CHOPPER stand-in as a close-up (the STICK on the Workbench frames whole); pack parts sit at
+   the provisional markers (the vertical grip reads, the scope and silencer do not yet). Headless pictures are the
+   editor's play viewport (1013 x 550), so the type is smaller than at 1080p.
+
+Final suite (2026-11-23): `test.sh MurderInc` TESTS FAILED passed=93 failed=1 (`Audio.EventTable`: 188 web sound
+files missing, the audio agent's).
 
 ## Gameplay (slice 2: the enemies and the flow) — in progress
 
