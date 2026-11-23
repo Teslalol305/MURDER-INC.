@@ -1203,9 +1203,11 @@ def fit_surface(hits, facing=1, deg=(3, 2)):
     return lambda Y, Z: np.clip(basis(np.clip(Y, y0, y1), np.clip(Z, z0, z1)) @ cf, lo, hi)
 
 
-def cut_rect(ob, y0, y1, z0, z1, xa, xb):
+def cut_rect(ob, y0, y1, z0, z1, xa, xb, facing=None, min_nx=0.25):
     """Clean rectangular hole in a shell: the faces near the rectangle (signed y0 < y1, z0 < z1, x in xa..xb) are
-    bisected on its four planes, then the faces inside are deleted. Returns the number of deleted faces."""
+    bisected on its four planes, then the faces inside are deleted. facing (+1 nose / -1 tail): only faces that
+    look that way (n.x * facing > min_nx) go, so a quarter panel wrapping round a tail lamp stays (close-up
+    pass 4: the cut left black gaps on the rear quarters). Returns the number of deleted faces."""
     bm = geo.bm_of(ob)
     pad = 0.05
 
@@ -1225,6 +1227,8 @@ def cut_rect(ob, y0, y1, z0, z1, xa, xb):
     for f in bm.faces:
         c = f.calc_center_median()
         if xa < c.x < xb and y0 < c.y < y1 and z0 < c.z < z1:
+            if facing is not None and f.normal.x * facing <= min_nx:
+                continue
             kill.append(f)
     bmesh.ops.delete(bm, geom=kill, context="FACES")
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
@@ -1306,39 +1310,46 @@ def surface_lamp(fx, y0, y1, z0, z1, sections=(("clear", 1.0),), facing=1, depth
 
 
 def surface_grille(fx, y0, y1, z0, z1, facing=1, style="eggcrate", nv=None, nh=None, bar_key="chrome",
-                   back_key="black", surround_key="chrome", recess=0.035, name="Grille"):
-    """A grille filling y0..y1 x z0..z1 of a nose x = fx(y, z): a dark backing mesh recessed by `recess`, bars
-    ('eggcrate': a grid of vertical and horizontal blades; 'bars': horizontal bars only), a surround that covers
-    the cut, and side walls."""
+                   back_key="black", surround_key="chrome", recess=0.04, bar=0.008, top_ext=0.0, name="Grille"):
+    """A moulded grille filling y0..y1 x z0..z1 of a nose x = fx(y, z) (close-up pass 4: bars with depth, not
+    wires): a black backing plate `recess` behind the bars, side walls, bars `bar` square with a 2 mm bevel
+    ('eggcrate': vertical and horizontal bars crossing; 'bars': horizontal bars), and a surround frame (22 mm
+    face, 16 mm deep, rounded) whose top is raised by top_ext to meet the bonnet's shut line."""
     s = facing
     out = {}
-    back = grid(name + "_Back", np.linspace(y0, y1, 12), np.linspace(z0, z1, 6),
+    z1f = z1 + top_ext
+    back = grid(name + "_Back", np.linspace(y0, y1, 14), np.linspace(z0, z1f, 7),
                 lambda Y, Z: (fx(Y, Z) - s * recess, Y, Z), smooth=40)
     _add(out, back_key, orient(back, (s, 0, 0)))
-    o1 = _outline(fx, y0, y1, z0, z1, 0.012, 0.0, s)
+    o1 = _outline(fx, y0, y1, z0, z1f, 0.014, 0.0, s)
     o2 = [(x - s * recess, y, z) for x, y, z in o1]
     _add(out, back_key, loft(name + "_Wall", [o1, o2], closed=True, cap=False, smooth=30))
     nh = nh or max(2, int((z1 - z0) / 0.035))
     nv = nv if nv is not None else (max(3, int((y1 - y0) / 0.045)) if style == "eggcrate" else 0)
+    h = bar / 2
+    sq = [(-h, -h), (h, -h), (h, h), (-h, h)]
     bars = []
-    for k in range(1, nh + (1 if style == "bars" else 0)):
-        z = z0 + (z1 - z0) * k / (nh + (1 if style == "bars" else 0))
-        pts = [(float(fx(np.array(y), np.array(z))) - s * 0.006, float(y), z) for y in np.linspace(y0 + 0.004, y1 - 0.004, 14)]
-        if style == "bars":
-            bars.append(geo.sweep([(-0.006, -0.0035), (0.006, -0.0035), (0.006, 0.0035), (-0.006, 0.0035)], pts,
-                                  name=name + "_Bar", up=(0, 0, 1), bevel=0.002, bevel_segments=1))
+    nseg = nh + 1
+    for k in range(1, nseg if style == "eggcrate" else nseg + 1):
+        z = z0 + (z1 - z0) * k / (nseg if style == "eggcrate" else nseg + 1)
+        pts = [(float(fx(np.array(y), np.array(z))) - s * (h + 0.003), float(y), z)
+               for y in np.linspace(y0 + 0.006, y1 - 0.006, 16)]
+        if style == "bars":           # flat bright bars, 12 mm tall
+            prof = [(-0.006, -h), (0.006, -h), (0.006, h), (-0.006, h)]
+            bars.append(geo.sweep(prof, pts, name=name + "_Bar", up=(s, 0, 0), bevel=0.002, bevel_segments=1))
         else:
-            bars.append(geo.sweep([(-0.0015, -recess * 0.45), (0.0015, -recess * 0.45), (0.0015, recess * 0.4),
-                                   (-0.0015, recess * 0.4)], pts, name=name + "_Blade", up=(s, 0, 0)))
+            bars.append(geo.sweep(sq, pts, name=name + "_Bar", up=(s, 0, 0), bevel=0.002, bevel_segments=1))
     for k in range(1, nv + 1):
         y = y0 + (y1 - y0) * k / (nv + 1)
-        pts = [(float(fx(np.array(y), np.array(z))) - s * 0.006, y, float(z)) for z in np.linspace(z0 + 0.003, z1 - 0.003, 6)]
-        bars.append(geo.sweep([(-0.0015, -recess * 0.45), (0.0015, -recess * 0.45), (0.0015, recess * 0.4),
-                               (-0.0015, recess * 0.4)], pts, name=name + "_Blade", up=(s, 0, 0)))
+        pts = [(float(fx(np.array(y), np.array(z))) - s * (h + 0.003), y, float(z))
+               for z in np.linspace(z0 + 0.006, z1 - 0.006, 6)]
+        bars.append(geo.sweep(sq, pts, name=name + "_Bar", up=(s, 0, 0), bevel=0.002, bevel_segments=1))
     if bars:
         _add(out, bar_key, geo.join(bars, name + "_Bars"))
-    ob = _outline(fx, y0, y1, z0, z1, 0.012, 0.003, s)
-    _add(out, surround_key, geo.pipe(ob + [ob[0]], 0.0075, segments=8, name=name + "_Surround"))
+    ob = _outline(fx, y0, y1, z0, z1f, 0.014, -0.004, s)
+    frame = geo.sweep([(-0.011, -0.012), (0.011, -0.012), (0.011, 0.004), (-0.011, 0.004)], ob + [ob[0]],
+                      name=name + "_Surround", up=(s, 0, 0), bevel=0.004, bevel_segments=2)
+    _add(out, surround_key, frame)
     return out
 
 

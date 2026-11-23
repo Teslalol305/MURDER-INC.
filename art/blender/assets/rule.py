@@ -355,13 +355,113 @@ def weights_right(R, body, skin, nails, log=print):
     sl = C.source_labels(body, "r")
     bones = char.ARM_BONES["r"]
     lab = C.glove_regions(R, C.verts(skin))[0]
-    names, W = char.transfer_weights(skin, body, bones, limit=6, target_labels=lab, source_labels=sl)
-    char.smooth_weights(skin, iterations=3, strength=0.4, limit=6, names=names, W=W)
-    log("  weights Skin_R: %d vertices" % len(skin.data.vertices))
+    names, W = char.transfer_weights(skin, body, bones, limit=6, target_labels=lab, source_labels=sl, apply=False)
+    # review round 3: the label-0 lookup (everything that is not a finger) let the back of the upper arm take
+    # hand and thumb weights from the mannequin's surface: when the elbow folds the hand dragged those vertices
+    # through the camera. Weights are now limited to the bone's own segment of the arm, before and after smoothing
+    h = chain_height(R, C.verts(skin))
+    W, n0 = segment_mask(names, W, h, R)
+    W = char.set_weights(skin, names, W, limit=6)
+    names, W = char.smooth_weights(skin, iterations=3, strength=0.4, limit=6, names=names, W=W)
+    W, n1 = segment_mask(names, W, h, R)
+    W = wrist_ramp(names, W, h)
+    char.set_weights(skin, names, W, limit=6)
+    log("  weights Skin_R: %d vertices, %d cross-segment weights removed (%d after smoothing), wrist ramp "
+        "%.0f mm" % (len(skin.data.vertices), n0, n1, (WRIST_RAMP[0] - WRIST_RAMP[1]) * 1000))
     for n, ob in zip(C.FINGERS, nails):
         ob.vertex_groups.clear()
         g = ob.vertex_groups.new(name="%s_03_r" % n)
         g.add(list(range(len(ob.data.vertices))), 1.0, "REPLACE")
+
+
+# review round 3: each bone may only weight skin within its own stretch of the arm, measured as the height above the
+# wrist joint along the shoulder-elbow-wrist chain (m; negative past the wrist, L at the elbow, L + Lu at the
+# shoulder). (bone without side, lowest h, highest h); h is in units of metres, "L" / "U" added below.
+SEGMENT = [("clavicle", "U*0.45", "9"), ("upperarm", "L-0.07", "9"), ("upperarm_twist_01", "L-0.05", "9"),
+           ("upperarm_twist_02", "L-0.05", "9"), ("lowerarm", "-0.02", "L+0.07"), ("lowerarm_twist_01", "-0.03", "L*0.75"),
+           ("lowerarm_twist_02", "0.0", "L+0.05"), ("hand", "-9", "0.055"), ("thumb_01", "-9", "0.012"),
+           ("thumb_02", "-9", "-0.012"), ("thumb_03", "-9", "-0.03"), ("metacarpal", "-9", "0.012"),
+           ("_01", "-9", "-0.03"), ("_02", "-9", "-0.06"), ("_03", "-9", "-0.08")]
+WRIST_RAMP = (0.032, -0.022)       # hand share from 0 (h above) to 1 (h below): a 5.4 cm blend over the wrist
+
+
+def chain_height(R, p):
+    """Height above the wrist joint along the arm's chain for points p (rest pose, right arm frame): the nearest of
+    the upper-arm, forearm and hand segments decides which piece a point is on."""
+    S, E, W = R.S, R.E, R.W
+    out = np.zeros(len(p))
+    best = np.full(len(p), 1e9)
+    Hd = W + R.fwd * 0.20
+    for a, b, h0, sign in ((S, E, R.L + R.Lu, -1.0), (E, W, R.L, -1.0), (W, Hd, 0.0, -1.0)):
+        ab = b - a
+        L = float(np.linalg.norm(ab))
+        t = ((p - a) @ ab) / (L * L)
+        tc = np.clip(t, 0, 1)
+        d = np.linalg.norm(p - a - tc[:, None] * ab[None], axis=1)
+        h = h0 + sign * t * L                         # t unclipped: beyond the shoulder h keeps growing
+        m = d < best
+        best[m], out[m] = d[m], h[m]
+    return out
+
+
+def _seg_range(bone, R):
+    env = {"L": R.L, "U": R.Lu}
+    for key, lo, hi in SEGMENT:
+        if bone == key or (key.startswith(("_", "meta")) and key in bone and not bone.startswith("thumb")) \
+                or (key == "metacarpal" and bone.endswith("metacarpal")):
+            return eval(lo, {}, env), eval(hi, {}, env)
+    return -9.0, 9.0
+
+
+def segment_mask(names, W, h, R):
+    """Zero every weight outside its bone's stretch of the arm (SEGMENT); a vertex left with nothing takes its
+    own segment's bone. Returns (W normalised, number of weights removed)."""
+    W = np.array(W, dtype=np.float64)
+    n_removed = 0
+    for j, nm in enumerate(names):
+        lo, hi = _seg_range(nm[:-2], R)
+        bad = ((h < lo) | (h > hi)) & (W[:, j] > 1e-4)
+        n_removed += int(bad.sum())
+        W[bad, j] = 0.0
+    s = W.sum(axis=1)
+    empty = s < 0.05
+    if empty.any():
+        side = names[0][-2:]
+        fb = np.where(h[empty] > R.L + 0.01, "upperarm", np.where(h[empty] > 0.03, "lowerarm", "hand"))
+        for k, i in enumerate(np.nonzero(empty)[0]):
+            j = names.index(fb[k] + side)
+            W[i] = 0.0
+            W[i, j] = 1.0
+    s = W.sum(axis=1, keepdims=True)
+    return W / np.maximum(s, 1e-12), n_removed
+
+
+def wrist_ramp(names, W, h):
+    """Review round 3 (the wrist pinched into a pleat when the hand flexed): over the wrist the hand's share (hand,
+    metacarpals, thumb) follows one smooth ramp of WRIST_RAMP; the forearm's share goes mostly to the twist bone."""
+    W = np.array(W, dtype=np.float64)
+    handish = np.array([not n.startswith(("clavicle", "upperarm", "lowerarm")) for n in names])
+    z = (h < WRIST_RAMP[0] + 0.01) & (h > WRIST_RAMP[1] - 0.01)
+    t = np.clip((WRIST_RAMP[0] - h[z]) / (WRIST_RAMP[0] - WRIST_RAMP[1]), 0, 1)
+    f = t * t * (3 - 2 * t)
+    Wz = W[z]
+    hs = Wz[:, handish].sum(axis=1)
+    as_ = Wz[:, ~handish].sum(axis=1)
+    side = names[0][-2:]
+    jh, jt, jl = names.index("hand" + side), names.index("lowerarm_twist_01" + side), names.index("lowerarm" + side)
+    for k in range(len(Wz)):
+        row = Wz[k]
+        if hs[k] > 1e-6:
+            row[handish] *= f[k] / hs[k]
+        else:
+            row[jh] = f[k]
+        if as_[k] > 1e-6:
+            row[~handish] *= (1 - f[k]) / as_[k]
+        else:
+            row[jt] = (1 - f[k]) * 0.75
+            row[jl] = (1 - f[k]) * 0.25
+    W[z] = Wz
+    return W
 
 
 def uv_layout(R, ob, side_attr):
@@ -637,8 +737,12 @@ def bake_skin(ctx, ob, res):
             inner &= np.roll(mask, sh, axis=ax)
     nrm[mask & ~inner] = (0.5, 0.5, 1.0)
     nrm = texel.dilate(nrm, inner, 4)
-    cav = np.clip(texel.blur(hd, 3) - hd, 0, None)
-    ao = np.clip(1.0 - cav / 0.00025, 0.6, 1.0)
+    # review round 3 (smeared AO and cavity along the UV island edges): the blur is normalised by the island mask,
+    # so texels outside an island never pull the edge down
+    mf = mask.astype(np.float32)
+    hb = texel.blur(hd * mf, 3) / np.maximum(texel.blur(mf, 3), 1e-3)
+    cav = np.where(mask, np.clip(hb - hd, 0, None), 0.0)
+    ao = np.clip(1.0 - cav / 0.00030, 0.65, 1.0)
     aol = _bake._bake_ao(ob, 1024, 16, 0, 0.03, False)
     k = H // 1024
     m1 = mask.reshape(1024, k, 1024, k).mean(axis=(1, 3)) > 0.99
@@ -674,8 +778,8 @@ def nail_folds(R, hand, P, region, side, bc, rough):
         root *= T.smoothstep(nf["hw"] + 0.0015, nf["hw"] - 0.001, np.abs(q[:, 1]))
         sidef = T.smoothstep(0.0018, 0.0002, rd) * T.smoothstep(0.0, 0.0006, rd)
         fold[near] = np.maximum(fold[near], np.clip(0.9 * root + 0.6 * sidef, 0, 1) * top)
-    from assets import _rule_tex as X
-    bc = bc * (1 - 0.45 * fold)[:, None] + X.KNUCKLE[None] * (0.45 * fold)[:, None]
+    # review round 3: darker by the same skin's own shade (the texels are graded afterwards), a touch redder
+    bc = bc * (1 - 0.38 * fold)[:, None] * np.array([1.0, 0.94, 0.92], dtype=np.float32)[None] ** fold[:, None]
     rough = rough + 0.06 * fold
     return bc, rough
 
@@ -685,7 +789,10 @@ def textured_materials():
     M_RuleArms_Nail default lit, both on the same three textures)."""
     out = {}
     d = paths.texture_set("RuleArms_Skin")
-    for name, sss, coat in (("M_RuleArms_Skin", 0.18, 0.0), ("M_RuleArms_Nail", 0.05, 0.35)):
+    # review round 3 (glossy orange plastic by day, black-brown silhouettes under the El): full subsurface with
+    # the SP_RuleSkin radii (1.0 / 0.4 / 0.25 cm), specular 0.35, and a thin sharper second lobe (coat) standing in
+    # for the dual-lobe specular of Unreal's Subsurface Profile
+    for name, sss, coat in (("M_RuleArms_Skin", 1.0, 0.12), ("M_RuleArms_Nail", 0.05, 0.35)):
         m = bpy.data.materials.get(name) or bpy.data.materials.new(name)
         nt = m.node_tree
         for nd in list(nt.nodes):
@@ -714,11 +821,13 @@ def textured_materials():
         nt.links.new(nm.outputs["Color"], nmap.inputs["Color"])
         nt.links.new(nmap.outputs["Normal"], b.inputs["Normal"])
         b.inputs["Subsurface Weight"].default_value = sss
-        b.inputs["Subsurface Radius"].default_value = (1.0, 0.38, 0.18)
-        b.inputs["Subsurface Scale"].default_value = 0.003
+        b.inputs["Subsurface Radius"].default_value = (1.0, 0.4, 0.25)
+        b.inputs["Subsurface Scale"].default_value = 0.01 if name == "M_RuleArms_Skin" else 0.003
+        b.inputs["Specular IOR Level"].default_value = 0.35 if name == "M_RuleArms_Skin" else 0.5
         if coat:
             b.inputs["Coat Weight"].default_value = coat
-            b.inputs["Coat Roughness"].default_value = 0.2
+            b.inputs["Coat Roughness"].default_value = 0.38 if name == "M_RuleArms_Skin" else 0.2
+            b.inputs["Coat IOR"].default_value = 1.4
         out[name] = m
     return out
 
@@ -794,7 +903,16 @@ def on_export(ctx, objs):
     if r and "ob" in r:
         p = char.export_character(r["ob"], r["arm"], name="SK_RuleArms")
         ctx.log("exported %s" % p)
-        export_checks(r["ob"], r["arm"], p, ctx.log)
+        rep = export_checks(r["ob"], r["arm"], p, ctx.log)
+        # review round 3: the skin posed through the arm clips and both gun holds (assets/_rule_gate.py)
+        from assets import _rule_gate as G
+        gate = G.run(r["ob"], r["arm"], r["R"], r["Rl"], ctx.log)
+        rep["posed_gate"] = gate
+        rep["ok"] = bool(rep["ok"] and gate["ok"])
+        with open(p + ".check.json", "w") as f:
+            json.dump(rep, f, indent=1, default=str)
+        if not gate["ok"]:
+            raise SystemExit("SK_RuleArms failed the posed gate (%d poses): %s" % (gate["failed"], json.dumps(gate["fails"][:3])))
         a = ctx.assets["SM_Character_RuleBracelet"]
         _export.export_asset(r["bracelet"], ctx.family, "none", None, a["notes"], None, None, slots=None, strict=False)
         # review round 1: the silver values ship with the asset (export_asset writes grey non-metal stubs)
