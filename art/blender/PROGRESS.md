@@ -440,10 +440,17 @@ in any prompt, file or request; tattoo lettering is read from art/out/ref/tattoo
 - [x] reference sheet: 7 pictures (nano_banana_pro, 2 credits each) in art/out/gen/rule/: head front, three-quarter,
       profile; body front/back; A-pose front/back. All plainly the same man (face shape, brow, eyes, nose, thin
       moustache, chin hair, skin tone); the profile is slightly leaner in the cheek. Generated tattoos are invented.
-- [ ] head 3D (meshy_v7 ultra + hunyuan3d_v3, compare), body 3D (meshy_v7 a-pose ultra)
-- [ ] SK_RuleArms bare, SK_RuleArms_Gloved
-- [ ] SK_Rule
-- [ ] previews, two review rounds
+- [x] head 3D: meshy_v7 ultra kept (closest to the photo), hunyuan3d_v3 drifted (broad face, light eyes);
+      body 3D: meshy_v7 a-pose ultra; both base colour atlases (2K) upscaled to 4K (bytedance, 2 credits each).
+      Credits spent by this task: 125 (7 x 2 images, 2 x 44 meshy, 19 hunyuan, 2 x 2 upscale).
+- [x] SK_RuleArms_Gloved exported (characters.build, skin slot M_RuleArms_GlovedSkin, set RuleArms_GlovedSkin)
+- [x] SK_RuleArms bare: 131,594 tris (64k skin per arm + 10 nails), RuleArms_Skin 4K baked (hand 6.9k px/m,
+      forearm 3.9k, upper arm 2.7k), tattoos from charts; bracelet silver on the right wrist (24k tris)
+- [x] SK_Rule: 120,624 tris, head bust on the generated body at the collar, bound, exported (46 MB, 4K maps)
+- [ ] previews round 1 (running: build rule --preview --samples 64), round 2
+## Exact next step
+Look at art/previews/rule_*.jpg, compare rule_face with the photo privately (art/out/gen/rule/compare_face.jpg),
+fix the worst fault, re-render at most 2 pictures, commit the previews.
 
 ---------------------------------------------------------------------------------------------------------------
 # Goons (assets/goons.py, _goons_*.py, mi/cloth.py), senior character artist: SK_Goon_Hoodie / _Puffer / _Tracksuit
