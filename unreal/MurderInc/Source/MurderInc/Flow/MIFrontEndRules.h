@@ -48,6 +48,8 @@ public:
 	const FMIReadiness& GetReadiness() const { return Ready; }
 	/** mi.Setup.ShowUnready: the rack also shows the guns that are not ready, tagged DEV. */
 	void SetShowUnready(bool bOn) { Ready.bShowUnready = bOn; }
+	/** Tests: the readiness the rules and the run use (an asset check that says every pack mesh is present). */
+	FMIReadiness& EditReadinessForTest() { return Ready; }
 	const FMILoadoutData& GetData() const { return *Data; }
 	/** At least one gun carried and every required slot filled (always true after validation). */
 	bool IsValid() const;

@@ -92,6 +92,8 @@ public:
 	/** Off outside intro and playing: the input of the frame is dropped. */
 	void SetGameplayInput(bool bOn) { bGameplayInput = bOn; }
 	void SetViewmodelVisible(bool bVisible);
+	/** Hides the arms while the gun stays (the Briefing hides the template stand-in arms, LOADOUT.md 2.8). */
+	void SetArmsHidden(bool bHidden);
 	/** The crew member's look on the arms (LOADOUT.md 3.4 phase 1: material instances by slot); null or Rule: as built. */
 	void ApplyCrewLook(const struct FMICrewEntry* Crew);
 	/** The play bounds (cm, X and Y); the body centre is kept body.boundsMargin inside them. */
@@ -147,6 +149,8 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UMICharacterMovement> Movement;
+
+	bool bArmsHidden = false;
 
 	FMIPlayerFrameTick EarlyTickFunction;
 	FMIPlayerFrameTick LateTickFunction;

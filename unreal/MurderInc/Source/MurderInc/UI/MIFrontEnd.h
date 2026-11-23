@@ -41,6 +41,13 @@ public:
 	bool Act(const FString& Action, const FString& Arg = FString());
 	/** A key or button from the widget; true when it was used. */
 	bool Key(const FKey& Key, bool bDown, bool bRepeat, bool bCtrl, bool bShift);
+	/** A real key press and release through Slate's routing (FSlateApplication::ProcessKeyDownEvent / ProcessKeyUpEvent)
+	 *  to the focused set-up widget, as a keyboard or pad would send it: the console's MIKey and the tests use it. Where
+	 *  the widget is in no window (a headless test world) it is hosted in a virtual window for the press. Returns true
+	 *  when the widget handled the press. */
+	bool PressKey(const FKey& Key, bool bCtrl = false, bool bShift = false);
+	/** Press only or release only (for chords such as View+Start and the 0.6 s reset hold). */
+	bool SendKey(const FKey& Key, bool bDown, bool bCtrl = false, bool bShift = false);
 
 	/** The focused row or card of the current screen, and the pane on Loadout (0 rack, 1 slots). */
 	int32 Focus = 0;
@@ -62,6 +69,9 @@ public:
 	void OpenBriefing();
 	void OpenHome();
 
+	/** Every string of a text document the screens may draw (notes for the reader left out). */
+	static void CollectDrawnText(const TSharedPtr<FJsonObject>& Root, TArray<FString>& Out);
+
 	/** The resolved gun a screen shows (the focused rack gun, the bench gun with the previewed option). */
 	bool ResolveShown(FName Gun, const FMIGunBuild* Build, FMIResolvedGun& Out) const;
 	const FMIReadiness& GetReadiness() const { return Rules.GetReadiness(); }
@@ -80,6 +90,7 @@ private:
 	TWeakObjectPtr<UMIGameSubsystem> Game;
 	UPROPERTY(Transient) TObjectPtr<AMIShowroom> Showroom;
 	TSharedPtr<SMIFrontEnd> Widget;
+	TSharedPtr<class SWindow> KeyWindow;  // the virtual window that hosts the widget for SendKey when no viewport does
 	TSharedPtr<FJsonObject> ConfigRoot, PresentationRoot, TextRoot;
 	TUniquePtr<FMILoadoutResolver> Resolver;
 	FMIFrontEndRules Rules;

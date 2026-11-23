@@ -304,11 +304,21 @@ void AMIPlayerCharacter::TeleportFeet(const FVector& Feet)
 
 void AMIPlayerCharacter::SetViewmodelVisible(bool bVisible)
 {
+	const bool bArms = bVisible && !bArmsHidden;
 	if (GunMesh->IsVisible() != bVisible)
 	{
 		GunMesh->SetVisibility(bVisible);
-		ArmsMesh->SetVisibility(bVisible);
 	}
+	if (ArmsMesh->IsVisible() != bArms)
+	{
+		ArmsMesh->SetVisibility(bArms);
+	}
+}
+
+void AMIPlayerCharacter::SetArmsHidden(bool bHidden)
+{
+	bArmsHidden = bHidden;
+	SetViewmodelVisible(GunMesh->IsVisible());
 }
 
 void AMIPlayerCharacter::AirStep(float DeltaSeconds)

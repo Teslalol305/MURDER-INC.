@@ -128,9 +128,12 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 		DrawText(V.Objective.ToUpper(), White, W * 0.03, H * 0.04, Font, 1.3f);
 		const FString Tally = Rules.GetMode() == TEXT("mission") ? FString::Printf(TEXT("%d / %d"), V.Reels, V.ReelsTotal) : V.Tally;
 		DrawText(Tally, Amber, W * 0.03, H * 0.04 + 30.0, Font, 1.2f);
-		// Markers: objective codes where they are, with the distance.
+		// Markers: objective codes where they are, with the distance. Hidden while the weapon wheel is open, so its
+		// labels never collide with them.
 		const AMIPlayerCharacter* P = Cast<AMIPlayerCharacter>(GetOwningPawn());
-		for (const FMIFlowView::FMarker& M : V.Markers)
+		const AMIPlayerController* WheelPC = Cast<AMIPlayerController>(GetOwningPlayerController());
+		const bool bWheel = WheelPC && WheelPC->GetSwitch().IsWheelOpen();
+		for (const FMIFlowView::FMarker& M : bWheel ? TArray<FMIFlowView::FMarker>() : V.Markers)
 		{
 			const FVector At = MI::Web::ToUnreal(M.Pos) + FVector(0, 0, 150.0);
 			const FVector Screen = Project(At, true);
@@ -377,7 +380,7 @@ void AMIHUD::DrawWheel(const AMIPlayerCharacter& Player)
 		GetTextSize(Line, TW, TH, Small, static_cast<float>(K * 0.8));
 		DrawText(Line, bSel ? Bg() : InkDim(), PX - TW * 0.5, PY + PH * 0.5 - TH - 6.0 * K, Small, static_cast<float>(K * 0.8));
 	}
-	const FString Centre = Loadout ? Loadout->Text(TEXT("frontend.hud.wheel")) : FString(TEXT("Pick a gun"));
+	const FString Centre = Loadout ? Loadout->Text(TEXT("frontend.hud.wheel")) : FString();
 	float TW = 0.f, TH = 0.f;
 	GetTextSize(Centre.ToUpper(), TW, TH, Small, static_cast<float>(K * 0.9));
 	DrawText(Centre.ToUpper(), InkDim(), CX - TW * 0.5, CY - TH * 0.5, Small, static_cast<float>(K * 0.9));

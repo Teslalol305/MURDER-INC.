@@ -13,8 +13,10 @@
 #include "MurderInc.h"
 #include "Player/MIPlayerCharacter.h"
 #include "UI/MIShowroom.h"
+#include "UI/MIStyle.h"
 #include "UI/SMIFrontEnd.h"
 #include "Weapons/MIWeaponComponent.h"
+#include "Widgets/SVirtualWindow.h"
 #include "Widgets/SWeakWidget.h"
 
 namespace MIFrontEndObjPrivate
@@ -81,7 +83,38 @@ bool UMIFrontEnd::Init(UMIGameSubsystem* InGame)
 		}
 	}
 	Widget = SNew(SMIFrontEnd).Owner(this);
+	// Every character the screens draw must be in a face or the symbol face: a missing one shows as an empty box.
+	TArray<FString> Drawn;
+	CollectDrawnText(Data->TextJson, Drawn);
+	const FString Missing = MIStyle::MissingGlyphs(FString::Join(Drawn, TEXT("")));
+	if (!Missing.IsEmpty())
+	{
+		UE_LOG(LogMI, Warning, TEXT("Front end: the fonts lack %d character(s) used in frontend_text.json: %s"), Missing.Len(), *Missing);
+	}
 	return true;
+}
+
+void UMIFrontEnd::CollectDrawnText(const TSharedPtr<FJsonObject>& Root, TArray<FString>& Out)
+{
+	// Notes for the reader (about, note, notes, example) are never drawn.
+	static const TSet<FString> Skip = {TEXT("about"), TEXT("note"), TEXT("notes"), TEXT("example"), TEXT("params")};
+	TFunction<void(const TSharedPtr<FJsonValue>&)> Walk = [&](const TSharedPtr<FJsonValue>& V)
+	{
+		if (!V.IsValid()) return;
+		if (V->Type == EJson::String) Out.Add(V->AsString());
+		else if (V->Type == EJson::Array) for (const TSharedPtr<FJsonValue>& E : V->AsArray()) Walk(E);
+		else if (V->Type == EJson::Object)
+		{
+			for (const auto& Pair : V->AsObject()->Values)
+			{
+				if (!Skip.Contains(FString(*Pair.Key))) Walk(Pair.Value);
+			}
+		}
+	};
+	if (Root.IsValid())
+	{
+		Walk(MakeShared<FJsonValueObject>(Root));
+	}
 }
 
 void UMIFrontEnd::Show()
@@ -105,6 +138,11 @@ void UMIFrontEnd::Show()
 
 void UMIFrontEnd::Hide()
 {
+	if (KeyWindow.IsValid() && FSlateApplication::IsInitialized())
+	{
+		FSlateApplication::Get().UnregisterVirtualWindow(KeyWindow.ToSharedRef());
+		KeyWindow.Reset();
+	}
 	if (!bShown)
 	{
 		return;
@@ -118,6 +156,10 @@ void UMIFrontEnd::Hide()
 	if (APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr)
 	{
 		PC->SetInputMode(FInputModeGameOnly());
+	}
+	if (AMIPlayerCharacter* P = Game.IsValid() ? Game->GetPlayer() : nullptr)
+	{
+		P->SetArmsHidden(false);  // the run shows the arms
 	}
 }
 
@@ -595,6 +637,43 @@ bool UMIFrontEnd::Key(const FKey& K, bool bDown, bool bRepeat, bool bCtrl, bool 
 	return false;
 }
 
+bool UMIFrontEnd::SendKey(const FKey& K, bool bDown, bool bCtrl, bool bShift)
+{
+	if (!Widget.IsValid() || !FSlateApplication::IsInitialized())
+	{
+		return false;
+	}
+	FSlateApplication& App = FSlateApplication::Get();
+	FWidgetPath Path;
+	if (!App.FindPathToWidget(Widget.ToSharedRef(), Path))
+	{
+		// No viewport holds the screens (a test world): host them in a virtual window, as a 3D widget is hosted.
+		if (!KeyWindow.IsValid())
+		{
+			TSharedRef<SVirtualWindow> Window = SNew(SVirtualWindow).Size(FVector2D(1920.0, 1080.0));
+			Window->SetContent(Widget.ToSharedRef());
+			App.RegisterVirtualWindow(Window);
+			KeyWindow = Window;
+		}
+		if (!App.FindPathToWidget(Widget.ToSharedRef(), Path))
+		{
+			UE_LOG(LogMI, Warning, TEXT("SendKey: the set-up widget has no path in any window"));
+			return false;
+		}
+	}
+	App.SetAllUserFocus(Widget, EFocusCause::SetDirectly);
+	const FModifierKeysState Mods(bShift, false, bCtrl, false, false, false, false, false, false);
+	const FKeyEvent Event(K, Mods, 0, false, 0, 0);
+	return bDown ? App.ProcessKeyDownEvent(Event) : App.ProcessKeyUpEvent(Event);
+}
+
+bool UMIFrontEnd::PressKey(const FKey& K, bool bCtrl, bool bShift)
+{
+	const bool bHandled = SendKey(K, true, bCtrl, bShift);
+	SendKey(K, false, bCtrl, bShift);
+	return bHandled;
+}
+
 // ---------------------------------------------------------------------------------------------------- frame
 
 void UMIFrontEnd::Tick(double Dt)
@@ -668,6 +747,10 @@ void UMIFrontEnd::SyncViewTarget()
 	else Target = P;
 	if (P)
 	{
+		// The Briefing's first-person view holds the first carried gun. The arms in play are still the template body,
+		// whose open upper arm fills the lower left this close (LOADOUT.md 6.6, owned by the characters work): they stay
+		// hidden here until the crew's own first-person arms are in.
+		P->SetArmsHidden(Want == 2);
 		P->SetViewmodelVisible(Want == 2);
 		if (Want == 2)
 		{
@@ -730,15 +813,23 @@ void UMIFrontEnd::SyncStage(bool bForce)
 	{
 		return;
 	}
-	if (S == EMIFrontScreen::Crew)
+	// Crew: the member's arms at the eye when they exist; until then the turntable shows the first carried gun, never
+	// a gun floating at the eye with no hands (LOADOUT.md 2.4).
+	if (S == EMIFrontScreen::Crew && Showroom->ShowArms(Rules.GetData().FindCrew(Set.Crew), G))
 	{
 		Showroom->UseShot(AMIShowroom::EShot::Arms);
-		Showroom->ShowArms(Rules.GetData().FindCrew(Set.Crew), G);
+		return;
 	}
-	else
+	Showroom->UseShot(AMIShowroom::EShot::Turntable);
+	Showroom->ShowGun(G);
+	FName Slot, Socket;
+	if (S == EMIFrontScreen::Workbench)
 	{
-		Showroom->UseShot(AMIShowroom::EShot::Turntable);
-		Showroom->ShowGun(G);
-		Showroom->FocusSlot(S == EMIFrontScreen::Workbench ? Rules.GetBenchSlot() : NAME_None);
+		Slot = Rules.GetBenchSlot();
+		const FMIGunEntry* Entry = Rules.GetData().FindGun(Gun);
+		const FMICompatSlot* C = Entry ? Entry->FindCompat(Slot) : nullptr;
+		const FMIGunMount* M = Entry ? Entry->Mounts.Find(Slot) : nullptr;
+		Socket = M && !M->Socket.IsNone() ? M->Socket : C ? C->Mount : NAME_None;
 	}
+	Showroom->FocusSlot(Slot, Socket);
 }

@@ -7,18 +7,26 @@
 #include "UI/MIFrontEnd.h"
 #include "UI/MIShowroom.h"
 #include "UI/MIStyle.h"
+#include "UI/SMIMark.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Layout/SWrapBox.h"
 #include "Widgets/SOverlay.h"
 #include "Widgets/Text/STextBlock.h"
 
 namespace MIFrontEndUI
 {
 	using namespace MIStyle;
+
+	/** The smallest text on the set-up screens (LOADOUT.md 2.2: read on a television from a sofa). */
+	constexpr float MinText = 14.f;
+	/** The controls column: the left 40 % of the screen, under the veil (2.2). Nothing is drawn right of it but the
+	 *  stage, so no panel can cover the gun at any aspect ratio. */
+	constexpr float Column = 0.40f;
 
 	/** Brushes live as long as the process (Slate holds raw pointers to them). */
 	const FSlateBrush* Box(const FLinearColor& Fill, float Radius = 6.f, const FLinearColor& Edge = FLinearColor::Transparent, float EdgeWidth = 0.f)
@@ -72,9 +80,12 @@ namespace MIFrontEndUI
 		return &Cache.Add(Key, S);
 	}
 
-	TSharedRef<STextBlock> Txt(const FString& T, const FSlateFontInfo& Font, const FLinearColor& Colour, bool bWrap = false, float WrapAt = 0.f)
+	/** Text: wrapped to the space it gets, or cut with an ellipsis; never below MinText. */
+	TSharedRef<STextBlock> Txt(const FString& T, FSlateFontInfo Font, const FLinearColor& Colour, bool bWrap = false)
 	{
-		return SNew(STextBlock).Text(FText::FromString(T)).Font(Font).ColorAndOpacity(FSlateColor(Colour)).AutoWrapText(bWrap).WrapTextAt(WrapAt);
+		Font.Size = FMath::Max(Font.Size, MinText);
+		return SNew(STextBlock).Text(FText::FromString(T)).Font(Font).ColorAndOpacity(FSlateColor(Colour)).AutoWrapText(bWrap)
+			.OverflowPolicy(bWrap ? ETextOverflowPolicy::Clip : ETextOverflowPolicy::Ellipsis);
 	}
 
 	FSlateFontInfo Spaced(FSlateFontInfo F, int32 Spacing)
@@ -83,12 +94,23 @@ namespace MIFrontEndUI
 		return F;
 	}
 
-	/** A focus ring around a control (keyboard and pad focus), gold. */
-	TSharedRef<SWidget> Ring(TSharedRef<SWidget> Inner, bool bFocused, float Radius = 8.f)
+	/** A key or button name in a small plate (frontend.glyphs.*); nothing when the device has none. */
+	TSharedRef<SWidget> Key(const FString& Glyph, const FLinearColor& Ink1, const FLinearColor& Plate1)
+	{
+		if (Glyph.IsEmpty())
+		{
+			return SNullWidget::NullWidget;
+		}
+		return SNew(SBorder).BorderImage(Box(Plate1, 4.f)).Padding(FMargin(6.f, 1.f)).VAlign(VAlign_Center)[Txt(Glyph.ToUpper(), Body(MinText, true), Ink1)];
+	}
+
+	/** A focus ring around a control (keyboard and pad focus), gold. The content sits inside the ring's padding, so the
+	 *  ring never crosses a label. */
+	TSharedRef<SWidget> Ring(TSharedRef<SWidget> Inner, bool bFocused, float Radius = 8.f, float Pad = 6.f)
 	{
 		return SNew(SBorder)
-			.BorderImage(bFocused ? Box(FLinearColor::Transparent, Radius + 3.f, Gold(), 2.f) : Box(FLinearColor::Transparent, 0.f))
-			.Padding(3.f)
+			.BorderImage(bFocused ? Box(FLinearColor::Transparent, Radius + Pad, Gold(), 2.f) : Box(FLinearColor::Transparent, 0.f))
+			.Padding(Pad)
 			[Inner];
 	}
 
@@ -98,13 +120,55 @@ namespace MIFrontEndUI
 		const double V = FMath::Clamp(Value, 0.0, 1.0);
 		const double G = Ghost < 0.0 ? V : FMath::Clamp(Ghost, 0.0, 1.0);
 		const FLinearColor Fill = Ghost < 0.0 || FMath::IsNearlyEqual(V, G) ? Ink() : (V > G ? FLinearColor(0.35f, 0.85f, 0.45f) : FLinearColor(0.95f, 0.35f, 0.3f));
-		return SNew(SBox).WidthOverride(Width).HeightOverride(6.f)
+		return SNew(SBox).WidthOverride(Width).HeightOverride(7.f)
 			[
 				SNew(SOverlay)
 				+ SOverlay::Slot()[SNew(SImage).Image(Box(WithAlpha(PlateEdge(), 0.9f), 3.f))]
 				+ SOverlay::Slot().HAlign(HAlign_Left)[SNew(SBox).WidthOverride(Width * static_cast<float>(FMath::Max(V, G)))[SNew(SImage).Image(Box(WithAlpha(Ink(), 0.28f), 3.f))]]
 				+ SOverlay::Slot().HAlign(HAlign_Left)[SNew(SBox).WidthOverride(Width * static_cast<float>(V))[SNew(SImage).Image(Box(Fill, 3.f))]]
 			];
+	}
+
+	/** n gold pips: the parts fitted beyond the factory build (shapes, not characters). */
+	TSharedRef<SWidget> Pips(int32 N, float Size = 10.f)
+	{
+		TSharedRef<SHorizontalBox> Row = SNew(SHorizontalBox);
+		for (int32 P = 0; P < N; ++P)
+		{
+			Row->AddSlot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 3.f, 0.f)[SNew(SMIMark).Kind(SMIMark::EKind::Pip).Colour(Gold()).Size(Size)];
+		}
+		return Row;
+	}
+
+	int32 CountPips(const FMIFrontEndRules& R, FName Gun)
+	{
+		int32 N = 0;
+		if (const FMIGunBuild* B = R.GetSetup().BuildOf(Gun))
+		{
+			for (const TPair<FName, FName>& P : B->Parts)
+			{
+				const FMIAttachmentDef* D = R.GetData().FindPart(P.Value);
+				N += D && !D->bBaseline ? 1 : 0;
+			}
+		}
+		return N;
+	}
+
+	TSharedRef<SWrapBox> Wrap(float Gap = 8.f)
+	{
+		return SNew(SWrapBox).UseAllottedSize(true).InnerSlotPadding(FVector2D(Gap, Gap));
+	}
+
+	/** An effect line's text without its leading mark character (the mark is drawn as a shape beside it). */
+	FString WithoutMark(const FString& Line)
+	{
+		static const FString Marks = TEXT("▲▼•");
+		int32 I = 0;
+		while (I < Line.Len() && (Marks.Contains(FString::Chr(Line[I])) || Line[I] == TEXT(' ')))
+		{
+			++I;
+		}
+		return Line.Mid(I);
 	}
 }
 
@@ -152,27 +216,34 @@ void SMIFrontEnd::Rebuild()
 
 // ------------------------------------------------------------------------------------------------ the frame
 
-TSharedRef<SWidget> SMIFrontEnd::Frame(TSharedRef<SWidget> Body, bool bWideRight)
+TSharedRef<SWidget> SMIFrontEnd::Frame(TSharedRef<SWidget> Body, bool bScroll)
 {
 	// The veil: the left 40 % holds the controls, the rest shows the stage; a soft edge in eight strips.
 	TSharedRef<SHorizontalBox> Veil = SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot().FillWidth(0.40f)[SNew(SImage).Image(Box(WithAlpha(Bg(), 0.86f), 0.f))];
+		+ SHorizontalBox::Slot().FillWidth(Column)[SNew(SImage).Image(Box(WithAlpha(Bg(), 0.88f), 0.f))];
 	for (int32 I = 0; I < 8; ++I)
 	{
-		Veil->AddSlot().FillWidth(0.02f)[SNew(SImage).Image(Box(WithAlpha(Bg(), 0.86f * (1.f - (I + 1) / 9.f)), 0.f))];
+		Veil->AddSlot().FillWidth(0.02f)[SNew(SImage).Image(Box(WithAlpha(Bg(), 0.88f * (1.f - (I + 1) / 9.f)), 0.f))];
 	}
-	Veil->AddSlot().FillWidth(0.44f)[SNullWidget::NullWidget];
+	Veil->AddSlot().FillWidth(1.f - Column - 0.16f)[SNullWidget::NullWidget];
+	TSharedRef<SWidget> Content = bScroll ? StaticCastSharedRef<SWidget>(SNew(SScrollBox) + SScrollBox::Slot()[Body]) : Body;
 	return SNew(SOverlay)
 		+ SOverlay::Slot()[Veil]
 		// Letterbox bars.
 		+ SOverlay::Slot().VAlign(VAlign_Top)[SNew(SBox).HeightOverride(46.f)[SNew(SImage).Image(Box(FLinearColor::Black, 0.f))]]
 		+ SOverlay::Slot().VAlign(VAlign_Bottom)[SNew(SBox).HeightOverride(46.f)[SNew(SImage).Image(Box(FLinearColor::Black, 0.f))]]
-		+ SOverlay::Slot().Padding(FMargin(72.f, 70.f, 72.f, 64.f))
+		// Every control lives in the column: the step strip, the screen, the bottom bar.
+		+ SOverlay::Slot()
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot().AutoHeight()[StepStrip()]
-			+ SVerticalBox::Slot().FillHeight(1.f).Padding(0.f, 22.f, 0.f, 14.f)[Body]
-			+ SVerticalBox::Slot().AutoHeight()[BottomBar()]
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().FillWidth(Column).Padding(FMargin(56.f, 62.f, 22.f, 58.f))
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot().AutoHeight()[StepStrip()]
+				+ SVerticalBox::Slot().FillHeight(1.f).Padding(0.f, 16.f, 0.f, 12.f)[Content]
+				+ SVerticalBox::Slot().AutoHeight()[BottomBar()]
+			]
+			+ SHorizontalBox::Slot().FillWidth(1.f - Column)[SNullWidget::NullWidget]
 		];
 }
 
@@ -181,7 +252,11 @@ TSharedRef<SWidget> SMIFrontEnd::StepStrip()
 	const FMIFrontEndRules& R = Owner->GetRules();
 	const TArray<FString> Labels = R.GetData().TextList(TEXT("frontend.steps.labels"));
 	const int32 Current = FMIFrontEndRules::StepOf(R.GetScreen());
-	TSharedRef<SHorizontalBox> Row = SNew(SHorizontalBox);
+	if (Current == 0)
+	{
+		return SNew(SBox).HeightOverride(24.f);
+	}
+	TSharedRef<SWrapBox> Row = Wrap(4.f);
 	for (int32 I = 0; I < Labels.Num(); ++I)
 	{
 		const int32 Step = I + 1;
@@ -189,25 +264,21 @@ TSharedRef<SWidget> SMIFrontEnd::StepStrip()
 		const bool bNow = Step == Current;
 		const FLinearColor C = Line(FMath::Min(I, 3));
 		TWeakObjectPtr<UMIFrontEnd> O = Owner;
-		Row->AddSlot().AutoWidth().Padding(0.f, 0.f, 26.f, 0.f)
+		Row->AddSlot()
 		[
-			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Link)).IsEnabled(R.IsStepReachable(Step))
+			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Link)).IsEnabled(R.IsStepReachable(Step)).ContentPadding(FMargin(2.f, 2.f, 10.f, 2.f))
 			.OnClicked_Lambda([O, Step]() { if (O.IsValid()) O->Act(TEXT("step"), FString::FromInt(Step)); return FReply::Handled(); })
 			[
 				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(4.f)
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(2.f)
 				[
-					SNew(SBox).WidthOverride(16.f).HeightOverride(16.f)
-					[SNew(SImage).Image(Box(bDone || bNow ? C : FLinearColor::Transparent, 8.f, bNow ? Ink() : C, bNow ? 2.f : 2.f))]
+					SNew(SBox).WidthOverride(14.f).HeightOverride(14.f)
+					[SNew(SImage).Image(Box(bDone || bNow ? C : FLinearColor::Transparent, 7.f, bNow ? Ink() : C, 2.f))]
 				]
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(6.f, 0.f, 4.f, 0.f)
-				[Txt(Labels[I].ToUpper(), Spaced(Body(13.f, true), 180), bNow ? Ink() : InkDim())]
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(6.f, 0.f, 0.f, 0.f)
+				[Txt(Labels[I].ToUpper(), Spaced(Body(MinText, true), 140), bNow ? Ink() : InkDim())]
 			]
 		];
-	}
-	if (Current == 0)
-	{
-		return SNew(SBox).HeightOverride(30.f);
 	}
 	return Row;
 }
@@ -215,8 +286,8 @@ TSharedRef<SWidget> SMIFrontEnd::StepStrip()
 TSharedRef<SWidget> SMIFrontEnd::Heading(const FString& Kicker, const FString& Title)
 {
 	return SNew(SVerticalBox)
-		+ SVerticalBox::Slot().AutoHeight()[Txt(Kicker.ToUpper(), Spaced(Body(14.f, true), 240), InkDim())]
-		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)[Txt(Title.ToUpper(), Display(58.f), Ink())];
+		+ SVerticalBox::Slot().AutoHeight()[Txt(Kicker.ToUpper(), Spaced(Body(MinText, true), 220), InkDim())]
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 2.f, 0.f, 0.f)[Txt(Title.ToUpper(), Display(50.f), Ink(), true)];
 }
 
 TSharedRef<SWidget> SMIFrontEnd::BottomBar()
@@ -234,28 +305,34 @@ TSharedRef<SWidget> SMIFrontEnd::BottomBar()
 	{
 		NextLabel = R.Text(TEXT("frontend.briefing.go"));
 	}
-	return SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot().AutoWidth()
+	const bool bNextFocused = Owner->bOnNext || (S == EMIFrontScreen::Briefing && Owner->Focus == 4);
+	const FString Note = Blocked.IsEmpty() ? R.LastMessage : Blocked;
+	return SNew(SVerticalBox)
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 0.f, 0.f, Note.IsEmpty() ? 0.f : 8.f)
+		[Txt(Note, Body(MinText), Blocked.IsEmpty() ? InkDim() : Red(), true)]
+		+ SVerticalBox::Slot().AutoHeight()
 		[
-			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(22.f, 12.f))
-			.OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("back")); return FReply::Handled(); })
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Txt(R.Text(TEXT("frontend.steps.back")).ToUpper(), Spaced(Body(15.f, true), 160), Ink())]
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(12.f, 0.f, 0.f, 0.f)[Txt(TEXT("ESC / B"), Body(11.f), InkFaint())]
+				Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(18.f, 10.f))
+				.OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("back")); return FReply::Handled(); })
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Txt(R.Text(TEXT("frontend.steps.back")).ToUpper(), Spaced(Body(16.f, true), 140), Ink())]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(10.f, 0.f, 0.f, 0.f)[Key(Owner->Glyph(TEXT("back")), InkDim(), WithAlpha(PlateEdge(), 0.9f))]
+				], false, 6.f, 3.f)
 			]
-		]
-		+ SHorizontalBox::Slot().FillWidth(0.4f).VAlign(VAlign_Center).Padding(24.f, 0.f)
-		[Txt(Blocked.IsEmpty() ? R.LastMessage : Blocked, Body(14.f), Blocked.IsEmpty() ? InkDim() : Red(), true, 420.f)]
-		+ SHorizontalBox::Slot().FillWidth(0.6f)[SNullWidget::NullWidget]
-		+ SHorizontalBox::Slot().AutoWidth()
-		[
-			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Primary)).ContentPadding(FMargin(30.f, 12.f)).IsEnabled(Blocked.IsEmpty())
-			.OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("next")); return FReply::Handled(); })
+			+ SHorizontalBox::Slot().FillWidth(1.f)[SNullWidget::NullWidget]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Txt(NextLabel.ToUpper(), Display(24.f), Bg())]
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(14.f, 0.f, 0.f, 0.f)[Txt(TEXT("ENTER / START"), Body(11.f, true), WithAlpha(Bg(), 0.7f))]
+				Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Primary)).ContentPadding(FMargin(24.f, 10.f)).IsEnabled(Blocked.IsEmpty())
+				.OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("next")); return FReply::Handled(); })
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Txt(NextLabel.ToUpper(), Display(24.f), Bg())]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(12.f, 0.f, 0.f, 0.f)[Key(Owner->Glyph(TEXT("next")), Bg(), WithAlpha(Bg(), 0.16f))]
+				], bNextFocused, 6.f, 3.f)
 			]
 		];
 }
@@ -267,25 +344,25 @@ TSharedRef<SWidget> SMIFrontEnd::Home()
 	const FMIFrontEndRules& R = Owner->GetRules();
 	const FMIRunSetup& S = R.GetSetup();
 	TWeakObjectPtr<UMIFrontEnd> O = Owner;
-	const int32 F = Owner->Focus;
-	const auto Picker = [&](int32 Index, const FString& Label, const FString& Value, const TCHAR* Which, const TArray<FName>& Values, FName Now)
+	const int32 F = Owner->FocusShown();
+	const auto Picker = [&](int32 Index, const FString& Label, const TCHAR* Which, const TArray<FName>& Values, FName Now)
 	{
-		TSharedRef<SHorizontalBox> Chips = SNew(SHorizontalBox);
+		TSharedRef<SWrapBox> Chips = Wrap(6.f);
 		for (const FName V : Values)
 		{
 			const FString Name = Which == FString(TEXT("mode")) ? R.Text(TEXT("text.modes.") + V.ToString() + TEXT(".name"))
 				: Which == FString(TEXT("difficulty")) ? R.Text(TEXT("text.difficulties.") + V.ToString()) : R.Text(TEXT("frontend.level.times.") + V.ToString());
 			const FString W(Which);
-			Chips->AddSlot().AutoWidth().Padding(0.f, 0.f, 8.f, 0.f)
+			Chips->AddSlot()
 			[
-				SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Chip, V == Now)).ContentPadding(FMargin(16.f, 7.f))
+				SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Chip, V == Now)).ContentPadding(FMargin(14.f, 5.f))
 				.OnClicked_Lambda([O, W, V]() { if (O.IsValid()) O->Act(W, V.ToString()); return FReply::Handled(); })
-				[Txt(Name.ToUpper(), Spaced(Body(13.f, true), 120), V == Now ? Bg() : InkDim())]
+				[Txt(Name.ToUpper(), Spaced(Body(MinText, true), 100), V == Now ? Bg() : InkDim())]
 			];
 		}
 		return Ring(SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[SNew(SBox).WidthOverride(130.f)[Txt(Label.ToUpper(), Spaced(Body(13.f, true), 200), InkFaint())]]
-			+ SHorizontalBox::Slot().AutoWidth()[Chips], F == Index, 18.f);
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[SNew(SBox).WidthOverride(124.f)[Txt(Label.ToUpper(), Spaced(Body(MinText, true), 160), InkFaint())]]
+			+ SHorizontalBox::Slot().FillWidth(1.f)[Chips], F == Index, 14.f);
 	};
 	const FMISettings::FRules& SR = Owner->GetGame()->GetSettings().Rules;
 	// The summary line: each part is a link that opens its screen in edit mode.
@@ -296,69 +373,68 @@ TSharedRef<SWidget> SMIFrontEnd::Home()
 		const FString Sc(Screen);
 		return Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Link)).ContentPadding(FMargin(6.f, 3.f))
 			.OnClicked_Lambda([O, Sc]() { if (O.IsValid()) O->Act(TEXT("edit"), Sc); return FReply::Handled(); })
-			[Txt(Label, Body(16.f, true), Ink())], F == Index, 4.f);
+			[Txt(Label, Body(16.f, true), Ink())], F == Index, 4.f, 3.f);
 	};
 	const FMILevelEntry* Level = R.GetData().Levels.Find(S.Level);
-	const FString Dot = TEXT("  ·  ");
-	TSharedRef<SWidget> Summary = SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot().AutoWidth()[Link(5, R.CrewName(S.Crew), TEXT("crew"))]
-		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Txt(Dot, Body(16.f), InkFaint())]
-		+ SHorizontalBox::Slot().AutoWidth()[Link(6, FString::Join(Guns, TEXT(" / ")), TEXT("loadout"))]
-		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Txt(Dot, Body(16.f), InkFaint())]
-		+ SHorizontalBox::Slot().AutoWidth()[Link(7, (Level ? R.Text(Level->TextKey + TEXT(".name")) : FString()) + Dot + R.Text(TEXT("frontend.level.times.") + S.Time.ToString()), TEXT("where"))];
+	const FString Dot = TEXT("·");
+	TSharedRef<SWrapBox> Summary = Wrap(4.f);
+	Summary->AddSlot()[Link(5, R.CrewName(S.Crew), TEXT("crew"))];
+	Summary->AddSlot().VAlign(VAlign_Center)[Txt(Dot, Body(16.f), InkFaint())];
+	Summary->AddSlot()[Link(6, FString::Join(Guns, TEXT(" / ")), TEXT("loadout"))];
+	Summary->AddSlot().VAlign(VAlign_Center)[Txt(Dot, Body(16.f), InkFaint())];
+	Summary->AddSlot()[Link(7, (Level ? R.Text(Level->TextKey + TEXT(".name")) : FString()) + TEXT("  ") + Dot + TEXT("  ") + R.Text(TEXT("frontend.level.times.") + S.Time.ToString()), TEXT("where"))];
 
 	TSharedRef<SVerticalBox> Col = SNew(SVerticalBox)
-		+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(TEXT("text.title.eyebrow")), Spaced(Body(15.f, true), 260), Gold())]
-		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[Txt(R.Text(TEXT("text.title.wordmark")), Display(150.f), Ink())]
-		+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(TEXT("text.title.star")), Spaced(Body(16.f, true), 320), InkDim())]
-		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 18.f, 0.f, 26.f)[Txt(R.Text(TEXT("text.title.premise")), Body(19.f), Ink(), true, 620.f)]
+		+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(TEXT("text.title.eyebrow")), Spaced(Body(15.f, true), 240), Gold(), true)]
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)[Txt(R.Text(TEXT("text.title.wordmark")), Display(118.f), Ink(), true)]
+		+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(TEXT("text.title.star")), Spaced(Body(16.f, true), 280), InkDim(), true)]
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 14.f, 0.f, 20.f)[Txt(R.Text(TEXT("text.title.premise")), Body(18.f), Ink(), true)]
 		+ SVerticalBox::Slot().AutoHeight()
 		[
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot().AutoWidth()
 			[
-				Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Primary)).ContentPadding(FMargin(36.f, 14.f))
+				Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Primary)).ContentPadding(FMargin(30.f, 12.f))
 				.OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("hit")); return FReply::Handled(); })
-				[Txt(R.Text(TEXT("frontend.home.start")).ToUpper(), Display(34.f), Bg())], F == 0, 8.f)
+				[Txt(R.Text(TEXT("frontend.home.start")).ToUpper(), Display(32.f), Bg())], F == 0, 8.f)
 			]
-			+ SHorizontalBox::Slot().AutoWidth().Padding(16.f, 0.f, 0.f, 0.f).VAlign(VAlign_Center)
+			+ SHorizontalBox::Slot().AutoWidth().Padding(10.f, 0.f, 0.f, 0.f).VAlign(VAlign_Center)
 			[
-				Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(24.f, 14.f))
+				Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(20.f, 12.f))
 				.OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("gearup")); return FReply::Handled(); })
-				[Txt(R.Text(TEXT("frontend.home.setup")).ToUpper(), Spaced(Body(16.f, true), 160), Ink())], F == 1, 8.f)
+				[Txt(R.Text(TEXT("frontend.home.setup")).ToUpper(), Spaced(Body(16.f, true), 140), Ink())], F == 1, 8.f)
 			]
 		]
-		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 12.f, 0.f, 0.f)[Summary]
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 8.f, 0.f, 0.f)[Summary]
 		+ SVerticalBox::Slot().AutoHeight().Padding(6.f, 2.f, 0.f, 0.f)
-		[Txt(S.bPlayed ? FString() : R.Text(TEXT("frontend.home.firstTime")), Body(14.f), Gold())]
-		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 26.f, 0.f, 0.f)[Picker(2, R.Text(TEXT("text.interface.title.modeLabel")), FString(), TEXT("mode"), SR.Modes, S.Mode)]
-		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 8.f, 0.f, 0.f)[Picker(3, R.Text(TEXT("text.interface.title.difficultyLabel")), FString(), TEXT("difficulty"), SR.Difficulties, S.Difficulty)]
-		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 8.f, 0.f, 0.f)[Picker(4, R.Text(TEXT("text.interface.title.timeLabel")), FString(), TEXT("time"), SR.Times, S.Time)]
-		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 26.f, 0.f, 0.f)
+		[Txt(S.bPlayed ? FString() : R.Text(TEXT("frontend.home.firstTime")), Body(MinText), Gold(), true)]
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 18.f, 0.f, 0.f)[Picker(2, R.Text(TEXT("text.interface.title.modeLabel")), TEXT("mode"), SR.Modes, S.Mode)]
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)[Picker(3, R.Text(TEXT("text.interface.title.difficultyLabel")), TEXT("difficulty"), SR.Difficulties, S.Difficulty)]
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)[Picker(4, R.Text(TEXT("text.interface.title.timeLabel")), TEXT("time"), SR.Times, S.Time)]
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 18.f, 0.f, 0.f)
 		[
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot().AutoWidth()
 			[
-				SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(18.f, 9.f))
+				SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(16.f, 8.f))
 				.OnClicked_Lambda([O]() { if (O.IsValid() && O->GetGame()) O->GetGame()->OpenSettingsFromFrontEnd(); return FReply::Handled(); })
-				[Txt(R.Text(TEXT("text.title.settings")).ToUpper(), Spaced(Body(13.f, true), 160), InkDim())]
+				[Txt(R.Text(TEXT("text.title.settings")).ToUpper(), Spaced(Body(MinText, true), 140), InkDim())]
 			]
 			+ SHorizontalBox::Slot().AutoWidth().Padding(10.f, 0.f, 0.f, 0.f)
 			[
-				SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(18.f, 9.f))
+				SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(16.f, 8.f))
 				.OnClicked_Lambda([this]() { bShowControls = !bShowControls; Rebuild(); return FReply::Handled(); })
-				[Txt(R.Text(TEXT("text.title.controls")).ToUpper(), Spaced(Body(13.f, true), 160), InkDim())]
+				[Txt(R.Text(TEXT("text.title.controls")).ToUpper(), Spaced(Body(MinText, true), 140), InkDim())]
 			]
 		]
-		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 18.f, 0.f, 0.f)[ControlsGlance()];
-	return Frame(SNew(SScrollBox) + SScrollBox::Slot()[Col], false);
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 14.f, 0.f, 0.f)[ControlsGlance()];
+	return Frame(Col, true);
 }
 
 TSharedRef<SWidget> SMIFrontEnd::ControlsGlance()
 {
 	const FMIFrontEndRules& R = Owner->GetRules();
-	TSharedRef<SVerticalBox> Box1 = SNew(SVerticalBox);
-	// interface.glance (the web title's strip), then frontend.controls.kbm (the new rows) when expanded.
+	// interface.glance (the web title's strip), then frontend.controls.<kbm|pad> (the new rows) when expanded.
 	TArray<TPair<FString, FString>> Rows;
 	const auto Read = [&Rows](const TSharedPtr<FJsonValue>& V)
 	{
@@ -375,27 +451,22 @@ TSharedRef<SWidget> SMIFrontEnd::ControlsGlance()
 	Read(MIJson::Get(R.TextJson, TEXT("interface.glance")));
 	if (bShowControls || R.GetSetup().Guns.Num() >= R.GetData().WheelMinGuns)
 	{
-		Read(MIJson::Get(R.GetData().TextJson, TEXT("frontend.controls.kbm")));
+		Read(MIJson::Get(R.GetData().TextJson, Owner->IsPad() ? TEXT("frontend.controls.pad") : TEXT("frontend.controls.kbm")));
 	}
-	TSharedRef<SHorizontalBox> Line1 = SNew(SHorizontalBox);
+	// Wraps to the column: every row shows, none is cut.
+	TSharedRef<SWrapBox> Strip = Wrap(6.f);
 	int32 N = 0;
 	for (const TPair<FString, FString>& Row : Rows)
 	{
-		if (!bShowControls && N++ >= 10) break;
-		Line1->AddSlot().AutoWidth().Padding(0.f, 0.f, 18.f, 6.f)
+		if (!bShowControls && N++ >= 12) break;
+		Strip->AddSlot()
 		[
 			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot().AutoWidth()[SNew(SBorder).BorderImage(Box(WithAlpha(PlateEdge(), 0.9f), 4.f)).Padding(FMargin(6.f, 2.f))[Txt(Row.Value, Body(12.f, true), Ink())]]
-			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(6.f, 0.f, 0.f, 0.f)[Txt(Row.Key, Body(12.f), InkDim())]
+			+ SHorizontalBox::Slot().AutoWidth()[Key(Row.Value, Ink(), WithAlpha(PlateEdge(), 0.9f))]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(6.f, 0.f, 8.f, 0.f)[Txt(Row.Key, Body(MinText), InkDim())]
 		];
-		if (bShowControls && (N % 5) == 0)
-		{
-			Box1->AddSlot().AutoHeight()[Line1];
-			Line1 = SNew(SHorizontalBox);
-		}
 	}
-	Box1->AddSlot().AutoHeight()[Line1];
-	return SNew(SBox).MaxDesiredWidth(1300.f)[Box1];
+	return Strip;
 }
 
 // ------------------------------------------------------------------------------------------------ Crew
@@ -404,40 +475,39 @@ TSharedRef<SWidget> SMIFrontEnd::Crew()
 {
 	const FMIFrontEndRules& R = Owner->GetRules();
 	TWeakObjectPtr<UMIFrontEnd> O = Owner;
-	TSharedRef<SHorizontalBox> Cards = SNew(SHorizontalBox);
+	TSharedRef<SWrapBox> Cards = Wrap(10.f);
 	const TArray<FName> Offered = R.OfferedCrew();
 	for (int32 I = 0; I < Offered.Num(); ++I)
 	{
 		const FName Id = Offered[I];
 		const bool bSel = R.GetSetup().Crew == Id;
-		Cards->AddSlot().AutoWidth().Padding(0.f, 0.f, 14.f, 0.f)
+		Cards->AddSlot()
 		[
-			Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, bSel)).ContentPadding(FMargin(18.f))
+			Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, bSel)).ContentPadding(FMargin(16.f))
 			.OnClicked_Lambda([O, Id]() { if (O.IsValid()) O->Act(TEXT("crew"), Id.ToString()); return FReply::Handled(); })
 			[
-				SNew(SBox).WidthOverride(230.f)
+				SNew(SBox).WidthOverride(200.f)
 				[
 					SNew(SVerticalBox)
 					// The portrait: a card of the arms on the bench, never a face (T_UI_Crew_* missing: the name stands in).
 					+ SVerticalBox::Slot().AutoHeight()
 					[
-						SNew(SBox).HeightOverride(170.f)
+						SNew(SBox).HeightOverride(140.f)
 						[
 							SNew(SBorder).BorderImage(Box(FLinearColor(0.025f, 0.026f, 0.03f), 6.f, WithAlpha(PlateEdge(), 0.8f), 1.f)).HAlign(HAlign_Center).VAlign(VAlign_Center)
-							[Txt(R.CrewName(Id), Display(64.f), bSel ? Gold() : WithAlpha(Ink(), 0.85f))]
+							[Txt(R.CrewName(Id), Display(56.f), bSel ? Gold() : WithAlpha(Ink(), 0.85f))]
 						]
 					]
-					+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 12.f, 0.f, 0.f)[Txt(R.CrewName(Id), Display(30.f), Ink())]
-					+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)[Txt(R.CrewTagline(Id), Body(14.f), InkDim(), true, 220.f)]
+					+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 0.f)[Txt(R.CrewName(Id), Display(28.f), Ink())]
+					+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)[Txt(R.CrewTagline(Id), Body(MinText), InkDim(), true)]
 				]
-			], Owner->Focus == I)
+			], Owner->FocusShown() == I)
 		];
 	}
 	return Frame(SNew(SVerticalBox)
 		+ SVerticalBox::Slot().AutoHeight()[Heading(R.Text(TEXT("frontend.crew.kicker")), R.Text(TEXT("frontend.crew.title")))]
-		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 8.f, 0.f, 28.f)[Txt(R.Text(TEXT("frontend.crew.note")), Body(16.f), InkDim())]
-		+ SVerticalBox::Slot().AutoHeight()[Cards]
-		+ SVerticalBox::Slot().FillHeight(1.f)[SNullWidget::NullWidget], false);
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 8.f, 0.f, 22.f)[Txt(R.Text(TEXT("frontend.crew.note")), Body(16.f), InkDim(), true)]
+		+ SVerticalBox::Slot().AutoHeight()[Cards], true);
 }
 
 // ------------------------------------------------------------------------------------------------ Loadout
@@ -453,11 +523,11 @@ TSharedRef<SWidget> SMIFrontEnd::Bars(FName Gun, const FMIGunBuild* Build, const
 	TSharedRef<SVerticalBox> Col = SNew(SVerticalBox);
 	for (int32 I = 0; I < 6; ++I)
 	{
-		Col->AddSlot().AutoHeight().Padding(0.f, 2.f)
+		Col->AddSlot().AutoHeight().Padding(0.f, 1.f)
 		[
 			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[SNew(SBox).WidthOverride(84.f)[Txt(R.Text(FString(TEXT("frontend.loadout.stats.")) + Keys[I]).ToUpper(), Spaced(Body(10.f, true), 100), InkFaint())]]
-			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Bar(Values[I], Ghost ? Ghosts[I] : -1.0, 118.f)]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[SNew(SBox).WidthOverride(88.f)[Txt(R.Text(FString(TEXT("frontend.loadout.stats.")) + Keys[I]), Body(MinText), InkFaint())]]
+			+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)[Bar(Values[I], Ghost ? Ghosts[I] : -1.0, 84.f)]
 		];
 	}
 	return Col;
@@ -474,36 +544,43 @@ TSharedRef<SWidget> SMIFrontEnd::GunCard(FName Gun, bool bFocused)
 	const bool bInfinite = G && !FMath::IsFinite(MIJson::NumberOr(G->Rules, TEXT("reserve"), 0));
 	const TArray<FName> Slots = R.GetReadiness().OfferedSlots(Gun);
 	const bool bSemiOnly = G && MIJson::Names(G->Extra, TEXT("fireModes")) == TArray<FName>{TEXT("semi")};
-	FString Tags = Slot != INDEX_NONE ? R.GetData().Format(TEXT("frontend.loadout.carried"), {{TEXT("n"), FString::FromInt(Slot + 1)}}) : FString();
-	const FString Info = FString::Printf(TEXT("%s %s%s   %s"), *R.Text(TEXT("frontend.loadout.stats.mag")).ToUpper(), bInfinite ? TEXT("") : *FString::FromInt(Mag),
-		bInfinite ? *(FString::FromInt(Mag) + TEXT(" / ") + R.Text(TEXT("frontend.loadout.stats.infinite"))) : (bSemiOnly ? *(TEXT("  ") + R.Text(TEXT("frontend.loadout.stats.semi"))) : TEXT("")),
-		Slots.Num() > 0 ? *R.GetData().Format(TEXT("frontend.loadout.slots"), {{TEXT("n"), FString::FromInt(Slots.Num())}}) : *R.Text(TEXT("frontend.loadout.noSlots")));
+	const FString Tags = Slot != INDEX_NONE ? R.GetData().Format(TEXT("frontend.loadout.carried"), {{TEXT("n"), FString::FromInt(Slot + 1)}}) : FString();
+	FString Info = R.Text(TEXT("frontend.loadout.stats.mag")).ToUpper() + TEXT(" ") + FString::FromInt(Mag);
+	if (bInfinite) Info += TEXT(" / ") + R.Text(TEXT("frontend.loadout.stats.infinite"));
+	if (bSemiOnly) Info += TEXT("  ") + R.Text(TEXT("frontend.loadout.stats.semi"));
+	const FString SlotsLine = Slots.Num() > 0 ? R.GetData().Format(TEXT("frontend.loadout.slots"), {{TEXT("n"), FString::FromInt(Slots.Num())}}) : R.Text(TEXT("frontend.loadout.noSlots"));
 	const bool bDev = !R.GetReadiness().IsGunReady(Gun);
-	return Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, Slot != INDEX_NONE)).ContentPadding(FMargin(14.f, 12.f))
+	return Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, Slot != INDEX_NONE)).ContentPadding(FMargin(12.f, 10.f))
 		.OnClicked_Lambda([O, Gun]() { if (O.IsValid()) O->Act(TEXT("carry"), Gun.ToString()); return FReply::Handled(); })
 		[
-			SNew(SBox).WidthOverride(222.f)
+			SNew(SBox).WidthOverride(176.f)
 			[
 				SNew(SVerticalBox)
 				+ SVerticalBox::Slot().AutoHeight()
 				[
 					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot().FillWidth(1.f)[Txt(R.GunName(Gun), Display(30.f), Ink())]
+					+ SHorizontalBox::Slot().FillWidth(1.f)[Txt(R.GunName(Gun), Display(26.f), Ink())]
 					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Top)
-					[Txt(bDev ? R.Text(TEXT("frontend.loadout.devTag")) : R.IsNew(Gun) ? R.Text(TEXT("frontend.loadout.new")) : FString(), Body(11.f, true), bDev ? Red() : Gold())]
+					[Txt(bDev ? R.Text(TEXT("frontend.loadout.devTag")) : R.IsNew(Gun) ? R.Text(TEXT("frontend.loadout.new")) : FString(), Body(MinText, true), bDev ? Red() : Gold())]
 				]
-				+ SVerticalBox::Slot().AutoHeight()[Txt(G ? R.Text(TEXT("frontend.loadout.classes.") + G->Class.ToString()).ToUpper() : FString(), Spaced(Body(11.f, true), 160), InkFaint())]
-				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 8.f)[Bars(Gun, Build, nullptr)]
-				+ SVerticalBox::Slot().AutoHeight()[Txt(Info, Body(11.f), InkDim())]
+				+ SVerticalBox::Slot().AutoHeight()[Txt(G ? R.Text(TEXT("frontend.loadout.classes.") + G->Class.ToString()).ToUpper() : FString(), Spaced(Body(MinText, true), 120), InkFaint())]
+				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f)[Bars(Gun, Build, nullptr)]
+				+ SVerticalBox::Slot().AutoHeight()[Txt(Info, Body(MinText), InkDim(), true)]
+				+ SVerticalBox::Slot().AutoHeight()[Txt(SlotsLine, Body(MinText), InkDim(), true)]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)
 				[
 					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)[Txt(Tags, Body(11.f, true), Gold())]
+					+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)[Txt(Tags, Body(MinText, true), Gold())]
 					+ SHorizontalBox::Slot().AutoWidth()
 					[
-						SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(10.f, 4.f))
+						SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(6.f, 3.f)).Visibility(Slots.Num() > 0 ? EVisibility::Visible : EVisibility::Collapsed)
+						.ToolTipText(FText::FromString(R.Text(TEXT("frontend.loadout.attachments"))))
 						.OnClicked_Lambda([O, Gun]() { if (O.IsValid()) O->Act(TEXT("bench"), Gun.ToString()); return FReply::Handled(); })
-						[Txt(TEXT("⚒ ") + R.Text(TEXT("frontend.loadout.attachments")), Body(11.f, true), Ink())]
+						[
+							SNew(SHorizontalBox)
+							+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Key(Owner->Glyph(TEXT("bench")), Ink(), WithAlpha(PlateEdge(), 0.9f))]
+							+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(4.f, 0.f, 0.f, 0.f)[Txt(R.Text(TEXT("frontend.loadout.attachments")), Body(MinText, true), Ink())]
+						]
 					]
 				]
 			]
@@ -514,97 +591,81 @@ TSharedRef<SWidget> SMIFrontEnd::Loadout()
 {
 	const FMIFrontEndRules& R = Owner->GetRules();
 	TWeakObjectPtr<UMIFrontEnd> O = Owner;
+	const int32 F = Owner->FocusShown();
 	// Class tabs.
-	TSharedRef<SHorizontalBox> Tabs = SNew(SHorizontalBox);
-	for (const TCHAR* F : {TEXT("all"), TEXT("rifle"), TEXT("smg"), TEXT("pistol"), TEXT("new")})
+	TSharedRef<SWrapBox> Tabs = Wrap(6.f);
+	for (const TCHAR* Filt : {TEXT("all"), TEXT("rifle"), TEXT("smg"), TEXT("pistol"), TEXT("new")})
 	{
-		const FName Filter(F);
+		const FName Filter(Filt);
 		const bool bOn = Owner->RackFilter == Filter;
-		Tabs->AddSlot().AutoWidth().Padding(0.f, 0.f, 8.f, 0.f)
+		Tabs->AddSlot()
 		[
-			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Chip, bOn)).ContentPadding(FMargin(14.f, 5.f))
+			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Chip, bOn)).ContentPadding(FMargin(12.f, 4.f))
 			.OnClicked_Lambda([O, Filter]() { if (O.IsValid()) O->Act(TEXT("filter"), Filter.ToString()); return FReply::Handled(); })
-			[Txt(R.Text(FString(TEXT("frontend.loadout.filters.")) + F).ToUpper(), Spaced(Body(12.f, true), 120), bOn ? Bg() : InkDim())]
+			[Txt(R.Text(FString(TEXT("frontend.loadout.filters.")) + Filt).ToUpper(), Spaced(Body(MinText, true), 100), bOn ? Bg() : InkDim())]
 		];
 	}
-	// The rack, three wide.
+	// The rack: as many cards a row as the column holds (three at 16:9).
 	const TArray<FName> Rack = R.Rack(Owner->RackFilter);
-	TSharedRef<SVerticalBox> Grid = SNew(SVerticalBox);
-	TSharedPtr<SHorizontalBox> Row;
+	TSharedRef<SWrapBox> Grid = Wrap(4.f);
 	for (int32 I = 0; I < Rack.Num(); ++I)
 	{
-		if (I % 3 == 0)
-		{
-			Row = SNew(SHorizontalBox);
-			Grid->AddSlot().AutoHeight().Padding(0.f, 0.f, 0.f, 10.f)[Row.ToSharedRef()];
-		}
-		Row->AddSlot().AutoWidth().Padding(0.f, 0.f, 10.f, 0.f)[GunCard(Rack[I], Owner->Pane == 0 && Owner->Focus == I)];
+		Grid->AddSlot()[GunCard(Rack[I], Owner->Pane == 0 && F == I)];
 	}
-	// The four slots, on the right.
-	TSharedRef<SVerticalBox> Slots = SNew(SVerticalBox)
-		+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(TEXT("frontend.loadout.carry")), Body(14.f, true), Ink(), true, 320.f)]
-		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 2.f, 0.f, 12.f)[Txt(R.Text(TEXT("frontend.loadout.bag")), Body(13.f), InkDim(), true, 320.f)];
+	// The four slots, a strip under the rack.
+	TSharedRef<SHorizontalBox> Slots = SNew(SHorizontalBox);
 	for (int32 I = 0; I < R.GetData().CarryMax; ++I)
 	{
 		const bool bHave = R.GetSetup().Guns.IsValidIndex(I);
 		const FName Gun = bHave ? R.GetSetup().Guns[I] : NAME_None;
-		int32 Pips = 0;
-		if (const FMIGunBuild* B = bHave ? R.GetSetup().BuildOf(Gun) : nullptr)
-		{
-			for (const TPair<FName, FName>& P : B->Parts)
-			{
-				const FMIAttachmentDef* Part = R.GetData().FindPart(P.Value);
-				Pips += Part && !Part->bBaseline ? 1 : 0;
-			}
-		}
-		TSharedRef<SHorizontalBox> PipRow = SNew(SHorizontalBox);
-		for (int32 P = 0; P < Pips; ++P) PipRow->AddSlot().AutoWidth().Padding(0.f, 0.f, 4.f, 0.f)[SNew(SBox).WidthOverride(8.f).HeightOverride(8.f)[SNew(SImage).Image(Box(Gold(), 2.f))]];
 		const bool bSel = R.GetSelectedSlot() == I;
 		const int32 SlotIndex = I;
-		Slots->AddSlot().AutoHeight().Padding(0.f, 0.f, 0.f, 8.f)
+		Slots->AddSlot().FillWidth(1.f).Padding(0.f, 0.f, I + 1 < R.GetData().CarryMax ? 4.f : 0.f, 0.f)
 		[
-			Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, bSel)).ContentPadding(FMargin(14.f, 10.f))
+			Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, bSel)).ContentPadding(FMargin(10.f, 8.f))
 			.OnClicked_Lambda([O, SlotIndex]() { if (O.IsValid()) O->Act(TEXT("selectslot"), FString::FromInt(SlotIndex + 1)); return FReply::Handled(); })
 			[
-				SNew(SBox).WidthOverride(300.f)
+				SNew(SBox).HeightOverride(76.f)
 				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 12.f, 0.f)
-					[SNew(SBorder).BorderImage(Box(WithAlpha(PlateEdge(), 0.9f), 4.f)).Padding(FMargin(8.f, 2.f))[Txt(FString::FromInt(I + 1), Body(13.f, true), Ink())]]
-					+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot().AutoHeight()
 					[
-						SNew(SVerticalBox)
-						+ SVerticalBox::Slot().AutoHeight()[Txt(bHave ? R.GunName(Gun) : R.Text(TEXT("frontend.loadout.empty")).ToUpper(), bHave ? Display(26.f) : Body(15.f, true), bHave ? Ink() : InkFaint())]
-						+ SVerticalBox::Slot().AutoHeight()[bHave ? StaticCastSharedRef<SWidget>(PipRow) : StaticCastSharedRef<SWidget>(Txt(R.Text(TEXT("frontend.loadout.emptyHint")), Body(12.f), InkFaint()))]
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 8.f, 0.f)[Key(FString::FromInt(I + 1), Ink(), WithAlpha(PlateEdge(), 0.9f))]
+						+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)[Txt(bHave ? R.GunName(Gun) : R.Text(TEXT("frontend.loadout.empty")).ToUpper(), bHave ? Display(20.f) : Body(MinText, true), bHave ? Ink() : InkFaint())]
 					]
-					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+					+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)
+					[bHave ? Pips(CountPips(R, Gun)) : StaticCastSharedRef<SWidget>(Txt(R.Text(TEXT("frontend.loadout.emptyHint")), Body(MinText), InkFaint(), true))]
+					+ SVerticalBox::Slot().FillHeight(1.f).VAlign(VAlign_Bottom).HAlign(HAlign_Right)
 					[
-						SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Link)).ContentPadding(FMargin(8.f, 4.f)).Visibility(bHave ? EVisibility::Visible : EVisibility::Collapsed)
+						SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Link)).ContentPadding(FMargin(4.f, 0.f)).Visibility(bHave ? EVisibility::Visible : EVisibility::Collapsed)
 						.OnClicked_Lambda([O, SlotIndex]() { if (O.IsValid()) O->Act(TEXT("empty"), FString::FromInt(SlotIndex + 1)); return FReply::Handled(); })
-						[Txt(R.Text(TEXT("frontend.loadout.remove")), Body(11.f, true), InkDim())]
+						[Txt(R.Text(TEXT("frontend.loadout.remove")), Body(MinText), InkDim())]
 					]
 				]
-			], Owner->Pane == 1 && Owner->Focus == I)
+			], Owner->Pane == 1 && F == I, 8.f, 3.f)
 		];
 	}
 	// Melee comes with you: the slot-1 gun's strike.
+	FString Melee;
 	if (R.GetSetup().Guns.Num() > 0)
 	{
 		const FMIGunEntry* First = R.GetData().FindGun(R.GetSetup().Guns[0]);
-		Slots->AddSlot().AutoHeight().Padding(4.f, 6.f, 0.f, 0.f)
-		[Txt(TEXT("F   ") + (First ? R.Text(First->MeleeKey) : FString()).ToUpper(), Spaced(Body(12.f, true), 140), InkDim())];
+		Melee = First ? R.Text(First->MeleeKey).ToUpper() : FString();
 	}
-	return Frame(SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot().AutoWidth()
+	return Frame(SNew(SVerticalBox)
+		+ SVerticalBox::Slot().AutoHeight()[Heading(R.Text(TEXT("frontend.loadout.kicker")), R.Text(TEXT("frontend.loadout.title")))]
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 8.f, 0.f, 8.f)[Tabs]
+		+ SVerticalBox::Slot().FillHeight(1.f)[SNew(SScrollBox) + SScrollBox::Slot()[Grid]]
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 4.f)
+		[Txt(R.Text(TEXT("frontend.loadout.carry")) + TEXT(" ") + R.Text(TEXT("frontend.loadout.bag")), Body(MinText), InkDim(), true)]
+		+ SVerticalBox::Slot().AutoHeight()[Slots]
+		+ SVerticalBox::Slot().AutoHeight().Padding(4.f, 6.f, 0.f, 0.f)
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot().AutoHeight()[Heading(R.Text(TEXT("frontend.loadout.kicker")), R.Text(TEXT("frontend.loadout.title")))]
-			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 12.f, 0.f, 14.f)[Tabs]
-			+ SVerticalBox::Slot().FillHeight(1.f)[SNew(SScrollBox) + SScrollBox::Slot()[Grid]]
-		]
-		+ SHorizontalBox::Slot().FillWidth(1.f)[SNullWidget::NullWidget]
-		+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 70.f, 0.f, 0.f)
-		[SNew(SBorder).BorderImage(Box(WithAlpha(Bg(), 0.72f), 10.f)).Padding(16.f)[Slots]], true);
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Key(Owner->Glyph(TEXT("melee")), InkDim(), WithAlpha(PlateEdge(), 0.9f))]
+			+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center).Padding(8.f, 0.f, 0.f, 0.f)[Txt(Melee, Spaced(Body(MinText, true), 120), InkDim())]
+		], false);
 }
 
 // ------------------------------------------------------------------------------------------------ Workbench
@@ -614,109 +675,129 @@ TSharedRef<SWidget> SMIFrontEnd::Workbench()
 	const FMIFrontEndRules& R = Owner->GetRules();
 	TWeakObjectPtr<UMIFrontEnd> O = Owner;
 	const FName Gun = R.GetBenchGun();
-	// The carried guns, to move between them without leaving.
-	TSharedRef<SHorizontalBox> Strip = SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 8.f, 0.f)
-		[SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(10.f, 5.f)).OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("benchnext"), TEXT("-1")); return FReply::Handled(); })[Txt(TEXT("◀  ["), Body(12.f, true), InkDim())]];
+	const int32 F = Owner->FocusShown();
+	// The carried guns, to move between them without leaving: arrows are shapes, the keys come from the glyphs.
+	TSharedRef<SWrapBox> Strip = Wrap(6.f);
+	Strip->AddSlot()
+	[
+		SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(8.f, 4.f)).OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("benchnext"), TEXT("-1")); return FReply::Handled(); })
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[SNew(SMIMark).Kind(SMIMark::EKind::Left).Colour(InkDim()).Size(14.f)]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(6.f, 0.f, 0.f, 0.f)[Key(Owner->Glyph(TEXT("prevGun")), InkDim(), WithAlpha(PlateEdge(), 0.9f))]
+		]
+	];
 	for (const FName G : R.GetSetup().Guns)
 	{
 		const bool bOn = G == Gun;
-		Strip->AddSlot().AutoWidth().Padding(0.f, 0.f, 8.f, 0.f)
+		Strip->AddSlot()
 		[
-			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Chip, bOn)).ContentPadding(FMargin(14.f, 5.f))
+			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Chip, bOn)).ContentPadding(FMargin(12.f, 4.f))
 			.OnClicked_Lambda([O, G]() { if (O.IsValid()) O->Act(TEXT("bench"), G.ToString()); return FReply::Handled(); })
-			[Txt(R.GunName(G), Body(12.f, true), bOn ? Bg() : InkDim())]
+			[Txt(R.GunName(G), Body(MinText, true), bOn ? Bg() : InkDim())]
 		];
 	}
-	Strip->AddSlot().AutoWidth()[SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(10.f, 5.f)).OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("benchnext"), TEXT("1")); return FReply::Handled(); })[Txt(TEXT("]  ▶"), Body(12.f, true), InkDim())]];
+	Strip->AddSlot()
+	[
+		SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(8.f, 4.f)).OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("benchnext"), TEXT("1")); return FReply::Handled(); })
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Key(Owner->Glyph(TEXT("nextGun")), InkDim(), WithAlpha(PlateEdge(), 0.9f))]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(6.f, 0.f, 0.f, 0.f)[SNew(SMIMark).Kind(SMIMark::EKind::Right).Colour(InkDim()).Size(14.f)]
+		]
+	];
 
 	TSharedRef<SVerticalBox> Col = SNew(SVerticalBox)
 		+ SVerticalBox::Slot().AutoHeight()[Heading(R.Text(TEXT("frontend.attachments.kicker")), R.GetData().Format(TEXT("frontend.attachments.title"), {{TEXT("gun"), R.GunName(Gun)}}))]
-		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 16.f)[Strip];
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 8.f, 0.f, 10.f)[Strip];
 	const TArray<FName> Slots = R.BenchSlots();
 	if (Slots.Num() == 0)
 	{
-		Col->AddSlot().AutoHeight().Padding(0.f, 20.f, 0.f, 6.f)[Txt(R.Text(TEXT("frontend.attachments.noPartsYet")), Display(32.f), Ink())];
-		Col->AddSlot().AutoHeight()[Txt(R.Text(TEXT("frontend.attachments.noPartsYetNote")), Body(16.f), InkDim(), true, 600.f)];
-		Col->AddSlot().AutoHeight().Padding(0.f, 22.f, 0.f, 0.f)[Bars(Gun, R.GetSetup().BuildOf(Gun), nullptr)];
-		return Frame(Col, false);
+		Col->AddSlot().AutoHeight().Padding(0.f, 16.f, 0.f, 6.f)[Txt(R.Text(TEXT("frontend.attachments.noPartsYet")), Display(30.f), Ink(), true)];
+		Col->AddSlot().AutoHeight()[Txt(R.Text(TEXT("frontend.attachments.noPartsYetNote")), Body(16.f), InkDim(), true)];
+		Col->AddSlot().AutoHeight().Padding(0.f, 18.f, 0.f, 0.f)[Bars(Gun, R.GetSetup().BuildOf(Gun), nullptr)];
+		return Frame(Col, true);
 	}
 	// Slot tabs.
-	TSharedRef<SHorizontalBox> Tabs = SNew(SHorizontalBox);
+	TSharedRef<SWrapBox> Tabs = Wrap(6.f);
 	for (const FName S : Slots)
 	{
 		const bool bOn = S == R.GetBenchSlot();
 		const FMISlotDef* Def = R.GetData().FindSlot(S);
-		Tabs->AddSlot().AutoWidth().Padding(0.f, 0.f, 6.f, 0.f)
+		Tabs->AddSlot()
 		[
-			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Chip, bOn)).ContentPadding(FMargin(12.f, 5.f))
+			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Chip, bOn)).ContentPadding(FMargin(12.f, 4.f))
 			.OnClicked_Lambda([O, S]() { if (O.IsValid()) O->Act(TEXT("benchslot"), S.ToString()); return FReply::Handled(); })
-			[Txt((Def ? R.Text(Def->Text) : S.ToString()).ToUpper(), Spaced(Body(12.f, true), 120), bOn ? Bg() : InkDim())]
+			[Txt((Def ? R.Text(Def->Text) : S.ToString()).ToUpper(), Spaced(Body(MinText, true), 100), bOn ? Bg() : InkDim())]
 		];
 	}
-	Col->AddSlot().AutoHeight().Padding(0.f, 0.f, 0.f, 12.f)[Tabs];
+	Col->AddSlot().AutoHeight().Padding(0.f, 0.f, 0.f, 8.f)[Tabs];
 	// The options of the slot, with Fitted on the one in use; focus previews, a click fits.
 	const TArray<FName> Options = R.BenchOptions(R.GetBenchSlot());
 	const FName Fitted = R.FittedIn(R.GetBenchSlot());
-	FName Focused = R.IsPreviewing() ? R.GetPreviewed() : Options.IsValidIndex(Owner->Focus) ? Options[Owner->Focus] : Fitted;
-	TSharedRef<SVerticalBox> List = SNew(SVerticalBox);
+	const FName Focused = R.IsPreviewing() ? R.GetPreviewed() : Options.IsValidIndex(Owner->Focus) ? Options[Owner->Focus] : Fitted;
 	for (int32 I = 0; I < Options.Num(); ++I)
 	{
 		const FName P = Options[I];
 		const FMIAttachmentDef* Def = R.GetData().FindPart(P);
 		const FString Blurb = P.IsNone() ? R.Text(TEXT("frontend.attachments.factoryNote")) : (Def ? R.Text(Def->Text + TEXT(".blurb")) : FString());
-		List->AddSlot().AutoHeight().Padding(0.f, 0.f, 0.f, 6.f)
+		Col->AddSlot().AutoHeight().Padding(0.f, 0.f, 0.f, 2.f)
 		[
-			Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, P == Fitted)).ContentPadding(FMargin(14.f, 9.f))
+			Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, P == Fitted)).ContentPadding(FMargin(12.f, 7.f))
 			.OnHovered_Lambda([O, P]() { if (O.IsValid()) O->Act(TEXT("preview"), P.IsNone() ? TEXT("factory") : P.ToString()); })
 			.OnUnhovered_Lambda([O]() { if (O.IsValid()) { O->GetRules().StopPreview(); O->Changed(); } })
 			.OnClicked_Lambda([O, P]() { if (O.IsValid()) O->Act(TEXT("fit"), P.IsNone() ? TEXT("factory") : P.ToString()); return FReply::Handled(); })
 			[
-				SNew(SBox).WidthOverride(560.f)
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot().FillWidth(1.f)
 				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot().FillWidth(1.f)
-					[
-						SNew(SVerticalBox)
-						+ SVerticalBox::Slot().AutoHeight()[Txt(R.PartName(P), Display(22.f), Ink())]
-						+ SVerticalBox::Slot().AutoHeight()[Txt(Blurb, Body(13.f), InkDim(), true, 440.f)]
-					]
-					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Txt(P == Fitted ? R.Text(TEXT("frontend.attachments.fitted")).ToUpper() : FString(), Spaced(Body(11.f, true), 160), Gold())]
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot().AutoHeight()[Txt(R.PartName(P), Display(22.f), Ink())]
+					+ SVerticalBox::Slot().AutoHeight()[Txt(Blurb, Body(MinText), InkDim(), true)]
 				]
-			], Owner->Focus == I)
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(8.f, 0.f, 0.f, 0.f)
+				[Txt(P == Fitted ? R.Text(TEXT("frontend.attachments.fitted")).ToUpper() : FString(), Spaced(Body(MinText, true), 120), Gold())]
+			], F == I, 8.f, 4.f)
 		];
 	}
-	Col->AddSlot().AutoHeight()[List];
-	// The focused option's effect lines and the six bars before (ghost) and after (fill).
+	// The focused option's effect lines (a shape for better, worse or neutral, then the words) and the six bars before
+	// (ghost) and after (fill).
 	TSharedRef<SVerticalBox> Lines = SNew(SVerticalBox);
 	if (!Focused.IsNone())
 	{
 		for (const FMIEffectLine& L : R.EffectLines(Gun, Focused))
 		{
-			Lines->AddSlot().AutoHeight().Padding(0.f, 1.f)[Txt(L.Text, Body(14.f, true), L.Sign > 0 ? FLinearColor(0.4f, 0.9f, 0.5f) : L.Sign < 0 ? FLinearColor(1.f, 0.42f, 0.36f) : InkDim())];
+			const FLinearColor C = L.Sign > 0 ? FLinearColor(0.4f, 0.9f, 0.5f) : L.Sign < 0 ? FLinearColor(1.f, 0.42f, 0.36f) : InkDim();
+			Lines->AddSlot().AutoHeight().Padding(0.f, 1.f)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Top).Padding(0.f, 3.f, 8.f, 0.f)[SNew(SMIMark).Kind(SMIMark::ForSign(L.Sign)).Colour(C).Size(14.f)]
+				+ SHorizontalBox::Slot().FillWidth(1.f)[Txt(WithoutMark(L.Text), Body(15.f, true), C, true)]
+			];
 		}
 	}
 	else
 	{
-		Lines->AddSlot().AutoHeight()[Txt(R.Text(TEXT("frontend.attachments.noChange")), Body(14.f), InkDim())];
+		Lines->AddSlot().AutoHeight()[Txt(R.Text(TEXT("frontend.attachments.noChange")), Body(15.f), InkDim(), true)];
 	}
 	const FMIGunBuild Shown = R.ShownBuild();
 	const FMIGunBuild* Have = R.GetSetup().BuildOf(Gun);
-	Col->AddSlot().AutoHeight().Padding(0.f, 14.f, 0.f, 0.f)
+	Col->AddSlot().AutoHeight().Padding(0.f, 10.f, 0.f, 0.f)
 	[
 		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 28.f, 0.f)[SNew(SBox).WidthOverride(330.f)[Lines]]
-		+ SHorizontalBox::Slot().AutoWidth()[Bars(Gun, &Shown, Have)]
+		+ SHorizontalBox::Slot().FillWidth(1.f).Padding(0.f, 0.f, 16.f, 0.f)[Lines]
+		+ SHorizontalBox::Slot().AutoWidth()[SNew(SBox).WidthOverride(180.f)[Bars(Gun, &Shown, Have)]]
 	];
 	// Hold to reset build (0.6 s): the fill shows the hold.
 	const float Hold = static_cast<float>(FMath::Clamp(Owner->GetHoldReset() / FMath::Max(0.01, R.GetData().ResetHold), 0.0, 1.0));
-	Col->AddSlot().AutoHeight().Padding(0.f, 14.f, 0.f, 0.f)
+	Col->AddSlot().AutoHeight().Padding(0.f, 12.f, 0.f, 0.f)
 	[
 		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Txt(R.Text(TEXT("frontend.attachments.reset")).ToUpper() + TEXT("   R / Y"), Spaced(Body(12.f, true), 140), InkFaint())]
-		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(12.f, 0.f)[Bar(Hold, -1.0, 120.f)]
+		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Txt(R.Text(TEXT("frontend.attachments.reset")).ToUpper(), Spaced(Body(MinText, true), 120), InkFaint())]
+		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(8.f, 0.f)[Key(Owner->Glyph(TEXT("reset")), InkDim(), WithAlpha(PlateEdge(), 0.9f))]
+		+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)[Bar(Hold, -1.0, 110.f)]
 	];
-	return Frame(SNew(SScrollBox) + SScrollBox::Slot()[Col], false);
+	return Frame(Col, true);
 }
 
 // ------------------------------------------------------------------------------------------------ Block & Style
@@ -726,90 +807,84 @@ TSharedRef<SWidget> SMIFrontEnd::Where()
 	const FMIFrontEndRules& R = Owner->GetRules();
 	const FMIRunSetup& S = R.GetSetup();
 	TWeakObjectPtr<UMIFrontEnd> O = Owner;
-	const int32 F = Owner->Focus;
+	const int32 F = Owner->FocusShown();
 	const auto Row = [&](int32 Index, const FString& Label, TSharedRef<SWidget> Content)
 	{
+		// The ring pads its row: the label and the cards sit inside it.
 		return Ring(SNew(SVerticalBox)
-			+ SVerticalBox::Slot().AutoHeight()[Txt(Label.ToUpper(), Spaced(Body(13.f, true), 200), InkFaint())]
-			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[Content], F == Index, 10.f);
+			+ SVerticalBox::Slot().AutoHeight()[Txt(Label.ToUpper(), Spaced(Body(MinText, true), 160), InkFaint())]
+			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[Content], F == Index, 6.f, 10.f);
 	};
 	const auto Chip = [&](const TCHAR* Act, FName V, const FString& Label, bool bOn)
 	{
 		const FString A(Act);
-		return SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Chip, bOn)).ContentPadding(FMargin(16.f, 7.f))
+		return SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Chip, bOn)).ContentPadding(FMargin(14.f, 5.f))
 			.OnClicked_Lambda([O, A, V]() { if (O.IsValid()) O->Act(A, V.ToString()); return FReply::Handled(); })
-			[Txt(Label.ToUpper(), Spaced(Body(13.f, true), 120), bOn ? Bg() : InkDim())];
+			[Txt(Label.ToUpper(), Spaced(Body(MinText, true), 100), bOn ? Bg() : InkDim())];
 	};
 	// 1. Level cards.
-	TSharedRef<SHorizontalBox> Levels = SNew(SHorizontalBox);
+	TSharedRef<SVerticalBox> Levels = SNew(SVerticalBox);
 	for (const FName L : R.Levels())
 	{
 		const FMILevelEntry& E = R.GetData().Levels[L];
 		TArray<FString> ModeNames;
 		for (const FName M : R.GetReadiness().ModesOf(L)) ModeNames.Add(R.Text(TEXT("text.modes.") + M.ToString() + TEXT(".name")));
 		const FString Place = E.Place.Contains(S.Time) ? R.Text(E.Place[S.Time]) : FString();
-		Levels->AddSlot().AutoWidth()
+		Levels->AddSlot().AutoHeight().Padding(0.f, 0.f, 0.f, 6.f)
 		[
-			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, L == S.Level)).ContentPadding(FMargin(16.f, 12.f))
+			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, L == S.Level)).ContentPadding(FMargin(14.f, 10.f))
 			.OnClicked_Lambda([O, L]() { if (O.IsValid()) O->Act(TEXT("level"), L.ToString()); return FReply::Handled(); })
 			[
-				SNew(SBox).WidthOverride(560.f)
-				[
-					SNew(SVerticalBox)
-					+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(E.TextKey + TEXT(".name")), Display(32.f), Ink())]
-					+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(E.TextKey + TEXT(".blurb")), Body(14.f), InkDim(), true, 540.f)]
-					+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)[Txt(Place, Body(12.f, true), Gold())]
-					+ SVerticalBox::Slot().AutoHeight()[Txt(R.GetData().Format(TEXT("frontend.level.modes"), {{TEXT("modes"), FString::Join(ModeNames, TEXT(" · "))}}), Body(12.f), InkFaint())]
-				]
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(E.TextKey + TEXT(".name")), Display(30.f), Ink())]
+				+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(E.TextKey + TEXT(".blurb")), Body(MinText), InkDim(), true)]
+				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)[Txt(Place, Body(MinText, true), Gold(), true)]
+				+ SVerticalBox::Slot().AutoHeight()[Txt(R.GetData().Format(TEXT("frontend.level.modes"), {{TEXT("modes"), FString::Join(ModeNames, TEXT(" · "))}}), Body(MinText), InkFaint(), true)]
 			]
 		];
 	}
 	// 2. Time.
-	TSharedRef<SHorizontalBox> Times = SNew(SHorizontalBox);
+	TSharedRef<SWrapBox> Times = Wrap(6.f);
 	for (const FName T : Owner->GetGame()->GetSettings().Rules.Times)
 	{
-		Times->AddSlot().AutoWidth().Padding(0.f, 0.f, 8.f, 0.f)[Chip(TEXT("time"), T, R.Text(TEXT("frontend.level.times.") + T.ToString()), T == S.Time)];
+		Times->AddSlot()[Chip(TEXT("time"), T, R.Text(TEXT("frontend.level.times.") + T.ToString()), T == S.Time)];
 	}
-	// 3. Mode cards (Hold the Block shows the best).
+	// 3. Mode cards (Hold the Block shows the best), two to a row.
 	TSharedRef<SHorizontalBox> Modes = SNew(SHorizontalBox);
-	for (const FName M : R.Modes())
+	const TArray<FName> ModeIds = R.Modes();
+	for (int32 I = 0; I < ModeIds.Num(); ++I)
 	{
+		const FName M = ModeIds[I];
 		const bool bOn = M == S.Mode;
 		const FString Best = M == TEXT("holdout") ? R.GetData().Format(TEXT("frontend.mode.best"), {{TEXT("score"), FMIText::Grouped(Owner->GetGame()->GetSettings().GetBest())}}) : FString();
-		Modes->AddSlot().AutoWidth().Padding(0.f, 0.f, 10.f, 0.f)
+		Modes->AddSlot().FillWidth(1.f).Padding(0.f, 0.f, I + 1 < ModeIds.Num() ? 8.f : 0.f, 0.f)
 		[
-			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, bOn)).ContentPadding(FMargin(14.f, 10.f))
+			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, bOn)).ContentPadding(FMargin(12.f, 8.f))
 			.OnClicked_Lambda([O, M]() { if (O.IsValid()) O->Act(TEXT("mode"), M.ToString()); return FReply::Handled(); })
 			[
-				SNew(SBox).WidthOverride(275.f)
-				[
-					SNew(SVerticalBox)
-					+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(TEXT("text.modes.") + M.ToString() + TEXT(".name")), Display(24.f), Ink())]
-					+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(TEXT("text.modes.") + M.ToString() + TEXT(".note")), Body(12.f), InkDim(), true, 255.f)]
-					+ SVerticalBox::Slot().AutoHeight()[Txt(Best, Body(12.f, true), Gold())]
-				]
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(TEXT("text.modes.") + M.ToString() + TEXT(".name")), Display(22.f), Ink())]
+				+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(TEXT("text.modes.") + M.ToString() + TEXT(".note")), Body(MinText), InkDim(), true)]
+				+ SVerticalBox::Slot().AutoHeight()[Txt(Best, Body(MinText, true), Gold())]
 			]
 		];
 	}
 	// 4. Difficulty.
-	TSharedRef<SHorizontalBox> Diffs = SNew(SHorizontalBox);
+	TSharedRef<SWrapBox> Diffs = Wrap(6.f);
 	for (const FName D : Owner->GetGame()->GetSettings().Rules.Difficulties)
 	{
-		Diffs->AddSlot().AutoWidth().Padding(0.f, 0.f, 8.f, 0.f)[Chip(TEXT("difficulty"), D, R.Text(TEXT("text.difficulties.") + D.ToString()), D == S.Difficulty)];
+		Diffs->AddSlot()[Chip(TEXT("difficulty"), D, R.Text(TEXT("text.difficulties.") + D.ToString()), D == S.Difficulty)];
 	}
-	return Frame(SNew(SScrollBox) + SScrollBox::Slot()
-		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot().AutoHeight()[Heading(R.Text(TEXT("frontend.where.kicker")), R.Text(TEXT("frontend.where.title")))]
-			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 18.f, 0.f, 0.f)[Row(0, R.Text(TEXT("frontend.level.title")), Levels)]
-			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 14.f, 0.f, 0.f)[Row(1, R.Text(TEXT("frontend.level.time")),
-				SNew(SVerticalBox) + SVerticalBox::Slot().AutoHeight()[Times]
-				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)[Txt(R.Text(TEXT("text.interface.title.timeNotes.") + S.Time.ToString()), Body(12.f), InkDim())])]
-			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 14.f, 0.f, 0.f)[Row(2, R.Text(TEXT("frontend.mode.title")), Modes)]
-			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 14.f, 0.f, 0.f)[Row(3, R.Text(TEXT("frontend.mode.difficulty")),
-				SNew(SVerticalBox) + SVerticalBox::Slot().AutoHeight()[Diffs]
-				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)[Txt(R.Text(TEXT("frontend.mode.difficultyNotes.") + S.Difficulty.ToString()) + TEXT("  ") + R.Text(TEXT("text.notes.difficulty")), Body(12.f), InkDim(), true, 600.f)])]
-		], false);
+	return Frame(SNew(SVerticalBox)
+		+ SVerticalBox::Slot().AutoHeight()[Heading(R.Text(TEXT("frontend.where.kicker")), R.Text(TEXT("frontend.where.title")))]
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 0.f)[Row(0, R.Text(TEXT("frontend.level.title")), Levels)]
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 2.f, 0.f, 0.f)[Row(1, R.Text(TEXT("frontend.level.time")),
+			SNew(SVerticalBox) + SVerticalBox::Slot().AutoHeight()[Times]
+			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)[Txt(R.Text(TEXT("text.interface.title.timeNotes.") + S.Time.ToString()), Body(MinText), InkDim(), true)])]
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 2.f, 0.f, 0.f)[Row(2, R.Text(TEXT("frontend.mode.title")), Modes)]
+		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 2.f, 0.f, 0.f)[Row(3, R.Text(TEXT("frontend.mode.difficulty")),
+			SNew(SVerticalBox) + SVerticalBox::Slot().AutoHeight()[Diffs]
+			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)[Txt(R.Text(TEXT("frontend.mode.difficultyNotes.") + S.Difficulty.ToString()) + TEXT("  ") + R.Text(TEXT("text.notes.difficulty")), Body(MinText), InkDim(), true)])], true);
 }
 
 // ------------------------------------------------------------------------------------------------ Briefing
@@ -820,56 +895,56 @@ TSharedRef<SWidget> SMIFrontEnd::Briefing()
 	const FMIRunSetup& S = R.GetSetup();
 	TWeakObjectPtr<UMIFrontEnd> O = Owner;
 	const FMILevelEntry* L = R.GetData().Levels.Find(S.Level);
-	TArray<FString> Guns;
+	// Carrying: each gun as its slot number, its name and its pips, wrapping to the card's width.
+	TSharedRef<SWrapBox> Guns = Wrap(10.f);
 	for (int32 I = 0; I < S.Guns.Num(); ++I)
 	{
-		int32 Pips = 0;
-		if (const FMIGunBuild* B = S.BuildOf(S.Guns[I]))
-		{
-			for (const TPair<FName, FName>& P : B->Parts) { const FMIAttachmentDef* D = R.GetData().FindPart(P.Value); Pips += D && !D->bBaseline ? 1 : 0; }
-		}
-		Guns.Add(FString::Printf(TEXT("%d %s%s"), I + 1, *R.GunName(S.Guns[I]), Pips > 0 ? *(TEXT(" ") + FString::ChrN(Pips, TEXT('▪'))) : TEXT("")));
+		Guns->AddSlot()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 6.f, 0.f)[Key(FString::FromInt(I + 1), InkDim(), WithAlpha(PlateEdge(), 0.9f))]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Txt(R.GunName(S.Guns[I]), Display(22.f), Ink())]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(6.f, 0.f, 0.f, 0.f)[Pips(CountPips(R, S.Guns[I]), 9.f)]
+		];
 	}
 	const FString Tagline = R.Text(S.Mode == TEXT("holdout") ? TEXT("text.location.taglineHoldout") : TEXT("text.location.tagline"));
 	const FString Style = R.Text(TEXT("text.modes.") + S.Mode.ToString() + TEXT(".name")) + TEXT(" · ") + R.Text(TEXT("text.difficulties.") + S.Difficulty.ToString());
-	struct FLine { const TCHAR* Label; FString Value; FString Sub; const TCHAR* Screen; };
+	struct FLine { const TCHAR* Label; TSharedRef<SWidget> Value; FString Sub; const TCHAR* Screen; };
 	const TArray<FLine> Lines = {
-		{TEXT("frontend.briefing.crew"), R.CrewName(S.Crew), R.CrewTagline(S.Crew), TEXT("crew")},
-		{TEXT("frontend.briefing.loadout"), FString::Join(Guns, TEXT("    ")), FString(), TEXT("loadout")},
-		{TEXT("frontend.briefing.block"), L ? R.Text(L->TextKey + TEXT(".name")) : FString(), L && L->Place.Contains(S.Time) ? R.Text(L->Place[S.Time]) : FString(), TEXT("where")},
-		{TEXT("frontend.briefing.style"), Style, Tagline, TEXT("where")},
+		{TEXT("frontend.briefing.crew"), Txt(R.CrewName(S.Crew), Display(22.f), Ink()), R.CrewTagline(S.Crew), TEXT("crew")},
+		{TEXT("frontend.briefing.loadout"), Guns, FString(), TEXT("loadout")},
+		{TEXT("frontend.briefing.block"), Txt(L ? R.Text(L->TextKey + TEXT(".name")) : FString(), Display(22.f), Ink()), L && L->Place.Contains(S.Time) ? R.Text(L->Place[S.Time]) : FString(), TEXT("where")},
+		{TEXT("frontend.briefing.style"), Txt(Style, Display(22.f), Ink()), Tagline, TEXT("where")},
 	};
 	TSharedRef<SVerticalBox> Card = SNew(SVerticalBox)
 		+ SVerticalBox::Slot().AutoHeight()[Heading(R.Text(TEXT("frontend.briefing.kicker")), R.Text(TEXT("frontend.briefing.title")))];
 	for (int32 I = 0; I < Lines.Num(); ++I)
 	{
 		const FString Sc(Lines[I].Screen);
-		Card->AddSlot().AutoHeight().Padding(0.f, 14.f, 0.f, 0.f)
+		Card->AddSlot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)
 		[
-			Ring(SNew(SBorder).BorderImage(Box(WithAlpha(Plate(), 0.9f), 8.f, PlateEdge(), 1.f)).Padding(FMargin(16.f, 10.f))
+			Ring(SNew(SBorder).BorderImage(Box(WithAlpha(Plate(), 0.9f), 8.f, PlateEdge(), 1.f)).Padding(FMargin(14.f, 8.f))
 			[
 				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[SNew(SBox).WidthOverride(4.f).HeightOverride(40.f)[SNew(SImage).Image(Box(Line(FMath::Min(I, 3)), 2.f))]]
-				+ SHorizontalBox::Slot().FillWidth(1.f).Padding(14.f, 0.f)
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Fill)[SNew(SBox).WidthOverride(4.f)[SNew(SImage).Image(Box(Line(FMath::Min(I, 3)), 2.f))]]
+				+ SHorizontalBox::Slot().FillWidth(1.f).Padding(12.f, 0.f)
 				[
 					SNew(SVerticalBox)
-					+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(Lines[I].Label).ToUpper(), Spaced(Body(11.f, true), 200), InkFaint())]
-					+ SVerticalBox::Slot().AutoHeight()[Txt(Lines[I].Value, Display(24.f), Ink())]
-					+ SVerticalBox::Slot().AutoHeight()[Txt(Lines[I].Sub, Body(13.f), InkDim(), true, 560.f)]
+					+ SVerticalBox::Slot().AutoHeight()[Txt(R.Text(Lines[I].Label).ToUpper(), Spaced(Body(MinText, true), 160), InkFaint())]
+					+ SVerticalBox::Slot().AutoHeight()[Lines[I].Value]
+					+ SVerticalBox::Slot().AutoHeight()[Txt(Lines[I].Sub, Body(MinText), InkDim(), true)]
 				]
 				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 				[
-					SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(14.f, 6.f))
+					SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(12.f, 5.f))
 					.OnClicked_Lambda([O, Sc]() { if (O.IsValid()) O->Act(TEXT("edit"), Sc); return FReply::Handled(); })
-					[Txt(R.Text(TEXT("frontend.briefing.change")).ToUpper(), Spaced(Body(12.f, true), 140), Ink())]
+					[Txt(R.Text(TEXT("frontend.briefing.change")).ToUpper(), Spaced(Body(MinText, true), 120), Ink())]
 				]
-			], Owner->Focus == I, 10.f)
+			], Owner->FocusShown() == I, 8.f, 3.f)
 		];
 	}
-	Card->AddSlot().AutoHeight().Padding(0.f, 18.f, 0.f, 0.f)[ControlsGlance()];
-	return Frame(SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot().AutoWidth()[SNew(SBox).WidthOverride(700.f)[SNew(SScrollBox) + SScrollBox::Slot()[Card]]]
-		+ SHorizontalBox::Slot().FillWidth(1.f)[SNullWidget::NullWidget], false);
+	Card->AddSlot().AutoHeight().Padding(0.f, 12.f, 0.f, 0.f)[ControlsGlance()];
+	return Frame(Card, true);
 }
 
 // ------------------------------------------------------------------------------------------------ input
@@ -895,6 +970,10 @@ FReply SMIFrontEnd::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyE
 FReply SMIFrontEnd::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
 	// A drag on the stage turns the gun (the buttons take their own clicks first).
+	if (Owner.IsValid())
+	{
+		Owner->UsePad(false);  // the glyphs follow the device in use
+	}
 	bDragging = true;
 	LastMouse = MouseEvent.GetScreenSpacePosition();
 	return FReply::Handled().CaptureMouse(SharedThis(this)).SetUserFocus(SharedThis(this));

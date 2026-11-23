@@ -9,6 +9,7 @@
 class UCameraComponent;
 class UMIGunAssembly;
 class UPostProcessComponent;
+class USpotLightComponent;
 class USkeletalMeshComponent;
 class UStaticMeshComponent;
 struct FMICrewEntry;
@@ -37,10 +38,21 @@ public:
 
 	/** The turntable gun: swaps with a 0.2 s scale-out and in when the gun changes; new parts slide in. */
 	void ShowGun(const FMIResolvedGun& Gun);
-	/** The Workbench's slot focus (frontend.json stage.cameras.focus), eased in 0.4 s; None: the whole gun. */
-	void FocusSlot(FName Slot);
-	/** The arms of a crew member at the eye, holding Gun (Crew screen); a change dips to black for 0.15 s. */
-	void ShowArms(const FMICrewEntry* Crew, const FMIResolvedGun& Gun);
+	/** The Workbench's slot focus, eased in 0.4 s; None: the whole gun. The camera aims at the slot's mount socket on
+	 *  the shown mesh (Socket), or at frontend.json stage.cameras.focus.<slot>.offset where the mesh has no such socket
+	 *  (template stand-ins, the stock variant); the gun turns that side to the camera and stays whole in the free part
+	 *  of the screen, and a spot lights the mount. */
+	void FocusSlot(FName Slot, FName Socket = NAME_None);
+	/** The arms of a crew member at the eye, holding Gun (Crew screen); a change dips to black for 0.15 s. False (and
+	 *  nothing shown) when the member's own arms mesh cannot be loaded: the caller then shows the turntable. */
+	bool ShowArms(const FMICrewEntry* Crew, const FMIResolvedGun& Gun);
+
+	/** Where the turntable camera frames: the screen part right of the controls column (normalised device x, -1..1),
+	 *  and the vertical half-extent; the whole gun stays inside it. */
+	static constexpr double FreeLeft = -0.14, FreeRight = 0.94, FreeHalfHeight = 0.80;
+	/** The point the camera aims at (stage space) and the stage-space bounding sphere of the shown gun, for tests. */
+	FVector GetAimPoint() const { return AimPoint; }
+	FSphere GetGunSphere() const;
 
 	/** Mouse drag (pixels), wheel steps, right stick (-1..1 per axis), triggers (zoom). */
 	void Drag(const FVector2D& Pixels);
@@ -65,6 +77,7 @@ private:
 	UPROPERTY(VisibleAnywhere) TObjectPtr<USkeletalMeshComponent> ArmsGun;
 	UPROPERTY(VisibleAnywhere) TObjectPtr<UMIGunAssembly> ArmsAssembly;
 	UPROPERTY(VisibleAnywhere) TObjectPtr<UPostProcessComponent> Post;
+	UPROPERTY(Transient) TObjectPtr<USpotLightComponent> SlotLight;
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> Set;
 
 	const FMIViewmodelData* ViewData = nullptr;
@@ -84,6 +97,13 @@ private:
 	FVector FocusOffset = FVector::ZeroVector, FocusFrom = FVector::ZeroVector, FocusTo = FVector::ZeroVector;
 	double FocusZoom = 1.0, FocusZoomFrom = 1.0, FocusZoomTo = 1.0, FocusT = 1.0;
 	TSharedPtr<FJsonObject> Focus;
+	FName FocusedSlot, FocusSocket;
+	FVector SlotLocal = FVector::ZeroVector;  // the focused mount in the turntable's frame (unrotated, unscaled)
+	bool bAimSlot = false;                    // turn the gun to the focused mount once its mesh is in place
+	FVector AimPoint = FVector::ZeroVector;
+	FTransform ArmsGrip = FTransform::Identity;  // the grip in the arms camera's space: the hand is placed on it each frame
+	bool FindSlotLocal(FVector& Out) const;
+	void PlaceArmsOnGrip();
 	FVector GunCentre = FVector::ZeroVector;
 	double GunRadius = 40.0;  // cm, the shown gun's bounding sphere: the camera stands off to frame it
 	bool bReducedMotion = false;

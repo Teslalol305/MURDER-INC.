@@ -10,7 +10,9 @@
 #include "Components/StaticMeshComponent.h"
 #include "Core/Data/MILoadoutData.h"
 #include "Engine/SkeletalMesh.h"
+#include "Engine/GameViewportClient.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/World.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "Weapons/MIGunAssembly.h"
@@ -197,7 +199,41 @@ void AMIShowroom::Setup(const TSharedPtr<FJsonObject>& Frontend, const FMIViewmo
 	ArmsCamera->SetFirstPersonScale(View ? View->FirstPersonScale : 0.6);
 	Arms->SetFirstPersonPrimitiveType(EFirstPersonPrimitiveType::FirstPerson);
 	ArmsGun->SetFirstPersonPrimitiveType(EFirstPersonPrimitiveType::FirstPerson);
+	// The Workbench's slot light: a tight warm spot on the mount being fitted (off until a slot is focused).
+	SlotLight = NewObject<USpotLightComponent>(this);
+	SlotLight->SetupAttachment(Root);
+	SlotLight->SetMobility(EComponentMobility::Movable);
+	SlotLight->SetIntensityUnits(ELightUnits::Candelas);
+	SlotLight->SetOuterConeAngle(14.f);
+	SlotLight->SetInnerConeAngle(6.f);
+	SlotLight->SetAttenuationRadius(600.f);
+	SlotLight->SetUseTemperature(true);
+	SlotLight->SetTemperature(4600.f);
+	SlotLight->SetIntensity(0.f);
+	SlotLight->RegisterComponent();
 	UseShot(EShot::Turntable);
+}
+
+FSphere AMIShowroom::GetGunSphere() const
+{
+	return FSphere(Pivot->GetRelativeLocation() + Pivot->GetRelativeRotation().RotateVector(GunCentre), GunRadius);
+}
+
+bool AMIShowroom::FindSlotLocal(FVector& Out) const
+{
+	// The mount socket on the shown mesh, in the turntable's own frame (no spin, no swap scale).
+	if (!FocusSocket.IsNone() && Gun->GetSkinnedAsset() && Gun->DoesSocketExist(FocusSocket))
+	{
+		Out = (Gun->GetSocketTransform(FocusSocket, RTS_Component) * Gun->GetRelativeTransform()).GetLocation();
+		return true;
+	}
+	// No such socket (a template stand-in, the stock): frontend.json's offset for the slot, in the gun's frame.
+	if (!FocusedSlot.IsNone() && Focus.IsValid())
+	{
+		Out = MIShowroomPrivate::Vec(Focus, FocusedSlot.ToString() + TEXT(".offset"), FVector::ZeroVector);
+		return true;
+	}
+	return false;
 }
 
 void AMIShowroom::UseShot(EShot In)
@@ -225,7 +261,7 @@ void AMIShowroom::PlaceGunOnPivot()
 		const FBoxSphereBounds B = Asset->GetBounds();
 		const FVector Centre = Pending.View.MeshOffset.TransformPosition(B.Origin);
 		Gun->AddRelativeLocation(-Centre);
-		GunRadius = FMath::Clamp(B.BoxExtent.GetMax(), 10.0, 120.0);
+		GunRadius = FMath::Clamp(B.BoxExtent.Size(), 10.0, 120.0);  // the box's own sphere: the whole gun at any turn
 	}
 	GunCentre = FVector::ZeroVector;
 }
@@ -252,38 +288,38 @@ void AMIShowroom::ShowGun(const FMIResolvedGun& InGun)
 	}
 }
 
-void AMIShowroom::FocusSlot(FName Slot)
+void AMIShowroom::FocusSlot(FName Slot, FName Socket)
 {
-	FVector Offset = FVector::ZeroVector;
-	double Z = 1.0;
-	if (!Slot.IsNone() && Focus.IsValid())
+	if (Slot == FocusedSlot && Socket == FocusSocket)
 	{
-		Offset = MIShowroomPrivate::Vec(Focus, Slot.ToString() + TEXT(".offset"), FVector::ZeroVector);
-		Z = MIJson::NumberOr(Focus, Slot.ToString() + TEXT(".zoom"), 1.0);
+		return;
 	}
+	FocusedSlot = Slot;
+	FocusSocket = Socket;
 	FocusFrom = FocusOffset;
-	FocusTo = Offset;
 	FocusZoomFrom = FocusZoom;
-	FocusZoomTo = Z;
+	FocusZoomTo = 1.0;
 	FocusT = bReducedMotion ? 1.0 : 0.0;
-	if (!Slot.IsNone())
+	bAimSlot = !Slot.IsNone();
+	if (Slot.IsNone())
 	{
-		Yaw = -90.0;  // the slot side faces the camera
-		Touch();
+		FocusTo = FVector::ZeroVector;
 	}
+	Touch();
 }
 
-void AMIShowroom::ShowArms(const FMICrewEntry* Crew, const FMIResolvedGun& InGun)
+bool AMIShowroom::ShowArms(const FMICrewEntry* Crew, const FMIResolvedGun& InGun)
 {
 	if (!ViewData)
 	{
-		return;
+		return false;
 	}
 	if (Crew && Crew->Id != ShownCrew)
 	{
 		ArmsDip = 0.0;  // the swap hides behind a 0.15 s dip
 		ShownCrew = Crew->Id;
 	}
+	// Only the member's own arms: the template body seen this close shows its open shoulders (LOADOUT.md 2.4).
 	USkeletalMesh* Body = nullptr;
 	if (Crew && !Crew->Arms.IsEmpty())
 	{
@@ -291,7 +327,7 @@ void AMIShowroom::ShowArms(const FMICrewEntry* Crew, const FMIResolvedGun& InGun
 	}
 	if (!Body)
 	{
-		Body = Cast<USkeletalMesh>(ViewData->Body.TryLoad());
+		return false;
 	}
 	if (Arms->GetSkinnedAsset() != Body)
 	{
@@ -327,16 +363,24 @@ void AMIShowroom::ShowArms(const FMICrewEntry* Crew, const FMIResolvedGun& InGun
 	}
 	const FTransform GunT = InGun.View.MeshOffset * Rig.GetGunTransform();
 	ArmsGun->SetRelativeTransform(GunT);
-	if (Arms->GetSkinnedAsset() && !ViewData->BodyHandSocket.IsNone() && Arms->DoesSocketExist(ViewData->BodyHandSocket))
-	{
-		const FTransform Grip(GunT.GetRotation(), Rig.GunPointInCamera(InGun.View.Marker(TEXT("grip"))));
-		const FTransform Hand = Arms->GetSocketTransform(ViewData->BodyHandSocket, RTS_Component);
-		Arms->SetRelativeTransform(Hand.Inverse() * Grip);
-	}
+	ArmsGrip = FTransform(GunT.GetRotation(), Rig.GunPointInCamera(InGun.View.Marker(TEXT("grip"))));
 	if (UAnimSequence* Idle = Cast<UAnimSequence>(InGun.View.Idle.TryLoad()))
 	{
 		Arms->SetAnimationMode(EAnimationMode::AnimationSingleNode);
 		Arms->PlayAnimation(Idle, true);
+	}
+	PlaceArmsOnGrip();
+	return true;
+}
+
+void AMIShowroom::PlaceArmsOnGrip()
+{
+	// As in play (UMIWeaponComponent::PoseView): every frame the body is placed so that its hand socket, in the pose the
+	// clip gives it now, holds the gun's grip.
+	if (ViewData && Arms->GetSkinnedAsset() && !ViewData->BodyHandSocket.IsNone() && Arms->DoesSocketExist(ViewData->BodyHandSocket))
+	{
+		const FTransform Hand = Arms->GetSocketTransform(ViewData->BodyHandSocket, RTS_Component);
+		Arms->SetRelativeTransform(Hand.Inverse() * ArmsGrip);
 	}
 }
 
@@ -370,9 +414,9 @@ void AMIShowroom::Tick(float DeltaSeconds)
 	Super::Tick(DeltaSeconds);
 	const double Dt = DeltaSeconds;
 	SinceTouch += Dt;
-	if (SinceTouch > IdleAfter && !bReducedMotion)
+	if (SinceTouch > IdleAfter && !bReducedMotion && FocusedSlot.IsNone())
 	{
-		Yaw += Spin * Dt;  // spins by itself until touched, and again 3 s after the last touch
+		Yaw += Spin * Dt;  // spins by itself until touched, and again 3 s after the last touch; never on a slot focus
 	}
 	// Gun swap: 0.1 s out, swap, 0.1 s in.
 	double Scale = 1.0;
@@ -397,21 +441,66 @@ void AMIShowroom::Tick(float DeltaSeconds)
 	}
 	Pivot->SetRelativeScale3D(FVector(FMath::Max(0.01, Ease(Scale))));
 	Pivot->SetRelativeRotation(FRotator(0.0, Yaw, 0.0));
-	// The turntable camera: orbit pitch about the look-at point, zoom along the line, eased slot focus.
+	// The slot focus: once the mesh is in place, the gun turns the mount's side to the camera and the camera looks
+	// from above for a top mount, from below for an underbarrel one.
+	FVector Local;
+	const bool bSlot = !bPendingSwap && FindSlotLocal(Local);
+	if (bSlot)
+	{
+		SlotLocal = Local;
+		if (bAimSlot)
+		{
+			bAimSlot = false;
+			Yaw = SlotLocal.Y > 0.5 ? 90.0 : -90.0;  // the camera stands on the -X side: this turns the mount's side to it
+			Pitch = FMath::Clamp(SlotLocal.Z > 2.0 ? 18.0 : SlotLocal.Z < -2.0 ? -14.0 : 6.0, PitchMin, PitchMax);
+		}
+		FocusTo = SlotLocal;
+	}
 	FocusT = FMath::Min(1.0, FocusT + Dt / FMath::Max(0.01, FocusSecs));
 	const double K = Ease(FocusT);
 	FocusOffset = FMath::Lerp(FocusFrom, FocusTo, K);
 	FocusZoom = FMath::Lerp(FocusZoomFrom, FocusZoomTo, K);
-	FVector Target = Pivot->GetRelativeLocation() + Pivot->GetRelativeRotation().RotateVector(FocusOffset);
-	// Stand off far enough to frame the whole gun (its bounding sphere) in the camera's horizontal field of view.
-	const double Half = FMath::Tan(FMath::DegreesToRadians(CamFov * 0.5));
-	const double Distance = FMath::Max((CamFrom - CamTo).Size(), GunRadius * 1.9 / FMath::Max(0.05, Half));
-	const FVector Arm = FRotator(Pitch, 0.0, 0.0).RotateVector((CamFrom - CamTo).GetSafeNormal()) * Distance / (ZoomK * FocusZoom);
-	// The controls take the left 40 % of the screen: the look-at point moves left so the gun sits in the free part.
-	const FVector Right = FVector::CrossProduct(FVector::UpVector, -Arm).GetSafeNormal();
-	Target -= Right * (Arm.Size() * Half * 0.30);
-	TurntableCamera->SetRelativeLocation(Target + Arm);
-	TurntableCamera->SetRelativeRotation((Target - (Target + Arm)).Rotation());
+	const FVector Centre = Pivot->GetRelativeLocation() + Pivot->GetRelativeRotation().RotateVector(GunCentre);
+	const FVector Mount = Pivot->GetRelativeLocation() + Pivot->GetRelativeRotation().RotateVector(FocusOffset);
+	// The camera aims half way to the mount, so the part sits near the middle of the free part of the screen while the
+	// whole gun still fits there.
+	AimPoint = FMath::Lerp(Centre, Mount, 0.5);
+	const FVector Fwd = -FRotator(Pitch, 0.0, 0.0).RotateVector((CamFrom - CamTo).GetSafeNormal());
+	const FRotator Look = Fwd.Rotation();
+	const FVector Right = FRotationMatrix(Look).GetScaledAxis(EAxis::Y);
+	const FVector Up = FRotationMatrix(Look).GetScaledAxis(EAxis::Z);
+	double Aspect = 16.0 / 9.0;
+	if (const UGameViewportClient* Viewport = GetWorld() ? GetWorld()->GetGameViewport() : nullptr)
+	{
+		FVector2D Size;
+		Viewport->GetViewportSize(Size);
+		Aspect = Size.Y > 1.0 ? Size.X / Size.Y : Aspect;
+	}
+	const double TanH = FMath::Tan(FMath::DegreesToRadians(CamFov * 0.5));
+	const double TanV = TanH / Aspect;
+	// The aim point sits at the middle of the free part (X0); the gun's sphere must fit between its edges.
+	const double X0 = (FreeLeft + FreeRight) * 0.5;
+	const FVector O = Centre - AimPoint;
+	const double Ox = O | Right, Oy = O | Up, Oz = O | Fwd;
+	const double Depth = FMath::Max3((GunRadius - Ox) / ((X0 - FreeLeft) * TanH), (GunRadius + Ox) / ((FreeRight - X0) * TanH), (FMath::Abs(Oy) + GunRadius) / (FreeHalfHeight * TanV));
+	const double Distance = FMath::Max(60.0, Depth - Oz) / (ZoomK * FocusZoom);
+	const FVector Camera = AimPoint - Fwd * Distance - Right * (X0 * Distance * TanH);
+	TurntableCamera->SetRelativeLocation(Camera);
+	TurntableCamera->SetRelativeRotation(Look);
+	// The slot light follows the mount.
+	if (SlotLight)
+	{
+		const bool bLit = !FocusedSlot.IsNone() && bSlot;
+		const FVector From = Mount + FVector(0.0, 0.0, 55.0) - Fwd * 45.0;
+		SlotLight->SetRelativeLocation(From);
+		SlotLight->SetRelativeRotation((Mount - From).Rotation());
+		const double M = FVector::Dist(From, Mount) / 100.0;
+		SlotLight->SetIntensity(bLit ? static_cast<float>(900.0 * M * M * K) : 0.f);  // about 900 lux on the mount
+	}
+	if (Shot == EShot::Arms)
+	{
+		PlaceArmsOnGrip();
+	}
 	// The arms' dip to black on a crew change.
 	if (ArmsDip < 0.15)
 	{
