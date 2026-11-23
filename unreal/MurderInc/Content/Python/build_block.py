@@ -81,7 +81,7 @@ GREY_SURFACE = {                 # collider surface -> (grey-box instance, textu
     "glass": ("MI_Grey_Glass", None, ((0.01, 0.011, 0.012), 0.05, 0.0, 0.0)),
     "other": ("MI_Grey_Other", "TS_Concrete_ScanWeathered", (0.6, 0.55, 0.5)),
 }
-ROOF_SET = "TS_Concrete_ScanWeathered"   # upward faces of the brick massing
+ROOF_SET = "TS_Roof_ScanBitumen"         # upward faces of the brick massing and the backdrop: tar roofs
 # Colliders the art has no module for keep their box, dressed in the material of what they are (05-level): tag ->
 # (instance, texture set world-projected, tint). Sets None: flat values; "glass": the glass with rooms.
 TAG_SURFACE = {
@@ -101,10 +101,16 @@ TAG_SURFACE = {
 for _tag in ("office", "mezzanine", "railing", "shop-stair", "shop-column", "safe", "roadblock", "scaffold",
              "tyre-cage", "alley-gate", "lot-gate", "lot-sign"):
     TAG_SURFACE[_tag] = ("MI_Box_SteelGrey", "TS_Steel_ScanPaintGrey", (1.0, 1.0, 1.0))
-ROOFED = {"MI_Grey_Brick", "MI_Box_BrickWindows", "MI_Box_BrickBrown", "MI_Box_BrickPainted", "MI_Backdrop_Brick"}
-WINDOWED = {"MI_Box_BrickWindows", "MI_Backdrop_Brick", "MI_Backdrop_Concrete"}
 BACKDROP_SURFACE = {"brick": ("MI_Backdrop_Brick", "TS_Brick_ScanRedCommon", (0.72, 0.64, 0.6)),
-                    "concrete": ("MI_Backdrop_Concrete", "TS_Concrete_ScanWeathered", (0.9, 0.88, 0.85))}
+                    "concrete": ("MI_Backdrop_Concrete", "TS_Concrete_ScanWeathered", (0.78, 0.77, 0.75)),
+                    "brown": ("MI_Backdrop_BrickBrown", "TS_Brick_ScanBrown", (0.8, 0.75, 0.72)),
+                    "buff": ("MI_Backdrop_BrickBuff", "TS_Brick_ScanBuff", (0.85, 0.82, 0.78)),
+                    "dark": ("MI_Backdrop_BrickDark", "TS_Brick_ScanRedDark", (0.8, 0.75, 0.72))}
+ROOFED = {"MI_Grey_Brick", "MI_Box_BrickWindows", "MI_Box_BrickBrown", "MI_Box_BrickPainted"} | \
+    {v[0] for v in BACKDROP_SURFACE.values()}
+WINDOWED = {"MI_Box_BrickWindows"} | {v[0] for v in BACKDROP_SURFACE.values()}
+BACKDROP_ROOF_PROPS = (("SM_Facade_WaterTank", 0.35), ("SM_Facade_StairBulkhead_Red", 0.45),
+                       ("SM_Facade_AirConditioner", 0.6))   # (mesh, chance per roof) within 1.5 km
 GROUND_SURFACE = {               # level.json ground surface -> (instance, texture set, tint)
     "asphalt": ("MI_Ground_Asphalt", "TS_Asphalt_ScanWorn", (1.0, 1.0, 1.0)),
     "concrete": ("MI_Ground_Concrete", "TS_Concrete_ScanRough", (1.0, 1.0, 1.0)),
@@ -1872,13 +1878,13 @@ def place_decals(items):
 
 def build_backdrop(level, facade):
     """What the player sees past the bounds: the avenue's own buildings continuing east and west, the neighbours'
-    backs, then a distant skyline in the haze. Deterministic (seeded) masses with the scanned brick and concrete
-    (world-projected), no collision: nobody reaches them."""
+    backs, then a distant skyline in the haze. Deterministic (seeded) masses in five scanned brick and concrete
+    finishes (world-projected, window grid, tar roofs), each with a parapet and, near, roof clutter (water tanks,
+    stair bulkheads, condensers); no collision: nobody reaches them."""
     rng = random.Random(1937)
-    brick = unreal.load_asset("%s/%s" % (MAT_DIR, BACKDROP_SURFACE["brick"][0]))
-    concrete = unreal.load_asset("%s/%s" % (MAT_DIR, BACKDROP_SURFACE["concrete"][0]))
+    finishes = ("brick", "brown", "buff", "dark", "concrete")
     bounds = level["bounds"]["ue"]
-    holder_near, holder_far = [], []
+    masses = []          # (finish, centre, half extent)
     # The avenue continues: street walls from the bounds out to 450 m, lots 8 to 30 m wide, 2 to 6 storeys.
     for side in (-1, 1):
         for direction in (-1, 1):
@@ -1891,7 +1897,7 @@ def build_backdrop(level, facade):
                 x0, x1 = (x, x + width) if direction > 0 else (x - width, x)
                 y0 = 1100 * side
                 centre = ((x0 + x1) / 2.0, y0 + side * depth / 2.0, height / 2.0)
-                holder_near.append((centre, ((x1 - x0) / 2.0 - 10, depth / 2.0, height / 2.0)))
+                masses.append((rng.choice(finishes[:4]), centre, ((x1 - x0) / 2.0 - 10, depth / 2.0, height / 2.0)))
                 x = x1 if direction > 0 else x0
     # The blocks behind: rows of 4 to 8 storeys out to 300 m, avenue gap kept clear.
     for k in range(260):
@@ -1900,21 +1906,43 @@ def build_backdrop(level, facade):
             continue
         storeys = rng.randint(4, 8) if math.hypot(cx, cy) < 15000 else rng.randint(6, 30)
         height = 310 * storeys + 400
-        holder_far.append(((cx, cy, height / 2.0), (rng.uniform(800, 2500), rng.uniform(800, 2500), height / 2.0)))
+        masses.append((rng.choice(finishes), (cx, cy, height / 2.0),
+                       (rng.uniform(800, 2500), rng.uniform(800, 2500), height / 2.0)))
     # A distant skyline to the west and south-west, 2.5 to 4.5 km off: towers 40 to 300 m.
     for k in range(90):
         angle = math.radians(rng.uniform(150, 235))
         distance = rng.uniform(250000, 450000)
         height = rng.uniform(8000, 30000) if rng.random() < 0.35 else rng.uniform(4000, 12000)
         cx, cy = math.cos(angle) * distance, -math.sin(angle) * distance
-        holder_far.append(((cx, cy, height / 2.0), (rng.uniform(1500, 4000), rng.uniform(1500, 4000), height / 2.0)))
-    near = instance_holder("Backdrop_Avenue", "Block/Backdrop")
-    far = instance_holder("Backdrop_City", "Block/Backdrop")
-    add_instances(near, CUBE.split(".")[0], [transform(c, 0.0, (e[0] / 50.0, e[1] / 50.0, e[2] / 50.0))
-                                             for c, e in holder_near], brick)
-    add_instances(far, CUBE.split(".")[0], [transform(c, 0.0, (e[0] / 50.0, e[1] / 50.0, e[2] / 50.0))
-                                            for c, e in holder_far], concrete)
-    return "%d avenue masses, %d city and skyline masses" % (len(holder_near), len(holder_far))
+        masses.append((rng.choice(("concrete", "buff", "concrete")), (cx, cy, height / 2.0),
+                       (rng.uniform(1500, 4000), rng.uniform(1500, 4000), height / 2.0)))
+    groups = {f: [] for f in finishes}
+    props = {}
+    for finish, c, e in masses:
+        groups[finish].append(transform(c, 0.0, (e[0] / 50.0, e[1] / 50.0, e[2] / 50.0)))
+        top = c[2] + e[2]
+        if math.hypot(c[0], c[1]) > 150000:
+            continue
+        # Parapet: a 30 cm wall 90 cm high round the roof edge.
+        for px, py, ex, ey in ((c[0], c[1] - e[1] + 15, e[0], 15), (c[0], c[1] + e[1] - 15, e[0], 15),
+                               (c[0] - e[0] + 15, c[1], 15, e[1] - 30), (c[0] + e[0] - 15, c[1], 15, e[1] - 30)):
+            groups[finish].append(transform((px, py, top + 45), 0.0, (ex / 50.0, ey / 50.0, 0.9)))
+        if math.hypot(c[0], c[1]) > 30000 or e[0] < 500 or e[1] < 500:
+            continue
+        for mesh, chance in BACKDROP_ROOF_PROPS:
+            if rng.random() < chance:
+                at = (c[0] + rng.uniform(-0.6, 0.6) * (e[0] - 250), c[1] + rng.uniform(-0.6, 0.6) * (e[1] - 250),
+                      top + (34 if "Air" in mesh else 0))
+                props.setdefault(mesh, []).append(transform(at, rng.choice((0.0, 90.0, 180.0, 270.0))))
+    holder = instance_holder("Backdrop", "Block/Backdrop")
+    for finish, transforms in groups.items():
+        material = unreal.load_asset("%s/%s" % (MAT_DIR, BACKDROP_SURFACE[finish][0]))
+        add_instances(holder, CUBE.split(".")[0], transforms, material)
+    for mesh, transforms in sorted(props.items()):
+        if ASSETS.does_asset_exist("%s/%s" % (MESH_DIR, mesh)):
+            add_instances(holder, "%s/%s" % (MESH_DIR, mesh), transforms, None)
+    return "%d masses in %d finishes with parapets, roof props %s" % (
+        len(masses), len(finishes), ", ".join("%s x%d" % (m, len(t)) for m, t in sorted(props.items())))
 
 
 def setp(target, name, value):

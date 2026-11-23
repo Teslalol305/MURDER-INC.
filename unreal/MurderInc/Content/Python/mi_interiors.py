@@ -26,7 +26,7 @@ SURFACES = {
     "MI_Int_WallBlue": ("TS_BrickPainted_ScanWhitewash", (0.62, 0.7, 0.86), 2.0),
     "MI_Int_WallWarm": ("TS_BrickPainted_ScanWhitewash", (1.0, 0.84, 0.7), 2.0),
     "MI_Int_Tile": ("TS_Tile_ScanWhite", (1.0, 1.0, 1.0), 1.0),
-    "MI_Int_WoodPanel": ("TS_Wood_ScanPlankDark", (1.0, 1.0, 1.0), 2.0),
+    "MI_Int_WoodPanel": ("TS_Wood_ScanPlankDark", (1.6, 1.45, 1.3), 2.0),
     "MI_Int_FloorChecker": ("TS_Tile_ScanChecker", (1.0, 1.0, 1.0), 1.2),
     "MI_Int_FloorLino": ("TS_Floor_ScanLino", (1.0, 1.0, 1.0), 2.0),
     "MI_Int_FloorWood": ("TS_Wood_ScanPlankDark", (0.9, 0.8, 0.7), 2.0),
@@ -76,7 +76,7 @@ ROOMS = [
       ("mesh", M("SM_Street_TrashCan"), (X1 - 40, 40, 0), RIGHT, 1.0),
       ("mesh", M("SM_Prop_VendingMachine"), (X1 - 50, 150, 0), RIGHT, 1.0)]),
     ("ShopStore", True, "MI_Int_WoodPanel", "MI_Int_FloorConcrete",
-     [(0, -60, 1400, True), (0, 150, 1400, True)],
+     [(0, -60, 3200, True), (0, 150, 3200, True)],
      [("mesh", M("SM_Prop_ShelfRack_Drawers"), (0, Y1 - 40, 0), BACK, 1.0),
       ("mesh", M("SM_Prop_ShelfRack_Narrow"), (X0 + 30, 100, 0), LEFT, 1.0),
       ("mesh", M("SM_Prop_ShelfRack_Narrow"), (X1 - 30, 100, 0), RIGHT, 1.0),
@@ -85,7 +85,7 @@ ROOMS = [
       ("mesh", M("SM_Prop_CardboardBoxes"), (-40, 60, 0), 35.0, 1.0),
       ("box", "MI_Int_Wood", (60, 0, 45), (35, 90, 45))]),
     ("HomeLiving", False, "MI_Int_WallWarm", "MI_Int_FloorWood",
-     [(0, 60, 450, True), (X1 - 50, Y1 - 60, 250, True)],
+     [(0, 60, 700, True), (X1 - 50, Y1 - 60, 350, True)],
      [("box", "MI_Int_Fabric", (0, Y1 - 50, 22), (100, 40, 22)),            # sofa seat
       ("box", "MI_Int_Fabric", (0, Y1 - 15, 55), (100, 12, 50)),            # sofa back
       ("box", "MI_Int_Fabric", (-95, Y1 - 50, 40), (10, 40, 30)),
@@ -97,7 +97,7 @@ ROOMS = [
       ("box", "MI_Int_Black", (X0 + 25, 0, 115), (14, 40, 25)),             # television
       ("box", "MI_Int_LampWarm", (X1 - 50, Y1 - 60, 150), (12, 12, 12))]),
     ("HomeBedroom", False, "MI_Int_WallBlue", "MI_Int_FloorLino",
-     [(0, 40, 380, True)],
+     [(0, 40, 650, True)],
      [("box", "MI_Int_Wood", (0, Y1 - 100, 20), (75, 100, 20)),             # bed frame
       ("mesh", M("SM_Furn_Mattress"), (0, Y1 - 100, 40), 90.0, 1.0),
       ("box", "MI_Int_FabricBlue", (0, Y1 - 15, 70), (78, 8, 50)),          # headboard
@@ -105,7 +105,7 @@ ROOMS = [
       ("mesh", M("SM_Prop_CardboardBoxes"), (X0 + 40, -120, 0), 15.0, 1.0),
       ("box", "MI_Int_LampWarm", (X0 + 25, Y1 - 30, 70), (10, 10, 10))]),
     ("HomeVacant", False, "MI_Int_WallGreen", "MI_Int_FloorConcrete",
-     [(0, 0, 220, False)],
+     [(0, 0, 500, False)],
      [("mesh", M("SM_Furn_Mattress"), (-40, Y1 - 90, 0), 80.0, 1.0),
       ("mesh", M("SM_Prop_CardboardBoxes"), (X1 - 50, 80, 0), 200.0, 1.0),
       ("mesh", M("SM_Furn_TrashBags_A"), (X1 - 60, Y1 - 60, 0), 160.0, 1.0),

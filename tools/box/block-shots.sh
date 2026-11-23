@@ -21,6 +21,10 @@ bash shot.sh "$out/$p-6.jpg" cam=-7200,6200,5200,-28.7,-40.7,0 fov=70 frames="$f
 # the south lane, a shop window at arm's length
 if [ "$p" != block-v1 ]; then
   bash shot.sh "$out/$p-station.jpg" cam=-3150,1020,170,6,-160,0 fov=80 frames="$frames" | tail -1
-  bash shot.sh "$out/$p-vehicles.jpg" cam=-2950,320,150,-4,25,0 fov=75 frames="$frames" | tail -1
-  bash shot.sh "$out/$p-interior.jpg" cam=-2600,1030,160,-2,90,0 fov=70 frames="$frames" | tail -1
+  bash shot.sh "$out/$p-vehicles.jpg" cam=-2100,900,160,-6,-140,0 fov=75 frames="$frames" | tail -1
+  # review views: the sky and clouds, a facade run at arm's length (module seams), upper floors (rust streaks)
+  bash shot.sh "$out/$p-sky.jpg" cam=0,0,170,32,-30,0 fov=90 frames="$frames" | tail -1
+  bash shot.sh "$out/$p-seams.jpg" cam=-1200,1020,170,2,178,0 fov=80 frames="$frames" | tail -1
+  bash shot.sh "$out/$p-upper.jpg" cam=-1800,250,170,28,90,0 fov=70 frames="$frames" | tail -1
+  bash shot.sh "$out/$p-interior.jpg" cam=-3350,1030,160,-2,90,0 fov=70 frames="$frames" | tail -1
 fi
