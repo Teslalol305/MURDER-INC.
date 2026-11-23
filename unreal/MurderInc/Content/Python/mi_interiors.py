@@ -140,7 +140,7 @@ def open_bake_map():
     current = world.get_path_name().split(".")[0] if world else ""
     if current != BAKE_MAP:
         if bb.ASSETS.does_asset_exist(BAKE_MAP):
-            bb.LEVELS.load_level(BAKE_MAP)
+            bb.load_level(BAKE_MAP)
         else:
             bb.LEVELS.new_level(BAKE_MAP)
     clear_room()
@@ -258,6 +258,6 @@ def interior_units(force):
     def back():
         clear_room()
         bb.LEVELS.save_current_level()
-        bb.LEVELS.load_level(bb.MAP_PATH)
+        bb.load_level(bb.MAP_PATH)
         return "back in " + bb.MAP_PATH
     yield "reopen block", back
