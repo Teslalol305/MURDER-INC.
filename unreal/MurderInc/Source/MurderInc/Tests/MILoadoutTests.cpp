@@ -4,12 +4,51 @@
 #include "Core/Data/MILoadoutData.h"
 #include "Misc/AutomationTest.h"
 #include "World/MILevelData.h"
+#include "Weapons/MILoadoutResolver.h"
+#include "Weapons/MIViewmodel.h"
 
 #if WITH_AUTOMATION_TESTS
 
 namespace MILoadoutTestsPrivate
 {
 	constexpr EAutomationTestFlags Flags = EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter;
+
+	/** Field-by-field, doubles exactly (the parity guard of LOADOUT.md 8.1). */
+	void SameGun(FAutomationTestBase& T, const FString& L, const FMIWeaponDef& A, const FMIWeaponDef& B)
+	{
+#define MI_SAME(F) T.TestTrue(L + TEXT(" ") TEXT(#F), A.F == B.F)
+		MI_SAME(Id); MI_SAME(Name); MI_SAME(bAuto); MI_SAME(Damage); MI_SAME(Rpm); MI_SAME(MagSize); MI_SAME(Reserve); MI_SAME(Range);
+		MI_SAME(AdsTime); MI_SAME(FireBuffer); MI_SAME(DryCooldown); MI_SAME(DryReloadDelay);
+		MI_SAME(Reload.Tactical); MI_SAME(Reload.Empty); MI_SAME(Reload.MagOut); MI_SAME(Reload.MagIn); MI_SAME(Reload.BoltTactical); MI_SAME(Reload.BoltEmpty);
+		MI_SAME(Spread.Hip); MI_SAME(Spread.Ads); MI_SAME(Spread.MoveHip); MI_SAME(Spread.MoveAds); MI_SAME(Spread.BloomHip); MI_SAME(Spread.BloomAds);
+		MI_SAME(Spread.Air); MI_SAME(Spread.Crouch); MI_SAME(Spread.Shot); MI_SAME(Spread.Decay);
+		MI_SAME(Recoil.Pitch); MI_SAME(Recoil.PitchRandomMin); MI_SAME(Recoil.PitchRandomMax); MI_SAME(Recoil.bWeave); MI_SAME(Recoil.LateFrom); MI_SAME(Recoil.LateScale);
+		MI_SAME(Recoil.YawEarly); MI_SAME(Recoil.WeaveFrom); MI_SAME(Recoil.WeaveAmp); MI_SAME(Recoil.WeaveFreq); MI_SAME(Recoil.WeaveRandom); MI_SAME(Recoil.Yaw); MI_SAME(Recoil.Shake);
+		MI_SAME(WallStart); MI_SAME(WallFull); MI_SAME(FlashScale); MI_SAME(FlashLight); MI_SAME(FlashColor); MI_SAME(FlashRange); MI_SAME(FlashTtl);
+		MI_SAME(RumbleStrong); MI_SAME(RumbleWeak); MI_SAME(RumbleMs);
+		MI_SAME(Holster); MI_SAME(Draw); MI_SAME(AdsFov); MI_SAME(AdsLook); MI_SAME(NoiseRadius); MI_SAME(FalloffStart); MI_SAME(FalloffEnd); MI_SAME(FalloffMin);
+		MI_SAME(SemiFireBuffer); MI_SAME(ModeSwitch); MI_SAME(InspectAfter); MI_SAME(Pool); MI_SAME(bSuppressed);
+#undef MI_SAME
+	}
+
+	void SameView(FAutomationTestBase& T, const FString& L, const FMIGunViewData& A, const FMIGunViewData& B)
+	{
+#define MI_SAME(F) T.TestTrue(L + TEXT(" view ") TEXT(#F), A.F == B.F)
+		MI_SAME(Id); MI_SAME(Mesh); MI_SAME(Idle); MI_SAME(Relief); MI_SAME(FlashStar); MI_SAME(FlashJet); MI_SAME(ReloadTactical); MI_SAME(ReloadEmpty); MI_SAME(bAuto);
+		MI_SAME(KickBack); MI_SAME(KickRise); MI_SAME(KickYaw); MI_SAME(KickRoll); MI_SAME(KickUp); MI_SAME(KickSide); MI_SAME(KickFirst); MI_SAME(KickSecond);
+		MI_SAME(KickRandom); MI_SAME(KickCrouch); MI_SAME(KickAdsBack); MI_SAME(KickAdsRot); MI_SAME(KickAdsPos);
+		MI_SAME(SpringBack); MI_SAME(SpringPitch); MI_SAME(SpringYaw); MI_SAME(SpringRoll); MI_SAME(SpringPos); MI_SAME(AdsSpring); MI_SAME(SwaySpring); MI_SAME(SwayMax);
+		MI_SAME(Hip.Num()); MI_SAME(Melee); MI_SAME(BoltReloadTactical); MI_SAME(BoltReloadEmpty); MI_SAME(Bolt.Travel); MI_SAME(Magazine.Drop);
+#undef MI_SAME
+		T.TestTrue(L + TEXT(" view mesh offset"), A.MeshOffset.Equals(B.MeshOffset, 0.0));
+		T.TestTrue(L + TEXT(" view markers"), A.Markers.OrderIndependentCompareEqual(B.Markers));
+		T.TestTrue(L + TEXT(" view sockets"), A.Sockets.OrderIndependentCompareEqual(B.Sockets));
+		T.TestTrue(L + TEXT(" view reload marks"), A.ReloadMarks.OrderIndependentCompareEqual(B.ReloadMarks));
+		for (int32 I = 0; I < FMath::Min(A.Hip.Num(), B.Hip.Num()); ++I)
+		{
+			T.TestTrue(L + TEXT(" view hip pose"), A.Hip[I].Pos == B.Hip[I].Pos && A.Hip[I].Rot == B.Hip[I].Rot);
+		}
+	}
 
 	bool LoadData(FAutomationTestBase& Test, FMILoadoutData& Out)
 	{
@@ -78,6 +117,72 @@ bool FMILoadoutDataLoadsTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("3 reels"), Level->Objectives.Num(), 3);
 	}
 	return Problems.Num() == 0;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMILoadoutParityResolveTest, "MurderInc.Loadout.ParityResolve", MILoadoutTestsPrivate::Flags)
+
+bool FMILoadoutParityResolveTest::RunTest(const FString& Parameters)
+{
+	using namespace MILoadoutTestsPrivate;
+	FMILoadoutData D;
+	FMIConfigData Config;
+	FMIViewmodelData View;
+	TSharedPtr<FJsonObject> ConfigRoot, PresentationRoot;
+	FString Error;
+	if (!LoadData(*this, D) || !UMIDataSubsystem::LoadConfig(Config, Error) || !FMIViewmodelData::Load(View, Error)
+		|| !FMILoadoutResolver::LoadRoots(ConfigRoot, PresentationRoot, Error))
+	{
+		AddError(Error);
+		return false;
+	}
+	const FMILoadoutResolver Resolver(D, ConfigRoot, PresentationRoot);
+	const FMIRunSetup Setup = D.ParitySetup(TEXT("mission"), TEXT("boss"), TEXT("day"));
+	FMIResolvedRun Run;
+	if (!Resolver.Resolve(Setup, nullptr, Run, Error))
+	{
+		AddError(Error);
+		return false;
+	}
+	TestEqual(TEXT("two guns"), Run.Weapons.Guns.Num(), Config.Weapons.Guns.Num());
+	for (int32 I = 0; I < FMath::Min(Run.Guns.Num(), Config.Weapons.Guns.Num()); ++I)
+	{
+		const FMIResolvedGun& G = Run.Guns[I];
+		const FString L = G.Id.ToString();
+		// The JSON: byte-equal to config.json's object (no part fitted: no effect applied).
+		const TSharedPtr<FJsonValue> Source = MIJson::Get(ConfigRoot, TEXT("weapons.") + L);
+		TestTrue(L + TEXT(" rules JSON = config.json"), Source.IsValid() && MIJson::Print(G.Rules) == MIJson::Print(Source->AsObject()));
+		const TSharedPtr<FJsonValue> PSource = MIJson::Get(PresentationRoot, TEXT("guns.") + L);
+		TestTrue(L + TEXT(" presentation JSON = presentation.json"), PSource.IsValid() && MIJson::Print(G.Presentation) == MIJson::Print(PSource->AsObject()));
+		// The filled defaults are the refs' values.
+		for (const auto& Pair : D.ExtraDefaults->Values)
+		{
+			const FString Key(*Pair.Key);
+			if (!D.FindGun(G.Id)->Extra->HasField(Key))
+			{
+				const TSharedPtr<FJsonValue> Have = G.Extra->TryGetField(Key);
+				double X = 0.0, Y = 0.0;
+				const bool bNumbers = MIJson::Number(Have, X) && MIJson::Number(Pair.Value, Y);
+				TestTrue(L + TEXT(" extra.") + Key + TEXT(" is the default"), Have.IsValid() && (!bNumbers || X == Y));
+			}
+		}
+		SameGun(*this, L, G.Def, Config.Weapons.Guns[I]);
+		TestEqual(L + TEXT(" starts in fireModes[0]"), G.Def.FireModes.Num() > 0 ? G.Def.FireModes[0] : NAME_None, Config.Weapons.Guns[I].FireModes[0]);
+		TestEqual(L + TEXT(" slot"), G.Def.Slot, Config.Weapons.Guns[I].Slot);
+		if (const FMIGunViewData* V = View.Find(G.Id))
+		{
+			SameView(*this, L, Run.View.Guns[I], *V);
+		}
+	}
+	TestTrue(TEXT("CHOPPER fire modes auto, semi"), Run.Weapons.Guns.Num() > 0 && Run.Weapons.Guns[0].FireModes == TArray<FName>{TEXT("auto"), TEXT("semi")});
+	TestTrue(TEXT("NINE fire modes semi"), Run.Weapons.Guns.Num() > 1 && Run.Weapons.Guns[1].FireModes == TArray<FName>{TEXT("semi")});
+	// Common and melee: the same parser on the same document.
+	const FMIWeaponCommonData& A = Run.Weapons.Common;
+	const FMIWeaponCommonData& B = Config.Weapons.Common;
+	TestTrue(TEXT("common"), A.Holster == B.Holster && A.Draw == B.Draw && A.HeadMultiplier == B.HeadMultiplier && A.SpreadRate == B.SpreadRate
+		&& A.LowAmmoFraction == B.LowAmmoFraction && A.TracerSpeed == B.TracerSpeed && A.AimRange == B.AimRange);
+	TestTrue(TEXT("melee"), Run.Weapons.Melee.Damage == Config.Weapons.Melee.Damage && Run.Weapons.Melee.Reach == Config.Weapons.Melee.Reach);
+	TestTrue(TEXT("viewmodel fov"), Run.View.ViewmodelFov == View.ViewmodelFov && Run.View.FirstPersonScale == View.FirstPersonScale);
+	return !HasAnyErrors();
 }
 
 #endif
