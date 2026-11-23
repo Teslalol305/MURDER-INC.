@@ -38,7 +38,12 @@ ok = wait(lambda: last().get('fps', 0) > 20, 180)
 note('start', {'seconds_to_running': round(time.time() - t0, 1), 'ok': bool(ok)})
 time.sleep(6)
 note('card_up', last().get('click') == 1); grab('x1-click-to-play')
-xdo('mousemove', '960', '700'); xdo('click', '1'); time.sleep(1.5)
+xdo('mousemove', '960', '700')
+# No window manager on the private screen: give the game window the keyboard focus (the window under the mouse).
+loc = subprocess.run(['xdotool', 'getmouselocation', '--shell'], env=dict(os.environ, DISPLAY=DISP), capture_output=True, text=True).stdout
+win = dict(l.split('=', 1) for l in loc.split() if '=' in l).get('WINDOW')
+if win: xdo('windowfocus', '--sync', win)
+xdo('click', '1'); time.sleep(1.5)
 note('first_click', {'dismissed': 'Click to play: dismissed' in text(), 'card_up_after': last().get('click') == 1})
 xdo('key', 'Return'); time.sleep(2); grab('x2-setup')
 xdo('key', 'ctrl+Return'); time.sleep(2); xdo('key', 'Return')
