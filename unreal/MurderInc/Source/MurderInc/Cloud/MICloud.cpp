@@ -1,5 +1,7 @@
 #include "Cloud/MICloud.h"
 
+#include <atomic>
+
 #include "Async/Async.h"
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
@@ -31,6 +33,7 @@
 #if MI_WITH_PIXELSTREAMING2
 #include "IPixelStreaming2Module.h"
 #include "IPixelStreaming2Streamer.h"
+#include "IPixelStreaming2VideoProducer.h"
 #include "PixelStreaming2Delegates.h"
 #include "PixelStreaming2VideoProducers.h"
 #endif
@@ -39,6 +42,10 @@ DEFINE_LOG_CATEGORY_STATIC(LogMICloud, Log, All);
 
 namespace MICloudPrivate
 {
+	/** For the probe: back buffers Slate presented, and frames the stream's video source passed on. */
+	std::atomic<int64> BackBuffers{0};
+	std::atomic<int64> FramesPushed{0};
+
 	/** Every line also goes to -MICloudLog=<file> when given: Shipping builds compile the engine log out, and the
 	 *  stream test (tools/box/cloud/stream_test.cjs) reads what the game saw from this file. */
 	void Line(const FString& Text)
@@ -379,6 +386,11 @@ void UMICloudSubsystem::EnsureVideoProducer()
 		{
 			MICloudPrivate::Line(FString::Printf(TEXT("Pixel Streaming: the default streamer has its video source")));
 		}
+		if (TSharedPtr<IPixelStreaming2VideoProducer> Producer = Streamer->GetVideoProducer().Pin())
+		{
+			Producer->OnFramePushed.AddLambda([](const IPixelCaptureInputFrame&) { ++MICloudPrivate::FramesPushed; });
+		}
+		FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent().AddLambda([](SWindow&, ISlateViewportProvider&) { ++MICloudPrivate::BackBuffers; });
 	}
 #endif
 }
@@ -418,10 +430,11 @@ void UMICloudSubsystem::Probe(float DeltaTime)
 	const APlayerController* PC = GetGameInstance() ? GetGameInstance()->GetFirstLocalPlayerController() : nullptr;
 	const FRotator R = PC ? PC->GetControlRotation() : FRotator::ZeroRotator;
 	UMIGameSubsystem* G = MICloudPrivate::Game(GetGameInstance());
-	MICloudPrivate::Line(FString::Printf(TEXT("MICloudProbe fps=%.1f worstMs=%.1f gpuMs=%.2f rssMB=%llu peakRssMB=%llu texStreamMB=%llu texOtherMB=%llu poolMB=%lld yaw=%.4f pitch=%.4f state=%d click=%d"),
+	MICloudPrivate::Line(FString::Printf(TEXT("MICloudProbe fps=%.1f worstMs=%.1f gpuMs=%.2f rssMB=%llu peakRssMB=%llu texStreamMB=%llu texOtherMB=%llu poolMB=%lld yaw=%.4f pitch=%.4f state=%d click=%d bb=%lld pushed=%lld"),
 		ProbeTime > 0 ? ProbeFrames / ProbeTime : 0.0, ProbeWorst * 1000.0, GpuMs,
 		(unsigned long long)(M.UsedPhysical >> 20), (unsigned long long)(M.PeakUsedPhysical >> 20),
 		(unsigned long long)(T.StreamingMemorySize >> 20), (unsigned long long)(T.NonStreamingMemorySize >> 20), (long long)(T.TexturePoolSize >> 20),
-		R.Yaw, R.Pitch, G ? (int32)G->GetRules().GetState() : -1, bWaitingForClick ? 1 : 0));
+		R.Yaw, R.Pitch, G ? (int32)G->GetRules().GetState() : -1, bWaitingForClick ? 1 : 0,
+		(long long)MICloudPrivate::BackBuffers.load(), (long long)MICloudPrivate::FramesPushed.load()));
 	ProbeFrames = ProbeTime = ProbeWorst = 0.0;
 }
