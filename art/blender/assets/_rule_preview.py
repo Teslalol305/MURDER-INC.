@@ -66,6 +66,15 @@ def arms(ctx):
         return
     arm, ob, R, Rl = r["arm"], r["ob"], r["R"], r["Rl"]
     r["body"].hide_render = True
+    b = getattr(ctx, "body", None)
+    hidden = []
+    if b:                                                   # the full body stands where the arms are
+        for o in (b["ob"], b.get("mbody")):
+            if o is not None and not o.hide_render:
+                o.hide_render = True
+                hidden.append(o)
+    ob.hide_render = False
+    r["bracelet"].hide_render = False
     RU.place_bracelet(r)
     S = ctx.args.samples
     out = paths.previews
@@ -118,6 +127,8 @@ def arms(ctx):
         render.render_jpeg(os.path.join(out, "rule_arms_hero.jpg"), S)
         ctx.log("preview rule_arms_hero")
     char.rest_pose(arm)
+    for o in hidden:
+        o.hide_render = False
 
 
 def body(ctx):
