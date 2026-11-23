@@ -323,7 +323,7 @@ void UMIEffects::Tracer(const FVector& From, const FVector& To, double SpeedCmPe
 	NextStreak = (NextStreak + 1) % Streaks.Num();
 	X.From = From;
 	X.To = To;
-	X.Age = 0.0;
+	X.Age = 1.0 / 60.0;  // one frame in flight already: drawn on the next frame whatever that frame's length
 	X.Length = MIJson::NumberOr(Fx, TEXT("tracer.length"), 260.0);
 	X.Life = FVector::Dist(From, To) / SpeedCmPerS;
 	const double R = MIJson::NumberOr(Fx, TEXT("tracer.radius"), 0.5);

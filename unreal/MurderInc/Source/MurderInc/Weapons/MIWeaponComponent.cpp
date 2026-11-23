@@ -689,7 +689,17 @@ void UMIWeaponComponent::MuzzleFlash(double FlashScale)
 	{
 		return;  // a silencer: no flash, no light
 	}
-	if (FlashCards.Num() == 3 && FlashScale > 0.01)
+	// The flash goes through the effects' world cards (the ones the Goons' flashes use, seen in every picture), placed
+	// at the first-person depth and size on the muzzle: the camera-attached cards were set visible, sized and placed
+	// right (read back in play) yet never drew in a picture.
+	if (UMIEffects* WorldFx = UMIEffects::Get(this); WorldFx && WorldFx->CanDrawTracers() && FlashScale > 0.01)
+	{
+		const FTransform At = FirstPersonToNearWorld(FTransform(FRotationMatrix::MakeFromX(Dir).ToQuat(), Pos));
+		// WorldFlash's star is 14 cm and its jets 26 cm at scale 1; the first-person flash is 9 and 15 cm x FlashScale
+		WorldFx->WorldFlash(At.GetLocation(), At.GetRotation().GetForwardVector(), FMath::Clamp(FlashScale, 0.3, 1.5) * At.GetScale3D().X * 0.62, false);
+		UE_LOG(LogMI, Verbose, TEXT("Flash: world cards %.1f cm from the eye"), FVector::Dist(At.GetLocation(), Camera->GetComponentLocation()));
+	}
+	else if (FlashCards.Num() == 3 && FlashScale > 0.01)
 	{
 		FlashAge = 0.0;
 		const double S = FMath::Clamp(FlashScale, 0.3, 1.5);
