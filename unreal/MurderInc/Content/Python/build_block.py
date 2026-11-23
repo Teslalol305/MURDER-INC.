@@ -1713,6 +1713,55 @@ def structure_placements(level):
                                            ("y", mn["X"], mn["Y"], mx["Y"], False), ("y", mx["X"], mn["Y"], mx["Y"], True)):
             out.extend(tile(axis, line, a, b, positive, "SM_Furn_ChainLink_300x400", 300.0, mn["Z"], k))
         drawn.add(scaffold["index"])
+
+    # Fences on the line of a thin collider: the east roadblock and the alley gate (chain-link to the collider's
+    # height), the tyre cage (chain-link round it, tyre stacks inside), the lot's low walls (concrete knee wall).
+    def run_of(b):
+        mn, mx = b["ue"]["min"], b["ue"]["max"]
+        along_x = mx["X"] - mn["X"] >= mx["Y"] - mn["Y"]
+        line = (mn["Y"] + mx["Y"]) / 2.0 if along_x else (mn["X"] + mx["X"]) / 2.0
+        a, e = (mn["X"], mx["X"]) if along_x else (mn["Y"], mx["Y"])
+        return ("x" if along_x else "y"), line, a, e, mn["Z"], mx["Z"]
+    for b in [b for b in boxes if b["owner"]["kind"] == "level" and b["tag"] in ("roadblock", "alley-gate")]:
+        if not have("SM_Furn_ChainLink_250x260"):
+            break
+        axis, line, a, e, z0, z1 = run_of(b)
+        out.extend(tile(axis, line, a, e, True, "SM_Furn_ChainLink_250x260", 250.0, z0, (z1 - z0) / 260.0))
+        if b["tag"] == "roadblock" and z0 < 1 and have("SM_Street_JerseyBarrier"):
+            # Jersey barriers in front of the fence where it crosses the road (west side).
+            for k in range(int((e - a) // 300)):
+                out.append(("SM_Street_JerseyBarrier", (line - 45.0, a + 150.0 + k * 300.0 + ((e - a) % 300) / 2.0, 0.0),
+                            90.0, (1.0, 1.0, 1.0)))
+        drawn.add(b["index"])
+    for cage in [b for b in boxes if b["tag"] == "tyre-cage" and b["owner"]["kind"] == "level"]:
+        mn, mx = cage["ue"]["min"], cage["ue"]["max"]
+        if not have("SM_Furn_ChainLink_240x250"):
+            break
+        k = (mx["Z"] - mn["Z"]) / 250.0
+        for axis, line, a, e, positive in (("x", mn["Y"], mn["X"], mx["X"], False), ("x", mx["Y"], mn["X"], mx["X"], True),
+                                           ("y", mn["X"], mn["Y"], mx["Y"], False), ("y", mx["X"], mn["Y"], mx["Y"], True)):
+            out.extend(tile(axis, line, a, e, positive, "SM_Furn_ChainLink_240x250", 240.0, mn["Z"], k))
+        if have("SM_Prop_TireStack") and have("SM_Prop_TireStack_B"):
+            for i, (fx, fy) in enumerate(((0.3, 0.3), (0.7, 0.3), (0.3, 0.7), (0.7, 0.7))):
+                out.append(("SM_Prop_TireStack" if i % 2 == 0 else "SM_Prop_TireStack_B",
+                            (mn["X"] + fx * (mx["X"] - mn["X"]), mn["Y"] + fy * (mx["Y"] - mn["Y"]), mn["Z"]),
+                            i * 37.0, (1.0, 1.0, 1.0)))
+        drawn.add(cage["index"])
+    for wall in [b for b in boxes if b["tag"] == "lot-wall" and b["owner"]["kind"] == "level"]:
+        if not have("SM_Furn_CagePlinth_300"):
+            break
+        axis, line, a, e, z0, z1 = run_of(wall)
+        out.extend(tile(axis, line, a, e, True, "SM_Furn_CagePlinth_300", 300.0, z0, (z1 - z0) / 50.0))
+        drawn.add(wall["index"])
+    for post in [b for b in boxes if b["tag"] == "lot-gate" and b["owner"]["kind"] == "level"]:
+        if have("SM_Furn_Bollard"):
+            mn, mx = post["ue"]["min"], post["ue"]["max"]
+            out.append(("SM_Furn_Bollard", ((mn["X"] + mx["X"]) / 2.0, (mn["Y"] + mx["Y"]) / 2.0, mn["Z"]), 0.0,
+                        ((mx["X"] - mn["X"]) / 20.0, (mx["Y"] - mn["Y"]) / 20.0, (mx["Z"] - mn["Z"]) / 100.0)))
+            drawn.add(post["index"])
+    # Invisible player blockers (seals, the stair railing's upper part) and the shed's parapet (the shed draws it).
+    drawn |= {b["index"] for b in boxes if b["tag"] in ("seal", "railing")}
+    drawn |= {534, 535, 536} & {b["index"] for b in boxes if b["tag"] == "hoarding"}
     # The Cage: concrete knee walls, chain-link panels on them, an end post closing each run.
     for plinth in [b for b in boxes if b["tag"] == "cage-plinth"]:
         mn, mx = plinth["ue"]["min"], plinth["ue"]["max"]
