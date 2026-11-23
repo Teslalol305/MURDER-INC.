@@ -17,3 +17,10 @@ bash shot.sh "$out/$p-4.jpg" cam=-1250,250,160,24,170,0 fov=85 frames="$frames" 
 bash shot.sh "$out/$p-5.jpg" cam=600,-300,170,0,180,0 fov=85 frames="$frames" | tail -1
 # 6 high overview of the whole block from the south-west, the sun behind the camera
 bash shot.sh "$out/$p-6.jpg" cam=-7200,6200,5200,-28.7,-40.7,0 fov=70 frames="$frames" | tail -1
+# block-v2 additions (prefix block-v2): the El station stair and mezzanine from the south sidewalk, the parked cars on
+# the south lane, a shop window at arm's length
+if [ "$p" != block-v1 ]; then
+  bash shot.sh "$out/$p-station.jpg" cam=-3150,1020,170,6,-160,0 fov=80 frames="$frames" | tail -1
+  bash shot.sh "$out/$p-vehicles.jpg" cam=-2950,320,150,-4,25,0 fov=75 frames="$frames" | tail -1
+  bash shot.sh "$out/$p-interior.jpg" cam=-2600,1030,160,-2,90,0 fov=70 frames="$frames" | tail -1
+fi

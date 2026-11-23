@@ -136,8 +136,10 @@ SIGN_STAND_IN = ((0.42, 0.42, 0.4), 0.55, 0.0, 0.0)               # neutral sign
 # 310 above the 380 cm shop floor line; Y: 550 so that both building lines, Y -1100 and +1100, are cell walls),
 # interior luminance in nits (rooms behind daylit windows are about a tenth of the facade), shop mode.
 GLASS_SLOTS = {
-    "MI_Glass_Window": dict(room=(310.0, 550.0, 310.0), offset=(0.0, 0.0, 70.0), nits=110.0, shop=0.0, sill=0.19),
-    "MI_Glass_Store": dict(room=(310.0, 550.0, 310.0), offset=(0.0, 0.0, 70.0), nits=200.0, shop=1.0, sill=0.03),
+    "MI_Glass_Window": dict(room=(310.0, 550.0, 310.0), offset=(0.0, 0.0, 70.0), nits=110.0, shop=0.0, sill=0.19,
+                            cube_scale=1.3),
+    "MI_Glass_Store": dict(room=(310.0, 550.0, 310.0), offset=(0.0, 0.0, 70.0), nits=200.0, shop=1.0, sill=0.03,
+                           cube_scale=1.8),
 }
 INTERIOR_CUBES = {"shop": ("ShopGrocery", "ShopParlour", "ShopStore"),       # mi_interiors.ROOMS
                   "home": ("HomeLiving", "HomeBedroom", "HomeVacant")}
