@@ -147,3 +147,23 @@ is the audio test that needs `node tools/ue-export/audio.mjs` run on the box); p
 Higgsfield generation spent so far: about 373 on vehicles and the generated Goon, 127 on the main character, 54 on
 audio. The rest of the spend is the GPU box at about 114 credits an hour. Balance was about 2,960 at the last check.
 Agents stop generating below 2,500.
+
+
+## 8. Exact next steps (written 2026-11-23 evening, when Higgsfield credits ran out)
+
+The box ended at 19:48 with credits exhausted. Nothing on the box can run until the owner tops up (keep the balance
+above about 2,500). Then, in order:
+
+1. Re-rent the same box (RESUME section 3) and run `/project/ue/bin/ensure-setup.sh` until `SETUP-DONE`.
+2. In `/project/ue/repo-gameplay`: `sync.sh`, `build.sh` (the 36-card flash pool, commit 9e55db3, was never compiled),
+   then `tools/box/test.sh MurderInc` (105 tests and golden replays: not run since the polish changes), then
+   `fp/polish-shots.sh`.
+3. Re-run the independent play-through review (the polish workflow's check stage, `tools/workflows/mi-polish-*.js`,
+   resume it) and fix what it finds. Known still open: the first frame faces a trash can 1.1 m away (move prop 270 or
+   turn the PlayerStart), the 7 brick building backs and the skyline towers read as blockout.
+4. Re-package for the website: `package.sh snapshot` from repo-gameplay, then `tools/box/cloud/package-cloud.sh all`
+   (it also brings the 800 MB texture pool), upload the parts, and put the new sha256 and links in `docs/LAUNCH.md`.
+5. **Do not let the owner upload the zip currently linked in LAUNCH.md (sha256 4ff06998...)**: it was packaged before
+   the polish and still shows the grey slabs at the start and has no visible player muzzle flash.
+6. The owner then tests on the Eagle 3D Streaming free trial (LAUNCH.md section 4): the stream itself, sound,
+   gamepad and delay have never been tested, because the box's sandbox blocks WebRTC.
