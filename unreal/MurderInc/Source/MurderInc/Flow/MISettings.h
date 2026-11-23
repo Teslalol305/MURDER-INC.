@@ -4,7 +4,30 @@
 #include "GameFramework/SaveGame.h"
 #include "MISettings.generated.h"
 
-/** The stored record: one save-game slot holds the settings and the best Hold the Block score (spec 04 2.16). */
+/** One gun's build in the save: slot -> part (LOADOUT.md 7). */
+USTRUCT()
+struct FMIGunBuildSave
+{
+	GENERATED_BODY()
+	UPROPERTY() TMap<FName, FName> Parts;
+};
+
+/** The remembered set-up (LOADOUT.md 7, frontend.json save). Mode, difficulty and time stay the settings keys. */
+USTRUCT()
+struct FMISetupSave
+{
+	GENERATED_BODY()
+	UPROPERTY() int32 Version = 1;
+	UPROPERTY() FName Crew;
+	UPROPERTY() TArray<FName> Guns;                   // up to 4, slot order
+	UPROPERTY() TMap<FName, FMIGunBuildSave> Builds;  // every gun ever built
+	UPROPERTY() FName Level;
+	UPROPERTY() TArray<FName> Seen;                   // ids looked at (the NEW badges)
+	UPROPERTY() bool bPlayed = false;                 // false: Hit the block on Home opens Crew
+};
+
+/** The stored record: one save-game slot holds the settings, the best Hold the Block score (spec 04 2.16) and the
+ *  remembered set-up (LOADOUT.md 7). */
 UCLASS()
 class MURDERINC_API UMISaveGame : public USaveGame
 {
@@ -22,6 +45,7 @@ public:
 	UPROPERTY() double Fov = 74.0;
 	UPROPERTY() int32 View = 1;
 	UPROPERTY() int32 Best = 0;
+	UPROPERTY() FMISetupSave Setup;
 };
 
 /**

@@ -971,9 +971,12 @@ bool FMIReadiness::IsGunReady(FName Id) const
 	{
 		return false;
 	}
+	// Each core role plays now: its clip exists (or a template or the procedural rig plays it). A role whose pack
+	// clip is being imported (inProgress) is played by the procedural rig meanwhile (LOADOUT.md 3.2, 5).
 	for (const FName Role : Data->CoreRoles)
 	{
-		if (!Data->Playable.Contains(G->ClipOf(Role))) return false;
+		const FName Status = G->ClipOf(Role);
+		if (!Data->Playable.Contains(Status) && Status != TEXT("inProgress")) return false;
 	}
 	return true;
 }
