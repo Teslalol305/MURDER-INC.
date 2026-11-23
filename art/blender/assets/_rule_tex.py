@@ -55,7 +55,7 @@ def finger_info(R, P):
     for i, n in enumerate(C.FINGERS):
         d, cosd, t = C.finger_frame_coords(R, n, P)
         d = d - R.chain[n]["r"][0]
-        m = d < best
+        m = (d < best) & (t > 0.0005)                      # behind the knuckle (chain clipped) is the hand
         best[m], lab[m], tt[m], cd[m] = d[m], i + 1, t[m], cosd[m]
     return lab, tt, cd, best
 

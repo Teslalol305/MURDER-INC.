@@ -903,6 +903,75 @@ def layer_weights(ob, log=log_default):
         raise RuntimeError("%s: %d vertices still without weights" % (ob.name, left))
 
 
+def unfold(ob, kinds_skip=("metal", "zip", "lens", "shoe", "sole", "cord", "aglet", "webbing"), iters=80, log=log_default):
+    """Smooth out folded-over triangles: where the drape crumpled or the decimation folded the cloth, a face points
+    away from its corners' smooth normals and renders as a dark jagged patch in Unreal (Cycles hides it). Only the
+    vertices of such faces and their neighbours move (Laplacian steps), topology and UVs stay."""
+    me = ob.data
+    fk = _face_kinds(ob)
+    skip = np.isin(fk, [K[k] for k in kinds_skip])
+    nl = np.array([p.loop_total for p in me.polygons])
+    lv = np.empty(len(me.loops), dtype=np.int64)
+    me.loops.foreach_get("vertex_index", lv)
+    pi = np.repeat(np.arange(len(me.polygons)), nl)
+    fixed = np.zeros(len(me.vertices), dtype=bool)
+    fixed[np.unique(lv[skip[pi]])] = True
+    fixed |= cloth.boundary_vertices(ob)
+    idx, ptr = char.adjacency(ob)
+    deg = np.maximum(np.diff(ptr), 1).astype(np.float64)
+    co = GC.verts(ob)
+    first = None
+    for it in range(iters):
+        GC.set_verts(ob, co)
+        me.update()
+        fn = np.empty(len(me.polygons) * 3)
+        me.polygons.foreach_get("normal", fn)
+        fn = fn.reshape(-1, 3)
+        vn = cloth.vertex_normals(ob)
+        d = np.einsum("ij,ij->i", vn[lv], fn[pi])
+        badf = np.zeros(len(me.polygons), dtype=bool)
+        np.logical_or.at(badf, pi, d < 0.35)
+        badf &= ~skip
+        if first is None:
+            first = int(badf.sum())
+        if not badf.any():
+            break
+        move = np.zeros(len(co), dtype=bool)
+        move[lv[badf[pi]]] = True
+        # grow one ring so the fix blends in
+        ring = np.zeros(len(co), dtype=bool)
+        for v in np.nonzero(move)[0]:
+            ring[idx[ptr[v]:ptr[v + 1]]] = True
+        move = (move | ring) & ~fixed
+        mean = np.add.reduceat(co[idx], ptr[:-1], axis=0) / deg[:, None]
+        co[move] += 0.6 * (mean[move] - co[move])
+    GC.set_verts(ob, co)
+    me.update()
+    kinds = {k: int((badf & (fk == v)).sum()) for k, v in K.items() if (badf & (fk == v)).any()}
+    # what is left is mostly real creases (turned hems, rolled edges, the pocket's edge): split the normals there
+    # so they shade as edges instead of a smeared dark band
+    e = np.empty(len(me.edges) * 2, dtype=np.int64)
+    me.edges.foreach_get("vertices", e)
+    e = e.reshape(-1, 2)
+    fn = np.empty(len(me.polygons) * 3)
+    me.polygons.foreach_get("normal", fn)
+    fn = fn.reshape(-1, 3)
+    ek = {}
+    for f in me.polygons:
+        for a_, b_ in f.edge_keys:
+            ek.setdefault((min(a_, b_), max(a_, b_)), []).append(f.index)
+    sharp = np.zeros(len(e), dtype=bool)
+    for i, (a_, b_) in enumerate(e):
+        fs = ek.get((min(a_, b_), max(a_, b_)), [])
+        if len(fs) == 2 and fn[fs[0]] @ fn[fs[1]] < 0.2:
+            sharp[i] = True
+    at = me.attributes.get("sharp_edge") or me.attributes.new("sharp_edge", "BOOLEAN", "EDGE")
+    at.data.foreach_set("value", sharp)
+    me.update()
+    log("  unfold %s: %d folded faces -> %d %s; %d crease edges split" % (ob.name, first or 0, int(badf.sum()), kinds,
+                                                                         int(sharp.sum())))
+
+
 def finish(man, outfit, joined, ctx):
     mats = flat_materials(outfit)
     for s, ob in joined.items():
@@ -912,6 +981,7 @@ def finish(man, outfit, joined, ctx):
         ob.data.polygons.foreach_set("material_index", np.zeros(len(ob.data.polygons), dtype=np.int32))
     ob = geo.join([joined["cloth"], joined["head"]], "SK_Goon_%s" % outfit, man.col)
     layer_weights(ob, ctx.log)
+    unfold(ob, log=ctx.log)
     bad = ob.data.validate(clean_customdata=False)
     if bad:
         ctx.log("  %s: mesh validation corrected geometry" % ob.name)

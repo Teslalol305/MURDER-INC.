@@ -434,5 +434,52 @@ def bake_set(ob, set_name, res, man, log, res_override=None, others=()):
           "metal": TX.dilate(me.reshape(H, W), mask, 24), "normal": TX.dilate(nrm, mask, 24),
           "ao": TX.dilate(ao, mask, 24), "height": hd}
     info = _bake.write_set(set_name, ch, meta={"kind": "unique", "asset": set_name, "resolution_px": res})
-    log("  %s written" % set_name)
+    fill_gaps(set_name)
+    log("  %s written (gaps filled)" % set_name)
     return info
+
+
+# ------------------------------------------------------------------------------------------------ gap fill
+
+
+def pull_push(img, known):
+    """Fill every texel outside the UV islands from the islands around it (masked mip pyramid, coarse to fine), so
+    no mip level mixes the empty background into the cloth: the fragmented islands of draped cloth otherwise show a
+    dark stepped fringe along their borders at a distance (texture streaming reads the small mips)."""
+    img = img.astype(np.float32)
+    if img.ndim == 2:
+        img = img[..., None]
+    levels = [(img * known[..., None], known.astype(np.float32))]
+    while levels[-1][1].shape[0] > 1:
+        c, w = levels[-1]
+        H, W = w.shape
+        c2 = c.reshape(H // 2, 2, W // 2, 2, -1).sum(axis=(1, 3))
+        w2 = w.reshape(H // 2, 2, W // 2, 2).sum(axis=(1, 3))
+        levels.append((c2, w2))
+    out = levels[-1][0] / np.maximum(levels[-1][1], 1e-6)[..., None]
+    for c, w in reversed(levels[:-1]):
+        up = np.repeat(np.repeat(out, 2, axis=0), 2, axis=1)
+        mine = c / np.maximum(w, 1e-6)[..., None]
+        out = np.where((w > 0)[..., None], mine, up)
+    return out if out.shape[-1] > 1 else out[..., 0]
+
+
+def fill_gaps(set_name):
+    """Re-write T_<set>_BC / _N / _ORM with the background filled by pull_push (the known texels are those the bake
+    and its dilation wrote: everything that is not pure black in BC)."""
+    import os
+    from PIL import Image
+    from mi import paths
+    d = paths.texture_set(set_name)
+    p = lambda t: os.path.join(d, "T_%s_%s.png" % (set_name, t))
+    bc = np.asarray(Image.open(p("BC")).convert("RGB"), dtype=np.float32)
+    known = bc.max(axis=2) > 0
+    for t in ("BC", "N", "ORM"):
+        im = np.asarray(Image.open(p(t)).convert("RGB"), dtype=np.float32)
+        f = pull_push(im, known)
+        if t == "N":
+            v = f / 127.5 - 1.0
+            v /= np.maximum(np.linalg.norm(v, axis=2, keepdims=True), 1e-6)
+            f = (v + 1.0) * 127.5
+        Image.fromarray(np.clip(np.rint(f), 0, 255).astype(np.uint8)).save(p(t), optimize=False)
+    return float(known.mean())
