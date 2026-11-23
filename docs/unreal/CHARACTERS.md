@@ -189,7 +189,7 @@ wide along every sun-stripe shadow edge, a mitten-like hand.
 | `shots/fp-arms-hip-sun.jpg` | the CHOPPER at the hip in the sun: a brown hand on the handguard with the thumb's knuckle wrinkles and nail, wrist creases, no orange |
 | `shots/fp-arms-hip-el.jpg` | under the El: crisp sun-stripe shadow edges on the forearm (no red fringe), warm brown in the sun |
 | `shots/fp-arms-irons.jpg` | aimed through the irons |
-| `shots/fp-arms-forearm-l.jpg`, `fp-arms-forearm-r.jpg` | the world paused in the CHOPPER's hip idle and the arms component moved so each tattoo is 30 cm from the eye, the gun hidden (pose, material, light and the first-person pass as in play): XXIII over XVII on the left forearm, square on; the word with its script line on the right forearm, seen from 45 degrees toward the wrist (square on, the bent elbow's upper arm comes straight at the eye) |
+| `shots/fp-arms-forearm-l.jpg`, `fp-arms-forearm-r.jpg` | the world paused in the CHOPPER's hip idle and the arms component moved so each tattoo is 30 cm from the eye (pose, material, light and the first-person pass as in play): XXIII over XVII on the left forearm, square on, the CHOPPER in the right hand beside it; the word with its script line on the right forearm, seen from 30 degrees toward the wrist with the gun hidden (square on, the bent elbow's upper arm comes straight at the eye; the pistol grip stood in front of the word) |
 | `shots/fp-arms-nine.jpg` | the NINE at the hip, the bracelet |
 
 `ListTextures` in the same session: the four arms textures at full size, `Streaming NO`. Evidence frames (not
