@@ -9,6 +9,12 @@ preview version**. E3DS lists support up to 5.8 for the original streaming plugi
 (Pixel Streaming 2, which we use), and it does **not** test Linux uploads before you stream them. So the free trial
 is the real test: do steps 1 to 6 on the trial before paying for anything.
 
+**Do not upload the zip that is in your storage now (sha256 `4ff06998...`, six parts).** It was packaged before the
+polish and fix passes: its first frame shows the old grey slabs in front of the player, the IPX truck is a cube, the
+player's own muzzle flash does not show, and it lacks the later HUD and effect fixes. Wait for a new package; this
+page will carry its new sha256 in section 9 when it is ready (the next GPU box needs Higgsfield credits: the balance
+ran out on 2026-11-23).
+
 ## What you need
 
 - The game file: **`MurderInc-E3DS.zip`** (about 1.4 GB), in your Higgsfield storage (private links in
