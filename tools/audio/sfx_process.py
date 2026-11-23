@@ -52,8 +52,11 @@ def oneshot(x, secs):
 
 def tail(x, secs):
     env = env_of(x)
-    p = int(np.argmax(env)) + int(0.06 * RATE)
-    y = x[p:p + int(secs * RATE)].copy()
+    n = int(secs * RATE)
+    # The loudest transient where a full tail can still follow it (the model sometimes puts its hit late).
+    room = max(1, len(env) - n - int(0.06 * RATE))
+    p = int(np.argmax(env[:room])) + int(0.06 * RATE)
+    y = x[p:p + n].copy()
     n = len(y)
     fi = int(0.02 * RATE)
     y[:fi] *= np.linspace(0, 1, fi)

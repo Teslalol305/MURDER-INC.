@@ -19,6 +19,8 @@
 #include "Misc/Paths.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
+#include "Sound/SoundWave.h"
+#include "Misc/PackageName.h"
 
 #if WITH_AUTOMATION_TESTS
 
@@ -860,6 +862,47 @@ bool FMIAudioMixdownTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("never clips (soft clip keeps it under 0 dBFS)"), Peak < 0.0);
 	TestTrue(TEXT("not silent (peak above -30 dBFS)"), Peak > -30.0);
 	TestTrue(TEXT("the voice speaks a few times"), Lines >= 3);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioAssetsTest, "MurderInc.Audio.Assets", Flags)
+bool FMIAudioAssetsTest::RunTest(const FString& Parameters)
+{
+	// After tools/box/audio-import.sh: every WAV under Content/Audio is a Sound Wave of the same length, loops loop.
+	TArray<FString> Files;
+	IFileManager::Get().FindFilesRecursive(Files, *FMIAudioData::AudioDir(), TEXT("*.wav"), true, false);
+	int32 Checked = 0, Missing = 0, Wrong = 0, Loops = 0;
+	for (const FString& Path : Files)
+	{
+		FString Rel = Path;
+		FPaths::MakePathRelativeTo(Rel, *(FMIAudioData::AudioDir() + TEXT("/")));
+		if (FPaths::GetCleanFilename(Rel).StartsWith(TEXT("IR_")))
+		{
+			continue;
+		}
+		const USoundWave* W = LoadObject<USoundWave>(nullptr, *FMIAudioData::AssetPath(Rel), nullptr, LOAD_NoWarn | LOAD_Quiet);
+		if (!W)
+		{
+			++Missing;
+			continue;
+		}
+		FMIWav Wav;
+		if (FMIWav::Load(Path, Wav) && FMath::Abs(W->Duration - Wav.Secs()) > 0.02)
+		{
+			++Wrong;
+			AddError(FString::Printf(TEXT("%s: asset %.3f s, file %.3f s"), *Rel, W->Duration, Wav.Secs()));
+		}
+		Loops += W->bLooping ? 1 : 0;
+		++Checked;
+	}
+	if (Checked == 0)
+	{
+		AddWarning(TEXT("no audio assets imported yet: run tools/box/audio-import.sh"));
+		return true;
+	}
+	AddInfo(FString::Printf(TEXT("%d of %d files imported as Sound Waves (%d missing, %d with a wrong length, %d looping)"), Checked, Checked + Missing, Missing, Wrong, Loops));
+	TestEqual(TEXT("every file has its asset"), Missing, 0);
+	TestTrue(TEXT("the loops loop (stems, beds, rotor, train ...)"), Loops >= 15);
 	return true;
 }
 

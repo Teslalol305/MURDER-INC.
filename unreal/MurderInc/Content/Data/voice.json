@@ -182,6 +182,7 @@
           "cooldown": 20.0,
           "interruptible": true,
           "volume": 1.0,
+          "queueable": 3.0,
           "triggers": {
             "run.start": 0.8,
             "results.complete": 1.0,
