@@ -440,3 +440,22 @@ in any prompt, file or request; tattoo lettering is read from art/out/ref/tattoo
 - [ ] SK_RuleArms bare, SK_RuleArms_Gloved
 - [ ] SK_Rule
 - [ ] previews, two review rounds
+
+---------------------------------------------------------------------------------------------------------------
+# Goons (assets/goons.py, _goons_*.py, mi/cloth.py), senior character artist: SK_Goon_Hoodie / _Puffer / _Tracksuit
+
+Task: the three Goons on SK_Mannequin (briefs characters.json goon_hoodie/_puffer/_tracksuit): draped garments,
+weights from the mannequin, unique sets (Cloth 4K, Head 2K per outfit), GLBs, proof in Unreal (chars-goons-1..3),
+previews goons_lineup/_hoodie_hero/_detail/_poses/_wire, CHARACTERS.md.
+
+## Status
+- [x] family module goons.py: shared man (measured mannequin, body field, head field), kit (gloves, socks,
+      sneakers), hoodie outfit (jeans and hoodie draped, rib bands, hood draped over the mask with a rolled
+      drawstring channel, pocket, drawstrings with aglets, sling), puffer, tracksuit; drape cache art/out/goons
+- [x] weights: nearest-surface transfer + smoothing, gloves per finger, sneakers from the foot, cuffs from the
+      forearm, head pieces rigid; covered layers share their cover's weights (LAYERS)
+- [x] texel sets (_goons_tex.py) work at 1K (test)
+- [ ] puffer/tracksuit collar + glasses + bandana fixes (in progress), 4K bake, export, previews, Unreal proof
+
+## Exact next step
+`build.py build goons --bake` (4K/2K sets), `--export`, previews, then Unreal (tools/box/chars/mi_chars.setup_goons).
