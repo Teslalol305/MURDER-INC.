@@ -629,7 +629,7 @@ def nine_slide(parts):
     secs = [slide_section(x) for x in xs]
     sl = K.loft_x(secs, xs, 96, name="Slide")
     chan = box(0.0045, 0.1860, -0.0104, 0.0104, -0.020, 0.0100)
-    grooves = [box(-0.001, 0.25, s * 0.0080, s * 0.0103, -0.020, -0.0106) for s in (1, -1)]
+    grooves = [box(-0.001, 0.25, 0.0080, 0.0103, -0.020, -0.0106), box(-0.001, 0.25, -0.0103, -0.0080, -0.020, -0.0106)]
     ham_chan = box(-0.001, 0.048, -0.0034, 0.0034, -0.020, 0.0108)          # hammer channel: 6.8 mm (the spur is 6)
     rails = box(-0.001, 0.0050, -0.0104, 0.0104, -0.020, -0.0075)           # frame ears and rails pass under the breech
     nose = lathe([(0.15, 0.0), (0.15, 0.0072), (0.25, 0.0072), (0.25, 0.0)], 48)
