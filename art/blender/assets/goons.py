@@ -477,7 +477,7 @@ def puffer_outfit(man, parts, shoes):
     jk = cached("Puffer", "p4", col, shell)
     seams = [hem + 0.02, 0.99, 1.12, 1.25, 1.38]
     quilt(man, jk, seams, [(0.45, 0.5), (0.5, 0.5)], loft=0.014)
-    co_, z1, csolid = collar(man, jk, "Collar", man.H.chin_z + 0.045, 0.046, 0.012, col)
+    co_, z1, csolid = collar(man, jk, "Collar", man.H.chin_z + 0.004, 0.046, 0.012, col)
     GK.decimate(co_, BUDGET["Collar"])
     parts.append(("Collar", tag(co_, "nylon", "jacket", 3), "cloth", None))
     hl = binding("HemBinding", jk, lambda P: P[:, 2].mean() < 1.0, 0.006, col)
@@ -498,7 +498,7 @@ def puffer_outfit(man, parts, shoes):
     lens, arms_ = glasses(man, col)
     parts.append(("Lens", tag(lens, "lens", "lens"), "head", "head"))
     parts.append(("GlassesArms", tag(arms_, "lens", "black"), "head", "head"))
-    bd = cached("Bandana", "b3", col, lambda: bandana(man, csolid, col))
+    bd = cached("Bandana", "b8", col, lambda: bandana(man, csolid, col))
     GK.decimate(bd, BUDGET["Bandana"])
     parts.append(("Bandana", tag(bd, "bandana", "mask"), "head", None))
     sling(man, jk, parts)
@@ -560,6 +560,29 @@ def glasses(man, col, width=0.19, stand=0.014):
     return lens, ar
 
 
+def keep_big(v, quads, frac):
+    """Keep every connected piece with at least `frac` of the largest piece's vertices."""
+    n = len(v)
+    parent = np.arange(n)
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+    for a, b in sdf.edges_of_quads(quads):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+    roots = np.array([find(i) for i in range(n)])
+    cnt = np.bincount(roots)
+    keep = cnt[roots] >= frac * cnt.max()
+    remap = -np.ones(n, dtype=np.int64)
+    remap[keep] = np.arange(int(keep.sum()))
+    q = quads[keep[quads].all(axis=1)]
+    return v[keep], remap[q]
+
+
 def bandana(man, collar_solid, col):
     """A pale cotton bandana tied over the nose and mouth: 6 mm over the mask from the bridge of the nose down,
     round the sides to the knot at the nape, its front falling to a point over the collar onto the chest."""
@@ -567,7 +590,9 @@ def bandana(man, collar_solid, col):
     j = H.j
     nose_z = H.eye["l"][2] - 0.028
     def f(p):
-        d = np.minimum(np.minimum(H(p) - GH.MASK_T, collar_solid(p)), BF(p) - 0.03) - 0.006
+        low = p[:, 2] < H.chin_z - 0.045
+        d = np.minimum(np.minimum(H(p) - GH.MASK_T - 0.006, collar_solid(p) - 0.013),
+                       np.where(low, BF(p) - 0.068, BF(p) + 0.03))
         # the flap: in front of the throat, a triangle narrowing from the jaw to a point 0.13 m below the chin
         zc = H.chin_z
         w = 0.105 * np.clip((p[:, 2] - (zc - 0.13)) / 0.13, 0, 1) ** 0.9
@@ -575,6 +600,9 @@ def bandana(man, collar_solid, col):
         flap_d = np.maximum(flap, -(p[:, 1] - (H.front + 0.02 - 0.09)) - 0.2)
         front_face = (j[1] - 0.05) - p[:, 1]
         band = np.maximum(d, p[:, 2] - nose_z - 0.012 * (p[:, 1] - H.front) / 0.2)
+        # round the back only the tied band, 5 cm wide, from below the ears to the knot at the nape
+        back = np.clip((p[:, 1] - (j[1] - 0.02)) / 0.04, 0, 1)
+        band = np.maximum(band, np.where(back > 0, ((nose_z - 0.055) - p[:, 2]) - (1 - back) * 0.1, -1.0))
         # below the chin keep only the flap
         below = (zc + 0.015) - p[:, 2]
         band = np.where(below > 0, np.maximum(band, flap), band)
@@ -582,16 +610,16 @@ def bandana(man, collar_solid, col):
     lo = np.array([j[0] - 0.15, j[1] - 0.2, H.chin_z - 0.16])
     hi = np.array([j[0] + 0.15, j[1] + 0.16, nose_z + 0.03])
     v, q = sdf.surface_nets(f, lo, hi, 0.0028)
-    v, q = sdf.keep_largest(v, q)
+    v, q = keep_big(v, q, 0.15)
     v = cloth.safe_project(f, v, 3, 0.006)
     return sdf.to_mesh("Bandana", v, q, col)
 
 
 def tracksuit_outfit(man, parts, shoes):
     B, M, BF, col, log = man.B, man.M, man.BF, man.col, man.log
-    tr = cached("TrackTrousers", "tt2", col, lambda: GC.trousers(B, M, BF, col, [man.body_col, shoes],
-                                                                 name="TrackTrousers", log=log, hem=0.12, ease_seat=0.01,
-                                                                 ease_thigh=0.018, ease_shin=0.022, grow=-0.022))
+    tr = cached("TrackTrousers", "tt3", col, lambda: GC.trousers(B, M, BF, col, [man.body_col, shoes],
+                                                                 name="TrackTrousers", log=log, hem=0.12, ease_seat=0.015,
+                                                                 ease_thigh=0.021, ease_shin=0.024, grow=-0.03))
     thicken_edges(tr, depth=0.02, thickness=0.004, which=lambda P: P[:, 2].mean() < 0.3)
     GK.decimate(tr, BUDGET["TrackTrousers"])
     parts.append(("TrackTrousers", tag(tr, "tricot", "track", 5), "cloth", None))

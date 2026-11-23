@@ -144,8 +144,8 @@ bool FMIVoiceData::Parse(const TSharedPtr<FJsonObject>& Root, FMIVoiceData& Out,
 	{
 		for (const auto& Pair : F->Values)
 		{
-			const TSharedPtr<FJsonObject> E = Pair.Value->AsObject();
-			if (E.IsValid() && Pair.Value->Type == EJson::Object)
+			const TSharedPtr<FJsonObject> E = Pair.Value->Type == EJson::Object ? Pair.Value->AsObject() : nullptr;
+			if (E.IsValid())
 			{
 				FMIVoiceFrequency Q;
 				Q.Chance = Num(E, TEXT("chance"), 1);
@@ -185,7 +185,7 @@ bool FMIVoiceData::Parse(const TSharedPtr<FJsonObject>& Root, FMIVoiceData& Out,
 	}
 	for (const auto& CPair : Chars->Values)
 	{
-		const TSharedPtr<FJsonObject> C = CPair.Value->AsObject();
+		const TSharedPtr<FJsonObject> C = CPair.Value->Type == EJson::Object ? CPair.Value->AsObject() : nullptr;
 		if (!C.IsValid())
 		{
 			continue;
@@ -197,7 +197,7 @@ bool FMIVoiceData::Parse(const TSharedPtr<FJsonObject>& Root, FMIVoiceData& Out,
 		{
 			for (const auto& LPair : Lines->Values)
 			{
-				const TSharedPtr<FJsonObject> L = LPair.Value->AsObject();
+				const TSharedPtr<FJsonObject> L = LPair.Value->Type == EJson::Object ? LPair.Value->AsObject() : nullptr;
 				if (!L.IsValid())
 				{
 					continue;
@@ -228,7 +228,7 @@ bool FMIVoiceData::Parse(const TSharedPtr<FJsonObject>& Root, FMIVoiceData& Out,
 						{
 							Rule.Chance = Chance;
 						}
-						else if (const TSharedPtr<FJsonObject> R = TPair.Value->AsObject())
+						else if (const TSharedPtr<FJsonObject> R = TPair.Value->Type == EJson::Object ? TPair.Value->AsObject() : nullptr)
 						{
 							Rule.Chance = Num(R, TEXT("chance"), 1);
 							Rule.AtLeast = (int32)Num(R, TEXT("atLeast"), 0);

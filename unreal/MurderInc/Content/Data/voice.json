@@ -76,14 +76,14 @@
           "text": "Holla, holla!",
           "about": "The common kill bark: the call-and-response chant.",
           "priority": 20,
-          "cooldown": 14.0,
+          "cooldown": 20.0,
           "interruptible": true,
           "volume": 1.0,
           "triggers": {
-            "kill.ordinary": 0.22,
+            "kill.ordinary": 0.14,
             "kill.melee": 0.5,
             "kill.explosive": 0.4,
-            "kill.buzzard": 0.35
+            "kill.buzzard": 0.3
           },
           "takes": [
             { "file": "holla_01.wav", "intensity": "shout", "placeholder": true },
@@ -95,12 +95,12 @@
           "text": "It's Murda!",
           "about": "The signature: headshots, multi-kills, the last enemy of a wave.",
           "priority": 50,
-          "cooldown": 18.0,
+          "cooldown": 25.0,
           "interruptible": true,
           "volume": 1.0,
           "triggers": {
-            "kill.headshot": 0.4,
-            "kill.multi": 0.85,
+            "kill.headshot": 0.3,
+            "kill.multi": 0.6,
             "kill.lastOfWave": { "chance": 1.0, "priority": 75 }
           },
           "takes": [
@@ -121,7 +121,7 @@
             "reel.collected": 0.9,
             "wave.cleared": 0.9,
             "extraction.called": 1.0,
-            "health.lowSurvived": 0.6,
+            "health.lowSurvived": 0.4,
             "objective.update": 0.15
           },
           "takes": [
@@ -151,7 +151,7 @@
           "answer": { "line": "rule_chant", "delay": 0.35 },
           "triggers": {
             "run.win": 1.0,
-            "kill.streak": { "chance": 1.0, "atLeast": 12 }
+            "kill.streak": { "chance": 1.0, "atLeast": 20 }
           },
           "takes": [
             { "file": "name_01.wav", "intensity": "shout", "placeholder": true, "bleep": [0.0, 0.0] },
