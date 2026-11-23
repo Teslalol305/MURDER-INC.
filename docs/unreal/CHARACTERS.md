@@ -120,9 +120,10 @@ closed shoulder caps are visible from this camera; the first-person camera never
 
 Three skinned meshes on `SK_Mannequin`, one man in three outfits (briefs `docs/unreal/spec/assets/characters.json`
 `goon_hoodie`, `goon_puffer`, `goon_tracksuit`): `SK_Goon_Hoodie`, `SK_Goon_Puffer`, `SK_Goon_Tracksuit`
-(`art/out/glb/`, never committed: they are skinned on Epic's skeleton). Facing -Y in Blender (Unreal +Y... the
-mannequin's own facing, so the template clips play as they are), origin on the ground between the feet, A-pose
-(the mannequin's rest).
+(`art/out/glb/`, never committed: they are skinned on Epic's skeleton). Facing -Y in Blender, which is the
+mannequin's own facing (Unreal +Y), so the template clips play as they are; origin on the ground between the feet;
+A-pose (the mannequin's rest). 67,043 / 74,049 / 68,961 triangles, 89 joints (the whole SK_Mannequin hierarchy),
+at most 6 influences per vertex.
 
     venv/bin/python art/blender/build.py build goons [--only hoodie,puffer,tracksuit] [--bake] [--export] [--preview]
     MI_PREVIEWS=goons_lineup,goons_hoodie_hero,goons_detail,goons_poses,goons_wire     pictures to render
@@ -140,3 +141,94 @@ mannequin's own facing, so the template clips play as they are), origin on the g
 | Weights | Nearest-surface transfer from the mannequin (`char.transfer_weights`) and smoothing (more for loose pieces); gloves per finger (as SK_RuleArms); sneakers from foot/ball/calf; rib cuffs from the forearm bones only (they must not follow the wrist bend); beanie, cap and glasses rigid on `head`. Then `goons.layer_weights`: every vertex of a covered layer within a few cm of its cover takes the cover's weights (mask under hood/collar/bandana, trousers under the waistband and jacket hem, glove tops under the cuffs; trouser hems resting on the sneakers take the sneakers'), so layers move as one. At most 6 influences |
 | Textures | Two unique sets per outfit (`_goons_tex.py`, per texel from the baked rest position): `Goon<Outfit>_Cloth` 4096 (garments, gloves, sneakers) and `Goon<Outfit>_Head` 2048 (mask, hats, glasses, bandana, sling, cords, zips), BC / N (OpenGL) / ORM. Fabric is drawn at true size in body-axis coordinates (wales down a sleeve whatever the UV island's angle): rib knit 2.6 mm wales, jersey with heathering and pilling where arms rub, denim twill with slub warp streaks, faded crests, whiskers and knee honeycombs, tan-stitched seams and back pockets, nylon ripstop with sheen, tricot courses, pebble-grain leather with creases, sneaker leather with toe-flex creases, panel stitching, scuffs and sole grime; dust at hems, cuffs and knees; prints and panels in body space (crew V, stripes, puffer yoke and shoulder caps, the mask's black eye slits, mouth seam, breath stain) |
 | Slots | `M_Goon<Outfit>_Cloth`, `M_Goon<Outfit>_Head` |
+
+| Clean-up before export | `goons.unfold`: draped and decimated cloth has folded-over triangles (a face pointing away from its corners' smooth normals); Cycles hides them, Unreal draws them as dark jagged patches. Their vertices are relaxed (Laplacian steps, topology and UVs kept: 575 inverted corners of the hoodie down to 58), what is left are real creases (turned hems, rolled edges) whose normals are split. Unweighted vertices take their neighbour's weights (the glTF exporter would otherwise need a neutral bone it cannot place) |
+| Texture gaps | `_goons_tex.fill_gaps`: every texel outside the UV islands is filled from the islands by a masked mip pyramid (pull-push), so no mip mixes the empty background into the cloth |
+
+### Size against the brief
+
+Built to the skeleton, not to the brief's joint heights (the clips depend on the skeleton). Mannequin rest against the
+brief: shoulder joints 1.436 m (brief 1.42), 0.38 m apart (0.40); hip joints 0.935 (0.93), 0.20 apart (0.19); knees
+0.503 (0.50); ankles 0.082 (0.085); neck base 1.528 (1.50); upper arm 0.278 (0.28), forearm 0.272 (0.27), thigh
+0.433 (0.43), shin 0.423 (0.415). The rest A-pose holds the arms higher than the brief's (elbows 1.21 against 1.14,
+wrists 1.05 against 0.87): a pose difference, not a length one. The top of the hood is 1.818 m and of the mask 1.81 m
+(brief: 1.78 over the hood, 1.75 in sneakers) because the mannequin's head is larger. **Uniform scale for the briefed
+height: 0.98** on the Goon's skeletal mesh component (hood top 1.78 m; shoulders then 1.41 m, hips 0.92 m); 0.967
+would match the 1.75 m figure but sinks every joint 3 to 5 cm below the brief. Hit volumes (head sphere 0.155 m,
+body capsule 0.27 m) follow the bones, so they scale with it.
+
+### How to add an outfit
+
+1. A builder `def <name>_outfit(man, parts, shoes)` in `goons.py` (copy `tracksuit_outfit`): trousers with
+   `GC.trousers(...)`, the top with `GC.hoodie_shell(...)` (ease, hang, sleeve ease, hem, neck, cuff, bending:
+   stiffer for padded fabric), bands with `GC.bands_for`, collars with `collar`, zips with `zipper`, head pieces from
+   `_goons_head.py`, each wrapped in `cached("<Piece>", "<version>", col, fn)` (bump the version to re-drape) and
+   added as `(name, tag(ob, kind, colour, piece), "cloth" | "head", region)`; `region` picks the weight rule (None =
+   nearest surface, `("cuff", side)`, `"head"` rigid, `("foot", side)`, `("glove", side)`).
+2. Register it in `BUILDERS` and `OUTFITS`; new fabric kinds go in `K` (goons.py and `_goons_tex.py`) with a branch in
+   `_goons_tex.texels`, prints and panels in `_goons_tex.regions` (body-space tests on position and `mi_piece`).
+3. `build.py build goons --only <name> --bake --export --preview`, then the layer test: pose with the clips and look
+   for the inner layer coming through (scratch `posetest.py` pattern: covered inner vertices against the outer
+   surface per pose), fix with `LAYERS` (which layers share weights) or more ease.
+4. Unreal: `tools/box/chars/goons-pack.sh pack` (local) and `unpack <url>` (box), `mi_chars.setup_goons()`.
+
+### Animation assets on SK_Mannequin and what each is for
+
+All under `/Game/Characters/Mannequins/Anims/` (copied from the template; `mi_chars.ANIMS` names the ones used here).
+
+| Asset | Use for a Goon |
+|---|---|
+| `Rifle/MF_Rifle_Idle_ADS` (8 s) | Aimed idle, the SMG shouldered: holding a position, firing stance between bursts |
+| `Rifle/Jog/MF_Rifle_Jog_Fwd` (1.53 s) and `_Bwd`, `_Left`, `_Right`, `_Fwd_Left`, `_Fwd_Right`, `_Bwd_Left`, `_Bwd_Right` | Moving with the gun up (8-way blend space on velocity against facing); `Rifle/Walk` the same set for patrols |
+| `Rifle/MM_Rifle_Fire` | Fire additive / montage on the upper body |
+| `Rifle/MM_Rifle_Reload` (2.2 s) | Reload montage (the SMG magazine swap) |
+| `Rifle/MM_Rifle_Equip`, `MM_Rifle_DryFire` | Raising the gun when alerted; empty-gun click |
+| `Rifle/HitReact/MM_HitReact_Front_Lgt_01..04`, `_Front_Med_01..02`, `_Front_Hvy_01` (0.8 s), `_Back_Med_01` | Flinches by hit weight and side (head hits: heavy) |
+| `Rifle/AIM` aim offsets | Pitch and yaw of the aim at the player |
+| `Rifle/Jump` | Vaulting / dropping off a ledge |
+| `Death/MM_Death_Front_01..03`, `_Back_01`, `_Left_01`, `_Right_01` (about 1.1 s) | Death by the direction of the killing shot; the body then stays (up to 6) |
+| `Pistol/*` | The same set one-handed: the pipe Goon's idle and moves before the swing |
+| `Unarmed/MM_Attack_01..03`, charged attack, dash | Pipe swings and lunges (the overhead right-arm swing of the brief) |
+
+### Proof in Unreal (2026-11-23)
+
+`/Game/Characters/Goons/SK_Goon_Hoodie`, `_Puffer`, `_Tracksuit` imported on `/Game/Characters/Mannequins/Meshes/SK_Mannequin`
+(no new skeleton: `mi_chars.setup_goons` reports the skeleton path), 18 textures (`TC_NORMALMAP` with the green channel
+flipped, `TC_MASKS`), six materials `M_Goon<Outfit>_Cloth` / `_Head`, slots assigned by name.
+
+![goons 1](shots/chars-goons-1.jpg)
+
+`chars-goons-1.jpg`: the hoodie Goon in MF_Rifle_Jog_Fwd (0.35 s), MM_Rifle_Reload (1.3 s), MM_HitReact_Front_Hvy_01
+(0.22 s) and MM_Death_Front_01 (1.05 s). The garments follow the limbs; the mask stays inside the hood, the gloves
+inside the cuffs, the jeans hems on the sneakers; the crew V shows on the back of the falling one.
+
+![goons 2](shots/chars-goons-2.jpg)
+
+`chars-goons-2.jpg`: puffer, hoodie and tracksuit in MF_Rifle_Idle_ADS (2 s).
+
+![goons 3](shots/chars-goons-3.jpg)
+
+`chars-goons-3.jpg`: the hoodie Goon's hood, mask and drawstrings in the reload, about 1 m away.
+
+Two rounds of fixes after looking: (1) sawtooth shading along the cloth UV islands (a 1K texture AO upscaled) became a
+per-vertex AO, the pilling was made quieter, nylon and tricot rougher; (2) inverted cloth triangles relaxed and crease
+normals split (`unfold`), texture gaps filled (`fill_gaps`). Still visible at 1 m (picture 3): dark stepped patches in
+the hood's deepest folds. Ruled out by tests in the editor: textures (a flat grey material shows them too), the
+normal map, back faces (two-sided), shadow bias, virtual shadow maps (off), ray-traced shadows. Next suspects: the
+draped cloth's sub-centimetre pleats left after decimation (Cycles smooths them, the raster does not), and the
+skeletal mesh build settings at import (recompute normals / degenerate removal, not reachable from Python in 5.9:
+set by hand in the asset's LOD build settings to test).
+
+### Known weaknesses of the Goons
+
+- Dark stepped patches in the deepest hood and hoodie folds in Unreal close-ups (above); invisible at 4 m and beyond.
+- The puffer's quilting follows the body's chest and stomach too closely (it reads as a muscle suit at some angles):
+  the shell needs a boxier start shape before the loft.
+- Tracksuit sleeve stripes are broken into patches where the baggy sleeve leaves the arm's outer line (the stripe is
+  placed by angle round the arm axis); it should be placed in the sleeve's own pattern space.
+- UV islands of the draped cloth are many and small (smart projection at 72 deg): fine at game distances, but the
+  texel density per island is uneven and the atlas is 44 % covered before the gap fill.
+- The mannequin's head shape gives the mask a long smooth face; there is no nose or brow under the knit.
+- The sneaker upper is a smooth form with stitching in the texture only; laces are mostly hidden under the hems.
+- No cloth simulation at runtime: folds are baked in the A-pose and only skinned (expected for a dozen enemies).
+- The sling is a closed loop with no buckle or pipe attachment point (SM_Weapon_GoonPipe is placed by the game).

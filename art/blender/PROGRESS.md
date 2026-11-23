@@ -464,17 +464,24 @@ previews goons_lineup/_hoodie_hero/_detail/_poses/_wire, CHARACTERS.md.
 
 ## Status
 - [x] goons.py: shared man, kit, three outfits draped in the A-pose (drape and UV caches in art/out/goons);
-      67k / 74k / 69k triangles; weights (transfer, smoothing, per-finger gloves, forearm-only cuffs, rigid hats,
-      LAYERS sharing); GLBs exported (art/out/glb/SK_Goon_*.glb)
-- [x] round 1 in Unreal (scratch project, editor pid on the box in /project/ue/logs/chars/editor.pid): imported on
-      SK_Mannequin with the 4K/2K sets; hoodie jog / reload / hit / death, puffer and tracksuit in the aimed idle.
-      Faults found: sawtooth shading at UV island borders (1K AO bake upscaled), blotchy pilling, nylon and tricot
-      too glossy -> per-vertex AO, quieter pilling, rougher sheen fabrics
-- [ ] round 2: re-bake (running), re-import, shots chars-goons-1..3, previews
+      67,043 / 74,049 / 68,961 triangles; weights (transfer, smoothing, per-finger gloves, forearm-only cuffs, rigid
+      hats, LAYERS sharing), unfold pass, GLBs in art/out/glb/SK_Goon_*.glb
+- [x] six sets: GoonHoodie/Puffer/Tracksuit_Cloth (4096) and _Head (2048), BC/N/ORM, per-vertex AO, gaps filled
+- [x] Unreal (scratch project /project/ue/chars): imported on SK_Mannequin, materials, shots chars-goons-1..3 after two
+      fix rounds; editor stopped by its pid
+- [x] previews goons_lineup, _hoodie_hero, _detail, _poses, _wire (11 renders); CHARACTERS.md, README row
+
+## State at hand-off: task complete
+Known weaknesses (CHARACTERS.md has the list): dark stepped patches in the deepest hood folds in Unreal close-ups
+(textures, normal map, back faces, shadow bias, VSM and RT shadows ruled out); puffer quilting follows the chest too
+closely; tracksuit sleeve stripes broken into patches; many small UV islands; long smooth mask face (mannequin head).
 
 ## Exact next step
-`build.py build goons --bake --export --preview` (running), then `tools/box/chars/goons-pack.sh pack`, upload,
-`goons-pack.sh unpack <url>` on the box, `mi_chars.setup_goons()`, `goon_stage(...)`, shots.
+In the editor, open SK_Goon_Hoodie's LOD 0 build settings, turn off Recompute Normals (and Remove Degenerates),
+rebuild, and look at the hood at 1 m (`/tmp/goons_shots.sh` pattern, shot 3). If the patches stay, raise the hood's
+budget (BUDGET['Hood'] 6500 -> 12000) and smooth the drape more before decimation (cached piece version bump), then
+`build.py build goons --export` (no re-bake needed while the UV cache key holds; a geometry change before the unwrap
+re-unwraps: then also --bake).
 
 ---------------------------------------------------------------------------------------------------------------
 # Structures, continued after the machine restart (assets/structures.py), level-structure artist
