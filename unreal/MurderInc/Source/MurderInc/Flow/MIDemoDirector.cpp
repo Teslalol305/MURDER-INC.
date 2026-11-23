@@ -504,6 +504,7 @@ bool UMIDemoDirector::Begin(const FAction& A)
 	if (V == TEXT("hide"))
 	{
 		// hide <label part> ...: hides in game every actor whose editor label (or name) contains one of the parts
+		// (a part "a*b" needs every piece)
 		int32 N = 0;
 		for (TActorIterator<AActor> It(GetWorld()); It; ++It)
 		{
@@ -514,7 +515,15 @@ bool UMIDemoDirector::Begin(const FAction& A)
 #endif
 			for (const FString& Part : A.Args)
 			{
-				if (Label.Contains(Part))
+				// "a*b": the label holds every piece
+				TArray<FString> Pieces;
+				Part.ParseIntoArray(Pieces, TEXT("*"));
+				bool bAll = Pieces.Num() > 0;
+				for (const FString& Piece : Pieces)
+				{
+					bAll &= Label.Contains(Piece);
+				}
+				if (bAll)
 				{
 					It->SetActorHiddenInGame(true);
 					++N;
@@ -679,11 +688,14 @@ bool UMIDemoDirector::Step(float Dt)
 			YawPitchTo(P->GetPlayerRules().Eye, LookPoint, Yaw, Pitch);
 			const double Err = FMath::Abs(Wrap(Yaw - P->GetPlayerRules().Yaw)) + FMath::Abs(Pitch - P->GetPlayerRules().Pitch);
 			P->GetInput().bAds = Err < 25.0;
-			const bool bShoot = Err < 1.5 && P->GetPlayerRules().Ads > 0.6;
+			// On target: one round, and the tank takes it as lethal (MIBlowNearest): a hit that only lights the
+			// tank was not needed here, and the take's first try crashed on the frame after one.
+			const bool bShoot = Err < 1.5 && P->GetPlayerRules().Ads > 0.6 && ActionTime > 0.5;
 			P->GetInput().bFire = bShoot;
-			if (bShoot && (FireFrames++ % 8) == 0)
+			if (bShoot)
 			{
 				P->GetInput().bFirePressed = true;
+				Console(TEXT("MIBlowNearest"));
 			}
 		}
 		if (bGone || bTimedOut)

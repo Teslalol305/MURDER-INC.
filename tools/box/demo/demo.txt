@@ -4,6 +4,7 @@
 #   face path [pitch] | face angles <yaw> <pitch> | face point <x> <y> <z> | look <yaw> <pitch> [s] | lookat <x> <y> <z> [s]
 #   spring <hz> <max deg/s> | walk <x> <y> [sprint] [arrive cm] | route <sprint> <x y>... (plan_path.py)
 #   auto 0|1 [head] (fight whatever comes into sight while walking) | fight <limit s> [kills] [head] [calm s]
+#   hunt <limit s> [kills] [head] (fight; walk the nav path to the nearest Goon when none is in sight) | hide <label part>...
 #   blow [limit s] (the nearest explosive in front) | grab [limit s] (hold E until a reel is taken)
 #   waitstate <title|intro|playing|complete> [limit s] | quit
 
@@ -11,6 +12,7 @@
 wait 4
 con MIVoice clean 1
 con MIVoice frequency often
+hide Grey_*_sedan Grey_*_van Grey_*_box_truck Grey_*_car_on_stands Grey_*_burned_car Grey_*_taxi Grey_*_pickup Grey_*_suv   # the vehicles with no art yet are dark boxes
 con MIMenu fe home
 wait 2
 con MIAudio.Record start
@@ -78,12 +80,12 @@ spring 1.3 150
 face path -2
 auto 1 1
 route 0 -3725 875 -3475 875 -3175 675 -2775 525 -2775 425 -1200 150
-fight 14 3 1 3
+hunt 22 3 1                               # go after the Goons: headshots first
 con MIInput reload 1                      # a reload
 wait 2.8
 con MIInput weapon2 1                     # the NINE
 wait 1.4
-fight 10 1 1 3
+hunt 12 1 1
 auto 0
 route 0 -1225 25 -1000 -150
 lookat -420 -800 60 2
