@@ -15,6 +15,7 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "HAL/FileManager.h"
+#include "Serialization/Archive.h"
 #include "HAL/PlatformTime.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/AutomationTest.h"
@@ -149,8 +150,21 @@ public:
 			X.StoppedAt = Now;
 			return false;
 		}
-		const bool bFile = FPaths::FileExists(X.Out) && IFileManager::Get().FileSize(*X.Out) > 44;
-		if (!bFile && Now - X.StoppedAt < 15.0)
+		// Done when the file has the size its header announces (the writer fills it in chunks).
+		bool bFile = false;
+		const int64 Size = IFileManager::Get().FileSize(*X.Out);
+		if (Size > 44)
+		{
+			TArray<uint8> Head;
+			if (TUniquePtr<FArchive> Ar = TUniquePtr<FArchive>(IFileManager::Get().CreateFileReader(*X.Out)))
+			{
+				Head.SetNumZeroed(44);
+				Ar->Serialize(Head.GetData(), 44);
+				const int64 Riff = Head[4] | (Head[5] << 8) | (Head[6] << 16) | ((int64)Head[7] << 24);
+				bFile = Size >= Riff + 8;
+			}
+		}
+		if (!bFile && Now - X.StoppedAt < 90.0)
 		{
 			return false;
 		}
