@@ -1772,6 +1772,9 @@ def on_preview(ctx, objs):
     want = lambda n: (not only) or n in only
     _place_assets(ctx)
     render.setup(samples=a.samples)
+    sc = bpy.context.scene                          # memory: the agents share one limit; no 8K map is needed at 1280 x 720
+    sc.render.use_simplify = True
+    sc.cycles.texture_limit_render = "4096"
     for k in ("lensGreen", "glassLit", "glassCool", "lensWarm", "tube", "lampWork"):
         bs = mat.principled(ctx.M[k])
         bs.inputs["Emission Strength"].default_value *= 0.15                # by day
