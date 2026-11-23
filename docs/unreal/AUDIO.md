@@ -188,7 +188,7 @@ killing hit), `fuse` (hiss rising with the burnt fraction), `reelSecured`, `stin
 | music | 0.5 (x 0.9 stem trim = spec 07's 0.45) | music | no | yes (thinned) | 0 |
 | voice | 1.0 | voice | no | no | 0 |
 
-Every frame the director computes each category's gain: volume x slider x master (0.8) x the ducks (gunfire 0.45,
+Every frame the director computes each category's gain: volume x slider x master trim (1.0) x the ducks (gunfire 0.45,
 NINE 0.55, 85 ms hold; enemy fire 0.85 on the ambience; blasts 0.4 / 0.6 with the music dip) x the voice duck x
 states (ambience 0.6 title, 1 run, 0.7 dead, 0.8 debrief; x (1 - 0.55 x interior); the train duck) and the low-pass
 cut-offs: the muffle `20000 x 0.03^m` (hits, blasts within 20 m, death settling at 0.85), the **low-health** state
@@ -202,9 +202,10 @@ spec 07 3.19). The host applies them to every live component (`SetVolumeMultipli
 puts two Submix Effect Dynamics Processors on the device's master submix when a game world begins play: the
 compressor with the make-up as its output gain (+1.2 dB), then a soft-knee limiter (threshold -0.3 dB, knee 8.2 dB,
 look-ahead 3 ms) standing in for the web curve, whose knee starts at -4.4 dB (0.6). The offline mix runs the same
-compressor (`FMIMasterCompressor`, stereo-linked, soft knee) and the web game's exact curve. The master volume is in
-the category gains, so it sits before the chain, not after it as in the browser (a 1.9 dB difference at the default
-0.8, on the compressor's input only).
+compressor (`FMIMasterCompressor`, stereo-linked, soft knee) and the web game's exact curve. The game's volume setting
+(default 0.8) is not in these gains: `UMIGameSubsystem::ApplySettings` sets it as the device's primary volume, after
+the chain, where the browser has it; audio.json `options.master` is only a trim before the chain and stays 1.0 (it was
+0.8 before the fix pass, which with the device volume played the game at 0.64).
 
 ### 3.4 Space
 
@@ -342,11 +343,18 @@ in the recordings are the user's to secure; this project only ever uses recordin
 
 | What | Model | Files | Credits |
 |---|---|---|---|
-| Placeholder voice takes: 6 lines x 3 intensities + 3 clean takes + 6 stock voices for the crowd | `seed_audio` (preset voices, text to speech) | 18 takes + 3 crowd mixes (`tools/audio/voice_placeholders.py`: trim, mono, 48 kHz, -18 LUFS, crowd assembled on one chant grid with a short room) | about 3.5 (0.1 to 0.3 a take, two test takes included) |
-| Gun layers (CHOPPER and NINE close, mechanical, distant tails, silenced shots), dry fire, reload stages, casings on asphalt and concrete, impacts per surface, the Goon SMG at 30 m, the Buzzard's rotor loop and gun, explosions near and far, footsteps (asphalt, concrete, metal; walk and run), the El train, the hot-afternoon room tone | `mirelo_text_to_audio` | 79 files (`tools/audio/sfx_plan.json`; `tools/audio/sfx_process.py`: oneshot / tail / loop cuts, peak to the web sound's peak, 48 kHz 24-bit), 9.8 MB with the bleep | 49.0 (0.25 a second) |
+| Placeholder voice takes: 6 lines x 3 intensities + 3 clean takes + 6 stock voices for the crowd | `seed_audio` (preset voices, text to speech) | 18 takes + 3 crowd mixes (`tools/audio/voice_placeholders.py`: mono, 48 kHz, a gate that drops generator blips and shortens inner pauses to 0.12 s (0.14 s between spelled letters), a pitch-keeping tightening of at most x 1.35 where the stock read is slow, -18 LUFS; the crowd assembled on one chant grid with a short room) | about 3.5 (0.1 to 0.3 a take, two test takes included) |
+| Fix pass: the six breathed takes again at a neutral speaking rate (they had `speech_rate` -15: up to 5.7 s) | `seed_audio`, same preset voice, same text | `holla_03`, `murda_03`, `rulebaby_03`, `name_03`, `name_clean_03`, `inc_03` | 1.2 (6 x 0.2) |
+| Gun layers (CHOPPER and NINE close, mechanical, distant tails, silenced shots), dry fire, reload stages, casings on asphalt and concrete, impacts per surface, the Goon SMG at 30 m, the Buzzard's rotor loop and gun, explosions near and far, footsteps (asphalt, concrete, metal; walk and run), the El train, the hot-afternoon room tone | `mirelo_text_to_audio` | 79 files (`tools/audio/sfx_plan.json`; `tools/audio/sfx_process.py`: DC out and a 20 Hz high-pass, oneshot / tail / loop cuts with a minimum length per kind (casings 0.3 s, steps 0.25 s, far blast 2.5 s, near blast 1.5 s), every variant set levelled to one loudness (the loudest 400 ms, K-weighted) matched to the web sound it plays over, the silenced shots 11 dB under the open ones once the layer volumes count, 48 kHz 24-bit), 10.4 MB with the bleep. Re-cut in the fix pass from the same generated files (no new generation) | 49.0 (0.25 a second) |
 
-In all about 53 credits of generation (balance 4,015.6 at the start of this work, 3,392.8 at the end; the
-difference beyond the 53 is the GPU box and other packages' generations on the same account).
+In all about 54 credits of generation. Balance: 4,015.6 at the start of the first pass, **3,358.6** at its end (the
+3,392.8 this page gave before was read before the last generations of that pass); 3,282.7 at the start of the fix
+pass (the GPU box and other packages' work on the same account in between). The difference beyond the generations is
+the GPU box and the other packages.
+
+**The prompts are in the repository**, so anyone can check them: `tools/audio/voice_plan.json` (every voice request:
+the line's text, the model, the preset voice id, the loudness, speed and pitch settings; no names, no reference
+audio, no cloning) and `tools/audio/sfx_plan.json` (every effect prompt, length and cut).
 
 All of it is placeholder: synthetic material to give the mix weight now, to be replaced by recorded or licensed
 sound (guns first: a recorded carbine and 9 mm with separate close, mechanical and tail layers). `audio.json replace`

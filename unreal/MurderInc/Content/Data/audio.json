@@ -21,8 +21,8 @@
   "busToCategory": { "gun": "gun", "tail": "tail", "near": "near", "world": "world", "amb": "ambience", "dry": "ui", "music": "music", "voice": "voice" },
 
   "options": {
-    "about": "Defaults of the audio options the options screen drives (FMIAudioOptions): master is the web game's volume setting; the rest are per-category sliders the web game did not have.",
-    "master": 0.8, "effects": 1.0, "ambience": 1.0, "music": 1.0, "ui": 1.0, "voice": 1.0
+    "about": "Defaults of the audio options the options screen drives (FMIAudioOptions): per-category sliders the web game did not have, and master, a trim before the master chain. The web game's volume setting (settings.json volume, default 0.8) is applied by UMIGameSubsystem::ApplySettings as the audio device's primary volume, after the master chain, where spec 07 2.11 puts it: so master stays 1.0 here, or the game would play 0.8 x 0.8.",
+    "master": 1.0, "effects": 1.0, "ambience": 1.0, "music": 1.0, "ui": 1.0, "voice": 1.0
   },
 
   "play": {
