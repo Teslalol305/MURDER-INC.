@@ -73,6 +73,10 @@ case "$1" in
     ;;
   stop)
     for f in game ss sampler; do p=$(cat "$RUN/$f.pid" 2>/dev/null); [ -n "$p" ] && kill "$p" 2>/dev/null && echo "stopped $f $p"; done
+    # setsid can fork: stop the signalling server by its command line too (our preload names it).
+    for p in $(pgrep -x node); do
+      tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -q 'cloud/localhost.cjs' && kill "$p" && echo "stopped signalling $p"
+    done
     # The game runs under its launcher script: stop the binary it started (only the one in our builds).
     for p in $(pgrep -x MurderInc-Linux; pgrep -x MurderInc); do
       tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -q "$C/build-" && kill "$p" && echo "stopped game binary $p"
