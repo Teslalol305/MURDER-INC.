@@ -680,6 +680,9 @@ export function goldenDirectors(level, seed, write, about) {
     gameScenario(level, seed, 'story_complete', { mode: 'mission', frames: 6000, bot: storyBot() }),
     gameScenario(level, seed, 'story_death', { mode: 'mission', frames: 1500, bot: storyBot(1100) }),
     gameScenario(level, seed, 'holdout_waves', { mode: 'holdout', frames: 4200, bot: holdoutBot() }),
+    // The other two difficulty tiers (flow and enemy columns of spec 04 2.10 and spec 03 2.2).
+    gameScenario(level, seed, 'story_hustler', { mode: 'mission', frames: 4000, bot: storyBot(), difficulty: 'hustler' }),
+    gameScenario(level, seed, 'holdout_kingpin', { mode: 'holdout', frames: 3000, bot: holdoutBot(), difficulty: 'kingpin' }),
   ];
   write('directors.json', { about: about('src/game.js with src/enemies.js on src/physics.js and level.json, a scripted player'), seed, scenarios });
 }

@@ -1,7 +1,8 @@
 // MurderInc.Golden.FlowRules: Flow/MIFlowRules against golden/flow_rules.json (compass sectors, spawn scores, pickSpawn
 // over the level's points, wave orders, the holdout formulas for waves 1 to 30, kill scores, pursuit types, cards).
 // MurderInc.Golden.Directors: FMIGameRules (src/game.js) with FMIEnemyField on the box world against
-// golden/directors.json: a whole Story run to the IPX truck, a Story run that dies, four waves of Hold the Block.
+// golden/directors.json: a whole Story run to the IPX truck, a Story run that dies, four waves of Hold the Block (Boss),
+// a Story run on Hustler and Hold the Block on Kingpin.
 
 #include "Flow/MIGameRules.h"
 #include "Tests/MITestUtil.h"
@@ -241,9 +242,11 @@ bool FMIGoldenDirectorsTest::RunTest(const FString& Parameters)
 		FMIBoxWorld World;
 		Level->FillWorld(World, Root);
 		FMIEnemyField Field;
-		Field.Init(Host.Tunes[TEXT("boss")], Level, &World, &Host);
+		const FName Difficulty(S->GetStringField(TEXT("difficulty")));
+		Field.Init(Host.Tunes[Difficulty], Level, &World, &Host);
 		FMIGameRules Rules;
 		Rules.Init(Flow, Text, Level, &World, &Field, &Host, Root);
+		Rules.SetDifficulty(Difficulty);
 		TArray<FMIEnemyEvent> Out;
 		auto Drain = [&]()
 		{
