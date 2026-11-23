@@ -46,14 +46,25 @@ Contracts: `docs/unreal/GAMEPLAY.md` sections 6 to 11. Built and tested in `/pro
     0.35 s debounce, settings from the pause card, resume.
 - Pitfall found: in a hand-made test world tick functions run once per engine frame; the test advances
   `GFrameCounter` per step as the engine's `FTestWorldWrapper` does (without it nothing but tickable objects ticks).
+- `Golden.Directors` now also replays Story on Hustler (4,000 frames, 53,520 checks) and Hold the Block on Kingpin
+  (3,000 frames, 39,306 checks): 0 mismatches; all five whole runs of the web game agree with the C++.
+- **Play in editor, the same code in both maps** (`L_GreyBlock` from `mi_greyblock_map.py`; `L_Block` copied from the
+  level clone): the game boots from `AMIGameMode` (`BlockMaps`), "art map: 923 art collision primitives switched off,
+  the data's boxes decide", 757 boxes, 21 explosives, 20 enemy slots, 3 reels. Pictures: `shots/gameplay-v2-title.jpg`
+  (title menu), `gameplay-v2-greybox.jpg` (the block as grey boxes, objective markers), `gameplay-v2-block.jpg` (the
+  art map, objective and markers), `gameplay-v2-goon.jpg` (two Goons with the template rifle animation blueprint
+  aiming from the rules, a Buzzard above, the player already hit: HEALTH 32).
 
 **Open (most important first)**
-1. Play the same code in the art map `L_Block` and in `L_GreyBlock` (play in editor on the box) and take pictures.
-2. Enemy animation: the template rifle animation blueprint on the mannequin follows the rules' velocity and aim
+1. Enemy animation: the template rifle animation blueprint on the mannequin follows the rules' velocity and aim
    pitch; no aim offset yaw, telegraph, fire, rush or hit-reaction montages yet (the presentation contract exposes
    them: `FMIEnemyView`); the Buzzard is a basic-shape placeholder. Effects and sounds are hooks on the event bus.
-3. The weapon-position setting (`view`) is stored and validated but the viewmodel does not read it yet.
-4. Gamepad look curve and aim slow-down, rumble (slice 1 leftovers) are still open.
+2. The weapon-position setting (`view`) is stored and validated but the viewmodel does not read it yet.
+3. Gamepad look curve and aim slow-down, rumble (slice 1 leftovers) are still open.
+4. The title fly-through is linear along the level's cinematic keys (no centripetal curve, no sway, no fade-out of
+   the loop); the menus are canvas text, not UMG/CommonUI.
+5. `L_Block` still draws its own grey boxes for the 21 explosives and 3 cases (their collision is switched off at
+   run time); `build_block.py` could skip owner kinds `explosive` and `objective` (LEVEL agent).
 
 ## Gameplay (slice 1: the player and the two guns)
 
