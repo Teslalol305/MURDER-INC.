@@ -39,36 +39,38 @@ elif MODE == "cards":
     flash = unreal.load_asset("/Game/FX/M_FX_Flash")
     plane = unreal.load_asset("/Engine/BasicShapes/Plane")
     cube = unreal.load_asset("/Engine/BasicShapes/Cube")
+    # Python cannot spawn actors in the play world here: the probes are components added to the effects' host actor.
+    host = [a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor) if a.get_class().get_name() == "Actor"
+            and a.get_components_by_class(unreal.StaticMeshComponent)][0]
     for i, d in enumerate((20.0, 40.0, 80.0, 150.0, 400.0)):
         x = (i - 2) * 0.22
         for kind, yk in (("card", 0.22), ("cube", -0.08)):
             p = eye + fwd * d + right * (d * x) + up * (d * yk)
-            t = unreal.Transform(p, unreal.Rotator(0, 0, 0), unreal.Vector(1, 1, 1))
-            a = unreal.GameplayStatics.begin_deferred_actor_spawn_from_class(w, unreal.StaticMeshActor, t)
-            a = unreal.GameplayStatics.finish_spawning_actor(a, t)
-            a.tags = ["MIFlashProbe"]
-            c = a.static_mesh_component
+            c = host.add_component_by_class(unreal.StaticMeshComponent, False, unreal.Transform(), False)
+            c.component_tags = ["MIFlashProbe"]
             c.set_mobility(unreal.ComponentMobility.MOVABLE)
+            c.set_absolute(True, True, True)
             c.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
             c.set_static_mesh(plane if kind == "card" else cube)
             k = d * 0.07 / 100.0
+            r = unreal.Rotator(0, 0, 0)
             if kind == "card":
-                mid = unreal.MaterialInstanceDynamic.create(flash, c) if hasattr(unreal.MaterialInstanceDynamic, "create") \
-                    else c.create_dynamic_material_instance(0, flash)
+                mid = unreal.KismetMaterialLibrary.create_dynamic_material_instance(w, flash)
                 mid.set_scalar_parameter_value("Intensity", 40000.0)
                 mid.set_scalar_parameter_value("Mode", 0.0)
                 c.set_material(0, mid)
-                # the plane's normal (+Z) toward the eye
-                r = unreal.MathLibrary.make_rot_from_z(eye - p)
-                a.set_actor_rotation(r, False)
+                r = unreal.MathLibrary.make_rot_from_z(eye - p)   # the plane's normal (+Z) toward the eye
             else:
                 k *= 0.5
-            a.set_actor_scale3d(unreal.Vector(k, k, k if kind == "cube" else 1.0))
+            c.set_world_location_and_rotation(p, r, False, False)
+            c.set_world_scale3d(unreal.Vector(k, k, k if kind == "cube" else 1.0))
+            c.set_visibility(True)
             out.append("%s %.0f cm at screen %s" % (kind, d, screen(p)))
 else:
     n = 0
-    for a in unreal.GameplayStatics.get_all_actors_with_tag(w, "MIFlashProbe"):
-        a.destroy_actor()
-        n += 1
+    for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor):
+        for c in a.get_components_by_tag(unreal.StaticMeshComponent, "MIFlashProbe"):
+            c.destroy_component(c)
+            n += 1
     out.append("removed %d" % n)
 "\n".join(out)
