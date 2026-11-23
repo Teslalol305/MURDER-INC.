@@ -228,10 +228,34 @@ Ledger of every generation: art/blender/assets/vehicles_gen.json (job ids, model
 - Review renderer: `python art/blender/review/vehicles_review.py --only Van,...` renders contact sheets from the
   exported GLBs (it applies paint_default to Paint slots only, so the primer renders white there).
 
+## Review pass, continued after a machine restart (same task)
+- Checked first: the export after the pass above had completed (all 13 GLBs validated); the preview run was cut.
+  Fresh review sheets of Van, Van_Vulture, IPX, SUV from the exported GLBs: noses correct (+X), Vulture load space
+  and leaves at the real tail, IPX vault and leaves at the tail, flank art on both IPX flanks.
+- Box truck: generated tank / step lumps under the cab corners dropped; modelled fuel tank (0.52 x 0.90, polished,
+  two black straps with rubber liners, brackets, filler neck and cap, diamond-plate step) on the right and a black
+  battery box with lid, latch and diamond-plate step on the left (truck_tank); chassis paint below the box floor is
+  trim (mud flaps, brackets no longer mustard); red top markers and two modelled tail lamps in chrome bezels read
+  the sedan atlas's red lens (slot M_Vehicle_BoxTruck_Marker_Lamp: the box truck atlas has no red-lens texels).
+- Every generated body: shard filter (fragment_mask) drops loose islands of < 12 faces or < 15 cm2 left by the
+  class deletions (Sedan 15, SUV 40, Pickup 34, Van 13 faces); guarded against unwelded bodies.
+- Stripped car: door apertures cut on straight planes (clean_cut: bisect, then delete inside the box), bonnet lifted
+  off along straight shut lines, loose fragments dropped, pressed floor pan (tunnel, cross-members, heel kick,
+  ribs). Burned car: soot by height in coherent 0.22 m blotches (black cabin and roof, patchy flanks, rust low and
+  on the arches), rust scan rotated so its streaks run down the panels, hanging overhang fragments cut.
+- SUV (hero): modelled fascia fitted by ray casts (suv_fascia): chrome grille bars and surround (curves fitted, not
+  the crumpled surface) over a black backing, per side a headlamp unit (chrome reflector card, two reflector bowls
+  with bulbs, bulged lens on MI_Glass_CarTint, chrome bezel).
+- IPX: the band and panel decals reject ray hits through the open doorway (decal(min_y)): no gold strip across it.
+- Credits: none spent (no body needed regeneration for the faults fixed).
+- Still open: SUV rear quarter panel keeps a light crumpled patch at the C pillar and a corner-lamp shard; the
+  stripped car's fender tops and rear-screen frame keep some ragged edges; the Van's windscreen base still shows
+  torn white edges at the cowl; interiors are simple boxes; Pickup bed is reclassed, not a modelled liner.
+
 ## Exact next step
-Previews are rendered from the saved blend without a rebuild (scratch script: open art/out/blend/vehicles.blend,
-ctx.assets = SM_Vehicle_* objects, vehicles.on_preview(ctx, [])). Next: regenerate the SUV from a flat-lit black
-concept if its fascia still reads jagged at 1 m; model the box truck's fuel tank and the stripped car's apertures.
+Previews are rendered from the saved blend without a rebuild (scratch: open art/out/blend/vehicles.blend,
+ctx.assets = SM_Vehicle_* objects, vehicles.on_preview(ctx, [])). Next: the SUV quarter panel and corner lamp
+(regenerate from a flat-lit black concept, about 21 credits, or a position box for the quarter), the Van cowl edge.
 
 ---------------------------------------------------------------------------------------------------------------
 # Generated Goon (assets/goon_generated.py), character technical artist: a Higgsfield image-to-3D comparison
