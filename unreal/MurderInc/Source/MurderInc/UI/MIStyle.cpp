@@ -183,8 +183,10 @@ namespace MIStylePrivate
 
 FString MIStyle::SymbolFontFile()
 {
-	// Noto Sans Symbols 2 (OFL, fetched on the box like Anton and Archivo); without it the engine's Droid Sans Fallback.
-	return MIStylePrivate::FontFile(TEXT("NotoSansSymbols2-Regular.ttf"), TEXT("DroidSansFallback.ttf"));
+	// The engine's Droid Sans Fallback (Apache 2.0, in every checkout): its character map holds the arrows, the
+	// geometric marks and the infinity sign the faces lack (Noto Sans Symbols 2 has no arrows; checked by
+	// MurderInc.Frontend.Glyphs).
+	return FPaths::Combine(FPaths::EngineContentDir(), TEXT("Slate/Fonts"), TEXT("DroidSansFallback.ttf"));
 }
 
 TArray<FString> MIStyle::FaceFiles()

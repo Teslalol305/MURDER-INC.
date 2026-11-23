@@ -878,12 +878,19 @@ bool FMILoadoutBuildPIETest::RunTest(const FString& Parameters)
 	FireOnce(W);
 	TestTrue(TEXT("silenced: heard at 15 m"), Heard(NearId));
 	TestFalse(TEXT("silenced: not heard at 30 m"), Heard(FarId));
-	// The bare CHOPPER: heard 45 m out.
+	// The bare CHOPPER: heard 45 m out, by a fresh listener 30 m out (the first one may have moved on meanwhile).
 	In.bWeapon2Pressed = true;
 	for (int32 I = 0; I < 30 * 2; ++I) W.Step();
 	TestEqual(TEXT("the CHOPPER is up"), Rules.GetCurrentIndex(), 1);
+	const FMIEnemy* Far2 = Field.Spawn(MIEnemy::EType::Goon, W.Game->PlayerFeetWeb() + FVector(0.0, 0.0, 30.0), Away);
+	if (!TestNotNull(TEXT("a second listener"), Far2))
+	{
+		return false;
+	}
+	const int32 Far2Id = Far2->Id;
+	TestFalse(TEXT("the second listener has heard nothing yet"), Heard(Far2Id));
 	FireOnce(W);
-	TestTrue(TEXT("bare: heard at 30 m"), Heard(FarId));
+	TestTrue(TEXT("bare: heard at 30 m"), Heard(Far2Id));
 	return !HasAnyErrors();
 }
 
@@ -904,7 +911,7 @@ bool FMIControllerKeysTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	ULocalPlayer* LP = NewObject<ULocalPlayer>(GEngine);
-	LP->PlayerAdded(nullptr, 0);
+	LP->PlayerAdded(nullptr, INVALID_CONTROLLERID);  // no controller id: no force feedback, which needs a game instance
 	AMIPlayerController* PC = W.World->SpawnActor<AMIPlayerController>();
 	if (!TestNotNull(TEXT("controller"), PC))
 	{

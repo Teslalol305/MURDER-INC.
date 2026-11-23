@@ -197,3 +197,43 @@ three reels and reaches the truck; it is patched up every frame, so the enemies'
 end the run), `StoryDeath` (a bot that does not fight dies; the death card; Run it back), `HoldTheBlock` (three waves
 at the start, score, resupply, the card and the best), `Menus` (settings validation, title, start, pause, settings,
 resume).
+
+# The set-up flow and four guns (LOADOUT.md, as built)
+
+## 12. The set-up screens
+
+`UMIFrontEnd` (rules `FMIFrontEndRules`, Slate widget `SMIFrontEnd`, stage `AMIShowroom`) replaces the canvas title:
+Home, Crew, Loadout, Workbench, Block & Style, Briefing. Every control sits in the left 40 % column under the veil; the
+smallest text is 14 pt; marks, arrows and pips are shapes (`SMIMark`), never characters; every string comes from
+frontend_text.json or text.json, the key names from `frontend.glyphs.<kbm|pad>` for the device used last. The fonts fall
+back to a symbol face (`MIStyle::SymbolFontFile`), and the front end logs any character no face has.
+
+Input on the screens (Slate key events, the same path in play and in the tests): Enter / Space / A activate the focused
+control; Start is Next on every set-up screen and Hit the block on Home and the Briefing; Ctrl+Enter or View+Start
+jumps to the Briefing; Tab cycles the panes and Next (Loadout: rack, slots, Next), Down past the last row lands on
+Next; Esc / B go back. Console twins: `MIMenu fe <action> [args]` (the rules' actions), `MIKey <key> [down|up] [ctrl]
+[shift]` (a real key event through `FSlateApplication`; in the run it goes to the game viewport), `MIViewSize <w> <h>`
+(the window around the game viewport, for pictures at other sizes), `MISetup dump`. `MISetup overlay`,
+`MIKey`, `MIViewSize` and `UMIDataSubsystem::EditLoadoutForDev` are not in shipping builds.
+
+The stage: the turntable frames the shown gun from its mesh bounds inside the free 60 % of the screen at the viewport's
+aspect ratio; on the Workbench it aims at the slot's mount socket, turns that side to the camera, stops spinning and
+lights the mount. Crew shows the member's own arms at the eye, or the turntable while those arms are not in the
+project. The Briefing is the player's first-person view with the arms hidden while they are the template body.
+
+## 13. Four guns in play
+
+`FMIWeaponRules` carries one to four guns (1-4, Q / Y last gun, next / previous, the wheel from three guns), per-gun
+holster and draw, one bag, fire modes with the Selector, falloff and noise radius per round. The run takes the
+set-up through `UMIGameSubsystem::BeginWithSetup` → `FMILoadoutResolver` → `UMIWeaponComponent::ApplyRun`. The enemy
+field hears a round at the gun's noise radius (`FMIShotFiredEvent::NoiseRadius`, cm, converted to metres by the
+game subsystem); the web's gunfire throttle stays, except that a louder round than the last alert in the window still
+alerts. The HUD bar shows the four slots and the bag; the world's objective markers hide while the wheel is open.
+
+## 14. Tests (set-up and four guns)
+
+`Loadout.*` (DataLoads, ParityResolve, ParityGolden, ParityNextPrevious, ParityPIE, BuildPIE, MountsExist),
+`Attachments.*`, `Weapons.FourGuns`, `Player.ControllerSwitching` (the input layer), `Player.ControllerKeys` (a local
+player and the controller's own mappings through `InputKey`), `Frontend.Walk` (rules), `Frontend.WalkWorld` and
+`Frontend.WalkPad` (Home to the run with Slate key events only), `Frontend.Glyphs` (the fonts' character maps),
+`Enemies.GunfireRadius`, `Save.SetupRoundTrip`, `Save.SetupValidation`.

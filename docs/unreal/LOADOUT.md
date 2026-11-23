@@ -191,11 +191,11 @@ marked `remember` in `frontend.json transitions`). The pause card has no way bac
 
 | Part | Rule |
 |---|---|
-| Layout | Letterbox bars and the left-to-right veil of the title (spec 07 4.4). The left 40 % holds the controls; the rest shows the 3D stage (2.10). Safe zone and HUD scaling as spec 07 4.2 |
+| Layout | Letterbox bars and the left-to-right veil of the title (spec 07 4.4). The left 40 % holds the controls; the rest shows the 3D stage (2.10). Safe zone and HUD scaling as spec 07 4.2. **As built:** every control of every set-up screen, the step strip and the bottom bar included, lives inside that column (lines wrap, names cut with an ellipsis), so no panel covers the stage at 16:9, 21:9 or 4K; the smallest text is 14 pt (`MinText`) |
 | Step strip | Top left: route bullets (spec 07 2.3) in the line colours, labelled `frontend.steps.labels` (four) or `.labelsSplit` (five). Done steps are filled; the current one has the focus ring. A done step can always be clicked. Once the set-up is valid, every step can be clicked, forward too |
 | Kicker and title | `frontend.<screen>.kicker` (small, `inkDim`, uppercase) over `frontend.<screen>.title` (display font) |
-| Bottom bar | `Back` (quiet button, left, glyph Esc / B) and `Next` (primary, right, glyph Enter / Start). Next is disabled with its reason as a note when the screen is incomplete (`frontend.loadout.needOne`). In edit mode Next reads `Done` and returns to the Briefing |
-| Shortcut | Ctrl+Enter, or Start on a pad, jumps to the Briefing from any set-up screen when the set-up is valid (`frontend.json navigation`) |
+| Bottom bar | `Back` (quiet button, left, glyph Esc / B) and `Next` (primary, right, glyph Enter / Start). Next is disabled with its reason as a note when the screen is incomplete (`frontend.loadout.needOne`). In edit mode Next reads `Done` and returns to the Briefing. Next takes the focus like any control: Tab cycles the screen's panes and Next, and Down past the last row lands on it. The glyphs come from `frontend.glyphs.<kbm or pad>` for the device used last |
+| Shortcut | Ctrl+Enter, or **View+Start** on a pad (hold View, press Start), jumps to the Briefing from any set-up screen when the set-up is valid (`frontend.json navigation`). **Departure:** Start alone was the pad's shortcut; it is Next instead, so a pad player walks crew, loadout, attachments, block and style in the order the user asked for, and Start on Loadout no longer skips Block & Style (review of 2026-11-23) |
 | Inputs common to all | A, Enter, Space and a left click always activate the focused control. Start, or Enter on Next, always advances. B, Esc and the Back button go back. In a single-choice row (time, mode, difficulty) moving the focus selects, so A there means Next. No action that loses work is on a tap: Reset build is a 0.6 s hold |
 | Memory | Every screen opens with the saved choice selected and focused |
 | Sound and focus | `ui_hover` and `ui_click` as on the title (spec 07 3.17); gamepad focus ring; the focus never leaves the screen |
@@ -234,6 +234,10 @@ always offered. The card shows `tagline` (phase 1), or `taglineFull` once phase 
 what is on screen. `frontend.crew.note`: "Looks only. Everybody shoots the same." With Rule the only member offered,
 the screen still shows (one card), because it is the user's first step.
 
+**3D (as built):** the arms shot below needs the member's own first-person arms (`crew.json look.arms`); until that mesh
+is in the project the stage shows the turntable with the first carried gun instead, never a gun at the eye with no
+hands, and the template body is never shown this close.
+
 **3D:** the stage camera `arms` (2.10) sits **at the first-person eye**, with the viewmodel field of view (54°). It
 orbits 10° at most, and a vignette and the sleeve edge frame the view, so the closed shoulder caps of `SK_RuleArms` are
 never seen (`CHARACTERS.md`, Proof in Unreal). The arms hold the first carried gun and play its `Inspect` clip if it
@@ -262,7 +266,7 @@ When the choice changes, the arms swap behind a 0.15 s dip to black.
   - `NEW` until the card has been focused once (save `seen`).
 
   A carried gun shows `Carried · slot n` and stays selectable: selecting it focuses its slot.
-- **Right, the four slots**, `Slot 1` to `Slot 4`. Each shows the carried gun's silhouette, name, attachment pips and
+- **The four slots** (as built: a strip of four under the rack, inside the controls column), `Slot 1` to `Slot 4`. Each shows the carried gun's silhouette, name, attachment pips and
   key glyph, or `Empty` with `Pick a gun from the rack`. The melee slot (`text.weapons.melee.<gun of slot 1>`) sits
   below them. Above them: `Carry up to four. Melee comes with you.` and `Long guns share one bag of rounds.`
 
@@ -280,8 +284,8 @@ gap (emptying slot 2 of three moves slot 3 up). At zero guns, Next is disabled w
 | Empty a slot | right-click the slot (right-click elsewhere does nothing) | Delete | X |
 | Attachments | the wrench, or double-click | E | Y |
 | Turn, zoom | drag, wheel | none | right stick, LT / RT |
-| Switch panes | none | Tab | D-pad across |
-| Next / Back | buttons | Enter on Next / Esc | Start / B |
+| Switch panes | none | Tab (rack, slots, Next) | LB / RB |
+| Next / Back | buttons | Enter on Next (Tab or Down to it) / Esc | Start, or D-pad down past the last row then A / B |
 
 **Stat bars** (`frontend.loadout.stats`), each filled 0 to 1 and clamped. The numbers are those of the resolved JSON
 (web units):
@@ -308,14 +312,18 @@ Opened from the rack for one gun. It edits that gun's build whether or not the g
   NINE and every gun in a clean checkout), the screen says `frontend.attachments.noPartsYet` and its note, and Done.
 - **The options of the chosen slot:** `Factory` (when the slot is not `required`: "What it came with. No change.") and
   each offered part, with its name and blurb.
-- **For the focused option, its effect lines,** generated from data (`frontend.effects.*`). Each line starts with ▲
+- **For the focused option, its effect lines,** generated from data (`frontend.effects.*`). (As built, the mark is
+  drawn as a shape, `SMIMark`, not as a character: the fonts have no ▲ ▼ ◀ ▶ glyphs.) Each line starts with ▲
   (better) or ▼ (worse), or • (neutral, such as the scope's `Aimed view 30° (from 52°)`), and is also green or red, so
   the meaning never rests on colour alone. Lines with no sign carry the gun's own value: `▲ Heard 18 m out (from 45 m)`.
   The panel also compares the six stat bars, before and after, as ghost and fill.
 - `Fitted` on the option in use, and `Hold to reset build` (every slot back to its `default`; a 0.6 s hold).
 
 **3D:** the turntable gun with the build. Choosing a slot tab eases the camera to that slot's focus (`frontend.json
-stage.cameras.focus`, 0.4 s). Focusing an option previews it on the gun at once, before it is fitted: an add-on part
+stage.cameras.focus`, 0.4 s). As built: the camera aims at the slot's mount socket on the shown mesh (the frontend.json
+offset only where the mesh has no such socket), the gun turns that side to the camera and stops spinning, the
+distance comes from the mesh's bounds so the whole gun stays in the free 60 % of the screen at any aspect ratio, and a
+spot lights the mount. Focusing an option previews it on the gun at once, before it is fitted: an add-on part
 slides into its socket in 0.25 s, and a stock option swaps the base mesh under a 0.15 s dip (3.3). Leaving the option
 without fitting puts the fitted part back. The irons fold down when the scope is fitted, if they are a separate part
 (6.2).
@@ -371,7 +379,9 @@ The radio intro is not printed, because the intro plays it a moment later. The c
 (`frontend.controls`). The wheel rows are shown only with three or more guns.
 
 **3D:** the player's own first-person camera at the level's `playerStart`. The chosen arms hold the first carried gun
-and play `Equip` once, or `IdleAds` when Equip is missing. `Hit the block` starts the full intro (spec 04 3.5) from
+and play `Equip` once, or `IdleAds` when Equip is missing. As built: while the first-person arms are the template body
+(its open upper arm fills the lower left this close, a characters / animation hand-off, 6.6) the Briefing hides the
+arms and shows the gun alone. `Hit the block` starts the full intro (spec 04 3.5) from
 this exact view.
 
 | Input | Mouse | Keyboard | Gamepad |
@@ -419,7 +429,11 @@ separate because `text.json` is written by `tools/ue-export` from the web game. 
 | Briefing | `frontend.briefing.*` |
 | Cards, radio | `frontend.cards.changeSetup`; `frontend.crewLines.deadKicker`, `.radioIntro`, `.radioIntroHoldout`, `.radioDone` |
 | Guns | `frontend.weapons.{shorty,stick,stretch,rattler}.{name,blurb}`, `frontend.weapons.melee.*` |
-| HUD, glyphs, controls | `frontend.hud.modes.*`, `.wheel`, `.empty`, `.bag`; `frontend.glyphs.*`; `frontend.controls.{kbm,pad}` |
+| HUD, glyphs, controls | `frontend.hud.modes.*`, `.wheel`, `.empty`, `.bag`; `frontend.glyphs.{kbm,pad,touch}.*` (the HUD's keys and, as built, the set-up screens' `back`, `next`, `toBriefing`, `prevGun`, `nextGun`, `reset`, `bench`, `melee`, `empty`, `panes`); `frontend.controls.{kbm,pad}` |
+
+No string is written in the code. Every character drawn must have a glyph in the face in use or in the symbol face
+behind it (the engine's Droid Sans Fallback, in every checkout; Noto Sans Symbols 2 was tried and has no arrows); the front end logs the
+missing ones at load and `Frontend.Glyphs` fails on them.
 
 Text rules kept from `text.json`: gun blurbs have no closing full stop. A crew role never contradicts the story: the
 radio calls Keys *from* the Vault, so KEYS "knows every lock on the Ave". DEUCE "goes in first", because the crew goes
@@ -1133,7 +1147,9 @@ All run headless (`tools/box/test.sh`) and are named `MurderInc.*`.
 
 ### 8.4 The controller
 
-`Player.ControllerSwitching`, driving `AMIPlayerController` with synthetic key events:
+`Player.ControllerSwitching`, driving the input layer (`FMISwitchInput`) with timed events, and, as built,
+`Player.ControllerKeys`, which drives a real local player and `AMIPlayerController` through its own Enhanced Input
+mapping context with `InputKey` (3, a Q tap and hold, D-pad right, the mouse wheel, B):
 
 - **N = 2:** a Q press gives `bSwapPressed` on the press frame, whether it is held or not, with no wheel. The mouse
   wheel gives `bNextPressed` / `bPreviousPressed` with steps no closer than `wheelDebounce` (0.28 s), as the web wheel.
@@ -1143,8 +1159,11 @@ All run headless (`tools/box/test.sh`) and are named `MurderInc.*`.
 
 ### 8.5 A scripted walk through the whole flow
 
-`Frontend.Walk` (rules only, `FMIFrontEndRules`), then `Frontend.WalkWorld` (play in editor). Both are driven by the
-console `MIMenu <action> [args]`, the menu twin of `MIInput`.
+`Frontend.Walk` (rules only, `FMIFrontEndRules`), then `Frontend.WalkWorld` (play in editor). `Frontend.Walk` and the
+pictures are driven by the console `MIMenu <action> [args]`, the menu twin of `MIInput`. As built, `Frontend.WalkWorld`
+(keyboard) and `Frontend.WalkPad` (gamepad) walk Home to the run with real key events only, routed by Slate
+(`FSlateApplication::ProcessKeyDownEvent`, `UMIFrontEnd::PressKey`; in a test world the screens sit in a virtual
+window), and check that a focused card loses NEW and keeps it through a save; the console twin is `MIKey <key>`.
 
 1. Boot: Home. `played` is false. Enter opens Crew (not a run).
 2. Crew: one card per offered member (only `rule` without the phase-1 materials). Next → Loadout with CHOPPER and NINE.
@@ -1169,7 +1188,11 @@ console `MIMenu <action> [args]`, the menu twin of `MIInput`.
 `Loadout.DataLoads` checks every rule of 3.1, the `provides` counts (the block: 3, 29 / 17, 21 explosives, 14 title
 keys), that every `frontend.*` key used exists, and that every `$ref` resolves to a number where a number is needed.
 `Loadout.MountsExist` (needs the pack; skipped without it) fails when a mount or variant marked `exists` has no socket
-or mesh. `Save.SetupRoundTrip` writes a set-up and reads it back equal. `Save.SetupValidation` covers each rule of 7.
+or mesh. As built it also checks each variant's irons-folded `opticMesh`, the viewmodel sockets of `presentation.sockets`
+and each part's own sockets. The 8.2 probes in play are `Loadout.BuildPIE` (the STICK with scope and silencer and a
+bare CHOPPER through the run reset: the weapon's data equals the resolver's, the view at full aim is 30°, the
+silenced round is heard at 15 m and not at 30 m, the bare one at 30 m) and `Enemies.GunfireRadius` (the throttle
+exception of 4.5 on the field alone). `Save.SetupRoundTrip` writes a set-up and reads it back equal. `Save.SetupValidation` covers each rule of 7.
 
 ### 8.7 Existing tests that change
 

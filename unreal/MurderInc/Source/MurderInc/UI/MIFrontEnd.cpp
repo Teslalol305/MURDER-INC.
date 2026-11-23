@@ -661,7 +661,7 @@ bool UMIFrontEnd::SendKey(const FKey& K, bool bDown, bool bCtrl, bool bShift)
 			return false;
 		}
 	}
-	App.SetAllUserFocus(Widget, EFocusCause::SetDirectly);
+	App.SetAllUserFocus(Path, EFocusCause::SetDirectly);  // the path overload: the widget overload searches top-level windows only
 	const FModifierKeysState Mods(bShift, false, bCtrl, false, false, false, false, false, false);
 	const FKeyEvent Event(K, Mods, 0, false, 0, 0);
 	return bDown ? App.ProcessKeyDownEvent(Event) : App.ProcessKeyUpEvent(Event);
