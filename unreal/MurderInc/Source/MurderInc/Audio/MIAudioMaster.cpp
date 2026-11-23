@@ -1,12 +1,28 @@
 #include "Audio/MIAudioMaster.h"
 
 #include "Audio/MIAudioData.h"
+#include "AudioDevice.h"
 #include "AudioMixerBlueprintLibrary.h"
 #include "Dom/JsonObject.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
+#include "Sound/AudioSettings.h"
+#include "Sound/SoundSubmix.h"
 #include "SubmixEffects/AudioMixerSubmixEffectDynamicsProcessor.h"
 #include "UObject/Package.h"
+
+namespace MIAudioMasterPrivate
+{
+	/** The device's main submix asset (project audio settings), loaded. */
+	USoundSubmix* MainSubmix()
+	{
+		const UAudioSettings* S = GetDefault<UAudioSettings>();
+		return S ? Cast<USoundSubmix>(S->MasterSubmix.TryLoad()) : nullptr;
+	}
+	/** The main submix's own chain before ours went on (restored by Uninstall). */
+	TArray<TObjectPtr<USoundEffectSubmixPreset>> SavedChain;
+	bool bSaved = false;
+}
 
 FMIMasterChain FMIMasterChain::FromData(const FMIAudioData& Data)
 {
@@ -73,6 +89,23 @@ bool FMIMasterChain::Install(UObject* WorldContext, TArray<TObjectPtr<USoundEffe
 
 	OutKeep.Add(Comp);
 	OutKeep.Add(Clip);
+	// The chain goes on the main submix asset itself and the submix is re-initialised from it: the path an
+	// authored chain takes, so it survives any later re-initialisation (effects added with AddMasterSubmixEffect
+	// alone did not act on the recorded output in the box's engine render).
+	using namespace MIAudioMasterPrivate;
+	USoundSubmix* Main = MainSubmix();
+	FAudioDevice* Device = World->GetAudioDeviceRaw();
+	if (Main && Device)
+	{
+		if (!bSaved)
+		{
+			SavedChain = Main->SubmixEffectChain;
+			bSaved = true;
+		}
+		Main->SubmixEffectChain = {Comp, Clip};
+		Device->RegisterSoundSubmix(Main, true);
+		return true;
+	}
 	UAudioMixerBlueprintLibrary::AddMasterSubmixEffect(World, Comp);
 	UAudioMixerBlueprintLibrary::AddMasterSubmixEffect(World, Clip);
 	return true;
@@ -80,10 +113,17 @@ bool FMIMasterChain::Install(UObject* WorldContext, TArray<TObjectPtr<USoundEffe
 
 void FMIMasterChain::Uninstall(UObject* WorldContext)
 {
+	using namespace MIAudioMasterPrivate;
 	UWorld* World = WorldContext ? WorldContext->GetWorld() : nullptr;
 	if (World && World->GetAudioDeviceRaw())
 	{
 		UAudioMixerBlueprintLibrary::ClearMasterSubmixEffects(World);
+		if (USoundSubmix* Main = bSaved ? MainSubmix() : nullptr)
+		{
+			Main->SubmixEffectChain = SavedChain;
+			World->GetAudioDeviceRaw()->RegisterSoundSubmix(Main, true);
+			bSaved = false;
+		}
 	}
 }
 
