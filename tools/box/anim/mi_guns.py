@@ -203,3 +203,39 @@ def gap_report(label):
         t = socket_world(label, s).translation
         out[s] = [round(t.x, 2), round(t.y, 2), round(t.z, 2)]
     return out
+
+
+# ---------------------------------------------------------------- first person (ANIMATION.md 9: the camera recipe)
+ARMS = "/Game/Characters/RuleArms/SK_RuleArms"
+CHAR = "/Game/ThirdParty/InfimaTFA/Character/FP/"
+WEPA = W + "/Anims/FP/"
+# The pack's first-person clips keep the head joint still at (0, 0.66, 162.58) in component space (every FP clip,
+# measured) and, in Aim_Pose and Fire_Aimed, put the iron sight line through it (0.57 cm below, parallel to +Y).
+# The camera is that point on the sight line: component (0, 0.66, 162.0), looking along +Y, no roll.
+EYE = (0.0, 0.66, 162.0)
+
+
+def fp(clip, t, wep=None, length="Default", parts=(), mesh=ARMS, mag="standard", rounds=30, reserve=False,
+       label="FP", sight=None):
+    """Arms (or the mannequin) playing a pack FP clip at t with the pack rifle on ik_hand_gun (identity) playing
+    the matching weapon clip; returns the camera 'x,y,z,pitch,yaw,roll' of the recipe. sight: None = the recipe's
+    eye; 'irons' / 'scope' = the eye moved onto that sight's axis (the aimed-state correction for the optic)."""
+    a = _skel(mesh, (0, 0, 0), unreal.Rotator(0, 0, 0), label, CHAR + clip, t)
+    g_labels = rifle(length, parts, loc=(0, 0, 0), yaw=0.0, label=label + "_Gun",
+                     anim=(WEPA + wep) if wep else None, t=t, parent=a, parent_socket="ik_hand_gun")
+    if reserve:
+        m = _static(ATT + "/SM_TFA_AR_Magazine_Full", label + "_Reserve")
+        _attach(m, actor(label + "_Gun"), "Magazine_Reserve")
+    eye = EYE
+    if sight == "irons":
+        s = socket_world(label + "_Gun", "SightRear").translation
+        eye = (s.x, EYE[1], s.z)
+    elif sight == "scope":
+        s = socket_world(label + "_scope_part", "SightEye").translation if False else \
+            actor(label + "_Gun_scope").static_mesh_component.get_socket_location("SightEye")
+        eye = (s.x, EYE[1], s.z)
+    return "%.3f,%.3f,%.3f,0,90,0" % eye
+
+
+def near_clip(cm=1.0):
+    unreal.SystemLibrary.execute_console_command(None, "r.SetNearClipPlane %g" % cm)
