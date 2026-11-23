@@ -1,33 +1,54 @@
 {
   "meta": {
     "file": "guns.json",
-    "about": "The roster of guns the player can carry (docs/unreal/LOADOUT.md section 3.2). A gun is one entry here plus one row in attachments.json `compatibility`; nothing in code names a gun. The CHOPPER and the NINE take their rules from config.json and their presentation from presentation.json unchanged (parity, LOADOUT.md 1.2); a new gun carries both blocks inline in exactly those files' schemas, so the same parsers read them.",
+    "about": "The roster of guns the player can carry (docs/unreal/LOADOUT.md 3.2). A gun is one entry here plus one row in attachments.json `compatibility`; nothing in code names a gun. The CHOPPER and the NINE take their rules from config.json and their presentation from presentation.json unchanged (parity, LOADOUT.md 1.2); a new gun carries both blocks inline in exactly those files' schemas, so the same parsers read them.",
     "game": "MURDER INC.",
-    "schema": 1,
-    "units": "as config.json and presentation.json: metres, seconds, radians (spread, recoil), vertical degrees (adsFov), rounds per minute; presentation in web gun space (x right, y up, z toward the viewer, muzzle at -z). Sockets of `mounts` are in the mesh's own space as art/blender/assets/weapons.py writes them (x forward along the bore, y left, z up, metres).",
-    "refs": "{\"$ref\": \"config.json#weapons.chopper\"} means: take that object of that file as it is.",
-    "status": "exists = in the repository or on the box and usable; inProgress = being built by an agent now; missing = nobody has started it",
-    "provisional": "numbers marked provisional in `notes` are first values the animation import replaces (reload marks retimed to the clip notifies, markers replaced by the real mesh's sockets). Rules numbers of the two new guns are design values, not provisional."
+    "schema": 2,
+    "units": "as config.json and presentation.json: metres, seconds, radians (spread, recoil), vertical degrees (adsFov), rounds per minute; presentation in web gun space (x right, y up, z toward the viewer, muzzle at -z). The resolver works in these units on the JSON and only then parses (LOADOUT.md 3.7); ParseGun converts to centimetres and degrees, noise included.",
+    "refs": "{\"$ref\": \"config.json#weapons.chopper\"} is that object (or number) of that file, as it is. Every ref must resolve; MurderInc.Loadout.DataLoads checks that each ref of extraDefaults gives a number.",
+    "status": "exists = usable now (in the repository, or on the box for pack content); template = an Unreal template asset stands in; procedural = the viewmodel rig plays it from the rules, as the web game does; inProgress = an agent is on it now; inPack = in the purchased pack but not imported or not prepared (no socket, no variant); missing = nobody has started it; notApplicable = the role does not apply to that gun",
+    "slot": "rules.slot is the roster position; the resolver sets FMIWeaponDef::Slot to the carried slot (1 ... 4)",
+    "provisional": "markers and reload marks noted as provisional are first values that the pack import replaces; the rule numbers of the new guns are design values (LOADOUT.md 3.2)."
   },
-  "roster": ["chopper", "nine", "stick", "rattler"],
+  "roster": ["chopper", "nine", "shorty", "stick", "stretch", "rattler"],
+  "ready": {
+    "about": "Which guns the rack offers (LOADOUT.md 3.2). A parity gun is always offered. Any other gun is offered only when it is ready: the mesh of its default variant (stock open) is exists, not a stand-in, and every core role is exists, template or procedural. Inside a ready gun, a slot is offered only when its mount is exists, and a stock option only when its variant is exists. A gun that is not ready is hidden; with the console variable devFlag set to 1 it shows with the DEV tag (frontend.loadout.devTag). A saved set-up that carries a gun that is not ready drops it (LOADOUT.md 7).",
+    "coreRoles": ["Idle", "Fire", "ReloadTactical", "Holster", "Draw"],
+    "playable": ["exists", "template", "procedural"],
+    "devFlag": "mi.Setup.ShowUnready"
+  },
   "classes": {
-    "rifle": { "text": "frontend.loadout.classes.rifle", "order": 1 },
-    "smg": { "text": "frontend.loadout.classes.smg", "order": 2 },
-    "pistol": { "text": "frontend.loadout.classes.pistol", "order": 3 }
+    "rifle": {"text": "frontend.loadout.classes.rifle", "order": 1},
+    "smg": {"text": "frontend.loadout.classes.smg", "order": 2},
+    "pistol": {"text": "frontend.loadout.classes.pistol", "order": 3}
+  },
+  "ammo": {
+    "about": "The carry cost (LOADOUT.md 3.2.3). Every carried gun with a finite reserve draws on one shared reserve, the bag; a gun with an infinite reserve (the NINE) has none. The bag starts with the largest `reserve` of the carried finite guns (150 for every gun of the roster: the web CHOPPER's), and the Hold the Block resupply goes into the bag once: the flow's AddReserve(90, 240) is unchanged and FMIWeaponRules::AddReserve adds to each pool instead of each gun. With one finite gun (the parity set-up) the bag is that gun's reserve, so every number is the web game's. Extra long guns bring only their loaded magazines.",
+    "pools": {"bag": {"start": "max reserve of the carried finite guns", "text": "frontend.hud.bag"}},
+    "defaultPool": "bag"
   },
   "extraDefaults": {
-    "about": "Fields every gun may set in `extra`; a missing or null field takes this default, which is what the web game does, so the CHOPPER and the NINE are unchanged by them.",
-    "holster": { "default": "config.json weapons.common.holster (0.28 s)", "unit": "s" },
-    "draw": { "default": "config.json weapons.common.draw (0.32 s)", "unit": "s" },
-    "adsFov": { "default": "config.json player.fov.ads (52 vertical degrees)", "unit": "vertical degrees at full aim" },
-    "adsLook": { "default": 1, "unit": "factor on config.json player.look ads scale" },
-    "noise": { "default": "config.json enemies.ai.hear.gunfire (45 m)", "unit": "m: how far an enemy hears a round" },
-    "falloff": { "default": null, "unit": "{start m, end m, min share}: full damage to start, linear to min x damage at end and beyond; null = none" },
-    "fireModes": { "default": ["auto"], "unit": "first entry is the mode a run starts in; [\"semi\"] for the NINE (config auto false)" },
-    "semiFireBuffer": { "default": 0.13, "unit": "s, the press buffer of an automatic gun switched to semi (the NINE's fireBuffer)" },
-    "modeSwitch": { "default": 0.35, "unit": "s the selector takes; the gun cannot fire meanwhile" },
-    "resupply": { "default": "config.json flow.holdout.resupply (reserve 90, reserveCap 240)", "unit": "{rounds, cap} added per cleared Hold the Block wave; ignored for an infinite reserve" },
-    "inspectAfter": { "default": "rules.inspectAfter of the gun, else 24", "unit": "s idle before the idle inspect plays (presentation only)" }
+    "about": "Fields every gun may set in `extra`. The resolver fills a missing or null field with this default as a number before any effect is applied (LOADOUT.md 3.7), so the CHOPPER and the NINE get exactly the values the web game uses.",
+    "holster": {"value": {"$ref": "config.json#weapons.common.holster"}, "unit": "s"},
+    "draw": {"value": {"$ref": "config.json#weapons.common.draw"}, "unit": "s"},
+    "adsFov": {"value": {"$ref": "config.json#player.fov.ads"}, "unit": "vertical degrees at full aim"},
+    "adsLook": {"value": 1, "unit": "factor on config.json player.look.adsScale"},
+    "noise": {"value": {"$ref": "config.json#enemies.ai.hear.gunfire"}, "unit": "m (ParseGun converts to cm)"},
+    "falloff": {
+      "value": {"start": "Infinity", "end": "Infinity", "min": 1},
+      "unit": "{start m, end m, min share}: full damage to start, linear to min x at end, min beyond; start = end is a step to min"
+    },
+    "fireModes": {"value": ["auto"], "unit": "every run starts in fireModes[0]; [\"semi\"] for the NINE"},
+    "semiFireBuffer": {
+      "value": {"$ref": "config.json#weapons.nine.fireBuffer"},
+      "unit": "s, the press buffer of an automatic gun switched to semi"
+    },
+    "modeSwitch": {"value": 0.35, "unit": "s the selector takes; the gun cannot fire meanwhile"},
+    "inspectAfter": {
+      "value": 24,
+      "unit": "s idle before the idle inspect plays (presentation only); a gun's own rules.inspectAfter wins"
+    },
+    "pool": {"value": "bag", "unit": "ammo pool id (ammo.pools); ignored for an infinite reserve"}
   },
   "guns": {
     "chopper": {
@@ -35,54 +56,308 @@
       "class": "rifle",
       "text": "text.weapons.chopper",
       "melee": "text.weapons.melee.chopper",
-      "rules": { "$ref": "config.json#weapons.chopper" },
-      "presentation": { "$ref": "presentation.json#guns.chopper" },
+      "parity": true,
+      "rules": {"$ref": "config.json#weapons.chopper"},
+      "presentation": {"$ref": "presentation.json#guns.chopper"},
       "extra": {
         "fireModes": ["auto", "semi"],
-        "notes": "Every other extra field is the default. The selector lever is modelled on the left side (spec 02 5.2), so semi is offered; a run starts in auto as the web game does."
+        "notes": "Every other extra field takes its default (extraDefaults). The selector lever is modelled on the left side (spec 02 5.2), so semi is offered; every run starts in fireModes[0], auto, as the web game."
       },
       "mounts": {
-        "optic": { "socket": "Optic", "at": [0.115, 0.0, 0.0418], "status": "missing", "notes": "Centre of the 106 mm top-cover rail (s 62 ... 168 mm, top 41.8 mm, spec 02 5.2). Add to CH['sockets'] in art/blender/assets/weapons.py." },
-        "muzzle": { "socket": "MuzzleMount", "at": [0.426, 0.0, 0.0], "hide": ["Booster"], "status": "missing", "notes": "Base of the muzzle booster. The booster must become its own bone or mesh section named Booster so a silencer can replace it." }
+        "optic": {
+          "socket": "Optic",
+          "at": null,
+          "status": "missing",
+          "notes": "On the 106 mm top-cover rail (s 62 ... 168 mm, spec 02 5.2). Requested from the weapons rebuild (LOADOUT.md 6.6); coordinates come from the rebuilt mesh, not from spec 02. The optic slot is not offered until the socket exists."
+        },
+        "muzzle": {
+          "socket": "MuzzleMount",
+          "at": null,
+          "hide": ["Booster"],
+          "status": "missing",
+          "notes": "Base of the muzzle booster; the booster must become its own bone or mesh section named Booster so a silencer can replace it. Requested from the weapons rebuild (LOADOUT.md 6.6). Not offered until both exist."
+        }
       },
       "art": {
-        "mesh": { "asset": "SK_Chopper", "status": "inProgress", "notes": "Being rebuilt to a higher standard (art/blender/assets/weapons.py); the template SKM_Rifle stands in (presentation.json)." },
-        "icon": { "asset": "T_UI_Gun_Chopper", "status": "missing", "notes": "Side silhouette, white on transparent, 512 x 192 (spec 07 5.1 weapon bar silhouettes)." }
+        "mesh": {
+          "asset": "SK_Chopper",
+          "status": "inProgress",
+          "standIn": "SKM_Rifle",
+          "notes": "Being rebuilt (art/blender/assets/weapons.py, _weapons_kit.py); the template SKM_Rifle stands in (presentation.json)."
+        },
+        "icon": {
+          "asset": "T_UI_Gun_Chopper",
+          "status": "missing",
+          "notes": "Side silhouette, white on transparent, 512 x 192, rendered from the exported mesh by the weapons pipeline (LOADOUT.md 6.6)."
+        }
       },
-      "clips": { "set": "chopper", "status": "inProgress", "notes": "The animation agent adapts the pack's rifle clips to the CHOPPER (docs/unreal/ANIMATION.md)." }
+      "clips": {
+        "set": "chopper",
+        "byStatus": {
+          "template": ["Idle"],
+          "procedural": ["IdleAds", "Walk", "Sprint", "CrouchIn", "CrouchOut", "AimIn", "AimOut", "Fire", "FireSemi", "FireAds", "FireLast", "Dry", "ReloadTactical", "ReloadEmpty", "Holster", "Draw", "MeleeBash"],
+          "missing": ["Equip", "Inspect", "MagCheck", "ModeSemi", "ModeAuto", "MeleeA", "MeleeB", "TriggerOff"],
+          "notApplicable": ["ReloadQuick", "ReloadEmptyRetain", "GripNone", "GripVertical", "GripAngled", "GripChange"]
+        },
+        "upgrades": {"ReloadTactical": "inProgress", "ReloadEmpty": "inProgress"},
+        "notes": "procedural = the viewmodel rig plays it from the rules, as the web game does (FMIViewmodelRig). upgrades: the pack's reloads adapted to the CHOPPER by the animation agent (tools/box/anim/mi_adapt.py, ANIMATION.md) replace the procedural reload when they land. The missing roles are requested in LOADOUT.md 6.6; until they exist the Crew and Briefing stages play IdleAds with the rig's sway and the HUD hides the inspect prompt."
+      }
     },
     "nine": {
       "id": "nine",
       "class": "pistol",
       "text": "text.weapons.nine",
       "melee": "text.weapons.melee.nine",
-      "rules": { "$ref": "config.json#weapons.nine" },
-      "presentation": { "$ref": "presentation.json#guns.nine" },
-      "extra": {
-        "fireModes": ["semi"],
-        "notes": "Semi only (config auto false). The pack has no pistol clips: the NINE keeps the template pistol clips until a pistol pack exists."
-      },
+      "parity": true,
+      "rules": {"$ref": "config.json#weapons.nine"},
+      "presentation": {"$ref": "presentation.json#guns.nine"},
+      "extra": {"fireModes": ["semi"], "notes": "Semi only (config auto false). The pack has no pistol clips."},
       "mounts": {
-        "laser": { "socket": "Laser", "at": [0.156, 0.0, -0.0335], "status": "missing", "notes": "Middle of the three rail lugs under the dust cover (142, 156, 170 mm, y -33.5 ... -30 mm, spec 02 5.3). Add to NN['sockets'] in weapons.py." }
+        "laser": {
+          "socket": "Laser",
+          "at": null,
+          "status": "missing",
+          "notes": "Under the dust-cover rail. The rebuild cuts the three slots at x 0.142, 0.156, 0.170 (_weapons_nine.py); weapons.py had 0.149, 0.163, 0.1765 at z -0.026 and spec 02 says z -0.0335: take x and z from the rebuilt mesh. Requested from the weapons rebuild (LOADOUT.md 6.6). Also gated on the pack laser's length (attachments.json compatibility.nine)."
+        }
       },
       "art": {
-        "mesh": { "asset": "SK_Nine", "status": "inProgress", "notes": "Being rebuilt; the template SKM_Pistol stands in." },
-        "icon": { "asset": "T_UI_Gun_Nine", "status": "missing" }
+        "mesh": {
+          "asset": "SK_Nine",
+          "status": "inProgress",
+          "standIn": "SKM_Pistol",
+          "notes": "Being rebuilt (_weapons_nine.py)."
+        },
+        "icon": {"asset": "T_UI_Gun_Nine", "status": "missing"}
       },
-      "clips": { "set": "nine", "status": "missing", "notes": "Template pistol clips (MF_Pistol_*) until then; inspect, magazine check and the pack's melee swings are rifle clips and are not used on the NINE." }
+      "clips": {
+        "set": "nine",
+        "byStatus": {
+          "template": ["Idle"],
+          "procedural": ["IdleAds", "Walk", "Sprint", "CrouchIn", "CrouchOut", "AimIn", "AimOut", "Fire", "FireSemi", "FireAds", "FireLast", "Dry", "ReloadTactical", "ReloadEmpty", "Holster", "Draw", "MeleeBash"],
+          "missing": ["Equip", "Inspect", "MagCheck", "TriggerOff"],
+          "notApplicable": ["ReloadQuick", "ReloadEmptyRetain", "ModeSemi", "ModeAuto", "MeleeA", "MeleeB", "GripNone", "GripVertical", "GripAngled", "GripChange"]
+        },
+        "notes": "The pack has no pistol clips; inspect and magazine check need a pistol pack or hand-keyed clips. The rifle melee swings do not suit a pistol: the NINE keeps its procedural pistol whip."
+      }
+    },
+    "shorty": {
+      "id": "shorty",
+      "class": "rifle",
+      "text": "frontend.weapons.shorty",
+      "melee": "frontend.weapons.melee.shorty",
+      "parity": false,
+      "packLength": "Short",
+      "derivation": "The pack's Short handguard rifle. From the STICK by the factors of LOADOUT.md 3.2.1: a short gas system (rpm 800 -> 860), quick hands (adsTime x 0.9, holster and draw x 0.92), better on the move (moveHip x 0.9), shorter near walls (wallPull x 0.86); it pays with kick (pitch, shake, rise, back x 1.1), a wider aimed cone (ads x 1.15), flash x 1.3, noise 45 -> 50 m and a falloff from 20 to 45 m down to 0.8 x.",
+      "rules": {
+        "id": "shorty",
+        "name": "SHORTY",
+        "slot": 3,
+        "auto": true,
+        "damage": 21,
+        "rpm": 860,
+        "magSize": 30,
+        "reserve": 150,
+        "range": 300,
+        "adsTime": 0.18,
+        "dryReloadDelay": 0.32,
+        "reload": {
+          "tactical": 2.13,
+          "empty": 2.45,
+          "magOut": 0.38,
+          "magShow": 0.76,
+          "magInsert": 1.09,
+          "magIn": 1.37,
+          "tug": 1.49,
+          "slideRelease": 1.92,
+          "notes": "provisional: the CHOPPER's marks x 0.95 to the tug. No press check on a tactical reload; on an empty reload the bolt is locked back and the bolt catch closes it at slideRelease (the parser's name for 'the locked bolt or slide closes'). Retimed to the pack's reload notifies by ANIMATION.md."
+        },
+        "spread": {
+          "hip": 0.012,
+          "ads": 0.00104,
+          "moveHip": 0.0117,
+          "moveAds": 0.0036,
+          "bloomHip": 0.0055,
+          "bloomAds": 0.0018,
+          "air": 0.022,
+          "crouch": 0.002,
+          "shot": 0.14,
+          "decay": 1.65
+        },
+        "recoil": {
+          "pitch": 0.0056,
+          "pitchRandom": [0.9, 1.1],
+          "lateFrom": 10,
+          "lateScale": 0.38,
+          "yawEarly": 0.0009,
+          "weaveFrom": 5,
+          "weaveAmp": 0.0029,
+          "weaveFreq": 0.57,
+          "weaveRandom": 0.0008,
+          "shake": 0.1
+        },
+        "kick": {
+          "back": 0.73,
+          "rise": 1.32,
+          "yaw": 0.38,
+          "roll": 0.68,
+          "up": 0.09,
+          "side": 0.07,
+          "firstShot": 1.3,
+          "secondShot": 1.15,
+          "random": 0.1,
+          "crouch": 0.88,
+          "ads": {"back": 0.75, "rot": 0.1, "pos": 0.9},
+          "springs": {"back": [44, 0.55], "pitch": [36, 0.5], "yaw": [30, 0.45], "roll": [31, 0.42], "pos": [40, 0.5]},
+          "arm": [0.55, 0.35]
+        },
+        "adsSpring": [23, 0.75],
+        "swaySpring": [13.5, 0.64],
+        "swayMax": 0.07,
+        "flash": {"scale": 1.17, "light": 52, "lightColor": "#ffb020", "lightRange": 9, "lightTtl": 0.05},
+        "rumble": {"strong": 0.15, "weak": 0.45, "ms": 50},
+        "wallPull": [0.95, 0.38],
+        "inspectAfter": 24,
+        "muzzleSmoke": true,
+        "views": [
+          [0.15, -0.09, -0.24, 0.05, 0.28, -0.35],
+          [0.17, -0.12, -0.3, 0.04, 0.22, -0.3],
+          [0.12, -0.085, -0.25, 0.05, 0.24, -0.3]
+        ]
+      },
+      "extra": {
+        "fireModes": ["auto", "semi"],
+        "modeSwitch": 0.35,
+        "holster": 0.26,
+        "draw": 0.29,
+        "noise": 50,
+        "falloff": {"start": 20, "end": 45, "min": 0.8}
+      },
+      "presentation": {
+        "fallbackMesh": "/Game/Weapons/Rifle/Meshes/SKM_Rifle.SKM_Rifle",
+        "idle": "/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS.MF_Rifle_Idle_ADS",
+        "meshOffset": {
+          "pos": [0, -0.1045, -0.0235],
+          "rot": [0, 1.5708, 0],
+          "note": "provisional: the pack's rifle hangs from ik_hand_gun with an identity transform (tools/box/anim/mi_anim.py), so its origin is in the grip like the template rifle's; ANIMATION.md gives the measured offset. fallbackMesh is used when the pack is not installed, but a gun on its fallback is not ready and is not offered."
+        },
+        "sockets": {
+          "muzzle": "Muzzle",
+          "eject": "Eject",
+          "sightRear": "SightRear",
+          "sightFront": "SightFront",
+          "pivot": "RecoilPivot",
+          "magHinge": "MagHinge",
+          "grip": "Palm_R",
+          "support": "Palm_L",
+          "note": "written on every variant by the socket pass of the pack import (LOADOUT.md 6.2); a fitted optic, muzzle device or grip replaces sightRear, muzzle and support (attachments.json presentation)"
+        },
+        "markers": {
+          "muzzle": [0, 0, -0.56],
+          "eject": [0.02, 0.02, -0.13],
+          "sightRear": [0, 0.066, -0.02],
+          "pivot": [0, -0.03, 0.06],
+          "grip": [0.0145, -0.085, -0.02],
+          "support": [-0.01, -0.05, -0.3]
+        },
+        "relief": 0.12,
+        "flash": {"star": 0.18, "jet": 0.3},
+        "poses": {
+          "sprint": [0.05, -0.2, -0.27, -0.32, 0.8, -0.3],
+          "reload": [0.05, -0.105, -0.31, 0.4, 0.34, -0.55],
+          "wall": [0.09, -0.15, -0.14, 0.62, 0.12, -0.1],
+          "holster": [0.2, -0.46, -0.2, -0.55, 0.25, -0.45]
+        },
+        "melee": [
+          [0, 0, 0, 0, 0, 0, 0],
+          [0.08, 0.05, -0.02, 0.07, 0.08, -0.3, 0.15],
+          [0.16, -0.13, 0.05, -0.2, -0.18, 1.2, -0.5],
+          [0.27, -0.14, 0.03, -0.16, -0.24, 1.3, -0.55],
+          [0.55, 0, 0, 0, 0, 0, 0]
+        ],
+        "parts": {
+          "bolt": {
+            "bone": null,
+            "axis": [0, 0, 1],
+            "travel": 0.08,
+            "back": 0.018,
+            "forward": 0.04,
+            "lockOnEmpty": true,
+            "releaseAt": "slideRelease",
+            "release": 0.03
+          },
+          "trigger": {"bone": null, "turn": 0.3},
+          "magazine": {"bone": null, "drop": [0, -0.13, 0.02], "out": "magOut", "show": "magShow", "in": "magIn"}
+        },
+        "notes": "provisional: STICK markers with the muzzle and the support hand moved back for the Short handguard; measured values come from ANIMATION.md",
+        "mesh": {"$variant": "stock"}
+      },
+      "variants": {
+        "about": "The base mesh by the stock slot (attachments.json stock_open / stock_folded). The asset names come from the Meshes/ listing of the pack (LOADOUT.md 6.2).",
+        "open": {"mesh": null, "packFile": "the Short handguard rifle, stock open", "status": "inPack"},
+        "folded": {"mesh": null, "packFile": "the Short handguard rifle, stock folded", "status": "inPack"}
+      },
+      "mounts": {
+        "optic": {"socket": "Optic", "status": "inPack"},
+        "muzzle": {"socket": "MuzzleMount", "status": "inPack"},
+        "underbarrel": {"socket": "Underbarrel", "status": "inPack"},
+        "laser": {"socket": "Laser", "status": "inPack"},
+        "magazine": {"socket": "MagHinge", "status": "inPack"},
+        "notes": "inPack: the place exists on the pack rifle but no socket is written yet. The socket pass of the pack import (LOADOUT.md 6.2) writes these names on every variant of this length; MurderInc.Loadout.MountsExist then checks them. A slot is offered only once its mount is exists. Stock has no socket: it is a variant of the whole mesh (variants)."
+      },
+      "art": {
+        "mesh": {
+          "asset": "variants",
+          "status": "see variants",
+          "notes": "The pack ships each handguard length as a whole rifle, with the stock open or folded. Fab licence: imported on the box, never committed."
+        },
+        "icon": {
+          "asset": "T_UI_Gun_Shorty",
+          "status": "missing",
+          "notes": "Rendered once per variant at import time on the box from the pack mesh (never committed: it is a picture of the pack's work)."
+        }
+      },
+      "clips": {
+        "set": "pack",
+        "byStatus": {
+          "procedural": ["IdleAds", "Walk", "Sprint", "CrouchIn", "CrouchOut", "AimIn", "AimOut", "Fire", "FireSemi", "FireAds", "FireLast", "Dry", "ReloadTactical", "ReloadEmpty", "Holster", "Draw", "MeleeBash"],
+          "inProgress": ["Idle", "ReloadQuick", "ReloadEmptyRetain", "Equip", "MeleeA", "MeleeB", "Inspect", "MagCheck", "ModeSemi", "ModeAuto", "TriggerOff", "GripNone", "GripVertical", "GripAngled", "GripChange"]
+        },
+        "upgrades": {
+          "IdleAds": "inProgress",
+          "Walk": "inProgress",
+          "Sprint": "inProgress",
+          "CrouchIn": "inProgress",
+          "CrouchOut": "inProgress",
+          "AimIn": "inProgress",
+          "AimOut": "inProgress",
+          "Fire": "inProgress",
+          "FireSemi": "inProgress",
+          "FireAds": "inProgress",
+          "FireLast": "inProgress",
+          "Dry": "inProgress",
+          "ReloadTactical": "inProgress",
+          "ReloadEmpty": "inProgress",
+          "Holster": "inProgress",
+          "Draw": "inProgress",
+          "MeleeBash": "inProgress"
+        },
+        "notes": "The pack's own clips, imported onto the mannequin skeleton by the animation agent (ANIMATION.md); they are authored for the Default rifle, so on SHORTY and STRETCH the left hand is moved to the variant's Palm_L by the support-hand IK. Until a clip lands the procedural rig plays the role, exactly as for the CHOPPER."
+      }
     },
     "stick": {
       "id": "stick",
       "class": "rifle",
       "text": "frontend.weapons.stick",
       "melee": "frontend.weapons.melee.stick",
-      "derivation": "From the CHOPPER (config.json weapons.chopper) by the factors in docs/unreal/LOADOUT.md 3.2.1: a lighter, faster round (damage x 0.85, rpm x 1.11), much less climb (recoil pitch x 0.75, weave x 0.7), a tighter aimed cone (spread.ads x 0.75), a longer gun with a full stock (adsTime 0.20, wallPull x 1.05). Magazine, reserve and range equal the CHOPPER's so the resupply rules hold.",
+      "parity": false,
+      "packLength": "Default",
+      "derivation": "The pack's Default handguard rifle, from the CHOPPER by the factors of LOADOUT.md 3.2.1: a lighter, faster round (damage 26 -> 21, rpm 720 -> 800), much less climb (recoil pitch x 0.75, weave x 0.7), a tighter aimed cone (spread.ads x 0.75), a longer gun with a full stock (adsTime 0.20, wallPull x 1.05). Magazine and range equal the CHOPPER's; reserve comes from the shared bag (guns.json ammo).",
       "rules": {
         "id": "stick",
         "name": "STICK",
-        "slot": 3,
+        "slot": 4,
         "auto": true,
-        "damage": 22,
+        "damage": 21,
         "rpm": 800,
         "magSize": 30,
         "reserve": 150,
@@ -135,15 +410,15 @@
           "secondShot": 1.15,
           "random": 0.1,
           "crouch": 0.88,
-          "ads": { "back": 0.75, "rot": 0.1, "pos": 0.9 },
-          "springs": { "back": [44, 0.55], "pitch": [36, 0.5], "yaw": [30, 0.45], "roll": [31, 0.42], "pos": [40, 0.5] },
+          "ads": {"back": 0.75, "rot": 0.1, "pos": 0.9},
+          "springs": {"back": [44, 0.55], "pitch": [36, 0.5], "yaw": [30, 0.45], "roll": [31, 0.42], "pos": [40, 0.5]},
           "arm": [0.55, 0.35]
         },
         "adsSpring": [23, 0.75],
         "swaySpring": [13.5, 0.64],
         "swayMax": 0.07,
-        "flash": { "scale": 0.9, "light": 40, "lightColor": "#ffb020", "lightRange": 9, "lightTtl": 0.05 },
-        "rumble": { "strong": 0.15, "weak": 0.45, "ms": 50 },
+        "flash": {"scale": 0.9, "light": 40, "lightColor": "#ffb020", "lightRange": 9, "lightTtl": 0.05},
+        "rumble": {"strong": 0.15, "weak": 0.45, "ms": 50},
         "wallPull": [1.1, 0.44],
         "inspectAfter": 24,
         "muzzleSmoke": true,
@@ -153,24 +428,26 @@
           [0.12, -0.085, -0.25, 0.05, 0.24, -0.3]
         ]
       },
-      "extra": {
-        "holster": null,
-        "draw": null,
-        "adsFov": null,
-        "adsLook": 1,
-        "noise": null,
-        "falloff": null,
-        "fireModes": ["auto", "semi"],
-        "semiFireBuffer": 0.13,
-        "modeSwitch": 0.35,
-        "resupply": null
-      },
+      "extra": {"fireModes": ["auto", "semi"], "modeSwitch": 0.35},
       "presentation": {
-        "mesh": "/Game/ThirdParty/InfimaTFA/Weapon/SK_TFA_AR_Default_Combined.SK_TFA_AR_Default_Combined",
         "fallbackMesh": "/Game/Weapons/Rifle/Meshes/SKM_Rifle.SKM_Rifle",
         "idle": "/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS.MF_Rifle_Idle_ADS",
-        "meshOffset": { "pos": [0, -0.1045, -0.0235], "rot": [0, 1.5708, 0], "note": "provisional: the pack's rifle hangs from ik_hand_gun with an identity transform (tools/box/anim/mi_anim.py), so its origin is in the grip like the template rifle's; ANIMATION.md gives the measured offset. fallbackMesh is used when the pack is not installed (a clean checkout: the pack is never committed)." },
-        "sockets": { "muzzle": "Muzzle", "eject": "Eject", "sightRear": "SightRear", "sightFront": "SightFront", "pivot": "RecoilPivot", "magHinge": "MagHinge", "grip": "Palm_R", "support": "Palm_L", "note": "added to the pack mesh by the import (ANIMATION.md); a fitted handguard, optic or muzzle device replaces sightRear, muzzle and support (attachments.json presentation)" },
+        "meshOffset": {
+          "pos": [0, -0.1045, -0.0235],
+          "rot": [0, 1.5708, 0],
+          "note": "provisional: the pack's rifle hangs from ik_hand_gun with an identity transform (tools/box/anim/mi_anim.py), so its origin is in the grip like the template rifle's; ANIMATION.md gives the measured offset. fallbackMesh is used when the pack is not installed, but a gun on its fallback is not ready and is not offered."
+        },
+        "sockets": {
+          "muzzle": "Muzzle",
+          "eject": "Eject",
+          "sightRear": "SightRear",
+          "sightFront": "SightFront",
+          "pivot": "RecoilPivot",
+          "magHinge": "MagHinge",
+          "grip": "Palm_R",
+          "support": "Palm_L",
+          "note": "written on every variant by the socket pass of the pack import (LOADOUT.md 6.2); a fitted optic, muzzle device or grip replaces sightRear, muzzle and support (attachments.json presentation)"
+        },
         "markers": {
           "muzzle": [0, 0, -0.66],
           "eject": [0.02, 0.02, -0.13],
@@ -180,7 +457,7 @@
           "support": [-0.01, -0.05, -0.36]
         },
         "relief": 0.12,
-        "flash": { "star": 0.18, "jet": 0.3 },
+        "flash": {"star": 0.18, "jet": 0.3},
         "poses": {
           "sprint": [0.05, -0.2, -0.27, -0.32, 0.8, -0.3],
           "reload": [0.05, -0.105, -0.31, 0.4, 0.34, -0.55],
@@ -195,43 +472,292 @@
           [0.55, 0, 0, 0, 0, 0, 0]
         ],
         "parts": {
-          "bolt": { "bone": null, "axis": [0, 0, 1], "travel": 0.08, "back": 0.018, "forward": 0.04, "lockOnEmpty": true, "releaseAt": "slideRelease", "release": 0.03 },
-          "trigger": { "bone": null, "turn": 0.3 },
-          "magazine": { "bone": null, "drop": [0, -0.13, 0.02], "out": "magOut", "show": "magShow", "in": "magIn" }
+          "bolt": {
+            "bone": null,
+            "axis": [0, 0, 1],
+            "travel": 0.08,
+            "back": 0.018,
+            "forward": 0.04,
+            "lockOnEmpty": true,
+            "releaseAt": "slideRelease",
+            "release": 0.03
+          },
+          "trigger": {"bone": null, "turn": 0.3},
+          "magazine": {"bone": null, "drop": [0, -0.13, 0.02], "out": "magOut", "show": "magShow", "in": "magIn"}
         },
-        "notes": "provisional markers for a 14.5 inch carbine with the Default handguard; poses and strike keys are the CHOPPER's (both are two-handed long guns). Bone names are null until ANIMATION.md lists the pack rifle's bones (a null bone is skipped, as a missing one is today). The pack's weapon-part clips drive the parts during reload, inspect, magazine check and the fire-mode switch; the procedural parts drive them while firing."
+        "notes": "provisional markers for the Default handguard; poses and strike keys are the CHOPPER's (both are two-handed long guns). Bone names are null until ANIMATION.md lists the pack rifle's bones (a null bone is skipped); measured values come from ANIMATION.md",
+        "mesh": {"$variant": "stock"}
+      },
+      "variants": {
+        "about": "The base mesh by the stock slot. Default_Combined is the only rifle imported today (tools/box/anim/ue_import_pack.py); the folded one comes from the Meshes/ listing (LOADOUT.md 6.2).",
+        "open": {
+          "mesh": "/Game/ThirdParty/InfimaTFA/Weapon/SK_TFA_AR_Default_Combined.SK_TFA_AR_Default_Combined",
+          "packFile": "Meshes/SK_TFA_AR_Default_Combined.fbx",
+          "status": "exists",
+          "notes": "on the box only. 'Combined' may bake the irons and the default parts into one mesh: the Meshes/ listing decides (LOADOUT.md 6.2)."
+        },
+        "folded": {"mesh": null, "packFile": "the Default handguard rifle, stock folded", "status": "inPack"}
       },
       "mounts": {
-        "optic": { "socket": "Optic", "status": "exists", "notes": "top rail of the pack rifle; socket name confirmed by the import" },
-        "muzzle": { "socket": "MuzzleMount", "byHandguard": true, "status": "exists" },
-        "underbarrel": { "socket": "Underbarrel", "byHandguard": true, "status": "exists" },
-        "laser": { "socket": "Laser", "byHandguard": true, "status": "exists" },
-        "magazine": { "socket": "MagHinge", "status": "exists" },
-        "handguard": { "socket": "Handguard", "status": "exists" },
-        "stock": { "socket": "Stock", "status": "exists" },
-        "notes": "byHandguard: the socket moves with the handguard length, so each handguard attachment carries its own copy of the socket (attachments.json hg_*.presentation.sockets). 'exists' means the part and its place exist in the pack; the socket names are written by the import script and checked by MurderInc.Loadout.DataLoads."
+        "optic": {"socket": "Optic", "status": "inPack"},
+        "muzzle": {"socket": "MuzzleMount", "status": "inPack"},
+        "underbarrel": {"socket": "Underbarrel", "status": "inPack"},
+        "laser": {"socket": "Laser", "status": "inPack"},
+        "magazine": {"socket": "MagHinge", "status": "inPack"},
+        "notes": "inPack: the place exists on the pack rifle but no socket is written yet. The socket pass of the pack import (LOADOUT.md 6.2) writes these names on every variant of this length; MurderInc.Loadout.MountsExist then checks them. A slot is offered only once its mount is exists. Stock has no socket: it is a variant of the whole mesh (variants)."
       },
       "art": {
-        "mesh": { "asset": "SK_TFA_AR_Default_Combined (pack)", "status": "exists", "notes": "Imported in the animation scratch project on the box (tools/box/anim/ue_import_pack.py, /Game/ThirdParty/InfimaTFA). Fab licence: used, never committed." },
-        "icon": { "asset": "T_UI_Gun_Stick", "status": "missing" }
+        "mesh": {
+          "asset": "variants",
+          "status": "see variants",
+          "notes": "The pack ships each handguard length as a whole rifle, with the stock open or folded. Fab licence: imported on the box, never committed."
+        },
+        "icon": {
+          "asset": "T_UI_Gun_Stick",
+          "status": "missing",
+          "notes": "Rendered once per variant at import time on the box from the pack mesh (never committed: it is a picture of the pack's work)."
+        }
       },
-      "clips": { "set": "stick", "status": "inProgress", "notes": "The pack's own clips on the mannequin skeleton: no adaptation needed (ANIMATION.md)." }
+      "clips": {
+        "set": "pack",
+        "byStatus": {
+          "procedural": ["IdleAds", "Walk", "Sprint", "CrouchIn", "CrouchOut", "AimIn", "AimOut", "Fire", "FireSemi", "FireAds", "FireLast", "Dry", "ReloadTactical", "ReloadEmpty", "Holster", "Draw", "MeleeBash"],
+          "inProgress": ["Idle", "ReloadQuick", "ReloadEmptyRetain", "Equip", "MeleeA", "MeleeB", "Inspect", "MagCheck", "ModeSemi", "ModeAuto", "TriggerOff", "GripNone", "GripVertical", "GripAngled", "GripChange"]
+        },
+        "upgrades": {
+          "IdleAds": "inProgress",
+          "Walk": "inProgress",
+          "Sprint": "inProgress",
+          "CrouchIn": "inProgress",
+          "CrouchOut": "inProgress",
+          "AimIn": "inProgress",
+          "AimOut": "inProgress",
+          "Fire": "inProgress",
+          "FireSemi": "inProgress",
+          "FireAds": "inProgress",
+          "FireLast": "inProgress",
+          "Dry": "inProgress",
+          "ReloadTactical": "inProgress",
+          "ReloadEmpty": "inProgress",
+          "Holster": "inProgress",
+          "Draw": "inProgress",
+          "MeleeBash": "inProgress"
+        },
+        "notes": "The pack's own clips, imported onto the mannequin skeleton by the animation agent (ANIMATION.md); they are authored for the Default rifle, so on SHORTY and STRETCH the left hand is moved to the variant's Palm_L by the support-hand IK. Until a clip lands the procedural rig plays the role, exactly as for the CHOPPER."
+      }
+    },
+    "stretch": {
+      "id": "stretch",
+      "class": "rifle",
+      "text": "frontend.weapons.stretch",
+      "melee": "frontend.weapons.melee.stretch",
+      "parity": false,
+      "packLength": "Extended",
+      "derivation": "The pack's Extended handguard rifle. From the STICK by the factors of LOADOUT.md 3.2.1: a longer barrel (damage 21 -> 25, rpm 800 -> 700: four rounds for a Hustler Goon, five for Boss, six for Kingpin, each with at least 11 % to spare), the steadiest gun (pitch, shake, rise, back x 0.92; aimed spread x 0.85); it pays with slow hands (adsTime x 1.1, holster and draw x 1.08), length near walls x 1.15 and sway x 1.1.",
+      "rules": {
+        "id": "stretch",
+        "name": "STRETCH",
+        "slot": 5,
+        "auto": true,
+        "damage": 25,
+        "rpm": 700,
+        "magSize": 30,
+        "reserve": 150,
+        "range": 300,
+        "adsTime": 0.22,
+        "dryReloadDelay": 0.32,
+        "reload": {
+          "tactical": 2.13,
+          "empty": 2.45,
+          "magOut": 0.38,
+          "magShow": 0.76,
+          "magInsert": 1.09,
+          "magIn": 1.37,
+          "tug": 1.49,
+          "slideRelease": 1.92,
+          "notes": "provisional: the CHOPPER's marks x 0.95 to the tug. No press check on a tactical reload; on an empty reload the bolt is locked back and the bolt catch closes it at slideRelease (the parser's name for 'the locked bolt or slide closes'). Retimed to the pack's reload notifies by ANIMATION.md."
+        },
+        "spread": {
+          "hip": 0.012,
+          "ads": 0.00077,
+          "moveHip": 0.013,
+          "moveAds": 0.0036,
+          "bloomHip": 0.0055,
+          "bloomAds": 0.0018,
+          "air": 0.022,
+          "crouch": 0.002,
+          "shot": 0.14,
+          "decay": 1.65
+        },
+        "recoil": {
+          "pitch": 0.0047,
+          "pitchRandom": [0.9, 1.1],
+          "lateFrom": 10,
+          "lateScale": 0.38,
+          "yawEarly": 0.0009,
+          "weaveFrom": 5,
+          "weaveAmp": 0.0029,
+          "weaveFreq": 0.57,
+          "weaveRandom": 0.0008,
+          "shake": 0.083
+        },
+        "kick": {
+          "back": 0.61,
+          "rise": 1.1,
+          "yaw": 0.38,
+          "roll": 0.68,
+          "up": 0.09,
+          "side": 0.07,
+          "firstShot": 1.3,
+          "secondShot": 1.15,
+          "random": 0.1,
+          "crouch": 0.88,
+          "ads": {"back": 0.75, "rot": 0.1, "pos": 0.9},
+          "springs": {"back": [44, 0.55], "pitch": [36, 0.5], "yaw": [30, 0.45], "roll": [31, 0.42], "pos": [40, 0.5]},
+          "arm": [0.55, 0.35]
+        },
+        "adsSpring": [23, 0.75],
+        "swaySpring": [13.5, 0.64],
+        "swayMax": 0.077,
+        "flash": {"scale": 0.9, "light": 40, "lightColor": "#ffb020", "lightRange": 9, "lightTtl": 0.05},
+        "rumble": {"strong": 0.15, "weak": 0.45, "ms": 50},
+        "wallPull": [1.27, 0.51],
+        "inspectAfter": 24,
+        "muzzleSmoke": true,
+        "views": [
+          [0.15, -0.09, -0.24, 0.05, 0.28, -0.35],
+          [0.17, -0.12, -0.3, 0.04, 0.22, -0.3],
+          [0.12, -0.085, -0.25, 0.05, 0.24, -0.3]
+        ]
+      },
+      "extra": {"fireModes": ["auto", "semi"], "modeSwitch": 0.35, "holster": 0.3, "draw": 0.35},
+      "presentation": {
+        "fallbackMesh": "/Game/Weapons/Rifle/Meshes/SKM_Rifle.SKM_Rifle",
+        "idle": "/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS.MF_Rifle_Idle_ADS",
+        "meshOffset": {
+          "pos": [0, -0.1045, -0.0235],
+          "rot": [0, 1.5708, 0],
+          "note": "provisional: the pack's rifle hangs from ik_hand_gun with an identity transform (tools/box/anim/mi_anim.py), so its origin is in the grip like the template rifle's; ANIMATION.md gives the measured offset. fallbackMesh is used when the pack is not installed, but a gun on its fallback is not ready and is not offered."
+        },
+        "sockets": {
+          "muzzle": "Muzzle",
+          "eject": "Eject",
+          "sightRear": "SightRear",
+          "sightFront": "SightFront",
+          "pivot": "RecoilPivot",
+          "magHinge": "MagHinge",
+          "grip": "Palm_R",
+          "support": "Palm_L",
+          "note": "written on every variant by the socket pass of the pack import (LOADOUT.md 6.2); a fitted optic, muzzle device or grip replaces sightRear, muzzle and support (attachments.json presentation)"
+        },
+        "markers": {
+          "muzzle": [0, 0, -0.78],
+          "eject": [0.02, 0.02, -0.13],
+          "sightRear": [0, 0.066, -0.02],
+          "pivot": [0, -0.03, 0.06],
+          "grip": [0.0145, -0.085, -0.02],
+          "support": [-0.01, -0.05, -0.42]
+        },
+        "relief": 0.12,
+        "flash": {"star": 0.18, "jet": 0.3},
+        "poses": {
+          "sprint": [0.05, -0.2, -0.27, -0.32, 0.8, -0.3],
+          "reload": [0.05, -0.105, -0.31, 0.4, 0.34, -0.55],
+          "wall": [0.09, -0.15, -0.14, 0.62, 0.12, -0.1],
+          "holster": [0.2, -0.46, -0.2, -0.55, 0.25, -0.45]
+        },
+        "melee": [
+          [0, 0, 0, 0, 0, 0, 0],
+          [0.08, 0.05, -0.02, 0.07, 0.08, -0.3, 0.15],
+          [0.16, -0.13, 0.05, -0.2, -0.18, 1.2, -0.5],
+          [0.27, -0.14, 0.03, -0.16, -0.24, 1.3, -0.55],
+          [0.55, 0, 0, 0, 0, 0, 0]
+        ],
+        "parts": {
+          "bolt": {
+            "bone": null,
+            "axis": [0, 0, 1],
+            "travel": 0.08,
+            "back": 0.018,
+            "forward": 0.04,
+            "lockOnEmpty": true,
+            "releaseAt": "slideRelease",
+            "release": 0.03
+          },
+          "trigger": {"bone": null, "turn": 0.3},
+          "magazine": {"bone": null, "drop": [0, -0.13, 0.02], "out": "magOut", "show": "magShow", "in": "magIn"}
+        },
+        "notes": "provisional: STICK markers with the muzzle and the support hand moved forward for the Extended handguard; measured values come from ANIMATION.md",
+        "mesh": {"$variant": "stock"}
+      },
+      "variants": {
+        "about": "The base mesh by the stock slot (LOADOUT.md 6.2).",
+        "open": {"mesh": null, "packFile": "the Extended handguard rifle, stock open", "status": "inPack"},
+        "folded": {"mesh": null, "packFile": "the Extended handguard rifle, stock folded", "status": "inPack"}
+      },
+      "mounts": {
+        "optic": {"socket": "Optic", "status": "inPack"},
+        "muzzle": {"socket": "MuzzleMount", "status": "inPack"},
+        "underbarrel": {"socket": "Underbarrel", "status": "inPack"},
+        "laser": {"socket": "Laser", "status": "inPack"},
+        "magazine": {"socket": "MagHinge", "status": "inPack"},
+        "notes": "inPack: the place exists on the pack rifle but no socket is written yet. The socket pass of the pack import (LOADOUT.md 6.2) writes these names on every variant of this length; MurderInc.Loadout.MountsExist then checks them. A slot is offered only once its mount is exists. Stock has no socket: it is a variant of the whole mesh (variants)."
+      },
+      "art": {
+        "mesh": {
+          "asset": "variants",
+          "status": "see variants",
+          "notes": "The pack ships each handguard length as a whole rifle, with the stock open or folded. Fab licence: imported on the box, never committed."
+        },
+        "icon": {
+          "asset": "T_UI_Gun_Stretch",
+          "status": "missing",
+          "notes": "Rendered once per variant at import time on the box from the pack mesh (never committed: it is a picture of the pack's work)."
+        }
+      },
+      "clips": {
+        "set": "pack",
+        "byStatus": {
+          "procedural": ["IdleAds", "Walk", "Sprint", "CrouchIn", "CrouchOut", "AimIn", "AimOut", "Fire", "FireSemi", "FireAds", "FireLast", "Dry", "ReloadTactical", "ReloadEmpty", "Holster", "Draw", "MeleeBash"],
+          "inProgress": ["Idle", "ReloadQuick", "ReloadEmptyRetain", "Equip", "MeleeA", "MeleeB", "Inspect", "MagCheck", "ModeSemi", "ModeAuto", "TriggerOff", "GripNone", "GripVertical", "GripAngled", "GripChange"]
+        },
+        "upgrades": {
+          "IdleAds": "inProgress",
+          "Walk": "inProgress",
+          "Sprint": "inProgress",
+          "CrouchIn": "inProgress",
+          "CrouchOut": "inProgress",
+          "AimIn": "inProgress",
+          "AimOut": "inProgress",
+          "Fire": "inProgress",
+          "FireSemi": "inProgress",
+          "FireAds": "inProgress",
+          "FireLast": "inProgress",
+          "Dry": "inProgress",
+          "ReloadTactical": "inProgress",
+          "ReloadEmpty": "inProgress",
+          "Holster": "inProgress",
+          "Draw": "inProgress",
+          "MeleeBash": "inProgress"
+        },
+        "notes": "The pack's own clips, imported onto the mannequin skeleton by the animation agent (ANIMATION.md); they are authored for the Default rifle, so on SHORTY and STRETCH the left hand is moved to the variant's Palm_L by the support-hand IK. Until a clip lands the procedural rig plays the role, exactly as for the CHOPPER."
+      }
     },
     "rattler": {
       "id": "rattler",
       "class": "smg",
       "text": "frontend.weapons.rattler",
       "melee": "frontend.weapons.melee.rattler",
-      "derivation": "The Goon's gun in the player's hands (docs/unreal/LOADOUT.md 3.2.2): rpm = 60 / enemies.goon.burstGap (0.11 s) = 545, the cadence the player already hears from every Goon; damage 30 = the NINE's 34 x 0.88 (the same class of round, automatic), which is exactly 3 rounds for a Hustler Goon's 90 HP; range 120 m and a damage falloff from 15 to 35 m (pistol-calibre, short barrel); spread, recoil and kick from the CHOPPER's by the factors of 3.2.2 (hip x 0.75, moving hip x 0.5, aimed x 2.5, pitch x 0.6, faster lateral buzz); quicker hands (adsTime 0.14 = the NINE's, holster 0.24 and draw 0.27 = common x 0.85).",
+      "derivation": "The Goon's gun in the player's hands (LOADOUT.md 3.2.2): rpm = 60 / enemies.goon.burstGap (0.11 s) = 545, the cadence the player already hears from every Goon; damage 25: four rounds for a Hustler Goon, five for Boss, six for Kingpin, every breakpoint with at least 11 % to spare, and never quicker than the CHOPPER; range 120 m and a falloff from 15 to 35 m down to 0.65 x; spread, recoil and kick from the CHOPPER's by the factors of 3.2.2; quicker hands (adsTime 0.14 = the NINE's, holster 0.24 and draw 0.27 = common x 0.85). Hidden from the rack until it is ready (guns.json ready).",
       "rules": {
         "id": "rattler",
         "name": "RATTLER",
-        "slot": 4,
+        "slot": 6,
         "auto": true,
-        "damage": 30,
+        "damage": 25,
         "rpm": 545,
         "magSize": 32,
-        "reserve": 128,
+        "reserve": 150,
         "range": 120,
         "adsTime": 0.14,
         "dryReloadDelay": 0.3,
@@ -282,15 +808,15 @@
           "secondShot": 1.1,
           "random": 0.16,
           "crouch": 0.9,
-          "ads": { "back": 0.8, "rot": 0.15, "pos": 0.85 },
-          "springs": { "back": [50, 0.55], "pitch": [41, 0.5], "yaw": [34, 0.45], "roll": [35, 0.42], "pos": [46, 0.5] },
+          "ads": {"back": 0.8, "rot": 0.15, "pos": 0.85},
+          "springs": {"back": [50, 0.55], "pitch": [41, 0.5], "yaw": [34, 0.45], "roll": [35, 0.42], "pos": [46, 0.5]},
           "arm": [0.6, 0.4]
         },
         "adsSpring": [27, 0.75],
         "swaySpring": [16, 0.62],
         "swayMax": 0.078,
-        "flash": { "scale": 0.7, "light": 34, "lightColor": "#ffb020", "lightRange": 8, "lightTtl": 0.05 },
-        "rumble": { "strong": 0.14, "weak": 0.42, "ms": 45 },
+        "flash": {"scale": 0.7, "light": 34, "lightColor": "#ffb020", "lightRange": 8, "lightTtl": 0.05},
+        "rumble": {"strong": 0.14, "weak": 0.42, "ms": 45},
         "wallPull": [0.85, 0.34],
         "inspectAfter": 24,
         "muzzleSmoke": false,
@@ -303,21 +829,29 @@
       "extra": {
         "holster": 0.24,
         "draw": 0.27,
-        "adsFov": null,
-        "adsLook": 1,
-        "noise": null,
-        "falloff": { "start": 15, "end": 35, "min": 0.65 },
+        "falloff": {"start": 15, "end": 35, "min": 0.65},
         "fireModes": ["auto", "semi"],
-        "semiFireBuffer": 0.13,
-        "modeSwitch": 0.3,
-        "resupply": { "rounds": 96, "cap": 256 }
+        "modeSwitch": 0.3
       },
       "presentation": {
         "mesh": "/Game/Weapons/Rifle/Meshes/SKM_Rifle.SKM_Rifle",
         "realMesh": "/Game/Weapons/Rattler/SK_Weapon_Rattler.SK_Weapon_Rattler",
         "idle": "/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS.MF_Rifle_Idle_ADS",
-        "meshOffset": { "pos": [0, -0.1045, -0.0235], "rot": [0, 1.5708, 0], "note": "the template rifle stands in, placed as for the CHOPPER; SK_Weapon_Rattler (origin on the bore at the back of the receiver, muzzle +X) needs pos [0, 0, 0]" },
-        "sockets": { "muzzle": "Muzzle", "eject": "Eject", "sightRear": "SightRear", "sightFront": "SightFront", "pivot": "RecoilPivot", "magHinge": "MagHinge", "grip": "Palm_R", "support": "Palm_L" },
+        "meshOffset": {
+          "pos": [0, -0.1045, -0.0235],
+          "rot": [0, 1.5708, 0],
+          "note": "the template rifle stands in, placed as for the CHOPPER; SK_Weapon_Rattler (origin on the bore at the back of the receiver, muzzle +X) needs pos [0, 0, 0]"
+        },
+        "sockets": {
+          "muzzle": "Muzzle",
+          "eject": "Eject",
+          "sightRear": "SightRear",
+          "sightFront": "SightFront",
+          "pivot": "RecoilPivot",
+          "magHinge": "MagHinge",
+          "grip": "Palm_R",
+          "support": "Palm_L"
+        },
         "markers": {
           "muzzle": [0, 0, -0.465],
           "eject": [0.023, 0.008, -0.165],
@@ -327,7 +861,7 @@
           "support": [0, -0.054, -0.25]
         },
         "relief": 0.18,
-        "flash": { "star": 0.14, "jet": 0.2 },
+        "flash": {"star": 0.14, "jet": 0.2},
         "poses": {
           "sprint": [0.05, -0.2, -0.28, -0.4, 0.75, -0.28],
           "reload": [0.05, -0.1, -0.31, 0.42, 0.33, -0.53],
@@ -342,64 +876,170 @@
           [0.55, 0, 0, 0, 0, 0, 0]
         ],
         "parts": {
-          "bolt": { "bone": "bolt", "axis": [0, 0, 1], "travel": 0.05, "back": 0.016, "forward": 0.036, "lockOnEmpty": false },
-          "trigger": { "bone": "trigger", "turn": 0.3 },
-          "magazine": { "bone": "magazine", "drop": [0, -0.14, 0.01], "out": "magOut", "show": "magShow", "in": "magIn" },
-          "boltReload": { "empty": [[1.67, 0], [1.76, 1], [1.83, 1], [1.86, 0]] }
+          "bolt": {
+            "bone": "bolt",
+            "axis": [0, 0, 1],
+            "travel": 0.05,
+            "back": 0.016,
+            "forward": 0.036,
+            "lockOnEmpty": false
+          },
+          "trigger": {"bone": "trigger", "turn": 0.3},
+          "magazine": {
+            "bone": "magazine",
+            "drop": [0, -0.14, 0.01],
+            "out": "magOut",
+            "show": "magShow",
+            "in": "magIn"
+          },
+          "boltReload": {"empty": [[1.67, 0], [1.76, 1], [1.83, 1], [1.86, 0]]}
         },
         "notes": "Markers from the Goon SMG's sockets (weapons.py build_enemy: Muzzle (0.385, 0, 0.042), SupportHand (0.17, 0, -0.012), origin at the firing hand, bore 0.042 above it) moved to a gun space with its origin on the bore at the back of the receiver (x -0.080): muzzle 0.465 ahead, support hand 0.25 ahead and 0.054 under the bore."
       },
       "mounts": {
-        "muzzle": { "socket": "MuzzleMount", "at": [0.41, 0.0, 0.0], "hide": ["MuzzleDevice"], "status": "missing", "notes": "Base of the slotted muzzle device (0.330 ... 0.390 in the enemy mesh's space). The device becomes its own bone MuzzleDevice." }
+        "muzzle": {
+          "socket": "MuzzleMount",
+          "at": [0.41, 0.0, 0.0],
+          "hide": ["MuzzleDevice"],
+          "status": "missing",
+          "notes": "Base of the slotted muzzle device (0.330 ... 0.390 in the enemy mesh's space). The device becomes its own bone MuzzleDevice."
+        }
       },
       "art": {
-        "mesh": { "asset": "SK_Weapon_Rattler", "status": "missing", "notes": "A skeletal, first-person-grade version of SM_Weapon_GoonSMG (which exists, static, 2K, enemy grade): bones bolt, trigger, magazine, cocking knob, MuzzleDevice; 4096 px set like the CHOPPER (art bible 2.11 first-person floor); sockets as presentation.sockets plus MuzzleMount. The Goon keeps SM_Weapon_GoonSMG; both share the silhouette and the material." },
-        "icon": { "asset": "T_UI_Gun_Rattler", "status": "missing" }
+        "mesh": {
+          "asset": "SK_Weapon_Rattler",
+          "status": "missing",
+          "notes": "A skeletal, first-person-grade version of SM_Weapon_GoonSMG (which exists, static, 2K, enemy grade): bones bolt, trigger, magazine, cocking knob, MuzzleDevice; 4096 px set like the CHOPPER (art bible 2.11 first-person floor); sockets as presentation.sockets plus MuzzleMount. The Goon keeps SM_Weapon_GoonSMG; both share the silhouette and the material.",
+          "standIn": "SKM_Rifle"
+        },
+        "icon": {"asset": "T_UI_Gun_Rattler", "status": "missing"}
       },
-      "clips": { "set": "rattler", "status": "missing", "notes": "The pack's rifle clips adapted to the stick magazine and the left cocking knob, like the CHOPPER's (ANIMATION.md)." }
+      "clips": {
+        "set": "rattler",
+        "byStatus": {
+          "procedural": ["IdleAds", "Walk", "Sprint", "CrouchIn", "CrouchOut", "AimIn", "AimOut", "Fire", "FireSemi", "FireAds", "FireLast", "Dry", "ReloadTactical", "ReloadEmpty", "Holster", "Draw", "MeleeBash"],
+          "missing": ["Idle", "Equip", "MeleeA", "MeleeB", "Inspect", "MagCheck", "ModeSemi", "ModeAuto", "TriggerOff"],
+          "notApplicable": ["ReloadQuick", "ReloadEmptyRetain", "GripNone", "GripVertical", "GripAngled", "GripChange"]
+        },
+        "notes": "Nobody has started its clips or its mesh. The rig could play it procedurally, but with no mesh it is not ready and the rack hides it."
+      },
+      "parity": false
     }
   },
   "clipRoles": {
-    "about": "The first-person states every gun needs a clip for, by role. The asset of a role is A_FP_<Set>_<Role> (spec 02 5.x naming; ANIMATION.md maps each pack clip onto it). Timed roles are stretched to the rules' length (play rate = clip length / rule length) with their notifies on the rules' marks: the rules are the clock, never the clip (ARCHITECTURE 1.3). A role a set lacks falls back as listed; a missing fallback plays nothing and changes no rule.",
+    "about": "The first-person states every gun needs a clip for, by role. The asset of a role is A_FP_<Set>_<Role> (spec 02 5.x naming; ANIMATION.md maps each pack clip onto it). Timed roles are stretched to the rules' length (play rate = clip length / rule length) with their notifies on the rules' marks: the rules are the clock, never the clip (ARCHITECTURE 1.3). A role a set lacks falls back as listed; a missing fallback plays nothing and changes no rule. A gun's `clips.byStatus` lists every role once (DataLoads checks it).",
     "roles": [
-      { "role": "Idle", "timed": false, "pack": "idle", "fallback": null },
-      { "role": "IdleAds", "timed": false, "pack": "aim idle", "fallback": "Idle" },
-      { "role": "Walk", "timed": false, "pack": "walk", "fallback": "Idle" },
-      { "role": "Sprint", "timed": false, "pack": "sprint", "fallback": "Walk" },
-      { "role": "CrouchIn", "timed": false, "pack": "crouch transition", "fallback": null },
-      { "role": "CrouchOut", "timed": false, "pack": "crouch transition", "fallback": null },
-      { "role": "AimIn", "timed": "adsTime", "pack": "aim in", "fallback": null },
-      { "role": "AimOut", "timed": "adsTime", "pack": "aim out", "fallback": null },
-      { "role": "Fire", "timed": false, "pack": "fire auto", "fallback": null },
-      { "role": "FireSemi", "timed": false, "pack": "fire semi", "fallback": "Fire" },
-      { "role": "FireAds", "timed": false, "pack": "fire aimed", "fallback": "Fire" },
-      { "role": "FireLast", "timed": false, "pack": "fire empty", "fallback": "Fire" },
-      { "role": "Dry", "timed": false, "pack": null, "fallback": null },
-      { "role": "ReloadTactical", "timed": "reload.tactical", "pack": "reload", "fallback": null },
-      { "role": "ReloadEmpty", "timed": "reload.empty", "pack": "reload empty", "fallback": "ReloadTactical" },
-      { "role": "Holster", "timed": "holster", "pack": "holster", "fallback": null },
-      { "role": "Draw", "timed": "draw", "pack": "quick equip", "fallback": null },
-      { "role": "Equip", "timed": false, "pack": "equip", "fallback": "Draw", "use": "the showroom and the first frame of the briefing only" },
-      { "role": "MeleeA", "timed": "melee.duration", "pack": "melee swing 1", "fallback": "MeleeBash" },
-      { "role": "MeleeB", "timed": "melee.duration", "pack": "melee swing 2", "fallback": "MeleeA" },
-      { "role": "MeleeBash", "timed": "melee.duration", "pack": "melee bash", "fallback": null },
-      { "role": "Inspect", "timed": false, "pack": "inspect", "fallback": null },
-      { "role": "MagCheck", "timed": false, "pack": "magazine check", "fallback": null },
-      { "role": "ModeSemi", "timed": "modeSwitch", "pack": "fire-mode switch", "fallback": null },
-      { "role": "ModeAuto", "timed": "modeSwitch", "pack": "fire-mode switch", "fallback": "ModeSemi" },
-      { "role": "TriggerOff", "timed": false, "pack": "trigger discipline", "fallback": null, "use": "additive finger pose while not firing" },
-      { "role": "GripNone", "timed": false, "pack": "pose (handguard hold)", "fallback": null, "use": "left-hand pose per underbarrel" },
-      { "role": "GripVertical", "timed": false, "pack": "pose (vertical grip)", "fallback": "GripNone" },
-      { "role": "GripAngled", "timed": false, "pack": "pose (angled grip)", "fallback": "GripNone" },
-      { "role": "GripChange", "timed": false, "pack": "grip change", "fallback": null, "use": "the workbench, when an underbarrel is fitted" }
+      {"role": "Idle", "timed": false, "pack": "idle", "fallback": null},
+      {"role": "IdleAds", "timed": false, "pack": "aim idle", "fallback": "Idle"},
+      {"role": "Walk", "timed": false, "pack": "walk", "fallback": "Idle"},
+      {"role": "Sprint", "timed": false, "pack": "sprint", "fallback": "Walk"},
+      {"role": "CrouchIn", "timed": false, "pack": "crouch transition", "fallback": null},
+      {"role": "CrouchOut", "timed": false, "pack": "crouch transition", "fallback": null},
+      {"role": "AimIn", "timed": "adsTime", "pack": "aim in", "fallback": null},
+      {"role": "AimOut", "timed": "adsTime", "pack": "aim out", "fallback": null},
+      {"role": "Fire", "timed": false, "pack": "fire auto", "fallback": null},
+      {"role": "FireSemi", "timed": false, "pack": "fire semi", "fallback": "Fire"},
+      {"role": "FireAds", "timed": false, "pack": "fire aimed", "fallback": "Fire"},
+      {"role": "FireLast", "timed": false, "pack": "fire empty", "fallback": "Fire"},
+      {
+        "role": "Dry",
+        "timed": false,
+        "pack": "jam clearance (tap-rack), first 0.3 s",
+        "fallback": null,
+        "use": "presentation of a dry trigger with an empty magazine; blends out when the auto reload starts (dryReloadDelay); no rule change, no draw"
+      },
+      {"role": "ReloadTactical", "timed": "reload.tactical", "pack": "reload", "fallback": null},
+      {"role": "ReloadEmpty", "timed": "reload.empty", "pack": "reload empty", "fallback": "ReloadTactical"},
+      {
+        "role": "ReloadQuick",
+        "timed": "reload.tactical",
+        "pack": "quick reload",
+        "fallback": "ReloadTactical",
+        "use": "plays for ReloadTactical when the resolved reloadTime factor is below 0.95 (the clear magazine)"
+      },
+      {
+        "role": "ReloadEmptyRetain",
+        "timed": "reload.empty",
+        "pack": "empty-retain reload",
+        "fallback": "ReloadEmpty",
+        "use": "plays for ReloadEmpty when the clear magazine is fitted: you keep that magazine"
+      },
+      {"role": "Holster", "timed": "holster", "pack": "holster", "fallback": null},
+      {"role": "Draw", "timed": "draw", "pack": "quick equip", "fallback": null},
+      {
+        "role": "Equip",
+        "timed": false,
+        "pack": "equip",
+        "fallback": "IdleAds",
+        "use": "the Crew stage and the first frame of the briefing only"
+      },
+      {"role": "MeleeA", "timed": "melee.duration", "pack": "melee swing 1", "fallback": "MeleeBash"},
+      {"role": "MeleeB", "timed": "melee.duration", "pack": "melee swing 2", "fallback": "MeleeA"},
+      {"role": "MeleeBash", "timed": "melee.duration", "pack": "melee bash", "fallback": null},
+      {
+        "role": "Inspect",
+        "timed": false,
+        "pack": "inspect",
+        "fallback": null,
+        "use": "missing: the Crew stage plays IdleAds with the rig's sway and the HUD hides the inspect prompt"
+      },
+      {"role": "MagCheck", "timed": false, "pack": "magazine check", "fallback": null},
+      {
+        "role": "ModeSemi",
+        "timed": "modeSwitch",
+        "pack": "fire-mode switch",
+        "fallback": null,
+        "use": "missing: the selector rule still runs and the HUD tag flips; the hands stay still"
+      },
+      {
+        "role": "ModeAuto",
+        "timed": "modeSwitch",
+        "pack": "fire-mode switch",
+        "fallback": "ModeSemi",
+        "use": "missing: the selector rule still runs and the HUD tag flips; the hands stay still"
+      },
+      {
+        "role": "TriggerOff",
+        "timed": false,
+        "pack": "trigger discipline",
+        "fallback": null,
+        "use": "additive finger pose while not firing"
+      },
+      {
+        "role": "GripNone",
+        "timed": false,
+        "pack": "pose (handguard hold)",
+        "fallback": null,
+        "use": "left-hand pose per underbarrel"
+      },
+      {"role": "GripVertical", "timed": false, "pack": "pose (vertical grip)", "fallback": "GripNone"},
+      {"role": "GripAngled", "timed": false, "pack": "pose (angled grip)", "fallback": "GripNone"},
+      {
+        "role": "GripChange",
+        "timed": false,
+        "pack": "grip change",
+        "fallback": null,
+        "use": "the workbench, when an underbarrel is fitted"
+      }
     ],
-    "notUsed": [
-      { "pack": "jam clearance (three)", "why": "no jam rule exists and a random jam would add a draw to the weapon stream (golden parity) and punish the player for nothing they did" },
-      { "pack": "heal with a syringe", "why": "health regenerates (config player.health); a healing item needs pickups and an inventory the game does not have" },
-      { "pack": "quick grenade throw", "why": "no grenades; the only explosives are the block's propane tanks and welding racks" },
-      { "pack": "quick reload, empty-retain reload", "why": "the rules have one tactical and one empty reload per gun; a second timing per state is a rules change waiting for a design reason" },
-      { "pack": "aimed reloads, aimed magazine check", "why": "the rules lower the sight during every reload (aim is blocked while busy, spec 02); aimed reloads would change that" },
-      { "pack": "third-person clips", "why": "the player has no body in the world; kept for a future full-body crew preview or a Goon carrying the STICK" }
+    "notYet": [
+      {
+        "pack": "aimed reloads (normal, quick, empty, empty-retain), aimed magazine check",
+        "why": "the rules lower the sight during every reload (aim is blocked while busy, spec 02); aimed reloads would change that rule. Open question 8."
+      },
+      {
+        "pack": "the other two jam clearances",
+        "why": "one tap-rack is the Dry role; a jam rule would add a random draw and punish the player for nothing they did. Open question 8."
+      },
+      {
+        "pack": "heal with a syringe",
+        "why": "health regenerates (config player.health); a healing item needs pickups and an inventory. Open question 8."
+      },
+      {"pack": "quick grenade throw", "why": "no grenades; the block's explosives are props. Open question 8."},
+      {
+        "pack": "third-person clips",
+        "why": "the player has no body in the world; kept for a full-body crew preview or a Goon carrying a pack rifle. Open question 8."
+      }
     ]
   }
 }

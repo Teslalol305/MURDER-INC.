@@ -1,49 +1,72 @@
 # Loadout: crew, four guns, attachments, block and style
 
-The design an engineer implements next: from the home screen the player picks a **crew member**, a **loadout of up
-to four guns** with **attachments**, a **level** and a **game style** (with difficulty and time of day), reads a
-**briefing** and plays. Everything is data. Adding a gun means adding entries, and so does adding an attachment, a
-crew member or a level.
+The design an engineer implements next. From the home screen the player picks a **crew member**, a **loadout of up to
+four guns** with **attachments**, then the **level and the game style** (with difficulty and time of day), reads a
+**briefing** and plays. Everything is data: a gun, an attachment, a crew member or a level is added by adding entries.
 
 | File | What it holds |
 |---|---|
-| `unreal/MurderInc/Content/Data/guns.json` | The roster: four guns, their rule numbers, presentation, mounts, art and clip status, and the clip roles (3.2, 5, 6.1) |
-| `unreal/MurderInc/Content/Data/attachments.json` | Seven slots, the stats an attachment may change, thirteen attachments with their effects, and the per-gun compatibility table (3.3) |
-| `unreal/MurderInc/Content/Data/crew.json` | Four crew members as looks on the same arms (3.4) |
-| `unreal/MurderInc/Content/Data/levels.json` | Levels with what they provide, and modes with what they need (3.5) |
-| `unreal/MurderInc/Content/Data/frontend.json` | Screens, transitions, the 3D stage, new inputs, the weapon wheel, the four-slot bar, the save schema (2, 4, 7) |
-| `unreal/MurderInc/Content/Data/frontend_text.json` | Every new string, keyed as it will sit in `text.json` (2.12) |
+| `unreal/MurderInc/Content/Data/guns.json` | The roster (six guns), the `ready` gate, the shared ammunition bag, rule numbers, presentation, stock variants, mounts, and the status of every clip role per gun (3.2, 5, 6) |
+| `unreal/MurderInc/Content/Data/attachments.json` | Six slots, the stats an attachment may change with a clamp per target, ten pack parts with their effects, the trade check, per-gun compatibility (3.3) |
+| `unreal/MurderInc/Content/Data/crew.json` | Four crew members as looks on the same arms, in two art phases (3.4) |
+| `unreal/MurderInc/Content/Data/levels.json` | Levels with what they provide, modes with what they need (3.5) |
+| `unreal/MurderInc/Content/Data/frontend.json` | Screens, shortcuts, transitions, the 3D stage, new inputs, the weapon wheel, the weapon bar, the save schema (2, 4, 7) |
+| `unreal/MurderInc/Content/Data/frontend_text.json` | Every new string, keyed as it will sit in `text.json` (2.11) |
 
-Read with: `GAMEPLAY.md` (the code as built, whose class names this page uses), spec 02 (weapons), spec 04 (flow),
-spec 07 (HUD and menus), `CHARACTERS.md` (the arms), and `ANIMATION.md` (being written: the pack's clips on the
-mannequin). No file under `Source/` or any existing `Content/Data` file is changed by this design. Section 4.9 lists
-the changes the engineer makes there.
+Read with `GAMEPLAY.md` (the code as built; this page uses its class names), spec 02 (weapons), spec 04 (flow), spec 07
+(HUD and menus), `CHARACTERS.md` (the arms) and `ANIMATION.md` (being written: the pack's clips on the mannequin). This
+design changes no file under `Source/` and no existing `Content/Data` file; 4.9 lists what the engineer changes there.
+
+---
+
+## Read this first: what the pack holds, and what the player can pick
+
+**The pack holds one rifle.** The "Tactical FPS Animation Pack - Assault Rifle" is one M4-style carbine. It comes in
+three handguard lengths (Short, Default, Extended), each with the stock open or folded, and eight add-on parts: angled
+grip, vertical grip, laser, scope, folding irons, silencer, standard and transparent magazine.
+
+**Decision: the three lengths are three guns** (this was open question 1). They are the **SHORTY**, the **STICK** and
+the **STRETCH**, each with its own numbers and no handguard slot. With our **CHOPPER** and **NINE** and the **RATTLER**
+(the Goon's gun) the roster is six.
+
+**What that means for the player:** once the pack is fully imported on the box (6.2), the player picks up to four guns
+out of five. Today the box offers three (CHOPPER, NINE, STICK). The RATTLER stays hidden until its mesh exists (3.2). In a clean checkout, which never contains the pack, only the
+CHOPPER and the NINE are offered, so the player picks one or two of two. The screen is titled "Pick up to four".
+
+**Nothing on the Workbench can be shown yet.** The pack import brings in one combined rifle and one magazine. It brings
+in no part mesh, no other length, no folded stock and no socket. Section 6.2 is the plan that fixes this, and it comes
+before the gun assembly in the build order (9). Until then no slot is offered, so the Workbench says "No parts on
+this gun yet" instead of showing parts that cannot be seen.
+
+The other choice, one STICK with the handguard as an attachment slot, is kept as open question 1.
 
 ---
 
 ## 0. The design on one page
 
-- **The roster has four guns.** The **CHOPPER** and the **NINE** are unchanged. The **STICK** is the pack's carbine
-  ("stick" is street for a rifle). Its three handguard lengths and two stock positions are attachments, so the whole
-  pack is one gun with every build. The **RATTLER** is the Goon's submachine gun in the player's hands. The player
-  carries up to four of them, in an order he chooses, plus melee.
-- **Attachments** go in seven slots: optic, muzzle, underbarrel, laser, magazine, handguard, stock. There are
-  thirteen parts, all from the pack. They fit the STICK, and also fit our own guns where a mount exists: a scope and
-  a silencer on the CHOPPER, a laser on the NINE, a silencer on the RATTLER. Every part has a benefit and a cost, and
-  each effect is a single legible number in data (3.3).
-- **The crew has four members.** Rule plus three placeholder crew built on Rule's arms (DEUCE, SMOKE, KEYS). They
-  are cosmetic. The radio and the death card say the chosen member's name.
-- **The flow runs** Home → Crew → Loadout (⇄ Workbench) → Block (with time of day) → Style (with difficulty) →
-  Briefing → intro. Back works everywhere. Every choice is saved. **Same set-up** on Home, Enter and gamepad Start
-  start a run at once with the remembered set-up, which keeps the one-press start of the web title. **Change set-up**
-  on the death and debrief cards opens the Loadout screen.
-- **Parity holds.** The default set-up is Rule, the CHOPPER and the NINE with no attachments, on the block, in Story
-  or Hold the Block. It resolves to exactly the `FMIWeaponsData` that `config.json` gives today. Every new rule field
-  defaults to the web value, no new random draw is added, and every new input does nothing unless pressed. The
-  golden tests replay through the new path unchanged (8.1).
-- **Four guns in the rules.** `FMIWeaponRules` learns slots 1 to 4, a quick swap to the last gun used, next and
-  previous, a wheel, per-gun holster and draw times, per-gun resupply and a semi/auto selector. The host learns damage
-  falloff, a noise radius and the aimed field of view per gun (4).
+- **Six guns, up to four carried.** The CHOPPER and the NINE play exactly as on the web. The three pack rifles each
+  get one clear edge (3.2). The RATTLER is designed, but hidden until its art exists. A gun is offered only when it is
+  **ready**: its mesh exists and its core motion plays. The parity guns are always offered.
+- **Carrying more costs something.** Every gun with a finite reserve draws on **one shared bag of rounds**, which
+  starts at 150 and gets the web's 90 per Hold the Block wave (cap 240). Extra long guns bring only their loaded
+  magazines. The economy that Hold the Block's wave scaling was tuned for stays the web's (3.2.3).
+- **Attachments** go in six slots: optic, muzzle, underbarrel, laser, magazine, stock. There are ten parts, all from
+  the pack. Every part has a balanced trade that `DataLoads` checks. A stat change is resolved on the gun's JSON in web
+  units *before* parsing, so a gun with no parts is its JSON untouched (3.3, 3.7). Our own guns take a scope and a
+  silencer (CHOPPER), a laser (NINE) or a silencer (RATTLER), but only once those mounts are built (6.6).
+- **The crew has four members:** Rule, plus DEUCE, SMOKE and KEYS as looks on Rule's arms. A member's card shows only
+  once its look exists. The first looks need only material instances (3.4). The crew is cosmetic.
+- **The flow** runs Home → Crew → Loadout (⇄ Workbench) → Block & Style → Briefing → intro, five presses for a first
+  run. Home keeps the web title's Mode, Difficulty and Time pickers. **Hit the block** starts a run at once with the
+  remembered set-up; the very first time it opens Crew instead, so every player sees the flow once. **Gear up** opens
+  the flow. Change set-up after a run opens the Briefing (2).
+- **Parity holds by construction.** The default set-up is Rule with the CHOPPER and the NINE, no parts, on the block.
+  It resolves to the very JSON `config.json` holds today and parses through the same code. With one or two guns, Q, Y,
+  the mouse wheel and the D-pad behave as on the web. No new random draw is added. The golden tests replay through the
+  new path unchanged (1.2, 8.1).
+- **Four guns in the rules.** `FMIWeaponRules` gains slots 1 to 4, quick swap to the last gun used, next and
+  previous, per-gun holster and draw times, the shared bag and a semi/auto selector. The host gains damage falloff, a
+  noise radius and the aimed field of view per gun (4).
 
 ---
 
@@ -53,38 +76,39 @@ the changes the engineer makes there.
 
 | Area | New |
 |---|---|
-| Front end | Six set-up screens inside the flow's `title` state, a 3D stage with a turntable, a saved set-up |
-| Guns | STICK, RATTLER; carrying 1 to 4 guns; fire modes; inspect; magazine check |
-| Attachments | 13 parts in 7 slots, a per-gun compatibility table, stat effects resolved before the run |
-| Rules | Per-gun holster, draw, aimed field of view, aimed look scale, noise radius, damage falloff, resupply, fire modes; four-gun switching |
+| Front end | Five set-up screens (six when a second level exists) inside the flow's `title` state; a 3D stage with a turntable; a saved set-up; Home shortcuts |
+| Guns | SHORTY, STICK, STRETCH, RATTLER (hidden); carrying 1 to 4 guns; the `ready` gate; fire modes; inspect; magazine check |
+| Attachments | 10 parts in 6 slots, a per-gun compatibility table gated on mounts, effects resolved before the run |
+| Rules | Per-gun holster, draw, aimed field of view and look scale, noise radius, damage falloff, fire modes; the shared bag; four-gun switching |
 | Crew | Four looks on the same arms; radio and card lines with the crew member's name |
 | Levels and modes | A data index of levels and modes, with a "needs / provides" check |
 
 ### 1.2 The parity set-up
 
-`frontend.json parity`: crew `rule`, guns `[chopper, nine]`, no builds, level `block`, mode, difficulty and time
-from the existing settings (defaults `mission`, `boss`, `day`). A first start uses it, and so does any saved set-up
-that fails validation (7). With it, the run must be the web game frame for frame:
+`frontend.json parity`: crew `rule`, guns `[chopper, nine]`, no parts, level `block`, and mode, difficulty and time
+from the existing settings (defaults `mission`, `boss`, `day`). A first start uses it. So does any saved set-up that
+fails validation, and so does a failed load of the new files (3.1). With it, the run must be the web game frame for
+frame:
 
-1. **Same data.** `FMILoadoutResolver` (3.7) returns `FMIWeaponsData` equal field by field to
-   `UMIDataSubsystem::GetWeapons()`: the same guns in the same order (`weapons.common.order`), the same numbers, the
-   same `Common` and `Melee`. Every new field of `FMIWeaponDef` equals the value the web code uses implicitly:
-   - `Holster` and `Draw` = `common.holster` / `common.draw`
-   - `AdsFov` = `player.fov.ads`
-   - `AdsLook` = 1
-   - `NoiseRadius` = `enemies.ai.hear.gunfire`
-   - falloff start = end = +∞, min = 1
-   - `FireModes` starts in `auto` for the CHOPPER (it may switch to semi, but only when pressed) and is `[semi]`
-     for the NINE
-   - resupply = `flow.holdout.resupply`
-2. **Same arithmetic.** A default value never enters a formula in a way that changes a double. Falloff is skipped
-   when the distance is at most the start (+∞), not multiplied by a computed 1. Per-gun holster and draw replace the
+1. **Same data.** `FMILoadoutResolver` (3.7) builds the gun's JSON from the `$ref` into `config.json`, applies no
+   effect (no part is fitted), and parses it with the same `ParseGun` and view parser that read `config.json` today.
+   Its `FMIWeaponsData` therefore equals `UMIDataSubsystem::GetWeapons()` field by field. The new fields are filled from
+   `guns.json extraDefaults`, which are refs to the values the web code uses implicitly:
+   - `Holster` and `Draw`: `weapons.common.holster` / `.draw`.
+   - `AdsFov`: `player.fov.ads`. `AdsLook` is 1.
+   - `NoiseRadius`: `enemies.ai.hear.gunfire`, which `ParseGun` converts to cm like every other distance.
+   - Falloff: start = end = +∞, min = 1.
+   - `FireModes`: `[auto, semi]` for the CHOPPER and `[semi]` for the NINE. **Every run starts each gun in
+     `fireModes[0]`.** No fire mode is saved.
+   - Ammunition: the CHOPPER is the only finite gun, so the bag *is* its reserve (150, then the flow's 90 / 240).
+2. **Same arithmetic.** A default never enters a formula in a way that changes a double. Falloff is skipped while the
+   distance is at most the start (+∞); it is not multiplied by a computed 1. Per-gun holster and draw replace the
    common values in the same expressions.
-3. **Same random draws.** No new draw from the `weapon` stream, nor any other. Effects are resolved before the run.
-   The selector, inspect and magazine check use no randomness. The alternation of the two melee swings is presentation
-   and uses a counter.
-4. **Same inputs.** With two guns, the new meanings of Q, the wheel and the D-pad (4.2) pick exactly the gun the web
-   game picked. Keys 3 and 4, B, T and View do nothing in the rules unless pressed. Inspect and magazine check never
+3. **Same random draws.** No new draw from the `weapon` stream, nor any other. Effects are resolved before the run. The
+   selector, inspect and magazine check use no randomness. The alternation of the two melee swings uses a counter.
+4. **Same inputs.** With one or two guns there is no weapon wheel: Q and Y swap on press, exactly as today. The mouse
+   wheel and D-pad ↑ ↓ become next and previous. With two guns these give the gun the web's swap gave, under the same
+   `wheelDebounce`. Keys 3 and 4, B, T and View do nothing in the rules unless pressed. Inspect and magazine check never
    write rule state.
 5. **Same events.** No new event fires in a parity run. The `weapon:fire` payload gains fields that the golden test
    does not compare (`NoiseRadius`, `bSuppressed`).
@@ -93,17 +117,15 @@ that fails validation (7). With it, the run must be the web game frame for frame
 
 ### 1.3 Where this design departs from the brief
 
-1. **Four slots, two guns in the default.** The brief says the player carries four guns *and* that the default set-up
-   is the CHOPPER and the NINE. Both hold if a set-up may carry one to four guns. The default carries two, and the
-   Loadout screen offers four slots. This is required for parity: with four guns, Q from the NINE would go to slot 3,
-   not back to the CHOPPER. (Open question 2.)
-2. **Handguard length trades handling against recoil and *accuracy at range*, not range.** The block is 92 × 68 m and
-   every gun reaches 120 m or more, so a `range` change would never be felt. Long and short handguards change aimed
-   spread, kick and a damage falloff past 25 m instead.
-3. **Time of day sits on the Block screen.** It is a property of the place, and the stage behind the Block screen is
-   the block itself, which switches between day and night live. Difficulty stays with the game style, as the brief
-   says.
-4. **The briefing is skipped by Same set-up.** One press from Home starts the run, as Enter did on the web title.
+1. **Four slots, two guns in the default.** The player may carry one to four guns. The default carries two, because
+   parity needs it: with four guns, Q from the NINE would go to the last gun used, not always to the CHOPPER.
+2. **"All the guns in the pack" are three guns made from one rifle** (see Read this first).
+3. **The handguard length trades handling against recoil and accuracy at range, not range.** The block is 92 × 68 m and
+   every rifle reaches 300 m, so a range change would never be felt. Instead, the short gun pays with kick, a wider
+   aimed cone and damage falloff past 20 m. The long gun pays with slower hands.
+4. **Mode, difficulty and time stay on Home** as on the web. Block & Style shows them too. Both write the same settings.
+5. **Block and Style are one screen** while there is one level (it has one card). A second level splits it again.
+6. **Carrying four guns has a cost:** the shared bag (3.2.3).
 
 ---
 
@@ -112,30 +134,29 @@ that fails validation (7). With it, the run must be the web game frame for frame
 ### 2.1 State diagram
 
 Every set-up screen is a sub-screen of the flow's existing `title` state (spec 04 3.2). The flow's state machine, its
-events and its golden values are untouched. A run still begins with `start()` (T2), and the run reset (spec 04 3.3)
-reads the set-up instead of the fixed guns (4.9).
+events and its golden values are untouched. A run still begins with `start()` (T2). The run reset (spec 04 3.3) reads
+the set-up instead of the fixed guns (4.9).
 
 ```mermaid
 stateDiagram-v2
     state title {
         [*] --> Home
-        Home --> Crew: Hit the block
+        Home --> Crew: Gear up / Hit the block (first time only)
+        Home --> Loadout: a summary link (edit mode; also Crew, Where)
         Crew --> Home: Back
         Crew --> Loadout: Next
         Loadout --> Crew: Back
         Loadout --> Workbench: Attachments (on a gun)
         Workbench --> Loadout: Done / Back
-        Loadout --> Block: Next (at least one gun)
-        Block --> Loadout: Back
-        Block --> Style: Next
-        Style --> Block: Back
-        Style --> Briefing: Next
-        Briefing --> Style: Back
-        Briefing --> Crew: Change (crew line)
-        Briefing --> Loadout: Change (loadout line)
-        Briefing --> Block: Change (block line)
+        Loadout --> Where: Next (at least one gun)
+        Where --> Loadout: Back
+        Where --> Briefing: Next
+        Briefing --> Where: Back
+        Briefing --> Crew: Change (edit mode)
+        Briefing --> Loadout: Change (edit mode)
+        Briefing --> Where: Change (edit mode)
     }
-    title --> intro: Hit the block (Briefing) / Same set-up, Enter, Start (Home)
+    title --> intro: Hit the block (Home, once played; Briefing)
     intro --> playing
     playing --> paused
     paused --> playing: Resume
@@ -145,216 +166,213 @@ stateDiagram-v2
     playing --> complete: Story, at the truck
     dead --> intro: Run it back (same set-up)
     complete --> intro: Run it back (same set-up)
-    dead --> title: Back to title (Home) / Change set-up (Loadout)
-    complete --> title: Back to title (Home) / Change set-up (Loadout)
+    dead --> title: Back to title (Home) / Change set-up (Briefing)
+    complete --> title: Back to title (Home) / Change set-up (Briefing)
 ```
 
-`Change set-up` first does what `toTitle()` does (spec 04 3.4), then opens the Loadout screen instead of Home. The
-set-up is saved on every Next and on every start, so it is remembered whichever way the player leaves (edges with
-`remember` in `frontend.json transitions`). The pause card has no way back to the set-up, as in the web game.
+`Where` is the Block & Style screen (`frontend.json screens.where`, `merge: [level, style]`). With a second level in
+`levels.json` it splits into Block (step 3) and Style (step 4), and the step strip gets five bullets.
+
+`Change set-up` first does what `toTitle()` does (spec 04 3.4), then opens the Briefing, whose Change links reach every
+screen. The set-up is saved on every Next and every start, so it is remembered whichever way the player leaves (edges
+marked `remember` in `frontend.json transitions`). The pause card has no way back to the set-up, as in the web game.
+
+**Presses** (each click, key or button counts one):
+
+| Player | Path | Presses |
+|---|---|---|
+| First run, defaults | Hit the block (opens Crew) → Next → Next → Next → Hit the block | 5 |
+| Returning, same set-up | Hit the block | 1 |
+| Returning, Hold the Block instead of Story | Home mode picker → Hit the block | 2 |
+| After a death, drop to Hustler | Back to title → Home difficulty picker → Hit the block | 3 |
+| After a death, swap a gun | Change set-up → Change on Carrying → pick → Done → Hit the block | 5 |
 
 ### 2.2 The frame every set-up screen shares
 
 | Part | Rule |
 |---|---|
-| Layout | Letterbox bars and the left-to-right veil of the title (spec 07 4.4). The left 40 % holds the screen's controls; the rest shows the 3D stage (2.11). Safe zone and the HUD's scaling rule (spec 07 4.2) |
-| Step strip | Top left: five route bullets (spec 07 2.3) numbered 1 to 5 in the line colours (`line1`, `line2`, `line3`, `lineIpx`, `gold`), labelled `frontend.steps.labels`. Done steps are filled; the current one has the focus ring; a done step can be clicked to jump back |
+| Layout | Letterbox bars and the left-to-right veil of the title (spec 07 4.4). The left 40 % holds the controls; the rest shows the 3D stage (2.10). Safe zone and HUD scaling as spec 07 4.2 |
+| Step strip | Top left: route bullets (spec 07 2.3) in the line colours, labelled `frontend.steps.labels` (four) or `.labelsSplit` (five). Done steps are filled; the current one has the focus ring. A done step can always be clicked. Once the set-up is valid, every step can be clicked, forward too |
 | Kicker and title | `frontend.<screen>.kicker` (small, `inkDim`, uppercase) over `frontend.<screen>.title` (display font) |
-| Bottom bar | `Back` (quiet button, left, with its glyph: Esc / B) and `Next` (primary button, right, with Enter / A or Start). Next is disabled with its reason as a note when the screen is not complete (`frontend.loadout.needOne`) |
+| Bottom bar | `Back` (quiet button, left, glyph Esc / B) and `Next` (primary, right, glyph Enter / Start). Next is disabled with its reason as a note when the screen is incomplete (`frontend.loadout.needOne`). In edit mode Next reads `Done` and returns to the Briefing |
+| Shortcut | Ctrl+Enter, or Start on a pad, jumps to the Briefing from any set-up screen when the set-up is valid (`frontend.json navigation`) |
+| Inputs common to all | A, Enter, Space and a left click always activate the focused control. Start, or Enter on Next, always advances. B, Esc and the Back button go back. In a single-choice row (time, mode, difficulty) moving the focus selects, so A there means Next. No action that loses work is on a tap: Reset build is a 0.6 s hold |
 | Memory | Every screen opens with the saved choice selected and focused |
 | Sound and focus | `ui_hover` and `ui_click` as on the title (spec 07 3.17); gamepad focus ring; the focus never leaves the screen |
 | Reduced motion | The turntable does not spin by itself; camera moves cut instead of easing |
 
 ### 2.3 Home
 
-**Shows:** The web title as it is (eyebrow, wordmark, star line, premise, `Settings`, `Controls`, the controls glance
-strip, the fly-through behind it). The three pickers (Mode, Difficulty, Time) move to the Block and Style screens.
-In their place:
+**Shows:** the web title as it is: eyebrow, wordmark, star line, premise, the **Mode, Difficulty and Time pickers**
+(they write the settings at once, as on the web), `Settings`, `Controls`, the controls glance strip, and the
+fly-through behind it. Added:
 
-- the primary button `Hit the block`, which opens Crew;
-- the button `Same set-up`, with the summary line under it (`frontend.home.summary`, for example
-  `RULE · CHOPPER / NINE · The Block · Story · Boss`), or `frontend.home.firstTime` before the first run.
-
-**3D:** The title fly-through (spec 04 3.4), unchanged.
+- **`Hit the block`**, the primary button, focused on arrival. Under it is the summary line `frontend.home.summary`,
+  for example `RULE · CHOPPER / NINE · The Block · Day · Story · Boss`. Each part of the summary is a link that opens
+  its screen in edit mode. Hit the block starts the run at once with the remembered set-up. **While `save.played` is
+  false it opens Crew instead**, under the note `frontend.home.firstTime`, so a first-time player, mouse or pad, always
+  sees the flow the user asked for.
+- **`Gear up`**, a quiet button, which opens Crew.
 
 | Input | Mouse | Keyboard | Gamepad |
 |---|---|---|---|
-| Set-up flow | click `Hit the block` | Tab to it, Enter | focus it, A |
-| Same set-up | click `Same set-up` | **Enter** with nothing focused (as the web title did) | **Start** (as the web title did), or focus it and A |
-| Settings, Controls | click | Tab, Enter | focus, A |
+| Hit the block | click | **Enter** with nothing else focused (as the web title) | **Start** (as the web title), or A on it |
+| Gear up | click | Tab to it, Enter | focus it, A |
+| A summary part | click it | Tab to it, Enter | focus it, A |
+| Pickers, Settings, Controls | click | Tab, arrows, Enter | focus, A |
 
-**Texts:** `frontend.home.start`, `.same`, `.summary`, `.firstTime`; the rest are the existing `text.title.*`.
+On the web title and on the Briefing, `Hit the block` starts a run. Home now does the same (after the first time), so
+the label keeps its meaning.
+
+**Texts:** `frontend.home.start`, `.setup`, `.summary`, `.firstTime`; everything else is the existing `text.title.*`.
 
 ### 2.4 Crew
 
-**Shows:** A row of crew cards in `crew.json order`, each with a portrait (a 2D card of the arms on the bench, never a
-face), the name and the tagline. The note `frontend.crew.note` ("Looks only. Everybody shoots the same.") sits under
-the row. A crew member whose art is missing still shows, with Rule's arms and its placeholder portrait (6.3).
+**Shows:** one card per *offered* member in `crew.json order`, with a portrait (a 2D card of the arms on the bench,
+never a face), the name and the tagline. A member is offered when every asset of its phase-1 `look` exists. Rule is
+always offered. The card shows `tagline` (phase 1), or `taglineFull` once phase 2 exists, so the words describe only
+what is on screen. `frontend.crew.note`: "Looks only. Everybody shoots the same." With Rule the only member offered,
+the screen still shows (one card), because it is the user's first step.
 
-**3D:** The stage camera `arms` (2.11). The chosen member's arms, in first-person framing, hold the first carried gun
-and loop its `Inspect` clip, so the gloves, sleeves and jewellery turn in the light. When the choice changes, the
-arms swap behind a 0.15 s dip to black. Dragging orbits the camera up to 35°.
+**3D:** the stage camera `arms` (2.10) sits **at the first-person eye**, with the viewmodel field of view (54°). It
+orbits 10° at most, and a vignette and the sleeve edge frame the view, so the closed shoulder caps of `SK_RuleArms` are
+never seen (`CHARACTERS.md`, Proof in Unreal). The arms hold the first carried gun and play its `Inspect` clip if it
+exists. Otherwise they play `IdleAds` with the rig's procedural sway. For the CHOPPER, Inspect is missing today (6.1).
+When the choice changes, the arms swap behind a 0.15 s dip to black.
 
 | Input | Mouse | Keyboard | Gamepad |
 |---|---|---|---|
-| Choose | click a card | Left / Right | D-pad or stick left / right |
+| Choose | click a card | Left / Right (focus selects) | D-pad or stick left / right |
 | Orbit | drag the stage | none | right stick |
-| Next | Next | Enter | A or Start |
-| Back | Back, right-click | Esc | B |
-
-**Texts:** `frontend.crew.kicker`, `.title`, `.note`, `.<id>.name`, `.<id>.tagline`.
+| Next / Back | buttons | Enter / Esc | A or Start / B |
 
 ### 2.5 Loadout (the rack)
 
 **Shows:**
 
-- **Left, the rack:** class tabs (`All`, `Rifles`, `SMGs`, `Pistols`, `New`; `frontend.loadout.filters`). Under
-  them is a grid of gun cards, three columns wide, which scrolls when there are more than twelve. Each card shows:
-  - the silhouette;
+- **Left, the rack:** class tabs (`All`, `Rifles`, `SMGs`, `Pistols`, `New`), then a grid of gun cards three wide,
+  which scrolls past twelve. Only *offered* guns appear (3.2 `ready`). With `mi.Setup.ShowUnready 1` the others appear
+  too, tagged `DEV`. Each card shows:
+  - the silhouette (`T_UI_Gun_*`, or the name in the display font until it exists);
   - the name and the class;
-  - six stat bars (Damage, Rate, Control, Handling, Aimed, Hip fire; see the formulas below), computed from the
-    gun's *current build*, so a built gun reads truthfully;
-  - the magazine (or `∞` reserve) and `SEMI` for a semi-only gun;
-  - the number of attachment slots (`frontend.loadout.slots`);
+  - six stat bars computed from the gun's *current build*;
+  - the magazine (`∞` for the NINE) and `SEMI` for a semi-only gun;
+  - the number of offered attachment slots, or `No attachments`;
   - a wrench button that opens the Workbench;
-  - `NEW` until the player has focused the card once (save `seen`).
+  - `NEW` until the card has been focused once (save `seen`).
 
-  A carried gun shows `Carried · slot n` and stays selectable: selecting it focuses its slot. The tab row is what
-  makes a roster of forty usable: each pack adds one rifle, and the class tabs, the scroll and `New` find it.
-- **Right, the four slots**, top to bottom, `Slot 1` to `Slot 4`. Each shows the carried gun's silhouette, name,
-  attachment pips and key glyph (1 to 4), or `Empty` with `Pick a gun from the rack`. The fixed melee slot
-  (`text.weapons.melee.<gun of slot 1>`) sits below them.
-- `Carry up to four. Melee comes with you.` above the slots. `All four slots are full: pick a slot to swap out`
-  appears when the player picks a gun with every slot full.
+  A carried gun shows `Carried · slot n` and stays selectable: selecting it focuses its slot.
+- **Right, the four slots**, `Slot 1` to `Slot 4`. Each shows the carried gun's silhouette, name, attachment pips and
+  key glyph, or `Empty` with `Pick a gun from the rack`. The melee slot (`text.weapons.melee.<gun of slot 1>`) sits
+  below them. Above them: `Carry up to four. Melee comes with you.` and `Long guns share one bag of rounds.`
 
-**3D:** The turntable (2.11) shows the focused gun (the focused card, else the focused slot) with its build, slowly
-spinning. Changing the focus swaps the gun with a 0.2 s scale-out and scale-in on the turntable.
+**3D:** the turntable (2.10) shows the focused gun with its build, slowly spinning. A focus change swaps the gun with a
+0.2 s scale-out and scale-in.
 
-**Rules of the slots** (`frontend.json carry`): from one to four guns; no duplicates; slots always fill 1..n with no
-gap (emptying slot 2 of three moves slot 3 up). Next is disabled with `Carry at least one gun` at zero.
+**Rules of the slots** (`frontend.json carry`): one to four guns, no duplicates, and the slots always fill 1..n with no
+gap (emptying slot 2 of three moves slot 3 up). At zero guns, Next is disabled with `Carry at least one gun`.
 
 | Input | Mouse | Keyboard | Gamepad |
 |---|---|---|---|
-| Carry a gun | click its card: it goes in the first empty slot; with all four full, in the selected slot | Enter on the card | A on the card |
-| Put in a given slot | drag the card onto the slot | 1, 2, 3, 4 on the focused card | select the slot (A), then A on a card |
+| Carry a gun | click its card (first empty slot; with all four full, the selected slot) | Enter or Space on the card | A on the card |
+| Put in a given slot | drag the card onto the slot | 1–4 on the focused card | A on a slot, then A on a card |
 | Reorder | drag a slot onto another (they swap) | Shift + Up / Down on a slot | LB / RB on a slot |
-| Empty a slot | right-click it | Delete | X |
-| Attachments | the wrench, or double-click a slot | Space | Y |
+| Empty a slot | right-click the slot (right-click elsewhere does nothing) | Delete | X |
+| Attachments | the wrench, or double-click | E | Y |
 | Turn, zoom | drag, wheel | none | right stick, LT / RT |
 | Switch panes | none | Tab | D-pad across |
 | Next / Back | buttons | Enter on Next / Esc | Start / B |
 
-Stat bars (`frontend.loadout.stats`). Each fills from 0 to 1 and is clamped. The units are those of `config.json`.
+**Stat bars** (`frontend.loadout.stats`), each filled 0 to 1 and clamped. The numbers are those of the resolved JSON
+(web units):
 
 | Bar | Fill |
 |---|---|
 | Damage | damage / 40 |
-| Rate | rpm / 900 (a semi-only gun shows `SEMI` and the bar for its rpm) |
+| Kill speed | 1 − (t − 0.2) / 0.4, where t is the time to drop a Goon of the current difficulty with body shots at 10 m (3.2). This bar is what makes the CHOPPER's edge visible |
 | Control | 1 − (recoil.pitch − 0.002) / 0.008 |
-| Handling | 1 − (adsTime − 0.10) / 0.25, averaged with 1 − (draw − 0.2) / 0.25 |
+| Handling | the average of 1 − (adsTime − 0.10) / 0.25 and 1 − (draw − 0.2) / 0.25 |
 | Aimed | 1 − (spread.ads − 0.0005) / 0.0035 |
 | Hip fire | 1 − (spread.hip − 0.006) / 0.010 |
 
-**Texts:** `frontend.loadout.*` (kicker, title, carry, slot, empty, emptyHint, carried, needOne, full, attachments,
-remove, move, new, filters, classes, stats, slots, noSlots); gun names and blurbs (`text.weapons.*` and
-`frontend.weapons.*`).
-
 ### 2.6 Workbench (attachments)
 
-Opened from the rack for one gun. It edits the build of a gun whether or not that gun is carried; builds are kept
-per gun (7).
+Opened from the rack for one gun. It edits that gun's build whether or not the gun is carried. Builds are kept per gun
+(7).
 
 **Shows:**
 
-- A title, `Build the {gun}`, with arrows (and a strip of the carried guns) to move to the previous or next carried
-  gun without leaving the screen.
-- **Slot tabs**, only those the gun has (`attachments.json compatibility.<gun>`), in slot order.
-- **The options of the chosen slot:** `Factory` (when the slot is not `required`, with its note "What it came with.
-  No change.") and each compatible attachment, with its name and its blurb in the game's voice.
-- **For the focused option**, its effect lines, generated from data (`frontend.effects.*`: `+35% aim time`,
-  `Heard 18 m out`, `Damage drops past 25 m`). Each line is green when better and red when worse, by the stat's
-  `better`. A neutral line (the scope's `Aimed view 30°`) is `ink`. The panel also compares the six stat bars, before
-  and after, as ghost and fill.
-- `Fitted` on the option in use, and `Reset build` (every slot back to its `default`).
+- `Build the {gun}`, with arrows and a strip of the carried guns to move between them without leaving.
+- **Slot tabs**, only for the slots that are offered on this gun: listed in `attachments.json compatibility.<gun>`,
+  with the mount `exists` (or, for the stock, the variant `exists`). If no slot is offered (today the CHOPPER, the
+  NINE and every gun in a clean checkout), the screen says `frontend.attachments.noPartsYet` and its note, and Done.
+- **The options of the chosen slot:** `Factory` (when the slot is not `required`: "What it came with. No change.") and
+  each offered part, with its name and blurb.
+- **For the focused option, its effect lines,** generated from data (`frontend.effects.*`). Each line starts with ▲
+  (better) or ▼ (worse), or • (neutral, such as the scope's `Aimed view 30° (from 52°)`), and is also green or red, so
+  the meaning never rests on colour alone. Lines with no sign carry the gun's own value: `▲ Heard 18 m out (from 45 m)`.
+  The panel also compares the six stat bars, before and after, as ghost and fill.
+- `Fitted` on the option in use, and `Hold to reset build` (every slot back to its `default`; a 0.6 s hold).
 
-**3D:** The turntable gun with the build. Choosing a slot tab eases the camera to that slot's focus (`frontend.json
-stage.cameras.focus`, 0.4 s). Focusing an option previews it on the gun at once, before it is fitted, with a 0.25 s
-slide into its socket. Leaving the option without fitting puts the fitted part back. Fitting an underbarrel plays the
-hands' `GripChange` clip on the arms when the stage shows them (the Workbench shows the gun alone). The irons fold
-down when an optic is fitted.
+**3D:** the turntable gun with the build. Choosing a slot tab eases the camera to that slot's focus (`frontend.json
+stage.cameras.focus`, 0.4 s). Focusing an option previews it on the gun at once, before it is fitted: an add-on part
+slides into its socket in 0.25 s, and a stock option swaps the base mesh under a 0.15 s dip (3.3). Leaving the option
+without fitting puts the fitted part back. The irons fold down when the scope is fitted, if they are a separate part
+(6.2).
 
 | Input | Mouse | Keyboard | Gamepad |
 |---|---|---|---|
 | Slot | click a tab | Left / Right | D-pad left / right |
-| Option | hover previews, click fits | Up / Down previews, Enter fits | D-pad up / down previews, A fits |
+| Option | hover previews, click fits | Up / Down previews, Enter or Space fits | D-pad up / down previews, A fits |
 | Factory part | click `Factory` | Backspace | X |
-| Previous / next gun | the arrows, the strip | Q / E | LB / RB |
-| Reset build | button | R | Y |
+| Previous / next carried gun | arrows, strip | [ / ] | LB / RB |
+| Reset build | hold the button 0.6 s | hold R 0.6 s | hold Y 0.6 s |
 | Turn, zoom | drag, wheel | none | right stick, LT / RT |
 | Done | Done or Back | Esc | B |
 
-**Texts:** `frontend.attachments.*` (kicker, title, slots, factory, factoryNote, fit, fitted, reset, done, better,
-worse, noChange, items.<id>.name and .blurb); `frontend.effects.*`.
+### 2.7 Block & Style
 
-### 2.7 Block (level and time)
+**Shows:** four rows on one screen (`frontend.where`):
 
-**Shows:** One card per level in `levels.json order`, with its name, blurb, place line and the modes it plays
-(`Plays Story · Hold the Block`). There is one card today. The row is a carousel built for more and shows only real
-levels, with no "coming soon" placeholders. Under the cards is the time picker, `Day` / `Night`, a segmented control
-with the notes `text.interface.title.timeNotes`.
+1. **Level:** one card per level in `levels.json order`, with its name, blurb, place line and the modes it plays. There
+   is one card today. There are no "coming soon" placeholders.
+2. **Time:** `Day` / `Night`, with `text.interface.title.timeNotes`.
+3. **Mode:** one card per mode the level provides (3.5), with `text.modes.<id>.name` and `.note`. Hold the Block shows
+   `Best 12,345` (the saved best).
+4. **Difficulty:** `Hustler` / `Boss` / `Kingpin`, with `frontend.mode.difficultyNotes` and `text.notes.difficulty`.
 
-**3D:** The title fly-through of the chosen level, if that level is the map that is loaded. The time switches live, as
-the web title did (the sky rig switches at once). A level that is not loaded shows its `preview.thumbnail` full screen
-behind the veil.
+Every row writes its setting at once, the same settings as the Home pickers.
 
-| Input | Mouse | Keyboard | Gamepad |
-|---|---|---|---|
-| Level | click a card | Left / Right | D-pad left / right |
-| Time | click Day / Night | Down to the picker, Left / Right | D-pad down, left / right |
-| Next / Back | buttons | Enter / Esc | A or Start / B |
-
-Choosing a level other than the loaded map is remembered. The world travels to that level's map only on Hit the
-block: the loading screen (spec 07 4.2 boot) shows, and the new map's flow enters `intro` directly with the saved
-set-up.
-
-**Texts:** `frontend.level.kicker`, `.title`, `.time`, `.times`, `.modes`; `frontend.levels.<id>.name`, `.blurb`;
-`text.interface.title.timeNotes`.
-
-### 2.8 Style (game style and difficulty)
-
-**Shows:** One card per mode the level provides (3.5), with the name and the note (`text.modes.<id>.name`, `.note`):
-Story and Hold the Block. The Hold the Block card shows `Best 12,345` (the saved best score). Under the cards is the
-difficulty, `Hustler` / `Boss` / `Kingpin`, with a one-line note per tier (`frontend.mode.difficultyNotes`) and the
-existing `text.notes.difficulty`. Both write the existing settings `mode` and `difficulty` at once, as the web pickers
-did.
-
-**3D:** The fly-through, which keeps running.
+**3D:** the title fly-through of the chosen level, if that level is the map that is loaded. The time switches live, as
+on the web title. A level that is not loaded shows its `preview.thumbnail` behind the veil. A chosen level that is not
+the loaded map is remembered, and the world travels to it on Hit the block: the loading screen (spec 07 4.2 boot)
+shows, and the new map's flow enters `intro` directly with the saved set-up.
 
 | Input | Mouse | Keyboard | Gamepad |
 |---|---|---|---|
-| Mode | click a card | Left / Right | D-pad left / right |
-| Difficulty | click | Down, Left / Right | D-pad down, left / right |
+| Row | none | Up / Down | D-pad up / down |
+| Choose in a row | click | Left / Right (focus selects) | D-pad left / right |
 | Next / Back | buttons | Enter / Esc | A or Start / B |
 
-**Texts:** `frontend.mode.kicker`, `.title`, `.difficulty`, `.best`, `.difficultyNotes`; `text.modes.*`,
-`text.difficulties.*`, `text.notes.difficulty`.
+With a second level the screen splits into Block (rows 1–2) and Style (rows 3–4), as `frontend.json screens.level` and
+`.style`.
 
-### 2.9 Briefing
+### 2.8 Briefing
 
-**Shows:** The IPX Vault's plan as a card (`IPX Vault · The plan`, `Here's how it goes`). It has four lines, each with
-a `Change` link:
+**Shows:** the IPX Vault's plan as a card (`IPX Vault · The plan`, `Here's how it goes`), with four lines, each with a
+`Change` link that opens its screen in edit mode:
 
 - **Crew:** the portrait and the name.
 - **Carrying:** the guns in slot order with their attachment pips.
 - **Block:** the place line for the chosen time (`text.location.byTime`).
-- **Style:** the mode, the difficulty and the tagline (`text.location.tagline` / `taglineHoldout`).
+- **Style:** the mode, the difficulty and the mode's tagline (`text.location.tagline` / `taglineHoldout`).
 
-Under them is the radio intro of the mode for the chosen crew member (3.4), as a quoted Vault line, and the controls
-glance strip with the new rows (`frontend.controls`).
+The radio intro is not printed, because the intro plays it a moment later. The controls glance strip gets the new rows
+(`frontend.controls`). The wheel rows are shown only with three or more guns.
 
-**3D:** The player's own first-person camera at the level's `playerStart`, the chosen arms holding the first carried
-gun, which plays its `Equip` clip once. `Hit the block` starts the full intro (spec 04 3.5) from this exact view: the
-first frame of play is the last frame of the briefing.
+**3D:** the player's own first-person camera at the level's `playerStart`. The chosen arms hold the first carried gun
+and play `Equip` once, or `IdleAds` when Equip is missing. `Hit the block` starts the full intro (spec 04 3.5) from
+this exact view.
 
 | Input | Mouse | Keyboard | Gamepad |
 |---|---|---|---|
@@ -362,55 +380,50 @@ first frame of play is the last frame of the briefing.
 | Change a line | `Change` | Up / Down to it, Enter | D-pad to it, A |
 | Back | Back | Esc | B |
 
-**Texts:** `frontend.briefing.*`; `frontend.crewLines.*` or `text.radio.intro` / `introHoldout`.
-
-### 2.10 After a run
+### 2.9 After a run
 
 The death card (`dead`) and the debrief card (`complete`) gain `Change set-up` (`frontend.cards.changeSetup`) between
-`Run it back` and `Back to title`. The focus orders become `Run it back`, `Change set-up`, `Back to title`.
-`Run it back` and `Restart run` keep the whole set-up. The kicker `Rule down` uses `frontend.crewLines.deadKicker` for
-the other crew.
+`Run it back` and `Back to title`. It opens the Briefing. `Run it back` and `Restart run` keep the whole set-up. For
+the other crew, the kicker `Rule down` becomes `frontend.crewLines.deadKicker`.
 
-### 2.11 The 3D stage
+### 2.10 The 3D stage
 
-- **Where.** `AMIShowroom` is an actor spawned at run time at `frontend.json stage.origin` (1 km above the block's
-  origin), so the project still needs no binary assets (ARCHITECTURE 1.1 rule 4). Its closed room keeps out the
-  block's sun, sky light and fog; at 1 km the height fog is negligible. Its own lights and a fixed-exposure post
-  volume bounded by the room light it. Everything is a placeholder for the art pass. A level may later name a place
-  inside itself (`levels.json provides.showroom`, for example the chop shop's bench), and the stage then uses it.
-- **Who owns the view.** On Crew, Loadout and Workbench the front end puts the view on the stage's camera, as the
-  title camera does on Home. On Block and Style the fly-through returns. On the Briefing the player's own camera
-  takes over. These are view-target changes with a 0.3 s fade through black, never two renders.
-- **The turntable** (`stage.turntable`) spins 18°/s until touched, resumes 3 s after the last touch, turns 0.35° per
-  dragged pixel or 120°/s at full right stick, clamps the pitch to −25° … 35° and zooms 0.65 × … 1.6 ×. A fitted part
-  slides into its socket in 0.25 s.
+- **Where.** `AMIShowroom` is an actor spawned at run time at `frontend.json stage.origin`, 1 km above the block's
+  origin, so the project still needs no binary assets (ARCHITECTURE 1.1 rule 4). Its closed room keeps out the block's
+  sun, sky light and fog. Its own lights and a fixed-exposure post volume bounded by the room light it. Every value is
+  a placeholder for the art pass. A level may later name a place inside itself (`levels.json provides.showroom`).
+- **Who owns the view.** On Crew, Loadout and Workbench the front end puts the view on the stage's cameras, as the
+  title camera does on Home. On Block & Style the fly-through returns. On the Briefing the player's own camera takes
+  over. These are view-target changes with a 0.3 s fade through black, never two renders.
+- **The turntable** (`stage.turntable`) spins 18°/s until touched and resumes 3 s after the last touch. It turns 0.35°
+  per dragged pixel or 120°/s at full right stick, clamps the pitch to −25° … 35° and zooms 0.65 × … 1.6 ×.
 - **What you see is what you carry.** The showroom and the first-person gun build the gun with the same
-  `UMIGunAssembly` component: the gun mesh, one child mesh per fitted attachment at its mount socket, the hidden parts
-  (`mounts.<slot>.hide`), and the marker overrides (4.5). A part with a null mesh shows nothing, and the build still
-  resolves.
+  `UMIGunAssembly` component: the **base mesh of the build's variant** (the stock slot picks it), one child mesh per
+  fitted add-on part at its mount socket, the hidden parts (`mounts.<slot>.hide`) and the marker overrides (4.5). A
+  slot whose mount does not exist is not offered, so no fitted part can be invisible.
 
-### 2.12 Text keys
+### 2.11 Text keys
 
-All new strings are in `frontend_text.json`, keyed as `frontend.*`, the way they will sit in `text.json`. They are
-kept separate because `text.json` is written by `tools/ue-export` from the web game. The loader reads both; a
+All new strings are in `frontend_text.json`, keyed `frontend.*` as they will sit in `text.json`. They are kept
+separate because `text.json` is written by `tools/ue-export` from the web game. The loader reads both, and a
 `frontend` key never shadows a `text.json` key. Templates use the `{"$template": ...}` form of `text.json`.
 
 | Group | Keys |
 |---|---|
-| Home | `frontend.home.start`, `.same`, `.summary`, `.firstTime` |
-| Frame | `frontend.steps.labels`, `.of`, `.next`, `.back` |
-| Crew | `frontend.crew.kicker`, `.title`, `.note`, `.{rule,deuce,smoke,keys}.{name,tagline}` |
-| Loadout | `frontend.loadout.*` (2.5) |
-| Workbench | `frontend.attachments.*`, `frontend.effects.*` (2.6) |
-| Block | `frontend.level.*`, `frontend.levels.block.*` |
-| Style | `frontend.mode.*` |
+| Home | `frontend.home.start`, `.setup`, `.summary` (with `{time}`), `.firstTime` |
+| Frame | `frontend.steps.labels`, `.labelsSplit`, `.of`, `.next`, `.back`, `.done` |
+| Crew | `frontend.crew.kicker`, `.title`, `.note`, `.<id>.name`, `.tagline`, `.taglineFull` |
+| Loadout | `frontend.loadout.*`, including `.title` "Pick up to four", `.devTag`, `.bag`, `.stats.kill` |
+| Workbench | `frontend.attachments.*` (with `.noPartsYet`), `frontend.effects.*` (each line starts with `{mark}`) |
+| Block & Style | `frontend.where.*`, `frontend.level.*`, `frontend.levels.block.*`, `frontend.mode.*` |
 | Briefing | `frontend.briefing.*` |
-| Cards | `frontend.cards.changeSetup`; `frontend.crewLines.deadKicker` |
-| Radio | `frontend.crewLines.radioIntro`, `.radioIntroHoldout`, `.radioDone` |
-| Guns | `frontend.weapons.{stick,rattler}.{name,blurb}`, `frontend.weapons.melee.{stick,rattler}` |
-| HUD | `frontend.hud.modes.{auto,semi}`, `.wheel`, `.empty` |
-| Glyphs | `frontend.glyphs.{kbm,pad,touch}.{weapon3,weapon4,fireMode,inspect,wheel}` |
-| Controls drawer | `frontend.controls.{kbm,pad}` (rows added after "Swap weapon") |
+| Cards, radio | `frontend.cards.changeSetup`; `frontend.crewLines.deadKicker`, `.radioIntro`, `.radioIntroHoldout`, `.radioDone` |
+| Guns | `frontend.weapons.{shorty,stick,stretch,rattler}.{name,blurb}`, `frontend.weapons.melee.*` |
+| HUD, glyphs, controls | `frontend.hud.modes.*`, `.wheel`, `.empty`, `.bag`; `frontend.glyphs.*`; `frontend.controls.{kbm,pad}` |
+
+Text rules kept from `text.json`: gun blurbs have no closing full stop. A crew role never contradicts the story: the
+radio calls Keys *from* the Vault, so KEYS "knows every lock on the Ave". DEUCE "goes in first", because the crew goes
+in on foot and Story ends at the IPX truck.
 
 ---
 
@@ -418,73 +431,95 @@ kept separate because `text.json` is written by `tools/ue-export` from the web g
 
 ### 3.1 Loading
 
-`UMIDataSubsystem` loads the six new files after `config.json` and `presentation.json`, into a new
-`FMILoadoutData` (`Core/Data/MILoadoutData.h`) next to `FMIConfigData`:
+`UMIDataSubsystem` loads the six new files after `config.json` and `presentation.json`, into a new `FMILoadoutData`
+(`Core/Data/MILoadoutData.h`) next to `FMIConfigData`, **on its own error path.** A missing or invalid new file never
+fails the config load: the front end then offers only the parity set-up, and the log says why (LogMI, Error).
 
-1. **Resolve `$ref`.** `{"$ref": "config.json#weapons.chopper"}` is that object of that file. The CHOPPER and the
-   NINE therefore have one source of truth.
-2. **Build one rule table.** For every roster gun, its `rules` object goes through the *existing* `ParseGun` (it is
-   in `config.json`'s schema and units), and its `presentation` goes through `FMIViewmodelData::Parse` (in
-   `presentation.json`'s schema). `ParseGun` is called with the gun's object instead of a `weapons.<id>` path; that
-   is the only refactor. `extra` is parsed into the new fields, with the defaults of `guns.json extraDefaults`.
-3. **Validate** (MurderInc.Loadout.DataLoads, 8.5):
-   - every id reference resolves (texts, slots, stats, attachments, mounts, clip roles);
+1. **Resolve `$ref`.** `{"$ref": "config.json#weapons.chopper"}` is that object (or number) of that file. The CHOPPER
+   and the NINE therefore have one source of truth. `extraDefaults` are refs too, so no default is hard-coded.
+2. **Keep the JSON.** Each roster gun is kept as JSON (its resolved `rules`, `extra` and `presentation`) for the
+   resolver, which parses it after the effects (3.7). The loader parses each gun once with no parts, to validate it
+   and to fill the rack.
+3. **Validate** (MurderInc.Loadout.DataLoads, 8.6):
+   - every id reference and every `$ref` resolves, and each `extraDefaults` value is a number (or the listed shape);
+   - every gun's `clips.byStatus` names every role exactly once;
    - every `required` slot's default is among its options;
-   - every non-baseline attachment has an effect that is better and one that is worse;
-   - every level's `provides` matches its level file;
-   - every mode is provided by at least one level.
-
-   On failure the front end offers only the parity set-up, and the log says why (LogMI, Error).
+   - every non-baseline part passes the trade check (3.3);
+   - each stat target's base value of every roster gun lies inside its clamp;
+   - every compatible build of every gun resolves with `end ≥ start` and `min` in its clamp;
+   - every level's `provides` matches its level file, and every mode is provided by at least one level.
 
 ### 3.2 Guns (`guns.json`)
 
-A gun entry has:
+A gun entry has `id`, `class`, `text` (name and blurb), `melee` (the HUD's melee label) and `parity`. It also has:
 
-- `id`, `class` (a key of `classes`), `text` (name and blurb), `melee` (the HUD's melee label);
-- `rules` (config schema, or a `$ref`);
-- `extra` (the new per-gun fields, 1.2);
-- `presentation` (presentation schema, or a `$ref`; `fallbackMesh` is used when the pack is not installed);
-- `mounts` (a socket per attachment slot, parts it hides, art status);
-- `art` and `clips` (status, see 6).
+- `rules`: in `config.json`'s schema, or a `$ref`;
+- `extra`: the new per-gun fields (1.2);
+- `presentation`: in `presentation.json`'s schema, or a `$ref`;
+- `variants`: for the pack rifles, the base mesh per stock position;
+- `mounts`: a socket per slot, the parts it hides, and its status;
+- `art` and `clips.byStatus` (6.1).
 
-`roster` is the display order. Its numbers:
+**Ready.** A parity gun is always offered. Any other gun is offered when it is **ready**:
 
-| | CHOPPER | NINE | STICK | RATTLER |
-|---|---|---|---|---|
-| Class, modes | rifle; auto, semi | pistol; semi | rifle; auto, semi | smg; auto, semi |
-| Damage per round (head × 2.2) | 26 | 34 | 22 | 30, falloff to 0.65 × from 15 to 35 m |
-| Rate (rpm), damage per s | 720, 312 | 420, 238 | 800, 293 | 545, 272 |
-| Magazine / reserve | 30 / 150 | 15 / ∞ | 30 / 150 | 32 / 128 |
-| Resupply per wave (cap) | 90 (240) | none | 90 (240) | 96 (256) |
-| Range (m) | 300 | 120 | 300 | 120 |
-| Aim time (s), holster / draw (s) | 0.18, 0.28 / 0.32 | 0.14, 0.28 / 0.32 | 0.20, 0.28 / 0.32 | 0.14, 0.24 / 0.27 |
-| Spread hip / aimed / moving hip (rad) | 0.0125 / 0.0012 / 0.013 | 0.0105 / 0.0017 / 0.0065 | 0.012 / 0.0009 / 0.013 | 0.0094 / 0.003 / 0.0065 |
-| Camera kick per round (rad) | 0.0068, climb then weave | 0.0092, snap | 0.0051, climb then weave | 0.0041, fast buzz |
-| Reload tactical / empty (s) | 2.24 / 2.72 | 1.50 / 1.90 | 2.13 / 2.45 (bolt catch) | 1.90 / 2.31 (rack) |
-| Noise, aimed view | 45 m, 52° | 45 m, 52° | 45 m, 52° | 45 m, 52° |
+- the mesh of its default variant exists and is not a stand-in;
+- each core role (`Idle`, `Fire`, `ReloadTactical`, `Holster`, `Draw`) plays now (exists, template or procedural).
 
-Rounds and time to drop a Goon with body shots (Goon HP 90 / 110 / 130 by difficulty, `config.json
-enemies.difficulty`; time = (rounds − 1) × interval). The table shows that no gun wins everywhere:
+Inside a ready gun, a slot is offered only once its mount exists, and a stock option only once its variant exists.
+`mi.Setup.ShowUnready 1` shows the hidden guns with a `DEV` tag. The RATTLER stays hidden until `SK_Weapon_Rattler`
+lands. The pack rifles are ready on the box once their open variant is imported. The STICK's is imported already, and
+the procedural rig plays their core roles until the pack clips land, as it does for the CHOPPER.
 
-| | Hustler 90 | Boss 110 | Kingpin 130 | Its edge |
-|---|---|---|---|---|
-| CHOPPER | 4 rounds, 0.25 s | 5, 0.33 s | 5, 0.33 s | raw damage; climbs hard |
-| NINE | 3, 0.29 s | 4, 0.43 s | 4, 0.43 s | never runs dry, quickest hands |
-| STICK | 5, 0.30 s | 5, 0.30 s | 6, 0.38 s | easiest to control, takes every attachment |
-| RATTLER | 3, 0.22 s | 4, 0.33 s | 5, 0.44 s | best up close and on the move; weak past 15 m |
+**The numbers** (web units; the resolver and the rack use exactly these):
 
-#### 3.2.1 How the STICK's numbers come from the CHOPPER's
+| | CHOPPER | NINE | SHORTY | STICK | STRETCH | RATTLER (hidden) |
+|---|---|---|---|---|---|---|
+| Class; modes | rifle; auto, semi | pistol; semi | rifle; auto, semi | rifle; auto, semi | rifle; auto, semi | smg; auto, semi |
+| Damage per round (head × 2.2) | 26 | 34 | 21, falloff 20→45 m to 0.8 × | 21 | 25 | 25, falloff 15→35 m to 0.65 × |
+| Rate (rpm); damage per s | 720; 312 | 420; 238 | 860; 301 | 800; 280 | 700; 292 | 545; 227 |
+| Magazine / reserve | 30 / bag | 15 / ∞ | 30 / bag | 30 / bag | 30 / bag | 32 / bag |
+| Range (m) | 300 | 120 | 300 | 300 | 300 | 120 |
+| Aim time; holster / draw (s) | 0.18; 0.28 / 0.32 | 0.14; 0.28 / 0.32 | 0.18; 0.26 / 0.29 | 0.20; 0.28 / 0.32 | 0.22; 0.30 / 0.35 | 0.14; 0.24 / 0.27 |
+| Spread hip / aimed / moving hip (rad) | .0125 / .0012 / .013 | .0105 / .0017 / .0065 | .012 / .00104 / .0117 | .012 / .0009 / .013 | .012 / .00077 / .013 | .0094 / .003 / .0065 |
+| Camera kick per round (rad) | .0068, climb then weave | .0092, snap | .0056 | .0051 | .0047 | .0041, fast buzz |
+| Reload tactical / empty (s) | 2.24 / 2.72 | 1.50 / 1.90 | 2.13 / 2.45 | 2.13 / 2.45 | 2.13 / 2.45 | 1.90 / 2.31 |
+| Heard at; aimed view | 45 m; 52° | 45 m; 52° | 50 m; 52° | 45 m; 52° | 45 m; 52° | 45 m; 52° |
+| Gun length near walls (`wallPull`, m) | 1.05 / .42 | .80 / .32 | .95 / .38 | 1.10 / .44 | 1.27 / .51 | .85 / .34 |
 
-The STICK is a lighter, faster round in a longer gun with a full stock. Each number is a CHOPPER number times a
+**Rounds and time to drop a Goon with body shots** (Goon HP 90 / 110 / 130 by difficulty, `config.json
+enemies.difficulty`; time = (rounds − 1) × 60 / rpm; in brackets, the rounds at 50 m when the gun has a falloff):
+
+| | Hustler 90 | Boss 110 | Kingpin 130 | Its edge | Its cost |
+|---|---|---|---|---|---|
+| CHOPPER | 4, **0.25 s** | 5, **0.33 s** | 5, **0.33 s** | the fastest kill on every tier | climbs hard, wide hip cone |
+| NINE | 3, 0.29 s | 4, 0.43 s | 4, 0.43 s | never runs dry; quick hands | snap kick; 15 rounds |
+| SHORTY | 5, 0.28 s (6) | 6, 0.35 s (7) | 7, 0.42 s (8) | quickest rifle hands, best on the move, shortest | kick, loud, falls off past 20 m |
+| STICK | 5, 0.30 s | 6, 0.375 s | 7, 0.45 s | no weakness; the base for every build | the slowest rifle kill |
+| STRETCH | 4, 0.26 s | 5, 0.34 s | 6, 0.43 s | steadiest and tightest; hits hardest of the three | slow hands, long near walls |
+| RATTLER | 4, 0.33 s (6) | 5, 0.44 s (7) | 6, 0.55 s (8) | quickest hands, best hip fire | weak past 15 m; wide aimed cone |
+
+Every breakpoint of a new gun has at least 11 % to spare at 10 m (for example STRETCH 4 × 25 = 100 against 90). So no
+new gun sits on a knife-edge. The CHOPPER's 5 × 26 = 130 on Kingpin is the web game's own, and parity keeps it. The
+rack bars at Boss:
+
+| Bar | CHOPPER | NINE | SHORTY | STICK | STRETCH | RATTLER |
+|---|---|---|---|---|---|---|
+| Damage / Kill speed | .65 / **.67** | .85 / .43 | .53 / .63 | .53 / .56 | .63 / .64 | .63 / .40 |
+| Control / Handling | .40 / .60 | .10 / .68 | .55 / .66 | .61 / .56 | .66 / .46 | .74 / .78 |
+| Aimed / Hip fire | .80 / .35 | .66 / .55 | .85 / .40 | .89 / .40 | .92 / .40 | .29 / .66 |
+
+#### 3.2.1 How the pack rifles' numbers are derived
+
+The **STICK** is a lighter, faster round in a longer gun with a full stock. Each number is a CHOPPER number times a
 stated factor:
 
 | Field | CHOPPER | Factor | STICK |
 |---|---|---|---|
-| damage, rpm | 26, 720 | × 0.85, × 1.11 | 22, 800 |
-| magSize, reserve, range | 30, 150, 300 | same | same, so the resupply rule holds unchanged |
+| damage, rpm | 26, 720 | × 0.81, × 1.11 | 21, 800 |
+| magSize, range | 30, 300 | same | same |
 | adsTime | 0.18 | × 1.11 | 0.20 |
 | reload tactical, marks to tug | 2.24, 0.40 … 1.565 | × 0.95 | 2.13, 0.38 … 1.49; no press check |
-| reload empty | 2.72 (rack) | bolt catch | 2.45, the bolt closes at 1.92 (`slideRelease`) |
+| reload empty | 2.72 (rack) | bolt catch | 2.45; the bolt closes at 1.92 (`slideRelease`) |
 | spread hip, ads, moveHip, moveAds | .0125, .0012, .013, .004 | × 0.96, × 0.75, × 1, × 0.9 | .012, .0009, .013, .0036 |
 | bloomHip, bloomAds, shot, decay | .0065, .0022, .17, 1.5 | × 0.85, × 0.8, × 0.8, × 1.1 | .0055, .0018, .14, 1.65 |
 | recoil pitch, pitchRandom | .0068, [.85, 1.15] | × 0.75, narrower | .0051, [.9, 1.1] |
@@ -493,157 +528,200 @@ stated factor:
 | flash scale, light; wallPull | 1, 45; [1.05, .42] | × 0.9; × 1.05 | .9, 40; [1.1, .44] |
 | springs, sway, views, poses, strike keys | | same | provisional until the pack is measured |
 
+The **SHORTY** and the **STRETCH** are the STICK with the pack's other handguards:
+
+| Field | SHORTY (Short) | STRETCH (Extended) |
+|---|---|---|
+| damage, rpm | 21, 860 (short gas system) | 25, 700 (longer barrel) |
+| adsTime; holster, draw | × 0.9 → 0.18; × 0.92 → 0.26, 0.29 | × 1.1 → 0.22; × 1.08 → 0.30, 0.35 |
+| spread ads; moveHip | × 1.15 → .00104; × 0.9 → .0117 | × 0.85 → .00077; same |
+| recoil pitch, shake; kick rise, back | × 1.1 → .0056, .10; 1.32, .73 | × 0.92 → .0047, .083; 1.10, .61 |
+| flash scale, light; noise | × 1.3 → 1.17, 52; 50 m | same; 45 m |
+| falloff | 20 → 45 m, down to 0.8 × | none |
+| wallPull; swayMax | × 0.86 → [.95, .38]; same | × 1.15 → [1.27, .51]; × 1.1 → .077 |
+| markers muzzle, support (gun space) | z −0.56, −0.30 | z −0.78, −0.42 |
+
 #### 3.2.2 How the RATTLER's numbers come from the Goon's gun
 
-The RATTLER is the Goon's gun, so the player hears the same cadence from it that he hears from every Goon. The
-enemy's per-round damage (4 on Boss) is tuned against the player's 100 HP for fairness, so it is not used.
+The RATTLER is the Goon's gun, so the player hears from it the cadence he hears from every Goon. The enemy's per-round
+damage (4 on Boss) is tuned against the player's 100 HP, so it is not used.
 
 | Field | Source | Rule | RATTLER |
 |---|---|---|---|
 | rpm | `enemies.goon.burstGap` 0.11 s | 60 / 0.11 | 545 |
-| damage | the NINE's 34 (the same class of round) | × 0.88; 3 rounds = a Hustler Goon's 90 HP | 30 |
-| magSize, reserve | `goon.burst` 4 | 8 bursts; 4 magazines | 32, 128; resupply 3 magazines (96), cap 8 (256) |
-| range, falloff | the NINE's 120 m | short barrel | 120 m; full damage to 15 m, 0.65 × from 35 m |
+| damage | breakpoints | 4 / 5 / 6 rounds by difficulty, ≥ 11 % to spare, never quicker than the CHOPPER | 25 |
+| magSize | `goon.burst` 4 | 8 bursts | 32 (from the bag) |
+| range, falloff | the NINE's 120 m | short barrel | 120 m; full to 15 m, 0.65 × from 35 m |
 | adsTime, holster, draw | the NINE's 0.14; common 0.28 / 0.32 | × 0.85 | 0.14; 0.24 / 0.27 |
 | spread hip, moveHip, ads, moveAds | CHOPPER .0125, .013, .0012, .004 | × 0.75, × 0.5, × 2.5, × 1 | .0094, .0065, .003, .004 |
-| bloomHip, bloomAds, air, decay | CHOPPER .0065, .0022; NINE .018; CHOPPER 1.5 | × 0.9, × 1.4, NINE's, × 1.2 | .0058, .0031, .018, 1.8 |
-| recoil pitch, shake | CHOPPER .0068, .12 | × 0.6, × 0.67 | .0041, .08 |
-| yawEarly, weaveFrom, weaveAmp, weaveFreq, weaveRandom | CHOPPER .0011, 4, .0042, .57, .001 | × 1.45, − 1, × 0.83, × 1.58, × 1.4 | .0016, 3, .0035, .9, .0014: a fast sideways buzz instead of a climb |
-| reload, all marks | CHOPPER's | × 0.85 | 1.90 / 2.31 |
-| wallPull | CHOPPER [1.05, .42] | × 0.81 | [.85, .34] |
+| recoil pitch, shake; yaw weave | CHOPPER .0068, .12 | × 0.6, × 0.67; faster and wider | .0041, .08; a sideways buzz instead of a climb |
+| reload, every mark | CHOPPER's | × 0.85 | 1.90 / 2.31 |
+
+#### 3.2.3 The carry cost: one bag of rounds
+
+Without a cost, four guns would always beat fewer. The best loadout would start with 180 + 180 + 160 rounds plus the
+infinite NINE, against the web's 180 + ∞, and the Hold the Block resupply would grow from 90 to 276 rounds per wave.
+The rule (`guns.json ammo`):
+
+- Every carried gun with a finite reserve draws its reloads from **one shared reserve, the bag**. The NINE's reserve
+  stays infinite and has no bag.
+- The bag starts with the largest `reserve` among the carried finite guns. That is 150 for every gun of the roster: the
+  web CHOPPER's.
+- The Hold the Block clear resupplies the bag once. The flow keeps calling `Host->AddReserve(90, 240)`
+  (`Flow/MIGameRules.cpp:723`, golden-tested as `weapon:reserve`), unchanged. `FMIWeaponRules::AddReserve` adds to
+  each finite pool instead of to each gun. With one finite gun that is the same arithmetic.
+- Each gun keeps its own magazine. So the extra long guns bring only their loaded magazines: +30 rounds each at the
+  start, and never more resupply.
+
+**The trade, next to the table above:** carrying the CHOPPER, the STRETCH, the SHORTY and the NINE starts with 90 rounds
+in magazines plus a bag of 150 (240 in all, against the web's 180), and it gets the web's 90 per wave. Swapping to a
+loaded gun is faster than a reload (about 0.6 s of holster and draw against 1.9–2.7 s). But the bag empties at the same rate whatever is
+carried, so every magazine fired is still a reload owed. The HUD shows the bag once (`BAG`), with one magazine count
+per slot.
 
 ### 3.3 Attachments (`attachments.json`)
 
-**Slots:** optic, muzzle, underbarrel, laser, magazine, handguard, stock, in that order (the order of the Workbench's
-tabs and of applying `set`).
+**Slots,** in this order (the order of the Workbench tabs and of applying `set`): optic, muzzle, underbarrel, laser,
+magazine, stock. The stock slot is a **variant** slot: its options switch the gun's base mesh (`guns.json variants`)
+instead of adding a child mesh, because the pack ships the folded stock as whole-rifle variants.
 
-**Stats** an effect may change. Each has its targets in the gun's data, a unit, the direction that is `better`, a
-clamp and the text of its effect line:
+**Stats.** Each stat names its targets **with a clamp per target, in that target's own web unit**:
 
-| Stat | Changes | Better |
+| Stat | Targets (clamp) | Better |
 |---|---|---|
-| `adsTime` | `adsTime` | lower |
-| `adsFov` | `extra.adsFov` (vertical degrees at full aim) | none (a trade) |
-| `adsLook` | `extra.adsLook` (look speed at full aim; follows the view) | none, not shown |
-| `spread.hip`, `spread.moveHip`, `spread.ads`, `spread.moveAds` | those spreads | lower |
-| `recoil.pitch` | `recoil.pitch`, `recoil.shake`, `kick.rise`, `kick.back` (what the eye sees follows the aim) | lower |
-| `recoil.yaw` | `recoil.yaw` or `yawEarly`, `weaveAmp`, `weaveRandom`; `kick.yaw`, `kick.roll` | lower |
-| `swapTime` | `extra.holster`, `extra.draw` | lower |
-| `reloadTime` | every reload mark and both lengths (the clip plays at 1 / factor) | lower |
-| `noise` | `extra.noise`, the hearing radius (m) | lower |
-| `flash` | `flash.scale`, `flash.light` | lower |
-| `falloff.start`, `falloff.end`, `falloff.min` | `extra.falloff` | higher |
-| `length` | both `wallPull` distances | lower |
-| `sway` | `swayMax` (presentation) | lower |
+| `adsTime` | `rules.adsTime` [0.08, 0.6] s | lower |
+| `adsFov`, `adsLook` | `extra.adsFov` [20, 60]°; `extra.adsLook` [0.3, 1.5] | none (a trade) |
+| `spread.hip`, `.moveHip`, `.ads`, `.moveAds` | those spreads [0.002, 0.04], [0, 0.04], [0.0003, 0.01], [0, 0.02] rad | lower |
+| `recoil.pitch` | `recoil.pitch` [.001, .02], `recoil.shake` [.02, .4], `kick.rise` [.3, 8], `kick.back` [.2, 2] | lower |
+| `recoil.yaw` | `recoil.yaw` [0, .01], `yawEarly` [0, .005], `weaveAmp` [0, .012], `weaveRandom` [0, .005], `kick.yaw` [0, 2], `kick.roll` [0, 3] (a target the gun lacks is skipped) | lower |
+| `swapTime` | `extra.holster`, `extra.draw` [0.12, 0.6] s | lower |
+| `reloadTime` | every number under `rules.reload` (lengths, marks, each `pressCheck` element), **no per-value clamp** | lower |
+| `noise` | `extra.noise` [5, 90] m | lower |
+| `flash` | `flash.scale` [0, 2.5], `flash.light` [0, 100] | lower (presentation) |
+| `falloff.start`, `.end`, `.min` | `extra.falloff.*` [5, ∞] m, [5, ∞] m, [0.3, 1] | higher |
+| `length` | `wallPull[0]` [0.2, 2] m, `wallPull[1]` [0.1, 1] m | lower |
+| `sway` | `swayMax` [0.02, 0.2] | lower (presentation) |
 
-**Ops:** for each stat, in this order: every `set` (the later slot wins), the sum of every `add`, the product of every
-`mul`, every `min` (the smallest wins), every `max`, then the clamp. Factors from different parts multiply.
+**Ops,** per stat, over the parts fitted:
 
-**The thirteen parts.** Baseline parts (marked ◦) are the "nothing changed" choice of a required slot and have no
-effects.
+1. Every `set` in slot order (the later slot wins), then the sum of every `add`, the product of every `mul`, every
+   `min` (the smallest wins), every `max`.
+2. A stat with more than one target accepts only `mul` (DataLoads checks it). Its combined factor is clamped to
+   `meta.factor` [0.5, 2] and then multiplied into each target.
+3. Each target is then clamped to its own clamp. `reloadTime` has none, so the marks are exactly marks × factor.
+4. **A stat that no fitted part names is not touched at all,** neither ops nor clamp. A gun with no parts is its JSON
+   unchanged, which proves parity.
+
+After the stats, the resolver enforces falloff `end = max(end, start)`, and `start == end` is a step to `min`.
+
+**The trade check** (`meta.trade`). Every non-baseline part must make one stat better and one worse. Its trade must
+also be balanced: let B be the sum of |ln f| over its better `mul` effects and W the same over its worse ones. Only
+rule stats count (flash, sway, adsFov and adsLook are presentation), and `falloff.min` stands for the whole falloff.
+B / W must lie in [0.4, 2.5]. The parts today: scope 0.63, silencer 2.35, vertical grip 2.31, angled grip 1.74, laser
+1.82, clear mag 1.58, folded stock 0.58.
+
+**The ten parts** (◦ = baseline, the "no change" choice of a required slot, with no effects):
 
 | Part | Slot | Better | Worse |
 |---|---|---|---|
 | Folding irons ◦ | optic | | |
-| Scope | optic | aimed spread × 0.7 | aim time × 1.35, aimed spread on the move × 1.3, sway × 1.2; aimed view 30° (from 52°), look × 0.6 |
-| Silencer | muzzle | heard at 0.4 × (45 → 18 m), flash × 0.15, kick × 0.95 | damage falls from 25 m to 0.85 × at 50 m, aim time × 1.06, swap × 1.06, length × 1.12 |
+| Scope | optic | aimed spread × 0.7 | aim time × 1.35, aimed spread on the move × 1.3, sway × 1.2; aimed view 30°, look × 0.6 |
+| Silencer | muzzle | heard × 0.4 (45 → 18 m), flash × 0.15, kick × 0.95 | damage falls from 25 m to 0.85 × at 50 m, aim time × 1.08, swap × 1.06, length × 1.12 |
 | Vertical grip | underbarrel | kick × 0.88, side × 0.85 | aim time × 1.08, swap × 1.05 |
 | Angled grip | underbarrel | aim time × 0.9, swap × 0.95, kick × 0.96 | side × 1.12 |
-| Laser | laser | hip spread × 0.75, moving hip × 0.85 | aim time × 1.05, swap × 1.04 |
+| Laser | laser | hip spread × 0.8, moving hip × 0.85 | aimed spread × 1.1, aim time × 1.08, swap × 1.04 |
 | Standard mag ◦ | magazine | | |
-| Clear mag | magazine | reload × 0.94 | kick × 1.04 |
-| Standard handguard ◦ | handguard | | |
-| Short handguard | handguard | aim time × 0.9, swap × 0.92, moving hip × 0.9, length × 0.86 | kick × 1.1, aimed spread × 1.15, flash × 1.3, heard × 1.1, damage falls from 25 m to 0.9 × at 50 m |
-| Long handguard | handguard | kick × 0.92, aimed spread × 0.85 | aim time × 1.1, swap × 1.08, length × 1.15, sway × 1.1 |
+| Clear mag | magazine | reload × 0.94 (plays the quick and empty-retain reloads) | kick × 1.04 |
 | Stock open ◦ | stock | | |
 | Stock folded | stock | aim time × 0.85, swap × 0.88, hip spread × 0.95 | kick × 1.2, side × 1.2, aimed spread × 1.25, sway × 1.2 |
 
-**Compatibility** (`attachments.json compatibility`; an unlisted slot does not exist on that gun):
+The laser's cost is real: its heavier front end and the dot pull the eye off the sight.
 
-| | Optic | Muzzle | Underbarrel | Laser | Magazine | Handguard | Stock |
+**Compatibility** (`attachments.json compatibility`; an unlisted slot does not exist on that gun; *gated* = offered
+only once the mount exists, 6.6):
+
+| | Optic | Muzzle | Underbarrel | Laser | Magazine | Stock |
+|---|---|---|---|---|---|---|
+| CHOPPER | scope (top-cover rail), gated | silencer (replaces the booster), gated | | | | |
+| NINE | | | | laser (dust-cover rail), gated, and dropped if the pack laser is longer than 50 mm | | |
+| SHORTY, STICK, STRETCH | irons◦ or scope, required | silencer | vertical or angled grip | laser | standard◦ or clear, required | open◦ or folded, required (variant) |
+| RATTLER | (rail too short) | silencer (replaces its device) | | (the light fills the handguard) | | |
+
+**Builds, worked out** (exact values from the data; `Attachments.Builds` asserts them, 8.2):
+
+| Gun, build | Aim (s) | Kick (rad) | Aimed (rad) | Hip (rad) | Heard (m) | Holster / draw (s) | Also |
 |---|---|---|---|---|---|---|---|
-| CHOPPER | scope (top-cover rail) | silencer (replaces the booster) | | | | | |
-| NINE | | | | laser (dust-cover rail) | | | |
-| STICK | irons◦ or scope, required | silencer | vertical or angled grip | laser | standard◦ or clear, required | short, standard◦, long, required | open◦ or folded, required |
-| RATTLER | (rail too short) | silencer (replaces its device) | | (the light fills the handguard) | | | |
-
-Builds, worked out (STICK; aim time s / kick rad / aimed spread rad / heard m):
-
-| Build | Aim | Kick | Aimed | Heard | Note |
-|---|---|---|---|---|---|
-| Factory: irons, standard handguard and mag, stock open | 0.20 | 0.0051 | 0.0009 | 45 | |
-| Scope | 0.27 | 0.0051 | 0.0006 | 45 | aimed view 30° |
-| Close: short, folded, angled, laser, clear mag | 0.145 | 0.0067 | 0.0013 | 49.5 | hip 0.0085, swap 0.26 s; kicks like a CHOPPER |
-| Long and quiet: long, scope, vertical, silencer | 0.34 | 0.0039 | 0.0005 | 18 | swap 0.38 s; 0.85 × damage past 50 m |
-
-On the CHOPPER, a scope and a silencer give aim 0.26 s, aimed spread 0.0008, heard at 18 m and 22.1 damage past 50 m.
+| STICK factory | 0.20 | 0.0051 | 0.0009 | 0.012 | 45 | 0.28 / 0.32 | |
+| STICK, scope | 0.27 | 0.0051 | 0.00063 | 0.012 | 45 | 0.28 / 0.32 | aimed view 30° |
+| STICK close: folded, angled grip, laser, clear mag | 0.16524 | 0.00611021 | 0.0012375 | 0.00912 | 45 | 0.243443 / 0.278221 | reload 2.0022, magOut 0.3572 |
+| STRETCH long and quiet: scope, vertical grip, silencer | 0.346421 | 0.0039292 | 0.000539 | 0.012 | 18 | 0.3339 / 0.38955 | 30°; 21.25 damage past 50 m |
+| SHORTY, silencer | 0.1944 | 0.00532 | 0.00104 | 0.012 | 20 | 0.2756 / 0.3074 | falloff 20 → 45 m to 0.68 × (14.28) |
+| CHOPPER, scope and silencer | 0.26244 | 0.00646 | 0.00084 | 0.0125 | 18 | 0.2968 / 0.3392 | 30°; 22.1 damage past 50 m |
 
 ### 3.4 Crew (`crew.json`)
 
-A crew member is a `look` on Rule's arms:
+A crew member is a look on Rule's arms: `arms` (a mesh on `SK_Mannequin`, by default `SK_RuleArms`), `materials`
+(material instances per slot), `glove`, `sleeve` and `jewellery` (static meshes on a bone, with an offset as in
+`CHARACTERS.md`). It also has a `callName`, a `portrait`, art status, and `perks: []`.
 
-- `arms`: a mesh on `SK_Mannequin`, by default `SK_RuleArms`;
-- `materials`: material instances per slot of the arms mesh;
-- `glove`: a glove mesh variant;
-- `sleeve`: a sleeve mesh skinned to the arm bones;
-- `jewellery`: static meshes on a bone, with an offset as in `CHARACTERS.md`.
+Looks come in two phases. **Phase 1 (`look`)** changes only material instances on Rule's arms and glove, so no new mesh
+is needed. **Phase 2 (`later`)** adds the glove, sleeve and jewellery meshes. A member is offered once its phase-1
+assets exist. Rule is always offered.
 
-It also has a `callName`, a `portrait`, art status, and `perks: []`. Rule's `lines` are `original` (the `text.json`
-lines word for word). The others use `template`: `crew.json lines.replaces` maps the four lines that name the player
-to `frontend.crewLines.*` with `{name}`.
+| Id | Name | Phase 1 (tagline) | Phase 2 (taglineFull) |
+|---|---|---|---|
+| rule | RULE | black leather and suede gloves, steel watch, curb bracelet (as built) | |
+| deuce | DEUCE | own skin tone; black nylon gloves (one instance on both glove slots) | fingerless knit gloves, grey hoodie sleeve pushed up, thin gold rope |
+| smoke | SMOKE | own skin tone; grey suede gloves | bare taped hands (needs hand skin detail), black bomber cuff, wooden beads |
+| keys | KEYS | own skin tone; charcoal wool gloves | the same gloves with two fingertips cut off, denim cuff, digital watch |
 
-| Id | Name | Look (placeholder) |
-|---|---|---|
-| rule | RULE | black leather and suede gloves, steel watch on the left, curb bracelet on the right, bare forearms (exists, in progress) |
-| deuce | DEUCE | black fingerless knit gloves, a grey hoodie sleeve pushed up, a thin gold rope bracelet, a different skin tone |
-| smoke | SMOKE | bare hands with white tape on the knuckles and wrist, a black bomber cuff, a wooden bead bracelet |
-| keys | KEYS | charcoal wool gloves with two fingertips cut off, a denim jacket cuff, a black digital watch |
-
-The crew are cosmetic, for three reasons:
-
-1. A perk would make one member the best pick, which the loadout already avoids.
-2. A perk would multiply the parity surface: each crew member would need its own golden tests.
-3. The crew is seen only as arms, so a perk could not be read off the character.
-
-`perks` is reserved for open question 4.
+Rule's `lines` are `original` (the `text.json` lines word for word). The others use `template`: `crew.json
+lines.replaces` maps the four lines that name the player to `frontend.crewLines.*` with `{name}`. The crew is cosmetic:
+a perk would make one member the best pick, would need its own golden tests, and could not be read off arms. `perks`
+is reserved for open question 4.
 
 ### 3.5 Levels and modes (`levels.json`)
 
-A level gives its `map`, its `data` files, its `times`, a `preview` (the title path or a thumbnail) and `provides`:
-the counts of what its level file has. A mode gives `needs`; the Style screen offers a mode only where `provides`
-covers it.
+A level gives its `map`, its `data` files, its `times`, a `preview` and `provides`, the counts of what its level file
+has. A mode gives `needs`. The Block & Style screen offers a mode only where `provides` covers it.
 
 | Mode | Needs from a level | The block |
 |---|---|---|
-| Story (`mission`) | a player start; at least 1 objective (each one is a master reel); an extraction zone; at least 1 ground spawn; nav | 3 objectives, truck at the lot, 29 ground and 17 air spawns, nav, 14 title keys |
-| Hold the Block (`holdout`) | a player start; at least 1 ground and 1 air spawn (waves mix Goons and Buzzards); nav. Objectives and explosives are optional (closed cases, explosives rebuilt every second wave) | the same |
+| Story (`mission`) | a player start; at least 1 objective (each is a master reel); an extraction zone; at least 1 ground spawn; nav | 3 objectives, truck at the lot, 29 ground and 17 air spawns, nav, 14 title keys |
+| Hold the Block (`holdout`) | a player start; at least 1 ground and 1 air spawn; nav. Objectives and explosives optional | the same |
 
-A new level is a map, its level JSON (exported or authored in the same schema) and one entry here. The flow already
-reads everything per level from `level.json` (spec 04 2.15). Story counts its reels from the level's objectives, so a
-level with two cases is a two-reel Story; the radio's reel lines are indexed by count.
+A new level is a map, its level JSON and one entry here. The flow already reads everything per level from
+`level.json` (spec 04 2.15). Story counts its reels from the level's objectives.
 
 ### 3.6 Front end (`frontend.json`)
 
-`parity` (1.2), `carry` (2.5), `screens` (id, step, back, primary, text group, stage), `transitions` (the edges of
-2.1), `stage` (2.11), `input` (4.2 and the per-screen menu inputs of 2.3 to 2.9), `wheel` (4.6), `hud` (4.7) and
-`save` (7).
+`parity` (1.2), `carry` (2.5), `screens` (with `merge` for Block & Style), `navigation` (edit mode, step strip,
+Ctrl+Enter / Start), `transitions` (2.1), `stage` (2.10), `input` (4.2 and the menu inputs of 2.2–2.8), `wheel` (4.6),
+`hud` (4.7) and `save` (7).
 
 ### 3.7 The resolver
 
 `FMILoadoutResolver` (`Weapons/MILoadoutResolver.h/.cpp`) is a rule core with no world and no UObject (ARCHITECTURE
-1.1 rule 2). Given `FMILoadoutData`, the set-up and the config, it returns the run's `FMIWeaponsData` and
-`FMIViewmodelData`:
+1.1 rule 2). Given `FMILoadoutData`, the set-up, `config.json` and `presentation.json`, it returns the run's
+`FMIWeaponsData` and `FMIViewmodelData`. **All effects are applied to JSON in web units, then everything is parsed
+once:**
 
-1. Validate the set-up (7, validation) against the data.
-2. `Guns` = for each carried gun, in slot order: its parsed `FMIWeaponDef`, with `Slot` = its position (1 … 4).
-3. For each stat of `attachments.json stats`, collect the effects of the gun's fitted parts and apply the ops (3.3) to
-   every target. Set `FMIWeaponDef::Fitted` (slot → part id).
-4. Presentation: build each carried gun's view data from its presentation. Apply the marker overrides of the fitted
-   parts (4.5) and add the list of attachment meshes for `UMIGunAssembly`.
-5. `Common` and `Melee` are config's, unchanged.
+1. Validate the set-up (7) against the data.
+2. For each carried gun, in slot order: **copy** its resolved `rules` and `extra` JSON and its `presentation` JSON.
+3. **Fill the defaults** of `extra` as numbers from `extraDefaults` (holster, draw, adsFov, noise, falloff, …), so a
+   multiplication always has a number to work on.
+4. **Apply the effects** of the fitted parts (3.3) to the copied JSON, in web units: radians, metres, seconds, with
+   the per-target clamps. A gun with no parts skips this step entirely.
+5. **Parse:** `ParseGun(rulesObj, extraObj)` gives the `FMIWeaponDef`, in cm and degrees like every other gun, with
+   `NoiseRadius` in cm. `FMIViewmodelData::ParseGunView(presentationObj, rulesObj)` gives the view data from the same
+   modified rules: kick, springs, `swayMax`, views and the reload marks. Both outputs come from one JSON, so they agree.
+   Then `Slot` = position (1 … 4) and `Fitted` (slot → part id) are set. The assembly gets the variant's base mesh and
+   the list of add-on meshes, and the marker overrides (4.5) go on the view data.
+6. `Common`, `Melee` and the global view data (first person, feel, tracer, `player.fov.viewmodel`) are parsed by the
+   existing global parsers from the root documents, unchanged.
 
-It is called once per run, at the run reset, and live on the Workbench to fill the stat bars and the effect lines. It
-is pure, so the tests call it directly.
+It is called once per run at the run reset, and live on the Workbench to fill the bars and the effect lines. It is
+pure, so the tests call it directly. The reference arithmetic of every table on this page is exactly these steps.
 
 ---
 
@@ -651,9 +729,8 @@ is pure, so the tests call it directly.
 
 ### 4.1 Slots
 
-The resolved `Guns` array holds the carried guns in slot order, so index = slot − 1. `Reset()` already puts index 0
-in the hands with full magazines and the start reserve of every gun. The run starts with slot 1 in hand, its fire
-mode set to the saved one (or `fireModes[0]`).
+The resolved `Guns` array holds the carried guns in slot order, so index = slot − 1. `Reset()` already puts index 0 in
+the hands with full magazines. It now fills the bag (3.2.3) and sets each gun's mode to `fireModes[0]`.
 
 ### 4.2 Switching
 
@@ -662,232 +739,308 @@ New fields of `FMIWeaponInput`: `bWeapon3Pressed`, `bWeapon4Pressed`, `bNextPres
 `INDEX_NONE`. `bSwapPressed`, `bWeapon1Pressed` and `bWeapon2Pressed` keep their names, so the golden harness is
 unchanged.
 
-| Input (`frontend.json input.game`) | Target |
-|---|---|
-| Q, Y (`swap`): quick swap | holstering: the gun being put away (`Current`); otherwise `LastUsed` |
-| Wheel down, D-pad ↑ (`next`) | (`Aim` + 1) mod N, where `Aim` = `Swap.To` while holstering, else `Current` |
-| Wheel up, D-pad ↓ (`previous`) | (`Aim` − 1) mod N |
-| 1, 2, 3, 4; D-pad ←, → (slots 1, 2) | that slot, when it holds a gun |
-| The wheel (4.6) | the gun chosen |
+| Input (`frontend.json input.game`) | Becomes (in `AMIPlayerController`) | Target |
+|---|---|---|
+| Q, Y (`swap`) | with N ≤ 2: `bSwapPressed` **on press**, as today. With N ≥ 3: on **release** of a tap shorter than `wheel.hold`; a hold opens the wheel and starts no swap | holstering: the gun being put away (`Current`); otherwise `LastUsed` |
+| Wheel down, D-pad ↑ (`next`) | `bNextPressed`, with `wheelDebounce` (0.28 s) between wheel steps as today | (`Aim` + 1) mod N, where `Aim` = `Swap.To` while holstering, else `Current` |
+| Wheel up, D-pad ↓ (`previous`) | `bPreviousPressed`, the same debounce | (`Aim` − 1) mod N |
+| 1–4; D-pad ←, → (slots 1, 2) | the slot flags | that slot, when it holds a gun |
+| The wheel (4.6) | `WheelPick` | the gun chosen |
 
 Precedence within a frame: swap, next, previous, slots 1 to 4, wheel. `LastUsed` is set by `Equip` to the gun put
-away. `Reset()` sets it to index 1, or 0 with one gun.
+away. `Reset()` sets it to index 1, or 0 with one gun. `GetOtherIndex()`, which the golden weapon test reads as
+`otherMag`, becomes `LastUsed`.
 
 **Why the parity set-up is unchanged.** With N = 2:
-- (`Aim` ± 1) mod 2 is the other gun of `Aim`, which is what the web's `OtherOf(Swap.bActive && Swap.bHolster ?
-  Swap.To : Current)` gives.
+
+- (`Aim` ± 1) mod 2 is the other gun of `Aim`. That is what the web's `OtherOf(Swap.bActive && Swap.bHolster ? Swap.To
+  : Current)` gives, so the wheel and D-pad, now next and previous, pick the gun the web's swap picked.
 - The quick swap gives the same gun: `Current` while holstering, and otherwise the gun last put away, which is the
   other one.
+- `LastUsed` equals `OtherOf(Current)` at every frame, so `otherMag` is unchanged.
 
-Golden scenarios `nine_presses`, `switch_reverse` and `spread_stances` exercise this.
+Tests 8.1 and 8.3 replay `nine_presses` and `switch_reverse` through `bNextPressed` / `bPreviousPressed` and through
+the controller, not only through `bSwapPressed`.
 
 `RequestSwitch` gains one case. While holstering toward `To`, a request for a third gun (neither `Current` nor `To`)
-**retargets** `Swap.To` and lets the holster run on. A request for `Current` brings the gun back up, as today. With
-two guns, any other request is a request for `Current`, so the web behaviour is unchanged.
+**retargets** `Swap.To`, lets the holster run on, and broadcasts `WeaponSwitch {holster, Current, newTo}` so the HUD
+and the animation follow. A request for `Current` brings the gun back up, as today. With two guns, any other request
+is a request for `Current`, so the web behaviour is unchanged.
 
-**Per-gun timing.** `C.Holster` and `C.Draw` become `HolsterOf(Current)` and `DrawOf(Current)`:
-- in the reversal arithmetic: `T = Draw(Current) × (1 − T / Holster(Current))`, and the mirror case;
-- in `AdvanceSwitch`: the holster ends at `Holster(Current)`; after `Equip`, `T −= Holster(previous)` and the draw
-  ends at `Draw(new Current)`;
+**Per-gun timing.** `C.Holster` and `C.Draw` become `HolsterOf(i)` and `DrawOf(i)`:
+
+- in the reversal arithmetic, `T = Draw(Current) × (1 − T / Holster(Current))`, and its mirror;
+- in `AdvanceSwitch`, the holster ends at `Holster(Current)`; after `Equip`, `T −= Holster(previous)` and the draw ends
+  at `Draw(new Current)`;
 - in `GetView().ActivityLength`.
 
 They equal the common values in the parity set-up.
 
-### 4.3 Ammunition and resupply
+### 4.3 Ammunition
 
-Each gun keeps its own magazine and reserve (the `Ammo` array already does). A new `Resupply()` adds each finite
-reserve's `Rounds` up to its `Cap`. The flow's Hold the Block clear (spec 04 3.11) calls it in place of
-`AddReserve(90, 240)`, which stays for the tests. The CHOPPER's rounds and cap are 90 and 240, so the result is
-unchanged. The low-ammunition cue and `Empty — Q swaps` work per gun as today.
+Each gun keeps its own magazine in `Ammo[i].Mag`. The reserve moves to `Pools[]`: one finite pool (the bag) for all
+finite guns, plus "infinite" for the NINE. `Ammo[i].Pool` indexes it. Reload, auto-reload, the low-ammunition cue and
+`Empty — Q swaps` read the gun's pool. `AddReserve(Rounds, Cap)` loops over the pools instead of the guns, and the
+game-mode host's `AddReserve` forwards to it as today. The flow and its golden note `weapon:reserve` (90 / 240) are not
+touched. With one finite gun, every number is the web's.
 
 ### 4.4 Fire modes
 
-Each gun has `FireModes` (from `extra`) and a per-gun `bSemi` state, set at reset from the saved mode. `bFireModePressed`
-on a gun with two modes, while not `Busy()` and not dropped, starts a **Selector** activity of `ModeSwitch` seconds:
+Each gun has `FireModes` (from `extra`) and a per-gun `bSemi`, set at every reset from `fireModes[0]`. On a gun with
+two modes, `bFireModePressed` while not `Busy()` and not dropped starts a **Selector** activity of `ModeSwitch` seconds:
 
-- `EMIWeaponActivity::Selector` is new; `Busy()` includes it, so the gun cannot fire, reload or aim meanwhile.
-- At its end the rules flip `bSemi` and broadcast a new `WeaponMode {weapon, semi}` event.
+- `EMIWeaponActivity::Selector` is new. `Busy()` includes it, so the gun cannot fire, reload or aim meanwhile.
+  `GetActivity()` returns it. `GetActivityTime()` returns its T, and `GetView().ActivityLength` is `ModeSwitch`.
+  `GetState()` returns `selector`, checked after `reloading`. `GetCue()` is unchanged.
+- A pending **AutoReload stays pending** until the Selector ends, then runs. That is a dry fire followed by a selector
+  press within `dryReloadDelay`. `StartReload` is never asked while Busy, so nothing is lost.
+- At its end the rules flip `bSemi` and broadcast `WeaponMode {weapon, semi}`.
 - A switch request, a melee strike or death cancels it without flipping.
 
 In `PullTrigger`, `Def.bAuto` becomes `Def.bAuto && !bSemi[Current]`. A semi press on an automatic gun is buffered by
 `Def.FireBuffer > 0 ? Def.FireBuffer : Def.SemiFireBuffer` (0.13 s, the NINE's). The interval stays 60 / rpm. The HUD
-shows `AUTO` or `SEMI`. The last mode used is saved per gun.
+shows `AUTO` or `SEMI`.
 
 ### 4.5 What the attachments do at run time
 
 | Effect | Where it acts | Change |
 |---|---|---|
-| Aimed field of view, look | `FMIPlayerRules` | `FovTarget = Lerp(base + sprint, AimFov, A)` with `AimFov` from the gun in hand, in place of `T.Fov.Ads`; the aimed look scale is `T.Look.AdsScale × AimLook`. The weapon sets both every frame through the new host call `IMIWeaponHost::SetPlayerAimView(AdsFov, AdsLook)`, whose default does nothing. Defaults: config's values |
-| Damage falloff | `UMIWeaponComponent::Hitscan` | `FMIShotRequest` gains `FalloffStart`, `FalloffEnd` (cm) and `FalloffMin`. Damage × 1 while distance ≤ start (the branch is skipped, so exactly the same double), linear to `min` at `end`, `min` beyond; then the head multiplier. Applies to explosives too |
-| Noise | the enemies' gunfire listener | `FMIShotFiredEvent` gains `NoiseRadius` (the unit of `Tune.Ai.HearGunfire`) and `bSuppressed`. The listener calls a new `FMIEnemyField::Gunfire(Pos, Radius)`; the existing `Gunfire(Pos)` calls it with `HearGunfire`. The 0.3 s throttle stays, except that a round heard further than the last alert in the window still alerts (never true when every radius is equal) |
-| Flash, smoke, sound | `OnRoundFired` / effects / audio | `FlashScale` and the light from the resolved `flash`; `bSuppressed` picks the suppressed sound set |
+| Aimed field of view, look | `FMIPlayerRules` | `FovTarget = Lerp(base + sprint, AimFov, A)` with `AimFov` from the gun in hand, in place of `T.Fov.Ads`. The aimed look scale is `T.Look.AdsScale × AimLook`. The weapon sets both every frame through the new host call `IMIWeaponHost::SetPlayerAimView(AdsFov, AdsLook)`, whose default does nothing |
+| Damage falloff | `UMIWeaponComponent::Hitscan` | `FMIShotRequest` gains `FalloffStart`, `FalloffEnd` (cm) and `FalloffMin`. Damage × 1 while distance ≤ start (the branch is skipped). Beyond it: if end == start, × min; else linear to min at end, min beyond. Then the head multiplier. Applies to explosives too |
+| Noise | the enemies' gunfire listener | `FMIShotFiredEvent` gains `NoiseRadius` (cm, like the rest of the event) and `bSuppressed`. The listener converts it to metres and calls a new `FMIEnemyField::Gunfire(Pos, RadiusM)`. The existing `Gunfire(Pos)` calls that with `HearGunfire`. The 0.3 s throttle stays, except that a round heard further than the last alert in the window still alerts (never true when every radius is equal) |
+| Flash, smoke, sound | `OnRoundFired`, effects, audio | the resolved `FlashScale` and light; `bSuppressed` picks the suppressed sound set |
 | Length near walls | `ProbeWall` | the resolved `WallStart` / `WallFull` |
-| Sight, muzzle, support hand | `FMIViewmodelRig` markers | a fitted part's socket replaces a marker: the optic's `SightEye` replaces `sightRear` (with the part's `relief`), the muzzle device's `Muzzle` replaces `muzzle` (tracers and flash start there), a grip's `SupportHand` replaces `support` (left-hand IK), a handguard's sockets replace its own |
+| Sight, muzzle, support hand | `FMIViewmodelRig` markers | a fitted part's socket replaces a marker: the optic's `SightEye` replaces `sightRear` (with the part's `relief`), the silencer's `Muzzle` replaces `muzzle` (tracers and flash start there), a grip's `SupportHand` replaces `support` (left-hand IK) |
 | Laser | `UMIWeaponComponent` (presentation) | a beam from the `Beam` socket to the point the eye ray hits on the `Bullet` channel (rounds leave the eye: spec 02), so the dot shows where hip fire goes. It fades out above 0.6 aim. Always on |
-| Clear magazine | gun material | the scalar `RoundsShown` = magazine / size |
+| Clear magazine | gun material; clips | the scalar `RoundsShown` = magazine / size; `ReloadQuick` and `ReloadEmptyRetain` play (5) |
 
 ### 4.6 The weapon wheel
 
-Hold Q or Y for 0.25 s (`frontend.json wheel`).
+The wheel exists only with **three or more guns carried** (`wheel.minGuns`). With one or two, Q and Y swap on press
+exactly as today, and holding them does nothing more.
 
-- The press has already started the quick swap, exactly as in the web game. The wheel only redirects it.
-- Four sectors, slot 1 at the top, clockwise. Each sector shows the gun's silhouette, name, magazine and reserve, and
-  mode. The centre shows `Pick a gun`.
-- The mouse travel since the wheel opened selects, with a 60 px radius and a 0.5 dead zone; on the pad, the right
-  stick selects. Look and fire are blocked while the wheel is open.
-- Release: a selection becomes `WheelPick` and goes through `RequestSwitch`, which reverses, retargets or holsters
-  again (4.2). Releasing inside the dead zone keeps the quick swap.
-- The game does not slow down (open question 5).
-- The wheel is drawn by the HUD and lives in the input layer (`AMIPlayerController`). The rules see only `WheelPick`.
+- With N ≥ 3, a tap of Q or Y (released before 0.25 s) is a quick swap **on release**. A hold of 0.25 s opens the
+  wheel and **starts no swap**, so nothing is holstered before the player has chosen. The cost of this is up to 0.25 s
+  of latency on the quick swap with three or more guns.
+- One sector per carried gun, slot 1 at the top, clockwise. Each sector shows the silhouette (or the name), the
+  magazine, the bag and the mode. The centre shows `Pick a gun`.
+- The mouse travel since the wheel opened selects (60 px radius, 0.5 dead zone). On the pad, the right stick selects.
+  Look and fire are blocked while the wheel is open.
+- On release, a selection becomes `WheelPick` and goes through `RequestSwitch` as a fresh request. Releasing inside the
+  dead zone picks nothing.
+- The game does not slow down (open question 5). Pad players reach slots 3 and 4 through the wheel or the D-pad ↑ ↓
+  cycle, both one action.
+- The wheel is drawn by the HUD and lives in the input layer (`AMIPlayerController`). The rules see only `WheelPick` and
+  the flags.
 
 ### 4.7 HUD
 
 The weapon bar (spec 07 3.5) shows one slot per carried gun, then melee. The parity set-up shows exactly two slots and
 melee.
 
-- Each slot has its silhouette, its own magazine pips and count, its reserve (∞ for the NINE), its glyph
-  (`frontend.json hud.weaponBar.glyphs`: 1–4 on a keyboard, ← → for slots 1 and 2 on a pad, where slots 3 and 4 go
-  through the wheel and the D-pad cycle), `AUTO` / `SEMI` on two-mode guns, and attachment pips.
-- The holstered guns show their ammunition, as the web's holstered slot does.
+- Each slot shows its silhouette (or name), its magazine pips and count, its glyph (`frontend.json hud.weaponBar.glyphs`),
+  `AUTO` / `SEMI` on two-mode guns, and attachment pips. The bag's count shows once at the right of the bar. The NINE
+  shows ∞.
+- The inspect prompt (T / Hold View) shows only for a gun whose `Inspect` role exists. The fire-mode prompt (B / View)
+  shows on every two-mode gun, because the selector rule works without its clip.
 - Clicking or tapping a slot switches to it, as today.
-- The slice-1 `AMIHUD` canvas lists all carried guns' ammunition. The real `WBP_WeaponBar` (spec 07 4.2) is built for
-  four from the start.
+- The slice-1 `AMIHUD` canvas lists all carried guns. The real `WBP_WeaponBar` (spec 07 4.2) is built for four from the
+  start.
 
 ### 4.8 Presentation-only features from the pack
 
-These never write rule state. Any rule activity, a fire or aim press, sprint or a swap cancels them, with a 0.15 s
-blend out:
+These never write rule state. Any rule activity (a fire or aim press, sprint, a swap) cancels them with a 0.15 s blend
+out.
 
 | Feature | Trigger | Notes |
 |---|---|---|
-| Inspect | T, or hold View 0.4 s; and by itself after `inspectAfter` s (24) of idle (no input, `Ready`, hip, not sprinting) | `inspectAfter: 24` is in `config.json` today with no animation (spec 02 open question 2): this answers it |
-| Magazine check | Reload with a full magazine, or with an empty reserve | the rules refuse that reload as always; `UMIWeaponComponent` sees the press, `Mag == MagSize` (or `Reserve == 0`) and `Ready`, and plays `MagCheck`. With the clear magazine the rounds show |
-| Melee with the gun | the existing melee (F, V, RB, R3) | rules unchanged (0.55 s, contact at 0.16 s, spec 02); the strike plays `MeleeA` and `MeleeB` alternately (a counter, not a random draw), `MeleeBash` as the fallback; retimed to 0.55 s with contact on 0.16 s |
+| Inspect | T, or hold View 0.4 s; and by itself after `inspectAfter` s (24) of idle | only where the role exists (5). `inspectAfter: 24` is in `config.json` today with no animation (spec 02 open question 2): this answers it |
+| Magazine check | Reload with a full magazine, or with an empty bag | the rules refuse that reload as always. `UMIWeaponComponent` sees the press and plays `MagCheck` where it exists. With the clear magazine the rounds show |
+| Melee with the gun | the existing melee (F, V, RB, R3) | rules unchanged (0.55 s, contact at 0.16 s). The strike plays `MeleeA` and `MeleeB` alternately (a counter), with `MeleeBash` or the rig's strike keys as fallback |
+| Dry trigger | dry fire with an empty magazine | the first 0.3 s of the pack's tap-rack jam clearance, blended out when the auto reload starts. No jam rule, no draw |
 | Trigger discipline | always, while not firing | the `TriggerOff` finger pose as an additive layer |
 
 ### 4.9 Classes that change (GAMEPLAY.md names)
 
 | Class (file) | Change | Parity guard |
 |---|---|---|
-| `FMIWeaponDef`, `FMIWeaponsData` (`Core/Data/MIData.h`) | new fields: `Holster`, `Draw`, `AdsFov`, `AdsLook`, `NoiseRadius`, `FalloffStart/End/Min`, `FireModes`, `SemiFireBuffer`, `ModeSwitch`, `ResupplyRounds/Cap`, `InspectAfter`, `Fitted` | defaults = config values (1.2) |
-| `UMIDataSubsystem` (`Core/Data`) | loads the six files into `FMILoadoutData`; `ParseGun` takes an object; `$ref` | `MurderInc.Core.DataLoads` unchanged |
-| `FMIWeaponRules` (`Weapons/MIWeaponRules`) | 4.2 switching, `LastUsed`, retarget; per-gun holster and draw; `Resupply()`; Selector activity and fire modes; `SetPlayerAimView`; falloff, noise and suppression in `FMIShotRequest` and the fire event | golden weapon scenarios through the resolver (8.1) |
+| `FMIWeaponDef`, `FMIWeaponsData` (`Core/Data/MIData.h`) | new fields: `Holster`, `Draw`, `AdsFov`, `AdsLook`, `NoiseRadius` (cm), `FalloffStart/End/Min`, `FireModes`, `SemiFireBuffer`, `ModeSwitch`, `Pool`, `InspectAfter`, `Fitted` | defaults = config values (1.2) |
+| `UMIDataSubsystem` (`Core/Data`) | `ParseWeapons` splits into **`ParseGun(rulesObj, extraObj)`** (one gun object, no path) and `ParseWeaponsCommon` (common and melee); `ParseConfig` calls both for `weapons.common.order` as today. Loads the six new files into `FMILoadoutData` on a separate error path; `$ref` | `MurderInc.Core.DataLoads` unchanged |
+| `FMIViewmodelData` (`Weapons/MIViewmodel`) | `Parse` splits into **`ParseGlobal(Presentation, Config)`** (first person, feel, tracer, strides, viewmodel FOV) and **`ParseGunView(presentationGunObj, rulesGunObj)`** (views, kick, springs, swayMax, reload marks, markers); `Parse` calls both as today | `Weapons.ViewmodelRig` unchanged |
+| `FMIViewmodelRig` (same) | marker and relief overrides from the fitted parts | same |
+| `FMIWeaponRules` (`Weapons/MIWeaponRules`) | 4.2 switching, `LastUsed`, retarget and its event, `GetOtherIndex` = `LastUsed`; per-gun holster and draw; pools and `AddReserve` over pools; Selector (`GetState`, `GetActivity`, view, AutoReload held); fire modes; falloff, noise and suppression in `FMIShotRequest` and the fire event | golden weapon scenarios through the resolver (8.1) |
 | `IMIWeaponHost` (same file) | `SetPlayerAimView(double, double)` with a default empty body | the golden host needs no change |
-| `UMIWeaponComponent` (`Weapons/MIWeaponComponent`) | `Setup` takes the resolved data; builds the guns with `UMIGunAssembly`; falloff in `Hitscan`; laser; inspect and magazine check; forwards the aim view | `Weapons.HitscanDummyBlast` unchanged |
-| `FMIViewmodelRig`, `FMIViewmodelData` (`Weapons/MIViewmodel`) | data for any roster gun; marker and relief overrides from the fitted parts | `Weapons.ViewmodelRig` unchanged |
+| `UMIWeaponComponent` (`Weapons/MIWeaponComponent`) | `Setup` takes the resolved data; builds the guns with `UMIGunAssembly`; falloff in `Hitscan`; laser; inspect, magazine check, dry tap-rack; forwards the aim view | `Weapons.HitscanDummyBlast` unchanged |
 | `FMIPlayerRules` (`Player/MIPlayerRules`) | `AimFov` and `AimLook` per frame | `Golden.PlayerPure`, `.PlayerSim` unchanged |
-| `AMIPlayerController` (`Player`) | the actions of `frontend.json input.game` layered over config's (wheel and D-pad ↑ ↓ become next and previous); hold timing for Q, Y and View; the wheel; menu console `MIMenu` | `Core.GameClasses` counts change (8.6) |
-| `AMIPlayerCharacter` (`Player`) | passes the run's resolved data to `UMIWeaponComponent::Setup`; spawns the crew's arms look | |
+| `AMIPlayerController` (`Player`) | the actions of `frontend.json input.game` over config's (wheel and D-pad ↑ ↓ become next and previous, same debounce); Q / Y press or release by N; hold timing for Q, Y and View; the wheel; menu console `MIMenu` | `Core.GameClasses` counts change (8.7); controller tests (8.4) |
+| `AMIPlayerCharacter` (`Player`) | passes the run's resolved data to `UMIWeaponComponent::Setup`; spawns the crew's look | |
 | `FMIGameEvents` (`Core/MIEvents.h`) | `WeaponMode`; `FMIShotFiredEvent.NoiseRadius`, `.bSuppressed` | no new event in parity runs |
-| `AMIHUD` (`UI`) | 4-slot ammunition, mode tag, wheel | |
-| `AMIGameMode` and the flow director being written (`Flow`) | the title sub-screens; the run reset applies the set-up (resolver → `FMIWeaponRules::Init`, the crew's arms, the crew lines); `Resupply()`; `Change set-up`; level travel | `Golden` flow rules unchanged |
-| `FMIEnemyField` (`Enemies/MIEnemies`, the enemy agent's) | `Gunfire(Pos, Radius)` overload | `Golden.Enemies` unchanged |
+| `AMIHUD` (`UI`) | 4-slot ammunition, the bag, mode tag, wheel, gated prompts | |
+| `AMIGameMode` (`Flow`, the host side only) | the title sub-screens; the run reset applies the set-up (resolver → `FMIWeaponRules::Init`, the crew's look and lines); `Change set-up`; level travel. Its `AddReserve` keeps forwarding to the rules | the flow rules and their golden tests are not touched |
+| `FMIEnemyField` (`Enemies/MIEnemies`, the enemy agent's) | `Gunfire(Pos, RadiusM)` overload | `Golden.Enemies` unchanged |
 
 ### 4.10 New classes
 
 | Class | Folder | Kind |
 |---|---|---|
-| `FMILoadoutData` and its structs (guns, attachments, crew, levels, modes, front end) | `Core/Data/MILoadoutData.h/.cpp` | data |
-| `FMIRunSetup` (crew, guns, builds, fire modes, level, mode, difficulty, time) | `Core/Data/MILoadoutData.h` | data |
+| `FMILoadoutData` and its structs (guns as JSON, attachments, crew, levels, modes, front end) | `Core/Data/MILoadoutData.h/.cpp` | data |
+| `FMIRunSetup` (crew, guns, builds, level, mode, difficulty, time) | `Core/Data/MILoadoutData.h` | data |
 | `FMILoadoutResolver` | `Weapons/MILoadoutResolver.h/.cpp` | rule core |
-| `FMIFrontEndRules` (screen stack, focus, Back and Next, the carry rules, validation; no widgets) | `Flow/MIFrontEndRules.h/.cpp` | rule core |
-| `UMIRunSetupSubsystem` (the current set-up across level travel, save and load) | `Flow/MIRunSetupSubsystem.h/.cpp` | game-instance subsystem |
-| `UMIGunAssembly` (gun mesh + parts + hidden parts + marker overrides) | `Weapons/MIGunAssembly.h/.cpp` | component |
+| `FMIFrontEndRules` (screen stack, edit mode, focus, Back and Next, the carry rules, readiness, validation; no widgets) | `Flow/MIFrontEndRules.h/.cpp` | rule core |
+| `UMIRunSetupSubsystem` (the set-up across level travel, save and load) | `Flow/MIRunSetupSubsystem.h/.cpp` | game-instance subsystem |
+| `UMIGunAssembly` (base mesh by variant + add-on parts + hidden parts + marker overrides) | `Weapons/MIGunAssembly.h/.cpp` | component |
 | `AMIShowroom` (stage, turntable, cameras, arms) | `UI/MIShowroom.h/.cpp` | actor |
-| `SMIFrontEnd` and one widget per screen (`SMIScreenHome`, `…Crew`, `…Loadout`, `…Workbench`, `…Level`, `…Style`, `…Briefing`), `SMIWeaponWheel` | `UI/` | Slate (ARCHITECTURE 2.2: the UI is Slate in C++) |
+| `SMIFrontEnd`, one widget per screen (`SMIScreenHome`, `…Crew`, `…Loadout`, `…Workbench`, `…Where`, `…Briefing`), `SMIWeaponWheel` | `UI/` | Slate (ARCHITECTURE 2.2) |
 
 ---
 
-## 5. The pack's clips: features and leftovers
+## 5. The pack's clips
 
-`guns.json clipRoles` lists every role, its pack source, whether the rules time it, and its fallback. The asset name
-is `A_FP_<Set>_<Role>` (spec 02 5.x); `ANIMATION.md` maps each pack clip to it.
+`guns.json clipRoles` lists every role, its pack source, whether the rules time it, and its fallback. A gun's
+`clips.byStatus` gives the status of each role *for that gun*. The asset is `A_FP_<Set>_<Role>` (spec 02 5.x), and
+`ANIMATION.md` maps each pack clip to it. Timed roles are stretched to the rule length, with notifies on the marks: the
+rules are the clock, never the clip.
 
-| Pack clips | Use |
+| Pack clips | Role, use |
 |---|---|
 | fire semi, auto, aimed, empty | `FireSemi`, `Fire`, `FireAds`, `FireLast` |
-| fire-mode switch | `ModeSemi` / `ModeAuto`, a feature (4.4) |
-| reload, reload empty | `ReloadTactical`, `ReloadEmpty`, stretched to the rule lengths with notifies on the marks |
-| magazine check | `MagCheck`, a feature (4.8) |
-| inspect | `Inspect`, a feature (4.8); also the Crew screen (2.4) |
-| melee bash, two swings | `MeleeBash`, `MeleeA`, `MeleeB`, a feature (4.8) |
-| equip, quick equip, holster | `Equip` (showroom, briefing), `Draw` (0.32 s), `Holster` (0.28 s) |
-| aim in and out, crouch transitions, poses, locomotion | `AimIn` / `AimOut` (stretched to the aim time), `CrouchIn` / `Out`, `Idle`, `IdleAds`, `Walk`, `Sprint` |
-| trigger discipline poses | `TriggerOff`, an additive pose (4.8) |
-| grip change, grip poses | `GripChange` (Workbench), `GripNone`, `GripVertical`, `GripAngled` (left hand per underbarrel) |
-| weapon-part clips | the STICK's moving parts during reload, inspect, magazine check and the selector |
-| **left out:** jam clearances | no jam rule; a random jam adds a draw to the weapon stream and punishes the player for nothing |
-| **left out:** syringe heal | health regenerates; healing needs pickups and an inventory the game does not have |
-| **left out:** quick grenade throw | no grenades; the block's explosives are props |
-| **left out:** quick and empty-retain reloads, aimed reloads | one tactical and one empty reload per gun; the rules lower the sight during reloads |
-| **left out:** third-person clips | the player has no body in the world; kept for a full-body crew preview or a Goon with a STICK |
+| fire-mode switch | `ModeSemi` / `ModeAuto` (4.4) |
+| reload, reload empty | `ReloadTactical`, `ReloadEmpty` |
+| quick reload | `ReloadQuick`: plays for a tactical reload when the resolved reloadTime factor is below 0.95 (the clear mag) |
+| empty-retain reload | `ReloadEmptyRetain`: plays for an empty reload with the clear mag fitted (you keep that magazine) |
+| jam clearance (tap-rack) | `Dry` (4.8) |
+| magazine check | `MagCheck` (4.8) |
+| inspect | `Inspect` (4.8; Crew stage) |
+| melee bash, two swings | `MeleeBash`, `MeleeA`, `MeleeB` (4.8) |
+| equip, quick equip, holster | `Equip` (Crew, Briefing), `Draw`, `Holster` |
+| aim in and out, crouch, poses, locomotion | `AimIn` / `AimOut` (stretched to the aim time), `CrouchIn` / `Out`, `Idle`, `IdleAds`, `Walk`, `Sprint` |
+| trigger discipline | `TriggerOff` (4.8) |
+| grip change, grip poses | `GripChange` (Workbench preview), `GripNone`, `GripVertical`, `GripAngled` |
+| weapon-part clips | the pack rifles' moving parts during reload, inspect, magazine check and the selector |
+
+**Status per gun, in short** (the full lists are in `guns.json`):
+
+- **The pack rifles** get every role from the pack. The import is in progress. Until a clip lands, the procedural rig
+  plays the core roles.
+- **The CHOPPER** plays procedurally today, with `Idle` from the template. Its reloads are being adapted
+  (`mi_adapt.py`). Nobody is making its `Equip`, `Inspect`, `MagCheck`, `ModeSemi` / `ModeAuto`, `MeleeA` / `MeleeB` or
+  `TriggerOff`. These work the M4's parts and hands (thumb selector, M4 magazine, rail) and need adapting to the AK's
+  rock-in magazine and left-side lever. They are requested in 6.6 and marked missing until then.
+- **The NINE** has no pack clips (the pack has no pistol).
+- **The RATTLER** has nothing started.
+
+**Fallbacks when a role is missing:** the Crew and Briefing stages play `IdleAds` with the rig's sway. The HUD hides the
+inspect prompt. The selector still runs and its HUD tag flips, with the hands still.
+
+**Pack animations not yet in the game** (`clipRoles.notYet`, open question 8): the aimed reloads and aimed magazine
+check (the rules lower the sight during reloads), the other two jam clearances, the syringe heal, the quick grenade
+throw, and the third-person clips.
 
 ---
 
 ## 6. Art and animation
 
-Status: **exists** (usable now), **in progress** (an agent is on it), **missing** (nobody has started). Socket
-coordinates are in the mesh's space (x along the bore, y left, z up; metres), as `art/blender/assets/weapons.py`
-writes them.
+Status words, as in the data: **exists** (usable now), **template** (an Unreal template stands in), **procedural**
+(the rig plays it), **inProgress** (an agent is on it), **inPack** (in the purchased pack but not imported or not
+prepared), **missing** (nobody has started).
 
-### 6.1 Guns
+### 6.1 What can be shown today
 
-| Gun | Mesh | Sockets per slot | Clips (`clipRoles`) | Icon |
+| Gun | Mesh | Mounts for its slots | Clips | Offered |
 |---|---|---|---|---|
-| CHOPPER | `SK_Chopper`, in progress (template `SKM_Rifle` stands in) | `Optic` (0.115, 0, 0.0418) on the top-cover rail, **missing**; `MuzzleMount` (0.426, 0, 0) with the booster split off as bone or section `Booster`, **missing**; the existing Muzzle, Eject, SightRear, SightFront, RecoilPivot, MagHinge, Palm_R, Palm_L | in progress (the pack's rifle clips adapted, ANIMATION.md) | `T_UI_Gun_Chopper`, missing |
-| NINE | `SK_Nine`, in progress (template `SKM_Pistol`) | `Laser` (0.156, 0, −0.0335) under the dust cover, **missing** | missing beyond the template pistol clips; no inspect, magazine check or swing (rifle clips) | `T_UI_Gun_Nine`, missing |
-| STICK | the pack's `SK_TFA_AR_Default_Combined`, exists on the box (import script); `fallbackMesh` the template rifle | `Optic`, `MuzzleMount`, `Underbarrel`, `Laser`, `MagHinge`, `Handguard`, `Stock`: the pack's parts exist, socket names written on import; `MuzzleMount`, `Underbarrel` and `Laser` per handguard length | in progress: the pack's own clips, no adaptation | `T_UI_Gun_Stick`, missing |
-| RATTLER | `SK_Weapon_Rattler`, **missing**: a skeletal, first-person-grade `SM_Weapon_GoonSMG` (which exists) with bones bolt, trigger, magazine, knob and `MuzzleDevice`, a 4096 set, origin on the bore at the back of the receiver; template rifle meanwhile | `MuzzleMount` (0.41, 0, 0), **missing**; markers from the Goon SMG's sockets (`guns.json` notes) | missing: the pack's rifle clips adapted to the stick magazine and the left knob | `T_UI_Gun_Rattler`, missing |
+| CHOPPER | `SK_Chopper` inProgress (rebuild); `SKM_Rifle` stands in | `Optic`, `MuzzleMount` + separate `Booster`: missing (6.6) | procedural + template Idle; reloads inProgress; 8 roles missing | always (parity); no slot offered yet |
+| NINE | `SK_Nine` inProgress; `SKM_Pistol` stands in | `Laser`: missing; pack laser length unmeasured | procedural + template Idle | always (parity); no slot offered yet |
+| SHORTY | Short variants: inPack | five sockets: inPack | pack clips inProgress, procedural meanwhile | after 6.2 |
+| STICK | `SK_TFA_AR_Default_Combined` exists on the box (open); folded inPack | five sockets: inPack | the same | yes on the box (no slot until 6.2); no in a clean checkout |
+| STRETCH | Extended variants: inPack | five sockets: inPack | the same | after 6.2 |
+| RATTLER | `SK_Weapon_Rattler` missing (a skeletal, first-person-grade `SM_Weapon_GoonSMG`) | `MuzzleMount` + `MuzzleDevice` bone: missing | nothing started | no (hidden) |
 
-### 6.2 Attachments
+The icons `T_UI_Gun_*` are missing for every gun. Until they exist, the rack, the wheel and the bar show the name in
+the display font.
 
-All thirteen are the pack's parts and **exist**. Their asset paths are filled into `attachments.json
-presentation.mesh` from the import listing; null until then, which shows nothing and changes no rule. What each needs
-in addition:
+### 6.2 The pack import: parts, variants and sockets
 
-| Part | Needs | Status |
+Today `tools/box/anim/ue_import_pack.py` imports `Meshes/SK_TFA_AR_Default_Combined.fbx` and
+`Meshes/SK_TFA_AR_Magazine.fbx` only. That brings no part mesh, none of the other five rifle variants, and no socket.
+Owner: **the animation agent**, which owns the import script and the box project. The work, in order, is step 5 of
+the build order:
+
+1. **List the pack's `Meshes/` folder** on the box and record it in `ANIMATION.md`: every file, and for each rifle
+   whether the irons, the handguard and the stock are separate meshes, mesh sections or baked in.
+2. **Import every part mesh** (scope, silencer, both grips, laser, irons if separate, the transparent magazine) **and
+   all six rifle variants** (three lengths × stock open / folded) onto the shared weapon skeleton.
+3. **A socket pass**, written by the script and re-run on every import, puts these sockets on every variant: `Optic`,
+   `MuzzleMount`, `Underbarrel`, `Laser`, `MagHinge`, `Muzzle`, `Eject`, `SightRear`, `SightFront`, `RecoilPivot`,
+   `Palm_R`, `Palm_L`. On the parts it puts `SightEye` (scope), `Muzzle` (silencer), `SupportHand` (grips) and `Beam`
+   (laser). A length's `MuzzleMount`, `Underbarrel` and `Laser` differ per variant.
+4. **Update the data**: fill `guns.json variants.*.mesh`, `attachments.json presentation.mesh`, and move each status
+   from `inPack` to `exists`. `MurderInc.Loadout.MountsExist` (8.6) then checks every socket on the imported meshes.
+
+**Why variants:** the pack ships each length as a whole rifle, open or folded. Neither the handguard nor the stock can
+be bolted on as a child mesh. So the length is the gun, the stock is a base-mesh choice (`variants`), and
+`UMIGunAssembly` swaps the base mesh and attaches only the true add-on parts.
+
+**If the irons are baked into "Combined":** the scope then sits over raised irons. If they are a mesh section, they are
+hidden as a section. If they are welded into the mesh, they stay up until split off in the import, and the irons
+option shows no fold.
+
+### 6.3 Attachments
+
+| Part | Needs beyond the import | Status |
 |---|---|---|
-| Scope | `SightEye` socket on the eye axis at the ocular; a reticle lens material | missing |
-| Irons | the folded state when an optic is fitted | exists (pack), state switch missing |
-| Silencer | `Muzzle` socket at its end; suppressed gun sounds (`audio.json`) | missing |
-| Grips | `SupportHand` socket; the left-hand poses `GripVertical`, `GripAngled` | socket missing, poses exist (pack) |
-| Laser | `Beam` socket; a Niagara beam and dot (line-batcher placeholder like the tracers) | missing |
-| Clear mag | `RoundsShown` material parameter | missing |
-| Handguards | per length: `MuzzleMount`, `Underbarrel`, `Laser`, `Muzzle`, `Palm_L` | names from the import |
-| Stock | folded and open states | exists (pack variants) |
-| Icons | one small pip icon per part (`T_UI_Att_<id>`) | missing |
+| Scope | a reticle lens material; `SightEye` on the eye axis at the ocular | inPack; lens missing |
+| Irons | the folded state under an optic | depends on 6.2 step 1 |
+| Silencer | `Muzzle` at its far end; suppressed gun sounds (audio) | inPack; sounds missing |
+| Grips | `SupportHand`; the `GripVertical` / `GripAngled` poses (pack clips) | inPack |
+| Laser | `Beam`; a Niagara beam and dot (a line-batcher placeholder first) | inPack; beam missing |
+| Clear mag | the `RoundsShown` material parameter | inPack; parameter missing |
+| Stock | the folded variants | inPack |
+| Pips | one small icon per part (`T_UI_Att_<id>`) | missing |
 
-### 6.3 Crew
+### 6.4 Crew
 
-| Member | Arms | Glove | Sleeve | Skin | Jewellery | Portrait |
-|---|---|---|---|---|---|---|
-| RULE | `SK_RuleArms`, in progress | leather and suede, exists | none | exists | watch and bracelet, in progress (the bracelet's offset is to be copied from `SK_RuleArms.sockets.json`) | missing |
-| DEUCE | same | fingerless knit (`SK_Crew_Glove_FingerlessKnit`), missing | hoodie pushed up, missing | `MI_Crew_Skin_Deuce`, missing | gold rope, missing | missing |
-| SMOKE | same | knuckle tape over bare hands, missing; needs the hand skin detail the glove hides today | bomber cuff, missing | missing | wooden beads, missing | missing |
-| KEYS | same | Rule's glove with two fingertips cut off, wool instances, missing | denim cuff, missing | missing | digital watch on Rule's watch frame, missing | missing |
+| Member | Phase 1 (no new mesh) | Phase 2 | Portrait |
+|---|---|---|---|
+| RULE | `SK_RuleArms` inProgress; watch and bracelet inProgress (the bracelet's offset comes from `SK_RuleArms.sockets.json`) | | missing |
+| DEUCE | `MI_Crew_Skin_Deuce`, `MI_Crew_Glove_BlackNylon`: missing | knit glove, hoodie sleeve, rope bracelet: missing | missing |
+| SMOKE | `MI_Crew_Skin_Smoke`, `MI_Crew_Glove_GreySuede`: missing | taped hands (needs hand skin detail), bomber cuff, beads: missing | missing |
+| KEYS | `MI_Crew_Skin_Keys`, `MI_Crew_GloveWool`: missing | cut fingertips, denim cuff, digital watch: missing | missing |
 
-The variants go through the proven path of `CHARACTERS.md`: SDF surfaces on the mannequin's bones, weights
-transferred per region, imported onto the existing `SK_Mannequin`. Never a real person's likeness, no logos, no
-maker's marks.
+Phase 1 is six material instances on the existing `M_RuleArms_*` materials: a few hours, and it unlocks three cards.
+Phase 2 goes through the proven path of `CHARACTERS.md`: SDF surfaces on the mannequin's bones, weights transferred per
+region, imported onto `SK_Mannequin`. Never a real person's likeness, no logos, no maker's marks.
 
-### 6.4 Front end
+### 6.5 Front end
 
-The stage room, bench and turntable (`frontend.json stage`), the level thumbnail `T_UI_Level_Block`, the gun icons,
-the part pips and the crew portraits are missing. Engine shapes and text stand in for all of them. No binary asset is
+The stage room, bench and turntable (`frontend.json stage`), the level thumbnail `T_UI_Level_Block`, the gun icons, the
+part pips and the crew portraits are missing. Engine shapes and text stand in for all of them, so no binary asset is
 needed to run the flow.
 
-### 6.5 Licence
+### 6.6 Requests to other agents
 
-The pack (Fab licence) and Epic's mannequin content are used but never committed. A clean checkout has no STICK mesh
-and no pack clips. The STICK then uses `fallbackMesh`, its parts show nothing, and every rule and test still works.
-Only data, scripts and pictures of our own work are committed.
+These are hand-offs. This design does not edit their files.
+
+| To | Request | Why it is needed now |
+|---|---|---|
+| Weapons rebuild (`_weapons_kit.py`, `_weapons_nine.py`, `weapons.py`) | **Before the next export:** `CH['sockets']` gets `Optic` (on the top-cover rail) and `MuzzleMount` (base of the booster); the booster becomes its own bone or section `Booster`; `NN['sockets']` gets `Laser` (middle rail slot; the rebuild cuts slots at x 0.142, 0.156, 0.170). Write the coordinates from the rebuilt mesh into the manifest; spec 02's and `guns.json`'s old numbers are not to be used | the CHOPPER and NINE slots stay hidden until these exist; adding them after the export means another export |
+| Weapons pipeline | A render step: a white-on-transparent 512 × 192 side silhouette of every exported gun mesh (`T_UI_Gun_Chopper`, `_Nine`, later `_Rattler`). Commit only renders of our own guns | the rack, the wheel and the four-slot bar read best by silhouette |
+| Animation agent | 6.2 (listing, parts, variants, socket pass); the pack-rifle silhouettes rendered at import time on the box, once per variant, never committed; measure the pack laser along the bore (if > 50 mm, the NINE laser row is dropped and a compact pistol laser becomes missing art) | the Workbench shows nothing until then |
+| Animation agent | Add to `ANIMATION.md`'s scope for the CHOPPER: `Inspect`, `MagCheck`, `ModeSemi`, `ModeAuto`, `MeleeA`, `MeleeB`, `Equip`, `Holster`, `Draw`, adapted to the AK's rock-in magazine and left-side lever (like the reloads in `mi_adapt.py`); or record them as missing | the parity gun is in slot 1, so every Crew screen and Briefing shows it |
+| Characters | The six phase-1 material instances (6.4) | three crew cards |
+
+### 6.7 Licence
+
+The pack (Fab licence) and Epic's mannequin content are used but never committed. A clean checkout has no pack mesh, no
+pack clip and no pack-rifle icon. The pack rifles are then not ready and are not offered, and every rule and test still
+works, because the tests use the data, not the meshes (except `MountsExist`, which skips without the pack). Only data,
+scripts and pictures of our own work are committed.
 
 ---
 
 ## 7. Save data
 
-One `USaveGame` (`UMISaveGame`, ARCHITECTURE 2.2 `Core/Settings`), slot `MurderInc`, holds the nine existing
-settings, the best Hold the Block score and a new `Setup` block (`frontend.json save`):
+One `USaveGame` (`UMISaveGame`, ARCHITECTURE 2.2 `Core/Settings`), slot `MurderInc`, holds the nine existing settings,
+the best Hold the Block score and a new `Setup` block (`frontend.json save`):
 
 ```
 struct FMISetupSave
@@ -896,112 +1049,129 @@ struct FMISetupSave
     FName Crew;                                  // crew.json id
     TArray<FName> Guns;                          // up to 4, slot order
     TMap<FName, FMIGunBuildSave> Builds;         // gun -> (slot -> part or NAME_None); every gun ever built
-    TMap<FName, FName> FireModes;                // gun -> auto | semi, the last used
     FName Level;                                 // levels.json id
     TArray<FName> Seen;                          // ids looked at (NEW badges)
-    bool bPlayed = false;                        // Same set-up shows the remembered set-up
+    bool bPlayed = false;                        // false: Hit the block on Home opens Crew
 };
 ```
 
-Mode, difficulty and time stay the existing settings keys (`mode`, `difficulty`, `time`) and are not duplicated.
+Mode, difficulty and time stay the existing settings keys (`mode`, `difficulty`, `time`). No fire mode is saved: every
+run starts each gun in `fireModes[0]`, so Same set-up and Run it back always play like the web game.
 
-**When it is written:** on every Next, on Done in the Workbench, on Hit the block and on Same set-up.
+**When it is written:** on every Next, on Done in the Workbench, and on every start.
 
-**When it is read:** at boot, then validated, in this order:
-1. Unknown crew → `rule`; unknown level → `block`.
-2. Unknown guns are dropped. If none remains → the parity guns.
-3. Parts not in the gun's options are dropped. A required slot without a valid choice takes its default.
+**When it is read:** at boot, then validated in this order:
+
+1. An unknown or unoffered crew member → `rule`. An unknown level → `block`.
+2. Unknown or unoffered guns are dropped. If none remains → the parity guns.
+3. Parts not in the gun's options, or not offered, are dropped. A required slot without a valid choice takes its
+   default.
 4. Duplicates and gaps are removed, and the list is cut to four.
 5. A mode the level does not provide → the level's first mode.
 
-So a removed pack degrades to a playable set-up and never to a crash. `MISetup dump` (console) prints the set-up as
-JSON for bug reports.
+So a removed pack degrades to a playable set-up, never to a crash. `MISetup dump` (console) prints the set-up as JSON
+for bug reports.
 
 ---
 
 ## 8. Tests
 
-All headless (`tools/box/test.sh`), named `MurderInc.*`.
+All run headless (`tools/box/test.sh`) and are named `MurderInc.*`.
 
 ### 8.1 Parity of the default set-up
 
 | Test | Proves |
 |---|---|
-| `Loadout.ParityResolve` | the resolver's output for the parity set-up equals `Config.Weapons` field by field, doubles compared exactly, the new fields equal their defaults (1.2), and the view data equals `FMIViewmodelData::Load` |
-| `Loadout.ParityGolden` | the 13 weapon golden scenarios (`golden/weapon.json`) replayed with `FMIWeaponRules::Init(resolved parity data)` match every recorded number and event, as `Golden.Weapon` does with the config |
-| All existing `Golden.*`, `Weapons.*`, `Core.*` | unchanged and green: no new field reaches them except through its default |
+| `Loadout.ParityResolve` | the resolver's JSON for the parity set-up is byte-equal to the `config.json` objects plus the filled defaults; its `FMIWeaponsData` equals `Config.Weapons` field by field (doubles compared exactly); its view data equals `FMIViewmodelData::Load`; every gun starts in `fireModes[0]` |
+| `Loadout.ParityGolden` | the 13 weapon golden scenarios (`golden/weapon.json`) replayed with `FMIWeaponRules::Init(resolved parity data)` match every recorded number and event |
+| `Loadout.ParityNextPrevious` | `switch_reverse` and `nine_presses` replayed with `bNextPressed` (and again with `bPreviousPressed`) in place of `bSwapPressed`: identical events and numbers |
+| `Loadout.ParityPIE` (play in editor) | after a run reset from the front end, the weapon component's data equals the resolver's parity output; holding Q for 1 s with two guns opens no wheel and gives exactly one swap on the press frame |
+| All existing `Golden.*`, `Weapons.*`, `Core.*` | unchanged and green. They bypass the resolver, and the tests above cover the resolver path |
 
-### 8.2 One test per attachment effect
+### 8.2 Attachments
 
-`MurderInc.Attachments.<part>.<stat>` is a complex automation test whose cases come from `attachments.json`, so a new
-part gets its tests by being added. Each case resolves the gun with only that part fitted (on the first gun of the
-compatibility table that takes it) and measures the stat with its probe. It compares against the same gun without the
-part and the same seed: no effect adds a draw, so the ratios are exact.
-
-| Probe (stat) | Measurement |
-|---|---|
-| `adsTime` | frames at 60 Hz from aim held to `Ads` = 1 = ceil(resolved × 60) |
-| `adsFov`, `adsLook` | `FMIPlayerRules` view FOV at full aim (settled) = value ± 0.01°; look delta at full aim for a unit input |
-| `spread.*` | settled `Spread` standing (hip, aimed) and at `spreadSpeedRef` (moving), no bloom, = resolved (degrees) |
-| `recoil.pitch`, `recoil.yaw` | sum of `KickPitch` / `KickYaw` over 12 rounds ÷ the same without the part = factor (1e-9); the view data's kick rise, back, yaw and roll scaled alike |
-| `swapTime` | frames of holster + draw |
-| `reloadTime` | time from `start` to `magin` and to `done` = marks × factor |
-| `noise` | `WeaponFire.NoiseRadius`; with enemies, a Goon at 30 m is alerted by a bare round and not by a silenced one, and one at 15 m by both |
-| `flash` | `OnRoundFired` flash scale and light |
-| `falloff.*` | hitscan at a dummy at 20, 37.5 and 60 m: 26, the linear value, 22.1 (CHOPPER + silencer) |
-| `length` | the distance the wall probe asks the host for |
-| `sway` | `FMIGunViewData::SwayMax` |
-
-The first version has 53 cases (scope 6, silencer 9, vertical grip 4, angled grip 4, laser 4, clear mag 2, short
-handguard 11, long handguard 6, folded stock 7). It also has four `…Baseline` cases asserting that irons, the standard
-mag, the standard handguard and the open stock change nothing.
+- **`Attachments.<part>.<stat>`**, a complex automation test whose cases come from `attachments.json`, so a new part
+  gets its tests by being added. Each case resolves the first roster gun whose compatibility row takes the part
+  (mounts ignored), with only that part, and checks the resolved `FMIWeaponDef` field against base × factor (relative
+  1e-12). There is no settling: `Spread` converges through `MI::Damp` and never arrives, so spreads are checked on the
+  resolved field. 37 cases (scope 6, silencer 9, vertical grip 4, angled grip 4, laser 5, clear mag 2, folded stock 7),
+  plus three `…Baseline` cases (irons, standard mag, open stock) asserting the JSON is unchanged.
+- **Probes in play** for the stats a field cannot prove alone:
+  - `adsTime`: frames at 60 Hz to `Ads` = 1 equal ceil(resolved × 60).
+  - `adsFov`: the view FOV at full aim (± 0.01°).
+  - `recoil.*`: the kick sum over 12 rounds ÷ the bare gun = the factor (1e-9, the same seed).
+  - `swapTime`: frames of holster + draw.
+  - `reloadTime`: `magin` and `done` at marks × factor, exactly.
+  - `falloff`: hitscan at a dummy at 20, 37.5 and 60 m on the CHOPPER with the silencer gives 26, the linear value
+    24.05 and 22.1.
+  - `noise`: a Goon at 30 m **behind a wall and facing away** is alerted by a bare round and not by a silenced one; one
+    at 15 m, also behind the wall, by both.
+- **`Attachments.Builds`**: the six builds of the 3.3 table, every listed value exact.
+- **`Attachments.Ops`**: a fixture file (`Tests/Fixtures/attachments_ops.json`, new) with two `set` effects in two
+  slots (the later wins), an `add`, two `mul` (they multiply), two `min` and a `max` on one stat, checked against
+  hand values.
+- **`Attachments.Clamps`**: fixture parts that drive every target past each bound (× 10 and × 0.01) land on the target's
+  clamp. A multi-target factor lands on `meta.factor`.
+- **`Attachments.Falloff`**: a fixture that makes start > end gives end = start, and the shot is a step to `min` at
+  start.
 
 ### 8.3 Four guns
 
 `Weapons.FourGuns`, a scripted rules run:
-- 1–4 select;
-- Q goes back to the last gun used;
-- the wheel and next/previous cycle and wrap;
-- a third gun requested mid-holster retargets;
-- the current gun requested mid-holster comes back up, mid-draw holsters again;
-- the RATTLER's 0.24 / 0.27 s and the STICK's 0.28 / 0.32 s;
-- separate magazines; `Resupply()` 90 / 240 and 96 / 256, the NINE untouched;
-- the Selector blocks fire for `ModeSwitch` s and then flips, and is cancelled by a swap;
-- semi buffering on the STICK;
-- the magazine check never changes rule state;
-- a set-up with one gun ignores every switch input.
 
-### 8.4 A scripted walk through the whole flow
+- 1–4 select; Q goes back to the last gun used; next and previous cycle and wrap, with N = 3 and N = 4;
+- a third gun requested mid-holster retargets and broadcasts `holster(Current, newTo)`;
+- the current gun requested mid-holster comes back up, and a gun requested mid-draw holsters again;
+- **mixed timing**: RATTLER → STICK, reversed mid-holster, gives `T = Draw(RATTLER) × (1 − T / Holster(RATTLER))`
+  (0.27 and 0.24), then a re-holster mid-draw of the STICK;
+- the bag: two finite guns share it, reload one and the other's next reload sees the rest; `AddReserve(90, 240)` adds
+  90 once; the NINE is untouched;
+- the Selector blocks fire for `ModeSwitch`, then flips; a swap cancels it; a dry fire then a selector press within
+  0.32 s still reloads when the Selector ends; `GetState()` is `selector` meanwhile;
+- semi buffering on the STICK; the magazine check never changes rule state; a set-up with one gun ignores every switch
+  input.
+
+### 8.4 The controller
+
+`Player.ControllerSwitching`, driving `AMIPlayerController` with synthetic key events:
+
+- **N = 2:** a Q press gives `bSwapPressed` on the press frame, whether it is held or not, with no wheel. The mouse
+  wheel gives `bNextPressed` / `bPreviousPressed` with steps no closer than `wheelDebounce` (0.28 s), as the web wheel.
+- **N = 3:** a Q tap of 0.1 s gives `bSwapPressed` on the release frame. A 0.3 s hold opens the wheel at 0.25 s with no
+  flag set. A pick on release gives `WheelPick`, and a release in the dead zone gives nothing.
+- View: a tap gives `bFireModePressed`; a 0.4 s hold inspects.
+
+### 8.5 A scripted walk through the whole flow
 
 `Frontend.Walk` (rules only, `FMIFrontEndRules`), then `Frontend.WalkWorld` (play in editor). Both are driven by the
 console `MIMenu <action> [args]`, the menu twin of `MIInput`.
 
-1. Boot: Home. The summary shows the parity set-up; `Same set-up` is labelled `firstTime`.
-2. Hit the block → Crew. Pick `deuce` → Next → Loadout. The slots show CHOPPER and NINE.
-3. Carry `stick` (slot 3) and `rattler` (slot 4). A fifth carry asks for a slot. Move slot 4 to slot 1. Empty slot 2
-   (the rest close up). Carry `nine` again.
-4. Workbench on the STICK: fit the scope, the silencer and the short handguard. The effect lines and stat bars equal
-   the resolver's. Reset build. Fit them again. Q / E to the RATTLER: one slot (muzzle). Done.
-5. Next → Block: pick night (the sky switches). Next → Style: Hold the Block, Kingpin. Next → Briefing: the four
-   lines read back the set-up, and the radio line says `Deuce`.
-6. Back four times → Crew, every choice still selected. Next three times → Briefing (on the gamepad path, to check the
-   focus orders) → Hit the block.
-7. The run starts: slot 1 is the RATTLER, the bar has four slots, the STICK's FOV at full aim is 30°, and the radio
-   says `Deuce, it's the Vault…`.
-8. Die (`MIFlow kill`): the card shows `Deuce down` and `Change set-up`. Change set-up → Loadout with everything
-   remembered. Back to Home: `Same set-up` → intro with the identical set-up.
-9. Quit and load: the set-up is restored. Corrupt the save (an unknown gun, a part that does not fit): it loads as the
-   validated set-up.
-10. Picture review: `WalkWorld` writes one screenshot per screen to `docs/unreal/shots/frontend-<screen>.jpg`, to be
-    looked at as with the block pictures.
+1. Boot: Home. `played` is false. Enter opens Crew (not a run).
+2. Crew: one card per offered member (only `rule` without the phase-1 materials). Next → Loadout with CHOPPER and NINE.
+3. With the test data marking every gun ready: carry `stick` and `stretch` (slots 3, 4). A fifth carry asks for a slot.
+   Move slot 4 to 1. Empty slot 2 (the rest close up). Right-click off a slot: nothing.
+4. Workbench on the STICK: fit the scope, the silencer and the folded stock (the base mesh swaps). The effect lines,
+   with their ▲ / ▼, and the bars equal the resolver's. A tap of R does nothing; a 0.6 s hold resets. [ / ] reaches the
+   CHOPPER: with its mounts missing it shows `noPartsYet`. Done.
+5. Next → Block & Style: night, Hold the Block, Kingpin. Next → Briefing: the four lines read back the set-up, and the
+   Style line is the Hold the Block tagline.
+6. Change on Carrying → Loadout in edit mode → Done → back on the Briefing. Ctrl+Enter from Crew → Briefing.
+7. Hit the block: slot 1 is the STRETCH, the bar has four slots and one bag count (150), the STRETCH's FOV at full aim
+   is 30°, and the radio names the crew member.
+8. Die (`MIFlow kill`): `Change set-up` opens the Briefing. Back to title: Home shows the summary with `Night` in it.
+   Hit the block (now `played`) starts at once with the identical set-up, and every gun starts in `fireModes[0]`.
+9. Quit and load: the set-up is restored. Corrupt the save (an unknown gun, a part that does not fit, a gun that is
+   not ready): it loads as the validated set-up.
+10. Picture review: `WalkWorld` writes one screenshot per screen to `docs/unreal/shots/frontend-<screen>.jpg`.
 
-### 8.5 Data and save
+### 8.6 Data and save
 
-`Loadout.DataLoads` checks the rules of 3.1, the `provides` counts (the block: 3, 29 / 17, 21 explosives, 14 title
-keys) and that every `frontend.*` key that is used exists. `Save.SetupRoundTrip` writes a set-up and reads it back
-equal. `Save.SetupValidation` covers each rule of 7.
+`Loadout.DataLoads` checks every rule of 3.1, the `provides` counts (the block: 3, 29 / 17, 21 explosives, 14 title
+keys), that every `frontend.*` key used exists, and that every `$ref` resolves to a number where a number is needed.
+`Loadout.MountsExist` (needs the pack; skipped without it) fails when a mount or variant marked `exists` has no socket
+or mesh. `Save.SetupRoundTrip` writes a set-up and reads it back equal. `Save.SetupValidation` covers each rule of 7.
 
-### 8.6 Existing tests that change
+### 8.7 Existing tests that change
 
 `Core.GameClasses` counts 38 key mappings today. It becomes 38 plus the actions of `frontend.json input.game` (the
 mapping count is not a parity number). No golden file is regenerated.
@@ -1012,38 +1182,46 @@ mapping count is not a parity number). No golden file is regenerated.
 
 Each step is testable alone:
 
-1. `FMILoadoutData`, loading, `Loadout.DataLoads`.
-2. The resolver and `Loadout.ParityResolve`.
-3. The new `FMIWeaponDef` fields through the rules (per-gun timing, falloff, noise, aim view) and `Loadout.ParityGolden`.
-4. Four-gun switching, `Resupply()`, fire modes, `Weapons.FourGuns`.
-5. Attachment effects and `Attachments.*`.
-6. `UMIGunAssembly` and the marker overrides, with the template meshes.
-7. The HUD's four slots and the wheel.
-8. `FMIFrontEndRules`, `UMIRunSetupSubsystem`, save, and `Frontend.Walk`.
-9. The Slate screens and `AMIShowroom`, then `Frontend.WalkWorld`.
-10. Crew looks and lines.
-11. The pack's clips (inspect, magazine check, selector, swings) when ANIMATION.md lands.
+1. `FMILoadoutData`, the separate loading path, `Loadout.DataLoads`.
+2. The parser split (`ParseGun(obj)`, `ParseGunView`), the resolver, `Loadout.ParityResolve`.
+3. The new `FMIWeaponDef` fields through the rules (per-gun timing, falloff, noise, aim view, pools) and
+   `Loadout.ParityGolden`, `.ParityNextPrevious`.
+4. Four-gun switching, the Selector, `Weapons.FourGuns`; the controller and `Player.ControllerSwitching`.
+5. **The pack import (6.2), by the animation agent, in parallel with 1–4**: listing, parts, variants, socket pass,
+   data statuses, `Loadout.MountsExist`.
+6. Attachment effects and `Attachments.*`.
+7. `UMIGunAssembly` (variants, parts, marker overrides), first with the template meshes, then with 5's meshes.
+8. The HUD's slots, the bag and the wheel.
+9. `FMIFrontEndRules`, `UMIRunSetupSubsystem`, save, and `Frontend.Walk`.
+10. The Slate screens and `AMIShowroom`, then `Frontend.WalkWorld` and `Loadout.ParityPIE`.
+11. Crew phase-1 looks and lines.
+12. The pack's clips as they land (inspect, magazine check, selector, swings, quick and empty-retain reloads, dry
+    tap-rack); then the CHOPPER's adapted ones (6.6).
 
 ---
 
 ## 10. Open questions for the user
 
-Each has a default; work proceeds on the default until the user answers.
+Each has a default, and work proceeds on the default until the user answers.
 
-1. **The pack's rifle as one gun or three.** The three handguard lengths could be three roster guns. **Default:** one
-   gun, the STICK, with the lengths and the stock as attachments, because they share every clip and rule and the
-   player can build each one.
+1. **The pack's rifle as three guns or one.** **Default:** three guns (SHORTY, STICK, STRETCH), so the player picks up
+   to four of five once the pack is imported. The alternative is one STICK with the handguard as an attachment slot:
+   there would be fewer guns (four, so "pick four" would be "pick four of four") and more builds.
 2. **Fewer than four guns.** **Default:** a set-up may carry one to four. The default carries two (the CHOPPER and the
    NINE), which parity needs.
-3. **Names.** STICK, RATTLER, DEUCE, SMOKE and KEYS are placeholders. **Default:** keep them until you replace them
-   (text and ids live only in data).
-4. **Crew perks.** **Default:** cosmetic only. If you want perks, the recommendation is one small,
-   presentation-adjacent perk per member (for example 5 % faster swaps), with its own golden tests and never on Rule.
+3. **Names.** SHORTY, STICK, STRETCH, RATTLER, DEUCE, SMOKE and KEYS are placeholders. **Default:** keep them until you
+   replace them (text and ids live only in data).
+4. **Crew perks.** **Default:** cosmetic only. If you want perks, the recommendation is one small, presentation-adjacent
+   perk per member (for example 5 % faster swaps), with its own golden tests and never on Rule.
 5. **Slow motion while the weapon wheel is open.** **Default:** no; the game runs at full speed.
-6. **The scope on the CHOPPER's top-cover rail.** It looks unusual on an AK-pattern gun. **Default:** allowed. The
-   RATTLER takes no scope (its rail is too short).
-7. **The laser.** **Default:** always on, with no key, and fading while aimed.
-8. **The pack's jams, syringe and grenade.** **Default:** left out (section 5). The grenade and the syringe are the
-   natural first additions to Hold the Block if you want them later.
-9. **Same set-up skips the briefing.** **Default:** yes, one press from Home to the intro.
-10. **Time of day on the Block screen rather than with the game style.** **Default:** on the Block screen (1.3).
+6. **The scope on the CHOPPER's top-cover rail.** It looks unusual on an AK-pattern gun. **Default:** allowed, once the
+   rebuild adds the socket.
+7. **The laser.** **Default:** always on, with no key, fading while aimed.
+8. **Pack animations not yet in the game:** aimed reloads and aimed magazine check, two of the three jam clearances,
+   the syringe heal, the quick grenade throw, the third-person clips. **Default:** left out (section 5). The grenade and
+   the syringe are the natural first additions to Hold the Block if you want them.
+9. **The shared bag of rounds.** **Default:** one bag for every finite gun (3.2.3). The alternatives are one bag per
+   ammunition type (AK rounds apart from the pack rifles' rounds, which costs a resupply rule per type) or a move-speed
+   cost per extra long gun.
+10. **The RATTLER.** **Default:** designed and in the data, hidden until someone builds `SK_Weapon_Rattler` and its clips.
+    Say if you want it built or dropped.

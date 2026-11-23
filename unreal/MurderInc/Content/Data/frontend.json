@@ -1,16 +1,17 @@
 {
   "meta": {
     "file": "frontend.json",
-    "about": "The set-up flow from the home screen to the briefing, its 3D stage, the new inputs (in play and in the menus), the weapon wheel, the four-slot weapon bar and the saved set-up (docs/unreal/LOADOUT.md sections 2, 4 and 7). Strings are in frontend_text.json; the screens name their keys.",
+    "about": "The set-up flow from the home screen to the briefing, its 3D stage, the new inputs (in play and in the menus), the weapon wheel, the weapon bar and the saved set-up (docs/unreal/LOADOUT.md sections 2, 4 and 7). Strings are in frontend_text.json; the screens name their keys.",
     "game": "MURDER INC.",
-    "schema": 1,
+    "schema": 2,
     "units": "seconds, degrees, centimetres (Unreal units: this file has no web source)"
   },
   "parity": {
-    "about": "The set-up that must play exactly as the web game (LOADOUT.md 1.2). It is also the set-up of a first start, and what any invalid saved set-up falls back to.",
+    "about": "The set-up that must play exactly as the web game (LOADOUT.md 1.2). It is also the set-up of a first start, and what any invalid saved set-up falls back to. Its guns and crew are always offered, ready or not.",
     "crew": "rule",
     "guns": ["chopper", "nine"],
     "builds": {},
+    "fireModes": "each gun's fireModes[0] at the start of every run (no fire mode is saved)",
     "level": "block",
     "mode": "settings.mode (default mission)",
     "difficulty": "settings.difficulty (default boss)",
@@ -29,53 +30,139 @@
       "id": "home",
       "step": null,
       "back": null,
-      "primary": "crew",
       "text": "frontend.home",
       "stage": "title",
       "actions": {
-        "start": { "to": "crew", "text": "frontend.home.start" },
-        "same": { "to": "intro", "text": "frontend.home.same", "summary": "frontend.home.summary", "note": "starts at once with the remembered set-up (or the parity set-up the first time); Enter and gamepad Start do the same, as the web title's Enter and Start did" },
-        "settings": { "to": "drawer:settings", "text": "text.title.settings" },
-        "controls": { "to": "drawer:controls", "text": "text.title.controls" }
+        "start": {
+          "text": "frontend.home.start",
+          "summary": "frontend.home.summary",
+          "to": "intro",
+          "toFirstTime": "crew",
+          "note": "the primary button, focused on arrival. Starts at once with the remembered set-up; while save.played is false it opens Crew instead, so every player walks the set-up once. Enter with nothing focused and gamepad Start do the same, as the web title's Enter and Start did"
+        },
+        "setup": {"text": "frontend.home.setup", "to": "crew", "note": "the set-up flow from the top"},
+        "summaryLinks": {
+          "parts": ["crew", "guns", "level", "mode", "difficulty", "time"],
+          "to": "edit",
+          "note": "each part of the summary line is a link that opens its screen in edit mode (Next returns to the Briefing)"
+        },
+        "pickers": {
+          "items": ["mode", "difficulty", "time"],
+          "text": "text.title",
+          "note": "the web title's three pickers, kept on Home: they write the settings at once, as on the web"
+        },
+        "settings": {"to": "drawer:settings", "text": "text.title.settings"},
+        "controls": {"to": "drawer:controls", "text": "text.title.controls"}
       }
     },
-    { "id": "crew", "step": 1, "back": "home", "primary": "loadout", "text": "frontend.crew", "stage": "arms" },
-    { "id": "loadout", "step": 2, "back": "crew", "primary": "level", "text": "frontend.loadout", "stage": "turntable", "sub": ["workbench"] },
-    { "id": "workbench", "step": 2, "back": "loadout", "primary": "loadout", "text": "frontend.attachments", "stage": "turntable" },
-    { "id": "level", "step": 3, "back": "loadout", "primary": "style", "text": "frontend.level", "stage": "title" },
-    { "id": "style", "step": 4, "back": "level", "primary": "briefing", "text": "frontend.mode", "stage": "title" },
-    { "id": "briefing", "step": 5, "back": "style", "primary": "intro", "text": "frontend.briefing", "stage": "firstPerson" }
+    {"id": "crew", "step": 1, "back": "home", "primary": "loadout", "text": "frontend.crew", "stage": "arms"},
+    {
+      "id": "loadout",
+      "step": 2,
+      "back": "crew",
+      "primary": "where",
+      "text": "frontend.loadout",
+      "stage": "turntable",
+      "sub": ["workbench"]
+    },
+    {
+      "id": "workbench",
+      "step": 2,
+      "back": "loadout",
+      "primary": "loadout",
+      "text": "frontend.attachments",
+      "stage": "turntable"
+    },
+    {
+      "id": "where",
+      "step": 3,
+      "back": "loadout",
+      "primary": "briefing",
+      "text": "frontend.where",
+      "stage": "title",
+      "merge": ["level", "style"],
+      "mergeWhile": "levels.json order has one level",
+      "note": "level card, time, mode and difficulty on one screen; with a second level it splits into level (step 3) and style (step 4)"
+    },
+    {
+      "id": "level",
+      "step": 3,
+      "back": "loadout",
+      "primary": "style",
+      "text": "frontend.level",
+      "stage": "title",
+      "only": "split"
+    },
+    {
+      "id": "style",
+      "step": 4,
+      "back": "level",
+      "primary": "briefing",
+      "text": "frontend.mode",
+      "stage": "title",
+      "only": "split"
+    },
+    {
+      "id": "briefing",
+      "step": "last",
+      "back": "where|style",
+      "primary": "intro",
+      "text": "frontend.briefing",
+      "stage": "firstPerson"
+    }
   ],
+  "navigation": {
+    "about": "Shortcuts that keep a returning player fast (LOADOUT.md 2.2).",
+    "edit": "a screen opened from a Home summary link or a Briefing Change link is in edit mode: its Next says Done and returns to the Briefing",
+    "stepStrip": "a done step can always be clicked; once the set-up is valid every step can be clicked, forward too",
+    "toBriefing": {
+      "keys": ["Ctrl+Enter"],
+      "pad": ["Start"],
+      "note": "from any set-up screen, straight to the Briefing when the set-up is valid"
+    },
+    "setupValid": "at least one gun carried and every required slot filled (always true after validation)"
+  },
   "transitions": {
     "about": "Every edge of the diagram in LOADOUT.md 2.1. `remember` writes the set-up to the save game when the edge is taken.",
     "edges": [
       ["boot", "home", "first frame of the title state"],
-      ["home", "crew", "Hit the block"],
-      ["home", "intro", "Same set-up, Enter, gamepad Start; remember"],
-      ["crew", "loadout", "Next or accept; remember"],
+      ["home", "intro", "Hit the block, Enter, gamepad Start, once save.played is true; remember"],
+      ["home", "crew", "Hit the block, Enter, Start while save.played is false; Gear up at any time"],
+      ["home", "crew|loadout|where|briefing", "a link of the summary line (edit mode)"],
+      ["crew", "loadout", "Next; remember"],
       ["loadout", "workbench", "Attachments on a gun"],
-      ["workbench", "loadout", "Done or back; remember"],
-      ["loadout", "level", "Next (at least one gun carried); remember"],
-      ["level", "style", "Next or accept; remember"],
-      ["style", "briefing", "Next or accept; remember"],
+      ["workbench", "loadout", "Done or Back; remember"],
+      ["loadout", "where", "Next (at least one gun carried); remember"],
+      ["where", "briefing", "Next; remember"],
+      ["any set-up screen", "briefing", "Ctrl+Enter or gamepad Start with a valid set-up; Done in edit mode; remember"],
       ["briefing", "intro", "Hit the block; remember"],
-      ["briefing", "crew|loadout|level|style", "Change on a line of the summary"],
+      ["briefing", "crew|loadout|where", "Change on a line (edit mode)"],
       ["any set-up screen", "its back", "Back (B, Esc, the back button)"],
-      ["dead|complete", "loadout", "Change set-up on the death or debrief card (the run ends as Back to title does, then the Loadout screen opens)"],
+      ["dead|complete", "briefing", "Change set-up on the death or debrief card (the run ends as Back to title does, then the Briefing opens)"],
       ["dead|complete", "home", "Back to title"]
     ]
   },
   "stage": {
-    "about": "The 3D set behind the set-up screens (LOADOUT.md 2.11): a closed room spawned at run time high above the block, so the block's fog, sky light and sun do not reach it. Every value is a placeholder for the art pass.",
+    "about": "The 3D set behind the set-up screens (LOADOUT.md 2.10): a closed room spawned at run time high above the block, so the block's fog, sky light and sun do not reach it. Every value is a placeholder for the art pass.",
     "origin": [0, 0, 100000],
-    "room": { "size": [1200, 1200, 600], "mesh": null, "material": null, "note": "a cyclorama room; engine cube walls until the art exists (status missing)" },
+    "room": {
+      "size": [1200, 1200, 600],
+      "mesh": null,
+      "material": null,
+      "note": "a cyclorama room; engine cube walls until the art exists (status missing)"
+    },
     "lights": [
-      { "kind": "rect", "at": [-180, -160, 140], "aim": [0, 0, 20], "lux": 1800, "kelvin": 4300, "size": [120, 60] },
-      { "kind": "rect", "at": [160, -120, 90], "aim": [0, 0, 20], "lux": 600, "kelvin": 5600, "size": [80, 80] },
-      { "kind": "spot", "at": [0, 180, 160], "aim": [0, 0, 20], "lux": 1200, "kelvin": 3600, "cone": 35 }
+      {"kind": "rect", "at": [-180, -160, 140], "aim": [0, 0, 20], "lux": 1800, "kelvin": 4300, "size": [120, 60]},
+      {"kind": "rect", "at": [160, -120, 90], "aim": [0, 0, 20], "lux": 600, "kelvin": 5600, "size": [80, 80]},
+      {"kind": "spot", "at": [0, 180, 160], "aim": [0, 0, 20], "lux": 1200, "kelvin": 3600, "cone": 35}
     ],
-    "exposure": { "ev100": 9.5, "fixed": true },
-    "bench": { "at": [0, 0, 0], "height": 90, "mesh": null, "note": "a steel workbench top under the turntable; status missing" },
+    "exposure": {"ev100": 9.5, "fixed": true},
+    "bench": {
+      "at": [0, 0, 0],
+      "height": 90,
+      "mesh": null,
+      "note": "a steel workbench top under the turntable; status missing"
+    },
     "turntable": {
       "at": [0, 0, 92],
       "spin": 18,
@@ -89,73 +176,105 @@
       "note": "spin: degrees per second when untouched for idleAfter s; drag: degrees per mouse pixel; stick: degrees per second at full right stick; snap: seconds an attachment takes to slide into its socket"
     },
     "cameras": {
-      "arms": { "from": [-70, 0, 150], "to": [0, 0, 120], "fov": 40, "orbit": 35, "note": "the crew member's arms in first-person framing playing the Inspect clip with the first carried gun; drag orbits up to 35 degrees" },
-      "turntable": { "from": [-110, -20, 115], "to": [0, 0, 95], "fov": 30 },
+      "arms": {
+        "from": "eye",
+        "eye": "the first-person camera of the player rig (spec 02 viewmodel: player.fov.viewmodel 54 degrees)",
+        "fov": 54,
+        "orbit": 10,
+        "vignette": 0.35,
+        "sleeveEdge": true,
+        "note": "the crew member's arms framed exactly as in play, holding the first carried gun: its Inspect clip, else IdleAds with the rig's sway. Drag orbits up to 10 degrees about the eye; the vignette and a sleeve at the frame edge hide where the arms end, and the closed shoulder caps stay out of view (CHARACTERS.md)"
+      },
+      "turntable": {"from": [-110, -20, 115], "to": [0, 0, 95], "fov": 30},
       "focus": {
-        "optic": { "offset": [10, 0, 6], "zoom": 1.5 },
-        "muzzle": { "offset": [40, 0, 0], "zoom": 1.45 },
-        "underbarrel": { "offset": [22, 0, -6], "zoom": 1.4 },
-        "laser": { "offset": [22, 4, 0], "zoom": 1.4 },
-        "magazine": { "offset": [8, 0, -12], "zoom": 1.4 },
-        "handguard": { "offset": [24, 0, 0], "zoom": 1.2 },
-        "stock": { "offset": [-22, 0, -2], "zoom": 1.3 },
+        "optic": {"offset": [10, 0, 6], "zoom": 1.5},
+        "muzzle": {"offset": [40, 0, 0], "zoom": 1.45},
+        "underbarrel": {"offset": [22, 0, -6], "zoom": 1.4},
+        "laser": {"offset": [22, 4, 0], "zoom": 1.4},
+        "magazine": {"offset": [8, 0, -12], "zoom": 1.4},
+        "stock": {
+          "offset": [-22, 0, -2],
+          "zoom": 1.3,
+          "note": "the stock slot swaps the base mesh (guns.json variants): the camera frames the stock, the gun is replaced under a 0.15 s dip"
+        },
         "note": "offsets in centimetres in the gun's frame (X along the bore) from the turntable centre; the camera eases there in 0.4 s when a slot tab is chosen"
       },
-      "title": "the title fly-through (spec 04 3.4), kept running behind Home, Level and Game style",
-      "firstPerson": "the player's own camera at the level's playerStart, the arms holding the first carried gun: the intro starts from this view"
+      "title": "the title fly-through (spec 04 3.4), kept running behind Home and Block & Style",
+      "firstPerson": "the player's own camera at the level's playerStart, the arms holding the first carried gun (Equip, else IdleAds): the intro starts from this view"
     }
   },
   "input": {
     "about": "Mappings added on top of config.json player.keys / mouseButtons / padButtons (which come from the web game and are not edited). In the parity set-up none of them changes a rule unless pressed.",
     "game": [
-      { "action": "weapon3", "keys": ["Digit3", "Numpad3"], "pad": [], "glyphs": { "kbm": "3", "pad": "" } },
-      { "action": "weapon4", "keys": ["Digit4", "Numpad4"], "pad": [], "glyphs": { "kbm": "4", "pad": "" } },
-      { "action": "next", "keys": ["WheelDown"], "pad": [12], "glyphs": { "kbm": "Wheel", "pad": "↑" }, "note": "replaces the web 'swap' meaning of the wheel and D-pad up: the next carried gun. With two guns next = previous = the other gun, which is what swap did" },
-      { "action": "previous", "keys": ["WheelUp"], "pad": [13], "glyphs": { "kbm": "Wheel", "pad": "↓" }, "note": "as next, backwards; the wheel keeps config player.input.wheelDebounce (0.28 s)" },
-      { "action": "swap", "keys": ["KeyQ"], "pad": [3], "glyphs": { "kbm": "Q", "pad": "Y" }, "note": "unchanged key, new meaning: the last gun used (quick swap); with two guns that is the other one. Held for wheelHold it opens the weapon wheel" },
-      { "action": "fireMode", "keys": ["KeyB"], "pad": [8], "glyphs": { "kbm": "B", "pad": "VIEW" }, "note": "pad: a tap of View (Back); held for inspectHold it inspects instead" },
-      { "action": "inspect", "keys": ["KeyT"], "pad": [], "padHold": 8, "glyphs": { "kbm": "T", "pad": "Hold VIEW" } }
+      {"action": "weapon3", "keys": ["Digit3", "Numpad3"], "pad": [], "glyphs": {"kbm": "3", "pad": ""}},
+      {"action": "weapon4", "keys": ["Digit4", "Numpad4"], "pad": [], "glyphs": {"kbm": "4", "pad": ""}},
+      {
+        "action": "next",
+        "keys": ["WheelDown"],
+        "pad": [12],
+        "glyphs": {"kbm": "Wheel", "pad": "↑"},
+        "note": "replaces the web 'swap' meaning of the wheel and D-pad up: the next carried gun, with config player.input.wheelDebounce (0.28 s) between wheel steps as today. With two guns next = previous = the other gun, which is what swap did"
+      },
+      {
+        "action": "previous",
+        "keys": ["WheelUp"],
+        "pad": [13],
+        "glyphs": {"kbm": "Wheel", "pad": "↓"},
+        "note": "as next, backwards, with the same debounce"
+      },
+      {
+        "action": "swap",
+        "keys": ["KeyQ"],
+        "pad": [3],
+        "glyphs": {"kbm": "Q", "pad": "Y"},
+        "note": "unchanged key and, with one or two guns, unchanged behaviour: on press, the other gun. With three or more: the last gun used, on release of a tap; a hold of wheel.hold opens the weapon wheel instead"
+      },
+      {
+        "action": "fireMode",
+        "keys": ["KeyB"],
+        "pad": [8],
+        "glyphs": {"kbm": "B", "pad": "VIEW"},
+        "note": "pad: a tap of View (Back); held for inspectHold it inspects instead"
+      },
+      {"action": "inspect", "keys": ["KeyT"], "pad": [], "padHold": 8, "glyphs": {"kbm": "T", "pad": "Hold VIEW"}}
     ],
-    "holds": { "wheelHold": 0.25, "inspectHold": 0.4 },
+    "holds": {"wheelHold": 0.25, "inspectHold": 0.4, "resetHold": 0.6},
     "magazineCheck": "Reload (R, X) with a full magazine, or with an empty reserve, plays the magazine check: the rules refuse the reload as they always did, so nothing else happens",
     "menu": {
-      "about": "Per screen: mouse, keyboard and gamepad. Common to all: Back = B, Esc, the back button or right-click on empty space; accept = A, Enter, Space, left click; Next = Start, Enter on the Next button or the Next button; the D-pad and left stick move the focus with config player.input.pad.nav (0.6, 0.38 s, 0.17 s).",
+      "about": "Per screen: mouse, keyboard and gamepad. Common to every screen: A, Enter, Space and a left click always activate the focused control; Start, or Enter on the Next button, always advances; Back = B, Esc or the back button (right-click is Back only on screens without a right-click action of their own; on Loadout right-click empties the slot under the cursor and does nothing elsewhere); Ctrl+Enter / Start with a valid set-up jump to the Briefing. In a single-choice row (time, mode, difficulty, Day / Night) moving the focus selects, so A there means Next. The D-pad and left stick move the focus with config player.input.pad.nav (0.6, 0.38 s, 0.17 s).",
       "crew": {
-        "mouse": "click a card to choose; drag the stage to orbit; Next",
-        "keys": "Left / Right choose; Enter next; Esc back",
-        "pad": "D-pad or stick left / right choose; A next; right stick orbits; B back"
+        "mouse": "click a card to choose; drag the stage to orbit (10 degrees); Next",
+        "keys": "Left / Right choose (focus selects); Enter next; Esc back",
+        "pad": "D-pad or stick left / right choose; A or Start next; right stick orbits; B back"
       },
       "loadout": {
-        "mouse": "click a roster card: carry it in the first empty slot, or in the selected slot when all four are full; drag a card onto a slot to put it there; drag a slot onto another to swap their order; right-click a slot to empty it; the wrench on a card or a slot (or double-click) opens the workbench; drag the stage to turn the gun, wheel zooms",
-        "keys": "arrows move the focus over the class tabs, the roster grid and the slots; Enter carries the focused roster gun (or selects the focused slot); 1 to 4 put the focused roster gun in that slot; Shift + Up / Down move the focused slot; Delete empties it; Space opens the workbench for the focused gun; Tab jumps between the roster and the slots; Esc back",
+        "mouse": "click a roster card: carry it in the first empty slot, or in the selected slot when all four are full; drag a card onto a slot to put it there; drag a slot onto another to swap their order; right-click a slot to empty it (right-click elsewhere does nothing); the wrench on a card or a slot (or double-click) opens the workbench; drag the stage to turn the gun, wheel zooms",
+        "keys": "arrows move the focus over the class tabs, the roster grid and the slots; Enter or Space carries the focused roster gun (or selects the focused slot); 1 to 4 put the focused roster gun in that slot; Shift + Up / Down move the focused slot; Delete empties it; E opens the workbench for the focused gun; Tab jumps between the roster and the slots; Esc back",
         "pad": "D-pad / stick move the focus; A carries the focused roster gun or selects a slot; X empties the focused slot; LB / RB move the focused slot up / down; Y opens the workbench; LT / RT zoom; right stick turns the gun; Start next; B back"
       },
       "workbench": {
-        "mouse": "click a slot tab, then an option; the arrows beside the gun's name (or the carried-gun strip) change gun; Reset build; drag turns, wheel zooms",
-        "keys": "Left / Right slot tab; Up / Down option; Enter fit; Backspace factory part; Q / E previous / next carried gun; R reset build; Esc done",
-        "pad": "D-pad left / right slot tab; up / down option; A fit; X factory part; LB / RB previous / next carried gun; Y reset build; right stick turns; LT / RT zoom; B done"
-      },
-      "level": {
-        "mouse": "click a level card; click Day or Night; Next",
-        "keys": "Left / Right level; Up / Down to the time picker, Left / Right time; Enter next",
-        "pad": "D-pad left / right level; up / down to the time picker; A next"
-      },
-      "style": {
-        "mouse": "click Story or Hold the Block; click a difficulty; Next",
-        "keys": "Left / Right mode; Down to the difficulty, Left / Right; Enter next",
-        "pad": "D-pad left / right mode; down to the difficulty; A next"
+        "mouse": "click a slot tab, then an option; the arrows beside the gun's name (or the carried-gun strip) change gun; hold Reset build for resetHold; drag turns, wheel zooms",
+        "keys": "Left / Right slot tab; Up / Down option (previews); Enter or Space fits; Backspace factory part; [ / ] previous / next carried gun; hold R for resetHold to reset the build; Esc done",
+        "pad": "D-pad left / right slot tab; up / down option; A fits; X factory part; LB / RB previous / next carried gun; hold Y for resetHold to reset the build; right stick turns; LT / RT zoom; B done"
       },
       "briefing": {
-        "mouse": "Hit the block; Change beside a line jumps to that screen",
-        "keys": "Enter hits the block; Up / Down to a Change link; Esc back",
-        "pad": "A or Start hits the block; D-pad to a Change link; B back"
+        "mouse": "Hit the block; Change beside a line opens that screen in edit mode",
+        "keys": "Enter hits the block; Up / Down to a Change link, Enter opens it; Esc back",
+        "pad": "A or Start hits the block; D-pad to a Change link, A opens it; B back"
+      },
+      "where": {
+        "mouse": "click a level card; click Day or Night, a mode card, a difficulty; Next",
+        "keys": "Up / Down move between the rows (level, time, mode, difficulty); Left / Right choose in a row (focus selects); Enter next; Esc back",
+        "pad": "D-pad up / down between rows; left / right choose (focus selects); A or Start next; B back"
       }
     }
   },
   "wheel": {
-    "about": "The weapon wheel (LOADOUT.md 4.6): hold Q or Y. The quick swap the press started goes on; the wheel only redirects it, through the rules' own switch reversal.",
+    "about": "The weapon wheel (LOADOUT.md 4.6). Only with minGuns or more carried; with fewer, Q and Y swap on press exactly as the web game.",
+    "minGuns": 3,
     "hold": 0.25,
-    "sectors": 4,
+    "tap": "with minGuns or more: a press of Q or Y released before `hold` is a quick swap on release; a hold opens the wheel and starts no swap",
+    "sectors": "one per carried gun",
     "order": "slot 1 at the top, clockwise",
     "deadzone": 0.5,
     "mouseRadius": 60,
@@ -164,14 +283,16 @@
     "blocksLook": true,
     "fade": 0.12,
     "radius": 210,
-    "note": "deadzone: share of the stick or of mouseRadius (pixels of mouse travel since the wheel opened) below which nothing is selected; releasing then keeps the quick swap's target. timeScale 1: the game does not slow down"
+    "note": "deadzone: share of the stick or of mouseRadius (pixels of mouse travel since the wheel opened) below which nothing is selected; releasing there picks nothing. timeScale 1: the game does not slow down"
   },
   "hud": {
     "weaponBar": {
       "slots": "one per carried gun (two in the parity set-up: the web bar exactly), then the melee slot",
-      "glyphs": { "kbm": ["1", "2", "3", "4"], "pad": ["←", "→", "", ""], "touch": ["", "", "", ""] },
+      "glyphs": {"kbm": ["1", "2", "3", "4"], "pad": ["←", "→", "", ""], "touch": ["", "", "", ""]},
       "fireModeTag": "AUTO or SEMI under the count of a gun that has both modes",
-      "attachmentPips": "one small icon per fitted non-baseline attachment, under the gun's silhouette"
+      "attachmentPips": "one small icon per fitted non-baseline attachment, under the gun's silhouette",
+      "bag": "one reserve count for every finite gun (the shared bag, guns.json ammo), shown once at the right of the bar; each slot shows its own magazine; the NINE shows ∞",
+      "inspectPrompt": "the T / Hold View prompt shows only for a gun whose Inspect role exists"
     }
   },
   "save": {
@@ -183,17 +304,10 @@
       "crew": "name (crew.json id)",
       "guns": "array of up to 4 names (guns.json ids), slot order",
       "builds": "map gun id -> map slot id -> attachment id or None; kept for every gun ever built, carried or not, so a gun put back on keeps its build",
-      "fireModes": "map gun id -> auto | semi: the mode the gun starts the next run in (the last one used)",
       "level": "name (levels.json id)",
       "seen": "array of names: guns, attachments, crew and levels the player has looked at (the NEW badge)",
-      "played": "bool: at least one run started (the Same set-up button shows the remembered set-up, else the parity set-up)"
+      "played": "bool: at least one run started. While false, Hit the block on Home opens Crew instead of starting"
     },
-    "validation": [
-      "an unknown crew, level or gun id is dropped (a gun pack removed): crew -> rule, level -> block, guns -> the remaining ones, and the parity guns when none remains",
-      "an attachment not in the gun's compatibility options is dropped (the slot falls back to its default)",
-      "a required slot without a valid choice takes its default",
-      "duplicates and gaps in guns are removed; more than carry.max are cut",
-      "a mode the level does not provide falls back to the first mode it does provide"
-    ]
+    "validation": ["an unknown crew, level or gun id is dropped (a gun pack removed), and so is a gun or crew member that is not offered (not ready): crew -> rule, level -> block, guns -> the remaining ones, and the parity guns when none remains", "an attachment not in the gun's compatibility options, or not offered (its mount or variant not exists), is dropped; the slot falls back to its default", "a required slot without a valid choice takes its default", "duplicates and gaps in guns are removed; more than carry.max are cut", "a mode the level does not provide falls back to the first mode it does provide"]
   }
 }
