@@ -697,7 +697,7 @@ void UMIWeaponComponent::MuzzleFlash(double FlashScale)
 		const FTransform At = FirstPersonToNearWorld(FTransform(FRotationMatrix::MakeFromX(Dir).ToQuat(), Pos));
 		// WorldFlash's star is 14 cm and its jets 26 cm at scale 1; the first-person flash is 9 and 15 cm x FlashScale
 		WorldFx->WorldFlash(At.GetLocation(), At.GetRotation().GetForwardVector(), FMath::Clamp(FlashScale, 0.3, 1.5) * At.GetScale3D().X * 0.62, false);
-		UE_LOG(LogMI, Verbose, TEXT("Flash: world cards %.1f cm from the eye"), FVector::Dist(At.GetLocation(), Camera->GetComponentLocation()));
+		UE_LOG(LogMI, Verbose, TEXT("Flash: world cards %.1f cm from the eye, muzzle in camera space %s, bore %s"), FVector::Dist(At.GetLocation(), Camera->GetComponentLocation()), *Pos.ToCompactString(), *Dir.ToCompactString());
 	}
 	else if (FlashCards.Num() == 3 && FlashScale > 0.01)
 	{
@@ -769,6 +769,7 @@ void UMIWeaponComponent::OnRoundFired(const FMIShotRequest& Shot, const FMIShotR
 			return;
 		}
 		Fx->Tracer(Muzzle + Path.GetSafeNormal() * Skip, Result.Point, TracerSpeed);
+		UE_LOG(LogMI, Verbose, TEXT("Tracer: %.0f cm from %.0f cm past the muzzle"), Path.Size(), Skip);
 		return;
 	}
 	Tracers.Add({Muzzle, Result.Point, 0.0});
