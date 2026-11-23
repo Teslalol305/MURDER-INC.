@@ -43,7 +43,7 @@ const shot = (page, n) => page.screenshot({ path: `${OUT}/${n}.png` });
 
 (async () => {
   const launch = +fs.readFileSync(LAUNCHFILE, 'utf8');
-  const browser = await chromium.launch({ headless: true, args: ['--disable-features=WebRtcHideLocalIpsWithMdns'] });
+  const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--disable-features=WebRtcHideLocalIpsWithMdns'] });
   const ctx = await browser.newContext({ viewport: { width: VW, height: VH } });
   let page = await ctx.newPage();
   page.on('console', (m) => fs.appendFileSync(`${OUT}/console.log`, m.text() + '\n'));

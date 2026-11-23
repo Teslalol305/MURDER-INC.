@@ -4,7 +4,7 @@
 #   - Node.js 22 (tarball from nodejs.org)
 #   - Epic's Pixel Streaming infrastructure, the branch the engine's own get_ps_servers.sh names for this engine
 #     (UE5.7: signalling server + web frontend), built with npm
-#   - a headless Chromium (Playwright's build) used as the viewer on the box itself
+#   - Google Chrome, headless, as the viewer on the box itself (through Playwright)
 # Run as root, detached:  setsid nohup bash setup-ps.sh > /project/ue/cloud/setup.log 2>&1 &
 # Ends with the line SETUP-PS-DONE (or SETUP-PS-FAILED <step>).
 set -u
@@ -38,4 +38,6 @@ if [ ! -f "$C/pw/node_modules/playwright/package.json" ]; then
 fi
 export PLAYWRIGHT_BROWSERS_PATH=$C/pw/browsers
 (cd pw && npx playwright install --with-deps chromium) || fail chromium
+# Google Chrome as the viewer: the open-source Chromium build cannot decode the H.264 the game streams.
+command -v google-chrome >/dev/null || (cd pw && npx playwright install chrome) || fail chrome
 echo SETUP-PS-DONE

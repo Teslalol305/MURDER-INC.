@@ -1,0 +1,6 @@
+# One picture of the home screen (the block behind the title) for the Cloud profile's before and after
+# (stream-test.sh run shot.txt Development [-MICloud]); MIShot writes the game viewport to the file.
+wait 12
+con MIShot @OUT@
+wait 3
+quit
