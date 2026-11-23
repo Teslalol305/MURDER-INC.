@@ -26,6 +26,8 @@ public:
 	void Show();
 	void Hide();
 	bool IsShown() const { return bShown; }
+	/** The Briefing shows the player's own first-person view: the arms and the first carried gun stay visible. */
+	bool WantsViewmodel() const { return bShown && Rules.GetScreen() == EMIFrontScreen::Briefing; }
 	void Tick(double Dt);
 
 	FMIFrontEndRules& GetRules() { return Rules; }

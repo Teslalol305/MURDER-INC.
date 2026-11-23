@@ -114,6 +114,8 @@ public:
 	/** Focus previews (not fitted); Fit commits; Factory empties a non-required slot. */
 	void PreviewPart(FName Part) { Previewed = Part; bPreview = true; }
 	void StopPreview() { bPreview = false; }
+	bool IsPreviewing() const { return bPreview; }
+	FName GetPreviewed() const { return Previewed; }
 	void Fit(FName Part);
 	void FitFactory();
 	/** The build shown on the stage: the fitted build with the previewed option in its slot. */

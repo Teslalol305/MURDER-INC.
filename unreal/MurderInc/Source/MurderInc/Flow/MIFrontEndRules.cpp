@@ -67,7 +67,8 @@ bool FMIFrontEndRules::IsValid() const
 		if (!Gun) return false;
 		for (const FMICompatSlot& C : Gun->Compat)
 		{
-			if (C.bRequired && Setup.PartIn(G, C.Slot).IsNone() && Ready.OfferedParts(G, C.Slot).Num() > 0) return false;
+			// A required slot with no entry is on its default (the build is filled when saved).
+			if (C.bRequired && Setup.PartIn(G, C.Slot).IsNone() && C.Default.IsNone() && Ready.OfferedParts(G, C.Slot).Num() > 0) return false;
 		}
 	}
 	return true;

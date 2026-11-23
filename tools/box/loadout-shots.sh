@@ -12,7 +12,8 @@ mkdir -p "$out"
 log=$MI_LOGS/editor.log
 mark=$(wc -l < "$log")
 settle() { local i; for i in $(seq 1 "${1:-20}"); do pie_mcp tool SceneCaptureToolset.SceneCaptureToolset.CaptureEditorViewport '{}' > /dev/null 2>&1; done; }
-# A picture with the UI (the Slate front end and the HUD): the engine's screenshot of the viewport with its widgets.
+# A picture with the UI (the Slate front end and the HUD): the engine's screenshot with its widgets. Headless, it is
+# the whole editor window: the play-in-editor viewport is cut out of it (1512 x 770).
 ui_shot() {
   local dir=$MI_PROJECT_DIR/Saved/Screenshots f="" i
   rm -rf "$dir"
@@ -22,7 +23,7 @@ ui_shot() {
     f=$(find "$dir" -name '*.png' 2>/dev/null | head -1); [ -n "$f" ] && break
   done
   [ -n "$f" ] || { echo "UI SHOT FAILED: $1"; return 1; }
-  "$(mi_python)" -c "from PIL import Image; im = Image.open('$f').convert('RGB'); im.thumbnail((1920, 1080)); im.save('$1', quality=82)" && echo "UI SHOT $1"
+  "$(mi_python)" -c "from PIL import Image; im = Image.open('$f').convert('RGB'); im = im.crop((12, 238, 1524, 1008)) if im.size == (1920, 1080) else im; im.save('$1', quality=86)" && echo "UI SHOT $1"
 }
 fe() { pie_con "MIMenu fe $*" > /dev/null; }
 
@@ -37,7 +38,7 @@ fe gearup; settle 30; ui_shot "$out/loadout-crew.jpg"
 fe next; fe carry stick; fe carry stretch; fe swap 2 4; fe focusgun stick; settle 30
 ui_shot "$out/loadout-rack.jpg"
 fe bench stick; fe benchslot optic; fe fit scope; fe benchslot muzzle; fe fit silencer; fe benchslot underbarrel; fe fit grip_vertical
-fe benchslot laser; fe fit laser; fe benchslot optic; settle 40
+fe benchslot laser; fe fit laser; fe benchslot optic; fe preview scope; settle 40
 ui_shot "$out/loadout-workbench.jpg"
 fe done; fe next; fe time day; settle 30; ui_shot "$out/loadout-where.jpg"
 fe next; settle 40; ui_shot "$out/loadout-briefing.jpg"

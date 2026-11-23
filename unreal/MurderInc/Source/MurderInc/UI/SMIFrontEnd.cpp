@@ -658,7 +658,7 @@ TSharedRef<SWidget> SMIFrontEnd::Workbench()
 	// The options of the slot, with Fitted on the one in use; focus previews, a click fits.
 	const TArray<FName> Options = R.BenchOptions(R.GetBenchSlot());
 	const FName Fitted = R.FittedIn(R.GetBenchSlot());
-	FName Focused = Options.IsValidIndex(Owner->Focus) ? Options[Owner->Focus] : Fitted;
+	FName Focused = R.IsPreviewing() ? R.GetPreviewed() : Options.IsValidIndex(Owner->Focus) ? Options[Owner->Focus] : Fitted;
 	TSharedRef<SVerticalBox> List = SNew(SVerticalBox);
 	for (int32 I = 0; I < Options.Num(); ++I)
 	{

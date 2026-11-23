@@ -874,7 +874,7 @@ void UMIGameSubsystem::ApplyState()
 	{
 		P->SetSimulationLive(bSimLive);
 		P->SetGameplayInput(bRun);
-		P->SetViewmodelVisible(bRun);
+		P->SetViewmodelVisible(bRun || (FrontEnd && FrontEnd->WantsViewmodel()));
 		P->GetPlayerRules().bEnabled = S != EMIGameState::Title && S != EMIGameState::Complete;
 	}
 	// The card a state shows: the menus follow the flow.

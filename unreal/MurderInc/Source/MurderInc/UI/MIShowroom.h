@@ -85,5 +85,6 @@ private:
 	double FocusZoom = 1.0, FocusZoomFrom = 1.0, FocusZoomTo = 1.0, FocusT = 1.0;
 	TSharedPtr<FJsonObject> Focus;
 	FVector GunCentre = FVector::ZeroVector;
+	double GunRadius = 40.0;  // cm, the shown gun's bounding sphere: the camera stands off to frame it
 	bool bReducedMotion = false;
 };

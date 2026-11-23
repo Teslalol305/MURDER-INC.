@@ -183,9 +183,9 @@ void AMIShowroom::Setup(const TSharedPtr<FJsonObject>& Frontend, const FMIViewmo
 	}
 	const TSharedPtr<FJsonValue> F = MIJson::Get(Frontend, S + TEXT("cameras.focus"));
 	Focus = F.IsValid() && F->Type == EJson::Object ? F->AsObject() : nullptr;
-	// The arms at the eye, in a corner of the room away from the turntable.
-	ArmsCamera->SetRelativeLocation(FVector(Room.X * 0.25, Room.Y * 0.25, 165.0));
-	ArmsCamera->SetRelativeRotation(FRotator(-4.0, 200.0, 0.0));
+	// The arms at the eye, over the bench where the stage lights fall (the turntable gun hides meanwhile).
+	ArmsCamera->SetRelativeLocation(TableAt + FVector(-60.0, -4.0, 62.0));
+	ArmsCamera->SetRelativeRotation(FRotator(-6.0, 0.0, 0.0));
 	ArmsCamera->SetFieldOfView(MIJson::NumberOr(Frontend, S + TEXT("cameras.arms.fov"), 54.0));
 	UseShot(EShot::Turntable);
 }
@@ -195,6 +195,9 @@ void AMIShowroom::UseShot(EShot In)
 	Shot = In;
 	TurntableCamera->SetActive(In == EShot::Turntable);
 	ArmsCamera->SetActive(In == EShot::Arms);
+	Pivot->SetVisibility(In == EShot::Turntable, true);
+	Arms->SetVisibility(In == EShot::Arms);
+	ArmsGun->SetVisibility(In == EShot::Arms, true);
 }
 
 UCameraComponent* AMIShowroom::GetActiveCamera() const
@@ -209,6 +212,7 @@ void AMIShowroom::PlaceGunOnPivot()
 	Gun->UpdateBounds();
 	const FVector Centre = Pivot->GetComponentTransform().InverseTransformPosition(Gun->Bounds.Origin);
 	Gun->AddRelativeLocation(-Centre);
+	GunRadius = FMath::Max(10.0, Gun->Bounds.SphereRadius / FMath::Max(0.01, Pivot->GetComponentScale().X));
 	GunCentre = FVector::ZeroVector;
 }
 
@@ -384,15 +388,24 @@ void AMIShowroom::Tick(float DeltaSeconds)
 	const double K = Ease(FocusT);
 	FocusOffset = FMath::Lerp(FocusFrom, FocusTo, K);
 	FocusZoom = FMath::Lerp(FocusZoomFrom, FocusZoomTo, K);
-	const FVector Target = CamTo + Pivot->GetRelativeRotation().RotateVector(FocusOffset);
-	const FVector Arm = FRotator(Pitch, 0.0, 0.0).RotateVector(CamFrom - CamTo) / (ZoomK * FocusZoom);
+	FVector Target = Pivot->GetRelativeLocation() + Pivot->GetRelativeRotation().RotateVector(FocusOffset);
+	// Stand off far enough to frame the whole gun (its bounding sphere) in the camera's horizontal field of view.
+	const double Half = FMath::Tan(FMath::DegreesToRadians(CamFov * 0.5));
+	const double Distance = FMath::Max((CamFrom - CamTo).Size(), GunRadius * 1.35 / FMath::Max(0.05, Half));
+	const FVector Arm = FRotator(Pitch, 0.0, 0.0).RotateVector((CamFrom - CamTo).GetSafeNormal()) * Distance / (ZoomK * FocusZoom);
+	// The controls take the left 40 % of the screen: the look-at point moves left so the gun sits in the free part.
+	const FVector Right = FVector::CrossProduct(FVector::UpVector, -Arm).GetSafeNormal();
+	Target -= Right * (Arm.Size() * Half * 0.42);
 	TurntableCamera->SetRelativeLocation(Target + Arm);
-	TurntableCamera->SetRelativeRotation((-Arm).Rotation());
+	TurntableCamera->SetRelativeRotation((Target - (Target + Arm)).Rotation());
 	// The arms' dip to black on a crew change.
 	if (ArmsDip < 0.15)
 	{
 		ArmsDip += Dt;
 	}
-	Arms->SetVisibility(ArmsDip >= 0.075);
-	ArmsGun->SetVisibility(ArmsDip >= 0.075);
+	if (Shot == EShot::Arms)
+	{
+		Arms->SetVisibility(ArmsDip >= 0.075);
+		ArmsGun->SetVisibility(ArmsDip >= 0.075, true);
+	}
 }
