@@ -5,6 +5,7 @@
 
 #include "Audio/MIAudioData.h"
 #include "Audio/MIAudioDirector.h"
+#include "Audio/MIAudioMaster.h"
 #include "Audio/MIOfflineMix.h"
 #include "Audio/MIVoiceRules.h"
 #include "Audio/MIVoiceTriggers.h"
@@ -729,6 +730,47 @@ bool FMIAudioGenFilesTest::RunTest(const FString& Parameters)
 	}
 	AddInfo(FString::Printf(TEXT("%d variant sets checked:%s"), Sets, *Report));
 	TestTrue(TEXT("the generated variant sets are there"), Sets >= 20);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioMasterChainTest, "MurderInc.Audio.MasterChain", Flags)
+bool FMIAudioMasterChainTest::RunTest(const FString& Parameters)
+{
+	// Spec 07 2.11: compressor -6 dB threshold, 8 dB knee, 2.5 : 1, attack 6 ms, release 140 ms, x 1.15, soft clip;
+	// read from audio.json "master"; the ambience low-pass by interior and the music bus at 0.5 come from the same data.
+	FMIAudioData D;
+	FString Error;
+	if (!FMIAudioData::Load(D, Error))
+	{
+		AddError(Error);
+		return false;
+	}
+	const FMIMasterChain C = FMIMasterChain::FromData(D);
+	TestTrue(TEXT("the chain's numbers are spec 07's"), C.bEnabled && FMath::IsNearlyEqual(C.ThresholdDb, -6.0) && FMath::IsNearlyEqual(C.KneeDb, 8.0)
+		&& FMath::IsNearlyEqual(C.Ratio, 2.5) && FMath::IsNearlyEqual(C.AttackMs, 6.0) && FMath::IsNearlyEqual(C.ReleaseMs, 140.0) && FMath::IsNearlyEqual(C.Makeup, 1.15));
+	FMIMasterCompressor M;
+	M.Init(C, 48000);
+	TestTrue(TEXT("under the knee: no reduction"), FMath::Abs(M.CurveDb(-20.0)) < 1e-6);
+	TestTrue(TEXT("6 dB over the threshold: 6 - 6 / 2.5 = 3.6 dB of reduction"), FMath::IsNearlyEqual(M.CurveDb(0.0), -3.6, 0.01));
+	TestTrue(TEXT("at the threshold the soft knee already reduces (0 < r < 1 dB)"), M.CurveDb(-6.0) < -0.1 && M.CurveDb(-6.0) > -1.0);
+	TestTrue(TEXT("soft clip: linear to 0.6, never past 1"), FMath::IsNearlyEqual(FMIMasterCompressor::SoftClip(0.5f), 0.5f) && FMIMasterCompressor::SoftClip(4.0f) < 1.0f && FMIMasterCompressor::SoftClip(-4.0f) > -1.0f);
+	// A full-scale 100 Hz sine for a second: pulled down by the compressor, then capped by the clip.
+	float Peak = 0.f;
+	for (int32 I = 0; I < 48000; ++I)
+	{
+		float L = FMath::Sin(2.f * PI * 100.f * I / 48000.f), R = L;
+		M.Process(L, R);
+		if (I > 4800)
+		{
+			Peak = FMath::Max(Peak, FMath::Abs(L));
+		}
+	}
+	AddInfo(FString::Printf(TEXT("full-scale sine: deepest reduction %.1f dB, output peak %.3f"), M.MaxReductionDb(), Peak));
+	TestTrue(TEXT("the compressor acts on a full-scale sine (3 dB or more)"), M.MaxReductionDb() < -3.0);
+	TestTrue(TEXT("and the output stays under full scale"), Peak < 1.0f);
+	const FMIAudioCategory* Music = D.Categories.Find(TEXT("music"));
+	TestTrue(TEXT("the music bus is 0.5 (x 0.9 stem trim = spec 07's 0.45)"), Music && FMath::IsNearlyEqual(Music->Volume, 0.5));
+	TestTrue(TEXT("the ambience low-pass base is 0.08 (20 kHz x 0.08^i)"), FMath::IsNearlyEqual(MIAudioJson::Num(MIAudioJson::Obj(D.Table(TEXT("mix")), TEXT("ambienceLowpass")), TEXT("base"), 0.0), 0.08));
 	return true;
 }
 
