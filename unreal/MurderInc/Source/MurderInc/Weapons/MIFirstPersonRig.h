@@ -74,6 +74,10 @@ public:
 	bool MuzzleInCamera(FVector& OutPos, FVector& OutDir) const;
 	bool EjectInCamera(FTransform& Out) const;
 	UStaticMesh* GetCasingMesh() const { return CasingMesh; }
+	/** Dev (editor only): each finger's gap to the gun mesh in the pose as drawn (arms skinned on the CPU from the
+	 *  imported model, the gun's triangles), and the curl (FMIFPFingerCurl) that brings it to contact. Logged as
+	 *  "MI-GRIP <label> <side> <finger> gap <cm> ... curl <deg> gap <cm>" lines (polish pass; MIGripProbe). */
+	void ProbeGrip(const FString& Label) const;
 
 	/** The arms' hand socket (presentation bodyHandSocket) in arms component space, read from the template body's socket
 	 *  definition when the arms mesh has none. */
@@ -161,6 +165,9 @@ private:
 	double IronZeroDeg = 0.0;
 	FQuat IronZero = FQuat::Identity;
 	FVector SupportElbowDrop = FVector::ZeroVector;
+	/** Per-gun finger curls (presentation of the resolved gun: fingers.hip / fingers.aim, side l / r, finger -> deg),
+	 *  blended by smoothstep(Ads), let go in actions and sprint. */
+	TMap<FName, float> CurlHip[2], CurlAim[2];
 	FVector ShoulderAnchor = FVector::ZeroVector;  // anim set 'shoulders' (camera space, cm)
 	bool bShoulderAnchor = false;
 	bool bReloadingNow = false;

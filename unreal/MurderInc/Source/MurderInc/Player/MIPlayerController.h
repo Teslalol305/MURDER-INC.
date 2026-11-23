@@ -74,6 +74,9 @@ public:
 	/** Dev: MIBlowNearest: the nearest live explosive in front of the player takes a lethal round from him. */
 	UFUNCTION(Exec)
 	void MIBlowNearest();
+	/** Dev: each finger's gap to the gun in hand and the curl to contact (UMIFirstPersonRig::ProbeGrip, "MI-GRIP" lines). */
+	UFUNCTION(Exec)
+	void MIGripProbe(const FString& Label);
 
 	/** The four-gun input layer: the wheel's state for the HUD (LOADOUT.md 4.6). */
 	const FMISwitchInput& GetSwitch() const { return Switch; }

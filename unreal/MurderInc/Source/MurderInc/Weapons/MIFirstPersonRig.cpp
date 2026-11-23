@@ -292,6 +292,22 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 	SprintSpeed = Num(Set, TEXT("sprintSpeed"), 640.0);
 	FireWeight = Num(Set, TEXT("fireWeight"), 0.6);
 	FireRate = Num(Set, TEXT("fireRate"), 1.0);
+	// The gun's own finger corrections (polish pass: solved in play with MIGripProbe so the fingers touch this gun).
+	for (int32 S = 0; S < 2; ++S)
+	{
+		CurlHip[S].Reset();
+		CurlAim[S].Reset();
+		for (int32 Pose = 0; Pose < 2; ++Pose)
+		{
+			const TSharedPtr<FJsonObject> F = Obj(P, FString::Printf(TEXT("fingers.%s.%s"), Pose == 0 ? TEXT("hip") : TEXT("aim"), S == 0 ? TEXT("l") : TEXT("r")));
+			if (!F.IsValid()) continue;
+			for (const auto& KV : F->Values)
+			{
+				double D = 0.0;
+				if (KV.Value.IsValid() && KV.Value->TryGetNumber(D)) (Pose == 0 ? CurlHip[S] : CurlAim[S]).Add(FName(FString(*KV.Key)), static_cast<float>(D));
+			}
+		}
+	}
 	SupportElbowDrop = FVector::ZeroVector;
 	if (const TSharedPtr<FJsonValue> E = MIJson::Get(Set, TEXT("supportElbowDrop")); E.IsValid() && E->Type == EJson::Array && E->AsArray().Num() == 3)
 	{
@@ -963,6 +979,25 @@ void UMIFirstPersonRig::BuildPack(double Dt, const FMIWeaponView& W, const FMIVi
 		IK.Weight = static_cast<float>(Smooth(W.Ads) * (1.0 - ActionWeight));
 	}
 
+	// --- the gun's own finger corrections (hip to aim by smoothstep(Ads)), let go in actions and the sprint
+	{
+		const float K = static_cast<float>(Smooth(W.Ads));
+		const float Wt = static_cast<float>((1.0 - ActionWeight) * (1.0 - Sprint));
+		for (int32 S = 0; S < 2 && Wt > 0.001f; ++S)
+		{
+			TSet<FName> Names;
+			for (const auto& KV : CurlHip[S]) Names.Add(KV.Key);
+			for (const auto& KV : CurlAim[S]) Names.Add(KV.Key);
+			for (const FName& N : Names)
+			{
+				const float* H = CurlHip[S].Find(N);
+				const float* A = CurlAim[S].Find(N);
+				const float Hip = H ? *H : 0.f, Aim = A ? *A : Hip;
+				Out.Curls.Add({N, S == 0, (Hip + (Aim - Hip) * K) * Wt});
+			}
+		}
+	}
+
 	// --- the gun: its reference pose, the reload / inspect / check clip at the same time, the bolt per round
 	if (UAnimSequenceBase* C = GunClip(TEXT("base")))
 	{
@@ -1095,4 +1130,132 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 		L.ShapeWeight *= static_cast<float>(1.0 - MIFirstPersonRigPrivate::Smooth(K));  // the support grip lets go
 	}
 	AI->SetPose(HandPose);
+}
+
+#if WITH_EDITOR
+#include "Rendering/SkeletalMeshModel.h"
+#include "Rendering/SkeletalMeshLODModel.h"
+#endif
+
+void UMIFirstPersonRig::ProbeGrip(const FString& Label) const
+{
+#if WITH_EDITOR
+	USkeletalMesh* ArmsAsset = Arms ? Cast<USkeletalMesh>(Arms->GetSkinnedAsset()) : nullptr;
+	USkeletalMesh* GunAsset = PackGun ? Cast<USkeletalMesh>(PackGun->GetSkinnedAsset()) : nullptr;
+	if (Mode != EMIFPMode::Pack || !ArmsAsset || !GunAsset || !ArmsAsset->GetImportedModel() || !GunAsset->GetImportedModel()
+		|| ArmsAsset->GetImportedModel()->LODModels.Num() == 0 || GunAsset->GetImportedModel()->LODModels.Num() == 0)
+	{
+		UE_LOG(LogMI, Log, TEXT("MI-GRIP %s: no pack gun with imported models in hand"), *Label);
+		return;
+	}
+	// The gun's triangles in world space (its reference pose: the gun clip's base is the reference pose).
+	const FSkeletalMeshLODModel& G = GunAsset->GetImportedModel()->LODModels[0];
+	TArray<FVector> GV;
+	for (const FSkelMeshSection& S : G.Sections)
+	{
+		if (GV.Num() < static_cast<int32>(S.BaseVertexIndex)) GV.SetNum(S.BaseVertexIndex);
+		for (const FSoftSkinVertex& V : S.SoftVertices) GV.Add(PackGun->GetComponentTransform().TransformPosition(FVector(V.Position)));
+	}
+	TArray<FVector> Tri;
+	for (int32 I = 0; I + 2 < G.IndexBuffer.Num(); I += 3)
+	{
+		const uint32 A = G.IndexBuffer[I], B = G.IndexBuffer[I + 1], C = G.IndexBuffer[I + 2];
+		if (static_cast<int32>(FMath::Max3(A, B, C)) < GV.Num()) { Tri.Add(GV[A]); Tri.Add(GV[B]); Tri.Add(GV[C]); }
+	}
+	// The arms' vertices skinned on the CPU (component-space bones x inverse reference), with their main bone.
+	const FSkeletalMeshLODModel& M = ArmsAsset->GetImportedModel()->LODModels[0];
+	const TArray<FTransform>& CSB = Arms->GetComponentSpaceTransforms();
+	const TArray<FMatrix44f>& Inv = ArmsAsset->GetRefBasesInvMatrix();
+	const FTransform ToWorld = Arms->GetComponentTransform();
+	struct FPt { FVector P; int32 Bone; };
+	TArray<FPt> Pts;
+	for (const FSkelMeshSection& S : M.Sections)
+	{
+		for (int32 VI = 0; VI < S.SoftVertices.Num(); VI += 2)   // every second vertex: plenty on a finger
+		{
+			const FSoftSkinVertex& V = S.SoftVertices[VI];
+			FVector Acc = FVector::ZeroVector;
+			int32 Best = INDEX_NONE, BestW = -1;
+			for (int32 K = 0; K < MAX_TOTAL_INFLUENCES; ++K)
+			{
+				const int32 W = V.InfluenceWeights[K];
+				if (W == 0 || !S.BoneMap.IsValidIndex(V.InfluenceBones[K])) continue;
+				const int32 Bone = S.BoneMap[V.InfluenceBones[K]];
+				if (!CSB.IsValidIndex(Bone) || !Inv.IsValidIndex(Bone)) continue;
+				const FMatrix Skin = FMatrix(Inv[Bone]) * CSB[Bone].ToMatrixWithScale();
+				Acc += Skin.TransformPosition(FVector(V.Position)) * (W / 65535.0);
+				if (W > BestW) { BestW = W; Best = Bone; }
+			}
+			if (Best != INDEX_NONE) Pts.Add({ToWorld.TransformPosition(Acc), Best});
+		}
+	}
+	static const TCHAR* Fingers[4] = {TEXT("index"), TEXT("middle"), TEXT("ring"), TEXT("pinky")};
+	const auto BoneAt = [this](FName N) { return Arms->GetBoneLocation(N, EBoneSpaces::WorldSpace); };
+	const double Target = 0.1;   // cm: the pad on the surface
+	for (int32 S = 0; S < 2; ++S)
+	{
+		const bool bLeft = S == 0;
+		FVector Base[4], Tip[4];
+		for (int32 I = 0; I < 4; ++I) { Base[I] = BoneAt(MIFingerCurl::Bone(Fingers[I], 1, bLeft)); Tip[I] = BoneAt(MIFingerCurl::Bone(Fingers[I], 3, bLeft)); }
+		const FVector N = MIFingerCurl::PalmNormal(BoneAt(bLeft ? FName(TEXT("hand_l")) : FName(TEXT("hand_r"))), Base[1], Base[0], Base[3], Base, Tip);
+		for (int32 I = 0; I < 4; ++I)
+		{
+			int32 Bi[3];
+			FVector P0[3];
+			for (int32 J = 0; J < 3; ++J) { Bi[J] = Arms->GetBoneIndex(MIFingerCurl::Bone(Fingers[I], J + 1, bLeft)); P0[J] = BoneAt(MIFingerCurl::Bone(Fingers[I], J + 1, bLeft)); }
+			if (Bi[0] == INDEX_NONE || Bi[1] == INDEX_NONE || Bi[2] == INDEX_NONE) continue;
+			TArray<TPair<FVector, int32>> Own;   // the finger's middle and end segments (the pads), joint 1 or 2
+			for (const FPt& Pt : Pts) if (Pt.Bone == Bi[1] || Pt.Bone == Bi[2]) Own.Add({Pt.P, Pt.Bone == Bi[1] ? 1 : 2});
+			if (Own.Num() == 0) continue;
+			// the gun's triangles near this finger
+			const double Reach = FVector::Dist(P0[0], P0[2]) + 6.0;
+			TArray<int32> Near;
+			for (int32 T = 0; T < Tri.Num(); T += 3)
+			{
+				const FVector C = (Tri[T] + Tri[T + 1] + Tri[T + 2]) / 3.0;
+				const double R = FMath::Max3(FVector::Dist(C, Tri[T]), FVector::Dist(C, Tri[T + 1]), FVector::Dist(C, Tri[T + 2]));
+				if (FVector::Dist(C, P0[0]) < Reach + R) Near.Add(T);
+			}
+			const auto Gap = [&](float Deg)
+			{
+				// the curl as UMIFPAnimInstance applies it: joint by joint, each about its pivot, the rest following
+				FVector P[3] = {P0[0], P0[1], P0[2]};
+				FQuat Acc[3];
+				FVector Piv[3];
+				for (int32 J = 0; J < 3; ++J)
+				{
+					const FQuat Q = MIFingerCurl::JointTurn(P, J, N, Deg);
+					Acc[J] = Q;
+					Piv[J] = P[J];
+					for (int32 K = J + 1; K < 3; ++K) P[K] = Piv[J] + Q.RotateVector(P[K] - Piv[J]);
+				}
+				double Min = 1e9;
+				for (const TPair<FVector, int32>& O : Own)
+				{
+					FVector V = O.Key;
+					for (int32 J = 0; J <= O.Value; ++J) V = Piv[J] + Acc[J].RotateVector(V - Piv[J]);
+					for (const int32 T : Near) Min = FMath::Min(Min, FVector::Dist(V, FMath::ClosestPointOnTriangleToPoint(V, Tri[T], Tri[T + 1], Tri[T + 2])));
+				}
+				return Min;
+			};
+			const double G0 = Gap(0.f);
+			float Best = 0.f;
+			double GB = G0;
+			if (G0 > Target)
+			{
+				for (float D = 1.f; D <= 45.f; D += 1.f)
+				{
+					const double Gd = Gap(D);
+					Best = D; GB = Gd;
+					if (Gd <= Target) break;
+				}
+				if (GB > 1.0) { Best = 0.f; GB = G0; }   // nothing within reach of a curl: leave it (a finger off the gun on purpose)
+			}
+			UE_LOG(LogMI, Log, TEXT("MI-GRIP %s %s %s gap %.2f cm, %d points, %d triangles near; curl %.0f deg gap %.2f cm"),
+				*Label, bLeft ? TEXT("l") : TEXT("r"), Fingers[I], G0, Own.Num(), Near.Num(), Best, GB);
+		}
+	}
+#else
+	UE_LOG(LogMI, Log, TEXT("MI-GRIP %s: editor builds only"), *Label);
+#endif
 }

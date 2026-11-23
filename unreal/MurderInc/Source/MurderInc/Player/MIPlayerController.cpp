@@ -1,5 +1,8 @@
 #include "Player/MIPlayerController.h"
 
+#include "Weapons/MIFirstPersonRig.h"
+#include "Weapons/MIWeaponComponent.h"
+
 #include "Kismet/GameplayStatics.h"
 #include "Core/MIDamageable.h"
 #include "EngineUtils.h"
@@ -409,6 +412,16 @@ void AMIPlayerController::MIPose(float X, float Y, float Z, float Yaw, float Pit
 		C->TeleportFeet(FVector(X, Y, Z));
 		C->GetPlayerRules().Yaw = Yaw;
 		C->GetPlayerRules().Pitch = Pitch;
+	}
+#endif
+}
+
+void AMIPlayerController::MIGripProbe(const FString& Label)
+{
+#if !UE_BUILD_SHIPPING
+	if (AMIPlayerCharacter* C = GetMICharacter(); C && C->GetWeapon() && C->GetWeapon()->GetFirstPersonRig())
+	{
+		C->GetWeapon()->GetFirstPersonRig()->ProbeGrip(Label.IsEmpty() ? TEXT("now") : Label);
 	}
 #endif
 }

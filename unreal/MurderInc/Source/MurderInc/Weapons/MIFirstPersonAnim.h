@@ -39,10 +39,48 @@ struct FMIFPHandIK
 	float ShapeWeight = 0.f;
 };
 
+/**
+ * A finger closed (or opened, negative) by Deg about its knuckles onto the gun (polish pass, per gun: presentation
+ * fingers.hip / .aim, solved in play by MIGripProbe). The turn is shared over the three joints (MIFingerCurl::Share),
+ * each about the axis square to its segment and the palm's normal, so it closes toward the palm whatever the bones'
+ * local axes are. Applied after the clips, before the hand IK.
+ */
+struct FMIFPFingerCurl
+{
+	FName Finger;        // index, middle, ring, pinky
+	bool bLeft = true;
+	float Deg = 0.f;
+};
+
+namespace MIFingerCurl
+{
+	inline constexpr float Share[3] = {0.3f, 0.4f, 0.3f};
+	inline const TCHAR* Side(bool bLeft) { return bLeft ? TEXT("_l") : TEXT("_r"); }
+	inline FName Bone(const TCHAR* Finger, int32 Joint, bool bLeft) { return FName(FString::Printf(TEXT("%s_%02d%s"), Finger, Joint, Side(bLeft))); }
+	/** The palm's normal, toward where the curled fingers go: hand -> middle knuckle crossed with the knuckle line,
+	 *  its sign set by the four fingers' 01 -> 03 directions (they curl to the palm side in every hold). */
+	inline FVector PalmNormal(const FVector& Hand, const FVector& Middle1, const FVector& Index1, const FVector& Pinky1, const FVector (&Base)[4], const FVector (&Tip)[4])
+	{
+		FVector N = FVector::CrossProduct(Middle1 - Hand, Index1 - Pinky1).GetSafeNormal();
+		double S = 0.0;
+		for (int32 I = 0; I < 4; ++I) S += FVector::DotProduct(N, Tip[I] - Base[I]);
+		return S < 0.0 ? -N : N;
+	}
+	/** The turn of joint J (0..2) of a finger: about the axis square to the segment (P[J] -> P[J + 1], the last one
+	 *  along P[1] -> P[2]) and the palm normal, by Share[J] x Deg; positive closes toward the palm. */
+	inline FQuat JointTurn(const FVector (&P)[3], int32 J, const FVector& Normal, float Deg)
+	{
+		const FVector Seg = J < 2 ? P[J + 1] - P[J] : P[2] - P[1];
+		const FVector Axis = FVector::CrossProduct(Seg, Normal).GetSafeNormal();
+		return Axis.IsNearlyZero() ? FQuat::Identity : FQuat(Axis, FMath::DegreesToRadians(Share[J] * Deg));
+	}
+}
+
 struct FMIFPPose
 {
 	TArray<FMIFPLayer> Layers;
 	TArray<FMIFPHandIK> Hands;
+	TArray<FMIFPFingerCurl> Curls;
 };
 
 /** Evaluates FMIFPPose on the worker thread: no graph, no Blueprint; the game thread decides everything. */

@@ -136,6 +136,66 @@ namespace MIFirstPersonAnimPrivate
 		}
 	}
 
+	/** The per-gun finger curls (FMIFPFingerCurl), in component space, parents first: each joint turned about its own
+	 *  pivot, the joints below it following. */
+	void ApplyCurls(FCSPose<FCompactPose>& CS, const TArray<FMIFPFingerCurl>& Curls)
+	{
+		const FBoneContainer& Bones = CS.GetPose().GetBoneContainer();
+		static const TCHAR* Fingers[4] = {TEXT("index"), TEXT("middle"), TEXT("ring"), TEXT("pinky")};
+		const auto At = [&](FName Name, FVector& Out)
+		{
+			const FCompactPoseBoneIndex B = BoneIndex(Bones, Name);
+			if (!B.IsValid()) return false;
+			Out = CS.GetComponentSpaceTransform(B).GetLocation();
+			return true;
+		};
+		for (int32 S = 0; S < 2; ++S)
+		{
+			const bool bLeft = S == 0;
+			if (!Curls.ContainsByPredicate([bLeft](const FMIFPFingerCurl& C) { return C.bLeft == bLeft && FMath::Abs(C.Deg) > 0.05f; }))
+			{
+				continue;
+			}
+			FVector Hand, Base[4], Tip[4];
+			bool bOk = At(bLeft ? FName(TEXT("hand_l")) : FName(TEXT("hand_r")), Hand);
+			for (int32 I = 0; I < 4 && bOk; ++I)
+			{
+				bOk = At(MIFingerCurl::Bone(Fingers[I], 1, bLeft), Base[I]) && At(MIFingerCurl::Bone(Fingers[I], 3, bLeft), Tip[I]);
+			}
+			if (!bOk)
+			{
+				continue;
+			}
+			const FVector N = MIFingerCurl::PalmNormal(Hand, Base[1], Base[0], Base[3], Base, Tip);
+			for (const FMIFPFingerCurl& C : Curls)
+			{
+				if (C.bLeft != bLeft || FMath::Abs(C.Deg) <= 0.05f)
+				{
+					continue;
+				}
+				FCompactPoseBoneIndex Idx[3];
+				for (int32 J = 0; J < 3; ++J)
+				{
+					Idx[J] = BoneIndex(Bones, MIFingerCurl::Bone(*C.Finger.ToString(), J + 1, bLeft));
+				}
+				if (!Idx[0].IsValid() || !Idx[1].IsValid() || !Idx[2].IsValid())
+				{
+					continue;
+				}
+				for (int32 J = 0; J < 3; ++J)
+				{
+					FVector P[3];
+					for (int32 K = 0; K < 3; ++K) P[K] = CS.GetComponentSpaceTransform(Idx[K]).GetLocation();
+					FTransform T = CS.GetComponentSpaceTransform(Idx[J]);
+					T.SetRotation((MIFingerCurl::JointTurn(P, J, N, C.Deg) * T.GetRotation()).GetNormalized());
+					TArray<FBoneTransform> Out;
+					Out.Add(FBoneTransform(Idx[J], T));
+					CS.SafeSetCSBoneTransforms(Out);
+				}
+			}
+		}
+	}
+
 	/** Two-bone IK of one arm in component space, the hand's rotation blended to the target's. */
 	void SolveHand(FCSPose<FCompactPose>& CS, const FMIFPHandIK& H)
 	{
@@ -247,10 +307,11 @@ bool FMIFPAnimProxy::Evaluate(FPoseContext& Output)
 		const FAnimationPoseData TData(T);
 		FAnimationRuntime::BlendTwoPosesTogetherInPlace(OutData, TData, 1.f - L.Weight);
 	}
-	if (Pose.Hands.ContainsByPredicate([](const FMIFPHandIK& H) { return H.Weight > 0.f; }))
+	if (Pose.Curls.Num() > 0 || Pose.Hands.ContainsByPredicate([](const FMIFPHandIK& H) { return H.Weight > 0.f; }))
 	{
 		FCSPose<FCompactPose> CS;
 		CS.InitPose(Output.Pose);
+		ApplyCurls(CS, Pose.Curls);
 		for (int32 S = 0; S < 2; ++S)
 		{
 			const FCompactPoseBoneIndex B = BoneIndex(Output.Pose.GetBoneContainer(), S == 0 ? FName(TEXT("hand_l")) : FName(TEXT("hand_r")));
