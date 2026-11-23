@@ -51,6 +51,7 @@ The owner's standing instructions (verbatim):
 | Loadout and home-screen flow design | `docs/unreal/LOADOUT.md` (data in `unreal/MurderInc/Content/Data/`) |
 | Pack import, clips, first-person camera recipe | `docs/unreal/ANIMATION.md` (sections 8 and 9 for the pack rifles) |
 | Characters pipeline | `docs/unreal/CHARACTERS.md`, `art/blender/README.md` |
+| MetaHuman Creator on the box (offline preview and meshes; assembly needs an Epic login) | `docs/unreal/METAHUMAN.md`, scripts in `tools/box/metahuman/`, project `/project/ue/metahuman` (MCP 8006) |
 | Audio and voice lines, recording brief | `docs/unreal/AUDIO.md` |
 | Port specs from the web game | `docs/unreal/spec/` |
 | Pictures of results | `art/previews/`, `docs/unreal/shots/` |
