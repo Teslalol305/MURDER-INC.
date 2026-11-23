@@ -186,8 +186,8 @@ def sneaker(B, side, col, h_upper=0.0019, h_sole=0.0013):
     up = mesh_field("Upper_" + side, fu, np.array([lo[0], lo[1], 0.005]), np.array([hi[0], hi[1], 0.12]), h_upper, col)
     so = mesh_field("Sole_" + side, fs, np.array([lo[0], lo[1], -0.003]), np.array([hi[0], hi[1], 0.05]), h_sole, col,
                     relax=1)
-    decimate(up, 2600)
-    decimate(so, 3200)
+    decimate(up, 2300)
+    decimate(so, 2000)
     out = {"upper": up, "sole": so}
     out.update(laces(F, fu, col))
     out["tab"] = heel_tab(F, fu, col)
@@ -217,7 +217,7 @@ def laces(F, fu, col, pairs=6):
     P, N = _on_surface(fu, eyes, 0.0006)
     rings = []
     for p, n in zip(P, N):
-        r = geo.torus(0.0032, 0.0009, 16, 6, name="Eyelet")
+        r = geo.torus(0.0032, 0.0009, 10, 4, name="Eyelet")
         M = Matrix.Translation(Vector(p)) @ Vector((0, 0, 1)).rotation_difference(Vector(n)).to_matrix().to_4x4()
         r.data.transform(M)
         rings.append(r)
@@ -437,7 +437,7 @@ def zip_teeth(name, path, normals, col, pitch=0.0048, tape=0.026, tooth=(0.0058,
         t = unit(np.array([np.interp(s + 0.001, L, P[:, i]) for i in range(3)]) - p)
         side = unit(np.cross(t, n))
         off = side * (0.0012 if k % 2 else -0.0012)
-        bx = geo.box(size=(tooth[0], tooth[1], tooth[2]), bevel=0.0004, segments=1, name="Tooth", base=False)
+        bx = geo.box(size=(tooth[0], tooth[1], tooth[2]), bevel=0.0, segments=1, name="Tooth", base=False)
         Mx = np.eye(4)
         Mx[:3, 0], Mx[:3, 1], Mx[:3, 2], Mx[:3, 3] = side, t, n, p + off + n * 0.0016
         bx.data.transform(Matrix(Mx.tolist()))

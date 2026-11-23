@@ -48,9 +48,9 @@ COL = {"hoodie": "#232328", "pocket": "#0e0e11", "oxblood": "#7c151d", "darkox":
        "sole": "#efece4", "jacket": "#28282e", "quiltseam": "#232328", "trousers": "#30323b", "track": "#232328",
        "black": "#141416", "metal": "#8a8a88", "webbing": "#1a1a1c", "sock": "#18181a", "lens": "#050506"}
 
-BUDGET = {"Hoodie": 18000, "Jeans": 11000, "Hood": 6500, "Waistband": 2400, "Cuff": 1100, "Pocket": 900,
-          "Mask": 9000, "Puffer": 21000, "Collar": 2400, "Trousers": 11000, "TrackJacket": 17000, "TrackTrousers": 11000,
-          "Beanie": 2200, "BeanieCuff": 1400, "Cap": 2600, "Bandana": 2600, "Sock": 500, "Sling": 1300}
+BUDGET = {"Hoodie": 15500, "Jeans": 11000, "Hood": 6500, "Waistband": 2400, "Cuff": 1100, "Pocket": 900,
+          "Mask": 6500, "Puffer": 17000, "Collar": 2400, "Trousers": 11000, "TrackJacket": 17000, "TrackTrousers": 11000,
+          "Beanie": 2200, "BeanieCuff": 1400, "Cap": 2600, "Bandana": 2600, "Sock": 300, "Sling": 1300}
 
 
 def log_default(m):
@@ -208,6 +208,7 @@ def kit(man, outfit):
             out.append(("Sneaker_%s_%s" % (k, s), tag(o, kind, colour), "cloth" if k in ("upper", "sole") else "head",
                         ("foot", s)))
         sk = cached("Sock_%s" % s, "s1", col, lambda: GK.sock(man.BF, col, 1 if s == "l" else -1))
+        GK.decimate(sk, BUDGET["Sock"])
         out.append(("Sock_" + s, tag(sk, "sock", "sock"), "cloth", ("leg", s)))
     return out
 
@@ -226,7 +227,7 @@ def mask_piece(man, bottom=1.45):
     return ob
 
 
-def hood_piece(man, hoodie, mask, name="Hood", version="h7"):
+def hood_piece(man, hoodie, mask, name="Hood", version="h8"):
     """The hood up: an offset of the head and shoulders (more room at the back and the crown, where a hood stands
     off), open at the face (the opening closes under the chin) and at the neckline, draped over the mask with the
     neckline pinned (the crown sags, folds gather at the neck), the face opening turned in as the drawstring channel."""
@@ -272,7 +273,18 @@ def hood_piece(man, hoodie, mask, name="Hood", version="h7"):
         cloth.drape(hd, [mc, man.body_col], frames=30, pin=pin, shrink=grow, shrink_min=-0.04, bending=1.5,
                     mass=0.2, log=man.log)
         cloth.smooth(hd, 3)
-        thicken_edges(hd, depth=0.014, thickness=0.005, which=lambda P: P[:, 1].mean() < j[1] - 0.02, smooth=12)
+        co = GC.verts(hd)
+        face = max(cloth.boundary_loops(hd), key=lambda L: -co[L][:, 1].mean())
+        face = max(cloth.boundary_loops(hd), key=lambda L: co[L][:, 2].mean())
+        smooth_loop(hd, face, 14)
+        co = GC.verts(hd)
+        P = co[face]
+        nrm = cloth.vertex_normals(hd)[face]
+        # the drawstring channel: a rolled edge 11 mm thick, a little inside the opening
+        path = P - nrm * 0.002
+        path = np.vstack([path, path[:1]])
+        rim = geo.pipe([tuple(v) for v in path], radius=0.0055, segments=8, cap=False, name="HoodRim")
+        hd = geo.join([hd, rim], "Hood", col)
         return hd
     return cached(name, version, col, make)
 
@@ -330,6 +342,288 @@ def sling(man, garment, parts):
                              man.col)
     parts.append(("Sling", tag(ob, "webbing", "webbing"), "head", None))
     return ob
+
+
+# ------------------------------------------------------------------------------------------------ puffer, tracksuit
+
+
+def collar(man, garment, name, top, ease, flare, col, h=0.006):
+    """Stand-up collar: an elliptic tube round the neck (the neck's own section grown by `ease`), from inside the
+    garment's neckline up to `top` (metres above the ground), flaring `flare` at the top; turned edge on top.
+    Returns (object, top z, field) - the field is the collar as a solid (for what lies over it)."""
+    L, ring = ordered_ring(garment, lambda P: P[:, 2].mean())
+    nk = man.M.neck
+    rc = np.array([nk[0], nk[1] - 0.006, 0.0])
+    zr = float(ring[:, 2].mean())
+    bx = (ring[:, 0].max() - ring[:, 0].min()) / 2 + 0.004            # the garment's neckline
+    by = (ring[:, 1].max() - ring[:, 1].min()) / 2 + 0.004
+    rc0 = np.array([ring[:, 0].mean(), ring[:, 1].mean(), 0.0])
+    ax_, ay_ = 0.060 + ease, 0.066 + ease                              # the neck grown by the ease
+    z0 = zr - 0.02
+    z1 = top
+
+    def f(p):
+        t = np.clip((p[:, 2] - z0) / (z1 - z0), 0, 1)
+        b = 1 - np.clip((p[:, 2] - zr) / 0.045, 0, 1)
+        b = b * b * (3 - 2 * b)                                          # from the neckline in to the neck
+        k = 1.0 + flare * t ** 2 / min(ax_, ay_)
+        A = (ax_ * k) * (1 - b) + bx * b
+        Bq = (ay_ * k) * (1 - b) + by * b
+        cx = rc[0] * (1 - b) + rc0[0] * b
+        cy = (rc[1] - 0.006 * t) * (1 - b) + rc0[1] * b
+        q = np.sqrt(((p[:, 0] - cx) / A) ** 2 + ((p[:, 1] - cy) / Bq) ** 2)
+        return (q - 1.0) * np.minimum(A, Bq)
+    lo = np.array([rc0[0] - bx - 0.05, rc0[1] - by - 0.05, z0 - 0.02])
+    hi = np.array([rc0[0] + bx + 0.05, rc0[1] + by + 0.05, z1 + 0.02])
+    ob = cloth.garment_mesh(name, f, lo, hi, h, cuts=[((0, 0, z1), (0, 0, 1)), ((0, 0, z0), (0, 0, -1))], col=col)
+    thicken_edges(ob, depth=0.02, thickness=0.004, which=lambda P: P[:, 2].mean() > z0 + 0.01)
+
+    def solid(p):
+        return np.maximum(f(p), np.maximum(p[:, 2] - z1, z0 - p[:, 2]))
+    return ob, z1, solid
+
+
+def front_path(man, obs, z_top, length, step=0.006, lift=0.0):
+    """Points and normals down the centre front of the given surfaces from z_top, `length` long (ray cast from the
+    front at x = 0)."""
+    S = GK.Surface(*obs)
+    P, N = [], []
+    for z in np.arange(z_top, z_top - length - 1e-9, -step):
+        loc, n = S.ray((0.0, -0.6, z), (0, 1.0, 0), 1.2)
+        if loc is None:
+            continue
+        if n[1] > 0:
+            n = -n
+        P.append(loc + n * lift)
+        N.append(n)
+    P, N = np.array(P[::-1]), np.array(N[::-1])
+    for _ in range(4):
+        P[1:-1] = 0.5 * P[1:-1] + 0.25 * (P[:-2] + P[2:])
+    return P, N
+
+
+def zipper(man, obs, z_top, length, parts, col, tape_kind="zip", tape_colour="oxblood"):
+    P, N = front_path(man, obs, z_top, length, lift=0.0015)
+    tapes, teeth = GK.zip_teeth("Zip", P, N, col)
+    pull = GK.zip_pull("ZipPull", P[-1], N[-1], P[-1] - P[-2], col)
+    parts.append(("ZipTape", tag(tapes, "nylon", tape_colour), "head", None))
+    parts.append(("ZipTeeth", tag(teeth, "zip", tape_colour), "head", None))
+    parts.append(("ZipPull", tag(pull, "metal", "metal"), "head", None))
+
+
+def quilt(man, ob, seams_z, arm_rings, loft=0.013):
+    """The puffer's loft: the shell pushed out along its normals between stitched seams (horizontal on the torso,
+    rings on the sleeves), down to nothing on each seam line."""
+    from assets._goons_tex import AxisCoords
+    co = GC.verts(ob)
+    n = cloth.vertex_normals(ob)
+    ax = AxisCoords(man)(co)
+    seg, s = ax[:, 0].astype(int), ax[:, 1]
+    out = np.zeros(len(co))
+    z = co[:, 2]
+    sz = np.asarray(seams_z)
+    k = np.clip(np.searchsorted(sz, z) - 1, 0, len(sz) - 2)
+    t = (z - sz[k]) / (sz[k + 1] - sz[k])
+    torso = (seg == 0) & (z >= sz[0]) & (z <= sz[-1])
+    out[torso] = np.sin(np.pi * np.clip(t[torso], 0, 1)) ** 0.6
+    above = (seg == 0) & (z > sz[-1])
+    out[above] = 0.7 * np.sin(np.pi * np.clip((z[above] - sz[-1]) / 0.12, 0, 1)) ** 0.6
+    for side_segs, rings in ((("uarm_l", "farm_l"), arm_rings), (("uarm_r", "farm_r"), arm_rings)):
+        ids = [AxisCoords(man).names.index(nm) for nm in side_segs]
+        for sid, (r0, r1) in zip(ids, rings):
+            m = seg == sid
+            # one stitched ring per segment at fraction r0 of its length; puff either side
+            sm = s[m]
+            Ls = np.linalg.norm(AxisCoords(man).Bv[sid] - AxisCoords(man).A[sid])
+            u = np.clip(sm / Ls, 0, 1)
+            d = np.abs(u - r0)
+            out[m] = np.clip(d / r1, 0, 1) ** 0.5
+    GC.set_verts(ob, co + n * (loft * out)[:, None])
+    return out
+
+
+def binding(name, ob, which, radius, col):
+    """A bound edge: a soft tube along the open loop(s) which(points) accepts."""
+    co = GC.verts(ob)
+    nrm = cloth.vertex_normals(ob)
+    tubes = []
+    for L in cloth.boundary_loops(ob):
+        if not which(co[L]):
+            continue
+        P = co[L] - nrm[L] * radius * 0.3
+        P = np.vstack([P, P[:1]])
+        for _ in range(3):
+            P[1:-1] = 0.5 * P[1:-1] + 0.25 * (P[:-2] + P[2:])
+        tubes.append(geo.pipe([tuple(v) for v in P], radius=radius, segments=8, cap=False, name=name))
+    return geo.join(tubes, name, col)
+
+
+def puffer_outfit(man, parts, shoes):
+    B, M, BF, col, log = man.B, man.M, man.BF, man.col, man.log
+    tr = cached("Trousers", "t1", col, lambda: GC.trousers(B, M, BF, col, [man.body_col, shoes], name="Trousers",
+                                                           log=log, hem=0.115, ease_thigh=0.02, ease_shin=0.024))
+    thicken_edges(tr, depth=0.02, thickness=0.004, which=lambda P: P[:, 2].mean() < 0.3)
+    GK.decimate(tr, BUDGET["Trousers"])
+    parts.append(("Trousers", tag(tr, "twill", "trousers"), "cloth", None))
+    tc = collider_of([tr], "Col_Trousers", man.work, ratio=0.5, inflate=0.002)
+    hem = 0.86
+
+    def shell():
+        ob, L = GC.hoodie_shell(B, M, BF, col, [man.body_col, tc], hem_top=hem, neck=1.53, cuff=0.02, ease=0.042,
+                                hang=0.05, sleeve=0.024, grow=-0.02, band_level=0.034, cuff_level=0.024, log=log,
+                                name="Puffer", bending=5.0, mass=0.35, frames=35)
+        cloth.smooth(ob, 3)
+        return ob
+    jk = cached("Puffer", "p4", col, shell)
+    seams = [hem + 0.02, 0.99, 1.12, 1.25, 1.38]
+    quilt(man, jk, seams, [(0.45, 0.5), (0.5, 0.5)], loft=0.014)
+    co_, z1, csolid = collar(man, jk, "Collar", man.H.chin_z + 0.045, 0.046, 0.012, col)
+    GK.decimate(co_, BUDGET["Collar"])
+    parts.append(("Collar", tag(co_, "nylon", "jacket", 3), "cloth", None))
+    hl = binding("HemBinding", jk, lambda P: P[:, 2].mean() < 1.0, 0.006, col)
+    parts.append(("HemBinding", tag(hl, "nylon", "darkox"), "cloth", None))
+    cb = binding("CuffBinding", jk, lambda P: P[:, 2].mean() > 0.95 and abs(P[:, 0].mean()) > 0.3, 0.0055, col)
+    parts.append(("CuffBinding", tag(cb, "nylon", "jacket"), "cloth", None))
+    zipper(man, [jk, co_], z1 - 0.004, 0.38, parts, col)
+    GK.decimate(jk, BUDGET["Puffer"])
+    parts.append(("Puffer", tag(jk, "quilt", "jacket", 3), "cloth", None))
+    # head: mask under, beanie with its cuff, glasses, bandana
+    mask = mask_piece(man)
+    parts.append(("Mask", tag(mask, "maskknit", "mask"), "head", None))
+    bn, cf = GH.beanie(man.H, col)
+    GK.decimate(bn, BUDGET["Beanie"])
+    GK.decimate(cf, BUDGET["BeanieCuff"])
+    parts.append(("Beanie", tag(bn, "beanie", "black"), "head", "head"))
+    parts.append(("BeanieCuff", tag(cf, "beanie", "oxblood"), "head", "head"))
+    lens, arms_ = glasses(man, col)
+    parts.append(("Lens", tag(lens, "lens", "lens"), "head", "head"))
+    parts.append(("GlassesArms", tag(arms_, "lens", "black"), "head", "head"))
+    bd = cached("Bandana", "b3", col, lambda: bandana(man, csolid, col))
+    GK.decimate(bd, BUDGET["Bandana"])
+    parts.append(("Bandana", tag(bd, "bandana", "mask"), "head", None))
+    sling(man, jk, parts)
+    return parts
+
+
+def glasses(man, col, width=0.19, stand=0.014):
+    """Wrap-around glasses: one curved polycarbonate shield 0.19 m wide standing `stand` off the mask, top edge
+    straight, bottom edge cut up over the nose, 2 mm thick; temple arms back along the head to the ears."""
+    H = man.H
+    j = H.j
+    ez = H.eye["l"][2] + 0.003
+    mk = mask_piece(man)
+    S = GK.Surface(mk)
+    bpy.data.objects.remove(mk, do_unlink=True)
+    cx, cy = j[0], j[1] + 0.01
+    nu, nv = 41, 9
+    V = []
+    half = width / 2
+    for i in range(nu):
+        u = -1 + 2 * i / (nu - 1)
+        x_t = u * half
+        ang = np.arcsin(np.clip(u * 0.98, -1, 1)) * 1.12
+        d = np.array([np.sin(ang), -np.cos(ang), 0.0])
+        for k in range(nv):
+            v = k / (nv - 1)
+            top = ez + 0.022 - 0.006 * u * u
+            bot = ez - 0.021 + 0.011 * np.exp(-(u * half / 0.017) ** 2) + 0.006 * u * u
+            z = bot + (top - bot) * v
+            loc, n = S.ray((cx + d[0] * 0.3, cy + d[1] * 0.3, z), -d, 0.4)
+            r = np.linalg.norm((loc - np.array([cx, cy, z]))[:2]) if loc is not None else 0.1
+            p = np.array([cx, cy, z]) + d * (r + stand + 0.004 * u * u)
+            V.append(p)
+    V = np.array(V)
+    # even out the shield (no head bumps in a rigid lens)
+    G = V.reshape(nu, nv, 3)
+    for _ in range(6):
+        G[1:-1] = 0.5 * G[1:-1] + 0.25 * (G[:-2] + G[2:])
+    V = G.reshape(-1, 3)
+    F = [(i * nv + k, i * nv + k + 1, (i + 1) * nv + k + 1, (i + 1) * nv + k) for i in range(nu - 1) for k in range(nv - 1)]
+    lens = geo.from_arrays("GlassesLens", V, F, col, smooth=None)
+    for p_ in lens.data.polygons:
+        p_.use_smooth = True
+    md = lens.modifiers.new("solid", "SOLIDIFY")
+    md.thickness, md.offset = 0.0022, 0.0
+    geo._apply_modifier(lens, md)
+    arms = []
+    for end in (0, nu - 1):
+        a = G[end, nv // 2 + 1]
+        sx = np.sign(a[0])
+        pts = [a]
+        for t in np.linspace(0.15, 1.0, 7):
+            y = a[1] + t * (j[1] + 0.06 - a[1])
+            loc, n = S.ray((sx * 0.3, y, a[2] - 0.006 * t), (-sx, 0, 0), 0.4)
+            x = (loc[0] + sx * 0.004) if loc is not None else a[0]
+            pts.append(np.array([x, y, a[2] - 0.006 * t]))
+        arms.append(geo.sweep(geo.rect_profile(0.003, 0.008), [tuple(p) for p in pts], name="Temple", up=(0, 0, 1)))
+    ar = geo.join(arms, "GlassesArms", col)
+    return lens, ar
+
+
+def bandana(man, collar_solid, col):
+    """A pale cotton bandana tied over the nose and mouth: 6 mm over the mask from the bridge of the nose down,
+    round the sides to the knot at the nape, its front falling to a point over the collar onto the chest."""
+    H, BF = man.H, man.BF
+    j = H.j
+    nose_z = H.eye["l"][2] - 0.028
+    def f(p):
+        d = np.minimum(np.minimum(H(p) - GH.MASK_T, collar_solid(p)), BF(p) - 0.03) - 0.006
+        # the flap: in front of the throat, a triangle narrowing from the jaw to a point 0.13 m below the chin
+        zc = H.chin_z
+        w = 0.105 * np.clip((p[:, 2] - (zc - 0.13)) / 0.13, 0, 1) ** 0.9
+        flap = np.maximum(np.abs(p[:, 0]) - w, (p[:, 1] - (j[1] - 0.02)))
+        flap_d = np.maximum(flap, -(p[:, 1] - (H.front + 0.02 - 0.09)) - 0.2)
+        front_face = (j[1] - 0.05) - p[:, 1]
+        band = np.maximum(d, p[:, 2] - nose_z - 0.012 * (p[:, 1] - H.front) / 0.2)
+        # below the chin keep only the flap
+        below = (zc + 0.015) - p[:, 2]
+        band = np.where(below > 0, np.maximum(band, flap), band)
+        return band
+    lo = np.array([j[0] - 0.15, j[1] - 0.2, H.chin_z - 0.16])
+    hi = np.array([j[0] + 0.15, j[1] + 0.16, nose_z + 0.03])
+    v, q = sdf.surface_nets(f, lo, hi, 0.0028)
+    v, q = sdf.keep_largest(v, q)
+    v = cloth.safe_project(f, v, 3, 0.006)
+    return sdf.to_mesh("Bandana", v, q, col)
+
+
+def tracksuit_outfit(man, parts, shoes):
+    B, M, BF, col, log = man.B, man.M, man.BF, man.col, man.log
+    tr = cached("TrackTrousers", "tt2", col, lambda: GC.trousers(B, M, BF, col, [man.body_col, shoes],
+                                                                 name="TrackTrousers", log=log, hem=0.12, ease_seat=0.01,
+                                                                 ease_thigh=0.018, ease_shin=0.022, grow=-0.022))
+    thicken_edges(tr, depth=0.02, thickness=0.004, which=lambda P: P[:, 2].mean() < 0.3)
+    GK.decimate(tr, BUDGET["TrackTrousers"])
+    parts.append(("TrackTrousers", tag(tr, "tricot", "track", 5), "cloth", None))
+    tc = collider_of([tr], "Col_TrackTrousers", man.work, ratio=0.5, inflate=0.002)
+
+    def shell():
+        ob, L = GC.hoodie_shell(B, M, BF, col, [man.body_col, tc], hem_top=0.925, neck=1.535, ease=0.016, hang=0.022,
+                                sleeve=0.014, grow=-0.03, band_level=0.017, cuff_level=0.011, log=log,
+                                name="TrackJacket", bending=1.2, mass=0.25)
+        cloth.smooth(ob, 2)
+        return ob
+    jk = cached("TrackJacket", "tj3", col, shell)
+    bands = GC.bands_for(B, M, BF, col, band_level=0.017, cuff_level=0.011)
+    for k, o in bands.items():
+        thicken_edges(o, depth=0.012, thickness=0.003, which=lambda P: P[:, 2].mean() < 0.9 or k != "waistband")
+        GK.decimate(o, BUDGET["Waistband" if k == "waistband" else "Cuff"])
+        parts.append((k.capitalize(), tag(o, "rib", "track"), "cloth", ("cuff", k[-1]) if k.startswith("cuff") else None))
+    co_, z1, _s = collar(man, jk, "Collar", 1.59, 0.02, 0.006, col)
+    GK.decimate(co_, BUDGET["Collar"])
+    parts.append(("Collar", tag(co_, "tricot", "track", 4), "cloth", None))
+    zipper(man, [jk, co_], z1 - 0.003, 0.40, parts, col)
+    GK.decimate(jk, BUDGET["TrackJacket"])
+    parts.append(("TrackJacket", tag(jk, "tricot", "track", 4), "cloth", None))
+    mask = mask_piece(man)
+    parts.append(("Mask", tag(mask, "maskknit", "mask"), "head", None))
+    cr, br, bt = GH.cap_backwards(man.H, col)
+    GK.decimate(cr, BUDGET["Cap"])
+    parts.append(("Cap", tag(cr, "captwill", "black"), "head", "head"))
+    parts.append(("CapBrim", tag(br, "captwill", "oxblood"), "head", "head"))
+    parts.append(("CapButton", tag(bt, "captwill", "black"), "head", "head"))
+    sling(man, jk, parts)
+    return parts
 
 
 # ------------------------------------------------------------------------------------------------ assembly
@@ -545,7 +839,7 @@ def finish(man, outfit, joined, ctx):
     return ob
 
 
-BUILDERS = {"Hoodie": hoodie_outfit}
+BUILDERS = {"Hoodie": hoodie_outfit, "Puffer": puffer_outfit, "Tracksuit": tracksuit_outfit}
 
 
 def build(ctx):

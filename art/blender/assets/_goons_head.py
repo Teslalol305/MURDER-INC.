@@ -131,7 +131,7 @@ def beanie(H, col, h=0.004):
     """Knitted beanie: a fitted crown over the mask from the brow line, with a 5 cm turned-up cuff that stands
     off the crown by its double thickness."""
     j = H.j
-    p0, n0 = _tilted(j, H.eye["l"][2] + 0.040, H.eye["l"][2] + 0.0)
+    p0, n0 = _tilted(j, H.eye["l"][2] + 0.030, H.eye["l"][2] - 0.004)
     crown = lambda p: H(p) - MASK_T - 0.0045 - 0.004 * np.clip((p[:, 2] - H.top + 0.05) / 0.05, 0, 1)
     lo = np.array([j[0] - 0.14, j[1] - 0.17, p0[2] - 0.08])
     hi = np.array([j[0] + 0.14, j[1] + 0.15, H.top + 0.04])

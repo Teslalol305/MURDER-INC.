@@ -317,7 +317,69 @@ def regions(man, P, N, kind, piece, bc, h, rough):
     bc[v_] = OX * (0.92 + 0.08 * TX.noise(P[v_], 200, 4))[:, None] * np.where(crack[v_], 0.7, 1.0)[:, None]
     h[v_] += 0.00012
     rough[v_] = 0.55
-    # seams on the knit garments: side seams, armholes, the hood's centre seam
+    J = man.B.J
+    # the tracksuit's oxblood stripes, 3 cm wide: down the outside of each sleeve (shoulder to cuff) and each leg
+    track = (kind == K["tricot"]) & ((piece == 4) | (piece == 5))
+    if track.any():
+        stripe = np.zeros(len(P), dtype=bool)
+        for sd, sx in (("l", 1.0), ("r", -1.0)):
+            for a_, b_, lim in ((J["upperarm_" + sd], J["hand_" + sd], 0.03), (J["thigh_" + sd], J["foot_" + sd], 0.0)):
+                w = (b_ - a_) / np.linalg.norm(b_ - a_)
+                if lim:                                   # arm: the outer side is the top of the arm in the A-pose
+                    o = np.cross(w, np.array([0, 1.0, 0]))
+                    o = o if o[2] > 0 else -o
+                else:                                     # leg: the outer side
+                    o = np.array([sx, 0, 0.0]) - w * (w[0] * sx)
+                o /= np.linalg.norm(o)
+                r = P - a_
+                t = r @ w
+                rr = r - t[:, None] * w
+                rad = np.linalg.norm(rr, axis=1)
+                ang = np.arccos(np.clip((rr @ o) / np.maximum(rad, 1e-6), -1, 1))
+                L = np.linalg.norm(b_ - a_)
+                on = (ang * rad < 0.015) & (t > -0.02) & (t < L) & (rad < 0.16)
+                if lim:
+                    on &= (sx * (P[:, 0] - a_[0]) > -0.01)
+                else:
+                    on &= (P[:, 2] < J["thigh_" + sd][2] + 0.06) & (sx * P[:, 0] > 0.04)
+                stripe |= on
+        stripe &= track
+        tape = 0.5 + 0.5 * np.sin(2 * np.pi * P[:, 2] / 0.0011)
+        bc[stripe] = OX * (0.9 + 0.1 * tape[stripe])[:, None]
+        h[stripe] += 0.00015
+        rough[stripe] = 0.55
+    # the puffer's oxblood yoke (above the top quilt seam) and shoulder caps
+    puff = (kind == K["quilt"]) & (piece == 3)
+    if puff.any():
+        yoke = np.zeros(len(P), dtype=bool)
+        for sd in "lr":
+            yoke |= np.linalg.norm(P - J["upperarm_" + sd], axis=1) < 0.115
+        yoke |= (z > 1.405) & (np.abs(x) < np.abs(J["upperarm_l"][0]) + 0.02)
+        yoke &= puff
+        bc[yoke] = OX * (0.95 + 0.05 * TX.noise(P[yoke], 80, 2))[:, None]
+    # the ski mask: black eye slits, the vertical mouth seam, darker round the slits, the tucked part at the neck
+    mk = kind == K["maskknit"]
+    if mk.any():
+        from assets import _goons_head as GH
+        Pm = P[mk]
+        sl = GH.slit_field(man.H, Pm, 0.0015)
+        c = bc[mk]
+        shade = np.clip(1 - sl / 0.012, 0, 1)
+        c = c * (1 - 0.25 * shade)[:, None] + SEAM * 0.25 * shade[:, None]
+        c[sl < 0.0] = SLIT
+        Hd = man.H
+        seam = (np.abs(Pm[:, 0]) < 0.0022) & (Pm[:, 2] < Hd.eye["l"][2] - 0.035) & (Pm[:, 2] > Hd.chin_z - 0.01) & \
+            (Pm[:, 1] < Hd.j[1] - 0.04)
+        c[seam] = SEAM * 0.8
+        hh = h[mk]
+        hh[seam] -= 0.0004
+        tuck = Pm[:, 2] < Hd.chin_z - 0.035
+        c[tuck] = c[tuck] * 0.75 + SEAM * 0.25
+        # breath stain round the mouth
+        mouth = np.clip(1 - np.linalg.norm((Pm - Hd.mouth) * np.array([1, 1, 1.3]), axis=1) / 0.035, 0, 1)
+        c = c * (1 - 0.08 * mouth)[:, None]
+        bc[mk], h[mk] = c, hh
+        rough[mk] = np.where(sl < 0.0, 0.9, rough[mk])
     return v_
 
 

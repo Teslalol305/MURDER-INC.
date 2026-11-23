@@ -411,3 +411,45 @@ def arms_actor(mesh_path, anim_path, loc, yaw, time, label, src="/project/ue/cha
                           unreal.AttachmentRule.KEEP_WORLD, False)
         j.root_component.set_relative_transform(rel, False, False)
     return a
+
+
+# ---------------------------------------------------------------------------------------------------- the Goons
+
+GOONS = ("Hoodie", "Puffer", "Tracksuit")
+GOON_DIR = "/Game/Characters/Goons"
+
+
+def setup_goons(src="/project/ue/chars/in/goons"):
+    """SK_Goon_Hoodie / _Puffer / _Tracksuit on SK_Mannequin with their two baked sets each (Cloth 4K, Head 2K):
+    textures, materials M_Goon<Outfit>_Cloth / _Head, slots assigned by name. Returns a report."""
+    rep = {}
+    rep["textures"] = import_textures(os.path.join(src, "tex"), GOON_DIR + "/Textures")
+    for o in GOONS:
+        glb = os.path.join(src, "SK_Goon_%s.glb" % o)
+        if not os.path.exists(glb):
+            continue
+        rep[o] = import_on_mannequin(glb, GOON_DIR, "SK_Goon_" + o)
+        mats = {}
+        for s in ("Cloth", "Head"):
+            name = "M_Goon%s_%s" % (o, s)
+            make_material(name, "Goon%s_%s" % (o, s), dest=GOON_DIR + "/Materials", tex=GOON_DIR + "/Textures")
+            mats[name] = GOON_DIR + "/Materials/" + name
+        rep[o]["slots"] = assign_slots(GOON_DIR + "/SK_Goon_" + o, mats)
+    unreal.log_warning("MI: setup_goons " + json.dumps(rep)[:3000])
+    return rep
+
+
+ANIMS = {"jog": ANIM + "Rifle/Jog/MF_Rifle_Jog_Fwd", "reload": ANIM + "Rifle/MM_Rifle_Reload",
+         "hit": ANIM + "Rifle/HitReact/MM_HitReact_Front_Hvy_01", "death": ANIM + "Death/MM_Death_Front_01",
+         "aim": ANIM + "Rifle/MF_Rifle_Idle_ADS"}
+
+
+def goon_stage(row):
+    """row: list of (outfit, anim key, time s, x cm, y cm, yaw). A lit floor and the Goons frozen in their poses."""
+    _floor_and_light()
+    out = []
+    for o, key, t, x, y, yaw in row:
+        a = actor(GOON_DIR + "/SK_Goon_" + o, ANIMS[key] if key else None, (x, y, 0), yaw=yaw, time=t,
+                  label="Goon_%s_%s" % (o, key))
+        out.append(a.get_actor_label())
+    return out
