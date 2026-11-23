@@ -21,6 +21,42 @@ What is verified on the box, newest first. Every entry says how it was verified.
    `send-art.sh pack` + transfer + `block.sh start textures,materials force` + `block.sh start meshes,level` when it
    is finished: sign slots without a set show the neutral stand-in `SIGN_STAND_IN`.
 
+## Audio (voice lines and the game's sound) — first cut, in progress
+
+Contracts and how-tos: `docs/unreal/AUDIO.md`. Built and tested in `/project/ue/repo-audio` (logs in
+`/project/ue/logs/repo-audio`; no editor, no MCP port used).
+
+**Verified 2026-11-23**
+- **Build green; `test.sh MurderInc` 32 of 32 pass** (the 14 new `MurderInc.Audio.*` with every gameplay test, 32 s).
+  Audio: `VoiceData` (the six lines word for word, 21 takes on disk, 48 kHz mono), `VoiceCooldowns` (line and global
+  cooldowns, how-often rare / often / off), `VoiceChances` (chance 0.25 over 4,000 triggers: 0.254; same seed, same
+  sequence), `VoiceNoRepeats` (300 plays, no take twice in a row, all three used), `VoicePriority` (window, crowd
+  answer after the take, interruption by margin, the uninterruptible line, the queue), `VoiceCleanLanguage` (swap,
+  bleep, untouched clean lines), `VoiceCharacters` (own set, empty set silent), `VoiceTriggers` (every trigger from bus
+  events, streaks, last kill of a wave, the Hold the Block card), `VoiceRate` (typical Story run, 20 seeds: **2.76 lines
+  a minute, 1.3 a minute on kills, 6.5 of 36 kills speak**), `EventTable` (61 bus keys incl. 28 flow lines scanned
+  from the gameplay source: 21 play, 24 rules, 17 silent; all 83 replacement files present), `Director` (burst tails,
+  ducks, blast muffle and recovery, pause refusal and music low-pass, death muffle, voice duck and subtitle), `Mixdown`,
+  `Assets` (289 of 289 WAVs imported as Sound Waves, lengths equal, 22 loops), `EngineRender` (warns without a device).
+- **Offline mix-down of a recorded fight**: `Content/Data/audio_fight.json` (52 s scripted Story fight, 799 bus events)
+  replayed through the director, `Saved/Audio/fight_mixdown.wav` on the box (55.9 s stereo 48 kHz, 501 voices, peak
+  -0.1 dBFS after the soft clip, RMS -17 dBFS; 7 lines: I-N-C at the start, Holla twice, Rule Baby on the last reel,
+  What's my name and the crowd's R-U-L-E at the truck, I-N-C on the card).
+- **The engine's own audio mixer plays it** (`tools/box/audio-engine-render.sh`, SDL dummy driver, no `-NoSound`): an
+  audio device comes up ("Using Audio Hardware Device System audio playback device"), the stream replayed in real time
+  started 479 audio components on the imported Sound Waves with 0 missing assets, and the master-submix recording's
+  header announced 55.5 s of 6-channel audio; the file was cut short when the process quit before the background WAV
+  writer finished. The test now waits for the full file; that re-run is still to do.
+- **Import**: `tools/box/audio-import.sh` (headless, about 90 s): 289 Sound Waves under `/Game/Audio`, 0 failed.
+- **Material**: 190 web variants rendered by `node tools/ue-export/audio.mjs` (3 s, 26.7 MB, not committed; on the box
+  through the storage as `mi-audio-web.tar`), 21 placeholder voice files (generic stock voice, -18 LUFS), 79 generated
+  effects + the bleep (9.8 MB); the committed audio tree is 15.5 MB. Generation spent about 53 credits (49 effects,
+  about 3.5 voice); balance 3,392 at the end.
+
+**Next**: re-run `audio-engine-render.sh` and listen to both renders; options screen wiring (`SetOptions`), crew
+(`SetCharacter`), silencer (`SetSuppressed` / `bSuppressed`); music riser and Quartz grid; neon, steam and boombox
+emitters; Goon step surfaces; the real voice recordings (AUDIO.md section 5).
+
 ## Animation pack (Tactical FPS Animation Pack - Assault Rifle) on the CHOPPER — done
 
 Details, mapping and what is missing: `docs/unreal/ANIMATION.md`. Scratch project `/project/ue/animpack` (MCP 8003).

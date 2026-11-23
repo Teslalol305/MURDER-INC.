@@ -85,9 +85,9 @@ cooldowns (1.6 x); `often` multiplies the chances by 1.6 and the cooldowns by 0.
 **Expected rate in a typical Story run (normal).** Spec 04 2.10 gives 33 to 41 enemies on Boss in "about five
 minutes", about 7 kills a minute in fights of a few kills. `MurderInc.Audio.VoiceRate` plays that run 20 times with
 the real voice.json (36 kills over 300 s in twelve fights, a quarter headshots, five Buzzards, one melee and one blast
-kill, three reels, two close calls, the truck, the debrief) and measures **2.6 lines a minute**, of which **1.3 a
-minute on kills** (6.5 of 36 kills speak, 18 %); per run: Holla 3.6, Rule Baby 3.6, It's Murda 3.0, What's my name
-and its crowd 1.0 each, I-N-C 0.8 at the start (and the outro when the debrief comes after the crowd's answer). The
+kill, three reels, two close calls, the truck, the debrief) and measures **2.8 lines a minute** (13.8 a run), of
+which **1.3 a minute on kills** (6.5 of 36 kills speak, 18 %); per run: Holla 3.6, Rule Baby 3.6, It's Murda 3.0,
+I-N-C 1.75 (start and debrief), What's my name and its crowd answer 1.0 each. The
 progress beats (start, three reels, the truck, the win, the card) are about half of it and always land; the kill
 barks stay under one kill in five, so they remain a reward. The test fails outside 1 to 3.5 lines a minute or if a
 third of kills speak.
@@ -225,8 +225,11 @@ recording.
 
 | What | Model | Files | Credits |
 |---|---|---|---|
-| Placeholder voice takes: 6 lines x 3 intensities + 3 clean takes + 6 stock voices for the crowd | `seed_audio` (preset voices, text to speech) | 18 takes + 3 crowd mixes (`tools/audio/voice_placeholders.py`: trim, mono, 48 kHz, -18 LUFS, crowd assembled on one chant grid with a short room) | 2.6 |
-| Gun layers (CHOPPER and NINE close, mechanical, distant tails, silenced shots), dry fire, reload stages, casings on asphalt and concrete, impacts per surface, the Goon SMG at 30 m, the Buzzard's rotor loop and gun, explosions near and far, footsteps (asphalt, concrete, metal; walk and run), the El train, the hot-afternoon room tone | `mirelo_text_to_audio` | 79 files planned in `tools/audio/sfx_plan.json` (`tools/audio/sfx_process.py`: oneshot / tail / loop cuts, peak to the web sound's peak, 48 kHz 24-bit) | see PROGRESS.md |
+| Placeholder voice takes: 6 lines x 3 intensities + 3 clean takes + 6 stock voices for the crowd | `seed_audio` (preset voices, text to speech) | 18 takes + 3 crowd mixes (`tools/audio/voice_placeholders.py`: trim, mono, 48 kHz, -18 LUFS, crowd assembled on one chant grid with a short room) | about 3.5 (0.1 to 0.3 a take, two test takes included) |
+| Gun layers (CHOPPER and NINE close, mechanical, distant tails, silenced shots), dry fire, reload stages, casings on asphalt and concrete, impacts per surface, the Goon SMG at 30 m, the Buzzard's rotor loop and gun, explosions near and far, footsteps (asphalt, concrete, metal; walk and run), the El train, the hot-afternoon room tone | `mirelo_text_to_audio` | 79 files (`tools/audio/sfx_plan.json`; `tools/audio/sfx_process.py`: oneshot / tail / loop cuts, peak to the web sound's peak, 48 kHz 24-bit), 9.8 MB with the bleep | 49.0 (0.25 a second) |
+
+In all about 53 credits of generation (balance 4,015.6 at the start of this work, 3,392.8 at the end; the
+difference beyond the 53 is the GPU box and other packages' generations on the same account).
 
 All of it is placeholder: synthetic material to give the mix weight now, to be replaced by recorded or licensed
 sound (guns first: a recorded carbine and 9 mm with separate close, mechanical and tail layers). `audio.json replace`
@@ -247,7 +250,11 @@ whose files are missing falls back to the web sound.
   decisions and the mix; it is not the engine's spatialiser.
 - `MurderInc.Audio.EngineRender` (`tools/box/audio-engine-render.sh`) plays the same stream through the engine's
   own audio mixer on the imported Sound Waves and records the master submix (`Saved/Audio/engine_render.wav`) when the
-  process has an audio device; result in PROGRESS.md.
+  process has an audio device. On the box the SDL dummy driver gives one: 479 components started on the imported
+  assets and the recording announced 55.5 s of 6-channel output, but the first runs quit before the background WAV
+  writer finished; the test now waits for the whole file (re-run pending, PROGRESS.md). The default `test.sh` run has
+  `-NoSound`, so there the test warns and passes.
+- Measured mix-down (offline): 55.9 s, 501 voices, peak -0.1 dBFS after the soft clip, RMS -17 dBFS, 7 voice lines.
 
 ## 8. Open issues
 
