@@ -78,6 +78,9 @@ public:
 	/** The arms' hand socket (presentation bodyHandSocket) in arms component space, read from the template body's socket
 	 *  definition when the arms mesh has none. */
 	bool HandSocket(FName Socket, FTransform& Out) const;
+	/** HandIK guns with a solved grip: how far (camera space) the arms must slide so the clips' firing hand (before the
+	 *  IK) sits on the grip's solved wrist; GunRel and ArmsRel are the gun's and the arms' transforms under the camera. */
+	bool GripWristSlide(const FTransform& GunRel, const FTransform& ArmsRel, FVector& Out) const;
 	/** A static part authored in the skeletal mesh's own space (origin and axes of the gun, as SM_Weapon_NineMagazine is
 	 *  to SK_Nine) attached to a bone: its transform relative to that bone (the inverse of the bone's reference pose in
 	 *  component space), so it sits where it was modelled and follows the bone's animation. */

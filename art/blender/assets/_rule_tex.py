@@ -57,12 +57,14 @@ DEFAULT_TATTOOS = {"right": [{"text": "RULE", "style": "roman"}, {"text": "Inc."
 # shows about 15 cm of the support forearm above the wrist, so the main group sits at 11-15 cm (was 17-19.5, never on
 # screen in play) and the second group at 4.5-8.5 cm. The second group's numerals cannot be read in the photo (the
 # right forearm covers half of them): XII / XX stand in until the owner's close-up of that forearm.
-# Round the arm (a): measured in play (tools/box/fp/fp-arms-shots.sh probe, CHOPPER at the hip and aimed): the eye sees the
-# support forearm from 14-21 degrees on the ulnar side of its back (the first pass centred the numerals 42 degrees toward
-# the radius, and in play only the edge of an X showed on the forearm's lower silhouette), so the numerals are centred
-# 1.0 cm round from the back toward the ulna. The right forearm's word already faces the eye (2-12 degrees off).
-TATTOO_LAYOUT = {"left": [(0.112, -0.010, 0.018, 0.078), (0.141, -0.010, 0.018, 0.078),
-                          (0.077, -0.010, 0.017, 0.060), (0.053, -0.010, 0.017, 0.060)],
+# Round the arm (a): measured in play (the CHOPPER at the hip and aimed, tools/box/fp/fp-arms-shots.sh and the face
+# probe): the eye sees the support forearm's radial-volar face, about 100-110 degrees round from the back toward the
+# radius (the forearm is turned palm-up under the handguard). Centred at 3.2 cm (the first try of this pass) only the
+# edge of an X showed on the forearm's lower silhouette, and at -1.0 cm (the probe read with the wrong sense of
+# rotation) none at all; so the numerals are centred 7.2 cm round from the back toward the radius. The right forearm's
+# word already faces the eye where the right forearm is on screen (the NINE).
+TATTOO_LAYOUT = {"left": [(0.112, 0.072, 0.018, 0.078), (0.141, 0.072, 0.018, 0.078),
+                          (0.077, 0.068, 0.017, 0.060), (0.053, 0.064, 0.017, 0.060)],
                  "right": [(0.203, 0.026, 0.021, 0.085), (0.177, 0.030, 0.019, 0.078)]}
 
 

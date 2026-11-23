@@ -385,7 +385,15 @@ void UMIWeaponComponent::PoseView()
 	if (Arms && Arms->GetSkinnedAsset() && !ViewData.BodyHandSocket.IsNone() && FPRig && FPRig->HandSocket(ViewData.BodyHandSocket, Hand))
 	{
 		const FTransform Grip(Gun.GetRotation(), Rig.GunPointInCamera(D->Marker(TEXT("grip"))));
-		Arms->SetRelativeTransform(Hand.Inverse() * Grip);
+		FTransform ArmsRel = Hand.Inverse() * Grip;
+		// A solved grip (grips.json): the arms slid so the clip's firing hand already sits on the solved wrist, so the
+		// IK only turns the hand and closes the fingers (otherwise it folds the elbow up into the view)
+		FVector Slide;
+		if (FPRig->GripWristSlide(Gun, ArmsRel, Slide))
+		{
+			ArmsRel.AddToTranslation(Slide);
+		}
+		Arms->SetRelativeTransform(ArmsRel);
 	}
 }
 

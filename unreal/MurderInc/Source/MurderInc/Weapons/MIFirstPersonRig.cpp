@@ -657,6 +657,19 @@ bool UMIFirstPersonRig::HandSocket(FName Socket, FTransform& Out) const
 	return true;
 }
 
+bool UMIFirstPersonRig::GripWristSlide(const FTransform& GunRel, const FTransform& ArmsRel, FVector& Out) const
+{
+	const FVector* Wrist = GripPoints[1].Find(TEXT("hand_r"));
+	const UMIFPAnimInstance* AI = Arms ? Cast<UMIFPAnimInstance>(Arms->GetAnimInstance()) : nullptr;
+	FTransform Hand;
+	if (Mode != EMIFPMode::HandIK || !Wrist || GripWeight <= 0.0 || !AI || !AI->GetPreIKHand(TEXT("hand_r"), Hand))
+	{
+		return false;
+	}
+	Out = (GunRel.TransformPosition(*Wrist) - ArmsRel.TransformPosition(Hand.GetLocation())) * GripWeight;
+	return true;
+}
+
 void UMIFirstPersonRig::SetVisible(bool bGun, bool bArms)
 {
 	if (PackGun)
