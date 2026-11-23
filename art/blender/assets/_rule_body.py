@@ -77,6 +77,12 @@ def _base_colour(ob, tex, path):
     if node is not None and node.image is not None:
         cache = os.path.splitext(path)[0] + "_maps"
         tex["bc"] = gen3d._image_array(node.image, True, cache + "_bc")
+        # the generated atlas is 2K: a 4K upscale of it (bytedance upscaler, gen_log.json) replaces it when present
+        up = os.path.splitext(path)[0] + "_bc_4k.png"
+        if os.path.exists(up):
+            img = bpy.data.images.load(up, check_existing=True)
+            img.colorspace_settings.name = "sRGB"
+            node.image = img
     return tex
 
 
