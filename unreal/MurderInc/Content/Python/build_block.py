@@ -140,9 +140,6 @@ GLASS_SLOTS = {
     "MI_Glass_Store": dict(room=(310.0, 550.0, 310.0), offset=(0.0, 0.0, 70.0), nits=200.0, shop=1.0, sill=0.03),
 }
 BACKDROP_AVENUE_CM = 45000      # the avenue's street walls continue this far east and west of the centre
-# Catalogue ids whose mesh notes do not name them (the street and facade families).
-CATALOGUE_EXTRA = {"manhole": ["SM_Street_ManholeCover"], "water_tower": ["SM_Facade_WaterTank"],
-                   "fire_escape": ["SM_Facade_FireEscape_Balcony"], "hydrant": ["SM_Prop_Hydrant"]}
 AWNING_SCAN_MEAN = (0.284, 0.408, 0.613)   # mean linear albedo of TS_Fabric_ScanCanvas BC: tint = cloth / scan
 
 LIB = unreal.MaterialEditingLibrary
@@ -921,6 +918,7 @@ def material_units(force):
     yield "masked master", lambda: build_master(defaults, force, MASKED_MASTER, True)
     yield "glass master", lambda: build_glass_master(force)
     yield "flat master", lambda: build_flat_master(force)
+    yield "car paint master", lambda: build_master(defaults, force, CARPAINT_MASTER, False, True)
     yield "decal master", lambda: build_decal_master(force)
     for kind in range(len(DECAL_KINDS)):
         yield "decal " + DECAL_KINDS[kind], (lambda k=kind: make_decal_instance(k, force))
@@ -935,17 +933,29 @@ def material_units(force):
                 values = GLASS_SLOTS.get(name, GLASS_SLOTS["MI_Glass_Window"])
                 yield "glass " + name, (lambda n=name, v=values: make_glass_instance(n, v, force))
                 continue
-            if name in FLAT_SLOTS or (slot.get("workflow") == "flat") or not has_set(slot["set"]):
-                values = FLAT_SLOTS.get(name, SIGN_STAND_IN)
+            if name in FLAT_SLOTS or slot.get("workflow") in ("flat", "emissive", "procedural") or \
+                    not has_set(slot["set"]):
+                values = FLAT_SLOTS.get(name) or flat_values(slot)
                 yield "flat " + name, (lambda n=name, v=values: make_flat_instance(n, v, force))
                 continue
             set_name = slot["set"]
             tint = slot.get("tint") or (1, 1, 1)
-            wear = 0.0 if slot.get("workflow") in ("unique", "sign") else 1.0   # unique sets carry their wear baked
-            parent = MASKED_MASTER if slot.get("alpha") else MASTER
+            wear = 0.0 if slot.get("workflow") in ("unique", "sign", "decal") else 1.0   # unique sets carry wear baked
+            parent = slot_parent(slot)
+            if parent == CARPAINT_MASTER:
+                tint = slot.get("paint_default") or tint
+            # Vehicle sets carry the lit lamp colour in E: lamps are off by day.
+            glow = 0.0 if set_name.startswith("Vehicle_") else None
             yield "instance " + name, (lambda n=name, s=set_name, t=tint, b=slot.get("blend_set_G"),
-                                       a=slot.get("alpha_means"), w=wear, p=parent:
-                                       make_instance(n, s, t, b, a, None, w, force, parent=p))
+                                       a=slot.get("alpha_means"), w=wear, p=parent, g=glow:
+                                       make_instance(n, s, t, b, a, None, w, force, parent=p, emissive=g))
+    # One clear-coat paint instance per vehicle paint slot and props.json paint colour.
+    for slot_name, colour in sorted(vehicle_paints()):
+        set_name = paint_slot_set(man, slot_name)
+        if set_name and has_set(set_name):
+            yield "paint %s %s" % (slot_name, colour), (
+                lambda n=paint_instance_name(slot_name, colour), s=set_name, t=tuple(srgb_to_linear(colour)):
+                make_instance(n, s, t, None, None, None, 0.0, force, parent=CARPAINT_MASTER, emissive=0.0))
     # One awning cloth per shop colour (placements carry the shop's sRGB colour).
     for shop, tint in sorted(awning_tints().items()):
         yield "awning " + shop, (lambda n="MI_Fabric_ScanCanvas_" + shop, t=tint:
@@ -965,6 +975,85 @@ def material_units(force):
         windows = name in WINDOWED
         yield "instance " + name, (lambda n=name, s=set_name, t=tint, r=roof, w=windows:
                                    make_instance(n, s, t, None, None, set_tile_m(man, s), 0.0, force, r, True, w))
+
+
+def slot_parent(slot):
+    """Master of a textured slot: clear-coat paint, alpha-tested (cards, decal sheets, livery) or the surface."""
+    name = slot["slot"]
+    if (slot.get("shading") or "").startswith("clear-coat"):
+        return CARPAINT_MASTER
+    if slot.get("alpha") or slot.get("workflow") == "decal" or name.endswith("_Decals") or \
+            "decal with alpha" in (slot.get("note") or ""):
+        return MASKED_MASTER
+    return MASTER
+
+
+def flat_values(slot):
+    """(colour, roughness, metallic, nits) of an untextured slot from its manifest note: the first #rrggbb (or the
+    neon tube's emissive colour, greyed toward milky glass by day), 'metallic x', 'roughness x'; metals and lenses
+    by their name."""
+    name, note = slot["slot"], slot.get("note") or ""
+    hexes = re.findall(r"#[0-9a-fA-F]{6}", note)
+    colour, rough, metal, nits = SIGN_STAND_IN[0], 0.5, 0.0, 0.0
+    if slot.get("emissive"):
+        return (tuple(srgb_to_linear(slot["emissive"])), 0.15, 0.0, NEON_DAY_NITS)
+    if hexes:
+        colour = tuple(srgb_to_linear(hexes[0]))
+    match = re.search(r"roughness ([\d.]+)", note)
+    if match:
+        rough = float(match.group(1))
+    match = re.search(r"metallic ([\d.]+)", note)
+    if match:
+        metal = float(match.group(1))
+    if name.startswith("MI_Metal_"):
+        metal, rough = 1.0, (rough if match else 0.3)
+        if not hexes:
+            colour = {"MI_Metal_Brass": (0.78, 0.56, 0.24), "MI_Metal_Gold": (0.8, 0.57, 0.18)}.get(name, (0.85, 0.85, 0.86))
+    elif name.startswith("MI_Lamp_") or name.startswith("MI_Glass_"):
+        colour = tuple(c * 0.35 for c in colour) if hexes else (0.08, 0.08, 0.08)   # unlit lens by day
+        rough = 0.1
+    elif name.startswith("MI_Fruit_"):
+        colour = {"MI_Fruit_Orange": (0.6, 0.2, 0.02), "MI_Fruit_Red": (0.45, 0.03, 0.02),
+                  "MI_Fruit_RedDark": (0.2, 0.02, 0.02), "MI_Fruit_Yellow": (0.65, 0.5, 0.05),
+                  "MI_Fruit_Lime": (0.2, 0.4, 0.04), "MI_Fruit_Purple": (0.1, 0.02, 0.08),
+                  "MI_Fruit_Stem": (0.1, 0.12, 0.03)}.get(name, colour)
+        rough = 0.35
+    return (colour, rough, metal, nits)
+
+
+def catalogue_table():
+    return game_data(CATALOGUE_TABLE)["ids"]
+
+
+def catalogue_entry(prop):
+    """The art_catalogue.json entry for a props.json instance (its variant's override applied), or None."""
+    entry = catalogue_table().get(prop["name"])
+    if not entry or "meshes" not in entry:
+        return None
+    variant = (entry.get("variants") or {}).get(prop.get("variant") or "")
+    return dict(entry, **variant) if variant else entry
+
+
+def vehicle_paints():
+    """{(paint slot, '#rrggbb')} for every props.json instance whose catalogue entry names a paint slot."""
+    out = set()
+    for prop in game_data("props")["instances"]["list"]:
+        entry = catalogue_entry(prop)
+        if entry and entry.get("paint") and prop.get("paint"):
+            out.add((entry["paint"], prop["paint"].lower()))
+    return out
+
+
+def paint_slot_set(man, slot_name):
+    for asset in man["assets"].values():
+        for slot in asset.get("material_slots", []):
+            if slot["slot"] == slot_name:
+                return slot.get("set")
+    return None
+
+
+def paint_instance_name(slot_name, colour):
+    return "%s_%s" % (slot_instance_name(slot_name), colour.lstrip("#").upper())
 
 
 def placements():
@@ -1185,11 +1274,20 @@ def level_units(force):
         yield "facade " + building, (lambda b=building: place_facade(facade, b))
     yield "props", lambda: place_props(props)
     yield "structures", lambda: place_structures(structures)
+    modelled = structure_art()
+    structure_boxes |= {c for entry in modelled for c in entry.get("colliders", [])}
+    yield "structures (structures family)", lambda: place_structures(
+        [(e["mesh"], tuple(e["location"]), e["yaw"], tuple(e.get("scale", (1.0, 1.0, 1.0)))) for e in modelled],
+        "StructureArt")
+    yield "gameplay previews", lambda: place_gameplay_previews(gameplay_previews(level))
 
     # Grey-box massing: every movement-blocking static collider the meshes above do not already draw. The colliders
     # of what the art now draws stay as invisible blocking boxes: the tuned cover and openings do not change.
+    gameplay_props = {p["index"] for p in game_data("props")["instances"]["list"]
+                      if (catalogue_table().get(p["name"]) or {}).get("gameplay")}
     boxes = [b for b in level["colliders"]["boxes"]
-             if b["tag"] not in SKIP_COLLIDER_TAGS and b["blocks"]["movement"] and not b["flags"]["bulletOnly"]]
+             if b["tag"] not in SKIP_COLLIDER_TAGS and b["blocks"]["movement"] and not b["flags"]["bulletOnly"]
+             and b["owner"]["kind"] not in GAMEPLAY_OWNERS and b["owner"].get("prop") not in gameplay_props]
 
     def drawn_by_art(box):
         owner = box["owner"]
@@ -1302,41 +1400,23 @@ def place_facade(facade, building):
                                              (", missing meshes " + ",".join(missing)) if missing else "")
 
 
-def catalogue_meshes():
-    """{catalogue id: [mesh names]} from the manifest notes ("Catalogue <id>: ...", "Stands for catalogue id '<id>'",
-    "(catalogue <id>, ..."), the modelled furniture before the scans when both exist (they have the catalogue size)."""
-    found = {}
-    for name, asset in art_assets(manifest()).items():
-        notes = asset.get("notes") or ""
-        ids = re.findall(r"^Catalogue ([a-z_]+)", notes) + re.findall(r"catalogue id '([a-z_]+)'", notes) + \
-            re.findall(r"\(catalogue ([a-z_]+)[,)]", notes)
-        for cid in ids:
-            found.setdefault(cid, [])
-            if name not in found[cid]:
-                found[cid].append(name)
-    for cid, names in CATALOGUE_EXTRA.items():
-        found.setdefault(cid, [])
-        found[cid] = [n for n in names if ASSETS.does_asset_exist("%s/%s" % (MESH_DIR, n))] + found[cid]
-    for cid, names in found.items():
-        modelled = [n for n in names if n.startswith("SM_Furn_")]
-        if modelled:
-            found[cid] = modelled
-    return {cid: names for cid, names in found.items() if names}
-
-
 def prop_placements(facade):
-    """[{prop, mesh, location, yaw, scale}] for the dressing props of props.json that have a mesh. The mesh's
-    footprint centre goes where the catalogue shape's footprint centre is (pivots differ: the fire-escape balcony
-    has its pivot at its left end on the wall). Props the facade kit already draws (its fire escapes) are skipped."""
+    """[{prop, name, mesh, location, yaw, scale, paint, parts}] for the props.json instances whose catalogue id has
+    meshes in Content/Data/art_catalogue.json (gameplay ids are the gameplay actors'). The first mesh's footprint
+    centre goes where the catalogue shape's footprint centre is (pivots differ: the fire-escape balcony has its pivot
+    at its left end on the wall). Props the facade kit already draws (its fire escapes) are skipped."""
     data = game_data("props")
     types = data["catalogue"]["types"]
-    meshes = catalogue_meshes()
     man = manifest()["assets"]
     balconies = [e for e in facade["instances"] if e["mesh"] == "SM_Facade_FireEscape_Balcony"]
-    out = []
+    out, missing = [], set()
     for prop in data["instances"]["list"]:
-        names = meshes.get(prop["name"])
-        if not names or prop["role"]["kind"] != "dressing" or prop["dynamic"]:
+        entry = catalogue_entry(prop)
+        if entry is None:
+            continue
+        names = [n for n in entry["meshes"] if ASSETS.does_asset_exist("%s/%s" % (MESH_DIR, n))]
+        if not names:
+            missing.update(entry["meshes"])
             continue
         mesh = names[prop["seed"] % len(names)]
         ue = prop["ue"]
@@ -1354,19 +1434,89 @@ def prop_placements(facade):
                 abs(b["location"][1] - ue["pos"]["Y"]) < 150 and abs(b["location"][2] - ue["pos"]["Z"]) < 50
                 for b in balconies):
             continue
-        out.append(dict(prop=prop["index"], name=prop["name"], mesh=mesh, location=location, yaw=yaw, scale=scale))
+        paint = None
+        if entry.get("paint") and prop.get("paint"):
+            paint = (entry["paint"], paint_instance_name(entry["paint"], prop["paint"].lower()))
+        parts = []
+        for part in entry.get("parts", []):
+            at = part.get("at", (0, 0, 0))
+            parts.append((part["mesh"], (location[0] + c * at[0] - s_ * at[1], location[1] + s_ * at[0] + c * at[1],
+                                         location[2] + at[2]), yaw + part.get("yaw", 0.0)))
+        out.append(dict(prop=prop["index"], name=prop["name"], mesh=mesh, location=location, yaw=yaw, scale=scale,
+                        paint=paint, parts=parts))
+    if missing:
+        unreal.log_warning("build_block: catalogue meshes not imported: " + ", ".join(sorted(missing)))
     return out
 
 
 def place_props(props):
+    """One instanced component per mesh and paint colour (the paint slot overridden by the colour's instance)."""
     groups = {}
     for entry in props:
-        groups.setdefault(entry["mesh"], []).append(transform(entry["location"], entry["yaw"], entry["scale"]))
+        groups.setdefault((entry["mesh"], entry["paint"]), []).append(
+            transform(entry["location"], entry["yaw"], entry["scale"]))
+        for mesh, location, yaw in entry["parts"]:
+            groups.setdefault((mesh, None), []).append(transform(location, yaw, entry["scale"]))
     holder = instance_holder("Props", "Block/Props")
-    for mesh, items in sorted(groups.items()):
-        add_instances(holder, "%s/%s" % (MESH_DIR, mesh), items, None, collide=False)
+    for (mesh, paint), items in sorted(groups.items(), key=lambda kv: (kv[0][0], kv[0][1] or ("", ""))):
+        component = add_instances(holder, "%s/%s" % (MESH_DIR, mesh), items, None, collide=False)
+        if paint and ASSETS.does_asset_exist("%s/%s" % (MAT_DIR, paint[1])):
+            component.set_material_by_name(paint[0], unreal.load_asset("%s/%s" % (MAT_DIR, paint[1])))
     names = sorted({e["name"] for e in props})
-    return "%d props of %d catalogue ids with %d meshes: %s" % (len(props), len(names), len(groups), ",".join(names))
+    return "%d props of %d catalogue ids, %d mesh and paint groups: %s" % (len(props), len(names), len(groups),
+                                                                          ",".join(names))
+
+
+GAMEPLAY_PREVIEW_NOTE = "editor preview of a gameplay actor: hidden in game (the actor draws itself at play)"
+
+
+def gameplay_previews(level):
+    """Static stand-ins of what the gameplay actors draw at play (explosives, reel cases, the IPX truck), from
+    presentation.json, so that editor pictures of the level show them; hidden in game."""
+    look = game_data("presentation")
+    out = []
+
+    def mesh_name(path):
+        return path.rsplit("/", 1)[-1].split(".")[0] if path and path.startswith(MESH_DIR) else None
+    for item in level["explosives"]["items"]:
+        kind = look["explosives"].get(item["type"], {})
+        name = mesh_name(kind.get("mesh"))
+        if name:
+            p = item["ue"]["pos"]
+            out.append((name, (p["X"], p["Y"], p["Z"]), item["ue"].get("yaw", 0.0), 0.0))
+    case = look["objectives"]["case"].get("art")
+    if case:
+        for k, objective in enumerate(level["objectives"]):
+            p, yaw = objective["ue"]["pos"], objective["ue"].get("yaw", 0.0)
+            c, s_ = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
+            pieces = [(mesh_name(part["mesh"]), part.get("at", (0, 0, 0)), part.get("rot", (0, 0, 0))[1], 0.0)
+                      for part in case["parts"]]
+            pieces.append((mesh_name(case["reels"][k % len(case["reels"])]), (0, 0, 0), 0.0, 0.0))
+            pieces.append((mesh_name(case["lid"]["mesh"]), case["lid"]["hinge"], 0.0, 0.0))
+            for name, at, dyaw, roll in pieces:
+                if name:
+                    out.append((name, (p["X"] + c * at[0] - s_ * at[1], p["Y"] + s_ * at[0] + c * at[1],
+                                       p.get("Z", 0) + at[2]), yaw + dyaw, roll))
+    truck = look["objectives"]["truck"].get("art")
+    if truck:
+        t = level["extraction"]["truck"]["ue"]
+        c, s_ = math.cos(math.radians(t["yaw"])), math.sin(math.radians(t["yaw"]))
+        out.append((mesh_name(truck["body"]), (t["pos"]["X"], t["pos"]["Y"], t["pos"]["Z"]), t["yaw"], 0.0))
+        for door in truck["doors"]:
+            h = door["hinge"]
+            out.append((mesh_name(door["mesh"]), (t["pos"]["X"] + c * h[0] - s_ * h[1],
+                                                  t["pos"]["Y"] + s_ * h[0] + c * h[1], t["pos"]["Z"] + h[2]),
+                        t["yaw"], 0.0))
+    return [o for o in out if o[0] and ASSETS.does_asset_exist("%s/%s" % (MESH_DIR, o[0]))]
+
+
+def place_gameplay_previews(items):
+    for k, (mesh, location, yaw, roll) in enumerate(items):
+        actor = spawn_mesh("%s/%s" % (MESH_DIR, mesh), "Preview_%02d_%s" % (k, mesh), "Block/GameplayPreview",
+                           location, yaw)
+        actor.set_actor_hidden_in_game(True)
+        actor.static_mesh_component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+    return "%d preview meshes (%s)" % (len(items), GAMEPLAY_PREVIEW_NOTE)
 
 
 # Wall openings of the auto body shop (05-level 2.6.2): opening width x height -> (wall module, pier, door module).
@@ -1508,11 +1658,18 @@ def manifest_width(mesh):
     return box["max"][0] - max(box["min"][0], 0.0)
 
 
-def place_structures(items):
+def structure_art():
+    """The structures family's placements (art-in/placements/structures.json), meshes that were imported."""
+    path = os.path.join(ART_IN, "placements", "structures.json")
+    items = load_json(path)["instances"] if os.path.exists(path) else []
+    return [e for e in items if ASSETS.does_asset_exist("%s/%s" % (MESH_DIR, e["mesh"]))]
+
+
+def place_structures(items, label="Structures"):
     groups = {}
     for mesh, location, yaw, scale in items:
         groups.setdefault(mesh, []).append(transform(location, yaw, scale))
-    holder = instance_holder("Structures", "Block/Structures")
+    holder = instance_holder(label, "Block/Structures")
     for mesh, transforms in sorted(groups.items()):
         add_instances(holder, "%s/%s" % (MESH_DIR, mesh), transforms, None, collide=False)
     return "%d instances: %s" % (len(items), ", ".join("%s x%d" % (m, len(t)) for m, t in sorted(groups.items())))
