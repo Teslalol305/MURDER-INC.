@@ -2,6 +2,7 @@
 
 #include "Components/CapsuleComponent.h"
 #include "Components/SphereComponent.h"
+#include "Core/MIDamageable.h"
 #include "Core/MIEvents.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
@@ -377,6 +378,7 @@ bool UMIDemoDirector::Begin(const FAction& A)
 	{
 		SpringHz = Arg(A, 0, SpringHz);
 		MaxRate = Arg(A, 1, MaxRate);
+		FightHz = Arg(A, 2, FightHz);
 		return true;
 	}
 	if (V == TEXT("auto"))
@@ -579,16 +581,17 @@ bool UMIDemoDirector::Begin(const FAction& A)
 		{
 			for (TActorIterator<AMIExplosive> It(GetWorld()); It; ++It)
 			{
+				// the live explosive nearest the line of sight, within 30 m
 				const FVector To = It->GetActorLocation() - P->GetPlayerRules().Eye;
-				const double Front = FVector::DotProduct(To.GetSafeNormal2D(), P->GetPlayerRules().Forward.GetSafeNormal2D());
-				if (It->IsMIDamageableAlive() && Front > 0.5 && To.Size() < 3000.0 && To.Size() < Best)
+				const double Off = 1.0 - FVector::DotProduct(To.GetSafeNormal2D(), P->GetPlayerRules().Forward.GetSafeNormal2D());
+				if (It->IsMIDamageableAlive() && Off < 0.5 && To.Size() < 3000.0 && Off < Best)
 				{
 					Blow = *It;
-					Best = To.Size();
+					Best = Off;
 				}
 			}
 		}
-		Log(Blow.IsValid() ? FString::Printf(TEXT("blow %s at %.1f m"), *Blow->GetName(), Best / 100.0) : FString(TEXT("blow: no explosive in front")));
+		Log(Blow.IsValid() ? FString::Printf(TEXT("blow %s at %.1f m"), *Blow->GetName(), FVector::Dist(Blow->GetActorLocation(), P->GetPlayerRules().Eye) / 100.0) : FString(TEXT("blow: no explosive in front")));
 		return !Blow.IsValid();
 	}
 	if (V == TEXT("grab"))
@@ -725,12 +728,20 @@ bool UMIDemoDirector::Step(float Dt)
 			P->GetInput().bAds = Err < 25.0;
 			// On target: one round, and the tank takes it as lethal (MIBlowNearest): a hit that only lights the
 			// tank was not needed here, and the take's first try crashed on the frame after one.
-			const bool bShoot = Err < 1.5 && P->GetPlayerRules().Ads > 0.6 && ActionTime > 0.5;
+			const bool bShoot = (Err < 2.0 && P->GetPlayerRules().Ads > 0.6 && ActionTime > 0.5) || ActionTime > 3.0;
 			P->GetInput().bFire = bShoot;
 			if (bShoot)
 			{
 				P->GetInput().bFirePressed = true;
-				Console(TEXT("MIBlowNearest"));
+				FMIDamage D;
+				D.Amount = 9999.0;
+				D.Kind = EMIDamageKind::Bullet;
+				D.Source = EMIDamageSource::Player;
+				D.From = P->GetPlayerRules().Eye;
+				D.Point = X->GetActorLocation();
+				D.Direction = (X->GetActorLocation() - D.From).GetSafeNormal();
+				D.Instigator = P;
+				Cast<AMIExplosive>(X)->ApplyMIDamage(D);
 			}
 		}
 		if (bGone || bTimedOut)
