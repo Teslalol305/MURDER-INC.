@@ -1,0 +1,76 @@
+{
+  "meta": {
+    "file": "levels.json",
+    "about": "The levels and the game styles (modes) the front end offers (docs/unreal/LOADOUT.md 3.5). A level names its map and data files and declares what it provides; a mode declares what it needs. The Level screen lists every level; the Game style screen lists only the modes whose needs the chosen level provides. Adding a level is one entry here plus its map and its level data file.",
+    "game": "MURDER INC.",
+    "schema": 1
+  },
+  "default": "block",
+  "order": ["block"],
+  "levels": {
+    "block": {
+      "id": "block",
+      "text": "frontend.levels.block",
+      "map": "/Game/Maps/L_Block",
+      "data": { "level": "level.json", "props": "props.json", "atmos": "atmos.json" },
+      "place": { "day": "text.location.byTime.day", "night": "text.location.byTime.night" },
+      "times": ["day", "night"],
+      "provides": {
+        "playerStart": true,
+        "objectives": 3,
+        "extraction": true,
+        "enemySpawns": { "ground": 29, "air": 17 },
+        "nav": true,
+        "coverPoints": true,
+        "explosives": true,
+        "titlePath": true,
+        "showroom": null
+      },
+      "preview": {
+        "camera": "titlePath",
+        "thumbnail": { "asset": "T_UI_Level_Block", "status": "missing", "notes": "a 16:9 frame from the title fly-through (key 3, the avenue under the El), for a level that is not loaded" }
+      },
+      "notes": "`provides` is checked against level.json at load (MurderInc.Loadout.DataLoads): 3 objectives, an extraction zone, 29 ground and 17 air spawn points, a nav grid, cover points, 21 explosives, 14 title-camera keys. showroom null: the front end uses frontend.json stage (a point inside the level may be set later, see LOADOUT.md 2.11)."
+    }
+  },
+  "modes": {
+    "mission": {
+      "id": "mission",
+      "text": "text.modes.mission",
+      "tagline": "text.location.tagline",
+      "radio": "text.radio.intro",
+      "needs": {
+        "playerStart": true,
+        "objectives": 1,
+        "extraction": true,
+        "enemySpawns": { "ground": 1, "air": 0 },
+        "nav": true
+      },
+      "options": { "difficulty": true, "time": true },
+      "score": "rating",
+      "notes": "Story: every objective of the level is a master reel (the block has three); the truck at the extraction zone ends the run. Rules: spec 04 3.6 to 3.10, unchanged."
+    },
+    "holdout": {
+      "id": "holdout",
+      "text": "text.modes.holdout",
+      "tagline": "text.location.taglineHoldout",
+      "radio": "text.radio.introHoldout",
+      "needs": {
+        "playerStart": true,
+        "objectives": 0,
+        "extraction": false,
+        "enemySpawns": { "ground": 1, "air": 1 },
+        "nav": true
+      },
+      "options": { "difficulty": true, "time": true },
+      "score": "best",
+      "notes": "Hold the Block: endless waves of Goons and Buzzards (both kinds, so both spawn kinds are needed); objectives, if any, stand closed; explosives, if any, come back every second wave. Rules: spec 04 3.11, unchanged; the resupply is per carried gun (LOADOUT.md 4.4)."
+    }
+  },
+  "difficulties": {
+    "order": ["hustler", "boss", "kingpin"],
+    "text": "text.difficulties",
+    "note": "frontend.mode.difficultyNotes",
+    "source": "config.json flow.difficulties and flow.difficulty: unchanged"
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "meta": {
+    "file": "crew.json",
+    "about": "The characters the player can be (docs/unreal/LOADOUT.md 3.4). The player is only ever seen as arms, so a crew member is a look on the same arms: glove, sleeve, skin, jewellery, built on SK_RuleArms and the UE5 mannequin skeleton (docs/unreal/CHARACTERS.md). Cosmetic only: no crew member changes a rule. Names, looks and lines of the three new members are placeholders for the user to replace; none is a real person's likeness, and the names were checked against the real label's roster.",
+    "game": "MURDER INC.",
+    "schema": 1,
+    "status": "exists / inProgress / missing, as in guns.json"
+  },
+  "default": "rule",
+  "order": ["rule", "deuce", "smoke", "keys"],
+  "slots": {
+    "about": "What a crew member may change. Every field is optional; a missing one keeps Rule's.",
+    "arms": "skeletal mesh of both arms on SK_Mannequin (default SK_RuleArms)",
+    "materials": "per material slot of the arms mesh: M_RuleArms_Skin, M_RuleArms_GloveLeather, M_RuleArms_GloveSuede, M_RuleArms_Rubber",
+    "glove": "a glove mesh variant replacing the glove surface (fingerless, cut-finger, none); null = Rule's glove",
+    "sleeve": "a sleeve mesh skinned to the upper arm and forearm (jacket cuff, hoodie, shirt); null = bare forearm",
+    "jewellery": "static meshes attached to a bone with a transform relative to it (CHARACTERS.md: the watch and bracelet)",
+    "callName": "the name the radio and the cards use; Rule keeps the original lines word for word"
+  },
+  "crew": {
+    "rule": {
+      "id": "rule",
+      "text": "frontend.crew.rule",
+      "callName": "Rule",
+      "lines": "original",
+      "look": {
+        "arms": "/Game/Characters/RuleArms/SK_RuleArms.SK_RuleArms",
+        "materials": {},
+        "glove": null,
+        "sleeve": null,
+        "jewellery": [
+          { "mesh": "/Game/Characters/RuleArms/SM_Character_RuleWatch.SM_Character_RuleWatch", "bone": "lowerarm_twist_01_l", "offset": [1.88, 0.07, -0.06] },
+          { "mesh": "/Game/Characters/RuleArms/SM_Character_RuleBracelet.SM_Character_RuleBracelet", "bone": "lowerarm_twist_01_r", "offset": null }
+        ]
+      },
+      "portrait": { "asset": "T_UI_Crew_Rule", "status": "missing", "notes": "a card of the arms and gloves on the showroom bench, never a face" },
+      "art": {
+        "arms": { "status": "inProgress", "notes": "SK_RuleArms built and proven in Unreal (CHARACTERS.md); being finished" },
+        "jewellery": { "status": "inProgress", "notes": "watch and bracelet exist; the bracelet's offset comes from art/out/glb/SK_RuleArms.sockets.json (null here until copied)" }
+      },
+      "perks": []
+    },
+    "deuce": {
+      "id": "deuce",
+      "text": "frontend.crew.deuce",
+      "callName": "Deuce",
+      "lines": "template",
+      "look": {
+        "arms": "/Game/Characters/RuleArms/SK_RuleArms.SK_RuleArms",
+        "materials": {
+          "M_RuleArms_Skin": "/Game/Characters/Crew/MI_Crew_Skin_Deuce.MI_Crew_Skin_Deuce"
+        },
+        "glove": "/Game/Characters/Crew/SK_Crew_Glove_FingerlessKnit.SK_Crew_Glove_FingerlessKnit",
+        "sleeve": "/Game/Characters/Crew/SK_Crew_Sleeve_HoodiePushed.SK_Crew_Sleeve_HoodiePushed",
+        "jewellery": [
+          { "mesh": "/Game/Characters/Crew/SM_Crew_RopeBracelet.SM_Crew_RopeBracelet", "bone": "lowerarm_twist_01_r", "offset": null }
+        ]
+      },
+      "brief": "Drives. Black fingerless knit gloves (the fingers bare from the middle knuckle), a heather-grey hoodie sleeve pushed up to mid-forearm with a ribbed cuff, a thin gold rope bracelet on the right wrist, a skin tone clearly different from Rule's.",
+      "portrait": { "asset": "T_UI_Crew_Deuce", "status": "missing" },
+      "art": {
+        "skin": { "status": "missing", "notes": "a material instance of M_RuleArms_Skin with its own tone and freckle/mottle seed; same UVs" },
+        "glove": { "status": "missing", "notes": "a knit surface on Rule's glove pattern, fingers cut and hemmed; the bare fingertips use the skin material" },
+        "sleeve": { "status": "missing", "notes": "a cloth tube on lowerarm and upperarm bones, weights transferred as for the arms (char.transfer_weights)" },
+        "jewellery": { "status": "missing" }
+      },
+      "perks": []
+    },
+    "smoke": {
+      "id": "smoke",
+      "text": "frontend.crew.smoke",
+      "callName": "Smoke",
+      "lines": "template",
+      "look": {
+        "arms": "/Game/Characters/RuleArms/SK_RuleArms.SK_RuleArms",
+        "materials": {
+          "M_RuleArms_Skin": "/Game/Characters/Crew/MI_Crew_Skin_Smoke.MI_Crew_Skin_Smoke"
+        },
+        "glove": "/Game/Characters/Crew/SK_Crew_Hands_KnuckleTape.SK_Crew_Hands_KnuckleTape",
+        "sleeve": "/Game/Characters/Crew/SK_Crew_Sleeve_Bomber.SK_Crew_Sleeve_Bomber",
+        "jewellery": [
+          { "mesh": "/Game/Characters/Crew/SM_Crew_BeadBracelet.SM_Crew_BeadBracelet", "bone": "lowerarm_twist_01_l", "offset": null }
+        ]
+      },
+      "brief": "Says nothing. Bare hands with white athletic tape round the knuckles and the right wrist, a black nylon bomber jacket with a ribbed knit cuff at the wrist, a dark wooden bead bracelet on the left wrist.",
+      "portrait": { "asset": "T_UI_Crew_Smoke", "status": "missing" },
+      "art": {
+        "skin": { "status": "missing", "notes": "bare hands need the hand skin detail the glove hides today (knuckle creases, nails): the arms' skin texture set extended to the hands" },
+        "glove": { "status": "missing", "notes": "tape strips as a thin mesh over the knuckles and wrist, no glove" },
+        "sleeve": { "status": "missing" },
+        "jewellery": { "status": "missing" }
+      },
+      "perks": []
+    },
+    "keys": {
+      "id": "keys",
+      "text": "frontend.crew.keys",
+      "callName": "Keys",
+      "lines": "template",
+      "look": {
+        "arms": "/Game/Characters/RuleArms/SK_RuleArms.SK_RuleArms",
+        "materials": {
+          "M_RuleArms_Skin": "/Game/Characters/Crew/MI_Crew_Skin_Keys.MI_Crew_Skin_Keys",
+          "M_RuleArms_GloveLeather": "/Game/Characters/Crew/MI_Crew_GloveWool.MI_Crew_GloveWool",
+          "M_RuleArms_GloveSuede": "/Game/Characters/Crew/MI_Crew_GloveWool.MI_Crew_GloveWool"
+        },
+        "glove": "/Game/Characters/Crew/SK_Crew_Glove_CutFinger.SK_Crew_Glove_CutFinger",
+        "sleeve": "/Game/Characters/Crew/SK_Crew_Sleeve_Denim.SK_Crew_Sleeve_Denim",
+        "jewellery": [
+          { "mesh": "/Game/Characters/Crew/SM_Crew_DigitalWatch.SM_Crew_DigitalWatch", "bone": "lowerarm_twist_01_l", "offset": [1.88, 0.07, -0.06] }
+        ]
+      },
+      "brief": "Runs the board at the Vault. Charcoal wool gloves with the thumb and index fingertips cut off, a washed denim jacket cuff with a metal button, a black digital watch with an unbranded face where Rule wears his steel one.",
+      "portrait": { "asset": "T_UI_Crew_Keys", "status": "missing" },
+      "art": {
+        "skin": { "status": "missing" },
+        "glove": { "status": "missing", "notes": "Rule's glove mesh with two fingertips opened; wool material instance on the leather and suede slots" },
+        "sleeve": { "status": "missing" },
+        "jewellery": { "status": "missing", "notes": "same attach frame as Rule's watch" }
+      },
+      "perks": []
+    }
+  },
+  "lines": {
+    "about": "Lines that name the player. A crew member with lines 'template' gets these, {name} = callName; Rule ('original') keeps text.json word for word.",
+    "replaces": {
+      "text.cards.dead.kicker": "frontend.crewLines.deadKicker",
+      "text.radio.intro.text": "frontend.crewLines.radioIntro",
+      "text.radio.introHoldout.text": "frontend.crewLines.radioIntroHoldout",
+      "text.radio.done.text": "frontend.crewLines.radioDone"
+    }
+  }
+}

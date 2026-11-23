@@ -1,0 +1,241 @@
+{
+  "meta": {
+    "file": "frontend_text.json",
+    "about": "Every new string of the set-up flow, the four-gun HUD and the new guns, attachments, crew and levels (docs/unreal/LOADOUT.md 2.12). Keyed as it will sit in text.json under `frontend`; kept in its own file because text.json is written by tools/ue-export from the web game and a hand edit there would be overwritten. The loader reads both; a key of this file never shadows a key of text.json.",
+    "game": "MURDER INC.",
+    "schema": 1,
+    "encoding": "a string with {name} parameters is a template, written as in text.json: {\"$template\": {template, params, example}}",
+    "voice": "the game's own: short, street, second person, no real makes or models, no real people other than the star"
+  },
+  "frontend": {
+    "home": {
+      "start": "Hit the block",
+      "same": "Same set-up",
+      "summary": {
+        "$template": {
+          "template": "{crew} · {guns} · {level} · {mode} · {difficulty}",
+          "params": ["crew", "guns", "level", "mode", "difficulty"],
+          "example": { "args": ["RULE", "CHOPPER / NINE", "The Block", "Story", "Boss"], "value": "RULE · CHOPPER / NINE · The Block · Story · Boss" }
+        }
+      },
+      "firstTime": "First time out: Rule, the CHOPPER and the NINE."
+    },
+    "steps": {
+      "labels": ["Crew", "Loadout", "Block", "Style", "Briefing"],
+      "of": {
+        "$template": { "template": "Step {n} of {total}", "params": ["n", "total"], "example": { "args": [2, 5], "value": "Step 2 of 5" } }
+      },
+      "next": "Next",
+      "back": "Back"
+    },
+    "crew": {
+      "kicker": "Who's going in",
+      "title": "Pick your crew",
+      "note": "Looks only. Everybody shoots the same.",
+      "rule": { "name": "RULE", "tagline": "The star. Leather gloves, steel watch, curb chain." },
+      "deuce": { "name": "DEUCE", "tagline": "Drives the getaway. Fingerless knits, hoodie pushed up, gold rope." },
+      "smoke": { "name": "SMOKE", "tagline": "Says nothing. Bare hands, taped knuckles, black bomber." },
+      "keys": { "name": "KEYS", "tagline": "Runs the board at the Vault. Cut-finger wool, denim cuff, digital watch." }
+    },
+    "loadout": {
+      "kicker": "What you're carrying",
+      "title": "Pick your four",
+      "carry": "Carry up to four. Melee comes with you.",
+      "slot": {
+        "$template": { "template": "Slot {n}", "params": ["n"], "example": { "args": [3], "value": "Slot 3" } }
+      },
+      "empty": "Empty",
+      "emptyHint": "Pick a gun from the rack",
+      "carried": {
+        "$template": { "template": "Carried · slot {n}", "params": ["n"], "example": { "args": [1], "value": "Carried · slot 1" } }
+      },
+      "needOne": "Carry at least one gun",
+      "full": "All four slots are full: pick a slot to swap out",
+      "attachments": "Attachments",
+      "remove": "Take off",
+      "move": "Move",
+      "new": "NEW",
+      "filters": { "all": "All", "rifle": "Rifles", "smg": "SMGs", "pistol": "Pistols", "new": "New" },
+      "classes": { "rifle": "Rifle", "smg": "SMG", "pistol": "Pistol" },
+      "stats": {
+        "damage": "Damage",
+        "rate": "Rate",
+        "control": "Control",
+        "handling": "Handling",
+        "accuracy": "Aimed",
+        "hip": "Hip fire",
+        "mag": "Mag",
+        "semi": "SEMI",
+        "infinite": "∞"
+      },
+      "slots": {
+        "$template": {
+          "template": "{n} attachment slots",
+          "params": ["n"],
+          "example": { "args": [7], "value": "7 attachment slots" }
+        }
+      },
+      "noSlots": "No attachments"
+    },
+    "attachments": {
+      "kicker": "On the bench",
+      "title": {
+        "$template": { "template": "Build the {gun}", "params": ["gun"], "example": { "args": ["STICK"], "value": "Build the STICK" } }
+      },
+      "slots": {
+        "optic": "Optic",
+        "muzzle": "Muzzle",
+        "underbarrel": "Underbarrel",
+        "laser": "Laser",
+        "magazine": "Magazine",
+        "handguard": "Handguard",
+        "stock": "Stock"
+      },
+      "factory": "Factory",
+      "factoryNote": "What it came with. No change.",
+      "fit": "Fit",
+      "fitted": "Fitted",
+      "reset": "Reset build",
+      "done": "Done",
+      "better": "Better",
+      "worse": "Worse",
+      "noChange": "No change to the rules",
+      "items": {
+        "irons": { "name": "Folding irons", "blurb": "Flip-up sights. Fold down under a scope." },
+        "scope": { "name": "Scope", "blurb": "Reach across the block. Slow to come up." },
+        "silencer": { "name": "Silencer", "blurb": "Keeps it quiet. Loses a little bite at range." },
+        "gripVertical": { "name": "Vertical grip", "blurb": "Holds the muzzle down. Heavier in the hands." },
+        "gripAngled": { "name": "Angled grip", "blurb": "Quick to the eye. Wanders more sideways." },
+        "laser": { "name": "Laser", "blurb": "Tightens hip fire. The dot shows where it goes." },
+        "magStandard": { "name": "Standard mag", "blurb": "Thirty rounds, steel." },
+        "magClear": { "name": "Clear mag", "blurb": "See what's left. Lighter, so it kicks a touch more." },
+        "hgShort": { "name": "Short handguard", "blurb": "Fast in tight spaces. Loud, kicky, worse at range." },
+        "hgDefault": { "name": "Standard handguard", "blurb": "The middle of the road." },
+        "hgExtended": { "name": "Long handguard", "blurb": "Steady and accurate. Slow around corners." },
+        "stockOpen": { "name": "Stock open", "blurb": "On the shoulder." },
+        "stockFolded": { "name": "Stock folded", "blurb": "Quick hands, wild kick." }
+      }
+    },
+    "effects": {
+      "about": "One line per effect, built from the data: {sign} is + or −, {pct} the whole-number percentage change of the stat, {value} the new value. Shown green when better, red when worse (the stat's `better` in attachments.json).",
+      "adsTime": { "$template": { "template": "{sign}{pct}% aim time", "params": ["sign", "pct"], "example": { "args": ["+", 35], "value": "+35% aim time" } } },
+      "adsFov": { "$template": { "template": "Aimed view {value}°", "params": ["value"], "example": { "args": [30], "value": "Aimed view 30°" } } },
+      "spreadHip": { "$template": { "template": "{sign}{pct}% hip spread", "params": ["sign", "pct"], "example": { "args": ["−", 25], "value": "−25% hip spread" } } },
+      "spreadMoveHip": { "$template": { "template": "{sign}{pct}% spread on the move", "params": ["sign", "pct"], "example": { "args": ["−", 15], "value": "−15% spread on the move" } } },
+      "spreadAds": { "$template": { "template": "{sign}{pct}% aimed spread", "params": ["sign", "pct"], "example": { "args": ["−", 30], "value": "−30% aimed spread" } } },
+      "spreadMoveAds": { "$template": { "template": "{sign}{pct}% aimed spread on the move", "params": ["sign", "pct"], "example": { "args": ["+", 30], "value": "+30% aimed spread on the move" } } },
+      "recoilPitch": { "$template": { "template": "{sign}{pct}% kick", "params": ["sign", "pct"], "example": { "args": ["−", 12], "value": "−12% kick" } } },
+      "recoilYaw": { "$template": { "template": "{sign}{pct}% side-to-side", "params": ["sign", "pct"], "example": { "args": ["+", 12], "value": "+12% side-to-side" } } },
+      "swapTime": { "$template": { "template": "{sign}{pct}% swap time", "params": ["sign", "pct"], "example": { "args": ["+", 6], "value": "+6% swap time" } } },
+      "reloadTime": { "$template": { "template": "{sign}{pct}% reload time", "params": ["sign", "pct"], "example": { "args": ["−", 6], "value": "−6% reload time" } } },
+      "noise": { "$template": { "template": "Heard {value} m out", "params": ["value"], "example": { "args": [18], "value": "Heard 18 m out" } } },
+      "flash": { "$template": { "template": "{sign}{pct}% muzzle flash", "params": ["sign", "pct"], "example": { "args": ["−", 85], "value": "−85% muzzle flash" } } },
+      "falloff": { "$template": { "template": "Damage drops past {value} m", "params": ["value"], "example": { "args": [25], "value": "Damage drops past 25 m" } } },
+      "falloffMin": { "$template": { "template": "{value}% damage at long range", "params": ["value"], "example": { "args": [85], "value": "85% damage at long range" } } },
+      "length": { "$template": { "template": "{sign}{pct}% length near walls", "params": ["sign", "pct"], "example": { "args": ["+", 12], "value": "+12% length near walls" } } },
+      "sway": { "$template": { "template": "{sign}{pct}% sway", "params": ["sign", "pct"], "example": { "args": ["+", 20], "value": "+20% sway" } } }
+    },
+    "level": {
+      "kicker": "Where it goes down",
+      "title": "Pick the block",
+      "time": "Time",
+      "times": { "day": "Day", "night": "Night" },
+      "modes": {
+        "$template": { "template": "Plays {modes}", "params": ["modes"], "example": { "args": ["Story · Hold the Block"], "value": "Plays Story · Hold the Block" } }
+      }
+    },
+    "levels": {
+      "block": { "name": "The Block", "blurb": "Jamaica Ave under the El. The avenue, the chop shop, the cage, the lot." }
+    },
+    "mode": {
+      "kicker": "How it goes down",
+      "title": "Pick the style",
+      "difficulty": "Difficulty",
+      "best": {
+        "$template": {
+          "template": "Best {score}",
+          "params": ["score"],
+          "formats": { "score": "rounded to a whole number, en-US digit grouping (12,345)" },
+          "example": { "args": [12345], "value": "Best 12,345" }
+        }
+      },
+      "difficultyNotes": {
+        "hustler": "Vultures go down easier and you heal faster.",
+        "boss": "The block as it was meant to be played.",
+        "kingpin": "More of them, harder hitting, slow to heal."
+      }
+    },
+    "briefing": {
+      "kicker": "IPX Vault · The plan",
+      "title": "Here's how it goes",
+      "crew": "Crew",
+      "loadout": "Carrying",
+      "block": "Block",
+      "style": "Style",
+      "change": "Change",
+      "go": "Hit the block"
+    },
+    "cards": {
+      "changeSetup": "Change set-up"
+    },
+    "hud": {
+      "modes": { "auto": "AUTO", "semi": "SEMI" },
+      "wheel": "Pick a gun",
+      "empty": "Empty"
+    },
+    "weapons": {
+      "stick": { "name": "STICK", "blurb": "Rail carbine, 30 rounds. Build it any way you want." },
+      "rattler": { "name": "RATTLER", "blurb": "Taken off a Vulture. 32 rounds, quick hands, short reach." },
+      "melee": { "stick": "Stock bash", "rattler": "Stock bash" }
+    },
+    "crewLines": {
+      "deadKicker": {
+        "$template": { "template": "{name} down", "params": ["name"], "example": { "args": ["Deuce"], "value": "Deuce down" } }
+      },
+      "radioIntro": {
+        "$template": {
+          "template": "{name}, it's the Vault. Vultures stashed your three masters on this block — the avenue, the chop shop, the cage. Bring them home.",
+          "params": ["name"],
+          "example": { "args": ["Smoke"], "value": "Smoke, it's the Vault. Vultures stashed your three masters on this block — the avenue, the chop shop, the cage. Bring them home." }
+        }
+      },
+      "radioIntroHoldout": {
+        "$template": {
+          "template": "{name}, it's the Vault. The Vultures want the whole block back. Hold it down as long as you can.",
+          "params": ["name"],
+          "example": { "args": ["Keys"], "value": "Keys, it's the Vault. The Vultures want the whole block back. Hold it down as long as you can." }
+        }
+      },
+      "radioDone": {
+        "$template": {
+          "template": "Masters are in the vault. The block is yours, {name}.",
+          "params": ["name"],
+          "example": { "args": ["Deuce"], "value": "Masters are in the vault. The block is yours, Deuce." }
+        }
+      }
+    },
+    "glyphs": {
+      "kbm": { "weapon3": "3", "weapon4": "4", "fireMode": "B", "inspect": "T", "wheel": "Hold Q" },
+      "pad": { "weapon3": "", "weapon4": "", "fireMode": "VIEW", "inspect": "Hold VIEW", "wheel": "Hold Y" },
+      "touch": { "weapon3": "", "weapon4": "", "fireMode": "MODE", "inspect": "", "wheel": "" }
+    },
+    "controls": {
+      "about": "Rows added to the Controls drawer (text.json interface.controls), after Swap weapon.",
+      "kbm": [
+        ["Weapons", ["1", "2", "3", "4"]],
+        ["Last gun", ["Q"]],
+        ["Weapon wheel", ["Hold Q"]],
+        ["Next / previous gun", ["Wheel"]],
+        ["Fire mode", ["B"]],
+        ["Inspect", ["T"]]
+      ],
+      "pad": [
+        ["Last gun", ["Y"]],
+        ["Weapon wheel", ["Hold Y"]],
+        ["Next / previous gun", ["D-pad ↑", "D-pad ↓"]],
+        ["Fire mode", ["View"]],
+        ["Inspect", ["Hold View"]]
+      ]
+    }
+  }
+}

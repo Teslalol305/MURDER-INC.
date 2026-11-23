@@ -1,0 +1,257 @@
+{
+  "meta": {
+    "file": "attachments.json",
+    "about": "Weapon attachments (docs/unreal/LOADOUT.md section 3.3): the seven slots, the stats an attachment may change, every attachment with its rule effects and its art, and the per-gun compatibility table. Adding an attachment is one entry in `attachments` plus its id in the `compatibility` rows of the guns it fits; adding a gun is one row in `compatibility`.",
+    "game": "MURDER INC.",
+    "schema": 1,
+    "units": "effects are in the web units of the stat (config.json: metres, seconds, radians, vertical degrees); `mul` values are plain factors",
+    "ops": "Per stat, the effects of every fitted attachment are applied in this order: every `set` (in slot order; the later slot wins), then the sum of every `add`, then the product of every `mul`, then every `min` (the smallest wins), then every `max`, then the stat's clamp. An attachment with no effects changes nothing: the factory part and the baseline choices are such attachments.",
+    "rule": "Every attachment that is not `baseline` has at least one effect that makes its stat better and one that makes a stat worse (by the stat's `better` direction). MurderInc.Loadout.DataLoads checks it: there is no best build."
+  },
+  "slots": [
+    { "id": "optic", "order": 1, "text": "frontend.attachments.slots.optic", "focus": "optic" },
+    { "id": "muzzle", "order": 2, "text": "frontend.attachments.slots.muzzle", "focus": "muzzle" },
+    { "id": "underbarrel", "order": 3, "text": "frontend.attachments.slots.underbarrel", "focus": "underbarrel" },
+    { "id": "laser", "order": 4, "text": "frontend.attachments.slots.laser", "focus": "laser" },
+    { "id": "magazine", "order": 5, "text": "frontend.attachments.slots.magazine", "focus": "magazine" },
+    { "id": "handguard", "order": 6, "text": "frontend.attachments.slots.handguard", "focus": "handguard" },
+    { "id": "stock", "order": 7, "text": "frontend.attachments.slots.stock", "focus": "stock" }
+  ],
+  "stats": {
+    "adsTime": { "targets": ["adsTime"], "unit": "s", "better": "lower", "clamp": [0.08, 0.6], "text": "frontend.effects.adsTime" },
+    "adsFov": { "targets": ["extra.adsFov"], "unit": "vertical degrees", "better": "none", "clamp": [20, 60], "text": "frontend.effects.adsFov", "note": "a narrower aimed view is a trade, neither better nor worse" },
+    "adsLook": { "targets": ["extra.adsLook"], "unit": "factor", "better": "none", "clamp": [0.3, 1.5], "text": null, "note": "keeps the aimed look speed in step with a narrower view; not shown as an effect" },
+    "spread.hip": { "targets": ["spread.hip"], "unit": "rad", "better": "lower", "clamp": [0.002, 0.04], "text": "frontend.effects.spreadHip" },
+    "spread.moveHip": { "targets": ["spread.moveHip"], "unit": "rad", "better": "lower", "clamp": [0.0, 0.04], "text": "frontend.effects.spreadMoveHip" },
+    "spread.ads": { "targets": ["spread.ads"], "unit": "rad", "better": "lower", "clamp": [0.0003, 0.01], "text": "frontend.effects.spreadAds" },
+    "spread.moveAds": { "targets": ["spread.moveAds"], "unit": "rad", "better": "lower", "clamp": [0.0, 0.02], "text": "frontend.effects.spreadMoveAds" },
+    "recoil.pitch": { "targets": ["recoil.pitch", "recoil.shake", "kick.rise", "kick.back"], "unit": "rad (camera climb per round)", "better": "lower", "clamp": [0.001, 0.02], "text": "frontend.effects.recoilPitch", "note": "the camera kick, the shake and the gun's rise and push-back follow one factor, so what the player sees is what the aim does" },
+    "recoil.yaw": { "targets": ["recoil.yaw", "recoil.yawEarly", "recoil.weaveAmp", "recoil.weaveRandom", "kick.yaw", "kick.roll"], "unit": "rad (sideways)", "better": "lower", "clamp": [0.0, 0.01], "text": "frontend.effects.recoilYaw", "note": "a target the gun does not have (yaw on a weaving gun, weave on the NINE) is skipped" },
+    "swapTime": { "targets": ["extra.holster", "extra.draw"], "unit": "s", "better": "lower", "clamp": [0.12, 0.6], "text": "frontend.effects.swapTime" },
+    "reloadTime": { "targets": ["reload.*"], "unit": "s (every mark and both lengths)", "better": "lower", "clamp": [0.5, 4.0], "text": "frontend.effects.reloadTime", "note": "every reload mark is scaled by the same factor, so the clip plays at 1 / factor and its notifies stay on the marks" },
+    "noise": { "targets": ["extra.noise"], "unit": "m", "better": "lower", "clamp": [5, 90], "text": "frontend.effects.noise" },
+    "flash": { "targets": ["flash.scale", "flash.light"], "unit": "factor", "better": "lower", "clamp": [0.0, 2.0], "text": "frontend.effects.flash" },
+    "falloff.start": { "targets": ["extra.falloff.start"], "unit": "m", "better": "higher", "clamp": [5, 1000], "text": "frontend.effects.falloff", "note": "a gun without falloff starts from start = end = infinity, min = 1" },
+    "falloff.end": { "targets": ["extra.falloff.end"], "unit": "m", "better": "higher", "clamp": [5, 1000], "text": null },
+    "falloff.min": { "targets": ["extra.falloff.min"], "unit": "share of damage", "better": "higher", "clamp": [0.3, 1.0], "text": "frontend.effects.falloffMin" },
+    "length": { "targets": ["wallPull"], "unit": "factor on both distances", "better": "lower", "clamp": [0.3, 2.0], "text": "frontend.effects.length", "note": "a longer gun pulls back from walls sooner" },
+    "sway": { "targets": ["swayMax"], "unit": "factor", "better": "lower", "clamp": [0.02, 0.2], "text": "frontend.effects.sway", "note": "presentation: the gun's look sway; the aim does not sway in the web rules" }
+  },
+  "attachments": {
+    "irons": {
+      "slot": "optic",
+      "baseline": true,
+      "source": "pack",
+      "text": "frontend.attachments.items.irons",
+      "effects": [],
+      "presentation": {
+        "mesh": null,
+        "packPart": "folding front and rear iron sights, up",
+        "sockets": { "sightRear": "SightEye" },
+        "relief": 0.12,
+        "folded": "the same part folded down; shown folded whenever another optic is fitted"
+      },
+      "art": { "status": "exists", "notes": "pack part; the asset path is written by the import listing (ANIMATION.md)" }
+    },
+    "scope": {
+      "slot": "optic",
+      "source": "pack",
+      "text": "frontend.attachments.items.scope",
+      "effects": [
+        { "stat": "adsFov", "op": "set", "value": 30 },
+        { "stat": "adsLook", "op": "mul", "value": 0.6 },
+        { "stat": "spread.ads", "op": "mul", "value": 0.7 },
+        { "stat": "adsTime", "op": "mul", "value": 1.35 },
+        { "stat": "spread.moveAds", "op": "mul", "value": 1.3 },
+        { "stat": "sway", "op": "mul", "value": 1.2 }
+      ],
+      "presentation": {
+        "mesh": null,
+        "packPart": "scope",
+        "sockets": { "sightRear": "SightEye" },
+        "relief": 0.09,
+        "lens": "the lens material draws the reticle; the world view narrows to adsFov as the sight comes up (no second render)"
+      },
+      "art": { "status": "exists", "notes": "pack part. SightEye: a socket on the scope's eye axis at the ocular lens, added on import (missing until then: the scope then aligns on the gun's sightRear marker and looks wrong but plays right)" }
+    },
+    "silencer": {
+      "slot": "muzzle",
+      "source": "pack",
+      "text": "frontend.attachments.items.silencer",
+      "effects": [
+        { "stat": "noise", "op": "mul", "value": 0.4 },
+        { "stat": "flash", "op": "mul", "value": 0.15 },
+        { "stat": "recoil.pitch", "op": "mul", "value": 0.95 },
+        { "stat": "falloff.start", "op": "min", "value": 25 },
+        { "stat": "falloff.end", "op": "min", "value": 50 },
+        { "stat": "falloff.min", "op": "mul", "value": 0.85 },
+        { "stat": "adsTime", "op": "mul", "value": 1.06 },
+        { "stat": "swapTime", "op": "mul", "value": 1.06 },
+        { "stat": "length", "op": "mul", "value": 1.12 }
+      ],
+      "presentation": {
+        "mesh": null,
+        "packPart": "silencer",
+        "sockets": { "muzzle": "Muzzle" },
+        "sound": "suppressed",
+        "smoke": "muzzle smoke from the silencer's end, half density"
+      },
+      "art": { "status": "exists", "notes": "pack part; a Muzzle socket at its far end is added on import. On the CHOPPER and the RATTLER it threads on in place of their own muzzle device (hidden); suppressed gun sounds: missing (audio.json)" }
+    },
+    "grip_vertical": {
+      "slot": "underbarrel",
+      "source": "pack",
+      "text": "frontend.attachments.items.gripVertical",
+      "effects": [
+        { "stat": "recoil.pitch", "op": "mul", "value": 0.88 },
+        { "stat": "recoil.yaw", "op": "mul", "value": 0.85 },
+        { "stat": "adsTime", "op": "mul", "value": 1.08 },
+        { "stat": "swapTime", "op": "mul", "value": 1.05 }
+      ],
+      "presentation": { "mesh": null, "packPart": "vertical grip", "sockets": { "support": "SupportHand" }, "handPose": "GripVertical" },
+      "art": { "status": "exists" }
+    },
+    "grip_angled": {
+      "slot": "underbarrel",
+      "source": "pack",
+      "text": "frontend.attachments.items.gripAngled",
+      "effects": [
+        { "stat": "adsTime", "op": "mul", "value": 0.9 },
+        { "stat": "swapTime", "op": "mul", "value": 0.95 },
+        { "stat": "recoil.pitch", "op": "mul", "value": 0.96 },
+        { "stat": "recoil.yaw", "op": "mul", "value": 1.12 }
+      ],
+      "presentation": { "mesh": null, "packPart": "angled grip", "sockets": { "support": "SupportHand" }, "handPose": "GripAngled" },
+      "art": { "status": "exists" }
+    },
+    "laser": {
+      "slot": "laser",
+      "source": "pack",
+      "text": "frontend.attachments.items.laser",
+      "effects": [
+        { "stat": "spread.hip", "op": "mul", "value": 0.75 },
+        { "stat": "spread.moveHip", "op": "mul", "value": 0.85 },
+        { "stat": "adsTime", "op": "mul", "value": 1.05 },
+        { "stat": "swapTime", "op": "mul", "value": 1.04 }
+      ],
+      "presentation": {
+        "mesh": null,
+        "packPart": "laser",
+        "sockets": { "beam": "Beam" },
+        "beam": { "color": "#ff2a1a", "dotRadius": 0.006, "maxLength": 60, "hiddenAboveAds": 0.6, "note": "always on, no key; the dot sits where the beam meets the first Bullet-channel hit; the beam fades out while aimed (ads above hiddenAboveAds)" }
+      },
+      "art": { "status": "exists", "notes": "pack part; Beam socket at the emitter added on import; the beam and dot are a Niagara beam (missing) or a line-batcher placeholder like the tracers" }
+    },
+    "mag_standard": {
+      "slot": "magazine",
+      "baseline": true,
+      "source": "pack",
+      "text": "frontend.attachments.items.magStandard",
+      "effects": [],
+      "presentation": { "mesh": null, "packPart": "standard magazine (SK_TFA_AR_Magazine)" },
+      "art": { "status": "exists" }
+    },
+    "mag_clear": {
+      "slot": "magazine",
+      "source": "pack",
+      "text": "frontend.attachments.items.magClear",
+      "effects": [
+        { "stat": "reloadTime", "op": "mul", "value": 0.94 },
+        { "stat": "recoil.pitch", "op": "mul", "value": 1.04 }
+      ],
+      "presentation": { "mesh": null, "packPart": "transparent magazine", "fill": "material scalar RoundsShown = magazine rounds / magazine size, so the rounds left show through the polymer" },
+      "art": { "status": "exists", "notes": "pack part; the RoundsShown parameter (a column of rounds masked from the top) is missing" }
+    },
+    "hg_default": {
+      "slot": "handguard",
+      "baseline": true,
+      "source": "pack",
+      "text": "frontend.attachments.items.hgDefault",
+      "effects": [],
+      "presentation": { "mesh": null, "packPart": "Default handguard and barrel", "sockets": { "MuzzleMount": "MuzzleMount", "Underbarrel": "Underbarrel", "Laser": "Laser", "muzzle": "Muzzle", "support": "Palm_L" } },
+      "art": { "status": "exists" }
+    },
+    "hg_short": {
+      "slot": "handguard",
+      "source": "pack",
+      "text": "frontend.attachments.items.hgShort",
+      "effects": [
+        { "stat": "adsTime", "op": "mul", "value": 0.9 },
+        { "stat": "swapTime", "op": "mul", "value": 0.92 },
+        { "stat": "spread.moveHip", "op": "mul", "value": 0.9 },
+        { "stat": "length", "op": "mul", "value": 0.86 },
+        { "stat": "recoil.pitch", "op": "mul", "value": 1.1 },
+        { "stat": "spread.ads", "op": "mul", "value": 1.15 },
+        { "stat": "flash", "op": "mul", "value": 1.3 },
+        { "stat": "noise", "op": "mul", "value": 1.1 },
+        { "stat": "falloff.start", "op": "min", "value": 25 },
+        { "stat": "falloff.end", "op": "min", "value": 50 },
+        { "stat": "falloff.min", "op": "mul", "value": 0.9 }
+      ],
+      "presentation": { "mesh": null, "packPart": "Short handguard and barrel", "sockets": { "MuzzleMount": "MuzzleMount", "Underbarrel": "Underbarrel", "Laser": "Laser", "muzzle": "Muzzle", "support": "Palm_L" } },
+      "art": { "status": "exists" }
+    },
+    "hg_extended": {
+      "slot": "handguard",
+      "source": "pack",
+      "text": "frontend.attachments.items.hgExtended",
+      "effects": [
+        { "stat": "recoil.pitch", "op": "mul", "value": 0.92 },
+        { "stat": "spread.ads", "op": "mul", "value": 0.85 },
+        { "stat": "adsTime", "op": "mul", "value": 1.1 },
+        { "stat": "swapTime", "op": "mul", "value": 1.08 },
+        { "stat": "length", "op": "mul", "value": 1.15 },
+        { "stat": "sway", "op": "mul", "value": 1.1 }
+      ],
+      "presentation": { "mesh": null, "packPart": "Extended handguard and barrel", "sockets": { "MuzzleMount": "MuzzleMount", "Underbarrel": "Underbarrel", "Laser": "Laser", "muzzle": "Muzzle", "support": "Palm_L" } },
+      "art": { "status": "exists" }
+    },
+    "stock_open": {
+      "slot": "stock",
+      "baseline": true,
+      "source": "pack",
+      "text": "frontend.attachments.items.stockOpen",
+      "effects": [],
+      "presentation": { "mesh": null, "packPart": "stock, open" },
+      "art": { "status": "exists" }
+    },
+    "stock_folded": {
+      "slot": "stock",
+      "source": "pack",
+      "text": "frontend.attachments.items.stockFolded",
+      "effects": [
+        { "stat": "adsTime", "op": "mul", "value": 0.85 },
+        { "stat": "swapTime", "op": "mul", "value": 0.88 },
+        { "stat": "spread.hip", "op": "mul", "value": 0.95 },
+        { "stat": "recoil.pitch", "op": "mul", "value": 1.2 },
+        { "stat": "recoil.yaw", "op": "mul", "value": 1.2 },
+        { "stat": "spread.ads", "op": "mul", "value": 1.25 },
+        { "stat": "sway", "op": "mul", "value": 1.2 }
+      ],
+      "presentation": { "mesh": null, "packPart": "stock, folded (the pack's 'stock folded' rifle variants)" },
+      "art": { "status": "exists" }
+    }
+  },
+  "compatibility": {
+    "about": "Per gun and slot: `options` the player may fit, `default` the choice of a new build (null = the factory part, no effect), `required` true when the slot can never be empty (then `default` is one of `options`). A slot a gun does not list does not exist on that gun and is not shown.",
+    "chopper": {
+      "optic": { "options": ["scope"], "default": null, "required": false, "mount": "Optic", "note": "the 106 mm rail on the top cover; the iron sights stay and the scope sits on the rail ahead of the rear sight" },
+      "muzzle": { "options": ["silencer"], "default": null, "required": false, "mount": "MuzzleMount", "note": "replaces the muzzle booster" }
+    },
+    "nine": {
+      "laser": { "options": ["laser"], "default": null, "required": false, "mount": "Laser", "note": "the accessory rail under the dust cover" }
+    },
+    "stick": {
+      "optic": { "options": ["irons", "scope"], "default": "irons", "required": true, "mount": "Optic" },
+      "muzzle": { "options": ["silencer"], "default": null, "required": false, "mount": "MuzzleMount" },
+      "underbarrel": { "options": ["grip_vertical", "grip_angled"], "default": null, "required": false, "mount": "Underbarrel" },
+      "laser": { "options": ["laser"], "default": null, "required": false, "mount": "Laser" },
+      "magazine": { "options": ["mag_standard", "mag_clear"], "default": "mag_standard", "required": true, "mount": "MagHinge" },
+      "handguard": { "options": ["hg_short", "hg_default", "hg_extended"], "default": "hg_default", "required": true, "mount": "Handguard" },
+      "stock": { "options": ["stock_open", "stock_folded"], "default": "stock_open", "required": true, "mount": "Stock" }
+    },
+    "rattler": {
+      "muzzle": { "options": ["silencer"], "default": null, "required": false, "mount": "MuzzleMount", "note": "replaces the slotted muzzle device. No optic: the 70 mm top rail is shorter than the scope's mount. No laser: the weapon light fills the handguard" }
+    }
+  }
+}
