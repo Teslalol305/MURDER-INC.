@@ -248,6 +248,14 @@ the El read salmon. All six `fp-arms-*.jpg` retaken after `import-chars.sh arms`
 Open (for the next pass): the NINE's support hand and the hip hold still come from the template pistol clip (the gun
 rests on the palm, the fingers do not wrap); no per-gun finger pose ships; the pack clips' finger poses were not
 measured against this hand's thickness.
+Second pass after the in-game review (hands 1.5, tattoos 2.5, "no tattoo in any play frame"): `CHARACTERS.md`, "SK_RuleArms,
+second pass". Proof is now unmodified play frames only (`fp-arms-shots.sh` rewritten; the close-ups that moved the arms
+are gone). A probe in play measured the face of each forearm the eye sees; the numerals moved to 5-15 cm above the wrist
+on that face, the script line heavier, the skin's warmth back in the albedo (`SkinTint` 1, `SubsurfaceTint` 0.35 / 0.18 /
+0.11). The NINE takes a solved grip from `Content/Data/grips.json` (`MIFirstPersonAnim.cpp` ShapeHand / ShapeFingers,
+`presentation.json` `animSets.pistol.grip`); the arms are placed by the pre-IK hand (`GetPreIKHand`) so the grip does not
+feed back into the placement. Open: CHOPPER inspect / reload finger contact, hair cards, the NINE's wrist bend from the
+template clip.
 
 ## Exact next step (level)
 

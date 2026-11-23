@@ -215,6 +215,71 @@ still sits on top of the firing hand with the fingers straight under it. The fix
 per-gun finger pose layered over the template pistol idle, the firing fingers closed round `SK_Nine`'s grip as
 `assets/_characters_pose.py` solves them for the previews), not in the mesh: it is the next step.
 
+### SK_RuleArms, second pass after the in-game review (2026-11-23): ink in play, warm skin, a real grip on the NINE
+
+An independent art director played the game after the first pass (hands 1.5, tattoos 2.5): "none of my eight frames
+from real play shows any tattoo"; the hand at the hip a mitten; nails like press-on shells; the NINE resting on a flat
+support hand with straight fingers; the skin ashy grey-mauve in shade and khaki in the sun. Every claim below is
+checked on **unmodified play frames** (`tools/box/fp/fp-arms-shots.sh`, rewritten: the player's own view, nothing
+moved, hidden or paused; the first pass's close-ups that moved the arms component in front of the eye are gone).
+
+**Why the ink never showed in play** (measured, not guessed): the first person framing shows about 15 cm of the
+support forearm above the wrist, and the numerals sat at 17-19.5 cm. Worse, the first pass centred them 3.2 cm round
+from the back of the forearm toward the radius on the claim that this is "the face the camera sees"; a probe in play
+(`face.py`: the camera's direction in the forearm twist bone's frame, against the old tattoo centre and the thumb)
+says the eye sees the support forearm from 14-21 degrees on the **ulnar** side of its back at the hip and aimed, 57-64
+degrees away from where the ink was. In the hip frame only the edge of an X showed on the forearm's lower silhouette.
+The right forearm's word was already facing the eye (2-12 degrees off) but sits near the elbow, off screen with the
+CHOPPER; with the NINE the right forearm crosses the lower frame and the word reads.
+
+**What changed**
+
+| Item | Now |
+|---|---|
+| Left numerals (`_rule_tex.TATTOO_LAYOUT`) | Read off the photo at 6x: a main group of two rows (XXIII toward the elbow, XVII below) about 29 mm apart with 18-20 mm capitals, and a second, half hidden group of two rows nearer the wrist (illegible: XII / XX stand in until the owner's close-up). Main rows at 11.2 and 14.1 cm above the wrist (were 16.8 / 19.4), 18 mm capitals (14), each row up to 7.8 cm round the arm; second group at 5.3 and 7.7 cm, 17 mm. All centred 1.0 cm round from the back toward the ulna, the face the eye sees |
+| Right script line | 19 mm (16), the pen stroke thickened 0.45 mm each side, full ink, 5 mm beside the word toward the wrist: as dark and as heavy as the capitals |
+| Skin albedo (`_rule_tex.SKIN_TARGET`) | linear 0.130 / 0.063 / 0.034 = sRGB 101 / 71 / 51, hue 24 degrees, saturation 0.50 (was 0.115 / 0.062 / 0.038, hue 21, saturation 0.42). The photo's lit forearm is hue 22, saturation 0.49 under its warm print: his hue and saturation at a deep albedo value. The head and body share this target and pick it up on their next build |
+| Game skin (`mi_fp_import.skin_material`) | `SkinTint` 1 / 1 / 1 (0.92 / 1 / 1.08 cooled the shade toward mauve), `SubsurfaceTint` 0.35 / 0.18 / 0.11 (0.26 / 0.14 / 0.09), the pore detail at strength 1.0 masked by ORM blue (1 on the back of the arm and hand, 0 on the palm, pads and nails: the bake writes the mask there, the skin has no metal) |
+| Measured in play | shade at the hip 55 / 36 / 30, hue 14, saturation 0.45 (first pass 58 / 46 / 46, the red barely above the blue); sun under the El 189 / 143 / 106, hue 27, saturation 0.44 (173 / 140 / 112, saturation 0.35); base colour as the frame receives it (unlit view) 107 / 80 / 66, hue 21. Photo's lit forearm 217 / 150 / 111 |
+| Hand forms (`rule.Hand.field`) | metacarpal heads about 1 mm further out with a tighter blend (each knuckle its own rise); extensor tendons 1.7 mm high, 3.0 mm wide (1.1 / 3.4); distal phalanges taper 0.7 mm toward the tip on the back and sides and their pads flatten 0.4 mm (fingertips were round blobs) |
+| Hand relief and shading (`_rule_tex.skin_texels`, `rule.bake_skin`) | dorsal knuckle wrinkles 220 um (120) on a soft 0.35 mm rise over each joint; the hand's veins 0.8 mm high with a cooler shift; a form-scale cavity term (height at 2-6 mm and the mesh AO) written into AO and, gently, into the base colour so creases and the dips between knuckles darken in sky light; hair strands sparser, darker, 5 mm long, 30 um high |
+| Nails | the plate 0.18 mm proud (0.6) and running 0.45 mm into the finger; the cuticle fold rises 0.4 mm and overlaps the plate's root by about 0.6 mm, lateral folds hug its sides; the free edge only the last 0.8-1.4 mm and lower in value (0.27 / 0.22 / 0.18, was 0.40 / 0.33 / 0.27) |
+| Pore detail (`_rule_detail.py`) | skin lines 24 um (18), pores 0.16 mm / 40 um (0.13 / 26), plus a 2-4 mm undulation 12 um deep |
+| NINE grip | see below |
+
+**The NINE's grip, solved and applied in the game.** The template third-person pistol idle with both palms pulled onto
+`Palm_R` / `Palm_L` kept the template's hand shape. Now:
+- `art/blender/assets/_rule_grips.py` solves both hands on SK_Nine (`_characters_pose.hold`, then `wrap_fingers`:
+  each finger closed with its joints together to the most closed pose within 2.5 mm of pressed skin, the support
+  fingers over the firing fingers' capsules; the palms 2.2 cm further down the grip than the previews had them, which
+  put the firing middle finger on the trigger guard) and writes `unreal/MurderInc/Content/Data/grips.json`: the wrist
+  and every finger joint as points in the gun's own space (Unreal's convention, cm). Points, not rotations: the bones'
+  local axes differ between Blender and Unreal (the Y / Z swap above).
+- `MIFirstPersonAnim.cpp` (`ShapeHand`, `ShapeFingers`): after the clips, each hand is placed at the shape's wrist
+  point and turned so its own frame of points (wrist, index / middle / little finger knuckles) matches the shape's,
+  through the existing two-bone IK; then every finger bone is aimed at its child's point (the last segment by its
+  reference direction). The support grip lets go over the reload's first 0.15 s and takes hold again at its end.
+- `presentation.json` `animSets.pistol.grip` names the gun and pose. `UMIFirstPersonRig::HandSocket` now places the
+  arms by the hand as the clips posed it, before the IK (`UMIFPAnimInstance::GetPreIKHand`): SK_RuleArms carries
+  `HandGrip_R` since its re-import, so the arms were placed by the *posed* hand, and the grip's turn of the hand fed
+  back into the arms' placement every frame (the first try put the right forearm straight up in front of the eye).
+
+**In play** (`docs/unreal/shots/fp-arms-*.jpg`, every one an unmodified play frame): hip in the sun and under the El,
+irons, mid tactical reload, the inspect, the NINE at the hip and aimed (the right hand round the grip, knuckles,
+tendons and the nail folds reading at arm's length, the word and script line on the right forearm), the NINE under
+the El. Evidence not committed: `ev-unlit` (base colour), the face probe's numbers above, texture residency (all four
+arms textures 4096 / 1024 resident, `Streaming NO`).
+
+**Shadow stripes and the lilac patch** (review items): both appeared only in the first pass's close-ups, which moved
+the arms component 30 cm in front of the eye and so inside the player's own body shadow (the third-person body is
+owner-no-see but still casts; the arms cast none). No play frame shows either (checked in the hip, El, irons, reload,
+inspect and NINE frames); no bias change was made.
+
+Not done in this pass: per-clip finger corrections for the CHOPPER's inspect and reloads (the pack's own clips drive
+the support hand there; its finger contact against this hand's proportions was not measured); hair cards (the hair is
+in the texture); the NINE's wrist still bends hard because the template clip brings the right forearm in from the
+left of the frame; the word near the right elbow is not seen with the CHOPPER (no inspect roll was added).
+
 ## The Goons (art/blender/assets/goons.py)
 
 Three skinned meshes on `SK_Mannequin`, one man in three outfits (briefs `docs/unreal/spec/assets/characters.json`

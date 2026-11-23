@@ -1014,3 +1014,21 @@ Cause, fix and the in-game proof: `docs/unreal/CHARACTERS.md`, "SK_RuleArms, han
 - No art change (no re-export): the GLB and textures of 15:03 are the ones in the game. Previews `rule_arms_fp`,
   `rule_hands` are from that export. Higgsfield: 0 credits.
 - Not done: per-gun finger poses in the game (the NINE rests on the firing hand, fingers straight); corrective shapes.
+## Second pass after the in-game review (hands 1.5, tattoos 2.5; same owner)
+Cause, fix and the play-frame proof: `docs/unreal/CHARACTERS.md`, "SK_RuleArms, second pass after the in-game review".
+- Tattoos (`_rule_tex.TATTOO_LAYOUT`): the left numerals at 11.2 / 14.1 cm above the wrist (were 16.8 / 19.4, off screen
+  in play) in 18 mm capitals, plus the photo's second, half-hidden group (XII / XX stand in, 5.3 / 7.7 cm, 17 mm);
+  centred 1.0 cm round from the back toward the ulna, the face a probe in play says the eye sees (the first pass's
+  "thumb side" was 57-64 degrees off). Script line 19 mm with a 0.45 mm heavier stroke.
+- Skin: `SKIN_TARGET` 0.130 / 0.063 / 0.034 (hue 24, saturation 0.50; shared with the head and body, which pick it up
+  on their next build).
+- Hands: knuckle heads about 1 mm higher, tendons 1.7 mm, tapered distal phalanges with flatter pads, knuckle wrinkles
+  220 um on a 0.35 mm joint rise, hand veins 0.8 mm, a form-scale cavity term in AO and base colour, darker sparser
+  5 mm hair strands; nails 0.18 mm proud under a cuticle fold that overlaps the root, a lower, narrower free edge.
+- ORM blue now carries the pore-detail mask (no metal on skin); `_rule_detail.py` deeper pores and a 2-4 mm undulation.
+- `_rule_grips.py` (new): the NINE grip solved on SK_Nine (palms lower on the grip, `wrap_fingers`) written as joint
+  points to `unreal/MurderInc/Content/Data/grips.json` and `art/out/glb/SK_RuleArms.grips.json`.
+- Export: 131,594 triangles, posed gate 104 poses, 0 failed. Previews not re-rendered (`rule_*.jpg` are from the first
+  pass). Higgsfield: 0 credits.
+- Not done: CHOPPER inspect / reload finger corrections, hair cards, an inspect roll that shows the word near the right
+  elbow with the CHOPPER.

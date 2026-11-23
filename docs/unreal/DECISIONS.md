@@ -61,3 +61,11 @@ or PureWeb). The owner creates the account and uploads the build we package; pri
 **Open technical point:** several managed services take only Windows builds, and Unreal cannot package for Windows
 from Linux. The next job must check, from each candidate's current documentation, which ones accept a Linux build,
 and say plainly if a Windows packaging machine is needed.
+
+**Research result (2026-11-23, `docs/unreal/hosting_research.json`, independently checked):** Eagle 3D Streaming
+(E3DS) is the only managed Pixel Streaming host whose own docs accept a Linux Unreal build, so no Windows machine is
+needed. Free 60-minute trial with no card; Core $29/month with 300 minutes and 10 concurrent players; extra minutes
+$0.10 (about $6 per player-hour); US and EU. Fallback: Amazon GameLift Streams on its Ubuntu runtime (needs an AWS
+account and a small session backend; gamepads may not work there). Risks: our engine is Unreal 5.9 Preview 2, which no
+host lists; E3DS does not test Linux uploads, so the first upload on the free trial is the real test; budget the cloud
+build for 8 GB of video memory; read E3DS's terms for a violent shooter before publishing.
