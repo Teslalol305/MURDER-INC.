@@ -557,11 +557,17 @@ def write_clip(dest_path, frames, rate=FPS, skeleton_path=SKELETON, curves=None,
         pos = [unreal.Vector(*fr[b][0]) for fr in frames]
         rot = [unreal.Quat(*fr[b][1]) for fr in frames]
         scl = [unreal.Vector(1, 1, 1) for _ in frames]
-        try:
-            c.set_bone_track_keys(b, pos, rot, scl, False)
-        except Exception:  # noqa: BLE001
-            c.add_bone_track(b, False)
-            c.set_bone_track_keys(b, pos, rot, scl, False)
+        # a new sequence has no bone tracks and set_bone_track_keys then returns False without raising
+        ok = c.set_bone_track_keys(b, pos, rot, scl, False)
+        if not ok:
+            for fn in ("add_bone_curve", "add_bone_track"):
+                if hasattr(c, fn):
+                    getattr(c, fn)(b, False)
+                    break
+            ok = c.set_bone_track_keys(b, pos, rot, scl, False)
+        if not ok:
+            c.close_bracket(False)
+            raise RuntimeError("%s: no bone track for %s" % (dest_path, b))
     c.close_bracket(False)
     # The compressor samples at the sequence's target frame rate (30 unless told): a clip whose length is not a
     # whole number of target frames trips an assertion in AnimCompressionTypes.cpp and takes the editor down.
