@@ -45,8 +45,11 @@ win = dict(l.split('=', 1) for l in loc.split() if '=' in l).get('WINDOW')
 if win: xdo('windowfocus', '--sync', win)
 xdo('click', '1'); time.sleep(1.5)
 note('first_click', {'dismissed': 'Click to play: dismissed' in text(), 'card_up_after': last().get('click') == 1})
+# Home -> Crew (Enter), then each set-up screen's Next: Tab moves to Next (twice on Loadout: rack, slots, Next).
 xdo('key', 'Return'); time.sleep(2); grab('x2-setup')
-xdo('key', 'ctrl+Return'); time.sleep(2); xdo('key', 'Return')
+for keys in (['Tab', 'Return'], ['Tab', 'Tab', 'Return'], ['Tab', 'Return'], ['Return']):
+    for k in keys: xdo('key', k); time.sleep(0.4)
+    time.sleep(1.5)
 playing = wait(lambda: last().get('state') == 2, 60)
 note('setup_to_run', {'playing': bool(playing), 'state': last().get('state')})
 time.sleep(4)
