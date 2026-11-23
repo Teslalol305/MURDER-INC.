@@ -65,13 +65,15 @@ L_Block, pictures retaken with `tools/box/fp/fp-shots.sh` and looked at.
   the `magazine` bone at the inverse of that bone's reference pose (`UMIFirstPersonRig::MeshSpacePartOnBone`).
   New test `FirstPerson.NineMagazine`: magazine box (-1.35..4.53, +-1.3, -13.45..-3.3) cm inside SK_Nine's box, below
   the bore, centred, upright (`fp-nine.jpg`).
-- **Muzzle flash, tracer, casing.** Two causes, both measured in play: the headless editor plays at 10 to 20 frames
-  a second and one long step aged the 0.045 s flash and the 0.09 s tracer past their life before they were drawn
-  (the cards existed, placed and sized right, hidden); flashes, lights and tracers now advance at most 1/60 s a
-  frame. And world objects at the gun's world point sit behind the first-person gun: the flash, casings and the
-  dropped magazine are drawn at the first-person depth (`FirstPersonToNearWorld`); the flash through the effects'
-  world cards (camera-attached cards read back visible and placed right still never drew). Tracers start 1 m past the
-  muzzle, 1 cm radius, 60,000 nits (`fp-fire.jpg` 0.02 s, `fp-fire-early.jpg` 0.006 s after a round).
+- **Casings** leave the port on screen (drawn at the first-person depth and size: `FirstPersonToNearWorld`), and the
+  dropped magazine the same way. **Muzzle flash and tracer: still not seen in a picture** (see Not fixed). Found and
+  fixed on the way: the headless editor plays at 10 to 20 frames a second and one long step aged the 0.045 s flash
+  and the 0.09 s tracer past their life before they were drawn (the cards were read back hidden); flashes, lights and
+  tracers now advance at most 1/60 s a frame and a tracer starts one frame in flight. Read back after that fix, the
+  three flash cards are visible, 38 to 44 cm from the eye, sized right, frozen 0.02 s after a round, and a test card of
+  the same material placed 40 cm in front of the eye by hand draws; yet the cards at the muzzle drew nothing. The
+  flash now goes through the effects' world cards (`WorldFlash`, the Goons' flash path) at the muzzle's first-person
+  point; that build was not looked at in a picture (the clone's editor was restarted by another session, see below).
 - **Smoke, dust and blood mist** never drew: a bright card on M_FX_Smoke showed, 53 smoke-coloured cards at opacity
   0.5 facing the camera at 7 to 9 m left the street untouched (`fx_diag.py`, read-back from Python). M_FX_Smoke is now
   a lit, masked, dithered card (DitherTemporalAA, TSR resolves it): it takes the sun and Lumen; blast smoke lighter
@@ -98,6 +100,14 @@ L_Block, pictures retaken with `tools/box/fp/fp-shots.sh` and looked at.
 - Suite: **TESTS OK passed=105 failed=0** (every `Golden.*` replay and `Loadout.ParityGolden` among them).
 
 **Not fixed (why)**
+- **The player's muzzle flash and tracer in pictures** (above). Next step: with `log LogMI Verbose`, fire with
+  `MIFreezeOn fire 0.02` and read the logged muzzle point in camera space ("Flash: world cards ... muzzle in camera
+  space ..."); project it to the screen and check what covers it (the support hand or the front sight at the hip),
+  and take `fp-fire.jpg` aimed, where the muzzle is clear of the hands. `fp-fire.jpg` is not committed.
+- The suite was last run after the effects-clamp build (6f794e2: 105 passed, 0 failed, every `Golden.*` and
+  `Loadout.ParityGolden`); the two later C++ commits (the flash through `WorldFlash`, a tracer's first frame, verbose
+  logs) are presentation only and were built (OK) but not run through the suite: another session restarted this
+  clone's editor at 15:08 and killed the shells on the box.
 - The arms' skin (saturated orange, red stripes at the El's slat shadows, tattoos, hair, pores) is the character
   agent's pass in progress (commit 5667229: resident textures, detail normal, shorter scatter, re-lettered tattoos);
   the game picks it up by re-running `fp-art.sh` + `import-chars.sh arms`. Support fingers wrapping the rail at the
