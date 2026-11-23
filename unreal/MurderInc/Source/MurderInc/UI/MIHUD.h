@@ -24,6 +24,11 @@ public:
 
 private:
 	void DrawPlay(UFont* Font);
+	/** LOADOUT.md 4.7: one slot per carried gun, then melee; the bag once; AUTO / SEMI; attachment pips. */
+	void DrawWeaponBar(const class AMIPlayerCharacter& Player, UMIGameSubsystem* Game);
+	/** LOADOUT.md 4.6: the weapon wheel, while Q / Y is held with three or more guns. */
+	void DrawWheel(const class AMIPlayerCharacter& Player);
+	void DrawPlate(double X, double Y, double W, double H, const FLinearColor& Fill, const FLinearColor& Edge, float EdgeWidth = 1.f);
 	void DrawFlow(UMIGameSubsystem& Game, UFont* Font);
 	void DrawMenu(UMIGameSubsystem& Game, UFont* Font);
 	void Centered(const FString& Text, double Y, const FLinearColor& Colour, UFont* Font, float Scale);

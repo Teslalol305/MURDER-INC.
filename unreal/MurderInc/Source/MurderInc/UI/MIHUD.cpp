@@ -3,7 +3,10 @@
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/Font.h"
+#include "Core/Data/MIDataSubsystem.h"
 #include "Flow/MIGameSubsystem.h"
+#include "Player/MIPlayerController.h"
+#include "UI/MIStyle.h"
 #include "Player/MIPlayerCharacter.h"
 #include "Weapons/MIWeaponComponent.h"
 #include "World/MIBoxWorld.h"
@@ -90,18 +93,16 @@ void AMIHUD::DrawPlay(UFont* Font)
 		DrawLine(CX + B, CY + B, CX + A, CY + A, Mark, 2.f);
 	}
 
-	const double Reserve = Weapon->GetRules().GetReserve();
-	const FString Ammo = FMath::IsFinite(Reserve)
-		? FString::Printf(TEXT("%s  %d / %d"), *View.Weapon.ToString().ToUpper(), View.Mag, static_cast<int32>(Reserve))
-		: FString::Printf(TEXT("%s  %d / -"), *View.Weapon.ToString().ToUpper(), View.Mag);
+	DrawWeaponBar(*Player, UMIGameSubsystem::Get(this));
 	const FName Cue = Weapon->GetRules().GetCue();
 	float TW = 0.f, TH = 0.f;
-	GetTextSize(Ammo, TW, TH, Font, 1.5f);
-	DrawText(Ammo, White, W - TW - W * 0.03, H - TH - H * 0.04, Font, 1.5f);
 	if (!Cue.IsNone())
 	{
-		DrawText(Cue.ToString().ToUpper(), Amber, W - TW - W * 0.03, H - 2.2 * TH - H * 0.04, Font, 1.2f);
+		const FString C = Cue.ToString().ToUpper();
+		GetTextSize(C, TW, TH, MIStyle::CanvasDisplay(), 1.f);
+		DrawText(C, MIStyle::Gold(), CX - TW * 0.5, CY + H * 0.06, MIStyle::CanvasDisplay(), static_cast<float>(H / 1080.0 * 0.9));
 	}
+	DrawWheel(*Player);
 	const FString Health = FString::Printf(TEXT("HEALTH %d"), FMath::CeilToInt32(Rules.Health));
 	DrawText(Health, Rules.Health < Rules.MaxHealth * 0.3 ? Red : White, W * 0.03, H - TH - H * 0.04, Font, 1.5f);
 	if (Rules.Hurt > 0.0)
@@ -214,4 +215,167 @@ void AMIHUD::DrawMenu(UMIGameSubsystem& Game, UFont* Font)
 		Centered(Line, Y, bSel ? Amber : White, Font, bSel ? 1.45f : 1.3f);
 		Y += 40.0;
 	}
+}
+
+void AMIHUD::DrawPlate(double X, double Y, double W, double H, const FLinearColor& Fill, const FLinearColor& Edge, float EdgeWidth)
+{
+	DrawRect(Fill, X, Y, W, H);
+	DrawLine(X, Y, X + W, Y, Edge, EdgeWidth);
+	DrawLine(X, Y + H, X + W, Y + H, Edge, EdgeWidth);
+	DrawLine(X, Y, X, Y + H, Edge, EdgeWidth);
+	DrawLine(X + W, Y, X + W, Y + H, Edge, EdgeWidth);
+}
+
+void AMIHUD::DrawWeaponBar(const AMIPlayerCharacter& Player, UMIGameSubsystem* Game)
+{
+	using namespace MIStyle;
+	const UMIWeaponComponent* Weapon = Player.GetWeapon();
+	const FMIWeaponRules& R = Weapon->GetRules();
+	const double K = Canvas->ClipY / 1080.0;  // legible at 1080p and 4K alike
+	UFont* Big = CanvasDisplay();
+	UFont* Small = CanvasBody();
+	const UMIDataSubsystem* Data = UMIDataSubsystem::Get(this);
+	const FMILoadoutData* Loadout = Data && Data->IsLoadoutLoaded() ? &Data->GetLoadout() : nullptr;
+	const int32 N = R.NumGuns();
+	const double SW = 168.0 * K, SH = 74.0 * K, Gap = 8.0 * K, MeleeW = 118.0 * K, BagW = 104.0 * K;
+	const double Total = N * (SW + Gap) + MeleeW + Gap + BagW;
+	double X = Canvas->ClipX - Total - 40.0 * K;
+	const double Y = Canvas->ClipY - SH - 40.0 * K;
+	static const TCHAR* Glyphs[] = {TEXT("1"), TEXT("2"), TEXT("3"), TEXT("4")};
+	for (int32 I = 0; I < N; ++I)
+	{
+		const FMIWeaponDef& D = R.GetData().Guns[I];
+		const bool bCurrent = I == R.GetCurrentIndex();
+		DrawPlate(X, Y, SW, SH, WithAlpha(Plate(), bCurrent ? 0.86f : 0.6f), bCurrent ? Gold() : WithAlpha(PlateEdge(), 0.9f), bCurrent ? 2.f : 1.f);
+		if (bCurrent)
+		{
+			DrawRect(Gold(), X, Y, 4.0 * K, SH);
+		}
+		DrawText(Glyphs[FMath::Clamp(I, 0, 3)], bCurrent ? Gold() : InkFaint(), X + 10.0 * K, Y + 6.0 * K, Small, static_cast<float>(K * 0.85));
+		DrawText(D.Name, bCurrent ? Ink() : InkDim(), X + 26.0 * K, Y + 2.0 * K, Big, static_cast<float>(K * 0.95));
+		// Magazine pips (one per round, up to 30 shown) and the count.
+		const int32 Mag = R.GetMagOf(I);
+		const int32 Shown = FMath::Min(D.MagSize, 30);
+		const double PipW = (SW - 64.0 * K) / FMath::Max(1, Shown);
+		for (int32 P = 0; P < Shown; ++P)
+		{
+			const bool bFull = P < FMath::CeilToInt32(static_cast<double>(Mag) * Shown / FMath::Max(1, D.MagSize));
+			DrawRect(bFull ? WithAlpha(Ink(), bCurrent ? 0.9f : 0.55f) : WithAlpha(PlateEdge(), 0.8f), X + 12.0 * K + P * PipW, Y + SH - 14.0 * K, FMath::Max(1.0, PipW - 1.5 * K), 6.0 * K);
+		}
+		const FString Count = FString::Printf(TEXT("%d"), Mag);
+		float TW = 0.f, TH = 0.f;
+		GetTextSize(Count, TW, TH, Big, static_cast<float>(K * 0.8));
+		DrawText(Count, Mag == 0 ? Red() : (bCurrent ? Ink() : InkDim()), X + SW - TW - 10.0 * K, Y + SH - TH - 4.0 * K, Big, static_cast<float>(K * 0.8));
+		// AUTO / SEMI on a gun with both modes.
+		if (R.HasTwoModes(I))
+		{
+			const FString Mode = Loadout ? Loadout->Text(R.IsSemi(I) ? TEXT("frontend.hud.modes.semi") : TEXT("frontend.hud.modes.auto")) : FString(R.IsSemi(I) ? TEXT("SEMI") : TEXT("AUTO"));
+			GetTextSize(Mode, TW, TH, Small, static_cast<float>(K * 0.75));
+			DrawText(Mode, Cyan(), X + SW - TW - 10.0 * K, Y + 6.0 * K, Small, static_cast<float>(K * 0.75));
+		}
+		// One pip per fitted non-baseline attachment.
+		int32 Pips = 0;
+		for (const TPair<FName, FName>& Fit : D.Fitted)
+		{
+			const FMIAttachmentDef* Part = Loadout ? Loadout->FindPart(Fit.Value) : nullptr;
+			if (Part && !Part->bBaseline)
+			{
+				DrawRect(Gold(), X + 28.0 * K + Pips * 9.0 * K, Y + SH - 26.0 * K, 6.0 * K, 6.0 * K);
+				++Pips;
+			}
+		}
+		X += SW + Gap;
+	}
+	// Melee comes with you: the slot-1 gun's strike.
+	{
+		FString Melee;
+		if (Game && N > 0)
+		{
+			const FName First = R.GetData().Guns[0].Id;
+			const FMIGunEntry* G = Loadout ? Loadout->FindGun(First) : nullptr;
+			Melee = G && G->MeleeKey.StartsWith(TEXT("frontend.")) ? Loadout->Text(G->MeleeKey) : Game->GetCopy().Get(TEXT("weapons.melee.") + First.ToString());
+		}
+		DrawPlate(X, Y, MeleeW, SH, WithAlpha(Plate(), 0.6f), WithAlpha(PlateEdge(), 0.9f));
+		DrawText(TEXT("F"), InkFaint(), X + 10.0 * K, Y + 6.0 * K, Small, static_cast<float>(K * 0.85));
+		DrawText(Melee.ToUpper(), InkDim(), X + 10.0 * K, Y + SH * 0.45, Small, static_cast<float>(K * 0.8));
+		X += MeleeW + Gap;
+	}
+	// The shared bag once, or the infinite reserve of a bag-less set-up.
+	{
+		const double Bag = R.GetBag();
+		const FString Label = Loadout ? Loadout->Text(TEXT("frontend.hud.bag")) : FString(TEXT("BAG"));
+		const FString Value = Bag >= 0.0 ? FString::Printf(TEXT("%d"), static_cast<int32>(Bag)) : FString(TEXT("\u221e"));
+		DrawPlate(X, Y, BagW, SH, WithAlpha(Plate(), 0.6f), WithAlpha(PlateEdge(), 0.9f));
+		DrawText(Label, InkFaint(), X + 10.0 * K, Y + 6.0 * K, Small, static_cast<float>(K * 0.8));
+		float TW = 0.f, TH = 0.f;
+		GetTextSize(Value, TW, TH, Big, static_cast<float>(K * 1.05));
+		DrawText(Value, Bag == 0.0 ? Red() : Ink(), X + BagW - TW - 10.0 * K, Y + SH - TH - 2.0 * K, Big, static_cast<float>(K * 1.05));
+	}
+	// The fire-mode prompt on a two-mode gun (the selector works without its clip).
+	if (R.HasTwoModes(R.GetCurrentIndex()))
+	{
+		const FString Prompt = FString::Printf(TEXT("B  %s"), *(Loadout ? Loadout->Text(R.IsSemi(R.GetCurrentIndex()) ? TEXT("frontend.hud.modes.auto") : TEXT("frontend.hud.modes.semi")) : FString()));
+		DrawText(Prompt, InkFaint(), Canvas->ClipX - Total - 40.0 * K, Y - 26.0 * K, Small, static_cast<float>(K * 0.8));
+	}
+}
+
+void AMIHUD::DrawWheel(const AMIPlayerCharacter& Player)
+{
+	using namespace MIStyle;
+	const AMIPlayerController* PC = Cast<AMIPlayerController>(GetOwningPlayerController());
+	if (!PC || !PC->GetSwitch().IsWheelOpen())
+	{
+		return;
+	}
+	const FMIWeaponRules& R = Player.GetWeapon()->GetRules();
+	const int32 N = R.NumGuns();
+	const double K = Canvas->ClipY / 1080.0;
+	const double CX = Canvas->ClipX * 0.5, CY = Canvas->ClipY * 0.5;
+	const double Radius = 210.0 * K;
+	const int32 Sel = PC->GetSwitch().GetSelection();
+	UFont* Big = CanvasDisplay();
+	UFont* Small = CanvasBody();
+	const UMIDataSubsystem* Data = UMIDataSubsystem::Get(this);
+	const FMILoadoutData* Loadout = Data && Data->IsLoadoutLoaded() ? &Data->GetLoadout() : nullptr;
+	DrawRect(WithAlpha(Bg(), 0.45f), 0.f, 0.f, Canvas->ClipX, Canvas->ClipY);
+	// The ring and the sector dividers (slot 1 at the top, clockwise).
+	const int32 Segments = 96;
+	for (int32 I = 0; I < Segments; ++I)
+	{
+		const double A0 = UE_DOUBLE_TWO_PI * I / Segments, A1 = UE_DOUBLE_TWO_PI * (I + 1) / Segments;
+		for (const double Rr : {Radius * 0.42, Radius * 1.08})
+		{
+			DrawLine(CX + Rr * FMath::Sin(A0), CY - Rr * FMath::Cos(A0), CX + Rr * FMath::Sin(A1), CY - Rr * FMath::Cos(A1), WithAlpha(PlateEdge(), 0.9f), 2.f);
+		}
+	}
+	for (int32 I = 0; I < N; ++I)
+	{
+		const double A = UE_DOUBLE_TWO_PI * (I + 0.5) / N;
+		DrawLine(CX + Radius * 0.42 * FMath::Sin(A), CY - Radius * 0.42 * FMath::Cos(A), CX + Radius * 1.08 * FMath::Sin(A), CY - Radius * 1.08 * FMath::Cos(A), WithAlpha(PlateEdge(), 0.9f), 2.f);
+	}
+	for (int32 I = 0; I < N; ++I)
+	{
+		const FMIWeaponDef& D = R.GetData().Guns[I];
+		const double A = UE_DOUBLE_TWO_PI * I / N;
+		const double PX = CX + Radius * 0.76 * FMath::Sin(A), PY = CY - Radius * 0.76 * FMath::Cos(A);
+		const bool bSel = I == Sel;
+		const double PW = 150.0 * K, PH = 78.0 * K;
+		DrawPlate(PX - PW * 0.5, PY - PH * 0.5, PW, PH, bSel ? WithAlpha(Gold(), 0.92f) : WithAlpha(Plate(), 0.9f), bSel ? Gold() : PlateEdge(), bSel ? 2.f : 1.f);
+		const FLinearColor Ink1 = bSel ? Bg() : Ink();
+		float TW = 0.f, TH = 0.f;
+		GetTextSize(D.Name, TW, TH, Big, static_cast<float>(K * 0.95));
+		DrawText(D.Name, Ink1, PX - TW * 0.5, PY - PH * 0.5 + 4.0 * K, Big, static_cast<float>(K * 0.95));
+		const double Bag = R.GetReserveOf(I);
+		FString Line = FString::Printf(TEXT("%d / %s"), R.GetMagOf(I), FMath::IsFinite(Bag) ? *FString::FromInt(static_cast<int32>(Bag)) : TEXT("\u221e"));
+		if (R.HasTwoModes(I) && Loadout)
+		{
+			Line += TEXT("  ") + Loadout->Text(R.IsSemi(I) ? TEXT("frontend.hud.modes.semi") : TEXT("frontend.hud.modes.auto"));
+		}
+		GetTextSize(Line, TW, TH, Small, static_cast<float>(K * 0.8));
+		DrawText(Line, bSel ? Bg() : InkDim(), PX - TW * 0.5, PY + PH * 0.5 - TH - 6.0 * K, Small, static_cast<float>(K * 0.8));
+	}
+	const FString Centre = Loadout ? Loadout->Text(TEXT("frontend.hud.wheel")) : FString(TEXT("Pick a gun"));
+	float TW = 0.f, TH = 0.f;
+	GetTextSize(Centre.ToUpper(), TW, TH, Small, static_cast<float>(K * 0.9));
+	DrawText(Centre.ToUpper(), InkDim(), CX - TW * 0.5, CY - TH * 0.5, Small, static_cast<float>(K * 0.9));
 }
