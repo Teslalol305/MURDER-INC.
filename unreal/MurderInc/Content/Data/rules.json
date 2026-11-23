@@ -5,6 +5,20 @@
     "units": "metres"
   },
   "player": {
-    "blastTarget": { "standing": 1.0, "crouching": 0.6, "source": "src/combat.js:356 (explode: the player's sample point above the feet)" }
+    "blastTarget": { "standing": 1.0, "crouching": 0.6, "source": "src/combat.js:356 (explode: the player's sample point above the feet)" },
+    "shotTarget": { "radius": 0.38, "standing": 1.8, "crouching": 1.15, "source": "src/combat.js:21-23 (rayPlayer: the upright cylinder enemy rounds test, a little fatter than the body)" },
+    "fallOut": { "below": -30, "source": "src/player.js:29, :587-592 (feet below this or not finite: back to the last ground stood on)" }
+  },
+  "settings": {
+    "source": "src/core/settings.js:8-37 (validation of every stored setting), :4 and :5 (storage keys)",
+    "slot": "murderinc.settings.v1",
+    "sens": [0.2, 3], "sensStep": 0.05,
+    "fov": [60, 95], "fovStep": 1,
+    "volume": [0, 1], "volumeStep": 0.01,
+    "view": [1, 3],
+    "quality": ["auto", "low", "medium", "high", "ultra"],
+    "mode": ["mission", "holdout"],
+    "difficulty": ["hustler", "boss", "kingpin"],
+    "time": ["day", "night"]
   }
 }

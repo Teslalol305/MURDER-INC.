@@ -1031,6 +1031,12 @@ def cowl_panel(fit, name, glass=None):
     bm = bmesh.new()
     nx, ny = 6, 48
     x0, x1, hw = fit["x0"], fit["x1"], fit["hw"]
+    if bvh is not None:                         # (review pass 2) no wider than the glass base: no block past the A pillar
+        yh = [abs(y) for y in np.linspace(-hw, hw, 97)
+              if any(bvh.ray_cast(Vector((float(x), float(y), 6.0)), Vector((0, 0, -1)), 12.0)[0] is not None
+                     for x in np.arange(x1, x1 - 0.45, -0.02))]
+        if yh:
+            hw = min(hw, max(yh) + 0.01)
     g = {}
     for j in range(ny + 1):
         y = -hw + 2 * hw * j / ny
@@ -1186,7 +1192,14 @@ def make_parts(ctx, key):
             fit, kill = cowl_fit(c, n, cls, ck, spec)
             P_cowl = fit
             cls[kill] = CLS["drop"]
-    js = os.path.join(paths.texture_set(set_name), "set.json")
+            # (review pass 2) the generated dash top under the glass base reads as grey teeth through the
+            # windscreen: it goes, the modelled dash shows behind the glass
+            hw_ = spec["size"][1] / 2
+            dash = ((cls == CLS["inside"]) & (c[:, 0] > spec["cowl"] - 0.50) & (c[:, 0] < spec["cowl"] + 0.05)
+                    & (c[:, 2] > spec["belt"] - 0.12) & (np.abs(c[:, 1]) < hw_ - 0.20))
+            ctx.log("%s: generated dash top %d faces dropped" % (key, int(dash.sum())))
+            cls[dash] = CLS["drop"]
+    js =os.path.join(paths.texture_set(set_name), "set.json")
     if not spec.get("set") and (ctx.args.force or not os.path.exists(js) or ctx.args.bake):
         cm = cls.copy()
         cm[cm == 8] = CLS["paint"]

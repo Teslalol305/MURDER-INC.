@@ -764,7 +764,7 @@ def cover(parts):
 
 # ----------------------------------------------------------------------------------------------- build
 
-def chopper_build(ctx):
+def chopper_parts():
     parts = []
     chopper_receiver(parts)
     cover(parts)
@@ -777,7 +777,24 @@ def chopper_build(ctx):
     trigger_guard(parts)
     stock(parts)
     moving(parts)
-    gun = geo.join(parts, "SK_Chopper", ctx.col)
+    return parts
+
+
+def chopper_build(ctx, finish=None):
+    """Join the parts per texture set (finish(ob, set_name) unwraps and textures each piece), then into SK_Chopper
+    with three material slots, and bind to the armature."""
+    groups = {REAR: [], FURN: [], FRONT: []}
+    for ob in chopper_parts():
+        a = ob.data.attributes.get("tset")
+        t = int(round(a.data[0].value)) if a is not None and len(ob.data.polygons) else REAR
+        groups[t].append(ob)
+    pieces = []
+    for t in (REAR, FURN, FRONT):
+        ob = geo.join(groups[t], "SK_Chopper_" + SET_NAMES[t], ctx.col)
+        if finish:
+            finish(ob, SET_NAMES[t])
+        pieces.append(ob)
+    gun = geo.join(pieces, "SK_Chopper", ctx.col)
     bones = [rig.Bone("body", (0, 0, 0)),
              rig.Bone("bolt", (0.180, 0, 0.0145), "body"),
              rig.Bone("trigger", CH["trigger_pivot"], "body"),

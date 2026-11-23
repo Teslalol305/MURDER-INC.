@@ -2,6 +2,8 @@
 
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Core/Data/MIDataSubsystem.h"
+#include "Dom/JsonObject.h"
 #include "Engine/StaticMesh.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Weapons/MICombatSubsystem.h"
@@ -22,6 +24,10 @@ AMIExplosive::AMIExplosive()
 	{
 		Mesh->SetStaticMesh(Cube.Object);
 	}
+	Wreck = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Wreck"));
+	Wreck->SetupAttachment(Box);
+	Wreck->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Wreck->SetVisibility(false);
 }
 
 void AMIExplosive::BeginPlay()
@@ -42,6 +48,25 @@ void AMIExplosive::BeginPlay()
 		Mesh->SetRelativeScale3D(K->Box / 100.0);  // the engine cube is 100 cm
 		// The root is the box centre: lift it so that the actor location given in the level stays the foot.
 		AddActorWorldOffset(FVector(0, 0, Height * 0.5));
+		// The wreck: presentation.json explosives.<kind> (a soft path and its height as a share of the box).
+		TSharedPtr<FJsonObject> Presentation;
+		FString Error;
+		const TSharedPtr<FJsonObject>* Section = nullptr;
+		const TSharedPtr<FJsonObject>* Look = nullptr;
+		if (UMIDataSubsystem::LoadJsonFile(TEXT("presentation.json"), Presentation, Error) && Presentation->TryGetObjectField(TEXT("explosives"), Section) && (*Section)->TryGetObjectField(Kind.ToString(), Look))
+		{
+			FString Path;
+			double Share = 0.1;
+			(*Look)->TryGetStringField(TEXT("wreck"), Path);
+			(*Look)->TryGetNumberField(TEXT("wreckHeight"), Share);
+			if (UStaticMesh* WreckMesh = Path.IsEmpty() ? nullptr : LoadObject<UStaticMesh>(nullptr, *Path))
+			{
+				Wreck->SetStaticMesh(WreckMesh);
+				const FVector Size(K->Box.X * 0.9, K->Box.Y * 0.9, FMath::Max(1.0, K->Box.Z * Share));
+				Wreck->SetRelativeScale3D(Size / 100.0);
+				Wreck->SetRelativeLocation(FVector(0, 0, -Height * 0.5 + Size.Z * 0.5));
+			}
+		}
 	}
 	Index = Combat->AddExplosive(this, Kind, Foot);
 	Combat->Register(this);
@@ -85,15 +110,23 @@ void AMIExplosive::OnBlown()
 {
 	State = EMIExplosiveState::Gone;
 	Mesh->SetVisibility(false);
+	Wreck->SetVisibility(true);
 	Box->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+}
+
+void AMIExplosive::Restore()
+{
+	State = EMIExplosiveState::Idle;
+	Mesh->SetVisibility(true);
+	Wreck->SetVisibility(false);
+	Box->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 }
 
 void AMIExplosive::SyncFromItem(const FMIExplosiveItem& Item)
 {
 	State = Item.State;
-	if (State == EMIExplosiveState::Gone)
+	if (State == EMIExplosiveState::Gone && Mesh->IsVisible())
 	{
-		Mesh->SetVisibility(false);
-		Box->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		OnBlown();
 	}
 }

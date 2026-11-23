@@ -104,5 +104,42 @@
         "magazine": { "bone": "magazine", "drop": [0, -0.125, -0.032], "out": "magOut", "show": "magShow", "in": "magIn" }
       }
     }
+  },
+  "enemies": {
+    "note": "How the Vultures are drawn (AMIGoon, AMIBuzzard). Soft paths: the template mannequin with the engine's rifle animation set stands in for SK_Goon_* (docs/unreal/CHARACTERS.md, the mapping of docs/unreal/ANIMATION.md), a basic-shape drone for SK_Buzzard. The actors expose the rule state, events, aim and speed (docs/unreal/GAMEPLAY.md section 7); hit volumes come from config.json, never from the mesh.",
+    "goon": {
+      "variants": ["/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple.SKM_Manny_Simple", "/Game/Characters/Mannequins/Meshes/SKM_Quinn_Simple.SKM_Quinn_Simple", "/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple.SKM_Manny_Simple"],
+      "animClass": "/Game/Variant_Shooter/Anims/ABP_TP_Rifle.ABP_TP_Rifle_C",
+      "meshYaw": -90,
+      "weapon": "/Game/Weapons/Rifle/Meshes/SKM_Rifle.SKM_Rifle",
+      "weaponSocket": "HandGrip_R",
+      "muzzleSocket": "Muzzle",
+      "death": { "front": "/Game/Characters/Mannequins/Anims/Death/MM_Death_Front_01.MM_Death_Front_01", "back": "/Game/Characters/Mannequins/Anims/Death/MM_Death_Back_01.MM_Death_Back_01", "left": "/Game/Characters/Mannequins/Anims/Death/MM_Death_Left_01.MM_Death_Left_01", "right": "/Game/Characters/Mannequins/Anims/Death/MM_Death_Right_01.MM_Death_Right_01" },
+      "bones": { "head": "head", "pelvis": "pelvis", "spine": "spine_05", "handR": "hand_r", "handL": "hand_l" },
+      "lamp": { "colour": [1.0, 0.74, 0.42], "candelaPerLamp": 60, "radius": 900, "rise": 30, "fall": 9, "note": "src/enemies/goon.js:839, goon-anim.js:367: the lamp follows the rules' want (1.5 + 14 k^2 in the telegraph, 6 in the burst) with damp 30 up, 9 down; a point light stands in for the flare" }
+    },
+    "buzzard": {
+      "body": "/Engine/BasicShapes/Sphere.Sphere",
+      "bodySize": [100, 100, 44],
+      "rotor": "/Engine/BasicShapes/Cylinder.Cylinder",
+      "rotorSize": [37, 37, 2],
+      "eye": { "colour": [1.0, 0.09, 0.05], "candelaPerLamp": 40, "radius": 1200 }
+    }
+  },
+  "objectives": {
+    "note": "The master reel cases and the IPX truck (AMIReelCase, AMITruck), placed from level.json objectives and extraction; basic shapes until the props arrive.",
+    "case": { "mesh": "/Engine/BasicShapes/Cube.Cube", "size": [60, 40, 22], "lift": 75, "beacon": [1.0, 0.62, 0.18], "beaconCandela": 400, "beaconRadius": 600 },
+    "truck": { "mesh": "/Engine/BasicShapes/Cube.Cube", "size": [700, 250, 300], "door": [6, 120, 260], "doorOpenDegrees": 100 }
+  },
+  "explosives": {
+    "note": "What an explosive shows when it is gone (spec 02 2.13: low, inside the footprint, no collision). Basic shapes until gameplay_propane_tank_wreck and gameplay_welding_rack_wreck arrive.",
+    "propane": { "wreck": "/Engine/BasicShapes/Cylinder.Cylinder", "wreckHeight": 0.12 },
+    "rack": { "wreck": "/Engine/BasicShapes/Cube.Cube", "wreckHeight": 0.08 }
+  },
+  "block": {
+    "note": "The block at run time (AMIBlockGeometry): every level.json collider becomes collision in every map; it is drawn as grey boxes only in a map without art (no actor tagged artTag).",
+    "cube": "/Engine/BasicShapes/Cube.Cube",
+    "artTag": "MIBlock",
+    "floorDepth": 50
   }
 }

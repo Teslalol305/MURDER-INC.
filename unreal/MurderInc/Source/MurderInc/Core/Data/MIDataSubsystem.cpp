@@ -622,6 +622,7 @@ bool UMIDataSubsystem::ParseConfig(const TSharedPtr<FJsonObject>& Root, FMIConfi
 
 	P.Look.PitchLimit = In.Number(TEXT("player.look.pitchLimit"), RadToDeg);
 	P.Look.MouseDegreesPerCount = In.Number(TEXT("player.input.mouse"), RadToDeg);
+	P.Look.WheelDebounce = In.Number(TEXT("player.input.wheelDebounce"));
 
 	ParsePlayerRest(In, P);
 	ParseWeapons(In, Out.Weapons);

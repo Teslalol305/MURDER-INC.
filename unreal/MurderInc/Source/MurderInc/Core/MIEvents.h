@@ -106,8 +106,18 @@ struct FMIPlayerHitEvent
 	EMIDamageKind Kind = EMIDamageKind::Bullet;
 };
 
+struct FMIEnemyEvent;  // Enemies/MIEnemies.h: enemy:spawn, alert, telegraph, fire, melee, hit, killed (web units)
+struct FMIFlowEvent;   // Flow/MIGameRules.h: game:state, objective:*, holdout:wave, hud:*, audio:sting ...
+
 struct FMIGameEvents
 {
+	/** Every enemy event, in the order the rules emitted them (UMIGameSubsystem forwards them after each step). */
+	TMulticastDelegate<void(const FMIEnemyEvent&)> Enemy;
+	/** Every flow event (the web game's game:*, objective:*, holdout:*, hud:*, radio and audio:sting lines). */
+	TMulticastDelegate<void(const FMIFlowEvent&)> Flow;
+	/** The music driver's intensity 0..1 (flow.music), every frame of a run. */
+	TMulticastDelegate<void(double /*Intensity*/)> MusicIntensity;
+
 	TMulticastDelegate<void(const FMIShotFiredEvent&)> WeaponFire;
 	TMulticastDelegate<void(FName /*Weapon*/)> WeaponDry;
 	TMulticastDelegate<void(const FMIReloadEvent&)> WeaponReload;

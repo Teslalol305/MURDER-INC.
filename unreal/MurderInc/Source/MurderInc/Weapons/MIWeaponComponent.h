@@ -34,6 +34,8 @@ public:
 	void Step(double Dt, const FMIWeaponInput& Input, const FVector2D& LookDelta);
 
 	const FMIWeaponRules& GetRules() const { return Rules; }
+	/** Resupply (Hold the Block between waves): rounds onto the reserve, capped. */
+	void AddReserve(double Rounds, double Cap) { Rules.AddReserve(Rounds, Cap); }
 	FMIWeaponView GetView() const { return Rules.GetView(); }
 	const FMIViewmodelRig& GetRig() const { return Rig; }
 	bool IsReady() const { return bReady; }

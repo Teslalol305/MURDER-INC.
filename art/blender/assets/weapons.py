@@ -1701,11 +1701,15 @@ def mark_piece(ob, value=1.0):
 
 
 def build_chopper(ctx):
-    gun, arm = CH9.chopper_build(ctx)
     res = tex_res(ctx, "SK_Chopper")
-    dens = unwrap(gun, res)
-    ctx.log("SK_Chopper: %d tris, %.0f px/m" % (geo.stats(gun)["triangles"], dens))
-    texture(ctx, gun, paint_chopper, res)
+
+    def finish(ob, set_name):
+        # one unique 4K set per piece: receiver and rear (the eye is 16 cm away when aimed), furniture, front end
+        dens = unwrap(ob, res)
+        ctx.log("%s: %d tris, %.0f px/m" % (set_name, geo.stats(ob)["triangles"], dens))
+        texture(ctx, ob, TX.paint_chopper, res, set_name=set_name)
+    gun, arm = CH9.chopper_build(ctx, finish)
+    ctx.log("SK_Chopper: %d tris, %d slots" % (geo.stats(gun)["triangles"], len(gun.material_slots)))
     geo.ensure_wear(gun)
     SKINNED["SK_Chopper"] = {"ob": gun, "arm": arm, "expect_size": (0.502, 0.065, None), "poses": chopper_poses(),
                              "notes": CHOPPER_NOTES}
@@ -1715,7 +1719,7 @@ def build_chopper(ctx):
     mag = geo.join([body, top], "SM_Weapon_ChopperMagazine", ctx.col)
     mres = tex_res(ctx, "SM_Weapon_ChopperMagazine")
     unwrap(mag, mres)
-    texture(ctx, mag, paint_magazine, mres, body_col=L["magbody"], floor_col=L["dark"])
+    texture(ctx, mag, TX.paint_chopper_mag, mres)
     top = split_off(mag, None, "SM_Weapon_ChopperMagazine_TopRound", ctx.col)
     for o in (mag, top):
         geo.ensure_wear(o)
@@ -1742,7 +1746,10 @@ CHOPPER_NOTES = (
     "+Y), selector (left side, pivot X 0.012 Z -0.004; safe at rest, about +7 / +14 deg about +Y for auto / "
     "semi, marked S A 1), magazine (attach bone at the gun origin: parent SM_Weapon_ChopperMagazine to it; "
     "rocks -24 deg about +Y through the socket MagHinge). Sockets: Muzzle, Eject, SightRear, SightFront, "
-    "RecoilPivot, MagHinge, Palm_R, Palm_L (brief positions). One slot M_Chopper, set Chopper (4K, E = sight paint).")
+    "RecoilPivot, MagHinge, Palm_R, Palm_L (brief positions). Three slots, each a unique 4K set: M_Chopper (set "
+    "Chopper: receiver, cover, rear sight, bolt, trigger group, hinge; E = sight paint), M_Chopper_Furniture (set "
+    "Chopper_Furniture: laminated handguards and grip), M_Chopper_Front (set Chopper_Front: sight block, barrel, gas "
+    "block, booster, band, liners, stock arms and shoulder piece).")
 CHOPPER_MAG_NOTES = (
     "CHOPPER 30-round magazine (stamped steel, side ribs, spine, four cross ribs, feed lips, floor plate) with "
     "the second round of the stack; origin = gun origin (in place X 0.160..0.312, Z -0.229..-0.021). Hinge for "
@@ -1837,7 +1844,7 @@ def on_export(ctx, objs):
             raise ValueError("%s: re-import proof failed: %s" % (name, json.dumps(rep)[:2000]))
         sockets = {b.name: [round(v, 5) for v in b.head_local] for b in arm.data.bones if not b.use_deform}
         entry = rig.manifest_entry(ob, arm, ctx.family, path, s["notes"], sockets=sockets, poses_report=rep)
-        export.write_manifest([entry], [set_name_of(name)])
+        export.write_manifest([entry], [m.name[2:] for m in ob.data.materials if m and m.name.startswith("M_")])
 
 
 # ================================================================================================ previews

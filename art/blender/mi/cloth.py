@@ -116,7 +116,7 @@ def garment_mesh(name, f, lo, hi, h, cuts=(), col=None, relax=4, keep_largest=Tr
     v, q = _sdf.surface_nets(g, lo, hi, h, frame=frame, origin=origin)
     if keep_largest:
         v, q = _sdf.keep_largest(v, q)
-    v = _sdf.project(g, v, 3)
+    v = safe_project(g, v, 3, h)
     # cap faces: every corner on a cut plane
     on = np.zeros(len(v), dtype=bool)
     which = -np.ones(len(v), dtype=np.int64)
@@ -160,8 +160,17 @@ def _relax_open(f, v, quads, iters, bnd, lam=0.5):
         d = mean - v
         d -= np.einsum("ij,ij->i", d, g)[:, None] * g
         d[bnd] *= 0.0
-        v = _sdf.project(f, v + lam * d, 2)
+        v = safe_project(f, v + lam * d, 2, 0.02)
     return v
+
+
+def safe_project(f, v, iters, limit):
+    """sdf.project, but a point that would move further than `limit` (a flat or clamped stretch of the field) keeps
+    its start position."""
+    w = _sdf.project(f, v, iters)
+    bad = ~np.isfinite(w).all(axis=1) | (np.linalg.norm(w - v, axis=1) > limit)
+    w[bad] = v[bad]
+    return w
 
 
 def boundary_vertices(ob):
@@ -395,6 +404,7 @@ def hem_facing(ob, depth=0.02, thickness=0.003, steps=2, loops=None):
         m = len(L)
         if m < 3:
             continue
+        bm.verts.ensure_lookup_table()
         # orientation: the existing face on edge (L0, L1) runs L0 -> L1 or L1 -> L0
         ed = bm.edges.get((bm.verts[L[0]], bm.verts[L[1]]))
         forward = True
@@ -402,6 +412,7 @@ def hem_facing(ob, depth=0.02, thickness=0.003, steps=2, loops=None):
             fv = [v.index for v in ed.link_faces[0].verts]
             k = fv.index(L[0])
             forward = fv[(k + 1) % len(fv)] == L[1]
+        closed = (bm.edges.get((bm.verts[L[0]], bm.verts[L[-1]])) is not None)
         P, Nn = co[L], N[L]
         Dd = D[L] - np.einsum("ij,ij->i", D[L], Nn)[:, None] * Nn
         Dd /= np.maximum(np.linalg.norm(Dd, axis=1, keepdims=True), 1e-9)
@@ -409,7 +420,6 @@ def hem_facing(ob, depth=0.02, thickness=0.003, steps=2, loops=None):
         for j in range(1, steps + 2):
             R = P - Nn * thickness + (Dd * depth * (j - 1) / steps if j > 1 else 0)
             rings.append([bm.verts.new(Vector(p)) for p in R])
-        closed = (bm.edges.get((bm.verts[L[0]], bm.verts[L[-1]])) is not None)
         for r0, r1 in zip(rings[:-1], rings[1:]):
             for i in range(m if closed else m - 1):
                 k = (i + 1) % m

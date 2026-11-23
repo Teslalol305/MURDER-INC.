@@ -135,6 +135,8 @@ public:
 	int32 MaxAliveNow() const { return MaxAlive; }
 	int32 PursuitLeftNow() const { return PursuitLeft; }
 	double Progress() const { return GrabProgress; }
+	/** The objective being held (its index), or INDEX_NONE. */
+	int32 GrabbingObjective() const { return GrabTarget; }
 	bool AllSecured() const { return Mode == FName(TEXT("mission")) && Run.Total > 0 && Run.Reels >= Run.Total; }
 	bool IsSecured(int32 Objective) const { return Secured.Contains(Objective); }
 	int32 WavesCleared() const { return Cleared; }

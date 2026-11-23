@@ -33,6 +33,8 @@ public:
 	virtual FName GetMISurface() const override { return TEXT("metal"); }
 
 	void OnBlown();
+	/** Back to intact (a run reset): visible, colliding, the wreck hidden. */
+	void Restore();
 	void SyncFromItem(const FMIExplosiveItem& Item);
 	int32 GetIndex() const { return Index; }
 	UBoxComponent* GetBox() const { return Box; }
@@ -48,6 +50,10 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "MurderInc")
 	TObjectPtr<UStaticMeshComponent> Mesh;
+
+	/** What is left once it blew (presentation.json explosives.<kind>.wreck): low, inside the footprint, no collision. */
+	UPROPERTY(VisibleAnywhere, Category = "MurderInc")
+	TObjectPtr<UStaticMeshComponent> Wreck;
 
 	int32 Index = INDEX_NONE;
 	EMIExplosiveState State = EMIExplosiveState::Idle;

@@ -101,6 +101,7 @@ struct FMIPlayerLookData
 	double AdsScale = 0.0;              // look-rate factor at full aim
 	double MouseDegreesPerCount = 0.0;  // degrees per mouse count at sensitivity 1
 	double MouseGlitch = 0.0;           // counts: a larger single event is discarded
+	double WheelDebounce = 0.0;         // s: at most one weapon swap from the mouse wheel per this long
 };
 
 /** config.json "player.health" */

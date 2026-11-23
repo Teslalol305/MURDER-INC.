@@ -167,6 +167,14 @@ class BodyField:
             np.savez_compressed(cache, F=self.F)
 
     def __call__(self, p):
+        """Trilinear read; outside the sampled box the value at the nearest box point plus the distance to the box
+        (continuous, grows outward: no false surfaces where the box clips the body)."""
+        p = np.asarray(p, dtype=np.float64)
+        pc = np.clip(p, self.lo, self.hi)
+        out_d = np.linalg.norm(p - pc, axis=1)
+        return self._read(pc) + out_d
+
+    def _read(self, p):
         q = (np.asarray(p) - self.lo) / self.h
         q = np.clip(q, 0, self.n - 1.0001)
         i = np.floor(q).astype(int)

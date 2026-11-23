@@ -39,9 +39,12 @@ public:
 
 	/**
 	 * combat.explode: the explosion event, then every living target in range and in sight takes
-	 * Damage x (1 - distance / Radius) (the player x PlayerScale). SourceIndex: the explosive that blew, or INDEX_NONE.
+	 * Damage x (1 - distance / Radius) (the player x PlayerScale; below 0: explosives.rules.playerDamageScale). SourceIndex: the explosive that blew, or INDEX_NONE.
 	 */
-	void Explode(const FVector& Centre, double Radius, double Damage, int32 SourceIndex, bool bBig = true, AActor* SourceActor = nullptr);
+	void Explode(const FVector& Centre, double Radius, double Damage, int32 SourceIndex, bool bBig = true, AActor* SourceActor = nullptr, double PlayerScale = -1.0);
+
+	/** Every explosive back to intact and idle (a run reset): the field, the actors, their collision. */
+	void ResetExplosives();
 
 	/** True when nothing on the weapon channel blocks the line (the ends' own actors ignored). */
 	bool LineOfSight(const FVector& From, const FVector& To, const AActor* IgnoreA, const AActor* IgnoreB) const;

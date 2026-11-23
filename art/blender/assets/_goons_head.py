@@ -88,7 +88,7 @@ def mask(H, col, bottom_z, h=0.0024, slits=True):
     return ob
 
 
-def hood(H, col, neck_ring, h=0.0105, ease=0.024, back=0.035):
+def hood(H, col, neck_ring, h=0.0105, ease=0.024, back=0.035, face_r=0.10):
     """The hood up: the head grown by `ease` (more at the back and the crown, where a hood stands off), open at
     the face, its bottom on the neckline ring `neck_ring` (points of the body's neck opening)."""
     j = H.j
@@ -100,7 +100,7 @@ def hood(H, col, neck_ring, h=0.0105, ease=0.024, back=0.035):
         return H(p) - e
     ring_z = float(np.mean(neck_ring[:, 2]))
     fc = j + np.array([0, -0.05, 0.035])
-    cuts = [((fc[0], fc[1] - 0.035, fc[2]), unit((0, -1.0, -0.42))),       # the face opening
+    cuts = [((fc[0], fc[1] - 0.035, fc[2]), unit((0, -1.0, -0.42)), face_r),       # the face opening (closes under the chin)
             ((0, 0, ring_z), (0, 0, -1))]
     lo = np.array([j[0] - 0.17, j[1] - 0.19, ring_z - 0.03])
     hi = np.array([j[0] + 0.17, j[1] + 0.20, H.top + 0.08])

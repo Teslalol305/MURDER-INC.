@@ -323,3 +323,172 @@ def paint_nine_mag(G):
             octave=10)
     S.dirt(0.5)
     return S.channels(height_blur=0.4)
+
+
+# ================================================================================================= CHOPPER
+
+def chopper_handling(p, n):
+    """Where the CHOPPER is rubbed (0..1): hands, sling, the bolt handle's path, holster-like contacts on the
+    muzzle, sights, cover ribs, hinge and the magazine well."""
+    H = np.zeros(len(p), np.float32)
+    x, y, z = p[:, 0], p[:, 1], p[:, 2]
+    H += tp.smooth(x, 0.488, 0.4975) * 0.9                                           # muzzle crown and mouth
+    H += (x > 0.426) * (x < 0.476) * tp.smooth(np.hypot(y, z), 0.0118, 0.0129) * 0.5  # booster body
+    H += (x > 0.035) * (x < 0.061) * (z > 0.026) * 0.75                               # cover ribs
+    H += (x > 0.104) * (x < 0.176) * (y < -0.013) * (z > -0.003) * (z < 0.033) * 0.7  # ejection port edges
+    H += (x > 0.080) * (x < 0.196) * (y > 0.013) * (z > 0.005) * (z < 0.014) * 0.85   # charging slot: handle path
+    H += gauss(p, (0.180, 0.036, 0.0145), 0.010, 0.9)                                # knob
+    H += gauss(p, (0.100, 0.020, 0.002), 0.012, 0.9) + gauss(p, (0.055, 0.017, -0.004), 0.030, 0.35)  # selector
+    H += gauss(p, (0.022, 0.0, -0.028), 0.016, 0.75)                                 # hinge
+    H += (x > 0.150) * (x < 0.232) * (z < -0.033) * (z > -0.046) * 0.7                 # magazine well lips
+    H += gauss(p, (0.409, 0.0, 0.060), 0.010, 0.8) + gauss(p, (0.0235, 0.0, 0.052), 0.012, 0.7)  # sight ears
+    H += gauss(p, (0.0, 0.0, -0.010), 0.020, 0.55)                                   # rear end
+    H += gauss(p, (0.315, 0.0, -0.055), 0.040, 0.6) * (z < -0.030)                   # left palm, butt plate
+    H += gauss(p, (0.040, -0.016, -0.085), 0.030, 0.7) + gauss(p, (0.110, 0.0, -0.065), 0.018, 0.6)  # grip, trigger
+    H += gauss(p, (0.386, -0.025, -0.012), 0.008, 0.8)                               # band lever
+    H += (x > 0.234) * (x < 0.338) * (z < -0.054) * 0.35                              # shoulder piece edges
+    H += (x > 0.060) * (x < 0.170) * (z > 0.036) * 0.45                               # rail lugs
+    H += gauss(p, (0.258, -0.014, 0.019), 0.006, 0.8)                                # retainer lever pad
+    return np.clip(H, 0, 1)
+
+
+def laminate(S, sel, base, ply_axis, grain_axis, handling, palm=None, web=None, octave=0):
+    """Laminated wood under varnish: plies 1.2-1.8 mm thick in three alternating red-brown tones (the shape's
+    curves cut through them, so the ply lines swirl as contours), grain along grain_axis with open pores, varnish
+    0.35-0.5 broken by the pores, polished where a hand rubs, chips to pale raw wood on worn edges."""
+    if not sel.any():
+        return
+    p, N = S.p[sel], S.N
+    n = S.n[sel]
+    warp = 0.00030 * N.fbm(p, 45.0, 3, octave0=130 + octave) + 0.00012 * N.fbm(p, 260.0, 2, octave0=133 + octave)
+    q = p[:, ply_axis] + warp
+    s = q / 0.0015 + 0.22 * np.sin(q / 0.0061 * 2 * math.pi)                         # 1.2 .. 1.8 mm plies
+    k = np.floor(s).astype(np.int64)
+    f = s - np.floor(s)
+    tones = np.array([[0.86, 0.80, 0.78], [1.00, 1.00, 1.00], [1.17, 1.08, 0.98]], np.float32)
+    jit = N.vals[(k * 37 + 11) & 255] * 0.10 - 0.05
+    col = np.asarray(base, np.float32)[None, :] * tones[np.mod(k, 3)] * (1 + jit)[:, None]
+    glue = tp.smooth(0.10 - np.minimum(f, 1 - f), 0.0, 0.06)
+    fr = [1800.0, 1800.0, 1800.0]
+    fr[grain_axis] = 22.0
+    grain = N.fbm(p + warp[:, None] * 4, tuple(fr), 3, octave0=136 + octave)
+    fr2 = [v * 2.2 for v in fr]
+    pores = tp.smooth(N.ridged(p, tuple(fr2), 1, octave0=139 + octave), 0.90, 0.985)
+    col = col * (1 + 0.16 * grain[:, None]) * (1 - 0.35 * glue[:, None]) * (1 - 0.22 * pores[:, None])
+    # end grain (faces across the grain) and vent walls read darker and drier
+    end = tp.smooth(np.abs(n[:, grain_axis]), 0.55, 0.85)
+    col = col * (1 - 0.45 * end[:, None])
+    hz = np.clip(handling[sel], 0, 1)
+    brk = N.fbm(p, 360.0, 3, octave0=142 + octave)
+    e = S.convex[sel]
+    chip = tp.smooth(e * (0.3 + 1.3 * hz) + 0.40 * brk - 0.92, 0.0, 0.10)
+    raw = lin("b08458")
+    col = col + (raw[None, :] * (0.9 + 0.2 * grain[:, None]) - col) * chip[:, None]
+    r = 0.42 + 0.05 * N.fbm(p, 120.0, 2, octave0=145 + octave) + 0.12 * pores + 0.15 * end
+    if palm is not None:
+        pm = np.clip(palm[sel], 0, 1)
+        r = r + (0.20 - r) * pm * (1 - pores * 0.6)
+        col = col * (1 - 0.10 * pm)[:, None]
+    if web is not None:
+        wb = np.clip(web[sel], 0, 1)
+        col = col * (1 - 0.35 * wb)[:, None]
+        r = r + 0.08 * wb
+    r = r + (0.72 - r) * chip
+    S.bc[sel] = col
+    S.rough[sel] = r
+    S.metal[sel] = 0.0
+    S.h[sel] += -2.5e-5 * pores + 4e-6 * grain - 5e-5 * chip * (0.5 + 0.5 * brk) + 1.5e-6 * N.fbm(p, 4500.0, 1, octave0=148 + octave)
+
+
+def paint_chopper(G):
+    """One painter for the three CHOPPER sets (receiver and rear, furniture, front end): every mask is a function
+    of the gun-space position, so the sets meet without seams."""
+    S = Surf2(G, 101)
+    p, n, N = S.p, S.n, S.N
+    hz = chopper_handling(p, n)
+    blued, bright_edge = lin("5a5e65"), lin("9aa0a8")
+    S.steel(S.sel(W.BLUED), blued, 0.42, hz, bright_edge, worn_rough=0.22, thin_shift=(lin("5e5052"), 0.45), rvar=0.06,
+            octave=0)
+    S.steel(S.sel(W.COVER), lin("53565c"), 0.44, hz, bright_edge, worn_rough=0.22, thin_shift=(lin("5a4f50"), 0.40),
+            rvar=0.06, octave=3)
+    S.steel(S.sel(W.DARK), lin("3c3e43"), 0.47, hz, bright_edge, worn_rough=0.24, rvar=0.05, octave=6)
+    car = S.sel(W.BRIGHT)
+    S.steel(car, lin("b1b6bd"), 0.27, np.clip(hz + 0.3, 0, 1), lin("c8ccd2"), worn_rough=0.16, brushed="X", rvar=0.03,
+            cvar=0.02, octave=9, rub_polish=0.05)
+    if car.any():                                    # machining: fine tool marks across the milled faces
+        q = p[car]
+        S.h[car] += 1.2e-6 * np.sin(q[:, 0] / 0.00018 * 2 * math.pi) * (np.abs(n[car, 1]) > 0.7)
+    wood = S.sel(W.WOOD)
+    grip = wood & (p[:, 2] < -0.035) & (p[:, 0] < 0.09)
+    hg = wood & ~grip
+    palm_l = tp.smooth(0.006 - np.abs(p[:, 0] - 0.315), 0.0, 0.020) * (p[:, 2] < -0.018) * 0.9
+    laminate(S, hg, lin("55301c"), 2, 0, hz, palm=palm_l, octave=0)
+    palm_r = gauss(p, (0.035, -0.016, -0.090), 0.028, 1.0) * (p[:, 1] < 0.002)
+    web = gauss(p, (0.026, 0.0, -0.045), 0.014, 0.8) * (p[:, 0] < 0.034)
+    laminate(S, grip, lin("55301c"), 1, 2, hz, palm=palm_r * 0.85, web=web, octave=10)
+    # rubber pad of the shoulder piece: moulded ribs across
+    pad = S.sel(W.POLYMER)
+    if pad.any():
+        q = p[pad]
+        rib = np.abs(np.sin(q[:, 0] / 0.0024 * math.pi))
+        S.bc[pad] = lin("1b1a1a")[None, :] * (1 + 0.05 * N.fbm(q, 90.0, 2, octave0=150)[:, None])
+        S.rough[pad] = 0.72 - 0.08 * hz[pad]
+        S.metal[pad] = 0.0
+        S.h[pad] += -1.6e-4 * tp.smooth(rib, 0.0, 0.35) * (n[pad, 2] < -0.5)
+    S.plain(S.sel(W.BORE), lin("050506"), 0.62, 0.0)
+    # carbon: inside the booster (black at the throat, fading out to the mouth), gas block front, round the port
+    # and on the bolt face; oil on the carrier and in the port
+    r = np.hypot(p[:, 1], p[:, 2])
+    inside = ((S.n[:, 1] * p[:, 1] + S.n[:, 2] * p[:, 2]) < 0) & (p[:, 0] > 0.43)
+    carbon = (inside * (r < 0.0165) * (0.55 + 0.45 * tp.smooth(0.494 - p[:, 0], 0.0, 0.02))
+              + tp.smooth(p[:, 0], 0.4955, 0.4975) * tp.smooth(0.0150 - r, 0.0, 0.0012) * 0.6
+              + (p[:, 0] > 0.4250) * (p[:, 0] < 0.428) * (S.n[:, 0] > 0.6) * 0.35
+              + gauss(p, (0.150, -0.017, 0.012), 0.022, 0.55) * (p[:, 1] < -0.010)
+              + (p[:, 0] > 0.2025) * car * (S.n[:, 0] > 0.6) * 0.7)
+    oil = gauss(p, (0.150, -0.010, 0.014), 0.035, 0.8) * car + gauss(p, (0.30, 0.0, 0.008), 0.05, 0.3)
+    S.dirt(0.9, carbon=np.clip(carbon, 0, 1), oil=oil)
+    # sight paint (faintly self-lit): two dots on the rear leaf, a strip on the front post's rear face
+    S.dots([(0.0215, 0.0046, 0.0498), (0.0215, -0.0046, 0.0498)], 0.00095, "-X")
+    S.dots([(0.4080, 0.0, 0.0527)], (0.00072, 0.0027), "-X")
+    # stamped markings: selector positions, a fictional proof mark, a short fictional number
+    img = tp.text_image([("S", 128, 70, 120), ("A", 128, 250, 120), ("1", 128, 430, 120)], 512)
+    S.engrave(img, (0, 2), (0.1075, -0.0215), (0.0105, 0.0315), "+Y", 6e-5)
+    pm = tp.text_image([("✶", 256, 256, 330)], 512)
+    S.engrave(pm, (0, 2), (0.2195, -0.0125), (0.0085, 0.0085), "+Y", 5e-5)
+    sn = tp.text_image([("MI-87", 256, 256, 140)], 512)
+    S.engrave(sn, (0, 2), (0.236, -0.0040), (0.022, 0.022), "+Y", 4e-5)
+    kn = S.sel(W.DARK) & (p[:, 1] > 0.031) & (np.abs(p[:, 0] - 0.180) < 0.008) & (np.abs(p[:, 2] - 0.0145) < 0.008)
+    ang = np.arctan2(p[:, 2] - 0.0145, p[:, 0] - 0.180)
+    knurl = np.sin(ang * 36 + p[:, 1] / 0.0007 * 2 * math.pi) * np.sin(ang * 36 - p[:, 1] / 0.0007 * 2 * math.pi)
+    S.h += kn * 2.5e-5 * knurl
+    # trigger face serrations
+    trg = S.sel(W.DARK) & (np.abs(p[:, 0] - 0.105) < 0.009) & (p[:, 2] < -0.040) & (p[:, 2] > -0.070) & (n[:, 0] < -0.4)
+    S.h += trg * 3e-5 * np.sin(p[:, 2] / 0.0010 * 2 * math.pi)
+    return S.channels(height_blur=0.4)
+
+
+def paint_chopper_mag(G):
+    """CHOPPER magazine: dull blued body, bright only on the feed lips, the lug and tab and the floor plate edges,
+    insertion scuffs at the top of the body; brass and copper rounds."""
+    S = Surf2(G, 7)
+    p, n, N = S.p, S.n, S.N
+    top = tp.smooth(p[:, 2], -0.050, -0.028)
+    floor = tp.smooth(-p[:, 2], 0.205, 0.226)
+    hz = np.clip(top * 0.85 + floor * 0.7 + gauss(p, (0.29, 0.0, -0.20), 0.05, 0.35), 0, 1)
+    body = S.sel(W.BLUED)
+    S.steel(body, lin("45484e"), 0.52, hz, lin("9aa0a8"), worn_rough=0.24, thin_shift=(lin("4d4446"), 0.35), rvar=0.05,
+            edge_gain=1.1, octave=0)
+    if body.any():
+        q = p[body]
+        sc = tp.smooth(N.ridged(np.stack([q[:, 0] * 400.0, q[:, 1] * 30.0, q[:, 2] * 2500.0], 1), 1.0, 2, octave0=160),
+                       0.95, 0.995) * top[body] * (np.abs(n[body, 1]) > 0.6)
+        S.bc[body] += (lin("9aa0a8") - S.bc[body]) * (0.6 * sc)[:, None]
+        S.rough[body] -= 0.1 * sc
+    S.steel(S.sel(W.DARK), lin("3c3e43"), 0.50, hz, lin("9aa0a8"), worn_rough=0.24, octave=3)
+    S.plain(S.sel(W.BORE), lin("050506"), 0.7, 0.0)
+    S.steel(S.sel(W.BRASS), lin("caa23d"), 0.27, hz * 0, lin("e2c46a"), worn_rough=0.2, cvar=0.03, octave=6)
+    S.steel(S.sel(W.COPPER), lin("b5683a"), 0.29, hz * 0, lin("d08a5a"), worn_rough=0.2, cvar=0.03, octave=8)
+    S.steel(S.sel(W.PRIMER), lin("caa23d") * np.array([0.95, 0.9, 0.85], np.float32), 0.32, hz * 0, lin("caa23d"),
+            octave=10)
+    S.dirt(0.8)
+    return S.channels(height_blur=0.4)

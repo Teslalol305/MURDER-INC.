@@ -92,7 +92,19 @@ bool UMICombatSubsystem::LineOfSight(const FVector& From, const FVector& To, con
 	return !World->LineTraceSingleByObjectType(Hit, From, To, Objects, Params);
 }
 
-void UMICombatSubsystem::Explode(const FVector& Centre, double Radius, double Damage, int32 SourceIndex, bool bBig, AActor* SourceActor)
+void UMICombatSubsystem::ResetExplosives()
+{
+	Field.Reset();
+	for (int32 I = 0; I < ExplosiveActors.Num(); ++I)
+	{
+		if (AMIExplosive* Actor = ExplosiveActors[I].Get())
+		{
+			Actor->Restore();
+		}
+	}
+}
+
+void UMICombatSubsystem::Explode(const FVector& Centre, double Radius, double Damage, int32 SourceIndex, bool bBig, AActor* SourceActor, double PlayerScale)
 {
 	if (!EnsureData())
 	{
@@ -143,7 +155,7 @@ void UMICombatSubsystem::Explode(const FVector& Centre, double Radius, double Da
 		}
 		const bool bPlayer = Target->GetMIDamageableKind() == TEXT("player");
 		FMIDamage Hit;
-		Hit.Amount = Damage * Falloff * (bPlayer ? Data.Rules.PlayerDamageScale : 1.0);
+		Hit.Amount = Damage * Falloff * (bPlayer ? (PlayerScale >= 0.0 ? PlayerScale : Data.Rules.PlayerDamageScale) : 1.0);
 		Hit.Kind = EMIDamageKind::Blast;
 		Hit.Source = EMIDamageSource::Blast;
 		Hit.From = Centre;
