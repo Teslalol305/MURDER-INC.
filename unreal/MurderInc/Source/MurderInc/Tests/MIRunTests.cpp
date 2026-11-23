@@ -28,6 +28,9 @@
 #include "InputKeyEventArgs.h"
 #include "Player/MIPlayerController.h"
 #include "Enemies/MIEnemies.h"
+#include "Weapons/MIGunAssembly.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 
 #if WITH_AUTOMATION_TESTS
 
@@ -974,6 +977,62 @@ bool FMIControllerKeysTest::RunTest(const FString& Parameters)
 	}
 	PC->UnPossess();
 	LP->PlayerRemoved();
+	return !HasAnyErrors();
+}
+
+// The stage and the first-person gun build a gun with UMIGunAssembly: every fitted part takes the gun's scale, whatever
+// the gun's scale is when the part is fitted (the rack's swap scales the turntable out and in, and parts fitted then
+// came out 16 times too big). Needs the pack's STICK and scope (skipped without them).
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMILoadoutPartsScaleTest, "MurderInc.Loadout.PartsScale", MITest::Flags)
+
+bool FMILoadoutPartsScaleTest::RunTest(const FString& Parameters)
+{
+	using namespace MIRunTestsPrivate;
+	FMILoadoutData D;
+	TSharedPtr<FJsonObject> Config, Presentation;
+	FString Error;
+	if (!TestTrue(TEXT("data"), FMILoadoutData::Load(D, Error) && FMILoadoutResolver::LoadRoots(Config, Presentation, Error)))
+	{
+		AddError(Error);
+		return false;
+	}
+	FMIReadiness Ready;
+	Ready.Data = &D;
+	Ready.AssetExists = FMIReadiness::PackageExists();
+	if (!Ready.OfferedParts(TEXT("stick"), TEXT("optic")).Contains(TEXT("scope")))
+	{
+		AddInfo(TEXT("The pack's STICK and scope are not installed here: nothing to check (LOADOUT.md 6.7)."));
+		return true;
+	}
+	FMIGunBuild Build;
+	Build.Parts.Add(TEXT("optic"), TEXT("scope"));
+	Build.Parts.Add(TEXT("muzzle"), TEXT("silencer"));
+	FMIResolvedGun G;
+	if (!TestTrue(TEXT("the STICK resolves"), FMILoadoutResolver(D, Config, Presentation).ResolveGun(TEXT("stick"), &Build, &Ready, G, Error)))
+	{
+		AddError(Error);
+		return false;
+	}
+	FRunWorld W;
+	AActor* Holder = W.World->SpawnActor<AActor>();
+	USkeletalMeshComponent* Base = NewObject<USkeletalMeshComponent>(Holder);
+	Holder->SetRootComponent(Base);
+	Base->RegisterComponent();
+	UMIGunAssembly* Assembly = NewObject<UMIGunAssembly>(Holder);
+	Assembly->RegisterComponent();
+	Base->SetWorldScale3D(FVector(0.06));  // mid scale-out
+	Assembly->Assemble(Base, G, true);
+	Base->SetWorldScale3D(FVector(1.0));   // scaled back in
+	int32 Parts = 0;
+	for (USceneComponent* C : Base->GetAttachChildren())
+	{
+		if (const UStaticMeshComponent* P = Cast<UStaticMeshComponent>(C))
+		{
+			++Parts;
+			TestTrue(FString::Printf(TEXT("%s has the gun's scale"), *GetNameSafe(P->GetStaticMesh())), P->GetComponentScale().Equals(FVector(1.0), 1e-4));
+		}
+	}
+	TestTrue(TEXT("the scope and the silencer are fitted"), Parts >= 2);
 	return !HasAnyErrors();
 }
 
