@@ -85,6 +85,12 @@ private:
 	// Walking.
 	bool bWalking = false;
 	FVector2D WalkTo = FVector2D::ZeroVector;
+	/** A route (pure pursuit): the walk heads for a point Ahead cm further along the polyline. */
+	TArray<FVector2D> Route;
+	int32 RouteSeg = 0;
+	double Ahead = 220.0;
+	FVector2D RoutePoint(double Further) const;
+	void AdvanceRoute(const FVector2D& Feet);
 	bool bSprint = false;
 	double WalkPitch = -2.0;
 	/** The view follows the walk's direction (face path). */

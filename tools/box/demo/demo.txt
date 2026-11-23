@@ -1,0 +1,105 @@
+# MURDER INC. demo: one take, played by the MIDemo director on a fixed 1/60 s frame (tools/box/demo/capture.sh).
+# One action per line; times in game seconds. Verbs (Source/MurderInc/Flow/MIDemoDirector.cpp):
+#   wait <s> | con <console command> | capture <fifo>|off | god 0|1 | secure <objective>
+#   face path [pitch] | face angles <yaw> <pitch> | face point <x> <y> <z> | look <yaw> <pitch> [s] | lookat <x> <y> <z> [s]
+#   spring <hz> <max deg/s> | walk <x> <y> [sprint] [arrive cm] | route <sprint> <x y>... (plan_path.py)
+#   auto 0|1 [head] (fight whatever comes into sight while walking) | fight <limit s> [kills] [head] [calm s]
+#   blow [limit s] (the nearest explosive in front) | grab [limit s] (hold E until a reel is taken)
+#   waitstate <title|intro|playing|complete> [limit s] | quit
+
+# --- not captured: the map, the title and the stage settle --------------------------------------------------------
+wait 4
+con MIVoice clean 1
+con MIVoice frequency often
+con MIMenu fe home
+wait 2
+con MIAudio.Record start
+capture @FIFO@
+
+# --- the set-up flow ------------------------------------------------------------------------------------------------
+wait 3.5                                  # Home
+con MIMenu fe gearup                      # Crew
+wait 1.2
+con MIMenu fe crew rule
+wait 2.3
+con MIMenu fe next                        # Loadout: four guns
+wait 1.2
+con MIMenu fe focusgun chopper
+wait 0.7
+con MIMenu fe slot 1 chopper
+wait 0.9
+con MIMenu fe focusgun nine
+wait 0.7
+con MIMenu fe slot 2 nine
+wait 0.9
+con MIMenu fe focusgun stick
+wait 0.7
+con MIMenu fe slot 3 stick
+wait 0.9
+con MIMenu fe focusgun stretch
+wait 0.7
+con MIMenu fe slot 4 stretch
+wait 1.4
+con MIMenu fe bench stick                 # Workbench: scope and silencer on the STICK
+wait 1.2
+con MIMenu fe benchslot optic
+wait 0.8
+con MIMenu fe preview scope
+wait 1.0
+con MIMenu fe fit scope
+wait 1.0
+con MIMenu fe benchslot muzzle
+wait 0.8
+con MIMenu fe preview silencer
+wait 1.0
+con MIMenu fe fit silencer
+wait 1.4
+con MIMenu fe done
+wait 0.6
+con MIMenu fe next                        # Block & Style: the block, Story, day
+wait 0.8
+con MIMenu fe level block
+con MIMenu fe time day
+wait 0.6
+con MIMenu fe mode mission
+wait 0.6
+con MIMenu fe difficulty hustler
+wait 1.4
+con MIMenu fe next                        # Briefing
+wait 3.5
+con MIMenu fe hit                         # the cut: the run fades in from black
+
+# --- the run --------------------------------------------------------------------------------------------------------
+waitstate playing 20
+god 1
+secure 1                                  # the Chop Shop and the Cage reels were taken earlier in the run
+secure 2
+spring 1.3 150
+face path -2
+auto 1 1
+route 0 -3725 875 -3475 875 -3175 675 -2775 525 -2775 425 -1200 150
+fight 14 3 1 3
+con MIInput reload 1                      # a reload
+wait 2.8
+con MIInput weapon2 1                     # the NINE
+wait 1.4
+fight 10 1 1 3
+auto 0
+route 0 -1225 25 -1000 -150
+lookat -420 -800 60 2
+blow 6                                    # the propane tanks
+wait 2.5
+auto 1 1
+route 0 -625 -75 -490 130
+lookat -400 100 60 1.5
+grab 6                                    # the last reel
+wait 1.0
+con MIInput weapon1 1
+auto 1 0
+route 1 -525 225 125 225 125 125 775 -225 875 -325 1275 -325 1275 -125 1175 -125 1175 75 1675 125 1975 375 2625 375 2975 1125 2975 1775 3325 2525 3475 2525 3590 2970
+waitstate complete 20
+wait 7
+capture off
+con MIAudio.Record stop @NAME@
+wait 0.5
+quit

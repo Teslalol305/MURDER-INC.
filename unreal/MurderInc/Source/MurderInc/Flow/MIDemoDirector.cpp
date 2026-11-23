@@ -445,6 +445,26 @@ bool UMIDemoDirector::Begin(const FAction& A)
 		bWalking = true;
 		return false;
 	}
+	if (V == TEXT("route"))
+	{
+		// route <sprint 0|1> <x1> <y1> <x2> <y2> ...: one smooth walk along the polyline (from where the player is)
+		bSprint = Arg(A, 0, 0.0) != 0.0;
+		Route.Reset();
+		if (P)
+		{
+			Route.Add(FVector2D(P->GetActorLocation().X, P->GetActorLocation().Y));
+		}
+		for (int32 I = 1; I + 1 < A.Args.Num(); I += 2)
+		{
+			Route.Add(FVector2D(Arg(A, I, 0.0), Arg(A, I + 1, 0.0)));
+		}
+		RouteSeg = 0;
+		WalkTo = Route.Last();
+		Arrive = 70.0;
+		ActionLimit = 60.0;
+		bWalking = Route.Num() >= 2;
+		return !bWalking;
+	}
 	if (V == TEXT("stopwalk"))
 	{
 		bWalking = false;
@@ -544,7 +564,7 @@ bool UMIDemoDirector::Step(float Dt)
 		const double Err = FMath::Abs(Wrap(Yaw - P->GetPlayerRules().Yaw)) + FMath::Abs(Pitch - P->GetPlayerRules().Pitch);
 		return bTimedOut || (Err < 0.5 && FMath::Abs(YawRate) < 5.0);
 	}
-	if (V == TEXT("walk"))
+	if (V == TEXT("walk") || V == TEXT("route"))
 	{
 		if (!P)
 		{
@@ -559,6 +579,7 @@ bool UMIDemoDirector::Step(float Dt)
 				Log(FString::Printf(TEXT("walk timed out %.0f cm short"), FVector2D::Distance(Feet, WalkTo)));
 			}
 			bWalking = false;
+			Route.Reset();
 			P->GetInput().Move = FVector2D::ZeroVector;
 			P->GetInput().bSprint = false;
 			return true;
@@ -673,14 +694,23 @@ void UMIDemoDirector::Move(float Dt)
 	}
 	FMIPlayerRules& R = P->GetPlayerRules();
 	const FVector2D Feet(P->GetActorLocation().X, P->GetActorLocation().Y);
-	const FVector2D D = WalkTo - Feet;
-	const double Dist = D.Size();
+	FVector2D Goal = WalkTo, Sight = WalkTo;
+	if (Route.Num() >= 2)
+	{
+		AdvanceRoute(Feet);
+		Goal = RoutePoint(Ahead);
+		Sight = RoutePoint(Ahead * 2.2);
+	}
+	const FVector2D D = Goal - Feet;
+	const double Dist = FVector2D::Distance(WalkTo, Feet);
+	const FVector2D DS = Sight - Feet;
 	const double PathYaw = FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X));
+	const double SightYaw = DS.Size() > 30.0 ? FMath::RadiansToDegrees(FMath::Atan2(DS.Y, DS.X)) : PathYaw;
 	if (bWalkFacesPath && !bFightLook)
 	{
 		bHasView = true;
 		bLookAtPoint = false;
-		WantYaw = PathYaw;
+		WantYaw = SightYaw;
 		WantPitch = WalkPitch;
 	}
 	const double Rel = FMath::DegreesToRadians(Wrap(PathYaw - R.Yaw));
@@ -688,6 +718,54 @@ void UMIDemoDirector::Move(float Dt)
 	FMIPlayerInputState& In = P->GetInput();
 	In.Move = FVector2D(FMath::Sin(Rel), FMath::Cos(Rel)) * Mag;
 	In.bSprint = bSprint && FMath::Cos(Rel) > 0.85 && Dist > 250.0;
+}
+
+void UMIDemoDirector::AdvanceRoute(const FVector2D& Feet)
+{
+	// Move on to the next segment once the feet are past the end of this one (or nearer the next).
+	while (RouteSeg + 1 < Route.Num() - 1)
+	{
+		const FVector2D A = Route[RouteSeg], B = Route[RouteSeg + 1];
+		const FVector2D AB = B - A;
+		const double T = FVector2D::DotProduct(Feet - A, AB) / FMath::Max(1.0, AB.SizeSquared());
+		if (T >= 1.0 || FVector2D::Distance(Feet, B) < Ahead * 0.5)
+		{
+			++RouteSeg;
+		}
+		else
+		{
+			break;
+		}
+	}
+}
+
+FVector2D UMIDemoDirector::RoutePoint(double Further) const
+{
+	// The point Further cm along the route from the feet's projection on the current segment.
+	const FVector2D A = Route[RouteSeg], B = Route[RouteSeg + 1];
+	const FVector2D AB = B - A;
+	const double Len = FMath::Max(1.0, AB.Size());
+	double T = 0.0;
+	if (const AMIPlayerCharacter* P = Player())
+	{
+		const FVector2D Feet(P->GetActorLocation().X, P->GetActorLocation().Y);
+		T = FMath::Clamp(FVector2D::DotProduct(Feet - A, AB) / (Len * Len), 0.0, 1.0);
+	}
+	double Left = Further + (1.0 - T) * 0.0;
+	FVector2D At = A + AB * T;
+	int32 Seg = RouteSeg;
+	while (true)
+	{
+		const FVector2D End = Route[Seg + 1];
+		const double D = FVector2D::Distance(At, End);
+		if (D >= Left || Seg + 2 >= Route.Num())
+		{
+			return D >= Left ? At + (End - At) / FMath::Max(D, 1e-3) * Left : End;
+		}
+		Left -= D;
+		At = End;
+		++Seg;
+	}
 }
 
 FVector UMIDemoDirector::AimPoint(int32 Slot, bool bHeadShot) const
