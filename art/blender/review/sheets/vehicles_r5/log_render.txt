@@ -1,0 +1,174 @@
+== --view Sedan 0
+00:00.443  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Sedan_0.jpg
+== --view Sedan 1
+00:00.418  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Sedan_1.jpg
+== --view Sedan 2
+00:00.450  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Sedan_2.jpg
+== --view Sedan 3
+00:00.500  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Sedan_3.jpg
+== --compose Sedan
+SHEET /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/review_Sedan.jpg
+== --view Taxi 0
+00:00.440  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Taxi_0.jpg
+== --view Taxi 1
+00:00.418  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Taxi_1.jpg
+== --view Taxi 2
+00:00.569  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Taxi_2.jpg
+== --view Taxi 3
+00:00.540  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Taxi_3.jpg
+== --compose Taxi
+SHEET /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/review_Taxi.jpg
+== --view SUV 0
+00:00.511  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/SUV_0.jpg
+== --view SUV 1
+00:00.485  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/SUV_1.jpg
+== --view SUV 2
+00:00.462  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/SUV_2.jpg
+== --view SUV 3
+00:00.477  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/SUV_3.jpg
+== --compose SUV
+SHEET /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/review_SUV.jpg
+== --view Pickup 0
+00:00.528  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Pickup_0.jpg
+== --view Pickup 1
+00:00.446  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Pickup_1.jpg
+== --view Pickup 2
+00:00.542  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Pickup_2.jpg
+== --view Pickup 3
+00:00.473  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Pickup_3.jpg
+== --compose Pickup
+SHEET /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/review_Pickup.jpg
+== --view Van 0
+00:00.533  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Van_0.jpg
+== --view Van 1
+00:00.508  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Van_1.jpg
+== --view Van 2
+00:00.439  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Van_2.jpg
+== --view Van 3
+00:00.439  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Van_3.jpg
+== --compose Van
+SHEET /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/review_Van.jpg
+== --view Van_Vulture 0
+00:00.442  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Van_Vulture_0.jpg
+== --view Van_Vulture 1
+00:00.494  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Van_Vulture_1.jpg
+== --view Van_Vulture 2
+00:00.443  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Van_Vulture_2.jpg
+== --view Van_Vulture 3
+00:00.498  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Van_Vulture_3.jpg
+== --compose Van_Vulture
+SHEET /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/review_Van_Vulture.jpg
+== --view BoxTruck 0
+00:00.452  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/BoxTruck_0.jpg
+== --view BoxTruck 1
+00:00.457  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/BoxTruck_1.jpg
+== --view BoxTruck 2
+00:00.506  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/BoxTruck_2.jpg
+== --view BoxTruck 3
+00:00.478  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/BoxTruck_3.jpg
+== --compose BoxTruck
+SHEET /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/review_BoxTruck.jpg
+== --view IPXTruck 0
+00:00.495  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/IPXTruck_0.jpg
+== --view IPXTruck 1
+00:00.463  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/IPXTruck_1.jpg
+== --view IPXTruck 2
+00:00.518  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/IPXTruck_2.jpg
+== --view IPXTruck 3
+00:00.588  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/IPXTruck_3.jpg
+== --compose IPXTruck
+SHEET /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/review_IPXTruck.jpg
+== --view Motorbike 0
+00:00.527  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Motorbike_0.jpg
+== --view Motorbike 1
+00:00.485  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Motorbike_1.jpg
+== --view Motorbike 2
+00:00.442  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Motorbike_2.jpg
+== --view Motorbike 3
+00:00.435  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/Motorbike_3.jpg
+== --compose Motorbike
+SHEET /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/review_Motorbike.jpg
+== --view BurnedCar 0
+00:00.500  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/BurnedCar_0.jpg
+== --view BurnedCar 1
+00:00.416  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/BurnedCar_1.jpg
+== --view BurnedCar 2
+00:00.386  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/BurnedCar_2.jpg
+== --view BurnedCar 3
+00:00.505  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/BurnedCar_3.jpg
+== --compose BurnedCar
+SHEET /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/review_BurnedCar.jpg
+== --view StrippedCar 0
+00:00.451  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/StrippedCar_0.jpg
+== --view StrippedCar 1
+00:00.467  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/StrippedCar_1.jpg
+== --view StrippedCar 2
+00:00.366  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/StrippedCar_2.jpg
+== --view StrippedCar 3
+00:00.412  cycles           | WARNING CUEW initialization failed: Error opening the library
+VIEW /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/_tmp/StrippedCar_3.jpg
+== --compose StrippedCar
+SHEET /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/review_StrippedCar.jpg
+DONE
+== --close Sedan wheel
+00:00.432  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_Sedan_wheel.jpg (1.97, -1.8747241020202636, 0.7749) (1.3699999999999999, -0.7747241020202636, 0.3749) 30
+== --close Sedan lamp
+00:00.386  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_Sedan_lamp.jpg (2.7985900592803956, -0.9643794727325439, 0.9558166551589966) (2.1585900592803955, -0.2994087100028992, 0.6558166551589966) 32
+== --close Sedan door
+00:00.415  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_Sedan_door.jpg (0.7744132876396179, -1.6010603928565978, 1.128962712287903) (0.22441328763961793, -0.8510603928565978, 0.8289627122879029) 28
+== --close Sedan interior
+00:00.395  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_Sedan_interior.jpg (0.036633378267288214, 1.2742919206619263, 1.3393632650375367) (0.13663337826728822, -0.07570807933807377, 0.7393632650375366) 24
+== --close SUV wheel
+00:00.381  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_SUV_wheel.jpg (2.05, -1.94399995803833, 0.8501000000000001) (1.45, -0.8439999580383301, 0.4501) 30
+== --close SUV lamp
+00:00.403  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_SUV_lamp.jpg (2.918694133758545, -1.0328273010253906, 1.2150000023841858) (2.278694133758545, -0.3370550155639649, 0.9150000023841858) 32
+== --close SUV door

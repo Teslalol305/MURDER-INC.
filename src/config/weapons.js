@@ -77,7 +77,7 @@ export const chopper = {
   // Hip poses for the three "weapon position" settings (Close / Three-quarter / Compact):
   // [x right, y up, z back, pitch, yaw, roll] of the receiver's back end, in view space.
   views: [
-    [0.125, -0.07, -0.215, 0.05, 0.24, -0.34], // review round 3 (bare arms): closer, higher, toward the centre
+    [0.15, -0.09, -0.24, 0.05, 0.28, -0.35],
     [0.17, -0.12, -0.3, 0.04, 0.22, -0.3],
     [0.12, -0.085, -0.25, 0.05, 0.24, -0.3],
   ],
@@ -148,7 +148,7 @@ export const nine = {
   muzzleSmoke: false,
   // Hip poses of the back of the slide for the three "weapon position" settings (see the Chopper).
   views: [
-    [0.06, -0.045, -0.26, 0.06, 0.09, -0.16], // review round 3 (bare arms): closer, higher, toward the centre
+    [0.105, -0.056, -0.36, 0.07, 0.11, -0.18],
     [0.1, -0.075, -0.44, 0.06, 0.11, -0.2],
     [0.075, -0.055, -0.33, 0.07, 0.15, -0.16],
   ],
