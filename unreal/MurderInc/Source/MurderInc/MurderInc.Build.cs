@@ -22,6 +22,19 @@ public class MurderInc : ModuleRules
 			"AudioMixer"
 		});
 
+		// GPU frame time and memory for the cloud probe (Cloud/MICloud.cpp).
+		PrivateDependencyModuleNames.Add("RHI");
+
+		// Pixel Streaming 2 is enabled for the game target only (MurderInc.uproject: TargetAllowList Game), so the
+		// editor and the automation tests never load it. The game reads its connection events (Cloud/MICloud.cpp).
+		bool bPixelStreaming = Target.Type == TargetType.Game
+			&& (Target.Platform == UnrealTargetPlatform.Linux || Target.Platform == UnrealTargetPlatform.Win64);
+		if (bPixelStreaming)
+		{
+			PrivateDependencyModuleNames.Add("PixelStreaming2");
+		}
+		PublicDefinitions.Add("MI_WITH_PIXELSTREAMING2=" + (bPixelStreaming ? "1" : "0"));
+
 		// Includes are written from the module root: #include "Core/Data/MIDataSubsystem.h"
 		PublicIncludePaths.Add(ModuleDirectory);
 	}

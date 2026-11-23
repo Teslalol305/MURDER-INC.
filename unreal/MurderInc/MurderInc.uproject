@@ -57,6 +57,13 @@
 			]
 		},
 		{
+			"Name": "PixelStreaming2",
+			"Enabled": true,
+			"TargetAllowList": [
+				"Game"
+			]
+		},
+		{
 			"Name": "ModelContextProtocol",
 			"Enabled": true,
 			"Optional": true,
