@@ -3,12 +3,14 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "Core/Data/MIData.h"
+#include "Weapons/MILoadoutResolver.h"
 #include "Weapons/MIViewmodel.h"
 #include "Weapons/MIWeaponRules.h"
 #include "MIWeaponComponent.generated.h"
 
 class AMIPlayerCharacter;
 class UCameraComponent;
+class UMIGunAssembly;
 class UPoseableMeshComponent;
 class USkeletalMeshComponent;
 
@@ -29,6 +31,10 @@ public:
 	/** Rules, viewmodel and meshes. Called by the character once its tuning is known. */
 	void Setup(AMIPlayerCharacter* InPlayer, const FMIConfigData& Config, UCameraComponent* InCamera, UPoseableMeshComponent* InGun, USkeletalMeshComponent* InArms);
 	void ResetRun();
+	/** The run's set-up (LOADOUT.md 3.7): the resolved guns replace config.json's, and the first-person gun is built
+	 *  with UMIGunAssembly from each gun's build. Called by the run reset; the parity set-up is config.json's data. */
+	void ApplyRun(const FMIResolvedRun& Run);
+	const TArray<FMIResolvedGun>& GetResolvedGuns() const { return Resolved; }
 
 	/** One frame: the rules, then the viewmodel pose, the parts and the tracers. LookDelta: degrees (X right, Y down). */
 	void Step(double Dt, const FMIWeaponInput& Input, const FVector2D& LookDelta);
@@ -81,6 +87,8 @@ private:
 	void PoseView();
 	void PoseParts();
 	void DrawTracers(double Dt);
+	void DrawLaser();
+	const FMIResolvedGun* ResolvedOf(FName Gun) const { return Resolved.FindByPredicate([Gun](const FMIResolvedGun& G) { return G.Id == Gun; }); }
 	void NoteHit(bool bKilled, bool bHead);
 
 	UPROPERTY(Transient)
@@ -91,6 +99,10 @@ private:
 	TObjectPtr<UPoseableMeshComponent> GunMesh;
 	UPROPERTY(Transient)
 	TObjectPtr<USkeletalMeshComponent> Arms;
+	UPROPERTY(Transient)
+	TObjectPtr<UMIGunAssembly> Assembly;
+	TArray<FMIResolvedGun> Resolved;
+	uint32 Seed = 0;
 
 	FMIWeaponRules Rules;
 	FMIViewmodelData ViewData;

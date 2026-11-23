@@ -14,6 +14,7 @@
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "Player/MIPlayerCharacter.h"
 #include "Weapons/MICombatSubsystem.h"
+#include "Weapons/MIGunAssembly.h"
 
 namespace MIWeaponComponentPrivate
 {
@@ -51,7 +52,13 @@ void UMIWeaponComponent::Setup(AMIPlayerCharacter* InPlayer, const FMIConfigData
 	GunMesh = InGun;
 	Arms = InArms;
 	Events = UMIEventSubsystem::Get(this);
-	Rules.Init(Config.Weapons, static_cast<uint32>(Config.Seed), Events);
+	Seed = static_cast<uint32>(Config.Seed);
+	Rules.Init(Config.Weapons, Seed, Events);
+	if (!Assembly && GetOwner())
+	{
+		Assembly = NewObject<UMIGunAssembly>(GetOwner(), TEXT("GunAssembly"), RF_Transient);
+		Assembly->RegisterComponent();
+	}
 	TracerColor = Config.Weapons.Common.TracerColor;
 	TracerSpeed = Config.Weapons.Common.TracerSpeed;
 	ViewmodelFov = Config.Player.Fov.Viewmodel;
@@ -65,6 +72,16 @@ void UMIWeaponComponent::Setup(AMIPlayerCharacter* InPlayer, const FMIConfigData
 	Rig.Init(bHaveView ? &ViewData : nullptr);
 	BindEvents();
 	bReady = true;
+	ResetRun();
+}
+
+void UMIWeaponComponent::ApplyRun(const FMIResolvedRun& Run)
+{
+	Resolved = Run.Guns;
+	Rules.Init(Run.Weapons, Seed, Events);
+	ViewData = Run.View;
+	bHaveView = ViewData.Guns.Num() > 0;
+	Rig.Init(bHaveView ? &ViewData : nullptr);
 	ResetRun();
 }
 
@@ -136,6 +153,41 @@ void UMIWeaponComponent::Step(double Dt, const FMIWeaponInput& Input, const FVec
 	}
 	PoseView();
 	DrawTracers(Dt);
+	DrawLaser();
+	// The clear magazine shows the rounds left (LOADOUT.md 4.5): a scalar on the gun's materials.
+	if (GunMesh && View.MagSize > 0)
+	{
+		GunMesh->SetScalarParameterValueOnMaterials(TEXT("RoundsShown"), static_cast<float>(View.Mag) / View.MagSize);
+	}
+}
+
+void UMIWeaponComponent::DrawLaser()
+{
+	const FMIResolvedGun* G = ResolvedOf(Rules.GetCurrentId());
+	FVector Start, Dir;
+	UWorld* World = GetWorld();
+	if (!G || !G->bLaser || !Assembly || !World || !Assembly->BeamWorld(Start, Dir) || Rules.IsDropped())
+	{
+		return;
+	}
+	// The dot sits where the eye ray meets the Bullet channel (rounds leave the eye), so it shows where hip fire
+	// goes; the beam fades out while aimed (attachments.json laser.presentation.beam).
+	const double Fade = 1.0 - FMath::Clamp((Rules.GetAds() - 0.45) / 0.15, 0.0, 1.0);
+	if (Fade <= 0.0)
+	{
+		return;
+	}
+	const FMIPlayerRules& P = Player->GetPlayerRules();
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(MILaser), false, GetOwner());
+	const FVector End = P.Eye + P.Forward * 6000.0;
+	const FVector Dot = World->LineTraceSingleByChannel(Hit, P.Eye, End, MIBulletChannel, Params) ? Hit.ImpactPoint : End;
+	if (ULineBatchComponent* Lines = World->GetLineBatcher(UWorld::ELineBatcherType::World))
+	{
+		const FLinearColor Red(1.f, 0.16f, 0.1f, static_cast<float>(0.55 * Fade));
+		Lines->DrawLine(FirstPersonToWorld(Camera ? Camera->GetComponentTransform().InverseTransformPosition(Start) : Start), Dot, Red, SDPG_World, 0.25f, 0.f);
+		Lines->DrawPoint(Dot, FLinearColor(1.f, 0.2f, 0.1f, static_cast<float>(Fade)), 5.f, SDPG_World, 0.f);
+	}
 }
 
 // --- the meshes --------------------------------------------------------------------------------------------
@@ -163,6 +215,23 @@ void UMIWeaponComponent::EquipMesh(FName Gun)
 		{
 			const FVector MeshSpace = GunMesh->GetSocketTransform(Socket.Value, RTS_Component).GetLocation();
 			Rig.OverrideMarker(Socket.Key, FMIViewmodelRig::UEToWeb(D->MeshOffset.TransformPosition(MeshSpace)));
+		}
+	}
+	// The build: add-on parts at their mounts, and their sockets in place of the markers (the optic's sight, the
+	// silencer's muzzle, a grip's support hand).
+	if (Assembly)
+	{
+		if (const FMIResolvedGun* G = ResolvedOf(Gun))
+		{
+			Assembly->Assemble(GunMesh, *G, false);
+			for (const TPair<FName, FVector>& M : Assembly->MarkerOverrides())
+			{
+				Rig.OverrideMarker(M.Key, FMIViewmodelRig::UEToWeb(D->MeshOffset.TransformPosition(M.Value)));
+			}
+		}
+		else
+		{
+			Assembly->Clear();
 		}
 	}
 	const auto Find = [this](const FMIGunPartData& Part, FPartBone& Out)
