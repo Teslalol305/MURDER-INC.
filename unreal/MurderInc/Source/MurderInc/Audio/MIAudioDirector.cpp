@@ -72,6 +72,7 @@ bool FMIAudioDirector::Init(const FMIAudioData* InData, const FMIVoiceData* InVo
 		};
 		Triggers.Init(VoiceData->Settings);
 		Triggers.OnTrigger = [this](FName T, int32 V) { Voice.Trigger(T, GameClock, V); };
+		Triggers.OnRunStart = [this]() { Voice.NewRun(); };
 		Triggers.OnSilence = [this]()
 		{
 			Voice.Silence(GameClock);
@@ -602,6 +603,8 @@ void FMIAudioDirector::UpdateMix(double Dt)
 	const double LowHz = FMath::Lerp(20000.0, Num(Low, TEXT("cutoff"), 3200.0), LowHealthK);
 	Mix.MuffleCutoff = FMath::Min(MuffleHz, LowHz);
 	Mix.MusicCutoff = Mix.bPaused ? Num(Pause, TEXT("musicCutoff"), 1300.0) : 20000.0;
+	// The street ambience darkens indoors (the shop's walls): 20 kHz outside, 1.6 kHz fully inside.
+	Mix.AmbienceCutoff = 20000.0 * FMath::Pow(Num(Obj(MixT, TEXT("ambienceLowpass")), TEXT("base"), 0.08), MI::Clamp01(Interior));
 
 	for (const auto& Pair : Data->Categories)
 	{
@@ -1607,6 +1610,18 @@ void FMIAudioDirector::OnMusicIntensity(double Intensity)
 	MusicTarget = Intensity;
 }
 
+TArray<TPair<FName, FString>> FMIAudioDirector::BusDelegates()
+{
+	return {
+		{TEXT("Enemy"), TEXT("enemy:*")}, {TEXT("Flow"), TEXT("<flow lines>")}, {TEXT("MusicIntensity"), TEXT("music:intensity")},
+		{TEXT("WeaponFire"), TEXT("weapon:fire")}, {TEXT("WeaponDry"), TEXT("weapon:dry")}, {TEXT("WeaponReload"), TEXT("weapon:reload:*")},
+		{TEXT("WeaponSwitch"), TEXT("weapon:switch:*")}, {TEXT("WeaponSwing"), TEXT("weapon:swing")}, {TEXT("WeaponMelee"), TEXT("weapon:melee:*")},
+		{TEXT("Impact"), TEXT("impact")}, {TEXT("PlayerHitEnemy"), TEXT("player:hitEnemy:*")}, {TEXT("Explosion"), TEXT("explosion:*")},
+		{TEXT("ExplosiveLit"), TEXT("explosive:lit")}, {TEXT("ExplosiveBlast"), TEXT("explosive:blast")}, {TEXT("PlayerStep"), TEXT("player:step")},
+		{TEXT("PlayerJump"), TEXT("player:jump")}, {TEXT("PlayerLand"), TEXT("player:land")}, {TEXT("PlayerHit"), TEXT("player:hit")},
+		{TEXT("PlayerDead"), TEXT("player:dead")}};
+}
+
 TArray<FName> FMIAudioDirector::BusEventKeys()
 {
 	TArray<FName> K;
@@ -1633,7 +1648,7 @@ TArray<FName> FMIAudioDirector::BusEventKeys()
 		TEXT("game:state"), TEXT("objective:done"), TEXT("objective:all"), TEXT("holdout:wave"), TEXT("extraction:reached"), TEXT("audio:sting"),
 		TEXT("player:heal"), TEXT("weapon:reserve"), TEXT("explosives:reset"), TEXT("player:reset"), TEXT("menus:card"),
 		TEXT("hud:radio"), TEXT("hud:message"), TEXT("hud:warn"), TEXT("hud:reels"), TEXT("hud:tally"), TEXT("hud:objective"), TEXT("hud:prompt"),
-		TEXT("enemy:spawn"), TEXT("enemy:killed")})
+		TEXT("enemy:spawn"), TEXT("enemy:killed"), TEXT("score:best")})
 	{
 		K.Add(S);
 	}

@@ -14,6 +14,7 @@ void FMIVoiceTriggers::Init(const FMIVoiceSettings& S)
 	LowBelow = S.LowHealthBelow;
 	LowSurvive = S.LowHealthSurvive;
 	LastOfWaveWindow = S.LastOfWaveWindow;
+	WaveMilestone = S.WaveMilestone;
 	State = NAME_None;
 	bHoldout = false;
 	ResetRun();
@@ -91,9 +92,19 @@ void FMIVoiceTriggers::OnFlow(const FMIFlowEvent& E, double Now)
 		const bool bFromOutside = Prev.IsNone() || Prev == TEXT("title") || Prev == TEXT("dead") || Prev == TEXT("complete");
 		if (State == TEXT("intro") || (State == TEXT("playing") && bFromOutside))
 		{
+			// A restart (pause menu, "Run it back") goes straight from the old run to the new intro: whatever the
+			// old run still had to say (a line, its queue, the crowd's answer) must not spill into the new one.
+			if (!Prev.IsNone() && Prev != TEXT("title") && OnSilence)
+			{
+				OnSilence();
+			}
 			ResetRun();
 			bHoldout = false;
 			RunStart = Now;
+			if (OnRunStart)
+			{
+				OnRunStart();
+			}
 			Fire(TEXT("run.start"));
 		}
 		else if (State == TEXT("title"))
@@ -108,6 +119,10 @@ void FMIVoiceTriggers::OnFlow(const FMIFlowEvent& E, double Now)
 	else if (N == TEXT("player:reset"))
 	{
 		ResetRun();
+		if (OnSilence)
+		{
+			OnSilence();
+		}
 	}
 	else if (N == TEXT("holdout:wave"))
 	{
@@ -123,6 +138,10 @@ void FMIVoiceTriggers::OnFlow(const FMIFlowEvent& E, double Now)
 				Fire(TEXT("kill.lastOfWave"));
 			}
 			Fire(TEXT("wave.cleared"), (int32)E.A);
+			if (WaveMilestone > 0 && (int32)E.A > 0 && (int32)E.A % WaveMilestone == 0)
+			{
+				Fire(TEXT("wave.milestone"), (int32)E.A);
+			}
 		}
 		else
 		{
@@ -154,7 +173,22 @@ void FMIVoiceTriggers::OnFlow(const FMIFlowEvent& E, double Now)
 		else if (E.Text == TEXT("dead"))
 		{
 			Fire(bHoldout ? FName(TEXT("results.holdout")) : FName(TEXT("results.dead")));
+			// The card's score is B. Until the flow says score:best itself, a Hold the Block card above every
+			// earlier card of this session counts as a new best (never the first scored card: there is nothing to beat).
+			if (bHoldout && !bExactBest)
+			{
+				if (SessionBest > 0.0 && E.B > SessionBest)
+				{
+					Fire(TEXT("score.newBest"), (int32)E.B);
+				}
+				SessionBest = FMath::Max(SessionBest, E.B);
+			}
 		}
+	}
+	else if (N == TEXT("score:best"))
+	{
+		bExactBest = true;
+		Fire(TEXT("score.newBest"), (int32)E.A);
 	}
 }
 

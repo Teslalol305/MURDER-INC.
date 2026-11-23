@@ -4,7 +4,9 @@
     "about": "The player character's voice lines (barks): what each line says, its takes, what triggers it, how often, and how it sits in the mix (docs/unreal/AUDIO.md section 2). Read by FMIVoiceData (Source/MurderInc/Audio/MIVoiceRules). Everything here is data: retune chances, cooldowns and priorities, move a line to other triggers, add takes or a character's own set without touching code.",
     "schema": 1,
     "placeholders": "Every take marked placeholder: true is a stand-in in a generic stock synthetic voice (not the character's voice, not a clone of anyone). The real recordings replace them file for file: same folder, same file name (AUDIO.md section 5 is the recording brief). Then set placeholder to false and re-run tools/box/audio-import.sh.",
-    "files": "A take's file is relative to Content/Audio/Voice/<character>/. The import script makes the asset /Game/Audio/Voice/<character>/<file stem>."
+    "files": "A take's file is relative to Content/Audio/Voice/<character>/. The import script makes the asset /Game/Audio/Voice/<character>/<file stem>.",
+    "triggerRules": "A line's trigger is a chance (0..1) or an object: chance; atLeast (kill.streak: the streak must reach it); priority (the line's priority when this trigger brought it); intensity (the takes preferred for this moment, e.g. [\"shout\"] for the win, [\"breath\", \"spoken\"] for a close call survived; any take when none matches); always (a beat that must be heard: no line cooldown, no global cooldown, no repeat decay); queueable (seconds it may wait behind a playing line, instead of the line's own); onlyIfSilent (speaks only when nothing else from the same moment spoke, never queues).",
+    "takeLimits": "MurderInc.Audio.VoiceData checks every take: 48 kHz mono, under 2.5 s (the crowd chant under 2.2 s), no silence over 0.5 s inside it. Long tails keep the voice 'speaking': they block other lines and hold the duck."
   },
 
   "triggers": {
@@ -21,6 +23,8 @@
     "reel.collected": "a master reel is secured (objective:done with an objective id)",
     "objective.update": "the objective line changes during play (hud:objective), not at the start of a run",
     "wave.cleared": "a Hold the Block wave is cleared (objective:done wave)",
+    "wave.milestone": "every settings.waveMilestone-th Hold the Block wave cleared (5, 10, 15 ...); the payload is the wave",
+    "score.newBest": "a Hold the Block run ends on a new best score (score:best from the flow; until the flow sends it, a card above every earlier card of the session)",
     "health.lowSurvived": "health fell under lowHealth.below in a hit and the player was still alive lowHealth.survive seconds after the last hit",
     "extraction.called": "the last reel is secured and the truck is called (objective:all)",
     "run.win": "the truck is reached (extraction:reached)",
@@ -36,6 +40,11 @@
     "afterLineGap": 0.8,
     "interruptMargin": 30,
     "lastOfWaveWindow": 0.5,
+    "repeatDecay": 0.85,
+    "repeatDecayAbout": "Each play of a line in a run multiplies its later chances by repeatDecay (a run that has heard 'It's Murda!' four times hears it about half as often), except for triggers marked always. A run start resets it.",
+    "barkTriggers": ["kill.ordinary", "kill.headshot", "kill.melee", "kill.explosive", "kill.buzzard", "kill.multi"],
+    "barkTriggersAbout": "Ordinary kill barks: a line one of these started is never cut by a line another of these brought (a burst of kills stays one clean line). Progress and story beats (streaks, the last kill of a wave, reels, the win) still cut.",
+    "waveMilestone": 5,
     "duck": {
       "about": "While a line plays every other sound category is turned down by these factors (attack, release in seconds). Voice and UI are never ducked.",
       "gun": 0.8, "tail": 0.7, "near": 0.75, "world": 0.65, "ambience": 0.55, "music": 0.5,
@@ -93,15 +102,15 @@
         },
         "murda": {
           "text": "It's Murda!",
-          "about": "The signature: headshots, multi-kills, the last enemy of a wave.",
+          "about": "The signature: headshots, multi-kills, the last enemy of a wave (half the time; the wave's own 'Rule Baby!' speaks only when this did not).",
           "priority": 50,
           "cooldown": 25.0,
           "interruptible": true,
           "volume": 1.0,
           "triggers": {
-            "kill.headshot": 0.3,
-            "kill.multi": 0.6,
-            "kill.lastOfWave": { "chance": 1.0, "priority": 75 }
+            "kill.headshot": { "chance": 0.3, "intensity": ["shout", "spoken"] },
+            "kill.multi": { "chance": 0.6, "intensity": ["shout", "spoken"] },
+            "kill.lastOfWave": { "chance": 0.5, "priority": 75, "intensity": ["shout"] }
           },
           "takes": [
             { "file": "murda_01.wav", "intensity": "shout", "placeholder": true },
@@ -118,11 +127,11 @@
           "volume": 1.0,
           "queueable": 2.5,
           "triggers": {
-            "reel.collected": 0.9,
-            "wave.cleared": 0.9,
-            "extraction.called": 1.0,
-            "health.lowSurvived": 0.4,
-            "objective.update": 0.15
+            "reel.collected": { "chance": 0.9, "intensity": ["shout", "spoken"] },
+            "wave.cleared": { "chance": 0.9, "onlyIfSilent": true },
+            "extraction.called": { "chance": 1.0, "intensity": ["shout"] },
+            "health.lowSurvived": { "chance": 0.4, "intensity": ["breath", "spoken"] },
+            "objective.update": { "chance": 0.15, "intensity": ["spoken", "breath"] }
           },
           "takes": [
             { "file": "rulebaby_01.wav", "intensity": "shout", "placeholder": true },
@@ -132,7 +141,7 @@
         },
         "name": {
           "text": "What's my motherf***in' name?!",
-          "about": "The big one: the win and long kill streaks. Answered a beat later by the crowd (line 'rule_chant').",
+          "about": "The big one: the win (always heard: no cooldown, no decay, it cuts any interruptible line and waits up to 6 s behind one that is not), every fifth Hold the Block wave, a new best, and long kill streaks. Answered a beat later by the crowd (line 'rule_chant').",
           "priority": 90,
           "cooldown": 60.0,
           "interruptible": false,
@@ -150,8 +159,10 @@
           },
           "answer": { "line": "rule_chant", "delay": 0.35 },
           "triggers": {
-            "run.win": 1.0,
-            "kill.streak": { "chance": 1.0, "atLeast": 20 }
+            "run.win": { "chance": 1.0, "always": true, "priority": 100, "queueable": 6.0, "intensity": ["shout"] },
+            "wave.milestone": { "chance": 1.0, "always": true, "queueable": 4.0, "intensity": ["shout"] },
+            "score.newBest": { "chance": 1.0, "always": true, "queueable": 4.0, "intensity": ["shout"] },
+            "kill.streak": { "chance": 1.0, "atLeast": 20, "intensity": ["shout", "spoken"] }
           },
           "takes": [
             { "file": "name_01.wav", "intensity": "shout", "placeholder": true, "bleep": [0.0, 0.0] },
@@ -184,9 +195,9 @@
           "volume": 1.0,
           "queueable": 3.0,
           "triggers": {
-            "run.start": 0.8,
-            "results.complete": 1.0,
-            "results.holdout": 1.0
+            "run.start": { "chance": 0.8, "intensity": ["shout", "spoken"] },
+            "results.complete": { "chance": 1.0, "intensity": ["shout", "spoken"] },
+            "results.holdout": { "chance": 1.0, "intensity": ["shout", "spoken"] }
           },
           "takes": [
             { "file": "inc_01.wav", "intensity": "shout", "placeholder": true },

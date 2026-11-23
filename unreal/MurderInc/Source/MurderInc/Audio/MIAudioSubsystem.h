@@ -13,6 +13,7 @@ class AHUD;
 class UAudioComponent;
 class UCanvas;
 class UReverbEffect;
+class USoundEffectSubmixPreset;
 class USoundWave;
 
 /**
@@ -94,4 +95,8 @@ private:
 
 	UPROPERTY(Transient)
 	TMap<FName, TObjectPtr<UReverbEffect>> Reverbs;
+
+	/** The master chain on the device's master submix (FMIMasterChain); empty when not installed. */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<USoundEffectSubmixPreset>> MasterChain;
 };

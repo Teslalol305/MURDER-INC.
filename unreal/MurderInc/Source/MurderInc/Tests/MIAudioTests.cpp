@@ -30,7 +30,7 @@ namespace MIAudioTestsPrivate
 
 	/** A small voice set written for the tests, so retuning voice.json never changes what the rule tests prove. */
 	const TCHAR* TestVoice = TEXT(R"JSON({
-		"triggers": { "kill": "", "big": "", "story": "", "progress": "", "second": "", "kill.streak": "" },
+		"triggers": { "kill": "", "big": "", "story": "", "progress": "", "second": "", "kill.streak": "", "loud": "", "soft": "", "odd": "" },
 		"settings": {
 			"seed": 99, "globalCooldown": 4.0, "coalesceWindow": 0.2, "afterLineGap": 0.5, "interruptMargin": 30,
 			"duck": { "music": 0.5, "attack": 0.05, "release": 0.4 },
@@ -58,7 +58,12 @@ namespace MIAudioTestsPrivate
 					"triggers": { "story": 1.0, "kill.streak": { "chance": 1.0, "atLeast": 10 } },
 					"takes": [ { "file": "story_01.wav", "bleep": [0.3, 0.6] } ] },
 				"crowd": { "text": "R-U-L-E!", "speaker": "CROWD", "priority": 95, "cooldown": 0, "interruptible": false, "answerOnly": true,
-					"triggers": {}, "takes": [ { "file": "crowd_01.wav" } ] }
+					"triggers": {}, "takes": [ { "file": "crowd_01.wav" } ] },
+				"moody": { "text": "Moody!", "priority": 15, "cooldown": 0,
+					"triggers": { "loud": { "chance": 1.0, "intensity": ["shout"] }, "soft": { "chance": 1.0, "intensity": ["breath", "spoken"] },
+						"odd": { "chance": 1.0, "intensity": ["whisper"] } },
+					"takes": [ { "file": "moody_s1.wav", "intensity": "shout" }, { "file": "moody_s2.wav", "intensity": "shout" },
+						{ "file": "moody_sp.wav", "intensity": "spoken" }, { "file": "moody_b.wav", "intensity": "breath" } ] }
 			} },
 			"other": { "speaker": "OTHER", "lines": {
 				"mine": { "text": "Mine!", "priority": 20, "cooldown": 1, "triggers": { "kill": 1.0 }, "takes": [ { "file": "mine_01.wav" } ] }
@@ -66,6 +71,46 @@ namespace MIAudioTestsPrivate
 			"quiet": { "speaker": "QUIET", "lines": {} }
 		}
 	})JSON");
+
+	/**
+	 * The longest silence inside a take (10 ms frames 40 dB under its loudest frame, between its first and its last
+	 * sound), and the silence before the first and after the last sound, in seconds.
+	 */
+	double InnerGap(const FMIWav& W, double& OutHead, double& OutTail)
+	{
+		const int32 Hop = FMath::Max(1, W.Rate / 100);
+		const int32 Frames = W.Frames();
+		TArray<double> Db;
+		double Top = -200.0;
+		for (int32 F = 0; F + Hop <= Frames; F += Hop)
+		{
+			double E = 0.0;
+			for (int32 I = F; I < F + Hop; ++I)
+			{
+				const double S = W.Samples[I * W.Channels];
+				E += S * S;
+			}
+			Db.Add(10.0 * FMath::LogX(10.0, E / Hop + 1e-20));
+			Top = FMath::Max(Top, Db.Last());
+		}
+		int32 First = INDEX_NONE, Last = INDEX_NONE, Run = 0, Best = 0;
+		for (int32 I = 0; I < Db.Num(); ++I)
+		{
+			if (Db[I] > Top - 40.0)
+			{
+				First = First == INDEX_NONE ? I : First;
+				Last = I;
+			}
+		}
+		for (int32 I = First; I != INDEX_NONE && I <= Last; ++I)
+		{
+			Run = Db[I] > Top - 40.0 ? 0 : Run + 1;
+			Best = FMath::Max(Best, Run);
+		}
+		OutHead = First == INDEX_NONE ? 0.0 : First * 0.01;
+		OutTail = Last == INDEX_NONE ? 0.0 : (Db.Num() - 1 - Last) * 0.01;
+		return Best * 0.01;
+	}
 
 	bool ParseJson(const TCHAR* Text, TSharedPtr<FJsonObject>& Out)
 	{
@@ -160,21 +205,59 @@ bool FMIAudioVoiceDataTest::RunTest(const FString& Parameters)
 		}
 		TestEqual(FString::Printf(TEXT("%s text"), W.Key), L->Text, FString(W.Value));
 		TestTrue(FString::Printf(TEXT("%s has three or more takes"), W.Key), L->Takes.Num() >= 3);
-		for (const FMIVoiceTake& T : L->Takes)
+	}
+	// Every take of every line (clean takes too): the format, and cut tight. A long tail or a hole inside a take keeps
+	// the voice "speaking": it blocks other lines and holds the duck on the mix.
+	FString Lengths;
+	for (const FMIVoiceLine& L : Rule->Lines)
+	{
+		const double MaxSecs = L.Id == TEXT("rule_chant") ? 2.2 : 2.5;
+		for (const TArray<FMIVoiceTake>* Set : {&L.Takes, &L.CleanTakes})
 		{
-			const FString Path = FPaths::Combine(FMIAudioData::AudioDir(), TEXT("Voice/rule"), T.File);
-			FMIWav Wav;
-			if (!FMIWav::Load(Path, Wav))
+			for (const FMIVoiceTake& T : *Set)
 			{
-				++Missing;
-				AddError(TEXT("take missing: ") + Path);
+				const FString Path = FPaths::Combine(FMIAudioData::AudioDir(), TEXT("Voice/rule"), T.File);
+				FMIWav Wav;
+				if (!FMIWav::Load(Path, Wav))
+				{
+					++Missing;
+					AddError(TEXT("take missing: ") + Path);
+					continue;
+				}
+				if (Wav.Rate != 48000 || Wav.Channels != 1)
+				{
+					AddError(FString::Printf(TEXT("%s: %d Hz %d channels, want 48000 mono"), *T.File, Wav.Rate, Wav.Channels));
+				}
+				double Head = 0, Tail = 0;
+				const double Gap = InnerGap(Wav, Head, Tail);
+				Lengths += FString::Printf(TEXT(" %s %.2f/%.2f"), *FPaths::GetBaseFilename(T.File), Wav.Secs(), Gap);
+				if (Wav.Secs() > MaxSecs)
+				{
+					AddError(FString::Printf(TEXT("%s is %.2f s long: over %.1f s"), *T.File, Wav.Secs(), MaxSecs));
+				}
+				if (Gap > 0.5)
+				{
+					AddError(FString::Printf(TEXT("%s has %.2f s of silence inside it (at most 0.5 s)"), *T.File, Gap));
+				}
+				if (Tail > 0.45)
+				{
+					AddError(FString::Printf(TEXT("%s ends on %.2f s of silence (at most 0.45 s)"), *T.File, Tail));
+				}
 			}
-			else if (Wav.Rate != 48000 || Wav.Channels != 1)
+		}
+		// Bleep mode plays the profane takes with a tone over each take's range: an empty range would play the word.
+		if (L.bProfane && L.CleanMode == TEXT("bleep"))
+		{
+			for (const FMIVoiceTake& T : L.Takes)
 			{
-				AddError(FString::Printf(TEXT("%s: %d Hz %d channels, want 48000 mono"), *T.File, Wav.Rate, Wav.Channels));
+				if (!(T.BleepEnd > T.BleepStart))
+				{
+					AddError(FString::Printf(TEXT("%s: clean mode is bleep, but its bleep range [%.2f, %.2f] is empty"), *T.File, T.BleepStart, T.BleepEnd));
+				}
 			}
 		}
 	}
+	AddInfo(TEXT("takes (seconds / longest inner gap):") + Lengths);
 	const FMIVoiceLine* Name = Rule->Find(TEXT("name"));
 	TestTrue(TEXT("the profane line is flagged and has clean takes"), Name && Name->bProfane && Name->CleanTakes.Num() >= 1);
 	TestTrue(TEXT("the profane line is answered by the crowd"), Name && Name->AnswerLine == TEXT("rule_chant"));
@@ -184,6 +267,12 @@ bool FMIAudioVoiceDataTest::RunTest(const FString& Parameters)
 		TestTrue(FString::Printf(TEXT("voice set for %s"), Crew), D.Characters.Contains(FName(Crew)));
 	}
 	AddInfo(FString::Printf(TEXT("%d lines for rule, %d known triggers, %d takes missing"), Rule->Lines.Num(), D.KnownTriggers.Num(), Missing));
+	int32 Takes = 0, Placeholders = 0;
+	D.CountTakes(Takes, Placeholders);
+	if (Placeholders > 0)
+	{
+		AddWarning(FString::Printf(TEXT("voice: %d of %d takes are placeholders (a stock synthetic voice; the real recordings replace them file for file, AUDIO.md section 5)"), Placeholders, Takes));
+	}
 	return true;
 }
 
@@ -393,6 +482,43 @@ bool FMIAudioVoiceCleanTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioVoiceIntensityTest, "MurderInc.Audio.VoiceIntensity", Flags)
+bool FMIAudioVoiceIntensityTest::RunTest(const FString& Parameters)
+{
+	FMIVoiceData D;
+	if (!LoadTestVoice(*this, D))
+	{
+		return false;
+	}
+	// 'moody' has two shouted takes, one spoken, one breathed. 'loud' wants a shout, 'soft' a breath or the spoken one,
+	// 'odd' an intensity no take has (any take then). Triggers 10 s apart clear every cooldown.
+	auto Run = [&D](FName Trigger, TMap<FString, int32>& Files, int32& Repeats)
+	{
+		FMIVoiceRules R;
+		Make(R, D);
+		FString Last;
+		for (int32 I = 0; I < 120; ++I)
+		{
+			for (const FMIVoicePlay& P : Fire(R, Trigger, I * 10.0))
+			{
+				Files.FindOrAdd(P.File)++;
+				Repeats += P.File == Last ? 1 : 0;
+				Last = P.File;
+			}
+		}
+	};
+	TMap<FString, int32> Loud, Soft, Odd;
+	int32 LoudRepeats = 0, SoftRepeats = 0, OddRepeats = 0;
+	Run(TEXT("loud"), Loud, LoudRepeats);
+	Run(TEXT("soft"), Soft, SoftRepeats);
+	Run(TEXT("odd"), Odd, OddRepeats);
+	TestTrue(TEXT("loud: only the shouted takes, both of them"), Loud.Num() == 2 && Loud.Contains(TEXT("moody_s1.wav")) && Loud.Contains(TEXT("moody_s2.wav")));
+	TestTrue(TEXT("soft: only the spoken and the breathed take"), Soft.Num() == 2 && Soft.Contains(TEXT("moody_sp.wav")) && Soft.Contains(TEXT("moody_b.wav")));
+	TestEqual(TEXT("an intensity no take has falls back to every take"), Odd.Num(), 4);
+	TestEqual(TEXT("no take twice in a row, within the preferred ones too"), LoudRepeats + SoftRepeats + OddRepeats, 0);
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioVoiceCharacterTest, "MurderInc.Audio.VoiceCharacters", Flags)
 bool FMIAudioVoiceCharacterTest::RunTest(const FString& Parameters)
 {
@@ -486,98 +612,49 @@ bool FMIAudioVoiceTriggerTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("the wave"), Got.Contains(TEXT("wave.cleared=1")));
 	TestTrue(TEXT("a real hit breaks the streak"), T.GetStreak() == 0);
 	TestTrue(TEXT("the Hold the Block card"), Got.Contains(TEXT("results.holdout")));
-	TestFalse(TEXT("no kill bark after death"), Got.Last() == TEXT("kill.ordinary"));
-	return true;
-}
+	// A round already in the air when the player died: its kill is no bark.
+	const int32 Before = Got.Num();
+	T.OnEnemy(Kill(8, TEXT("head"), TEXT("chopper")), 134.0);
+	bool bKillAfterDeath = false;
+	for (int32 I = Before; I < Got.Num(); ++I)
+	{
+		bKillAfterDeath |= Got[I].StartsWith(TEXT("kill."));
+	}
+	TestFalse(TEXT("no kill trigger after death"), bKillAfterDeath);
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioVoiceRateTest, "MurderInc.Audio.VoiceRate", Flags)
-bool FMIAudioVoiceRateTest::RunTest(const FString& Parameters)
-{
-	// A typical Story run on Boss (spec 04 2.10: 33 to 41 enemies in "about five minutes", about 7 kills a minute):
-	// 36 kills over 300 s in fights of a few kills, a quarter of them headshots, 5 Buzzards, one blast and one melee
-	// kill, three reels, two close calls, the truck and the debrief. 20 seeds; the real voice.json.
-	FMIVoiceData D;
-	FString Error;
-	if (!FMIVoiceData::Load(D, Error))
-	{
-		AddError(Error);
-		return false;
-	}
-	double Total = 0.0;
-	int32 Kills = 0, KillLines = 0;
-	TMap<FName, int32> PerLine;
-	const int32 Seeds = 20;
-	for (int32 Seed = 0; Seed < Seeds; ++Seed)
-	{
-		FMIVoiceRules R;
-		R.TakeSecs = [](FName, const FString&) { return 1.6; };
-		R.Init(&D, TEXT("rule"), D.Settings.Defaults, Seed);
-		FMIVoiceTriggers T;
-		T.Init(D.Settings);
-		double Now = 0.0;
-		T.OnTrigger = [&R, &Now](FName N, int32 V) { R.Trigger(N, Now, V); };
-		FRandomStream Rng(1000 + Seed);
-		TArray<TPair<double, TFunction<void()>>> Script;
-		auto At = [&Script](double Time, TFunction<void()> F) { Script.Add({Time, MoveTemp(F)}); };
-		At(0.0, [&T, &Now]() { T.OnFlow(Flow(TEXT("game:state"), TEXT("intro")), Now); });
-		// Twelve fights of three kills: within each fight kills 1 to 4 s apart.
-		int32 Id = 0;
-		for (int32 F = 0; F < 12; ++F)
-		{
-			double Time = 12.0 + F * 24.0 + Rng.FRandRange(0, 6);
-			for (int32 K = 0; K < 3; ++K)
-			{
-				const int32 Kind = Rng.RandRange(0, 99);
-				const bool bBuzzard = Id % 7 == 3;
-				const FName Part = Kind < 25 ? FName(TEXT("head")) : FName(TEXT("body"));
-				const FName Weapon = Id == 10 ? FName(TEXT("melee")) : Id == 20 ? FName(TEXT("blast")) : FName(TEXT("chopper"));
-				const FMIEnemyEvent E = Kill(Id++, Part, Weapon, bBuzzard);
-				At(Time, [&T, &Now, E]() { T.OnEnemy(E, Now); });
-				Time += Rng.FRandRange(1.0, 4.0);
-			}
-		}
-		for (int32 Reel = 1; Reel <= 3; ++Reel)
-		{
-			At(70.0 * Reel, [&T, &Now, Reel]() { T.OnFlow(Flow(TEXT("objective:done"), *FString::Printf(TEXT("reel_%d"), Reel), Reel, 3), Now); });
-		}
-		At(212.0, [&T, &Now]() { T.OnFlow(Flow(TEXT("objective:all")), Now); });
-		for (const double Close : {95.0, 180.0})
-		{
-			At(Close, [&T, &Now]() { FMIPlayerHitEvent H; H.Amount = 25; H.Health = 22; T.OnPlayerHit(H, Now); });
-		}
-		At(295.0, [&T, &Now]() { T.OnFlow(Flow(TEXT("extraction:reached")), Now); });
-		At(299.0, [&T, &Now]() { T.OnFlow(Flow(TEXT("menus:card"), TEXT("complete")), Now); });
-		Script.StableSort([](const auto& A, const auto& B) { return A.Key < B.Key; });
+	// A restart from the pause menu or the debrief (player:reset, then the new intro) silences what the old run had
+	// queued; the first run from the title does not need to.
+	T.OnFlow(Flow(TEXT("game:state"), TEXT("playing")), 140.0);
+	T.OnFlow(Flow(TEXT("game:state"), TEXT("paused")), 150.0);
+	const int32 S0 = Silences;
+	T.OnFlow(Flow(TEXT("player:reset")), 151.0);
+	TestEqual(TEXT("player:reset silences"), Silences, S0 + 1);
+	T.OnFlow(Flow(TEXT("game:state"), TEXT("intro")), 151.0);
+	TestEqual(TEXT("the intro of a restarted run silences again (it does not come from the title)"), Silences, S0 + 2);
+	T.OnFlow(Flow(TEXT("game:state"), TEXT("title")), 160.0);
+	const int32 S1 = Silences;
+	T.OnFlow(Flow(TEXT("game:state"), TEXT("intro")), 161.0);
+	TestEqual(TEXT("the first intro from the title does not"), Silences, S1);
 
-		int32 Next = 0;
-		TArray<FMIVoicePlay> Plays;
-		for (Now = 0.0; Now <= 305.0; Now += 1.0 / 30.0)
-		{
-			while (Next < Script.Num() && Script[Next].Key <= Now)
-			{
-				Script[Next++].Value();
-			}
-			T.Tick(Now);
-			R.Tick(Now, Plays);
-		}
-		Kills += Id;
-		for (const FMIVoicePlay& P : Plays)
-		{
-			PerLine.FindOrAdd(P.Line)++;
-			KillLines += P.Trigger.ToString().StartsWith(TEXT("kill.")) ? 1 : 0;
-		}
-		Total += Plays.Num();
-	}
-	const double PerMinute = Total / Seeds / 5.0;
-	FString Lines;
-	for (const auto& Pair : PerLine)
+	// Hold the Block progress: every fifth wave is a milestone; a card above the session's best is a new best.
+	Got.Reset();
+	T.OnFlow(Flow(TEXT("game:state"), TEXT("title")), 200.0);
+	T.OnFlow(Flow(TEXT("game:state"), TEXT("playing")), 201.0);
+	for (int32 W = 1; W <= 10; ++W)
 	{
-		Lines += FString::Printf(TEXT(" %s %.2f/run"), *Pair.Key.ToString(), double(Pair.Value) / Seeds);
+		T.OnFlow(Flow(TEXT("holdout:wave"), TEXT(""), W, 5 + 2 * W), 201.0 + W * 20.0);
+		T.OnFlow(Flow(TEXT("objective:done"), TEXT("wave"), W, W), 215.0 + W * 20.0);
 	}
-	AddInfo(FString::Printf(TEXT("typical Story run: %.2f lines a minute (%.1f a run, %.1f on kills of %d kills),%s"), PerMinute, Total / Seeds, double(KillLines) / Seeds, Kills / Seeds, *Lines));
-	TestTrue(TEXT("rare enough to stay a reward: 1 to 3.5 lines a minute"), PerMinute >= 1.0 && PerMinute <= 3.5);
-	TestTrue(TEXT("most kills stay silent (under a third speak)"), double(KillLines) / Kills < 0.34);
-	TestTrue(TEXT("the win is always called"), PerLine.FindRef(TEXT("name")) >= Seeds && PerLine.FindRef(TEXT("rule_chant")) >= Seeds);
+	TestTrue(TEXT("wave 5 is a milestone"), Got.Contains(TEXT("wave.milestone=5")));
+	TestTrue(TEXT("wave 10 is a milestone"), Got.Contains(TEXT("wave.milestone=10")));
+	TestFalse(TEXT("wave 4 is not"), Got.Contains(TEXT("wave.milestone=4")));
+	T.OnFlow(Flow(TEXT("menus:card"), TEXT("dead"), 3, 9000), 430.0);
+	TestFalse(TEXT("the session's first card is no new best"), Got.ContainsByPredicate([](const FString& G) { return G.StartsWith(TEXT("score.newBest")); }));
+	T.OnFlow(Flow(TEXT("game:state"), TEXT("title")), 440.0);
+	T.OnFlow(Flow(TEXT("game:state"), TEXT("playing")), 441.0);
+	T.OnFlow(Flow(TEXT("holdout:wave"), TEXT(""), 1, 7), 445.0);
+	T.OnFlow(Flow(TEXT("menus:card"), TEXT("dead"), 3, 12000), 500.0);
+	TestTrue(TEXT("a better card is a new best"), Got.Contains(TEXT("score.newBest=12000")));
 	return true;
 }
 
@@ -700,8 +777,68 @@ bool FMIAudioEventTableTest::RunTest(const FString& Parameters)
 	{
 		AddError(FString::Printf(TEXT("%d web sound files missing (node tools/ue-export/audio.mjs)"), WebMissing));
 	}
-	AddInfo(FString::Printf(TEXT("%d bus event keys (%d flow lines found in the source): %d play, %d rules, %d silent; %d sounds; %d of %d replacement files present"),
-		Keys.Num(), FromSource, Played, Ruled, Silent, D.Sounds.Num(), GenFiles - GenMissing, GenFiles));
+	// Every delegate of the bus (Core/MIEvents.h, read as text so a new one cannot be missed) is one the director
+	// listens to: a new event (the loadout's silencer, an attachment) fails here until it has a key and an entry.
+	FString Header;
+	const FString HeaderPath = FPaths::Combine(Src, TEXT("Core"), TEXT("MIEvents.h"));
+	if (!FFileHelper::LoadFileToString(Header, *HeaderPath))
+	{
+		AddError(TEXT("cannot read ") + HeaderPath);
+	}
+	TSet<FName> Mapped;
+	for (const TPair<FName, FString>& P : FMIAudioDirector::BusDelegates())
+	{
+		Mapped.Add(P.Key);
+	}
+	int32 Delegates = 0, At = 0;
+	const FString Needle = TEXT("TMulticastDelegate<");
+	while ((At = Header.Find(Needle, ESearchCase::CaseSensitive, ESearchDir::FromStart, At)) != INDEX_NONE)
+	{
+		// TMulticastDelegate<void(...)> Name;  (the signature may nest parentheses and templates)
+		int32 Depth = 0, I = At + Needle.Len() - 1;
+		for (; I < Header.Len(); ++I)
+		{
+			const TCHAR C = Header[I];
+			Depth += C == TCHAR('<') ? 1 : C == TCHAR('>') ? -1 : 0;
+			if (Depth == 0)
+			{
+				break;
+			}
+		}
+		const int32 Semi = Header.Find(TEXT(";"), ESearchCase::CaseSensitive, ESearchDir::FromStart, I);
+		At = I + 1;
+		if (Semi == INDEX_NONE)
+		{
+			break;
+		}
+		const FString Name = Header.Mid(I + 1, Semi - I - 1).TrimStartAndEnd();
+		if (Name.IsEmpty() || Name.Contains(TEXT("(")))
+		{
+			continue;
+		}
+		++Delegates;
+		if (!Mapped.Contains(FName(Name)))
+		{
+			AddError(FString::Printf(TEXT("the bus delegate FMIGameEvents::%s is not in FMIAudioDirector::BusDelegates: bind it, give it a key in BusEventKeys and an entry in audio.json events"), *Name));
+		}
+	}
+	TestTrue(TEXT("the bus header lists its delegates"), Delegates >= 19);
+	// Placeholder material in the replacement layers.
+	int32 PlaceholderLayers = 0, AllLayers = 0;
+	for (const auto& Pair : D.Replace)
+	{
+		for (const FMIReplaceLayer& L : Pair.Value.Layers)
+		{
+			++AllLayers;
+			PlaceholderLayers += L.bPlaceholder ? 1 : 0;
+			if (!L.bPlaceholder && L.Files.ContainsByPredicate([](const FString& F) { return F.StartsWith(TEXT("Gen/")); }))
+			{
+				AddError(FString::Printf(TEXT("replace %s layer %s plays generated files but is not marked placeholder"), *Pair.Key.ToString(), *L.Name.ToString()));
+			}
+		}
+	}
+	AddInfo(FString::Printf(TEXT("%d bus event keys (%d flow lines found in the source): %d play, %d rules, %d silent; %d sounds; %d of %d replacement files present; %d bus delegates, all bound; %d of %d replacement layers are placeholders"),
+		Keys.Num(), FromSource, Played, Ruled, Silent, D.Sounds.Num(), GenFiles - GenMissing, GenFiles, Delegates, PlaceholderLayers, AllLayers));
 	return true;
 }
 

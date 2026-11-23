@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Audio/MIAudioDirector.h"
+#include "Audio/MIAudioMaster.h"
 
 /** PCM WAV files: read 16/24/32-bit integer and 32-bit float, any rate, mono or stereo; write 16-bit. */
 struct MURDERINC_API FMIWav
@@ -25,7 +26,7 @@ struct MURDERINC_API FMIWav
  * Renders what FMIAudioDirector decides into a stereo WAV without the engine's audio device: the director's commands
  * (start, set, stop at their times), its mix state (category gains, the muffle and pause filters), the spec's
  * distance model and air absorption, equal-power panning around the listener, a small reverb on the categories'
- * sends, and the web game's soft clip on the sum. A proof of the decisions and the mix, not of the engine's
+ * sends, and the master chain of spec 07 2.11 on the sum (compressor, x 1.15, soft clip: FMIMasterCompressor). A proof of the decisions and the mix, not of the engine's
  * spatialiser (docs/unreal/AUDIO.md section 7).
  */
 class MURDERINC_API FMIOfflineMix
@@ -46,6 +47,8 @@ public:
 	bool Save(const FString& Path) const;
 	int32 VoicesStarted() const { return Started; }
 	double PeakDb() const;
+	/** The deepest gain reduction of the master compressor, dB (<= 0). */
+	double MasterReductionDb() const { return Master.MaxReductionDb(); }
 
 	/** The length of a file (reads and caches it); 0 when missing. */
 	double FileSecs(const FString& File);
@@ -84,6 +87,7 @@ private:
 	TArray<float> Out;
 	int64 Frame = 0;
 	int32 Started = 0;
+	FMIMasterCompressor Master;
 
 	// A small Schroeder reverb (four combs, two all-passes per channel).
 	struct FComb

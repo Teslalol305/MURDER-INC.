@@ -101,6 +101,18 @@ bool FMIVoiceData::Parse(const TSharedPtr<FJsonObject>& Root, FMIVoiceData& Out,
 	Set.AfterLineGap = Num(S, TEXT("afterLineGap"), Set.AfterLineGap);
 	Set.InterruptMargin = (int32)Num(S, TEXT("interruptMargin"), Set.InterruptMargin);
 	Set.LastOfWaveWindow = Num(S, TEXT("lastOfWaveWindow"), Set.LastOfWaveWindow);
+	Set.RepeatDecay = FMath::Clamp(Num(S, TEXT("repeatDecay"), Set.RepeatDecay), 0.0, 1.0);
+	Set.WaveMilestone = (int32)Num(S, TEXT("waveMilestone"), 0);
+	{
+		const TArray<TSharedPtr<FJsonValue>>* A = nullptr;
+		if (S->TryGetArrayField(TEXT("barkTriggers"), A))
+		{
+			for (const TSharedPtr<FJsonValue>& V : *A)
+			{
+				Set.BarkTriggers.Add(FName(V->AsString()));
+			}
+		}
+	}
 	if (const TSharedPtr<FJsonObject> D = Obj(S, TEXT("duck")))
 	{
 		for (const auto& Pair : D->Values)
@@ -233,6 +245,22 @@ bool FMIVoiceData::Parse(const TSharedPtr<FJsonObject>& Root, FMIVoiceData& Out,
 							Rule.Chance = Num(R, TEXT("chance"), 1);
 							Rule.AtLeast = (int32)Num(R, TEXT("atLeast"), 0);
 							Rule.Priority = (int32)Num(R, TEXT("priority"), 0);
+							Rule.bAlways = Flag(R, TEXT("always"), false);
+							Rule.Queueable = Num(R, TEXT("queueable"), -1.0);
+							Rule.bOnlyIfSilent = Flag(R, TEXT("onlyIfSilent"), false);
+							const TArray<TSharedPtr<FJsonValue>>* I = nullptr;
+							FString One;
+							if (R->TryGetArrayField(TEXT("intensity"), I))
+							{
+								for (const TSharedPtr<FJsonValue>& V : *I)
+								{
+									Rule.Intensity.Add(FName(V->AsString()));
+								}
+							}
+							else if (R->TryGetStringField(TEXT("intensity"), One))
+							{
+								Rule.Intensity.Add(FName(One));
+							}
 						}
 						Line.Triggers.Add(FName(FString(*TPair.Key)), Rule);
 					}
@@ -286,6 +314,25 @@ bool FMIVoiceData::Parse(const TSharedPtr<FJsonObject>& Root, FMIVoiceData& Out,
 	return true;
 }
 
+void FMIVoiceData::CountTakes(int32& OutTakes, int32& OutPlaceholders) const
+{
+	OutTakes = OutPlaceholders = 0;
+	for (const auto& C : Characters)
+	{
+		for (const FMIVoiceLine& L : C.Value.Lines)
+		{
+			for (const TArray<FMIVoiceTake>* Set : {&L.Takes, &L.CleanTakes})
+			{
+				for (const FMIVoiceTake& T : *Set)
+				{
+					++OutTakes;
+					OutPlaceholders += T.bPlaceholder ? 1 : 0;
+				}
+			}
+		}
+	}
+}
+
 bool FMIVoiceData::Load(FMIVoiceData& Out, FString& OutError)
 {
 	TSharedPtr<FJsonObject> Root;
@@ -311,8 +358,20 @@ void FMIVoiceRules::SetCharacter(FName InCharacter)
 	Answers.Reset();
 	LastPlay.Reset();
 	LastTake.Reset();
+	RunPlays.Reset();
 	LastAnyStart = LastAnyEnd = SpeakingUntil = -1e9;
 	Current = NAME_None;
+	CurrentTrigger = NAME_None;
+}
+
+void FMIVoiceRules::NewRun()
+{
+	RunPlays.Reset();
+}
+
+bool FMIVoiceRules::IsBark(FName TriggerName) const
+{
+	return Data && Data->Settings.BarkTriggers.Contains(TriggerName);
 }
 
 const FMIVoiceCharacter* FMIVoiceRules::Set() const
@@ -351,14 +410,15 @@ bool FMIVoiceRules::CoolingDown(const FMIVoiceLine& Line, double Now) const
 	return Now - LastStart(Line.Id) < Line.Cooldown * Freq().Cooldown;
 }
 
-bool FMIVoiceRules::CanStart(int32 Priority, double Now, bool bQueued, bool& bOutInterrupt) const
+bool FMIVoiceRules::CanStart(int32 Priority, FName TriggerName, double Now, bool bQueued, bool bAlways, bool& bOutInterrupt) const
 {
 	const int32 Margin = Data->Settings.InterruptMargin;
 	bOutInterrupt = false;
 	if (IsSpeaking(Now))
 	{
-		// Cut the playing line only for a much more important one, and never a line that may not be cut.
-		if (bCurrentInterruptible && Priority >= CurrentPriority + Margin)
+		// Cut the playing line only for a much more important one, never a line that may not be cut, and never a
+		// kill bark for another kill bark (a burst of kills stays one line: "Holla, ho- It's Murda!" never happens).
+		if (bCurrentInterruptible && Priority >= CurrentPriority + Margin && !(IsBark(CurrentTrigger) && IsBark(TriggerName)))
 		{
 			bOutInterrupt = true;
 			return true;
@@ -371,31 +431,43 @@ bool FMIVoiceRules::CanStart(int32 Priority, double Now, bool bQueued, bool& bOu
 	{
 		return false;
 	}
-	if (!bQueued && !bBig && Now - LastAnyStart < Data->Settings.GlobalCooldown * Freq().GlobalCooldown)
+	if (!bQueued && !bBig && !bAlways && Now - LastAnyStart < Data->Settings.GlobalCooldown * Freq().GlobalCooldown)
 	{
 		return false;
 	}
 	return true;
 }
 
-void FMIVoiceRules::Start(const FMIVoiceLine& Line, int32 Priority, FName TriggerName, double Now, bool bInterrupt, bool bAnswer, TArray<FMIVoicePlay>& Out)
+void FMIVoiceRules::Start(const FMIVoiceLine& Line, int32 Priority, FName TriggerName, const TArray<FName>& Intensity, double Now, bool bInterrupt, bool bAnswer, TArray<FMIVoicePlay>& Out)
 {
 	const FMIVoiceCharacter* Ch = Set();
 	const bool bClean = Options.bClean && Line.bProfane;
 	const bool bSwap = bClean && Line.CleanMode == TEXT("swap") && Line.CleanTakes.Num() > 0;
 	const TArray<FMIVoiceTake>& Takes = bSwap ? Line.CleanTakes : Line.Takes;
 
-	// A take at random, never the one this line played last time (when it has more than one).
-	int32 Take = 0;
-	if (Takes.Num() > 1)
+	// The takes of the intensity this moment wants (the win is shouted, a close call breathed), or every take when
+	// none matches; at random among them, never the one this line played last time (when there is another).
+	TArray<int32> Pool;
+	for (int32 I = 0; I < Takes.Num(); ++I)
 	{
-		const int32* Last = LastTake.Find(Line.Id);
-		Take = Rng.RandRange(0, Takes.Num() - 1);
-		if (Last && Take == *Last)
+		if (Intensity.Num() == 0 || Intensity.Contains(Takes[I].Intensity))
 		{
-			Take = (Take + 1 + Rng.RandRange(0, Takes.Num() - 2)) % Takes.Num();
+			Pool.Add(I);
 		}
 	}
+	if (Pool.Num() == 0)
+	{
+		for (int32 I = 0; I < Takes.Num(); ++I)
+		{
+			Pool.Add(I);
+		}
+	}
+	const int32* Last = LastTake.Find(Line.Id);
+	if (Last && Pool.Num() > 1)
+	{
+		Pool.Remove(*Last);
+	}
+	const int32 Take = Pool.Num() > 1 ? Pool[Rng.RandRange(0, Pool.Num() - 1)] : Pool[0];
 	LastTake.Add(Line.Id, Take);
 	const FMIVoiceTake& T = Takes[Take];
 
@@ -416,14 +488,17 @@ void FMIVoiceRules::Start(const FMIVoiceLine& Line, int32 Priority, FName Trigge
 	P.BleepEnd = T.BleepEnd;
 	P.bAnswer = bAnswer;
 	P.bPlaceholder = T.bPlaceholder;
+	P.Intensity = T.Intensity;
 	Out.Add(P);
 
 	++PlayedCount;
+	RunPlays.FindOrAdd(Line.Id)++;
 	LastPlay.Add(Line.Id, Now);
 	LastAnyStart = Now;
 	LastAnyEnd = Now + P.Secs;
 	LastPriority = Priority;
 	Current = Line.Id;
+	CurrentTrigger = TriggerName;
 	CurrentPriority = Priority;
 	bCurrentInterruptible = Line.bInterruptible;
 	SpeakingUntil = Now + P.Secs;
@@ -454,7 +529,7 @@ void FMIVoiceRules::Tick(double Now, TArray<FMIVoicePlay>& Out)
 			Answers.RemoveAt(I--);
 			if (const FMIVoiceLine* L = Ch->Find(A.Line))
 			{
-				Start(*L, L->Priority, TEXT("answer"), Now, false, true, Out);
+				Start(*L, L->Priority, TEXT("answer"), TArray<FName>(), Now, false, true, Out);
 			}
 		}
 	}
@@ -469,11 +544,11 @@ void FMIVoiceRules::Tick(double Now, TArray<FMIVoicePlay>& Out)
 		}
 		const FMIVoiceLine* L = Ch->Find(Queue[I].Line);
 		bool bInterrupt = false;
-		if (L && Answers.Num() == 0 && CanStart(Queue[I].Priority, Now, true, bInterrupt) && !bInterrupt)
+		if (L && Answers.Num() == 0 && CanStart(Queue[I].Priority, Queue[I].Trigger, Now, true, false, bInterrupt) && !bInterrupt)
 		{
 			const FQueued Q = Queue[I];
 			Queue.RemoveAt(I--);
-			Start(*L, Q.Priority, Q.Trigger, Now, false, false, Out);
+			Start(*L, Q.Priority, Q.Trigger, Q.Intensity, Now, false, false, Out);
 		}
 	}
 
@@ -485,6 +560,7 @@ void FMIVoiceRules::Tick(double Now, TArray<FMIVoicePlay>& Out)
 	struct FCandidate
 	{
 		const FMIVoiceLine* Line;
+		const FMIVoiceTriggerRule* Rule;
 		FName Trigger;
 		double Chance;
 		int32 Order;
@@ -498,7 +574,7 @@ void FMIVoiceRules::Tick(double Now, TArray<FMIVoicePlay>& Out)
 			const FMIVoiceTriggerRule* R = L.bAnswerOnly ? nullptr : L.Triggers.Find(P.Trigger);
 			if (R && P.Value >= R->AtLeast)
 			{
-				Candidates.Add({&L, P.Trigger, R->Chance, P.Order, R->Priority > 0 ? R->Priority : L.Priority});
+				Candidates.Add({&L, R, P.Trigger, R->Chance, P.Order, R->Priority > 0 ? R->Priority : L.Priority});
 			}
 		}
 	}
@@ -511,31 +587,40 @@ void FMIVoiceRules::Tick(double Now, TArray<FMIVoicePlay>& Out)
 	bool bSpoke = false;
 	for (const FCandidate& C : Candidates)
 	{
-		if (Tried.Contains(C.Line->Id) || CoolingDown(*C.Line, Now))
+		const FMIVoiceTriggerRule& R = *C.Rule;
+		const double Queueable = R.Queueable >= 0.0 ? R.Queueable : C.Line->Queueable;
+		if (Tried.Contains(C.Line->Id) || (!R.bAlways && CoolingDown(*C.Line, Now)))
 		{
 			continue;
 		}
-		// Once a line has won, only lines that can wait their turn are still considered (they queue behind it).
-		if (bSpoke && C.Line->Queueable <= 0.0)
+		// Once a line has won, only lines that can wait their turn are still considered (they queue behind it);
+		// a line that speaks only into silence is out.
+		if (bSpoke && (Queueable <= 0.0 || R.bOnlyIfSilent))
 		{
 			continue;
 		}
 		Tried.Add(C.Line->Id);
-		// Every candidate rolls in turn (fixed order, seeded): the first that wins speaks.
-		const double Chance = FMath::Clamp(C.Chance * Freq().Chance, 0.0, 1.0);
+		// Every candidate rolls in turn (fixed order, seeded): the first that wins speaks. Each play of the line in
+		// this run lowers its chance (repeat decay), except for the beats that must be heard.
+		const double Decay = R.bAlways ? 1.0 : FMath::Pow(Data->Settings.RepeatDecay, (double)RunPlays.FindRef(C.Line->Id));
+		const double Chance = FMath::Clamp(C.Chance * Freq().Chance * Decay, 0.0, 1.0);
 		if (Chance <= 0.0 || Rng.GetFraction() >= Chance)
 		{
 			continue;
 		}
 		bool bInterrupt = false;
-		if (!bSpoke && Answers.Num() == 0 && CanStart(C.Priority, Now, false, bInterrupt))
+		if (!bSpoke && Answers.Num() == 0 && CanStart(C.Priority, C.Trigger, Now, false, R.bAlways, bInterrupt))
 		{
-			Start(*C.Line, C.Priority, C.Trigger, Now, bInterrupt, false, Out);
+			Start(*C.Line, C.Priority, C.Trigger, R.Intensity, Now, bInterrupt, false, Out);
 			bSpoke = true;
 		}
-		else if (C.Line->Queueable > 0.0 && !Queue.ContainsByPredicate([&C](const FQueued& Q) { return Q.Line == C.Line->Id; }))
+		else if (R.bOnlyIfSilent)
 		{
-			Queue.Add({C.Line->Id, C.Trigger, C.Priority, Now + C.Line->Queueable});
+			continue;
+		}
+		else if (Queueable > 0.0 && !Queue.ContainsByPredicate([&C](const FQueued& Q) { return Q.Line == C.Line->Id; }))
+		{
+			Queue.Add({C.Line->Id, C.Trigger, C.Priority, Now + Queueable, R.Intensity});
 			if (!bSpoke)
 			{
 				break;
@@ -559,4 +644,5 @@ void FMIVoiceRules::Silence(double Now)
 	}
 	SpeakingUntil = -1e9;
 	Current = NAME_None;
+	CurrentTrigger = NAME_None;
 }

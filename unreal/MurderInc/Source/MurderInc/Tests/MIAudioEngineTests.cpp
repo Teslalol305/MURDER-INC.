@@ -1,13 +1,17 @@
 // MurderInc.Audio.EngineRender: the recorded fight through the engine's own audio mixer, not the offline one: the
 // director's commands become audio components on the imported Sound Waves (decoding, pitch, volume, the mix gains and
 // low-pass per category, as UMIAudioSubsystem applies them), and the master submix is recorded to a WAV in real time.
+// The master chain (compressor, make-up, soft-knee limiter) sits on the master submix as in the game.
 // Needs an audio device: the default test run (-NoSound) has none, so the test warns and passes; tools/box/
 // audio-engine-render.sh runs it with an audio device on the SDL dummy driver (docs/unreal/AUDIO.md section 7).
+// With a device it fails when the recording is shorter than the stream it rendered or quieter than -40 dBFS.
 
 #include "AudioMixerBlueprintLibrary.h"
 #include "Audio/MIAudioData.h"
 #include "Audio/MIAudioDirector.h"
 #include "Audio/MIAudioEventLog.h"
+#include "Audio/MIAudioMaster.h"
+#include "Audio/MIOfflineMix.h"
 #include "AudioDevice.h"
 #include "Components/AudioComponent.h"
 #include "Core/Data/MIDataSubsystem.h"
@@ -21,6 +25,7 @@
 #include "Misc/AutomationTest.h"
 #include "Misc/PackageName.h"
 #include "Misc/Paths.h"
+#include "Sound/SoundEffectSubmix.h"
 #include "Sound/SoundWave.h"
 #include "UObject/StrongObjectPtr.h"
 
@@ -45,6 +50,8 @@ namespace MIAudioEnginePrivate
 		double StoppedAt = 0.0;
 		bool bMade = false;
 		FString Out;
+		TArray<FString> Said;
+		TArray<TObjectPtr<USoundEffectSubmixPreset>> Master;
 		FAutomationTestBase* Test = nullptr;
 	};
 
@@ -101,6 +108,10 @@ public:
 				}
 				A->SetVolumeMultiplier((float)(G * (M.Gain.Contains(C.Category) ? M.Gain[C.Category] : 1.0)));
 				A->Play();
+				if (C.Category == TEXT("voice") && C.File.StartsWith(TEXT("Voice/")))
+				{
+					X.Said.Add(FString::Printf(TEXT("%.1f:%s"), Now, *FPaths::GetBaseFilename(C.File)));
+				}
 				X.Live.Add(C.Id, TStrongObjectPtr<UAudioComponent>(A));
 				X.Base.Add(C.Id, G);
 				X.Cat.Add(C.Id, C.Category);
@@ -129,7 +140,11 @@ public:
 			const FName C = X.Cat.FindRef(Pair.Key);
 			const FMIAudioCategory* Cat = X.Data.Categories.Find(C);
 			Pair.Value->SetVolumeMultiplier((float)(X.Base.FindRef(Pair.Key) * (M.Gain.Contains(C) ? M.Gain[C] : 1.0)));
-			const double Cut = Cat && Cat->bMuffled ? M.MuffleCutoff : (C == TEXT("music") ? M.MusicCutoff : 20000.0);
+			double Cut = Cat && Cat->bMuffled ? M.MuffleCutoff : (C == TEXT("music") ? M.MusicCutoff : 20000.0);
+			if (C == TEXT("ambience"))
+			{
+				Cut = FMath::Min(Cut, M.AmbienceCutoff);
+			}
 			Pair.Value->SetLowPassFilterEnabled(Cut < 19990.0);
 			Pair.Value->SetLowPassFilterFrequency((float)Cut);
 		}
@@ -146,6 +161,11 @@ public:
 				Pair.Value->Stop();
 			}
 			X.Director.Unbind();
+			FMIMasterChain::Uninstall(X.World);
+			for (const TObjectPtr<USoundEffectSubmixPreset>& P : X.Master)
+			{
+				P->RemoveFromRoot();
+			}
 			X.bStopped = true;
 			X.StoppedAt = Now;
 			return false;
@@ -170,8 +190,23 @@ public:
 		}
 		X.Test->AddInfo(FString::Printf(TEXT("engine render: %.1f s, %d components started, %d without an asset, wav %s (%lld bytes) -> %s"),
 			X.StoppedAt, X.Started, X.NoAsset, bFile ? TEXT("written") : TEXT("missing"), bFile ? IFileManager::Get().FileSize(*X.Out) : 0LL, *X.Out));
+		X.Test->AddInfo(TEXT("engine render voice lines (for tools/audio/render_report.py --voice): ") + FString::Join(X.Said, TEXT(",")));
 		X.Test->TestTrue(TEXT("components started on the imported assets"), X.Started > 50);
 		X.Test->TestTrue(TEXT("the engine wrote the recording"), bFile);
+		// What the device produced: as long as the stream it rendered, and not silent.
+		FMIWav Wav;
+		FString Error;
+		if (!bFile || !FMIWav::Load(X.Out, Wav, &Error))
+		{
+			X.Test->AddError(TEXT("the recording cannot be read: ") + Error);
+			return true;
+		}
+		const double PeakDb = 20.0 * FMath::LogX(10.0, FMath::Max(1e-12, (double)Wav.Peak()));
+		const double RmsDb = 20.0 * FMath::LogX(10.0, FMath::Max(1e-12, Wav.Rms()));
+		X.Test->AddInfo(FString::Printf(TEXT("recording: %.2f s, %d channels at %d Hz, peak %.1f dBFS, RMS %.1f dBFS (stream %.1f s)"), Wav.Secs(), Wav.Channels, Wav.Rate, PeakDb, RmsDb, X.StoppedAt));
+		X.Test->TestTrue(FString::Printf(TEXT("the recording (%.2f s) is as long as the stream it rendered (%.1f s)"), Wav.Secs(), X.StoppedAt), Wav.Secs() >= X.StoppedAt - 1.0);
+		X.Test->TestTrue(FString::Printf(TEXT("the recording is not silent (peak %.1f dBFS, want above -40)"), PeakDb), PeakDb > -40.0);
+		X.Test->TestTrue(TEXT("the voice spoke in the render"), X.Said.Num() >= 3);
 		return true;
 	}
 
@@ -221,6 +256,17 @@ bool FMIAudioEngineRenderTest::RunTest(const FString& Parameters)
 	};
 	R->Director.Init(&R->Data, &R->Voice, 11);
 	R->Director.Bind(R->Bus);
+	if (FMIMasterChain::FromData(R->Data).Install(World, R->Master))
+	{
+		for (const TObjectPtr<USoundEffectSubmixPreset>& P : R->Master)
+		{
+			P->AddToRoot();
+		}
+	}
+	else
+	{
+		AddWarning(TEXT("the master chain could not be installed"));
+	}
 	UAudioMixerBlueprintLibrary::StartRecordingOutput(World, (float)R->Secs + 2.f);
 	R->Start = FPlatformTime::Seconds();
 	ADD_LATENT_AUTOMATION_COMMAND(FMIAudioEngineRenderCommand(R));

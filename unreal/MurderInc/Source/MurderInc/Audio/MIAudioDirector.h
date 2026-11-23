@@ -71,6 +71,7 @@ struct FMIMixState
 	TMap<FName, double> Gain;        // category -> linear gain (bus, option, master, ducks, states)
 	double MuffleCutoff = 20000.0;   // Hz, on the muffled categories
 	double MusicCutoff = 20000.0;
+	double AmbienceCutoff = 20000.0; // Hz, the ambience low-pass by interior: 20000 * 0.08^i (spec 07 3.19)
 	double Interior = 0.0;           // 0 street .. 1 inside
 	FName Reverb;                    // the reverb preset of the strongest zone
 	double Muffle = 0.0;
@@ -146,6 +147,12 @@ public:
 
 	/** Every event key the bus can produce (the coverage test of the event table). */
 	static TArray<FName> BusEventKeys();
+	/**
+	 * Every FMIGameEvents delegate the director listens to, with the event keys it maps to (key patterns: a '*' is
+	 * any variant). The coverage test reads Core/MIEvents.h and fails on a delegate missing here, so a new bus event
+	 * (the loadout's silencer, an attachment) cannot stay silent by accident.
+	 */
+	static TArray<TPair<FName, FString>> BusDelegates();
 	/** The key one event maps to. */
 	static FName EnemyKey(const FMIEnemyEvent& E);
 

@@ -1,5 +1,7 @@
 #include "Audio/MIOfflineMix.h"
 
+#include "Audio/MIAudioMaster.h"
+
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 
@@ -8,16 +10,6 @@ namespace MIOfflinePrivate
 	int32 Le16(const uint8* P) { return (int16)(P[0] | (P[1] << 8)); }
 	uint32 Le32(const uint8* P) { return P[0] | (P[1] << 8) | (P[2] << 16) | ((uint32)P[3] << 24); }
 
-	/** The web game's soft clip (spec 07 2.11): linear to 0.6, then 0.6 + 0.4 tanh((x - 0.6) / 0.4). */
-	float SoftClip(float X)
-	{
-		const float A = FMath::Abs(X);
-		if (A <= 0.6f)
-		{
-			return X;
-		}
-		return FMath::Sign(X) * (0.6f + 0.4f * FMath::Tanh((A - 0.6f) / 0.4f));
-	}
 }
 
 // --------------------------------------------------------------------------------------------------------- WAV
@@ -180,6 +172,7 @@ void FMIOfflineMix::Begin(const FMIAudioData* InData, double Secs)
 	Queue.Reset();
 	Started = 0;
 	InitReverb();
+	Master.Init(Data ? FMIMasterChain::FromData(*Data) : FMIMasterChain(), Rate);
 }
 
 const FMIWav* FMIOfflineMix::Get(const FString& File)
@@ -329,6 +322,7 @@ void FMIOfflineMix::RenderTo(double T, const FMIMixState& Mix, const FVector& Li
 	}
 	const double MuffleA = 1.0 - FMath::Exp(-2.0 * PI * Mix.MuffleCutoff / Rate);
 	const double MusicA = 1.0 - FMath::Exp(-2.0 * PI * Mix.MusicCutoff / Rate);
+	const double AmbienceA = 1.0 - FMath::Exp(-2.0 * PI * Mix.AmbienceCutoff / Rate);
 
 	while (Frame < End)
 	{
@@ -373,6 +367,10 @@ void FMIOfflineMix::RenderTo(double T, const FMIMixState& Mix, const FVector& Li
 			if (V.Category == TEXT("music"))
 			{
 				A = FMath::Min(A, MusicA);
+			}
+			else if (V.Category == TEXT("ambience"))
+			{
+				A = FMath::Min(A, AmbienceA);
 			}
 			const double Send = Cat ? Cat->Reverb : 0.0;
 			const double G0 = V.Gain, G1 = Gain;
@@ -427,15 +425,17 @@ void FMIOfflineMix::RenderTo(double T, const FMIMixState& Mix, const FVector& Li
 			}
 		}
 
-		// Reverb return (muffled with the effects), sum, soft clip.
+		// Reverb return (muffled with the effects), sum, the master chain (compressor, make-up, soft clip).
 		for (int32 I = 0; I < N; ++I)
 		{
 			float WL = Reverb(0, SendL[I], Decay) * Return;
 			float WR = Reverb(1, SendR[I], Decay) * Return;
 			RevLp[0] += float(MuffleA) * (WL - RevLp[0]);
 			RevLp[1] += float(MuffleA) * (WR - RevLp[1]);
-			Out.Add(SoftClip(L[I] + RevLp[0]));
-			Out.Add(SoftClip(R[I] + RevLp[1]));
+			float OL = L[I] + RevLp[0], OR = R[I] + RevLp[1];
+			Master.Process(OL, OR);
+			Out.Add(OL);
+			Out.Add(OR);
 		}
 		Frame = BlockEnd;
 	}

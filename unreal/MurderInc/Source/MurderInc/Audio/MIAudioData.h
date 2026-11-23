@@ -33,6 +33,8 @@ struct FMIReplaceLayer
 	FName Name;
 	TArray<FString> Files;
 	double Volume = 1.0;
+	/** Stand-in material (generated): replaced file for file by recorded or licensed sound. */
+	bool bPlaceholder = false;
 };
 
 struct FMIReplace

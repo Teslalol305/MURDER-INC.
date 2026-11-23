@@ -26,6 +26,14 @@ struct FMIVoiceTriggerRule
 	double Chance = 1.0;
 	int32 AtLeast = 0;  // kill.streak: the streak value must be at least this
 	int32 Priority = 0; // > 0: the line's priority when this trigger brought it (the line's own otherwise)
+	/** Takes of these intensities are preferred for this trigger (any take when none matches). */
+	TArray<FName> Intensity;
+	/** A story beat that must be heard: ignores the line's cooldown, the global cooldown and the repeat decay. */
+	bool bAlways = false;
+	/** > 0: waits this many seconds behind a playing line (overrides the line's queueable). */
+	double Queueable = -1.0;
+	/** Speaks only when nothing else from the same coalescing window spoke (never queues). */
+	bool bOnlyIfSilent = false;
 };
 
 struct FMIVoiceLine
@@ -94,6 +102,12 @@ struct FMIVoiceSettings
 	FMIVoiceOptions Defaults;
 	double SubtitleExtra = 0.6;
 	double SubtitleMin = 1.2;
+	/** Each play of a line in a run multiplies its later chances by this (1: no decay). */
+	double RepeatDecay = 1.0;
+	/** Ordinary kill barks: a line one of these brought is never cut by another of these (only progress and story beats cut). */
+	TArray<FName> BarkTriggers;
+	/** Hold the Block: every this many waves cleared fires wave.milestone (0: never). */
+	int32 WaveMilestone = 0;
 };
 
 struct MURDERINC_API FMIVoiceData
@@ -103,6 +117,9 @@ struct MURDERINC_API FMIVoiceData
 	TMap<FName, FMIVoiceCharacter> Characters;
 	/** Every trigger name voice.json documents (the "triggers" table). */
 	TArray<FName> KnownTriggers;
+
+	/** Takes of every character (clean takes included), and how many of them are placeholders. */
+	void CountTakes(int32& OutTakes, int32& OutPlaceholders) const;
 
 	static bool Parse(const TSharedPtr<FJsonObject>& Root, FMIVoiceData& Out, FString& OutError);
 	/** Content/Data/voice.json. */
@@ -128,6 +145,7 @@ struct FMIVoicePlay
 	double BleepEnd = 0.0;
 	bool bAnswer = false;
 	bool bPlaceholder = true;
+	FName Intensity;
 };
 
 class MURDERINC_API FMIVoiceRules
@@ -149,6 +167,10 @@ public:
 	void Tick(double Now, TArray<FMIVoicePlay>& Out);
 	/** Death, a run reset: nothing pending, nothing queued; the playing line is cut (the host fades it). */
 	void Silence(double Now);
+	/** A new run: the repeat decay starts again. */
+	void NewRun();
+	/** Plays of a line in this run (the repeat decay). */
+	int32 PlaysThisRun(FName Line) const { return RunPlays.FindRef(Line); }
 
 	bool IsSpeaking(double Now) const { return Now < SpeakingUntil; }
 	/** Time the line last started, or a large negative number. */
@@ -169,6 +191,7 @@ private:
 		FName Trigger;
 		int32 Priority = 0;
 		double Deadline = 0.0;
+		TArray<FName> Intensity;
 	};
 	struct FAnswer
 	{
@@ -179,8 +202,9 @@ private:
 	const FMIVoiceCharacter* Set() const;
 	const FMIVoiceFrequency& Freq() const;
 	bool CoolingDown(const FMIVoiceLine& Line, double Now) const;
-	bool CanStart(int32 Priority, double Now, bool bQueued, bool& bOutInterrupt) const;
-	void Start(const FMIVoiceLine& Line, int32 Priority, FName TriggerName, double Now, bool bInterrupt, bool bAnswer, TArray<FMIVoicePlay>& Out);
+	bool CanStart(int32 Priority, FName TriggerName, double Now, bool bQueued, bool bAlways, bool& bOutInterrupt) const;
+	bool IsBark(FName TriggerName) const;
+	void Start(const FMIVoiceLine& Line, int32 Priority, FName TriggerName, const TArray<FName>& Intensity, double Now, bool bInterrupt, bool bAnswer, TArray<FMIVoicePlay>& Out);
 
 	const FMIVoiceData* Data = nullptr;
 	FName Character;
@@ -195,10 +219,12 @@ private:
 
 	TMap<FName, double> LastPlay;
 	TMap<FName, int32> LastTake;
+	TMap<FName, int32> RunPlays;
 	double LastAnyStart = -1e9;
 	double LastAnyEnd = -1e9;
 	int32 LastPriority = 0;
 	FName Current;
+	FName CurrentTrigger;
 	int32 CurrentPriority = 0;
 	bool bCurrentInterruptible = true;
 	double SpeakingUntil = -1e9;

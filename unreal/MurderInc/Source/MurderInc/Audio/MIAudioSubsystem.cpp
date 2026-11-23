@@ -1,5 +1,8 @@
 #include "Audio/MIAudioSubsystem.h"
 
+#include "Audio/MIAudioMaster.h"
+#include "Sound/SoundEffectSubmix.h"
+
 #include "Camera/PlayerCameraManager.h"
 #include "CanvasItem.h"
 #include "Components/AudioComponent.h"
@@ -142,6 +145,13 @@ void UMIAudioSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	{
 		UE_LOG(LogMIAudioHost, Error, TEXT("voice data: %s"), *Error);
 	}
+	else
+	{
+		// Once per world: how much of the voice is still the stand-in (voice.json "placeholder" per take).
+		int32 Takes = 0, Placeholders = 0;
+		Voice.CountTakes(Takes, Placeholders);
+		UE_LOG(LogMIAudioHost, Display, TEXT("voice: %d of %d takes are placeholders (stock synthetic voice, not the character's: docs/unreal/AUDIO.md section 5)"), Placeholders, Takes);
+	}
 	Director.Exists = [this](const FString& File)
 	{
 		if (const bool* B = ExistsCache.Find(File))
@@ -186,6 +196,11 @@ void UMIAudioSubsystem::Deinitialize()
 	{
 		UGameplayStatics::DeactivateReverbEffect(GetWorld(), ActiveReverb);
 	}
+	if (MasterChain.Num() > 0)
+	{
+		FMIMasterChain::Uninstall(GetWorld());
+		MasterChain.Reset();
+	}
 	Super::Deinitialize();
 }
 
@@ -196,6 +211,10 @@ void UMIAudioSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	{
 		Director.Bind(*Bus);
 		bBound = true;
+	}
+	if (bReady && FMIMasterChain::FromData(Data).Install(&InWorld, MasterChain))
+	{
+		UE_LOG(LogMIAudioHost, Display, TEXT("master chain on the master submix: compressor, make-up, soft-knee limiter (audio.json master)"));
 	}
 }
 
@@ -320,7 +339,9 @@ void UMIAudioSubsystem::Execute(const FMIAudioCmd& C)
 		{
 			if (A)
 			{
-				C.Fade > 0.0 ? A->FadeOut((float)C.Fade, 0.f) : A->Stop();
+				// A paused world does not advance fades: stop at once (a restart from the pause menu cuts the voice).
+				const bool bPausedWorld = GetWorld() && GetWorld()->IsPaused();
+				C.Fade > 0.0 && !bPausedWorld ? A->FadeOut((float)C.Fade, 0.f) : A->Stop();
 			}
 			Components.Remove(C.Id);
 		}
@@ -349,6 +370,10 @@ void UMIAudioSubsystem::ApplyMix()
 		else if (It->Value.Category == TEXT("music"))
 		{
 			Cut = M.MusicCutoff;
+		}
+		if (It->Value.Category == TEXT("ambience"))
+		{
+			Cut = FMath::Min(Cut, M.AmbienceCutoff);
 		}
 		A->SetLowPassFilterEnabled(Cut < 19990.0);
 		A->SetLowPassFilterFrequency((float)Cut);
@@ -515,4 +540,13 @@ void UMIAudioSubsystem::DrawSubtitle(AHUD* HUD, UCanvas* Canvas)
 	Canvas->DrawText(Font, Speaker, X, Y, Scale, Scale);
 	Canvas->SetDrawColor(FColor(0xF4, 0xF2, 0xEC));
 	Canvas->DrawText(Font, S.Text, X + SW, Y, Scale, Scale);
+#if !UE_BUILD_SHIPPING
+	// A stand-in take says so (never in a shipping build): small, dim, under the line.
+	if (S.bPlaceholder)
+	{
+		const float Small = Scale * 0.5f;
+		Canvas->SetDrawColor(FColor(0xF4, 0xF2, 0xEC, 0x90));
+		Canvas->DrawText(Font, TEXT("placeholder voice"), X, Y + FMath::Max(SH, TH) + 8.f * Scale, Small, Small);
+	}
+#endif
 }

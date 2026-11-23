@@ -242,6 +242,7 @@ bool FMIAudioData::Parse(const TSharedPtr<FJsonObject>& SoundsRoot, const TShare
 					FMIReplaceLayer Layer;
 					Layer.Name = FName(Str(L, TEXT("name"), TEXT("layer")));
 					Layer.Volume = Num(L, TEXT("vol"), 1);
+					Layer.bPlaceholder = Flag(L, TEXT("placeholder"), false);
 					const TArray<TSharedPtr<FJsonValue>>* Files = nullptr;
 					if (L.IsValid() && L->TryGetArrayField(TEXT("files"), Files))
 					{
