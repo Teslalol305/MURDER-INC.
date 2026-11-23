@@ -91,7 +91,7 @@ unreal.SystemLibrary.execute_console_command(w, "MIPose %.0f %.0f 0 %.1f %.1f" %
 PY
 pie_mcp py "$PIE_PY/_boom.py"; run 0.6
 c "MIInput ads 1"; run 0.3; c "MIInput ads 0"; run 0.4   # ends any idle inspect
-c "MIFreezeOn explosion 0.18"; c "MIBlowNearest"; sleep 6; want fp-explosion && shot fp-explosion
+c "MIFreezeOn explosion 0.42"; c "MIBlowNearest"; sleep 6; want fp-explosion && shot fp-explosion
 c "slomo 1"
 tail -n +"$mark" "$log" | grep -E "First person|Effects|Error" | tail -8 | cut -c1-240
 pie_stop > /dev/null
