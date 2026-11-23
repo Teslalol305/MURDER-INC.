@@ -175,7 +175,9 @@ def whole_field(R, hand):
     hf = hand.field(True)
 
     def f(p):
-        return sdf.smin(arm(p), hf(p), 0.011)
+        # nearly a plain union: the hand carries its own wrist piece with the same section as the arm there, and
+        # a wide smooth union of two coincident surfaces swells them (k / 4) and leaves a ring where one ends
+        return sdf.smin(arm(p), hf(p), 0.003)
     return f
 
 
@@ -449,15 +451,15 @@ def build_arms(ctx):
 
 
 def bracelet(col, R):
-    """SM_Character_RuleBracelet: a heavy silver curb chain, 26 links of 3.2 mm wire pressed flat and twisted
+    """SM_Character_RuleBracelet: a heavy silver curb chain, 24 links of 4.2 mm wire pressed flat and twisted
     against each other, hanging loose round the wrist (3 mm clear, 4 mm sag underneath), with a box clasp.
     Origin = attach frame (characters.attach_frame): X across the arm, Y toward the elbow, Z out of the back."""
     from mi import mat as _mat
     silver = _mat.flat("M_Character_RuleBracelet_Silver", (0.96, 0.95, 0.93), 0.12, 1.0)
     silver2 = _mat.flat("M_Character_RuleBracelet_SilverWorn", (0.90, 0.89, 0.87), 0.22, 1.0)
-    a = C._interp(FOREARM, BRACELET_S, 1) / 2 + 0.0030 + 0.0028
-    b = C._interp(FOREARM, BRACELET_S, 2) / 2 + 0.0030 + 0.0028
-    n = 26
+    a = C._interp(FOREARM, BRACELET_S, 1) / 2 + 0.0030 + 0.0032
+    b = C._interp(FOREARM, BRACELET_S, 2) / 2 + 0.0030 + 0.0032
+    n = 24
     pts, _t = C._ellipse_path(a, b, 600, sag=0.004)
     seg = np.linalg.norm(np.roll(pts, -1, axis=0) - pts, axis=1)
     cum = np.concatenate([[0], np.cumsum(seg)])
@@ -476,10 +478,10 @@ def bracelet(col, R):
             geo.transform(bx, loc=tuple(mid))
             parts.append(C._mat_all(bx, silver))
             continue
-        lk = geo.torus(major=0.0034, minor=0.0016, seg_major=40, seg_minor=12, name="Link",
-                       stretch=max(total / n * 1.8 - 0.0100, 0.001))
-        geo.transform(lk, scale=(1.0, 1.0, 0.60))
-        geo.transform(lk, rot=(34 if i % 2 else -34, 0, 0))
+        lk = geo.torus(major=0.0031, minor=0.0021, seg_major=30, seg_minor=10, name="Link",
+                       stretch=max(total / n * 1.9 - 0.0104, 0.001))
+        geo.transform(lk, scale=(1.0, 1.0, 0.55))
+        geo.transform(lk, rot=(40 if i % 2 else -40, 0, 0))
         ang = math.degrees(math.atan2(tang[2], tang[0]))
         geo.transform(lk, rot=(0, -ang, 0))
         geo.transform(lk, loc=tuple(mid))
@@ -513,6 +515,12 @@ def bake_skin(ctx, ob, res):
     hh = hh.reshape(H, W)
     hd = texel.dilate(hh, mask, 4)
     nrm = texel.normal_from_height(hd, maps["pos"], mask)
+    inner = mask.copy()                                    # the jagged edge texels of an island: flat normals
+    for ax in (0, 1):
+        for sh in (1, -1, 2, -2):
+            inner &= np.roll(mask, sh, axis=ax)
+    nrm[mask & ~inner] = (0.5, 0.5, 1.0)
+    nrm = texel.dilate(nrm, inner, 4)
     cav = np.clip(texel.blur(hd, 3) - hd, 0, None)
     ao = np.clip(1.0 - cav / 0.00025, 0.6, 1.0)
     aol = _bake._bake_ao(ob, 1024, 16, 0, 0.03, False)
@@ -535,7 +543,7 @@ def textured_materials():
     M_RuleArms_Nail default lit, both on the same three textures)."""
     out = {}
     d = paths.texture_set("RuleArms_Skin")
-    for name, sss, coat in (("M_RuleArms_Skin", 0.30, 0.0), ("M_RuleArms_Nail", 0.05, 0.35)):
+    for name, sss, coat in (("M_RuleArms_Skin", 0.18, 0.0), ("M_RuleArms_Nail", 0.05, 0.35)):
         m = bpy.data.materials.get(name) or bpy.data.materials.new(name)
         nt = m.node_tree
         for nd in list(nt.nodes):

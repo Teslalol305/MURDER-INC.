@@ -145,7 +145,7 @@ def swap_head(body, btex, head, htex, log=print):
     sl = (cb[:, 2] > zb + 0.015) & (cb[:, 2] < zb + 0.045) & ~redb & (np.abs(cb[:, 0]) < 0.12)
     hx, hy = _mid(cb[sl, 0]), _mid(cb[sl, 1])                       # centre of the neck's section
     near = np.hypot(cb[:, 0] - hx, cb[:, 1] - hy) < 0.085          # the neck, not the shoulders or arms
-    kill = (cb[:, 2] > zb + 0.06) | ((cb[:, 2] > zb - 0.055) & ~redb & near)
+    kill = (cb[:, 2] > zb + 0.06) | ((cb[:, 2] > zb - 0.03) & ~redb & near)
     gen3d.delete_faces(body, kill)
     log("  body: neckline z %.3f of %.3f, head and neck removed (%d faces)" % (zb, topb, kill.sum()))
     ch, nh, ah = gen3d.face_arrays(head)
@@ -166,11 +166,25 @@ def swap_head(body, btex, head, htex, log=print):
     sl = (ch2[:, 2] > 0.015) & (ch2[:, 2] < 0.045) & ~redh2
     dx, dy = hx - _mid(ch2[sl, 0]), hy - _mid(ch2[sl, 1])
     co += [dx, dy, zb]
-    # the bottom of the neck narrows a little so its cut edge stays inside the body's collar
-    t = np.clip((zb + 0.015 - co[:, 2]) / 0.035, 0, 1)
-    k = 1.0 - 0.10 * t
-    co[:, 0] = hx + (co[:, 0] - hx) * k
-    co[:, 1] = hy + (co[:, 1] - hy) * k
+    gen3d.set_verts(head, co)
+    # the cut edge of the bust's neck is carried 2.5 cm down (and its next ring half as far), so it ends under
+    # the body's collar all round instead of just above it at the front
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(head.data)
+    edge_v = {v.index for e in bm.edges if len(e.link_faces) == 1 for v in e.verts}
+    bm.verts.ensure_lookup_table()
+    ring = set()
+    for i in edge_v:
+        for e in bm.verts[i].link_edges:
+            ring.add(e.other_vert(bm.verts[i]).index)
+    ring -= edge_v
+    bm.free()
+    low = co[:, 2] < zb + 0.04
+    for idx, d in ((sorted(edge_v), 0.025), (sorted(ring), 0.012)):
+        idx = np.array([i for i in idx if low[i]], dtype=np.int64)
+        if len(idx):
+            co[idx, 2] -= d
     gen3d.set_verts(head, co)
     log("  head: neckline %.3f of %.3f in the bust, scale %.3f, %d faces removed; neck centres body (%.3f, %.3f), "
         "bust moved by (%.3f, %.3f)" % (zh, toph, s, killh.sum(), hx, hy, dx, dy))

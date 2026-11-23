@@ -17,8 +17,8 @@ from . import characters as C
 from . import _characters_tex as X
 
 # his skin, measured on the reference sheet under even light (sRGB): back of the forearm, palm, nail bed
-SKIN = np.array(C.srgb("#7b4e35"), dtype=np.float32)
-PALM = np.array(C.srgb("#b07a62"), dtype=np.float32)
+SKIN = np.array(C.srgb("#6f4a39"), dtype=np.float32)
+PALM = np.array(C.srgb("#a7796a"), dtype=np.float32)
 KNUCKLE = np.array(C.srgb("#4e3022"), dtype=np.float32)
 NAIL = np.array(C.srgb("#b88f7f"), dtype=np.float32)
 LUNULA = np.array(C.srgb("#d6b8ab"), dtype=np.float32)
@@ -169,12 +169,12 @@ def skin_texels(R, P, N, region, side, charts):
     hand = T.smoothstep(0.035, 0.005, s)                                      # 1 on the hand, 0 up the forearm
     reg = np.rint(region).astype(int)
     # back / palm: by region where the faces say so, softened over the border of the hand
-    pal = np.where(lab > 0, T.smoothstep(0.15, -0.45, cosd), T.smoothstep(-0.002, -0.009, w))
-    pal = np.where(reg == 2, np.maximum(pal, 0.6), np.where(reg == 1, np.minimum(pal, 0.4), pal)) * hand
-    col = SKIN[None] * (1 - pal)[:, None] + PALM[None] * pal[:, None]
+    # the palm side by the faces' region (the border of a hand's palm skin is fairly sharp), softened on the
+    # fingers by the angle round each finger; the back of the hand keeps the arm's colour (no seam at the wrist)
+    pal = np.where(reg == 2, 1.0, 0.0)
+    pal = np.where((lab > 0) & (reg > 0), T.smoothstep(0.25, -0.35, cosd), pal) * hand
     mott = 1.0 + 0.07 * T.fbm(P, 1 / 0.012, 3, seed=32) + 0.04 * T.fbm(P, 1 / 0.003, 2, seed=33)
-    col = col * mott[:, None]
-    bc = bc * (1 - hand)[:, None] + col * hand[:, None]
+    bc = bc * (1 - pal)[:, None] + (PALM[None] * mott[:, None]) * pal[:, None]
     rough = rough * (1 - hand) + (0.46 + 0.10 * pal) * hand
     # knuckles: darker, folded skin over the joints on the back of the hand
     for i, f in enumerate(C.FINGERS):
