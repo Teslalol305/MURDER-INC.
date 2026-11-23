@@ -109,6 +109,8 @@ PY
 pie_mcp py "$PIE_PY/_boom.py"; run 0.6
 c "MIInput ads 1"; run 0.3; c "MIInput ads 0"; run 0.4   # ends any idle inspect
 c "MIFreezeOn explosion 0.42"; c "MIBlowNearest"; sleep 6; want fp-explosion && shot fp-explosion
+# what is left 1.6 s after the blast (smoke column, dust, scorch)
+c "slomo 1"; run 1.18; want fp-explosion-late && shot fp-explosion-late
 c "slomo 1"
 tail -n +"$mark" "$log" | grep -E "First person|Effects|Error" | tail -8 | cut -c1-240
 pie_stop > /dev/null
