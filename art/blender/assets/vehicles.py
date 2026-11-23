@@ -3400,17 +3400,16 @@ def on_preview(ctx, objs):
         render.cam_look((13.6, -1.0, 1.75), (-1.0, 3.5, 1.05), lens=32)
         shot("vehicles_lineup_2.jpg")
     if want("vehicles_ipx_truck") and "SM_Vehicle_IPXTruck" in assets:
-        pl = {"SM_Vehicle_IPXTruck": (0, 3.6, 180), "SM_Vehicle_IPXTruck_Door": (0, 0, 0),
+        pl = {"SM_Vehicle_IPXTruck": (0, 3.6, 0), "SM_Vehicle_IPXTruck_Door": (0, 0, 0),
               "SM_Vehicle_IPXTruck_Door_Left": (0, 0, 0)}
         _show(assets, pl)
-        # doors open 108.9 degrees on their hinges; the truck is turned 180 so its tail faces +X
-        L = 6.81 / 2
+        # (close-up pass 3) the tail faces -X, toward the 4:15 PM sun (bearing 260): the open vault is in the sun;
+        # doors open 108.9 degrees on their hinges (x IPX_DOOR_X, y -+0.89, z 1.05)
         for nm, s_ in (("SM_Vehicle_IPXTruck_Door", 1), ("SM_Vehicle_IPXTruck_Door_Left", -1)):
             d = assets[nm]
-            hx, hy = IPX_DOOR_X, -0.89 * s_
-            d.location = (-hx, 3.6 - hy, 1.05)
-            d.rotation_euler = (0, 0, math.radians(180 + s_ * 108.9))
-        render.cam_look((9.6, 2.3, 2.15), (2.4, 3.6, 1.55), lens=30)
+            d.location = (IPX_DOOR_X, 3.6 - 0.89 * s_, 1.05)
+            d.rotation_euler = (0, 0, math.radians(s_ * 108.9))
+        render.cam_look((-9.6, 2.0, 2.15), (-2.4, 3.6, 1.55), lens=30)
         shot("vehicles_ipx_truck.jpg")
     if want("vehicles_wrecks"):
         _show(assets, {"SM_Vehicle_BurnedCar": (-2.8, 3.4, 12), "SM_Vehicle_StrippedCar": (3.0, 3.3, -8)})

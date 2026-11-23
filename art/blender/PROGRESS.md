@@ -320,6 +320,27 @@ per-vehicle parameters) and fitted to the body by `vehicles.py`.
   trucks appended (open vehicles_cars.blend, bpy.data.libraries.load the trucks' SM_Vehicle_* objects, then
   vehicles.on_preview), one preview per process. New previews: vehicles_wheel, vehicles_lamp, vehicles_interior,
   vehicles_taxi.
+- Verdict from the final previews (all eleven rendered after the last asset change, 36-64 samples): the Sedan and
+  Taxi pass at arm's length for wheels (hubcap / trim-ring steel wheel, lettered tyres), lamps (fluted lens, chrome
+  bowls, amber section, egg-crate grille), framed plate, mirrors and the cabin through the glass (dash, dials,
+  wheel, bolstered seats read by day); the flanks are smooth with clean door grooves. Still failing at arm's length:
+  the A pillar / windscreen edge (generated trim shards and a brownish strip where the screen meets the pillar),
+  the front wing above the arch (outside the flattened region: ripples show in grazing light), the bumper's top edge
+  by the wheel (torn white fragments), the bumper indicators (generated). SUV: clean nose and alloys, but the tail
+  lamp cut opens a gap round the rear quarter (wire preview) and the quarter glass is still generated. Van and
+  Vulture: the windscreen keeps crumpled glass (the fit only moves crumple-size deviations), rear barn-door panes,
+  seam and handles not modelled. BoxTruck / IPX: lamps, bar grilles, bumper and West Coast mirrors are modelled,
+  the rest of the cab front is generated (fog-lamp holes, crumpled lower panel edges), IPX vault floor still foil and
+  hazard fragments on the sill, band not carried over the open leaf. Wrecks: wheelbase and rims / brakes fixed, the
+  burned material (rust islands on charcoal), ragged cut edges, engine bay and dash skeleton not done. Motorbike: not
+  touched beyond the flat paint (four mirrors remain: the duplicate pair could not be separated reliably on the
+  leaned body by position alone).
+
+## Exact next step (close-up pass 3)
+Model the A-pillar / windscreen frame (a swept pillar trim over the screen border) and extend the flank flatten over
+the wings above the arches; fix the SUV tail cut (limit cut_rect to faces facing -X); clean the van windscreens with
+a plane fit; then the Van barn doors, the IPX floor / sill / leaf band, the motorbike mirrors (cut by connected
+component near the bar ends) and the burned-car material.
 
 ---------------------------------------------------------------------------------------------------------------
 # Generated Goon (assets/goon_generated.py), character technical artist: a Higgsfield image-to-3D comparison
