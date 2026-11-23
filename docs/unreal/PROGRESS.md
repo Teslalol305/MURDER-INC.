@@ -3,6 +3,66 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Polish fix pass (after the independent play-through review) — code committed, nothing built or seen
+
+**2026-11-23/24, no box.** Box d14fa3ab had ended (`credits_exhausted`); the Higgsfield balance is **0.6 credits**.
+The last key in `scratchpad/box/keys` (`0b02e986...`) was recorded in `used` and `gpu_rent` with the approved settings
+was refused ("You do not have enough credits for this rental"); no key is left. So in this pass **nothing was compiled,
+no test or golden replay was run and no picture was taken.** Every change below was written to be safe without a
+build (the optional material is looked up before it is loaded; data keys have code fallbacks), but the next box must
+build and run the suite before anyone packages. No rules code and no golden data were touched.
+
+What changed (commits on the branch, most visible first):
+- **The player's muzzle flash** (`36f558b`). Cause, from the polish measurements: the cards are drawn, but at the hip
+  the gun's own front end sits between the eye and the muzzle and hides them. Fix: `mi_fp_import.py fx` now also
+  makes `/Game/FX/M_FX_FlashView` (the flash material with **depth testing off**), presentation
+  `fx.materials.flashView` names it, and `UMIEffects` gives the player's flash its own six cards in it, placed on the
+  muzzle's true first-person point (`flash.view.pullOverlay` 1, no pull toward the eye: the star no longer lands on
+  the support hand's knuckles) and never recycled by Goon flashes. Without the material the polish-pass path runs.
+- **Brass and the dropped magazine** (`69aedd1`). `UMIEffects::SpawnViewBody`: first-person depth and size only while
+  it leaves the gun (`fx.casing.viewLife` 0.12 s; magazine 0.45 s), then a true-size body thrown at the same moment
+  from the port's (well's) true place (`FirstPersonToWorld`) is shown for the rest of its life. Before, the shrunken
+  body stayed 4 s (8 s): the size of the rear sight on screen, then a miniature on the ground.
+- **HUD** (`5dc3081`). Objective title and counter on a dark band, the counter in the display face and larger; markers
+  on a dark backing and pushed out of a ring of 7.5 % of the height round the crosshair ("[1] 24m" sat on the aim
+  point); the weapon strip on a band with a tag row: one mode badge per two-mode gun (filled on the gun in hand) and
+  the selector as a key cap "[B] SWITCH TO SEMI" left of the slots (`frontend_text.json` `hud.modes.switchTo`); the
+  radio strip moved to 0.815 of the height, clear of the strip's band.
+- **Player start** (`b7b5a16`). `build_block.py PROP_MESH_OVERRIDES`: prop 270, the litter basket 1.1 m ahead of the
+  start whose black liner was the dark half disc of every first frame, is drawn as the galvanised lidded can
+  (`SM_Prop_TrashCan_Metal`) in the same place and collider (collider 704 and the start pose stay: both are web-game
+  parity). Takes effect at the next `block.sh start level`.
+- **Set-up stage banding** (`ba2eca2`). `UMIFrontEnd::CutCamera` marks a camera cut on the frame of every view-target
+  switch and stage reframe and on the next frame; entering play and the title camera mark one too.
+- **Loadout stage light** (`da986d4`, data). The fill rect stood behind the gun facing the camera: a rect light lights
+  only what is in front of its plane, which is the hard lit-to-unlit seam across the back wall in `demo-loadout.jpg`.
+  The fill is now on the camera's side, the key brighter (2600 lux), and a rim spot from behind right.
+- **Proof commands** (`4261408`). `MIPose` and `MIFaceEnemy` mark a camera cut: `polish-hold`'s orange ghost on the
+  pavement came right after the `MIFaceEnemy` snap turn. Whether a mouse turn in play ghosts the viewmodel (TSR
+  velocity of first-person primitives) is still to check on the box, frame by frame during a turn.
+- `docs/LAUNCH.md` tells the owner not to upload the current zip (`29bf7a1`); GAMEPLAY.md 13 and 15 describe the
+  changes; the duplicated Demo build text inside the Polish section is gone.
+
+**Not fixed, and why.**
+- **The crosshair still drawn when aimed** (`polish-chopper-aim`). The "+" there is exactly the HUD crosshair (13 px
+  arms, gap 0), so the HUD saw Ads below 0.05 while the gun was aimed; yet `AMIHUD` reads `Rules.GetView().Ads`, the
+  same value the first-person rig aims with. Not explained from the code. On the box: `MIInput ads 1`, then log
+  `View.Ads` from the HUD in the same frame.
+- **Brick backs and skyline** read as blockout (`MI_Box_BrickWindows`, flat black windows; salmon towers): an art pass
+  in `build_block.py` on the box (facade kit window modules, or recessed frames and glass in the material).
+- **`-IgnoreCookErrors`** in the release engineer's `package.sh` / `package-cloud.sh` (two dead template anim
+  blueprints): theirs to change; not seen by a player.
+- **Level clone L_Block**, **the stream test on E3DS**, **the repackage**: need a box or the owner.
+- **CHOPPER firing pinky** 2.7 mm into the grip, on its hidden back: left for launch, as the review says.
+
+**Exact next steps on the next box** (after the credits are topped up): `sync.sh` and `build.sh` in
+`/project/ue/repo-gameplay`; `fp/import-chars.sh fx` (makes `M_FX_FlashView`); `block.sh start level` there (prop 270);
+`tools/box/test.sh MurderInc` (105 tests and the golden replays); `fp/polish-shots.sh` and the Hold run, and look at
+`polish-start` (the lidded can), `polish-fire` and `polish-fire-ads` (flash on the muzzle, no knuckle burst, casing
+small and gone), `polish-chopper-aim` (crosshair), a frame mid-turn (ghost), the loadout and crew stage right after a
+cut; fix what they show; then the release engineer's `package.sh snapshot` from the gameplay clone and
+`package-cloud.sh all`, and the new sha256 in LAUNCH.md.
+
 ## Cloud build (release engineer): Pixel Streaming 2 package for Eagle 3D Streaming — package delivered, stream test blocked on the box
 
 **2026-11-23, box d14fa3ab** (it ended at 19:48 when the credits ran out). Owner's guide: `docs/LAUNCH.md`. Scripts:
@@ -181,53 +241,6 @@ the full suite was running; a re-rent with the next key was refused ("not enough
 - **The release copy** (`/project/ue/repo-release`) still holds the old L_Block without vehicle art: the release
   engineer's next `package.sh snapshot` from the gameplay clone carries the rebuilt map and `Content/Art`.
 - The level clone's L_Block was not rebuilt with the new rules (`block.sh start level` there when its editor runs).
-
-
-
-**Verified 2026-11-23** on the box (session d14fa3ab). Owner's guide: `docs/DEMO.md`. Scripts: `tools/box/demo/package.sh`,
-`start.sh`, `stop.sh` (copied to `/project/ue/demo/tools/` on the box; the demo-video agent's `capture.sh`, `audio.sh`,
-`finish.sh` share the folder).
-
-**Route: the rental's own browser desktop.** The desktop rental already streams its screen (Selkies, websockets mode,
-H.264 on the card) to a private page behind the platform's HTTPS link (`Open desktop`, a `*.w.modal.host` address
-with a connect token and a session token); that page is the only thing the box exposes to the internet. Pixel
-Streaming was not used: it needs its own signalling and media ports reachable from the internet, the rental routes
-no other port, and the rental's instructions forbid starting tunnels, VNC or web servers on a desktop box ("the
-desktop and its link already exist"). A packaged Mac build is impossible from Linux (it needs a Mac with Xcode and
-the engine), and was not needed.
-
-**Windows do work here for the game.** `desktop-run --vulkan` (the box's launcher: primus_vk renders on the RTX PRO 6000
-and presents through llvmpipe on the virtual screen) draws the packaged game, and `UnrealEditor <project> -game`,
-in a window without aborting; only the editor's own window was ever seen to abort (BOX.md).
-
-**The package.** `package.sh snapshot` copies the gameplay clone's project (Source, Config, Content with all the
-imported art, the editor module) to `/project/ue/repo-release` (its own copy: `repo-demo` is the demo-video agent's
-clone), `package.sh start` runs BuildCookRun Linux Development: game target 2 min from scratch, cook 1 to 2 min
-with the shared cache, 1.7 GB staged in `/project/ue/demo/build/Linux`. Overlay on the copy only: start map
-`L_Block`, cook the folders the data loads by path (Art, Audio, Characters, FX, FirstPerson, ThirdParty, Weapons,
-Input, Variant_Shooter), stage `Content/Fonts` as files (`UI/MIStyle.cpp` reads them like the data), no Zen store
-(the cooker's Zen writer aborts: no Zen server on the box), `-IgnoreCookErrors` (the template's ABP_FP_Pistol and
-ABP_FP_Weapon no longer compile and are unused). The package holds pack and Epic content: box only, never committed.
-
-**Found and fixed: mouse look was 14 times too slow outside play in editor.** BaseInput.ini scales MouseX, MouseY
-and Mouse2D by 0.07 and Enhanced Input applies it even with the legacy scales off: 300 counts turned 2.5 degrees
-(read back with `getall MIPlayerController ControlRotation`) instead of 36. `Config/DefaultInput.ini` now replaces
-the three entries with sensitivity 1; after the fix 100 counts turn 12.03 degrees (0.0021 rad per count, exact) and
-50 counts down pitch 6.0 degrees down. Play-in-editor input went through `MIInput`, which is why no test saw it.
-
-**Measured through the desktop path** (the X screen the stream sends; input injected with XTEST as the stream's
-input is): home screen to the Story run through Crew, Loadout, Block and Briefing with mouse clicks; 1920 x 1080 full
-screen, Epic preset, TSR at 73 %: **60 fps locked**, GPU 6.4 to 6.6 ms, game thread 5 ms, draw 7.5 to 7.9 ms;
-mouse-move-to-screen 43 to 56 ms (median of 8, includes a 12 ms screen grab). With two other agents' editors
-running on the same card: 55 to 60 fps, GPU 14 to 17 ms, 78 ms median delay. The uncooked `-game` run with an
-editor alongside managed 36 to 49 fps: the package matters. The desktop icon "MURDER INC." (re)starts the game.
-Pictures (box only, they show pack content): `/project/ue/demo/home.jpg`, `g3.jpg`, `ads.jpg`, `fire.jpg`.
-
-**Limits** (the rental's stream settings, not the game): no sound in the browser (Selkies runs with audio off; the
-game's audio device does not open for user ue4 either: "ALSA: Couldn't open audio device"), no gamepad through the
-browser (gamepad input off), Safari has no keyboard lock (Esc leaves gaming mode). The game window does not follow
-a later resize of the desktop: restart it with the icon. Seen in play: a black half disc below the left forearm in
-the hip pose (art, first-person agent), vertical banding on the set-up stage for a few frames after a camera cut.
 
 ## First person (the player's arms and guns, the Goons, the effects) — first pass done
 
