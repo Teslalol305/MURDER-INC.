@@ -654,3 +654,20 @@ Review (art/blender/review/rule_review.py, renders in art/out/review/rule/): lik
 - Export checks (rule.export_checks): mi.export.validate, skeleton round trip vs the mannequin, re-import
   (triangles, joints, materials, every vertex weighted) -> <glb>.check.json.
 - Credits: 2 (one bandana swatch, nano_banana_pro). Balance 2818.76 before.
+## State at hand-off: review round 1 fixes done, re-exported and checked
+- Exports: SK_RuleArms (131,594 tris), SM_Character_RuleBracelet (21,504), SK_Rule (197,743 incl. eyes, nape
+  flap and its own bracelet; 37.9 MB, 4K head BC/N/ORM + body BC embedded). export_checks: skeleton round trip
+  exact, re-import triangles equal, 89 joints, every vertex weighted; mi.export.validate: SK_Rule 3 zero-area faces
+  and 4 inconsistently wound edges in the generated body, SK_RuleArms 1 (logged in <glb>.check.json).
+- Final previews (10 renders after the last change): rule_arms_fp, rule_hands (3), rule_arms_hero, rule_body_hero,
+  rule_face, rule_turntable, rule_wire (2). Check renders through the reviewer's loaders went to the scratchpad.
+- Known: a lighter band and a faint crease ring just under the jaw (head/body texture and the tuck at the neck
+  join); a few beige blotches of the generated print left on the bandana's right side; the aimed idle opens a gap
+  at the shirt's armhole (the jog flare is gone); the generated body's thin band on the LEFT wrist is still there;
+  fingers still press together in Epic's pistol pose (no corrective shapes); the face's large forms are still the
+  generated head's (texture detail is 2K upscaled); the reviewer's body shots add the arms' socket bracelet on top
+  of SK_Rule's own one now.
+- Higgsfield: 2 credits this round (bandana swatch); the account balance also moves with other agents' jobs.
+## Exact next step
+Multi-view photos of the man (see the task report) for a head rebuilt from several views; neck-join texture
+blend across the two atlases; armhole rim weights per pose (aimed idle); corrective shapes for curled fingers.
