@@ -1032,3 +1032,15 @@ Cause, fix and the play-frame proof: `docs/unreal/CHARACTERS.md`, "SK_RuleArms, 
   pass). Higgsfield: 0 credits.
 - Not done: CHOPPER inspect / reload finger corrections, hair cards, an inspect roll that shows the word near the right
   elbow with the CHOPPER.
+## Second pass, retake after a restart (same owner request)
+- The left numerals centred 7.2 cm (main rows) / 6.4-6.8 cm (second group) round from the back toward the radius
+  (`_rule_tex.TATTOO_LAYOUT`): the play probe's first reading (1.0 cm toward the ulna) had the rotation reversed and no ink
+  showed. Export 18:07 (131,594 triangles, posed gate 0 failed), re-imported into the game; the numerals read in the hip
+  and El play frames (`docs/unreal/shots/fp-arms-hip-sun.jpg`, `fp-arms-hip-el.jpg`).
+- The NINE: the arms now placed by their shoulders under the eye (`presentation.json` `animSets.pistol.shoulders`,
+  `MIFirstPersonRig.cpp` `GripShoulderTranslation`), the solved grip of `_rule_grips.py` reached by the IK: no upper-arm
+  stump in the view, both hands round the grip (`fp-arms-nine.jpg`, `fp-arms-nine-ads.jpg`).
+- Previews `rule_arms_fp.jpg`, `rule_hands.jpg` re-rendered from the 18:07 export. Open: the hands preview shows the nails
+  as dark V shapes (the mesh measures sound: plate 0.42 mm above the bed, nail texels pale; not seen in play frames).
+- Not done: CHOPPER inspect / reload finger corrections, hair cards, an inspect forearm roll (the pack inspect keeps the
+  support forearm out of frame). Higgsfield: 0 credits.

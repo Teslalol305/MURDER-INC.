@@ -65,10 +65,17 @@ done
 # the NINE at the hip and aimed (the solved grip: Content/Data/grips.json)
 c "MIInput weapon2 1"; run 1.0; c "MIInput weapon2 0"
 c "MIPose 170 -380 0 -35 -6"; run 1.2; want fp-arms-nine && shot fp-arms-nine
+# evidence (not committed): the NINE at the hip with other shoulder anchors (console mi.FP.Shoulders "x y z" | off)
+k=0
+for s in ${NINE_SHOULDERS:-}; do
+  k=$((k + 1)); c "mi.FP.Shoulders ${s//,/ }"; run 0.6; shot ev-nine-shoulders-$k; echo "MI-NINE-SHOULDERS $k: $s"
+done
+[ -n "${NINE_SHOULDERS:-}" ] && { c "mi.FP.Shoulders data"; run 0.4; }
 c "MIInput ads 1"; run 0.8; want fp-arms-nine-ads && shot fp-arms-nine-ads
 c "MIInput ads 0"; run 0.6
 c "MIPose -2900 80 0 0 -3"; run 1.2; want fp-arms-nine-el && shot fp-arms-nine-el
 textures end
 tail -n +"$mark" "$log" | grep -E "First person: grip|Error" | tail -4 | cut -c1-240
+tail -n +"$mark" "$log" | grep -E "First person: shoulders" | awk '!seen[$0]++' | tail -12 | cut -c1-200
 pie_stop > /dev/null
 echo "FP ARMS SHOTS DONE $out"

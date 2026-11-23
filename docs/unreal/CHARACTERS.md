@@ -236,7 +236,7 @@ CHOPPER; with the NINE the right forearm crosses the lower frame and the word re
 
 | Item | Now |
 |---|---|
-| Left numerals (`_rule_tex.TATTOO_LAYOUT`) | Read off the photo at 6x: a main group of two rows (XXIII toward the elbow, XVII below) about 29 mm apart with 18-20 mm capitals, and a second, half hidden group of two rows nearer the wrist (illegible: XII / XX stand in until the owner's close-up). Main rows at 11.2 and 14.1 cm above the wrist (were 16.8 / 19.4), 18 mm capitals (14), each row up to 7.8 cm round the arm; second group at 5.3 and 7.7 cm, 17 mm. All centred 1.0 cm round from the back toward the ulna, the face the eye sees |
+| Left numerals (`_rule_tex.TATTOO_LAYOUT`) | Read off the photo at 6x: a main group of two rows (XXIII toward the elbow, XVII below) about 29 mm apart with 18-20 mm capitals, and a second, half hidden group of two rows nearer the wrist (illegible: XII / XX stand in until the owner's close-up). Main rows at 11.2 and 14.1 cm above the wrist (were 16.8 / 19.4), 18 mm capitals (14), each row up to 7.8 cm round the arm; second group at 5.3 and 7.7 cm, 17 mm. Centred 6.4-7.2 cm round from the back of the forearm toward the radius (see the note under this table: the first probe reading, 1.0 cm toward the ulna, had the wrong sense of rotation and showed no ink at all) |
 | Right script line | 19 mm (16), the pen stroke thickened 0.45 mm each side, full ink, 5 mm beside the word toward the wrist: as dark and as heavy as the capitals |
 | Skin albedo (`_rule_tex.SKIN_TARGET`) | linear 0.130 / 0.063 / 0.034 = sRGB 101 / 71 / 51, hue 24 degrees, saturation 0.50 (was 0.115 / 0.062 / 0.038, hue 21, saturation 0.42). The photo's lit forearm is hue 22, saturation 0.49 under its warm print: his hue and saturation at a deep albedo value. The head and body share this target and pick it up on their next build |
 | Game skin (`mi_fp_import.skin_material`) | `SkinTint` 1 / 1 / 1 (0.92 / 1 / 1.08 cooled the shade toward mauve), `SubsurfaceTint` 0.35 / 0.18 / 0.11 (0.26 / 0.14 / 0.09), the pore detail at strength 1.0 masked by ORM blue (1 on the back of the arm and hand, 0 on the palm, pads and nails: the bake writes the mask there, the skin has no metal) |
@@ -246,6 +246,14 @@ CHOPPER; with the NINE the right forearm crosses the lower frame and the word re
 | Nails | the plate 0.18 mm proud (0.6) and running 0.45 mm into the finger; the cuticle fold rises 0.4 mm and overlaps the plate's root by about 0.6 mm, lateral folds hug its sides; the free edge only the last 0.8-1.4 mm and lower in value (0.27 / 0.22 / 0.18, was 0.40 / 0.33 / 0.27) |
 | Pore detail (`_rule_detail.py`) | skin lines 24 um (18), pores 0.16 mm / 40 um (0.13 / 26), plus a 2-4 mm undulation 12 um deep |
 | NINE grip | see below |
+
+**Where the eye sees the support forearm, corrected.** The face probe's first reading (14-21 degrees on the ulnar side)
+had the sense of rotation reversed: with the numerals centred 1.0 cm toward the ulna no ink showed in any play frame. In
+play the support forearm lies palm-up under the handguard and the eye sees its radial-volar face, about 100-110 degrees
+round from the back toward the radius; the numerals are centred 7.2 cm (main rows) and 6.4-6.8 cm (second group) round
+from the back toward the radius, at the same heights. In `fp-arms-hip-sun.jpg` and `fp-arms-hip-el.jpg` (unmodified play
+frames) XVII and the second group read on the forearm in blue-black ink; at the irons the edge of the group shows at the
+lower left.
 
 **The NINE's grip, solved and applied in the game.** The template third-person pistol idle with both palms pulled onto
 `Palm_R` / `Palm_L` kept the template's hand shape. Now:
@@ -263,11 +271,25 @@ CHOPPER; with the NINE the right forearm crosses the lower frame and the word re
   arms by the hand as the clips posed it, before the IK (`UMIFPAnimInstance::GetPreIKHand`): SK_RuleArms carries
   `HandGrip_R` since its re-import, so the arms were placed by the *posed* hand, and the grip's turn of the hand fed
   back into the arms' placement every frame (the first try put the right forearm straight up in front of the eye).
+- **The shoulders, not the wrist, place the arms** (`UMIFirstPersonRig::GripShoulderTranslation`, used by
+  `UMIWeaponComponent::PoseView`). Placed by the template clip's hand, the arms' left upper arm stood 29 cm in front of
+  the eye (logged: shoulders' midpoint at (29, -29, -3) cm in camera space): a cut upper arm, a round brown stump, filled
+  the lower left of every NINE frame, and a first fix that slid the arms by the solved wrist kept it. Now the midpoint of
+  `upperarm_l` / `upperarm_r` is carried to `presentation.json` `animSets.pistol.shoulders` (-6, 0, -24) cm in camera
+  space (behind and below the eye, centred: the two-handed pistol stance) and the two-bone IK reaches both hands onto
+  the solved grip from there. For reference the pack's own first-person clips hold the CHOPPER's shoulders at about
+  (-10, -14, -7) cm (bladed rifle stance; the log line `First person: shoulders in camera space` prints it every 2 s).
+  The console variable `mi.FP.Shoulders "x y z"` tries other anchors in play (`off` restores the wrist slide); -10/0/-26,
+  -4/2/-20 and -8/0/-30 gave nearly the same frame (`fp-arms-shots.sh` with `NINE_SHOULDERS`, evidence `ev-nine-shoulders-*`).
 
-**In play** (`docs/unreal/shots/fp-arms-*.jpg`, every one an unmodified play frame): hip in the sun and under the El,
-irons, mid tactical reload, the inspect, the NINE at the hip and aimed (the right hand round the grip, knuckles,
-tendons and the nail folds reading at arm's length, the word and script line on the right forearm), the NINE under
-the El. Evidence not committed: `ev-unlit` (base colour), the face probe's numbers above, texture residency (all four
+**In play** (`docs/unreal/shots/fp-arms-*.jpg`, retaken after the shoulder anchor, every one an unmodified play frame
+from `fp-arms-shots.sh`): `fp-arms-hip-sun` and `fp-arms-hip-el` (the numerals on the support forearm, warm brown skin,
+the thumb's knuckle and nail on the handguard), `fp-arms-irons`, `fp-arms-reload` (mid tactical reload, the support hand
+on the magazine), `fp-arms-inspect-1.2 / 2.4 / 3.6`, `fp-arms-nine` and `fp-arms-nine-ads` (both hands closed round the
+grip, the support hand cupping the firing fist, no stump in the view), `fp-arms-nine-el`. The first pass's
+`fp-arms-forearm-l/r.jpg` (arms moved in front of the eye) are deleted. The right forearm's word is not on screen in
+these frames: with the CHOPPER the right forearm is below the frame, and with the NINE the shoulder anchor keeps the
+forearms low. Evidence not committed: `ev-unlit` (base colour), the face probe's numbers above, texture residency (all four
 arms textures 4096 / 1024 resident, `Streaming NO`).
 
 **Shadow stripes and the lilac patch** (review items): both appeared only in the first pass's close-ups, which moved
@@ -275,7 +297,13 @@ the arms component 30 cm in front of the eye and so inside the player's own body
 owner-no-see but still casts; the arms cast none). No play frame shows either (checked in the hip, El, irons, reload,
 inspect and NINE frames); no bias change was made.
 
-Not done in this pass: per-clip finger corrections for the CHOPPER's inspect and reloads (the pack's own clips drive
+Not done in this pass (status after the retake): no inspect roll was added, because the pack's inspect keeps the support
+forearm out of the frame (only the hand comes up), so a roll of the forearm would show nothing; the ink is instead on the
+face the hip and El frames show all the time. The Cycles hand preview (`art/previews/rule_hands.jpg`, re-rendered from
+the 18:07 export) shows the nails as dark V shapes; the exported mesh is sound (nail plate 0.42 mm median above the
+skin under it, 5.7 % of plate faces below the skin; nail texels BC 0.45 / 0.31 / 0.26, AO 0.92), so this is the preview's
+shading of the thin plate under the new cuticle fold, not the game's (no black nails in the play frames); it is open.
+Also not done: per-clip finger corrections for the CHOPPER's inspect and reloads (the pack's own clips drive
 the support hand there; its finger contact against this hand's proportions was not measured); hair cards (the hair is
 in the texture); the NINE's wrist still bends hard because the template clip brings the right forearm in from the
 left of the frame; the word near the right elbow is not seen with the CHOPPER (no inspect roll was added).

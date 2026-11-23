@@ -130,6 +130,8 @@
           "left": "Palm_L",
           "right": "Palm_R"
         },
+        "shoulders": [-6, 0, -24],
+        "shouldersNote": "camera space, cm: the arms' shoulders (midpoint of upperarm_l / _r) under the eye when a solved grip holds the gun (Data/grips.json); the IK reaches both hands from there (console mi.FP.Shoulders \"x y z\" to try values, \"off\" for the old wrist slide)",
         "fireWeight": 0.35,
         "bobScale": 1.0,
         "magazine": {

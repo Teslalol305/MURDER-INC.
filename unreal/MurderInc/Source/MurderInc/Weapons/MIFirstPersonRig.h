@@ -81,6 +81,13 @@ public:
 	/** HandIK guns with a solved grip: how far (camera space) the arms must slide so the clips' firing hand (before the
 	 *  IK) sits on the grip's solved wrist; GunRel and ArmsRel are the gun's and the arms' transforms under the camera. */
 	bool GripWristSlide(const FTransform& GunRel, const FTransform& ArmsRel, FVector& Out) const;
+	/** HandIK guns with a solved grip and an anim set 'shoulders' anchor (camera space, cm; console mi.FP.Shoulders
+	 *  "x y z" overrides, "off" falls back to GripWristSlide): the arms' translation under the camera that puts the
+	 *  midpoint of upperarm_l / upperarm_r on the anchor, as a body would carry them. The two-bone IK then reaches both
+	 *  hands onto the solved grip from there (the wrist slide carried the template clip's shoulders into the view). */
+	bool GripShoulderTranslation(const FTransform& ArmsRel, FVector& Out) const;
+	/** The shoulders' midpoint (upperarm_l / _r) in camera space, for calibration logs. */
+	bool ShouldersInCamera(FVector& Out) const;
 	/** A static part authored in the skeletal mesh's own space (origin and axes of the gun, as SM_Weapon_NineMagazine is
 	 *  to SK_Nine) attached to a bone: its transform relative to that bone (the inverse of the bone's reference pose in
 	 *  component space), so it sits where it was modelled and follows the bone's animation. */
@@ -154,6 +161,8 @@ private:
 	double IronZeroDeg = 0.0;
 	FQuat IronZero = FQuat::Identity;
 	FVector SupportElbowDrop = FVector::ZeroVector;
+	FVector ShoulderAnchor = FVector::ZeroVector;  // anim set 'shoulders' (camera space, cm)
+	bool bShoulderAnchor = false;
 	bool bReloadingNow = false;
 	double ReloadNowT = 0.0, ReloadNowLeft = 0.0;
 	FVector MagBasePad = FVector(1.5, 0.0, -15.0);  // HandIK guns: the palm under the magazine's base (gun space, cm)  // anim set supportElbowDrop (arms component space, cm)  // the irons' zeroing turn of the gun in hand (reset on equip)

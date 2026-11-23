@@ -1,5 +1,7 @@
 #include "Weapons/MIFirstPersonRig.h"
 
+#include "HAL/IConsoleManager.h"
+
 #include "Animation/AnimSequenceBase.h"
 #include "AnimationRuntime.h"
 #include "Camera/CameraComponent.h"
@@ -294,6 +296,12 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 	if (const TSharedPtr<FJsonValue> E = MIJson::Get(Set, TEXT("supportElbowDrop")); E.IsValid() && E->Type == EJson::Array && E->AsArray().Num() == 3)
 	{
 		SupportElbowDrop = FVector(E->AsArray()[0]->AsNumber(), E->AsArray()[1]->AsNumber(), E->AsArray()[2]->AsNumber());
+	}
+	bShoulderAnchor = false;
+	if (const TSharedPtr<FJsonValue> E = MIJson::Get(Set, TEXT("shoulders")); E.IsValid() && E->Type == EJson::Array && E->AsArray().Num() == 3)
+	{
+		ShoulderAnchor = FVector(E->AsArray()[0]->AsNumber(), E->AsArray()[1]->AsNumber(), E->AsArray()[2]->AsNumber());
+		bShoulderAnchor = true;
 	}
 	DrawRange = Num(Set, TEXT("drawRange"), 0.53);
 	MeleeRange = Num(Set, TEXT("meleeRange"), 1.0);
@@ -667,6 +675,55 @@ bool UMIFirstPersonRig::GripWristSlide(const FTransform& GunRel, const FTransfor
 		return false;
 	}
 	Out = (GunRel.TransformPosition(*Wrist) - ArmsRel.TransformPosition(Hand.GetLocation())) * GripWeight;
+	return true;
+}
+
+namespace MIFirstPersonRigPrivate
+{
+	static TAutoConsoleVariable<FString> CVarShoulders(TEXT("mi.FP.Shoulders"), TEXT(""),
+		TEXT("HandIK guns with a solved grip: the arms' shoulders (midpoint of upperarm_l / _r) in camera space, \"x y z\" cm; ")
+		TEXT("empty or \"data\": the anim set's 'shoulders'; 'off': the wrist slide"));
+}
+
+bool UMIFirstPersonRig::GripShoulderTranslation(const FTransform& ArmsRel, FVector& Out) const
+{
+	if (Mode != EMIFPMode::HandIK || GripPoints[1].IsEmpty() || GripWeight <= 0.0 || !Arms || !Arms->GetSkinnedAsset())
+	{
+		return false;
+	}
+	const FString C = MIFirstPersonRigPrivate::CVarShoulders.GetValueOnGameThread().TrimStartAndEnd();
+	FVector Anchor = ShoulderAnchor;
+	if (C == TEXT("off") || ((C.IsEmpty() || C == TEXT("data")) && !bShoulderAnchor))
+	{
+		return false;
+	}
+	if (!C.IsEmpty() && C != TEXT("data"))
+	{
+		TArray<FString> P;
+		C.ParseIntoArrayWS(P);
+		if (P.Num() != 3)
+		{
+			return false;
+		}
+		Anchor = FVector(FCString::Atod(*P[0]), FCString::Atod(*P[1]), FCString::Atod(*P[2]));
+	}
+	if (Arms->GetBoneIndex(TEXT("upperarm_l")) == INDEX_NONE || Arms->GetBoneIndex(TEXT("upperarm_r")) == INDEX_NONE)
+	{
+		return false;
+	}
+	const FVector Mid = (Arms->GetBoneLocation(TEXT("upperarm_l"), EBoneSpaces::ComponentSpace) + Arms->GetBoneLocation(TEXT("upperarm_r"), EBoneSpaces::ComponentSpace)) * 0.5;
+	Out = FMath::Lerp(ArmsRel.GetTranslation(), Anchor - ArmsRel.TransformVector(Mid), GripWeight);
+	return true;
+}
+
+bool UMIFirstPersonRig::ShouldersInCamera(FVector& Out) const
+{
+	if (!Arms || !Camera || !Arms->GetSkinnedAsset() || Arms->GetBoneIndex(TEXT("upperarm_l")) == INDEX_NONE)
+	{
+		return false;
+	}
+	const FVector Mid = (Arms->GetBoneLocation(TEXT("upperarm_l")) + Arms->GetBoneLocation(TEXT("upperarm_r"))) * 0.5;
+	Out = Camera->GetComponentTransform().InverseTransformPosition(Mid);
 	return true;
 }
 

@@ -146,4 +146,5 @@ private:
 	bool bLastHitHead = false;
 	bool bReady = false;
 	bool bHaveView = false;
+	double ShoulderLogAt = -10.0;  // the shoulders calibration log (PoseView), world seconds
 };

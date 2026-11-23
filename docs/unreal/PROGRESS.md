@@ -256,6 +256,11 @@ on that face, the script line heavier, the skin's warmth back in the albedo (`Sk
 `presentation.json` `animSets.pistol.grip`); the arms are placed by the pre-IK hand (`GetPreIKHand`) so the grip does not
 feed back into the placement. Open: CHOPPER inspect / reload finger contact, hair cards, the NINE's wrist bend from the
 template clip.
+Retake (same pass, after a restart): the numerals re-centred on the radial-volar face of the support forearm (the probe's
+first reading had the rotation reversed) and now read in the hip and El play frames; the NINE's arms placed by their
+shoulders (`animSets.pistol.shoulders`, `UMIFirstPersonRig::GripShoulderTranslation`): the wrist-based placement had put
+the left upper arm 29 cm in front of the eye, a stump across the NINE frames. Re-imported (`import-chars.sh arms`, the
+18:07 export), rebuilt, all ten `fp-arms-*.jpg` retaken as play frames; `fp-arms-forearm-l/r.jpg` deleted.
 
 ## Exact next step (level)
 

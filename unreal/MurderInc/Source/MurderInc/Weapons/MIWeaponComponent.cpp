@@ -371,6 +371,17 @@ void UMIWeaponComponent::SyncVisibility(bool bGun, bool bArms)
 void UMIWeaponComponent::PoseView()
 {
 	const FMIGunViewData* D = Rig.GetGunData();
+	// Calibration (hands-and-tattoos second pass): where the arms' shoulders sit under the eye, every 2 s, for every
+	// mode (the pack's own first-person clips give the reference the NINE's 'shoulders' anchor copies).
+	if (FPRig && GetWorld() && GetWorld()->GetTimeSeconds() - ShoulderLogAt > 2.0)
+	{
+		ShoulderLogAt = GetWorld()->GetTimeSeconds();
+		FVector Sh;
+		if (FPRig->ShouldersInCamera(Sh))
+		{
+			UE_LOG(LogMI, Log, TEXT("First person: shoulders in camera space %s (mode %d)"), *Sh.ToCompactString(), static_cast<int32>(FPRig->GetMode()));
+		}
+	}
 	if (!bHaveView || !D || !GunMesh || (FPRig && FPRig->GetMode() == EMIFPMode::Pack))
 	{
 		return;
@@ -386,10 +397,16 @@ void UMIWeaponComponent::PoseView()
 	{
 		const FTransform Grip(Gun.GetRotation(), Rig.GunPointInCamera(D->Marker(TEXT("grip"))));
 		FTransform ArmsRel = Hand.Inverse() * Grip;
-		// A solved grip (grips.json): the arms slid so the clip's firing hand already sits on the solved wrist, so the
-		// IK only turns the hand and closes the fingers (otherwise it folds the elbow up into the view)
-		FVector Slide;
-		if (FPRig->GripWristSlide(Gun, ArmsRel, Slide))
+		// A solved grip (grips.json): the arms carried with their shoulders where a body holds them under the eye
+		// (anim set 'shoulders'), and the two-bone IK reaches both hands onto the grip from there. Without an anchor,
+		// the older way: the arms slid so the clip's firing hand sits on the solved wrist (that carried the template
+		// clip's left shoulder into the view, a cut upper arm in front of the eye).
+		FVector Slide, At;
+		if (FPRig->GripShoulderTranslation(ArmsRel, At))
+		{
+			ArmsRel.SetTranslation(At);
+		}
+		else if (FPRig->GripWristSlide(Gun, ArmsRel, Slide))
 		{
 			ArmsRel.AddToTranslation(Slide);
 		}
