@@ -1,7 +1,7 @@
 // The browser half of stream-test.sh: Epic's Pixel Streaming 2 player page opened by a headless Chromium on the box.
-// Writes <out>/results.json and screenshots. Reads the game's MICloudProbe log lines (-MICloudProbe=0.5) for what
+// Writes <out>/results.json and screenshots. Reads the game's cloud log (-MICloudLog=, -MICloudProbe=0.5) for what
 // the game saw: the view's yaw, the game state, whether the click card is up.
-//   node stream_test.cjs <out> <game.log> <launch.txt>      (VW, VH: browser viewport; MATCH: MatchViewportRes)
+//   node stream_test.cjs <out> <cloud.log> <launch.txt>      (VW, VH: browser viewport; MATCH: MatchViewportRes)
 const { chromium } = require('/project/ue/cloud/pw/node_modules/playwright');
 const fs = require('fs');
 const [, , OUT, GAMELOG, LAUNCHFILE] = process.argv;
@@ -9,7 +9,7 @@ const VW = +(process.env.VW || 1920), VH = +(process.env.VH || 1080), MATCH = pr
 const R = {};
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const note = (k, v) => { R[k] = v; console.log(k, JSON.stringify(v)); fs.writeFileSync(`${OUT}/results.json`, JSON.stringify(R, null, 1)); };
-const log = () => fs.readFileSync(GAMELOG, 'utf8');
+const log = () => { try { return fs.readFileSync(GAMELOG, 'utf8'); } catch (e) { return ''; } };
 const probes = () => log().split('\n').filter((l) => l.includes('MICloudProbe')).map((l) => {
   const o = {}; for (const m of l.matchAll(/(\w+)=(-?[\d.]+)/g)) o[m[1]] = +m[2]; return o;
 });

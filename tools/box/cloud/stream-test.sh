@@ -42,8 +42,9 @@ start_game() {  # $1 config, rest: args
   [ -x "$L/MurderInc.sh" ] || { echo "no build in $L"; exit 1; }
   echo "$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits)" > "$RUN/gpu-baseline.txt"
   date +%s.%N | cut -c1-14 > "$RUN/launch.txt"
+  rm -f "$RUN/cloud.log"
   su ue4 -c "cd $L && HOME=/home/ue4 setsid nohup ./MurderInc.sh -RenderOffScreen -vulkan -unattended -nosplash -ResX=1920 -ResY=1080 -ForceRes \
-    -stdout -FullStdOutLogOutput $(printf '%q ' "$@") </dev/null > $RUN/game.log 2>&1 & echo \$! > $RUN/game.pid"
+    -stdout -FullStdOutLogOutput -MICloudLog=$RUN/cloud.log $(printf '%q ' "$@") </dev/null > $RUN/game.log 2>&1 & echo \$! > $RUN/game.pid"
   sleep 2
   gpu_sampler "$(cat "$RUN/game.pid")"
   echo "GAME $cfg started pid $(cat "$RUN/game.pid") (log $RUN/game.log)"
@@ -69,7 +70,7 @@ case "$1" in
     ;;
   test)
     out=$2; vp=${3:-1920x1080}; mkdir -p "$out"
-    VW=${vp%x*} VH=${vp#*x} MATCH=${4:-false} node "$TOOLS/stream_test.cjs" "$out" "$RUN/game.log" "$RUN/launch.txt"
+    VW=${vp%x*} VH=${vp#*x} MATCH=${4:-false} node "$TOOLS/stream_test.cjs" "$out" "$RUN/cloud.log" "$RUN/launch.txt"
     ;;
   stop)
     for f in game ss sampler; do p=$(cat "$RUN/$f.pid" 2>/dev/null); [ -n "$p" ] && kill "$p" 2>/dev/null && echo "stopped $f $p"; done

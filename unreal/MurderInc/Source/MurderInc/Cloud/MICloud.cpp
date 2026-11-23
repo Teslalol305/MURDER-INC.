@@ -11,7 +11,9 @@
 #include "GameFramework/PlayerController.h"
 #include "HAL/IConsoleManager.h"
 #include "HAL/PlatformMemory.h"
+#include "HAL/FileManager.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Misc/FileHelper.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "Rendering/DrawElements.h"
@@ -34,6 +36,22 @@
 #endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogMICloud, Log, All);
+
+namespace MICloudPrivate
+{
+	/** Every line also goes to -MICloudLog=<file> when given: Shipping builds compile the engine log out, and the
+	 *  stream test (tools/box/cloud/stream_test.cjs) reads what the game saw from this file. */
+	void Line(const FString& Text)
+	{
+		UE_LOG(LogMICloud, Display, TEXT("%s"), *Text);
+		static FString File = [] { FString F; FParse::Value(FCommandLine::Get(), TEXT("MICloudLog="), F); return F; }();
+		if (!File.IsEmpty())
+		{
+			FFileHelper::SaveStringToFile(FString::Printf(TEXT("%.3f %s\n"), FPlatformTime::Seconds(), *Text), *File,
+				FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM, &IFileManager::Get(), FILEWRITE_Append);
+		}
+	}
+}
 
 namespace MICloudPrivate
 {
@@ -209,7 +227,7 @@ int32 UMICloudSubsystem::ApplyCloudProfile()
 			UE_LOG(LogMICloud, Warning, TEXT("Cloud profile: no console variable %s"), *Name);
 		}
 	}
-	UE_LOG(LogMICloud, Display, TEXT("Cloud profile applied: %d of %d settings"), N, Lines.Num());
+	MICloudPrivate::Line(FString::Printf(TEXT("Cloud profile applied: %d of %d settings"), N, Lines.Num()));
 	return N;
 }
 
@@ -271,7 +289,7 @@ void UMICloudSubsystem::BecomeStreamed(const TCHAR* Why)
 {
 	if (!bStreamed)
 	{
-		UE_LOG(LogMICloud, Display, TEXT("Streamed (%s): click to play, cloud profile"), Why);
+		MICloudPrivate::Line(FString::Printf(TEXT("Streamed (%s): click to play, cloud profile"), Why));
 		bStreamed = true;
 		bWaitingForClick = true;
 	}
@@ -287,7 +305,7 @@ void UMICloudSubsystem::Dismiss()
 	if (bWaitingForClick)
 	{
 		bWaitingForClick = false;
-		UE_LOG(LogMICloud, Display, TEXT("Click to play: dismissed"));
+		MICloudPrivate::Line(FString::Printf(TEXT("Click to play: dismissed")));
 	}
 }
 
@@ -296,7 +314,7 @@ void UMICloudSubsystem::OnViewerJoined()
 	BecomeStreamed(TEXT("viewer"));
 	bConnectionLost = false;
 	bWaitingForClick = true;
-	UE_LOG(LogMICloud, Display, TEXT("Viewer joined: click to play"));
+	MICloudPrivate::Line(FString::Printf(TEXT("Viewer joined: click to play")));
 }
 
 void UMICloudSubsystem::OnAllViewersLeft()
@@ -307,7 +325,7 @@ void UMICloudSubsystem::OnAllViewersLeft()
 	{
 		G->Pause();
 	}
-	UE_LOG(LogMICloud, Display, TEXT("Connection lost: the game is paused until a viewer joins"));
+	MICloudPrivate::Line(FString::Printf(TEXT("Connection lost: the game is paused until a viewer joins")));
 }
 
 void UMICloudSubsystem::EnsureOverlay()
@@ -355,11 +373,11 @@ void UMICloudSubsystem::EnsureVideoProducer()
 		if (!Streamer->GetVideoProducer().IsValid())
 		{
 			Streamer->SetVideoProducer(UE::PixelStreaming2::CreateVideoProducerBackBuffer());
-			UE_LOG(LogMICloud, Display, TEXT("Pixel Streaming: the default streamer had no video source; it streams the back buffer now"));
+			MICloudPrivate::Line(FString::Printf(TEXT("Pixel Streaming: the default streamer had no video source; it streams the back buffer now")));
 		}
 		else
 		{
-			UE_LOG(LogMICloud, Display, TEXT("Pixel Streaming: the default streamer has its video source"));
+			MICloudPrivate::Line(FString::Printf(TEXT("Pixel Streaming: the default streamer has its video source")));
 		}
 	}
 #endif
@@ -400,11 +418,10 @@ void UMICloudSubsystem::Probe(float DeltaTime)
 	const APlayerController* PC = GetGameInstance() ? GetGameInstance()->GetFirstLocalPlayerController() : nullptr;
 	const FRotator R = PC ? PC->GetControlRotation() : FRotator::ZeroRotator;
 	UMIGameSubsystem* G = MICloudPrivate::Game(GetGameInstance());
-	UE_LOG(LogMICloud, Display,
-		TEXT("MICloudProbe fps=%.1f worstMs=%.1f gpuMs=%.2f rssMB=%llu peakRssMB=%llu texStreamMB=%llu texOtherMB=%llu poolMB=%lld yaw=%.4f pitch=%.4f state=%d click=%d"),
+	MICloudPrivate::Line(FString::Printf(TEXT("MICloudProbe fps=%.1f worstMs=%.1f gpuMs=%.2f rssMB=%llu peakRssMB=%llu texStreamMB=%llu texOtherMB=%llu poolMB=%lld yaw=%.4f pitch=%.4f state=%d click=%d"),
 		ProbeTime > 0 ? ProbeFrames / ProbeTime : 0.0, ProbeWorst * 1000.0, GpuMs,
 		(unsigned long long)(M.UsedPhysical >> 20), (unsigned long long)(M.PeakUsedPhysical >> 20),
 		(unsigned long long)(T.StreamingMemorySize >> 20), (unsigned long long)(T.NonStreamingMemorySize >> 20), (long long)(T.TexturePoolSize >> 20),
-		R.Yaw, R.Pitch, G ? (int32)G->GetRules().GetState() : -1, bWaitingForClick ? 1 : 0);
+		R.Yaw, R.Pitch, G ? (int32)G->GetRules().GetState() : -1, bWaitingForClick ? 1 : 0));
 	ProbeFrames = ProbeTime = ProbeWorst = 0.0;
 }
