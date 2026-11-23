@@ -117,8 +117,13 @@
     "stepStrip": "a done step can always be clicked; once the set-up is valid every step can be clicked, forward too",
     "toBriefing": {
       "keys": ["Ctrl+Enter"],
-      "pad": ["Start"],
-      "note": "from any set-up screen, straight to the Briefing when the set-up is valid"
+      "pad": ["View+Start"],
+      "note": "from any set-up screen, straight to the Briefing when the set-up is valid. Start alone is Next on every set-up screen (Hit the block on Home and the Briefing), so a pad player walks crew, loadout, attachments, block and style in order; the jump is a chord: hold View, press Start"
+    },
+    "next": {
+      "keys": ["Enter on Next", "Tab or Down to Next"],
+      "pad": ["Start", "D-pad down past the last row, then A"],
+      "note": "the bottom bar's Next takes the focus like any other control: Tab cycles the screen's panes and Next, Down past the last row lands on it"
     },
     "setupValid": "at least one gun carried and every required slot filled (always true after validation)"
   },
@@ -152,9 +157,9 @@
       "note": "a cyclorama room; engine cube walls until the art exists (status missing)"
     },
     "lights": [
-      {"kind": "rect", "at": [-180, -160, 140], "aim": [0, 0, 20], "lux": 1800, "kelvin": 4300, "size": [120, 60]},
-      {"kind": "rect", "at": [160, -120, 90], "aim": [0, 0, 20], "lux": 600, "kelvin": 5600, "size": [80, 80]},
-      {"kind": "spot", "at": [0, 180, 160], "aim": [0, 0, 20], "lux": 1200, "kelvin": 3600, "cone": 35}
+      {"kind": "rect", "at": [-180, -160, 140], "aim": [0, 0, 106], "lux": 1800, "kelvin": 4300, "size": [120, 60]},
+      {"kind": "rect", "at": [160, -120, 90], "aim": [0, 0, 106], "lux": 600, "kelvin": 5600, "size": [80, 80]},
+      {"kind": "spot", "at": [0, 180, 160], "aim": [0, 0, 106], "lux": 1200, "kelvin": 3600, "cone": 35}
     ],
     "exposure": {"ev100": 9.5, "fixed": true},
     "bench": {

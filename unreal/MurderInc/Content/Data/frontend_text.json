@@ -362,9 +362,13 @@
       }
     },
     "glyphs": {
-      "kbm": {"weapon3": "3", "weapon4": "4", "fireMode": "B", "inspect": "T", "wheel": "Hold Q"},
-      "pad": {"weapon3": "", "weapon4": "", "fireMode": "VIEW", "inspect": "Hold VIEW", "wheel": "Hold Y"},
-      "touch": {"weapon3": "", "weapon4": "", "fireMode": "MODE", "inspect": "", "wheel": ""}
+      "about": "Key and button names drawn next to the controls they work, for the device the player used last: kbm (keyboard and mouse), pad, touch (none). weapon3 to wheel: the HUD's four-slot bar; back to panes: the set-up screens' bottom bar and hints (LOADOUT.md 2.2).",
+      "kbm": {"weapon3": "3", "weapon4": "4", "fireMode": "B", "inspect": "T", "wheel": "Hold Q",
+        "back": "Esc", "next": "Enter", "toBriefing": "Ctrl+Enter", "prevGun": "[", "nextGun": "]", "reset": "R", "bench": "E", "melee": "F", "empty": "Del", "panes": "Tab"},
+      "pad": {"weapon3": "", "weapon4": "", "fireMode": "VIEW", "inspect": "Hold VIEW", "wheel": "Hold Y",
+        "back": "B", "next": "Start", "toBriefing": "View+Start", "prevGun": "LB", "nextGun": "RB", "reset": "Y", "bench": "Y", "melee": "RB", "empty": "X", "panes": "LB / RB"},
+      "touch": {"weapon3": "", "weapon4": "", "fireMode": "MODE", "inspect": "", "wheel": "",
+        "back": "", "next": "", "toBriefing": "", "prevGun": "", "nextGun": "", "reset": "", "bench": "", "melee": "", "empty": "", "panes": ""}
     },
     "controls": {
       "about": "Rows added to the Controls drawer (text.json interface.controls), after Swap weapon. The wheel rows show only when three or more guns are carried.",

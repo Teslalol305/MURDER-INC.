@@ -103,10 +103,45 @@ def view_pose(name, pose):
     return Matrix.Translation((x, y, z)) @ E @ C
 
 
+def mask_cross_weights(meshes, rigs=()):
+    """Review copy only (the export is untouched): the fault found on SK_RuleArms is upper-arm / armpit vertices
+    carrying hand and thumb weights, so when the hand goes to the gun they are dragged with it in sheets across the
+    camera. Drop hand / finger weights from vertices that lie, in the rest pose, on the elbow side of mid-forearm
+    (projected on the elbow -> wrist axis of their own arm), when other weights remain. Returns the count."""
+    hand = ("thumb", "index", "middle", "ring", "pinky", "hand")
+    n = 0
+    for o in meshes:
+        names = [g.name for g in o.vertex_groups]
+        Mw = o.matrix_world
+        for v in o.data.vertices:
+            gs = [(g.group, names[g.group], g.weight) for g in v.groups if g.weight > 0.0]
+            hw = [x for x in gs if x[1].startswith(hand)]
+            rest = [x for x in gs if not x[1].startswith(hand)]
+            if not hw:
+                continue
+            p = Mw @ v.co
+            side = hw[0][1][-1]
+            RR = [r for r in rigs if r.side == side]
+            if not RR:
+                continue
+            E, W = Vector(RR[0].E), Vector(RR[0].W)
+            ax = W - E
+            if (p - E).dot(ax) / ax.length_squared < 0.6:
+                for gi, nm, w in hw:
+                    o.vertex_groups[gi].remove([v.index])
+                if sum(x[2] for x in rest) < 0.05:     # nothing left: give it to its own upper arm / forearm
+                    seg = "upperarm_" if (p - E).dot(ax) < 0 else "lowerarm_"
+                    o.vertex_groups[seg + side].add([v.index], 1.0, "REPLACE")
+                n += 1
+    return n
+
+
 def recipe_camera(arm, col):
     bpy.context.view_layer.update()
     head = (arm.matrix_world @ arm.pose.bones["head"].matrix).to_translation()
     eye = head + Vector((0, 0, -EYE_DROP))
+    if os.environ.get("FP_EYE") == "build":     # the build's own preview eye (_characters_pose.eye_camera)
+        eye = head + Vector((0, -0.11, 0.075))
     cd = bpy.data.cameras.new("FP")
     cd.sensor_fit = "VERTICAL"
     cd.angle_y = math.radians(FOV_V)
@@ -124,6 +159,8 @@ def armed(name, pose, col):
     from assets import _characters_pose as PZ
     R, Rl = rr.arms_rig()
     arm, meshes = rr.load_arms()
+    if os.environ.get("MASK_CROSS_WEIGHTS"):
+        LOG["masked_cross_weights"] = mask_cross_weights(meshes, (R, Rl))
     rr.bracelet(arm)
     char.rest_pose(arm)
     cam = recipe_camera(arm, col)
@@ -383,6 +420,24 @@ def _dry_report():
             for k, pt in (("origin", (0, 0, 0)), ("muzzle", (0.45, 0, 0))):
                 v = world_to_camera_view(sc, cam, o.matrix_world @ Vector(pt))
                 out[o.name + ":" + k] = (round(v.x, 3), round(1 - v.y, 3), round(v.z, 3))
+    dg = bpy.context.evaluated_depsgraph_get()
+    Mi = cam.matrix_world.inverted()
+    near = 0
+    for o in sc.objects:
+        if o.type == "MESH":
+            e = o.evaluated_get(dg)
+            me = e.to_mesh()
+            co = np.array([tuple(Mi @ (e.matrix_world @ v.co)) for v in me.vertices])
+            e.to_mesh_clear()
+            z = -co[:, 2]
+            t = math.tan(math.radians(FOV_V) / 2)
+            inside = (z > 0) & (np.abs(co[:, 1]) < z * t) & (np.abs(co[:, 0]) < z * t * 16 / 9)
+            near += int(((z < 0.06) & inside).sum())
+            dist = np.linalg.norm(co, axis=1)
+            out[o.name + ":min_dist_any"] = round(float(dist.min()), 4)
+            out[o.name + ":n_within_8cm"] = int((dist < 0.08).sum())
+            out[o.name + ":min_depth_in_view"] = round(float(z[inside].min()), 4) if inside.any() else None
+    out["verts_closer_than_6cm"] = near
     print("DRY", json.dumps(out))
 
 

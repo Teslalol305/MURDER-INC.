@@ -45,6 +45,15 @@ public:
 	/** The focused row or card of the current screen, and the pane on Loadout (0 rack, 1 slots). */
 	int32 Focus = 0;
 	int32 Pane = 0;
+	/** The bottom bar's Next (Done, Hit the block) has the focus: Tab, or Down past the last row, reaches it. */
+	bool bOnNext = false;
+	/** The focus the screens draw: none while Next has it. */
+	int32 FocusShown() const { return bOnNext ? -1 : Focus; }
+	/** The device the player used last: true for a gamepad (the glyphs follow it). */
+	bool IsPad() const { return bPad; }
+	void UsePad(bool bIn) { if (bIn != bPad) { bPad = bIn; Changed(); } }
+	/** frontend.glyphs.<kbm|pad>.<Key>: the key or button name for the device in use. */
+	FString Glyph(const TCHAR* Key) const;
 	FName RackFilter = TEXT("all");
 	/** Home: the summary line's links and the pickers; Briefing: the four lines and Go. */
 	int32 NumFocusable() const;
@@ -82,5 +91,7 @@ private:
 	bool bShown = false;
 	bool bResetDown = false;
 	bool bInputMode = false;  // the UI-only input mode, set once the player controller exists
+	bool bPad = false;
+	bool bViewHeld = false;   // the pad's View button, held: View+Start jumps to the Briefing
 	int32 ViewTargetFor = -1;
 };

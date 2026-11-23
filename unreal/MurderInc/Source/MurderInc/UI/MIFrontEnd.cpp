@@ -153,10 +153,18 @@ void UMIFrontEnd::AfterScreenChange()
 	const FMIRunSetup& S = Rules.GetSetup();
 	Focus = 0;
 	Pane = 0;
+	bOnNext = false;
 	switch (Rules.GetScreen())
 	{
 	case EMIFrontScreen::Crew: Focus = FMath::Max(0, Rules.OfferedCrew().IndexOfByKey(S.Crew)); break;
-	case EMIFrontScreen::Loadout: Focus = FMath::Max(0, Rules.Rack(RackFilter).IndexOfByKey(Rules.GetFocusGun())); break;
+	case EMIFrontScreen::Loadout:
+	{
+		// The card focused on arrival counts as seen: its NEW tag goes (LOADOUT.md 2.5).
+		const TArray<FName> Rack = Rules.Rack(RackFilter);
+		Focus = FMath::Max(0, Rack.IndexOfByKey(Rules.GetFocusGun()));
+		if (Rack.IsValidIndex(Focus)) Rules.FocusGun(Rack[Focus]);
+		break;
+	}
 	case EMIFrontScreen::Workbench: Focus = FMath::Max(0, Rules.BenchOptions(Rules.GetBenchSlot()).IndexOfByKey(Rules.FittedIn(Rules.GetBenchSlot()))); break;
 	case EMIFrontScreen::Briefing: Focus = 4; break;
 	default: break;
@@ -208,6 +216,11 @@ void UMIFrontEnd::StartRun()
 		Hide();
 		Game->BeginWithSetup(S);
 	}
+}
+
+FString UMIFrontEnd::Glyph(const TCHAR* Key) const
+{
+	return Rules.Text(FString(TEXT("frontend.glyphs.")) + (bPad ? TEXT("pad.") : TEXT("kbm.")) + Key);
 }
 
 bool UMIFrontEnd::ResolveShown(FName Gun, const FMIGunBuild* Build, FMIResolvedGun& Out) const
@@ -292,6 +305,30 @@ void UMIFrontEnd::Move(int32 Dx, int32 Dy)
 {
 	const EMIFrontScreen S = Rules.GetScreen();
 	const int32 Count = FMath::Max(1, NumFocusable());
+	const bool bSetupScreen = S != EMIFrontScreen::Home && S != EMIFrontScreen::Briefing;
+	if (bOnNext)
+	{
+		// On Next: Up goes back to the row it came from; across does nothing.
+		if (Dy < 0) bOnNext = false;
+		Changed();
+		return;
+	}
+	// Down past the last row lands on Next (LOADOUT.md 2.2: the focus reaches every control).
+	bool bLastRow = false;
+	switch (S)
+	{
+	case EMIFrontScreen::Crew: bLastRow = true; break;  // one row of cards
+	case EMIFrontScreen::Loadout: bLastRow = Pane == 0 ? Focus / 3 == (Count - 1) / 3 : Focus >= Count - 1; break;
+	case EMIFrontScreen::Workbench: bLastRow = Focus >= Count - 1; break;
+	case EMIFrontScreen::Where: bLastRow = Focus >= 3; break;
+	default: break;
+	}
+	if (bSetupScreen && Dy > 0 && bLastRow)
+	{
+		bOnNext = true;
+		Changed();
+		return;
+	}
 	switch (S)
 	{
 	case EMIFrontScreen::Home:
@@ -349,7 +386,7 @@ void UMIFrontEnd::Move(int32 Dx, int32 Dy)
 	}
 	case EMIFrontScreen::Where:
 	{
-		if (Dy != 0) Focus = (Focus + Dy + 4) % 4;
+		if (Dy != 0) Focus = FMath::Clamp(Focus + Dy, 0, 3);
 		if (Dx != 0)
 		{
 			const FMIRunSetup& Set = Rules.GetSetup();
@@ -379,6 +416,11 @@ void UMIFrontEnd::Move(int32 Dx, int32 Dy)
 
 void UMIFrontEnd::Activate()
 {
+	if (bOnNext)
+	{
+		Act(TEXT("next"));  // Enter, Space or A on Next advances
+		return;
+	}
 	switch (Rules.GetScreen())
 	{
 	case EMIFrontScreen::Home:
@@ -424,6 +466,15 @@ void UMIFrontEnd::Activate()
 bool UMIFrontEnd::Key(const FKey& K, bool bDown, bool bRepeat, bool bCtrl, bool bShift)
 {
 	const EMIFrontScreen S = Rules.GetScreen();
+	if (bDown && !K.IsMouseButton())
+	{
+		UsePad(K.IsGamepadKey());  // the glyphs follow the device in use
+	}
+	if (K == EKeys::Gamepad_Special_Left)
+	{
+		bViewHeld = bDown;
+		return true;
+	}
 	// Reset build is a 0.6 s hold (R, gamepad Y), never a tap.
 	if (S == EMIFrontScreen::Workbench && (K == EKeys::R || K == EKeys::Gamepad_FaceButton_Top))
 	{
@@ -436,15 +487,44 @@ bool UMIFrontEnd::Key(const FKey& K, bool bDown, bool bRepeat, bool bCtrl, bool 
 	}
 	const bool bEnter = K == EKeys::Enter || K == EKeys::SpaceBar || K == EKeys::Gamepad_FaceButton_Bottom;
 	const bool bStart = K == EKeys::Gamepad_Special_Right;
-	if ((K == EKeys::Enter && bCtrl) || (bStart && S != EMIFrontScreen::Home && S != EMIFrontScreen::Briefing))
+	const bool bSetupScreen = S != EMIFrontScreen::Home && S != EMIFrontScreen::Briefing;
+	// The shortcut (LOADOUT.md 2.2): Ctrl+Enter, or View+Start on a pad, jumps to the Briefing when the set-up is valid.
+	if (bSetupScreen && ((K == EKeys::Enter && bCtrl) || (bStart && bViewHeld)))
 	{
-		if (Act(TEXT("briefing"))) return true;
-		if (bStart) { Act(TEXT("next")); return true; }
+		Act(TEXT("briefing"));
+		return true;
 	}
+	// Start always advances: Next on a set-up screen, Hit the block on Home and the Briefing.
 	if (bStart)
 	{
-		Act(TEXT("hit"));
+		Act(bSetupScreen ? TEXT("next") : TEXT("hit"));
 		return true;
+	}
+	// Tab cycles the screen's panes and Next (Loadout: rack, slots, Next).
+	if (K == EKeys::Tab && bSetupScreen)
+	{
+		if (S == EMIFrontScreen::Loadout)
+		{
+			if (bOnNext) { bOnNext = false; Pane = 0; }
+			else if (Pane == 0) { Pane = 1; }
+			else { bOnNext = true; }
+			Focus = 0;
+			if (Pane == 0 && !bOnNext)
+			{
+				Focus = FMath::Max(0, Rules.Rack(RackFilter).IndexOfByKey(Rules.GetFocusGun()));
+			}
+		}
+		else
+		{
+			bOnNext = !bOnNext;
+		}
+		Changed();
+		return true;
+	}
+	if (bOnNext && !bEnter && K != EKeys::Up && K != EKeys::Gamepad_DPad_Up && K != EKeys::Gamepad_LeftStick_Up
+		&& K != EKeys::Escape && K != EKeys::Gamepad_FaceButton_Right)
+	{
+		return true;  // on Next only Enter / A, Up and Back act
 	}
 	if (K == EKeys::Escape || K == EKeys::Gamepad_FaceButton_Right)
 	{
@@ -454,13 +534,13 @@ bool UMIFrontEnd::Key(const FKey& K, bool bDown, bool bRepeat, bool bCtrl, bool 
 	}
 	if (K == EKeys::Up || K == EKeys::Gamepad_DPad_Up || K == EKeys::Gamepad_LeftStick_Up)
 	{
-		if (S == EMIFrontScreen::Loadout && Pane == 1 && bShift) { Act(TEXT("swap"), FString::Printf(TEXT("%d %d"), Focus + 1, Focus)); Focus = FMath::Max(0, Focus - 1); return true; }
+		if (S == EMIFrontScreen::Loadout && Pane == 1 && bShift && !bOnNext) { Act(TEXT("swap"), FString::Printf(TEXT("%d %d"), Focus + 1, Focus)); Focus = FMath::Max(0, Focus - 1); return true; }
 		Move(0, -1);
 		return true;
 	}
 	if (K == EKeys::Down || K == EKeys::Gamepad_DPad_Down || K == EKeys::Gamepad_LeftStick_Down)
 	{
-		if (S == EMIFrontScreen::Loadout && Pane == 1 && bShift) { Act(TEXT("swap"), FString::Printf(TEXT("%d %d"), Focus + 1, Focus + 2)); Focus = FMath::Min(Focus + 1, Rules.GetSetup().Guns.Num() - 1); return true; }
+		if (S == EMIFrontScreen::Loadout && Pane == 1 && bShift && !bOnNext) { Act(TEXT("swap"), FString::Printf(TEXT("%d %d"), Focus + 1, Focus + 2)); Focus = FMath::Min(Focus + 1, Rules.GetSetup().Guns.Num() - 1); return true; }
 		Move(0, 1);
 		return true;
 	}
@@ -470,7 +550,6 @@ bool UMIFrontEnd::Key(const FKey& K, bool bDown, bool bRepeat, bool bCtrl, bool 
 	{
 		const TArray<FName> Rack = Rules.Rack(RackFilter);
 		const FName Card = Rack.IsValidIndex(Focus) ? Rack[Focus] : NAME_None;
-		if (K == EKeys::Tab) { Pane = 1 - Pane; Focus = 0; Changed(); return true; }
 		if (Pane == 0 && !Card.IsNone())
 		{
 			if (K == EKeys::One || K == EKeys::Two || K == EKeys::Three || K == EKeys::Four)
@@ -490,7 +569,8 @@ bool UMIFrontEnd::Key(const FKey& K, bool bDown, bool bRepeat, bool bCtrl, bool 
 		}
 		if (K == EKeys::Gamepad_LeftShoulder || K == EKeys::Gamepad_RightShoulder)
 		{
-			Pane = 1 - Pane;  // D-pad across switches panes on a pad
+			Pane = 1 - Pane;  // LB / RB switch panes on a pad
+			bOnNext = false;
 			Focus = 0;
 			Changed();
 			return true;

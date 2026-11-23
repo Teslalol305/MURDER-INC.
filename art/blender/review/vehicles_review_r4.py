@@ -26,6 +26,31 @@ import numpy as np  # noqa: E402
 
 R = R3.R
 
+# Translucency as the sets ask for it in Unreal (set.json notes); round 1-3 used 0.75 for every glass slot,
+# which turned the car glass milky. Mirror glass is opaque silvered. A roughness_override (primer) wins over ORM.
+GLASS_OPACITY = {"MI_Glass_CarTint": 0.45, "MI_Glass_LampClear": 0.25, "MI_Glass_LampAmber": 0.6,
+                 "MI_Glass_LampRed": 0.6, "MI_Glass_Mirror": 1.0}
+_build0 = R.build_material
+
+
+def _build(rec, old):
+    m = _build0(rec, old)
+    nt = m.node_tree
+    op = GLASS_OPACITY.get(rec.get("slot", ""))
+    if op is not None:
+        for n in nt.nodes:
+            if n.type == "MIX_SHADER":
+                n.inputs["Fac"].default_value = op
+    if "roughness_override" in rec:
+        bs = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+        for lk in list(bs.inputs["Roughness"].links):
+            nt.links.remove(lk)
+        bs.inputs["Roughness"].default_value = float(rec["roughness_override"])
+    return m
+
+
+R.build_material = _build
+
 
 def _slot(ob, arrs, *names):
     co, tris, pm, ls, lt, lv = arrs
