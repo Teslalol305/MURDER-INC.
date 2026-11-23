@@ -1,0 +1,13 @@
+# Repro of the crash at `blow` (run with DEMO_GDB=1)
+wait 3
+con MIStart mission skip
+waitstate playing 15
+god 1
+con MIPose -1000 -150 0 -48 -4
+wait 1.0
+lookat -420 -800 60 2
+capture @FIFO@
+blow 6
+wait 3
+capture off
+quit
