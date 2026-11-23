@@ -21,7 +21,7 @@ namespace MIEnemyNoisePrivate
 	};
 
 	/** A field on the block with two Goons facing away, 30 m and 15 m from the shot. */
-	struct FScene
+	struct FNoiseScene
 	{
 		FMIBoxWorld World;
 		FMIEnemyField Field;
@@ -64,7 +64,7 @@ bool FMIEnemyGunfireRadiusTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("a bare round is heard 45 m out (config.json ai.hearGunfire)"), Bare, 45.0);
 	TestTrue(TEXT("the throttle window is open"), Tune.Ai.GunfireEvery > 0.0);
 	{
-		FScene S;
+		FNoiseScene S;
 		if (S.Init(*this, Tune, Level))
 		{
 			S.Field.Gunfire(S.Shot);
@@ -73,7 +73,7 @@ bool FMIEnemyGunfireRadiusTest::RunTest(const FString& Parameters)
 		}
 	}
 	{
-		FScene S;
+		FNoiseScene S;
 		if (S.Init(*this, Tune, Level))
 		{
 			S.Field.Gunfire(S.Shot, 18.0);
@@ -84,7 +84,7 @@ bool FMIEnemyGunfireRadiusTest::RunTest(const FString& Parameters)
 	{
 		// Inside the window: a bare round far away (nobody near it), then a silenced one here alerts nobody; a louder one
 		// than the last alert does.
-		FScene S;
+		FNoiseScene S;
 		if (S.Init(*this, Tune, Level))
 		{
 			S.Field.Gunfire(S.Shot + FVector(500.0, 0.0, 500.0), Bare);
@@ -98,7 +98,7 @@ bool FMIEnemyGunfireRadiusTest::RunTest(const FString& Parameters)
 	}
 	{
 		// The other way round: a silenced alert, then a bare round inside the window is louder, so it alerts.
-		FScene S;
+		FNoiseScene S;
 		if (S.Init(*this, Tune, Level))
 		{
 			S.Field.Gunfire(S.Shot, 18.0);
@@ -109,7 +109,7 @@ bool FMIEnemyGunfireRadiusTest::RunTest(const FString& Parameters)
 	}
 	{
 		// Equal radii keep the web's throttle: the second round inside the window is ignored.
-		FScene S;
+		FNoiseScene S;
 		if (S.Init(*this, Tune, Level))
 		{
 			S.Field.Gunfire(S.Shot + FVector(500.0, 0.0, 500.0));
