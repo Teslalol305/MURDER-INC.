@@ -85,9 +85,8 @@ for comp in [arms] + list(arms.get_children_components(True)):
         comp.set_editor_property("only_owner_see", False)
         try:
             comp.set_first_person_primitive_type(unreal.FirstPersonPrimitiveType.NONE)
-        except Exception:
-            comp.set_editor_property("first_person_primitive_type", unreal.FirstPersonPrimitiveType.NONE)
-        comp.mark_render_state_dirty()
+        except Exception as e:
+            unreal.log_warning("MI forearm: %s" % e)
 sx = "l" if side == "l" else "r"
 e = arms.get_socket_location("lowerarm_" + sx)
 wr = arms.get_socket_location("hand_" + sx)

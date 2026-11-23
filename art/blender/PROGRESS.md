@@ -983,3 +983,23 @@ Review (art/blender/review/rule_review_r3.py, sheets/rule_r3): arms_fp 1.5, hand
 ### Lead note: independent re-review of Rule round 3 (for the hands and tattoos pass)
 
 Grades: arms in first person 2, hands 2, tattoos 2, face 2, body 3. The full fault list with measured contact gaps and fixes is in `art/blender/review/rule_r3_final_review.json`: read it before working on the hands. Most visible: the forearm is a smooth tan tube with only a faint smudge for the tattoo; arms go nearly black under the El (the viewmodel needs its own fill light); the firing hand is cropped at the bottom edge; CHOPPER support fingers stand 11-20 mm off the handguard and the firing fist closes in the air; the NINE two-hand hold intersects (1,428 vertices inside) and needs a thumbs-forward hold; fingers glow red from too much subsurface; nails render black.
+
+---------------------------------------------------------------------------------------------------------------
+# Rule arms, hands-and-tattoos pass (the owner: "fix the hands and arm tatoos"), character and technical artist
+
+Cause, fix and the in-game proof: `docs/unreal/CHARACTERS.md`, "SK_RuleArms, hands-and-tattoos pass".
+## Done
+- Tattoos (`_rule_tex.tattoo_chart`): every line across the forearm, letters' tops toward the elbow (the photo); the
+  word in heavy serif capitals 21 mm (Old Standard Bold: the photo's lettering is a serif roman), the script line 16 mm
+  beside it toward the wrist, the numerals XVII / XXIII 14 mm (r3's IIIXX was the mirror reading; the left chart is now
+  drawn mirrored because the left arm is the mirror of the right arm's frame); centred 2.6-3.2 cm toward the thumb side.
+  Ink at a fifth of the skin's luminance (r3 a third), 90 % cover, ragged 0.15 mm edge, 0.4 mm bleed, faint halo.
+- Hands (`rule.Hand.field`, `bare_palm_sdf`): extensor tendons 1.1 mm (0.5), PIP / DIP knuckle swell, finger shafts slimmed
+  0.35-0.45 mm between joints, fuller thenar pad; knuckle wrinkles 120 um (75) in the normal map.
+- Nails: the plates now 0.6 mm proud (0.3): the 64k decimation had smoothed the nail bed away and the skin covered the
+  middle of every plate (measured: 30 % of nail faces under the skin, now 0 %); the Cycles stand-in has no subsurface on
+  the plates. `rule_hands.jpg` now shows pale nails with the lighter free edge (they were black slits).
+- `_rule_detail.py`: the tiling skin grain T_RuleArms_SkinDetail_N (24 mm tile, 1024 px) written by the bake; set.json
+  records the forearm's texel density (3,902 px/m at 4K) for its tiling in Unreal.
+- Export: 131,598 triangles, posed gate 104 poses, 0 failed. Previews rule_arms_fp, rule_hands re-rendered.
+  Higgsfield: 0 credits.
