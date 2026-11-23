@@ -122,8 +122,8 @@ Three skinned meshes on `SK_Mannequin`, one man in three outfits (briefs `docs/u
 `goon_hoodie`, `goon_puffer`, `goon_tracksuit`): `SK_Goon_Hoodie`, `SK_Goon_Puffer`, `SK_Goon_Tracksuit`
 (`art/out/glb/`, never committed: they are skinned on Epic's skeleton). Facing -Y in Blender, which is the
 mannequin's own facing (Unreal +Y), so the template clips play as they are; origin on the ground between the feet;
-A-pose (the mannequin's rest). Rebuild r2 (after the art review of round 1): about 108k / 113k / 111k triangles
-(each under the 120k cap), 89 joints (the whole SK_Mannequin hierarchy), at most 6 influences per vertex.
+A-pose (the mannequin's rest). Rebuild r3 (after the art review of r2 and the lead's mask direction): 117.5k /
+115.7k / 115.0k triangles (each under the 120k cap; r2 108k / 113k / 111k), 89 joints (the whole SK_Mannequin hierarchy), at most 6 influences per vertex.
 
     venv/bin/python art/blender/build.py build goons [--only hoodie,puffer,tracksuit] [--bake] [--export] [--preview]
     MI_PREVIEWS=goons_lineup,goons_hoodie_hero,goons_detail,goons_poses,goons_wire     pictures to render
@@ -135,15 +135,18 @@ A-pose (the mannequin's rest). Rebuild r2 (after the art review of round 1): abo
 | Kit | `_goons_kit.py`: gloves (the player's glove anatomy from `characters.py`, closed up the forearm under the cuff), socks, sneakers (outsole with 32 deg herringbone tread 2.4 mm deep, upper with toe box, padded collar, tongue, 12 metal eyelets, bar lacing with a bow, oxblood heel tab) |
 | Garments | Start shapes cut from the body as offsets plus hanging lofts (`_goons_cloth.py`), open at the hems (`mi/cloth.garment_mesh`), then draped with Blender's cloth solver in the rest A-pose (`cloth.drape`: hems pinned, extra length grown where clothes bunch: sleeve ends, knees, trouser breaks, the blouse over the waistband), colliding with the body and the layers already dressed (sneakers under the trousers, trousers under the top, mask under the hood). Drapes are cached per piece and version (`art/out/goons/cache_*.npz`) |
 | Hoodie outfit | Jeans; charcoal-grey heather hoodie (blouses over a rib waistband, gathered into rib cuffs: r2 bands are closed double-walled tubes, `_goons_trim.axis_band`, no cut edge to tear); hood up, an offset of head and shoulders narrowing into the neckline, draped over the balaclava (crown sags, folds at the neck) with a rolled drawstring channel round the face opening; kangaroo pocket (a 2.5 mm thick panel); two oxblood drawstrings with aglets; the balaclava |
-| Balaclava (all three) | r2: a 2000-era three-hole balaclava in charcoal rib knit (base colour linear 0.023) over the face proxy, tucked into the collar; two small eye openings (37 x 18 mm) and a mouth opening (43 x 15 mm) cut on clean ellipses (`cut_ellipse_hole`), each with a rolled 2.2 mm hem; behind them the face skin (sockets, lids, lips) and two eyeballs; sweat and breath darkening round the mouth and eyes, grime, stray fuzz in the texture. (The briefs' pale bone ski mask with slits read as a ghost or plague-doctor costume and dominated the figure: changed on the art review) |
-| Puffer outfit | Charcoal twill trousers; black nylon puffer: shell draped stiff (bending 5), refined, the torso pushed out 16-26 mm (`inflate_torso`: flat quilted panels, no pecs or stomach), then lofted along its normals between stitched seams 8.7 cm apart (seven baffles on the torso, rings every third of each sleeve segment, 17 mm loft; the loft is kept as `mi_loft` and drives the roughness); stand collar up to the jaw; oxblood yoke cut on the top stitch line; dark oxblood hem binding, cuff bindings; oxblood zip 0.40 m; black beanie with a 4.6 cm dark oxblood turned-up cuff (a closed band tube); period wraparound sunglasses resting on the nose (smoked shield in a moulded black frame, temple arms); a dark cotton bandana fitted over nose and mouth, its point over the collar |
-| Tracksuit outfit | Navy tricot track trousers and jacket (mid value: the outfits separate by value and colour at 8 m), rib waistband and cuffs (tubes), short stand collar, oxblood zip 0.40 m; bold white stripe tape 36 mm wide down the outer seam of each sleeve (shoulder, elbow, cuff) and leg (hip, knee, ankle): geometry laid on the draped cloth by ray casts square to the limb (`surface_strip`), constant width over every fold; black fitted cap worn backwards: crown edge tidied and closed by a sweatband tube, the oxblood brim attached under the crown edge at the back and lying down over the nape 17 deg below the horizontal, top button, rigid on `head` |
+| Balaclava (all three), r3 | **A two-hole balaclava, closed knit over the mouth** (the art lead: r2's black knit with tan skin rings round bright eye whites and orange lips in a round mouth hole read as a blackface / minstrel caricature at 3 to 8 m; that must never ship). No mouth hole, and no lips under the knit (`FaceShape` keeps the brow, nose, cheekbones and chin, one soft muzzle form instead of lips). Two small eye openings cut 32 x 16 mm whose 3 mm rolled hem leaves about 26 x 10 mm clear, set 1.5 mm below the eye centre so the knit's upper edge covers the top of the iris, with a 5 mm knit tunnel behind the hem (`cut_ellipse_hole(tunnel=)`): the eyes sit recessed in the knit's shadow under a deeper brow and the eyeball fills the opening, so no skin ring shows. Heather knit at linear albedo about 0.06, a different colour per Goon (hoodie dark olive, puffer charcoal, tracksuit dark navy), 2.5 mm 1x1 rib in the height (normal) only, the colour a ply heather (r2's 4.8 mm rib with a 20 % colour stripe read as cardboard). Eyes: sclera 0.33, a larger dark-brown iris, darker lids; no breath ring at the mouth. The puffer adds slim wraparound sunglasses over the openings and the bandana over the nose and mouth; the tracksuit a cap brim over the eyes |
+| Balaclava, r2 (replaced) | r2: a 2000-era three-hole balaclava in charcoal rib knit (base colour linear 0.023) over the face proxy, tucked into the collar; two small eye openings (37 x 18 mm) and a mouth opening (43 x 15 mm) cut on clean ellipses (`cut_ellipse_hole`), each with a rolled 2.2 mm hem; behind them the face skin (sockets, lids, lips) and two eyeballs; sweat and breath darkening round the mouth and eyes, grime, stray fuzz in the texture. (The briefs' pale bone ski mask with slits read as a ghost or plague-doctor costume and dominated the figure: changed on the art review) |
+| Puffer outfit | Charcoal twill trousers; black nylon puffer, r3 **a boxy shell of its own** (`boxy_puffer`: r2's baffles followed the pecs, abs and deltoids): the draped shell's torso set on one rounded-rectangle section (superellipse 3.6) from the hem to the chest, the body's widest half-width + 5 cm, front + 6 cm, back + 5 cm, the same at every height (flat front, hanging hem, no waist), fading to the draped shoulders above 1.40 m; sleeves straight tubes round the shoulder-wrist axis (82 to 64 mm radius); torso and sleeve told apart by nearest axis AND outside the box's side wall (the upper-arm axis runs close to the chest in the A-pose: the nearest-axis test alone put sleeve rings across the chest, which read as a six-pack); then lofted between straight horizontal seams 8.7 cm apart (flatter crowns, power 0.4), 12 cm sleeve baffles at 60 % loft; matte ripstop 0.62 on the crowns to 0.80 in the valleys; stand collar up to the jaw; oxblood yoke above the top stitch line of the torso only (r2's round shoulder caps tore into ragged edges); dark oxblood hem binding, cuff bindings; oxblood zip 0.40 m; black beanie with a 4.6 cm dark oxblood turned-up cuff (a closed band tube); period wraparound sunglasses resting on the nose (smoked shield in a moulded black frame, temple arms); a dark cotton bandana fitted over nose and mouth, its point over the collar |
+| Tracksuit outfit | Navy tricot track trousers and jacket (mid value: the outfits separate by value and colour at 8 m), rib waistband and cuffs (tubes), short stand collar, oxblood zip 0.40 m; bold white stripe tape 36 mm wide down the outer seam of each sleeve (shoulder, elbow, cuff) and leg (hip, knee, ankle): geometry laid on the draped cloth by ray casts square to the limb (`surface_strip`), constant width over every fold; r3: a fitted six-panel black cap worn forward (`cap_forward`; r2's backwards cap read as a skullcap with a red tab): solid crown with a little height at the front panels, sweatband tube, six panel seams with top-stitching and four eyelets in the normal map, oxblood top button, a stiff curved brim 7 cm long, 9 deg down with the sides bent down, spanning +-46 deg of the forehead, shading the eyes; rigid on `head` |
 | All | The sling (webbing loop from the right shoulder across the back to the left hip, for SM_Weapon_GoonPipe) with two black tri-glide buckles (chest and lower back); the crew V on the back (two oxblood bars 0.20 x 0.03 m leaning 24 deg out, centred 1.29 m up: texture), the one accent all three share |
 | Weights | Nearest-surface transfer from the mannequin (`char.transfer_weights`) and smoothing (more for loose pieces); gloves per finger (as SK_RuleArms); sneakers from foot/ball/calf; rib cuffs from the forearm bones only (they must not follow the wrist bend); beanie, cap and glasses rigid on `head`. Then `goons.layer_weights`: every vertex of a covered layer within a few cm of its cover takes the cover's weights (mask under hood/collar/bandana, trousers under the waistband and jacket hem, glove tops under the cuffs; trouser hems resting on the sneakers take the sneakers'), so layers move as one (r2 adds: face skin under the knit, stripe tape on the tricot, buckles on the webbing). At most 6 influences |
 | Textures | Two unique sets per outfit (`_goons_tex.py`, per texel from the baked rest position): `Goon<Outfit>_Cloth` 4096 (garments, gloves, sneakers) and `Goon<Outfit>_Head` 2048 (mask, hats, glasses, bandana, sling, cords, zips), BC / N (OpenGL) / ORM. Fabric is drawn at true size in body-axis coordinates (wales down a sleeve whatever the UV island's angle): rib knit 2.6 mm wales, jersey with heathering and pilling where arms rub, denim twill with slub warp streaks, faded crests, whiskers and knee honeycombs, tan-stitched seams and back pockets, nylon ripstop with sheen, tricot courses, pebble-grain leather with creases, sneaker leather with toe-flex creases, panel stitching, scuffs and sole grime; dust at hems, cuffs and knees; prints and panels in body space (crew V, puffer yoke and shoulder caps). r2: fleece heathered with dark and light fibre flecks plus brushed-fibre relief; tricot roughness 0.74-0.8 with a warp-knit micro relief; nylon taffeta 0.54 on the baffle crowns to 0.78 in the stitch valleys (from `mi_loft`); denim streaks at half strength; work-glove leather at 0.62-0.68 with knuckle pads over the MCP and PIP joints, fourchette seams along each finger and flex creases (`glove_relief`, from the finger bones); sneakers at albedo ~0.75 with more grime; skin (pores, darker lids and lips, mouth line) and eyes (iris, pupil, limbal ring) |
 | Slots | `M_Goon<Outfit>_Cloth`, `M_Goon<Outfit>_Head` |
 
-| Refinement (r2) | `cloth_piece` / `_goons_trim.refine`: the hood, hoodie, jackets and trousers get one Catmull-Clark level and a Taubin pass after the drape (the 10 mm solver facets round off, the folds stay), degenerate triangles are dissolved (`clean_degenerate`, also per piece before the weights), then each is decimated to its r2 budget (hood 12k, hoodie and track jacket 24k, puffer 30k, trousers 15k) |
+| Final density (r3) | Hood and hoodie are simulated at their final density (hood 6.8 mm, hoodie 7.5 mm cells, `sim_piece`: no subdivision or Taubin pass after the drape, degenerates out, light decimation to 16k / 26k); the hoodie with slimmer sleeves (ease 14 mm) and bending 3.5 (fleece folds, not jersey crumples). r2's refine of a 10 mm drape gave the stepped terminator the review measured |
+| UV packing (r3) | `uv_overlap` checks every packed set (texels claimed by two islands) and re-packs as convex hulls, then boxes, if any; all six r3 sets measure 0.000 % |
+| Refinement (r2, still used for the trousers, the track jacket and the puffer) | `cloth_piece` / `_goons_trim.refine`: the hood, hoodie, jackets and trousers get one Catmull-Clark level and a Taubin pass after the drape (the 10 mm solver facets round off, the folds stay), degenerate triangles are dissolved (`clean_degenerate`, also per piece before the weights), then each is decimated to its r2 budget (hood 12k, hoodie and track jacket 24k, puffer 30k, trousers 15k) |
 | Clean-up before export | `goons.unfold`: draped and decimated cloth has folded-over triangles (a face pointing away from its corners' smooth normals); Cycles hides them, Unreal draws them as dark jagged patches. Their vertices are relaxed (Laplacian steps, topology and UVs kept: 575 inverted corners of the hoodie down to 58), what is left are real creases (turned hems, rolled edges) whose normals are split. r2: an edge is split only between two faces that agree with their corners, never on a folded-over face (Unreal now keeps the exported normals, so a split there would show as a dark facet); rib bands, tapes, skin, eyes and hardware are left out of the relaxation. Unweighted vertices take their neighbour's weights (the glTF exporter would otherwise need a neutral bone it cannot place) |
 | Texture gaps | `_goons_tex.fill_gaps`: every texel outside the UV islands is filled from the islands by a masked mip pyramid (pull-push), so no mip mixes the empty background into the cloth |
 
@@ -192,7 +195,20 @@ All under `/Game/Characters/Mannequins/Anims/` (copied from the template; `mi_ch
 | `Pistol/*` | The same set one-handed: the pipe Goon's idle and moves before the swing |
 | `Unarmed/MM_Attack_01..03`, charged attack, dash | Pipe swings and lunges (the overhead right-arm swing of the brief) |
 
-### Proof in Unreal (2026-11-23, rebuild r2)
+### Proof in Unreal (2026-11-23, rebuild r3)
+
+- **Renderer of the scratch project** (r3): `/project/ue/chars/Config/DefaultEngine.ini` had no renderer settings, so
+  Lumen had no scene to trace (no mesh distance fields, no hardware ray tracing) and toggling it changed nothing in
+  the captures. It now carries the game's `[/Script/Engine.RendererSettings]`: `r.DynamicGlobalIlluminationMethod=1`,
+  `r.ReflectionMethod=1`, `r.GenerateMeshDistanceFields=True`, `r.RayTracing=True`, `r.RayTracing.Shadows=False`,
+  `r.SkinCache.CompileShaders=True`, `r.Lumen.HardwareRayTracing=True`, `r.Shadow.Virtual.Enable=1` (the editor
+  recompiles shaders once on the next start, about 3 minutes). Set the same block when the project is recreated.
+- **Stage light** (`_floor_and_light`, r3): the SkyLight's lower hemisphere is ground-coloured (0.28 / 0.26 / 0.23,
+  `lower_hemisphere_is_black=False`; black left every downward-facing fold without fill: the r2 dark stepped
+  patches) and the manual exposure bias is 9 (one stop down from r2: with the bounce working the floor clipped).
+  The game's level rig (`unreal/MurderInc/Content/Python/build_block.py`) had the same black lower hemisphere and
+  gets the same ground colour.
+- **Material** (r3): fuzz colour BC x 0.9 + 0.01 (r2's BC x 1.5 + 0.03 lifted the dark fabrics a stop), specular 0.30.
 
 `/Game/Characters/Goons/SK_Goon_Hoodie`, `_Puffer`, `_Tracksuit` imported on `/Game/Characters/Mannequins/Meshes/SK_Mannequin`
 by `mi_chars.setup_goons` (box: `goons-pack.sh unpack <url>`, then the editor's MCP `py` with
@@ -221,27 +237,33 @@ MM_HitReact_Front_Hvy_01 (0.22 s) and MM_Death_Front_01 (1.05 s): no tearing at 
 
 ![goons 2](shots/chars-goons-2.jpg)
 
-`chars-goons-2.jpg`: puffer, hoodie and tracksuit in MF_Rifle_Idle_ADS (2 s): black and oxblood puffer, grey heather
-hoodie, navy tracksuit with white stripes; charcoal balaclavas.
+`chars-goons-2.jpg`: puffer, hoodie and tracksuit in MF_Rifle_Idle_ADS (2 s): boxy black puffer with oxblood yoke,
+slim wraps, beanie and bandana; charcoal heather hoodie with the olive two-hole balaclava under the hood; navy
+tracksuit with white stripes and the forward cap. r3 checks of the faces at 1, 3 and 8 m:
+`shots/review/goons-r3-faces_1m.jpg`, `_faces_3m.jpg`, `_three_8m.jpg`.
 
 ![goons 3](shots/chars-goons-3.jpg)
 
-`chars-goons-3.jpg`: the hoodie Goon's hood, balaclava and drawstrings in the reload, about 1 m away: smooth fold
-shading, the fleece's fuzz, the knit, the eye opening with lids and an eye behind it.
+`chars-goons-3.jpg`: the hoodie Goon's hood, balaclava and drawstrings in the reload, about 1 m away: the hood's folds
+shade without near-black patches (r3: ground-lit sky, Lumen bounce, final-density drape), the drop-shoulder seam,
+the closed knit face with one small recessed eye in the shadow of the hem.
 
 ### Known weaknesses of the Goons
 
-- The puffer's sleeve baffles read as round balloons at 3 m and the nylon still has a strong sun highlight; a
-  quilt with flatter, sewn-through baffles (and a 4 cm narrower sleeve) would read more like a 2000 bubble coat.
+- Elbow and armpit: no corrective shapes or extra loops; the upper arm still balloons in the death pose; the sling
+  is skinned to the cloth and can pass through the hood.
+- The puffer's shoulders keep some of the draped deltoid shape above the box (the box fades out at 1.40-1.49 m).
 - Sneakers: panels, sole sidewall and laces are not sculpted (stitching and creases are in the texture); laces are
-  mostly hidden under the hems.
+  mostly hidden under the hems. Gloves: thinner and finer in r3, but seams and knuckle creases are texture only.
+- Tracksuit: no raglan seams, rib collar or ankle zips; the zip is the oxblood coil.
 - Jeans: no modelled waistband, fly, pockets or knee bagging (the draped tube with whiskers, stitching and back
   pockets in the texture); the stacked break comes from the drape only.
-- No high-resolution fold sculpt baked to the normal map; folds are the drape's (refined), plus small crumples.
+- No high-resolution fold sculpt baked to the normal map; folds are the drape's (hood and hoodie at final density in
+  r3, the trousers, track jacket and puffer still refined from a 10.5 mm drape).
 - The hood's edge is a rolled drawstring channel, not a bound 8 mm hem with stitching.
 - The puffer's collar can gape in the death pose (no lining piece).
 - UV islands of the draped cloth are many and small (smart projection at 72 deg): 33-45 % of each atlas is covered
   before the gap fill.
-- The eyes show a lot of white in close-ups (the eyeball fills the opening); no blink or eye bone.
+- No blink or eye bone (r3: the openings are small slots and the sclera is 0.33, so little white shows).
 - No `Weapon_R` socket on the meshes (Python cannot name a SkeletalMeshSocket in 5.9; see above).
 - No cloth simulation at runtime: folds are baked in the A-pose and only skinned (expected for a dozen enemies).

@@ -4,6 +4,7 @@ the UE5 mannequin skeleton (SK_Mannequin) in three outfits, each one skinned mes
     build.py build goons [--only hoodie,puffer,tracksuit] [--bake] [--export] [--preview]
     MI_PREVIEWS=goons_lineup,goons_hoodie_hero,goons_detail,goons_poses,goons_wire   (pictures to render)
     MI_GOONS_REDRAPE=1   ignore the drape cache (art/out/goons/cache_*.npz) and simulate again
+    MI_GOONS_SETS=head   with --bake: bake only these sets (cloth, head; default both)
 
 How a Goon is made (every position is read from the imported mannequin, rest A-pose, metres, facing -Y):
   1. shared kit: black leather gloves (the player's glove anatomy, closed up the forearm), socks, sneakers (sole with
@@ -50,9 +51,10 @@ K = dict(fleece=0, rib=1, denim=2, leather=3, shoe=4, sole=5, maskknit=6, quilt=
 # with bold white stripes; charcoal rib-knit balaclavas (base colour under linear 0.15), sneakers at albedo ~0.7.
 # r3: oxblood as the brief means it (linear 0.12 / 0.02 / 0.025, r2's #7c151d read fire-engine red), the cuffs and
 # beanie cuff darker still; balaclavas in heather knit at albedo 0.06-0.10, a different colour per Goon (hoodie dark
-# olive, puffer charcoal, tracksuit dark navy) instead of r2's near-black; face skin darker (only lids show)
+# olive, puffer charcoal, tracksuit dark navy; linear about 0.06, desaturated: at 0.08 the olive read as a pale green
+# face in Unreal) instead of r2's near-black; face skin darker (only lids show)
 COL = {"hoodie": "#56565b", "pocket": "#48484d", "oxblood": "#62272c", "darkox": "#451d21", "jeans": "#2f3646",
-       "mask": "#4d4d50", "mask_hoodie": "#52523f", "mask_puffer": "#4d4d50", "mask_tracksuit": "#3c4257",
+       "mask": "#444447", "mask_hoodie": "#46473b", "mask_puffer": "#444447", "mask_tracksuit": "#373c4e",
        "seam": "#3a3a3e", "slit": "#050506", "glove": "#1a1917", "upper": "#aca79c",
        "sole": "#b9b4a9", "jacket": "#26262b", "quiltseam": "#141416", "trousers": "#2b2c31", "track": "#1e2a4c",
        "black": "#141416", "metal": "#8a8a88", "webbing": "#1a1a1c", "sock": "#18181a", "lens": "#0b0a09",
@@ -1372,7 +1374,10 @@ def build(ctx):
         joined = assemble(man, outfit, parts, ctx)
         if ctx.args.bake:
             from assets import _goons_tex as T
+            only_sets = os.environ.get("MI_GOONS_SETS", "cloth,head").split(",")   # e.g. head: re-bake the Head sets
             for s, ob in joined.items():
+                if s not in only_sets:
+                    continue
                 T.bake_set(ob, set_name_of(outfit, s), 4096 if s == "cloth" else 2048, man, ctx.log,
                            res_override=ctx.args.res if ctx.args.res != 2048 else None,
                            others=[o for k, o in joined.items() if k != s])

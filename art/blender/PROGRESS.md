@@ -603,6 +603,45 @@ re-unwraps: then also --bake).
   collar lining for the puffer's death-pose gape; fewer, larger UV islands (puffer cloth atlas only 33 % covered);
   the puffer's sleeve baffles still read as round balloons at 3 m; eyes show a lot of white in close-ups.
 
+## Rebuild r3 (art review of r2: grades 2 / 1.5 / 2; the lead's mask direction first), same owner
+- MASKS (lead, non-negotiable): two-hole balaclavas, closed knit over the mouth (no mouth hole; FaceShape has no
+  lips any more, one soft muzzle form); eye openings cut 32 x 16 mm with a 3 mm rolled hem (about 26 x 10 mm clear),
+  1.5 mm below the eye centre so the knit covers the top of the iris, a 5 mm knit tunnel behind the hem
+  (`_goons_trim.cut_ellipse_hole(tunnel=)`), deeper brow; the eyeball fills the opening, so no skin ring shows;
+  sclera 0.33, larger dark iris, lids darker. Heather knit at linear ~0.06 per Goon (hoodie dark olive, puffer
+  charcoal, tracksuit dark navy), 2.5 mm rib in the height only, no breath ring. Puffer: slim wraps (29 mm deep, two
+  lenses, 3.4 mm frame) + bandana. Tracksuit: six-panel cap worn forward (`_goons_head.cap_forward`, seams and
+  eyelets in the normal map, stiff curved 7 cm brim over the eyes). Checked at 1, 3 and 8 m in Unreal
+  (docs/unreal/shots/review/goons-r3-faces_1m / _faces_3m / _three_8m) and in Blender (scratch head renders).
+  Why it cannot read as a caricature: there is no mouth opening and no lip form anywhere; no skin is visible round
+  the eyes (the eyeball fills a 10 mm slot that sits in the knit's own shadow); the eye whites are albedo 0.33,
+  mostly covered by a dark iris and the upper hem; the knit is a coloured heather at 0.06, not black, so there is
+  no black-on-tan contrast; and two of the three faces are further covered (wraps and bandana; a cap brim).
+- Dark folds, cause and fix: (1) the stage SkyLight's lower hemisphere was black: ground colour 0.28 / 0.26 / 0.23
+  in `mi_chars._floor_and_light`; the game's rig had the same default: fixed in `build_block.py` (the level's
+  SkyLight); (2) Lumen did nothing in the captures because the chars scratch project had no renderer settings
+  (no mesh distance fields, no hardware ray tracing, skin cache off): its Config/DefaultEngine.ini now carries the
+  game's (Lumen GI + reflections, distance fields, r.RayTracing, r.SkinCache.CompileShaders=1, Lumen HWRT, VSM);
+  (3) geometry: hood and hoodie simulated at their final density (6.8 / 7.5 mm, `sim_piece`, no subdivide + Taubin
+  after the drape). With Lumen working the stage exposure was one stop hot (floor clipped): bias 10 -> 9, and the
+  Goon material's fuzz colour BC x 1.5 + 0.03 -> BC x 0.9 + 0.01, specular 0.30. No near-black fold patches in
+  chars-goons-3 (hood at 1 m).
+- Puffer: `boxy_puffer` (one rounded-rectangle section hem to chest, +5/6/5 cm off the body, straight sleeve tubes;
+  sleeve vs torso = nearest axis AND outside the box's side wall: the nearest-axis test put sleeve rings across the
+  chest = the six-pack), straight baffles with flatter crowns, 12 cm sleeve baffles, matte ripstop 0.62-0.80, yoke
+  only above the torso's top stitch line, oxblood linear 0.12/0.02/0.025 everywhere.
+- Also: UV overlap check + re-pack (`uv_overlap`, 0.000 % on all six sets); hoodie side seams, drop-shoulder seams,
+  hood centre seam, twin-needle hem topstitch in the texture; fleece bending 3.5; pocket lifted; gloves thinner
+  (0.8 mm) and finer (5.6k tris each), leather 0.52-0.6; sneakers albedo ~0.4-0.47; cuffs 6 cm, darker oxblood.
+- Totals: 117,508 / 115,733 / 115,009 triangles (cap 120k). Bakes: three processes (about 10 min each), then the
+  Head sets again alone (`MI_GOONS_SETS=head`, ~3 min each) for the darker masks.
+- Credits: none spent (everything was reachable procedurally).
+- Not done (next): corrective shapes / more loops at elbow and armpit (the death-pose balloon); sling skinned
+  through the hood; jeans waistband, fly, pockets and ankle stacking as geometry; sneaker toe cap, sidewall and
+  lace rows as geometry; glove seams as geometry; puffer collar lining and zip garage; a baked high-res fold
+  normal; the tracksuit's raglan seams, rib collar and ankle zips; puffer shoulders still keep some deltoid shape
+  above the box; fewer, larger UV islands.
+
 ---------------------------------------------------------------------------------------------------------------
 # Structures, continued after the machine restart (assets/structures.py), level-structure artist
 

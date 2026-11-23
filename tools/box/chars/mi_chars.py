@@ -77,7 +77,9 @@ def _floor_and_light():
     pp.set_editor_property("unbound", True)
     s = pp.get_editor_property("settings")
     _set(s, override_auto_exposure_method=True, auto_exposure_method=unreal.AutoExposureMethod.AEM_MANUAL,
-         override_auto_exposure_bias=True, auto_exposure_bias=10.0)
+         override_auto_exposure_bias=True, auto_exposure_bias=9.0)
+    # r3: one stop down (10 -> 9): with Lumen's bounce working the floor clipped to white and every fabric read a stop
+    # light (the charcoal hoodie light grey, the 0.06 heather masks pale)
     pp.set_editor_property("settings", s)
     made.append(pp)
     for a in made:
@@ -442,8 +444,8 @@ def _op(m, cls, a, b, x, y, a_out="", b_out=""):
 def goon_material(name, set_name, detail_tiling, dest, tex, detail="/Game/Characters/Goons/Textures/T_GoonFabric_Detail_N"):
     """A Goon set on the Cloth shading model, so fleece, knit, denim and tricot get a fuzz lobe and none of them
     reads as wet plastic. Per texel from the baked maps: Cloth = saturate((roughness - 0.55) x 3.3) x 0.8 (rough
-    fabrics fuzz, nylon a little, leather, rubber, lens and metal none), Fuzz Colour = BC x 1.5 + 0.03, Specular
-    0.35. A tiling fibre normal (T_GoonFabric_Detail_N, `detail_tiling` repeats per UV unit: 25 mm tiles at the
+    fabrics fuzz, nylon a little, leather, rubber, lens and metal none), Fuzz Colour = BC x 0.9 + 0.01 (r3), Specular
+    0.30 (r3). A tiling fibre normal (T_GoonFabric_Detail_N, `detail_tiling` repeats per UV unit: 25 mm tiles at the
     sets' texel density) is added to the baked normal in proportion to Cloth (whiteout blend)."""
     path = dest + "/" + name
     m = unreal.load_asset(path) if ASSETS.does_asset_exist(path) else TOOLS.create_asset(name, dest, unreal.Material, unreal.MaterialFactoryNew())
@@ -463,8 +465,10 @@ def goon_material(name, set_name, detail_tiling, dest, tex, detail="/Game/Charac
     MEL.connect_material_expressions(mul, "", sat, "")
     cloth = _op(m, unreal.MaterialExpressionMultiply, sat, _const(m, 0.8, -700, 160), -560, 60)
     MEL.connect_material_property(cloth, "", unreal.MaterialProperty.MP_CUSTOM_DATA0)
-    fz = _op(m, unreal.MaterialExpressionMultiply, bc, _const(m, 1.5, -1100, -160), -1000, -200, "RGB", "")
-    fz = _op(m, unreal.MaterialExpressionAdd, fz, _const(m, 0.03, -1000, -100), -850, -200)
+    # r3: fuzz BC x 0.9 + 0.01 (r2's BC x 1.5 + 0.03 lifted every dark fabric by a stop once Lumen bounce worked:
+    # the 0.06 heather masks read pale, the charcoal hoodie light grey)
+    fz = _op(m, unreal.MaterialExpressionMultiply, bc, _const(m, 0.9, -1100, -160), -1000, -200, "RGB", "")
+    fz = _op(m, unreal.MaterialExpressionAdd, fz, _const(m, 0.01, -1000, -100), -850, -200)
     MEL.connect_material_property(fz, "", unreal.MaterialProperty.MP_SUBSURFACE_COLOR)
     # baked normal + tiling fibre detail (its xy tilt added in proportion to the cloth amount, renormalised)
     if ASSETS.does_asset_exist(detail):
