@@ -367,6 +367,18 @@ void AMIPlayerController::MIFreezeOn(const FString& Event, float Delay)
 #endif
 }
 
+void AMIPlayerController::MIPose(float X, float Y, float Z, float Yaw, float Pitch)
+{
+#if !UE_BUILD_SHIPPING
+	if (AMIPlayerCharacter* C = GetMICharacter())
+	{
+		C->TeleportFeet(FVector(X, Y, Z));
+		C->GetPlayerRules().Yaw = Yaw;
+		C->GetPlayerRules().Pitch = Pitch;
+	}
+#endif
+}
+
 void AMIPlayerController::MIStart(const FString& Mode, const FString& Skip)
 {
 	if (UMIGameSubsystem* G = UMIGameSubsystem::Get(this))

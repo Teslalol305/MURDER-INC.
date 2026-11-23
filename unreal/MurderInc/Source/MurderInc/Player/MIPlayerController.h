@@ -68,6 +68,9 @@ public:
 	/** Dev: MIFreezeOn <enemyfire|explosion|fire> [delay]: freeze (as MIFreezeAfter) that long after the next such event. */
 	UFUNCTION(Exec)
 	void MIFreezeOn(const FString& Event, float Delay);
+	/** Dev: MIPose <x> <y> <feet z> <yaw> <pitch>: the player's feet there (Unreal cm) looking that way (degrees). */
+	UFUNCTION(Exec)
+	void MIPose(float X, float Y, float Z, float Yaw, float Pitch);
 
 	/** The four-gun input layer: the wheel's state for the HUD (LOADOUT.md 4.6). */
 	const FMISwitchInput& GetSwitch() const { return Switch; }
