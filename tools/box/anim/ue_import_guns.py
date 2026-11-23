@@ -440,6 +440,36 @@ def import_mesh(name, dest, skeletal, skeleton_path=None):
     return rep
 
 
+# ---------------------------------------------------------------- icons (rendered by bl_icons.py, box only)
+ICONS_IN = os.environ.get("MI_ICONS", "/project/ue/animpack/icons")
+ICONS = "/Game/UI/Icons"
+
+
+def import_icons(folder=ICONS_IN):
+    """T_UI_Gun_* and T_UI_Att_* as UI textures (sRGB, UserInterface2D, no mips) under /Game/UI/Icons."""
+    if not os.path.isdir(folder):
+        return "no icons in %s (run bl_icons.py)" % folder
+    tasks = []
+    for f in sorted(os.listdir(folder)):
+        if f.startswith("T_UI_") and f.endswith(".png"):
+            t = unreal.AssetImportTask()
+            _set(t, filename=os.path.join(folder, f), destination_path=ICONS, automated=True, replace_existing=True,
+                 save=False)
+            tasks.append(t)
+    TOOLS.import_asset_tasks(tasks)
+    made = []
+    for t in tasks:
+        name = os.path.splitext(os.path.basename(t.filename))[0]
+        tx = unreal.load_asset(ICONS + "/" + name)
+        if tx is None:
+            continue
+        _set(tx, srgb=True, compression_settings=unreal.TextureCompressionSettings.TC_EDITOR_ICON,
+             lod_group=unreal.TextureGroup.TEXTUREGROUP_UI, mip_gen_settings=unreal.TextureMipGenSettings.TMGS_NO_MIPMAPS)
+        ASSETS.save_loaded_asset(tx)
+        made.append(name)
+    return made
+
+
 # ---------------------------------------------------------------- job queue
 def plan(force_textures=False):
     jobs = [("textures", force_textures), ("materials", None)]
@@ -447,7 +477,7 @@ def plan(force_textures=False):
     jobs += [("static", s) for s in STATIC]
     jobs += [("mag", "SK_TFA_AR_Magazine_Transparent"), ("mag_assign", "SK_TFA_AR_Magazine"),
              ("mag_clip", "A_TFA_AR_Magazine_FireDepletion"),
-             ("rifle_assign", "SK_TFA_AR_Default_Combined"), ("sockets", None)]
+             ("rifle_assign", "SK_TFA_AR_Default_Combined"), ("sockets", None), ("icons", None)]
     return jobs
 
 
@@ -474,6 +504,8 @@ def _run_job(job):
         return assign(unreal.load_asset(DEST + "/" + arg))
     if kind == "sockets":
         return sockets()
+    if kind == "icons":
+        return import_icons()
     raise RuntimeError(kind)
 
 
