@@ -7,6 +7,9 @@
 #include "Engine/SkeletalMesh.h"
 #include "Misc/AutomationTest.h"
 #include "Weapons/MILoadoutResolver.h"
+#include "Weapons/MIFirstPersonRig.h"
+#include "Engine/StaticMesh.h"
+#include "Animation/AnimationRuntime.h"
 
 #if WITH_AUTOMATION_TESTS
 
@@ -174,6 +177,46 @@ bool FMIFirstPersonClipsTest::RunTest(const FString& Parameters)
 		}
 	}
 	AddInfo(FString::Printf(TEXT("%d clips checked"), Checked));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIFirstPersonNineMagazineTest, "MurderInc.FirstPerson.NineMagazine", MIFirstPersonTestsPrivate::Flags)
+
+// The NINE's magazine is modelled in the pistol's space; attached to the 'magazine' bone it must sit inside the grip
+// (review 2026-11-23: snapped to the bone's frame it floated 10 to 20 cm beside the gun, turned 90 degrees).
+bool FMIFirstPersonNineMagazineTest::RunTest(const FString& Parameters)
+{
+	using namespace MIFirstPersonTestsPrivate;
+	FFixture F;
+	if (!F.Load(*this))
+	{
+		return false;
+	}
+	USkeletalMesh* Nine = Cast<USkeletalMesh>(FSoftObjectPath(MIJson::StringOr(F.Presentation, TEXT("guns.nine.realMesh"))).TryLoad());
+	const TSharedPtr<FJsonObject> Set = MIJson::Get(F.Presentation, TEXT("firstPerson.animSets.pistol")).IsValid()
+		? MIJson::Get(F.Presentation, TEXT("firstPerson.animSets.pistol"))->AsObject() : nullptr;
+	UStaticMesh* Mag = Cast<UStaticMesh>(FSoftObjectPath(MIJson::StringOr(Set, TEXT("magazine.full"))).TryLoad());
+	if (!Nine || !Mag)
+	{
+		AddInfo(TEXT("SK_Nine or its magazine is not in this project (a clean checkout): nothing to place"));
+		return true;
+	}
+	const FName Bone(*MIJson::StringOr(Set, TEXT("magazine.socket")));
+	const int32 Index = Nine->GetRefSkeleton().FindBoneIndex(Bone);
+	if (!TestTrue(TEXT("SK_Nine has the magazine bone"), Index != INDEX_NONE))
+	{
+		return false;
+	}
+	const FTransform BoneCS = FAnimationRuntime::GetComponentSpaceTransformRefPose(Nine->GetRefSkeleton(), Index);
+	const FTransform MagInGun = UMIFirstPersonRig::MeshSpacePartOnBone(Nine, Bone) * BoneCS;
+	const FBox MagBox = Mag->GetBoundingBox().TransformBy(MagInGun);
+	const FBox GunBox = Nine->GetImportedBounds().GetBox();
+	AddInfo(FString::Printf(TEXT("magazine %s, gun %s (cm)"), *MagBox.ToString(), *GunBox.ToString()));
+	// Inside the gun's box (1 cm slack: the base pad is the gun's lowest point) and below the bore, in the grip.
+	TestTrue(TEXT("magazine inside SK_Nine's bounds"), GunBox.ExpandBy(1.0).IsInside(MagBox));
+	TestTrue(TEXT("magazine below the bore"), MagBox.Max.Z < 0.5);
+	TestTrue(TEXT("magazine in the grip, not beside it"), FMath::Abs(MagBox.GetCenter().Y) < 1.5 && MagBox.GetCenter().X < 6.0);
+	TestTrue(TEXT("magazine upright (taller than long)"), MagBox.GetSize().Z > MagBox.GetSize().X);
 	return true;
 }
 

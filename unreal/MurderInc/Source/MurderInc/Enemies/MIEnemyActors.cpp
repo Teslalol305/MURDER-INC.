@@ -1,14 +1,19 @@
 #include "Enemies/MIEnemyActors.h"
+#include "Enemies/MIGoonMesh.h"
 
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimSequence.h"
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/PointLightComponent.h"
+#include "Components/PoseableMeshComponent.h"
+#include "Animation/AnimationRuntime.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Core/Data/MIDataSubsystem.h"
+#include "Core/Data/MILoadoutData.h"
 #include "Dom/JsonObject.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
@@ -106,6 +111,13 @@ bool FMIEnemyLook::Load(FMIEnemyLook& Out, FString& OutError)
 	Out.GoonWeaponFallback = FSoftObjectPath(G->HasField(TEXT("weaponFallback")) ? G->GetStringField(TEXT("weaponFallback")) : FString());
 	Out.GoonWeaponSocket = FName(G->GetStringField(TEXT("weaponSocket")));
 	Out.GoonWeaponSocketFallback = G->HasField(TEXT("weaponSocketFallback")) ? FName(G->GetStringField(TEXT("weaponSocketFallback"))) : Out.GoonWeaponSocket;
+	{
+		const TSharedPtr<FJsonValue> SG = MIJson::Get(G, TEXT("supportGrip"));
+		if (SG.IsValid() && SG->Type == EJson::Array && SG->AsArray().Num() == 3)
+		{
+			Out.GoonSupportGrip = FVector(SG->AsArray()[0]->AsNumber(), SG->AsArray()[1]->AsNumber(), SG->AsArray()[2]->AsNumber());
+		}
+	}
 	if (const TSharedPtr<FJsonObject> W = Obj(G, TEXT("weaponOffset")))
 	{
 		const FVector L = Vec(W, TEXT("loc"), FVector::ZeroVector);
@@ -137,6 +149,9 @@ bool FMIEnemyLook::Load(FMIEnemyLook& Out, FString& OutError)
 	Out.BuzzardBodySize = Vec(B, TEXT("bodySize"), Out.BuzzardBodySize);
 	Out.BuzzardRotor = FSoftObjectPath(B->GetStringField(TEXT("rotor")));
 	Out.BuzzardRotorSize = Vec(B, TEXT("rotorSize"), Out.BuzzardRotorSize);
+	Out.BuzzardMesh = FSoftObjectPath(MIJson::StringOr(B, TEXT("mesh")));
+	Out.BuzzardEyeMaterial = FSoftObjectPath(MIJson::StringOr(B, TEXT("eyeMaterial")));
+	B->TryGetNumberField(TEXT("eyeNits"), Out.BuzzardEyeNits);
 	if (const TSharedPtr<FJsonObject> E = Obj(B, TEXT("eye")))
 	{
 		Out.BuzzardEyeColour = Colour(E, TEXT("colour"), Out.BuzzardEyeColour);
@@ -149,7 +164,8 @@ bool FMIEnemyLook::Load(FMIEnemyLook& Out, FString& OutError)
 // ================================================================================================== AMIGoon
 
 AMIGoon::AMIGoon(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer.SetDefaultSubobjectClass<UMIGoonMovement>(ACharacter::CharacterMovementComponentName))
+	: Super(ObjectInitializer.SetDefaultSubobjectClass<UMIGoonMovement>(ACharacter::CharacterMovementComponentName)
+		.SetDefaultSubobjectClass<UMIGoonMeshComponent>(ACharacter::MeshComponentName))
 {
 	using namespace MIEnemyActorsPrivate;
 	PrimaryActorTick.bCanEverTick = false;
@@ -195,7 +211,8 @@ void AMIGoon::Setup(int32 InSlot, const FMIEnemyLook& Look, const FMIGoonTune& I
 	Slot = InSlot;
 	Tune = InTune;
 	GetCapsuleComponent()->SetCapsuleSize(Tune.Radius * 100.0, Tune.Height * 50.0);
-	GetMesh()->SetRelativeLocationAndRotation(FVector(0, 0, -Tune.Height * 50.0), FRotator(0, Look.GoonMeshYaw, 0));
+	MeshRotation = FRotator(0, Look.GoonMeshYaw, 0);
+	GetMesh()->SetRelativeLocationAndRotation(FVector(0, 0, -Tune.Height * 50.0), MeshRotation);
 	for (const FSoftObjectPath& Path : Look.GoonVariants)
 	{
 		Variants.Add(Cast<USkeletalMesh>(Path.TryLoad()));
@@ -231,6 +248,11 @@ void AMIGoon::Setup(int32 InSlot, const FMIEnemyLook& Look, const FMIGoonTune& I
 		Gun->SetSkinnedAssetAndUpdate(nullptr, false);
 		Lamp->AttachToComponent(GunStatic, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 		Lamp->SetRelativeLocation(Look.GoonMuzzleOffset);
+		// The support hand on the SMG's SupportHand point (weapons.py), through the weapon's offset on the hand bone.
+		if (UMIGoonMeshComponent* Body = Cast<UMIGoonMeshComponent>(GetMesh()); Body && Look.GoonSupportGrip.IsSet())
+		{
+			Body->SetSupportGrip(Look.GoonWeaponSocket, FTransform(Look.GoonSupportGrip.GetValue()) * Look.GoonWeaponOffset);
+		}
 	}
 	else
 	{
@@ -330,6 +352,18 @@ void AMIGoon::Sync(const FMIEnemy& E, const FVector& HeadWeb, double Dt)
 	View.Lamp = Ease(View.Lamp, E.LampWant, E.LampWant > View.Lamp ? LampRise : LampFall, Dt);
 	Lamp->SetIntensity(View.Lamp * LampCandela);
 	SetRemoteViewPitch(View.AimPitch);
+	// Presentation: the template rifle set aims along the body, so the drawn body turns onto the rules' aim while
+	// aiming (the hit volumes stay the rules'); the support hand holds the SMG while alive.
+	const double WantTurn = E.bAlive ? FMath::Clamp(View.AimYaw, -75.0, 75.0) * FMath::Clamp(View.Aim, 0.0, 1.0) : 0.0;
+	AimTurn += (WantTurn - AimTurn) * FMath::Min(1.0, 12.0 * Dt);
+	if (!bDying)
+	{
+		GetMesh()->SetRelativeRotation(MeshRotation + FRotator(0, AimTurn, 0));
+	}
+	if (UMIGoonMeshComponent* Body = Cast<UMIGoonMeshComponent>(GetMesh()))
+	{
+		Body->SetSupportWeight(E.bAlive && !bDying ? 1.f : FMath::Max(0.f, Body->GetSupportWeight() - static_cast<float>(4.0 * Dt)));
+	}
 
 	// Hit volumes from the rule state (config.json sizes), never from the drawn pose.
 	const FVector Head = ToUnreal(HeadWeb);
@@ -437,6 +471,37 @@ void AMIBuzzard::Setup(int32 InSlot, const FMIEnemyLook& Look, const FMIBuzzardT
 		C->RegisterComponent();
 		Rotors.Add(C);
 	}
+	// The real drone (art/blender/assets/buzzard.py: nose +X, up +Z; imported nose +X, up +Z, right +Y).
+	USkeletalMesh* DroneMesh = Look.BuzzardMesh.IsValid() ? Cast<USkeletalMesh>(Look.BuzzardMesh.TryLoad()) : nullptr;
+	if (DroneMesh)
+	{
+		Drone = NewObject<UPoseableMeshComponent>(this, TEXT("Drone"));
+		Drone->SetupAttachment(Root);
+		Drone->SetSkinnedAssetAndUpdate(DroneMesh, true);
+		Drone->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Drone->SetCastShadow(true);
+		Drone->RegisterComponent();
+		const FReferenceSkeleton& Ref = DroneMesh->GetRefSkeleton();
+		for (const TCHAR* B : {TEXT("prop_fr"), TEXT("prop_fl"), TEXT("prop_rr"), TEXT("prop_rl"), TEXT("gimbal")})
+		{
+			const int32 I = Ref.FindBoneIndex(B);
+			DroneRef.Add(I == INDEX_NONE ? FTransform::Identity : FAnimationRuntime::GetComponentSpaceTransformRefPose(Ref, I));
+		}
+		if (UMaterialInterface* EyeMat = Look.BuzzardEyeMaterial.IsValid() ? Cast<UMaterialInterface>(Look.BuzzardEyeMaterial.TryLoad()) : nullptr)
+		{
+			const int32 Slot = Drone->GetMaterialIndex(TEXT("M_Buzzard_Eye"));
+			if (Slot != INDEX_NONE)
+			{
+				EyeMid = UMaterialInstanceDynamic::Create(EyeMat, this);
+				EyeMid->SetVectorParameterValue(TEXT("Color"), Look.BuzzardEyeColour);
+				EyeMid->SetScalarParameterValue(TEXT("Intensity"), 0.f);
+				Drone->SetMaterial(Slot, EyeMid);
+			}
+		}
+		EyeNits = Look.BuzzardEyeNits;
+		Body->SetVisibility(false);
+		for (UStaticMeshComponent* C : Rotors) C->SetVisibility(false);
+	}
 	Eye->SetRelativeLocation(FVector(-Model.Eye.Z, Model.Eye.X, Model.Eye.Y) * 100.0);
 	Eye->SetLightColor(Look.BuzzardEyeColour);
 	Eye->SetAttenuationRadius(Look.BuzzardEyeRadius);
@@ -480,9 +545,29 @@ void AMIBuzzard::Sync(const FMIEnemy& E, double Dt)
 	View.LostRotor = E.LostRotor;
 	View.Lamp = E.Lamp;
 	View.Flash = E.Flash;
+	if (Drone && DroneRef.Num() == 5)
+	{
+		// Props (rules' rotor order: front-right, front-left, rear-right, rear-left) about their hub's +Z; fl and rr
+		// counter-clockwise seen from above, fr and rl clockwise (buzzard.py); a lost rotor is hidden.
+		static const FName Props[4] = {TEXT("prop_fr"), TEXT("prop_fl"), TEXT("prop_rr"), TEXT("prop_rl")};
+		static const double Turn[4] = {-1.0, 1.0, 1.0, -1.0};
+		for (int32 I = 0; I < 4; ++I)
+		{
+			const FTransform& R = DroneRef[I];
+			const FQuat Spin(FVector::UpVector, FMath::DegreesToRadians(Turn[I] * View.RotorAngle));
+			Drone->SetBoneTransformByName(Props[I], FTransform(Spin * R.GetRotation(), R.GetLocation(), I == E.LostRotor ? FVector(0.001) : FVector::OneVector), EBoneSpaces::ComponentSpace);
+		}
+		// The gimbal turned to the rules' eye (yaw, then pitch up positive) about its own pivot.
+		const FTransform& G = DroneRef[4];
+		Drone->SetBoneTransformByName(TEXT("gimbal"), FTransform(FRotator(View.EyePitch, View.EyeYaw, 0.0).Quaternion() * G.GetRotation(), G.GetLocation()), EBoneSpaces::ComponentSpace);
+		if (EyeMid)
+		{
+			EyeMid->SetScalarParameterValue(TEXT("Intensity"), static_cast<float>(E.Lamp * EyeNits));
+		}
+	}
 	for (int32 I = 0; I < Rotors.Num(); ++I)
 	{
-		Rotors[I]->SetVisibility(I != E.LostRotor);
+		Rotors[I]->SetVisibility(!Drone && I != E.LostRotor);
 		Rotors[I]->SetRelativeRotation(FRotator(0, (I % 2 ? -1.0 : 1.0) * View.RotorAngle, 0));
 	}
 	Eye->SetIntensity(E.Lamp * EyeCandela);

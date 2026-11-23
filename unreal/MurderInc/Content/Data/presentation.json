@@ -77,8 +77,9 @@
             "reserve": 0.267,
             "out": 0.4,
             "seated": 1.467,
-            "drop": true,
-            "dropFull": true
+            "drop": false,
+            "stow": true,
+            "note": "A tactical reload keeps the partly used magazine (ANIMATION.md 9.1 'stow'): it leaves the seat at out and is hidden, no body is dropped; only the empty reload drops one."
           },
           "empty": {
             "clip": "reloadEmpty",
@@ -240,7 +241,7 @@
       "weapon": "/Game/Weapons/GoonSMG/SM_Weapon_GoonSMG.SM_Weapon_GoonSMG",
       "weaponSocket": "hand_r",
       "weaponOffset": { "loc": [-1.5, 4.5, -2.0], "rot": [0, 90, 0], "note": "CHARACTERS.md: SM_Weapon_GoonSMG's origin is its grip; on bone hand_r at this offset (pitch, yaw, roll degrees), since socket names cannot be set from Python in 5.9" },
-      "muzzleOffset": [39.0, 0.0, 4.2],
+      "supportGrip": [17, 0, -3.0], "supportGripNote": "the left palm's centre on the SMG's SupportHand point (weapons.py socket (0.17, 0, -0.012) m, palm 1.8 cm under it), in the SMG's frame; UMIGoonMeshComponent pulls the left hand there by two-bone IK", "muzzleOffset": [39.0, 0.0, 4.2],
       "weaponFallback": "/Game/Weapons/Rifle/Meshes/SKM_Rifle.SKM_Rifle",
       "weaponSocketFallback": "HandGrip_R",
       "muzzleSocket": "Muzzle",
@@ -249,7 +250,7 @@
       "lamp": { "colour": [1.0, 0.74, 0.42], "candelaPerLamp": 60, "radius": 900, "rise": 30, "fall": 9, "note": "src/enemies/goon.js:839, goon-anim.js:367: the lamp follows the rules' want (1.5 + 14 k^2 in the telegraph, 6 in the burst) with damp 30 up, 9 down; a point light stands in for the flare" }
     },
     "buzzard": {
-      "body": "/Engine/BasicShapes/Sphere.Sphere",
+      "mesh": "/Game/Characters/Buzzard/SK_Buzzard.SK_Buzzard", "eyeMaterial": "/Game/FX/M_FX_Tracer.M_FX_Tracer", "eyeNits": 4000, "meshNote": "SK_Buzzard drawn when it is in the project (tools/box/fp/import-chars.sh): props spun by the rules' rotor angle, the gimbal turned to the eye, the lens lit by the lamp through the eyeMaterial (Color, Intensity); else the placeholder shapes below.", "body": "/Engine/BasicShapes/Sphere.Sphere",
       "bodySize": [100, 100, 44],
       "rotor": "/Engine/BasicShapes/Cylinder.Cylinder",
       "rotorSize": [37, 37, 2],
@@ -280,9 +281,9 @@
     },
     "tracer": {
       "speed": 26000,
-      "emissive": 15000,
+      "emissive": 60000,
       "length": 260,
-      "radius": 0.5
+      "radius": 1.0
     },
     "casing": {
       "life": 4.0

@@ -76,6 +76,10 @@ public:
 	/** The arms' hand socket (presentation bodyHandSocket) in arms component space, read from the template body's socket
 	 *  definition when the arms mesh has none. */
 	bool HandSocket(FName Socket, FTransform& Out) const;
+	/** A static part authored in the skeletal mesh's own space (origin and axes of the gun, as SM_Weapon_NineMagazine is
+	 *  to SK_Nine) attached to a bone: its transform relative to that bone (the inverse of the bone's reference pose in
+	 *  component space), so it sits where it was modelled and follows the bone's animation. */
+	static FTransform MeshSpacePartOnBone(const USkeletalMesh* Mesh, FName Bone);
 	void SetVisible(bool bGun, bool bArms);
 	bool IsPackGunVisible() const;
 
@@ -91,6 +95,7 @@ private:
 		double Reserve = 0.0, Out = 0.0, Seated = 0.0;
 		bool bDrop = true;
 		bool bDropFull = false;
+		bool bStow = false;  // the old magazine is kept (hidden at 'out', as if pouched): no body thrown away
 	};
 
 	UAnimSequenceBase* ArmsClip(FName Role) const;

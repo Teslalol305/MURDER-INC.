@@ -11,6 +11,8 @@
 #include "Player/MIPlayerCharacter.h"
 #include "Weapons/MIWeaponComponent.h"
 #include "World/MIBoxWorld.h"
+#include "Core/MIEvents.h"
+#include "Camera/PlayerCameraManager.h"
 
 namespace MIHUDPrivate
 {
@@ -77,7 +79,8 @@ void AMIHUD::DrawPlay(UFont* Font)
 		const double Half = FMath::Tan(FMath::DegreesToRadians(Rules.ViewFov) * 0.5);
 		const double Gap = Half > 0.0 ? FMath::Tan(FMath::DegreesToRadians(View.Spread)) / Half * CY : 0.0;
 		const double Arm = FMath::Max(6.0, H * 0.012);
-		const float Alpha = static_cast<float>(1.0 - 0.85 * View.Ads);
+		// Gone while aiming: the sights or the optic's reticle are the point of aim (review 2026-11-23).
+		const float Alpha = static_cast<float>(1.0 - FMath::SmoothStep(0.05, 0.55, View.Ads));
 		const FLinearColor Hair(1.f, 1.f, 1.f, 0.85f * Alpha);
 		DrawLine(CX + Gap, CY, CX + Gap + Arm, CY, Hair, 2.f);
 		DrawLine(CX - Gap, CY, CX - Gap - Arm, CY, Hair, 2.f);
@@ -108,9 +111,64 @@ void AMIHUD::DrawPlay(UFont* Font)
 	DrawWheel(*Player);
 	const FString Health = FString::Printf(TEXT("HEALTH %d"), FMath::CeilToInt32(Rules.Health));
 	DrawText(Health, Rules.Health < Rules.MaxHealth * 0.3 ? Red : White, W * 0.03, H - TH - H * 0.04, Font, 1.5f);
-	if (Rules.Hurt > 0.0)
+	DrawHurt(*Player, Rules.Hurt);
+}
+
+void AMIHUD::DrawHurt(const AMIPlayerCharacter& Player, double Hurt)
+{
+	UWorld* World = GetWorld();
+	if (World && !HitHandle.IsValid())
 	{
-		DrawRect(FLinearColor(0.6f, 0.f, 0.f, static_cast<float>(0.25 * Rules.Hurt)), 0.f, 0.f, W, H);
+		if (FMIGameEvents* Events = UMIEventSubsystem::Get(this))
+		{
+			HitHandle = Events->PlayerHit.AddWeakLambda(this, [this](const FMIPlayerHitEvent& E)
+			{
+				HitFrom = E.From;
+				HitTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
+			});
+		}
+	}
+	if (Hurt <= 0.0)
+	{
+		return;
+	}
+	const double W = Canvas->ClipX;
+	const double H = Canvas->ClipY;
+	const float K = static_cast<float>(FMath::Clamp(Hurt, 0.0, 1.0));
+	// A faint wash (at most 15 % in the centre) and a vignette: bands thickening to the frame's edge.
+	DrawRect(FLinearColor(0.55f, 0.f, 0.f, 0.15f * K * 0.6f), 0.f, 0.f, W, H);
+	constexpr int32 Bands = 12;
+	const double Depth = FMath::Min(W, H) * 0.16;
+	for (int32 I = 0; I < Bands; ++I)
+	{
+		const double T = Depth * (1.0 - static_cast<double>(I) / Bands);  // outer bands first, each one inside the last
+		const float A = 0.075f * K;
+		const FLinearColor C(0.5f, 0.f, 0.f, A);
+		DrawRect(C, 0.f, 0.f, W, T);
+		DrawRect(C, 0.f, H - T, W, T);
+		DrawRect(C, 0.f, T, T, H - 2.0 * T);
+		DrawRect(C, W - T, T, T, H - 2.0 * T);
+	}
+	// Where it came from: a red wedge on a ring round the crosshair, for 1.5 s after the hit.
+	const APlayerController* PC = GetOwningPlayerController();
+	if (!HitFrom.IsSet() || !PC || !PC->PlayerCameraManager || !World || World->GetTimeSeconds() - HitTime > 1.5)
+	{
+		return;
+	}
+	const FVector To = (HitFrom.GetValue() - PC->PlayerCameraManager->GetCameraLocation()).GetSafeNormal2D();
+	const FRotator View = PC->PlayerCameraManager->GetCameraRotation();
+	const double Rel = FMath::DegreesToRadians(FRotator::NormalizeAxis(To.Rotation().Yaw - View.Yaw));
+	const float Fade = static_cast<float>(1.0 - FMath::Clamp((World->GetTimeSeconds() - HitTime) / 1.5, 0.0, 1.0));
+	const double R = H * 0.16;
+	const FVector2D C(W * 0.5, H * 0.5);
+	const FVector2D Dir(FMath::Sin(Rel), -FMath::Cos(Rel));  // 0 = ahead = up the screen, +90 = right
+	const FVector2D Side(-Dir.Y, Dir.X);
+	const FVector2D Tip = C + Dir * (R + H * 0.035);
+	const FLinearColor Mark(0.85f, 0.06f, 0.04f, 0.9f * Fade);
+	for (int32 I = -6; I <= 6; ++I)
+	{
+		const FVector2D Base = C + Dir * R + Side * (H * 0.006 * I);
+		DrawLine(Base.X, Base.Y, Tip.X, Tip.Y, Mark, 2.f);
 	}
 }
 

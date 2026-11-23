@@ -90,6 +90,8 @@ public:
 
 	// ---- commands: menus, input, the console and tests ---------------------------------------------------
 	void StartRun(FName Mode = NAME_None, bool bSkipIntro = false);
+	/** The console's MIStart: the saved set-up (or the parity one) resolved like the set-up screens, then StartRun. */
+	void StartRunWithSetup(FName Mode, bool bSkipIntro);
 	void Pause();
 	void Resume();
 	/** The pause key: pause in a run, resume after the debounce on the pause card, back out of settings. */

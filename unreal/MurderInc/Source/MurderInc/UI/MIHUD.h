@@ -32,4 +32,10 @@ private:
 	void DrawFlow(UMIGameSubsystem& Game, UFont* Font);
 	void DrawMenu(UMIGameSubsystem& Game, UFont* Font);
 	void Centered(const FString& Text, double Y, const FLinearColor& Colour, UFont* Font, float Scale);
+	/** Damage at the edges (a red vignette, at most 15 % in the centre) and a marker toward where the hit came from. */
+	void DrawHurt(const class AMIPlayerCharacter& Player, double Hurt);
+
+	FDelegateHandle HitHandle;
+	TOptional<FVector> HitFrom;  // world (cm)
+	double HitTime = -1.0;        // world seconds of the last hit
 };

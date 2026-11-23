@@ -351,7 +351,7 @@ void UMIEffects::EnemyShot(const AActor* Shooter, const FVector& Muzzle, const F
 void UMIEffects::Casing(UStaticMesh* Mesh, const FTransform& At, const FVector& Velocity)
 {
 	const bool bOwn = Mesh != nullptr;
-	SpawnBody(this, bOwn ? Mesh : Cylinder.Get(), bOwn ? At : FTransform(At.GetRotation(), At.GetLocation(), FVector(0.009, 0.009, 0.019)), Velocity,
+	SpawnBody(this, bOwn ? Mesh : Cylinder.Get(), bOwn ? At : FTransform(At.GetRotation(), At.GetLocation(), At.GetScale3D() * FVector(0.009, 0.009, 0.019)), Velocity,
 		FVector(FMath::FRandRange(-900.0, 900.0), FMath::FRandRange(-1400.0, 1400.0), FMath::FRandRange(-300.0, 300.0)),
 		MIJson::NumberOr(Fx, TEXT("casing.life"), 4.0), bOwn ? nullptr : BrassMat.Get());
 }

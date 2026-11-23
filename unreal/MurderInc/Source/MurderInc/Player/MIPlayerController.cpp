@@ -452,7 +452,7 @@ void AMIPlayerController::MIStart(const FString& Mode, const FString& Skip)
 {
 	if (UMIGameSubsystem* G = UMIGameSubsystem::Get(this))
 	{
-		G->StartRun(Mode.IsEmpty() ? NAME_None : FName(*Mode), Skip == TEXT("skip"));
+		G->StartRunWithSetup(Mode.IsEmpty() ? NAME_None : FName(*Mode), Skip == TEXT("skip"));
 	}
 }
 

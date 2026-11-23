@@ -105,7 +105,10 @@ void UMIWeaponComponent::Setup(AMIPlayerCharacter* InPlayer, const FMIConfigData
 			C->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 			C->SetCastShadow(false);
 			C->SetOnlyOwnerSee(true);
-			C->SetFirstPersonPrimitiveType(EFirstPersonPrimitiveType::FirstPerson);
+			// Not a first-person primitive (review 2026-11-23: the additive cards drawn in the first-person pass never
+			// showed): a plain card on the camera at the depth and size the first-person pass draws the muzzle at.
+			C->SetFirstPersonPrimitiveType(EFirstPersonPrimitiveType::None);
+			C->SetTranslucentSortPriority(10);
 			UMaterialInstanceDynamic* M = UMaterialInstanceDynamic::Create(Flash, C);
 			M->SetScalarParameterValue(TEXT("Intensity"), static_cast<float>(MIJson::NumberOr(PresentationRoot, TEXT("fx.flash.emissive"), 40000.0)));
 			C->SetMaterial(0, M);
@@ -430,6 +433,22 @@ FVector UMIWeaponComponent::FirstPersonToWorld(const FVector& CameraSpace) const
 	return Camera->GetComponentLocation() + Camera->GetComponentQuat().RotateVector(Local);
 }
 
+FTransform UMIWeaponComponent::FirstPersonToNearWorld(const FTransform& CameraSpace) const
+{
+	if (!Camera)
+	{
+		return CameraSpace;
+	}
+	const double World = FMath::Tan(FMath::DegreesToRadians(Player->GetPlayerRules().ViewFov) * 0.5);
+	const double First = FMath::Tan(FMath::DegreesToRadians(GetFirstPersonFov(ViewmodelFov)) * 0.5);
+	const double K = First > 0.0 ? World / First : 1.0;
+	const double S = ViewData.FirstPersonScale > 0.0 ? ViewData.FirstPersonScale : 1.0;
+	const FVector L = CameraSpace.GetLocation();
+	const FQuat Cam = Camera->GetComponentQuat();
+	return FTransform(Cam * CameraSpace.GetRotation(), Camera->GetComponentLocation() + Cam.RotateVector(FVector(S * L.X, S * K * L.Y, S * K * L.Z)),
+		CameraSpace.GetScale3D() * (S * K));
+}
+
 // --- what the rules ask --------------------------------------------------------------------------------------
 
 FMIWeaponPlayerState UMIWeaponComponent::GetPlayerState() const
@@ -683,8 +702,8 @@ void UMIWeaponComponent::MuzzleFlash(double FlashScale)
 				R = FRotationMatrix::MakeFromXZ(Dir, Side).Rotator();
 				At += Dir * Len * 0.5;
 			}
-			FlashCards[K]->SetRelativeLocationAndRotation(At, R);
-			FlashCards[K]->SetRelativeScale3D(FVector(Len / 100.0, (K == 0 ? Len : Len * 0.42) / 100.0, 1.0));
+			const FTransform Near = FirstPersonToNearWorld(FTransform(R, At, FVector(Len / 100.0, (K == 0 ? Len : Len * 0.42) / 100.0, 1.0)));
+			FlashCards[K]->SetWorldTransform(Near);
 			FlashMids[K]->SetScalarParameterValue(TEXT("Mode"), K == 0 ? 0.f : 1.f);
 			FlashMids[K]->SetScalarParameterValue(TEXT("Seed"), FMath::FRandRange(0.f, 50.f));
 			FlashCards[K]->SetVisibility(true);
@@ -711,7 +730,10 @@ void UMIWeaponComponent::OnRoundFired(const FMIShotRequest& Shot, const FMIShotR
 		const FQuat Cam = Camera->GetComponentQuat();
 		const FVector Out = Cam.RotateVector(Eject.GetRotation().GetAxisX());
 		const FVector V = Out * FMath::FRandRange(220.0, 320.0) + Cam.RotateVector(FVector(-60.0, 0.0, 90.0)) + FMath::VRand() * 30.0 + Player->GetPlayerRules().Velocity;
-		Fx->Casing(FPRig->GetCasingMesh(), FTransform(Cam * Eject.GetRotation(), FirstPersonToWorld(Eject.GetLocation())), V);
+		// Drawn at the first-person depth and size (FirstPersonToNearWorld), so it leaves the port on screen instead of
+		// flying behind the gun at the world depth.
+		const FTransform At = FirstPersonToNearWorld(Eject);
+		Fx->Casing(FPRig->GetCasingMesh(), At, V * At.GetScale3D().X + Player->GetPlayerRules().Velocity * (1.0 - At.GetScale3D().X));
 	}
 	if (Result.Distance < ViewData.TracerMinHit * 100.0)
 	{
@@ -723,7 +745,12 @@ void UMIWeaponComponent::OnRoundFired(const FMIShotRequest& Shot, const FMIShotR
 	{
 		// Leaves the screen a little ahead of the muzzle (spec 02 2.8: hidden for the first metre when it flies far).
 		const FVector Path = Result.Point - Muzzle;
-		const double Skip = Path.Size() > ViewData.TracerHiddenFrom * 100.0 ? ViewData.TracerHidden * 100.0 : 0.0;
+		// Starts a metre past the muzzle (review 2026-11-23), more when the rules hide the first stretch.
+		const double Skip = FMath::Max(100.0, Path.Size() > ViewData.TracerHiddenFrom * 100.0 ? ViewData.TracerHidden * 100.0 : 0.0);
+		if (Path.Size() <= Skip + 50.0)
+		{
+			return;
+		}
 		Fx->Tracer(Muzzle + Path.GetSafeNormal() * Skip, Result.Point, TracerSpeed);
 		return;
 	}

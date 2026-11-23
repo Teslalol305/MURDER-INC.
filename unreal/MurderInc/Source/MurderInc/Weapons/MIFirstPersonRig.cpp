@@ -165,6 +165,17 @@ void UMIFirstPersonRig::SetupArms()
 	}
 }
 
+FTransform UMIFirstPersonRig::MeshSpacePartOnBone(const USkeletalMesh* Mesh, FName Bone)
+{
+	const int32 Index = Mesh ? Mesh->GetRefSkeleton().FindBoneIndex(Bone) : INDEX_NONE;
+	if (Index == INDEX_NONE)
+	{
+		return FTransform::Identity;
+	}
+	const FTransform BoneCS = FAnimationRuntime::GetComponentSpaceTransformRefPose(Mesh->GetRefSkeleton(), Index);
+	return FTransform::Identity.GetRelativeTransform(BoneCS);
+}
+
 void UMIFirstPersonRig::UseRealArms(bool bReal)
 {
 	if (!Arms || !RealArms)
@@ -297,6 +308,9 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 			FirstPerson(OwnMag, Arms);
 			OwnMag->RegisterComponent();
 			OwnMag->AttachToComponent(LegacyGun, FAttachmentTransformRules::SnapToTargetNotIncludingScale, MagBone);
+			// The magazine is modelled in the pistol's own space (origin = pistol origin), not the bone's: undo the
+			// bone's reference pose so it sits in the grip and rides the bone's drop.
+			OwnMag->SetRelativeTransform(MeshSpacePartOnBone(Cast<USkeletalMesh>(LegacyGun->GetSkinnedAsset()), MagBone));
 		}
 		return Mode;
 	}
@@ -417,6 +431,8 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 		bool bB = true;
 		Out.bDrop = !R->TryGetBoolField(TEXT("drop"), bB) || bB;
 		Out.bDropFull = R->TryGetBoolField(TEXT("dropFull"), bB) && bB;
+		Out.bStow = R->TryGetBoolField(TEXT("stow"), bB) && bB;
+		if (Out.bStow) Out.bDrop = false;
 	};
 	Map(TEXT("tactical"), View ? View->ReloadTactical : 2.0, ReloadTactical);
 	Map(TEXT("empty"), View ? View->ReloadEmpty : 2.5, ReloadEmpty);
@@ -764,7 +780,8 @@ void UMIFirstPersonRig::UpdateMagazines(const FMIWeaponView& W, double ClipT, co
 		bWasReloading = true;
 		bDropped = false;
 	}
-	const bool bOldShown = Map->bDrop ? ClipT < Map->Out : true;
+	// Dropped or stowed, the old magazine leaves the seat at 'out' (stowed: kept, so no body is thrown away).
+	const bool bOldShown = Map->bDrop || Map->bStow ? ClipT < Map->Out : true;
 	if (Map->bDrop && !bOldShown && !bDropped)
 	{
 		bDropped = true;
@@ -792,11 +809,11 @@ void UMIFirstPersonRig::DropMagazine(bool bFull)
 		return;
 	}
 	// Where the magazine appears on screen, as a world body (the first-person view is drawn with its own field of view).
-	const FTransform CS = CameraSpace(Seated->GetComponentTransform());
-	const FVector Pos = Weapon->FirstPersonToWorld(CS.GetLocation());
-	const FQuat Rot = Camera->GetComponentQuat() * CS.GetRotation();
-	const FVector Vel = Camera->GetComponentQuat().RotateVector(MagVel) + FVector(0, 0, -60.0);
-	UMIEffects::SpawnBody(this, Mesh, FTransform(Rot, Pos), Vel, FVector(FMath::FRandRange(-200.0, 200.0), FMath::FRandRange(-300.0, 300.0), 0.0), 8.0);
+	// Drawn at the first-person depth and size, so the falling magazine is seen leaving the well (review 2026-11-23).
+	const FTransform At = Weapon->FirstPersonToNearWorld(CameraSpace(Seated->GetComponentTransform()));
+	const FVector Pos = At.GetLocation();
+	const FVector Vel = Camera->GetComponentQuat().RotateVector(MagVel) * At.GetScale3D().X + FVector(0, 0, -60.0);
+	UMIEffects::SpawnBody(this, Mesh, At, Vel, FVector(FMath::FRandRange(-200.0, 200.0), FMath::FRandRange(-300.0, 300.0), 0.0), 8.0);
 	UE_LOG(LogMI, Log, TEXT("First person: magazine dropped at %s, %.0f cm/s"), *Pos.ToCompactString(), Vel.Size());
 }
 

@@ -31,6 +31,7 @@ struct MURDERINC_API FMIEnemyLook
 	FName GoonWeaponSocketFallback = TEXT("HandGrip_R");
 	FTransform GoonWeaponOffset = FTransform::Identity;  // relative to the weapon socket or bone (static weapon)
 	FVector GoonMuzzleOffset = FVector::ZeroVector;       // the muzzle in the static weapon's own frame (cm)
+	TOptional<FVector> GoonSupportGrip;                   // the left palm's point in the static weapon's frame (cm)
 	FName GoonMuzzleSocket = TEXT("Muzzle");
 	TMap<FName, FSoftObjectPath> GoonDeath;  // front, back, left, right
 	FName HeadBone = TEXT("head");
@@ -43,6 +44,9 @@ struct MURDERINC_API FMIEnemyLook
 	FVector BuzzardRotorSize = FVector(37, 37, 2);
 	FLinearColor BuzzardEyeColour = FLinearColor(1.0f, 0.09f, 0.05f);
 	double BuzzardEyeCandela = 40.0, BuzzardEyeRadius = 1200.0;
+	FSoftObjectPath BuzzardMesh;         // SK_Buzzard (props, gimbal driven); the placeholder shapes when absent
+	FSoftObjectPath BuzzardEyeMaterial;  // an unlit additive material with Color / Intensity for the lens
+	double BuzzardEyeNits = 4000.0;
 
 	static bool Load(FMIEnemyLook& Out, FString& OutError);
 };
@@ -150,6 +154,8 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UClass> AnimClass;
+	FRotator MeshRotation = FRotator::ZeroRotator;  // the mesh's rest rotation in the actor (presentation goon.meshYaw)
+	double AimTurn = 0.0;                            // eased yaw (deg) turning the drawn body onto the rules' aim
 
 	FMIGoonTune Tune;
 	FMIEnemyView View;
@@ -203,6 +209,14 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> Rotors;
+
+	/** SK_Buzzard when it is in the project: props spun, the gimbal turned to the rules' eye, the lens lit. */
+	UPROPERTY(Transient)
+	TObjectPtr<class UPoseableMeshComponent> Drone;
+	UPROPERTY(Transient)
+	TObjectPtr<class UMaterialInstanceDynamic> EyeMid;
+	TArray<FTransform> DroneRef;  // component-space reference pose of the props (fr, fl, rr, rl) and the gimbal
+	double EyeNits = 4000.0;
 
 	FMIEnemyView View;
 	int32 Slot = INDEX_NONE;

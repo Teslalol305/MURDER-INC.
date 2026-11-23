@@ -355,6 +355,18 @@ void UMIGameSubsystem::StartRun(FName Mode, bool bSkipIntro)
 	ApplyState();
 }
 
+void UMIGameSubsystem::StartRunWithSetup(FName Mode, bool bSkipIntro)
+{
+	// The same resolver as the set-up screens: a run started from the console draws the real arms and guns too.
+	const UMIRunSetupSubsystem* RunSetup = UMIRunSetupSubsystem::Get(this);
+	FMIRunSetup S = RunSetup && RunSetup->HasSetup() ? RunSetup->GetSetup() : FMIRunSetup();
+	if (!ApplySetup(S))
+	{
+		UE_LOG(LogMI, Warning, TEXT("MIStart: the set-up did not resolve: the run keeps the guns it had"));
+	}
+	StartRun(Mode, bSkipIntro);
+}
+
 void UMIGameSubsystem::Pause()
 {
 	Rules.Pause();
@@ -719,15 +731,38 @@ bool UMIGameSubsystem::FaceNearestEnemy(double Metres)
 	{
 		return false;
 	}
-	const FVector Away = (Me - Near->Pos).GetSafeNormal2D();
-	const FVector Want = Near->Pos + (Away.IsNearlyZero() ? FVector(1, 0, 0) : Away) * Metres;
+	FVector Away = (Me - Near->Pos).GetSafeNormal2D();
+	if (Away.IsNearlyZero()) Away = FVector(1, 0, 0);
 	if (Metres > 0.0)  // Metres <= 0: only turn to look at it
 	{
-		if (!Box.NearestWalkable(Want.X, Want.Z, 6.0, Spot))
+		// A walkable spot at the asked distance (within 0.75 m) with a clear line to the Goon's chest: bearings
+		// fanned out from the line Goon -> player, nearest bearing first (the old 6 m snap could land 10 m off).
+		const FVector Chest = Near->Pos + FVector(0, 1.2, 0);
+		bool bFound = false;
+		for (int32 Step = 0; Step <= 24 && !bFound; ++Step)
 		{
+			const double Deg = (Step % 2 == 1 ? 1.0 : -1.0) * 15.0 * ((Step + 1) / 2);
+			const FVector Dir = Away.RotateAngleAxis(Deg, FVector(0, 1, 0));
+			FVector Candidate;
+			const FVector Want = Near->Pos + Dir * Metres;
+			if (!Box.NearestWalkable(Want.X, Want.Z, 0.75, Candidate) || FMath::Abs(FVector::Dist2D(FVector(Candidate.X, Candidate.Z, 0), FVector(Near->Pos.X, Near->Pos.Z, 0)) - Metres) > 0.75)
+			{
+				continue;
+			}
+			const double Y = Box.GroundHeight(Candidate.X, Candidate.Z, Near->Pos.Y + 1.0);
+			if (Box.LineOfSight(FVector(Candidate.X, Y + 1.6, Candidate.Z), Chest))
+			{
+				Spot = FVector(Candidate.X, Y, Candidate.Z);
+				bFound = true;
+			}
+		}
+		if (!bFound)
+		{
+			UE_LOG(LogMI, Warning, TEXT("MIFaceEnemy: no walkable spot %.0f m from the nearest Goon with a clear line"), Metres);
 			return false;
 		}
-		TeleportPlayerWeb(FVector(Spot.X, Box.GroundHeight(Spot.X, Spot.Z, Near->Pos.Y + 1.0), Spot.Z));
+		TeleportPlayerWeb(Spot);
+		UE_LOG(LogMI, Log, TEXT("MIFaceEnemy: %.1f m from the nearest Goon"), FVector::Dist2D(FVector(Spot.X, Spot.Z, 0), FVector(Near->Pos.X, Near->Pos.Z, 0)));
 	}
 	FMIPlayerRules& R = P->GetPlayerRules();
 	const FVector D = MI::Web::ToUnreal(Near->Pos + FVector(0, Near->IsGoon() ? 1.2 : 0.0, 0)) - (P->GetActorLocation() + FVector(0, 0, 70.0));

@@ -56,6 +56,11 @@ public:
 
 	/** A camera-space point (cm) drawn with the first-person field of view, moved to the world point on the same pixel. */
 	FVector FirstPersonToWorld(const FVector& CameraSpace) const;
+	/** A camera-space transform of the first-person view as a world transform drawn on the same pixels at the depth the
+	 *  first-person pass draws it (the camera's FirstPersonScale): location (s x, s k y, s k z), scale s k, where k is
+	 *  the ratio of the world's and the first-person view's half-angle tangents. Flash cards, casings and dropped
+	 *  magazines drawn this way sit exactly on the muzzle, port or well, in front of the world as the gun is. */
+	FTransform FirstPersonToNearWorld(const FTransform& CameraSpace) const;
 
 	/** The first-person (arms and gun) vertical field of view this frame: the hip value blended by the aim to the
 	 *  irons' or the optic's (presentation.json firstPerson.recipe, ANIMATION.md 9). */
