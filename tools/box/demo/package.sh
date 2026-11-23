@@ -39,7 +39,16 @@ snapshot() {
 # The demo settings, written into the snapshot only (the committed project keeps L_Bootstrap: L_Block is
 # generated content and is missing from a clean checkout).
 overlay() {
-  local ini=$DEMO/Config/DefaultEngine.ini game=$DEMO/Config/DefaultGame.ini
+  local ini=$DEMO/Config/DefaultEngine.ini game=$DEMO/Config/DefaultGame.ini input=$DEMO/Config/DefaultInput.ini
+  # The mouse-axis fix of DefaultInput.ini (committed 2026-11-23), for a gameplay clone that has not pulled it yet.
+  if ! grep -q 'AxisKeyName="Mouse2D",AxisProperties=(DeadZone=0.f,Exponent=1.f,Sensitivity=1.f)' "$input"; then
+    local k
+    printf '\n; ---- demo overlay: mouse axes unscaled (see the committed DefaultInput.ini) ----\n' >> "$input"
+    for k in MouseX MouseY Mouse2D; do
+      printf -- '-AxisConfig=(AxisKeyName="%s",AxisProperties=(DeadZone=0.f,Exponent=1.f,Sensitivity=0.07f))\n' "$k" >> "$input"
+      printf -- '+AxisConfig=(AxisKeyName="%s",AxisProperties=(DeadZone=0.f,Exponent=1.f,Sensitivity=1.f))\n' "$k" >> "$input"
+    done
+  fi
   sed -i 's#^GameDefaultMap=.*#GameDefaultMap=/Game/Maps/L_Block.L_Block#' "$ini"
   cat >> "$game" <<'EOF'
 
