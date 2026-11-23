@@ -594,8 +594,9 @@ re-unwraps: then also --bake).
   buckles. Socks tucked 7 mm under the shoe collar after the bake (they pierced the upper as a dark swoosh).
 - Totals: SK_Goon_Hoodie 108,176 / _Puffer 112,481 / _Tracksuit 111,664 triangles (cap 120k). Bake: three
   processes, one outfit each (a single three-outfit bake was OOM-killed), about 10 min per outfit.
-- Previews re-rendered and looked at: goons_lineup, _hoodie_hero, _detail, _poses, _wire. Unreal: chars-goons-1..3
-  re-shot after the last change (editor in /project/ue/chars, stopped by pid at the end).
+- Previews re-rendered and looked at: goons_lineup, _hoodie_hero, _poses after the last change; goons_detail and
+  _wire one change earlier (before the sock tuck, which neither shows). Unreal: chars-goons-1..3 re-shot after the
+  last change (`tools/box/chars/goons-shots.sh`; editor in /project/ue/chars stopped by its pid at the end).
 - Credits: none spent (no generation: the face proxy, sunglasses, buckles and bands were reachable procedurally).
 - Not done (next): sneaker panels / sole sidewall / visible laces as geometry; jeans waistband, fly, pockets and
   knee bagging as geometry; a high-res fold sculpt baked to the normal map; hood binding with stitching; the
