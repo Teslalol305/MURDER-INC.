@@ -423,3 +423,20 @@ assets/_weapons_tex.py; weapons.py keeps the pipeline (rig, export, previews).
   the first-pass measurement) -> art/out/glb/weapons_fixed_points.json.
 - Next: 4K CHOPPER bake + export (running), fixed-point check, previews (MI_PREVIEWS=... build weapons --only chopper,nine
   --preview), commit.
+
+---------------------------------------------------------------------------------------------------------------
+# Rule, the main character from the user's reference photo (assets/rule.py), senior character artist
+
+Task: the player character as a likeness of the man in the reference photo (art/out/ref/, git-ignored; the user owns
+the likeness): reference sheet, SK_RuleArms rebuilt as bare arms with anatomical hands (gloved build kept as
+SK_RuleArms_Gloved), full body SK_Rule for the crew screen and cards, previews rule_*.jpg.
+Privacy: the photo, generated pictures, raw generated meshes and .blend files stay in art/out/ (gen/rule/); no name
+in any prompt, file or request; tattoo lettering is read from art/out/ref/tattoos.json (not committed).
+## Status
+- [x] reference sheet: 7 pictures (nano_banana_pro, 2 credits each) in art/out/gen/rule/: head front, three-quarter,
+      profile; body front/back; A-pose front/back. All plainly the same man (face shape, brow, eyes, nose, thin
+      moustache, chin hair, skin tone); the profile is slightly leaner in the cheek. Generated tattoos are invented.
+- [ ] head 3D (meshy_v7 ultra + hunyuan3d_v3, compare), body 3D (meshy_v7 a-pose ultra)
+- [ ] SK_RuleArms bare, SK_RuleArms_Gloved
+- [ ] SK_Rule
+- [ ] previews, two review rounds
