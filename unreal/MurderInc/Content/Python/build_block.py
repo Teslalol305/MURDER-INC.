@@ -50,6 +50,9 @@ MASTER = MAT_DIR + "/M_MI_Surface"
 MASKED_MASTER = MAT_DIR + "/M_MI_SurfaceMasked"
 GLASS_MASTER = MAT_DIR + "/M_MI_Glass"
 FLAT_MASTER = MAT_DIR + "/M_MI_Flat"
+CARPAINT_MASTER = MAT_DIR + "/M_MI_CarPaint"     # M_MI_Surface with the clear-coat shading model
+CATALOGUE_TABLE = "art_catalogue"               # Content/Data/art_catalogue.json: catalogue id -> meshes
+GAMEPLAY_OWNERS = {"explosive"}                 # level.json collider owners drawn by gameplay actors
 BLACK_TEXTURE = "/Engine/EngineResources/Black.Black"
 FLAT_NORMAL = "/Engine/EngineMaterials/FlatNormal.FlatNormal"
 TAG = "MIBlock"
@@ -119,7 +122,15 @@ FLAT_SLOTS = {
     "MI_Interior_Dark": ((0.018, 0.017, 0.016), 0.9, 0.0, 0.0),
     "MI_Lamp_Lens": ((0.72, 0.68, 0.6), 0.15, 0.0, 0.0),           # unlit by day
     "MI_Glass_SodiumLens": ((0.6, 0.45, 0.25), 0.12, 0.0, 0.0),
+    "MI_Glass_CarTint": ((0.011, 0.012, 0.014), 0.03, 0.0, 0.0),   # tinted car glass: dark, sharp Lumen reflections
+    "MI_Glass_Standoff": ((0.03, 0.03, 0.032), 0.05, 0.0, 0.0),
+    "MI_Glass_Acrylic": ((0.05, 0.05, 0.052), 0.08, 0.0, 0.0),
+    "MI_Glass_StationLit": ((0.06, 0.055, 0.05), 0.05, 0.0, 0.0),  # unlit by day
+    "MI_Glass_PlatformLit": ((0.06, 0.06, 0.065), 0.05, 0.0, 0.0),
+    "MI_Glass_Wired": ((0.05, 0.052, 0.05), 0.2, 0.0, 0.0),
 }
+NEON_DAY_NITS = 550.0            # spec 2.8: tubes 400 .. 2,000 nits at night, x 0.55 by day
+CLEARCOAT_ROUGHNESS = 0.03       # car paint clear coat (art bible: glossy, Lumen reflections)
 SIGN_STAND_IN = ((0.42, 0.42, 0.4), 0.55, 0.0, 0.0)               # neutral sign face until the art arrives
 # Glass over a world-space interior room per window (M_MI_Glass): room cell size and offset in cm (Z: storeys of
 # 310 above the 380 cm shop floor line; Y: 550 so that both building lines, Y -1100 and +1100, are cell walls),
@@ -376,7 +387,7 @@ def custom(material, x, y, code, inputs, output_type, extra_outputs=()):
     return node
 
 
-def build_master(defaults, force, path=None, masked=False):
+def build_master(defaults, force, path=None, masked=False, clearcoat=False):
     """M_MI_Surface: tiling texture set (+ optional second set on G), tint, Wear vertex-colour masks."""
     # Rebuilt in place, never deleted: deleting a parent orphans its instances, and every orphan then compiles
     # the default material synchronously on the game thread (minutes).
@@ -392,6 +403,8 @@ def build_master(defaults, force, path=None, masked=False):
     if masked:          # alpha-tested cards (chain-link): BC alpha clips at 0.5, both faces drawn
         setp(material, "blend_mode", unreal.BlendMode.BLEND_MASKED)
         setp(material, "two_sided", True)
+    if clearcoat:       # car paint: the base layer as M_MI_Surface under a glossy clear coat
+        setp(material, "shading_model", unreal.MaterialShadingModel.MSM_CLEAR_COAT)
 
     # UVs: mesh UV0 (already in repeats of the set's tile) x UVScale, or the world box projection.
     uv0 = expr(material, unreal.MaterialExpressionTextureCoordinate, -2200, 0)
@@ -497,6 +510,11 @@ def build_master(defaults, force, path=None, masked=False):
     LIB.connect_material_property(emissive, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     if masked:
         LIB.connect_material_property(samplers["BC"], "A", unreal.MaterialProperty.MP_OPACITY_MASK)
+    if clearcoat:
+        LIB.connect_material_property(expr(material, unreal.MaterialExpressionConstant, -200, 900, r=1.0), "",
+                                      unreal.MaterialProperty.MP_CUSTOM_DATA0)
+        LIB.connect_material_property(expr(material, unreal.MaterialExpressionConstant, -200, 980,
+                                           r=CLEARCOAT_ROUGHNESS), "", unreal.MaterialProperty.MP_CUSTOM_DATA1)
     LIB.recompile_material(material)
     ASSETS.save_asset(path, only_if_is_dirty=False)
     return "created"
@@ -845,7 +863,7 @@ def make_glass_instance(name, values, force):
 
 
 def make_instance(name, set_name, tint=(1, 1, 1), blend_set=None, alpha_means=None, world_tile_m=None,
-                  wear=1.0, force=False, roof_set=None, macro=None, windows=False, parent=None):
+                  wear=1.0, force=False, roof_set=None, macro=None, windows=False, parent=None, emissive=None):
     path = "%s/%s" % (MAT_DIR, name)
     if ASSETS.does_asset_exist(path):
         if not force:
@@ -871,7 +889,8 @@ def make_instance(name, set_name, tint=(1, 1, 1), blend_set=None, alpha_means=No
         1.0 if windows else 0.0, 310.0, 310.0, 380.0))
     if ASSETS.does_asset_exist(texture_path(set_name, "E")):
         LIB.set_material_instance_texture_parameter_value(instance, "E", unreal.load_asset(texture_path(set_name, "E")))
-        LIB.set_material_instance_scalar_parameter_value(instance, "EmissiveScale", SIGN_NITS)
+        LIB.set_material_instance_scalar_parameter_value(instance, "EmissiveScale",
+                                                         SIGN_NITS if emissive is None else emissive)
     LIB.set_material_instance_vector_parameter_value(instance, "Tint", unreal.LinearColor(tint[0], tint[1], tint[2], 1))
     modes = (1.0 if blend_set and has_set(blend_set) else 0.0,
              1.0 if alpha_means == "splash" else 0.0,

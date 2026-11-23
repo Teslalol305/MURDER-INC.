@@ -128,13 +128,21 @@
   },
   "objectives": {
     "note": "The master reel cases and the IPX truck (AMIReelCase, AMITruck), placed from level.json objectives and extraction; basic shapes until the props arrive.",
-    "case": { "mesh": "/Engine/BasicShapes/Cube.Cube", "size": [60, 40, 22], "lift": 75, "beacon": [1.0, 0.62, 0.18], "beaconCandela": 400, "beaconRadius": 600 },
-    "truck": { "mesh": "/Engine/BasicShapes/Cube.Cube", "size": [700, 250, 300], "door": [6, 120, 260], "doorOpenDegrees": 100 }
+    "case": { "mesh": "/Engine/BasicShapes/Cube.Cube", "size": [60, 40, 22], "lift": 75, "beacon": [1.0, 0.62, 0.18], "beaconCandela": 400, "beaconRadius": 600,
+      "art": { "note": "SM_Gameplay_* (art/blender props family): one frame, pivot on the floor, Unreal cm and degrees [pitch, yaw, roll]; the reel of objective i is reels[i]; the lid hinges at the case back edge and opens -95 deg in roll while grabbed. Used when the art is in the project, else the basic shape above.",
+        "parts": [ { "mesh": "/Game/Art/Meshes/SM_Gameplay_MasterCase.SM_Gameplay_MasterCase" }, { "mesh": "/Game/Art/Meshes/SM_Gameplay_MasterCase_Beacon.SM_Gameplay_MasterCase_Beacon", "hideWhenTaken": true }, { "mesh": "/Game/Art/Meshes/SM_Prop_Boombox.SM_Prop_Boombox", "at": [24, -4, 0], "rot": [0, -66, 0] } ],
+        "reels": [ "/Game/Art/Meshes/SM_Gameplay_MasterReel_1.SM_Gameplay_MasterReel_1", "/Game/Art/Meshes/SM_Gameplay_MasterReel_2.SM_Gameplay_MasterReel_2", "/Game/Art/Meshes/SM_Gameplay_MasterReel_3.SM_Gameplay_MasterReel_3" ],
+        "lid": { "mesh": "/Game/Art/Meshes/SM_Gameplay_MasterCase_Lid.SM_Gameplay_MasterCase_Lid", "hinge": [-19, -16, 53], "openRoll": -95 },
+        "beaconAt": [-42, 0, 142] } },
+    "truck": { "mesh": "/Engine/BasicShapes/Cube.Cube", "size": [700, 250, 300], "door": [6, 120, 260], "doorOpenDegrees": 100,
+      "art": { "note": "SM_Vehicle_IPXTruck (pivot on the ground at the truck position, rear toward -X); the vault door leaves on their hinges (manifest notes: Blender (-3.26, +-0.89, 1.05), +-108.9 deg, mirrored into Unreal). Drawn in every map once the art is in the project.",
+        "body": "/Game/Art/Meshes/SM_Vehicle_IPXTruck.SM_Vehicle_IPXTruck",
+        "doors": [ { "mesh": "/Game/Art/Meshes/SM_Vehicle_IPXTruck_Door_Left.SM_Vehicle_IPXTruck_Door_Left", "hinge": [-326, -89, 105], "open": 108.9 }, { "mesh": "/Game/Art/Meshes/SM_Vehicle_IPXTruck_Door.SM_Vehicle_IPXTruck_Door", "hinge": [-326, 89, 105], "open": -108.9 } ] } }
   },
   "explosives": {
-    "note": "What an explosive shows when it is gone (spec 02 2.13: low, inside the footprint, no collision). Basic shapes until gameplay_propane_tank_wreck and gameplay_welding_rack_wreck arrive.",
-    "propane": { "wreck": "/Engine/BasicShapes/Cylinder.Cylinder", "wreckHeight": 0.12 },
-    "rack": { "wreck": "/Engine/BasicShapes/Cube.Cube", "wreckHeight": 0.08 }
+    "note": "What an explosive shows when it is gone (spec 02 2.13: low, inside the footprint, no collision). `mesh`: the prop art drawn as modelled (pivot on the foot) and then `wreck` is art too (no scaling); without the art in the project, the basic shape scaled to the box and the wreck scaled by wreckHeight.",
+    "propane": { "wreck": "/Game/Art/Meshes/SM_Gameplay_PropaneTank_Wreck.SM_Gameplay_PropaneTank_Wreck", "wreckHeight": 0.12, "mesh": "/Game/Art/Meshes/SM_Gameplay_PropaneTank.SM_Gameplay_PropaneTank" },
+    "rack": { "wreck": "/Game/Art/Meshes/SM_Gameplay_WeldingRack_Wreck.SM_Gameplay_WeldingRack_Wreck", "wreckHeight": 0.08, "mesh": "/Game/Art/Meshes/SM_Gameplay_WeldingRack.SM_Gameplay_WeldingRack" }
   },
   "block": {
     "note": "The block at run time (AMIBlockGeometry): every level.json collider becomes collision in every map; it is drawn as grey boxes only in a map without art (no actor tagged artTag).",

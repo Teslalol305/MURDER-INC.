@@ -715,7 +715,37 @@ def assemble(man, outfit, parts, ctx):
     return joined
 
 
+def _uv_key(ob):
+    import hashlib
+    co, lt, ls = _mesh_arrays(ob)
+    h = hashlib.sha1()
+    h.update(np.round(co, 4).astype(np.float32).tobytes())
+    h.update(lt.tobytes())
+    return h.hexdigest()[:16]
+
+
 def unwrap(ob):
+    """Smart projection (islands of the draped cloth at up to 72 deg), packed; the layout is cached by mesh hash in
+    art/out/goons/uv_<name>.npz because smart projection is not reproducible between processes (and the baked sets
+    must keep matching their UVs)."""
+    path = os.path.join(CACHE, "uv_%s.npz" % ob.name)
+    key = _uv_key(ob)
+    me = ob.data
+    if os.path.exists(path):
+        z = np.load(path)
+        if str(z["key"]) == key:
+            while me.uv_layers:
+                me.uv_layers.remove(me.uv_layers[0])
+            uv = me.uv_layers.new(name="UVMap")
+            uv.data.foreach_set("uv", z["uv"].ravel())
+            return
+    _unwrap(ob)
+    a = np.empty(len(me.loops) * 2, dtype=np.float32)
+    me.uv_layers[0].data.foreach_get("uv", a)
+    np.savez_compressed(path, uv=a.reshape(-1, 2), key=np.array(key))
+
+
+def _unwrap(ob):
     me = ob.data
     while me.uv_layers:
         me.uv_layers.remove(me.uv_layers[0])
@@ -724,7 +754,7 @@ def unwrap(ob):
     bpy.context.view_layer.objects.active = ob
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.uv.smart_project(angle_limit=math.radians(62), island_margin=0.002, area_weight=0.0,
+    bpy.ops.uv.smart_project(angle_limit=math.radians(72), island_margin=0.002, area_weight=0.0,
                              correct_aspect=True, scale_to_bounds=False)
     bpy.ops.uv.select_all(action="SELECT")
     bpy.ops.uv.average_islands_scale()
@@ -850,6 +880,20 @@ def layer_weights(ob, log=log_default):
             W[v] = W[v] * (1 - t) + Wsrc * t
             n += 1
         log("  layers %s -> %s: %d vertices share weights" % ("/".join(inner), "/".join(outer), n))
+    # a vertex left without any influence (a piece far from every source triangle of its bones) takes the weights
+    # of its nearest weighted vertex: the exporter cannot write an unweighted vertex on this skeleton
+    zero = W.sum(axis=1) < 1e-6
+    if zero.any():
+        from mathutils.kdtree import KDTree
+        good = np.nonzero(~zero)[0]
+        kd = KDTree(len(good))
+        for k, i in enumerate(good):
+            kd.insert(co[i], k)
+        kd.balance()
+        for i in np.nonzero(zero)[0]:
+            _p, k, _d = kd.find(co[i])
+            W[i] = W[good[k]]
+        log("  %d unweighted vertices given their neighbour's weights" % int(zero.sum()))
     char.set_weights(ob, names, W, limit=6)
 
 
@@ -862,6 +906,9 @@ def finish(man, outfit, joined, ctx):
         ob.data.polygons.foreach_set("material_index", np.zeros(len(ob.data.polygons), dtype=np.int32))
     ob = geo.join([joined["cloth"], joined["head"]], "SK_Goon_%s" % outfit, man.col)
     layer_weights(ob, ctx.log)
+    bad = ob.data.validate(clean_customdata=False)
+    if bad:
+        ctx.log("  %s: mesh validation corrected geometry" % ob.name)
     rig.bind(ob, man.arm)
     ctx.log("SK_Goon_%s: %d triangles, %d vertices" % (outfit, tris(ob), len(ob.data.vertices)))
     return ob

@@ -43,6 +43,14 @@ private:
 	EMIReelCaseState State = EMIReelCaseState::Live;
 	double Progress = 0.0;
 	double BeaconCandela = 400.0;
+
+	// The prop art (presentation.json objectives.case.art), made in Setup.
+	bool bArt = false;
+	UPROPERTY()
+	TArray<TObjectPtr<UStaticMeshComponent>> TakenParts;
+	UPROPERTY()
+	TObjectPtr<USceneComponent> LidHinge;
+	double LidOpenRoll = -95.0;
 };
 
 UENUM()
@@ -83,4 +91,5 @@ private:
 	EMITruckState State = EMITruckState::Idle;
 	double Swing = 0.0;  // 0..1
 	double OpenDegrees = 100.0;
+	double DoorOpen[2] = {-100.0, 100.0};  // yaw of each leaf when open (HingeL, HingeR)
 };

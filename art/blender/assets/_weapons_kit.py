@@ -201,10 +201,11 @@ def loft_x(sections, xs, M, name="LoftX", cap=True):
     return outward(grid_mesh(V, name, closed_v=True, cap=cap))
 
 
-def slab(outline, y0, y1, step=0.0, name="Slab", holes=()):
+def slab(outline, y0, y1, step=0.0, name="Slab", holes=(), extra=()):
     """Side-view outline [(x, z)] extruded between y0 and y1, the side faces triangulated by constrained
     Delaunay with interior points every `step` metres (0: none), so the faces can be dented or bent in place.
-    holes: closed polygons [(x, z)] cut through."""
+    holes: closed polygons [(x, z)] cut through. extra: more interior points [(x, z)] (e.g. a row along an edge
+    that a deformation will chamfer); points outside the outline are dropped."""
     from mathutils import geometry
     poly = np.asarray(outline, dtype=np.float64)
     coords = [Vector((p[0], p[1])) for p in poly]
@@ -221,6 +222,10 @@ def slab(outline, y0, y1, step=0.0, name="Slab", holes=()):
         for h in holes:
             inside &= ~inside_poly(np.asarray(h), cand) & (dist_poly(np.asarray(h), cand) > step * 0.45)
         coords += [Vector((p[0], p[1])) for p in cand[inside]]
+    if len(extra):
+        ex = np.asarray(extra, dtype=np.float64)
+        ok = inside_poly(poly, ex) & (dist_poly(poly, ex) > 2e-5)
+        coords += [Vector((p[0], p[1])) for p in ex[ok]]
     vc, _e, tris, *_ = geometry.delaunay_2d_cdt(coords, [], faces_in, 2, 1e-8)
     bm = bmesh.new()
     a = [bm.verts.new((v.x, y1, v.y)) for v in vc]
@@ -295,3 +300,52 @@ def dent(co, centre, axis, depth, radius, shape="round", length=None, along=None
     near = np.abs(dist_n) < 0.004
     co -= (depth * f * near)[:, None] * ax[None]
     return co
+
+
+# ----------------------------------------------------------------------------------------------- round 2
+
+def superellipse(a, b, p=2.6, M=32):
+    """Closed counter-clockwise superellipse |u/a|^p + |v/b|^p = 1 (oval with flatter faces), M points, starting
+    at (a, 0)."""
+    t = np.linspace(0, 2 * math.pi, M, endpoint=False)
+    c, s_ = np.cos(t), np.sin(t)
+    u = a * np.sign(c) * np.abs(c) ** (2.0 / p)
+    v = b * np.sign(s_) * np.abs(s_) ** (2.0 / p)
+    return np.stack([u, v], 1)
+
+
+def sweep_var(path, profile, name="SweepVar", cap=True, up=(0.0, 1.0, 0.0)):
+    """Sweep a varying closed profile along a 3D path (N, 3). profile(i, t) -> (M, 2) points (u, v): u along the
+    in-plane normal (cross(up, tangent)), v along `up`; t = 0..1 arc-length fraction. Every ring must have M points."""
+    P = np.asarray(path, dtype=np.float64)
+    d = np.r_[0, np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))]
+    T = np.gradient(P, axis=0)
+    T /= np.maximum(np.linalg.norm(T, axis=1, keepdims=True), 1e-12)
+    U = np.asarray(up, dtype=np.float64)
+    rings = []
+    for i in range(len(P)):
+        nrm = np.cross(U, T[i])
+        nrm /= max(np.linalg.norm(nrm), 1e-12)
+        pr = np.asarray(profile(i, d[i] / d[-1]))
+        rings.append(P[i][None] + pr[:, 0:1] * nrm[None] + pr[:, 1:2] * U[None])
+    return outward(grid_mesh(np.array(rings), name, closed_v=True, cap=cap))
+
+
+def bevel_where(ob, width, seg=2, angle=40.0, where=None, profile=0.5):
+    """Bevel only the sharp edges (face angle > angle) whose two vertices satisfy where(co (n, 3)) -> bool (n,)."""
+    bm = geo.bm_of(ob)
+    bm.verts.ensure_lookup_table()
+    co = np.array([v.co[:] for v in bm.verts])
+    ok = np.ones(len(co), bool) if where is None else np.asarray(where(co), bool)
+    a = math.radians(angle)
+    edges = [e for e in bm.edges if len(e.link_faces) == 2 and ok[e.verts[0].index] and ok[e.verts[1].index]
+             and e.calc_face_angle(0.0) > a]
+    if edges:
+        bmesh.ops.bevel(bm, geom=edges, offset=width, segments=seg, profile=profile, affect="EDGES", clamp_overlap=True)
+    geo.bm_to(ob, bm)
+    return ob
+
+
+def smoothstep(x, a, b):
+    t = np.clip((np.asarray(x, dtype=np.float64) - a) / (b - a), 0.0, 1.0)
+    return t * t * (3 - 2 * t)

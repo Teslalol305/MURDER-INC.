@@ -21,7 +21,7 @@ EXTRA_SETS="TS_Brick_ScanRedCommon TS_Concrete_ScanWeathered TS_Concrete_ScanRou
 case "${1:-}" in
   pack)
     shift
-    [ $# -gt 0 ] || set -- 'SM_El_*' 'SM_Street_*' 'SM_Facade_*' 'SM_Prop_*' 'SM_Gameplay_*' 'SM_Furn_*'
+    [ $# -gt 0 ] || set -- 'SM_El_*' 'SM_Street_*' 'SM_Facade_*' 'SM_Prop_*' 'SM_Gameplay_*' 'SM_Furn_*' 'SM_Struct_*' 'SM_Sign_*' 'SM_Vehicle_*'
     python3 - "$TAR" "$EXTRA_SETS" "$@" <<'PY' || exit 1
 import fnmatch, json, os, sys, tarfile
 out, extra, patterns = sys.argv[1], sys.argv[2].split(), sys.argv[3:]

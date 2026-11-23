@@ -55,11 +55,27 @@ void AMIExplosive::BeginPlay()
 		const TSharedPtr<FJsonObject>* Look = nullptr;
 		if (UMIDataSubsystem::LoadJsonFile(TEXT("presentation.json"), Presentation, Error) && Presentation->TryGetObjectField(TEXT("explosives"), Section) && (*Section)->TryGetObjectField(Kind.ToString(), Look))
 		{
-			FString Path;
+			FString Path, ArtPath;
 			double Share = 0.1;
 			(*Look)->TryGetStringField(TEXT("wreck"), Path);
 			(*Look)->TryGetNumberField(TEXT("wreckHeight"), Share);
-			if (UStaticMesh* WreckMesh = Path.IsEmpty() ? nullptr : LoadObject<UStaticMesh>(nullptr, *Path))
+			// The prop art (`mesh`): drawn as modelled with its pivot on the foot; the wreck is then art too.
+			(*Look)->TryGetStringField(TEXT("mesh"), ArtPath);
+			UStaticMesh* ArtMesh = ArtPath.IsEmpty() ? nullptr : LoadObject<UStaticMesh>(nullptr, *ArtPath);
+			if (ArtMesh)
+			{
+				Mesh->SetStaticMesh(ArtMesh);
+				Mesh->SetRelativeScale3D(FVector::OneVector);
+				Mesh->SetRelativeLocation(FVector(0, 0, -Height * 0.5));
+			}
+			UStaticMesh* WreckMesh = Path.IsEmpty() ? nullptr : LoadObject<UStaticMesh>(nullptr, *Path);
+			if (WreckMesh && ArtMesh)
+			{
+				Wreck->SetStaticMesh(WreckMesh);
+				Wreck->SetRelativeScale3D(FVector::OneVector);
+				Wreck->SetRelativeLocation(FVector(0, 0, -Height * 0.5));
+			}
+			else if (WreckMesh)
 			{
 				Wreck->SetStaticMesh(WreckMesh);
 				const FVector Size(K->Box.X * 0.9, K->Box.Y * 0.9, FMath::Max(1.0, K->Box.Z * Share));

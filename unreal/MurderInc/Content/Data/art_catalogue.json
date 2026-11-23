@@ -1,0 +1,356 @@
+{
+ "about": "Which art mesh draws each catalogue id of props.json (docs/unreal/spec/05b-props), read by Content/Python/build_block.py. One entry per id: 'meshes' are picked by the instance seed (index = seed mod count; 'byVariant' picks by shapeVariant instead), 'variants' override the entry for an instance's props.json variant, 'paint' names the slot that takes the instance's paint colour (props.json instances[].paint, a clear-coat car paint), 'parts' are further meshes placed in the same frame as the first ('at' and 'yaw' relative to its pivot, Unreal cm and degrees). 'gameplay' ids are drawn by the gameplay actors (AMIExplosive, AMIReelCase, AMITruck from presentation.json), never by the level. Ids without an entry keep their props.json box. Mesh names are the art manifest's (art/out/manifest.json, art/blender/README.md).",
+ "ids": {
+  "barricade": {
+   "meshes": [
+    "SM_Furn_Barricade"
+   ]
+  },
+  "bench": {
+   "meshes": [
+    "SM_Street_Bench"
+   ]
+  },
+  "billboard": {
+   "meshes": [
+    "SM_Furn_Billboard"
+   ]
+  },
+  "bleachers": {
+   "meshes": [
+    "SM_Furn_Bleachers"
+   ]
+  },
+  "bollard": {
+   "meshes": [
+    "SM_Furn_Bollard"
+   ]
+  },
+  "boombox": {
+   "meshes": [
+    "SM_Prop_Boombox"
+   ]
+  },
+  "bus_shelter": {
+   "meshes": [
+    "SM_Furn_BusShelter"
+   ]
+  },
+  "cardboard_boxes": {
+   "meshes": [
+    "SM_Prop_CardboardBoxes"
+   ]
+  },
+  "court_light": {
+   "meshes": [
+    "SM_Furn_CourtLight"
+   ]
+  },
+  "crate_wood": {
+   "meshes": [
+    "SM_Prop_CrateWood",
+    "SM_Prop_CrateWood_B"
+   ]
+  },
+  "dumpster": {
+   "meshes": [
+    "SM_Furn_Dumpster",
+    "SM_Furn_Dumpster_Shut"
+   ]
+  },
+  "fire_escape": {
+   "meshes": [
+    "SM_Facade_FireEscape_Balcony"
+   ]
+  },
+  "food_cart": {
+   "meshes": [
+    "SM_Street_FoodCart"
+   ]
+  },
+  "hoop": {
+   "meshes": [
+    "SM_Furn_Hoop"
+   ]
+  },
+  "hydrant": {
+   "meshes": [
+    "SM_Prop_Hydrant"
+   ]
+  },
+  "hydrant_open": {
+   "meshes": [
+    "SM_Street_Hydrant_Open"
+   ]
+  },
+  "jersey_barrier": {
+   "meshes": [
+    "SM_Street_JerseyBarrier"
+   ]
+  },
+  "lot_booth": {
+   "meshes": [
+    "SM_Furn_LotBooth"
+   ]
+  },
+  "mailbox": {
+   "meshes": [
+    "SM_Furn_Mailbox"
+   ]
+  },
+  "manhole": {
+   "meshes": [
+    "SM_Street_ManholeCover"
+   ]
+  },
+  "mattress": {
+   "meshes": [
+    "SM_Furn_Mattress"
+   ]
+  },
+  "milk_crates": {
+   "meshes": [
+    "SM_Furn_MilkCrates_A",
+    "SM_Furn_MilkCrates_B"
+   ]
+  },
+  "newspaper_box": {
+   "meshes": [
+    "SM_Furn_NewspaperBox"
+   ]
+  },
+  "oil_drum": {
+   "meshes": [
+    "SM_Furn_OilDrum_Blue",
+    "SM_Furn_OilDrum_Green",
+    "SM_Furn_OilDrum_Grey"
+   ]
+  },
+  "pallet": {
+   "meshes": [
+    "SM_Furn_Pallet"
+   ]
+  },
+  "pallet_stack": {
+   "meshes": [
+    "SM_Furn_PalletStack_A",
+    "SM_Furn_PalletStack_B"
+   ]
+  },
+  "parking_meter": {
+   "meshes": [
+    "SM_Furn_ParkingMeter"
+   ]
+  },
+  "phone_booth": {
+   "meshes": [
+    "SM_Street_PhoneBooth"
+   ]
+  },
+  "planter": {
+   "meshes": [
+    "SM_Street_Planter",
+    "SM_Street_Planter_B"
+   ]
+  },
+  "porta_potty": {
+   "meshes": [
+    "SM_Prop_PortaPotty"
+   ]
+  },
+  "sandbags": {
+   "meshes": [
+    "SM_Furn_Sandbags"
+   ]
+  },
+  "shelf_rack": {
+   "meshes": [
+    "SM_Prop_ShelfRack_Drawers"
+   ]
+  },
+  "shopping_cart": {
+   "meshes": [
+    "SM_Furn_ShoppingCart"
+   ]
+  },
+  "sign_post": {
+   "meshes": [
+    "SM_Street_SignPost"
+   ]
+  },
+  "street_lamp": {
+   "meshes": [
+    "SM_Furn_StreetLamp"
+   ]
+  },
+  "tire_stack": {
+   "meshes": [
+    "SM_Prop_TireStack",
+    "SM_Prop_TireStack_B"
+   ]
+  },
+  "tool_chest": {
+   "meshes": [
+    "SM_Prop_ToolChest"
+   ]
+  },
+  "traffic_barrel": {
+   "meshes": [
+    "SM_Furn_TrafficBarrel"
+   ]
+  },
+  "traffic_cone": {
+   "meshes": [
+    "SM_Furn_TrafficCone"
+   ]
+  },
+  "traffic_light": {
+   "meshes": [
+    "SM_Street_TrafficLight"
+   ]
+  },
+  "trash_bags": {
+   "meshes": [
+    "SM_Furn_TrashBags_A",
+    "SM_Furn_TrashBags_B"
+   ]
+  },
+  "trash_can": {
+   "meshes": [
+    "SM_Street_TrashCan"
+   ]
+  },
+  "tree": {
+   "meshes": [
+    "SM_Street_Tree",
+    "SM_Street_Tree_B",
+    "SM_Street_Tree_C"
+   ]
+  },
+  "vending_machine": {
+   "meshes": [
+    "SM_Prop_VendingMachine"
+   ]
+  },
+  "water_tower": {
+   "meshes": [
+    "SM_Facade_WaterTank"
+   ]
+  },
+  "workbench": {
+   "meshes": [
+    "SM_Prop_Workbench"
+   ]
+  },
+  "generator": {
+   "meshes": [
+    "SM_Prop_Generator"
+   ]
+  },
+  "floodlight_stand": {
+   "meshes": [
+    "SM_Prop_FloodlightStand"
+   ]
+  },
+  "compressor": {
+   "meshes": [
+    "SM_Prop_Compressor",
+    "SM_Prop_Compressor_Black"
+   ]
+  },
+  "engine_hoist": {
+   "meshes": [
+    "SM_Prop_EngineHoist",
+    "SM_Prop_EngineHoist_Blue"
+   ]
+  },
+  "car_lift": {
+   "meshes": [
+    "SM_Prop_CarLift"
+   ],
+   "parts": [
+    {
+     "mesh": "SM_Prop_CarLift_Arms",
+     "at": [
+      0,
+      0,
+      0
+     ],
+     "yaw": 0
+    }
+   ]
+  },
+  "sedan": {
+   "meshes": [
+    "SM_Vehicle_Sedan"
+   ],
+   "paint": "M_Vehicle_Sedan_Paint"
+  },
+  "taxi": {
+   "meshes": [
+    "SM_Vehicle_Taxi"
+   ],
+   "paint": "M_Vehicle_Taxi_Paint"
+  },
+  "van": {
+   "meshes": [
+    "SM_Vehicle_Van"
+   ],
+   "paint": "M_Vehicle_Van_Paint",
+   "variants": {
+    "vulture": {
+     "meshes": [
+      "SM_Vehicle_Van_Vulture"
+     ],
+     "paint": "M_Vehicle_VanVulture_Paint"
+    }
+   }
+  },
+  "suv": {
+   "meshes": [
+    "SM_Vehicle_SUV"
+   ],
+   "paint": "M_Vehicle_SUV_Paint"
+  },
+  "pickup": {
+   "meshes": [
+    "SM_Vehicle_Pickup"
+   ],
+   "paint": "M_Vehicle_Pickup_Paint"
+  },
+  "box_truck": {
+   "meshes": [
+    "SM_Vehicle_BoxTruck"
+   ],
+   "paint": "M_Vehicle_BoxTruck_Paint"
+  },
+  "motorbike": {
+   "meshes": [
+    "SM_Vehicle_Motorbike"
+   ],
+   "paint": "M_Vehicle_Motorbike_Paint"
+  },
+  "burned_car": {
+   "meshes": [
+    "SM_Vehicle_BurnedCar"
+   ]
+  },
+  "car_on_stands": {
+   "meshes": [
+    "SM_Vehicle_StrippedCar"
+   ]
+  },
+  "ipx_truck": {
+   "gameplay": "AMITruck: SM_Vehicle_IPXTruck with SM_Vehicle_IPXTruck_Door (right) and _Door_Left on their hinges (presentation.json objectives.truck)"
+  },
+  "master_case": {
+   "gameplay": "AMIReelCase: SM_Gameplay_MasterCase, _Lid, _Beacon, _MasterReel_<n> (presentation.json objectives.case)"
+  },
+  "propane_tank": {
+   "gameplay": "AMIExplosive: SM_Gameplay_PropaneTank, wreck SM_Gameplay_PropaneTank_Wreck (presentation.json explosives.propane)"
+  },
+  "welding_rack": {
+   "gameplay": "AMIExplosive: SM_Gameplay_WeldingRack, wreck SM_Gameplay_WeldingRack_Wreck (presentation.json explosives.rack)"
+  }
+ }
+}
