@@ -1548,9 +1548,9 @@ void FMIAudioDirector::OnFlow(const FMIFlowEvent& E)
 		{
 			Play(FName(Sting), FPlayArgs());
 		}
-		const FVector2D Duck = Range(Obj(Data->Table(TEXT("music")), TEXT("stingDuck")), *E.Text, 1.0);
-		StemBusTarget = Duck.X;
-		StemBusUntil = Clock + Duck.Y;
+		const FVector2D StingDuck = Range(Obj(Data->Table(TEXT("music")), TEXT("stingDuck")), *E.Text, 1.0);
+		StemBusTarget = StingDuck.X;
+		StemBusUntil = Clock + StingDuck.Y;
 		if (E.Text == TEXT("dead"))
 		{
 			MusicMode = TEXT("dead");

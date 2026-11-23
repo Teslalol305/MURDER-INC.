@@ -40,9 +40,9 @@ namespace MIEventLogPrivate
 		return J;
 	}
 
-	double Num(const TSharedPtr<FJsonObject>& J, const TCHAR* K) { double V = 0; J->TryGetNumberField(K, V); return V; }
-	bool Bool(const TSharedPtr<FJsonObject>& J, const TCHAR* K) { bool V = false; J->TryGetBoolField(K, V); return V; }
-	FName Name(const TSharedPtr<FJsonObject>& J, const TCHAR* K) { FString V; J->TryGetStringField(K, V); return V.IsEmpty() ? NAME_None : FName(V); }
+	double JNum(const TSharedPtr<FJsonObject>& J, const TCHAR* K) { double V = 0; J->TryGetNumberField(K, V); return V; }
+	bool JBool(const TSharedPtr<FJsonObject>& J, const TCHAR* K) { bool V = false; J->TryGetBoolField(K, V); return V; }
+	FName JName(const TSharedPtr<FJsonObject>& J, const TCHAR* K) { FString V; J->TryGetStringField(K, V); return V.IsEmpty() ? NAME_None : FName(V); }
 }
 
 void FMIAudioEventLog::Add(const TSharedPtr<FJsonObject>& J)
@@ -312,13 +312,13 @@ double FMIAudioEventLog::Duration() const
 	return Entries.Num() ? Entries.Last().Time : 0.0;
 }
 
-int32 FMIAudioEventLog::ReplayRange(double From, double To, FMIGameEvents& B, FMIAudioDirector* Director) const
+int32 FMIAudioEventLog::ReplayRange(double FromTime, double ToTime, FMIGameEvents& B, FMIAudioDirector* Director) const
 {
 	using namespace MIEventLogPrivate;
 	int32 Count = 0;
 	for (const FEntry& E : Entries)
 	{
-		if (E.Time <= From || E.Time > To)
+		if (E.Time <= FromTime || E.Time > ToTime)
 		{
 			continue;
 		}
@@ -328,84 +328,84 @@ int32 FMIAudioEventLog::ReplayRange(double From, double To, FMIGameEvents& B, FM
 		if (Type == TEXT("fire"))
 		{
 			FMIShotFiredEvent S;
-			S.Weapon = Name(J, TEXT("weapon"));
+			S.Weapon = JName(J, TEXT("weapon"));
 			S.Muzzle = GetV3(J, TEXT("muzzle"));
 			S.Direction = GetV3(J, TEXT("dir"));
-			S.Ads = Num(J, TEXT("ads"));
-			S.Burst = (int32)Num(J, TEXT("burst"));
-			S.MagLeft = (int32)Num(J, TEXT("magLeft"));
+			S.Ads = JNum(J, TEXT("ads"));
+			S.Burst = (int32)JNum(J, TEXT("burst"));
+			S.MagLeft = (int32)JNum(J, TEXT("magLeft"));
 			B.WeaponFire.Broadcast(S);
 		}
-		else if (Type == TEXT("dry")) { B.WeaponDry.Broadcast(Name(J, TEXT("weapon"))); }
+		else if (Type == TEXT("dry")) { B.WeaponDry.Broadcast(JName(J, TEXT("weapon"))); }
 		else if (Type == TEXT("reload"))
 		{
 			FMIReloadEvent R;
-			R.Weapon = Name(J, TEXT("weapon"));
-			R.Phase = Name(J, TEXT("phase"));
-			R.bEmpty = Bool(J, TEXT("empty"));
+			R.Weapon = JName(J, TEXT("weapon"));
+			R.Phase = JName(J, TEXT("phase"));
+			R.bEmpty = JBool(J, TEXT("empty"));
 			B.WeaponReload.Broadcast(R);
 		}
 		else if (Type == TEXT("switch"))
 		{
 			FMISwitchEvent S;
-			S.From = Name(J, TEXT("from"));
-			S.To = Name(J, TEXT("to"));
-			S.Phase = Name(J, TEXT("phase"));
+			S.From = JName(J, TEXT("from"));
+			S.To = JName(J, TEXT("to"));
+			S.Phase = JName(J, TEXT("phase"));
 			B.WeaponSwitch.Broadcast(S);
 		}
-		else if (Type == TEXT("swing")) { B.WeaponSwing.Broadcast(Name(J, TEXT("weapon"))); }
-		else if (Type == TEXT("melee")) { B.WeaponMelee.Broadcast(Bool(J, TEXT("hit"))); }
+		else if (Type == TEXT("swing")) { B.WeaponSwing.Broadcast(JName(J, TEXT("weapon"))); }
+		else if (Type == TEXT("melee")) { B.WeaponMelee.Broadcast(JBool(J, TEXT("hit"))); }
 		else if (Type == TEXT("impact"))
 		{
 			FMIImpactEvent I;
 			I.Point = GetV3(J, TEXT("point"));
 			I.Normal = GetV3(J, TEXT("normal"));
 			I.Direction = GetV3(J, TEXT("dir"));
-			I.Surface = Name(J, TEXT("surface"));
-			I.From = (EMIDamageSource)(int32)Num(J, TEXT("from"));
+			I.Surface = JName(J, TEXT("surface"));
+			I.From = (EMIDamageSource)(int32)JNum(J, TEXT("from"));
 			B.Impact.Broadcast(I);
 		}
 		else if (Type == TEXT("hitEnemy"))
 		{
 			FMIHitEnemyEvent H;
-			H.Part = Name(J, TEXT("part"));
-			H.bKilled = Bool(J, TEXT("killed"));
-			H.Damage = Num(J, TEXT("damage"));
-			H.Weapon = Name(J, TEXT("weapon"));
+			H.Part = JName(J, TEXT("part"));
+			H.bKilled = JBool(J, TEXT("killed"));
+			H.Damage = JNum(J, TEXT("damage"));
+			H.Weapon = JName(J, TEXT("weapon"));
 			B.PlayerHitEnemy.Broadcast(H);
 		}
 		else if (Type == TEXT("explosion"))
 		{
 			FMIExplosionEvent X;
 			X.Position = GetV3(J, TEXT("pos"));
-			X.Radius = Num(J, TEXT("radius"));
-			X.bBig = Bool(J, TEXT("big"));
+			X.Radius = JNum(J, TEXT("radius"));
+			X.bBig = JBool(J, TEXT("big"));
 			B.Explosion.Broadcast(X);
 		}
-		else if (Type == TEXT("lit")) { B.ExplosiveLit.Broadcast((int32)Num(J, TEXT("index")), GetV3(J, TEXT("pos")), Num(J, TEXT("fuse"))); }
-		else if (Type == TEXT("blast")) { B.ExplosiveBlast.Broadcast((int32)Num(J, TEXT("index")), GetV3(J, TEXT("pos"))); }
+		else if (Type == TEXT("lit")) { B.ExplosiveLit.Broadcast((int32)JNum(J, TEXT("index")), GetV3(J, TEXT("pos")), JNum(J, TEXT("fuse"))); }
+		else if (Type == TEXT("blast")) { B.ExplosiveBlast.Broadcast((int32)JNum(J, TEXT("index")), GetV3(J, TEXT("pos"))); }
 		else if (Type == TEXT("step"))
 		{
 			FMIPlayerStepEvent S;
 			S.Position = GetV3(J, TEXT("pos"));
-			S.Surface = Name(J, TEXT("surface"));
-			S.bSprint = Bool(J, TEXT("sprint"));
+			S.Surface = JName(J, TEXT("surface"));
+			S.bSprint = JBool(J, TEXT("sprint"));
 			B.PlayerStep.Broadcast(S);
 		}
 		else if (Type == TEXT("jump")) { B.PlayerJump.Broadcast(); }
 		else if (Type == TEXT("land"))
 		{
 			FMIPlayerLandEvent L;
-			L.Speed = Num(J, TEXT("speed"));
-			L.Surface = Name(J, TEXT("surface"));
+			L.Speed = JNum(J, TEXT("speed"));
+			L.Surface = JName(J, TEXT("surface"));
 			B.PlayerLand.Broadcast(L);
 		}
 		else if (Type == TEXT("playerHit"))
 		{
 			FMIPlayerHitEvent H;
-			H.Amount = Num(J, TEXT("amount"));
-			H.Health = Num(J, TEXT("health"));
-			H.Kind = (EMIDamageKind)(int32)Num(J, TEXT("kind"));
+			H.Amount = JNum(J, TEXT("amount"));
+			H.Health = JNum(J, TEXT("health"));
+			H.Kind = (EMIDamageKind)(int32)JNum(J, TEXT("kind"));
 			if (J->HasField(TEXT("from")))
 			{
 				H.From = GetV3(J, TEXT("from"));
@@ -424,34 +424,34 @@ int32 FMIAudioEventLog::ReplayRange(double From, double To, FMIGameEvents& B, FM
 		else if (Type == TEXT("enemy"))
 		{
 			FMIEnemyEvent Ev;
-			Ev.Kind = (FMIEnemyEvent::EKind)(int32)Num(J, TEXT("kind"));
-			Ev.Id = (int32)Num(J, TEXT("id"));
-			Ev.Type = (MIEnemy::EType)(int32)Num(J, TEXT("etype"));
+			Ev.Kind = (FMIEnemyEvent::EKind)(int32)JNum(J, TEXT("kind"));
+			Ev.Id = (int32)JNum(J, TEXT("id"));
+			Ev.Type = (MIEnemy::EType)(int32)JNum(J, TEXT("etype"));
 			Ev.Pos = GetV3(J, TEXT("pos"));
 			Ev.Dir = GetV3(J, TEXT("dir"));
-			Ev.Phase = Name(J, TEXT("phase"));
-			Ev.Part = Name(J, TEXT("part"));
-			Ev.Damage = Num(J, TEXT("damage"));
-			Ev.Duration = Num(J, TEXT("duration"));
-			Ev.bByPlayer = Bool(J, TEXT("byPlayer"));
-			Ev.Weapon = Name(J, TEXT("weapon"));
+			Ev.Phase = JName(J, TEXT("phase"));
+			Ev.Part = JName(J, TEXT("part"));
+			Ev.Damage = JNum(J, TEXT("damage"));
+			Ev.Duration = JNum(J, TEXT("duration"));
+			Ev.bByPlayer = JBool(J, TEXT("byPlayer"));
+			Ev.Weapon = JName(J, TEXT("weapon"));
 			B.Enemy.Broadcast(Ev);
 		}
 		else if (Type == TEXT("flow"))
 		{
 			FMIFlowEvent F;
-			F.Name = Name(J, TEXT("name"));
+			F.Name = JName(J, TEXT("name"));
 			J->TryGetStringField(TEXT("text"), F.Text);
-			F.A = Num(J, TEXT("a"));
-			F.B = Num(J, TEXT("b"));
-			F.C = Num(J, TEXT("c"));
+			F.A = JNum(J, TEXT("a"));
+			F.B = JNum(J, TEXT("b"));
+			F.C = JNum(J, TEXT("c"));
 			B.Flow.Broadcast(F);
 		}
-		else if (Type == TEXT("music")) { B.MusicIntensity.Broadcast(Num(J, TEXT("i"))); }
+		else if (Type == TEXT("music")) { B.MusicIntensity.Broadcast(JNum(J, TEXT("i"))); }
 		else if (Type == TEXT("observe") && Director)
 		{
 			Director->SetListener(GetV3(J, TEXT("listener")), GetV3(J, TEXT("forward")));
-			Director->SetPlayer(Num(J, TEXT("health")), Bool(J, TEXT("alive")));
+			Director->SetPlayer(JNum(J, TEXT("health")), JBool(J, TEXT("alive")));
 		}
 	}
 	return Count;
