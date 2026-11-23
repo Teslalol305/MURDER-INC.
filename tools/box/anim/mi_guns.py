@@ -38,17 +38,38 @@ def _tag(a, label=None):
     return a
 
 
-def studio(exposure=11.0, key=8.0, backdrop=True, sun_yaw=-50.0, sun_pitch=-38.0):
+def dark_material(name="M_MI_StudioDark", value=0.018, rough=0.55):
+    path = "/Game/Studio/" + name
+    if unreal.EditorAssetLibrary.does_asset_exist(path):
+        return unreal.load_asset(path)
+    mel = unreal.MaterialEditingLibrary
+    m = unreal.AssetToolsHelpers.get_asset_tools().create_asset(name, "/Game/Studio", unreal.Material,
+                                                                 unreal.MaterialFactoryNew())
+    c = mel.create_material_expression(m, unreal.MaterialExpressionConstant3Vector, -300, 0)
+    c.set_editor_property("constant", unreal.LinearColor(value, value, value * 1.05, 1))
+    r = mel.create_material_expression(m, unreal.MaterialExpressionConstant, -300, 200)
+    r.set_editor_property("r", rough)
+    mel.connect_material_property(c, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.connect_material_property(r, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    mel.recompile_material(m)
+    unreal.EditorAssetLibrary.save_loaded_asset(m)
+    return m
+
+
+def studio(exposure=5.0, key=8.0, backdrop=True, sun_yaw=-50.0, sun_pitch=-38.0):
     clear()
+    dark = dark_material()
     floor = ACTORS.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(0, 0, 0))
     floor.static_mesh_component.set_static_mesh(unreal.load_asset("/Engine/BasicShapes/Plane"))
     floor.set_actor_scale3d(unreal.Vector(40, 40, 1))
+    floor.static_mesh_component.set_material(0, dark)
     _tag(floor, "Floor")
     if backdrop:
         for i, (loc, sc) in enumerate((((0, -260, 250), (40, 0.2, 5)), ((0, 260, 250), (40, 0.2, 5)))):
             w = ACTORS.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(*loc))
             w.static_mesh_component.set_static_mesh(unreal.load_asset("/Engine/BasicShapes/Cube"))
             w.set_actor_scale3d(unreal.Vector(*sc))
+            w.static_mesh_component.set_material(0, dark)
             _tag(w, "Backdrop%d" % i)
     sun = ACTORS.spawn_actor_from_class(unreal.DirectionalLight, unreal.Vector(0, 0, 400),
                                         unreal.Rotator(roll=0, pitch=sun_pitch, yaw=sun_yaw))
