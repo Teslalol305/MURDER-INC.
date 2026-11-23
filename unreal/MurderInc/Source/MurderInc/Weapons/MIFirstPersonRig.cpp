@@ -1150,17 +1150,26 @@ void UMIFirstPersonRig::ProbeGrip(const FString& Label) const
 	}
 	// The gun's triangles in world space (its reference pose: the gun clip's base is the reference pose).
 	const FSkeletalMeshLODModel& G = GunAsset->GetImportedModel()->LODModels[0];
-	TArray<FVector> GV;
+	TArray<FVector> GV, GN;
+	const FTransform GunT = PackGun->GetComponentTransform();
 	for (const FSkelMeshSection& S : G.Sections)
 	{
-		if (GV.Num() < static_cast<int32>(S.BaseVertexIndex)) GV.SetNum(S.BaseVertexIndex);
-		for (const FSoftSkinVertex& V : S.SoftVertices) GV.Add(PackGun->GetComponentTransform().TransformPosition(FVector(V.Position)));
+		if (GV.Num() < static_cast<int32>(S.BaseVertexIndex)) { GV.SetNum(S.BaseVertexIndex); GN.SetNum(S.BaseVertexIndex); }
+		for (const FSoftSkinVertex& V : S.SoftVertices)
+		{
+			GV.Add(GunT.TransformPosition(FVector(V.Position)));
+			GN.Add(GunT.TransformVectorNoScale(FVector(V.TangentZ.X, V.TangentZ.Y, V.TangentZ.Z)));
+		}
 	}
-	TArray<FVector> Tri;
+	TArray<FVector> Tri, TriN;   // three corners per triangle; its outward normal (the corners' normals averaged)
 	for (int32 I = 0; I + 2 < G.IndexBuffer.Num(); I += 3)
 	{
 		const uint32 A = G.IndexBuffer[I], B = G.IndexBuffer[I + 1], C = G.IndexBuffer[I + 2];
-		if (static_cast<int32>(FMath::Max3(A, B, C)) < GV.Num()) { Tri.Add(GV[A]); Tri.Add(GV[B]); Tri.Add(GV[C]); }
+		if (static_cast<int32>(FMath::Max3(A, B, C)) < GV.Num())
+		{
+			Tri.Add(GV[A]); Tri.Add(GV[B]); Tri.Add(GV[C]);
+			TriN.Add((GN[A] + GN[B] + GN[C]).GetSafeNormal());
+		}
 	}
 	// The arms' vertices skinned on the CPU (component-space bones x inverse reference), with their main bone.
 	const FSkeletalMeshLODModel& M = ArmsAsset->GetImportedModel()->LODModels[0];
@@ -1216,7 +1225,9 @@ void UMIFirstPersonRig::ProbeGrip(const FString& Label) const
 				const double R = FMath::Max3(FVector::Dist(C, Tri[T]), FVector::Dist(C, Tri[T + 1]), FVector::Dist(C, Tri[T + 2]));
 				if (FVector::Dist(C, P0[0]) < Reach + R) Near.Add(T);
 			}
-			const auto Gap = [&](float Deg)
+			// (gap, depth): the nearest pad point's distance outside the gun, and how deep the deepest one is inside
+			// (signed by the nearest triangle's outward normal), with the finger curled by Deg as the anim applies it
+			const auto Measure = [&](float Deg, double& OutGap, double& OutDepth)
 			{
 				// the curl as UMIFPAnimInstance applies it: joint by joint, each about its pivot, the rest following
 				FVector P[3] = {P0[0], P0[1], P0[2]};
@@ -1229,30 +1240,51 @@ void UMIFirstPersonRig::ProbeGrip(const FString& Label) const
 					Piv[J] = P[J];
 					for (int32 K = J + 1; K < 3; ++K) P[K] = Piv[J] + Q.RotateVector(P[K] - Piv[J]);
 				}
-				double Min = 1e9;
-				for (const TPair<FVector, int32>& O : Own)
+				OutGap = 1e9;
+				OutDepth = 0.0;
+				for (int32 OI = 0; OI < Own.Num(); OI += 2)
 				{
-					FVector V = O.Key;
-					for (int32 J = 0; J <= O.Value; ++J) V = Piv[J] + Acc[J].RotateVector(V - Piv[J]);
-					for (const int32 T : Near) Min = FMath::Min(Min, FVector::Dist(V, FMath::ClosestPointOnTriangleToPoint(V, Tri[T], Tri[T + 1], Tri[T + 2])));
+					FVector V = Own[OI].Key;
+					for (int32 J = 0; J <= Own[OI].Value; ++J) V = Piv[J] + Acc[J].RotateVector(V - Piv[J]);
+					double Best = 1e9, Signed = 1e9;
+					for (const int32 T : Near)
+					{
+						const FVector Q = FMath::ClosestPointOnTriangleToPoint(V, Tri[T], Tri[T + 1], Tri[T + 2]);
+						const double D = FVector::Dist(V, Q);
+						if (D < Best) { Best = D; Signed = FVector::DotProduct(V - Q, TriN[T / 3]) < 0.0 ? -D : D; }
+					}
+					if (Signed >= 0.0) OutGap = FMath::Min(OutGap, Signed);
+					else OutDepth = FMath::Max(OutDepth, -Signed);
 				}
-				return Min;
+				if (OutDepth > 0.0) OutGap = 0.0;
 			};
-			const double G0 = Gap(0.f);
+			double G0 = 0.0, D0 = 0.0;
+			Measure(0.f, G0, D0);
 			float Best = 0.f;
-			double GB = G0;
-			if (G0 > Target)
+			double GB = G0, DB = D0;
+			if (D0 > 0.3)
 			{
-				for (float D = 1.f; D <= 45.f; D += 1.f)
+				// in the gun: open until the deepest pad point is within 1.5 mm of the surface
+				for (float Dg = -1.f; Dg >= -25.f; Dg -= 1.f)
 				{
-					const double Gd = Gap(D);
-					Best = D; GB = Gd;
-					if (Gd <= Target) break;
+					Measure(Dg, GB, DB);
+					Best = Dg;
+					if (DB <= 0.15) break;
 				}
-				if (GB > 1.0) { Best = 0.f; GB = G0; }   // nothing within reach of a curl: leave it (a finger off the gun on purpose)
 			}
-			UE_LOG(LogMI, Log, TEXT("MI-GRIP %s %s %s gap %.2f cm, %d points, %d triangles near; curl %.0f deg gap %.2f cm"),
-				*Label, bLeft ? TEXT("l") : TEXT("r"), Fingers[I], G0, Own.Num(), Near.Num(), Best, GB);
+			else if (G0 > Target)
+			{
+				// off the gun: close until a pad touches
+				for (float Dg = 1.f; Dg <= 45.f; Dg += 1.f)
+				{
+					Measure(Dg, GB, DB);
+					Best = Dg;
+					if (GB <= Target || DB > 0.0) break;
+				}
+				if (GB > 1.0) { Best = 0.f; GB = G0; DB = D0; }   // nothing within reach of a curl: leave it
+			}
+			UE_LOG(LogMI, Log, TEXT("MI-GRIP %s %s %s gap %.2f cm depth %.2f cm, %d points, %d triangles near; curl %.0f deg: gap %.2f cm depth %.2f cm"),
+				*Label, bLeft ? TEXT("l") : TEXT("r"), Fingers[I], G0, D0, Own.Num(), Near.Num(), Best, GB, DB);
 		}
 	}
 #else

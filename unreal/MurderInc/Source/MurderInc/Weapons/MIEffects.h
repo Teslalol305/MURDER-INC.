@@ -38,8 +38,10 @@ public:
 	/** The player's own flash, seen from the eye behind the gun (polish pass): the star faces the eye, the jets run
 	 *  along the bore turned to face it, and all three are pulled toward the eye along their sight lines (fx.flash.view
 	 *  pull: the fraction of the distance kept, sizes scaled alike) so they draw over the gun's front end, which hides
-	 *  the muzzle itself from the eye at the hip. Same pixels, same apparent size. */
-	void ViewFlash(const FVector& Muzzle, const FVector& Dir, const FVector& Eye, double Scale);
+	 *  the muzzle itself from the eye at the hip. Same pixels, same apparent size. Aimed (Ads) the pull eases to
+	 *  flash.view.pullAimed (1: none): pulled in, the cards fell behind the rear sight, the nearest thing to the eye;
+	 *  on the muzzle their upper half shows through the aperture round the front post. */
+	void ViewFlash(const FVector& Muzzle, const FVector& Dir, const FVector& Eye, double Scale, double Ads = 0.0);
 	/** The player's own flash light. */
 	void FlashLight(const FVector& At, double Scale);
 	/** A tracer streak from a muzzle to where the round ends. */

@@ -313,14 +313,15 @@ void UMIEffects::WorldFlash(const FVector& Muzzle, const FVector& Dir, double Sc
 	}
 }
 
-void UMIEffects::ViewFlash(const FVector& Muzzle, const FVector& Dir, const FVector& Eye, double Scale)
+void UMIEffects::ViewFlash(const FVector& Muzzle, const FVector& Dir, const FVector& Eye, double Scale, double Ads)
 {
 	if (Cards.Num() < 3)
 	{
 		return;
 	}
 	const double L = MIJson::NumberOr(Fx, TEXT("flash.life"), 0.045);
-	const double Keep = FMath::Clamp(MIJson::NumberOr(Fx, TEXT("flash.view.pull"), 0.5), 0.1, 1.0);
+	const double A = FMath::SmoothStep(0.0, 1.0, FMath::Clamp(Ads, 0.0, 1.0));
+	const double Keep = FMath::Clamp(FMath::Lerp(MIJson::NumberOr(Fx, TEXT("flash.view.pull"), 0.5), MIJson::NumberOr(Fx, TEXT("flash.view.pullAimed"), 1.0), A), 0.1, 1.0);
 	const double S = Scale * MIJson::NumberOr(Fx, TEXT("flash.view.scale"), 1.0);
 	const FVector D = Dir.GetSafeNormal();
 	for (int32 K = 0; K < 3; ++K)

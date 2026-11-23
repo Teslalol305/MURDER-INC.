@@ -721,7 +721,7 @@ void UMIWeaponComponent::MuzzleFlash(double FlashScale)
 	if (UMIEffects* WorldFx = UMIEffects::Get(this); WorldFx && WorldFx->CanDrawTracers() && FlashScale > 0.01)
 	{
 		const FTransform At = FirstPersonToNearWorld(FTransform(FRotationMatrix::MakeFromX(Dir).ToQuat(), Pos));
-		WorldFx->ViewFlash(At.GetLocation(), At.GetRotation().GetForwardVector(), Camera->GetComponentLocation(), FMath::Clamp(FlashScale, 0.3, 1.5) * At.GetScale3D().X);
+		WorldFx->ViewFlash(At.GetLocation(), At.GetRotation().GetForwardVector(), Camera->GetComponentLocation(), FMath::Clamp(FlashScale, 0.3, 1.5) * At.GetScale3D().X, Rules.GetAds());
 		UE_LOG(LogMI, Verbose, TEXT("Flash: world cards %.1f cm from the eye, muzzle in camera space %s, bore %s"), FVector::Dist(At.GetLocation(), Camera->GetComponentLocation()), *Pos.ToCompactString(), *Dir.ToCompactString());
 	}
 	else if (FlashCards.Num() == 3 && FlashScale > 0.01)
