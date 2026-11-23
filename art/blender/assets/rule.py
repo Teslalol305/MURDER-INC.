@@ -823,7 +823,9 @@ def textured_materials():
     # review round 3 (glossy orange plastic by day, black-brown silhouettes under the El): full subsurface with
     # the SP_RuleSkin radii (1.0 / 0.4 / 0.25 cm), specular 0.35, and a thin sharper second lobe (coat) standing in
     # for the dual-lobe specular of Unreal's Subsurface Profile
-    for name, sss, coat in (("M_RuleArms_Skin", 1.0, 0.12), ("M_RuleArms_Nail", 0.05, 0.35)):
+    # hands-and-tattoos pass: no subsurface on the 0.7 mm nail plates (Cycles' random walk lost the light through
+    # the thin shell into the finger, so every nail rendered black although its texels are a pale keratin 0.43)
+    for name, sss, coat in (("M_RuleArms_Skin", 1.0, 0.12), ("M_RuleArms_Nail", 0.0, 0.25)):
         m = bpy.data.materials.get(name) or bpy.data.materials.new(name)
         nt = m.node_tree
         for nd in list(nt.nodes):

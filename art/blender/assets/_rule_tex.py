@@ -137,7 +137,10 @@ def tattoo_chart(side, px_per_m=8000):
     round the back of it from the ulnar to the radial border, the letters' tops toward the elbow (the photo: they
     read for someone facing him). Right forearm, near the elbow: the word in heavy serif capitals 21 mm tall (along
     the arm) and about 7 cm long (round the arm), the script line beside it toward the wrist (16 mm). Left forearm,
-    upper third: two rows of bold serif numerals 14 mm tall, 2.6 cm apart along the arm. The left arm is the mirror
+    upper third: two rows of bold serif numerals 14 mm tall, 2.6 cm apart along the arm. Every line is centred 2.6-3.2 cm
+    round from the back of the forearm toward the radius (the thumb side): the photo's crossed arms show that face, and it
+    is the face the first-person camera sees of the support forearm (in play, centred on the back, the pieces sat on the
+    far side of the forearm in every hip and aimed frame). The left arm is the mirror
     image of the right arm's frame, so its chart is drawn mirrored to read correctly from outside. Healed ink: dense
     blue-black, bled 0.4 mm with a faint halo, slightly ragged edges and uneven take-up (texel noise in skin_texels).
     """
@@ -175,12 +178,12 @@ def tattoo_chart(side, px_per_m=8000):
     if side == "right":
         for r in rows[:2]:
             if r.get("style") == "script":
-                put(r["text"], "script", 0.168, 0.004, 0.016, 1.0, max_len=0.075)
+                put(r["text"], "script", 0.168, 0.030, 0.016, 1.0, max_len=0.075)
             else:
-                put(r["text"], "roman", 0.203, 0.000, 0.021, 0.96, max_len=0.085)
+                put(r["text"], "roman", 0.203, 0.026, 0.021, 0.96, max_len=0.085)
     else:
         for i, r in enumerate(rows[:3]):
-            put(r["text"], "roman", 0.168 + 0.026 * i, 0.004, 0.014, 0.95, max_len=0.065)
+            put(r["text"], "roman", 0.168 + 0.026 * i, 0.032, 0.014, 0.95, max_len=0.065)
     a = np.asarray(img, dtype=np.float32) / 255.0
     # slightly ragged edges (needle work, 0.15 mm), then a 0.3 mm bleed into the dermis and a faint halo
     rng = np.random.default_rng(31 if side == "right" else 32)
