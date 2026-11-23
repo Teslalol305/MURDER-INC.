@@ -126,8 +126,13 @@ F = cr.get_forward_vector()
 # a frame 30 cm in front of the eye (y toward the eye, x up the screen): the lines, which run round the forearm with the
 # letters' tops toward the elbow, read upright. The left tattoo is seen square on. The right one faces the inside of the
 # bent elbow in the CHOPPER's hold: square on, the right upper arm came straight at the eye and filled the frame (an
-# end-on disc with the word at its rim), so it is seen from 35 degrees toward the wrist, past the upper arm
-th = 0.0 if sx == "l" else 35.0
+# end-on disc with the word at its rim), so it is seen from 45 degrees toward the wrist, past the upper arm
+th = 0.0 if sx == "l" else 45.0
+# the gun hidden for the close-up (the CHOPPER's pistol grip, in the right hand, stands between the eye and the word)
+for comp in pawn.get_components_by_class(unreal.SkeletalMeshComponent):
+    a = comp.get_skinned_asset()
+    if comp != arms and a and a.get_name() != "SK_RuleArms" and comp.is_visible():
+        comp.set_visibility(False, True)
 v = (n * M.cos(M.degrees_to_radians(th)) - A * M.sin(M.degrees_to_radians(th))).normal()
 newp = C + F * 30.0
 cur = unreal.Transform(p, M.make_rot_from_yx(v, A), unreal.Vector(1, 1, 1))
