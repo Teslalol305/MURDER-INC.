@@ -626,7 +626,6 @@ def nine_slide(parts):
     sl = K.loft_x(secs, xs, 96, name="Slide")
     chan = box(0.0045, 0.1860, -0.0104, 0.0104, -0.020, 0.0100)
     grooves = [box(-0.001, 0.25, s * 0.0080, s * 0.0103, -0.020, -0.0106) for s in (1, -1)]
-    grooves = [box(-0.001, 0.25, min(g.location.y, 0) - 1, 1, 0, 1) if False else g for g in grooves]
     ham_chan = box(-0.001, 0.048, -0.00475, 0.00475, 0.0005, 0.0108)        # hammer channel: 9.5 mm at the spur,
     ham_neck = box(-0.001, 0.048, -0.0034, 0.0034, -0.020, 0.0010)          # 6.8 mm at the neck
     rails = box(-0.001, 0.0050, -0.0104, 0.0104, -0.020, -0.0075)           # frame ears and rails pass under the breech
@@ -639,10 +638,7 @@ def nine_slide(parts):
     pb = prism([(0.0860, -0.0030), (0.1260, -0.0030), (0.1260, 0.030), (0.0860, 0.030)], -0.030, 0.010, bevel=0,
                fillet=0.0012, name="PortB")
     geo.boolean(pa, pb, "INTERSECT", "EXACT")
-    scallop = geo.uv_sphere(0.0060, 28, 14, name="Scallop") if hasattr(geo, "uv_sphere") else None
-    if scallop is None:
-        scallop = lathe([(-0.006 * math.cos(a), 0.006 * math.sin(a)) for a in np.linspace(0, math.pi, 15)], 28,
-                        axis="Y", name="Scallop")
+    scallop = geo.sphere(0.0060, 28, 14, name="Scallop")
     geo.transform(scallop, loc=(0.0880, -0.0178, 0.0010))
     ext_slot = prism([(0.0576, 0.0028), (0.0852, 0.0028), (0.0870, 0.0038), (0.0870, 0.0062), (0.0852, 0.0070),
                       (0.0576, 0.0070)], -0.020, -(0.0135 - 0.0012), bevel=0, fillet=0.0010, name="ExtSlot")
@@ -920,3 +916,160 @@ def nine_build(ctx):
     arm = W.rig.armature("SKEL_Nine", bones, ctx.col)
     W.rig.bind(gun, arm)
     return gun, arm
+
+
+# ------------------------------------------------------------------------------------------------- slide UVs
+
+def straighten_slide_uv(ob, margin_px=6):
+    """Re-map the slide's outer skin (both flanks and the top, one connected surface) as a single straightened UV
+    shell: U along X (the brushing direction, so Unreal's tangent runs along the slide), V the arc length round the
+    section. The shell keeps the smart-project texel scale, is pinned for rotation, and every island is re-packed.
+    Faces inside the serrations, port, dovetails and slots keep their own islands. Returns the shell's face count."""
+    import bpy
+    me = ob.data
+    vg = ob.vertex_groups.get("slide")
+    if vg is None:
+        return 0
+    nv = len(me.vertices)
+    w = np.zeros(nv)
+    for v in me.vertices:
+        for g in v.groups:
+            if g.group == vg.index:
+                w[v.index] = g.weight
+    co = np.empty(nv * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    npoly = len(me.polygons)
+    mid = np.empty(npoly, np.float32)
+    me.attributes["mid"].data.foreach_get("value", mid)
+    cen = np.empty(npoly * 3)
+    me.polygons.foreach_get("center", cen)
+    cen = cen.reshape(-1, 3)
+    nrm = np.empty(npoly * 3)
+    me.polygons.foreach_get("normal", nrm)
+    nrm = nrm.reshape(-1, 3)
+    ls = np.empty(npoly, np.int32)
+    lt = np.empty(npoly, np.int32)
+    me.polygons.foreach_get("loop_start", ls)
+    me.polygons.foreach_get("loop_total", lt)
+    lv = np.empty(len(me.loops), np.int32)
+    me.loops.foreach_get("vertex_index", lv)
+    uv = np.empty(len(me.loops) * 2, np.float32)
+    lay = me.uv_layers.active
+    lay.data.foreach_get("uv", uv)
+    uv = uv.reshape(-1, 2)
+
+    def contour(x):
+        sec = slide_section(x)
+        N_ = sec.N * (1.0 if sec.N[np.argmax(sec.P[:, 1]), 1] > 0 else -1.0)      # outward
+        return sec.P, sec.s, N_, sec.L
+    stations = np.r_[np.arange(0.0, 0.183, 0.01), np.arange(0.183, 0.1961, 0.002)]
+    refs = [contour(x) for x in stations]
+
+    def param(pts):
+        """(n, 3) -> s (n,), distance (n,), contour normal (n, 2) on the station nearest in x."""
+        s_out = np.zeros(len(pts))
+        d_out = np.zeros(len(pts))
+        n_out = np.zeros((len(pts), 2))
+        k = np.clip(np.searchsorted(stations, pts[:, 0]), 0, len(stations) - 1)
+        for j in np.unique(k):
+            m = k == j
+            C, S, N, L = refs[j]
+            q = pts[m][:, 1:3]
+            d2 = ((q[:, None, :] - C[None]) ** 2).sum(-1)
+            i = d2.argmin(1)
+            s_out[m] = S[i]
+            d_out[m] = np.sqrt(d2[np.arange(len(i)), i])
+            n_out[m] = N[i]
+        return s_out, d_out, n_out
+    pv = np.array([w[me.polygons[i].vertices].min() for i in range(npoly)])
+    cand = np.nonzero((np.rint(mid) == STAINLESS) & (pv > 0.5) & (cen[:, 0] > 0.0005) & (cen[:, 0] < 0.1955)
+                      & (np.abs(nrm[:, 0]) < 0.3))[0]
+    s_c, d_c, n_c = param(cen[cand])
+    agree = (nrm[cand, 1] * n_c[:, 0] + nrm[cand, 2] * n_c[:, 1]) > 0.93
+    sel = cand[agree & (d_c < 0.00045)]
+    if not len(sel):
+        return 0
+    # texel scale of the current layout (UV units per metre) from the stainless faces
+    ratios = []
+    for i in cand[:4000]:
+        idx = np.arange(ls[i], ls[i] + lt[i])
+        if lt[i] < 3:
+            continue
+        a3 = me.polygons[i].area
+        p = uv[idx]
+        a2 = 0.5 * abs(np.dot(p[:, 0], np.roll(p[:, 1], -1)) - np.dot(p[:, 1], np.roll(p[:, 0], -1)))
+        if a3 > 1e-10 and a2 > 0:
+            ratios.append(a2 / a3)
+    kuv = math.sqrt(float(np.median(ratios)))
+    loops = np.concatenate([np.arange(ls[i], ls[i] + lt[i]) for i in sel])
+    s_l, _d, _n = param(co[lv[loops]])
+    uv[loops, 0] = 2.0 + co[lv[loops], 0] * kuv
+    uv[loops, 1] = s_l * kuv
+    lay.data.foreach_set("uv", uv.ravel())
+    print("    slide shell before packing: corr(x, u) %.3f" % np.corrcoef(co[lv[loops], 0], uv[loops, 0])[0, 1], flush=True)
+    pin = np.zeros(len(me.loops), bool)
+    pin[loops] = True
+    lay.pin_ensure()
+    lay.pin.foreach_set("value", pin)
+    W.scene.select_only(ob)
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.uv.select_all(action="SELECT")
+    import os
+    if os.environ.get("MI_SHELL_DEBUG"):
+        bm = W.bmesh.from_edit_mesh(me)
+        uvl = bm.loops.layers.uv.active
+        npin = sum(1 for f in bm.faces for l in f.loops if l[uvl].pin_uv)
+        print("    pinned loops in edit mode:", npin, flush=True)
+    # other islands may turn; the pinned shell keeps its rotation (U along +X)
+    bpy.ops.uv.pack_islands(rotate=True, rotate_method="ANY", margin_method="FRACTION", margin=margin_px / 2048.0,
+                            shape_method="AABB", pin=True, pin_method="ROTATION")
+    bpy.ops.object.mode_set(mode="OBJECT")
+    lay = me.uv_layers.active                       # layer references do not survive edit mode
+    pa = me.attributes.get(".pn." + lay.name)
+    if pa is not None:
+        me.attributes.remove(pa)
+    # report the shell's direction after packing (U should still run along X)
+    lay = me.uv_layers.active
+    uv = np.empty(len(me.loops) * 2, np.float32)
+    lay.data.foreach_get("uv", uv)
+    uv = uv.reshape(-1, 2)
+    # per face: does U follow +X? (edge vectors: d(u) against d(x), d(v) against d(x))
+    good, n_ = 0, 0
+    for i in sel:
+        idx = np.arange(ls[i], ls[i] + lt[i])
+        dx = np.diff(co[lv[idx], 0], append=co[lv[idx[0]], 0])
+        du_ = np.diff(uv[idx, 0], append=uv[idx[0], 0])
+        dv_ = np.diff(uv[idx, 1], append=uv[idx[0], 1])
+        if np.abs(dx).max() < 1e-6:
+            continue
+        n_ += 1
+        good += float(np.dot(dx, du_)) > 0 and abs(float(np.dot(dx, dv_))) < 0.2 * abs(float(np.dot(dx, du_)))
+    print("    slide shell: %d faces, U along +X on %.1f %% of them" % (len(sel), 100.0 * good / max(n_, 1)), flush=True)
+    return len(sel)
+
+
+def uv_weights(ob):
+    """Per-face UV scale for SK_Nine: faces the eye never sees (inside the slide, under it, in the magazine well,
+    the recoil spring and the barrel under the slide) get few texels so the outside gets the density."""
+    me = ob.data
+    n = len(me.polygons)
+    mid = np.empty(n, np.float32)
+    me.attributes["mid"].data.foreach_get("value", mid)
+    mid = np.rint(mid).astype(int)
+    c = np.empty(n * 3, np.float32)
+    me.polygons.foreach_get("center", c)
+    c = c.reshape(-1, 3)
+    x, y, z = c[:, 0], c[:, 1], c[:, 2]
+    w = np.ones(n, np.float32)
+    w[mid == BORE] = 0.3
+    w[(mid == STAINLESS) & (np.abs(y) < 0.0106) & (z < 0.0102) & (x > 0.0040) & (x < 0.1965)] = 0.3     # slide inside
+    w[(mid == POLISHED) & (x > 0.127) & (x < 0.1985)] = 0.3                                               # barrel under the slide
+    w[(mid == POLISHED) & (z < -0.006)] = 0.3                                                             # guide rod
+    w[(mid == DARK) & (x > 0.098) & (x < 0.190) & (np.abs(y) < 0.0045) & (np.abs(z + 0.0118) < 0.0045)] = 0.3   # spring
+    w[(mid == BLACKOX) & (np.abs(y) < 0.0105) & (z > -0.0140) & (x > 0.0)] = 0.3                          # frame under the slide
+    inwell = np.abs((x - mag_centre_x(z)) * A[2]) < 0.0178
+    w[(mid == BLACKOX) & inwell & (np.abs(y) < 0.0104) & (z < -0.036) & (z > BUTT_Z + 0.001)] = 0.3       # magazine well
+    w[(mid == DARK) & (z < -0.0140) & (x < -0.006) & (x > -0.024) & (np.abs(y) < 0.0034)] = 0.4            # hammer in the frame
+    return w
