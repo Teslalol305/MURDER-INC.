@@ -202,9 +202,9 @@ Character, on SK_Mannequin (`/Game/ThirdParty/InfimaTFA/Adapted/...`), source le
 | A_FP_Chopper_ReloadTactical / Empty | 2.233 / 2.733 | | |
 
 Not adapted (left as imported, usable later): Reload (3.7, retention), Reload_Quick / Empty / Empty_Retain and their
-aimed forms (the sources of ours), MagCheck, ClearJam ×3, FireModeSwitch (the CHOPPER is automatic only), Grenade
-throw, GripChange, Heal (syringe), Interact grab / punch / push, the canted and vertical-grip poses, trigger
-discipline, Transition_Walk_End, full Equip.
+aimed forms (the sources of ours), ClearJam ×3, Grenade throw, GripChange, Heal (syringe), Interact grab / punch /
+push, the canted and vertical-grip poses, trigger discipline, Transition_Walk_End. MagCheck, FireModeSwitch,
+Melee_Swing_R and the full Equip were added on 2026-11-23 (section 10).
 
 ## 7. Scripts and how to run them
 
@@ -218,6 +218,10 @@ discipline, Transition_Walk_End, full Equip.
 | `tools/box/anim/mi_stage.py` | CHOPPER import (with its skeleton saved), part clips, picture stage and rigs |
 | `tools/box/anim/mi_run.py` | batch: `adapt_all`, `parts_all`, `export_all`; picture scenes, `gun_cam` |
 | `tools/box/anim/editor.sh`, `cmdlet.sh` | the scratch project's editor (MCP port 8003) and commandlets |
+| `tools/box/anim/bl_meshes.py`, `bl_measure.py`, `pack_measure.json` | the Meshes/ listing and the rig's sockets; the measured mount points and their committed digest (section 8) |
+| `tools/box/anim/ue_import_guns.py` | rifles, parts, magazines, 4K materials, reticle, socket pass, icons (section 8) |
+| `tools/box/anim/bl_icons.py` | the white silhouettes and pips (box only) |
+| `tools/box/anim/mi_guns.py` | the gun assembly for pictures, the studio, the first-person stage of the camera recipe (section 9) |
 
 Pitfalls met here: a sequence created by `AnimSequenceFactory` has no bone tracks and `set_bone_track_keys` then
 returns False without raising (create the track first); a clip whose length is not a whole number of 30 fps frames
@@ -347,7 +351,9 @@ no pip (no stock art of their own).
 `/project/ue/bl/install.sh`; without it the committed `pack_measure.json` and any icons already rendered are used),
 then as `ue4` the commandlet `ue_import_guns.py --sync` with `-RenderOffscreen -AllowCommandletRendering` (materials
 cannot compile under `-NullRHI`). Tested on a fresh project copy (`/project/ue/animpack-test/GunTest.uproject`, the
-mannequin content only; `pack` first for the two skeletons).
+mannequin content only, `ONLY=__no_clip__ ... pack` first for the two skeletons): 32 jobs, 0 failed, materials
+compiled and assigned, 12 sockets on each rifle, 11 icons, 4 min 45 s including the Blender steps and the first
+shader compile.
 
 ## 9. The first-person camera recipe
 
@@ -390,4 +396,33 @@ eye on `SightEye`), `-fp-reload-tactical.jpg` (`Reload` 1.2 s, the new magazine 
 the same hand), `-fp-reload-empty-bolt.jpg` (`Reload_Empty` 2.13 s: bolt still back, released between 2.1 and 2.2 s
 in `A_TFA_FP_WEP_AR_Reload_Empty`), `-fp-inspect.jpg` (`Inspect` 2.6 s), `-fp-sprint.jpg` (`Sprint_F_Loop` 0.14 s).
 Each weapon clip plays at the same time on the rifle; the reserve magazine hangs from `Magazine_Reserve`.
-`mi_guns.fp()` builds any of these scenes.
+`mi_guns.fp()` builds any of these scenes. The re-adapted CHOPPER was checked the same way (`A_CH_FP_AR_Aim_Pose` from
+the recipe's eye, `mi_run.chopper_fp`): rear notch and front post on the screen centre; not committed.
+
+## 10. The CHOPPER's extra roles (LOADOUT.md 6.6)
+
+| Role | Pack clip | State |
+|---|---|---|
+| Inspect | `FP/Interactions/A_TFA_FP_AR_Inspect` | adapted before (section 6) |
+| MeleeA | `FP/Combat/A_TFA_FP_AR_Melee_Swing_L` | adapted before |
+| MeleeB | `FP/Combat/A_TFA_FP_AR_Melee_Swing_R` | adapted now (`A_CH_FP_AR_Melee_Swing_R`, 2.0 s) |
+| Holster | `FP/Transitions/A_TFA_FP_AR_Holster` | adapted before |
+| Draw | `FP/Transitions/A_TFA_FP_AR_Equip_Quick` | adapted before |
+| Equip | `FP/Transitions/A_TFA_FP_AR_Equip` | adapted now (`A_CH_FP_AR_Equip`, 2.37 s); its charging-handle pull is the M4's rear handle: the CHOPPER's knob is on the left and is not reached (no reload-style re-authoring); not looked at in a picture |
+| MagCheck | `FP/Combat/A_TFA_FP_AR_MagCheck` | adapted now (`A_CH_FP_AR_MagCheck`, 4.6 s), generic: the left hand follows the pack's own motion in gun space away from the handguard, so it works the M4's straight magazine, not our rock-in one; re-authoring it like the reloads (rock-out about `MagHinge`) is still to do; not looked at in a picture |
+| ModeSemi, ModeAuto | `FP/Combat/A_TFA_FP_AR_FireModeSwitch` (one clip, played for both) | adapted now (`A_CH_FP_AR_FireModeSwitch`, 0.97 s): the right hand is never moved by the adaptation, so its thumb flicks where the M4's selector sits; the CHOPPER's own lever is on the left (fiction kept from the web game) and is not touched; not looked at in a picture |
+
+The whole adaptation was re-run on 2026-11-23 with this command (3 min: 48 generic clips, 4 reloads with 0.0 cm left-hand error, 5 part clips, 0 failures; export 52 character + 5 gun clips into `adapted/`), so every aimed CHOPPER clip now uses the corrected eye (section 9).
+
+**Re-running everything against a re-exported CHOPPER is one command** (the CHOPPER rebuild is in progress):
+
+    CHOPPER_IN=<folder with glb/SK_Chopper.glb, glb/SM_Weapon_ChopperMagazine*.glb, glb/SM_Weapon_GoonSMG.glb and
+      textures/{Chopper,Weapon_ChopperMagazine,Weapon_GoonSMG}> \
+      tools/box/anim/import-animpack.sh /project/ue/animpack/AnimPack.uproject chopper
+
+It re-imports SK_Chopper with its 4K set (`mi_stage.import_chopper`, skeleton saved), rebuilds every adapted character
+clip and the five part clips (`mi_run.adapt_all`, `parts_all`) and, in the scratch project, exports the .uasset and FBX
+copies and the manifest to `/project/ue/packs/tactical-rifle/adapted` (`export_all`), from which `... adapted` copies
+them into the game project. The CHOPPER's geometry the adaptation aims at (`mi_adapt.CH`: palms, sights, magazine
+hinge, knob, bolt travel) is written in `mi_adapt.py` from `weapons.json`: if the rebuild moves a socket, change `CH`
+first.
