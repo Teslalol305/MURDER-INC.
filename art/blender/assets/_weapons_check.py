@@ -46,6 +46,81 @@ def surface_distance(bvh, p):
     return d
 
 
+def _groups(gun):
+    mw = gun.matrix_world
+    co = np.array([tuple(mw @ v.co) for v in gun.data.vertices])
+    dom = np.full(len(co), -1)
+    best = np.zeros(len(co))
+    for v in gun.data.vertices:
+        for g in v.groups:
+            if g.weight > best[v.index]:
+                best[v.index], dom[v.index] = g.weight, g.group
+    names = {g.index: g.name for g in gun.vertex_groups}
+    polys = [list(p.vertices) for p in gun.data.polygons]
+    pdom = np.array([dom[p[0]] for p in polys])
+    return co, dom, names, polys, pdom
+
+
+def travel_checks(name, gun, add):
+    """Moving parts through their briefed travel against the rest of the gun (round 2): triangle overlaps and the
+    smallest clearance of the moved part's vertices."""
+    from mathutils.bvhtree import BVHTree
+    import math as _m
+    co, dom, names, polys, pdom = _groups(gun)
+    gid = {n: i for i, n in names.items()}
+
+    def tree(c, sel):
+        return BVHTree.FromPolygons([Vector(v) for v in c], [polys[i] for i in np.nonzero(sel)[0]])
+
+    def moved(part, fn, extra_sel=None):
+        m = dom == gid[part]
+        if extra_sel is not None:
+            m &= extra_sel
+        c2 = co.copy()
+        c2[m] = fn(c2[m])
+        mp = pdom == gid[part]
+        if extra_sel is not None:
+            mp &= np.array([all(extra_sel[i] for i in polys[k]) for k in range(len(polys))])
+        other = pdom != gid[part]
+        t_o = tree(co, other)
+        n_ov = len(tree(c2, mp).overlap(t_o))
+        clear = min(t_o.find_nearest(Vector(v))[3] for v in c2[m]) if m.any() else None
+        return n_ov, clear
+
+    def rot_y(pivot, deg):
+        a = _m.radians(deg)
+        ca, sa = _m.cos(a), _m.sin(a)
+
+        def f(c):
+            c = c.copy()
+            x, z = c[:, 0] - pivot[0], c[:, 2] - pivot[2]
+            c[:, 0], c[:, 2] = pivot[0] + x * ca + z * sa, pivot[2] - x * sa + z * ca
+            return c
+        return f
+    if name == "Chopper":
+        for deg in (14.0, 19.5):
+            n_ov, cl = moved("trigger", rot_y((0.108, 0.0, -0.038), deg))
+            add("trigger pulled %.1f deg about X 0.108, Z -0.038: no contact, >= 0.5 mm clear" % deg,
+                n_ov == 0 and cl is not None and cl >= 0.0005, {"overlaps": n_ov, "clearance_mm": round(cl * 1000, 2)})
+        stem = (co[:, 1] > 0.0095) & (co[:, 1] < 0.0330) & (co[:, 0] > 0.170) & (co[:, 0] < 0.190) & (co[:, 2] > 0.009) \
+            & (co[:, 2] < 0.0195)
+        worst = (0, 1.0)
+        for t in np.linspace(0.0, 0.092, 24):
+            n_ov, cl = moved("bolt", lambda c, t=t: c - np.array([t, 0.0, 0.0]), stem)
+            worst = (max(worst[0], n_ov), min(worst[1], cl))
+        add("charging-handle stem clears the slot by >= 0.5 mm over the whole 92 mm travel",
+            worst[0] == 0 and worst[1] >= 0.0005, {"max_overlaps": worst[0], "min_clearance_mm": round(worst[1] * 1000, 2)})
+    else:
+        res = {}
+        for t in (0.010, 0.020, 0.030, 0.044):
+            n_ov, _cl = moved("slide", lambda c, t=t: c - np.array([t, 0.0, 0.0]))
+            res["%d mm" % round(t * 1000)] = n_ov
+        add("slide back 10-44 mm: no contact with the static hammer or the frame", all(v == 0 for v in res.values()),
+            res)
+        n_ov, cl = moved("trigger", rot_y((0.091, 0.0, -0.031), 17.0))
+        add("trigger pulled 17 deg: no contact", n_ov == 0, {"overlaps": n_ov, "clearance_mm": round(cl * 1000, 2)})
+
+
 def check(name, base):
     R.fresh()
     objs, meshes = R.load_gun(name)
@@ -122,6 +197,7 @@ def check(name, base):
                 and abs(cm[:, 2].min() + 0.1345) <= 0.0003,
                 {"x": [round(float(cm[:, 0].min()), 4), round(float(cm[:, 0].max()), 4)],
                  "z": [round(float(cm[:, 2].min()), 4), round(float(cm[:, 2].max()), 4)]})
+    travel_checks(name, gun, add)
     vj = os.path.join(GLB, "SK_%s.glb.verify.json" % name)
     if os.path.exists(vj):
         v = json.load(open(vj))

@@ -1,0 +1,1533 @@
+{
+ "Sedan": {
+  "asset": "SM_Vehicle_Sedan",
+  "size": [
+   4.61,
+   1.85,
+   1.45
+  ],
+  "brief_size": [
+   4.61,
+   1.85,
+   1.45
+  ],
+  "min": [
+   -2.305,
+   -0.925,
+   0.0
+  ],
+  "max": [
+   2.305,
+   0.925,
+   1.45
+  ],
+  "origin_offset_from_ground_centre": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "triangles": 118540,
+  "slots": [
+   "M_Vehicle_Sedan_Paint",
+   "M_Vehicle_Sedan_Trim",
+   "M_Vehicle_Sedan_Lamp",
+   "MI_Plastic_CarInterior",
+   "MI_Glass_CarTint",
+   "MI_Rubber_Tyre",
+   "MI_Paint_WheelSteel",
+   "MI_Chrome_Polished",
+   "MI_Fabric_CarSeat",
+   "M_Vehicle_Plate_HLS2141"
+  ],
+  "verts_below_1cm": 432,
+  "wheels": [
+   {
+    "x": -1.38,
+    "dia_z": 0.65,
+    "len_x": 0.65,
+    "zmin": 0.0,
+    "n": 9522
+   },
+   {
+    "x": 0.76,
+    "dia_z": 0.025,
+    "len_x": 0.007,
+    "zmin": 1.071,
+    "n": 48
+   },
+   {
+    "x": 1.42,
+    "dia_z": 0.65,
+    "len_x": 0.65,
+    "zmin": 0.0,
+    "n": 9522
+   }
+  ],
+  "wheelbase": 2.8,
+  "brief_axles": [
+   1.42,
+   -1.38
+  ],
+  "brief_wheel_dia": 0.65,
+  "brief_wheelbase": 2.8,
+  "tyre_zmin": 0.0,
+  "lamp_E_front_rear": {
+   "front": [
+    0.84,
+    0.82,
+    0.76
+   ],
+   "rear": [
+    0.97,
+    0.28,
+    0.18
+   ]
+  },
+  "glass_x_range": [
+   -1.67,
+   0.86
+  ],
+  "glass_z_range": [
+   0.95,
+   1.37
+  ],
+  "textures": {
+   "M_Vehicle_Sedan_Paint.BC": "4096x4096",
+   "M_Vehicle_Sedan_Paint.E": "4096x4096",
+   "M_Vehicle_Sedan_Paint.N": "4096x4096",
+   "M_Vehicle_Sedan_Paint.ORM": "4096x4096",
+   "M_Vehicle_Sedan_Trim.BC": "4096x4096",
+   "M_Vehicle_Sedan_Trim.E": "4096x4096",
+   "M_Vehicle_Sedan_Trim.N": "4096x4096",
+   "M_Vehicle_Sedan_Trim.ORM": "4096x4096",
+   "M_Vehicle_Sedan_Lamp.BC": "4096x4096",
+   "M_Vehicle_Sedan_Lamp.E": "4096x4096",
+   "M_Vehicle_Sedan_Lamp.N": "4096x4096",
+   "M_Vehicle_Sedan_Lamp.ORM": "4096x4096",
+   "MI_Plastic_CarInterior.BC": "1024x1024",
+   "MI_Plastic_CarInterior.N": "1024x1024",
+   "MI_Plastic_CarInterior.ORM": "1024x1024",
+   "MI_Glass_CarTint.BC": "1024x1024",
+   "MI_Glass_CarTint.N": "1024x1024",
+   "MI_Glass_CarTint.ORM": "1024x1024",
+   "MI_Rubber_Tyre.BC": "1024x1024",
+   "MI_Rubber_Tyre.N": "1024x1024",
+   "MI_Rubber_Tyre.ORM": "1024x1024",
+   "MI_Paint_WheelSteel.BC": "1024x1024",
+   "MI_Paint_WheelSteel.N": "1024x1024",
+   "MI_Paint_WheelSteel.ORM": "1024x1024",
+   "MI_Chrome_Polished.BC": "1024x1024",
+   "MI_Chrome_Polished.N": "1024x1024",
+   "MI_Chrome_Polished.ORM": "1024x1024",
+   "MI_Fabric_CarSeat.BC": "1024x1024",
+   "MI_Fabric_CarSeat.N": "1024x1024",
+   "MI_Fabric_CarSeat.ORM": "1024x1024",
+   "M_Vehicle_Plate_HLS2141.BC": "1024x512",
+   "M_Vehicle_Plate_HLS2141.N": "1024x512",
+   "M_Vehicle_Plate_HLS2141.ORM": "1024x512"
+  },
+  "anchors": {
+   "wheel": [
+    1.42,
+    -0.925000011920929,
+    0.325
+   ],
+   "wheel_dia": 0.65,
+   "lamp": [
+    2.192377805709839,
+    -0.5744662284851074,
+    0.6796982288360596
+   ],
+   "mirror": [
+    0.4156498610973358,
+    -0.925000011920929,
+    1.0174773931503296
+   ],
+   "driver_glass": [
+    0.3955609202384949,
+    0.9090715050697327,
+    1.1499221324920654
+   ]
+  },
+  "objects": [
+   "SM_Vehicle_Sedan"
+  ]
+ },
+ "Taxi": {
+  "asset": "SM_Vehicle_Taxi",
+  "size": [
+   4.61,
+   1.85,
+   1.55
+  ],
+  "brief_size": [
+   4.61,
+   1.85,
+   1.55
+  ],
+  "min": [
+   -2.305,
+   -0.925,
+   0.0
+  ],
+  "max": [
+   2.305,
+   0.925,
+   1.55
+  ],
+  "origin_offset_from_ground_centre": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "triangles": 116892,
+  "slots": [
+   "M_Vehicle_Taxi_Paint",
+   "M_Vehicle_Sedan_Trim",
+   "M_Vehicle_Sedan_Lamp",
+   "MI_Plastic_CarInterior",
+   "MI_Glass_CarTint",
+   "MI_Fabric_CarSeat",
+   "MI_Rubber_Tyre",
+   "MI_Paint_WheelSteel",
+   "MI_Chrome_Polished",
+   "M_Vehicle_Plate_T5K83",
+   "M_Vehicle_Taxi_Decals",
+   "M_Vehicle_Taxi_RoofLight"
+  ],
+  "verts_below_1cm": 432,
+  "wheels": [
+   {
+    "x": -1.38,
+    "dia_z": 0.65,
+    "len_x": 0.65,
+    "zmin": 0.0,
+    "n": 9130
+   },
+   {
+    "x": 0.76,
+    "dia_z": 0.025,
+    "len_x": 0.007,
+    "zmin": 1.071,
+    "n": 48
+   },
+   {
+    "x": 1.42,
+    "dia_z": 0.65,
+    "len_x": 0.65,
+    "zmin": 0.0,
+    "n": 9130
+   }
+  ],
+  "wheelbase": 2.8,
+  "brief_axles": [
+   1.42,
+   -1.38
+  ],
+  "brief_wheel_dia": 0.65,
+  "brief_wheelbase": 2.8,
+  "tyre_zmin": 0.0,
+  "lamp_E_front_rear": {
+   "front": [
+    0.84,
+    0.82,
+    0.76
+   ],
+   "rear": [
+    0.97,
+    0.28,
+    0.18
+   ]
+  },
+  "glass_x_range": [
+   -1.67,
+   0.86
+  ],
+  "glass_z_range": [
+   0.95,
+   1.37
+  ],
+  "textures": {
+   "M_Vehicle_Taxi_Paint.BC": "4096x4096",
+   "M_Vehicle_Taxi_Paint.E": "4096x4096",
+   "M_Vehicle_Taxi_Paint.N": "4096x4096",
+   "M_Vehicle_Taxi_Paint.ORM": "4096x4096",
+   "M_Vehicle_Sedan_Trim.BC": "4096x4096",
+   "M_Vehicle_Sedan_Trim.E": "4096x4096",
+   "M_Vehicle_Sedan_Trim.N": "4096x4096",
+   "M_Vehicle_Sedan_Trim.ORM": "4096x4096",
+   "M_Vehicle_Sedan_Lamp.BC": "4096x4096",
+   "M_Vehicle_Sedan_Lamp.E": "4096x4096",
+   "M_Vehicle_Sedan_Lamp.N": "4096x4096",
+   "M_Vehicle_Sedan_Lamp.ORM": "4096x4096",
+   "MI_Plastic_CarInterior.BC": "1024x1024",
+   "MI_Plastic_CarInterior.N": "1024x1024",
+   "MI_Plastic_CarInterior.ORM": "1024x1024",
+   "MI_Glass_CarTint.BC": "1024x1024",
+   "MI_Glass_CarTint.N": "1024x1024",
+   "MI_Glass_CarTint.ORM": "1024x1024",
+   "MI_Fabric_CarSeat.BC": "1024x1024",
+   "MI_Fabric_CarSeat.N": "1024x1024",
+   "MI_Fabric_CarSeat.ORM": "1024x1024",
+   "MI_Rubber_Tyre.BC": "1024x1024",
+   "MI_Rubber_Tyre.N": "1024x1024",
+   "MI_Rubber_Tyre.ORM": "1024x1024",
+   "MI_Paint_WheelSteel.BC": "1024x1024",
+   "MI_Paint_WheelSteel.N": "1024x1024",
+   "MI_Paint_WheelSteel.ORM": "1024x1024",
+   "MI_Chrome_Polished.BC": "1024x1024",
+   "MI_Chrome_Polished.N": "1024x1024",
+   "MI_Chrome_Polished.ORM": "1024x1024",
+   "M_Vehicle_Plate_T5K83.BC": "1024x512",
+   "M_Vehicle_Plate_T5K83.N": "1024x512",
+   "M_Vehicle_Plate_T5K83.ORM": "1024x512",
+   "M_Vehicle_Taxi_Decals.BC": "2048x1024",
+   "M_Vehicle_Taxi_Decals.N": "2048x1024",
+   "M_Vehicle_Taxi_Decals.ORM": "2048x1024",
+   "M_Vehicle_Taxi_RoofLight.BC": "2048x1024",
+   "M_Vehicle_Taxi_RoofLight.N": "2048x1024",
+   "M_Vehicle_Taxi_RoofLight.ORM": "2048x1024"
+  },
+  "anchors": {
+   "wheel": [
+    1.42,
+    -0.925000011920929,
+    0.325
+   ],
+   "wheel_dia": 0.65,
+   "lamp": [
+    2.192377805709839,
+    -0.5744662284851074,
+    0.6796982288360596
+   ],
+   "mirror": [
+    0.4156498610973358,
+    -0.925000011920929,
+    1.0174773931503296
+   ],
+   "driver_glass": [
+    0.3955609202384949,
+    0.9090715050697327,
+    1.1499221324920654
+   ]
+  },
+  "objects": [
+   "SM_Vehicle_Taxi"
+  ]
+ },
+ "SUV": {
+  "asset": "SM_Vehicle_SUV",
+  "size": [
+   4.91,
+   2.0,
+   1.82
+  ],
+  "brief_size": [
+   4.91,
+   2.0,
+   1.82
+  ],
+  "min": [
+   -2.455,
+   -1.0,
+   0.0
+  ],
+  "max": [
+   2.455,
+   1.0,
+   1.82
+  ],
+  "origin_offset_from_ground_centre": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "triangles": 116764,
+  "slots": [
+   "M_Vehicle_SUV_Paint",
+   "M_Vehicle_SUV_Trim",
+   "M_Vehicle_SUV_Lamp",
+   "MI_Plastic_CarInterior",
+   "MI_Glass_CarTint",
+   "MI_Rubber_Tyre",
+   "MI_Alloy_Wheel",
+   "MI_Chrome_Polished",
+   "MI_Fabric_CarSeat",
+   "M_Vehicle_Plate_TKV9907",
+   "MI_Plastic_Black"
+  ],
+  "verts_below_1cm": 432,
+  "wheels": [
+   {
+    "x": -1.42,
+    "dia_z": 0.8,
+    "len_x": 0.8,
+    "zmin": 0.0,
+    "n": 9030
+   },
+   {
+    "x": 1.5,
+    "dia_z": 0.8,
+    "len_x": 0.8,
+    "zmin": 0.0,
+    "n": 9030
+   }
+  ],
+  "wheelbase": 2.92,
+  "brief_axles": [
+   1.5,
+   -1.42
+  ],
+  "brief_wheel_dia": 0.8,
+  "brief_wheelbase": 2.92,
+  "tyre_zmin": 0.0,
+  "lamp_E_front_rear": {
+   "front": [
+    0.87,
+    0.85,
+    0.79
+   ],
+   "rear": [
+    0.89,
+    0.24,
+    0.16
+   ]
+  },
+  "glass_x_range": [
+   -2.26,
+   2.31
+  ],
+  "glass_z_range": [
+   0.84,
+   1.78
+  ],
+  "textures": {
+   "M_Vehicle_SUV_Paint.BC": "4096x4096",
+   "M_Vehicle_SUV_Paint.E": "4096x4096",
+   "M_Vehicle_SUV_Paint.N": "4096x4096",
+   "M_Vehicle_SUV_Paint.ORM": "4096x4096",
+   "M_Vehicle_SUV_Trim.BC": "4096x4096",
+   "M_Vehicle_SUV_Trim.E": "4096x4096",
+   "M_Vehicle_SUV_Trim.N": "4096x4096",
+   "M_Vehicle_SUV_Trim.ORM": "4096x4096",
+   "M_Vehicle_SUV_Lamp.BC": "4096x4096",
+   "M_Vehicle_SUV_Lamp.E": "4096x4096",
+   "M_Vehicle_SUV_Lamp.N": "4096x4096",
+   "M_Vehicle_SUV_Lamp.ORM": "4096x4096",
+   "MI_Plastic_CarInterior.BC": "1024x1024",
+   "MI_Plastic_CarInterior.N": "1024x1024",
+   "MI_Plastic_CarInterior.ORM": "1024x1024",
+   "MI_Glass_CarTint.BC": "1024x1024",
+   "MI_Glass_CarTint.N": "1024x1024",
+   "MI_Glass_CarTint.ORM": "1024x1024",
+   "MI_Rubber_Tyre.BC": "1024x1024",
+   "MI_Rubber_Tyre.N": "1024x1024",
+   "MI_Rubber_Tyre.ORM": "1024x1024",
+   "MI_Alloy_Wheel.BC": "1024x1024",
+   "MI_Alloy_Wheel.N": "1024x1024",
+   "MI_Alloy_Wheel.ORM": "1024x1024",
+   "MI_Chrome_Polished.BC": "1024x1024",
+   "MI_Chrome_Polished.N": "1024x1024",
+   "MI_Chrome_Polished.ORM": "1024x1024",
+   "MI_Fabric_CarSeat.BC": "1024x1024",
+   "MI_Fabric_CarSeat.N": "1024x1024",
+   "MI_Fabric_CarSeat.ORM": "1024x1024",
+   "M_Vehicle_Plate_TKV9907.BC": "1024x512",
+   "M_Vehicle_Plate_TKV9907.N": "1024x512",
+   "M_Vehicle_Plate_TKV9907.ORM": "1024x512",
+   "MI_Plastic_Black.BC": "1024x1024",
+   "MI_Plastic_Black.H": "1024x1024",
+   "MI_Plastic_Black.N": "1024x1024",
+   "MI_Plastic_Black.ORM": "1024x1024"
+  },
+  "anchors": {
+   "wheel": [
+    1.5,
+    -1.0,
+    0.4
+   ],
+   "wheel_dia": 0.8,
+   "lamp": [
+    2.32106351852417,
+    -0.7213471531867981,
+    0.9890601634979248
+   ],
+   "mirror": [
+    0.5059337019920349,
+    -1.0,
+    1.2517876625061035
+   ],
+   "driver_glass": [
+    2.2270867824554443,
+    0.8100000023841858,
+    0.9350000023841858
+   ]
+  },
+  "objects": [
+   "SM_Vehicle_SUV"
+  ]
+ },
+ "Pickup": {
+  "asset": "SM_Vehicle_Pickup",
+  "size": [
+   5.32,
+   2.0,
+   1.78
+  ],
+  "brief_size": [
+   5.32,
+   2.0,
+   1.78
+  ],
+  "min": [
+   -2.66,
+   -1.0,
+   0.0
+  ],
+  "max": [
+   2.66,
+   1.0,
+   1.78
+  ],
+  "origin_offset_from_ground_centre": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "triangles": 106076,
+  "slots": [
+   "M_Vehicle_Pickup_Paint",
+   "M_Vehicle_Pickup_Trim",
+   "M_Vehicle_Pickup_Lamp",
+   "MI_Plastic_CarInterior",
+   "MI_Glass_CarTint",
+   "MI_Rubber_Tyre",
+   "MI_Paint_WheelSteel",
+   "MI_Chrome_Polished",
+   "MI_Fabric_CarSeat",
+   "M_Vehicle_Plate_KQB5530",
+   "MI_Wood_ScanPallet"
+  ],
+  "verts_below_1cm": 432,
+  "wheels": [
+   {
+    "x": -1.595,
+    "dia_z": 1.14,
+    "len_x": 0.97,
+    "zmin": 0.0,
+    "n": 12228
+   },
+   {
+    "x": 1.628,
+    "dia_z": 1.346,
+    "len_x": 0.964,
+    "zmin": 0.0,
+    "n": 9098
+   }
+  ],
+  "wheelbase": 3.223,
+  "brief_axles": [
+   1.72,
+   -1.5
+  ],
+  "brief_wheel_dia": 0.78,
+  "brief_wheelbase": 3.22,
+  "tyre_zmin": 0.0,
+  "lamp_E_front_rear": {
+   "front": [
+    0.97,
+    0.87,
+    0.71
+   ],
+   "rear": [
+    0.99,
+    0.31,
+    0.19
+   ]
+  },
+  "glass_x_range": [
+   -0.82,
+   1.26
+  ],
+  "glass_z_range": [
+   1.17,
+   1.74
+  ],
+  "textures": {
+   "M_Vehicle_Pickup_Paint.BC": "4096x4096",
+   "M_Vehicle_Pickup_Paint.E": "4096x4096",
+   "M_Vehicle_Pickup_Paint.N": "4096x4096",
+   "M_Vehicle_Pickup_Paint.ORM": "4096x4096",
+   "M_Vehicle_Pickup_Trim.BC": "4096x4096",
+   "M_Vehicle_Pickup_Trim.E": "4096x4096",
+   "M_Vehicle_Pickup_Trim.N": "4096x4096",
+   "M_Vehicle_Pickup_Trim.ORM": "4096x4096",
+   "M_Vehicle_Pickup_Lamp.BC": "4096x4096",
+   "M_Vehicle_Pickup_Lamp.E": "4096x4096",
+   "M_Vehicle_Pickup_Lamp.N": "4096x4096",
+   "M_Vehicle_Pickup_Lamp.ORM": "4096x4096",
+   "MI_Plastic_CarInterior.BC": "1024x1024",
+   "MI_Plastic_CarInterior.N": "1024x1024",
+   "MI_Plastic_CarInterior.ORM": "1024x1024",
+   "MI_Glass_CarTint.BC": "1024x1024",
+   "MI_Glass_CarTint.N": "1024x1024",
+   "MI_Glass_CarTint.ORM": "1024x1024",
+   "MI_Rubber_Tyre.BC": "1024x1024",
+   "MI_Rubber_Tyre.N": "1024x1024",
+   "MI_Rubber_Tyre.ORM": "1024x1024",
+   "MI_Paint_WheelSteel.BC": "1024x1024",
+   "MI_Paint_WheelSteel.N": "1024x1024",
+   "MI_Paint_WheelSteel.ORM": "1024x1024",
+   "MI_Chrome_Polished.BC": "1024x1024",
+   "MI_Chrome_Polished.N": "1024x1024",
+   "MI_Chrome_Polished.ORM": "1024x1024",
+   "MI_Fabric_CarSeat.BC": "1024x1024",
+   "MI_Fabric_CarSeat.N": "1024x1024",
+   "MI_Fabric_CarSeat.ORM": "1024x1024",
+   "M_Vehicle_Plate_KQB5530.BC": "1024x512",
+   "M_Vehicle_Plate_KQB5530.N": "1024x512",
+   "M_Vehicle_Plate_KQB5530.ORM": "1024x512",
+   "MI_Wood_ScanPallet.BC": "2048x2048",
+   "MI_Wood_ScanPallet.H": "2048x2048",
+   "MI_Wood_ScanPallet.N": "2048x2048",
+   "MI_Wood_ScanPallet.ORM": "2048x2048"
+  },
+  "anchors": {
+   "wheel": [
+    1.628,
+    -1.0,
+    0.673
+   ],
+   "wheel_dia": 1.346,
+   "lamp": [
+    2.5478603839874268,
+    -0.6121495366096497,
+    0.9630002379417419
+   ],
+   "mirror": [
+    0.80980384349823,
+    -1.0,
+    1.2502508163452148
+   ],
+   "driver_glass": [
+    0.8506835699081421,
+    0.8203524351119995,
+    1.3312705755233765
+   ]
+  },
+  "objects": [
+   "SM_Vehicle_Pickup"
+  ]
+ },
+ "Van": {
+  "asset": "SM_Vehicle_Van",
+  "size": [
+   5.21,
+   1.96,
+   2.19
+  ],
+  "brief_size": [
+   5.21,
+   1.96,
+   2.19
+  ],
+  "min": [
+   -2.605,
+   -0.98,
+   0.0
+  ],
+  "max": [
+   2.605,
+   0.98,
+   2.19
+  ],
+  "origin_offset_from_ground_centre": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "triangles": 122196,
+  "slots": [
+   "M_Vehicle_Van_Paint",
+   "M_Vehicle_Van_Trim",
+   "M_Vehicle_Van_Lamp",
+   "MI_Plastic_CarInterior",
+   "MI_Glass_CarTint",
+   "MI_Rubber_Tyre",
+   "MI_Paint_WheelSteel",
+   "MI_Chrome_Polished",
+   "MI_Fabric_CarSeat",
+   "M_Vehicle_Plate_TKV9907"
+  ],
+  "verts_below_1cm": 432,
+  "wheels": [
+   {
+    "x": -1.5,
+    "dia_z": 0.72,
+    "len_x": 0.72,
+    "zmin": 0.0,
+    "n": 9034
+   },
+   {
+    "x": 1.717,
+    "dia_z": 1.619,
+    "len_x": 0.754,
+    "zmin": 0.0,
+    "n": 9082
+   }
+  ],
+  "wheelbase": 3.217,
+  "brief_axles": [
+   1.7,
+   -1.5
+  ],
+  "brief_wheel_dia": 0.72,
+  "brief_wheelbase": 3.2,
+  "tyre_zmin": 0.0,
+  "lamp_E_front_rear": {
+   "front": [
+    0.8,
+    0.78,
+    0.73
+   ],
+   "rear": [
+    0.94,
+    0.29,
+    0.18
+   ]
+  },
+  "glass_x_range": [
+   -2.54,
+   2.2
+  ],
+  "glass_z_range": [
+   1.36,
+   2.03
+  ],
+  "textures": {
+   "M_Vehicle_Van_Paint.BC": "4096x4096",
+   "M_Vehicle_Van_Paint.E": "4096x4096",
+   "M_Vehicle_Van_Paint.N": "4096x4096",
+   "M_Vehicle_Van_Paint.ORM": "4096x4096",
+   "M_Vehicle_Van_Trim.BC": "4096x4096",
+   "M_Vehicle_Van_Trim.E": "4096x4096",
+   "M_Vehicle_Van_Trim.N": "4096x4096",
+   "M_Vehicle_Van_Trim.ORM": "4096x4096",
+   "M_Vehicle_Van_Lamp.BC": "4096x4096",
+   "M_Vehicle_Van_Lamp.E": "4096x4096",
+   "M_Vehicle_Van_Lamp.N": "4096x4096",
+   "M_Vehicle_Van_Lamp.ORM": "4096x4096",
+   "MI_Plastic_CarInterior.BC": "1024x1024",
+   "MI_Plastic_CarInterior.N": "1024x1024",
+   "MI_Plastic_CarInterior.ORM": "1024x1024",
+   "MI_Glass_CarTint.BC": "1024x1024",
+   "MI_Glass_CarTint.N": "1024x1024",
+   "MI_Glass_CarTint.ORM": "1024x1024",
+   "MI_Rubber_Tyre.BC": "1024x1024",
+   "MI_Rubber_Tyre.N": "1024x1024",
+   "MI_Rubber_Tyre.ORM": "1024x1024",
+   "MI_Paint_WheelSteel.BC": "1024x1024",
+   "MI_Paint_WheelSteel.N": "1024x1024",
+   "MI_Paint_WheelSteel.ORM": "1024x1024",
+   "MI_Chrome_Polished.BC": "1024x1024",
+   "MI_Chrome_Polished.N": "1024x1024",
+   "MI_Chrome_Polished.ORM": "1024x1024",
+   "MI_Fabric_CarSeat.BC": "1024x1024",
+   "MI_Fabric_CarSeat.N": "1024x1024",
+   "MI_Fabric_CarSeat.ORM": "1024x1024",
+   "M_Vehicle_Plate_TKV9907.BC": "1024x512",
+   "M_Vehicle_Plate_TKV9907.N": "1024x512",
+   "M_Vehicle_Plate_TKV9907.ORM": "1024x512"
+  },
+  "anchors": {
+   "wheel": [
+    1.717,
+    -0.9800000190734863,
+    0.8095
+   ],
+   "wheel_dia": 1.619,
+   "lamp": [
+    2.5080487728118896,
+    -0.6589898467063904,
+    0.8864749670028687
+   ],
+   "mirror": [
+    1.9147931337356567,
+    -0.9800000190734863,
+    1.4411202669143677
+   ],
+   "driver_glass": [
+    1.8929030895233154,
+    0.9800000190734863,
+    1.5925954580307007
+   ]
+  },
+  "objects": [
+   "SM_Vehicle_Van"
+  ]
+ },
+ "Van_Vulture": {
+  "asset": "SM_Vehicle_Van_Vulture",
+  "size": [
+   5.985,
+   2.214,
+   2.19
+  ],
+  "brief_size": [
+   5.99,
+   2.21,
+   2.19
+  ],
+  "min": [
+   -3.38,
+   -1.234,
+   0.0
+  ],
+  "max": [
+   2.605,
+   0.98,
+   2.19
+  ],
+  "origin_offset_from_ground_centre": [
+   -0.388,
+   -0.127,
+   0.0
+  ],
+  "triangles": 125154,
+  "slots": [
+   "M_Vehicle_VanVulture_Paint",
+   "M_Vehicle_VanVulture_Trim",
+   "M_Vehicle_VanVulture_Lamp",
+   "MI_Plastic_CarInterior",
+   "MI_Glass_CarTint",
+   "MI_Rubber_Tyre",
+   "MI_Paint_WheelSteel",
+   "MI_Chrome_Polished",
+   "MI_Fabric_CarSeat",
+   "M_Vehicle_Plate_LWG4418",
+   "MI_Steel_CargoDark",
+   "MI_Galvanised_Aged",
+   "M_Prop_CardboardBox",
+   "MI_Wood_ScanPallet",
+   "M_Vehicle_VanVulture_Decals"
+  ],
+  "verts_below_1cm": 432,
+  "wheels": [
+   {
+    "x": -2.639,
+    "dia_z": 1.304,
+    "len_x": 0.22,
+    "zmin": 0.598,
+    "n": 600
+   },
+   {
+    "x": -1.5,
+    "dia_z": 0.72,
+    "len_x": 0.72,
+    "zmin": 0.0,
+    "n": 9034
+   },
+   {
+    "x": 1.717,
+    "dia_z": 1.619,
+    "len_x": 0.754,
+    "zmin": 0.0,
+    "n": 9082
+   }
+  ],
+  "wheelbase": 4.356,
+  "brief_axles": [
+   1.7,
+   -1.5
+  ],
+  "brief_wheel_dia": 0.72,
+  "brief_wheelbase": 3.2,
+  "tyre_zmin": 0.0,
+  "lamp_E_front_rear": {
+   "front": [
+    0.8,
+    0.78,
+    0.73
+   ],
+   "rear": [
+    0.81,
+    0.21,
+    0.14
+   ]
+  },
+  "glass_x_range": [
+   -3.23,
+   2.2
+  ],
+  "glass_z_range": [
+   1.36,
+   2.03
+  ],
+  "textures": {
+   "M_Vehicle_VanVulture_Paint.BC": "4096x4096",
+   "M_Vehicle_VanVulture_Paint.E": "4096x4096",
+   "M_Vehicle_VanVulture_Paint.N": "4096x4096",
+   "M_Vehicle_VanVulture_Paint.ORM": "4096x4096",
+   "M_Vehicle_VanVulture_Trim.BC": "4096x4096",
+   "M_Vehicle_VanVulture_Trim.E": "4096x4096",
+   "M_Vehicle_VanVulture_Trim.N": "4096x4096",
+   "M_Vehicle_VanVulture_Trim.ORM": "4096x4096",
+   "M_Vehicle_VanVulture_Lamp.BC": "4096x4096",
+   "M_Vehicle_VanVulture_Lamp.E": "4096x4096",
+   "M_Vehicle_VanVulture_Lamp.N": "4096x4096",
+   "M_Vehicle_VanVulture_Lamp.ORM": "4096x4096",
+   "MI_Plastic_CarInterior.BC": "1024x1024",
+   "MI_Plastic_CarInterior.N": "1024x1024",
+   "MI_Plastic_CarInterior.ORM": "1024x1024",
+   "MI_Glass_CarTint.BC": "1024x1024",
+   "MI_Glass_CarTint.N": "1024x1024",
+   "MI_Glass_CarTint.ORM": "1024x1024",
+   "MI_Rubber_Tyre.BC": "1024x1024",
+   "MI_Rubber_Tyre.N": "1024x1024",
+   "MI_Rubber_Tyre.ORM": "1024x1024",
+   "MI_Paint_WheelSteel.BC": "1024x1024",
+   "MI_Paint_WheelSteel.N": "1024x1024",
+   "MI_Paint_WheelSteel.ORM": "1024x1024",
+   "MI_Chrome_Polished.BC": "1024x1024",
+   "MI_Chrome_Polished.N": "1024x1024",
+   "MI_Chrome_Polished.ORM": "1024x1024",
+   "MI_Fabric_CarSeat.BC": "1024x1024",
+   "MI_Fabric_CarSeat.N": "1024x1024",
+   "MI_Fabric_CarSeat.ORM": "1024x1024",
+   "M_Vehicle_Plate_LWG4418.BC": "1024x512",
+   "M_Vehicle_Plate_LWG4418.N": "1024x512",
+   "M_Vehicle_Plate_LWG4418.ORM": "1024x512",
+   "MI_Steel_CargoDark.BC": "1024x1024",
+   "MI_Steel_CargoDark.N": "1024x1024",
+   "MI_Steel_CargoDark.ORM": "1024x1024",
+   "MI_Galvanised_Aged.BC": "2048x2048",
+   "MI_Galvanised_Aged.H": "2048x2048",
+   "MI_Galvanised_Aged.N": "2048x2048",
+   "MI_Galvanised_Aged.ORM": "2048x2048",
+   "M_Prop_CardboardBox.BC": "2048x2048",
+   "M_Prop_CardboardBox.N": "2048x2048",
+   "M_Prop_CardboardBox.ORM": "2048x2048",
+   "MI_Wood_ScanPallet.BC": "2048x2048",
+   "MI_Wood_ScanPallet.H": "2048x2048",
+   "MI_Wood_ScanPallet.N": "2048x2048",
+   "MI_Wood_ScanPallet.ORM": "2048x2048",
+   "M_Vehicle_VanVulture_Decals.BC": "2048x2048",
+   "M_Vehicle_VanVulture_Decals.N": "2048x2048",
+   "M_Vehicle_VanVulture_Decals.ORM": "2048x2048"
+  },
+  "anchors": {
+   "wheel": [
+    1.717,
+    -1.2337329387664795,
+    0.8095
+   ],
+   "wheel_dia": 1.619,
+   "lamp": [
+    2.5080487728118896,
+    -0.6589898467063904,
+    0.8864749670028687
+   ],
+   "mirror": [
+    1.9147931337356567,
+    -0.9800000190734863,
+    1.4411202669143677
+   ],
+   "driver_glass": [
+    1.8929030895233154,
+    0.9800000190734863,
+    1.5925954580307007
+   ]
+  },
+  "objects": [
+   "SM_Vehicle_Van_Vulture"
+  ]
+ },
+ "BoxTruck": {
+  "asset": "SM_Vehicle_BoxTruck",
+  "size": [
+   7.393,
+   2.44,
+   3.31
+  ],
+  "brief_size": [
+   7.39,
+   2.44,
+   3.31
+  ],
+  "min": [
+   -3.698,
+   -1.22,
+   0.0
+  ],
+  "max": [
+   3.695,
+   1.22,
+   3.31
+  ],
+  "origin_offset_from_ground_centre": [
+   -0.002,
+   0.0,
+   0.0
+  ],
+  "triangles": 143724,
+  "slots": [
+   "M_Vehicle_BoxTruck_Paint",
+   "M_Vehicle_BoxTruck_Trim",
+   "M_Vehicle_BoxTruck_Lamp",
+   "M_Vehicle_BoxTruck_PaintCab",
+   "MI_Plastic_CarInterior",
+   "MI_Glass_CarTint",
+   "MI_Rubber_Tyre",
+   "MI_Paint_WheelSteel",
+   "MI_Chrome_Polished",
+   "MI_Fabric_CarSeat",
+   "M_Vehicle_Plate_HLS2141",
+   "MI_Galvanised_Aged",
+   "M_Vehicle_BoxTruck_Marker_Lamp",
+   "MI_Plastic_Black",
+   "MI_Plate_ScanDiamond",
+   "M_Vehicle_BoxTruck_Decals"
+  ],
+  "verts_below_1cm": 716,
+  "wheels": [
+   {
+    "x": -2.09,
+    "dia_z": 0.88,
+    "len_x": 0.88,
+    "zmin": 0.0,
+    "n": 17844
+   },
+   {
+    "x": 0.67,
+    "dia_z": 0.526,
+    "len_x": 0.06,
+    "zmin": 0.417,
+    "n": 400
+   },
+   {
+    "x": 1.23,
+    "dia_z": 0.526,
+    "len_x": 0.06,
+    "zmin": 0.417,
+    "n": 400
+   },
+   {
+    "x": 2.95,
+    "dia_z": 0.88,
+    "len_x": 0.88,
+    "zmin": 0.0,
+    "n": 8922
+   }
+  ],
+  "wheelbase": 5.04,
+  "brief_axles": [
+   2.95,
+   -2.09
+  ],
+  "brief_wheel_dia": 0.88,
+  "brief_wheelbase": 5.04,
+  "tyre_zmin": 0.0,
+  "lamp_E_front_rear": {
+   "front": [
+    0.86,
+    0.73,
+    0.53
+   ],
+   "rear": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "glass_x_range": [
+   1.7,
+   2.73
+  ],
+  "glass_z_range": [
+   1.44,
+   2.63
+  ],
+  "textures": {
+   "M_Vehicle_BoxTruck_Paint.BC": "4096x4096",
+   "M_Vehicle_BoxTruck_Paint.E": "4096x4096",
+   "M_Vehicle_BoxTruck_Paint.N": "4096x4096",
+   "M_Vehicle_BoxTruck_Paint.ORM": "4096x4096",
+   "M_Vehicle_BoxTruck_Trim.BC": "4096x4096",
+   "M_Vehicle_BoxTruck_Trim.E": "4096x4096",
+   "M_Vehicle_BoxTruck_Trim.N": "4096x4096",
+   "M_Vehicle_BoxTruck_Trim.ORM": "4096x4096",
+   "M_Vehicle_BoxTruck_Lamp.BC": "4096x4096",
+   "M_Vehicle_BoxTruck_Lamp.E": "4096x4096",
+   "M_Vehicle_BoxTruck_Lamp.N": "4096x4096",
+   "M_Vehicle_BoxTruck_Lamp.ORM": "4096x4096",
+   "M_Vehicle_BoxTruck_PaintCab.BC": "4096x4096",
+   "M_Vehicle_BoxTruck_PaintCab.E": "4096x4096",
+   "M_Vehicle_BoxTruck_PaintCab.N": "4096x4096",
+   "M_Vehicle_BoxTruck_PaintCab.ORM": "4096x4096",
+   "MI_Plastic_CarInterior.BC": "1024x1024",
+   "MI_Plastic_CarInterior.N": "1024x1024",
+   "MI_Plastic_CarInterior.ORM": "1024x1024",
+   "MI_Glass_CarTint.BC": "1024x1024",
+   "MI_Glass_CarTint.N": "1024x1024",
+   "MI_Glass_CarTint.ORM": "1024x1024",
+   "MI_Rubber_Tyre.BC": "1024x1024",
+   "MI_Rubber_Tyre.N": "1024x1024",
+   "MI_Rubber_Tyre.ORM": "1024x1024",
+   "MI_Paint_WheelSteel.BC": "1024x1024",
+   "MI_Paint_WheelSteel.N": "1024x1024",
+   "MI_Paint_WheelSteel.ORM": "1024x1024",
+   "MI_Chrome_Polished.BC": "1024x1024",
+   "MI_Chrome_Polished.N": "1024x1024",
+   "MI_Chrome_Polished.ORM": "1024x1024",
+   "MI_Fabric_CarSeat.BC": "1024x1024",
+   "MI_Fabric_CarSeat.N": "1024x1024",
+   "MI_Fabric_CarSeat.ORM": "1024x1024",
+   "M_Vehicle_Plate_HLS2141.BC": "1024x512",
+   "M_Vehicle_Plate_HLS2141.N": "1024x512",
+   "M_Vehicle_Plate_HLS2141.ORM": "1024x512",
+   "MI_Galvanised_Aged.BC": "2048x2048",
+   "MI_Galvanised_Aged.H": "2048x2048",
+   "MI_Galvanised_Aged.N": "2048x2048",
+   "MI_Galvanised_Aged.ORM": "2048x2048",
+   "M_Vehicle_BoxTruck_Marker_Lamp.BC": "4096x4096",
+   "M_Vehicle_BoxTruck_Marker_Lamp.E": "4096x4096",
+   "M_Vehicle_BoxTruck_Marker_Lamp.N": "4096x4096",
+   "M_Vehicle_BoxTruck_Marker_Lamp.ORM": "4096x4096",
+   "MI_Plastic_Black.BC": "1024x1024",
+   "MI_Plastic_Black.H": "1024x1024",
+   "MI_Plastic_Black.N": "1024x1024",
+   "MI_Plastic_Black.ORM": "1024x1024",
+   "MI_Plate_ScanDiamond.BC": "2048x2048",
+   "MI_Plate_ScanDiamond.H": "2048x2048",
+   "MI_Plate_ScanDiamond.N": "2048x2048",
+   "MI_Plate_ScanDiamond.ORM": "2048x2048",
+   "M_Vehicle_BoxTruck_Decals.BC": "2048x2048",
+   "M_Vehicle_BoxTruck_Decals.N": "2048x2048",
+   "M_Vehicle_BoxTruck_Decals.ORM": "2048x2048"
+  },
+  "anchors": {
+   "wheel": [
+    2.95,
+    -1.2200000286102295,
+    0.44
+   ],
+   "wheel_dia": 0.88,
+   "lamp": [
+    3.6869215965270996,
+    -0.6473074555397034,
+    1.143686294555664
+   ],
+   "mirror": [
+    2.198160171508789,
+    -1.2200000286102295,
+    2.2529420852661133
+   ],
+   "driver_glass": [
+    2.333505392074585,
+    0.9412845969200134,
+    2.389864206314087
+   ]
+  },
+  "objects": [
+   "SM_Vehicle_BoxTruck"
+  ]
+ },
+ "IPXTruck": {
+  "asset": "SM_Vehicle_IPXTruck",
+  "size": [
+   6.81,
+   2.48,
+   2.96
+  ],
+  "brief_size": [
+   6.81,
+   2.48,
+   2.96
+  ],
+  "min": [
+   -3.405,
+   -1.24,
+   0.0
+  ],
+  "max": [
+   3.405,
+   1.24,
+   2.96
+  ],
+  "origin_offset_from_ground_centre": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "triangles": 144876,
+  "slots": [
+   "M_Vehicle_IPXTruck_Paint",
+   "M_Vehicle_IPXTruck_Trim",
+   "M_Vehicle_IPXTruck_Lamp",
+   "M_Vehicle_IPXTruck_Hazard",
+   "MI_Plastic_CarInterior",
+   "MI_Glass_CarTint",
+   "MI_Rubber_Tyre",
+   "MI_Paint_WheelSteel",
+   "MI_Chrome_Polished",
+   "MI_Fabric_CarSeat",
+   "M_Vehicle_Plate_KQB5530",
+   "MI_Galvanised_Aged",
+   "M_Vehicle_IPXTruck_Decals"
+  ],
+  "verts_below_1cm": 648,
+  "wheels": [
+   {
+    "x": -1.75,
+    "dia_z": 1.0,
+    "len_x": 1.0,
+    "zmin": 0.0,
+    "n": 17812
+   },
+   {
+    "x": 2.05,
+    "dia_z": 1.0,
+    "len_x": 1.0,
+    "zmin": 0.0,
+    "n": 8906
+   }
+  ],
+  "wheelbase": 3.8,
+  "brief_axles": [
+   2.05,
+   -1.75
+  ],
+  "brief_wheel_dia": 1.0,
+  "brief_wheelbase": 3.8,
+  "tyre_zmin": 0.0,
+  "lamp_E_front_rear": {
+   "front": [
+    0.67,
+    0.64,
+    0.6
+   ],
+   "rear": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "glass_x_range": [
+   0.75,
+   1.71
+  ],
+  "glass_z_range": [
+   2.13,
+   2.77
+  ],
+  "textures": {
+   "M_Vehicle_IPXTruck_Paint.BC": "4096x4096",
+   "M_Vehicle_IPXTruck_Paint.E": "4096x4096",
+   "M_Vehicle_IPXTruck_Paint.N": "4096x4096",
+   "M_Vehicle_IPXTruck_Paint.ORM": "4096x4096",
+   "M_Vehicle_IPXTruck_Trim.BC": "4096x4096",
+   "M_Vehicle_IPXTruck_Trim.E": "4096x4096",
+   "M_Vehicle_IPXTruck_Trim.N": "4096x4096",
+   "M_Vehicle_IPXTruck_Trim.ORM": "4096x4096",
+   "M_Vehicle_IPXTruck_Lamp.BC": "4096x4096",
+   "M_Vehicle_IPXTruck_Lamp.E": "4096x4096",
+   "M_Vehicle_IPXTruck_Lamp.N": "4096x4096",
+   "M_Vehicle_IPXTruck_Lamp.ORM": "4096x4096",
+   "M_Vehicle_IPXTruck_Hazard.BC": "4096x4096",
+   "M_Vehicle_IPXTruck_Hazard.E": "4096x4096",
+   "M_Vehicle_IPXTruck_Hazard.N": "4096x4096",
+   "M_Vehicle_IPXTruck_Hazard.ORM": "4096x4096",
+   "MI_Plastic_CarInterior.BC": "1024x1024",
+   "MI_Plastic_CarInterior.N": "1024x1024",
+   "MI_Plastic_CarInterior.ORM": "1024x1024",
+   "MI_Glass_CarTint.BC": "1024x1024",
+   "MI_Glass_CarTint.N": "1024x1024",
+   "MI_Glass_CarTint.ORM": "1024x1024",
+   "MI_Rubber_Tyre.BC": "1024x1024",
+   "MI_Rubber_Tyre.N": "1024x1024",
+   "MI_Rubber_Tyre.ORM": "1024x1024",
+   "MI_Paint_WheelSteel.BC": "1024x1024",
+   "MI_Paint_WheelSteel.N": "1024x1024",
+   "MI_Paint_WheelSteel.ORM": "1024x1024",
+   "MI_Chrome_Polished.BC": "1024x1024",
+   "MI_Chrome_Polished.N": "1024x1024",
+   "MI_Chrome_Polished.ORM": "1024x1024",
+   "MI_Fabric_CarSeat.BC": "1024x1024",
+   "MI_Fabric_CarSeat.N": "1024x1024",
+   "MI_Fabric_CarSeat.ORM": "1024x1024",
+   "M_Vehicle_Plate_KQB5530.BC": "1024x512",
+   "M_Vehicle_Plate_KQB5530.N": "1024x512",
+   "M_Vehicle_Plate_KQB5530.ORM": "1024x512",
+   "MI_Galvanised_Aged.BC": "2048x2048",
+   "MI_Galvanised_Aged.H": "2048x2048",
+   "MI_Galvanised_Aged.N": "2048x2048",
+   "MI_Galvanised_Aged.ORM": "2048x2048",
+   "M_Vehicle_IPXTruck_Decals.BC": "2048x2048",
+   "M_Vehicle_IPXTruck_Decals.N": "2048x2048",
+   "M_Vehicle_IPXTruck_Decals.ORM": "2048x2048"
+  },
+  "anchors": {
+   "wheel": [
+    2.05,
+    -1.2400000095367432,
+    0.5
+   ],
+   "wheel_dia": 1.0,
+   "lamp": [
+    3.1472225189208984,
+    -0.46569469571113586,
+    1.681510329246521
+   ],
+   "mirror": [
+    1.513182282447815,
+    -1.2400000095367432,
+    2.405332088470459
+   ],
+   "driver_glass": [
+    1.493089199066162,
+    0.9537290930747986,
+    2.6387338638305664
+   ]
+  },
+  "objects": [
+   "SM_Vehicle_IPXTruck",
+   "SM_Vehicle_IPXTruck_Door",
+   "SM_Vehicle_IPXTruck_Door_Left"
+  ]
+ },
+ "Motorbike": {
+  "asset": "SM_Vehicle_Motorbike",
+  "size": [
+   1.94,
+   0.623,
+   1.1
+  ],
+  "brief_size": [
+   1.94,
+   0.67,
+   1.1
+  ],
+  "min": [
+   -0.97,
+   -0.311,
+   0.0
+  ],
+  "max": [
+   0.97,
+   0.311,
+   1.1
+  ],
+  "origin_offset_from_ground_centre": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "triangles": 90168,
+  "slots": [
+   "M_Vehicle_Motorbike_Paint",
+   "M_Vehicle_Motorbike_Trim",
+   "M_Vehicle_Motorbike_Lamp",
+   "MI_Paint_WheelSteel"
+  ],
+  "verts_below_1cm": 122,
+  "wheels": [
+   {
+    "x": -0.172,
+    "dia_z": 0.287,
+    "len_x": 0.165,
+    "zmin": 0.0,
+    "n": 172
+   }
+  ],
+  "brief_axles": [
+   0.66,
+   -0.66
+  ],
+  "brief_wheel_dia": 0.62,
+  "brief_wheelbase": 1.32,
+  "lamp_E_front_rear": {
+   "front": [
+    0.87,
+    0.61,
+    0.21
+   ],
+   "rear": [
+    0.8,
+    0.33,
+    0.16
+   ]
+  },
+  "textures": {
+   "M_Vehicle_Motorbike_Paint.BC": "4096x4096",
+   "M_Vehicle_Motorbike_Paint.E": "4096x4096",
+   "M_Vehicle_Motorbike_Paint.N": "4096x4096",
+   "M_Vehicle_Motorbike_Paint.ORM": "4096x4096",
+   "M_Vehicle_Motorbike_Trim.BC": "4096x4096",
+   "M_Vehicle_Motorbike_Trim.E": "4096x4096",
+   "M_Vehicle_Motorbike_Trim.N": "4096x4096",
+   "M_Vehicle_Motorbike_Trim.ORM": "4096x4096",
+   "M_Vehicle_Motorbike_Lamp.BC": "4096x4096",
+   "M_Vehicle_Motorbike_Lamp.E": "4096x4096",
+   "M_Vehicle_Motorbike_Lamp.N": "4096x4096",
+   "M_Vehicle_Motorbike_Lamp.ORM": "4096x4096",
+   "MI_Paint_WheelSteel.BC": "1024x1024",
+   "MI_Paint_WheelSteel.N": "1024x1024",
+   "MI_Paint_WheelSteel.ORM": "1024x1024"
+  },
+  "anchors": {
+   "wheel": [
+    -0.172,
+    -0.3113469183444977,
+    0.1435
+   ],
+   "wheel_dia": 0.287,
+   "lamp": [
+    0.5324679017066956,
+    -0.12971723079681396,
+    0.7700002789497375
+   ],
+   "mirror": [
+    0.141158789396286,
+    -0.3113469183444977,
+    0.90558922290802
+   ]
+  },
+  "objects": [
+   "SM_Vehicle_Motorbike"
+  ]
+ },
+ "BurnedCar": {
+  "asset": "SM_Vehicle_BurnedCar",
+  "size": [
+   4.38,
+   1.72,
+   1.302
+  ],
+  "brief_size": [
+   4.38,
+   1.72,
+   1.3
+  ],
+  "min": [
+   -2.19,
+   -0.86,
+   -0.002
+  ],
+  "max": [
+   2.19,
+   0.86,
+   1.3
+  ],
+  "origin_offset_from_ground_centre": [
+   0.0,
+   0.0,
+   -0.002
+  ],
+  "triangles": 71610,
+  "slots": [
+   "MI_Steel_ScanRustHeavy",
+   "MI_Char_Burnt"
+  ],
+  "verts_below_1cm": 112,
+  "wheels": [
+   {
+    "x": -0.05,
+    "dia_z": 0.622,
+    "len_x": 4.21,
+    "zmin": -0.002,
+    "n": 22732
+   }
+  ],
+  "brief_axles": [
+   1.42,
+   -1.38
+  ],
+  "brief_wheel_dia": null,
+  "brief_wheelbase": 2.8,
+  "lamp_E_front_rear": null,
+  "textures": {
+   "MI_Steel_ScanRustHeavy.BC": "2048x2048",
+   "MI_Steel_ScanRustHeavy.H": "2048x2048",
+   "MI_Steel_ScanRustHeavy.N": "2048x2048",
+   "MI_Steel_ScanRustHeavy.ORM": "2048x2048",
+   "MI_Char_Burnt.BC": "1024x1024",
+   "MI_Char_Burnt.N": "1024x1024",
+   "MI_Char_Burnt.ORM": "1024x1024"
+  },
+  "anchors": {
+   "mirror": [
+    0.4450886845588684,
+    -0.8600000143051147,
+    0.8788115978240967
+   ]
+  },
+  "objects": [
+   "SM_Vehicle_BurnedCar"
+  ]
+ },
+ "StrippedCar": {
+  "asset": "SM_Vehicle_StrippedCar",
+  "size": [
+   4.38,
+   1.72,
+   1.608
+  ],
+  "brief_size": [
+   4.38,
+   1.72,
+   1.6
+  ],
+  "min": [
+   -2.19,
+   -0.86,
+   -0.008
+  ],
+  "max": [
+   2.19,
+   0.86,
+   1.6
+  ],
+  "origin_offset_from_ground_centre": [
+   0.0,
+   0.0,
+   -0.008
+  ],
+  "triangles": 63554,
+  "slots": [
+   "M_Vehicle_StrippedCar_Primer",
+   "MI_Steel_CargoDark",
+   "MI_Galvanised_Aged",
+   "MI_Steel_ScanRust"
+  ],
+  "verts_below_1cm": 564,
+  "wheels": [],
+  "lamp_E_front_rear": null,
+  "textures": {
+   "M_Vehicle_StrippedCar_Primer.BC": "4096x4096",
+   "M_Vehicle_StrippedCar_Primer.E": "4096x4096",
+   "M_Vehicle_StrippedCar_Primer.N": "4096x4096",
+   "M_Vehicle_StrippedCar_Primer.ORM": "4096x4096",
+   "MI_Steel_CargoDark.BC": "1024x1024",
+   "MI_Steel_CargoDark.N": "1024x1024",
+   "MI_Steel_CargoDark.ORM": "1024x1024",
+   "MI_Galvanised_Aged.BC": "2048x2048",
+   "MI_Galvanised_Aged.H": "2048x2048",
+   "MI_Galvanised_Aged.N": "2048x2048",
+   "MI_Galvanised_Aged.ORM": "2048x2048",
+   "MI_Steel_ScanRust.BC": "4096x4096",
+   "MI_Steel_ScanRust.H": "4096x4096",
+   "MI_Steel_ScanRust.N": "4096x4096",
+   "MI_Steel_ScanRust.ORM": "4096x4096"
+  },
+  "anchors": {
+   "mirror": [
+    0.4381391406059265,
+    -0.8600000143051147,
+    1.209999918937683
+   ]
+  },
+  "objects": [
+   "SM_Vehicle_StrippedCar"
+  ]
+ }
+}
