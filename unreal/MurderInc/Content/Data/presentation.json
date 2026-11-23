@@ -299,13 +299,24 @@
         0.62,
         0.3
       ],
-      "enemyScale": 0.8
+      "enemyScale": 0.8,
+      "view": {
+        "pull": 0.5,
+        "scale": 1.0,
+        "note": "the player's own flash (UMIEffects::ViewFlash): cards turned to the eye and pulled toward it to this fraction of their distance (sizes alike), so they draw over the gun's front end that hides the muzzle at the hip; scale on the first-person size"
+      }
     },
     "tracer": {
       "speed": 26000,
       "emissive": 60000,
       "length": 260,
-      "radius": 1.0
+      "radius": 1.0,
+      "player": {
+        "length": 600,
+        "start": 120,
+        "radius": 0.35,
+        "note": "the player's streak (UMIEffects::PlayerTracer) from the muzzle as drawn to the round's end: cm; its tail never nearer than start past the muzzle, drawn from its first frame"
+      }
     },
     "casing": {
       "life": 4.0

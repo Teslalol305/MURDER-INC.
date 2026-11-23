@@ -714,14 +714,14 @@ void UMIWeaponComponent::MuzzleFlash(double FlashScale)
 	{
 		return;  // a silencer: no flash, no light
 	}
-	// The flash goes through the effects' world cards (the ones the Goons' flashes use, seen in every picture), placed
-	// at the first-person depth and size on the muzzle: the camera-attached cards were set visible, sized and placed
-	// right (read back in play) yet never drew in a picture.
+	// The flash goes through the effects' world cards at the first-person depth and size on the muzzle (polish pass,
+	// measured in play: the cards were drawn all along, but on the muzzle itself, which the gun's own front end hides
+	// from the eye at the hip, and with the jets along the bore, edge-on to an eye behind it). ViewFlash turns them
+	// to the eye and pulls them in front of the gun on their sight lines: same pixels, drawn over the muzzle end.
 	if (UMIEffects* WorldFx = UMIEffects::Get(this); WorldFx && WorldFx->CanDrawTracers() && FlashScale > 0.01)
 	{
 		const FTransform At = FirstPersonToNearWorld(FTransform(FRotationMatrix::MakeFromX(Dir).ToQuat(), Pos));
-		// WorldFlash's star is 14 cm and its jets 26 cm at scale 1; the first-person flash is 9 and 15 cm x FlashScale
-		WorldFx->WorldFlash(At.GetLocation(), At.GetRotation().GetForwardVector(), FMath::Clamp(FlashScale, 0.3, 1.5) * At.GetScale3D().X * 0.62, false);
+		WorldFx->ViewFlash(At.GetLocation(), At.GetRotation().GetForwardVector(), Camera->GetComponentLocation(), FMath::Clamp(FlashScale, 0.3, 1.5) * At.GetScale3D().X);
 		UE_LOG(LogMI, Verbose, TEXT("Flash: world cards %.1f cm from the eye, muzzle in camera space %s, bore %s"), FVector::Dist(At.GetLocation(), Camera->GetComponentLocation()), *Pos.ToCompactString(), *Dir.ToCompactString());
 	}
 	else if (FlashCards.Num() == 3 && FlashScale > 0.01)
@@ -782,7 +782,21 @@ void UMIWeaponComponent::OnRoundFired(const FMIShotRequest& Shot, const FMIShotR
 		return;
 	}
 	FVector Pos, Dir;
-	const FVector Muzzle = MuzzleCamera(Pos, Dir) ? FirstPersonToWorld(Pos) : Shot.Origin;
+	const bool bMuzzle = MuzzleCamera(Pos, Dir);
+	const FVector Muzzle = bMuzzle ? FirstPersonToWorld(Pos) : Shot.Origin;
+	if (Fx && Fx->CanDrawTracers() && bMuzzle && Camera)
+	{
+		// The player's streak leaves the muzzle as drawn (its first-person point: the same pixels as the gun's muzzle)
+		// toward where the round ends: on screen a streak converging from the gun on the aim point. From the world
+		// muzzle a metre out it flew along the line of sight and read as a dot under the crosshair (polish pass).
+		const FVector From = FirstPersonToNearWorld(FTransform(Pos)).GetLocation();
+		if (FVector::Dist(From, Result.Point) > 200.0)
+		{
+			Fx->PlayerTracer(From, Result.Point, TracerSpeed);
+			UE_LOG(LogMI, Verbose, TEXT("Tracer: from the drawn muzzle (%.0f cm from the eye) %.0f cm"), FVector::Dist(From, Camera->GetComponentLocation()), FVector::Dist(From, Result.Point));
+		}
+		return;
+	}
 	if (Fx && Fx->CanDrawTracers())
 	{
 		// Leaves the screen a little ahead of the muzzle (spec 02 2.8: hidden for the first metre when it flies far).

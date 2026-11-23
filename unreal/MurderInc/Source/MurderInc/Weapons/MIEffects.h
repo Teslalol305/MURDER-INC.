@@ -35,10 +35,19 @@ public:
 
 	/** A muzzle flash seen in the world (an enemy's): cards along and across the bore and a short light. */
 	void WorldFlash(const FVector& Muzzle, const FVector& Dir, double Scale, bool bLight);
-	/** The player's own flash light (the cards are first-person primitives on the gun: UMIWeaponComponent). */
+	/** The player's own flash, seen from the eye behind the gun (polish pass): the star faces the eye, the jets run
+	 *  along the bore turned to face it, and all three are pulled toward the eye along their sight lines (fx.flash.view
+	 *  pull: the fraction of the distance kept, sizes scaled alike) so they draw over the gun's front end, which hides
+	 *  the muzzle itself from the eye at the hip. Same pixels, same apparent size. */
+	void ViewFlash(const FVector& Muzzle, const FVector& Dir, const FVector& Eye, double Scale);
+	/** The player's own flash light. */
 	void FlashLight(const FVector& At, double Scale);
 	/** A tracer streak from a muzzle to where the round ends. */
 	void Tracer(const FVector& From, const FVector& To, double SpeedCmPerS);
+	/** The player's tracer: from the muzzle as drawn (the first-person point) to where the round ends, drawn from its first
+	 *  frame, its tail held fx.tracer.player.start cm past the muzzle (so it leaves the gun on screen as a converging
+	 *  streak instead of a dot at the crosshair), fx.tracer.player length and radius. */
+	void PlayerTracer(const FVector& From, const FVector& To, double SpeedCmPerS);
 	/** An enemy round: flash at the muzzle, the tracer to the first thing it meets (presentation trace). */
 	void EnemyShot(const AActor* Shooter, const FVector& Muzzle, const FVector& Dir);
 	bool CanDrawTracers() const { return bReady && Streaks.Num() > 0; }
@@ -80,7 +89,7 @@ private:
 	{
 		TObjectPtr<UStaticMeshComponent> Mesh;
 		FVector From, To;
-		double Age = 1e9, Life = 0.1, Length = 300.0;
+		double Age = 1e9, Life = 0.1, Length = 300.0, MinTail = 0.0;
 	};
 
 	void Bind();

@@ -313,6 +313,70 @@ void UMIEffects::WorldFlash(const FVector& Muzzle, const FVector& Dir, double Sc
 	}
 }
 
+void UMIEffects::ViewFlash(const FVector& Muzzle, const FVector& Dir, const FVector& Eye, double Scale)
+{
+	if (Cards.Num() < 3)
+	{
+		return;
+	}
+	const double L = MIJson::NumberOr(Fx, TEXT("flash.life"), 0.045);
+	const double Keep = FMath::Clamp(MIJson::NumberOr(Fx, TEXT("flash.view.pull"), 0.5), 0.1, 1.0);
+	const double S = Scale * MIJson::NumberOr(Fx, TEXT("flash.view.scale"), 1.0);
+	const FVector D = Dir.GetSafeNormal();
+	for (int32 K = 0; K < 3; ++K)
+	{
+		FCard& X = Cards[NextCard];
+		NextCard = (NextCard + 1) % Cards.Num();
+		X.Age = 0.0;
+		X.Life = L;
+		const double Len = (K == 0 ? 14.0 : 26.0) * S;
+		// where the card would sit on the muzzle, then pulled toward the eye on its sight line (Keep of the distance)
+		const FVector At = K == 0 ? Muzzle + D * Len * 0.15 : Muzzle + D * Len * (K == 1 ? 0.5 : 0.35);
+		const FVector Near = Eye + (At - Eye) * Keep;
+		const FVector ToEye = (Eye - Near).GetSafeNormal();
+		FRotator R;
+		if (K == 0)
+		{
+			R = FRotationMatrix::MakeFromZ(ToEye).Rotator();
+		}
+		else
+		{
+			// along the bore (+X, U), its face turned to the eye as far as the bore allows (two jets a little apart)
+			FVector N = ToEye - D * FVector::DotProduct(ToEye, D);
+			if (N.IsNearlyZero()) N = FVector::CrossProduct(D, FVector::UpVector);
+			N = N.GetSafeNormal().RotateAngleAxis(K == 1 ? 25.0 : -25.0, D);
+			R = FRotationMatrix::MakeFromXZ(D, N).Rotator();
+		}
+		const double Lk = Len * Keep * (K == 2 ? 0.7 : 1.0);
+		X.Mesh->SetWorldLocationAndRotation(Near, R);
+		X.Mesh->SetWorldScale3D(FVector(Lk / 100.0, (K == 0 ? Lk : Lk * 0.45) / 100.0, 1.0));
+		X.Mat->SetScalarParameterValue(TEXT("Mode"), K == 0 ? 0.f : 1.f);
+		X.Mat->SetScalarParameterValue(TEXT("Seed"), FMath::FRandRange(0.f, 50.f));
+		X.Mesh->SetVisibility(true);
+	}
+}
+
+void UMIEffects::PlayerTracer(const FVector& From, const FVector& To, double SpeedCmPerS)
+{
+	if (Streaks.Num() == 0 || SpeedCmPerS <= 0.0)
+	{
+		return;
+	}
+	FStreak& X = Streaks[NextStreak];
+	NextStreak = (NextStreak + 1) % Streaks.Num();
+	X.From = From;
+	X.To = To;
+	X.Age = 0.0;  // the tick advances it a frame before it is drawn: the head is a frame out on the first picture
+	X.Length = MIJson::NumberOr(Fx, TEXT("tracer.player.length"), 600.0);
+	X.MinTail = MIJson::NumberOr(Fx, TEXT("tracer.player.start"), 120.0);
+	X.Life = FVector::Dist(From, To) / SpeedCmPerS;
+	const double R = MIJson::NumberOr(Fx, TEXT("tracer.player.radius"), 0.35);
+	X.Mesh->SetWorldScale3D(FVector(R / 50.0, R / 50.0, 0.01));
+	X.Mesh->SetWorldRotation(FRotationMatrix::MakeFromZ(To - From).Rotator());
+	X.Mesh->SetWorldLocation(From);
+	X.Mesh->SetVisibility(false);
+}
+
 void UMIEffects::Tracer(const FVector& From, const FVector& To, double SpeedCmPerS)
 {
 	if (Streaks.Num() == 0 || SpeedCmPerS <= 0.0)
@@ -325,6 +389,7 @@ void UMIEffects::Tracer(const FVector& From, const FVector& To, double SpeedCmPe
 	X.To = To;
 	X.Age = 1.0 / 60.0;  // one frame in flight already: drawn on the next frame whatever that frame's length
 	X.Length = MIJson::NumberOr(Fx, TEXT("tracer.length"), 260.0);
+	X.MinTail = 0.0;
 	X.Life = FVector::Dist(From, To) / SpeedCmPerS;
 	const double R = MIJson::NumberOr(Fx, TEXT("tracer.radius"), 0.5);
 	X.Mesh->SetWorldScale3D(FVector(R / 50.0, R / 50.0, X.Length / 100.0));
@@ -583,7 +648,12 @@ void UMIEffects::Tick(float DeltaTime)
 		const FVector Dir = (X.To - X.From).GetSafeNormal();
 		const double Dist = FVector::Dist(X.From, X.To);
 		const double Head = FMath::Min(Dist, Dist * X.Age / X.Life);
-		const double Tail = FMath::Max(0.0, Head - X.Length);
+		const double Tail = FMath::Max(X.MinTail, Head - X.Length);
+		if (Head - Tail < 5.0)
+		{
+			X.Mesh->SetVisibility(false);  // not yet out past the start (the player's), or already gone
+			continue;
+		}
 		X.Mesh->SetWorldLocation(X.From + Dir * (Head + Tail) * 0.5);
 		X.Mesh->SetWorldScale3D(FVector(X.Mesh->GetComponentScale().X, X.Mesh->GetComponentScale().Y, FMath::Max(1.0, Head - Tail) / 100.0));
 		X.Mesh->SetVisibility(true);

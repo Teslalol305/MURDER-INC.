@@ -2,8 +2,7 @@
 # Why the player's own muzzle flash never shows (polish pass): play in editor in L_Block, the set-up of fp-arms-shots.sh,
 # then evidence frames (not committed) in <out>:
 #   ev-fire-hip     frozen 0.02 s after a round at the hip, with the visible effect cards listed (FLASH-LIST lines)
-#   ev-probes       probe cards (flash material) and opaque cubes at 20, 40, 80, 150, 400 cm in front of the eye
-#   ev-probes-<cv>  the same after each console variable in PROBE_CVARS ("r.HZBOcclusion=0 r.AllowOcclusionQueries=0")
+#   ev-cvar-<k>     the same frozen frame after each console variable in PROBE_CVARS ("r.HZBOcclusion=0 ...")
 #   ev-fire-ads     frozen 0.02 s after a round aimed
 # Run detached with L_Block open: setsid nohup bash flash-diag.sh [out] > log 2>&1 &  (ends with FLASH DIAG DONE)
 out=${1:-}
@@ -33,17 +32,15 @@ sleep 10; settle 10
 c "log LogMI Verbose"
 c "MIInput weapon1 1"; run 1.0; c "MIInput weapon1 0"
 c "MIPose ${POSE:-170 -380 0 -35 -4}"; run 1.2
-fire_frozen 0.02; probe list fire-hip; shot ev-fire-hip
+fire_frozen ${FREEZE:-0.02}; probe list fire-hip; shot ev-fire-hip
 tail -n +"$mark" "$log" | grep -E "Flash:|Tracer:" | tail -4 | cut -c1-260
-probe cards cards; shot ev-probes
 k=0
 for cv in ${PROBE_CVARS:-}; do
-  k=$((k + 1)); c "${cv/=/ }"; shot "ev-probes-$k"; echo "FLASH-CVAR $k: $cv"
+  k=$((k + 1)); c "${cv/=/ }"; shot "ev-cvar-$k"; echo "FLASH-CVAR $k: $cv"
 done
-probe clear clear
 c "slomo 1"; run 1.0
 c "MIInput ads 1"; run 0.8
-fire_frozen 0.02; probe list fire-ads; shot ev-fire-ads
+fire_frozen ${FREEZE:-0.02}; probe list fire-ads; shot ev-fire-ads
 c "slomo 1"; c "MIInput ads 0"; run 0.5
 pie_stop > /dev/null
 echo "FLASH DIAG DONE $out"
