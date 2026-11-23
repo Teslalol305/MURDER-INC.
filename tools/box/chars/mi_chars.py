@@ -462,31 +462,29 @@ def goon_material(name, set_name, detail_tiling, dest, tex, detail="/Game/Charac
     fz = _op(m, unreal.MaterialExpressionMultiply, bc, _const(m, 1.5, -1100, -160), -1000, -200, "RGB", "")
     fz = _op(m, unreal.MaterialExpressionAdd, fz, _const(m, 0.03, -1000, -100), -850, -200)
     MEL.connect_material_property(fz, "", unreal.MaterialProperty.MP_SUBSURFACE_COLOR)
-    # baked normal + tiling fibre detail (whiteout: xy added, z of the base)
+    # baked normal + tiling fibre detail (its xy tilt added in proportion to the cloth amount, renormalised)
     if ASSETS.does_asset_exist(detail):
         tc = MEL.create_material_expression(m, unreal.MaterialExpressionTextureCoordinate, -1600, 560)
         tc.u_tiling = tc.v_tiling = float(detail_tiling)
         dn = _tex_node(m, detail, -1400, 600, "normal")
         MEL.connect_material_expressions(tc, "", dn, "UVs")
-        dxy = MEL.create_material_expression(m, unreal.MaterialExpressionComponentMask, -1150, 600)
-        _set(dxy, r=True, g=True)
-        MEL.connect_material_expressions(dn, "RGB", dxy, "")
-        dxy = _op(m, unreal.MaterialExpressionMultiply, dxy, cloth, -1000, 600)
-        bxy = MEL.create_material_expression(m, unreal.MaterialExpressionComponentMask, -1150, 400)
-        _set(bxy, r=True, g=True)
-        MEL.connect_material_expressions(nm, "RGB", bxy, "")
-        bz = MEL.create_material_expression(m, unreal.MaterialExpressionComponentMask, -1150, 480)
-        _set(bz, b=True)
-        MEL.connect_material_expressions(nm, "RGB", bz, "")
-        sxy = _op(m, unreal.MaterialExpressionAdd, bxy, dxy, -850, 450)
-        ap = _op(m, unreal.MaterialExpressionAppendVector, sxy, bz, -700, 450)
+        xy = MEL.create_material_expression(m, unreal.MaterialExpressionConstant3Vector, -1150, 700)
+        xy.constant = unreal.LinearColor(1.0, 1.0, 0.0, 1.0)
+        dxy = _op(m, unreal.MaterialExpressionMultiply, dn, xy, -1000, 600, "RGB", "")
+        dxy = _op(m, unreal.MaterialExpressionMultiply, dxy, cloth, -850, 600)
+        sxy = _op(m, unreal.MaterialExpressionAdd, nm, dxy, -700, 450, "RGB", "")
         nrm = MEL.create_material_expression(m, unreal.MaterialExpressionNormalize, -550, 450)
-        MEL.connect_material_expressions(ap, "", nrm, "")
+        MEL.connect_material_expressions(sxy, "", nrm, "")
         MEL.connect_material_property(nrm, "", unreal.MaterialProperty.MP_NORMAL)
     else:
         MEL.connect_material_property(nm, "RGB", unreal.MaterialProperty.MP_NORMAL)
-    _set(m, shading_model=unreal.MaterialShadingModel.MSM_CLOTH, used_with_skeletal_mesh=True)
+    _set(m, shading_model=unreal.MaterialShadingModel.MSM_CLOTH, used_with_skeletal_mesh=True, two_sided=True)
     MEL.recompile_material(m)
+    try:
+        MEL.get_statistics(m)                       # raises with the compiler's message when the graph is wrong
+    except Exception as e:
+        unreal.log_error("MI: %s: %s" % (name, e))
+        raise
     ASSETS.save_loaded_asset(m)
     return m
 
@@ -522,12 +520,13 @@ def weapon_socket(mesh_path, name="Weapon_R", bone="hand_r", loc=(-1.5, 4.5, -2.
     return {"socket": name, "bone": bone, "found": bool(sk.find_socket(name))}
 
 
-def setup_goons(src="/project/ue/chars/in/goons"):
+def setup_goons(src="/project/ue/chars/in/goons", meshes=True):
     """SK_Goon_Hoodie / _Puffer / _Tracksuit on SK_Mannequin with their two baked sets each (Cloth 4K, Head 2K):
     textures, Cloth-shading-model materials M_Goon<Outfit>_Cloth / _Head (goon_material), slots assigned by name,
     LOD 0 keeps the exported normals (keep_exported_normals), a Weapon_R socket on hand_r. Returns a report."""
     rep = {}
-    rep["textures"] = import_textures(os.path.join(src, "tex"), GOON_DIR + "/Textures")
+    if meshes:
+        rep["textures"] = import_textures(os.path.join(src, "tex"), GOON_DIR + "/Textures")
     meta = {}
     mp = os.path.join(src, "goons_ue.json")
     if os.path.exists(mp):
@@ -536,7 +535,7 @@ def setup_goons(src="/project/ue/chars/in/goons"):
         glb = os.path.join(src, "SK_Goon_%s.glb" % o)
         if not os.path.exists(glb):
             continue
-        rep[o] = import_on_mannequin(glb, GOON_DIR, "SK_Goon_" + o)
+        rep[o] = import_on_mannequin(glb, GOON_DIR, "SK_Goon_" + o) if meshes else {}
         rep[o]["build"] = keep_exported_normals(GOON_DIR + "/SK_Goon_" + o)
         mats = {}
         for s in ("Cloth", "Head"):
