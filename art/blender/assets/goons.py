@@ -882,7 +882,9 @@ def layer_weights(ob, log=log_default):
         log("  layers %s -> %s: %d vertices share weights" % ("/".join(inner), "/".join(outer), n))
     # a vertex left without any influence (a piece far from every source triangle of its bones) takes the weights
     # of its nearest weighted vertex: the exporter cannot write an unweighted vertex on this skeleton
-    zero = W.sum(axis=1) < 1e-6
+    W = np.nan_to_num(W, nan=0.0, posinf=0.0, neginf=0.0)
+    W[W < 0] = 0.0
+    zero = W.max(axis=1) < 0.02
     if zero.any():
         from mathutils.kdtree import KDTree
         good = np.nonzero(~zero)[0]
@@ -895,6 +897,10 @@ def layer_weights(ob, log=log_default):
             W[i] = W[good[k]]
         log("  %d unweighted vertices given their neighbour's weights" % int(zero.sum()))
     char.set_weights(ob, names, W, limit=6)
+    n2, W2 = char.weight_matrix(ob)
+    left = int((W2.sum(axis=1) < 0.5).sum())
+    if left:
+        raise RuntimeError("%s: %d vertices still without weights" % (ob.name, left))
 
 
 def finish(man, outfit, joined, ctx):
