@@ -3,7 +3,55 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
-## Demo build (release engineer): the game playable from a browser — done
+## Polish pass (visible breaks in normal play) — done
+
+**Verified 2026-11-23** in the gameplay clone `/project/ue/repo-gameplay` (MCP 8001), play in editor in L_Block from
+the player's eye (`tools/box/fp/polish-shots.sh`; set-up CHOPPER, NINE, STICK on the set-up screens, day, Hustler).
+Pictures `docs/unreal/shots/polish-*.jpg`, each looked at.
+
+**1. No grey boxes left in L_Block.** The gameplay clone played an old L_Block (22 Nov, no vehicle art: the two dark
+slabs in front of the player at the start were a parked car's colliders drawn in `MI_Grey_Car`, the IPX truck a cube).
+`Content/Art` and `L_Block.umap` copied from the level clone (BOX.md 7), then `block.sh start level` rebuilt the map
+there with `build_block.py`'s new rules for the last colliders with no module (`structure_placements`): the shanty by
+the El is the plywood pen (`SM_Struct_DigPen` fitted to its box), the material hoist in the lot a chain-link cage up
+the whole 9.3 m tower in panel-high rows with pallet stacks at its foot, the lot sign's pole a steel column
+(`SM_Struct_ShopColumn`), and the seven neighbours' backs (brick masses with the window grid and tar roofs) carry the
+facade kit's parapet round their roofs (134 modules), a water tank each and a stair bulkhead on the biggest. Read back in
+the editor: the only `Grey_*` actors left are those seven brick backs in `MI_Box_BrickWindows`; every other collider is
+invisible under art (615 of 622). The 13 vehicles, the taxi and the IPX truck draw as art (`polish-start`,
+`polish-avenue`, `polish-lot`). The level clone's own map is untouched (rebuild it there with the same `block.sh start
+level` when its agent next runs).
+
+**2. The player's muzzle flash and tracer.** Measured, not guessed (`tools/box/fp/flash-diag.sh`, frozen 0.02 s after a
+round, the visible effect cards read back): the three flash cards were drawn all along, 38.6 cm from the eye at the
+muzzle's first-person point, screen (1058, 694). That point is on the handguard's front end as the eye sees it: at the
+hip the muzzle sits straight behind the gun's own front, which is nearer the eye and hides it, and the two jet cards
+lay along the bore, edge-on to an eye behind it. With `r.HZBOcclusion 0` and `r.AllowOcclusionQueries 0` the frame was
+the same (not culling); the material is two-sided additive unlit (not back faces). Fix (`UMIEffects::ViewFlash`): the
+star faces the eye, the jets run along the bore turned toward it, and at the hip all three are pulled toward the eye on
+their sight lines to half their distance with sizes alike (same pixels, drawn over the gun's end); aimed the pull eases
+off, because pulled in they fell behind the rear sight. The tracer started from the world muzzle a metre out and flew
+along the line of sight: 0.02 s later it was a dot under the crosshair. `UMIEffects::PlayerTracer` leaves the muzzle as
+drawn and converges on the aim point, its tail held 0.8 m out for the first 12 m (`fx.tracer.player`).
+`polish-fire.jpg` is that frozen frame 0.02 s after a hip round.
+
+**3. CHOPPER fingers.** `FMIFPFingerCurl` in `UMIFPAnimInstance`: per-gun, per-finger closing (or opening) about the
+knuckles, from presentation `guns.<id>.real.fingers.hip / .aim`, blended by Ads, let go in actions and the sprint
+(GAMEPLAY.md 15). The numbers come from play: console `MIGripProbe` skins the arms on the CPU from the imported model
+and measures each finger's pads against the pack rifle's triangles, signed by their normals. On the pack's Short rifle
+with SK_RuleArms every finger is within 3 mm of the gun at the hip, aimed and on a round (support index, middle,
+pinky 0.3 to 1 mm into the handguard, ring 0.3 mm off; firing middle on the grip, pinky 2.7 mm into it, ring 2.2 mm off;
+trigger finger 2.6 mm off the trigger at rest and 0.7 mm on a round). The 11 to 20 mm gaps of
+`rule_r3_final_review.json` were measured in Blender on the old CHOPPER model, which the pack rifle replaced
+(DECISIONS.md). The CHOPPER's data backs the support middle and pinky out of the handguard (-1 degree: 0.9 to 0.7 mm);
+opening the firing pinky took it deeper (its deepest point is on its back, under the grip, out of view): left as the
+clip has it.
+
+**4. Other breaks seen in play.** The radio strip (bottom centre) sat on the sunlit forearm with no backing and did not
+read: a soft dark band behind the whole line now (`AMIHUD`). The "black half disc" at the lower left of the start view
+(also in the demo notes) is the open top of the trash can 1.1 m ahead of the player start (prop 270), not a fault.
+
+
 
 **Verified 2026-11-23** on the box (session d14fa3ab). Owner's guide: `docs/DEMO.md`. Scripts: `tools/box/demo/package.sh`,
 `start.sh`, `stop.sh` (copied to `/project/ue/demo/tools/` on the box; the demo-video agent's `capture.sh`, `audio.sh`,
