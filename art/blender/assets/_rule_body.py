@@ -167,7 +167,7 @@ def swap_head(body, btex, head, htex, log=print):
     dx, dy = hx - _mid(ch2[sl, 0]), hy - _mid(ch2[sl, 1])
     co += [dx, dy, zb]
     gen3d.set_verts(head, co)
-    # the cut edge of the bust's neck is carried 2.5 cm down (and its next ring half as far), so it ends under
+    # the cut edge of the bust's neck is carried 1.8 cm down (and its next ring half as far), so it ends under
     # the body's collar all round instead of just above it at the front
     import bmesh
     bm = bmesh.new()
@@ -181,7 +181,7 @@ def swap_head(body, btex, head, htex, log=print):
     ring -= edge_v
     bm.free()
     low = co[:, 2] < zb + 0.04
-    for idx, d in ((sorted(edge_v), 0.025), (sorted(ring), 0.012)):
+    for idx, d in ((sorted(edge_v), 0.018), (sorted(ring), 0.006)):
         idx = np.array([i for i in idx if low[i]], dtype=np.int64)
         if len(idx):
             co[idx, 2] -= d

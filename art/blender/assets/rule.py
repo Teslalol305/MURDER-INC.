@@ -58,10 +58,13 @@ def _n(v):
 
 
 def fore_d(R, p, grow=0.0):
+    """Forearm section; below 3 cm above the wrist it widens and flattens into the heel of the hand (74 mm wide,
+    brief) and its centre moves toward the palm, so the back of the wrist runs into the back of the hand."""
     s, x, y = R.fore_coords(p)
-    a = C._interp(FOREARM, s, 1) / 2 + grow
-    b = C._interp(FOREARM, s, 2) / 2 + grow
-    return s, C.ellipse_d(x, y, a, b)
+    t = T_smooth(0.03, -0.02, s)
+    a = C._interp(FOREARM, s, 1) / 2 * (1 + 0.20 * t) + grow
+    b = C._interp(FOREARM, s, 2) / 2 * (1 - 0.28 * t) + grow
+    return s, C.ellipse_d(x, y + 0.004 * t, a, b)
 
 
 def arm_sdf(R):
@@ -70,7 +73,7 @@ def arm_sdf(R):
     def f(p):
         s, d_fore = fore_d(R, p)
         d_fore = np.maximum(d_fore, s - (R.L + 0.035))
-        d_fore = sdf.smax(d_fore, -s - 0.010, 0.012)
+        d_fore = sdf.smax(d_fore, -s - 0.026, 0.012)
         su, xu, yu = R.upper_coords(p)
         a = C._interp(UPPER, su, 1) / 2
         b = C._interp(UPPER, su, 2) / 2
@@ -103,7 +106,7 @@ class Hand:
 
     def __init__(self, R):
         self.R = R
-        self.base = C.hand_sdf(R, 0.0)
+        self.base = bare_hand_sdf(R)
         self.nails = {n: self._nail_frame(n) for n in C.FINGERS}
         self.tendons = []
         for n in C.FINGERS[:4]:
@@ -165,6 +168,51 @@ class Hand:
         return f
 
 
+def bare_palm_sdf(R):
+    """characters.palm_sdf without its wrist piece: the bare arm's own forearm runs into the heel of the hand
+    (two coincident surfaces under a smooth union swell and leave a ring)."""
+    W, fwd, lat, dors = R.W, R.fwd, R.lat, R.dors
+    hf = np.array([fwd, lat, dors])
+    mcp = R.mcp
+    knuck = np.mean(list(mcp.values()), axis=0)
+    span = float(np.linalg.norm(knuck - W))
+    bases = {f: R.h(f + "_metacarpal") for f in C.FINGERS[:4]}
+
+    def f(p):
+        d = None
+        for name in C.FINGERS[:4]:
+            a = bases[name] + (W - bases[name]) * 0.25 - dors * 0.002
+            b = mcp[name] + dors * 0.0015
+            e = sdf.round_cone(p, a, b, 0.0098, 0.0105)
+            d = e if d is None else sdf.smin(d, e, 0.009)
+        slab_c = W + fwd * (span * 0.50) - dors * 0.0045
+        d = sdf.smin(d, sdf.round_box(p, slab_c, hf, (span * 0.47, 0.0355, 0.0105), 0.0085), 0.008)
+        kl = C._n(mcp["pinky"] - mcp["index"])
+        kf = np.array([np.cross(kl, dors), kl, dors])
+        d = sdf.smin(d, sdf.ellipsoid(p, knuck - fwd * 0.010 - dors * 0.0085, kf, (0.011, 0.043, 0.0085)), 0.008)
+        t1, t2 = R.h("thumb_01"), R.h("thumb_02")
+        ta = C._n(t2 - t1)
+        tf = np.array([ta, C._n(np.cross(dors, ta)), C._n(np.cross(ta, np.cross(dors, ta)))])
+        d = sdf.smin(d, sdf.ellipsoid(p, t1 + (t2 - t1) * 0.45 - dors * 0.010 + lat * 0.010, tf, (0.031, 0.018, 0.0145)), 0.010)
+        d = sdf.smin(d, sdf.ellipsoid(p, W + fwd * 0.040 + lat * 0.026 - dors * 0.008, hf, (0.032, 0.0125, 0.0125)), 0.010)
+        return d
+    return f
+
+
+def bare_hand_sdf(R):
+    palm = bare_palm_sdf(R)
+    fingers = {n: C.finger_sdf(R, n, 0.0) for n in C.FINGERS}
+
+    def f(p):
+        d = palm(p)
+        fd = None
+        for n in C.FINGERS:
+            e = sdf.smin(d, fingers[n](p), 0.0075 if n != "thumb" else 0.011)
+            fd = e if fd is None else np.minimum(fd, e)
+        return fd
+    return f
+
+
 def T_smooth(a, b, x):
     t = np.clip((x - a) / (b - a), 0, 1)
     return t * t * (3 - 2 * t)
@@ -175,9 +223,8 @@ def whole_field(R, hand):
     hf = hand.field(True)
 
     def f(p):
-        # nearly a plain union: the hand carries its own wrist piece with the same section as the arm there, and
-        # a wide smooth union of two coincident surfaces swells them (k / 4) and leaves a ring where one ends
-        return sdf.smin(arm(p), hf(p), 0.003)
+        # the hand has no wrist piece of its own (bare_palm_sdf): the forearm's flattened end is the heel
+        return sdf.smin(arm(p), hf(p), 0.010)
     return f
 
 
@@ -248,6 +295,11 @@ def regions(R, ob):
     fc = C.face_centres(ob)
     s, _x, _y = R.fore_coords(fc)
     lab, dors, _cuff = C.glove_regions(R, fc)
+    fn = np.empty(len(ob.data.polygons) * 3)
+    ob.data.polygons.foreach_get("normal", fn)
+    fn = fn.reshape(-1, 3)
+    body = lab == 0                                        # the hand itself (not a finger): back by the normal
+    dors = np.where(body, fn @ R.dors > -0.25, dors)
     reg = np.where(dors, 1, 2)
     reg[s > 0.022] = 0
     return reg
