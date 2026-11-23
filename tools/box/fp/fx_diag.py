@@ -5,7 +5,8 @@ Builds four test materials under /Game/FX/Diag and puts five 50 cm cards 3 m in 
 (-2900, 80, 170) looking +X, left to right: translucent constant, translucent + DepthFade, translucent + the smoke
 Custom node, M_FX_Smoke itself (Opacity 1), M_FX_Flash (additive, the control). Then:
   bash shot.sh <out.jpg> cam=-2900,80,170,0,0,0 fov=50 frames=40
-fx_diag.py clean removes the cards. Nothing here is committed content.
+tools/box/fp/fx_diag_clean.py removes the cards (the editor's Python does not see the client's environment or
+arguments). Nothing here is committed content.
 """
 import os
 import sys
@@ -76,9 +77,5 @@ def main():
     return out
 
 
-if os.environ.get("MI_DIAG") == "clean" or "clean" in getattr(sys, "argv", []):
-    clean()
-    RESULT = "cleaned"
-else:
-    RESULT = main()
+RESULT = main()
 RESULT
