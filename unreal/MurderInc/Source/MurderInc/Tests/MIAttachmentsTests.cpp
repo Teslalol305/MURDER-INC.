@@ -1,5 +1,6 @@
 // LOADOUT.md 8.2: the attachment effects, resolved on the gun's JSON before parsing.
 
+#include "Core/Data/MIDataSubsystem.h"
 #include "Core/Data/MILoadoutData.h"
 #include "Core/MIMath.h"
 #include "Misc/AutomationTest.h"
