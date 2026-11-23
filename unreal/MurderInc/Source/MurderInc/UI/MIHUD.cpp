@@ -182,10 +182,26 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 	const double H = Canvas->ClipY;
 	if (S == EMIGameState::Intro || S == EMIGameState::Playing)
 	{
-		// Objective and tally, top left.
-		DrawText(V.Objective.ToUpper(), White, W * 0.03, H * 0.04, Font, 1.3f);
-		const FString Tally = Rules.GetMode() == TEXT("mission") ? FString::Printf(TEXT("%d / %d"), V.Reels, V.ReelsTotal) : V.Tally;
-		DrawText(Tally, Amber, W * 0.03, H * 0.04 + 30.0, Font, 1.2f);
+		// Objective and tally, top left, on a soft dark band (fix pass: over brick, sky or a water tank the thin counter
+		// did not read). The counter is in the display face, larger, under the title.
+		{
+			const double K = H / 1080.0;
+			const FString Title = V.Objective.ToUpper();
+			const FString Tally = Rules.GetMode() == TEXT("mission") ? FString::Printf(TEXT("%d / %d"), V.Reels, V.ReelsTotal) : V.Tally;
+			UFont* Big = MIStyle::CanvasDisplay();
+			const float TallyScale = static_cast<float>(K * 1.15);
+			float TW = 0.f, TH = 0.f, CW = 0.f, CH = 0.f;
+			GetTextSize(Title, TW, TH, Font, 1.3f);
+			GetTextSize(Tally, CW, CH, Big, TallyScale);
+			const double X0 = W * 0.03, Y0 = H * 0.04;
+			const double Pad = 12.0 * K;
+			if (!Title.IsEmpty() || !Tally.IsEmpty())
+			{
+				DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.42f), X0 - Pad, Y0 - Pad * 0.6, FMath::Max(TW, CW) + Pad * 2.0, TH + CH + 4.0 * K + Pad * 1.4);
+			}
+			DrawText(Title, White, X0, Y0, Font, 1.3f);
+			DrawText(Tally, Amber, X0, Y0 + TH + 4.0 * K, Big, TallyScale);
+		}
 		// Markers: objective codes where they are, with the distance. Hidden while the weapon wheel is open, so its
 		// labels never collide with them.
 		const AMIPlayerCharacter* P = Cast<AMIPlayerCharacter>(GetOwningPawn());
@@ -202,8 +218,22 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 			const double Metres = P ? FVector::Dist(P->GetActorLocation(), At) / 100.0 : 0.0;
 			const FString Label = FString::Printf(TEXT("[%s] %dm"), *M.Code, FMath::RoundToInt32(Metres));
 			float TW = 0.f, TH = 0.f;
-			GetTextSize(Label, TW, TH, Font, 1.0f);
-			DrawText(Label, M.bExit ? FLinearColor(0.5f, 1.f, 0.6f, 1.f) : Amber, Screen.X - TW * 0.5, Screen.Y - TH * 0.5, Font, 1.0f);
+			GetTextSize(Label, TW, TH, Font, 1.1f);
+			// Never on the crosshair (fix pass: "[1] 24m" sat on the point of aim): a marker inside the centre ring is
+			// pushed out along its own direction (straight up when it is dead centre).
+			FVector2D C(Screen.X, Screen.Y);
+			const FVector2D Mid(W * 0.5, H * 0.5);
+			const double Ring = H * 0.075;
+			const FVector2D Off = C - Mid;
+			if (Off.Size() < Ring)
+			{
+				const FVector2D Dir = Off.Size() > 1.0 ? Off / Off.Size() : FVector2D(0.0, -1.0);
+				C = Mid + Dir * Ring;
+			}
+			// On a dark backing, so it reads over the truck, the sky or sunlit brick.
+			const double Pad = 5.0;
+			DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), C.X - TW * 0.5 - Pad, C.Y - TH * 0.5 - Pad * 0.5, TW + Pad * 2.0, TH + Pad);
+			DrawText(Label, M.bExit ? FLinearColor(0.5f, 1.f, 0.6f, 1.f) : Amber, C.X - TW * 0.5, C.Y - TH * 0.5, Font, 1.1f);
 		}
 		// The hold prompt with its fill.
 		if (!V.Prompt.IsEmpty())
@@ -242,8 +272,10 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 		float TW = 0.f, TH = 0.f;
 		GetTextSize(Speaker + Radio.Current, TW, TH, Font, 1.1f);
 		const double X0 = Canvas->ClipX * 0.5 - TW * 0.5;
-		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.42f), X0 - 14.0, H * 0.84 - 6.0, TW + 28.0, TH + 12.0);
-		DrawText(Speaker + Radio.Current.Left(Shown), FLinearColor(0.75f, 0.9f, 1.f, 1.f), X0, H * 0.84, Font, 1.1f);
+		// At 0.815 of the height (fix pass: at 0.84 its band touched the weapon strip's band, which now has a tag row).
+		const double RY = H * 0.815;
+		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.42f), X0 - 14.0, RY - 6.0, TW + 28.0, TH + 12.0);
+		DrawText(Speaker + Radio.Current.Left(Shown), FLinearColor(0.75f, 0.9f, 1.f, 1.f), X0, RY, Font, 1.1f);
 	}
 }
 
@@ -312,6 +344,39 @@ void AMIHUD::DrawWeaponBar(const AMIPlayerCharacter& Player, UMIGameSubsystem* G
 	const double Total = N * (SW + Gap) + MeleeW + Gap + BagW;
 	double X = Canvas->ClipX - Total - 40.0 * K;
 	const double Y = Canvas->ClipY - SH - 40.0 * K;
+	const double TagH = 26.0 * K;  // the row above the slots: the mode badges
+	// The fire-mode prompt on a two-mode gun (the selector works without its clip): the key as a key cap, then what it
+	// does ("[B] SWITCH TO SEMI"), left of the slots on the tag row, so it never reads as a second mode beside the
+	// badge (fix pass: "B SEMI" next to "AUTO" read as two modes, and the aimed gun covered the "B").
+	FString Prompt;
+	double PromptW = 0.0;
+	const float PS = static_cast<float>(K * 0.75);
+	const double Cap = TagH - 4.0 * K;
+	if (R.HasTwoModes(R.GetCurrentIndex()))
+	{
+		const bool bSemi = R.IsSemi(R.GetCurrentIndex());
+		FString To = Loadout ? Loadout->Text(bSemi ? TEXT("frontend.hud.modes.auto") : TEXT("frontend.hud.modes.semi")) : FString();
+		if (To.IsEmpty()) To = bSemi ? TEXT("AUTO") : TEXT("SEMI");
+		FString Verb = Loadout ? Loadout->Text(TEXT("frontend.hud.modes.switchTo")) : FString();
+		if (Verb.IsEmpty()) Verb = TEXT("SWITCH TO");
+		Prompt = Verb + TEXT(" ") + To;
+		float PW = 0.f, PH = 0.f;
+		GetTextSize(Prompt, PW, PH, Small, PS);
+		PromptW = Cap + 8.0 * K + PW;
+	}
+	const double PromptX = X - (PromptW > 0.0 ? PromptW + 16.0 * K : 0.0);
+	// The whole strip on a soft dark band (fix pass: the tags floated over the gun's receiver and stock).
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.4f), PromptX - 12.0 * K, Y - TagH - 12.0 * K, X - PromptX + Total + 24.0 * K, SH + TagH + 24.0 * K);
+	if (!Prompt.IsEmpty())
+	{
+		float TW = 0.f, TH = 0.f;
+		GetTextSize(TEXT("B"), TW, TH, Small, PS);
+		const double PY = Y - TagH;
+		DrawPlate(PromptX, PY, Cap, Cap, WithAlpha(Plate(), 0.9f), Ink(), 1.5f);
+		DrawText(TEXT("B"), Ink(), PromptX + (Cap - TW) * 0.5, PY + (Cap - TH) * 0.5, Small, PS);
+		GetTextSize(Prompt, TW, TH, Small, PS);
+		DrawText(Prompt, InkDim(), PromptX + Cap + 8.0 * K, PY + (Cap - TH) * 0.5, Small, PS);
+	}
 	static const TCHAR* Glyphs[] = {TEXT("1"), TEXT("2"), TEXT("3"), TEXT("4")};
 	for (int32 I = 0; I < N; ++I)
 	{
@@ -337,12 +402,25 @@ void AMIHUD::DrawWeaponBar(const AMIPlayerCharacter& Player, UMIGameSubsystem* G
 		float TW = 0.f, TH = 0.f;
 		GetTextSize(Count, TW, TH, Big, static_cast<float>(K * 0.9));
 		DrawText(Count, Mag == 0 ? Red() : (bCurrent ? Ink() : InkDim()), X + SW - TW - 10.0 * K, Y + SH - TH - 2.0 * K, Big, static_cast<float>(K * 0.9));
-		// AUTO / SEMI on a gun with both modes.
+		// The gun's mode (AUTO / SEMI) as one badge over its slot: filled on the gun in hand, outlined on the others.
 		if (R.HasTwoModes(I))
 		{
-			const FString Mode = Loadout ? Loadout->Text(R.IsSemi(I) ? TEXT("frontend.hud.modes.semi") : TEXT("frontend.hud.modes.auto")) : FString(R.IsSemi(I) ? TEXT("SEMI") : TEXT("AUTO"));
-			GetTextSize(Mode, TW, TH, Small, static_cast<float>(K * 0.75));
-			DrawText(Mode, Cyan(), X + SW - TW - 6.0 * K, Y - TH - 2.0 * K, Small, static_cast<float>(K * 0.7));
+			FString Mode = Loadout ? Loadout->Text(R.IsSemi(I) ? TEXT("frontend.hud.modes.semi") : TEXT("frontend.hud.modes.auto")) : FString();
+			if (Mode.IsEmpty()) Mode = R.IsSemi(I) ? TEXT("SEMI") : TEXT("AUTO");
+			const float MS = static_cast<float>(K * 0.75);
+			GetTextSize(Mode, TW, TH, Small, MS);
+			const double BW = TW + 12.0 * K, BH = TagH - 4.0 * K;
+			const double BX = X + SW - BW, BY = Y - TagH;
+			if (bCurrent)
+			{
+				DrawPlate(BX, BY, BW, BH, WithAlpha(Cyan(), 0.9f), Cyan());
+				DrawText(Mode, Bg(), BX + 6.0 * K, BY + (BH - TH) * 0.5, Small, MS);
+			}
+			else
+			{
+				DrawPlate(BX, BY, BW, BH, WithAlpha(Plate(), 0.85f), WithAlpha(Cyan(), 0.6f));
+				DrawText(Mode, WithAlpha(Cyan(), 0.8f), BX + 6.0 * K, BY + (BH - TH) * 0.5, Small, MS);
+			}
 		}
 		// One pip per fitted non-baseline attachment.
 		int32 Pips = 0;
@@ -381,12 +459,6 @@ void AMIHUD::DrawWeaponBar(const AMIPlayerCharacter& Player, UMIGameSubsystem* G
 		float TW = 0.f, TH = 0.f;
 		GetTextSize(Value, TW, TH, Big, static_cast<float>(K * 1.05));
 		DrawText(Value, Bag == 0.0 ? Red() : Ink(), X + BagW - TW - 10.0 * K, Y + SH - TH - 2.0 * K, Big, static_cast<float>(K * 1.05));
-	}
-	// The fire-mode prompt on a two-mode gun (the selector works without its clip).
-	if (R.HasTwoModes(R.GetCurrentIndex()))
-	{
-		const FString Prompt = FString::Printf(TEXT("B  %s"), *(Loadout ? Loadout->Text(R.IsSemi(R.GetCurrentIndex()) ? TEXT("frontend.hud.modes.auto") : TEXT("frontend.hud.modes.semi")) : FString()));
-		DrawText(Prompt, InkFaint(), Canvas->ClipX - Total - 40.0 * K, Y - 26.0 * K, Small, static_cast<float>(K * 0.8));
 	}
 }
 

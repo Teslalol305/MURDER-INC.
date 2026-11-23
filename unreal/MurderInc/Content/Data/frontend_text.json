@@ -317,7 +317,7 @@
       "about": "the Style line shows the mode tagline (text.location.tagline / taglineHoldout); the radio intro is not printed, the intro plays it"
     },
     "cards": {"changeSetup": "Change set-up"},
-    "hud": {"modes": {"auto": "AUTO", "semi": "SEMI"}, "wheel": "Pick a gun", "empty": "Empty", "bag": "BAG"},
+    "hud": {"modes": {"auto": "AUTO", "semi": "SEMI", "switchTo": "SWITCH TO"}, "wheel": "Pick a gun", "empty": "Empty", "bag": "BAG"},
     "weapons": {
       "shorty": {"name": "SHORTY", "blurb": "Short-barrel rail carbine, 30 rounds, quick in tight spots"},
       "stick": {"name": "STICK", "blurb": "Rail carbine, 30 rounds, takes every attachment"},
