@@ -91,9 +91,13 @@ PROGRESS sections to see how far each got):
 | Workflow | Script in `tools/workflows/` | What it does |
 |---|---|---|
 | Vehicles close-up rounds | `mi-vehicles-verify-fix-*.js` | modelled wheels, lamps, glass, interiors; independent grade each round |
-| Loadout flow | `mi-loadout-build-*.js` | the home-screen flow in C++: crew, pick four guns, attachments, level and mode; review and fix |
 | Goons round 2 | `mi-goons-v2-*.js` | masks with real head structure, cloth materials, fits, sneakers; review, rebuild, re-review |
 | Main character arms round 3 | `mi-rule-arms-v2-*.js` | first-person bare tattooed arms and hands, grips; review, rebuild, re-review |
+| Goons round 3 | `mi-goons-v2-*.js` | masks redesigned (round 2's read as a racial caricature: must never ship), fold lighting, cloth; re-review |
+| First-person in the game | `mi-first-person-*.js` | step 2 below: pack rifle as CHOPPER, bare arms, camera recipe, Goons as enemies, effects; review and fix |
+
+The loadout flow finished: all six screens work with keyboard, mouse and gamepad; 100 of 101 tests pass (the one failure
+is the audio test that needs `node tools/ue-export/audio.mjs` run on the box); parity replays show 0 mismatches.
 
 ## 5. Next steps, in order
 
