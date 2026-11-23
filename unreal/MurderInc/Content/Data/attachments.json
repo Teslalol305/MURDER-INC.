@@ -187,11 +187,11 @@
         "packPart": "folding front and rear iron sights, up",
         "sockets": {"sightRear": "SightEye"},
         "relief": 0.12,
-        "folded": "the same part folded down whenever another optic is fitted; if the Meshes/ listing shows the irons baked into the combined rifle, they stay up under the scope until they are split off (LOADOUT.md 6.2)"
+        "folded": "fitting another optic switches the base mesh to the length's Combined_Folded twin (both irons folded flat, top at 8.11 cm, under the scope's 10.06 cm axis); the standing irons top out at 10.27 cm and would block the scope"
       },
       "art": {
-        "status": "inPack",
-        "notes": "pack part or part of the combined rifle: the Meshes/ listing decides (LOADOUT.md 6.2)"
+        "status": "exists",
+        "notes": "baked into each Combined rifle (rear sight on bone Sight_Rear, front on Handguard), standing; folded in the rifle's Combined_Folded twin (guns.json variants.open.opticMesh). Sight line measured: rear aperture centre (0, 0.844, 9.656) cm, front post tip 9.65 cm over the gun origin, 6.12 cm over the bore"
       }
     },
     "scope": {
@@ -207,15 +207,16 @@
         {"stat": "sway", "op": "mul", "value": 1.2}
       ],
       "presentation": {
-        "mesh": null,
+        "mesh": "/Game/ThirdParty/InfimaTFA/Weapon/Attachments/SM_TFA_AR_ATT_Scope.SM_TFA_AR_ATT_Scope",
+        "socketOffsetsCm": {"SightEye": [0.0, -4.322, 3.311]},
         "packPart": "scope",
         "sockets": {"sightRear": "SightEye"},
         "relief": 0.09,
-        "lens": "the lens material draws the reticle; the world view narrows to adsFov as the sight comes up (no second render)"
+        "lens": "M_TFA_AR_Reticle: a collimated illuminated reticle (1.5 mrad dot in a 16 mrad ring, red, additive) drawn where the view ray is parallel to the scope's axis, so it stays on the point of aim at any eye position; the window is smoked glass (M_TFA_AR_Glass); the world view narrows to adsFov as the sight comes up (no second render)"
       },
       "art": {
-        "status": "inPack",
-        "notes": "pack part, not imported. SightEye: a socket on the scope's eye axis at the ocular lens, written by the socket pass"
+        "status": "exists",
+        "notes": "imported on the box (ue_import_guns.py) with M_TFA_AR_Glass on its window and M_TFA_AR_Reticle on its reticle plane; SightEye on the pack author's aim axis (the rig's AimPoint height) at the rear face; sits on the gun's Optic socket (the pack's own Scope bone on the receiver rail)"
       }
     },
     "silencer": {
@@ -234,15 +235,16 @@
         {"stat": "length", "op": "mul", "value": 1.12}
       ],
       "presentation": {
-        "mesh": null,
+        "mesh": "/Game/ThirdParty/InfimaTFA/Weapon/Attachments/SM_TFA_AR_ATT_Silencer.SM_TFA_AR_ATT_Silencer",
+        "socketOffsetsCm": {"Muzzle": [0.0, 18.09, 0.0]},
         "packPart": "silencer",
         "sockets": {"muzzle": "Muzzle"},
         "sound": "suppressed",
         "smoke": "muzzle smoke from the silencer's end, half density"
       },
       "art": {
-        "status": "inPack",
-        "notes": "pack part, not imported; a Muzzle socket at its far end is written by the socket pass. Suppressed gun sounds: missing (audio)"
+        "status": "exists",
+        "notes": "imported on the box; coaxial with the bore by construction (its axis at x 0, z 0 in its frame; the gun's MuzzleMount on the bore axis at the barrel shoulder 5.8 cm behind the muzzle). Suppressed gun sounds: missing (audio)"
       }
     },
     "grip_vertical": {
@@ -256,14 +258,15 @@
         {"stat": "swapTime", "op": "mul", "value": 1.05}
       ],
       "presentation": {
-        "mesh": null,
+        "mesh": "/Game/ThirdParty/InfimaTFA/Weapon/Attachments/SM_TFA_AR_ATT_Grip_Vertical.SM_TFA_AR_ATT_Grip_Vertical",
+        "socketOffsetsCm": {"SupportHand": [0.0, -0.092, -4.251]},
         "packPart": "vertical grip",
         "sockets": {"support": "SupportHand"},
         "handPose": "GripVertical"
       },
       "art": {
-        "status": "inPack",
-        "notes": "pack part, not imported; SupportHand socket written by the socket pass; the GripVertical pose is a pack clip"
+        "status": "exists",
+        "notes": "imported on the box; clamps the handguard's bottom rail at the gun's Underbarrel socket (the pack author's grip frame); the GripVertical pose is a pack clip"
       }
     },
     "grip_angled": {
@@ -277,14 +280,15 @@
         {"stat": "recoil.yaw", "op": "mul", "value": 1.12}
       ],
       "presentation": {
-        "mesh": null,
+        "mesh": "/Game/ThirdParty/InfimaTFA/Weapon/Attachments/SM_TFA_AR_ATT_Grip_Angled.SM_TFA_AR_ATT_Grip_Angled",
+        "socketOffsetsCm": {"SupportHand": [0.0, -4.542, -2.918]},
         "packPart": "angled grip",
         "sockets": {"support": "SupportHand"},
         "handPose": "GripAngled"
       },
       "art": {
-        "status": "inPack",
-        "notes": "pack part, not imported; SupportHand socket written by the socket pass; the GripAngled pose is a pack clip"
+        "status": "exists",
+        "notes": "imported on the box; clamps the bottom rail at the Underbarrel socket; the GripAngled pose is a pack clip"
       }
     },
     "laser": {
@@ -299,7 +303,8 @@
         {"stat": "swapTime", "op": "mul", "value": 1.04}
       ],
       "presentation": {
-        "mesh": null,
+        "mesh": "/Game/ThirdParty/InfimaTFA/Weapon/Attachments/SM_TFA_AR_ATT_Laser.SM_TFA_AR_ATT_Laser",
+        "socketOffsetsCm": {"Beam": [-1.073, 4.57, 1.606]},
         "packPart": "laser",
         "sockets": {"beam": "Beam"},
         "beam": {
@@ -311,8 +316,8 @@
         }
       },
       "art": {
-        "status": "inPack",
-        "notes": "pack part, not imported; Beam socket written by the socket pass; beam and dot: a line-batcher placeholder like the tracers, a Niagara beam later (missing)"
+        "status": "exists",
+        "notes": "imported on the box; on the right side rail at the gun's Laser socket (the pack author's laser frame); Beam at the author's LaserStart point, the beam along +Y of the part. Length along the bore 155 mm (the unit with its pressure-switch tail; body alone 56 mm): over the NINE's 50 mm gate. Beam and dot: a line-batcher placeholder like the tracers, a Niagara beam later (missing)"
       }
     },
     "mag_standard": {
@@ -321,10 +326,10 @@
       "source": "pack",
       "text": "frontend.attachments.items.magStandard",
       "effects": [],
-      "presentation": {"mesh": null, "packPart": "standard magazine (SK_TFA_AR_Magazine)"},
+      "presentation": {"mesh": "/Game/ThirdParty/InfimaTFA/Weapon/Attachments/SM_TFA_AR_Magazine_Full.SM_TFA_AR_Magazine_Full", "packPart": "standard magazine (SK_TFA_AR_Magazine)"},
       "art": {
         "status": "exists",
-        "notes": "SK_TFA_AR_Magazine is imported on the box (tools/box/anim/ue_import_pack.py)"
+        "notes": "imported on the box: SM_TFA_AR_Magazine_Full (static, on MagHinge = the rifle's Magazine bone) and the skeletal SK_TFA_AR_Magazine for the reload clips"
       }
     },
     "mag_clear": {
@@ -336,9 +341,9 @@
         {"stat": "recoil.pitch", "op": "mul", "value": 1.04}
       ],
       "presentation": {
-        "mesh": null,
+        "mesh": "/Game/ThirdParty/InfimaTFA/Weapon/SK_TFA_AR_Magazine_Transparent.SK_TFA_AR_Magazine_Transparent",
         "packPart": "transparent magazine",
-        "fill": "material scalar RoundsShown = magazine rounds / magazine size, so the rounds left show through the polymer",
+        "fill": "RoundsShown = magazine rounds: A_TFA_AR_Magazine_FireDepletion (1 s, one frame per round fired) held at (magSize - rounds) / 30 s on SK_TFA_AR_Magazine_Transparent, rounds as SM_TFA_AR_Bullet on its Bullet_001..030 bones (the clip scales spent rounds to zero); no material parameter needed",
         "clips": {
           "ReloadTactical": "ReloadQuick",
           "ReloadEmpty": "ReloadEmptyRetain",
@@ -346,8 +351,8 @@
         }
       },
       "art": {
-        "status": "inPack",
-        "notes": "pack part (or a material of the magazine: the listing decides), not imported; the RoundsShown parameter is missing"
+        "status": "exists",
+        "notes": "imported on the box: the skeletal clear magazine (polymer in MI_TFA_AR_MagPolymer, smoked glass) with one SM_TFA_AR_Bullet on each Bullet_001..030 bone; RoundsShown is the pack's own A_TFA_AR_Magazine_FireDepletion clip held at time (30 - rounds) / 30 s, which lifts the follower and hides the spent rounds (mi_guns.magazine)"
       }
     },
     "stock_open": {
@@ -357,7 +362,7 @@
       "text": "frontend.attachments.items.stockOpen",
       "effects": [],
       "presentation": {"mesh": null, "variant": "open", "packPart": "the rifle variant with the stock open"},
-      "art": {"status": "inPack", "notes": "the open variants: Default exists on the box, Short and Extended inPack"}
+      "art": {"status": "exists", "notes": "the Combined rifle of each length (guns.json variants.open), imported on the box"}
     },
     "stock_folded": {
       "slot": "stock",
@@ -378,7 +383,7 @@
         "packPart": "the rifle variant with the stock folded",
         "note": "not a child mesh: the gun's base mesh switches to its `folded` variant (guns.json variants)"
       },
-      "art": {"status": "inPack", "notes": "the folded variants of the three lengths: inPack"}
+      "art": {"status": "missing", "notes": "the pack has no folded stock (its '_Folded' rifles fold the irons; the stock is identical in all six, measured): new art needed"}
     }
   },
   "compatibility": {
@@ -400,14 +405,7 @@
       }
     },
     "nine": {
-      "laser": {
-        "options": ["laser"],
-        "default": null,
-        "required": false,
-        "mount": "Laser",
-        "note": "the accessory rail under the dust cover. Hidden until the Laser socket exists on SK_Nine and the pack laser is measured: if it is longer than gate.maxLength it overhangs the 0.201 m muzzle, this row is dropped and a compact pistol laser becomes missing art",
-        "gate": {"maxLength": 0.05, "measure": "the pack laser's length along the bore, after import"}
-      }
+      "note": "laser row dropped by its gate: the pack laser measures 155 mm along the bore (56 mm without its pressure-switch tail), over gate.maxLength 0.05 m; a compact pistol laser is missing art (LOADOUT.md 6.6, ANIMATION.md 8)"
     },
     "shorty": {
       "optic": {"options": ["irons", "scope"], "default": "irons", "required": true, "mount": "Optic"},

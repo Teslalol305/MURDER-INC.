@@ -223,3 +223,171 @@ Pitfalls met here: a sequence created by `AnimSequenceFactory` has no bone track
 returns False without raising (create the track first); a clip whose length is not a whole number of 30 fps frames
 crashes the editor when it is compressed (`AnimCompressionTypes.cpp:993`); the Interchange import of a skinned GLB
 leaves its new skeleton unsaved, so an editor restart loses it.
+
+## 8. The pack rifles and their parts (LOADOUT.md 6.2)
+
+### 8.1 What `Meshes/` holds
+
+Listed on the box (`FBX_Files_TacticalAssaultRifle/Meshes`, 29 files) and parsed with `tools/box/anim/bl_meshes.py`
+(objects, vertex groups, materials, bounding boxes, connected pieces; facts in `/project/ue/animpack/facts/meshes.json`).
+
+| File | What it is | Verts / tris | Material slots |
+|---|---|---|---|
+| `SK_TFA_AR` | the bare receiver: lower, upper, fixed stock, grip, bolt, charging handle, controls; **no handguard, no irons** | 14,099 / 14,889 | `MI_TFA_AR_01`, `_02` |
+| `SK_TFA_AR_{Short,Default,Extended}_Combined` | the whole rifle of one length, **irons standing** | 22,509 / 23,300 / 24,867 verts | `_01`..`_03` (Short), `_01`..`_04` |
+| `SK_TFA_AR_{Short,Default,Extended}_Combined_Folded` | the same rifle with **both irons folded flat** (same vertex count) | as above | as above |
+| `SK_TFA_AR_Magazine`, `SK_TFA_AR_Magazine_Transparent` | skeletal magazines on the 42-bone magazine rig (follower, 8 spring bones, `Bullet_001..030`; the rounds have no geometry of their own: the rig carries `SM_TFA_AR_Bullet` per bone) | 6,058 / 7,427 | `_02` (+ `MI_TFA_AR_Scope_Glass` on the clear one) |
+| `SM_TFA_AR_ATT_Scope` | a prism / holographic-style sight: body, a glass window, a reticle plane | 2,214 | `MI_TFA_AR_ATT_01`, `_Scope_Glass`, `_Scope_Reticle` |
+| `SM_TFA_AR_ATT_Silencer` | one piece | 1,408 | `MI_TFA_AR_ATT_01` |
+| `SM_TFA_AR_ATT_Grip_Vertical`, `_Grip_Angled` | | 550, 255 | `_ATT_02`, `_ATT_03` |
+| `SM_TFA_AR_ATT_Laser` | laser / light unit with its pressure-switch tail | 2,366 | `_ATT_02` |
+| `SM_TFA_AR_ATT_Sight_{Front,Rear}[_Folded]` | the folding irons alone, up and down | 579, 781 | `_01` |
+| `SM_TFA_AR_Handguard_{Short,Default,Extended}` | the handguards alone (the rig's parts) | 2,504 / 2,824 / 3,462 | `_03` (+ `_04` barrel) |
+| `SM_TFA_AR_Magazine_{Full,Empty}`, `_Transparent_{Full,Empty}` | static magazines, rounds baked in or not | 3,010 / 3,842 | `_02` (+ glass) |
+| `SM_TFA_AR_Bullet`, `_Bullet_Casing`, `SM_TFA_AR_GunCase`, `_GunCase_Lid` | round, case, transport case | | |
+
+**Per rifle, measured:** the irons and the handguard are **baked into the skinned Combined mesh**, not separate meshes
+and not their own sections: the rear sight is skinned to bone `Sight_Rear` (1,631 vertices), the front sight, the
+handguard and the barrel to bone `Handguard` (7,568 on the Default); the irons share material slot `_01` with the
+receiver. Their folded state is the `_Folded` twin. **The stock is baked into the receiver (bone `Grip`) and is the
+same in all six rifles**: the `Grip`-bone vertices of `Combined` and `Combined_Folded` have identical bounds, the
+only difference between the twins is the sight height (10.27 cm standing, 8.11 cm folded). **The pack has no folded
+stock.** LOADOUT.md's "stock open or folded" reading of `_Folded` is wrong: `_Folded` means folded irons.
+
+Consequences, written into the data: `guns.json variants.open` is the Combined rifle and `variants.open.opticMesh` its
+`_Folded` twin, the base mesh whenever an optic is fitted (the standing irons top out at 10.27 cm, above the scope's
+10.06 cm sight axis, and would block it; folded they end at 8.11 cm); `variants.folded` (stock) and `stock_folded`
+are **missing** (new art), so the stock slot is not offered (`FMIReadiness::OfferedParts` needs two variants).
+
+### 8.2 Import, textures, materials
+
+`tools/box/anim/ue_import_guns.py` (inside a running editor `start()`, as a commandlet `--sync`), after
+`ue_import_pack.py` has made the rifle and magazine skeletons:
+
+- the six rifles onto the shared `SK_TFA_AR_Default_Combined_Skeleton` (16 bones, so every weapon clip of the pack
+  plays on every length), `SK_TFA_AR_Magazine_Transparent` onto the magazine skeleton, the 18 static parts into
+  `Weapon/Attachments`, the magazine's `A_TFA_AR_Magazine_FireDepletion` clip (ue_import_pack leaves magazine clips
+  out). Bounds in Unreal equal the Blender measurements to 0.001 cm (gun space: +Y to the muzzle, +X the gun's left,
+  +Z up; Unreal = Blender (x, -y, z) for these files; bone `Handguard` at (0, 16.508, 4.41) in both);
+- the pack's Unreal texture set at its full **4096 x 4096**: 7 sets (`01`..`04`, `Attachments_01`..`03`) of `_D`
+  (sRGB), `_N`, `_ORM`, and `T_TFA_AR_Scope_Reticle_D` (512). **Normal maps: DirectX**, imported without a green flip:
+  the Unreal `_N` green channel is exactly 255 minus the Blender (OpenGL) map's (mean difference 0.00002 over the
+  image). **ORM packing checked against the Blender folder's single maps**: R = AO, G = roughness, B = metallic, each
+  identical to its single map (mean difference 0), so `srgb` off and `TC_MASKS`;
+- `Materials/M_TFA_AR_Surface` (BaseColor, Normal, ORM parameters; `RoughnessScale`) and one instance per pack slot
+  name (`MI_TFA_AR_01`..`04`, `MI_TFA_AR_ATT_01`..`03`), assigned by slot name; `M_TFA_AR_Glass` (translucent, surface
+  per-pixel lighting, smoked 0.22 opacity) on the scope window, `MI_TFA_AR_MagPolymer` (0.32) on the clear magazine;
+  `M_TFA_AR_Reticle` on the scope's reticle plane (8.4). The lit close-up of the receiver and the side views
+  (`packguns-kit.jpg`, `packguns-lengths.jpg`) were looked at: engraving and knurling read raised and recessed the
+  right way round under a raking light, metal and polymer separate in roughness.
+
+### 8.3 Sockets, from measured geometry
+
+`tools/box/anim/bl_measure.py` measures the six rifles and the parts with bpy (facts `facts/pack_sockets.json`, digest
+`tools/box/anim/pack_measure.json`, numbers only); the socket pass `ue_import_guns.sockets()` turns the digest into
+sockets on both meshes of every length and on the parts, and runs at the end of every import. The pack author's own
+attachment frames (the `SOCKET_*` empties of the rig `.blend`, read by `bl_meshes.py`) say where each part's origin
+goes; every one was checked against the surface it must sit on. Gun space, cm, identity rotation (+Y is forward on
+every socket):
+
+| Socket | Bone | Short | Default | Extended | How it was placed |
+|---|---|---|---|---|---|
+| `Optic` | `Scope` | (0, 7.936, 6.745) | same | same | the pack's own Scope bone on the receiver rail; rail tooth tops measured at z 7.09, the scope's base clamps from 6.32 to 7.26 around them |
+| `MuzzleMount` | `Handguard` | (0, 44.147, 3.54) | (0, 49.655, 3.54) | (0, 58.221, 3.54) | on the bore axis (centre of the muzzle ring, radius 1.018) at the barrel shoulder 5.75 cm behind the muzzle: the radius profile has the 0.842 cm thread relief from 5.0 to 5.75 cm, identical on all three barrels. The author's Short / Extended frames sit there (5.8); his Default frame (48.0) is 1.6 cm further back, so the measurement wins |
+| `Muzzle` | `Handguard` | (0, 49.897, 3.54) | (0, 55.405, 3.54) | (0, 63.971, 3.54) | muzzle face, bore axis |
+| `Underbarrel` | `Handguard` | (0, 29.689, 0.71) | same | same | the author's grip frame; the bottom rail's underside measured at z 0.976 from y 20 to 34 on every length, the grips' clamps wrap it |
+| `Laser` | `Handguard` | (-1.908, 33.874, 3.602) | (-1.908, 38.737, 3.602) | (-1.886, 47.293, 3.602) | the author's laser frame on the right side rail (outer face measured at x -1.867 along the whole rail) |
+| `MagHinge` | `Magazine` | (0.007, 12.265, -7.021) | same | same | the Magazine bone (the magazine part's own origin; the well opening measured at y 7.1..15.7, z -5.18); the pack's magazine drops straight, so the "hinge" is the seat |
+| `Eject` | `Eject_Casing` | (-0.277, 10.795, 3.875) | same | same | the pack's casing bone in the ejection port (right side) |
+| `SightRear` | `Sight_Rear` | (0, 0.844, 9.656) | same | same | centre of the rear aperture (the largest gap, 9.238..10.075, of the rear sight's centre-line vertices) |
+| `SightFront` | `Handguard` | (0, 34.489, 9.65) | (0, 39.021, 9.65) | (0, 48.591, 9.65) | front post tip; the sight line is parallel to the bore, 6.11 cm over it |
+| `RecoilPivot` | `Grip` | (0, -27.502, 4.019) | same | same | centre of the butt pad |
+| `Palm_R`, `Palm_L` | `Grip`, `Handguard` | (-3.5, -4.2, -6.2), (3.4, 28.4, 0.6) | same | same | the palms as the pack's own FP clips hold the rifle (section 1) |
+
+Parts (their own frame, cm): scope `SightEye` (0, -4.322, 3.311) on the author's aim axis (the rig's `AimPoint`
+height) at the rear face; silencer `Muzzle` (0, 18.09, 0); vertical grip `SupportHand` (0, -0.092, -4.251) (body
+centre); angled grip `SupportHand` (0, -4.542, -2.918) (the rear ramp); laser `Beam` (-1.073, 4.57, 1.606) (the
+author's `LaserStart`, 1.5 mm in front of the emitter face).
+
+### 8.4 Every part on every variant, looked at
+
+`tools/box/anim/mi_guns.py` assembles a rifle exactly as `UMIGunAssembly` should: the length's Combined mesh, its
+`_Folded` twin when the scope is fitted, every part snapped to its socket with an identity transform, the magazine on
+`MagHinge`. All parts were mounted on all three lengths and seen from the side, close up per mount and from the
+first-person eye (`packguns-kit.jpg`, `packguns-irons-folded.jpg`, `packguns-fp-scope.jpg`):
+
+- scope on the rail, base clamped round the teeth, irons folded under it, window and reticle on the eye line;
+- silencer coaxial by construction (its axis is x 0, z 0 in its frame, the socket on the bore axis: 0.0 cm offset),
+  its back cap 0.49 cm behind the shoulder: the barrel enters it, nothing floats;
+- grips seated on the bottom rail, laser on the right side rail, clear of the handguard's end on every length;
+- the clear magazine shows its rounds: `SK_TFA_AR_Magazine_Transparent` with one `SM_TFA_AR_Bullet` per
+  `Bullet_001..030` bone, and `A_TFA_AR_Magazine_FireDepletion` (1 s, one frame per round) held at
+  (30 - rounds) / 30 s lifts the follower and scales the spent rounds to zero. That is **RoundsShown**, with no
+  material parameter (`attachments.json mag_clear.presentation.fill`);
+- **the scope's lens**: `M_TFA_AR_Reticle` is a collimated illuminated reticle, additive and unlit, drawn where the
+  view ray (`-CameraVector`) is within 1.5 mrad (dot) or on a 16 mrad ring of the scope's +Y axis, so the dot stays on
+  the point of aim from any eye position, as on a real red-dot or prism sight; colour and brightness are parameters.
+
+The pack laser measures **155 mm along the bore** (56 mm without its pressure-switch tail): over the NINE's 50 mm gate,
+so the NINE's laser row is dropped (`attachments.json compatibility.nine`) and a compact pistol laser is missing art.
+
+### 8.5 Icons
+
+`tools/box/anim/bl_icons.py` (bpy, Workbench, flat white, transparent film) renders `T_UI_Gun_{Shorty,Stick,Stretch}`
+(512 x 192, right side, muzzle right, one scale and one receiver position for the three so the lengths read: alpha
+spans x 14..420 / 449 / 494) and pips `T_UI_Att_<id>` (128 x 128) for irons, scope, silencer, both grips, laser and both
+magazines; `ue_import_guns.import_icons()` brings them into `/Game/UI/Icons` (UI group, no mips). On the box only
+(`/project/ue/animpack/icons`): pictures of the pack's meshes are never committed. `stock_open` / `stock_folded` have
+no pip (no stock art of their own).
+
+### 8.6 One command
+
+`tools/box/anim/import-animpack.sh <Project.uproject> guns` (the editor of that project stopped; `all` = `pack` +
+`guns`): as root it runs `bl_meshes`, `bl_rig`, `bl_measure` and `bl_icons` with bpy (`/opt/blpy`, made by
+`/project/ue/bl/install.sh`; without it the committed `pack_measure.json` and any icons already rendered are used),
+then as `ue4` the commandlet `ue_import_guns.py --sync` with `-RenderOffscreen -AllowCommandletRendering` (materials
+cannot compile under `-NullRHI`). Tested on a fresh project copy (`/project/ue/animpack-test/GunTest.uproject`, the
+mannequin content only; `pack` first for the two skeletons).
+
+## 9. The first-person camera recipe
+
+**What the clips say** (measured on the FP clips with `AnimPose`, component space, cm; the mannequin faces +Y):
+
+- the **head joint never moves**: (0, 0.66, 162.58), constant rotation, in every FP clip sampled (idle, aim pose, fire,
+  aim transitions, sprint, the reloads, inspect). The pack has no camera bone and no camera curves: the head *is* the camera anchor, the body animates
+  around it (the convention of first-person packs on the UE mannequin: a camera on the head, the head kept out of view);
+- in `Aim_Pose` and `Fire_Aimed` the M4's **iron sight line passes 0.58 cm under the head joint**, parallel to +Y
+  (rear aperture centre at (0, 12.22, 162.0), 11.56 cm ahead). No author documentation of the camera is on the box,
+  and the Fab page cannot be reached from here; these two facts fix the camera;
+- the hip hold (`Idle_Pose_Standing`, `Idle_Loop_Standing`) is a high ready: rear sight 13.5 cm ahead, 4.6 cm right,
+  2.2 cm low. **The `_Aimed` locomotion loops (`Idle_Loop_Aimed`, `Walk_*_Aimed`) hold the gun there too**, not on the
+  eye line: only `Aim_Pose` and `Fire_Aimed` are aimed. Aiming is the blend to `Aim_Pose` by `Ads` (section 4);
+- the work of reloads and inspect sits 0 to 23° below the eye line (the magazine well at -20 to -23° while the new
+  magazine goes in, the left hand lower before it arrives), up to 30° right.
+
+**The recipe** (numbers for `UMIViewmodelRig` / the gameplay agent):
+
+| Item | Value |
+|---|---|
+| Camera | the eye point `EYE_CS` = component (0, 0.66, 162.0): the head joint lowered 0.58 cm onto the sight line, looking along component +Y, no roll. As a head socket: bone `head`, location (-0.58, 0, 0) in the bone's frame (its X axis points up). The head never moves, so attaching the **arms to the camera** is the same thing: arms mesh relative to the camera **location (-0.66, 0, -162.0), rotation yaw -90** (component +Y onto camera forward) |
+| First-person (arms and gun) FOV | **54° vertical = 84.3° horizontal at 16:9** (the game's `player.fov.viewmodel`), with the camera's `bEnableFirstPersonFieldOfView`. Never below **48° vertical** (76.7° h): the magazine work leaves the bottom of the frame. 60° h, tried, shows only the rail and the rear sight; 90° h shows the most hand but makes the gun small |
+| World FOV | unchanged: the rules' 74° vertical (106° h), 52° aimed, 30° with the scope (`adsFov`) |
+| Near clip | **1 cm** (`r.SetNearClipPlane 1` / Engine settings Near Clip Plane). The default 10 cm cuts the receiver (the charging handle is 8.9 cm from the eye when aimed) and the gloves: one cause of the old proof's fault |
+| First-person scale | the game's `presentation.json firstPerson.scale` with `bEnableFirstPersonScale`: keeps the gun out of walls without changing the picture |
+| Body | arms only: `SK_RuleArms` (the same skeleton). With a full mannequin on the FP clips, hide `neck_01` (the head sits on the camera) and `thigh_l` / `thigh_r` (`HideBoneByName`, `PBO_None`), and draw the full body as `WorldSpaceRepresentation` / owner-no-see for shadows |
+| Aim, irons | blend to `Aim_Pose` by `Ads`: `SightRear` lands on the camera axis (measured 0.001 cm off), eye relief 11.56 cm to the aperture, the front post centred in it (`packguns-fp-irons.jpg`) |
+| Aim, scope | base mesh switches to `_Folded` (irons down); the scope's `SightEye` axis is 0.40 cm above the iron line (10.056 against 9.656 over the gun origin), so the aimed pose adds **-0.40 cm along the gun's up axis × Ads** (generally: minus the sight point's offset from `SightRear` across the bore); eye 14.33 cm behind `SightEye` (a collimated sight: relief does not matter) (`packguns-fp-scope.jpg`) |
+| Sprint, reload, inspect | the clips as they are; the camera stays on the head (it never moves); camera kick and sway stay the rules' |
+
+**Why the old proof was wrong:** `mi_adapt.EYE_CS` was (-5.06, 0.66, 157.55), the sight-bone line of the hip-ready
+`Idle_Loop_Aimed` (bone points 2.9 cm under the real aperture line), so the eye sat 5 cm right and 4.5 cm low, at
+the forearm, with the default 10 cm near plane. `EYE_CS` is now the recipe's eye and the CHOPPER's aimed correction
+is computed on `Aim_Pose` (`mi_adapt.AIM_CLIP`).
+
+**Proof**, the pack's own rifle (Default length, no IK, `SK_RuleArms`), camera at the recipe's eye, 84.3° h:
+`packguns-fp-hip.jpg` (`Idle_Loop_Standing` 0.5 s), `-fp-irons.jpg` (`Aim_Pose`), `-fp-scope.jpg` (`Aim_Pose` + scope,
+eye on `SightEye`), `-fp-reload-tactical.jpg` (`Reload` 1.2 s, the new magazine coming up while the old one rides in
+the same hand), `-fp-reload-empty-bolt.jpg` (`Reload_Empty` 2.13 s: bolt still back, released between 2.1 and 2.2 s
+in `A_TFA_FP_WEP_AR_Reload_Empty`), `-fp-inspect.jpg` (`Inspect` 2.6 s), `-fp-sprint.jpg` (`Sprint_F_Loop` 0.14 s).
+Each weapon clip plays at the same time on the rifle; the reserve magazine hangs from `Magazine_Reserve`.
+`mi_guns.fp()` builds any of these scenes.

@@ -292,17 +292,28 @@
         "mesh": {"$variant": "stock"}
       },
       "variants": {
-        "about": "The base mesh by the stock slot (attachments.json stock_open / stock_folded). The asset names come from the Meshes/ listing of the pack (LOADOUT.md 6.2).",
-        "open": {"mesh": null, "packFile": "the Short handguard rifle, stock open", "status": "inPack"},
-        "folded": {"mesh": null, "packFile": "the Short handguard rifle, stock folded", "status": "inPack"}
+        "about": "The base mesh by the stock slot. The pack's Meshes/ listing (ANIMATION.md 8.1) has six rifles: three lengths x irons standing / irons folded; the stock is the same fixed stock in all six (measured), so the folded-stock variant has no art. opticMesh is the irons-folded twin the assembly uses whenever an optic is fitted.",
+        "open": {
+          "mesh": "/Game/ThirdParty/InfimaTFA/Weapon/SK_TFA_AR_Short_Combined.SK_TFA_AR_Short_Combined",
+          "packFile": "Meshes/SK_TFA_AR_Short_Combined.fbx",
+          "status": "exists",
+          "opticMesh": "/Game/ThirdParty/InfimaTFA/Weapon/SK_TFA_AR_Short_Combined_Folded.SK_TFA_AR_Short_Combined_Folded",
+          "notes": "on the box only (Fab licence), imported by tools/box/anim/ue_import_guns.py with its 4K set and the loadout sockets. 'Combined' is the receiver, this length's handguard and the standing folding irons in one skinned mesh: the rear sight skinned to bone Sight_Rear, the front sight and handguard to bone Handguard (not separate meshes, not sections). opticMesh (pack file SK_TFA_AR_Short_Combined_Folded.fbx) is the same rifle with both irons folded flat."
+        },
+        "folded": {
+          "mesh": null,
+          "packFile": null,
+          "status": "missing",
+          "notes": "The pack has no folded stock: its '_Folded' rifles fold the iron sights, and the stock is identical in all six rifles (measured by tools/box/anim/bl_measure.py). A folded stock would be new art; until it exists stock_folded is not offered."
+        }
       },
       "mounts": {
-        "optic": {"socket": "Optic", "status": "inPack"},
-        "muzzle": {"socket": "MuzzleMount", "status": "inPack"},
-        "underbarrel": {"socket": "Underbarrel", "status": "inPack"},
-        "laser": {"socket": "Laser", "status": "inPack"},
-        "magazine": {"socket": "MagHinge", "status": "inPack"},
-        "notes": "inPack: the place exists on the pack rifle but no socket is written yet. The socket pass of the pack import (LOADOUT.md 6.2) writes these names on every variant of this length; MurderInc.Loadout.MountsExist then checks them. A slot is offered only once its mount is exists. Stock has no socket: it is a variant of the whole mesh (variants)."
+        "optic": {"socket": "Optic", "status": "exists"},
+        "muzzle": {"socket": "MuzzleMount", "status": "exists"},
+        "underbarrel": {"socket": "Underbarrel", "status": "exists"},
+        "laser": {"socket": "Laser", "status": "exists"},
+        "magazine": {"socket": "MagHinge", "status": "exists"},
+        "notes": "exists: the socket pass of tools/box/anim/ue_import_guns.py writes Optic, MuzzleMount, Underbarrel, Laser, MagHinge (with Muzzle, Eject, SightRear, SightFront, RecoilPivot, Palm_R, Palm_L) on both meshes of this length, placed from measured geometry (ANIMATION.md 8.3); MurderInc.Loadout.MountsExist checks them on the box. Stock has no socket: it is a variant of the whole mesh (variants)."
       },
       "art": {
         "mesh": {
@@ -312,8 +323,8 @@
         },
         "icon": {
           "asset": "T_UI_Gun_Shorty",
-          "status": "missing",
-          "notes": "Rendered once per variant at import time on the box from the pack mesh (never committed: it is a picture of the pack's work)."
+          "status": "exists",
+          "notes": "Rendered on the box from the pack mesh by tools/box/anim/mi_icons.py (white on transparent, 512 x 192, /Game/UI/Icons); never committed: it is a picture of the pack's work."
         }
       },
       "clips": {
@@ -489,22 +500,28 @@
         "mesh": {"$variant": "stock"}
       },
       "variants": {
-        "about": "The base mesh by the stock slot. Default_Combined is the only rifle imported today (tools/box/anim/ue_import_pack.py); the folded one comes from the Meshes/ listing (LOADOUT.md 6.2).",
+        "about": "The base mesh by the stock slot. The pack's Meshes/ listing (ANIMATION.md 8.1) has six rifles: three lengths x irons standing / irons folded; the stock is the same fixed stock in all six (measured), so the folded-stock variant has no art. opticMesh is the irons-folded twin the assembly uses whenever an optic is fitted.",
         "open": {
           "mesh": "/Game/ThirdParty/InfimaTFA/Weapon/SK_TFA_AR_Default_Combined.SK_TFA_AR_Default_Combined",
           "packFile": "Meshes/SK_TFA_AR_Default_Combined.fbx",
           "status": "exists",
-          "notes": "on the box only. 'Combined' may bake the irons and the default parts into one mesh: the Meshes/ listing decides (LOADOUT.md 6.2)."
+          "opticMesh": "/Game/ThirdParty/InfimaTFA/Weapon/SK_TFA_AR_Default_Combined_Folded.SK_TFA_AR_Default_Combined_Folded",
+          "notes": "on the box only (Fab licence), imported by tools/box/anim/ue_import_guns.py with its 4K set and the loadout sockets. 'Combined' is the receiver, this length's handguard and the standing folding irons in one skinned mesh: the rear sight skinned to bone Sight_Rear, the front sight and handguard to bone Handguard (not separate meshes, not sections). opticMesh (pack file SK_TFA_AR_Default_Combined_Folded.fbx) is the same rifle with both irons folded flat."
         },
-        "folded": {"mesh": null, "packFile": "the Default handguard rifle, stock folded", "status": "inPack"}
+        "folded": {
+          "mesh": null,
+          "packFile": null,
+          "status": "missing",
+          "notes": "The pack has no folded stock: its '_Folded' rifles fold the iron sights, and the stock is identical in all six rifles (measured by tools/box/anim/bl_measure.py). A folded stock would be new art; until it exists stock_folded is not offered."
+        }
       },
       "mounts": {
-        "optic": {"socket": "Optic", "status": "inPack"},
-        "muzzle": {"socket": "MuzzleMount", "status": "inPack"},
-        "underbarrel": {"socket": "Underbarrel", "status": "inPack"},
-        "laser": {"socket": "Laser", "status": "inPack"},
-        "magazine": {"socket": "MagHinge", "status": "inPack"},
-        "notes": "inPack: the place exists on the pack rifle but no socket is written yet. The socket pass of the pack import (LOADOUT.md 6.2) writes these names on every variant of this length; MurderInc.Loadout.MountsExist then checks them. A slot is offered only once its mount is exists. Stock has no socket: it is a variant of the whole mesh (variants)."
+        "optic": {"socket": "Optic", "status": "exists"},
+        "muzzle": {"socket": "MuzzleMount", "status": "exists"},
+        "underbarrel": {"socket": "Underbarrel", "status": "exists"},
+        "laser": {"socket": "Laser", "status": "exists"},
+        "magazine": {"socket": "MagHinge", "status": "exists"},
+        "notes": "exists: the socket pass of tools/box/anim/ue_import_guns.py writes Optic, MuzzleMount, Underbarrel, Laser, MagHinge (with Muzzle, Eject, SightRear, SightFront, RecoilPivot, Palm_R, Palm_L) on both meshes of this length, placed from measured geometry (ANIMATION.md 8.3); MurderInc.Loadout.MountsExist checks them on the box. Stock has no socket: it is a variant of the whole mesh (variants)."
       },
       "art": {
         "mesh": {
@@ -514,8 +531,8 @@
         },
         "icon": {
           "asset": "T_UI_Gun_Stick",
-          "status": "missing",
-          "notes": "Rendered once per variant at import time on the box from the pack mesh (never committed: it is a picture of the pack's work)."
+          "status": "exists",
+          "notes": "Rendered on the box from the pack mesh by tools/box/anim/mi_icons.py (white on transparent, 512 x 192, /Game/UI/Icons); never committed: it is a picture of the pack's work."
         }
       },
       "clips": {
@@ -691,17 +708,28 @@
         "mesh": {"$variant": "stock"}
       },
       "variants": {
-        "about": "The base mesh by the stock slot (LOADOUT.md 6.2).",
-        "open": {"mesh": null, "packFile": "the Extended handguard rifle, stock open", "status": "inPack"},
-        "folded": {"mesh": null, "packFile": "the Extended handguard rifle, stock folded", "status": "inPack"}
+        "about": "The base mesh by the stock slot. The pack's Meshes/ listing (ANIMATION.md 8.1) has six rifles: three lengths x irons standing / irons folded; the stock is the same fixed stock in all six (measured), so the folded-stock variant has no art. opticMesh is the irons-folded twin the assembly uses whenever an optic is fitted.",
+        "open": {
+          "mesh": "/Game/ThirdParty/InfimaTFA/Weapon/SK_TFA_AR_Extended_Combined.SK_TFA_AR_Extended_Combined",
+          "packFile": "Meshes/SK_TFA_AR_Extended_Combined.fbx",
+          "status": "exists",
+          "opticMesh": "/Game/ThirdParty/InfimaTFA/Weapon/SK_TFA_AR_Extended_Combined_Folded.SK_TFA_AR_Extended_Combined_Folded",
+          "notes": "on the box only (Fab licence), imported by tools/box/anim/ue_import_guns.py with its 4K set and the loadout sockets. 'Combined' is the receiver, this length's handguard and the standing folding irons in one skinned mesh: the rear sight skinned to bone Sight_Rear, the front sight and handguard to bone Handguard (not separate meshes, not sections). opticMesh (pack file SK_TFA_AR_Extended_Combined_Folded.fbx) is the same rifle with both irons folded flat."
+        },
+        "folded": {
+          "mesh": null,
+          "packFile": null,
+          "status": "missing",
+          "notes": "The pack has no folded stock: its '_Folded' rifles fold the iron sights, and the stock is identical in all six rifles (measured by tools/box/anim/bl_measure.py). A folded stock would be new art; until it exists stock_folded is not offered."
+        }
       },
       "mounts": {
-        "optic": {"socket": "Optic", "status": "inPack"},
-        "muzzle": {"socket": "MuzzleMount", "status": "inPack"},
-        "underbarrel": {"socket": "Underbarrel", "status": "inPack"},
-        "laser": {"socket": "Laser", "status": "inPack"},
-        "magazine": {"socket": "MagHinge", "status": "inPack"},
-        "notes": "inPack: the place exists on the pack rifle but no socket is written yet. The socket pass of the pack import (LOADOUT.md 6.2) writes these names on every variant of this length; MurderInc.Loadout.MountsExist then checks them. A slot is offered only once its mount is exists. Stock has no socket: it is a variant of the whole mesh (variants)."
+        "optic": {"socket": "Optic", "status": "exists"},
+        "muzzle": {"socket": "MuzzleMount", "status": "exists"},
+        "underbarrel": {"socket": "Underbarrel", "status": "exists"},
+        "laser": {"socket": "Laser", "status": "exists"},
+        "magazine": {"socket": "MagHinge", "status": "exists"},
+        "notes": "exists: the socket pass of tools/box/anim/ue_import_guns.py writes Optic, MuzzleMount, Underbarrel, Laser, MagHinge (with Muzzle, Eject, SightRear, SightFront, RecoilPivot, Palm_R, Palm_L) on both meshes of this length, placed from measured geometry (ANIMATION.md 8.3); MurderInc.Loadout.MountsExist checks them on the box. Stock has no socket: it is a variant of the whole mesh (variants)."
       },
       "art": {
         "mesh": {
@@ -711,8 +739,8 @@
         },
         "icon": {
           "asset": "T_UI_Gun_Stretch",
-          "status": "missing",
-          "notes": "Rendered once per variant at import time on the box from the pack mesh (never committed: it is a picture of the pack's work)."
+          "status": "exists",
+          "notes": "Rendered on the box from the pack mesh by tools/box/anim/mi_icons.py (white on transparent, 512 x 192, /Game/UI/Icons); never committed: it is a picture of the pack's work."
         }
       },
       "clips": {
