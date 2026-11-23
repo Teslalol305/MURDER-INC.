@@ -478,3 +478,28 @@ previews goons_lineup/_hoodie_hero/_detail/_poses/_wire, CHARACTERS.md.
   offset, 20 mm tile) is recorded per slot in the manifest but not wired into an Unreal material yet.
 - Not rebuilt this round: the CHOPPER top cover and its rear sight leaf (first-pass loft, reused), the rail; NINE slide
   stop/safety are prisms with domed pads; anisotropic brushing is approximated (directional normal + streaked roughness).
+
+---------------------------------------------------------------------------------------------------------------
+# Structures, continued after the machine restart (assets/structures.py), level-structure artist
+
+## Status
+- [x] Previews round 1 looked at: station and station_up were silhouettes (the stair foot faces east, the design
+      sun at 260 stands behind it), the street shot missed the produce stand and the hoarding, chopshop not rendered.
+- [x] Fixes: station shots light the dome with a mid-morning sun (80) and expose for the shade (+3.0 / +4.2 stops);
+      street shot moves the news kiosk (shutter to the road) and the LotW hoarding beside the produce stand for that
+      one picture; `MI_PROBE=<dir>` renders 192 x 108 exposure probes with logged luminance instead of previews.
+- [x] Round 2: structures_station.jpg, structures_street.jpg, structures_chopshop.jpg rendered and looked at;
+      structures_station_up.jpg re-render running (two attempts were OOM-killed: the dressed block took 5.2 GB while
+      other agents' jobs filled the shared limit; previews now cap Cycles textures at 2K, which cuts that sharply).
+- [x] TS_Roof_ScanBitumen fetched at 8K (4K over its 5.4 m tile was still 758 px/m; now 1,517); upgrade_sets.py
+      lists it under SCANNED_8K; manifest densities refreshed.
+- Renders this task: 8 (4 in round 1, 4 in round 2), plus 4 tiny probes.
+
+## Still boxes (no module anywhere): rolling scaffolds (600, 626), hoist tower (571, 572), tyre cage (560), shanty
+(568), lot walls (419, 420), lot signs (423, 424). The `seal` and `railing` colliders are invisible player blockers.
+
+## Notes for the next agent
+- `fetch.py` without `--res` puts the 2K files back: after any such run, re-run the 4K list and then the 8K bitumen.
+- Known weaknesses: green globe lamps read as flat uniform spheres; the mezzanine office in the chop shop is dark;
+  oil stains are soft uniform blobs; open-web joists read as plain beams from the floor; the kiosk padlock pokes
+  16 mm outside collider 490.
