@@ -18,7 +18,8 @@ AMIBlockGeometry::AMIBlockGeometry()
 	RootComponent = Root;
 	Grey = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("Grey"));
 	Grey->SetupAttachment(Root);
-	Grey->SetMobility(EComponentMobility::Static);
+	// Movable: a static component refuses SetStaticMesh once the world has begun play (the block is built then).
+	Grey->SetMobility(EComponentMobility::Movable);
 	Grey->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 

@@ -147,6 +147,7 @@ bool UMIGameSubsystem::Boot(const FMIBootOptions& Options)
 	if (Config->TryGetObjectField(TEXT("flow"), Flow) && (*Flow)->TryGetObjectField(TEXT("titleCamera"), TitleCam))
 	{
 		(*TitleCam)->TryGetNumberField(TEXT("speed"), TitleSpeed);
+		(*TitleCam)->TryGetNumberField(TEXT("fadeIn"), TitleFadeIn);
 	}
 	if (Options.bPersist)
 	{
@@ -725,7 +726,9 @@ void UMIGameSubsystem::SyncView(double Dt)
 	APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr;
 	if (PC && PC->PlayerCameraManager)
 	{
-		PC->PlayerCameraManager->SetManualCameraFade(V.Fade, FLinearColor::Black, false);
+		// On the title the fly-through fades itself in at the start of each pass (flow.titleCamera.fadeIn).
+		const double Fade = Rules.GetState() == EMIGameState::Title ? 1.0 - FMath::Clamp(TitleT / FMath::Max(1e-3, TitleFadeIn * TitleSpeed), 0.0, 1.0) : V.Fade;
+		PC->PlayerCameraManager->SetManualCameraFade(Fade, FLinearColor::Black, false);
 	}
 	if (AMIPlayerCharacter* P = GetPlayer())
 	{

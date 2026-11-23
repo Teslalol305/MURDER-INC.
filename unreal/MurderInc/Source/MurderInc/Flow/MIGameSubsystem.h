@@ -204,7 +204,7 @@ private:
 	TSet<int32> RemovedOwners;
 	double RegenDelay = 0, RegenRate = 0;
 	double ShotTargetRadius = 0.38, ShotTargetStand = 1.8, ShotTargetCrouch = 1.15;
-	double TitleSpeed = 1.15, TitleT = 0;
+	double TitleSpeed = 1.15, TitleFadeIn = 1.8, TitleT = 0;
 	EMIGameState AppliedState = EMIGameState::Title;
 	bool bStateApplied = false;
 	bool bBooted = false;
