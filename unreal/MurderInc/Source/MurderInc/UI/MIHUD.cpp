@@ -6,6 +6,7 @@
 #include "Core/Data/MIDataSubsystem.h"
 #include "Flow/MIGameSubsystem.h"
 #include "Player/MIPlayerController.h"
+#include "UI/MIFrontEnd.h"
 #include "UI/MIStyle.h"
 #include "Player/MIPlayerCharacter.h"
 #include "Weapons/MIWeaponComponent.h"
@@ -46,7 +47,9 @@ void AMIHUD::DrawHUD()
 		DrawPlay(Font);
 	}
 	DrawFlow(*Game, Font);
-	if (Game->GetMenu().Screen != EMIMenuScreen::None)
+	// The set-up flow (Slate) replaces the canvas title while it is up (LOADOUT.md 2).
+	const bool bFrontEnd = Game->GetFrontEnd() && Game->GetFrontEnd()->IsShown();
+	if (Game->GetMenu().Screen != EMIMenuScreen::None && !(bFrontEnd && Game->GetMenu().Screen == EMIMenuScreen::Title))
 	{
 		DrawMenu(*Game, Font);
 	}

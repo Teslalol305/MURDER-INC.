@@ -14,6 +14,8 @@
 #include "MurderInc.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "Player/MICharacterMovement.h"
+#include "Core/Data/MILoadoutData.h"
+#include "Materials/MaterialInterface.h"
 #include "Weapons/MICombatSubsystem.h"
 #include "Weapons/MIViewmodel.h"
 #include "Weapons/MIWeaponComponent.h"
@@ -218,6 +220,26 @@ void AMIPlayerCharacter::ApplyTuning(const FMIConfigData& Config)
 	}
 	bHasTuning = true;
 	ResetRun();
+}
+
+void AMIPlayerCharacter::ApplyCrewLook(const FMICrewEntry* Crew)
+{
+	if (!ArmsMesh)
+	{
+		return;
+	}
+	ArmsMesh->EmptyOverrideMaterials();
+	if (!Crew)
+	{
+		return;
+	}
+	for (const TPair<FName, FString>& M : Crew->Materials)
+	{
+		if (UMaterialInterface* Mat = Cast<UMaterialInterface>(FSoftObjectPath(M.Value).TryLoad()))
+		{
+			ArmsMesh->SetMaterialByName(M.Key, Mat);
+		}
+	}
 }
 
 void AMIPlayerCharacter::ResetRun()

@@ -4,7 +4,11 @@
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Audio/MIAudioSubsystem.h"
 #include "Core/Data/MIDataSubsystem.h"
+#include "Flow/MIRunSetupSubsystem.h"
+#include "UI/MIFrontEnd.h"
+#include "Weapons/MILoadoutResolver.h"
 #include "Core/MIEvents.h"
 #include "Dom/JsonObject.h"
 #include "Enemies/MIEnemyActors.h"
@@ -149,12 +153,10 @@ bool UMIGameSubsystem::Boot(const FMIBootOptions& Options)
 		(*TitleCam)->TryGetNumberField(TEXT("speed"), TitleSpeed);
 		(*TitleCam)->TryGetNumberField(TEXT("fadeIn"), TitleFadeIn);
 	}
-	if (Options.bPersist)
+	const UMISaveGame* Save = Options.bPersist ? Cast<UMISaveGame>(UGameplayStatics::LoadGameFromSlot(Settings.Rules.Slot, 0)) : nullptr;
+	if (Save)
 	{
-		if (const UMISaveGame* Save = Cast<UMISaveGame>(UGameplayStatics::LoadGameFromSlot(Settings.Rules.Slot, 0)))
-		{
-			Settings.FromSave(*Save);
-		}
+		Settings.FromSave(*Save);
 	}
 	if (!Options.Mode.IsNone())
 	{
@@ -250,6 +252,32 @@ bool UMIGameSubsystem::Boot(const FMIBootOptions& Options)
 	EnemyTick.RegisterTickFunction(World->PersistentLevel);
 
 	bBooted = true;
+	// The remembered set-up (LOADOUT.md 7), validated against what is offered now, and the set-up flow.
+	if (UMIRunSetupSubsystem* RunSetup = UMIRunSetupSubsystem::Get(this))
+	{
+		RunSetup->Load(Save, Settings);
+	}
+	FString RootsError;
+	FMILoadoutResolver::LoadRoots(ResolverConfig, ResolverPresentation, RootsError);
+	if (Copy.Root.IsValid())
+	{
+		const UMIDataSubsystem* Data = UMIDataSubsystem::Get(this);
+		if (Data && Data->IsLoadoutLoaded())
+		{
+			for (const TPair<FString, FString>& R : Data->GetLoadout().CrewReplaces)
+			{
+				OriginalLines.Add(R.Key, MIJson::StringOr(Copy.Root, R.Key.Mid(5)));
+			}
+		}
+	}
+	if (Options.bTitle)
+	{
+		FrontEnd = NewObject<UMIFrontEnd>(this);
+		if (!FrontEnd->Init(this))
+		{
+			FrontEnd = nullptr;
+		}
+	}
 	ApplySettings();
 	ResetPlayer(Level->PlayerStart.Pos, Level->PlayerStart.Yaw);
 	if (!Options.bTitle)
@@ -403,6 +431,106 @@ void UMIGameSubsystem::SetDifficulty(FName Difficulty)
 void UMIGameSubsystem::RebuildMenu()
 {
 	Menu.Build(Menu.Screen, Settings, Copy, Ui, Rules.Card(), Rules.GetMode());
+	PatchCards();
+}
+
+void UMIGameSubsystem::PatchCards()
+{
+	// The death and debrief cards gain Change set-up between Run it back and Back to title (LOADOUT.md 2.9).
+	if (!FrontEnd || (Menu.Screen != EMIMenuScreen::Dead && Menu.Screen != EMIMenuScreen::Debrief) || Menu.IndexOf(TEXT("changesetup")) != INDEX_NONE)
+	{
+		return;
+	}
+	const int32 At = Menu.IndexOf(TEXT("totitle"));
+	FMIMenuItem Item;
+	Item.Id = TEXT("changesetup");
+	Item.Label = FrontEnd->GetRules().Text(TEXT("frontend.cards.changeSetup"));
+	Menu.Items.Insert(Item, At == INDEX_NONE ? Menu.Items.Num() : At);
+}
+
+void UMIGameSubsystem::OpenSettingsFromFrontEnd()
+{
+	if (FrontEnd)
+	{
+		FrontEnd->Hide();
+	}
+	Menu.Return = EMIMenuScreen::Title;
+	Menu.Build(EMIMenuScreen::Settings, Settings, Copy, Ui, Rules.Card(), Rules.GetMode());
+}
+
+void UMIGameSubsystem::ApplyCrewLines(FName Crew)
+{
+	// Rule keeps text.json word for word; a crew member with template lines says them with his call name. The flow
+	// rules share this deck's JSON, so the radio and the cards read the patched lines.
+	const UMIDataSubsystem* Data = UMIDataSubsystem::Get(this);
+	if (!Data || !Data->IsLoadoutLoaded() || !Copy.Root.IsValid())
+	{
+		return;
+	}
+	const FMILoadoutData& L = Data->GetLoadout();
+	const FMICrewEntry* C = L.FindCrew(Crew);
+	for (const TPair<FString, FString>& R : L.CrewReplaces)
+	{
+		const FString* Original = OriginalLines.Find(R.Key);
+		const FString Line = C && !C->bOriginalLines ? L.Format(R.Value, {{TEXT("name"), C->CallName}}) : (Original ? *Original : FString());
+		if (!Line.IsEmpty())
+		{
+			MIJson::Set(Copy.Root, R.Key.Mid(5), MakeShared<FJsonValueString>(Line));
+		}
+	}
+}
+
+bool UMIGameSubsystem::ApplySetup(const FMIRunSetup& Setup)
+{
+	UMIRunSetupSubsystem* RunSetup = UMIRunSetupSubsystem::Get(this);
+	const FMILoadoutData* Data = RunSetup ? RunSetup->GetData() : nullptr;
+	AMIPlayerCharacter* P = GetPlayer();
+	if (!Data || !P || !P->GetWeapon() || !ResolverConfig.IsValid())
+	{
+		return false;
+	}
+	const FMIReadiness Ready = RunSetup->MakeReadiness();
+	FMIRunSetup S = Setup;
+	Ready.Validate(S);
+	FMIResolvedRun Run;
+	FString Error;
+	if (!FMILoadoutResolver(*Data, ResolverConfig, ResolverPresentation).Resolve(S, &Ready, Run, Error))
+	{
+		UE_LOG(LogMI, Error, TEXT("Set-up: %s (the run keeps the guns it had)"), *Error);
+		return false;
+	}
+	P->GetWeapon()->ApplyRun(Run);
+	P->ApplyCrewLook(Data->FindCrew(S.Crew));
+	ApplyCrewLines(S.Crew);
+	// The audio agent's hooks (docs/unreal/AUDIO.md 1): the crew member's voice set and the silencers.
+	if (UMIAudioSubsystem* Audio = UMIAudioSubsystem::Get(this))
+	{
+		Audio->SetCharacter(S.Crew);
+		for (const FMIWeaponDef& G : Run.Weapons.Guns)
+		{
+			Audio->SetSuppressed(G.Id, G.bSuppressed);
+		}
+	}
+	return true;
+}
+
+void UMIGameSubsystem::PreviewSetup(const FMIRunSetup& Setup)
+{
+	ApplySetup(Setup);
+}
+
+void UMIGameSubsystem::BeginWithSetup(const FMIRunSetup& Setup)
+{
+	bool bChanged = Settings.SetMode(Setup.Mode);
+	bChanged |= Settings.SetTime(Setup.Time);
+	SetDifficulty(Setup.Difficulty);
+	if (bChanged)
+	{
+		SaveSettings();
+	}
+	ApplySetup(Setup);
+	UE_LOG(LogMI, Log, TEXT("Set-up: %s"), *Setup.ToJsonString());
+	StartRun(Settings.Mode);
 }
 
 void UMIGameSubsystem::MenuMove(int32 Dy)
@@ -458,7 +586,17 @@ void UMIGameSubsystem::MenuConfirm()
 	else if (Id == TEXT("restart")) Restart();
 	else if (Id == TEXT("retry")) Retry();
 	else if (Id == TEXT("again")) Redeploy();
-	else if (Id == TEXT("totitle")) ToTitle();
+	else if (Id == TEXT("totitle"))
+	{
+		ToTitle();
+		if (FrontEnd) FrontEnd->OpenHome();
+	}
+	else if (Id == TEXT("changesetup"))
+	{
+		// The run ends as Back to title does, then the Briefing opens (LOADOUT.md 2.9).
+		ToTitle();
+		if (FrontEnd) FrontEnd->OpenBriefing();
+	}
 	else if (Id == TEXT("settings"))
 	{
 		Menu.Return = Menu.Screen;
@@ -472,6 +610,10 @@ void UMIGameSubsystem::MenuBack()
 	if (Menu.Screen == EMIMenuScreen::Settings)
 	{
 		Menu.Build(Menu.Return, Settings, Copy, Ui, Rules.Card(), Rules.GetMode());
+		if (FrontEnd && Rules.GetState() == EMIGameState::Title)
+		{
+			FrontEnd->Show();  // back to Home
+		}
 	}
 	else if (Menu.Screen == EMIMenuScreen::Pause && Rules.GetStateTime() >= FlowTune.PauseDebounce)
 	{
@@ -487,6 +629,10 @@ void UMIGameSubsystem::SaveSettings()
 	}
 	UMISaveGame* Save = Cast<UMISaveGame>(UGameplayStatics::CreateSaveGameObject(UMISaveGame::StaticClass()));
 	Settings.ToSave(*Save);
+	if (const UMIRunSetupSubsystem* RunSetup = UMIRunSetupSubsystem::Get(this))
+	{
+		RunSetup->Write(*Save);  // the remembered set-up rides in the same slot
+	}
 	UGameplayStatics::SaveGameToSlot(Save, Settings.Rules.Slot, 0);
 }
 
@@ -505,7 +651,19 @@ void UMIGameSubsystem::ApplySettings()
 	{
 		return;  // tests leave the machine's audio and scalability alone
 	}
-	if (FAudioDevice* Audio = GetWorld() ? GetWorld()->GetAudioDeviceRaw() : nullptr)
+	if (UMIAudioSubsystem* Mix = UMIAudioSubsystem::Get(this); Mix && Mix->IsReady())
+	{
+		// The master volume through the audio agent's options hook (docs/unreal/AUDIO.md 1); the device stays at 1
+		// so the setting is applied once.
+		FMIAudioOptions Options = Mix->GetOptions();
+		Options.Master = Settings.Volume;
+		Mix->SetOptions(Options);
+		if (FAudioDevice* Audio = GetWorld()->GetAudioDeviceRaw())
+		{
+			Audio->SetTransientPrimaryVolume(1.f);
+		}
+	}
+	else if (FAudioDevice* Audio = GetWorld() ? GetWorld()->GetAudioDeviceRaw() : nullptr)
 	{
 		Audio->SetTransientPrimaryVolume(Settings.Volume);
 	}
@@ -580,6 +738,10 @@ void UMIGameSubsystem::FlowFrame(double Dt)
 		return;
 	}
 	Dt = FMath::Min(Dt, 0.05);
+	if (FrontEnd && FrontEnd->IsShown())
+	{
+		FrontEnd->Tick(Dt);
+	}
 	AMIPlayerCharacter* P = GetPlayer();
 	if (P && !bPrerequisite)
 	{
@@ -732,6 +894,12 @@ void UMIGameSubsystem::ApplyState()
 			Menu.Return = S == EMIGameState::Title ? EMIMenuScreen::Title : EMIMenuScreen::Pause;
 		}
 		Menu.Build(Want, Settings, Copy, Ui, Rules.Card(), Rules.GetMode());
+		PatchCards();
+	}
+	if (FrontEnd)
+	{
+		if (S == EMIGameState::Title && Menu.Screen != EMIMenuScreen::Settings) FrontEnd->Show();
+		else if (S != EMIGameState::Title) FrontEnd->Hide();
 	}
 	if (bStateApplied && S == AppliedState)
 	{
@@ -752,7 +920,10 @@ void UMIGameSubsystem::ApplyState()
 		if (S == EMIGameState::Title && TitleCamera)
 		{
 			TitleT = 0;
-			PC->SetViewTarget(TitleCamera);
+			if (!FrontEnd)
+			{
+				PC->SetViewTarget(TitleCamera);  // the front end picks the view per screen
+			}
 		}
 		else if (P && PC->GetViewTarget() != P)
 		{

@@ -92,6 +92,8 @@ public:
 	/** Off outside intro and playing: the input of the frame is dropped. */
 	void SetGameplayInput(bool bOn) { bGameplayInput = bOn; }
 	void SetViewmodelVisible(bool bVisible);
+	/** The crew member's look on the arms (LOADOUT.md 3.4 phase 1: material instances by slot); null or Rule: as built. */
+	void ApplyCrewLook(const struct FMICrewEntry* Crew);
 	/** The play bounds (cm, X and Y); the body centre is kept body.boundsMargin inside them. */
 	void SetPlayBounds(const FBox2D& Bounds) { PlayBounds = Bounds; }
 	/** Runs the player's early frame after Tick (the flow comes first). */

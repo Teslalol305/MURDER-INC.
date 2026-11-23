@@ -20,6 +20,8 @@ class AMIPlayerCharacter;
 class AMIReelCase;
 class AMITruck;
 class UMIGameSubsystem;
+class UMIFrontEnd;
+struct FMIRunSetup;
 struct FMILevelData;
 
 /** The two halves of the game's frame: the flow before the player (pre-physics), the enemies after him. */
@@ -100,6 +102,17 @@ public:
 	void SetInteractHeld(bool bHeld) { bInteract = bHeld; }
 
 	FMIMenu& GetMenu() { return Menu; }
+	/** The set-up flow (LOADOUT.md 2) inside the title state, or null (no loadout data: the canvas title stays). */
+	UMIFrontEnd* GetFrontEnd() const { return FrontEnd; }
+	ACameraActor* GetTitleCamera() const { return TitleCamera; }
+	/** Hit the block with a set-up: the settings it names, the resolved guns, the crew's look and lines, then the run. */
+	void BeginWithSetup(const FMIRunSetup& Setup);
+	/** The set-up in the player's hands without starting (the Briefing's first-person view). */
+	void PreviewSetup(const FMIRunSetup& Setup);
+	/** The canvas Settings card from the front end's Home; Back returns to Home. */
+	void OpenSettingsFromFrontEnd();
+	/** Writes the save game: the settings, the best score and the remembered set-up. */
+	void SaveSettings();
 	void MenuMove(int32 Dy);
 	void MenuAdjust(int32 Dx);
 	void MenuConfirm();
@@ -163,8 +176,10 @@ private:
 	void ApplyState();
 	void SyncActors(double Dt);
 	void SyncView(double Dt);
-	void SaveSettings();
 	void ApplySettings();
+	bool ApplySetup(const FMIRunSetup& Setup);
+	void ApplyCrewLines(FName Crew);
+	void PatchCards();
 	void RebuildMenu();
 	double RayPlayer(const FVector& Origin, const FVector& Dir, double MaxDist) const;
 	int32 SlotOf(int32 EnemyId) const;
@@ -202,6 +217,11 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<ACameraActor> TitleCamera;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UMIFrontEnd> FrontEnd;
+	TMap<FString, FString> OriginalLines;  // text.json lines a crew member's template replaces (crew.json lines)
+	TSharedPtr<FJsonObject> ResolverConfig, ResolverPresentation;
 
 	mutable TWeakObjectPtr<AMIPlayerCharacter> Player;
 	TSet<int32> RemovedOwners;

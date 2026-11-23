@@ -42,6 +42,9 @@ public:
 	void MIMenu(const FString& Command);
 	UFUNCTION(Exec)
 	void MIInteract(float Value);
+	/** MISetup dump: the remembered set-up as JSON. */
+	UFUNCTION(Exec)
+	void MISetup(const FString& Command);
 	/** Debug: stand Metres (default 8) from the nearest living enemy, looking at it. */
 	UFUNCTION(Exec)
 	void MIFaceEnemy(float Metres);

@@ -11,6 +11,8 @@
 #include "MurderInc.h"
 #include "Flow/MIGameSubsystem.h"
 #include "Player/MIPlayerCharacter.h"
+#include "Flow/MIRunSetupSubsystem.h"
+#include "UI/MIFrontEnd.h"
 #include "Weapons/MIWeaponComponent.h"
 
 UInputAction* AMIPlayerController::MakeAction(const TCHAR* Name, bool bAxis2D)
@@ -343,12 +345,46 @@ void AMIPlayerController::MIMenu(const FString& Command)
 		return;
 	}
 	const FString C = Command.ToLower();
+	// The set-up flow (LOADOUT.md 8.5): MIMenu fe <action> [args], the console twin of every control.
+	if (C.StartsWith(TEXT("fe ")))
+	{
+		FString Rest = Command.Mid(3).TrimStartAndEnd();
+		FString Action, Arg;
+		if (!Rest.Split(TEXT(" "), &Action, &Arg))
+		{
+			Action = Rest;
+		}
+		if (UMIFrontEnd* F = G->GetFrontEnd())
+		{
+			const bool bOk = F->Act(Action, Arg);
+			UE_LOG(LogMI, Log, TEXT("MIMenu fe %s %s: %s, screen %s"), *Action, *Arg, bOk ? TEXT("ok") : TEXT("refused"), *FMIFrontEndRules::ScreenName(F->GetRules().GetScreen()));
+		}
+		return;
+	}
 	if (C == TEXT("up")) G->MenuMove(-1);
 	else if (C == TEXT("down")) G->MenuMove(1);
 	else if (C == TEXT("left")) G->MenuAdjust(-1);
 	else if (C == TEXT("right")) G->MenuAdjust(1);
 	else if (C == TEXT("confirm")) G->MenuConfirm();
 	else if (C == TEXT("back")) G->MenuBack();
+	else if (C == TEXT("changesetup") || C == TEXT("totitle"))
+	{
+		const int32 I = G->GetMenu().IndexOf(FName(*C));
+		if (I != INDEX_NONE)
+		{
+			G->GetMenu().Selected = I;
+			G->MenuConfirm();
+		}
+	}
+}
+
+void AMIPlayerController::MISetup(const FString& Command)
+{
+	// MISetup dump: the set-up as JSON, for bug reports (LOADOUT.md 7).
+	if (const UMIRunSetupSubsystem* S = UMIRunSetupSubsystem::Get(this))
+	{
+		UE_LOG(LogMI, Log, TEXT("MISetup: %s"), *S->GetSetup().ToJsonString());
+	}
 }
 
 void AMIPlayerController::MIInteract(float Value)
