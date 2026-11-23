@@ -14,6 +14,7 @@
 #include "Core/MIEvents.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
+#include "HAL/FileManager.h"
 #include "HAL/PlatformTime.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/AutomationTest.h"
@@ -39,6 +40,9 @@ namespace MIAudioEnginePrivate
 		UWorld* World = nullptr;
 		double Start = 0.0, Last = 0.0, Secs = 20.0;
 		int32 Started = 0, NoAsset = 0;
+		bool bStopped = false;
+		double StoppedAt = 0.0;
+		bool bMade = false;
 		FString Out;
 		FAutomationTestBase* Test = nullptr;
 	};
@@ -132,16 +136,28 @@ public:
 		{
 			return false;
 		}
-		USoundWave* Rec = UAudioMixerBlueprintLibrary::StopRecordingOutputToAnyPath(X.World, EAudioRecordingExportType::WavFile, TEXT("engine_render"), FPaths::GetPath(X.Out));
-		for (auto& Pair : X.Live)
+		if (!X.bStopped)
 		{
-			Pair.Value->Stop();
+			// The WAV export is written on a background task: wait for the file below.
+			X.bMade = UAudioMixerBlueprintLibrary::StopRecordingOutputToAnyPath(X.World, EAudioRecordingExportType::WavFile, TEXT("engine_render"), FPaths::GetPath(X.Out)) != nullptr;
+			for (auto& Pair : X.Live)
+			{
+				Pair.Value->Stop();
+			}
+			X.Director.Unbind();
+			X.bStopped = true;
+			X.StoppedAt = Now;
+			return false;
 		}
-		X.Director.Unbind();
-		X.Test->AddInfo(FString::Printf(TEXT("engine render: %.1f s, %d components started, %d without an asset, recording %s -> %s"),
-			Now, X.Started, X.NoAsset, Rec ? TEXT("made") : TEXT("not made"), *X.Out));
+		const bool bFile = FPaths::FileExists(X.Out) && IFileManager::Get().FileSize(*X.Out) > 44;
+		if (!bFile && Now - X.StoppedAt < 15.0)
+		{
+			return false;
+		}
+		X.Test->AddInfo(FString::Printf(TEXT("engine render: %.1f s, %d components started, %d without an asset, wav %s (%lld bytes) -> %s"),
+			X.StoppedAt, X.Started, X.NoAsset, bFile ? TEXT("written") : TEXT("missing"), bFile ? IFileManager::Get().FileSize(*X.Out) : 0LL, *X.Out));
 		X.Test->TestTrue(TEXT("components started on the imported assets"), X.Started > 50);
-		X.Test->TestTrue(TEXT("the engine wrote the recording"), FPaths::FileExists(X.Out));
+		X.Test->TestTrue(TEXT("the engine wrote the recording"), bFile);
 		return true;
 	}
 
