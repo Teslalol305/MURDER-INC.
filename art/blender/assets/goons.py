@@ -48,16 +48,20 @@ K = dict(fleece=0, rib=1, denim=2, leather=3, shoe=4, sole=5, maskknit=6, quilt=
 # rebuild r2 colourways (art review: three distinct value blocks at 8 m, the oxblood crew mark as the shared tie):
 # hoodie in charcoal-grey heather, puffer black nylon with oxblood yoke and much bulkier, tracksuit mid-value navy
 # with bold white stripes; charcoal rib-knit balaclavas (base colour under linear 0.15), sneakers at albedo ~0.7.
-COL = {"hoodie": "#56565b", "pocket": "#48484d", "oxblood": "#7c151d", "darkox": "#4d0d13", "jeans": "#2f3646",
-       "mask": "#2a2a2d", "seam": "#3a3a3e", "slit": "#050506", "glove": "#1a1917", "upper": "#c4bfb4",
-       "sole": "#cfcbc1", "jacket": "#26262b", "quiltseam": "#141416", "trousers": "#2b2c31", "track": "#1e2a4c",
+# r3: oxblood as the brief means it (linear 0.12 / 0.02 / 0.025, r2's #7c151d read fire-engine red), the cuffs and
+# beanie cuff darker still; balaclavas in heather knit at albedo 0.06-0.10, a different colour per Goon (hoodie dark
+# olive, puffer charcoal, tracksuit dark navy) instead of r2's near-black; face skin darker (only lids show)
+COL = {"hoodie": "#56565b", "pocket": "#48484d", "oxblood": "#62272c", "darkox": "#451d21", "jeans": "#2f3646",
+       "mask": "#4d4d50", "mask_hoodie": "#52523f", "mask_puffer": "#4d4d50", "mask_tracksuit": "#3c4257",
+       "seam": "#3a3a3e", "slit": "#050506", "glove": "#1a1917", "upper": "#aca79c",
+       "sole": "#b9b4a9", "jacket": "#26262b", "quiltseam": "#141416", "trousers": "#2b2c31", "track": "#1e2a4c",
        "black": "#141416", "metal": "#8a8a88", "webbing": "#1a1a1c", "sock": "#18181a", "lens": "#0b0a09",
-       "skin": "#6e4a36", "eye": "#d8d2c8", "bandana": "#36322d", "stripe": "#e6e3dc", "capblack": "#18181b",
+       "skin": "#4a3327", "eye": "#9e968a", "bandana": "#36322d", "stripe": "#e6e3dc", "capblack": "#18181b",
        "frame": "#121212"}
 
 # r2 budgets: the eye-catching cloth is refined (one subdivision + Taubin, see TR.refine) and decimated to more
 # triangles than r1 (hood 6.5k -> 12k); each Goon stays under 120k
-BUDGET = {"Hoodie": 24000, "Jeans": 15000, "Hood": 12000, "Waistband": 2400, "Cuff": 1300, "Pocket": 1400,
+BUDGET = {"Hoodie": 26000, "Jeans": 15000, "Hood": 16000, "Waistband": 2400, "Cuff": 1300, "Pocket": 1400,
           "Mask": 9000, "Puffer": 30000, "Collar": 3200, "Trousers": 15000, "TrackJacket": 24000, "TrackTrousers": 15000,
           "Beanie": 2600, "BeanieCuff": 2900, "Cap": 3600, "Bandana": 3400, "Sock": 300, "Sling": 1300, "Skin": 3000}
 
@@ -211,7 +215,7 @@ def kit(man, outfit):
     col, B = man.col, man.B
     out = []
     for s in "lr":
-        g = cached("Glove_%s" % s, "g1", col, lambda: GK.glove(man.arm, man.body, s, col))
+        g = cached("Glove_%s" % s, "g2", col, lambda: GK.glove(man.arm, man.body, s, col))
         out.append(("Glove_" + s, tag(g, "leather", "glove"), "cloth", ("glove", s)))
         sn, F = GK.sneaker(B, s, col)
         for k, o in sn.items():
@@ -258,18 +262,18 @@ def mask_piece(man, bottom=1.45):
     return _copy(_head_set(man, bottom)[0], man.col, "Mask")
 
 
-def head_pieces(man, parts):
-    """Balaclava, its rolled hems, and what the openings show (skin, eyes) - all in the Head set."""
+def head_pieces(man, parts, colour="mask"):
+    """Balaclava, its rolled hems and eye tunnels, and what the openings show (lids, eyes) - all in the Head set."""
     mk, hem, skin, eyes = _head_set(man)
     m = _copy(mk, man.col, "Mask")
-    parts.append(("Mask", tag(m, "maskknit", "mask"), "head", None))
-    parts.append(("MaskHems", tag(_copy(hem, man.col), "maskknit", "mask", 6), "head", None))
+    parts.append(("Mask", tag(m, "maskknit", colour), "head", None))
+    parts.append(("MaskHems", tag(_copy(hem, man.col), "maskknit", colour, 6), "head", None))
     parts.append(("FaceSkin", tag(_copy(skin, man.col), "skin", "skin"), "head", "head"))
     parts.append(("Eyes", tag(_copy(eyes, man.col), "eye", "eye"), "head", "head"))
     return m
 
 
-def rib_bands(man, band_level, cuff_level, hem_top=0.925, band_bot=0.86, cuff=0.065, thick=0.0055):
+def rib_bands(man, band_level, cuff_level, hem_top=0.925, band_bot=0.86, cuff=0.045, thick=0.0055):
     """Rib waistband and cuffs as closed double-walled tubes on the body (TR.axis_band): clean welded edges, never
     through unfold or thicken_edges (r1's level-set bands tore into ragged spikes at their cut edges)."""
     B, M, BF, col = man.B, man.M, man.BF, man.col
@@ -296,7 +300,17 @@ def cloth_piece(ob, budget, smooth_iters=4):
     return ob
 
 
-def hood_piece(man, hoodie, mask, name="Hood", version="h8"):
+def sim_piece(ob, budget):
+    """r3: a piece simulated at its final density (7 mm cells): no subdivision or Taubin pass after the drape (r2's
+    refine rounded 10 mm facets into a stepped terminator in Unreal), only degenerate triangles out and a light
+    decimation to the budget."""
+    TR.clean_degenerate(ob)
+    GK.decimate(ob, budget)
+    TR.clean_degenerate(ob)
+    return ob
+
+
+def hood_piece(man, hoodie, mask, name="Hood", version="h9"):
     """The hood up: an offset of the head and shoulders (more room at the back and the crown, where a hood stands
     off), open at the face (the opening closes under the chin) and at the neckline, draped over the mask with the
     neckline pinned (the crown sags, folds gather at the neck), the face opening turned in as the drawstring channel."""
@@ -324,7 +338,7 @@ def hood_piece(man, hoodie, mask, name="Hood", version="h8"):
         cuts = [((fc[0], fc[1] - 0.035, fc[2]), GH.unit((0, -1.0, -0.42)), 0.10), ((0, 0, ring_z), (0, 0, -1))]
         lo = np.array([j[0] - 0.2, j[1] - 0.2, ring_z - 0.03])
         hi = np.array([j[0] + 0.2, j[1] + 0.22, H.top + 0.09])
-        hd = cloth.garment_mesh("Hood", f, lo, hi, 0.0105, cuts=cuts, col=col, relax=4)
+        hd = cloth.garment_mesh("Hood", f, lo, hi, 0.0068, cuts=cuts, col=col, relax=4)      # r3: final density
         co = GC.verts(hd)
         loops = cloth.boundary_loops(hd)
         if len(loops) != 2:
@@ -339,9 +353,9 @@ def hood_piece(man, hoodie, mask, name="Hood", version="h8"):
         grow = GC.grow_weights(co, [j + np.array([0, 0.09, 0.10]), j + np.array([0, 0.03, 0.17])], 0.16)
         grow = np.maximum(grow, 0.3) * (1 - pin)
         mc = collider_of([mask], "Col_Mask", man.work, ratio=0.4, inflate=0.002)
-        cloth.drape(hd, [mc, man.body_col], frames=30, pin=pin, shrink=grow, shrink_min=-0.04, bending=1.5,
+        cloth.drape(hd, [mc, man.body_col], frames=36, pin=pin, shrink=grow, shrink_min=-0.04, bending=1.0,
                     mass=0.2, log=man.log)
-        cloth.smooth(hd, 3)
+        cloth.smooth(hd, 1)
         co = GC.verts(hd)
         face = max(cloth.boundary_loops(hd), key=lambda L: -co[L][:, 1].mean())
         face = max(cloth.boundary_loops(hd), key=lambda L: co[L][:, 2].mean())
@@ -369,18 +383,21 @@ def hoodie_outfit(man, parts, shoes):
     jc = collider_of([jeans], "Col_Jeans", man.work, ratio=0.5, inflate=0.002)
 
     def shell():
-        ob, L = GC.hoodie_shell(B, M, BF, col, [man.body_col, jc], log=log, sleeve=0.019, grow=-0.035, ease=0.022,
-                                band_level=0.022, cuff_level=0.012, bending=2.2)
-        cloth.smooth(ob, 2)
+        # r3: simulated at the final density (7.5 mm), slimmer sleeves (r2's read as one balloon from shoulder to
+        # elbow) and softer bending, so gravity folds form in the fleece instead of a smooth inflated skin
+        ob, L = GC.hoodie_shell(B, M, BF, col, [man.body_col, jc], log=log, sleeve=0.014, grow=-0.035, ease=0.020,
+                                band_level=0.022, cuff_level=0.012, bending=3.5, h=0.0075)
+        cloth.smooth(ob, 1)
         return ob
-    hoodie = cached("Hoodie", "hd4", col, shell)
+    hoodie = cached("Hoodie", "hd6", col, shell)       # hd5 (bending 1.5) crumpled like thin jersey: fleece folds wider
     bands = rib_bands(man, band_level=0.022, cuff_level=0.012)
     for k, o in bands.items():
         parts.append((k.capitalize(), tag(o, "rib", "darkox"), "cloth", ("cuff", k[-1]) if k.startswith("cuff") else None))
-    mask = head_pieces(man, parts)
+    mask = head_pieces(man, parts, "mask_hoodie")
     hood = hood_piece(man, hoodie, mask)
     S = GK.Surface(hoodie)
-    pocket = GK.panel("Pocket", S, [(-0.155, 0.945), (0.155, 0.945), (0.12, 1.16), (-0.12, 1.16)], col, lift=0.004)
+    pocket = GK.panel("Pocket", S, [(-0.155, 0.945), (0.155, 0.945), (0.12, 1.16), (-0.12, 1.16)], col, lift=0.0065)
+    cloth.smooth(pocket, 4)                 # r3: the finer drape's small folds poked through a pocket 4 mm off it
     md = pocket.modifiers.new("solid", "SOLIDIFY")
     md.thickness, md.offset = 0.0025, -1.0
     geo._apply_modifier(pocket, md)
@@ -395,8 +412,8 @@ def hoodie_outfit(man, parts, shoes):
         cord, ag = GK.drawstring("Drawstring", S2, start, 0.12, col, radius=0.0034, lift=0.0045, aglet=0.022)
         parts.append(("Drawstring", tag(cord, "cord", "oxblood"), "head", None))
         parts.append(("Aglet", tag(ag, "aglet", "black"), "head", None))
-    cloth_piece(hoodie, BUDGET["Hoodie"])
-    cloth_piece(hood, BUDGET["Hood"], smooth_iters=6)
+    sim_piece(hoodie, BUDGET["Hoodie"])
+    sim_piece(hood, BUDGET["Hood"])
     parts.append(("Hoodie", tag(hoodie, "fleece", "hoodie"), "cloth", None))
     parts.append(("Hood", tag(hood, "fleece", "hoodie", 2), "cloth", None))
     sling(man, hoodie, parts)
@@ -485,7 +502,7 @@ def zipper(man, obs, z_top, length, parts, col, tape_kind="zip", tape_colour="ox
     parts.append(("ZipPull", tag(pull, "metal", "metal"), "head", None))
 
 
-def quilt(man, ob, seams_z, arm_rings, loft=0.013):
+def quilt(man, ob, seams_z, arm_rings, loft=0.013, sleeve_loft=1.0, power=0.6, sleeve_mask=None):
     """The puffer's loft: the shell pushed out along its normals between stitched seams (horizontal on the torso,
     rings on the sleeves), down to nothing on each seam line."""
     from assets._goons_tex import AxisCoords
@@ -498,19 +515,21 @@ def quilt(man, ob, seams_z, arm_rings, loft=0.013):
     sz = np.asarray(seams_z)
     k = np.clip(np.searchsorted(sz, z) - 1, 0, len(sz) - 2)
     t = (z - sz[k]) / (sz[k + 1] - sz[k])
-    torso = (seg == 0) & (z >= sz[0]) & (z <= sz[-1])
-    out[torso] = np.sin(np.pi * np.clip(t[torso], 0, 1)) ** 0.6
-    above = (seg == 0) & (z > sz[-1])
-    out[above] = 0.7 * np.sin(np.pi * np.clip((z[above] - sz[-1]) / 0.12, 0, 1)) ** 0.6
+    body = (seg == 0) if sleeve_mask is None else ~sleeve_mask    # r3: the box's own torso / sleeve split (the
+    # nearest-axis test put the chest front on the upper arms: sleeve rings across the chest read as abs and pecs)
+    torso = body & (z >= sz[0]) & (z <= sz[-1])
+    out[torso] = np.sin(np.pi * np.clip(t[torso], 0, 1)) ** power
+    above = body & (z > sz[-1])
+    out[above] = 0.7 * np.sin(np.pi * np.clip((z[above] - sz[-1]) / 0.12, 0, 1)) ** power
     for side_segs, rings in ((("uarm_l", "farm_l"), arm_rings), (("uarm_r", "farm_r"), arm_rings)):
         ids = [AxisCoords(man).names.index(nm) for nm in side_segs]
         for sid, (r0, r1) in zip(ids, rings):
-            m = seg == sid
+            m = (seg == sid) if sleeve_mask is None else ((seg == sid) & sleeve_mask)
             # r2: stitched rings every r1 of the segment's length (about 9 cm), offset r0; a baffle between
             sm = s[m]
             Ls = np.linalg.norm(AxisCoords(man).Bv[sid] - AxisCoords(man).A[sid])
             u = (sm / Ls - r0) / r1
-            out[m] = np.sin(np.pi * np.mod(u, 1.0)) ** 0.6
+            out[m] = sleeve_loft * np.sin(np.pi * np.mod(u, 1.0)) ** power
     GC.set_verts(ob, co + n * (loft * out)[:, None])
     return out
 
@@ -553,6 +572,72 @@ def inflate_torso(man, ob, amount):
     cloth.smooth(ob, 2)
 
 
+def boxy_puffer(man, ob, front=0.060, side=0.050, back=0.050, sleeve_r=(0.082, 0.064), n=3.6, log=log_default):
+    """r3: the puffer as its own boxy shell, not a skin over the body (the art review: r2's baffles followed the
+    pecs, the abs and the deltoids, a muscle suit). The torso is set on one rounded-rectangle section (superellipse
+    exponent n) from the hem to the chest: the body's widest half-width + `side`, its frontmost point + `front`, its
+    backmost + `back`, the same at every height (a flat front, a hanging hem, no waist); above the chest it fades back
+    to the draped shoulders. The sleeves become straight tubes round the arm axis, `sleeve_r` (shoulder, cuff)
+    radius. Torso / sleeve weights are diffused over the mesh so the armholes blend without a crease."""
+    from assets._goons_tex import AxisCoords
+    B, J = man.B, man.B.J
+    co = GC.verts(ob)
+    zs = np.linspace(0.95, 1.36, 30)
+    sec = np.array([B.torso_at(z) for z in zs])
+    X = float(sec[:, 0].max()) + side
+    yf = float(sec[:, 1].min()) - front
+    yb = float(sec[:, 2].max()) + back
+    cy, Y = 0.5 * (yf + yb), 0.5 * (yb - yf)
+    # torso target: the vertex pushed along its horizontal direction from the section centre onto the superellipse
+    d = co[:, :2] - np.array([0.0, cy])
+    ang = np.arctan2(d[:, 1] / Y, d[:, 0] / X)
+    c_, s_ = np.cos(ang), np.sin(ang)
+    r = (np.abs(c_) ** n + np.abs(s_) ** n) ** (-1.0 / n)
+    T = co.copy()
+    T[:, 0] = r * c_ * X
+    T[:, 1] = cy + r * s_ * Y
+    T[:, 2] = co[:, 2]
+    # sleeve target: a straight tube round the shoulder -> wrist axis
+    ax = AxisCoords(man)(co)
+    seg = ax[:, 0].astype(int)
+    A = co.copy()
+    warm = np.zeros(len(co))
+    sleeve = np.zeros(len(co), dtype=bool)
+    for sd in "lr":
+        a0, w1 = J["upperarm_" + sd], J["hand_" + sd]
+        w = w1 - a0
+        L = np.linalg.norm(w)
+        w = w / L
+        t = np.clip((co - a0) @ w, 0, L)
+        q = a0 + t[:, None] * w
+        rv = co - q
+        rr = np.linalg.norm(rv, axis=1)
+        R = sleeve_r[0] + (sleeve_r[1] - sleeve_r[0]) * (t / L)
+        # a sleeve point is nearest the arm AND outside the box's side wall (in the A-pose the upper-arm axis runs
+        # close to the chest: the nearest-axis test alone put the front of the chest on the sleeve tubes, which
+        # carved pecs and lats into the box)
+        mine = np.isin(seg, [AxisCoords(man).names.index(nm) for nm in ("uarm_" + sd, "farm_" + sd)]) \
+            & (np.abs(co[:, 0]) > X - 0.02) & (np.sign(co[:, 0]) == (1.0 if sd == "l" else -1.0))
+        A[mine] = q[mine] + rv[mine] / np.maximum(rr[mine], 1e-6)[:, None] * R[mine, None]
+        warm[mine] = 1.0
+        sleeve |= mine
+    # diffuse the sleeve weight over the mesh (a soft armhole), fade the box above the chest
+    idx, ptr = char.adjacency(ob)
+    deg = np.maximum(np.diff(ptr), 1).astype(np.float64)
+    for _ in range(8):                                      # (25 steps bled the sleeve weight into the chest: the
+        warm = 0.5 * warm + 0.5 * np.add.reduceat(warm[idx], ptr[:-1]) / deg      # pecs survived at its edges)
+    wt = (1 - warm) * np.clip((1.49 - co[:, 2]) / 0.09, 0, 1)
+    wa = warm
+    disp = wt[:, None] * (T - co) + wa[:, None] * (A - co)
+    for _ in range(6):                                      # no kinks where the targets meet
+        disp = 0.5 * disp + 0.5 * np.add.reduceat(disp[idx], ptr[:-1], axis=0) / deg[:, None]
+    GC.set_verts(ob, co + disp)
+    cloth.smooth(ob, 2)
+    log("  boxy puffer: section %.0f x %.0f cm (body + %.0f / %.0f / %.0f cm), sleeves %.0f -> %.0f mm radius" % (
+        200 * X, 200 * Y, 100 * side, 100 * front, 100 * back, 1000 * sleeve_r[0], 1000 * sleeve_r[1]))
+    return sleeve
+
+
 def puffer_outfit(man, parts, shoes):
     B, M, BF, col, log = man.B, man.M, man.BF, man.col, man.log
     tr = cached("Trousers", "t1", col, lambda: GC.trousers(B, M, BF, col, [man.body_col, shoes], name="Trousers",
@@ -575,8 +660,10 @@ def puffer_outfit(man, parts, shoes):
     # shell tore; the bulk comes from inflate_torso and the deeper baffles instead)
     jk = cached("Puffer", "p4", col, shell)
     TR.refine(jk, 4)
-    inflate_torso(man, jk, 0.016)
-    loft = quilt(man, jk, PUFFER_SEAMS, [(0.45, 0.33), (0.5, 0.33)], loft=0.017)
+    sleeve = boxy_puffer(man, jk, log=log)
+    # straight horizontal baffles of constant height on the box, 4-5 rings per sleeve (12 cm), flatter crowns
+    loft = quilt(man, jk, PUFFER_SEAMS, [(0.30, 0.42), (0.35, 0.42)], loft=0.017, sleeve_loft=0.6, power=0.4,
+                 sleeve_mask=sleeve)
     at = jk.data.attributes.get("mi_loft") or jk.data.attributes.new("mi_loft", "FLOAT", "POINT")
     at.data.foreach_set("value", np.asarray(loft, dtype=np.float32))
     co_, z1, csolid = collar(man, jk, "Collar", man.H.chin_z + 0.004, 0.050, 0.012, col)
@@ -593,7 +680,7 @@ def puffer_outfit(man, parts, shoes):
     TR.clean_degenerate(jk)
     parts.append(("Puffer", tag(jk, "quilt", "jacket", 3), "cloth", None))
     # head: balaclava under, beanie with its cuff, period wraparound sunglasses on the nose, bandana over nose and mouth
-    head_pieces(man, parts)
+    head_pieces(man, parts, "mask_puffer")
     bn, cf = GH.beanie(man.H, col)
     GK.decimate(bn, BUDGET["Beanie"])
     GK.decimate(cf, BUDGET["BeanieCuff"])
@@ -610,14 +697,16 @@ def puffer_outfit(man, parts, shoes):
     return parts
 
 
-def glasses(man, col, width=0.17, stand=0.0045):
+def glasses(man, col, width=0.162, stand=0.0045):
     """Period (late-90s) wraparound sunglasses: one curved smoked shield resting on the nose bridge (`stand` off the
     knit there, more toward the temples as it wraps), bottom edge cut up over the nose, 2 mm thick, in a moulded
     black frame (a rim round the whole shield), temple arms back along the head to the ears.
+    r3: slim 2000-era wraps (the art review: r2's 43 mm shield read as a goggle band, a domino mask): the shield 29 mm
+    deep at the lenses, cut up 12 mm over the nose so it reads as two lenses, a 3.4 mm frame, 2.5 x 6 mm temples.
     Returns (lens, arms, frame)."""
     H = man.H
     j = H.j
-    ez = H.eye["l"][2] + 0.003
+    ez = H.eye["l"][2] + 0.0005
     mk = mask_piece(man)
     S = GK.Surface(mk)
     bpy.data.objects.remove(mk, do_unlink=True)
@@ -632,8 +721,8 @@ def glasses(man, col, width=0.17, stand=0.0045):
         d = np.array([np.sin(ang), -np.cos(ang), 0.0])
         for k in range(nv):
             v = k / (nv - 1)
-            top = ez + 0.022 - 0.006 * u * u
-            bot = ez - 0.021 + 0.011 * np.exp(-(u * half / 0.017) ** 2) + 0.006 * u * u
+            top = ez + 0.0145 - 0.004 * u * u + 0.003 * np.exp(-(u * half / 0.012) ** 2)
+            bot = ez - 0.0145 + 0.013 * np.exp(-(u * half / 0.013) ** 2) + 0.005 * u * u
             z = bot + (top - bot) * v
             loc, n = S.ray((cx + d[0] * 0.3, cy + d[1] * 0.3, z), -d, 0.4)
             r = np.linalg.norm((loc - np.array([cx, cy, z]))[:2]) if loc is not None else 0.1
@@ -662,13 +751,13 @@ def glasses(man, col, width=0.17, stand=0.0045):
             loc, n = S.ray((sx * 0.3, y, a[2] - 0.006 * t), (-sx, 0, 0), 0.4)
             x = (loc[0] + sx * 0.004) if loc is not None else a[0]
             pts.append(np.array([x, y, a[2] - 0.006 * t]))
-        arms.append(geo.sweep(geo.rect_profile(0.003, 0.008), [tuple(p) for p in pts], name="Temple", up=(0, 0, 1)))
+        arms.append(geo.sweep(geo.rect_profile(0.0025, 0.006), [tuple(p) for p in pts], name="Temple", up=(0, 0, 1)))
     ar = geo.join(arms, "GlassesArms", col)
     rim = np.vstack([G[:, nv - 1], G[nu - 1, ::-1][1:], G[::-1, 0][1:], G[0, :][1:]])
     for _ in range(2):
         rim = 0.5 * rim + 0.25 * (np.roll(rim, 1, axis=0) + np.roll(rim, -1, axis=0))
     rim = np.vstack([rim, rim[:1]])
-    fr = geo.pipe([tuple(x) for x in rim], radius=0.0024, segments=8, cap=False, name="GlassesFrame")
+    fr = geo.pipe([tuple(x) for x in rim], radius=0.0017, segments=8, cap=False, name="GlassesFrame")
     from mi import scene as _scene
     _scene.move_to(fr, col)
     return lens, ar, fr
@@ -781,12 +870,14 @@ def tracksuit_outfit(man, parts, shoes):
     zipper(man, [jk, co_], z1 - 0.003, 0.40, parts, col)
     track_stripes(man, {"jacket": jk, "trousers": tr}, parts)
     parts.append(("TrackJacket", tag(jk, "tricot", "track", 4), "cloth", None))
-    head_pieces(man, parts)
-    cr, br, bt = GH.cap_backwards(man.H, col)
+    head_pieces(man, parts, "mask_tracksuit")
+    # r3: a fitted six-panel cap worn forward (r2's backwards cap read as a skullcap with a red tab): one solid black
+    # crown (panel seams and eyelets in the normal map: piece 7), a stiff curved 7 cm brim shading the eyes (piece 8)
+    cr, br, bt = GH.cap_forward(man.H, col)
     GK.decimate(cr, BUDGET["Cap"])
-    parts.append(("Cap", tag(cr, "captwill", "capblack"), "head", "head"))
-    parts.append(("CapBrim", tag(br, "captwill", "oxblood"), "head", "head"))
-    parts.append(("CapButton", tag(bt, "captwill", "capblack"), "head", "head"))
+    parts.append(("Cap", tag(cr, "captwill", "capblack", 7), "head", "head"))
+    parts.append(("CapBrim", tag(br, "captwill", "capblack", 8), "head", "head"))
+    parts.append(("CapButton", tag(bt, "captwill", "oxblood", 8), "head", "head"))
     sling(man, jk, parts)
     return parts
 
@@ -930,6 +1021,66 @@ def _unwrap(ob):
     bpy.ops.uv.average_islands_scale()
     bpy.ops.uv.pack_islands(rotate=True, margin_method="FRACTION", margin=0.002, shape_method="CONCAVE")
     bpy.ops.object.mode_set(mode="OBJECT")
+    # r3: r2's Head sets had islands packed over each other (the tracksuit cap crown half oxblood from the brim's
+    # island, black 'V' strokes of the sling on the mask): check, and re-pack as convex hulls, then boxes, if so
+    for shape in ("CONVEX", "AABB"):
+        ov = uv_overlap(ob)
+        log_default("  uv %s: %.3f %% of the packed texels claimed by two islands" % (ob.name, 100 * ov))
+        if ov < 0.0005:
+            break
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_all(action="SELECT")
+        bpy.ops.uv.select_all(action="SELECT")
+        bpy.ops.uv.pack_islands(rotate=True, margin_method="FRACTION", margin=0.003, shape_method=shape)
+        bpy.ops.object.mode_set(mode="OBJECT")
+
+
+def uv_overlap(ob, res=1024):
+    """Fraction of covered texels (res x res) that triangles of two different UV islands both cover."""
+    me = ob.data
+    nl = len(me.loops)
+    uv = np.empty(nl * 2)
+    me.uv_layers[0].data.foreach_get("uv", uv)
+    uv = uv.reshape(-1, 2)
+    lv = np.empty(nl, dtype=np.int64)
+    me.loops.foreach_get("vertex_index", lv)
+    ls = np.empty(len(me.polygons), dtype=np.int64)
+    me.polygons.foreach_get("loop_start", ls)
+    lt = np.empty(len(me.polygons), dtype=np.int64)
+    me.polygons.foreach_get("loop_total", lt)
+    # islands: loops that share a vertex and (nearly) the same UV are one point; faces joined through such points
+    key = np.unique(np.stack([lv, np.round(uv[:, 0] * 2e5), np.round(uv[:, 1] * 2e5)], 1), axis=0,
+                    return_inverse=True)[1].ravel()
+    parent = np.arange(key.max() + 1)
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+    for s0, t in zip(ls, lt):
+        r0 = find(key[s0])
+        for i in range(s0 + 1, s0 + t):
+            r1 = find(key[i])
+            if r1 != r0:
+                parent[r1] = r0
+    isl = np.array([find(key[s0]) for s0 in ls])
+    owner = np.full(res * res, -1, dtype=np.int64)
+    clash = np.zeros(res * res, dtype=bool)
+    tri = [(s0, s0 + i, s0 + i + 1, f) for f, (s0, t) in enumerate(zip(ls, lt)) for i in range(1, t - 1)]
+    tri = np.array(tri, dtype=np.int64)
+    A, B, C = uv[tri[:, 0]], uv[tri[:, 1]], uv[tri[:, 2]]
+    fi = isl[tri[:, 3]]
+    g = np.linspace(0.05, 0.95, 7)
+    bw = np.array([(a, b) for a in g for b in g if a + b < 0.97])
+    for a, b in bw:
+        P = A + (B - A) * a + (C - A) * b
+        cell = (np.clip(P[:, 1], 0, 0.9999) * res).astype(np.int64) * res + (np.clip(P[:, 0], 0, 0.9999) * res).astype(np.int64)
+        o = owner[cell]
+        clash[cell[(o >= 0) & (o != fi)]] = True
+        owner[cell] = np.where(o < 0, fi, o)
+    cov = (owner >= 0).sum()
+    return float(clash.sum() / max(cov, 1))
 
 
 def slot_name(outfit, set_name):

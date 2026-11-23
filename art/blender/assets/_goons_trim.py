@@ -169,10 +169,12 @@ def axis_band(name, field, level, c0, axis, s0, s1, thick, col, nu=96, ns=9, ref
 # ------------------------------------------------------------------------------------------------ holes
 
 
-def cut_ellipse_hole(ob, field, c, u, v, a, b, depth=0.03, hem_r=0.0021, col=None, name="Hem"):
+def cut_ellipse_hole(ob, field, c, u, v, a, b, depth=0.03, hem_r=0.0021, col=None, name="Hem", tunnel=0.0):
     """Cut an elliptic opening (semi-axes a along u, b along v, centred at c) through the faces of `ob` within
     `depth` of c along u x v, put its open edge exactly on the ellipse (projected back onto field = 0), relax the
-    ring next to it, and return a rolled hem (a closed tube of radius hem_r just inside the edge)."""
+    ring next to it, and return a rolled hem (a closed tube of radius hem_r just inside the edge). tunnel > 0: also a
+    knit wall `tunnel` deep behind the hem, narrowing 10 % (the fabric's thickness turned in: the opening reads
+    recessed and what is behind it sits in shadow), joined to the hem."""
     u, v = unit(u), unit(v)
     w = unit(np.cross(u, v))
     co = verts(ob)
@@ -223,6 +225,21 @@ def cut_ellipse_hole(ob, field, c, u, v, a, b, depth=0.03, hem_r=0.0021, col=Non
         Q = 0.5 * Q + 0.25 * (np.roll(Q, 1, axis=0) + np.roll(Q, -1, axis=0))
     Q = np.vstack([Q, Q[:1]])
     hem = geo.pipe([tuple(x) for x in Q], radius=hem_r, segments=8, cap=False, name=name)
+    if tunnel > 0:
+        R0 = Q[:-1] - nrm * hem_r * 0.6
+        rings = []
+        for k, t in enumerate(np.linspace(0.0, 1.0, 4)):
+            R = R0 - nrm * (tunnel * t)
+            R = c + (R - c) * (1.0 - 0.10 * t) - w * 0.0
+            rings.append(R)
+        n_ = len(R0)
+        V = np.vstack(rings)
+        F = [(k * n_ + i, k * n_ + (i + 1) % n_, (k + 1) * n_ + (i + 1) % n_, (k + 1) * n_ + i)
+             for k in range(len(rings) - 1) for i in range(n_)]
+        wall = geo.from_arrays(name + "_wall", V, F, col if col is not None else None, smooth=None)
+        for p_ in wall.data.polygons:
+            p_.use_smooth = True
+        hem = geo.join([hem, wall], name, col) if col is not None else geo.join([hem, wall], name, None)
     if col is not None:
         from mi import scene as _scene
         _scene.move_to(hem, col)

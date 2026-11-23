@@ -51,12 +51,12 @@ def tris(ob):
 # ------------------------------------------------------------------------------------------------ gloves
 
 
-def glove(arm, body, side, col, top=0.075, h=0.0021, budget=3600):
+def glove(arm, body, side, col, top=0.075, h=0.0017, budget=5600, grow=0.0008):
     """Black leather glove: the hand of assets/characters.py grown by the leather, a wrist tube up the forearm
     to `top` above the wrist joint (inside the sleeve cuff), open there."""
     from assets import characters as C
     R = C.ArmRig(arm, body, side)
-    hand = C.hand_sdf(R, 0.0014)
+    hand = C.hand_sdf(R, grow)          # r3: thinner leather (0.8 mm, r2 1.4 mm read as rubber sausages), finer mesh
 
     def f(p):
         d = hand(p)

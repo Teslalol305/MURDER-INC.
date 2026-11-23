@@ -89,12 +89,12 @@ class FaceShape:
         nw = [0.009, 0.011, 0.0105, 0.0095, 0.0080, 0.0072, 0.0085, 0.010]
         b = np.interp(v, nv, nh) * _g(x, np.interp(v, nv, nw)) ** 1.0
         b += 0.0065 * _g(ax - 0.0155, 0.0065) * _g(v + 0.050, 0.0065)                          # alae
-        b += 0.0042 * _g(v - 0.019, 0.0075) * _g(ax - 0.026, 0.024)                            # brow ridge
+        b += 0.0058 * _g(v - 0.017, 0.0070) * _g(ax - 0.026, 0.024)                            # brow ridge (r3:
+        # deeper, so the eye openings sit in its shadow)
         b += 0.0045 * _g(ax - 0.048, 0.015) * _g(v + 0.030, 0.013)                             # cheekbones
-        b += 0.0030 * _g(x, 0.020) * _g(v + self.MOUTH_V - 0.006, 0.0042)                      # upper lip
-        b += 0.0034 * _g(x, 0.018) * _g(v + self.MOUTH_V + 0.007, 0.0045)                      # lower lip
+        # r3: no lips under the knit (the art lead: no mouth may read through the mask); one soft muzzle form
+        b += 0.0022 * _g(x, 0.026) * _g(v + self.MOUTH_V, 0.014)                               # muzzle
         b += 0.0050 * _g(x, 0.022) * _g(v + 0.108, 0.010)                                      # chin
-        b -= 0.0022 * _g(x, 0.024) * _g(v + 0.095, 0.006)                                      # mentolabial fold
         b -= 0.0110 * np.clip((-v - 0.122) / 0.03, 0, 1) * _g(ax, 0.05)                        # jaw receded
         if sockets:
             b -= 0.0032 * _g(ax - self.EYE_X, 0.013) * _g(v - self.EYE_V, 0.009)
@@ -154,12 +154,19 @@ def mask(H, col, bottom_z, h=0.0024, slits=True, neck=None):
     return ob
 
 
-EYE_HOLE = (0.0185, 0.0088, 5.0)     # eye opening semi-axes (m) and tilt (deg, outer end up)
-MOUTH_HOLE = (0.0215, 0.0075)       # mouth opening semi-axes
+# r3 (art lead, non-negotiable): a two-hole balaclava, closed knit over the mouth; small eye openings cut 32 x 16 mm
+# whose 3 mm rolled hem leaves about 26 x 10 mm clear, set 1.5 mm below the eye centre so the knit's upper edge covers
+# the top of the iris, with a 5 mm knit tunnel behind the hem (the eyes sit in its shadow, no skin ring shows)
+EYE_HOLE = (0.016, 0.008, 5.0)      # eye opening semi-axes (m) and tilt (deg, outer end up)
+EYE_DROP = 0.0015                    # opening centre below the eye centre
+EYE_HEM = 0.003                      # rolled hem radius
+EYE_TUNNEL = 0.005                   # knit wall depth behind the hem
+MOUTH_HOLE = (0.0215, 0.0075)       # (r2's mouth opening: no longer cut)
 
 
-def hole_frames(H):
-    """(name, centre, u, v, a, b) of the three openings of the balaclava, on the face proxy's surface."""
+def hole_frames(H, mouth=False):
+    """(name, centre, u, v, a, b) of the openings of the balaclava (the two eyes; r2's mouth only if asked), on the
+    face proxy's surface."""
     from assets import _goons_trim as TR
     fs = H.face
     out = []
@@ -167,10 +174,11 @@ def hole_frames(H):
         t = np.radians(EYE_HOLE[2])
         u = np.array([sx * np.cos(t), 0.0, np.sin(t)]) * sx           # always +x first (a consistent frame)
         v = np.array([-np.sin(t) * sx, 0.0, np.cos(t)])
-        c = np.array([sx * fs.EYE_X, H.front, fs.ez + fs.EYE_V])
+        c = np.array([sx * fs.EYE_X, H.front, fs.ez + fs.EYE_V - EYE_DROP])
         out.append(("EyeHem_" + s, c, u, v, EYE_HOLE[0], EYE_HOLE[1]))
-    c = np.array([0.0, H.front, H.mouth[2]])
-    out.append(("MouthHem", c, np.array([1.0, 0, 0]), np.array([0, 0, 1.0]), MOUTH_HOLE[0], MOUTH_HOLE[1]))
+    if mouth:
+        c = np.array([0.0, H.front, H.mouth[2]])
+        out.append(("MouthHem", c, np.array([1.0, 0, 0]), np.array([0, 0, 1.0]), MOUTH_HOLE[0], MOUTH_HOLE[1]))
     # the centres onto the surface (along -y from the front)
     res = []
     for nm, c, u, v, a, b in out:
@@ -182,15 +190,16 @@ def hole_frames(H):
 
 
 def balaclava(H, col, bottom_z, neck, h=0.0022):
-    """A 2000-era three-hole balaclava in charcoal rib knit over the face proxy: the head grown by the fabric
-    (open only at the bottom, tucked into the collar), two small eye openings and a mouth opening cut on clean
-    ellipses with rolled, hemmed edges. Returns (mask, [hems])."""
+    """A 2000-era two-hole balaclava in heather rib knit over the face proxy (r3: closed over the mouth): the head
+    grown by the fabric (open only at the bottom, tucked into the collar), two small eye openings cut on clean
+    ellipses with rolled hems and a knit tunnel behind them. Returns (mask, [hems])."""
     from assets import _goons_trim as TR
     ob = mask(H, col, bottom_z, h=h, slits=False, neck=neck)
     f = lambda p: H(p) - MASK_T
     hems = []
     for nm, c, u, v, a, b in hole_frames(H):
-        hems.append(TR.cut_ellipse_hole(ob, f, c, u, v, a, b, depth=0.02, hem_r=0.0022, col=col, name=nm))
+        hems.append(TR.cut_ellipse_hole(ob, f, c, u, v, a, b, depth=0.02, hem_r=EYE_HEM, col=col, name=nm,
+                                        tunnel=EYE_TUNNEL))
     return ob, hems
 
 
@@ -200,7 +209,7 @@ def face_skin(H, col, h=0.0016):
     the skin). Returns (skin, eyes)."""
     from mi import geo, scene as _scene
     fs = H.face
-    lo = np.array([-0.075, H.front - 0.03, H.mouth[2] - 0.03])
+    lo = np.array([-0.075, H.front - 0.03, fs.ez - 0.04])
     hi = np.array([0.075, H.front + 0.045, fs.ez + 0.03])
     v, q = sdf.surface_nets(H.skin, lo, hi, h)
     v = sdf.project(H.skin, v, 3)
@@ -397,3 +406,85 @@ def glasses(H, col, h=0.0013, width=0.19, stand=0.016):
                               up=(0, 0, 1)))
     ar = geo.join(arms, "GlassesArms", col)
     return lens, ar
+
+
+def cap_forward(H, col, h=0.0032, brim_len=0.07, brim_drop=9.0, width=0.168):
+    """Fitted six-panel baseball cap worn forward (rebuild r3; r2's backwards cap read as a skullcap with a tab): the
+    crown over the mask from just above the brow to the nape, closed by a sweatband (a band tube, no cut edge), a top
+    button, and a stiff brim `brim_len` long at the front, `brim_drop` degrees down and curved (sides lower), so it
+    shades the eye openings. The six panel seams are drawn in the normal map (piece 7). Rigid on the head bone.
+    Returns (crown with band, brim, button)."""
+    from assets import _goons_trim as TR
+    from mi import geo
+    j = H.j
+    p0, n0 = _tilted(j, H.eye["l"][2] + 0.026, H.eye["l"][2] - 0.012)
+    # a crown with a little height at the front panels (structured cap), close at the sides and back
+    crown = lambda p: H(p) - MASK_T - 0.0035 - 0.009 * np.clip((p[:, 2] - H.top + 0.07) / 0.07, 0, 1) \
+        * np.clip((-(p[:, 1] - j[1]) + 0.02) / 0.1, 0, 1)
+    lo = np.array([j[0] - 0.14, j[1] - 0.17, p0[2] - 0.08])
+    hi = np.array([j[0] + 0.14, j[1] + 0.16, H.top + 0.04])
+    ob = cloth.garment_mesh("CapCrown", crown, lo, hi, h, cuts=[(p0, n0)], col=col, relax=3)
+    TR.tidy_open_edges(ob)
+    c0 = j + n0 * ((p0 - j) @ n0)
+    band = TR.axis_band("CapBand", H, MASK_T + 0.0062, c0, -n0, -0.003, 0.014, 0.0045, col, nu=120, ns=6,
+                        ref=(0, -1.0, 0))
+    ob = geo.join([ob, band], "CapCrown", col)
+
+    def edge_z(x, y):
+        return p0[2] - (n0[0] * (x - p0[0]) + n0[1] * (y - p0[1])) / n0[2]
+    m, k = 17, 8
+    ring = []
+    for a in np.linspace(-1, 1, m):
+        ang = a * 0.80
+        d = np.array([np.sin(ang), -np.cos(ang), 0.0])                 # toward the front (+-46 deg: a brim, not a rim)
+        best = None
+        for t in np.linspace(0.0, 0.2, 400):
+            pp = np.array([j[0], j[1], 0.0]) + d * (0.2 - t)
+            pp[2] = edge_z(pp[0], pp[1]) + 0.001
+            if H(pp[None])[0] - MASK_T - 0.0062 < 0:
+                best = pp
+                break
+        ring.append(best if best is not None else np.array([j[0], j[1], 0.0]) + d * 0.1)
+    ring = np.array(ring)
+    if np.abs(ring[:, 0]).max() > width / 2:
+        ring[:, 0] *= (width / 2) / np.abs(ring[:, 0]).max()
+    V, F = [], []
+    cd, sd = np.cos(np.radians(brim_drop)), np.sin(np.radians(brim_drop))
+    us = np.linspace(-1, 1, m)
+    for i, p in enumerate(ring):
+        a = us[i]
+        out = unit(np.array([p[0] - j[0], p[1] - j[1], 0.0]))
+        out = unit(out * np.array([0.55, 1.0, 0.0]))                    # the brim reaches forward, not sideways
+        L = brim_len * np.sqrt(max(1 - (a * 0.93) ** 2, 0.04))
+        for s_ in np.linspace(0, 1, k):
+            q = p + out * (L * s_ * cd) - np.array([0, 0, L * s_ * sd])
+            q = q - np.array([0, 0, 0.016 * (a * a) * s_ ** 0.7])            # the curve: sides bent down
+            V.append(q)
+    for i in range(m - 1):
+        for jj in range(k - 1):
+            a = i * k + jj
+            F.append((a, a + k, a + k + 1, a + 1))
+    br = geo.from_arrays("CapBrim", np.array(V), F, col, smooth=None)
+    for p in br.data.polygons:
+        p.use_smooth = True
+    md = br.modifiers.new("solid", "SOLIDIFY")
+    md.thickness = 0.0045
+    md.offset = 0.0
+    md.use_rim = True
+    geo._apply_modifier(br, md)
+    md = br.modifiers.new("bev", "BEVEL")
+    md.width, md.segments = 0.0013, 2
+    geo._apply_modifier(br, md)
+    button = geo.sphere(0.0062, 12, 6, name="CapButton")
+    top = np.array([j[0], j[1] - 0.005, H.top + 0.03])
+    for t in np.linspace(0, 0.08, 160):
+        q = top - np.array([0, 0, t])
+        if crown(q[None])[0] < 0:
+            top = q + np.array([0, 0, 0.002])
+            break
+    button.data.transform(np.diag([1, 1, 0.45, 1]).tolist())
+    button.location = tuple(top)
+    from mi import scene as _scene
+    _scene.move_to(button, col)
+    _scene.apply_transforms(button)
+    return ob, br, button

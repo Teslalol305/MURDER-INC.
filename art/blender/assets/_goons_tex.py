@@ -26,7 +26,7 @@ def lin(h):
     return np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4).astype(np.float32)
 
 
-OX, DARKOX, SEAM, SLIT, DUST, TAN = lin("#7c151d"), lin("#4d0d13"), lin("#b5ad9c"), lin("#050506"), lin("#6e655a"), \
+OX, DARKOX, SEAM, SLIT, DUST, TAN = lin("#62272c"), lin("#451d21"), lin("#b5ad9c"), lin("#050506"), lin("#6e655a"), \
     lin("#8c6a3c")
 
 
@@ -203,17 +203,52 @@ def texels(man, P, N, kind, base, piece, ao_geo, loft=None):
         bc[m] = c
         rough[m] = 0.86 - 0.04 * pl + 0.04 * fb
         h[m] = 0.00010 * kn + 0.00018 * pl + 0.00012 * fb + 0.00025 * mid[m]
+        # r3: the hoodie's construction (the art review: no seams, no drop shoulder, no hem topstitch): side seams,
+        # drop-shoulder seams 6 cm down the upper arm, the hood's centre seam, twin-needle topstitch over the
+        # waistband; each seam a 1.5 mm valley with stitches 4 mm either side, a little darker
+        fl_ = (kind[m] == K["fleece"])
+        Pm, sm, segm, angm, radm = P[m], s[m], seg[m], ax[m, 4], ax[m, 3]
+        pcm = piece[m]
+        dist = np.full(m.sum(), 1.0)
+        along = np.zeros(m.sum())
+        tor = fl_ & (segm == 0) & (pcm == 0)
+        for a0 in (np.pi / 2, -np.pi / 2):
+            dd = np.abs(np.angle(np.exp(1j * (angm - a0)))) * radm
+            upd = tor & (dd < dist)
+            dist[upd], along[upd] = dd[upd], Pm[upd, 2]
+        arm = fl_ & np.isin(segm, [2, 6]) & (pcm == 0)
+        dd = np.abs(sm - 0.06)
+        upd = arm & (dd < dist)
+        dist[upd], along[upd] = dd[upd], angm[upd] * radm[upd]
+        hood = fl_ & (pcm == 2)
+        dd = np.abs(Pm[:, 0])
+        upd = hood & (dd < dist) & (Pm[:, 1] > man.H.j[1] - 0.06)
+        dist[upd], along[upd] = dd[upd], Pm[upd, 1] + Pm[upd, 2]
+        hem = fl_ & (pcm == 0) & (segm == 0)
+        dd = np.minimum(np.abs(Pm[:, 2] - 0.941), np.abs(Pm[:, 2] - 0.947))
+        st_hem = stitch_line(dd, angm * radm, 0.00045, 0.0028) * hem
+        seam = (1 - ss(0.0, 0.0015, dist))
+        st = stitch_line(dist - 0.004, along, 0.00045, 0.0028)
+        bc[m] = bc[m] * (1 - 0.18 * seam - 0.10 * np.maximum(st, st_hem))[:, None]
+        h[m] = h[m] - 0.0006 * seam + 0.00022 * np.maximum(st, st_hem)
     # ---------------------------------------------------------------- rib knit (bands, mask, beanie)
     m = k_("rib") | k_("maskknit") | k_("beanie")
     if m.any():
-        wale = np.where(kind[m] == K["maskknit"], 0.0024, 0.0026)
-        kn = knit(s[m], arc[m], wale, 0.0017)
+        # r3: the balaclava's 1x1 rib at 2.5 mm (r2's 4.8 mm rib with a 20 % colour stripe read as corrugated
+        # cardboard at 1 m): the rib lives in the height (normal) only, the colour is a heather of light and dark
+        # plies drawn out along the wales
+        mk_ = kind[m] == K["maskknit"]
+        wale = np.where(mk_, 0.00125, 0.0022)
+        kn = knit(s[m], arc[m], wale, np.where(mk_, 0.0011, 0.0016))
         rib = np.abs(np.sin(np.pi * arc[m] / (wale * 2))) ** 0.5
         fz = TX.noise(P[m], 2600.0, 41)                                   # stray acrylic fuzz
-        c = bc[m] * (0.80 + 0.20 * rib)[:, None] * (1 + 0.08 * mid[m] + 0.06 * fz)[:, None]
+        ply = TX.noise(np.stack([arc[m] * 1800, s[m] * 380, P[m, 0] * 40], 1), 1.0, 43)      # heather plies
+        heather = np.where(mk_, 0.20 * ply + 0.06 * mid[m], 0.08 * mid[m])
+        stripe = np.where(mk_, 0.97 + 0.03 * rib, 0.88 + 0.12 * rib)
+        c = bc[m] * stripe[:, None] * (1 + heather + 0.05 * fz)[:, None]
         bc[m] = c
         rough[m] = 0.88 + 0.03 * fz
-        h[m] = 0.00045 * rib + 0.0001 * kn + 0.00005 * fz
+        h[m] = np.where(mk_, 0.00022, 0.00035) * rib + 0.00008 * kn + 0.00005 * fz
     # ---------------------------------------------------------------- denim
     m = k_("denim")
     if m.any():
@@ -278,7 +313,7 @@ def texels(man, P, N, kind, base, piece, ao_geo, loft=None):
         lf = np.where(kind[m] == K["quilt"], lf, 0.8)
         crown = ss(0.25, 0.85, lf)
         bc[m] = bc[m] * (1 + 0.04 * rip + 0.04 * mid[m])[:, None] * (0.82 + 0.18 * crown)[:, None]
-        rough[m] = 0.78 - 0.24 * crown + 0.04 * rip + 0.03 * big[m]
+        rough[m] = 0.80 - 0.18 * crown + 0.04 * rip + 0.03 * big[m]       # r3: matte ripstop, 0.62 on crowns
         h[m] = 0.00002 * rip
     # ---------------------------------------------------------------- tricot (tracksuit): fine courses, satin sheen
     m = k_("tricot")
@@ -286,7 +321,7 @@ def texels(man, P, N, kind, base, piece, ao_geo, loft=None):
         tr = 0.5 + 0.5 * np.sin(2 * np.pi * s[m] / 0.0009)
         kn = knit(s[m], arc[m], 0.0011, 0.0009)                            # warp-knit loops, a matte face
         bc[m] = bc[m] * (0.95 + 0.06 * tr)[:, None] * (1 + 0.04 * mid[m])[:, None]
-        rough[m] = 0.74 + 0.04 * tr + 0.03 * big[m]
+        rough[m] = 0.78 + 0.04 * tr + 0.03 * big[m]
         h[m] = 0.00004 * tr + 0.00006 * kn
     # ---------------------------------------------------------------- glove leather
     m = k_("leather")
@@ -298,7 +333,7 @@ def texels(man, P, N, kind, base, piece, ao_geo, loft=None):
         pad, seam, flex = glove_relief(man, Pm, N[m])
         wear = ss(0.3, 0.9, pad) * (0.6 + 0.4 * TX.noise(Pm, 300, 23))
         bc[m] = bc[m] * (0.9 + 0.2 * grain)[:, None] * (1 + 0.15 * crease)[:, None] * (1 + 0.35 * wear)[:, None]
-        rough[m] = 0.62 + 0.06 * (1 - grain) + 0.05 * crease - 0.06 * wear
+        rough[m] = 0.52 + 0.07 * (1 - grain) + 0.05 * crease - 0.05 * wear       # r3: 0.5-0.6 leather
         h[m] = 0.00012 * grain - 0.00015 * crease + 0.0012 * pad - 0.0004 * seam - 0.00035 * flex
     # ---------------------------------------------------------------- sneakers
     for name in ("shoe", "sole"):
@@ -360,35 +395,31 @@ def texels(man, P, N, kind, base, piece, ao_geo, loft=None):
         pores = TX.noise(Pm, 2500.0, 51)
         mot = TX.fbm(Pm, 200.0, 3, seed=52)
         c = bc[m] * (1 + 0.10 * mot - 0.05 * pores)[:, None]
-        # darker, oilier round the eyes (lids) and the lips
+        # darker round the eyes (lids, lashes line); r3: no lips (the mask is closed over the mouth)
         for sd in "lr":
             e = man.H.face.eye_centre(sd)
             de = np.linalg.norm((Pm - e) * np.array([0.8, 1, 1.3]), axis=1)
-            c = c * (1 - 0.25 * (1 - ss(0.010, 0.022, de)))[:, None]
-        lips = 1 - ss(0.004, 0.013, np.linalg.norm((Pm - man.H.mouth) * np.array([0.45, 1, 1.0]), axis=1))
-        c = c * (1 - 0.2 * lips)[:, None] + lin("#5a2c27") * 0.15 * lips[:, None]
-        # the mouth line
-        ml = 1 - ss(0.0006, 0.0018, np.abs(Pm[:, 2] - man.H.mouth[2]) + 0.15 * ss(0.012, 0.03, np.abs(Pm[:, 0])))
-        c = c * (1 - 0.8 * ml)[:, None]
+            c = c * (1 - 0.45 * (1 - ss(0.010, 0.022, de)))[:, None]
         bc[m] = c
-        rough[m] = 0.48 - 0.1 * lips + 0.05 * pores
-        h[m] = 0.00004 * pores - 0.0004 * ml
+        rough[m] = 0.5 + 0.05 * pores
+        h[m] = 0.00004 * pores
     m = k_("eye")
     if m.any():
         Pm = P[m]
-        c = np.tile(lin("#a89e90"), (m.sum(), 1))
+        c = bc[m].copy()                                   # r3: sclera at albedo ~0.33 (COL eye), never a white ball
         for sd in "lr":
             e = man.H.face.eye_centre(sd)
             d = Pm - e
             ang = np.degrees(np.arccos(np.clip(-d[:, 1] / np.maximum(np.linalg.norm(d, axis=1), 1e-9), -1, 1)))
             near = np.linalg.norm(d, axis=1) < 0.02
-            iris = near & (ang < 26)
-            c[iris] = lin("#3a2416") * (0.8 + 0.4 * TX.noise(Pm[iris], 2000, 61))[:, None]
-            c[near & (ang < 11)] = lin("#050403")
-            limbal = near & (ang >= 24) & (ang < 29)
+            iris = near & (ang < 34)                       # r3: a larger, dark-brown iris
+            c[iris] = lin("#2a190f") * (0.8 + 0.4 * TX.noise(Pm[iris], 2000, 61))[:, None]
+            c[near & (ang < 12)] = lin("#050403")
+            c[near & (ang >= 34)] *= (0.75 + 0.25 * ss(34, 60, ang[near & (ang >= 34)]))[:, None]
+            limbal = near & (ang >= 31) & (ang < 37)
             c[limbal] = c[limbal] * 0.5
         bc[m] = c
-        rough[m] = 0.04
+        rough[m] = 0.12
     m = k_("cord")
     if m.any():
         hel = 0.5 + 0.5 * np.sin(2 * np.pi * (s[m] / 0.003 + ax[m, 4] / np.pi))
@@ -428,10 +459,9 @@ def regions(man, P, N, kind, piece, bc, h, rough):
     # the puffer's oxblood yoke (above the top quilt seam) and shoulder caps
     puff = (kind == K["quilt"]) & (piece == 3)
     if puff.any():
-        yoke = np.zeros(len(P), dtype=bool)
-        for sd in "lr":
-            yoke |= np.linalg.norm(P - J["upperarm_" + sd], axis=1) < 0.115
-        yoke |= (z > 1.405) & (np.abs(x) < np.abs(J["upperarm_l"][0]) + 0.02)     # r2: the top stitch line
+        # r3: the yoke is the panel above the top stitch line of the torso only (its edge in the stitch valley);
+        # r2's round shoulder caps crossed the baffles and UV islands and tore into ragged paper edges
+        yoke = (z > 1.405) & (np.abs(x) < np.abs(J["upperarm_l"][0]) - 0.01)
         yoke &= puff
         bc[yoke] = OX * (0.95 + 0.05 * TX.noise(P[yoke], 80, 2))[:, None]
     # the balaclava: sweat and breath darkening round the mouth and eyes, grime where the hands pull it, pilling
@@ -440,17 +470,38 @@ def regions(man, P, N, kind, piece, bc, h, rough):
         Pm = P[mk]
         Hd = man.H
         c = bc[mk]
-        mouth = np.clip(1 - np.linalg.norm((Pm - Hd.mouth) * np.array([0.8, 1, 1.2]), axis=1) / 0.045, 0, 1)
+        mouth = np.zeros(len(Pm))                       # r3: no breath ring round a mouth (it read as lips)
         eyes = np.zeros(len(Pm))
         for sd in "lr":
             e = Hd.face.eye_centre(sd)
             eyes = np.maximum(eyes, np.clip(1 - np.linalg.norm((Pm - e) * np.array([0.7, 1, 1.2]), axis=1) / 0.035, 0, 1))
         brow = np.clip(1 - np.abs(Pm[:, 2] - (Hd.face.ez + 0.03)) / 0.02, 0, 1) * (Pm[:, 1] < Hd.j[1] - 0.06)
-        sweat = np.clip(0.8 * mouth + 0.45 * eyes + 0.3 * brow, 0, 1) * (0.7 + 0.3 * TX.fbm(Pm, 60, 2, seed=71))
+        sweat = np.clip(0.8 * mouth + 0.25 * eyes + 0.2 * brow, 0, 1) * (0.7 + 0.3 * TX.fbm(Pm, 60, 2, seed=71))
         grime = ss(0.55, 0.9, TX.fbm(Pm, 25.0, 3, seed=72)) * 0.5
         c = c * (1 - 0.30 * sweat)[:, None] * (1 - 0.15 * grime)[:, None] + DUST * 0.06 * grime[:, None]
         bc[mk] = c
         rough[mk] = rough[mk] - 0.12 * sweat
+    # the fitted cap (piece 7: crown): six panels meeting at the button, the seams sunk and top-stitched either side,
+    # an embroidered eyelet on each side panel; one solid colour
+    cap = (kind == K["captwill"]) & (piece == 7)
+    if cap.any():
+        Pm = P[cap]
+        Hd = man.H
+        d = Pm - Hd.j
+        az = np.arctan2(d[:, 0], -d[:, 1])                       # 0 = centre front
+        rr = np.linalg.norm(d[:, :2], axis=1)
+        k6 = np.round(az / (np.pi / 3)) * (np.pi / 3)
+        dist = np.abs(az - k6) * rr                              # metres from the nearest panel seam
+        up = ss(Hd.eye["l"][2] + 0.045, Hd.eye["l"][2] + 0.06, Pm[:, 2])    # above the sweatband
+        seam = (1 - ss(0.0, 0.0016, dist)) * up
+        st = stitch_line(dist - 0.0032, Pm[:, 2] * 2, 0.0005, 0.0026) * up        # both sides (dist is unsigned)
+        eyel = np.zeros(len(Pm))
+        for a0 in (-2 * np.pi / 3 + np.pi / 6, -np.pi / 3 + np.pi / 6, np.pi / 3 - np.pi / 6, 2 * np.pi / 3 - np.pi / 6):
+            ez_ = Hd.top - 0.035
+            de = np.hypot((az - a0) * rr, Pm[:, 2] - ez_)
+            eyel = np.maximum(eyel, (1 - ss(0.0022, 0.0034, de)) * ss(0.0010, 0.0016, de))
+        bc[cap] = bc[cap] * (1 - 0.25 * seam - 0.15 * eyel)[:, None]
+        h[cap] += -0.0006 * seam + 0.00018 * st + 0.0003 * eyel
     return v_
 
 
