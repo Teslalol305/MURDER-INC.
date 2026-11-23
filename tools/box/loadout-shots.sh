@@ -29,9 +29,11 @@ for i in $(seq 1 40); do tail -n +"$mark" "$log" | grep -q 'Play in editor total
 tail -n +"$mark" "$log" | grep -m1 'Play in editor total start time' || { echo "LOADOUT SHOTS FAILED: play in editor did not start"; exit 1; }
 sleep 4
 settle 20
-# The pad walk, every press a Slate key event: Home -> Crew -> Loadout -> Block & Style -> Briefing, back with B, the
-# View+Start chord, then the keyboard: Esc twice, Tab twice to Next on Loadout, Enter.
-for k in Gamepad_Special_Right Gamepad_Special_Right Gamepad_Special_Right Gamepad_Special_Right; do key "$k"; done
+# The pad walk, every press a Slate key event, from Crew (Gear up: a returning player's Start on Home starts the run):
+# Crew -> Loadout -> Block & Style -> Briefing with Start, back with B, the View+Start chord, then the keyboard: Esc
+# twice, Tab twice to Next on Loadout, Enter.
+fe gearup; settle 4
+for k in Gamepad_Special_Right Gamepad_Special_Right Gamepad_Special_Right; do key "$k"; done
 key Gamepad_FaceButton_Right; key Gamepad_FaceButton_Right
 key "Gamepad_Special_Left down"; key Gamepad_Special_Right; key "Gamepad_Special_Left up"
 key Escape; key Escape; key Tab; key Tab; key Enter
