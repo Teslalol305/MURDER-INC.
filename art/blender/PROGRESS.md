@@ -450,10 +450,21 @@ in any prompt, file or request; tattoo lettering is read from art/out/ref/tattoo
 - [x] previews round 1 (10 renders, committed). Worst faults: arms: a swollen ring at the wrist (a wide smooth
       union of the arm and the hand's coincident wrist piece), palm colour on the back of the hand, speckled
       normals on island edges, orange skin; body: the bust's neck edge just above the collar at the front
-- [ ] round 2 (running: arms re-meshed with a near-plain union, re-baked; fp, hands, arms hero, face, wire)
+- [x] round 2: worst faults found: a step from the wrist down to the back of the hand (the hand's own wrist
+      piece) and palm colour on the back of the hand. Fixed: the hand has no wrist piece (bare_palm_sdf), the
+      forearm flattens and widens into the heel (74 mm); back / palm by face normal; finger labels and knuckle
+      darkening not applied behind the knuckles; bust neck edge carried 1.8 cm under the collar.
+      Final: SK_RuleArms 131,594 tris (UV: hand 7.2k px/m, forearm 4.0k, upper arm 2.8k at 4K), bracelet 13,988,
+      SK_Rule 120,621, SK_RuleArms_Gloved 108,398. Renders: 10 (round 1) + 5 (round 2) + 5 (wrist fix) + 3 x 3
+      hands re-renders while fixing the back of the hand: over the 12 asked for.
+- Known: the CHOPPER hold pose is the first version's (left hand beside the handguard, not round it);
+  rule_arms_fp / rule_arms_hero predate the last texture fix of the back of the hand (rule_hands is current);
+  the face is the generated head (painted eyes under glossy covers, no mouth interior, 2K maps upscaled to 4K);
+  the full body's arms are the generated ones (invented tattoos), not SK_RuleArms; small streak on the throat
+  where the bust's neck edge was carried down.
 ## Exact next step
-When round 2 is done: look at the five pictures, commit them; the face against the photo is in
-art/out/gen/rule/compare_face.jpg (private).
+None required. Improvements: better photos (see the task report), then a head from several views; a gun-grip
+solve for the bare hands; re-render rule_arms_fp and rule_arms_hero.
 
 ---------------------------------------------------------------------------------------------------------------
 # Goons (assets/goons.py, _goons_*.py, mi/cloth.py), senior character artist: SK_Goon_Hoodie / _Puffer / _Tracksuit
