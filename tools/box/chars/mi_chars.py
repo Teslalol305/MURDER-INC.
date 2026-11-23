@@ -419,22 +419,137 @@ GOONS = ("Hoodie", "Puffer", "Tracksuit")
 GOON_DIR = "/Game/Characters/Goons"
 
 
+GOON_SCALE = 0.98            # component scale for the briefed height (hood top 1.818 m -> 1.78 m); see CHARACTERS.md
+
+
+def _const(m, v, x, y):
+    n = MEL.create_material_expression(m, unreal.MaterialExpressionConstant, x, y)
+    n.r = float(v)
+    return n
+
+
+def _op(m, cls, a, b, x, y, a_out="", b_out=""):
+    n = MEL.create_material_expression(m, cls, x, y)
+    MEL.connect_material_expressions(a, a_out, n, "A")
+    MEL.connect_material_expressions(b, b_out, n, "B")
+    return n
+
+
+def goon_material(name, set_name, detail_tiling, dest, tex, detail="/Game/Characters/Goons/Textures/T_GoonFabric_Detail_N"):
+    """A Goon set on the Cloth shading model, so fleece, knit, denim and tricot get a fuzz lobe and none of them
+    reads as wet plastic. Per texel from the baked maps: Cloth = saturate((roughness - 0.55) x 3.3) x 0.8 (rough
+    fabrics fuzz, nylon a little, leather, rubber, lens and metal none), Fuzz Colour = BC x 1.5 + 0.03, Specular
+    0.35. A tiling fibre normal (T_GoonFabric_Detail_N, `detail_tiling` repeats per UV unit: 25 mm tiles at the
+    sets' texel density) is added to the baked normal in proportion to Cloth (whiteout blend)."""
+    path = dest + "/" + name
+    m = unreal.load_asset(path) if ASSETS.does_asset_exist(path) else TOOLS.create_asset(name, dest, unreal.Material, unreal.MaterialFactoryNew())
+    MEL.delete_all_material_expressions(m)
+    bc = _tex_node(m, "%s/T_%s_BC" % (tex, set_name), -1400, -300, "color")
+    orm = _tex_node(m, "%s/T_%s_ORM" % (tex, set_name), -1400, 0, "masks")
+    nm = _tex_node(m, "%s/T_%s_N" % (tex, set_name), -1400, 300, "normal")
+    MEL.connect_material_property(bc, "RGB", unreal.MaterialProperty.MP_BASE_COLOR)
+    MEL.connect_material_property(orm, "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION)
+    MEL.connect_material_property(orm, "G", unreal.MaterialProperty.MP_ROUGHNESS)
+    MEL.connect_material_property(orm, "B", unreal.MaterialProperty.MP_METALLIC)
+    MEL.connect_material_property(_const(m, 0.35, -300, 650), "", unreal.MaterialProperty.MP_SPECULAR)
+    # cloth amount from the roughness
+    sub = _op(m, unreal.MaterialExpressionSubtract, orm, _const(m, 0.55, -1100, 120), -1000, 60, "G", "")
+    mul = _op(m, unreal.MaterialExpressionMultiply, sub, _const(m, 3.3, -1000, 160), -850, 60)
+    sat = MEL.create_material_expression(m, unreal.MaterialExpressionSaturate, -700, 60)
+    MEL.connect_material_expressions(mul, "", sat, "")
+    cloth = _op(m, unreal.MaterialExpressionMultiply, sat, _const(m, 0.8, -700, 160), -560, 60)
+    MEL.connect_material_property(cloth, "", unreal.MaterialProperty.MP_CUSTOM_DATA0)
+    fz = _op(m, unreal.MaterialExpressionMultiply, bc, _const(m, 1.5, -1100, -160), -1000, -200, "RGB", "")
+    fz = _op(m, unreal.MaterialExpressionAdd, fz, _const(m, 0.03, -1000, -100), -850, -200)
+    MEL.connect_material_property(fz, "", unreal.MaterialProperty.MP_SUBSURFACE_COLOR)
+    # baked normal + tiling fibre detail (whiteout: xy added, z of the base)
+    if ASSETS.does_asset_exist(detail):
+        tc = MEL.create_material_expression(m, unreal.MaterialExpressionTextureCoordinate, -1600, 560)
+        tc.u_tiling = tc.v_tiling = float(detail_tiling)
+        dn = _tex_node(m, detail, -1400, 600, "normal")
+        MEL.connect_material_expressions(tc, "", dn, "UVs")
+        dxy = MEL.create_material_expression(m, unreal.MaterialExpressionComponentMask, -1150, 600)
+        dxy.r, dxy.g = True, True
+        MEL.connect_material_expressions(dn, "RGB", dxy, "")
+        dxy = _op(m, unreal.MaterialExpressionMultiply, dxy, cloth, -1000, 600)
+        bxy = MEL.create_material_expression(m, unreal.MaterialExpressionComponentMask, -1150, 400)
+        bxy.r, bxy.g = True, True
+        MEL.connect_material_expressions(nm, "RGB", bxy, "")
+        bz = MEL.create_material_expression(m, unreal.MaterialExpressionComponentMask, -1150, 480)
+        bz.b = True
+        MEL.connect_material_expressions(nm, "RGB", bz, "")
+        sxy = _op(m, unreal.MaterialExpressionAdd, bxy, dxy, -850, 450)
+        ap = _op(m, unreal.MaterialExpressionAppendVector, sxy, bz, -700, 450)
+        nrm = MEL.create_material_expression(m, unreal.MaterialExpressionNormalize, -550, 450)
+        MEL.connect_material_expressions(ap, "", nrm, "")
+        MEL.connect_material_property(nrm, "", unreal.MaterialProperty.MP_NORMAL)
+    else:
+        MEL.connect_material_property(nm, "RGB", unreal.MaterialProperty.MP_NORMAL)
+    _set(m, shading_model=unreal.MaterialShadingModel.MSM_CLOTH, used_with_skeletal_mesh=True)
+    MEL.recompile_material(m)
+    ASSETS.save_loaded_asset(m)
+    return m
+
+
+def keep_exported_normals(mesh_path):
+    """LOD 0 build: keep the exported normals and tangents (Interchange turns Recompute Normals on, which throws
+    the GLB's smooth normals away and shades the cloth in flat facets); drop degenerate triangles."""
+    sk = unreal.load_asset(mesh_path)
+    ss = unreal.get_editor_subsystem(unreal.SkeletalMeshEditorSubsystem)
+    b = ss.get_lod_build_settings(sk, 0)
+    b.recompute_normals = False
+    b.recompute_tangents = True
+    b.use_mikk_t_space = True
+    b.remove_degenerates = True
+    ss.set_lod_build_settings(sk, 0, b)
+    ASSETS.save_loaded_asset(sk)
+    b = ss.get_lod_build_settings(sk, 0)
+    return {"recompute_normals": b.recompute_normals, "recompute_tangents": b.recompute_tangents,
+            "mikk": b.use_mikk_t_space, "remove_degenerates": b.remove_degenerates}
+
+
+def weapon_socket(mesh_path, name="Weapon_R", bone="hand_r", loc=(-1.5, 4.5, -2.0), rot=(0.0, 0.0, 90.0)):
+    """A mesh socket on hand_r for the SMG (SM_Weapon_GoonSMG's origin is its grip): the palm centre, barrel along
+    the hand's forward axis. Kept on the mesh (the mannequin skeleton is shared)."""
+    sk = unreal.load_asset(mesh_path)
+    so = sk.find_socket(name)
+    if not so:
+        so = unreal.SkeletalMeshSocket(sk)
+        so.socket_name = name
+        sk.add_socket(so, False)
+    _set(so, bone_name=bone, relative_location=unreal.Vector(*loc), relative_rotation=unreal.Rotator(*rot))
+    ASSETS.save_loaded_asset(sk)
+    return {"socket": name, "bone": bone, "found": bool(sk.find_socket(name))}
+
+
 def setup_goons(src="/project/ue/chars/in/goons"):
     """SK_Goon_Hoodie / _Puffer / _Tracksuit on SK_Mannequin with their two baked sets each (Cloth 4K, Head 2K):
-    textures, materials M_Goon<Outfit>_Cloth / _Head, slots assigned by name. Returns a report."""
+    textures, Cloth-shading-model materials M_Goon<Outfit>_Cloth / _Head (goon_material), slots assigned by name,
+    LOD 0 keeps the exported normals (keep_exported_normals), a Weapon_R socket on hand_r. Returns a report."""
     rep = {}
     rep["textures"] = import_textures(os.path.join(src, "tex"), GOON_DIR + "/Textures")
+    meta = {}
+    mp = os.path.join(src, "goons_ue.json")
+    if os.path.exists(mp):
+        meta = json.load(open(mp))
     for o in GOONS:
         glb = os.path.join(src, "SK_Goon_%s.glb" % o)
         if not os.path.exists(glb):
             continue
         rep[o] = import_on_mannequin(glb, GOON_DIR, "SK_Goon_" + o)
+        rep[o]["build"] = keep_exported_normals(GOON_DIR + "/SK_Goon_" + o)
         mats = {}
         for s in ("Cloth", "Head"):
             name = "M_Goon%s_%s" % (o, s)
-            make_material(name, "Goon%s_%s" % (o, s), dest=GOON_DIR + "/Materials", tex=GOON_DIR + "/Textures")
+            sn = "Goon%s_%s" % (o, s)
+            goon_material(name, sn, meta.get(sn, {}).get("detail_tiling", 160.0), GOON_DIR + "/Materials",
+                          GOON_DIR + "/Textures")
             mats[name] = GOON_DIR + "/Materials/" + name
         rep[o]["slots"] = assign_slots(GOON_DIR + "/SK_Goon_" + o, mats)
+        try:
+            rep[o]["socket"] = weapon_socket(GOON_DIR + "/SK_Goon_" + o)
+        except Exception as e:                                   # the socket is a convenience, not the import
+            rep[o]["socket"] = "failed: %s" % e
     unreal.log_warning("MI: setup_goons " + json.dumps(rep)[:3000])
     return rep
 
@@ -451,5 +566,6 @@ def goon_stage(row):
     for o, key, t, x, y, yaw in row:
         a = actor(GOON_DIR + "/SK_Goon_" + o, ANIMS[key] if key else None, (x, y, 0), yaw=yaw, time=t,
                   label="Goon_%s_%s" % (o, key))
+        a.skeletal_mesh_component.set_relative_scale3d(unreal.Vector(GOON_SCALE, GOON_SCALE, GOON_SCALE))
         out.append(a.get_actor_label())
     return out

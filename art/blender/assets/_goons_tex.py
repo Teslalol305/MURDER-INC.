@@ -16,7 +16,8 @@ from mi import texel as TX
 from assets import _goons_kit as GK
 
 K = dict(fleece=0, rib=1, denim=2, leather=3, shoe=4, sole=5, maskknit=6, quilt=7, nylon=8, twill=9, tricot=10,
-         webbing=11, metal=12, cord=13, aglet=14, captwill=15, lens=16, bandana=17, sock=18, beanie=19, zip=20)
+         webbing=11, metal=12, cord=13, aglet=14, captwill=15, lens=16, bandana=17, sock=18, beanie=19, zip=20,
+         skin=21, eye=22, plastic=23, tape=24)
 
 
 def lin(h):
@@ -104,7 +105,61 @@ def pills(P, density=900.0, size=0.0011, seed=3):
     return np.clip(1 - f1 * density * size * 1.4, 0, 1) * (TX.noise(P, 60, seed) > 0.25)
 
 
-def texels(man, P, N, kind, base, piece, ao_geo):
+def fibres(P, scale=1.0, seed=31):
+    """Brushed-fleece fibre relief (0..1): fine isotropic fuzz at ~0.3 mm over 2 mm fibre clumps."""
+    return 0.6 * TX.noise(P, 3000.0 / scale, seed) + 0.4 * TX.fbm(P, 520.0 / scale, 2, seed=seed + 1)
+
+
+FINGERS = ("index", "middle", "ring", "pinky")
+
+
+def glove_relief(man, P, N):
+    """Work-glove relief from the hand's bones: knuckle pads over the MCP and PIP joints on the back of the hand,
+    panel seams along both sides of every finger (fourchettes), flex creases across the palm side of each joint.
+    Returns (pad, seam, crease) 0..1 per point."""
+    J = man.B.J
+    pad = np.zeros(len(P))
+    seam = np.zeros(len(P))
+    flex = np.zeros(len(P))
+    for sd, sx in (("l", 1.0), ("r", -1.0)):
+        if "index_01_" + sd not in J:
+            continue
+        across = J["index_01_" + sd] - J["pinky_01_" + sd]
+        fwd = J["middle_02_" + sd] - J["middle_01_" + sd]
+        n = np.cross(across, fwd)
+        n /= np.linalg.norm(n)
+        if n[2] + 0.5 * sx * n[0] < 0:
+            n = -n                                                   # the back of the hand (up and out in the A-pose)
+        side = (P[:, 0] * sx) > 0.15
+        dors = np.clip((N @ n - 0.2) / 0.5, 0, 1)
+        palm = np.clip((-(N @ n) - 0.2) / 0.5, 0, 1)
+        for f in FINGERS:
+            a, b, c = J["%s_01_%s" % (f, sd)], J["%s_02_%s" % (f, sd)], J["%s_03_%s" % (f, sd)]
+            for jt, r in ((a, 0.011), (b, 0.008)):
+                d = np.linalg.norm(P - jt, axis=1)
+                pad = np.maximum(pad, side * dors * np.exp(-(d / r) ** 2))
+            tip = c + (c - b) * 0.9
+            for p0, p1 in ((a, b), (b, c), (c, tip)):
+                w = p1 - p0
+                L = np.linalg.norm(w)
+                w = w / L
+                t = (P - p0) @ w
+                q = P - p0 - np.outer(t, w)
+                rad = np.linalg.norm(q, axis=1)
+                on = side & (t > -0.002) & (t < L + 0.002) & (rad < 0.016)
+                rn = (q @ n) / np.maximum(rad, 1e-6)
+                seam = np.maximum(seam, on * np.clip(1 - np.abs(rn) / 0.10, 0, 1))
+            for jt, w in ((b, b - a), (c, c - b)):
+                w = w / np.linalg.norm(w)
+                d = np.abs((P - jt) @ w)
+                flex = np.maximum(flex, side * palm * (np.linalg.norm(P - jt, axis=1) < 0.016) * np.clip(1 - d / 0.0012, 0, 1))
+        # knuckle bar across the back of the hand, the wrist strap seam
+        h = J["hand_" + sd]
+        flex = np.maximum(flex, side * np.clip(1 - np.abs(np.linalg.norm(P - h, axis=1) - 0.035) / 0.0012, 0, 1) * 0.6)
+    return pad, seam, flex
+
+
+def texels(man, P, N, kind, base, piece, ao_geo, loft=None):
     """(bc (n, 3) linear, roughness (n,), metallic (n,), height (n,) metres) per texel."""
     n = len(P)
     ax = AxisCoords(man)(P)
@@ -138,23 +193,27 @@ def texels(man, P, N, kind, base, piece, ao_geo):
     m = k_("fleece") | k_("sock")
     if m.any():
         kn = knit(s[m], arc[m], 0.0016, 0.0013)
-        heather = 0.08 * TX.noise(P[m] * np.array([1, 1, 4.0]), 300.0, 9) + 0.05 * mid[m]
+        # heathered yarn: dark and light fibres mixed, flecks drawn out along the wales (r2: grey heather)
+        fl = TX.noise(np.stack([arc[m] * 2600, s[m] * 700, P[m, 0] * 50], 1), 1.0, 9)
+        heather = 0.22 * fl + 0.10 * TX.noise(P[m], 900.0, 19) + 0.05 * mid[m]
+        fb = fibres(P[m])
         pl = 0.5 * pills(P[m]) * (0.15 + 0.85 * np.clip(cuff_zone[m] + (np.abs(P[m, 0]) > 0.17) * (z[m] > 0.95) * (z[m] < 1.3), 0, 1))
         c = bc[m] * (1 + heather)[:, None]
-        c = c * (1 - 0.1 * (1 - kn))[:, None] + pl[:, None] * 0.025
+        c = c * (1 - 0.08 * (1 - kn))[:, None] + pl[:, None] * 0.03
         bc[m] = c
-        rough[m] = 0.88 - 0.05 * pl
-        h[m] = 0.00012 * kn + 0.00018 * pl + 0.00025 * mid[m]
+        rough[m] = 0.86 - 0.04 * pl + 0.04 * fb
+        h[m] = 0.00010 * kn + 0.00018 * pl + 0.00012 * fb + 0.00025 * mid[m]
     # ---------------------------------------------------------------- rib knit (bands, mask, beanie)
     m = k_("rib") | k_("maskknit") | k_("beanie")
     if m.any():
-        wale = np.where(kind[m] == K["maskknit"], 0.0021, 0.0026)
+        wale = np.where(kind[m] == K["maskknit"], 0.0024, 0.0026)
         kn = knit(s[m], arc[m], wale, 0.0017)
         rib = np.abs(np.sin(np.pi * arc[m] / (wale * 2))) ** 0.5
-        c = bc[m] * (0.78 + 0.22 * rib)[:, None] * (1 + 0.05 * mid[m])[:, None]
+        fz = TX.noise(P[m], 2600.0, 41)                                   # stray acrylic fuzz
+        c = bc[m] * (0.80 + 0.20 * rib)[:, None] * (1 + 0.08 * mid[m] + 0.06 * fz)[:, None]
         bc[m] = c
-        rough[m] = 0.86
-        h[m] = 0.00045 * rib + 0.0001 * kn
+        rough[m] = 0.88 + 0.03 * fz
+        h[m] = 0.00045 * rib + 0.0001 * kn + 0.00005 * fz
     # ---------------------------------------------------------------- denim
     m = k_("denim")
     if m.any():
@@ -172,12 +231,12 @@ def texels(man, P, N, kind, base, piece, ao_geo):
                               * (1 - ss(0.03, 0.12, np.linalg.norm(d, axis=1))) * (Pm[:, 1] < -0.05))
             kb = man.M.knee[sd] + np.array([0, 0.06, 0])
             hipw = np.maximum(hipw, 0.7 * TX.ridged(Pm, 40, 5) * (1 - ss(0.02, 0.07, np.linalg.norm(Pm - kb, axis=1))))
-        light = np.clip(0.35 * fade + 0.5 * hipw + 0.12 * slub, -0.1, 1)
-        c = bc[m] * (0.86 + 0.28 * tw)[:, None]
+        light = np.clip(0.35 * fade + 0.5 * hipw + 0.06 * slub, -0.1, 1)            # r2: streaks at half strength
+        c = bc[m] * (0.93 + 0.14 * tw)[:, None]
         c = c * (1 + 0.9 * light)[:, None] + np.array([0.01, 0.012, 0.02]) * light[:, None]
         bc[m] = c
         rough[m] = 0.78 + 0.08 * tw
-        h[m] = 0.00016 * tw + 0.00008 * slub
+        h[m] = 0.00016 * tw + 0.00004 * slub
         # seams with tan thread: outer and inner leg, back pockets and yoke
         sx = np.sign(Pm[:, 0])
         sd_ = np.where(sx > 0, 0, 1)
@@ -200,8 +259,8 @@ def texels(man, P, N, kind, base, piece, ao_geo):
             bc[m] = np.where(inside[:, None], bc[m] * 0.93 + TAN * 0.35 * st[:, None], bc[m])
             h[m] = np.where(inside, h[m] + 0.0004 * ss(0.0, 0.003, edge) + 0.0002 * st, h[m])
     # ---------------------------------------------------------------- twill trousers, cap twill, bandana, webbing
-    for name, pitch, r0 in (("twill", 0.0009, 0.74), ("captwill", 0.0008, 0.8), ("bandana", 0.0007, 0.82),
-                            ("webbing", 0.0016, 0.7)):
+    for name, pitch, r0 in (("twill", 0.0009, 0.78), ("captwill", 0.0008, 0.8), ("bandana", 0.0007, 0.84),
+                            ("webbing", 0.0016, 0.72), ("tape", 0.0010, 0.62)):
         m = k_(name)
         if m.any():
             tw = twill(s[m], arc[m], pitch, 0.5 if name != "webbing" else 0.9)
@@ -214,25 +273,33 @@ def texels(man, P, N, kind, base, piece, ao_geo):
         Pm = P[m]
         g = 0.005
         rip = np.maximum(ss(0.86, 1.0, np.abs(np.sin(np.pi * s[m] / g))), ss(0.86, 1.0, np.abs(np.sin(np.pi * arc[m] / g))))
-        bc[m] = bc[m] * (1 + 0.06 * rip + 0.04 * mid[m])[:, None]
-        rough[m] = 0.52 + 0.08 * rip + 0.05 * big[m]
-        h[m] = 0.00005 * rip
+        # taffeta: 0.45-0.55 on the baffle crowns, 0.75 down in the stitch valleys (the loft drives it)
+        lf = np.clip(loft[m], 0, 1) if loft is not None else np.full(m.sum(), 0.8)
+        lf = np.where(kind[m] == K["quilt"], lf, 0.8)
+        crown = ss(0.25, 0.85, lf)
+        bc[m] = bc[m] * (1 + 0.04 * rip + 0.04 * mid[m])[:, None] * (0.82 + 0.18 * crown)[:, None]
+        rough[m] = 0.76 - 0.27 * crown + 0.04 * rip + 0.03 * big[m]
+        h[m] = 0.00002 * rip
     # ---------------------------------------------------------------- tricot (tracksuit): fine courses, satin sheen
     m = k_("tricot")
     if m.any():
         tr = 0.5 + 0.5 * np.sin(2 * np.pi * s[m] / 0.0009)
-        bc[m] = bc[m] * (0.95 + 0.08 * tr)[:, None] * (1 + 0.04 * mid[m])[:, None]
-        rough[m] = 0.58 + 0.06 * tr
-        h[m] = 0.00005 * tr
+        kn = knit(s[m], arc[m], 0.0011, 0.0009)                            # warp-knit loops, a matte face
+        bc[m] = bc[m] * (0.95 + 0.06 * tr)[:, None] * (1 + 0.04 * mid[m])[:, None]
+        rough[m] = 0.74 + 0.04 * tr + 0.03 * big[m]
+        h[m] = 0.00004 * tr + 0.00006 * kn
     # ---------------------------------------------------------------- glove leather
     m = k_("leather")
     if m.any():
-        f1, f2 = TX.cells(P[m], 1400.0, 7)
+        Pm = P[m]
+        f1, f2 = TX.cells(Pm, 1400.0, 7)
         grain = np.clip((f2 - f1) * 2.0, 0, 1)
-        crease = TX.ridged(P[m], 150, 9) * 0.6
-        bc[m] = bc[m] * (0.9 + 0.2 * grain)[:, None] * (1 + 0.15 * crease)[:, None]
-        rough[m] = 0.48 + 0.12 * (1 - grain) + 0.1 * crease
-        h[m] = 0.00012 * grain - 0.00015 * crease
+        crease = TX.ridged(Pm, 150, 9) * 0.6
+        pad, seam, flex = glove_relief(man, Pm, N[m])
+        wear = ss(0.3, 0.9, pad) * (0.6 + 0.4 * TX.noise(Pm, 300, 23))
+        bc[m] = bc[m] * (0.9 + 0.2 * grain)[:, None] * (1 + 0.15 * crease)[:, None] * (1 + 0.35 * wear)[:, None]
+        rough[m] = 0.62 + 0.06 * (1 - grain) + 0.05 * crease - 0.06 * wear
+        h[m] = 0.00012 * grain - 0.00015 * crease + 0.0012 * pad - 0.0004 * seam - 0.00035 * flex
     # ---------------------------------------------------------------- sneakers
     for name in ("shoe", "sole"):
         m = k_(name)
@@ -248,7 +315,7 @@ def texels(man, P, N, kind, base, piece, ao_geo):
             xs[sel], ys[sel] = x / GK.SHOE_L, y
         zz = Pm[:, 2]
         scuff = ss(0.2, 0.8, TX.fbm(Pm, 120, 3, seed=13)) * (ss(0.82, 1.0, xs) + 0.6 * (1 - ss(0.0, 0.08, xs)) + 0.4 * (zz < 0.03))
-        grime = np.clip(0.7 * (1 - ss(0.0, 0.035, zz)) + 0.4 * scuff + 0.2 * ss(0.3, 0.8, mid[m]), 0, 1)
+        grime = np.clip(0.8 * (1 - ss(0.0, 0.035, zz)) + 0.5 * scuff + 0.3 * ss(0.2, 0.8, mid[m]) + 0.12, 0, 1)
         if name == "shoe":
             f1, f2 = TX.cells(Pm, 2200.0, 17)
             grain = np.clip((f2 - f1) * 2.0, 0, 1)
@@ -261,7 +328,7 @@ def texels(man, P, N, kind, base, piece, ao_geo):
             c = bc[m] * (0.95 + 0.06 * grain)[:, None] * (1 - 0.12 * cre)[:, None]
             c = c * (1 - 0.35 * grime)[:, None] + DUST * 0.3 * grime[:, None] - 0.1 * st[:, None] * c
             bc[m] = c
-            rough[m] = 0.45 + 0.1 * grain + 0.2 * grime + 0.1 * cre
+            rough[m] = 0.55 + 0.1 * grain + 0.2 * grime + 0.1 * cre
             h[m] = 0.00006 * grain - 0.0004 * cre + 0.00025 * st
         else:
             band = 0.5 + 0.5 * np.sin(2 * np.pi * zz / 0.0035)
@@ -281,8 +348,47 @@ def texels(man, P, N, kind, base, piece, ao_geo):
         rough[m] = 0.25
     m = k_("lens")
     if m.any():
-        rough[m] = 0.06
-        bc[m] = lin("#050506")
+        rough[m] = 0.05
+        bc[m] = lin("#0b0a09")
+    m = k_("plastic")
+    if m.any():
+        rough[m] = 0.38 + 0.12 * mid[m] + 0.1 * fine[m]
+        h[m] = 0.00002 * fine[m]
+    m = k_("skin")
+    if m.any():
+        Pm = P[m]
+        pores = TX.noise(Pm, 2500.0, 51)
+        mot = TX.fbm(Pm, 200.0, 3, seed=52)
+        c = bc[m] * (1 + 0.10 * mot - 0.05 * pores)[:, None]
+        # darker, oilier round the eyes (lids) and the lips
+        for sd in "lr":
+            e = man.H.face.eye_centre(sd)
+            de = np.linalg.norm((Pm - e) * np.array([0.8, 1, 1.3]), axis=1)
+            c = c * (1 - 0.25 * (1 - ss(0.010, 0.022, de)))[:, None]
+        lips = 1 - ss(0.004, 0.013, np.linalg.norm((Pm - man.H.mouth) * np.array([0.45, 1, 1.0]), axis=1))
+        c = c * (1 - 0.2 * lips)[:, None] + lin("#5a2c27") * 0.15 * lips[:, None]
+        # the mouth line
+        ml = 1 - ss(0.0006, 0.0018, np.abs(Pm[:, 2] - man.H.mouth[2]) + 0.15 * ss(0.012, 0.03, np.abs(Pm[:, 0])))
+        c = c * (1 - 0.8 * ml)[:, None]
+        bc[m] = c
+        rough[m] = 0.48 - 0.1 * lips + 0.05 * pores
+        h[m] = 0.00004 * pores - 0.0004 * ml
+    m = k_("eye")
+    if m.any():
+        Pm = P[m]
+        c = np.tile(lin("#cfc6b8"), (m.sum(), 1))
+        for sd in "lr":
+            e = man.H.face.eye_centre(sd)
+            d = Pm - e
+            ang = np.degrees(np.arccos(np.clip(-d[:, 1] / np.maximum(np.linalg.norm(d, axis=1), 1e-9), -1, 1)))
+            near = np.linalg.norm(d, axis=1) < 0.02
+            iris = near & (ang < 26)
+            c[iris] = lin("#3a2416") * (0.8 + 0.4 * TX.noise(Pm[iris], 2000, 61))[:, None]
+            c[near & (ang < 11)] = lin("#050403")
+            limbal = near & (ang >= 24) & (ang < 29)
+            c[limbal] = c[limbal] * 0.5
+        bc[m] = c
+        rough[m] = 0.04
     m = k_("cord")
     if m.any():
         hel = 0.5 + 0.5 * np.sin(2 * np.pi * (s[m] / 0.003 + ax[m, 4] / np.pi))
@@ -290,7 +396,8 @@ def texels(man, P, N, kind, base, piece, ao_geo):
         rough[m] = 0.7
         h[m] = 0.0002 * hel
     # ---------------------------------------------------------------- dirt and dust over the fabrics
-    fab = ~(k_("metal") | k_("zip") | k_("lens") | k_("aglet") | k_("shoe") | k_("sole"))
+    fab = ~(k_("metal") | k_("zip") | k_("lens") | k_("aglet") | k_("shoe") | k_("sole") | k_("eye") | k_("skin")
+            | k_("plastic"))
     d = dust * fab
     bc = bc * (1 - 0.25 * d)[:, None] + DUST * 0.12 * d[:, None]
     rough = np.clip(rough + 0.08 * d, 0.03, 1)
@@ -318,68 +425,32 @@ def regions(man, P, N, kind, piece, bc, h, rough):
     h[v_] += 0.00012
     rough[v_] = 0.55
     J = man.B.J
-    # the tracksuit's oxblood stripes, 3 cm wide: down the outside of each sleeve (shoulder to cuff) and each leg
-    track = (kind == K["tricot"]) & ((piece == 4) | (piece == 5))
-    if track.any():
-        stripe = np.zeros(len(P), dtype=bool)
-        for sd, sx in (("l", 1.0), ("r", -1.0)):
-            for a_, b_, lim in ((J["upperarm_" + sd], J["hand_" + sd], 0.03), (J["thigh_" + sd], J["foot_" + sd], 0.0)):
-                w = (b_ - a_) / np.linalg.norm(b_ - a_)
-                if lim:                                   # arm: the outer side is the top of the arm in the A-pose
-                    o = np.cross(w, np.array([0, 1.0, 0]))
-                    o = o if o[2] > 0 else -o
-                else:                                     # leg: the outer side
-                    o = np.array([sx, 0, 0.0]) - w * (w[0] * sx)
-                o /= np.linalg.norm(o)
-                r = P - a_
-                t = r @ w
-                rr = r - t[:, None] * w
-                rad = np.linalg.norm(rr, axis=1)
-                ang = np.arccos(np.clip((rr @ o) / np.maximum(rad, 1e-6), -1, 1))
-                L = np.linalg.norm(b_ - a_)
-                on = (ang * rad < 0.015) & (t > -0.02) & (t < L) & (rad < 0.16)
-                if lim:
-                    on &= (sx * (P[:, 0] - a_[0]) > -0.01)
-                else:
-                    on &= (P[:, 2] < J["thigh_" + sd][2] + 0.06) & (sx * P[:, 0] > 0.04)
-                stripe |= on
-        stripe &= track
-        tape = 0.5 + 0.5 * np.sin(2 * np.pi * P[:, 2] / 0.0011)
-        bc[stripe] = OX * (0.9 + 0.1 * tape[stripe])[:, None]
-        h[stripe] += 0.00015
-        rough[stripe] = 0.55
     # the puffer's oxblood yoke (above the top quilt seam) and shoulder caps
     puff = (kind == K["quilt"]) & (piece == 3)
     if puff.any():
         yoke = np.zeros(len(P), dtype=bool)
         for sd in "lr":
             yoke |= np.linalg.norm(P - J["upperarm_" + sd], axis=1) < 0.115
-        yoke |= (z > 1.405) & (np.abs(x) < np.abs(J["upperarm_l"][0]) + 0.02)
+        yoke |= (z > 1.405) & (np.abs(x) < np.abs(J["upperarm_l"][0]) + 0.02)     # r2: the top stitch line
         yoke &= puff
         bc[yoke] = OX * (0.95 + 0.05 * TX.noise(P[yoke], 80, 2))[:, None]
-    # the ski mask: black eye slits, the vertical mouth seam, darker round the slits, the tucked part at the neck
+    # the balaclava: sweat and breath darkening round the mouth and eyes, grime where the hands pull it, pilling
     mk = kind == K["maskknit"]
     if mk.any():
-        from assets import _goons_head as GH
         Pm = P[mk]
-        sl = GH.slit_field(man.H, Pm, 0.0015)
-        c = bc[mk]
-        shade = np.clip(1 - sl / 0.012, 0, 1)
-        c = c * (1 - 0.25 * shade)[:, None] + SEAM * 0.25 * shade[:, None]
-        c[sl < 0.0] = SLIT
         Hd = man.H
-        seam = (np.abs(Pm[:, 0]) < 0.0022) & (Pm[:, 2] < Hd.eye["l"][2] - 0.035) & (Pm[:, 2] > Hd.chin_z - 0.01) & \
-            (Pm[:, 1] < Hd.j[1] - 0.04)
-        c[seam] = SEAM * 0.8
-        hh = h[mk]
-        hh[seam] -= 0.0004
-        tuck = Pm[:, 2] < Hd.chin_z - 0.035
-        c[tuck] = c[tuck] * 0.75 + SEAM * 0.25
-        # breath stain round the mouth
-        mouth = np.clip(1 - np.linalg.norm((Pm - Hd.mouth) * np.array([1, 1, 1.3]), axis=1) / 0.035, 0, 1)
-        c = c * (1 - 0.08 * mouth)[:, None]
-        bc[mk], h[mk] = c, hh
-        rough[mk] = np.where(sl < 0.0, 0.9, rough[mk])
+        c = bc[mk]
+        mouth = np.clip(1 - np.linalg.norm((Pm - Hd.mouth) * np.array([0.8, 1, 1.2]), axis=1) / 0.045, 0, 1)
+        eyes = np.zeros(len(Pm))
+        for sd in "lr":
+            e = Hd.face.eye_centre(sd)
+            eyes = np.maximum(eyes, np.clip(1 - np.linalg.norm((Pm - e) * np.array([0.7, 1, 1.2]), axis=1) / 0.035, 0, 1))
+        brow = np.clip(1 - np.abs(Pm[:, 2] - (Hd.face.ez + 0.03)) / 0.02, 0, 1) * (Pm[:, 1] < Hd.j[1] - 0.06)
+        sweat = np.clip(0.8 * mouth + 0.45 * eyes + 0.3 * brow, 0, 1) * (0.7 + 0.3 * TX.fbm(Pm, 60, 2, seed=71))
+        grime = ss(0.55, 0.9, TX.fbm(Pm, 25.0, 3, seed=72)) * 0.5
+        c = c * (1 - 0.30 * sweat)[:, None] * (1 - 0.15 * grime)[:, None] + DUST * 0.06 * grime[:, None]
+        bc[mk] = c
+        rough[mk] = rough[mk] - 0.12 * sweat
     return v_
 
 
@@ -405,7 +476,7 @@ def bake_set(ob, set_name, res, man, log, res_override=None, others=()):
     from mi import bake as _bake
     res = res_override or res
     vertex_ao(ob, others)
-    maps = TX.bake_maps(ob, res, face_attrs=["mi_kind", "mi_r", "mi_g", "mi_b", "mi_piece", "mi_ao"])
+    maps = TX.bake_maps(ob, res, face_attrs=["mi_kind", "mi_r", "mi_g", "mi_b", "mi_piece", "mi_ao", "mi_loft"])
     log("  %s: maps baked at %d, coverage %.1f %%" % (set_name, res, 100 * maps["mask"].mean()))
     H, W = maps["mask"].shape
     mask = maps["mask"]
@@ -420,9 +491,10 @@ def bake_set(ob, set_name, res, man, log, res_override=None, others=()):
     piece_f = np.rint(maps["mi_piece"].ravel()).astype(int)
     base_f = np.stack([maps["mi_r"].ravel(), maps["mi_g"].ravel(), maps["mi_b"].ravel()], axis=1)
     aof = aol.ravel()
+    loftf = maps["mi_loft"].ravel()
     for sl in TX.chunks(idx, 700_000):
         P, N = Pf[sl].astype(np.float64), Nf[sl]
-        c, r, mt, h = texels(man, P, N, kind_f[sl], base_f[sl].astype(np.float32), piece_f[sl], aof[sl])
+        c, r, mt, h = texels(man, P, N, kind_f[sl], base_f[sl].astype(np.float32), piece_f[sl], aof[sl], loftf[sl])
         regions(man, P, N, kind_f[sl], piece_f[sl], c, h, r)
         bc[sl], ro[sl], me[sl], hh[sl] = c, r, mt, h
     hh = hh.reshape(H, W)
@@ -483,3 +555,36 @@ def fill_gaps(set_name):
             f = (v + 1.0) * 127.5
         Image.fromarray(np.clip(np.rint(f), 0, 255).astype(np.uint8)).save(p(t), optimize=False)
     return float(known.mean())
+
+
+# ------------------------------------------------------------------------------------------------ tiling detail
+
+
+def detail_normal(res=1024, tile_m=0.025, seed=5):
+    """T_GoonFabric_Detail_N: a tiling fibre normal (one repeat = `tile_m`, 25 mm) that Unreal adds to every Goon
+    set in proportion to the cloth amount (mi_chars.goon_material): isotropic fuzz and 0.3-1 mm fibre clumps, so it
+    reads the same on every UV island whatever its angle. Periodic by construction (filtered in Fourier space)."""
+    import os
+    from PIL import Image
+    from mi import paths
+    rng = np.random.default_rng(seed)
+    f = np.fft.fftfreq(res) * res / tile_m                       # cycles per metre
+    fx, fy = np.meshgrid(f, f)
+    fr = np.sqrt(fx ** 2 + fy ** 2) + 1e-9
+    h = np.zeros((res, res))
+    for lam, amp in ((0.0012, 1.0), (0.0005, 0.6), (0.00025, 0.35)):  # clumps, fibres, fuzz (wavelengths in m)
+        band = np.exp(-((np.log(fr * lam)) ** 2) / 0.35)
+        z = np.fft.fft2(rng.standard_normal((res, res))) * band
+        layer = np.real(np.fft.ifft2(z))
+        h += amp * layer / layer.std()
+    h *= 0.000016                                                # metres of relief: mean tilt about 12 deg
+    px = tile_m / res
+    gx = (np.roll(h, -1, axis=1) - np.roll(h, 1, axis=1)) / (2 * px)
+    gy = (np.roll(h, -1, axis=0) - np.roll(h, 1, axis=0)) / (2 * px)
+    n = np.stack([-gx, gy, np.ones_like(h)], axis=2)              # OpenGL (green up), as the baked sets
+    n /= np.linalg.norm(n, axis=2, keepdims=True)
+    d = paths.texture_set("GoonFabric_Detail")
+    os.makedirs(d, exist_ok=True)
+    out = os.path.join(d, "T_GoonFabric_Detail_N.png")
+    Image.fromarray(np.clip(np.rint((n + 1) * 127.5), 0, 255).astype(np.uint8)).save(out)
+    return out, float(np.degrees(np.arccos(n[..., 2])).mean())
