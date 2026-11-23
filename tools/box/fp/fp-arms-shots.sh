@@ -122,14 +122,15 @@ cm = pc.player_camera_manager
 C = cm.get_camera_location()
 cr = cm.get_camera_rotation()
 F = cr.get_forward_vector()
-# a frame on the tattoo (y out of the skin, x toward the elbow and on along the upper arm, i.e. the upper arm's
-# direction square to y) mapped onto a frame 30 cm in front of the eye (y toward the eye, x up the screen): the
-# lines, which run round the forearm with the letters' tops toward the elbow, read about upright, and the upper arm
-# leaves the frame at the top (with x along the forearm alone the right upper arm came at the eye and filled the frame)
-sh = arms.get_socket_location("upperarm_" + sx)
-U = (sh - e).normal() + A
+# a frame on the tattoo (y the line of sight from the skin to the eye, x along the forearm toward the elbow) mapped onto
+# a frame 30 cm in front of the eye (y toward the eye, x up the screen): the lines, which run round the forearm with the
+# letters' tops toward the elbow, read upright. The left tattoo is seen square on. The right one faces the inside of the
+# bent elbow in the CHOPPER's hold: square on, the right upper arm came straight at the eye and filled the frame (an
+# end-on disc with the word at its rim), so it is seen from 35 degrees toward the wrist, past the upper arm
+th = 0.0 if sx == "l" else 35.0
+v = (n * M.cos(M.degrees_to_radians(th)) - A * M.sin(M.degrees_to_radians(th))).normal()
 newp = C + F * 30.0
-cur = unreal.Transform(p, M.make_rot_from_yx(n, U), unreal.Vector(1, 1, 1))
+cur = unreal.Transform(p, M.make_rot_from_yx(v, A), unreal.Vector(1, 1, 1))
 tgt = unreal.Transform(newp, M.make_rot_from_yx(F * -1.0, cr.get_up_vector()), unreal.Vector(1, 1, 1))
 t = M.compose_transforms(M.compose_transforms(arms.get_world_transform(), M.invert_transform(cur)), tgt)
 arms.set_world_transform(t, False, True)
