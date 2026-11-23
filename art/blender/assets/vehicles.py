@@ -487,6 +487,12 @@ def classify(ob, tex, spec):
             & (np.abs(c[:, 1]) > k.get("grille_hw", 0.30)) & (lum > 0.08) & (lum < k.get("head_lum", 0.47))
             & (sat < 0.035))
     cls[head] = CLS["head"]
+    if "head_box" in k:                 # headlamp units by position (lamp texels too close to the paint in colour)
+        y0, y1, z0, z1 = k["head_box"]
+        front = (c[:, 0] > L - k.get("head_depth", 0.42)) & (n[:, 0] > 0.15)
+        inb = front & (np.abs(c[:, 1]) > y0) & (np.abs(c[:, 1]) < y1) & (c[:, 2] > z0) & (c[:, 2] < z1)
+        cls[front & ~inb & (cls == CLS["head"])] = CLS["paint"]
+        cls[inb & (lum > 0.05)] = CLS["head"]
     red = (rgb[:, 0] > 0.08) & (rgb[:, 0] > 3 * rgb[:, 1]) & (c[:, 0] < 0)
     cls[red] = CLS["tail"]
     amber = (rgb[:, 0] > 0.2) & (rgb[:, 1] > 0.05) & (rgb[:, 1] < 0.6 * rgb[:, 0]) & (rgb[:, 2] < 0.4 * rgb[:, 1])
@@ -554,6 +560,22 @@ def _lowpass(a, m, size=384):
     return np.asarray(Image.fromarray(lo.astype(np.float32), "F").resize((W, H), Image.BILINEAR))
 
 
+def class_uv(cmap, k):
+    """UV of a texel deep inside an island of class k (None when the class is absent)."""
+    from PIL import Image
+    p = Image.fromarray(((cmap == k) * 255).astype(np.uint8)).resize((512, 512), Image.BOX)
+    a = np.asarray(p) > 250
+    if not a.any():
+        return None
+    k_ = a.copy()
+    for dy in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            k_ &= np.roll(np.roll(a, dy, 0), dx, 1)
+    ys, xs = np.nonzero(k_ if k_.any() else a)
+    i = len(ys) // 2
+    return [float((xs[i] + 0.5) / 512), float(1.0 - (ys[i] + 0.5) / 512)]
+
+
 def paint_uv(cmap):
     """UV of a texel deep inside a paint island: parts modelled here (door leaves, frames) map all their UVs to it
     and so carry the plain tint-mask paint of the body."""
@@ -569,10 +591,10 @@ def paint_uv(cmap):
     return [float((xs[i] + 0.5) / 256), float(1.0 - (ys[i] + 0.5) / 256)]
 
 
-def uv_point(ob, set_name):
-    """Every UV of ob at the set's paint_uv (uniform paint from a body atlas)."""
+def uv_point(ob, set_name, key="paint_uv"):
+    """Every UV of ob at the set's paint_uv (uniform paint from a body atlas; key tail_uv / amber_uv: a lens)."""
     info = bake.read_set(set_name) or {}
-    u, v = info.get("paint_uv", (0.5, 0.5))
+    u, v = info.get(key) or info.get("paint_uv", (0.5, 0.5))
     me = ob.data
     uvl = me.uv_layers.get(geo.UV) or me.uv_layers.new(name=geo.UV)
     uvl.data.foreach_set("uv", np.tile(np.array([u, v], np.float32), len(me.loops)))
@@ -623,6 +645,8 @@ def body_set(set_name, cmap, tex, meta):
           "normal": f(nrm), "emit": f(emit.astype(np.float32))}
     info = dict(meta)
     info["paint_uv"] = paint_uv(cmap)
+    info["tail_uv"] = class_uv(cmap, CLS["tail"])
+    info["amber_uv"] = class_uv(cmap, CLS["amber"])
     info.update({"kind": "unique", "note": "generated atlas (hunyuan3d_v3) rewritten: paint texels are a neutral tint "
                  "mask (0.86 x detail, multiply by the chart colour, clear coat), lamps carry E (head, tail, amber)"})
     return bake.write_set(set_name, ch, meta=info)
@@ -1755,7 +1779,9 @@ def v_stripped(ctx, P):
     sp = SPEC["Sedan"]
     sh = _shell_variant(P, "Stripped_Shell")
     c, n, a = gen3d.face_arrays(sh)
-    doors = (np.abs(c[:, 1]) > 0.55) & (c[:, 0] > -1.10) & (c[:, 0] < 0.96) & (c[:, 2] > 0.30) & (c[:, 2] < 1.04)
+    # (review fix) the door skins only: sills (below 0.50) and the B pillar stay
+    doors = (np.abs(c[:, 1]) > 0.55) & (c[:, 0] > -1.10) & (c[:, 0] < 0.96) & (c[:, 2] > 0.50) & (c[:, 2] < 1.04)
+    doors &= ~(np.abs(c[:, 0] - sp["bpillar"]) < 0.06)
     gen3d.delete_faces(sh, doors | _bonnet(sh))
     primer = set_material("Vehicle_Sedan", slot="M_Vehicle_StrippedCar_Primer", tint=hexcol("#7a3b2c"), rough=0.78)
     bare, t_bare = tiling("TS_Steel_CargoDark")
@@ -2135,13 +2161,82 @@ def top_decal(target, name, cx, cy, w, h, uv, m, nx=16, ny=8, lift=0.003):
     return ob
 
 
+def truck_box(ctx, P, sp):
+    """(review fix) Modelled dry-freight box replacing the generated one: painted aluminium skin in the instance
+    colour (Paint slot, flat tint), side posts, corner posts and rails, a roll-up rear door of slats with a handle and
+    a lock hasp, rear header with two red top markers (Lamp slot). Returns [skin, ...]."""
+    front, zb = sp.get("box", (1.0, 1.15))
+    L = sp["size"][0] / 2
+    W, H = sp["size"][1], sp["size"][2]
+    x0, x1 = -L + 0.052, front
+    hw = W / 2 - 0.035
+    mpaint = P["shell"].material_slots[0].material
+    mcab = P["shell"].material_slots[len(P["shell"].material_slots) - 2].material   # PaintCab (white)
+    mlamp = P["shell"].material_slots[2].material
+    galv = set_material("TS_Galvanised_Aged", slot="MI_Galvanised_Aged")
+    t_galv = (bake.read_set("TS_Galvanised_Aged") or {}).get("tile_m", 1.0)
+    chrome, t_chrome = tiling("TS_Chrome_Polished")
+    out = []
+    skin = geo.box((x1 - x0, 2 * hw - 0.02, H - 0.03 - zb), bevel=0.012, name="Truck_Box")
+    geo.transform(skin, loc=((x0 + x1) / 2, 0, zb))
+    out.append(uv_point(put_mat(skin, mpaint), "Vehicle_BoxTruck"))
+    posts = []
+    for x in np.arange(x0 + 0.62, x1 - 0.3, 0.62):              # side posts (pressed hat sections)
+        for sd in (1, -1):
+            b = geo.box((0.05, 0.016, H - 0.03 - zb - 0.20), bevel=0.004, name="Truck_Post")
+            geo.transform(b, loc=(float(x), sd * (hw - 0.002), zb + 0.10))
+            posts.append(b)
+    out.append(uv_point(put_mat(geo.join(posts, "Truck_Posts"), mpaint), "Vehicle_BoxTruck"))
+    rails = []
+    for sd in (1, -1):
+        for (z, h) in ((zb - 0.02, 0.16), (H - 0.07, 0.07)):            # bottom and top rails
+            r = geo.box((x1 - x0 + 0.02, 0.05, h), bevel=0.006, name="Truck_Rail")
+            geo.transform(r, loc=((x0 + x1) / 2, sd * (hw + 0.005), z))
+            rails.append(r)
+        for x in (x0 + 0.03, x1 - 0.03):                                  # corner posts
+            r = geo.box((0.07, 0.07, H - zb + 0.01), bevel=0.008, name="Truck_Corner")
+            geo.transform(r, loc=(x, sd * (hw - 0.01), zb - 0.02))
+            rails.append(r)
+    for (z, h) in ((zb - 0.02, 0.10), (H - 0.20, 0.17)):                 # rear sill and header
+        r = geo.box((0.07, 2 * hw, h), bevel=0.008, name="Truck_RearFrame")
+        geo.transform(r, loc=(x0 - 0.005, 0, z))
+        rails.append(r)
+    out.append(put_mat(geo.join(rails, "Truck_Rails"), galv, t_galv))
+    # roll-up door: slats 0.095 tall with a groove between them, inside the rear frame
+    slats = []
+    z = zb + 0.09
+    while z < H - 0.30:
+        sl_ = geo.box((0.014, 2 * hw - 0.16, 0.092), bevel=0.004, name="Truck_Slat")
+        geo.transform(sl_, loc=(x0 - 0.012, 0, z))
+        slats.append(sl_)
+        z += 0.098
+    out.append(uv_point(put_mat(geo.join(slats, "Truck_Door"), mcab), "Vehicle_BoxTruck"))
+    hd = []
+    bar = geo.box((0.03, 0.40, 0.035), bevel=0.008, name="Truck_Handle")
+    geo.transform(bar, loc=(x0 - 0.035, 0, zb + 0.14))
+    hasp = geo.box((0.02, 0.06, 0.12), bevel=0.004, name="Truck_Hasp")
+    geo.transform(hasp, loc=(x0 - 0.03, 0.35, zb + 0.10))
+    hd += [bar, hasp]
+    out.append(put_mat(geo.join(hd, "Truck_Hardware"), chrome, t_chrome))
+    mk = []
+    for sd in (1, -1):                                                    # red top markers
+        m = geo.box((0.03, 0.10, 0.05), bevel=0.008, name="Truck_Marker")
+        geo.transform(m, loc=(x0 - 0.04, sd * (hw - 0.20), H - 0.14))
+        mk.append(m)
+    out.append(uv_point(put_mat(geo.join(mk, "Truck_Markers"), mlamp), "Vehicle_BoxTruck", "tail_uv"))
+    ctx.log("BoxTruck: modelled box x %.2f..%.2f, floor %.2f" % (x0, x1, zb))
+    return out
+
+
 def v_boxtruck(ctx):
     P = make_parts(ctx, "BoxTruck")
     sp = P["spec"]
     parts = [P["shell"], P["glass"]] + P["wheels"] + P["wells"] + P["interior"] + P["seats"]
     parts += make_plates(P, sp["plate"])
     dm = decal_mat(boxtruck_decals())
-    sh = P["shell"]
+    box = truck_box(ctx, P, sp)
+    parts += box
+    sh = box[0]
     # variant 0: RULE on the right flank (-Y) at x -1.76, HOLLIS on the left (+Y) at x -0.96; centre height 1.90
     for side, xc, v in ((-1, -1.76, (0.0, 1 - 945 / 2048, 1.0, 1.0)), (1, -0.96, (0.0, 1 - 1969 / 2048, 1.0, 1 - 1024 / 2048))):
         parts.append(decal(sh, "Truck_Tag", xc - 1.3, xc + 1.3, 1.90 - 0.6, 1.90 + 0.6, side, v, dm, nx=40, nz=18))
@@ -2264,7 +2359,7 @@ SPEC.update({
     "BoxTruck": dict(bn=1.30, ws_top=2.18, ws_inset=0.30, cabin_inside=False, src="boxtruck_hunyuan80k.glb", axis="Y", nose=-1, size=(7.39, 2.44, 3.31), axles=(2.95, -2.09),
                      r=0.44, tw=0.28, rim=0.27, belt=1.50, cowl=2.55, bpillar=1.65, rear_x=1.20, floor=1.0,
                      cabin_rear=1.25, seat_x=1.55, wheel="steel", twin=True, rear_seat=False, plate="HLS2141",
-                     paint="mustard", paint2=lambda c: c[:, 0] > _box_front(c) + 0.03, paint2_colour="#d9d7d0", cover=3.30, tris=48000),
+                     paint="mustard", paint2=lambda c: c[:, 0] > SPEC["BoxTruck"].get("box", (1.0,))[0] + 0.03, paint2_colour="#d9d7d0", cover=3.30, tris=48000),
     # IPX: a conventional cab (windscreen at x 1.4-1.6, z 2.22-2.72, bonnet to the nose), measured on the turned body
     "IPXTruck": dict(bn=1.80, ws_top=1.36, ws_z1=2.74, ws_inset=0.42, cabin_inside=False, src="ipx_hunyuan80k.glb", axis="Y", nose=-1, size=(6.81, 2.48, 2.96), axles=(2.05, -1.75),
                      r=0.50, tw=0.30, rim=0.30, belt=2.20, cowl=1.62, bpillar=0.70, rear_x=0.60, floor=1.05,
@@ -2273,10 +2368,27 @@ SPEC.update({
                      drop=lambda c, n, cls: _ipx_drop(c, n, cls)),
     "Motorbike": dict(src="moto_hunyuan100k.glb", axis="X", nose=1, paint="navy", tris=90000),
 })
-def _box_front(c):
-    """x of the cargo box's front face: the front of everything above the cab roof (2.28)."""
-    k = c[:, 2] > 2.45
-    return float(np.percentile(c[k, 0], 99.5)) if k.sum() > 50 else 1.0
+def _box_front(c, n=None):
+    """x of the cargo box's front face: the forward-facing faces above the cab roof (2.28), between the box's
+    sides (not the cab's roof markers or the mirrors); falls back to everything above the roof."""
+    k = (c[:, 2] > 2.55) & (np.abs(c[:, 1]) < 1.0) & (c[:, 0] > -1.0) & (c[:, 0] < 2.2)
+    if n is not None:
+        kf = k & (n[:, 0] > 0.8)
+        if kf.sum() > 30:
+            return float(np.median(c[kf, 0]))
+    k = (c[:, 2] > 2.55) & (np.abs(c[:, 1]) < 1.0) & (c[:, 0] < 2.2)
+    return float(np.percentile(c[k, 0], 99)) if k.sum() > 50 else 1.0
+
+
+def _boxtruck_drop(c, n, cls):
+    """The generated cargo box (crumpled, baked shading) goes: everything above its floor behind its front face.
+    Measures the box (front x, floor z) for the modelled one."""
+    front = _box_front(c, n)
+    fl = ((np.abs(n[:, 1]) > 0.8) & (np.abs(c[:, 1]) > 1.05) & (c[:, 0] < front - 0.3) & (c[:, 0] > -3.5)
+          & (c[:, 2] > 0.95))
+    zb = float(np.percentile(c[fl, 2], 2)) if fl.sum() > 50 else 1.15
+    SPEC["BoxTruck"]["box"] = (front, zb)
+    return (c[:, 0] < front + 0.015) & (c[:, 2] > zb - 0.01)
 
 
 def _ipx_drop(c, n, cls):
@@ -2313,6 +2425,8 @@ SPEC["Pickup"]["reclass"] = _pickup_reclass
 for _k in ("Sedan", "SUV", "Pickup", "Van", "VanVulture"):
     SPEC[_k]["wipers"] = True
 SPEC["SUV"]["side_glass"] = (-2.08, -1.42, 1.27, 1.68)        # quarter lights (review fix)
+SPEC["SUV"].setdefault("cls", {})["head_box"] = (0.44, 0.84, 0.82, 1.05)
+SPEC["BoxTruck"]["drop"] = lambda c, n, cls: _boxtruck_drop(c, n, cls)
 SPEC["Pickup"]["extra"] = pickup_extra
 
 

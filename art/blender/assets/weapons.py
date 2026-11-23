@@ -1750,7 +1750,7 @@ CHOPPER_MAG_NOTES = (
 
 
 def build_nine(ctx):
-    gun, arm = nine_build(ctx)
+    gun, arm = N9.nine_build(ctx)
     res = tex_res(ctx, "SK_Nine")
     dens = unwrap(gun, res)
     ctx.log("SK_Nine: %d tris, %.0f px/m" % (geo.stats(gun)["triangles"], dens))
@@ -1758,7 +1758,7 @@ def build_nine(ctx):
     geo.ensure_wear(gun)
     SKINNED["SK_Nine"] = {"ob": gun, "arm": arm, "expect_size": (0.234, 0.031, 0.153), "poses": nine_poses(),
                           "notes": NINE_NOTES}
-    body, top = nine_magazine(ctx.col)
+    body, top = N9.nine_magazine(ctx.col)
     mark_piece(body, 0.0)
     mark_piece(top, 1.0)
     mag = geo.join([body, top], "SM_Weapon_NineMagazine", ctx.col)
@@ -2262,3 +2262,8 @@ def on_preview(ctx, objs):
     both = "SK_Chopper" in SKINNED and "SK_Nine" in SKINNED
     if have and (want("weapons_parts") or want("weapons_wire")) and (both or PREVIEW_ONLY):
         preview_parts_wire(ctx)
+
+
+# rebuild round 1: the new part builders (they use the kit above, so they are imported last)
+from assets import _weapons_kit as KIT  # noqa: E402
+from assets import _weapons_nine as N9  # noqa: E402

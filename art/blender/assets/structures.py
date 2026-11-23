@@ -577,7 +577,7 @@ def stair(ctx, M):
         rod(b, (xf + 0.05, yr, top(xf + 0.05)), (xt + 0.02, yr, top(x_last)), 0.024, "steel", n=12)
         rod(b, (xf + 0.05, yr, line(xf + 0.05) + 0.52), (x_last, yr, line(x_last) + 0.52), 0.016, "steel", n=8)
         pitch = 0.22
-        for xs in np.arange(xf - 0.05, x_last - 0.25, pitch):
+        for xs in np.arange(xf - 0.05, x_last + 0.2, -pitch):
             for dx in (-0.37, 0.37):
                 xe = xs + dx
                 if not (x_last <= xe <= xf):
@@ -1763,18 +1763,18 @@ def on_preview(ctx, objs):
     if want("structures_wire"):
         vl = bpy.context.view_layer
         vl.material_override = _clay_wire()
-        render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=0.3)
+        render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=2.2)
         render.cam_look((-36.2, -10.6, 1.6), (-40.2, -8.0, 2.4), lens=30, name="Cam_Wire")
         _p, sec = render.render_jpeg(os.path.join(P, "structures_wire.jpg"), max(24, a.samples // 2))
         vl.material_override = None
         ctx.log("preview structures_wire.jpg %.0fs" % sec)
     if want("structures_station"):
-        render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=0.8)
+        render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=2.6)
         render.cam_look((-33.2, -9.6, 1.80), (-42.0, -6.6, 3.6), lens=24, name="Cam_Station")
         _p, sec = render.render_jpeg(os.path.join(P, "structures_station.jpg"), a.samples)
         ctx.log("preview structures_station.jpg %.0fs" % sec)
     if want("structures_station_up"):
-        render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=1.2)
+        render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=3.3)
         render.cam_look((-40.3, -8.15, 1.3 + 1.62), (-44.6, -7.6, 5.3), lens=22, name="Cam_StationUp")
         _p, sec = render.render_jpeg(os.path.join(P, "structures_station_up.jpg"), a.samples)
         ctx.log("preview structures_station_up.jpg %.0fs" % sec)

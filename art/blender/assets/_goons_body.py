@@ -119,3 +119,65 @@ class Body:
             b = 0.5 * (np.percentile(y, 98) - np.percentile(y, 2))
             out.append((c_real + u * cx + v * cy, u, v, a, b))
         return out
+
+
+# ---------------------------------------------------------------------- distance to the mannequin surface
+
+
+class BodyField:
+    """Signed distance to the mannequin's rest surface (negative inside), sampled once on a 1 cm grid over the
+    whole body and read back by trilinear interpolation. Garments are cut as offsets of it (ease)."""
+
+    def __init__(self, B, h=0.01, cache=None, lo=(-0.66, -0.36, -0.02), hi=(0.66, 0.26, 1.86)):
+        import os
+        from mathutils.bvhtree import BVHTree
+        self.lo = np.array(lo, dtype=np.float64)
+        self.hi = np.array(hi, dtype=np.float64)
+        self.h = h
+        n = np.ceil((self.hi - self.lo) / h).astype(int) + 1
+        self.n = n
+        if cache and os.path.exists(cache):
+            self.F = np.load(cache)["F"]
+            return
+        me = B.body.data
+        tri = np.array([list(p.vertices) for p in me.polygons if len(p.vertices) == 3])
+        quads = [list(p.vertices) for p in me.polygons if len(p.vertices) == 4]
+        if quads:
+            q = np.array(quads)
+            tri = np.concatenate([tri.reshape(-1, 3), q[:, [0, 1, 2]], q[:, [0, 2, 3]]])
+        co = B.co
+        bvh = BVHTree.FromPolygons([tuple(v) for v in co], [tuple(t) for t in tri], all_triangles=True)
+        fn = np.cross(co[tri[:, 1]] - co[tri[:, 0]], co[tri[:, 2]] - co[tri[:, 0]])
+        fn /= np.maximum(np.linalg.norm(fn, axis=1, keepdims=True), 1e-12)
+        F = np.empty(n.prod(), dtype=np.float32)
+        xs = [self.lo[k] + np.arange(n[k]) * h for k in range(3)]
+        i = 0
+        for x in xs[0]:
+            for y in xs[1]:
+                for z in xs[2]:
+                    loc, nn, fi, d = bvh.find_nearest((x, y, z), 0.5)
+                    if loc is None:
+                        F[i] = 0.5
+                    else:
+                        s = (x - loc[0]) * fn[fi, 0] + (y - loc[1]) * fn[fi, 1] + (z - loc[2]) * fn[fi, 2]
+                        F[i] = d if s >= 0 else -d
+                    i += 1
+        self.F = F.reshape(n)
+        if cache:
+            np.savez_compressed(cache, F=self.F)
+
+    def __call__(self, p):
+        q = (np.asarray(p) - self.lo) / self.h
+        q = np.clip(q, 0, self.n - 1.0001)
+        i = np.floor(q).astype(int)
+        f = q - i
+        F = self.F
+        out = 0
+        for dx in (0, 1):
+            wx = f[:, 0] if dx else 1 - f[:, 0]
+            for dy in (0, 1):
+                wy = f[:, 1] if dy else 1 - f[:, 1]
+                for dz in (0, 1):
+                    wz = f[:, 2] if dz else 1 - f[:, 2]
+                    out = out + wx * wy * wz * F[i[:, 0] + dx, i[:, 1] + dy, i[:, 2] + dz]
+        return out

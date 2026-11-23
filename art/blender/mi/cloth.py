@@ -248,6 +248,33 @@ def set_group(ob, name, weights):
     return g
 
 
+def weld(ob, dist=2e-4):
+    """Merge vertices closer than `dist` (coincident points give zero-length springs: the solver then returns the
+    mesh unchanged). Instead of merging (which would renumber the vertices the caller's pins refer to), the
+    second vertex of each such edge is moved toward its neighbours."""
+    co = np.empty(len(ob.data.vertices) * 3)
+    ob.data.vertices.foreach_get("co", co)
+    e = np.empty(len(ob.data.edges) * 2, dtype=np.int64)
+    ob.data.edges.foreach_get("vertices", e)
+    e = e.reshape(-1, 2)
+    co = co.reshape(-1, 3)
+    short = np.linalg.norm(co[e[:, 0]] - co[e[:, 1]], axis=1) < dist
+    if short.any():
+        # nudge the second vertex of each short edge toward the mean of its neighbours (keeps every index)
+        nb = np.zeros_like(co)
+        cnt = np.zeros(len(co))
+        np.add.at(nb, e[:, 0], co[e[:, 1]])
+        np.add.at(nb, e[:, 1], co[e[:, 0]])
+        np.add.at(cnt, e[:, 0], 1)
+        np.add.at(cnt, e[:, 1], 1)
+        mean = nb / np.maximum(cnt, 1)[:, None]
+        for a, b in e[short]:
+            co[b] = co[b] + 0.35 * (mean[b] - co[b])
+        ob.data.vertices.foreach_set("co", co.astype(np.float32).ravel())
+        ob.data.update()
+        print("cloth.weld: %s: %d short edges nudged" % (ob.name, int(short.sum())))
+
+
 def drape(ob, colliders, frames=50, pin=None, shrink=None, shrink_min=0.0, mass=0.25, tension=12.0,
           compression=12.0, shear=6.0, bending=0.6, quality=6, distance=0.004, thickness=0.004,
           friction=8.0, self_collision=False, gravity=(0, 0, -9.81), air=1.0, log=None, pressure=0.0,
@@ -257,6 +284,7 @@ def drape(ob, colliders, frames=50, pin=None, shrink=None, shrink_min=0.0, mass=
     scales `shrink_min` per vertex (negative shrink_min = the fabric grows: buckles into folds where it is held).
     Returns the per-frame largest vertex speed (m/frame) so the caller can see it settle."""
     s = bpy.context.scene
+    weld(ob, 2e-4)
     for c in colliders:
         if not any(m.type == "COLLISION" for m in c.modifiers):
             c.modifiers.new("Collision", "COLLISION")
@@ -294,6 +322,8 @@ def drape(ob, colliders, frames=50, pin=None, shrink=None, shrink_min=0.0, mass=
     cs.use_collision = True
     cs.distance_min = distance
     cs.collision_quality = 3
+    cs.impulse_clamp = 0.02
+    cs.self_impulse_clamp = 0.02
     cs.use_self_collision = self_collision
     cs.self_distance_min = distance * 0.75
     md.point_cache.frame_start = 1
@@ -339,7 +369,7 @@ def hem_facing(ob, depth=0.02, thickness=0.003, steps=2, loops=None):
     """Turn the open edges inward: from each boundary loop a rim `thickness` deep (against the surface normal)
     and a facing that runs back up inside the garment for `depth`, so hems, cuffs and openings show a real edge
     with thickness and an inner face. loops: vertex loops to treat (default every boundary loop).
-    Returns the indices of the new faces (the inside / rim, to tag them)."""
+    Returns the indices of the new faces (to tag them as the inside)."""
     me = ob.data
     n0 = len(me.vertices)
     co = np.empty(n0 * 3)
@@ -347,70 +377,108 @@ def hem_facing(ob, depth=0.02, thickness=0.003, steps=2, loops=None):
     co = co.reshape(-1, 3)
     N = vertex_normals(ob)
     loops = loops if loops is not None else boundary_loops(ob)
-    # inward direction along the surface: mean of edges to interior neighbours
     e = np.empty(len(me.edges) * 2, dtype=np.int64)
     me.edges.foreach_get("vertices", e)
     e = e.reshape(-1, 2)
     bnd = boundary_vertices(ob)
     D = np.zeros_like(co)
-    for a, b in e:
-        if bnd[a] and not bnd[b]:
-            D[a] += co[b] - co[a]
-        elif bnd[b] and not bnd[a]:
-            D[b] += co[a] - co[b]
-    new_v, new_f = [], []
-    nxt = n0
+    ia = bnd[e[:, 0]] & ~bnd[e[:, 1]]
+    ib = bnd[e[:, 1]] & ~bnd[e[:, 0]]
+    np.add.at(D, e[ia, 0], co[e[ia, 1]] - co[e[ia, 0]])
+    np.add.at(D, e[ib, 1], co[e[ib, 0]] - co[e[ib, 1]])
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bm.verts.ensure_lookup_table()
+    created = []
     for loop in loops:
-        L = np.array(loop)
-        if len(L) < 3:
+        L = list(loop)
+        m = len(L)
+        if m < 3:
             continue
+        # orientation: the existing face on edge (L0, L1) runs L0 -> L1 or L1 -> L0
+        ed = bm.edges.get((bm.verts[L[0]], bm.verts[L[1]]))
+        forward = True
+        if ed is not None and ed.link_faces:
+            fv = [v.index for v in ed.link_faces[0].verts]
+            k = fv.index(L[0])
+            forward = fv[(k + 1) % len(fv)] == L[1]
         P, Nn = co[L], N[L]
         Dd = D[L] - np.einsum("ij,ij->i", D[L], Nn)[:, None] * Nn
         Dd /= np.maximum(np.linalg.norm(Dd, axis=1, keepdims=True), 1e-9)
-        rings = [L]
+        rings = [[bm.verts[i] for i in L]]
         for j in range(1, steps + 2):
-            if j == 1:
-                R = P - Nn * thickness
-            else:
-                R = P - Nn * thickness + Dd * depth * (j - 1) / steps
-            ids = np.arange(nxt, nxt + len(L))
-            nxt += len(L)
-            new_v.append(R)
-            rings.append(ids)
-        closed = True
-        m = len(L)
+            R = P - Nn * thickness + (Dd * depth * (j - 1) / steps if j > 1 else 0)
+            rings.append([bm.verts.new(Vector(p)) for p in R])
+        closed = (bm.edges.get((bm.verts[L[0]], bm.verts[L[-1]])) is not None)
         for r0, r1 in zip(rings[:-1], rings[1:]):
             for i in range(m if closed else m - 1):
                 k = (i + 1) % m
-                new_f.append((r0[i], r0[k], r1[k], r1[i]))
-    if not new_v:
-        return []
-    allv = np.concatenate([co] + new_v)
-    bm = bmesh.new()
-    bm.from_mesh(me)
-    for p in np.concatenate(new_v):
-        bm.verts.new(Vector(p))
-    bm.verts.ensure_lookup_table()
-    first = len(bm.faces)
-    for f in new_f:
-        try:
-            bm.faces.new([bm.verts[i] for i in f])
-        except ValueError:
-            pass
-    bm.faces.ensure_lookup_table()
-    bm.normal_update()
-    created = list(range(first, len(bm.faces)))
-    # the rim and facing look into the garment: their normal points against the outer surface normal
-    Nall = np.concatenate([N] + [N[np.array(l)] for l in loops if len(l) >= 3 for _ in range(steps + 1)])
-    for fi in created:
-        f = bm.faces[fi]
-        ref = Vector(Nall[f.verts[0].index]) if f.verts[0].index < len(Nall) else Vector((0, 0, 1))
-        c = sum((v.co for v in f.verts), Vector()) / len(f.verts)
-        # the rim (first ring) faces outward along the cut, the facing faces inward
-        if f.normal.dot(ref) > 0 and fi >= first:
-            pass
-    bmesh.ops.recalc_face_normals(bm, faces=[bm.faces[i] for i in created])
+                quad = [r0[i], r0[k], r1[k], r1[i]] if not forward else [r0[k], r0[i], r1[i], r1[k]]
+                try:
+                    created.append(bm.faces.new(quad))
+                except ValueError:
+                    pass
+    bm.faces.index_update()
+    idx = [f.index for f in created]
     bm.to_mesh(me)
     bm.free()
     me.update()
-    return created
+    return idx
+
+
+def ribbon(name, path, normals, width, thick, col=None, closed=False):
+    """A flat strap (webbing, tape) of `width` x `thick` along `path` (n, 3), lying on the surface whose normals
+    are `normals` (n, 3). Closed box section, quads."""
+    P = np.asarray(path, dtype=np.float64)
+    Nn = np.asarray(normals, dtype=np.float64)
+    T = np.roll(P, -1, axis=0) - np.roll(P, 1, axis=0)
+    if not closed:
+        T[0], T[-1] = P[1] - P[0], P[-1] - P[-2]
+    T /= np.maximum(np.linalg.norm(T, axis=1, keepdims=True), 1e-9)
+    Nn = Nn - np.einsum("ij,ij->i", Nn, T)[:, None] * T
+    Nn /= np.maximum(np.linalg.norm(Nn, axis=1, keepdims=True), 1e-9)
+    S = np.cross(T, Nn)
+    corners = [(-0.5, 0.0), (0.5, 0.0), (0.5, 1.0), (-0.5, 1.0)]
+    V = []
+    for a, b in corners:
+        V.append(P + S * (a * width) + Nn * (b * thick))
+    V = np.stack(V, axis=1).reshape(-1, 3)
+    n = len(P)
+    F = []
+    for i in range(n if closed else n - 1):
+        k = (i + 1) % n
+        for c in range(4):
+            c2 = (c + 1) % 4
+            F.append((i * 4 + c, k * 4 + c, k * 4 + c2, i * 4 + c2))
+    if not closed:
+        F.append((3, 2, 1, 0))
+        F.append(((n - 1) * 4 + 0, (n - 1) * 4 + 1, (n - 1) * 4 + 2, (n - 1) * 4 + 3))
+    from . import geo as _geo
+    ob = _geo.from_arrays(name, V, F, col, smooth=50)
+    return ob
+
+
+def smooth(ob, iters=4, pin=None, lam=0.5, mu=-0.53):
+    """Taubin smoothing of the vertex positions (removes mesh-scale crinkles left by the solver, keeps folds and
+    volume). pin (n,) bool: vertices that stay put (open edges are always kept)."""
+    me = ob.data
+    co = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    e = np.empty(len(me.edges) * 2, dtype=np.int64)
+    me.edges.foreach_get("vertices", e)
+    e = e.reshape(-1, 2)
+    keep = boundary_vertices(ob)
+    if pin is not None:
+        keep = keep | np.asarray(pin, dtype=bool)
+    deg = np.bincount(e.ravel(), minlength=len(co)).astype(np.float64)
+    for _ in range(iters):
+        for f in (lam, mu):
+            s = np.zeros_like(co)
+            np.add.at(s, e[:, 0], co[e[:, 1]])
+            np.add.at(s, e[:, 1], co[e[:, 0]])
+            d = s / np.maximum(deg, 1)[:, None] - co
+            d[keep] = 0
+            co = co + f * d
+    me.vertices.foreach_set("co", co.astype(np.float32).ravel())
+    me.update()

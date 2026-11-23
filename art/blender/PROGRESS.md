@@ -190,10 +190,48 @@ Ledger of every generation: art/blender/assets/vehicles_gen.json (job ids, model
   plank; the van's front overhang is squashed by the warp onto the briefed axles (generated wheelbase 2.8 vs 3.2);
   the stripped car is a gutted shell with a crude floor; interiors are simple boxes; decals are flat cards.
 
+## Review pass (independent review, art/blender/review/: grades 1-3)
+- Noses: the Van, Van_Vulture and IPX GLBs were still reversed (SPEC nose was +1). Now nose=-1 and gen_body runs
+  nose_check(): more sloped screen area facing +X than -X in the upper body, else AssertionError (logged per body:
+  Van 0.106 / 0.015, IPX 0.072 / 0.012, Sedan 0.097 / 0.078, SUV 0.085 / 0.065, Pickup 0.072 / 0.028).
+- Positions re-measured on the turned bodies (texel grids of lum / roughness): Van windscreen x 1.62-2.12 below
+  z 2.02, cab side glass x 1.00-1.95 z 1.40-2.02, rear door glass, all dark texels (glass_boxes in SPEC); IPX is a
+  conventional cab (windscreen x 1.36-1.62, z 2.22-2.74), rear door plane measured by _ipx_drop at x -3.259
+  (IPX_DOOR_X), partition rule only inside |y| < 0.85 so the vault skin and the flank art stay.
+- Every generated body: class_vote() majority filter on face classes (sawtooth rims); smooth_paint() Taubin pass on
+  paint-only vertices; smooth_normals() bilateral diffusion of the paint normals written as custom split normals
+  (dents and ripples gone from the clear-coat reflections, silhouettes kept); body_set() divides paint by a coarse
+  masked low-pass (48 cells) instead of the global median and high-passes the paint normals (baked blotches out).
+- Cowl and wipers (Sedan, Taxi, SUV, Pickup, Van, Vulture): the generated plank and the dash 'teeth' deleted
+  (cowl_fit), a 8 mm louvred panel fitted from the bonnet's rear edge to under the glass base (ray casts), two
+  parked wipers (pivot caps, arms, blades with rubber) laid on the glass.
+- Plates: number fitted to 85 % of the plate width (sets regenerate, text_fit in set.json); the generated holder
+  under the card goes to the dark backing; cards kept inside the briefed length.
+- Manifest: slot_records() writes textures + shading for the stripped car's primer (tint #7a3b2c, roughness 0.78),
+  the IPX door paint, the motorbike paint_default (#1b2a4a).
+- Vulture: load space 2.94 x 1.40 x 1.30 with hat-section ribs, roof ribs, cant rails, wheel-arch boxes and
+  tie-downs; painted aperture frame and rubber seal; leaves with pressed outer panel, inner skin with lightening
+  holes, lock rod, window, handle, two hinges each, check strap, hinge brackets; stripe stops at the rear arch.
+- Box truck: the generated (crumpled) cargo box deleted and modelled (truck_box: skin in the Paint slot, side
+  posts, galvanised rails and corner posts, roll-up slat door with handle and hasp, red top markers on the Lamp slot
+  via the set's tail_uv); cab white split at the measured box front.
+- Pickup: seats were standing behind the generated cab back wall: moved 0.57 forward into the cab; the bed inside
+  (amber/paint sawtooth, the floor was read as amber lamp) is black bedliner (trim).
+- SUV: quarter lights are glass (side_glass), headlamps by a position box (head_box). Taxi door lettering 0.08
+  higher, clear of the rub strip. Motorbike seat is trim (black), side-stand foot meets the ground after the lean.
+- Wrecks: bumpers, plate holders and lens faces cut from the shells; burned car charred by position (roof, window
+  frames, bonnet rear) cleaned by the majority filter; stripped car keeps sills and B pillars.
+- Credits: none spent in this pass (no regeneration was needed for the faults fixed).
+- Still open: SUV front fascia keeps some generated jaggies (a cleaner concept + regeneration would fix it); the
+  stripped car's door cut edges are ragged; the box truck's fuel tank is the generated lump; hubcaps are plain;
+  the burned car's rust scan still streaks along X; interiors are simple boxes.
+- Review renderer: `python art/blender/review/vehicles_review.py --only Van,...` renders contact sheets from the
+  exported GLBs (it applies paint_default to Paint slots only, so the primer renders white there).
+
 ## Exact next step
-`build.py build vehicles --export --force`, then render from the saved blend without a rebuild (the scratch script
-pattern: open art/out/blend/vehicles.blend, ctx.assets = SM_Vehicle_* objects, vehicles.on_preview(ctx, [])) with
-`--only vehicles_lineup_2,vehicles_ipx_truck,vehicles_wrecks,vehicles_wire --samples 40` and look at each.
+Previews are rendered from the saved blend without a rebuild (scratch script: open art/out/blend/vehicles.blend,
+ctx.assets = SM_Vehicle_* objects, vehicles.on_preview(ctx, [])). Next: regenerate the SUV from a flat-lit black
+concept if its fascia still reads jagged at 1 m; model the box truck's fuel tank and the stripped car's apertures.
 
 ---------------------------------------------------------------------------------------------------------------
 # Generated Goon (assets/goon_generated.py), character technical artist: a Higgsfield image-to-3D comparison
