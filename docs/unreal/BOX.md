@@ -36,6 +36,9 @@ Every script below lives in `tools/box/` and is mirrored on the box at `/project
 | Picture | `bash shot.sh /project/ue/logs/shots/x.jpg cam=X,Y,Z,pitch,yaw,roll fov=80 frames=60` | about 12 s at 1920 x 1080 with 60 warm-up redraws (fewer leave Lumen unsettled after a camera jump; 60 and 200 give the same picture) |
 | The six block views | `bash block-shots.sh` (detached: about 75 s) | |
 | Picture to the local checkout | `media_upload` (filename `mi-x.jpg`), `bash put.sh <jpg> <upload_url> image/jpeg`, `media_confirm` (type image), local `curl -o` the url | about 10 s; several thousand tokens per picture |
+| Many pictures at once | `tar -cf /tmp/x.tar block-v2-*.jpg` on the box, one `media_upload` (`.tar`, `application/octet-stream`), `put.sh`, `media_confirm` type `file`, local `curl` + `tar -xf`; look at 2 x 2 sheets made locally | 15 pictures, 4.7 MB in one transfer |
+| The game through the player's eyes | `bash play-shots.sh [out] [prefix]` (detached; L_Block open): play in editor, `MIStart mission skip`, three poses with the HUD | about 2 minutes |
+| Baked interiors | `block.sh start interiors` (then `materials` so the glass instances take the cubes) | 16 s for six rooms |
 
 `mi_mcp.py` is the MCP client: `toolsets [text]`, `describe <Toolset> [Tool]`, `tool <Toolset.Tool> '<json>'`,
 `py`, `level`, `shot`. A play-in-editor session left running blocks level queries ("Cannot get the current level
@@ -60,7 +63,8 @@ The Blender outputs (`art/out/`, git-ignored) travel as one tar through the user
    front answers 413 above about 500 MB): every `SM_El_*`, `SM_Street_*`, `SM_Facade_*`, `SM_Prop_*`,
    `SM_Gameplay_*`, `SM_Furn_*` GLB (patterns are arguments), every texture set their slots name (BC, N, ORM, E;
    height maps left out), the grey-box sets, `manifest.json` and `placements/*.json`. 611 MB in 3 parts for 190
-   meshes and 96 sets.
+   meshes and 96 sets; with the structures, signs and vehicles (block-v2) 1,344 MB in 7 parts, 279 GLBs, 222 sets
+   (the seven PUTs in parallel about 2 minutes, `receive-art.sh` about 3 minutes).
 2. `mcp__Higgsfield__media_upload` with one filename per part (`files` takes several) gives `upload_url`, `url` and
    `media_id` each. The upload address is signed for the headers `content-type` and `if-none-match`: send
    `Content-Type: application/octet-stream` (the type the tool states) and `If-None-Match: *`.
@@ -97,7 +101,13 @@ Measured on the first block build (2026-11-22, `build_block.py`, every result li
 | Glass | Opaque, Nanite, black base, specular 0.5, roughness 0.02: full Lumen reflections; the room behind is emission (110 nits windows, 200 nits shops), so reflections win at grazing angles as on real glass. |
 | Alpha cards | A second master `M_MI_SurfaceMasked` (two-sided, opacity mask = BC alpha); the manifest slot's `alpha` key selects it. On the opaque master the chain-link drew as a grey sheet. |
 | Decals | Deferred decal material (`MD_DEFERRED_DECAL`, translucent) with the shapes drawn in decal UV by HLSL; DecalActor `decal_size` is (depth, width, height); pitch -90 projects down. |
-| Catalogue ids | Read from the manifest notes ("Catalogue <id>:", "Stands for catalogue id '<id>'", "(catalogue <id>,"); `CATALOGUE_EXTRA` names the street and facade modules the notes do not. |
+| Catalogue ids | One table: `Content/Data/art_catalogue.json` (id -> meshes picked by seed, variant overrides, paint slot, parts; `gameplay` ids are drawn by the gameplay actors). |
+| Car paint | `M_MI_CarPaint` is the surface master with `MSM_CLEAR_COAT` (CustomData0 = clear coat 1, CustomData1 = its roughness 0.03); one instance per paint slot and props.json colour, set on the instanced component with `set_material_by_name(slot, ...)`. Vehicle sets carry lamp colours in `E`: `EmissiveScale` 0 by day. |
+| Vertex colours | Arrive in the shader linear (ramp test `mi_ramp_test.py`: COLOR_0 k/10 reads back k/10 in 8-bit steps through Interchange). No decode in the material. |
+| Interiors by cube map | A `SceneCaptureCube` (`SCS_SCENE_COLOR_HDR`) does see direct lights here (only Lumen and the sky light are missing in captures), so small rooms lit by point lights plus a shadowless fill bake well. `RenderingLibrary.render_target_create_static_texture_cube_editor_only(rt, "/Game/...full path", TC_HDR, ...)` makes the asset; a re-bake writes into the existing one with `convert_render_target_to_texture_cube_editor_only`. `capture_scene()` renders on a later tick: capture and save in different build units. |
+| LoadLevel in 5.9 | `LevelEditorSubsystem.load_level` refuses while the open map is dirty (picture cameras, play in editor): `load_level(path, unreal.LevelEditorUnsavedChangesPolicy.DISCARD)` (`build_block.load_level`). |
+| Gameplay actors and the art | The explosives, reel cases and the IPX truck are spawned at play by the game; their meshes come from `presentation.json` (`explosives.<kind>.mesh`, `objectives.case.art`, `objectives.truck.art`). `build_block.py` places hidden-in-game previews of them so editor pictures show them. |
+| Scene capture readback | `RenderingLibrary.read_render_target_raw(world, rt, False)` gives the whole float target as a list (row-major); a capture looking +Y has Unreal +X running to the left of the image. |
 
 
 ## 7. Gameplay clone and C++: what turned out to be true

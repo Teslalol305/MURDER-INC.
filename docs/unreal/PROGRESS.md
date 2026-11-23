@@ -3,23 +3,61 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
-## Exact next step
+## Exact next step (level)
 
-1. Level structures still drawn as boxes in their material (05-level): the El station stairs and mezzanine
-   (`station`, 23 colliders, the biggest walk-up box at the player start), the kiosk, the produce stand, hoardings,
-   the dock, the garages, the chop shop's office, mezzanine, stair and roof. Each needs a furniture-family module
-   (art side) or a placement rule in `build_block.py` `structure_placements` like the shop walls and the Cage.
-2. Texture sets under about 1,024 px/m near the player (manifest `texel_density_px_per_m`): roof bitumen 379,
-   galvanised 512, road paint 512, El column concrete 756, Steel_ScanRust 931, Brick_ScanRedCommon 946,
-   Sidewalk_ScanWorn 975, Asphalt_ScanWorn 985, Shutter 990, Asphalt_ScanFresh 994, Wood_ScanPlankDark 996:
-   `art/scans/fetch.py` can fetch 4K versions. The tinted paint slots (Steel_Paint*) carry no tile size.
-3. Vehicles stay dark-paint masses until the vehicle family arrives; the explosives (21) and the master cases (3) are
-   gameplay actors (props.json role `explosive` / `objective`) and stay boxes in L_Block until the gameplay side
-   spawns them.
-4. Prove the vertex-colour decode with a ramp test asset (art bible 3.3), BOX.md section 5.
-5. Signs: 14 `Sign_*` sets were in the transfer (BC, ORM, E); the signs family was still being made. Re-run
-   `send-art.sh pack` + transfer + `block.sh start textures,materials force` + `block.sh start meshes,level` when it
-   is finished: sign slots without a set show the neutral stand-in `SIGN_STAND_IN`.
+1. Still boxes in L_Block, with no art anywhere: the building backs (`backs`, 7 brick masses with the window grid),
+   the shanty (568), the hoist tower (571, 572), the lot sign pole (423). The 12 `ac_unit` props have no mesh and no
+   `art_catalogue.json` entry (not drawn).
+2. Baked interiors (`mi_interiors.py`): six rooms from the art; the racks are empty and the homes' furniture is boxes
+   in the art's materials. Next: stock the shelves (the deck heights of `SM_Prop_ShelfRack_*` are not in the
+   manifest), modelled sofas and beds from the art side, a lamps-on variant for the night rig.
+3. Day only: vehicle lamps, neon and station lamps have day values (vehicle `E` scaled 0, neon 550 nits); the night
+   rig needs lamp parameters driven by the level.
+4. Not checked in a picture: the rust-streak decals' direction (none in frame in `block-v2-upper`); the facade seam
+   run is `block-v2-seams.jpg` (one block face, north row).
+5. Backdrop: parapets and tar roofs everywhere, roof clutter (water tanks, bulkheads, condensers) within 300 m only;
+   from far above it still reads as boxes with a window grid.
+
+## Level (block-v2: the art in the level, the game played in it)
+
+**Verified 2026-11-23** (`/project/ue/repo`, MCP 8000; pictures `docs/unreal/shots/block-v2-*.jpg`, 1920 x 1080)
+- **Art transfer**: `send-art.sh pack` with the new defaults (`SM_Struct_*`, `SM_Sign_*`, `SM_Vehicle_*` added):
+  1,344 MB in 7 parts, 279 GLBs, 222 texture sets (4K scans, the 8K roof bitumen); vehicles as exported at 00:52
+  (the 13 `SM_Vehicle_*` in the manifest at pack time, 02:22). Import: 845 texture and material units in 104 s,
+  meshes 473 s with the level; every mesh's bounds equal the manifest's to 0.0 cm. Checked in the editor:
+  `T_TS_Roof_ScanBitumen_BC` 8192 x 8192, Steel_ScanRust, Brick_ScanRedCommon, Sidewalk_ScanWorn, Asphalt_ScanWorn,
+  Wood_ScanPlankDark, Concrete_ScanFormed 4096 x 4096 (Galvanised_Aged stays 2048, as the art side made it). Every
+  sign and tree is Nanite (the dense neon, e.g. `SM_Sign_WinesLiquors`, needs no LODs).
+- **One data table for catalogue id -> mesh**: `Content/Data/art_catalogue.json` (64 ids; gameplay ids marked);
+  `build_block.py` places 283 props of 57 ids (85 mesh-and-paint groups), the old note parsing is gone.
+- **Vehicles** at their props.json poses: `M_MI_CarPaint` (clear coat: `MSM_CLEAR_COAT`, CustomData0 1, roughness
+  0.03) with one instance per paint slot and props.json colour (`MI_Vehicle_<Car>_Paint_<RRGGBB>`), vehicle lamps
+  off by day, tinted glass dark and sharp (`MI_Glass_CarTint`), chrome, rubber, plates from their sets; the crew's
+  van is `SM_Vehicle_Van_Vulture` (props.json variant `vulture`).
+- **Gameplay props drawn by the gameplay actors with the real meshes** (`presentation.json` `objectives.case.art`,
+  `objectives.truck.art`, `explosives.<kind>.mesh`; `AMIReelCase` with lid on its hinge, reel per objective and
+  beacon, `AMITruck` with `SM_Vehicle_IPXTruck` and both door leaves on their hinges (+-108.9 deg), `AMIExplosive`
+  propane tank / welding rack and their wrecks as modelled). Without the art in the project the basic shapes stay.
+  The level draws hidden-in-game previews of them for editor pictures and no boxes for them.
+- **Structures family**: 38 instances from `placements/structures.json` (station mezzanine, stairs, bridges,
+  platforms, kiosks, produce stand, hoardings, dig pen, dock, garages, the chop shop's floor, roof, mezzanine,
+  stair, safe, fan); new rules: chain-link on the roadblock and the alley gate, jersey barriers across the road
+  end, the tyre cage fenced with tyre stacks, the lot's knee walls, seals and railings invisible. Visible boxes
+  left: 11 (item 1 above), from 30.
+- **Interiors**: `mi_interiors.py` (build_block step `interiors`) builds six rooms from the art (grocery, parlour,
+  store; living room, bedroom, vacant), lights them and captures HDR cube maps `/Game/Art/Interiors/TC_*` (1024);
+  `M_MI_Glass` looks a cube up per window cell (one of three, half mirrored, lamp level varied); `block-v2-3` and
+  `block-v2-interior` show the parlour (menu board, tiles, chairs, vending machine) through the pizza window.
+- **Vertex-colour ramp test** (`mi_ramp_test.py`, art bible 3.3): an 11-step COLOR_0 ramp through the art's import
+  path, captured as BaseColor into a float target: the shader receives the linear value (0.0977, 0.2012 ... 0.8945,
+  1.0 for 0.1 ... 1.0: 8-bit steps), so the master's `pow(x, 2.2)` decode was wrong (0.5 became 0.216): removed.
+- **Backdrop** in five brick and concrete finishes with parapets, tar roofs, water tanks, bulkheads, condensers.
+- **The game in L_Block** (`tools/box/play-shots.sh`, play in editor headless): "Game: booted (art map, 757 boxes,
+  21 explosives, 20 enemy slots, 3 reels)", 927 art collision primitives off; `block-v2-play-1` the start pose with
+  the HUD (objective, health 100, CHOPPER 30/150), `-2` aimed down the avenue, `-3` beside the parked taxi.
+- Two review rounds: round 1 fixed the vehicle view (inside the Cage's fence), the dark wood interior, the crude
+  backdrop and the play pose inside the box truck; round 2 moved the seam view off a hoarding. Editor stopped at the
+  end (by process id).
 
 ## Audio (voice lines and the game's sound) — first cut, in progress
 
