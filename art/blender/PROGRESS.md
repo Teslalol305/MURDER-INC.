@@ -571,6 +571,37 @@ budget (BUDGET['Hood'] 6500 -> 12000) and smooth the drape more before decimatio
 `build.py build goons --export` (no re-bake needed while the UV cache key holds; a geometry change before the unwrap
 re-unwraps: then also --bake).
 
+## Rebuild r2 (art review of r1: grades 1.5 / 1.5 / 2), same owner
+- Cause of the dark stepped folds found by the review and fixed: Interchange turns LOD 0 Recompute Normals on.
+  `mi_chars.keep_exported_normals` (SkeletalMeshEditorSubsystem) sets it off (MikkTSpace tangents kept, degenerates
+  removed) in `setup_goons`; the hood at 1 m is smooth now (chars-goons-3). `unfold` no longer splits normals on
+  folded faces (that split would now show), only real hem creases.
+- Unreal materials `goon_material`: Cloth shading model, Cloth = saturate((roughness - 0.55) x 3.3) x 0.8, fuzz =
+  BC x 1.5 + 0.03, specular 0.35, two-sided, tiling fibre normal `T_GoonFabric_Detail_N` (25 mm repeat, tiling per
+  set from `art/out/goons/goons_ue.json`, scaled by the cloth amount). The Blender preview material matches (sheen
+  from the same formula, specular IOR level 0.35). Socket `Weapon_R` on hand_r: SkeletalMeshSocket names are
+  read-only from Python in 5.9 (reported, not made; CHARACTERS.md gives the attach offset).
+- Head: `FaceShape` face proxy under every head piece; charcoal three-hole balaclava (eye openings 37 x 18 mm,
+  mouth 43 x 15 mm, clean ellipse cuts with rolled hems), face skin and eyeballs behind the openings, sweat / breath
+  / grime in the texture. Beanie cuff and cap sweatband as closed band tubes; cap brim under the crown edge, 17 deg
+  down over the nape; wraparound sunglasses on the nose with a moulded frame; bandana fitted, dark warm grey.
+- Cloth: hood / hoodie / jackets / trousers refined (one subdivision + Taubin) and decimated to higher budgets (hood
+  12k, hoodie and track jacket 24k, puffer 30k, trousers 15k); degenerates dissolved per piece; rib waistbands and
+  cuffs are closed double-walled tubes (no ragged spikes). Puffer: 8.7 cm baffles, torso inflated (no muscle suit),
+  loft drives nylon roughness 0.54 crown / 0.78 valley. Tracksuit: navy with white stripe tape laid on the cloth by
+  ray casts (constant 36 mm over folds). Hoodie charcoal-grey heather. Gloves 0.62-0.68 rough with knuckle pads,
+  finger seams and creases (texture). Denim streaks halved. Sneakers albedo ~0.75 with grime. Sling: two tri-glide
+  buckles. Socks tucked 7 mm under the shoe collar after the bake (they pierced the upper as a dark swoosh).
+- Totals: SK_Goon_Hoodie 108,176 / _Puffer 112,481 / _Tracksuit 111,664 triangles (cap 120k). Bake: three
+  processes, one outfit each (a single three-outfit bake was OOM-killed), about 10 min per outfit.
+- Previews re-rendered and looked at: goons_lineup, _hoodie_hero, _detail, _poses, _wire. Unreal: chars-goons-1..3
+  re-shot after the last change (editor in /project/ue/chars, stopped by pid at the end).
+- Credits: none spent (no generation: the face proxy, sunglasses, buckles and bands were reachable procedurally).
+- Not done (next): sneaker panels / sole sidewall / visible laces as geometry; jeans waistband, fly, pockets and
+  knee bagging as geometry; a high-res fold sculpt baked to the normal map; hood binding with stitching; the
+  collar lining for the puffer's death-pose gape; fewer, larger UV islands (puffer cloth atlas only 33 % covered);
+  the puffer's sleeve baffles still read as round balloons at 3 m; eyes show a lot of white in close-ups.
+
 ---------------------------------------------------------------------------------------------------------------
 # Structures, continued after the machine restart (assets/structures.py), level-structure artist
 

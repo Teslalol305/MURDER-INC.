@@ -192,45 +192,56 @@ All under `/Game/Characters/Mannequins/Anims/` (copied from the template; `mi_ch
 | `Pistol/*` | The same set one-handed: the pipe Goon's idle and moves before the swing |
 | `Unarmed/MM_Attack_01..03`, charged attack, dash | Pipe swings and lunges (the overhead right-arm swing of the brief) |
 
-### Proof in Unreal (2026-11-23)
+### Proof in Unreal (2026-11-23, rebuild r2)
 
 `/Game/Characters/Goons/SK_Goon_Hoodie`, `_Puffer`, `_Tracksuit` imported on `/Game/Characters/Mannequins/Meshes/SK_Mannequin`
-(no new skeleton: `mi_chars.setup_goons` reports the skeleton path), 18 textures (`TC_NORMALMAP` with the green channel
-flipped, `TC_MASKS`), six materials `M_Goon<Outfit>_Cloth` / `_Head`, slots assigned by name.
+by `mi_chars.setup_goons` (box: `goons-pack.sh unpack <url>`, then the editor's MCP `py` with
+`mi_chars.setup_goons()`; `setup_goons(meshes=False)` rebuilds only the materials): 19 textures (`TC_NORMALMAP` with
+the green channel flipped, `TC_MASKS`, the tiling `T_GoonFabric_Detail_N`), six materials, slots assigned by name.
+
+- **LOD 0 keeps the exported normals.** Interchange turns Recompute Normals on, which threw the GLB's smooth normals
+  away and shaded the cloth in flat facets (the r1 "dark stepped hood folds"). `keep_exported_normals` sets
+  `recompute_normals=False` (MikkTSpace tangents recomputed, degenerates removed) through
+  `SkeletalMeshEditorSubsystem.get/set_lod_build_settings`; the report lists the settings read back.
+- **Materials** (`goon_material`): Cloth shading model; Cloth (CustomData0) = saturate((roughness - 0.55) x 3.3) x 0.8,
+  so fleece, knit, denim and tricot get the fuzz lobe and nylon, leather, rubber, lens and metal little or none;
+  Fuzz Colour = BC x 1.5 + 0.03; Specular 0.35; two-sided (the hood's inside); the baked normal plus the tiling fibre
+  normal (25 mm repeat; `detail_tiling` per set from `goons_ue.json`) scaled by the cloth amount.
+- **Height**: the meshes are built on the mannequin (hood top 1.818 m); give the Goon's skeletal mesh component a
+  uniform scale of **0.98** (`mi_chars.GOON_SCALE`, used by `goon_stage`) for the briefed 1.78 m. The enemy
+  Blueprint belongs to the enemy port: set it there.
+- **Weapon**: SkeletalMeshSocket names are read-only from Python in 5.9 (`weapon_socket` reports the failure), so
+  there is no `Weapon_R` socket on the meshes yet; attach SM_Weapon_GoonSMG (origin = grip) to bone `hand_r` at
+  (-1.5, 4.5, -2.0) cm, rotation (0, 0, 90), or add the socket by hand in the mesh editor.
 
 ![goons 1](shots/chars-goons-1.jpg)
 
-`chars-goons-1.jpg`: the hoodie Goon in MF_Rifle_Jog_Fwd (0.35 s), MM_Rifle_Reload (1.3 s), MM_HitReact_Front_Hvy_01
-(0.22 s) and MM_Death_Front_01 (1.05 s). The garments follow the limbs; the mask stays inside the hood, the gloves
-inside the cuffs, the jeans hems on the sneakers; the crew V shows on the back of the falling one.
+`chars-goons-1.jpg`: the hoodie Goon (scale 0.98) in MF_Rifle_Jog_Fwd (0.35 s), MM_Rifle_Reload (1.3 s),
+MM_HitReact_Front_Hvy_01 (0.22 s) and MM_Death_Front_01 (1.05 s): no tearing at shoulders, elbows, hips or knees.
 
 ![goons 2](shots/chars-goons-2.jpg)
 
-`chars-goons-2.jpg`: puffer, hoodie and tracksuit in MF_Rifle_Idle_ADS (2 s).
+`chars-goons-2.jpg`: puffer, hoodie and tracksuit in MF_Rifle_Idle_ADS (2 s): black and oxblood puffer, grey heather
+hoodie, navy tracksuit with white stripes; charcoal balaclavas.
 
 ![goons 3](shots/chars-goons-3.jpg)
 
-`chars-goons-3.jpg`: the hoodie Goon's hood, mask and drawstrings in the reload, about 1 m away.
-
-Two rounds of fixes after looking: (1) sawtooth shading along the cloth UV islands (a 1K texture AO upscaled) became a
-per-vertex AO, the pilling was made quieter, nylon and tricot rougher; (2) inverted cloth triangles relaxed and crease
-normals split (`unfold`), texture gaps filled (`fill_gaps`). Still visible at 1 m (picture 3): dark stepped patches in
-the hood's deepest folds. Ruled out by tests in the editor: textures (a flat grey material shows them too), the
-normal map, back faces (two-sided), shadow bias, virtual shadow maps (off), ray-traced shadows. Next suspects: the
-draped cloth's sub-centimetre pleats left after decimation (Cycles smooths them, the raster does not), and the
-skeletal mesh build settings at import (recompute normals / degenerate removal, not reachable from Python in 5.9:
-set by hand in the asset's LOD build settings to test).
+`chars-goons-3.jpg`: the hoodie Goon's hood, balaclava and drawstrings in the reload, about 1 m away: smooth fold
+shading, the fleece's fuzz, the knit, the eye opening with lids and an eye behind it.
 
 ### Known weaknesses of the Goons
 
-- Dark stepped patches in the deepest hood and hoodie folds in Unreal close-ups (above); invisible at 4 m and beyond.
-- The puffer's quilting follows the body's chest and stomach too closely (it reads as a muscle suit at some angles):
-  the shell needs a boxier start shape before the loft.
-- Tracksuit sleeve stripes are broken into patches where the baggy sleeve leaves the arm's outer line (the stripe is
-  placed by angle round the arm axis); it should be placed in the sleeve's own pattern space.
-- UV islands of the draped cloth are many and small (smart projection at 72 deg): fine at game distances, but the
-  texel density per island is uneven and the atlas is 44 % covered before the gap fill.
-- The mannequin's head shape gives the mask a long smooth face; there is no nose or brow under the knit.
-- The sneaker upper is a smooth form with stitching in the texture only; laces are mostly hidden under the hems.
+- The puffer's sleeve baffles read as round balloons at 3 m and the nylon still has a strong sun highlight; a
+  quilt with flatter, sewn-through baffles (and a 4 cm narrower sleeve) would read more like a 2000 bubble coat.
+- Sneakers: panels, sole sidewall and laces are not sculpted (stitching and creases are in the texture); laces are
+  mostly hidden under the hems.
+- Jeans: no modelled waistband, fly, pockets or knee bagging (the draped tube with whiskers, stitching and back
+  pockets in the texture); the stacked break comes from the drape only.
+- No high-resolution fold sculpt baked to the normal map; folds are the drape's (refined), plus small crumples.
+- The hood's edge is a rolled drawstring channel, not a bound 8 mm hem with stitching.
+- The puffer's collar can gape in the death pose (no lining piece).
+- UV islands of the draped cloth are many and small (smart projection at 72 deg): 33-45 % of each atlas is covered
+  before the gap fill.
+- The eyes show a lot of white in close-ups (the eyeball fills the opening); no blink or eye bone.
+- No `Weapon_R` socket on the meshes (Python cannot name a SkeletalMeshSocket in 5.9; see above).
 - No cloth simulation at runtime: folds are baked in the A-pose and only skinned (expected for a dozen enemies).
-- The sling is a closed loop with no buckle or pipe attachment point (SM_Weapon_GoonPipe is placed by the game).

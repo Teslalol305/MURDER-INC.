@@ -1159,6 +1159,24 @@ def unfold(ob, kinds_skip=("metal", "zip", "lens", "shoe", "sole", "cord", "agle
                                                                          int(sharp.sum())))
 
 
+def tuck_socks(ob, log=log_default, top=0.115, depth=0.007):
+    """The sock inside the sneaker is pulled in 7 mm below the shoe's collar (after the bake: UVs and texels stay):
+    in r1/r2 it pierced the upper in poses and showed as a dark swoosh-like patch on the side of the shoe."""
+    fk = _face_kinds(ob)
+    me = ob.data
+    lv = np.empty(len(me.loops), dtype=np.int64)
+    me.loops.foreach_get("vertex_index", lv)
+    nl = np.array([p.loop_total for p in me.polygons])
+    pi = np.repeat(np.arange(len(me.polygons)), nl)
+    sock = np.zeros(len(me.vertices), dtype=bool)
+    sock[lv[(fk == K["sock"])[pi]]] = True
+    co = GC.verts(ob)
+    n = cloth.vertex_normals(ob)
+    w = sock * np.clip((top - co[:, 2]) / 0.02, 0, 1)
+    GC.set_verts(ob, co - n * (depth * w)[:, None])
+    log("  socks tucked: %d vertices" % int((w > 0).sum()))
+
+
 def finish(man, outfit, joined, ctx):
     mats = flat_materials(outfit)
     for s, ob in joined.items():
@@ -1167,6 +1185,7 @@ def finish(man, outfit, joined, ctx):
         ob.data.materials.append(m)
         ob.data.polygons.foreach_set("material_index", np.zeros(len(ob.data.polygons), dtype=np.int32))
     ob = geo.join([joined["cloth"], joined["head"]], "SK_Goon_%s" % outfit, man.col)
+    tuck_socks(ob, ctx.log)
     layer_weights(ob, ctx.log)
     unfold(ob, log=ctx.log)
     bad = ob.data.validate(clean_customdata=False)
