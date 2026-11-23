@@ -79,7 +79,7 @@ case "$1" in
     done
     # The game runs under its launcher script: stop the binary it started (only the one in our builds).
     for p in $(pgrep -x MurderInc-Linux; pgrep -x MurderInc); do
-      tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -q "$C/build-" && kill "$p" && echo "stopped game binary $p"
+      tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -q "cloud/build-" && kill "$p" && echo "stopped game binary $p"
     done
     ;;
   *) sed -n 2,12p "$0"; exit 2 ;;
