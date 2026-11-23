@@ -63,6 +63,27 @@ PY
   echo M_RuleArms_Skin > "$MI_PROJECT_DIR/Saved/mi_skinmat.txt"; pie_mcp py "$PIE_PY/_skinmat.py" | tail -1
 fi
 c "MIPose -2900 80 0 0 -3"; run 1.2; want fp-arms-hip-el && shot fp-arms-hip-el
+# evidence (not committed): the same frame with the previous pass's skin values (a dynamic instance of the game's
+# material: SkinTint 0.92 / 1.0 / 1.12, SubsurfaceTint 0.40 / 0.16 / 0.10, Scatter 0.92), against the current ones
+if [ -z "${ONLY:-}" ] || want ev; then
+  cat > "$PIE_PY/_skinold.py" <<'PY'
+import unreal
+w = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world()
+pawn = unreal.GameplayStatics.get_player_pawn(w, 0)
+done = []
+for comp in pawn.get_components_by_class(unreal.SkeletalMeshComponent):
+    a = comp.get_skinned_asset()
+    if a and a.get_name() == "SK_RuleArms":
+        mid = comp.create_dynamic_material_instance(comp.get_material_index("M_RuleArms_Skin"))
+        mid.set_vector_parameter_value("SkinTint", unreal.LinearColor(0.92, 1.0, 1.12, 1))
+        mid.set_vector_parameter_value("SubsurfaceTint", unreal.LinearColor(0.40, 0.16, 0.10, 1))
+        mid.set_scalar_parameter_value("Scatter", 0.92)
+        done.append(comp.get_name())
+"old skin values on %s" % done
+PY
+  pie_mcp py "$PIE_PY/_skinold.py" | tail -1; shot ev-el-oldskin 30
+  echo M_RuleArms_Skin > "$MI_PROJECT_DIR/Saved/mi_skinmat.txt"; pie_mcp py "$PIE_PY/_skinmat.py" | tail -1
+fi
 c "MIInput ads 1"; run 0.8; want fp-arms-irons && shot fp-arms-irons
 c "MIInput ads 0"; run 0.6
 
@@ -85,31 +106,28 @@ unreal.GameplayStatics.set_game_paused(w, True)
 sx = "l" if side == "l" else "r"
 e = arms.get_socket_location("lowerarm_" + sx)
 wr = arms.get_socket_location("hand_" + sx)
-# the back of the forearm: the lowerarm bones' Z axis on the left arm, -Z on the right (the mannequin's mirrored
-# right-arm bones), averaged over the forearm and its wrist twist bone; the thumb (radial) side is their -Y axis (+Y on
-# the right; measured in play: +Y put the tattoos on the far edge). The tattoos sit about 38 degrees round from the back toward the thumb side (_rule_tex.tattoo_chart)
-z = unreal.Vector(0, 0, 0)
-y = unreal.Vector(0, 0, 0)
-for b in ("lowerarm_", "lowerarm_twist_01_"):
-    q = arms.get_socket_transform(b + sx, unreal.RelativeTransformSpace.RTS_WORLD).rotation
-    z = z + q.get_axis_z()
-    y = y + q.get_axis_y()
-sg = 1.0 if sx == "l" else -1.0
-n = (z.normal() * 0.79 - y.normal() * 0.62).normal() * sg
-L = (e - wr).length()
-p = wr + (e - wr) * ((0.18 if sx == "l" else 0.19) * 100.0 / L)     # the tattoo's height above the wrist
+# the tattoo's centre, measured on the exported mesh (SK_RuleArms.glb: the vertices inside each tattoo's UV box,
+# in the rest pose) and written in the wrist twist bone's frame. Unreal's import of the glTF swaps the bones' local
+# Y and Z (thumb_01_l: glTF (1.99, -2.58, -1.36) cm, Unreal (1.99, -1.36, -2.58)), which is why guessing the side
+# from the bone axes put the tattoos on the far edge or on the far side. Left: the numerals, 18.3 cm above the wrist;
+# right: the word and its script line, 19.4 cm above the wrist; both 4.3-4.4 cm off the forearm's axis.
+loc = unreal.Vector(-9.45, 3.50, -1.90) if sx == "l" else unreal.Vector(10.45, -3.41, 1.74)
+tw = arms.get_socket_transform("lowerarm_twist_01_" + sx, unreal.RelativeTransformSpace.RTS_WORLD)
+M = unreal.MathLibrary
+p = M.transform_location(tw, loc)
 A = (e - wr).normal()
+d = p - wr
+n = (d - A * d.dot(A)).normal()            # out of the skin at the tattoo, square to the forearm
 cm = pc.player_camera_manager
 C = cm.get_camera_location()
 cr = cm.get_camera_rotation()
 F = cr.get_forward_vector()
-Rv = cr.get_right_vector()
-# a frame on the tattoo (x along the forearm, y out of the skin) mapped onto a frame 42 cm in front of the eye
-# (x across the screen, y toward the eye): arms' new world transform = arms x cur^-1 x tgt
-M = unreal.MathLibrary
+# a frame on the tattoo (x along the forearm toward the elbow, y out of the skin) mapped onto a frame 30 cm in front
+# of the eye (x up the screen, y toward the eye), so the lines, which run round the forearm with the letters' tops
+# toward the elbow, read upright: arms' new world transform = arms x cur^-1 x tgt
 newp = C + F * 30.0
 cur = unreal.Transform(p, M.make_rot_from_xy(A, n), unreal.Vector(1, 1, 1))
-tgt = unreal.Transform(newp, M.make_rot_from_xy(Rv * (1.0 if sx == "l" else -1.0), F * -1.0), unreal.Vector(1, 1, 1))
+tgt = unreal.Transform(newp, M.make_rot_from_xy(cr.get_up_vector(), F * -1.0), unreal.Vector(1, 1, 1))
 t = M.compose_transforms(M.compose_transforms(arms.get_world_transform(), M.invert_transform(cur)), tgt)
 arms.set_world_transform(t, False, True)
 "forearm %s: tattoo point moved to %.0f %.0f %.0f, 30 cm in front of the eye" % (sx, newp.x, newp.y, newp.z)
@@ -121,10 +139,14 @@ unreal.GameplayStatics.set_game_paused(w, False)
 "unpaused"
 PY
 # in the sun on the north lane, the eye turned so the sun falls on the arms from over the shoulder
-if want fp-arms-forearm-l || want fp-arms-forearm-r; then c "MIPose 170 -380 0 -35 -4"; run 1.2; fi
-for sd in l r; do
-  echo "$sd" > "$MI_PROJECT_DIR/Saved/mi_forearm_side.txt"
-  if want fp-arms-forearm-$sd; then pie_mcp py "$PIE_PY/_forearm.py" | tail -3; shot fp-arms-forearm-$sd 40; pie_mcp py "$PIE_PY/_unpause.py" > /dev/null; run 0.3; fi
+# the eye turned four ways (yaw -35, 55, 145, -125: the sun from behind, the side and the front); each forearm is
+# shot at each (fp-arms-forearm-<side>-y<yaw>.jpg) and the frame that is sunlit without the player's own shadow is kept
+for yw in ${FOREARM_YAWS:--35 55 145 -125}; do
+  if want fp-arms-forearm-l || want fp-arms-forearm-r; then c "MIPose 170 -380 0 $yw -4"; run 1.2; fi
+  for sd in l r; do
+    echo "$sd" > "$MI_PROJECT_DIR/Saved/mi_forearm_side.txt"
+    if want fp-arms-forearm-$sd; then pie_mcp py "$PIE_PY/_forearm.py" | tail -3; shot fp-arms-forearm-$sd-y$yw 40; pie_mcp py "$PIE_PY/_unpause.py" > /dev/null; run 0.3; fi
+  done
 done
 textures forearm
 # the NINE at the hip: back to the player's own view (a fresh play session resets the flags changed above)

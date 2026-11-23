@@ -228,7 +228,9 @@ def skin_material(path=ARMS + "/Materials/M_RuleArms_Skin", tex=ARMS + "/Texture
     = ORM.G x RoughnessScale; AO = ORM.R; Specular 0.35; normal = the baked N with the tiling skin grain added
     (whiteout blend, DetailStrength).
     shading "subsurface" (the game's): the Standard Subsurface model, no screen-space blur: Subsurface Colour a deep
-    red-brown (SubsurfaceTint 0.40 / 0.16 / 0.10 x BC), Opacity Scatter 0.92 (a little light through thin fingers and edges; 1.6 / 0.55 / 0.35 at 0.8 turned the whole arm orange).
+    red-brown (SubsurfaceTint 0.26 / 0.14 / 0.09 x BC), Opacity Scatter 0.6 (a little light through thin fingers and
+    edges; 1.6 / 0.55 / 0.35 at 0.8 turned the whole arm orange, and 0.40 / 0.16 / 0.10 at 0.92 still read salmon in the
+    sun under the El: the scatter term is added to the lit diffuse, so its red rides on top of the albedo).
     shading "profile": the Subsurface Profile model with SP_RuleSkin, scatter amount (Opacity) Scatter 0.35. On the
     first-person pass the screen-space scatter of this model averaged the whole forearm: see CHARACTERS.md."""
     prof = game_skin_profile()
@@ -236,7 +238,7 @@ def skin_material(path=ARMS + "/Materials/M_RuleArms_Skin", tex=ARMS + "/Texture
     bc = _tex(m, tex + "/T_RuleArms_Skin_BC", -1400, -300, "color")
     orm = _tex(m, tex + "/T_RuleArms_Skin_ORM", -1400, 0, "masks")
     nm = _tex(m, tex + "/T_RuleArms_Skin_N", -1400, 300, "normal")
-    tint = _vector(m, "SkinTint", (0.92, 1.0, 1.12), -1100, -420)   # R/B 3.0 -> 2.5: the sun and ACES read 3.0 as orange
+    tint = _vector(m, "SkinTint", (0.92, 1.0, 1.08), -1100, -420)   # R/B 3.0 -> 2.6: the sun and ACES read 3.0 as orange; more blue reads pink
     col = _expr(m, unreal.MaterialExpressionMultiply, -900, -300)
     MEL.connect_material_expressions(bc, "RGB", col, "A")
     MEL.connect_material_expressions(tint, "", col, "B")
@@ -250,10 +252,10 @@ def skin_material(path=ARMS + "/Materials/M_RuleArms_Skin", tex=ARMS + "/Texture
     if shading == "profile":
         MEL.connect_material_property(_scalar(m, "Scatter", 0.35, -600, 700), "", unreal.MaterialProperty.MP_OPACITY)
     else:
-        MEL.connect_material_property(_scalar(m, "Scatter", 0.92, -600, 700), "", unreal.MaterialProperty.MP_OPACITY)
+        MEL.connect_material_property(_scalar(m, "Scatter", 0.6, -600, 700), "", unreal.MaterialProperty.MP_OPACITY)
         sc = _expr(m, unreal.MaterialExpressionMultiply, -700, -150)
         MEL.connect_material_expressions(col, "", sc, "A")
-        MEL.connect_material_expressions(_vector(m, "SubsurfaceTint", (0.40, 0.16, 0.10), -900, -150), "", sc, "B")
+        MEL.connect_material_expressions(_vector(m, "SubsurfaceTint", (0.26, 0.14, 0.09), -900, -150), "", sc, "B")
         MEL.connect_material_property(sc, "", unreal.MaterialProperty.MP_SUBSURFACE_COLOR)
     detail = tex + "/T_RuleArms_SkinDetail_N"
     if ASSETS.does_asset_exist(detail):
