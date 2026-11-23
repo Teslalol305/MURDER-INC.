@@ -489,13 +489,13 @@ void AMIBuzzard::Setup(int32 InSlot, const FMIEnemyLook& Look, const FMIBuzzardT
 		}
 		if (UMaterialInterface* EyeMat = Look.BuzzardEyeMaterial.IsValid() ? Cast<UMaterialInterface>(Look.BuzzardEyeMaterial.TryLoad()) : nullptr)
 		{
-			const int32 Slot = Drone->GetMaterialIndex(TEXT("M_Buzzard_Eye"));
-			if (Slot != INDEX_NONE)
+			const int32 EyeSlot = Drone->GetMaterialIndex(TEXT("M_Buzzard_Eye"));
+			if (EyeSlot != INDEX_NONE)
 			{
 				EyeMid = UMaterialInstanceDynamic::Create(EyeMat, this);
 				EyeMid->SetVectorParameterValue(TEXT("Color"), Look.BuzzardEyeColour);
 				EyeMid->SetScalarParameterValue(TEXT("Intensity"), 0.f);
-				Drone->SetMaterial(Slot, EyeMid);
+				Drone->SetMaterial(EyeSlot, EyeMid);
 			}
 		}
 		EyeNits = Look.BuzzardEyeNits;
