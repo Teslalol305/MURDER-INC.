@@ -221,9 +221,9 @@ def skin_texels(R, P, N, region, side, charts):
     for a0, a1 in (((0.060, 0.010), (0.018, -0.006)), ((0.058, -0.014), (0.012, 0.010)), ((0.040, 0.026), (0.004, 0.018)),
                    ((0.030, -0.020), (0.030, 0.022))):
         dv = _poly_dist(u, v, [a0, ((a0[0] + a1[0]) / 2, (a0[1] + a1[1]) / 2 + 0.004), a1])
-        vein = np.exp(-(dv / 0.0013) ** 2) * back
-        h += 0.00030 * vein
-        bc *= (1 - 0.08 * vein)[:, None]
+        vein = np.exp(-(dv / 0.0019) ** 2) * back * (0.6 + 0.4 * T.noise(Q, 1 / 0.012, 89))
+        h += 0.00012 * vein
+        bc *= (1 - 0.04 * vein)[:, None]
     # palm creases (thenar, proximal and distal transverse) and the creases of the wrist
     palm = hand * pal * (lab == 0)
     for pts, depth in (([(0.010, -0.010), (0.032, -0.020), (0.055, -0.024), (0.070, -0.020)], 0.00016),

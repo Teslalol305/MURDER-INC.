@@ -128,129 +128,11 @@ namespace MIViewmodelPrivate
 		}
 		return Keys.Last().Y;
 	}
-}
 
-FQuat FMIViewmodelRig::EulerYXZ(double Pitch, double Yaw, double Roll)
-{
-	return FQuat(FVector(0, 1, 0), Yaw) * FQuat(FVector(1, 0, 0), Pitch) * FQuat(FVector(0, 0, 1), Roll);
-}
-
-bool FMIViewmodelData::Load(FMIViewmodelData& Out, FString& OutError)
-{
-	TSharedPtr<FJsonObject> Presentation, Config;
-	if (!UMIDataSubsystem::LoadJsonFile(TEXT("presentation.json"), Presentation, OutError))
+	/** One gun's view data: G is the path of its presentation object in P, W the path of its rules object in C. */
+	bool ParseGunInto(FReader& P, const FString& G, FReader& C, const FString& W, FMIGunViewData& D, FString& OutError)
 	{
-		OutError = TEXT("presentation.json: ") + OutError;
-		return false;
-	}
-	if (!UMIDataSubsystem::LoadJsonFile(TEXT("config.json"), Config, OutError))
-	{
-		OutError = TEXT("config.json: ") + OutError;
-		return false;
-	}
-	return Parse(Presentation, Config, Out, OutError);
-}
-
-bool FMIViewmodelData::Parse(const TSharedPtr<FJsonObject>& Presentation, const TSharedPtr<FJsonObject>& Config, FMIViewmodelData& Out, FString& OutError)
-{
-	using namespace MIViewmodelPrivate;
-	FReader P{Presentation};
-	FReader C{Config};
-	Out = FMIViewmodelData();
-
-	Out.Body = FSoftObjectPath(P.Str(TEXT("firstPerson.body")));
-	Out.BodyHandSocket = FName(*P.Str(TEXT("firstPerson.bodyHandSocket")));
-	Out.FirstPersonScale = P.Num(TEXT("firstPerson.scale"));
-	if (const TSharedPtr<FJsonValue> Hidden = P.Value(TEXT("firstPerson.hideBones")); Hidden.IsValid() && Hidden->Type == EJson::Array)
-	{
-		for (const TSharedPtr<FJsonValue>& Bone : Hidden->AsArray())
-		{
-			Out.BodyHiddenBones.Add(FName(*Bone->AsString()));
-		}
-	}
-	Out.ViewmodelFov = C.Num(TEXT("player.fov.viewmodel"));
-	Out.StrideWalk = C.Num(TEXT("player.stride.walk"));
-	Out.StrideSprint = C.Num(TEXT("player.stride.sprint"));
-	Out.StrideCrouch = C.Num(TEXT("player.stride.crouch"));
-	Out.TracerMinHit = P.Num(TEXT("tracer.minHit"));
-	Out.TracerLength = P.Num(TEXT("tracer.length"));
-	Out.TracerHidden = P.Num(TEXT("tracer.hidden"));
-	Out.TracerHiddenFrom = P.Num(TEXT("tracer.hiddenFrom"));
-	Out.TracerThickness = P.Num(TEXT("tracer.thickness"));
-
-	FMIViewFeelData& F = Out.Feel;
-	F.BreatheHz = P.Num(TEXT("feel.breathe.hz"));
-	F.BreatheY = P.Num(TEXT("feel.breathe.y"));
-	F.BreathePitch = P.Num(TEXT("feel.breathe.pitch"));
-	F.BreatheRoll = P.Num(TEXT("feel.breathe.roll"));
-	F.BobY = P.Pair(TEXT("feel.bob.y"));
-	F.BobX = P.Pair(TEXT("feel.bob.x"));
-	F.BobRoll = P.Pair(TEXT("feel.bob.roll"));
-	F.BobPitch = P.Pair(TEXT("feel.bob.pitch"));
-	F.BobAdsPos = P.Num(TEXT("feel.bob.adsPos"));
-	F.BobAdsRot = P.Num(TEXT("feel.bob.adsRot"));
-	F.BobCrouch = P.Num(TEXT("feel.bob.crouch"));
-	F.BobRate = P.Num(TEXT("feel.bob.rate"));
-	F.BobWalkSpeed = P.Num(TEXT("feel.bob.walkSpeed"));
-	F.BobExponent = P.Num(TEXT("feel.bob.exponent"));
-	F.BobMoving = P.Num(TEXT("feel.bob.moving"));
-	F.LagGain = P.Num(TEXT("feel.lag.gain"));
-	F.LagRoll = P.Num(TEXT("feel.lag.roll"));
-	F.LagShift = P.Num(TEXT("feel.lag.shift"));
-	F.LagAds = P.Num(TEXT("feel.lag.ads"));
-	F.InertiaRate = P.Num(TEXT("feel.inertia.rate"));
-	F.InertiaStrafe = P.Num(TEXT("feel.inertia.strafe"));
-	F.InertiaSurge = P.Num(TEXT("feel.inertia.surge"));
-	F.InertiaLean = P.Num(TEXT("feel.inertia.lean"));
-	F.InertiaFall = P.Num(TEXT("feel.inertia.fall"));
-	F.InertiaFallPitch = P.Num(TEXT("feel.inertia.fallPitch"));
-	F.InertiaAds = P.Num(TEXT("feel.inertia.ads"));
-	F.InertiaAccelLimit = P.Num(TEXT("feel.inertia.accelLimit"));
-	F.InertiaLeanSpeed = P.Num(TEXT("feel.inertia.leanSpeed"));
-	F.InertiaFallClamp = P.Pair(TEXT("feel.inertia.fallClamp"));
-	F.Jump = P.Num(TEXT("feel.jump"));
-	F.LandPerSpeed = P.Num(TEXT("feel.land.perSpeed"));
-	F.LandMax = P.Num(TEXT("feel.land.max"));
-	F.LandRoll = P.Num(TEXT("feel.land.roll"));
-	F.LandAdsY = P.Num(TEXT("feel.land.adsY"));
-	F.LandPitch = P.Num(TEXT("feel.land.pitch"));
-	F.LandAdsPitch = P.Num(TEXT("feel.land.adsPitch"));
-	F.LandSpring = P.Pair(TEXT("feel.landSpring"));
-	F.BumpSpring = P.Pair(TEXT("feel.bumpSpring"));
-	F.AimArcDrop = P.Num(TEXT("feel.aimArc.drop"));
-	F.AimArcRoll = P.Num(TEXT("feel.aimArc.roll"));
-	F.TriggerRate = P.Num(TEXT("feel.triggerRate"));
-	F.ReloadIn = P.Num(TEXT("feel.reloadBlend.in"));
-	F.ReloadOut = P.Num(TEXT("feel.reloadBlend.out"));
-	F.ReloadCancelRate = P.Num(TEXT("feel.reloadBlend.cancelRate"));
-	F.DropTime = P.Num(TEXT("feel.dropTime"));
-	F.DryPitch = P.Num(TEXT("feel.dry.pitch"));
-	F.DryY = P.Num(TEXT("feel.dry.y"));
-	F.MagOutY = P.Num(TEXT("feel.magout.y"));
-	F.MagOutRoll = P.Num(TEXT("feel.magout.roll"));
-	F.MagInsertY = P.Num(TEXT("feel.magInsert.y"));
-	F.MagInY = P.Num(TEXT("feel.magin.y"));
-	F.MagInPitch = P.Num(TEXT("feel.magin.pitch"));
-	F.TugY = P.Num(TEXT("feel.tug.y"));
-	F.TugPitch = P.Num(TEXT("feel.tug.pitch"));
-	F.MeleeEnemy = P.Num(TEXT("feel.meleeLand.enemy"));
-	F.MeleeWall = P.Num(TEXT("feel.meleeLand.wall"));
-	F.MeleeRoll = P.Num(TEXT("feel.meleeLand.roll"));
-
-	const TSharedPtr<FJsonValue> Order = C.Value(TEXT("weapons.common.order"));
-	if (!Order.IsValid() || Order->Type != EJson::Array)
-	{
-		OutError = TEXT("config.json weapons.common.order is missing");
-		return false;
-	}
-	static const TCHAR* MarkerNames[] = {TEXT("muzzle"), TEXT("eject"), TEXT("sightRear"), TEXT("pivot"), TEXT("grip"), TEXT("support")};
-	for (const TSharedPtr<FJsonValue>& IdValue : Order->AsArray())
-	{
-		const FString Id = IdValue->AsString();
-		const FString G = TEXT("guns.") + Id + TEXT(".");
-		const FString W = TEXT("weapons.") + Id + TEXT(".");
-		FMIGunViewData& D = Out.Guns.AddDefaulted_GetRef();
-		D.Id = FName(*Id);
+		static const TCHAR* MarkerNames[] = {TEXT("muzzle"), TEXT("eject"), TEXT("sightRear"), TEXT("pivot"), TEXT("grip"), TEXT("support")};
 		D.Mesh = FSoftObjectPath(P.Str(G + TEXT("mesh")));
 		D.Idle = FSoftObjectPath(P.StrOr(G + TEXT("idle")));
 		{
@@ -373,6 +255,132 @@ bool FMIViewmodelData::Parse(const TSharedPtr<FJsonObject>& Presentation, const 
 		D.AdsSpring = C.Pair(W + TEXT("adsSpring"));
 		D.SwaySpring = C.Pair(W + TEXT("swaySpring"));
 		D.SwayMax = C.Num(W + TEXT("swayMax"));
+		return true;
+	}
+}
+
+FQuat FMIViewmodelRig::EulerYXZ(double Pitch, double Yaw, double Roll)
+{
+	return FQuat(FVector(0, 1, 0), Yaw) * FQuat(FVector(1, 0, 0), Pitch) * FQuat(FVector(0, 0, 1), Roll);
+}
+
+bool FMIViewmodelData::Load(FMIViewmodelData& Out, FString& OutError)
+{
+	TSharedPtr<FJsonObject> Presentation, Config;
+	if (!UMIDataSubsystem::LoadJsonFile(TEXT("presentation.json"), Presentation, OutError))
+	{
+		OutError = TEXT("presentation.json: ") + OutError;
+		return false;
+	}
+	if (!UMIDataSubsystem::LoadJsonFile(TEXT("config.json"), Config, OutError))
+	{
+		OutError = TEXT("config.json: ") + OutError;
+		return false;
+	}
+	return Parse(Presentation, Config, Out, OutError);
+}
+
+bool FMIViewmodelData::Parse(const TSharedPtr<FJsonObject>& Presentation, const TSharedPtr<FJsonObject>& Config, FMIViewmodelData& Out, FString& OutError)
+{
+	using namespace MIViewmodelPrivate;
+	FReader P{Presentation};
+	FReader C{Config};
+	Out = FMIViewmodelData();
+
+	Out.Body = FSoftObjectPath(P.Str(TEXT("firstPerson.body")));
+	Out.BodyHandSocket = FName(*P.Str(TEXT("firstPerson.bodyHandSocket")));
+	Out.FirstPersonScale = P.Num(TEXT("firstPerson.scale"));
+	if (const TSharedPtr<FJsonValue> Hidden = P.Value(TEXT("firstPerson.hideBones")); Hidden.IsValid() && Hidden->Type == EJson::Array)
+	{
+		for (const TSharedPtr<FJsonValue>& Bone : Hidden->AsArray())
+		{
+			Out.BodyHiddenBones.Add(FName(*Bone->AsString()));
+		}
+	}
+	Out.ViewmodelFov = C.Num(TEXT("player.fov.viewmodel"));
+	Out.StrideWalk = C.Num(TEXT("player.stride.walk"));
+	Out.StrideSprint = C.Num(TEXT("player.stride.sprint"));
+	Out.StrideCrouch = C.Num(TEXT("player.stride.crouch"));
+	Out.TracerMinHit = P.Num(TEXT("tracer.minHit"));
+	Out.TracerLength = P.Num(TEXT("tracer.length"));
+	Out.TracerHidden = P.Num(TEXT("tracer.hidden"));
+	Out.TracerHiddenFrom = P.Num(TEXT("tracer.hiddenFrom"));
+	Out.TracerThickness = P.Num(TEXT("tracer.thickness"));
+
+	FMIViewFeelData& F = Out.Feel;
+	F.BreatheHz = P.Num(TEXT("feel.breathe.hz"));
+	F.BreatheY = P.Num(TEXT("feel.breathe.y"));
+	F.BreathePitch = P.Num(TEXT("feel.breathe.pitch"));
+	F.BreatheRoll = P.Num(TEXT("feel.breathe.roll"));
+	F.BobY = P.Pair(TEXT("feel.bob.y"));
+	F.BobX = P.Pair(TEXT("feel.bob.x"));
+	F.BobRoll = P.Pair(TEXT("feel.bob.roll"));
+	F.BobPitch = P.Pair(TEXT("feel.bob.pitch"));
+	F.BobAdsPos = P.Num(TEXT("feel.bob.adsPos"));
+	F.BobAdsRot = P.Num(TEXT("feel.bob.adsRot"));
+	F.BobCrouch = P.Num(TEXT("feel.bob.crouch"));
+	F.BobRate = P.Num(TEXT("feel.bob.rate"));
+	F.BobWalkSpeed = P.Num(TEXT("feel.bob.walkSpeed"));
+	F.BobExponent = P.Num(TEXT("feel.bob.exponent"));
+	F.BobMoving = P.Num(TEXT("feel.bob.moving"));
+	F.LagGain = P.Num(TEXT("feel.lag.gain"));
+	F.LagRoll = P.Num(TEXT("feel.lag.roll"));
+	F.LagShift = P.Num(TEXT("feel.lag.shift"));
+	F.LagAds = P.Num(TEXT("feel.lag.ads"));
+	F.InertiaRate = P.Num(TEXT("feel.inertia.rate"));
+	F.InertiaStrafe = P.Num(TEXT("feel.inertia.strafe"));
+	F.InertiaSurge = P.Num(TEXT("feel.inertia.surge"));
+	F.InertiaLean = P.Num(TEXT("feel.inertia.lean"));
+	F.InertiaFall = P.Num(TEXT("feel.inertia.fall"));
+	F.InertiaFallPitch = P.Num(TEXT("feel.inertia.fallPitch"));
+	F.InertiaAds = P.Num(TEXT("feel.inertia.ads"));
+	F.InertiaAccelLimit = P.Num(TEXT("feel.inertia.accelLimit"));
+	F.InertiaLeanSpeed = P.Num(TEXT("feel.inertia.leanSpeed"));
+	F.InertiaFallClamp = P.Pair(TEXT("feel.inertia.fallClamp"));
+	F.Jump = P.Num(TEXT("feel.jump"));
+	F.LandPerSpeed = P.Num(TEXT("feel.land.perSpeed"));
+	F.LandMax = P.Num(TEXT("feel.land.max"));
+	F.LandRoll = P.Num(TEXT("feel.land.roll"));
+	F.LandAdsY = P.Num(TEXT("feel.land.adsY"));
+	F.LandPitch = P.Num(TEXT("feel.land.pitch"));
+	F.LandAdsPitch = P.Num(TEXT("feel.land.adsPitch"));
+	F.LandSpring = P.Pair(TEXT("feel.landSpring"));
+	F.BumpSpring = P.Pair(TEXT("feel.bumpSpring"));
+	F.AimArcDrop = P.Num(TEXT("feel.aimArc.drop"));
+	F.AimArcRoll = P.Num(TEXT("feel.aimArc.roll"));
+	F.TriggerRate = P.Num(TEXT("feel.triggerRate"));
+	F.ReloadIn = P.Num(TEXT("feel.reloadBlend.in"));
+	F.ReloadOut = P.Num(TEXT("feel.reloadBlend.out"));
+	F.ReloadCancelRate = P.Num(TEXT("feel.reloadBlend.cancelRate"));
+	F.DropTime = P.Num(TEXT("feel.dropTime"));
+	F.DryPitch = P.Num(TEXT("feel.dry.pitch"));
+	F.DryY = P.Num(TEXT("feel.dry.y"));
+	F.MagOutY = P.Num(TEXT("feel.magout.y"));
+	F.MagOutRoll = P.Num(TEXT("feel.magout.roll"));
+	F.MagInsertY = P.Num(TEXT("feel.magInsert.y"));
+	F.MagInY = P.Num(TEXT("feel.magin.y"));
+	F.MagInPitch = P.Num(TEXT("feel.magin.pitch"));
+	F.TugY = P.Num(TEXT("feel.tug.y"));
+	F.TugPitch = P.Num(TEXT("feel.tug.pitch"));
+	F.MeleeEnemy = P.Num(TEXT("feel.meleeLand.enemy"));
+	F.MeleeWall = P.Num(TEXT("feel.meleeLand.wall"));
+	F.MeleeRoll = P.Num(TEXT("feel.meleeLand.roll"));
+
+	const TSharedPtr<FJsonValue> Order = C.Value(TEXT("weapons.common.order"));
+	if (!Order.IsValid() || Order->Type != EJson::Array)
+	{
+		OutError = TEXT("config.json weapons.common.order is missing");
+		return false;
+	}
+	for (const TSharedPtr<FJsonValue>& IdValue : Order->AsArray())
+	{
+		const FString Id = IdValue->AsString();
+		FMIGunViewData& D = Out.Guns.AddDefaulted_GetRef();
+		if (!ParseGunInto(P, TEXT("guns.") + Id + TEXT("."), C, TEXT("weapons.") + Id + TEXT("."), D, OutError))
+		{
+			return false;
+		}
+		D.Id = FName(*Id);
 	}
 
 	if (!P.Missing.IsEmpty() || !C.Missing.IsEmpty())
@@ -847,4 +855,23 @@ FTransform FMIViewmodelRig::GetGunTransform() const
 FVector FMIViewmodelRig::GunPointInCamera(const FVector& WebGunPoint) const
 {
 	return WebToUE(Pose.Pos + Pose.Rot.RotateVector(WebGunPoint));
+}
+
+bool FMIViewmodelData::ParseGunView(const TSharedPtr<FJsonObject>& PresentationGun, const TSharedPtr<FJsonObject>& RulesGun, FMIGunViewData& Out, FString& OutError)
+{
+	using namespace MIViewmodelPrivate;
+	FReader P{PresentationGun};
+	FReader C{RulesGun};
+	Out = FMIGunViewData();
+	if (!ParseGunInto(P, FString(), C, FString(), Out, OutError))
+	{
+		return false;
+	}
+	Out.Id = FName(*C.StrOr(TEXT("id")));
+	if (!P.Missing.IsEmpty() || !C.Missing.IsEmpty())
+	{
+		OutError = !P.Missing.IsEmpty() ? TEXT("presentation is missing ") + P.Missing : TEXT("rules are missing ") + C.Missing;
+		return false;
+	}
+	return true;
 }

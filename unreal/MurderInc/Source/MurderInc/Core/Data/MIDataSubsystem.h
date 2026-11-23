@@ -47,6 +47,12 @@ public:
 	/** Fill the structs from a parsed config.json, converting to Unreal units. Fails when a field is missing. */
 	static bool ParseConfig(const TSharedPtr<FJsonObject>& Root, FMIConfigData& Out, FString& OutError);
 
+	/** One gun from its rules object (config.json schema, web units) and its filled `extra` object (LOADOUT.md 3.7):
+	 *  the same parser config.json's guns go through, then the per-gun fields of 4.9. */
+	static bool ParseGun(const TSharedPtr<FJsonObject>& Rules, const TSharedPtr<FJsonObject>& Extra, FMIWeaponDef& Out, FString& OutError);
+	/** weapons.common and weapons.melee (and the pad aim slow-down) of a config.json document. */
+	static bool ParseWeaponsCommon(const TSharedPtr<FJsonObject>& ConfigRoot, FMIWeaponsData& Out, FString& OutError);
+
 	/** LoadJsonFile("config.json") followed by ParseConfig. */
 	static bool LoadConfig(FMIConfigData& Out, FString& OutError);
 

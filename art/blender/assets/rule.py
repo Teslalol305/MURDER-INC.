@@ -298,8 +298,12 @@ def regions(R, ob):
     fn = np.empty(len(ob.data.polygons) * 3)
     ob.data.polygons.foreach_get("normal", fn)
     fn = fn.reshape(-1, 3)
-    body = lab == 0                                        # the hand itself (not a finger): back by the normal
-    dors = np.where(body, fn @ R.dors > -0.25, dors)
+    # back or palm by the face normal against the hand's (or the finger's) dorsal direction: robust behind the
+    # knuckles, where a finger chain's own angle is undefined
+    dv = np.tile(R.dors, (len(fc), 1))
+    for i, n in enumerate(C.FINGERS):
+        dv[lab == i + 1] = R.chain[n]["dors"]
+    dors = np.einsum("ij,ij->i", fn, dv) > np.where(lab > 0, -0.10, -0.25)
     reg = np.where(dors, 1, 2)
     reg[s > 0.022] = 0
     return reg

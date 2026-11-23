@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include <limits>
 
 /**
  * Tuning tables read from Content/Data/config.json by UMIDataSubsystem.
@@ -291,7 +292,26 @@ struct FMIWeaponDef
 	double RumbleWeak = 0.0;
 	double RumbleMs = 0.0;
 
+	// LOADOUT.md 4.9: per-gun fields. Their defaults are the values the web code uses implicitly (guns.json
+	// extraDefaults), so a gun read from config.json alone plays exactly as before.
+	double Holster = 0.0;          // s
+	double Draw = 0.0;             // s
+	double AdsFov = 0.0;           // vertical degrees at full aim
+	double AdsLook = 1.0;          // factor on player.look.adsScale
+	double NoiseRadius = 0.0;      // cm: enemies within it hear a round
+	double FalloffStart = std::numeric_limits<double>::infinity();  // cm, full damage up to here (infinity: no falloff)
+	double FalloffEnd = std::numeric_limits<double>::infinity();    // cm, FalloffMin from here
+	double FalloffMin = 1.0;
+	TArray<FName> FireModes;       // auto, semi: every run starts in FireModes[0]
+	double SemiFireBuffer = 0.0;   // s, the press buffer of an automatic gun switched to semi
+	double ModeSwitch = 0.0;       // s the selector takes
+	double InspectAfter = 0.0;     // s idle before the idle inspect (presentation)
+	FName Pool;                    // ammunition pool (the bag) for a finite reserve
+	bool bSuppressed = false;      // a silencer is fitted (sound set, flash)
+	TMap<FName, FName> Fitted;     // slot -> part (resolver)
+
 	double Interval() const { return Rpm > 0.0 ? 60.0 / Rpm : 0.0; }
+	bool HasFireMode(FName Mode) const { return FireModes.Contains(Mode); }
 };
 
 /** config.json "weapons.common" (and the pad aim slow-down of "player.input.pad") */

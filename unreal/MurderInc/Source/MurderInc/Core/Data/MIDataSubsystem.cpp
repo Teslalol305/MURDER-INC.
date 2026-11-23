@@ -308,10 +308,11 @@ namespace MIDataSubsystemParse
 		P.Death.CapsuleHeight = In.Number(TEXT("player.death.capsuleHeight"), MetresToCm);
 	}
 
-	void ParseGun(FReader& In, const FString& Id, FMIWeaponDef& G)
+	/** One gun object. Prefix: "weapons.<id>." in config.json, "" for a gun object on its own (the resolver). */
+	void ParseGunAt(FReader& In, const FString& Prefix, FMIWeaponDef& G)
 	{
 		using namespace MIDataSubsystemPrivate;
-		const auto Path = [&Id](const TCHAR* Leaf) { return FString::Printf(TEXT("weapons.%s.%s"), *Id, Leaf); };
+		const auto Path = [&Prefix](const TCHAR* Leaf) { return Prefix + Leaf; };
 		G.Id = FName(*In.String(*Path(TEXT("id"))));
 		G.Name = In.String(*Path(TEXT("name")));
 		G.Slot = static_cast<int32>(In.Number(*Path(TEXT("slot"))));
@@ -383,13 +384,35 @@ namespace MIDataSubsystemParse
 		G.RumbleMs = In.Number(*Path(TEXT("rumble.ms")));
 	}
 
+	void ParseWeaponsCommon(FReader& In, FMIWeaponsData& W);
+
 	void ParseWeapons(FReader& In, FMIWeaponsData& W)
 	{
 		using namespace MIDataSubsystemPrivate;
 		for (const FString& Id : In.Strings(TEXT("weapons.common.order")))
 		{
-			ParseGun(In, Id, W.Guns.AddDefaulted_GetRef());
+			ParseGunAt(In, FString::Printf(TEXT("weapons.%s."), *Id), W.Guns.AddDefaulted_GetRef());
 		}
+		ParseWeaponsCommon(In, W);
+		// The per-gun fields of LOADOUT.md 4.9 take the values the web code uses implicitly (guns.json extraDefaults).
+		for (FMIWeaponDef& G : W.Guns)
+		{
+			G.Holster = W.Common.Holster;
+			G.Draw = W.Common.Draw;
+			G.AdsFov = In.Number(TEXT("player.fov.ads"));
+			G.AdsLook = 1.0;
+			G.NoiseRadius = In.Optional(TEXT("enemies.ai.hear.gunfire"), 45.0, MetresToCm);
+			G.FireModes = {G.bAuto ? FName(TEXT("auto")) : FName(TEXT("semi"))};
+			G.SemiFireBuffer = In.Optional(TEXT("weapons.nine.fireBuffer"), 0.0);
+			G.ModeSwitch = 0.35;
+			G.InspectAfter = In.Optional(*FString::Printf(TEXT("weapons.%s.inspectAfter"), *G.Id.ToString()), 24.0);
+			G.Pool = FMath::IsFinite(G.Reserve) ? FName(TEXT("bag")) : NAME_None;
+		}
+	}
+
+	void ParseWeaponsCommon(FReader& In, FMIWeaponsData& W)
+	{
+		using namespace MIDataSubsystemPrivate;
 		FMIWeaponCommonData& C = W.Common;
 		C.HeadMultiplier = In.Number(TEXT("weapons.common.headMultiplier"));
 		C.Holster = In.Number(TEXT("weapons.common.holster"));
@@ -681,4 +704,62 @@ bool UMIDataSubsystem::LoadConfig(FMIConfigData& Out, FString& OutError)
 {
 	TSharedPtr<FJsonObject> Root;
 	return LoadJsonFile(TEXT("config.json"), Root, OutError) && ParseConfig(Root, Out, OutError);
+}
+
+bool UMIDataSubsystem::ParseGun(const TSharedPtr<FJsonObject>& Rules, const TSharedPtr<FJsonObject>& Extra, FMIWeaponDef& Out, FString& OutError)
+{
+	using namespace MIDataSubsystemPrivate;
+	using namespace MIDataSubsystemParse;
+	Out = FMIWeaponDef();
+	if (!Rules.IsValid() || !Extra.IsValid())
+	{
+		OutError = TEXT("ParseGun: no rules or no extra object");
+		return false;
+	}
+	FReader In{Rules};
+	ParseGunAt(In, FString(), Out);
+	FReader X{Extra};
+	Out.Holster = X.Number(TEXT("holster"));
+	Out.Draw = X.Number(TEXT("draw"));
+	Out.AdsFov = X.Number(TEXT("adsFov"));
+	Out.AdsLook = X.Number(TEXT("adsLook"));
+	Out.NoiseRadius = X.Number(TEXT("noise"), MetresToCm);
+	Out.FalloffStart = X.NumberOrInfinity(TEXT("falloff.start"), MetresToCm);
+	Out.FalloffEnd = X.NumberOrInfinity(TEXT("falloff.end"), MetresToCm);
+	Out.FalloffMin = X.Number(TEXT("falloff.min"));
+	Out.FireModes.Reset();
+	for (const FString& M : X.Strings(TEXT("fireModes")))
+	{
+		Out.FireModes.Add(FName(*M));
+	}
+	Out.SemiFireBuffer = X.Number(TEXT("semiFireBuffer"));
+	Out.ModeSwitch = X.Number(TEXT("modeSwitch"));
+	Out.InspectAfter = In.Optional(TEXT("inspectAfter"), X.Number(TEXT("inspectAfter")));
+	const FString Pool = X.String(TEXT("pool"));
+	Out.Pool = FMath::IsFinite(Out.Reserve) && !Pool.IsEmpty() ? FName(*Pool) : NAME_None;
+	TArray<FString> Missing = In.Missing;
+	Missing.Append(X.Missing);
+	if (Out.FireModes.Num() == 0)
+	{
+		Missing.Add(TEXT("extra.fireModes"));
+	}
+	if (Missing.Num() > 0)
+	{
+		OutError = FString::Printf(TEXT("gun %s: %d field(s) missing: %s"), *Out.Id.ToString(), Missing.Num(), *FString::Join(Missing, TEXT(", ")));
+		return false;
+	}
+	return true;
+}
+
+bool UMIDataSubsystem::ParseWeaponsCommon(const TSharedPtr<FJsonObject>& ConfigRoot, FMIWeaponsData& Out, FString& OutError)
+{
+	using namespace MIDataSubsystemParse;
+	MIDataSubsystemPrivate::FReader In{ConfigRoot};
+	MIDataSubsystemParse::ParseWeaponsCommon(In, Out);
+	if (In.Missing.Num() > 0)
+	{
+		OutError = FString::Printf(TEXT("config.json: %s"), *FString::Join(In.Missing, TEXT(", ")));
+		return false;
+	}
+	return true;
 }

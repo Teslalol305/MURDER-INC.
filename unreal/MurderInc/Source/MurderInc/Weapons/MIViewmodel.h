@@ -103,6 +103,9 @@ struct FMIViewmodelData
 	/** Reads presentation.json and the gun tables of config.json. */
 	static bool Load(FMIViewmodelData& Out, FString& OutError);
 	static bool Parse(const TSharedPtr<FJsonObject>& Presentation, const TSharedPtr<FJsonObject>& Config, FMIViewmodelData& Out, FString& OutError);
+	/** One gun's view data from its presentation object and its rules object (LOADOUT.md 3.7): views, kick, springs,
+	 *  swayMax and the reload marks come from the same (possibly modified) rules the weapon rules parse. */
+	static bool ParseGunView(const TSharedPtr<FJsonObject>& PresentationGun, const TSharedPtr<FJsonObject>& RulesGun, FMIGunViewData& Out, FString& OutError);
 };
 
 /** What the rig reads of the player each frame (Unreal units; the rig converts). */

@@ -4,7 +4,9 @@ What exists, how it is wired, how to add a line or a sound, the recording brief,
 generated. The web game's sound is specified in `spec/07-ui-audio.md` (cited as "spec 07"); this page records what
 the Unreal code does. Code: `unreal/MurderInc/Source/MurderInc/Audio/`; data: `Content/Data/voice.json`,
 `audio.json`, `audio_sounds.json`; files: `Content/Audio/`; tests: `Tests/MIAudioTests.cpp`,
-`Tests/MIAudioEngineTests.cpp`. State and evidence: `PROGRESS.md`, section Audio.
+`Tests/MIAudioVoiceTests.cpp`, `Tests/MIAudioEngineTests.cpp`; tools: `tools/audio/` (placeholders, effects,
+`voice_ingest.py` for real recordings, `render_report.py` to measure a render). State and evidence: `PROGRESS.md`,
+section Audio.
 
 ## 1. Layers
 
@@ -22,7 +24,8 @@ and the enemy actors' positions (`AMIGoon`, `AMIBuzzard`: rotor loops follow the
 from their movement because the bus has no enemy step event).
 
 Nothing in another package had to change: the subsystem creates itself in every game world and listens. The hooks
-the rest of the game can call (all optional, none wired yet):
+the rest of the game can call (all optional, **none wired yet**: until they are, every crew member speaks with Rule's
+set and the "RULE" subtitle, and the options keep their voice.json defaults):
 
 | Who | Call | When |
 |---|---|---|
@@ -33,6 +36,10 @@ the rest of the game can call (all optional, none wired yet):
 
 Until the options screen calls it, the console drives the same options: `MIAudio.Volume <master|effects|ambience|music|ui|voice> <0..1>`,
 `MIVoice frequency <off|rare|normal|often>`, `MIVoice subtitles 0|1`, `MIVoice clean 0|1`, `MIVoice character <id>`.
+
+**A decision for the user: clean language is off by default** (voice.json `settings.options.cleanLanguage: false`),
+so "What's my motherf\*\*\*in' name?!" plays uncensored until a player turns clean language on, and today only the
+console can (no options screen calls `SetOptions` yet). Set it to `true` in voice.json to ship clean by default.
 
 ## 2. The voice lines
 
@@ -46,8 +53,10 @@ Until the options screen calls it, the console drives the same options: `MIAudio
 | `kill.multi` (value: how many) | a kill within `multiKill.window` (1.5 s) of the last |
 | `kill.streak` (value: the streak) | the streak reaches a threshold (6, 12, 20, 30); a hit of `streak.breakDamage` or a gap over `streak.gap` (25 s) breaks it |
 | `kill.lastOfWave` | a kill no more than `lastOfWaveWindow` (0.5 s) before `objective:done wave` |
-| `run.start` | `game:state intro`, or `playing` from the title, a death or a debrief |
+| `run.start` | `game:state intro`, or `playing` from the title, a death or a debrief (a restart also silences the old run first) |
 | `reel.collected`, `wave.cleared` | `objective:done` (an objective id / `wave`) |
+| `wave.milestone` (value: the wave) | every `waveMilestone`-th wave cleared (5, 10, 15 ...) |
+| `score.newBest` (value: the score) | `score:best` from the flow (not sent yet: hand-off in PROGRESS.md); until then a Hold the Block card above every earlier card of the session |
 | `objective.update` | `hud:objective` during play, more than 2 s into the run |
 | `health.lowSurvived` | a hit left health under `lowHealth.below` (30) and `lowHealth.survive` (6 s) passed with no hit, alive |
 | `extraction.called`, `run.win` | `objective:all`, `extraction:reached` |
@@ -55,14 +64,25 @@ Until the options screen calls it, the console drives the same options: `MIAudio
 
 2. `FMIVoiceRules` collects the triggers of the last `coalesceWindow` (0.3 s) and judges them together, the most
    important line first (a trigger may carry its own priority: `kill.lastOfWave` lifts "It's Murda!" to 75). Each
-   candidate that is not cooling down rolls its chance (seeded `FRandomStream`); the first that wins speaks. Lines that
-   can wait (`queueable`, seconds) queue behind it, the rest are dropped.
+   candidate that is not cooling down rolls its chance (seeded `FRandomStream`) times the **repeat decay**
+   (`repeatDecay` 0.8 to the power of the line's plays in this run: the third "It's Murda!" of a run is half as likely
+   as the first); the first that wins speaks. Lines that can wait (`queueable`, seconds) queue behind it, the rest are
+   dropped; a trigger marked `onlyIfSilent` speaks only when nothing else of the same moment did (a wave's
+   "Rule Baby!" after a wave whose last kill did not already say "It's Murda!").
 3. A line may start when nothing is speaking, `afterLineGap` (0.8 s) has passed since the last line, and the
    `globalCooldown` (6 s) has passed since the last start. A line `interruptMargin` (30) above the last one skips the
-   gap and the global cooldown, and cuts a playing line that is `interruptible`. An answer (the crowd after
-   "What's my name") plays on time, `answer.delay` after the take ends, and is never cut.
-4. The take: at random among the line's takes, never the one it played last time.
-5. The death, a reset or the title silence the voice (nothing pending survives).
+   gap and the global cooldown, and cuts a playing line that is `interruptible`, **except between two kill barks**
+   (`barkTriggers`: ordinary, headshot, melee, explosive, Buzzard and multi kills): a burst of ten kills is one clean
+   line, never "Holla, ho- It's Murda!"; streaks, the last kill of a wave and every progress beat still cut. A trigger
+   marked `always` (the win, the wave milestone, a new best) ignores the line's cooldown, the global cooldown and the
+   decay, and waits (`queueable`) behind a line it may not cut. An answer (the crowd after "What's my name") plays on
+   time, `answer.delay` after the take ends, and is never cut.
+4. The take: among the takes of the **intensity the trigger asks for** (`intensity`: the win and the milestones
+   `shout`, a close call survived `breath` or `spoken`, the run start and the debrief `shout` or `spoken`), at random,
+   never the one the line played last time; any take when none matches.
+5. The death, `player:reset` (restart from the pause menu, "Run it back"), an intro that does not come from the title
+   and the title silence the voice: the playing line stops (at once while the world is paused), and nothing queued or
+   answered survives. A run start resets the repeat decay.
 
 While a line plays the other categories duck (voice.json `settings.duck`: music 0.5, ambience 0.55, world 0.65,
 near 0.75, gun 0.8, tail 0.7; attack 0.06 s, release 0.45 s). The subtitle (speaker in gold `#f6c21a`, the line in
@@ -72,31 +92,40 @@ ink `#f4f2ec`, on a plate) is drawn under the crosshair through `AHUD::OnHUDPost
 
 | Line (id) | Text | Triggers (chance) | Cooldown | Priority |
 |---|---|---|---|---|
-| `holla` | Holla, holla! | kill.ordinary 0.14, kill.melee 0.5, kill.explosive 0.4, kill.buzzard 0.3 | 20 s | 20 |
-| `murda` | It's Murda! | kill.headshot 0.3, kill.multi 0.6, kill.lastOfWave 1.0 (priority 75) | 25 s | 50 |
-| `rulebaby` | Rule Baby! | reel.collected 0.9, wave.cleared 0.9, extraction.called 1.0, health.lowSurvived 0.4, objective.update 0.15; queues up to 2.5 s | 12 s | 60 |
-| `inc` | I-N-C! | run.start 0.8, results.complete 1.0, results.holdout 1.0; queues up to 3 s | 20 s | 70 |
-| `name` | What's my motherf\*\*\*in' name?! | run.win 1.0, kill.streak at 20 or more 1.0 | 60 s | 90, not interruptible |
+| `holla` | Holla, holla! | kill.ordinary 0.14, kill.melee 0.5, kill.explosive 0.4, kill.buzzard 0.3 | 25 s | 20 |
+| `murda` | It's Murda! | kill.headshot 0.25, kill.multi 0.6 (shout or spoken), kill.lastOfWave 0.5 (priority 75, shout) | 40 s | 50 |
+| `rulebaby` | Rule Baby! | reel.collected 0.9, wave.cleared 0.9 (only if the wave's kill did not speak), extraction.called 1.0 (shout), health.lowSurvived 0.4 (breath or spoken), objective.update 0.15; queues up to 2.5 s | 12 s | 60 |
+| `inc` | I-N-C! | run.start 0.8, results.complete 1.0, results.holdout 1.0 (shout or spoken); queues up to 3 s | 20 s | 70 |
+| `name` | What's my motherf\*\*\*in' name?! | run.win 1.0 (always, priority 100, queues 6 s, shout), wave.milestone 1.0 (always, queues 4 s, shout), score.newBest 1.0 (always, shout), kill.streak at 20 or more 1.0 | 60 s | 90, not interruptible |
 | `rule_chant` (CROWD) | R-U-L-E! | only as the answer of `name`, 0.35 s after it | | 95 |
 
 How often, by the options' **How often**: `off` silences every line; `rare` halves the chances and doubles the
 cooldowns (1.6 x); `often` multiplies the chances by 1.6 and the cooldowns by 0.6, the global cooldown by 0.5.
 
-**Expected rate in a typical Story run (normal).** Spec 04 2.10 gives 33 to 41 enemies on Boss in "about five
-minutes", about 7 kills a minute in fights of a few kills. `MurderInc.Audio.VoiceRate` plays that run 20 times with
-the real voice.json (36 kills over 300 s in twelve fights, a quarter headshots, five Buzzards, one melee and one blast
-kill, three reels, two close calls, the truck, the debrief) and measures **2.8 lines a minute** (13.8 a run), of
-which **1.3 a minute on kills** (6.5 of 36 kills speak, 18 %); per run: Holla 3.6, Rule Baby 3.6, It's Murda 3.0,
-I-N-C 1.75 (start and debrief), What's my name and its crowd answer 1.0 each. The
-progress beats (start, three reels, the truck, the win, the card) are about half of it and always land; the kill
-barks stay under one kill in five, so they remain a reward. The test fails outside 1 to 3.5 lines a minute or if a
-third of kills speak.
+**Measured rates (normal), real take lengths.** `MurderInc.Audio.VoiceRate` plays a Story run on Boss as spec 04
+2.10 and config.json have it (the patrol of 4 Goons and 2 Buzzards, a wave after each reel of 5+2, 6+3 and 7+4, the 8
+pursuit arrivals, intro then playing, the objective line after each reel, the player hit every 1.5 to 5 s in every
+fight, the truck, the debrief), 20 seeds: **4.6 minutes, 41 kills, 2.56 lines a minute** (11.7 a run), **13 % of the
+kills speak**; per run Holla 2.75, It's Murda 2.70, Rule Baby 2.55, I-N-C 1.65, What's my name and its crowd answer
+1.0 each (the win, every run). It fails outside 1 to 3 lines a minute, at a quarter of the kills, or when a run's win
+is not called and answered. `MurderInc.Audio.VoiceRateHoldout` plays Hold the Block as spec 04 2.11 has it (waves of
+min(5 + 2n, 30), a third Buzzards, 9 s breathers, enemy damage up to x 2, hits every 1.5 to 5 s so no streak
+survives, dead after wave 12): **10.6 minutes, 2.61 lines a minute, "It's Murda!" 0.73 a minute (the worst run
+0.89)**, What's my name 2 a run (waves 5 and 10, every run, each answered). It fails above one "It's Murda!" a minute
+in any run, without "What's my name" by wave 10, or above 3 lines a minute. `MurderInc.Audio.VoiceWin` proves the win
+after a 20-kill streak 25 s earlier is still called (shouted, then the crowd), that it cuts "I-N-C!" and waits behind
+the uninterruptible streak line; `VoiceBurst` that ten kills 0.3 s apart are at most one line with no cut (40 seeds:
+every burst spoke once); `VoiceDirector` the same through the whole director plus a pause in the middle of a line
+(nothing new, no close call on the frozen clock, the crowd after resuming), a restart (the line stops, no answer, no
+queued line) and a progress beat cutting a kill bark.
 
 ### 2.3 Clean language
 
 `name` is flagged `profane`. With **clean language** on: mode `swap` (the default) plays the clean takes
 `name_clean_*` ("What's my name?!") and shows that text; mode `bleep` plays the normal take, mutes it over each take's
-`bleep` range (seconds) and plays a 1 kHz tone (`Gen/bleep_1k.wav`) there. Set the ranges once the real takes exist.
+`bleep` range (seconds) and plays a 1 kHz tone (`Gen/bleep_1k.wav`) there. The placeholder takes carry empty ranges
+([0, 0]): `MurderInc.Audio.VoiceData` fails if the mode is switched to `bleep` while a profane take has an empty range
+(the word would play unbleeped). Real takes get their ranges from `voice_ingest.py --bleep` (section 5).
 
 ### 2.4 Per-character sets
 
@@ -107,10 +136,13 @@ restarts the cooldowns. Files: `Content/Audio/Voice/<crew id>/`.
 ### 2.5 Adding or retuning a line
 
 Everything is data (`voice.json`): add an entry under the character's `lines` with `text`, `priority`, `cooldown`,
-`triggers` (trigger: chance, or `{chance, atLeast, priority}`), `takes` (files), and optional `queueable`,
+`triggers` (trigger: chance, or `{chance, atLeast, priority, intensity, always, queueable, onlyIfSilent}`; voice.json
+`meta.triggerRules` explains each), `takes` (files), and optional `queueable`,
 `interruptible`, `answer`, `profane` + `clean`, `speaker`, `volume`. Put the WAV files in
 `Content/Audio/Voice/<character>/`, run `tools/box/audio-import.sh` on the box. `MurderInc.Audio.VoiceData` checks
-that the files exist (48 kHz mono) and that every trigger is a known one. New trigger kinds need a line in
+that the files exist (48 kHz mono), that every take is under 2.5 s (the crowd chant under 2.2 s) with no silence over
+0.5 s inside and at most 0.45 s at its end, that every trigger is a known one, and warns with the count of placeholder
+takes (21 of 21 today). New trigger kinds need a line in
 `FMIVoiceTriggers` and in voice.json `triggers`.
 
 ## 3. The game's sound
@@ -153,7 +185,7 @@ killing hit), `fuse` (hiss rising with the burnt fraction), `reelSecured`, `stin
 | world (3D) | 1.05 | effects | yes | no | 0.5 |
 | ambience | 0.7 | ambience | yes | no | 0 |
 | ui | 0.95 | ui | no | yes | 0 |
-| music | 0.45 | music | no | yes (thinned) | 0 |
+| music | 0.5 (x 0.9 stem trim = spec 07's 0.45) | music | no | yes (thinned) | 0 |
 | voice | 1.0 | voice | no | no | 0 |
 
 Every frame the director computes each category's gain: volume x slider x master (0.8) x the ducks (gunfire 0.45,
@@ -162,7 +194,17 @@ states (ambience 0.6 title, 1 run, 0.7 dead, 0.8 debrief; x (1 - 0.55 x interior
 cut-offs: the muffle `20000 x 0.03^m` (hits, blasts within 20 m, death settling at 0.85), the **low-health** state
 (new: under 35 % health the muffled categories close toward 3.2 kHz, the music thins to 75 % and the ambience to
 70 %, with the heartbeat loop of spec 07 3.22), and the **pause** state (world refused, music at 45 % behind 1.3 kHz).
-The host applies them to every live component (`SetVolumeMultiplier`, `SetLowPassFilterFrequency`).
+The ambience also closes by the interior factor, `20000 x 0.08^i` (20 kHz on the street, 1.6 kHz inside the shop,
+spec 07 3.19). The host applies them to every live component (`SetVolumeMultiplier`, `SetLowPassFilterFrequency`).
+
+**The master chain** (spec 07 2.11 / 4.5, audio.json `master`): SUM -> compressor (threshold -6 dB, knee 8 dB,
+2.5 : 1, attack 6 ms, release 140 ms) -> x 1.15 -> soft clip. In the engine `FMIMasterChain` (Audio/MIAudioMaster)
+puts two Submix Effect Dynamics Processors on the device's master submix when a game world begins play: the
+compressor with the make-up as its output gain (+1.2 dB), then a soft-knee limiter (threshold -0.3 dB, knee 8.2 dB,
+look-ahead 3 ms) standing in for the web curve, whose knee starts at -4.4 dB (0.6). The offline mix runs the same
+compressor (`FMIMasterCompressor`, stereo-linked, soft knee) and the web game's exact curve. The master volume is in
+the category gains, so it sits before the chain, not after it as in the browser (a 1.9 dB difference at the default
+0.8, on the compressor's input only).
 
 ### 3.4 Space
 
@@ -190,36 +232,111 @@ seven stems loop together and their gains follow the bus's music intensity with 
 `UMIAudioSubsystem` (tickable, also while paused): on begin play it binds the director to `UMIEventSubsystem`; each
 frame it observes the listener (first player's camera), the player's health, the enemy actors, ticks the director with
 real seconds, executes the commands (`CreateSound2D` then spatialisation, attenuation override and location for 3D,
-`bIsUISound` for UI and music, fades on stop), applies the mix, switches the reverb zone, and draws the subtitle.
+`bIsUISound` for UI and music, fades on stop, a plain stop while the world is paused because a paused world does not
+advance fades), applies the mix, switches the reverb zone, and draws the subtitle. It installs the master chain on
+begin play and removes it when the world goes. It logs once per world `voice: N of M takes are placeholders`, and
+in every build but Shipping draws a small dim "placeholder voice" tag under a subtitle whose take is a placeholder.
 A file with no asset is skipped (logged once, Verbose); a missing replacement layer falls back to the web sound.
 
 ## 5. The recording brief (for the real voice)
 
-The placeholders are a **generic stock synthetic voice** (Higgsfield `seed_audio`, a preset voice; no cloning, no
-reference audio, no released recording sampled). They exist so the system can be heard and tested; they are meant to
-be replaced file for file.
+Today every take is a **placeholder in a generic stock synthetic voice** (Higgsfield `seed_audio` on built-in preset
+voices, the prompt being only the line's text: `tools/audio/voice_plan.json`). No voice was cloned or imitated, no
+released recording was sampled. The real recordings replace them **file for file, with no code change**.
 
-**Deliver**: WAV, **48 kHz, 24-bit, mono**, clean and dry (no reverb, no music, no processing beyond a gentle
-high-pass), close-miked (15 to 30 cm, pop filter), in a quiet treated room; 100 ms of silence before and 300 ms after
-each take; peaks under -3 dBFS (the pipeline normalises loudness to -18 LUFS). **Three to five takes per line**, at
-three intensities: **shouted** (full voice, across a street), **spoken** (confident, to someone close), **under the
-breath** (low, raspy, to himself). Name the files exactly as below; take 01 shouted, 02 spoken, 03 under the breath,
-04 and 05 free (add them to voice.json `takes`).
+### 5.1 What to record
 
-| File (Content/Audio/Voice/rule/) | Say | Notes |
+Seven lines. For each, **three intensities**, and at least **three takes of each intensity** (nine or more per line;
+the best three go in the game, the rest are spares). Each take is the line once, alone: no count-in, no second try in
+the same file.
+
+| Line | Say | Intensity and where the game uses it |
 |---|---|---|
-| `holla_01.wav` ... `holla_05.wav` | "Holla, holla!" | the call-and-response chant; leave room for an answer |
-| `murda_01.wav` ... `murda_05.wav` | "It's Murda!" | the signature, shouted at the start or end of a track |
-| `rulebaby_01.wav` ... `rulebaby_05.wav` | "Rule Baby!" | the raspy self-hype ad-lib |
-| `name_01.wav` ... `name_05.wav` | "What's my motherf\*\*\*in' name?!" | the full word as performed; mark where the word is (seconds) for the bleep mode |
-| `name_clean_01.wav` ... `name_clean_03.wav` | "What's my name?!" | the clean-language version, same energy |
-| `inc_01.wav` ... `inc_05.wav` | "I-N-C!" | the initials spelled, punchy, even spacing |
-| `rule_chant_01.wav` ... `rule_chant_03.wav` | "R-U-L-E!" | a crowd or several background voices answering, about 1.6 to 2 s, a real group if possible (each take a different group mix) |
+| `holla` | "Holla, holla!" | ordinary kills, melee, blasts, a Buzzard down: all three intensities, mostly **spoken** |
+| `murda` | "It's Murda!" | headshots, quick doubles (**shout** or **spoken**), the last kill of a wave (**shout**). Keep it short: about 1 s |
+| `rulebaby` | "Rule Baby!" | a reel secured (**shout**, **spoken**), the truck called (**shout**), a close call survived (**breath**: raspy, to himself) |
+| `name` | "What's my motherf\*\*\*in' name?!" | the win, every fifth wave, a new best (**shout**, full voice, the big moment); a long kill streak (**shout** or **spoken**). Leave a short beat at the end: the crowd answers |
+| `name_clean` | "What's my name?!" | the same moments with clean language on; same energy as `name` |
+| `inc` | "I-N-C!" | the run starting and the debrief (**shout** or **spoken**): three letters, punchy, even spacing, the whole thing 1.5 to 2 s |
+| `rule_chant` | "R-U-L-E!" | the crowd answering `name`: several people together (four or more if you can; one person recorded four times also works), the four letters on an even beat, about **0.4 s apart, 1.6 to 2 s in all, under 2.2 s**. Three takes, each a different group or mix |
 
-Then: copy the files over the placeholders, set `"placeholder": false` on those takes in voice.json (and the bleep
-ranges), commit, and on the box `sync.sh`, `audio-import.sh`, `test.sh MurderInc.Audio` (VoiceData checks rate and
-channels). The rights in the recordings are the user's to secure; nothing here samples or imitates any released
-recording.
+**Shout** = full voice, as if across a street. **Spoken** = confident, to someone next to you. **Breath** = low,
+raspy, close, under the breath. Every take must be **under 2.5 s** (the chant under 2.2 s) with **no pause over half
+a second inside it**: the game checks this (`MurderInc.Audio.VoiceData`) because a long take keeps the voice "speaking",
+blocks other lines and holds the rest of the mix down.
+
+**Name the files** `<line>_<NN>[_<intensity>]`, NN two digits: `murda_01_shout`, `murda_02_spoken`,
+`murda_03_breath`, `murda_04_shout` ... The first three of each line replace the placeholders 01 to 03 (01 shout,
+02 spoken, 03 breath, as now); 04 and up are added as new takes with the intensity the name says. Spares you do not
+want in the game: name them `spare_murda_07` (anything not matching the pattern is skipped). Keep the extension the
+app gives (.m4a, .wav ...).
+
+**The word to bleep**: for each `name_*` take, note where "motherf\*\*\*in'" starts and ends (seconds into the
+file, two decimals, from any audio editor or by ear). Only needed if the game ships with clean mode `bleep` instead
+of the clean takes; write them in the notes sheet.
+
+### 5.2 With a phone
+
+- **App**: iPhone Voice Memos (set Settings > Voice Memos > Audio Quality to **Lossless**; the default "Compressed"
+  .m4a also works), or on Android a recorder with a WAV or "high quality" setting (Samsung Voice Recorder, Easy Voice
+  Recorder, RecForge). Use the phone's own microphone, no Bluetooth headset.
+- **Turn off what "helps"**: in Voice Memos turn off **Enhance Recording** and **Reduce Background Noise** if the
+  phone offers them; on Android turn off **noise suppression / speech enhancement** and any "voice focus". No filters,
+  no auto-level tricks we can avoid: the phone's automatic gain cannot always be turned off, so **keep the same
+  distance and do not hold back on the shouts** (the gain settles; a shout that clips is worse than a quiet one, see
+  below).
+- **Distance**: phone at **about 30 cm (a forearm) for spoken and breath**, **about 60 cm for shouts**, microphone
+  (the bottom edge) pointing at your mouth from slightly below, so your breath goes past it. Hold it still or lay it on
+  a pile of clothes; do not touch it during a take.
+- **Room**: the deadest room you have. Best: **a walk-in closet or wardrobe full of clothes**, or standing between a
+  bed and a sofa with duvets or coats hung around you. Avoid kitchens, bathrooms, stairwells, empty rooms, cars on a
+  street. Turn off fans, fridge hum and air conditioning if you can; no TV or music.
+- **Level check**: record a shout and play it back. If it sounds crushed or crackles, step back 20 cm. If the breath
+  takes are lost in hiss, come 10 cm closer for those only.
+- **Takes**: one take per recording is easiest (name each one as above right away). Several takes in one long
+  recording also work: say the slate before each ("murda, shout, one") and leave two seconds between takes; then cut
+  them in any editor, or send the long file with the notes sheet and we cut it.
+- **Send** the files **as they are** (no conversion, no editing, no "enhance"): AirDrop or share them into a shared
+  folder (Google Drive, Dropbox, iCloud), or a zip by a file-transfer link. Messaging apps (WhatsApp, iMessage audio)
+  recompress the sound: share them as **files** ("Save to Files" / "Share as file"), not as voice messages.
+
+### 5.3 In a studio
+
+- **Format**: WAV, **48 kHz, 24-bit, mono**, dry: no reverb, no music, no compression or limiting, at most a gentle
+  high-pass (80 Hz). Large-diaphragm condenser or a dynamic for the shouts, **15 to 30 cm** with a pop filter
+  (spoken and breath), **40 to 60 cm** or a step off-axis for shouts. A treated booth or a dead room.
+- **Level**: set the gain on the loudest shout so it peaks around **-6 dBFS**; peaks must stay under **-3 dBFS**.
+  Reference: spoken takes land around -20 to -24 dBFS RMS at that gain; do not re-trim the gain between takes of one
+  intensity (the pipeline levels them; it cannot undo clipping).
+- **Slate** each take ("murda, shout, take four") on the talkback track or in the session, not on the take itself;
+  **100 ms of silence before, 300 ms after** each take when exporting, one take per file, named as in 5.1.
+- **Take sheet** (one row per take): file name, line, intensity, take number, circled or not, notes (energy, a
+  word that tripped, noise), and for `name_*` the **bleep marks** (start and end of the profane word in seconds of the
+  exported file). A spreadsheet or a text file next to the WAVs.
+- **The crowd chant**: record four or more voices together on one mic (or each voice separately, same distance) to
+  a click at **150 BPM** (a letter every 0.4 s): R on the beat, U, L, E, the E held a little longer; 1.6 to 2 s in all.
+  Three different groupings or mixes.
+- Deliver the WAVs, the take sheet and the session notes (mic, room) in one folder, as for the phone.
+
+### 5.4 What happens to the files
+
+`python3 tools/audio/voice_ingest.py <the folder>` (on any machine with ffmpeg and Python with numpy) converts every
+file (any format: .m4a, .wav, .aiff, .flac, .mp3 ...) to 48 kHz 24-bit mono, trims it to the line with 100 ms before
+and 300 ms after, levels it to **-18 LUFS with peaks under -1 dBFS**, writes it under
+`Content/Audio/Voice/rule/<line>_<NN>.wav`, sets `"placeholder": false` on that take in voice.json (adds the take for
+04 and up, with the intensity from the name), takes the bleep marks with `--bleep name_01=0.62:0.98` and shifts them
+with the trim, and reports each take's length, its longest inner pause and its loudness, flagging what the game check
+would refuse. `--dry-run` only reports. Then commit, and on the box `sync.sh`, `audio-import.sh`,
+`test.sh MurderInc.Audio`. The take count of the placeholder warning drops as real takes arrive.
+
+### 5.5 Voice use release (a short note to sign)
+
+Before recording, the speaker and the user sign a short release, for example: "I, [speaker], agree that my recorded
+performance of the lines 'It's Murda!', 'Holla, holla!', 'Rule Baby!', 'What's my motherf\*\*\*in' name?!', 'What's
+my name?!', 'I-N-C!' and the chant 'R-U-L-E!' may be used, edited and distributed in the game MURDER INC. and its
+trailers and promotion, in every medium, worldwide, without time limit [for the fee of ...]. The recordings are new
+performances made for the game and use no released recording." Crowd voices sign the same, one line each. The rights
+in the recordings are the user's to secure; this project only ever uses recordings made for it.
 
 ## 6. Generated material (Higgsfield) and what it cost
 
