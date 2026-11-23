@@ -523,3 +523,20 @@ guard, stock, controls, front end, finishes). Code: assets/_weapons_nine.py, _we
 _weapons_kit.py (my files); mi/ untouched.
 ## Status
 - started (the first attempt of round 2 left no changes on disk).
+- NINE rebuilt (assets/_weapons_nine.py): magazine line back on the brief (in place X -0.029..0.045), grip loft
+  from the tang to the butt with the front strap rising into the guard (undercut R 7 at X 0.0605..0.0675, trigger
+  face to strap 35 mm), swept 19 mm tang (13.5 mm behind the back strap, 4.5 mm tip), forged S hammer, 6.5 x 9 mm
+  superellipse guard flaring into the dust cover and grip, lofted dust cover (2 deg taper, 1.5 mm chamfer, 21 mm
+  rail, 45 deg cross slots), 0.3 mm shadow gap and 0.5 mm top flat, 9 serrations at 2.8 mm, port chamfer, proud
+  extractor with claw, dovetailed sights, hammer channel (slide clears the static hammer over its whole travel:
+  0 overlaps at 10/20/30/44 mm), lever controls, 1 mm crowned panels, gold pad. 78.7k tris.
+- NINE surfaces: slide skin = one UV shell with U along +X (pinned rotation, 90 % of faces), brushed stainless
+  #aeb1b6 (+-1.5 %), roughness 0.30-0.38 grain, polished edges 0.17; oxide frame blotches +-0.08; 20 LPI
+  checkering (panels 0.45 mm, front strap band 0.4 mm), hammer thumb face, rear sight 40 LPI; gold pad wear.
+- CHOPPER (assets/_weapons_chopper.py): trigger guard rear upright 4.5 mm back (19.5 deg pull clears), strip
+  with rolled edges and rib, rear tab rivets; receiver sheet ends at X 0.0035 over a forged rear trunnion (domed,
+  chamfered), rivet pair, 24 mm hinge block, 10 mm axle; new top cover (1 mm sheet, 3 crisp ribs, stamped lip,
+  pressed rear end with the guide tab through a 7 x 8 mm hole), rail with 5.3 mm slots and two cross-bolts;
+  magazine with flat sides and crisp 2.5 x 0.8 mm ribs, forged lug, catch lug, spine weld, turned floor plate;
+  handguard 46->41 mm C section with finger swell and chamfered vents; oval grip; butt plate seated 2 mm under the
+  handguard; stamped bowed selector with detent; crisp dimple; booster flats + grooved ring; charging slot widened.

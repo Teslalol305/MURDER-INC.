@@ -87,29 +87,41 @@ def check(name, base):
         add("bore ray stops where it did (bore end)", abs(m["bore_ray_hit_x"] - base["bore_ray_hit_x"]) <= 1e-3,
             {"was": base["bore_ray_hit_x"], "now": m["bore_ray_hit_x"]})
     else:
-        add("bore ray stops at the closed breech face (was: the hammer)", 0.0 <= m["bore_ray_hit_x"] <= 0.006,
+        # round 2: the 9.5 mm hammer channel under the slide's rear (critique) opens the breech face's lower
+        # middle, so the bore ray runs on through the open chamber to the hammer face, as in the first pass
+        add("bore ray: through the barrel and the hammer channel to the hammer", -0.013 <= m["bore_ray_hit_x"] <= -0.006,
             {"was": base["bore_ray_hit_x"], "now": m["bore_ray_hit_x"]})
     gun = next(o for o in meshes if o.name.startswith("SK_"))
     bvh, _V = R.bvh_of([gun])
     for s in ("Palm_R", "Palm_L"):
         p = m["bones"][s]
         dd = surface_distance(bvh, p)
-        if name == "Nine" and s == "Palm_L":       # the support hand wraps over the firing hand's fingers (brief)
-            add("Palm_L ahead of the front strap, over the fingers (not on the gun)", 0.002 <= dd <= 0.025,
-                {"distance_mm": round(dd * 1000, 2)})
+        if name == "Nine" and s == "Palm_L":       # round 2: the grip moved forward with the brief's magazine line,
+            add("Palm_L on the left grip panel (within 1.5 mm)", dd <= 0.0015, {"distance_mm": round(dd * 1000, 2)})
             continue
         add("%s within 1.5 mm of the surface" % s, dd <= 0.0015, {"distance_mm": round(dd * 1000, 2)})
     if name == "Nine":
-        z = -0.0815
-        f = bvh.ray_cast(Vector((0.2, 0, z)), Vector((-1, 0, 0)), 1)[0]
-        b = bvh.ray_cast(Vector((-0.2, 0, z)), Vector((1, 0, 0)), 1)[0]
-        w = bvh.ray_cast(Vector((0.005, 0.2, z)), Vector((0, -1, 0)), 1)[0]
-        w2 = bvh.ray_cast(Vector((0.005, -0.2, z)), Vector((0, 1, 0)), 1)[0]
-        depth = (f.x - b.x) * 1000
-        add("NINE grip at mid height ~52 mm deep across the rake, ~30 mm wide",
-            50 <= depth * 0.968 <= 55 and 28 <= (w.y - w2.y) * 1000 <= 32,
-            {"horizontal_mm": round(depth, 1), "across_rake_mm": round(depth * 0.968, 1),
-             "width_mm": round((w.y - w2.y) * 1000, 1), "was_horizontal_mm": 72})
+        # round 2 (critique): the front strap rises straight into the back of the guard, ~35 mm from the trigger face
+        trig = bvh.ray_cast(Vector((0.115, 0, -0.046)), Vector((-1, 0, 0)), 0.1)[0]
+        strap = bvh.ray_cast(Vector((0.115, 0, -0.0800)), Vector((-1, 0, 0)), 0.2)[0]
+        under = bvh.ray_cast(Vector((0.115, 0, -0.0745)), Vector((-1, 0, 0)), 0.2)[0]
+        reach = (trig.x - strap.x) * 1000 if trig and strap else None
+        add("NINE trigger face to front strap ~35 mm, strap right under the guard (no flat web)",
+            reach is not None and 32 <= reach <= 38 and under is not None and under.x >= 0.060,
+            {"trigger_face_x": round(trig.x, 4) if trig else None, "strap_x": round(strap.x, 4) if strap else None,
+             "reach_mm": round(reach, 1) if reach else None, "front_under_guard_x": round(under.x, 4) if under else None})
+        z = -0.0900
+        w = bvh.ray_cast(Vector((0.015, 0.2, z)), Vector((0, -1, 0)), 1)[0]
+        w2 = bvh.ray_cast(Vector((0.015, -0.2, z)), Vector((0, 1, 0)), 1)[0]
+        add("NINE grip ~30 mm over the panels", 28 <= (w.y - w2.y) * 1000 <= 32, {"width_mm": round((w.y - w2.y) * 1000, 1)})
+        mags = [o for o in meshes if o.name.startswith("SM_Weapon_NineMagazine")]
+        if mags:
+            cm = np.vstack([np.array([tuple(o.matrix_world @ v.co) for v in o.data.vertices]) for o in mags])
+            add("magazine in place X -0.029..0.045, Z -0.1345..-0.037 (brief; round 1 had moved it 12 mm back)",
+                abs(cm[:, 0].min() + 0.029) <= 0.0012 and abs(cm[:, 0].max() - 0.045) <= 0.0012
+                and abs(cm[:, 2].min() + 0.1345) <= 0.0003,
+                {"x": [round(float(cm[:, 0].min()), 4), round(float(cm[:, 0].max()), 4)],
+                 "z": [round(float(cm[:, 2].min()), 4), round(float(cm[:, 2].max()), 4)]})
     vj = os.path.join(GLB, "SK_%s.glb.verify.json" % name)
     if os.path.exists(vj):
         v = json.load(open(vj))

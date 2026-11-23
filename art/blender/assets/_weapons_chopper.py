@@ -186,36 +186,71 @@ def dome_rivet(at, axis="Y", d=0.0045, h=0.0008, sign=1, seg=20):
 DIMPLE = dict(x=0.1990, z=-0.0262, length=0.038, width=0.009, depth=0.0008)
 HINGE = (0.022, -0.028)
 FRONT_RIVETS = ((0.2140, 0.0045), (0.2440, 0.0045), (0.2440, -0.0095), (0.2330, -0.0310))
-REAR_RIVETS = ((0.0055, 0.0030), (0.0055, -0.0100), (0.0055, -0.0300))
+REAR_RIVETS = ((0.0090, 0.0015), (0.0090, -0.0250))
+
+
+def stadium_rings(xc, zc, length, width, offsets, step):
+    """Points (x, z) on stadium outlines grown by each offset (dense rows along a pressed dimple's shoulder)."""
+    out = []
+    L2 = length / 2 - width / 2
+    for o in offsets:
+        r = width / 2 + o
+        if r <= 0:
+            continue
+        per = 4 * L2 + 2 * math.pi * r
+        t = np.linspace(0, per, max(8, int(per / step)), endpoint=False)
+        for v in t:
+            if v < 2 * L2:
+                out.append((xc - L2 + v, zc + r))
+            elif v < 2 * L2 + math.pi * r:
+                a = (v - 2 * L2) / r
+                out.append((xc + L2 + r * math.sin(a), zc + r * math.cos(a)))
+            elif v < 4 * L2 + math.pi * r:
+                out.append((xc + L2 - (v - 2 * L2 - math.pi * r), zc - r))
+            else:
+                a = (v - 4 * L2 - math.pi * r) / r
+                out.append((xc - L2 - r * math.sin(a), zc - r * math.cos(a)))
+    return np.array(out)
+
+
+def crisp_dent(co, side, xc, zc, length, width, depth, shoulder):
+    """Press a flat-bottomed stadium dimple into the side wall (outward normal side * +Y) with a crisp shoulder."""
+    L2 = length / 2 - width / 2
+    d = np.hypot(np.maximum(np.abs(co[:, 0] - xc) - L2, 0.0), co[:, 2] - zc) - width / 2
+    f = K.smoothstep(-d, -shoulder / 2, shoulder / 2)
+    near = np.abs(co[:, 1] - side * 0.016) < 0.0015
+    co[:, 1] -= side * depth * f * near
+    return co
 
 
 def chopper_receiver(parts):
     outline = [(-0.004, -0.040), (0.256, -0.040), (0.256, 0.012), (-0.004, 0.012)]
     pts = np.vstack([grid_pts(-0.004, 0.256, -0.040, 0.012, 0.004),
-                     grid_pts(DIMPLE["x"] - 0.026, DIMPLE["x"] + 0.026, DIMPLE["z"] - 0.010, DIMPLE["z"] + 0.010, 0.0009),
+                     stadium_rings(DIMPLE["x"], DIMPLE["z"], DIMPLE["length"], DIMPLE["width"],
+                                   (-0.0030, -0.0015, -0.0008, -0.0004, 0.0, 0.0004, 0.0008, 0.0015, 0.0030), 0.0008),
                      grid_pts(HINGE[0] - 0.012, HINGE[0] + 0.012, HINGE[1] - 0.012, HINGE[1] + 0.012, 0.0012),
                      grid_pts(-0.004, 0.256, -0.040, -0.033, 0.002)])
     rec = slab_pts(outline, -0.016, 0.016, pts, name="Receiver")
 
     def press(co):
         for s in (1, -1):
-            co = K.dent(co, (DIMPLE["x"], s * 0.016, DIMPLE["z"]), (0, s, 0), DIMPLE["depth"], DIMPLE["width"] / 2,
-                        shape="oval", length=DIMPLE["length"], along=(1, 0, 0))
+            co = crisp_dent(co, s, DIMPLE["x"], DIMPLE["z"], DIMPLE["length"], DIMPLE["width"], DIMPLE["depth"], 0.0010)
             co = K.dent(co, (HINGE[0], s * 0.016, HINGE[1]), (0, s, 0), 0.0007, 0.0105)
         # the lower edge turned in toward the floor
         t = smoothstep((-0.0335 - co[:, 2]) / 0.0065)
         co[:, 1] *= 1.0 - 0.032 * t
         return co
     K.deform(rec, press)
-    round_edges(rec, 0.0012, 3, 50)
+    round_edges(rec, 0.0015, 3, 50)
     cav = box(0.004, 0.190, -0.015, 0.015, -0.039, 0.030)
     well = box(0.1595, 0.2245, -0.0136, 0.0136, -0.050, -0.019, bevel=0.0015)
     port = prism([(0.108, 0.0005), (0.172, 0.0005), (0.172, 0.030), (0.108, 0.030)], -0.030, -0.009, fillet=0.003,
                  bevel=0.0)
-    slot = box(0.084, 0.192, 0.009, 0.030, 0.0098, 0.030)
+    slot = box(0.0790, 0.1930, 0.009, 0.030, 0.0094, 0.030)
     trig = box(0.098, 0.121, -0.0038, 0.0038, -0.050, -0.030, bevel=0.001)
     bore = lathe([(0.15, 0.0), (0.15, 0.0091), (0.30, 0.0091), (0.30, 0.0)], 32)
-    cut(rec, cav, well, port, slot, trig, bore)
+    rear = box(-0.010, 0.0035, -0.05, 0.05, -0.05, 0.05)                 # the sheet ends: the trunnion shows behind
+    cut(rec, cav, well, port, slot, trig, bore, rear)
     round_edges(rec, 0.0005, 2, 50)
     parts.append(P(rec, BLUED, "body", REAR))
     for s in (1, -1):
@@ -246,23 +281,29 @@ LHG = (0.250, 0.3815)
 
 
 def lhg_poly(x, inset=0.0):
-    t = np.clip((x - 0.276) / (0.385 - 0.276), 0, 1)
-    w = 0.0215 - 0.0005 * t + 0.0015 * smoothstep((0.276 - x) / 0.024)
-    wi = w - 0.0060
+    """Lower handguard section: 46 mm at the receiver tapering to 41 mm at the ferrule (the last 15 mm flare out
+    3 mm into the front lip), a C rather than a U: 16 mm bottom radii, walls bowed 1.2 mm through the lower half
+    and a 2 mm finger swell along the upper third."""
+    t = float(np.clip((x - LHG[0]) / (LHG[1] - LHG[0]), 0, 1))
+    w = 0.0230 - 0.0025 * t + 0.0015 * float(K.smoothstep(x, 0.356, 0.370))
+    wi = w - 0.0062
     zt, z0, zi0 = -0.0040, -0.0420, -0.0310
     corners = [(-w, zt), (-w, z0), (w, z0), (w, zt), (wi, zt), (wi, zi0), (-wi, zi0), (-wi, zt)]
-    radii = [0.0016, 0.0130, 0.0130, 0.0016, 0.0010, 0.0080, 0.0080, 0.0010]
+    radii = [0.0016, 0.0160, 0.0160, 0.0016, 0.0010, 0.0080, 0.0080, 0.0010]
     nseg = [4, 12, 12, 4, 3, 8, 8, 3]
     nedge = [7, 6, 7, 2, 6, 4, 6, 2]
     Pp = ccw(rpoly(corners, radii, nseg, nedge))
-    # the walls bow out a little at mid height
-    bow = 0.0005 * np.clip(1 - ((Pp[:, 1] + 0.020) / 0.016) ** 2, 0, 1) * (np.abs(Pp[:, 0]) > wi + 0.001)
-    Pp[:, 0] += np.sign(Pp[:, 0]) * bow
+    outer = np.abs(Pp[:, 0]) > wi + 0.001
+    zz = Pp[:, 1]
+    bow = 0.0012 * np.clip(1 - ((zz + 0.0255) / 0.0150) ** 2, 0, 1)
+    swell = (0.0020 * np.clip(1 - ((zz + 0.0105) / 0.0062) ** 2, 0, 1) ** 1.5
+             * float(K.smoothstep(x, 0.256, 0.270) * K.smoothstep(0.366 - x, 0.0, 0.012)))
+    Pp[:, 0] += np.sign(Pp[:, 0]) * (bow + swell) * outer
     return offset(Pp, -inset) if inset else Pp
 
 
 def lower_handguard(parts):
-    xs = stations(LHG[0], LHG[1], 0.0030, 0.0016, extra=np.linspace(0.250, 0.278, 15))
+    xs = stations(LHG[0], LHG[1], 0.0040, 0.0016, extra=np.linspace(0.252, 0.272, 6))
     polys = [lhg_poly(x, end_inset(x, LHG[0], LHG[1], 0.0016)) for x in xs]
     lo = loft_polys(polys, xs, "LowerHG")
     slots = []
@@ -272,6 +313,8 @@ def lower_handguard(parts):
                       s * 0.0080, s * 0.030, bevel=0, fillet=0.0054, fseg=6)
             slots.append(c)
     cut(lo, *slots)
+    K.bevel_where(lo, 0.0010, 1, 40.0, where=lambda c: (np.abs(c[:, 1]) > 0.0150) & (c[:, 2] > -0.0260)
+                  & (c[:, 2] < -0.0070) & (c[:, 0] > 0.288) & (c[:, 0] < 0.348))           # 1 mm chamfered vents
     round_edges(lo, 0.0009, 2, 45)
     parts.append(P(lo, WOOD, "body", FURN))
     # steel liner inside the channel (seen through the slots and between the handguards), and the stamped
@@ -335,6 +378,8 @@ def upper_handguard(parts):
     vents = [prism([(x0, 0.0175), (x0 + 0.020, 0.0175), (x0 + 0.020, 0.0265), (x0, 0.0265)], -0.03, 0.03, bevel=0,
                    fillet=0.0044, fseg=6) for x0 in (0.287, 0.322)]
     cut(up, *vents)
+    K.bevel_where(up, 0.0010, 1, 40.0, where=lambda c: (np.abs(c[:, 1]) > 0.0120) & (c[:, 2] > 0.0160)
+                  & (c[:, 2] < 0.0280) & (c[:, 0] > 0.284) & (c[:, 0] < 0.345))
     round_edges(up, 0.0009, 2, 45)
     parts.append(P(up, WOOD, "body", FURN))
     # heat-shield liner: thin steel D under the wood, its edge showing at both ends and through the vents
@@ -441,7 +486,7 @@ def gas_block(parts):
         rg = 0.0093
         if x > 0.4155:
             rg = 0.0093 * math.sqrt(max(0.0, 1 - ((x - 0.4155) / 0.0062) ** 2))
-        ring = soft_union_ring([(0.0, 0.0, 0.0124 - ins), (0.0, 0.019, max(rg - ins, 0.0))], 0.0045, (0.0, 0.006), 96)
+        ring = soft_union_ring([(0.0, 0.0, 0.0124 - ins), (0.0, 0.019, max(rg - ins, 0.0))], 0.0070, (0.0, 0.006), 80)
         polys.append(ring)
     gb = loft_polys(polys, xs, "GasBlock")
     # tower: horizontal sections from the block up to the drum, 21 -> 14 mm long and 19 -> 14 mm wide
@@ -495,6 +540,15 @@ def barrel_booster(parts):
                 (0.4615, 0.0128), (0.4755, 0.0128), (0.4962, 0.0162), (0.4975, 0.0154), (0.4975, 0.0146), (0.4962, 0.0134),
                 (0.4930, 0.0124), (0.4800, 0.0066), (0.4790, 0.0058), (0.4440, 0.0050), (0.4440, 0.0086), (0.4300, 0.0086),
                 (0.4300, 0.0090)], 56, closed=True, name="Booster", fillet=0.00035)
+    flats = [box(0.4290, 0.4548, sgn * 0.0110, sgn * 0.030, -0.03, 0.03) if sgn > 0 else
+             box(0.4290, 0.4548, -0.030, -0.0110, -0.03, 0.03) for sgn in (1, -1)]
+    knurl = []
+    for k in range(20):
+        g = box(0.4622, 0.4698, -0.00035, 0.00035, 0.0122, 0.0150)
+        geo.transform(g, rot=(k * 18.0, 0, 0))
+        knurl.append(g)
+    cut(mb, *flats, *knurl)
+    round_edges(mb, 0.00015, 1, 40)
     parts.append(P(mb, BLUED, "body", FRONT))
 
 
@@ -507,16 +561,25 @@ GZ = (-0.0360, -0.1475)
 
 def grip_front(z):
     lin = 0.0690 + (z + 0.036) * (0.0270 / 0.1115)
-    return lin + 0.0036 * math.exp(-((z + 0.0970) / 0.028) ** 2)
+    return lin + 0.0030 * math.exp(-((z + 0.0973) / 0.026) ** 2)        # front swell +3 mm at 55 % of the height
 
 
 def grip_section(z, inset=0.0):
+    """Oval grip section (superellipse, 30 x ~42 mm): the back fuller where the palm wraps it, 2 mm narrower at the
+    base. Starts at the front centre, counter-clockwise from +Z, 160 points."""
     x0 = float(K.x_of_z(GBACK, z)) + inset
     x1 = grip_front(z) - inset
-    w = float(np.interp(z, [-0.1475, -0.120, -0.085, -0.050, -0.036], [0.0150, 0.0150, 0.0146, 0.0140, 0.0140])) - inset
-    hump = float(np.interp(z, [-0.1475, -0.110, -0.070, -0.036], [0.0026, 0.0022, 0.0012, 0.0006]))
-    return K.rrect(x0, x1, w, 0.0068 - inset * 0.7, 0.0052 - inset * 0.7, bulge_b=hump, bulge_f=0.0009, crown=0.0011,
-                   K=360)
+    w = float(np.interp(z, [-0.1475, -0.120, -0.085, -0.050, -0.036], [0.0140, 0.0144, 0.0150, 0.0150, 0.0146])) - inset
+    a, xc = (x1 - x0) / 2, (x0 + x1) / 2
+    th = np.linspace(0, 2 * math.pi, 160, endpoint=False)
+    c, s_ = np.cos(th), np.sin(th)
+    p = 2.35
+    xx = xc + a * np.sign(c) * np.abs(c) ** (2 / p)
+    full = 1.0 + 0.10 * np.clip(-c, 0, 1) ** 1.5 * float(np.interp(z, [-0.1475, -0.10, -0.06, -0.036], [1.0, 1.0, 0.6, 0.2]))
+    yy = w * np.sign(s_) * np.abs(s_) ** (2 / p) * np.minimum(full, 1.0 + 0.10) / (1.0 + 0.05)
+    sec = K.poly_section(np.stack([xx, yy], 1), K=480)
+    sec.x0, sec.x1 = x0, x1
+    return sec
 
 
 def pistol_grip(parts):
@@ -528,13 +591,13 @@ def pistol_grip(parts):
         d = GZ[1] + 0.0030 - z
         ins = 0.0 if d <= 0 else 0.0030 - math.sqrt(max(0.0, 0.0030 ** 2 - d * d))
         secs.append(grip_section(z, ins))
-    g = K.loft_z(secs, zs, 88, name="Grip")
+    g = K.loft_z(secs, zs, 80, name="Grip")
     parts.append(P(g, WOOD, "body", FURN))
     # steel base cap and its screw
     c = grip_section(GZ[1], 0.0016)
     zc = [GZ[1] + 0.0004, GZ[1] - 0.0002, GZ[1] - 0.0008, GZ[1] - 0.0010]
     cs = [grip_section(GZ[1], 0.0016 + i) for i in (0.0, 0.0, 0.0003, 0.0009)]
-    cap = K.loft_z(cs, zc, 88, name="GripCap")
+    cap = K.loft_z(cs, zc, 80, name="GripCap")
     parts.append(P(cap, BLUED, "body", FRONT))
     xm = (c.x0 + c.x1) / 2
     parts.append(P(pin_head((xm, 0, GZ[1] - 0.0010), "Z", r=0.0034, h=0.0010, sign=-1, slot=True, seg=32), DARK,
@@ -544,28 +607,30 @@ def pistol_grip(parts):
 # ----------------------------------------------------------------------------------------------- guard, catch, trigger
 
 def guard_profile(rib_sign=1.0):
+    """11 mm stamped strip, 1.5 mm sheet: a pressed centre rib 4 mm wide standing 0.8 mm (the sheet follows it),
+    both edges rolled into 1.1 mm beads."""
     pts = []
-    ys = np.linspace(-0.0047, 0.0047, 13)
-    rib = lambda y: rib_sign * 0.0006 * np.exp(-(y / 0.0017) ** 2)
+    ys = np.r_[-0.0044, -0.0030, np.linspace(-0.0024, 0.0024, 7), 0.0030, 0.0044]
+    rib = lambda y: rib_sign * 0.0008 * float(K.smoothstep(0.0020 - abs(y), 0.0, 0.0008))
     for y in ys:
         pts.append((0.00075 + rib(y), y))
-    for a in np.linspace(0, math.pi, 7)[1:-1]:
-        pts.append((0.00075 * math.cos(a), 0.0047 + 0.00075 * math.sin(a)))
+    for a in np.linspace(math.pi / 2, -math.pi / 2, 7)[1:-1]:
+        pts.append((0.0011 * math.sin(a) * 0.95, 0.0044 + 0.0011 * math.cos(a)))
     for y in ys[::-1]:
         pts.append((-0.00075 + rib(y), y))
-    for a in np.linspace(math.pi, 2 * math.pi, 7)[1:-1]:
-        pts.append((0.00075 * math.cos(a), -0.0047 + 0.00075 * math.sin(a)))
+    for a in np.linspace(-math.pi / 2, -3 * math.pi / 2, 7)[1:-1]:
+        pts.append((0.0011 * math.sin(a) * -0.95, -0.0044 + 0.0011 * math.cos(a)))
     return pts
 
 
 def trigger_guard(parts):
-    path = geo.fillet([(0.0790, 0.0, -0.04095), (0.0965, 0.0, -0.04095), (0.0915, 0.0, -0.0782), (0.1500, 0.0, -0.0782),
+    path = geo.fillet([(0.0790, 0.0, -0.04095), (0.0920, 0.0, -0.04095), (0.0870, 0.0, -0.0782), (0.1500, 0.0, -0.0782),
                        (0.1550, 0.0, -0.0505), (0.1560, 0.0, -0.04095), (0.1620, 0.0, -0.04095)], 0.006, 6)
     path = np.array(path)
     # densify the path so the strip bends smoothly
     seg = []
     for a, b in zip(path[:-1], path[1:]):
-        n = max(1, int(np.linalg.norm(b - a) / 0.003))
+        n = max(1, int(np.linalg.norm(b - a) / 0.004))
         for k in range(n):
             seg.append(a + (b - a) * k / n)
     seg.append(path[-1])
@@ -581,6 +646,8 @@ def trigger_guard(parts):
         tg = geo.sweep(guard_profile(-1.0), seg, up=(0, 1, 0), name="Guard")
         fix_normals(tg)
     parts.append(P(tg, BLUED, "body", FRONT))
+    for x in (0.0820, 0.0880):                      # the rear tab riveted to the receiver floor
+        parts.append(P(dome_rivet((x, 0.0, -0.0418), "Z", d=0.0040, h=0.0007, sign=-1), BLUED, "body", FRONT))
     # catch housing: the rear end of the strip widens into a pressed box round the catch pivot
     hs = prism([(0.1500, -0.0410), (0.1650, -0.0410), (0.1650, -0.0470), (0.1620, -0.0505), (0.1530, -0.0505), (0.1500, -0.0470)],
                -0.0080, 0.0080, bevel=0.0010, seg=3, fillet=0.0015, name="CatchHousing")
@@ -593,13 +660,13 @@ def trigger_guard(parts):
     pad_c = (0.1660, 0.0, -0.0645)
     cp = prism([(0.1560, -0.0440), (0.1600, -0.0440), (0.1625, -0.0540), (0.1680, -0.0610), (0.1640, -0.0650),
                 (0.1585, -0.0560)], -0.0058, 0.0058, bevel=0.0005, seg=2, fillet=0.0014, name="Catch")
-    dish = lathe([(0.0, 0.0), (0.0, 0.0062), (0.0010, 0.0064), (0.0018, 0.0060), (0.0020, 0.0040), (0.0012, 0.0)], 40,
+    dish = lathe([(0.0, 0.0), (0.0, 0.0068), (0.0010, 0.0071), (0.0018, 0.0066), (0.0020, 0.0044), (0.0012, 0.0)], 40,
                  axis="X", fillet=0.0003, name="CatchPad")
     geo.transform(dish, rot=(0, -35, 0))
     geo.transform(dish, loc=pad_c)
     union(cp, dish)
     hollow = geo.sphere(1.0, 32, 16)
-    geo.transform(hollow, scale=(0.0016, 0.0058, 0.0058))
+    geo.transform(hollow, scale=(0.0016, 0.0062, 0.0062))
     geo.transform(hollow, rot=(0, -35, 0))
     geo.transform(hollow, loc=(pad_c[0] - 0.0011, 0.0, pad_c[2] - 0.0008))
     cut(cp, hollow)
@@ -651,52 +718,54 @@ def stock(parts):
         round_edges(arm, 0.0003, 2, 50)
         parts.append(P(arm, BLUED, "body", FRONT))
         # forged hinge block (sits in the receiver's pressed recess), big axle pin head, pin at the front end
-        hb = prism([(0.0130, -0.0215), (0.0310, -0.0230), (0.0330, -0.0290), (0.0300, -0.0355), (0.0140, -0.0355),
-                    (0.0110, -0.0290)], s * 0.0150, s * 0.0185, bevel=0.0009, seg=3, fillet=0.003, name="HingeBlock")
+        hb = prism([(0.0110, -0.0200), (0.0330, -0.0215), (0.0345, -0.0290), (0.0315, -0.0368), (0.0125, -0.0368),
+                    (0.0095, -0.0290)], s * 0.0150, s * 0.0188, bevel=0.0010, seg=3, fillet=0.0035, name="HingeBlock")
         parts.append(P(hb, BLUED, "body", REAR))
-        parts.append(P(dome_rivet((HINGE[0], s * 0.0225, HINGE[1]), "Y", d=0.0084, h=0.0016, sign=s, seg=40), DARK,
+        parts.append(P(dome_rivet((HINGE[0], s * 0.0228, HINGE[1]), "Y", d=0.0100, h=0.0018, sign=s, seg=40), DARK,
                        "body", REAR))
         parts.append(P(pin_head((0.236, s * 0.0201, -0.0490), "Y", r=0.0030, h=0.0010, sign=s), DARK, "body", FRONT))
     xbar = lathe([(-0.0192, 0.0), (-0.0192, 0.0032), (0.0192, 0.0032), (0.0192, 0.0)], 28, axis="Y", at=(0.236, 0, -0.049),
                  fillet=0.0003)
     parts.append(P(xbar, BLUED, "body", FRONT))
-    # latch button (left, behind the hinge) in a pressed boss
-    boss = lathe([(0.0, 0.0), (0.0, 0.0046), (0.0006, 0.0046), (0.0010, 0.0040), (0.0010, 0.0)], 32, axis="Y",
-                 at=(0.0035, 0.0158, -0.0145), fillet=0.0002)
-    parts.append(P(boss, BLUED, "body", REAR))
-    btn = lathe([(0.0, 0.0), (0.0, 0.0029), (0.0020, 0.0029), (0.0026, 0.0024), (0.0028, 0.0)], 32, axis="Y",
-                at=(0.0035, 0.0160, -0.0145), fillet=0.0002)
-    parts.append(P(btn, DARK, "body", REAR))
-    # shoulder piece folded under the handguard: pressed plate with turned edges, concave R 120 mm, two
-    # lightening holes in the rear half, rubber pad on the front half (under the left palm, Palm_L)
+    # shoulder piece folded under the handguard: 2.5 mm sheet curved R 120 mm (convex side up, its crown 2 mm under
+    # the handguard), long edges turned down 4 mm, two lightening holes in the rear half, rubber pad inside the
+    # front half with its edge showing, hinge lugs up to the cross pin
     X0, X1, R, xm = 0.2340, 0.3370, 0.120, 0.2855
-    corners = [(-0.0150, -0.0615), (0.0150, -0.0615), (0.0150, -0.0585), (0.0138, -0.0585), (0.0138, -0.0603),
-               (-0.0138, -0.0603), (-0.0138, -0.0585), (-0.0150, -0.0585)]
-    base = rpoly(corners, [0.0015, 0.0015, 0.0004, 0.0003, 0.0004, 0.0004, 0.0003, 0.0004], [4, 4, 1, 1, 2, 2, 1, 1],
-                 [10, 2, 1, 1, 8, 1, 1, 2])
+    Z_TOP = -0.0440
+
+    def ztop(x):
+        return Z_TOP - (x - xm) ** 2 / (2 * R)
+    corners = [(-0.0150, 0.0), (-0.0150, -0.0040), (-0.0126, -0.0040), (-0.0126, -0.0025), (0.0126, -0.0025),
+               (0.0126, -0.0040), (0.0150, -0.0040), (0.0150, 0.0)]
+    base = ccw(rpoly(corners, [0.0030, 0.0004, 0.0004, 0.0006, 0.0006, 0.0004, 0.0004, 0.0030], [5, 1, 1, 2, 2, 1, 1, 5],
+                     [2, 1, 1, 10, 1, 1, 2, 10]))
     xs = stations(X0, X1, 0.004, 0.0025)
     polys = []
     for x in xs:
         ins = end_inset(x, X0, X1, 0.0025)
-        q = ccw(base.copy())
+        q = base.copy()
         q[:, 0] = np.sign(q[:, 0]) * np.maximum(np.abs(q[:, 0]) - ins, 0.0003)
+        q[:, 1] += ztop(x)
         polys.append(q)
     bp = loft_polys(polys, xs, "ButtPlate")
     holes = []
-    for xc in (0.2500, 0.2655):
-        h = geo.sphere(1.0, 32, 8)
-        geo.transform(h, scale=(0.0055, 0.0040, 0.02))
-        geo.transform(h, loc=(xc, 0.0, -0.060))
-        holes.append(h)
+    for xc in (0.2480, 0.2650):
+        holes.append(prism(rpoly([(xc - 0.0055, -0.0045), (xc + 0.0055, -0.0045), (xc + 0.0055, 0.0045), (xc - 0.0055, 0.0045)],
+                                 [0.0040] * 4, [6] * 4, [1] * 4), -0.075, -0.035, axis="Z", bevel=0, name="Hole"))
     cut(bp, *holes)
-    K.deform(bp, lambda co: np.c_[co[:, 0], co[:, 1], co[:, 2] + (co[:, 0] - xm) ** 2 / (2 * R)])
-    round_edges(bp, 0.0003, 2, 50)
+    for sgn in (1, -1):                             # hinge lugs from the plate's rear end up to the cross pin
+        lug = prism([(0.2318, ztop(0.2318) - 0.0020), (0.2440, ztop(0.2440) - 0.0020), (0.2430, -0.0478),
+                     (0.2380, -0.0448), (0.2330, -0.0460), (0.2310, -0.0500)], sgn * 0.0128, sgn * 0.0149,
+                    bevel=0.0004, seg=2, fillet=0.0012, name="PlateLug")
+        cut(lug, lathe([(-0.01, 0.0), (-0.01, 0.0033), (0.01, 0.0033), (0.01, 0.0)], 20, axis="Y", at=(0.236, 0, -0.049)))
+        union(bp, fix_normals(lug))
+    round_edges(bp, 0.0003, 2, 45)
     parts.append(P(bp, BLUED, "body", FRONT))
-    pz = np.linspace(-0.0640, -0.0613, 5)
-    ps = [K.rrect(0.2780, 0.3335, 0.0128 - 0.0015 * max(0, (z + 0.0622)) / 0.0018 * 0 - (0.0008 if z < -0.0636 else 0.0),
-                  0.003, 0.003, K=200) for z in pz]
+    pz = [-0.0055, -0.0050, -0.0040, -0.0026]
+    ps = [K.rrect(0.2780 + 0.0006 * (z < -0.0052), 0.3335 - 0.0006 * (z < -0.0052), 0.0122 - 0.0006 * (z < -0.0052),
+                  0.0030, 0.0030, K=200) for z in pz]
     pad = K.loft_z(ps, pz, 64, name="Pad")
-    K.deform(pad, lambda co: np.c_[co[:, 0], co[:, 1], co[:, 2] + (co[:, 0] - xm) ** 2 / (2 * R)])
+    K.deform(pad, lambda co: np.c_[co[:, 0], co[:, 1], co[:, 2] + Z_TOP - (co[:, 0] - xm) ** 2 / (2 * R)])
     parts.append(P(pad, POLYMER, "body", FRONT))
 
 
@@ -739,27 +808,162 @@ def moving(parts):
                   (0.0420, 0.0)], 40, axis="Y", at=(0.180, 0, 0.0145), fillet=0.0003, name="Knob")
     parts.append(P(knob, DARK, "bolt", REAR))
     sp = CH["selector_pivot"]
-    sel = prism([(0.006, -0.0095), (0.016, -0.0095), (0.098, -0.0015), (0.104, 0.0005), (0.104, 0.0062), (0.096, 0.0062),
-                 (0.016, 0.0010), (0.006, 0.0010)], 0.0162, 0.0177, bevel=0.0004, seg=2, fillet=0.0035, name="Selector")
-    tab = prism([(0.096, -0.0015), (0.106, -0.0015), (0.106, 0.0060), (0.096, 0.0060)], 0.0170, 0.0228, bevel=0.0007,
-                seg=3, fillet=0.0018)
-    union(sel, tab)
-    round_edges(sel, 0.0003, 2, 50)
+    # selector: 1.5 mm stamped lever bowed 0.7 mm along its length, finger tab at the front bent out 35 deg with a
+    # lip, a raised detent pressed into it
+    so = geo.fillet([(0.006, -0.0095), (0.016, -0.0095), (0.096, -0.0018), (0.104, 0.0002), (0.104, 0.0062),
+                     (0.096, 0.0062), (0.016, 0.0010), (0.006, 0.0010)], 0.0030, 4, closed=True)
+    sel = K.slab(so, 0.0162, 0.0177, step=0.0025, name="Selector")
+
+    def bend(co):
+        x = co[:, 0]
+        co[:, 1] += 0.0007 * np.sin(math.pi * np.clip((x - 0.006) / 0.090, 0, 1))
+        co[:, 1] += np.clip(x - 0.094, 0, None) * math.tan(math.radians(35.0))
+        return co
+    K.deform(sel, bend)
+    K.outward(sel)
+    det = lathe([(0.0, 0.0), (0.0, 0.0017), (0.0003, 0.0015), (0.0005, 0.0009), (0.0006, 0.0)], 24, axis="Y",
+                at=(0.058, 0.0182, -0.0042), fillet=0.0001)
+    union(sel, det)
+    round_edges(sel, 0.0003, 2, 45)
     parts.append(P(sel, DARK, "selector", REAR))
     parts.append(P(pin_head((sp[0], 0.0177, sp[2]), "Y", r=0.0042, h=0.0012), DARK, "selector", REAR))
 
 
 # ----------------------------------------------------------------------------------------------- top cover
 
+def cover_profile(half=0.0168, inset=0.0, lip=True):
+    """Outer contour (y, z) of the top cover: straight skirts, half-round crown up to Z 0.034, a stamped lip along
+    both lower edges (0.5 mm out over the last 1.2 mm); counter-clockwise, closed along the bottom."""
+    pts = []
+    for z in (0.0040, 0.0046, 0.0052, 0.0060, 0.0075, 0.0095):
+        lp = 0.0005 * float(K.smoothstep(0.0052 - z, 0.0, 0.0008)) if lip else 0.0
+        pts.append((half + lp, z))
+    nA = 44
+    for k in range(nA + 1):
+        a = math.pi * k / nA
+        pts.append((half * math.cos(a), 0.0115 + 0.0225 * math.sin(a) ** 0.85))
+    for y, z in pts[:6][::-1]:
+        pts.append((-y, z))
+    Pp = ccw(np.array(pts))
+    return offset(Pp, -inset) if inset else Pp
+
+
+COVER_RIBS = (0.039, 0.048, 0.057)
+
+
+def rib_bump(x):
+    """Pressed rib height (m) at x: three ribs 3 mm wide, 1 mm high, 0.5 mm shoulder radii."""
+    return sum(0.0010 * float(K.smoothstep(0.0015 - abs(x - r), -0.0005, 0.0005)) for r in COVER_RIBS)
+
+
+def cover_rings(xs, inset, x0, x1, r_end):
+    polys = []
+    for x in xs:
+        Pp = cover_profile(inset=inset, lip=inset == 0.0)
+        if x0 is not None:                          # pressed ends: shrink toward the crown's centre
+            ins = end_inset(x, x0, x1, r_end)
+            c = np.array([0.0, 0.0150])
+            Pp = c + (Pp - c) * (1.0 - ins / 0.0185)
+        top_w = np.clip((Pp[:, 1] - 0.0175) / 0.010, 0, 1)
+        T = np.roll(Pp, -1, 0) - np.roll(Pp, 1, 0)
+        T /= np.maximum(np.linalg.norm(T, axis=1, keepdims=True), 1e-12)
+        N = np.stack([T[:, 1], -T[:, 0]], 1)
+        Pp = Pp + N * (rib_bump(x) * top_w)[:, None]
+        polys.append(Pp)
+    return polys
+
+
 def cover(parts):
-    """The first-pass cover (half-round, three ribs, rail, rear sight on it), tagged to the receiver set."""
-    tmp = []
-    W.chopper_cover(tmp)
-    for ob in tmp:
-        me = ob.data
-        a = me.attributes.get("tset") or me.attributes.new("tset", "FLOAT", "FACE")
-        a.data.foreach_set("value", np.full(len(me.polygons), float(REAR), np.float32))
-        parts.append(ob)
+    """Top cover rebuilt: a 1 mm half-round sheet pressed with three transverse ribs (3 mm wide, 1 mm high, clean
+    radii), a stamped lip along the lower edges, its rear end pressed down round the trunnion (3 mm radius) with the
+    recoil-spring guide's tab through a 7 x 8 mm hole; the rail (10 lugs, 45 deg dovetail flanks, 5.3 mm slots, two
+    cross-bolts) and the first-pass rear sight (notch profile unchanged)."""
+    x0, x1 = 0.002, 0.186
+    xs = stations(x0, x1, 0.007, 0.003, 4, extra=np.concatenate([r + np.linspace(-0.0024, 0.0024, 11)
+                                                                     for r in COVER_RIBS]))
+    outer = loft_polys(cover_rings(xs, 0.0, x0, x1, 0.003), xs, "Cover")
+    xi = np.r_[x0 + 0.0010, xs[xs > x0 + 0.0012], x1 + 0.004]
+    inner = loft_polys(cover_rings(xi, 0.0010, None, None, 0.0), xi, "CoverIn")
+    K.deform(inner, lambda co: np.c_[co[:, 0], co[:, 1], co[:, 2] - 0.0012 * (co[:, 2] < 0.0045)])
+    cut(outer, inner)
+    port = prism([(0.108, 0.0005), (0.172, 0.0005), (0.172, 0.030), (0.108, 0.030)], -0.030, -0.009, fillet=0.003, bevel=0)
+    slot = box(0.0790, 0.1930, 0.009, 0.030, 0.0030, 0.0190)
+    hole = prism(rpoly([(-0.0035, 0.0160), (0.0035, 0.0160), (0.0035, 0.0240), (-0.0035, 0.0240)], [0.0015] * 4,
+                       [4] * 4, [1] * 4), -0.010, 0.0060, axis="X", bevel=0, name="GuideHole")
+    cut(outer, port, slot, hole)
+    round_edges(outer, 0.0004, 2, 45)
+    parts.append(P(outer, COVER, "body", REAR))
+    # recoil-spring guide's rear tab through the hole: rounded block with a domed end
+    xb = stations(-0.0045, 0.0032, 0.0015, 0.0016, 4)
+    tab = loft_polys([offset(ccw(rpoly([(-0.0031, 0.0164), (0.0031, 0.0164), (0.0031, 0.0236), (-0.0031, 0.0236)],
+                                       [0.0012] * 4, [4] * 4, [2] * 4)), -end_inset(x, -0.0045, 0.0090, 0.0016))
+                      for x in xb], xb, "GuideTab")
+    parts.append(P(tab, DARK, "body", REAR))
+    # rail on the cover: dovetail profile with 45 deg flanks, 10 lugs, 5.3 mm slots, two cross-bolts
+    rp = [(-0.0078, 0.0300), (0.0078, 0.0300), (0.0078, 0.0356), (0.0106, 0.0383), (0.0106, 0.0393), (0.0078, 0.0420),
+          (-0.0078, 0.0420), (-0.0106, 0.0393), (-0.0106, 0.0383), (-0.0078, 0.0356)]
+    rail = prism(rp, 0.062, 0.168, axis="X", bevel=0.0003, seg=2, name="Rail")
+    pitch = 0.106 / 10
+    slots, bolts = [], []
+    for k in range(10):
+        xc = 0.062 + pitch * (k + 1.0)
+        if xc > 0.166:
+            continue
+        slots.append(prism([(xc - 0.00265, 0.0450), (xc + 0.00265, 0.0450), (xc + 0.00265, 0.0369), (xc + 0.00235, 0.0366),
+                            (xc - 0.00235, 0.0366), (xc - 0.00265, 0.0369)], -0.02, 0.02, bevel=0, name="RailSlot"))
+        if k in (1, 6):
+            bolts.append(xc)
+    cut(rail, *slots)
+    round_edges(rail, 0.0003, 2, 40)
+    parts.append(P(rail, DARK, "body", REAR))
+    for xc in bolts:
+        parts.append(P(lathe([(-0.0098, 0.0), (-0.0098, 0.0016), (0.0098, 0.0016), (0.0098, 0.0)], 16, axis="Y",
+                             at=(xc, 0.0, 0.0333)), DARK, "body", REAR))
+        for sgn in (1, -1):
+            hx = lathe([(0.0, 0.0), (0.0, 0.0026), (0.0012, 0.0026), (0.0016, 0.0020), (0.0016, 0.0)], 6, axis="Y",
+                       fillet=0.0001)
+            if sgn < 0:
+                geo.transform(hx, scale=(1, -1, 1))
+            geo.transform(hx, loc=(xc, sgn * 0.0079, 0.0333))
+            parts.append(P(fix_normals(hx), DARK, "body", REAR))
+    # rear sight: base on the cover, leaf with the 4.4 x 4.2 mm notch, protective ears (first-pass profile)
+    base = prism([(0.012, 0.028), (0.034, 0.028), (0.034, 0.0375), (0.030, 0.0415), (0.016, 0.0415), (0.012, 0.0375)],
+                 -0.0085, 0.0085, bevel=0.0007, seg=2, name="RSBase")
+    parts.append(P(base, DARK, "body", REAR))
+    leaf = prism([(0.0215, 0.040), (0.0255, 0.040), (0.0255, 0.0555), (0.0215, 0.0555)], -0.0072, 0.0072, bevel=0.0003,
+                 seg=2, name="Leaf")
+    cut(leaf, box(0.018, 0.030, -0.0022, 0.0022, 0.0513, 0.06))
+    round_edges(leaf, 0.00025, 2, 50)
+    parts.append(P(leaf, DARK, "body", REAR))
+    for s_ in (1, -1):
+        ear = prism([(0.016, 0.038), (0.031, 0.038), (0.029, 0.0555), (0.019, 0.0555)], s_ * 0.0076, s_ * 0.0102,
+                    bevel=0.0004, seg=2, fillet=0.0015, name="Ear")
+        parts.append(P(ear, DARK, "body", REAR))
+
+
+def rear_trunnion(parts):
+    """Forged rear trunnion inside the receiver sheet: it shows 7.5 mm behind the sheet's rear edge, rear face
+    domed 1 mm, 3 mm radii at the bottom, 1.5 mm at the top, 0.5 mm chamfers; the stock latch on its left."""
+    x0, x1 = -0.0034, 0.0160
+    xs = stations(x0, x1, 0.003, 0.0025, 5)
+    polys = []
+    for x in xs:
+        ins = end_inset(x, x0, x1 + 0.01, 0.0025)
+        polys.append(offset(ccw(rpoly([(-0.0149, -0.0392), (0.0149, -0.0392), (0.0149, 0.0108), (-0.0149, 0.0108)],
+                                      [0.0030, 0.0030, 0.0015, 0.0015], [6, 6, 4, 4], [8, 10, 8, 10])), -ins))
+    tr = loft_polys(polys, xs, "RearTrunnion")
+    cut(tr, box(0.0034, 0.030, -0.0102, 0.0102, 0.0042, 0.030))          # the carrier's path at full travel
+    K.deform(tr, lambda co: np.c_[co[:, 0] - 0.0010 * np.clip(1 - (co[:, 1] / 0.015) ** 2, 0, 1)
+                                  * np.clip(1 - ((co[:, 2] + 0.0142) / 0.026) ** 2, 0, 1) * (co[:, 0] < x0 + 0.002),
+                                  co[:, 1], co[:, 2]])
+    round_edges(tr, 0.0004, 2, 40)
+    parts.append(P(tr, BLUED, "body", REAR))
+    boss = lathe([(0.0, 0.0), (0.0, 0.0032), (0.0006, 0.0032), (0.0010, 0.0027), (0.0010, 0.0)], 32, axis="Y",
+                 at=(-0.0004, 0.0146, -0.0120), fillet=0.0002)
+    parts.append(P(boss, BLUED, "body", REAR))
+    btn = lathe([(0.0, 0.0), (0.0, 0.0020), (0.0016, 0.0020), (0.0021, 0.0016), (0.0022, 0.0)], 32, axis="Y",
+                at=(-0.0004, 0.0148, -0.0120), fillet=0.0002)
+    parts.append(P(btn, DARK, "body", REAR))
 
 
 # ----------------------------------------------------------------------------------------------- build
@@ -801,6 +1005,7 @@ def uv_weights(ob):
 def chopper_parts():
     parts = []
     chopper_receiver(parts)
+    rear_trunnion(parts)
     cover(parts)
     sight_block(parts)
     lower_handguard(parts)
@@ -847,32 +1052,48 @@ def chopper_magazine(col):
     R, a0, a1, (Pt0, C) = W.chopper_mag_geometry()
     Wd = 0.02550 / 2
     parts = []
-    cross = (0.30, 0.55, 0.80)
-    base = np.linspace(0.0, 1.0, 52)
+    arc_len = R * abs(a1 - a0)
+    cross = (0.27, 0.48, 0.69, 0.88)              # four stamped reinforcing ribs across the sides
+    base = np.linspace(0.0, 1.0, 60)
     extra = []
-    for c in cross + (0.98,):
-        extra += [c + d for d in (-0.030, -0.020, -0.013, -0.007, -0.002, 0.002, 0.007, 0.013, 0.020, 0.030)]
+    for c in cross:
+        extra += list(c + np.array([-2.4, -1.75, -1.5, -1.25, -1.0, -0.6, 0.0, 0.6, 1.0, 1.25, 1.5, 1.75, 2.4]) * 0.001 / arc_len)
     st = np.unique(np.clip(np.concatenate([base, extra, [0.004, 0.012]]), 0, 1))
-    ns = np.concatenate([np.linspace(-1, -0.6, 6), np.linspace(-0.5, 0.5, 21), np.linspace(0.6, 1, 6)])
+
+    def plateau(dist, hw, sh=0.0005):
+        """1 on a flat-topped rib of half width hw with sh-wide rounded shoulders, 0 off it."""
+        return float(K.smoothstep(hw - dist, -sh / 2, sh / 2))
+
+    def across(d):
+        """Depth samples (metres from the centre line, -d back .. +d front): dense at the long rib's shoulders."""
+        u = list(np.linspace(-d, d, 25))
+        u += [v * 0.001 for v in (-1.75, -1.5, -1.25, -1.0, -0.75, 0.75, 1.0, 1.25, 1.5, 1.75)]
+        u += [sgn * (d - e * 0.001) for sgn in (1, -1) for e in (0.6, 1.2, 1.8, 2.4)]
+        return np.array(sorted(set(np.round(u, 6))))
 
     def section(sv, inner=False):
+        """Flat stamped side walls with crisp raised ribs (2.5 mm wide, 0.8 mm proud, 0.5 mm shoulders): one
+        along the arc at mid depth, four across; front and back walls rounded 2.2 mm into the sides."""
         d = (0.062 + (0.059 - 0.062) * sv) / 2
         a = a0 + (a1 - a0) * sv
         n = np.array([math.cos(a), math.sin(a)])
         Pc = C - R * n
+        s_m = sv * arc_len
+        xr0 = max(plateau(abs(s_m - c * arc_len), 0.00125) for c in cross)
+        us = across(d)
         pts = []
-        xr0 = sum(0.0008 * math.exp(-((sv - c) / 0.0115) ** 2) for c in cross)
         for side in (1, -1):
-            seq = ns if side == 1 else ns[::-1]
+            seq = us if side == 1 else us[::-1]
             for u in seq:
-                rib = 0.0008 * math.exp(-(u / 0.11) ** 2)
-                xr = xr0 * float(smoothstep((0.86 - abs(u)) / 0.12))
-                y = side * (Wd + max(rib, xr))
-                if abs(u) > 0.92:
-                    k = (abs(u) - 0.92) / 0.08
-                    y = side * (Wd - 0.0022 * (1 - math.cos(k * math.pi / 2)))
-                nn = u * d
-                if u < -0.9 and abs(y) > Wd * 0.4:
+                lng = plateau(abs(u), 0.00125)
+                xr = xr0 * plateau(abs(u), d - 0.0060, 0.002)
+                y = side * (Wd + 0.0008 * max(lng, xr))
+                e = abs(u) - (d - 0.0024)
+                if e > 0:                           # 2.2 mm corner radius into the front and back walls
+                    k = min(e / 0.0024, 1.0)
+                    y = side * (Wd - 0.0022 * (1 - math.sqrt(max(0.0, 1 - k * k))))
+                nn = u
+                if u < -d + 0.0005 and abs(y) > Wd * 0.4:
                     nn -= 0.0006
                 pts.append((nn, y))
         pts = np.array(pts)
@@ -928,25 +1149,50 @@ def chopper_magazine(col):
         M = Matrix.Translation((Pc[0] + n[0] * along_n - t[0] * along_t, 0, Pc[1] + n[1] * along_n - t[1] * along_t)) @ rot.to_4x4()
         ob.data.transform(M)
         return fix_normals(ob)
-    # front lock lug (hooks into the magazine well at the hinge) and the rear catch tab
+    # forged front locking lug (10 x 6 mm, hooks into the well at the hinge) and the rear catch lug
     d0 = 0.031
-    lug = W.box(0.0, 0.0034, -0.0045, 0.0045, -0.0005, 0.0045, bevel=0.0007, seg=2, name="Lug")
-    place(lug, 0.0, d0 - 0.0002, -0.0020)
+    lug = K.loft_x([K.poly_section(rpoly([(-0.0050, -0.0005), (0.0050, -0.0005), (0.0050, 0.0055), (-0.0050, 0.0055)],
+                                         [0.0008, 0.0008, 0.0015, 0.0015], [2, 2, 3, 3], [3, 2, 3, 2]), K=96)] * 2,
+                   [0.0, 0.0036], 48, name="Lug")
+    K.deform(lug, lambda co: np.c_[co[:, 0] - 0.0012 * K.smoothstep(co[:, 2], 0.0, 0.0055) * (co[:, 0] > 0.002),
+                                   co[:, 1], co[:, 2]])
+    round_edges(lug, 0.0004, 2, 40)
+    place(lug, 0.0, d0 - 0.0004, -0.0022)
     parts.append(P0(lug, BLUED, None))
-    tab = W.box(-0.0030, 0.0, -0.0055, 0.0055, 0.0000, 0.0040, bevel=0.0006, seg=2, name="Tab")
+    tab = W.box(-0.0034, 0.0, -0.0042, 0.0042, 0.0000, 0.0046, bevel=0.0007, seg=2, name="Tab")
+    union(tab, W.box(-0.0050, -0.0026, -0.0042, 0.0042, 0.0030, 0.0046, bevel=0.0006, seg=2))
     place(tab, 0.0, -d0 + 0.0002, 0.0060)
     parts.append(P0(tab, BLUED, None))
-    # floor plate: slightly wider (27.8 x 63.5), 3 mm, retaining dimple
+    # weld seam along the spine (back wall centre line), 0.9 mm bead
+    sp = []
+    for sv in np.linspace(0.03, 0.985, 70):
+        a = a0 + (a1 - a0) * sv
+        n = np.array([math.cos(a), math.sin(a)])
+        Pc = C - R * n
+        d = (0.062 + (0.059 - 0.062) * sv) / 2
+        q = Pc + n * (-d - 0.0006)
+        sp.append((q[0], 0.0, q[1]))
+    seam = K.sweep_var(np.array(sp), lambda i, t: K.superellipse(0.00045, 0.00055, 2.0, 10), name="Seam")
+    parts.append(P0(seam, BLUED, None))
+    # floor plate: 27.8 x 63.5 mm, 1.5 mm edges turned up round the body, a rear retaining tab, the dimple
     nb = np.array([math.cos(a1), math.sin(a1)])
     tb = np.array([math.sin(a1), -math.cos(a1)])
     Pb = C - R * nb
-    fp = box(-0.03175, 0.03175, -0.0139, 0.0139, -0.0045, -0.0005, bevel=0.0010, seg=3, name="Floor")
-    lip_f = box(-0.0300, 0.0300, -0.0139, 0.0139, -0.0015, 0.0010, bevel=0.0005)
-    union(fp, lip_f)
+    zs_ = [-0.0046, -0.0040, -0.0032, -0.0020, -0.0008, 0.0010, 0.0016]
+    secs = []
+    for z in zs_:
+        ins = 0.0 if z > -0.0032 else (0.0014 - math.sqrt(max(0.0, 0.0014 ** 2 - (z + 0.0032) ** 2)))
+        if z > 0.0012:
+            ins = 0.0006
+        secs.append(K.rrect(-0.03175 + ins, 0.03175 - ins, 0.0139 - ins, 0.0035 - ins * 0.5, 0.0035 - ins * 0.5, K=200))
+    fp = K.loft_z(secs, zs_, 96, name="Floor")
+    cut(fp, W.box(-0.0302, 0.0302, -0.0124, 0.0124, -0.0001, 0.003))        # the turned edges stand round the body
+    union(fp, W.box(-0.0360, -0.0300, -0.0045, 0.0045, -0.0036, 0.0060, bevel=0.0006, seg=2))   # retaining tab
     dm = geo.sphere(1.0, 24, 12)
     geo.transform(dm, scale=(0.006, 0.006, 0.0012))
-    geo.transform(dm, loc=(-0.012, 0.0, -0.0046))
+    geo.transform(dm, loc=(-0.012, 0.0, -0.0050))
     cut(fp, dm)
+    round_edges(fp, 0.0003, 2, 40)
     rot = Matrix(((nb[0], 0, tb[0]), (0, 1, 0), (nb[1], 0, tb[1])))
     M = Matrix.Translation((Pb[0], 0, Pb[1])) @ rot.to_4x4() @ Matrix.Diagonal((1, 1, -1, 1))
     fp.data.transform(M)

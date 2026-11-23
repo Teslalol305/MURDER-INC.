@@ -1760,7 +1760,7 @@ CHOPPER_MAG_NOTES = (
 def build_nine(ctx):
     gun, arm = N9.nine_build(ctx)
     res = tex_res(ctx, "SK_Nine")
-    unwrap(gun, res)
+    geo.uv_unwrap(gun, res=res, angle=52.0, margin_px=6, pack="AABB", weights=N9.uv_weights(gun))
     N9.straighten_slide_uv(gun)                 # the slide's skin as one shell, U along X (brushing direction)
     dens = geo.uv_texel_density(gun, res)
     ctx.log("SK_Nine: %d tris, %.0f px/m" % (geo.stats(gun)["triangles"], dens))

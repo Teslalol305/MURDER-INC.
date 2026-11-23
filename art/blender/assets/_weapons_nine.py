@@ -442,13 +442,13 @@ def nine_controls(parts):
     # thumb safety: shaft boss at X 0.008, lever plate forward to a 3 mm pad that flares out beside the slide
     lev = plate([(0.0045, -0.0215), (0.0120, -0.0222), (0.0230, -0.0205), (0.0300, -0.0190), (0.0300, -0.0150),
                  (0.0200, -0.0144), (0.0080, -0.0142), (0.0045, -0.0160)], y0, 0.0013, "Safety")
-    pad = K.loft_x([K.poly_section([(y0 + 0.0008, -0.0200), (y0 + 0.0028, -0.0196), (y0 + 0.0044, -0.0170),
-                                    (y0 + 0.0047, -0.0122), (y0 + 0.0030, -0.0112), (y0 + 0.0016, -0.0136)], K=120)] * 2,
+    pad = K.loft_x([K.poly_section([(y0 + 0.0008, -0.0200), (y0 + 0.0022, -0.0196), (y0 + 0.0032, -0.0172),
+                                    (y0 + 0.0034, -0.0124), (y0 + 0.0024, -0.0112), (y0 + 0.0016, -0.0136)], K=120)] * 2,
                    [0.0215, 0.0300], 60, name="SafetyPad")
-    K.deform(pad, lambda co: np.c_[co[:, 0], co[:, 1] + 0.0006 * K.smoothstep(co[:, 0], 0.0215, 0.0300) *
+    K.deform(pad, lambda co: np.c_[co[:, 0], co[:, 1] + 0.0003 * K.smoothstep(co[:, 0], 0.0215, 0.0300) *
                                    (co[:, 1] > y0 + 0.002), co[:, 2]])
     union(lev, pad)
-    serrate(lev, [0.0228 + k * 0.0016 for k in range(5)], 0.0006, y0 + 0.0020, y0 + 0.010, -0.0118, -0.0100)
+    serrate(lev, [0.0228 + k * 0.0016 for k in range(5)], 0.0006, y0 + 0.0018, y0 + 0.010, -0.0118, -0.0100)
     round_edges(lev, 0.00018, 2, 40)
     parts.append(P(lev, DARK, "frame"))
     boss = lathe([(-0.0003, 0.0), (-0.0003, 0.0036), (0.0010, 0.0036), (0.0016, 0.0030), (0.0018, 0.0012),
@@ -609,11 +609,11 @@ def nine_moving(parts):
                y0, 0.0013, "SlideStop", fillet=0.0012)
     K.deform(st, lambda co: np.c_[co[:, 0], np.where(co[:, 1] > y0 + 0.0006, co[:, 1] + 0.0005 *
                                                      K.smoothstep(0.0760 - co[:, 0], 0.0, 0.012), co[:, 1]), co[:, 2]])
-    shelf = K.loft_x([K.poly_section([(y0 + 0.0010, -0.0204), (y0 + 0.0030, -0.0204), (y0 + 0.0040, -0.0196),
-                                      (y0 + 0.0040, -0.0170), (y0 + 0.0030, -0.0163), (y0 + 0.0010, -0.0163)], K=120)] * 2,
+    shelf = K.loft_x([K.poly_section([(y0 + 0.0010, -0.0204), (y0 + 0.0026, -0.0204), (y0 + 0.0033, -0.0196),
+                                      (y0 + 0.0033, -0.0170), (y0 + 0.0026, -0.0163), (y0 + 0.0010, -0.0163)], K=120)] * 2,
                      [0.0588, 0.0700], 60, name="Shelf")
     union(st, shelf)
-    serrate(st, [0.0602 + k * 0.0020 for k in range(5)], 0.0007, y0 + 0.0036, y0 + 0.010, -0.0210, -0.0160)
+    serrate(st, [0.0602 + k * 0.0020 for k in range(5)], 0.0007, y0 + 0.0029, y0 + 0.010, -0.0210, -0.0160)
     round_edges(st, 0.00018, 2, 40)
     parts.append(P(st, DARK, "slide_stop"))
     parts.append(P(lathe([(-0.0003, 0.0), (-0.0003, 0.0030), (0.0008, 0.0030), (0.0012, 0.0024), (0.0012, 0.0)], 32,
@@ -882,3 +882,28 @@ def straighten_slide_uv(ob, margin_px=6):
         good += float(np.dot(dx, du_)) > 0 and abs(float(np.dot(dx, dv_))) < 0.2 * abs(float(np.dot(dx, du_)))
     print("    slide shell: %d faces, U along +X on %.1f %% of them" % (len(sel), 100.0 * good / max(n_, 1)), flush=True)
     return len(sel)
+
+
+def uv_weights(ob):
+    """Per-face UV scale for SK_Nine: faces the eye never sees (inside the slide, under it, in the magazine well,
+    the recoil spring and the barrel under the slide) get few texels so the outside gets the density."""
+    me = ob.data
+    n = len(me.polygons)
+    mid = np.empty(n, np.float32)
+    me.attributes["mid"].data.foreach_get("value", mid)
+    mid = np.rint(mid).astype(int)
+    c = np.empty(n * 3, np.float32)
+    me.polygons.foreach_get("center", c)
+    c = c.reshape(-1, 3)
+    x, y, z = c[:, 0], c[:, 1], c[:, 2]
+    w = np.ones(n, np.float32)
+    w[mid == BORE] = 0.3
+    w[(mid == STAINLESS) & (np.abs(y) < 0.0106) & (z < 0.0102) & (x > 0.0040) & (x < 0.1965)] = 0.3     # slide inside
+    w[(mid == POLISHED) & (x > 0.127) & (x < 0.1985)] = 0.3                                               # barrel under the slide
+    w[(mid == POLISHED) & (z < -0.006)] = 0.3                                                             # guide rod
+    w[(mid == DARK) & (x > 0.098) & (x < 0.190) & (np.abs(y) < 0.0045) & (np.abs(z + 0.0118) < 0.0045)] = 0.3   # spring
+    w[(mid == BLACKOX) & (np.abs(y) < 0.0105) & (z > -0.0140) & (x > 0.0)] = 0.3                          # frame under the slide
+    inwell = np.abs((x - mag_centre_x(z)) * A[2]) < 0.0178
+    w[(mid == BLACKOX) & inwell & (np.abs(y) < 0.0104) & (z < -0.036) & (z > BUTT_Z + 0.001)] = 0.3       # magazine well
+    w[(mid == DARK) & (z < -0.0140) & (x < -0.006) & (x > -0.024) & (np.abs(y) < 0.0034)] = 0.4            # hammer in the frame
+    return w
