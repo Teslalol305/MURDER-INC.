@@ -564,7 +564,7 @@ def trigger_finger(arm, R, gun, gun_M, name):
 
 THUMB_AIM = {   # gun space: where each thumb tip goes (firing: round the grip's left side; support: along the gun)
     ("chopper", "r"): (0.058, 0.030, -0.052), ("chopper", "l"): (0.400, 0.032, -0.030),
-    ("nine", "r"): (0.060, 0.026, -0.004), ("nine", "l"): (0.085, 0.024, -0.016)}
+    ("nine", "r"): (0.055, 0.028, -0.018), ("nine", "l"): (0.080, 0.030, -0.032)}
 
 
 def aim_thumb(arm, side, R, gun_M, name, obst):
@@ -616,6 +616,59 @@ def reset_finger(arm, side, f):
     for k in ("01", "02", "03"):
         arm.pose.bones["%s_%s_%s" % (f, k, side)].matrix_basis = Matrix.Identity(4)
     bpy.context.view_layer.update()
+
+
+def adduct(arm, side, R, keep=0.35):
+    """Close the gaps between the fingers (the mannequin's rest hand is splayed): each finger's first bone turns
+    about the back-of-hand axis toward the middle finger's direction, keeping `keep` of its splay."""
+    fwd, lat, dors = (Vector(v) for v in hand_axes(arm, side, R))
+    mid = (bone_world(arm, "middle_02_" + side, R.chain["middle"]["P"][1]) -
+           bone_world(arm, "middle_01_" + side, R.chain["middle"]["P"][0]))
+    mid = (mid - dors * mid.dot(dors)).normalized()
+    for f in ("index", "ring", "pinky"):
+        pb = arm.pose.bones["%s_01_%s" % (f, side)]
+        head = (arm.matrix_world @ pb.matrix).to_translation()
+        d = bone_world(arm, "%s_02_%s" % (f, side), R.chain[f]["P"][1]) - head
+        d = (d - dors * d.dot(dors)).normalized()
+        ang = math.atan2(d.cross(mid).dot(dors), d.dot(mid)) * (1 - keep)
+        M = arm.matrix_world @ pb.matrix
+        Rm = Matrix.Translation(head) @ Matrix.Rotation(ang, 4, dors) @ Matrix.Translation(-head)
+        pb.matrix = arm.matrix_world.inverted() @ Rm @ M
+        bpy.context.view_layer.update()
+
+
+def close_coupled(arm, side, R, f, obst, max_deg=(85, 100, 70), ratio=(1.0, 1.15, 0.8), steps=48, gap=CONTACT_GAP):
+    """Close finger f with its three joints together (ratio), sweeping from open to max_deg: stop where the
+    finger first comes to `gap` from the obstacles after having been clear (a finger that starts across a thin
+    part, the trigger guard, sweeps through it first; one that never clears keeps the clearest pose); then the
+    middle and end joints close on by themselves until they touch. Returns the angles and clearances."""
+    across, palm = _hinge(arm, side, R, f)
+    bones = ["%s_%02d_%s" % (f, k + 1, side) for k in range(3)]
+    full = [min(m, 120.0 * r) for m, r in zip(max_deg, ratio)]
+
+    def pose(t):
+        reset_finger(arm, side, f)
+        for b, a in zip(bones, full):
+            if a * t:
+                _curl(arm, b, math.radians(a * t), across, palm)
+        return _chain_clear(arm, side, R, f, (0, 1, 2), obst)
+    cs = [pose(i / steps) for i in range(steps + 1)]
+    t_stop, was_clear = None, False
+    for i, c in enumerate(cs):
+        if c >= gap:
+            was_clear = True
+        elif was_clear:
+            t_stop = (i - 1) / steps
+            break
+    if t_stop is None:
+        t_stop = 1.0 if was_clear else int(np.argmax(cs)) / steps
+    pose(t_stop)
+    res = {"t": round(t_stop, 3), "angles": [round(a * t_stop, 1) for a in full]}
+    more = close_onto(arm, side, R, f, obst, max_deg=tuple(m for m in max_deg), joints=(1, 2),
+                      start=(0, 0, 0))
+    res["more"] = more
+    res["clear_mm"] = round(_chain_clear(arm, side, R, f, (0, 1, 2), obst) * 1000, 1)
+    return res
 
 
 def palm_point(arm, side, R):
@@ -684,7 +737,8 @@ def support_axes(G, name, pose, sl, turn=0.0):
 
 
 INDEX_MCP = {"chopper": 10.0, "nine": 8.0}      # trigger finger: first joint (deg), then closed onto the trigger
-GRIP_RAKE = {"chopper": 12.0, "nine": 16.0}     # the front strap's rake (deg): the knuckle line follows it
+GRIP_RAKE = {"chopper": 0.0, "nine": 16.0}      # the hand frame's tilt on the grip (deg): the CHOPPER's long grip
+                                                # takes the wrist-knuckle line level, the NINE's short one its rake
 GRIP_BACK = {"chopper": 0.016, "nine": 0.012}   # the firing palm's centre behind the grip socket: knuckles at the front strap
 GRIP_DOWN = {"chopper": 0.009, "nine": 0.006}   # and below it: the index at the trigger, the middle finger under the guard
 HANDGUARD_EDGE_Y = -0.026     # gun space: the CHOPPER handguard's right face is at y -0.0226
@@ -701,7 +755,7 @@ def place_rig(arm, Rr, Rl, pr_fn, pl, ax_r_fn, ax_l_fn, name):
     best = None
     base = arm.location.copy()
     rk = GRIP_RAKE[name]
-    for rake in (rk - 4, rk, rk + 4):
+    for rake in (rk - 6, rk, rk + 6):
         ax_r = ax_r_fn(rake)
         pr = pr_fn(ax_r)
         for dz in (-0.04, -0.02, 0.0, 0.02, 0.04, 0.06):
@@ -772,9 +826,10 @@ def hold(arm, gun_M, name, Rr, Rl, pose="hip", gun_objs=None, log=None):
         ax_l = support_axes(G, name, pose, sl, rep["rig"]["turn_l_deg"])
         rep["push_r_m"] = seat_palm(arm, "r", Rr, pr - ax_r[0] * GRIP_BACK[name] + ax_r[1] * GRIP_DOWN[name], ax_r, POLE_R,
                                     gun, -Y)
+        adduct(arm, "r", Rr)
         f_r = {}
         for f in ("middle", "ring", "pinky"):
-            f_r[f] = close_onto(arm, "r", Rr, f, gun)
+            f_r[f] = close_coupled(arm, "r", Rr, f, gun)
         # trigger finger: through the guard onto the trigger's face (its pad), first joint set, the others closed
         f_r["index"] = trigger_finger(arm, Rr, gun, gun_M, name)
         f_r["thumb"] = aim_thumb(arm, "r", Rr, gun_M, name, gun)
@@ -794,14 +849,16 @@ def hold(arm, gun_M, name, Rr, Rl, pose="hip", gun_objs=None, log=None):
                 seat_palm(arm, "l", Rl, pl, ax_l, POLE_L["chopper"], gun, -Z)
             rep["support_palm_gun"] = [round(v, 4) for v in Gi @ pl]
             obst_l = gun
-            f_l = {f: close_onto(arm, "l", Rl, f, obst_l, max_deg=(80, 100, 70)) for f in ("index", "middle", "ring", "pinky")}
+            adduct(arm, "l", Rl)
+            f_l = {f: close_coupled(arm, "l", Rl, f, obst_l, max_deg=(80, 100, 70)) for f in ("index", "middle", "ring", "pinky")}
             f_l["thumb"] = aim_thumb(arm, "l", Rl, gun_M, name, obst_l)
         else:
             # two hands on the NINE: support palm on the grip's left face (its socket), fingers round the front
             # over the firing hand's, thumb forward along the frame under the slide
             obst_l = Obstacles(gun.bvhs, finger_capsules(arm, "r", Rr, ("index", "middle", "ring", "pinky")))
             rep["push_l_m"] = seat_palm(arm, "l", Rl, pl, ax_l, POLE_L["nine"], obst_l, Y)
-            f_l = {f: close_onto(arm, "l", Rl, f, obst_l, max_deg=(80, 100, 70)) for f in ("index", "middle", "ring", "pinky")}
+            adduct(arm, "l", Rl)
+            f_l = {f: close_coupled(arm, "l", Rl, f, obst_l, max_deg=(80, 100, 70)) for f in ("index", "middle", "ring", "pinky")}
             f_l["thumb"] = aim_thumb(arm, "l", Rl, gun_M, name, Obstacles(gun.bvhs, finger_capsules(arm, "r", Rr)))
         rep["fingers_l"] = f_l
         rep["wrist_bend_deg"] = {"r": wrist_bend_deg(arm, "r", Rr), "l": wrist_bend_deg(arm, "l", Rl)}

@@ -822,7 +822,7 @@ def textured_materials():
         nt.links.new(nmap.outputs["Normal"], b.inputs["Normal"])
         b.inputs["Subsurface Weight"].default_value = sss
         b.inputs["Subsurface Radius"].default_value = (1.0, 0.4, 0.25)
-        b.inputs["Subsurface Scale"].default_value = 0.01 if name == "M_RuleArms_Skin" else 0.003
+        b.inputs["Subsurface Scale"].default_value = 0.0035 if name == "M_RuleArms_Skin" else 0.002
         b.inputs["Specular IOR Level"].default_value = 0.35 if name == "M_RuleArms_Skin" else 0.5
         if coat:
             b.inputs["Coat Weight"].default_value = coat

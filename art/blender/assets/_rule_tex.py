@@ -325,14 +325,14 @@ def skin_texels(R, P, N, region, side, charts):
     for a0, a1 in (((0.060, 0.010), (0.018, -0.006)), ((0.058, -0.014), (0.012, 0.010)), ((0.040, 0.026), (0.004, 0.018)),
                    ((0.030, -0.020), (0.030, 0.022))):
         dvn = _poly_dist(u + 0.0015 * T.noise(Q, 1 / 0.02, 290), v, [a0, ((a0[0] + a1[0]) / 2, (a0[1] + a1[1]) / 2 + 0.004), a1])
-        vein = np.maximum(vein, np.exp(-(dvn / 0.0021) ** 2) * back * (0.65 + 0.35 * T.noise(Q, 1 / 0.012, 291)))
+        vein = np.maximum(vein, np.exp(-(dvn / 0.0032) ** 2) * back * (0.65 + 0.35 * T.noise(Q, 1 / 0.012, 291)))
     fore = (~up) & (s > 0.03)
     for i, (a0, wander, ph, s0, s1, wd) in enumerate(X.VEINS):
         path = a0 + wander * np.sin(s * 17 + ph) + 0.10 * T.noise(np.stack([s * 30, s * 0 + i, s * 0], 1), 1.0, 9)
         d = np.abs(X._angdiff(th, path)) * rr
         vis = T.smoothstep(s0, s0 + 0.025, s) * T.smoothstep(s1, s1 - 0.03, s) * fore
         vein = np.maximum(vein, 0.75 * np.exp(-(d / (wd * 1.5)) ** 2) * vis * (0.6 + 0.4 * T.noise(P, 1 / 0.02, 292 + i)))
-    h += 0.00055 * vein
+    h += 0.00042 * vein
     bc *= (1 - 0.035 * vein)[:, None]
     bc[:, 0] *= 1 - 0.03 * vein
     bc[:, 2] *= 1 + 0.05 * vein
@@ -340,12 +340,15 @@ def skin_texels(R, P, N, region, side, charts):
     # ---- microrelief: skin-line grooves, fine creases across the limb, light pores
     f1, f2 = T.cells(P, 1 / 0.0011, 211)
     groove = T.smoothstep(0.14, 0.0, f2 - f1)
-    h -= 0.000028 * groove
+    h -= 0.000040 * groove
     ax = np.where(up[:, None], R.bu[None], R.af[None])
     along = np.einsum("ij,ij->i", Q, ax)
     Qc = Q + 2.5 * along[:, None] * ax                                       # creases run round the limb
     crease = T.ridged(Qc, 1 / 0.0045, 212) * (1 - hand * 0.6)
-    h -= 0.000020 * crease
+    h -= 0.000035 * crease
+    # the forearm's own skin lines: shallow folds across the back of the forearm every 3-4 mm, wandering
+    lines = T.ridged(np.stack([along / 0.0035, (th * rr) / 0.03, along * 0], 1), 1.0, 219) * (1 - hand) * (~up)
+    h -= 0.000030 * lines * T.smoothstep(-0.3, 0.6, dorsal)
     pores = T.smoothstep(0.50, 0.85, T.noise(P, 1 / 0.00060, 213))
     h -= 0.000012 * pores
     cav = np.clip(0.6 * groove + 0.5 * crease + 0.4 * pores, 0, 1)
@@ -362,9 +365,9 @@ def skin_texels(R, P, N, region, side, charts):
     b_ = np.cross(M, t_)
     Hq = np.stack([np.einsum("ij,ij->i", P, t_) / 0.0035, np.einsum("ij,ij->i", P, b_) / 0.00035,
                    np.einsum("ij,ij->i", P, M) / 0.0035], axis=1)
-    strand = T.smoothstep(0.52, 0.78, T.noise(Hq, 1.0, 216)) * np.clip(dens, 0, 1)
+    strand = T.smoothstep(0.46, 0.74, T.noise(Hq, 1.0, 216)) * np.clip(dens, 0, 1)
     HAIR = np.array([0.012, 0.009, 0.007], dtype=np.float32)
-    bc = bc * (1 - 0.30 * strand)[:, None] + HAIR[None] * (0.30 * strand)[:, None]
+    bc = bc * (1 - 0.45 * strand)[:, None] + HAIR[None] * (0.45 * strand)[:, None]
     h += 0.000010 * strand
 
     # ---- warmth: better-perfused fingertips and knuckles
