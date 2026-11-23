@@ -298,7 +298,8 @@ void UMICloudSubsystem::BecomeStreamed(const TCHAR* Why)
 	{
 		MICloudPrivate::Line(FString::Printf(TEXT("Streamed (%s): click to play, cloud profile"), Why));
 		bStreamed = true;
-		bWaitingForClick = true;
+		// -MICloudNoCard: no click card (the memory runs and pictures on the box, which no viewer clicks).
+		bWaitingForClick = !FParse::Param(FCommandLine::Get(), TEXT("MICloudNoCard"));
 	}
 	if (!bProfileApplied)
 	{
