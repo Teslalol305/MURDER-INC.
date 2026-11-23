@@ -152,11 +152,27 @@ class Hand:
             for n in C.FINGERS[:4]:                        # metacarpal heads under the skin of the back of the hand
                 r0 = R.chain[n]["r"][0]
                 d = sdf.smin(d, sdf.sphere(p, R.mcp[n] + R.dors * r0 * 0.42 - R.fwd * 0.003, r0 * 0.66), r0 * 0.40)
-            for a, b in self.tendons:                      # extensor tendons: soft ridges, 0.5 mm at most
-                ab = b - a
+            for a, b in self.tendons:                      # extensor tendons: ridges 1.1 mm high, 3.4 mm wide
+                ab = b - a                                 # (hands-and-tattoos pass: 0.5 mm barely read)
                 t = np.clip(((p - a) @ ab) / (ab @ ab), 0, 1)
                 seg = np.linalg.norm(p - a - t[:, None] * ab[None], axis=1)
-                d = d - 0.0005 * np.exp(-(seg / 0.0030) ** 2) * np.sin(np.pi * t) ** 0.7
+                d = d - 0.0011 * np.exp(-(seg / 0.0034) ** 2) * np.sin(np.pi * t) ** 0.6
+            # hands-and-tattoos pass (r3 review: "fingers are sausages of even thickness"): the finger joints swell
+            # on the back (PIP fullest), the shafts between them slim 0.4-0.5 mm on the back and sides, so each
+            # finger tapers joint to joint; the palmar pads (finger_sdf) are left as they are
+            for n in C.FINGERS:
+                c = R.chain[n]
+                P, r, dv = c["P"], c["r"], c["dors"]
+                for j, k in ((1, 1.0), (2, 0.8)):
+                    bump = sdf.sphere(p, P[j] + dv * r[j] * 0.50, r[j] * 0.52)
+                    d = sdf.smin(d, bump, r[j] * 0.30 * k)
+                for j in (0, 1):
+                    ab = P[j + 1] - P[j]
+                    t = ((p - P[j]) @ ab) / (ab @ ab)
+                    near = np.linalg.norm(p - P[j] - np.clip(t, 0, 1)[:, None] * ab[None], axis=1)
+                    up = np.clip(0.5 + ((p - P[j]) @ dv) / (2 * r[j]), 0, 1)       # back and sides, not the pad
+                    w = np.exp(-((t - 0.5) / 0.22) ** 2) * np.exp(-((near - r[j]) / (r[j] * 0.6)) ** 2) * up
+                    d = d + (0.00045 if j == 0 else 0.00035) * w
             if recess:
                 for n in C.FINGERS:
                     rd, q = self.nail_rect(p, n, 0.0003)
@@ -193,7 +209,8 @@ def bare_palm_sdf(R):
         t1, t2 = R.h("thumb_01"), R.h("thumb_02")
         ta = C._n(t2 - t1)
         tf = np.array([ta, C._n(np.cross(dors, ta)), C._n(np.cross(ta, np.cross(dors, ta)))])
-        d = sdf.smin(d, sdf.ellipsoid(p, t1 + (t2 - t1) * 0.45 - dors * 0.010 + lat * 0.010, tf, (0.031, 0.018, 0.0145)), 0.010)
+        # the thenar eminence: hands-and-tattoos pass, a fuller pad at the root of the thumb (r3: "rubber palm")
+        d = sdf.smin(d, sdf.ellipsoid(p, t1 + (t2 - t1) * 0.45 - dors * 0.011 + lat * 0.010, tf, (0.032, 0.0195, 0.0158)), 0.011)
         d = sdf.smin(d, sdf.ellipsoid(p, W + fwd * 0.040 + lat * 0.026 - dors * 0.008, hf, (0.032, 0.0125, 0.0125)), 0.010)
         return d
     return f

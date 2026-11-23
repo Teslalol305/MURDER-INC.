@@ -41,8 +41,8 @@ def grade_skin(bc, sel, target=SKIN_TARGET, keep_spread=True):
     return bc * k[None], k
 
 TATTOO_FILE = os.path.join(paths.out, "ref", "tattoos.json")
-DEFAULT_TATTOOS = {"right": [{"text": "RULE", "style": "blackletter"}, {"text": "Inc.", "style": "script"}],
-                   "left": [{"text": "XVII", "style": "roman"}, {"text": "IIIXX", "style": "roman"}]}
+DEFAULT_TATTOOS = {"right": [{"text": "RULE", "style": "roman"}, {"text": "Inc.", "style": "script"}],
+                   "left": [{"text": "XVII", "style": "roman"}, {"text": "XXIII", "style": "roman"}]}
 
 
 def _side_frame(R, P, N, side):
@@ -131,10 +131,16 @@ def _font(style, size):
 def tattoo_chart(side, px_per_m=8000):
     """Ink mask on a chart of the forearm: rows = arc length around the forearm (m, -0.12..0.12, 0 = back of the
     forearm, + toward the radius), columns = height above the wrist (0.04..0.27 m). Returns (img, s0, a0, px/m).
-    Review round 3, at the photo's scale and placement: right forearm, toward the elbow on the back and radial
-    face, the word in blackletter capitals about two fifths of the forearm's width tall (28 mm), the script line
-    beside it toward the ulna (17 mm); left forearm, mid forearm, two rows of large bold serif numerals (22 mm).
-    Both read from the elbow toward the wrist. Healed ink: bled 0.4 mm, a softer halo, uneven take-up."""
+
+    Hands-and-tattoos pass (after the photo and the r3 review: "both pieces run along the forearm, where the photo's
+    lines run across it; the numerals read mirrored; the ink is faded grey"): every line now runs ACROSS the forearm,
+    round the back of it from the ulnar to the radial border, the letters' tops toward the elbow (the photo: they
+    read for someone facing him). Right forearm, near the elbow: the word in heavy serif capitals 21 mm tall (along
+    the arm) and about 7 cm long (round the arm), the script line beside it toward the wrist (16 mm). Left forearm,
+    upper third: two rows of bold serif numerals 14 mm tall, 2.6 cm apart along the arm. The left arm is the mirror
+    image of the right arm's frame, so its chart is drawn mirrored to read correctly from outside. Healed ink: dense
+    blue-black, bled 0.3 mm with a faint halo, slightly ragged edges and uneven take-up (texel noise in skin_texels).
+    """
     from PIL import Image, ImageDraw, ImageFilter
     spec = DEFAULT_TATTOOS
     if os.path.exists(TATTOO_FILE):
@@ -144,6 +150,7 @@ def tattoo_chart(side, px_per_m=8000):
     W, H = int((s1 - s0) * px_per_m), int((a1 - a0) * px_per_m)
     img = Image.new("L", (W, H), 0)
     d = ImageDraw.Draw(img)
+    mirror = side == "left"
 
     def put(text, style, s_centre, a_centre, cap_m, squeeze=1.0, max_len=None):
         size = int(cap_m / 0.68 * px_per_m)                  # cap height is about 0.68 of the em
@@ -155,7 +162,11 @@ def tattoo_chart(side, px_per_m=8000):
         if max_len and tw > max_len * px_per_m:
             tw = int(max_len * px_per_m)
         tile = tile.resize((max(1, tw), tile.height), Image.LANCZOS)
-        tile = tile.transpose(Image.ROTATE_180)              # columns run toward the wrist: elbow -> wrist
+        # across the arm: the baseline runs round the forearm (+arc, chart rows), the letters' tops toward the
+        # elbow (+s, chart columns)
+        tile = tile.transpose(Image.ROTATE_270)
+        if mirror:
+            tile = tile.transpose(Image.FLIP_TOP_BOTTOM)
         x = int((s_centre - s0) * px_per_m - tile.width / 2)
         y = int((a_centre - a0) * px_per_m - tile.height / 2)
         img.paste(255, (x, y), tile)
@@ -164,16 +175,23 @@ def tattoo_chart(side, px_per_m=8000):
     if side == "right":
         for r in rows[:2]:
             if r.get("style") == "script":
-                put(r["text"], "script", 0.150, -0.026, 0.017, 1.0, max_len=0.09)
+                put(r["text"], "script", 0.168, 0.004, 0.016, 1.0, max_len=0.075)
             else:
-                put(r["text"], "blackletter", 0.180, 0.010, 0.028, 0.95, max_len=0.13)
+                put(r["text"], "roman", 0.203, 0.000, 0.021, 0.96, max_len=0.085)
     else:
         for i, r in enumerate(rows[:3]):
-            put(r["text"], "roman", 0.150 + 0.006 * i, 0.020 - 0.031 * i, 0.022, 0.92, max_len=0.12)
-    # healed ink: a 0.4 mm bleed into the dermis and a faint halo
-    core = img.filter(ImageFilter.GaussianBlur(px_per_m * 0.00022))
-    halo = img.filter(ImageFilter.GaussianBlur(px_per_m * 0.0006))
-    a = np.maximum(np.asarray(core, dtype=np.float32), 0.35 * np.asarray(halo, dtype=np.float32)) / 255.0
+            put(r["text"], "roman", 0.168 + 0.026 * i, 0.004, 0.014, 0.95, max_len=0.065)
+    a = np.asarray(img, dtype=np.float32) / 255.0
+    # slightly ragged edges (needle work, 0.15 mm), then a 0.3 mm bleed into the dermis and a faint halo
+    rng = np.random.default_rng(31 if side == "right" else 32)
+    jit = rng.random(a.shape, dtype=np.float32)
+    jit = np.asarray(Image.fromarray((jit * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(px_per_m * 0.00025)),
+                     dtype=np.float32) / 255.0
+    a = np.clip((a - 0.5) * 1.0 + (jit - 0.5) * 0.9 + 0.5, 0, 1)
+    base = Image.fromarray((a * 255).astype(np.uint8))
+    core = np.asarray(base.filter(ImageFilter.GaussianBlur(px_per_m * 0.00016)), dtype=np.float32) / 255.0
+    halo = np.asarray(base.filter(ImageFilter.GaussianBlur(px_per_m * 0.0006)), dtype=np.float32) / 255.0
+    a = np.maximum(np.clip((core - 0.5) * 1.6 + 0.5, 0, 1), 0.22 * halo)
     return np.clip(a, 0, 1), s0, a0, px_per_m
 
 
@@ -393,11 +411,11 @@ def skin_texels(R, P, N, region, side, charts):
             mm = (side[fo] > 0.5) == bool(sd)
             if mm.any():
                 ink[mm] = _sample(charts[key], s[fo][mm], arc[mm])
-        ink *= 0.86 + 0.14 * T.fbm(P[fo], 1 / 0.003, 2, seed=218)                # uneven take-up
+        ink *= 0.88 + 0.12 * T.fbm(P[fo], 1 / 0.003, 2, seed=218)                # uneven take-up
         b = bc[fo]
         lum = (b @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)) / float(base @ np.array([0.2126, 0.7152, 0.0722]))
         inkc = INK_REL[None] * lum[:, None]                                      # ink under this skin's own shade
-        bc[fo] = b * (1 - 0.88 * ink)[:, None] + inkc * (0.88 * ink)[:, None]
+        bc[fo] = b * (1 - 0.94 * ink)[:, None] + inkc * (0.94 * ink)[:, None]
         rough[fo] = rough[fo] * (1 - 0.5 * ink) + 0.62 * 0.5 * ink
 
     # ---- nails: a pink-brown bed matched to the skin, faint lunula, thin free edge, fine ridges
@@ -423,8 +441,9 @@ def skin_texels(R, P, N, region, side, charts):
     return bc.astype(np.float32), np.clip(rough, 0.25, 0.85).astype(np.float32), h.astype(np.float32)
 
 
-# blue-black healed ink relative to the skin's mean (linear 0.02-0.03 on his skin), slight green-blue ageing
-INK_REL = np.array([0.020, 0.026, 0.030], dtype=np.float32) / float(SKIN_TARGET.mean())
+# blue-black healed ink relative to the skin's mean, slight green-blue ageing. Hands-and-tattoos pass: the photo's
+# ink is about a fifth of the skin's luminance (it read as a faded grey smudge at a third): linear 0.010-0.016
+INK_REL = np.array([0.0105, 0.0135, 0.0160], dtype=np.float32) / float(SKIN_TARGET.mean())
 
 
 def backh_density(R, Q, lab, tt, cosd, pal, hand):

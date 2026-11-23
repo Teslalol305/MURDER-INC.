@@ -190,3 +190,72 @@ CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_Pickup_
 00:00.278  cycles           | WARNING CUEW initialization failed: Error opening the library
 CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_Pickup_door.jpg (1.0634260773658752, -1.674000027179718, 1.422319965362549) (0.5134260773658752, -0.924000027179718, 1.1223199653625489) 28
 == --close Pickup interior
+00:00.284  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_Pickup_interior.jpg (0.5080997705459595, 1.2988821148872376, 1.6239295482635498) (0.6080997705459594, -0.051117885112762496, 1.0239295482635498) 24
+== --close Van wheel
+00:00.331  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_Van_wheel.jpg (2.25, -1.9239999771118164, 0.81) (1.65, -0.8239999771118164, 0.41) 30
+== --close Van lamp
+00:00.270  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_Van_lamp.jpg (3.1634272289276124, -1.036866648197174, 1.1950000214576721) (2.5234272289276123, -0.33927665650844574, 0.8950000214576721) 32
+== --close Van door
+00:00.305  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_Van_door.jpg (2.138473629951477, -1.6539999866485595, 1.4454129505157471) (1.588473629951477, -0.9039999866485595, 1.145412950515747) 28
+== --close Van interior
+00:00.349  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_Van_interior.jpg (1.5990103244781495, 1.3286572575569153, 1.8429288148880005) (1.6990103244781494, -0.02134274244308476, 1.2429288148880004) 24
+== --close BoxTruck wheel
+00:00.328  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_BoxTruck_wheel.jpg (3.5, -2.1952659606933596, 0.8898) (2.9000000000000004, -1.0952659606933595, 0.4898) 30
+== --close BoxTruck lamp
+00:00.338  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_BoxTruck_lamp.jpg (4.322857971191406, -1.0996060800552367, 1.2908181238174439) (3.6828579711914062, -0.37378334403038027, 0.9908181238174438) 32
+== --close BoxTruck door
+00:00.359  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_BoxTruck_door.jpg (2.646944046020508, -1.8786996030807495, 1.6936624813079835) (2.096944046020508, -1.1286996030807495, 1.3936624813079834) 28
+== --close BoxTruck interior
+00:00.380  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_BoxTruck_interior.jpg (1.897252655029297, 1.3582911968231202, 1.85) (1.9972526550292968, 0.008291196823120073, 1.8859393119812011) 24
+== --close IPXTruck wheel
+00:00.343  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_IPXTruck_wheel.jpg (2.5999999999999996, -2.1900000095367433, 0.9501) (1.9999999999999998, -1.0900000095367433, 0.5501) 30
+== --close IPXTruck lamp
+00:00.417  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_IPXTruck_lamp.jpg (3.731245632171631, -0.9199999999999999, 1.88777485370636) (3.091245632171631, -0.275, 1.5877748537063598) 32
+== --close IPXTruck door
+00:00.274  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_IPXTruck_door.jpg (1.763182282447815, -1.930000009536743, 2.4853320884704586) (1.213182282447815, -1.180000009536743, 2.185332088470459) 28
+== --close IPXTruck interior
+00:00.374  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_IPXTruck_interior.jpg (0.840978479385376, 1.471229898929596, 1.85) (0.9409784793853759, 0.1212298989295959, 2.0526806831359865) 24
+== --close BurnedCar wheel
+00:00.287  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_BurnedCar_wheel.jpg (1.97, -1.81, 0.66) (1.3699999999999999, -0.71, 0.26) 30
+== --close BurnedCar lamp
+00:00.315  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_BurnedCar_lamp.jpg (2.77, -1.0, 0.88) (2.13, -0.319, 0.58) 32
+== --close BurnedCar door
+00:00.280  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_BurnedCar_door.jpg (0.6710808575153351, -1.54999995470047, 1.0223925280570985) (0.1210808575153351, -0.7999999547004699, 0.7223925280570984) 28
+== --close BurnedCar interior
+00:00.333  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_BurnedCar_interior.jpg (0.19999999999999998, 1.4100000000000001, 1.3) (0.3, 0.05999999999999994, 0.7) 24
+== --close StrippedCar wheel
+00:00.359  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_StrippedCar_wheel.jpg (1.97, -1.81, 0.9199999999999999) (1.3699999999999999, -0.71, 0.52) 30
+== --close StrippedCar lamp
+00:00.374  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_StrippedCar_lamp.jpg (2.77, -1.0, 1.06) (2.13, -0.319, 0.76) 32
+== --close StrippedCar door
+00:00.367  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_StrippedCar_door.jpg (0.6685844361782074, -1.5500000143051147, 1.3178365993499757) (0.11858443617820741, -0.8000000143051147, 1.0178365993499756) 28
+== --close StrippedCar interior
+00:00.274  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_StrippedCar_interior.jpg (0.19999999999999998, 1.4100000000000001, 1.55) (0.3, 0.05999999999999994, 0.95) 24
+== --close Motorbike wheel
+00:00.344  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_Motorbike_wheel.jpg (1.24, -1.26, 0.76) (0.6399999999999999, -0.16, 0.36) 30
+== --close Motorbike lamp
+00:00.325  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_Motorbike_lamp.jpg (1.1524679017066957, -0.5497172307968139, 1.0500002789497376) (0.5124679017066955, -0.07134447693824769, 0.7500002789497375) 32
+DONE
