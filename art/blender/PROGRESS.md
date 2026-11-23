@@ -506,3 +506,13 @@ previews goons_lineup/_hoodie_hero/_detail/_poses/_wire, CHARACTERS.md.
 - [x] structures_station_up.jpg rendered (2K texture cap, 966 s) and looked at: treads, nosings, lattice
       balustrades, canopy and bridge enclosure read; the doorway into the bridge at the head is black (no daytime light
       inside the bridge). Task complete; all five previews in art/previews.
+
+---------------------------------------------------------------------------------------------------------------
+# Weapons rebuild round 2 (senior weapon artist): critique NINE 2/5, CHOPPER 2.5/5
+Order: NINE first (grip junction with the magazine line restored to the brief, beavertail + hammer, guard / dust
+cover / rail, slide machining, panels, slide stop + safety, base pad, hammer channel; then the slide finish, frame
+wear, panel checkering), then the CHOPPER (trigger clearance, rear trunnion / cover, magazine, handguards, grip,
+guard, stock, controls, front end, finishes). Code: assets/_weapons_nine.py, _weapons_chopper.py, _weapons_tex.py,
+_weapons_kit.py (my files); mi/ untouched.
+## Status
+- started (the first attempt of round 2 left no changes on disk).
