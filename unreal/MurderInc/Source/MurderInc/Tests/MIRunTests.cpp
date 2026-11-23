@@ -39,6 +39,8 @@ namespace MIRunTestsPrivate
 			World = UWorld::CreateWorld(EWorldType::Game, false, TEXT("MIRunWorld"));
 			FWorldContext& Context = GEngine->CreateNewWorldContext(EWorldType::Game);
 			Context.SetCurrentWorld(World);
+			// A bare world's persistent level is not marked visible: the tick task manager skips invisible levels.
+			World->PersistentLevel->bIsVisible = true;
 			World->InitializeActorsForPlay(FURL());
 			World->BeginPlay();
 			if (!World->GetBegunPlay())

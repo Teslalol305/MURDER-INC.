@@ -178,6 +178,11 @@ void AMIGoon::Setup(int32 InSlot, const FMIEnemyLook& Look, const FMIGoonTune& I
 	{
 		Variants.Add(Cast<USkeletalMesh>(Path.TryLoad()));
 	}
+	if (Variants.Num() > 0 && Variants[0])
+	{
+		GetMesh()->SetSkinnedAssetAndUpdate(Variants[0], true);  // the sockets the gun hangs on
+		ShownVariant = 0;
+	}
 	AnimClass = Look.GoonAnimClass.TryLoadClass<UAnimInstance>();
 	for (const TPair<FName, FSoftObjectPath>& D : Look.GoonDeath)
 	{
