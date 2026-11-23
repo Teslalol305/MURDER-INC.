@@ -42,6 +42,9 @@ public:
 	void MIMenu(const FString& Command);
 	UFUNCTION(Exec)
 	void MIInteract(float Value);
+	/** MIShot <file.png>: the game viewport with its widgets (the set-up screens) and the HUD, as the player sees it. */
+	UFUNCTION(Exec)
+	void MIShot(const FString& Path);
 	/** MISetup dump: the remembered set-up as JSON. */
 	UFUNCTION(Exec)
 	void MISetup(const FString& Command);

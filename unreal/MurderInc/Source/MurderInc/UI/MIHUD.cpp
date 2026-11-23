@@ -255,11 +255,11 @@ void AMIHUD::DrawWeaponBar(const AMIPlayerCharacter& Player, UMIGameSubsystem* G
 			DrawRect(Gold(), X, Y, 4.0 * K, SH);
 		}
 		DrawText(Glyphs[FMath::Clamp(I, 0, 3)], bCurrent ? Gold() : InkFaint(), X + 10.0 * K, Y + 6.0 * K, Small, static_cast<float>(K * 0.85));
-		DrawText(D.Name, bCurrent ? Ink() : InkDim(), X + 26.0 * K, Y + 2.0 * K, Big, static_cast<float>(K * 0.95));
+		DrawText(D.Name, bCurrent ? Ink() : InkDim(), X + 24.0 * K, Y + 4.0 * K, Big, static_cast<float>(K * 0.78));
 		// Magazine pips (one per round, up to 30 shown) and the count.
 		const int32 Mag = R.GetMagOf(I);
 		const int32 Shown = FMath::Min(D.MagSize, 30);
-		const double PipW = (SW - 64.0 * K) / FMath::Max(1, Shown);
+		const double PipW = (SW - 70.0 * K) / FMath::Max(1, Shown);
 		for (int32 P = 0; P < Shown; ++P)
 		{
 			const bool bFull = P < FMath::CeilToInt32(static_cast<double>(Mag) * Shown / FMath::Max(1, D.MagSize));
@@ -267,14 +267,14 @@ void AMIHUD::DrawWeaponBar(const AMIPlayerCharacter& Player, UMIGameSubsystem* G
 		}
 		const FString Count = FString::Printf(TEXT("%d"), Mag);
 		float TW = 0.f, TH = 0.f;
-		GetTextSize(Count, TW, TH, Big, static_cast<float>(K * 0.8));
-		DrawText(Count, Mag == 0 ? Red() : (bCurrent ? Ink() : InkDim()), X + SW - TW - 10.0 * K, Y + SH - TH - 4.0 * K, Big, static_cast<float>(K * 0.8));
+		GetTextSize(Count, TW, TH, Big, static_cast<float>(K * 0.9));
+		DrawText(Count, Mag == 0 ? Red() : (bCurrent ? Ink() : InkDim()), X + SW - TW - 10.0 * K, Y + SH - TH - 2.0 * K, Big, static_cast<float>(K * 0.9));
 		// AUTO / SEMI on a gun with both modes.
 		if (R.HasTwoModes(I))
 		{
 			const FString Mode = Loadout ? Loadout->Text(R.IsSemi(I) ? TEXT("frontend.hud.modes.semi") : TEXT("frontend.hud.modes.auto")) : FString(R.IsSemi(I) ? TEXT("SEMI") : TEXT("AUTO"));
 			GetTextSize(Mode, TW, TH, Small, static_cast<float>(K * 0.75));
-			DrawText(Mode, Cyan(), X + SW - TW - 10.0 * K, Y + 6.0 * K, Small, static_cast<float>(K * 0.75));
+			DrawText(Mode, Cyan(), X + SW - TW - 10.0 * K, Y + 8.0 * K, Small, static_cast<float>(K * 0.7));
 		}
 		// One pip per fitted non-baseline attachment.
 		int32 Pips = 0;

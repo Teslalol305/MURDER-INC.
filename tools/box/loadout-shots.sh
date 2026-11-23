@@ -12,18 +12,14 @@ mkdir -p "$out"
 log=$MI_LOGS/editor.log
 mark=$(wc -l < "$log")
 settle() { local i; for i in $(seq 1 "${1:-20}"); do pie_mcp tool SceneCaptureToolset.SceneCaptureToolset.CaptureEditorViewport '{}' > /dev/null 2>&1; done; }
-# A picture with the UI (the Slate front end and the HUD): the engine's screenshot with its widgets. Headless, it is
-# the whole editor window: the play-in-editor viewport is cut out of it (1512 x 770).
+# A picture with the UI: MIShot reads back the game viewport widget with its Slate screens and the HUD.
 ui_shot() {
-  local dir=$MI_PROJECT_DIR/Saved/Screenshots f="" i
-  rm -rf "$dir"
-  pie_con "shot showui" > /dev/null
-  for i in 1 2 3 4 5 6 7 8 9 10; do
-    pie_mcp tool SceneCaptureToolset.SceneCaptureToolset.CaptureEditorViewport '{}' > /dev/null 2>&1
-    f=$(find "$dir" -name '*.png' 2>/dev/null | head -1); [ -n "$f" ] && break
-  done
-  [ -n "$f" ] || { echo "UI SHOT FAILED: $1"; return 1; }
-  "$(mi_python)" -c "from PIL import Image; im = Image.open('$f').convert('RGB'); im = im.crop((12, 238, 1524, 1008)) if im.size == (1920, 1080) else im; im.save('$1', quality=86)" && echo "UI SHOT $1"
+  local png=$MI_LOGS/_uishot.png i
+  rm -f "$png"
+  pie_con "MIShot $png" > /dev/null
+  for i in 1 2 3 4 5 6; do [ -f "$png" ] && break; pie_mcp tool SceneCaptureToolset.SceneCaptureToolset.CaptureEditorViewport '{}' > /dev/null 2>&1; done
+  [ -f "$png" ] || { echo "UI SHOT FAILED: $1"; return 1; }
+  "$(mi_python)" -c "from PIL import Image; Image.open('$png').convert('RGB').save('$1', quality=86)" && echo "UI SHOT $1"
 }
 fe() { pie_con "MIMenu fe $*" > /dev/null; }
 

@@ -186,7 +186,17 @@ void AMIShowroom::Setup(const TSharedPtr<FJsonObject>& Frontend, const FMIViewmo
 	// The arms at the eye, over the bench where the stage lights fall (the turntable gun hides meanwhile).
 	ArmsCamera->SetRelativeLocation(TableAt + FVector(-60.0, -4.0, 62.0));
 	ArmsCamera->SetRelativeRotation(FRotator(-6.0, 0.0, 0.0));
-	ArmsCamera->SetFieldOfView(MIJson::NumberOr(Frontend, S + TEXT("cameras.arms.fov"), 54.0));
+	// The arms exactly as in play: first-person rendering with the viewmodel field of view and scale (the player rig's
+	// camera settings), so the closed shoulders and the body never show.
+	const double ArmsFov = MIJson::NumberOr(Frontend, S + TEXT("cameras.arms.fov"), 54.0);
+	const double HFov = FMath::RadiansToDegrees(2.0 * FMath::Atan(FMath::Tan(FMath::DegreesToRadians(ArmsFov) * 0.5) * 16.0 / 9.0));
+	ArmsCamera->SetFieldOfView(HFov);
+	ArmsCamera->bEnableFirstPersonFieldOfView = true;
+	ArmsCamera->bEnableFirstPersonScale = true;
+	ArmsCamera->SetFirstPersonFieldOfView(HFov);
+	ArmsCamera->SetFirstPersonScale(View ? View->FirstPersonScale : 0.6);
+	Arms->SetFirstPersonPrimitiveType(EFirstPersonPrimitiveType::FirstPerson);
+	ArmsGun->SetFirstPersonPrimitiveType(EFirstPersonPrimitiveType::FirstPerson);
 	UseShot(EShot::Turntable);
 }
 
@@ -391,11 +401,11 @@ void AMIShowroom::Tick(float DeltaSeconds)
 	FVector Target = Pivot->GetRelativeLocation() + Pivot->GetRelativeRotation().RotateVector(FocusOffset);
 	// Stand off far enough to frame the whole gun (its bounding sphere) in the camera's horizontal field of view.
 	const double Half = FMath::Tan(FMath::DegreesToRadians(CamFov * 0.5));
-	const double Distance = FMath::Max((CamFrom - CamTo).Size(), GunRadius * 1.35 / FMath::Max(0.05, Half));
+	const double Distance = FMath::Max((CamFrom - CamTo).Size(), GunRadius * 1.9 / FMath::Max(0.05, Half));
 	const FVector Arm = FRotator(Pitch, 0.0, 0.0).RotateVector((CamFrom - CamTo).GetSafeNormal()) * Distance / (ZoomK * FocusZoom);
 	// The controls take the left 40 % of the screen: the look-at point moves left so the gun sits in the free part.
 	const FVector Right = FVector::CrossProduct(FVector::UpVector, -Arm).GetSafeNormal();
-	Target -= Right * (Arm.Size() * Half * 0.42);
+	Target -= Right * (Arm.Size() * Half * 0.30);
 	TurntableCamera->SetRelativeLocation(Target + Arm);
 	TurntableCamera->SetRelativeRotation((Target - (Target + Arm)).Rotation());
 	// The arms' dip to black on a crew change.

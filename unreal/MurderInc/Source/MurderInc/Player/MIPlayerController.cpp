@@ -12,7 +12,11 @@
 #include "Flow/MIGameSubsystem.h"
 #include "Player/MIPlayerCharacter.h"
 #include "Flow/MIRunSetupSubsystem.h"
+#include "Engine/GameViewportClient.h"
+#include "Framework/Application/SlateApplication.h"
+#include "ImageUtils.h"
 #include "Misc/FileHelper.h"
+#include "Widgets/SViewport.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "UI/MIFrontEnd.h"
@@ -379,6 +383,33 @@ void AMIPlayerController::MIMenu(const FString& Command)
 			G->MenuConfirm();
 		}
 	}
+}
+
+void AMIPlayerController::MIShot(const FString& Path)
+{
+	UGameViewportClient* Client = GetWorld() ? GetWorld()->GetGameViewport() : nullptr;
+	TSharedPtr<SViewport> Widget = Client ? Client->GetGameViewportWidget() : nullptr;
+	TArray<FColor> Pixels;
+	FIntVector Size;
+	if (!Widget.IsValid() || !FSlateApplication::IsInitialized())
+	{
+		UE_LOG(LogMI, Error, TEXT("MIShot: no game viewport"));
+		return;
+	}
+	TSharedRef<SWidget> Ref = Widget.ToSharedRef();
+	if (!FSlateApplication::Get().TakeScreenshot(Ref, Pixels, Size) || Pixels.Num() == 0)
+	{
+		UE_LOG(LogMI, Error, TEXT("MIShot: the viewport could not be read back"));
+		return;
+	}
+	for (FColor& C : Pixels)
+	{
+		C.A = 255;
+	}
+	TArray64<uint8> Png;
+	FImageUtils::PNGCompressImageArray(Size.X, Size.Y, TArrayView64<const FColor>(Pixels.GetData(), Pixels.Num()), Png);
+	const bool bSaved = FFileHelper::SaveArrayToFile(Png, *Path);
+	UE_LOG(LogMI, Log, TEXT("MIShot: %s %d x %d %s"), *Path, Size.X, Size.Y, bSaved ? TEXT("saved") : TEXT("NOT saved"));
 }
 
 void AMIPlayerController::MISetup(const FString& Command)
