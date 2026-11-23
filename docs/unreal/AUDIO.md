@@ -371,15 +371,22 @@ whose files are missing falls back to the web sound.
   present), so a real play session can be rendered the same way.
 - `MurderInc.Audio.Mixdown` replays it through the director at 100 Hz and renders `Saved/Audio/fight_mixdown.wav`
   (stereo 48 kHz 16-bit) with `FMIOfflineMix`: the same commands and mix state, the spec's distance model, air
-  absorption, equal-power panning, a small Schroeder reverb on the sends, the web game's soft clip. It proves the
-  decisions and the mix; it is not the engine's spatialiser.
+  absorption, equal-power panning, a small Schroeder reverb on the sends, the master chain (compressor, x 1.15, the web
+  game's soft clip). It proves the decisions and the mix; it is not the engine's spatialiser.
 - `MurderInc.Audio.EngineRender` (`tools/box/audio-engine-render.sh`) plays the same stream through the engine's
-  own audio mixer on the imported Sound Waves and records the master submix (`Saved/Audio/engine_render.wav`) when the
-  process has an audio device. On the box the SDL dummy driver gives one: 479 components started on the imported
-  assets and the recording announced 55.5 s of 6-channel output, but the first runs quit before the background WAV
-  writer finished; the test now waits for the whole file (re-run pending, PROGRESS.md). The default `test.sh` run has
-  `-NoSound`, so there the test warns and passes.
-- Measured mix-down (offline): 55.9 s, 501 voices, peak -0.1 dBFS after the soft clip, RMS -17 dBFS, 7 voice lines.
+  own audio mixer on the imported Sound Waves, with the master chain on the main submix, and records the main
+  submix (`Saved/Audio/engine_render.wav`) when the process has an audio device (the SDL dummy driver on the box).
+  It removes the previous recording first, waits for the whole file, and **fails** when the recording is shorter than
+  what the device rendered (its own clock, within 0.5 s) or than 90 % of the wall-clock stream, when its peak is
+  under -40 dBFS, or when fewer than three voice lines spoke; it logs the voice lines on the device's clock for
+  `tools/audio/render_report.py --voice`. The default `test.sh` run has `-NoSound`, so there it warns and passes.
+  Proven red: with the make-up at 0.0001 (the chain acting) the recording peaks at -80.8 dBFS and the test fails.
+- **Measured** (`render_report.py`, BS.1770): ENGINEMEASURE
+- What the first engine runs taught: the old recording (65,536 bytes of silence) was a WAV the process quit before
+  writing; a complete file from an earlier run then passed the wait at once (the test now deletes it); the dummy
+  driver's clock runs up to 3 % off the wall clock (the device's clock is the reference now); and master-submix
+  effects added at run time ran on their default settings until their presets' settings are pushed again after the
+  device has made the instances (`FMIMasterChain::Refresh`, for the first two seconds).
 
 ## 8. Open issues
 
@@ -388,5 +395,8 @@ whose files are missing falls back to the web sound.
 - Goon footsteps use one surface (asphalt) until the enemies' step event carries their surface.
 - The engine's convolution reverb with `IR_street` / `IR_shop` instead of the algorithmic presets (needs Impulse
   Response assets).
-- The options screen does not call `SetOptions` yet, and the options are not saved (FMISettings belongs to the
-  gameplay package).
+- The engine's soft clip is a soft-knee limiter (no stock wave-shaper submix effect); its peaks reach 0 dBFS without
+  clipping a sample in the render.
+- Hand-offs to other packages (one line each, PROGRESS.md): the options screen calling `SetOptions`, the crew apply
+  calling `SetCharacter`, the flow emitting `score:best`. Until then clean language is off by default (section 1).
+- The crew members deuce, smoke and keys have no lines (silent by design until their voices exist).

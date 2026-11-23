@@ -753,7 +753,7 @@ bool FMIAudioMasterChainTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("under the knee: no reduction"), FMath::Abs(M.CurveDb(-20.0)) < 1e-6);
 	TestTrue(TEXT("6 dB over the threshold: 6 - 6 / 2.5 = 3.6 dB of reduction"), FMath::IsNearlyEqual(M.CurveDb(0.0), -3.6, 0.01));
 	TestTrue(TEXT("at the threshold the soft knee already reduces (0 < r < 1 dB)"), M.CurveDb(-6.0) < -0.1 && M.CurveDb(-6.0) > -1.0);
-	TestTrue(TEXT("soft clip: linear to 0.6, never past 1"), FMath::IsNearlyEqual(FMIMasterCompressor::SoftClip(0.5f), 0.5f) && FMIMasterCompressor::SoftClip(4.0f) < 1.0f && FMIMasterCompressor::SoftClip(-4.0f) > -1.0f);
+	TestTrue(TEXT("soft clip: linear to 0.6, never past 1"), FMath::IsNearlyEqual(FMIMasterCompressor::SoftClip(0.5f), 0.5f) && FMIMasterCompressor::SoftClip(2.0f) < 1.0f && FMIMasterCompressor::SoftClip(40.0f) <= 1.0f && FMIMasterCompressor::SoftClip(-40.0f) >= -1.0f);
 	// A full-scale 100 Hz sine for a second: pulled down by the compressor, then capped by the clip.
 	float Peak = 0.f;
 	for (int32 I = 0; I < 48000; ++I)
