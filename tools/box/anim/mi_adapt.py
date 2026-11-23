@@ -323,9 +323,14 @@ def two_bone(loc, w, side, target):
 
 
 # ---------------------------------------------------------------- recipes
+def _seg(s):
+    return (s[0], s[1], s[2], s[3], s[4] if len(s) > 4 else 0.0)
+
+
 def warp(segments, t):
-    """segments: [(out0, out1, src0, src1)], piecewise linear time map out -> src."""
-    for o0, o1, s0, s1 in segments:
+    """segments: [(out0, out1, src0, src1[, xf])], piecewise linear time map out -> src (src may run backwards)."""
+    for s in segments:
+        o0, o1, s0, s1, _ = _seg(s)
         if t <= o1 + 1e-9:
             if o1 <= o0:
                 return s0
@@ -333,9 +338,32 @@ def warp(segments, t):
     return segments[-1][3]
 
 
+def src_locals(src, segments, t, start=0.0):
+    """The source pose at output time t: the segment's mapped frame, cross-faded over the segment's first xf seconds
+    from the pose the previous segment ended on (the first segment fades from the source frame `start`), so a jump
+    in source time is a blend, never a pop."""
+    st = warp(segments, t)
+    loc = locals_at(src, st)
+    prev_end = start
+    for i, s in enumerate(segments):
+        o0, o1, s0, s1, xf = _seg(s)
+        if t <= o1 + 1e-9 or i == len(segments) - 1:
+            if xf > 0 and t < o0 + xf and abs(prev_end - s0) > 1e-6:
+                loc = blend_locals(locals_at(src, prev_end), loc, smooth(o0, o0 + xf, t))
+            break
+        prev_end = s1
+    return st, loc
+
+
+# The pack strips no magazine before its fresh one (its quick and empty reloads drop the old magazine while the
+# left hand goes to the pouch, the shoulder swinging 33 cm back, out of reach of our magazine; its retention reload
+# fetches the fresh one first). Our rule takes the old magazine out first (0.27 to 0.68), so that phase plays the
+# pack's own seating motion backwards (hand on a seated magazine rocking it out and down), then cross-fades to
+# the pack's pouch frames and runs forward from there.
 RELOAD_TACTICAL = {
     "name": "A_{fp}_Chopper_ReloadTactical", "src": "Reload_Quick", "length": 2.24,
-    "segments": [(0.0, 0.40, 0.0, 0.40), (0.40, 0.80, 0.40, 0.80), (0.80, 1.15, 0.80, 1.10), (1.15, 1.44, 1.10, 1.467),
+    "segments": [(0.0, 0.27, 1.467, 1.467, 0.27), (0.27, 0.68, 1.467, 1.00), (0.68, 0.80, 0.70, 0.80, 0.08),
+                 (0.80, 1.15, 0.80, 1.10), (1.15, 1.44, 1.10, 1.467),
                  (1.44, 1.625, 1.467, 1.80), (1.625, 2.22, 1.80, 2.067), (2.22, 2.24, 2.067, 2.10)],
     "knob": {"in": (1.80, 1.88), "out": (1.98, 2.08), "pull": [(1.89, 0.0), (1.93, 0.32), (1.98, 0.0)]},
     "marks": {"magOut": 0.40, "magShow": 0.80, "magInsert": 1.15, "magIn": 1.44, "tug": 1.565, "bolt": 1.89,
@@ -343,7 +371,8 @@ RELOAD_TACTICAL = {
 }
 RELOAD_EMPTY = {
     "name": "A_{fp}_Chopper_ReloadEmpty", "src": "Reload_Empty", "length": 2.72,
-    "segments": [(0.0, 0.40, 0.0, 0.40), (0.40, 0.80, 0.40, 0.80), (0.80, 1.15, 0.80, 1.10), (1.15, 1.44, 1.10, 1.333),
+    "segments": [(0.0, 0.27, 1.40, 1.40, 0.27), (0.27, 0.68, 1.40, 1.00), (0.68, 0.80, 0.70, 0.80, 0.08),
+                 (0.80, 1.15, 0.80, 1.10), (1.15, 1.44, 1.10, 1.333),
                  (1.44, 1.625, 1.333, 1.533), (1.625, 1.96, 1.533, 1.80), (1.96, 2.155, 1.80, 2.467),
                  (2.155, 2.66, 2.467, 2.733), (2.66, 2.72, 2.733, 2.80)],
     "knob": {"in": (1.70, 1.96), "out": (2.155, 2.45), "pull": [(1.96, 0.0), (2.07, 1.0), (2.155, 1.0), (2.40, 0.0)]},
@@ -617,8 +646,7 @@ def adapt_reload(recipe, view="FP"):
     frames, parts_t = [], []
     for i in range(n):
         t = min(i / FPS, L)
-        st = warp(recipe["segments"], t)
-        loc = locals_at(src, st)
+        st, loc = src_locals(src, recipe["segments"], t)
         extra["fingers"] = fingers_of(lq)
         extra["fingers_w"] = 0.0
         extra["pack_mag_now"] = _pack_reserve(wep, st)
