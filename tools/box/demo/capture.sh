@@ -45,7 +45,10 @@ run() {
   rm -f "$MI_PROJECT_DIR/Saved/Audio/$name.json"
   cd "$MI_ENGINE" || exit 1
   # -RenderOffscreen: windows abort on this box (BOX.md 1). -NoSound: the sound is rendered from the recorded bus.
-  timeout 3600 env "UE-LocalDataCachePath=$MI_DDC" ./Engine/Binaries/Linux/UnrealEditor "$MI_UPROJECT" /Game/Maps/L_Block -game \
+  # DEMO_GDB=1: under gdb, for a call stack when the game crashes (the log only says "Signal 11 caught").
+  local dbg=()
+  [ -n "${DEMO_GDB:-}" ] && dbg=(gdb -q -batch -ex "handle SIGPIPE nostop noprint" -ex "handle SIGUSR1 nostop noprint" -ex "handle SIGUSR2 nostop noprint" -ex run -ex "thread apply 1 bt 40" -ex bt --args)
+  timeout 3600 env "UE-LocalDataCachePath=$MI_DDC" "${dbg[@]}" ./Engine/Binaries/Linux/UnrealEditor "$MI_UPROJECT" /Game/Maps/L_Block -game \
     -RenderOffscreen -unattended -nosplash -NoSound -nopause -windowed -ResX=1920 -ResY=1080 -benchmark -fps=60 -deterministic \
     -stdout -FullStdOutLogOutput "-ExecCmds=MIDemo.Run $scr" "${MI_CACHE_ARGS[@]}" "${MI_EDITOR_ARGS[@]}" > "$dir/$name-game.log" 2>&1
   echo "game exit code $?" >> "$dir/$name-game.log"

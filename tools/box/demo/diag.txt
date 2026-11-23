@@ -1,0 +1,33 @@
+# Diagnostic take: impact dust, the NINE firing, a propane tank blown (tools/box/demo/capture.sh start diag.txt diag)
+wait 3
+con MIStart mission skip
+waitstate playing 15
+god 1
+con MIPose -1000 -150 0 -48 -4
+wait 1.5
+capture @FIFO@
+wait 0.5
+con MIInput fire 1
+wait 0.6
+con MIInput fire 0
+wait 1.2
+con MIInput weapon2 1
+wait 1.4
+con MIInput ads 1
+wait 0.6
+con MIInput fire 1
+wait 0.1
+con MIInput fire 0
+wait 0.3
+con MIInput fire 1
+wait 0.1
+con MIInput fire 0
+wait 0.3
+con MIInput fire 1
+wait 0.1
+con MIInput fire 0
+wait 1.0
+con MIBlowNearest
+wait 3.0
+capture off
+quit
