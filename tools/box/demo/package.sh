@@ -6,6 +6,7 @@
 #
 #   package.sh snapshot   copy the gameplay clone's project (Source, Config, Content with the imported art, the
 #                         editor module in Binaries) to /project/ue/repo-release and apply the demo settings
+#   package.sh overlay    re-apply the demo settings to the copy (its Config taken again from the gameplay clone)
 #   package.sh start      BuildCookRun (build the game target, cook L_Block, stage, pak, archive) detached
 #   package.sh status     RUNNING / OK / FAILED, the minutes so far and the last log lines
 #   package.sh stop       stop a package run (its process group)
@@ -46,9 +47,21 @@ overlay() {
 [/Script/UnrealEd.ProjectPackagingSettings]
 BuildConfiguration=PPBC_Development
 +MapsToCook=(FilePath="/Game/Maps/L_Block")
-; The game loads much of its art by path from Content/Data/*.json (arms, guns, Goons, effects, sounds): nothing in
-; the map references it, so the cooker would leave it out ("the /Game/FX materials are not in this project").
-+DirectoriesToAlwaysCook=(Path="/Game")
+; The game loads much of its art by path from Content/Data/*.json (arms, guns, Goons, effects, sounds, the Goons'
+; animation blueprint): nothing in the map references it, so the cooker would leave it out ("the /Game/FX materials
+; are not in this project"). Not all of /Game: the template's first-person animation blueprints in Variant_Shooter
+; no longer compile (their C++ classes are gone) and are never used; -IgnoreCookErrors lets the cook pass them.
++DirectoriesToAlwaysCook=(Path="/Game/Art")
++DirectoriesToAlwaysCook=(Path="/Game/Audio")
++DirectoriesToAlwaysCook=(Path="/Game/Characters")
++DirectoriesToAlwaysCook=(Path="/Game/FX")
++DirectoriesToAlwaysCook=(Path="/Game/FirstPerson")
++DirectoriesToAlwaysCook=(Path="/Game/ThirdParty")
++DirectoriesToAlwaysCook=(Path="/Game/Weapons")
++DirectoriesToAlwaysCook=(Path="/Game/Input")
++DirectoriesToAlwaysCook=(Path="/Game/Variant_Shooter")
+; The interface fonts are read as files from Content/Fonts (UI/MIStyle.cpp), like the data.
++DirectoriesToAlwaysStageAsNonUFS=(Path="Fonts")
 bUseIoStore=True
 bShareMaterialShaderCode=True
 ; The cooker writes into Zen storage by default in 5.9, and the box cannot reach a Zen server (BOX.md section 1):
@@ -70,7 +83,7 @@ start() {
     echo $$ > '"$WORK"'/package.pid
     cd '"$ENGINE"' && env UE-LocalDataCachePath=/project/ue/ddc ./Engine/Build/BatchFiles/RunUAT.sh BuildCookRun -project='"$DEMO"'/MurderInc.uproject \
       -noP4 -utf8output -unattended -platform=Linux -clientconfig=Development -target=MurderInc \
-      -build -nocompileeditor "-UbtArgs=-NoUBA -WaitMutex" -cook -map=/Game/Maps/L_Block -stage -pak -iostore \
+      -build -nocompileeditor "-UbtArgs=-NoUBA -WaitMutex" -cook -IgnoreCookErrors -map=/Game/Maps/L_Block -stage -pak -iostore \
       -archive -archivedirectory='"$OUT"' -prereqs \
       "-AdditionalCookerOptions=-DDC=(ProjectPak,InstalledProjectPak,EnginePak=InstalledEnginePak,EnterprisePak,InstalledLocal) -ini:Engine:[Zen]:AutoLaunch=false -ini:Engine:[ConsoleVariables]:AssetRegistry.DisableDirectoryWatcher=1"
     rc=$?; date +%s > '"$WORK"'/package.end
@@ -94,6 +107,7 @@ status() {
 
 case "$1" in
   snapshot) snapshot ;;
+  overlay) cp "$SRC/Config/"*.ini "$DEMO/Config/" && overlay && chown -R ue4 "$DEMO/Config" && echo "OVERLAY OK" ;;
   start) start ;;
   status) status ;;
   stop) stop ;;
