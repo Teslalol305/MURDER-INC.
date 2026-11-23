@@ -172,3 +172,12 @@ CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_SUV_whe
 00:00.403  cycles           | WARNING CUEW initialization failed: Error opening the library
 CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_SUV_lamp.jpg (2.918694133758545, -1.0328273010253906, 1.2150000023841858) (2.278694133758545, -0.3370550155639649, 0.9150000023841858) 32
 == --close SUV door
+== --compose Van_Vulture
+SHEET /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/review_Van_Vulture.jpg
+== --close SUV door
+00:00.374  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_SUV_door.jpg (0.8261732459068298, -1.6739999675750732, 1.300770835876465) (0.27617324590682985, -0.9239999675750732, 1.0007708358764649) 28
+== --close SUV interior
+00:00.361  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_SUV_interior.jpg (-0.32484556138515475, 1.3415399670600892, 1.4747314929962159) (-0.2248455613851547, -0.008460032939910933, 0.8747314929962158) 24
+== --close Pickup wheel
