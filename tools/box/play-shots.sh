@@ -37,7 +37,7 @@ settle 30
 pie_shot "$out/$p-1.jpg"
 pie_state | head -3
 # 2 aimed down the avenue from under the El, looking east
-pose -2300 -250 0 0 0
+pose -2900 80 0 0 0
 pie_con "MIInput ads 1" > /dev/null
 settle 30
 pie_shot "$out/$p-2.jpg"
