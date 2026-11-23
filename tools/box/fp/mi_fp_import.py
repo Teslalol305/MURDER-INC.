@@ -186,9 +186,17 @@ def game_skin_profile(path=ARMS + "/Materials/SP_RuleSkin"):
     prof = unreal.load_asset(path)
     st = prof.get_editor_property("settings")
     _set(st, surface_albedo=unreal.LinearColor(0.72, 0.48, 0.36, 1), mean_free_path_color=unreal.LinearColor(1.0, 0.52, 0.32, 1),
-         mean_free_path_distance=0.32, world_unit_scale=0.1)
+         mean_free_path_distance=0.22, world_unit_scale=0.1)
     prof.set_editor_property("settings", st)
     ASSETS.save_asset(path, only_if_is_dirty=False)
+    # the scatter's strength (Opacity on the subsurface-profile model): 1.0 bled the sunlit forearm orange-red
+    skin = ARMS + "/Materials/M_RuleArms_Skin"
+    m = unreal.load_asset(skin)
+    node = MEL.get_material_property_input_node(m, unreal.MaterialProperty.MP_OPACITY)
+    if node is not None and isinstance(node, unreal.MaterialExpressionConstant):
+        node.set_editor_property("r", 0.45)
+        MEL.recompile_material(m)
+        ASSETS.save_asset(skin, only_if_is_dirty=False)
     return path
 
 

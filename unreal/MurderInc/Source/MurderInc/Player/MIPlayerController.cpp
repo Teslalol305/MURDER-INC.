@@ -1,6 +1,10 @@
 #include "Player/MIPlayerController.h"
 
 #include "Kismet/GameplayStatics.h"
+#include "Core/MIDamageable.h"
+#include "EngineUtils.h"
+#include "World/MIBoxWorld.h"
+#include "World/MIExplosive.h"
 #include "Core/MIEvents.h"
 #include "Enemies/MIEnemies.h"
 
@@ -365,13 +369,31 @@ void AMIPlayerController::MIFreezeOn(const FString& Event, float Delay)
 			{
 				FreezeIn = FreezeDelay;
 				FreezeEvent = NAME_None;
-				if (Kind == TEXT("enemyfire"))
-				{
-					MIFaceEnemy(-1.f);  // look at the shooter (the nearest one) for the picture
-				}
+				UE_LOG(LogMI, Log, TEXT("MIFreezeOn: %s, frozen in %.3f s"), *Kind.ToString(), FreezeDelay);
 			}
 		};
-		Events->Enemy.AddWeakLambda(this, [Arm](const FMIEnemyEvent& E) { if (E.Kind == FMIEnemyEvent::EKind::Fire) Arm(TEXT("enemyfire")); });
+		Events->Enemy.AddWeakLambda(this, [this, Arm](const FMIEnemyEvent& E)
+		{
+			// Only a Goon in plain sight within 16 m (the picture is of one firing at the player): look at it.
+			AMIPlayerCharacter* C = GetMICharacter();
+			UWorld* World = GetWorld();
+			if (E.Kind != FMIEnemyEvent::EKind::Fire || E.Type != MIEnemy::EType::Goon || !C || !World || FreezeEvent != TEXT("enemyfire"))
+			{
+				return;
+			}
+			const FVector Head = MI::Web::ToUnreal(E.Pos) + FVector(0, 0, 150.0);
+			const FVector Eye = C->GetPlayerRules().Eye;
+			FHitResult Hit;
+			FCollisionQueryParams Q(SCENE_QUERY_STAT(MIFreezeSight), false, C);
+			if (FVector::Dist(Head, Eye) > 1600.0 || World->LineTraceSingleByChannel(Hit, Eye, Head, ECC_Visibility, Q))
+			{
+				return;
+			}
+			const FVector D = Head - FVector(0, 0, 30.0) - Eye;
+			C->GetPlayerRules().Yaw = FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X));
+			C->GetPlayerRules().Pitch = FMath::RadiansToDegrees(FMath::Atan2(D.Z, D.Size2D()));
+			Arm(TEXT("enemyfire"));
+		});
 		Events->Explosion.AddWeakLambda(this, [Arm](const FMIExplosionEvent&) { Arm(TEXT("explosion")); });
 		Events->WeaponFire.AddWeakLambda(this, [Arm](const FMIShotFiredEvent&) { Arm(TEXT("fire")); });
 		Events->WeaponReload.AddWeakLambda(this, [Arm](const FMIReloadEvent& E) { if (E.Phase == TEXT("start")) Arm(TEXT("reload")); });
@@ -387,6 +409,41 @@ void AMIPlayerController::MIPose(float X, float Y, float Z, float Yaw, float Pit
 		C->TeleportFeet(FVector(X, Y, Z));
 		C->GetPlayerRules().Yaw = Yaw;
 		C->GetPlayerRules().Pitch = Pitch;
+	}
+#endif
+}
+
+void AMIPlayerController::MIBlowNearest()
+{
+#if !UE_BUILD_SHIPPING
+	AMIPlayerCharacter* C = GetMICharacter();
+	if (!C)
+	{
+		return;
+	}
+	AMIExplosive* Best = nullptr;
+	double BestD = 1e30;
+	for (TActorIterator<AMIExplosive> It(GetWorld()); It; ++It)
+	{
+		const FVector To = It->GetActorLocation() - C->GetActorLocation();
+		if (It->IsMIDamageableAlive() && FVector::DotProduct(To.GetSafeNormal2D(), C->GetPlayerRules().Forward.GetSafeNormal2D()) > 0.8 && To.Size() < BestD)
+		{
+			Best = *It;
+			BestD = To.Size();
+		}
+	}
+	if (Best)
+	{
+		FMIDamage D;
+		D.Amount = 9999.0;
+		D.Kind = EMIDamageKind::Bullet;
+		D.Source = EMIDamageSource::Player;
+		D.From = C->GetPlayerRules().Eye;
+		D.Point = Best->GetActorLocation();
+		D.Direction = (D.Point - D.From).GetSafeNormal();
+		D.Instigator = C;
+		Best->ApplyMIDamage(D);
+		UE_LOG(LogMI, Log, TEXT("MIBlowNearest: %s at %.0f m"), *Best->GetName(), BestD / 100.0);
 	}
 #endif
 }

@@ -45,7 +45,7 @@ c "MIInput ads 0"
 c "MIPose -2900 80 0 0 6"; c "MIInput fire 1"; run 0.4; c "MIInput fire 0"; run 0.3
 c "MIFreezeOn reload 1.2"; c "MIInput reload 1"; sleep 5; c "MIInput reload 0"; shot fp-reload-tactical
 # 5 mid empty reload: the magazine dropped and falling (the auto reload after the last round)
-c "MIInput fire 1"; c "MIFreezeOn reload 0.48"; sleep 12; c "MIInput fire 0"; shot fp-reload-empty
+c "MIInput fire 1"; c "MIFreezeOn reload 0.44"; sleep 12; c "MIInput fire 0"; shot fp-reload-empty
 run 3.0
 # 6 the inspect (a full magazine after the reload)
 c "MIPose 170 -380 0 -35 -4"; run 0.5; c "MIInput inspect 1"; run 2.4; c "MIInput inspect 0"; shot fp-inspect
@@ -57,7 +57,14 @@ c "MIInput ads 0"
 c "MIInput weapon2 1"; run 1.0; c "MIInput weapon2 0"; c "MIPose 170 -380 0 -35 -2"; c "MIInput ads 1"; run 0.8; shot fp-nine
 c "MIInput ads 0"; c "MIInput weapon1 1"; run 1.0; c "MIInput weapon1 0"
 # 9 a Goon firing at the player from 10 m (frozen on its round)
-c "MIFaceEnemy 10"; c "MIFreezeOn enemyfire 0.012"; c "slomo 1"; sleep 20; shot fp-goon
+# (MIFreezeOn enemyfire waits for a Goon in plain sight within 16 m and turns the view onto it)
+m2=$(wc -l < "$log"); c "MIFreezeOn enemyfire 0.012"
+for i in 1 2 3 4 5 6 7 8; do
+  c "MIFaceEnemy 9"; c "slomo 1"; sleep 6
+  tail -n +"$m2" "$log" | grep -q "MIFreezeOn: enemyfire" && break
+done
+tail -n +"$m2" "$log" | grep -m1 "MIFreezeOn: enemyfire" || echo "no Goon fired in sight"
+shot fp-goon
 # 10 an explosion: the nearest explosive, from 9 m, shot until it blows
 cat > "$PIE_PY/_boom.py" <<'PY'
 import math, unreal
@@ -80,7 +87,7 @@ unreal.SystemLibrary.execute_console_command(w, "MIPose %.0f %.0f 0 %.1f %.1f" %
 "explosive at %.0f %.0f %.0f" % (l.x, l.y, l.z)
 PY
 pie_mcp py "$PIE_PY/_boom.py"; run 0.6
-c "MIFreezeOn explosion 0.16"; c "MIInput fire 1"; sleep 14; c "MIInput fire 0"; shot fp-explosion
+c "MIFreezeOn explosion 0.18"; c "MIBlowNearest"; sleep 6; shot fp-explosion
 c "slomo 1"
 tail -n +"$mark" "$log" | grep -E "First person|Effects|Error" | tail -8 | cut -c1-240
 pie_stop > /dev/null

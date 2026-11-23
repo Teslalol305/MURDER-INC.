@@ -71,6 +71,9 @@ public:
 	/** Dev: MIPose <x> <y> <feet z> <yaw> <pitch>: the player's feet there (Unreal cm) looking that way (degrees). */
 	UFUNCTION(Exec)
 	void MIPose(float X, float Y, float Z, float Yaw, float Pitch);
+	/** Dev: MIBlowNearest: the nearest live explosive in front of the player takes a lethal round from him. */
+	UFUNCTION(Exec)
+	void MIBlowNearest();
 
 	/** The four-gun input layer: the wheel's state for the HUD (LOADOUT.md 4.6). */
 	const FMISwitchInput& GetSwitch() const { return Switch; }
