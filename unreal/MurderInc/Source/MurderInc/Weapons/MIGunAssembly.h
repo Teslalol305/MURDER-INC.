@@ -33,6 +33,8 @@ public:
 	/** The laser's beam origin and direction in world space (the Beam socket, else the muzzle line); false without one. */
 	bool BeamWorld(FVector& OutStart, FVector& OutDir) const;
 	int32 NumParts() const { return Parts.Num(); }
+	/** The fitted part's mesh in a slot (the magazine the first-person rig shows and hides), or null. */
+	UStaticMeshComponent* PartMesh(FName Slot) const;
 	const FString& GetBaseMesh() const { return BaseMesh; }
 
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;

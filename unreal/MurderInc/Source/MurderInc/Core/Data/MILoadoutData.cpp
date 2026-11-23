@@ -495,6 +495,7 @@ bool FMILoadoutData::Parse(const TMap<FString, TSharedPtr<FJsonObject>>& Files, 
 				if (Pair.Value->Type != EJson::Object) continue;
 				FMIGunVariant& Var = Gun.Variants.Add(FName(*FString(*Pair.Key)));
 				Var.Mesh = MIJson::StringOr(Pair.Value->AsObject(), TEXT("mesh"));
+				Var.OpticMesh = MIJson::StringOr(Pair.Value->AsObject(), TEXT("opticMesh"));
 				Var.Status = NameOr(Pair.Value->AsObject(), TEXT("status"));
 			}
 		}
@@ -1139,6 +1140,12 @@ FString FMIReadiness::BaseMesh(FName Id, const FMIGunBuild* Build) const
 		const FMIGunVariant* V = G->Variants.Find(P ? P->Variant : FName(TEXT("open")));
 		if (V && !V->Mesh.IsEmpty() && AssetExists && AssetExists(V->Mesh))
 		{
+			// An optic over standing irons would block it: the irons-folded twin (ANIMATION.md 8.1, 8.7).
+			const FName* Optic = Build ? Build->Parts.Find(TEXT("optic")) : nullptr;
+			if (Optic && !Optic->IsNone() && *Optic != TEXT("irons") && !V->OpticMesh.IsEmpty() && AssetExists(V->OpticMesh))
+			{
+				return V->OpticMesh;
+			}
 			return V->Mesh;
 		}
 	}

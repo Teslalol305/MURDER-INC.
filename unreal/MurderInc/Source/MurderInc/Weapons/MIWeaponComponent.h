@@ -10,8 +10,11 @@
 
 class AMIPlayerCharacter;
 class UCameraComponent;
+class UMIFirstPersonRig;
 class UMIGunAssembly;
+class UMaterialInstanceDynamic;
 class UPoseableMeshComponent;
+class UStaticMeshComponent;
 class USkeletalMeshComponent;
 
 /**
@@ -54,6 +57,15 @@ public:
 	/** A camera-space point (cm) drawn with the first-person field of view, moved to the world point on the same pixel. */
 	FVector FirstPersonToWorld(const FVector& CameraSpace) const;
 
+	/** The first-person (arms and gun) vertical field of view this frame: the hip value blended by the aim to the
+	 *  irons' or the optic's (presentation.json firstPerson.recipe, ANIMATION.md 9). */
+	double GetFirstPersonFov(double HipVertical) const;
+	/** The inspect key (presentation only: inspect, or the magazine check when the magazine is not full). */
+	void RequestInspect();
+	/** The character shows or hides the viewmodel: the pack gun and the jewels follow. */
+	void SyncVisibility(bool bGun, bool bArms);
+	UMIFirstPersonRig* GetFirstPersonRig() const { return FPRig; }
+
 	// IMIWeaponHost
 	virtual FMIWeaponPlayerState GetPlayerState() const override;
 	virtual void SetPlayerAds(double Ads) override;
@@ -90,6 +102,8 @@ private:
 	void DrawLaser();
 	const FMIResolvedGun* ResolvedOf(FName Gun) const { return Resolved.FindByPredicate([Gun](const FMIResolvedGun& G) { return G.Id == Gun; }); }
 	void NoteHit(bool bKilled, bool bHead);
+	void MuzzleFlash(double FlashScale);
+	bool MuzzleCamera(FVector& Pos, FVector& Dir) const;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AMIPlayerCharacter> Player;
@@ -101,6 +115,13 @@ private:
 	TObjectPtr<USkeletalMeshComponent> Arms;
 	UPROPERTY(Transient)
 	TObjectPtr<UMIGunAssembly> Assembly;
+	UPROPERTY(Transient)
+	TObjectPtr<UMIFirstPersonRig> FPRig;
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UStaticMeshComponent>> FlashCards;
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UMaterialInstanceDynamic>> FlashMids;
+	double FlashAge = 1e9, FlashLife = 0.045;
 	TArray<FMIResolvedGun> Resolved;
 	uint32 Seed = 0;
 

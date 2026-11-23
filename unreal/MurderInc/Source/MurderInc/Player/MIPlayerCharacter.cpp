@@ -200,10 +200,6 @@ void AMIPlayerCharacter::ApplyTuning(const FMIConfigData& Config)
 	JumpMaxCount = 1;
 	JumpMaxHoldTime = 0.f;
 
-	if (Weapon)
-	{
-		Weapon->Setup(this, Config, FirstPersonCamera, GunMesh, ArmsMesh);
-	}
 	FMIViewmodelData View;
 	FString Error;
 	if (FMIViewmodelData::Load(View, Error))
@@ -217,6 +213,11 @@ void AMIPlayerCharacter::ApplyTuning(const FMIConfigData& Config)
 				ArmsMesh->HideBoneByName(Bone, PBO_None);
 			}
 		}
+	}
+	if (Weapon)
+	{
+		// After the template body: the weapon's first-person rig puts the real arms in its place when they exist.
+		Weapon->Setup(this, Config, FirstPersonCamera, GunMesh, ArmsMesh);
 	}
 	bHasTuning = true;
 	ResetRun();
@@ -312,6 +313,10 @@ void AMIPlayerCharacter::SetViewmodelVisible(bool bVisible)
 	if (ArmsMesh->IsVisible() != bArms)
 	{
 		ArmsMesh->SetVisibility(bArms);
+	}
+	if (Weapon)
+	{
+		Weapon->SyncVisibility(bVisible, bArms);
 	}
 }
 
@@ -537,6 +542,10 @@ void AMIPlayerCharacter::LateTick(float DeltaSeconds)
 		W.WheelPick = Input.WheelPick;
 		W.bFireModePressed = Input.bFireModePressed;
 		Input.bWeapon3Pressed = Input.bWeapon4Pressed = Input.bNextPressed = Input.bPreviousPressed = Input.bFireModePressed = false;
+		if (Input.bInspectPressed)
+		{
+			Weapon->RequestInspect();  // presentation only: the rules have no inspect
+		}
 		Input.bInspectPressed = false;
 		Input.WheelPick = INDEX_NONE;
 		Input.bFirePressed = Input.bSwapPressed = Input.bWeapon1Pressed = Input.bWeapon2Pressed = false;
@@ -566,7 +575,7 @@ void AMIPlayerCharacter::PlaceCamera()
 	// The web game keeps the vertical field of view; the engine's camera takes a horizontal one.
 	FirstPersonCamera->SetWorldLocationAndRotation(Rules.Eye, Rules.CameraRotation);
 	FirstPersonCamera->SetFieldOfView(HorizontalFov(Rules.ViewFov));
-	FirstPersonCamera->SetFirstPersonFieldOfView(HorizontalFov(Tuning.Player.Fov.Viewmodel));
+	FirstPersonCamera->SetFirstPersonFieldOfView(HorizontalFov(Weapon ? Weapon->GetFirstPersonFov(Tuning.Player.Fov.Viewmodel) : Tuning.Player.Fov.Viewmodel));
 }
 
 FName AMIPlayerCharacter::GetStance() const

@@ -1,0 +1,156 @@
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Components/ActorComponent.h"
+#include "Weapons/MIFirstPersonAnim.h"
+#include "Weapons/MIWeaponRules.h"
+#include "MIFirstPersonRig.generated.h"
+
+class FJsonObject;
+class FMIViewmodelRig;
+class UAnimSequenceBase;
+class UCameraComponent;
+class UMIGunAssembly;
+class UMIWeaponComponent;
+class USkeletalMesh;
+class USkeletalMeshComponent;
+class UStaticMesh;
+class UStaticMeshComponent;
+struct FMIGunViewData;
+struct FMIResolvedGun;
+struct FMIViewmodelPlayer;
+
+/** How a gun is held in first person. */
+enum class EMIFPMode : uint8
+{
+	Template,  // the engine template body placed on the grip, the procedural rig poses the gun (clean checkout)
+	Pack,      // the pack's clips drive the arms and the gun; the camera recipe of ANIMATION.md 9
+	HandIK     // the procedural rig poses the gun; the arms play a template clip and their hands are pulled onto it
+};
+
+/**
+ * The player's arms and gun as a current shooter draws them (docs/unreal/ANIMATION.md 4, 9, 9.1), stepped by
+ * UMIWeaponComponent after the rules: SK_RuleArms (or the template body) with its bracelet; for guns whose
+ * presentation names a "pack" anim set, the pack rifle on the arms' ik_hand_gun playing the pack's own clips (idle,
+ * aimed, walk, sprint, jump, fire per round, both reloads warped onto the rules' stage times, inspect, magazine
+ * check, fire-mode switch, melee, holster, draw), the arms on the camera by the recipe, the procedural rig's sway,
+ * bob and recoil on top, the magazines of 9.1 (the reserve hidden until in hand, the dropped one a physics body).
+ * For "ik" sets (the NINE) the template pistol clip with the hands pulled onto the gun's Palm sockets.
+ * Everything here is presentation: it reads the rules' view and events and never writes rule state.
+ */
+UCLASS(ClassGroup = (MurderInc))
+class MURDERINC_API UMIFirstPersonRig : public UActorComponent
+{
+	GENERATED_BODY()
+
+public:
+	UMIFirstPersonRig();
+
+	/** The arms component (already attached to the camera) and presentation.json's root. */
+	void Init(UMIWeaponComponent* InWeapon, USkeletalMeshComponent* InArms, UCameraComponent* InCamera, const TSharedPtr<FJsonObject>& Presentation);
+	/** The gun in hand changed. Returns the mode it is drawn in. */
+	EMIFPMode Equip(FName Gun, const FMIGunViewData* View, const FMIResolvedGun* Resolved, UMIGunAssembly* Assembly, class USkinnedMeshComponent* LegacyGun);
+	EMIFPMode GetMode() const { return Mode; }
+
+	/** One frame after the rules and the procedural rig. */
+	void Update(double Dt, const FMIWeaponView& Weapon, const FMIViewmodelRig& Rig, const FMIViewmodelPlayer& Player, double ViewYawDeg);
+	/** HandIK guns: pulls the hands onto the procedurally posed gun (call after the arms were placed). */
+	void UpdateHands(const class USkinnedMeshComponent* Gun);
+
+	void OnFire(double Ads);
+	void OnJump() { JumpAge = 0.0; }
+	void OnLand(double Speed) { LandAge = 0.0; LandWeight = FMath::Clamp(Speed / 900.0, 0.2, 1.0); }
+	void RequestInspect(int32 Mag, int32 MagSize);
+
+	/** The first-person (arms and gun) vertical field of view: hip blended by Ads to the irons' or the optic's. */
+	double FirstPersonFovV(double Hip, double Ads) const;
+	bool HasOptic() const { return bOptic; }
+	double GetBobScale() const { return BobScale; }
+
+	/** Pack guns: the gun component and its muzzle / ejection port in camera space. */
+	USkeletalMeshComponent* GetPackGun() const { return PackGun; }
+	bool MuzzleInCamera(FVector& OutPos, FVector& OutDir) const;
+	bool EjectInCamera(FTransform& Out) const;
+	UStaticMesh* GetCasingMesh() const { return CasingMesh; }
+
+	/** The arms' hand socket (presentation bodyHandSocket) in arms component space, read from the template body's socket
+	 *  definition when the arms mesh has none. */
+	bool HandSocket(FName Socket, FTransform& Out) const;
+	void SetVisible(bool bGun, bool bArms);
+	bool IsPackGunVisible() const;
+
+private:
+	struct FClipSet
+	{
+		TMap<FName, TObjectPtr<UAnimSequenceBase>> Arms;
+		TMap<FName, TObjectPtr<UAnimSequenceBase>> Gun;
+	};
+	struct FReloadMap
+	{
+		TArray<FVector2D> Keys;  // (rule time, clip time)
+		double Reserve = 0.0, Out = 0.0, Seated = 0.0;
+		bool bDrop = true;
+		bool bDropFull = false;
+	};
+
+	UAnimSequenceBase* ArmsClip(FName Role) const;
+	UAnimSequenceBase* GunClip(FName Role) const;
+	void SetupArms();
+	void BuildPack(double Dt, const FMIWeaponView& W, const FMIViewmodelPlayer& P, double ViewYawDeg, FMIFPPose& Arms, FMIFPPose& Gun);
+	void UpdateMagazines(const FMIWeaponView& W, double ClipT, const FReloadMap* Map);
+	void DropMagazine(bool bFull);
+	double WarpReload(const FReloadMap& Map, double RuleT) const;
+	FTransform CameraSpace(const FTransform& World) const;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UMIWeaponComponent> Weapon;
+	UPROPERTY(Transient)
+	TObjectPtr<USkeletalMeshComponent> Arms;
+	UPROPERTY(Transient)
+	TObjectPtr<UCameraComponent> Camera;
+	UPROPERTY(Transient)
+	TObjectPtr<USkeletalMeshComponent> PackGun;
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> OwnMag;
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> ReserveMag;
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UStaticMeshComponent>> Jewels;
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UAnimSequenceBase>> Loaded;
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMesh> MagFull;
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMesh> MagEmpty;
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMesh> CasingMesh;
+	UPROPERTY(Transient)
+	TObjectPtr<USkeletalMesh> TemplateBody;
+
+	TWeakObjectPtr<UStaticMeshComponent> SeatedMag;  // the magazine on MagHinge (the assembly's part, or OwnMag)
+	TSharedPtr<FJsonObject> Root;        // presentation.json
+	TSharedPtr<FJsonObject> Set;         // the anim set of the gun in hand
+	FClipSet Clips;
+	FReloadMap ReloadTactical, ReloadEmpty;
+	EMIFPMode Mode = EMIFPMode::Template;
+	FName GunId;
+	FTransform ArmsRest = FTransform::Identity;
+	double FovIrons = 38.0, FovOptic = 32.0;
+	double BobScale = 0.5, WalkSpeed = 380.0, SprintSpeed = 640.0, FireWeight = 0.6, FireRate = 1.0, DrawRange = 0.53, MeleeRange = 1.0;
+	bool bOptic = false;
+	FName GripVariant;  // underbarrel grip fitted (aim pose variant)
+
+	// clocks
+	double Clock = 0.0, LocoPhase = 0.0, FireAge = 1e9, JumpAge = 1e9, LandAge = 1e9, LandWeight = 0.0, Air = 0.0, Crouch = 0.0, Walk = 0.0;
+	bool bFireAimed = false;
+	FName Action;            // the clip role playing over the locomotion
+	double ActionT = 0.0, ActionWeight = 0.0;
+	FName LastAction;
+	double LastActionT = 0.0;
+	FName Presented;         // inspect / magCheck (presentation only)
+	double PresentedT = 0.0, IdleFor = 0.0, InspectAfter = 24.0;
+	bool bWasReloading = false, bDropped = false;
+	FVector MagPrev = FVector::ZeroVector, MagVel = FVector::ZeroVector;
+	FMIFPPose HandPose;
+	FName LeftSocket, RightSocket;
+};

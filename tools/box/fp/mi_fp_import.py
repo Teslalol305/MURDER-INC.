@@ -479,7 +479,7 @@ def fx():
     # decals: bullet strike / blood / scorch
     p = FX + "/MD_FX_Mark"
     m = _material(p)
-    _set(m, material_domain=unreal.MaterialDomain.MD_DEFERRED_DECAL, blend_mode=unreal.BlendMode.BLEND_TRANSLUCENT)
+    _set(m, blend_mode=unreal.BlendMode.BLEND_TRANSLUCENT, material_domain=unreal.MaterialDomain.MD_DEFERRED_DECAL)
     uv = _expr(m, unreal.MaterialExpressionTextureCoordinate, -900, 0)
     c = _custom(m, -600, 0, DECAL_HLSL, ["UV", "Kind", "Seed", "Tint"], unreal.CustomMaterialOutputType.CMOT_FLOAT3,
                 ["Alpha", "Rough"])

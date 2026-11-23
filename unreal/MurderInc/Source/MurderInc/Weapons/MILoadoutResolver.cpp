@@ -228,6 +228,17 @@ bool FMILoadoutResolver::ResolveGun(FName GunId, const FMIGunBuild* Build, const
 	FMIReadiness Fallback;
 	Fallback.Data = &Data;
 	Out.BaseMesh = (Ready ? *Ready : Fallback).BaseMesh(GunId, Build);
+	// The real art's own frame, sockets and parts (presentation "real", e.g. SK_Nine for the NINE, the pack rifle for
+	// the CHOPPER): only when the real mesh is the one drawn, so a clean checkout keeps the template's numbers.
+	const FString RealMesh = MIJson::StringOr(Out.Presentation, TEXT("realMesh"));
+	const TSharedPtr<FJsonValue> Real = Out.Presentation->TryGetField(TEXT("real"));
+	if (!RealMesh.IsEmpty() && RealMesh == Out.BaseMesh && Real.IsValid() && Real->Type == EJson::Object)
+	{
+		for (const auto& Pair : Real->AsObject()->Values)
+		{
+			Out.Presentation->SetField(FString(*Pair.Key), MIJson::DeepCopy(Pair.Value));
+		}
+	}
 	if (!Out.Presentation->HasTypedField<EJson::String>(TEXT("mesh")) || MIJson::StringOr(Out.Presentation, TEXT("mesh")) != Out.BaseMesh)
 	{
 		Out.Presentation->SetStringField(TEXT("mesh"), Out.BaseMesh);

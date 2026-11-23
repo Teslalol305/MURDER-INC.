@@ -17,6 +17,7 @@ public class MurderInc : ModuleRules
 			"SlateCore",
 			"Json",
 			"Niagara",
+			"AnimationCore",
 			"PhysicsCore",
 			"AudioMixer"
 		});

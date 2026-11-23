@@ -106,6 +106,7 @@ struct FMIGunMount
 struct FMIGunVariant
 {
 	FString Mesh;
+	FString OpticMesh;  // the irons-folded twin, the base mesh whenever an optic other than the irons is fitted
 	FName Status;
 };
 

@@ -1,0 +1,124 @@
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Subsystems/WorldSubsystem.h"
+#include "MIEffects.generated.h"
+
+class AActor;
+class UDecalComponent;
+class UMaterialInstanceDynamic;
+class UMaterialInterface;
+class UPointLightComponent;
+class UStaticMesh;
+class UStaticMeshComponent;
+struct FMIExplosionEvent;
+struct FMIImpactEvent;
+
+/**
+ * The game's effects at the event-bus hooks (docs/unreal/GAMEPLAY.md 3, 8), restrained and short-lived: muzzle flash
+ * cards with a brief light (none with a silencer), brass from the ejection port, tracers for enemy fire, bullet
+ * strikes with a mark and dust in the surface's colour, blood on the Goons, and explosions with a flash, a fireball,
+ * smoke, debris and a scorch. Built in code on pooled components over the materials tools/box/fp/mi_fp_import.py
+ * makes (/Game/FX: M_FX_Flash, M_FX_Smoke, M_FX_Tracer, MD_FX_Mark, M_FX_Brass, M_FX_Debris); tuning in
+ * presentation.json "fx". Without those materials (a clean checkout) nothing is drawn. Never touches rule state.
+ */
+UCLASS()
+class MURDERINC_API UMIEffects : public UTickableWorldSubsystem
+{
+	GENERATED_BODY()
+
+public:
+	static UMIEffects* Get(const UObject* WorldContext);
+
+	/** A physics body that falls out of the world's way (a dropped magazine, a casing, debris), gone after Life s. */
+	static void SpawnBody(const UObject* WorldContext, UStaticMesh* Mesh, const FTransform& At, const FVector& Velocity, const FVector& SpinDeg, double Life, UMaterialInterface* Material = nullptr);
+
+	/** A muzzle flash seen in the world (an enemy's): cards along and across the bore and a short light. */
+	void WorldFlash(const FVector& Muzzle, const FVector& Dir, double Scale, bool bLight);
+	/** The player's own flash light (the cards are first-person primitives on the gun: UMIWeaponComponent). */
+	void FlashLight(const FVector& At, double Scale);
+	/** A tracer streak from a muzzle to where the round ends. */
+	void Tracer(const FVector& From, const FVector& To, double SpeedCmPerS);
+	/** An enemy round: flash at the muzzle, the tracer to the first thing it meets (presentation trace). */
+	void EnemyShot(const AActor* Shooter, const FVector& Muzzle, const FVector& Dir);
+	bool CanDrawTracers() const { return bReady && Streaks.Num() > 0; }
+	/** A brass casing out of the ejection port (world pose and velocity). */
+	void Casing(UStaticMesh* Mesh, const FTransform& At, const FVector& Velocity);
+
+	virtual void OnWorldBeginPlay(UWorld& InWorld) override;
+	virtual void Deinitialize() override;
+	virtual void Tick(float DeltaTime) override;
+	virtual TStatId GetStatId() const override { RETURN_QUICK_DECLARE_CYCLE_STAT(UMIEffects, STATGROUP_Tickables); }
+	virtual bool IsTickable() const override { return bReady; }
+
+private:
+	struct FPuff
+	{
+		TObjectPtr<UStaticMeshComponent> Mesh;
+		TObjectPtr<UMaterialInstanceDynamic> Mat;
+		FVector Pos, Vel;
+		double Age = 1e9, Life = 1.0, Size0 = 10.0, Size1 = 50.0, Opacity = 0.5, Fire = 0.0, Drag = 2.0, Rise = 0.0, Spin = 0.0, Roll = 0.0;
+	};
+	struct FCard
+	{
+		TObjectPtr<UStaticMeshComponent> Mesh;
+		TObjectPtr<UMaterialInstanceDynamic> Mat;
+		double Age = 1e9, Life = 0.05, Intensity = 1.0;
+	};
+	struct FLight
+	{
+		TObjectPtr<UPointLightComponent> Light;
+		double Age = 1e9, Life = 0.06, Peak = 0.0;
+	};
+	struct FMark
+	{
+		TObjectPtr<UDecalComponent> Decal;
+		TObjectPtr<UMaterialInstanceDynamic> Mat;
+		double Age = 1e9, Life = 20.0;
+	};
+	struct FStreak
+	{
+		TObjectPtr<UStaticMeshComponent> Mesh;
+		FVector From, To;
+		double Age = 1e9, Life = 0.1, Length = 300.0;
+	};
+
+	void Bind();
+	void OnImpact(const FMIImpactEvent& E);
+	void OnExplosion(const FMIExplosionEvent& E);
+	void Puff(const FVector& Pos, const FVector& Vel, double Life, double Size0, double Size1, double Opacity, const FLinearColor& Color, double Fire = 0.0, double Drag = 2.0, double Rise = 0.0);
+	void Mark(const FVector& Point, const FVector& Normal, double Size, double Kind, const FLinearColor& Tint, double Life);
+	void Light(const FVector& At, double Candela, double Radius, double Life, const FLinearColor& Color);
+	FLinearColor SurfaceColor(FName Surface, bool& bSparks) const;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AActor> Host;
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> FlashMat;
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> SmokeMat;
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> TracerMat;
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> MarkMat;
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> DebrisMat;
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> BrassMat;
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMesh> Plane;
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMesh> Cylinder;
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMesh> Cube;
+
+	TArray<FPuff> Puffs;
+	TArray<FCard> Cards;
+	TArray<FLight> Lights;
+	TArray<FMark> Marks;
+	TArray<FStreak> Streaks;
+	int32 NextPuff = 0, NextCard = 0, NextLight = 0, NextMark = 0, NextStreak = 0;
+	TArray<FDelegateHandle> Handles;
+	TSharedPtr<class FJsonObject> Fx;
+	bool bReady = false;
+};

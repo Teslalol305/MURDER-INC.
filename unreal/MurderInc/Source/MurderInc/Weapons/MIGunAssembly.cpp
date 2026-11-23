@@ -6,6 +6,8 @@
 #include "Engine/StaticMesh.h"
 #include "MurderInc.h"
 #include "Weapons/MIViewmodel.h"
+#include "Dom/JsonObject.h"
+#include "Materials/MaterialInterface.h"
 
 namespace MIGunAssemblyPrivate
 {
@@ -68,6 +70,22 @@ void UMIGunAssembly::Assemble(USkinnedMeshComponent* InBase, const FMIResolvedGu
 		USkeletalMesh* Mesh = Cast<USkeletalMesh>(FSoftObjectPath(Gun.BaseMesh).TryLoad());
 		Base->SetSkinnedAssetAndUpdate(Mesh, true);
 		Base->SetVisibility(Mesh != nullptr);
+	}
+	if (bSetBase)
+	{
+		// The gun's own finish over the mesh's slots (presentation "materials": the CHOPPER's dark earth on the pack rifle).
+		Base->EmptyOverrideMaterials();
+		const TSharedPtr<FJsonValue> Mats = Gun.Presentation.IsValid() ? Gun.Presentation->TryGetField(TEXT("materials")) : nullptr;
+		if (Mats.IsValid() && Mats->Type == EJson::Object)
+		{
+			for (const auto& Pair : Mats->AsObject()->Values)
+			{
+				if (UMaterialInterface* M = Cast<UMaterialInterface>(FSoftObjectPath(Pair.Value->AsString()).TryLoad()))
+				{
+					Base->SetMaterialByName(FName(FString(*Pair.Key)), M);
+				}
+			}
+		}
 	}
 	BaseMesh = Gun.BaseMesh;
 	MarkerFallback.Reset();
@@ -148,6 +166,18 @@ void UMIGunAssembly::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 		bAny |= K < 1.0;
 	}
 	SetComponentTickEnabled(bAny);
+}
+
+UStaticMeshComponent* UMIGunAssembly::PartMesh(FName Slot) const
+{
+	for (const FPart& P : Parts)
+	{
+		if (P.Data.Slot == Slot && P.Mesh.IsValid())
+		{
+			return P.Mesh.Get();
+		}
+	}
+	return nullptr;
 }
 
 TMap<FName, FVector> UMIGunAssembly::MarkerOverrides() const

@@ -234,6 +234,7 @@
       },
       "presentation": {
         "fallbackMesh": "/Game/Weapons/Rifle/Meshes/SKM_Rifle.SKM_Rifle",
+        "animSet": "rifle",
         "idle": "/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS.MF_Rifle_Idle_ADS",
         "meshOffset": {
           "pos": [0, -0.1045, -0.0235],
@@ -442,6 +443,7 @@
       "extra": {"fireModes": ["auto", "semi"], "modeSwitch": 0.35},
       "presentation": {
         "fallbackMesh": "/Game/Weapons/Rifle/Meshes/SKM_Rifle.SKM_Rifle",
+        "animSet": "rifle",
         "idle": "/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS.MF_Rifle_Idle_ADS",
         "meshOffset": {
           "pos": [0, -0.1045, -0.0235],
@@ -650,6 +652,7 @@
       "extra": {"fireModes": ["auto", "semi"], "modeSwitch": 0.35, "holster": 0.3, "draw": 0.35},
       "presentation": {
         "fallbackMesh": "/Game/Weapons/Rifle/Meshes/SKM_Rifle.SKM_Rifle",
+        "animSet": "rifle",
         "idle": "/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS.MF_Rifle_Idle_ADS",
         "meshOffset": {
           "pos": [0, -0.1045, -0.0235],

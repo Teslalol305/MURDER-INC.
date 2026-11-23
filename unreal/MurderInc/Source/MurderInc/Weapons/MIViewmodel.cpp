@@ -638,10 +638,16 @@ void FMIViewmodelRig::Update(double Dt, const FMIWeaponView& Weapon, double AdsL
 
 	// Layer 1: the base pose.
 	Pose = G.Hip[0];
-	BlendTo(G.Sprint, Weapon.SprintBlend);
-	BlendTo(G.Reload, ReloadWeight);
+	if (!bClipDriven)
+	{
+		BlendTo(G.Sprint, Weapon.SprintBlend);
+		BlendTo(G.Reload, ReloadWeight);
+	}
 	BlendTo(G.Wall, Weapon.Wall);
-	BlendTo(AdsPose, Aimed);
+	if (!bClipDriven)
+	{
+		BlendTo(AdsPose, Aimed);
+	}
 	const double SwitchK = Weapon.ActivityLength > 0.0 ? MI::Clamp01(Weapon.ActivityTime / Weapon.ActivityLength) : 0.0;
 	if (Weapon.Activity == EMIWeaponActivity::Holstering)
 	{
@@ -662,7 +668,7 @@ void FMIViewmodelRig::Update(double Dt, const FMIWeaponView& Weapon, double AdsL
 	}
 
 	// Layer 2: the strike.
-	if (Weapon.Activity == EMIWeaponActivity::Striking && G.Melee.Num() >= 2)
+	if (Weapon.Activity == EMIWeaponActivity::Striking && G.Melee.Num() >= 2 && !bClipDriven)
 	{
 		const double T = Weapon.ActivityTime;
 		int32 I = 0;
@@ -686,8 +692,8 @@ void FMIViewmodelRig::Update(double Dt, const FMIWeaponView& Weapon, double AdsL
 	const double Gait = !Player.bOnGround ? 0.0 : FMath::Pow(Speed / F.BobWalkSpeed, F.BobExponent) * (Player.bCrouching ? F.BobCrouch : 1.0);
 	BobAmp = MI::Damp(BobAmp, Gait, F.BobRate, Dt);
 	const double Run = Weapon.SprintBlend;
-	const double PosScale = FMath::Lerp(1.0, F.BobAdsPos, A) * BobAmp;
-	const double RotScale = FMath::Lerp(1.0, F.BobAdsRot, A) * BobAmp;
+	const double PosScale = FMath::Lerp(1.0, F.BobAdsPos, A) * BobAmp * BobScale;
+	const double RotScale = FMath::Lerp(1.0, F.BobAdsRot, A) * BobAmp * BobScale;
 	const double Step = FMath::Sin(BobPhase * UE_DOUBLE_PI);
 	const double Bounce = FMath::Cos(BobPhase * UE_DOUBLE_PI * 2.0);
 	double OffX = Step * FMath::Lerp(F.BobX.X, F.BobX.Y, Run) * PosScale;
@@ -850,6 +856,16 @@ void FMIViewmodelRig::UpdateParts(double Dt, const FMIWeaponView& Weapon)
 FTransform FMIViewmodelRig::GetGunTransform() const
 {
 	return FTransform(WebToUE(Pose.Rot), WebToUE(Pose.Pos));
+}
+
+FTransform FMIViewmodelRig::GetLayerTransform() const
+{
+	if (!Gun || Gun->Hip.Num() == 0)
+	{
+		return FTransform::Identity;
+	}
+	const FTransform Base(WebToUE(Gun->Hip[0].Rot), WebToUE(Gun->Hip[0].Pos));
+	return Base.Inverse() * GetGunTransform();
 }
 
 FVector FMIViewmodelRig::GunPointInCamera(const FVector& WebGunPoint) const

@@ -14,7 +14,14 @@
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "Player/MIPlayerCharacter.h"
 #include "Weapons/MICombatSubsystem.h"
+#include "Weapons/MIEffects.h"
+#include "Weapons/MIFirstPersonRig.h"
 #include "Weapons/MIGunAssembly.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Materials/MaterialInterface.h"
+#include "Dom/JsonObject.h"
 
 namespace MIWeaponComponentPrivate
 {
@@ -70,6 +77,44 @@ void UMIWeaponComponent::Setup(AMIPlayerCharacter* InPlayer, const FMIConfigData
 		UE_LOG(LogMI, Error, TEXT("Weapons: %s (the guns are not drawn)"), *Error);
 	}
 	Rig.Init(bHaveView ? &ViewData : nullptr);
+	if (!FPRig && GetOwner())
+	{
+		FPRig = NewObject<UMIFirstPersonRig>(GetOwner(), TEXT("FirstPersonRig"), RF_Transient);
+		FPRig->RegisterComponent();
+	}
+	TSharedPtr<FJsonObject> ConfigRoot, PresentationRoot;
+	FString RootError;
+	if (FPRig && FMILoadoutResolver::LoadRoots(ConfigRoot, PresentationRoot, RootError))
+	{
+		FPRig->Init(this, Arms, Camera, PresentationRoot);
+		// The recipe's near plane (ANIMATION.md 9): the receiver is 8.9 cm from the eye when aimed.
+		const double Near = MIJson::NumberOr(PresentationRoot, TEXT("firstPerson.recipe.nearClip"), 0.0);
+		if (Near > 0.0 && GetWorld() && GetWorld()->IsGameWorld())
+		{
+			GNearClippingPlane = static_cast<float>(Near);
+		}
+		// The player's muzzle flash: three first-person cards (the star across the bore, two crossed jets along it).
+		UMaterialInterface* Flash = Cast<UMaterialInterface>(FSoftObjectPath(MIJson::StringOr(PresentationRoot, TEXT("fx.materials.flash"))).TryLoad());
+		UStaticMesh* Plane = Cast<UStaticMesh>(FSoftObjectPath(TEXT("/Engine/BasicShapes/Plane.Plane")).TryLoad());
+		FlashLife = MIJson::NumberOr(PresentationRoot, TEXT("fx.flash.life"), 0.045);
+		for (int32 I = 0; Flash && Plane && Camera && FlashCards.Num() < 3 && I < 3; ++I)
+		{
+			UStaticMeshComponent* C = NewObject<UStaticMeshComponent>(GetOwner(), NAME_None, RF_Transient);
+			C->SetStaticMesh(Plane);
+			C->SetMobility(EComponentMobility::Movable);
+			C->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			C->SetCastShadow(false);
+			C->SetOnlyOwnerSee(true);
+			C->SetFirstPersonPrimitiveType(EFirstPersonPrimitiveType::FirstPerson);
+			UMaterialInstanceDynamic* M = UMaterialInstanceDynamic::Create(Flash, C);
+			C->SetMaterial(0, M);
+			C->SetupAttachment(Camera);
+			C->RegisterComponent();
+			C->SetVisibility(false);
+			FlashCards.Add(C);
+			FlashMids.Add(M);
+		}
+	}
 	BindEvents();
 	bReady = true;
 	ResetRun();
@@ -104,11 +149,12 @@ void UMIWeaponComponent::BindEvents()
 	{
 		const FMIWeaponPlayerState P = GetPlayerState();
 		Rig.OnFire(E.Burst, P.bCrouching, E.Ads, E.MagLeft == 0);
+		if (FPRig) FPRig->OnFire(E.Ads);
 	}));
 	Handles.Add(Events->WeaponDry.AddLambda([this](FName) { Rig.OnDry(); }));
 	Handles.Add(Events->WeaponReload.AddLambda([this](const FMIReloadEvent& E) { Rig.OnReloadPhase(E.Phase, E.bEmpty); }));
-	Handles.Add(Events->PlayerJump.AddLambda([this]() { Rig.OnJump(); }));
-	Handles.Add(Events->PlayerLand.AddLambda([this](const FMIPlayerLandEvent& E) { Rig.OnLand(E.Speed); }));
+	Handles.Add(Events->PlayerJump.AddLambda([this]() { Rig.OnJump(); if (FPRig) FPRig->OnJump(); }));
+	Handles.Add(Events->PlayerLand.AddLambda([this](const FMIPlayerLandEvent& E) { Rig.OnLand(E.Speed); if (FPRig) FPRig->OnLand(E.Speed); }));
 }
 
 void UMIWeaponComponent::EndPlay(const EEndPlayReason::Type Reason)
@@ -151,7 +197,23 @@ void UMIWeaponComponent::Step(double Dt, const FMIWeaponInput& Input, const FVec
 	{
 		EquipMesh(View.Weapon);
 	}
+	if (FPRig && FPRig->GetMode() != EMIFPMode::Template)
+	{
+		FPRig->Update(Dt, View, Rig, VP, P.Yaw);
+	}
 	PoseView();
+	if (FPRig && FPRig->GetMode() == EMIFPMode::HandIK)
+	{
+		FPRig->UpdateHands(GunMesh);
+	}
+	FlashAge += Dt;
+	if (FlashAge >= FlashLife)
+	{
+		for (UStaticMeshComponent* C : FlashCards)
+		{
+			if (C && C->IsVisible()) C->SetVisibility(false);
+		}
+	}
 	DrawTracers(Dt);
 	DrawLaser();
 	// The clear magazine shows the rounds left (LOADOUT.md 4.5): a scalar on the gun's materials.
@@ -251,7 +313,26 @@ void UMIWeaponComponent::EquipMesh(FName Gun)
 	Find(D->Trigger, Trigger);
 	Find(D->Magazine, Magazine);
 
-	if (Arms)
+	EMIFPMode Mode = EMIFPMode::Template;
+	if (FPRig)
+	{
+		Mode = FPRig->Equip(Gun, D, ResolvedOf(Gun), Assembly, GunMesh);
+	}
+	if (FPRig)
+	{
+		FPRig->SetVisible(GunMesh->IsVisible(), Arms && Arms->IsVisible());
+	}
+	if (Mode == EMIFPMode::Pack)
+	{
+		// The pack rifle is drawn by the rig's own gun on the arms' gun bone; the poseable placeholder draws nothing.
+		GunMesh->SetSkinnedAssetAndUpdate(nullptr, false);
+		Rig.SetClipDriven(true, FPRig->GetBobScale());
+	}
+	else
+	{
+		Rig.SetClipDriven(false);
+	}
+	if (Arms && Mode == EMIFPMode::Template)
 	{
 		if (UAnimSequence* Idle = Cast<UAnimSequence>(D->Idle.TryLoad()))
 		{
@@ -261,10 +342,26 @@ void UMIWeaponComponent::EquipMesh(FName Gun)
 	}
 }
 
+double UMIWeaponComponent::GetFirstPersonFov(double HipVertical) const
+{
+	return FPRig ? FPRig->FirstPersonFovV(HipVertical, Rules.GetAds()) : HipVertical;
+}
+
+void UMIWeaponComponent::RequestInspect()
+{
+	const FMIWeaponView V = Rules.GetView();
+	if (FPRig) FPRig->RequestInspect(V.Mag, V.MagSize);
+}
+
+void UMIWeaponComponent::SyncVisibility(bool bGun, bool bArms)
+{
+	if (FPRig) FPRig->SetVisible(bGun, bArms);
+}
+
 void UMIWeaponComponent::PoseView()
 {
 	const FMIGunViewData* D = Rig.GetGunData();
-	if (!bHaveView || !D || !GunMesh)
+	if (!bHaveView || !D || !GunMesh || (FPRig && FPRig->GetMode() == EMIFPMode::Pack))
 	{
 		return;
 	}
@@ -274,10 +371,10 @@ void UMIWeaponComponent::PoseView()
 	PoseParts();
 
 	// The arms hold the grip: the body is placed so that its hand socket sits on the gun's grip marker.
-	if (Arms && Arms->GetSkinnedAsset() && !ViewData.BodyHandSocket.IsNone() && Arms->DoesSocketExist(ViewData.BodyHandSocket))
+	FTransform Hand;
+	if (Arms && Arms->GetSkinnedAsset() && !ViewData.BodyHandSocket.IsNone() && FPRig && FPRig->HandSocket(ViewData.BodyHandSocket, Hand))
 	{
 		const FTransform Grip(Gun.GetRotation(), Rig.GunPointInCamera(D->Marker(TEXT("grip"))));
-		const FTransform Hand = Arms->GetSocketTransform(ViewData.BodyHandSocket, RTS_Component);
 		Arms->SetRelativeTransform(Hand.Inverse() * Grip);
 	}
 }
@@ -326,7 +423,7 @@ FVector UMIWeaponComponent::FirstPersonToWorld(const FVector& CameraSpace) const
 	}
 	// Horizontal and vertical both scale by the ratio of the tangents (the vertical one is kept on aspect changes).
 	const double World = FMath::Tan(FMath::DegreesToRadians(Player->GetPlayerRules().ViewFov) * 0.5);
-	const double First = FMath::Tan(FMath::DegreesToRadians(ViewmodelFov) * 0.5);
+	const double First = FMath::Tan(FMath::DegreesToRadians(GetFirstPersonFov(ViewmodelFov)) * 0.5);
 	const double K = First > 0.0 ? World / First : 1.0;
 	const FVector Local(CameraSpace.X, CameraSpace.Y * K, CameraSpace.Z * K);
 	return Camera->GetComponentLocation() + Camera->GetComponentQuat().RotateVector(Local);
@@ -537,14 +634,98 @@ bool UMIWeaponComponent::AimTarget(const FVector& Origin, const FVector& Directi
 	return Target && Target->IsMIDamageableAlive() && Target->GetMIDamageableKind() == TEXT("enemy");
 }
 
-void UMIWeaponComponent::OnRoundFired(const FMIShotRequest& Shot, const FMIShotResult& Result, double FlashScale)
+bool UMIWeaponComponent::MuzzleCamera(FVector& Pos, FVector& Dir) const
 {
-	if (!bHaveView || Result.Distance < ViewData.TracerMinHit * 100.0)
+	if (FPRig && FPRig->MuzzleInCamera(Pos, Dir))
+	{
+		return true;
+	}
+	const FMIGunViewData* D = Rig.GetGunData();
+	if (!D)
+	{
+		return false;
+	}
+	Pos = Rig.GunPointInCamera(D->Marker(TEXT("muzzle")));
+	Dir = (Pos - Rig.GunPointInCamera(D->Marker(TEXT("sightRear")))).GetSafeNormal();
+	if (Dir.IsNearlyZero()) Dir = FVector::ForwardVector;
+	return true;
+}
+
+void UMIWeaponComponent::MuzzleFlash(double FlashScale)
+{
+	FVector Pos, Dir;
+	if (!Camera || !MuzzleCamera(Pos, Dir))
 	{
 		return;
 	}
-	const FMIGunViewData* D = Rig.GetGunData();
-	const FVector Muzzle = D ? FirstPersonToWorld(Rig.GunPointInCamera(D->Marker(TEXT("muzzle")))) : Shot.Origin;
+	const FMIResolvedGun* G = ResolvedOf(Rules.GetCurrentId());
+	if (G && G->Def.bSuppressed)
+	{
+		return;  // a silencer: no flash, no light
+	}
+	if (FlashCards.Num() == 3 && FlashScale > 0.01)
+	{
+		FlashAge = 0.0;
+		const double S = FMath::Clamp(FlashScale, 0.3, 1.5);
+		for (int32 K = 0; K < 3; ++K)
+		{
+			const double Len = (K == 0 ? 9.0 : 15.0) * S * FMath::FRandRange(0.85, 1.15);
+			FRotator R;
+			FVector At = Pos;
+			if (K == 0)
+			{
+				R = FRotationMatrix::MakeFromZ(Dir).Rotator();
+			}
+			else
+			{
+				const FVector Side = FVector::CrossProduct(Dir, K == 1 ? FVector::UpVector : FVector::RightVector).GetSafeNormal();
+				R = FRotationMatrix::MakeFromXZ(Dir, Side).Rotator();
+				At += Dir * Len * 0.5;
+			}
+			FlashCards[K]->SetRelativeLocationAndRotation(At, R);
+			FlashCards[K]->SetRelativeScale3D(FVector(Len / 100.0, (K == 0 ? Len : Len * 0.42) / 100.0, 1.0));
+			FlashMids[K]->SetScalarParameterValue(TEXT("Mode"), K == 0 ? 0.f : 1.f);
+			FlashMids[K]->SetScalarParameterValue(TEXT("Seed"), FMath::FRandRange(0.f, 50.f));
+			FlashCards[K]->SetVisibility(true);
+		}
+	}
+	if (UMIEffects* Fx = UMIEffects::Get(this))
+	{
+		Fx->FlashLight(FirstPersonToWorld(Pos + Dir * 8.0), FlashScale);
+	}
+}
+
+void UMIWeaponComponent::OnRoundFired(const FMIShotRequest& Shot, const FMIShotResult& Result, double FlashScale)
+{
+	if (!bHaveView)
+	{
+		return;
+	}
+	MuzzleFlash(FlashScale);
+	UMIEffects* Fx = UMIEffects::Get(this);
+	// Brass out of the ejection port along the port's +X (ANIMATION.md 8.3), a little back and up, with the body's motion.
+	FTransform Eject;
+	if (Fx && Camera && FPRig && FPRig->EjectInCamera(Eject))
+	{
+		const FQuat Cam = Camera->GetComponentQuat();
+		const FVector Out = Cam.RotateVector(Eject.GetRotation().GetAxisX());
+		const FVector V = Out * FMath::FRandRange(220.0, 320.0) + Cam.RotateVector(FVector(-60.0, 0.0, 90.0)) + FMath::VRand() * 30.0 + Player->GetPlayerRules().Velocity;
+		Fx->Casing(FPRig->GetCasingMesh(), FTransform(Cam * Eject.GetRotation(), FirstPersonToWorld(Eject.GetLocation())), V);
+	}
+	if (Result.Distance < ViewData.TracerMinHit * 100.0)
+	{
+		return;
+	}
+	FVector Pos, Dir;
+	const FVector Muzzle = MuzzleCamera(Pos, Dir) ? FirstPersonToWorld(Pos) : Shot.Origin;
+	if (Fx && Fx->CanDrawTracers())
+	{
+		// Leaves the screen a little ahead of the muzzle (spec 02 2.8: hidden for the first metre when it flies far).
+		const FVector Path = Result.Point - Muzzle;
+		const double Skip = Path.Size() > ViewData.TracerHiddenFrom * 100.0 ? ViewData.TracerHidden * 100.0 : 0.0;
+		Fx->Tracer(Muzzle + Path.GetSafeNormal() * Skip, Result.Point, TracerSpeed);
+		return;
+	}
 	Tracers.Add({Muzzle, Result.Point, 0.0});
 }
 

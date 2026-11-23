@@ -21,10 +21,16 @@ class UStaticMeshComponent;
 struct MURDERINC_API FMIEnemyLook
 {
 	TArray<FSoftObjectPath> GoonVariants;
+	TArray<FSoftObjectPath> GoonVariantsFallback;  // the template mannequins when the Goons are not in the project
+	double GoonMeshScale = 1.0;                    // on the real Goons only (CHARACTERS.md: 0.98 for the briefed 1.78 m)
 	FSoftClassPath GoonAnimClass;
 	double GoonMeshYaw = -90.0;
-	FSoftObjectPath GoonWeapon;
+	FSoftObjectPath GoonWeapon;                    // a static mesh (SM_Weapon_GoonSMG) or a skeletal one (the template)
+	FSoftObjectPath GoonWeaponFallback;
 	FName GoonWeaponSocket = TEXT("HandGrip_R");
+	FName GoonWeaponSocketFallback = TEXT("HandGrip_R");
+	FTransform GoonWeaponOffset = FTransform::Identity;  // relative to the weapon socket or bone (static weapon)
+	FVector GoonMuzzleOffset = FVector::ZeroVector;       // the muzzle in the static weapon's own frame (cm)
 	FName GoonMuzzleSocket = TEXT("Muzzle");
 	TMap<FName, FSoftObjectPath> GoonDeath;  // front, back, left, right
 	FName HeadBone = TEXT("head");
@@ -129,6 +135,9 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "MurderInc")
 	TObjectPtr<USkeletalMeshComponent> Gun;
+
+	UPROPERTY(VisibleAnywhere, Category = "MurderInc")
+	TObjectPtr<UStaticMeshComponent> GunStatic;
 
 	UPROPERTY(VisibleAnywhere, Category = "MurderInc")
 	TObjectPtr<UPointLightComponent> Lamp;

@@ -162,6 +162,15 @@ public:
 	const FMIGunParts& GetParts() const { return Parts; }
 	double GetAimSpring() const { return Aim.X; }
 
+	/** Clip-driven guns (the pack's clips play the aim, sprint, reload and strike: ANIMATION.md 4, 9): the rig then
+	 *  keeps only the hip view, the wall pull, the holster and draw offsets, the additive layers (bob, breathing,
+	 *  look lag, inertia, jump and landing, bumps, the aim arc) and the recoil springs. BobScale scales the footstep
+	 *  bob (the pack's walk loops already carry one). Presentation only: the rules never read the rig. */
+	void SetClipDriven(bool bOn, double InBobScale = 1.0) { bClipDriven = bOn; BobScale = InBobScale; }
+	bool IsClipDriven() const { return bClipDriven; }
+	/** Clip-driven: the rig's motion this frame as a camera-space transform (Unreal), from the hip view to the pose. */
+	FTransform GetLayerTransform() const;
+
 	static FVector WebToUE(const FVector& Web) { return FVector(-Web.Z, Web.X, Web.Y) * 100.0; }
 	static FVector UEToWeb(const FVector& UE) { return FVector(UE.Y, UE.Z, -UE.X) / 100.0; }
 	static FQuat WebToUE(const FQuat& Q) { return FQuat(Q.Z, -Q.X, -Q.Y, Q.W); }
@@ -196,4 +205,6 @@ private:
 	double BoltTime = 1e30;   // s since the last round moved the bolt
 	bool bSlideLocked = false;
 	double SlideCloseT = -1.0;
+	bool bClipDriven = false;
+	double BobScale = 1.0;
 };

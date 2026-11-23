@@ -11,6 +11,126 @@
     "scale": 0.6,
     "hideBones": ["head", "neck_01", "thigh_l", "thigh_r"],
     "note": "The arms are the first-person body on the mannequin skeleton, placed each frame so that its bodyHandSocket holds the gun's grip (the gun's 'grip' marker). The real arms keep the skeleton and the socket."
+,
+    "arms": "/Game/Characters/RuleArms/SK_RuleArms.SK_RuleArms",
+    "jewels": [
+      { "mesh": "/Game/Characters/RuleArms/SM_Character_RuleBracelet.SM_Character_RuleBracelet", "bone": "lowerarm_twist_01_r", "blenderWorldRest": [0.568196, 0.468298, -0.676646, -0.465039, -0.742608, 0.646063, -0.176455, -0.139544, 0.354523, 0.602744, 0.714852, 1.060938, 0.0, 0.0, 0.0, 1.0], "note": "art/out/glb/SK_RuleArms.sockets.json (Blender rest placement, made relative to the bone's reference pose at run time); the watch is not worn on these arms ('worn': false)" }
+    ],
+    "recipe": { "armsLocation": [-0.66, 0, -162.0], "armsYaw": -90, "nearClip": 1.0, "fovIrons": 38, "fovOptic": 32, "note": "docs/unreal/ANIMATION.md 9: the pack's head joint never moves, so the arms hang from the camera at the eye point (component (0, 0.66, 162.0), +Y forward); first-person field of view 54 (config player.fov.viewmodel) blended by Ads to 38 on the irons and 32 with any optic; near plane 1 cm" },
+    "animSets": {
+      "rifle": {
+        "mode": "pack",
+        "gunSocket": "ik_hand_gun",
+        "arms": {
+          "idle": "/Game/ThirdParty/InfimaTFA/Character/FP/Locomotion/A_TFA_FP_AR_Idle_Loop_Standing.A_TFA_FP_AR_Idle_Loop_Standing",
+          "crouch": "/Game/ThirdParty/InfimaTFA/Character/FP/Locomotion/A_TFA_FP_AR_Idle_Loop_Crouched.A_TFA_FP_AR_Idle_Loop_Crouched",
+          "walkF": "/Game/ThirdParty/InfimaTFA/Character/FP/Locomotion/A_TFA_FP_AR_Walk_F_Loop_Standing.A_TFA_FP_AR_Walk_F_Loop_Standing",
+          "walkB": "/Game/ThirdParty/InfimaTFA/Character/FP/Locomotion/A_TFA_FP_AR_Walk_B_Loop_Standing.A_TFA_FP_AR_Walk_B_Loop_Standing",
+          "walkL": "/Game/ThirdParty/InfimaTFA/Character/FP/Locomotion/A_TFA_FP_AR_Walk_Strafe_L_Loop_Standing.A_TFA_FP_AR_Walk_Strafe_L_Loop_Standing",
+          "walkR": "/Game/ThirdParty/InfimaTFA/Character/FP/Locomotion/A_TFA_FP_AR_Walk_Strafe_R_Loop_Standing.A_TFA_FP_AR_Walk_Strafe_R_Loop_Standing",
+          "sprint": "/Game/ThirdParty/InfimaTFA/Character/FP/Locomotion/A_TFA_FP_AR_Sprint_F_Loop.A_TFA_FP_AR_Sprint_F_Loop",
+          "fall": "/Game/ThirdParty/InfimaTFA/Character/FP/Locomotion/A_TFA_FP_AR_Jump_Falling_Loop.A_TFA_FP_AR_Jump_Falling_Loop",
+          "jumpStart": "/Game/ThirdParty/InfimaTFA/Character/FP/Locomotion/A_TFA_FP_AR_Jump_Start.A_TFA_FP_AR_Jump_Start",
+          "jumpEnd": "/Game/ThirdParty/InfimaTFA/Character/FP/Locomotion/A_TFA_FP_AR_Jump_End.A_TFA_FP_AR_Jump_End",
+          "aim": "/Game/ThirdParty/InfimaTFA/Character/FP/Poses/A_TFA_FP_AR_Aim_Pose.A_TFA_FP_AR_Aim_Pose",
+          "aimGripVertical": "/Game/ThirdParty/InfimaTFA/Character/FP/Poses/A_TFA_FP_AR_Aim_Pose_Grip_Vertical.A_TFA_FP_AR_Aim_Pose_Grip_Vertical",
+          "aimGripAngled": "/Game/ThirdParty/InfimaTFA/Character/FP/Poses/A_TFA_FP_AR_Aim_Pose_Grip_Angled.A_TFA_FP_AR_Aim_Pose_Grip_Angled",
+          "fire": "/Game/ThirdParty/InfimaTFA/Character/FP/Combat/A_TFA_FP_AR_Fire_Semi.A_TFA_FP_AR_Fire_Semi",
+          "fireAimed": "/Game/ThirdParty/InfimaTFA/Character/FP/Combat/A_TFA_FP_AR_Fire_Aimed.A_TFA_FP_AR_Fire_Aimed",
+          "reloadTactical": "/Game/ThirdParty/InfimaTFA/Character/FP/Combat/A_TFA_FP_AR_Reload_Quick.A_TFA_FP_AR_Reload_Quick",
+          "reloadEmpty": "/Game/ThirdParty/InfimaTFA/Character/FP/Combat/A_TFA_FP_AR_Reload_Empty.A_TFA_FP_AR_Reload_Empty",
+          "holster": "/Game/ThirdParty/InfimaTFA/Character/FP/Transitions/A_TFA_FP_AR_Holster.A_TFA_FP_AR_Holster",
+          "draw": "/Game/ThirdParty/InfimaTFA/Character/FP/Transitions/A_TFA_FP_AR_Equip_Quick.A_TFA_FP_AR_Equip_Quick",
+          "melee": "/Game/ThirdParty/InfimaTFA/Character/FP/Combat/A_TFA_FP_AR_Melee_Swing_L.A_TFA_FP_AR_Melee_Swing_L",
+          "inspect": "/Game/ThirdParty/InfimaTFA/Character/FP/Interactions/A_TFA_FP_AR_Inspect.A_TFA_FP_AR_Inspect",
+          "magCheck": "/Game/ThirdParty/InfimaTFA/Character/FP/Combat/A_TFA_FP_AR_MagCheck.A_TFA_FP_AR_MagCheck",
+          "modeSwitch": "/Game/ThirdParty/InfimaTFA/Character/FP/Combat/A_TFA_FP_AR_FireModeSwitch.A_TFA_FP_AR_FireModeSwitch"
+        },
+        "gun": {
+          "base": "/Game/ThirdParty/InfimaTFA/Weapon/Anims/Common/A_TFA_WEP_AR_Reference.A_TFA_WEP_AR_Reference",
+          "fire": "/Game/ThirdParty/InfimaTFA/Weapon/Anims/FP/A_TFA_FP_WEP_AR_Fire.A_TFA_FP_WEP_AR_Fire",
+          "reloadTactical": "/Game/ThirdParty/InfimaTFA/Weapon/Anims/FP/A_TFA_FP_WEP_AR_Reload_Quick.A_TFA_FP_WEP_AR_Reload_Quick",
+          "reloadEmpty": "/Game/ThirdParty/InfimaTFA/Weapon/Anims/FP/A_TFA_FP_WEP_AR_Reload_Empty.A_TFA_FP_WEP_AR_Reload_Empty",
+          "inspect": "/Game/ThirdParty/InfimaTFA/Weapon/Anims/FP/A_TFA_FP_WEP_AR_Inspect.A_TFA_FP_WEP_AR_Inspect",
+          "magCheck": "/Game/ThirdParty/InfimaTFA/Weapon/Anims/FP/A_TFA_FP_WEP_AR_MagCheck.A_TFA_FP_WEP_AR_MagCheck"
+        },
+        "bobScale": 0.45,
+        "walkSpeed": 380,
+        "sprintSpeed": 640,
+        "fireWeight": 0.55,
+        "fireRate": 1.2,
+        "drawRange": 0.53,
+        "meleeRange": 1.0,
+        "reloads": {
+          "tactical": {
+            "clip": "reloadTactical",
+            "marks": [
+              [
+                "magOut",
+                0.4
+              ],
+              [
+                "magIn",
+                1.467
+              ]
+            ],
+            "reserve": 0.267,
+            "out": 0.4,
+            "seated": 1.467,
+            "drop": true,
+            "dropFull": true
+          },
+          "empty": {
+            "clip": "reloadEmpty",
+            "marks": [
+              [
+                "magOut",
+                0.333
+              ],
+              [
+                "magIn",
+                1.333
+              ],
+              [
+                "boltRelease|slideRelease",
+                2.15
+              ]
+            ],
+            "reserve": 0.267,
+            "out": 0.333,
+            "seated": 1.333,
+            "drop": true,
+            "dropFull": false
+          }
+        },
+        "magazine": {
+          "full": "/Game/ThirdParty/InfimaTFA/Weapon/Attachments/SM_TFA_AR_Magazine_Full.SM_TFA_AR_Magazine_Full",
+          "empty": "/Game/ThirdParty/InfimaTFA/Weapon/Attachments/SM_TFA_AR_Magazine_Empty.SM_TFA_AR_Magazine_Empty",
+          "socket": "MagHinge",
+          "reserveBone": "Magazine_Reserve"
+        },
+        "casing": "/Game/ThirdParty/InfimaTFA/Weapon/Attachments/SM_TFA_AR_Bullet_Casing.SM_TFA_AR_Bullet_Casing",
+        "note": "docs/unreal/ANIMATION.md 4 and 9: the pack's own first-person clips on SK_RuleArms (no retargeting: the mannequin skeleton) and its weapon clips on the rifle hanging from ik_hand_gun. Reloads: Reload_Quick (tactical) and Reload_Empty played piecewise so the pack's magazine-out, magazine-in and bolt marks (clip seconds) land on the gun's own rule stage times (config / guns.json reload); reserve/out/seated are the clip times of ANIMATION.md 9.1. A gun whose clips or meshes are missing keeps the template way."
+      },
+      "pistol": {
+        "mode": "ik",
+        "arms": {
+          "idle": "/Game/Characters/Mannequins/Anims/Pistol/MF_Pistol_Idle_ADS.MF_Pistol_Idle_ADS",
+          "fire": "/Game/Characters/Mannequins/Anims/Pistol/MM_Pistol_Fire.MM_Pistol_Fire"
+        },
+        "ik": {
+          "left": "Palm_L",
+          "right": "Palm_R"
+        },
+        "fireWeight": 0.35,
+        "bobScale": 1.0,
+        "magazine": {
+          "full": "/Game/Weapons/Nine/SM_Weapon_NineMagazine.SM_Weapon_NineMagazine",
+          "socket": "magazine"
+        },
+        "note": "The NINE: the engine template's pistol clips (third person, the only pistol clips there are) on SK_RuleArms placed on the gun's grip as before; both palms pulled onto SK_Nine's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its slide, barrel, trigger and magazine (ANIMATION.md 4, 'The NINE')."
+      }
+    }
   },
   "feel": {
     "breathe": { "hz": 0.25, "y": 0.0013, "pitch": 0.0032, "roll": 0.0016 },
@@ -36,6 +156,8 @@
   "guns": {
     "chopper": {
       "mesh": "/Game/Weapons/Rifle/Meshes/SKM_Rifle.SKM_Rifle",
+      "realMesh": "/Game/ThirdParty/InfimaTFA/Weapon/SK_TFA_AR_Short_Combined.SK_TFA_AR_Short_Combined",
+      "real": {"meshOffset": {"pos": [0, 0, 0], "rot": [0, 1.5708, 0]}, "sockets": {"muzzle": "Muzzle", "eject": "Eject", "sightRear": "SightRear", "sightFront": "SightFront", "pivot": "RecoilPivot", "magHinge": "MagHinge", "grip": "Palm_R", "support": "Palm_L"}, "animSet": "rifle", "materials": {"MI_TFA_AR_01": "/Game/Weapons/Chopper/MI_Chopper_DarkEarth_01.MI_Chopper_DarkEarth_01", "MI_TFA_AR_03": "/Game/Weapons/Chopper/MI_Chopper_DarkEarth_03.MI_Chopper_DarkEarth_03"}, "note": "docs/unreal/DECISIONS.md 2026-11-23: the pack rifle in the Short handguard stands in for the CHOPPER, in its own worn dark-earth finish (tools/box/fp/mi_fp_import.py paint_master); its own clips natively (animSets.rifle). Merged over this object by the loadout resolver only when realMesh is the mesh drawn; the rules are untouched."},
       "idle": "/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS.MF_Rifle_Idle_ADS",
       "meshOffset": { "pos": [0, -0.1045, -0.0235], "rot": [0, 1.5708, 0], "note": "where the mesh's own frame sits in gun space. The template rifle (placeholder) has its origin in the grip, its muzzle along +Y and its sight about 16 cm over the grip: it is turned to face -z and lifted so that its sight lies on the CHOPPER's sight line. The real SK_Chopper (origin on the bore at the back of the receiver, muzzle +X) needs pos [0, 0, 0] and rot [0, 1.5708, 0]" },
       "sockets": { "muzzle": "Muzzle", "eject": "Eject", "sightRear": "SightRear", "sightFront": "SightFront", "pivot": "RecoilPivot", "magHinge": "MagHinge", "grip": "GripPoint", "support": "Palm_L", "note": "grip: GripPoint on the template rifle, Palm_R on SK_Chopper" },
@@ -71,6 +193,8 @@
     },
     "nine": {
       "mesh": "/Game/Weapons/Pistol/Meshes/SKM_Pistol.SKM_Pistol",
+      "realMesh": "/Game/Weapons/Nine/SK_Nine.SK_Nine",
+      "real": {"meshOffset": {"pos": [0, 0, 0], "rot": [0, 0, 0]}, "sockets": {"muzzle": "Muzzle", "eject": "Eject", "sightRear": "SightRear", "sightFront": "SightFront", "pivot": "RecoilPivot", "magHinge": "magazine", "grip": "Palm_R", "support": "Palm_L"}, "animSet": "pistol", "note": "SK_Nine (art/blender/assets/weapons.py: origin on the web gun's origin, muzzle +X, every marker a bone). Merged by the loadout resolver only when realMesh is drawn."},
       "idle": "/Game/Characters/Mannequins/Anims/Pistol/MF_Pistol_Idle_ADS.MF_Pistol_Idle_ADS",
       "meshOffset": { "pos": [0, -0.1015, -0.0425], "rot": [0, 1.5708, 0], "note": "as for the CHOPPER: the template pistol has its origin in the grip, muzzle along +Y, rear sight about 12 cm up and 3 cm back; the real SK_Nine needs pos [0, 0, 0]" },
       "sockets": { "muzzle": "Muzzle", "eject": "ShellEject", "sightRear": "SightRear", "sightFront": "SightFront", "pivot": "RecoilPivot", "magHinge": "MagHinge", "grip": "Root", "support": "Palm_L", "note": "grip: the Root bone of the template pistol (its origin), Palm_R on SK_Nine; eject: ShellEject on the template, Eject on SK_Nine" },
@@ -108,11 +232,17 @@
   "enemies": {
     "note": "How the Vultures are drawn (AMIGoon, AMIBuzzard). Soft paths: the template mannequin with the engine's rifle animation set stands in for SK_Goon_* (docs/unreal/CHARACTERS.md, the mapping of docs/unreal/ANIMATION.md), a basic-shape drone for SK_Buzzard. The actors expose the rule state, events, aim and speed (docs/unreal/GAMEPLAY.md section 7); hit volumes come from config.json, never from the mesh.",
     "goon": {
-      "variants": ["/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple.SKM_Manny_Simple", "/Game/Characters/Mannequins/Meshes/SKM_Quinn_Simple.SKM_Quinn_Simple", "/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple.SKM_Manny_Simple"],
+      "variants": ["/Game/Characters/Goons/SK_Goon_Hoodie.SK_Goon_Hoodie", "/Game/Characters/Goons/SK_Goon_Puffer.SK_Goon_Puffer", "/Game/Characters/Goons/SK_Goon_Tracksuit.SK_Goon_Tracksuit"],
+      "variantsFallback": ["/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple.SKM_Manny_Simple", "/Game/Characters/Mannequins/Meshes/SKM_Quinn_Simple.SKM_Quinn_Simple", "/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple.SKM_Manny_Simple"],
+      "meshScale": 0.98,
       "animClass": "/Game/Variant_Shooter/Anims/ABP_TP_Rifle.ABP_TP_Rifle_C",
       "meshYaw": -90,
-      "weapon": "/Game/Weapons/Rifle/Meshes/SKM_Rifle.SKM_Rifle",
-      "weaponSocket": "HandGrip_R",
+      "weapon": "/Game/Weapons/GoonSMG/SM_Weapon_GoonSMG.SM_Weapon_GoonSMG",
+      "weaponSocket": "hand_r",
+      "weaponOffset": { "loc": [-1.5, 4.5, -2.0], "rot": [0, 90, 0], "note": "CHARACTERS.md: SM_Weapon_GoonSMG's origin is its grip; on bone hand_r at this offset (pitch, yaw, roll degrees), since socket names cannot be set from Python in 5.9" },
+      "muzzleOffset": [39.0, 0.0, 4.2],
+      "weaponFallback": "/Game/Weapons/Rifle/Meshes/SKM_Rifle.SKM_Rifle",
+      "weaponSocketFallback": "HandGrip_R",
       "muzzleSocket": "Muzzle",
       "death": { "front": "/Game/Characters/Mannequins/Anims/Death/MM_Death_Front_01.MM_Death_Front_01", "back": "/Game/Characters/Mannequins/Anims/Death/MM_Death_Back_01.MM_Death_Back_01", "left": "/Game/Characters/Mannequins/Anims/Death/MM_Death_Left_01.MM_Death_Left_01", "right": "/Game/Characters/Mannequins/Anims/Death/MM_Death_Right_01.MM_Death_Right_01" },
       "bones": { "head": "head", "pelvis": "pelvis", "spine": "spine_05", "handR": "hand_r", "handL": "hand_l" },
@@ -125,6 +255,123 @@
       "rotorSize": [37, 37, 2],
       "eye": { "colour": [1.0, 0.09, 0.05], "candelaPerLamp": 40, "radius": 1200 }
     }
+  },
+  "fx": {
+    "materials": {
+      "flash": "/Game/FX/M_FX_Flash.M_FX_Flash",
+      "smoke": "/Game/FX/M_FX_Smoke.M_FX_Smoke",
+      "tracer": "/Game/FX/M_FX_Tracer.M_FX_Tracer",
+      "mark": "/Game/FX/MD_FX_Mark.MD_FX_Mark",
+      "debris": "/Game/FX/M_FX_Debris.M_FX_Debris",
+      "brass": "/Game/FX/M_FX_Brass.M_FX_Brass"
+    },
+    "flash": {
+      "life": 0.045,
+      "candela": 900,
+      "radius": 700,
+      "light": 0.05,
+      "color": [
+        1.0,
+        0.62,
+        0.3
+      ],
+      "enemyScale": 0.8
+    },
+    "tracer": {
+      "speed": 26000,
+      "length": 260,
+      "radius": 0.5
+    },
+    "casing": {
+      "life": 4.0
+    },
+    "markLife": 30,
+    "blood": {
+      "color": [
+        0.16,
+        0.012,
+        0.01
+      ],
+      "reach": 260
+    },
+    "explosion": {
+      "candela": 40000,
+      "light": [
+        1.0,
+        0.55,
+        0.25
+      ],
+      "smoke": [
+        0.06,
+        0.055,
+        0.05
+      ],
+      "dust": [
+        0.3,
+        0.27,
+        0.23
+      ]
+    },
+    "surfaces": {
+      "default": {
+        "dust": [
+          0.32,
+          0.3,
+          0.27
+        ]
+      },
+      "concrete": {
+        "dust": [
+          0.36,
+          0.35,
+          0.33
+        ]
+      },
+      "brick": {
+        "dust": [
+          0.42,
+          0.26,
+          0.2
+        ]
+      },
+      "asphalt": {
+        "dust": [
+          0.22,
+          0.21,
+          0.2
+        ]
+      },
+      "metal": {
+        "dust": [
+          0.2,
+          0.2,
+          0.2
+        ],
+        "sparks": true
+      },
+      "wood": {
+        "dust": [
+          0.36,
+          0.27,
+          0.18
+        ]
+      },
+      "glass": {
+        "dust": [
+          0.5,
+          0.52,
+          0.55
+        ]
+      },
+      "dirt": {
+        "dust": [
+          0.33,
+          0.27,
+          0.2
+        ]
+      }
+    },
+    "note": "UMIEffects (Weapons/MIEffects.cpp) at the event-bus hooks, on the /Game/FX materials of tools/box/fp/mi_fp_import.py fx: cm, candelas, seconds, linear colours. No material, no effect (a clean checkout)."
   },
   "objectives": {
     "note": "The master reel cases and the IPX truck (AMIReelCase, AMITruck), placed from level.json objectives and extraction; basic shapes until the props arrive.",

@@ -15,6 +15,7 @@
 #include "Flow/MIGameSubsystem.h"
 #include "MurderInc.h"
 #include "Weapons/MICombatSubsystem.h"
+#include "Weapons/MIEffects.h"
 #include "World/MIBoxWorld.h"
 
 namespace MIEnemyActorsPrivate
@@ -91,10 +92,27 @@ bool FMIEnemyLook::Load(FMIEnemyLook& Out, FString& OutError)
 			Out.GoonVariants.Add(FSoftObjectPath(V->AsString()));
 		}
 	}
+	if (G->TryGetArrayField(TEXT("variantsFallback"), Variants))
+	{
+		for (const TSharedPtr<FJsonValue>& V : *Variants)
+		{
+			Out.GoonVariantsFallback.Add(FSoftObjectPath(V->AsString()));
+		}
+	}
+	G->TryGetNumberField(TEXT("meshScale"), Out.GoonMeshScale);
 	Out.GoonAnimClass = FSoftClassPath(G->GetStringField(TEXT("animClass")));
 	G->TryGetNumberField(TEXT("meshYaw"), Out.GoonMeshYaw);
 	Out.GoonWeapon = FSoftObjectPath(G->GetStringField(TEXT("weapon")));
+	Out.GoonWeaponFallback = FSoftObjectPath(G->HasField(TEXT("weaponFallback")) ? G->GetStringField(TEXT("weaponFallback")) : FString());
 	Out.GoonWeaponSocket = FName(G->GetStringField(TEXT("weaponSocket")));
+	Out.GoonWeaponSocketFallback = G->HasField(TEXT("weaponSocketFallback")) ? FName(G->GetStringField(TEXT("weaponSocketFallback"))) : Out.GoonWeaponSocket;
+	if (const TSharedPtr<FJsonObject> W = Obj(G, TEXT("weaponOffset")))
+	{
+		const FVector L = Vec(W, TEXT("loc"), FVector::ZeroVector);
+		const FVector R = Vec(W, TEXT("rot"), FVector::ZeroVector);  // pitch, yaw, roll (degrees)
+		Out.GoonWeaponOffset = FTransform(FRotator(R.X, R.Y, R.Z), L);
+	}
+	Out.GoonMuzzleOffset = Vec(G, TEXT("muzzleOffset"), FVector::ZeroVector);
 	Out.GoonMuzzleSocket = FName(G->GetStringField(TEXT("muzzleSocket")));
 	if (const TSharedPtr<FJsonObject> Death = Obj(G, TEXT("death")))
 	{
@@ -161,6 +179,10 @@ AMIGoon::AMIGoon(const FObjectInitializer& ObjectInitializer)
 	Gun = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Gun"));
 	Gun->SetupAttachment(GetMesh());
 	Off(Gun);
+	GunStatic = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("GunStatic"));
+	GunStatic->SetupAttachment(GetMesh());
+	Off(GunStatic);
+	GunStatic->SetCastShadow(true);
 	Lamp = CreateDefaultSubobject<UPointLightComponent>(TEXT("Lamp"));
 	Lamp->SetupAttachment(Gun);
 	Lamp->SetIntensityUnits(ELightUnits::Candelas);
@@ -178,6 +200,17 @@ void AMIGoon::Setup(int32 InSlot, const FMIEnemyLook& Look, const FMIGoonTune& I
 	{
 		Variants.Add(Cast<USkeletalMesh>(Path.TryLoad()));
 	}
+	// The real Goons when every outfit is in the project, else the template mannequins (a clean checkout).
+	const bool bReal = Variants.Num() > 0 && !Variants.Contains(nullptr);
+	if (!bReal)
+	{
+		Variants.Reset();
+		for (const FSoftObjectPath& Path : Look.GoonVariantsFallback)
+		{
+			Variants.Add(Cast<USkeletalMesh>(Path.TryLoad()));
+		}
+	}
+	GetMesh()->SetRelativeScale3D(FVector(bReal ? Look.GoonMeshScale : 1.0));
 	if (Variants.Num() > 0 && Variants[0])
 	{
 		GetMesh()->SetSkinnedAssetAndUpdate(Variants[0], true);  // the sockets the gun hangs on
@@ -188,12 +221,28 @@ void AMIGoon::Setup(int32 InSlot, const FMIEnemyLook& Look, const FMIGoonTune& I
 	{
 		Deaths.Add(D.Key, Cast<UAnimSequence>(D.Value.TryLoad()));
 	}
-	if (USkeletalMesh* Weapon = Cast<USkeletalMesh>(Look.GoonWeapon.TryLoad()))
+	// The Goon SMG (a static mesh whose origin is the grip) on hand_r at its offset, else the template rifle on its socket.
+	UObject* WeaponAsset = Look.GoonWeapon.TryLoad();
+	if (UStaticMesh* SMG = Cast<UStaticMesh>(WeaponAsset))
 	{
-		Gun->SetSkinnedAssetAndUpdate(Weapon, true);
+		GunStatic->SetStaticMesh(SMG);
+		GunStatic->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, Look.GoonWeaponSocket);
+		GunStatic->SetRelativeTransform(Look.GoonWeaponOffset);
+		Gun->SetSkinnedAssetAndUpdate(nullptr, false);
+		Lamp->AttachToComponent(GunStatic, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		Lamp->SetRelativeLocation(Look.GoonMuzzleOffset);
 	}
-	Gun->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, Look.GoonWeaponSocket);
-	Lamp->AttachToComponent(Gun, FAttachmentTransformRules::SnapToTargetNotIncludingScale, Look.GoonMuzzleSocket);
+	else
+	{
+		USkeletalMesh* Weapon = Cast<USkeletalMesh>(WeaponAsset);
+		if (!Weapon) Weapon = Cast<USkeletalMesh>(Look.GoonWeaponFallback.TryLoad());
+		if (Weapon)
+		{
+			Gun->SetSkinnedAssetAndUpdate(Weapon, true);
+		}
+		Gun->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, Weapon == WeaponAsset ? Look.GoonWeaponSocket : Look.GoonWeaponSocketFallback);
+		Lamp->AttachToComponent(Gun, FAttachmentTransformRules::SnapToTargetNotIncludingScale, Look.GoonMuzzleSocket);
+	}
 	Lamp->SetLightColor(Look.GoonLampColour);
 	Lamp->SetAttenuationRadius(Look.GoonLampRadius);
 	LampCandela = Look.GoonLampCandela;
@@ -323,6 +372,17 @@ void AMIGoon::OnRuleEvent(const FMIEnemyEvent& Event)
 	if (Event.Kind == FMIEnemyEvent::EKind::Hit)
 	{
 		View.Flash = FMath::Min(1.0, View.Flash + 0.55 + 0.25 * FMath::Clamp(Event.Damage / FMath::Max(1.0, Tune.Hp), 0.0, 1.0));
+	}
+	if (Event.Kind == FMIEnemyEvent::EKind::Fire)
+	{
+		// Presentation: the flash at the SMG's muzzle and the round's tracer (the rules already decided the hit).
+		if (UMIEffects* Fx = UMIEffects::Get(this))
+		{
+			using namespace MIEnemyActorsPrivate;
+			FVector Dir = DirToUnreal(Event.Dir).GetSafeNormal();
+			if (Dir.IsNearlyZero()) Dir = GetActorForwardVector();
+			Fx->EnemyShot(this, Lamp->GetComponentLocation(), Dir);
+		}
 	}
 }
 
