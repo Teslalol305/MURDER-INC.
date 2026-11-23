@@ -1,7 +1,7 @@
 // The browser half of stream-test.sh: Epic's Pixel Streaming 2 player page opened by a headless Chromium on the box.
 // Writes <out>/results.json and screenshots. Reads the game's MICloudProbe log lines (-MICloudProbe=0.5) for what
 // the game saw: the view's yaw, the game state, whether the click card is up.
-//   node stream_test.js <out> <game.log> <launch.txt>      (VW, VH: browser viewport; MATCH: MatchViewportRes)
+//   node stream_test.cjs <out> <game.log> <launch.txt>      (VW, VH: browser viewport; MATCH: MatchViewportRes)
 const { chromium } = require('/project/ue/cloud/pw/node_modules/playwright');
 const fs = require('fs');
 const [, , OUT, GAMELOG, LAUNCHFILE] = process.argv;

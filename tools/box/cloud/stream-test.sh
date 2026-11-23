@@ -3,7 +3,7 @@
 # signalling and web server on 127.0.0.1 only, the game rendering off screen, a headless Chromium as the viewer.
 #
 #   stream-test.sh start [Development|Shipping] [extra game args...]   signalling server + game (detached)
-#   stream-test.sh test <outdir> [viewport WxH] [MatchViewportRes]     the browser test (stream_test.js)
+#   stream-test.sh test <outdir> [viewport WxH] [MatchViewportRes]     the browser test (stream_test.cjs)
 #   stream-test.sh run <script> [Development] [extra args]             the game alone (no stream) playing a MIDemo
 #                                                                      script, for the memory runs (Development only)
 #   stream-test.sh stop                                                stop what this script started (by pid)
@@ -24,6 +24,18 @@ gpu_sampler() {  # the GPU's own counters, once a second, until the game ends
   echo $! > "$RUN/sampler.pid"
 }
 
+listening() {  # the listening sockets of ports 8080 and 8888, from /proc (no ss or netstat on the box)
+  python3 - <<'PY'
+import socket, struct
+for f in ('/proc/net/tcp', '/proc/net/tcp6'):
+    for line in open(f).readlines()[1:]:
+        p = line.split(); addr, port = p[1].split(':'); port = int(port, 16)
+        if p[3] == '0A' and port in (8080, 8888):
+            ip = socket.inet_ntop(socket.AF_INET, struct.pack('<I', int(addr, 16))) if len(addr) == 8 else addr
+            print('LISTEN', ip, port)
+PY
+}
+
 start_game() {  # $1 config, rest: args
   local cfg=${1:-Shipping}; shift
   local L=$C/build-$cfg/Linux
@@ -41,12 +53,12 @@ case "$1" in
   start)
     shift
     if ! kill -0 "$(cat "$RUN/ss.pid" 2>/dev/null)" 2>/dev/null; then
-      (cd "$C/infra/SignallingWebServer" && setsid nohup node --require "$TOOLS/localhost.js" dist/index.js --no_config \
+      (cd "$C/infra/SignallingWebServer" && setsid nohup node --require "$TOOLS/localhost.cjs" dist/index.js --no_config \
         --serve --http_root www --homepage player.html --player_port 8080 --streamer_port 8888 --streamer_host 127.0.0.1 \
         --log_folder "$RUN/sslogs" --console_messages verbose </dev/null > "$RUN/ss.log" 2>&1 & echo $! > "$RUN/ss.pid")
       sleep 3
     fi
-    ss -ltnp | grep -E ':(8080|8888) ' | awk '{print "LISTEN", $4}'
+    listening
     cfg=${1:-Shipping}; shift
     start_game "$cfg" -PixelStreamingConnectionURL=ws://127.0.0.1:8888 "$@"
     ;;
@@ -57,7 +69,7 @@ case "$1" in
     ;;
   test)
     out=$2; vp=${3:-1920x1080}; mkdir -p "$out"
-    VW=${vp%x*} VH=${vp#*x} MATCH=${4:-false} node "$TOOLS/stream_test.js" "$out" "$RUN/game.log" "$RUN/launch.txt"
+    VW=${vp%x*} VH=${vp#*x} MATCH=${4:-false} node "$TOOLS/stream_test.cjs" "$out" "$RUN/game.log" "$RUN/launch.txt"
     ;;
   stop)
     for f in game ss sampler; do p=$(cat "$RUN/$f.pid" 2>/dev/null); [ -n "$p" ] && kill "$p" 2>/dev/null && echo "stopped $f $p"; done

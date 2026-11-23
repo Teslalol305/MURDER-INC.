@@ -76,6 +76,18 @@ content() {
 overlay() {
   local ini=$REL/Config/DefaultEngine.ini game=$REL/Config/DefaultGame.ini
   sed -i 's#^GameDefaultMap=.*#GameDefaultMap=/Game/Maps/L_Block.L_Block#' "$ini"
+  # Pixel Streaming 2 for every target of the release copy: the cooker is the editor, and only a cooker that loads
+  # the plugin cooks the global shaders it brings (else the game stops at start: "Missing global shader
+  # FXRCubemapPS"). The committed project keeps it to the game target, away from the editor and the tests.
+  python3 - "$REL/MurderInc.uproject" <<'PY'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p))
+for pl in d['Plugins']:
+    if pl['Name'] == 'PixelStreaming2':
+        pl.pop('TargetAllowList', None)
+json.dump(d, open(p, 'w'), indent='\t')
+PY
+  chown ue4 "$REL/MurderInc.uproject"
   cat >> "$game" <<'EOF'
 
 ; ---- cloud package overlay (tools/box/cloud/package-cloud.sh; same as tools/box/demo/package.sh) ----
