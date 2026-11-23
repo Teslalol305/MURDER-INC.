@@ -167,6 +167,72 @@ L_Block, pictures retaken with `tools/box/fp/fp-shots.sh` and looked at.
 - Effects remain code on pooled components, not Niagara systems (no scriptable Niagara authoring here); no smoke
   flipbook texture exists.
 
+## Demo video (capture artist)
+
+**Verified 2026-11-23** in its own copy of the gameplay clone, `/project/ue/repo-demo` (logs `/project/ue/logs/repo-demo/demo`).
+The video is delivered privately through the owner's Higgsfield storage (it shows pack and Epic content: never
+committed); six stills from it are `docs/unreal/shots/demo-*.jpg`. Scripts: `tools/box/demo/`.
+
+**The take** (`tools/box/demo/demo.txt`, take t9; `murder-inc-unreal-demo.mp4`, 90.0 s, 1920 x 1080, 60 fps, H.264
+High about 10.6 Mbit/s, AAC stereo 48 kHz, 119 MB, -14.3 LUFS integrated, true peak -1.7 dBFS): 0-2 s the title card;
+2-30 s Home, Crew (Rule), four guns (CHOPPER, NINE, STICK, STRETCH), the Workbench (scope, then silencer on the
+STICK), Block & Style (the block, day, Story, Hustler), the Briefing; the cut to play is the briefing's own fade-in.
+32-90 s one unbroken first-person run in L_Block: down the avenue under the El past the taxi and the box truck, the
+Goons alerted and fought (headshots; "It's Murda!" on a headshot kill at 62.6 s), a reload, the NINE (a Buzzard
+and a Goon), back to the CHOPPER, a propane blast in the garage, the last reel taken (2 of 3 counted as taken
+earlier: `secure`), the sprint to the IPX truck with Goons chasing, extraction at 83.0 s: "What's my name?!" (clean
+take) at 83.3 s, the crowd's "R-U-L-E!" at 85.0 s, "I-N-C!" and the debrief card. Voice lines of the engine render
+(`audio.sh`): I-N-C 32.1, Rule Baby 34.5, Murda 62.6, name 83.3, chant 85.0, I-N-C 87.7 (title included).
+Stills: `shots/demo-home.jpg`, `demo-loadout.jpg`, `demo-bench.jpg`, `demo-avenue.jpg`, `demo-fight.jpg`, `demo-truck.jpg`.
+To redo it: `capture.sh start tools/box/demo/demo.txt <name>`, `audio.sh start <name>`, `finish.sh <name>
+/project/ue/fonts/Anton-Regular.ttf <end s>` (about 12 minutes in all).
+
+**How it is made (all headless, re-runnable).**
+- The game runs **standalone** (`UnrealEditor <project> /Game/Maps/L_Block -game -RenderOffscreen`), not in the editor:
+  that works on this box and draws every frame. `-benchmark -fps=60 -deterministic` gives a fixed 1/60 s game step, so
+  each engine frame is one video frame whatever the render costs (about 30 frames a second of wall clock), and the take
+  is the same every time (t3, t4 and t8, t9 matched frame for frame up to the first changed line).
+- `UMIDemoDirector` (`Source/MurderInc/Flow/MIDemoDirector`, dev only) plays `tools/box/demo/demo.txt` on game time:
+  the set-up screens by their console twins (`MIMenu fe ...`), then the run through the player's own input state
+  (move axis, fire, aim, reload, weapon keys, interact). The view is never set in one step: a damped spring turns it
+  toward what the script looks at (the walk's direction ahead on the route, a Goon's head, a tank, the truck), at most
+  110 degrees a second. Verbs: `route` / `goto` (walk a nav path, `goto` plans it in C++ with the Goons' own
+  `FMIBoxWorld::FindPath`), `fight` / `auto` / `hunt` (pick the nearest Goon in sight, aim at the head, ADS, short
+  bursts), `alert` (the rules' own enemy alert), `blow`, `grab`, `secure` (a reel counted as taken earlier, no event),
+  `hide`, `god`. `tools/box/demo/plan_path.py` prints routes from level.json's nav grid.
+- Frames: `MIDemo.Capture` reads the game viewport with its Slate screens and the HUD every frame
+  (`FSlateApplication::TakeScreenshot`, as `MIShot`) at `FCoreDelegates::OnEndFrame` and writes raw BGRA into a FIFO
+  that ffmpeg (installed on the box with apt) encodes (`capture.sh`).
+- Sound: `MIAudio.Record` records the event bus from the first captured frame; `audio.sh` plays that stream through
+  the engine's own audio mixer on the imported Sound Waves (`MurderInc.Audio.EngineRender` with `-MIAudioStream=`,
+  the live director's seed 7 and the take's voice options), **placed on the audio device's own clock**, so the
+  recording lines up with the frames (the dummy driver drifts from the wall clock). `finish.sh` puts the 2 s title
+  card in front, cuts the take, takes the front left and right, normalises to -16 LUFS and encodes H.264 / AAC.
+- Voice options of the take: `MIVoice clean 1` (the clean "What's my name?!") and `frequency often`.
+
+**Found on the way (for everyone who runs the game outside the editor, the packaged build too).**
+- **Materials without a usage flag draw as the default material in a standalone game** ("missing usage flag Nanite!
+  Default Material will be used in game"): the editor adds flags on the fly, so PIE never showed it. Affected: the pack
+  rifle's `MI_TFA_AR_02/04/ATT_01` (base `M_TFA_AR_Surface`), the Goon SMG, the NINE magazine, the bracelet silver,
+  `M_FX_Tracer` (skeletal), and with the block-v2 map every art master on instanced meshes (the El steel, concrete,
+  plates). `tools/box/demo/fix-usage.sh` sets and saves the flags (in the demo copy only: generated content). The
+  scope's glass and reticle are translucent on a Nanite mesh and stay on the default material (bench close-up only).
+- **The gameplay clone plays an old L_Block**: no vehicle art, so the 63 car colliders drew as dark grey slabs and the
+  IPX truck as a plain cube. The demo copy took `Content/Art` and `Maps/L_Block.umap` from the level clone
+  `/project/ue/repo` (BOX.md 7): parked cars, the taxi, the box truck and the IPX truck are real now.
+- The smoke and dust puffs do draw in the standalone game (soft, lit; the explosion's fireball and smoke column read
+  well): their absence in PIE pictures was the headless editor's picture path.
+- Two takes crashed (signal 11, no stack in the log) on the frame after the director started aiming at a propane tank
+  with the NINE in hand; with the CHOPPER the same blast never crashed (three takes). Not found: `capture.sh` with
+  `DEMO_GDB=1` runs the game under gdb for the stack.
+
+**Open (what the video still shows)**
+- The NINE in hand is the weakest moment (the template pistol pose: the gun rests on the palm; in a fast turn the
+  support forearm swings across the view). The take keeps the NINE to a few seconds.
+- Fights happen at 12 to 20 m: the Goons are small on screen; hits on them have no reaction animation.
+- The Workbench stage is dim and the gun small on it; the debrief card at the end is small text on a darkened view.
+- Motion blur turned down for the take (`r.MotionBlur.Amount 0.15`); turns still smear a little.
+
 ## Rule's arms in the game: hands-and-tattoos pass (character and technical artist)
 
 **Verified 2026-11-23** in the gameplay clone (`import-chars.sh arms`, then `tools/box/fp/fp-arms-shots.sh`, play in
