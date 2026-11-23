@@ -144,6 +144,7 @@ def neck_join(body, head, red_faces, zb, hx, hy, log=print):
     above = (cb[:, 2] > zf(cb[:, 1]) + 1e-5) & (rb < 0.115) & (cb[:, 2] < zb + 0.12)
     gen3d.delete_faces(body, above)
     log("  neck: body cut on the plane, %d faces above it removed" % above.sum())
+    PLANE[:] = [zf]
     return ring, (co_p, no, zf)
 
 
@@ -327,7 +328,8 @@ def ears(head, log=print):
 
 
 R_EYE = 0.0118
-NECK_MEDIAN = list(map(float, (0.150, 0.072, 0.035)))   # the head's neck just above the join (set by head_textures)
+NECK_MEDIAN = list(map(float, (0.150, 0.072, 0.035)))
+PLANE = []                                                # the neck join's height function z(y) (neck_join)   # the head's neck just above the join (set by head_textures)
 
 
 def eye_centres():
@@ -718,7 +720,7 @@ def head_textures(head, res, warped=True, log=print):
     # isolated red specks on the face are bleed, not cloth: red counts only where most of the surface within
     # about 6 mm IN 3D is red (a UV neighbourhood can belong to another part of the head)
     red3 = low_pass_3d(P, np.repeat(red[..., None].astype(np.float32), 3, -1), mask, 0.004, 1)[..., 0]
-    bandana = mask & ((red & (red3 > 0.40)) | ((red3 > 0.55) & ~hue_skin & zband) | ((red3 > 0.75) & zband))
+    bandana = mask & ((red & (red3 > 0.40)) | ((red3 > 0.55) & ~hue_skin & zband) | ((red3 > 0.62) & zband))
     skin = mask & ~bandana
     log("  head texels: bandana %.1f %%, skin %.1f %%" % (100 * bandana.sum() / mask.sum(), 100 * skin.sum() / mask.sum()))
     out = bc.copy()

@@ -72,17 +72,21 @@ def body_textures(body, btex, log=print, wrists=None):
     log("  body skin graded: gains %s" % np.round(k, 3).tolist())
     # the neck below the join takes the head's neck colour just above it (no tone step under the jaw)
     neck = skin & (z > 1.44) & (np.abs(x) < 0.10) & (np.abs(y + 0.04) < 0.10)
-    if neck.sum() > 100:
-        gk = np.asarray(HD.NECK_MEDIAN, dtype=np.float32) / np.maximum(np.median(out[neck], axis=0), 1e-5)
+    below = neck
+    if HD.PLANE:
+        zp = HD.PLANE[0](y)
+        below = neck & (z > zp - 0.015) & (z <= zp + 0.002)   # measured just below the join
+    if neck.sum() > 100 and below.sum() > 50:
+        gk = np.asarray(HD.NECK_MEDIAN, dtype=np.float32) / np.maximum(np.median(out[below], axis=0), 1e-5)
         wn = HD._smooth(1.44, 1.48, z[neck])[:, None]
         out[neck] = out[neck] * (1 - wn) + out[neck] * gk[None] * wn
         log("  body neck matched to the head's: gains %s" % np.round(gk, 3).tolist())
-    # wrist bands: dark or grey outliers on the skin within 5 cm above each wrist
+    # wrist bands: dark or grey outliers on the skin within 8.5 cm of each wrist
     if wrists:
         L = HD.low_pass_3d(P, out, skin, 0.006, 2)
         arm_zone = np.zeros_like(mask)
         for wp in wrists:
-            arm_zone |= mask & (np.linalg.norm(P - np.asarray(wp)[None, None], axis=-1) < 0.055)
+            arm_zone |= mask & (np.linalg.norm(P - np.asarray(wp)[None, None], axis=-1) < 0.085)
         sat = (out.max(-1) - out.min(-1)) / np.maximum(out.max(-1), 1e-4)
         band = arm_zone & ~red & ((HD._lum(out) < 0.55 * HD._lum(L)) | (HD._lum(out) > 1.6 * HD._lum(L)) | (sat < 0.25))
         out[band] = L[band] * (0.96 + 0.06 * T.fbm(P[band], 1 / 0.01, 2, seed=401))[:, None]

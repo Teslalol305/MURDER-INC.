@@ -643,13 +643,13 @@ Review (art/blender/review/rule_review.py, renders in art/out/review/rule/): lik
 - Nails: pink-brown bed matched to the skin, faint lunula, free edge under 1 mm, darker cuticle / nail folds,
   roughness 0.35. Hands: darker knuckles and palm creases, pores, fine hair, warmer fingertips; no palm patch on
   the back of the wrist (back half of the hand forced to the back region, majority filter); forearm veins at 40 %.
-- Bracelet: 18 chunky links of 5.6 mm wire, 1.5 mm clear of the wrist; exported with its silver values
+- Bracelet: a curb chain of 5.2 mm wire, a link every 7.2 mm, twisted flat, 1.5 mm clear of the wrist; exported with its silver values
   (metallic 1, roughness 0.16 / 0.28: rule.export_plain); the same bracelet fitted on SK_Rule's right forearm at the
   body's own section, rigid on lowerarm_twist_01_r; the generated wrist bands painted out.
 - Bandana: a generated seamless bandana swatch (2 credits, art/out/gen/rule/bandana_tile.png) printed by
   triplanar projection over the bandana texels, deeper red, cloth weave and compression folds in the normal map,
   roughness 0.8; its third corner hanging over the nape (bandana_tail, UVs transferred from the surface above).
-- Shirt: upper-arm weight on shirt vertices moved to the clavicle (above the armpit) / spine_03 (below), 15 % kept
+- Shirt: upper-arm weight on shirt vertices moved to the clavicle (above the armpit) / spine_03 (below), 60 % kept
   at the armhole rim fading out over 8 cm (after the weight smoothing); deeper red; "Murder Inc." lettering over the cleaned generated print.
 - Export checks (rule.export_checks): mi.export.validate, skeleton round trip vs the mannequin, re-import
   (triangles, joints, materials, every vertex weighted) -> <glb>.check.json.

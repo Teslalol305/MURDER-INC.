@@ -371,7 +371,7 @@ def export(ctx):
 def shirt_weights(co, names, W, red_v, skin_v, log=print):
     """Review round 1 (the shirt's side and armhole flared like a wing in the jog): the sleeveless shirt follows
     the chest, not the arm. On shirt vertices the upper arm's share goes to the clavicle above the armpit and to
-    spine_03 below it; at the armhole's rim 15 % of it is kept, fading to none 8 cm in."""
+    spine_03 below it; at the armhole's rim 60 % of it is kept (the rim follows the arm), fading to none 8 cm in."""
     from mathutils import kdtree
     nb = len(red_v)
     out = W.copy()
@@ -397,7 +397,7 @@ def shirt_weights(co, names, W, red_v, skin_v, log=print):
             share = W[v, ups].sum()
             if share < 1e-4:
                 continue
-            keep = 0.15 * (1.0 - min(d / 0.08, 1.0))
+            keep = 0.60 * (1.0 - min(d / 0.08, 1.0)) ** 1.5
             give = share * (1 - keep)
             out[v, ups] *= keep
             tgt = cl if (co[v, 2] > z_pit + 0.03 and cl is not None) else sp

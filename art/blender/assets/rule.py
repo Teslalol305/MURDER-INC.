@@ -540,20 +540,22 @@ def build_arms(ctx):
 
 def bracelet(col, R=None, sec=None):
     """SM_Character_RuleBracelet: a chunky silver curb chain (review round 1: tighter, chunkier links as in the
-    photo): 18 links of 5.6 mm wire pressed flat and twisted against each other, close round the wrist (1.5 mm
-    clear, 2.5 mm sag underneath), with a box clasp. Origin = attach frame (characters.attach_frame): X across the
-    arm, Y toward the elbow, Z out of the back. sec: the forearm's semi-axes under it (default: SK_RuleArms')."""
+    photo): 26 links of 5.2 mm wire with small openings, pressed flat and twisted so they lie flat on the wrist
+    and close up against each other, 1.5 mm clear of the skin, 2 mm sag underneath. Origin = attach frame
+    (characters.attach_frame): X across the arm, Y toward the elbow, Z out of the back. sec: the forearm's
+    semi-axes under it (default: SK_RuleArms')."""
     silver, silver2 = bracelet_materials()
     if sec is None:
         sec = (C._interp(FOREARM, BRACELET_S, 1) / 2, C._interp(FOREARM, BRACELET_S, 2) / 2)
-    major, minor = 0.0042, 0.0028
-    a = sec[0] + 0.0015 + minor * 1.25
-    b = sec[1] + 0.0015 + minor * 1.25
-    n = 18
-    pts, _t = C._ellipse_path(a, b, 600, sag=0.0025)
+    major, minor = 0.0036, 0.0026
+    a = sec[0] + 0.0015 + minor * 0.9
+    b = sec[1] + 0.0015 + minor * 0.9
+    pts, _t = C._ellipse_path(a, b, 600, sag=0.002)
     seg = np.linalg.norm(np.roll(pts, -1, axis=0) - pts, axis=1)
     cum = np.concatenate([[0], np.cumsum(seg)])
     total = cum[-1]
+    n = int(round(total / 0.0072))                         # one link every 7.2 mm
+    n += n % 2
     parts = []
     for i in range(n):
         d = (i + 0.5) / n * total
@@ -562,16 +564,10 @@ def bracelet(col, R=None, sec=None):
         mid = p0 + (p1 - p0) * ((d - cum[k]) / max(seg[k], 1e-9))
         tang = (p1 - p0) / max(seg[k], 1e-9)
         ang = math.degrees(math.atan2(tang[2], tang[0]))
-        if i == 0:                                         # box clasp on the back of the wrist
-            bx = geo.box((0.0185, 0.0150, 0.0050), bevel=0.0011, segments=3, base=False, name="Clasp")
-            geo.transform(bx, rot=(0, -ang, 0))
-            geo.transform(bx, loc=tuple(mid))
-            parts.append(C._mat_all(bx, silver))
-            continue
         lk = geo.torus(major=major, minor=minor, seg_major=32, seg_minor=12, name="Link",
-                       stretch=max(total / n * 1.85 - 2 * (major + minor), 0.001))
-        geo.transform(lk, scale=(1.0, 1.0, 0.50))
-        geo.transform(lk, rot=(34 if i % 2 else -34, 0, 0))
+                       stretch=max(total / n * 1.55 - 2 * (major + minor), 0.0008))
+        geo.transform(lk, scale=(1.0, 1.0, 0.46))           # pressed flat
+        geo.transform(lk, rot=(68 if i % 2 else -68, 0, 0))  # twisted: the links lie nearly flat on the wrist
         geo.transform(lk, rot=(0, -ang, 0))
         geo.transform(lk, loc=tuple(mid))
         parts.append(C._mat_all(lk, silver if i % 3 else silver2))
