@@ -150,7 +150,10 @@ private:
 	EMIFPMode Mode = EMIFPMode::Template;
 	double IronZeroDeg = 0.0;
 	FQuat IronZero = FQuat::Identity;
-	FVector SupportElbowDrop = FVector::ZeroVector;  // anim set supportElbowDrop (arms component space, cm)  // the irons' zeroing turn of the gun in hand (reset on equip)
+	FVector SupportElbowDrop = FVector::ZeroVector;
+	bool bReloadingNow = false;
+	double ReloadNowT = 0.0, ReloadNowLeft = 0.0;
+	FVector MagBasePad = FVector(1.5, 0.0, -15.0);  // HandIK guns: the palm under the magazine's base (gun space, cm)  // anim set supportElbowDrop (arms component space, cm)  // the irons' zeroing turn of the gun in hand (reset on equip)
 	FName GunId;
 	FTransform ArmsRest = FTransform::Identity;
 	double FovIrons = 38.0, FovOptic = 32.0;

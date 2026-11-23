@@ -629,6 +629,9 @@ void UMIFirstPersonRig::Update(double Dt, const FMIWeaponView& W, const FMIViewm
 	LandAge += Dt;
 	if (Mode == EMIFPMode::HandIK)
 	{
+		bReloadingNow = W.Activity == EMIWeaponActivity::Reloading;
+		ReloadNowT = W.ActivityTime;
+		ReloadNowLeft = FMath::Max(0.0, W.ActivityLength - W.ActivityTime);
 		HandPose.Layers.Reset();
 		if (UAnimSequenceBase* Idle = ArmsClip(TEXT("idle")))
 		{
@@ -939,5 +942,16 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 	};
 	Pull(LeftSocket, TEXT("upperarm_l"), TEXT("lowerarm_l"), TEXT("hand_l"), TEXT("middle_metacarpal_l"));
 	Pull(RightSocket, TEXT("upperarm_r"), TEXT("lowerarm_r"), TEXT("hand_r"), TEXT("middle_metacarpal_r"));
+	// In a reload the support hand leaves the grip and works the magazine (review 2026-11-23: it stayed on the
+	// rolled pistol): its palm follows the magazine's base pad on the 'magazine' bone the rig drops and seats, blended
+	// in and out over the first and last 0.15 s.
+	const FName MagBone = OwnMag ? OwnMag->GetAttachSocketName() : NAME_None;
+	if (bReloadingNow && !MagBone.IsNone() && Gun->DoesSocketExist(MagBone) && HandPose.Hands.Num() > 0 && HandPose.Hands[0].Hand == TEXT("hand_l"))
+	{
+		const FTransform Base = FTransform(MagBasePad) * OwnMag->GetRelativeTransform() * Gun->GetSocketTransform(MagBone);
+		FMIFPHandIK& L = HandPose.Hands[0];
+		const double K = FMath::Clamp(FMath::Min(ReloadNowT, ReloadNowLeft) / 0.15, 0.0, 1.0);
+		L.Target.SetLocation(FMath::Lerp(L.Target.GetLocation(), Base.GetRelativeTransform(ArmsWorld).GetLocation(), Smooth(K)));
+	}
 	AI->SetPose(HandPose);
 }
