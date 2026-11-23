@@ -469,14 +469,14 @@ def goon_material(name, set_name, detail_tiling, dest, tex, detail="/Game/Charac
         dn = _tex_node(m, detail, -1400, 600, "normal")
         MEL.connect_material_expressions(tc, "", dn, "UVs")
         dxy = MEL.create_material_expression(m, unreal.MaterialExpressionComponentMask, -1150, 600)
-        dxy.r, dxy.g = True, True
+        _set(dxy, r=True, g=True)
         MEL.connect_material_expressions(dn, "RGB", dxy, "")
         dxy = _op(m, unreal.MaterialExpressionMultiply, dxy, cloth, -1000, 600)
         bxy = MEL.create_material_expression(m, unreal.MaterialExpressionComponentMask, -1150, 400)
-        bxy.r, bxy.g = True, True
+        _set(bxy, r=True, g=True)
         MEL.connect_material_expressions(nm, "RGB", bxy, "")
         bz = MEL.create_material_expression(m, unreal.MaterialExpressionComponentMask, -1150, 480)
-        bz.b = True
+        _set(bz, b=True)
         MEL.connect_material_expressions(nm, "RGB", bz, "")
         sxy = _op(m, unreal.MaterialExpressionAdd, bxy, dxy, -850, 450)
         ap = _op(m, unreal.MaterialExpressionAppendVector, sxy, bz, -700, 450)
