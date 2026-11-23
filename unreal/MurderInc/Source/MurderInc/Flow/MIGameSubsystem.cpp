@@ -80,10 +80,9 @@ AMIPlayerCharacter* UMIGameSubsystem::GetPlayer() const
 {
 	if (!Player.IsValid() && GetWorld())
 	{
-		for (TActorIterator<AMIPlayerCharacter> It(GetWorld()); It; ++It)
+		if (TActorIterator<AMIPlayerCharacter> It(GetWorld()); It)
 		{
 			Player = *It;
-			break;
 		}
 	}
 	return Player.Get();
