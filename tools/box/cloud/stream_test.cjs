@@ -48,7 +48,7 @@ const shot = (page, n) => page.screenshot({ path: `${OUT}/${n}.png` });
   let page = await ctx.newPage();
   page.on('console', (m) => fs.appendFileSync(`${OUT}/console.log`, m.text() + '\n'));
   await page.addInitScript(init);
-  const url = `http://127.0.0.1:8080/?AutoConnect=true&AutoPlayVideo=true&HoveringMouse=false&MatchViewportRes=${MATCH}&StartVideoMuted=false&WaitForStreamer=true&GamepadInput=true&KeyboardInput=true&MouseInput=true`;
+  const url = `http://127.0.0.1:8090/?AutoConnect=true&AutoPlayVideo=true&HoveringMouse=false&MatchViewportRes=${MATCH}&StartVideoMuted=false&WaitForStreamer=true&GamepadInput=true&KeyboardInput=true&MouseInput=true`;
   const firstFrame = async () => waitFor(() => page.evaluate(() => {
     const v = document.querySelector('video'); return v && v.readyState >= 2 && v.videoWidth > 0 ? [v.videoWidth, v.videoHeight] : null;
   }), 240000, 250);
