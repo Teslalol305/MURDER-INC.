@@ -118,6 +118,7 @@
     "weapon:switch:holster":  { "play": [ { "sound": "holster", "vol": { "nine": 0.75 }, "pitch": { "nine": 1.18 } } ] },
     "weapon:switch:draw":     { "play": [ { "sound": "draw", "vol": { "nine": 0.8 }, "pitch": { "nine": 1.15 } } ] },
     "weapon:swing":           { "play": [ { "sound": "whoosh", "vol": 0.9, "pitch": 1.1 } ] },
+    "weapon:mode":            { "play": [ { "sound": "dry_fire", "vol": 0.45, "pitch": 1.6 } ], "about": "the fire selector (LOADOUT.md 4.4): a small high click until a recorded selector exists" },
     "weapon:melee:hit":       { "play": [ { "sound": "melee_thud" } ] },
     "weapon:melee:miss":      { "silent": "the swing already whooshed" },
     "impact":                 { "rule": "impact", "volPlayer": 0.9, "volEnemy": 0.8, "volBody": 1.0, "ricochetDelay": 0.012, "ricochetVol": 0.8, "brassChance": 0.0 },

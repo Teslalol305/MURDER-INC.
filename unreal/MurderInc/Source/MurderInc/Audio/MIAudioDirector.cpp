@@ -118,6 +118,7 @@ void FMIAudioDirector::Bind(FMIGameEvents& Bus)
 	Handles.Add(Bus.WeaponReload.AddRaw(this, &FMIAudioDirector::OnWeaponReload));
 	Handles.Add(Bus.WeaponSwitch.AddRaw(this, &FMIAudioDirector::OnWeaponSwitch));
 	Handles.Add(Bus.WeaponSwing.AddRaw(this, &FMIAudioDirector::OnWeaponSwing));
+	Handles.Add(Bus.WeaponMode.AddRaw(this, &FMIAudioDirector::OnWeaponMode));
 	Handles.Add(Bus.WeaponMelee.AddRaw(this, &FMIAudioDirector::OnWeaponMelee));
 	Handles.Add(Bus.Impact.AddRaw(this, &FMIAudioDirector::OnImpact));
 	Handles.Add(Bus.PlayerHitEnemy.AddRaw(this, &FMIAudioDirector::OnHitEnemy));
@@ -148,6 +149,7 @@ void FMIAudioDirector::Unbind()
 	B.WeaponReload.Remove(Next());
 	B.WeaponSwitch.Remove(Next());
 	B.WeaponSwing.Remove(Next());
+	B.WeaponMode.Remove(Next());
 	B.WeaponMelee.Remove(Next());
 	B.Impact.Remove(Next());
 	B.PlayerHitEnemy.Remove(Next());
@@ -1160,7 +1162,7 @@ void FMIAudioDirector::OnWeaponFire(const FMIShotFiredEvent& E)
 {
 	const TSharedPtr<FJsonObject> R = Data->Event(TEXT("weapon:fire"));
 	const FName W = E.Weapon;
-	const bool bSup = Suppressed.Contains(W);
+	const bool bSup = Suppressed.Contains(W) || E.bSuppressed;  // the loadout's silencer, per gun or on the round
 	const FName Silenced(*FString::Printf(TEXT("%s_shot_silenced"), *W.ToString()));
 	FPlayArgs Shot;
 	Play(bSup && Data->Find(Silenced) ? Silenced : FName(*FString::Printf(TEXT("%s_shot"), *W.ToString())), Shot);
@@ -1248,6 +1250,11 @@ void FMIAudioDirector::OnWeaponSwitch(const FMISwitchEvent& E)
 void FMIAudioDirector::OnWeaponSwing(FName Weapon)
 {
 	PlayEntry(Data->Event(TEXT("weapon:swing")), Weapon, nullptr, {});
+}
+
+void FMIAudioDirector::OnWeaponMode(FName Weapon, bool bSemi)
+{
+	PlayEntry(Data->Event(TEXT("weapon:mode")), Weapon, nullptr, {});
 }
 
 void FMIAudioDirector::OnWeaponMelee(bool bHit)
@@ -1615,7 +1622,8 @@ TArray<TPair<FName, FString>> FMIAudioDirector::BusDelegates()
 	return {
 		{TEXT("Enemy"), TEXT("enemy:*")}, {TEXT("Flow"), TEXT("<flow lines>")}, {TEXT("MusicIntensity"), TEXT("music:intensity")},
 		{TEXT("WeaponFire"), TEXT("weapon:fire")}, {TEXT("WeaponDry"), TEXT("weapon:dry")}, {TEXT("WeaponReload"), TEXT("weapon:reload:*")},
-		{TEXT("WeaponSwitch"), TEXT("weapon:switch:*")}, {TEXT("WeaponSwing"), TEXT("weapon:swing")}, {TEXT("WeaponMelee"), TEXT("weapon:melee:*")},
+		{TEXT("WeaponSwitch"), TEXT("weapon:switch:*")}, {TEXT("WeaponSwing"), TEXT("weapon:swing")}, {TEXT("WeaponMode"), TEXT("weapon:mode")},
+		{TEXT("WeaponMelee"), TEXT("weapon:melee:*")},
 		{TEXT("Impact"), TEXT("impact")}, {TEXT("PlayerHitEnemy"), TEXT("player:hitEnemy:*")}, {TEXT("Explosion"), TEXT("explosion:*")},
 		{TEXT("ExplosiveLit"), TEXT("explosive:lit")}, {TEXT("ExplosiveBlast"), TEXT("explosive:blast")}, {TEXT("PlayerStep"), TEXT("player:step")},
 		{TEXT("PlayerJump"), TEXT("player:jump")}, {TEXT("PlayerLand"), TEXT("player:land")}, {TEXT("PlayerHit"), TEXT("player:hit")},
@@ -1628,7 +1636,7 @@ TArray<FName> FMIAudioDirector::BusEventKeys()
 	for (const TCHAR* S : {
 		TEXT("weapon:fire"), TEXT("weapon:dry"),
 		TEXT("weapon:reload:start"), TEXT("weapon:reload:magout"), TEXT("weapon:reload:magin"), TEXT("weapon:reload:bolt"), TEXT("weapon:reload:done"), TEXT("weapon:reload:cancel"),
-		TEXT("weapon:switch:holster"), TEXT("weapon:switch:draw"), TEXT("weapon:swing"), TEXT("weapon:melee:hit"), TEXT("weapon:melee:miss"),
+		TEXT("weapon:switch:holster"), TEXT("weapon:switch:draw"), TEXT("weapon:swing"), TEXT("weapon:mode"), TEXT("weapon:melee:hit"), TEXT("weapon:melee:miss"),
 		TEXT("impact"), TEXT("player:hitEnemy:body"), TEXT("player:hitEnemy:head"), TEXT("player:hitEnemy:kill"),
 		TEXT("explosion:big"), TEXT("explosion:small"), TEXT("explosive:lit"), TEXT("explosive:blast"),
 		TEXT("player:step"), TEXT("player:jump"), TEXT("player:land"), TEXT("player:hit"), TEXT("player:dead"),

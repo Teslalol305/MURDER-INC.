@@ -130,6 +130,8 @@ public:
 	void OnWeaponReload(const FMIReloadEvent& E);
 	void OnWeaponSwitch(const FMISwitchEvent& E);
 	void OnWeaponSwing(FName Weapon);
+	/** The fire selector flipped (LOADOUT.md 4.4): a small mechanical click. */
+	void OnWeaponMode(FName Weapon, bool bSemi);
 	void OnWeaponMelee(bool bHit);
 	void OnImpact(const FMIImpactEvent& E);
 	void OnHitEnemy(const FMIHitEnemyEvent& E);
