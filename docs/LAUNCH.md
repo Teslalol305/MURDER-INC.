@@ -11,7 +11,7 @@ is the real test: do steps 1 to 6 on the trial before paying for anything.
 
 ## What you need
 
-- The game file: **`MurderInc-E3DS.zip`** (about {{ZIP_SIZE}}), in your Higgsfield storage (private links in
+- The game file: **`MurderInc-E3DS.zip`** (about 1.4 GB), in your Higgsfield storage (private links in
   section 9). If it is in several parts, join them first (section 9).
 - Google Chrome or Microsoft Edge (Safari cannot lock the mouse and keyboard to the game).
 - About 2 GB of upload; a wired connection helps.
@@ -48,8 +48,9 @@ is the real test: do steps 1 to 6 on the trial before paying for anything.
 ## 4. Test the link in Chrome
 
 1. Open the share link in Chrome. The first start of a Linux app takes longer than Windows apps (E3DS keeps no
-   Linux server warm): expect **{{START_HINT}}**; E3DS gives up after 3 minutes.
-2. You see the game's home screen under a card that says **CLICK TO PLAY**. Click once. That click:
+   Linux server warm): expect **half a minute to a couple of minutes (the game itself is up about 8 seconds after it starts; the rest is E3DS finding and starting a Linux server)**; E3DS gives up after 3 minutes.
+2. You see the game's home screen under a card that says **CLICK TO PLAY** (if E3DS shows its own play button
+   first, click that, then the game). Click once. That click:
    - locks the mouse to the game (mouse look),
    - starts the sound (browsers keep sound off until you click),
    - hides the card. It does not press anything in the menus.
@@ -113,8 +114,8 @@ Paste this where the game should appear (replace the `src` with your share link)
 ## 8. If E3DS rejects the build or it never starts
 
 1. **Rejected at upload** ("no Pixel Streaming plugin" or a version message): send E3DS support the zip name and say
-   it is an Unreal 5.9 Linux build with Pixel Streaming 2 (the plugin is in
-   `Engine/Plugins/Media/PixelStreaming2` inside the zip). Ask whether 5.9 builds are accepted yet.
+   it is an Unreal 5.9 Linux build with Pixel Streaming 2 (built into the game program; its web files are in
+   `MurderInc/Samples/PixelStreaming2` inside the zip). Ask whether 5.9 builds are accepted yet.
 2. **Uploads but the stream never starts**: check that the configuration's platform is "Linux UE Build for PS" and
    the app name is exactly `MurderInc`, then try once more (first Linux starts are slow). If it still fails, ask E3DS
    support for the app's log.
@@ -127,12 +128,22 @@ Paste this where the game should appear (replace the `src` with your share link)
 
 ## 9. Getting the file
 
-The zip is in your Higgsfield storage, private to your account: {{PACKAGE_LINKS}}
+The zip is in your Higgsfield storage, private to your account, in **six parts** (the storage takes at most about
+250 MB per file). They are named `MurderInc-E3DS-part1-of-6.zip` to `part6-of-6.zip`; **the parts are not zips on
+their own**: put them back together first.
 
-{{JOIN_NOTE}}
+1. Download the six parts into one folder (Higgsfield, your files/media library; or ask Claude for the links).
+2. On a Mac, open Terminal in that folder and run:
 
-Check that the file is complete: on a Mac, open Terminal and run `shasum -a 256 MurderInc-E3DS.zip`; the result must
-be `{{SHA256}}`.
+   ```
+   cat MurderInc-E3DS-part1-of-6.zip MurderInc-E3DS-part2-of-6.zip MurderInc-E3DS-part3-of-6.zip \
+       MurderInc-E3DS-part4-of-6.zip MurderInc-E3DS-part5-of-6.zip MurderInc-E3DS-part6-of-6.zip > MurderInc-E3DS.zip
+   shasum -a 256 MurderInc-E3DS.zip
+   ```
+
+   (On Windows: `copy /b part1+part2+part3+part4+part5+part6 MurderInc-E3DS.zip` with the full names.)
+3. The last line must print `4ff069986adae2d19464c91a6542fa9477d6ba157efa4b969c6d2463a53b3118`. If it does not, a
+   part is incomplete: download that part again. Upload the joined `MurderInc-E3DS.zip` to E3DS, not the parts.
 
 The zip contains licensed content (the rifle animation pack, Epic's template content and the main character's
 likeness): upload it only to E3DS, do not share the links.
@@ -142,7 +153,32 @@ likeness): upload it only to E3DS, do not share the links.
 The game picks a **Cloud** graphics profile by itself when it runs in a stream. E3DS's servers have 8 or 16 GB of
 graphics memory (RTX 4080 or 5070 class) and 32 GB of memory; their own advice is to stay near 4 to 6 GB.
 
-{{CLOUD_TABLE}}
+Measured on the GPU box at 1920 x 1080 (2026-11-23; how in `docs/unreal/PROGRESS.md`, "Cloud build"):
+
+| Run | Graphics memory | Memory (RAM) |
+|---|---|---|
+| Story run, desktop settings (Epic) | 4.3 GB the game's own; 6.7 GB added on the whole card | 3.2 GB |
+| Story run, Cloud settings | 5.5 to 5.7 GB added on the whole card | 3.2 GB |
+| Hold the Block, Cloud settings (first waves) | 3.4 GB the game's own; 5.3 GB on the whole card | 3.1 GB |
+| Home screen: desktop / Cloud | 3.8 GB / 3.2 GB the game's own | 3.0 GB |
+
+"The game's own" is what the graphics driver reports for the game alone; "on the whole card" is the rise of the
+card's counter while the game ran, which also catches the driver's own share and anything else that grew meanwhile
+(other work shared the box's card). Either way the game stays **under 7 GB**, inside an 8 GB server card, with
+room to spare on a 16 GB one, and far under the 32 GB of memory.
+
+What the Cloud settings change, and what you might notice:
+
+- **Reflections** are worked out at half resolution, and only on shiny surfaces (wet road, glass, car paint); matte
+  surfaces fall back to a simpler reflection. You may notice slightly softer reflections in puddles and windows.
+- **Shadows** get a smaller memory pool: in very wide views distant shadows can be a little softer.
+- **Fine geometry** streams from a smaller pool: on a fast turn, distant detail can take a moment longer to sharpen.
+- **Motion blur is off** (it costs video bandwidth and smears on a stream anyway).
+- **Texture pool** 800 MB (the desktop setting is 1000 MB). Note: the zip of 2026-11-23 still carries 1500 MB, which
+  is what was measured above; the next package (`package-cloud.sh`) uses 800 MB.
+- The picture is capped at 60 frames a second, the rate the stream sends.
+
+Lighting itself (Lumen with hardware ray tracing), Nanite, the art and the resolution are unchanged.
 
 ## 11. Prices (as researched on 2026-11-23: check eagle3dstreaming.com/pricing before you pay)
 
@@ -160,5 +196,5 @@ players go to the nearer one.
 ## 12. Making a new build later
 
 Claude rebuilds the whole package with one command on the GPU box (`tools/box/cloud/package-cloud.sh all`, about
-{{PACKAGE_MIN}} minutes), tests it through a stream on the box (`tools/box/cloud/stream-test.sh`), and puts the new
+15 minutes), tests it through a stream on the box (`tools/box/cloud/stream-test.sh`), and puts the new
 zip in your Higgsfield storage. You then upload it to E3DS as a new version (section 2) and test the link again.
