@@ -3,6 +3,53 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Demo build (release engineer): the game playable from a browser — done
+
+**Verified 2026-11-23** on the box (session d14fa3ab). Owner's guide: `docs/DEMO.md`. Scripts: `tools/box/demo/package.sh`,
+`start.sh`, `stop.sh` (copied to `/project/ue/demo/tools/` on the box; the demo-video agent's `capture.sh`, `audio.sh`,
+`finish.sh` share the folder).
+
+**Route: the rental's own browser desktop.** The desktop rental already streams its screen (Selkies, websockets mode,
+H.264 on the card) to a private page behind the platform's HTTPS link (`Open desktop`, a `*.w.modal.host` address
+with a connect token and a session token); that page is the only thing the box exposes to the internet. Pixel
+Streaming was not used: it needs its own signalling and media ports reachable from the internet, the rental routes
+no other port, and the rental's instructions forbid starting tunnels, VNC or web servers on a desktop box ("the
+desktop and its link already exist"). A packaged Mac build is impossible from Linux (it needs a Mac with Xcode and
+the engine), and was not needed.
+
+**Windows do work here for the game.** `desktop-run --vulkan` (the box's launcher: primus_vk renders on the RTX PRO 6000
+and presents through llvmpipe on the virtual screen) draws the packaged game, and `UnrealEditor <project> -game`,
+in a window without aborting; only the editor's own window was ever seen to abort (BOX.md).
+
+**The package.** `package.sh snapshot` copies the gameplay clone's project (Source, Config, Content with all the
+imported art, the editor module) to `/project/ue/repo-release` (its own copy: `repo-demo` is the demo-video agent's
+clone), `package.sh start` runs BuildCookRun Linux Development: game target 2 min from scratch, cook 1 to 2 min
+with the shared cache, 1.7 GB staged in `/project/ue/demo/build/Linux`. Overlay on the copy only: start map
+`L_Block`, cook the folders the data loads by path (Art, Audio, Characters, FX, FirstPerson, ThirdParty, Weapons,
+Input, Variant_Shooter), stage `Content/Fonts` as files (`UI/MIStyle.cpp` reads them like the data), no Zen store
+(the cooker's Zen writer aborts: no Zen server on the box), `-IgnoreCookErrors` (the template's ABP_FP_Pistol and
+ABP_FP_Weapon no longer compile and are unused). The package holds pack and Epic content: box only, never committed.
+
+**Found and fixed: mouse look was 14 times too slow outside play in editor.** BaseInput.ini scales MouseX, MouseY
+and Mouse2D by 0.07 and Enhanced Input applies it even with the legacy scales off: 300 counts turned 2.5 degrees
+(read back with `getall MIPlayerController ControlRotation`) instead of 36. `Config/DefaultInput.ini` now replaces
+the three entries with sensitivity 1; after the fix 100 counts turn 12.03 degrees (0.0021 rad per count, exact) and
+50 counts down pitch 6.0 degrees down. Play-in-editor input went through `MIInput`, which is why no test saw it.
+
+**Measured through the desktop path** (the X screen the stream sends; input injected with XTEST as the stream's
+input is): home screen to the Story run through Crew, Loadout, Block and Briefing with mouse clicks; 1920 x 1080 full
+screen, Epic preset, TSR at 73 %: **60 fps locked**, GPU 6.4 to 6.6 ms, game thread 5 ms, draw 7.5 to 7.9 ms;
+mouse-move-to-screen 43 to 56 ms (median of 8, includes a 12 ms screen grab). With two other agents' editors
+running on the same card: 55 to 60 fps, GPU 14 to 17 ms, 78 ms median delay. The uncooked `-game` run with an
+editor alongside managed 36 to 49 fps: the package matters. The desktop icon "MURDER INC." (re)starts the game.
+Pictures (box only, they show pack content): `/project/ue/demo/home.jpg`, `g3.jpg`, `ads.jpg`, `fire.jpg`.
+
+**Limits** (the rental's stream settings, not the game): no sound in the browser (Selkies runs with audio off; the
+game's audio device does not open for user ue4 either: "ALSA: Couldn't open audio device"), no gamepad through the
+browser (gamepad input off), Safari has no keyboard lock (Esc leaves gaming mode). The game window does not follow
+a later resize of the desktop: restart it with the icon. Seen in play: a black half disc below the left forearm in
+the hip pose (art, first-person agent), vertical banding on the set-up stage for a few frames after a camera cut.
+
 ## First person (the player's arms and guns, the Goons, the effects) — first pass done
 
 Built in the gameplay clone `/project/ue/repo-gameplay` (MCP 8001). Contracts: `docs/unreal/GAMEPLAY.md` 15 to 19.

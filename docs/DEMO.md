@@ -45,14 +45,16 @@ streaming service has its gamepad input switched off. The game itself supports o
 
 ## 4. How it runs
 
-- Picture: full HD (1920 x 1080) or your browser window's size, at up to 60 frames a second. Measured on the box:
-  see `docs/unreal/PROGRESS.md`, section "Demo build".
-- Delay between your mouse and the picture: the game's own share is measured in PROGRESS; the trip to the box and
-  back adds your internet delay on top (the box is in a data centre, so expect it to feel like a good cloud-gaming
-  service, not like a local game).
-- **No sound in the browser.** The game plays its sound on the box, but the box's streaming service is set up
-  without sound. Show the voice lines and effects from a recorded video, or ask for sound to be turned on in the
-  stream (it is a setting of the rental, not of the game).
+- Picture: full screen at the desktop's size (1920 x 1080 by default), locked at **60 frames a second**. Measured
+  on the box in play on the street (2026-11-23): 60 fps, the graphics card busy 6.5 ms of each 16.7 ms frame.
+- Delay: the game shows a mouse move on the box's screen about **45 to 55 ms** after the move arrives (measured on
+  the box, 8 tries). The trip from your Mac to the box and back, and the video encoding, come on top: expect it to
+  feel like a cloud-gaming service, not like a game running on your own Mac.
+- **No sound in the browser.** The box's streaming service is set up without sound (a setting of the rental, not of
+  the game). Show the voice lines and effects from a recorded video, or ask for sound to be turned on in the stream.
+- **Keep the box to the demo.** When other Claude work runs Unreal editors on the same box at the same time, they
+  share the graphics card: measured with two other editors open, 55 to 60 fps and about 80 ms delay. Say "nothing
+  else on the box during the demo" when you ask for it.
 
 ## 5. How long it stays up, and the cost
 
@@ -60,8 +62,6 @@ streaming service has its gamepad input switched off. The game itself supports o
 - It **switches itself off after 10 minutes with nobody using it** (no keyboard or mouse on the desktop and no
   Claude command). Playing keeps it on. Your files and the game build are kept; the next start takes a few minutes.
 - To end early, tell Claude "stop the box".
-- Other Claude work running on the same box at the same time (an Unreal editor) shares the graphics card and lowers
-  the frame rate: say "nothing else on the box during the demo" when you ask for it.
 
 ## 6. What is reachable from the internet
 

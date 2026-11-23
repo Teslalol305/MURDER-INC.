@@ -20,6 +20,7 @@ export DISPLAY=:1
 
 if [ "$(id -un)" != ue4 ]; then
   # Root part: the desktop icon, then the game as user ue4 (the engine refuses root).
+  id ue4 >/dev/null 2>&1 || { echo "NO-UE4-USER: a fresh box; run /project/ue/bin/ensure-setup.sh until it prints SETUP-DONE"; exit 1; }
   [ -x "$BIN" ] || { echo "NO-BUILD: $BIN is missing (run package.sh snapshot, package.sh start)"; exit 1; }
   old=$(cat "$PIDF" 2>/dev/null)
   if [ -n "$old" ] && kill -0 "$old" 2>/dev/null && tr '\0' ' ' < "/proc/$old/cmdline" | grep -q "$GAME"; then
