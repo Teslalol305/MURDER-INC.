@@ -475,17 +475,22 @@ def fx():
     df.set_editor_property("fade_distance_default", 40.0)
     MEL.connect_material_expressions(op, "", df, "Opacity")
     MEL.connect_material_property(df, "", unreal.MaterialProperty.MP_OPACITY)
-    MEL.connect_material_property(_vector(m, "Color", (0.42, 0.40, 0.37), -350, 200), "", unreal.MaterialProperty.MP_BASE_COLOR)
+    # Unlit: the lit volumetric translucency drew nothing in the game's pictures (first pass), so the puff carries
+    # its own daylight: colour x Light (nits; the street in sun is about 10,000), plus the fireball's own glow.
+    lit = _expr(m, unreal.MaterialExpressionMultiply, -350, 200)
+    MEL.connect_material_expressions(_vector(m, "Color", (0.42, 0.40, 0.37), -600, 200), "", lit, "A")
+    MEL.connect_material_expressions(_scalar(m, "Light", 6000.0, -600, 280), "", lit, "B")
     fire = _expr(m, unreal.MaterialExpressionMultiply, -350, 320)
     MEL.connect_material_expressions(_vector(m, "FireColor", (1.0, 0.45, 0.12), -600, 320), "", fire, "A")
     MEL.connect_material_expressions(_scalar(m, "Fire", 0.0, -600, 420), "", fire, "B")
     fire2 = _expr(m, unreal.MaterialExpressionMultiply, -200, 320)
     MEL.connect_material_expressions(fire, "", fire2, "A")
     MEL.connect_material_expressions(c, "", fire2, "B")
-    MEL.connect_material_property(fire2, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
-    MEL.connect_material_property(_scalar(m, "Roughness", 1.0, -200, 450), "", unreal.MaterialProperty.MP_ROUGHNESS)
-    _set(m, blend_mode=unreal.BlendMode.BLEND_TRANSLUCENT, shading_model=unreal.MaterialShadingModel.MSM_DEFAULT_LIT,
-         two_sided=True, translucency_lighting_mode=unreal.TranslucencyLightingMode.TLM_VOLUMETRIC_NON_DIRECTIONAL)
+    glow = _expr(m, unreal.MaterialExpressionAdd, -100, 260)
+    MEL.connect_material_expressions(lit, "", glow, "A")
+    MEL.connect_material_expressions(fire2, "", glow, "B")
+    MEL.connect_material_property(glow, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    _set(m, blend_mode=unreal.BlendMode.BLEND_TRANSLUCENT, shading_model=unreal.MaterialShadingModel.MSM_UNLIT, two_sided=True)
     rep["smoke"] = _finish(m, p)
 
     # tracer: a thin hot streak (unlit additive)
