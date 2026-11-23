@@ -17,6 +17,7 @@
 #include "ImageUtils.h"
 #include "Misc/FileHelper.h"
 #include "Widgets/SViewport.h"
+#include "Widgets/SWindow.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "UI/MIFrontEnd.h"
