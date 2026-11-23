@@ -1499,6 +1499,13 @@ def place_facade(facade, building):
                                              (", missing meshes " + ",".join(missing)) if missing else "")
 
 
+# Props drawn with another catalogue mesh than their type's (same place, same collider). Prop 270, the litter basket
+# 1.1 m in front of the player start: its black liner and open top filled the lower left of every run's first frame
+# as a dark half disc (fix pass); the galvanised lidded can (0.56 m across without its handles) sits in the same
+# 0.6 m collider with a closed, lit top.
+PROP_MESH_OVERRIDES = {270: "SM_Prop_TrashCan_Metal"}
+
+
 def prop_placements(facade):
     """[{prop, name, mesh, location, yaw, scale, paint, parts}] for the props.json instances whose catalogue id has
     meshes in Content/Data/art_catalogue.json (gameplay ids are the gameplay actors'). The first mesh's footprint
@@ -1518,6 +1525,9 @@ def prop_placements(facade):
             missing.update(entry["meshes"])
             continue
         mesh = names[prop["seed"] % len(names)]
+        override = PROP_MESH_OVERRIDES.get(prop["index"])
+        if override and override in man and ASSETS.does_asset_exist("%s/%s" % (MESH_DIR, override)):
+            mesh = override
         ue = prop["ue"]
         yaw = ue["yaw"]
         scale = (ue["scale"]["X"], ue["scale"]["Y"], ue["scale"]["Z"])
