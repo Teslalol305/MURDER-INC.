@@ -772,10 +772,12 @@ void UMIWeaponComponent::OnRoundFired(const FMIShotRequest& Shot, const FMIShotR
 		const FQuat Cam = Camera->GetComponentQuat();
 		const FVector Out = Cam.RotateVector(Eject.GetRotation().GetAxisX());
 		const FVector V = Out * FMath::FRandRange(220.0, 320.0) + Cam.RotateVector(FVector(-60.0, 0.0, 90.0)) + FMath::VRand() * 30.0 + Player->GetPlayerRules().Velocity;
-		// Drawn at the first-person depth and size (FirstPersonToNearWorld), so it leaves the port on screen instead of
-		// flying behind the gun at the world depth.
+		// Drawn at the first-person depth and size (FirstPersonToNearWorld) for its first moment, so it leaves the port
+		// on screen instead of flying behind the gun at the world depth; then a casing of its true size carries on from
+		// where the port really is (fix pass: the first-person one stayed 4 s, shrunken on the ground).
 		const FTransform At = FirstPersonToNearWorld(Eject);
-		Fx->Casing(FPRig->GetCasingMesh(), At, V * At.GetScale3D().X + Player->GetPlayerRules().Velocity * (1.0 - At.GetScale3D().X));
+		const FTransform Real(Cam * Eject.GetRotation(), FirstPersonToWorld(Eject.GetLocation()), Eject.GetScale3D());
+		Fx->Casing(FPRig->GetCasingMesh(), At, V * At.GetScale3D().X + Player->GetPlayerRules().Velocity * (1.0 - At.GetScale3D().X), Real, V);
 	}
 	if (Result.Distance < ViewData.TracerMinHit * 100.0)
 	{

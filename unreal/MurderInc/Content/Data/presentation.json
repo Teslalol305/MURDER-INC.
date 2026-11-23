@@ -327,7 +327,9 @@
       }
     },
     "casing": {
-      "life": 4.0
+      "life": 4.0,
+      "viewLife": 0.12,
+      "note": "UMIEffects::Casing: the player's casing at the first-person depth and size for viewLife s (it leaves the port on screen), then a true-size casing from the port's true place for the rest of life"
     },
     "markLife": 30,
     "blood": {

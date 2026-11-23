@@ -1072,7 +1072,12 @@ void UMIFirstPersonRig::DropMagazine(bool bFull)
 	const FTransform At = Weapon->FirstPersonToNearWorld(CameraSpace(Seated->GetComponentTransform()));
 	const FVector Pos = At.GetLocation();
 	const FVector Vel = Camera->GetComponentQuat().RotateVector(MagVel) * At.GetScale3D().X + FVector(0, 0, -60.0);
-	UMIEffects::SpawnBody(this, Mesh, At, Vel, FVector(FMath::FRandRange(-200.0, 200.0), FMath::FRandRange(-300.0, 300.0), 0.0), 8.0);
+	// First-person size while it leaves the hands, then the magazine at its true size where it really falls (fix pass:
+	// the first-person one lay shrunken on the ground for 8 s).
+	const FTransform Seat = CameraSpace(Seated->GetComponentTransform());
+	const FTransform Real(Camera->GetComponentQuat() * Seat.GetRotation(), Weapon->FirstPersonToWorld(Seat.GetLocation()), Seat.GetScale3D());
+	const FVector RealVel = Camera->GetComponentQuat().RotateVector(MagVel) + FVector(0, 0, -60.0);
+	UMIEffects::SpawnViewBody(this, Mesh, At, Vel, Real, RealVel, FVector(FMath::FRandRange(-200.0, 200.0), FMath::FRandRange(-300.0, 300.0), 0.0), 0.45, 8.0);
 	UE_LOG(LogMI, Log, TEXT("First person: magazine dropped at %s, %.0f cm/s"), *Pos.ToCompactString(), Vel.Size());
 }
 

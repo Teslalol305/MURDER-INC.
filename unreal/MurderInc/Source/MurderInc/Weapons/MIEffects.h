@@ -30,8 +30,16 @@ class MURDERINC_API UMIEffects : public UTickableWorldSubsystem
 public:
 	static UMIEffects* Get(const UObject* WorldContext);
 
-	/** A physics body that falls out of the world's way (a dropped magazine, a casing, debris), gone after Life s. */
-	static void SpawnBody(const UObject* WorldContext, UStaticMesh* Mesh, const FTransform& At, const FVector& Velocity, const FVector& SpinDeg, double Life, UMaterialInterface* Material = nullptr);
+	/** A physics body that falls out of the world's way (a dropped magazine, a casing, debris), gone after Life s.
+	 *  Hidden for its first HiddenFor s when HiddenFor > 0 (the world half of a first-person hand-off). */
+	static AActor* SpawnBody(const UObject* WorldContext, UStaticMesh* Mesh, const FTransform& At, const FVector& Velocity, const FVector& SpinDeg, double Life, UMaterialInterface* Material = nullptr, double HiddenFor = 0.0);
+	/** Something thrown from the gun (a casing, a dropped magazine) seen from the eye: a body at the first-person depth and
+	 *  size (ViewAt, ViewVelocity) for ViewLife s, so it leaves the gun on screen, then the same thing at its true size
+	 *  where it really is (WorldAt, WorldVelocity: thrown at the same moment, shown when the first-person one goes) for
+	 *  the rest of Life (fix pass: the first-person body stayed for its whole life, a casing the size of the rear sight
+	 *  over the screen and then a miniature on the ground). */
+	static void SpawnViewBody(const UObject* WorldContext, UStaticMesh* Mesh, const FTransform& ViewAt, const FVector& ViewVelocity,
+		const FTransform& WorldAt, const FVector& WorldVelocity, const FVector& SpinDeg, double ViewLife, double Life, UMaterialInterface* Material = nullptr);
 
 	/** A muzzle flash seen in the world (an enemy's): cards along and across the bore and a short light. */
 	void WorldFlash(const FVector& Muzzle, const FVector& Dir, double Scale, bool bLight);
@@ -56,8 +64,9 @@ public:
 	/** An enemy round: flash at the muzzle, the tracer to the first thing it meets (presentation trace). */
 	void EnemyShot(const AActor* Shooter, const FVector& Muzzle, const FVector& Dir);
 	bool CanDrawTracers() const { return bReady && Streaks.Num() > 0; }
-	/** A brass casing out of the ejection port (world pose and velocity). */
-	void Casing(UStaticMesh* Mesh, const FTransform& At, const FVector& Velocity);
+	/** A brass casing out of the ejection port: seen at the first-person depth and size (ViewAt, ViewVelocity) for
+	 *  fx.casing.viewLife s, then at its true size from its true place (WorldAt, WorldVelocity) for fx.casing.life. */
+	void Casing(UStaticMesh* Mesh, const FTransform& ViewAt, const FVector& ViewVelocity, const FTransform& WorldAt, const FVector& WorldVelocity);
 
 	virtual void OnWorldBeginPlay(UWorld& InWorld) override;
 	virtual void Deinitialize() override;

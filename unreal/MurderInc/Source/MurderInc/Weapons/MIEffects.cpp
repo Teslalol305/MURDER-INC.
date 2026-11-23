@@ -15,6 +15,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Misc/PackageName.h"
+#include "TimerManager.h"
 #include "Weapons/MICombatSubsystem.h"
 #include "MurderInc.h"
 
@@ -436,20 +437,38 @@ void UMIEffects::EnemyShot(const AActor* Shooter, const FVector& Muzzle, const F
 	Tracer(Muzzle + Dir.GetSafeNormal() * 40.0, To, MIJson::NumberOr(Fx, TEXT("tracer.speed"), 26000.0));
 }
 
-void UMIEffects::Casing(UStaticMesh* Mesh, const FTransform& At, const FVector& Velocity)
+void UMIEffects::Casing(UStaticMesh* Mesh, const FTransform& ViewAt, const FVector& ViewVelocity, const FTransform& WorldAt, const FVector& WorldVelocity)
 {
 	const bool bOwn = Mesh != nullptr;
-	SpawnBody(this, bOwn ? Mesh : Cylinder.Get(), bOwn ? At : FTransform(At.GetRotation(), At.GetLocation(), At.GetScale3D() * FVector(0.009, 0.009, 0.019)), Velocity,
+	const FVector Stand(0.009, 0.009, 0.019);  // the engine cylinder as a casing when the gun has none
+	const FTransform V = bOwn ? ViewAt : FTransform(ViewAt.GetRotation(), ViewAt.GetLocation(), ViewAt.GetScale3D() * Stand);
+	const FTransform W = bOwn ? WorldAt : FTransform(WorldAt.GetRotation(), WorldAt.GetLocation(), WorldAt.GetScale3D() * Stand);
+	SpawnViewBody(this, bOwn ? Mesh : Cylinder.Get(), V, ViewVelocity, W, WorldVelocity,
 		FVector(FMath::FRandRange(-900.0, 900.0), FMath::FRandRange(-1400.0, 1400.0), FMath::FRandRange(-300.0, 300.0)),
-		MIJson::NumberOr(Fx, TEXT("casing.life"), 4.0), bOwn ? nullptr : BrassMat.Get());
+		MIJson::NumberOr(Fx, TEXT("casing.viewLife"), 0.12), MIJson::NumberOr(Fx, TEXT("casing.life"), 4.0), bOwn ? nullptr : BrassMat.Get());
 }
 
-void UMIEffects::SpawnBody(const UObject* WorldContext, UStaticMesh* Mesh, const FTransform& At, const FVector& Velocity, const FVector& SpinDeg, double Life, UMaterialInterface* Material)
+void UMIEffects::SpawnViewBody(const UObject* WorldContext, UStaticMesh* Mesh, const FTransform& ViewAt, const FVector& ViewVelocity,
+	const FTransform& WorldAt, const FVector& WorldVelocity, const FVector& SpinDeg, double ViewLife, double Life, UMaterialInterface* Material)
+{
+	if (ViewLife <= 0.0)
+	{
+		SpawnBody(WorldContext, Mesh, WorldAt, WorldVelocity, SpinDeg, Life, Material);
+		return;
+	}
+	SpawnBody(WorldContext, Mesh, ViewAt, ViewVelocity, SpinDeg, ViewLife, Material);
+	if (Life > ViewLife)
+	{
+		SpawnBody(WorldContext, Mesh, WorldAt, WorldVelocity, SpinDeg, Life, Material, ViewLife);
+	}
+}
+
+AActor* UMIEffects::SpawnBody(const UObject* WorldContext, UStaticMesh* Mesh, const FTransform& At, const FVector& Velocity, const FVector& SpinDeg, double Life, UMaterialInterface* Material, double HiddenFor)
 {
 	UWorld* World = WorldContext ? WorldContext->GetWorld() : nullptr;
 	if (!World || !Mesh || !World->IsGameWorld())
 	{
-		return;
+		return nullptr;
 	}
 	FActorSpawnParameters P;
 	P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -457,7 +476,7 @@ void UMIEffects::SpawnBody(const UObject* WorldContext, UStaticMesh* Mesh, const
 	AStaticMeshActor* A = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), At, P);
 	if (!A)
 	{
-		return;
+		return nullptr;
 	}
 	UStaticMeshComponent* C = A->GetStaticMeshComponent();
 	C->SetMobility(EComponentMobility::Movable);
@@ -474,6 +493,13 @@ void UMIEffects::SpawnBody(const UObject* WorldContext, UStaticMesh* Mesh, const
 	C->SetPhysicsLinearVelocity(Velocity);
 	C->SetPhysicsAngularVelocityInDegrees(SpinDeg);
 	A->SetLifeSpan(Life);
+	if (HiddenFor > 0.0)
+	{
+		A->SetActorHiddenInGame(true);
+		FTimerHandle Show;
+		World->GetTimerManager().SetTimer(Show, FTimerDelegate::CreateWeakLambda(A, [A]() { A->SetActorHiddenInGame(false); }), static_cast<float>(HiddenFor), false);
+	}
+	return A;
 }
 
 // --- the hooks -----------------------------------------------------------------------------------------------
