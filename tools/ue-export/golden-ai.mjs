@@ -18,6 +18,7 @@ import * as weaponsConfig from '../../src/config/weapons.js';
 import { createEvents } from '../../src/core/events.js';
 import { createRng } from '../../src/core/rng.js';
 import { createEnemies } from '../../src/enemies.js';
+import { createGame } from '../../src/game.js';
 import * as L from '../../src/enemies/logic.js';
 import { cardData, accuracy } from '../../src/game/stats.js';
 import { compassSector, pickSpawn, spawnScore } from '../../src/game/spawn.js';
@@ -480,4 +481,205 @@ export function goldenFlowRules(level, seed, write, about) {
     cards.push({ run, info, card: { ...c, accuracy: c.accuracy === null ? -1 : c.accuracy }, accuracy: accuracy(run) === null ? -1 : accuracy(run) });
   }
   write('flow_rules.json', { about: about('src/game/spawn.js, waves.js, stats.js and config/flow.js'), sectors, scores, picks, mission, holdout, orders, pursuit, cards });
+}
+
+// ------------------------------------------------------------------------------------------- the directors
+
+/**
+ * src/game.js (the flow controller) run for a whole Story or Hold the Block run, with the real src/enemies.js on the
+ * block's physics and a scripted player (the "bot"): the flow and the enemies are the game's own, the rest of G is a
+ * recording stub. The bot teleports, holds Interact and kills enemies through enemies.damage; every one of its
+ * actions is recorded so the C++ replays exactly the same inputs.
+ */
+function gameScenario(level, seed, name, { mode, frames, bot, difficulty = 'boss' }) {
+  const events = createEvents();
+  const log = [];
+  let frame = -1;
+  const note = (n, p) => log.push([frame, n, p]);
+  globalThis.document = globalThis.document || { addEventListener() {}, hidden: false, activeElement: null };
+  globalThis.window = globalThis.window || { addEventListener() {} };
+  const G = {
+    config: { enemies: enemiesConfig, flow: flowConfig, weapons: weaponsConfig, text: textConfig, player: { health: { lowWarning: 30 } }, look: {} },
+    events,
+    rng: createRng(seed),
+    params: {},
+    time: { frame: 0, t: 0 },
+    camera: new THREE.PerspectiveCamera(),
+    render: { post: { fade: 1, saturation: 1, flash: 0 } },
+  };
+  G.physics = blockPhysics(level, G);
+  const lv = blockLevel(level);
+  const W = (p) => V(p.x, p.y, p.z);
+  G.level = {
+    ...lv,
+    bounds: level.bounds.web,
+    objectives: level.objectives.map((o) => ({ id: o.id, code: o.code, label: o.label, pos: W(o.web.pos) })),
+    extraction: { code: level.extraction.code, label: level.extraction.label, pos: W(level.extraction.web.pos), radius: level.extraction.web.radius },
+    enemySpawns: level.enemySpawns.points.map((p) => ({ index: p.index, pos: W(p.web.pos), type: p.type })),
+    playerStart: { pos: W(level.playerStart.web.pos), yaw: level.playerStart.web.yaw },
+    cinematicPath: level.cinematicPath.points.map((p) => ({ pos: W(p.web.pos), look: W(p.web.look) })),
+  };
+  const settings = { mode, difficulty, time: 'day' };
+  let best = 0;
+  G.settings = {
+    get: (k) => settings[k],
+    best: () => best,
+    setBest(s) {
+      if (s > best) {
+        best = s;
+        return true;
+      }
+      return false;
+    },
+  };
+  const input = { interact: false };
+  G.input = { setGameplay() {}, requestLock() {}, exitLock() {}, down: (a) => a === 'interact' && input.interact, pressed: () => false, glyph: () => 'E', menuNav: () => null, touch: false, device: 'kbm', locked: true, mode: 'lock', hint: () => '' };
+  G.hud = {
+    show() {}, reset() {}, setMarkers() {}, clearRadio() {},
+    setReels: (n, t) => note('hud:reels', { n, t }),
+    setTally: (s) => note('hud:tally', { text: s }),
+    setObjective: (s) => note('hud:objective', { text: s }),
+    prompt: (s) => note('hud:prompt', s ? { text: s.text, progress: s.progress } : { text: null }),
+    message: (s, secs) => note('hud:message', { text: s, secs }),
+    warn: (s, secs) => note('hud:warn', { text: s, secs }),
+    radio: (who, s, secs) => note('hud:radio', { text: s, secs }),
+  };
+  G.weapon = { setVisible() {}, reset() {}, addReserve: (a, cap) => note('weapon:reserve', { amount: a, cap }) };
+  G.player = {
+    pos: V(0, 0, 0), eye: V(0, 1.68, 0), vel: V(0, 0, 0), forward: V(0, 0, -1), alive: true, health: 100, enabled: true, invulnerable: false, crouching: false,
+    regen: { delay: 0, rate: 0 },
+    reset(start) {
+      this.pos.copy(start.pos);
+      this.eye.set(this.pos.x, this.pos.y + 1.68, this.pos.z);
+      this.alive = true;
+      this.health = 100;
+      note('player:reset', { pos: vec(start.pos) });
+    },
+    heal: (a) => note('player:heal', { amount: a }),
+    addShake() {},
+    damage: (a, from, kind) => note('player:damage', { amount: a, kind }),
+  };
+  G.audio = { setPaused() {}, setMusicIntensity() {}, sting: (s) => note('audio:sting', { text: s }), unlock() {} };
+  G.menus = { show: (screen, data) => { if (screen === 'dead' || screen === 'complete') note('menus:card', { screen, ...data, accuracy: data.accuracy === null ? -1 : data.accuracy }); }, locationCard() {}, panelOpen: false };
+  G.fx = { clear() {} };
+  const stats = { kills: 0, shots: 0, hits: 0, headshots: 0 };
+  G.combat = { reset() { stats.kills = stats.shots = stats.hits = stats.headshots = 0; }, stats, hitscan(o) { return { point: o.origin.clone().addScaledVector(o.dir, 10) }; }, explode() {} };
+  G.explosives = { reset: () => note('explosives:reset', {}) };
+  G.enemies = createEnemies(G);
+  for (const ev of ['game:state', 'objective:done', 'objective:all', 'holdout:wave', 'extraction:reached', 'enemy:spawn', 'enemy:killed']) {
+    events.on(ev, (e) => {
+      const p = {};
+      if (ev === 'game:state') p.state = e.state;
+      if (ev === 'objective:done') Object.assign(p, { id: e.id, index: e.index, total: e.total });
+      if (ev === 'holdout:wave') Object.assign(p, { wave: e.wave, count: e.count });
+      if (ev === 'enemy:spawn') Object.assign(p, { id: e.enemy.id, type: e.enemy.type, pos: vec(e.enemy.pos) });
+      if (ev === 'enemy:killed') { Object.assign(p, { id: e.enemy.id, type: e.type }); if (e.byPlayer) stats.kills++; }
+      note(ev, p);
+    });
+  }
+  const game = createGame(G);
+  const actions = [];
+  const ctl = {
+    G, game, input,
+    at(x, y, z) {
+      G.player.pos.set(x, y, z);
+      G.player.eye.set(x, y + 1.68, z);
+      actions.push([frame, 'at', [x, y, z]]);
+    },
+    hold(on) {
+      if (input.interact !== on) actions.push([frame, 'hold', on]);
+      input.interact = on;
+    },
+    kill(e) {
+      actions.push([frame, 'kill', e.id]);
+      G.enemies.damage(e, 9999, { part: 'body', from: 'player', weapon: 'chopper' });
+    },
+    die() {
+      actions.push([frame, 'die', 0]);
+      G.player.alive = false;
+      G.player.health = 0;
+      events.emit('player:dead', {});
+    },
+  };
+  frame = -1;
+  game.start({ mode, skipIntro: false });
+  const rows = [];
+  const dt = 1 / 60;
+  for (frame = 0; frame < frames; frame++) {
+    bot(frame, ctl);
+    G.time.frame++;
+    G.time.t += dt;
+    const live = game.update(dt);
+    if (live && game.state !== 'title' && game.state !== 'paused') G.enemies.update(dt);
+    const v = game.flow;
+    rows.push([game.state, v.clock, game.run.reels, game.run.wave, game.run.score, v.queue.length, G.enemies.aliveCount(), v.maxAlive, v.pursuitLeft, v.music, v.progress, game.run.time]);
+  }
+  return { name, mode, difficulty, dt, frames, start: vec(G.level.playerStart.pos), actions, rows, events: log };
+}
+
+/** The nearest living enemy, or null. */
+function nearest(G) {
+  let best = null;
+  let bd = Infinity;
+  for (const e of G.enemies.list) {
+    if (!e.alive) continue;
+    const d = e.pos.distanceTo(G.player.pos);
+    if (d < bd) {
+      bd = d;
+      best = e;
+    }
+  }
+  return best;
+}
+
+/** The Story bot: each reel in turn (stand on it, hold Interact), fight off what comes, then the truck. */
+function storyBot(dieAt = -1) {
+  let step = 0;
+  let wait = 0;
+  return (f, c) => {
+    const { G, game } = c;
+    if (dieAt >= 0 && f === dieAt && G.player.alive) return c.die();
+    if (game.state !== 'playing') return;
+    if (f % 25 === 0 && (step % 2 === 1 || step >= 6)) {
+      const e = nearest(G);
+      if (e) c.kill(e);
+    }
+    const objs = G.level.objectives;
+    if (step < 6 && step % 2 === 0) {
+      const o = objs[step / 2];
+      if (G.player.pos.distanceTo(o.pos) > 0.6) c.at(o.pos.x + 0.4, G.physics.groundHeight(o.pos.x + 0.4, o.pos.z, o.pos.y + 0.6), o.pos.z);
+      c.hold(true);
+      if (game.run.reels > step / 2) {
+        c.hold(false);
+        step++;
+        wait = 0;
+      }
+    } else if (step < 6) {
+      wait++;
+      if (wait > 600 && G.enemies.aliveCount() === 0 && game.flow.queue.length === 0) step++;
+      if (wait > 1500) step++;
+    } else if (step === 6) {
+      const ex = G.level.extraction.pos;
+      c.at(ex.x, G.physics.groundHeight(ex.x, ex.z, ex.y + 0.6), ex.z);
+      step++;
+    }
+  };
+}
+
+/** The Hold the Block bot: stays at the start and drops one Vulture every 20 frames once any is alive. */
+function holdoutBot() {
+  return (f, c) => {
+    if (c.game.state !== 'playing' || f % 20 !== 0) return;
+    const e = nearest(c.G);
+    if (e) c.kill(e);
+  };
+}
+
+export function goldenDirectors(level, seed, write, about) {
+  const scenarios = [
+    gameScenario(level, seed, 'story_complete', { mode: 'mission', frames: 6000, bot: storyBot() }),
+    gameScenario(level, seed, 'story_death', { mode: 'mission', frames: 1500, bot: storyBot(1100) }),
+    gameScenario(level, seed, 'holdout_waves', { mode: 'holdout', frames: 4200, bot: holdoutBot() }),
+  ];
+  write('directors.json', { about: about('src/game.js with src/enemies.js on src/physics.js and level.json, a scripted player'), seed, scenarios });
 }

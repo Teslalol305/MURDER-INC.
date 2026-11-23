@@ -27,7 +27,7 @@ import {
 import { createWeapon } from '../../src/weapon.js';
 import * as enemiesConfig from '../../src/config/enemies.js';
 import * as flowConfig from '../../src/config/flow.js';
-import { goldenEnemies, goldenEnemyLogic, goldenFlowRules, goldenWorld, loadLevel } from './golden-ai.mjs';
+import { goldenDirectors, goldenEnemies, goldenEnemyLogic, goldenFlowRules, goldenWorld, loadLevel } from './golden-ai.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const OUT = join(ROOT, 'unreal', 'MurderInc', 'Content', 'Data', 'golden');
@@ -873,4 +873,5 @@ goldenBlast();
   goldenEnemyLogic(SEED, write, about);
   goldenEnemies(level, SEED, write, about);
   goldenFlowRules(level, SEED, write, about);
+  goldenDirectors(level, SEED, write, about);
 }
