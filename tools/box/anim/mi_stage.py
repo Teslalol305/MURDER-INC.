@@ -251,6 +251,10 @@ def rig(char_anim, t, loc=(0, 0, 0), yaw=0.0, label="R", mesh=None, gun_anim=Non
         m.static_mesh_component.set_static_mesh(unreal.load_asset(WEP + "/SM_Weapon_ChopperMagazine"))
         m.attach_to_actor(g, "magazine", unreal.AttachmentRule.SNAP_TO_TARGET, unreal.AttachmentRule.SNAP_TO_TARGET,
                           unreal.AttachmentRule.KEEP_WORLD, False)
+        # the magazine mesh is modelled in gun space; the bone carries the glTF axis turn (+90 deg about X) in its
+        # reference pose, so the mesh sits at the inverse of that reference relative to the bone
+        rel_t = D.to_ue(D.inv(chopper_ref()["magazine"]["cs"]))
+        m.root_component.set_relative_transform(rel_t, False, False)
         out.append(m)
     elif gun != "chopper" and mag:
         for b in ("Magazine",):
