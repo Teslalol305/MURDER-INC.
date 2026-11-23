@@ -157,13 +157,18 @@ def body(ctx):
         bpy.data.objects.remove(arm2, do_unlink=True)
         char.rest_pose(arm)
     if _want(ctx, "rule_face"):
+        # the photo's angle: chin down a little, camera a little above the eyes, slightly to his left
         char.rest_pose(arm)
         bpy.context.view_layer.update()
+        hb = arm.pose.bones["head"]
+        piv = hb.head.copy()
+        hb.matrix = (Matrix.Translation(piv) @ Matrix.Rotation(math.radians(9), 4, "X") @ Matrix.Translation(-piv)) @ hb.matrix
+        bpy.context.view_layer.update()
         hd = (arm.matrix_world @ arm.pose.bones["head"].matrix).to_translation()
-        t = Vector(hd) + Vector((0, -0.02, 0.06))
-        render.cam_look(tuple(t + Vector((0.0, -1.05, -0.06))), tuple(t + Vector((0, 0, -0.05))), lens=75, name="Cam_Face")
+        t = Vector(hd) + Vector((0, -0.03, 0.03))
+        render.cam_look(tuple(t + Vector((0.10, -1.10, 0.10))), tuple(t + Vector((0, 0, -0.04))), lens=70, name="Cam_Face")
         render.setup(samples=S, res=(1280, 720), threads=3)
-        _studio(t, key=(0.5, -0.9, 0.5), strength=0.9)
+        _studio(t, key=(0.5, -0.9, 0.6), strength=0.55)
         render.render_jpeg(os.path.join(out, "rule_face.jpg"), S)
         ctx.log("preview rule_face")
     if _want(ctx, "rule_turntable"):

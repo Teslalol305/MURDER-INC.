@@ -44,10 +44,12 @@ H_NAIL = 0.00016
 ARM_TRIS = 64000         # per arm (both arms about 140k with nails and the bracelet)
 NAIL_TRIS = 360
 HAND_UV_BOOST = 1.75     # texel density of the hand over the arm
-BRACELET_S = 0.036       # above the wrist joint, over the ulnar head
+BRACELET_S = 0.027       # above the wrist joint, over the ulnar head
 
-# his build: forearm and upper arm thicker than the brief's, the biceps and shoulder fuller (reference sheet)
-FOREARM = [(s, w * 1.06, h * 1.06) for s, w, h in C.FOREARM]
+# his build: forearm and upper arm thicker than the brief's, the biceps and shoulder fuller (reference sheet); the
+# forearm eases back to the first version's section at the wrist, where the hand's own wrist piece meets it
+FOREARM = [(s, w * (1 + 0.06 * min(max((s - 0.02) / 0.06, 0), 1)), h * (1 + 0.06 * min(max((s - 0.02) / 0.06, 0), 1)))
+           for s, w, h in C.FOREARM]
 UPPER = [(s, w * 1.10, h * 1.10) for s, w, h in C.UPPER]
 
 
@@ -68,7 +70,7 @@ def arm_sdf(R):
     def f(p):
         s, d_fore = fore_d(R, p)
         d_fore = np.maximum(d_fore, s - (R.L + 0.035))
-        d_fore = np.maximum(d_fore, -s - 0.004)
+        d_fore = sdf.smax(d_fore, -s - 0.010, 0.012)
         su, xu, yu = R.upper_coords(p)
         a = C._interp(UPPER, su, 1) / 2
         b = C._interp(UPPER, su, 2) / 2
@@ -147,10 +149,11 @@ class Hand:
             for n in C.FINGERS[:4]:                        # metacarpal heads under the skin of the back of the hand
                 r0 = R.chain[n]["r"][0]
                 d = sdf.smin(d, sdf.sphere(p, R.mcp[n] + R.dors * r0 * 0.42 - R.fwd * 0.003, r0 * 0.66), r0 * 0.40)
-            for a, b in self.tendons:                      # extensor tendons, about 0.8 mm proud
-                seg = sdf.capsule(p, a, b, 0.0)
-                ridge = np.maximum(d0 - 0.0008, seg - 0.0024)
-                d = sdf.smin(d, ridge, 0.0016)
+            for a, b in self.tendons:                      # extensor tendons: soft ridges, 0.5 mm at most
+                ab = b - a
+                t = np.clip(((p - a) @ ab) / (ab @ ab), 0, 1)
+                seg = np.linalg.norm(p - a - t[:, None] * ab[None], axis=1)
+                d = d - 0.0005 * np.exp(-(seg / 0.0030) ** 2) * np.sin(np.pi * t) ** 0.7
             if recess:
                 for n in C.FINGERS:
                     rd, q = self.nail_rect(p, n, 0.0003)
@@ -411,15 +414,15 @@ def build_arms(ctx):
 
 
 def bracelet(col, R):
-    """SM_Character_RuleBracelet: a heavy silver curb chain, 22 links of 2.1 mm wire pressed flat and twisted
+    """SM_Character_RuleBracelet: a heavy silver curb chain, 26 links of 3.2 mm wire pressed flat and twisted
     against each other, hanging loose round the wrist (3 mm clear, 4 mm sag underneath), with a box clasp.
     Origin = attach frame (characters.attach_frame): X across the arm, Y toward the elbow, Z out of the back."""
     from mi import mat as _mat
     silver = _mat.flat("M_Character_RuleBracelet_Silver", (0.96, 0.95, 0.93), 0.12, 1.0)
     silver2 = _mat.flat("M_Character_RuleBracelet_SilverWorn", (0.90, 0.89, 0.87), 0.22, 1.0)
-    a = C._interp(FOREARM, BRACELET_S, 1) / 2 + 0.0030 + 0.0021
-    b = C._interp(FOREARM, BRACELET_S, 2) / 2 + 0.0030 + 0.0021
-    n = 22
+    a = C._interp(FOREARM, BRACELET_S, 1) / 2 + 0.0030 + 0.0028
+    b = C._interp(FOREARM, BRACELET_S, 2) / 2 + 0.0030 + 0.0028
+    n = 26
     pts, _t = C._ellipse_path(a, b, 600, sag=0.004)
     seg = np.linalg.norm(np.roll(pts, -1, axis=0) - pts, axis=1)
     cum = np.concatenate([[0], np.cumsum(seg)])
@@ -438,10 +441,10 @@ def bracelet(col, R):
             geo.transform(bx, loc=tuple(mid))
             parts.append(C._mat_all(bx, silver))
             continue
-        lk = geo.torus(major=0.0038, minor=0.00105, seg_major=36, seg_minor=12, name="Link",
-                       stretch=total / n * 1.55 - 0.0076)
-        geo.transform(lk, scale=(1.0, 1.0, 0.62))
-        geo.transform(lk, rot=(30 if i % 2 else -30, 0, 0))
+        lk = geo.torus(major=0.0034, minor=0.0016, seg_major=40, seg_minor=12, name="Link",
+                       stretch=max(total / n * 1.8 - 0.0100, 0.001))
+        geo.transform(lk, scale=(1.0, 1.0, 0.60))
+        geo.transform(lk, rot=(34 if i % 2 else -34, 0, 0))
         ang = math.degrees(math.atan2(tang[2], tang[0]))
         geo.transform(lk, rot=(0, -ang, 0))
         geo.transform(lk, loc=tuple(mid))
