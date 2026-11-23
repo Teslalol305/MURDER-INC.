@@ -551,3 +551,13 @@ _weapons_kit.py (my files); mi/ untouched.
   magazine; slimming it needs a decision on the brief.
 - Anisotropy: tangents follow the slide's U (along X); no separate anisotropy texture is written (the set format
   has no slot for it). CHOPPER gas-block tower / sight-ear shapes only lightly touched; CHOPPER UV hash rounding.
+
+---------------------------------------------------------------------------------------------------------------
+# Weapons rebuild round 3 (senior weapon artist): critique NINE 2/5, CHOPPER 2.5/5
+Order: NINE first (grip slimmed to a real service-pistol depth with the brief decision below, D-section guard
+flush with the frame, slide section / nose / serrations / port hood, hammer, sights, screws, moulded pad; then
+the slide finish and edge-driven frame wear), then the CHOPPER (rear trunnion and rear sight, handguards, 3D-field
+laminate, stock, steel wear, guard and catch, front end, magazine, grip, stamp, bolt UV).
+Code: assets/_weapons_nine.py, _weapons_chopper.py, _weapons_tex.py, _weapons_kit.py (my files); mi/ untouched.
+## Status
+- started (no earlier round-3 changes were on disk after the restart).
