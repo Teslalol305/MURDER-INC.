@@ -1708,14 +1708,23 @@ def v_burned(ctx, P):
         # (review fix) burned, not just rusty: char (soot-black) around the window frames, over the roof and the
         # cabin, on the bonnet's rear and edges; rust where the paint burned through lower down
         c, n, a = gen3d.face_arrays(o)
-        r = rng.random(len(c))
-        ch = ((c[:, 2] > 1.02) & (r < 0.80)) | ((c[:, 2] > 0.88) & (np.abs(c[:, 0]) < 1.1) & (r < 0.55))
-        ch |= (c[:, 0] > 0.95) & (c[:, 0] < 1.35) & (c[:, 2] > 0.75) & (r < 0.6)
-        ch |= (np.abs(c[:, 1]) < 0.55) & (n[:, 2] > 0.7) & (c[:, 0] > 1.2) & (r < 0.35)
-        cl = class_vote(o, ch.astype(np.int32), 4)
+        # (review pass 2) soot by height in coherent 0.22 m blotches (not per face): black over the cabin and the
+        # bonnet's rear, patchy down the flanks, rust where the paint burned through low down and on the arches
+        cell = np.floor(c / 0.22).astype(np.int64)
+        hsh = (cell[:, 0] * 73856093) ^ (cell[:, 1] * 19349663) ^ (cell[:, 2] * 83492791)
+        rc = (np.abs(hsh) % 1009) / 1009.0
+        p = np.clip((c[:, 2] - 0.40) / 0.55, 0.10, 0.92)
+        p = np.where(np.abs(c[:, 0]) < 1.2, np.minimum(p + 0.15, 0.95), p)     # the cabin burned hottest
+        p = np.where((c[:, 0] > 0.95) & (c[:, 0] < 1.45) & (c[:, 2] > 0.70), 0.9, p)
+        ch = rc < p
+        cl = class_vote(o, ch.astype(np.int32), 3)
         gen3d.set_face_materials(o, cl)
+        # hanging lower-edge fragments of the overhangs go, and loose shards
+        low = (np.abs(c[:, 0]) > 1.95) & (c[:, 2] < 0.26)
+        low |= fragment_mask(o, ~low, min_faces=30, min_area=0.003)
+        gen3d.delete_faces(o, low)
         solidify(o, 0.008, 1)
-        geo.uv_world_box(o, t_rust)
+        geo.uv_world_box(o, t_rust, rotate90=True)      # the scan's streaks run down the panels, not along X
     # bonnet sprung 15 degrees on its hinge at the cowl
     hb = gen3d.verts(bon)
     hx, hz = float(hb[:, 0].min()), float(hb[hb[:, 0] < hb[:, 0].min() + 0.1, 2].mean())
@@ -1856,7 +1865,18 @@ def fragment_mask(ob, alive=None, min_faces=40, min_area=0.004):
 def v_stripped(ctx, P):
     sp = SPEC["Sedan"]
     sh = _shell_variant(P, "Stripped_Shell")
-    gen3d.delete_faces(sh, _bonnet(sh))
+    # (review pass 2) the bonnet lifted off along straight shut lines: bisect at the fender edges and the cowl
+    bm = bmesh.new()
+    bm.from_mesh(sh.data)
+    for co, no in (((0, 0.76, 0), (0, 1, 0)), ((0, -0.76, 0), (0, 1, 0)), ((1.00, 0, 0), (1, 0, 0))):
+        top = [f for f in bm.faces if f.calc_center_median().z > 0.70 and f.calc_center_median().x > 0.9]
+        geom = top + list({e for f in top for e in f.edges}) + list({v for f in top for v in f.verts})
+        bmesh.ops.bisect_plane(bm, geom=geom, plane_co=co, plane_no=no, dist=1e-5)
+    kill = [f for f in bm.faces if f.calc_center_median().x > 1.0 and abs(f.calc_center_median().y) < 0.76
+            and f.calc_center_median().z > 0.80 and f.normal.z > 0.2]
+    bmesh.ops.delete(bm, geom=kill, context="FACES")
+    bm.to_mesh(sh.data)
+    bm.free()
     # (review fix) the door skins only, cut on straight planes: sills (below 0.50), the A pillar (ahead of 0.96) and
     # the B pillar stay; the cut edges get thickness from the solidify below
     bp = sp["bpillar"]
@@ -2429,6 +2449,135 @@ def v_moto(ctx):
     return ob
 
 
+def _front_hits(bvh, ys, zs, x_from=4.0):
+    """Surface points of the nose: rays along -X at each (y, z); None where they miss."""
+    out = {}
+    for y in ys:
+        for z in zs:
+            h = bvh.ray_cast(Vector((x_from, float(y), float(z))), Vector((-1, 0, 0)), 8.0)
+            out[float(y), float(z)] = None if h[0] is None else (Vector(h[0]), Vector(h[1]))
+    return out
+
+
+def front_card(bvh, name, y0, y1, z0, z1, lift, m, ny=16, nz=8, bulge=0.0):
+    """Card shrink-wrapped onto the nose over |y| y0..y1 (signed), z z0..z1, lifted along +X by lift (+ a soft
+    bulge toward the centre: a lens). Faces whose rays miss are dropped."""
+    bm = bmesh.new()
+    g, ok = {}, {}
+    for i in range(ny + 1):
+        for j in range(nz + 1):
+            y = y0 + (y1 - y0) * i / ny
+            z = z0 + (z1 - z0) * j / nz
+            h = bvh.ray_cast(Vector((4.0, y, z)), Vector((-1, 0, 0)), 8.0)
+            ok[i, j] = h[0] is not None
+            s = math.sin(math.pi * i / ny) * math.sin(math.pi * j / nz)
+            p = Vector(h[0]) if h[0] is not None else Vector((0, y, z))
+            g[i, j] = bm.verts.new((p.x + lift + bulge * s, y, z))
+    for i in range(ny):
+        for j in range(nz):
+            q = [(i, j), (i, j + 1), (i + 1, j + 1), (i + 1, j)]
+            if all(ok[k] for k in q):
+                bm.faces.new([g[k] for k in q])
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+    ob = geo.new(name, bm, uv=False, smooth=60)
+    geo.recalc_normals(ob)
+    co, _ = geo.arrays(ob)
+    if len(co):
+        nn = np.empty(len(ob.data.polygons) * 3)
+        ob.data.polygons.foreach_get("normal", nn)
+        if nn.reshape(-1, 3)[:, 0].mean() < 0:
+            bm2 = bmesh.new()
+            bm2.from_mesh(ob.data)
+            bmesh.ops.reverse_faces(bm2, faces=bm2.faces)
+            bm2.to_mesh(ob.data)
+            bm2.free()
+    return put_mat(ob, m[0], m[1])
+
+
+def suv_fascia(ctx, P):
+    """(review fix) The hero SUV's nose: the crumpled generated grille and lamp lenses are covered by modelled parts
+    fitted to the body by ray casts: a chrome grille of five horizontal bars in a chrome surround over a black mesh
+    backing, and per side a headlamp unit (chrome reflector card with two reflector bowls and bulbs, under a bulged
+    clear lens and a chrome bezel)."""
+    from mathutils.bvhtree import BVHTree
+    sp = SPEC["SUV"]
+    bm_t = bmesh.new()
+    bm_t.from_mesh(P["raw"].data)
+    bvh = BVHTree.FromBMesh(bm_t)
+    bm_t.free()
+    chrome = tiling("TS_Chrome_Polished")
+    black = tiling("TS_Plastic_Black")
+    glass = tiling("TS_Glass_CarTint")
+    y0h, y1h, z0h, z1h = sp["cls"]["head_box"]
+    out = []
+    # grille between the lamps
+    gy, gz0, gz1 = y0h - 0.04, z0h + 0.01, z1h - 0.03
+    for pc, f in P["plates"]:                   # the grille starts above the front plate
+        if f > 0:
+            gz0 = max(gz0, pc[2] + pc[4] / 2 + 0.015)
+    ctx.log("SUV: grille |y| < %.2f, z %.2f..%.2f" % (gy, gz0, gz1))
+    out.append(front_card(bvh, "SUV_GrilleBack", -gy, gy, z0h + 0.01, gz1, 0.002, black, ny=24, nz=8))
+    bars = []
+    for k in range(5):
+        z = gz0 + 0.025 + (gz1 - gz0 - 0.05) * k / 4
+        hits = _front_hits(bvh, np.linspace(-gy + 0.02, gy - 0.02, 17), [z])
+        hp = [v[0] for v in hits.values() if v is not None]
+        if len(hp) >= 5:                         # a straight-bent bar: x(y) fitted, not the crumpled surface
+            cf = np.polyfit([p.y for p in hp], [p.x for p in hp], 2)
+            pts = [(float(np.polyval(cf, y)) + 0.02, float(y), z) for y in np.linspace(-gy + 0.02, gy - 0.02, 17)]
+            bars.append(geo.pipe(pts, 0.009, segments=10, name="SUV_GrilleBar"))
+    ring = []
+    for (ya, za), (yb, zb) in (((-gy, gz0), (gy, gz0)), ((gy, gz0), (gy, gz1)), ((gy, gz1), (-gy, gz1)),
+                               ((-gy, gz1), (-gy, gz0))):
+        ys = np.linspace(ya, yb, 12)
+        zs = np.linspace(za, zb, 12)
+        hp = []
+        for y, z in zip(ys, zs):
+            h = bvh.ray_cast(Vector((4.0, float(y), float(z))), Vector((-1, 0, 0)), 8.0)
+            if h[0] is not None:
+                hp.append((float(y), float(z), h[0].x))
+        if len(hp) >= 4:
+            hp = np.array(hp)
+            t = hp[:, 0] if abs(yb - ya) > abs(zb - za) else hp[:, 1]
+            tt = ys if abs(yb - ya) > abs(zb - za) else zs
+            cf = np.polyfit(t, hp[:, 2], 2 if abs(yb - ya) > abs(zb - za) else 1)
+            pts = [(float(np.polyval(cf, q)) + 0.022, float(y), float(z)) for q, y, z in zip(tt, ys, zs)]
+            ring.append(geo.pipe(pts, 0.014, segments=10, name="SUV_GrilleSurround"))
+    out.append(put_mat(geo.join(bars + ring, "SUV_Grille"), *chrome))
+    # headlamps
+    for sd in (1, -1):
+        ya, yb = sd * (y0h + 0.015), sd * (y1h - 0.03)
+        za, zb = z0h + 0.02, z1h - 0.02
+        out.append(front_card(bvh, "SUV_LampReflector", min(ya, yb), max(ya, yb), za, zb, 0.006, chrome, 12, 6))
+        bowls = []
+        for f in (0.28, 0.72):
+            yc = ya + (yb - ya) * f
+            zc = (za + zb) / 2
+            h = bvh.ray_cast(Vector((4.0, yc, zc)), Vector((-1, 0, 0)), 8.0)
+            if h[0] is None:
+                continue
+            r_ = min(abs(yb - ya) * 0.21, (zb - za) * 0.42)
+            bw = geo.revolve([(0.0, -0.012), (r_ * 0.6, -0.008), (r_, 0.008), (r_ * 1.02, 0.010)], 32, name="SUV_Bowl")
+            geo.transform(bw, rot=(0, 90, 0))
+            geo.transform(bw, loc=(h[0].x + 0.004, yc, zc))
+            bl = geo.sphere(r_ * 0.22, 16, 8, name="SUV_Bulb")
+            geo.transform(bl, loc=(h[0].x + 0.006, yc, zc))
+            bowls += [bw, bl]
+        if bowls:
+            out.append(put_mat(geo.join(bowls, "SUV_LampBowls"), *chrome))
+        out.append(front_card(bvh, "SUV_LampLens", min(ya, yb), max(ya, yb), za, zb, 0.016, glass, 12, 6,
+                              bulge=0.006))
+        pts = []
+        for y, z in ((ya, za), (yb, za), (yb, zb), (ya, zb), (ya, za)):
+            h = bvh.ray_cast(Vector((4.0, float(y), float(z))), Vector((-1, 0, 0)), 8.0)
+            if h[0] is not None:
+                pts.append(tuple(Vector(h[0]) + Vector((0.012, 0, 0))))
+        if len(pts) >= 4:
+            out.append(put_mat(geo.pipe(pts, 0.008, segments=8, bend_radius=0.02, name="SUV_LampBezel"), *chrome))
+    ctx.log("SUV: fascia modelled (grille %d bars, lamps)" % len(bars))
+    return out
+
+
 def pickup_extra(ctx, P):
     """Spare tyre lying flat and a timber crate in the bed (the generated bed contents were dropped)."""
     sp = SPEC["Pickup"]
@@ -2596,6 +2745,7 @@ SPEC["SUV"].setdefault("cls", {})["head_box"] = (0.44, 0.84, 0.82, 1.05)
 SPEC["BoxTruck"]["drop"] = lambda c, n, cls: _boxtruck_drop(c, n, cls)
 SPEC["BoxTruck"]["reclass"] = lambda c, n, cls: _boxtruck_reclass(c, n, cls)
 SPEC["Pickup"]["extra"] = pickup_extra
+SPEC["SUV"]["extra"] = suv_fascia
 
 
 def declare(ctx, ob, key, notes, cover, collision="box", expect=None):
