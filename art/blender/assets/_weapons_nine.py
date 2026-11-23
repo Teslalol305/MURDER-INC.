@@ -61,7 +61,7 @@ GUARD_BOTTOM = -0.0715
 GUARD_INNER = -0.0665
 OPEN_REAR = 0.073
 OPEN_TOP = -0.0335                   # underside of the upper frame over the opening
-BAND_FRONT = 0.0530                  # grip front inside the root of the guard bar
+BAND_FRONT = 0.0545                  # grip front inside the root of the guard bar
 STRAP_TAN = math.tan(math.radians(18.0))
 STRAP_X80 = 0.0419                   # front strap at Z -0.080
 BACK_TAN = math.tan(math.radians(16.0))
@@ -93,7 +93,7 @@ BACK = K.spline(_BACK_PTS, 10)
 # rear edge of the guard opening: from the opening's top (with an R 3 fillet) past the magazine button, sweeping
 # down and back to the bar's inner face
 _OPEN_PTS = K.spline([(0.0730, -0.0365), (0.0728, -0.0400), (0.0717, -0.0440), (0.0697, -0.0480), (0.0669, -0.0520),
-                      (0.0635, -0.0560), (0.0600, -0.0597), (0.0568, -0.0628), (0.0546, -0.0650), (0.0533, -0.0665)], 8)
+                      (0.0635, -0.0560), (0.0600, -0.0597), (0.0572, -0.0627), (0.0556, -0.0650), (0.0550, -0.0665)], 8)
 
 
 def back_x(z):
@@ -334,6 +334,8 @@ def upper_hw(x, z):
     (a shadow line under the slide); it narrows to the grip's width behind the slide."""
     w = UPPER_W - np.clip(FRAME_TOP - z, 0, None) * 0.044
     w = w - np.clip(z - (FRAME_TOP - 0.0010), 0, None)
+    # the web over the guard opening steps in 1.7 mm below the dust-cover line (a forged contour, not a plate)
+    w = w - 0.0017 * K.smoothstep(-z, 0.0258, 0.0288) * K.smoothstep(x, 0.066, 0.078) * K.smoothstep(0.1300 - x, 0.0, 0.008)
     gw = np.array([half_w(v) for v in np.atleast_1d(z)]).reshape(np.shape(z)) - 0.0002
     t = K.smoothstep(x, -0.004, 0.004)
     return gw + (w - gw) * t
@@ -344,6 +346,8 @@ def build_upper_frame():
                (0.1250, OPEN_TOP), (OPEN_REAR, OPEN_TOP), (OPEN_REAR, -0.0350), (-0.0060, -0.0350)]
     extra = [(x, FRAME_TOP - 0.0010) for x in np.arange(-0.0055, 0.1305, 0.0020)]
     extra += [(x, FRAME_TOP - 0.0017) for x in np.arange(-0.0055, 0.1305, 0.0035)]
+    extra += [(x, z) for x in np.arange(0.0640, 0.1300, 0.0016) for z in (-0.0256, -0.0266, -0.0277, -0.0290)]
+    extra += [(x, z) for x in (0.0660, 0.0700, 0.0740, 0.0780, 0.1220, 0.1260, 0.1290) for z in np.arange(-0.0250, -0.0334, -0.0009)]
     ob = K.slab(outline, -1.0, 1.0, step=0.0032, name="FrameUpper", extra=extra)
 
     def fn(co):
@@ -626,8 +630,7 @@ def nine_slide(parts):
     sl = K.loft_x(secs, xs, 96, name="Slide")
     chan = box(0.0045, 0.1860, -0.0104, 0.0104, -0.020, 0.0100)
     grooves = [box(-0.001, 0.25, s * 0.0080, s * 0.0103, -0.020, -0.0106) for s in (1, -1)]
-    ham_chan = box(-0.001, 0.048, -0.00475, 0.00475, 0.0005, 0.0108)        # hammer channel: 9.5 mm at the spur,
-    ham_neck = box(-0.001, 0.048, -0.0034, 0.0034, -0.020, 0.0010)          # 6.8 mm at the neck
+    ham_chan = box(-0.001, 0.048, -0.0034, 0.0034, -0.020, 0.0108)          # hammer channel: 6.8 mm (the spur is 6)
     rails = box(-0.001, 0.0050, -0.0104, 0.0104, -0.020, -0.0075)           # frame ears and rails pass under the breech
     nose = lathe([(0.15, 0.0), (0.15, 0.0072), (0.25, 0.0072), (0.25, 0.0)], 48)
     rod = lathe([(0.15, 0.0), (0.15, 0.0038), (0.25, 0.0038), (0.25, 0.0)], 32, at=(0, 0, -0.0118))
@@ -643,7 +646,7 @@ def nine_slide(parts):
     ext_slot = prism([(0.0576, 0.0028), (0.0852, 0.0028), (0.0870, 0.0038), (0.0870, 0.0062), (0.0852, 0.0070),
                       (0.0576, 0.0070)], -0.020, -(0.0135 - 0.0012), bevel=0, fillet=0.0010, name="ExtSlot")
     sers = [serration_cutter(0.0060 + k * 0.0030, s) for s in (1, -1) for k in range(7)]
-    cut(sl, chan, *grooves, ham_chan, ham_neck, rails, nose, rod, under, pa, scallop, ext_slot,
+    cut(sl, chan, *grooves, ham_chan, rails, nose, rod, under, pa, scallop, ext_slot,
         dovetail(0.0070, 0.0180), dovetail(0.1825, 0.1895), *sers)
     # 0.5 mm chamfer round the port mouth, then 0.2 mm edge breaks everywhere
     K.bevel_where(sl, 0.0005, 1, 35.0, where=lambda c: (c[:, 0] > 0.0850) & (c[:, 0] < 0.1270) & (c[:, 1] < 0.0046)

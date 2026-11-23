@@ -194,30 +194,31 @@ class Surf2(W.Surf):
 # ================================================================================================= NINE
 
 def nine_handling(p, n):
-    """Holster and hand contact on the NINE (0..1), round 2 geometry."""
+    """Holster and hand contact on the NINE (0..1), round 3 geometry. No flat rectangles: every term is a contact
+    spot or an edge band."""
     W_ = np.zeros(len(p), np.float32)
     x, y, z = p[:, 0], p[:, 1], p[:, 2]
     slide = (z > -0.0136) & (x > -0.001)
-    # holster: slide nose and its front corners, the top radii, the dust-cover nose, guard front, tang tip
-    W_ += slide * tp.smooth(x, 0.165, 0.196) * 0.9
-    W_ += slide * tp.smooth(z, 0.0080, 0.0118) * 0.35
+    # holster: slide nose and its front corners, the shoulders, the dust-cover nose, guard front, tang tip
+    W_ += slide * tp.smooth(x, 0.168, 0.196) * 0.9
+    W_ += slide * tp.smooth(z, 0.0060, 0.0100) * tp.smooth(np.abs(y), 0.0085, 0.0120) * 0.45
     W_ += (z < -0.0136) * (z > -0.027) * tp.smooth(x, 0.176, 0.196) * 0.9
-    W_ += (x > 0.119) * (z < -0.026) * (z > -0.073) * tp.smooth(x, 0.122, 0.130) * 0.85
+    W_ += (x > 0.119) * (z < -0.026) * (z > -0.073) * tp.smooth(x, 0.124, 0.131) * 0.85
     W_ += gauss(p, (0.112, 0.0, -0.0715), 0.012, 0.55) * (z < -0.068)                  # guard bottom on the holster
     W_ += gauss(p, (-0.031, 0.0, -0.0133), 0.0065, 0.95)                                # beavertail tip
     W_ += gauss(p, (0.186, 0.0, 0.016), 0.006, 0.7) + gauss(p, (0.012, 0.0, 0.016), 0.007, 0.5)   # sights
-    # hands: racking at the serrations, slide stop and safety pads, magazine button, takedown lever
-    W_ += (np.abs(y) > 0.0115) * (x > 0.004) * (x < 0.032) * (z > -0.0125) * (z < 0.0095) * 0.75
+    # hands: racking grip on the serration crests, slide stop and safety pads, magazine button, takedown lever
+    W_ += slide * (x > 0.0045) * (x < 0.0255) * (np.abs(y) > 0.0118) * gauss(p, (0.015, 0.0, -0.001), 0.012, 0.8)
     W_ += gauss(p, (0.0645, 0.016, -0.0185), 0.006, 0.95) + gauss(p, (0.026, 0.016, -0.0150), 0.006, 0.95)
     W_ += gauss(p, (0.0625, 0.013, -0.0405), 0.005, 0.85) + gauss(p, (0.108, 0.013, -0.023), 0.004, 0.6)
     W_ += gauss(p, (-0.023, 0.0, 0.0095), 0.0045, 0.9)                                  # hammer thumb face
     # the grip: palm on the right panel, support fingers on the left, web of the hand in the tang's cup,
     # fingers on the front strap; magazine insertion at the butt
-    W_ += gauss(p, (0.014, -0.015, -0.078), 0.022, 0.70) * (y < 0)
-    W_ += gauss(p, (0.030, 0.015, -0.090), 0.020, 0.50) * (y > 0)
-    W_ += gauss(p, (-0.022, 0.0, -0.021), 0.010, 0.75)
-    W_ += gauss(p, (-0.025, 0.0, -0.075), 0.030, 0.45) * (x < -0.012)
-    W_ += (x > 0.035) * (z < -0.078) * (z > -0.126) * tp.smooth(n[:, 0], 0.3, 0.8) * 0.55
+    W_ += gauss(p, (0.014, -0.015, -0.078), 0.020, 0.70) * (y < 0)
+    W_ += gauss(p, (0.030, 0.015, -0.090), 0.018, 0.50) * (y > 0)
+    W_ += gauss(p, (-0.010, 0.0, -0.028), 0.011, 0.75)
+    W_ += gauss(p, (-0.020, 0.0, -0.085), 0.026, 0.45) * (x < -0.006)
+    W_ += (x > 0.018) * (z < -0.076) * (z > -0.126) * tp.smooth(n[:, 0], 0.3, 0.8) * 0.55
     W_ += (z < -0.1245) * 0.75
     # the slide stop sweeps an arc on the frame under its pad
     r = np.hypot(x - 0.0955, z + 0.0165)
@@ -225,40 +226,45 @@ def nine_handling(p, n):
     return np.clip(W_, 0, 1)
 
 
-def nine_panel_border(S, pol):
-    """Distance (m) of each polymer texel from the edge of the side-facing flat of its panel, measured in the side
-    projection (per side and per 0.5 mm height band), and from the screw bushings; -1 off the flat."""
+def nine_panel_field(S, pol):
+    """Distance (m) of each polymer texel from the panel's edge, read back from the panel grids the build stored
+    (_weapons_nine.PANEL_FIELD: the same distances that recess the checkered field), minus the smooth ring round
+    each screw; -1 where no panel is."""
     from assets import _weapons_nine as N9
-    p, n = S.p, S.n
-    d = np.zeros(len(p), np.float32)
-    flat = pol & (np.abs(n[:, 1]) > 0.80)
-    for side in (-1, 1):
-        s = flat & (np.sign(p[:, 1]) == side)
+    p = S.p
+    d = np.full(len(p), -1.0, np.float32)
+    for side, (zs, X, D) in N9.PANEL_FIELD.items():
+        s = pol & (np.sign(p[:, 1]) == side)
         if not s.any():
             continue
-        zb = np.floor(p[:, 2] / 0.0005).astype(np.int64)
-        zs = zb[s]
-        xs = p[s, 0]
-        lo_, hi_ = zs.min(), zs.max()
-        k = hi_ - lo_ + 1
-        xmin = np.full(k, np.inf)
-        xmax = np.full(k, -np.inf)
-        np.minimum.at(xmin, zs - lo_, xs)
-        np.maximum.at(xmax, zs - lo_, xs)
-        ok = np.isfinite(xmin)
-        idx = np.arange(k)
-        xmin = np.interp(idx, idx[ok], xmin[ok])
-        xmax = np.interp(idx, idx[ok], xmax[ok])
-        ker = np.ones(5) / 5
-        xmin = np.convolve(np.pad(xmin, 2, mode="edge"), ker, "valid")
-        xmax = np.convolve(np.pad(xmax, 2, mode="edge"), ker, "valid")
-        j = np.clip(zb - lo_, 0, k - 1)
-        zt, zbot = (lo_ + k) * 0.0005, lo_ * 0.0005
-        dd = np.minimum.reduce([p[:, 0] - xmin[j], xmax[j] - p[:, 0], zt - p[:, 2], p[:, 2] - zbot])
-        d = np.where(s, dd, d)
+        idx = np.nonzero(s)[0]
+        zq, xq = p[idx, 2], p[idx, 0]
+        order = np.argsort(-zs)                      # rows top -> bottom; interpolate between neighbouring rows
+        zr = zs[order]
+        k = np.clip(np.searchsorted(-zr, -zq), 1, len(zr) - 1)
+        out = np.zeros(len(idx), np.float32)
+        for kk in np.unique(k):
+            m = k == kk
+            r0, r1 = order[kk - 1], order[kk]
+            d0 = np.interp(xq[m], X[r0], D[r0], left=-1.0, right=-1.0)
+            d1 = np.interp(xq[m], X[r1], D[r1], left=-1.0, right=-1.0)
+            t = np.clip((zr[kk - 1] - zq[m]) / max(zr[kk - 1] - zr[kk], 1e-9), 0, 1)
+            out[m] = d0 + (d1 - d0) * t
+        d[idx] = out
     for x, z in N9.SCREWS:
-        d = np.minimum(d, np.hypot(p[:, 0] - x, p[:, 2] - z) - 0.0040)
-    return np.where(flat, d, -1.0)
+        d = np.where(d >= 0, np.minimum(d, np.hypot(p[:, 0] - x, p[:, 2] - z) - 0.0048), d)
+    return d
+
+
+def stainless_aniso(G, sel_img):
+    """Anisotropy map for Unreal (0..1 = anisotropy 0..0.75 along the mesh tangent): on where the UV's U runs along
+    +X (the slide's straightened shell: the brushing direction), off elsewhere."""
+    P = G["pos"]
+    du = np.roll(P, -1, axis=1) - np.roll(P, 1, axis=1)
+    ln = np.linalg.norm(du, axis=-1)
+    along = np.abs(du[..., 0]) / np.maximum(ln, 1e-12)
+    a = tp.smooth(along, 0.93, 0.99) * sel_img
+    return np.clip(tp.dilate(a.astype(np.float32), G["mask"], 8), 0, 1).astype(np.float32)
 
 
 def paint_nine(G):
@@ -266,27 +272,58 @@ def paint_nine(G):
     p, n, N = S.p, S.n, S.N
     x, y, z = p[:, 0], p[:, 1], p[:, 2]
     hz = nine_handling(p, n)
-    # ---- brushed stainless slide: #aeb1b6, grain along X, edges polished by wear
+    # ---- brushed stainless slide: #aeb1b6, brushed along X (30-80 um streaks, roughness 0.22-0.34 in long bands),
+    # the top flat bead-blasted (0.45), edge breaks polished (0.12), holster bands at the nose and serration crests,
+    # faint finger oil on the rear flats
     st = S.sel(W.STAINLESS)
-    crest = np.zeros(len(p), np.float32)
-    for sgn in (1, -1):
-        c45 = (n[:, 1] * sgn * 0.7071 + n[:, 2] * 0.7071)
-        crest = np.maximum(crest, tp.smooth(c45, 0.9935, 0.9985))           # crest line of the 3 mm top radii
-    nose = tp.smooth(x, 0.1832, 0.1845) * (np.abs(n[:, 0]) > 0.2) * tp.smooth(S.convex, 0.25, 0.7)
-    polish = np.clip(tp.smooth(S.convex, 0.55, 0.95) + crest * (z > 0.006) + nose, 0, 1)
-    S.brushed_stainless(st, lin("aeb1b6"), hz, polish, octave=0)
-    # ---- black oxide frame: rough 0.45 +- 0.08 in 20-40 mm blotches, fine sanding marks along X, bare steel
-    # only where hand and holster rub
+    slide = st & (z > -0.0140) & (x > -0.0005) & (x < 0.1965) & (np.abs(y) < 0.0140)
+    if st.any():
+        q = p[st]
+        bands = N.fbm(q * np.array([3.0, 1.0, 1.0], np.float32), (2.0, 900.0, 900.0), 3, octave0=200)
+        streak = N.fbm(q, (8.0, 15000.0, 15000.0), 2, octave0=203)
+        hair = tp.smooth(N.ridged(q, (25.0, 24000.0, 24000.0), 1, octave0=205), 0.90, 0.99)
+        col = lin("aeb1b6")[None, :] * (1.0 + 0.012 * bands[:, None] + 0.008 * streak[:, None] + 0.03 * hair[:, None])
+        r = 0.28 + 0.06 * bands + 0.02 * streak - 0.04 * hair
+        S.h[st] += 3.0e-7 * streak + 2.5e-7 * hair
+        nn = n[st]
+        flat_top = tp.smooth(nn[:, 2], 0.985, 0.998) * (q[:, 2] > 0.0118) * (np.abs(q[:, 1]) < 0.0036)
+        bead = N.fbm(q, 9000.0, 1, octave0=207)
+        r = r + (0.45 + 0.03 * bead - r) * flat_top
+        col = col * (1 - 0.06 * flat_top)[:, None]
+        S.h[st] += 4e-7 * bead * flat_top
+        pe = tp.smooth(S.convex[st], 0.50, 0.92)
+        hzs = np.clip(hz[st], 0, 1)
+        holster = tp.smooth(S.convex[st] * (0.4 + 1.2 * hzs) + 0.25 * N.fbm(q, 300.0, 2, octave0=208), 0.45, 0.80)
+        r = r + (0.12 - r) * np.maximum(pe, holster * 0.8)
+        col = col * (1.0 + 0.10 * pe[:, None] + 0.08 * holster[:, None])
+        sc = S.scratches(0.5, sel=st, freq_across=2600.0) * tp.smooth(hzs, 0.25, 0.8)
+        col = col * (1.0 + 0.06 * sc[:, None])
+        r = r - 0.05 * sc
+        S.h[st] -= 2.0e-6 * sc
+        prints = S.fingerprints([((0.040, -0.0136, -0.002), "Y"), ((0.052, 0.0136, -0.004), "Y")], 0.0085)[st]
+        prints *= np.abs(nn[:, 1]) > 0.8
+        r = r - 0.06 * prints
+        col = col * (1 - 0.025 * prints)[:, None]
+        S.bc[st], S.rough[st], S.metal[st] = col, np.clip(r, 0.10, 0.55), 1.0
+    # ---- black oxide frame: even #34363b (+-1.5 %), roughness 0.42 +- 0.025, bright only on convex edges and where
+    # hands and holster rub, a fine machining grain along X on the flats
     frame = S.sel(W.BLACKOX)
-    S.steel(frame, lin("34363b"), 0.45, hz, lin("8a9098"), worn_rough=0.24, thin_shift=(lin("3a3532"), 0.25),
-            rvar=0.08, cvar=0.03, octave=3, base_thr=0.90, rub_polish=0.12)
+    S.steel(frame, lin("34363b"), 0.42, hz, lin("8a9098"), worn_rough=0.24, thin_shift=(lin("3a3532"), 0.08),
+            rvar=0.025, cvar=0.015, octave=3, base_thr=0.90, rub_polish=0.12)
+    edge_wear(S, frame, lin("8a9098"), 1.05, octave=50, rough=0.22)
     if frame.any():
         q = p[frame]
         sand = N.fbm(q, (60.0, 9000.0, 9000.0), 2, octave0=210)
         S.h[frame] += 5e-7 * sand * (np.abs(n[frame, 1]) > 0.6)
-        S.rough[frame] += 0.025 * sand
-    # small parts: dark steel, wear on the pads
-    S.steel(S.sel(W.DARK), lin("3c3e43"), 0.40, hz, lin("8a9098"), worn_rough=0.22, octave=6, base_thr=0.92)
+        S.rough[frame] += 0.02 * sand
+    # small parts: dark steel, wear on the pads and edges
+    dk = S.sel(W.DARK)
+    S.steel(dk, lin("3c3e43"), 0.40, hz, lin("8a9098"), worn_rough=0.22, octave=6, base_thr=0.92, rvar=0.03, cvar=0.02)
+    edge_wear(S, dk, lin("8a9098"), 0.95, octave=53, rough=0.22)
+    # screw slots worn bright at their edges (0.25 mm)
+    for sx, sz in __import__("assets._weapons_nine", fromlist=["SCREWS"]).SCREWS:
+        ring = dk & (np.hypot(x - sx, z - sz) < 0.0036) & (np.abs(y) > 0.0135)
+        S.bc[ring] += (lin("8a9098") - S.bc[ring]) * (0.8 * tp.smooth(S.convex[ring], 0.3, 0.7))[:, None]
     # polished barrel, hood and guide rod: #bbbec4 at 0.12, lathe rings
     pol_s = S.sel(W.POLISHED)
     S.steel(pol_s, lin("bbbec4"), 0.12, hz * 0.3, lin("d6d9de"), worn_rough=0.10, rvar=0.012, cvar=0.008, octave=9,
@@ -302,62 +339,83 @@ def paint_nine(G):
         S.rough[gold] = 0.18 + 0.02 * N.fbm(p[gold], 300.0, 2, octave0=105) - 0.03 * S.convex[gold]
         S.metal[gold] = 1.0
         S.h[gold] += 3e-5 * (n[gold, 0] > 0.5) * np.sin(p[gold, 2] / 0.0009 * 2 * math.pi)
-    # ---- grip panels: polymer #1c1c1f, 2.5 mm smooth border at 0.5, 20 LPI checkering 0.45 mm deep (tops 0.7,
-    # valleys 0.85), screws in bushings excluded; polished where the palm and the web sit
+    # ---- grip panels: moulded polymer #1c1c1f; the 2.5 mm border smooth (0.5), 20 LPI checkering 0.45 mm deep in
+    # the recessed field (tops 0.7, valleys 0.85); tops polished where the palm and fingers sit
     pol = S.sel(W.POLYMER)
     S.polymer(pol, lin("1c1c1f"), 0.50, hz * 0.6)
-    bd = nine_panel_border(S, pol)
+    bd = nine_panel_field(S, pol)
     chk = pol & (bd > 0.0)
     if chk.any():
-        tops = S.checker_uv(chk, p[chk, 0], p[chk, 2], 0.00127, 4.5e-4, bd[chk] - 0.0025)
+        tops = S.checker_uv(chk, p[chk, 0], p[chk, 2], 0.00127, 4.5e-4, bd[chk] - BORDER_N9 - 0.0006, fade_w=0.0003)
         S.rough[chk] -= 0.14 * hz[chk] * tops
         S.bc[chk] *= (1.0 + 0.10 * hz[chk] * tops)[:, None]
-    # ---- front strap: a 30 mm band of 20 LPI checkering (0.4 mm) with a 2 mm smooth border
-    fs = frame & (n[:, 0] > 0.45) & (x > 0.035) & (z < -0.080) & (z > -0.1185)
+    # ---- front strap: 20 LPI checkering (0.4 mm) with a 2 mm smooth border; back strap: 20 LPI checkering too
+    fs = frame & (n[:, 0] > 0.45) & (x > 0.018) & (z < -0.080) & (z > -0.1215)
     if fs.any():
         zf = z[fs]
-        field = np.minimum.reduce([zf + 0.1170, -0.0850 - zf, 0.0088 - np.abs(y[fs])]) - 0.0020
+        field = np.minimum.reduce([zf + 0.1195, -0.0820 - zf, 0.0072 - np.abs(y[fs])]) - 0.0015
         S.checker_uv(fs, y[fs], zf, 0.00127, 4.0e-4, field, top_rough=0.55, val_rough=0.75)
-    # back strap: fine stipple
-    bs = frame & (n[:, 0] < -0.45) & (z < -0.035) & (z > -0.124)
-    S.stipple(bs, 0.00055, 5.0e-5)
-    # ---- hammer thumb face (30 LPI), rear sight's rear face (40 LPI anti-glare lines)
-    dk = S.sel(W.DARK)
-    th = dk & (x > -0.0265) & (x < -0.0195) & (z > 0.0078) & (n[:, 2] > 0.35)
-    if th.any():
-        field = np.minimum.reduce([x[th] + 0.0262, -0.0201 - x[th], 0.0040 - np.abs(y[th])]) - 0.0004
-        S.checker_uv(th, x[th], y[th], 0.00085, 1.5e-4, field, top_rough=0.30, val_rough=0.55)
-    rsf = dk & (x < 0.0070) & (x > 0.0050) & (z > 0.0128) & (z < 0.0186) & (n[:, 0] < -0.6)
-    S.h[rsf] += -6e-5 * np.abs(((z[rsf] / 0.000635) % 1.0) - 0.5) * 2.0
-    S.rough[rsf] = 0.55
+    bs = frame & (n[:, 0] < -0.45) & (z < -0.046) & (z > -0.1225) & (x < 0.0)
+    if bs.any():
+        zb_ = z[bs]
+        field = np.minimum.reduce([zb_ + 0.1205, -0.0480 - zb_, 0.0078 - np.abs(y[bs])]) - 0.0015
+        S.checker_uv(bs, y[bs], zb_, 0.00127, 4.0e-4, field, top_rough=0.55, val_rough=0.75)
+    # guard front: 1.5 mm-pitch horizontal serrations
+    gf = frame & (n[:, 0] > 0.6) & (x > 0.1270) & (z < -0.028) & (z > -0.0600)
+    if gf.any():
+        f = np.minimum(z[gf] + 0.0595, -0.0285 - z[gf])
+        S.h[gf] += -1.6e-4 * tp.smooth(np.abs(((z[gf] / 0.0015) % 1.0) - 0.5), 0.10, 0.22) * tp.smooth(f, 0.0, 0.0008)
+    # ---- rear sight's sloped rear face and the slide's rear face: 40 LPI anti-glare lines; firing-pin stop plate seam
+    rsf = dk & (x < 0.0084) & (x > 0.0062) & (z > 0.0120) & (z < 0.0186) & (n[:, 0] < -0.6)
+    S.h[rsf] += -7e-5 * np.abs(((z[rsf] / 0.000635) % 1.0) - 0.5) * 2.0
+    S.rough[rsf] = 0.62
+    srf = st & (x < 0.0009) & (n[:, 0] < -0.7)
+    if srf.any():
+        S.h[srf] += -6e-5 * np.abs(((z[srf] / 0.000635) % 1.0) - 0.5) * 2.0
+        S.rough[srf] = 0.55
+        yy, zz = np.abs(y[srf]), z[srf]
+        seam = (np.minimum(np.abs(yy - 0.0052), np.abs(zz + 0.0105)) < 0.00006) & (yy < 0.0053) & (zz > -0.0106) & (zz < 0.0090)
+        seam |= (np.abs(zz - 0.0090) < 0.00006) & (yy < 0.0053)
+        S.h[srf] -= 1.2e-4 * seam
+        S.bc[srf] *= (1 - 0.6 * seam)[:, None]
     # ---- carbon, oil and dust
     rr = np.hypot(y, z)
     carbon = (tp.smooth(x, 0.198, 0.2010) * pol_s * tp.smooth(0.0068 - rr, 0.0, 0.0022) * 0.95          # crown
               + (x > 0.193) * (n[:, 0] > 0.6) * tp.smooth(0.0100 - rr, 0.0, 0.0030) * 0.45                 # slide nose
               + st * gauss(p, (0.106, -0.012, 0.009), 0.013, 0.40) * ((y < -0.006) | (z > 0.009))          # round the port
               + st * (x > 0.084) * (x < 0.128) * (y < 0.005) * tp.smooth(S.convex, 0.2, 0.6) * 0.35 * (z > -0.004)
-              + st * (x < 0.006) * (n[:, 0] > 0.5) * 0.6                                                    # breech face
+              + st * (x > 0.0044) * (x < 0.0062) * (n[:, 0] > 0.5) * 0.6                                   # breech face
               + pol_s * (x < 0.0650) * (n[:, 0] < -0.5) * tp.smooth(rr, 0.0040, 0.0052) * 0.45)            # chamber edge
-    oil = (gauss(p, (0.10, 0.0, -0.0125), 0.05, 0.5) * (np.abs(n[:, 2]) > 0.6)
-           + st * (np.abs(y) > 0.0115) * (x > 0.004) * (x < 0.032) * 0.35)                                 # serrations
+    grime = np.zeros(len(p), np.float32)                                     # pins and controls
+    for c in ((0.091, 0.0125, -0.031), (0.091, -0.0125, -0.031), (-0.0135, 0.0095, -0.0105), (-0.0135, -0.0095, -0.0105),
+              (0.0955, 0.0130, -0.0165), (0.118, 0.0130, -0.0215), (0.008, 0.0130, -0.018), (0.0625, 0.0110, -0.0405)):
+        d = np.linalg.norm(p - np.asarray(c, np.float32), axis=1)
+        grime = np.maximum(grime, tp.smooth(0.0045 - d, 0.0, 0.0025) * tp.smooth(1.0 - S.cav, 0.02, 0.15))
+    oil = gauss(p, (0.10, 0.0, -0.0125), 0.05, 0.5) * (np.abs(n[:, 2]) > 0.6)
     keep = {k: getattr(S, k)[pol_s].copy() for k in ("bc", "rough", "metal")}
-    S.dirt(0.55, carbon=np.clip(carbon, 0, 1), oil=oil)
+    S.dirt(0.60, carbon=np.clip(carbon + 0.6 * grime, 0, 1), oil=oil)
     # the polished hood and barrel stay clean except the chamber ring and the crown
     cpol = np.clip(carbon[pol_s], 0, 1)
     for k, v in keep.items():
         cur = getattr(S, k)
         cur[pol_s] = v * (1 - cpol[:, None] if v.ndim == 2 else 1 - cpol) + cur[pol_s] * (cpol[:, None] if v.ndim == 2 else cpol)
     # sights and markings
-    S.dots([(0.0060, 0.0045, 0.0160), (0.0060, -0.0045, 0.0160)], 0.00085, "-X")
+    S.dots([(0.0068, 0.0045, 0.0160), (0.0068, -0.0045, 0.0160)], 0.00085, "-X")
     S.dots([(0.1832, 0.0, 0.0158)], 0.00080, "-X")
     hood = tp.text_image([("9×19", 256, 256, 120)], 512)
     S.engrave(hood, (0, 1), (0.0985, -0.0054), (0.0108, 0.0108), "+Z", 2.5e-5)
-    return S.channels(height_blur=0.35)
+    ch = S.channels(height_blur=0.35)
+    ch["aniso"] = stainless_aniso(G, tp.scatter(S.m, (slide & (np.abs(n[:, 0]) < 0.5)).astype(np.float32)))
+    return ch
+
+
+BORDER_N9 = 0.0025
 
 
 def paint_nine_mag(G):
-    """Nine magazine: brushed steel body (along the magazine axis), bright insertion scuffs on the body, polished
-    gold base pad (#e7b53a at 0.18) worn through to brass at its corners and scuffed on the bottom."""
+    """Nine magazine: brushed steel body (along the magazine axis), bright insertion scuffs on the body, one moulded
+    gold base pad: polished #e7b53a (0.20) on the sides, the bottom flats scuffed to 0.25-0.5, brass showing through
+    at the corners and on the front lip."""
     S = Surf2(G, 9)
     p, n, N = S.p, S.n, S.N
     a = np.array([0.250, 0.0, 0.968]) / np.linalg.norm([0.250, 0.0, 0.968])
@@ -379,18 +437,21 @@ def paint_nine_mag(G):
     gold = S.sel(W.GOLD)
     if gold.any():
         q = p[gold]
+        ng = n[gold]
         S.bc[gold] = lin("e7b53a")[None, :] * (1 + 0.012 * N.fbm(q, 40.0, 2, octave0=104)[:, None])
-        S.rough[gold] = 0.18 + 0.02 * N.fbm(q, 300.0, 2, octave0=105)
+        S.rough[gold] = 0.20 + 0.02 * N.fbm(q, 300.0, 2, octave0=105)
         S.metal[gold] = 1.0
-        # floor scuffs on the domed bottom (random directions) and wear through at the corners and edges
-        bot = tp.smooth(-n[gold, 2], 0.4, 0.8)
+        bot = tp.smooth(-ng[:, 2], 0.55, 0.85)
         sc = np.maximum(S.scratches(1.0, along="X", sel=gold, freq_across=1800.0),
                         S.scratches(0.8, along="Y", sel=gold, freq_across=1800.0, octave=20)) * bot
-        corner = tp.smooth(S.convex[gold] * (0.6 + 0.6 * N.fbm(q, 500.0, 2, octave0=106)), 0.45, 0.8)
-        corner = np.maximum(corner, tp.smooth(np.abs(q[:, 0] - 0.008), 0.033, 0.038) * tp.smooth(S.convex[gold], 0.2, 0.5))
+        scuff = bot * (0.6 + 0.4 * tp.smooth(N.fbm(q, 70.0, 3, octave0=109), -0.3, 0.5))
+        S.rough[gold] += (0.42 - S.rough[gold]) * scuff * 0.8 + 0.08 * sc
+        S.bc[gold] *= (1 - 0.10 * scuff)[:, None]
+        lipf = tp.smooth(q[:, 0], 0.0255, 0.0290) * tp.smooth(ng[:, 0], 0.2, 0.7)
+        corner = tp.smooth(S.convex[gold] * (0.6 + 0.6 * N.fbm(q, 500.0, 2, octave0=106)) + 0.5 * lipf, 0.45, 0.8)
         wear = np.clip(corner + 0.6 * sc * tp.smooth(N.fbm(q, 90.0, 2, octave0=107), -0.2, 0.3), 0, 1)
         S.bc[gold] += (lin("b38b3c") - S.bc[gold]) * wear[:, None]
-        S.rough[gold] += 0.10 * wear + 0.06 * sc
+        S.rough[gold] += 0.10 * wear
         S.h[gold] -= 4e-6 * sc
     S.plain(S.sel(W.BORE), lin("040405"), 0.7, 0.0)
     S.steel(S.sel(W.BRASS), lin("caa23d"), 0.26, hz * 0, lin("e2c46a"), worn_rough=0.2, cvar=0.03, octave=6)
@@ -399,6 +460,7 @@ def paint_nine_mag(G):
             octave=10)
     S.dirt(0.5)
     return S.channels(height_blur=0.4)
+
 
 
 # ================================================================================================= CHOPPER

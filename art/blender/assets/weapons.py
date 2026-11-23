@@ -1663,6 +1663,14 @@ def texture(ctx, ob, painter, res, set_name=None, **kw):
         bake.write_set(set_name, ch, meta={"kind": "unique", "asset": ob.name, "uv_hash": geo.uv_hash(ob),
                                            "texel_density_px_per_m": round(dens, 1),
                                            "authoring": "mi.texpaint: geometry maps + numpy layers (assets/weapons.py)"})
+        if ch.get("aniso") is not None:          # round 3: anisotropy along the mesh tangent (brushed stainless)
+            fa = os.path.basename(bake.save_png(ch["aniso"], os.path.join(d, "T_%s_A.png" % set_name)))
+            sj = os.path.join(d, "set.json")
+            info = json.load(open(sj))
+            info["files"]["A"] = fa
+            info["convention"]["A"] = ("linear anisotropy strength along the mesh tangent (UV +U): 0..1 maps to "
+                                       "Unreal Anisotropy 0..0.75; the NINE's slide shell has U along +X (brushing)")
+            json.dump(info, open(sj, "w"), indent=1, sort_keys=True)
         ctx.log("  wrote %s (%.0f px/m)" % (d, dens))
     elif stale:
         ctx.log("WARNING %s: set is stale (mesh changed); run with --bake" % set_name)
