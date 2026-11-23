@@ -3,6 +3,116 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Cloud build (release engineer): Pixel Streaming 2 package for Eagle 3D Streaming — package delivered, stream test blocked on the box
+
+**2026-11-23, box d14fa3ab** (it ended at 19:48 when the credits ran out). Owner's guide: `docs/LAUNCH.md`. Scripts:
+`tools/box/cloud/` (`package-cloud.sh` makes everything in one command from the branch and the gameplay clone's
+Content; `setup-ps.sh`, `stream-test.sh`, `stream_test.cjs`, `xtest.py`, `memory-runs.sh`, `hold.txt`, `shot.txt`,
+`localhost.cjs`).
+
+**In the game (`Source/MurderInc/Cloud/MICloud.*`).** Pixel Streaming 2 (the 5.9 engine's
+`Engine/Plugins/Media/PixelStreaming2`, the only streaming plugin) is enabled in `MurderInc.uproject` for the **game
+target only** (`TargetAllowList: Game`): the editor and the tests never load it. The release copy enables it for every
+target (`package-cloud.sh overlay`), because the cooker is the editor and only a cooker that loads the plugin cooks
+its global shaders (without it the game stops at start: "Missing global shader FXRCubemapPS"). `UMICloudSubsystem`
+switches on when the command line carries a Pixel Streaming URL, `-MICloud`, or the plugin reports a signalling
+connection; then it applies the **Cloud profile** (`[MICloud] +CVars=` in `DefaultGame.ini`, device-profile
+priority), shows a **CLICK TO PLAY** card (the click is eaten: it presses nothing), names **P** as the pause key in
+the browser (P was already bound; the browser keeps Esc), draws a **software cursor** where the game shows the mouse
+(the stream has no OS cursor), **pauses** when the last viewer leaves and puts the card back for the next one. It
+also gives the default streamer its back-buffer video source if the plugin made it before Slate existed (here it had
+one). `-MICloudLog=<file>` and `-MICloudProbe=<s>` write what the game saw (Shipping has no engine log);
+`-MICloudNoCard` for runs nobody clicks. The E3DS launcher `MurderInc.sh` gets `-MICloud`.
+
+**Tests: 105 of 105 pass** (`test.sh` run from `/project/ue/repo-release`, editor target built from the branch, 49 s).
+
+**The package.** `package-cloud.sh all`: Development (for measurements) and **Shipping** (delivered), Linux, about
+5 minutes for both on a warm cache; zip 1.4 GB, `MurderInc.sh` at the root (E3DS app name `MurderInc`), sha256
+`4ff069986adae2d19464c91a6542fa9477d6ba157efa4b969c6d2463a53b3118`, in the owner's Higgsfield storage as six parts of
+240 MB (`MurderInc-E3DS-partN-of-6.zip`, joined with `cat`, LAUNCH.md section 9). It was built before the texture
+pool went from 1500 to 800 MB; the repackage with 800 MB was cut off with the box, and the next
+`package-cloud.sh all` carries it.
+
+**In-game test on the box (the Shipping build, `xtest.py`, XTEST input as a stream's input becomes):** running 8.3 s
+after launch; card up; the first click hides it; Enter and Tab through Crew, Loadout, Block and Briefing into a Story
+run; mouse look **0.12032 degrees per count**, identical to local play (100 counts = 12.03 degrees); P pauses and
+resumes; the software cursor shows on the set-up screens. That run used a second X server (`Xvfb :99`); the rental
+says not to start one, so `xtest.py` now uses the box's own desktop `:1` (stop the demo game first).
+
+**Memory (Development, off screen, 1920 x 1080, `memory-runs.sh`).** The card was shared (the demo game and the
+gameplay editor), so two measures: the rise of the card's counter during the run, and the game's own Vulkan figures
+(`r.Vulkan.DumpMemory` before it quits). Story, Epic preset: 4.3 GB own, 6.7 GB card rise, RAM 3.2 GB. Story, Cloud
+profile: 5.5 and 5.7 GB card rise in two runs (the own figure did not print in that run), RAM 3.2 GB. Hold the Block,
+Cloud: 3.4 GB own, but only the first waves (`hunt` ends at once before the first wave; `hold.txt` now alternates
+fights and waits). Home screen: Epic 3.8 GB, Cloud 3.2 GB own. **Peak under 7 GB in every case.** GPU frame time on
+an RTX 4080 could not be judged here (shared card: 17 to 30 ms a frame with two other Unreal processes on it). The
+before/after picture of the home screen (`/project/ue/cloud/mem/shot-epic/shot.png`, `shot-cloud/shot.png`) is on
+the box's storage, not fetched before the box ended.
+
+**Not done: the WebRTC stream on the box.** Signalling (Epic's infrastructure, branch UE5.7 as the engine's
+`get_ps_servers.sh` names, Node 22, bound to 127.0.0.1 by `localhost.cjs`, player page on 8090 because the desktop
+stream holds 8080) and offer/answer work, the game joins, Opus audio and the H.264 video track are negotiated, and
+the game hands the stream 60 frames a second. But **the game's WebRTC stack gathers no ICE candidates on this box**
+(a gVisor sandbox: `Linux 4.19.0-gvisor`, no `/sys/class/net`); Chrome on the same box gathers its own, so the
+connection stays "new" and no media flows. Port allocator flags, media capture, fences, a decoupled frame rate and a
+window on an X server changed nothing. So start time through a stream, the stream picture, audio in the WebRTC track,
+input-to-picture latency, gamepad through the stream and the browser side of a lost connection are **untested**;
+`stream-test.sh start` + `test` (headless Chrome viewer, fake gamepad, latency by frame differencing) are ready for a
+machine with an ordinary network stack. E3DS's servers are ordinary Linux machines: the free trial is where these get
+tested (LAUNCH.md section 4 is the checklist).
+
+**Mouse speed through the stream (read from the 5.9 source, untested).** The frontend sends `movementX` normalised to
+the video element's size and the plugin scales it back to the game's resolution (`PixelStreaming2Input`,
+`InputHandler.cpp`): look speed matches local play when the stream resolution equals the player's video size, and
+scales with their ratio otherwise. LAUNCH.md asks for "match the browser window" in E3DS if the speed feels off.
+
+## Demo build (release engineer): the game playable from a browser — done
+
+**Verified 2026-11-23** on the box (session d14fa3ab). Owner's guide: `docs/DEMO.md`. Scripts: `tools/box/demo/package.sh`,
+`start.sh`, `stop.sh` (copied to `/project/ue/demo/tools/` on the box; the demo-video agent's `capture.sh`, `audio.sh`,
+`finish.sh` share the folder).
+
+**Route: the rental's own browser desktop.** The desktop rental already streams its screen (Selkies, websockets mode,
+H.264 on the card) to a private page behind the platform's HTTPS link (`Open desktop`, a `*.w.modal.host` address
+with a connect token and a session token); that page is the only thing the box exposes to the internet. Pixel
+Streaming was not used: it needs its own signalling and media ports reachable from the internet, the rental routes
+no other port, and the rental's instructions forbid starting tunnels, VNC or web servers on a desktop box ("the
+desktop and its link already exist"). A packaged Mac build is impossible from Linux (it needs a Mac with Xcode and
+the engine), and was not needed.
+
+**Windows do work here for the game.** `desktop-run --vulkan` (the box's launcher: primus_vk renders on the RTX PRO 6000
+and presents through llvmpipe on the virtual screen) draws the packaged game, and `UnrealEditor <project> -game`,
+in a window without aborting; only the editor's own window was ever seen to abort (BOX.md).
+
+**The package.** `package.sh snapshot` copies the gameplay clone's project (Source, Config, Content with all the
+imported art, the editor module) to `/project/ue/repo-release` (its own copy: `repo-demo` is the demo-video agent's
+clone), `package.sh start` runs BuildCookRun Linux Development: game target 2 min from scratch, cook 1 to 2 min
+with the shared cache, 1.7 GB staged in `/project/ue/demo/build/Linux`. Overlay on the copy only: start map
+`L_Block`, cook the folders the data loads by path (Art, Audio, Characters, FX, FirstPerson, ThirdParty, Weapons,
+Input, Variant_Shooter), stage `Content/Fonts` as files (`UI/MIStyle.cpp` reads them like the data), no Zen store
+(the cooker's Zen writer aborts: no Zen server on the box), `-IgnoreCookErrors` (the template's ABP_FP_Pistol and
+ABP_FP_Weapon no longer compile and are unused). The package holds pack and Epic content: box only, never committed.
+
+**Found and fixed: mouse look was 14 times too slow outside play in editor.** BaseInput.ini scales MouseX, MouseY
+and Mouse2D by 0.07 and Enhanced Input applies it even with the legacy scales off: 300 counts turned 2.5 degrees
+(read back with `getall MIPlayerController ControlRotation`) instead of 36. `Config/DefaultInput.ini` now replaces
+the three entries with sensitivity 1; after the fix 100 counts turn 12.03 degrees (0.0021 rad per count, exact) and
+50 counts down pitch 6.0 degrees down. Play-in-editor input went through `MIInput`, which is why no test saw it.
+
+**Measured through the desktop path** (the X screen the stream sends; input injected with XTEST as the stream's
+input is): home screen to the Story run through Crew, Loadout, Block and Briefing with mouse clicks; 1920 x 1080 full
+screen, Epic preset, TSR at 73 %: **60 fps locked**, GPU 6.4 to 6.6 ms, game thread 5 ms, draw 7.5 to 7.9 ms;
+mouse-move-to-screen 43 to 56 ms (median of 8, includes a 12 ms screen grab). With two other agents' editors
+running on the same card: 55 to 60 fps, GPU 14 to 17 ms, 78 ms median delay. The uncooked `-game` run with an
+editor alongside managed 36 to 49 fps: the package matters. The desktop icon "MURDER INC." (re)starts the game.
+Pictures (box only, they show pack content): `/project/ue/demo/home.jpg`, `g3.jpg`, `ads.jpg`, `fire.jpg`.
+
+**Limits** (the rental's stream settings, not the game): no sound in the browser (Selkies runs with audio off; the
+game's audio device does not open for user ue4 either: "ALSA: Couldn't open audio device"), no gamepad through the
+browser (gamepad input off), Safari has no keyboard lock (Esc leaves gaming mode). The game window does not follow
+a later resize of the desktop: restart it with the icon. Seen in play: a black half disc below the left forearm in
+the hip pose (art, first-person agent), vertical banding on the set-up stage for a few frames after a camera cut.
+
 ## Polish pass (visible breaks in normal play) — done
 
 **Verified 2026-11-23** in the gameplay clone `/project/ue/repo-gameplay` (MCP 8001), play in editor in L_Block from
