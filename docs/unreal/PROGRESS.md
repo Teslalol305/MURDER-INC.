@@ -226,7 +226,7 @@ Spec: `docs/unreal/LOADOUT.md`. Built and tested in `/project/ue/repo-gameplay` 
    the provisional markers (the vertical grip reads, the scope and silencer do not yet). Headless pictures are the
    editor's play viewport (1013 x 550), so the type is smaller than at 1080p.
 
-Final suite (2026-11-23): `test.sh MurderInc` TESTS FAILED passed=93 failed=1 (`Audio.EventTable`: 188 web sound
+Final suite before the fix pass (2026-11-23): `test.sh MurderInc` TESTS FAILED passed=93 failed=1 (`Audio.EventTable`: 188 web sound
 files missing, the audio agent's).
 
 Correction (fix pass below): items 1 and 6 above and the note on the pictures are out of date. The animation agent's
@@ -264,10 +264,21 @@ STRETCH and every part but the folded stock with no overlay. `loadout-shots.sh` 
   `Frontend.Glyphs`. Each was seen red with its rule broken on the box (Start back to the Briefing jump, Next not
   focusable, no seen-on-arrival, no throttle exception, no symbol face, no `ApplyRun`, noise / 10 instead of / 100,
   the 3 key unmapped), then green.
+- Found while retaking the pictures: parts fitted while the rack's swap had the turntable scaled out came out 16 times
+  too big (they kept their world scale); they now take the gun's scale (`Loadout.PartsScale`, seen red first). The
+  title camera kept a 16:9 constraint and pillarboxed Home and Block & Style at 21:9; it now fills the screen.
+- Pictures (play in editor, `tools/box/loadout-shots.sh`, no overlay): `shots/loadout-{home,crew,rack,workbench,
+  workbench-muzzle,workbench-grip,where,briefing,hud,wheel}.jpg` at 1918 x 1086, and every set-up screen at 21:9
+  (2561 x 1086) and 4K (3836 x 2166, stored at 1920 wide) in `shots/loadout-sizes/`. The layout is the same at each
+  size: every panel in the left column, the gun whole in the free part.
 - `MISetup overlay`, `MIKey`, `MIViewSize` and `EditLoadoutForDev` are compiled out of shipping builds.
 - **Hand-off (characters / animation):** in first person the template body's upper arm and a black disc cover the
   lower left, the support arm stretches sideways when aiming and the pack STICK sits low; hide or cull the template
   upper arm and clamp the support-hand reach. The Briefing hides the arms until then.
+
+Final suite after the fix pass (2026-11-23, 644d4d2): `test.sh MurderInc` TESTS FAILED passed=100 failed=1 (only
+`Audio.EventTable`, the audio agent's: 188 web sound files missing). `Loadout.ParityGolden` and
+`Loadout.ParityNextPrevious` replay the 13 weapon scenarios with 0 mismatches; every `Golden.*` passes.
 
 ## Gameplay (slice 2: the enemies and the flow) — in progress
 
