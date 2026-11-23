@@ -268,3 +268,11 @@ void AMIPlayerController::MIInteract(float Value)
 		G->SetInteractHeld(Value != 0.f);
 	}
 }
+
+void AMIPlayerController::MIFaceEnemy(float Metres)
+{
+	if (UMIGameSubsystem* G = UMIGameSubsystem::Get(this))
+	{
+		G->FaceNearestEnemy(Metres > 0.f ? Metres : 8.0);
+	}
+}

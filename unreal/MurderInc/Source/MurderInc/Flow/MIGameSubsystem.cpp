@@ -528,6 +528,41 @@ void UMIGameSubsystem::TeleportPlayerWeb(const FVector& Feet)
 	}
 }
 
+bool UMIGameSubsystem::FaceNearestEnemy(double Metres)
+{
+	AMIPlayerCharacter* P = GetPlayer();
+	if (!P || !bBooted)
+	{
+		return false;
+	}
+	const FVector Me = PlayerFeetWeb();
+	const FMIEnemy* Near = nullptr;
+	for (const FMIEnemy& E : Field.GetSlots())
+	{
+		if (E.bAlive && (!Near || FVector::Dist(E.Pos, Me) < FVector::Dist(Near->Pos, Me)))
+		{
+			Near = &E;
+		}
+	}
+	FVector Spot;
+	if (!Near)
+	{
+		return false;
+	}
+	const FVector Away = (Me - Near->Pos).GetSafeNormal2D();
+	const FVector Want = Near->Pos + (Away.IsNearlyZero() ? FVector(1, 0, 0) : Away) * Metres;
+	if (!Box.NearestWalkable(Want.X, Want.Z, 6.0, Spot))
+	{
+		return false;
+	}
+	TeleportPlayerWeb(FVector(Spot.X, Box.GroundHeight(Spot.X, Spot.Z, Near->Pos.Y + 1.0), Spot.Z));
+	FMIPlayerRules& R = P->GetPlayerRules();
+	const FVector D = MI::Web::ToUnreal(Near->Pos + FVector(0, Near->IsGoon() ? 1.2 : 0.0, 0)) - (P->GetActorLocation() + FVector(0, 0, 70.0));
+	R.Yaw = FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X));
+	R.Pitch = FMath::RadiansToDegrees(FMath::Atan2(D.Z, D.Size2D()));
+	return true;
+}
+
 void UMIGameSubsystem::FlowFrame(double Dt)
 {
 	using namespace MI::Web;

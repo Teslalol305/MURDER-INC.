@@ -41,6 +41,9 @@ public:
 	void MIMenu(const FString& Command);
 	UFUNCTION(Exec)
 	void MIInteract(float Value);
+	/** Debug: stand Metres (default 8) from the nearest living enemy, looking at it. */
+	UFUNCTION(Exec)
+	void MIFaceEnemy(float Metres);
 
 	/** User settings (spec 01 4.8). */
 	double Sensitivity = 1.0;

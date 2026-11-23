@@ -129,6 +129,9 @@ public:
 	bool IsSimulationLive() const { return bSimLive; }
 	bool HasArt() const { return bArt; }
 
+	/** Debug (console MIFaceEnemy): stands the player Metres from the nearest living enemy, looking at it. */
+	bool FaceNearestEnemy(double Metres);
+
 	/** Web-space helpers for tests and bots. */
 	FVector PlayerFeetWeb() const;
 	void TeleportPlayerWeb(const FVector& Feet);
