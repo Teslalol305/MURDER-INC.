@@ -334,3 +334,14 @@ re-baked at 2048, tile sizes for the tinted slots); previews structures_*.jpg.
 
 ## Exact next step
 Look at art/previews/structures_*.jpg, fix, re-render the worst (at most 3 more renders), commit.
+
+---------------------------------------------------------------------------------------------------------------
+# Weapons rebuild round 1 (senior weapon artist): form and surface pass after the art director's critique
+
+Critique: CHOPPER 2/5, NINE 1.5/5 (extruded outlines, hard edges, non-binary metalness, procedural wear).
+Order: NINE first (grip/frame, panels, guard, slide, base pad, hammer, textures), then the CHOPPER (handguards,
+receiver, guard, grip, sight blocks, stock, bolt, magazine, booster, 3 x 4K sets + detail maps).
+New code: assets/_weapons_kit.py (sections, splines, lofts), assets/_weapons_nine.py, assets/_weapons_chopper.py,
+assets/_weapons_tex.py; weapons.py keeps the pipeline (rig, export, previews).
+## Status
+- started: reading the briefs, the critique and the review measurements.
