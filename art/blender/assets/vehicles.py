@@ -1009,7 +1009,8 @@ def cowl_fit(c, n, cls, k, spec):
     hwc = float(np.percentile(np.abs(y), 99.5) + 0.01)          # the whole plank, A pillar to A pillar
     fit = dict(a=a, b=b, q=q, xm=xm, x0=x0 - 0.01, x1=x1 + 0.01, hw=hwc)
     zf = a + b * (c[:, 0] - xm) + q * c[:, 1] ** 2
-    kill = ((c[:, 0] > fit["x0"] - 0.01) & (c[:, 0] < fit["x1"] + 0.01) & (np.abs(c[:, 1]) < hwc + 0.02)
+    hwk = max(hwc + 0.02, spec["size"][1] / 2 - 0.12)     # (review pass 2) the plank's ends at the A pillars too
+    kill = ((c[:, 0] > fit["x0"] - 0.01) & (c[:, 0] < fit["x1"] + 0.01) & (np.abs(c[:, 1]) < hwk)
             & (c[:, 2] > zf - 0.06) & (c[:, 2] < zf + 0.09) & np.isin(cls, [CLS["trim"], CLS["inside"]]))
     return fit, kill | k
 
@@ -1034,10 +1035,11 @@ def cowl_panel(fit, name, glass=None):
     if bvh is not None:                         # (review pass 2) no wider than the glass base: no block past the A pillar
         yh = [abs(y) for y in np.linspace(-hw, hw, 97)
               if any(bvh.ray_cast(Vector((float(x), float(y), 6.0)), Vector((0, 0, -1)), 12.0)[0] is not None
-                     for x in np.arange(x1, x1 - 0.45, -0.02))]
+                     for x in np.arange(x1, x1 - 0.22, -0.02))]
         if yh:
-            hw = min(hw, max(yh) + 0.01)
+            hw = min(hw, max(yh) - 0.02)
     g = {}
+    edge = []
     for j in range(ny + 1):
         y = -hw + 2 * hw * j / ny
         xr, zr = x0, cowl_z(fit, x0, y)
@@ -1047,7 +1049,19 @@ def cowl_panel(fit, name, glass=None):
                 if h[0] is not None:
                     xr, zr = h[0].x - 0.012, h[0].z - 0.004
                     break
-        zr = max(zr, cowl_z(fit, xr, y))
+        edge.append((y, xr, zr))
+    # (review pass 2) the glass's lower border is ragged: the panel's rear edge follows a smooth curve fitted to the
+    # front-most half of the hits (the gaps in the border would otherwise pull 'teeth' up the windscreen)
+    E = np.array(edge)
+    if len(E) > 8:
+        fr = E[:, 1] >= np.median(E[:, 1])
+        cx = np.polyfit(E[fr, 0], E[fr, 1], 2)
+        cz = np.polyfit(E[fr, 0], E[fr, 2], 2)
+        E[:, 1] = np.polyval(cx, E[:, 0])
+        E[:, 2] = np.polyval(cz, E[:, 0])
+    for j in range(ny + 1):
+        y, xr, zr = (float(v) for v in E[j])
+        zr = min(max(zr, cowl_z(fit, xr, y)), cowl_z(fit, x1, y) + 0.14)
         for i in range(nx + 1):
             t = i / nx
             x = xr + (x1 - xr) * t

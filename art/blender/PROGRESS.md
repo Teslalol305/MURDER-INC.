@@ -247,6 +247,10 @@ Ledger of every generation: art/blender/assets/vehicles_gen.json (job ids, model
   the crumpled surface) over a black backing, per side a headlamp unit (chrome reflector card, two reflector bowls
   with bulbs, bulged lens on MI_Glass_CarTint, chrome bezel).
 - IPX: the band and panel decals reject ray hits through the open doorway (decal(min_y)): no gold strip across it.
+- Cowl (Sedan, Taxi, SUV, Pickup, Van, Vulture): the panel's rear edge follows a curve fitted to the front-most
+  glass-base hits (the ragged glass border pulled grey 'teeth' up the windscreen), it is no wider than the glass
+  base (no block past the A pillar), the plank kill reaches the A pillars, and the generated dash top under the
+  glass base is dropped so the modelled dash shows (Sedan 188, SUV 284, Pickup 49 faces).
 - Credits: none spent (no body needed regeneration for the faults fixed).
 - Still open: SUV rear quarter panel keeps a light crumpled patch at the C pillar and a corner-lamp shard; the
   stripped car's fender tops and rear-screen frame keep some ragged edges; the Van's windscreen base still shows
