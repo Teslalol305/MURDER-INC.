@@ -445,6 +445,69 @@ def textured_material(outfit, s):
     return m
 
 
+LAYERS = [  # (inner kinds, outer kinds, mode, reach m): inner layers under an outer one take its weights (they move as
+    # one and cannot pass through each other); a trouser hem resting on the sneaker takes the sneaker's weights
+    (("maskknit",), ("fleece", "beanie", "captwill", "bandana", "tricot", "quilt", "rib", "nylon"), "inner", 0.05),
+    (("denim", "twill"), ("rib", "fleece", "quilt", "nylon"), "inner", 0.05),
+    (("tricot",), ("rib", "quilt"), "inner", 0.03),
+    (("leather",), ("rib", "fleece", "quilt", "nylon", "tricot"), "inner", 0.04),
+    (("shoe", "sole", "sock"), ("denim", "twill", "tricot"), "outer", 0.03),
+]
+
+
+def _face_kinds(ob):
+    a = np.empty(len(ob.data.polygons), dtype=np.float32)
+    ob.data.attributes["mi_kind"].data.foreach_get("value", a)
+    return np.rint(a).astype(int)
+
+
+def layer_weights(ob, log=log_default):
+    """Make covered layers share their cover's skin weights (see LAYERS)."""
+    from mathutils.bvhtree import BVHTree
+    me = ob.data
+    names, W = char.weight_matrix(ob)
+    W = W.copy()
+    co = GC.verts(ob)
+    fk = _face_kinds(ob)
+    polys = [tuple(p.vertices) for p in me.polygons]
+    vkind = {}
+    for fi, p in enumerate(polys):
+        for v in p:
+            vkind.setdefault(v, set()).add(fk[fi])
+
+    def verts_of(kinds):
+        ids = {K[k] for k in kinds}
+        return np.array([v for v, ks in vkind.items() if ks & ids], dtype=np.int64)
+
+    def faces_of(kinds):
+        ids = [K[k] for k in kinds]
+        return np.nonzero(np.isin(fk, ids))[0]
+    for inner, outer, mode, reach in LAYERS:
+        src_f = faces_of(outer if mode == "inner" else inner)
+        dst_v = verts_of(inner if mode == "inner" else outer)
+        if not len(src_f) or not len(dst_v):
+            continue
+        bvh = BVHTree.FromPolygons([tuple(v) for v in co], [polys[i] for i in src_f])
+        n = 0
+        for v in dst_v:
+            loc, nrm, fi, d = bvh.find_nearest(Vector(co[v]), reach)
+            if loc is None:
+                continue
+            side = (Vector(co[v]) - loc).dot(nrm)
+            if mode == "inner" and side > 0.002:
+                continue                                   # not under the cover
+            f = polys[src_f[fi]]
+            P = co[list(f)]
+            wts = 1.0 / np.maximum(np.linalg.norm(P - np.array(loc), axis=1), 1e-5)
+            wts /= wts.sum()
+            Wsrc = wts @ W[list(f)]
+            t = float(np.clip(1.0 - (d - reach * 0.5) / (reach * 0.5), 0, 1))
+            W[v] = W[v] * (1 - t) + Wsrc * t
+            n += 1
+        log("  layers %s -> %s: %d vertices share weights" % ("/".join(inner), "/".join(outer), n))
+    char.set_weights(ob, names, W, limit=6)
+
+
 def finish(man, outfit, joined, ctx):
     mats = flat_materials(outfit)
     for s, ob in joined.items():
@@ -453,6 +516,7 @@ def finish(man, outfit, joined, ctx):
         ob.data.materials.append(m)
         ob.data.polygons.foreach_set("material_index", np.zeros(len(ob.data.polygons), dtype=np.int32))
     ob = geo.join([joined["cloth"], joined["head"]], "SK_Goon_%s" % outfit, man.col)
+    layer_weights(ob, ctx.log)
     rig.bind(ob, man.arm)
     ctx.log("SK_Goon_%s: %d triangles, %d vertices" % (outfit, tris(ob), len(ob.data.vertices)))
     return ob

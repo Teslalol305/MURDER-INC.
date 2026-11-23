@@ -83,3 +83,117 @@ by `tools/box/seed-content.sh`. The real SK_Chopper, SK_Nine and arms replace th
 (player, weapon, explosives, combat, rng); every recorded number must match. `MurderInc.Weapons.ViewmodelRig` checks
 the rig against its own data; `MurderInc.Weapons.HitscanDummyBlast` fires real traces in a world at the dummy and a
 propane tank and checks body and head damage and the blast falloff.
+
+# Gameplay slice 2: the enemies and the game itself
+
+The specs are `spec/03-enemies.md` and `spec/04-flow.md`. As for slice 1, this records what the code does and what
+other packages may rely on; evidence is in `PROGRESS.md`.
+
+## 6. Layers
+
+| Layer | Class | Holds |
+|---|---|---|
+| Rules (web units: metres, +Y up, radians) | `FMIBoxWorld` (`World/MIBoxWorld`, `src/physics.js`), `FMIEnemyField` (`Enemies/MIEnemies`, `src/enemies.js` with `goon.js`, `buzzard.js`, `bolts.js`, `logic.js`), `FMIGameRules` (`Flow/MIGameRules`, `src/game.js`), `MIFlow::*` and `FMIRadio` (`Flow/MIFlowRules`, `src/game/spawn.js`, `waves.js`, `stats.js`, `music.js`, `radio.js`) | every decision of the web modules, frame by frame |
+| Host | `UMIGameSubsystem` (`Flow/MIGameSubsystem`) | boots the block, owns the rules, answers their questions with the engine (`IMIGameHost`, `IMIEnemyHost`), statistics, settings, save game, menus |
+| Presentation | `AMIGoon`, `AMIBuzzard` (`Enemies/MIEnemyActors`), `AMIReelCase`, `AMITruck` (`World/MIObjectiveActors`), `AMIBlockGeometry`, `AMIHUD`, `FMIMenu` (`UI/MIMenus`) | follow the rule state; never write it |
+
+**Navigation: the web game's own nav grid, ported, not the engine's navigation mesh.** `FMIBoxWorld` is
+`src/physics.js` line for line (0.5 m cells inflated 0.5 m, A* with string pulling, regions, random points, the
+re-plan line test) over level.json's 777 colliders. Why: (1) the Goon's whole engage logic (fire-position costs,
+repicks, stuck rules, the rush) is written against this grid's answers, and with the grid ported the C++ replays the
+web game's fights exactly (`MurderInc.Golden.World`, `.Enemies`, `.Directors`: 0 mismatches over 100,000 checks),
+which a Recast mesh cannot; (2) it needs no build step and no navigation volume, so it runs headless from a clean
+checkout and is identical in both maps, because both maps' collision is the same level.json box list; (3) it is
+cheap (184 x 136 cells). The engine's navigation mesh is not used by gameplay; nothing stops an art pass from
+building one for other uses.
+
+## 7. The game in a world
+
+`AMIGameMode::StartPlay` boots `UMIGameSubsystem` in the maps listed as `BlockMaps` in `Config/DefaultGame.ini`
+(`L_Block`, `L_GreyBlock`) or with the URL option `?block=1`; `?mode=`, `?difficulty=`, `?autostart` as in the web
+game's URL. Boot, in order:
+
+1. `FMILevelData` (level.json) fills the box world; config.json, text.json (`text` and `interface`), rules.json, the
+   three enemy tables (`enemiesResolved`), presentation.json and the save game load.
+2. `AMIBlockGeometry`: every collider no explosive owns becomes a box component (bullet-only boxes ignore pawns,
+   player-only seal walls block only pawns), plus the ground slab. In a map with art (any actor tagged
+   `presentation.json block.artTag`, `MIBlock`, which `build_block.py` puts on everything it places) the boxes stay
+   invisible and the art map's own collision is switched off, so the data's boxes are the only collision; in a map
+   without art they are drawn as grey boxes. Same collision, same box world, same play in both maps.
+3. The 21 explosives (`AMIExplosive`) in level order: combat item i is level explosive i is box-world owner i. A blown
+   one removes its boxes from the box world (they come back on a run reset) and shows its wreck mesh.
+4. Both enemy pools, pre-spawned and hidden: field slot i is actor i (12 `AMIGoon`, then 8 `AMIBuzzard`).
+5. A reel case per objective, the IPX truck, a title camera.
+6. `FMIGameRules::Init` (title) or straight into a run.
+
+Frame (spec 04 3.1): `UMIGameSubsystem` flow tick (pre-physics; the player's early tick waits for it; ticks while
+paused) → the player and his weapon (slice 1) → the enemy tick (post-update work: `FMIEnemyField::Update`, the
+events, the actors follow). The delta is clamped to 0.05 s. A kill by the player's round is reacted to in the same
+frame (`DamageEnemy` drains the field's events at once).
+
+What the host answers (web ↔ Unreal: `MI::Web::ToUnreal` / `FromUnreal`):
+
+| Rule question | Engine answer |
+|---|---|
+| A Goon round (`Hitscan`) | a line trace on `Bullet` from the rules' muzzle ignoring every enemy and the player, then `src/combat.js rayPlayer` against the player's shot cylinder (rules.json `player.shotTarget`: r 0.38 m, 1.8 / 1.15 m) inside that distance; a hit explosive takes the enemy amount; `Impact` event otherwise |
+| Bolts, the pipe (`DamagePlayer`) | `AMIPlayerCharacter::ApplyMIDamage` (kind `bolt` / `melee`, source Enemy) |
+| A Buzzard's crash (`Explode`) | `UMICombatSubsystem::Explode` with the Buzzard's player scale |
+| The player's hits on a unit | `AMIGoon` / `AMIBuzzard::ApplyMIDamage` → `DamageEnemy`: part head only for rounds, every blast credited to the player, enemy sources ignored |
+| Hearing | `WeaponFire` → `Gunfire` (45 m, every 0.3 s at most), `Explosion` → `Explosion` (30 m), `ExplosiveBlast` → `Alert` (60 m) |
+| Reset, heal, resupply, regeneration, invulnerability | `AMIPlayerCharacter::ResetAt`, `FMIPlayerRules`, `UMIWeaponComponent::AddReserve`, `UMICombatSubsystem::ResetExplosives` |
+| Statistics | shots: `WeaponFire`; hits: `PlayerHitEnemy` of rounds; kills and headshots: the field's `killed` events with `byPlayer` |
+| Best score, settings | `FMISettings` (src/core/settings.js validation; defaults config.json, ranges rules.json) in one save slot `murderinc.settings.v1` (`UMISaveGame`) |
+
+State → world (spec 04 3.2): the simulation (player, weapon, enemies) runs except on the title and in a pause;
+gameplay input, HUD and viewmodel only in intro and playing; the player is disabled on the title and after the
+truck; a pause pauses the world (`SetGamePaused`); the title shows the fly-through camera on the level's cinematic
+keys; fade and saturation go to the camera manager and the player camera's post process.
+
+## 8. What the rest of the game may read and listen to
+
+Event bus additions (`Core/MIEvents.h`): `Enemy` (every `FMIEnemyEvent`: spawn, alert, telegraph, fire, melee, hit,
+killed; web units), `Flow` (every `FMIFlowEvent`: `game:state`, `objective:done`, `objective:all`, `holdout:wave`,
+`extraction:reached`, `hud:*`, `audio:sting`, `player:heal`, `weapon:reserve` ...), `MusicIntensity` (0..1 every
+frame). Effects and sound hang on these and on the slice 1 events.
+
+For an animation layer, per enemy (`AMIGoon::GetView()` / `AMIBuzzard::GetView()` → `FMIEnemyView`, Unreal units):
+mode, Goon step (`EMIGoonSub`), alive, velocity, speed, yaw rate, crouch and aim weights, aim yaw and pitch, look yaw
+and pitch, rush phase and progress, lamp, hit flash, outfit, death direction; Buzzard rotor speed and angle, eye yaw
+and pitch, lost rotor; the last rule event and its age. The Goon is an `ACharacter` whose movement component reports
+the rules' velocity and acceleration (it never moves the actor), so an animation blueprint wired like the template
+shooter NPC's (presentation.json `enemies.goon.animClass`, now `ABP_TP_Rifle`) plays locomotion; aim pitch is the
+pawn's remote view pitch; a death clip by the shot's direction (`enemies.goon.death`). Hit volumes are never the
+mesh: a head sphere (tag `head`) at the rules' head point and a body capsule from the shin to the head, config.json
+sizes, on `Bullet` only, off once dead. The Buzzard is a placeholder (presentation.json `enemies.buzzard`) with a box
+hit volume 0.8 r x 0.8 r x h of the ellipsoid. Bone and socket names the real meshes keep: `head`, `pelvis`,
+`spine_05`, `hand_r`, `HandGrip_R` (weapon), `Muzzle` (the SMG's lamp and tracer), mannequin skeleton; the
+Buzzard's rotor points and eye come from rules.json `buzzardModel`.
+
+Reel case: `AMIReelCase::GetState()` (Live, Grabbing, Taken) and `GetProgress()`; truck: `AMITruck::GetState()`
+(Idle, Open).
+
+## 9. Menus and input
+
+`FMIMenu` holds the screen (title, pause, settings, death card, debrief) with its lines and items from text.json;
+`AMIHUD` draws it and the flow's lines on the canvas (final styling later). Input (Enhanced Input, in code):
+Interact E / gamepad X (held), Pause Esc / P / Start, menu Up / Down / Left / Right / Enter / Space / A /
+Backspace / B (these also act while paused). The mouse wheel swaps at most once per `player.input.wheelDebounce`.
+Console: `MIStart [mission|holdout] [skip]`, `MIPauseKey`, `MIMenu <up|down|left|right|confirm|back>`,
+`MIInteract <0|1>`.
+
+## 10. Slice 1 leftovers closed here
+
+The 8 cm air step (airborne, blocked, free once lifted by `body.airStepHeight`, a floor within it ahead: the body is
+put on the ledge), the play-bounds clamp (`body.boundsMargin` inside level.json's bounds), the fall-out return (feet
+below rules.json `player.fallOut.below` or not finite: back to the last ground), the wheel debounce, explosive wrecks
+and their reset.
+
+## 11. Tests (slice 2)
+
+`MurderInc.Golden.World`, `.EnemyLogic`, `.Enemies`, `.FlowRules`, `.Directors` replay the web game's own modules
+(`tools/ue-export/golden-ai.mjs`). `MurderInc.Run.*` play whole runs in a world with collision, headless:
+`StoryComplete` (a bot that follows the objective data, aims and fires the real weapon at enemies it can see, takes the
+three reels and reaches the truck; it is patched up every frame, so the enemies' hits land and are counted but do not
+end the run), `StoryDeath` (a bot that does not fight dies; the death card; Run it back), `HoldTheBlock` (three waves
+at the start, score, resupply, the card and the best), `Menus` (settings validation, title, start, pause, settings,
+resume).
