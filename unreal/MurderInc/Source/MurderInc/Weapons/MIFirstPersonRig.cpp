@@ -951,7 +951,7 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 		const FTransform Base = FTransform(MagBasePad) * OwnMag->GetRelativeTransform() * Gun->GetSocketTransform(MagBone);
 		FMIFPHandIK& L = HandPose.Hands[0];
 		const double K = FMath::Clamp(FMath::Min(ReloadNowT, ReloadNowLeft) / 0.15, 0.0, 1.0);
-		L.Target.SetLocation(FMath::Lerp(L.Target.GetLocation(), Base.GetRelativeTransform(ArmsWorld).GetLocation(), Smooth(K)));
+		L.Target.SetLocation(FMath::Lerp(L.Target.GetLocation(), Base.GetRelativeTransform(ArmsWorld).GetLocation(), MIFirstPersonRigPrivate::Smooth(K)));
 	}
 	AI->SetPose(HandPose);
 }
