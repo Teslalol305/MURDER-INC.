@@ -64,7 +64,7 @@ SPEC = {
                   tris=60000,
                   # close-up pass 3: modelled lamps, grille, mirrors and cabin; flanks on a fitted surface with
                   # real shut lines at the briefed door lines (front door 1.16, rear door 0.90)
-                  modelled_lamps=("head", "tail", "grille"), modelled_mirrors=True, cabin=True, shelf=True,
+                  modelled_lamps=("head", "tail", "grille"), modelled_mirrors=True, cabin=True, shelf=True, glass_tris=4400,
                   flank=(-1.80, 1.80, 0.30, 0.99), handles=[(-0.10, 0.86), (-0.95, 0.86)], clean_glass=True,
                   flat_boxes=[(-0.10, 0.84, 0.14, 0.07), (-1.15, 0.85, 0.14, 0.07), (-1.72, 0.86, 0.12, 0.07)],
                   grooves=[((0.995, 0.31), (0.965, 0.985)), ((-0.175, 0.31), (-0.175, 0.985)),
@@ -1649,9 +1649,10 @@ def build_mirrors(mounts, spec, name, paint):
         sd = 1 if y > 0 else -1
         if spec.get("truck_mirror"):
             d = cp.truck_mirror(h=0.38, w=0.18, reach=max(0.12, yo - abs(y) - 0.17), name=name + "_Mirror")
-        else:
-            w = 0.19
-            arm = max(0.04, yo - abs(y) - w + 0.01)
+        else:                                    # the housing ends inside the brief's width
+            outer = min(spec["size"][1] / 2 - 0.006, max(yo, abs(y) + 0.20))
+            arm = 0.035
+            w = float(np.clip(outer - abs(y) - arm + 0.01, 0.10, 0.19))
             d = cp.mirror(w=w, h=0.115, arm=arm, house_key=spec.get("mirror_house", "paint"), name=name + "_Mirror")
         if sd < 0:
             cp.place(d, scale=(1, -1, 1))

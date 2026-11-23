@@ -118,7 +118,7 @@ def loft(name, sections, closed=True, cap=True, smooth=40.0):
     return ob
 
 
-def rbox(size, r=0.01, name="RBox", seg=3):
+def rbox(size, r=0.01, name="RBox", seg=2):
     """Centred box with rounded edges."""
     return geo.box(size, bevel=r, segments=seg, base=False, name=name)
 
@@ -257,7 +257,7 @@ def _barrel(rim_r, w, name):
     prof = [(rim_r + 0.016, -w * 0.88), (rim_r + 0.004, -w * 0.84), (rim_r, -w * 0.76), (rim_r, -w * 0.50),
             (rim_r - 0.028, -w * 0.34), (rim_r - 0.028, w * 0.30), (rim_r, w * 0.46), (rim_r, w * 0.76),
             (rim_r + 0.006, w * 0.84), (rim_r + 0.017, w * 0.88), (rim_r + 0.020, w * 0.86)]
-    ob = geo.revolve(prof, 48, name=name)
+    ob = geo.revolve(prof, 40, name=name)
     me = ob.data                              # one-sided, looking at the axle (seen from outside through the face)
     c = np.empty(len(me.polygons) * 3)
     me.polygons.foreach_get("center", c)
@@ -395,7 +395,7 @@ def wheel_face(style, rim_r, w, name="Rim", trim_ring=False):
                   (rim_r * 0.88, w * 0.955), (rim_r * 0.84, w * 0.90), (rim_r * 0.68, w * 0.86), (rim_r * 0.52, w * 0.86),
                   (rim_r * 0.44, w * 0.95), (rim_r * 0.36, w * 1.01), (rim_r * 0.27, w * 1.03), (rim_r * 0.24, w * 1.06),
                   (rim_r * 0.16, w * 1.09), (0.0, w * 1.10)]
-            cap = orient(geo.revolve(hp, 60, name=name + "_Hubcap"), (0, 0, 1))
+            cap = orient(geo.revolve(hp, 48, name=name + "_Hubcap"), (0, 0, 1))
             _add(out, "alloy", cap)
             zc = _profile_z(hp)
             n = 10
@@ -498,7 +498,7 @@ def wheel(style, r, tw, rim_r, name="Wheel", twin=False, brake_kind=None, text=N
                        int(round(tw * 1000 / 5) * 5), int(round((r - rim_r) / tw * 100 / 5) * 5),
                        int(round(rim_r * 2 / 0.0254 - 1.0)))))
     for k, dz in enumerate(offs):
-        t = tyre(r, tw, rim_r, pitches=pitches or ((18 if k == 0 else 12) if big else 24), name="%s_Tyre%d" % (name, k),
+        t = tyre(r, tw, rim_r, pitches=pitches or ((18 if k == 0 else 12) if big else 22), name="%s_Tyre%d" % (name, k),
                  text=txt if k == 0 else None, grooves=3, lug=0.18 if big else 0.22, side_rings=40 if big else 48)
         geo.transform(t, loc=(0, 0, dz))
         part = {"tyre": [t]}
@@ -506,8 +506,10 @@ def wheel(style, r, tw, rim_r, name="Wheel", twin=False, brake_kind=None, text=N
             part = merge(part, wheel_face(style, rim_r, w, name="%s_Rim%d" % (name, k), trim_ring=trim_ring))
             bk = brake_kind or ("drum" if big else "disc")
             part = merge(part, brake(rim_r, w, bk, name="%s_Brake" % name))
-        else:
-            inner = wheel_face("truck", rim_r, w, name="%s_Rim%d" % (name, k))
+        else:                                  # the inner dual: barrel and disc only (its face is never seen)
+            prof = [(rim_r + 0.006, w * 0.82), (rim_r - 0.008, w * 0.74), (rim_r * 0.80, w * 0.30), (0.10, w * 0.26)]
+            inner = {"steel": [_barrel(rim_r, w, "%s_Rim%d_Barrel" % (name, k)),
+                               orient(geo.revolve(prof, 40, name="%s_Rim%d_Disc" % (name, k)), (0, 0, 1))]}
             for o in objects(inner):
                 geo.transform(o, rot=(180, 0, 0))     # the inner dual faces inboard
             place(inner, loc=(0, 0, dz))
@@ -957,7 +959,7 @@ def interior(c, name="Cabin"):
     _add(out, "black", gb)
     # ---- steering wheel, column, stalks
     sx, sz = cw - dd - 0.30, belt - 0.02
-    rim_ = geo.torus(0.190, 0.0165, 56, 10, name=name + "_WheelRim")
+    rim_ = geo.torus(0.190, 0.0165, 44, 8, name=name + "_WheelRim")
     pad = rbox((0.13, 0.11, 0.05), r=0.02, name=name + "_WheelPad", seg=3)
     geo.transform(pad, loc=(0, 0, 0.012))
     spokes = []
