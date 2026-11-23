@@ -218,11 +218,15 @@ UCameraComponent* AMIShowroom::GetActiveCamera() const
 void AMIShowroom::PlaceGunOnPivot()
 {
 	// Bore along the turntable's X (the presentation mesh offset), centred on the turntable.
+	// From the mesh asset's own bounds (not the component's, which follow the swap's scale animation).
 	Gun->SetRelativeTransform(Pending.View.MeshOffset);
-	Gun->UpdateBounds();
-	const FVector Centre = Pivot->GetComponentTransform().InverseTransformPosition(Gun->Bounds.Origin);
-	Gun->AddRelativeLocation(-Centre);
-	GunRadius = FMath::Max(10.0, Gun->Bounds.SphereRadius / FMath::Max(0.01, Pivot->GetComponentScale().X));
+	if (const USkinnedAsset* Asset = Gun->GetSkinnedAsset())
+	{
+		const FBoxSphereBounds B = Asset->GetBounds();
+		const FVector Centre = Pending.View.MeshOffset.TransformPosition(B.Origin);
+		Gun->AddRelativeLocation(-Centre);
+		GunRadius = FMath::Clamp(B.BoxExtent.GetMax(), 10.0, 120.0);
+	}
 	GunCentre = FVector::ZeroVector;
 }
 

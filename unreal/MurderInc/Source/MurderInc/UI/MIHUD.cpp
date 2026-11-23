@@ -274,7 +274,7 @@ void AMIHUD::DrawWeaponBar(const AMIPlayerCharacter& Player, UMIGameSubsystem* G
 		{
 			const FString Mode = Loadout ? Loadout->Text(R.IsSemi(I) ? TEXT("frontend.hud.modes.semi") : TEXT("frontend.hud.modes.auto")) : FString(R.IsSemi(I) ? TEXT("SEMI") : TEXT("AUTO"));
 			GetTextSize(Mode, TW, TH, Small, static_cast<float>(K * 0.75));
-			DrawText(Mode, Cyan(), X + SW - TW - 10.0 * K, Y + 8.0 * K, Small, static_cast<float>(K * 0.7));
+			DrawText(Mode, Cyan(), X + SW - TW - 6.0 * K, Y - TH - 2.0 * K, Small, static_cast<float>(K * 0.7));
 		}
 		// One pip per fitted non-baseline attachment.
 		int32 Pips = 0;
