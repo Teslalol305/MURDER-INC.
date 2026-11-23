@@ -143,11 +143,17 @@ def _bolt_cycle(t):
 def parts_all():
     """SK_Chopper clips: Fire (one round at 720 rpm, 120 fps), DryFire, Idle, ReloadTactical, ReloadEmpty."""
     rep = {"clips": []}
-    rate = 120
-    n = int(round(FIRE_INTERVAL * rate)) + 1
-    fire = [{"bolt": _bolt_cycle(i / rate), "trigger": 1.0} for i in range(n)]
-    rep["clips"].append({"asset": S.chopper_clip("A_Chopper_Fire", fire, rate=rate), "length": round((n - 1) / rate, 4),
-                         "note": "one round; loop at 720 rpm, or play once per WeaponFire"})
+    # The compressor resamples bone tracks at 30 fps (the target frame rate cannot be set from Python), which is
+    # too coarse for a 65 ms bolt cycle: the clip is 0.1 s (3 frames) and carries the exact cycle as float curves
+    # Chopper_Bolt (0..1 of the 92 mm travel) and Chopper_Trigger, keyed at 0, 0.020, 0.065 s. The game drives the
+    # bolt bone from the curve (or from FMIViewmodelRig::GetParts), one cycle per WeaponFire, at play rate 1.2 for
+    # the 0.0833 s interval.
+    fire = [{"bolt": _bolt_cycle(i / 30.0), "trigger": 1.0} for i in range(4)]
+    curves = {"Chopper_Bolt": [(0.0, 0.0), (0.020, 1.0), (0.065, 0.0), (0.1, 0.0)],
+              "Chopper_Trigger": [(0.0, 1.0), (0.1, 1.0)]}
+    rep["clips"].append({"asset": S.chopper_clip("A_Chopper_Fire", fire, rate=30, curves=curves), "length": 0.1,
+                         "note": "one round; play once per WeaponFire at rate 0.1 / 0.0833 = 1.2; bolt from the "
+                                 "Chopper_Bolt curve"})
     dry = [{"trigger": D.curve([(0.0, 0.0), (0.06, 1.0), (0.20, 1.0), (0.30, 0.0)], i / 30.0)} for i in range(10)]
     rep["clips"].append({"asset": S.chopper_clip("A_Chopper_DryFire", dry, rate=30), "length": 0.3})
     rep["clips"].append({"asset": S.chopper_clip("A_Chopper_Idle", [{}, {}], rate=30), "length": 1.0 / 30})
