@@ -943,7 +943,8 @@ def build(ctx):
             from assets import _goons_tex as T
             for s, ob in joined.items():
                 T.bake_set(ob, set_name_of(outfit, s), 4096 if s == "cloth" else 2048, man, ctx.log,
-                           res_override=ctx.args.res if ctx.args.res != 2048 else None)
+                           res_override=ctx.args.res if ctx.args.res != 2048 else None,
+                           others=[o for k, o in joined.items() if k != s])
         ob = finish(man, outfit, joined, ctx)
         ctx.goons["outfits"][outfit] = ob
         objs.append(ob)

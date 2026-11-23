@@ -112,24 +112,27 @@ def previews(ctx, objs):
             x = (i - (len(names) - 1) / 2) * 1.0
             inst.append(instance(outs[n], arm, "L_" + n, (x, 0, 0), np.radians([18, 0, -18][i] if len(names) == 3 else 0)))
         hide_all_but([m for a, m in inst] + [gr])
-        render.cam_look((0.6, -5.4, 1.35), (0, 0, 0.92), lens=45)
+        bpy.context.view_layer.update()
+        render.cam_hero([m for a, m in inst], direction=(0.12, -1.0, 0.10), lens=45, margin=1.12)
         shoot("goons_lineup")
     if "goons_hoodie_hero" in want and "Hoodie" in outs:
         a2, m2 = instance(outs["Hoodie"], arm, "H_Hero", (0, 0, 0), np.radians(-28))
         pose(a2, "rifle_idle_ads", 0.3)
         hide_all_but([m2, gr])
-        render.cam_look((1.1, -2.9, 1.25), (0.05, 0, 1.0), lens=50)
+        bpy.context.view_layer.update()
+        render.cam_hero([m2], direction=(0.55, -1.0, 0.12), lens=55, margin=1.08)
         shoot("goons_hoodie_hero")
     if "goons_detail" in want and outs:
         n = "Hoodie" if "Hoodie" in outs else list(outs)[0]
         a2, m2 = instance(outs[n], arm, "D_" + n, (0, 0, 0), np.radians(-20))
         hide_all_but([m2, gr])
         shots = []
-        for label, loc, tgt in (("hood and mask", (0.22, -0.75, 1.68), (0.0, 0.0, 1.62)),
-                                ("hand", (0.95, -0.55, 1.08), (0.40, -0.12, 0.99))):
-            bpy.context.view_layer.update()
-            M = a2.matrix_world
-            render.cam_look(tuple(M @ Vector(loc)), tuple(M @ Vector(tgt)), lens=60)
+        bpy.context.view_layer.update()
+        M = a2.matrix_world
+        hand = (M @ a2.pose.bones["hand_l"].matrix).to_translation()
+        for label, loc, tgt in (("hood and mask", M @ Vector((0.20, -0.72, 1.70)), M @ Vector((0.0, -0.02, 1.62))),
+                                ("hand", hand + Vector((0.22, -0.30, 0.12)), hand + Vector((0.0, -0.04, 0.0)))):
+            render.cam_look(tuple(loc), tuple(tgt), lens=60)
             render.setup(samples=S, res=(640, 720), threads=3)
             day()
             p = os.path.join(tempfile.gettempdir(), "mi_goon_detail_%d.png" % len(shots))
@@ -145,7 +148,8 @@ def previews(ctx, objs):
             pose(a2, clip, frac)
             inst.append(m2)
         hide_all_but(inst + [gr])
-        render.cam_look((0.5, -5.2, 1.6), (0, -0.2, 0.75), lens=40)
+        bpy.context.view_layer.update()
+        render.cam_hero(inst, direction=(0.15, -1.0, 0.22), lens=40, margin=1.1)
         shoot("goons_poses")
     if "goons_wire" in want and outs:
         n = "Hoodie" if "Hoodie" in outs else list(outs)[0]
@@ -167,5 +171,6 @@ def previews(ctx, objs):
         m2.data.materials.append(clay)
         m2.data.polygons.foreach_set("material_index", np.zeros(len(m2.data.polygons), dtype=np.int32))
         hide_all_but([m2, gr])
-        render.cam_look((0.9, -2.3, 1.45), (0.0, 0, 1.15), lens=50)
+        bpy.context.view_layer.update()
+        render.cam_hero([m2], direction=(0.5, -1.0, 0.15), lens=50, margin=1.08)
         shoot("goons_wire", samples=max(16, S // 3))

@@ -139,7 +139,7 @@ def texels(man, P, N, kind, base, piece, ao_geo):
     if m.any():
         kn = knit(s[m], arc[m], 0.0016, 0.0013)
         heather = 0.08 * TX.noise(P[m] * np.array([1, 1, 4.0]), 300.0, 9) + 0.05 * mid[m]
-        pl = pills(P[m]) * (0.3 + 0.7 * np.clip(cuff_zone[m] + (np.abs(P[m, 0]) > 0.17) * (z[m] > 0.95) * (z[m] < 1.3), 0, 1))
+        pl = 0.5 * pills(P[m]) * (0.15 + 0.85 * np.clip(cuff_zone[m] + (np.abs(P[m, 0]) > 0.17) * (z[m] > 0.95) * (z[m] < 1.3), 0, 1))
         c = bc[m] * (1 + heather)[:, None]
         c = c * (1 - 0.1 * (1 - kn))[:, None] + pl[:, None] * 0.025
         bc[m] = c
@@ -215,14 +215,14 @@ def texels(man, P, N, kind, base, piece, ao_geo):
         g = 0.005
         rip = np.maximum(ss(0.86, 1.0, np.abs(np.sin(np.pi * s[m] / g))), ss(0.86, 1.0, np.abs(np.sin(np.pi * arc[m] / g))))
         bc[m] = bc[m] * (1 + 0.06 * rip + 0.04 * mid[m])[:, None]
-        rough[m] = 0.38 + 0.08 * rip + 0.05 * big[m]
+        rough[m] = 0.52 + 0.08 * rip + 0.05 * big[m]
         h[m] = 0.00005 * rip
     # ---------------------------------------------------------------- tricot (tracksuit): fine courses, satin sheen
     m = k_("tricot")
     if m.any():
         tr = 0.5 + 0.5 * np.sin(2 * np.pi * s[m] / 0.0009)
         bc[m] = bc[m] * (0.95 + 0.08 * tr)[:, None] * (1 + 0.04 * mid[m])[:, None]
-        rough[m] = 0.45 + 0.06 * tr
+        rough[m] = 0.58 + 0.06 * tr
         h[m] = 0.00005 * tr
     # ---------------------------------------------------------------- glove leather
     m = k_("leather")
@@ -231,7 +231,7 @@ def texels(man, P, N, kind, base, piece, ao_geo):
         grain = np.clip((f2 - f1) * 2.0, 0, 1)
         crease = TX.ridged(P[m], 150, 9) * 0.6
         bc[m] = bc[m] * (0.9 + 0.2 * grain)[:, None] * (1 + 0.15 * crease)[:, None]
-        rough[m] = 0.42 + 0.12 * (1 - grain) + 0.1 * crease
+        rough[m] = 0.48 + 0.12 * (1 - grain) + 0.1 * crease
         h[m] = 0.00012 * grain - 0.00015 * crease
     # ---------------------------------------------------------------- sneakers
     for name in ("shoe", "sole"):
@@ -383,19 +383,33 @@ def regions(man, P, N, kind, piece, bc, h, rough):
     return v_
 
 
-def bake_set(ob, set_name, res, man, log, res_override=None):
+def vertex_ao(ob, others=(), rays=24, distance=0.07, smooth=3):
+    """Per-vertex ambient occlusion (the outfit's other pieces occlude too), smoothed over the mesh and stored as the
+    point attribute mi_ao (1 = open). Interpolated across UV seams, so it never steps at an island border the way a
+    low-resolution texture bake does on fragmented cloth islands."""
+    from mi import geo as _geo
+    from mi import char as _char
+    occ = _geo.occlusion(ob, distance=distance, rays=rays, seed=3, others=others)
+    a = 1.0 - occ
+    idx, ptr = _char.adjacency(ob)
+    deg = np.maximum(np.diff(ptr), 1).astype(np.float64)
+    for _ in range(smooth):
+        sums = np.add.reduceat(a[idx], ptr[:-1]) if len(idx) else a
+        a = 0.5 * a + 0.5 * sums / deg
+    at = ob.data.attributes.get("mi_ao") or ob.data.attributes.new("mi_ao", "FLOAT", "POINT")
+    at.data.foreach_set("value", a.astype(np.float32))
+    return a
+
+
+def bake_set(ob, set_name, res, man, log, res_override=None, others=()):
     from mi import bake as _bake
-    from PIL import Image
     res = res_override or res
-    maps = TX.bake_maps(ob, res, face_attrs=["mi_kind", "mi_r", "mi_g", "mi_b", "mi_piece"])
+    vertex_ao(ob, others)
+    maps = TX.bake_maps(ob, res, face_attrs=["mi_kind", "mi_r", "mi_g", "mi_b", "mi_piece", "mi_ao"])
     log("  %s: maps baked at %d, coverage %.1f %%" % (set_name, res, 100 * maps["mask"].mean()))
     H, W = maps["mask"].shape
     mask = maps["mask"]
-    aol = _bake._bake_ao(ob, 1024, 16, 0, 0.06, False)
-    k = H // 1024
-    m1 = mask.reshape(1024, k, 1024, k).mean(axis=(1, 3)) > 0.99
-    aol = TX.dilate(np.where(m1, aol, 1.0).astype(np.float32), m1, 12)
-    aol = np.asarray(Image.fromarray(aol.astype(np.float32), mode="F").resize((W, H), Image.BILINEAR), dtype=np.float32)
+    aol = TX.dilate(np.clip(maps["mi_ao"], 0, 1).astype(np.float32), mask, 4)
     idx = np.nonzero(mask.ravel())[0]
     bc = np.zeros((H * W, 3), dtype=np.float32)
     ro = np.full(H * W, 0.8, dtype=np.float32)
