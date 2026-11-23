@@ -271,6 +271,17 @@ def _reserve_mag(label):
     return [m.get_actor_label()]
 
 
+def gun_cam(label="C_Chopper", side=-1.0, dist=75.0, fwd=18.0, up=4.0):
+    """A camera square to the gun's side (side -1: its left, where the CHOPPER's charging handle is), aimed at the
+    receiver: 'x,y,z,pitch,yaw,roll' for mi_mcp.py shot."""
+    g = [a for a in S.ACTORS.get_all_level_actors() if a.get_actor_label() == label][0]
+    tr = g.get_actor_transform()
+    target = tr.transform_location(unreal.Vector(fwd, 0.0, 0.0))
+    eye = tr.transform_location(unreal.Vector(fwd, side * dist, up))
+    r = unreal.MathLibrary.find_look_at_rotation(eye, target)
+    return "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f" % (eye.x, eye.y, eye.z, r.pitch, r.yaw, r.roll)
+
+
 def chopper_fp(clip, t, gun_clip=None, mesh=None, yaw=0.0):
     """SK_RuleArms (or the mannequin) playing an adapted clip at t with the CHOPPER; returns the eye camera."""
     S.stage()
