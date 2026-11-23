@@ -24,7 +24,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ -f "$UP" ] || { echo "usage: import-animpack.sh <Project.uproject> pack|adapted|adapt"; exit 2; }
 if [ "$(id -un)" != ue4 ]; then exec su ue4 -c "$(printf '%q ' bash "$0" "$@")"; fi
 PROJ=$(dirname "$UP"); LOG=/project/ue/logs/animpack; mkdir -p $LOG
-for p in $(pgrep -x UnrealEditor) $(pgrep -x UnrealEditor-Cmd); do
+for p in $(pgrep -x UnrealEditor) $(pgrep -x UnrealEditor-Cm); do  # pgrep -x sees 15 characters
   tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -qF "$UP" && { echo "the editor of $UP is running (pid $p): stop it first"; exit 3; }
 done
 run() {  # run a Python file headless in the project
