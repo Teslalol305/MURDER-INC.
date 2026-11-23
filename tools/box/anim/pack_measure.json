@@ -1,2 +1,515 @@
-{"space":"Unreal gun space of the pack skeletal meshes: cm, +Y muzzle, +X left, +Z up","bones":{"Root":[0.0,-0.0,0.0],"Grip":[0.0,-0.0,0.0],"Trigger":[-0.0,4.159,-1.069],"Handguard":[-0.0,16.508,4.41],"Bolt":[-0.55,10.785,3.883],"Magazine":[0.007,12.265,-7.021],"Sight_Rear":[-0.0,1.937,6.745],"Eject_Casing":[-0.277,10.795,3.875],"Scope":[0.0,7.936,6.745],"Dust_Cover":[-1.381,10.905,2.98],"Charging_Handle":[-0.0,-1.852,6.115],"Magazine_Release":[-1.422,7.768,0.222],"Fire_Selector":[0.0,1.324,0.245],"Magazine_Reserve":[0.007,12.265,-32.259],"Bullet_Chambered":[0.0,11.092,-0.002],"Casing_Jammed":[0.0,3.501,1.319],"Bolt_Catch":[1.638,7.546,1.913]},"variants":{"Short":{"tip_y":49.897,"bore_axis_xz":[0.0,3.54],"rail_top_z":7.09,"front_post_tip":[0.032,34.532,9.65],"front_post_y":34.489,"rear_aperture":{"z_low":9.238,"z_high":10.075,"centre_z":9.656,"y":0.844},"handguard_box":{"min":[-1.867,15.979,0.858],"max":[1.867,49.897,9.941]},"butt":{"y":-27.502,"z_mid":4.019},"mag_well_box":{"min":[-1.909,7.118,-5.183],"max":[1.909,15.71,-3.029]},"folded_irons_top_z":8.11,"standing_irons_top_z":10.268,"stock_identical_in_folded":true,"thread_shoulder_from_tip":-5.8},"Default":{"tip_y":55.405,"bore_axis_xz":[0.0,3.54],"rail_top_z":7.09,"front_post_tip":[0.032,39.065,9.65],"front_post_y":39.021,"rear_aperture":{"z_low":9.238,"z_high":10.075,"centre_z":9.656,"y":0.844},"handguard_box":{"min":[-1.867,15.979,0.858],"max":[1.867,55.405,9.941]},"butt":{"y":-27.502,"z_mid":4.019},"mag_well_box":{"min":[-1.909,7.118,-5.183],"max":[1.909,15.71,-3.029]},"folded_irons_top_z":8.11,"standing_irons_top_z":10.268,"stock_identical_in_folded":true,"thread_shoulder_from_tip":-5.8},"Extended":{"tip_y":63.971,"bore_axis_xz":[0.0,3.54],"rail_top_z":7.09,"front_post_tip":[0.032,48.634,9.65],"front_post_y":48.591,"rear_aperture":{"z_low":9.238,"z_high":10.075,"centre_z":9.656,"y":0.844},"handguard_box":{"min":[-1.867,15.979,0.858],"max":[1.867,63.971,9.941]},"butt":{"y":-27.502,"z_mid":4.019},"mag_well_box":{"min":[-1.909,7.118,-5.183],"max":[1.909,15.71,-3.029]},"folded_irons_top_z":8.11,"standing_irons_top_z":10.268,"stock_identical_in_folded":true,"thread_shoulder_from_tip":-5.8}},"author_sockets":{"Grip":{"Short":[0.0,29.689,0.71],"Default":[0.0,29.689,0.71],"Extended":[0.0,29.689,0.71]},"Laser":{"Short":[-1.908,33.874,3.602],"Default":[-1.908,38.737,3.602],"Extended":[-1.886,47.293,3.602]},"Muzzle":{"Short":[0.0,44.092,3.531],"Default":[0.0,48.008,3.531],"Extended":[0.0,58.186,3.531]},"Sight_Front":{"Short":[0.0,35.151,6.743],"Default":[0.0,39.684,6.743],"Extended":[0.0,49.253,6.743]},"AimPoint_on_scope":[0.0,3.95,3.311],"LaserStart_on_laser":[-1.074,4.57,1.606]},"parts":{"Scope":{"box":{"min":[-2.131,-4.322,-0.425],"max":[2.131,3.928,4.742]},"glass":{"min":[-1.678,2.506,1.872],"max":[1.678,2.506,4.533]},"reticle":{"min":[-1.678,2.682,1.872],"max":[1.678,2.682,4.533]},"rear_face_y":-4.322,"front_face_y":3.928},"Silencer":{"box":{"min":[-1.767,-0.489,-1.767],"max":[1.767,18.09,1.755]},"end_y":18.09,"axis_front":[0.0,0.0],"axis_back":[0.0,0.0],"back_face_y":-0.489,"bore_radius_back":0.452},"Grip_Vertical":{"box":{"min":[-1.469,-1.656,-7.445],"max":[1.275,1.474,0.687]},"body":{"min":[-1.248,-1.338,-7.445],"max":[1.245,1.155,-1.057]},"clamp_top_z":0.687},"Grip_Angled":{"box":{"min":[-1.366,-7.304,-4.827],"max":[1.366,4.543,0.511]},"body":{"min":[-1.332,-6.042,-4.827],"max":[1.332,4.543,-1.008]},"clamp_top_z":0.511},"Laser":{"box":{"min":[-2.546,-11.083,-3.005],"max":[1.528,4.422,3.059]},"length_along_bore_cm":15.505,"front_face":{"min":[-1.837,4.238,-2.247],"max":[-0.469,4.422,2.3]}},"Sight_Front":{"box":{"min":[-1.23,-1.205,-0.469],"max":[1.23,1.938,3.198]}},"Sight_Rear":{"box":{"min":[-1.346,-1.801,-0.47],"max":[1.23,1.383,3.523]}}},
-"note":"Measured by bl_measure.py from the pack's FBX geometry and the rig .blend (bl_meshes.py); numbers only. thread_shoulder_from_tip: the barrel shoulder behind the 0.842 cm thread relief, from the muzzle radius profile (the same on all three barrels). author_sockets: the rig's SOCKET_* empties in gun space (Short/Extended read from the .blend's local values: z near -0.8/-3.7 means relative to the Handguard bone at (0, 16.508, 4.41)); every one checked against the geometry: front sight bases sit 0.66 cm behind the measured post on all three lengths."}
+{
+ "space": "Unreal gun space of the pack skeletal meshes: cm, +Y muzzle, +X left, +Z up",
+ "bones": {
+  "Root": [
+   0.0,
+   -0.0,
+   0.0
+  ],
+  "Grip": [
+   0.0,
+   -0.0,
+   0.0
+  ],
+  "Trigger": [
+   -0.0,
+   4.159,
+   -1.069
+  ],
+  "Handguard": [
+   -0.0,
+   16.508,
+   4.41
+  ],
+  "Bolt": [
+   -0.55,
+   10.785,
+   3.883
+  ],
+  "Magazine": [
+   0.007,
+   12.265,
+   -7.021
+  ],
+  "Sight_Rear": [
+   -0.0,
+   1.937,
+   6.745
+  ],
+  "Eject_Casing": [
+   -0.277,
+   10.795,
+   3.875
+  ],
+  "Scope": [
+   0.0,
+   7.936,
+   6.745
+  ],
+  "Dust_Cover": [
+   -1.381,
+   10.905,
+   2.98
+  ],
+  "Charging_Handle": [
+   -0.0,
+   -1.852,
+   6.115
+  ],
+  "Magazine_Release": [
+   -1.422,
+   7.768,
+   0.222
+  ],
+  "Fire_Selector": [
+   0.0,
+   1.324,
+   0.245
+  ],
+  "Magazine_Reserve": [
+   0.007,
+   12.265,
+   -32.259
+  ],
+  "Bullet_Chambered": [
+   0.0,
+   11.092,
+   -0.002
+  ],
+  "Casing_Jammed": [
+   0.0,
+   3.501,
+   1.319
+  ],
+  "Bolt_Catch": [
+   1.638,
+   7.546,
+   1.913
+  ],
+  "LOC_Magazine": [
+   0.007,
+   12.265,
+   -7.021
+  ],
+  "LOC_Magazine_Reserve": [
+   0.007,
+   12.265,
+   -32.259
+  ]
+ },
+ "variants": {
+  "Short": {
+   "tip_y": 49.897,
+   "bore_axis_xz": [
+    0.0,
+    3.54
+   ],
+   "rail_top_z": 7.09,
+   "front_post_tip": [
+    0.032,
+    34.532,
+    9.65
+   ],
+   "front_post_y": 34.489,
+   "rear_aperture": {
+    "z_low": 9.238,
+    "z_high": 10.075,
+    "centre_z": 9.656,
+    "y": 0.844
+   },
+   "handguard_box": {
+    "min": [
+     -1.867,
+     15.979,
+     0.858
+    ],
+    "max": [
+     1.867,
+     49.897,
+     9.941
+    ]
+   },
+   "mag_well_box": {
+    "min": [
+     -1.909,
+     7.118,
+     -5.183
+    ],
+    "max": [
+     1.909,
+     15.71,
+     -3.029
+    ]
+   },
+   "folded_irons_top_z": 8.11,
+   "standing_irons_top_z": 10.268,
+   "stock_identical_in_folded": true,
+   "butt": {
+    "y": -27.502,
+    "z_mid": 4.019
+   },
+   "thread_shoulder_from_tip": -5.75
+  },
+  "Default": {
+   "tip_y": 55.405,
+   "bore_axis_xz": [
+    0.0,
+    3.54
+   ],
+   "rail_top_z": 7.09,
+   "front_post_tip": [
+    0.032,
+    39.065,
+    9.65
+   ],
+   "front_post_y": 39.021,
+   "rear_aperture": {
+    "z_low": 9.238,
+    "z_high": 10.075,
+    "centre_z": 9.656,
+    "y": 0.844
+   },
+   "handguard_box": {
+    "min": [
+     -1.867,
+     15.979,
+     0.858
+    ],
+    "max": [
+     1.867,
+     55.405,
+     9.941
+    ]
+   },
+   "mag_well_box": {
+    "min": [
+     -1.909,
+     7.118,
+     -5.183
+    ],
+    "max": [
+     1.909,
+     15.71,
+     -3.029
+    ]
+   },
+   "folded_irons_top_z": 8.11,
+   "standing_irons_top_z": 10.268,
+   "stock_identical_in_folded": true,
+   "butt": {
+    "y": -27.502,
+    "z_mid": 4.019
+   },
+   "thread_shoulder_from_tip": -5.75
+  },
+  "Extended": {
+   "tip_y": 63.971,
+   "bore_axis_xz": [
+    0.0,
+    3.54
+   ],
+   "rail_top_z": 7.09,
+   "front_post_tip": [
+    0.032,
+    48.634,
+    9.65
+   ],
+   "front_post_y": 48.591,
+   "rear_aperture": {
+    "z_low": 9.238,
+    "z_high": 10.075,
+    "centre_z": 9.656,
+    "y": 0.844
+   },
+   "handguard_box": {
+    "min": [
+     -1.867,
+     15.979,
+     0.858
+    ],
+    "max": [
+     1.867,
+     63.971,
+     9.941
+    ]
+   },
+   "mag_well_box": {
+    "min": [
+     -1.909,
+     7.118,
+     -5.183
+    ],
+    "max": [
+     1.909,
+     15.71,
+     -3.029
+    ]
+   },
+   "folded_irons_top_z": 8.11,
+   "standing_irons_top_z": 10.268,
+   "stock_identical_in_folded": true,
+   "butt": {
+    "y": -27.502,
+    "z_mid": 4.019
+   },
+   "thread_shoulder_from_tip": -5.75
+  }
+ },
+ "parts": {
+  "Scope": {
+   "box": {
+    "min": [
+     -2.131,
+     -4.322,
+     -0.425
+    ],
+    "max": [
+     2.131,
+     3.928,
+     4.742
+    ]
+   },
+   "glass": {
+    "min": [
+     -1.678,
+     2.506,
+     1.872
+    ],
+    "max": [
+     1.678,
+     2.506,
+     4.533
+    ]
+   },
+   "reticle": {
+    "min": [
+     -1.678,
+     2.682,
+     1.872
+    ],
+    "max": [
+     1.678,
+     2.682,
+     4.533
+    ]
+   },
+   "rear_face_y": -4.322,
+   "front_face_y": 3.928
+  },
+  "Silencer": {
+   "box": {
+    "min": [
+     -1.767,
+     -0.489,
+     -1.767
+    ],
+    "max": [
+     1.767,
+     18.09,
+     1.755
+    ]
+   },
+   "end_y": 18.09,
+   "axis_front": [
+    0.0,
+    0.0
+   ],
+   "axis_back": [
+    0.0,
+    0.0
+   ],
+   "back_face_y": -0.489,
+   "bore_radius_back": 0.452
+  },
+  "Grip_Vertical": {
+   "box": {
+    "min": [
+     -1.469,
+     -1.656,
+     -7.445
+    ],
+    "max": [
+     1.275,
+     1.474,
+     0.687
+    ]
+   },
+   "body": {
+    "min": [
+     -1.248,
+     -1.338,
+     -7.445
+    ],
+    "max": [
+     1.245,
+     1.155,
+     -1.057
+    ]
+   },
+   "clamp_top_z": 0.687
+  },
+  "Grip_Angled": {
+   "box": {
+    "min": [
+     -1.366,
+     -7.304,
+     -4.827
+    ],
+    "max": [
+     1.366,
+     4.543,
+     0.511
+    ]
+   },
+   "body": {
+    "min": [
+     -1.332,
+     -6.042,
+     -4.827
+    ],
+    "max": [
+     1.332,
+     4.543,
+     -1.008
+    ]
+   },
+   "clamp_top_z": 0.511
+  },
+  "Laser": {
+   "box": {
+    "min": [
+     -2.546,
+     -11.083,
+     -3.005
+    ],
+    "max": [
+     1.528,
+     4.422,
+     3.059
+    ]
+   },
+   "length_along_bore_cm": 15.505,
+   "front_face": {
+    "min": [
+     -1.837,
+     4.238,
+     -2.247
+    ],
+    "max": [
+     -0.469,
+     4.422,
+     2.3
+    ]
+   }
+  },
+  "Sight_Front": {
+   "box": {
+    "min": [
+     -1.23,
+     -1.205,
+     -0.469
+    ],
+    "max": [
+     1.23,
+     1.938,
+     3.198
+    ]
+   }
+  },
+  "Sight_Rear": {
+   "box": {
+    "min": [
+     -1.346,
+     -1.801,
+     -0.47
+    ],
+    "max": [
+     1.23,
+     1.383,
+     3.523
+    ]
+   }
+  }
+ },
+ "author_sockets": {
+  "Grip": {
+   "Short": [
+    -0.0,
+    29.689,
+    0.71
+   ],
+   "Default": [
+    0.0,
+    29.689,
+    0.71
+   ],
+   "Extended": [
+    -0.0,
+    29.689,
+    0.71
+   ]
+  },
+  "Laser": {
+   "Short": [
+    -1.908,
+    33.874,
+    3.602
+   ],
+   "Default": [
+    -1.908,
+    38.737,
+    3.602
+   ],
+   "Extended": [
+    -1.886,
+    47.293,
+    3.602
+   ]
+  },
+  "Muzzle": {
+   "Short": [
+    -0.0,
+    44.092,
+    3.531
+   ],
+   "Default": [
+    -0.0,
+    48.008,
+    3.531
+   ],
+   "Extended": [
+    -0.0,
+    58.186,
+    3.531
+   ]
+  },
+  "Sight_Front": {
+   "Short": [
+    -0.0,
+    35.151,
+    6.743
+   ],
+   "Default": [
+    -0.0,
+    39.684,
+    6.743
+   ],
+   "Extended": [
+    -0.0,
+    49.253,
+    6.743
+   ]
+  },
+  "AimPoint_on_scope": [
+   0.0,
+   3.95,
+   3.311
+  ],
+  "LaserStart_on_laser": [
+   -1.073,
+   4.57,
+   1.606
+  ]
+ },
+ "note": "Written by bl_measure.py from the pack's FBX geometry and the rig .blend facts (bl_meshes.py, bl_rig.py); numbers only."
+}
