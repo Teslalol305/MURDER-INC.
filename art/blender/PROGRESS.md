@@ -579,3 +579,39 @@ laminate, stock, steel wear, guard and catch, front end, magazine, grip, stamp, 
 Code: assets/_weapons_nine.py, _weapons_chopper.py, _weapons_tex.py, _weapons_kit.py (my files); mi/ untouched.
 ## Status
 - started (no earlier round-3 changes were on disk after the restart).
+- NINE rebuilt (assets/_weapons_nine.py, 86.1k tris): grip slimmed from 86-90 mm to 56 mm fore-aft at mid grip
+  (back strap 16 deg from a deep web cup under the tang, front strap 18 deg, R 7 undercut), egg section (21 mm frame,
+  R 10.5 back, R 6 front, 0.4 mm crown + 1.2 mm palm swell at 40 %), width 29.3 mm at Palm_R; D-section guard 7 x 5 mm
+  (hooked squared front, R 8 corner, R 3 flares); 1 mm chamfer under the slide, stepped web over the opening, dust
+  cover R 1.5 edges and 45 deg slots (3 mm floor, 2 mm deep); panels as one surface with the checkered field recessed
+  0.3 mm inside a 2.5 mm border (0.6 mm chamfer), 3.4 -> 2 mm; 7 mm domed slotted screws in flush dark bushings;
+  slide section with R 3 shoulders, 22 deg slopes, 7 mm flat top, 0.4 mm break, 20 deg dehorn over the lower 60 %,
+  R 1.5 top front, seven 1.5 x 1.2 mm serrations at 3 mm pitch running into the shoulder, port scallop, solid nose;
+  hood a cylinder segment with a 5 mm flat and 2 mm witness hole; forged hammer 6 -> 4.5 mm, R 3 tip, 1.2 mm grooves,
+  4 mm hole, strut, 3 mm pins (the polished pin that made the white speck is gone); rear sight block 9 mm on top,
+  10 deg rear face, set screw; moulded 43 mm gold pad (R 1.5 / R 3, finger relief).
+- BRIEF DECISION (critique): the magazine body stays on the brief's line (lips front X 0.045, axis 0.250/0.968);
+  the blocky model's 76 mm pad (rear X -0.029) is now a real 43 mm pad (X -0.0135..0.030). In-place span
+  X -0.0135..0.045. Palm_R, RecoilPivot and all bones/sockets unchanged.
+- NINE surfaces (_weapons_tex.py): brushed bands 0.22-0.34 along X, hairline streaks, bead-blasted top flat 0.45,
+  polished breaks 0.12, holster bands on edges only, finger-oil smears, no tinted serration patch; frame even with
+  edge-driven wear and grime at pins/controls; 20 LPI on panels (read back from the panel grid), front and back
+  straps; guard front serrations; 40 LPI on the sight and slide rear faces, firing-pin stop plate seam; new map
+  T_Nine_A (anisotropy along the mesh tangent; set.json files.A).
+- CHOPPER rebuilt (_weapons_chopper.py, 150.8k tris): rear trunnion R 2 everywhere, 1.5 mm dome, 0.3 mm inside the
+  sheet (step), turned buffer boss, sling lug; swaged 4/4.5 mm rivets; rear sight base 14 mm, 8 deg draft, 0.5 mm
+  breaks, 2 mm cross pin, leaf with 0.6 mm chamfer and 0.5 mm anti-glare lines; stock arms as stamped channels
+  (10.5 x 2.5 mm, 0.8 mm rib, 2 mm rolled edges) along the receiver from the hinge X 0.022 to the cross pin X 0.236,
+  turned R 6 bosses, 5 mm rivets, spring latch; shoulder piece 2.5 mm stamping, 3 mm flange, R 120, Palm_L on it;
+  body 45.8 mm wide (was 52.8); lower handguard 40 mm with 1.5 mm bow, R 8 bottom, 3 mm finger flange, 10 deg front
+  taper, 1.3 mm round-overs, steel liner; upper half-round tapering 1.5 mm, shaped nose, stepped heat-shield lip;
+  sheet retaining band with lever; gas block R 13 collar + R 4 blend, 45 deg front, eased underside, trapezoid sight
+  base R 2 with R 3 foot, 2.5 mm ear holes, threaded 5 mm drum, round post; guard strip 10.5 x 1.5 mm with turned
+  lips, R 12 front, 15 deg rear leg; spoon catch with two ribs and turned edge; egg grip 36 x 31 mm with palm swell,
+  R 6 heel, 2 mm grip plate, 16 mm slotted cap; magazine swells 6 mm / 0.9 mm, spine strip, front weld bead.
+- CHOPPER surfaces: laminate from a 3D ply field (ply normal = Y, 1.8 mm, #4a2515/#6b3a22 +-8 %, per-ply grain,
+  pores, varnish 0.28 -> 0.5 on flanges and grip front, dents, crushed corners, bare edges, no specks); blued sheet
+  with +-3 % orange peel, 0.35-0.55, curvature x handling edge wear (stronger at well lip, handle path, ribs, ears,
+  booster), packed grime at rivet rings and the cover seam, oil at the port and gas block, milled trunnions, ground
+  carrier (UV weight back to 1); stamps flipped to read from the left, the "MI-87" code removed, one proof star.
+- Exports: final bake-and-export of both guns in one run (running); then _weapons_check.py, then the six previews.

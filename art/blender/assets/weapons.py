@@ -1696,6 +1696,9 @@ def split_off(ob, sel_fn, name, col):
         bm = geo.bm_of(o)
         bm.faces.ensure_lookup_table()
         bmesh.ops.delete(bm, geom=[bm.faces[i] for i in np.nonzero(~keep)[0]], context="FACES")
+        loose = [v for v in bm.verts if not v.link_faces]          # round 3: no stray vertices in either piece
+        if loose:
+            bmesh.ops.delete(bm, geom=loose, context="VERTS")
         geo.bm_to(o, bm)
     cp.name = cp.data.name = name
     return cp

@@ -714,7 +714,7 @@ def paint_chopper(G):
         q = p[mill]
         nm = n[mill]
         across = np.where(np.abs(nm[:, 0]) > 0.6, q[:, 2], q[:, 0])
-        lines = np.sin(across / 0.00022 * 2 * math.pi + 3.0 * N.fbm(q, 40.0, 1, octave0=320))
+        lines = np.sin(across / 0.00060 * 2 * math.pi + 3.0 * N.fbm(q, 40.0, 1, octave0=320))
         S.h[mill] += 6e-7 * lines + 4e-7 * N.fbm(q, (9000.0, 30.0, 9000.0), 1, octave0=322)
         S.rough[mill] += 0.03 * lines - 0.05
     # ground carrier: short surface-grinding marks along X, roughness 0.2-0.3, oiled rails, carbon ring at the bolt face

@@ -658,7 +658,8 @@ def nine_slide(parts):
     rs = prism([(0.0068, 0.0095), (0.0190, 0.0095), (0.0190, 0.0140), (0.0177, 0.0185), (0.0080, 0.0185),
                 (0.0069, 0.0123)], -0.0098, 0.0098, bevel=0.0005, seg=2, name="RearSight")
     union(rs, dovetail_key(0.0070, 0.0180, 0.0098))
-    cut(rs, box(0.0, 0.03, -0.0021, 0.0021, 0.0146, 0.03))
+    cut(rs, box(0.0, 0.03, -0.0021, 0.0021, 0.0146, 0.03),
+        box(0.0, 0.03, -0.0036, 0.0036, 0.0, 0.0111))          # clear of the hammer channel as the slide runs back
     set_screw = lathe([(-0.004, 0.0), (-0.004, 0.0013), (0.00002, 0.0013), (0.00002, 0.0)], 24, axis="Z",
                       at=(0.0150, 0.0062, 0.0185), name="SetScrew")
     hexa = prism([(0.0006 * math.cos(a), 0.0006 * math.sin(a)) for a in np.radians(np.arange(0, 360, 60))],

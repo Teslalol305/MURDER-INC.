@@ -301,7 +301,7 @@ def lhg_poly(x, inset=0.0):
 
 
 def lower_handguard(parts):
-    xs = stations(LHG[0], LHG[1], 0.0050, 0.0015, 4, extra=np.r_[np.linspace(0.252, 0.268, 5), np.linspace(0.364, 0.381, 6)])
+    xs = stations(LHG[0], LHG[1], 0.0060, 0.0015, 4, extra=np.r_[np.linspace(0.252, 0.268, 5), np.linspace(0.364, 0.381, 6)])
     polys = [lhg_poly(x, end_inset(x, LHG[0], LHG[1], 0.0015)) for x in xs]
     lo = loft_polys(polys, xs, "LowerHG")
     slots = []
@@ -947,18 +947,24 @@ def rear_trunnion(parts):
     for x in xs:
         ins = end_inset(x, x0, x1 + 0.01, 0.0020)
         polys.append(offset(ccw(rpoly([(-0.0157, -0.0394), (0.0157, -0.0394), (0.0157, 0.0108), (-0.0157, 0.0108)],
-                                      [0.0020] * 4, [6] * 4, [10, 12, 10, 12])), -ins))
+                                      [0.0020] * 4, [6] * 4, [6, 9, 6, 9])), -ins))
+    # the domed rear face (1.5 mm crown): rings scaled about the face centre behind the rounded edge
+    c = np.array([0.0, -0.0143])
+    s0 = 1.0 - 0.0020 / 0.0157
+    dome_x, dome_p = [], []
+    for sc in (0.80, 0.68, 0.54, 0.40, 0.26, 0.12):
+        dome_x.append(x0 - 0.0015 * math.sqrt(max(0.0, 1.0 - (sc / s0) ** 2)))
+        dome_p.append(c + (polys[0] - c) * (sc / s0))
+    polys = dome_p[::-1] + polys
+    xs = np.r_[dome_x[::-1], xs]
     tr = loft_polys(polys, xs, "RearTrunnion")
     cut(tr, box(0.0034, 0.030, -0.0102, 0.0102, 0.0042, 0.030))          # the carrier's path at full travel
-    K.deform(tr, lambda co: np.c_[co[:, 0] - 0.0015 * np.clip(1 - (co[:, 1] / 0.0157) ** 2, 0, 1)
-                                  * np.clip(1 - ((co[:, 2] + 0.0143) / 0.0251) ** 2, 0, 1) * (co[:, 0] < x0 + 0.0021),
-                                  co[:, 1], co[:, 2]])
+    # a turned spot face on the rear face: a 0.6 mm ring groove round a 9 mm boss with a 3 mm pin hole
+    cut(tr, lathe([(-0.0080, 0.0045), (-0.0080, 0.0058), (-0.0039, 0.0058), (-0.0039, 0.0045)], 48, closed=True,
+                  at=(0.0, 0.0, -0.0170), name="Groove"),
+        lathe([(-0.0080, 0.0), (-0.0080, 0.0015), (-0.0032, 0.0015), (-0.0032, 0.0)], 24, at=(0.0, 0.0, -0.0170)))
     round_edges(tr, 0.0004, 2, 40)
     parts.append(P(tr, BLUED, "body", REAR))
-    rb = lathe([(0.0, 0.0), (0.0, 0.0058), (-0.0006, 0.0058), (-0.0009, 0.0052), (-0.0010, 0.0030), (-0.0010, 0.0)], 40,
-               axis="X", at=(-0.0040, 0.0, -0.0170), fillet=0.0002, name="RearBoss")      # turned buffer-pin boss
-    parts.append(P(rb, BLUED, "body", REAR))
-    parts.append(P(pin_head((-0.0050, 0.0, -0.0170), "X", r=0.0016, h=0.0003, sign=-1, seg=20), DARK, "body", REAR))
     lugp = prism([(-0.0010, -0.0300), (0.0080, -0.0300), (0.0080, -0.0225), (0.0035, -0.0205), (-0.0010, -0.0225)],
                  0.0157, 0.0172, bevel=0.0004, seg=2, fillet=0.0015, name="SlingLug")
     cut(lugp, lathe([(-0.01, 0.0), (-0.01, 0.0017), (0.01, 0.0017), (0.01, 0.0)], 16, axis="Y", at=(0.0028, 0, -0.0258)))
