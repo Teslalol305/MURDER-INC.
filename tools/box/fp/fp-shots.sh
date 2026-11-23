@@ -43,12 +43,17 @@ c "MIPose -2900 80 0 0 -3"; run 1.2; want fp-hip-el && shot fp-hip-el
 # 3 aimed through the irons
 c "MIInput ads 1"; run 0.8; want fp-irons && shot fp-irons
 c "MIInput ads 0"
+# 3b firing a burst from the hip: frozen 0.02 s after a round (the flash lives 0.045 s), then 0.006 s
+c "MIPose -2900 80 0 0 -3"; run 0.3
+c "MIFreezeOn fire 0.02"; c "MIInput fire 1"; sleep 4; want fp-fire && shot fp-fire
+c "MIInput fire 0"; c "slomo 1"; run 0.6
+if want fp-fire-early; then c "MIFreezeOn fire 0.006"; c "MIInput fire 1"; sleep 4; shot fp-fire-early; c "MIInput fire 0"; c "slomo 1"; run 0.6; fi
 # 4 mid tactical reload (five rounds spent, the fresh magazine on its way up)
 c "MIPose -2900 80 0 0 6"; c "MIInput fire 1"; run 0.4; c "MIInput fire 0"; run 0.3
 c "MIFreezeOn reload 1.2"; c "MIInput reload 1"; sleep 5; c "MIInput reload 0"; want fp-reload-tactical && shot fp-reload-tactical
 # 5 mid empty reload: the magazine dropped and falling (the auto reload after the last round)
 c "MIPose -2900 80 0 0 -18"; run 0.3
-c "MIInput fire 1"; c "MIFreezeOn reload 0.56"; sleep 12; c "MIInput fire 0"; want fp-reload-empty && shot fp-reload-empty
+c "MIInput fire 1"; c "MIFreezeOn reload 0.50"; sleep 12; c "MIInput fire 0"; want fp-reload-empty && shot fp-reload-empty
 run 3.0
 # 6 the inspect (a full magazine after the reload)
 c "MIPose 170 -380 0 -35 -4"; run 0.5; c "MIInput inspect 1"; run 2.4; c "MIInput inspect 0"; want fp-inspect && shot fp-inspect
@@ -63,7 +68,7 @@ c "MIInput ads 0"; c "MIInput weapon1 1"; run 1.0; c "MIInput weapon1 0"
 # (MIFreezeOn enemyfire waits for a Goon in plain sight within 13 m and turns the view onto it)
 m2=$(wc -l < "$log"); c "MIFreezeOn enemyfire 0.012"
 for i in 1 2 3 4 5 6 7 8; do
-  c "MIFaceEnemy 9"; c "slomo 1"; sleep 6
+  c "MIFaceEnemy 10"; c "slomo 1"; sleep 6
   tail -n +"$m2" "$log" | grep -q "MIFreezeOn: enemyfire" && break
 done
 tail -n +"$m2" "$log" | grep -m1 "MIFreezeOn: enemyfire" || echo "no Goon fired in sight"
