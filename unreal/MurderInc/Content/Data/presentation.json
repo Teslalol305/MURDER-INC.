@@ -181,9 +181,9 @@
       "mesh": "/Game/Weapons/Rifle/Meshes/SKM_Rifle.SKM_Rifle",
       "realMesh": "/Game/ThirdParty/InfimaTFA/Weapon/SK_TFA_AR_Short_Combined.SK_TFA_AR_Short_Combined",
       "real": {"meshOffset": {"pos": [0, 0, 0], "rot": [0, 1.5708, 0]}, "sockets": {"muzzle": "Muzzle", "eject": "Eject", "sightRear": "SightRear", "sightFront": "SightFront", "pivot": "RecoilPivot", "magHinge": "MagHinge", "grip": "Palm_R", "support": "Palm_L"}, "fingers": {
-          "hip": { "l": { "middle": -1, "pinky": -1 }, "r": { "pinky": -3 } },
-          "aim": { "l": { "middle": -1, "pinky": -1 }, "r": { "pinky": -3 } },
-          "note": "per-gun finger contact (GAMEPLAY.md 15): degrees each finger closes (+) or opens (-) about its knuckles; measured in play with MIGripProbe on the pack Short rifle and SK_RuleArms (polish pass): every finger within 3 mm of the gun at the hip, aimed and on a round; the firing pinky sat 2.7 mm into the grip and the support middle and pinky 0.9 mm into the handguard, backed out here. The trigger finger stays 2.6 mm off the trigger at rest (the fire clip puts it on: 0.7 mm)."
+          "hip": { "l": { "middle": -1, "pinky": -1 } },
+          "aim": { "l": { "middle": -1, "pinky": -1 } },
+          "note": "per-gun finger contact (GAMEPLAY.md 15): degrees each finger closes (+) or opens (-) about its knuckles; measured in play with MIGripProbe on the pack Short rifle and SK_RuleArms (polish pass): every finger within 3 mm of the gun at the hip, aimed and on a round; the support middle and pinky sat 0.9 mm into the handguard and are backed out here (0.7 to 0.8 mm after); the firing pinky's 2.7 mm into the grip is on its back (opening it went deeper) and out of view under the grip: left. The trigger finger stays 2.6 mm off the trigger at rest (the fire clip puts it on: 0.7 mm)."
         },
         "animSet": "rifle", "materials": {"MI_TFA_AR_01": "/Game/Weapons/Chopper/MI_Chopper_DarkEarth_01.MI_Chopper_DarkEarth_01", "MI_TFA_AR_03": "/Game/Weapons/Chopper/MI_Chopper_DarkEarth_03.MI_Chopper_DarkEarth_03"}, "note": "docs/unreal/DECISIONS.md 2026-11-23: the pack rifle in the Short handguard stands in for the CHOPPER, in its own worn dark-earth finish (tools/box/fp/mi_fp_import.py paint_master); its own clips natively (animSets.rifle). Merged over this object by the loadout resolver only when realMesh is the mesh drawn; the rules are untouched."},
       "idle": "/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS.MF_Rifle_Idle_ADS",
