@@ -85,7 +85,7 @@
           "text": "Holla, holla!",
           "about": "The common kill bark: the call-and-response chant.",
           "priority": 20,
-          "cooldown": 20.0,
+          "cooldown": 25.0,
           "interruptible": true,
           "volume": 1.0,
           "triggers": {
@@ -104,11 +104,11 @@
           "text": "It's Murda!",
           "about": "The signature: headshots, multi-kills, the last enemy of a wave (half the time; the wave's own 'Rule Baby!' speaks only when this did not).",
           "priority": 50,
-          "cooldown": 25.0,
+          "cooldown": 30.0,
           "interruptible": true,
           "volume": 1.0,
           "triggers": {
-            "kill.headshot": { "chance": 0.3, "intensity": ["shout", "spoken"] },
+            "kill.headshot": { "chance": 0.25, "intensity": ["shout", "spoken"] },
             "kill.multi": { "chance": 0.6, "intensity": ["shout", "spoken"] },
             "kill.lastOfWave": { "chance": 0.5, "priority": 75, "intensity": ["shout"] }
           },

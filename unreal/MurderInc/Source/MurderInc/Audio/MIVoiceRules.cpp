@@ -425,8 +425,9 @@ bool FMIVoiceRules::CanStart(int32 Priority, FName TriggerName, double Now, bool
 		}
 		return false;
 	}
-	// Breathing room after any line, then the global cooldown: both waived for a line far above the last one.
-	const bool bBig = Priority >= LastPriority + Margin;
+	// Breathing room after any line, then the global cooldown: both waived for a line far above the last one, but
+	// never for a kill bark right after another (the burst that brought both is one moment, one line).
+	const bool bBig = Priority >= LastPriority + Margin && !(IsBark(CurrentTrigger) && IsBark(TriggerName));
 	if (Now - LastAnyEnd < Data->Settings.AfterLineGap && !bBig)
 	{
 		return false;

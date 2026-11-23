@@ -451,7 +451,7 @@ bool FMIAudioVoiceDirectorTest::RunTest(const FString& Parameters)
 		Make(Rig, V);
 		const double T0 = Rig.A.Now();
 		Rig.Bus.Enemy.Broadcast(Kill(1, TEXT("body"), TEXT("melee")));
-		Rig.Step(0.5);
+		Rig.Step(0.35);  // the bark starts at the end of its 0.3 s window; the reel comes while it speaks
 		Rig.Bus.Flow.Broadcast(Flow(TEXT("objective:done"), TEXT("reel_1"), 1, 3));
 		Rig.Step(1.0);
 		const bool bOrder = Rig.LinesAfter(T0) == 2 && Rig.Lines[Rig.Lines.Num() - 2].Value.StartsWith(TEXT("holla")) && Rig.Lines.Last().Value.StartsWith(TEXT("rulebaby"));
@@ -489,12 +489,12 @@ bool FMIAudioVoiceRateTest::RunTest(const FString& Parameters)
 		S.FlowAt(0.0, Flow(TEXT("game:state"), TEXT("intro")));
 		S.FlowAt(4.0, Flow(TEXT("game:state"), TEXT("playing")));
 		S.FlowAt(4.05, Flow(TEXT("hud:objective"), TEXT("Find the first reel")));
-		double T = Fight(S, Rng, 14.0, F.PatrolGoons + F.PatrolBuzzards, F.PatrolBuzzards, Id, Health, F.GoonShot, F.GoonRush);
+		double T = Fight(S, Rng, 20.0, F.PatrolGoons + F.PatrolBuzzards, F.PatrolBuzzards, Id, Health, F.GoonShot, F.GoonRush);
 		const int32 Reels = F.Waves.Num();
 		int32 Pursuit = F.PursuitBudget;
 		for (int32 Reel = 1; Reel <= Reels; ++Reel)
 		{
-			T += Rng.FRandRange(12.0, 25.0);  // the walk to the reel and the grab
+			T += Rng.FRandRange(30.0, 50.0);  // the search, the walk to the reel and the grab (about five minutes a run)
 			Health = 100.0;
 			S.FlowAt(T, Flow(TEXT("objective:done"), *FString::Printf(TEXT("reel_%d"), Reel), Reel, Reels));
 			if (Reel == Reels)
@@ -508,7 +508,7 @@ bool FMIAudioVoiceRateTest::RunTest(const FString& Parameters)
 			Pursuit -= Extra;
 			T = Fight(S, Rng, T + 3.0, W.X + W.Y + Extra, W.Y, Id, Health, F.GoonShot, F.GoonRush);
 		}
-		T += Rng.FRandRange(10.0, 20.0);
+		T += Rng.FRandRange(20.0, 35.0);  // the run to the truck
 		S.FlowAt(T, Flow(TEXT("extraction:reached")));
 		S.FlowAt(T + 0.1, Flow(TEXT("game:state"), TEXT("complete")));
 		S.FlowAt(T + 4.0, Flow(TEXT("menus:card"), TEXT("complete")));
@@ -617,8 +617,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioGenFilesTest, "MurderInc.Audio.GenFiles
 bool FMIAudioGenFilesTest::RunTest(const FString& Parameters)
 {
 	// The generated effects (Content/Audio/Gen, tools/audio/sfx_process.py): each variant set of a replacement layer is
-	// cut alike (no variant under half the median length of its set) and levelled alike (the loudest 400 ms of each
-	// within 3 dB of the set's median), and the silenced shots sit 8 to 14 dB under the open ones.
+	// cut alike (no variant under half the median length of its set) and levelled alike (the loudest 400 ms of each,
+	// K-weighted, within 3 dB of the set's median), and the silenced shots sit 8 to 14 dB under the open ones.
 	FMIAudioData D;
 	FString Error;
 	if (!FMIAudioData::Load(D, Error))
@@ -628,24 +628,41 @@ bool FMIAudioGenFilesTest::RunTest(const FString& Parameters)
 	}
 	auto Loudest = [](const FMIWav& W)
 	{
-		// The loudest 400 ms window (100 ms hop), RMS over every channel, dBFS.
-		const int32 Win = W.Rate * 2 / 5, Hop = W.Rate / 10, Frames = W.Frames();
-		double Best = 0.0;
-		for (int32 F = 0; F == 0 || F + Win <= Frames; F += Hop)
+		// The loudest 400 ms window (100 ms hop) of the K-weighted signal (BS.1770 at 48 kHz, two biquads), the mean
+		// square over every channel: momentary loudness in LUFS, as tools/audio/sfx_process.py levels the sets.
+		const int32 Frames = W.Frames(), Chs = W.Channels;
+		TArray<double> K;
+		K.SetNumZeroed(Frames);
+		for (int32 C = 0; C < Chs; ++C)
 		{
-			double E = 0.0;
-			const int32 To = FMath::Min(Frames, F + Win);
-			for (int32 I = F * W.Channels; I < To * W.Channels; ++I)
+			double X1 = 0, X2 = 0, Y1 = 0, Y2 = 0, U1 = 0, U2 = 0, Z1 = 0, Z2 = 0;
+			for (int32 F = 0; F < Frames; ++F)
 			{
-				E += double(W.Samples[I]) * W.Samples[I];
+				const double X = W.Samples[F * Chs + C];
+				const double Y = 1.53512485958697 * X - 2.69169618940638 * X1 + 1.19839281085285 * X2 + 1.69065929318241 * Y1 - 0.73248077421585 * Y2;
+				X2 = X1; X1 = X; Y2 = Y1; Y1 = Y;
+				const double Z = Y - 2.0 * U1 + U2 + 1.99004745483398 * Z1 - 0.99007225036621 * Z2;
+				U2 = U1; U1 = Y; Z2 = Z1; Z1 = Z;
+				K[F] += Z * Z / Chs;
 			}
-			Best = FMath::Max(Best, E / FMath::Max(1, (To - F) * W.Channels));
+		}
+		const int32 Win = W.Rate * 2 / 5, Hop = W.Rate / 10;
+		double Best = 0.0;
+		for (int32 F = 0;; F += Hop)
+		{
+			const int32 To = FMath::Min(Frames, F + Win);
+			double E = 0.0;
+			for (int32 I = F; I < To; ++I)
+			{
+				E += K[I];
+			}
+			Best = FMath::Max(Best, E / FMath::Max(1, To - F));
 			if (F + Win >= Frames)
 			{
 				break;
 			}
 		}
-		return 10.0 * FMath::LogX(10.0, Best + 1e-20);
+		return -0.691 + 10.0 * FMath::LogX(10.0, Best + 1e-20);
 	};
 	int32 Sets = 0;
 	TMap<FString, double> SetLoudness;  // "sound/layer" -> median loudness + layer volume, dB
@@ -688,7 +705,7 @@ bool FMIAudioGenFilesTest::RunTest(const FString& Parameters)
 				}
 				if (FMath::Abs(Loud[I] - MedLoud) > 3.0)
 				{
-					AddError(FString::Printf(TEXT("%s: loudest 400 ms at %.1f dBFS, %.1f dB off its set's %.1f"), *Names[I], Loud[I], Loud[I] - MedLoud, MedLoud));
+					AddError(FString::Printf(TEXT("%s: momentary loudness %.1f LUFS, %.1f dB off its set's %.1f"), *Names[I], Loud[I], Loud[I] - MedLoud, MedLoud));
 				}
 			}
 			Report += FString::Printf(TEXT(" %s/%s %.2fs %.1fdB;"), *Pair.Key.ToString(), *L.Name.ToString(), MedSecs, MedLoud);
