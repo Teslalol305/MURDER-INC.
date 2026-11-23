@@ -1,0 +1,11 @@
+# Hold the Block for the cloud memory run (stream-test.sh run hold.txt): straight into the mode, then four minutes
+# of waves with the player fighting (god mode so the run lasts). Verbs: tools/box/demo/demo.txt.
+wait 4
+con MIStart holdout skip
+waitstate playing 30
+god 1
+spring 1.3 110 1.7
+auto 1 1
+hunt 240 80 1
+wait 2
+quit
