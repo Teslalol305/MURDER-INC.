@@ -54,7 +54,7 @@ for size in $sizes; do
   fe next; settle 40; ui_shot "$p-briefing.jpg"
 done
 for i in 1 2 3; do pie_con "MIViewSize 1920 1080" > /dev/null; settle 6; done
-fe hit; sleep 10; settle 30; ui_shot "$out/loadout-hud.jpg"
+fe mode mission; fe difficulty hustler; fe hit; sleep 8; settle 20; ui_shot "$out/loadout-hud.jpg"
 pie_con "MIInput swap 1" > /dev/null; sleep 1; pie_con "MIInput wheelx 0.9" > /dev/null; settle 15; ui_shot "$out/loadout-wheel.jpg"
 pie_con "MIInput swap 0" > /dev/null
 grep -E 'LogMI' "$log" | grep -E 'MIMenu|Set-up|Front end|MIViewSize|Error' | tail -14

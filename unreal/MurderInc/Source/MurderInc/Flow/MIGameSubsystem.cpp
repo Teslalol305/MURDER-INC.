@@ -234,6 +234,10 @@ bool UMIGameSubsystem::Boot(const FMIBootOptions& Options)
 	Truck = World->SpawnActor<AMITruck>(ToUnreal(Level->TruckPos), FRotator(0, YawToUnreal(Level->TruckYaw), 0), Params);
 	Truck->Setup(!bArt);
 	TitleCamera = World->SpawnActor<ACameraActor>(FVector::ZeroVector, FRotator::ZeroRotator, Params);
+	if (TitleCamera && TitleCamera->GetCameraComponent())
+	{
+		TitleCamera->GetCameraComponent()->SetConstraintAspectRatio(false);  // fills 21:9 and wider, no pillarbox
+	}
 
 	Rules.Init(FlowTune, Copy, Level, &Box, &Field, this, Root);
 	Rules.SetDifficulty(Settings.Difficulty);
