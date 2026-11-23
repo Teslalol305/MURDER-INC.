@@ -107,6 +107,7 @@ void UMIWeaponComponent::Setup(AMIPlayerCharacter* InPlayer, const FMIConfigData
 			C->SetOnlyOwnerSee(true);
 			C->SetFirstPersonPrimitiveType(EFirstPersonPrimitiveType::FirstPerson);
 			UMaterialInstanceDynamic* M = UMaterialInstanceDynamic::Create(Flash, C);
+			M->SetScalarParameterValue(TEXT("Intensity"), static_cast<float>(MIJson::NumberOr(PresentationRoot, TEXT("fx.flash.emissive"), 40000.0)));
 			C->SetMaterial(0, M);
 			C->SetupAttachment(Camera);
 			C->RegisterComponent();

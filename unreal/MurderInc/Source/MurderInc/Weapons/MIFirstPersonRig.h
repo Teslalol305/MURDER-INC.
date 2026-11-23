@@ -96,6 +96,8 @@ private:
 	UAnimSequenceBase* ArmsClip(FName Role) const;
 	UAnimSequenceBase* GunClip(FName Role) const;
 	void SetupArms();
+	/** The real arms (and their jewels) for Pack / HandIK guns, the template body with its hidden bones otherwise. */
+	void UseRealArms(bool bReal);
 	void BuildPack(double Dt, const FMIWeaponView& W, const FMIViewmodelPlayer& P, double ViewYawDeg, FMIFPPose& Arms, FMIFPPose& Gun);
 	void UpdateMagazines(const FMIWeaponView& W, double ClipT, const FReloadMap* Map);
 	void DropMagazine(bool bFull);
@@ -126,6 +128,8 @@ private:
 	TObjectPtr<UStaticMesh> CasingMesh;
 	UPROPERTY(Transient)
 	TObjectPtr<USkeletalMesh> TemplateBody;
+	UPROPERTY(Transient)
+	TObjectPtr<USkeletalMesh> RealArms;
 
 	TWeakObjectPtr<UStaticMeshComponent> SeatedMag;  // the magazine on MagHinge (the assembly's part, or OwnMag)
 	TSharedPtr<FJsonObject> Root;        // presentation.json

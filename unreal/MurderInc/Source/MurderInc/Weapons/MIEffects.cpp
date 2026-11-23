@@ -121,18 +121,23 @@ void UMIEffects::OnWorldBeginPlay(UWorld& InWorld)
 		X.Mat = Mid;
 		X.Mesh->SetTranslucentSortPriority(1);
 	}
+	// Emissive in the scene's physical units (daylight surfaces are about 10,000 nits): presentation.json fx.
+	const float FlashNits = static_cast<float>(MIJson::NumberOr(Fx, TEXT("flash.emissive"), 40000.0));
+	const float TracerNits = static_cast<float>(MIJson::NumberOr(Fx, TEXT("tracer.emissive"), 15000.0));
 	for (int32 I = 0; I < NumCards; ++I)
 	{
 		FCard& X = Cards.AddDefaulted_GetRef();
 		UMaterialInstanceDynamic* Mid = nullptr;
 		X.Mesh = Mesh(Plane, FlashMat, Mid);
 		X.Mat = Mid;
+		if (Mid) Mid->SetScalarParameterValue(TEXT("Intensity"), FlashNits);
 	}
 	for (int32 I = 0; I < NumStreaks && TracerMat && Cylinder; ++I)
 	{
 		FStreak& X = Streaks.AddDefaulted_GetRef();
 		UMaterialInstanceDynamic* Mid = nullptr;
 		X.Mesh = Mesh(Cylinder, TracerMat, Mid);
+		if (Mid) Mid->SetScalarParameterValue(TEXT("Intensity"), TracerNits);
 	}
 	for (int32 I = 0; I < NumLights; ++I)
 	{
@@ -457,7 +462,8 @@ void UMIEffects::OnExplosion(const FMIExplosionEvent& E)
 	for (int32 I = 0; I < 7; ++I)
 	{
 		const FVector V = (FMath::VRand() + FVector(0, 0, 0.7)).GetSafeNormal() * FMath::FRandRange(250.0, 600.0) * S;
-		Puff(P + FVector(0, 0, 60), V, FMath::FRandRange(0.35, 0.6), 60.0 * S, FMath::FRandRange(180.0, 260.0) * S, 0.95, FLinearColor(0.05f, 0.03f, 0.02f), 60.0, 4.0, 80.0);
+		Puff(P + FVector(0, 0, 60), V, FMath::FRandRange(0.35, 0.6), 60.0 * S, FMath::FRandRange(180.0, 260.0) * S, 0.95, FLinearColor(0.05f, 0.03f, 0.02f),
+			MIJson::NumberOr(Fx, TEXT("explosion.fire"), 9000.0), 4.0, 80.0);
 	}
 	for (int32 I = 0; I < 12; ++I)
 	{

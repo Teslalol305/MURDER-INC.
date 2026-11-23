@@ -123,20 +123,11 @@ void UMIFirstPersonRig::SetupArms()
 	}
 	Jewels.Reset();
 	USkeletalMesh* Real = LoadAs<USkeletalMesh>(MIJson::StringOr(Root, TEXT("firstPerson.arms")));
+	RealArms = Real;
 	if (!Real)
 	{
 		return;  // a clean checkout: the template body stays (AMIPlayerCharacter set it with its hidden bones)
 	}
-	if (Arms->GetSkinnedAsset() != Real)
-	{
-		Arms->SetSkinnedAssetAndUpdate(Real, true);
-		Arms->UnHideBoneByName(TEXT("head"));
-		Arms->UnHideBoneByName(TEXT("neck_01"));
-		Arms->UnHideBoneByName(TEXT("thigh_l"));
-		Arms->UnHideBoneByName(TEXT("thigh_r"));
-	}
-	Arms->SetAnimationMode(EAnimationMode::AnimationBlueprint);
-	Arms->SetAnimInstanceClass(UMIFPAnimInstance::StaticClass());
 	// The jewels: their rest placement (Blender world) made relative to their bone's reference pose.
 	const TSharedPtr<FJsonValue> List = MIJson::Get(Root, TEXT("firstPerson.jewels"));
 	if (!List.IsValid() || List->Type != EJson::Array)
@@ -169,7 +160,33 @@ void UMIFirstPersonRig::SetupArms()
 		C->RegisterComponent();
 		C->AttachToComponent(Arms, FAttachmentTransformRules::SnapToTargetNotIncludingScale, Bone);
 		C->SetRelativeTransform(Rel);
+		C->SetVisibility(false);
 		Jewels.Add(C);
+	}
+}
+
+void UMIFirstPersonRig::UseRealArms(bool bReal)
+{
+	if (!Arms || !RealArms)
+	{
+		return;
+	}
+	USkeletalMesh* Want = bReal ? RealArms.Get() : TemplateBody.Get();
+	if (Want && Arms->GetSkinnedAsset() != Want)
+	{
+		Arms->SetSkinnedAssetAndUpdate(Want, true);
+		const TSharedPtr<FJsonValue> Hidden = MIJson::Get(Root, TEXT("firstPerson.hideBones"));
+		if (Hidden.IsValid() && Hidden->Type == EJson::Array)
+		{
+			for (const TSharedPtr<FJsonValue>& B : Hidden->AsArray())
+			{
+				bReal ? Arms->UnHideBoneByName(FName(*B->AsString())) : Arms->HideBoneByName(FName(*B->AsString()), PBO_None);
+			}
+		}
+	}
+	for (UStaticMeshComponent* J : Jewels)
+	{
+		if (J) J->SetVisibility(bReal && Arms->IsVisible());
 	}
 }
 
@@ -221,7 +238,8 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 	const TSharedPtr<FJsonObject> P = Resolved && Resolved->Presentation.IsValid() ? Resolved->Presentation : Obj(Root, TEXT("guns.") + Gun.ToString());
 	const FString SetName = MIJson::StringOr(P, TEXT("animSet"));
 	Set = SetName.IsEmpty() ? nullptr : Obj(Root, TEXT("firstPerson.animSets.") + SetName);
-	USkeletalMesh* ArmsMesh = Cast<USkeletalMesh>(Arms->GetSkinnedAsset());
+	USkeletalMesh* ArmsMesh = RealArms ? RealArms.Get() : Cast<USkeletalMesh>(Arms->GetSkinnedAsset());
+	UseRealArms(false);  // until the mode below says otherwise
 	if (!Set.IsValid() || !ArmsMesh)
 	{
 		return Mode;
@@ -266,6 +284,7 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 		LeftSocket = FName(*MIJson::StringOr(Set, TEXT("ik.left")));
 		RightSocket = FName(*MIJson::StringOr(Set, TEXT("ik.right")));
 		Mode = EMIFPMode::HandIK;
+		UseRealArms(true);
 		Arms->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 		Arms->SetAnimInstanceClass(UMIFPAnimInstance::StaticClass());
 		// The magazine on the gun's magazine bone (the rig drops and hides that bone in the reloads).
@@ -309,6 +328,7 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 	{
 		Assembly->Assemble(PackGun, *Resolved, false);
 	}
+	UseRealArms(true);
 	Arms->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 	Arms->SetAnimInstanceClass(UMIFPAnimInstance::StaticClass());
 	PackGun->SetAnimationMode(EAnimationMode::AnimationBlueprint);
@@ -520,7 +540,7 @@ void UMIFirstPersonRig::SetVisible(bool bGun, bool bArms)
 	}
 	for (UStaticMeshComponent* J : Jewels)
 	{
-		if (J) J->SetVisibility(bArms);
+		if (J) J->SetVisibility(bArms && Mode != EMIFPMode::Template);
 	}
 }
 

@@ -385,7 +385,7 @@ void AMIPlayerController::MIFreezeOn(const FString& Event, float Delay)
 			const FVector Eye = C->GetPlayerRules().Eye;
 			FHitResult Hit;
 			FCollisionQueryParams Q(SCENE_QUERY_STAT(MIFreezeSight), false, C);
-			if (FVector::Dist(Head, Eye) > 1600.0 || World->LineTraceSingleByChannel(Hit, Eye, Head, ECC_Visibility, Q))
+			if (FVector::Dist(Head, Eye) > 1300.0 || World->LineTraceSingleByChannel(Hit, Eye, Head, ECC_Visibility, Q))
 			{
 				return;
 			}

@@ -57,7 +57,7 @@ c "MIInput ads 0"
 c "MIInput weapon2 1"; run 1.0; c "MIInput weapon2 0"; c "MIPose 170 -380 0 -35 -2"; c "MIInput ads 1"; run 0.8; shot fp-nine
 c "MIInput ads 0"; c "MIInput weapon1 1"; run 1.0; c "MIInput weapon1 0"
 # 9 a Goon firing at the player from 10 m (frozen on its round)
-# (MIFreezeOn enemyfire waits for a Goon in plain sight within 16 m and turns the view onto it)
+# (MIFreezeOn enemyfire waits for a Goon in plain sight within 13 m and turns the view onto it)
 m2=$(wc -l < "$log"); c "MIFreezeOn enemyfire 0.012"
 for i in 1 2 3 4 5 6 7 8; do
   c "MIFaceEnemy 9"; c "slomo 1"; sleep 6

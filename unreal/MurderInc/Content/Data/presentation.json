@@ -267,7 +267,8 @@
     },
     "flash": {
       "life": 0.045,
-      "candela": 900,
+      "candela": 30000,
+      "emissive": 40000,
       "radius": 700,
       "light": 0.05,
       "color": [
@@ -279,6 +280,7 @@
     },
     "tracer": {
       "speed": 26000,
+      "emissive": 15000,
       "length": 260,
       "radius": 0.5
     },
@@ -295,7 +297,8 @@
       "reach": 260
     },
     "explosion": {
-      "candela": 40000,
+      "candela": 3000000,
+      "fire": 9000,
       "light": [
         1.0,
         0.55,
