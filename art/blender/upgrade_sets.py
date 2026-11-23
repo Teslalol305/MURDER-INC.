@@ -6,6 +6,8 @@
 
 1. Scanned sets: their 4K sources come from `python3 art/scans/fetch.py --res 4k --only <sets>` (art/scans/README.md):
    the convention files are replaced under the same set names and tile sizes, so nothing on the meshes changes.
+   TS_Roof_ScanBitumen covers a 5.4 m tile, so even 4K gives only 758 px/m: it is fetched at 8K instead
+   (`fetch.py --res 8k --only TS_Roof_ScanBitumen`, 1,517 px/m). Fetch the 4K list first and the 8K one after it.
 2. Procedural sets (galvanised, road paint): re-baked at 2048 px over the same tile with the parameters recorded in
    their own set.json (mi.bake caches by parameters and resolution). A family that bakes them again with an explicit
    lower `res` (furniture: `res=1024`) would bring them back down: run this script after such a bake.
@@ -21,7 +23,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-SCANNED_4K = ["TS_Roof_ScanBitumen", "TS_Concrete_ScanFormed", "TS_Steel_ScanRust", "TS_Brick_ScanRedCommon",
+SCANNED_8K = ["TS_Roof_ScanBitumen"]
+SCANNED_4K = ["TS_Concrete_ScanFormed", "TS_Steel_ScanRust", "TS_Brick_ScanRedCommon",
               "TS_Sidewalk_ScanWorn", "TS_Asphalt_ScanWorn", "TS_Shutter_ScanGrey", "TS_Asphalt_ScanFresh",
               "TS_Wood_ScanPlankDark"]
 PROCEDURAL_2K = ["TS_Galvanised_Aged", "TS_RoadPaint_White", "TS_RoadPaint_Yellow"]
@@ -44,7 +47,7 @@ def patch_manifest():
 
     def upd(data):
         sets = data.setdefault("texture_sets", {})
-        for name in list(sets) + SCANNED_4K + PROCEDURAL_2K:
+        for name in list(sets) + SCANNED_8K + SCANNED_4K + PROCEDURAL_2K:
             e = export.set_entry(name)
             if e:
                 sets[name] = e

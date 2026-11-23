@@ -1748,6 +1748,23 @@ def _place_assets(ctx):
                 _put(ob, loc, yaw, col_=pcol)
 
 
+def _shot(ctx, name, samples):
+    """One preview. MI_PROBE=<dir>: a 192 x 108 exposure probe into <dir> instead, its luminance logged."""
+    probe = os.environ.get("MI_PROBE")
+    if probe:
+        from PIL import Image
+        os.makedirs(probe, exist_ok=True)
+        f = os.path.join(probe, name + ".png")
+        render.render_png(f, 12, (192, 108))
+        bpy.context.scene.render.resolution_x, bpy.context.scene.render.resolution_y = 1280, 720
+        g = np.asarray(Image.open(f).convert("L"), float) / 255.0
+        ctx.log("probe %s: mean %.3f  p10 %.3f  p50 %.3f  p90 %.3f  clipped %.1f%%"
+                % (name, g.mean(), *np.percentile(g, (10, 50, 90)), 100.0 * (g > 0.98).mean()))
+        return
+    _p, sec = render.render_jpeg(os.path.join(paths.previews, name + ".jpg"), samples)
+    ctx.log("preview %s.jpg %.0fs" % (name, sec))
+
+
 def on_preview(ctx, objs):
     a = ctx.args
     P = paths.previews
@@ -1768,30 +1785,35 @@ def on_preview(ctx, objs):
         _p, sec = render.render_jpeg(os.path.join(P, "structures_wire.jpg"), max(24, a.samples // 2))
         vl.material_override = None
         ctx.log("preview structures_wire.jpg %.0fs" % sec)
+    st_stops = float(os.environ.get("MI_ST_STOPS", "3.0"))
+    up_stops = float(os.environ.get("MI_UP_STOPS", "4.2"))
     if want("structures_station"):
-        render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=2.6)
-        render.cam_look((-33.2, -9.6, 1.80), (-42.0, -6.6, 3.6), lens=24, name="Cam_Station")
-        _p, sec = render.render_jpeg(os.path.join(P, "structures_station.jpg"), a.samples)
-        ctx.log("preview structures_station.jpg %.0fs" % sec)
+        # the stair foot faces east: the design sun (260) stands straight behind it, so for this picture the dome is
+        # turned to a mid-morning sun (80) that lights the entrance instead of a silhouette against the sky
+        render.rig_day(sun_azimuth=80.0, stops=st_stops)
+        render.cam_look((-33.2, -9.6, 1.70), (-41.0, -7.2, 3.3), lens=24, name="Cam_Station")
+        _shot(ctx, "structures_station", a.samples)
     if want("structures_station_up"):
-        render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=3.3)
+        render.rig_day(sun_azimuth=80.0, stops=up_stops)
         render.cam_look((-40.3, -8.15, 1.3 + 1.62), (-44.6, -7.6, 5.3), lens=22, name="Cam_StationUp")
-        _p, sec = render.render_jpeg(os.path.join(P, "structures_station_up.jpg"), a.samples)
-        ctx.log("preview structures_station_up.jpg %.0fs" % sec)
+        _shot(ctx, "structures_station_up", a.samples)
     if want("structures_street"):
-        # the news kiosk is moved in beside the produce stand and the dig pen for this one picture
+        # for this one picture the news kiosk (shutter to the road) and a lot hoarding (face west) are moved in
+        # beside the produce stand, so the three read in one frame
         kn = bpy.data.objects.get("SM_Struct_Kiosk_News")
         if kn:
-            kn.matrix_world = Matrix.Translation((5.5, 8.27, 0.15))
-        render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=0.5)
-        render.cam_look((1.0, 5.8, 1.65), (13.0, 9.2, 1.4), lens=26, name="Cam_Street")
-        _p, sec = render.render_jpeg(os.path.join(P, "structures_street.jpg"), a.samples)
-        ctx.log("preview structures_street.jpg %.0fs" % sec)
+            kn.matrix_world = Matrix.Translation((7.6, 9.6, 0.15)) @ Matrix.Rotation(math.pi, 4, "Z")
+        hl = bpy.data.objects.get("SM_Struct_Hoarding_LotW")
+        if hl:
+            hl.matrix_world = Matrix.Translation((17.6, 10.95, 0.15)) @ Matrix.Rotation(math.radians(-90.0), 4, "Z")
+        render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=float(os.environ.get("MI_SR_STOPS", "0.5")))
+        render.cam_look((5.5, 5.6, 1.60), (13.0, 9.6, 1.0), lens=24, name="Cam_Street")
+        _shot(ctx, "structures_street", a.samples)
     if want("structures_chopshop"):
         if not bpy.data.collections.get("Dress"):
             context_dress(ctx, (-30, 10))
         shop_walls()
-        render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=3.2)
+        render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=float(os.environ.get("MI_SH_STOPS", "3.2")))
         for k in ("lampWork", "tube"):
             mat.principled(ctx.M[k]).inputs["Emission Strength"].default_value /= 0.15
         for lx, lz in WORK:
@@ -1800,6 +1822,5 @@ def on_preview(ctx, objs):
             lo = bpy.data.objects.new("Work", ld)
             lo.location = (lx, lz, 5.0)
             bpy.context.scene.collection.objects.link(lo)
-        render.cam_look((-4.5, 13.2, 1.66), (-17.5, 27.0, 3.2), lens=20, name="Cam_Shop")
-        _p, sec = render.render_jpeg(os.path.join(P, "structures_chopshop.jpg"), a.samples)
-        ctx.log("preview structures_chopshop.jpg %.0fs" % sec)
+        render.cam_look((-8.0, 16.0, 1.66), (-18.5, 27.5, 3.0), lens=20, name="Cam_Shop")
+        _shot(ctx, "structures_chopshop", a.samples)
