@@ -2,8 +2,10 @@
 # Package the game for the demo: a Linux Development build of the most complete project on the box.
 # Runs on the box (as root through gpu_rental_exec; the engine part re-runs itself as user ue4).
 #
+# Works in its own copy, /project/ue/repo-release (repo-demo belongs to the demo-video agent).
+#
 #   package.sh snapshot   copy the gameplay clone's project (Source, Config, Content with the imported art, the
-#                         editor module in Binaries) to /project/ue/repo-demo and apply the demo settings
+#                         editor module in Binaries) to /project/ue/repo-release and apply the demo settings
 #   package.sh start      BuildCookRun (build the game target, cook L_Block, stage, pak, archive) detached
 #   package.sh status     RUNNING / OK / FAILED, the minutes so far and the last log lines
 #   package.sh stop       stop a package run (its process group)
@@ -13,7 +15,7 @@
 # Measured 2026-11-23: snapshot about 40 s (1.7 GB of Content); see docs/unreal/PROGRESS.md for the package time.
 
 SRC=${MI_DEMO_SRC:-/project/ue/repo-gameplay/unreal/MurderInc}
-DEMO=/project/ue/repo-demo/unreal/MurderInc
+DEMO=/project/ue/repo-release/unreal/MurderInc
 WORK=/project/ue/demo
 OUT=$WORK/build
 LOG=$WORK/package.log
@@ -29,7 +31,7 @@ snapshot() {
   (cd "$(dirname "$SRC")" && tar -cf - --exclude=MurderInc/Intermediate --exclude=MurderInc/Saved \
       --exclude=MurderInc/DerivedDataCache MurderInc) | tar --no-same-owner -C "$(dirname "$DEMO")" -xf - || exit 1
   overlay
-  chown -R ue4 /project/ue/repo-demo "$WORK" && chmod -R u+rwX /project/ue/repo-demo
+  chown -R ue4 /project/ue/repo-release "$WORK" && chmod -R u+rwX /project/ue/repo-release
   echo "SNAPSHOT OK: $DEMO ($(du -sh "$DEMO/Content" | cut -f1) of Content)"
 }
 
@@ -65,7 +67,7 @@ start() {
     echo $$ > '"$WORK"'/package.pid
     cd '"$ENGINE"' && env UE-LocalDataCachePath=/project/ue/ddc ./Engine/Build/BatchFiles/RunUAT.sh BuildCookRun -project='"$DEMO"'/MurderInc.uproject \
       -noP4 -utf8output -unattended -platform=Linux -clientconfig=Development -target=MurderInc \
-      -build -nocompileeditor -UbtArgs=-NoUBA -cook -map=/Game/Maps/L_Block -stage -pak -iostore \
+      -build -nocompileeditor "-UbtArgs=-NoUBA -WaitMutex" -cook -map=/Game/Maps/L_Block -stage -pak -iostore \
       -archive -archivedirectory='"$OUT"' -prereqs \
       "-AdditionalCookerOptions=-DDC=(ProjectPak,InstalledProjectPak,EnginePak=InstalledEnginePak,EnterprisePak,InstalledLocal) -ini:Engine:[Zen]:AutoLaunch=false -ini:Engine:[ConsoleVariables]:AssetRegistry.DisableDirectoryWatcher=1"
     rc=$?; date +%s > '"$WORK"'/package.end
