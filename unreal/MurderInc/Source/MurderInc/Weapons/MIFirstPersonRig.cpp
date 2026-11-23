@@ -15,6 +15,8 @@
 #include "Materials/MaterialInterface.h"
 #include "MurderInc.h"
 #include "Weapons/MIEffects.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Materials/Material.h"
 #include "Weapons/MIGunAssembly.h"
 #include "Weapons/MILoadoutResolver.h"
 #include "Weapons/MIViewmodel.h"
@@ -358,6 +360,41 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 	if (Assembly)
 	{
 		Assembly->Assemble(PackGun, *Resolved, false);
+	}
+	// The optics in daylight (review 2026-11-23: no reticle visible at 32 degrees, the glass tinted dark grey):
+	// presentation firstPerson.opticMaterials, base material name -> scalar parameters, set on dynamic instances.
+	if (const TSharedPtr<FJsonObject> OM = Obj(Root, TEXT("firstPerson.opticMaterials")))
+	{
+		TArray<USceneComponent*> Parts;
+		PackGun->GetChildrenComponents(true, Parts);
+		for (USceneComponent* SC : Parts)
+		{
+			UPrimitiveComponent* PC = Cast<UPrimitiveComponent>(SC);
+			for (int32 I = 0; PC && I < PC->GetNumMaterials(); ++I)
+			{
+				UMaterialInterface* M = PC->GetMaterial(I);
+				const UMaterial* Base = M ? M->GetBaseMaterial() : nullptr;
+				const TSharedPtr<FJsonObject> Params = Base ? Obj(OM, Base->GetName()) : nullptr;
+				if (!Params.IsValid())
+				{
+					continue;
+				}
+				UMaterialInstanceDynamic* D = Cast<UMaterialInstanceDynamic>(M);
+				if (!D)
+				{
+					D = UMaterialInstanceDynamic::Create(M, PC);
+					PC->SetMaterial(I, D);
+				}
+				for (const auto& Pair : Params->Values)
+				{
+					double V = 0.0;
+					if (Pair.Value->TryGetNumber(V))
+					{
+						D->SetScalarParameterValue(FName(FString(*Pair.Key)), static_cast<float>(V));
+					}
+				}
+			}
+		}
 	}
 	UseRealArms(true);
 	Arms->SetAnimationMode(EAnimationMode::AnimationBlueprint);

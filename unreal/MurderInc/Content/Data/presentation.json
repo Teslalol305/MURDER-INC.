@@ -16,6 +16,11 @@
     "jewels": [
       { "mesh": "/Game/Characters/RuleArms/SM_Character_RuleBracelet.SM_Character_RuleBracelet", "bone": "lowerarm_twist_01_r", "blenderWorldRest": [0.568196, 0.468298, -0.676646, -0.465039, -0.742608, 0.646063, -0.176455, -0.139544, 0.354523, 0.602744, 0.714852, 1.060938, 0.0, 0.0, 0.0, 1.0], "note": "art/out/glb/SK_RuleArms.sockets.json (Blender rest placement, made relative to the bone's reference pose at run time); the watch is not worn on these arms ('worn': false)" }
     ],
+    "opticMaterials": {
+      "M_TFA_AR_Reticle": { "Brightness": 25000 },
+      "M_TFA_AR_Glass": { "Opacity": 0.05, "Roughness": 0.02 },
+      "note": "base material name -> scalar parameters on the pack optics in first person (UMIFirstPersonRig): the collimated dot and ring lit to read against a 10,000-nit daylight street (the import's 40 nits drew nothing), the glass nearly clear (0.22 darkened the target)"
+    },
     "recipe": { "armsLocation": [-0.66, 0, -162.0], "armsYaw": -90, "nearClip": 1.0, "fovIrons": 38, "fovOptic": 32, "note": "docs/unreal/ANIMATION.md 9: the pack's head joint never moves, so the arms hang from the camera at the eye point (component (0, 0.66, 162.0), +Y forward); first-person field of view 54 (config player.fov.viewmodel) blended by Ads to 38 on the irons and 32 with any optic; near plane 1 cm" },
     "animSets": {
       "rifle": {
