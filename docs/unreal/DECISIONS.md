@@ -50,3 +50,14 @@ the IPX.exchange page (Pixel Streaming), playable with keyboard, mouse or gamepa
   click-to-start overlay, audio started on the first click, and graceful handling of a lost connection.
 - Latency budget for a shooter: aim for under 80 ms from input to picture on a good connection; measure it.
 - The demo playable route (`docs/DEMO.md`) is the first step of this: the same Pixel Streaming set-up, on the box.
+
+## 2026-11-23: hosting the streamed game: a managed Pixel Streaming service
+
+**Asked:** the rented GPU box cannot serve the public (it exposes only its own private desktop page and forbids
+tunnels or extra servers), so where should the website version be hosted? **Answer:** "Managed streaming": a
+Pixel Streaming service that hosts Unreal games and gives an embed link and auto-scaling (for example Arcware Cloud
+or PureWeb). The owner creates the account and uploads the build we package; pricing is per streaming minute.
+
+**Open technical point:** several managed services take only Windows builds, and Unreal cannot package for Windows
+from Linux. The next job must check, from each candidate's current documentation, which ones accept a Linux build,
+and say plainly if a Windows packaging machine is needed.
