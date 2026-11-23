@@ -80,10 +80,22 @@ for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor):
         l = a.get_actor_location()
         d = math.hypot(l.x - me.x, l.y - me.y)
         if best is None or d < best[0]:
-            best = (d, l)
-d, l = best
+            best = (d, l, a)
+d, l, ex = best
 ux, uy = (me.x - l.x) / max(d, 1), (me.y - l.y) / max(d, 1)
 fx, fy = l.x + ux * 900, l.y + uy * 900
+# the first of 16 bearings (from the player's own) with a clear line from the eye to the tank
+for off in [0.0] + [sg * i * math.pi / 8 for i in range(1, 9) for sg in (1, -1)]:
+    a = math.atan2(uy, ux) + off
+    cx, cy = l.x + math.cos(a) * 900, l.y + math.sin(a) * 900
+    try:
+        hit = unreal.SystemLibrary.line_trace_single(w, unreal.Vector(cx, cy, 160), unreal.Vector(l.x, l.y, l.z + 30),
+                                                     unreal.TraceTypeQuery.TRACE_TYPE_QUERY1, False, [ex], unreal.DrawDebugTrace.NONE, True)
+    except Exception:
+        break
+    if hit is None or not hit.to_tuple()[0]:
+        fx, fy = cx, cy
+        break
 yaw = math.degrees(math.atan2(l.y - fy, l.x - fx))
 pitch = math.degrees(math.atan2((l.z + 25) - 160.0, 900))   # street level 0, the eye about 160 cm over the feet
 unreal.SystemLibrary.execute_console_command(w, "MIPose %.0f %.0f 0 %.1f %.1f" % (fx, fy, yaw, pitch))
