@@ -15,13 +15,21 @@
 #   import-animpack.sh <Project.uproject> adapt     rebuild the adaptation inside the project instead (needs `pack`
 #                                                   first and SK_Chopper at /Game/Weapons/Chopper/SK_Chopper):
 #                                                   tools/box/anim/mi_run.py adapt_all + parts_all, headless
+#   import-animpack.sh <Project.uproject> guns      the six rifles (3 lengths x irons up / folded), every part, the
+#                                                   magazines, the pack's 4K materials, the scope reticle, the loadout
+#                                                   sockets and the UI icons (needs `pack` first for the two skeletons):
+#                                                   bl_measure.py + bl_icons.py (bpy at /opt/blpy; without it the
+#                                                   committed pack_measure.json and any icons already rendered are
+#                                                   used), then ue_import_guns.py headless -> /Game/ThirdParty/InfimaTFA/
+#                                                   Weapon{,/Attachments,/Materials,/Textures}, /Game/UI/Icons
+#   import-animpack.sh <Project.uproject> all       pack + guns
 # ONLY=<substring> limits `pack` to the matching clips (a quick test). Logs: /project/ue/logs/animpack/import-<mode>.log; the last line is MI-DONE (or a Python error).
 set -e
 UP=$1; MODE=${2:-pack}
 PACK=${PACK:-/project/ue/packs/tactical-rifle/FBX_Files_TacticalAssaultRifle}
 ADAPTED=${ADAPTED:-/project/ue/packs/tactical-rifle/adapted}
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-[ -f "$UP" ] || { echo "usage: import-animpack.sh <Project.uproject> pack|adapted|adapt"; exit 2; }
+[ -f "$UP" ] || { echo "usage: import-animpack.sh <Project.uproject> pack|adapted|adapt|guns|all"; exit 2; }
 if [ "$(id -un)" != ue4 ]; then exec su ue4 -c "$(printf '%q ' bash "$0" "$@")"; fi
 PROJ=$(dirname "$UP"); LOG=/project/ue/logs/animpack; mkdir -p $LOG
 for p in $(pgrep -x UnrealEditor) $(pgrep -x UnrealEditor-Cm); do  # pgrep -x sees 15 characters
@@ -34,7 +42,7 @@ run() {  # run a Python file headless in the project
     '-DDC=(ProjectPak,InstalledProjectPak,EnginePak=InstalledEnginePak,EnterprisePak,InstalledLocal)' \
     '-ini:Engine:[Zen]:AutoLaunch=false' '-ini:Engine:[ConsoleVariables]:AssetRegistry.DisableDirectoryWatcher=1' \
     > "$LOG/import-$MODE.log" 2>&1
-  grep -E "MI-ANIMPACK|MI-ADAPT|MI-DONE|Error: .*Python|Traceback" "$LOG/import-$MODE.log" | tail -5
+  grep -E "MI-ANIMPACK|MI-ADAPT|MI-GUNS|MI-DONE|Error: .*Python|Traceback" "$LOG/import-$MODE.log" | cut -c1-300 | tail -5
 }
 case $MODE in
   pack)
@@ -55,5 +63,20 @@ print("MI-ADAPT", json.dumps({"generic": len(a["generic"]), "reloads": len(a["re
 print("MI-DONE")
 PY
     run /tmp/mi-adapt-cmdlet.py ;;
-  *) echo "mode: pack | adapted | adapt"; exit 2 ;;
+  guns|all)
+    if [ "$MODE" = all ]; then MODE=pack; run "$HERE/ue_import_pack.py --pack $PACK --dest /Game/ThirdParty/InfimaTFA${ONLY:+ --only $ONLY}"; MODE=guns; fi
+    BL=${BL:-/opt/blpy/bin/python}; FACTS=${FACTS:-/project/ue/animpack/facts}; ICONS=${MI_ICONS:-/project/ue/animpack/icons}
+    BLEND=${BLEND:-/project/ue/packs/tactical-rifle/Blender_Source_Files_TacticalAssaultRifle/Rigs/RIG_InfimaGames_TFA_AssaultRifle.blend}
+    if [ -x "$BL" ]; then
+      mkdir -p "$FACTS" "$ICONS"
+      [ -f "$FACTS/meshes.json" ] || "$BL" -I "$HERE/bl_meshes.py" "$PACK" "$BLEND" "$FACTS/meshes.json" > $LOG/bl_meshes.log 2>&1
+      [ -f "$FACTS/rig.json" ] || "$BL" -I "$HERE/bl_rig.py" "$BLEND" "$FACTS/rig.json" > $LOG/bl_rig.log 2>&1
+      "$BL" -I "$HERE/bl_measure.py" "$PACK" "$FACTS/meshes.json" "$FACTS/pack_sockets.json" > $LOG/bl_measure.log 2>&1 && echo "measured: $FACTS/pack_sockets.json and its digest $FACTS/pack_measure.json (else the committed $HERE/pack_measure.json)"
+      "$BL" -I "$HERE/bl_icons.py" "$PACK" "$ICONS" > $LOG/bl_icons.log 2>&1 && echo "icons: $(ls $ICONS | wc -l) in $ICONS"
+    else
+      echo "no bpy at $BL (/project/ue/bl/install.sh makes it): using $HERE/pack_measure.json and the icons already in $ICONS"
+    fi
+    export MI_ICONS=$ICONS; run "$HERE/ue_import_guns.py --sync"
+    grep -E "MI-GUNS" "$LOG/import-guns.log" | tail -1 | cut -c1-600 ;;
+  *) echo "mode: pack | adapted | adapt | guns | all"; exit 2 ;;
 esac

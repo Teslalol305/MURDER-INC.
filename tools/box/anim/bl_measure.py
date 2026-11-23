@@ -182,4 +182,62 @@ for name in ("SK_TFA_AR_Magazine", "SK_TFA_AR_Magazine_Transparent"):
             res["parts"].setdefault(name + "_bones", [b.name for b in o.data.bones])
 
 json.dump(res, open(OUT, "w"), indent=1)
+
+
+# ---------------------------------------------------------------- the digest ue_import_guns.py reads
+def shoulder_from_tip(m):
+    """The barrel shoulder behind the thread relief: walking back from the muzzle, the relief is the first section
+    under 0.9 cm radius; the shoulder is where the radius comes back over 0.95 cm behind it."""
+    t = m["tip_y"]
+    rows = [r for r in m["muzzle_profile"] if r[1] is not None and r[0] > t - 9.0]
+    rows.sort(key=lambda r: -r[0])
+    seen_relief = None
+    for y, rmax, _ in rows:
+        if seen_relief is None and rmax < 0.9:
+            seen_relief = y
+        elif seen_relief is not None and rmax > 0.95:
+            return round((y + 0.25) - t, 2) if (y + 0.25) < seen_relief else round(y - t, 2)
+    return -5.8
+
+
+def author_sockets(rig_json):
+    """The rig's SOCKET_* empties in gun space. The Default handguard's empties evaluate in place; the Short and
+    Extended handguards sit in excluded collections, so their empties keep .blend local values that are either the
+    world point already (parent inverse cancels the handguard's offset: z over 3 cm, on the bore / rails) or a point
+    relative to the Handguard bone (z under 3 cm): checked against the measured front posts (0.66 cm behind each)."""
+    objs = {o["name"]: o for o in json.load(open(rig_json))["objects"]}
+    hg = bones["Handguard"]
+    out = {}
+    for kind, key in (("Grip", "Grip"), ("Laser", "Laser"), ("Muzzle", "Muzzle"), ("Sight_Front", "Sight_Front")):
+        out[key] = {}
+        for L in LENGTHS:
+            o = objs.get("SOCKET_%s_%s" % (kind, L))
+            if not o:
+                continue
+            x, y, z = o["loc"][0], -o["loc"][1], o["loc"][2]
+            if z < 3.0:
+                x, y, z = x + hg[0], y + hg[1], z + hg[2]
+            out[key][L] = [round(x, 3), round(y, 3), round(z, 3)]
+    a = objs["SOCKET_SOCKET_AimPoint"]["loc"]
+    lz = objs["SOCKET_SOCKET_LaserStart"]["loc"]
+    out["AimPoint_on_scope"] = [round(a[0], 3), round(-a[1], 3), round(a[2], 3)]
+    out["LaserStart_on_laser"] = [round(lz[0], 3), round(-lz[1], 3), round(lz[2], 3)]
+    return out
+
+
+RIG_RAW = sys.argv[4] if len(sys.argv) > 4 else os.path.join(os.path.dirname(RIG_FACTS), "rig.json")
+dig = {"space": res["space"], "bones": bones, "variants": {}, "parts": {}}
+for L, m in res["variants"].items():
+    d = {k: m[k] for k in ("tip_y", "bore_axis_xz", "rail_top_z", "front_post_tip", "front_post_y", "rear_aperture",
+                           "handguard_box", "mag_well_box", "folded_irons_top_z", "standing_irons_top_z",
+                           "stock_identical_in_folded")}
+    d["butt"] = {"y": m["butt"]["y"], "z_mid": m["butt"]["z_mid"]}
+    d["thread_shoulder_from_tip"] = shoulder_from_tip(m)
+    dig["variants"][L] = d
+for k in ("Scope", "Silencer", "Grip_Vertical", "Grip_Angled", "Laser", "Sight_Front", "Sight_Rear"):
+    dig["parts"][k] = {a: b for a, b in res["parts"][k].items() if a != "profile"}
+if os.path.exists(RIG_RAW):
+    dig["author_sockets"] = author_sockets(RIG_RAW)
+dig["note"] = "Written by bl_measure.py from the pack's FBX geometry and the rig .blend facts (bl_meshes.py, bl_rig.py); numbers only."
+json.dump(dig, open(os.path.join(os.path.dirname(OUT), "pack_measure.json"), "w"), indent=1)
 print("BL-MEASURE-DONE")
