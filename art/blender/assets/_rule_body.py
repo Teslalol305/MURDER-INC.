@@ -32,7 +32,7 @@ HEAD = os.path.join(GEN, "head_meshy.glb")
 NAME = "SK_Rule"
 HEAD_TRIS = 40000
 BODY_TRIS = 80000
-TUCK = 0.025
+TUCK = 0.045
 
 
 def _classes(ob, tex):
@@ -44,17 +44,47 @@ def _classes(ob, tex):
     return red, grey, rgb
 
 
-def _neckline(c, red, x0, top, frac=(0.70, 0.93)):
-    """Height of the front of the shirt collar: the highest red face near the front centre line."""
+def _neckline(c, a, red):
+    """Height of the shirt collar: slicing down from the crown, the bandana (mostly red), the head (little red:
+    a bandana tail at most), then the first slice that is mostly red again is the collar and shoulders."""
     z = c[:, 2]
-    yc = np.median(c[(z > top * frac[0]) & (z < top * frac[1]), 1])
-    m = red & (np.abs(c[:, 0] - x0) < 0.035 * top / 1.8) & (c[:, 1] < yc) & (z > top * frac[0]) & (z < top * frac[1])
-    return float(z[m].max())
+    top, bot = z.max(), z.min()
+    step = 0.008 * (top - bot)
+    seen_head = False
+    zz = top
+    while zz > bot + step:
+        m = (z <= zz) & (z > zz - step)
+        if m.sum() >= 8:
+            f = float((a[m] * red[m]).sum() / max(a[m].sum(), 1e-12))
+            if f < 0.3:
+                seen_head = True
+            elif seen_head and f > 0.55:
+                return float(zz)
+        zz -= step
+    return float(np.percentile(z, 80))
+
+
+def _base_colour(ob, tex, path):
+    """The generated base colour, found through the BSDF's Base Color link (Meshy's image names do not say
+    which map is which, so gen3d.load can take the ORM image for it)."""
+    m = ob.data.materials[0]
+    b = next(n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    node, seen = b.inputs["Base Color"].links[0].from_node if b.inputs["Base Color"].links else None, 0
+    while node is not None and node.type != "TEX_IMAGE" and seen < 6:
+        ins = [i for i in node.inputs if i.links]
+        node = ins[0].links[0].from_node if ins else None
+        seen += 1
+    if node is not None and node.image is not None:
+        cache = os.path.splitext(path)[0] + "_maps"
+        tex["bc"] = gen3d._image_array(node.image, True, cache + "_bc")
+    return tex
 
 
 def load_parts(col, log=print):
     body, btex = gen3d.load(BODY, NAME, col)
     head, htex = gen3d.load(HEAD, "Rule_Head", col)
+    btex = _base_colour(body, btex, BODY)
+    htex = _base_colour(head, htex, HEAD)
     for ob in (body, head):
         co = gen3d.verts(ob)
         co -= [(co[:, 0].min() + co[:, 0].max()) / 2, (co[:, 1].min() + co[:, 1].max()) / 2, co[:, 2].min()]
@@ -67,31 +97,77 @@ def load_parts(col, log=print):
     return body, btex, head, htex
 
 
+def _mid(v):
+    return float((np.percentile(v, 2) + np.percentile(v, 98)) / 2) if len(v) else 0.0
+
+
+def _largest_part(ob):
+    """Keep the largest connected piece (generated busts carry stray sheets)."""
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    bm.verts.ensure_lookup_table()
+    seen = np.zeros(len(bm.verts), dtype=bool)
+    parts = []
+    for v0 in bm.verts:
+        if seen[v0.index]:
+            continue
+        stack, comp = [v0], []
+        seen[v0.index] = True
+        while stack:
+            v = stack.pop()
+            comp.append(v.index)
+            for e in v.link_edges:
+                w = e.other_vert(v)
+                if not seen[w.index]:
+                    seen[w.index] = True
+                    stack.append(w)
+        parts.append(comp)
+    parts.sort(key=len, reverse=True)
+    drop = [bm.verts[i] for p in parts[1:] if len(p) < 0.2 * len(parts[0]) for i in p]
+    bmesh.ops.delete(bm, geom=drop, context="VERTS")
+    bm.to_mesh(ob.data)
+    bm.free()
+    ob.data.update()
+
+
 def swap_head(body, btex, head, htex, log=print):
-    cb, _nb, _ab = gen3d.face_arrays(body)
+    cb, nb, ab = gen3d.face_arrays(body)
     redb, greyb, _ = _classes(body, btex)
     topb = cb[:, 2].max()
-    zb = _neckline(cb, redb, 0.0, topb)
-    above = cb[:, 2] > zb
-    hx, hy = float(np.median(cb[above & (cb[:, 2] > zb + 0.08), 0])), float(np.median(cb[above & (cb[:, 2] > zb + 0.08), 1]))
-    kill = (cb[:, 2] > zb + 0.012) & (~redb | (cb[:, 2] > zb + 0.05))
-    kill |= greyb & (cb[:, 2] > zb - 0.01) & (cb[:, 2] < zb + 0.05)
+    zb = _neckline(cb, ab, redb)
+    sl = (cb[:, 2] > zb + 0.015) & (cb[:, 2] < zb + 0.045) & ~redb & (np.abs(cb[:, 0]) < 0.12)
+    hx, hy = _mid(cb[sl, 0]), _mid(cb[sl, 1])                       # centre of the neck's section
+    near = np.hypot(cb[:, 0] - hx, cb[:, 1] - hy) < 0.085          # the neck, not the shoulders or arms
+    kill = (cb[:, 2] > zb + 0.06) | ((cb[:, 2] > zb - 0.055) & ~redb & near)
     gen3d.delete_faces(body, kill)
     log("  body: neckline z %.3f of %.3f, head and neck removed (%d faces)" % (zb, topb, kill.sum()))
-    ch, _nh, _ah = gen3d.face_arrays(head)
+    ch, nh, ah = gen3d.face_arrays(head)
     redh, greyh, _ = _classes(head, htex)
     toph = ch[:, 2].max()
-    zh = _neckline(ch, redh, 0.0, toph, frac=(0.10, 0.62))
-    chin = zh + 0.10 * toph
-    killh = (redh & (ch[:, 2] < chin)) | (ch[:, 2] < zh - TUCK * toph / 0.9) | (greyh & (ch[:, 2] < chin))
+    zh = _neckline(ch, ah, redh)
+    unit = (toph - zh) / (topb - zb)                       # bust units per metre
+    chin = zh + 0.035 * unit                              # the back of the collar, below the lips
+    killh = (redh & (ch[:, 2] < chin)) | (ch[:, 2] < zh - TUCK * unit)
     gen3d.delete_faces(head, killh)
+    _largest_part(head)
     s = (topb - zb) / (toph - zh)
     co = gen3d.verts(head)
     co = (co - [0, 0, zh]) * s
-    ch2 = co[co[:, 2] > 0.08]
-    co += [hx - float(np.median(ch2[:, 0])), hy - float(np.median(ch2[:, 1])), zb]
+    ch2, _n2, _a2 = gen3d.face_arrays(head)
+    ch2 = (ch2 - [0, 0, zh]) * s
+    redh2, _g2, _ = _classes(head, htex)
+    sl = (ch2[:, 2] > 0.015) & (ch2[:, 2] < 0.045) & ~redh2
+    dx, dy = hx - _mid(ch2[sl, 0]), hy - _mid(ch2[sl, 1])
+    co += [dx, dy, zb]
+    # the bottom of the neck narrows a little so its cut edge stays inside the body's collar
+    t = np.clip((zb + 0.015 - co[:, 2]) / 0.035, 0, 1)
+    k = 1.0 - 0.10 * t
+    co[:, 0] = hx + (co[:, 0] - hx) * k
+    co[:, 1] = hy + (co[:, 1] - hy) * k
     gen3d.set_verts(head, co)
-    log("  head: neckline %.3f of %.3f in the bust, scale %.3f, %d faces removed" % (zh, toph, s, killh.sum()))
+    log("  head: neckline %.3f of %.3f in the bust, scale %.3f, %d faces removed; neck centres body (%.3f, %.3f), "
+        "bust moved by (%.3f, %.3f)" % (zh, toph, s, killh.sum(), hx, hy, dx, dy))
     return zb
 
 

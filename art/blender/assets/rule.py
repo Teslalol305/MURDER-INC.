@@ -328,14 +328,58 @@ def uv_layout(R, ob, side_attr):
     bpy.data.objects.remove(cp, do_unlink=True)
 
 
+def _cached_mesh(R, hand, ctx):
+    """Meshing takes 10-20 minutes on the shared machine: the decimated skin and the nails are kept in
+    art/out/blend/rule_arms_mesh.blend under a hash of the code that shapes them (this file, characters.py, sdf.py)."""
+    import hashlib
+    here = os.path.dirname(__file__)
+    h = hashlib.sha1()
+    for f in (os.path.join(here, "rule.py"), os.path.join(here, "characters.py"),
+              os.path.join(here, "..", "mi", "sdf.py")):
+        src = open(f).read()
+        if f.endswith("rule.py"):                          # only the shaping half of this file
+            src = src.split(" assemble\n")[0]
+        h.update(src.encode())
+    key = h.hexdigest()[:12]
+    path = os.path.join(paths.blend, "rule_arms_mesh.blend")
+    F = whole_field(R, hand)
+    if os.path.exists(path) and not ctx.args.force:
+        with bpy.data.libraries.load(path, link=False) as (fr, to):
+            to.objects = [n for n in fr.objects if n.startswith("Cache_")]
+        objs = {o.name: o for o in to.objects if o is not None}
+        sk = objs.get("Cache_Skin_R")
+        if sk is not None and sk.get("mi_key") == key:
+            nails = [objs["Cache_Nail_%s_R" % n] for n in C.FINGERS]
+            for o in [sk] + nails:
+                ctx.col.objects.link(o)
+                o.name = o.name[len("Cache_"):]
+            ctx.log("  arm mesh from the cache (%s)" % key)
+            return sk, nails, F
+        for o in objs.values():
+            bpy.data.objects.remove(o, do_unlink=True)
+    skin, F = mesh_arm(R, hand, ctx.col, ctx.log)
+    nails = mesh_nails(R, hand, ctx.col)
+    keep = []
+    for o in [skin] + nails:
+        c = o.copy()
+        c.data = o.data.copy()
+        c.name = "Cache_" + o.name
+        c["mi_key"] = key
+        keep.append(c)
+    os.makedirs(paths.blend, exist_ok=True)
+    bpy.data.libraries.write(path, set(keep), fake_user=True)
+    for c in keep:
+        bpy.data.objects.remove(c, do_unlink=True)
+    return skin, nails, F
+
+
 def build_arms(ctx):
     arm, body = char.import_mannequin()
     body.hide_render = True
     R = C.ArmRig(arm, body)
     ctx.log("arm: forearm %.3f m, upper arm %.3f m" % (R.L, R.Lu))
     hand = Hand(R)
-    skin, F = mesh_arm(R, hand, ctx.col, ctx.log)
-    nails = mesh_nails(R, hand, ctx.col)
+    skin, nails, F = _cached_mesh(R, hand, ctx)
     ctx.log("nails: %d triangles" % sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in nails))
     mats = skin_materials()
     weights_right(R, body, skin, nails, ctx.log)
