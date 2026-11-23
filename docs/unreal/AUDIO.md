@@ -31,7 +31,7 @@ set and the "RULE" subtitle, and the options keep their voice.json defaults):
 |---|---|---|
 | Options screen | `UMIAudioSubsystem::Get(this)->SetOptions(FMIAudioOptions)` | a slider or toggle changes (master, effects, ambience, music, UI, voice volume, subtitles, how often, clean language) |
 | Loadout / crew (LOADOUT.md 3.4) | `SetCharacter(crewId)` | the run's crew member is applied |
-| Loadout / attachments | `SetSuppressed(weaponId, true)` | a gun carries the silencer: its shots use `<weapon>_shot_silenced` and quieter tails. When `FMIShotFiredEvent` gains `bSuppressed` (LOADOUT.md 1.2), one line in `FMIAudioDirector::OnWeaponFire` reads it instead |
+| Loadout / attachments | `SetSuppressed(weaponId, true)` | a gun carries the silencer: its shots use `<weapon>_shot_silenced` and quieter tails. `FMIShotFiredEvent::bSuppressed` (LOADOUT.md 1.2) is read too, so a silenced round sounds silenced without this call |
 | Atmosphere | `SetNight(bool)` | time of day: the day and night beds crossfade |
 
 Until the options screen calls it, the console drives the same options: `MIAudio.Volume <master|effects|ambience|music|ui|voice> <0..1>`,
@@ -165,8 +165,9 @@ re-imported in place, so real material needs no code or data change.
 
 `audio.json events` has an entry for every key the bus can produce (`FMIAudioDirector::BusEventKeys()`, plus every
 `Note(TEXT("..."))` flow line the gameplay source emits, which `MurderInc.Audio.EventTable` scans so a new flow line
-fails the test until it gets an entry): 61 keys, 21 that play a list of sounds, 24 that name a code rule, 17 explicit
-`silent` with the reason. The rules: `gunshot` (spec 07 3.20: dry shot, layers, street and garage tails split by the
+fails the test until it gets an entry): 63 keys, 22 that play a list of sounds, 24 that name a code rule, 18 explicit
+`silent` with the reason. The test also reads `Core/MIEvents.h` and fails on any `FMIGameEvents` delegate missing from
+`FMIAudioDirector::BusDelegates()` (20 today; it caught the loadout's new `WeaponMode`, now a selector click). The rules: `gunshot` (spec 07 3.20: dry shot, layers, street and garage tails split by the
 interior zone, the burst rule, the casing on the ground 0.45 to 0.65 s later by the surface underfoot, the gunfire
 duck), `impact` (surface table, ricochet roll, the 22 ms impact gap), `explosion` (near layer + a far layer, the duck,
 the distance muffle), `step` and `land` (surface table), `hurt`, `dead`, `rotor` (one loop per Buzzard following its
