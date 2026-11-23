@@ -55,7 +55,12 @@ PACK_MAG_FRAME = ((0.0, 12.27, -7.02), "yaw90")
 OUR_MAG_FRAME = ((22.5, 0.0, -11.0), 8.0)          # position, pitch (deg): the curved body leans forward there
 PACK_BC_FRAME = ((1.64, 7.55, 1.91), "yaw90")
 OUR_KNOB_FRAME = ((18.0, -3.8, 1.45), 0.0)
-EYE_CS = (-5.06, 0.66, 157.55)     # first-person eye, component space: the pack's sight line at the head joint's depth
+# First-person eye, component space (ANIMATION.md 9): the pack's FP clips keep the head joint still at
+# (0, 0.66, 162.58) and, in Aim_Pose / Fire_Aimed, put the M4's iron sight line (rear aperture centre) through it,
+# 0.58 cm lower. (Until 2026-11-23 this was (-5.06, 0.66, 157.55), the sight-bone line of Idle_Loop_Aimed, which is
+# a hip-ready hold, not an aimed one: the CHOPPER's aimed clips then sat 5 cm right and 4.5 cm low of the eye.)
+EYE_CS = (0.0, 0.66, 162.0)
+AIM_CLIP = "FP/Poses/A_TFA_FP_AR_Aim_Pose"
 EYE_RELIEF = 16.0                   # cm from the eye to SightRear when aimed (spec 02 2.13)
 
 
@@ -623,7 +628,7 @@ _AD = {}
 def default_adapter():
     if "a" not in _AD:
         a = Adapter()
-        a.aim_correction(pack_clip("FP/Locomotion/A_TFA_FP_AR_Idle_Loop_Aimed"))
+        a.aim_correction(pack_clip(AIM_CLIP))
         _AD["a"] = a
     return _AD["a"]
 

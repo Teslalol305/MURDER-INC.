@@ -56,6 +56,12 @@ GENERIC = [
     ("FP/Interactions/A_TFA_FP_AR_Inspect", False),
     ("FP/Poses/A_TFA_FP_AR_Aim_Pose", True),
     ("FP/Poses/A_TFA_FP_AR_Idle_Pose_Standing", False),
+    # LOADOUT.md 6.6, the CHOPPER's extra roles: MagCheck, ModeSemi / ModeAuto (the pack's one FireModeSwitch, played
+    # forward for both), MeleeB (Swing_R; MeleeA is Swing_L above), the full Equip (Draw stays Equip_Quick)
+    ("FP/Combat/A_TFA_FP_AR_MagCheck", False),
+    ("FP/Combat/A_TFA_FP_AR_FireModeSwitch", False),
+    ("FP/Combat/A_TFA_FP_AR_Melee_Swing_R", False),
+    ("FP/Transitions/A_TFA_FP_AR_Equip", False),
     ("TP/Locomotion/A_TFA_TP_AR_Idle_Loop", False),
     ("TP/Combat/A_TFA_TP_AR_Fire", False),
     ("TP/Combat/A_TFA_TP_AR_Fire_Empty", False),

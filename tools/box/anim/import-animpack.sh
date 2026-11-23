@@ -23,13 +23,18 @@
 #                                                   used), then ue_import_guns.py headless -> /Game/ThirdParty/InfimaTFA/
 #                                                   Weapon{,/Attachments,/Materials,/Textures}, /Game/UI/Icons
 #   import-animpack.sh <Project.uproject> all       pack + guns
+#   import-animpack.sh <Project.uproject> chopper   re-import a re-exported CHOPPER and rebuild its whole adaptation:
+#                                                   CHOPPER_IN=<dir with glb/SK_Chopper.glb, glb/SM_Weapon_Chopper*.glb,
+#                                                   textures/Chopper...> (default /project/ue/animpack/in) ->
+#                                                   mi_stage.import_chopper, mi_run.adapt_all + parts_all, and in the
+#                                                   scratch project export_all (adapted/ .uasset + FBX + manifest)
 # ONLY=<substring> limits `pack` to the matching clips (a quick test). Logs: /project/ue/logs/animpack/import-<mode>.log; the last line is MI-DONE (or a Python error).
 set -e
 UP=$1; MODE=${2:-pack}
 PACK=${PACK:-/project/ue/packs/tactical-rifle/FBX_Files_TacticalAssaultRifle}
 ADAPTED=${ADAPTED:-/project/ue/packs/tactical-rifle/adapted}
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-[ -f "$UP" ] || { echo "usage: import-animpack.sh <Project.uproject> pack|adapted|adapt|guns|all"; exit 2; }
+[ -f "$UP" ] || { echo "usage: import-animpack.sh <Project.uproject> pack|adapted|adapt|guns|all|chopper"; exit 2; }
 if [ "$(id -un)" != ue4 ] && { [ "$MODE" = guns ] || [ "$MODE" = all ]; }; then
   # bpy lives in root's uv tree (/opt/blpy -> /root/.local/...): the Blender steps run here, before the switch to ue4
   BL=${BL:-/opt/blpy/bin/python}; FACTS=${FACTS:-/project/ue/animpack/facts}; ICONS=${MI_ICONS:-/project/ue/animpack/icons}
@@ -52,7 +57,7 @@ for p in $(pgrep -x UnrealEditor) $(pgrep -x UnrealEditor-Cm); do  # pgrep -x se
   tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -qF "$UP" && { echo "the editor of $UP is running (pid $p): stop it first"; exit 3; }
 done
 RHI=-NullRHI
-[ "$MODE" = guns ] || [ "$MODE" = all ] && RHI="-RenderOffscreen -AllowCommandletRendering"   # materials compile
+[ "$MODE" = guns ] || [ "$MODE" = all ] || [ "$MODE" = chopper ] && RHI="-RenderOffscreen -AllowCommandletRendering"   # materials compile
 run() {  # run a Python file headless in the project
   cd /project/ue/UnrealEngine
   env HOME=/home/ue4 'UE-LocalDataCachePath=/project/ue/ddc' ./Engine/Binaries/Linux/UnrealEditor-Cmd "$UP" \
@@ -81,10 +86,26 @@ print("MI-ADAPT", json.dumps({"generic": len(a["generic"]), "reloads": len(a["re
 print("MI-DONE")
 PY
     run /tmp/mi-adapt-cmdlet.py ;;
+  chopper)
+    CIN=${CHOPPER_IN:-/project/ue/animpack/in}
+    cat > /tmp/mi-chopper-cmdlet.py <<PY
+import sys, json
+sys.path.insert(0, "$HERE")
+import mi_stage, mi_run
+c = mi_stage.import_chopper("$CIN")
+a = mi_run.adapt_all()
+p = mi_run.parts_all()
+e = mi_run.export_all() if "$PROJ" == "/project/ue/animpack" else None
+print("MI-ADAPT", json.dumps({"chopper": c.get("SK_Chopper"), "generic": len(a["generic"]), "reloads": len(a["reloads"]),
+                              "failed": a["failed"], "parts": len(p["clips"]), "export": e and e.get("character")}))
+print("MI-DONE")
+PY
+    chmod 644 /tmp/mi-chopper-cmdlet.py
+    run /tmp/mi-chopper-cmdlet.py ;;
   guns|all)
     if [ "$MODE" = all ]; then MODE=pack; run "$HERE/ue_import_pack.py --pack $PACK --dest /Game/ThirdParty/InfimaTFA${ONLY:+ --only $ONLY}"; MODE=guns; fi
     ICONS=${MI_ICONS:-/project/ue/animpack/icons}
     export MI_ICONS=$ICONS; run "$HERE/ue_import_guns.py --sync"
     grep -E "MI-GUNS" "$LOG/import-guns.log" | tail -1 | cut -c1-600 ;;
-  *) echo "mode: pack | adapted | adapt | guns | all"; exit 2 ;;
+  *) echo "mode: pack | adapted | adapt | guns | all | chopper"; exit 2 ;;
 esac
