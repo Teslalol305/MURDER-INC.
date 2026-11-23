@@ -1,7 +1,11 @@
 """Build the PLACEHOLDER voice takes of voice.json from generated text-to-speech files (a generic stock voice,
-not the character's voice). Every take is trimmed, folded to mono, resampled to 48 kHz, loudness-normalised to
--18 LUFS integrated with peaks under -1 dBFS, and written as 24-bit WAV under the name the real recording replaces
-file for file (docs/unreal/AUDIO.md section 5). The crowd answer "R-U-L-E!" is assembled from several stock voices:
+not the character's voice; the requests are tools/audio/voice_plan.json). Every take is folded to mono, resampled to
+48 kHz, gated (generator blips after the line are dropped, silences inside the line shortened: at most 0.14 s
+between spelled letters, 0.12 s elsewhere), trimmed with short pads, tightened to the line's length (TARGET) by a
+pitch-keeping time stretch of at most x1.35 when the stock read is slow, loudness-normalised to -18 LUFS integrated with
+peaks under -1 dBFS, and written as 24-bit WAV under the name the real recording replaces file for file
+(docs/unreal/AUDIO.md section 5). MurderInc.Audio.VoiceData then checks every take is under 2.5 s (the chant under
+2.2 s) with no silence over 0.5 s inside. The crowd answer "R-U-L-E!" is assembled from several stock voices:
 each voice's four letters are cut out and laid on one chant grid with small timing and pitch spreads, plus a short
 room, three different mixes.
 
@@ -24,6 +28,80 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 def mono(path):
     x, rate = wt.read(path)
     return wt.resample(x.mean(axis=1), rate, RATE)
+
+
+def runs(x, rel_db=-40.0, bridge=0.04):
+    """Sound runs of a take: 10 ms frames within rel_db of its loudest frame, gaps under `bridge` s bridged.
+    Returns [(start, end)] in samples."""
+    hop = RATE // 100
+    n = len(x) // hop
+    e = np.array([np.mean(x[i * hop:(i + 1) * hop] ** 2) for i in range(n)]) + 1e-20
+    db = 10 * np.log10(e)
+    on = db > db.max() + rel_db
+    out = []
+    i = 0
+    while i < n:
+        if on[i]:
+            j = i
+            while j < n and on[j]:
+                j += 1
+            if out and (i - out[-1][1]) * 0.01 < bridge:
+                out[-1] = (out[-1][0], j)
+            else:
+                out.append((i, j))
+            i = j
+        else:
+            i += 1
+    return [(a * hop, b * hop) for a, b in out]
+
+
+def gate(x, max_gap, pre=0.03, post=0.16, rel_db=-30.0):
+    """Drop stray blips before or after the line (a run under 80 ms, 0.3 s or more away from the rest), shorten
+    every silence inside it to max_gap seconds (5 ms crossfades), and keep `pre` / `post` seconds around it."""
+    rs = runs(x, rel_db)
+    if not rs:
+        return x
+    def blip(r):
+        return (r[1] - r[0]) < 0.08 * RATE
+    while len(rs) > 1 and blip(rs[-1]) and rs[-1][0] - rs[-2][1] > 0.3 * RATE:
+        rs.pop()
+    while len(rs) > 1 and blip(rs[0]) and rs[1][0] - rs[0][1] > 0.3 * RATE:
+        rs.pop(0)
+    keep = int(max_gap * RATE)
+    xf = int(0.005 * RATE)
+    a = max(0, rs[0][0] - int(pre * RATE))
+    pieces = []
+    cur = a
+    for (s0, e0), (s1, _) in zip(rs, rs[1:]):
+        if s1 - e0 > keep:
+            cut_a = e0 + keep // 2
+            cut_b = s1 - keep // 2
+            pieces.append(x[cur:cut_a + xf].copy())
+            cur = cut_b - xf
+    end = min(len(x), rs[-1][1] + int(post * RATE))
+    pieces.append(x[cur:end].copy())
+    y = pieces[0]
+    ramp = np.linspace(0, 1, xf)
+    for p in pieces[1:]:
+        head = y[-xf:] * (1 - ramp) + p[:xf] * ramp
+        y = np.concatenate([y[:-xf], head, p[xf:]])
+    f = int(0.004 * RATE)
+    y[:f] *= np.linspace(0, 1, f)
+    g = int(0.06 * RATE)
+    y[-g:] *= np.linspace(1, 0, g)
+    return y
+
+
+# The length a placeholder take should not exceed (seconds): a slow stock read is tightened to it with a
+# pitch-keeping time stretch (ffmpeg atempo, at most x1.35).
+TARGET = {'holla': 1.3, 'murda': 1.1, 'rulebaby': 1.3, 'name': 1.75, 'name_clean': 1.3, 'inc': 1.9}
+
+
+def tempo(x, factor):
+    import subprocess
+    out = subprocess.run(['ffmpeg', '-v', 'error', '-f', 'f32le', '-ar', str(RATE), '-ac', '1', '-i', '-', '-filter:a', f'atempo={factor:.4f}',
+                          '-f', 'f32le', '-ar', str(RATE), '-ac', '1', '-'], input=x.astype('<f4').tobytes(), capture_output=True, check=True).stdout
+    return np.frombuffer(out, dtype='<f4').astype(np.float64)
 
 
 def letters(x, want=4):
@@ -95,7 +173,12 @@ def main():
         if name.startswith('crowd_'):
             crowd.append(wt.trim(x, RATE, threshold=0.05, pre=0.0, post=0.1))
             continue
-        y = wt.normalise(wt.trim(x, RATE), RATE)
+        spelled = name.startswith('inc_')
+        y = gate(x, 0.14 if spelled else 0.12)
+        target = TARGET.get(name.rsplit('_', 1)[0])
+        if target and len(y) / RATE > target:
+            y = tempo(y, min(1.35, len(y) / RATE / target))
+        y = wt.normalise(y, RATE)
         wt.write24(os.path.join(out, f'{name}.wav'), y, RATE)
         report.append((name, len(y) / RATE, wt.lufs(y, RATE), 20 * np.log10(np.max(np.abs(y)))))
     # Three crowd answers from different voice subsets.
@@ -103,7 +186,7 @@ def main():
     for k, subset in enumerate(subsets):
         if not subset:
             break
-        y = wt.normalise(wt.trim(chant(subset, 17 + k), RATE, threshold=0.03), RATE, target=-17.0)
+        y = wt.normalise(gate(chant(subset, 17 + k), 0.16, pre=0.01, post=0.15), RATE, target=-17.0)
         name = f'rule_chant_{k + 1:02d}'
         wt.write24(os.path.join(out, f'{name}.wav'), y, RATE)
         report.append((name, len(y) / RATE, wt.lufs(y, RATE), 20 * np.log10(np.max(np.abs(y)))))
