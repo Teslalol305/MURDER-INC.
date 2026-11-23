@@ -50,6 +50,27 @@ clip has it.
 **4. Other breaks seen in play.** The radio strip (bottom centre) sat on the sunlit forearm with no backing and did not
 read: a soft dark band behind the whole line now (`AMIHUD`). The "black half disc" at the lower left of the start view
 (also in the demo notes) is the open top of the trash can 1.1 m ahead of the player start (prop 270), not a fault.
+The player's flash vanished once Goons were firing: their flashes share the effects' card pool (three cards a
+flash), and with 9 cards three enemy shots inside 0.045 s recycled the player's own (`polish-tracer.jpg`: tracer drawn,
+flash gone, the frame after "They made you"). The pool is now 36 cards (commit 9e55db3: **built nowhere yet**, see below).
+
+**Pictures** (play frames, 1920 x 1080): `polish-start`, `polish-avenue`, `polish-lot` (the IPX truck at the back of
+the lot), `polish-hold` (Hold the Block, wave 1, Goons on the avenue), `polish-chopper-aim`, `polish-fire` (frozen 0.02 s
+after a hip round: the flash star over the gun's end; the tracer is the short orange dash at the crosshair of the
+first tracer version), `polish-tracer` (the current tracer, a streak converging from the gun on the aim point; no
+flash: the card-pool fault above).
+
+**Not done (why).** The box ended at 19:48 with `credits_exhausted` (the account's Higgsfield credits ran out) while
+the full suite was running; a re-rent with the next key was refused ("not enough credits"). So:
+- **The suite was not completed after these changes.** Last full run in this clone: 105 passed (fix pass). The C++
+  changed here is presentation only (effects, first-person anim curls, HUD band, a dev command); no rules code and no
+  golden data were touched. Run `tools/box/test.sh MurderInc` first thing on the next box.
+- **The 36-card pool (9e55db3) is not built or seen.** Next box: `sync.sh`, `build.sh`, then
+  `bash fp/polish-shots.sh` and retake `polish-fire` (and `polish-fire-ads`: aimed, the flash on the muzzle round the
+  front post was built but its frame was taken while the pool was being recycled).
+- **The release copy** (`/project/ue/repo-release`) still holds the old L_Block without vehicle art: the release
+  engineer's next `package.sh snapshot` from the gameplay clone carries the rebuilt map and `Content/Art`.
+- The level clone's L_Block was not rebuilt with the new rules (`block.sh start level` there when its editor runs).
 
 
 
