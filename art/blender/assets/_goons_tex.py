@@ -278,7 +278,7 @@ def texels(man, P, N, kind, base, piece, ao_geo, loft=None):
         lf = np.where(kind[m] == K["quilt"], lf, 0.8)
         crown = ss(0.25, 0.85, lf)
         bc[m] = bc[m] * (1 + 0.04 * rip + 0.04 * mid[m])[:, None] * (0.82 + 0.18 * crown)[:, None]
-        rough[m] = 0.76 - 0.27 * crown + 0.04 * rip + 0.03 * big[m]
+        rough[m] = 0.78 - 0.24 * crown + 0.04 * rip + 0.03 * big[m]
         h[m] = 0.00002 * rip
     # ---------------------------------------------------------------- tricot (tracksuit): fine courses, satin sheen
     m = k_("tricot")
@@ -376,7 +376,7 @@ def texels(man, P, N, kind, base, piece, ao_geo, loft=None):
     m = k_("eye")
     if m.any():
         Pm = P[m]
-        c = np.tile(lin("#cfc6b8"), (m.sum(), 1))
+        c = np.tile(lin("#a89e90"), (m.sum(), 1))
         for sd in "lr":
             e = man.H.face.eye_centre(sd)
             d = Pm - e

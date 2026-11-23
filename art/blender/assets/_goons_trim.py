@@ -232,40 +232,49 @@ def cut_ellipse_hole(ob, field, c, u, v, a, b, depth=0.03, hem_r=0.0021, col=Non
 # ------------------------------------------------------------------------------------------------ strips, hardware
 
 
-def surface_strip(S, a, b, out, width, col, name="Stripe", step=0.008, across=5, lift=0.0009, thick=0.0006,
-                  reach=0.5, smooth=4):
-    """A tape laid on the outermost cloth (Surface S) along the line a -> b, on the side `out` points to: rays are
-    cast inward from outside at stations along the line and across the tape's width, so the tape keeps its width and
-    follows the cloth over every fold (a texture stripe in body space breaks into patches on a baggy sleeve)."""
-    a, b = np.asarray(a, dtype=np.float64), np.asarray(b, dtype=np.float64)
-    wv = unit(b - a)
-    out = unit(np.asarray(out, dtype=np.float64) - wv * (np.asarray(out) @ wv))
-    side = np.cross(wv, out)
-    L = np.linalg.norm(b - a)
-    T = np.arange(0.0, L + 1e-9, step)
+def surface_strip(S, path, out, width, col, name="Stripe", step=0.008, across=5, lift=0.0018, thick=0.0006,
+                  reach=0.35, smooth=2):
+    """A tape laid on the outermost cloth (Surface S) along the polyline `path` (joint to joint), on the side `out`
+    points to: at stations along the path rays are cast inward from outside, across the tape's width and square to
+    the path, so the tape keeps its width and follows the cloth over every fold (a texture stripe in body space
+    broke into patches on a baggy sleeve). Stations whose rays do not all land within reach are left out."""
+    path = [np.asarray(p, dtype=np.float64) for p in path]
+    seg = [(path[i], path[i + 1]) for i in range(len(path) - 1)]
+    out0 = np.asarray(out, dtype=np.float64)
+    st = []
+    for a, b in seg:
+        L = np.linalg.norm(b - a)
+        for t in np.arange(0.0, L, step):
+            st.append((a, b, t))
+    st.append((seg[-1][0], seg[-1][1], np.linalg.norm(seg[-1][1] - seg[-1][0])))
     ks = np.linspace(-0.5, 0.5, across) * width
-    G = np.zeros((len(T), across, 3))
-    Nn = np.zeros((len(T), across, 3))
-    ok = np.ones(len(T), dtype=bool)
-    for i, t in enumerate(T):
-        for j, k in enumerate(ks):
-            o = a + wv * t + side * k + out * reach
-            loc, n = S.ray(o, -out, reach * 1.6)
-            if loc is None:
-                ok[i] = False
+    rows, nrows = [], []
+    for a, b, t in st:
+        wv = unit(b - a)
+        o = unit(out0 - wv * (out0 @ wv))
+        side = np.cross(wv, o)
+        c = a + wv * t
+        R, Nr = [], []
+        for k in ks:
+            loc, n = S.ray(c + side * k + o * reach, -o, reach * 1.5)
+            if loc is None or np.linalg.norm(loc - c) > reach * 0.6:
                 break
-            if n @ out < 0:
+            if n @ o < 0:
                 n = -n
-            G[i, j], Nn[i, j] = loc, n
-    G, Nn = G[ok], Nn[ok]
-    # smooth along the tape (it bridges the small crumples), never into the cloth
+            R.append(loc)
+            Nr.append(n)
+        if len(R) == across:
+            rows.append(R)
+            nrows.append(Nr)
+    G, Nn = np.array(rows), np.array(nrows)
     for _ in range(smooth):
         G[1:-1] = 0.5 * G[1:-1] + 0.25 * (G[:-2] + G[2:])
-    nav = Nn.mean(axis=1)
-    nav /= np.maximum(np.linalg.norm(nav, axis=1, keepdims=True), 1e-9)
-    hits = np.array([S.nearest(G[:, j])[0] for j in range(across)]).transpose(1, 0, 2)
-    push = np.maximum(0.0, ((hits - G) * Nn).sum(axis=2))
-    G = G + Nn * (push + lift)[..., None]
+    for _ in range(3):                                          # clearance over the cloth after the smoothing
+        flat = G.reshape(-1, 3)
+        hit, hn = S.nearest(flat)
+        d = ((flat - hit) * Nn.reshape(-1, 3)).sum(axis=1)
+        flat += Nn.reshape(-1, 3) * np.maximum(0.0, lift - d)[:, None]
+        G = flat.reshape(G.shape)
     V, F = [], []
     n_t = len(G)
     for i in range(n_t):

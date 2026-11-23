@@ -578,6 +578,15 @@ def edge_wear(S, sel, worn_col, width_gain=1.0, octave=0, rough=0.24):
     return w
 
 
+def chunks(sel, size=1_500_000):
+    """Split a texel mask into masks of at most `size` texels (per-texel painters run in pieces to bound memory)."""
+    idx = np.nonzero(sel)[0]
+    for k in range(0, len(idx), size):
+        m = np.zeros(len(sel), bool)
+        m[idx[k:k + size]] = True
+        yield m
+
+
 def laminate3(S, sel, grain_axis, handling, rub=None, palm=None, web=None, octave=0, grime=None, ply_normal=(0.0, 1.0, 0.0)):
     """Laminated wood driven by a 3D ply field (round 3): ply = floor(dot(P, ply_normal) / 1.6-2.0 mm) with the plies
     stacked across the gun, so a flat side face lies in one ply and shows its long grain, while round-overs, slot
@@ -739,11 +748,13 @@ def paint_chopper(G):
     flange = tp.smooth(np.abs(y), 0.019, 0.022) * (z > -0.016) * (z < -0.004) * (x > 0.25)
     palm_l = tp.smooth(0.012 - np.abs(x - 0.315), 0.0, 0.020) * (z < -0.018)
     grime = tp.smooth(x, 0.330, 0.372) * hg
-    laminate3(S, hg, 0, hz, rub=np.clip(flange * 0.9 + palm_l * 0.6, 0, 1), octave=0, grime=grime)
+    for part in chunks(hg):                          # in pieces: the 4K furniture set is ~11 M texels
+        laminate3(S, part, 0, hz, rub=np.clip(flange * 0.9 + palm_l * 0.6, 0, 1), octave=0, grime=grime)
     front_g = tp.smooth(n[:, 0], 0.2, 0.7) * grip
     palm_r = gauss(p, (0.040, -0.016, -0.090), 0.026, 1.0) * (y < 0.002)
     web = gauss(p, (0.030, 0.0, -0.046), 0.012, 0.8) * (x < 0.036)
-    laminate3(S, grip, 2, hz, rub=np.clip(front_g * 0.9 + palm_r * 0.5, 0, 1), web=web, octave=10)
+    for part in chunks(grip):
+        laminate3(S, part, 2, hz, rub=np.clip(front_g * 0.9 + palm_r * 0.5, 0, 1), web=web, octave=10)
     S.plain(S.sel(W.BORE), lin("050506"), 0.62, 0.0)
     # ---- the rear sight leaf's rear face: 0.5 mm anti-glare lines, 0.15 mm deep, dark matte
     lf = dk & (x > 0.0213) & (x < 0.0224) & (z > 0.040) & (z < 0.0552) & (n[:, 0] < -0.6)

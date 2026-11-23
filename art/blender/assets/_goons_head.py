@@ -263,7 +263,7 @@ def _tilted(j, front_z, back_z):
 
 def beanie(H, col, h=0.004):
     """Knitted beanie: a fitted crown over the mask from the brow line (its cut edge tidied), and a 5 cm turned-up
-    cuff as one closed double-walled band round the head (no cut edges: the r1 cuff tore into jagged holes)."""
+    cuff (4.6 cm) as one closed double-walled band round the head (no cut edges: the r1 cuff tore into jagged holes)."""
     from assets import _goons_trim as TR
     j = H.j
     p0, n0 = _tilted(j, H.eye["l"][2] + 0.030, H.eye["l"][2] - 0.004)
@@ -273,7 +273,7 @@ def beanie(H, col, h=0.004):
     ob = cloth.garment_mesh("Beanie", crown, lo, hi, h, cuts=[(p0, n0)], col=col, relax=3)
     TR.tidy_open_edges(ob)
     c0 = j + n0 * ((p0 - j) @ n0)
-    cf = TR.axis_band("BeanieCuff", H, MASK_T + 0.0135, c0, -n0, -0.004, 0.05, 0.0072, col, nu=120, ns=12,
+    cf = TR.axis_band("BeanieCuff", H, MASK_T + 0.0135, c0, -n0, -0.004, 0.042, 0.0072, col, nu=120, ns=12,
                       ref=(0, -1.0, 0), ease_top=0.002)
     return ob, cf
 

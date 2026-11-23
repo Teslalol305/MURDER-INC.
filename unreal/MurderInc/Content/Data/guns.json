@@ -324,7 +324,7 @@
         "icon": {
           "asset": "T_UI_Gun_Shorty",
           "status": "exists",
-          "notes": "Rendered on the box from the pack mesh by tools/box/anim/mi_icons.py (white on transparent, 512 x 192, /Game/UI/Icons); never committed: it is a picture of the pack's work."
+          "notes": "Rendered on the box from the pack mesh by tools/box/anim/bl_icons.py (white on transparent, 512 x 192, /Game/UI/Icons); never committed: it is a picture of the pack's work."
         }
       },
       "clips": {
@@ -532,7 +532,7 @@
         "icon": {
           "asset": "T_UI_Gun_Stick",
           "status": "exists",
-          "notes": "Rendered on the box from the pack mesh by tools/box/anim/mi_icons.py (white on transparent, 512 x 192, /Game/UI/Icons); never committed: it is a picture of the pack's work."
+          "notes": "Rendered on the box from the pack mesh by tools/box/anim/bl_icons.py (white on transparent, 512 x 192, /Game/UI/Icons); never committed: it is a picture of the pack's work."
         }
       },
       "clips": {
@@ -740,7 +740,7 @@
         "icon": {
           "asset": "T_UI_Gun_Stretch",
           "status": "exists",
-          "notes": "Rendered on the box from the pack mesh by tools/box/anim/mi_icons.py (white on transparent, 512 x 192, /Game/UI/Icons); never committed: it is a picture of the pack's work."
+          "notes": "Rendered on the box from the pack mesh by tools/box/anim/bl_icons.py (white on transparent, 512 x 192, /Game/UI/Icons); never committed: it is a picture of the pack's work."
         }
       },
       "clips": {

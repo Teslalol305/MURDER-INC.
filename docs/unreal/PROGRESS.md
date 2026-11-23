@@ -166,6 +166,62 @@ Details, mapping and what is missing: `docs/unreal/ANIMATION.md`. Scratch projec
   in git); `tools/box/anim/import-animpack.sh` imports the pack (`pack`) or copies the adapted set (`adapted`) into
   any project; both tested on a fresh copy of the mannequin project.
 
+## Loadout (crew, four guns, attachments, block and style) — steps 1-4 and 6-11 of LOADOUT.md 9
+
+Spec: `docs/unreal/LOADOUT.md`. Built and tested in `/project/ue/repo-gameplay` (MCP 8001).
+
+**Verified 2026-11-23**
+- **Parity holds through the new path.** `Loadout.ParityResolve`: the resolver's JSON for the default set-up (Rule,
+  CHOPPER + NINE, no parts) is byte-equal to config.json's and presentation.json's objects, its `FMIWeaponDef`s equal
+  `Config.Weapons` field by field (doubles compared exactly) and its view data equals `FMIViewmodelData::Load`.
+  `Loadout.ParityGolden` replays the 13 weapon golden scenarios through the resolved data and
+  `Loadout.ParityNextPrevious` replays all of them again with the swap press as next and as previous: 0 mismatches.
+  Every existing `Golden.*` (five whole web-game runs included), `Weapons.*`, `Run.*` test still passes.
+- **Data** (`FMILoadoutData`, its own error path in `UMIDataSubsystem`): `$ref`s resolved, `Loadout.DataLoads` checks
+  every rule of 3.1 that needs only the data and the block's `provides` against level.json (3 reels, 29 / 17 spawns,
+  21 explosives, 14 title keys).
+- **Rules** (`FMIWeaponRules`): slots 1-4, quick swap to the last gun used, next / previous, retarget mid-holster,
+  per-gun holster and draw, one shared bag (150, `AddReserve` once per pool), fire modes with the Selector activity
+  (blocks fire, holds a pending auto reload, cancelled by a swap), falloff and noise radius in the shot, the aimed
+  field of view and look per gun. `Weapons.FourGuns` covers each case of 8.3 including the mixed-timing reversal
+  (`0.27 x (1 - T / 0.24)`) and the re-holster mid-draw.
+- **Input** (`FMISwitchInput` in `AMIPlayerController`): Q / Y on press with one or two guns, tap-on-release and
+  hold-for-wheel with three or more, the wheel by mouse travel or right stick (dead zone 0.5), the debounced mouse
+  wheel, View tap (selector) and hold (inspect). `Player.ControllerSwitching`; `Core.GameClasses` now 68 mappings.
+- **Attachments**: effects applied to the gun's JSON in web units before parsing. `Attachments.<part>.<stat>` (40
+  cases from attachments.json: 37 effects and 3 baselines), `Attachments.Builds` (the six builds of 3.3, and the
+  CHOPPER with scope and silencer at 20 / 37.5 / 60 m: 26, 24.05, 22.1), `.Ops`, `.Clamps`, `.Falloff`.
+- **Flow** (`FMIFrontEndRules`, `UMIRunSetupSubsystem`, the set-up in the save game): `Frontend.Walk` (8.5 steps 1-8 on
+  the rules), `Save.SetupRoundTrip`, `Save.SetupValidation` (each rule of 7, and a clean checkout degrading a saved
+  STICK to the parity guns), `Frontend.WalkWorld` and `Loadout.ParityPIE` (the flow in a world with the real player:
+  Hit the block from the Briefing, the weapon's data is the resolver's parity output, a 1 s Q hold with two guns is
+  one swap on the press frame and no wheel, Change set-up on the death card opens the Briefing).
+- **Screens** (Slate, `SMIFrontEnd` + `UMIFrontEnd`, replacing the canvas title): Home (the web title with the
+  pickers, Hit the block, Gear up, the summary links), Crew, Loadout (rack three wide, class tabs, stat bars, the four
+  slots, melee, the bag note), Workbench (carried-gun strip, slot tabs, options with Fitted, effect lines from the
+  resolver with their marks, bars before / after, hold to reset), Block & Style, Briefing (four lines with Change, the
+  controls strip); keyboard, mouse and gamepad through one `Act()`; console twin `MIMenu fe <action>`. The 3D stage
+  `AMIShowroom` (closed room 1 km up, own lights and fixed exposure, turntable with `UMIGunAssembly`, the arms at the
+  eye with first-person rendering). The four-slot HUD bar (pips, AUTO / SEMI, attachment pips, melee, the bag) and the
+  weapon wheel. Pictures `shots/loadout-*.jpg` (`tools/box/loadout-shots.sh`; the pack rifles and parts through the
+  dev-only `MISetup overlay`, because guns.json / attachments.json do not yet name the imported meshes).
+- Audio hooks: crew to `SetCharacter`, each gun's silencer to `SetSuppressed`, the volume setting to `SetOptions`
+  (master), and `FMIShotFiredEvent.bSuppressed` / `NoiseRadius` on every round.
+
+**Open (most important first)**
+1. The pack import's data (LOADOUT.md 6.2, animation agent): guns.json `variants.*.mesh` / statuses for Short,
+   Extended and the folded stocks, the mounts' `exists`, attachments.json `presentation.mesh`, and the socket pass
+   (`Optic`, `MuzzleMount`, ...). Until then the Workbench shows "No parts on this gun yet" outside the dev overlay,
+   and parts sit at the data's provisional markers instead of sockets.
+2. Crew phase-1 material instances (6.4, characters): only Rule is offered; the code applies a look by material slot
+   on the arms and the template lines for DEUCE, SMOKE and KEYS.
+3. Step 12 (pack clips: inspect, magazine check, selector, swings, quick and empty-retain reloads, dry tap-rack): no
+   pack clip is in the gameplay project yet; the inspect and selector inputs reach the rules and the HUD only.
+4. Not built: the probes in play of 8.2 (aim frames, view field of view, kick sum, the Goon behind a wall hearing a
+   silenced round), a second level (the split Block / Style screens and level travel), the gun silhouettes and part
+   pips as icons (names and squares stand in), `Ops` / `Clamps` fixtures as files (built in code).
+5. `Audio.EventTable` asks for the new `WeaponMode` bus delegate to be bound in `FMIAudioDirector` (audio agent).
+
 ## Gameplay (slice 2: the enemies and the flow) — in progress
 
 Contracts: `docs/unreal/GAMEPLAY.md` sections 6 to 11. Built and tested in `/project/ue/repo-gameplay` (MCP 8001).

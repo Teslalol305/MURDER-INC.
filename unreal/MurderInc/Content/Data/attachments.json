@@ -387,7 +387,7 @@
     }
   },
   "compatibility": {
-    "about": "Per gun and slot: `options` the player may fit, `default` the choice of a new build (null = the factory part, no effect), `required` true when the slot can never be empty (then `default` is one of `options`), `mount` the gun's mount (guns.json mounts) the part sits on, or `variant` true when the option switches the gun's base mesh. A slot a gun does not list does not exist on that gun. A listed slot is offered only when its mount is exists (or, for a variant slot, only the options whose variant is exists); see guns.json ready.",
+    "about": "Per gun and slot: `options` the player may fit, `default` the choice of a new build (null = the factory part, no effect), `required` true when the slot can never be empty (then `default` is one of `options`), `mount` the gun's mount (guns.json mounts) the part sits on, or `variant` true when the option switches the gun's base mesh. A slot a gun does not list does not exist on that gun. A listed slot is offered only when its mount is exists (or, for a variant slot, only the options whose variant is exists); see guns.json ready. `dropped` (under a gun) keeps, for the record, a row taken out by its gate, with the measured value and why: it is not a slot and is never read as one.",
     "chopper": {
       "optic": {
         "options": ["scope"],
@@ -405,7 +405,16 @@
       }
     },
     "nine": {
-      "note": "laser row dropped by its gate: the pack laser measures 155 mm along the bore (56 mm without its pressure-switch tail), over gate.maxLength 0.05 m; a compact pistol laser is missing art (LOADOUT.md 6.6, ANIMATION.md 8)"
+      "dropped": {
+        "laser": {
+          "options": ["laser"],
+          "default": null,
+          "required": false,
+          "mount": "Laser",
+          "gate": {"maxLength": 0.05, "measure": "the pack laser's length along the bore, after import", "measured": 0.155},
+          "why": "dropped by its gate: the pack laser measures 155 mm along the bore (56 mm without its pressure-switch tail), over gate.maxLength 0.05 m; a compact pistol laser is missing art (LOADOUT.md 6.6, ANIMATION.md 8.4)"
+        }
+      }
     },
     "shorty": {
       "optic": {"options": ["irons", "scope"], "default": "irons", "required": true, "mount": "Optic"},

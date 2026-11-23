@@ -48,11 +48,11 @@ K = dict(fleece=0, rib=1, denim=2, leather=3, shoe=4, sole=5, maskknit=6, quilt=
 # rebuild r2 colourways (art review: three distinct value blocks at 8 m, the oxblood crew mark as the shared tie):
 # hoodie in charcoal-grey heather, puffer black nylon with oxblood yoke and much bulkier, tracksuit mid-value navy
 # with bold white stripes; charcoal rib-knit balaclavas (base colour under linear 0.15), sneakers at albedo ~0.7.
-COL = {"hoodie": "#5c5c61", "pocket": "#4c4c51", "oxblood": "#7c151d", "darkox": "#4d0d13", "jeans": "#2f3646",
+COL = {"hoodie": "#56565b", "pocket": "#48484d", "oxblood": "#7c151d", "darkox": "#4d0d13", "jeans": "#2f3646",
        "mask": "#2a2a2d", "seam": "#3a3a3e", "slit": "#050506", "glove": "#1a1917", "upper": "#c4bfb4",
-       "sole": "#cfcbc1", "jacket": "#1f1f23", "quiltseam": "#141416", "trousers": "#2b2c31", "track": "#26386a",
+       "sole": "#cfcbc1", "jacket": "#26262b", "quiltseam": "#141416", "trousers": "#2b2c31", "track": "#1e2a4c",
        "black": "#141416", "metal": "#8a8a88", "webbing": "#1a1a1c", "sock": "#18181a", "lens": "#0b0a09",
-       "skin": "#6e4a36", "eye": "#d8d2c8", "bandana": "#3d4658", "stripe": "#e6e3dc", "capblack": "#18181b",
+       "skin": "#6e4a36", "eye": "#d8d2c8", "bandana": "#36322d", "stripe": "#e6e3dc", "capblack": "#18181b",
        "frame": "#121212"}
 
 # r2 budgets: the eye-catching cloth is refined (one subdivision + Taubin, see TR.refine) and decimated to more
@@ -576,7 +576,7 @@ def puffer_outfit(man, parts, shoes):
     jk = cached("Puffer", "p4", col, shell)
     TR.refine(jk, 4)
     inflate_torso(man, jk, 0.016)
-    loft = quilt(man, jk, PUFFER_SEAMS, [(0.45, 0.33), (0.5, 0.33)], loft=0.024)
+    loft = quilt(man, jk, PUFFER_SEAMS, [(0.45, 0.33), (0.5, 0.33)], loft=0.017)
     at = jk.data.attributes.get("mi_loft") or jk.data.attributes.new("mi_loft", "FLOAT", "POINT")
     at.data.foreach_set("value", np.asarray(loft, dtype=np.float32))
     co_, z1, csolid = collar(man, jk, "Collar", man.H.chin_z + 0.004, 0.050, 0.012, col)
@@ -598,7 +598,7 @@ def puffer_outfit(man, parts, shoes):
     GK.decimate(bn, BUDGET["Beanie"])
     GK.decimate(cf, BUDGET["BeanieCuff"])
     parts.append(("Beanie", tag(bn, "beanie", "black"), "head", "head"))
-    parts.append(("BeanieCuff", tag(cf, "beanie", "oxblood"), "head", "head"))
+    parts.append(("BeanieCuff", tag(cf, "beanie", "darkox"), "head", "head"))
     lens, arms_, frame_ = glasses(man, col)
     parts.append(("Lens", tag(lens, "lens", "lens"), "head", "head"))
     parts.append(("GlassesArms", tag(arms_, "plastic", "frame"), "head", "head"))
@@ -730,21 +730,19 @@ def bandana(man, collar_solid, col):
 
 
 def track_stripes(man, obs, parts, width=0.036):
-    """Bold white stripe tape down the outside of each sleeve (shoulder to cuff) and each leg (hip to ankle), laid on
-    the draped cloth by ray casts (TR.surface_strip): constant width over every fold."""
+    """Bold white stripe tape down the outside of each sleeve (shoulder, elbow, cuff) and each leg (hip to ankle),
+    laid on the draped cloth by ray casts (TR.surface_strip): constant width over every fold."""
     J = man.B.J
     for sd, sx in (("l", 1.0), ("r", -1.0)):
         S = GK.Surface(obs["jacket"])
-        a_, b_ = J["upperarm_" + sd] + np.array([0, 0, 0.0]), J["hand_" + sd] - man.M.fore[sd] * 0.085
-        w = unit_(b_ - a_)
-        o = np.cross(w, np.array([0, 1.0, 0]))
-        o = o if o[2] > 0 else -o                                  # the top of the arm in the A-pose
-        o = unit_(o + np.array([sx * 0.35, 0, 0]))
-        st = TR.surface_strip(S, a_ - w * 0.02, b_, o, width, man.col, name="Stripe_arm_" + sd, reach=0.35)
+        path = [J["upperarm_" + sd] + np.array([sx * 0.03, 0, 0.02]), J["lowerarm_" + sd],
+                J["hand_" + sd] - man.M.fore[sd] * 0.09]
+        out = np.array([sx * 0.55, 0.0, 1.0])                   # the outer seam: up and out in the A-pose
+        st = TR.surface_strip(S, path, out, width, man.col, name="Stripe_arm_" + sd)
         parts.append(("Stripe", tag(st, "tape", "stripe"), "cloth", None))
         S = GK.Surface(obs["trousers"])
-        a_, b_ = J["thigh_" + sd] + np.array([0, 0, 0.06]), J["foot_" + sd] + np.array([0, 0, 0.07])
-        st = TR.surface_strip(S, a_, b_, np.array([sx, 0, 0.0]), width, man.col, name="Stripe_leg_" + sd, reach=0.35)
+        path = [J["thigh_" + sd] + np.array([0, 0, 0.06]), J["calf_" + sd], J["foot_" + sd] + np.array([0, 0, 0.07])]
+        st = TR.surface_strip(S, path, np.array([sx, 0, 0.0]), width, man.col, name="Stripe_leg_" + sd)
         parts.append(("Stripe", tag(st, "tape", "stripe"), "cloth", None))
 
 
