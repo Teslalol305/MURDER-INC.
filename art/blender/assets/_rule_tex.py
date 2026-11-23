@@ -188,6 +188,8 @@ def skin_texels(R, P, N, region, side, charts):
                 continue
             dj = tt[m] - jt
             ring = np.exp(-(dj / 0.0055) ** 2) * dors
+            if j == 0:                                     # behind the knuckle the chain is clipped (t = 0): the
+                ring *= T.smoothstep(0.0005, 0.006, tt[m])  # metacarpal head darkening below covers it smoothly
             dark = ring * k * (0.75 + 0.25 * T.noise(P[m], 1 / 0.004, 40 + j))
             bc[m] = bc[m] * (1 - 0.45 * dark)[:, None] + KNUCKLE[None] * (0.45 * dark)[:, None]
             # wrinkles across the joint, curved toward the tip at the sides
