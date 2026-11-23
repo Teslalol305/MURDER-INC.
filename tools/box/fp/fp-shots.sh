@@ -73,6 +73,15 @@ for i in 1 2 3 4 5 6 7 8; do
 done
 tail -n +"$m2" "$log" | grep -m1 "MIFreezeOn: enemyfire" || echo "no Goon fired in sight"
 want fp-goon && shot fp-goon
+# 9b the same at 5 m (the support hand on the SMG, the body turned onto the aim)
+if want fp-goon-5; then
+  c "slomo 1"; m3=$(wc -l < "$log"); c "MIFreezeOn enemyfire 0.012"
+  for i in 1 2 3 4 5 6 7 8; do
+    c "MIFaceEnemy 5"; c "slomo 1"; sleep 6
+    tail -n +"$m3" "$log" | grep -q "MIFreezeOn: enemyfire" && break
+  done
+  shot fp-goon-5
+fi
 # 10 an explosion: the nearest explosive, from 9 m, shot until it blows
 cat > "$PIE_PY/_boom.py" <<'PY'
 import math, unreal
