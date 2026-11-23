@@ -129,16 +129,22 @@ F = cr.get_forward_vector()
 # end-on disc with the word at its rim), so it is seen from 30 degrees toward the wrist, past the upper arm
 th = 0.0 if sx == "l" else 30.0
 # the gun hidden for the close-up (the CHOPPER's pistol grip, in the right hand, stands between the eye and the word)
-# (everything attached under the arms but the bracelet; the guns are not the pawn's own components)
+# (every drawn part of the pawn and of what hangs under the arms but the arms and the bracelet: the gun's parts are
+# separate components on the gun, and set_visibility alone left them drawn)
 hidden = []
-for comp in arms.get_children_components(True):
-    if not isinstance(comp, unreal.PrimitiveComponent) or not comp.is_visible():
+comps = list(pawn.get_components_by_class(unreal.PrimitiveComponent)) + list(arms.get_children_components(True))
+for actor in pawn.get_attached_actors():
+    comps += list(actor.get_components_by_class(unreal.PrimitiveComponent))
+for comp in comps:
+    if comp == arms or not isinstance(comp, unreal.PrimitiveComponent):
         continue
     mesh = comp.static_mesh if isinstance(comp, unreal.StaticMeshComponent) else None
     if mesh and "Bracelet" in mesh.get_name():
         continue
-    comp.set_visibility(False, False)
+    comp.set_hidden_in_game(True, True)
+    comp.set_visibility(False, True)
     hidden.append(comp.get_name())
+hidden = sorted(set(hidden))
 v = (n * M.cos(M.degrees_to_radians(th)) - A * M.sin(M.degrees_to_radians(th))).normal()
 newp = C + F * 30.0
 cur = unreal.Transform(p, M.make_rot_from_yx(v, A), unreal.Vector(1, 1, 1))
