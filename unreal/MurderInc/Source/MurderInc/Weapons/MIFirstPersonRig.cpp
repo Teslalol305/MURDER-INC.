@@ -759,7 +759,15 @@ void UMIFirstPersonRig::DropMagazine(bool bFull)
 {
 	UStaticMeshComponent* Seated = SeatedMag.Get();
 	UWorld* World = GetWorld();
-	UStaticMesh* Mesh = bFull ? (Seated ? Seated->GetStaticMesh() : MagFull.Get()) : (MagEmpty ? MagEmpty.Get() : MagFull.Get());
+	UStaticMesh* Mesh = MagFull.Get();
+	if (bFull && Seated && Seated->GetStaticMesh())
+	{
+		Mesh = Seated->GetStaticMesh();
+	}
+	else if (!bFull && MagEmpty)
+	{
+		Mesh = MagEmpty.Get();
+	}
 	if (!World || !Seated || !Mesh || !Weapon || !Camera)
 	{
 		return;

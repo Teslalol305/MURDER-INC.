@@ -61,6 +61,13 @@ public:
 	/** Debug: stand Metres (default 8) from the nearest living enemy, looking at it. */
 	UFUNCTION(Exec)
 	void MIFaceEnemy(float Metres);
+	/** Dev: MIFreezeAfter <seconds>: after that much game time the world's time nearly stops (time dilation 0.0001),
+	 *  so a headless picture catches one instant of an animation or effect; `slomo 1` resumes. Not in shipping builds. */
+	UFUNCTION(Exec)
+	void MIFreezeAfter(float Seconds);
+	/** Dev: MIFreezeOn <enemyfire|explosion|fire> [delay]: freeze (as MIFreezeAfter) that long after the next such event. */
+	UFUNCTION(Exec)
+	void MIFreezeOn(const FString& Event, float Delay);
 
 	/** The four-gun input layer: the wheel's state for the HUD (LOADOUT.md 4.6). */
 	const FMISwitchInput& GetSwitch() const { return Switch; }
@@ -74,6 +81,10 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
 	virtual void PlayerTick(float DeltaTime) override;
+	float FreezeIn = -1.f;
+	FName FreezeEvent;
+	float FreezeDelay = 0.f;
+	bool bFreezeBound = false;
 
 private:
 	AMIPlayerCharacter* GetMICharacter() const;

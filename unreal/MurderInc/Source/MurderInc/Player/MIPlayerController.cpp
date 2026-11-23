@@ -1,5 +1,9 @@
 #include "Player/MIPlayerController.h"
 
+#include "Kismet/GameplayStatics.h"
+#include "Core/MIEvents.h"
+#include "Enemies/MIEnemies.h"
+
 #include "Core/Data/MIDataSubsystem.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -287,6 +291,13 @@ void AMIPlayerController::FlushSwitch()
 void AMIPlayerController::PlayerTick(float DeltaTime)
 {
 	Super::PlayerTick(DeltaTime);
+#if !UE_BUILD_SHIPPING
+	if (FreezeIn >= 0.f && (FreezeIn -= DeltaTime) < 0.f)
+	{
+		UGameplayStatics::SetGlobalTimeDilation(this, 0.0001f);
+		FreezeIn = -1.f;
+	}
+#endif
 	Switch.Tick(Now());
 	FlushSwitch();
 }
@@ -322,11 +333,38 @@ void AMIPlayerController::MIInput(const FString& Action, float Value)
 	else if (A == TEXT("wheelx")) Switch.Stick(FVector2D(Value, 0.0));
 	else if (A == TEXT("wheely")) Switch.Stick(FVector2D(0.0, Value));
 	else if (A == TEXT("melee")) S.bMeleePressed |= bDown;
+	else if (A == TEXT("inspect")) S.bInspectPressed |= bDown;
 	else if (A == TEXT("weapon1")) S.bWeapon1Pressed |= bDown;
 	else if (A == TEXT("weapon2")) S.bWeapon2Pressed |= bDown;
 	else if (A == TEXT("forward")) S.Move.Y = FMath::Clamp(Value, -1.f, 1.f);
 	else if (A == TEXT("right")) S.Move.X = FMath::Clamp(Value, -1.f, 1.f);
 	else UE_LOG(LogMI, Warning, TEXT("MIInput: unknown action '%s'"), *Action);
+}
+
+void AMIPlayerController::MIFreezeAfter(float Seconds)
+{
+#if !UE_BUILD_SHIPPING
+	UGameplayStatics::SetGlobalTimeDilation(this, 1.f);
+	FreezeIn = FMath::Max(0.f, Seconds);
+#endif
+}
+
+void AMIPlayerController::MIFreezeOn(const FString& Event, float Delay)
+{
+#if !UE_BUILD_SHIPPING
+	UGameplayStatics::SetGlobalTimeDilation(this, 1.f);
+	FreezeEvent = FName(*Event.ToLower());
+	FreezeDelay = FMath::Max(0.f, Delay);
+	FMIGameEvents* Events = UMIEventSubsystem::Get(this);
+	if (Events && !bFreezeBound)
+	{
+		bFreezeBound = true;
+		const auto Arm = [this](FName Kind) { if (FreezeEvent == Kind) { FreezeIn = FreezeDelay; FreezeEvent = NAME_None; } };
+		Events->Enemy.AddWeakLambda(this, [Arm](const FMIEnemyEvent& E) { if (E.Kind == FMIEnemyEvent::EKind::Fire) Arm(TEXT("enemyfire")); });
+		Events->Explosion.AddWeakLambda(this, [Arm](const FMIExplosionEvent&) { Arm(TEXT("explosion")); });
+		Events->WeaponFire.AddWeakLambda(this, [Arm](const FMIShotFiredEvent&) { Arm(TEXT("fire")); });
+	}
+#endif
 }
 
 void AMIPlayerController::MIStart(const FString& Mode, const FString& Skip)

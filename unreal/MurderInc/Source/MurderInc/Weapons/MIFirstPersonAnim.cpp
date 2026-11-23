@@ -42,8 +42,8 @@ namespace MIFirstPersonAnimPrivate
 		FTransform LT = CS.GetComponentSpaceTransform(L);
 		FTransform ET = CS.GetComponentSpaceTransform(E);
 		const FTransform E0 = ET;
-		const FCompactPoseBoneIndex PI = Index(H.Palm);
-		const FVector PalmOffset = PI.IsValid() ? CS.GetComponentSpaceTransform(PI).GetLocation() - ET.GetLocation() : FVector::ZeroVector;
+		const FCompactPoseBoneIndex PalmIdx = Index(H.Palm);
+		const FVector PalmOffset = PalmIdx.IsValid() ? CS.GetComponentSpaceTransform(PalmIdx).GetLocation() - ET.GetLocation() : FVector::ZeroVector;
 		const FVector Effector = FMath::Lerp(ET.GetLocation(), H.Target.GetLocation() - PalmOffset, H.Weight);
 		// The elbow keeps bending the way the clip bends it.
 		const FVector Pole = LT.GetLocation() + (LT.GetLocation() - (UT.GetLocation() + ET.GetLocation()) * 0.5) * 2.0;
