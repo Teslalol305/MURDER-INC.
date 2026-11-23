@@ -48,6 +48,16 @@ public:
 	/** MISetup dump: the remembered set-up as JSON. */
 	UFUNCTION(Exec)
 	void MISetup(const FString& Command);
+	/** Dev: MIKey <key> [down|up] [ctrl] [shift]: a real key event through Slate (FSlateApplication::ProcessKeyDownEvent
+	 *  / ProcessKeyUpEvent): to the set-up screens while they are up, else to the game viewport (the controller's own
+	 *  mappings). Key names as FKey (Enter, Tab, Down, Gamepad_Special_Right, Gamepad_FaceButton_Bottom, Q, Three ...).
+	 *  Not in shipping builds. */
+	UFUNCTION(Exec)
+	void MIKey(const FString& Command);
+	/** Dev: MIViewSize <width> <height>: resizes the window around the game viewport so the viewport is that size
+	 *  (picture checks at 16:9, 21:9 and 3840 x 2160 in the headless editor). Not in shipping builds. */
+	UFUNCTION(Exec)
+	void MIViewSize(int32 Width, int32 Height);
 	/** Debug: stand Metres (default 8) from the nearest living enemy, looking at it. */
 	UFUNCTION(Exec)
 	void MIFaceEnemy(float Metres);

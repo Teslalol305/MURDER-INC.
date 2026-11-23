@@ -423,6 +423,10 @@ void AMIPlayerController::MISetup(const FString& Command)
 	}
 	if (Verb == TEXT("overlay"))
 	{
+#if UE_BUILD_SHIPPING
+		UE_LOG(LogMI, Warning, TEXT("MISetup overlay: dev only, not in shipping builds"));
+		return;
+#else
 		UMIDataSubsystem* Data = GetGameInstance() ? GetGameInstance()->GetSubsystem<UMIDataSubsystem>() : nullptr;
 		FString Text;
 		TSharedPtr<FJsonObject> Root;
@@ -440,11 +444,64 @@ void AMIPlayerController::MISetup(const FString& Command)
 			UE_LOG(LogMI, Error, TEXT("MISetup overlay: cannot read %s"), *Arg);
 		}
 		return;
+#endif
 	}
 	if (const UMIRunSetupSubsystem* S = UMIRunSetupSubsystem::Get(this))
 	{
 		UE_LOG(LogMI, Log, TEXT("MISetup: %s"), *S->GetSetup().ToJsonString());
 	}
+}
+
+void AMIPlayerController::MIKey(const FString& Command)
+{
+#if !UE_BUILD_SHIPPING
+	TArray<FString> Parts;
+	Command.ParseIntoArrayWS(Parts);
+	const FKey K = Parts.Num() > 0 ? FKey(FName(*Parts[0])) : FKey();
+	if (!K.IsValid() || !FSlateApplication::IsInitialized())
+	{
+		UE_LOG(LogMI, Error, TEXT("MIKey: unknown key '%s'"), *Command);
+		return;
+	}
+	const bool bCtrl = Parts.Contains(TEXT("ctrl")), bShift = Parts.Contains(TEXT("shift"));
+	const bool bDownOnly = Parts.Contains(TEXT("down")), bUpOnly = Parts.Contains(TEXT("up"));
+	UMIGameSubsystem* G = UMIGameSubsystem::Get(this);
+	UMIFrontEnd* F = G ? G->GetFrontEnd() : nullptr;
+	bool bHandled = false;
+	if (F && F->IsShown())
+	{
+		bHandled = bUpOnly ? F->SendKey(K, false, bCtrl, bShift) : bDownOnly ? F->SendKey(K, true, bCtrl, bShift) : F->PressKey(K, bCtrl, bShift);
+		UE_LOG(LogMI, Log, TEXT("MIKey %s: %s, screen %s%s"), *Command, bHandled ? TEXT("handled") : TEXT("not handled"), *FMIFrontEndRules::ScreenName(F->GetRules().GetScreen()), F->bOnNext ? TEXT(" (Next focused)") : TEXT(""));
+		return;
+	}
+	// The run: the game viewport takes the key, as from the keyboard or the pad.
+	FSlateApplication& App = FSlateApplication::Get();
+	App.SetAllUserFocusToGameViewport();
+	const FModifierKeysState Mods(bShift, false, bCtrl, false, false, false, false, false, false);
+	if (!bUpOnly) bHandled = App.ProcessKeyDownEvent(FKeyEvent(K, Mods, 0, false, 0, 0));
+	if (!bDownOnly) App.ProcessKeyUpEvent(FKeyEvent(K, Mods, 0, false, 0, 0));
+	UE_LOG(LogMI, Log, TEXT("MIKey %s: to the game viewport, %s"), *Command, bHandled ? TEXT("handled") : TEXT("not handled"));
+#endif
+}
+
+void AMIPlayerController::MIViewSize(int32 Width, int32 Height)
+{
+#if !UE_BUILD_SHIPPING
+	UGameViewportClient* Client = GetWorld() ? GetWorld()->GetGameViewport() : nullptr;
+	TSharedPtr<SViewport> Widget = Client ? Client->GetGameViewportWidget() : nullptr;
+	TSharedPtr<SWindow> Window = Widget.IsValid() && FSlateApplication::IsInitialized() ? FSlateApplication::Get().FindWidgetWindow(Widget.ToSharedRef()) : nullptr;
+	if (!Window.IsValid() || Width < 64 || Height < 64)
+	{
+		UE_LOG(LogMI, Error, TEXT("MIViewSize: no window around the game viewport"));
+		return;
+	}
+	FVector2D Now;
+	Client->GetViewportSize(Now);
+	const FVector2D Win = Window->GetSizeInScreen();
+	Window->Resize(Win + FVector2D(Width, Height) - Now);
+	UE_LOG(LogMI, Log, TEXT("MIViewSize: viewport %.0f x %.0f in a %.0f x %.0f window -> window %.0f x %.0f (asked %d x %d; call again after a redraw to settle)"),
+		Now.X, Now.Y, Win.X, Win.Y, Win.X + Width - Now.X, Win.Y + Height - Now.Y, Width, Height);
+#endif
 }
 
 void AMIPlayerController::MIInteract(float Value)

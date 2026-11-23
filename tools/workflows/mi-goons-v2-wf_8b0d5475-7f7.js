@@ -47,4 +47,18 @@ const f1 = await agent(FIX(r1), { label: 'goons:rebuild', phase: 'Rebuild', sche
 if (!f1) return { r1, f1: null }
 phase('Re-review')
 const r2 = await agent(REVIEW(2, { summary: f1.summary, fixed: f1.fixed, not_fixed: f1.not_fixed }), { label: 'goons:review-2', phase: 'Re-review', schema: R_SCHEMA, effort: 'high', model: 'opus' })
-return { first_grades: r1.goons.map(g => ({ name: g.name, grade: g.grade })), rebuild: f1, final: r2 }
+if (!r2) return { r1, f1, r2: null }
+// ---- Round 3 (added by the lead after r2): the masks read as a racial caricature at 3-8 m; that must never ship.
+const R3 = `
+
+LEAD'S DIRECTION FOR THIS PASS (newer than everything above, and it overrides the earlier mask direction):
+1. MASKS, top priority, non-negotiable. The re-review found that black knit with tan skin rings around large bright eye whites and orange lips in a round mouth hole reads as a blackface / minstrel caricature at 3 to 8 m. That must never ship in any form. Redesign the faces so that cannot be read: no visible lips and no round mouth hole (closed knit over the mouth, or a bandana over nose and mouth); no skin ring around the eyes (eye openings small, recessed into the knit thickness, deep in shadow, the eyes behind dark-irised with eye-white albedo about 0.35 and lids covering the top of the iris), or dark wraparound sunglasses over the openings; masks in charcoal, dark olive and dark navy heather (albedo 0.06-0.10), each Goon different; real knit at 2-3 mm rib in the normal map only. Check the read yourself at 3 m and 8 m in Unreal and in Blender, and write down plainly why the new faces cannot be read as a caricature.
+2. The dark folds: follow the reviewer's lighting finding (ground-coloured SkyLight lower hemisphere in the staging scene and in the game's own lighting rig if it has the same fault: say which), find out why Lumen does not reach the cloth in the captures, and fix the geometry cause (simulate at final density, no subdivide-and-smooth afterwards; bake high-res fold normals).
+3. Then the remaining faults the reviewer lists, worst first: fleece construction (seams, pocket, drop shoulder, ribbing), the puffer silhouette (no muscle-suit read: loftier, boxier, sleeves without balloons, matte nylon), gloves and sneakers as modelled forms.
+`
+const f2 = await agent(FIX(r2) + R3, { label: 'goons:rebuild-3', phase: 'Rebuild', schema: F_SCHEMA, effort: 'high', model: 'opus' })
+if (!f2) return { r1, f1, r2, f2: null }
+const r3 = await agent(REVIEW(3, { summary: f2.summary, fixed: f2.fixed, not_fixed: f2.not_fixed }) + `
+
+Also answer explicitly, in overall: could any of the three faces be read as a racial caricature at any distance? Say yes or no and why.`, { label: 'goons:review-3', phase: 'Re-review', schema: R_SCHEMA, effort: 'high', model: 'opus' })
+return { first_grades: r1.goons.map(g => ({ name: g.name, grade: g.grade })), r2_grades: r2.goons.map(g => ({ name: g.name, grade: g.grade })), rebuild3: f2, final: r3 }

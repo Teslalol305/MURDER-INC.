@@ -6,6 +6,10 @@
 #include "Flow/MISettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/AutomationTest.h"
+#include "Misc/Paths.h"
+#include "UI/MIFrontEnd.h"
+#include "UI/MIStyle.h"
+#include "UI/SMIMark.h"
 #include "Weapons/MILoadoutResolver.h"
 #include "Weapons/MIWeaponRules.h"
 
@@ -277,6 +281,37 @@ bool FMISaveSetupValidationTest::RunTest(const FString& Parameters)
 	C.Guns = {TEXT("stick")};
 	Clean.Validate(C);
 	TestEqual(TEXT("clean checkout: the parity guns"), C.Guns, F.Data.ParityGuns);
+	return !HasAnyErrors();
+}
+
+// LOADOUT.md 2.6 and 2.11: every character the set-up screens draw from frontend_text.json and text.json is in a face in
+// use or in the symbol face behind it (an empty box otherwise), read from the fonts' own character maps.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIFrontendGlyphsTest, "MurderInc.Frontend.Glyphs", MIFrontEndTestsPrivate::Flags)
+
+bool FMIFrontendGlyphsTest::RunTest(const FString& Parameters)
+{
+	for (const FString& File : MIStyle::FaceFiles())
+	{
+		TestTrue(TEXT("the character map of ") + FPaths::GetCleanFilename(File) + TEXT(" reads"), MIStyle::FontHasGlyphs(File));
+	}
+	TestTrue(TEXT("the symbol face reads: ") + FPaths::GetCleanFilename(MIStyle::SymbolFontFile()), MIStyle::FontHasGlyphs(MIStyle::SymbolFontFile()));
+	TArray<FString> Drawn;
+	for (const TCHAR* Name : {TEXT("frontend_text.json"), TEXT("text.json")})
+	{
+		TSharedPtr<FJsonObject> Root;
+		FString Error;
+		if (TestTrue(FString::Printf(TEXT("%s loads"), Name), UMIDataSubsystem::LoadJsonFile(Name, Root, Error)))
+		{
+			UMIFrontEnd::CollectDrawnText(Root, Drawn);
+		}
+	}
+	TestTrue(TEXT("strings to draw"), Drawn.Num() > 100);
+	const FString Missing = MIStyle::MissingGlyphs(FString::Join(Drawn, TEXT("")));
+	FString Codes;
+	for (const TCHAR C : Missing) Codes += FString::Printf(TEXT(" U+%04X"), static_cast<int32>(C));
+	TestTrue(TEXT("every drawn character has a glyph; missing:") + Codes, Missing.IsEmpty());
+	// The marks the rules put on effect lines (better, worse, neutral) are drawn as shapes, never as characters.
+	TestEqual(TEXT("a mark is a shape"), static_cast<int32>(SMIMark::ForSign(1)), static_cast<int32>(SMIMark::EKind::Up));
 	return !HasAnyErrors();
 }
 

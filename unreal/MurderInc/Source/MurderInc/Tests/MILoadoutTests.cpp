@@ -2,7 +2,10 @@
 
 #include "Core/Data/MIDataSubsystem.h"
 #include "Core/Data/MILoadoutData.h"
+#include "Engine/SkeletalMesh.h"
+#include "Engine/StaticMesh.h"
 #include "Misc/AutomationTest.h"
+#include "Misc/Paths.h"
 #include "World/MILevelData.h"
 #include "Weapons/MILoadoutResolver.h"
 #include "Weapons/MIViewmodel.h"
@@ -182,6 +185,112 @@ bool FMILoadoutParityResolveTest::RunTest(const FString& Parameters)
 		&& A.LowAmmoFraction == B.LowAmmoFraction && A.TracerSpeed == B.TracerSpeed && A.AimRange == B.AimRange);
 	TestTrue(TEXT("melee"), Run.Weapons.Melee.Damage == Config.Weapons.Melee.Damage && Run.Weapons.Melee.Reach == Config.Weapons.Melee.Reach);
 	TestTrue(TEXT("viewmodel fov"), Run.View.ViewmodelFov == View.ViewmodelFov && Run.View.FirstPersonScale == View.FirstPersonScale);
+	return !HasAnyErrors();
+}
+
+// LOADOUT.md 8.6: every mount and variant the data marks `exists` has its mesh and its sockets on the imported pack
+// meshes. A clean checkout has no pack meshes (licence, 6.7): then there is nothing to check and the test says so.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMILoadoutMountsExistTest, "MurderInc.Loadout.MountsExist", MILoadoutTestsPrivate::Flags)
+
+bool FMILoadoutMountsExistTest::RunTest(const FString& Parameters)
+{
+	using namespace MILoadoutTestsPrivate;
+	FMILoadoutData D;
+	if (!LoadData(*this, D))
+	{
+		return false;
+	}
+	const FMIAssetExists Exists = FMIReadiness::PackageExists();
+	int32 Meshes = 0, Sockets = 0, Absent = 0;
+	const auto HasSocket = [](const UObject* Mesh, FName Socket)
+	{
+		if (const USkeletalMesh* S = Cast<USkeletalMesh>(Mesh)) return S->FindSocket(Socket) != nullptr || S->GetRefSkeleton().FindBoneIndex(Socket) != INDEX_NONE;
+		if (const UStaticMesh* S = Cast<UStaticMesh>(Mesh)) return S->FindSocket(Socket) != nullptr;
+		return false;
+	};
+	for (const TPair<FName, FMIGunEntry>& Pair : D.Guns)
+	{
+		const FMIGunEntry& G = Pair.Value;
+		for (const TPair<FName, FMIGunVariant>& V : G.Variants)
+		{
+			if (V.Value.Status != TEXT("exists") || V.Value.Mesh.IsEmpty())
+			{
+				continue;
+			}
+			// The variant's mesh and its irons-folded twin (used whenever an optic is fitted).
+			TArray<FString> Paths = {V.Value.Mesh};
+			const FString Optic = MIJson::StringOr(D.GunsJson, FString::Printf(TEXT("guns.%s.variants.%s.opticMesh"), *G.Id.ToString(), *V.Key.ToString()));
+			if (!Optic.IsEmpty()) Paths.Add(Optic);
+			for (const FString& Path : Paths)
+			{
+				if (!Exists(Path))
+				{
+					++Absent;
+					continue;
+				}
+				const UObject* Mesh = FSoftObjectPath(Path).TryLoad();
+				const FString L = FString::Printf(TEXT("%s %s (%s)"), *G.Id.ToString(), *V.Key.ToString(), *FPaths::GetBaseFilename(Path));
+				if (!TestNotNull(L + TEXT(": the mesh loads"), Mesh))
+				{
+					continue;
+				}
+				++Meshes;
+				for (const TPair<FName, FMIGunMount>& M : G.Mounts)
+				{
+					if (M.Value.Status == TEXT("exists"))
+					{
+						TestTrue(FString::Printf(TEXT("%s: mount %s has socket %s"), *L, *M.Key.ToString(), *M.Value.Socket.ToString()), HasSocket(Mesh, M.Value.Socket));
+						++Sockets;
+					}
+				}
+				// The viewmodel sockets every variant carries (presentation.sockets).
+				if (const TSharedPtr<FJsonValue> S = MIJson::Get(G.Presentation, TEXT("sockets")); S.IsValid() && S->Type == EJson::Object)
+				{
+					for (const auto& Socket : S->AsObject()->Values)
+					{
+						if (Socket.Value->Type == EJson::String && FString(*Socket.Key) != TEXT("note"))
+						{
+							TestTrue(FString::Printf(TEXT("%s: socket %s"), *L, *Socket.Value->AsString()), HasSocket(Mesh, FName(*Socket.Value->AsString())));
+							++Sockets;
+						}
+					}
+				}
+			}
+		}
+	}
+	// The parts: their meshes and the sockets their presentation names.
+	for (const TPair<FName, FMIAttachmentDef>& Pair : D.Attachments)
+	{
+		const FMIAttachmentDef& A = Pair.Value;
+		if (A.ArtStatus != TEXT("exists") || A.Mesh.IsEmpty())
+		{
+			continue;
+		}
+		if (!Exists(A.Mesh))
+		{
+			++Absent;
+			continue;
+		}
+		const UObject* Mesh = FSoftObjectPath(A.Mesh).TryLoad();
+		if (!TestNotNull(A.Id.ToString() + TEXT(": the part's mesh loads"), Mesh))
+		{
+			continue;
+		}
+		++Meshes;
+		for (const TPair<FName, FName>& S : A.Sockets)
+		{
+			TestTrue(FString::Printf(TEXT("%s: socket %s"), *A.Id.ToString(), *S.Value.ToString()), HasSocket(Mesh, S.Value));
+			++Sockets;
+		}
+	}
+	if (Meshes == 0)
+	{
+		AddInfo(FString::Printf(TEXT("The pack is not installed here (%d meshes the data names are absent): nothing to check (LOADOUT.md 6.7)."), Absent));
+	}
+	else
+	{
+		AddInfo(FString::Printf(TEXT("%d pack meshes, %d sockets checked; %d named meshes absent"), Meshes, Sockets, Absent));
+	}
 	return !HasAnyErrors();
 }
 

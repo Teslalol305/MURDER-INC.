@@ -23,6 +23,11 @@
 #include "Weapons/MILoadoutResolver.h"
 #include "Flow/MIRunSetupSubsystem.h"
 #include "InputCoreTypes.h"
+#include "EnhancedInputSubsystems.h"
+#include "Engine/LocalPlayer.h"
+#include "InputKeyEventArgs.h"
+#include "Player/MIPlayerController.h"
+#include "Enemies/MIEnemies.h"
 
 #if WITH_AUTOMATION_TESTS
 
@@ -760,6 +765,208 @@ bool FMILoadoutParityPIETest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("... on the Briefing"), F->GetRules().GetScreen(), EMIFrontScreen::Briefing);
 		TestTrue(TEXT("the front end is up"), F->IsShown());
 	}
+	return !HasAnyErrors();
+}
+
+namespace MIRunTestsPrivate
+{
+	/** Boots the title, makes every pack mesh count as present (so a clean checkout offers the pack guns and parts) and
+	 *  starts a run with Setup through Hit the block; returns once the run plays and the first gun is up. */
+	UMIFrontEnd* StartWith(FAutomationTestBase& T, FRunWorld& W, TFunction<void(FMIRunSetup&)> Edit)
+	{
+		UMIFrontEnd* F = BootTitle(T, W);
+		if (!F)
+		{
+			return nullptr;
+		}
+		F->GetRules().EditReadinessForTest().AssetExists = [](const FString&) { return true; };
+		FMIRunSetup& S = F->GetRules().EditSetup();
+		Edit(S);
+		S.bPlayed = true;
+		F->Act(TEXT("hit"));
+		for (int32 I = 0; I < 30 * 4 && W.State() != EMIGameState::Playing; ++I) W.Step();
+		T.TestEqual(TEXT("playing"), (int32)W.State(), (int32)EMIGameState::Playing);
+		for (int32 I = 0; I < 60; ++I) W.Step();
+		return F;
+	}
+
+	/** One round from the current gun. */
+	void FireOnce(FRunWorld& W)
+	{
+		FMIPlayerInputState& In = W.Player->GetInput();
+		In.bFirePressed = true;
+		In.bFire = true;
+		W.Step();
+		In.bFire = false;
+		W.Step();
+	}
+}
+
+// LOADOUT.md 8.2 probes in play: a set-up that is not the parity one (the STICK with the scope and the silencer, then a
+// bare CHOPPER) reaches the weapon component through the run reset, the aimed view narrows to the scope's 30 degrees,
+// and the silenced round is heard 18 m out where the bare one is heard 45 m out (the cm -> m step of the listener).
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMILoadoutBuildPIETest, "MurderInc.Loadout.BuildPIE", MITest::Flags)
+
+bool FMILoadoutBuildPIETest::RunTest(const FString& Parameters)
+{
+	using namespace MIRunTestsPrivate;
+	FRunWorld W;
+	UMIFrontEnd* F = StartWith(*this, W, [](FMIRunSetup& S)
+	{
+		S.Guns = {TEXT("stick"), TEXT("chopper")};
+		FMIGunBuild& B = S.Builds.FindOrAdd(TEXT("stick"));
+		B.Parts.Add(TEXT("optic"), TEXT("scope"));
+		B.Parts.Add(TEXT("muzzle"), TEXT("silencer"));
+	});
+	if (!F)
+	{
+		return false;
+	}
+	// The weapon component holds the resolver's output for this set-up, not config.json's.
+	const FMIWeaponRules& Rules = W.Player->GetWeapon()->GetRules();
+	FMIResolvedRun Run;
+	FString Error;
+	FMIRunSetup Expected = F->GetRules().GetSetup();
+	F->GetReadiness().Validate(Expected);
+	TSharedPtr<FJsonObject> Config, Presentation;
+	if (!TestTrue(TEXT("the set-up resolves"), FMILoadoutResolver::LoadRoots(Config, Presentation, Error)
+		&& FMILoadoutResolver(F->GetRules().GetData(), Config, Presentation).Resolve(Expected, &F->GetReadiness(), Run, Error)))
+	{
+		AddError(Error);
+		return false;
+	}
+	if (!TestEqual(TEXT("two guns"), Rules.NumGuns(), 2))
+	{
+		return false;
+	}
+	for (int32 I = 0; I < 2; ++I)
+	{
+		const FMIWeaponDef& A = Rules.GetData().Guns[I];
+		const FMIWeaponDef& B = Run.Weapons.Guns[I];
+		TestTrue(FString::Printf(TEXT("gun %d = the resolver's output for the set-up"), I), A.Id == B.Id && A.Damage == B.Damage && A.Interval() == B.Interval()
+			&& A.Spread.Ads == B.Spread.Ads && A.AdsTime == B.AdsTime && A.AdsFov == B.AdsFov && A.NoiseRadius == B.NoiseRadius && A.bSuppressed == B.bSuppressed);
+	}
+	const FMIWeaponDef& Stick = Rules.GetData().Guns[0];
+	TestEqual(TEXT("slot 1 is the STICK"), Stick.Id, FName(TEXT("stick")));
+	TestEqual(TEXT("the scope's aimed view"), Stick.AdsFov, 30.0);
+	TestEqual(TEXT("the silencer's noise radius (cm)"), Stick.NoiseRadius, 1800.0);
+	TestTrue(TEXT("suppressed"), Stick.bSuppressed);
+	TestEqual(TEXT("the CHOPPER is bare: heard 45 m out"), Rules.GetData().Guns[1].NoiseRadius, 4500.0);
+
+	// The aimed view at full aim: the scope's 30 degrees (vertical), not the bare gun's.
+	FMIPlayerInputState& In = W.Player->GetInput();
+	In.bAds = true;
+	for (int32 I = 0; I < 30 * 3; ++I) W.Step();
+	TestNearlyEqual(TEXT("the view at full aim is 30 degrees"), W.Player->GetPlayerRules().ViewFov, 30.0, 0.05);
+	In.bAds = false;
+	for (int32 I = 0; I < 30 * 2; ++I) W.Step();
+
+	// Noise: two Goons facing away, 30 m and 15 m out. The silenced round reaches the near one only.
+	FMIEnemyField& Field = W.Game->GetEnemies();
+	const FVector Me = W.Game->PlayerFeetWeb();
+	FMIEnemySpawnOptions Away;
+	Away.Yaw = 0.0;
+	const FMIEnemy* Far = Field.Spawn(MIEnemy::EType::Goon, Me + FVector(30.0, 0.0, 0.0), Away);
+	const FMIEnemy* Near = Field.Spawn(MIEnemy::EType::Goon, Me + FVector(-15.0, 0.0, 0.0), Away);
+	if (!TestTrue(TEXT("two listeners"), Far && Near))
+	{
+		return false;
+	}
+	const int32 FarId = Far->Id, NearId = Near->Id;
+	const auto Heard = [&Field](int32 Id) { const FMIEnemy* E = Field.Find(Id); return E && E->Mode == EMIEnemyMode::Investigate; };
+	TestFalse(TEXT("nobody listening yet"), Heard(FarId) || Heard(NearId));
+	FireOnce(W);
+	TestTrue(TEXT("silenced: heard at 15 m"), Heard(NearId));
+	TestFalse(TEXT("silenced: not heard at 30 m"), Heard(FarId));
+	// The bare CHOPPER: heard 45 m out.
+	In.bWeapon2Pressed = true;
+	for (int32 I = 0; I < 30 * 2; ++I) W.Step();
+	TestEqual(TEXT("the CHOPPER is up"), Rules.GetCurrentIndex(), 1);
+	FireOnce(W);
+	TestTrue(TEXT("bare: heard at 30 m"), Heard(FarId));
+	return !HasAnyErrors();
+}
+
+// LOADOUT.md 8.4 through the controller's own key mappings: a real local player and AMIPlayerController with its
+// Enhanced Input mapping context; keys go in through APlayerController::InputKey, as the viewport sends them.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIControllerKeysTest, "MurderInc.Player.ControllerKeys", MITest::Flags)
+
+bool FMIControllerKeysTest::RunTest(const FString& Parameters)
+{
+	using namespace MIRunTestsPrivate;
+	FRunWorld W;
+	UMIFrontEnd* F = StartWith(*this, W, [](FMIRunSetup& S)
+	{
+		S.Guns = {TEXT("chopper"), TEXT("nine"), TEXT("stick"), TEXT("stretch")};
+	});
+	if (!F)
+	{
+		return false;
+	}
+	ULocalPlayer* LP = NewObject<ULocalPlayer>(GEngine);
+	LP->PlayerAdded(nullptr, 0);
+	AMIPlayerController* PC = W.World->SpawnActor<AMIPlayerController>();
+	if (!TestNotNull(TEXT("controller"), PC))
+	{
+		return false;
+	}
+	PC->SetPlayer(LP);
+	PC->Possess(W.Player);
+	UEnhancedInputLocalPlayerSubsystem* Sub = LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>();
+	if (TestNotNull(TEXT("Enhanced Input on the local player"), Sub))
+	{
+		FModifyContextOptions Now;
+		Now.bForceImmediately = true;
+		Sub->RequestRebuildControlMappings(Now);
+	}
+	const FMIWeaponRules& Rules = W.Player->GetWeapon()->GetRules();
+	TestEqual(TEXT("four guns"), Rules.NumGuns(), 4);
+	const auto Key = [&](const FKey& K, EInputEvent E)
+	{
+		PC->InputKey(FInputKeyEventArgs(nullptr, FInputDeviceId::CreateFromInternalId(0), K, E, E == IE_Released ? 0.f : 1.f, false, FPlatformTime::Cycles64()));
+	};
+	const auto Tap = [&](const FKey& K, int32 HoldFrames = 2)
+	{
+		Key(K, IE_Pressed);
+		for (int32 I = 0; I < HoldFrames; ++I) W.Step();
+		Key(K, IE_Released);
+		W.Step();
+	};
+	const auto Settle = [&]() { for (int32 I = 0; I < 45; ++I) W.Step(); };
+	// 3: slot 3.
+	Tap(EKeys::Three);
+	Settle();
+	TestEqual(TEXT("3 selects slot 3"), Rules.GetCurrentIndex(), 2);
+	// A Q tap with four guns swaps on release, back to the last gun used.
+	Tap(EKeys::Q, 2);
+	Settle();
+	TestEqual(TEXT("a Q tap goes back to the last gun"), Rules.GetCurrentIndex(), 0);
+	// A Q hold opens the wheel after wheel.hold; release shuts it.
+	Key(EKeys::Q, IE_Pressed);
+	for (int32 I = 0; I < 12; ++I) W.Step();
+	TestTrue(TEXT("holding Q opens the wheel"), PC->GetSwitch().IsWheelOpen());
+	Key(EKeys::Q, IE_Released);
+	W.Step();
+	TestFalse(TEXT("releasing Q shuts the wheel"), PC->GetSwitch().IsWheelOpen());
+	Settle();
+	// The pad: D-pad right is slot 2.
+	Tap(EKeys::Gamepad_DPad_Right);
+	Settle();
+	TestEqual(TEXT("D-pad right selects slot 2"), Rules.GetCurrentIndex(), 1);
+	// The mouse wheel down is next.
+	Tap(EKeys::MouseScrollDown, 1);
+	Settle();
+	TestEqual(TEXT("wheel down: the next gun"), Rules.GetCurrentIndex(), 2);
+	// B flips the selector of a gun with two modes (the STICK).
+	if (Rules.HasTwoModes(2))
+	{
+		const bool bSemi = Rules.IsSemi(2);
+		Tap(EKeys::B);
+		Settle();
+		TestNotEqual(TEXT("B flips the fire mode"), Rules.IsSemi(2), bSemi);
+	}
+	PC->UnPossess();
+	LP->PlayerRemoved();
 	return !HasAnyErrors();
 }
 
