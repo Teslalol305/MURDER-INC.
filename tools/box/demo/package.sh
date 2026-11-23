@@ -46,6 +46,9 @@ BuildConfiguration=PPBC_Development
 +MapsToCook=(FilePath="/Game/Maps/L_Block")
 bUseIoStore=True
 bShareMaterialShaderCode=True
+; The cooker writes into Zen storage by default in 5.9, and the box cannot reach a Zen server (BOX.md section 1):
+; "Failed to delete oplog on the ZenServer" (ZenStoreWriter.cpp) ends the cook. Loose cooked files instead.
+bUseZenStore=False
 EOF
 }
 
