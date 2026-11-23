@@ -978,3 +978,8 @@ Review (art/blender/review/rule_review_r3.py, sheets/rule_r3): arms_fp 1.5, hand
 - Face: no new multi-view photos, so the large forms and the skin texture are still the generated head's (2K upscaled);
   the neck join still shows a faint band and crease. Bandana: still the generated cap shape (no folded band, knot
   remodel or bare scalp above it).
+
+
+### Lead note: independent re-review of Rule round 3 (for the hands and tattoos pass)
+
+Grades: arms in first person 2, hands 2, tattoos 2, face 2, body 3. The full fault list with measured contact gaps and fixes is in `art/blender/review/rule_r3_final_review.json`: read it before working on the hands. Most visible: the forearm is a smooth tan tube with only a faint smudge for the tattoo; arms go nearly black under the El (the viewmodel needs its own fill light); the firing hand is cropped at the bottom edge; CHOPPER support fingers stand 11-20 mm off the handguard and the firing fist closes in the air; the NINE two-hand hold intersects (1,428 vertices inside) and needs a thumbs-forward hold; fingers glow red from too much subsurface; nails render black.

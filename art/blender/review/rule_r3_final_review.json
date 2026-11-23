@@ -1,0 +1,80 @@
+{
+ "arms_fp": 2,
+ "hands": 2,
+ "tattoos": 2,
+ "face_likeness": 2,
+ "body": 3,
+ "faults": [
+  {
+   "part": "Support forearm, first person (CHOPPER hip, day)",
+   "wrong": "The left forearm is the largest skin area in the frame. It still reads as a smooth, evenly tan tube: no pores, no fine hair, no veins or tendons, and only a faint smudge where the tattoo should be. It looks like the same plastic as last round, only darker.",
+   "fix": "Add a tiling micro detail normal (pores and hair follicles) on SP_RuleSkin and a roughness variation map. Add forearm hair as cards or groom, push the vein and tendon height on the forearm, and judge it in Unreal with the Substrate skin, not the Cycles stand-in."
+  },
+  {
+   "part": "First person in the open shade under the El (both guns)",
+   "wrong": "The arms and gun fall to nearly black silhouettes. The hands have no readable form, and only the chrome bracelet holds detail.",
+   "fix": "Give the viewmodel its own lighting: a lighting channel or FP fill and rim light tied to the sky colour, with enough bounce from Lumen. Then retest the albedo, which is now dark enough to vanish in shade."
+  },
+  {
+   "part": "Firing hand at the hip (CHOPPER)",
+   "wrong": "The right hand sits at the bottom edge of the frame as a dark, cropped blob. The player never sees the trigger hand, and the gun's receiver and stock dominate the right half.",
+   "fix": "Re-author the hip view so the right wrist and the back of the hand sit about 10-15 % above the bottom edge: pull the gun up and in, or roll it a few degrees. Check it in Unreal at FOV 54."
+  },
+  {
+   "part": "CHOPPER grip contact (measured, no render)",
+   "wrong": "Support middle, ring and pinky stand 11-20 mm off the handguard (fingertips 18-28 mm). The firing middle, ring and pinky tips are 37-53 mm from any gun surface, so the fist closes in the air in front of the grip. 324 hand vertices are more than 3 mm inside the gun, and the trigger finger is 2.8 mm into the trigger (3.8 mm aimed).",
+   "fix": "Solve each finger to contact (pad to surface, 0-1 mm) on the handguard and the pistol grip, wrap the firing fingers round the front strap, and back the trigger finger off to its first pad. Export these as per-gun hold poses."
+  },
+  {
+   "part": "NINE two-hand hold",
+   "wrong": "The support index points straight forward past the trigger guard into the air. The support fingers lie straight and spread instead of wrapping the firing fingers, and the support thumb sticks out sideways at the hip. 1,428 hand vertices are more than 1 mm inside the gun or other hand (663 more than 3 mm). The support index is 7.8 mm in and the ring 5.2 mm in. In the hip view the two hands read as one lump.",
+   "fix": "Hand-author a thumbs-forward hold: support fingers curled over the firing fingers under the trigger guard, support thumb along the frame under the slide, firing thumb on top of it. Clear every intersection to 0-1 mm."
+  },
+  {
+   "part": "Skin subsurface on fingers",
+   "wrong": "Thin parts glow saturated red-orange: the fingertips on the hands sheet, the support index in the NINE close-up, and the support fingers in the aimed CHOPPER view. It looks like backlit jelly or sunburn, not skin.",
+   "fix": "Cut the red scatter radius about 2-3x for this scale, lower the subsurface weight on the fingers with a thickness or transmission mask, and desaturate the scatter colour."
+  },
+  {
+   "part": "Nails",
+   "wrong": "They still render as black slits on every fingertip on the hands sheet and as dark grey on the trigger hand.",
+   "fix": "Check that the nail slot gets its own albedo (pale pink-beige with a lunula and free edge), roughness around 0.3 and no AO or cavity darkening from the skin bake. Check the nail UV island is not sampling the dark nail-fold colour."
+  },
+  {
+   "part": "Forearm tattoos",
+   "wrong": "They cannot be seen in any first-person view. In close-up the ink is a faded grey compared with the photo's dark ink. Both pieces run along the forearm, where the photo's lines run across it. The numeral piece reads as mirrored or flipped (IIIXX over an inverted-V line), and the second script line under the blackletter is almost missing.",
+   "fix": "Darken the ink (blue-black, nearly opaque, light bleed only) and rotate both pieces to the photo's across-the-arm reading. Fix the decal UV orientation so the numerals read correctly from outside, restore the script line, and place the pieces on the forearm side the FP camera sees."
+  },
+  {
+   "part": "Hands, form (sheet and body poses)",
+   "wrong": "The fingers are sausages of even thickness, with no dorsal joint wrinkles and no pad volume. The palms are rubber with faint creases, the thumb is a banana, and the back-of-hand tendons barely read. In the body poses the hands are flat paddles.",
+   "fix": "Sculpt the finger joints (taper, knuckle bulges, dorsal wrinkles), deeper palm and flexion creases, and thenar volume. Add knuckle, pad and wrist corrective shapes for the fist and grip poses."
+  },
+  {
+   "part": "Right wrist inside the bracelet (NINE aimed)",
+   "wrong": "A pale, streaky patch on the skin inside the chain, from texture stretch or pleating at 40 degrees of wrist bend.",
+   "fix": "Add a wrist-flexion corrective shape and reduce the hold's wrist bend. Measure the gap from the bracelet to the posed skin."
+  },
+  {
+   "part": "Face likeness (1 m and 3 m against the photo)",
+   "wrong": "The eyes are wide and round with full irises, where the photo has narrow, hooded, intense eyes looking up from under the brow. The lower face and jaw are wide and puffy, where the photo has a lean, angular face with a tapered chin. The moustache is bushy and grey, not the thin dark pencil moustache with a chin patch. The skin is blotchy grey-olive with smeared highlights and a streaked neck join. At 3 m the head looks small on the shoulders.",
+   "fix": "Re-sculpt from the photo: narrow the palpebral fissure, slim the cheeks and jaw, point the chin, and enlarge the head about 5 %. Replace the facial hair with dark, thin groom cards. Re-project or paint a warm brown skin without smears and fix the neck seam."
+  },
+  {
+   "part": "Bandana",
+   "wrong": "It reads as a printed shower cap sitting high, with a white border band across the brow. The photo has a folded red band worn low and angled, knotted at the side with a hanging tail.",
+   "fix": "Model a folded band with a knot and tail on the side of the head, low on the brow, with the bare scalp above. Keep the paisley at its current scale."
+  },
+  {
+   "part": "Body (two poses, 3 m)",
+   "wrong": "The shirt is salmon-pink and plastic in the studio view, with few cloth folds. The boots are clean and low-detail. The silhouette and the jeans hold up.",
+   "fix": "Deepen the shirt to the photo's red, add a cloth sim or sculpted folds and a knit normal, and add scuffs and stitching to the boots."
+  },
+  {
+   "part": "Repository hygiene",
+   "wrong": "The rule_r4 review renders (art/blender/review/sheets/rule_r4/*.jpg) were committed in d4c053e, although only the review script was meant to be committed.",
+   "fix": "Run git rm --cached on those JPGs and ignore the sheets folder."
+  }
+ ],
+ "overall": "Real progress since round 3: the CHOPPER trigger-hand close-up now shows knuckle form, and the composition is closer to a modern viewmodel. The player's view still falls well short of the AAA bar. The forearm skin is smooth plastic, the arms go black in shade, the firing hand is cropped, and support fingers float 1-2 cm off the CHOPPER handguard. The NINE two-hand hold intersects and splays, fingertips glow red, and nails stay black. The tattoos are invisible in first person and wrongly oriented. The face is a generic likeness (wide eyes, puffy jaw, grey moustache) under a shower-cap bandana."
+}
