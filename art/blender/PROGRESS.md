@@ -530,3 +530,8 @@ _weapons_kit.py (my files); mi/ untouched.
   magazine with flat sides and crisp 2.5 x 0.8 mm ribs, forged lug, catch lug, spine weld, turned floor plate;
   handguard 46->41 mm C section with finger swell and chamfered vents; oval grip; butt plate seated 2 mm under the
   handguard; stamped bowed selector with detent; crisp dimple; booster flats + grooved ring; charging slot widened.
+- NINE exported (4K set Nine at 7,145 px/m with UV weights; SK_Nine 79.1k tris) and proven: `_weapons_check.py`
+  Nine ALL FIXED POINTS KEPT (bones/sockets 1e-5 m, length -0.0329..0.201, height -0.1345..0.0185, width 31.0 mm,
+  notch and post profiles, sight line, magazine in place X -0.0292..0.0453 (brief -0.029..0.045), trigger face to
+  front strap 34.7 mm, slide back 10/20/30/44 mm: 0 overlaps, trigger 17 deg clear, re-import poses < 1.4e-8 m).
+  Previews weapons_nine_hero / weapons_nine_fp rendered after the NINE's last change. CHOPPER 4K bake running.
