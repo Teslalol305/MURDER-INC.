@@ -615,3 +615,42 @@ Code: assets/_weapons_nine.py, _weapons_chopper.py, _weapons_tex.py, _weapons_ki
   booster), packed grime at rivet rings and the cover seam, oil at the port and gas block, milled trunnions, ground
   carrier (UV weight back to 1); stamps flipped to read from the left, the "MI-87" code removed, one proof star.
 - Exports: final bake-and-export of both guns in one run (running); then _weapons_check.py, then the six previews.
+
+---------------------------------------------------------------------------------------------------------------
+# Rule, review round 1 fixes (assets/rule.py, _rule_tex.py, _rule_head.py, _rule_bodytex.py, _rule_body.py), senior character artist
+
+Review (art/blender/review/rule_review.py, renders in art/out/review/rule/): likeness 2.5, hands 2.5, body 2.5.
+## Done
+- Skin tone: one shared albedo target (_rule_tex.SKIN_TARGET, linear median 0.165/0.079/0.038, the photo's hue)
+  applied to T_RuleArms_Skin_BC (forearm median), the head map (face median) and the body map (forearm median);
+  the body's neck is matched to the head's neck colour just above the join. Checked side by side under one light.
+- First-person grip: _characters_pose.ik_arm mixed armature-local rest heads with world targets, so both palms
+  were off by reach_forward's slide (9-12 cm); now in world space. Support shoulder protracts (clavicle swing,
+  `protract`), rig slide limit 12 cm; the left palm cups the CHOPPER's handguard (palm error 0 / the 1.2 cm flesh
+  offset), fingers curl 0.8 round the 46 mm handguard, thumb along its left side.
+- Eyes: real eyeballs (iris recessed under a transparent cornea, near-black brown iris), sockets cut by pushing
+  the skin inside a narrower, hooded aperture (7.5 mm, was 9) behind the globes, lid margins resting on them, a
+  hooded upper-lid fold, tear lines on both margins (M_Rule_EyeWet), caruncles; the old painted eyes repainted as
+  lids with a lash line, a wet lower margin and a crease shadow. Eye texture is procedural (derived/T_Rule_Eye_BC).
+- Neck: one tilted cut plane under the jaw; the bust bisected above it, the body keeps its own neck below it,
+  reshaped radially to the bust's ring; the bust's rim stretched down where it ended above the plane and tucked
+  2 mm inside; torn collar flaps behind the ears pulled onto the neck; the shirt's red bleed cloned out.
+- Face surface: frequency separation with a 3D (voxel) low-pass (a UV blur mixed atlas islands), specks and red
+  speckles removed, pores / micro-wrinkles / lip lines in a detail normal over the generated one, ORM with an
+  oily T-zone, drier cheeks, wetter lips; a lower, thicker moustache, stubble shadow and a small chin tuft.
+- Proportions (_rule_head.warp_points): lower third 5 % shorter, zygomatic arch +5 %, brow ridge 2 mm forward and
+  1.2 mm lower, nasolabial grooves, mouth corners down; ears 1.35x about their root and raised 6 mm.
+- Nails: pink-brown bed matched to the skin, faint lunula, free edge under 1 mm, darker cuticle / nail folds,
+  roughness 0.35. Hands: darker knuckles and palm creases, pores, fine hair, warmer fingertips; no palm patch on
+  the back of the wrist (back half of the hand forced to the back region, majority filter); forearm veins at 40 %.
+- Bracelet: 18 chunky links of 5.6 mm wire, 1.5 mm clear of the wrist; exported with its silver values
+  (metallic 1, roughness 0.16 / 0.28: rule.export_plain); the same bracelet fitted on SK_Rule's right forearm at the
+  body's own section, rigid on lowerarm_twist_01_r; the generated wrist bands painted out.
+- Bandana: a generated seamless bandana swatch (2 credits, art/out/gen/rule/bandana_tile.png) printed by
+  triplanar projection over the bandana texels, deeper red, cloth weave and compression folds in the normal map,
+  roughness 0.8; its third corner hanging over the nape (bandana_tail, UVs transferred from the surface above).
+- Shirt: upper-arm weight on shirt vertices moved to the clavicle (above the armpit) / spine_03 (below), 15 % kept
+  at the armhole rim fading out over 8 cm (after the weight smoothing); deeper red; "Murder Inc." lettering over the cleaned generated print.
+- Export checks (rule.export_checks): mi.export.validate, skeleton round trip vs the mannequin, re-import
+  (triangles, joints, materials, every vertex weighted) -> <glb>.check.json.
+- Credits: 2 (one bandana swatch, nano_banana_pro). Balance 2818.76 before.

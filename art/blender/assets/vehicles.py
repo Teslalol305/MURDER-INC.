@@ -157,7 +157,8 @@ def small_sets(force=False):
     weave = (np.sin(xx * 2 * np.pi / 8) * np.sin(yy * 2 * np.pi / 8) * 0.5 + 0.5).astype(np.float32)
     put("TS_Fabric_CarSeat", np.array([0.045, 0.044, 0.046]) * (0.8 + 0.25 * weave[..., None] + 0.2 * n2[..., None]),
         0.92, 0.0, h=weave * 0.5 + n1 * 0.5, strength=3.0, tile=0.25, note="woven seat cloth, charcoal")
-    put("TS_Steel_CargoDark", np.array([0.05, 0.05, 0.052]) * (0.8 + 0.4 * n2[..., None]), 0.55 + 0.2 * n1, 0.6,
+    # (close-up pass 3) lifted from 0.05 to about 0.13 so ribs, rails and tie-downs read in a load space
+    put("TS_Steel_CargoDark", np.array([0.13, 0.13, 0.135]) * (0.8 + 0.4 * n2[..., None]), 0.55 + 0.2 * n1, 0.6,
         h=n1, strength=1.5, tile=1.0, note="bare dark steel of load spaces and engine bays")
     put("TS_Char_Burnt", np.array([0.028, 0.022, 0.018]) * (0.6 + 0.8 * n2[..., None] * n1[..., None] + 0.2 * grain[..., None]),
         0.85 + 0.1 * n1, 0.05, h=n2 * 0.6 + grain * 0.4, strength=4.0, tile=1.0, note="charred, sooty steel and ash")
@@ -190,6 +191,8 @@ def small_sets(force=False):
     put("TS_Fabric_Headliner", np.array(hexcol("#a8a49b")) * (0.95 + 0.08 * grain[..., None]), 0.95, 0.0, h=grain,
         strength=1.5, tile=0.25, rev=3, note="headliner cloth, light warm grey")
     put("TS_Plastic_GaugeFace", np.full(3, 0.78), 0.4, 0.0, rev=3, note="white print of the dials")
+    put("TS_Paint_PrimerGrey", np.array(hexcol("#7b7d7c")) * (0.9 + 0.2 * n2[..., None]), 0.72 + 0.1 * n1, 0.0,
+        h=n2 * 0.4, strength=1.5, rev=3, note="grey primer on bare panels (inner skins of doors)")
     return out
 
 
@@ -819,7 +822,7 @@ def interior(spec, name, hw_in):
     geo.transform(sw, loc=(sx, sy, sz))
     parts["interior"].append(sw)
 
-    av = spec["size"][2] - 0.10 - fl          # floor to the inside of the roof
+    av = spec.get("roof", spec["size"][2] - 0.10) - fl      # floor to the inside of the roof (cab roof on trucks)
 
     def seat(x, y, width, name_):
         cush = geo.box((0.50, width, 0.13 * av), bevel=0.04, name=name_ + "_Cushion")
@@ -1256,6 +1259,10 @@ def slot_records(ob, extra=None):
             rec["shading"] = "matte primer: tint #7a3b2c, roughness 0.78, no clear coat"
             rec["tint"] = [round(float(v), 4) for v in hexcol("#7a3b2c")]
             rec["roughness"] = 0.78
+            # (close-up pass 3) the same keys as every paint slot, and a roughness override over the atlas ORM
+            rec["paint_default"] = rec["tint"]
+            rec["matte"] = True
+            rec["roughness_override"] = 0.80
         elif m.name.endswith("_Lamp") or m.name.endswith("_Hazard"):
             rec["shading"] = "lamp lenses; E is the lit colour: scale by a lamp parameter (off by day)"
         slots[m.name] = rec
@@ -1919,20 +1926,33 @@ def vulture_decals():
     W = 2048
     im = Image.new("RGBA", (W, W), (0, 0, 0, 0))
     bone = (233, 228, 214, 255)
-    # stencil 1.15 x 0.92 -> (0,0)-(1280,1024): hunched vulture on a wire, cut-stencil style with bridges
+    # stencil 1.15 x 0.92 -> (0,0)-(1280,1024): (close-up pass 3) a hunched vulture on a wire, cut-stencil style:
+    # heavy rounded back, wings drooped like a cloak past the wire with ragged primaries, a ruff at the shoulder,
+    # a long bare neck reaching forward and down, a small bald head with a hooked beak
     st = Image.new("L", (1280, 1024), 0)
     sd = ImageDraw.Draw(st)
-    sd.line((40, 900, 1240, 860), fill=255, width=18)                         # the wire
-    sd.polygon([(420, 880), (520, 560), (640, 420), (820, 380), (930, 430), (980, 560), (930, 760), (800, 880)], fill=255)
-    sd.polygon([(520, 560), (300, 520), (200, 600), (330, 640), (470, 700)], fill=255)        # folded wing tip
-    sd.ellipse((800, 230, 930, 360), fill=255)                                 # head
-    sd.polygon([(880, 230), (980, 120), (1000, 200), (930, 300)], fill=255)   # neck ruff
-    sd.polygon([(920, 280), (1060, 300), (1000, 340), (930, 330)], fill=255)  # hooked beak
-    sd.polygon([(640, 880), (660, 960), (700, 960), (690, 880)], fill=255)    # talons over the wire
-    sd.polygon([(760, 880), (780, 960), (820, 960), (800, 880)], fill=255)
-    for y in (480, 600, 720):                                                   # stencil bridges
-        sd.line((560, y, 960, y - 40), fill=0, width=14)
-    sd.ellipse((850, 260, 880, 290), fill=0)                                   # eye
+    sd.line((40, 880, 1240, 850), fill=255, width=16)                         # the wire
+    body = [(360, 860), (330, 700), (380, 520), (500, 400), (640, 330), (760, 330), (850, 390), (900, 500),
+            (900, 650), (840, 800), (760, 870)]
+    sd.polygon(body, fill=255)
+    wing = [(330, 560), (450, 420), (620, 360), (760, 400), (800, 560), (790, 760), (760, 1000), (700, 960),
+            (660, 1010), (600, 950), (550, 1005), (500, 940), (440, 990), (400, 920), (330, 950), (300, 840)]
+    sd.polygon(wing, fill=255)
+    for k in range(9):                                                         # ruff: a jagged collar
+        a0 = math.radians(200 + 20 * k)
+        cx_, cy_ = 880, 430
+        sd.polygon([(cx_ + 55 * math.cos(a0), cy_ + 45 * math.sin(a0)), (cx_ + 105 * math.cos(a0 + 0.17), cy_ + 85 * math.sin(a0 + 0.17)),
+                    (cx_ + 55 * math.cos(a0 + 0.35), cy_ + 45 * math.sin(a0 + 0.35))], fill=255)
+    sd.ellipse((820, 380, 960, 490), fill=255)
+    sd.line([(930, 430), (985, 360), (1040, 345), (1085, 380)], fill=255, width=34, joint="curve")   # bare neck
+    sd.ellipse((1060, 360, 1140, 440), fill=255)                               # bald head
+    sd.polygon([(1125, 380), (1190, 400), (1200, 440), (1175, 455), (1170, 425), (1130, 420)], fill=255)  # hooked beak
+    sd.polygon([(640, 860), (650, 930), (690, 930), (690, 860)], fill=255)    # talons over the wire
+    sd.polygon([(740, 860), (750, 930), (790, 930), (790, 860)], fill=255)
+    for y in (520, 660, 800):                                                   # stencil bridges across the wing
+        sd.line((380, y, 800, y - 50), fill=0, width=14)
+    sd.line((900, 470, 1000, 380), fill=0, width=10)                           # bridge between ruff and neck
+    sd.ellipse((1092, 382, 1110, 400), fill=0)                                 # eye
     st = st.filter(ImageFilter.GaussianBlur(3))
     n = _noise((1024, 1280), 10.0, 7)
     a = np.asarray(st, dtype=np.float32) / 255.0 * np.clip((n - 0.12) * 2.5, 0, 1)
@@ -1946,15 +1966,13 @@ def vulture_decals():
     # scrawls 0.66 x 0.29 -> (0, 1300)-(900, 1700) oxblood, (1000, 1300)-(1900, 1700) bone white
     rng = np.random.default_rng(4418)
     for ox, col in ((0, (138, 24, 32, 255)), (1000, bone)):
-        pts = []
-        x = ox + 40
-        while x < ox + 860:
-            pts.append((x, 1500 + rng.normal(0, 90)))
-            x += rng.uniform(25, 70)
-        d.line(pts, fill=col, width=16, joint="curve")
-        for _ in range(3):
-            cx, cy = ox + rng.uniform(100, 800), 1500 + rng.uniform(-120, 120)
-            d.arc((cx - 80, cy - 60, cx + 80, cy + 60), rng.uniform(0, 180), rng.uniform(200, 360), fill=col, width=12)
+        # (close-up pass 3) abstract looping scrawl (a trochoid with a wandering baseline): no letters
+        t = np.linspace(0, 7.5 * 2 * np.pi, 600)
+        b_ = 70 + 25 * np.sin(t * 0.21 + rng.uniform(0, 6))
+        xs = ox + 60 + t / t[-1] * 760 - b_ * 0.9 * np.sin(t)
+        ys = 1500 + 40 * np.sin(t * 0.13 + rng.uniform(0, 6)) - b_ * np.cos(t)
+        d.line(list(zip(xs.tolist(), ys.tolist())), fill=col, width=14, joint="curve")
+        d.line([(ox + 80, 1640), (ox + 840, 1600 + rng.uniform(-20, 20))], fill=col, width=10)
     return decal_set("Vehicle_VanVulture_Decals", im, "crew livery: vulture stencil (sprayed, worn), oxblood stripe, "
                      "two letterless marker scrawls")
 
@@ -1987,9 +2005,10 @@ def ipx_decals():
         f = _font("Inter-ExtraBoldItalic.otf", int(h * 0.62))
         d.text((cx, cy + h * 0.02), "IPX", font=f, fill=text_col, anchor="mm")
     d.rectangle((0, 0, W - 1, 511), fill=white)
-    lozenge(330, 256, 520, 420 * 0.5 * 1.7, ink, white)
-    d.rectangle((640, 236, 760, 276), fill=(246, 194, 26, 255))
-    d.text((1400, 256), "IPX.EXCHANGE", font=_font("Inter-ExtraBoldItalic.otf", 150), fill=ink, anchor="mm")
+    # (close-up pass 3) the art is laid out round the gun port (about x -1.9 on the flank): lozenge left of it,
+    # the wordmark right of it, nothing under the port
+    lozenge(290, 256, 440, 420 * 0.5 * 1.7, ink, white)
+    d.text((1520, 256), "IPX.EXCHANGE", font=_font("Inter-ExtraBoldItalic.otf", 128), fill=ink, anchor="mm")
     d.rectangle((0, 600, W - 1, 663), fill=gold)
     lozenge(512, 1011, 980, 400, white, ink)
     d.text((1536, 864), "IPX.EXCHANGE", font=_font("Inter-ExtraBoldItalic.otf", 112), fill=white, anchor="mm")
@@ -2463,7 +2482,7 @@ def v_vulture(ctx):
         uv_point(put_mat(leafp, mpaint), "Vehicle_Van")
         inner = geo.box((0.012, 0.78, 1.30), bevel=0.004, name="Vulture_LeafInner")
         geo.transform(inner, loc=(0.011, s_ * 0.43, 0.05))
-        uv_point(put_mat(inner, mpaint), "Vehicle_Van")
+        put_mat(inner, *tiling("TS_Paint_PrimerGrey"))   # (close-up pass 3) inner skin in bare primer grey
         holes = []
         for (hz, hh) in ((0.18, 0.36), (0.62, 0.30)):
             for hy in (0.24, 0.60):
@@ -3222,10 +3241,11 @@ for _k in ("Van", "VanVulture"):
                     grooves=[((2.02, 0.86), (1.98, 1.36)), ((0.98, 0.50), (0.98, 1.36))], mirror_house="black",
                     dash_depth=0.45)
 SPEC["Van"]["plate"] = "RJM6072"              # (close-up pass 3) the van's own number, not the SUV's
-for _k in ("BoxTruck", "IPXTruck"):
-    SPEC[_k].update(modelled_mirrors=True, truck_mirror=True, cabin=True, clean_glass=True,
+for _k in ("BoxTruck", "IPXTruck"):     # (the cab glass is above standing eye height: the simple cabin, budget)
+    SPEC[_k].update(modelled_mirrors=True, truck_mirror=True, cabin=False, clean_glass=True,
                     modelled_lamps=("head", "grille"), dash_depth=0.45, head_amber=0.0)
 SPEC["BoxTruck"].update(lamps={"head": (0.64, 0.94, 0.99, 1.21)}, grille=(0.57, 0.99, 1.40, "bars"), roof=2.18,
+                        front_face=(1.0, 0.66, 0.98),
                         bumper=(3.58, 3.69, 0.42, 0.70, 1.15), mirror_box=(2.15, 2.95, 1.30, 1.95))
 SPEC["IPXTruck"].update(lamps={"head": (0.40, 0.60, 1.50, 1.72)}, grille=(0.35, 1.08, 1.74, "bars"), roof=2.50,
                         mirror_box=(1.35, 1.75, 2.0, 2.65))
@@ -3258,6 +3278,7 @@ def build(ctx):
         "vehicles_sedan_hero": ["Sedan"], "vehicles_lineup_1": ["Sedan", "Taxi", "SUV", "Pickup", "Van"],
         "vehicles_lineup_2": ["VanVulture", "BoxTruck", "Motorbike"], "vehicles_ipx_truck": ["IPXTruck"],
         "vehicles_wrecks": ["BurnedCar", "StrippedCar"], "vehicles_close": ["Sedan"], "vehicles_wire": ["VanVulture", "SUV"],
+        "vehicles_wheel": ["Sedan"], "vehicles_lamp": ["Sedan"], "vehicles_interior": ["Sedan"], "vehicles_taxi": ["Taxi"],
     }
     want = set()
     for p in previews:
@@ -3350,6 +3371,23 @@ def on_preview(ctx, objs):
         _show(assets, {"SM_Vehicle_Sedan": (0, 3.9, 0)})
         render.cam_look((2.05, 2.25, 0.95), (0.95, 3.05, 0.58), lens=28)
         shot("vehicles_close.jpg")
+    # (close-up pass 3) arm's-length pictures of the modelled parts
+    if want("vehicles_wheel") and "SM_Vehicle_Sedan" in assets:
+        _show(assets, {"SM_Vehicle_Sedan": (0, 3.9, 0)})
+        render.cam_look((1.42 + 0.62, 3.9 - 0.925 - 0.80, 0.62), (1.42, 3.9 - 0.80, 0.33), lens=32)
+        shot("vehicles_wheel.jpg")
+    if want("vehicles_lamp") and "SM_Vehicle_Sedan" in assets:
+        _show(assets, {"SM_Vehicle_Sedan": (0, 3.9, 0)})
+        render.cam_look((2.305 + 0.85, 3.9 - 1.05, 0.98), (2.15, 3.9 - 0.40, 0.66), lens=30)
+        shot("vehicles_lamp.jpg")
+    if want("vehicles_interior") and "SM_Vehicle_Sedan" in assets:
+        _show(assets, {"SM_Vehicle_Sedan": (0, 3.9, 180)})          # the driver's side (+Y) turned to the camera
+        render.cam_look((-0.05, 3.9 - 0.925 - 0.42, 1.48), (-0.45, 3.9 + 0.10, 0.88), lens=26)
+        shot("vehicles_interior.jpg")
+    if want("vehicles_taxi") and "SM_Vehicle_Taxi" in assets:
+        _show(assets, {"SM_Vehicle_Taxi": (0, 3.9, 0)})
+        render.cam_look((3.9, 1.15, 1.62), (0.6, 3.95, 0.78), lens=30)
+        shot("vehicles_taxi.jpg")
     if want("vehicles_lineup_1"):
         _show(assets, {"SM_Vehicle_Sedan": (-8.4, 3.9, 0), "SM_Vehicle_Taxi": (-2.9, 3.9, 0),
                        "SM_Vehicle_SUV": (2.8, 3.85, 0), "SM_Vehicle_Pickup": (8.9, 3.85, 0)})

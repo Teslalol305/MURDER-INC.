@@ -172,7 +172,7 @@ def _to_y(d):
 
 # ------------------------------------------------------------------------------------------------------- tyres
 def tyre(r, tw, rim_r, pitches=30, name="Tyre", text=("QUEENSWAY  RADIAL", "205/65 R15  TUBELESS  STEEL BELTED"),
-         grooves=3, lug=0.22, depth=None):
+         grooves=3, lug=0.22, depth=None, side_rings=48):
     """Tyre around +Z (outboard +Z): rounded shoulders, circumferential grooves, lateral shoulder grooves on a
     pitch, sidewall bulge with a rim-protector rib and a fine ring, raised invented lettering on the outboard
     sidewall. Returns the object."""
@@ -212,7 +212,7 @@ def tyre(r, tw, rim_r, pitches=30, name="Tyre", text=("QUEENSWAY  RADIAL", "205/
     co[:, 0] *= s
     co[:, 1] *= s
     geo.set_verts(band, co)
-    sa = np.linspace(0, 2 * np.pi, 64, endpoint=False)
+    sa = np.linspace(0, 2 * np.pi, side_rings, endpoint=False)
     Pi = P[:k0 + 1]
     Pi[-1] = (Pi[-1][0] + 0.001, Pi[-1][1])
     Po = P[k1:]
@@ -240,9 +240,7 @@ def tyre(r, tw, rim_r, pitches=30, name="Tyre", text=("QUEENSWAY  RADIAL", "205/
     if text:
         size = min(0.30 * h, 0.034)
         for body, cen, ins, sz, rad, zt in ((text[0], 90.0, False, size, rim_r + 0.62 * h, w * 1.0),
-                                            (text[0], 270.0, True, size, rim_r + 0.62 * h, w * 1.0),
-                                            (text[1], 0.0, False, size * 0.40, rim_r + 0.83 * h, w * 0.975),
-                                            (text[1], 180.0, True, size * 0.40, rim_r + 0.83 * h, w * 0.975)):
+                                            (text[1], 270.0, True, size * 0.40, rim_r + 0.83 * h, w * 0.975)):
             if not body:
                 continue
             t = arc_text(body, rad - (sz * 0.5 if not ins else -sz * 0.5), sz, 0.0016, centre_deg=cen, inside=ins,
@@ -276,9 +274,9 @@ def _nuts(n, rad, z, size=0.0105, name="Nut", start=0.0):
     out = []
     for i in range(n):
         a = start + 2 * math.pi * i / n
-        nut = geo.cylinder(size, 0.016, 6, bevel=0.0018, name=name)
+        nut = geo.cylinder(size, 0.016, 6, bevel=0.0018, bevel_segments=1, name=name)
         seat = geo.revolve([(size * 1.25, 0.0), (size * 1.05, 0.004), (0.0, 0.004)], 12, name=name + "_Seat")
-        tip = geo.revolve([(size * 0.55, 0.016), (size * 0.45, 0.021), (0.0, 0.023)], 12, name=name + "_Stud")
+        tip = geo.revolve([(size * 0.55, 0.016), (size * 0.45, 0.021), (0.0, 0.023)], 8, name=name + "_Stud")
         o = geo.join([nut, seat, tip])
         geo.transform(o, loc=(rad * math.cos(a), rad * math.sin(a), z))
         out.append(o)
@@ -495,13 +493,13 @@ def wheel(style, r, tw, rim_r, name="Wheel", twin=False, brake_kind=None, text=N
     out = {}
     offs = [0.0] if not twin else [0.0, -(tw + 0.025)]
     big = r > 0.45
-    txt = text or (("QUEENSWAY  HAUL MASTER", "11R22.5  LOAD RANGE G  REGROOVABLE") if big else
-                   ("QUEENSWAY  RADIAL", "%d/%d R%d  TUBELESS  STEEL BELTED" % (
+    txt = text or (("QUEENSWAY  HAUL", "11R22.5  REGROOVABLE") if big else
+                   ("QUEENSWAY  RADIAL", "%d/%d R%d  TUBELESS" % (
                        int(round(tw * 1000 / 5) * 5), int(round((r - rim_r) / tw * 100 / 5) * 5),
                        int(round(rim_r * 2 / 0.0254 - 1.0)))))
     for k, dz in enumerate(offs):
-        t = tyre(r, tw, rim_r, pitches=pitches or (30 if big else 26), name="%s_Tyre%d" % (name, k),
-                 text=txt if k == 0 else None, grooves=4 if big else 3, lug=0.18 if big else 0.22)
+        t = tyre(r, tw, rim_r, pitches=pitches or ((18 if k == 0 else 12) if big else 24), name="%s_Tyre%d" % (name, k),
+                 text=txt if k == 0 else None, grooves=3, lug=0.18 if big else 0.22, side_rings=40 if big else 48)
         geo.transform(t, loc=(0, 0, dz))
         part = {"tyre": [t]}
         if k == 0:
@@ -801,7 +799,7 @@ def _seat(x, y, width, fl, av, name, bench=False):
     top = grid(name + "_Cushion", np.linspace(0, 1, n_y), np.linspace(0, 1, n_x), cushion, smooth=50)
     orient(top, (0, 0, 1))
     solid(top, ch)
-    geo.bevel_edges(top, width=0.012, segments=2, angle=50, harden=False)
+    geo.bevel_edges(top, width=0.012, segments=1, angle=50, harden=False)
     _add(out, "seat", top)
     bh = 0.58 * av
     tilt = math.radians(16)
@@ -816,7 +814,7 @@ def _seat(x, y, width, fl, av, name, bench=False):
     bk = grid(name + "_Back", np.linspace(0, 1, n_y), np.linspace(0, 1, 11), back, smooth=50)
     orient(bk, (1, 0, 0))
     solid(bk, 0.11)
-    geo.bevel_edges(bk, width=0.014, segments=2, angle=50, harden=False)
+    geo.bevel_edges(bk, width=0.014, segments=1, angle=50, harden=False)
     _add(out, "seat", bk)
     # piping seams where the bolsters meet the centre panels
     if not bench:
@@ -1420,7 +1418,12 @@ def clean_glass(ob, iters=10, seal_r=0.0055, name="Glass"):
     for lp in loops:
         if len(lp) < 8:
             continue
-        pts = [tuple(co[i]) for i in lp]
+        pts = [tuple(co[lp[0]])]
+        for i in lp[1:]:                     # one ring every 3 cm at most (budget)
+            if np.linalg.norm(co[i] - np.array(pts[-1])) >= 0.03:
+                pts.append(tuple(co[i]))
+        if len(pts) < 4:
+            continue
         pts.append(pts[0])
-        seals.append(geo.pipe(pts, seal_r, segments=6, name=name + "_Seal"))
+        seals.append(geo.pipe(pts, seal_r, segments=5, name=name + "_Seal"))
     return geo.join(seals, name + "_Seals") if seals else None

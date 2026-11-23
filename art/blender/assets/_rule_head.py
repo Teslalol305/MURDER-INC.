@@ -588,6 +588,47 @@ def masked_blur(img, mask, r, passes=3):
     return a / (d[..., None] if img.ndim == 3 else d), m
 
 
+def low_pass_3d(P, img, sel, voxel=0.004, passes=2):
+    """Low-pass of img (H, W, 3) over the texels of sel, averaged in 3D (voxels of `voxel` metres, smoothed
+    over their neighbours `passes` times, read back trilinearly): unlike a blur in UV space it never mixes
+    atlas islands that are neighbours in the texture but not on the head. Returns (H, W, 3) (zeros off sel's
+    support)."""
+    pts = P[sel].astype(np.float64)
+    lo = pts.min(0) - 2 * voxel
+    dims = np.ceil((pts.max(0) + 2 * voxel - lo) / voxel).astype(int) + 1
+    acc = np.zeros((*dims, 3))
+    cnt = np.zeros(dims)
+    ijk = np.floor((pts - lo) / voxel).astype(int)
+    np.add.at(acc, (ijk[:, 0], ijk[:, 1], ijk[:, 2]), img[sel])
+    np.add.at(cnt, (ijk[:, 0], ijk[:, 1], ijk[:, 2]), 1)
+    for _ in range(passes):
+        a2, c2 = acc.copy(), cnt.copy()
+        for ax in range(3):
+            for sh in (1, -1):
+                a2 += np.roll(acc, sh, axis=ax)
+                c2 += np.roll(cnt, sh, axis=ax)
+        acc, cnt = a2, c2
+    grid = acc / np.maximum(cnt, 1e-6)[..., None]
+    have = cnt > 1e-6
+    out = np.zeros_like(img)
+    m = np.abs(P).sum(-1) < 5.0                       # covered texels (uncovered ones sit at the bake offset)
+    q = (P[m].astype(np.float64) - lo) / voxel - 0.5
+    i0 = np.clip(np.floor(q).astype(int), 0, dims - 2)
+    f = np.clip(q - i0, 0, 1)
+    res = np.zeros((len(q), 3))
+    wsum = np.zeros(len(q))
+    for dx in (0, 1):
+        for dy in (0, 1):
+            for dz in (0, 1):
+                w = (f[:, 0] if dx else 1 - f[:, 0]) * (f[:, 1] if dy else 1 - f[:, 1]) * (f[:, 2] if dz else 1 - f[:, 2])
+                ii, jj, kk = i0[:, 0] + dx, i0[:, 1] + dy, i0[:, 2] + dz
+                ok = have[ii, jj, kk]
+                res += (w * ok)[:, None] * grid[ii, jj, kk]
+                wsum += w * ok
+    out[m] = (res / np.maximum(wsum, 1e-6)[:, None]).astype(np.float32)
+    return out
+
+
 def _load_png(path, size, srgb=True):
     from PIL import Image
     im = Image.open(path).convert("RGB")
@@ -674,9 +715,10 @@ def head_textures(head, res, warped=True, log=print):
     y, z = P[..., 1], P[..., 2]
     hue_skin = (r_ > g_) & (g_ >= b_ * 0.9) & (r_ < 2.6 * g_) & (lum > 0.008) & (lum < 0.45)
     zband = z > 1.630
-    redw, _m = masked_blur(red.astype(np.float32), mask, 20, 2)
-    # isolated red specks on the face are bleed, not cloth: red counts only inside mostly-red neighbourhoods
-    bandana = mask & ((red & (redb > 0.45)) | ((redb > 0.30) & ~hue_skin & zband) | ((redw > 0.55) & (z > 1.66)))
+    # isolated red specks on the face are bleed, not cloth: red counts only where most of the surface within
+    # about 6 mm IN 3D is red (a UV neighbourhood can belong to another part of the head)
+    red3 = low_pass_3d(P, np.repeat(red[..., None].astype(np.float32), 3, -1), mask, 0.004, 1)[..., 0]
+    bandana = mask & ((red & (red3 > 0.40)) | ((red3 > 0.55) & ~hue_skin & zband) | ((red3 > 0.75) & zband))
     skin = mask & ~bandana
     log("  head texels: bandana %.1f %%, skin %.1f %%" % (100 * bandana.sum() / mask.sum(), 100 * skin.sum() / mask.sum()))
     out = bc.copy()
@@ -686,7 +728,7 @@ def head_textures(head, res, warped=True, log=print):
     out[skin] = graded
     log("  head skin graded: gains %s" % np.round(k, 3).tolist())
     # ---- frequency separation: low (structure), mid (upscaler blotches: attenuated), high (detail)
-    L, _ = masked_blur(out, skin, 14)
+    L = low_pass_3d(P, out, skin & ~red, 0.004, 2)
     M, _ = masked_blur(out, skin, 2, 2)
     hair = skin & (_lum(M) < 0.55 * _lum(L))                    # brows, moustache, lashes: keep their mid band
     keep_mid = np.where(hair, 1.0, 0.40)[..., None]
@@ -694,7 +736,7 @@ def head_textures(head, res, warped=True, log=print):
     # specks and red speckles: texels far off their neighbourhood go to it
     ratio = new[..., 0] / np.maximum(new[..., 1], 1e-4)
     Lr = L[..., 0] / np.maximum(L[..., 1], 1e-4)
-    speck = skin & ((_lum(out) > 1.7 * _lum(L)) | (ratio > 1.35 * Lr))
+    speck = skin & ((_lum(out) > 1.7 * _lum(L)) | (ratio > 1.35 * Lr) | red)
     new[speck] = L[speck]
     out[skin] = new[skin]
     log("  head skin cleaned: %d speck texels" % speck.sum())
@@ -705,7 +747,7 @@ def head_textures(head, res, warped=True, log=print):
     bleed = neck & ((nr > 1.25 * tgt[0] / tgt[1]) | (_lum(out) > 1.8 * _lum(tgt)) | (_lum(out) < 0.35 * _lum(tgt)))
     Pm = P[bleed]
     out[bleed] = tgt * (0.96 + 0.06 * T.fbm(Pm, 1 / 0.02, 3, seed=301))[:, None]
-    nb, _ = masked_blur(out, neck, 6, 2)
+    nb = low_pass_3d(P, out, neck, 0.003, 1)
     out[neck] = 0.5 * out[neck] + 0.5 * nb[neck]
     near_join = neck & (z < LM["menton_z"] - 0.010)
     if near_join.any():
@@ -782,8 +824,8 @@ def head_textures(head, res, warped=True, log=print):
     tile = bandana_tile()
     if bandana.any():
         Pb, Nb = P[bandana], N[bandana]
-        base_red = np.array([0.50, 0.012, 0.016], dtype=np.float32)
-        shade_src = _lum(masked_blur(out, bandana & red, 10)[0][bandana])
+        base_red = np.array([0.40, 0.010, 0.013], dtype=np.float32)   # deeper, as the photo's
+        shade_src = _lum(low_pass_3d(P, out, bandana & red, 0.006, 1)[bandana])
         shade = np.clip(shade_src / max(np.median(shade_src), 1e-4), 0.55, 1.25) ** 0.5
         col = base_red[None] * shade[:, None] * (1 + 0.05 * T.fbm(Pb, 1 / 0.003, 2, seed=350))[:, None]
         if tile is not None:
@@ -871,3 +913,71 @@ def textured_material(name, files, sss=0.0):
     if sss:
         b.inputs["Subsurface Weight"].default_value = sss
     return m
+
+
+# ------------------------------------------------------------------------------------------------ bandana tail
+
+
+def bandana_tail(head, col, log=print):
+    """The bandana's corner hanging over the nape (a bandana knotted at the front leaves its third corner at
+    the back): a soft triangular flap 10 cm wide and 6.5 cm long, 1.2 mm thick, lying 3-5 mm off the back of
+    the head and the neck with a few loose folds. UVs are taken from the bandana surface it hangs from (nearest
+    point, barycentric), so it carries the same print in M_Rule_Head. Returns the object."""
+    from mathutils.bvhtree import BVHTree
+    me = head.data
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bmesh.ops.triangulate(bm, faces=bm.faces)
+    bm.faces.ensure_lookup_table()
+    tree = BVHTree.FromBMesh(bm)
+    uvl = bm.loops.layers.uv.active
+    nu, nv = 14, 8
+    verts, faces = [], []
+    for j in range(nv + 1):
+        v = j / nv
+        z = 1.652 - v * 0.046
+        hw = 0.050 * (1 - v) ** 1.15 + 0.003
+        for i in range(nu + 1):
+            u = -1 + 2 * i / nu
+            x = LM["mid_x"] + u * hw
+            hit = tree.ray_cast(Vector((x, 0.40, z)), Vector((0, -1, 0)))
+            yb = hit[0].y if hit[0] is not None else 0.05
+            fold = 0.0016 * math.sin(u * math.pi * 2.6 + v * 1.7) * (0.3 + 0.7 * v) + 0.0006 * v
+            verts.append((x, yb + 0.0026 + 0.0008 * (1 - u * u) + fold, z))
+    for j in range(nv):
+        for i in range(nu):
+            a = j * (nu + 1) + i
+            faces.append((a, a + 1, a + nu + 2, a + nu + 1))
+    ob = geo.from_arrays("BandanaTail", np.array(verts), faces, col, smooth=None)
+    md = ob.modifiers.new("solid", "SOLIDIFY")
+    md.thickness = 0.0012
+    md.offset = 0.0
+    geo._apply_modifier(ob, md)
+    tm = ob.data
+    for p in tm.polygons:
+        p.use_smooth = True
+    uv = tm.uv_layers[0] if tm.uv_layers else tm.uv_layers.new(name="UVMap")
+    out = np.zeros((len(tm.loops), 2), dtype=np.float32)
+    vuv = []
+    for vtx in tm.vertices:
+        # as if folded down from the bandana: the flap's point mirrored up about its top edge onto the cloth
+        zq = 1.652 + (1.652 - vtx.co.z) + 0.004
+        hq = tree.ray_cast(Vector((vtx.co.x, 0.40, zq)), Vector((0, -1, 0)))
+        qp = hq[0] if hq[0] is not None else Vector((vtx.co.x, vtx.co.y - 0.004, zq))
+        loc, _n, fi, _d = tree.find_nearest(qp)
+        f = bm.faces[fi]
+        a, b, c = (l.vert.co for l in f.loops)
+        from mathutils.geometry import barycentric_transform
+        uva = [Vector((l[uvl].uv.x, l[uvl].uv.y, 0)) for l in f.loops]
+        q = barycentric_transform(loc, a, b, c, *uva)
+        vuv.append((q.x, q.y))
+    vuv = np.array(vuv, dtype=np.float32)
+    lv = np.empty(len(tm.loops), dtype=np.int64)
+    tm.loops.foreach_get("vertex_index", lv)
+    out = vuv[lv]
+    uv.data.foreach_set("uv", out.ravel())
+    tm.materials.clear()
+    tm.materials.append(me.materials[0])
+    bm.free()
+    log("  bandana: hanging corner over the nape (%d triangles)" % sum(len(p.vertices) - 2 for p in tm.polygons))
+    return ob

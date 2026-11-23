@@ -79,7 +79,7 @@ def body_textures(body, btex, log=print, wrists=None):
         log("  body neck matched to the head's: gains %s" % np.round(gk, 3).tolist())
     # wrist bands: dark or grey outliers on the skin within 5 cm above each wrist
     if wrists:
-        L, _ = HD.masked_blur(out, skin, 10)
+        L = HD.low_pass_3d(P, out, skin, 0.006, 2)
         arm_zone = np.zeros_like(mask)
         for wp in wrists:
             arm_zone |= mask & (np.linalg.norm(P - np.asarray(wp)[None, None], axis=-1) < 0.055)
@@ -87,10 +87,21 @@ def body_textures(body, btex, log=print, wrists=None):
         band = arm_zone & ~red & ((HD._lum(out) < 0.55 * HD._lum(L)) | (HD._lum(out) > 1.6 * HD._lum(L)) | (sat < 0.25))
         out[band] = L[band] * (0.96 + 0.06 * T.fbm(P[band], 1 / 0.01, 2, seed=401))[:, None]
         log("  wrist bands painted out: %d texels" % band.sum())
-    # chest lettering, front of the shirt
+    # the shirt a deeper red, as in the photo: its red channel's median to linear 0.30, hue kept
+    sg = np.full(3, 0.30 / max(float(np.median(out[red][:, 0])), 1e-5), dtype=np.float32)
+    out[red] = out[red] * sg[None]
+    log("  shirt graded: gains %s" % np.round(sg, 3).tolist())
+    # chest lettering, front of the shirt, over the generated faint print (which is cleaned off first)
     ink = _lettering()
     hh, ww = ink.shape
-    cz, wid = 1.265, 0.25
+    cz, wid = 1.325, 0.28
+    box = red | (mask & (np.abs(x) < wid / 2 + 0.02) & (np.abs(z - cz) < 0.07) & (N[..., 1] < -0.4) & (y < 0.0)
+                 & (r > 1.2 * g))
+    old_print = box & (np.abs(x) < wid / 2 + 0.02) & (np.abs(z - cz) < 0.07) & (N[..., 1] < -0.4) & (y < 0.0)
+    Lr = HD.low_pass_3d(P, out, red, 0.008, 2)
+    dark = old_print & (HD._lum(out) < 0.8 * HD._lum(Lr))
+    out[dark] = Lr[dark]
+    red = red | dark
     chest = red & (N[..., 1] < -0.45) & (np.abs(x) < wid / 2) & (np.abs(z - cz) < wid * hh / ww / 2) & (y < 0.0)
     u = (x[chest] + wid / 2) / wid
     v = 1 - ((z[chest] - cz) / (wid * hh / ww) + 0.5)

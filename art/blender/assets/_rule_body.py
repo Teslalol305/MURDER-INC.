@@ -274,6 +274,7 @@ def build(ctx):
     if old is not None:
         old.name = "M_Rule_Head__generated"
     m.name = "M_Rule_Head"
+    eyes = eyes + [HD.bandana_tail(head, col, ctx.log)]
     from assets import _rule_bodytex as BT
     GG.fit_pose(arm, gen3d.verts(body))
     bpy.context.view_layer.update()
@@ -318,8 +319,9 @@ def build(ctx):
         s = Wk.sum(1)
         ok = hz & (s > 1e-3)
         W[ok] = Wk[ok] / s[ok, None]
-    W = shirt_weights(co, names, W, red_v, skin_v, ctx.log)
     W = GG.limit_normalise(GG.smooth_weights(ob, W), 4)
+    # after the smoothing, which would carry the arm's weight back into the shirt
+    W = GG.limit_normalise(shirt_weights(co, names, W, red_v, skin_v, ctx.log), 4)
     fits = GG.bone_fit_matrices(arm)
     rest = GG.unpose(co, names, W, fits)
     GG._set_verts(ob, rest)
@@ -369,7 +371,7 @@ def export(ctx):
 def shirt_weights(co, names, W, red_v, skin_v, log=print):
     """Review round 1 (the shirt's side and armhole flared like a wing in the jog): the sleeveless shirt follows
     the chest, not the arm. On shirt vertices the upper arm's share goes to the clavicle above the armpit and to
-    spine_03 below it; at the armhole's rim 30 % of it is kept, fading to none 8 cm in."""
+    spine_03 below it; at the armhole's rim 15 % of it is kept, fading to none 8 cm in."""
     from mathutils import kdtree
     nb = len(red_v)
     out = W.copy()
@@ -395,7 +397,7 @@ def shirt_weights(co, names, W, red_v, skin_v, log=print):
             share = W[v, ups].sum()
             if share < 1e-4:
                 continue
-            keep = 0.30 * (1.0 - min(d / 0.08, 1.0))
+            keep = 0.15 * (1.0 - min(d / 0.08, 1.0))
             give = share * (1 - keep)
             out[v, ups] *= keep
             tgt = cl if (co[v, 2] > z_pit + 0.03 and cl is not None) else sp
