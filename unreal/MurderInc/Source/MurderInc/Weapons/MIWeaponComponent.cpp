@@ -215,6 +215,10 @@ void UMIWeaponComponent::Step(double Dt, const FMIWeaponInput& Input, const FVec
 	FlashAge += FMath::Min(Dt, 1.0 / 60.0);
 	if (FlashAge >= FlashLife)
 	{
+		if (FlashCards.Num() > 0 && FlashCards[0] && FlashCards[0]->IsVisible())
+		{
+			UE_LOG(LogMI, Verbose, TEXT("Flash: hidden at age %.4f s (frame %.4f s)"), FlashAge, Dt);
+		}
 		for (UStaticMeshComponent* C : FlashCards)
 		{
 			if (C && C->IsVisible()) C->SetVisibility(false);
@@ -710,6 +714,7 @@ void UMIWeaponComponent::MuzzleFlash(double FlashScale)
 			FlashMids[K]->SetScalarParameterValue(TEXT("Seed"), FMath::FRandRange(0.f, 50.f));
 			FlashCards[K]->SetVisibility(true);
 		}
+		UE_LOG(LogMI, Verbose, TEXT("Flash: shown, %.1f cm from the eye"), FVector::Dist(FlashCards[0]->GetComponentLocation(), Camera->GetComponentLocation()));
 	}
 	if (UMIEffects* Fx = UMIEffects::Get(this))
 	{
