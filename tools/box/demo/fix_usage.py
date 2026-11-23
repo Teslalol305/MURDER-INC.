@@ -17,6 +17,12 @@ NEEDS = {
     '/Game/Weapons/Nine/M_Weapon_NineMagazine': ['used_with_nanite'],
 }
 done = set()
+# The block-v2 map draws the art's masters on instanced and Nanite meshes (logged by the take with that map: the El
+# steel, concrete, plates): every master under /Game/Art/Materials gets both flags.
+for path in unreal.EditorAssetLibrary.list_assets('/Game/Art/Materials', recursive=True, include_folder=False):
+    a = unreal.load_asset(path)
+    if isinstance(a, unreal.Material):
+        NEEDS[a.get_path_name().split('.')[0]] = ['used_with_instanced_static_meshes', 'used_with_nanite']
 for path, flags in NEEDS.items():
     a = unreal.load_asset(path)
     if a is None:
@@ -26,7 +32,7 @@ for path, flags in NEEDS.items():
     for f in flags:
         base.set_editor_property(f, True)
     key = base.get_path_name()
-    if key not in done:
+    if key not in done or flags:
         done.add(key)
         ok = unreal.EditorAssetLibrary.save_loaded_asset(base, False)
         unreal.log('fix_usage: %s %s saved %s' % (key, flags, ok))
