@@ -35,6 +35,7 @@ import numpy as np
 from mathutils import Matrix, Vector
 
 from mi import bake, export, gen3d, geo, mat, paths, render, scene
+from mi import carparts as cp
 
 FAMILY = {"name": "vehicles", "description": "The eleven vehicles: generated bodies cleaned and completed by script"}
 
@@ -60,7 +61,14 @@ SPEC = {
     "Sedan": dict(ws_top=0.30, bn=0.90, src="sedan_hunyuan60k.glb", axis="Y", nose=-1, size=(4.61, 1.85, 1.45), axles=(1.42, -1.38),
                   r=0.325, tw=0.21, rim=0.22, belt=1.02, cowl=0.98, bpillar=-0.20, rear_x=-1.52, floor=0.36,
                   wheel="cap", rear_seat=True, plate="HLS2141", paint="maroon", cover=1.08,
-                  tris=60000),
+                  tris=60000,
+                  # close-up pass 3: modelled lamps, grille, mirrors and cabin; flanks on a fitted surface with
+                  # real shut lines at the briefed door lines (front door 1.16, rear door 0.90)
+                  modelled_lamps=("head", "tail", "grille"), modelled_mirrors=True, cabin=True, shelf=True,
+                  flank=(-1.80, 1.80, 0.30, 0.99), handles=[(-0.10, 0.86), (-0.95, 0.86)], clean_glass=True,
+                  flat_boxes=[(-0.10, 0.84, 0.14, 0.07), (-1.15, 0.85, 0.14, 0.07), (-1.72, 0.86, 0.12, 0.07)],
+                  grooves=[((0.995, 0.31), (0.965, 0.985)), ((-0.175, 0.31), (-0.175, 0.985)),
+                           ((-1.065, 0.60), (-1.10, 0.985))]),
     "SUV": dict(ws_top=0.45, bn=1.12, src="suv_hunyuan60k.glb", axis="Y", nose=-1, size=(4.91, 2.0, 1.82), axles=(1.50, -1.42),
                 r=0.40, tw=0.27, rim=0.27, belt=1.22, cowl=1.00, bpillar=-0.12, rear_x=-2.12, floor=0.48,
                 wheel="alloy", rear_seat=True, plate="TKV9907", paint="black", cover=1.24, tris=62000),
@@ -103,25 +111,37 @@ def small_sets(force=False):
     res = 1024
     out = {}
 
-    def done(name):
-        return not force and os.path.exists(os.path.join(paths.texture_set(name), "set.json"))
+    def done(name, rev=0):
+        js = os.path.join(paths.texture_set(name), "set.json")
+        if force or not os.path.exists(js):
+            return False
+        if rev:
+            with open(js) as fh:
+                return json.load(fh).get("rev", 0) >= rev
+        return True
 
-    def put(name, bc, rough, metal, h=None, strength=4.0, tile=0.5, note=""):
+    def put(name, bc, rough, metal, h=None, strength=4.0, tile=0.5, note="", rev=0, emit=None, nrm=None):
         out[name] = tile
-        if done(name):
+        if done(name, rev):
             return
         bc = np.broadcast_to(bc, (res, res, 3)).astype(np.float32)
         ch = {"bc": bc, "rough": np.broadcast_to(rough, (res, res)).astype(np.float32),
               "metal": np.broadcast_to(metal, (res, res)).astype(np.float32)}
         if h is not None:
             ch["normal"] = _normal_from(h, strength)
+        if nrm is not None:
+            ch["normal"] = nrm
+        if emit is not None:
+            ch["emit"] = np.broadcast_to(emit, (res, res, 3)).astype(np.float32)
         bake.write_set(name, ch, meta={"kind": "tiling", "tile_m": tile, "seamless": True, "family": "vehicles",
-                                       "note": note, "texel_density_px_per_m": round(res / tile, 1)})
+                                       "note": note, "texel_density_px_per_m": round(res / tile, 1), "rev": rev})
 
     n1 = _noise((res, res), 60.0, 1)
     n2 = _noise((res, res), 6.0, 2)
-    put("TS_Glass_CarTint", np.array(hexcol("#0a0d10")) * (0.95 + 0.1 * n1[..., None]), 0.03 + 0.03 * n1, 0.0,
-        note="tinted car glass: translucent in Unreal (opacity about 0.75, IOR 1.52); BC is the tint")
+    # (close-up pass 3) lighter glass: a light grey-green tint at opacity 0.45, so the modelled cabin reads by day
+    put("TS_Glass_CarTint", np.array(hexcol("#7d8a86")) * (0.97 + 0.06 * n1[..., None]), 0.03 + 0.03 * n1, 0.0,
+        note="car glass: translucent in Unreal (opacity about 0.45, IOR 1.52); BC is a light grey-green tint",
+        rev=3)
     put("TS_Chrome_Polished", np.full(3, 0.92) * (0.97 + 0.03 * n2[..., None]), 0.05 + 0.06 * n1, 1.0,
         h=n2 * 0.3, strength=1.0)
     put("TS_Alloy_Wheel", np.array([0.62, 0.63, 0.64]) * (0.95 + 0.05 * n2[..., None]), 0.22 + 0.1 * n1, 1.0,
@@ -141,6 +161,35 @@ def small_sets(force=False):
         h=n1, strength=1.5, tile=1.0, note="bare dark steel of load spaces and engine bays")
     put("TS_Char_Burnt", np.array([0.028, 0.022, 0.018]) * (0.6 + 0.8 * n2[..., None] * n1[..., None] + 0.2 * grain[..., None]),
         0.85 + 0.1 * n1, 0.05, h=n2 * 0.6 + grain * 0.4, strength=4.0, tile=1.0, note="charred, sooty steel and ash")
+    # ---- close-up pass 3: the modelled lamps, brakes, mirrors and cabin
+    yy, xx = np.mgrid[0:res, 0:res].astype(np.float32)
+    prism = (1 - np.abs(np.sin(np.pi * xx / 64))) * (1 - np.abs(np.sin(np.pi * yy / 64)))    # 16 per 0.128 m tile
+    flute = np.abs(np.sin(np.pi * xx / 64))
+    put("TS_Glass_LampClear", np.full(3, 0.80), 0.04 + 0.02 * n1, 0.0, h=flute * 0.5 + n1 * 0.05, strength=6.0,
+        tile=0.128, emit=np.array([1.0, 0.95, 0.85]), rev=3,
+        note="clear lamp lens with moulded flutes (normal); translucent in Unreal (opacity 0.25, IOR 1.49); "
+             "E is the lit colour, off by day")
+    put("TS_Glass_LampRed", np.array([0.55, 0.012, 0.010]), 0.05 + 0.02 * n1, 0.0, h=prism * 0.5 + n1 * 0.05,
+        strength=6.0, tile=0.128, emit=np.array([1.0, 0.04, 0.02]), rev=3,
+        note="red tail lens with moulded prisms (normal); translucent in Unreal (opacity 0.6) over the reflector; "
+             "E is the lit colour")
+    put("TS_Glass_LampAmber", np.array([0.85, 0.30, 0.012]), 0.05 + 0.02 * n1, 0.0, h=prism * 0.5 + n1 * 0.05,
+        strength=6.0, tile=0.128, emit=np.array([1.0, 0.45, 0.04]), rev=3,
+        note="amber indicator lens with moulded prisms; translucent in Unreal (opacity 0.6); E is the lit colour")
+    put("TS_Chrome_Reflector", np.full(3, 0.90), 0.16 + 0.04 * n1, 1.0, h=n2 * 0.2, strength=1.0, rev=3,
+        note="vacuum-metallised lamp reflector: bright, slightly soft")
+    put("TS_Glass_Mirror", np.full(3, 0.93), 0.015 + 0.01 * n1, 1.0, rev=3, note="door mirror glass (silvered)")
+    put("TS_Steel_BrakeDisc", np.array([0.20, 0.19, 0.18]) * (0.85 + 0.3 * n1[..., None]), 0.42 + 0.15 * n2, 0.9,
+        h=n2 * 0.5 + grain * 0.2, strength=2.0, rev=3, note="cast-iron brake disc and drum, light surface rust")
+    put("TS_Plastic_CabinGrey", np.array(hexcol("#5c5e62")) * (0.92 + 0.12 * n2[..., None]), 0.58 + 0.1 * grain,
+        0.0, h=grain, strength=2.5, rev=3, note="grey moulded cabin plastic (dash, door cards, console), fine grain")
+    put("TS_Fabric_SeatGrey", np.array(hexcol("#696b70")) * (0.80 + 0.25 * weave[..., None] + 0.12 * n2[..., None]),
+        0.93, 0.0, h=weave * 0.5 + n1 * 0.5, strength=3.0, tile=0.25, rev=3, note="woven grey seat cloth")
+    put("TS_Carpet_Cabin", np.array(hexcol("#2c2d30")) * (0.75 + 0.5 * grain[..., None]), 0.97, 0.0, h=grain,
+        strength=5.0, tile=0.25, rev=3, note="cut-pile cabin carpet, charcoal")
+    put("TS_Fabric_Headliner", np.array(hexcol("#a8a49b")) * (0.95 + 0.08 * grain[..., None]), 0.95, 0.0, h=grain,
+        strength=1.5, tile=0.25, rev=3, note="headliner cloth, light warm grey")
+    put("TS_Plastic_GaugeFace", np.full(3, 0.78), 0.4, 0.0, rev=3, note="white print of the dials")
     return out
 
 
@@ -208,13 +257,21 @@ def set_material(set_name, slot=None, glass=False, coat=0.0, tint=None, emit_str
         b.inputs["Coat Weight"].default_value = coat
         b.inputs["Coat Roughness"].default_value = 0.03
     if glass:
+        # previews: shadow rays pass the glass (as Unreal's translucent glass casts no shadow), so the cabin is lit
+        lp = nt.nodes.new("ShaderNodeLightPath")
+        tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+        mixs = nt.nodes.new("ShaderNodeMixShader")
+        nt.links.new(lp.outputs["Is Shadow Ray"], mixs.inputs["Fac"])
+        nt.links.new(b.outputs[0], mixs.inputs[1])
+        nt.links.new(tr.outputs[0], mixs.inputs[2])
+        nt.links.new(mixs.outputs[0], out.inputs[0])
         b.inputs["Transmission Weight"].default_value = 1.0
         b.inputs["IOR"].default_value = 1.52
         b.inputs["Roughness"].default_value = 0.02
-        if bc is not None:
+        if bc is not None and not set_name.startswith("TS_Glass_Lamp"):
             for l in list(bc.outputs["Color"].links):
                 nt.links.remove(l)
-        b.inputs["Base Color"].default_value = (0.42, 0.47, 0.46, 1.0)
+            b.inputs["Base Color"].default_value = (0.86, 0.90, 0.89, 1.0)
         for l in list(b.inputs["Roughness"].links):
             nt.links.remove(l)
     return m
@@ -224,7 +281,7 @@ def tiling(name, tile=None):
     """(material, tile_m) of a shared vehicle tiling set by its TS_ name."""
     info = bake.read_set(name) or {}
     t = tile or info.get("tile_m", 0.5)
-    m = set_material(name, glass=(name == "TS_Glass_CarTint"))
+    m = set_material(name, glass=(name == "TS_Glass_CarTint" or name.startswith("TS_Glass_Lamp")))
     m["mi_tile_m"] = t
     return m, t
 
@@ -343,19 +400,13 @@ def rim(style, rim_r, tw, name="Rim"):
 
 
 def wheel(spec, name, twin=False):
-    """One wheel (tyre + face) at the origin, axle along Y, outboard +Y. Returns {slot key: [objects]}."""
-    r, tw, rr = spec["r"], spec["tw"], spec["rim"]
-    out = {}
-    offs = [0.0] if not twin else [0.0, -(tw + 0.02)]
-    for k, dy in enumerate(offs):
-        t = tyre(r, tw, rr, name=name + "_Tyre%d" % k)
-        geo.transform(t, loc=(0, dy, 0))
-        out.setdefault("tyre", []).append(t)
-        style = spec["wheel"] if k == 0 else "steel"
-        for p, key in rim(style, rr, tw, name=name + "_Rim%d" % k):
-            geo.transform(p, loc=(0, dy, 0))
-            out.setdefault(key, []).append(p)
-    return out
+    """One wheel (tyre + face + brake) at the origin, axle along Y, outboard +Y. Returns {slot key: [objects]}.
+    (close-up pass 3) modelled by mi.carparts: tyre with tread, shoulder lugs, sidewall ribs and raised invented
+    lettering; hubcap / steel (trim ring) / alloy / truck faces with lug nuts and valve; disc and caliper or drum."""
+    style = spec["wheel"]
+    if style == "steel" and spec["r"] >= 0.43:
+        style = "truck"
+    return cp.wheel(style, spec["r"], spec["tw"], spec["rim"], name=name, twin=twin, trim_ring=spec.get("trim_ring", False))
 
 
 def well_liner(r, depth, name="Well"):
@@ -601,7 +652,30 @@ def uv_point(ob, set_name, key="paint_uv"):
     return ob
 
 
-def body_set(set_name, cmap, tex, meta):
+def raster_values(ob, vals, size):
+    """Per-face values in UV space (float32, NaN where no face): every face drawn with its value (mm steps)."""
+    from PIL import Image, ImageDraw
+    W, H = size
+    me = ob.data
+    uv = np.empty(len(me.loops) * 2)
+    me.uv_layers.active.data.foreach_get("uv", uv)
+    uv = uv.reshape(-1, 2)
+    px = np.stack([uv[:, 0] * W, (1.0 - uv[:, 1]) * H], 1)
+    ls = np.empty(len(me.polygons), dtype=np.int64)
+    lt = np.empty(len(me.polygons), dtype=np.int64)
+    me.polygons.foreach_get("loop_start", ls)
+    me.polygons.foreach_get("loop_total", lt)
+    im = Image.new("I", (W, H), 0)
+    dr = ImageDraw.Draw(im)
+    iv = (np.asarray(vals) * 1000.0).astype(np.int64) + 100000
+    for i in range(len(ls)):
+        s_, t_ = ls[i], lt[i]
+        dr.polygon([tuple(p) for p in px[s_:s_ + t_]], fill=int(iv[i]), outline=int(iv[i]))
+    a = np.asarray(im, dtype=np.float64)
+    return np.where(a > 0, (a - 100000) / 1000.0, np.nan).astype(np.float32)
+
+
+def body_set(set_name, cmap, tex, meta, zmap=None):
     """Rewrite the generated atlas as the asset's set: paint -> tint mask, lamps -> emissive."""
     bc = tex["bc"]
     lum = bc @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
@@ -615,13 +689,24 @@ def body_set(set_name, cmap, tex, meta):
         detail = np.clip(lum / np.maximum(lo, 1e-4), 0.35, 1.25)
     else:
         detail = np.ones_like(lum)
-    detail = np.where(detail < 0.78, detail, 0.78 + (detail - 0.78) * 0.30)
-    detail = detail / (0.78 + 0.22 * 0.30)
-    pbc = np.clip(0.86 * detail, 0.0, 0.95)[..., None] * np.array([1.0, 1.0, 1.0], dtype=np.float32)
+    # (close-up pass 3) one clean paint: a flat tint, only the crevices and panel lines darker than 72 % of the
+    # local mean kept as dark lines (no baked highlights, no white seams, no crumple shading); road grime rising
+    # from the sills (darker, rougher), a faint large-scale mottle
+    lines = np.clip((0.72 - detail) / 0.30, 0.0, 1.0)
+    H_, W_ = lum.shape
+    mott = np.tile(_noise((1024, 1024), 40.0, 11), (-(-H_ // 1024), -(-W_ // 1024)))[:H_, :W_]
+    grime = np.zeros_like(lum)
+    if zmap is not None:
+        z = np.nan_to_num(zmap, nan=1.0)
+        grime = np.clip((0.62 - z) / 0.50, 0.0, 1.0) ** 1.5 * (0.7 + 0.6 * mott)
+    lines *= meta.get("paint_lines", 0.0)         # (close-up pass 3) no texture lines: shut lines are modelled
+    flat = 0.86 * (1.0 - 0.72 * lines) * (0.985 + 0.03 * mott) * (1.0 - 0.28 * grime)
+    pbc = np.clip(flat, 0.0, 0.95)[..., None] * (1.0 - grime[..., None] * np.array([0.0, 0.05, 0.12], np.float32))
+    detail = np.where(lines > 0, 1.0 - 0.5 * lines, 1.0)
     out_bc = np.where(paint[..., None] > 0, pbc, bc).astype(np.float32)
     rough = tex["rough"].copy()
     metal = tex["metal"].copy()
-    rough = np.where(paint > 0, 0.30 + 0.06 * (1.0 - detail), rough)
+    rough = np.where(paint > 0, 0.26 + 0.06 * (1.0 - detail) + 0.30 * grime, rough)
     metal = np.where(paint > 0, 0.0, metal)
     lamps = np.isin(cmap, [CLS["head"], CLS["tail"], CLS["amber"]])
     rough = np.where(lamps, 0.06, rough)
@@ -631,19 +716,23 @@ def body_set(set_name, cmap, tex, meta):
     emit = np.where((cmap == CLS["head"])[..., None], np.array([1.0, 0.93, 0.80]) * s, emit)
     emit = np.where((cmap == CLS["tail"])[..., None], np.array([1.0, 0.06, 0.03]) * np.clip(lum / 0.12, 0.4, 1.0)[..., None], emit)
     emit = np.where((cmap == CLS["amber"])[..., None], np.array([1.0, 0.45, 0.05]), emit)
-    # paint normals: the coarse low-pass taken out too (dents, ripples), fine detail kept at 80 %
+    # paint normals: (close-up pass 3) the generated detail (crumples, ripples) replaced by a fine orange peel; the
+    # modelled shut lines and the geometry carry the form
     nrm = tex["normal"].astype(np.float32)
     if paint.any():
         v = nrm * 2.0 - 1.0
         pm = paint > 0
-        for i in (0, 1):
-            v[..., i] = np.where(pm, (v[..., i] - _lowpass(v[..., i], pm, size=48)) * 0.8, v[..., i])
+        peel = np.tile(_noise((1024, 1024), 1.3, 12), (-(-H_ // 1024), -(-W_ // 1024)))[:H_, :W_]
+        gy, gx = np.gradient(peel)
+        for i, g in ((0, gx), (1, gy)):
+            v[..., i] = np.where(pm, -g * 0.30, v[..., i])
         v[..., 2] = np.where(pm, np.sqrt(np.clip(1.0 - v[..., 0] ** 2 - v[..., 1] ** 2, 0.0, 1.0)), v[..., 2])
         nrm = np.clip(v * 0.5 + 0.5, 0.0, 1.0)
     f = np.flipud                       # write_set wants row 0 at the bottom (UV orientation)
     ch = {"bc": f(out_bc), "rough": f(rough.astype(np.float32)), "metal": f(metal.astype(np.float32)),
           "normal": f(nrm), "emit": f(emit.astype(np.float32))}
     info = dict(meta)
+    info.pop("paint_lines", None)
     info["paint_uv"] = paint_uv(cmap)
     info["tail_uv"] = class_uv(cmap, CLS["tail"])
     info["amber_uv"] = class_uv(cmap, CLS["amber"])
@@ -652,14 +741,14 @@ def body_set(set_name, cmap, tex, meta):
     return bake.write_set(set_name, ch, meta=info)
 
 
-def solidify(ob, thickness, inner_slot):
+def solidify(ob, thickness, inner_slot, rim_slot=None):
     md = ob.modifiers.new("Solidify", "SOLIDIFY")
     md.thickness = thickness
     md.offset = -1.0
     md.use_rim = True
     md.use_even_offset = False
     md.material_offset = inner_slot
-    md.material_offset_rim = inner_slot
+    md.material_offset_rim = inner_slot if rim_slot is None else rim_slot
     scene.select_only(ob)
     bpy.context.view_layer.objects.active = ob
     bpy.ops.object.modifier_apply(modifier=md.name)
@@ -755,6 +844,7 @@ def interior(spec, name, hw_in):
 
 # ------------------------------------------------------------------------------------------------------- plates
 PLATES = {"HLS2141": "HLS·2141", "TKV9907": "TKV·9907", "KQB5530": "KQB·5530", "LWG4418": "LWG·4418",
+          "RJM6072": "RJM·6072",
           "T5K83": "T·5K83"}
 
 
@@ -1037,7 +1127,7 @@ def cowl_panel(fit, name, glass=None):
               if any(bvh.ray_cast(Vector((float(x), float(y), 6.0)), Vector((0, 0, -1)), 12.0)[0] is not None
                      for x in np.arange(x1, x1 - 0.22, -0.02))]
         if yh:
-            hw = min(hw, max(yh) - 0.02)
+            hw = min(hw, max(yh) - 0.04)          # (close-up pass 3) 2 cm further inside the A pillars
     g = {}
     edge = []
     for j in range(ny + 1):
@@ -1066,7 +1156,7 @@ def cowl_panel(fit, name, glass=None):
             t = i / nx
             x = xr + (x1 - xr) * t
             zl = zr + (cowl_z(fit, x1, y) - zr) * t
-            g[i, j] = bm.verts.new((x, y, max(zl, cowl_z(fit, x, y)) + 0.006))
+            g[i, j] = bm.verts.new((x, y, max(zl, cowl_z(fit, x, y)) - 0.005))
     for i in range(nx):
         for j in range(ny):
             bm.faces.new([g[i, j], g[i, j + 1], g[i + 1, j + 1], g[i + 1, j]])
@@ -1083,7 +1173,7 @@ def cowl_panel(fit, name, glass=None):
     while yy < hw - 0.05:
         r = geo.box((ln, 0.004, 0.005), bevel=0.0, base=False, name=name + "_Louvre")
         geo.transform(r, rot=(0, ang, 0))
-        geo.transform(r, loc=(xc, yy, cowl_z(fit, xc, yy) + 0.0085))
+        geo.transform(r, loc=(xc, yy, cowl_z(fit, xc, yy) - 0.0025))
         ribs.append(r)
         yy += 0.019
     ob = geo.join([ob] + ribs, name + "_Cowl")
@@ -1129,9 +1219,15 @@ def wipers(glass, spec, name, fit=None):
         piv = Vector((base.x + 0.035, yp, base.z + 0.005))
         if fit is not None:                       # pivot on the modelled cowl, in front of the glass base
             px = min(base.x + 0.035, fit["x1"] - 0.03)
-            piv = Vector((px, yp, cowl_z(fit, px, yp) + 0.016))
-        tip = ends[1] + up * 0.026
-        arm = geo.pipe([tuple(piv), tuple(piv + up * 0.03), tuple(tip)], 0.0065, segments=8, name=name + "_WiperArm")
+            piv = Vector((px, yp, cowl_z(fit, px, yp) + 0.006))
+        tip = ends[1] + up * 0.024
+        # (close-up pass 3) the arm lies along the glass: from the pivot it bends down onto the screen at once
+        mid = piv + (tip - piv) * 0.18
+        hm = hit(float(mid.x), float(mid.y))
+        if hm is not None:
+            mid = Vector((mid.x, mid.y, max(hm.z + 0.022, piv.z)))
+        arm = geo.pipe([tuple(piv), tuple(mid), tuple(tip)], 0.0065, segments=8, bend_radius=0.02,
+                       name=name + "_WiperArm")
         cap = geo.cylinder(0.019, 0.03, 16, bevel=0.004, name=name + "_WiperCap")
         geo.transform(cap, loc=tuple(piv - up * 0.01))
         sp_ = geo.pipe([tuple(p) for p in spine], 0.0055, segments=8, name=name + "_WiperBlade")
@@ -1179,6 +1275,13 @@ def make_parts(ctx, key):
     if spec.get("paint2"):
         k = (cls == CLS["paint"]) & spec["paint2"](c)
         cls[k] = 8
+    # (close-up pass 3) lamps, grille and mirrors are planned on the uncut body and modelled after the clean-up
+    lamp_plan = plan_lamps(ob, c, n, cls, spec) if spec.get("modelled_lamps") else []
+    mirror_mounts = plan_mirrors(c, n, cls, spec) if spec.get("modelled_mirrors") else []
+    for hx, hz, ex, ez in spec.get("flat_boxes", []):    # generated handles, flaps: paint (then flattened)
+        cls[(np.abs(c[:, 0] - hx) < ex) & (np.abs(c[:, 2] - hz) < ez) & (np.abs(c[:, 1]) > 0.55)
+            & np.isin(cls, [CLS["trim"], CLS["inside"], CLS["amber"], CLS["head"], CLS["tail"]])] = CLS["paint"]
+    ctx.log("%s: %d lamps / grilles planned, %d mirrors" % (key, len(lamp_plan), len(mirror_mounts)))
     if os.environ.get("VEH_DEBUG"):
         debug_classes(ob, cls, os.path.join(GEN, "debug_%s.jpg" % key))
     plates = []
@@ -1194,7 +1297,15 @@ def make_parts(ctx, key):
             under = ((np.abs(c[:, 0] - pc[0]) < 0.12) & (np.abs(c[:, 1] - pc[1]) < pc[3] / 2 + 0.05)
                      & (c[:, 2] > pc[2] - pc[4] / 2 - 0.10) & (c[:, 2] < pc[2] + pc[4] / 2 + 0.04)
                      & (cls == CLS["paint"]) & (n[:, 0] * (1 if front else -1) > 0.5))
+            # (close-up pass 3) the generated holder stays paint, and whatever of it stands in front of the plate
+            # (the dark diagonal line across the front plate) is pushed back behind the modelled recess
             cls[under] = CLS["inside"]
+            co_ = gen3d.verts(ob)
+            sgn = 1 if front else -1
+            near_ = (np.abs(co_[:, 1] - pc[1]) < 0.19) & (np.abs(co_[:, 2] - pc[2]) < 0.11)
+            lim = pc[0] - sgn * 0.016
+            co_[:, 0] = np.where(near_ & ((co_[:, 0] - lim) * sgn > 0), lim, co_[:, 0])
+            gen3d.set_verts(ob, co_)
     cowl_ob = None
     P_cowl = None
     if spec.get("wipers"):
@@ -1219,8 +1330,9 @@ def make_parts(ctx, key):
         cm[cm == 8] = CLS["paint"]
         cm[cm == CLS["inside"]] = CLS["trim"]
         cmap = raster_classes(ob, cm, tex["size"])
-        body_set(set_name, cmap, tex, {"asset": name, "family": "vehicles",
-                                       "source": "art/out/gen/vehicles/" + spec["src"]})
+        zmap = raster_values(ob, c[:, 2], tex["size"])
+        body_set(set_name, cmap, tex, {"asset": name, "family": "vehicles", "paint_lines": spec.get("paint_lines", 0.0),
+                                       "source": "art/out/gen/vehicles/" + spec["src"]}, zmap=zmap)
         ctx.log("%s: set %s written" % (key, set_name))
     del tex
     gmask = cls == CLS["glass"]
@@ -1252,12 +1364,59 @@ def make_parts(ctx, key):
         ctx.log("%s: paint panels smoothed (%d free vertices)" % (key, nfree))
     W, D, H = spec["size"]
     gen3d.clamp_box(ob, (-W / 2, -D / 2, 0.0), (W / 2, D / 2, H))
+    if spec.get("flank"):                 # (close-up pass 3) flanks on a fitted surface, real shut lines
+        fl = spec["flank"]
+        avoid = [(ax, spec["r"], spec["r"] + 0.11) for ax in spec["axles"]]
+        for sd in (1, -1):
+            nm_ = cp.flatten_flank(ob, sd, fl[0], fl[1], fl[2], fl[3], avoid=avoid, slot=0,
+                                   force=spec.get("flat_boxes", ()))
+            ng = 0
+            for p0, p1 in spec.get("grooves", []):
+                ng += cp.cut_groove(ob, sd, p0, p1, width=0.0065, depth=0.008, slot=len(ms) - 1, ymin=0.45)
+            ctx.log("%s: flank %+d flattened (%d vertices), %d groove faces" % (key, sd, nm_, ng))
+    for key_f, sgn_ in (("rear_face", -1), ("front_face", 1)):     # tailgate / nose panels on a fitted surface
+        if spec.get(key_f):
+            yh, fz0, fz1 = spec[key_f]
+            geo.transform(ob, rot=(0, 0, 90))
+            nf_ = cp.flatten_flank(ob, sgn_, -yh, yh, fz0, fz1, slot=0, deg=(4, 3), min_ny=0.5)
+            geo.transform(ob, rot=(0, 0, -90))
+            ctx.log("%s: %s flattened (%d vertices)" % (key, key_f, nf_))
+    lamp_objs = build_lamps(ob, lamp_plan, spec, name) if lamp_plan else []
+    if spec.get("handles"):
+        from mathutils.bvhtree import BVHTree
+        bm_h = bmesh.new()
+        bm_h.from_mesh(ob.data)
+        bvh_h = BVHTree.FromBMesh(bm_h)
+        bm_h.free()
+        for hx, hz in spec["handles"]:
+            for sd in (1, -1):
+                h = bvh_h.ray_cast(Vector((hx, sd * 3.0, hz)), Vector((0, -sd, 0)), 6.0)
+                if h[0] is None:
+                    continue
+                d = cp.door_handle(w=0.12, key=spec.get("handle_key", "paint"), name=name + "_Handle")
+                if sd < 0:
+                    cp.place(d, scale=(1, -1, 1))
+                yaw = math.degrees(math.atan2(-h[1].x * sd, abs(h[1].y))) if abs(h[1].y) > 0.3 else 0.0
+                cp.place(d, rot=(0, 0, yaw), loc=(hx, h[0].y, hz))
+                lamp_objs += cp_objs(d, (ms[0], set_name))
     geo.smooth_by_angle(ob, 50)
     raw = dup(ob, name + "_Raw")
     raw.hide_render = True
     raw.hide_viewport = True
     if spec.get("solid", True):
-        solidify(ob, 0.010, len(ms) - 1)
+        if spec.get("cabin"):                  # (close-up pass 3) the shell's inside reads as trim cloth, its rims dark
+            ob.data.materials.append(tiling("TS_Fabric_Headliner")[0])
+            solidify(ob, 0.010, len(ms), len(ms) - 1)
+            c_, _n, _a = gen3d.face_arrays(ob)             # cloth only inside the cabin, dark plastic elsewhere
+            mi_ = np.empty(len(ob.data.polygons), dtype=np.int32)
+            ob.data.polygons.foreach_get("material_index", mi_)
+            cab_ = ((c_[:, 0] > spec.get("cabin_rear", spec["rear_x"]) - 0.25) & (c_[:, 0] < spec["cowl"] + 0.05)
+                    & (c_[:, 2] > spec["floor"]) & (np.abs(c_[:, 1]) < spec["size"][1] / 2 - 0.02))
+            mi_ = np.where((mi_ == len(ms)) & ~cab_, len(ms) - 1, mi_)
+            ob.data.polygons.foreach_set("material_index", mi_)
+            ob.data.update()
+        else:
+            solidify(ob, 0.010, len(ms) - 1)
         gen3d.clamp_box(ob, (-W / 2, -D / 2, 0.0), (W / 2, D / 2, H))     # rims at open borders stay in the box
     ctx.log("%s: shell %d -> %d tris" % (key, tri0, geo.stats(ob)["triangles"]))
     P = dict(raw=raw, shell=ob, glass=None, wheels=[], wells=[], interior=[], seats=[], extra=[], plates=plates,
@@ -1265,13 +1424,21 @@ def make_parts(ctx, key):
     if glass is not None:
         m_glass, t_glass = tiling("TS_Glass_CarTint")
         gen3d.decimate(glass, 1.0, target=spec.get("glass_tris", 6000))
+        if spec.get("clean_glass"):           # (close-up pass 3) clean fitted panes in rubber seals
+            seal = cp.clean_glass(glass, name=name + "_Glass")
+            if seal is not None:
+                P["extra"].append(put_mat(seal, *tiling("TS_Rubber_Tyre")))
         put_mat(glass, m_glass, t_glass)
         solidify(glass, 0.005, 0)
         geo.smooth_by_angle(glass, 50)
         P["glass"] = glass
     if spec.get("wheel"):
         P["wheels"], P["wells"] = make_wheels(spec, name, yo, spec["wheel"])
-    if spec.get("interior", True):
+    P["extra"] += lamp_objs
+    P["extra"] += build_mirrors(mirror_mounts, spec, name, (ms[0], set_name))
+    if spec.get("cabin"):
+        P["interior"] = cabin(spec, name)
+    elif spec.get("interior", True):
         hw_in = spec["size"][1] / 2 - 0.20
         ip = interior(spec, name, hw_in)
         m_int, t_int = tiling("TS_Plastic_CarInterior")
@@ -1286,8 +1453,208 @@ def make_parts(ctx, key):
     return P
 
 
+# ------------------------------------------------------------------------- close-up pass 3: modelled parts
+CP_SETS = {"tyre": "TS_Rubber_Tyre", "steel": "TS_Paint_WheelSteel", "alloy": "TS_Alloy_Wheel",
+           "chrome": "TS_Chrome_Polished", "black": "TS_Plastic_Black", "brake": "TS_Steel_BrakeDisc",
+           "reflector": "TS_Chrome_Reflector", "lens_clear": "TS_Glass_LampClear", "lens_red": "TS_Glass_LampRed",
+           "lens_amber": "TS_Glass_LampAmber", "bulb": "TS_Glass_LampClear", "mirror": "TS_Glass_Mirror",
+           "cabin": "TS_Plastic_CabinGrey", "seat": "TS_Fabric_SeatGrey", "carpet": "TS_Carpet_Cabin",
+           "gauge": "TS_Plastic_GaugeFace", "headliner": "TS_Fabric_Headliner", "glass": "TS_Glass_CarTint"}
+
+
+def cp_objs(d, paint=None):
+    """A mi.carparts part dict as objects with their slots (tiling sets, box UVs in metres); 'paint' parts take
+    the body's paint material (paint = (material, set name): every UV on one paint texel of the atlas)."""
+    out = []
+    for k, obs in d.items():
+        if k == "paint" and paint is not None:
+            for o in obs:
+                o.data.materials.clear()
+                o.data.materials.append(paint[0])
+                uv_point(o, paint[1])
+            out += obs
+            continue
+        m, t = tiling(CP_SETS.get(k, "TS_Plastic_Black"))
+        out += [put_mat(o, m, t) for o in obs]
+    return out
+
+
+def cabin(spec, name, **kw):
+    """The modelled cabin (mi.carparts.interior) from the brief's cabin numbers: dash with cluster, dials, vents,
+    stack; steering wheel; bucket seats with bolsters, piping and headrests; bench; door cards; carpet; shelf."""
+    cw, bp, belt, fl = spec["cowl"], spec["bpillar"], spec["belt"], spec["floor"]
+    hw = spec["size"][1] / 2 - 0.20
+    rear = spec.get("cabin_rear", spec["rear_x"] + 0.15)
+    doors = [(bp + 0.03, cw - 0.10)]
+    if spec.get("rear_seat"):
+        doors.append((rear + 0.30, bp - 0.03))
+    c = dict(cowl=cw, belt=belt, floor=fl, roof=spec.get("roof", spec["size"][2] - 0.10), hw=hw, bpillar=bp, rear=rear,
+             rear_seat=spec.get("rear_seat", False), doors=doors, dash_depth=spec.get("dash_depth", 0.55),
+             driver_y=0.37 * hw / 0.70)
+    if "seat_x" in spec:
+        c["seat_x"] = spec["seat_x"]
+    if "bench_x" in spec:
+        c["bench_x"] = spec["bench_x"]
+    if spec.get("shelf"):
+        c["shelf"] = (spec["rear_x"] - 0.06, spec["rear_x"] + 0.16, belt - 0.03)
+    c.update(kw)
+    return cp_objs(cp.interior(c, name=name + "_Cabin"))
+
+
+def _ray_hits(bvh, ys, zs, facing, x_from=6.0, x_min=None):
+    """Surface points of the nose (facing +1) or the tail (-1) along X at each (y, z); with x_min only hits
+    beyond |x| > x_min (not a mirror's back half a car length away)."""
+    out = []
+    for y in ys:
+        for z in zs:
+            h = bvh.ray_cast(Vector((facing * x_from, float(y), float(z))), Vector((-facing, 0, 0)), 2 * x_from)
+            if h[0] is not None and h[1].x * facing > 0.35 and (x_min is None or h[0].x * facing > x_min):
+                out.append((h[0].x, float(y), float(z)))
+    return out
+
+
+def plan_lamps(ob, c, n, cls, spec):
+    """The lamps of a generated body, from its lamp classes (or the brief's boxes in spec['lamps']): per lamp the
+    kind, the signed rectangle, the facing and the fitted surface x = f(y, z) (ray casts on the uncut body).
+    The lamp faces become paint (the rectangles are cut out and modelled lamps fill them)."""
+    from mathutils.bvhtree import BVHTree
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    bvh = BVHTree.FromBMesh(bm)
+    bm.free()
+    L = spec["size"][0] / 2
+    lam = spec.get("lamps", {})
+    plan = []
+
+    def rect_of(k):
+        if k.sum() < 6:
+            return None
+        y0, y1 = np.percentile(np.abs(c[k, 1]), [3, 97])
+        z0, z1 = np.percentile(c[k, 2], [3, 97])
+        return [float(y0), float(y1), float(z0), float(z1)]
+    kinds = spec.get("modelled_lamps", ())
+    for kind, facing, cl in (("head", 1, CLS["head"]), ("tail", -1, CLS["tail"])):
+        if kind not in kinds:
+            continue
+        for sd in (1, -1):
+            r = lam.get(kind)
+            if r is None:
+                k = (cls == cl) & (c[:, 1] * sd > 0) & (c[:, 0] * facing > 0)
+                r = rect_of(k)
+            if r is None or r[1] - r[0] < 0.06 or r[3] - r[2] < 0.04:
+                continue
+            y0, y1, z0, z1 = r
+            ys = np.linspace(y0 - 0.02, y1 + 0.02, 15) * sd
+            zs = np.linspace(z0 - 0.02, z1 + 0.02, 9)
+            hits = _ray_hits(bvh, ys, zs, facing, x_min=L - 0.70)
+            if len(hits) < 30:
+                continue
+            fx = cp.fit_surface(hits, facing)
+            sy0, sy1 = (y0 * sd, y1 * sd) if sd > 0 else (-y1, -y0)
+            xs = [h[0] for h in hits]
+            plan.append(dict(kind=kind, side=sd, rect=(sy0, sy1, z0, z1), facing=facing, fx=fx,
+                             xr=(min(xs) - 0.06, max(xs) + 0.06)))
+    gr = spec.get("grille")
+    if gr is None and "grille" in kinds:
+        heads = [p for p in plan if p["kind"] == "head"]
+        if len(heads) == 2:
+            y_in = min(min(abs(p["rect"][0]), abs(p["rect"][1])) for p in heads)
+            z0 = max(p["rect"][2] for p in heads)
+            z1 = min(p["rect"][3] for p in heads)
+            gr = (y_in - 0.03, z0 + 0.005, z1 - 0.005, "eggcrate")
+    if gr is not None and gr[0] > 0.08 and ("grille" in kinds or "grille" in spec):
+        ghw, z0, z1, style = gr
+        hits = _ray_hits(bvh, np.linspace(-ghw - 0.02, ghw + 0.02, 15), np.linspace(z0 - 0.02, z1 + 0.02, 7), 1,
+                         x_min=L - 0.70)
+        if len(hits) > 30:
+            xs = [h[0] for h in hits]
+            plan.append(dict(kind="grille", side=0, rect=(-ghw, ghw, z0, z1), facing=1, style=style,
+                             fx=cp.fit_surface(hits, 1, deg=(4, 2)), xr=(min(xs) - 0.08, max(xs) + 0.06)))
+    for p in plan:                         # lamp faces inside the rectangles: paint (they are cut out)
+        y0, y1, z0, z1 = p["rect"]
+        inb = ((c[:, 1] > y0 - 0.03) & (c[:, 1] < y1 + 0.03) & (c[:, 2] > z0 - 0.03) & (c[:, 2] < z1 + 0.03)
+               & (c[:, 0] > p["xr"][0]) & (c[:, 0] < p["xr"][1]))
+        cls[inb & np.isin(cls, [CLS["head"], CLS["tail"], CLS["amber"]])] = CLS["paint"]
+    if spec.get("amber_paint"):           # corner lamps wrapping round the nose: paint
+        cls[(cls == CLS["amber"]) & (c[:, 0] > L - 0.45)] = CLS["paint"]
+    for kind, cl in (("head", CLS["head"]), ("tail", CLS["tail"])):   # the rest of the generated lenses: paint
+        if kind in kinds:
+            cls[cls == cl] = CLS["paint"]
+    return plan
+
+
+def build_lamps(ob, plan, spec, name):
+    """Cut every planned rectangle out of the shell and fill it: headlamp units, tail clusters, grilles."""
+    out = []
+    for i, p in enumerate(plan):
+        y0, y1, z0, z1 = p["rect"]
+        cp.cut_rect(ob, y0, y1, z0, z1, p["xr"][0], p["xr"][1])
+        nm = "%s_%s%d" % (name, p["kind"].title(), i)
+        if p["kind"] == "head":
+            amb = spec.get("head_amber", 0.22)
+            cells = spec.get("head_cells", 2 if (y1 - y0) > 1.8 * (z1 - z0) else 1)
+            secs = (("clear", 1 - amb), ("amber", amb)) if p["side"] > 0 else (("amber", amb), ("clear", 1 - amb))
+            if amb <= 0:
+                secs = (("clear", 1.0),)
+            d = cp.surface_lamp(p["fx"], y0, y1, z0, z1, secs, facing=1, depth=0.11, cells=cells,
+                                bezel_key=spec.get("bezel", "chrome"), name=nm)
+        elif p["kind"] == "tail":
+            vert = spec.get("tail_vertical", (z1 - z0) > 1.3 * (y1 - y0))
+            secs = spec.get("tail_sections", (("clear", 0.22), ("amber", 0.18), ("red", 0.60)))
+            if vert:
+                secs = spec.get("tail_sections_v", (("clear", 0.22), ("amber", 0.20), ("red", 0.58)))
+            elif p["side"] < 0:
+                secs = tuple(reversed(secs))
+            d = cp.surface_lamp(p["fx"], y0, y1, z0, z1, secs, facing=-1, depth=0.07, vertical=vert,
+                                bezel_key="black", name=nm)
+        else:
+            d = cp.surface_grille(p["fx"], y0, y1, z0, z1, facing=1, style=p["style"],
+                                  bar_key=spec.get("grille_bars", "chrome"), name=nm)
+        out += cp_objs(d)
+    return out
+
+
+def plan_mirrors(c, n, cls, spec):
+    """The generated door mirrors (faces standing out past the door skin near the A pillar): dropped; returns the
+    mounts (x, signed y of the door skin, z, outer |y|) for modelled mirrors."""
+    cw, belt = spec["cowl"], spec["belt"]
+    mx = spec.get("mirror_box", (cw - 0.45, cw + 0.30, belt - 0.12, belt + 0.35))
+    out = []
+    for sd in (1, -1):
+        door = ((np.abs(n[:, 1]) > 0.8) & (c[:, 1] * sd > 0) & (c[:, 0] > cw - 1.0) & (c[:, 0] < cw - 0.4)
+                & (c[:, 2] > belt - 0.25) & (c[:, 2] < belt - 0.05))
+        if door.sum() < 10:
+            continue
+        yd = float(np.percentile(np.abs(c[door, 1]), 90))
+        reg = ((c[:, 0] > mx[0]) & (c[:, 0] < mx[1]) & (c[:, 2] > mx[2]) & (c[:, 2] < mx[3])
+               & (c[:, 1] * sd > yd + 0.02) & (cls != CLS["glass"]))
+        if reg.sum() < 6:
+            continue
+        cls[reg] = CLS["drop"]
+        out.append((float(np.median(c[reg, 0])), sd * yd, float(np.median(c[reg, 2])),
+                    float(np.percentile(np.abs(c[reg, 1]), 99))))
+    return out
+
+
+def build_mirrors(mounts, spec, name, paint):
+    out = []
+    for x, y, z, yo in mounts:
+        sd = 1 if y > 0 else -1
+        if spec.get("truck_mirror"):
+            d = cp.truck_mirror(h=0.38, w=0.18, reach=max(0.12, yo - abs(y) - 0.17), name=name + "_Mirror")
+        else:
+            w = 0.19
+            arm = max(0.04, yo - abs(y) - w + 0.01)
+            d = cp.mirror(w=w, h=0.115, arm=arm, house_key=spec.get("mirror_house", "paint"), name=name + "_Mirror")
+        if sd < 0:
+            cp.place(d, scale=(1, -1, 1))
+        cp.place(d, loc=(x, y, z))
+        out += cp_objs(d, paint)
+    return out
+
+
 WHEEL_MATS = {"tyre": "TS_Rubber_Tyre", "chrome": "TS_Chrome_Polished", "steel": "TS_Paint_WheelSteel",
-              "alloy": "TS_Alloy_Wheel"}
+              "alloy": "TS_Alloy_Wheel", "black": "TS_Plastic_Black", "brake": "TS_Steel_BrakeDisc"}
 
 
 def make_wheels(spec, name, yo, style, axles=None, hub_z=None, tyres=True, mats=None):
@@ -1327,8 +1694,18 @@ def make_wheels(spec, name, yo, style, axles=None, hub_z=None, tyres=True, mats=
 
 
 def make_plates(P, code, y=None):
-    return [plate(code, (pc[0] + f * 0.004, pc[1] if y is None else y, pc[2]), f, size=(pc[3], pc[4]),
-                  name=P["name"] + "_Plate") for pc, f in P["plates"]]
+    """(close-up pass 3) US plates at their real size (305 x 152 mm) in a chrome frame with four screws over a
+    dark recess, centred where the generated plate was."""
+    out = []
+    for pc, f in P["plates"]:
+        at = (pc[0] + f * 0.004, pc[1] if y is None else y, pc[2])
+        out.append(plate(code, at, f, size=(0.305, 0.152), name=P["name"] + "_Plate"))
+        fr = cp.plate_frame(name=P["name"] + "_PlateFrame")
+        if f < 0:
+            cp.place(fr, rot=(0, 0, 180))
+        cp.place(fr, loc=at)
+        out += cp_objs(fr)
+    return out
 
 
 def assemble(ctx, name, objs, dirt=0.35):
@@ -1337,6 +1714,19 @@ def assemble(ctx, name, objs, dirt=0.35):
         o.hide_render = False
         o.hide_viewport = False
     ob = geo.join(objs, name, ctx.col)
+    me = ob.data                        # (close-up pass 3) slots left empty by the modelled lamps go
+    mi_ = np.empty(len(me.polygons), dtype=np.int32)
+    me.polygons.foreach_get("material_index", mi_)
+    used = sorted(set(int(v) for v in np.unique(mi_)))
+    if len(used) < len(me.materials):
+        keep = [me.materials[i] for i in used]
+        remap = np.zeros(len(me.materials), dtype=np.int32)
+        remap[used] = np.arange(len(used))
+        me.materials.clear()
+        for m in keep:
+            me.materials.append(m)
+        me.polygons.foreach_set("material_index", remap[mi_])
+        me.update()
     bm = bmesh.new()                    # slivers left by the smoothing of the generated panels
     bm.from_mesh(ob.data)
     bmesh.ops.dissolve_degenerate(bm, dist=1e-5, edges=bm.edges[:])
@@ -1641,11 +2031,18 @@ def v_taxi(ctx, P):
     mp = set_material("Vehicle_Sedan", slot="M_Vehicle_Taxi_Paint", coat=1.0, tint=hexcol("#f2c21a"))
     shell.material_slots[0].material = mp
     glass = dup(P["glass"], "Taxi_Glass")
-    parts = [shell, glass] + [dup(o) for o in P["interior"] + P["seats"] + P.get("extra", [])]
-    w, wl = make_wheels(sp, "SM_Vehicle_Taxi", P["yo"], "steel")
+    sedan_paint = P["shell"].material_slots[0].material
+    extra = [dup(o) for o in P.get("extra", [])]
+    for o in extra:                           # body-coloured parts (mirrors, handles) take the taxi's paint
+        for sl in o.material_slots:
+            if sl.material == sedan_paint:
+                sl.material = mp
+    # (close-up pass 3) the cab's own cabin: partition with a plexiglass upper half, fare meter on the dash
+    cab = cabin(sp, "Taxi", partition=sp["bpillar"] - 0.50, meter=True)
+    parts = [shell, glass] + cab + extra
+    w, wl = make_wheels(dict(sp, trim_ring=True), "SM_Vehicle_Taxi", P["yo"], "steel")
     parts += w + wl
-    parts += [plate("T5K83", (pc[0] + f * 0.004, pc[1], pc[2]), f, size=(pc[3], pc[4]), name="Taxi_Plate")
-              for pc, f in P["plates"]]
+    parts += make_plates(dict(P, name="Taxi"), "T5K83")
     dset = taxi_decals()
     dm = decal_mat(dset)
     for side in (1, -1):
@@ -1719,6 +2116,12 @@ def bay(name, x0, x1, hw, z0, z1, m, t):
     return put_mat(ob, m, t)
 
 
+def _overhang_warp(x, lo, hi, axles, length):
+    """x remapped so the axles stay where they are and only the overhangs shrink to the given overall length."""
+    af, ar = axles
+    return np.interp(x, [lo, ar, af, hi], [-length / 2, ar, af, length / 2])
+
+
 def v_burned(ctx, P):
     sp = SPEC["Sedan"]
     sh = _shell_variant(P, "Burned_Shell")
@@ -1788,13 +2191,13 @@ def v_burned(ctx, P):
     # the shell sits 0.125 lower and is the smaller 4.38 x 1.72 x 1.30 box
     lo, hi = scene.bounds(ob)
     co = gen3d.verts(ob)
-    co[:, 0] = (co[:, 0] - (lo[0] + hi[0]) / 2) * 4.38 / (hi[0] - lo[0])
+    # (close-up pass 3) the sedan's wheelbase (2.80) kept: only the overhangs are shortened to the 4.38 length
+    co[:, 0] = _overhang_warp(co[:, 0], lo[0], hi[0], sp["axles"], 4.38)
     co[:, 1] = (co[:, 1] - (lo[1] + hi[1]) / 2) * 1.72 / (hi[1] - lo[1])
     co[:, 2] = (co[:, 2] - 0.125) * 1.30 / (hi[2] - 0.125)
     gen3d.set_verts(ob, co)
     wj = geo.join(w, "Burned_Rims")
     co = gen3d.verts(wj)
-    co[:, 0] *= 4.38 / 4.61
     co[:, 1] *= 1.72 / (hi[1] - lo[1])
     gen3d.set_verts(wj, co)
     ob = geo.join([ob, wj], "SM_Vehicle_BurnedCar", ctx.col)
@@ -1951,10 +2354,10 @@ def v_stripped(ctx, P):
     t_rust = mat.scan_tile("TS_Steel_ScanRust")
     for ax in sp["axles"]:
         for side in (1, -1):
-            disc = geo.cylinder(0.14, 0.022, 32, bevel=0.003, base=False, name="Stripped_Disc")
-            hub = geo.cylinder(0.07, 0.08, 20, bevel=0.005, base=False, name="Stripped_Hub")
-            geo.transform(hub, loc=(0, 0, 0.04))
-            dd = geo.join([disc, hub])
+            # (close-up pass 3) a modelled brake: vented disc with its hat, dust shield, caliper, five wheel studs
+            bk = cp.brake(0.22, 0.105, "disc", name="Stripped_Brake")
+            studs = cp._nuts(5, 0.0572, 0.105 * 0.34, size=0.0065, name="Stripped_Studs")
+            dd = geo.join(cp.objects(bk) + [studs])
             _rot_to_y(dd)
             if side < 0:
                 geo.transform(dd, rot=(0, 0, 180))
@@ -1963,7 +2366,7 @@ def v_stripped(ctx, P):
     ob = geo.join(parts, "SM_Vehicle_StrippedCar", ctx.col)
     lo, hi = scene.bounds(ob)
     co = gen3d.verts(ob)
-    co[:, 0] = (co[:, 0] - (lo[0] + hi[0]) / 2) * 4.38 / (hi[0] - lo[0])
+    co[:, 0] = _overhang_warp(co[:, 0], lo[0], hi[0], sp["axles"], 4.38)     # (close-up pass 3) wheelbase 2.80 kept
     co[:, 1] = (co[:, 1] - (lo[1] + hi[1]) / 2) * 1.72 / (hi[1] - lo[1])
     co[:, 2] += 1.60 - hi[2]
     gen3d.set_verts(ob, co)
@@ -2210,9 +2613,8 @@ IPX_DOOR_X = -3.259         # x of the rear door plane of the generated IPX body
 def v_ipx(ctx):
     P = make_parts(ctx, "IPXTruck")
     sp = P["spec"]
-    parts = [P["shell"], P["glass"]] + P["wheels"] + P["wells"] + P["interior"] + P["seats"]
-    parts += [plate("KQB5530", (pc[0] + f * 0.004, pc[1], pc[2]), f, size=(pc[3], pc[4]), name="IPX_Plate")
-              for pc, f in P["plates"]]
+    parts = [P["shell"], P["glass"]] + P["wheels"] + P["wells"] + P["interior"] + P["seats"] + P.get("extra", [])
+    parts += make_plates(dict(P, name="IPX"), "KQB5530")
     galv = set_material("TS_Galvanised_Aged", slot="MI_Galvanised_Aged")
     t_galv = (bake.read_set("TS_Galvanised_Aged") or {}).get("tile_m", 1.0)
     tail = -sp["size"][0] / 2
@@ -2384,10 +2786,37 @@ def truck_box(ctx, P, sp):
     return out
 
 
+def truck_bumper(sp, name):
+    """(close-up pass 3) A clean chrome bumper across the cab front (pressed channel with rolled edges, end caps,
+    a tow slot with a pin, four bolt heads) over the generated one: no pixel-stepped mask, no ragged hole."""
+    L = sp["size"][0] / 2
+    x0, x1, z0, z1, hw = sp["bumper"]
+    prof = [(0.0, 0.0), (x1 - x0, 0.0), (x1 - x0 + 0.012, 0.02), (x1 - x0 + 0.012, z1 - z0 - 0.02), (x1 - x0, z1 - z0),
+            (0.0, z1 - z0)]
+    path = [(x0 - 0.10, -hw, z0), (x0, -hw + 0.08, z0), (x0, hw - 0.08, z0), (x0 - 0.10, hw, z0)]
+    bar = geo.sweep(prof, path, name=name + "_Bumper", up=(0, 0, 1), bevel=0.008, bevel_segments=2)
+    co, _ = geo.arrays(bar)
+    out = [put_mat(bar, *tiling("TS_Chrome_Polished"))]
+    slot = geo.box((0.03, 0.16, 0.07), bevel=0.01, base=False, name=name + "_TowSlot")
+    geo.transform(slot, loc=(min(float(co[:, 0].max()), L) - 0.012, 0.0, (z0 + z1) / 2))
+    pin = geo.cylinder(0.012, 0.09, 12, bevel=0.002, name=name + "_TowPin")
+    geo.transform(pin, loc=(min(float(co[:, 0].max()), L) - 0.03, 0.0, (z0 + z1) / 2 - 0.045))
+    out.append(put_mat(slot, *tiling("TS_Plastic_Black")))
+    bolts = []
+    for by in (-hw * 0.7, -hw * 0.35, hw * 0.35, hw * 0.7):
+        b = geo.hex_bolt(0.016, name=name + "_BumperBolt")
+        geo.transform(b, rot=(0, 90, 0))
+        geo.transform(b, loc=(min(float(co[:, 0].max()), L) - 0.008, by, (z0 + z1) / 2))
+        bolts.append(b)
+    out.append(put_mat(geo.join(bolts + [pin], name + "_BumperBolts"), *tiling("TS_Chrome_Polished")))
+    return out
+
+
 def v_boxtruck(ctx):
     P = make_parts(ctx, "BoxTruck")
     sp = P["spec"]
-    parts = [P["shell"], P["glass"]] + P["wheels"] + P["wells"] + P["interior"] + P["seats"]
+    parts = [P["shell"], P["glass"]] + P["wheels"] + P["wells"] + P["interior"] + P["seats"] + P.get("extra", [])
+    parts += truck_bumper(sp, "BoxTruck")
     parts += make_plates(P, sp["plate"])
     dm = decal_mat(boxtruck_decals())
     box = truck_box(ctx, P, sp)
@@ -2773,6 +3202,33 @@ SPEC["BoxTruck"]["drop"] = lambda c, n, cls: _boxtruck_drop(c, n, cls)
 SPEC["BoxTruck"]["reclass"] = lambda c, n, cls: _boxtruck_reclass(c, n, cls)
 SPEC["Pickup"]["extra"] = pickup_extra
 SPEC["SUV"]["extra"] = suv_fascia
+
+# ---- close-up pass 3: modelled mirrors, cabins, clean glass, fitted lamps and grilles, flattened flanks with real
+# shut lines (door lines estimated from the brief's cowl and B pillar and the arches), modelled handles
+for _k in ("SUV", "Pickup", "Van", "VanVulture"):
+    SPEC[_k].update(modelled_mirrors=True, cabin=True, clean_glass=True, modelled_lamps=("head", "tail", "grille"))
+SPEC["SUV"].update(lamps={"head": (0.46, 0.82, 0.83, 1.04), "tail": (0.68, 0.84, 0.82, 1.36)}, head_amber=0.2,
+                   tail_vertical=True, amber_paint=True, grille=(0.41, 0.84, 1.03, "bars"),
+                   flank=(-2.25, 2.25, 0.52, 1.18), handles=[(0.03, 1.12), (-0.93, 1.12)], rear_face=(0.66, 0.50, 1.30),
+                   flat_boxes=[(0.03, 1.10, 0.16, 0.08), (-0.93, 1.10, 0.16, 0.08)],
+                   grooves=[((1.03, 0.56), (0.99, 1.18)), ((-0.10, 0.56), (-0.10, 1.18)), ((-1.05, 0.95), (-1.07, 1.18))])
+SPEC["SUV"]["extra"] = None                   # the fitted lamps and grille replace suv_fascia
+SPEC["Pickup"].update(head_amber=0.0, grille=(0.37, 0.81, 1.02, "eggcrate"), amber_paint=True,
+                      flank=(-2.40, 2.40, 0.55, 1.21), handles=[(0.19, 1.12)], flat_boxes=[(0.19, 1.10, 0.16, 0.08)],
+                      grooves=[((1.23, 0.58), (1.19, 1.21)), ((0.06, 0.58), (0.06, 1.21))], mirror_house="black")
+for _k in ("Van", "VanVulture"):
+    SPEC[_k].update(lamps={"head": (0.43, 0.79, 0.83, 1.00)}, head_amber=0.22, grille=(0.39, 0.84, 0.99, "bars"),
+                    flank=(-2.35, 2.35, 0.50, 1.36), handles=[(1.12, 1.27)], flat_boxes=[(1.12, 1.25, 0.16, 0.08)],
+                    grooves=[((2.02, 0.86), (1.98, 1.36)), ((0.98, 0.50), (0.98, 1.36))], mirror_house="black",
+                    dash_depth=0.45)
+SPEC["Van"]["plate"] = "RJM6072"              # (close-up pass 3) the van's own number, not the SUV's
+for _k in ("BoxTruck", "IPXTruck"):
+    SPEC[_k].update(modelled_mirrors=True, truck_mirror=True, cabin=True, clean_glass=True,
+                    modelled_lamps=("head", "grille"), dash_depth=0.45, head_amber=0.0)
+SPEC["BoxTruck"].update(lamps={"head": (0.64, 0.94, 0.99, 1.21)}, grille=(0.57, 0.99, 1.40, "bars"), roof=2.18,
+                        bumper=(3.58, 3.69, 0.42, 0.70, 1.15), mirror_box=(2.15, 2.95, 1.30, 1.95))
+SPEC["IPXTruck"].update(lamps={"head": (0.40, 0.60, 1.50, 1.72)}, grille=(0.35, 1.08, 1.74, "bars"), roof=2.50,
+                        mirror_box=(1.35, 1.75, 2.0, 2.65))
 
 
 def declare(ctx, ob, key, notes, cover, collision="box", expect=None):

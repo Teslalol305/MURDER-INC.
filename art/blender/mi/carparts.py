@@ -904,14 +904,14 @@ def interior(c, name="Cabin"):
     av = roof - fl
     # ---- dashboard: lofted across y, binnacle hump in front of the driver
     secs = []
-    ys = np.linspace(-hw + 0.01, hw - 0.01, 25)
+    ys = np.linspace(-hw + 0.05, hw - 0.05, 25)
     for y in ys:
-        hump = 0.045 * max(0.0, 1 - ((y - dy) / 0.22) ** 2)
-        side = 1.0 - 0.5 * max(0.0, (abs(y) - (hw - 0.12)) / 0.12)
-        top = belt + 0.02 + hump
-        prof = [(cw - 0.02, belt - 0.03), (cw - 0.06, belt + 0.015), (cw - 0.25 * side, top + 0.01),
-                (cw - dd * 0.80 * side, top), (cw - dd * side - 0.01, top - 0.035), (cw - dd * side, belt - 0.12),
-                (cw - dd * 0.88 * side, belt - 0.28), (cw - dd * 0.70 * side, fl + 0.22), (cw - 0.18, fl + 0.12)]
+        hump = 0.040 * max(0.0, 1 - ((y - dy) / 0.22) ** 2)
+        side = 1.0 - 0.5 * max(0.0, (abs(y) - (hw - 0.16)) / 0.11)
+        top = belt + 0.005 + hump
+        prof = [(cw - 0.10, belt - 0.06), (cw - 0.15, belt - 0.005), (cw - 0.30 * side, top),
+                (cw - dd * 0.80 * side, top - 0.005), (cw - dd * side - 0.01, top - 0.035), (cw - dd * side, belt - 0.12),
+                (cw - dd * 0.88 * side, belt - 0.28), (cw - dd * 0.70 * side, fl + 0.22), (cw - 0.20, fl + 0.12)]
         secs.append([(px, float(y), pz) for px, pz in prof])
     dash = loft(name + "_Dash", np.array(secs), closed=True, cap=True, smooth=35)
     _add(out, "cabin", dash)
@@ -1039,10 +1039,12 @@ def interior(c, name="Cabin"):
             g = rbox((0.12, 0.18, 0.006), r=0.03, name=name + "_ShelfSpeaker")
             geo.transform(g, loc=((s0 + s1) / 2, sy, sz_ + 0.012))
             _add(out, "black", g)
-    # ---- headliner edge seen through the side glass
-    hl = rbox((cw - rear, 2 * hw, 0.02), r=0.008, name=name + "_Headliner")
-    geo.transform(hl, loc=((cw + rear) / 2 - 0.1, 0, roof - 0.01))
-    _add(out, "headliner", hl)
+    # ---- headliner: only when the roof span is given (x0, x1, half width, z), it must stay inside the shell
+    if c.get("headliner"):
+        x0, x1, hh, hz = c["headliner"]
+        hl = rbox((x1 - x0, 2 * hh, 0.015), r=0.006, name=name + "_Headliner")
+        geo.transform(hl, loc=((x0 + x1) / 2, 0, hz))
+        _add(out, "headliner", hl)
     # ---- taxi: partition with a plexiglass upper half and a fare meter on the dash
     if c.get("partition") is not None:
         px = c["partition"]
@@ -1071,7 +1073,7 @@ def interior(c, name="Cabin"):
 
 # --------------------------------------------------------------------------------------- generated shell tools
 def flatten_flank(ob, side, x0, x1, z0, z1, avoid=(), slot=0, deg=(5, 3), tol=0.022, tol2=0.045, edge=0.08,
-                  min_ny=0.45):
+                  min_ny=0.45, force=()):
     """Put the generated flank of a body onto a smooth fitted surface y = f(x, z) (a robust polynomial fit), so
     crumpled seams, dents and ripples go while the shape of the side stays. Only vertices whose faces are all
     on material index `slot` (the paint) move, and only where they lie within tol of the fit (handles, rub
@@ -1089,7 +1091,10 @@ def flatten_flank(ob, side, x0, x1, z0, z1, avoid=(), slot=0, deg=(5, 3), tol=0.
     other = np.zeros(nv, bool)
     np.logical_or.at(other, lv, np.repeat(mi != slot, lt))
     x, y, z = co[:, 0], co[:, 1], co[:, 2]
-    reg = (y * side > 0.3) & (x > x0) & (x < x1) & (z > z0) & (z < z1) & (no[:, 1] * side > min_ny) & ~other
+    forced = np.zeros(nv, bool)            # force: boxes (x, z, half x, half z) flattened whatever their normals
+    for fx_, fz_, ex, ez in force:
+        forced |= (np.abs(x - fx_) < ex) & (np.abs(z - fz_) < ez) & (y * side > 0.5) & ~other
+    reg = (y * side > 0.3) & (x > x0) & (x < x1) & (z > z0) & (z < z1) & ((no[:, 1] * side > min_ny) | forced) & ~other
     for ax, az, ar in avoid:
         reg &= np.hypot(x - ax, z - az) > ar
     if reg.sum() < 50:
@@ -1115,6 +1120,7 @@ def flatten_flank(ob, side, x0, x1, z0, z1, avoid=(), slot=0, deg=(5, 3), tol=0.
     fit = basis(x[reg], z[reg]) @ coef
     res = y[reg] - fit
     wv = np.clip((tol2 - np.abs(res)) / (tol2 - tol), 0, 1)
+    wv = np.where(forced[reg], 1.0, wv)
     d_edge = np.minimum.reduce([x[reg] - x0, x1 - x[reg], z[reg] - z0, z1 - z[reg]])
     for ax, az, ar in avoid:
         d_edge = np.minimum(d_edge, np.hypot(x[reg] - ax, z[reg] - az) - ar)
@@ -1193,7 +1199,8 @@ def fit_surface(hits, facing=1, deg=(3, 2)):
         r = x - A @ cf
         s = max(1.4826 * np.median(np.abs(r)), 0.001)
         wgt = 1.0 / (1.0 + (r / (2.5 * s)) ** 2)
-    return lambda Y, Z: basis(Y, Z) @ cf
+    lo, hi = x.min() - 0.01, x.max() + 0.01       # never beyond the hits (no wild extrapolation at the corners)
+    return lambda Y, Z: np.clip(basis(np.clip(Y, y0, y1), np.clip(Z, z0, z1)) @ cf, lo, hi)
 
 
 def cut_rect(ob, y0, y1, z0, z1, xa, xb):
@@ -1333,3 +1340,87 @@ def surface_grille(fx, y0, y1, z0, z1, facing=1, style="eggcrate", nv=None, nh=N
     ob = _outline(fx, y0, y1, z0, z1, 0.012, 0.003, s)
     _add(out, surround_key, geo.pipe(ob + [ob[0]], 0.0075, segments=8, name=name + "_Surround"))
     return out
+
+
+def _poly_fit(u, v, w, deg, iters=4):
+    um, us = u.mean(), max(np.ptp(u) / 2, 1e-3)
+    vm, vs = v.mean(), max(np.ptp(v) / 2, 1e-3)
+
+    def basis(a, b):
+        a, b = (a - um) / us, (b - vm) / vs
+        return np.stack([a ** i * b ** j for i in range(deg[0] + 1) for j in range(deg[1] + 1) if i + j <= max(deg)], -1)
+    A = basis(u, v)
+    wt = np.ones(len(w))
+    for _ in range(iters):
+        cf = np.linalg.lstsq(A * wt[:, None], w * wt, rcond=None)[0]
+        r = w - A @ cf
+        s = max(1.4826 * np.median(np.abs(r)), 0.001)
+        wt = 1.0 / (1.0 + (r / (2.5 * s)) ** 2)
+    return lambda a, b: basis(a, b) @ cf
+
+
+def boundary_loops(ob):
+    """Ordered vertex-index loops of the open borders of a mesh."""
+    me = ob.data
+    bm = geo.bm_of(ob)
+    bm.verts.ensure_lookup_table()
+    nxt = {}
+    for e in bm.edges:
+        if e.is_boundary:
+            a, b = e.verts[0].index, e.verts[1].index
+            nxt.setdefault(a, []).append(b)
+            nxt.setdefault(b, []).append(a)
+    bm.free()
+    seen, loops = set(), []
+    for s in list(nxt):
+        if s in seen or len(nxt[s]) != 2:
+            continue
+        loop, prev, cur = [s], None, s
+        seen.add(s)
+        while True:
+            cand = [v for v in nxt[cur] if v != prev and len(nxt.get(v, [])) == 2]
+            if not cand:
+                break
+            n_ = cand[0]
+            if n_ == s:
+                loops.append(loop)
+                break
+            if n_ in seen:
+                break
+            loop.append(n_)
+            seen.add(n_)
+            prev, cur = cur, n_
+    return loops
+
+
+def clean_glass(ob, iters=10, seal_r=0.0055, name="Glass"):
+    """Generated glass made into clean panes: the ragged borders smoothed along themselves, every pane put on a
+    smooth fitted surface (side glass y = f(x, z) per side, screens x = f(y, z) at the nose and the tail), and a
+    rubber seal swept round every border. Returns the seal object (or None)."""
+    co, no = geo.arrays(ob)
+    loops = boundary_loops(ob)
+    for _ in range(iters):                    # borders: Laplacian along the loop
+        for lp in loops:
+            if len(lp) < 6:
+                continue
+            idx = np.array(lp)
+            p = co[idx]
+            co[idx] = 0.5 * p + 0.25 * (np.roll(p, 1, 0) + np.roll(p, -1, 0))
+    side = np.abs(no[:, 1]) > 0.55
+    for sel, ax, (a1, a2), deg in (((side & (co[:, 1] > 0)), 1, (0, 2), (2, 2)), ((side & (co[:, 1] < 0)), 1, (0, 2), (2, 2)),
+                                   ((~side & (co[:, 0] > 0)), 0, (1, 2), (3, 2)), ((~side & (co[:, 0] < 0)), 0, (1, 2), (3, 2))):
+        if sel.sum() < 12:
+            continue
+        f = _poly_fit(co[sel, a1], co[sel, a2], co[sel, ax], deg)
+        d = f(co[sel, a1], co[sel, a2]) - co[sel, ax]
+        d = np.where(np.abs(d) < 0.025, d, 0.0)      # only the crumple moves; stray parts are left alone
+        co[sel, ax] += d
+    geo.set_verts(ob, co)
+    seals = []
+    for lp in loops:
+        if len(lp) < 8:
+            continue
+        pts = [tuple(co[i]) for i in lp]
+        pts.append(pts[0])
+        seals.append(geo.pipe(pts, seal_r, segments=6, name=name + "_Seal"))
+    return geo.join(seals, name + "_Seals") if seals else None
