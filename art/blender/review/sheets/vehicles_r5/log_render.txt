@@ -181,3 +181,12 @@ CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_SUV_doo
 00:00.361  cycles           | WARNING CUEW initialization failed: Error opening the library
 CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_SUV_interior.jpg (-0.32484556138515475, 1.3415399670600892, 1.4747314929962159) (-0.2248455613851547, -0.008460032939910933, 0.8747314929962158) 24
 == --close Pickup wheel
+00:00.360  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_Pickup_wheel.jpg (2.27, -1.9440000176429748, 0.8401000000000001) (1.67, -0.8440000176429748, 0.4401) 30
+== --close Pickup lamp
+00:00.359  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_Pickup_lamp.jpg (3.108123655319214, -1.034527404308319, 1.1984444546699524) (2.468123655319214, -0.3379900723695755, 0.8984444546699524) 32
+== --close Pickup door
+00:00.278  cycles           | WARNING CUEW initialization failed: Error opening the library
+CLOSE /home/user/MURDER-INC./art/blender/review/sheets/vehicles_r5/close_Pickup_door.jpg (1.0634260773658752, -1.674000027179718, 1.422319965362549) (0.5134260773658752, -0.924000027179718, 1.1223199653625489) 28
+== --close Pickup interior
