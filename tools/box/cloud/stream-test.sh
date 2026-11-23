@@ -66,7 +66,7 @@ case "$1" in
     ;;
   run)
     scr=$2; cfg=${3:-Development}; shift 3
-    sed -e '/^capture /d' -e '/MIAudio.Record/d' -e "s#@OUT@#$RUN/shot.png#" "$scr" > "$RUN/script.txt"; chown ue4 "$RUN/script.txt"
+    sed -e '/^capture /d' -e '/MIAudio.Record/d' -e "s#@OUT@#$RUN/shot.png#" -e '/^quit/i con r.Vulkan.DumpMemory' "$scr" > "$RUN/script.txt"; chown ue4 "$RUN/script.txt"
     start_game "$cfg" "-ExecCmds=MIDemo.Run $RUN/script.txt" "$@"
     ;;
   test)
