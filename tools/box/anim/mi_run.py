@@ -111,7 +111,7 @@ def adapt_all(only=""):
             rep["failed"].append({"src": rel, "error": str(ex)[:300]})
     for view in ("FP", "TP"):
         for kind, rc in (("Tactical", D.RELOAD_TACTICAL), ("Empty", D.RELOAD_EMPTY)):
-            if only and only not in kind and only not in view:
+            if only not in "Reload_%s_%s" % (view, kind):
                 continue
             try:
                 r = D.adapt_reload(rc, view)
