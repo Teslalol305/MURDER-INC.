@@ -1341,7 +1341,7 @@ def make_parts(ctx, key):
             ring = ((np.abs(c[:, 0] - pc[0]) < 0.25) & (np.abs(c[:, 1] - pc[1]) < pc[3] / 2 + 0.20)
                     & (np.abs(c[:, 2] - pc[2]) < pc[4] / 2 + 0.16) & ~under & np.isin(cls, [CLS["paint"], CLS["trim"]]))
             if ring.sum() > 20 and (cls[ring] == CLS["trim"]).mean() > 0.5:
-                cls[under] = CLS["trim"]
+                cls[under] = CLS["inside"]           # dark plastic (the trim atlas there is the generated white plate)
             co_ = gen3d.verts(ob)
             sgn = 1 if front else -1
             near_ = (np.abs(co_[:, 1] - pc[1]) < 0.19) & (np.abs(co_[:, 2] - pc[2]) < 0.11)
