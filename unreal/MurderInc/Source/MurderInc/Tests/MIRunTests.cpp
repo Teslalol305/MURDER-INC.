@@ -39,8 +39,6 @@ namespace MIRunTestsPrivate
 			World = UWorld::CreateWorld(EWorldType::Game, false, TEXT("MIRunWorld"));
 			FWorldContext& Context = GEngine->CreateNewWorldContext(EWorldType::Game);
 			Context.SetCurrentWorld(World);
-			// A bare world's persistent level is not marked visible: the tick task manager skips invisible levels.
-			World->PersistentLevel->bIsVisible = true;
 			World->InitializeActorsForPlay(FURL());
 			World->BeginPlay();
 			if (!World->GetBegunPlay())
@@ -74,6 +72,8 @@ namespace MIRunTestsPrivate
 		void Step()
 		{
 			World->Tick(LEVELTICK_All, Dt);
+			// Tick functions run once per engine frame (GFrameCounter): advance it as the engine's FTestWorldWrapper does.
+			GFrameCounter++;
 			Frames++;
 		}
 		EMIGameState State() const { return Game->GetRules().GetState(); }
