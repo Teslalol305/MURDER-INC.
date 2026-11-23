@@ -284,9 +284,26 @@ the camera's `FirstPersonScale` (0.6): a world object at the gun's world point s
 the casings and the dropped magazine therefore go through `UMIWeaponComponent::FirstPersonToNearWorld`: location
 (s x, s k y, s k z) in camera space, scale s k (s = FirstPersonScale, k = tan(world fov / 2) / tan(first-person fov /
 2)). They land on exactly the pixels of the muzzle, port or well, in front of the world as the gun is. The player's
-flash uses the effects' own world cards (`UMIEffects::WorldFlash`, the cards the Goons' flashes use) at that point:
-cards attached to the camera (first-person primitives in the first pass, plain primitives in this one) were read back
-visible, placed and sized right in play and still never drew in a picture.
+flash is `UMIEffects::ViewFlash` on the effects' world cards at that point (polish pass, measured with
+`tools/box/fp/flash-diag.sh`: the cards had been drawn all along, but on the muzzle itself, which the gun's own front
+end hides from an eye behind it at the hip, and with the jets along the bore, edge-on to that eye; occlusion culling off
+changed nothing): the star faces the eye, the jets run along the bore turned toward it, and at the hip all three are
+pulled toward the eye on their sight lines to `fx.flash.view.pull` (0.5) of their distance, sizes alike, so they draw
+over the gun's front end on the same pixels. Aimed the pull eases to `pullAimed` (1, none): pulled in, the cards fell
+behind the rear sight; on the muzzle their upper half shows through the aperture round the front post. The player's
+tracer (`UMIEffects::PlayerTracer`) leaves the muzzle as drawn (its first-person point) for where the round ends, drawn
+from its first frame, its tail held `fx.tracer.player.start` (0.8 m) past the muzzle while the streak
+(`length` 12 m, `radius` 0.25 cm) is shorter than its flight: on screen a streak converging from the gun on the aim
+point. From the world muzzle a metre out it flew along the line of sight and was a dot under the crosshair.
+
+**Per-gun finger contact.** presentation `guns.<id>.real.fingers.hip` / `.aim` (side `l` / `r`, finger -> degrees)
+close (or, negative, open) each finger about its knuckles: `FMIFPFingerCurl`, shared 0.3 / 0.4 / 0.3 over the three
+joints, each turned about the axis square to its segment and the palm's normal (sign-safe whatever the bones' local
+axes), after the clips and before the hand IK; hip to aim by smoothstep(Ads), let go in actions and the sprint. The
+values come from play: console `MIGripProbe <label>` (editor builds) skins the arms on the CPU from the imported
+model, measures each finger's pads against the gun's triangles (signed by their outward normals) and prints the curl
+that brings a floating finger to contact or a sunken one out to the surface ("MI-GRIP" lines;
+`tools/box/fp/polish-shots.sh` runs it at the hip, aimed and just after a round).
 
 **Aimed.** The irons are zeroed: once the gun is fully up, the front sight's direction from the eye in the clip's
 own pose (the rig's layers taken off) is measured and the arms are turned about the eye by that angle, by
@@ -361,7 +378,7 @@ Two things the fix pass (2026-11-23) found by measuring in play, not by reading 
 
 | Hook | Effect |
 |---|---|
-| Player round (`OnRoundFired`) | three world flash cards (`WorldFlash`) on the muzzle at the first-person depth (the star across the bore, two crossed jets along it; `flash.life` 0.045 s, nearly three frames at 60 fps) and a 0.05 s point light in the world (none at all with a silencer); a brass casing from `Eject` along its +X with the body's velocity, at the first-person depth and size (`SM_TFA_AR_Bullet_Casing` on the pack rifles, else a brass cylinder); the tracer as a moving streak from 1 m past the muzzle (more when the rules hide the first stretch), 1 cm radius, 60,000 nits (the old line tracer when the materials are absent); every streak starts one frame in flight |
+| Player round (`OnRoundFired`) | three flash cards (`ViewFlash`, section 15) on the muzzle at the first-person depth, turned to the eye and pulled in front of the gun at the hip (`flash.life` 0.045 s, nearly three frames at 60 fps) and a 0.05 s point light in the world (none at all with a silencer); a brass casing from `Eject` along its +X with the body's velocity, at the first-person depth and size (`SM_TFA_AR_Bullet_Casing` on the pack rifles, else a brass cylinder); the tracer (`PlayerTracer`) from the muzzle as drawn to the round's end, drawn from its first frame (the old line tracer when the materials are absent) |
 | Enemy `Fire` (`AMIGoon::OnRuleEvent`) | a world flash at the SMG's muzzle with its light, the tracer to the first thing the round meets |
 | `Impact` on the world | two dust puffs in the surface's colour (`fx.surfaces`), a strike mark (deferred decal, 30 s), a spark card on metal |
 | `Impact` on an enemy | a short blood mist both ways and a spatter on the wall behind within 2.6 m |
