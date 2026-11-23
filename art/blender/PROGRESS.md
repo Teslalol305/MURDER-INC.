@@ -535,3 +535,19 @@ _weapons_kit.py (my files); mi/ untouched.
   notch and post profiles, sight line, magazine in place X -0.0292..0.0453 (brief -0.029..0.045), trigger face to
   front strap 34.7 mm, slide back 10/20/30/44 mm: 0 overlaps, trigger 17 deg clear, re-import poses < 1.4e-8 m).
   Previews weapons_nine_hero / weapons_nine_fp rendered after the NINE's last change. CHOPPER 4K bake running.
+- CHOPPER exported (SK_Chopper 138.8k tris; sets Chopper 9,137 px/m, Chopper_Furniture 12,755, Chopper_Front
+  7,569; SM_Weapon_ChopperMagazine 30.9k tris) and proven: `_weapons_check.py` both guns ALL FIXED POINTS KEPT
+  (CHOPPER: height -0.2294 (floor tab kept inside the plate), notch/post profiles, sight line, bore ray, Palm_R
+  1.26 mm, Palm_L 1.21 mm on the new 10 mm recoil pad, trigger 14 / 19.5 deg: 0 contacts, 2.35 / 1.86 mm clear,
+  charging-handle stem >= 0.52 mm from the slot over the whole 92 mm, re-import poses < 1.1e-8 m). Butt plate crown
+  2 mm under the handguard.
+- Final previews after the last change (6 renders): weapons_chopper_hero/_fp, weapons_nine_hero/_fp,
+  weapons_parts, weapons_wire. Note: the preview build re-unwraps and flags Chopper_Front / ChopperMagazine "stale"
+  (uv_hash rounding differs between sessions); the pictures show no mismatch and the exported GLBs were baked and
+  written in the same run, so they match their sets.
+## Not done in round 2 (next)
+- NINE grip is 86 mm deep at the undercut: the brief's magazine line (fixed) sits ~20 mm behind a real pistol's
+  relative to the fixed trigger, so the critique's front strap position leaves thick frame in front of the
+  magazine; slimming it needs a decision on the brief.
+- Anisotropy: tangents follow the slide's U (along X); no separate anisotropy texture is written (the set format
+  has no slot for it). CHOPPER gas-block tower / sight-ear shapes only lightly touched; CHOPPER UV hash rounding.
