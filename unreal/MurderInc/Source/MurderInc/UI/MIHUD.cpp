@@ -235,8 +235,15 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 	if (S != EMIGameState::Title && S != EMIGameState::Paused && !Radio.Current.IsEmpty())
 	{
 		const int32 Shown = FMath::Clamp(FMath::FloorToInt32(Radio.CurrentAge * Radio.CharsPerSec), 0, Radio.Current.Len());
-		const FString Line = Game.GetCopy().Get(TEXT("radio.speaker")) + TEXT("  ") + Radio.Current.Left(Shown);
-		Centered(Line, H * 0.84, FLinearColor(0.75f, 0.9f, 1.f, 1.f), Font, 1.1f);
+		const FString Speaker = Game.GetCopy().Get(TEXT("radio.speaker")) + TEXT("  ");
+		// A soft dark band behind the whole line (polish pass): the strip sits over the forearm and the gun at the
+		// hip, where light text on sunlit skin did not read. Placed and sized by the full line, so it neither grows
+		// nor slides as the line types.
+		float TW = 0.f, TH = 0.f;
+		GetTextSize(Speaker + Radio.Current, TW, TH, Font, 1.1f);
+		const double X0 = Canvas->ClipX * 0.5 - TW * 0.5;
+		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.42f), X0 - 14.0, H * 0.84 - 6.0, TW + 28.0, TH + 12.0);
+		DrawText(Speaker + Radio.Current.Left(Shown), FLinearColor(0.75f, 0.9f, 1.f, 1.f), X0, H * 0.84, Font, 1.1f);
 	}
 }
 

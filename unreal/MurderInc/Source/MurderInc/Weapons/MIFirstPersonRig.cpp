@@ -293,18 +293,18 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 	FireWeight = Num(Set, TEXT("fireWeight"), 0.6);
 	FireRate = Num(Set, TEXT("fireRate"), 1.0);
 	// The gun's own finger corrections (polish pass: solved in play with MIGripProbe so the fingers touch this gun).
-	for (int32 S = 0; S < 2; ++S)
+	for (int32 CurlSide = 0; CurlSide < 2; ++CurlSide)
 	{
-		CurlHip[S].Reset();
-		CurlAim[S].Reset();
-		for (int32 Pose = 0; Pose < 2; ++Pose)
+		CurlHip[CurlSide].Reset();
+		CurlAim[CurlSide].Reset();
+		for (int32 CurlPose = 0; CurlPose < 2; ++CurlPose)
 		{
-			const TSharedPtr<FJsonObject> F = Obj(P, FString::Printf(TEXT("fingers.%s.%s"), Pose == 0 ? TEXT("hip") : TEXT("aim"), S == 0 ? TEXT("l") : TEXT("r")));
-			if (!F.IsValid()) continue;
-			for (const auto& KV : F->Values)
+			const TSharedPtr<FJsonObject> CurlObj = Obj(P, FString::Printf(TEXT("fingers.%s.%s"), CurlPose == 0 ? TEXT("hip") : TEXT("aim"), CurlSide == 0 ? TEXT("l") : TEXT("r")));
+			if (!CurlObj.IsValid()) continue;
+			for (const auto& CurlKV : CurlObj->Values)
 			{
-				double D = 0.0;
-				if (KV.Value.IsValid() && KV.Value->TryGetNumber(D)) (Pose == 0 ? CurlHip[S] : CurlAim[S]).Add(FName(FString(*KV.Key)), static_cast<float>(D));
+				double CurlDeg = 0.0;
+				if (CurlKV.Value.IsValid() && CurlKV.Value->TryGetNumber(CurlDeg)) (CurlPose == 0 ? CurlHip[CurlSide] : CurlAim[CurlSide]).Add(FName(FString(*CurlKV.Key)), static_cast<float>(CurlDeg));
 			}
 		}
 	}
@@ -981,19 +981,19 @@ void UMIFirstPersonRig::BuildPack(double Dt, const FMIWeaponView& W, const FMIVi
 
 	// --- the gun's own finger corrections (hip to aim by smoothstep(Ads)), let go in actions and the sprint
 	{
-		const float K = static_cast<float>(Smooth(W.Ads));
-		const float Wt = static_cast<float>((1.0 - ActionWeight) * (1.0 - Sprint));
-		for (int32 S = 0; S < 2 && Wt > 0.001f; ++S)
+		const float AimK = static_cast<float>(Smooth(W.Ads));
+		const float CurlW = static_cast<float>((1.0 - ActionWeight) * (1.0 - Sprint));
+		for (int32 Side = 0; Side < 2 && CurlW > 0.001f; ++Side)
 		{
 			TSet<FName> Names;
-			for (const auto& KV : CurlHip[S]) Names.Add(KV.Key);
-			for (const auto& KV : CurlAim[S]) Names.Add(KV.Key);
-			for (const FName& N : Names)
+			for (const auto& KV : CurlHip[Side]) Names.Add(KV.Key);
+			for (const auto& KV : CurlAim[Side]) Names.Add(KV.Key);
+			for (const FName& Finger : Names)
 			{
-				const float* H = CurlHip[S].Find(N);
-				const float* A = CurlAim[S].Find(N);
-				const float Hip = H ? *H : 0.f, Aim = A ? *A : Hip;
-				Out.Curls.Add({N, S == 0, (Hip + (Aim - Hip) * K) * Wt});
+				const float* HipDeg = CurlHip[Side].Find(Finger);
+				const float* AimDeg = CurlAim[Side].Find(Finger);
+				const float Hip = HipDeg ? *HipDeg : 0.f, Aim = AimDeg ? *AimDeg : Hip;
+				Out.Curls.Add({Finger, Side == 0, (Hip + (Aim - Hip) * AimK) * CurlW});
 			}
 		}
 	}
