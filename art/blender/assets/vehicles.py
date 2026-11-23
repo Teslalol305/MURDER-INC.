@@ -1200,6 +1200,13 @@ def make_parts(ctx, key):
     glass = gen3d.split_faces(ob, gmask, name + "_Glass") if gmask.any() else None
     cls = cls[~gmask]
     kill = np.isin(cls, [CLS["wheel"], CLS["drop"]])
+    # (review fix) loose shards the deletions would leave (torn rims, liner scraps) go with them
+    frag = fragment_mask(ob, ~kill, min_faces=12, min_area=0.0015)
+    ctx.log("%s: %d shard faces dropped" % (key, int(frag.sum())))
+    if frag.sum() > 0.05 * (~kill).sum():         # an unwelded body would fall apart into islands: keep it
+        ctx.log("%s: shard filter skipped (unwelded?)" % key)
+        frag[:] = False
+    kill |= frag
     gen3d.delete_faces(ob, kill)
     cls = cls[~kill]
     ms = slot_mats(key, spec)
@@ -1373,7 +1380,7 @@ def decal_set(name, img, note=""):
     return name
 
 
-def decal(target, name, x0, x1, z0, z1, side, uv, m, nx=40, nz=12, lift=0.0025):
+def decal(target, name, x0, x1, z0, z1, side, uv, m, nx=40, nz=12, lift=0.0025, min_y=None):
     """Card shrink-wrapped onto target's flank: the rectangle x0..x1, z0..z1 projected along -side*Y onto the
     surface, lifted 2.5 mm along the hit normal. uv = (u0, v0, u1, v1) region of the decal atlas; the art reads
     left to right from outside on either flank. Faces whose rays miss are dropped."""
@@ -1393,6 +1400,8 @@ def decal(target, name, x0, x1, z0, z1, side, uv, m, nx=40, nz=12, lift=0.0025):
             x = x0 + (x1 - x0) * i / nx
             z = z0 + (z1 - z0) * j / nz
             hit = bvh.ray_cast(Vector((x, side * 3.0, z)), Vector((0, -side, 0)), 6.0)
+            if hit[0] is not None and min_y is not None and hit[0].y * side < min_y:
+                hit = (None,)                    # (review fix) through an opening onto the far wall: no card
             if hit[0] is None:
                 ok[i, j] = False
                 grid[i, j] = bm.verts.new((x, side * 0.5, z))
@@ -1775,14 +1784,84 @@ def jack_stand(m, t, name="Stand"):
     return put_mat(ob, m, t)
 
 
+def clean_cut(ob, boxes, ymin=0.55):
+    """Cut rectangular apertures with straight edges (review fix: no sawtooth): bisect the flank faces (|y| > ymin)
+    on each box's x and z planes, then delete the faces inside a box. boxes: [(x0, x1, z0, z1)]."""
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    planes = set()
+    for x0, x1, z0, z1 in boxes:
+        planes |= {(0, x0), (0, x1), (2, z0), (2, z1)}
+    for ax, v in sorted(planes):
+        side = [f for f in bm.faces if abs(f.calc_center_median().y) > ymin - 0.05]
+        es = {e for f in side for e in f.edges}
+        vs = {vv for f in side for vv in f.verts}
+        no = (1, 0, 0) if ax == 0 else (0, 0, 1)
+        co = (v, 0, 0) if ax == 0 else (0, 0, v)
+        bmesh.ops.bisect_plane(bm, geom=list(side) + list(es) + list(vs), plane_co=co, plane_no=no, dist=1e-5)
+    kill = []
+    for f in bm.faces:
+        cc = f.calc_center_median()
+        if abs(cc.y) > ymin and any(x0 < cc.x < x1 and z0 < cc.z < z1 for x0, x1, z0, z1 in boxes):
+            kill.append(f)
+    bmesh.ops.delete(bm, geom=kill, context="FACES")
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+    bm.to_mesh(ob.data)
+    bm.free()
+    ob.data.update()
+
+
+def drop_fragments(ob, min_faces=40, min_area=0.004):
+    """Delete loose islands (shards left by deletions): components with few faces or a tiny area."""
+    small = fragment_mask(ob, None, min_faces, min_area)
+    gen3d.delete_faces(ob, small)
+    return int(small.sum())
+
+
+def fragment_mask(ob, alive=None, min_faces=40, min_area=0.004):
+    """Faces (of the alive ones) in connected islands of the alive faces with few faces or a tiny area."""
+    me = ob.data
+    nf = len(me.polygons)
+    alive = np.ones(nf, bool) if alive is None else alive
+    lt = np.empty(nf, np.int64)
+    me.polygons.foreach_get("loop_total", lt)
+    lv = np.empty(len(me.loops), np.int64)
+    me.loops.foreach_get("vertex_index", lv)
+    fid = np.repeat(np.arange(nf), lt)
+    par = np.arange(len(me.vertices))
+
+    def find(i):
+        r = i
+        while par[r] != r:
+            r = par[r]
+        while par[i] != r:
+            par[i], i = r, par[i]
+        return r
+    first = lv[np.concatenate([[0], np.cumsum(lt)[:-1]])]
+    al = alive[fid]
+    for v, f in zip(lv[al].tolist(), fid[al].tolist()):
+        a, b = find(v), find(int(first[f]))
+        if a != b:
+            par[a] = b
+    idx = np.nonzero(alive)[0]
+    root = np.array([find(int(first[f])) for f in idx])
+    _, inv, cnt = np.unique(root, return_inverse=True, return_counts=True)
+    _, _, ar = gen3d.face_arrays(ob)
+    area = np.bincount(inv, weights=ar[idx])
+    small = np.zeros(nf, bool)
+    small[idx] = (cnt[inv] < min_faces) | (area[inv] < min_area)
+    return small
+
+
 def v_stripped(ctx, P):
     sp = SPEC["Sedan"]
     sh = _shell_variant(P, "Stripped_Shell")
-    c, n, a = gen3d.face_arrays(sh)
-    # (review fix) the door skins only: sills (below 0.50) and the B pillar stay
-    doors = (np.abs(c[:, 1]) > 0.55) & (c[:, 0] > -1.10) & (c[:, 0] < 0.96) & (c[:, 2] > 0.50) & (c[:, 2] < 1.04)
-    doors &= ~(np.abs(c[:, 0] - sp["bpillar"]) < 0.06)
-    gen3d.delete_faces(sh, doors | _bonnet(sh))
+    gen3d.delete_faces(sh, _bonnet(sh))
+    # (review fix) the door skins only, cut on straight planes: sills (below 0.50), the A pillar (ahead of 0.96) and
+    # the B pillar stay; the cut edges get thickness from the solidify below
+    bp = sp["bpillar"]
+    clean_cut(sh, [(bp + 0.06, 0.94, 0.50, 1.06), (-1.08, bp - 0.06, 0.50, 1.06)])
+    ctx.log("StrippedCar: %d fragment faces dropped" % drop_fragments(sh))
     primer = set_material("Vehicle_Sedan", slot="M_Vehicle_StrippedCar_Primer", tint=hexcol("#7a3b2c"), rough=0.78)
     bare, t_bare = tiling("TS_Steel_CargoDark")
     mi = np.empty(len(sh.data.polygons), dtype=np.int32)
@@ -1798,9 +1877,26 @@ def v_stripped(ctx, P):
     lump = geo.box((0.45, 0.40, 0.30), bevel=0.03, name="Stripped_Lump")
     geo.transform(lump, loc=(1.50, 0.12, 0.34))
     parts.append(put_mat(lump, galv, t_galv))
-    fl = geo.box((2.3, 1.30, 0.02), bevel=0.0, name="Stripped_Floor")
-    geo.transform(fl, loc=(-0.3, 0, 0.33))
-    parts.append(put_mat(fl, bare, t_bare))
+    # (review fix) pressed floor pan: pan, transmission tunnel, two seat cross-members, rear heel kick, ribs
+    fp = [geo.box((2.3, 1.36, 0.02), bevel=0.0, name="Stripped_Floor")]
+    geo.transform(fp[0], loc=(-0.3, 0, 0.33))
+    tun = geo.cylinder(0.13, 2.0, 24, bevel=0.0, base=False, name="Stripped_Tunnel", axis="X")
+    geo.transform(tun, scale=(1.0, 1.0, 0.85))
+    geo.transform(tun, loc=(-0.15, 0, 0.35))
+    fp.append(tun)
+    for x in (0.10, -0.55):
+        cm = geo.box((0.07, 1.30, 0.06), bevel=0.01, name="Stripped_Cross")
+        geo.transform(cm, loc=(x, 0, 0.35))
+        fp.append(cm)
+    kick = geo.box((0.06, 1.30, 0.22), bevel=0.02, name="Stripped_Kick")
+    geo.transform(kick, rot=(0, -25, 0))
+    geo.transform(kick, loc=(-1.05, 0, 0.34))
+    fp.append(kick)
+    for y in (-0.42, -0.30, 0.30, 0.42):
+        rb = geo.box((1.6, 0.03, 0.012), bevel=0.005, name="Stripped_Rib")
+        geo.transform(rb, loc=(-0.3, y, 0.35))
+        fp.append(rb)
+    parts.append(put_mat(geo.join(fp, "Stripped_Floor"), bare, t_bare))
     dash = geo.box((0.30, 1.30, 0.22), bevel=0.02, name="Stripped_Dash")
     geo.transform(dash, loc=(0.70, 0, 0.72))
     parts.append(put_mat(dash, bare, t_bare))
@@ -2111,9 +2207,9 @@ def v_ipx(ctx):
     sh = P["shell"]
     for side in (1, -1):
         parts.append(decal(sh, "IPX_Panel", -1.42 - 1.75, -1.42 + 1.75, 2.10 - 0.4375, 2.10 + 0.4375, side,
-                           (0.0, 1 - 512 / 2048, 1.0, 1.0), dm, nx=50, nz=10))
+                           (0.0, 1 - 512 / 2048, 1.0, 1.0), dm, nx=50, nz=10, min_y=0.95))
         parts.append(decal(sh, "IPX_Band", tail + 0.05, 0.55 + 1.2, 1.36 - 0.055, 1.36 + 0.055, side,
-                           (0.0, 1 - 663 / 2048, 1.0, 1 - 600 / 2048), dm, nx=90, nz=2))
+                           (0.0, 1 - 663 / 2048, 1.0, 1 - 600 / 2048), dm, nx=90, nz=2, min_y=0.95))
     # bonnet lozenge: projected from above
     bon = geo.grid_on_top(sh, "IPX_Bonnet", 2.95, 0.0, 0.80, 0.33, (0.0, 1 - 1222 / 2048, 0.5, 1 - 800 / 2048), dm) \
         if hasattr(geo, "grid_on_top") else top_decal(sh, "IPX_Bonnet", 2.95, 0.0, 0.80, 0.33,
@@ -2223,7 +2319,20 @@ def truck_box(ctx, P, sp):
         m = geo.box((0.03, 0.10, 0.05), bevel=0.008, name="Truck_Marker")
         geo.transform(m, loc=(x0 - 0.04, sd * (hw - 0.20), H - 0.14))
         mk.append(m)
-    out.append(uv_point(put_mat(geo.join(mk, "Truck_Markers"), mlamp), "Vehicle_BoxTruck", "tail_uv"))
+    # (review fix) the box truck's own atlas has no red-lens texels (its tail lamps were on the generated box):
+    # the markers and two modelled tail lamps under the rear sill read the sedan atlas's red lens
+    for sd in (1, -1):
+        tl = geo.box((0.04, 0.24, 0.10), bevel=0.01, base=False, name="Truck_Tail")
+        geo.transform(tl, loc=(x0 - 0.03, sd * (hw - 0.22), zb - 0.10))
+        mk.append(tl)
+    mred = set_material("Vehicle_Sedan", slot="M_Vehicle_BoxTruck_Marker_Lamp", emit_strength=0.0)
+    out.append(uv_point(put_mat(geo.join(mk, "Truck_Markers"), mred), "Vehicle_Sedan", "tail_uv"))
+    bzs = []
+    for sd in (1, -1):
+        bz = geo.box((0.03, 0.28, 0.14), bevel=0.008, base=False, name="Truck_TailBezel")
+        geo.transform(bz, loc=(x0 - 0.012, sd * (hw - 0.22), zb - 0.10))
+        bzs.append(bz)
+    out.append(put_mat(geo.join(bzs, "Truck_TailBezels"), chrome, t_chrome))
     ctx.log("BoxTruck: modelled box x %.2f..%.2f, floor %.2f" % (x0, x1, zb))
     return out
 
@@ -2235,7 +2344,7 @@ def v_boxtruck(ctx):
     parts += make_plates(P, sp["plate"])
     dm = decal_mat(boxtruck_decals())
     box = truck_box(ctx, P, sp)
-    parts += box
+    parts += box + truck_tank(P)
     sh = box[0]
     # variant 0: RULE on the right flank (-Y) at x -1.76, HOLLIS on the left (+Y) at x -0.96; centre height 1.90
     for side, xc, v in ((-1, -1.76, (0.0, 1 - 945 / 2048, 1.0, 1.0)), (1, -0.96, (0.0, 1 - 1969 / 2048, 1.0, 1 - 1024 / 2048))):
@@ -2388,7 +2497,65 @@ def _boxtruck_drop(c, n, cls):
           & (c[:, 2] > 0.95))
     zb = float(np.percentile(c[fl, 2], 2)) if fl.sum() > 50 else 1.15
     SPEC["BoxTruck"]["box"] = (front, zb)
-    return (c[:, 0] < front + 0.015) & (c[:, 2] > zb - 0.01)
+    # (review fix) the generated tank / battery-box lumps under the cab's rear corners (crumpled, painted in the
+    # box colour): replaced by the modelled tank and battery box (truck_tank)
+    lumps = (np.abs(c[:, 1]) > 0.55) & (c[:, 0] > 0.92) & (c[:, 0] < min(front - 0.02, 1.45)) & (c[:, 2] > 0.42) & (c[:, 2] < 0.99)
+    return ((c[:, 0] < front + 0.015) & (c[:, 2] > zb - 0.01)) | lumps
+
+
+def _boxtruck_reclass(c, n, cls):
+    """Chassis under the box (mud flaps, brackets, frame) is black trim, not box paint (review fix)."""
+    front, zb = SPEC["BoxTruck"].get("box", (1.0, 1.15))
+    cls[(cls == CLS["paint"]) & (c[:, 0] < front + 0.03) & (c[:, 2] < zb - 0.03)] = CLS["trim"]
+
+
+def truck_tank(P):
+    """(review fix) Cylindrical fuel tank 0.52 across x 0.90 long on the right (-Y) with two rubber-lined straps,
+    brackets, filler neck and cap, and a black battery box with a diamond-plate step on the left (+Y), as briefed."""
+    chrome, t_chrome = tiling("TS_Chrome_Polished")
+    blk, t_blk = tiling("TS_Plastic_Black")
+    rub, t_rub = tiling("TS_Rubber_Tyre")
+    dia, t_dia = tiling("TS_Plate_ScanDiamond")
+    out = []
+    r, L, xc, zc = 0.26, 0.90, 0.95, 0.68
+    yc = -(0.50 + r)
+    tank = geo.cylinder(r, L, 48, bevel=0.035, bevel_segments=4, base=False, name="Truck_Tank", axis="X")
+    geo.transform(tank, loc=(xc, yc, zc))
+    neck = geo.cylinder(0.045, 0.05, 24, bevel=0.006, name="Truck_TankNeck")
+    geo.transform(neck, loc=(xc + 0.22, yc - 0.06, zc + r - 0.03))
+    out.append(put_mat(geo.join([tank, neck], "Truck_Tank"), chrome, t_chrome))
+    cap = geo.cylinder(0.055, 0.03, 24, bevel=0.008, name="Truck_TankCap")
+    geo.transform(cap, loc=(xc + 0.22, yc - 0.06, zc + r + 0.015))
+    straps, liners = [], []
+    for dx in (-0.28, 0.28):
+        st = geo.tube(r + 0.012, r + 0.002, 0.05, 48, bevel=0.002, name="Truck_TankStrap", axis="X")
+        geo.transform(st, loc=(xc + dx - 0.025, yc, zc))
+        straps.append(st)
+        ln = geo.tube(r + 0.003, r - 0.001, 0.06, 48, name="Truck_TankLiner", axis="X")
+        geo.transform(ln, loc=(xc + dx - 0.03, yc, zc))
+        liners.append(ln)
+        br = geo.box((0.07, 0.20, 0.32), bevel=0.006, name="Truck_TankBracket")
+        geo.transform(br, loc=(xc + dx, -0.46, zc - 0.10))
+        straps.append(br)
+        bolt = geo.cylinder(0.012, 0.05, 6, name="Truck_TankBolt", base=False, axis="Z")
+        geo.transform(bolt, loc=(xc + dx, yc - 0.05, zc - r - 0.03))
+        straps.append(bolt)
+    out.append(put_mat(geo.join(straps + [cap], "Truck_TankStraps"), blk, t_blk))
+    out.append(put_mat(geo.join(liners, "Truck_TankLiners"), rub, t_rub))
+    # battery box and step on the left
+    bb = geo.box((0.62, 0.42, 0.40), bevel=0.012, name="Truck_BatteryBox")
+    geo.transform(bb, loc=(1.06, 0.74, 0.36))
+    lid = geo.box((0.66, 0.46, 0.035), bevel=0.008, name="Truck_BatteryLid")
+    geo.transform(lid, loc=(1.06, 0.74, 0.76))
+    latch = geo.box((0.03, 0.06, 0.08), bevel=0.004, name="Truck_Latch")
+    geo.transform(latch, loc=(1.06, 0.96, 0.66))
+    out.append(put_mat(geo.join([bb, lid, latch], "Truck_Battery"), blk, t_blk))
+    step = geo.box((0.58, 0.40, 0.012), bevel=0.003, name="Truck_Step")
+    geo.transform(step, loc=(1.06, 0.76, 0.795))
+    step2 = geo.box((0.80, 0.16, 0.012), bevel=0.003, name="Truck_TankStep")
+    geo.transform(step2, loc=(xc, yc - 0.04, zc + r + 0.006))
+    out.append(put_mat(geo.join([step, step2], "Truck_Steps"), dia, t_dia))
+    return out
 
 
 def _ipx_drop(c, n, cls):
@@ -2427,6 +2594,7 @@ for _k in ("Sedan", "SUV", "Pickup", "Van", "VanVulture"):
 SPEC["SUV"]["side_glass"] = (-2.08, -1.42, 1.27, 1.68)        # quarter lights (review fix)
 SPEC["SUV"].setdefault("cls", {})["head_box"] = (0.44, 0.84, 0.82, 1.05)
 SPEC["BoxTruck"]["drop"] = lambda c, n, cls: _boxtruck_drop(c, n, cls)
+SPEC["BoxTruck"]["reclass"] = lambda c, n, cls: _boxtruck_reclass(c, n, cls)
 SPEC["Pickup"]["extra"] = pickup_extra
 
 
