@@ -6,6 +6,7 @@
 #   stream-test.sh test <outdir> [viewport WxH] [MatchViewportRes]     the browser test (stream_test.cjs)
 #   stream-test.sh run <script> [Development] [extra args]             the game alone (no stream) playing a MIDemo
 #                                                                      script, for the memory runs (Development only)
+#   stream-test.sh xtest <outdir> [config]                            the in-game half on a private screen, no WebRTC
 #   stream-test.sh stop                                                stop what this script started (by pid)
 #
 # Needs setup-ps.sh (Node, the infrastructure, Chromium) and package-cloud.sh (the builds). Run as root.
@@ -71,6 +72,9 @@ case "$1" in
   test)
     out=$2; vp=${3:-1920x1080}; mkdir -p "$out"
     VW=${vp%x*} VH=${vp#*x} MATCH=${4:-false} node "$TOOLS/stream_test.cjs" "$out" "$RUN/cloud.log" "$RUN/launch.txt"
+    ;;
+  xtest)  # the in-game half without WebRTC: a window on Xvfb :99, XTEST input (xtest.py)
+    /opt/venv/bin/python3 -I "$TOOLS/xtest.py" "$2" "${3:-Development}"
     ;;
   stop)
     for f in game ss sampler; do p=$(cat "$RUN/$f.pid" 2>/dev/null); [ -n "$p" ] && kill "$p" 2>/dev/null && echo "stopped $f $p"; done
