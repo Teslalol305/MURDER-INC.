@@ -1,7 +1,8 @@
-"""Previews of Rule (used by rule.py on_preview): at most 10 renders.
+"""Previews of Rule (used by rule.py on_preview): at most 11 renders.
 
   rule_arms_hero   studio, the arms in the rifle aim (MF_Rifle_Idle_ADS)
-  rule_arms_fp     first-person camera, CHOPPER held (art/out/glb/SK_Chopper.glb), day light
+  rule_arms_fp     first-person camera as the game frames it, CHOPPER at the hip, hands solved onto it, day light
+  rule_fp_nine     the same with the NINE (two hands)
   rule_hands       fist, trigger pull, open hand at 30 cm (three renders)
   rule_body_hero   three-quarter, day rig: aimed idle and jog (two armatures)
   rule_face        head and shoulders at the reference photo's angle (front, eye level)
@@ -59,6 +60,19 @@ def _restore(ob, saved):
         s.material = m
 
 
+def _ground(col):
+    me = bpy.data.meshes.new("PreviewGround")
+    me.from_pydata([(-60, -80, 0), (60, -80, 0), (60, 80, 0), (-60, 80, 0)], [], [(0, 1, 2, 3)])
+    m = bpy.data.materials.new("PreviewAsphalt")
+    b = m.node_tree.nodes["Principled BSDF"]
+    b.inputs["Base Color"].default_value = (0.075, 0.072, 0.068, 1)
+    b.inputs["Roughness"].default_value = 0.9
+    me.materials.append(m)
+    ob = bpy.data.objects.new("PreviewGround", me)
+    col.objects.link(ob)
+    return ob
+
+
 def arms(ctx):
     from assets import _characters_pose as PZ
     r = getattr(ctx, "rule", None)
@@ -79,22 +93,23 @@ def arms(ctx):
     S = ctx.args.samples
     out = paths.previews
     col = scene.collection("Preview")
-    if _want(ctx, "rule_arms_fp"):
-        char.rest_pose(arm)
-        arm.location = (0, 0, 0)
-        g, real = PZ.load_gun("chopper", col)
-        cam = PZ.eye_camera(arm, col)
-        M = PZ.gun_from_camera(cam, "chopper", "hip")
-        g.matrix_world = M
-        PZ.hold(arm, M, "chopper", R, Rl)
-        render.setup(samples=S, res=(1280, 720), threads=3)
+    # review round 3: first person as the game frames it (the recipe's eye, config views[0], Euler YXZ, 54 deg),
+    # both hands solved onto the gun (contact), on asphalt under the design sun; the NINE gets its own picture
+    for pic, gun in (("rule_arms_fp", "chopper"), ("rule_fp_nine", "nine")):
+        if not _want(ctx, pic):
+            continue
+        cam, g, M, rep = PZ.fp_scene(arm, R, Rl, gun, "hip", col, log=ctx.log)
+        ground = _ground(col)
+        render.setup(samples=S, res=(1920, 1080), threads=3)
         render.rig_day(sun_azimuth=getattr(render, "DESIGN_SUN_BEARING", 235.0))
-        _p, sec = render.render_jpeg(os.path.join(out, "rule_arms_fp.jpg"), S)
-        ctx.log("preview rule_arms_fp (gun file %s) %.0fs" % (real, sec))
+        bpy.context.scene.camera = cam
+        _p, sec = render.render_jpeg(os.path.join(out, pic + ".jpg"), S, (1920, 1080), max_kb=900)
+        ctx.log("preview %s %.0fs" % (pic, sec))
         for o in list(col.objects):
             if o.type != "CAMERA":
                 o.hide_render = True
         arm.location = (0, 0, 0)
+        char.rest_pose(arm)
     if _want(ctx, "rule_hands"):
         shots = []
         for label, fn in (("fist", lambda: PZ.close_fingers(arm, "r", R, 1.0, thumb=1.0)),

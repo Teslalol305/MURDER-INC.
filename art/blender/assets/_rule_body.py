@@ -279,10 +279,11 @@ def build(ctx):
     GG.fit_pose(arm, gen3d.verts(body))
     bpy.context.view_layer.update()
     wrists = [np.array(arm.matrix_world @ arm.pose.bones["hand_" + sd].head) for sd in ("l", "r")]
+    rig = BT.arm_rig(arm, mbody, col)              # review round 3: SK_RuleArms' skin on the body's arms
     for pb in arm.pose.bones:
         pb.matrix_basis = Matrix.Identity(4)
     bpy.context.view_layer.update()
-    BT.body_textures(body, btex, ctx.log, wrists=wrists)
+    BT.body_textures(body, btex, ctx.log, wrists=wrists, rig=rig)
     red_v = np.zeros(len(body.data.vertices), dtype=bool)
     redf, _g2, _r2 = _classes(body, btex)
     for p in body.data.polygons:

@@ -116,6 +116,21 @@ closed shoulder caps are visible from this camera; the first-person camera never
 
 ![arms](shots/chars-arms.jpg)
 
+### SK_RuleArms bare, after the reference photo (art/blender/assets/rule.py), review round 3 (2026-11-23)
+
+The arms the player sees are now the bare `SK_RuleArms` (the gloved build above ships as `SK_RuleArms_Gloved`, slot
+`M_RuleArms_GlovedSkin` on the copied set `RuleArms_GlovedSkin`, plus its glove slots). What the Unreal import needs:
+
+| Item | Value |
+|---|---|
+| Slots | `M_RuleArms_Skin` (Subsurface Profile shading model, profile `SP_RuleSkin`) and `M_RuleArms_Nail` (Default Lit, the nail plates: 10 small meshes, one slot). Both read the same three textures of the unique 4K set `RuleArms_Skin`: `T_RuleArms_Skin_BC` (sRGB), `_N` (OpenGL: flip green on import), `_ORM` (R ambient occlusion, G roughness, B metallic 0). The tattoos are inside the BC: no extra mask, no extra specular over the ink |
+| `M_RuleArms_Skin` | Base colour = BC; roughness = ORM.G (0.55-0.7 on the skin, lower on fingertip pads, calmer over the ink); Specular **0.35**; normal = N; AO = ORM.R. Nail: roughness ORM.G (about 0.35), Specular 0.5 |
+| `SP_RuleSkin` | Mean free path distance 1.0 cm with mean free path colour (1.0, 0.40, 0.25), i.e. red 1.0 / green 0.4 / blue 0.25 cm; subsurface colour a deep warm red-brown (0.45, 0.17, 0.09); dual specular: roughness 0 = 0.75, roughness 1 = 1.30, lobe mix 0.85; world unit scale 1. (The Blender previews stand in with Principled subsurface 1.0, radius 1.0 / 0.4 / 0.25 at a 3.5 mm scale, specular 0.35 and a thin 0.12 coat lobe) |
+| Bracelet | `SM_Character_RuleBracelet` (21.5 k triangles) keeps its own two slots with the values in the GLB: `M_Character_RuleBracelet_Silver` (base 0.96 / 0.95 / 0.93, metallic 1, roughness 0.16) and `M_Character_RuleBracelet_SilverWorn` (0.90 / 0.89 / 0.87, metallic 1, roughness 0.28). Attached on `lowerarm_twist_01_r` with the transform in `SK_RuleArms.sockets.json` (Socket_Bracelet, 27 mm above the wrist) |
+| Weights | Per bone segment of the arm (round 3: no hand or finger weight above the wrist zone; one 5.4 cm wrist blend between `hand` and `lowerarm_twist_01`), at most 6 influences. The export runs a posed gate (`assets/_rule_gate.py`): 104 poses (the mannequin arm clips and both guns at the hip and aimed) with no skin within 10 cm of the eye and no vertex more than 6 cm outside its bones' capsule; the result is in `SK_RuleArms.glb.check.json` (`posed_gate`) and a failure stops the export |
+| Hip view | `config.json weapons.chopper.views[0]` = (0.125, -0.07, -0.215, 0.05, 0.24, -0.34), `weapons.nine.views[0]` = (0.06, -0.045, -0.26, 0.06, 0.09, -0.16) (and `src/config/weapons.js`): 2.5-10 cm closer, higher and nearer the centre than before, so the bare forearms and the support hand fill the lower third at 54 deg. To judge in the engine with `look.viewmodel`'s lights |
+| Grips | The previews solve each hand onto the gun (`assets/_characters_pose.py`: palm on `Palm_R` / `Palm_L`, fingers closed to 1.5 mm of the gun's surface, the trigger pad and both thumbs searched, fingers brought together). These finger angles are not exported as clips yet: the game's hands come from its animation; a per-gun hand pose (pose asset) is the next step. No corrective shapes ship (knuckle, pad and wrist flexion): none are in the GLB |
+
 ## The Goons (art/blender/assets/goons.py)
 
 Three skinned meshes on `SK_Mannequin`, one man in three outfits (briefs `docs/unreal/spec/assets/characters.json`

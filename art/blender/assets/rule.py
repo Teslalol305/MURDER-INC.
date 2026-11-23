@@ -871,7 +871,7 @@ def build(ctx):
     if "gloved" in only:
         return build_gloved(ctx)
     objs = []
-    arm_pics = {"rule_arms_hero", "rule_arms_fp", "rule_hands", "rule_wire"}
+    arm_pics = {"rule_arms_hero", "rule_arms_fp", "rule_fp_nine", "rule_hands", "rule_wire"}
     body_pics = {"rule_body_hero", "rule_face", "rule_turntable", "rule_wire"}
     if not only or "arms" in only or arm_pics & set(only):
         ob = build_arms(ctx)

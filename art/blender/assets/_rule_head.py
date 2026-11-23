@@ -42,7 +42,8 @@ LM = dict(
     inner_dx=0.0220,           # inner canthus from the midline (new aperture)
     outer_dx=0.0540,           # outer canthus
     canthus_z=(1.6905, 1.6920),  # inner, outer canthus height (new)
-    lid_up=0.0048,             # upper lid rise above the canthal line at mid-eye (new; was ~6.3 mm)
+    lid_up=0.0036,             # upper lid rise above the canthal line at mid-eye (review round 3: 4.8 mm left the
+                               # iris open; his heavy lids cover its top third)
     lid_lo=0.0027,             # lower lid drop below it
     brow_z=1.7135,
     subnasale_z=1.6430,
@@ -298,7 +299,29 @@ def warp_points(co):
     for s in (-1, 1):
         dc = np.hypot(x - s * LM["corner_dx"], z - LM["stomion_z"])
         co[:, 2] -= 0.0014 * np.exp(-(dc / 0.0055) ** 2) * front
+    # review round 3 (wide almond eyes under thin high brows, a long narrow face with a weak jaw):
+    # 6. brows BROW_DROP lower: the band from the upper lid to the brow comes down (the lid skin folds under it,
+    #    a hooded eye), the forehead above stretches to follow
+    ez = LM["eye_z"]
+    lo_, mid_, hi_ = ez + LM["lid_up"] + 0.0015, LM["brow_z"], LM["brow_z"] + 0.024
+    wb = np.where(z < mid_, _smooth(lo_, mid_, z), _smooth(hi_, mid_, z)) * _smooth(0.072, 0.055, np.abs(x)) * front
+    co[:, 2] -= BROW_DROP * wb
+    co[:, 1] -= 0.0012 * wb * _smooth(0.0, 1.0, wb)                 # the brow mass a little forward over the eye
+    # 7. the face 3.5 % shorter below the eyes (nose, mouth, chin), faded out down the neck under the chin
+    me = LM["menton_z"]
+    dz = 0.035 * np.clip(ez - z, 0, ez - me) * _smooth(me - 0.032, me - 0.004, z)
+    co[:, 2] += dz
+    # 8. the jaw angle and the cheek mass wider (7 %): gonial angle and the zygomatic body
+    jaw = _smooth(me - 0.004, me + 0.012, z) * _smooth(LM["subnasale_z"] + 0.004, LM["subnasale_z"] - 0.012, z)
+    jaw *= _smooth(0.028, 0.050, np.abs(x)) * _smooth(0.03, -0.01, y)
+    co[:, 0] += x * 0.07 * jaw
+    zy2 = np.exp(-((z - 1.668) / 0.022) ** 2) * _smooth(0.022, 0.048, np.abs(x)) * _smooth(0.02, -0.03, y)
+    co[:, 0] += x * 0.06 * zy2
+    co[:, 1] -= 0.0015 * zy2 * _smooth(0.03, 0.05, np.abs(x))          # fuller cheek mass forward
     return co
+
+
+BROW_DROP = 0.005            # review round 3: the brows 5 mm lower (the photo's low, heavy brows)
 
 
 def lm_after_warp(x, z, y=-0.13):
@@ -401,8 +424,8 @@ def eye_geometry(head, col, log=print):
         ny = y.copy()
         ny = np.where(w_in > 0, y + (tgt_in - y) * w_in, ny)
         ny = np.where(w_m > 0, ny + (tgt_m - ny) * w_m, ny)
-        ny -= 0.0009 * hood
-        nz = z - 0.0007 * hood
+        ny -= 0.0016 * hood                                # review round 3: a heavier hooded fold
+        nz = z - 0.0012 * hood
         moved += int(((w_in > 0.01) | (w_m > 0.01) | (hood > 0.01)).sum())
         co[:, 1] = np.where(near, ny, y)
         co[:, 2] = np.where(near, nz, z)
@@ -787,6 +810,27 @@ def head_textures(head, res, warped=True, log=print):
         rr = rough[zone]
         rr[margin | (sock)] = 0.30
         rough[zone] = rr
+    # ---- review round 3: low, thick brows close to the eyes (painted over the generated thin, high ones)
+    bz = LM["brow_z"] - BROW_DROP
+    for s in (-1, 1):
+        xi, xo = LM["mid_x"] + s * 0.012, LM["mid_x"] + s * 0.060
+        zone = skin & (y < -0.06) & (np.abs(P[..., 0] - (xi + xo) / 2) < 0.030) & (np.abs(z - bz) < 0.012)
+        if not zone.any():
+            continue
+        px, pz = P[..., 0][zone], z[zone]
+        u = np.clip((px - xi) / (xo - xi), -0.2, 1.2)                     # 0 inner end, 1 tail
+        centre = bz - 0.0010 + 0.0022 * np.sin(np.pi * np.clip(u, 0, 1) * 0.85) - 0.0030 * np.clip(u - 0.75, 0, 1) / 0.25
+        half = 0.0046 * (1 - 0.55 * np.clip(u, 0, 1)) + 0.0006
+        d = np.abs(pz - centre) / half
+        core = _smooth(1.25, 0.55, d) * _smooth(-0.15, 0.08, u) * _smooth(1.12, 0.92, u)
+        Pz = P[zone]
+        along = (s * (px - xi) * 0.95 + (pz - centre) * 0.30) / 0.0030
+        across = ((pz - centre) * 0.95 - s * (px - xi) * 0.30) / 0.00018
+        strand = _smooth(0.30, 0.70, T.noise(np.stack([along, across, Pz[:, 1] * 0], 1), 1.0, 380 + s))
+        hb = np.clip(core * (0.45 + 0.55 * strand) * (0.85 + 0.15 * T.fbm(Pz, 1 / 0.004, 2, seed=385)), 0, 0.93)
+        out[zone] = out[zone] * (1 - hb)[:, None] + np.array([0.010, 0.008, 0.007]) * hb[:, None]
+        rr = rough[zone]
+        rough[zone] = np.where(hb > 0.3, 0.62, rr)
     # ---- moustache lower and thicker, stubble shadow on the upper lip, chin and jaw
     cx, lip = lm_after_warp(0.0, LM["lip_top_z"])
     _cx, cz = lm_after_warp(LM["corner_dx"], LM["stomion_z"])
@@ -817,10 +861,10 @@ def head_textures(head, res, warped=True, log=print):
                  | ((ax < 0.020) & (z < cz - 0.004) & (z > LM["menton_z"] - 0.004))) & (y < -0.07)
     cheek = skin & (ax > 0.025) & (ax < 0.06) & (z > cz) & (z < LM["eye_z"] - 0.008) & (y < -0.05)
     lips = skin & (ax < LM["corner_dx"]) & (z < lip) & (z > cz - 0.009) & (y < -0.10)
-    rough[skin] = 0.47
-    rough[tz] = 0.33
-    rough[cheek] = 0.53
-    rough[lips] = 0.36
+    rough[skin] = 0.52                                     # review round 3: the forehead read shiny
+    rough[tz] = 0.42
+    rough[cheek] = 0.56
+    rough[lips] = 0.38
     rough[skin] = masked_blur(rough, skin, 6, 2)[0][skin]
     # ---- the bandana: the generated print (scattered blobs) replaced by a tiling bandana print, projected in 3D
     tile = bandana_tile()
@@ -832,7 +876,7 @@ def head_textures(head, res, warped=True, log=print):
         col = base_red[None] * shade[:, None] * (1 + 0.05 * T.fbm(Pb, 1 / 0.003, 2, seed=350))[:, None]
         if tile is not None:
             tcol, tcov = tile
-            S = 0.080                                     # metres per tile (paisleys ~12 mm)
+            S = 0.200                                     # metres per tile (review round 3: paisleys ~30 mm, 2.5x)
             wts = np.abs(Nb) ** 4
             wts /= wts.sum(1, keepdims=True)
             ink = np.zeros((len(Pb), 3), dtype=np.float32)
@@ -844,6 +888,22 @@ def head_textures(head, res, warped=True, log=print):
                 ink += cc * wts[:, axn:axn + 1]
                 cov += cv * wts[:, axn]
             col = col * (1 - cov)[:, None] + ink * shade[:, None] * cov[:, None]
+        # review round 3: the broad white border print of a bandana along its edges (12 mm, 4 mm in from the
+        # edge, a row of small dots inside it), found by the 3D distance to the nearest skin
+        from mathutils.kdtree import KDTree
+        # the face and the temples only (skin specks classified under the cloth would whiten its middle)
+        sk = np.argwhere(skin & (z < LM["brow_z"] + 0.030) & (z > LM["eye_z"] - 0.01) & (y < 0.0))
+        sk = sk[:: max(1, len(sk) // 60000)]
+        kd = KDTree(len(sk))
+        for i, (r_i, c_i) in enumerate(sk):
+            kd.insert(P[r_i, c_i], i)
+        kd.balance()
+        dist = np.array([kd.find(tuple(p_))[2] for p_ in Pb], dtype=np.float32)
+        band = _smooth(0.0030, 0.0042, dist) * _smooth(0.0130, 0.0118, dist)
+        dots = _smooth(0.55, 0.80, T.noise(Pb, 1 / 0.0028, 352)) * _smooth(0.0150, 0.0162, dist) * _smooth(0.0212, 0.0200, dist)
+        white = np.clip(band * (0.90 + 0.10 * T.fbm(Pb, 1 / 0.002, 2, seed=353)) + 0.8 * dots, 0, 1)
+        cream = np.array([0.72, 0.68, 0.60], dtype=np.float32)
+        col = col * (1 - white)[:, None] + (cream[None] * shade[:, None]) * white[:, None]
         out[bandana] = col
         rough[bandana] = 0.80
     # ---- normal: the generated relief plus pores, micro-wrinkles, stubble, weave and compression folds

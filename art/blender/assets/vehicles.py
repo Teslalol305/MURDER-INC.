@@ -734,7 +734,8 @@ def body_set(set_name, cmap, tex, meta, zmap=None):
     emit = np.where((cmap == CLS["tail"])[..., None], np.array([1.0, 0.06, 0.03]) * np.clip(lum / 0.12, 0.4, 1.0)[..., None], emit)
     emit = np.where((cmap == CLS["amber"])[..., None], np.array([1.0, 0.45, 0.05]), emit)
     # paint normals: (close-up pass 3) the generated detail (crumples, ripples) replaced by a fine orange peel; the
-    # modelled shut lines and the geometry carry the form
+    # modelled shut lines and the geometry carry the form. (close-up pass 4) the peel at a sixth of its slope: at
+    # 0.30 it read as hammered metal in grazing light
     nrm = tex["normal"].astype(np.float32)
     if paint.any():
         v = nrm * 2.0 - 1.0
@@ -742,7 +743,7 @@ def body_set(set_name, cmap, tex, meta, zmap=None):
         peel = np.tile(_noise((1024, 1024), 1.3, 12), (-(-H_ // 1024), -(-W_ // 1024)))[:H_, :W_]
         gy, gx = np.gradient(peel)
         for i, g in ((0, gx), (1, gy)):
-            v[..., i] = np.where(pm, -g * 0.30, v[..., i])
+            v[..., i] = np.where(pm, -g * 0.05, v[..., i])
         v[..., 2] = np.where(pm, np.sqrt(np.clip(1.0 - v[..., 0] ** 2 - v[..., 1] ** 2, 0.0, 1.0)), v[..., 2])
         nrm = np.clip(v * 0.5 + 0.5, 0.0, 1.0)
     f = np.flipud                       # write_set wants row 0 at the bottom (UV orientation)
