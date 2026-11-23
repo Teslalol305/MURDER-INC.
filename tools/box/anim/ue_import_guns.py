@@ -134,8 +134,11 @@ def _put_skel_socket(mesh, name, bone, loc_cs, bones):
         mesh.rename_socket(s.socket_name, name)
         s = mesh.find_socket(name)
     rel = bones[bone].inverse_transform_location(unreal.Vector(*loc_cs))
-    _set(s, bone_name=bone, relative_location=rel, relative_rotation=unreal.Rotator(0, 0, 0),
-         relative_scale=unreal.Vector(1, 1, 1))
+    s.set_socket_parent(bone, mesh)             # BoneName is read-only from Python too
+    try:
+        _set(s, relative_location=rel, relative_rotation=unreal.Rotator(0, 0, 0), relative_scale=unreal.Vector(1, 1, 1))
+    except Exception:  # noqa: BLE001
+        s.set_socket_local_transform(unreal.Transform(rel, unreal.Rotator(0, 0, 0), unreal.Vector(1, 1, 1)), mesh)
     return [round(rel.x, 3), round(rel.y, 3), round(rel.z, 3)]
 
 
