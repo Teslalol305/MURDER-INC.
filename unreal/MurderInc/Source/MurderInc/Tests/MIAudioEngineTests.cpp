@@ -243,6 +243,13 @@ bool FMIAudioEngineRenderTest::RunTest(const FString& Parameters)
 	R->Test = this;
 	R->Secs = FCString::Atod(*Parameters) > 0.0 ? FCString::Atod(*Parameters) : FMath::Min(R->Log.Duration() + 3.0, 56.0);
 	R->Out = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Audio"), TEXT("engine_render.wav")));
+	// A complete file from an earlier run would pass the wait below at once: this run's recording must replace it.
+	IFileManager::Get().Delete(*R->Out, false, true, true);
+	if (IFileManager::Get().FileExists(*R->Out))
+	{
+		AddError(TEXT("cannot remove the previous recording ") + R->Out);
+		return false;
+	}
 	R->Director.Exists = [](const FString& F)
 	{
 		FString P = FMIAudioData::AssetPath(F);
