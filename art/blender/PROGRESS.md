@@ -265,6 +265,62 @@ Previews are rendered from the saved blend without a rebuild (scratch: open art/
 ctx.assets = SM_Vehicle_* objects, vehicles.on_preview(ctx, [])). Next: the SUV quarter panel and corner lamp
 (regenerate from a flat-lit black concept, about 21 credits, or a position box for the quarter), the Van cowl edge.
 
+## Close-up pass 3 (review round 3: every vehicle graded 2-2.5, the motorbike 3.5), vehicle artist
+Method (lead's decision): stop repairing generated detail, replace it. The generated body stays only as the large
+painted shell; everything a close camera reads is modelled by the new library module `mi/carparts.py` (shared,
+per-vehicle parameters) and fitted to the body by `vehicles.py`.
+- Wheels (all vehicles, `carparts.wheel`): tyre = tread band on pitch rings (circumferential grooves, steep-walled
+  shoulder lugs) + sidewalls (bulge, rim-protector rib, fine ring) + raised invented lettering ("QUEENSWAY RADIAL",
+  size code; trucks "QUEENSWAY HAUL"); faces: Sedan dished hubcap with ten raised spokes, slot windows, badge,
+  valve; Taxi / Van / Pickup / Vulture pressed steel with vent slots, five nuts, centre cap (taxi: chrome trim
+  ring); SUV five drafted concave spokes, recessed hub carrying the nuts; trucks deep steel disc, hand holes, ten
+  nuts, hub nose (inner duals simplified). Disc, hat, dust shield and caliper behind car wheels, finned drums on trucks.
+- Lamps and grilles: rectangles from the lamp classes (or `lamps` boxes in SPEC); the body surface there fitted from
+  ray casts (`fit_surface`: robust polynomial, clamped to the hits, grazing hits and hits far from the end
+  rejected); the rectangle cut cleanly (`cut_rect`: bisect on four planes, delete inside) and filled by
+  `surface_lamp` (black bucket, chrome reflector bowls per cell, bulbs and glare caps, 4 mm lens sections clear /
+  amber / red, dividers, bezel over the cut) or `surface_grille` (egg-crate blades or bright bars, recessed backing,
+  surround). Lens sets carry moulded flutes / prisms as normal maps and an E map. Sedan, Taxi, SUV, Pickup, Van,
+  Vulture: heads, tails (SUV upright clusters), grille; BoxTruck, IPX: heads and bar grilles. The SUV's
+  suv_fascia (parts laid over the generated fascia) is retired: the fascia is cut and modelled like the others.
+- Glass and cabin: generated glass put on fitted surfaces (`clean_glass`: borders smoothed along themselves, side
+  glass y = f(x, z), screens x = f(y, z), only crumple-size moves) with a rubber seal swept round every pane; glass
+  set lighter (#7d8a86, opacity 0.45 in its note); preview glass lets shadow rays through (Unreal's translucent glass
+  casts none). Cars and vans get `carparts.interior`: lofted dash with binnacle hump and visor, three dials (ticks,
+  needles, chrome rings), vents with slats, centre stack, glovebox line; steering wheel, column, stalks; bucket
+  seats with bolsters, piping and headrests on posts, rear bench, console and lever; door cards (armrest, pull cup,
+  inner handle, speaker, crank); carpet with tunnel; parcel shelf; Taxi partition (plexiglass upper half, tray) and
+  fare meter. The shell's inside within the cabin reads as headliner cloth. Trucks keep the simple cabin (glass
+  above standing eye height; budget); its seats now stop under the cab roof (SPEC roof).
+- Body: flanks put on a robust fitted surface (`flatten_flank`: paint vertices only, arches avoided, handle boxes
+  forced); real shut lines cut as 6.5 mm grooves with a dark floor (`cut_groove`) at the door lines (Sedan front
+  door 1.16 / rear door 0.90 as briefed; SUV, Pickup, Van from cowl, B pillar and arches); SUV tailgate and the box
+  truck's lower front flattened the same way; generated handles flattened, modelled pull handles in pockets;
+  generated mirrors dropped, modelled mirrors (sail, arm, housing in body colour or black, mirror glass) or West
+  Coast truck mirrors (tube stalks, chrome head, convex spot mirror), inside the brief's width.
+- Paint: one flat clear-coat tint mask per body (no texture lines, no baked light, faint mottle), grime and
+  roughness rising from the sills, a fine orange-peel normal instead of the generated normals.
+- Plates 305 x 152 mm in a chrome frame with four screws over a dark recess; the generated holder standing in
+  front of the plate is pushed behind it (the black diagonal line across the sedan's plate was generated trim
+  standing proud); the Van has its own number RJM·6072. Cowl panel 5 mm below the bonnet's rear edge, 2 cm further
+  inside the A pillars; wiper arms bend down onto the glass.
+- Others: Burned / Stripped car keep the sedan's 2.80 wheelbase (only the overhangs shrink to 4.38); burned rims are
+  the modelled steel wheel in rust; stripped hubs are modelled brakes with studs; the primer slot writes
+  paint_default + matte + roughness_override 0.80. Vulture: CargoDark lifted to about 0.13, leaf inner skins in
+  primer grey (TS_Paint_PrimerGrey), stencil redrawn as a hunched vulture (drooped ragged wings, ruff, long bare
+  neck, hooked beak), scrawls are letterless loops. IPX: flank art laid out round the gun port (lozenge left,
+  wordmark right). BoxTruck: clean chrome bumper with tow slot and bolts.
+- Triangles (all validated and exported, noses +X, origins kept): Sedan 177.9k, Taxi 177.4k, SUV 167.0k, Pickup
+  152.0k, Van 168.7k, Van_Vulture 164.9k, BoxTruck 176.8k, IPXTruck 171.7k (raised from 106-145k, under the 180k
+  cap), BurnedCar 82.3k, StrippedCar 70.2k, Motorbike 90.2k.
+- Credits: none spent (no regeneration; replacing the detail needed none).
+- Builds: memory is shared and a full build was OOM-killed once: build in two groups (cars: Sedan, Taxi, SUV, Pickup,
+  Van, BurnedCar, StrippedCar; trucks: Van_Vulture, BoxTruck, IPXTruck, Motorbike) with --force --export, copy each
+  saved blend to art/out/blend/vehicles_cars.blend / vehicles_trucks.blend; previews from the cars blend with the
+  trucks appended (open vehicles_cars.blend, bpy.data.libraries.load the trucks' SM_Vehicle_* objects, then
+  vehicles.on_preview), one preview per process. New previews: vehicles_wheel, vehicles_lamp, vehicles_interior,
+  vehicles_taxi.
+
 ---------------------------------------------------------------------------------------------------------------
 # Generated Goon (assets/goon_generated.py), character technical artist: a Higgsfield image-to-3D comparison
 
@@ -671,3 +727,19 @@ Review (art/blender/review/rule_review.py, renders in art/out/review/rule/): lik
 ## Exact next step
 Multi-view photos of the man (see the task report) for a head rebuilt from several views; neck-join texture
 blend across the two atlases; armhole rim weights per pose (aimed idle); corrective shapes for curled fingers.
+- Exported and proven (final bake and export in one run; laminate painted in 1.5 M-texel chunks after two OOM kills
+  at 4K): SK_Chopper 150.4k tris (sets Chopper 8,642 px/m, Chopper_Furniture 13,117, Chopper_Front 7,527),
+  SM_Weapon_ChopperMagazine 36.4k; SK_Nine 86.0k (Nine 7,754 px/m + T_Nine_A), SM_Weapon_NineMagazine 19.5k.
+  `python art/blender/assets/_weapons_check.py`: both guns ALL FIXED POINTS KEPT (bones/sockets 1e-5 m, length,
+  height, CHOPPER width -0.0229..0.042, notch/post profiles, sight line, bore ray, Palm_R/L, NINE grip 56.5 / 56.1 mm,
+  back strap 16.0 deg, front strap 18.0 deg, magazine X -0.0135..0.0453, slide back 10-44 mm 0 contacts (the
+  inverted right rail-groove box was caught here), triggers clear, re-import poses < 1.4e-8 m).
+- Final previews after the last change (6 renders): weapons_chopper_hero/_fp, weapons_nine_hero/_fp, weapons_parts,
+  weapons_wire.
+## Not done in round 3 (next)
+- The NINE's trigger sits 90+ mm from the web of the hand: the fixed trigger pivot, the hammer and the tang tip
+  leave a long reach, so the guard opening runs back to X 0.050 (the opening's rear edge sweeps from the magazine
+  button down into the strap). A shorter reach needs the trigger pivot moved (a fixed point).
+- CHOPPER rear trunnion dome is built from scaled rings (soft creases from the corners show at grazing light).
+- Magazine sets are flagged "stale" by the preview session (uv_hash rounding); the exported GLBs and their sets
+  come from the same run.
