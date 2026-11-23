@@ -342,6 +342,96 @@ the wings above the arches; fix the SUV tail cut (limit cut_rect to faces facing
 a plane fit; then the Van barn doors, the IPX floor / sill / leaf band, the motorbike mirrors (cut by connected
 component near the bar ends) and the burned-car material.
 
+## Close-up pass 4 (review round 4: Sedan / Taxi / SUV / Van / Vulture / trucks / wrecks 2, Pickup 1.5, Motorbike 3.5)
+Same method: the generated body is only the painted shell; what a close camera reads is replaced. New library
+module `mi/carfix.py` (vehicles only), small additions in `mi/carparts.py`; `vehicles.py` wires them.
+- Glass (every vehicle): `carfix.rebuild_panes` throws the generated panes away and rebuilds each one: islands
+  under 0.035 m2 dropped (shards, the Van's glass ghost mirror; the generated mirror heads in the glass slot are
+  also dropped by `plan_mirrors`), the border loop smoothed along itself and resampled, a smooth low-order surface
+  fitted to the pane (side glass y = f(x, z) curved across z; screens x = f(y, z) with a y^4 wrap term; sloped
+  screens z = f(x, y)), the inside re-triangulated on it (constrained Delaunay, 4.5 cm grid). Seals 8 mm, moved
+  5 mm outward so they cover the shell's cut edge. TS_Glass_CarTint is the brief's near-black #0a0d10 (linear
+  0.004), roughness 0.03, opacity 0.55 in its note (rev 4); the preview material is a glossy near-black surface at
+  45 % transparency, as Unreal draws it (no refracting clear pane).
+- Torn white fragments: they were paint faces folded back into the body (the middle layer of crumpled seams); the
+  solidify put their inner layer (light headliner cloth) 1 cm OUTSIDE the paint. `carfix.orient_outward(delete=True)`
+  removes paint / trim faces whose front looks at the back of another face while their back sees the outside
+  (Sedan 34, SUV 141, Pickup 156, Vulture 121, BoxTruck 44, IPX 232 faces). Flipping them instead broke the
+  exporter's winding check (they are wound consistently with their sheet). Headliner cloth only above belt + 0.12.
+  `carfix.drop_islands` then removes islands under 40 cm2 and slivers (aspect > 8) within 8 cm of every fitted
+  handle, mirror and lamp (Sedan 233, SUV 237, Van 542 faces).
+- Grey belt slab: it was the light grey door card seen through the gap between the generated door top and the
+  glass (found by casting the preview camera's rays). A black U-section weatherstrip (`carfix.belt_strips`, 75 mm
+  wide, cap over the glass base, legs 6 cm down behind the skin) runs along the bottom of every side pane; the
+  generated belt trim is paint and its upward sill faces dark plastic. Sedan handles are chrome (brief).
+- Headrests: `carfix.settle` lowers each headrest with its posts until it clears the paint and glass by 6 cm seen
+  from the cabin's centre line (Sedan / Taxi rear 21 cm, front 5 cm; SUV up to 10 cm). No headrest stands through
+  the rear screen.
+- Lamps / grilles: tail-lamp cuts only remove faces that face the lamp's way (`cut_rect(facing=)`), so the rear
+  quarters keep their skin (the SUV's black cavity is gone). Grilles rebuilt (`surface_grille`): bars 8 mm square
+  with a 2 mm bevel (egg-crate) or 12 mm flat bars, a black backing plate 4 cm behind, a 22 x 16 mm surround frame
+  whose top meets the bonnet line (`grille_top`). Plates: the generated holder stays paint (it read as a large grey
+  crumpled patch); a black recess card sits behind the plate.
+- Paint: orange-peel normal at a sixth of its slope (0.30 -> 0.05: it read as hammered metal in grazing light);
+  paint corner normals diffused 30 iterations instead of 10. Body sets regenerated (`--force`).
+- Pickup: the generated cab is a regular cab whose back wall stood at x +0.01 while the brief's bed starts at
+  -0.56 (the seats ended up in the bed). A second x remap in `gen_body` (`xwarp`: -0.98 -> -0.98, +0.012 -> -0.50,
+  +0.06 -> +0.06) compresses the bed ahead of the rear arch and stretches the 5 cm behind the door into the cab's
+  rear corner: door, window, cowl and front end are untouched, the cab back wall is now at about -0.50, the seats
+  are inside the cab, no glass behind it. Not regenerated: the concept itself is a regular cab, and the brief's
+  3.22 wheelbase with a 2.01 bed is an extended-cab length.
+- Van: rear barn doors modelled on the generated tail (`van_rear`): the large generated pane is paint, the tail
+  flattened, a 6 mm centre seam cut as a groove, two 0.50 x 0.36 panes at 1.62 cut into the shell in rubber seals,
+  two chrome pull handles with lock barrels by the seam.
+- Van_Vulture: stencil redrawn (side-on perched vulture: hunched shoulders, folded wing set off by cut lines,
+  ragged primaries past the tail, spiky ruff, bare S-neck, bald head, big hooked beak, legs and talons on a wire
+  running past, overspray haze). Leaves inside: two lock rods with four guides and end keepers each, pressed ribs,
+  the pane's seal on both faces, 0.30 strap hinges with three bolts and pin caps, a longer check strap.
+- IPX: the gun ports measured on the mesh (centres x -2.16 and -0.37, z 2.04-2.37, both flanks); one panel per
+  flank (the art reads from the tail on the right, from the cab on the left) laid out so nothing lies under a port
+  or its dark mounting block: right = lozenge | port | IPX.EXCHANGE | port | gold bar; left = gold bar | port |
+  wordmark | port | lozenge (checked on rendered flanks). Vault floor is a modelled tread plate
+  (MI_Plate_ScanDiamond) on a galvanised sill angle; hazard fragments above z 0.85 at the tail are trim. Door
+  leaves: band and lozenge now in front of the armour panel (they were hidden inside it), armour plate in a raised
+  frame with 8 bolt heads, port in a frame, lock bar with three guides (2076 tris each, 0.09 deep).
+- BoxTruck: amber lamp texels round the headlamps are cab paint (no more yellow patches); the fog-lamp pockets are
+  found on a ray-cast grid against a robust fit of the lower panel and filled with modelled fog lamps; HOLLIS has a
+  25 mm dark #2a2010 outline and drop shadow.
+- Taxi: door lettering moved 4 cm clear of the front handle; the roof-light number on its own full-width region
+  (2048 px over the 0.40 face), 60 mm cap height, black on white with a yellow rim.
+- Motorbike: the rear pair of mirrors (heads at x 0.12-0.27) and their stems above the bar deleted; the front pair
+  on the clamps stays.
+- Wrecks: burned shell is rust all over (`M_Vehicle_BurnedCar_Rust`: the rust scan x tint (1.0, 0.8, 0.6), its
+  blue patches graded out; tint in the manifest slot), char only above a wavy belt line and inside, and a soot
+  overlay (`M_Vehicle_BurnedCar_Soot`, masked alpha rising from the sills to the roof, broken by noise) instead of
+  rust islands on charcoal; mirror blobs cut from both wreck shells; both wrecks sit on z = 0 (they sank 8 mm).
+- Triangles (all validated, exported, manifest entries kept; noses +X, origins unchanged): Sedan 178.1k,
+  Taxi 177.6k, SUV 171.0k, Pickup 152.6k, Van 167.8k, Van_Vulture 167.0k, BoxTruck 178.8k, IPXTruck 173.4k,
+  IPXTruck_Door / _Door_Left 2.1k (0.09 deep), BurnedCar 95.9k, StrippedCar 70.4k, Motorbike 89.1k.
+- Credits: none spent (no body regenerated; balance not touched).
+- Builds: as pass 3, two groups, one Blender process at a time; car group about 4.5 min with --force.
+- Previews (11, 1280 x 720, 40 samples, one per process, all after the last change): vehicles_sedan_hero, _close,
+  _wheel, _lamp, _interior, _taxi, _lineup_1, _lineup_2, _ipx_truck, _wrecks (framing widened), _wire.
+- Verdict from the final previews, honestly: Sedan / Taxi now read clean at 2-3 m: near-black glass on clean
+  panes, no headrests through the screen, no white fragments on the flanks, moulded grille, black belt
+  weatherstrip, smooth wing reflections, dark plate surround. Still failing at arm's length: the generated sail
+  under the door mirror is a crumpled dark lump (my extra drop box did not catch it), torn shards on the bumper top
+  by the front arch and under the tail lamps, a crack fragment on the bonnet by the grille corner, a sawtooth at
+  the cowl's ends under the A pillars, the light headliner showing through the glass along the roof rail, and the
+  cabin is dim through the near-black tint (as briefed). SUV: the rear-quarter cavity is gone; the rear bumper and
+  the quarter's corner stay crumpled. Pickup: cab, seats and bed now match the brief; flanks still generated (a
+  light strip at the rear arch). Van: barn doors read; the lower rear corners are crumpled. Vulture: the stencil
+  reads as a vulture; cartons' tape UVs and plain arch boxes not done. BoxTruck: fog lamps and HOLLIS outline
+  done, the cab outside the fitted parts is still the crumpled generated skin, wheel hand holes are still painted,
+  battery box plain. IPX: art clear of the ports, tread floor, detailed leaves; mirror stalks, the bar over the
+  headlamp lens and the cab's slot window not done. Motorbike: two mirrors; disc and headlamp lens not modelled.
+  Burned car: rust + soot blend reads as burned; rims still flat discs, engine bay a box. Stripped car: untouched.
+
+## Exact next step (close-up pass 4)
+Delete the mirror sail by connected component inside a 15 cm box round each mirror mount (all faces, then a
+modelled sail plate), trim the bumper tops and the cowl ends along fitted curves, then the truck cabs: regenerate
+the box truck cab from a flat-lit white conventional-cab concept (about 21 credits) or model the cab clip.
+
 ---------------------------------------------------------------------------------------------------------------
 # Generated Goon (assets/goon_generated.py), character technical artist: a Higgsfield image-to-3D comparison
 
