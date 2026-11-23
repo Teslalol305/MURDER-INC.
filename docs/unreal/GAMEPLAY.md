@@ -229,6 +229,11 @@ set-up through `UMIGameSubsystem::BeginWithSetup` → `FMILoadoutResolver` → `
 field hears a round at the gun's noise radius (`FMIShotFiredEvent::NoiseRadius`, cm, converted to metres by the
 game subsystem); the web's gunfire throttle stays, except that a louder round than the last alert in the window still
 alerts. The HUD bar shows the four slots and the bag; the world's objective markers hide while the wheel is open.
+Fix pass (built on no box yet): the bar sits on a soft dark band with a tag row above the slots; each two-mode gun
+shows its mode as one badge over its slot (filled cyan on the gun in hand), and the selector prompt is a key cap and
+what it does ("[B] SWITCH TO SEMI", `frontend.hud.modes.switchTo`) left of the slots. The objective title and the
+counter (display face, larger) sit on a dark band; objective markers are on a dark backing and pushed out of a ring of
+7.5 % of the height round the crosshair; the radio strip is at 0.815 of the height, clear of the bar's band.
 
 ## 14. Tests (set-up and four guns)
 
@@ -295,6 +300,14 @@ tracer (`UMIEffects::PlayerTracer`) leaves the muzzle as drawn (its first-person
 from its first frame, its tail held `fx.tracer.player.start` (0.8 m) past the muzzle while the streak
 (`length` 12 m, `radius` 0.25 cm) is shorter than its flight: on screen a streak converging from the gun on the aim
 point. From the world muzzle a metre out it flew along the line of sight and was a dot under the crosshair.
+Fix pass (built and seen on no box yet): with `fx.materials.flashView` (`/Game/FX/M_FX_FlashView`, made by
+`mi_fp_import.py fx`: the flash material with depth testing off) the player's flash gets its own six cards in that
+material, so it draws over the gun's front end where it is: the cards stay on the muzzle (`flash.view.pullOverlay`, 1)
+at hip and aimed, and enemy flashes never recycle them. Without the material the pull above runs unchanged. The casing
+(and the dropped magazine) is drawn at the first-person depth and size only while it leaves the gun
+(`fx.casing.viewLife` 0.12 s; the magazine 0.45 s), then `UMIEffects::SpawnViewBody` shows a true-size body thrown at
+the same moment from the port's (or the well's) true place, `FirstPersonToWorld`, for the rest of its life: before,
+the shrunken body stayed 4 s (8 s), the size of the rear sight on screen and then a miniature on the ground.
 
 **Per-gun finger contact.** presentation `guns.<id>.real.fingers.hip` / `.aim` (side `l` / `r`, finger -> degrees)
 close (or, negative, open) each finger about its knuckles: `FMIFPFingerCurl`, shared 0.3 / 0.4 / 0.3 over the three
@@ -378,7 +391,7 @@ Two things the fix pass (2026-11-23) found by measuring in play, not by reading 
 
 | Hook | Effect |
 |---|---|
-| Player round (`OnRoundFired`) | three flash cards (`ViewFlash`, section 15) on the muzzle at the first-person depth, turned to the eye and pulled in front of the gun at the hip (`flash.life` 0.045 s, nearly three frames at 60 fps) and a 0.05 s point light in the world (none at all with a silencer); a brass casing from `Eject` along its +X with the body's velocity, at the first-person depth and size (`SM_TFA_AR_Bullet_Casing` on the pack rifles, else a brass cylinder); the tracer (`PlayerTracer`) from the muzzle as drawn to the round's end, drawn from its first frame (the old line tracer when the materials are absent) |
+| Player round (`OnRoundFired`) | three flash cards (`ViewFlash`, section 15) on the muzzle at the first-person depth, turned to the eye and, in the depth-test-off `M_FX_FlashView` when the project has it, drawn over the gun on the muzzle (else pulled in front of the gun at the hip) (`flash.life` 0.045 s, nearly three frames at 60 fps) and a 0.05 s point light in the world (none at all with a silencer); a brass casing from `Eject` along its +X with the body's velocity, at the first-person depth and size for `casing.viewLife` (0.12 s), then a true-size casing from the port's true place (`SM_TFA_AR_Bullet_Casing` on the pack rifles, else a brass cylinder); the tracer (`PlayerTracer`) from the muzzle as drawn to the round's end, drawn from its first frame (the old line tracer when the materials are absent) |
 | Enemy `Fire` (`AMIGoon::OnRuleEvent`) | a world flash at the SMG's muzzle with its light, the tracer to the first thing the round meets |
 | `Impact` on the world | two dust puffs in the surface's colour (`fx.surfaces`), a strike mark (deferred decal, 30 s), a spark card on metal |
 | `Impact` on an enemy | a short blood mist both ways and a spatter on the wall behind within 2.6 m |
