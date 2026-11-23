@@ -129,9 +129,9 @@ def _bone_cs(mesh):
 def _put_skel_socket(mesh, name, bone, loc_cs, bones):
     s = mesh.find_socket(name)
     if s is None:
-        s = unreal.SkeletalMeshSocket(mesh)
-        _set(s, socket_name=name)
+        s = unreal.SkeletalMeshSocket(mesh)      # SocketName is read-only from Python: add, then rename
         mesh.add_socket(s, False)
+        mesh.rename_socket(s.socket_name, name)
         s = mesh.find_socket(name)
     rel = bones[bone].inverse_transform_location(unreal.Vector(*loc_cs))
     _set(s, bone_name=bone, relative_location=rel, relative_rotation=unreal.Rotator(0, 0, 0),
