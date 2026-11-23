@@ -19,7 +19,7 @@
 
 namespace MIEffectsPrivate
 {
-	constexpr int32 NumPuffs = 96, NumCards = 9, NumLights = 6, NumMarks = 72, NumStreaks = 24;
+	constexpr int32 NumPuffs = 96, NumCards = 36, NumLights = 6, NumMarks = 72, NumStreaks = 24;  // cards: three per flash; 9 let three Goon shots recycle the player's own flash within its 0.045 s (polish pass)
 
 	template <typename T>
 	T* LoadAs(const FString& Path)
