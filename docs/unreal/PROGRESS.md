@@ -36,9 +36,13 @@ Built in the gameplay clone `/project/ue/repo-gameplay` (MCP 8001). Contracts: `
   `.Clips`: 31 clips on the right skeletons).
 
 **Open (most important first)**
-1. Effects read weakly in daylight: the explosion is a hot glow with a pale haze at 0.4 s, the strike dust and marks
-   are small; the smoke wants a lit flipbook or a Niagara system (none is built: everything is code on pooled cards, so
-   there is no Niagara asset to tune). No casing or impact picture was taken.
+1. **The translucent puffs do not show in play** (smoke, dust, blood mist): they are spawned, placed, sized and faded
+   (read back from Python during a blast: 47 visible cards of 1.8 to 2.1 m, opacity 0.47 to 0.49, on M_FX_Smoke,
+   which compiles: 483 instructions), lit or unlit alike, yet no picture shows them; the additive cards (flashes,
+   sparks), tracers, lights and debris bodies do. So `fp-explosion.jpg` (0.42 s) shows the blast's light, the fireball's
+   glow and the debris but no smoke. Next: one puff in front of the camera in a test map to find the cause, or a
+   Niagara sprite system for the puffs (none is built: every effect is code on pooled components). The strike marks
+   (MD_FX_Mark) and the casings were not caught in a picture.
 2. The bare forearm in direct sun reads orange-red under the El (`fp-hip-el`, `fp-irons`) even with the game's shorter
    scatter (`SP_RuleSkin` 0.22 cm, Opacity 0.45): for the character agent (skin albedo / profile), see Handoffs.
 3. The scope's reticle dot (1.5 mrad) is about 3 px at 32 degrees and sits under the HUD crosshair: hide the crosshair
