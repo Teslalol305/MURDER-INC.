@@ -21,6 +21,23 @@ What is verified on the box, newest first. Every entry says how it was verified.
    `send-art.sh pack` + transfer + `block.sh start textures,materials force` + `block.sh start meshes,level` when it
    is finished: sign slots without a set show the neutral stand-in `SIGN_STAND_IN`.
 
+## Animation pack (Tactical FPS Animation Pack - Assault Rifle) on the CHOPPER — done
+
+Details, mapping and what is missing: `docs/unreal/ANIMATION.md`. Scratch project `/project/ue/animpack` (MCP 8003).
+
+**Verified 2026-11-23**
+- The pack's 109 character clips are the UE5 mannequin skeleton bone for bone (88 bones, rest pose within 0.014 mm,
+  30 fps, cm): imported onto SK_Mannequin with no retargeting, 139 of 139 imports (clips, rifle, magazine, weapon
+  clips). Proof `shots/anim-pack-rifle.jpg`.
+- 44 clips adapted by hand IK onto SK_Chopper (`Palm_R`, `Palm_L`, sights on the eye line, 16 cm eye relief) and 4
+  reloads (FP and TP, tactical 2.233 s and empty 2.733 s) adjusted on the rules' marks: magazine rocked about
+  `MagHinge`, LEFT-side charging handle, left-hand IK error 0.0 cm on every frame. Five SK_Chopper part clips
+  (fire, dry fire, idle, two reloads). Proofs `shots/anim-fp-aimed.jpg`, `anim-grip.jpg`, `anim-fp-reload.jpg`,
+  `anim-bolt-racked.jpg`, `anim-tp-reload.jpg`.
+- 53 adapted assets as .uasset and FBX with `manifest.json` in `/project/ue/packs/tactical-rifle/adapted/` (never
+  in git); `tools/box/anim/import-animpack.sh` imports the pack (`pack`) or copies the adapted set (`adapted`) into
+  any project; both tested on a fresh copy of the mannequin project.
+
 ## Gameplay (slice 2: the enemies and the flow) — in progress
 
 Contracts: `docs/unreal/GAMEPLAY.md` sections 6 to 11. Built and tested in `/project/ue/repo-gameplay` (MCP 8001).
