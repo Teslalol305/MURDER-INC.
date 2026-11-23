@@ -2900,7 +2900,7 @@ def on_preview(ctx, objs):
         shot("vehicles_lineup_1.jpg")
     if want("vehicles_lineup_2"):
         _show(assets, {"SM_Vehicle_BoxTruck": (-10.5, 3.6, 0), "SM_Vehicle_Van": (-2.6, 3.85, 0),
-                       "SM_Vehicle_Van_Vulture": (4.2, 1.9, 200), "SM_Vehicle_Motorbike": (9.3, 4.45, 20)})
+                       "SM_Vehicle_Van_Vulture": (3.2, -0.9, 160), "SM_Vehicle_Motorbike": (6.4, 4.6, 20)})
         render.cam_look((13.6, -1.0, 1.75), (-1.0, 3.5, 1.05), lens=32)
         shot("vehicles_lineup_2.jpg")
     if want("vehicles_ipx_truck") and "SM_Vehicle_IPXTruck" in assets:
@@ -2914,7 +2914,7 @@ def on_preview(ctx, objs):
             hx, hy = IPX_DOOR_X, -0.89 * s_
             d.location = (-hx, 3.6 - hy, 1.05)
             d.rotation_euler = (0, 0, math.radians(180 + s_ * 108.9))
-        render.cam_look((10.6, 1.0, 2.0), (3.0, 3.55, 1.6), lens=28)
+        render.cam_look((9.6, 2.3, 2.15), (2.4, 3.6, 1.55), lens=30)
         shot("vehicles_ipx_truck.jpg")
     if want("vehicles_wrecks"):
         _show(assets, {"SM_Vehicle_BurnedCar": (-2.8, 3.4, 12), "SM_Vehicle_StrippedCar": (3.0, 3.3, -8)})
@@ -2934,6 +2934,8 @@ def on_preview(ctx, objs):
         ls.select_by_visibility = True
         ls.select_by_edge_types = True
         ls.select_silhouette = ls.select_border = ls.select_crease = True
+        if ls.linestyle is None:
+            ls.linestyle = bpy.data.linestyles.new("PV_Line")
         ls.linestyle.thickness = 0.6
         ls.linestyle.color = (0.05, 0.05, 0.06)
         vl.freestyle_settings.crease_angle = math.radians(140)
