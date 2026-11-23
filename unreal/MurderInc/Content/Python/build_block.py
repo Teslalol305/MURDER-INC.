@@ -2002,6 +2002,10 @@ def build_day_rig(day):
     sky_light.set_mobility(unreal.ComponentMobility.MOVABLE)
     setp(sky_light, "real_time_capture", True)
     setp(sky_light, "intensity", 1.0)
+    # Ground-coloured lower hemisphere (default black): surfaces facing down (cloth folds, eaves, under awnings) get
+    # the sunlit street's fill where Lumen's bounce does not reach (Goons r3 review finding)
+    setp(sky_light, "lower_hemisphere_is_black", False)
+    setp(sky_light, "lower_hemisphere_color", unreal.LinearColor(0.28, 0.26, 0.23, 1.0))
 
     # Haze: the web's day haze reaches 8 % at 92 m (atmos.json fog.opacityAt). Height fog extinction is
     # density x 0.001 per cm here, flat (tiny falloff): 1 - exp(-d * 0.001 * 9200) = 0.083 at d ~ 0.0094.

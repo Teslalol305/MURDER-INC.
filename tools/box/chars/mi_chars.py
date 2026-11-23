@@ -68,6 +68,10 @@ def _floor_and_light():
     made.append(ACTORS.spawn_actor_from_class(unreal.SkyAtmosphere, unreal.Vector(0, 0, 0)))
     sky = ACTORS.spawn_actor_from_class(unreal.SkyLight, unreal.Vector(0, 0, 300))
     sky.light_component.set_editor_property("real_time_capture", True)
+    # Goons r3: a ground-coloured lower hemisphere (the default is black: the downward-facing hood and hoodie folds
+    # got no fill at all and rendered as near-black stepped patches); sunlit concrete / asphalt mix
+    _set(sky.light_component, lower_hemisphere_is_black=False,
+         lower_hemisphere_color=unreal.LinearColor(0.28, 0.26, 0.23, 1.0))
     made.append(sky)
     pp = ACTORS.spawn_actor_from_class(unreal.PostProcessVolume, unreal.Vector(0, 0, 0))
     pp.set_editor_property("unbound", True)
@@ -451,7 +455,7 @@ def goon_material(name, set_name, detail_tiling, dest, tex, detail="/Game/Charac
     MEL.connect_material_property(orm, "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION)
     MEL.connect_material_property(orm, "G", unreal.MaterialProperty.MP_ROUGHNESS)
     MEL.connect_material_property(orm, "B", unreal.MaterialProperty.MP_METALLIC)
-    MEL.connect_material_property(_const(m, 0.35, -300, 650), "", unreal.MaterialProperty.MP_SPECULAR)
+    MEL.connect_material_property(_const(m, 0.30, -300, 650), "", unreal.MaterialProperty.MP_SPECULAR)   # r3 0.30
     # cloth amount from the roughness
     sub = _op(m, unreal.MaterialExpressionSubtract, orm, _const(m, 0.55, -1100, 120), -1000, 60, "G", "")
     mul = _op(m, unreal.MaterialExpressionMultiply, sub, _const(m, 3.3, -1000, 160), -850, 60)
