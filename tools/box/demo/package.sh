@@ -46,6 +46,9 @@ overlay() {
 [/Script/UnrealEd.ProjectPackagingSettings]
 BuildConfiguration=PPBC_Development
 +MapsToCook=(FilePath="/Game/Maps/L_Block")
+; The game loads much of its art by path from Content/Data/*.json (arms, guns, Goons, effects, sounds): nothing in
+; the map references it, so the cooker would leave it out ("the /Game/FX materials are not in this project").
++DirectoriesToAlwaysCook=(Path="/Game")
 bUseIoStore=True
 bShareMaterialShaderCode=True
 ; The cooker writes into Zen storage by default in 5.9, and the box cannot reach a Zen server (BOX.md section 1):
