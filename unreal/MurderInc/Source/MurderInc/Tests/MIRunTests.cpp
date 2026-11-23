@@ -21,6 +21,8 @@
 #include "Player/MISwitchInput.h"
 #include "UI/MIFrontEnd.h"
 #include "Weapons/MILoadoutResolver.h"
+#include "Flow/MIRunSetupSubsystem.h"
+#include "InputCoreTypes.h"
 
 #if WITH_AUTOMATION_TESTS
 
@@ -514,43 +516,103 @@ bool FMIRunMenusTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-// LOADOUT.md 8.5: the whole set-up flow in a world, driven as MIMenu fe drives it, into a run and back.
+namespace MIRunTestsPrivate
+{
+	/** A booted title with the set-up screens up (a fresh player: played is false). */
+	UMIFrontEnd* BootTitle(FAutomationTestBase& T, FRunWorld& W)
+	{
+		FMIBootOptions O;
+		O.bPersist = false;
+		O.bDrawGrey = false;
+		if (!T.TestTrue(TEXT("boots on the title"), W.Game && W.Game->Boot(O)))
+		{
+			return nullptr;
+		}
+		W.Step();
+		UMIFrontEnd* F = W.Game->GetFrontEnd();
+		if (!T.TestNotNull(TEXT("the set-up flow replaces the canvas title"), F))
+		{
+			return nullptr;
+		}
+		T.TestTrue(TEXT("shown on the title"), F->IsShown());
+		T.TestEqual(TEXT("Home"), F->GetRules().GetScreen(), EMIFrontScreen::Home);
+		return F;
+	}
+
+	/** One real key press through Slate (FSlateApplication::ProcessKeyDownEvent / ProcessKeyUpEvent), then a frame. */
+	void Press(FAutomationTestBase& T, FRunWorld& W, UMIFrontEnd* F, const FKey& K, bool bCtrl = false)
+	{
+		T.TestTrue(FString::Printf(TEXT("%s%s is handled by the set-up screens"), bCtrl ? TEXT("Ctrl+") : TEXT(""), *K.ToString()), F->PressKey(K, bCtrl));
+		W.Step();
+	}
+
+	void Expect(FAutomationTestBase& T, UMIFrontEnd* F, EMIFrontScreen S, const TCHAR* What)
+	{
+		T.TestEqual(What, FMIFrontEndRules::ScreenName(F->GetRules().GetScreen()), FMIFrontEndRules::ScreenName(S));
+	}
+}
+
+// LOADOUT.md 8.5: the whole set-up flow in a world, Home to the run, with the keyboard only: every step is a real key
+// event routed by Slate to the screens (no MIMenu verbs).
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIFrontendWalkWorldTest, "MurderInc.Frontend.WalkWorld", MITest::Flags)
 
 bool FMIFrontendWalkWorldTest::RunTest(const FString& Parameters)
 {
 	using namespace MIRunTestsPrivate;
 	FRunWorld W;
-	FMIBootOptions O;
-	O.bPersist = false;
-	O.bDrawGrey = false;
-	if (!TestTrue(TEXT("boots on the title"), W.Game && W.Game->Boot(O)))
+	UMIFrontEnd* F = BootTitle(*this, W);
+	if (!F)
 	{
 		return false;
 	}
-	W.Step();
-	UMIFrontEnd* F = W.Game->GetFrontEnd();
-	if (!TestNotNull(TEXT("the set-up flow replaces the canvas title"), F))
-	{
-		return false;
-	}
-	TestTrue(TEXT("shown on the title"), F->IsShown());
-	TestEqual(TEXT("Home"), F->GetRules().GetScreen(), EMIFrontScreen::Home);
-	// The first Hit the block opens Crew; three Nexts reach the Briefing; Hit the block starts.
-	F->Act(TEXT("hit"));
-	TestEqual(TEXT("first time: Crew"), F->GetRules().GetScreen(), EMIFrontScreen::Crew);
-	F->Act(TEXT("next"));
-	TestEqual(TEXT("Loadout"), F->GetRules().GetScreen(), EMIFrontScreen::Loadout);
+	// Enter on Home: the first Hit the block opens Crew.
+	Press(*this, W, F, EKeys::Enter);
+	Expect(*this, F, EMIFrontScreen::Crew, TEXT("first time: Enter opens Crew"));
+	// Down past the last row reaches Next; Enter on Next advances.
+	Press(*this, W, F, EKeys::Down);
+	TestTrue(TEXT("Crew: Down past the cards focuses Next"), F->bOnNext);
+	Press(*this, W, F, EKeys::Enter);
+	Expect(*this, F, EMIFrontScreen::Loadout, TEXT("Enter on Next: Loadout"));
 	TestEqual(TEXT("the parity guns"), F->GetRules().GetSetup().Guns, TArray<FName>{TEXT("chopper"), TEXT("nine")});
-	F->Act(TEXT("bench"), TEXT("chopper"));
-	TestEqual(TEXT("Workbench: no parts on the CHOPPER yet"), F->GetRules().BenchSlots().Num(), 0);
-	F->Act(TEXT("done"));
-	F->Act(TEXT("next"));
-	TestEqual(TEXT("Block & Style"), F->GetRules().GetScreen(), EMIFrontScreen::Where);
-	F->Act(TEXT("next"));
-	TestEqual(TEXT("Briefing"), F->GetRules().GetScreen(), EMIFrontScreen::Briefing);
+	// The NEW tags: the card focused on arrival and every card focused later lose it, and the save keeps that.
+	TestFalse(TEXT("the CHOPPER, focused on arrival, is no longer NEW"), F->GetRules().IsNew(TEXT("chopper")));
+	TestTrue(TEXT("the NINE is NEW until focused"), F->GetRules().IsNew(TEXT("nine")));
+	Press(*this, W, F, EKeys::Right);
+	TestFalse(TEXT("Right onto the NINE: not NEW"), F->GetRules().IsNew(TEXT("nine")));
+	Press(*this, W, F, EKeys::Left);
+	TestEqual(TEXT("Left: back on the CHOPPER"), F->GetRules().GetFocusGun(), FName(TEXT("chopper")));
+	TestFalse(TEXT("the CHOPPER stays seen"), F->GetRules().IsNew(TEXT("chopper")));
+	{
+		FMISetupSave Save;
+		FMIRunSetup Back;
+		UMIRunSetupSubsystem::ToSave(F->GetRules().GetSetup(), Save);
+		UMIRunSetupSubsystem::FromSave(Save, Back);
+		TestTrue(TEXT("seen survives a save round trip"), Back.Seen.Contains(TEXT("chopper")) && Back.Seen.Contains(TEXT("nine")));
+	}
+	// Tab cycles the rack, the slots and Next; Enter on Next goes to Block & Style (never straight to the Briefing).
+	Press(*this, W, F, EKeys::Tab);
+	TestEqual(TEXT("Tab: the slots"), F->Pane, 1);
+	Press(*this, W, F, EKeys::Tab);
+	TestTrue(TEXT("Tab again: Next"), F->bOnNext);
+	Press(*this, W, F, EKeys::Enter);
+	Expect(*this, F, EMIFrontScreen::Where, TEXT("Enter on Next: Block & Style"));
+	// Block & Style: four rows, then Next.
+	for (int32 I = 0; I < 3; ++I) Press(*this, W, F, EKeys::Down);
+	TestFalse(TEXT("the difficulty row is not Next"), F->bOnNext);
+	Press(*this, W, F, EKeys::Down);
+	TestTrue(TEXT("Down past the difficulty row: Next"), F->bOnNext);
+	Press(*this, W, F, EKeys::Enter);
+	Expect(*this, F, EMIFrontScreen::Briefing, TEXT("Enter on Next: the Briefing"));
+	// Esc twice goes back to Loadout; Ctrl+Enter jumps to the Briefing.
+	Press(*this, W, F, EKeys::Escape);
+	Expect(*this, F, EMIFrontScreen::Where, TEXT("Esc: Block & Style"));
+	Press(*this, W, F, EKeys::Escape);
+	Expect(*this, F, EMIFrontScreen::Loadout, TEXT("Esc: Loadout"));
+	Press(*this, W, F, EKeys::Enter, true);
+	Expect(*this, F, EMIFrontScreen::Briefing, TEXT("Ctrl+Enter: the Briefing"));
 	for (int32 I = 0; I < 3; ++I) W.Step();
-	F->Act(TEXT("hit"));
+	// Enter on the Briefing (Hit the block is focused) starts the run.
+	Press(*this, W, F, EKeys::Enter);
 	TestEqual(TEXT("Hit the block: the intro"), (int32)W.State(), (int32)EMIGameState::Intro);
 	TestFalse(TEXT("the front end is down in the run"), F->IsShown());
 
@@ -571,6 +633,50 @@ bool FMIFrontendWalkWorldTest::RunTest(const FString& Parameters)
 		}
 		TestEqual(TEXT("the bag is the CHOPPER's reserve"), Rules.GetBag(), 150.0);
 	}
+	return !HasAnyErrors();
+}
+
+// The same walk on a pad: Start is Next on every set-up screen, so crew, loadout, block and style and the Briefing come
+// in order; D-pad down past the last row then A also advances; View+Start jumps to the Briefing.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIFrontendWalkPadTest, "MurderInc.Frontend.WalkPad", MITest::Flags)
+
+bool FMIFrontendWalkPadTest::RunTest(const FString& Parameters)
+{
+	using namespace MIRunTestsPrivate;
+	FRunWorld W;
+	UMIFrontEnd* F = BootTitle(*this, W);
+	if (!F)
+	{
+		return false;
+	}
+	Press(*this, W, F, EKeys::Gamepad_Special_Right);
+	Expect(*this, F, EMIFrontScreen::Crew, TEXT("Start on Home, first time: Crew"));
+	TestTrue(TEXT("a pad key switches the glyphs to the pad's"), F->IsPad());
+	Press(*this, W, F, EKeys::Gamepad_Special_Right);
+	Expect(*this, F, EMIFrontScreen::Loadout, TEXT("Start on Crew: Loadout"));
+	Press(*this, W, F, EKeys::Gamepad_Special_Right);
+	Expect(*this, F, EMIFrontScreen::Where, TEXT("Start on Loadout: Block & Style, not the Briefing"));
+	Press(*this, W, F, EKeys::Gamepad_Special_Right);
+	Expect(*this, F, EMIFrontScreen::Briefing, TEXT("Start on Block & Style: the Briefing"));
+	Press(*this, W, F, EKeys::Gamepad_FaceButton_Right);
+	Expect(*this, F, EMIFrontScreen::Where, TEXT("B: Block & Style"));
+	Press(*this, W, F, EKeys::Gamepad_FaceButton_Right);
+	Expect(*this, F, EMIFrontScreen::Loadout, TEXT("B: Loadout"));
+	// D-pad down past the rack's last row lands on Next; A there advances.
+	for (int32 I = 0; I < 4 && !F->bOnNext; ++I) Press(*this, W, F, EKeys::Gamepad_DPad_Down);
+	TestTrue(TEXT("D-pad down reaches Next"), F->bOnNext);
+	Press(*this, W, F, EKeys::Gamepad_FaceButton_Bottom);
+	Expect(*this, F, EMIFrontScreen::Where, TEXT("A on Next: Block & Style"));
+	Press(*this, W, F, EKeys::Gamepad_FaceButton_Right);
+	Expect(*this, F, EMIFrontScreen::Loadout, TEXT("B: Loadout again"));
+	// The chord: hold View, press Start.
+	TestTrue(TEXT("View down"), F->SendKey(EKeys::Gamepad_Special_Left, true));
+	Press(*this, W, F, EKeys::Gamepad_Special_Right);
+	F->SendKey(EKeys::Gamepad_Special_Left, false);
+	Expect(*this, F, EMIFrontScreen::Briefing, TEXT("View+Start: the Briefing"));
+	for (int32 I = 0; I < 3; ++I) W.Step();
+	Press(*this, W, F, EKeys::Gamepad_Special_Right);
+	TestEqual(TEXT("Start on the Briefing: the intro"), (int32)W.State(), (int32)EMIGameState::Intro);
 	return !HasAnyErrors();
 }
 
