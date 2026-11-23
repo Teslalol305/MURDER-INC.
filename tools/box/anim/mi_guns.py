@@ -23,6 +23,7 @@ PARTS = {"scope": ("SM_TFA_AR_ATT_Scope", "Optic"), "silencer": ("SM_TFA_AR_ATT_
          "grip_angled": ("SM_TFA_AR_ATT_Grip_Angled", "Underbarrel"), "laser": ("SM_TFA_AR_ATT_Laser", "Laser")}
 SNAP = unreal.AttachmentRule.SNAP_TO_TARGET
 TAG = "MIGuns"
+DEPLETION = W + "/Anims/Common/A_TFA_AR_Magazine_FireDepletion"
 
 
 def clear():
@@ -133,10 +134,15 @@ def base_mesh(length, parts=()):
 def magazine(parent, label, kind="standard", rounds=30, socket="MagHinge"):
     out = []
     if kind == "clear":
-        m = _skel(W + "/SK_TFA_AR_Magazine_Transparent", (0, 0, 0), unreal.Rotator(0, 0, 0), label + "_MagClear")
+        clip = unreal.load_asset(DEPLETION)
+        t = 0.0
+        if clip is not None:   # one frame per round fired: frame = size - rounds left
+            t = min(clip.get_play_length(), (30 - int(rounds)) / 30.0)
+        m = _skel(W + "/SK_TFA_AR_Magazine_Transparent", (0, 0, 0), unreal.Rotator(0, 0, 0), label + "_MagClear",
+                  DEPLETION if clip is not None else None, t)
         _attach(m, parent, socket)
         out.append(m)
-        for i in range(1, int(rounds) + 1):
+        for i in range(1, 31):
             b = _static(ATT + "/SM_TFA_AR_Bullet", "%s_Round%02d" % (label, i))
             _attach(b, m, "Bullet_%03d" % i)
             out.append(b)

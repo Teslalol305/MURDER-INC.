@@ -446,6 +446,7 @@ def plan(force_textures=False):
     jobs += [("rifle", r) for r in RIFLES]
     jobs += [("static", s) for s in STATIC]
     jobs += [("mag", "SK_TFA_AR_Magazine_Transparent"), ("mag_assign", "SK_TFA_AR_Magazine"),
+             ("mag_clip", "A_TFA_AR_Magazine_FireDepletion"),
              ("rifle_assign", "SK_TFA_AR_Default_Combined"), ("sockets", None)]
     return jobs
 
@@ -462,6 +463,13 @@ def _run_job(job):
         return import_mesh(arg, ATT, False)
     if kind == "mag":
         return import_mesh(arg, DEST, True, MAG_SKELETON)
+    if kind == "mag_clip":
+        # the magazine's own round-depletion clip (ue_import_pack.py leaves the magazine clips out): RoundsShown
+        # plays it at frame (size - rounds) so the follower and the stack sit where the rounds left put them
+        sys.path.insert(0, HERE)
+        import ue_import_pack as P
+        return P.import_clip(os.path.join(PACK, "Animations", "Weapon", "Common", arg + ".fbx"), DEST + "/Anims/Common",
+                             MAG_SKELETON)
     if kind in ("mag_assign", "rifle_assign"):
         return assign(unreal.load_asset(DEST + "/" + arg))
     if kind == "sockets":
