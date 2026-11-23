@@ -74,6 +74,7 @@ void UMIEffects::OnWorldBeginPlay(UWorld& InWorld)
 	FString Error;
 	if (!UMIDataSubsystem::LoadJsonFile(TEXT("presentation.json"), Root, Error))
 	{
+		UE_LOG(LogMI, Warning, TEXT("Effects: %s"), *Error);
 		return;
 	}
 	const TSharedPtr<FJsonValue> F = MIJson::Get(Root, TEXT("fx"));
@@ -159,6 +160,7 @@ void UMIEffects::OnWorldBeginPlay(UWorld& InWorld)
 	}
 	Bind();
 	bReady = true;
+	UE_LOG(LogMI, Log, TEXT("Effects: ready (%d puffs, %d cards, %d lights, %d marks, %d streaks)"), Puffs.Num(), Cards.Num(), Lights.Num(), Marks.Num(), Streaks.Num());
 }
 
 void UMIEffects::Bind()
@@ -447,6 +449,7 @@ void UMIEffects::OnExplosion(const FMIExplosionEvent& E)
 	}
 	const double S = E.bBig ? 1.0 : 0.6;
 	const FVector P = E.Position;
+	UE_LOG(LogMI, Log, TEXT("Effects: explosion at %s (radius %.0f cm)"), *P.ToCompactString(), E.Radius);
 	Light(P + FVector(0, 0, 120), MIJson::NumberOr(Fx, TEXT("explosion.candela"), 40000.0) * S, 3500.0 * S, 0.45,
 		Color(Fx, TEXT("explosion.light"), FLinearColor(1.0f, 0.55f, 0.25f)));
 	const FLinearColor Smoke = Color(Fx, TEXT("explosion.smoke"), FLinearColor(0.06f, 0.055f, 0.05f));
