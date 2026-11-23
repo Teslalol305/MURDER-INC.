@@ -1,0 +1,244 @@
+{
+  "meta": {
+    "file": "audio.json",
+    "about": "How the game sounds: the mix categories, the event-to-sound table (every event of the bus has an entry: sounds, a code rule, or an explicit silent), the ducks and filter states, distance and occlusion, the reverb zones, the ambience schedule, the music layers and the replacement layers that put better material over or instead of the web game's sounds. Hand-tuned; the sounds themselves (variants, lengths, priorities, distances) come from the generated audio_sounds.json. Read by FMIAudioData (Source/MurderInc/Audio/MIAudioData). docs/unreal/AUDIO.md section 3.",
+    "schema": 1,
+    "units": "seconds, linear gains (1 = 0 dB), metres for distances (converted to cm in code), Hz",
+    "files": "A sound file path is relative to Content/Audio/ (Web/ rendered by node tools/ue-export/audio.mjs; Gen/ generated material; Voice/ the voice takes). The import script makes /Game/Audio/<same path without .wav>."
+  },
+
+  "categories": {
+    "about": "Spec 07 4.5: the web buses as categories. volume = bus gain; option = the options slider that scales it; muffled = the low-pass states (hit, explosion, death, low health) apply; pausable = silent while paused; ui = plays while paused (bIsUISound); reverb = send to the zone reverb.",
+    "gun":      { "volume": 1.0,  "option": "effects",  "muffled": true,  "pausable": true,  "ui": false, "reverb": 0.10, "voices": 6 },
+    "tail":     { "volume": 0.85, "option": "effects",  "muffled": true,  "pausable": true,  "ui": false, "reverb": 0.0,  "voices": 8 },
+    "near":     { "volume": 0.95, "option": "effects",  "muffled": true,  "pausable": true,  "ui": false, "reverb": 0.14, "voices": 12 },
+    "world":    { "volume": 1.05, "option": "effects",  "muffled": true,  "pausable": true,  "ui": false, "reverb": 0.5,  "voices": 26 },
+    "ambience": { "volume": 0.7,  "option": "ambience", "muffled": true,  "pausable": true,  "ui": false, "reverb": 0.0,  "voices": 8 },
+    "ui":       { "volume": 0.95, "option": "ui",       "muffled": false, "pausable": false, "ui": true,  "reverb": 0.0,  "voices": 10 },
+    "music":    { "volume": 0.45, "option": "music",    "muffled": false, "pausable": false, "ui": true,  "reverb": 0.0,  "voices": 16 },
+    "voice":    { "volume": 1.0,  "option": "voice",    "muffled": false, "pausable": true,  "ui": false, "reverb": 0.0,  "voices": 3 }
+  },
+  "busToCategory": { "gun": "gun", "tail": "tail", "near": "near", "world": "world", "amb": "ambience", "dry": "ui", "music": "music", "voice": "voice" },
+
+  "options": {
+    "about": "Defaults of the audio options the options screen drives (FMIAudioOptions): master is the web game's volume setting; the rest are per-category sliders the web game did not have.",
+    "master": 0.8, "effects": 1.0, "ambience": 1.0, "music": 1.0, "ui": 1.0, "voice": 1.0
+  },
+
+  "play": {
+    "about": "Spec 07 2.11 and 3.18: per-play variation and voice limits.",
+    "jitter": 0.035,
+    "levelVariation": 0.08,
+    "cull": 160.0,
+    "impactGap": 0.022,
+    "skipChance": 0.3
+  },
+
+  "distance": {
+    "about": "Spec 07 2.11: gain = ref / (ref + roll * (max(d, ref) - ref)), sampled into the attenuation's custom curve out to 'cull' metres; the air absorption low-pass 20 kHz * exp(-d / airScale), clamped to [airMin, 20000]. Occlusion: one trace on the Visibility channel; an occluded sound loses 'occlusionGain' and is low-passed to 'occlusionCutoff'.",
+    "defaultRef": 3.0, "defaultRoll": 1.0,
+    "airScale": 48.0, "airMin": 1600.0,
+    "occlusion": true, "occlusionGain": 0.45, "occlusionCutoff": 1400.0, "occlusionInterp": 0.12,
+    "curvePoints": 48
+  },
+
+  "mix": {
+    "ducks": {
+      "about": "Spec 07 2.15: depth held for 'hold' seconds, then released with time constant 'release'; 'music' says whether the music is ducked too; 'dip' is the extra music dip of a blast, recovering at 3.5 per second.",
+      "gunfire":    { "depth": 0.45, "hold": 0.085, "release": 0.1,  "music": true,  "weapons": { "nine": 0.55 } },
+      "enemyFire":  { "depth": 0.85, "hold": 0.06,  "release": 0.12, "music": false },
+      "blastBig":   { "depth": 0.4,  "hold": 0.4,   "release": 0.45, "music": true, "dip": 0.3 },
+      "blastSmall": { "depth": 0.6,  "hold": 0.15,  "release": 0.2,  "music": true, "dip": 0.45 }
+    },
+    "muffle": {
+      "about": "Spec 07 3.19: cut-off = 20000 * 0.03^m Hz on the muffled categories; m moves toward its floor at 3 per second (0.9 when the floor is 0).",
+      "hitPerDamage": 0.025, "hitMin": 0.2, "hitMax": 0.7,
+      "dead": 1.0, "deadFloor": 0.85,
+      "blastBig": 0.8, "blastSmall": 0.56, "blastNear": 5.0, "blastFar": 20.0
+    },
+    "lowHealth": {
+      "about": "New (not in the web game): under 'below' of max health the muffled categories close toward 'cutoff' and the music thins by 'music', both by k = clamp((below - h) / (below - floor), 0, 1); the heartbeat loop of spec 07 3.22 runs at the same time.",
+      "below": 0.35, "floor": 0.10, "cutoff": 3200.0, "music": 0.75, "ambience": 0.7
+    },
+    "pause": { "musicGain": 0.45, "musicCutoff": 1300.0 },
+    "ambienceState": { "title": 0.6, "intro": 1.0, "playing": 1.0, "paused": 1.0, "dead": 0.7, "complete": 0.8 },
+    "smoothing": { "duckDown": 0.012, "gainUp": 0.1, "muffleClose": 0.02, "muffleOpen": 0.08, "ambience": 0.5 }
+  },
+
+  "zones": {
+    "about": "Reverb and interior zones in web units (metres, +Y up; x east, z south), from level.json interior and the El footprint (spec 07 3.19, 3.23). Each zone has a fade margin; the strongest wins. The engine's reverb effect gets the preset; the gun tails split by the 'interior' zone exactly as spec 07 3.20.",
+    "street":   { "preset": "street", "default": true },
+    "underEl":  { "preset": "underEl", "box": [[-46, 0, -5.4], [46, 6.5, 5.4]], "fade": 3.0 },
+    "interior": { "preset": "shop", "box": [[-24, 0, -31], [6, 6.3, -11]], "fade": 1.5, "interior": true }
+  },
+  "reverbPresets": {
+    "about": "UReverbEffect parameters (the engine's reverb, applied by an active reverb effect per zone). Tuned toward the web game's impulse responses: street 1.4 s dark with slaps, under the El shorter with steel ring, shop 0.8 s bright and dense.",
+    "street":  { "decay": 1.4, "density": 0.6, "diffusion": 0.7, "gain": 0.32, "gainHF": 0.55, "decayHFRatio": 0.55, "reflectionsGain": 0.2, "reflectionsDelay": 0.021, "lateGain": 1.0, "lateDelay": 0.04, "airAbsorptionHF": 0.994 },
+    "underEl": { "decay": 1.1, "density": 0.9, "diffusion": 0.55, "gain": 0.4, "gainHF": 0.7, "decayHFRatio": 0.75, "reflectionsGain": 0.6, "reflectionsDelay": 0.009, "lateGain": 1.2, "lateDelay": 0.02, "airAbsorptionHF": 0.994 },
+    "shop":    { "decay": 0.8, "density": 1.0, "diffusion": 1.0, "gain": 0.45, "gainHF": 0.85, "decayHFRatio": 0.9, "reflectionsGain": 0.9, "reflectionsDelay": 0.007, "lateGain": 1.3, "lateDelay": 0.011, "airAbsorptionHF": 0.994 }
+  },
+
+  "surfaces": {
+    "about": "Spec 07 2.15: what a level surface tag sounds like. steps: the step sound family; impact: the impact sound and its pitch; ricochet: the chance of a ricochet after a world impact; brass: the casing family.",
+    "asphalt":  { "steps": "asphalt",  "impact": "imp_concrete", "pitch": 0.82, "ricochet": 0.05, "brass": "brass_asphalt" },
+    "concrete": { "steps": "concrete", "impact": "imp_concrete", "pitch": 1.0,  "ricochet": 0.07, "brass": "brass_concrete" },
+    "brick":    { "steps": "concrete", "impact": "imp_brick",    "pitch": 1.0,  "ricochet": 0.05, "brass": "brass_concrete" },
+    "metal":    { "steps": "metal",    "impact": "imp_metal",    "pitch": 1.0,  "ricochet": 0.24, "brass": "brass_metal" },
+    "car":      { "steps": "metal",    "impact": "imp_car",      "pitch": 1.0,  "ricochet": 0.12, "brass": "brass_metal" },
+    "glass":    { "steps": "concrete", "impact": "imp_glass",    "pitch": 1.0,  "ricochet": 0.0,  "brass": "brass_concrete" },
+    "wood":     { "steps": "wood",     "impact": "imp_wood",     "pitch": 1.0,  "ricochet": 0.0,  "brass": "brass_asphalt", "brassPitch": 0.9 },
+    "rubber":   { "steps": "dirt",     "impact": "imp_wood",     "pitch": 0.7,  "ricochet": 0.0,  "brass": "brass_asphalt", "brassVol": 0.55 },
+    "dirt":     { "steps": "dirt",     "impact": "imp_dirt",     "pitch": 1.0,  "ricochet": 0.0,  "brass": "brass_asphalt", "brassVol": 0.55 },
+    "cloth":    { "steps": "dirt",     "impact": "imp_dirt",     "pitch": 1.25, "ricochet": 0.0,  "brass": "brass_asphalt", "brassVol": 0.55 },
+    "flesh":    { "steps": "dirt",     "impact": "imp_flesh",    "pitch": 1.0,  "ricochet": 0.0,  "brass": "brass_asphalt" },
+    "drone":    { "steps": "metal",    "impact": "imp_drone",    "pitch": 1.0,  "ricochet": 0.0,  "brass": "brass_metal" },
+    "default":  { "steps": "concrete", "impact": "imp_concrete", "pitch": 1.0,  "ricochet": 0.07, "brass": "brass_concrete" }
+  },
+
+  "events": {
+    "about": "Every event of the bus (Core/MIEvents.h) by key. 'play' lists sounds ({weapon}, {surface}, {type} are filled from the payload; 'at' event = 3D at the event's position, absent = 2D); 'rule' names a code rule of FMIAudioDirector that reads the entry's other keys; 'silent' says why nothing plays. MurderInc.Audio.EventTable checks that every key the bus can produce is here.",
+
+    "weapon:fire":            { "rule": "gunshot", "tailGap": 0.45, "tailFloor": 0.4, "pushDown": 0.25, "raiseAfter": 0.105, "meter": 0.012, "brass": { "chance": 0.85, "delay": [0.45, 0.65], "vol": 0.9, "nineVol": 0.8, "ninePitch": 1.22 }, "about": "spec 07 3.20: the dry shot, the street and garage tails split by the interior zone, the burst rule; the replacement layers of 'replace' (close, body, mechanical, distant tail; the silenced set when the gun carries a silencer)" },
+    "weapon:dry":             { "play": [ { "sound": "dry_fire", "pitch": { "nine": 1.2 } } ] },
+    "weapon:reload:start":    { "play": [ { "sound": "cloth", "vol": 0.9, "pitch": { "nine": 1.12 } } ] },
+    "weapon:reload:magout":   { "play": [ { "sound": "{rifleOrPistol}_magout" } ] },
+    "weapon:reload:magin":    { "play": [ { "sound": "{rifleOrPistol}_magin" } ] },
+    "weapon:reload:bolt":     { "play": [ { "sound": "{boltOrSlide}" } ] },
+    "weapon:reload:done":     { "play": [ { "sound": "cloth", "vol": 0.5, "pitch": { "default": 1.08, "nine": 1.2 } } ] },
+    "weapon:reload:cancel":   { "silent": "the web game plays nothing on a cancelled reload" },
+    "weapon:switch:holster":  { "play": [ { "sound": "holster", "vol": { "nine": 0.75 }, "pitch": { "nine": 1.18 } } ] },
+    "weapon:switch:draw":     { "play": [ { "sound": "draw", "vol": { "nine": 0.8 }, "pitch": { "nine": 1.15 } } ] },
+    "weapon:swing":           { "play": [ { "sound": "whoosh", "vol": 0.9, "pitch": 1.1 } ] },
+    "weapon:melee:hit":       { "play": [ { "sound": "melee_thud" } ] },
+    "weapon:melee:miss":      { "silent": "the swing already whooshed" },
+    "impact":                 { "rule": "impact", "volPlayer": 0.9, "volEnemy": 0.8, "volBody": 1.0, "ricochetDelay": 0.012, "ricochetVol": 0.8, "brassChance": 0.0 },
+    "player:hitEnemy:body":   { "play": [ { "sound": "hit_confirm" } ] },
+    "player:hitEnemy:head":   { "play": [ { "sound": "hit_head" } ] },
+    "player:hitEnemy:kill":   { "play": [ { "sound": "kill_confirm" } ] },
+    "explosion:big":          { "rule": "explosion", "sound": "explosion_big", "duck": "blastBig", "muffle": "blastBig", "layers": [ "explosion_far" ] },
+    "explosion:small":        { "rule": "explosion", "sound": "explosion_small", "duck": "blastSmall", "muffle": "blastSmall" },
+    "explosive:lit":          { "rule": "fuse", "sound": "hiss", "from": 0.25 },
+    "explosive:blast":        { "rule": "fuseEnd", "about": "the hiss of that item stops; the explosion event carries the blast sound" },
+    "player:step":            { "rule": "step", "walk": { "vol": 0.55, "pitch": 1.0 }, "run": { "vol": 0.8, "pitch": 1.04 } },
+    "player:jump":            { "play": [ { "sound": "jump", "vol": 0.8 } ] },
+    "player:land":            { "rule": "land", "base": 0.35, "perSpeed": 0.1, "stepVol": 0.6, "stepPitch": 0.92 },
+    "player:hit":             { "rule": "hurt", "ringFrom": 8.0, "ringPerDamage": 0.0357, "blastPitch": 0.85, "meter": 0.15 },
+    "player:dead":            { "rule": "dead", "about": "muffle to 1 settling at 0.85; the flow's dead sting carries the music" },
+    "enemy:spawn:goon":       { "silent": "Goons arrive on foot; their steps are tracked by the host" },
+    "enemy:spawn:buzzard":    { "rule": "rotor", "sound": "rotor", "near": 6, "radius": 90.0, "tune": [0.96, 1.06] },
+    "enemy:alert:goon":       { "play": [ { "sound": "alert_goon", "at": "event" } ], "meter": 0.6 },
+    "enemy:alert:buzzard":    { "play": [ { "sound": "alert_buzzard", "at": "event" } ], "meter": 0.6 },
+    "enemy:telegraph:goon":   { "play": [ { "sound": "goon_ready", "at": "event" } ], "meter": 0.6 },
+    "enemy:telegraph:buzzard":{ "rule": "telegraph", "sound": "buzzard_charge", "meter": 0.6 },
+    "enemy:fire:goon":        { "rule": "enemyShot", "sound": "smg_shot", "duck": "enemyFire", "whizzDelay": false, "meter": 0.04 },
+    "enemy:fire:buzzard":     { "rule": "enemyShot", "sound": "bolt_shot", "duck": "enemyFire", "whizzDelay": true, "boltSpeed": 70.0, "meter": 0.04 },
+    "enemy:melee:windup":     { "play": [ { "sound": "goon_rush", "vol": 0.9, "at": "event" } ] },
+    "enemy:melee:strike":     { "play": [ { "sound": "pipe_swing", "at": "event" } ] },
+    "enemy:hit:goon":         { "rule": "grunt", "sound": "grunt_hit", "about": "skipped when the same hit kills (spec 07 3.25)" },
+    "enemy:hit:buzzard":      { "silent": "the impact event plays imp_drone where the round hit" },
+    "enemy:killed:goon":      { "play": [ { "sound": "grunt_death", "at": "event" }, { "sound": "body_fall", "at": "event", "delay": 0.42 } ] },
+    "enemy:killed:buzzard":   { "rule": "rotorStop", "play": [ { "sound": "buzzard_death", "at": "event" } ] },
+    "music:intensity":        { "rule": "music" },
+
+    "game:state":             { "rule": "state" },
+    "objective:done":         { "rule": "reelSecured", "sound": "reel_secure" },
+    "objective:all":          { "silent": "the 'all' sting (audio:sting) carries the moment" },
+    "holdout:wave":           { "silent": "the wave banner is text; its sting comes with the clear" },
+    "extraction:reached":     { "silent": "the 'complete' sting (audio:sting) carries the moment" },
+    "audio:sting":            { "rule": "sting", "stings": { "reel": "sting_reel", "all": "sting_all", "dead": "sting_dead", "complete": "sting_complete" } },
+    "player:heal":            { "silent": "no sound in the web game" },
+    "weapon:reserve":         { "silent": "no sound in the web game" },
+    "explosives:reset":       { "rule": "fuseReset" },
+    "player:reset":           { "rule": "reset" },
+    "menus:card":             { "silent": "the card's own UI sounds are the menus' (ui_click, ui_hover)" },
+    "hud:radio":              { "rule": "radio", "in": "radio_in", "out": "radio_out", "minHold": 0.6, "maxHold": 12.0 },
+    "hud:message":            { "silent": "text only" },
+    "hud:warn":               { "silent": "text only" },
+    "hud:reels":              { "silent": "text only" },
+    "hud:tally":              { "silent": "text only" },
+    "hud:objective":          { "silent": "text only (the voice may react: voice.json objective.update)" },
+    "hud:prompt":             { "rule": "grab", "sound": "reel_grab", "vol": 0.8, "pitchBase": 0.85, "pitchPerProgress": 0.4, "idle": 0.3 },
+    "enemy:spawn":            { "silent": "the flow's copy of enemy:spawn; the enemy bus entry plays" },
+    "enemy:killed":           { "silent": "the flow's copy of enemy:killed; the enemy bus entry plays" }
+  },
+
+  "replace": {
+    "about": "Better material over or instead of a web sound, by name. 'layers' play together (each picks one of its files at random without immediate repeats); 'web' says whether the web game's own sound still plays under them (gain). A layer whose files are missing is skipped, so a name falls back to the web sound until its material exists. Files under Gen/ are generated (AUDIO.md section 6) and placeholders until recorded or licensed material replaces them file for file.",
+    "chopper_shot": { "web": 0.35, "layers": [
+      { "name": "close",  "files": ["Gen/chopper_close_01.wav", "Gen/chopper_close_02.wav", "Gen/chopper_close_03.wav"], "vol": 0.9 },
+      { "name": "mech",   "files": ["Gen/chopper_mech_01.wav", "Gen/chopper_mech_02.wav"], "vol": 0.35 } ] },
+    "chopper_tail_out": { "web": 0.6, "layers": [ { "name": "distant", "files": ["Gen/chopper_tail_01.wav", "Gen/chopper_tail_02.wav"], "vol": 0.55 } ] },
+    "chopper_shot_silenced": { "web": 0.0, "category": "gun", "layers": [
+      { "name": "close", "files": ["Gen/chopper_sup_01.wav", "Gen/chopper_sup_02.wav", "Gen/chopper_sup_03.wav"], "vol": 0.8 },
+      { "name": "mech",  "files": ["Gen/chopper_mech_01.wav", "Gen/chopper_mech_02.wav"], "vol": 0.45 } ] },
+    "nine_shot": { "web": 0.35, "layers": [
+      { "name": "close", "files": ["Gen/nine_close_01.wav", "Gen/nine_close_02.wav", "Gen/nine_close_03.wav"], "vol": 0.85 },
+      { "name": "mech",  "files": ["Gen/nine_mech_01.wav", "Gen/nine_mech_02.wav"], "vol": 0.3 } ] },
+    "nine_tail_out": { "web": 0.6, "layers": [ { "name": "distant", "files": ["Gen/nine_tail_01.wav", "Gen/nine_tail_02.wav"], "vol": 0.5 } ] },
+    "nine_shot_silenced": { "web": 0.0, "category": "gun", "layers": [
+      { "name": "close", "files": ["Gen/nine_sup_01.wav", "Gen/nine_sup_02.wav", "Gen/nine_sup_03.wav"], "vol": 0.8 } ] },
+    "dry_fire": { "web": 0.5, "layers": [ { "name": "click", "files": ["Gen/dry_fire_01.wav", "Gen/dry_fire_02.wav"], "vol": 0.7 } ] },
+    "rifle_magout": { "web": 0.4, "layers": [ { "files": ["Gen/rifle_magout_01.wav"], "vol": 0.8 } ] },
+    "rifle_magin": { "web": 0.4, "layers": [ { "files": ["Gen/rifle_magin_01.wav"], "vol": 0.8 } ] },
+    "rifle_bolt": { "web": 0.4, "layers": [ { "files": ["Gen/rifle_bolt_01.wav"], "vol": 0.85 } ] },
+    "pistol_magout": { "web": 0.4, "layers": [ { "files": ["Gen/pistol_magout_01.wav"], "vol": 0.8 } ] },
+    "pistol_magin": { "web": 0.4, "layers": [ { "files": ["Gen/pistol_magin_01.wav"], "vol": 0.8 } ] },
+    "pistol_slide": { "web": 0.4, "layers": [ { "files": ["Gen/pistol_slide_01.wav"], "vol": 0.85 } ] },
+    "brass_asphalt": { "web": 0.5, "layers": [ { "files": ["Gen/brass_asphalt_01.wav", "Gen/brass_asphalt_02.wav", "Gen/brass_asphalt_03.wav"], "vol": 0.7 } ] },
+    "brass_concrete": { "web": 0.0, "category": "world", "ref": 1.6, "roll": 1.4, "fallback": "brass_asphalt", "layers": [ { "files": ["Gen/brass_concrete_01.wav", "Gen/brass_concrete_02.wav", "Gen/brass_concrete_03.wav"], "vol": 0.7 } ] },
+    "imp_concrete": { "web": 0.5, "layers": [ { "files": ["Gen/imp_concrete_01.wav", "Gen/imp_concrete_02.wav", "Gen/imp_concrete_03.wav"], "vol": 0.8 } ] },
+    "imp_brick": { "web": 0.5, "layers": [ { "files": ["Gen/imp_brick_01.wav", "Gen/imp_brick_02.wav"], "vol": 0.8 } ] },
+    "imp_metal": { "web": 0.5, "layers": [ { "files": ["Gen/imp_metal_01.wav", "Gen/imp_metal_02.wav"], "vol": 0.8 } ] },
+    "imp_car": { "web": 0.5, "layers": [ { "files": ["Gen/imp_car_01.wav", "Gen/imp_car_02.wav"], "vol": 0.8 } ] },
+    "imp_glass": { "web": 0.4, "layers": [ { "files": ["Gen/imp_glass_01.wav", "Gen/imp_glass_02.wav"], "vol": 0.85 } ] },
+    "imp_wood": { "web": 0.5, "layers": [ { "files": ["Gen/imp_wood_01.wav", "Gen/imp_wood_02.wav"], "vol": 0.8 } ] },
+    "imp_dirt": { "web": 0.5, "layers": [ { "files": ["Gen/imp_dirt_01.wav", "Gen/imp_dirt_02.wav"], "vol": 0.8 } ] },
+    "imp_flesh": { "web": 0.5, "layers": [ { "files": ["Gen/imp_flesh_01.wav", "Gen/imp_flesh_02.wav"], "vol": 0.8 } ] },
+    "smg_shot": { "web": 0.4, "layers": [ { "files": ["Gen/smg_far_01.wav", "Gen/smg_far_02.wav", "Gen/smg_far_03.wav"], "vol": 0.8 } ] },
+    "rotor": { "web": 0.6, "layers": [ { "files": ["Gen/rotor_loop_01.wav"], "vol": 0.6 } ] },
+    "bolt_shot": { "web": 0.6, "layers": [ { "files": ["Gen/drone_gun_01.wav", "Gen/drone_gun_02.wav"], "vol": 0.6 } ] },
+    "explosion_big": { "web": 0.5, "layers": [ { "files": ["Gen/explosion_near_01.wav", "Gen/explosion_near_02.wav"], "vol": 0.9 } ] },
+    "explosion_small": { "web": 0.5, "layers": [ { "files": ["Gen/explosion_near_02.wav", "Gen/explosion_near_01.wav"], "vol": 0.65 } ] },
+    "explosion_far": { "web": 0.0, "category": "world", "ref": 40.0, "roll": 0.6, "layers": [ { "files": ["Gen/explosion_far_01.wav", "Gen/explosion_far_02.wav"], "vol": 0.7 } ] },
+    "step_asphalt": { "web": 0.4, "layers": [ { "files": ["Gen/step_asphalt_01.wav", "Gen/step_asphalt_02.wav", "Gen/step_asphalt_03.wav", "Gen/step_asphalt_04.wav"], "vol": 0.7 } ] },
+    "step_asphalt_run": { "web": 0.4, "layers": [ { "files": ["Gen/step_asphalt_run_01.wav", "Gen/step_asphalt_run_02.wav", "Gen/step_asphalt_run_03.wav"], "vol": 0.75 } ] },
+    "step_concrete": { "web": 0.4, "layers": [ { "files": ["Gen/step_concrete_01.wav", "Gen/step_concrete_02.wav", "Gen/step_concrete_03.wav"], "vol": 0.7 } ] },
+    "step_concrete_run": { "web": 0.4, "layers": [ { "files": ["Gen/step_concrete_run_01.wav", "Gen/step_concrete_run_02.wav"], "vol": 0.75 } ] },
+    "step_metal": { "web": 0.4, "layers": [ { "files": ["Gen/step_metal_01.wav", "Gen/step_metal_02.wav"], "vol": 0.7 } ] },
+    "step_metal_run": { "web": 0.4, "layers": [ { "files": ["Gen/step_metal_run_01.wav", "Gen/step_metal_run_02.wav"], "vol": 0.75 } ] },
+    "train_rumble": { "web": 0.5, "layers": [ { "files": ["Gen/train_pass_01.wav"], "vol": 0.8 } ] },
+    "bed_day": { "web": 0.7, "layers": [ { "files": ["Gen/roomtone_day_01.wav"], "vol": 0.6 } ] }
+  },
+
+  "goonSteps": { "about": "Goons have no step event on the bus: the host strides them by their actors' ground speed (spec 07 2.12: run step, volume 0.75, pitch 0.88, within 45 m).", "stride": 1.6, "minSpeed": 1.0, "radius": 45.0, "vol": 0.75, "pitch": 0.88, "surface": "asphalt" },
+
+  "heartbeat": { "sound": "heartbeat", "below": 0.35, "span": 0.25, "vol": 0.25, "volPerK": 0.4, "rate": 1.0, "ratePerK": 0.35 },
+
+  "ambience": {
+    "beds": { "day": "bed_day", "night": "bed_night" },
+    "wind": { "sound": "wind_el", "near": 25.0, "gustMin": 0.15, "gustEvery": [3.0, 9.0] },
+    "schedule": {
+      "about": "Spec 07 2.14 (by day): each far one-shot on its own timer: first after first x U(0.7, 1.3) s, then every U(min, max) s; placed far (60..150 m, 2..16 m up), street (45..105 m east or west, 1.5 m up) or roof (9..27 m, 7..16 m up).",
+      "horn_far":   { "min": 14,  "max": 34,  "first": 6,  "place": "far" },
+      "bus_pull":   { "min": 32,  "max": 70,  "first": 18, "place": "street" },
+      "kids_far":   { "min": 24,  "max": 52,  "first": 10, "place": "far" },
+      "pigeons":    { "min": 15,  "max": 36,  "first": 4,  "place": "roof" },
+      "jackhammer": { "min": 48,  "max": 100, "first": 28, "place": "far" },
+      "chime_far":  { "min": 90,  "max": 170, "first": 40, "place": "far" },
+      "siren_far":  { "min": 85,  "max": 160, "first": 55, "place": "far" },
+      "dog_far":    { "min": 100, "max": 180, "first": 70, "place": "far" }
+    },
+    "train": {
+      "about": "Spec 07 3.23: a train every 40..70 s at 16.5 m/s; approach 8.8 s, over 10.4 s, gone 8.8 s; the loops sit at the point of the train nearest the listener on its track (rail top 6.83 m, tracks at z +-2.1 m, x -46..46 m).",
+      "every": [40, 70], "approach": 8.8, "over": 10.4, "gone": 8.8, "railY": 6.83, "tracks": [2.1, -2.1], "x": [-46, 46], "squealChance": 0.7,
+      "duckOver": 0.72
+    }
+  },
+
+  "music": {
+    "about": "Spec 07 2.13, 3.24: the seven stems loop together from one start; their gains follow the intensity on the bus (layer formula of 3.24); the dead mode keeps only crackle 0.55 and keys 0.16. Riser and impact: not yet (AUDIO.md open issues).",
+    "stems": ["stem_drums", "stem_hats", "stem_bass", "stem_keys", "stem_strings", "stem_bell", "stem_crackle"],
+    "ease": 2.0, "gainTime": 0.5, "deadGainTime": 0.22, "meterDecay": 0.06,
+    "stingDuck": { "reel": [0.4, 3.4], "all": [0.4, 3.4], "complete": [0.12, 7.0], "dead": [1.0, 0.0] }
+  }
+}

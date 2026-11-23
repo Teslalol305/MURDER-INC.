@@ -1,0 +1,206 @@
+{
+  "meta": {
+    "file": "voice.json",
+    "about": "The player character's voice lines (barks): what each line says, its takes, what triggers it, how often, and how it sits in the mix (docs/unreal/AUDIO.md section 2). Read by FMIVoiceData (Source/MurderInc/Audio/MIVoiceRules). Everything here is data: retune chances, cooldowns and priorities, move a line to other triggers, add takes or a character's own set without touching code.",
+    "schema": 1,
+    "placeholders": "Every take marked placeholder: true is a stand-in in a generic stock synthetic voice (not the character's voice, not a clone of anyone). The real recordings replace them file for file: same folder, same file name (AUDIO.md section 5 is the recording brief). Then set placeholder to false and re-run tools/box/audio-import.sh.",
+    "files": "A take's file is relative to Content/Audio/Voice/<character>/. The import script makes the asset /Game/Audio/Voice/<character>/<file stem>."
+  },
+
+  "triggers": {
+    "about": "Every trigger the system knows, derived from the event bus only (FMIVoiceTriggers). A trigger no line lists stays silent.",
+    "kill.ordinary": "the player killed a Goon with a round to the body",
+    "kill.headshot": "the player's killing round hit a Goon's head",
+    "kill.melee": "the player killed with the melee strike",
+    "kill.explosive": "a blast killed an enemy (every blast is credited to the player, spec 04 3.14)",
+    "kill.buzzard": "the player brought a Buzzard down (any cause credited to him)",
+    "kill.multi": "a second (or later) kill within multiKill.window seconds of the previous one",
+    "kill.streak": "the streak (kills without taking streak.breakDamage in one hit and with no gap over streak.gap seconds) reached one of streak.thresholds; the payload is the threshold",
+    "kill.lastOfWave": "the kill that cleared a Hold the Block wave (the kill and objective:done wave arrive in the same coalescing window)",
+    "run.start": "a run starts (game:state intro, or playing straight from the title or a reset)",
+    "reel.collected": "a master reel is secured (objective:done with an objective id)",
+    "objective.update": "the objective line changes during play (hud:objective), not at the start of a run",
+    "wave.cleared": "a Hold the Block wave is cleared (objective:done wave)",
+    "health.lowSurvived": "health fell under lowHealth.below in a hit and the player was still alive lowHealth.survive seconds after the last hit",
+    "extraction.called": "the last reel is secured and the truck is called (objective:all)",
+    "run.win": "the truck is reached (extraction:reached)",
+    "results.complete": "the debrief card after a win (menus:card complete)",
+    "results.holdout": "the Hold the Block card (menus:card dead after a Hold the Block run: that mode only ends this way)",
+    "results.dead": "the death card of a Story run: listed by no line on purpose"
+  },
+
+  "settings": {
+    "seed": 20261123,
+    "globalCooldown": 6.0,
+    "coalesceWindow": 0.3,
+    "afterLineGap": 0.8,
+    "interruptMargin": 30,
+    "lastOfWaveWindow": 0.5,
+    "duck": {
+      "about": "While a line plays every other sound category is turned down by these factors (attack, release in seconds). Voice and UI are never ducked.",
+      "gun": 0.8, "tail": 0.7, "near": 0.75, "world": 0.65, "ambience": 0.55, "music": 0.5,
+      "attack": 0.06, "release": 0.45
+    },
+    "multiKill": { "window": 1.5 },
+    "streak": { "thresholds": [6, 12, 20, 30], "gap": 25.0, "breakDamage": 1.0 },
+    "lowHealth": { "below": 30.0, "survive": 6.0 },
+    "frequency": {
+      "about": "The options' 'How often' setting: chance and cooldowns of every line are scaled; off silences the barks (story beats too).",
+      "default": "normal",
+      "off":    { "chance": 0.0, "cooldown": 1.0, "globalCooldown": 1.0 },
+      "rare":   { "chance": 0.5, "cooldown": 1.6, "globalCooldown": 1.6 },
+      "normal": { "chance": 1.0, "cooldown": 1.0, "globalCooldown": 1.0 },
+      "often":  { "chance": 1.6, "cooldown": 0.6, "globalCooldown": 0.5 }
+    },
+    "options": {
+      "about": "Defaults of the voice options (FMIAudioOptions): voice volume 0..1, subtitles on or off, how often, clean language.",
+      "voiceVolume": 1.0,
+      "subtitles": true,
+      "frequency": "normal",
+      "cleanLanguage": false
+    },
+    "subtitle": {
+      "about": "The HUD line under the crosshair while a line plays: speaker in gold, the line in white (spec 07 brand tokens); hold = the take's length + extra.",
+      "extra": 0.6,
+      "minSecs": 1.2
+    }
+  },
+
+  "default": "rule",
+
+  "characters": {
+    "rule": {
+      "speaker": "RULE",
+      "lines": {
+        "holla": {
+          "text": "Holla, holla!",
+          "about": "The common kill bark: the call-and-response chant.",
+          "priority": 20,
+          "cooldown": 14.0,
+          "interruptible": true,
+          "volume": 1.0,
+          "triggers": {
+            "kill.ordinary": 0.22,
+            "kill.melee": 0.5,
+            "kill.explosive": 0.4,
+            "kill.buzzard": 0.35
+          },
+          "takes": [
+            { "file": "holla_01.wav", "intensity": "shout", "placeholder": true },
+            { "file": "holla_02.wav", "intensity": "spoken", "placeholder": true },
+            { "file": "holla_03.wav", "intensity": "breath", "placeholder": true }
+          ]
+        },
+        "murda": {
+          "text": "It's Murda!",
+          "about": "The signature: headshots, multi-kills, the last enemy of a wave.",
+          "priority": 50,
+          "cooldown": 18.0,
+          "interruptible": true,
+          "volume": 1.0,
+          "triggers": {
+            "kill.headshot": 0.4,
+            "kill.multi": 0.85,
+            "kill.lastOfWave": { "chance": 1.0, "priority": 75 }
+          },
+          "takes": [
+            { "file": "murda_01.wav", "intensity": "shout", "placeholder": true },
+            { "file": "murda_02.wav", "intensity": "spoken", "placeholder": true },
+            { "file": "murda_03.wav", "intensity": "breath", "placeholder": true }
+          ]
+        },
+        "rulebaby": {
+          "text": "Rule Baby!",
+          "about": "The raspy self-hype ad-lib: progress beats (a reel, a wave, the truck called, a close call survived).",
+          "priority": 60,
+          "cooldown": 12.0,
+          "interruptible": true,
+          "volume": 1.0,
+          "queueable": 2.5,
+          "triggers": {
+            "reel.collected": 0.9,
+            "wave.cleared": 0.9,
+            "extraction.called": 1.0,
+            "health.lowSurvived": 0.6,
+            "objective.update": 0.15
+          },
+          "takes": [
+            { "file": "rulebaby_01.wav", "intensity": "shout", "placeholder": true },
+            { "file": "rulebaby_02.wav", "intensity": "spoken", "placeholder": true },
+            { "file": "rulebaby_03.wav", "intensity": "breath", "placeholder": true }
+          ]
+        },
+        "name": {
+          "text": "What's my motherf***in' name?!",
+          "about": "The big one: the win and long kill streaks. Answered a beat later by the crowd (line 'rule_chant').",
+          "priority": 90,
+          "cooldown": 60.0,
+          "interruptible": false,
+          "volume": 1.0,
+          "profane": true,
+          "clean": {
+            "about": "With clean language on: 'swap' plays the clean takes with the clean text; 'bleep' plays the normal takes with a 1 kHz tone over each take's bleep range (seconds) and the starred text.",
+            "mode": "swap",
+            "text": "What's my name?!",
+            "takes": [
+              { "file": "name_clean_01.wav", "intensity": "shout", "placeholder": true },
+              { "file": "name_clean_02.wav", "intensity": "spoken", "placeholder": true },
+              { "file": "name_clean_03.wav", "intensity": "breath", "placeholder": true }
+            ]
+          },
+          "answer": { "line": "rule_chant", "delay": 0.35 },
+          "triggers": {
+            "run.win": 1.0,
+            "kill.streak": { "chance": 1.0, "atLeast": 12 }
+          },
+          "takes": [
+            { "file": "name_01.wav", "intensity": "shout", "placeholder": true, "bleep": [0.0, 0.0] },
+            { "file": "name_02.wav", "intensity": "spoken", "placeholder": true, "bleep": [0.0, 0.0] },
+            { "file": "name_03.wav", "intensity": "breath", "placeholder": true, "bleep": [0.0, 0.0] }
+          ]
+        },
+        "rule_chant": {
+          "text": "R-U-L-E!",
+          "speaker": "CROWD",
+          "about": "The crowd's answer. Only ever played as the answer of 'name'; never interrupted.",
+          "priority": 95,
+          "cooldown": 0.0,
+          "interruptible": false,
+          "volume": 0.9,
+          "answerOnly": true,
+          "triggers": {},
+          "takes": [
+            { "file": "rule_chant_01.wav", "intensity": "shout", "placeholder": true },
+            { "file": "rule_chant_02.wav", "intensity": "shout", "placeholder": true },
+            { "file": "rule_chant_03.wav", "intensity": "shout", "placeholder": true }
+          ]
+        },
+        "inc": {
+          "text": "I-N-C!",
+          "about": "Spelling out the initials: the intro (run start) and the outro (the results card).",
+          "priority": 70,
+          "cooldown": 20.0,
+          "interruptible": true,
+          "volume": 1.0,
+          "triggers": {
+            "run.start": 0.8,
+            "results.complete": 1.0,
+            "results.holdout": 1.0
+          },
+          "takes": [
+            { "file": "inc_01.wav", "intensity": "shout", "placeholder": true },
+            { "file": "inc_02.wav", "intensity": "spoken", "placeholder": true },
+            { "file": "inc_03.wav", "intensity": "breath", "placeholder": true }
+          ]
+        }
+      }
+    },
+    "deuce": {
+      "speaker": "DEUCE",
+      "about": "No lines yet: the crew members of LOADOUT.md get their own sets when their voices exist. A character with no lines is silent (no fallback to Rule's voice).",
+      "lines": {}
+    },
+    "smoke": { "speaker": "SMOKE", "lines": {} },
+    "keys": { "speaker": "KEYS", "lines": {} }
+  }
+}
