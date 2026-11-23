@@ -668,7 +668,7 @@ def stock(parts):
                 at=(0.0035, 0.0160, -0.0145), fillet=0.0002)
     parts.append(P(btn, DARK, "body", REAR))
     # shoulder piece folded under the handguard: pressed plate with turned edges, concave R 120 mm, two
-    # lightening holes in the front half, rubber pad on the rear half
+    # lightening holes in the rear half, rubber pad on the front half (under the left palm, Palm_L)
     X0, X1, R, xm = 0.2340, 0.3370, 0.120, 0.2855
     corners = [(-0.0150, -0.0615), (0.0150, -0.0615), (0.0150, -0.0585), (0.0138, -0.0585), (0.0138, -0.0603),
                (-0.0138, -0.0603), (-0.0138, -0.0585), (-0.0150, -0.0585)]
@@ -683,7 +683,7 @@ def stock(parts):
         polys.append(q)
     bp = loft_polys(polys, xs, "ButtPlate")
     holes = []
-    for xc in (0.3105, 0.3260):
+    for xc in (0.2500, 0.2655):
         h = geo.sphere(1.0, 32, 8)
         geo.transform(h, scale=(0.0055, 0.0040, 0.02))
         geo.transform(h, loc=(xc, 0.0, -0.060))
@@ -693,7 +693,7 @@ def stock(parts):
     round_edges(bp, 0.0003, 2, 50)
     parts.append(P(bp, BLUED, "body", FRONT))
     pz = np.linspace(-0.0640, -0.0613, 5)
-    ps = [K.rrect(0.2380, 0.2980, 0.0128 - 0.0015 * max(0, (z + 0.0622)) / 0.0018 * 0 - (0.0008 if z < -0.0636 else 0.0),
+    ps = [K.rrect(0.2780, 0.3335, 0.0128 - 0.0015 * max(0, (z + 0.0622)) / 0.0018 * 0 - (0.0008 if z < -0.0636 else 0.0),
                   0.003, 0.003, K=200) for z in pz]
     pad = K.loft_z(ps, pz, 64, name="Pad")
     K.deform(pad, lambda co: np.c_[co[:, 0], co[:, 1], co[:, 2] + (co[:, 0] - xm) ** 2 / (2 * R)])
