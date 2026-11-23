@@ -23,18 +23,37 @@ What is verified on the box, newest first. Every entry says how it was verified.
 
 ## Gameplay (slice 2: the enemies and the flow) — in progress
 
-Contracts: `docs/unreal/GAMEPLAY.md` section 6 on. Built and tested in `/project/ue/repo-gameplay` (MCP 8001).
+Contracts: `docs/unreal/GAMEPLAY.md` sections 6 to 11. Built and tested in `/project/ue/repo-gameplay` (MCP 8001).
 
-**Verified 2026-11-22**
-- **Build green, 12 of 12 tests pass** (`test.sh` TESTS OK passed=12, 24 s). New:
-  `MurderInc.Golden.World` (the box world, a port of `src/physics.js` filled with level.json's 777 colliders: 160
-  rays, 160 sight lines, 120 floors, three capsule walks of 300 to 500 frames, the nav grid equal to level.json cell
-  for cell, 60 paths, 100 straight lines, 40 random points, 60 snaps: 7,268 checks, 0 mismatches),
-  `Golden.EnemyLogic` (logic.js: tokens, sight, accumulators, spread, fire-position cost, follow speed, hit-volume
-  rays, the bolt sweep, lead: 1,237 checks, 0 mismatches), `Golden.Enemies` (six fights of the web game's own
-  `src/enemies.js` replayed frame by frame: goon_engage, goon_rush, goon_patrol_hear_hit_kill, buzzard_engage,
-  buzzard_deck_and_crash, squad (3 Goons, 2 Buzzards, 1,200 frames); every unit's mode, step, position, heading,
-  health, exposure, sight accumulator and every event with its direction and amount: 107,772 checks, 0 mismatches).
+**Verified 2026-11-23**
+- **Build green, 18 of 18 tests pass** (`test.sh` TESTS OK passed=18 failed=0, 32 s for the whole suite).
+- `MurderInc.Golden.FlowRules` and `MurderInc.Golden.Directors` (FMIGameRules = `src/game.js` with the enemies on the
+  box world: a whole Story run to the IPX truck, a Story run that dies, four waves of Hold the Block, replayed frame by
+  frame against the web game: state, clocks, reels, waves, score, queue, alive count, caps, pursuit, music, hold
+  progress and every flow event): pass, 0 mismatches.
+- **The game in a world** (`UMIGameSubsystem`, `MurderInc.Run.*`, headless world with collision, real player
+  character and weapon, enemy actors with hit volumes, engine traces):
+  - `Run.StoryComplete`: a bot that follows the objective data took the three reels and reached the truck in 82.3 s
+    of game time on Boss: 35 kills (all by the CHOPPER's rounds through the Goons' and Buzzards' hit volumes), 189
+    rounds, 148 hits, 46 enemy rounds fired, 16 hits on the player; debrief card "Diamond", truck doors open, cases
+    taken, menu on the debrief.
+  - `Run.StoryDeath`: on Kingpin a bot that does not fight dies after 9.7 s (16 enemy rounds, 10 hits); the death
+    card at 1.5 s; Run it back: intro, one retry, full health at the start, no reel.
+  - `Run.HoldTheBlock`: three waves cleared in 77.7 s, score 6,905 from 27 kills, two resupplies, the death card with
+    score and a new best.
+  - `Run.Menus`: settings validation as the web game (fov 200 to 95, 74.6 to 75, sens 0.01 to 0.2, volume 2 to 1,
+    quality 'test' refused, best rounding); title menu, mode picker, start, intro to playing, pause card with the
+    0.35 s debounce, settings from the pause card, resume.
+- Pitfall found: in a hand-made test world tick functions run once per engine frame; the test advances
+  `GFrameCounter` per step as the engine's `FTestWorldWrapper` does (without it nothing but tickable objects ticks).
+
+**Open (most important first)**
+1. Play the same code in the art map `L_Block` and in `L_GreyBlock` (play in editor on the box) and take pictures.
+2. Enemy animation: the template rifle animation blueprint on the mannequin follows the rules' velocity and aim
+   pitch; no aim offset yaw, telegraph, fire, rush or hit-reaction montages yet (the presentation contract exposes
+   them: `FMIEnemyView`); the Buzzard is a basic-shape placeholder. Effects and sounds are hooks on the event bus.
+3. The weapon-position setting (`view`) is stored and validated but the viewmodel does not read it yet.
+4. Gamepad look curve and aim slow-down, rumble (slice 1 leftovers) are still open.
 
 ## Gameplay (slice 1: the player and the two guns)
 
