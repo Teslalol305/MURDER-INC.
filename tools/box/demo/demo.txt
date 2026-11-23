@@ -5,6 +5,7 @@
 #   spring <hz> <max deg/s> | walk <x> <y> [sprint] [arrive cm] | route <sprint> <x y>... (plan_path.py)
 #   auto 0|1 [head] (fight whatever comes into sight while walking) | fight <limit s> [kills] [head] [calm s]
 #   hunt <limit s> [kills] [head] (fight; walk the nav path to the nearest Goon when none is in sight) | hide <label part>...
+#   goto <x> <y> [sprint] (nav path from where the player is) | alert <radius m>
 #   blow [limit s] (the nearest explosive in front) | grab [limit s] (hold E until a reel is taken)
 #   waitstate <title|intro|playing|complete> [limit s] | quit
 
@@ -12,6 +13,7 @@
 wait 4
 con MIVoice clean 1
 con MIVoice frequency often
+con r.MotionBlur.Amount 0.15
 hide Grey_*_sedan Grey_*_van Grey_*_box_truck Grey_*_car_on_stands Grey_*_burned_car Grey_*_taxi Grey_*_pickup Grey_*_suv   # the vehicles with no art yet are dark boxes
 con MIMenu fe home
 wait 2
@@ -79,26 +81,28 @@ secure 2
 spring 1.3 150
 face path -2
 auto 1 1
-route 0 -3725 875 -3475 875 -3175 675 -2775 525 -2775 425 -1200 150
-hunt 22 3 1                               # go after the Goons: headshots first
+route 0 -3725 875 -3475 875 -3175 675 -2775 525 -2775 425 -1500 150   # down the avenue under the El
+alert 60                                  # the Goons on the block come to look
+fight 22 3 1 5                            # headshots first
 con MIInput reload 1                      # a reload
 wait 2.8
 con MIInput weapon2 1                     # the NINE
 wait 1.4
-hunt 12 1 1
+fight 10 1 1 4
 auto 0
-route 0 -1225 25 -1000 -150
+goto -1000 -150
 lookat -420 -800 60 2
-blow 6                                    # the propane tanks
+blow 6                                    # the propane tanks in the garage
 wait 2.5
 auto 1 1
-route 0 -625 -75 -490 130
+goto -490 130
+auto 0
 lookat -400 100 60 1.5
 grab 6                                    # the last reel
 wait 1.0
 con MIInput weapon1 1
 auto 1 0
-route 1 -525 225 125 225 125 125 775 -225 875 -325 1275 -325 1275 -125 1175 -125 1175 75 1675 125 1975 375 2625 375 2975 1125 2975 1775 3325 2525 3475 2525 3590 2970
+goto 3590 2970 1                          # to the IPX truck
 waitstate complete 20
 wait 7
 capture off

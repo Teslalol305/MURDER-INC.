@@ -501,6 +501,41 @@ bool UMIDemoDirector::Begin(const FAction& A)
 		ReplanIn = 0.0;
 		return false;
 	}
+	if (V == TEXT("goto"))
+	{
+		// goto <x> <y> [sprint 0|1]: one route along the nav path from where the player stands
+		bSprint = Arg(A, 2, 0.0) != 0.0;
+		Route.Reset();
+		TArray<FVector> Path;
+		const FVector Goal = MI::Web::FromUnreal(FVector(Arg(A, 0, 0.0), Arg(A, 1, 0.0), 0.0));
+		if (P && G && G->GetBoxWorld().FindPath(G->PlayerFeetWeb(), Goal, Path) && Path.Num() >= 1)
+		{
+			Route.Add(FVector2D(P->GetActorLocation().X, P->GetActorLocation().Y));
+			for (int32 I = 1; I < Path.Num(); ++I)
+			{
+				const FVector U = MI::Web::ToUnreal(Path[I]);
+				Route.Add(FVector2D(U.X, U.Y));
+			}
+			Route.Add(FVector2D(Arg(A, 0, 0.0), Arg(A, 1, 0.0)));
+		}
+		Log(FString::Printf(TEXT("goto: %d points"), Route.Num()));
+		RouteSeg = 0;
+		WalkTo = Route.Num() ? Route.Last() : FVector2D::ZeroVector;
+		Arrive = 70.0;
+		ActionLimit = 40.0;
+		bWalking = Route.Num() >= 2;
+		bWalkFacesPath = true;
+		return !bWalking;
+	}
+	if (V == TEXT("alert"))
+	{
+		// alert <radius m>: every enemy within the radius comes to look (the rules' own alert)
+		if (G)
+		{
+			G->GetEnemies().Alert(G->PlayerFeetWeb(), Arg(A, 0, 40.0));
+		}
+		return true;
+	}
 	if (V == TEXT("hide"))
 	{
 		// hide <label part> ...: hides in game every actor whose editor label (or name) contains one of the parts
@@ -616,7 +651,7 @@ bool UMIDemoDirector::Step(float Dt)
 		const double Err = FMath::Abs(Wrap(Yaw - P->GetPlayerRules().Yaw)) + FMath::Abs(Pitch - P->GetPlayerRules().Pitch);
 		return bTimedOut || (Err < 0.5 && FMath::Abs(YawRate) < 5.0);
 	}
-	if (V == TEXT("walk") || V == TEXT("route"))
+	if (V == TEXT("walk") || V == TEXT("route") || V == TEXT("goto"))
 	{
 		if (!P)
 		{
