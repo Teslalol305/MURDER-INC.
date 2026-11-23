@@ -146,12 +146,21 @@ wide along every sun-stripe shadow edge, a mitten-like hand.
 | Wrong UVs | The game project's own `.uasset` files copied into the characters project render the tattoos, veins and knuckles at 30 cm in a lit view and in a base-colour capture |
 | Streaming | `ListTextures` during play: `T_RuleArms_Skin_BC`, `_N`, `_ORM` 4096 x 4096 in memory (full size), yet the frame still showed the smooth tube. (A low mip does give exactly this look: LOD bias 5 in the characters project reproduces it; the pool is 1000 MB against about 9 GB of level sets, so the arms' textures are now never streamed: about 55 MB resident) |
 
-**The cause: the Subsurface Profile model on the first-person pass.** The arms are a first-person primitive
-(`FirstPersonPrimitiveType` FirstPerson, the camera's `FirstPersonScale` 0.6 and its own field of view). The screen-space
-subsurface pass of the Subsurface Profile model scattered the arms' lighting over a radius far larger than the profile's
-(the red fringes 1-2 cm wide where the profile asks for 2 mm): every lighting detail of the normal map (veins, tendons,
-knuckles, pores, the finger separations) was averaged away, and the profile's saturated red-orange scatter tinted the
-forearm. EVIDENCE_PLACEHOLDER
+**The cause** (three things together; none of them a broken import):
+
+1. **The tattoos were where the first-person camera never looks, and too faint.** r3 set both pieces on the back of
+   the forearm, running along it, at a third of the skin's luminance (a grey smudge in the 4K BC), and the left arm's
+   numerals mirrored. In every hip and aimed frame the camera sees the support forearm's inner / thumb side from the
+   wrist half way up; the back of the forearm faces away and down. The base colour reaching the screen proves it: the
+   game's own assets show the r3 tattoo on the back of the forearm in a close editor view, and the unlit play frame
+   (`ev-unlit.jpg`, base colour only) shows an even brown over the whole visible forearm.
+2. **The relief was too shallow for 20-50 cm, and the scatter smeared it.** r3's skin lines were 40 um deep, the
+   tendons 0.5 mm, the knuckle wrinkles 75 um, at 0.26 mm per texel: below what the hip view can show. On top, the
+   Subsurface Profile model on this first-person primitive scattered the lighting over 1-2 cm (red-orange fringes that
+   wide along every sun-stripe shadow edge in the FP agent's play frames at full texture residency, where the profile
+   asks for 2 mm): the little relief there was averaged into a smooth tube, and the hand into a mitten.
+3. **Orange**: a saturated red-orange profile (albedo 0.72 / 0.48 / 0.36, mean free path colour 1.0 / 0.52 / 0.32)
+   scattering into an R/B 3.0 albedo that the street's sun and ACES push to orange-tan.
 
 **The fix, at the source** (`tools/box/fp/mi_fp_import.py`, re-run by `import-chars.sh arms`):
 
@@ -170,7 +179,26 @@ forearm. EVIDENCE_PLACEHOLDER
 | Ink | healed blue-black at about a fifth of the skin's luminance (r3: a third, a grey smudge), 90 % cover so the skin's grain shows through, 0.15 mm ragged needle edge, 0.4 mm bleed, a faint 0.6 mm halo, uneven take-up |
 | Hands (forms) | extensor tendons on the back of the hand 1.1 mm high (r3 0.5), PIP and DIP knuckles swell on the back, the finger shafts slim 0.35-0.45 mm between the joints (no longer even "sausages"), a fuller thenar pad; dorsal knuckle wrinkles 120 um deep in the normal map (r3 75) |
 | Skin grain | `T_RuleArms_SkinDetail_N`: a periodic 24 mm tile of skin lines (a 1.1 mm cell network 18 um deep with a finer 0.45 mm one), pores (0.13 mm, 26 um) and a soft relief |
+| Nails | the plates 0.6 mm proud of the finger (r3 0.3): the 64k decimation of the skin had smoothed the 0.38 mm nail bed away and covered the middle of 30 % of the plate faces (now 0 %), so only the rims showed: black nails with a pale U. Now a pale keratin plate with the lighter free edge |
 | Export | 131,598 triangles, the posed gate 104 poses, 0 failed (nearest skin to the eye 12.4 cm) |
+
+**In play** (`tools/box/fp/fp-arms-shots.sh`; L_Block, Story on Hustler, CHOPPER + NINE + STICK; 1920 x 1080):
+
+| Picture | What it shows |
+|---|---|
+| `shots/fp-arms-hip-sun.jpg` | the CHOPPER at the hip in the sun: a brown hand on the handguard with the thumb's knuckle wrinkles and nail, wrist creases, no orange |
+| `shots/fp-arms-hip-el.jpg` | under the El: crisp sun-stripe shadow edges on the forearm (no red fringe), warm brown in the sun |
+| `shots/fp-arms-irons.jpg` | aimed through the irons |
+| `shots/fp-arms-forearm-l.jpg`, `fp-arms-forearm-r.jpg` | the world paused in the hip idle in the sun and the arms component turned so each tattoo faces the eye at 30 cm (pose, material, light and the first-person pass as in play): the numerals and the word with its script line |
+| `shots/fp-arms-nine.jpg` | the NINE at the hip, the bracelet |
+
+`ListTextures` in the same session: the four arms textures at full size, `Streaming NO`. Evidence frames (not
+committed): `ev-unlit` (base colour only) and `ev-profile` (the profile variant on the same frame).
+
+Not fixed in this pass: the hands' grip comes from the pack's and the template's clips. The CHOPPER's support hand reads
+well on the handguard at the hip, but no per-gun finger pose ships, and the NINE's hold (template third-person pistol
+idle plus the palm IK) rests the gun on the palm with the fingers not wrapped round the grip. The pack clips' finger
+contact was not measured against this hand's thickness.
 
 ## The Goons (art/blender/assets/goons.py)
 
