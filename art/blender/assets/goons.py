@@ -385,6 +385,9 @@ def assemble(man, outfit, parts, ctx):
     joined = {}
     for set_name, obs in sets.items():
         ob = geo.join([o for o in obs], "Goon%s_%s" % (outfit, set_name.capitalize()), man.col)
+        ob.data.materials.clear()
+        ob.data.materials.append(flat_materials(outfit)[set_name])
+        ob.data.polygons.foreach_set("material_index", np.zeros(len(ob.data.polygons), dtype=np.int32))
         unwrap(ob)
         joined[set_name] = ob
     return joined
