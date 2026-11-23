@@ -98,6 +98,57 @@ Contracts and how-tos: `docs/unreal/AUDIO.md`. Built and tested in `/project/ue/
 (`SetCharacter`), silencer (`SetSuppressed` / `bSuppressed`); music riser and Quartz grid; neon, steam and boombox
 emitters; Goon step surfaces; the real voice recordings (AUDIO.md section 5).
 
+### Audio fix pass (independent audio review, 2026-11-23)
+
+**Verified**: build green, **`test.sh` 94 of 94 pass** (21 of them `MurderInc.Audio.*`; VoiceData warns with the placeholder count, EngineRender warns under -NoSound by design); `audio-engine-render.sh` passes with a device.
+
+Every problem of the review addressed; AUDIO.md rewritten where the rules changed (2.1, 2.2, 2.3, 2.5, 3.3, 4, 5, 6, 7).
+
+- **The voice rules** (`FMIVoiceRules`, `FMIVoiceTriggers`, voice.json): the win is `always` (no cooldown, no decay,
+  priority 100, waits 6 s behind a line it may not cut) and shouted; takes follow the moment's `intensity`; a kill
+  bark never cuts or chains onto another kill bark (`barkTriggers`); a repeat decay (x 0.8 per play of a line in a
+  run); Hold the Block gets `wave.milestone` (waves 5, 10, 15 ...) and `score.newBest` feeding "What's my name", the
+  last kill of a wave 0.5, the wave's "Rule Baby!" only when the kill bark did not speak; It's Murda! cooldown 40 s,
+  Holla 25 s; a restart (`player:reset`, an intro not from the title) silences the voice and its queue and answer.
+- **New tests** (`Tests/MIAudioVoiceTests.cpp`): `VoiceWin`, `VoiceBurst`, `VoiceDirector` (burst, pause in a line,
+  restart, interruption through the whole director), `VoiceRate` (Story on Boss from config.json: **2.56 lines a
+  minute, 13 % of kills speak, the win called and answered in all 20 runs**), `VoiceRateHoldout` (spec 04 2.11, 12
+  waves: **2.61 lines a minute, It's Murda! 0.73 a minute, worst run 0.89; What's my name by wave 10 in every run**),
+  `GenFiles` (variant length and loudness per set, silenced under open shots), `MasterChain`; extended: `VoiceData`
+  (lengths, inner gaps, tails, bleep ranges, placeholder count), `VoiceTriggers` (kill after death, restart,
+  milestones, new best), `VoiceIntensity`, `EventTable` (every delegate of Core/MIEvents.h must be bound: it caught
+  the new `WeaponMode` at once; bound, with a selector click, and `bSuppressed` read in OnWeaponFire).
+- **Proven red** before green: on the old data `VoiceData` (inc_01 3.09 s, gaps 0.78 / 0.59 s), `GenFiles`
+  (chopper_close_03 11 dB off its set), `VoiceBurst` (2 lines), `VoiceRate` (3.86 a minute), `VoiceRateHoldout`
+  (1.16 a minute); with the rule broken on the box clone: `VoiceWin` (no `always`: no win line in any seed),
+  `VoiceData` (clean mode bleep with empty ranges), and with code breaks built on the box clone (never committed): no silence on reset or restart (`VoiceTriggers`, `VoiceDirector`: the old crowd answer played after a restart), kill barks allowed to cut each other (`VoiceBurst`: 5 cuts), intensity ignored (`VoiceIntensity`, `VoiceWin`: 2 of 10 wins shouted), a delegate left out (`EventTable`); and the engine render with the make-up at 0.0001 (peak -80.8 dBFS: red).
+- **Placeholders re-cut** (`voice_placeholders.py`: gate, inner pauses 0.12 / 0.14 s, pitch-keeping tightening at
+  most x 1.35): 21 takes 0.98 to 1.91 s (It's Murda! 0.98 to 1.19 s, I-N-C! 1.31 to 1.91 s, the chant 1.89 to 1.92 s),
+  longest inner gap 0.08 s, -18 LUFS; the six breathed takes regenerated at a neutral rate (same preset voice, same
+  text, 1.2 credits). **Effects re-cut and levelled** (`sfx_process.py`, from the same generated files): one loudness
+  per variant set (momentary maximum within 0.8 dB), matched to the web sound, minimum lengths, DC and 20 Hz
+  high-pass; the silenced shots 10.7 / 11.0 dB under the open ones; 31 sets pass `GenFiles`.
+- **The mix**: the master chain of spec 07 2.11 (compressor, x 1.15, soft clip) on the main submix in the engine and
+  in the offline mix; the ambience low-pass by interior; the music bus 0.5; master trim 1.0 (the game's volume is
+  the device's primary volume, applied after the chain by UMIGameSubsystem).
+- **Placeholders visible**: the log line "voice: 21 of 21 takes are placeholders", a "placeholder voice" tag under the
+  subtitle in non-shipping builds, the VoiceData warning, `"placeholder": true` on the 40 generated replace layers,
+  README.txt in Content/Audio/Voice/rule and Content/Audio/Gen.
+- **Real recordings**: `tools/audio/voice_ingest.py` (any format, 48 kHz 24-bit mono, trim with 100 / 300 ms pads,
+  -18 LUFS and -1 dBFS peaks, length and gap report, placeholder false, new takes by name, bleep marks); AUDIO.md 5
+  is now a brief for a phone and for a studio with a release note. Prompt plans committed: `tools/audio/voice_plan.json`,
+  `sfx_plan.json`.
+- **Engine render**: **it works**: 55.57 s of 6-channel audio recorded from the main submix (the device's clock 55.57 s, the stream 54.9 s), 500 components, peak -0.0 dBFS with no clipped sample, **-16.5 LUFS integrated**, loudest 3 s -9.8 LUFS; the offline mix-down of the same stream 55.91 s, -12.5 LUFS, peak -0.0 dBFS; the six voice moments measured in both (AUDIO.md 7). Three engine-side causes found and fixed on the way: a stale complete WAV passed the wait, the dummy driver's clock drifts up to 3 % from the wall clock, and master-submix effects added at run time ran on default settings until their settings are pushed to the instances the device creates (`FMIMasterChain::Refresh`). `tools/audio/render_report.py` measures any render.
+- Generation this pass: 1.2 credits (balance 3,282.7 at the start, 2,721.95 at the end). Balance figure of the first
+  pass corrected to 3,358.6.
+
+**Hand-offs** (one line each in other packages; the audio side is ready): `UMIGameSubsystem::ApplySettings`
+(Flow/MIGameSubsystem.cpp) calls `UMIAudioSubsystem::Get(this)->SetOptions(...)` with the options screen's voice and
+category settings; the loadout's crew apply calls `UMIAudioSubsystem::Get(this)->SetCharacter(Loadout.Crew)`;
+`FMIGameRules` (Flow/MIGameRules.cpp, after `C.bNewBest = Host->SetBest(C.Score);`) emits
+`if (C.bNewBest) Note(TEXT("score:best"), FString(), C.Score, C.Best);`. Clean language stays off by default: a decision
+for the user (voice.json `settings.options.cleanLanguage`).
+
 ## Animation pack (Tactical FPS Animation Pack - Assault Rifle) on the CHOPPER — done
 
 Details, mapping and what is missing: `docs/unreal/ANIMATION.md`. Scratch project `/project/ue/animpack` (MCP 8003).

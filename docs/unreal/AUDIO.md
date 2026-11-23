@@ -349,8 +349,9 @@ in the recordings are the user's to secure; this project only ever uses recordin
 
 In all about 54 credits of generation. Balance: 4,015.6 at the start of the first pass, **3,358.6** at its end (the
 3,392.8 this page gave before was read before the last generations of that pass); 3,282.7 at the start of the fix
-pass (the GPU box and other packages' work on the same account in between). The difference beyond the generations is
-the GPU box and the other packages.
+pass, 2,721.95 at its end (the fix pass generated 1.2 credits; the rest is the GPU box, about 114 credits an hour, and
+the other packages on the same account). The difference beyond the generations is always the GPU box and the other
+packages.
 
 **The prompts are in the repository**, so anyone can check them: `tools/audio/voice_plan.json` (every voice request:
 the line's text, the model, the preset voice id, the loudness, speed and pitch settings; no names, no reference
@@ -381,7 +382,19 @@ whose files are missing falls back to the web sound.
   under -40 dBFS, or when fewer than three voice lines spoke; it logs the voice lines on the device's clock for
   `tools/audio/render_report.py --voice`. The default `test.sh` run has `-NoSound`, so there it warns and passes.
   Proven red: with the make-up at 0.0001 (the chain acting) the recording peaks at -80.8 dBFS and the test fails.
-- **Measured** (`render_report.py`, BS.1770): ENGINEMEASURE
+- **Measured** (`render_report.py`, BS.1770): the engine render (2026-11-23, 25f2ec1's code, master chain on): **55.57 s** of 6-channel 48 kHz
+  audio (signal on the front left and right, as a 2D mix should be), the device clock 55.57 s against a 54.9 s
+  stream, 500 components on the imported Sound Waves, **peak -0.0 dBFS with no sample clipped, integrated -16.5
+  LUFS, loudest 3 s -9.8 LUFS**, no silence longer than 0.15 s. The offline mix-down of the same stream: 55.91 s
+  stereo, peak -0.0 dBFS (the soft clip), integrated -12.5 LUFS, loudest 3 s -6.8 LUFS (4 dB louder than the engine:
+  it has no attenuation curves or 3D voice limits). The six voice moments, momentary loudness of the 1.2 s after the
+  line starts against the 1.5 s before (engine / offline): I-N-C! at 0.3 s -18.6 / -12.8 LUFS (+12.5 / +13.1 dB over
+  the quiet start), Holla at 9.3 s -17.8 / -13.2 (-7.5 / -5.9 dB: it starts in the middle of a CHOPPER burst, ducked
+  under it), Rule Baby at 33.7 s -17.9 / -12.4 (+1.7 / +2.3 dB), What's my name at 43.8 s -19.4 / -13.5 (-1.0 /
+  +0.2 dB: the truck's sting and the music under it), R-U-L-E! at 45.6 s -18.8 / -13.1 (+2.1 / +2.2 dB), I-N-C! on the
+  card at 48.4 s -20.3 / -14.6 (+4.4 / +5.2 dB). The lines sit at the level of the fight around them, a little above
+  it when it is quiet: the voice duck (music 0.5, ambience 0.55 ...) holds them out of the mix rather than above it.
+  At the game's default volume (0.8, the device's primary volume) everything is 1.9 dB lower.
 - What the first engine runs taught: the old recording (65,536 bytes of silence) was a WAV the process quit before
   writing; a complete file from an earlier run then passed the wait at once (the test now deletes it); the dummy
   driver's clock runs up to 3 % off the wall clock (the device's clock is the reference now); and master-submix
