@@ -1336,8 +1336,12 @@ def make_parts(ctx, key):
                      & (cls == CLS["paint"]) & (n[:, 0] * (1 if front else -1) > 0.5))
             # (close-up pass 3) the generated holder stays paint, and whatever of it stands in front of the plate
             # (the dark diagonal line across the front plate) is pushed back behind the modelled recess
-            # (close-up pass 4) the holder area stays paint (it read as a large grey crumpled patch): a modelled
-            # dark recess card stands behind the plate instead (make_plates)
+            # (close-up pass 4) the holder area takes the class round it (paint on a boot lid, it read as a large
+            # grey crumpled patch; dark on a black bumper); a modelled dark recess card stands behind the plate
+            ring = ((np.abs(c[:, 0] - pc[0]) < 0.25) & (np.abs(c[:, 1] - pc[1]) < pc[3] / 2 + 0.20)
+                    & (np.abs(c[:, 2] - pc[2]) < pc[4] / 2 + 0.16) & ~under & np.isin(cls, [CLS["paint"], CLS["trim"]]))
+            if ring.sum() > 20 and (cls[ring] == CLS["trim"]).mean() > 0.5:
+                cls[under] = CLS["trim"]
             co_ = gen3d.verts(ob)
             sgn = 1 if front else -1
             near_ = (np.abs(co_[:, 1] - pc[1]) < 0.19) & (np.abs(co_[:, 2] - pc[2]) < 0.11)
@@ -1829,8 +1833,11 @@ def plan_mirrors(c, n, cls, spec):
         if reg.sum() < 6:
             continue
         cls[reg] = CLS["drop"]
-        out.append((float(np.median(c[reg, 0])), sd * yd, float(np.median(c[reg, 2])),
-                    float(np.percentile(np.abs(c[reg, 1]), 99))))
+        mxm, mzm = float(np.median(c[reg, 0])), float(np.median(c[reg, 2]))
+        # (close-up pass 4) the crumpled sail under the generated mirror (proud of the door skin by under 2 cm)
+        cls[(np.abs(c[:, 0] - mxm) < 0.11) & (np.abs(c[:, 2] - mzm) < 0.10) & (c[:, 1] * sd > yd + 0.006)
+            & (cls != CLS["glass"])] = CLS["drop"]
+        out.append((mxm, sd * yd, mzm, float(np.percentile(np.abs(c[reg, 1]), 99))))
     return out
 
 
