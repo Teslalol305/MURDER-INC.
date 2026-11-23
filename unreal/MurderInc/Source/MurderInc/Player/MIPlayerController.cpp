@@ -363,6 +363,7 @@ void AMIPlayerController::MIFreezeOn(const FString& Event, float Delay)
 		Events->Enemy.AddWeakLambda(this, [Arm](const FMIEnemyEvent& E) { if (E.Kind == FMIEnemyEvent::EKind::Fire) Arm(TEXT("enemyfire")); });
 		Events->Explosion.AddWeakLambda(this, [Arm](const FMIExplosionEvent&) { Arm(TEXT("explosion")); });
 		Events->WeaponFire.AddWeakLambda(this, [Arm](const FMIShotFiredEvent&) { Arm(TEXT("fire")); });
+		Events->WeaponReload.AddWeakLambda(this, [Arm](const FMIReloadEvent& E) { if (E.Phase == TEXT("start")) Arm(TEXT("reload")); });
 	}
 #endif
 }
