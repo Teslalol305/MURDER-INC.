@@ -57,9 +57,9 @@ def dark_material(name="M_MI_StudioDark", value=0.018, rough=0.55):
     return m
 
 
-def studio(exposure=5.0, key=8.0, backdrop=True, sun_yaw=-50.0, sun_pitch=-38.0):
+def studio(exposure=5.0, key=8.0, backdrop=True, sun_yaw=-50.0, sun_pitch=-38.0, target=(0, 0, 100), back=0.018):
     clear()
-    dark = dark_material()
+    dark = dark_material() if back <= 0.02 else dark_material("M_MI_StudioGrey", back, 0.7)
     floor = ACTORS.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(0, 0, 0))
     floor.static_mesh_component.set_static_mesh(unreal.load_asset("/Engine/BasicShapes/Plane"))
     floor.set_actor_scale3d(unreal.Vector(40, 40, 1))
@@ -89,7 +89,9 @@ def studio(exposure=5.0, key=8.0, backdrop=True, sun_yaw=-50.0, sun_pitch=-38.0)
         lc.set_editor_property("source_width", 120.0)
         lc.set_editor_property("source_height", 120.0)
         lc.set_editor_property("attenuation_radius", 900.0)
-        p.set_actor_rotation(unreal.MathLibrary.find_look_at_rotation(unreal.Vector(*loc), unreal.Vector(0, 0, 100)), False)
+        loc = (loc[0] + target[0], loc[1] + target[1], loc[2] + target[2] - 100)
+        p.set_actor_location(unreal.Vector(*loc), False, False)
+        p.set_actor_rotation(unreal.MathLibrary.find_look_at_rotation(unreal.Vector(*loc), unreal.Vector(*target)), False)
         _tag(p, "Rect%d" % i)
     pp = ACTORS.spawn_actor_from_class(unreal.PostProcessVolume, unreal.Vector(0, 0, 0))
     pp.set_editor_property("unbound", True)
