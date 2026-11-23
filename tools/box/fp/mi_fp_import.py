@@ -238,7 +238,10 @@ def skin_material(path=ARMS + "/Materials/M_RuleArms_Skin", tex=ARMS + "/Texture
     bc = _tex(m, tex + "/T_RuleArms_Skin_BC", -1400, -300, "color")
     orm = _tex(m, tex + "/T_RuleArms_Skin_ORM", -1400, 0, "masks")
     nm = _tex(m, tex + "/T_RuleArms_Skin_N", -1400, 300, "normal")
-    tint = _vector(m, "SkinTint", (0.92, 1.0, 1.08), -1100, -420)   # R/B 3.0 -> 2.6: the sun and ACES read 3.0 as orange; more blue reads pink
+    # second pass: SkinTint back to neutral. The cooler tint (0.92 / 1 / 1.08) and the lower scatter took the warmth out:
+    # the in-game review measured an ashy grey-mauve in shade and a khaki tan in the sun. The warmth is in the albedo
+    # now (_rule_tex.SKIN_TARGET, hue 24 degrees, saturation 0.50)
+    tint = _vector(m, "SkinTint", (1.0, 1.0, 1.0), -1100, -420)
     col = _expr(m, unreal.MaterialExpressionMultiply, -900, -300)
     MEL.connect_material_expressions(bc, "RGB", col, "A")
     MEL.connect_material_expressions(tint, "", col, "B")
@@ -255,7 +258,8 @@ def skin_material(path=ARMS + "/Materials/M_RuleArms_Skin", tex=ARMS + "/Texture
         MEL.connect_material_property(_scalar(m, "Scatter", 0.6, -600, 700), "", unreal.MaterialProperty.MP_OPACITY)
         sc = _expr(m, unreal.MaterialExpressionMultiply, -700, -150)
         MEL.connect_material_expressions(col, "", sc, "A")
-        MEL.connect_material_expressions(_vector(m, "SubsurfaceTint", (0.26, 0.14, 0.09), -900, -150), "", sc, "B")
+        # second pass: a moderate warm scatter (0.26 / 0.14 / 0.09 overshot toward grey)
+        MEL.connect_material_expressions(_vector(m, "SubsurfaceTint", (0.35, 0.18, 0.11), -900, -150), "", sc, "B")
         MEL.connect_material_property(sc, "", unreal.MaterialProperty.MP_SUBSURFACE_COLOR)
     detail = tex + "/T_RuleArms_SkinDetail_N"
     if ASSETS.does_asset_exist(detail):
@@ -270,7 +274,12 @@ def skin_material(path=ARMS + "/Materials/M_RuleArms_Skin", tex=ARMS + "/Texture
                         ["B", "D", "S"], out=unreal.CustomMaterialOutputType.CMOT_FLOAT3)
         MEL.connect_material_expressions(nm, "RGB", blend, "B")
         MEL.connect_material_expressions(dn, "RGB", blend, "D")
-        MEL.connect_material_expressions(_scalar(m, "DetailStrength", 0.8, -1100, 760), "", blend, "S")
+        # second pass: the pore detail masked off the palm, pads and nails by the bake's mask in ORM blue (the skin has
+        # no metal), at full strength elsewhere
+        ds = _expr(m, unreal.MaterialExpressionMultiply, -950, 760)
+        MEL.connect_material_expressions(_scalar(m, "DetailStrength", 1.0, -1100, 760), "", ds, "A")
+        MEL.connect_material_expressions(orm, "B", ds, "B")
+        MEL.connect_material_expressions(ds, "", blend, "S")
         MEL.connect_material_property(blend, "", unreal.MaterialProperty.MP_NORMAL)
     else:
         MEL.connect_material_property(nm, "RGB", unreal.MaterialProperty.MP_NORMAL)

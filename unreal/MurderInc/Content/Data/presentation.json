@@ -143,6 +143,12 @@
           "weight": 1.0,
           "note": "the support hand's fingers only (the bones below hand_l) from the pack's rifle idle, wrapped round a 5 cm handguard as they now wrap the firing hand; optional: without the pack the fingers keep the template pose"
         },
+        "grip": {
+          "gun": "nine",
+          "pose": "hip",
+          "weight": 1.0,
+          "note": "the hands as art/blender/assets/_rule_grips.py solves them on SK_Nine (Content/Data/grips.json): the wrist and every finger joint as points in the gun's space; the firing palm on the grip with the fingers closed round it and the index on the trigger, the support hand cupping the firing fist, thumbs forward. Applied after the palm IK (MIFirstPersonAnim.cpp ShapeHand / ShapeFingers); the support grip lets go in a reload"
+        },
         "note": "The NINE: the engine template's pistol clips (third person, the only pistol clips there are) on SK_RuleArms placed on the gun's grip as before; both palms pulled onto SK_Nine's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its slide, barrel, trigger and magazine (ANIMATION.md 4, 'The NINE')."
       }
     }

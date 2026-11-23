@@ -32,6 +32,11 @@ struct FMIFPHandIK
 	bool bRotation = true;
 	bool bKeepHand = false;            // the hand stays where the clip put it; only the elbow moves (PoleShift)
 	FVector PoleShift = FVector::ZeroVector;  // component space, added to the clip's own pole (elbow down: -Z)
+	/** A solved grip (Content/Data/grips.json): when ShapeWeight > 0 the hand is placed by the shape's wrist point and
+	 *  the rotation that turns the hand's own frame (wrist, index / middle / pinky knuckles) onto the shape's, blended
+	 *  over the palm placement above by ShapeWeight; then every finger bone is aimed at its child's point. */
+	TMap<FName, FVector> Shape;        // bone (or '<finger>_tip_<side>') -> point, component space of the arms
+	float ShapeWeight = 0.f;
 };
 
 struct FMIFPPose
@@ -50,6 +55,11 @@ struct FMIFPAnimProxy : public FAnimInstanceProxy
 	virtual bool Evaluate(FPoseContext& Output) override;
 
 	FMIFPPose Pose;
+	/** Each hand's component-space transform as the clips left it, before the IK and the grip (hands-and-tattoos second
+	 *  pass): the weapon component places the arms on the gun by this, so the solved grip does not feed back into the
+	 *  placement. [0] hand_l, [1] hand_r. */
+	FTransform PreIKHand[2];
+	bool bPreIK[2] = {false, false};
 };
 
 /**
@@ -66,6 +76,8 @@ public:
 	/** The pose for the next evaluation (game thread). */
 	void SetPose(const FMIFPPose& InPose) { Pending = InPose; }
 	const FMIFPPose& GetPending() const { return Pending; }
+	/** The hand (hand_l / hand_r) in component space as the clips posed it, before the IK (last evaluation). */
+	bool GetPreIKHand(FName Hand, FTransform& Out) const;
 
 protected:
 	virtual FAnimInstanceProxy* CreateAnimInstanceProxy() override { return new FMIFPAnimProxy(this); }

@@ -24,15 +24,123 @@ namespace MIFirstPersonAnimPrivate
 		L.Clip->GetAnimationPose(Data, FAnimExtractContext(static_cast<double>(T), false));
 	}
 
+	FCompactPoseBoneIndex BoneIndex(const FBoneContainer& Bones, FName Name)
+	{
+		const int32 Ref = Bones.GetPoseBoneIndexForBoneName(Name);
+		return Ref == INDEX_NONE ? FCompactPoseBoneIndex(INDEX_NONE) : Bones.MakeCompactPoseIndex(FMeshPoseBoneIndex(Ref));
+	}
+
+	/** The hand's own frame from points: X wrist -> middle knuckle, Z across the knuckles (index -> pinky) x X. */
+	bool HandFrame(const FVector& Wrist, const FVector& Middle, const FVector& Index, const FVector& Pinky, FQuat& Out)
+	{
+		const FVector X = (Middle - Wrist).GetSafeNormal();
+		const FVector Across = Index - Pinky;
+		FVector Z = FVector::CrossProduct(X, Across).GetSafeNormal();
+		if (X.IsNearlyZero() || Z.IsNearlyZero())
+		{
+			return false;
+		}
+		const FVector Y = FVector::CrossProduct(Z, X);
+		Out = FMatrix(X, Y, Z, FVector::ZeroVector).ToQuat();
+		return true;
+	}
+
+	/** The rotation and wrist point of a hand shape for the current pose (the hand turned so its frame of points
+	 *  matches the shape's). */
+	bool ShapeHand(FCSPose<FCompactPose>& CS, const FMIFPHandIK& H, FTransform& Out)
+	{
+		const FBoneContainer& Bones = CS.GetPose().GetBoneContainer();
+		const FString Side = H.Hand.ToString().Right(2);  // "_r" / "_l"
+		const FName Names[4] = {H.Hand, FName(TEXT("middle_01") + Side), FName(TEXT("index_01") + Side), FName(TEXT("pinky_01") + Side)};
+		FVector Cur[4], Tgt[4];
+		for (int32 I = 0; I < 4; ++I)
+		{
+			const FCompactPoseBoneIndex B = BoneIndex(Bones, Names[I]);
+			const FVector* T = H.Shape.Find(Names[I]);
+			if (!B.IsValid() || !T)
+			{
+				return false;
+			}
+			Cur[I] = CS.GetComponentSpaceTransform(B).GetLocation();
+			Tgt[I] = *T;
+		}
+		FQuat Qc, Qt;
+		if (!HandFrame(Cur[0], Cur[1], Cur[2], Cur[3], Qc) || !HandFrame(Tgt[0], Tgt[1], Tgt[2], Tgt[3], Qt))
+		{
+			return false;
+		}
+		const FTransform E = CS.GetComponentSpaceTransform(BoneIndex(Bones, H.Hand));
+		Out = FTransform((Qt * Qc.Inverse() * E.GetRotation()).GetNormalized(), Tgt[0]);
+		return true;
+	}
+
+	/** Every finger bone of a shaped hand aimed at its child's point (swing only), parents first. */
+	void ShapeFingers(FCSPose<FCompactPose>& CS, const FMIFPHandIK& H)
+	{
+		const FBoneContainer& Bones = CS.GetPose().GetBoneContainer();
+		const FString Side = H.Hand.ToString().Right(2);
+		static const TCHAR* Fingers[5] = {TEXT("thumb"), TEXT("index"), TEXT("middle"), TEXT("ring"), TEXT("pinky")};
+		const float W = FMath::Clamp(H.ShapeWeight, 0.f, 1.f);
+		for (const TCHAR* F : Fingers)
+		{
+			TArray<FName> Chain;
+			if (FCString::Strcmp(F, TEXT("thumb")) != 0)
+			{
+				Chain.Add(FName(FString::Printf(TEXT("%s_metacarpal%s"), F, *Side)));
+			}
+			for (int32 K = 1; K <= 3; ++K)
+			{
+				Chain.Add(FName(FString::Printf(TEXT("%s_%02d%s"), F, K, *Side)));
+			}
+			const FName Tip(FString::Printf(TEXT("%s_tip%s"), F, *Side));
+			for (int32 I = 0; I < Chain.Num(); ++I)
+			{
+				const FCompactPoseBoneIndex B = BoneIndex(Bones, Chain[I]);
+				const FVector* PB = H.Shape.Find(Chain[I]);
+				const FName ChildName = I + 1 < Chain.Num() ? Chain[I + 1] : Tip;
+				const FVector* PC = H.Shape.Find(ChildName);
+				if (!B.IsValid() || !PB || !PC)
+				{
+					continue;
+				}
+				const FTransform T = CS.GetComponentSpaceTransform(B);
+				FVector Cur;
+				if (I + 1 < Chain.Num())
+				{
+					const FCompactPoseBoneIndex C = BoneIndex(Bones, Chain[I + 1]);
+					if (!C.IsValid())
+					{
+						continue;
+					}
+					Cur = CS.GetComponentSpaceTransform(C).GetLocation() - T.GetLocation();
+				}
+				else
+				{
+					// the last segment has no child bone: its direction is the line from its parent's head in the
+					// reference pose, carried in its own frame
+					const FTransform& Ref = Bones.GetRefPoseTransform(B);
+					Cur = T.GetRotation().RotateVector(Ref.GetRotation().UnrotateVector(Ref.GetTranslation()));
+				}
+				const FVector Want = *PC - *PB;
+				if (Cur.IsNearlyZero() || Want.IsNearlyZero())
+				{
+					continue;
+				}
+				const FQuat D = FQuat::Slerp(FQuat::Identity, FQuat::FindBetweenVectors(Cur, Want), W);
+				FTransform N = T;
+				N.SetRotation((D * T.GetRotation()).GetNormalized());
+				TArray<FBoneTransform> Out;
+				Out.Add(FBoneTransform(B, N));
+				CS.SafeSetCSBoneTransforms(Out);
+			}
+		}
+	}
+
 	/** Two-bone IK of one arm in component space, the hand's rotation blended to the target's. */
 	void SolveHand(FCSPose<FCompactPose>& CS, const FMIFPHandIK& H)
 	{
 		const FBoneContainer& Bones = CS.GetPose().GetBoneContainer();
-		const auto Index = [&Bones](FName Name)
-		{
-			const int32 Ref = Bones.GetPoseBoneIndexForBoneName(Name);
-			return Ref == INDEX_NONE ? FCompactPoseBoneIndex(INDEX_NONE) : Bones.MakeCompactPoseIndex(FMeshPoseBoneIndex(Ref));
-		};
+		const auto Index = [&Bones](FName Name) { return BoneIndex(Bones, Name); };
 		const FCompactPoseBoneIndex U = Index(H.Upper), L = Index(H.Lower), E = Index(H.Hand);
 		if (!U.IsValid() || !L.IsValid() || !E.IsValid() || H.Weight <= 0.f)
 		{
@@ -44,7 +152,16 @@ namespace MIFirstPersonAnimPrivate
 		const FTransform E0 = ET;
 		const FCompactPoseBoneIndex PalmIdx = Index(H.Palm);
 		const FVector PalmOffset = PalmIdx.IsValid() ? CS.GetComponentSpaceTransform(PalmIdx).GetLocation() - ET.GetLocation() : FVector::ZeroVector;
-		const FVector Effector = H.bKeepHand ? ET.GetLocation() : FMath::Lerp(ET.GetLocation(), H.Target.GetLocation() - PalmOffset, H.Weight);
+		FVector Effector = H.bKeepHand ? ET.GetLocation() : FMath::Lerp(ET.GetLocation(), H.Target.GetLocation() - PalmOffset, H.Weight);
+		FQuat ShapeRot = FQuat::Identity;
+		const bool bShape = H.ShapeWeight > 0.f && !H.bKeepHand && !H.Shape.IsEmpty();
+		FTransform Shaped;
+		const bool bShaped = bShape && ShapeHand(CS, H, Shaped);
+		if (bShaped)
+		{
+			Effector = FMath::Lerp(Effector, Shaped.GetLocation(), FMath::Clamp(H.ShapeWeight, 0.f, 1.f));
+			ShapeRot = Shaped.GetRotation();
+		}
 		// The elbow keeps bending the way the clip bends it (moved by PoleShift x Weight when asked).
 		const FVector Pole = LT.GetLocation() + (LT.GetLocation() - (UT.GetLocation() + ET.GetLocation()) * 0.5) * 2.0 + H.PoleShift * H.Weight;
 		AnimationCore::SolveTwoBoneIK(UT, LT, ET, Pole, Effector, false, 1.0, 1.0);
@@ -52,11 +169,19 @@ namespace MIFirstPersonAnimPrivate
 		{
 			ET.SetRotation(FQuat::Slerp(E0.GetRotation(), H.Target.GetRotation(), H.Weight).GetNormalized());
 		}
+		if (bShaped)
+		{
+			ET.SetRotation(FQuat::Slerp(ET.GetRotation(), ShapeRot, FMath::Clamp(H.ShapeWeight, 0.f, 1.f)).GetNormalized());
+		}
 		TArray<FBoneTransform> Out;
 		Out.Add(FBoneTransform(U, UT));
 		Out.Add(FBoneTransform(L, LT));
 		Out.Add(FBoneTransform(E, ET));
 		CS.SafeSetCSBoneTransforms(Out);
+		if (bShaped)
+		{
+			ShapeFingers(CS, H);
+		}
 	}
 }
 
@@ -126,11 +251,32 @@ bool FMIFPAnimProxy::Evaluate(FPoseContext& Output)
 	{
 		FCSPose<FCompactPose> CS;
 		CS.InitPose(Output.Pose);
+		for (int32 S = 0; S < 2; ++S)
+		{
+			const FCompactPoseBoneIndex B = BoneIndex(Output.Pose.GetBoneContainer(), S == 0 ? FName(TEXT("hand_l")) : FName(TEXT("hand_r")));
+			bPreIK[S] = B.IsValid();
+			if (B.IsValid())
+			{
+				PreIKHand[S] = CS.GetComponentSpaceTransform(B);
+			}
+		}
 		for (const FMIFPHandIK& H : Pose.Hands)
 		{
 			SolveHand(CS, H);
 		}
 		FCSPose<FCompactPose>::ConvertComponentPosesToLocalPoses(MoveTemp(CS), Output.Pose);
 	}
+	return true;
+}
+
+bool UMIFPAnimInstance::GetPreIKHand(FName Hand, FTransform& Out) const
+{
+	const FMIFPAnimProxy& P = GetProxyOnAnyThread<FMIFPAnimProxy>();
+	const int32 S = Hand == TEXT("hand_l") ? 0 : Hand == TEXT("hand_r") ? 1 : INDEX_NONE;
+	if (S == INDEX_NONE || !P.bPreIK[S])
+	{
+		return false;
+	}
+	Out = P.PreIKHand[S];
 	return true;
 }

@@ -149,14 +149,17 @@ class Hand:
         def f(p):
             d0 = base(p)
             d = d0
-            for n in C.FINGERS[:4]:                        # metacarpal heads under the skin of the back of the hand
+            # metacarpal heads under the skin of the back of the hand. Second pass (in play at 40-60 cm the back of
+            # the hand read as "a smooth brown lump, no knuckles"): the heads stand about 1 mm further out, tighter
+            # blend, so each knuckle is its own rise with a dip between
+            for n in C.FINGERS[:4]:
                 r0 = R.chain[n]["r"][0]
-                d = sdf.smin(d, sdf.sphere(p, R.mcp[n] + R.dors * r0 * 0.42 - R.fwd * 0.003, r0 * 0.66), r0 * 0.40)
-            for a, b in self.tendons:                      # extensor tendons: ridges 1.1 mm high, 3.4 mm wide
-                ab = b - a                                 # (hands-and-tattoos pass: 0.5 mm barely read)
+                d = sdf.smin(d, sdf.sphere(p, R.mcp[n] + R.dors * r0 * 0.58 - R.fwd * 0.003, r0 * 0.62), r0 * 0.30)
+            for a, b in self.tendons:                      # extensor tendons: ridges 1.7 mm high, 3.0 mm wide
+                ab = b - a                                 # (hands-and-tattoos pass: 1.1; r3 0.5 barely read)
                 t = np.clip(((p - a) @ ab) / (ab @ ab), 0, 1)
                 seg = np.linalg.norm(p - a - t[:, None] * ab[None], axis=1)
-                d = d - 0.0011 * np.exp(-(seg / 0.0034) ** 2) * np.sin(np.pi * t) ** 0.6
+                d = d - 0.0017 * np.exp(-(seg / 0.0030) ** 2) * np.sin(np.pi * t) ** 0.6
             # hands-and-tattoos pass (r3 review: "fingers are sausages of even thickness"): the finger joints swell
             # on the back (PIP fullest), the shafts between them slim 0.4-0.5 mm on the back and sides, so each
             # finger tapers joint to joint; the palmar pads (finger_sdf) are left as they are
@@ -173,13 +176,28 @@ class Hand:
                     up = np.clip(0.5 + ((p - P[j]) @ dv) / (2 * r[j]), 0, 1)       # back and sides, not the pad
                     w = np.exp(-((t - 0.5) / 0.22) ** 2) * np.exp(-((near - r[j]) / (r[j] * 0.6)) ** 2) * up
                     d = d + (0.00045 if j == 0 else 0.00035) * w
+            # second pass ("fingertips are fat round blobs with the nail perched on top"): the distal segment tapers
+            # toward the tip on the back and sides (0.7 mm off at the tip) and its pad flattens (0.4 mm)
+            for n in C.FINGERS:
+                c = R.chain[n]
+                P, r, dv = c["P"], c["r"], c["dors"]
+                ab = P[3] - P[2]
+                t = np.clip(((p - P[2]) @ ab) / (ab @ ab), 0, 1.3)
+                near = np.linalg.norm(p - P[2] - np.clip(t, 0, 1)[:, None] * ab[None], axis=1)
+                loc = np.exp(-((near - r[3]) / (r[3] * 0.7)) ** 2) * T_smooth(0.1, 0.9, t)
+                cosd = ((p - P[2]) @ dv - t * (ab @ dv)) / np.maximum(near, 1e-6)
+                d = d + loc * (0.0007 * np.clip(0.4 + 0.6 * cosd, 0, 1) + 0.0004 * np.clip(-cosd, 0, 1))
             if recess:
                 for n in C.FINGERS:
                     rd, q = self.nail_rect(p, n, 0.0003)
                     up = np.clip(q[:, 2] / max(self.nails[n]["r"] * 0.4, 1e-4), 0, 1)
                     bed = T_smooth(0.0004, -0.0003, rd) * up
-                    fold = np.exp(-((q[:, 0] + self.nails[n]["hl"] + 0.0009) / 0.0007) ** 2) * T_smooth(0.0006, -0.0002, np.abs(q[:, 1]) - self.nails[n]["hw"]) * up
-                    d = d + 0.00038 * bed - 0.00022 * fold
+                    # second pass: the nail fold (cuticle skin) rises 0.4 mm and reaches 0.6 mm over the plate's
+                    # root, and the lateral folds hug its sides, so the plate sits in the finger, not on it
+                    hl, hw = self.nails[n]["hl"], self.nails[n]["hw"]
+                    fold = np.exp(-((q[:, 0] + hl - 0.0001) / 0.0008) ** 2) * T_smooth(0.0008, -0.0002, np.abs(q[:, 1]) - hw) * up
+                    side = np.exp(-((np.abs(q[:, 1]) - hw + 0.0002) / 0.0006) ** 2) * T_smooth(hl * 0.6, -hl * 0.2, q[:, 0]) * up
+                    d = d + 0.00030 * bed - 0.00040 * fold - 0.00028 * side
             return d
         return f
 
@@ -295,8 +313,10 @@ def mesh_nails(R, hand, col):
             d0 = base(p)
             # hands-and-tattoos pass: 0.7 mm plate, 0.6 mm proud of the unrecessed finger (r3: 0.3 mm, and the 64k
             # decimation of the skin smoothed the 0.38 mm nail bed away, so the skin covered the middle of each plate
-            # and only its rim showed: black nails with a pale U in every Cycles preview)
-            plate = np.maximum(d0 - 0.00060, -0.00010 - d0)
+            # and only its rim showed: black nails with a pale U in every Cycles preview). Second pass (in game:
+            # "pale press-on shells, 0.6 mm proud plus a light edge looks like stickers"): 0.18 mm proud, the plate
+            # running 0.45 mm into the finger; the folds (Hand.field) overlap its root and sides
+            plate = np.maximum(d0 - 0.00018, -0.00045 - d0)
             rd, q = hand.nail_rect(p, n, 0.0)
             plate = sdf.smax(plate, rd, 0.0003)
             return sdf.smax(plate, nf["r"] * 0.15 - q[:, 2], 0.0004)          # the top of the finger only
@@ -729,16 +749,17 @@ def bake_skin(ctx, ob, res):
     bc = np.zeros((H * W, 3), dtype=np.float32)
     ro = np.full(H * W, 0.5, dtype=np.float32)
     hh = np.zeros(H * W, dtype=np.float32)
+    dm = np.zeros(H * W, dtype=np.float32)
     Pf, Nf = maps["pos"].reshape(-1, 3), maps["normal"].reshape(-1, 3)
     charts = {"right": X.tattoo_chart("right"), "left": X.tattoo_chart("left")}
     hand = ctx.rule.get("hand")
     for sl in texel.chunks(idx, 600_000):
         Pc = Pf[sl].astype(np.float64)
         reg_c, side_c = maps["mi_region"].ravel()[sl], maps["mi_side"].ravel()[sl]
-        c, r, h = X.skin_texels(R, Pc, Nf[sl].astype(np.float64), reg_c, side_c, charts)
+        c, r, h, dmk = X.skin_texels(R, Pc, Nf[sl].astype(np.float64), reg_c, side_c, charts, want_mask=True)
         if hand is not None:
             c, r = nail_folds(R, hand, Pc, reg_c, side_c, c, r)
-        bc[sl], ro[sl], hh[sl] = c, r, h
+        bc[sl], ro[sl], hh[sl], dm[sl] = c, r, h, dmk
     # review round 1: one skin colour with the head and the body: every skin texel (not the nails) graded so the
     # forearm's median is the shared target (_rule_tex.SKIN_TARGET)
     regf = np.rint(maps["mi_region"].ravel()[idx]).astype(int)
@@ -772,12 +793,25 @@ def bake_skin(ctx, ob, res):
     from PIL import Image as _Im
     aol = np.asarray(_Im.fromarray(aol.astype(np.float32), mode="F").resize((W, H), _Im.BILINEAR), dtype=np.float32)
     ao = ao * (0.4 + 0.6 * aol)
+    # second pass (in play the hand's creases and knuckle dips did not darken in sky light): a cavity term at the
+    # hand's form scale (2-6 mm: between the knuckles, the finger roots, the wrist and joint creases) from the
+    # height at two blur radii and the mesh AO, written into the AO channel and, gently, into the base colour
+    hb2 = texel.blur(hd * mf, 12) / np.maximum(texel.blur(mf, 12), 1e-3)
+    cav2 = np.where(mask, np.clip(hb2 - hd, 0, None), 0.0)
+    cmid = np.clip(1.0 - cav2 / 0.00045, 0.55, 1.0) * (0.55 + 0.45 * aol)
+    ao = ao * np.clip(0.75 + 0.25 * cmid / 0.9, 0.6, 1.0)
+    skin_t = mask & (np.rint(maps["mi_region"]).astype(int) != 3)
+    bc2 = bc.reshape(H, W, 3)
+    bc2[skin_t] *= (0.80 + 0.20 * np.clip(cmid[skin_t], 0, 1))[:, None]
+    bc = bc2.reshape(-1, 3)
     # review round 3 (black nails): the thin nail plates read as occluded in the 1K AO bake (0.62): they are open
     # to the light, AO at least 0.92 on their texels
     nail_t = np.rint(maps["mi_region"]).astype(int) == 3
     ao = np.where(nail_t, np.maximum(ao, 0.92), ao)
     ch = {"bc": texel.dilate(bc.reshape(H, W, 3), mask, 24), "rough": texel.dilate(ro.reshape(H, W), mask, 24),
-          "metal": np.zeros((H, W), dtype=np.float32), "normal": texel.dilate(nrm, mask, 24),
+          # ORM blue: no metal on skin; second pass: the mask of the tiling pore detail (1 on the back of the arm
+          # and hand, 0 on the palm, pads and nails), read by M_RuleArms_Skin (mi_fp_import.skin_material)
+          "metal": texel.dilate(dm.reshape(H, W), mask, 24), "normal": texel.dilate(nrm, mask, 24),
           "ao": texel.dilate(ao, mask, 24), "height": hd}
     uvd = ctx.rule.get("uv", {})
     # the forearm's texel density sets the tiling of the skin grain in Unreal (mi_fp_import.skin_material)

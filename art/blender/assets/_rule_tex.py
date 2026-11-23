@@ -25,11 +25,16 @@ KNUCKLE = np.array(C.srgb("#432717"), dtype=np.float32)
 # Linear median of the forearm, back of the hand, face; every skin map is graded to it (grade_skin).
 # review round 3: deeper and less saturated (was 0.165 / 0.079 / 0.038, R/B 4.3 read orange): R/B 3.0, the
 # albedo of deep brown skin under neutral light (the photo's print is graded warm, R/B 6-9 on the forearms)
-SKIN_TARGET = np.array([0.115, 0.062, 0.038], dtype=np.float32)
+# Second pass (in-game review: "in shade the skin goes an ashy grey-mauve, in sun under the El a khaki tan; the orange
+# is gone, but so is the warmth"): the warmth goes back into the albedo itself, hue about 24 degrees, saturation
+# 0.50 (sRGB 101 / 71 / 51), instead of riding on the scatter. The photo's lit forearm is hue 22, saturation 0.49
+# under its warm print, so this is his hue at a deep value. R/B 3.8; the game's material no longer cools it (SkinTint 1).
+SKIN_TARGET = np.array([0.130, 0.063, 0.034], dtype=np.float32)
 # natural short nails: a pink-brown bed matched to the skin, a faint lunula, a thin off-white free edge
 NAIL = SKIN_TARGET * np.array([1.50, 1.42, 1.80], dtype=np.float32)
 LUNULA = SKIN_TARGET * np.array([1.85, 1.85, 2.30], dtype=np.float32)
-FREE_EDGE = np.array([0.40, 0.33, 0.27], dtype=np.float32)
+# second pass: the free edge lower in value (it read as a bright press-on rim), only the last 1-1.5 mm
+FREE_EDGE = np.array([0.27, 0.22, 0.18], dtype=np.float32)
 INK = np.array([0.020, 0.026, 0.030], dtype=np.float32)          # healed black ink under brown skin: blue-green black
 
 
@@ -42,7 +47,23 @@ def grade_skin(bc, sel, target=SKIN_TARGET, keep_spread=True):
 
 TATTOO_FILE = os.path.join(paths.out, "ref", "tattoos.json")
 DEFAULT_TATTOOS = {"right": [{"text": "RULE", "style": "roman"}, {"text": "Inc.", "style": "script"}],
-                   "left": [{"text": "XVII", "style": "roman"}, {"text": "XXIII", "style": "roman"}]}
+                   "left": [{"text": "XVII", "style": "roman"}, {"text": "XXIII", "style": "roman"},
+                            {"text": "XII", "style": "roman"}, {"text": "XX", "style": "roman"}]}
+# Second pass: where each line sits (height above the wrist s, m; arc round from the back of the forearm toward the
+# radius a, m; cap height, m; longest line round the arm, m). Read off the photo at 6x (the photo is 340 px, 1.3 mm per
+# pixel along the forearm): the left forearm carries a main group of two rows about 29 mm apart (XXIII toward the
+# elbow, XVII below it) with 18-20 mm capitals, and a second, partly hidden group of two rows about 25 mm apart some
+# 48 mm further toward the wrist; together they run 13 cm down the forearm from its middle toward the wrist. The game
+# shows about 15 cm of the support forearm above the wrist, so the main group sits at 11-15 cm (was 17-19.5, never on
+# screen in play) and the second group at 4.5-8.5 cm. The second group's numerals cannot be read in the photo (the
+# right forearm covers half of them): XII / XX stand in until the owner's close-up of that forearm.
+# Round the arm (a): measured in play (tools/box/fp/fp-arms-shots.sh probe, CHOPPER at the hip and aimed): the eye sees the
+# support forearm from 14-21 degrees on the ulnar side of its back (the first pass centred the numerals 42 degrees toward
+# the radius, and in play only the edge of an X showed on the forearm's lower silhouette), so the numerals are centred
+# 1.0 cm round from the back toward the ulna. The right forearm's word already faces the eye (2-12 degrees off).
+TATTOO_LAYOUT = {"left": [(0.112, -0.010, 0.018, 0.078), (0.141, -0.010, 0.018, 0.078),
+                          (0.077, -0.010, 0.017, 0.060), (0.053, -0.010, 0.017, 0.060)],
+                 "right": [(0.203, 0.026, 0.021, 0.085), (0.177, 0.030, 0.019, 0.078)]}
 
 
 def _side_frame(R, P, N, side):
@@ -155,12 +176,14 @@ def tattoo_chart(side, px_per_m=8000):
     d = ImageDraw.Draw(img)
     mirror = side == "left"
 
-    def put(text, style, s_centre, a_centre, cap_m, squeeze=1.0, max_len=None):
+    def put(text, style, s_centre, a_centre, cap_m, squeeze=1.0, max_len=None, stroke_m=0.0):
         size = int(cap_m / 0.68 * px_per_m)                  # cap height is about 0.68 of the em
         f = _font(style, size)
-        bb = d.textbbox((0, 0), text, font=f)
+        sw = int(round(stroke_m * px_per_m))
+        bb = d.textbbox((0, 0), text, font=f, stroke_width=sw)
         tile = Image.new("L", (bb[2] - bb[0] + size // 2, bb[3] - bb[1] + size // 2), 0)
-        ImageDraw.Draw(tile).text((size // 4 - bb[0], size // 4 - bb[1]), text, font=f, fill=255)
+        ImageDraw.Draw(tile).text((size // 4 - bb[0], size // 4 - bb[1]), text, font=f, fill=255,
+                                  stroke_width=sw, stroke_fill=255)
         tw = int(tile.width * squeeze)
         if max_len and tw > max_len * px_per_m:
             tw = int(max_len * px_per_m)
@@ -175,15 +198,21 @@ def tattoo_chart(side, px_per_m=8000):
         img.paste(255, (x, y), tile)
 
     rows = spec.get(side, [])
+    lay = TATTOO_LAYOUT[side]
     if side == "right":
         for r in rows[:2]:
             if r.get("style") == "script":
-                put(r["text"], "script", 0.168, 0.030, 0.016, 1.0, max_len=0.075)
+                # second pass (review: "the script line is thin, grey and lighter than the capitals; in the photo it
+                # is as dark and heavy as the capitals and about their height"): 19 mm, the pen stroke thickened by
+                # 0.45 mm on each side, full ink, 5 mm beside the word toward the wrist
+                s_, a_, cap, ml = lay[1]
+                put(r["text"], "script", s_, a_, cap, 1.0, max_len=ml, stroke_m=0.00045)
             else:
-                put(r["text"], "roman", 0.203, 0.026, 0.021, 0.96, max_len=0.085)
+                s_, a_, cap, ml = lay[0]
+                put(r["text"], "roman", s_, a_, cap, 0.96, max_len=ml)
     else:
-        for i, r in enumerate(rows[:3]):
-            put(r["text"], "roman", 0.168 + 0.026 * i, 0.032, 0.014, 0.95, max_len=0.065)
+        for r, (s_, a_, cap, ml) in zip(rows[:4], lay):
+            put(r["text"], "roman", s_, a_, cap, 0.95, max_len=ml)
     a = np.asarray(img, dtype=np.float32) / 255.0
     # slightly ragged edges (needle work, 0.15 mm), then a 0.3 mm bleed into the dermis and a faint halo
     rng = np.random.default_rng(31 if side == "right" else 32)
@@ -215,7 +244,7 @@ def _sample(chart, s, arc):
 # ------------------------------------------------------------------------------------------------ skin
 
 
-def skin_texels(R, P, N, region, side, charts):
+def skin_texels(R, P, N, region, side, charts, want_mask=False):
     """(bc (n, 3) linear, roughness (n,), height (n,) m) for skin and nail texels at rest positions P.
 
     Review round 3 rebuild (the skin read as glossy orange plastic with a stipple normal, dark streaks along the
@@ -300,8 +329,11 @@ def skin_texels(R, P, N, region, side, charts):
             bc[m] = bc[m] * (1 - 0.55 * dark)[:, None] + (bc[m] * KN[None]) * (0.55 * dark)[:, None]
             # knuckle wrinkles: concentric folds across the joint, curved toward the tip at the sides
             wr = np.sin((dj + 0.0013 * (1 - cosd[m] ** 2)) / 0.0011 * np.pi + 2 * T.noise(P[m], 1 / 0.003, 250 + j))
-            # hands-and-tattoos pass: deeper (75 -> 120 um), the r3 review found no dorsal joint wrinkles
-            h[m] -= 0.000120 * ring * np.clip(wr, 0, 1) * (1.3 if j == 1 else 1.0)
+            # hands-and-tattoos pass: deeper (75 -> 120 um), the r3 review found no dorsal joint wrinkles; second
+            # pass (in play at 40-60 cm "no knuckles, no creases"): 220 um, and the joint itself a soft 0.35 mm
+            # rise under them (the mid-frequency form the hip view can show)
+            h[m] -= 0.000220 * ring * np.clip(wr, 0, 1) * (1.3 if j == 1 else 1.0)
+            h[m] += 0.00035 * np.exp(-(dj / 0.0045) ** 2) * dors_s * (1.0 if j else 0.6)
             # palmar flexion creases as grooves (one at the base, two at the middle joint, one at the end)
             for off in ((0.0045,) if j == 0 else (-0.0012, 0.0012) if j == 1 else (0.0,)):
                 c_ = np.exp(-((dj - off - 0.0004 * T.noise(P[m], 1 / 0.006, 260 + j)) / 0.00055) ** 2) * palm_side
@@ -347,7 +379,8 @@ def skin_texels(R, P, N, region, side, charts):
     for a0, a1 in (((0.060, 0.010), (0.018, -0.006)), ((0.058, -0.014), (0.012, 0.010)), ((0.040, 0.026), (0.004, 0.018)),
                    ((0.030, -0.020), (0.030, 0.022))):
         dvn = _poly_dist(u + 0.0015 * T.noise(Q, 1 / 0.02, 290), v, [a0, ((a0[0] + a1[0]) / 2, (a0[1] + a1[1]) / 2 + 0.004), a1])
-        vein = np.maximum(vein, np.exp(-(dvn / 0.0032) ** 2) * back * (0.65 + 0.35 * T.noise(Q, 1 / 0.012, 291)))
+        # second pass: the hand's veins stand higher than the forearm's (0.8 mm against 0.42)
+        vein = np.maximum(vein, 1.9 * np.exp(-(dvn / 0.0030) ** 2) * back * (0.65 + 0.35 * T.noise(Q, 1 / 0.012, 291)))
     fore = (~up) & (s > 0.03)
     for i, (a0, wander, ph, s0, s1, wd) in enumerate(X.VEINS):
         path = a0 + wander * np.sin(s * 17 + ph) + 0.10 * T.noise(np.stack([s * 30, s * 0 + i, s * 0], 1), 1.0, 9)
@@ -355,9 +388,10 @@ def skin_texels(R, P, N, region, side, charts):
         vis = T.smoothstep(s0, s0 + 0.025, s) * T.smoothstep(s1, s1 - 0.03, s) * fore
         vein = np.maximum(vein, 0.75 * np.exp(-(d / (wd * 1.5)) ** 2) * vis * (0.6 + 0.4 * T.noise(P, 1 / 0.02, 292 + i)))
     h += 0.00042 * vein
-    bc *= (1 - 0.035 * vein)[:, None]
-    bc[:, 0] *= 1 - 0.03 * vein
-    bc[:, 2] *= 1 + 0.05 * vein
+    vc = np.clip(vein, 0, 1)
+    bc *= (1 - 0.05 * vc)[:, None]
+    bc[:, 0] *= 1 - 0.05 * vc
+    bc[:, 2] *= 1 + 0.09 * vc
 
     # ---- microrelief: skin-line grooves, fine creases across the limb, light pores
     f1, f2 = T.cells(P, 1 / 0.0011, 211)
@@ -387,10 +421,12 @@ def skin_texels(R, P, N, region, side, charts):
     b_ = np.cross(M, t_)
     Hq = np.stack([np.einsum("ij,ij->i", P, t_) / 0.0035, np.einsum("ij,ij->i", P, b_) / 0.00035,
                    np.einsum("ij,ij->i", P, M) / 0.0035], axis=1)
-    strand = T.smoothstep(0.46, 0.74, T.noise(Hq, 1.0, 216)) * np.clip(dens, 0, 1)
-    HAIR = np.array([0.012, 0.009, 0.007], dtype=np.float32)
-    bc = bc * (1 - 0.45 * strand)[:, None] + HAIR[None] * (0.45 * strand)[:, None]
-    h += 0.000010 * strand
+    # second pass ("no fine hair at 30-60 cm"): sparser but darker and longer strands (5 mm), standing 30 um
+    Hq[:, 0] *= 0.7
+    strand = T.smoothstep(0.52, 0.70, T.noise(Hq, 1.0, 216)) * np.clip(dens, 0, 1)
+    HAIR = np.array([0.008, 0.006, 0.005], dtype=np.float32)
+    bc = bc * (1 - 0.70 * strand)[:, None] + HAIR[None] * (0.70 * strand)[:, None]
+    h += 0.000030 * strand
 
     # ---- warmth: better-perfused fingertips and knuckles
     warm = onhand * (lab > 0) * T.smoothstep(0.03, 0.06, tt)
@@ -434,14 +470,19 @@ def skin_texels(R, P, N, region, side, charts):
         col = col * (1 - 0.35 * lun)[:, None] + LUNULA[None] * (0.35 * lun)[:, None]
         r3 = np.array([R.chain[C.FINGERS[max(l - 1, 0)]]["r"][3] for l in ln])
         tipd = (L3 + 0.78 * r3) - alongn
-        edge = T.smoothstep(0.0009, 0.0003, tipd)
-        col = col * (1 - 0.8 * edge)[:, None] + FREE_EDGE[None] * (0.8 * edge)[:, None]
+        edge = T.smoothstep(0.0014, 0.0008, tipd)
+        col = col * (1 - 0.7 * edge)[:, None] + FREE_EDGE[None] * (0.7 * edge)[:, None]
         col *= (1 - 0.18 * T.smoothstep(0.35, 0.95, np.abs(_cd)))[:, None]
         bc[nail] = col
         rough[nail] = 0.35 + 0.04 * T.fbm(P[nail], 1 / 0.003, 2, seed=97) + 0.06 * edge
         Qn = Q[nail]
         ridges = T.noise(np.stack([Qn @ R.lat / 0.00025, Qn @ R.fwd / 0.02, Qn[:, 2] * 0], 1), 1.0, 98)
         h[nail] = 0.000006 * ridges
+    if want_mask:
+        # second pass: where the tiling pore detail applies in Unreal (ORM blue): skin, not the palm, the finger
+        # pads or the nails
+        dmask = np.clip(1.0 - pal, 0, 1) * (reg != 3)
+        return bc.astype(np.float32), np.clip(rough, 0.25, 0.85).astype(np.float32), h.astype(np.float32), dmask.astype(np.float32)
     return bc.astype(np.float32), np.clip(rough, 0.25, 0.85).astype(np.float32), h.astype(np.float32)
 
 

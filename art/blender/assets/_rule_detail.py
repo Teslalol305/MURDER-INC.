@@ -55,16 +55,19 @@ def height(seed=7, n=RES):
     # skin lines: the edges of a cell network about 1 mm across
     f1, f2 = _cells(rng, n, int((DETAIL_TILE_M / 0.0011) ** 2))
     edge = np.clip(1.0 - (f2 - f1) / 3.0, 0, 1) ** 2
-    h -= 18e-6 * edge
+    h -= 24e-6 * edge                     # second pass: 24 um (18 did not read at 30-60 cm)
     # a second, finer and shallower network (the triangles inside the large cells)
     g1, g2 = _cells(rng, n, int((DETAIL_TILE_M / 0.00045) ** 2))
     h -= 9e-6 * np.clip(1.0 - (g2 - g1) / 2.0, 0, 1) ** 2
     # pores: small pits at the cell nodes and scattered between, 0.10-0.18 mm
     p1, _ = _cells(rng, n, int((DETAIL_TILE_M / 0.00055) ** 2))
-    r_px = 0.000065 / px_m
-    h -= 26e-6 * np.exp(-(p1 / r_px) ** 2)
+    r_px = 0.000080 / px_m
+    h -= 40e-6 * np.exp(-(p1 / r_px) ** 2)            # second pass: 0.16 mm, 40 um (0.13 mm, 26 um)
     # the skin's soft relief between the lines
     h += 6e-6 * _band_noise(rng, n, 8, 40)
+    # second pass: the breakup at 2-4 mm that the eye reads as "skin" at arm's length (the review asked for detail
+    # at that scale): a soft undulation 12 um deep
+    h += 12e-6 * _band_noise(rng, n, int(0.002 / px_m), int(0.004 / px_m))
     return h.astype(np.float32), px_m
 
 

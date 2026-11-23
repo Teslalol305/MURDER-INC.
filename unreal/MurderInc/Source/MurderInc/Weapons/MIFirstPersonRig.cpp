@@ -5,6 +5,7 @@
 #include "Camera/CameraComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Core/Data/MIDataSubsystem.h"
 #include "Core/Data/MILoadoutData.h"
 #include "Dom/JsonObject.h"
 #include "Engine/SkeletalMesh.h"
@@ -313,6 +314,47 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 		}
 		LeftSocket = FName(*MIJson::StringOr(Set, TEXT("ik.left")));
 		RightSocket = FName(*MIJson::StringOr(Set, TEXT("ik.right")));
+		// The solved grip (Content/Data/grips.json, written by art/blender/assets/_rule_grips.py): both hands' joint
+		// points in the gun's space. Hands-and-tattoos second pass: the template pistol idle alone rested the NINE on a
+		// flat support hand with the firing fingers straight under the frame.
+		GripPoints[0].Reset();
+		GripPoints[1].Reset();
+		GripWeight = MIJson::NumberOr(Set, TEXT("grip.weight"), 1.0);
+		const FString GripKey = MIJson::StringOr(Set, TEXT("grip.gun"));
+		TSharedPtr<FJsonObject> Grips;
+		FString GripError;
+		if (!GripKey.IsEmpty() && UMIDataSubsystem::LoadJsonFile(TEXT("grips.json"), Grips, GripError))
+		{
+			const FString Pose = MIJson::StringOr(Set, TEXT("grip.pose"), TEXT("hip"));
+			for (int32 S = 0; S < 2; ++S)
+			{
+				const TSharedPtr<FJsonObject> Pts = Obj(Grips, FString::Printf(TEXT("guns.%s.%s.%s"), *GripKey, *Pose, S == 0 ? TEXT("l") : TEXT("r")));
+				if (!Pts)
+				{
+					continue;
+				}
+				const TCHAR* Side = S == 0 ? TEXT("_l") : TEXT("_r");
+				TArray<FString> Names = {FString(TEXT("hand")) + Side};
+				for (const TCHAR* F : {TEXT("thumb"), TEXT("index"), TEXT("middle"), TEXT("ring"), TEXT("pinky")})
+				{
+					Names.Add(FString::Printf(TEXT("%s_metacarpal%s"), F, Side));
+					for (int32 K = 1; K <= 3; ++K)
+					{
+						Names.Add(FString::Printf(TEXT("%s_%02d%s"), F, K, Side));
+					}
+					Names.Add(FString::Printf(TEXT("%s_tip%s"), F, Side));
+				}
+				for (const FString& N : Names)
+				{
+					const TArray<TSharedPtr<FJsonValue>>* A = nullptr;
+					if (Pts->TryGetArrayField(N, A) && A->Num() == 3)
+					{
+						GripPoints[S].Add(FName(*N), FVector((*A)[0]->AsNumber(), (*A)[1]->AsNumber(), (*A)[2]->AsNumber()));
+					}
+				}
+			}
+			UE_LOG(LogTemp, Log, TEXT("First person: grip %s/%s, %d + %d points"), *GripKey, *Pose, GripPoints[0].Num(), GripPoints[1].Num());
+		}
 		Mode = EMIFPMode::HandIK;
 		UseRealArms(true);
 		Arms->SetAnimationMode(EAnimationMode::AnimationBlueprint);
@@ -583,18 +625,35 @@ bool UMIFirstPersonRig::HandSocket(FName Socket, FTransform& Out) const
 	{
 		return false;
 	}
-	if (Arms->DoesSocketExist(Socket))
+	// The arms' own socket (SK_RuleArms carries HandGrip_R since its re-import), else the template body's socket
+	// (same skeleton) on the same bone.
+	const USkeletalMesh* ArmsAsset = Cast<USkeletalMesh>(Arms->GetSkinnedAsset());
+	const USkeletalMeshSocket* S = ArmsAsset ? ArmsAsset->FindSocket(Socket) : nullptr;
+	if (!S && TemplateBody)
+	{
+		S = TemplateBody->FindSocket(Socket);
+	}
+	if (!S && Arms->DoesSocketExist(Socket))
 	{
 		Out = Arms->GetSocketTransform(Socket, RTS_Component);
 		return true;
 	}
-	// SK_RuleArms carries no HandGrip_R: the template body's socket (same skeleton) on the same bone.
-	const USkeletalMeshSocket* S = TemplateBody ? TemplateBody->FindSocket(Socket) : nullptr;
 	if (!S || Arms->GetBoneIndex(S->BoneName) == INDEX_NONE)
 	{
 		return false;
 	}
-	Out = S->GetSocketLocalTransform() * Arms->GetBoneTransform(Arms->GetBoneIndex(S->BoneName), FTransform::Identity);
+	// HandIK guns: the hand as the clips posed it, before the IK and the solved grip; the posed bone would feed the
+	// grip's turn of the hand back into the arms' placement every frame (second pass: the NINE's forearm swung up in
+	// front of the eye)
+	FTransform Bone = Arms->GetBoneTransform(Arms->GetBoneIndex(S->BoneName), FTransform::Identity);
+	if (Mode == EMIFPMode::HandIK)
+	{
+		if (const UMIFPAnimInstance* AI = Cast<UMIFPAnimInstance>(Arms->GetAnimInstance()))
+		{
+			AI->GetPreIKHand(S->BoneName, Bone);
+		}
+	}
+	Out = S->GetSocketLocalTransform() * Bone;
 	return true;
 }
 
@@ -939,6 +998,17 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 		IK.Target = Gun->GetSocketTransform(Socket).GetRelativeTransform(ArmsWorld);
 		IK.Weight = 1.f;
 		IK.bRotation = false;  // the template clip's hand shape and wrist stay; only the palm moves onto the gun
+		// the solved grip, when there is one: the hand turned and placed as solved, each finger closed onto the gun
+		const TMap<FName, FVector>& Pts = GripPoints[FCString::Strcmp(H, TEXT("hand_l")) == 0 ? 0 : 1];
+		if (!Pts.IsEmpty() && GripWeight > 0.0)
+		{
+			const FTransform GunWorld = Gun->GetComponentTransform();
+			for (const TPair<FName, FVector>& KV : Pts)
+			{
+				IK.Shape.Add(KV.Key, ArmsWorld.InverseTransformPosition(GunWorld.TransformPosition(KV.Value)));
+			}
+			IK.ShapeWeight = static_cast<float>(GripWeight);
+		}
 	};
 	Pull(LeftSocket, TEXT("upperarm_l"), TEXT("lowerarm_l"), TEXT("hand_l"), TEXT("middle_metacarpal_l"));
 	Pull(RightSocket, TEXT("upperarm_r"), TEXT("lowerarm_r"), TEXT("hand_r"), TEXT("middle_metacarpal_r"));
@@ -952,6 +1022,7 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 		FMIFPHandIK& L = HandPose.Hands[0];
 		const double K = FMath::Clamp(FMath::Min(ReloadNowT, ReloadNowLeft) / 0.15, 0.0, 1.0);
 		L.Target.SetLocation(FMath::Lerp(L.Target.GetLocation(), Base.GetRelativeTransform(ArmsWorld).GetLocation(), MIFirstPersonRigPrivate::Smooth(K)));
+		L.ShapeWeight *= static_cast<float>(1.0 - MIFirstPersonRigPrivate::Smooth(K));  // the support grip lets go
 	}
 	AI->SetPose(HandPose);
 }

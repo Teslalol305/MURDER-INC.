@@ -174,4 +174,6 @@ private:
 	FVector MagPrev = FVector::ZeroVector, MagVel = FVector::ZeroVector;
 	FMIFPPose HandPose;
 	FName LeftSocket, RightSocket;
+	TMap<FName, FVector> GripPoints[2];  // HandIK guns: the solved grip's points (gun space, cm), [0] left, [1] right
+	double GripWeight = 1.0;
 };
