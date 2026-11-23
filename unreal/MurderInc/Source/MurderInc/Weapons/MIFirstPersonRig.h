@@ -134,6 +134,10 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMesh> CasingMesh;
 	UPROPERTY(Transient)
+	TObjectPtr<UAnimSequenceBase> CurlClip;  // HandIK guns: the support fingers' wrap (anim set fingerCurl)
+	FName CurlBranch;
+	double CurlTime = 0.0, CurlWeight = 1.0;
+	UPROPERTY(Transient)
 	TObjectPtr<USkeletalMesh> TemplateBody;
 	UPROPERTY(Transient)
 	TObjectPtr<USkeletalMesh> RealArms;
@@ -145,7 +149,8 @@ private:
 	FReloadMap ReloadTactical, ReloadEmpty;
 	EMIFPMode Mode = EMIFPMode::Template;
 	double IronZeroDeg = 0.0;
-	FQuat IronZero = FQuat::Identity;  // the irons' zeroing turn of the gun in hand (reset on equip)
+	FQuat IronZero = FQuat::Identity;
+	FVector SupportElbowDrop = FVector::ZeroVector;  // anim set supportElbowDrop (arms component space, cm)  // the irons' zeroing turn of the gun in hand (reset on equip)
 	FName GunId;
 	FTransform ArmsRest = FTransform::Identity;
 	double FovIrons = 38.0, FovOptic = 32.0;

@@ -19,6 +19,7 @@ struct FMIFPLayer
 	float Weight = 1.f;
 	bool bAdditive = false;
 	float RefTime = 0.f;
+	FName Branch = NAME_None;  // when set: only the bones below this one take the clip (e.g. hand_l: the fingers)
 };
 
 /** A hand pulled onto a point of the gun (component space of the arms): two-bone IK of upper arm, forearm, hand. */
@@ -29,6 +30,8 @@ struct FMIFPHandIK
 	FTransform Target;   // the wanted component-space transform
 	float Weight = 0.f;
 	bool bRotation = true;
+	bool bKeepHand = false;            // the hand stays where the clip put it; only the elbow moves (PoleShift)
+	FVector PoleShift = FVector::ZeroVector;  // component space, added to the clip's own pole (elbow down: -Z)
 };
 
 struct FMIFPPose

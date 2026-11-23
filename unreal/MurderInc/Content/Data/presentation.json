@@ -59,6 +59,8 @@
         "sprintSpeed": 640,
         "fireWeight": 0.55,
         "fireRate": 1.2,
+        "supportElbowDrop": [0, 0, -45],
+        "supportElbowDropNote": "aimed: the support arm's pole moved this far (arms component space, cm; -Z down) by smoothstep(Ads), the hand kept on the handguard: the forearm drops out of the sight picture",
         "drawRange": 0.53,
         "meleeRange": 1.0,
         "reloads": {
@@ -128,6 +130,13 @@
         "magazine": {
           "full": "/Game/Weapons/Nine/SM_Weapon_NineMagazine.SM_Weapon_NineMagazine",
           "socket": "magazine"
+        },
+        "fingerCurl": {
+          "clip": "/Game/ThirdParty/InfimaTFA/Character/FP/Locomotion/A_TFA_FP_AR_Idle_Loop_Standing.A_TFA_FP_AR_Idle_Loop_Standing",
+          "branch": "hand_l",
+          "time": 0.0,
+          "weight": 1.0,
+          "note": "the support hand's fingers only (the bones below hand_l) from the pack's rifle idle, wrapped round a 5 cm handguard as they now wrap the firing hand; optional: without the pack the fingers keep the template pose"
         },
         "note": "The NINE: the engine template's pistol clips (third person, the only pistol clips there are) on SK_RuleArms placed on the gun's grip as before; both palms pulled onto SK_Nine's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its slide, barrel, trigger and magazine (ANIMATION.md 4, 'The NINE')."
       }

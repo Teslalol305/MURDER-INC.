@@ -44,11 +44,11 @@ namespace MIFirstPersonAnimPrivate
 		const FTransform E0 = ET;
 		const FCompactPoseBoneIndex PalmIdx = Index(H.Palm);
 		const FVector PalmOffset = PalmIdx.IsValid() ? CS.GetComponentSpaceTransform(PalmIdx).GetLocation() - ET.GetLocation() : FVector::ZeroVector;
-		const FVector Effector = FMath::Lerp(ET.GetLocation(), H.Target.GetLocation() - PalmOffset, H.Weight);
-		// The elbow keeps bending the way the clip bends it.
-		const FVector Pole = LT.GetLocation() + (LT.GetLocation() - (UT.GetLocation() + ET.GetLocation()) * 0.5) * 2.0;
+		const FVector Effector = H.bKeepHand ? ET.GetLocation() : FMath::Lerp(ET.GetLocation(), H.Target.GetLocation() - PalmOffset, H.Weight);
+		// The elbow keeps bending the way the clip bends it (moved by PoleShift x Weight when asked).
+		const FVector Pole = LT.GetLocation() + (LT.GetLocation() - (UT.GetLocation() + ET.GetLocation()) * 0.5) * 2.0 + H.PoleShift * H.Weight;
 		AnimationCore::SolveTwoBoneIK(UT, LT, ET, Pole, Effector, false, 1.0, 1.0);
-		if (H.bRotation)
+		if (H.bRotation && !H.bKeepHand)
 		{
 			ET.SetRotation(FQuat::Slerp(E0.GetRotation(), H.Target.GetRotation(), H.Weight).GetNormalized());
 		}
@@ -82,6 +82,32 @@ bool FMIFPAnimProxy::Evaluate(FPoseContext& Output)
 			const FAnimationPoseData AddData(A);
 			FAnimationRuntime::AccumulateAdditivePose(OutData, AddData, L.Weight, AAT_LocalSpaceBase);
 			Output.Pose.NormalizeRotations();
+			continue;
+		}
+		if (!L.Branch.IsNone())
+		{
+			// Only the bones below Branch (the fingers under hand_l), blended in local space.
+			const FBoneContainer& Bones = Output.Pose.GetBoneContainer();
+			const int32 RootRef = Bones.GetPoseBoneIndexForBoneName(L.Branch);
+			if (RootRef == INDEX_NONE)
+			{
+				continue;
+			}
+			const FCompactPoseBoneIndex Root = Bones.MakeCompactPoseIndex(FMeshPoseBoneIndex(RootRef));
+			FPoseContext T(Output);
+			Sample(L, L.Time, T);
+			for (const FCompactPoseBoneIndex I : Output.Pose.ForEachBoneIndex())
+			{
+				bool bBelow = false;
+				for (FCompactPoseBoneIndex P = Output.Pose.GetParentBoneIndex(I); P.IsValid(); P = Output.Pose.GetParentBoneIndex(P))
+				{
+					if (P == Root) { bBelow = true; break; }
+				}
+				if (bBelow)
+				{
+					Output.Pose[I].BlendWith(T.Pose[I], L.Weight);
+				}
+			}
 			continue;
 		}
 		if (bFirst || L.Weight >= 0.999f)

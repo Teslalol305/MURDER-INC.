@@ -287,13 +287,28 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 	SprintSpeed = Num(Set, TEXT("sprintSpeed"), 640.0);
 	FireWeight = Num(Set, TEXT("fireWeight"), 0.6);
 	FireRate = Num(Set, TEXT("fireRate"), 1.0);
+	SupportElbowDrop = FVector::ZeroVector;
+	if (const TSharedPtr<FJsonValue> E = MIJson::Get(Set, TEXT("supportElbowDrop")); E.IsValid() && E->Type == EJson::Array && E->AsArray().Num() == 3)
+	{
+		SupportElbowDrop = FVector(E->AsArray()[0]->AsNumber(), E->AsArray()[1]->AsNumber(), E->AsArray()[2]->AsNumber());
+	}
 	DrawRange = Num(Set, TEXT("drawRange"), 0.53);
 	MeleeRange = Num(Set, TEXT("meleeRange"), 1.0);
 	InspectAfter = Resolved ? Resolved->Def.InspectAfter : 24.0;
 	CasingMesh = LoadAs<UStaticMesh>(MIJson::StringOr(Set, TEXT("casing")));
 
+	CurlClip = nullptr;
 	if (Kind == TEXT("ik"))
 	{
+		// Optional finger curl (another clip on the same skeleton; absent in a clean checkout: no curl, no fallback).
+		if (UAnimSequenceBase* C = LoadAs<UAnimSequenceBase>(MIJson::StringOr(Set, TEXT("fingerCurl.clip"))); C && C->GetSkeleton() == ArmsMesh->GetSkeleton())
+		{
+			CurlClip = C;
+			CurlBranch = FName(*MIJson::StringOr(Set, TEXT("fingerCurl.branch"), TEXT("hand_l")));
+			CurlTime = MIJson::NumberOr(Set, TEXT("fingerCurl.time"), 0.0);
+			CurlWeight = MIJson::NumberOr(Set, TEXT("fingerCurl.weight"), 1.0);
+			Loaded.Add(C);
+		}
 		LeftSocket = FName(*MIJson::StringOr(Set, TEXT("ik.left")));
 		RightSocket = FName(*MIJson::StringOr(Set, TEXT("ik.right")));
 		Mode = EMIFPMode::HandIK;
@@ -586,6 +601,15 @@ void UMIFirstPersonRig::Update(double Dt, const FMIWeaponView& W, const FMIViewm
 		{
 			HandPose.Layers.Add({Fire, static_cast<float>(FireAge), static_cast<float>(FireWeight), true, 0.f});
 		}
+		// The support hand's fingers curled round the firing hand (a wrapping grip from another clip, fingers only).
+		if (CurlClip)
+		{
+			FMIFPLayer& Curl = HandPose.Layers.AddDefaulted_GetRef();
+			Curl.Clip = CurlClip;
+			Curl.Time = static_cast<float>(CurlTime);
+			Curl.Weight = static_cast<float>(CurlWeight);
+			Curl.Branch = CurlBranch;
+		}
 		return;  // the hands come in UpdateHands, after the arms are placed on the grip
 	}
 	if (Mode != EMIFPMode::Pack || !AI || !PackGun)
@@ -756,6 +780,18 @@ void UMIFirstPersonRig::BuildPack(double Dt, const FMIWeaponView& W, const FMIVi
 	if (UAnimSequenceBase* C = ArmsClip(bFireAimed && ArmsClip(TEXT("fireAimed")) ? FName(TEXT("fireAimed")) : FName(TEXT("fire"))); C && FireAge < Len(C))
 	{
 		Out.Layers.Add({C, static_cast<float>(FireAge), static_cast<float>(FireWeight * (1.0 - ActionWeight)), true, 0.f});
+	}
+	// --- aimed, the support elbow drops (the hand stays on the handguard): the forearm leaves the sight picture
+	// instead of lying across a quarter of the screen (review 2026-11-23; presentation animSets.rifle.supportElbowDrop)
+	if (!SupportElbowDrop.IsNearlyZero() && W.Ads > 0.0)
+	{
+		FMIFPHandIK& IK = Out.Hands.AddDefaulted_GetRef();
+		IK.Upper = TEXT("upperarm_l");
+		IK.Lower = TEXT("lowerarm_l");
+		IK.Hand = TEXT("hand_l");
+		IK.bKeepHand = true;
+		IK.PoleShift = SupportElbowDrop;
+		IK.Weight = static_cast<float>(Smooth(W.Ads) * (1.0 - ActionWeight));
 	}
 
 	// --- the gun: its reference pose, the reload / inspect / check clip at the same time, the bolt per round
