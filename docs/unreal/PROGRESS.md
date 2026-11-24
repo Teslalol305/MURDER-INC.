@@ -3,6 +3,55 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Version 2 re-zipped after reading E3DS's own documentation (2026-11-24, 22:05 UTC)
+
+**The zip to upload: sha256 `ceaf828d10a8b3d7997e8b76ccaa7701e87a8f5dab7f488a1976a3b7944674c5`, 2,254,912,173 bytes**,
+nine parts (`MurderInc-E3DS-v2b-part<k>-of-9.zip` in the owner's storage), game binaries and paks unchanged
+(`e989cb8`), launcher `f827e1b`. It replaces `82ed886a…` (same game, older launcher), which was never uploaded to
+E3DS. Checked: downloaded back with the exact command given to the owner, joined, the same sha256, `unzip -t` clean,
+the launcher in the zip identical to the repository's, executable bits kept, no `Saved/`.
+
+**Why.** E3DS's documentation (docs.eagle3dstreaming.com) was not reachable from this session until the owner
+allowed the host on 2026-11-24 (the earlier research worked from search extracts). Read in full, it says:
+
+- *FAQ*: "These are always sent: `-PixelStreamingURL=`, `-PixelStreamingID=`, `-AudioMixer`, `-log`, `-Unattended`,
+  `-StdOut`, `-FullStdOutLogOutput` and `-ABSLOG=`." E3DS names the log file and takes its crash-log email from it.
+  A Shipping game writes nothing there: version 1's "no crashlog was found". The `82ed886a…` launcher wrote its log
+  only into the app's own `Saved/Logs`, so a failing test would again have produced no log.
+- *Command-line parameters*: "`-RenderOffScreen` ... Eagle 3D Streaming does not add it by default", while E3DS's
+  own Linux test script adds it. Version 1's launcher (the engine's, plus `-MICloud`) did not. **Box run
+  `s-nodisp-noRO` (version 1, no display, no `-RenderOffScreen`): exit 1 after 2.4 s, nothing but an
+  `XDG_RUNTIME_DIR` line.** This is the only cause that reproduces version 1's report exactly (dead in seconds, no
+  log); the launcher has added `-RenderOffScreen` since the first version-2 zip. Still not proven (no E3DS log
+  exists); the SM6 driver check and graphics memory stay possible on some machines and are handled as before.
+- *Linux streaming*: "Linux uploads are not stream-tested"; Linux machines are not kept warm and every session
+  copies the whole zip; the stream link of a Linux app is on `connector_linux.eagle3dstreaming.com`.
+
+**Launcher changes** (`tools/box/cloud/MurderInc.sh`, `036ee74` and `f827e1b`): `-ABSLOG=<file>` is taken from the
+arguments (any case, quotes stripped) and not passed on; every line of the launcher (system report, how the game
+ended, the crash report) and every line the game prints go to that file as well as to `Saved/Logs` and to the
+launcher's own output; if that file is the Development game's own log, only the closing lines are appended after
+the game ends; SIGPIPE ignored (a host that stops reading the output cannot kill the launcher); executable bit set
+in the `sh` fallback too.
+
+**Verified on box ec087d85**, with E3DS's documented argument list (`-PixelStreamingURL=ws://127.0.0.1:8888
+-PixelStreamingID=e3dstest -AudioMixer -log -Unattended -StdOut -FullStdOutLogOutput -ABSLOG=<file>
+-AllowPixelStreamingCommands -Windowed -ForceRes -ResX=1920 -ResY=1080 -PixelStreamingEncoderCodec=H264
+-PixelStreamingWebRTCMaxBitrate=20000000 -PixelStreamingEncoderMinQP=18 -PixelStreamingEncoderMaxQP=36`), no display:
+
+| Run | Result |
+|---|---|
+| x1-ship: Shipping, fresh user | SM6, Nanite and Lumen on, "the default streamer has its video source"; TERM to the launcher: exit 0; the `-ABSLOG` file holds the launcher's report, the game's lines and the ending (70 lines) |
+| x2-crash: `-MICrashTest=20` | exit 139; the `-ABSLOG` file ends with `CRASH: ... signal 11 (SIGSEGV)` and the engine's report with the call stack (`UMICloudSubsystem::Tick ... MICloud.cpp:520`) |
+| x3-dev: `-MIDev` | the `-ABSLOG` file holds the full engine log (1,675 lines in 30 s): `PixelStreaming2.ID` set to `e3dstest` from the command line, `PixelStreamingURL is a legacy setting and has been converted to PixelStreamingConnectionURL`, `Conference::CreateSession. Id=[e3dstest], Url=[ws://127.0.0.1:8888]`, `Local participant joined the room. roomId=[e3dstest]`; TERM: exit 0 |
+| x4-root: launcher started as root, `-ABSLOG` in a root-only folder | the launcher writes the file, the game runs as `nobody`; TERM: exit 0 |
+| fake game, ten cases | `-abslog=` in any case and quoted; crash (139) and exit code 3 passed on; unwritable file reported and the game still runs; output closed or read by `head -1`: the launcher survives; started by `sh`; no `-ABSLOG=` |
+
+**Still not known until the owner's E3DS test:** whether E3DS's signalling accepts Pixel Streaming 2 of 5.9 and a
+picture reaches the browser (the box cannot test WebRTC), the GPU and driver of E3DS's Linux machines, the start-up
+wait. The log now answers the first two in one session. The launch pre-flight (four reviews against E3DS's
+documentation, `tools/workflows/mi-launch-preflight-wf_eb57e899-664.js`) is collected in `docs/unreal/PREFLIGHT.md`.
+
 ## E3DS crash fix (release engineer, 2026-11-24, evening) — version 2 packaged, verified on the box and in the owner's storage; root cause not proven
 
 **What happened on E3DS.** Version 1 (the zip of `0f23081`, sha256 `8378eedd…e570a`) passed E3DS's upload check

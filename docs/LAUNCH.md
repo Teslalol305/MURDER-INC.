@@ -9,14 +9,14 @@ preview version**. E3DS lists support up to 5.8 for the original streaming plugi
 (Pixel Streaming 2, which we use), and it does **not** test Linux uploads before you stream them. So the free trial
 is the real test: do steps 1 to 6 on the trial before paying for anything.
 
-**The build to upload** is **version 2** of 2026-11-24 (sha256 `82ed886a...`, nine parts, section 9): the E3DS
+**The build to upload** is **version 2** of 2026-11-24 (sha256 `ceaf828d...`, nine parts, section 9): the E3DS
 crash fix. Version 1 (sha256 `8378eedd...`) passed E3DS's upload check but crashed in every session, with no log; it
 is superseded, as is the zip of 2026-11-23 (`4ff06998...`). Upload version 2 as a **new version of the existing
 build `MurderInc`** (section 9, step 5). Every start now writes a log on the server (section 13).
 
 ## What you need
 
-- The game file: **`MurderInc-E3DS-v2.zip`** (about 2.3 GB), in your Higgsfield storage in nine parts: join them
+- The game file: **`MurderInc.zip`** (about 2.3 GB), in your Higgsfield storage in nine parts: join them
   first (section 9).
 - Google Chrome or Microsoft Edge (Safari cannot lock the mouse and keyboard to the game).
 - About 2.5 GB of upload; a wired connection helps.
@@ -34,7 +34,7 @@ build `MurderInc`** (section 9, step 5). Every start now writes a log on the ser
 2. **Platform: Linux.** (Not Windows: the game is a Linux build.)
 3. **App name: `MurderInc`**, exactly like that: capital M, capital I, no space. E3DS finds the game by this name:
    it must match the launch file `MurderInc.sh` inside the zip.
-4. Choose the joined zip (`MurderInc-E3DS-v2.zip`, section 9) and upload it. The upload is checked only for the
+4. Choose the joined zip (`MurderInc.zip`, section 9) and upload it. The upload is checked only for the
    streaming plugin's files; if it is refused at this point, see section 8. **If the build `MurderInc` already
    exists** (version 1 was uploaded on 2026-11-24), upload the zip as a new version of it instead: section 9, step 5.
 
@@ -137,12 +137,14 @@ Paste this where the game should appear (replace the `src` with your share link)
 
 The zip of **2026-11-24, version 2** (the E3DS crash fix, commit `e989cb8`) is in your Higgsfield storage,
 private to your account, in **9 parts** (the storage takes at most about 250 MB per file). They are named
-`MurderInc-E3DS-v2-part1-of-9.zip` to `MurderInc-E3DS-v2-part9-of-9.zip`; **the parts are not zips on their own**: put them back
-together first. The joined file is 2,254,911,244 bytes (about 2.3 GB); unpacked, the game is 2.7 GB.
+`MurderInc-E3DS-v2b-part1-of-9.zip` to `MurderInc-E3DS-v2b-part9-of-9.zip`; **the parts are not zips on their own**: put them back
+together first. The joined file is 2,254,912,173 bytes (about 2.3 GB); unpacked, the game is 2.7 GB.
 The ten parts of version 1 (`MurderInc-E3DS-part1-of-10.zip` ..., sha256 `8378eedd…`) are superseded: do not upload
-them again. Your storage also holds an earlier upload of version 2 under the same nine names (joined sha256
-`a57e2288…`, made before the last launcher fixes): ignore or delete it. Use the links of the release report; the
-rename step below only accepts the right parts.
+them again. Your storage also holds two earlier uploads of version 2 (`MurderInc-E3DS-v2-part<k>-of-9.zip`, joined
+sha256 `a57e2288…` and `82ed886a…`: the same game with older launchers, which did not write E3DS's own log file):
+ignore or delete them. Use the links of the release report; the rename step below only accepts the right parts.
+The joined file is called `MurderInc.zip` on purpose: E3DS names a build after the file, and a Linux build's name
+must be its launcher's name (`MurderInc.sh`).
 
 1. Download the 9 parts into one empty folder (Higgsfield, your files/media library; the direct download links are
    in Claude's release report of 2026-11-24, version 2, or ask Claude for them). They are not written here because
@@ -155,19 +157,19 @@ rename step below only accepts the right parts.
    ```
    for f in *.zip; do
      case "$(shasum -a 256 "$f" | cut -d' ' -f1)" in
-       91056cbebc23cfc748de5bb1ceba44d5d8915e4c37bbec58ddcaee954807049c) mv "$f" MurderInc-E3DS-v2-part1-of-9.zip ;;
-       3c7380106b12aaa178571ab2764a3920e821338f797c3bfa52f1b1cbf708df91) mv "$f" MurderInc-E3DS-v2-part2-of-9.zip ;;
-       72759de75256274f6df2e3cde1c01d50329a8b71e3166e357848cc1dfbcac4c8) mv "$f" MurderInc-E3DS-v2-part3-of-9.zip ;;
-       2d6f6f42a5c0196ce4244e5cafcf3748d2ec97a878f3eee8aac53611642cd56f) mv "$f" MurderInc-E3DS-v2-part4-of-9.zip ;;
-       7ddc45f40d89fb949ed3e38bc7d6a88b0c186cb1faa1be72945bc9266cab6849) mv "$f" MurderInc-E3DS-v2-part5-of-9.zip ;;
-       f4d8ab7529f6f00aceaa337e3b8437e2bce00e5da1d8115931704fd5f6a399eb) mv "$f" MurderInc-E3DS-v2-part6-of-9.zip ;;
-       210d0b539a5ffa0f9ce8ef6e481ee96e4f581694ca36cb9fc187d34d3d61b923) mv "$f" MurderInc-E3DS-v2-part7-of-9.zip ;;
-       b934e5ad18eec056e12401c8aaf330b05a735b130d8a4d9606bc8c913207de26) mv "$f" MurderInc-E3DS-v2-part8-of-9.zip ;;
-       345788d9819e58dc9c2e0b33dcb8cc75d3b39e2d91b60e71b26a7e5b07215e87) mv "$f" MurderInc-E3DS-v2-part9-of-9.zip ;;
+       5d4627fc22ab913e8551a99093f2b49b9abc05dede870425c251194a17138da4) mv "$f" MurderInc-E3DS-v2b-part1-of-9.zip ;;
+       7310851ba820c53b73eaeebb5bc0cf6524ae516654f9e74fe61b9dbd3cead106) mv "$f" MurderInc-E3DS-v2b-part2-of-9.zip ;;
+       f84079f3c16b65d0c0d8325d731990b6aa5a6c1c6815926b3cdf9626bd72f2a4) mv "$f" MurderInc-E3DS-v2b-part3-of-9.zip ;;
+       83b64ca6de7c72209d271f534089172523c6fa4d4b1b9b9b9d54649d6fb57f6f) mv "$f" MurderInc-E3DS-v2b-part4-of-9.zip ;;
+       5d07e67a5fe4c6f86103ee87cddcdc78a805c1fdc1c7f9f41357588e55a7e304) mv "$f" MurderInc-E3DS-v2b-part5-of-9.zip ;;
+       1332ca38d21dd230797ea5207907fbf8b84f37809c90677497b6188c92a3c805) mv "$f" MurderInc-E3DS-v2b-part6-of-9.zip ;;
+       6c8c1f3e87c89447797603e5506e2f35ea9d19b43f08c747472dc3338995b152) mv "$f" MurderInc-E3DS-v2b-part7-of-9.zip ;;
+       2d650732c1d2167510b55a17f150cd9bce14174a70f4526a4db2a6754444cd64) mv "$f" MurderInc-E3DS-v2b-part8-of-9.zip ;;
+       f5289a9c2860aa6bb067488cf315416065196cb2c2d9954c3955343d3c084fdc) mv "$f" MurderInc-E3DS-v2b-part9-of-9.zip ;;
        *) echo "not a part (or incomplete, download again): $f" ;;
      esac
    done
-   ls MurderInc-E3DS-v2-part*
+   ls MurderInc-E3DS-v2b-part*
    ```
 
    It must list 9 parts. On Windows, rename them by hand using the table below (`certutil -hashfile <file> SHA256`
@@ -175,46 +177,52 @@ rename step below only accepts the right parts.
 3. Join them. On a Mac, in the same Terminal:
 
    ```
-   cat MurderInc-E3DS-v2-part{1,2,3,4,5,6,7,8,9}-of-9.zip > MurderInc-E3DS-v2.zip
-   shasum -a 256 MurderInc-E3DS-v2.zip
+   cat MurderInc-E3DS-v2b-part{1,2,3,4,5,6,7,8,9}-of-9.zip > MurderInc.zip
+   shasum -a 256 MurderInc.zip
    ```
 
    (Type the braces as shown: they keep the parts in the order 1 to 9.) On Windows, in Command Prompt, in that
    folder:
 
    ```
-   copy /b MurderInc-E3DS-v2-part1-of-9.zip+MurderInc-E3DS-v2-part2-of-9.zip+MurderInc-E3DS-v2-part3-of-9.zip+MurderInc-E3DS-v2-part4-of-9.zip+MurderInc-E3DS-v2-part5-of-9.zip+MurderInc-E3DS-v2-part6-of-9.zip+MurderInc-E3DS-v2-part7-of-9.zip+MurderInc-E3DS-v2-part8-of-9.zip+MurderInc-E3DS-v2-part9-of-9.zip MurderInc-E3DS-v2.zip
-   certutil -hashfile MurderInc-E3DS-v2.zip SHA256
+   copy /b MurderInc-E3DS-v2b-part1-of-9.zip+MurderInc-E3DS-v2b-part2-of-9.zip+MurderInc-E3DS-v2b-part3-of-9.zip+MurderInc-E3DS-v2b-part4-of-9.zip+MurderInc-E3DS-v2b-part5-of-9.zip+MurderInc-E3DS-v2b-part6-of-9.zip+MurderInc-E3DS-v2b-part7-of-9.zip+MurderInc-E3DS-v2b-part8-of-9.zip+MurderInc-E3DS-v2b-part9-of-9.zip MurderInc.zip
+   certutil -hashfile MurderInc.zip SHA256
    ```
-4. The fingerprint printed must be `82ed886a3fb508a96ce6ac0e7c4a4c3b61f0563872e9d9cdc25249817d92ee8a`. If it does not, a
-   part is incomplete: compare each part with the list below (`shasum -a 256 MurderInc-E3DS-v2-part*`), download the
+4. The fingerprint printed must be `ceaf828d10a8b3d7997e8b76ccaa7701e87a8f5dab7f488a1976a3b7944674c5`. If it does not, a
+   part is incomplete: compare each part with the list below (`shasum -a 256 MurderInc-E3DS-v2b-part*`), download the
    one that differs again.
-5. **Upload it to E3DS as a new version of the existing build `MurderInc`**, not as a new build: in the Projects
-   dashboard open the build `MurderInc`, its versions, and upload the joined `MurderInc-E3DS-v2.zip` (not the parts)
-   as the next version (v-2). Keep the same app name `MurderInc` (the launcher inside is still `MurderInc.sh`), make
-   `Project_MurderInc` and its stream configuration use v-2, and test the link (section 4), best in a fresh Incognito
-   window. Once v-2 streams, delete v-1 from inside the build's versions, **not** with the build row's trash icon
-   (that deletes the whole build).
-6. **The log** of every start is now on the server, in the app's folder: `MurderInc/Saved/Logs/MurderInc.log`.
-   If it crashes again, section 13 says how to get it.
+5. **Upload it to E3DS as a new version of the existing build `MurderInc`**, not as a new build (E3DS's own
+   names, from its documentation): **Your Projects**, open `Project_MurderInc`, tab **Builds**, **Upload a new
+   version of MurderInc** (the same button is **New version** on the project list). Choose the joined
+   `MurderInc.zip` (not the parts). The window shows the versions the build has and that this upload becomes
+   version 2. If it asks: Streams with **Pixel Streaming**, Runs on **Linux**, executable **MurderInc.sh**. When the
+   upload is processed the project streams the new version by itself (nothing to choose or save) and the link stays
+   the same; "Run a fixed version" must read **Latest**. E3DS does not stream-test Linux uploads, so a green check
+   proves nothing: test the link (section 4), best in a fresh Incognito window. Once version 2 streams, delete
+   version 1 with the **Delete** button beside it in the version list, **not** by deleting the build.
+6. **The log** of every start goes to the file E3DS itself names when it starts the app (`-ABSLOG=`, the file its
+   crash-log email is taken from), to the launcher's output, and to `MurderInc/Saved/Logs/MurderInc.log` in the
+   app's folder. If it crashes again, section 13 says how to get it.
 
 | Part | Bytes | sha256 |
 |---|---|---|
-| 1 | 251,658,240 | `91056cbebc23cfc748de5bb1ceba44d5d8915e4c37bbec58ddcaee954807049c` |
-| 2 | 251,658,240 | `3c7380106b12aaa178571ab2764a3920e821338f797c3bfa52f1b1cbf708df91` |
-| 3 | 251,658,240 | `72759de75256274f6df2e3cde1c01d50329a8b71e3166e357848cc1dfbcac4c8` |
-| 4 | 251,658,240 | `2d6f6f42a5c0196ce4244e5cafcf3748d2ec97a878f3eee8aac53611642cd56f` |
-| 5 | 251,658,240 | `7ddc45f40d89fb949ed3e38bc7d6a88b0c186cb1faa1be72945bc9266cab6849` |
-| 6 | 251,658,240 | `f4d8ab7529f6f00aceaa337e3b8437e2bce00e5da1d8115931704fd5f6a399eb` |
-| 7 | 251,658,240 | `210d0b539a5ffa0f9ce8ef6e481ee96e4f581694ca36cb9fc187d34d3d61b923` |
-| 8 | 251,658,240 | `b934e5ad18eec056e12401c8aaf330b05a735b130d8a4d9606bc8c913207de26` |
-| 9 | 241,645,324 | `345788d9819e58dc9c2e0b33dcb8cc75d3b39e2d91b60e71b26a7e5b07215e87` |
+| 1 | 251,658,240 | `5d4627fc22ab913e8551a99093f2b49b9abc05dede870425c251194a17138da4` |
+| 2 | 251,658,240 | `7310851ba820c53b73eaeebb5bc0cf6524ae516654f9e74fe61b9dbd3cead106` |
+| 3 | 251,658,240 | `f84079f3c16b65d0c0d8325d731990b6aa5a6c1c6815926b3cdf9626bd72f2a4` |
+| 4 | 251,658,240 | `83b64ca6de7c72209d271f534089172523c6fa4d4b1b9b9b9d54649d6fb57f6f` |
+| 5 | 251,658,240 | `5d07e67a5fe4c6f86103ee87cddcdc78a805c1fdc1c7f9f41357588e55a7e304` |
+| 6 | 251,658,240 | `1332ca38d21dd230797ea5207907fbf8b84f37809c90677497b6188c92a3c805` |
+| 7 | 251,658,240 | `6c8c1f3e87c89447797603e5506e2f35ea9d19b43f08c747472dc3338995b152` |
+| 8 | 251,658,240 | `2d650732c1d2167510b55a17f150cd9bce14174a70f4526a4db2a6754444cd64` |
+| 9 | 241,646,253 | `f5289a9c2860aa6bb067488cf315416065196cb2c2d9954c3955343d3c084fdc` |
 
 Checked after the upload: all 9 parts downloaded back from the storage, joined, the sha256 above, and
 `unzip -t` reports no errors (64 files; `MurderInc.sh` and `BUILD.txt` at the root).
 
-What is new in version 2 (docs/unreal/PROGRESS.md, "E3DS crash fix"): the launcher `MurderInc.sh` writes the log
-above and never runs the game as root; the game carries the SM5 shaders too, so a server whose graphics driver fails
+What is new in version 2 (docs/unreal/PROGRESS.md, "E3DS crash fix"): the launcher `MurderInc.sh` always starts the
+game without a window (`-RenderOffScreen`: E3DS's Linux servers have no screen and E3DS does not add that option
+itself; version 1 without it ends after 2 seconds with no log, which is what happened), writes the log above, also
+into E3DS's own log file, and never runs the game as root; the game carries the SM5 shaders too, so a server whose graphics driver fails
 Unreal 5.9's SM6 check runs a simpler picture instead of quitting; it needs less graphics memory at start; it reports
 a stop by the host as a normal quit; the home screen says "P Pause"; and the Development game rides along for E3DS's
 crash-log feature (launch option `-MIDev`, section 13).
