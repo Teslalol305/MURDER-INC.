@@ -753,7 +753,10 @@ void UMIWeaponComponent::MuzzleFlash(double FlashScale)
 	}
 	if (UMIEffects* Fx = UMIEffects::Get(this))
 	{
-		Fx->FlashLight(FirstPersonToWorld(Pos + Dir * 8.0), FlashScale);
+		// Out along the bore in the world, past the gun (fx.flash.player.ahead), so it lights the street, not the arms.
+		const FVector WorldMuzzle = FirstPersonToWorld(Pos);
+		const FVector WorldDir = (FirstPersonToWorld(Pos + Dir * 10.0) - WorldMuzzle).GetSafeNormal();
+		Fx->FlashLight(WorldMuzzle + WorldDir * Fx->PlayerFlashAhead(), FlashScale);
 	}
 }
 

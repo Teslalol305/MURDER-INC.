@@ -306,11 +306,19 @@
         0.3
       ],
       "enemyScale": 0.8,
+      "player": {
+        "candela": 8000,
+        "radius": 600,
+        "ahead": 110,
+        "note": "the player's own flash light (UMIEffects::FlashLight): ahead cm out along the bore past the gun, dimmer and shorter than an enemy's, so it lights the street and not the first-person forearm (review 2026-11-24: the forearm went flat orange-red on every shot)"
+      },
       "view": {
         "pull": 0.5,
         "pullAimed": 1.0,
         "pullOverlay": 1.0,
+        "overlayAds": 0.5,
         "scale": 1.0,
+        "scaleAimed": 0.7,
         "note": "the player's own flash (UMIEffects::ViewFlash): cards turned to the eye and pulled toward it to this fraction of their distance (sizes alike), so they draw over the gun's front end that hides the muzzle at the hip; scale on the first-person size. With materials.flashView (depth test off) the player's flash has its own cards that draw over the gun where they are: pullOverlay (1 = on the muzzle) replaces pull and pullAimed"
       }
     },
@@ -329,6 +337,8 @@
     "casing": {
       "life": 4.0,
       "viewLife": 0.12,
+      "viewScale": 0.55,
+      "viewSpin": 0.3,
       "note": "UMIEffects::Casing: the player's casing at the first-person depth and size for viewLife s (it leaves the port on screen), then a true-size casing from the port's true place for the rest of life"
     },
     "markLife": 30,

@@ -53,8 +53,10 @@ public:
 	 *  own cards in that material: they sit on the muzzle's true first-person point and draw over the gun's front end
 	 *  without being pulled in (fx.flash.view.pullOverlay, 1 = none), and enemy flashes never recycle them (fix pass). */
 	void ViewFlash(const FVector& Muzzle, const FVector& Dir, const FVector& Eye, double Scale, double Ads = 0.0);
-	/** The player's own flash light. */
+	/** The player's own flash light (dimmer and shorter than an enemy's, placed ahead of the gun by the caller). */
 	void FlashLight(const FVector& At, double Scale);
+	/** How far ahead of the muzzle, along the bore, the player's flash light sits (fx.flash.player.ahead, cm). */
+	double PlayerFlashAhead() const;
 	/** A tracer streak from a muzzle to where the round ends. */
 	void Tracer(const FVector& From, const FVector& To, double SpeedCmPerS);
 	/** The player's tracer: from the muzzle as drawn (the first-person point) to where the round ends, drawn from its first

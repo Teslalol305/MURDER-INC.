@@ -283,8 +283,11 @@ void UMIEffects::Light(const FVector& At, double Candela, double Radius, double 
 
 void UMIEffects::FlashLight(const FVector& At, double Scale)
 {
-	const double Cd = MIJson::NumberOr(Fx, TEXT("flash.candela"), 900.0) * Scale;
-	Light(At, Cd, MIJson::NumberOr(Fx, TEXT("flash.radius"), 700.0), MIJson::NumberOr(Fx, TEXT("flash.light"), 0.05),
+	// The player's own flash light (review 2026-11-24: at the muzzle it turned the support forearm flat orange-red on
+	// every shot, a continuous flicker in full auto). The caller puts it flash.player.ahead cm out along the bore; here
+	// it is dimmer (flash.player.candela) with a shorter reach (flash.player.radius): it still lights the street ahead.
+	const double Cd = MIJson::NumberOr(Fx, TEXT("flash.player.candela"), 8000.0) * Scale;
+	Light(At, Cd, MIJson::NumberOr(Fx, TEXT("flash.player.radius"), 600.0), MIJson::NumberOr(Fx, TEXT("flash.light"), 0.05),
 		MIEffectsPrivate::Color(Fx, TEXT("flash.color"), FLinearColor(1.0f, 0.62f, 0.3f)));
 }
 
@@ -325,7 +328,8 @@ void UMIEffects::WorldFlash(const FVector& Muzzle, const FVector& Dir, double Sc
 	}
 	if (bLight)
 	{
-		FlashLight(Muzzle + D * 10.0, Scale);
+		Light(Muzzle + D * 10.0, MIJson::NumberOr(Fx, TEXT("flash.candela"), 900.0) * Scale, MIJson::NumberOr(Fx, TEXT("flash.radius"), 700.0), MIJson::NumberOr(Fx, TEXT("flash.light"), 0.05),
+			MIEffectsPrivate::Color(Fx, TEXT("flash.color"), FLinearColor(1.0f, 0.62f, 0.3f)));
 	}
 }
 
@@ -333,7 +337,10 @@ void UMIEffects::ViewFlash(const FVector& Muzzle, const FVector& Dir, const FVec
 {
 	// Its own cards in the depth-test-off material when the project has it: drawn over the gun's front end where they
 	// are, so they stay on the muzzle (no pull); else the shared cards pulled toward the eye (polish pass).
-	const bool bOverlay = ViewCards.Num() >= 3;
+	// Aimed (Ads above flash.view.overlayAds) the depth-tested cards on the muzzle are used (review 2026-11-24: the
+	// overlay star drew over the rear sight's housing, a bright star pasted on the gun nearest the eye; depth-tested,
+	// only the part round the front post shows through the aperture), and the star is drawn smaller.
+	const bool bOverlay = ViewCards.Num() >= 3 && Ads < MIJson::NumberOr(Fx, TEXT("flash.view.overlayAds"), 0.5);
 	TArray<FCard>& Pool = bOverlay ? ViewCards : Cards;
 	int32& Next = bOverlay ? NextViewCard : NextCard;
 	if (Pool.Num() < 3)
@@ -345,7 +352,7 @@ void UMIEffects::ViewFlash(const FVector& Muzzle, const FVector& Dir, const FVec
 	const double Keep = bOverlay
 		? FMath::Clamp(MIJson::NumberOr(Fx, TEXT("flash.view.pullOverlay"), 1.0), 0.1, 1.0)
 		: FMath::Clamp(FMath::Lerp(MIJson::NumberOr(Fx, TEXT("flash.view.pull"), 0.5), MIJson::NumberOr(Fx, TEXT("flash.view.pullAimed"), 1.0), A), 0.1, 1.0);
-	const double S = Scale * MIJson::NumberOr(Fx, TEXT("flash.view.scale"), 1.0);
+	const double S = Scale * MIJson::NumberOr(Fx, TEXT("flash.view.scale"), 1.0) * FMath::Lerp(1.0, MIJson::NumberOr(Fx, TEXT("flash.view.scaleAimed"), 0.7), A);
 	const FVector D = Dir.GetSafeNormal();
 	for (int32 K = 0; K < 3; ++K)
 	{
@@ -441,11 +448,27 @@ void UMIEffects::Casing(UStaticMesh* Mesh, const FTransform& ViewAt, const FVect
 {
 	const bool bOwn = Mesh != nullptr;
 	const FVector Stand(0.009, 0.009, 0.019);  // the engine cylinder as a casing when the gun has none
-	const FTransform V = bOwn ? ViewAt : FTransform(ViewAt.GetRotation(), ViewAt.GetLocation(), ViewAt.GetScale3D() * Stand);
+	// The first-person phase is drawn smaller (casing.viewScale) and spins slower: a few centimetres from the eye, at
+	// full first-person size and 1,400 degrees a second, motion blur smeared it into a forearm-long brass bar across
+	// the right edge of the screen (review 2026-11-24, 0.03 s after a round).
+	const double ViewScale = FMath::Clamp(MIJson::NumberOr(Fx, TEXT("casing.viewScale"), 0.55), 0.1, 1.0);
+	const FTransform V = FTransform(ViewAt.GetRotation(), ViewAt.GetLocation(), ViewAt.GetScale3D() * ViewScale * (bOwn ? FVector::OneVector : Stand));
 	const FTransform W = bOwn ? WorldAt : FTransform(WorldAt.GetRotation(), WorldAt.GetLocation(), WorldAt.GetScale3D() * Stand);
-	SpawnViewBody(this, bOwn ? Mesh : Cylinder.Get(), V, ViewVelocity, W, WorldVelocity,
-		FVector(FMath::FRandRange(-900.0, 900.0), FMath::FRandRange(-1400.0, 1400.0), FMath::FRandRange(-300.0, 300.0)),
-		MIJson::NumberOr(Fx, TEXT("casing.viewLife"), 0.12), MIJson::NumberOr(Fx, TEXT("casing.life"), 4.0), bOwn ? nullptr : BrassMat.Get());
+	const FVector Spin(FMath::FRandRange(-900.0, 900.0), FMath::FRandRange(-1400.0, 1400.0), FMath::FRandRange(-300.0, 300.0));
+	const double ViewLife = MIJson::NumberOr(Fx, TEXT("casing.viewLife"), 0.12);
+	const double Life = MIJson::NumberOr(Fx, TEXT("casing.life"), 4.0);
+	UMaterialInterface* Mat = bOwn ? nullptr : BrassMat.Get();
+	UStaticMesh* Body = bOwn ? Mesh : Cylinder.Get();
+	if (ViewLife <= 0.0)
+	{
+		SpawnBody(this, Body, W, WorldVelocity, Spin, Life, Mat);
+		return;
+	}
+	SpawnBody(this, Body, V, ViewVelocity * ViewScale, Spin * MIJson::NumberOr(Fx, TEXT("casing.viewSpin"), 0.3), ViewLife, Mat);
+	if (Life > ViewLife)
+	{
+		SpawnBody(this, Body, W, WorldVelocity, Spin, Life, Mat, ViewLife);
+	}
 }
 
 void UMIEffects::SpawnViewBody(const UObject* WorldContext, UStaticMesh* Mesh, const FTransform& ViewAt, const FVector& ViewVelocity,
@@ -734,4 +757,9 @@ void UMIEffects::ClearShots()
 		L.Age = 1e9;
 		if (L.Light) L.Light->SetVisibility(false);
 	}
+}
+
+double UMIEffects::PlayerFlashAhead() const
+{
+	return MIJson::NumberOr(Fx, TEXT("flash.player.ahead"), 110.0);
 }
