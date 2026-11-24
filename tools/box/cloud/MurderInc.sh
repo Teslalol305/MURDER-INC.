@@ -111,6 +111,10 @@ if command -v nvidia-smi >/dev/null 2>&1; then
 else
   note "no nvidia-smi"
 fi
+# Libraries the game cannot start without (the Vulkan loader and the NVIDIA Vulkan driver come from the server).
+MISSINGLIB=$(ldd "$BIN" 2>/dev/null | grep "not found" | tr -s ' \t' ' ')
+note "libraries: ${MISSINGLIB:+MISSING$MISSINGLIB}${MISSINGLIB:-all found (ldd)}; Vulkan loader: $( (ldconfig -p 2>/dev/null | grep -m1 -o 'libvulkan.so.1 .*') || echo 'not in ldconfig')"
+note "Vulkan drivers (ICD files): $(ls /usr/share/vulkan/icd.d/ /etc/vulkan/icd.d/ 2>/dev/null | grep -i json | tr '\n' ' ')${VK_ICD_FILENAMES:+ VK_ICD_FILENAMES=$VK_ICD_FILENAMES}"
 # Unreal 5.9 runs its full renderer (SM6: Nanite, Lumen) only when the driver passes this check (the profile in
 # Engine/Source/ThirdParty/Vulkan/profiles/include/vulkan_profiles_ue.h); else it falls back to SM5.
 SM6EXT="VK_EXT_calibrated_timestamps VK_EXT_descriptor_buffer VK_EXT_descriptor_indexing VK_EXT_mesh_shader VK_EXT_mutable_descriptor_type VK_EXT_scalar_block_layout VK_EXT_shader_image_atomic_int64 VK_KHR_buffer_device_address VK_KHR_compute_shader_derivatives VK_KHR_maintenance4 VK_KHR_pipeline_library VK_KHR_push_descriptor VK_KHR_separate_depth_stencil_layouts VK_KHR_shader_atomic_int64 VK_KHR_synchronization2 VK_KHR_timeline_semaphore"
