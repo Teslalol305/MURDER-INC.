@@ -92,7 +92,7 @@ TAG_SURFACE = {
     "produce-stand": ("MI_Box_WoodPainted", "TS_Wood_ScanPlankPainted", (1.0, 1.0, 1.0)),
     "shanty": ("MI_Box_Plywood", "TS_Plywood_ScanLauan", (1.0, 1.0, 1.0)),
     "hoist": ("MI_Box_Plywood", "TS_Plywood_ScanLauan", (1.0, 1.0, 1.0)),
-    "backs": ("MI_Box_BrickWindows", "TS_Brick_ScanRedCommon", (1.0, 1.0, 1.0)),
+    "backs": ("MI_Box_BrickWindows", "TS_Brick_ScanRedDark", (1.0, 1.0, 1.0)),   # = BACK_SET, the bays' brick
     "seal": ("MI_Box_BrickBrown", "TS_Brick_ScanBrown", (1.0, 1.0, 1.0)),
     "garages": ("MI_Box_BrickPainted", "TS_BrickPainted_ScanWhitewash", (1.0, 1.0, 1.0)),
     "office-glass": ("MI_Box_Glass", "glass", None),
@@ -105,7 +105,14 @@ BACKDROP_SURFACE = {"brick": ("MI_Backdrop_Brick", "TS_Brick_ScanRedCommon", (0.
                     "concrete": ("MI_Backdrop_Concrete", "TS_Concrete_ScanWeathered", (0.78, 0.77, 0.75)),
                     "brown": ("MI_Backdrop_BrickBrown", "TS_Brick_ScanBrown", (0.8, 0.75, 0.72)),
                     "buff": ("MI_Backdrop_BrickBuff", "TS_Brick_ScanBuff", (0.85, 0.82, 0.78)),
-                    "dark": ("MI_Backdrop_BrickDark", "TS_Brick_ScanRedDark", (0.8, 0.75, 0.72))}
+                    "dark": ("MI_Backdrop_BrickDark", "TS_Brick_ScanRedDark", (0.8, 0.75, 0.72)),
+                    # Towers (15 storeys and up): curtain walls of tinted glass, and office stone with punched windows.
+                    "glass": ("MI_Backdrop_TowerGlass", "TS_Concrete_ScanWeathered", (0.62, 0.63, 0.66)),
+                    "glassdark": ("MI_Backdrop_TowerGlassDark", "TS_Concrete_ScanWeathered", (0.34, 0.34, 0.36)),
+                    "stone": ("MI_Backdrop_TowerStone", "TS_Concrete_ScanWeathered", (0.86, 0.84, 0.8))}
+WINDOW_GRIDS = {"MI_Backdrop_TowerGlass": (2.0, 150.0, 370.0), "MI_Backdrop_TowerGlassDark": (2.0, 150.0, 370.0),
+                "MI_Backdrop_TowerStone": (1.0, 240.0, 370.0)}     # (mode, bay, storey); the rest punched 3.1 x 3.1 m
+TOWER_CM = 4500.0               # backdrop masses this tall are towers: tower finishes, setback crowns from 60 m
 ROOFED = {"MI_Grey_Brick", "MI_Box_BrickWindows", "MI_Box_BrickBrown", "MI_Box_BrickPainted"} | \
     {v[0] for v in BACKDROP_SURFACE.values()}
 WINDOWED = {"MI_Box_BrickWindows"} | {v[0] for v in BACKDROP_SURFACE.values()}
@@ -317,21 +324,181 @@ rough += (macro - 0.5) * 0.12 * Macro.x;
 // Detail layer (Macro.y): the set's own roughness at the detail scale fades in within 3 m of the eye.
 float near = saturate((300.0 - Depth) / 150.0) * Macro.y;
 rough += (ORMD.g - 0.5) * 0.35 * near;
-// Windows (Windows.x): a grid of dark glazed openings on the vertical faces of world-projected masses (the
-// backdrop and the neighbours' backs): bay Windows.y, storey Windows.z, from the first floor line (3.8 m) up,
-// sill 19 %, head 75 % (vector parameters reach the HLSL as float3: no w).
-if (Windows.x > 0.5 && abs(NW.z) < 0.3)
+// Windows (Windows.x) on the vertical faces of world-projected masses (the backdrop and the neighbours' backs), bay
+// Windows.y, storey Windows.z, from the first floor line (3.8 m) up (vector parameters reach the HLSL as float3).
+// Mode 1, punched openings: a cast-stone sill and lintel, a shadowed reveal (the opening reads 10 cm deep), a painted
+// double-hung frame with its meeting rail, blinds or curtains in some, and the room behind the glass by interior
+// mapping (the eye ray's first hit on the room's floor, ceiling, side or back wall, as emission in WinE).
+// Mode 2, curtain wall (towers): spandrel bands, mullions every bay, reflective tinted glass, a few lit offices.
+WinE = float3(0.0, 0.0, 0.0);
+if (Windows.x > 0.5 && abs(NW.z) < 0.3 && WP.z >= 380.0)
 {
-    float u = (abs(NW.x) > abs(NW.y)) ? WP.y : WP.x;
-    float bay = frac(u / Windows.y);
-    float storey = frac((WP.z - 380.0) / Windows.z);
-    float inWindow = step(0.3, bay) * step(bay, 0.7) * step(0.19, storey) * step(storey, 0.75) * step(380.0, WP.z);
-    float id = frac(sin(dot(floor(float2(u / Windows.y, (WP.z - 380.0) / Windows.z)), float2(12.99, 78.23))) * 43758.5);
-    float3 glass = lerp(float3(0.012, 0.014, 0.016), float3(0.05, 0.045, 0.04), step(0.7, id));
-    bc = lerp(bc, glass, inWindow);
-    rough = lerp(rough, 0.06 + 0.1 * id, inWindow);
-    metal = lerp(metal, 0.0, inWindow);
-    ao = lerp(ao, 1.0, inWindow);
+    bool xFace = abs(NW.x) > abs(NW.y);
+    float3 outN = normalize(float3(NW.xy, 0.0));
+    float3 axisU = xFace ? float3(0.0, 1.0, 0.0) : float3(1.0, 0.0, 0.0);
+    float u = xFace ? WP.y : WP.x;
+    float bayW = Windows.y;
+    float storeyH = Windows.z;
+    float2 cellId = floor(float2(u / bayW, (WP.z - 380.0) / storeyH));
+    float wa = (frac(u / bayW) - 0.5) * bayW;              // cm from the bay's centre line
+    float s = frac((WP.z - 380.0) / storeyH) * storeyH;   // cm above the storey's floor line
+    float plane = floor((xFace ? WP.x : WP.y) / 50.0);    // one face, one building: its frame colour and blinds
+    float faceId = frac(sin(plane * 12.9898 + (xFace ? 3.1 : 7.7)) * 43758.5453);
+    float id = frac(sin(dot(cellId + plane * 0.37, float2(12.99, 78.23))) * 43758.5);
+    float id2 = frac(sin(dot(cellId + plane * 0.37, float2(39.35, 11.13))) * 24634.63);
+    float id3 = frac(sin(dot(cellId + plane * 0.37, float2(73.16, 52.24))) * 35791.43);
+    float3 V = -normalize(CamV);                          // from the eye into the building
+    float va = dot(V, axisU);
+    float vz = V.z;
+    float vd = max(dot(V, -outN), 0.02);
+    if (Windows.x < 1.5)
+    {
+        float hw = 0.2 * bayW;                            // half the opening: 1.24 m in a 3.1 m bay
+        float s0 = 0.19 * storeyH;                        // sill top
+        float s1 = 0.75 * storeyH;                        // head
+        float3 stone = float3(0.43, 0.405, 0.365) * (0.9 + 0.2 * faceId);
+        float inOpen = step(abs(wa), hw) * step(s0, s) * step(s, s1);
+        float sill = step(abs(wa), hw + 7.0) * step(s0 - 9.0, s) * step(s, s0) ;
+        float lintel = step(abs(wa), hw + 8.0) * step(s1, s) * step(s, s1 + 16.0);
+        float underSill = step(abs(wa), hw + 7.0) * step(s0 - 14.0, s) * step(s, s0 - 9.0);
+        // Masonry round the opening: the sill's shadow on the brick below it.
+        bc *= 1.0 - 0.45 * underSill;
+        ao *= 1.0 - 0.4 * underSill;
+        float trim = max(sill, lintel) * (1.0 - inOpen);
+        bc = lerp(bc, stone * (1.0 - 0.25 * lintel * step(s, s1 + 3.0)), trim);
+        rough = lerp(rough, 0.78, trim);
+        metal = lerp(metal, 0.0, trim);
+        if (inOpen > 0.5)
+        {
+            float da = hw - abs(wa);                       // cm in from the side jambs
+            float dt = s1 - s;                            // cm down from the head
+            float db = s - s0;                            // cm up from the sill
+            float reveal = 10.0;
+            if (da < reveal || dt < reveal)
+            {
+                // The reveal: the jambs and the soffit seen edge-on, in their own shadow.
+                bc *= (dt < reveal) ? 0.32 : 0.48;
+                ao = min(ao, 0.45);
+                rough = max(rough, 0.8);
+            }
+            else if (db < 5.0)
+            {
+                bc = stone * 1.05;                        // the sill's top, back to the frame
+                rough = 0.75;
+                metal = 0.0;
+            }
+            else
+            {
+                // The frame and sashes (local: x across from the jamb, y up from the sill, in cm).
+                float fx = da - reveal;
+                float fy = db - 5.0;
+                float W = 2.0 * (hw - reveal);
+                float H = (s1 - reveal) - (s0 + 5.0);
+                float mx = min(fx, W - fx);
+                float my = min(fy, H - fy);
+                float rail = abs(fy - H * 0.5);
+                float sashMx = mx - 6.0;
+                float frame = step(mx, 6.0) + step(my, 6.0) + step(rail, 4.0) +
+                              step(sashMx, 3.0) * step(0.0, sashMx) + step(abs(my - 8.0), 1.5);
+                float3 paints[5] = {float3(0.62, 0.61, 0.57), float3(0.025, 0.04, 0.03), float3(0.09, 0.06, 0.04),
+                                    float3(0.52, 0.46, 0.36), float3(0.34, 0.34, 0.35)};
+                int pick = (int)(faceId * 4.99);
+                float3 paint = paints[pick];
+                if (frame > 0.5)
+                {
+                    bc = paint * (1.0 - 0.15 * id3);
+                    rough = (pick == 4) ? 0.4 : 0.55;
+                    metal = (pick == 4) ? 1.0 : 0.0;
+                    ao = 1.0;
+                }
+                else
+                {
+                    // Glass: black base (F0 0.04), smooth; reflections come from Lumen.
+                    bc = float3(0.012, 0.013, 0.014);
+                    rough = 0.04 + 0.08 * id3;
+                    metal = 0.0;
+                    ao = 1.0;
+                    float blindDrop = (id < 0.45) ? (0.15 + 0.6 * id2) : 0.0;   // roller blind, from the head down
+                    float curtain = (id > 0.86) ? 0.22 + 0.1 * id3 : 0.0;          // curtains drawn to the sides
+                    float blindHere = step(H * (1.0 - blindDrop), fy);
+                    float curtainHere = step(min(fx, W - fx), W * curtain);
+                    if (blindHere > 0.5)
+                    {
+                        float3 cloth = lerp(float3(0.62, 0.58, 0.5), float3(0.55, 0.5, 0.42), id3);
+                        bc = cloth * (0.85 + 0.15 * step(0.5, frac(fy / 7.0)));
+                        rough = 0.9;
+                    }
+                    else if (curtainHere > 0.5)
+                    {
+                        float3 cloths[3] = {float3(0.35, 0.08, 0.06), float3(0.48, 0.42, 0.3), float3(0.12, 0.2, 0.15)};
+                        bc = cloths[(int)(id2 * 2.99)] * (0.75 + 0.25 * abs(sin(fx * 0.6)));
+                        rough = 0.95;
+                    }
+                    else
+                    {
+                        // The room behind (3 m wide, 4.2 m deep, the storey high), entered at the glass plane.
+                        float rw = 0.5 * bayW - 5.0;
+                        float depthCm = 420.0;
+                        float ceilZ = storeyH - 15.0;
+                        float tB = depthCm / vd;
+                        float tS = (va > 0.0 ? (rw - wa) : (-rw - wa)) / max(abs(va), 1e-3);
+                        float tF = (vz < 0.0 ? -s : (ceilZ - s)) / (abs(vz) > 1e-3 ? vz : (vz < 0.0 ? -1e-3 : 1e-3));
+                        float tm = min(tB, min(tS, tF));
+                        float ha = wa + va * tm;
+                        float hz = s + vz * tm;
+                        float hd = vd * tm;
+                        float3 walls[4] = {float3(0.42, 0.38, 0.30), float3(0.30, 0.33, 0.30), float3(0.45, 0.42, 0.38),
+                                           float3(0.36, 0.27, 0.22)};
+                        float3 wall = walls[(int)(id2 * 3.99)];
+                        float3 colour;
+                        if (tF <= tB && tF <= tS)
+                            colour = (vz < 0.0) ? float3(0.16, 0.11, 0.07) : float3(0.55, 0.53, 0.5);
+                        else if (tS < tB)
+                            colour = wall * 0.75;
+                        else
+                        {
+                            colour = wall;
+                            float w0 = -rw + (0.1 + 0.4 * id) * rw, w1 = w0 + (0.5 + 0.6 * id3) * rw;
+                            colour = lerp(colour, float3(0.06, 0.05, 0.05), step(hz, 75.0 + 40.0 * id3) * step(w0, ha) * step(ha, w1));
+                            colour = lerp(colour, float3(0.2, 0.17, 0.12), step(0.6, id3) * step(abs(hz - 160.0), 28.0) * step(abs(ha - 0.3 * rw), 35.0));
+                        }
+                        float lit = (0.35 + 0.65 * saturate(1.0 - hd / (depthCm * 1.3))) * (0.55 + 0.9 * id3) *
+                                    ((id2 > 0.84) ? 2.2 : 1.0);
+                        WinE = colour * lit * 140.0;
+                    }
+                }
+            }
+        }
+    }
+    else
+    {
+        // Curtain wall: a spandrel band at each floor, mullions every bay, tinted reflective glass.
+        float spandrel = step(s, 0.3 * storeyH);
+        float mullion = step(0.5 * bayW - 4.0, abs(wa));
+        float3 glass = lerp(float3(0.16, 0.2, 0.23), float3(0.2, 0.21, 0.2), faceId) * (0.9 + 0.2 * id);
+        if (mullion > 0.5)
+        {
+            bc = float3(0.05, 0.05, 0.055);
+            rough = 0.35;
+            metal = 1.0;
+        }
+        else if (spandrel > 0.5)
+        {
+            bc = lerp(bc, float3(0.1, 0.1, 0.105), 0.5 + 0.5 * step(0.5, faceId));
+            rough = 0.45;
+            metal = 0.0;
+            bc *= 1.0 - 0.5 * step(abs(s - 0.3 * storeyH + 2.0), 2.0);
+        }
+        else
+        {
+            bc = glass;
+            rough = 0.03 + 0.05 * id;
+            metal = 0.85;
+            ao = 1.0;
+            float lamps = step(0.62, id2);                // a lit office: ceiling panels seen through the glass
+            WinE = float3(0.85, 0.92, 1.0) * lamps * (25.0 + 50.0 * id3);
+        }
+    }
 }
 Rough = saturate(rough);
 Metal = saturate(metal);
@@ -388,9 +555,11 @@ def custom(material, x, y, code, inputs, output_type, extra_outputs=()):
     node.set_editor_property("output_type", output_type)
     node.set_editor_property("inputs", [make_struct(unreal.CustomInput, input_name=name) for name in inputs])
     if extra_outputs:
+        # A name alone is a float output; (name, CustomMaterialOutputType) gives another width.
         node.set_editor_property("additional_outputs", [
-            make_struct(unreal.CustomOutput, output_name=name,
-                        output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT1) for name in extra_outputs])
+            make_struct(unreal.CustomOutput, output_name=item if isinstance(item, str) else item[0],
+                        output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT1 if isinstance(item, str) else item[1])
+            for item in extra_outputs])
     return node
 
 
@@ -479,8 +648,10 @@ def build_master(defaults, force, path=None, masked=False, clearcoat=False):
     vertex_colour = expr(material, unreal.MaterialExpressionVertexColor, -900, 1500)
     wear = custom(material, -500, 300, WEAR_HLSL,
                   ["BC", "ORM", "BC2", "ORM2", "VC", "VA", "WP", "Tint", "DirtColor", "LeakColor", "SplashColor",
-                   "Modes", "Wetness", "Amount", "NW", "Macro", "ORMD", "Depth", "Windows"],
-                  unreal.CustomMaterialOutputType.CMOT_FLOAT3, ["Rough", "Metal", "AO", "Edge"])
+                   "Modes", "Wetness", "Amount", "NW", "Macro", "ORMD", "Depth", "Windows", "CamV"],
+                  unreal.CustomMaterialOutputType.CMOT_FLOAT3,
+                  ["Rough", "Metal", "AO", "Edge", ("WinE", unreal.CustomMaterialOutputType.CMOT_FLOAT3)])
+    camera = expr(material, unreal.MaterialExpressionCameraVectorWS, -900, 1750)
     for name, source, output in (("BC", samplers["BC"], "RGB"), ("ORM", samplers["ORM"], "RGB"),
                                  ("BC2", samplers["BC2"], "RGB"), ("ORM2", samplers["ORM2"], "RGB"),
                                  ("VC", vertex_colour, ""), ("VA", vertex_colour, "A"), ("WP", wp, ""),
@@ -488,7 +659,7 @@ def build_master(defaults, force, path=None, masked=False, clearcoat=False):
                                  ("DirtColor", dirt, ""), ("LeakColor", leak, ""), ("SplashColor", splash, ""),
                                  ("Modes", modes, ""), ("Amount", amount, ""), ("NW", normal_ws, ""),
                                  ("Macro", macro, ""), ("ORMD", samplers["ORMD"], "RGB"), ("Depth", depth, ""),
-                                 ("Windows", windows, "")):
+                                 ("Windows", windows, ""), ("CamV", camera, "")):
         if not LIB.connect_material_expressions(source, output, wear, name):
             raise RuntimeError("cannot connect %s output '%s' to the wear node" % (name, output))
 
@@ -508,6 +679,12 @@ def build_master(defaults, force, path=None, masked=False, clearcoat=False):
     emissive = expr(material, unreal.MaterialExpressionMultiply, -600, 2250)
     LIB.connect_material_expressions(emission, "RGB", emissive, "A")
     LIB.connect_material_expressions(emissive_scale, "", emissive, "B")
+    # The rooms behind the window grid's glass (WinE, zero off the grid) add to the emission map.
+    emissive_sum = expr(material, unreal.MaterialExpressionAdd, -400, 2250)
+    LIB.connect_material_expressions(emissive, "", emissive_sum, "A")
+    if not LIB.connect_material_expressions(wear, "WinE", emissive_sum, "B"):
+        raise RuntimeError("cannot connect the wear node's WinE to the emission")
+    emissive = emissive_sum
 
     LIB.connect_material_property(wear, "", unreal.MaterialProperty.MP_BASE_COLOR)
     LIB.connect_material_property(wear, "Rough", unreal.MaterialProperty.MP_ROUGHNESS)
@@ -972,8 +1149,10 @@ def make_instance(name, set_name, tint=(1, 1, 1), blend_set=None, alpha_means=No
     macro = (wear > 0) if macro is None else macro
     LIB.set_material_instance_vector_parameter_value(instance, "Macro", unreal.LinearColor(
         1.0 if macro else 0.0, 1.0 if macro else 0.0, 0, 0))
+    # windows: False, True (punched openings in 3.1 m bays and storeys) or (mode, bay cm, storey cm) (WEAR_HLSL).
+    grid = windows if isinstance(windows, tuple) else ((1.0, 310.0, 310.0) if windows else (0.0, 310.0, 310.0))
     LIB.set_material_instance_vector_parameter_value(instance, "Windows", unreal.LinearColor(
-        1.0 if windows else 0.0, 310.0, 310.0, 380.0))
+        grid[0], grid[1], grid[2], 380.0))
     if ASSETS.does_asset_exist(texture_path(set_name, "E")):
         LIB.set_material_instance_texture_parameter_value(instance, "E", unreal.load_asset(texture_path(set_name, "E")))
         LIB.set_material_instance_scalar_parameter_value(instance, "EmissiveScale",
@@ -1062,7 +1241,7 @@ def material_units(force):
             yield "glass " + name, (lambda n=name: make_glass_instance(n, GLASS_SLOTS["MI_Glass_Window"], force))
             continue
         roof = ROOF_SET if name in ROOFED else None
-        windows = name in WINDOWED
+        windows = WINDOW_GRIDS.get(name, name in WINDOWED)
         yield "instance " + name, (lambda n=name, s=set_name, t=tint, r=roof, w=windows:
                                    make_instance(n, s, t, None, None, set_tile_m(man, s), 0.0, force, r, True, w))
 
@@ -1412,6 +1591,11 @@ def level_units(force):
                     setp(component, "cast_shadow", False)
                     setp(component, "affect_distance_field_lighting", False)
                     hidden += 1
+                if box["index"] in BACK_INSETS:
+                    # A dressed neighbour's back: its mass drawn behind the window bays, no collision of its own.
+                    centre, extent = back_mass(box)
+                    mass = spawn_box("Mass_%03d_backs" % box["index"], "Block/GreyBox", centre, extent, material)
+                    mass.static_mesh_component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
             return "%d boxes, %d of them invisible collision under art" % (len(items), hidden)
         yield "grey-box %d of %d" % (start, len(boxes)), grey_chunk
 
@@ -1855,15 +2039,30 @@ def structure_placements(level):
         out.append(("SM_Struct_ShopColumn", ((mn["X"] + mx["X"]) / 2.0, (mn["Y"] + mx["Y"]) / 2.0, mn["Z"]), 0.0,
                     ((mx["X"] - mn["X"]) / 28.0, (mx["Y"] - mn["Y"]) / 28.0, (mx["Z"] - mn["Z"]) / 555.0)))
         drawn.add(pole["index"])
-    # The neighbours' backs keep their brick mass (window grid, tar roof) and get the facade kit's parapet round the
-    # roof, a water tank and a stair bulkhead on the big ones: no plain box top against the sky.
+    # The neighbours' backs keep their brick mass (tar roof) and get the facade kit's parapet round the roof, a water
+    # tank and a stair bulkhead on the big ones: no plain box top against the sky. Every face that looks into the
+    # block is dressed with the kit's window bays (cast-stone sill and lintel, painted double-hung frame, glass with a
+    # baked room behind) storey by storey from the first floor line, with blinds and air conditioners in some.
     parapet = "SM_Facade_Parapet_310_Red"
-    for back in [b for b in boxes if b["tag"] == "backs" and b["owner"]["kind"] == "level"]:
+    backs = [b for b in boxes if b["tag"] == "backs" and b["owner"]["kind"] == "level"]
+    others = [b for b in boxes if b["owner"]["kind"] == "level" and b["blocks"]["movement"] and
+              b["ue"]["max"]["Z"] - b["ue"]["min"]["Z"] >= 300 and b["tag"] not in SKIP_COLLIDER_TAGS]
+    rng = random.Random(3110)
+    BACK_INSETS.clear()
+    for back in backs:
         if not have(parapet):
             break
         mn, mx = back["ue"]["min"], back["ue"]["max"]
         for axis, line, a, e, positive in sides(back):
             out.extend(tile(axis, line, a, e, positive, parapet, 310.0, mx["Z"]))
+        if have(BACK_WINDOW_BAY) and have(BACK_BLANK_BAY):
+            for axis, line, a, e, positive in sides(back):
+                runs = back_face_runs(back, others, axis, line, a, e, positive)
+                for p0, p1 in runs:
+                    out.extend(back_window_bays(axis, line, p0, p1, positive, mn["Z"], mx["Z"], rng, have))
+                if runs:
+                    BACK_INSETS.setdefault(back["index"], set()).add((axis, positive))
+                    drawn.add(back["index"])
         sx, sy = mx["X"] - mn["X"], mx["Y"] - mn["Y"]
         cx, cy = (mn["X"] + mx["X"]) / 2.0, (mn["Y"] + mx["Y"]) / 2.0
         along_x = sx >= sy
@@ -1875,6 +2074,73 @@ def structure_placements(level):
             out.append(("SM_Facade_StairBulkhead_Red", (at[0], at[1], mx["Z"]), 0.0 if along_x else 90.0,
                         (1.0, 1.0, 1.0)))
     return out, drawn
+
+
+BACK_WINDOW_BAY = "SM_Facade_BayWindow_Red"   # 3.1 x 3.1 m, outer face at local Y 0, window centre (155, 0, 60)
+BACK_BLANK_BAY = "SM_Facade_BayBlank_Red"     # the same wall without the window: ground floor and the top strip
+BACK_SET = "TS_Brick_ScanRedDark"             # the backs' mass in the bays' own brick
+BACK_INSETS = {}   # back collider index -> {(axis, positive side)} of the faces the bays dress (filled per build)
+
+
+def back_face_runs(back, others, axis, line, a, e, positive):
+    """The parts of one face of a neighbour's back that are seen from the block: the face must look toward the
+    block's centre, and the stretches buried in another tall level collider are cut out. [(start, end)]."""
+    mn, mx = back["ue"]["min"], back["ue"]["max"]
+    centre = ((mn["X"] + mx["X"]) / 2.0, (mn["Y"] + mx["Y"]) / 2.0)
+    normal = (0.0, 1.0 if positive else -1.0) if axis == "x" else (1.0 if positive else -1.0, 0.0)
+    face = (centre[0], line) if axis == "x" else (line, centre[1])
+    if normal[0] * -face[0] + normal[1] * -face[1] <= 0.0:
+        return []
+    pieces = [(a, e)]
+    for other in others:
+        if other is back:
+            continue
+        omn, omx = other["ue"]["min"], other["ue"]["max"]
+        if axis == "x":
+            inside, c0, c1 = omn["Y"] - 1 <= line <= omx["Y"] + 1, omn["X"], omx["X"]
+        else:
+            inside, c0, c1 = omn["X"] - 1 <= line <= omx["X"] + 1, omn["Y"], omx["Y"]
+        if not inside:
+            continue
+        pieces = [p for q in pieces for p in ((q[0], min(q[1], c0)), (max(q[0], c1), q[1])) if p[1] - p[0] > 1]
+    return [p for p in pieces if p[1] - p[0] >= 250.0]
+
+
+def back_window_bays(axis, line, start, end, positive, z0, z1, rng, have):
+    """A dressed face, bottom to top: the ground floor as blank bays stretched to the first floor line (3.8 m), a
+    storey of window bays for every 3.1 m that fits under the parapet, the strip left over as blank bays; a roller
+    blind behind 45 % of the windows, an air conditioner in the sill of 12 %. The bays' outer face is the face's
+    plane; the drawn mass steps back behind them (BACK_INSETS)."""
+    out = list(tile(axis, line, start, end, positive, BACK_BLANK_BAY, 310.0, z0, 380.0 / 310.0))
+    z = z0 + 380.0
+    while z + 310.0 <= z1 + 1.0:
+        for mesh, loc, yaw, scale in tile(axis, line, start, end, positive, BACK_WINDOW_BAY, 310.0, z):
+            out.append((mesh, loc, yaw, scale))
+            c, s_ = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
+            centre = (loc[0] + c * 155.0 * scale[0], loc[1] + s_ * 155.0 * scale[0], loc[2] + 60.0)
+            roll = rng.random()
+            if roll < 0.45 and have("SM_Facade_WindowBlind"):
+                out.append(("SM_Facade_WindowBlind", centre, yaw, (scale[0], 1.0, 1.0)))
+            elif roll > 0.88 and have("SM_Facade_AirConditioner"):
+                out.append(("SM_Facade_AirConditioner", centre, yaw, (1.0, 1.0, 1.0)))
+        z += 310.0
+    if z1 - z > 3.0:
+        out.extend(tile(axis, line, start, end, positive, BACK_BLANK_BAY, 310.0, z, (z1 - z) / 310.0))
+    return out
+
+
+def back_mass(box):
+    """The drawn mass of a dressed back: the collider stepped back 30 cm (the bays' wall) on each dressed face.
+    (centre, extent) in cm."""
+    mn, mx = dict(box["ue"]["min"]), dict(box["ue"]["max"])
+    for axis, positive in BACK_INSETS.get(box["index"], ()):
+        key = "Y" if axis == "x" else "X"
+        if positive:
+            mx[key] -= 30.0
+        else:
+            mn[key] += 30.0
+    return (((mn["X"] + mx["X"]) / 2.0, (mn["Y"] + mx["Y"]) / 2.0, (mn["Z"] + mx["Z"]) / 2.0),
+            ((mx["X"] - mn["X"]) / 2.0, (mx["Y"] - mn["Y"]) / 2.0, (mx["Z"] - mn["Z"]) / 2.0))
 
 
 def manifest_width(mesh):
@@ -2001,6 +2267,24 @@ def build_backdrop(level, facade):
         cx, cy = math.cos(angle) * distance, -math.sin(angle) * distance
         masses.append((rng.choice(("concrete", "buff", "concrete")), (cx, cy, height / 2.0),
                        (rng.uniform(1500, 4000), rng.uniform(1500, 4000), height / 2.0)))
+    # Towers: a tower finish, and from 60 m one or two setback tiers on top (each narrower), so the skyline steps
+    # like a real one instead of ending in flat slabs. Own random stream: the masses above stay where they were.
+    tower_rng = random.Random(2203)
+    stepped = []
+    for finish, c, e in masses:
+        height = 2.0 * e[2]
+        if height >= TOWER_CM:
+            finish = tower_rng.choice(("glass", "glass", "glassdark", "stone", "stone"))
+            top, ex, ey = c[2] + e[2], e[0], e[1]
+            for tier in range(1 + int(tower_rng.random() < 0.5) if height >= 6000.0 else 0):
+                ex *= tower_rng.uniform(0.6, 0.8)
+                ey *= tower_rng.uniform(0.6, 0.8)
+                tier_h = height * tower_rng.uniform(0.06, 0.14)
+                stepped.append((finish, (c[0], c[1], top + tier_h / 2.0), (ex, ey, tier_h / 2.0)))
+                top += tier_h
+        stepped.append((finish, c, e))
+    masses = stepped
+    finishes = tuple(BACKDROP_SURFACE)
     groups = {f: [] for f in finishes}
     props = {}
     for finish, c, e in masses:
