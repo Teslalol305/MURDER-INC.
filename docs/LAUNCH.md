@@ -9,14 +9,15 @@ preview version**. E3DS lists support up to 5.8 for the original streaming plugi
 (Pixel Streaming 2, which we use), and it does **not** test Linux uploads before you stream them. So the free trial
 is the real test: do steps 1 to 6 on the trial before paying for anything.
 
-**The build to upload** is the package of 2026-11-24 (sha256 `8378eedd...`, ten parts, section 9). It replaces
-the zip of 2026-11-23 (sha256 `4ff06998...`, six parts), which was packaged before the polish and fix passes:
-delete those six old parts from your storage or ignore them, and never upload them.
+**The build to upload** is **version 2** of 2026-11-24 (sha256 `82ed886a...`, nine parts, section 9): the E3DS
+crash fix. Version 1 (sha256 `8378eedd...`) passed E3DS's upload check but crashed in every session, with no log; it
+is superseded, as is the zip of 2026-11-23 (`4ff06998...`). Upload version 2 as a **new version of the existing
+build `MurderInc`** (section 9, step 5). Every start now writes a log on the server (section 13).
 
 ## What you need
 
-- The game file: **`MurderInc-E3DS.zip`** (about 2.3 GB), in your Higgsfield storage in ten parts: join them first
-  (section 9).
+- The game file: **`MurderInc-E3DS-v2.zip`** (about 2.3 GB), in your Higgsfield storage in nine parts: join them
+  first (section 9).
 - Google Chrome or Microsoft Edge (Safari cannot lock the mouse and keyboard to the game).
 - About 2.5 GB of upload; a wired connection helps.
 
@@ -33,8 +34,9 @@ delete those six old parts from your storage or ignore them, and never upload th
 2. **Platform: Linux.** (Not Windows: the game is a Linux build.)
 3. **App name: `MurderInc`**, exactly like that: capital M, capital I, no space. E3DS finds the game by this name:
    it must match the launch file `MurderInc.sh` inside the zip.
-4. Choose `MurderInc-E3DS.zip` and upload it. The upload is checked only for the streaming plugin's files; if it is
-   refused at this point, see section 8.
+4. Choose the joined zip (`MurderInc-E3DS-v2.zip`, section 9) and upload it. The upload is checked only for the
+   streaming plugin's files; if it is refused at this point, see section 8. **If the build `MurderInc` already
+   exists** (version 1 was uploaded on 2026-11-24), upload the zip as a new version of it instead: section 9, step 5.
 
 ## 3. Make the stream configuration
 
@@ -133,73 +135,89 @@ Paste this where the game should appear (replace the `src` with your share link)
 
 ## 9. Getting the file
 
-The zip of **2026-11-24** is in your Higgsfield storage, private to your account, in **ten parts** (the storage takes
-at most about 250 MB per file). They are named `MurderInc-E3DS-part1-of-10.zip` to `MurderInc-E3DS-part10-of-10.zip`;
-**the parts are not zips on their own**: put them back together first. The joined file is 2,320,153,618 bytes
-(about 2.3 GB); unpacked, the game is 2.6 GB.
+The zip of **2026-11-24, version 2** (the E3DS crash fix, commit `e989cb8`) is in your Higgsfield storage,
+private to your account, in **9 parts** (the storage takes at most about 250 MB per file). They are named
+`MurderInc-E3DS-v2-part1-of-9.zip` to `MurderInc-E3DS-v2-part9-of-9.zip`; **the parts are not zips on their own**: put them back
+together first. The joined file is 2,254,911,244 bytes (about 2.3 GB); unpacked, the game is 2.7 GB.
+The ten parts of version 1 (`MurderInc-E3DS-part1-of-10.zip` ..., sha256 `8378eedd…`) are superseded: do not upload
+them again. Your storage also holds an earlier upload of version 2 under the same nine names (joined sha256
+`a57e2288…`, made before the last launcher fixes): ignore or delete it. Use the links of the release report; the
+rename step below only accepts the right parts.
 
-1. Download the ten parts into one empty folder (Higgsfield, your files/media library; the direct download links are
-   in Claude's release report of 2026-11-24, or ask Claude for them). They are not written here because this page is
-   in a public repository and the zip holds licensed content (see below). **The downloads arrive with random names**
-   (like `e588797e-….zip`), not the part names, and Safari may try to open them: turn off "Open safe files after
-   downloading" in Safari's settings, or use Chrome.
+1. Download the 9 parts into one empty folder (Higgsfield, your files/media library; the direct download links are
+   in Claude's release report of 2026-11-24, version 2, or ask Claude for them). They are not written here because
+   this page is in a public repository and the zip holds licensed content (see below). **The downloads arrive with
+   random names** (like `e588797e-….zip`), not the part names, and Safari may try to open them: turn off "Open safe
+   files after downloading" in Safari's settings, or use Chrome.
 2. Give each download its part name. On a Mac, open Terminal in that folder and paste this; it reads each file's
    fingerprint (sha256) and renames it to the matching part, so the download order does not matter:
 
    ```
    for f in *.zip; do
      case "$(shasum -a 256 "$f" | cut -d' ' -f1)" in
-       3db53f8f53f16851a4662761ec2be2d19ce485754d998098c26d09724a4617a5) mv "$f" MurderInc-E3DS-part1-of-10.zip ;;
-       174c56ae0280683fef714648410f33a15c6dfd439ff77817979b36ca86426419) mv "$f" MurderInc-E3DS-part2-of-10.zip ;;
-       c0d09ed472a33ffaa8b0dae9879938aec50a5fc4801c4dbbce60ed00b39def4f) mv "$f" MurderInc-E3DS-part3-of-10.zip ;;
-       ed80c5dbd3c470918578a0782fb21478cebf6d483b72599893cab2930a219911) mv "$f" MurderInc-E3DS-part4-of-10.zip ;;
-       e5dda4056d34ef759629713fe9a91efb2dfb968cca7b129a30db804363f52b91) mv "$f" MurderInc-E3DS-part5-of-10.zip ;;
-       70d6299197b977c91858b5f7b85e37bb42bc5bbdf489a8b5d321f9a9230f8db7) mv "$f" MurderInc-E3DS-part6-of-10.zip ;;
-       0e2b5eb88a6b1259e318e4afefcd872234ca9e44ad09ab85c9a42884014d1700) mv "$f" MurderInc-E3DS-part7-of-10.zip ;;
-       ac424c938c7796b6656dcc6a0961d51590a512b13453a130fc79417de305cdd4) mv "$f" MurderInc-E3DS-part8-of-10.zip ;;
-       952b2d8fc84e3eb071a5baae1baa7fda224d5aa566c2ee220a428bbbfad7ccf0) mv "$f" MurderInc-E3DS-part9-of-10.zip ;;
-       52e4831a32bd25b16197e1cecc5b5fdb3d71d3321f3d524c923afe6c0c447002) mv "$f" MurderInc-E3DS-part10-of-10.zip ;;
+       91056cbebc23cfc748de5bb1ceba44d5d8915e4c37bbec58ddcaee954807049c) mv "$f" MurderInc-E3DS-v2-part1-of-9.zip ;;
+       3c7380106b12aaa178571ab2764a3920e821338f797c3bfa52f1b1cbf708df91) mv "$f" MurderInc-E3DS-v2-part2-of-9.zip ;;
+       72759de75256274f6df2e3cde1c01d50329a8b71e3166e357848cc1dfbcac4c8) mv "$f" MurderInc-E3DS-v2-part3-of-9.zip ;;
+       2d6f6f42a5c0196ce4244e5cafcf3748d2ec97a878f3eee8aac53611642cd56f) mv "$f" MurderInc-E3DS-v2-part4-of-9.zip ;;
+       7ddc45f40d89fb949ed3e38bc7d6a88b0c186cb1faa1be72945bc9266cab6849) mv "$f" MurderInc-E3DS-v2-part5-of-9.zip ;;
+       f4d8ab7529f6f00aceaa337e3b8437e2bce00e5da1d8115931704fd5f6a399eb) mv "$f" MurderInc-E3DS-v2-part6-of-9.zip ;;
+       210d0b539a5ffa0f9ce8ef6e481ee96e4f581694ca36cb9fc187d34d3d61b923) mv "$f" MurderInc-E3DS-v2-part7-of-9.zip ;;
+       b934e5ad18eec056e12401c8aaf330b05a735b130d8a4d9606bc8c913207de26) mv "$f" MurderInc-E3DS-v2-part8-of-9.zip ;;
+       345788d9819e58dc9c2e0b33dcb8cc75d3b39e2d91b60e71b26a7e5b07215e87) mv "$f" MurderInc-E3DS-v2-part9-of-9.zip ;;
        *) echo "not a part (or incomplete, download again): $f" ;;
      esac
    done
-   ls MurderInc-E3DS-part*
+   ls MurderInc-E3DS-v2-part*
    ```
 
-   It must list ten parts. On Windows, rename them by hand using the table below (`certutil -hashfile <file> SHA256`
-   shows a file's fingerprint; part 10 is the small one, about 55 MB).
+   It must list 9 parts. On Windows, rename them by hand using the table below (`certutil -hashfile <file> SHA256`
+   shows a file's fingerprint; part 9 is the small one, about 242 MB).
 3. Join them. On a Mac, in the same Terminal:
 
    ```
-   cat MurderInc-E3DS-part{1,2,3,4,5,6,7,8,9,10}-of-10.zip > MurderInc-E3DS.zip
-   shasum -a 256 MurderInc-E3DS.zip
+   cat MurderInc-E3DS-v2-part{1,2,3,4,5,6,7,8,9}-of-9.zip > MurderInc-E3DS-v2.zip
+   shasum -a 256 MurderInc-E3DS-v2.zip
    ```
 
-   (Type the braces as shown: they keep the parts in the order 1 to 10.) On Windows, in Command Prompt, in that
+   (Type the braces as shown: they keep the parts in the order 1 to 9.) On Windows, in Command Prompt, in that
    folder:
 
    ```
-   copy /b MurderInc-E3DS-part1-of-10.zip+MurderInc-E3DS-part2-of-10.zip+MurderInc-E3DS-part3-of-10.zip+MurderInc-E3DS-part4-of-10.zip+MurderInc-E3DS-part5-of-10.zip+MurderInc-E3DS-part6-of-10.zip+MurderInc-E3DS-part7-of-10.zip+MurderInc-E3DS-part8-of-10.zip+MurderInc-E3DS-part9-of-10.zip+MurderInc-E3DS-part10-of-10.zip MurderInc-E3DS.zip
-   certutil -hashfile MurderInc-E3DS.zip SHA256
+   copy /b MurderInc-E3DS-v2-part1-of-9.zip+MurderInc-E3DS-v2-part2-of-9.zip+MurderInc-E3DS-v2-part3-of-9.zip+MurderInc-E3DS-v2-part4-of-9.zip+MurderInc-E3DS-v2-part5-of-9.zip+MurderInc-E3DS-v2-part6-of-9.zip+MurderInc-E3DS-v2-part7-of-9.zip+MurderInc-E3DS-v2-part8-of-9.zip+MurderInc-E3DS-v2-part9-of-9.zip MurderInc-E3DS-v2.zip
+   certutil -hashfile MurderInc-E3DS-v2.zip SHA256
    ```
-4. The fingerprint printed must be `8378eedde07ce04510a654dee46032c7af6bc87b7fb37852b210d6af4e9e570a`. If it does not, a
-   part is incomplete: compare each part with the list below (`shasum -a 256 MurderInc-E3DS-part*`), download the
-   one that differs again. Upload the joined `MurderInc-E3DS.zip` to E3DS, not the parts.
+4. The fingerprint printed must be `82ed886a3fb508a96ce6ac0e7c4a4c3b61f0563872e9d9cdc25249817d92ee8a`. If it does not, a
+   part is incomplete: compare each part with the list below (`shasum -a 256 MurderInc-E3DS-v2-part*`), download the
+   one that differs again.
+5. **Upload it to E3DS as a new version of the existing build `MurderInc`**, not as a new build: in the Projects
+   dashboard open the build `MurderInc`, its versions, and upload the joined `MurderInc-E3DS-v2.zip` (not the parts)
+   as the next version (v-2). Keep the same app name `MurderInc` (the launcher inside is still `MurderInc.sh`), make
+   `Project_MurderInc` and its stream configuration use v-2, and test the link (section 4), best in a fresh Incognito
+   window. Once v-2 streams, delete v-1 from inside the build's versions, **not** with the build row's trash icon
+   (that deletes the whole build).
+6. **The log** of every start is now on the server, in the app's folder: `MurderInc/Saved/Logs/MurderInc.log`.
+   If it crashes again, section 13 says how to get it.
 
 | Part | Bytes | sha256 |
 |---|---|---|
-| 1 | 251,658,240 | `3db53f8f53f16851a4662761ec2be2d19ce485754d998098c26d09724a4617a5` |
-| 2 | 251,658,240 | `174c56ae0280683fef714648410f33a15c6dfd439ff77817979b36ca86426419` |
-| 3 | 251,658,240 | `c0d09ed472a33ffaa8b0dae9879938aec50a5fc4801c4dbbce60ed00b39def4f` |
-| 4 | 251,658,240 | `ed80c5dbd3c470918578a0782fb21478cebf6d483b72599893cab2930a219911` |
-| 5 | 251,658,240 | `e5dda4056d34ef759629713fe9a91efb2dfb968cca7b129a30db804363f52b91` |
-| 6 | 251,658,240 | `70d6299197b977c91858b5f7b85e37bb42bc5bbdf489a8b5d321f9a9230f8db7` |
-| 7 | 251,658,240 | `0e2b5eb88a6b1259e318e4afefcd872234ca9e44ad09ab85c9a42884014d1700` |
-| 8 | 251,658,240 | `ac424c938c7796b6656dcc6a0961d51590a512b13453a130fc79417de305cdd4` |
-| 9 | 251,658,240 | `952b2d8fc84e3eb071a5baae1baa7fda224d5aa566c2ee220a428bbbfad7ccf0` |
-| 10 | 55,229,458 | `52e4831a32bd25b16197e1cecc5b5fdb3d71d3321f3d524c923afe6c0c447002` |
+| 1 | 251,658,240 | `91056cbebc23cfc748de5bb1ceba44d5d8915e4c37bbec58ddcaee954807049c` |
+| 2 | 251,658,240 | `3c7380106b12aaa178571ab2764a3920e821338f797c3bfa52f1b1cbf708df91` |
+| 3 | 251,658,240 | `72759de75256274f6df2e3cde1c01d50329a8b71e3166e357848cc1dfbcac4c8` |
+| 4 | 251,658,240 | `2d6f6f42a5c0196ce4244e5cafcf3748d2ec97a878f3eee8aac53611642cd56f` |
+| 5 | 251,658,240 | `7ddc45f40d89fb949ed3e38bc7d6a88b0c186cb1faa1be72945bc9266cab6849` |
+| 6 | 251,658,240 | `f4d8ab7529f6f00aceaa337e3b8437e2bce00e5da1d8115931704fd5f6a399eb` |
+| 7 | 251,658,240 | `210d0b539a5ffa0f9ce8ef6e481ee96e4f581694ca36cb9fc187d34d3d61b923` |
+| 8 | 251,658,240 | `b934e5ad18eec056e12401c8aaf330b05a735b130d8a4d9606bc8c913207de26` |
+| 9 | 241,645,324 | `345788d9819e58dc9c2e0b33dcb8cc75d3b39e2d91b60e71b26a7e5b07215e87` |
 
-Checked after the upload: all ten parts downloaded back from the storage, joined, the sha256 above, and
-`unzip -t` reports no errors (64 files, `MurderInc.sh` at the root, launching the Shipping game with `-MICloud`).
+Checked after the upload: all 9 parts downloaded back from the storage, joined, the sha256 above, and
+`unzip -t` reports no errors (64 files; `MurderInc.sh` and `BUILD.txt` at the root).
+
+What is new in version 2 (docs/unreal/PROGRESS.md, "E3DS crash fix"): the launcher `MurderInc.sh` writes the log
+above and never runs the game as root; the game carries the SM5 shaders too, so a server whose graphics driver fails
+Unreal 5.9's SM6 check runs a simpler picture instead of quitting; it needs less graphics memory at start; it reports
+a stop by the host as a normal quit; the home screen says "P Pause"; and the Development game rides along for E3DS's
+crash-log feature (launch option `-MIDev`, section 13).
 
 The zip contains licensed content (the rifle animation pack, Epic's template content and the main character's
 likeness): upload it only to E3DS, do not share the links.
@@ -219,8 +237,20 @@ Measured on the GPU box at 1920 x 1080 on the **older zip of 2026-11-23** (how i
 | Home screen: desktop / Cloud | 3.8 GB / 3.2 GB the game's own | 3.0 GB |
 
 The zip of 2026-11-24 has more art; in its start-up check its memory (RAM) peaked at **3.8 GB** (Shipping) and 4.0 GB
-(Development), still far under a server's 32 GB. Its graphics memory has not been measured yet; its smaller texture
-pool (below) works in its favour.
+(Development), still far under a server's 32 GB.
+
+**Version 2 (the E3DS crash fix) needs less graphics memory.** Measured with the Vulkan driver's own count
+(`r.Vulkan.DumpMemory`, the game's committed memory) on the box, Development game, 1920 x 1080:
+
+| Moment | Version 1 | Version 2 |
+|---|---|---|
+| Home screen, 6 s after the start | 4.2 GB | 3.6 GB |
+| Story run, 30 s in | 4.5 GB | 3.8 GB |
+
+and with the card artificially full (`tools/box/cloud/vram_hog.py`): version 1 crashed 6 s after the start with
+5.0 GB free; version 2 starts and holds the home screen at 60 fps with 5.0 GB free, plays a Story run at 60 fps with
+6.0 GB free, and runs E3DS-style with 7.6 GB free (an 8 GB card). The card's own counter (`nvidia-smi`) shows more
+than the table for the whole process (about 2 GB more for version 1: the driver's share, shader caches).
 
 "The game's own" is what the graphics driver reports for the game alone; "on the whole card" is the rise of the
 card's counter while the game ran, which also catches the driver's own share and anything else that grew meanwhile
@@ -234,8 +264,11 @@ What the Cloud settings change, and what you might notice:
 - **Shadows** get a smaller memory pool: in very wide views distant shadows can be a little softer.
 - **Fine geometry** streams from a smaller pool: on a fast turn, distant detail can take a moment longer to sharpen.
 - **Motion blur is off** (it costs video bandwidth and smears on a stream anyway).
-- **Texture pool** 800 MB (the desktop setting is 1000 MB). The measurements above were made with 1500 MB (the zip of
-  2026-11-23); the zip of 2026-11-24 carries 800 MB (the game reports `poolMB=800`), so it needs less, not more.
+- **Texture pool** 600 MB in version 2 (800 MB in version 1, 1000 MB on the desktop; the first table was measured
+  with 1500 MB). On a fast turn a distant texture can take a moment longer to sharpen.
+- **Anti-aliasing history** at the stream's resolution (the desktop keeps a 4K history at 1080p): no visible change
+  once the video is compressed.
+- **The rooms behind shop and home windows** are stored compressed (BC6H), an eighth of the memory, same size.
 - The picture is capped at 60 frames a second, the rate the stream sends.
 
 Lighting itself (Lumen with hardware ray tracing), Nanite, the art and the resolution are unchanged.
@@ -255,10 +288,12 @@ players go to the nearer one.
 
 ## 12. Making a new build later
 
-Claude rebuilds the whole package with one command on the GPU box (`tools/box/cloud/package-cloud.sh all`, about
-10 minutes on a warm cache: 8 on 2026-11-24), starts the packaged game on the box's desktop to check it (the box cannot test an actual stream: that
-is what the E3DS trial link in section 4 is for), and puts the new
-zip in your Higgsfield storage. You then upload it to E3DS as a new version (section 2) and test the link again.
+Claude rebuilds the whole package with one command on the GPU box (`tools/box/cloud/package-cloud.sh all`: about
+10 minutes on a warm cache, 8 on 2026-11-24; on a freshly rented box the first cook of version 2 with its SM5 shaders
+took about 20 minutes), runs the crash-cause checks (`tools/box/cloud/e3ds-verify.sh`, about 20 minutes: the box
+cannot test an actual stream, that is what the E3DS link in section 4 is for), and puts the new zip, in parts, in
+your Higgsfield storage. You then upload it to E3DS as a new version of the build `MurderInc` (section 9, step 5)
+and test the link again.
 
 ## 13. If it crashes again: the log
 
@@ -268,7 +303,7 @@ one.** On the E3DS server, inside the app's folder:
 
 | File | What is in it |
 |---|---|
-| `MurderInc/Saved/Logs/MurderInc.log` | written by the launcher `MurderInc.sh` for every start: the build's commit (`BUILD.txt`), the user, the GPU, its driver and free graphics memory, other programs holding graphics memory, the Vulkan check Unreal 5.9 needs, the arguments E3DS passed, every line the game prints (its own `[MICloud]` lines: GPU, shader platform, ray tracing, Nanite, Lumen, video memory, viewers joining and leaving), and at the end how the game ended: `quit normally`, `stopped by SIGTERM (sent by the host)`, `CRASH: ... signal 11 (SIGSEGV)` or `ENDED with exit code 1`, followed by the engine's crash report (the call stack) |
+| `MurderInc/Saved/Logs/MurderInc.log` | written by the launcher `MurderInc.sh` for every start: the build's commit (`BUILD.txt`), the user, the GPU, its driver and free graphics memory, other programs holding graphics memory, the Vulkan check Unreal 5.9 needs, the arguments E3DS passed, every line the game prints (its own `[MICloud]` lines: GPU, shader platform, ray tracing, Nanite, Lumen, video memory, viewers joining and leaving), and at the end how the game ended: `quit normally` (with `stop asked by SIGTERM` when the host stopped it), `CRASH: the game was killed by signal 11 (SIGSEGV)` or `ENDED with exit code 1`, followed by the engine's crash report (the call stack) |
 | `MurderInc/Saved/Logs/MurderInc-backup-<time>.log` | the run before (the last ten are kept) |
 | `MurderInc/Saved/Crashes/crashinfo-MurderInc-pid-<n>-<id>/` | the engine's own crash report (`Diagnostics.txt`, `CrashContext.runtime-xml`); nothing is sent anywhere |
 
@@ -299,14 +334,15 @@ build machine, so the menu names may differ slightly):
 **Reading the end of the log yourself:**
 
 - `Vulkan SM6 check: MISSING ...` or `[MICloud] Fallback: this GPU or driver did not pass Unreal's SM6 check`: the
-  server's NVIDIA driver is older than Unreal 5.9 needs for its full renderer. The game still runs (flatter light,
-  no Nanite), and E3DS support can say whether newer drivers exist on other servers. The launch option
-  `-MIForceSM6` makes Unreal skip that check (it may then work fully, or crash: try it once, read the log).
+  server's NVIDIA driver is older than Unreal 5.9 needs for its full renderer. The game still runs on its SM5
+  shaders (no Nanite, so simpler distant meshes; Lumen in software), and E3DS support can say whether newer drivers
+  exist on other servers. The launch option `-MIForceSM6` makes Unreal skip that check (untested: it may then work
+  fully, or crash; try it once, read the log).
 - `CRASH: ... SIGSEGV` a few seconds after `[MICloud] Features ... video memory`: look for `Out Of Memory` just
   above: the server's graphics card was full (the GPU line at the top shows how much was free and what else used it).
 - `ENDED with exit code 1` within about 10 seconds: a missing shader platform or file; the lines above it say which.
-- `the game was stopped by SIGTERM (sent by the host)` or `quit normally`: no crash on our side; if E3DS still
-  reported one, the log is the evidence to send them.
+- `quit normally` (or `stopped by SIGTERM after the host's SIGTERM`): no crash on our side; if E3DS still reported
+  one, the log is the evidence to send them.
 
 **Launch options** (stream configuration, launch options; leave empty normally):
 

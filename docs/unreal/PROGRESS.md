@@ -3,7 +3,7 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
-## E3DS crash fix (release engineer, 2026-11-24, evening) — @@STATUS@@
+## E3DS crash fix (release engineer, 2026-11-24, evening) — version 2 packaged, verified on the box and in the owner's storage; root cause not proven
 
 **What happened on E3DS.** Version 1 (the zip of `0f23081`, sha256 `8378eedd…e570a`) passed E3DS's upload check
 ("Test" ✔, "Your app is ready to stream"); then the owner's session showed "In Queue 1" and E3DS emailed "MurderInc
@@ -53,9 +53,12 @@ mid-run, no audio device, no display with `-RenderOffScreen`, a fresh user or no
   check (with `vulkaninfo` when the server has it), the command line, every line the game prints (tee through a
   FIFO; tee ignores stop signals, so a host that signals the whole process group cannot kill it and SIGPIPE the
   game), how the game ended (exit code, signal name, CRASH or stopped by the host) and the engine's crash report
-  (`Saved/Crashes/*/Diagnostics.txt`). Stop signals (TERM, INT, HUP) go on to the game once, and only if it did not
-  get them itself within 5 s (Unreal hard-exits on a second signal). Started as root, it runs the game as the
-  folder's owner or `nobody` (`setpriv`, else `runuser`, else `su`). Started by `sh`, it re-runs itself under bash.
+  (`Saved/Crashes/*/Diagnostics.txt`). A stop signal (TERM, INT, HUP) goes on to the game once, as SIGTERM, and only
+  if the game did not get it itself within 5 s (Unreal hard-exits on a second signal); a stop the host asked for
+  counts as a normal quit (exit 0). A background job of a non-interactive shell starts with SIGINT ignored (and
+  Unreal keeps an ignored SIGINT ignored): the launcher re-runs itself once with SIGINT back to default and starts
+  the game through `env --default-signal=INT,QUIT`. Started as root, it runs the game as the folder's owner or
+  `nobody` (`setpriv`, else `runuser`, else `su`). Started by `sh`, it re-runs itself under bash.
   Launch options: `-MIDev` (the Development game in the zip, full engine log), `-MIForceSM6`
   (`-SkipVulkanProfileCheck`).
 - **bUseLoggingInShipping is not possible here**: the box's engine is an installed build
@@ -85,19 +88,67 @@ mid-run, no audio device, no display with `-RenderOffScreen`, a fresh user or no
   with `demo/fix_usage.py`).
 - **Home screen**: the controls strip shows "P Pause" when streamed (`Source/MurderInc/UI/SMIFrontEnd.cpp`).
 - **Packaging** (`tools/box/cloud/package-cloud.sh`): `src` reads the clone as ue4 (the provenance line was empty
-  under root) and records `src.commit`; `zip` installs the launcher, writes `BUILD.txt` (commit, branch, date),
-  copies the Development game beside the Shipping one, leaves `*.debug` and `*.sym` out (kept on the box in
-  `/project/ue/cloud/symbols/<commit>/`); new `parts` step (240 MiB parts and their sha256, joined sha256 checked).
+  under root) and records `src.commit`; `package` records the commit the binaries were built from; `zip` installs
+  the launcher, writes `BUILD.txt` (game commit, launcher commit, branch, date), copies the Development game beside
+  the Shipping one, leaves `*.debug`, `*.sym` and any `Saved/` out (symbols kept on the box in
+  `/project/ue/cloud/symbols/<commit>/`); new `parts` step (240 MiB parts and their sha256, joined sha256 checked);
+  `-NoDDCCleanup` for the cook and the asset step (on a fresh box the cache maintainer's scan of the 9p cache starved
+  the cooker's own cache reads: the first cook attempt sat 20 minutes at "Compiling global changed shaders", "is very
+  slow (0.00 MiB/s)"; without the maintainer the cook ran in about 20 minutes).
 - **Tools**: `tools/box/cloud/e3ds-verify.sh` (the runs below in one detached command); `e3ds-repro.sh` finds the
   game under the new launcher by name and can stop the launcher instead (`STOPTO=launcher`).
 
 **Verified on the box** (box ec087d85, RTX PRO 6000 Blackwell, driver 620.70.06):
 
-@@VERIFIED@@
+Gameplay clone at `e179e3b` (same C++ as the package): `build.sh` OK, **`tools/box/test.sh MurderInc`: TESTS OK
+passed=105 failed=0 skipped=0** (golden replays included; 1214 s, the editor's first start on this box took 10 min).
 
-**Package** @@PACKAGE@@
+Every run goes through the zip's launcher with a clean environment (`tools/box/cloud/e3ds-verify.sh`,
+`e3ds-repro.sh`; results in `/project/ue/cloud/repro/<run>/`, launcher logs in the build's
+`MurderInc/Saved/Logs/` or the fresh user's `$HOME/MurderInc-cloud/Saved/Logs/`). "Version 1" is the REPRO result
+with the old package.
 
-**Not proven / not done:** @@NOTPROVEN@@
+| Run | Conditions | Version 1 | Version 2 |
+|---|---|---|---|
+| v-long | 7 min, fresh user, no display, signalling server, fake viewer joining and leaving 12 times, `-ForceRes` 1920x1080, TERM | alive | alive 7 min; 11 "Viewer joined" / 11 "Connection lost: paused" lines; TERM: exit 0; log fell back to `$HOME/MurderInc-cloud` (build folder not writable for that user) |
+| v-sm5, d2-sm5 | `-sm5`: what a driver failing the SM6 check gets | exit 1 after 7 s | runs on VULKAN_SM5 for 100-120 s (Shipping and Development), `[MICloud] Fallback` line; TERM: exit 0 |
+| v-root | launcher started as root | SIGABRT after 0.2 s | game runs as ue4 (`setpriv`); TERM to the launcher passed on; exit 0 |
+| v-crash, w-crash | `-MICrashTest=30` (null write) | no log | log: `CRASH: the game was killed by signal 11 (SIGSEGV) after 29s`, then the engine's report with a symbolicated call stack (`UMICloudSubsystem::Tick(float) [.../MICloud.cpp:520]`); `Saved/Crashes/crashinfo-MurderInc-pid-*/` holds Diagnostics.txt and CrashContext.runtime-xml |
+| v-nort | `-ini:...r.RayTracing=False`, INT to the launcher | - | not a valid test: Shipping ignores `-ini:` overrides (ray tracing stayed on), and the launcher, started as a background job, ignored INT: KILLed after 30 s. Both fixed and re-run as w-dev-nort and w-int-launcher |
+| w-dev-nort | Development game (`-MIDev`), `r.RayTracing=False` | (REPRO: runs) | "Ray tracing is disabled", `[MICloud] Fallback: no hardware ray tracing ... Lumen traces in software (mesh distance fields)`; 90 s; TERM: exit 0 |
+| w-int-launcher, w-term-launcher | INT / TERM to the launcher after 60 s | - | "got SIGINT: passed it on to the game as SIGTERM", "quit normally (stop asked by SIGINT)": exit 0; TERM likewise |
+| v-dev-quit, w-mem | the Development game from the Shipping zip quits by itself | segfault on every exit | exit 0 (the exit guard: "[MICloud] Exit: engine status 143 (stop asked by a signal: a normal quit); exiting with 0" after a TERM, 0 after quit) |
+| v-vram5000 | 5.0 GB of the card free, home screen 120 s | SIGSEGV after 6 s ("Out Of Memory, trying to allocate 134217728 bytes") | alive at 60 fps; TERM: exit 0 |
+| v-vram6000 | 6.0 GB free, Development Story run 220 s | (REPRO: 150 s ran) | Story run (state 2) at 60 fps; TERM: exit 0 |
+| v-e3ds-7600 | E3DS/PS1-style flags (`-AudioMixer -PixelStreamingURL= -PixelStreamingIP/Port -AllowPixelStreamingCommands -PixelStreamingEncoderCodec=H264 -PixelStreamingHideCursor -Windowed -ForceRes`), 7.6 GB free, fresh user, 5 viewer cycles | alive | alive 220 s at 60 fps; TERM: exit 0 |
+| w-shot2 | home screen, Development game, `-MICloudNoCard` | "ESC Pause" | the controls strip ends with **"P Pause"** (picture looked at, kept on the box: `/project/ue/cloud/repro2/home.png`) |
+| launcher, locally | fake game: TERM, INT, HUP to the launcher; TERM and INT to the process group; crash; `sh` and `dash` start | - | all end as described above (exit 0 for host stops, 139 for the crash) |
+
+Graphics memory (Development, `r.Vulkan.DumpMemory`, the game's committed Vulkan memory, 1920 x 1080): home screen
+4,218 MB (version 1, `d-mem`) to **3,596 MB** (version 2, `w-mem`); Story run 30 s in 4,541 MB to **3,805 MB**.
+Texture cube memory 384 to 48 MB (BC6H interiors), TSR history colour 127.5 to 33.8 MB, UAV textures 809 to 691 MB.
+
+**Package** (2026-11-24, 20:26 to 21:23 on box ec087d85; `package-cloud.sh all` after the tests, then the zip
+rebuilt twice for launcher fixes found by the runs): game binaries and paks from `e989cb8` (C++ identical to the
+tested `e179e3b`), launcher and packaging from `3f5d85a`. `/project/ue/cloud/MurderInc-E3DS.zip`, **2,254,911,244
+bytes, sha256 `82ed886a3fb508a96ce6ac0e7c4a4c3b61f0563872e9d9cdc25249817d92ee8a`**, 64 files (2.7 GB unpacked):
+`MurderInc.sh` (mode 755), `BUILD.txt`, the Shipping and the Development game, the paks with SM6 and SM5 shader
+libraries; no `*.debug`, `*.sym` or `Saved/`. Nine parts of 240 MiB (the last 241,645,324 bytes) PUT from the box
+to the owner's Higgsfield storage (all HTTP 200), confirmed as files, named `MurderInc-E3DS-v2-part<k>-of-9.zip`;
+**downloaded back, joined: the same sha256, `unzip -t` no errors**; local copies deleted. Part sizes and sha256 in
+LAUNCH.md section 9. The download links are only in the release report (public repository, licensed content). Superseded: the first upload of version 2 (sha256 `a57e2288…`, the
+launcher before its signal fixes; still in the storage under the same names) and a second zip (`468015bc…`, never
+uploaded: it had swept the box's test logs from `Saved/` into the zip, hence the `Saved/` exclusion).
+
+**Not proven / not done:** the root cause of the E3DS crashes (no E3DS log exists; the SM6/driver explanation is the best supported, not
+proven: E3DS's driver version is unknown); whether version 2 streams on E3DS (the box blocks WebRTC: no picture,
+sound, input or gamepad through a real stream was ever tested; the fake viewer only exercises the signalling and
+connection events); E3DS's command line, user, GPU sharing and crash detection (unpublished); what E3DS's
+"Print UE Log in Browser Console" and "Auto Download UE Crash Log" actually read (whether they find
+`MurderInc/Saved/Logs`); `-MIForceSM6` (never needed on the box); the SM5 fallback's picture (it ran; nobody looked at
+it); a real 8 GB card (the box emulates one by holding memory; the engine still sees 96 GB). bUseLoggingInShipping
+was not possible (installed engine, see above). Known cosmetic issue, fixed in source after the package: the SM5
+fallback line says "no Lumen" though the platform keeps software Lumen (`acce058`).
 
 ## Repackage for the website (release engineer, 2026-11-24) — delivered, checked from the storage
 

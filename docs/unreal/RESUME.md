@@ -1,6 +1,6 @@
 # Picking up where we left off
 
-Last updated 2026-11-23 by the lead session (branch `claude/tender-albattani-5q78qr`, never merged, no pull request).
+Last updated 2026-11-24 (evening, the E3DS crash fix) by the lead session (branch `claude/tender-albattani-5q78qr`, never merged, no pull request).
 A new session starts here: read this page, then `DECISIONS.md`, then the documents it points to.
 
 ## 1. What this project is
@@ -195,5 +195,17 @@ old zip is superseded. Next is step 6 (the owner's E3DS trial) and the explosion
 - Viewer settings advised: Locked Mouse, browser cursor off, 1920x1080, video quality High, H264, region Global,
   15 min session with 5 min idle, a password while testing, Unreal log in the browser console on while testing,
   crash-log email on.
-- Next: the owner plays the link in Chrome (LAUNCH.md section 4). Cursor then embeds the link on the IPX Game OS
-  page and deploys (`docs/CURSOR_HANDOFF.md`).
+- **Version 1 crashed on every real session** (17:46 UTC on the trial, again about 18:55 UTC on Core with ten
+  slots): "Crashed ... But no crashlog was found". Version 1 wrote no log at all. Diagnosis and fix: PROGRESS.md,
+  "E3DS crash fix". Root cause **not proven** (no log exists); best supported: the server's NVIDIA driver fails
+  Unreal 5.9's Vulkan SM6 check and version 1 had no SM5 shaders to fall back to (exit 1 at 7 s, reproduced with
+  `-sm5`); also possible: graphics memory at start, a root user.
+- **Version 2** (zip of 2026-11-24 evening, game commit `e989cb8`, nine parts; sha256 and parts table in LAUNCH.md
+  section 9; download links only in the release report, never committed) fixes all of those and **always writes a
+  log**: `MurderInc/Saved/Logs/MurderInc.log` in the app's folder on the server (LAUNCH.md section 13), plus the
+  engine's crash report in `MurderInc/Saved/Crashes/`. Debug symbols for its crash call stacks are on the box in
+  `/project/ue/cloud/symbols/e989cb8/`. Verified on box ec087d85 (no stream: WebRTC is still blocked there).
+- **Next:** the owner uploads version 2 as a **new version of the build `MurderInc`** (LAUNCH.md section 9, step 5)
+  and opens the link in a fresh Incognito window (DECISIONS.md). If it crashes again: get the log (LAUNCH.md section
+  13: browser console, launch option `-MIDev` for E3DS's crash-log feature, or E3DS support) and give it to Claude.
+  If it streams: Cursor embeds the link on the IPX Game OS page and deploys (`docs/CURSOR_HANDOFF.md`).
