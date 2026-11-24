@@ -27,6 +27,12 @@
 #   -MIForceSM6   skip Unreal's Vulkan SM6 check (-SkipVulkanProfileCheck) on a driver that fails it; the game otherwise
 #                 falls back to its SM5 shaders by itself (no Nanite, no Lumen)
 
+# Started by sh (dash) instead of bash: run again under bash; with no bash at all, start the game the engine's way.
+if [ -z "$BASH_VERSION" ]; then
+  command -v bash >/dev/null 2>&1 && exec bash "$0" "$@"
+  exec "$(dirname "$0")/MurderInc/Binaries/Linux/MurderInc-Linux-Shipping" MurderInc -MICloud -RenderOffScreen "$@"
+fi
+
 ROOT=$(dirname "$(readlink -f "$0")")
 PROJ=$ROOT/MurderInc
 STAMP=$(date -u +%Y%m%d-%H%M%S)
@@ -128,15 +134,15 @@ note "start: ${RUNAS[*]} $BIN ${ARGS[*]} ${PASS[*]}"
 note "---- the game"
 
 # ---- the game: its output goes to the log (and to this launcher's own output, which the host may read) ----
-FIFO=$(mktemp -u "${TMPDIR:-/tmp}/MurderInc-out.XXXXXX")
-mkfifo "$FIFO" || FIFO=
+FIFO=
+command -v tee >/dev/null 2>&1 && FIFO=$(mktemp -u "${TMPDIR:-/tmp}/MurderInc-out.XXXXXX") && { mkfifo "$FIFO" || FIFO=; }
 TEE=
 if [ -n "$FIFO" ]; then
-  if tee --version 2>/dev/null | grep -q GNU; then
-    tee -a -i -p "$LOG" < "$FIFO" & TEE=$!   # -p: keep writing the file if the host stops reading this output
-  else
-    tee -a "$LOG" < "$FIFO" & TEE=$!
-  fi
+  # tee ignores stop signals (a host that signals the whole process group must not kill it: the game would then die
+  # of SIGPIPE on its next line); it ends when the game closes its output. -p: keep writing the file if the host
+  # stops reading this launcher's output.
+  TOPT=-a; tee --version 2>/dev/null | grep -q GNU && TOPT=-ap
+  ( trap '' TERM INT HUP PIPE; exec tee $TOPT "$LOG" ) < "$FIFO" & TEE=$!
   START=$(date +%s)
   "${RUNAS[@]}" "$BIN" "${ARGS[@]}" "${PASS[@]}" > "$FIFO" 2>&1 &
 else
@@ -144,15 +150,24 @@ else
   "${RUNAS[@]}" "$BIN" "${ARGS[@]}" "${PASS[@]}" >> "$LOG" 2>&1 &
 fi
 GAME=$!
-STOPPED=
-stop() { STOPPED=$1; kill -s "$1" "$GAME" 2>/dev/null; }
-trap 'stop TERM' TERM
-trap 'stop INT' INT
-trap 'stop HUP' HUP
+# A stop signal for this launcher goes on to the game, once, and only if the game did not get it too: a host that
+# signals the whole process group reaches the game directly, and Unreal treats a second signal during its shutdown as
+# "quit now" (no clean exit). So: wait up to 5 s for the game to end by itself, then pass the signal on.
+STOPPED=; FWD=
+alive() { local st=; read -r _ _ st _ 2>/dev/null < "/proc/$GAME/stat"; [ -n "$st" ] && [ "$st" != Z ]; }
+trap 'STOPPED=TERM' TERM
+trap 'STOPPED=INT' INT
+trap 'STOPPED=HUP' HUP
 while :; do
   wait "$GAME"; RC=$?
-  kill -0 "$GAME" 2>/dev/null || break
+  alive || break
+  if [ -n "$STOPPED" ] && [ -z "$FWD" ]; then
+    for i in 1 2 3 4 5 6 7 8 9 10; do alive || break; sleep 0.5; done
+    if alive; then kill -s "$STOPPED" "$GAME" 2>/dev/null; FWD=1; note "passed SIG$STOPPED on to the game"; fi
+  fi
 done
+# The game may have been reaped by the wait that the trap interrupted: its status is then the last wait's.
+wait "$GAME" 2>/dev/null; R2=$?; [ "$R2" != 127 ] && RC=$R2
 [ -n "$TEE" ] && wait "$TEE" 2>/dev/null
 [ -n "$FIFO" ] && rm -f "$FIFO"
 
