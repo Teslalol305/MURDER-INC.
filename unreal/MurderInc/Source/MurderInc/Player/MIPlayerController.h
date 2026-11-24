@@ -2,17 +2,32 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "Player/MILookInput.h"
 #include "Player/MISwitchInput.h"
 #include "MIPlayerController.generated.h"
 
 class AMIPlayerCharacter;
 class UInputAction;
 class UInputMappingContext;
+enum class EInputActionValueType : uint8;
 
 /**
  * Owns the player's input (spec 01 4.6): the Enhanced Input actions and the mapping context are created here in
  * code (no input assets), bound once, and written into the possessed AMIPlayerCharacter's input state. Mouse look
  * is turned into degrees here (counts x config player.input.mouse x sensitivity); the rules do the rest.
+ *
+ * The gamepad (spec 01 3.17, src/input.js): both sticks pass the web game's axial dead zone; the right stick turns
+ * the view through its response curve and turn boost (FMIPadLook) and picks on the weapon wheel while that is open;
+ * the triggers fire and aim from their analog axes too (a pad in a browser stream sends the triggers only as axes);
+ * L3 latches the sprint. The device that produced real input last is the active one (3.16): the pad's aim slow-down
+ * runs only while that is the pad.
+ *
+ * Mouse look through a Pixel Streaming data channel (Cloud/MICloud.h): the stream's mouse events arrive one by one
+ * through StreamMouseEvent and are turned back into the browser's pixels (FMIStreamMouse); the engine's own mouse
+ * axis is ignored meanwhile. On the desktop nothing of that applies.
+ *
+ * Nothing pressed on a card carries into play (3.16): the click, key or button that resumed or started a run does
+ * not also fire, jump or strike when the run goes live.
  */
 UCLASS()
 class MURDERINC_API AMIPlayerController : public APlayerController
@@ -24,6 +39,30 @@ public:
 
 	/** Creates the actions and the key mappings; safe to call more than once. Public for the tests. */
 	void BuildInputAssets();
+
+	/** Every key and axis event passes here on its way to the mappings: it tells which device is in use. */
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	using APlayerController::InputKey;
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	virtual bool InputKey(const FInputKeyEventArgs& Params) override;
+
+	/** True while the gamepad is the device that produced real input last. */
+	bool IsPadActive() const { return bPadActive; }
+	const FMIPadLook& GetPadLook() const { return PadLook; }
+	bool IsSprintLatched() const { return bSprintLatch; }
+
+	/** The mouse comes through a stream from now on (UMICloudSubsystem, or a test): see the class comment. */
+	void SetStreamMouse(const FMIStreamMouse& Shape);
+	void ClearStreamMouse();
+	bool UsesStreamMouse() const { return bStreamMouse; }
+	const FMIStreamMouse& GetStreamMouse() const { return StreamMouse; }
+	/** One mouse event of the stream, counts as Slate reports them (X right, Y down). False: a spike, dropped whole. */
+	bool StreamMouseEvent(const FVector2D& Counts);
+	/** Spikes dropped since the start (the cloud probe line). */
+	int32 GetMouseSpikes() const { return MouseSpikes; }
+
+	/** A card acted on a press (confirm, click, back, the pause key): what is still held does not carry into play. */
+	void DropMenuPresses();
 
 	/**
 	 * Console input for headless checks: MIInput <fire|ads|sprint|crouch|jump|reload|swap|melee|weapon1|weapon2|forward|right> <value>.
@@ -97,10 +136,19 @@ protected:
 
 private:
 	AMIPlayerCharacter* GetMICharacter() const;
-	UInputAction* MakeAction(const TCHAR* Name, bool bAxis2D);
+	UInputAction* MakeAction(const TCHAR* Name, EInputActionValueType Type);
 	/** Moves the switch layer's edges into the pawn's input state (same frame as the key event). */
 	void FlushSwitch();
 	double Now() const;
+	/** Mouse travel of one frame or event, in the web game's pixels (X right, Y up): the look, or the weapon wheel. */
+	void MouseLook(const FVector2D& Pixels);
+	/** Which device an event came from (spec 01 3.16). */
+	void NoteDevice(const FKey& Key, EInputEvent Event, float Value);
+	void UsePad(bool bPad);
+	/** Fire and aim have two sources each (the keys and buttons, and the trigger's axis): held while either holds. */
+	void SetFire(bool& Source, bool bDown);
+	void SetAim(bool& Source, bool bDown);
+	bool SwallowsPresses() const { return SwallowTicks > 0; }
 
 	FMISwitchInput Switch;
 
@@ -112,4 +160,25 @@ private:
 
 	double MouseDegreesPerCount = 0.0;
 	double WheelDebounce = 0.0;
+	double MouseWake = 0.0;
+
+	// The gamepad.
+	FMIPadLook PadLook;
+	FVector2D LeftStick = FVector2D::ZeroVector;   // raw, X right, Y forward
+	FVector2D RightStick = FVector2D::ZeroVector;  // raw, X right, Y up
+	FVector2D KeyMove = FVector2D::ZeroVector;     // W A S D
+	FVector2D PadMove = FVector2D::ZeroVector;     // the left stick after the dead zone
+	bool bPadActive = false;
+	bool bSprintLatch = false;
+	bool bFireKey = false, bFireAxis = false, bAimKey = false, bAimAxis = false;
+	double MouseTravel = 0.0;  // web pixels this frame: a nudge of the desk does not take the device back from a pad
+
+	// The mouse through a stream.
+	FMIStreamMouse StreamMouse;
+	bool bStreamMouse = false;
+	FVector2D StreamPending = FVector2D::ZeroVector;  // web pixels since the last frame, X right, Y up
+	int32 MouseSpikes = 0;
+
+	/** Frames of play left in which a fresh press of a play action is ignored (it was the press that left a card). */
+	int32 SwallowTicks = 0;
 };
