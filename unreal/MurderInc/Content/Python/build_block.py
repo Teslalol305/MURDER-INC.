@@ -1581,6 +1581,14 @@ def level_units(force):
                 material = unreal.load_asset("%s/%s" % (MAT_DIR, name))
                 c, e = box["ue"]["center"], box["ue"]["extent"]
                 art = drawn_by_art(box)
+                pieces = None if art else coplanar_pieces(box)
+                if pieces is not None:
+                    # Drawn in pieces stepped back behind a dressed back's bays; the box stays as hidden collision.
+                    art = True
+                    for k, (centre, extent) in enumerate(pieces):
+                        piece = spawn_box("Mass_%03d_%s_%d" % (box["index"], box["tag"].replace(" ", "_"), k),
+                                          "Block/GreyBox", centre, extent, material)
+                        piece.static_mesh_component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
                 actor = spawn_box("%s_%03d_%s" % ("Collision" if art else "Grey", box["index"], box["tag"].replace(" ", "_")),
                                   "Block/Collision" if art else "Block/GreyBox",
                                   (c["X"], c["Y"], c["Z"]), (e["X"], e["Y"], e["Z"]), material)
@@ -2050,6 +2058,7 @@ def structure_placements(level):
               b["ue"]["max"]["Z"] - b["ue"]["min"]["Z"] >= 300 and b["tag"] not in SKIP_COLLIDER_TAGS]
     rng = random.Random(3110)
     BACK_INSETS.clear()
+    del DRESSED_FACES[:]
     for back in backs:
         if not have(parapet):
             break
@@ -2063,6 +2072,7 @@ def structure_placements(level):
                     out.extend(back_window_bays(axis, line, p0, p1, positive, mn["Z"], mx["Z"], floor, rng, have))
                 if runs:
                     BACK_INSETS.setdefault(back["index"], set()).add((axis, positive))
+                    DRESSED_FACES.append((back["index"], axis, positive, line, [(r[0], r[1]) for r in runs]))
                     drawn.add(back["index"])
         sx, sy = mx["X"] - mn["X"], mx["Y"] - mn["Y"]
         cx, cy = (mn["X"] + mx["X"]) / 2.0, (mn["Y"] + mx["Y"]) / 2.0
@@ -2081,6 +2091,7 @@ BACK_WINDOW_BAY = "SM_Facade_BayWindow_Red"   # 3.1 x 3.1 m, outer face at local
 BACK_BLANK_BAY = "SM_Facade_BayBlank_Red"     # the same wall without the window: ground floor and the top strip
 BACK_SET = "TS_Brick_ScanRedDark"             # the backs' mass in the bays' own brick
 BACK_INSETS = {}   # back collider index -> {(axis, positive side)} of the faces the bays dress (filled per build)
+DRESSED_FACES = []  # (back index, axis, positive side, plane, [(start, end)]) of every dressed face (filled per build)
 
 
 def back_face_runs(back, others, axis, line, a, e, positive):
@@ -2154,6 +2165,44 @@ def back_window_bays(axis, line, start, end, positive, z0, z1, floor, rng, have)
     if z1 - z > 3.0:
         out.extend(bays(BACK_BLANK_BAY, z, (z1 - z) / 310.0))
     return out
+
+
+def coplanar_pieces(box):
+    """A drawn box whose face shares a dressed back's face plane from behind it (the block's seal walls run inside
+    the backs): its stretches behind the bays are drawn 31 cm back, so they do not fill the bays' window openings;
+    the rest keeps its face. None when no dressed face touches it, else [(centre, extent)] to draw (no collision)."""
+    mn, mx = box["ue"]["min"], box["ue"]["max"]
+    cuts, side = [], None
+    for index, axis, positive, line, runs in DRESSED_FACES:
+        if index == box["index"]:
+            continue
+        key, along = ("Y", "X") if axis == "x" else ("X", "Y")
+        if abs((mx[key] if positive else mn[key]) - line) > 2 or (side and side != (axis, positive)):
+            continue
+        for p0, p1 in runs:
+            a, b = max(p0, mn[along]), min(p1, mx[along])
+            if b - a > 1:
+                cuts.append((a, b))
+                side = (axis, positive)
+    if not cuts:
+        return None
+    axis, positive = side
+    key, along = ("Y", "X") if axis == "x" else ("X", "Y")
+    marks = sorted({mn[along], mx[along]} | {c for cut in cuts for c in cut})
+    pieces = []
+    for a, b in zip(marks, marks[1:]):
+        lo, hi = dict(mn), dict(mx)
+        lo[along], hi[along] = a, b
+        if any(c0 <= a + 0.5 and b - 0.5 <= c1 for c0, c1 in cuts):
+            if hi[key] - lo[key] <= 32.0:
+                continue                      # thinner than the bays: wholly behind them
+            if positive:
+                hi[key] -= 31.0
+            else:
+                lo[key] += 31.0
+        pieces.append((((lo["X"] + hi["X"]) / 2.0, (lo["Y"] + hi["Y"]) / 2.0, (lo["Z"] + hi["Z"]) / 2.0),
+                       ((hi["X"] - lo["X"]) / 2.0, (hi["Y"] - lo["Y"]) / 2.0, (hi["Z"] - lo["Z"]) / 2.0)))
+    return pieces
 
 
 def back_mass(box):

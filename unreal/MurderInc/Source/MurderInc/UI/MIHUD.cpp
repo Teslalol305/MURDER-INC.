@@ -79,13 +79,20 @@ void AMIHUD::DrawPlay(UFont* Font)
 		const double Half = FMath::Tan(FMath::DegreesToRadians(Rules.ViewFov) * 0.5);
 		const double Gap = Half > 0.0 ? FMath::Tan(FMath::DegreesToRadians(View.Spread)) / Half * CY : 0.0;
 		const double Arm = FMath::Max(6.0, H * 0.012);
-		// Gone while aiming: the sights or the optic's reticle are the point of aim (review 2026-11-23).
+		// Gone while aiming: the sights or the optic's reticle are the point of aim (review 2026-11-23). Drawn as
+		// tiles: canvas lines are batched opaque and ignore alpha, which is why the fade never showed and the "+"
+		// stayed in the aperture when aimed (polish-chopper-aim).
 		const float Alpha = static_cast<float>(1.0 - FMath::SmoothStep(0.05, 0.55, View.Ads));
-		const FLinearColor Hair(1.f, 1.f, 1.f, 0.85f * Alpha);
-		DrawLine(CX + Gap, CY, CX + Gap + Arm, CY, Hair, 2.f);
-		DrawLine(CX - Gap, CY, CX - Gap - Arm, CY, Hair, 2.f);
-		DrawLine(CX, CY + Gap, CX, CY + Gap + Arm, Hair, 2.f);
-		DrawLine(CX, CY - Gap, CX, CY - Gap - Arm, Hair, 2.f);
+		if (Alpha > 0.01f)
+		{
+			const FLinearColor Hair(1.f, 1.f, 1.f, 0.85f * Alpha);
+			const float T = 2.f, A = static_cast<float>(Arm), G = static_cast<float>(Gap);
+			const float X = static_cast<float>(CX), Y = static_cast<float>(CY);
+			DrawRect(Hair, X + G, Y - T * 0.5f, A, T);
+			DrawRect(Hair, X - G - A, Y - T * 0.5f, A, T);
+			DrawRect(Hair, X - T * 0.5f, Y + G, T, A);
+			DrawRect(Hair, X - T * 0.5f, Y - G - A, T, A);
+		}
 	}
 
 	// Hit marker for a quarter of a second.
