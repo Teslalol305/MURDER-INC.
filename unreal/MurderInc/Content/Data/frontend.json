@@ -159,8 +159,20 @@
     "lights": [
       {"kind": "rect", "at": [-180, -160, 140], "aim": [0, 0, 106], "lux": 2600, "kelvin": 4300, "size": [120, 60]},
       {"kind": "rect", "at": [-150, 120, 100], "aim": [0, 0, 106], "lux": 900, "kelvin": 5600, "size": [100, 100]},
-      {"kind": "spot", "at": [180, 120, 170], "aim": [0, 0, 106], "lux": 2400, "kelvin": 3600, "cone": 30}
+      {"kind": "spot", "at": [180, 120, 170], "aim": [0, 0, 106], "lux": 2400, "kelvin": 3600, "cone": 30},
+      {"kind": "spot", "at": [150, -260, 420], "aim": [600, 40, 170], "lux": 260, "kelvin": 3000, "cone": 38},
+      {"kind": "spot", "at": [150, 300, 380], "aim": [600, 260, 120], "lux": 120, "kelvin": 4800, "cone": 30}
     ],
+    "materials": {
+      "floor": "/Game/Art/Materials/MI_Grey_Concrete.MI_Grey_Concrete",
+      "backWall": "/Game/Art/Materials/MI_Box_BrickBrown.MI_Box_BrickBrown",
+      "walls": "/Game/Art/Materials/MI_Box_BlockPainted.MI_Box_BlockPainted",
+      "ceiling": null,
+      "bench": "/Game/Art/Materials/MI_Box_SteelGrey.MI_Box_SteelGrey",
+      "benchFrame": "/Game/Art/Materials/MI_Box_SteelDark.MI_Box_SteelDark",
+      "turntable": "/Game/Art/Materials/MI_Grey_Metal.MI_Grey_Metal",
+      "note": "world-projected instances of the block's scans (build_block.py TAG_SURFACE / GREY_SURFACE) on the set's engine cubes: a brick back wall behind the gun with two pools of light on it, painted block side walls, a concrete floor, a steel bench top on a dark frame. A missing asset keeps the flat colour (review 2026-11-24: the grey-box stage)"
+    },
     "lightsNote": "key (front left), fill (front right, on the camera's side: a rect light lights only what is in front of its plane, and the old fill behind the gun drew a hard lit-to-unlit seam across the back wall, fix pass) and a rim from behind right on the gun's top and back edges",
     "exposure": {"ev100": 9.5, "fixed": true},
     "bench": {

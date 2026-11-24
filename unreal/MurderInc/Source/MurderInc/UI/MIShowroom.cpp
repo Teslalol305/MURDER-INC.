@@ -90,21 +90,37 @@ void AMIShowroom::Setup(const TSharedPtr<FJsonObject>& Frontend, const FMIViewmo
 		Set.Add(C);
 		return C;
 	};
+	// The block's art materials dress the set where the project has them (frontend.json stage.materials: world-projected
+	// instances of the street's scans, review 2026-11-24: a flat brown slab and a navy wall read as a grey box); a piece
+	// whose material does not load keeps its flat colour.
+	const auto Dress = [&Frontend, &S](UStaticMeshComponent* C, const TCHAR* Key)
+	{
+		const FString Path = MIJson::StringOr(Frontend, S + TEXT("materials.") + Key);
+		if (C && !Path.IsEmpty())
+		{
+			if (UMaterialInterface* M = Cast<UMaterialInterface>(FSoftObjectPath(Path).TryLoad()))
+			{
+				C->SetMaterial(0, M);
+			}
+		}
+	};
 	// The closed room: a dark cyclorama (engine cubes until the art exists, frontend.json stage.room.mesh null).
 	const FLinearColor Wall(0.018f, 0.019f, 0.022f), Floor(0.012f, 0.012f, 0.014f);
 	const double T = 20.0;
-	Piece(Cube, FVector(0, 0, -T * 0.5), FVector(Room.X, Room.Y, T), Floor);
-	Piece(Cube, FVector(0, 0, Room.Z + T * 0.5), FVector(Room.X, Room.Y, T), Wall);
-	Piece(Cube, FVector(Room.X * 0.5 + T * 0.5, 0, Room.Z * 0.5), FVector(T, Room.Y, Room.Z), Wall);
-	Piece(Cube, FVector(-Room.X * 0.5 - T * 0.5, 0, Room.Z * 0.5), FVector(T, Room.Y, Room.Z), Wall);
-	Piece(Cube, FVector(0, Room.Y * 0.5 + T * 0.5, Room.Z * 0.5), FVector(Room.X, T, Room.Z), Wall);
-	Piece(Cube, FVector(0, -Room.Y * 0.5 - T * 0.5, Room.Z * 0.5), FVector(Room.X, T, Room.Z), Wall);
-	// The steel bench under the turntable, and the turntable plate.
+	Dress(Piece(Cube, FVector(0, 0, -T * 0.5), FVector(Room.X, Room.Y, T), Floor), TEXT("floor"));
+	Dress(Piece(Cube, FVector(0, 0, Room.Z + T * 0.5), FVector(Room.X, Room.Y, T), Wall), TEXT("ceiling"));
+	Dress(Piece(Cube, FVector(Room.X * 0.5 + T * 0.5, 0, Room.Z * 0.5), FVector(T, Room.Y, Room.Z), Wall), TEXT("backWall"));
+	Dress(Piece(Cube, FVector(-Room.X * 0.5 - T * 0.5, 0, Room.Z * 0.5), FVector(T, Room.Y, Room.Z), Wall), TEXT("walls"));
+	Dress(Piece(Cube, FVector(0, Room.Y * 0.5 + T * 0.5, Room.Z * 0.5), FVector(Room.X, T, Room.Z), Wall), TEXT("walls"));
+	Dress(Piece(Cube, FVector(0, -Room.Y * 0.5 - T * 0.5, Room.Z * 0.5), FVector(Room.X, T, Room.Z), Wall), TEXT("walls"));
+	// The steel bench under the turntable (a top on a darker frame), and the turntable plate.
 	const FVector BenchAt = Vec(Frontend, S + TEXT("bench.at"), FVector::ZeroVector);
 	const double BenchH = MIJson::NumberOr(Frontend, S + TEXT("bench.height"), 90.0);
-	Piece(Cube, BenchAt + FVector(0, 0, BenchH * 0.5), FVector(170, 90, BenchH), FLinearColor(0.05f, 0.052f, 0.056f));
+	const double TopT = 5.0;
+	Dress(Piece(Cube, BenchAt + FVector(0, 0, (BenchH - TopT) * 0.5), FVector(160, 80, BenchH - TopT), FLinearColor(0.03f, 0.031f, 0.034f)), TEXT("benchFrame"));
+	Dress(Piece(Cube, BenchAt + FVector(0, 0, BenchH - TopT * 0.5), FVector(176, 94, TopT), FLinearColor(0.05f, 0.052f, 0.056f)), TEXT("bench"));
 	const FVector TableAt = Vec(Frontend, S + TEXT("turntable.at"), FVector(0, 0, 92));
-	Piece(Cylinder, TableAt - FVector(0, 0, 1.5), FVector(74, 74, 3), FLinearColor(0.02f, 0.02f, 0.022f));
+	Dress(Piece(Cylinder, TableAt - FVector(0, 0, 1.5), FVector(74, 74, 3), FLinearColor(0.02f, 0.02f, 0.022f)), TEXT("turntable"));
 	Pivot->SetRelativeLocation(TableAt + FVector(0, 0, 14.0));
 
 	// Lights (lux at the aim point, colour temperature in kelvin).
