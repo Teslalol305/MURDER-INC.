@@ -33,6 +33,13 @@ if [ -z "$BASH_VERSION" ]; then
   exec "$(dirname "$0")/MurderInc/Binaries/Linux/MurderInc-Linux-Shipping" MurderInc -MICloud -RenderOffScreen "$@"
 fi
 
+# Started as a background job of a non-interactive shell, this launcher would ignore SIGINT and could not trap it:
+# run again once with SIGINT and SIGQUIT back to default (coreutils env), so a stop by SIGINT reaches the trap below.
+if [ -z "$MI_LAUNCHER_SIGRESET" ] && env --default-signal=INT true 2>/dev/null; then
+  export MI_LAUNCHER_SIGRESET=1
+  exec env --default-signal=INT,QUIT bash "$0" "$@"
+fi
+
 ROOT=$(dirname "$(readlink -f "$0")")
 PROJ=$ROOT/MurderInc
 STAMP=$(date -u +%Y%m%d-%H%M%S)
