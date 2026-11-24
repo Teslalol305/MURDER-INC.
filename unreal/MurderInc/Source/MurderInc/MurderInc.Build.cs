@@ -23,7 +23,8 @@ public class MurderInc : ModuleRules
 		});
 
 		// GPU frame time and memory for the cloud probe (Cloud/MICloud.cpp).
-		PrivateDependencyModuleNames.Add("RHI");
+		// Startup report: shader platform, ray tracing, Nanite and Lumen support (RenderCore RenderUtils.h).
+		PrivateDependencyModuleNames.AddRange(new string[] { "RHI", "RenderCore" });
 
 		// Pixel Streaming 2 is enabled for the game target only (MurderInc.uproject: TargetAllowList Game), so the
 		// editor and the automation tests never load it. The game reads its connection events (Cloud/MICloud.cpp).

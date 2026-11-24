@@ -4,6 +4,9 @@
 #include "Brushes/SlateImageBrush.h"
 #include "Engine/Texture2D.h"
 #include "Brushes/SlateRoundedBoxBrush.h"
+#include "Cloud/MICloud.h"
+#include "Engine/GameInstance.h"
+#include "Engine/World.h"
 #include "Flow/MIGameSubsystem.h"
 #include "Styling/SlateTypes.h"
 #include "UI/MIFrontEnd.h"
@@ -467,6 +470,18 @@ TSharedRef<SWidget> SMIFrontEnd::Home()
 	return Frame(Col, true);
 }
 
+bool SMIFrontEnd::IsStreamed() const
+{
+	const UMIGameSubsystem* G = Owner.IsValid() ? Owner->GetGame() : nullptr;
+	const UWorld* World = G ? G->GetWorld() : nullptr;
+	const UGameInstance* GI = World ? World->GetGameInstance() : nullptr;
+	if (const UMICloudSubsystem* Cloud = GI ? GI->GetSubsystem<UMICloudSubsystem>() : nullptr)
+	{
+		return Cloud->IsStreamed();
+	}
+	return UMICloudSubsystem::IsStreamedByCommandLine();
+}
+
 TSharedRef<SWidget> SMIFrontEnd::ControlsGlance()
 {
 	const FMIFrontEndRules& R = Owner->GetRules();
@@ -488,6 +503,18 @@ TSharedRef<SWidget> SMIFrontEnd::ControlsGlance()
 	if (bShowControls || R.GetSetup().Guns.Num() >= R.GetData().WheelMinGuns)
 	{
 		Read(MIJson::Get(R.GetData().TextJson, Owner->IsPad() ? TEXT("frontend.controls.pad") : TEXT("frontend.controls.kbm")));
+	}
+	// In the stream (-MICloud, Cloud/MICloud.h) the browser keeps Esc to free the mouse: the keyboard's pause key
+	// there is P, as the click-to-play card and the pause card say.
+	if (!Owner->IsPad() && IsStreamed())
+	{
+		for (TPair<FString, FString>& Row : Rows)
+		{
+			if (Row.Key.Equals(TEXT("Pause"), ESearchCase::IgnoreCase))
+			{
+				Row.Value = TEXT("P");
+			}
+		}
 	}
 	// Wraps to the column: every row shows, none is cut.
 	TSharedRef<SWrapBox> Strip = Wrap(6.f);

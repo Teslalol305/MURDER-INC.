@@ -23,6 +23,13 @@ class FMICloudInput;
  *  - a software cursor is drawn wherever the game shows the mouse (menus): the stream carries no OS cursor;
  *  - when the last viewer disconnects, a running game pauses; the next viewer gets the click card again.
  *
+ * At start (every run, streamed or not): one block of lines with the build (BUILD.txt at the package root), the GPU,
+ * driver, RHI, shader platform, ray tracing, Nanite, Lumen and video memory; if hardware ray tracing is missing,
+ * software Lumen traces the meshes' distance fields. In Shipping (no engine log) every line is also printed to stdout,
+ * which the launcher writes to MurderInc/Saved/Logs (tools/box/cloud/MurderInc.sh). On Linux game builds an exit guard
+ * ends the process when main() returns, before the engine's codec registry crashes in its static destructor, and
+ * reports a stop asked for by SIGINT/SIGTERM/SIGHUP as exit code 0. -MICrashTest=<seconds> crashes on purpose.
+ *
  * -MICloudProbe=<seconds> logs one "MICloudProbe" line per period (frame time, GPU time, process memory, the GPU
  * memory the RHI reports, the view's yaw and pitch, the game state) for the cloud budget measurements.
  */
@@ -64,6 +71,7 @@ private:
 	TSharedPtr<FMICloudInput> Input;
 	TWeakObjectPtr<class UGameViewportClient> OverlayViewport;
 
+	double CrashTestAt = 0.0;
 	float ProbePeriod = 0.f;
 	double ProbeNext = 0.0;
 	double ProbeFrames = 0.0, ProbeTime = 0.0, ProbeWorst = 0.0;

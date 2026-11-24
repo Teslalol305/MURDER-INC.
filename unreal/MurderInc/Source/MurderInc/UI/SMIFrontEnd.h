@@ -46,6 +46,8 @@ private:
 	TSharedRef<SWidget> GunCard(FName Gun, bool bFocused);
 	TSharedRef<SWidget> Bars(FName Gun, const struct FMIGunBuild* Build, const struct FMIGunBuild* Ghost);
 	TSharedRef<SWidget> ControlsGlance();
+	/** True in the stream (Cloud/MICloud.h): the strip names P, not Esc, for Pause. */
+	bool IsStreamed() const;
 
 	TWeakObjectPtr<UMIFrontEnd> Owner;
 	int32 Built = -1;

@@ -21,7 +21,11 @@
 #include "Rendering/DrawElements.h"
 #include "Rendering/SlateRenderer.h"
 #include "DynamicRHI.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/Paths.h"
 #include "RHIStats.h"
+#include "RHIStrings.h"
+#include "RenderUtils.h"
 #include "Styling/CoreStyle.h"
 #include "UObject/UObjectGlobals.h"
 #include "Widgets/SCompoundWidget.h"
@@ -29,6 +33,13 @@
 #include "Flow/MIGameSubsystem.h"
 #include "Flow/MIGameRules.h"
 #include "UI/MIStyle.h"
+
+#include <cstdio>
+#if PLATFORM_LINUX && !WITH_EDITOR
+#include <csignal>
+#include <cstdlib>
+#include <unistd.h>
+#endif
 
 #if MI_WITH_PIXELSTREAMING2
 #include "IPixelStreaming2Module.h"
@@ -51,6 +62,12 @@ namespace MICloudPrivate
 	void Line(const FString& Text)
 	{
 		UE_LOG(LogMICloud, Display, TEXT("%s"), *Text);
+#if NO_LOGGING
+		// Shipping compiles UE_LOG out (the installed engine cannot turn bUseLoggingInShipping on): print the line, so
+		// the launcher's log (MurderInc.sh tees the game's stdout into MurderInc/Saved/Logs) has it.
+		printf("[MICloud] %s\n", TCHAR_TO_UTF8(*Text));
+		fflush(stdout);
+#endif
 		static FString File = [] { FString F; FParse::Value(FCommandLine::Get(), TEXT("MICloudLog="), F); return F; }();
 		if (!File.IsEmpty())
 		{
@@ -66,6 +83,82 @@ namespace MICloudPrivate
 	{
 		UWorld* World = GI ? GI->GetWorld() : nullptr;
 		return World ? World->GetSubsystem<UMIGameSubsystem>() : nullptr;
+	}
+
+#if PLATFORM_LINUX && !WITH_EDITOR
+	/** Runs at exit(), before the static destructors that were constructed before it was armed. The engine's codec
+	 *  registry (AVCodecs, FNVDEC) logs from its static destructor after the log is gone: a segfault on every exit of
+	 *  a build with logging (docs/unreal/PROGRESS.md, "E3DS crash fix"). Everything that matters is already shut down
+	 *  and flushed when main() returns, so end the process here. A stop asked for by a signal (SIGINT, SIGTERM,
+	 *  SIGHUP: the engine shuts down normally, then returns 128 + the signal) is reported as a normal quit (0), so a
+	 *  host that stops an idle game does not count it as a crash. */
+	void ExitGuard(int Status, void*)
+	{
+		const bool bAskedStop = Status == 128 + SIGINT || Status == 128 + SIGTERM || Status == 128 + SIGHUP;
+		const int Code = bAskedStop ? 0 : Status;
+		printf("[MICloud] Exit: engine status %d%s; exiting with %d (static destructors skipped)\n", Status,
+			bAskedStop ? " (stop asked by a signal: a normal quit)" : "", Code);
+		fflush(nullptr);
+		_exit(Code);
+	}
+
+	/** Armed when the engine starts its exit (FCoreDelegates::OnExit): later than every static the game made. */
+	void ArmExitGuard()
+	{
+		static bool bArmed = false;
+		if (!bArmed && !FParse::Param(FCommandLine::Get(), TEXT("MINoExitGuard")))
+		{
+			bArmed = true;
+			on_exit(&ExitGuard, nullptr);
+		}
+	}
+#endif
+
+	/** One block of lines at start: what the server gave the game, so a crash report from a host says where it ran. */
+	void ReportStartup()
+	{
+		FString Build;
+		if (FFileHelper::LoadFileToString(Build, *(FPaths::RootDir() / TEXT("BUILD.txt"))))
+		{
+			Build.ReplaceInline(TEXT("\r"), TEXT(""));
+			Build.ReplaceInline(TEXT("\n"), TEXT(" | "));
+			Build.TrimStartAndEndInline();
+		}
+		Line(FString::Printf(TEXT("Build: %s"), Build.IsEmpty() ? TEXT("(no BUILD.txt: not a cloud package)") : *Build));
+		FString Level;
+		GetFeatureLevelName(GMaxRHIFeatureLevel, Level);
+		const EShaderPlatform SP = GMaxRHIShaderPlatform;
+		Line(FString::Printf(TEXT("GPU: %s | driver %s (%s) | RHI %s | feature level %s | shader platform %s"),
+			*GRHIAdapterName, *GRHIAdapterUserDriverVersion, *GRHIAdapterInternalDriverVersion,
+			GDynamicRHI ? GDynamicRHI->GetName() : TEXT("none"), *Level, *LexToString(SP, false)));
+		FTextureMemoryStats T;
+		if (GDynamicRHI)
+		{
+			RHIGetTextureMemoryStats(T);
+		}
+		const bool bRT = IsRayTracingEnabled();
+		const bool bNanite = DoesPlatformSupportNanite(SP);
+		const bool bLumen = DoesPlatformSupportLumenGI(SP);
+		Line(FString::Printf(TEXT("Features: hardware ray tracing %s (RHI support %d) | Nanite %s | Lumen %s | video memory %lld MB, texture pool %lld MB"),
+			bRT ? TEXT("on") : TEXT("off"), GRHISupportsRayTracing ? 1 : 0, bNanite ? TEXT("on") : TEXT("off"), bLumen ? TEXT("on") : TEXT("off"),
+			(long long)(T.DedicatedVideoMemory >> 20), (long long)(T.TexturePoolSize >> 20)));
+		if (!bNanite || !bLumen)
+		{
+			// UE 5.9's SM6 check failed on this GPU or driver (Vulkan 1.3 with VK_KHR_compute_shader_derivatives,
+			// mesh shaders, descriptor buffers...): the engine fell back to the SM5 shaders the package also carries.
+			Line(TEXT("Fallback: this GPU or driver did not pass Unreal's SM6 check; running the SM5 shaders: no Nanite, no Lumen (flatter light, simpler meshes)"));
+		}
+		else if (!bRT)
+		{
+			// No hardware ray tracing (driver or GPU): Lumen traces in software; let it trace the meshes' distance
+			// fields (cooked with the package) instead of the coarse global field only.
+			if (IConsoleVariable* Var = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Lumen.TraceMeshSDFs")))
+			{
+				Var->Set(1, ECVF_SetByDeviceProfile);
+			}
+			Line(TEXT("Fallback: no hardware ray tracing on this server; Lumen traces in software (mesh distance fields)"));
+		}
+		Line(FString::Printf(TEXT("Command line: %s"), FCommandLine::Get()));
 	}
 }
 
@@ -242,6 +335,23 @@ void UMICloudSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 	FParse::Value(FCommandLine::Get(), TEXT("MICloudProbe="), ProbePeriod);
+	static bool bStarted = false;  // once per process (a game instance is made once in a packaged game)
+	if (!bStarted)
+	{
+		bStarted = true;
+		MICloudPrivate::ReportStartup();
+#if PLATFORM_LINUX && !WITH_EDITOR
+		FCoreDelegates::OnExit.AddStatic(&MICloudPrivate::ArmExitGuard);
+#endif
+	}
+	// -MICrashTest=<seconds>: crash on purpose after that long, to prove that a crash leaves a log and a crash report
+	// (tools/box/cloud/e3ds-repro.sh). Never set by the launcher.
+	float CrashIn = 0.f;
+	if (FParse::Value(FCommandLine::Get(), TEXT("MICrashTest="), CrashIn) && CrashIn > 0.f)
+	{
+		CrashTestAt = FPlatformTime::Seconds() + CrashIn;
+		MICloudPrivate::Line(FString::Printf(TEXT("Crash test: the game will crash on purpose in %.0f s"), CrashIn));
+	}
 	if (IsStreamedByCommandLine())
 	{
 		BecomeStreamed(TEXT("command line"));
@@ -398,6 +508,12 @@ void UMICloudSubsystem::EnsureVideoProducer()
 
 bool UMICloudSubsystem::Tick(float DeltaTime)
 {
+	if (CrashTestAt > 0.0 && FPlatformTime::Seconds() >= CrashTestAt)
+	{
+		MICloudPrivate::Line(TEXT("Crash test: crashing now (null write)"));
+		volatile int32* Null = nullptr;
+		*Null = 1;
+	}
 	if (bStreamed)
 	{
 		EnsureOverlay();
