@@ -36,10 +36,10 @@
 #include "UI/MIFrontEnd.h"
 #include "Weapons/MIWeaponComponent.h"
 
-UInputAction* AMIPlayerController::MakeAction(const TCHAR* Name, bool bAxis2D)
+UInputAction* AMIPlayerController::MakeAction(const TCHAR* Name, EInputActionValueType Type)
 {
 	UInputAction* Action = NewObject<UInputAction>(this, Name);
-	Action->ValueType = bAxis2D ? EInputActionValueType::Axis2D : EInputActionValueType::Boolean;
+	Action->ValueType = Type;
 	Actions.Add(FName(Name), Action);
 	return Action;
 }
@@ -64,27 +64,33 @@ void AMIPlayerController::BuildInputAssets()
 		}
 	};
 
-	UInputAction* Move = MakeAction(TEXT("IA_Move"), true);
+	UInputAction* Move = MakeAction(TEXT("IA_Move"), EInputActionValueType::Axis2D);
 	Map(Move, EKeys::W, true);
 	Map(Move, EKeys::S, true, true);
 	Map(Move, EKeys::D);
 	Map(Move, EKeys::A, false, true);
-	Map(Move, EKeys::Gamepad_Left2D);
-	Map(MakeAction(TEXT("IA_Look"), true), EKeys::Mouse2D);
+	// The sticks arrive raw: the web game's dead zone (and the right stick's curve) is applied here, not by a modifier.
+	Map(MakeAction(TEXT("IA_MoveStick"), EInputActionValueType::Axis2D), EKeys::Gamepad_Left2D);
+	Map(MakeAction(TEXT("IA_Look"), EInputActionValueType::Axis2D), EKeys::Mouse2D);
 
 	const auto Button = [this, &Map](const TCHAR* Name, std::initializer_list<FKey> Keys)
 	{
-		UInputAction* Action = MakeAction(Name, false);
+		UInputAction* Action = MakeAction(Name, EInputActionValueType::Boolean);
 		for (const FKey& Key : Keys)
 		{
 			Map(Action, Key);
 		}
 	};
 	Button(TEXT("IA_Jump"), {EKeys::SpaceBar, EKeys::Gamepad_FaceButton_Bottom});
-	Button(TEXT("IA_Sprint"), {EKeys::LeftShift, EKeys::RightShift, EKeys::Gamepad_LeftThumbstick});
+	Button(TEXT("IA_Sprint"), {EKeys::LeftShift, EKeys::RightShift});
+	Button(TEXT("IA_SprintLatch"), {EKeys::Gamepad_LeftThumbstick});  // one click holds the sprint (spec 01 3.17)
 	Button(TEXT("IA_Crouch"), {EKeys::C, EKeys::Gamepad_FaceButton_Right, EKeys::Gamepad_LeftShoulder});
 	Button(TEXT("IA_Fire"), {EKeys::LeftMouseButton, EKeys::Enter, EKeys::Gamepad_RightTrigger});
 	Button(TEXT("IA_Aim"), {EKeys::RightMouseButton, EKeys::Gamepad_LeftTrigger});
+	// The triggers' analog axes as well: a browser's gamepad comes through Pixel Streaming with its triggers as axes
+	// only (Epic's player, Inputs/GamepadController.ts), never as the trigger buttons. Down beyond pad.trigger.
+	Map(MakeAction(TEXT("IA_FireAxis"), EInputActionValueType::Axis1D), EKeys::Gamepad_RightTriggerAxis);
+	Map(MakeAction(TEXT("IA_AimAxis"), EInputActionValueType::Axis1D), EKeys::Gamepad_LeftTriggerAxis);
 	Button(TEXT("IA_Reload"), {EKeys::R, EKeys::Gamepad_FaceButton_Left});
 	Button(TEXT("IA_Swap"), {EKeys::Q, EKeys::Gamepad_FaceButton_Top});
 	// LOADOUT.md 4.2 (frontend.json input.game): the wheel and D-pad up / down are next and previous; with two guns
@@ -100,7 +106,7 @@ void AMIPlayerController::BuildInputAssets()
 	Button(TEXT("IA_FireMode"), {EKeys::B});
 	Button(TEXT("IA_Inspect"), {EKeys::T});
 	Button(TEXT("IA_View"), {EKeys::Gamepad_Special_Left});  // a tap is the selector, a hold inspects
-	Map(MakeAction(TEXT("IA_WheelStick"), true), EKeys::Gamepad_Right2D);
+	Map(MakeAction(TEXT("IA_RightStick"), EInputActionValueType::Axis2D), EKeys::Gamepad_Right2D);  // the look; the wheel while it is open
 	Button(TEXT("IA_Melee"), {EKeys::F, EKeys::V, EKeys::MiddleMouseButton, EKeys::Gamepad_RightShoulder, EKeys::Gamepad_RightThumbstick});
 	Button(TEXT("IA_Interact"), {EKeys::E, EKeys::Gamepad_FaceButton_Left});
 
@@ -117,6 +123,7 @@ void AMIPlayerController::BuildInputAssets()
 	MenuButton(TEXT("IA_MenuRight"), {EKeys::Right, EKeys::Gamepad_DPad_Right, EKeys::Gamepad_LeftStick_Right});
 	MenuButton(TEXT("IA_MenuConfirm"), {EKeys::Enter, EKeys::SpaceBar, EKeys::Gamepad_FaceButton_Bottom});
 	MenuButton(TEXT("IA_MenuBack"), {EKeys::BackSpace, EKeys::Gamepad_FaceButton_Right});
+	MenuButton(TEXT("IA_MenuClick"), {EKeys::LeftMouseButton});  // a click on a card's row (AMIHUD draws them)
 }
 
 void AMIPlayerController::BeginPlay()
@@ -133,6 +140,8 @@ void AMIPlayerController::BeginPlay()
 		UE_LOG(LogMI, Error, TEXT("Input: config.json: %s"), *Error);
 	}
 	MouseDegreesPerCount = Config.Player.Look.MouseDegreesPerCount;
+	MouseWake = Config.Player.Look.MouseWake;
+	PadLook.Config = Config.Player.Look.Pad;
 	WheelDebounce = Config.Player.Look.WheelDebounce;
 	Switch.Config.WheelDebounce = WheelDebounce;
 	if (const UMIDataSubsystem* Data = UMIDataSubsystem::Get(this); Data && Data->IsLoadoutLoaded())
@@ -169,29 +178,29 @@ void AMIPlayerController::SetupInputComponent()
 	}
 	const auto State = [this]() -> FMIPlayerInputState* { AMIPlayerCharacter* C = GetMICharacter(); return C ? &C->GetInput() : nullptr; };
 
-	In->BindActionValueLambda(Actions[TEXT("IA_Move")], ETriggerEvent::Triggered, [State](const FInputActionValue& V) { if (FMIPlayerInputState* S = State()) S->Move = V.Get<FVector2D>(); });
-	In->BindActionValueLambda(Actions[TEXT("IA_Move")], ETriggerEvent::Completed, [State](const FInputActionValue&) { if (FMIPlayerInputState* S = State()) S->Move = FVector2D::ZeroVector; });
-	In->BindActionValueLambda(Actions[TEXT("IA_Look")], ETriggerEvent::Triggered, [this, State](const FInputActionValue& V)
+	// The keys and the left stick add up (the rules cut the sum back to length 1). The keys write the move as they
+	// change; the stick takes part only while it is pushed (PlayerTick), so a move set by a test, a bot or the console
+	// stays as set.
+	In->BindActionValueLambda(Actions[TEXT("IA_Move")], ETriggerEvent::Triggered, [this, State](const FInputActionValue& V) { KeyMove = V.Get<FVector2D>(); if (FMIPlayerInputState* S = State()) S->Move = KeyMove + PadMove; });
+	In->BindActionValueLambda(Actions[TEXT("IA_Move")], ETriggerEvent::Completed, [this, State](const FInputActionValue&) { KeyMove = FVector2D::ZeroVector; if (FMIPlayerInputState* S = State()) S->Move = PadMove; });
+	In->BindActionValueLambda(Actions[TEXT("IA_MoveStick")], ETriggerEvent::Triggered, [this](const FInputActionValue& V) { LeftStick = V.Get<FVector2D>(); });
+	In->BindActionValueLambda(Actions[TEXT("IA_MoveStick")], ETriggerEvent::Completed, [this](const FInputActionValue&) { LeftStick = FVector2D::ZeroVector; });
+	In->BindActionValueLambda(Actions[TEXT("IA_Look")], ETriggerEvent::Triggered, [this](const FInputActionValue& V)
 	{
-		const FVector2D Counts = V.Get<FVector2D>();
-		if (Switch.BlocksLook())
+		if (!bStreamMouse)  // in a stream the mouse comes event by event (StreamMouseEvent), not from this axis
 		{
-			Switch.MouseMove(Counts);  // the weapon wheel takes the mouse while it is open
-			return;
-		}
-		if (FMIPlayerInputState* S = State())
-		{
-			const double K = MouseDegreesPerCount * Sensitivity;
-			// Mouse up is +Y here; the rules look down for +Y.
-			S->LookDegrees += FVector2D(Counts.X * K, -Counts.Y * K * (bInvertY ? -1.0 : 1.0));
+			MouseLook(V.Get<FVector2D>());  // the desktop: one count is one web pixel
 		}
 	});
-	const auto Hold = [&In, this, State](const TCHAR* Name, bool FMIPlayerInputState::*Held, bool FMIPlayerInputState::*Pressed)
+	// bCarries: a hold that carries through a card (sprint and crouch, spec 01 3.16); every other press that left a
+	// card is swallowed (DropMenuPresses).
+	const auto Hold = [&In, this, State](const TCHAR* Name, bool FMIPlayerInputState::*Held, bool FMIPlayerInputState::*Pressed, bool bCarries = false)
 	{
 		UInputAction* Action = Actions[FName(Name)];
-		In->BindActionValueLambda(Action, ETriggerEvent::Started, [State, Held, Pressed](const FInputActionValue&)
+		In->BindActionValueLambda(Action, ETriggerEvent::Started, [this, State, Held, Pressed, bCarries](const FInputActionValue&)
 		{
-			if (FMIPlayerInputState* S = State())
+			FMIPlayerInputState* S = State();
+			if (S && (bCarries || !SwallowsPresses()))
 			{
 				if (Held) S->*Held = true;
 				if (Pressed) S->*Pressed = true;
@@ -206,10 +215,28 @@ void AMIPlayerController::SetupInputComponent()
 		});
 	};
 	Hold(TEXT("IA_Jump"), nullptr, &FMIPlayerInputState::bJumpPressed);
-	Hold(TEXT("IA_Sprint"), &FMIPlayerInputState::bSprint, nullptr);
-	Hold(TEXT("IA_Crouch"), &FMIPlayerInputState::bCrouch, nullptr);
-	Hold(TEXT("IA_Fire"), &FMIPlayerInputState::bFire, &FMIPlayerInputState::bFirePressed);
-	Hold(TEXT("IA_Aim"), &FMIPlayerInputState::bAds, nullptr);
+	Hold(TEXT("IA_Crouch"), &FMIPlayerInputState::bCrouch, nullptr, true);
+	// Sprint: the keys hold it; the pad's L3 latches it (PlayerTick lets the latch go).
+	In->BindActionValueLambda(Actions[TEXT("IA_Sprint")], ETriggerEvent::Started, [State](const FInputActionValue&) { if (FMIPlayerInputState* S = State()) S->bSprint = true; });
+	In->BindActionValueLambda(Actions[TEXT("IA_Sprint")], ETriggerEvent::Completed, [this, State](const FInputActionValue&) { if (FMIPlayerInputState* S = State()) S->bSprint = bSprintLatch; });
+	In->BindActionValueLambda(Actions[TEXT("IA_SprintLatch")], ETriggerEvent::Started, [this](const FInputActionValue&)
+	{
+		AMIPlayerCharacter* C = GetMICharacter();
+		if (C && C->TakesLook())
+		{
+			bSprintLatch = !bSprintLatch;
+			C->GetInput().bSprint = bSprintLatch;
+		}
+	});
+	// Fire and aim: the keys and buttons, and the trigger's own axis beyond pad.trigger.
+	In->BindActionValueLambda(Actions[TEXT("IA_Fire")], ETriggerEvent::Started, [this](const FInputActionValue&) { SetFire(bFireKey, true); });
+	In->BindActionValueLambda(Actions[TEXT("IA_Fire")], ETriggerEvent::Completed, [this](const FInputActionValue&) { SetFire(bFireKey, false); });
+	In->BindActionValueLambda(Actions[TEXT("IA_FireAxis")], ETriggerEvent::Triggered, [this](const FInputActionValue& V) { SetFire(bFireAxis, V.Get<float>() > PadLook.Config.Trigger); });
+	In->BindActionValueLambda(Actions[TEXT("IA_FireAxis")], ETriggerEvent::Completed, [this](const FInputActionValue&) { SetFire(bFireAxis, false); });
+	In->BindActionValueLambda(Actions[TEXT("IA_Aim")], ETriggerEvent::Started, [this](const FInputActionValue&) { SetAim(bAimKey, true); });
+	In->BindActionValueLambda(Actions[TEXT("IA_Aim")], ETriggerEvent::Completed, [this](const FInputActionValue&) { SetAim(bAimKey, false); });
+	In->BindActionValueLambda(Actions[TEXT("IA_AimAxis")], ETriggerEvent::Triggered, [this](const FInputActionValue& V) { SetAim(bAimAxis, V.Get<float>() > PadLook.Config.Trigger); });
+	In->BindActionValueLambda(Actions[TEXT("IA_AimAxis")], ETriggerEvent::Completed, [this](const FInputActionValue&) { SetAim(bAimAxis, false); });
 	Hold(TEXT("IA_Reload"), nullptr, &FMIPlayerInputState::bReloadPressed);
 	Hold(TEXT("IA_Weapon1"), nullptr, &FMIPlayerInputState::bWeapon1Pressed);
 	Hold(TEXT("IA_Weapon2"), nullptr, &FMIPlayerInputState::bWeapon2Pressed);
@@ -234,29 +261,206 @@ void AMIPlayerController::SetupInputComponent()
 	Edge(TEXT("IA_Inspect"), ETriggerEvent::Started, [](FMISwitchInput& S) { S.InspectKey(); });
 	Edge(TEXT("IA_View"), ETriggerEvent::Started, [this](FMISwitchInput& S) { S.ViewDown(Now()); });
 	Edge(TEXT("IA_View"), ETriggerEvent::Completed, [this](FMISwitchInput& S) { S.ViewUp(Now()); });
-	In->BindActionValueLambda(Actions[TEXT("IA_WheelStick")], ETriggerEvent::Triggered, [this](const FInputActionValue& V) { Switch.Stick(V.Get<FVector2D>()); });
-	In->BindActionValueLambda(Actions[TEXT("IA_WheelStick")], ETriggerEvent::Completed, [this](const FInputActionValue&) { Switch.Stick(FVector2D::ZeroVector); });
+	// The right stick: the look (PlayerTick), and the pick on the weapon wheel while that is open.
+	In->BindActionValueLambda(Actions[TEXT("IA_RightStick")], ETriggerEvent::Triggered, [this](const FInputActionValue& V) { RightStick = V.Get<FVector2D>(); Switch.Stick(RightStick); });
+	In->BindActionValueLambda(Actions[TEXT("IA_RightStick")], ETriggerEvent::Completed, [this](const FInputActionValue&) { RightStick = FVector2D::ZeroVector; Switch.Stick(RightStick); });
 	const auto Game = [this]() { return UMIGameSubsystem::Get(this); };
 	In->BindActionValueLambda(Actions[TEXT("IA_Interact")], ETriggerEvent::Started, [Game](const FInputActionValue&) { if (UMIGameSubsystem* G = Game()) G->SetInteractHeld(true); });
 	In->BindActionValueLambda(Actions[TEXT("IA_Interact")], ETriggerEvent::Completed, [Game](const FInputActionValue&) { if (UMIGameSubsystem* G = Game()) G->SetInteractHeld(false); });
-	In->BindActionValueLambda(Actions[TEXT("IA_Pause")], ETriggerEvent::Started, [Game](const FInputActionValue&) { if (UMIGameSubsystem* G = Game()) G->PauseKey(); });
-	const auto Menu = [&In, this, Game](const TCHAR* Name, TFunction<void(UMIGameSubsystem&)> Do)
+	In->BindActionValueLambda(Actions[TEXT("IA_Pause")], ETriggerEvent::Started, [this, Game](const FInputActionValue&)
 	{
-		In->BindActionValueLambda(Actions[FName(Name)], ETriggerEvent::Started, [Game, Do](const FInputActionValue&)
+		if (UMIGameSubsystem* G = Game())
+		{
+			const bool bCard = G->GetMenu().Screen != EMIMenuScreen::None;
+			G->PauseKey();
+			if (bCard)
+			{
+				DropMenuPresses();
+			}
+		}
+	});
+	const auto Menu = [&In, this, Game](const TCHAR* Name, bool bActs, TFunction<void(UMIGameSubsystem&)> Do)
+	{
+		In->BindActionValueLambda(Actions[FName(Name)], ETriggerEvent::Started, [this, Game, bActs, Do](const FInputActionValue&)
 		{
 			UMIGameSubsystem* G = Game();
 			if (G && G->GetMenu().Screen != EMIMenuScreen::None)
 			{
 				Do(*G);
+				if (bActs)
+				{
+					DropMenuPresses();  // Enter is also fire, Space and the pad's A also jump: not on the press that left the card
+				}
 			}
 		});
 	};
-	Menu(TEXT("IA_MenuUp"), [](UMIGameSubsystem& G) { G.MenuMove(-1); });
-	Menu(TEXT("IA_MenuDown"), [](UMIGameSubsystem& G) { G.MenuMove(1); });
-	Menu(TEXT("IA_MenuLeft"), [](UMIGameSubsystem& G) { G.MenuAdjust(-1); });
-	Menu(TEXT("IA_MenuRight"), [](UMIGameSubsystem& G) { G.MenuAdjust(1); });
-	Menu(TEXT("IA_MenuConfirm"), [](UMIGameSubsystem& G) { G.MenuConfirm(); });
-	Menu(TEXT("IA_MenuBack"), [](UMIGameSubsystem& G) { G.MenuBack(); });
+	Menu(TEXT("IA_MenuUp"), false, [](UMIGameSubsystem& G) { G.MenuMove(-1); });
+	Menu(TEXT("IA_MenuDown"), false, [](UMIGameSubsystem& G) { G.MenuMove(1); });
+	Menu(TEXT("IA_MenuLeft"), false, [](UMIGameSubsystem& G) { G.MenuAdjust(-1); });
+	Menu(TEXT("IA_MenuRight"), false, [](UMIGameSubsystem& G) { G.MenuAdjust(1); });
+	Menu(TEXT("IA_MenuConfirm"), true, [](UMIGameSubsystem& G) { G.MenuConfirm(); });
+	Menu(TEXT("IA_MenuBack"), true, [](UMIGameSubsystem& G) { G.MenuBack(); });
+	// A click on a card: the row under the cursor (the HUD stored where it drew the rows), as the viewport reports
+	// the cursor at the click.
+	Menu(TEXT("IA_MenuClick"), true, [this](UMIGameSubsystem& G)
+	{
+		float X = 0.f, Y = 0.f;
+		if (GetMousePosition(X, Y))
+		{
+			G.MenuClick(FVector2D(X, Y));
+		}
+	});
+}
+
+bool AMIPlayerController::InputKey(const FInputKeyEventArgs& Params)
+{
+	NoteDevice(Params.Key, Params.Event, Params.AmountDepressed);
+	return Super::InputKey(Params);
+}
+
+void AMIPlayerController::NoteDevice(const FKey& Key, EInputEvent Event, float Value)
+{
+	const FMIPadLookData& P = PadLook.Config;
+	if (Key.IsGamepadKey())
+	{
+		if (Key == EKeys::Gamepad_LeftTriggerAxis || Key == EKeys::Gamepad_RightTriggerAxis)
+		{
+			if (Value > P.Trigger) UsePad(true);
+		}
+		else if (Key.IsAnalog())
+		{
+			if (MILook::Deadzone(Value, P.Deadzone) != 0.0) UsePad(true);  // a stick beyond its dead zone
+		}
+		else if (Event == IE_Pressed)
+		{
+			UsePad(true);
+		}
+	}
+	else if (!Key.IsAnalog() && !Key.IsTouch() && Event == IE_Pressed)
+	{
+		UsePad(false);  // a key or a mouse button (mouse travel: MouseLook)
+	}
+}
+
+void AMIPlayerController::UsePad(bool bPad)
+{
+	if (bPad == bPadActive)
+	{
+		return;
+	}
+	bPadActive = bPad;
+	if (!bPad)
+	{
+		PadLook.Reset();  // src/input.js wake(): leaving the pad clears its boost; the aim slow-down ends with bPad
+	}
+}
+
+void AMIPlayerController::SetFire(bool& Source, bool bDown)
+{
+	const bool bWas = bFireKey || bFireAxis;
+	Source = bDown;
+	const bool bNow = bFireKey || bFireAxis;
+	AMIPlayerCharacter* C = GetMICharacter();
+	if (!C || bNow == bWas)
+	{
+		return;
+	}
+	FMIPlayerInputState& S = C->GetInput();
+	if (!bNow)
+	{
+		S.bFire = false;
+	}
+	else if (!SwallowsPresses())
+	{
+		S.bFire = true;
+		S.bFirePressed = true;
+	}
+}
+
+void AMIPlayerController::SetAim(bool& Source, bool bDown)
+{
+	const bool bWas = bAimKey || bAimAxis;
+	Source = bDown;
+	const bool bNow = bAimKey || bAimAxis;
+	AMIPlayerCharacter* C = GetMICharacter();
+	if (C && bNow != bWas && !(bNow && SwallowsPresses()))
+	{
+		C->GetInput().bAds = bNow;
+	}
+}
+
+void AMIPlayerController::DropMenuPresses()
+{
+	// The press that acted on a card is usually still down when the run goes live two frames later: Enter and the
+	// left mouse button are also fire, Space and the pad's A also jump. Clear what such a press already set, and let
+	// no play action start from a press for the next two frames of play; a fresh press after that counts. Movement,
+	// sprint and crouch that are still held carry on (spec 01 3.16).
+	SwallowTicks = 2;
+	if (AMIPlayerCharacter* C = GetMICharacter())
+	{
+		FMIPlayerInputState& S = C->GetInput();
+		S.bFire = S.bFirePressed = S.bAds = false;
+		S.bJumpPressed = S.bReloadPressed = S.bSwapPressed = S.bMeleePressed = false;
+		S.bWeapon1Pressed = S.bWeapon2Pressed = S.bWeapon3Pressed = S.bWeapon4Pressed = false;
+		S.bNextPressed = S.bPreviousPressed = S.bFireModePressed = S.bInspectPressed = false;
+		S.WheelPick = INDEX_NONE;
+		S.LookDegrees = FVector2D::ZeroVector;
+	}
+	Switch.Reset();
+	StreamPending = FVector2D::ZeroVector;
+}
+
+void AMIPlayerController::SetStreamMouse(const FMIStreamMouse& Shape)
+{
+	StreamMouse = Shape;
+	bStreamMouse = true;
+}
+
+void AMIPlayerController::ClearStreamMouse()
+{
+	bStreamMouse = false;
+	StreamPending = FVector2D::ZeroVector;
+}
+
+bool AMIPlayerController::StreamMouseEvent(const FVector2D& Counts)
+{
+	FVector2D Pixels;
+	if (!StreamMouse.Event(Counts, Pixels))
+	{
+		++MouseSpikes;
+		return false;
+	}
+	const AMIPlayerCharacter* C = GetMICharacter();
+	if (!C || !C->TakesLook())
+	{
+		StreamPending = FVector2D::ZeroVector;  // over a card: nothing gathers for the moment play resumes
+		return true;
+	}
+	StreamPending += FVector2D(Pixels.X, -Pixels.Y);  // Slate's Y grows downward; the look takes mouse up as +Y
+	return true;
+}
+
+void AMIPlayerController::MouseLook(const FVector2D& Pixels)
+{
+	AMIPlayerCharacter* C = GetMICharacter();
+	if (!C || !C->TakesLook())
+	{
+		return;
+	}
+	// A nudge of the desk does not take the device back from a pad; a few pixels in one frame do.
+	MouseTravel += FMath::Abs(Pixels.X) + FMath::Abs(Pixels.Y);
+	if (MouseTravel >= MouseWake)
+	{
+		UsePad(false);
+	}
+	if (Switch.BlocksLook())
+	{
+		Switch.MouseMove(Pixels);  // the weapon wheel takes the mouse while it is open
+		return;
+	}
+	const double K = MouseDegreesPerCount * Sensitivity;
+	// Mouse up is +Y here; the rules look down for +Y.
+	C->GetInput().LookDegrees += FVector2D(Pixels.X * K, -Pixels.Y * K * (bInvertY ? -1.0 : 1.0));
 }
 
 AMIPlayerCharacter* AMIPlayerController::GetMICharacter() const
@@ -309,10 +513,56 @@ void AMIPlayerController::PlayerTick(float DeltaTime)
 #endif
 	Switch.Tick(Now());
 	FlushSwitch();
+
+	// The stream's mouse events since the last frame.
+	if (bStreamMouse)
+	{
+		const FVector2D Pixels = StreamPending;
+		StreamPending = FVector2D::ZeroVector;
+		if (!Pixels.IsZero())
+		{
+			MouseLook(Pixels);
+		}
+	}
+	MouseTravel = 0.0;
+
+	AMIPlayerCharacter* C = GetMICharacter();
+	const bool bLive = C && C->TakesLook();
+	// The right stick turns the view, slowed over an enemy while the pad is the device in use (the weapon rules work
+	// the slow-down out; it is 1 otherwise). The boost follows the stick whether or not the look is taken.
+	const double AimSlow = C && C->GetWeapon() && C->GetWeapon()->IsReady() ? C->GetWeapon()->GetRules().GetAimSlow() : 1.0;
+	const FVector2D Turn = PadLook.Step(RightStick, DeltaTime, Sensitivity, AimSlow, bInvertY);
+	if (bLive && !Switch.BlocksLook())
+	{
+		C->GetInput().LookDegrees += Turn;
+	}
+	if (C)
+	{
+		FMIPlayerInputState& S = C->GetInput();
+		// The left stick moves, on top of the keys, while it is pushed (and on the frame it lets go).
+		const FVector2D Stick = MILook::Deadzone(LeftStick, PadLook.Config.Deadzone);
+		if (!Stick.IsZero() || !PadMove.IsZero())
+		{
+			PadMove = Stick;
+			S.Move = KeyMove + PadMove;
+		}
+		// The sprint latch lets go when the stick eases off forward or play stops.
+		if (bSprintLatch && (!bLive || PadMove.Y < PadLook.Config.SprintForward))
+		{
+			bSprintLatch = false;
+			S.bSprint = false;
+		}
+		S.bPad = bPadActive;
+	}
+	if (SwallowTicks > 0)
+	{
+		--SwallowTicks;
+	}
 }
 
 void AMIPlayerController::MIInput(const FString& Action, float Value)
 {
+#if !UE_BUILD_SHIPPING  // a debug command: it does nothing in the Shipping game
 	AMIPlayerCharacter* C = GetMICharacter();
 	if (!C)
 	{
@@ -348,6 +598,7 @@ void AMIPlayerController::MIInput(const FString& Action, float Value)
 	else if (A == TEXT("forward")) S.Move.Y = FMath::Clamp(Value, -1.f, 1.f);
 	else if (A == TEXT("right")) S.Move.X = FMath::Clamp(Value, -1.f, 1.f);
 	else UE_LOG(LogMI, Warning, TEXT("MIInput: unknown action '%s'"), *Action);
+#endif
 }
 
 void AMIPlayerController::MIFreezeAfter(float Seconds)
@@ -466,22 +717,27 @@ void AMIPlayerController::MIBlowNearest()
 
 void AMIPlayerController::MIStart(const FString& Mode, const FString& Skip)
 {
+#if !UE_BUILD_SHIPPING  // a debug command: it does nothing in the Shipping game
 	if (UMIGameSubsystem* G = UMIGameSubsystem::Get(this))
 	{
 		G->StartRunWithSetup(Mode.IsEmpty() ? NAME_None : FName(*Mode), Skip == TEXT("skip"));
 	}
+#endif
 }
 
 void AMIPlayerController::MIPauseKey()
 {
+#if !UE_BUILD_SHIPPING  // a debug command: it does nothing in the Shipping game
 	if (UMIGameSubsystem* G = UMIGameSubsystem::Get(this))
 	{
 		G->PauseKey();
 	}
+#endif
 }
 
 void AMIPlayerController::MIMenu(const FString& Command)
 {
+#if !UE_BUILD_SHIPPING  // a debug command: it does nothing in the Shipping game
 	UMIGameSubsystem* G = UMIGameSubsystem::Get(this);
 	if (!G)
 	{
@@ -519,10 +775,12 @@ void AMIPlayerController::MIMenu(const FString& Command)
 			G->MenuConfirm();
 		}
 	}
+#endif
 }
 
 void AMIPlayerController::MIShot(const FString& Path)
 {
+#if !UE_BUILD_SHIPPING  // a debug command: it does nothing in the Shipping game
 	UGameViewportClient* Client = GetWorld() ? GetWorld()->GetGameViewport() : nullptr;
 	TSharedPtr<SViewport> Widget = Client ? Client->GetGameViewportWidget() : nullptr;
 	TArray<FColor> Pixels;
@@ -546,6 +804,7 @@ void AMIPlayerController::MIShot(const FString& Path)
 	FImageUtils::PNGCompressImageArray(Size.X, Size.Y, TArrayView64<const FColor>(Pixels.GetData(), Pixels.Num()), Png);
 	const bool bSaved = FFileHelper::SaveArrayToFile(Png, *Path);
 	UE_LOG(LogMI, Log, TEXT("MIShot: %s %d x %d %s"), *Path, Size.X, Size.Y, bSaved ? TEXT("saved") : TEXT("NOT saved"));
+#endif
 }
 
 void AMIPlayerController::MISetup(const FString& Command)
@@ -642,14 +901,17 @@ void AMIPlayerController::MIViewSize(int32 Width, int32 Height)
 
 void AMIPlayerController::MIInteract(float Value)
 {
+#if !UE_BUILD_SHIPPING  // a debug command: it does nothing in the Shipping game
 	if (UMIGameSubsystem* G = UMIGameSubsystem::Get(this))
 	{
 		G->SetInteractHeld(Value != 0.f);
 	}
+#endif
 }
 
 void AMIPlayerController::MIFaceEnemy(float Metres)
 {
+#if !UE_BUILD_SHIPPING  // a debug command: it does nothing in the Shipping game
 	if (UMIGameSubsystem* G = UMIGameSubsystem::Get(this))
 	{
 		G->FaceNearestEnemy(Metres != 0.f ? Metres : 8.0);  // negative: turn only
@@ -657,4 +919,5 @@ void AMIPlayerController::MIFaceEnemy(float Metres)
 		// ghost on the pavement; a turn in play, frame to frame, is the check that the viewmodel itself does not ghost).
 		if (PlayerCameraManager) PlayerCameraManager->SetGameCameraCutThisFrame();
 	}
+#endif
 }

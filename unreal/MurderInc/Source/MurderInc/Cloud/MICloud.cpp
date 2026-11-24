@@ -27,12 +27,15 @@
 #include "RHIStats.h"
 #include "RHIStrings.h"
 #include "RenderUtils.h"
+#include "Scalability.h"
 #include "Styling/CoreStyle.h"
 #include "UObject/UObjectGlobals.h"
 #include "Widgets/SCompoundWidget.h"
 
+#include "Core/Data/MIDataSubsystem.h"
 #include "Flow/MIGameSubsystem.h"
 #include "Flow/MIGameRules.h"
+#include "Player/MIPlayerController.h"
 #include "UI/MIStyle.h"
 
 #include <cstdio>
@@ -43,6 +46,7 @@
 #endif
 
 #if MI_WITH_PIXELSTREAMING2
+#include "IPixelStreaming2InputHandler.h"
 #include "IPixelStreaming2Module.h"
 #include "IPixelStreaming2Streamer.h"
 #include "IPixelStreaming2VideoProducer.h"
@@ -58,8 +62,9 @@ namespace MICloudPrivate
 	std::atomic<int64> BackBuffers{0};
 	std::atomic<int64> FramesPushed{0};
 
-	/** Every line also goes to -MICloudLog=<file> when given: Shipping builds compile the engine log out, and the
-	 *  stream test (tools/box/cloud/stream_test.cjs) reads what the game saw from this file. */
+	/** Every line also goes to -MICloudLog=<file> when given (not in the Shipping game, where a viewer could name any
+	 *  file through a launch option on the link): the stream test (tools/box/cloud/stream_test.cjs) reads what the game
+	 *  saw from this file. */
 	void Line(const FString& Text)
 	{
 		UE_LOG(LogMICloud, Display, TEXT("%s"), *Text);
@@ -69,12 +74,14 @@ namespace MICloudPrivate
 		printf("[MICloud] %s\n", TCHAR_TO_UTF8(*Text));
 		fflush(stdout);
 #endif
+#if !UE_BUILD_SHIPPING
 		static FString File = [] { FString F; FParse::Value(FCommandLine::Get(), TEXT("MICloudLog="), F); return F; }();
 		if (!File.IsEmpty())
 		{
 			FFileHelper::SaveStringToFile(FString::Printf(TEXT("%.3f %s\n"), FPlatformTime::Seconds(), *Text), *File,
 				FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM, &IFileManager::Get(), FILEWRITE_Append);
 		}
+#endif
 	}
 }
 
@@ -219,7 +226,9 @@ public:
 				MIStyle::Body(20 * S), Dim, Mid + 70 * S);
 			Text(Out, Layer + 1, Geo, TEXT("P pauses  ·  Esc gives the mouse back to the browser  ·  a gamepad works too"),
 				MIStyle::Body(20 * S, true), MIStyle::Ink(), Mid + 104 * S);
-			Text(Out, Layer + 1, Geo, TEXT("Sound starts with your click."), MIStyle::Body(18 * S), Dim, Mid + 138 * S);
+			// E3DS starts a stream muted when the browser refuses sound before a click on the page, and then only its
+			// own speaker button (bottom right of the player) turns the sound on.
+			Text(Out, Layer + 1, Geo, TEXT("No sound? Click the speaker at the bottom right."), MIStyle::Body(18 * S), Dim, Mid + 138 * S);
 			return Layer + 3;
 		}
 
@@ -273,6 +282,12 @@ public:
 
 	virtual bool HandleKeyDownEvent(FSlateApplication&, const FKeyEvent&) override { return Eat(); }
 	virtual bool HandleMouseButtonDownEvent(FSlateApplication&, const FPointerEvent&) override { return Eat(); }
+	/** Every mouse move of the stream, one event at a time: the look (and the spike filter, which eats the event). */
+	virtual bool HandleMouseMoveEvent(FSlateApplication&, const FPointerEvent& Event) override
+	{
+		UMICloudSubsystem* O = Owner.Get();
+		return O && O->OnMouseEvent(Event.GetCursorDelta());
+	}
 	virtual bool HandleMouseButtonUpEvent(FSlateApplication&, const FPointerEvent&) override
 	{
 		const bool bWas = bEatRelease;
@@ -337,6 +352,74 @@ int32 UMICloudSubsystem::ApplyCloudProfile()
 	return N;
 }
 
+FMIStreamMouse UMICloudSubsystem::ReadMouseShape(const TCHAR* CommandLine, double Glitch)
+{
+	const double DefaultScale = 0.5, DefaultTruncation = 1.0;
+	double Scale = DefaultScale, Truncation = DefaultTruncation;
+	if (GConfig)
+	{
+		GConfig->GetDouble(TEXT("MICloud"), TEXT("MouseScale"), Scale, GGameIni);
+		GConfig->GetDouble(TEXT("MICloud"), TEXT("MouseTruncation"), Truncation, GGameIni);
+	}
+	float Option = 0.f;
+	if (CommandLine && FParse::Value(CommandLine, TEXT("MIMouseScale="), Option))
+	{
+		Scale = Option;
+	}
+	if (CommandLine && FParse::Value(CommandLine, TEXT("MIMouseTruncation="), Option))
+	{
+		Truncation = Option;
+	}
+	FMIStreamMouse Shape;
+	Shape.Scale = FMath::IsFinite(Scale) && Scale >= 0.05 && Scale <= 4.0 ? Scale : DefaultScale;
+	Shape.Truncation = FMath::IsFinite(Truncation) && Truncation >= 0.0 && Truncation <= 2.0 ? Truncation : DefaultTruncation;
+	Shape.Glitch = FMath::Max(0.0, Glitch);
+	return Shape;
+}
+
+bool UMICloudSubsystem::IsViewerCommandAllowed(const FString& Command)
+{
+	const FString C = Command.TrimStartAndEnd();
+	if (C.IsEmpty() || C.Len() > 256)
+	{
+		return false;
+	}
+	for (const TCHAR Ch : C)
+	{
+		// One command only: the player's console splits a line at '|' and at line ends.
+		if (Ch == TEXT('|') || Ch == TEXT('\n') || Ch == TEXT('\r') || Ch < TEXT(' '))
+		{
+			return false;
+		}
+	}
+	return C.StartsWith(TEXT("PixelStreaming2."), ESearchCase::IgnoreCase) || C.StartsWith(TEXT("PixelStreaming."), ESearchCase::IgnoreCase);
+}
+
+void UMICloudSubsystem::ApplyStreamedQuality(int32 Level)
+{
+	// The levels the game started with are what 'auto' means here.
+	static TOptional<Scalability::FQualityLevels> Startup;
+	if (!Startup.IsSet())
+	{
+		if (Level < 0)
+		{
+			return;  // auto, and nothing was ever changed
+		}
+		Startup = Scalability::GetQualityLevels();
+	}
+	Scalability::FQualityLevels Levels = Startup.GetValue();
+	if (Level >= 0)
+	{
+		Levels.SetFromSingleQualityLevel(FMath::Min(Level, 3));
+	}
+	// Not the resolution: SetFromSingleQualityLevel gives it 50, 71, 87 or 100 % with the level (Ultra would render the
+	// full output size); it stays what it is now, and the engine sets nothing where the value does not change.
+	Levels.ResolutionQuality = Scalability::GetQualityLevels().ResolutionQuality;
+	Scalability::SetQualityLevels(Levels);
+	MICloudPrivate::Line(FString::Printf(TEXT("Graphics quality: %s (scalability groups only; the resolution, the frame cap and the cloud profile stay)"),
+		Level < 0 ? TEXT("auto") : *FString::FromInt(FMath::Min(Level, 3))));
+}
+
 void UMICloudSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
@@ -350,14 +433,17 @@ void UMICloudSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		FCoreDelegates::OnExit.AddStatic(&MICloudPrivate::ArmExitGuard);
 #endif
 	}
+#if !UE_BUILD_SHIPPING
 	// -MICrashTest=<seconds>: crash on purpose after that long, to prove that a crash leaves a log and a crash report
-	// (tools/box/cloud/e3ds-repro.sh). Never set by the launcher.
+	// (tools/box/cloud/e3ds-repro.sh; the Development game, launch option -MIDev). Not in the Shipping game: a viewer
+	// can add launch options to a stream link, and every crash is an email to the owner.
 	float CrashIn = 0.f;
 	if (FParse::Value(FCommandLine::Get(), TEXT("MICrashTest="), CrashIn) && CrashIn > 0.f)
 	{
 		CrashTestAt = FPlatformTime::Seconds() + CrashIn;
 		MICloudPrivate::Line(FString::Printf(TEXT("Crash test: the game will crash on purpose in %.0f s"), CrashIn));
 	}
+#endif
 	if (IsStreamedByCommandLine())
 	{
 		BecomeStreamed(TEXT("command line"));
@@ -416,6 +502,22 @@ void UMICloudSubsystem::BecomeStreamed(const TCHAR* Why)
 		bStreamed = true;
 		// -MICloudNoCard: no click card (the memory runs and pictures on the box, which no viewer clicks).
 		bWaitingForClick = !FParse::Param(FCommandLine::Get(), TEXT("MICloudNoCard"));
+		// The mouse through the data channel (FMIStreamMouse): the spike filter's size is the web game's.
+		double Glitch = 0.0;
+		const UMIDataSubsystem* Data = GetGameInstance() ? GetGameInstance()->GetSubsystem<UMIDataSubsystem>() : nullptr;
+		FMIConfigData Config;
+		FString Error;
+		if (Data && Data->IsLoaded())
+		{
+			Glitch = Data->GetConfig().Player.Look.MouseGlitch;
+		}
+		else if (UMIDataSubsystem::LoadConfig(Config, Error))
+		{
+			Glitch = Config.Player.Look.MouseGlitch;
+		}
+		MouseShape = ReadMouseShape(FCommandLine::Get(), Glitch);
+		MICloudPrivate::Line(FString::Printf(TEXT("Mouse look: %.4f browser pixels per count ([MICloud] MouseScale; launch option -MIMouseScale=<number>), %.2f count(s) put back per event and axis (MouseTruncation), events beyond %.0f pixels dropped as pointer-lock spikes"),
+			MouseShape.Scale, MouseShape.Truncation, MouseShape.Glitch));
 	}
 	if (!bProfileApplied)
 	{
@@ -437,12 +539,23 @@ void UMICloudSubsystem::OnViewerJoined()
 {
 	BecomeStreamed(TEXT("viewer"));
 	bConnectionLost = false;
-	bWaitingForClick = true;
-	MICloudPrivate::Line(FString::Printf(TEXT("Viewer joined: click to play")));
+	if (Viewers.Join())
+	{
+		bWaitingForClick = !FParse::Param(FCommandLine::Get(), TEXT("MICloudNoCard"));
+		MICloudPrivate::Line(FString::Printf(TEXT("Viewer joined: click to play")));
+	}
+	else
+	{
+		// A guest on a session that is being watched already (E3DS's Share link): the card stays as it is, so it does
+		// not cover a game that somebody is playing.
+		MICloudPrivate::Line(FString::Printf(TEXT("Viewer joined (%d since the stream was last empty): no click card over the session in progress"), Viewers.Count));
+	}
 }
 
 void UMICloudSubsystem::OnAllViewersLeft()
 {
+	Viewers.AllLeft();
+	bRefusalLogged = false;  // the next session logs its own first refused command
 	bConnectionLost = true;
 	bWaitingForClick = false;
 	if (UMIGameSubsystem* G = MICloudPrivate::Game(GetGameInstance()); G && G->GetRules().GetState() == EMIGameState::Playing)
@@ -512,18 +625,112 @@ void UMICloudSubsystem::EnsureVideoProducer()
 #endif
 }
 
+void UMICloudSubsystem::EnsureMouse()
+{
+	AMIPlayerController* PC = GetGameInstance() ? Cast<AMIPlayerController>(GetGameInstance()->GetFirstLocalPlayerController()) : nullptr;
+	if (PC && !PC->UsesStreamMouse())
+	{
+		PC->SetStreamMouse(MouseShape);
+	}
+}
+
+bool UMICloudSubsystem::OnMouseEvent(const FVector2D& Delta)
+{
+	if (!bStreamed || Delta.IsZero())
+	{
+		return false;
+	}
+	AMIPlayerController* PC = GetGameInstance() ? Cast<AMIPlayerController>(GetGameInstance()->GetFirstLocalPlayerController()) : nullptr;
+	if (!PC || !PC->UsesStreamMouse())
+	{
+		return false;
+	}
+	return !PC->StreamMouseEvent(Delta);  // a spike is eaten here: neither the look nor a widget sees it
+}
+
+void UMICloudSubsystem::GuardViewerCommands()
+{
+#if MI_WITH_PIXELSTREAMING2
+	// Pixel Streaming 2 runs a viewer's {"ConsoleCommand": "..."} through GEngine->Exec when the host allows viewer
+	// commands (RTCInputHandler.cpp PopulateDefaultCommandHandlers), and E3DS always passes
+	// -AllowPixelStreamingCommands. IPixelStreaming2InputHandler::SetCommandHandler replaces a handler by name: ours
+	// keeps Pixel Streaming's two conditions and adds the allowlist. The other command handlers (the browser's size,
+	// the encoder and bitrate settings) are separate names and stay as they are.
+	if (bCommandsGuarded || !IPixelStreaming2Module::IsAvailable())
+	{
+		return;
+	}
+	IPixelStreaming2Module& Module = IPixelStreaming2Module::Get();
+	if (!Module.IsReady())
+	{
+		return;
+	}
+	TSharedPtr<IPixelStreaming2Streamer> Streamer = Module.FindStreamer(Module.GetDefaultStreamerID());
+	TSharedPtr<IPixelStreaming2InputHandler> Handler = Streamer.IsValid() ? Streamer->GetInputHandler().Pin() : nullptr;
+	if (!Handler.IsValid())
+	{
+		return;
+	}
+	bCommandsGuarded = true;
+	TWeakObjectPtr<UMICloudSubsystem> Weak(this);
+	TWeakPtr<IPixelStreaming2InputHandler> WeakHandler = Handler;
+	Handler->SetCommandHandler(TEXT("ConsoleCommand"), [Weak, WeakHandler](FString SourceId, FString Descriptor, FString Command)
+	{
+		static IConsoleVariable* Allow = IConsoleManager::Get().FindConsoleVariable(TEXT("PixelStreaming2.AllowPixelStreamingCommands"));
+		const TSharedPtr<IPixelStreaming2InputHandler> H = WeakHandler.Pin();
+		if (!Allow || !Allow->GetBool() || !H.IsValid() || !H->IsElevated(SourceId))
+		{
+			return;
+		}
+		if (UMICloudSubsystem* S = Weak.Get())
+		{
+			S->OnViewerCommand(Command);
+		}
+	});
+	MICloudPrivate::Line(TEXT("Viewer console commands: only PixelStreaming2.* and PixelStreaming.* run; anything else is refused"));
+#endif
+}
+
+void UMICloudSubsystem::OnViewerCommand(const FString& Command)
+{
+	if (IsViewerCommandAllowed(Command))
+	{
+		++CommandsRun;
+		if (GEngine)
+		{
+			GEngine->Exec(GetGameInstance() ? GetGameInstance()->GetWorld() : nullptr, *Command.TrimStartAndEnd());
+		}
+		return;
+	}
+	++CommandsRefused;
+	if (!bRefusalLogged)
+	{
+		bRefusalLogged = true;
+		FString Shown = Command.Left(120);
+		for (TCHAR& Ch : Shown)
+		{
+			if (Ch < TEXT(' ')) Ch = TEXT(' ');
+		}
+		MICloudPrivate::Line(FString::Printf(TEXT("Viewer console command refused: \"%s\" (only PixelStreaming2.* and PixelStreaming.* run; further refusals of this session are counted, not logged)"), *Shown));
+	}
+}
+
 bool UMICloudSubsystem::Tick(float DeltaTime)
 {
+#if !UE_BUILD_SHIPPING
 	if (CrashTestAt > 0.0 && FPlatformTime::Seconds() >= CrashTestAt)
 	{
 		MICloudPrivate::Line(TEXT("Crash test: crashing now (null write)"));
 		volatile int32* Null = nullptr;
 		*Null = 1;
 	}
+#endif
 	if (bStreamed)
 	{
 		EnsureOverlay();
 		EnsureVideoProducer();
+		EnsureMouse();
+		GuardViewerCommands();
 	}
 	if (ProbePeriod > 0.f)
 	{
@@ -551,13 +758,15 @@ void UMICloudSubsystem::Probe(float DeltaTime)
 	}
 	const double GpuMs = FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles(0));
 	const APlayerController* PC = GetGameInstance() ? GetGameInstance()->GetFirstLocalPlayerController() : nullptr;
+	const AMIPlayerController* MIPC = Cast<AMIPlayerController>(PC);
 	const FRotator R = PC ? PC->GetControlRotation() : FRotator::ZeroRotator;
 	UMIGameSubsystem* G = MICloudPrivate::Game(GetGameInstance());
-	MICloudPrivate::Line(FString::Printf(TEXT("MICloudProbe fps=%.1f worstMs=%.1f gpuMs=%.2f rssMB=%llu peakRssMB=%llu texStreamMB=%llu texOtherMB=%llu poolMB=%lld yaw=%.4f pitch=%.4f state=%d click=%d bb=%lld pushed=%lld"),
+	MICloudPrivate::Line(FString::Printf(TEXT("MICloudProbe fps=%.1f worstMs=%.1f gpuMs=%.2f rssMB=%llu peakRssMB=%llu texStreamMB=%llu texOtherMB=%llu poolMB=%lld yaw=%.4f pitch=%.4f state=%d click=%d bb=%lld pushed=%lld viewers=%d spikes=%d pad=%d cmdRun=%d cmdRefused=%d"),
 		ProbeTime > 0 ? ProbeFrames / ProbeTime : 0.0, ProbeWorst * 1000.0, GpuMs,
 		(unsigned long long)(M.UsedPhysical >> 20), (unsigned long long)(M.PeakUsedPhysical >> 20),
 		(unsigned long long)(T.StreamingMemorySize >> 20), (unsigned long long)(T.NonStreamingMemorySize >> 20), (long long)(T.TexturePoolSize >> 20),
 		R.Yaw, R.Pitch, G ? (int32)G->GetRules().GetState() : -1, bWaitingForClick ? 1 : 0,
-		(long long)MICloudPrivate::BackBuffers.load(), (long long)MICloudPrivate::FramesPushed.load()));
+		(long long)MICloudPrivate::BackBuffers.load(), (long long)MICloudPrivate::FramesPushed.load(),
+		Viewers.Count, MIPC ? MIPC->GetMouseSpikes() : 0, MIPC && MIPC->IsPadActive() ? 1 : 0, CommandsRun, CommandsRefused));
 	ProbeFrames = ProbeTime = ProbeWorst = 0.0;
 }

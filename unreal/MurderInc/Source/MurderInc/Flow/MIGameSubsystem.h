@@ -119,6 +119,11 @@ public:
 	void MenuAdjust(int32 Dx);
 	void MenuConfirm();
 	void MenuBack();
+	/** The mouse on a card, Point in canvas pixels (the HUD stored where it drew the rows, FMIMenu::Layout). A click
+	 *  selects the row under it and acts: a button as Enter does, an adjustable row one value back on its left half and
+	 *  one forward on its right. Hover only selects. False: nothing under the point. */
+	bool MenuClick(const FVector2D& Point);
+	bool MenuHover(const FVector2D& Point);
 
 	// ---- the frame (FMIGameFrameTick; tests may call them directly) ----------------------------------------
 	void FlowFrame(double Dt);

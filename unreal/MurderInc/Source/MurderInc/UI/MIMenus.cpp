@@ -19,6 +19,30 @@ namespace MIMenusPrivate
 	}
 }
 
+FMIMenuHit FMIMenuLayout::HitTest(const FVector2D& Point) const
+{
+	FMIMenuHit Hit;
+	if (Screen == EMIMenuScreen::None || !(Width > 0.0) || !(RowHeight > 0.0) || Adjust.Num() == 0
+		|| Point.X < X || Point.X >= X + Width || Point.Y < Top)
+	{
+		return Hit;
+	}
+	const double Pitch = RowHeight + FMath::Max(0.0, RowGap);
+	const int32 Row = FMath::FloorToInt32((Point.Y - Top) / Pitch);
+	if (Row < 0 || Row >= Adjust.Num() || Point.Y - Top - Row * Pitch >= RowHeight)
+	{
+		return Hit;  // below the last row, or in the gap under a row
+	}
+	Hit.Row = Row;
+	Hit.Side = Adjust[Row] ? (Point.X < X + Width * 0.5 ? -1 : 1) : 0;
+	return Hit;
+}
+
+FMIMenuHit FMIMenu::HitTest(const FVector2D& Point) const
+{
+	return Layout.Screen == Screen && Layout.Adjust.Num() == Items.Num() ? Layout.HitTest(Point) : FMIMenuHit();
+}
+
 void FMIMenu::Build(EMIMenuScreen InScreen, const FMISettings& S, const FMIText& Copy, const FMIText& Ui, const TOptional<FMIRunCard>& Card, FName Mode)
 {
 	using namespace MIMenusPrivate;

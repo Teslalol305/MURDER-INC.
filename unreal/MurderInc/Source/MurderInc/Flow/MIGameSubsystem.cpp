@@ -5,6 +5,7 @@
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Audio/MIAudioSubsystem.h"
+#include "Cloud/MICloud.h"
 #include "Core/Data/MIDataSubsystem.h"
 #include "Flow/MIRunSetupSubsystem.h"
 #include "UI/MIFrontEnd.h"
@@ -666,6 +667,36 @@ void UMIGameSubsystem::MenuConfirm()
 	else if (Id == TEXT("back")) MenuBack();
 }
 
+bool UMIGameSubsystem::MenuHover(const FVector2D& Point)
+{
+	const FMIMenuHit Hit = Menu.HitTest(Point);
+	if (Hit.Row == INDEX_NONE)
+	{
+		return false;
+	}
+	Menu.Selected = Hit.Row;
+	return true;
+}
+
+bool UMIGameSubsystem::MenuClick(const FVector2D& Point)
+{
+	const FMIMenuHit Hit = Menu.HitTest(Point);
+	if (Hit.Row == INDEX_NONE)
+	{
+		return false;
+	}
+	Menu.Selected = Hit.Row;
+	if (Hit.Side != 0)
+	{
+		MenuAdjust(Hit.Side);
+	}
+	else
+	{
+		MenuConfirm();
+	}
+	return true;
+}
+
 void UMIGameSubsystem::MenuBack()
 {
 	if (Menu.Screen == EMIMenuScreen::Settings)
@@ -728,9 +759,17 @@ void UMIGameSubsystem::ApplySettings()
 	{
 		Audio->SetTransientPrimaryVolume(Settings.Volume);
 	}
-	if (UGameUserSettings* User = GEngine ? GEngine->GetGameUserSettings() : nullptr)
+	const int32 Scalability = Settings.Rules.Qualities.IndexOfByKey(Settings.Quality) - 1;  // auto, low .. ultra
+	const UGameInstance* GI = GetWorld() ? GetWorld()->GetGameInstance() : nullptr;
+	const UMICloudSubsystem* Cloud = GI ? GI->GetSubsystem<UMICloudSubsystem>() : nullptr;
+	if (Cloud && Cloud->IsStreamed())
 	{
-		const int32 Scalability = Settings.Rules.Qualities.IndexOfByKey(Settings.Quality) - 1;  // auto, low .. ultra
+		// In a stream the setting moves the scalability groups only: UGameUserSettings::ApplySettings would also ask
+		// for its own resolution and window mode, clear the 60 fps cap and render Ultra at the full output size.
+		UMICloudSubsystem::ApplyStreamedQuality(Scalability);
+	}
+	else if (UGameUserSettings* User = GEngine ? GEngine->GetGameUserSettings() : nullptr)
+	{
 		if (Scalability >= 0 && User->GetOverallScalabilityLevel() != Scalability)
 		{
 			User->SetOverallScalabilityLevel(Scalability);

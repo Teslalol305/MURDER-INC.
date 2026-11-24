@@ -27,12 +27,14 @@ public class MurderInc : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[] { "RHI", "RenderCore" });
 
 		// Pixel Streaming 2 is enabled for the game target only (MurderInc.uproject: TargetAllowList Game), so the
-		// editor and the automation tests never load it. The game reads its connection events (Cloud/MICloud.cpp).
+		// editor and the automation tests never load it. The game reads its connection events and replaces its
+		// console-command handler with an allowlist (Cloud/MICloud.cpp; the input handler's interface is in
+		// PixelStreaming2Input).
 		bool bPixelStreaming = Target.Type == TargetType.Game
 			&& (Target.Platform == UnrealTargetPlatform.Linux || Target.Platform == UnrealTargetPlatform.Win64);
 		if (bPixelStreaming)
 		{
-			PrivateDependencyModuleNames.AddRange(new string[] { "PixelStreaming2", "PixelStreaming2Core" });
+			PrivateDependencyModuleNames.AddRange(new string[] { "PixelStreaming2", "PixelStreaming2Core", "PixelStreaming2Input" });
 		}
 		PublicDefinitions.Add("MI_WITH_PIXELSTREAMING2=" + (bPixelStreaming ? "1" : "0"));
 

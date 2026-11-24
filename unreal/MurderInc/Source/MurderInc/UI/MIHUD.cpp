@@ -56,6 +56,11 @@ void AMIHUD::DrawHUD()
 	{
 		DrawMenu(*Game, Font);
 	}
+	else
+	{
+		Game->GetMenu().Layout.Reset();  // no card on screen: nothing for a click to hit
+		HoverScreen = EMIMenuScreen::None;
+	}
 }
 
 void AMIHUD::DrawPlay(UFont* Font)
@@ -419,12 +424,34 @@ void AMIHUD::DrawMenu(UMIGameSubsystem& Game, UFont* Font)
 	GetTextSize(TEXT("Ag"), NW, NH, Body, NoteS);
 	GetTextSize(TEXT("Ag"), SW, SH, Body, StatS);
 	GetTextSize(TEXT("Ag"), IW, IH, Body, ItemS);
+	// One line under the items says how the card is worked (launch pre-flight 2026-11-24: nothing on the cards named
+	// a key, and a click did nothing): for the device in use.
+	const AMIPlayerController* Controller = Cast<AMIPlayerController>(GetOwningPlayerController());
+	const bool bPad = Controller && Controller->IsPadActive();
+	FString Hint = bPad ? TEXT("D-pad choose  ·  A select") : TEXT("Up/Down choose  ·  Enter select");
+	if (M.Items.ContainsByPredicate([](const FMIMenuItem& I) { return I.bAdjust; }))
+	{
+		Hint += TEXT("  ·  Left/Right change");
+	}
+	if (!bPad)
+	{
+		Hint += TEXT("  ·  or click");
+	}
+	float HintS = static_cast<float>(K * 0.8), HW = 0.f, HH = 0.f;
+	GetTextSize(Hint, HW, HH, Body, HintS);
+	if (HW > Inner)
+	{
+		HintS *= static_cast<float>(Inner / HW);
+		GetTextSize(Hint, HW, HH, Body, HintS);
+	}
+	const double HintGap = 12.0 * K;
 	double CardH = Pad;
 	if (!M.Kicker.IsEmpty()) CardH += KH + 10.0 * K;
 	CardH += TH + 14.0 * K;  // the title and the gold rule under it
 	if (NoteLines.Num() > 0) CardH += NoteLines.Num() * (NH + 2.0 * K) + 12.0 * K;
 	if (M.Stats.Num() > 0) CardH += M.Stats.Num() * (SH + 10.0 * K) + 8.0 * K;
 	CardH += 12.0 * K + M.Items.Num() * (RowH + RowGap) + Pad - RowGap;
+	if (M.Items.Num() > 0) CardH += HintGap + HH;
 	const double CX = (W - CardW) * 0.5;
 	const double CY = FMath::Max(24.0 * K, (H - CardH) * (bTitle ? 0.62 : 0.5));
 	DrawPlate(CX, CY, CardW, CardH, WithAlpha(Plate(), 0.9f), WithAlpha(PlateEdge(), 1.f), static_cast<float>(FMath::Max(1.0, K)));
@@ -459,6 +486,39 @@ void AMIHUD::DrawMenu(UMIGameSubsystem& Game, UFont* Font)
 	}
 	if (M.Stats.Num() > 0) Y += 8.0 * K;
 	Y += 12.0 * K;
+	// Where the rows are, for the mouse: a click acts on the row under it (AMIPlayerController, IA_MenuClick), and the
+	// cursor selects the row it moves over. A cursor that rests where a card opens selects nothing: Enter still takes
+	// the card's first item.
+	{
+		FMIMenuLayout& L = Game.GetMenu().Layout;
+		L.Screen = M.Screen;
+		L.X = X0;
+		L.Width = Inner;
+		L.Top = Y;
+		L.RowHeight = RowH;
+		L.RowGap = RowGap;
+		L.Adjust.Reset(M.Items.Num());
+		for (const FMIMenuItem& Item : M.Items)
+		{
+			L.Adjust.Add(Item.bAdjust);
+		}
+		float MX = 0.f, MY = 0.f;
+		const APlayerController* PC = GetOwningPlayerController();
+		if (PC && PC->ShouldShowMouseCursor() && PC->GetMousePosition(MX, MY))
+		{
+			const FVector2D Cursor(MX, MY);
+			if (HoverScreen != M.Screen)
+			{
+				HoverScreen = M.Screen;
+				HoverCursor = Cursor;
+			}
+			else if (!Cursor.Equals(HoverCursor, 0.5))
+			{
+				HoverCursor = Cursor;
+				Game.MenuHover(Cursor);
+			}
+		}
+	}
 	for (int32 I = 0; I < M.Items.Num(); ++I)
 	{
 		const FMIMenuItem& Item = M.Items[I];
@@ -483,6 +543,10 @@ void AMIHUD::DrawMenu(UMIGameSubsystem& Game, UFont* Font)
 			DrawText(V, bSel ? Bg() : Gold(), X0 + Inner - 18.0 * K - VW, TY, Body, ItemS);
 		}
 		Y += RowH + RowGap;
+	}
+	if (M.Items.Num() > 0)
+	{
+		DrawText(Hint, InkDim(), X0 + (Inner - HW) * 0.5, Y - RowGap + HintGap, Body, HintS);
 	}
 }
 
