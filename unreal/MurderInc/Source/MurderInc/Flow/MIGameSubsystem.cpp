@@ -44,6 +44,22 @@ namespace MIGameSubsystemPrivate
 		}
 		return FName(Tag);
 	}
+
+	/** presentation.json block.startPitch: the view's pitch (degrees, up positive) when a run puts the player on the
+	 *  start. The start pose itself is the web game's; at pitch 0 the open trash can 1.1 m ahead (prop 270) filled
+	 *  the bottom of every run's first frame, a few degrees up the frame looks down the avenue under the El. */
+	double StartPitch()
+	{
+		TSharedPtr<FJsonObject> P;
+		FString Error;
+		double Pitch = 0.0;
+		const TSharedPtr<FJsonObject>* Block = nullptr;
+		if (UMIDataSubsystem::LoadJsonFile(TEXT("presentation.json"), P, Error) && P->TryGetObjectField(TEXT("block"), Block))
+		{
+			(*Block)->TryGetNumberField(TEXT("startPitch"), Pitch);
+		}
+		return Pitch;
+	}
 }
 
 void FMIGameFrameTick::ExecuteTick(float DeltaTime, ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
@@ -1100,6 +1116,7 @@ void UMIGameSubsystem::ResetPlayer(const FVector& Pos, double Yaw)
 	{
 		P->ResetAt(MI::Web::ToUnreal(Pos), MI::Web::YawToUnreal(Yaw));
 		FMIPlayerRules& R = P->GetPlayerRules();
+		R.Pitch = MIGameSubsystemPrivate::StartPitch();
 		R.RegenDelay = RegenDelay;
 		R.RegenRate = RegenRate;
 		R.SetFov(Settings.Fov);

@@ -438,6 +438,8 @@
     "note": "The block at run time (AMIBlockGeometry): every level.json collider becomes collision in every map; it is drawn as grey boxes only in a map without art (no actor tagged artTag).",
     "cube": "/Engine/BasicShapes/Cube.Cube",
     "artTag": "MIBlock",
-    "floorDepth": 50
+    "floorDepth": 50,
+    "startPitch": 7,
+    "startPitchNote": "Degrees, up positive: the view's pitch when a run puts the player on the start (UMIGameSubsystem::ResetPlayer). The start position and heading stay the web game's; at pitch 0 the open trash can 1.1 m ahead (prop 270, collider 704, kept for the golden walks) filled the bottom of every run's first frame."
   }
 }

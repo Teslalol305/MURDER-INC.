@@ -1684,9 +1684,10 @@ def place_facade(facade, building):
 
 
 # Props drawn with another catalogue mesh than their type's (same place, same collider). Prop 270, the litter basket
-# 1.1 m in front of the player start: its black liner and open top filled the lower left of every run's first frame
-# as a dark half disc (fix pass); the galvanised lidded can (0.56 m across without its handles) sits in the same
-# 0.6 m collider with a closed, lit top.
+# 1.1 m in front of the player start: its black liner filled the lower left of every run's first frame as a dark half
+# disc (fix pass). It is the galvanised alley can now (0.56 m across without its handles, in the same 0.6 m collider;
+# the scan is open, its lid on the ground beside it), and the first frame looks over it: presentation.json
+# block.startPitch.
 PROP_MESH_OVERRIDES = {270: "SM_Prop_TrashCan_Metal"}
 
 
