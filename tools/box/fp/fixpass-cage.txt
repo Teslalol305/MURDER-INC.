@@ -1,0 +1,5 @@
+# Fix pass (2026-11-24): walk the nav path from the start into the Cage to reel 3 (UE 3525,-2250), as the review's bot
+# did (it stopped 11 m short at the gate post). MIDemo.Run on game time; the log says where the walk ended.
+god 1
+goto 3525 -2250 1
+wait 1

@@ -1,0 +1,8 @@
+# Fix pass (2026-11-24): the three reels secured, then the walk to the IPX truck's doors (UE 3590,2970) and the debrief.
+god 1
+secure 0
+secure 1
+secure 2
+goto 3590 2970 1
+waitstate complete 60
+wait 6
