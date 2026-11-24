@@ -258,3 +258,58 @@ Claude rebuilds the whole package with one command on the GPU box (`tools/box/cl
 10 minutes on a warm cache: 8 on 2026-11-24), starts the packaged game on the box's desktop to check it (the box cannot test an actual stream: that
 is what the E3DS trial link in section 4 is for), and puts the new
 zip in your Higgsfield storage. You then upload it to E3DS as a new version (section 2) and test the link again.
+
+## 13. If it crashes again: the log
+
+The first upload (the zip of 2026-11-24, sha256 `8378eedd…`) crashed on E3DS with "no crashlog was found": that
+build wrote no log at all (Shipping builds compile the engine's log out). **The build of section 9 always writes
+one.** On the E3DS server, inside the app's folder:
+
+| File | What is in it |
+|---|---|
+| `MurderInc/Saved/Logs/MurderInc.log` | written by the launcher `MurderInc.sh` for every start: the build's commit (`BUILD.txt`), the user, the GPU, its driver and free graphics memory, other programs holding graphics memory, the Vulkan check Unreal 5.9 needs, the arguments E3DS passed, every line the game prints (its own `[MICloud]` lines: GPU, shader platform, ray tracing, Nanite, Lumen, video memory, viewers joining and leaving), and at the end how the game ended: `quit normally`, `stopped by SIGTERM (sent by the host)`, `CRASH: ... signal 11 (SIGSEGV)` or `ENDED with exit code 1`, followed by the engine's crash report (the call stack) |
+| `MurderInc/Saved/Logs/MurderInc-backup-<time>.log` | the run before (the last ten are kept) |
+| `MurderInc/Saved/Crashes/crashinfo-MurderInc-pid-<n>-<id>/` | the engine's own crash report (`Diagnostics.txt`, `CrashContext.runtime-xml`); nothing is sent anywhere |
+
+If the app folder cannot be written there, the same files go to `$HOME/MurderInc-cloud/Saved/` (or `/tmp`); the
+log's first lines say where.
+
+**Getting it** (E3DS's own options, as their documentation describes them; we could not open their pages from the
+build machine, so the menu names may differ slightly):
+
+1. **Browser console.** Keep "Show the Unreal log in the browser console" on. Open Chrome's developer tools
+   (**F12**, or **Cmd+Option+J** on a Mac) on the **Console** tab *before* opening the link, then play. If it
+   crashes, right-click in the console and choose **Save as...**. E3DS does not say which file it prints; if the
+   console shows nothing from the game, use 2 or 3.
+2. **The Development game, for E3DS's crash-log email.** E3DS's "Auto Download UE Crash Log" (stream configuration,
+   **Advanced Options**, **Developer**) only works with Development builds. The zip carries one beside the normal
+   game: put **`-MIDev`** in the configuration's **launch options**, start the link again, and that session writes
+   the full engine log, with call stacks, to `MurderInc/Saved/Logs/MurderInc.log`, where Development builds keep
+   it. Take `-MIDev` out again afterwards (it keeps the developer console and checks on).
+3. **Ask E3DS support** (email or chat) for the files above. Give them: app `MurderInc`, the version, the
+   configuration, and the time of the crash in UTC (their crash email gives it in your time zone). Ask them for
+   `MurderInc/Saved/Logs/MurderInc.log` and the folder `MurderInc/Saved/Crashes/` from the server that ran the
+   session, and while you are at it: the exact command line and user their Linux servers start the app with, that
+   server's GPU model, NVIDIA driver version and graphics memory, whether two apps can share one GPU, and how they
+   decide an app "crashed" (exit code, or the stream disconnecting).
+4. **Send the log to Claude.** Its first lines name the commit; the GPU box keeps that build's debug symbols
+   (`/project/ue/cloud/symbols/<commit>/`), which turn the crash report's addresses into function names.
+
+**Reading the end of the log yourself:**
+
+- `Vulkan SM6 check: MISSING ...` or `[MICloud] Fallback: this GPU or driver did not pass Unreal's SM6 check`: the
+  server's NVIDIA driver is older than Unreal 5.9 needs for its full renderer. The game still runs (flatter light,
+  no Nanite), and E3DS support can say whether newer drivers exist on other servers. The launch option
+  `-MIForceSM6` makes Unreal skip that check (it may then work fully, or crash: try it once, read the log).
+- `CRASH: ... SIGSEGV` a few seconds after `[MICloud] Features ... video memory`: look for `Out Of Memory` just
+  above: the server's graphics card was full (the GPU line at the top shows how much was free and what else used it).
+- `ENDED with exit code 1` within about 10 seconds: a missing shader platform or file; the lines above it say which.
+- `the game was stopped by SIGTERM (sent by the host)` or `quit normally`: no crash on our side; if E3DS still
+  reported one, the log is the evidence to send them.
+
+**Launch options** (stream configuration, launch options; leave empty normally):
+
+| Option | Effect |
+|---|---|
+| `-MIDev` | run the Development game (full engine log, for E3DS's crash-log feature and support) |
+| `-MIForceSM6` | skip Unreal's Vulkan SM6 check on a driver that fails it |
