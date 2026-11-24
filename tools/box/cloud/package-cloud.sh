@@ -10,16 +10,25 @@
 #              (else the release copy keeps the Content of its last copy, and the step says so)
 #   overlay    the packaging settings, on the release copy only (start map L_Block, folders loaded by path, fonts,
 #              no Zen store): the same as tools/box/demo/package.sh
-#   usage      set the material usage flags the cooked game needs (demo/fix_usage.py) in the release copy's
-#              Content: without them the cooked game draws the CHOPPER pack rifle, the Goons' guns, Rule's silver,
-#              the Buzzard's tracer material and the art masters on instanced meshes with the default grey material
-#              (the editor sets the flags on the fly, so play in editor never shows it)
+#              Also for the stream only: the SM5 shaders as well as SM6 (a server whose driver fails Unreal 5.9's SM6
+#              Vulkan check falls back to SM5 instead of quitting at start), and the engine's crash handler writes
+#              Saved/Crashes/<crash>/ (call stack) even without a display (no crash reporter is packaged: nothing is
+#              sent anywhere)
+#   usage      the release copy's asset step (cloud/cloud_assets.py): the material usage flags the cooked game needs
+#              (demo/fix_usage.py: without them the cooked game draws the CHOPPER pack rifle, the Goons' guns, Rule's
+#              silver, the Buzzard's tracer material and the art masters on instanced meshes with the default grey
+#              material; the editor sets the flags on the fly, so play in editor never shows it), and the six interior
+#              cube maps stored as BC6H (384 MB of graphics memory down to 48 MB)
 #   package <Development|Shipping>   BuildCookRun Linux into /project/ue/cloud/build-<config> (Shipping skips the
 #              cook when a cook exists)
-#   zip        /project/ue/cloud/MurderInc-E3DS.zip from build-Shipping: MurderInc.sh at the root (E3DS app name =
-#              script name = MurderInc), plus its sha256
-#   all        src, refresh, content, overlay, usage, package Development, package Shipping, zip (detached; log in
-#              /project/ue/cloud/package.log)
+#   zip        /project/ue/cloud/MurderInc-E3DS.zip from build-Shipping: the launcher cloud/MurderInc.sh at the root
+#              (E3DS app name = script name = MurderInc; it logs to MurderInc/Saved/Logs), BUILD.txt (the commit), the
+#              Development game beside the Shipping one (launch option -MIDev), no *.debug / *.sym (kept on the box in
+#              /project/ue/cloud/symbols/<commit>/ to read crash call stacks), plus its sha256
+#   parts      the zip in parts of 240 MiB (the storage takes at most about 250 MB a file) in /project/ue/cloud/parts,
+#              named MurderInc-E3DS-part<k>-of-<n>.zip, with parts.sha256
+#   all        src, refresh, content, overlay, usage, package Development, package Shipping, zip, parts (detached;
+#              log in /project/ue/cloud/package.log)
 #   status     the step running or the result, and the last log lines
 #
 # The package holds pack, Epic and likeness content: it stays on the box and goes only to the owner's private
@@ -47,7 +56,9 @@ src() {
   else
     as_ue4 git -C "$C/src" fetch -q --depth 1 origin "$BRANCH" && as_ue4 git -C "$C/src" reset -q --hard FETCH_HEAD || return 1
   fi
-  say "SRC OK at $(git -C "$C/src" log --oneline -1)"
+  # git refuses a repository owned by another user (ue4) when run as root: read it as ue4.
+  as_ue4 git -C "$C/src" rev-parse HEAD > "$C/src.commit" || return 1
+  say "SRC OK at $(as_ue4 git -C "$C/src" log --oneline -1)"
 }
 
 refresh() {
@@ -92,6 +103,20 @@ for pl in d['Plugins']:
 json.dump(d, open(p, 'w'), indent='\t')
 PY
   chown ue4 "$REL/MurderInc.uproject"
+  # The SM5 shaders too (the base engine targets SM5 and SM6; the project drops SM5): Unreal picks SM6 when the
+  # server's driver passes its Vulkan profile check, else SM5. Without them a failed check ends the game 7 s after
+  # the start ("Failed to initialize ShaderCodeLibrary", exit 1), with no log in Shipping.
+  sed -i '/^-TargetedRHIs=SF_VULKAN_SM5$/d' "$ini"
+  cat >> "$ini" <<'EOF'
+
+; ---- cloud package overlay (tools/box/cloud/package-cloud.sh) ----
+; The engine's crash handler skips its report when no display is set (headless servers count as unattended) unless
+; crash upload is agreed. No crash reporter is packaged, so nothing is uploaded: the report stays in
+; Saved/Crashes/crashinfo-*/ (Diagnostics.txt has the call stack), and the launcher copies it into the log.
+[CrashReportClient]
+bAgreeToCrashUpload=true
+bStartCRCFromEngineHandler=false
+EOF
   cat >> "$game" <<'EOF'
 
 ; ---- cloud package overlay (tools/box/cloud/package-cloud.sh; same as tools/box/demo/package.sh) ----
@@ -116,11 +141,11 @@ EOF
 }
 
 usage() {
-  local script=$C/src/tools/box/demo/fix_usage.py
-  [ -f "$script" ] || { say "run src first (no $script)"; return 1; }
+  local script=$C/src/tools/box/cloud/cloud_assets.py fix=$C/src/tools/box/demo/fix_usage.py
+  [ -f "$script" ] && [ -f "$fix" ] || { say "run src first (no $script)"; return 1; }
   [ -f "$REL/MurderInc.uproject" ] || { say "run refresh and content first"; return 1; }
   export HOME=/home/ue4
-  su ue4 -c "cd $ENGINE && env HOME=/home/ue4 UE-LocalDataCachePath=/project/ue/ddc ./Engine/Binaries/Linux/UnrealEditor-Cmd $REL/MurderInc.uproject \
+  su ue4 -c "cd $ENGINE && env HOME=/home/ue4 UE-LocalDataCachePath=/project/ue/ddc MI_FIX_USAGE=$fix ./Engine/Binaries/Linux/UnrealEditor-Cmd $REL/MurderInc.uproject \
     -run=pythonscript -script=$script -unattended -nosplash -NullRHI -nopause -stdout -FullStdOutLogOutput \
     '-DDC=(ProjectPak,InstalledProjectPak,EnginePak=InstalledEnginePak,EnterprisePak,InstalledLocal)' -ini:Engine:[Zen]:AutoLaunch=false \
     -ini:Engine:[ConsoleVariables]:AssetRegistry.DisableDirectoryWatcher=1" > "$C/usage.log" 2>&1
@@ -128,7 +153,9 @@ usage() {
   saved=$(grep -ac 'fix_usage: .* saved True' "$C/usage.log")
   missing=$(grep -ac 'fix_usage: missing' "$C/usage.log")
   [ "$saved" -gt 0 ] || { say "USAGE FAILED: nothing saved (log $C/usage.log)"; return 1; }
-  say "USAGE OK: $saved material(s) saved with their flags, $missing not found (log $C/usage.log)"
+  local cubes; cubes=$(grep -a 'cloud_assets: [0-9]* interior cube' "$C/usage.log" | tail -1 | sed 's/.*cloud_assets: //')
+  [ -n "$cubes" ] || { say "USAGE FAILED: the cube map step did not finish (log $C/usage.log)"; return 1; }
+  say "USAGE OK: $saved material(s) saved with their flags, $missing not found; $cubes (log $C/usage.log)"
 }
 
 package() {
@@ -149,12 +176,26 @@ package() {
 }
 
 zipit() {
-  local L=$C/build-Shipping/Linux z=$C/MurderInc-E3DS.zip
+  local L=$C/build-Shipping/Linux z=$C/MurderInc-E3DS.zip B=$C/build-Shipping/Linux/MurderInc/Binaries/Linux
+  local D=$C/build-Development/Linux/MurderInc/Binaries/Linux launcher=$C/src/tools/box/cloud/MurderInc.sh
   [ -f "$L/MurderInc.sh" ] || { say "no $L/MurderInc.sh"; return 1; }
-  # The engine's launcher runs the Shipping binary with "$@" (what E3DS passes: the Pixel Streaming connection,
-  # resolution, off-screen rendering). -MICloud makes sure the cloud profile is on even if their arguments change.
-  grep -q -- '-MICloud' "$L/MurderInc.sh" || sed -i 's#"\$@"#-MICloud "$@"#' "$L/MurderInc.sh"
-  chmod +x "$L/MurderInc.sh"
+  [ -f "$launcher" ] && [ -f "$C/src.commit" ] || { say "run src first (no $launcher or src.commit)"; return 1; }
+  local sha; sha=$(cat "$C/src.commit")
+  # Our launcher in place of the engine's (which ran MurderInc-Linux-Shipping MurderInc -MICloud "$@" and kept no
+  # log): it logs to MurderInc/Saved/Logs, passes stop signals on, never runs the game as root.
+  cp "$launcher" "$L/MurderInc.sh" && chmod 755 "$L/MurderInc.sh" || return 1
+  # The Development game beside the Shipping one (the same cooked content and paks): launch option -MIDev.
+  if [ -f "$D/MurderInc" ]; then cp "$D/MurderInc" "$B/MurderInc" && chmod 755 "$B/MurderInc" || return 1; fi
+  {
+    echo "MURDER INC. cloud build for Eagle 3D Streaming (Linux, Unreal Engine 5.9, Pixel Streaming 2)"
+    echo "commit $sha (branch $BRANCH, committed $(as_ue4 git -C "$C/src" log -1 --format=%cI))"
+    echo "packaged $(date -u '+%Y-%m-%d %H:%M UTC') with tools/box/cloud/package-cloud.sh"
+    echo "games: MurderInc/Binaries/Linux/MurderInc-Linux-Shipping (default), MurderInc/Binaries/Linux/MurderInc (Development: launch option -MIDev)"
+    echo "shaders: Vulkan SM6 (Nanite, Lumen, hardware ray tracing) and the SM5 fallback; log: MurderInc/Saved/Logs/MurderInc.log"
+  } > "$L/BUILD.txt"
+  # Debug symbols stay on the box, by commit, to turn a crash report's addresses into function names.
+  local S=$C/symbols/${sha:0:7}
+  mkdir -p "$S" && cp -f "$B"/*.debug "$B"/*.sym "$D"/*.debug "$D"/*.sym "$S/" 2>/dev/null
   rm -f "$z"
   (cd "$L" && python3 - "$z" <<'EOF'
 import os, sys, zipfile
@@ -163,18 +204,33 @@ with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as z:
     for root, dirs, files in os.walk('.'):
         dirs.sort()
         for f in sorted(files):
+            if f.endswith(('.debug', '.sym')):
+                continue  # symbols: kept on the box (symbols/<commit>/), not shipped
             p = os.path.join(root, f)
             z.write(p, os.path.relpath(p, '.'))  # keeps the executable bits
 EOF
   ) || return 1
   sha256sum "$z" | cut -d' ' -f1 > "$z.sha256"
-  say "ZIP OK: $z $(du -h "$z" | cut -f1) sha256 $(cat "$z.sha256")"
+  say "ZIP OK: $z $(du -h "$z" | cut -f1) sha256 $(cat "$z.sha256") (commit ${sha:0:7}; symbols in $S)"
+}
+
+parts() {
+  local z=$C/MurderInc-E3DS.zip P=$C/parts
+  [ -f "$z" ] && [ -f "$z.sha256" ] || { say "no $z"; return 1; }
+  rm -rf "$P"; mkdir -p "$P"
+  (cd "$P" && split -b 240M -d -a 2 "$z" tmp-part-) || return 1
+  local n k=0 f; n=$(ls "$P"/tmp-part-* | wc -l)
+  for f in $(ls "$P"/tmp-part-* | sort); do k=$((k + 1)); mv "$f" "$P/MurderInc-E3DS-part$k-of-$n.zip"; done
+  (cd "$P" && for k in $(seq 1 "$n"); do sha256sum "MurderInc-E3DS-part$k-of-$n.zip"; done) > "$C/parts.sha256"
+  local joined; joined=$(for k in $(seq 1 "$n"); do cat "$P/MurderInc-E3DS-part$k-of-$n.zip"; done | sha256sum | cut -d' ' -f1)
+  [ "$joined" = "$(cat "$z.sha256")" ] || { say "PARTS FAILED: joined sha256 $joined differs from the zip's"; return 1; }
+  say "PARTS OK: $n parts in $P (list $C/parts.sha256), joined sha256 = the zip's"
 }
 
 all() {
   echo RUNNING > "$ST"
   ( set -o pipefail
-    src && refresh && content && overlay && usage && package Development && package Shipping && zipit
+    src && refresh && content && overlay && usage && package Development && package Shipping && zipit && parts
   ) && echo OK > "$ST" || echo FAILED > "$ST"
   say "ALL $(cat "$ST")"
 }
@@ -189,9 +245,10 @@ status() {
 case "$1" in
   src|refresh|content|overlay|usage) "$1" ;;
   zip) zipit ;;
+  parts) parts ;;
   package) package "$2" ;;
   all) mkdir -p "$C"; setsid nohup bash "$ME" all-fg </dev/null >"$LOG" 2>&1 & echo "started: poll package-cloud.sh status" ;;
   all-fg) all ;;
   status) status ;;
-  *) sed -n 2,24p "$0"; exit 2 ;;
+  *) sed -n 2,36p "$0"; exit 2 ;;
 esac

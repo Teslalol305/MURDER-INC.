@@ -18,6 +18,7 @@
 #   WSURL=<url>           (default none: give it as an argument)
 #   VIEWER=<secs on>,<secs off>,<cycles>[,delay]  (a fake viewer joins and leaves through the signalling server)
 #   STOPSIG=INT|TERM|HUP  (sent to the game binary when it is still alive at <secs>; default INT), GRACE=<secs> (30)
+#   STOPTO=game|launcher  (who gets STOPSIG: the game binary (default) or the launcher MurderInc.sh, which passes it on)
 # result.txt: "ENDED BY ITSELF: ..." is a crash or exit before the limit; "ALIVE at limit; after <sig>: ..." says how
 # the shutdown went (a clean shutdown ends with EXIT 0 or the signal's 128+n code; SIGNAL 11 is a crash on the way out).
 C=/project/ue/cloud
@@ -62,9 +63,12 @@ how() { local rc=\$1; if [ \$rc -gt 128 ]; then echo "SIGNAL \$((rc-128)) (\$(ki
 for i in \$(seq 1 $secs); do kill -0 \$sh 2>/dev/null || break; sleep 1; done
 if ! kill -0 \$sh 2>/dev/null; then wait \$sh; rc=\$?; echo "ENDED BY ITSELF: \$(how \$rc) after \$(el)s" > $d/result.txt; exit; fi
 # Alive at the limit: stop it the way a host would (STOPSIG to the game binary, the launcher's child), then KILL.
-game=\$(pgrep -P \$sh | head -1)
-echo "alive at \$(el)s; sending ${STOPSIG:-INT} to \$game" > $d/stop.txt
-kill -${STOPSIG:-INT} \$game
+# The game is the launcher's child named after the binary (the logging launcher also runs tee); setpriv execs it.
+game=\$(pgrep -P \$sh -x MurderInc-Linux | head -1); [ -n "\$game" ] || game=\$(pgrep -P \$sh -x MurderInc | head -1)
+[ -n "\$game" ] || game=\$(pgrep -P \$sh | head -1)
+target=\$game; [ "${STOPTO:-game}" = launcher ] && target=\$sh
+echo "alive at \$(el)s; sending ${STOPSIG:-INT} to ${STOPTO:-game} \$target (game \$game)" > $d/stop.txt
+kill -${STOPSIG:-INT} \$target
 for i in \$(seq 1 ${GRACE:-30}); do kill -0 \$sh 2>/dev/null || break; sleep 1; done
 if kill -0 \$sh 2>/dev/null; then kill -9 \$game; wait \$sh; echo "ALIVE at limit; ${STOPSIG:-INT} did not end it in ${GRACE:-30}s (HUNG in shutdown), KILLed" > $d/result.txt
 else wait \$sh; rc=\$?; echo "ALIVE at limit; after ${STOPSIG:-INT}: \$(how \$rc) at \$(el)s" > $d/result.txt; fi
