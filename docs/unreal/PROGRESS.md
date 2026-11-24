@@ -3,6 +3,58 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Box back: fix pass built and proven, start view, the backs and the skyline dressed — done
+
+**2026-11-24, box d6f06d9d** (new rental, RTX PRO 6000, 16 cores, 64 GB, 113.84 credits an hour), gameplay clone
+`/project/ue/repo-gameplay`. RESUME section 8 steps 1 and 2.
+
+**Set-up and the fix pass proven.** `ensure-setup.sh` answered SETUP-DONE at once; `sync.sh` to `c2786c7`; `build.sh`
+(first build on the fresh box, 507 s) compiled the 36-card flash pool (`9e55db3`) and the whole fix pass;
+`tools/box/test.sh MurderInc`: **105 of 105 pass** (golden replays included), and again **105 of 105** after this
+pass's C++ (start pitch, HUD crosshair). `fp/import-chars.sh fx` made `/Game/FX/M_FX_FlashView`. Play frames from
+`fp/polish-shots.sh` (mission and holdout), each looked at: `polish-fire` and `polish-fire-ads` show the player's flash
+on the muzzle (front of the handguard at the hip, round the front post aimed), the brass small and leaving, no burst
+on the knuckles; `polish-hold` shows Hold the Block wave 1 with Goons on the avenue.
+
+**Fixed in this pass (each seen in a picture before and after):**
+- **The first frame faced a trash can.** Measured, not assumed: the galvanised can that replaced the litter basket
+  (prop 270, 1.1 m ahead) is an open scan with its lid on the ground beside it, so its dark inside still filled the
+  bottom of the frame (`MIPose` frames at the start, pitched down to see it). Moving the can or its collider 704
+  breaks the golden `avenue` walk (it slides round that collider at step 8); moving the start breaks
+  `Golden.Directors` (its runs start there); a yaw turn would need 27 degrees right, into the shop fronts. The start
+  pose stays the web game's; the view starts **pitched 7 degrees up** (`presentation.json` `block.startPitch`, read
+  in `UMIGameSubsystem::ResetPlayer`; the test hosts ignore it): `polish-start` looks down the avenue under the El,
+  no can. (`ff0181b`)
+- **The 7 brick backs read as blockout.** `build_block.py` dresses every face of a neighbour's back that looks into
+  the block with the facade kit's bays: `SM_Facade_BayWindow_Red` (cast-stone sill and lintel, painted double-hung
+  frame, glass with a baked room) storey by storey from the first floor line, `SM_Facade_BayBlank_Red` for the ground
+  floor, for storeys hidden behind something lower that stands in front (shop wall 6.9 m, garages 4.7 m: a window
+  where its sill is at most 40 cm under that top) and for the strip under the parapet; a roller blind behind 45 % of
+  the windows, an air conditioner in 12 %. 119 window bays, 141 blank, on 9 faces. The drawn mass steps back 30 cm
+  behind the bays (the collider stays as it was, hidden); the block's seal walls, which share four of those planes
+  from inside, are drawn in pieces stepped back 31 cm behind the bays; backdrop masses no longer reach into the backs
+  (both had filled window openings with brick). (`7be27b6`, `ee56a91`, `d8e8d93`, `6b66ebc`, `7daa915`)
+- **The skyline towers and backdrop read as blockout** (salmon slabs with flat black window squares). The world-
+  projected window grid (`WEAR_HLSL` in `M_MI_Surface`) now draws a cast-stone sill and lintel, a reveal in its own
+  shadow (the opening reads 10 cm deep), a painted double-hung frame with its meeting rail (colour per building),
+  blinds and curtains in some windows and the room behind the glass by interior mapping, as emission (new output
+  `WinE`, camera vector input). Masses of 45 m and more are towers: curtain walls of tinted reflective glass with
+  mullions and spandrels (`MI_Backdrop_TowerGlass`, `...GlassDark`, window mode 2) or office stone with punched
+  windows (`MI_Backdrop_TowerStone`), and from 60 m one or two setback tiers on top. (`7be27b6`)
+- **The crosshair stayed in the aperture when aimed** (`polish-chopper-aim`, open since the polish pass). Cause: AHUD
+  canvas lines are batched opaque and ignore alpha, so the Ads fade never showed. The arms are translucent tiles now,
+  skipped when faded: aimed, no "+" in the rear sight. (`6b66ebc`)
+
+**Pictures** (`docs/unreal/shots/`): `polish-start`, `polish-avenue`, `polish-lot`, `polish-fire`, `polish-fire-ads`,
+`polish-chopper-aim`, `polish-hold` retaken on this build; `backs-lot.jpg` (the lot's backs with their bays),
+`backs-cage.jpg` (the Cage's two backs, the towers behind), `skyline-west.jpg` (the avenue's continuation and the
+towers from 22 m up). Before: the polish pass's pictures in git history.
+
+**Not done.** The level clone (`/project/ue/repo`) was not rebuilt: its L_Block keeps the old backs until
+`block.sh start materials force` then `level` there. The repackage for the website (RESUME section 8 steps 4 and 5)
+and the independent play-through review (step 3) are next. The muzzle flash light turns the firing forearm orange
+for the frame of the shot (`polish-fire`): bright, but one frame; left as is.
+
 ## Polish fix pass (after the independent play-through review) — code committed, nothing built or seen
 
 **2026-11-23/24, no box.** Box d14fa3ab had ended (`credits_exhausted`); the Higgsfield balance is **0.6 credits**.

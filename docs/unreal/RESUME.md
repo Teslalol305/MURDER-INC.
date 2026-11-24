@@ -154,6 +154,12 @@ Agents stop generating below 2,500.
 The box ended at 19:48 with credits exhausted. Nothing on the box can run until the owner tops up (keep the balance
 above about 2,500). Then, in order:
 
+**2026-11-24: steps 1 and 2 are done** on box d6f06d9d (PROGRESS.md, "Box back"): the fix pass and the 36-card
+pool built, 105 of 105 tests and golden replays pass, the polish pictures retaken; also fixed there: the start view
+(pitched 7 degrees up, no trash can), the neighbours' backs dressed with the facade kit's window bays, the backdrop's
+framed windows and glass towers, the crosshair hidden when aimed. Only the gameplay clone's L_Block was rebuilt.
+Next is step 3.
+
 1. Re-rent the same box (RESUME section 3) and run `/project/ue/bin/ensure-setup.sh` until `SETUP-DONE`.
 2. In `/project/ue/repo-gameplay`: `sync.sh`, `build.sh` (the 36-card flash pool, commit 9e55db3, was never compiled),
    then `tools/box/test.sh MurderInc` (105 tests and golden replays: not run since the polish changes), then
