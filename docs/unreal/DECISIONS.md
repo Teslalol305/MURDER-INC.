@@ -81,3 +81,11 @@ build row's trash icon, which deletes the whole build.
 **Still true on Core:** as far as E3DS publishes, Core streams on the same server pool as the trial (RTX 4080 or
 RTX 5070 class, 8 or 16 GB of graphics memory), so the game must still fit an 8 GB card with headroom. The owner was
 advised to ask E3DS support whether the app can be kept on 16 GB machines.
+
+**Retry on Core (2026-11-24, about 18:55 UTC):** the owner opened the link again on Core, with ten slots, so no
+leftover instance could hold the only slot. It **crashed again**. The Chrome console showed only errors from the
+owner's crypto-wallet browser extensions (MetaMask, Backpack and others competing for `window.ethereum`), which have
+nothing to do with the game, plus E3DS's `SessionIDFound {savedSessionId: …}`. There were no game lines: version 1
+writes no log. So the crash is consistent, not caused by one blocked slot. That points to start-up on E3DS's
+servers: graphics memory, the driver failing Unreal 5.9's Vulkan SM6 check, or the way E3DS launches the app. Test
+version 2 in a fresh **Incognito** window: no extensions and no saved session.
