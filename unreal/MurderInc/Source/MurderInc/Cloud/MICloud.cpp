@@ -36,6 +36,7 @@
 #include "Flow/MIGameSubsystem.h"
 #include "Flow/MIGameRules.h"
 #include "Player/MIPlayerController.h"
+#include "UI/MIFrontEnd.h"
 #include "UI/MIStyle.h"
 
 #include <cstdio>
@@ -232,16 +233,23 @@ public:
 			return Layer + 3;
 		}
 
+		const APlayerController* PC = O->GetGameInstance() ? O->GetGameInstance()->GetFirstLocalPlayerController() : nullptr;
+		const AMIPlayerController* MIPC = Cast<AMIPlayerController>(PC);
+		const UMIFrontEnd* Front = G ? G->GetFrontEnd() : nullptr;
+		const bool bPad = Front && Front->IsShown() ? Front->IsPad() : MIPC && MIPC->IsPadActive();
 		if (State == EMIGameState::Paused)
 		{
-			// The pause card says nothing about keys; in a browser Esc may never reach the game, so name P.
-			Text(Out, Layer, Geo, TEXT("P to resume  ·  Esc gives the mouse back to the browser; click the game to take it again"),
+			// The pause card says nothing about keys; in a browser Esc may never reach the game, so name P. With a
+			// controller in the hand, its own button.
+			const FString Pause = G ? G->ControlName(TEXT("pause"), true) : FString();
+			Text(Out, Layer, Geo, bPad ? (Pause.IsEmpty() ? FString(TEXT("START")) : Pause) + TEXT(" to resume")
+					: FString(TEXT("P to resume  ·  Esc gives the mouse back to the browser; click the game to take it again")),
 				MIStyle::Body(18 * S, true), MIStyle::Ink(), Size.Y - 64 * S);
 		}
 
-		// The stream has no operating-system cursor: draw one wherever the game shows the mouse.
-		const APlayerController* PC = O->GetGameInstance() ? O->GetGameInstance()->GetFirstLocalPlayerController() : nullptr;
-		if (PC && PC->ShouldShowMouseCursor() && FSlateApplication::IsInitialized())
+		// The stream has no operating-system cursor: draw one wherever the game shows the mouse (not for a player
+		// who holds a controller: the arrow sat in a corner of every card).
+		if (PC && PC->ShouldShowMouseCursor() && !bPad && FSlateApplication::IsInitialized())
 		{
 			const FVector2f P = FVector2f(Geo.AbsoluteToLocal(FSlateApplication::Get().GetCursorPos()));
 			const float C = 22.f * S;
@@ -277,10 +285,36 @@ class FMICloudInput : public IInputProcessor
 public:
 	explicit FMICloudInput(UMICloudSubsystem* InOwner) : Owner(InOwner) {}
 
-	virtual void Tick(const float, FSlateApplication&, TSharedRef<ICursor>) override {}
+	virtual void Tick(const float DeltaTime, FSlateApplication&, TSharedRef<ICursor>) override
+	{
+		if (UMICloudSubsystem* O = Owner.Get())
+		{
+			O->TickStickMenu(DeltaTime);
+		}
+	}
 	virtual const TCHAR* GetDebugName() const override { return TEXT("MICloudClickToPlay"); }
 
-	virtual bool HandleKeyDownEvent(FSlateApplication&, const FKeyEvent&) override { return Eat(); }
+	virtual bool HandleKeyDownEvent(FSlateApplication&, const FKeyEvent& Event) override
+	{
+		UMICloudSubsystem* O = Owner.Get();
+		return (O && O->OnKeyDown(Event.GetKey(), Event.IsRepeat())) || Eat();
+	}
+	virtual bool HandleKeyUpEvent(FSlateApplication&, const FKeyEvent& Event) override
+	{
+		if (UMICloudSubsystem* O = Owner.Get())
+		{
+			O->OnKeyUp(Event.GetKey());
+		}
+		return false;
+	}
+	virtual bool HandleAnalogInputEvent(FSlateApplication&, const FAnalogInputEvent& Event) override
+	{
+		if (UMICloudSubsystem* O = Owner.Get())
+		{
+			O->OnAnalog(Event.GetKey(), Event.GetAnalogValue(), Event.GetPlatformUserId(), Event.GetInputDeviceId());
+		}
+		return false;
+	}
 	virtual bool HandleMouseButtonDownEvent(FSlateApplication&, const FPointerEvent&) override { return Eat(); }
 	/** Every mouse move of the stream, one event at a time: the look (and the spike filter, which eats the event). */
 	virtual bool HandleMouseMoveEvent(FSlateApplication&, const FPointerEvent& Event) override
@@ -510,10 +544,12 @@ void UMICloudSubsystem::BecomeStreamed(const TCHAR* Why)
 		if (Data && Data->IsLoaded())
 		{
 			Glitch = Data->GetConfig().Player.Look.MouseGlitch;
+			StickNav.Config = Data->GetConfig().Player.Look.Pad;
 		}
 		else if (UMIDataSubsystem::LoadConfig(Config, Error))
 		{
 			Glitch = Config.Player.Look.MouseGlitch;
+			StickNav.Config = Config.Player.Look.Pad;
 		}
 		MouseShape = ReadMouseShape(FCommandLine::Get(), Glitch);
 		MICloudPrivate::Line(FString::Printf(TEXT("Mouse look: %.4f browser pixels per count ([MICloud] MouseScale; launch option -MIMouseScale=<number>), %.2f count(s) put back per event and axis (MouseTruncation), events beyond %.0f pixels dropped as pointer-lock spikes"),
@@ -555,6 +591,9 @@ void UMICloudSubsystem::OnViewerJoined()
 void UMICloudSubsystem::OnAllViewersLeft()
 {
 	Viewers.AllLeft();
+	LeftStick = FVector2D::ZeroVector;  // the pad went with its viewer
+	StickNav.Reset();
+	PadKeysDown.Reset();
 	bRefusalLogged = false;  // the next session logs its own first refused command
 	bConnectionLost = true;
 	bWaitingForClick = false;
@@ -646,6 +685,77 @@ bool UMICloudSubsystem::OnMouseEvent(const FVector2D& Delta)
 		return false;
 	}
 	return !PC->StreamMouseEvent(Delta);  // a spike is eaten here: neither the look nor a widget sees it
+}
+
+bool UMICloudSubsystem::OnKeyDown(const FKey& Key, bool bRepeat)
+{
+	if (!bStreamed)
+	{
+		return false;
+	}
+	if (Key.IsGamepadKey())
+	{
+		if (IsStreamPadRepeat(Key, bRepeat) || PadKeysDown.Contains(Key))
+		{
+			++PadRepeatsDropped;
+			return true;
+		}
+		PadKeysDown.Add(Key);
+	}
+	// A pad that is attached to this machine has its stick keys made by the platform: ours would double them.
+	if (!bMakingStickKeys && (Key == EKeys::Gamepad_LeftStick_Up || Key == EKeys::Gamepad_LeftStick_Down
+		|| Key == EKeys::Gamepad_LeftStick_Left || Key == EKeys::Gamepad_LeftStick_Right))
+	{
+		bPlatformStickKeys = true;
+	}
+	return false;
+}
+
+void UMICloudSubsystem::OnAnalog(const FKey& Key, float Value, FPlatformUserId User, FInputDeviceId Device)
+{
+	if (Key == EKeys::Gamepad_LeftX || Key == EKeys::Gamepad_LeftY)
+	{
+		(Key == EKeys::Gamepad_LeftX ? LeftStick.X : LeftStick.Y) = FMath::IsFinite(Value) ? Value : 0.f;
+		StickUser = User;
+		StickDevice = Device;
+	}
+}
+
+void UMICloudSubsystem::TickStickMenu(float DeltaTime)
+{
+	if (!FSlateApplication::IsInitialized())
+	{
+		return;
+	}
+	FSlateApplication& Slate = FSlateApplication::Get();
+	TGuardValue<bool> Making(bMakingStickKeys, true);
+	// Each step is one press, held for a frame.
+	for (const FName& Key : StickKeysDown)
+	{
+		Slate.OnControllerButtonReleased(Key, StickUser, StickDevice, false);
+	}
+	StickKeysDown.Reset();
+	const AMIPlayerController* PC = GetGameInstance() ? Cast<AMIPlayerController>(GetGameInstance()->GetFirstLocalPlayerController()) : nullptr;
+	if (!bStreamed || bPlatformStickKeys || Viewers.Count == 0 || (PC && PC->IsInLivePlay()))
+	{
+		StickNav.Reset();  // in play the stick walks; a stick still pushed when a card opens acts on it (as in the web game)
+		return;
+	}
+	const FIntPoint Step = StickNav.Step(LeftStick, DeltaTime);
+	const auto Press = [this, &Slate](const FName& Key)
+	{
+		Slate.OnControllerButtonPressed(Key, StickUser, StickDevice, false);
+		StickKeysDown.Add(Key);
+		++StickKeysMade;
+	};
+	if (Step.Y != 0)
+	{
+		Press(Step.Y < 0 ? FGamepadKeyNames::LeftStickUp : FGamepadKeyNames::LeftStickDown);
+	}
+	if (Step.X != 0)
+	{
+		Press(Step.X < 0 ? FGamepadKeyNames::LeftStickLeft : FGamepadKeyNames::LeftStickRight);
+	}
 }
 
 void UMICloudSubsystem::GuardViewerCommands()
@@ -761,12 +871,13 @@ void UMICloudSubsystem::Probe(float DeltaTime)
 	const AMIPlayerController* MIPC = Cast<AMIPlayerController>(PC);
 	const FRotator R = PC ? PC->GetControlRotation() : FRotator::ZeroRotator;
 	UMIGameSubsystem* G = MICloudPrivate::Game(GetGameInstance());
-	MICloudPrivate::Line(FString::Printf(TEXT("MICloudProbe fps=%.1f worstMs=%.1f gpuMs=%.2f rssMB=%llu peakRssMB=%llu texStreamMB=%llu texOtherMB=%llu poolMB=%lld yaw=%.4f pitch=%.4f state=%d click=%d bb=%lld pushed=%lld viewers=%d spikes=%d pad=%d cmdRun=%d cmdRefused=%d"),
+	MICloudPrivate::Line(FString::Printf(TEXT("MICloudProbe fps=%.1f worstMs=%.1f gpuMs=%.2f rssMB=%llu peakRssMB=%llu texStreamMB=%llu texOtherMB=%llu poolMB=%lld yaw=%.4f pitch=%.4f state=%d click=%d bb=%lld pushed=%lld viewers=%d spikes=%d pad=%d cmdRun=%d cmdRefused=%d padRepeats=%d stickKeys=%d"),
 		ProbeTime > 0 ? ProbeFrames / ProbeTime : 0.0, ProbeWorst * 1000.0, GpuMs,
 		(unsigned long long)(M.UsedPhysical >> 20), (unsigned long long)(M.PeakUsedPhysical >> 20),
 		(unsigned long long)(T.StreamingMemorySize >> 20), (unsigned long long)(T.NonStreamingMemorySize >> 20), (long long)(T.TexturePoolSize >> 20),
 		R.Yaw, R.Pitch, G ? (int32)G->GetRules().GetState() : -1, bWaitingForClick ? 1 : 0,
 		(long long)MICloudPrivate::BackBuffers.load(), (long long)MICloudPrivate::FramesPushed.load(),
-		Viewers.Count, MIPC ? MIPC->GetMouseSpikes() : 0, MIPC && MIPC->IsPadActive() ? 1 : 0, CommandsRun, CommandsRefused));
+		Viewers.Count, MIPC ? MIPC->GetMouseSpikes() : 0, MIPC && MIPC->IsPadActive() ? 1 : 0, CommandsRun, CommandsRefused,
+		PadRepeatsDropped, StickKeysMade));
 	ProbeFrames = ProbeTime = ProbeWorst = 0.0;
 }

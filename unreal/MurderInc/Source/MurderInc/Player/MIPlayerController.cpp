@@ -430,6 +430,12 @@ void AMIPlayerController::ClearStreamMouse()
 	StreamPending = FVector2D::ZeroVector;
 }
 
+bool AMIPlayerController::IsInLivePlay() const
+{
+	const AMIPlayerCharacter* C = GetMICharacter();
+	return C && C->TakesLook();
+}
+
 bool AMIPlayerController::StreamMouseEvent(const FVector2D& Counts)
 {
 	const AMIPlayerCharacter* C = GetMICharacter();

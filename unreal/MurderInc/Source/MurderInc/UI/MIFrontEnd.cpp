@@ -269,7 +269,9 @@ void UMIFrontEnd::StartRun()
 
 FString UMIFrontEnd::Glyph(const TCHAR* Key) const
 {
-	return Rules.Text(FString(TEXT("frontend.glyphs.")) + (bPad ? TEXT("pad.") : TEXT("kbm.")) + Key);
+	const FString Name = Rules.Text(FString(TEXT("frontend.glyphs.")) + (bPad ? TEXT("pad.") : TEXT("kbm.")) + Key);
+	// A controller's buttons in the names the player chose in Settings (Xbox or PlayStation).
+	return bPad && Game.IsValid() ? Game->PadName(Name) : Name;
 }
 
 bool UMIFrontEnd::ResolveShown(FName Gun, const FMIGunBuild* Build, FMIResolvedGun& Out) const

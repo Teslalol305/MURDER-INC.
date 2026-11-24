@@ -586,7 +586,7 @@ void FMIGameRules::UpdateInteraction(double Dt, bool bHeld)
 	}
 	if (Target != INDEX_NONE)
 	{
-		const FString Line = Text.Format(TEXT("prompts.grab"), {{TEXT("glyph"), TEXT("E")}, {TEXT("code"), Level->Objectives[Target].Code}});
+		const FString Line = Text.Format(TEXT("prompts.grab"), {{TEXT("glyph"), InteractGlyph}, {TEXT("code"), Level->Objectives[Target].Code}});
 		ShowPrompt(&Line, Target == GrabTarget ? MI::Clamp01(GrabProgress) : 0.0);
 	}
 	else

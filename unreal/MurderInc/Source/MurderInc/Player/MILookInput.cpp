@@ -46,6 +46,78 @@ FVector2D FMIPadLook::Step(const FVector2D& Stick, double Dt, double Sensitivity
 	return FVector2D(Share.X * Fast * Rate, Share.Y * Fast * Rate * P.PitchScale * (bInvertY ? -1.0 : 1.0));
 }
 
+FString MILook::PadName(const FString& Name, bool bPlayStation)
+{
+	if (!bPlayStation)
+	{
+		return Name;
+	}
+	static const TCHAR* const Names[][2] = {
+		{TEXT("A"), TEXT("Cross")}, {TEXT("B"), TEXT("Circle")}, {TEXT("X"), TEXT("Square")}, {TEXT("Y"), TEXT("Triangle")},
+		{TEXT("LB"), TEXT("L1")}, {TEXT("RB"), TEXT("R1")}, {TEXT("LT"), TEXT("L2")}, {TEXT("RT"), TEXT("R2")},
+		{TEXT("START"), TEXT("OPTIONS")}, {TEXT("Start"), TEXT("Options")}, {TEXT("VIEW"), TEXT("CREATE")}, {TEXT("View"), TEXT("Create")},
+	};
+	FString Out;
+	Out.Reserve(Name.Len() + 8);
+	int32 I = 0;
+	while (I < Name.Len())
+	{
+		if (!FChar::IsAlnum(Name[I]))
+		{
+			Out.AppendChar(Name[I++]);
+			continue;
+		}
+		int32 End = I;
+		while (End < Name.Len() && FChar::IsAlnum(Name[End]))
+		{
+			++End;
+		}
+		const FString Word = Name.Mid(I, End - I);
+		const TCHAR* Replacement = nullptr;
+		for (const auto& Pair : Names)
+		{
+			if (Word.Equals(Pair[0], ESearchCase::CaseSensitive))
+			{
+				Replacement = Pair[1];
+				break;
+			}
+		}
+		Out += Replacement ? FString(Replacement) : Word;
+		I = End;
+	}
+	return Out;
+}
+
+FIntPoint FMIPadNav::Step(const FVector2D& Stick, double Dt)
+{
+	const double Zone = Config.NavStick > 0.0 ? Config.NavStick : 0.6;
+	const auto Direction = [Zone](double V) { return FMath::IsFinite(V) ? (V > Zone ? 1 : 0) - (V < -Zone ? 1 : 0) : 0; };
+	const int32 X = Direction(Stick.X);
+	const int32 Y = -Direction(Stick.Y);  // the stick is +Y up, rows count downwards
+	FIntPoint Out(0, 0);
+	if (Y != HeldY)
+	{
+		HeldY = Y;
+		Timer = Config.NavFirst;
+		Out.Y = Y;
+	}
+	else if (Y != 0 && Config.NavRepeat > 0.0)
+	{
+		Timer -= FMath::Max(0.0, Dt);
+		if (Timer <= 0.0)
+		{
+			Timer += Config.NavRepeat;
+			Out.Y = Y;
+		}
+	}
+	if (X != HeldX)
+	{
+		HeldX = X;
+		Out.X = X;  // left and right adjust once per push
+	}
+	return Out;
+}
+
 bool FMIStreamMouse::Event(const FVector2D& Counts, FVector2D& OutPixels) const
 {
 	const auto Axis = [this](double C)

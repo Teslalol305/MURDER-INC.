@@ -3,6 +3,8 @@
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Containers/Ticker.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
+#include "InputCoreTypes.h"
 #include "Player/MILookInput.h"
 #include "MICloud.generated.h"
 
@@ -104,6 +106,28 @@ public:
 	/** One mouse event on its way through Slate. True: a spike, the event goes no further. */
 	bool OnMouseEvent(const FVector2D& Delta);
 
+	/**
+	 * A browser sends a held gamepad button again on every frame, marked as a repeat (Pixel Streaming's player reads
+	 * the pad once a frame and sends every button that is down; a desktop pad repeats slowly or not at all). Passed
+	 * on, one tap of A on a set-up screen acted six times, and the Start that began a run paused it at once, because
+	 * the game sees a repeat of a key it never saw go down as a press. So in a stream a gamepad's repeats go nowhere.
+	 */
+	static bool IsStreamPadRepeat(const FKey& Key, bool bRepeat) { return bRepeat && Key.IsGamepadKey(); }
+	/**
+	 * A key press on its way through Slate. True: it goes no further (a gamepad button's repeat, or a second press of
+	 * a gamepad button that never went up: a player page that does not mark its repeats).
+	 */
+	bool OnKeyDown(const FKey& Key, bool bRepeat);
+	void OnKeyUp(const FKey& Key) { PadKeysDown.Remove(Key); }
+	/** An axis on its way through Slate: the left stick is kept for the menus. */
+	void OnAnalog(const FKey& Key, float Value, FPlatformUserId User, FInputDeviceId Device);
+	/**
+	 * Once a frame: while a card or a set-up screen is up, the left stick presses the keys a desktop pad's stick
+	 * presses (Gamepad_LeftStick_Up and the like, which the cards and the set-up screens already answer to). Pixel
+	 * Streaming hands over a stick's axes only, so through a stream the stick did nothing in a menu.
+	 */
+	void TickStickMenu(float DeltaTime);
+
 private:
 	void BecomeStreamed(const TCHAR* Why);
 	bool Tick(float DeltaTime);
@@ -128,6 +152,14 @@ private:
 	int32 CommandsRun = 0, CommandsRefused = 0;
 	FMICloudViewers Viewers;
 	FMIStreamMouse MouseShape;
+	FMIPadNav StickNav;
+	FVector2D LeftStick = FVector2D::ZeroVector;
+	FPlatformUserId StickUser = PLATFORMUSERID_NONE;
+	FInputDeviceId StickDevice = INPUTDEVICEID_NONE;
+	TArray<FName> StickKeysDown;  // pressed last frame, let go this frame
+	TSet<FKey> PadKeysDown;       // the gamepad buttons that are down, as the stream reported them
+	bool bMakingStickKeys = false, bPlatformStickKeys = false;
+	int32 PadRepeatsDropped = 0, StickKeysMade = 0;
 	FTSTicker::FDelegateHandle TickHandle;
 	TSharedPtr<SMICloudOverlay> Overlay;
 	TSharedPtr<FMICloudInput> Input;

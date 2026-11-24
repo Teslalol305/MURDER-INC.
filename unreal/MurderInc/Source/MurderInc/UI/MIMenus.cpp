@@ -86,6 +86,8 @@ void FMIMenu::Build(EMIMenuScreen InScreen, const FMISettings& S, const FMIText&
 		Items.Add(Item(TEXT("view"), Ui.Get(TEXT("panel.view")), Ui.Get(FString::Printf(TEXT("panel.views.%d"), S.View)), true));
 		Items.Add(Item(TEXT("quality"), Ui.Get(TEXT("panel.quality")), S.Quality == TEXT("auto") ? Ui.Get(TEXT("panel.auto")) : Ui.Get(FString::Printf(TEXT("panel.qualities.%s"), *S.Quality.ToString())), true));
 		Items.Add(Item(TEXT("difficulty"), Ui.Get(TEXT("panel.difficulty")), Copy.Get(FString::Printf(TEXT("difficulties.%s"), *S.Difficulty.ToString())), true));
+		// The Unreal build's own row (the copy deck has no words for it): which names a controller's buttons get.
+		Items.Add(Item(TEXT("padnames"), TEXT("Controller buttons"), S.bPadPlayStation ? TEXT("PlayStation") : TEXT("Xbox"), true));
 		Items.Add(Item(TEXT("back"), Ui.Get(TEXT("panel.close"))));
 		break;
 	case EMIMenuScreen::Dead:

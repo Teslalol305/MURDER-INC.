@@ -21,6 +21,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "MurderInc.h"
 #include "Player/MIPlayerCharacter.h"
+#include "Player/MILookInput.h"
 #include "Player/MIPlayerController.h"
 #include "Weapons/MICombatSubsystem.h"
 #include "Weapons/MIWeaponComponent.h"
@@ -146,6 +147,11 @@ bool UMIGameSubsystem::Boot(const FMIBootOptions& Options)
 	if (TextJson->TryGetObjectField(TEXT("interface"), Interface))
 	{
 		Ui.Root = *Interface;
+	}
+	const TSharedPtr<FJsonObject>* Input = nullptr;
+	if (TextJson->TryGetObjectField(TEXT("input"), Input))
+	{
+		Keys.Root = *Input;
 	}
 	for (const FName D : Settings.Rules.Difficulties)
 	{
@@ -622,6 +628,7 @@ void UMIGameSubsystem::MenuAdjust(int32 Dx)
 	else if (Id == TEXT("volume")) bChanged = Settings.SetVolume(Settings.Volume + Dx * R.VolumeStep);
 	else if (Id == TEXT("fov")) bChanged = Settings.SetFov(Settings.Fov + Dx * R.FovStep);
 	else if (Id == TEXT("invert")) bChanged = Settings.SetInvertY(!Settings.bInvertY);
+	else if (Id == TEXT("padnames")) bChanged = Settings.SetPadPlayStation(!Settings.bPadPlayStation);
 	else if (Id == TEXT("view")) bChanged = Settings.SetView((Settings.View - R.ViewMin + Dx + (R.ViewMax - R.ViewMin + 1)) % (R.ViewMax - R.ViewMin + 1) + R.ViewMin);
 	if (bChanged)
 	{
@@ -728,6 +735,17 @@ void UMIGameSubsystem::SaveSettings()
 		RunSetup->Write(*Save);  // the remembered set-up rides in the same slot
 	}
 	UGameplayStatics::SaveGameToSlot(Save, Settings.Rules.Slot, 0);
+}
+
+FString UMIGameSubsystem::ControlName(const TCHAR* Action, bool bPad) const
+{
+	const FString Name = Keys.Root.IsValid() ? Keys.Get(FString::Printf(TEXT("glyphs.%s.%s"), bPad ? TEXT("pad") : TEXT("kbm"), Action)) : FString();
+	return bPad ? PadName(Name) : Name;
+}
+
+FString UMIGameSubsystem::PadName(const FString& Name) const
+{
+	return MILook::PadName(Name, Settings.bPadPlayStation);
 }
 
 void UMIGameSubsystem::ApplySettings()
@@ -894,6 +912,12 @@ void UMIGameSubsystem::FlowFrame(double Dt)
 		FP.Forward = DirFromUnreal(R.Forward).GetSafeNormal();
 		FP.bAlive = R.bAlive;
 		FP.Health = R.Health;
+	}
+	// The grab prompt names the control of the device in use.
+	{
+		const AMIPlayerController* PC = P ? Cast<AMIPlayerController>(P->GetController()) : nullptr;
+		const FString Name = ControlName(TEXT("interact"), PC && PC->IsPadActive());
+		Rules.InteractGlyph = Name.IsEmpty() ? FString(TEXT("E")) : Name;
 	}
 	Rules.Update(Dt, FP, bInteract);
 	ForwardFlow();

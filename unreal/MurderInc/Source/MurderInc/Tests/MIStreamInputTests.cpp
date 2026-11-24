@@ -1,6 +1,8 @@
 // Version 3 (play through the stream): input shaping and the cloud rules that need no world.
 //   MurderInc.Input.StreamMouse     Pixel Streaming's mouse counts back to browser pixels, the spike filter, the launch option
 //   MurderInc.Input.PadLook         the right stick against numbers worked out with the web game's own functions
+//   MurderInc.Input.PadMenu         menus on the left stick (the web game's repeat), a held button's repeats in a stream,
+//                                   and the PlayStation names of a controller's buttons
 //   MurderInc.UI.CardHitTest        which row of a card is under the mouse, and which half of an adjustable row
 //   MurderInc.Cloud.Viewers         the click card: for the first viewer and after everybody left, not for a guest
 //   MurderInc.Cloud.ViewerCommands  the allowlist for a viewer's console commands
@@ -216,6 +218,91 @@ bool FMIPadLookTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("0.083 s after letting go: about half the boost is left"), Look.GetBoost() > 0.4 && Look.GetBoost() < 0.6);
 	for (int32 I = 0; I < 6; ++I) Look.Step(FVector2D::ZeroVector, 1.0 / 60.0, 1.0, 1.0, false);
 	TestEqual(TEXT("0.18 s after letting go: no boost"), Look.GetBoost(), 0.0);
+	return !HasAnyErrors();
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIPadMenuTest, "MurderInc.Input.PadMenu", MITest::Flags)
+
+bool FMIPadMenuTest::RunTest(const FString& Parameters)
+{
+	FMIConfigData Config;
+	FString Error;
+	if (!TestTrue(TEXT("config.json loads"), UMIDataSubsystem::LoadConfig(Config, Error)))
+	{
+		AddError(Error);
+		return false;
+	}
+	const FMIPadLookData& P = Config.Player.Look.Pad;
+	TestEqual(TEXT("the stick counts as a direction beyond 0.6"), P.NavStick, 0.6);
+	TestEqual(TEXT("a held direction repeats after 0.38 s"), P.NavFirst, 0.38);
+	TestEqual(TEXT("and then every 0.17 s"), P.NavRepeat, 0.17);
+
+	// The left stick in a menu (src/input.js pollMenu), 60 frames a second.
+	FMIPadNav Nav;
+	Nav.Config = P;
+	const double Dt = 1.0 / 60.0;
+	const auto Run = [&Nav, Dt](const FVector2D& Stick, int32 Frames, int32& OutX, int32& OutY, int32* OutFirst = nullptr)
+	{
+		OutX = OutY = 0;
+		for (int32 I = 0; I < Frames; ++I)
+		{
+			const FIntPoint S = Nav.Step(Stick, Dt);
+			if (OutFirst && OutX == 0 && OutY == 0 && (S.X != 0 || S.Y != 0))
+			{
+				*OutFirst = I;
+			}
+			OutX += S.X;
+			OutY += S.Y;
+		}
+	};
+	int32 X = 0, Y = 0, First = -1;
+	Run(FVector2D(0.0, 0.59), 30, X, Y);
+	TestTrue(TEXT("a stick short of 0.6 is no direction"), X == 0 && Y == 0);
+	Run(FVector2D(0.0, 1.0), 1, X, Y);
+	TestTrue(TEXT("pushed up: one step up at once (rows count downwards: -1)"), X == 0 && Y == -1);
+	// Held for one more second: the first repeat once 0.38 s have gone by (on frame 23 of 60), then one about every
+	// 0.17 s (ten frames): four more steps, the fifth would come after the second is over.
+	Run(FVector2D(0.0, 1.0), 60, X, Y, &First);
+	AddInfo(FString::Printf(TEXT("held up for 1 s after the push: %d more steps, the first on frame %d"), -Y, First + 1));
+	TestEqual(TEXT("held up for a second: four repeats"), Y, -4);
+	TestEqual(TEXT("the first repeat 0.38 s after the push"), First + 1, 23);
+	Run(FVector2D::ZeroVector, 5, X, Y);
+	TestTrue(TEXT("letting go steps nowhere"), X == 0 && Y == 0);
+	Run(FVector2D(0.0, -1.0), 1, X, Y);
+	TestEqual(TEXT("pushed down: one step down"), Y, 1);
+	Run(FVector2D::ZeroVector, 2, X, Y);
+	// Left and right change a value once per push, however long the stick is held.
+	Run(FVector2D(1.0, 0.0), 120, X, Y);
+	TestTrue(TEXT("held right for two seconds: one step right"), X == 1 && Y == 0);
+	Run(FVector2D::ZeroVector, 2, X, Y);
+	Run(FVector2D(-1.0, 0.0), 120, X, Y);
+	TestTrue(TEXT("held left: one step left"), X == -1 && Y == 0);
+	// A stick still held when a menu opens acts on it (the web game clears its state while a run is played).
+	Nav.Reset();
+	Run(FVector2D(-1.0, 0.0), 1, X, Y);
+	TestEqual(TEXT("after a reset a held stick steps again"), X, -1);
+
+	// A held gamepad button in a stream: the browser sends it again every frame as a repeat, and those go nowhere.
+	TestTrue(TEXT("a gamepad button's repeat is dropped"), UMICloudSubsystem::IsStreamPadRepeat(EKeys::Gamepad_FaceButton_Bottom, true));
+	TestTrue(TEXT("Start's repeat too"), UMICloudSubsystem::IsStreamPadRepeat(EKeys::Gamepad_Special_Right, true));
+	TestFalse(TEXT("the press itself goes through"), UMICloudSubsystem::IsStreamPadRepeat(EKeys::Gamepad_FaceButton_Bottom, false));
+	TestFalse(TEXT("a keyboard key's repeat goes through (the arrows repeat as on a desktop)"), UMICloudSubsystem::IsStreamPadRepeat(EKeys::Down, true));
+
+	// The names of a controller's buttons: the data's are the Xbox names.
+	const auto Ps = [](const TCHAR* Name) { return MILook::PadName(Name, true); };
+	TestEqual(TEXT("Xbox names stay as the data has them"), MILook::PadName(TEXT("Hold Y"), false), FString(TEXT("Hold Y")));
+	TestEqual(TEXT("A is Cross"), Ps(TEXT("A")), FString(TEXT("Cross")));
+	TestEqual(TEXT("B is Circle"), Ps(TEXT("B")), FString(TEXT("Circle")));
+	TestEqual(TEXT("X is Square (not the Cross a PlayStation player would press for an X)"), Ps(TEXT("X")), FString(TEXT("Square")));
+	TestEqual(TEXT("Y is Triangle"), Ps(TEXT("Hold Y")), FString(TEXT("Hold Triangle")));
+	TestEqual(TEXT("the bumpers"), Ps(TEXT("LB / RB")), FString(TEXT("L1 / R1")));
+	TestEqual(TEXT("the triggers"), Ps(TEXT("LT RT")), FString(TEXT("L2 R2")));
+	TestEqual(TEXT("the stick clicks keep their names"), Ps(TEXT("L3 R3")), FString(TEXT("L3 R3")));
+	TestEqual(TEXT("Start is Options, View is Create"), Ps(TEXT("View+Start")), FString(TEXT("Create+Options")));
+	TestEqual(TEXT("in capitals too"), Ps(TEXT("START  VIEW")), FString(TEXT("OPTIONS  CREATE")));
+	TestEqual(TEXT("a sentence keeps its words"), Ps(TEXT("D-pad or stick choose  ·  A select")), FString(TEXT("D-pad or stick choose  ·  Cross select")));
+	TestEqual(TEXT("a small a is a word, not a button"), Ps(TEXT("hold X at a reel")), FString(TEXT("hold Square at a reel")));
+	TestEqual(TEXT("nothing in, nothing out"), Ps(TEXT("")), FString());
 	return !HasAnyErrors();
 }
 

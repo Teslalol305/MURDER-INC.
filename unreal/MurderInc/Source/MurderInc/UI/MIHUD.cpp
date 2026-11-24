@@ -428,7 +428,7 @@ void AMIHUD::DrawMenu(UMIGameSubsystem& Game, UFont* Font)
 	// a key, and a click did nothing): for the device in use.
 	const AMIPlayerController* Controller = Cast<AMIPlayerController>(GetOwningPlayerController());
 	const bool bPad = Controller && Controller->IsPadActive();
-	FString Hint = bPad ? TEXT("D-pad choose  ·  A select") : TEXT("Up/Down choose  ·  Enter select");
+	FString Hint = bPad ? Game.PadName(TEXT("D-pad or stick choose  ·  A select")) : FString(TEXT("Up/Down choose  ·  Enter select"));
 	if (M.Items.ContainsByPredicate([](const FMIMenuItem& I) { return I.bAdjust; }))
 	{
 		Hint += TEXT("  ·  Left/Right change");
@@ -578,10 +578,25 @@ void AMIHUD::DrawWeaponBar(const AMIPlayerCharacter& Player, UMIGameSubsystem* G
 	// The fire-mode prompt on a two-mode gun (the selector works without its clip): the key as a key cap, then what it
 	// does ("[B] SWITCH TO SEMI"), left of the slots on the tag row, so it never reads as a second mode beside the
 	// badge (fix pass: "B SEMI" next to "AUTO" read as two modes, and the aimed gun covered the "B").
+	// The keys are named for the device in use: the keyboard's unless a controller was used last, a controller's in the
+	// names chosen in Settings (version 3: a controller player read "B" and "F" on the bar).
+	const AMIPlayerController* Controller = Cast<AMIPlayerController>(GetOwningPlayerController());
+	const bool bPad = Controller && Controller->IsPadActive();
+	FString ModeKey = Loadout ? Loadout->Text(bPad ? TEXT("frontend.glyphs.pad.fireMode") : TEXT("frontend.glyphs.kbm.fireMode")) : FString();
+	ModeKey = ModeKey.IsEmpty() ? FString(TEXT("B")) : bPad && Game ? Game->PadName(ModeKey) : ModeKey;
+	FString MeleeKey = Game ? Game->ControlName(TEXT("melee"), bPad) : FString();
+	if (MeleeKey.IsEmpty()) MeleeKey = TEXT("F");
 	FString Prompt;
 	double PromptW = 0.0;
 	const float PS = static_cast<float>(K * 0.75);
-	const double Cap = TagH - 4.0 * K;
+	// The key cap: a square for one letter, wider for a name ("VIEW").
+	double Cap = TagH - 4.0 * K;
+	const double CapH = Cap;
+	{
+		float KW = 0.f, KH = 0.f;
+		GetTextSize(ModeKey, KW, KH, Small, PS);
+		Cap = FMath::Max(Cap, KW + 10.0 * K);
+	}
 	if (R.HasTwoModes(R.GetCurrentIndex()))
 	{
 		const bool bSemi = R.IsSemi(R.GetCurrentIndex());
@@ -600,12 +615,12 @@ void AMIHUD::DrawWeaponBar(const AMIPlayerCharacter& Player, UMIGameSubsystem* G
 	if (!Prompt.IsEmpty())
 	{
 		float TW = 0.f, TH = 0.f;
-		GetTextSize(TEXT("B"), TW, TH, Small, PS);
+		GetTextSize(ModeKey, TW, TH, Small, PS);
 		const double PY = Y - TagH;
-		DrawPlate(PromptX, PY, Cap, Cap, WithAlpha(Plate(), 0.9f), Ink(), 1.5f);
-		DrawText(TEXT("B"), Ink(), PromptX + (Cap - TW) * 0.5, PY + (Cap - TH) * 0.5, Small, PS);
+		DrawPlate(PromptX, PY, Cap, CapH, WithAlpha(Plate(), 0.9f), Ink(), 1.5f);
+		DrawText(ModeKey, Ink(), PromptX + (Cap - TW) * 0.5, PY + (CapH - TH) * 0.5, Small, PS);
 		GetTextSize(Prompt, TW, TH, Small, PS);
-		DrawText(Prompt, InkDim(), PromptX + Cap + 8.0 * K, PY + (Cap - TH) * 0.5, Small, PS);
+		DrawText(Prompt, InkDim(), PromptX + Cap + 8.0 * K, PY + (CapH - TH) * 0.5, Small, PS);
 	}
 	static const TCHAR* Glyphs[] = {TEXT("1"), TEXT("2"), TEXT("3"), TEXT("4")};
 	for (int32 I = 0; I < N; ++I)
@@ -675,7 +690,7 @@ void AMIHUD::DrawWeaponBar(const AMIPlayerCharacter& Player, UMIGameSubsystem* G
 			Melee = G && G->MeleeKey.StartsWith(TEXT("frontend.")) ? Loadout->Text(G->MeleeKey) : Game->GetCopy().Get(TEXT("weapons.melee.") + First.ToString());
 		}
 		DrawPlate(X, Y, MeleeW, SH, WithAlpha(Plate(), 0.6f), WithAlpha(PlateEdge(), 0.9f));
-		DrawText(TEXT("F"), InkFaint(), X + 10.0 * K, Y + 6.0 * K, Small, static_cast<float>(K * 0.85));
+		DrawText(MeleeKey, InkFaint(), X + 10.0 * K, Y + 6.0 * K, Small, static_cast<float>(K * 0.85));
 		DrawText(Melee.ToUpper(), InkDim(), X + 10.0 * K, Y + SH * 0.45, Small, static_cast<float>(K * 0.8));
 		X += MeleeW + Gap;
 	}

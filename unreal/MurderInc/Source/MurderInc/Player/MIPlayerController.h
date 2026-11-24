@@ -48,6 +48,8 @@ public:
 
 	/** True while the gamepad is the device that produced real input last. */
 	bool IsPadActive() const { return bPadActive; }
+	/** A run is live and takes the look and the sticks (no card, no set-up screen, no intro). */
+	bool IsInLivePlay() const;
 	const FMIPadLook& GetPadLook() const { return PadLook; }
 	bool IsSprintLatched() const { return bSprintLatch; }
 

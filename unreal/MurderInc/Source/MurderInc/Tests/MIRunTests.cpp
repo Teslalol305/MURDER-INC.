@@ -1264,6 +1264,29 @@ bool FMIControllerPadTest::RunTest(const FString& Parameters)
 	Rig.Rest(EKeys::Gamepad_RightX);
 	for (int32 I = 0; I < 45; ++I) W.Step();
 	TestEqual(TEXT("the pick is in hand"), W.Player->GetWeapon()->GetRules().GetCurrentIndex(), 1);
+
+	// What the controls are called follows the device in use, and a controller's buttons the names chosen in Settings.
+	TestEqual(TEXT("the grab key on the keyboard"), W.Game->ControlName(TEXT("interact"), false), FString(TEXT("E")));
+	TestEqual(TEXT("the grab button on a controller"), W.Game->ControlName(TEXT("interact"), true), FString(TEXT("X")));
+	TestEqual(TEXT("the melee button on a controller"), W.Game->ControlName(TEXT("melee"), true), FString(TEXT("RB")));
+	TestEqual(TEXT("a control the data does not name"), W.Game->ControlName(TEXT("nothing"), true), FString());
+	TestTrue(TEXT("the controller is the device in use"), Rig.PC->IsPadActive());
+	W.Step();
+	TestEqual(TEXT("the grab prompt names the controller's button"), W.Game->GetRules().InteractGlyph, FString(TEXT("X")));
+	TestTrue(TEXT("PlayStation names chosen"), W.Game->GetSettings().SetPadPlayStation(true));
+	TestEqual(TEXT("the grab button in PlayStation names"), W.Game->ControlName(TEXT("interact"), true), FString(TEXT("Square")));
+	TestEqual(TEXT("melee in PlayStation names"), W.Game->ControlName(TEXT("melee"), true), FString(TEXT("R1")));
+	TestEqual(TEXT("pause in PlayStation names"), W.Game->ControlName(TEXT("pause"), true), FString(TEXT("OPTIONS")));
+	TestEqual(TEXT("the keyboard's names do not change"), W.Game->ControlName(TEXT("interact"), false), FString(TEXT("E")));
+	W.Step();
+	TestEqual(TEXT("the grab prompt in PlayStation names"), W.Game->GetRules().InteractGlyph, FString(TEXT("Square")));
+	Rig.Key(EKeys::W, IE_Pressed);
+	W.Step();
+	Rig.Key(EKeys::W, IE_Released);
+	W.Step();
+	TestFalse(TEXT("a key: the keyboard is the device again"), Rig.PC->IsPadActive());
+	TestEqual(TEXT("and the grab prompt says E"), W.Game->GetRules().InteractGlyph, FString(TEXT("E")));
+	W.Game->GetSettings().SetPadPlayStation(false);
 	return !HasAnyErrors();
 }
 
@@ -1334,6 +1357,14 @@ bool FMIRunMenuMouseTest::RunTest(const FString& Parameters)
 	Draw();
 	TestTrue(TEXT("a click on its right half"), W.Game->MenuClick(At(TEXT("sens"), 0.8)));
 	TestTrue(TEXT("raises it again"), FMath::IsNearlyEqual(W.Game->GetSettings().Sens, Sens, 1e-9));
+	Draw();
+	// The names of a controller's buttons: the Xbox names unless the player chooses the PlayStation ones.
+	TestFalse(TEXT("Xbox names at the start"), W.Game->GetSettings().bPadPlayStation);
+	TestTrue(TEXT("a click on Controller buttons"), W.Game->MenuClick(At(TEXT("padnames"), 0.8)));
+	TestTrue(TEXT("chooses the PlayStation names"), W.Game->GetSettings().bPadPlayStation);
+	Draw();
+	TestTrue(TEXT("a second click"), W.Game->MenuClick(At(TEXT("padnames"), 0.2)));
+	TestFalse(TEXT("goes back to the Xbox names"), W.Game->GetSettings().bPadPlayStation);
 	Draw();
 	TestTrue(TEXT("a click on Back"), W.Game->MenuClick(At(TEXT("back"), 0.5)));
 	TestEqual(TEXT("returns to the pause card"), (int32)M.Screen, (int32)EMIMenuScreen::Pause);

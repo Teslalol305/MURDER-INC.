@@ -93,6 +93,12 @@ public:
 class MURDERINC_API FMIGameRules
 {
 public:
+	/**
+	 * What the grab control is called in the prompt (G.input.glyph('interact')): E on the keyboard, the game layer
+	 * puts a controller's name here while a controller is the device in use.
+	 */
+	FString InteractGlyph = TEXT("E");
+
 	void Init(const FMIFlowTune& InTune, const FMIText& InText, const FMILevelData* InLevel, FMIBoxWorld* InWorld, FMIEnemyField* InEnemies, IMIGameHost* InHost, const FMIRng& Root);
 
 	// The contract of G.game.

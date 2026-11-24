@@ -141,6 +141,13 @@ public:
 	FMISettings& GetSettings() { return Settings; }
 	const FMIText& GetCopy() const { return Copy; }
 	const FMIText& GetInterfaceText() const { return Ui; }
+	/**
+	 * What a control is called on the device in use (text.json input.glyphs: "interact" is E on the keyboard and X on
+	 * a controller); a controller's in the names the player chose in Settings. Empty when the data has none.
+	 */
+	FString ControlName(const TCHAR* Action, bool bPad) const;
+	/** A controller's button name as the data gives it (Xbox names) in the names chosen in Settings. */
+	FString PadName(const FString& Name) const;
 	AMIPlayerCharacter* GetPlayer() const;
 	AActor* GetEnemyActor(int32 Slot) const;
 	AMIReelCase* GetCase(int32 Index) const;
@@ -201,6 +208,7 @@ private:
 	FMIFlowTune FlowTune;
 	FMIText Copy;
 	FMIText Ui;
+	FMIText Keys;  // text.json `input`: what the controls are called on each device
 	TMap<FName, FMIEnemyTune> Tunes;
 	const FMILevelData* Level = nullptr;
 	FMIBoxWorld Box;

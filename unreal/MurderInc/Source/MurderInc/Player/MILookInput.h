@@ -8,14 +8,46 @@
  * reference; spec 01 3.16 and 3.17):
  *  - the gamepad's sticks: the axial dead zone, the right stick's response curve and its turn boost at the rim;
  *  - the mouse through a Pixel Streaming data channel: counts back to the browser's pixels, and the web game's
- *    pointer-lock spike filter.
+ *    pointer-lock spike filter;
+ *  - menus on the left stick, and what a controller's buttons are called on screen.
  */
 namespace MILook
 {
 	/** Axial dead zone (src/input.js deadzone): nothing inside it, the rest rescaled to 0..1. */
 	MURDERINC_API double Deadzone(double Value, double Zone);
 	inline FVector2D Deadzone(const FVector2D& Stick, double Zone) { return FVector2D(Deadzone(Stick.X, Zone), Deadzone(Stick.Y, Zone)); }
+
+	/**
+	 * A control's name as the data files give it for a controller (Xbox names: A B X Y, LB RB, LT RT, Start, View)
+	 * in the names printed on a PlayStation pad when bPlayStation is set: Cross Circle Square Triangle, L1 R1, L2 R2,
+	 * Options, Create. Only whole words that are button names change ("Hold Y" becomes "Hold Triangle", "LB / RB"
+	 * becomes "L1 / R1"); the single letters only as capitals, so the "a" of a sentence stays. A game that is
+	 * streamed cannot ask which pad the player holds (Pixel Streaming sends buttons and axes, not the pad's name), so
+	 * the player chooses in Settings.
+	 */
+	MURDERINC_API FString PadName(const FString& Name, bool bPlayStation);
 }
+
+/**
+ * Menus on the left stick (src/input.js pollMenu): the stick counts as a direction beyond `NavStick`; up and down
+ * repeat while held (after `NavFirst` seconds, then every `NavRepeat`), left and right act once per push.
+ */
+struct MURDERINC_API FMIPadNav
+{
+	FMIPadLookData Config;
+
+	/**
+	 * One frame. Stick is the raw left stick, X right and Y up. Returns this frame's steps: X -1 left or +1 right,
+	 * Y -1 up or +1 down (rows count downwards), 0 for none.
+	 */
+	FIntPoint Step(const FVector2D& Stick, double Dt);
+	/** No menu is up, or the pad went away: a stick still held acts again when a menu opens (as in the web game). */
+	void Reset() { HeldX = HeldY = 0; Timer = 0.0; }
+
+private:
+	int32 HeldX = 0, HeldY = 0;
+	double Timer = 0.0;
+};
 
 /** The right stick (src/input.js padLook, pollPad and update). */
 struct MURDERINC_API FMIPadLook

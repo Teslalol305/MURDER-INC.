@@ -41,6 +41,7 @@ public:
 	UPROPERTY() FString Quality;
 	UPROPERTY() double Sens = 1.0;
 	UPROPERTY() bool bInvertY = false;
+	UPROPERTY() bool bPadPlayStation = false;
 	UPROPERTY() double Volume = 0.8;
 	UPROPERTY() double Fov = 74.0;
 	UPROPERTY() int32 View = 1;
@@ -58,6 +59,11 @@ struct MURDERINC_API FMISettings
 	FName Mode, Difficulty, Time, Quality;
 	double Sens = 1.0, Volume = 0.8, Fov = 74.0;
 	bool bInvertY = false;
+	/**
+	 * What a controller's buttons are called on screen: Xbox names (the web game's), or the PlayStation names for the
+	 * same buttons. The Unreal build's own setting: a streamed game cannot tell which pad the player holds.
+	 */
+	bool bPadPlayStation = false;
 	int32 View = 1;
 	int32 Best = 0;       // stored best
 	int32 SessionBest = 0;
@@ -83,6 +89,7 @@ struct MURDERINC_API FMISettings
 	bool SetFov(double V);
 	bool SetView(int32 V);
 	bool SetInvertY(bool V);
+	bool SetPadPlayStation(bool V);
 	/** Cycles a named setting through its accepted values. */
 	static FName Next(FName Current, const TArray<FName>& Values, int32 Step);
 
