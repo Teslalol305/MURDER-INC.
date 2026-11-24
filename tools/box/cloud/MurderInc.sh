@@ -168,11 +168,12 @@ note "Vulkan drivers (ICD files): $(ls /usr/share/vulkan/icd.d/ /etc/vulkan/icd.
 SM6EXT="VK_EXT_calibrated_timestamps VK_EXT_descriptor_buffer VK_EXT_descriptor_indexing VK_EXT_mesh_shader VK_EXT_mutable_descriptor_type VK_EXT_scalar_block_layout VK_EXT_shader_image_atomic_int64 VK_KHR_buffer_device_address VK_KHR_compute_shader_derivatives VK_KHR_maintenance4 VK_KHR_pipeline_library VK_KHR_push_descriptor VK_KHR_separate_depth_stencil_layouts VK_KHR_shader_atomic_int64 VK_KHR_synchronization2 VK_KHR_timeline_semaphore"
 if command -v vulkaninfo >/dev/null 2>&1; then
   VI=$(timeout 15 vulkaninfo 2>/dev/null)
-  note "Vulkan: $(echo "$VI" | grep -m1 -E 'apiVersion' | tr -s ' ') $(echo "$VI" | grep -m1 -E 'driverInfo|driverVersion' | tr -s ' ')"
-  MISSING=; for e in $SM6EXT; do echo "$VI" | grep -q "$e" || MISSING="$MISSING $e"; done
+  # Here-strings, not pipes: with SIGPIPE ignored (above) an early-exiting grep would make echo report a write error.
+  note "Vulkan: $(grep -m1 -E 'apiVersion' <<< "$VI" | tr -s ' ') $(grep -m1 -E 'driverInfo|driverVersion' <<< "$VI" | tr -s ' ')"
+  MISSING=; for e in $SM6EXT; do grep -q "$e" <<< "$VI" || MISSING="$MISSING $e"; done
   if [ -n "$MISSING" ]; then note "Vulkan SM6 check: MISSING$MISSING (the game will use its SM5 fallback: no Nanite, no Lumen)"
   else note "Vulkan SM6 check: all $(echo $SM6EXT | wc -w) extensions present"; fi
-  RT=; for e in VK_KHR_ray_tracing_pipeline VK_KHR_acceleration_structure VK_KHR_ray_query; do echo "$VI" | grep -q "$e" || RT="$RT $e"; done
+  RT=; for e in VK_KHR_ray_tracing_pipeline VK_KHR_acceleration_structure VK_KHR_ray_query; do grep -q "$e" <<< "$VI" || RT="$RT $e"; done
   note "Vulkan ray tracing: ${RT:+MISSING$RT (software Lumen)}${RT:-present}"
 else
   note "no vulkaninfo on this server: the Vulkan check is in the game's own lines below ([MICloud] GPU / Features)"
