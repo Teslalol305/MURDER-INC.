@@ -18,6 +18,12 @@
 # Shipping builds have no engine log of their own (the installed engine cannot turn bUseLoggingInShipping on); the
 # game prints its own report lines ("[MICloud] ...") and fatal errors still reach stdout.
 #
+# The host's own log file: E3DS starts every app with -ABSLOG=<file> (its documentation: "These are always sent:
+# -PixelStreamingURL=, -PixelStreamingID=, -AudioMixer, -log, -Unattended, -StdOut, -FullStdOutLogOutput and
+# -ABSLOG=") and takes its crash-log email from that file. A Shipping game writes nothing there ("no crashlog was
+# found"), so this launcher writes it: everything that goes to the log above also goes to that file and to this
+# launcher's own output. The argument itself is not passed on to the game (one writer per file).
+#
 # Stop signals (TERM, INT, HUP) are passed on to the game, which then quits normally (exit code 0).
 # Started as root (Unreal refuses to run as root), the game runs as the folder's owner, or "nobody", with HOME in /tmp.
 #
@@ -30,6 +36,7 @@
 # Started by sh (dash) instead of bash: run again under bash; with no bash at all, start the game the engine's way.
 if [ -z "$BASH_VERSION" ]; then
   command -v bash >/dev/null 2>&1 && exec bash "$0" "$@"
+  chmod +x "$(dirname "$0")/MurderInc/Binaries/Linux/MurderInc-Linux-Shipping" 2>/dev/null
   exec "$(dirname "$0")/MurderInc/Binaries/Linux/MurderInc-Linux-Shipping" MurderInc -MICloud -RenderOffScreen "$@"
 fi
 
@@ -44,14 +51,21 @@ ROOT=$(dirname "$(readlink -f "$0")")
 PROJ=$ROOT/MurderInc
 STAMP=$(date -u +%Y%m%d-%H%M%S)
 
-DEV=0; FORCESM6=0; PASS=()
+# The host stops reading this launcher's output: writes fail instead of killing the launcher (Unreal ignores SIGPIPE
+# itself).
+trap '' PIPE
+
+DEV=0; FORCESM6=0; ABS=; PASS=()
+shopt -s nocasematch   # Unreal's arguments are case-insensitive
 for a in "$@"; do
   case "$a" in
-    -MIDev|-midev) DEV=1 ;;
-    -MIForceSM6|-miforcesm6) FORCESM6=1 ;;
+    -MIDev) DEV=1 ;;
+    -MIForceSM6) FORCESM6=1 ;;
+    -ABSLOG=*) ABS=${a#*=}; ABS=${ABS#\"}; ABS=${ABS%\"} ;;   # the host's log file: written below, not passed on
     *) PASS+=("$a") ;;
   esac
 done
+shopt -u nocasematch
 BIN=$PROJ/Binaries/Linux/MurderInc-Linux-Shipping
 [ "$DEV" = 1 ] && [ -f "$PROJ/Binaries/Linux/MurderInc" ] && BIN=$PROJ/Binaries/Linux/MurderInc
 chmod +x "$BIN" 2>/dev/null
@@ -101,13 +115,40 @@ if [ -f "$LOG" ]; then mv -f "$LOG" "$LOGDIR/${NAME%.log}-backup-$STAMP.log" 2>/
 ls -1t "$LOGDIR"/MurderInc*-backup-*.log 2>/dev/null | tail -n +11 | while read -r f; do rm -f "$f"; done
 : > "$LOG" 2>/dev/null || { LOGDIR=${TMPDIR:-/tmp}; LOG=$LOGDIR/MurderInc-$STAMP-$$.log; : > "$LOG"; }
 chmod 644 "$LOG" 2>/dev/null
-note() { echo "[MurderInc.sh] $*" >> "$LOG"; }
-section() { echo "[MurderInc.sh] ---- $1" >> "$LOG"; shift; "$@" >> "$LOG" 2>&1; }
+# The host's log file (-ABSLOG=). ABSLATE: the Development game writes that very file itself (it is its own default
+# log), so this launcher only adds its closing lines to it, after the game has ended.
+OUTS=("$LOG"); ABSNOTE=; ABSLATE=
+if [ -n "$ABS" ]; then
+  mkdir -p "$(dirname "$ABS")" 2>/dev/null
+  if [ "$(readlink -f "$ABS" 2>/dev/null)" = "$(readlink -f "$LOG")" ]; then
+    ABSNOTE="the host's log file (-ABSLOG=) is this log"
+  elif [ "$NAME" = MurderInc-stdout.log ] && [ "$(readlink -f "$ABS" 2>/dev/null)" = "$(readlink -f "$LOGDIR/MurderInc.log")" ]; then
+    ABSLATE=$ABS; ABSNOTE="the host's log file (-ABSLOG=) is the Development game's own log $ABS"
+  else
+    if [ -s "$ABS" ]; then mv -f "$ABS" "${ABS%.*}-backup-$STAMP.${ABS##*.}" 2>/dev/null; fi
+    if : > "$ABS" 2>/dev/null; then
+      chmod 644 "$ABS" 2>/dev/null; OUTS+=("$ABS"); ABSNOTE="also written to the host's log file (-ABSLOG=) $ABS"
+    else
+      ABSNOTE="CANNOT WRITE the host's log file (-ABSLOG=) $ABS as $(id -un 2>/dev/null): the host will find no log there"
+    fi
+  fi
+fi
+# Every line of this launcher goes to the log, to the host's log file and to this launcher's own output.
+out() {
+  local line f
+  while IFS= read -r line || [ -n "$line" ]; do
+    printf '%s\n' "$line" 2>/dev/null
+    for f in "${OUTS[@]}"; do printf '%s\n' "$line" >> "$f" 2>/dev/null; done
+  done
+}
+note() { echo "[MurderInc.sh] $*" | out; }
+section() { { echo "[MurderInc.sh] ---- $1"; shift; "$@" 2>&1; } | out; }
 
 # ---- before the game: where it runs ----
 note "MURDER INC. launcher, $(date -u '+%Y-%m-%d %H:%M:%S UTC'), pid $$"
 note "build: $(tr '\n' ' ' < "$ROOT/BUILD.txt" 2>/dev/null || echo 'no BUILD.txt')"
 note "folder $ROOT; game $BIN; log $LOG; saved ${USERDIR:-(none writable: the engine default)}/Saved"
+note "host log: ${ABSNOTE:-no -ABSLOG= argument (the host named no log file)}"
 note "launcher user $(id 2>/dev/null); game user $RUNUSER; HOME=${HOME:-unset} PWD=$PWD"
 note "DISPLAY=${DISPLAY:-unset} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-unset}"
 note "system: $(uname -srm 2>/dev/null); $(grep -m1 PRETTY_NAME /etc/os-release 2>/dev/null)"
@@ -157,7 +198,7 @@ if [ -n "$FIFO" ]; then
   # of SIGPIPE on its next line); it ends when the game closes its output. -p: keep writing the file if the host
   # stops reading this launcher's output.
   TOPT=-a; tee --version 2>/dev/null | grep -q GNU && TOPT=-ap
-  ( trap '' TERM INT HUP PIPE; exec tee $TOPT "$LOG" ) < "$FIFO" & TEE=$!
+  ( trap '' TERM INT HUP PIPE; exec tee $TOPT "${OUTS[@]}" ) < "$FIFO" & TEE=$!
   START=$(date +%s)
   "${RUNAS[@]}" "${DEFSIG[@]}" "$BIN" "${ARGS[@]}" "${PASS[@]}" > "$FIFO" 2>&1 &
 else
@@ -165,6 +206,7 @@ else
   "${RUNAS[@]}" "${DEFSIG[@]}" "$BIN" "${ARGS[@]}" "${PASS[@]}" >> "$LOG" 2>&1 &
 fi
 GAME=$!
+NOTEE=; [ -z "$FIFO" ] && NOTEE=1
 # A stop signal for this launcher goes on to the game, once, and only if the game did not get it too: a host that
 # signals the whole process group reaches the game directly, and Unreal treats a second signal during its shutdown as
 # "quit now" (no clean exit). So: wait up to 5 s for the game to end by itself, then pass the signal on.
@@ -189,6 +231,10 @@ wait "$GAME" 2>/dev/null; R2=$?; [ "$R2" != 127 ] && RC=$R2
 
 # ---- after the game ----
 SECS=$(( $(date +%s) - START ))
+# Without tee the game's lines are only in the log: copy them to the host's file now. The Development game's own
+# log (ABSLATE) is closed now: the closing lines below go there too.
+if [ -n "$NOTEE" ] && [ ${#OUTS[@]} -gt 1 ]; then cat "$LOG" > "${OUTS[1]}" 2>/dev/null; fi
+[ -n "$ABSLATE" ] && OUTS+=("$ABSLATE")
 # A stop the host asked for: the game ended by (or with the code of) a stop signal while one was pending.
 HOSTSTOP=
 if [ -n "$STOPPED" ] && { [ "$RC" = 130 ] || [ "$RC" = 143 ] || [ "$RC" = 129 ]; }; then HOSTSTOP=1; fi
@@ -212,7 +258,7 @@ for c in "${USERDIR:-/nonexistent}/Saved/Crashes" "$PROJ/Saved/Crashes" "${HOME:
   SEEN="$SEEN $(readlink -f "$c")"
   find "$c" -mindepth 1 -maxdepth 1 -type d -newermt "@$START" 2>/dev/null | while read -r d; do
     note "---- crash report $d"
-    for f in "$d"/Diagnostics.txt; do [ -f "$f" ] && head -c 60000 "$f" >> "$LOG"; done
+    for f in "$d"/Diagnostics.txt; do [ -f "$f" ] && head -c 60000 "$f" | out; done
   done
 done
 note "end: exit code $RC; log $LOG"
