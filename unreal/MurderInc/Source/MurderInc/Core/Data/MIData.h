@@ -94,6 +94,25 @@ struct FMIPlayerFovData
 	double Viewmodel = 0.0;
 };
 
+/** config.json "player.input.pad": the sticks (src/input.js pollPad; spec 01 3.17). */
+struct FMIPadLookData
+{
+	double Deadzone = 0.0;       // per axis: nothing inside it, the rest rescaled to 0..1
+	double Trigger = 0.0;        // an analog button counts as held beyond this
+	double YawRate = 0.0;        // degrees per second at full right stick, sensitivity 1
+	double PitchScale = 0.0;     // the pitch rate as a share of the yaw rate
+	double CurveLinear = 0.0;    // look response a m + b m^3 of the stick's magnitude: a
+	double CurveCubic = 0.0;     // and b
+	double Boost = 0.0;          // the turn rate's factor at full boost
+	double BoostFrom = 0.0;      // the boost builds while the stick is pushed beyond this
+	double BoostTime = 0.0;      // s to full boost
+	double BoostDecay = 0.0;     // s back to none
+	double SprintForward = 0.0;  // the sprint latch (L3) lets go when the stick's forward value falls below this
+	double NavStick = 0.0;       // menus: the left stick counts as a direction beyond this
+	double NavFirst = 0.0;       // s before a held direction repeats
+	double NavRepeat = 0.0;      // s between repeats
+};
+
 /** config.json "player.look" and "player.input" */
 struct FMIPlayerLookData
 {
@@ -101,8 +120,10 @@ struct FMIPlayerLookData
 	double ViewPitchLimit = 0.0;        // degrees, aim + recoil offset
 	double AdsScale = 0.0;              // look-rate factor at full aim
 	double MouseDegreesPerCount = 0.0;  // degrees per mouse count at sensitivity 1
-	double MouseGlitch = 0.0;           // counts: a larger single event is discarded
+	double MouseGlitch = 0.0;           // web pixels: a larger single mouse event is a pointer-lock spike (the stream only)
+	double MouseWake = 0.0;             // counts of mouse travel in one frame that take the device back from a gamepad
 	double WheelDebounce = 0.0;         // s: at most one weapon swap from the mouse wheel per this long
+	FMIPadLookData Pad;
 };
 
 /** config.json "player.health" */

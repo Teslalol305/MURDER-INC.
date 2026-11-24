@@ -665,6 +665,22 @@ bool UMIDataSubsystem::ParseConfig(const TSharedPtr<FJsonObject>& Root, FMIConfi
 	P.Look.PitchLimit = In.Number(TEXT("player.look.pitchLimit"), RadToDeg);
 	P.Look.MouseDegreesPerCount = In.Number(TEXT("player.input.mouse"), RadToDeg);
 	P.Look.WheelDebounce = In.Number(TEXT("player.input.wheelDebounce"));
+	P.Look.MouseWake = In.Number(TEXT("player.input.mouseWake"));
+	FMIPadLookData& Pad = P.Look.Pad;
+	Pad.Deadzone = In.Number(TEXT("player.input.pad.deadzone"));
+	Pad.Trigger = In.Number(TEXT("player.input.pad.trigger"));
+	Pad.YawRate = In.Number(TEXT("player.input.pad.yaw"), RadToDeg);
+	Pad.PitchScale = In.Number(TEXT("player.input.pad.pitchScale"));
+	Pad.CurveLinear = In.NumberAt(TEXT("player.input.pad.curve"), 0);
+	Pad.CurveCubic = In.NumberAt(TEXT("player.input.pad.curve"), 1);
+	Pad.Boost = In.Number(TEXT("player.input.pad.boost"));
+	Pad.BoostFrom = In.Number(TEXT("player.input.pad.boostFrom"));
+	Pad.BoostTime = In.Number(TEXT("player.input.pad.boostTime"));
+	Pad.BoostDecay = In.Number(TEXT("player.input.pad.boostDecay"));
+	Pad.SprintForward = In.Number(TEXT("player.input.pad.sprintForward"));
+	Pad.NavStick = In.Number(TEXT("player.input.pad.nav.stick"));
+	Pad.NavFirst = In.Number(TEXT("player.input.pad.nav.first"));
+	Pad.NavRepeat = In.Number(TEXT("player.input.pad.nav.repeat"));
 
 	ParsePlayerRest(In, P);
 	ParseWeapons(In, Out.Weapons);

@@ -91,6 +91,9 @@ public:
 	void SetSimulationLive(bool bLive) { bSimLive = bLive; }
 	/** Off outside intro and playing: the input of the frame is dropped. */
 	void SetGameplayInput(bool bOn) { bGameplayInput = bOn; }
+	/** True in a live run (intro and playing): only then does look input count (spec 01 3.16: outside gameplay look is
+	 *  zero). The controller gathers none otherwise, so nothing a mouse or stick did over a card turns the view later. */
+	bool TakesLook() const { return bSimLive && bGameplayInput; }
 	void SetViewmodelVisible(bool bVisible);
 	/** Hides the arms while the gun stays (the Briefing hides the template stand-in arms, LOADOUT.md 2.8). */
 	void SetArmsHidden(bool bHidden);
