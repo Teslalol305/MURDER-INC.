@@ -167,6 +167,10 @@ fallback in Hold the Block, the dressed loadout stage, never-streamed interior c
 `usage` step in `package-cloud.sh`; 105 of 105 tests. Next is step 4 (repackage: `package-cloud.sh all` now sets the
 usage flags itself), then grep the packaged log for `missing usage flag` and look at an explosion frame.
 
+**2026-11-24, 16:55: step 4 is done** (PROGRESS.md, "Repackage for the website"): the package of `0f23081` is in the
+owner's storage as ten parts, sha256 `8378eedd...`, checked from the storage; LAUNCH.md section 9 has it. Step 5's
+old zip is superseded. Next is step 6 (the owner's E3DS trial) and the explosion frame.
+
 1. Re-rent the same box (RESUME section 3) and run `/project/ue/bin/ensure-setup.sh` until `SETUP-DONE`.
 2. In `/project/ue/repo-gameplay`: `sync.sh`, `build.sh` (the 36-card flash pool, commit 9e55db3, was never compiled),
    then `tools/box/test.sh MurderInc` (105 tests and golden replays: not run since the polish changes), then

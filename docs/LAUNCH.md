@@ -9,18 +9,16 @@ preview version**. E3DS lists support up to 5.8 for the original streaming plugi
 (Pixel Streaming 2, which we use), and it does **not** test Linux uploads before you stream them. So the free trial
 is the real test: do steps 1 to 6 on the trial before paying for anything.
 
-**Do not upload the zip that is in your storage now (sha256 `4ff06998...`, six parts).** It was packaged before the
-polish and fix passes: its first frame shows the old grey slabs in front of the player, the IPX truck is a cube, the
-player's own muzzle flash does not show, and it lacks the later HUD and effect fixes. Wait for a new package; this
-page will carry its new sha256 in section 9 when it is ready (the next GPU box needs Higgsfield credits: the balance
-ran out on 2026-11-23).
+**The build to upload** is the package of 2026-11-24 (sha256 `8378eedd...`, ten parts, section 9). It replaces
+the zip of 2026-11-23 (sha256 `4ff06998...`, six parts), which was packaged before the polish and fix passes:
+delete those six old parts from your storage or ignore them, and never upload them.
 
 ## What you need
 
-- The game file: **`MurderInc-E3DS.zip`** (about 1.4 GB), in your Higgsfield storage (private links in
-  section 9). If it is in several parts, join them first (section 9).
+- The game file: **`MurderInc-E3DS.zip`** (about 2.3 GB), in your Higgsfield storage in ten parts: join them first
+  (section 9).
 - Google Chrome or Microsoft Edge (Safari cannot lock the mouse and keyboard to the game).
-- About 2 GB of upload; a wired connection helps.
+- About 2.5 GB of upload; a wired connection helps.
 
 ## 1. Create the free E3DS trial account (no card)
 
@@ -134,22 +132,43 @@ Paste this where the game should appear (replace the `src` with your share link)
 
 ## 9. Getting the file
 
-The zip is in your Higgsfield storage, private to your account, in **six parts** (the storage takes at most about
-250 MB per file). They are named `MurderInc-E3DS-part1-of-6.zip` to `part6-of-6.zip`; **the parts are not zips on
-their own**: put them back together first.
+The zip of **2026-11-24** is in your Higgsfield storage, private to your account, in **ten parts** (the storage takes
+at most about 250 MB per file). They are named `MurderInc-E3DS-part1-of-10.zip` to `MurderInc-E3DS-part10-of-10.zip`;
+**the parts are not zips on their own**: put them back together first. The joined file is 2,320,153,618 bytes
+(2.2 GiB); unpacked, the game is 2.6 GB.
 
-1. Download the six parts into one folder (Higgsfield, your files/media library; or ask Claude for the links).
+1. Download the ten parts into one folder (Higgsfield, your files/media library; the direct download links are in
+   Claude's release report of 2026-11-24, or ask Claude for them). They are not written here because this page is
+   in a public repository and the zip holds licensed content (see below).
 2. On a Mac, open Terminal in that folder and run:
 
    ```
-   cat MurderInc-E3DS-part1-of-6.zip MurderInc-E3DS-part2-of-6.zip MurderInc-E3DS-part3-of-6.zip \
-       MurderInc-E3DS-part4-of-6.zip MurderInc-E3DS-part5-of-6.zip MurderInc-E3DS-part6-of-6.zip > MurderInc-E3DS.zip
+   cat MurderInc-E3DS-part{1,2,3,4,5,6,7,8,9,10}-of-10.zip > MurderInc-E3DS.zip
    shasum -a 256 MurderInc-E3DS.zip
    ```
 
-   (On Windows: `copy /b part1+part2+part3+part4+part5+part6 MurderInc-E3DS.zip` with the full names.)
-3. The last line must print `4ff069986adae2d19464c91a6542fa9477d6ba157efa4b969c6d2463a53b3118`. If it does not, a
-   part is incomplete: download that part again. Upload the joined `MurderInc-E3DS.zip` to E3DS, not the parts.
+   (Type the braces as shown: they keep the parts in the order 1 to 10. On Windows, in Command Prompt:
+   `copy /b MurderInc-E3DS-part1-of-10.zip+MurderInc-E3DS-part2-of-10.zip+...+MurderInc-E3DS-part10-of-10.zip
+   MurderInc-E3DS.zip`, all ten names in order, then `certutil -hashfile MurderInc-E3DS.zip SHA256`.)
+3. The last line must print `8378eedde07ce04510a654dee46032c7af6bc87b7fb37852b210d6af4e9e570a`. If it does not, a
+   part is incomplete: compare each part with the list below (`shasum -a 256 MurderInc-E3DS-part*`), download the
+   one that differs again. Upload the joined `MurderInc-E3DS.zip` to E3DS, not the parts.
+
+| Part | Bytes | sha256 |
+|---|---|---|
+| 1 | 251,658,240 | `3db53f8f53f16851a4662761ec2be2d19ce485754d998098c26d09724a4617a5` |
+| 2 | 251,658,240 | `174c56ae0280683fef714648410f33a15c6dfd439ff77817979b36ca86426419` |
+| 3 | 251,658,240 | `c0d09ed472a33ffaa8b0dae9879938aec50a5fc4801c4dbbce60ed00b39def4f` |
+| 4 | 251,658,240 | `ed80c5dbd3c470918578a0782fb21478cebf6d483b72599893cab2930a219911` |
+| 5 | 251,658,240 | `e5dda4056d34ef759629713fe9a91efb2dfb968cca7b129a30db804363f52b91` |
+| 6 | 251,658,240 | `70d6299197b977c91858b5f7b85e37bb42bc5bbdf489a8b5d321f9a9230f8db7` |
+| 7 | 251,658,240 | `0e2b5eb88a6b1259e318e4afefcd872234ca9e44ad09ab85c9a42884014d1700` |
+| 8 | 251,658,240 | `ac424c938c7796b6656dcc6a0961d51590a512b13453a130fc79417de305cdd4` |
+| 9 | 251,658,240 | `952b2d8fc84e3eb071a5baae1baa7fda224d5aa566c2ee220a428bbbfad7ccf0` |
+| 10 | 55,229,458 | `52e4831a32bd25b16197e1cecc5b5fdb3d71d3321f3d524c923afe6c0c447002` |
+
+Checked after the upload: all ten parts downloaded back from the storage, joined, the sha256 above, and
+`unzip -t` reports no errors (64 files, `MurderInc.sh` at the root, launching the Shipping game with `-MICloud`).
 
 The zip contains licensed content (the rifle animation pack, Epic's template content and the main character's
 likeness): upload it only to E3DS, do not share the links.
@@ -180,8 +199,8 @@ What the Cloud settings change, and what you might notice:
 - **Shadows** get a smaller memory pool: in very wide views distant shadows can be a little softer.
 - **Fine geometry** streams from a smaller pool: on a fast turn, distant detail can take a moment longer to sharpen.
 - **Motion blur is off** (it costs video bandwidth and smears on a stream anyway).
-- **Texture pool** 800 MB (the desktop setting is 1000 MB). Note: the zip of 2026-11-23 still carries 1500 MB, which
-  is what was measured above; the next package (`package-cloud.sh`) uses 800 MB.
+- **Texture pool** 800 MB (the desktop setting is 1000 MB). The measurements above were made with 1500 MB (the zip of
+  2026-11-23); the zip of 2026-11-24 carries 800 MB (the game reports `poolMB=800`), so it needs less, not more.
 - The picture is capped at 60 frames a second, the rate the stream sends.
 
 Lighting itself (Lumen with hardware ray tracing), Nanite, the art and the resolution are unchanged.
@@ -202,5 +221,5 @@ players go to the nearer one.
 ## 12. Making a new build later
 
 Claude rebuilds the whole package with one command on the GPU box (`tools/box/cloud/package-cloud.sh all`, about
-15 minutes), tests it through a stream on the box (`tools/box/cloud/stream-test.sh`), and puts the new
+10 minutes on a warm cache: 8 on 2026-11-24), tests it through a stream on the box (`tools/box/cloud/stream-test.sh`), and puts the new
 zip in your Higgsfield storage. You then upload it to E3DS as a new version (section 2) and test the link again.

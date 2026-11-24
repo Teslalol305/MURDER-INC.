@@ -3,6 +3,43 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Repackage for the website (release engineer, 2026-11-24) — delivered, checked from the storage
+
+**Box 8b816116**, 16:30 to 16:55. Branch head `0f23081` (C++ as built and tested in the fix pass). No editor of the
+gameplay clone was running (`ps`). Steps, as RESUME 8 step 4 says:
+
+- Gameplay clone `sync.sh` (`d1d1e05` -> `0f23081`, docs and pictures only), then `tools/box/test.sh MurderInc` there:
+  **TESTS OK passed=105 failed=0 skipped=0** (golden replays included).
+- `tools/box/demo/package.sh snapshot` (gameplay clone -> `/project/ue/repo-release`, 2.6 GB of Content), then
+  `tools/box/cloud/package-cloud.sh all`: src `0f23081`, refresh, content, overlay, **usage: 20 masters saved with
+  their flags, 0 not found**, Development (cook 2,233 packages; only the known `ABP_FP_Pistol` blueprint errors,
+  ignored), Shipping, zip. 8 minutes 17 s in all. Release copy `Config/DefaultGame.ini` carries
+  `r.Streaming.PoolSize=800` in `[MICloud]`.
+- **Zip:** `/project/ue/cloud/MurderInc-E3DS.zip`, 2,320,153,618 bytes (Shipping 2.6 GB unpacked; the zip of
+  2026-11-23 was 1.46 GB before the block-v2 art and the later content), sha256
+  `8378eedde07ce04510a654dee46032c7af6bc87b7fb37852b210d6af4e9e570a`. The old zip is kept on the box as
+  `old-4ff06998.zip` (parts in `parts-old-4ff06998/`).
+- **Started on the box** (`xtest.py`, the box's desktop `:1`, XTEST input), Shipping and Development: running 7.8 s
+  after launch; **CLICK TO PLAY card up**; the first click dismisses it; Enter and Tab through Crew, Loadout, Block and
+  Briefing into a **Story run** (state 2); mouse look 0.12032 degrees per count (as before); P pauses and resumes;
+  60 fps, GPU 5.9 to 7.3 ms in the run, `poolMB=800`, peak RSS 3.8 GB (Shipping) and 4.0 GB (Development).
+  Looked at the Shipping frames: the card over the home screen, and the run's first view (the El, the pizza front,
+  the taxi, the CHOPPER in Rule's hands, the health band and weapon strip, the objective panel). The Development
+  log has **no `missing usage flag`** line (and no other error but ALSA, which has no sound device on the box).
+  Pictures stay on the box (`/project/ue/cloud/run2/xship`, `xdev`): they show pack and likeness content.
+- **Delivered:** split into ten parts of 240 MiB (`split -b 240M`), each PUT from the box to the owner's Higgsfield
+  storage (all 200) and confirmed (type `file`), named `MurderInc-E3DS-partN-of-10.zip`. **Verified** from the
+  storage: all ten downloaded to the local checkout's scratch space, joined with `cat`, sha256 equal to the above,
+  `unzip -t`: no errors, 64 files, `MurderInc.sh` launches `MurderInc-Linux-Shipping MurderInc -MICloud "$@"`.
+- `docs/LAUNCH.md`: the "do not upload" warning replaced by which build to upload; section 9 has the ten part
+  names, sizes, per-part sha256 and the joined sha256. The download links themselves are **not** committed (this
+  repository is public and the zip holds licensed content); they are in the release report of this run.
+
+**Not done here:** the explosion frame after the garage propane tanks (RESUME 8); the stream itself (WebRTC is still
+blocked on the box): the E3DS free trial is the next test (LAUNCH.md section 4). Seen in passing: the home screen's
+controls row still lists `ESC Pause` while the cloud card says P pauses (both work locally; in a browser P is the
+reliable one).
+
 ## Fix pass after the independent play-through (2026-11-24) — built, 105 of 105, pictures retaken
 
 **2026-11-24, box 8b816116**, gameplay clone `/project/ue/repo-gameplay`, branch head built at each step (`build.sh` OK
