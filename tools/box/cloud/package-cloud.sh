@@ -146,7 +146,7 @@ usage() {
   [ -f "$REL/MurderInc.uproject" ] || { say "run refresh and content first"; return 1; }
   export HOME=/home/ue4
   su ue4 -c "cd $ENGINE && env HOME=/home/ue4 UE-LocalDataCachePath=/project/ue/ddc MI_FIX_USAGE=$fix ./Engine/Binaries/Linux/UnrealEditor-Cmd $REL/MurderInc.uproject \
-    -run=pythonscript -script=$script -unattended -nosplash -NullRHI -nopause -stdout -FullStdOutLogOutput \
+    -run=pythonscript -script=$script -unattended -nosplash -NullRHI -nopause -stdout -FullStdOutLogOutput -NoDDCCleanup \
     '-DDC=(ProjectPak,InstalledProjectPak,EnginePak=InstalledEnginePak,EnterprisePak,InstalledLocal)' -ini:Engine:[Zen]:AutoLaunch=false \
     -ini:Engine:[ConsoleVariables]:AssetRegistry.DisableDirectoryWatcher=1" > "$C/usage.log" 2>&1
   local saved missing
@@ -165,12 +165,14 @@ package() {
   mkdir -p /home/ue4/.config; [ -L /home/ue4/.config/Epic ] || ln -sfn /project/ue/home/Epic /home/ue4/.config/Epic
   chown -h ue4 /home/ue4/.config/Epic 2>/dev/null
   rm -rf "$C/build-$cfg"; mkdir -p "$C/build-$cfg"; chown ue4 "$C/build-$cfg"
+  # -NoDDCCleanup: no cache maintainer. On a fresh box it scans the whole file-system cache on the 9p volume at 100 %
+  # of a core and the cooker's own cache reads crawl meanwhile ("is very slow (0.00 MiB/s)"; 2026-11-24, box ec087d85).
   say "PACKAGE $cfg ($cook)"
   su ue4 -c "cd $ENGINE && env HOME=/home/ue4 UE-LocalDataCachePath=/project/ue/ddc ./Engine/Build/BatchFiles/RunUAT.sh BuildCookRun \
     -project=$REL/MurderInc.uproject -noP4 -utf8output -unattended -platform=Linux -clientconfig=$cfg -target=MurderInc \
     -build -nocompileeditor '-UbtArgs=-NoUBA -WaitMutex' $cook -map=/Game/Maps/L_Block -stage -pak -iostore \
     -archive -archivedirectory=$C/build-$cfg -prereqs \
-    '-AdditionalCookerOptions=-DDC=(ProjectPak,InstalledProjectPak,EnginePak=InstalledEnginePak,EnterprisePak,InstalledLocal) -ini:Engine:[Zen]:AutoLaunch=false -ini:Engine:[ConsoleVariables]:AssetRegistry.DisableDirectoryWatcher=1'" \
+    '-AdditionalCookerOptions=-DDC=(ProjectPak,InstalledProjectPak,EnginePak=InstalledEnginePak,EnterprisePak,InstalledLocal) -NoDDCCleanup -ini:Engine:[Zen]:AutoLaunch=false -ini:Engine:[ConsoleVariables]:AssetRegistry.DisableDirectoryWatcher=1'" \
     || { say "PACKAGE $cfg FAILED"; return 1; }
   say "PACKAGE $cfg OK: $(du -sh "$C/build-$cfg/Linux" | cut -f1)"
 }
