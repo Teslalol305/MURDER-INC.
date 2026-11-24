@@ -64,8 +64,9 @@ delete those six old parts from your storage or ignore them, and never upload th
 4. Close the tab. The game pauses by itself when the last viewer leaves.
 
 > **Esc and P.** In a browser, Esc belongs to the browser: it gives the mouse back to you and may never reach the
-> game. So **P pauses** (Esc also works when the browser passes it on, and Start on a gamepad). The click card and
-> the pause screen say so; the home screen's controls row still says "ESC Pause" in this build: use P. To take the mouse again after Esc, click the game.
+> game. So **P pauses** (Esc also works when the browser passes it on, and Start on a gamepad). The click card, the
+> pause screen and, from the build of section 9 on, the home screen's controls row ("P Pause") say so. To take the
+> mouse again after Esc, click the game.
 
 ## 5. Put it on the Game OS page
 
@@ -120,9 +121,9 @@ Paste this where the game should appear (replace the `src` with your share link)
 1. **Rejected at upload** ("no Pixel Streaming plugin" or a version message): send E3DS support the zip name and say
    it is an Unreal 5.9 Linux build with Pixel Streaming 2 (built into the game program; its web files are in
    `MurderInc/Samples/PixelStreaming2` inside the zip). Ask whether 5.9 builds are accepted yet.
-2. **Uploads but the stream never starts**: check that the configuration's platform is "Linux UE Build for PS" and
-   the app name is exactly `MurderInc`, then try once more (first Linux starts are slow). If it still fails, ask E3DS
-   support for the app's log.
+2. **Uploads but the stream never starts, or E3DS reports a crash**: check that the configuration's platform is
+   "Linux UE Build for PS" and the app name is exactly `MurderInc`, then try once more (first Linux starts are slow).
+   If it still fails, get the log: section 13.
 3. **The fallback: Amazon GameLift Streams.** It runs any Linux program (no streaming plugin needed, so the engine
    version does not matter) on its Ubuntu 22.04 runtime. The costs and the work are different: you need an AWS
    account and a GPU quota increase, it bills for every hour a server is reserved whether anyone plays or not
