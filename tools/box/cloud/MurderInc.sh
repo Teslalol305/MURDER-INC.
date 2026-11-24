@@ -190,8 +190,11 @@ else
   note "the game ENDED with exit code $RC after ${SECS}s${STOPPED:+ (stop asked by SIG$STOPPED)} (1 within seconds of the start: usually a missing shader platform, see the Vulkan check above)"
 fi
 # The engine's crash report (written by its crash handler into Saved/Crashes, also in Shipping).
+SEEN=
 for c in "${USERDIR:-/nonexistent}/Saved/Crashes" "$PROJ/Saved/Crashes" "${HOME:-/nonexistent}/.config/Epic/MurderInc/Saved/Crashes"; do
   [ -d "$c" ] || continue
+  case " $SEEN " in *" $(readlink -f "$c") "*) continue ;; esac   # USERDIR is usually $PROJ: read each folder once
+  SEEN="$SEEN $(readlink -f "$c")"
   find "$c" -mindepth 1 -maxdepth 1 -type d -newermt "@$START" 2>/dev/null | while read -r d; do
     note "---- crash report $d"
     for f in "$d"/Diagnostics.txt; do [ -f "$f" ] && head -c 60000 "$f" >> "$LOG"; done
