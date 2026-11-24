@@ -116,8 +116,40 @@ void AMIHUD::DrawPlay(UFont* Font)
 		DrawText(C, MIStyle::Gold(), CX - TW * 0.5, CY + H * 0.06, MIStyle::CanvasDisplay(), static_cast<float>(H / 1080.0 * 0.9));
 	}
 	DrawWheel(*Player);
-	const FString Health = FString::Printf(TEXT("HEALTH %d"), FMath::CeilToInt32(Rules.Health));
-	DrawText(Health, Rules.Health < Rules.MaxHealth * 0.3 ? Red : White, W * 0.03, H - TH - H * 0.04, Font, 1.5f);
+	// Health on the same dark band as the weapon strip, bottom left (review 2026-11-24: plain "HEALTH 100" vanished
+	// over bright surfaces): the label small, the number in the display face, a bar; red and pulsing when low.
+	{
+		using namespace MIStyle;
+		const double K = H / 1080.0;
+		const double Frac = Rules.MaxHealth > 0.0 ? FMath::Clamp(Rules.Health / Rules.MaxHealth, 0.0, 1.0) : 0.0;
+		const bool bLow = Frac < 0.3;
+		const double T = GetWorld() ? GetWorld()->GetRealTimeSeconds() : 0.0;
+		const float Pulse = bLow ? static_cast<float>(0.55 + 0.45 * FMath::Abs(FMath::Sin(T * 5.0))) : 1.f;
+		const FLinearColor Tint = bLow ? WithAlpha(MIStyle::Red(), Pulse) : Ink();
+		const FString Num = FString::Printf(TEXT("%d"), FMath::CeilToInt32(Rules.Health));
+		UFont* Big = CanvasDisplay();
+		UFont* Small = CanvasBody();
+		const float NumS = static_cast<float>(K * 1.5), LabS = static_cast<float>(K * 0.75);
+		float NW = 0.f, NH = 0.f, LW = 0.f, LH = 0.f;
+		GetTextSize(TEXT("100"), NW, NH, Big, NumS);
+		GetTextSize(TEXT("HEALTH"), LW, LH, Small, LabS);
+		const double BarW = 200.0 * K, BarH = 8.0 * K, Pad = 12.0 * K;
+		const double BandW = NW + 14.0 * K + BarW + Pad * 2.0;
+		const double BandH = NH + Pad * 2.0;
+		const double X0 = 40.0 * K, Y0 = H - 40.0 * K - BandH;
+		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.4f), X0, Y0, BandW, BandH);
+		if (bLow)
+		{
+			DrawRect(WithAlpha(MIStyle::Red(), 0.25f * Pulse), X0, Y0, BandW, BandH);
+		}
+		DrawRect(bLow ? Tint : Gold(), X0, Y0, 4.0 * K, BandH);
+		DrawText(Num, Tint, X0 + Pad, Y0 + Pad, Big, NumS);
+		const double BX = X0 + Pad + NW + 14.0 * K;
+		DrawText(TEXT("HEALTH"), InkDim(), BX, Y0 + Pad, Small, LabS);
+		const double BY = Y0 + BandH - Pad - BarH;
+		DrawRect(FLinearColor(1.f, 1.f, 1.f, 0.14f), BX, BY, BarW, BarH);
+		DrawRect(bLow ? Tint : Ink(), BX, BY, BarW * Frac, BarH);
+	}
 	DrawHurt(*Player, Rules.Hurt);
 }
 
@@ -288,42 +320,126 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 
 void AMIHUD::DrawMenu(UMIGameSubsystem& Game, UFont* Font)
 {
-	using namespace MIHUDPrivate;
+	// The in-game cards (title, pause, settings, game over, debrief) in the front end's look (review 2026-11-24: small
+	// default-font text centred over a dimmed frame read as a placeholder next to the styled set-up screens): a dark
+	// plate with a gold rule, the kicker in gold, the title in the display face, the selected item as a gold button with
+	// dark text, every size and offset scaled with the canvas height (1080p reference).
+	using namespace MIStyle;
 	const FMIMenu& M = Game.GetMenu();
 	const double W = Canvas->ClipX;
 	const double H = Canvas->ClipY;
-	DrawRect(FLinearColor(0.f, 0.f, 0.f, M.Screen == EMIMenuScreen::Title ? 0.35f : 0.6f), 0.f, 0.f, W, H);
-	double Y = H * 0.16;
-	if (!M.Kicker.IsEmpty())
-	{
-		Centered(M.Kicker.ToUpper(), Y, Amber, Font, 1.1f);
-		Y += 36.0;
-	}
+	const double K = H / 1080.0;
 	const bool bTitle = M.Screen == EMIMenuScreen::Title;
-	Centered(M.Title, Y, White, Font, bTitle ? 3.0f : 2.2f);
-	Y += bTitle ? 80.0 : 64.0;
+	UFont* Big = CanvasDisplay();
+	UFont* Body = CanvasBody();
+	if (!Big) Big = Font;
+	if (!Body) Body = Font;
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, bTitle ? 0.35f : 0.55f), 0.f, 0.f, W, H);
+
+	const float KickerS = static_cast<float>(K * 0.95);
+	const float TitleS = static_cast<float>(K * (bTitle ? 2.7 : 2.1));
+	const float NoteS = static_cast<float>(K * 0.95);
+	const float StatS = static_cast<float>(K * 1.0);
+	const float ItemS = static_cast<float>(K * 1.1);
+	const double CardW = FMath::Min(W - 48.0 * K, 620.0 * K);
+	const double Pad = 36.0 * K;
+	const double Inner = CardW - Pad * 2.0;
+	const double RowH = 46.0 * K, RowGap = 8.0 * K;
+
+	// The note, wrapped to the card by words.
+	TArray<FString> NoteLines;
 	if (!M.Note.IsEmpty())
 	{
-		Centered(M.Note, Y, Dim, Font, 1.0f);
-		Y += 40.0;
+		TArray<FString> Words;
+		M.Note.ParseIntoArray(Words, TEXT(" "), true);
+		FString Line;
+		for (const FString& Word : Words)
+		{
+			const FString Try = Line.IsEmpty() ? Word : Line + TEXT(" ") + Word;
+			float TW = 0.f, TH = 0.f;
+			GetTextSize(Try, TW, TH, Body, NoteS);
+			if (TW > Inner && !Line.IsEmpty())
+			{
+				NoteLines.Add(Line);
+				Line = Word;
+			}
+			else
+			{
+				Line = Try;
+			}
+		}
+		if (!Line.IsEmpty()) NoteLines.Add(Line);
 	}
+	float KW = 0.f, KH = 0.f, TW = 0.f, TH = 0.f, NW = 0.f, NH = 0.f, SW = 0.f, SH = 0.f, IW = 0.f, IH = 0.f;
+	GetTextSize(TEXT("Ag"), KW, KH, Body, KickerS);
+	GetTextSize(M.Title.IsEmpty() ? FString(TEXT("Ag")) : M.Title, TW, TH, Big, TitleS);
+	GetTextSize(TEXT("Ag"), NW, NH, Body, NoteS);
+	GetTextSize(TEXT("Ag"), SW, SH, Body, StatS);
+	GetTextSize(TEXT("Ag"), IW, IH, Body, ItemS);
+	double CardH = Pad;
+	if (!M.Kicker.IsEmpty()) CardH += KH + 10.0 * K;
+	CardH += TH + 14.0 * K;  // the title and the gold rule under it
+	if (NoteLines.Num() > 0) CardH += NoteLines.Num() * (NH + 2.0 * K) + 12.0 * K;
+	if (M.Stats.Num() > 0) CardH += M.Stats.Num() * (SH + 10.0 * K) + 8.0 * K;
+	CardH += 12.0 * K + M.Items.Num() * (RowH + RowGap) + Pad - RowGap;
+	const double CX = (W - CardW) * 0.5;
+	const double CY = FMath::Max(24.0 * K, (H - CardH) * (bTitle ? 0.62 : 0.5));
+	DrawPlate(CX, CY, CardW, CardH, WithAlpha(Plate(), 0.9f), WithAlpha(PlateEdge(), 1.f), static_cast<float>(FMath::Max(1.0, K)));
+	DrawRect(Gold(), CX, CY, CardW, 4.0 * K);  // the gold top edge, as on the set-up plates
+
+	const double X0 = CX + Pad;
+	double Y = CY + Pad;
+	if (!M.Kicker.IsEmpty())
+	{
+		DrawText(M.Kicker.ToUpper(), Gold(), X0, Y, Body, KickerS);
+		Y += KH + 10.0 * K;
+	}
+	DrawText(bTitle ? M.Title : M.Title.ToUpper(), Ink(), X0, Y, Big, TitleS);
+	Y += TH + 4.0 * K;
+	DrawRect(Gold(), X0, Y, 56.0 * K, 3.0 * K);
+	Y += 10.0 * K;
+	for (const FString& L : NoteLines)
+	{
+		DrawText(L, InkDim(), X0, Y, Body, NoteS);
+		Y += NH + 2.0 * K;
+	}
+	if (NoteLines.Num() > 0) Y += 12.0 * K;
 	for (const TPair<FString, FString>& Stat : M.Stats)
 	{
-		Centered(Stat.Key + TEXT("    ") + Stat.Value, Y, White, Font, 1.15f);
-		Y += 32.0;
+		// Key left in the dim ink, value right in the ink, a hairline under each row.
+		float VW = 0.f, VH = 0.f;
+		GetTextSize(Stat.Value, VW, VH, Body, StatS);
+		DrawText(Stat.Key.ToUpper(), InkDim(), X0, Y, Body, StatS);
+		DrawText(Stat.Value, Ink(), X0 + Inner - VW, Y, Body, StatS);
+		DrawRect(WithAlpha(PlateEdge(), 0.9f), X0, Y + SH + 4.0 * K, Inner, FMath::Max(1.0, K));
+		Y += SH + 10.0 * K;
 	}
-	Y += 24.0;
+	if (M.Stats.Num() > 0) Y += 8.0 * K;
+	Y += 12.0 * K;
 	for (int32 I = 0; I < M.Items.Num(); ++I)
 	{
 		const FMIMenuItem& Item = M.Items[I];
 		const bool bSel = I == M.Selected;
-		FString Line = Item.Value.IsEmpty() ? Item.Label : Item.Label + TEXT("    ") + (Item.bAdjust ? TEXT("< ") + Item.Value + TEXT(" >") : Item.Value);
+		// The selected item is the gold button with dark text; the others sit on a faint plate with a hairline edge.
 		if (bSel)
 		{
-			Line = TEXT("> ") + Line + TEXT(" <");
+			DrawRect(Gold(), X0, Y, Inner, RowH);
 		}
-		Centered(Line, Y, bSel ? Amber : White, Font, bSel ? 1.45f : 1.3f);
-		Y += 40.0;
+		else
+		{
+			DrawPlate(X0, Y, Inner, RowH, WithAlpha(Bg(), 0.55f), WithAlpha(PlateEdge(), 1.f), static_cast<float>(FMath::Max(1.0, K)));
+		}
+		const FLinearColor TextC = bSel ? Bg() : Ink();
+		const double TY = Y + (RowH - IH) * 0.5;
+		DrawText(Item.Label.ToUpper(), TextC, X0 + 18.0 * K, TY, Body, ItemS);
+		if (!Item.Value.IsEmpty())
+		{
+			const FString V = Item.bAdjust ? TEXT("<  ") + Item.Value + TEXT("  >") : Item.Value;
+			float VW = 0.f, VH = 0.f;
+			GetTextSize(V, VW, VH, Body, ItemS);
+			DrawText(V, bSel ? Bg() : Gold(), X0 + Inner - 18.0 * K - VW, TY, Body, ItemS);
+		}
+		Y += RowH + RowGap;
 	}
 }
 
