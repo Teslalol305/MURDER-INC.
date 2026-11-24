@@ -89,3 +89,34 @@ nothing to do with the game, plus E3DS's `SessionIDFound {savedSessionId: …}`.
 writes no log. So the crash is consistent, not caused by one blocked slot. That points to start-up on E3DS's
 servers: graphics memory, the driver failing Unreal 5.9's Vulkan SM6 check, or the way E3DS launches the app. Test
 version 2 in a fresh **Incognito** window: no extensions and no saved session.
+
+## 2026-11-24 (23:10 UTC): the owner's E3DS test of version 2, and what version 3 must do
+
+**What happened.** Version 2 (zip `ceaf828d…`, launch options `-MICloudProbe=10 -PixelStreamingDecoupleFramerate`,
+Browser Resolution Custom 1920 x 1080) **loaded and streamed on E3DS**: the start-up crash is fixed. The owner's
+words: "the game is sticky i cant play it", "it loaded and the game was streamed from e3ds but it is not fluid",
+"as of now the game looks much better but the playability and lag is a problem", and "make sure there is a path for
+someone to connect a PS5 controller and play".
+
+**Not known yet** (asked for; add below when it arrives): which GPU and driver the E3DS Linux machine has, the game's
+own frame rate and GPU time there (the `[MICloud]` lines of the session log), the stream's frame rate and the region
+in E3DS's Info panel. E3DS's documentation says its own datacentre has RTX 4080 and 5070, and its cloud machines are
+"typically T4 or A10"; Linux machines are allocated on demand. A T4 is roughly a seventh of the box's GPU: the game as
+packaged (Lumen with hardware ray tracing, Nanite, virtual shadow maps, 6 ms a frame on the box) would run there at
+about 15 to 20 frames a second with several frames of queueing: that is what "sticky" and "lag" would feel like.
+
+**What the owner decided, in effect (binding for version 3):**
+
+1. **Fluid, responsive play comes first; the look comes second.** The earlier instruction "do not lower Lumen, Nanite
+   or shadow quality" no longer holds when the machine cannot keep 60 frames a second: version 3 must adapt by
+   itself to whatever GPU E3DS gives it (a T4, an A10, an RTX 5070 or 4080) and keep the game near 60 frames a
+   second with low delay, at the best look that GPU can afford. On a fast GPU it keeps the full look.
+2. **Delay between the hand and the picture is a defect to measure and reduce**, not a given: measure it through a
+   real stream on the box (input sent, first changed frame received), with a fast and with a slowed-down GPU, and
+   remove what the game and the engine add.
+3. **A complete controller path**: a player with a PS5 (DualSense) or Xbox controller plugged into the computer must
+   be able to do everything, from the CLICK TO PLAY card to the end of a run and back, without a keyboard or mouse,
+   with the right labels on screen.
+4. **A gameplay review through the stream**: somebody (an agent) plays a whole Story run and a Hold the Block run
+   through a real stream on the box, with a mouse and keyboard and then with a controller, and fixes what does not
+   work or feel right.
