@@ -120,3 +120,32 @@ about 15 to 20 frames a second with several frames of queueing: that is what "st
 4. **A gameplay review through the stream**: somebody (an agent) plays a whole Story run and a Hold the Block run
    through a real stream on the box, with a mouse and keyboard and then with a controller, and fixes what does not
    work or feel right.
+
+**Reproduced on the box, 23:25 to 23:40 UTC** (version 2's own zip unpacked to a scratch folder, the Development game
+from it with a MIDemo script into a Story run, one viewer that turns the camera through the stream:
+`tools/box/cloud/rtcinput.py`; logs and scripts kept in `/project/ue/cloud/lag-2026-11-24/`). The owner later added:
+"the gameplay is very laggy; when the player turns it slows down; it is not a viable experience; we need to fix this
+now."
+
+| Run | Load on the GPU | The game's own frame rate, worst frame | Pixel Streaming capture | Frames received while turning |
+|---|---|---|---|---|
+| s0: 1080p, the owner's options (decoupled) | made GPU-bound with `r.ScreenPercentage 200` (GPU time about 38 ms) | 32 a second, **worst frame 4.2 s** | 1,056 "No frames available for capture ... Skipping", 264 "WaitForGPU: Timed out waiting for fence to be written!" | 22, then 10 a second |
+| s1: the same without `-PixelStreamingDecoupleFramerate` | the same | 33, worst frame 1.8 s | 1,088 skipped, 256 fence time-outs | 16 to 18 |
+| s3: the same as s0 with `t.MaxFPS 30` | not GPU-bound (GPU time 11 ms of 33) | a steady 30, worst frame while turning 33 ms | none | (4 to 7: see below) |
+| s4: 1280x720 output, otherwise as s0 | not GPU-bound (GPU time 8 ms) | 59.6, worst frame while turning 65 ms | none | 30, then 44 to 49 |
+| q0, q1: two copies of the game at once at 1080p | each GPU-bound (about 26 ms) | about 40, **worst frame 7.1 s and 7.2 s** | 654 skipped, 132 fence time-outs (q0) | 13 to 15 in the worst turns |
+
+What this shows: **when the GPU cannot finish frames in time, Pixel Streaming 2's capture stalls the game**: each
+captured frame waits up to 100 ms for a GPU fence (`UPixelStreaming2MediaIOCapture::WaitForGPU`, the same code in
+`PixelCaptureCapturerMediaCapture.cpp`; `PixelStreaming2.CaptureUseFence` is on by default in 5.9), the capture
+runs out of frames, and one game frame can last seconds. Turning costs more GPU time than standing still, so it is
+what pushes a loaded GPU over. With head-room the same build is steady. `-PixelStreamingDecoupleFramerate` does
+not cause it and does not cure it (it was this session's advice, from a measurement with a free GPU). The numbers
+in the last column come from a Python client whose congestion feedback is basic: trust the game-side columns; get
+sender-side figures with `-PixelStreamingLogStats` before drawing conclusions from received frame rates.
+
+**Consequence for version 3:** the game must always leave the GPU head-room (adapt quality and resolution, and
+lower its frame-rate target to 45 or 30 when it has to, rather than run GPU-bound), the capture settings must be
+chosen by measurement under load (`CaptureUseFence`, `UseMediaCapture`, `DecoupleFramerate`, `WebRTC.Fps` equal to
+the frame-rate target, `WebRTC.DisableFrameDropper`), and nothing may block a frame for more than a few
+milliseconds while a run is being played.
