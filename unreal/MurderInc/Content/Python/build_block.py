@@ -2099,11 +2099,12 @@ def back_face_runs(back, others, axis, line, a, e, positive):
         if other is back:
             continue
         omn, omx = other["ue"]["min"], other["ue"]["max"]
-        if axis == "x":
-            inside, c0, c1 = omn["Y"] - 1 <= line <= omx["Y"] + 1, omn["X"], omx["X"]
-        else:
-            inside, c0, c1 = omn["X"] - 1 <= line <= omx["X"] + 1, omn["Y"], omx["Y"]
-        if not inside or c1 <= a or c0 >= e:
+        # Only a collider that stands in front of the face counts (one inside the back, such as the block's seal
+        # walls sharing the face's plane, stays behind the bays).
+        key, c0, c1 = ("Y", omn["X"], omx["X"]) if axis == "x" else ("X", omn["Y"], omx["Y"])
+        reaches = omn[key] - 1 <= line <= omx[key] + 1
+        in_front = omx[key] > line + 2 if positive else omn[key] < line - 2
+        if not reaches or not in_front or c1 <= a or c0 >= e:
             continue
         if omx["Z"] >= mx["Z"] - 1:
             pieces = [p for q in pieces for p in ((q[0], min(q[1], c0)), (max(q[0], c1), q[1])) if p[1] - p[0] > 1]
@@ -2127,12 +2128,18 @@ def back_window_bays(axis, line, start, end, positive, z0, z1, floor, rng, have)
     stretch is at least 2.5 m long, blank bays otherwise), the strip left over as blank bays; a roller blind behind
     45 % of the windows, an air conditioner in the sill of 12 %. The bays' outer face is the face's plane; the drawn
     mass steps back behind them (BACK_INSETS)."""
-    out = list(tile(axis, line, start, end, positive, BACK_BLANK_BAY, 310.0, z0, 380.0 / 310.0))
+    push = (0.0, 1.0 if positive else -1.0) if axis == "x" else (1.0 if positive else -1.0, 0.0)
+
+    def bays(mesh, z, scale_z=1.0):
+        # 1 cm proud of the face's plane: a seal wall that shares the plane stays behind.
+        return [(m, (loc[0] + push[0], loc[1] + push[1], loc[2]), yaw, scale)
+                for m, loc, yaw, scale in tile(axis, line, start, end, positive, mesh, 310.0, z, scale_z)]
+    out = bays(BACK_BLANK_BAY, z0, 380.0 / 310.0)
     z = z0 + 380.0
     while z + 310.0 <= z1 + 1.0:
-        windows = z >= floor - 1.0 and end - start >= 250.0
-        for mesh, loc, yaw, scale in tile(axis, line, start, end, positive,
-                                          BACK_WINDOW_BAY if windows else BACK_BLANK_BAY, 310.0, z):
+        # A window where its sill is no more than 40 cm under the top of what stands in front.
+        windows = z + 60.0 >= floor - 40.0 and end - start >= 250.0
+        for mesh, loc, yaw, scale in bays(BACK_WINDOW_BAY if windows else BACK_BLANK_BAY, z):
             out.append((mesh, loc, yaw, scale))
             if not windows:
                 continue
@@ -2145,7 +2152,7 @@ def back_window_bays(axis, line, start, end, positive, z0, z1, floor, rng, have)
                 out.append(("SM_Facade_AirConditioner", centre, yaw, (1.0, 1.0, 1.0)))
         z += 310.0
     if z1 - z > 3.0:
-        out.extend(tile(axis, line, start, end, positive, BACK_BLANK_BAY, 310.0, z, (z1 - z) / 310.0))
+        out.extend(bays(BACK_BLANK_BAY, z, (z1 - z) / 310.0))
     return out
 
 
