@@ -3,6 +3,33 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## The stream itself, received on the box (2026-11-24, 22:20 UTC)
+
+The box cannot run a browser viewer (Chrome gathers no ICE candidates in this sandbox), but a Python WebRTC client
+does work there (`/project/ue/cloud/verify-v2/rtcview.py`, aiortc, written by the independent check): it subscribes
+through Epic's signalling server, answers the game's offer and decodes the video.
+
+Two copies of the final zip's game (`ceaf828d…`, launcher `f827e1b`) ran side by side as a fresh user with no
+display and E3DS's documented arguments, one with `-PixelStreamingDecoupleFramerate` added (runs `f-A`, `f-B`):
+
+| | Frames received per second, 5 s windows over 60 s | Last 25 s |
+|---|---|---|
+| as E3DS starts it (coupled) | 22, 20, 25, 23, 20, 25, 34, 41, 40, 39, 40 | about 40 |
+| with `-PixelStreamingDecoupleFramerate` | 34, 32, 36, 34, 30, 35, 45, 54, 55, 52, 55 | about 55 |
+
+Both: H.264 1920 x 1080 and Opus sound, first frame 1.8 s after subscribing, about 38 audio frames a second. The
+game itself drew 60 a second in both. One received frame of each was looked at: the home screen under the
+CLICK TO PLAY card, sharp text, the 3D scene moving behind it. (The client's signalling socket closes after 60 s:
+a limit of the test client, not of the game, which then logs "Connection lost: the game is paused".) Logs kept in
+`/project/ue/cloud/verify-v2/fps-ab/`.
+
+What it means: picture and sound do leave this build over WebRTC with the connection argument E3DS passes
+(`-PixelStreamingURL=`); with off-screen rendering fewer frames are delivered than drawn, as E3DS's own article
+"Why your app draws 60 frames a second and the viewer gets 15" describes, and decoupling the capture from the
+render raises it (in Unreal 5.9 `PixelStreaming2.CaptureUseFence` is already on, so the one flag is enough). The
+owner can add it as a launch option now; the next package makes it the launcher's default if E3DS shows the same.
+Still not tested anywhere: mouse, keyboard and gamepad through a stream, and E3DS's own signalling and player page.
+
 ## Version 2 re-zipped after reading E3DS's own documentation (2026-11-24, 22:05 UTC)
 
 **The zip to upload: sha256 `ceaf828d10a8b3d7997e8b76ccaa7701e87a8f5dab7f488a1976a3b7944674c5`, 2,254,912,173 bytes**,
