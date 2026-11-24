@@ -2058,8 +2058,8 @@ def structure_placements(level):
         if have(BACK_WINDOW_BAY) and have(BACK_BLANK_BAY):
             for axis, line, a, e, positive in sides(back):
                 runs = back_face_runs(back, others, axis, line, a, e, positive)
-                for p0, p1 in runs:
-                    out.extend(back_window_bays(axis, line, p0, p1, positive, mn["Z"], mx["Z"], rng, have))
+                for p0, p1, floor in runs:
+                    out.extend(back_window_bays(axis, line, p0, p1, positive, mn["Z"], mx["Z"], floor, rng, have))
                 if runs:
                     BACK_INSETS.setdefault(back["index"], set()).add((axis, positive))
                     drawn.add(back["index"])
@@ -2084,14 +2084,16 @@ BACK_INSETS = {}   # back collider index -> {(axis, positive side)} of the faces
 
 def back_face_runs(back, others, axis, line, a, e, positive):
     """The parts of one face of a neighbour's back that are seen from the block: the face must look toward the
-    block's centre, and the stretches buried in another tall level collider are cut out. [(start, end)]."""
+    block's centre; stretches buried in another level collider as tall as the back are cut out, and where a lower
+    one stands against the face (a shop wall, the garages, a seal) the stretch keeps its top as a floor below which
+    the bays stay blank. [(start, end, floor z)]."""
     mn, mx = back["ue"]["min"], back["ue"]["max"]
     centre = ((mn["X"] + mx["X"]) / 2.0, (mn["Y"] + mx["Y"]) / 2.0)
     normal = (0.0, 1.0 if positive else -1.0) if axis == "x" else (1.0 if positive else -1.0, 0.0)
     face = (centre[0], line) if axis == "x" else (line, centre[1])
     if normal[0] * -face[0] + normal[1] * -face[1] <= 0.0:
         return []
-    pieces = [(a, e)]
+    pieces, partial = [(a, e)], []
     for other in others:
         if other is back:
             continue
@@ -2100,22 +2102,39 @@ def back_face_runs(back, others, axis, line, a, e, positive):
             inside, c0, c1 = omn["Y"] - 1 <= line <= omx["Y"] + 1, omn["X"], omx["X"]
         else:
             inside, c0, c1 = omn["X"] - 1 <= line <= omx["X"] + 1, omn["Y"], omx["Y"]
-        if not inside:
+        if not inside or c1 <= a or c0 >= e:
             continue
-        pieces = [p for q in pieces for p in ((q[0], min(q[1], c0)), (max(q[0], c1), q[1])) if p[1] - p[0] > 1]
-    return [p for p in pieces if p[1] - p[0] >= 250.0]
+        if omx["Z"] >= mx["Z"] - 1:
+            pieces = [p for q in pieces for p in ((q[0], min(q[1], c0)), (max(q[0], c1), q[1])) if p[1] - p[0] > 1]
+        else:
+            partial.append((c0, c1, omx["Z"]))
+    out = []
+    for p0, p1 in pieces:
+        cuts = sorted({p0, p1} | {c for c0, c1, _ in partial for c in (c0, c1) if p0 < c < p1})
+        for q0, q1 in zip(cuts, cuts[1:]):
+            floor = max([top for c0, c1, top in partial if c0 < q1 - 1 and c1 > q0 + 1] or [mn["Z"]])
+            if out and abs(out[-1][2] - floor) < 1 and abs(out[-1][1] - q0) < 1:
+                out[-1] = (out[-1][0], q1, floor)
+            else:
+                out.append((q0, q1, floor))
+    return out
 
 
-def back_window_bays(axis, line, start, end, positive, z0, z1, rng, have):
+def back_window_bays(axis, line, start, end, positive, z0, z1, floor, rng, have):
     """A dressed face, bottom to top: the ground floor as blank bays stretched to the first floor line (3.8 m), a
-    storey of window bays for every 3.1 m that fits under the parapet, the strip left over as blank bays; a roller
-    blind behind 45 % of the windows, an air conditioner in the sill of 12 %. The bays' outer face is the face's
-    plane; the drawn mass steps back behind them (BACK_INSETS)."""
+    storey of bays for every 3.1 m that fits under the parapet (window bays where the storey clears `floor` and the
+    stretch is at least 2.5 m long, blank bays otherwise), the strip left over as blank bays; a roller blind behind
+    45 % of the windows, an air conditioner in the sill of 12 %. The bays' outer face is the face's plane; the drawn
+    mass steps back behind them (BACK_INSETS)."""
     out = list(tile(axis, line, start, end, positive, BACK_BLANK_BAY, 310.0, z0, 380.0 / 310.0))
     z = z0 + 380.0
     while z + 310.0 <= z1 + 1.0:
-        for mesh, loc, yaw, scale in tile(axis, line, start, end, positive, BACK_WINDOW_BAY, 310.0, z):
+        windows = z >= floor - 1.0 and end - start >= 250.0
+        for mesh, loc, yaw, scale in tile(axis, line, start, end, positive,
+                                          BACK_WINDOW_BAY if windows else BACK_BLANK_BAY, 310.0, z):
             out.append((mesh, loc, yaw, scale))
+            if not windows:
+                continue
             c, s_ = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
             centre = (loc[0] + c * 155.0 * scale[0], loc[1] + s_ * 155.0 * scale[0], loc[2] + 60.0)
             roll = rng.random()
