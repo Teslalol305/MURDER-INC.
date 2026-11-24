@@ -205,7 +205,8 @@ import os, sys, zipfile
 out = sys.argv[1]
 with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as z:
     for root, dirs, files in os.walk('.'):
-        dirs.sort()
+        # Saved/ is what a run of the game writes (logs, crash reports, settings: the box's own test runs): never ship it.
+        dirs[:] = sorted(d for d in dirs if d != 'Saved')
         for f in sorted(files):
             if f.endswith(('.debug', '.sym')):
                 continue  # symbols: kept on the box (symbols/<commit>/), not shipped
