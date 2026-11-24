@@ -1,0 +1,4 @@
+wait 4
+con MIStart mission skip
+waitstate playing 40
+wait 600

@@ -98,7 +98,7 @@ case "$1" in
       echo "signalling started $(cat "$R/ss.pid")"
     else
       for p in $(pgrep -x node); do
-        tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -q 'cloud/localhost.cjs' && kill "$p" && echo "stopped signalling $p"
+        tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -q 'localhost.cjs' && kill "$p" && echo "stopped signalling $p"
       done
     fi ;;
   stopall)
