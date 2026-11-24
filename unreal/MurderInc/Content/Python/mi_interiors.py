@@ -239,6 +239,10 @@ def save_cube(room):
             target, path, unreal.TextureCompressionSettings.TC_HDR, unreal.TextureMipGenSettings.TMGS_FROM_TEXTURE_GROUP)
     if texture is None:
         raise RuntimeError("no cube texture for " + room[0])
+    # Never streamed, filtered trilinear: sampled by a ray in the glass material (no mesh UVs), streaming kept the
+    # cubes at their smallest mips and the rooms showed as blocky squares at mid distance (review 2026-11-24).
+    texture.set_editor_property("never_stream", True)
+    texture.set_editor_property("filter", unreal.TextureFilter.TF_TRILINEAR)
     bb.ASSETS.save_asset(path, only_if_is_dirty=False)
     return "saved " + path
 
