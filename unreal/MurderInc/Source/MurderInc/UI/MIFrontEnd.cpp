@@ -155,7 +155,14 @@ void UMIFrontEnd::Hide()
 	}
 	if (APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr)
 	{
-		PC->SetInputMode(FInputModeGameOnly());
+		// The mouse press that takes the mouse capture also counts as input, as DefaultInput.ini sets for the viewport
+		// (CapturePermanently_IncludingInitialMouseDown) and as the web game did. The input mode's own default
+		// swallows that press: with the cursor shown (the cards) every release gives the capture back, so every click
+		// on a card was swallowed (stream test 2026-11-24: a click on the pause card never reached the controller),
+		// and so was the first shot after the capture had been lost.
+		FInputModeGameOnly Mode;
+		Mode.SetConsumeCaptureMouseDown(false);
+		PC->SetInputMode(Mode);
 	}
 	if (AMIPlayerCharacter* P = Game.IsValid() ? Game->GetPlayer() : nullptr)
 	{

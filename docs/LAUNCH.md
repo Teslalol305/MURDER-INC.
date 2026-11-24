@@ -58,7 +58,9 @@ build `MurderInc`** (section 9, step 5). Every start now writes a log on the ser
 2. You see the game's home screen under a card that says **CLICK TO PLAY** (if E3DS shows its own play button
    first, click that, then the game). Click once. That click:
    - locks the mouse to the game (mouse look),
-   - starts the sound (browsers keep sound off until you click),
+   - starts the sound (browsers keep sound off until you click). If E3DS started the stream muted, the click does
+     not bring the sound: click E3DS's **speaker button at the bottom right** of the player (from version 3 the card
+     says so),
    - hides the card. It does not press anything in the menus.
 3. Check, in this order: the menus answer the mouse and keyboard; **Gear Up** goes through crew, loadout, block and
    briefing into a run; mouse look turns the view smoothly; W A S D moves; left click fires and you **hear** it;
@@ -115,8 +117,11 @@ Paste this where the game should appear (replace the `src` with your share link)
 - [ ] Max session time and idle logout are set (section 3), so minutes are not wasted.
 - [ ] Read E3DS's terms of service for a violent shooter, and add an age note on the page if you want one.
 - [ ] Decide the plan (section 11) and how many players may play at once; extra players wait in E3DS's queue.
-- [ ] Mouse feel: if the view turns faster or slower than expected, set the stream's resolution to **match the
-      browser window** in E3DS (section 10 explains why).
+- [ ] Mouse feel (from version 3): the game expects the picture to be shown at the size it is rendered (E3DS's
+      Browser Resolution **Dynamic**, or a fixed size shown 1:1). If the view turns too fast or too slow, do not
+      rebuild: put **`-MIMouseScale=<number>`** in the configuration's launch options (section 13). 0.5 is the built-in
+      value; for a fixed 1920 x 1080 picture shown 1280 wide in the page use 0.333 (the rule: shown width divided by
+      twice the rendered width). Players can also change **Sensitivity** on the game's Settings card.
 
 ## 8. If E3DS rejects the build or it never starts
 
@@ -362,4 +367,5 @@ build machine, so the menu names may differ slightly):
 | Option | Effect |
 |---|---|
 | `-MIDev` | run the Development game (full engine log, for E3DS's crash-log feature and support) |
+| `-MIMouseScale=<number>` | from version 3: mouse look speed through the stream (0.05 to 4; built-in 0.5). See section 7, "Mouse feel" |
 | `-MIForceSM6` | skip Unreal's Vulkan SM6 check on a driver that fails it |
