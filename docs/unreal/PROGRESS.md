@@ -3,6 +3,102 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## E3DS crash fix (release engineer, 2026-11-24, evening) — @@STATUS@@
+
+**What happened on E3DS.** Version 1 (the zip of `0f23081`, sha256 `8378eedd…e570a`) passed E3DS's upload check
+("Test" ✔, "Your app is ready to stream"); then the owner's session showed "In Queue 1" and E3DS emailed "MurderInc
+(v-1 …) Crashed At: Tue Nov 24 2026 09:46:05 GMT-0800 (17:46:05 UTC) But no crashlog was found". A second try on the
+Core plan with ten slots (about 18:55 UTC) crashed the same way; the Chrome console had no game lines
+(`DECISIONS.md`). Version 1 had no log to give: Shipping compiles the engine's log out, and its launcher (the
+engine's own `MurderInc.sh`) kept none.
+
+**Root cause: not proven** (E3DS has no log of it). Two diagnoses ran first: E3DS's documentation (through search
+extracts; their pages could not be opened from here) and launches on box ec087d85 imitating E3DS
+(`tools/box/cloud/e3ds-repro.sh`, results in `/project/ue/cloud/repro/SUMMARY.txt`). Ranked by how well they fit
+"passes the upload check, every real session dies at start, no log":
+
+1. **Best supported: the server's NVIDIA driver fails Unreal 5.9's Vulkan SM6 check.** Unreal 5.9 runs its full
+   renderer (Nanite, Lumen, ray tracing) only if the GPU and driver pass the profile `VP_UE_Vulkan_SM6`
+   (`Engine/Source/ThirdParty/Vulkan/profiles/include/vulkan_profiles_ue.h`): Vulkan 1.3 and 16 extensions, among
+   them `VK_KHR_compute_shader_derivatives` (the KHR version: recent NVIDIA drivers only), `VK_EXT_mesh_shader` and
+   `VK_EXT_descriptor_buffer`. If the check fails the engine picks SM5 (`RHI/Private/Linux/LinuxDynamicRHI.cpp`
+   prefers the highest feature level that passes), but version 1 carried SM6 shaders only (the project drops
+   `SF_VULKAN_SM5`): the game ends about 7 s after the start with exit code 1 ("Failed to initialize
+   ShaderCodeLibrary required by the project because part of the Global shader library is missing"), and a
+   Shipping build prints only "Disabling core dumps." Reproduced on the box with `-sm5` (box driver 620.70 passes the
+   check). A fleet on an older long-term driver would fail every session the same way, whatever the slot; E3DS's
+   upload check does not start a Linux build (their documentation: Linux uploads are only checked for the plugin's
+   files), so it could pass.
+2. **Graphics memory at start.** Version 1 used 4.2 GB of the card's memory on the title screen (Vulkan memory
+   budget, `r.Vulkan.DumpMemory`) and segfaulted 6 s after the start when only 5.0 GB was free ("Out Of Memory,
+   trying to allocate 134217728 bytes", a 128 MB render-graph heap). An 8 GB card with anything else on it would do
+   that.
+3. **Started as root**: Unreal refuses ("Refusing to run with the root privileges", SIGABRT after 0.2 s). Unlikely
+   (no Unreal Linux app would run on E3DS), not ruled out by anything E3DS publishes.
+4. **A stop by signal returns 130/143** ("Exiting abnormally"): if E3DS counts any non-zero exit as a crash, stopping
+   an instance sends that email. Fits the email, not a session that never shows the game.
+
+Ruled out on the box (no crash): viewers joining and leaving (pause on leave), no signalling server or one killed
+mid-run, no audio device, no display with `-RenderOffScreen`, a fresh user or no HOME, another working directory,
+`-ForceRes` 1920x1080, E3DS/Pixel Streaming 1-style arguments, no hardware ray tracing, 7-minute runs, 7.6 GB free.
+
+**What changed** (all for the cloud package; gameplay rules untouched):
+
+- **A log for every start** (`tools/box/cloud/MurderInc.sh`, the zip's launcher in place of the engine's): it runs
+  the Shipping game as before (`MurderInc-Linux-Shipping MurderInc -MICloud ... "$@"`) and adds `-RenderOffScreen`
+  (no display needed), `-UserDir=<app>/MurderInc` (Saved/ next to the game, as a Development build keeps it) and
+  `-stdout -FullStdOutLogOutput`; it writes `MurderInc/Saved/Logs/MurderInc.log` (falls back to `$HOME`, then
+  `/tmp`): build (`BUILD.txt`), user, folder, display variables, memory and disk, `nvidia-smi` (GPU, driver, free
+  memory, other GPU processes), missing libraries (`ldd`), the Vulkan loader and driver files, the SM6 extension
+  check (with `vulkaninfo` when the server has it), the command line, every line the game prints (tee through a
+  FIFO; tee ignores stop signals, so a host that signals the whole process group cannot kill it and SIGPIPE the
+  game), how the game ended (exit code, signal name, CRASH or stopped by the host) and the engine's crash report
+  (`Saved/Crashes/*/Diagnostics.txt`). Stop signals (TERM, INT, HUP) go on to the game once, and only if it did not
+  get them itself within 5 s (Unreal hard-exits on a second signal). Started as root, it runs the game as the
+  folder's owner or `nobody` (`setpriv`, else `runuser`, else `su`). Started by `sh`, it re-runs itself under bash.
+  Launch options: `-MIDev` (the Development game in the zip, full engine log), `-MIForceSM6`
+  (`-SkipVulkanProfileCheck`).
+- **bUseLoggingInShipping is not possible here**: the box's engine is an installed build
+  (`Engine/Build/InstalledBuild.txt`); its Shipping engine libraries are precompiled with the log compiled out and UBT
+  refuses a unique build environment on an installed engine. So Shipping's log is the launcher's (above), the game's
+  own lines, the engine's crash handler and, for a full engine log, the Development game carried in the zip.
+- **The game reports itself** (`Source/MurderInc/Cloud/MICloud.cpp`): at start the build (`BUILD.txt`), GPU, driver,
+  RHI, feature level, shader platform, hardware ray tracing, Nanite, Lumen and video memory; a fallback line when the
+  SM6 check failed (SM5) or ray tracing is missing (then `r.Lumen.TraceMeshSDFs=1`, software Lumen on the meshes'
+  distance fields); the full command line. In Shipping every `[MICloud]` line is also printed to stdout (UE_LOG is
+  compiled out), so the launcher's log has them. `-MICrashTest=<s>` crashes on purpose (to test the crash path).
+- **Exit guard** (same file): on Linux game builds an `on_exit` handler armed at `FCoreDelegates::OnExit` ends the
+  process when `main()` returns, before the static destructors that crashed every Development exit (the AVCodecs
+  `FNVDEC` registry logging after the log is gone: `TSparseArray<...FAPI...>::~TSparseArray ->
+  TIntrusiveReferenceController<FNVDEC>::DestroyObject -> UnhookDllAllocators -> UE_LOG`, gdb in
+  `/project/ue/cloud/repro/gdb-dev/gdb.log`), and reports a stop asked for by SIGINT, SIGTERM or SIGHUP (engine status
+  128 + signal, "Exiting abnormally") as exit code 0. `-MINoExitGuard` turns it off.
+- **SM5 fallback shaders** (`package-cloud.sh` overlay): the cloud package cooks `SF_VULKAN_SM5` as well as SM6, so a
+  failed SM6 check gives a running game (no Nanite, no Lumen) instead of exit 1.
+- **Crash reports headless** (overlay, `[CrashReportClient] bAgreeToCrashUpload=true`,
+  `bStartCRCFromEngineHandler=false`): without a display the engine counts as unattended and skipped its report; now
+  it writes `Saved/Crashes/crashinfo-MurderInc-pid-*/` (Diagnostics.txt with the call stack, CrashContext.runtime-xml).
+  No crash reporter is packaged, so nothing is uploaded.
+- **Graphics memory**: `[MICloud]` texture pool 800 to 600 MB and `r.TSR.History.ScreenPercentage=100` (the 200 %
+  history was a 4K buffer); the six interior cube maps (`/Game/Art/Interiors/TC_*`, 64 MB each, uncompressed float,
+  always resident) are stored as BC6H in the release copy (`tools/box/cloud/cloud_assets.py`, run by the usage step
+  with `demo/fix_usage.py`).
+- **Home screen**: the controls strip shows "P Pause" when streamed (`Source/MurderInc/UI/SMIFrontEnd.cpp`).
+- **Packaging** (`tools/box/cloud/package-cloud.sh`): `src` reads the clone as ue4 (the provenance line was empty
+  under root) and records `src.commit`; `zip` installs the launcher, writes `BUILD.txt` (commit, branch, date),
+  copies the Development game beside the Shipping one, leaves `*.debug` and `*.sym` out (kept on the box in
+  `/project/ue/cloud/symbols/<commit>/`); new `parts` step (240 MiB parts and their sha256, joined sha256 checked).
+- **Tools**: `tools/box/cloud/e3ds-verify.sh` (the runs below in one detached command); `e3ds-repro.sh` finds the
+  game under the new launcher by name and can stop the launcher instead (`STOPTO=launcher`).
+
+**Verified on the box** (box ec087d85, RTX PRO 6000 Blackwell, driver 620.70.06):
+
+@@VERIFIED@@
+
+**Package** @@PACKAGE@@
+
+**Not proven / not done:** @@NOTPROVEN@@
+
 ## Repackage for the website (release engineer, 2026-11-24) — delivered, checked from the storage
 
 **Box 8b816116**, 16:30 to 16:55. Branch head `0f23081` (C++ as built and tested in the fix pass). No editor of the
