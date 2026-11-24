@@ -160,6 +160,13 @@ pool built, 105 of 105 tests and golden replays pass, the polish pictures retake
 framed windows and glass towers, the crosshair hidden when aimed. Only the gameplay clone's L_Block was rebuilt.
 Re-verified on box 8b816116 at `b1d321f`: build OK, 105 of 105. Next is step 3.
 
+**2026-11-24 evening: step 3's fix pass is done** on box 8b816116 (PROGRESS.md, "Fix pass after the independent
+play-through"): Night out of the offer, styled in-game cards and health band, the flash aimed and its light, the
+casing, the veil gradient, the frozen field and cleared shots at the debrief, last-enemy marks and the stuck-Buzzard
+fallback in Hold the Block, the dressed loadout stage, never-streamed interior cubes, the Chop Shop oil card, and a
+`usage` step in `package-cloud.sh`; 105 of 105 tests. Next is step 4 (repackage: `package-cloud.sh all` now sets the
+usage flags itself), then grep the packaged log for `missing usage flag` and look at an explosion frame.
+
 1. Re-rent the same box (RESUME section 3) and run `/project/ue/bin/ensure-setup.sh` until `SETUP-DONE`.
 2. In `/project/ue/repo-gameplay`: `sync.sh`, `build.sh` (the 36-card flash pool, commit 9e55db3, was never compiled),
    then `tools/box/test.sh MurderInc` (105 tests and golden replays: not run since the polish changes), then

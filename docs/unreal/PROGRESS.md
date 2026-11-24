@@ -3,6 +3,84 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Fix pass after the independent play-through (2026-11-24) — built, 105 of 105, pictures retaken
+
+**2026-11-24, box 8b816116**, gameplay clone `/project/ue/repo-gameplay`, branch head built at each step (`build.sh` OK
+every time; only the two known `CompositeFont` deprecation warnings). `tools/box/test.sh MurderInc`: **105 of 105 pass**,
+golden replays included, on `f643e67` (all the C++ below). The review's 14 entries, most visible first:
+
+**Fixed (each in a commit of its own):**
+- **Night did nothing** (`0042dc5`). `levels.json` `levels.block.times` is `["day"]`, and the boot keeps only the times
+  the default level offers (the chips, the Home picker and the title item read `Settings.Rules.Times`, which came from
+  `rules.json`, so the data change alone would not have hidden Night). A saved "night" is refused by `SetTime` and the
+  run plays by day; the briefing text is unchanged. The night rig (atmos.json `rigs.night`) is still to build.
+- **In-game cards looked like placeholders** (`00fa8a9`). `AMIHUD::DrawMenu` draws title, pause, settings, game over
+  and debrief as a dark plate with a gold top edge, the kicker in gold, the title in the display face with a gold rule,
+  the note wrapped to the plate, stats as key/value rows with hairlines, and every item as a row: the selected one a
+  gold button with dark text (no more `> <`), adjustable values as `<  value  >` in gold; all sizes scale with
+  `ClipY / 1080`. Picture `fix-pause`.
+- **Health readout** (`00fa8a9`). On a dark band bottom left like the weapon strip: the number in the display face,
+  `HEALTH` small, a bar; below 30 % the band, number and bar turn red and pulse. Picture `fix-hud`.
+- **Cooked game would draw default grey materials** (`5572427`). `package-cloud.sh` has a `usage` step (run by `all`
+  between `overlay` and `package`): `demo/fix_usage.py` on the release copy. `fix_usage.py` now also flags every
+  master under `/Game/Characters/Buzzard` for skeletal meshes. Run once on the gameplay clone here (editor stopped):
+  20 masters saved (Rule's silver, tracer, pack rifle, Goon SMG and lens, NINE magazine, the art masters, the three
+  Buzzard masters).
+- **Muzzle flash when aimed, orange forearm** (`cd8462f`). Aimed (Ads at or above `fx.flash.view.overlayAds` 0.5)
+  the player's flash uses the depth-tested cards on the muzzle, 0.7 the size (`scaleAimed`): no star over the rear
+  sight. The player's flash light is its own: `fx.flash.player` 8,000 cd, 6 m reach, placed 1.1 m out along the bore
+  past the gun (it was the enemies' 30,000 cd at the muzzle, 20 to 40 cm from the forearm). Pictures `fix-fire`,
+  `fix-fire-ads`.
+- **Forearm-long casing** (`cd8462f`). The casing's first-person phase is drawn at `fx.casing.viewScale` 0.55 and
+  spins at `viewSpin` 0.3 of the world spin (1,400 degrees a second a few centimetres from the eye smeared into a bar
+  under motion blur).
+- **Stepped fade into the stage** (`44f6c4a`). `SMIFrontEnd` draws the veil's edge as one image: a 512 x 1 transient
+  texture, the background colour with alpha 0.88 falling to 0 by a smooth step. Pictures `fix-loadout`,
+  `fix-briefing`.
+- **Pursuers fire over the debrief** (same commit). From `Complete` the enemy field is not stepped any more (every
+  test and golden run stops at `Complete`), and `UMIEffects::ClearShots` ends every tracer, flash card and flash light
+  in flight. Picture `fix-debrief`.
+- **Wave 3 never cleared** (`f2ba240`). Hold the Block: with nothing left to spawn and one or two enemies alive, the HUD
+  marks each in red where it is (a diamond and the distance), or on the screen's edge toward it when it is off screen
+  or behind. If only Buzzards are left and none has been hurt for 60 s they are brought down (not to the player's
+  tally) and the wave clears. Game only (`Boots.bPersist`): tests and replays never take that path. The Buzzard's own
+  patrol and line of sight near the El were not changed (rules code shared with the web game's replays).
+- **Grey-box loadout stage** (`f643e67`). `frontend.json stage.materials`: world-projected instances of the block's
+  scans on the set's cubes (brick back wall, painted block walls, concrete floor, a steel top on a dark frame, a metal
+  turntable) and two pools of light on the back wall. Picture `fix-loadout`.
+- **Blocky rooms behind the backs' windows** (`87c339a`). The six baked interior cubes were streamed textures sampled
+  by a ray in the glass material (no mesh UVs), so streaming held their smallest mips. They are never streamed and
+  filtered trilinear now (`mi_interiors.py` sets both on every bake; set and saved on the gameplay clone's cubes here).
+
+- **Black rectangle on the Chop Shop floor** (`a818b8d`). Found by elimination in play (still there with dynamic
+  shadows off and with decals off): one of the eight oil-stain cards of `SM_Struct_ShopFloor` (`M_Sign_OilStain`,
+  1.2 to 2 m). Its texture set's BC alpha is coverage, but only the set (not the slot) says so, so `slot_parent` gave
+  it the opaque master and the whole card drew as a dark square. `slot_parent` now gives sign sets whose alpha is
+  coverage the masked master; on the gameplay clone `MI_Sign_OilStain` was reparented to `M_MI_SurfaceMasked` and
+  saved: an irregular blot now (`fix-chopshop3`). The rule also applies to seven more sign sets at the next
+  `block.sh start materials force` (CartonPrint, CrateStencil, IPXMark, LoadingZone, Mural, PostNoBills,
+  VultureStencil): look at them after that build.
+
+**Checked, not changed:**
+- **The Cage gate** (`fixpass-cage.txt`): the nav walk from the player start into the Cage ended 76 cm from reel 3
+  with the grab prompt up (the review's walk, from elsewhere, stopped 11 m short). The north gate is a 3 m gap
+  (level.json colliders 315 to 318, x 33 to 36) with nothing in it; the walk uses its full 40 s from the start, so a
+  bot's time limit, not the gate, is the likely cause. The level data (web parity) was not touched.
+- **Explosions** and the **packaged build's log** (`missing usage flag`): not checked; no package was made in this
+  pass. Both are for the repackage (RESUME 8, step 4): `package-cloud.sh all` now runs the usage step itself; then
+  start the build once, grep its log for `missing usage flag`, and freeze 0.1 to 0.3 s after the garage propane tanks.
+
+**Pictures** (`docs/unreal/shots/fix-*.jpg`, play in editor on this build): `fix-loadout` (dressed stage, smooth veil
+edge), `fix-briefing` (veil over the street), `fix-hud` (health band), `fix-fire` and `fix-fire-ads` (0.03 s after a
+round: flash on the muzzle, no orange forearm, casing small), `fix-pause` (styled card), `fix-debrief` (the debrief
+card after extraction, no tracer), `fix-cage` (end of the nav walk at reel 3), `fix-chopshop3` (the oil blot). The
+proof script is `tools/box/fp/fixpass-shots.sh` (with `fixpass-cage.txt`, `fixpass-debrief.txt`).
+
+**Not done.** The night rig; the Buzzard's own patrol height and line of sight near the El (rules code shared with the
+web game's replays: the 60 s fallback and the HUD marks cover a stuck Buzzard); the repackage and the explosion frame
+in it; the level clone (`/project/ue/repo`) has neither the cube nor the oil-stain change (rebuild there with
+`block.sh start materials force`, then `interiors`).
+
 ## Box back: fix pass built and proven, start view, the backs and the skyline dressed — done
 
 **2026-11-24, box d6f06d9d** (new rental, RTX PRO 6000, 16 cores, 64 GB, 113.84 credits an hour), gameplay clone
