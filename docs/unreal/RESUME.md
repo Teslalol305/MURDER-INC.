@@ -59,7 +59,7 @@ The owner's standing instructions (verbatim):
 | The workflow scripts that ran the agents | `tools/workflows/*.js` |
 | Git-ignored art outputs (11 GB) | `art/out/`, backed up to the box at `/project/backup/art-out/`; restore with `tools/box/restore-art-out.sh` |
 
-**The box.** Higgsfield GPU rental, desktop kind. Last session id `b7e1c683-7564-487d-8fc5-e1165b6bfebb`; it stops by
+**The box.** Higgsfield GPU rental, desktop kind. Last session id `8b816116-3377-4331-9a05-d201df758d97`; it stops by
 itself after 10 idle minutes, and `/project` survives. To re-rent: `mcp__Higgsfield__gpu_rent` with gpu_type
 `RTX-PRO-6000`, gpu_count 1, kind `desktop`, cpu 16, memory_gib 64, max_credits_per_hour 114 and a fresh idempotency
 key; then run `/project/ue/bin/ensure-setup.sh` until it prints `SETUP-DONE`. Projects on the box: level clone
@@ -158,7 +158,7 @@ above about 2,500). Then, in order:
 pool built, 105 of 105 tests and golden replays pass, the polish pictures retaken; also fixed there: the start view
 (pitched 7 degrees up, no trash can), the neighbours' backs dressed with the facade kit's window bays, the backdrop's
 framed windows and glass towers, the crosshair hidden when aimed. Only the gameplay clone's L_Block was rebuilt.
-Next is step 3.
+Re-verified on box 8b816116 at `b1d321f`: build OK, 105 of 105. Next is step 3.
 
 1. Re-rent the same box (RESUME section 3) and run `/project/ue/bin/ensure-setup.sh` until `SETUP-DONE`.
 2. In `/project/ue/repo-gameplay`: `sync.sh`, `build.sh` (the 36-card flash pool, commit 9e55db3, was never compiled),

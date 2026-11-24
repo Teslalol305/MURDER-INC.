@@ -50,6 +50,8 @@ on the knuckles; `polish-hold` shows Hold the Block wave 1 with Goons on the ave
 `backs-cage.jpg` (the Cage's two backs, the towers behind), `skyline-west.jpg` (the avenue's continuation and the
 towers from 22 m up). Before: the polish pass's pictures in git history.
 
+**Re-verified on the branch head (2026-11-24 15:20, box 8b816116, a new rental after d6f06d9d stopped idle).** `ensure-setup.sh` SETUP-DONE; `sync.sh` `ca393d8 -> b1d321f` (no C++ changed); `build.sh` OK (402 s, fresh box; only the two known `CompositeFont` deprecation warnings in `MIStyle.cpp`); `tools/box/test.sh MurderInc`: **105 of 105 pass**, golden replays included (98 s). Nothing in the game changed since the pictures above, so they were not retaken.
+
 **Not done.** The level clone (`/project/ue/repo`) was not rebuilt: its L_Block keeps the old backs until
 `block.sh start materials force` then `level` there. The repackage for the website (RESUME section 8 steps 4 and 5)
 and the independent play-through review (step 3) are next. The muzzle flash light turns the firing forearm orange
