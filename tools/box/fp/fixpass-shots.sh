@@ -33,7 +33,7 @@ ui_shot() {
 }
 shot() { settle "${2:-30}"; pie_shot "$out/$1.jpg"; }
 fire_frozen() { c "MIFreezeOn fire ${FREEZE:-0.03}"; c "MIInput fire 1"; sleep 3; c "MIInput fire 0"; }
-demo() { local m i; m=$(wc -l < "$log"); c "MIDemo.Run $PWD/fp/$1"; for i in $(seq 1 "${2:-60}"); do settle 3; sleep 1; tail -n +"$m" "$log" | grep -q "MIDemo: .*script done" && break; done; tail -n +"$m" "$log" | grep "MIDemo:" | grep -v "event enemy" | tail -8 | sed 's/.*MIDemo:/MIDemo:/' | cut -c1-200; }
+demo() { local m i; m=$(wc -l < "$log"); c "slomo 1"; c "MIDemo.Run $PWD/fp/$1"; for i in $(seq 1 "${2:-60}"); do settle 3; sleep 1; tail -n +"$m" "$log" | grep -q "MIDemo: .*script done" && break; done; tail -n +"$m" "$log" | grep "MIDemo:" | grep -v "event enemy" | tail -8 | sed 's/.*MIDemo:/MIDemo:/' | cut -c1-200; }
 
 pie_start > /dev/null
 for i in $(seq 1 40); do tail -n +"$mark" "$log" | grep -q 'Play in editor total start time' && break; sleep 2; done
