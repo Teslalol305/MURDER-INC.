@@ -174,6 +174,7 @@ package() {
     -archive -archivedirectory=$C/build-$cfg -prereqs \
     '-AdditionalCookerOptions=-DDC=(ProjectPak,InstalledProjectPak,EnginePak=InstalledEnginePak,EnterprisePak,InstalledLocal) -NoDDCCleanup -ini:Engine:[Zen]:AutoLaunch=false -ini:Engine:[ConsoleVariables]:AssetRegistry.DisableDirectoryWatcher=1'" \
     || { say "PACKAGE $cfg FAILED"; return 1; }
+  cp "$C/src.commit" "$C/build-$cfg.commit"  # the commit the game binaries were built from (BUILD.txt)
   say "PACKAGE $cfg OK: $(du -sh "$C/build-$cfg/Linux" | cut -f1)"
 }
 
@@ -182,7 +183,7 @@ zipit() {
   local D=$C/build-Development/Linux/MurderInc/Binaries/Linux launcher=$C/src/tools/box/cloud/MurderInc.sh
   [ -f "$L/MurderInc.sh" ] || { say "no $L/MurderInc.sh"; return 1; }
   [ -f "$launcher" ] && [ -f "$C/src.commit" ] || { say "run src first (no $launcher or src.commit)"; return 1; }
-  local sha; sha=$(cat "$C/src.commit")
+  local sha gsha; sha=$(cat "$C/src.commit"); gsha=$(cat "$C/build-Shipping.commit" 2>/dev/null || echo "$sha")
   # Our launcher in place of the engine's (which ran MurderInc-Linux-Shipping MurderInc -MICloud "$@" and kept no
   # log): it logs to MurderInc/Saved/Logs, passes stop signals on, never runs the game as root.
   cp "$launcher" "$L/MurderInc.sh" && chmod 755 "$L/MurderInc.sh" || return 1
@@ -190,13 +191,13 @@ zipit() {
   if [ -f "$D/MurderInc" ]; then cp "$D/MurderInc" "$B/MurderInc" && chmod 755 "$B/MurderInc" || return 1; fi
   {
     echo "MURDER INC. cloud build for Eagle 3D Streaming (Linux, Unreal Engine 5.9, Pixel Streaming 2)"
-    echo "commit $sha (branch $BRANCH, committed $(as_ue4 git -C "$C/src" log -1 --format=%cI))"
+    echo "commit $gsha (branch $BRANCH)$( [ "$gsha" != "$sha" ] && echo "; launcher and packaging from commit $sha")"
     echo "packaged $(date -u '+%Y-%m-%d %H:%M UTC') with tools/box/cloud/package-cloud.sh"
     echo "games: MurderInc/Binaries/Linux/MurderInc-Linux-Shipping (default), MurderInc/Binaries/Linux/MurderInc (Development: launch option -MIDev)"
     echo "shaders: Vulkan SM6 (Nanite, Lumen, hardware ray tracing) and the SM5 fallback; log: MurderInc/Saved/Logs/MurderInc.log"
   } > "$L/BUILD.txt"
   # Debug symbols stay on the box, by commit, to turn a crash report's addresses into function names.
-  local S=$C/symbols/${sha:0:7}
+  local S=$C/symbols/${gsha:0:7}
   mkdir -p "$S" && cp -f "$B"/*.debug "$B"/*.sym "$D"/*.debug "$D"/*.sym "$S/" 2>/dev/null
   rm -f "$z"
   (cd "$L" && python3 - "$z" <<'EOF'
@@ -213,7 +214,7 @@ with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as z:
 EOF
   ) || return 1
   sha256sum "$z" | cut -d' ' -f1 > "$z.sha256"
-  say "ZIP OK: $z $(du -h "$z" | cut -f1) sha256 $(cat "$z.sha256") (commit ${sha:0:7}; symbols in $S)"
+  say "ZIP OK: $z $(du -h "$z" | cut -f1) sha256 $(cat "$z.sha256") (game ${gsha:0:7}, launcher ${sha:0:7}; symbols in $S)"
 }
 
 parts() {

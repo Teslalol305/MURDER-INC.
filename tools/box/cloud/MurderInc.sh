@@ -137,6 +137,10 @@ ARGS+=(-stdout -FullStdOutLogOutput)
 note "start: ${RUNAS[*]} $BIN ${ARGS[*]} ${PASS[*]}"
 note "---- the game"
 
+# A background job of a non-interactive shell starts with SIGINT and SIGQUIT ignored, and Unreal keeps an ignored
+# SIGINT ignored: give the game the default back (coreutils env), so a host's Ctrl+C-style stop reaches it.
+DEFSIG=(); env --default-signal=INT,QUIT true 2>/dev/null && DEFSIG=(env --default-signal=INT,QUIT)
+
 # ---- the game: its output goes to the log (and to this launcher's own output, which the host may read) ----
 FIFO=
 command -v tee >/dev/null 2>&1 && FIFO=$(mktemp -u "${TMPDIR:-/tmp}/MurderInc-out.XXXXXX") && { mkfifo "$FIFO" || FIFO=; }
@@ -148,10 +152,10 @@ if [ -n "$FIFO" ]; then
   TOPT=-a; tee --version 2>/dev/null | grep -q GNU && TOPT=-ap
   ( trap '' TERM INT HUP PIPE; exec tee $TOPT "$LOG" ) < "$FIFO" & TEE=$!
   START=$(date +%s)
-  "${RUNAS[@]}" "$BIN" "${ARGS[@]}" "${PASS[@]}" > "$FIFO" 2>&1 &
+  "${RUNAS[@]}" "${DEFSIG[@]}" "$BIN" "${ARGS[@]}" "${PASS[@]}" > "$FIFO" 2>&1 &
 else
   START=$(date +%s)
-  "${RUNAS[@]}" "$BIN" "${ARGS[@]}" "${PASS[@]}" >> "$LOG" 2>&1 &
+  "${RUNAS[@]}" "${DEFSIG[@]}" "$BIN" "${ARGS[@]}" "${PASS[@]}" >> "$LOG" 2>&1 &
 fi
 GAME=$!
 # A stop signal for this launcher goes on to the game, once, and only if the game did not get it too: a host that
@@ -167,7 +171,8 @@ while :; do
   alive || break
   if [ -n "$STOPPED" ] && [ -z "$FWD" ]; then
     for i in 1 2 3 4 5 6 7 8 9 10; do alive || break; sleep 0.5; done
-    if alive; then kill -s "$STOPPED" "$GAME" 2>/dev/null; FWD=1; note "passed SIG$STOPPED on to the game"; fi
+    # Always as SIGTERM: the game may still ignore SIGINT (see DEFSIG), never SIGTERM.
+    if alive; then kill -s TERM "$GAME" 2>/dev/null; FWD=1; note "got SIG$STOPPED: passed it on to the game as SIGTERM"; fi
   fi
 done
 # The game may have been reaped by the wait that the trap interrupted: its status is then the last wait's.
@@ -177,10 +182,13 @@ wait "$GAME" 2>/dev/null; R2=$?; [ "$R2" != 127 ] && RC=$R2
 
 # ---- after the game ----
 SECS=$(( $(date +%s) - START ))
+# A stop the host asked for: the game ended by (or with the code of) a stop signal while one was pending.
+HOSTSTOP=
+if [ -n "$STOPPED" ] && { [ "$RC" = 130 ] || [ "$RC" = 143 ] || [ "$RC" = 129 ]; }; then HOSTSTOP=1; fi
 if [ "$RC" -gt 128 ] && [ "$RC" -lt 160 ]; then
   SIG=$(kill -l $((RC - 128)) 2>/dev/null)
-  if [ -n "$STOPPED" ] && [ "$SIG" = "$STOPPED" ]; then
-    note "the game was stopped by SIG$SIG (sent by the host) after ${SECS}s"
+  if [ -n "$HOSTSTOP" ]; then
+    note "the game was stopped by SIG$SIG after the host's SIG$STOPPED, after ${SECS}s"
   else
     note "CRASH: the game was killed by signal $((RC - 128)) (SIG$SIG) after ${SECS}s"
   fi
@@ -202,7 +210,5 @@ for c in "${USERDIR:-/nonexistent}/Saved/Crashes" "$PROJ/Saved/Crashes" "${HOME:
 done
 note "end: exit code $RC; log $LOG"
 # A stop the host asked for is a normal quit.
-if [ -n "$STOPPED" ] && [ "$RC" -gt 128 ] && [ "$RC" -lt 160 ] && [ "$(kill -l $((RC - 128)) 2>/dev/null)" = "$STOPPED" ]; then
-  exit 0
-fi
+[ -n "$HOSTSTOP" ] && exit 0
 exit "$RC"
