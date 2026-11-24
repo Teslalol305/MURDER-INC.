@@ -64,6 +64,10 @@ public:
 	/** A card acted on a press (confirm, click, back, the pause key): what is still held does not carry into play. */
 	void DropMenuPresses();
 
+	// The console commands below are for headless checks and pictures on the box. None of them does anything in the
+	// Shipping game (their bodies are compiled out): a stream's viewer can reach the console through launch options
+	// on a link, and a command such as MIShot writes a file where its caller says.
+
 	/**
 	 * Console input for headless checks: MIInput <fire|ads|sprint|crouch|jump|reload|swap|melee|weapon1|weapon2|forward|right> <value>.
 	 * Buttons: 1 presses and holds, 0 releases. forward and right set the move axis (-1..1).

@@ -90,6 +90,7 @@ namespace MIAudioHostPrivate
 			FirstGameAudio(World)->SetOptions(O);
 		}));
 
+#if !UE_BUILD_SHIPPING  // a debug command that writes a file named by its caller: not in the Shipping game
 	FAutoConsoleCommandWithWorldAndArgs RecordCmd(
 		TEXT("MIAudio.Record"),
 		TEXT("MIAudio.Record start | stop [name]: record the event bus to Saved/Audio/<name>.json for MurderInc.Audio.Mixdown"),
@@ -111,6 +112,7 @@ namespace MIAudioHostPrivate
 				UE_LOG(LogMIAudioHost, Display, TEXT("MIAudio.Record: %s"), *Path);
 			}
 		}));
+#endif
 }
 
 bool UMIAudioSubsystem::ShouldCreateSubsystem(UObject* Outer) const

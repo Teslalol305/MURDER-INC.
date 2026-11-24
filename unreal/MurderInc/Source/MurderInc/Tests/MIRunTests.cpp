@@ -1036,4 +1036,348 @@ bool FMILoadoutPartsScaleTest::RunTest(const FString& Parameters)
 	return !HasAnyErrors();
 }
 
+namespace MIRunTestsPrivate
+{
+	/** A real local player and AMIPlayerController on the run's player, as the game has them: keys and axes go in
+	 *  through APlayerController::InputKey, as the viewport sends them. */
+	struct FControllerRig
+	{
+		FRunWorld& W;
+		ULocalPlayer* LP = nullptr;
+		AMIPlayerController* PC = nullptr;
+
+		explicit FControllerRig(FRunWorld& InW) : W(InW)
+		{
+			LP = NewObject<ULocalPlayer>(GEngine);
+			LP->PlayerAdded(nullptr, INVALID_CONTROLLERID);  // no controller id: no force feedback, which needs a game instance
+			PC = W.World->SpawnActor<AMIPlayerController>();
+			if (PC)
+			{
+				PC->SetPlayer(LP);
+				PC->Possess(W.Player);
+				if (UEnhancedInputLocalPlayerSubsystem* Sub = LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
+				{
+					FModifyContextOptions Now;
+					Now.bForceImmediately = true;
+					Sub->RequestRebuildControlMappings(Now);
+				}
+			}
+		}
+		~FControllerRig()
+		{
+			if (PC) PC->UnPossess();
+			LP->PlayerRemoved();
+		}
+		void Key(const FKey& K, EInputEvent E) const
+		{
+			PC->InputKey(FInputKeyEventArgs(nullptr, FInputDeviceId::CreateFromInternalId(0), K, E, E == IE_Released ? 0.f : 1.f, false, FPlatformTime::Cycles64()));
+		}
+		void Axis(const FKey& K, float Value) const
+		{
+			PC->InputKey(FInputKeyEventArgs(nullptr, FInputDeviceId::CreateFromInternalId(0), K, Value, Dt, 1, FPlatformTime::Cycles64()));
+		}
+		/** Steps with an axis held: a browser's pad sends its axes every frame. */
+		void Hold(const FKey& K, float Value, int32 Frames) const
+		{
+			for (int32 I = 0; I < Frames; ++I)
+			{
+				Axis(K, Value);
+				W.Step();
+			}
+		}
+		void Rest(const FKey& K) const
+		{
+			Hold(K, 0.f, 2);
+		}
+	};
+
+	/** The yaw turned over Frames steps of Do (degrees, right positive), whatever way it wraps. */
+	double YawTurned(FRunWorld& W, int32 Frames, TFunctionRef<void()> Do)
+	{
+		double Sum = 0.0, Last = W.Player->GetPlayerRules().Yaw;
+		for (int32 I = 0; I < Frames; ++I)
+		{
+			Do();
+			const double Yaw = W.Player->GetPlayerRules().Yaw;
+			Sum += FMath::FindDeltaAngleDegrees(Last, Yaw);
+			Last = Yaw;
+		}
+		return Sum;
+	}
+}
+
+// The gamepad through the controller's own mappings (spec 01 3.16, 3.17; version 3, play through the stream): the right
+// stick turns the view at the web game's rate, the pad becomes the device in use (the aim slow-down's switch), the stick
+// picks on the weapon wheel while that is open and turns nothing meanwhile, the left stick has its dead zone, the
+// triggers fire and aim from their axes (a browser's pad sends nothing else for them), L3 latches the sprint.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIControllerPadTest, "MurderInc.Player.ControllerPad", MITest::Flags)
+
+bool FMIControllerPadTest::RunTest(const FString& Parameters)
+{
+	using namespace MIRunTestsPrivate;
+	FRunWorld W;
+	UMIFrontEnd* F = StartWith(*this, W, [](FMIRunSetup& S)
+	{
+		S.Guns = {TEXT("chopper"), TEXT("nine"), TEXT("stick"), TEXT("stretch")};
+	});
+	if (!F)
+	{
+		return false;
+	}
+	FControllerRig Rig(W);
+	if (!TestNotNull(TEXT("controller"), Rig.PC))
+	{
+		return false;
+	}
+	FMIPlayerRules& Rules = W.Player->GetPlayerRules();
+	FMIPlayerInputState& In = W.Player->GetInput();
+	Rules.bInvulnerable = true;  // the Goons of the run may shoot: nobody dies in an input test
+	// Looking at the ground: no enemy can come under the crosshair, so the aim slow-down stays out of the turn rate.
+	Rules.Pitch = -80.0;
+	W.Step();
+	TestFalse(TEXT("the keyboard and mouse are the device at the start"), Rig.PC->IsPadActive());
+
+	// Full right stick for one second (30 frames here): the web game's functions give 264.775 degrees at 30 frames a
+	// second (166 degrees a second, 291 once the boost is full after 0.45 s; MurderInc.Input.PadLook has the 60 fps
+	// number too).
+	int32 Frame = 0;
+	const double Turned = YawTurned(W, 34, [&]() { Rig.Axis(EKeys::Gamepad_RightX, Frame++ < 30 ? 1.f : 0.f); W.Step(); });
+	TestTrue(FString::Printf(TEXT("full right stick for one second turns 264.775 degrees to the right (turned %.3f)"), Turned), FMath::IsNearlyEqual(Turned, 264.77546849244663, 0.01));
+	TestTrue(TEXT("the pad is the device in use after stick input"), Rig.PC->IsPadActive());
+	TestTrue(TEXT("and the weapon rules are told (the aim slow-down)"), In.bPad);
+	TestEqual(TEXT("the stick at rest turns nothing"), YawTurned(W, 10, [&]() { Rig.Axis(EKeys::Gamepad_RightX, 0.05f); W.Step(); }), 0.0);
+
+	// Stick up looks up, at 62 % of the yaw rate; half a second from level stays inside the pitch limit.
+	Rules.Pitch = -80.0;
+	Rig.Hold(EKeys::Gamepad_RightY, 1.f, 15);
+	Rig.Rest(EKeys::Gamepad_RightY);
+	TestTrue(FString::Printf(TEXT("stick up for half a second looks up (pitch %.2f)"), Rules.Pitch), Rules.Pitch > -80.0 + 60.0 && Rules.Pitch < -80.0 + 80.0);
+	Rules.Pitch = -80.0;
+
+	// A key press takes the device back; so do four pixels of mouse travel in one frame, but not a nudge.
+	Rig.Key(EKeys::LeftShift, IE_Pressed);
+	W.Step();
+	Rig.Key(EKeys::LeftShift, IE_Released);
+	W.Step();
+	TestFalse(TEXT("a key press makes the keyboard and mouse the device"), Rig.PC->IsPadActive());
+	W.Step();
+	TestFalse(TEXT("and the weapon rules are told"), In.bPad);
+	Rig.Key(EKeys::Gamepad_FaceButton_Top, IE_Pressed);
+	W.Step();
+	Rig.Key(EKeys::Gamepad_FaceButton_Top, IE_Released);
+	for (int32 I = 0; I < 60; ++I) W.Step();
+	TestTrue(TEXT("a pad button makes the pad the device"), Rig.PC->IsPadActive());
+	Rig.Axis(EKeys::MouseX, 2.f);
+	W.Step();
+	TestTrue(TEXT("a nudge of the mouse (2 counts) does not take the device back"), Rig.PC->IsPadActive());
+	Rig.Axis(EKeys::MouseX, 4.f);
+	W.Step();
+	TestFalse(TEXT("4 counts of mouse travel in one frame do"), Rig.PC->IsPadActive());
+
+	// The desktop mouse is what it was: counts x player.input.mouse (0.120321 degrees) x sensitivity.
+	const double Mouse = YawTurned(W, 3, [&, N = 0]() mutable { if (N++ == 0) Rig.Axis(EKeys::MouseX, 300.f); W.Step(); });
+	TestTrue(FString::Printf(TEXT("desktop: 300 mouse counts turn 36.096 degrees (turned %.4f)"), Mouse), FMath::IsNearlyEqual(Mouse, 300.0 * 0.12032113697747288, 1e-6));
+
+	// The mouse through a stream: events one by one, 2 counts a pixel less the one lost on the way; the engine's own
+	// mouse axis is ignored meanwhile; a spike is dropped and counted.
+	FMIStreamMouse Shape;
+	Shape.Scale = 0.5;
+	Shape.Truncation = 1.0;
+	Shape.Glitch = 400.0;
+	Rig.PC->SetStreamMouse(Shape);
+	const double Stream = YawTurned(W, 3, [&, N = 0]() mutable
+	{
+		if (N++ == 0)
+		{
+			TestTrue(TEXT("stream: a 10-pixel event is kept"), Rig.PC->StreamMouseEvent(FVector2D(19.0, 0.0)));   // 10 pixels
+			TestTrue(TEXT("stream: a 1-pixel event is kept"), Rig.PC->StreamMouseEvent(FVector2D(1.0, 0.0)));     // 1 pixel
+			TestTrue(TEXT("stream: a 5-pixel event is kept"), Rig.PC->StreamMouseEvent(FVector2D(9.0, 0.0)));     // 5 pixels
+			TestFalse(TEXT("stream: a 2000-count event is a spike"), Rig.PC->StreamMouseEvent(FVector2D(-2000.0, 0.0)));
+			Rig.Axis(EKeys::MouseX, 300.f);  // the engine's axis: not used in a stream
+		}
+		W.Step();
+	});
+	TestTrue(FString::Printf(TEXT("stream: 10 + 1 + 5 browser pixels turn 1.925 degrees (turned %.4f)"), Stream), FMath::IsNearlyEqual(Stream, 16.0 * 0.12032113697747288, 1e-6));
+	TestEqual(TEXT("stream: one spike counted"), Rig.PC->GetMouseSpikes(), 1);
+	Rig.PC->ClearStreamMouse();
+
+	// The triggers' axes: beyond pad.trigger (0.35) the trigger is down. One pull is one press.
+	In.bFirePressed = false;
+	Rig.Hold(EKeys::Gamepad_RightTriggerAxis, 0.2f, 2);
+	TestFalse(TEXT("a right trigger at 0.2 does not fire"), In.bFire);
+	Rig.Axis(EKeys::Gamepad_RightTriggerAxis, 0.6f);
+	W.Step();
+	TestTrue(TEXT("a right trigger at 0.6 fires"), In.bFire);
+	Rig.Hold(EKeys::Gamepad_RightTriggerAxis, 1.f, 3);
+	TestTrue(TEXT("and holds the fire"), In.bFire);
+	Rig.Rest(EKeys::Gamepad_RightTriggerAxis);
+	TestFalse(TEXT("letting the trigger go ends the fire"), In.bFire);
+	Rig.Hold(EKeys::Gamepad_LeftTriggerAxis, 0.9f, 3);
+	TestTrue(TEXT("the left trigger's axis aims"), In.bAds);
+	Rig.Rest(EKeys::Gamepad_LeftTriggerAxis);
+	TestFalse(TEXT("letting it go ends the aim"), In.bAds);
+	for (int32 I = 0; I < 45; ++I) W.Step();
+
+	// The left stick: nothing inside the dead zone, the rest rescaled; on top of the keys.
+	Rig.Hold(EKeys::Gamepad_LeftY, 0.1f, 2);
+	TestEqual(TEXT("the left stick inside its dead zone moves nothing"), In.Move.Y, 0.0);
+	Rig.Hold(EKeys::Gamepad_LeftY, 0.57f, 2);
+	TestTrue(FString::Printf(TEXT("the left stick at 0.57 is half forward (%.4f)"), In.Move.Y), FMath::IsNearlyEqual(In.Move.Y, 0.5, 1e-4));
+	// L3 latches the sprint while the stick is forward; easing off lets it go.
+	Rig.Hold(EKeys::Gamepad_LeftY, 1.f, 2);
+	Rig.Key(EKeys::Gamepad_LeftThumbstick, IE_Pressed);
+	Rig.Hold(EKeys::Gamepad_LeftY, 1.f, 1);
+	Rig.Key(EKeys::Gamepad_LeftThumbstick, IE_Released);
+	Rig.Hold(EKeys::Gamepad_LeftY, 1.f, 5);
+	TestTrue(TEXT("one click of L3 holds the sprint"), Rig.PC->IsSprintLatched() && In.bSprint);
+	Rig.Hold(EKeys::Gamepad_LeftY, 0.3f, 2);
+	TestFalse(TEXT("easing the stick off forward lets the sprint go"), Rig.PC->IsSprintLatched() || In.bSprint);
+	Rig.Rest(EKeys::Gamepad_LeftY);
+	TestEqual(TEXT("the stick at rest: no move"), In.Move.Y, 0.0);
+
+	// The weapon wheel keeps the stick: holding Y (four guns) opens it, the stick picks, the view does not turn.
+	Rig.Key(EKeys::Gamepad_FaceButton_Top, IE_Pressed);
+	for (int32 I = 0; I < 12; ++I) W.Step();
+	TestTrue(TEXT("holding Y opens the wheel"), Rig.PC->GetSwitch().IsWheelOpen());
+	const double WheelTurn = YawTurned(W, 10, [&]() { Rig.Axis(EKeys::Gamepad_RightX, 1.f); W.Step(); });
+	TestEqual(TEXT("the stick turns nothing while the wheel is open"), WheelTurn, 0.0);
+	TestEqual(TEXT("the stick to the right picks slot 2 of four"), Rig.PC->GetSwitch().GetSelection(), 1);
+	Rig.Key(EKeys::Gamepad_FaceButton_Top, IE_Released);
+	W.Step();
+	TestFalse(TEXT("releasing Y shuts the wheel"), Rig.PC->GetSwitch().IsWheelOpen());
+	Rig.Rest(EKeys::Gamepad_RightX);
+	for (int32 I = 0; I < 45; ++I) W.Step();
+	TestEqual(TEXT("the pick is in hand"), W.Player->GetWeapon()->GetRules().GetCurrentIndex(), 1);
+	return !HasAnyErrors();
+}
+
+// The cards take the mouse (version 3): a click acts on the row under it, the cursor selects, and the press that left
+// a card does not carry into play (spec 01 3.16).
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIRunMenuMouseTest, "MurderInc.Run.MenuMouse", MITest::Flags)
+
+bool FMIRunMenuMouseTest::RunTest(const FString& Parameters)
+{
+	using namespace MIRunTestsPrivate;
+	FRunWorld W;
+	if (!W.Boot(*this, TEXT("mission"), TEXT("boss")))
+	{
+		return false;
+	}
+	for (int32 I = 0; I < 30 * 4 && W.State() != EMIGameState::Playing; ++I) W.Step();
+	if (!TestEqual(TEXT("playing"), (int32)W.State(), (int32)EMIGameState::Playing))
+	{
+		return false;
+	}
+	W.Player->GetPlayerRules().bInvulnerable = true;
+	FMIMenu& M = W.Game->GetMenu();
+	// What the HUD does each frame it draws a card: where the rows are (here 400 wide from x 100, 40 high, 10 apart).
+	const auto Draw = [&M]()
+	{
+		FMIMenuLayout& L = M.Layout;
+		L.Screen = M.Screen;
+		L.X = 100.0;
+		L.Width = 400.0;
+		L.Top = 200.0;
+		L.RowHeight = 40.0;
+		L.RowGap = 10.0;
+		L.Adjust.Reset();
+		for (const FMIMenuItem& Item : M.Items) L.Adjust.Add(Item.bAdjust);
+	};
+	const auto At = [&M](FName Id, double Share) { return FVector2D(100.0 + 400.0 * Share, 200.0 + M.IndexOf(Id) * 50.0 + 20.0); };
+
+	TestFalse(TEXT("no card in play: a click hits nothing"), W.Game->MenuClick(FVector2D(300.0, 220.0)));
+	W.Game->PauseKey();
+	TestEqual(TEXT("the pause card"), (int32)M.Screen, (int32)EMIMenuScreen::Pause);
+	TestFalse(TEXT("the card is not drawn yet: a click hits nothing"), W.Game->MenuClick(FVector2D(300.0, 220.0)));
+	Draw();
+	// The cursor selects, and only selects.
+	TestTrue(TEXT("the cursor over Restart"), W.Game->MenuHover(At(TEXT("restart"), 0.5)));
+	TestEqual(TEXT("selects it"), M.Selected, M.IndexOf(TEXT("restart")));
+	TestEqual(TEXT("and does nothing else"), (int32)W.State(), (int32)EMIGameState::Paused);
+	TestFalse(TEXT("the cursor between two rows selects nothing"), W.Game->MenuHover(FVector2D(300.0, 245.0)));
+	TestEqual(TEXT("the selection stays"), M.Selected, M.IndexOf(TEXT("restart")));
+	TestFalse(TEXT("a click beside the card does nothing"), W.Game->MenuClick(FVector2D(50.0, 220.0)));
+	TestEqual(TEXT("still paused"), (int32)W.State(), (int32)EMIGameState::Paused);
+	// An adjustable row: the right half is the next value, the left half the one before.
+	const FName Difficulty = W.Game->GetSettings().Difficulty;
+	TestTrue(TEXT("a click on the right half of Difficulty"), W.Game->MenuClick(At(TEXT("difficulty"), 0.9)));
+	const FName Harder = W.Game->GetSettings().Difficulty;
+	TestNotEqual(TEXT("changes the difficulty"), Harder, Difficulty);
+	Draw();
+	TestTrue(TEXT("a click on its left half"), W.Game->MenuClick(At(TEXT("difficulty"), 0.1)));
+	TestEqual(TEXT("goes back"), W.Game->GetSettings().Difficulty, Difficulty);
+	// A button: Settings opens; the pause card's rows are no longer what a click hits.
+	Draw();
+	TestTrue(TEXT("a click on Settings"), W.Game->MenuClick(At(TEXT("settings"), 0.5)));
+	TestEqual(TEXT("opens the settings card"), (int32)M.Screen, (int32)EMIMenuScreen::Settings);
+	TestFalse(TEXT("before the settings card is drawn a click hits nothing"), W.Game->MenuClick(FVector2D(300.0, 220.0)));
+	Draw();
+	const double Sens = W.Game->GetSettings().Sens;
+	TestTrue(TEXT("a click on the left half of Sensitivity"), W.Game->MenuClick(At(TEXT("sens"), 0.2)));
+	TestTrue(TEXT("lowers it one step"), FMath::IsNearlyEqual(W.Game->GetSettings().Sens, Sens - 0.05, 1e-9));
+	Draw();
+	TestTrue(TEXT("a click on its right half"), W.Game->MenuClick(At(TEXT("sens"), 0.8)));
+	TestTrue(TEXT("raises it again"), FMath::IsNearlyEqual(W.Game->GetSettings().Sens, Sens, 1e-9));
+	Draw();
+	TestTrue(TEXT("a click on Back"), W.Game->MenuClick(At(TEXT("back"), 0.5)));
+	TestEqual(TEXT("returns to the pause card"), (int32)M.Screen, (int32)EMIMenuScreen::Pause);
+	for (int32 I = 0; I < 12; ++I) W.Step();  // past the pause debounce
+	Draw();
+	TestTrue(TEXT("a click on Resume"), W.Game->MenuClick(At(TEXT("resume"), 0.5)));
+	TestEqual(TEXT("resumes"), (int32)W.State(), (int32)EMIGameState::Playing);
+	W.Step();
+
+	// Nothing pressed on a card carries into play: Enter is confirm on a card and fire in play.
+	FControllerRig Rig(W);
+	if (!TestNotNull(TEXT("controller"), Rig.PC))
+	{
+		return false;
+	}
+	for (int32 I = 0; I < 30; ++I) W.Step();
+	FMIPlayerInputState& In = W.Player->GetInput();
+	Rig.Key(EKeys::P, IE_Pressed);
+	W.Step();
+	Rig.Key(EKeys::P, IE_Released);
+	W.Step();
+	TestEqual(TEXT("P pauses"), (int32)W.State(), (int32)EMIGameState::Paused);
+	for (int32 I = 0; I < 12; ++I) W.Step();
+	M.Selected = M.IndexOf(TEXT("resume"));
+	Rig.Key(EKeys::Enter, IE_Pressed);
+	W.Step();
+	TestEqual(TEXT("Enter on Resume resumes"), (int32)W.State(), (int32)EMIGameState::Playing);
+	bool bFired = In.bFire || In.bFirePressed;
+	for (int32 I = 0; I < 10; ++I)
+	{
+		W.Step();
+		bFired |= In.bFire || In.bFirePressed;
+	}
+	TestFalse(TEXT("the Enter that resumed does not fire while it is still down"), bFired);
+	Rig.Key(EKeys::Enter, IE_Released);
+	W.Step();
+	W.Step();
+	Rig.Key(EKeys::Enter, IE_Pressed);
+	W.Step();
+	TestTrue(TEXT("a fresh Enter in play fires"), In.bFire);
+	Rig.Key(EKeys::Enter, IE_Released);
+	W.Step();
+	TestFalse(TEXT("and stops when released"), In.bFire);
+	// Sprint is a hold that carries through a card (W, A, S, D, sprint and crouch do).
+	Rig.Key(EKeys::LeftShift, IE_Pressed);
+	W.Step();
+	TestTrue(TEXT("Shift sprints"), In.bSprint);
+	W.Game->PauseKey();
+	for (int32 I = 0; I < 12; ++I) W.Step();
+	M.Selected = M.IndexOf(TEXT("resume"));
+	Rig.Key(EKeys::Enter, IE_Pressed);
+	W.Step();
+	Rig.Key(EKeys::Enter, IE_Released);
+	W.Step();
+	TestEqual(TEXT("resumed again"), (int32)W.State(), (int32)EMIGameState::Playing);
+	TestTrue(TEXT("the Shift held through the card still sprints"), In.bSprint);
+	Rig.Key(EKeys::LeftShift, IE_Released);
+	W.Step();
+	TestFalse(TEXT("until it is released"), In.bSprint);
+	return !HasAnyErrors();
+}
+
 #endif
