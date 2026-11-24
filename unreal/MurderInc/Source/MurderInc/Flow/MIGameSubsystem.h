@@ -144,6 +144,10 @@ public:
 	bool IsSimulationLive() const { return bSimLive; }
 	bool HasArt() const { return bArt; }
 
+	/** Hold the Block: the ids of the last one or two living enemies of a wave with nothing left to spawn (the HUD marks
+	 *  them, review 2026-11-24: a wave stood open for minutes with one Buzzard nobody could find). Empty otherwise. */
+	const TArray<int32>& GetLastEnemies() const { return LastEnemies; }
+
 	/** Debug (console MIFaceEnemy): stands the player Metres from the nearest living enemy, looking at it. */
 	bool FaceNearestEnemy(double Metres);
 
@@ -227,6 +231,10 @@ private:
 
 	mutable TWeakObjectPtr<AMIPlayerCharacter> Player;
 	TSet<int32> RemovedOwners;
+	/** The hold wave's last enemies (GetLastEnemies) and how long they have stood unhurt (UpdateLastEnemies). */
+	void UpdateLastEnemies(double Dt);
+	TArray<int32> LastEnemies;
+	double LastStandFor = 0, LastStandHp = -1;
 	double RegenDelay = 0, RegenRate = 0;
 	double ShotTargetRadius = 0.38, ShotTargetStand = 1.8, ShotTargetCrouch = 1.15;
 	double TitleSpeed = 1.15, TitleFadeIn = 1.8, TitleT = 0;

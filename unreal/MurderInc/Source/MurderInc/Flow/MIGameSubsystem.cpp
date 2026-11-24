@@ -857,8 +857,60 @@ void UMIGameSubsystem::FlowFrame(double Dt)
 	Rules.Update(Dt, FP, bInteract);
 	ForwardFlow();
 	DrainEnemies();
+	UpdateLastEnemies(Dt);
 	ApplyState();
 	SyncView(Dt);
+}
+
+void UMIGameSubsystem::UpdateLastEnemies(double Dt)
+{
+	LastEnemies.Reset();
+	const bool bHold = Rules.GetMode() == TEXT("holdout") && Rules.HoldoutActive() && Rules.GetState() == EMIGameState::Playing && Rules.QueueLength() == 0;
+	const int32 Alive = bHold ? Field.AliveCount() : 0;
+	if (Alive <= 0 || Alive > 2)
+	{
+		LastStandFor = 0;
+		LastStandHp = -1;
+		return;
+	}
+	const TArray<FMIEnemy>& Slots = Field.GetSlots();
+	double Hp = 0;
+	bool bAllAir = true;
+	for (const int32 I : Field.GetList())
+	{
+		const FMIEnemy& E = Slots[I];
+		if (!E.bAlive)
+		{
+			continue;
+		}
+		LastEnemies.Add(E.Id);
+		Hp += E.Hp;
+		bAllAir &= !E.IsGoon();
+	}
+	// A wave that can never end: only Buzzards left, none hurt for 60 s. They are
+	// brought down and the wave counts as cleared (not to the player's tally). Off in tests and replays (no save slot), so the
+	// web game's rules and the golden runs are untouched.
+	if (Hp != LastStandHp)
+	{
+		LastStandHp = Hp;
+		LastStandFor = 0;
+	}
+	LastStandFor += Dt;
+	const double Limit = 60.0;
+	if (Boots.bPersist && bAllAir && LastStandFor > Limit)
+	{
+		UE_LOG(LogMI, Log, TEXT("Hold: %d Buzzard(s) unhurt for %.0f s as the wave's last enemies: brought down, the wave counts as cleared"), LastEnemies.Num(), LastStandFor);
+		for (const int32 Id : LastEnemies)
+		{
+			if (FMIEnemy* E = Field.Find(Id))
+			{
+				Field.Damage(*E, E->Hp + E->MaxHp + 1.0, TEXT("body"), TOptional<FVector>(), false, NAME_None);
+			}
+		}
+		LastStandFor = 0;
+		LastStandHp = -1;
+		DrainEnemies();
+	}
 }
 
 void UMIGameSubsystem::EnemyFrame(double Dt)

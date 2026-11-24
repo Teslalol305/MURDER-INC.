@@ -5,6 +5,7 @@
 #include "Engine/Font.h"
 #include "Core/Data/MIDataSubsystem.h"
 #include "Flow/MIGameSubsystem.h"
+#include "Enemies/MIEnemies.h"
 #include "Player/MIPlayerController.h"
 #include "UI/MIFrontEnd.h"
 #include "UI/MIStyle.h"
@@ -273,6 +274,48 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 			const double Pad = 5.0;
 			DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), C.X - TW * 0.5 - Pad, C.Y - TH * 0.5 - Pad * 0.5, TW + Pad * 2.0, TH + Pad);
 			DrawText(Label, M.bExit ? FLinearColor(0.5f, 1.f, 0.6f, 1.f) : Amber, C.X - TW * 0.5, C.Y - TH * 0.5, Font, 1.1f);
+		}
+		// Hold the Block: the wave's last one or two enemies, marked in red where they are, or as an arrow on the
+		// screen's edge when they are off it (review 2026-11-24: nothing showed where the last enemy was).
+		for (const int32 Id : bWheel ? TArray<int32>() : Game.GetLastEnemies())
+		{
+			const FMIEnemy* E = Game.GetEnemies().Find(Id);
+			if (!E || !E->bAlive)
+			{
+				continue;
+			}
+			const double K = H / 1080.0;
+			const FVector At = MI::Web::ToUnreal(E->Pos) + FVector(0, 0, E->IsGoon() ? 200.0 : 40.0);
+			FVector Screen = Project(At, true);
+			const FVector2D Mid(W * 0.5, H * 0.5);
+			FVector2D C(Screen.X, Screen.Y);
+			const double Margin = 48.0 * K;
+			bool bEdge = Screen.Z <= 0.0 || C.X < Margin || C.X > W - Margin || C.Y < Margin || C.Y > H - Margin;
+			if (bEdge)
+			{
+				// Behind or off the screen: the direction from the centre, clamped to the edge.
+				FVector2D Dir = C - Mid;
+				if (Screen.Z <= 0.0) Dir = -Dir;
+				if (Dir.IsNearlyZero()) Dir = FVector2D(0.0, -1.0);
+				Dir.Normalize();
+				const double SX = Dir.X != 0.0 ? (W * 0.5 - Margin) / FMath::Abs(Dir.X) : 1e9;
+				const double SY = Dir.Y != 0.0 ? (H * 0.5 - Margin) / FMath::Abs(Dir.Y) : 1e9;
+				C = Mid + Dir * FMath::Min(SX, SY);
+			}
+			const double R = 11.0 * K;
+			const FLinearColor Mark = MIStyle::Red();
+			// A diamond outline on a dark backing.
+			DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.45f), C.X - R - 3.0 * K, C.Y - R - 3.0 * K, (R + 3.0 * K) * 2.0, (R + 3.0 * K) * 2.0);
+			const float LW = static_cast<float>(FMath::Max(2.0, 2.5 * K));
+			DrawLine(C.X, C.Y - R, C.X + R, C.Y, Mark, LW);
+			DrawLine(C.X + R, C.Y, C.X, C.Y + R, Mark, LW);
+			DrawLine(C.X, C.Y + R, C.X - R, C.Y, Mark, LW);
+			DrawLine(C.X - R, C.Y, C.X, C.Y - R, Mark, LW);
+			const double Metres = P ? FVector::Dist(P->GetActorLocation(), At) / 100.0 : 0.0;
+			const FString Label = FString::Printf(TEXT("%dm"), FMath::RoundToInt32(Metres));
+			float TW = 0.f, TH = 0.f;
+			GetTextSize(Label, TW, TH, MIStyle::CanvasBody(), static_cast<float>(K * 0.8));
+			DrawText(Label, Mark, C.X - TW * 0.5, C.Y + R + 6.0 * K, MIStyle::CanvasBody(), static_cast<float>(K * 0.8));
 		}
 		// The hold prompt with its fill.
 		if (!V.Prompt.IsEmpty())
