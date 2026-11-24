@@ -69,3 +69,15 @@ $0.10 (about $6 per player-hour); US and EU. Fallback: Amazon GameLift Streams o
 account and a small session backend; gamepads may not work there). Risks: our engine is Unreal 5.9 Preview 2, which no
 host lists; E3DS does not test Linux uploads, so the first upload on the free trial is the real test; budget the cloud
 build for 8 GB of video memory; read E3DS's terms for a violent shooter before publishing.
+
+## 2026-11-24: E3DS Core plan
+
+**Owner:** upgraded the E3DS account from the trial to **Core** (dashboard: 300 minutes a month, 10 GB storage
+included, 10 players at once). Build `MurderInc` version 1 (the zip of 2026-11-24, sha256 `8378eedd…e570a`, 2.2 GB)
+is stored and used by `Project_MurderInc`; 7.8 GB is free, so the fixed build fits beside it as version 2 with no paid
+storage. Once version 2 streams, delete version 1 from inside the build (open the build's versions), **not** the
+build row's trash icon, which deletes the whole build.
+
+**Still true on Core:** as far as E3DS publishes, Core streams on the same server pool as the trial (RTX 4080 or
+RTX 5070 class, 8 or 16 GB of graphics memory), so the game must still fit an 8 GB card with headroom. The owner was
+advised to ask E3DS support whether the app can be kept on 16 GB machines.
