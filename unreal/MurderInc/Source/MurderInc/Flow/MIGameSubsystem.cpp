@@ -169,6 +169,34 @@ bool UMIGameSubsystem::Boot(const FMIBootOptions& Options)
 		(*TitleCam)->TryGetNumberField(TEXT("speed"), TitleSpeed);
 		(*TitleCam)->TryGetNumberField(TEXT("fadeIn"), TitleFadeIn);
 	}
+	// Times of day: only those the default level offers (levels.json levels.<default>.times). Night has no lighting
+	// rig yet, so the block offers day only; a saved "night" is then refused by SetTime and the run plays by day.
+	{
+		TSharedPtr<FJsonObject> LevelsJson;
+		FString LevelsError;
+		const TSharedPtr<FJsonObject>* Levels = nullptr;
+		const TSharedPtr<FJsonObject>* Lv = nullptr;
+		FString DefaultLevel;
+		if (UMIDataSubsystem::LoadJsonFile(TEXT("levels.json"), LevelsJson, LevelsError) && LevelsJson->TryGetStringField(TEXT("default"), DefaultLevel)
+			&& LevelsJson->TryGetObjectField(TEXT("levels"), Levels) && (*Levels)->TryGetObjectField(DefaultLevel, Lv))
+		{
+			const TArray<TSharedPtr<FJsonValue>>* Offered = nullptr;
+			if ((*Lv)->TryGetArrayField(TEXT("times"), Offered) && Offered->Num() > 0)
+			{
+				TArray<FName> Keep;
+				for (const TSharedPtr<FJsonValue>& V : *Offered)
+				{
+					const FName T(V->AsString());
+					if (Settings.Rules.Times.Contains(T)) Keep.Add(T);
+				}
+				if (Keep.Num() > 0)
+				{
+					Settings.Rules.Times = Keep;
+					if (!Keep.Contains(Settings.Time)) Settings.Time = Keep[0];
+				}
+			}
+		}
+	}
 	const UMISaveGame* Save = Options.bPersist ? Cast<UMISaveGame>(UGameplayStatics::LoadGameFromSlot(Settings.Rules.Slot, 0)) : nullptr;
 	if (Save)
 	{

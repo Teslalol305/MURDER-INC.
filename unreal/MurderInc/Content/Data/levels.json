@@ -14,7 +14,7 @@
       "map": "/Game/Maps/L_Block",
       "data": {"level": "level.json", "props": "props.json", "atmos": "atmos.json"},
       "place": {"day": "text.location.byTime.day", "night": "text.location.byTime.night"},
-      "times": ["day", "night"],
+      "times": ["day"],
       "provides": {
         "playerStart": true,
         "objectives": 3,
