@@ -64,6 +64,8 @@ public:
 	/** An enemy round: flash at the muzzle, the tracer to the first thing it meets (presentation trace). */
 	void EnemyShot(const AActor* Shooter, const FVector& Muzzle, const FVector& Dir);
 	bool CanDrawTracers() const { return bReady && Streaks.Num() > 0; }
+	/** Ends every tracer, flash card and flash light still showing (the run is complete: nothing flies over the debrief). */
+	void ClearShots();
 	/** A brass casing out of the ejection port: seen at the first-person depth and size (ViewAt, ViewVelocity) for
 	 *  fx.casing.viewLife s, then at its true size from its true place (WorldAt, WorldVelocity) for fx.casing.life. */
 	void Casing(UStaticMesh* Mesh, const FTransform& ViewAt, const FVector& ViewVelocity, const FTransform& WorldAt, const FVector& WorldVelocity);

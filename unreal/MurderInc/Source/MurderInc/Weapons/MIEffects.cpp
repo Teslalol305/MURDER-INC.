@@ -711,3 +711,27 @@ void UMIEffects::Tick(float DeltaTime)
 		X.Mesh->SetVisibility(true);
 	}
 }
+
+void UMIEffects::ClearShots()
+{
+	for (FStreak& X : Streaks)
+	{
+		X.Age = 1e9;
+		if (X.Mesh) X.Mesh->SetVisibility(false);
+	}
+	for (FCard& C : Cards)
+	{
+		C.Age = 1e9;
+		if (C.Mesh) C.Mesh->SetVisibility(false);
+	}
+	for (FCard& C : ViewCards)
+	{
+		C.Age = 1e9;
+		if (C.Mesh) C.Mesh->SetVisibility(false);
+	}
+	for (FLight& L : Lights)
+	{
+		L.Age = 1e9;
+		if (L.Light) L.Light->SetVisibility(false);
+	}
+}

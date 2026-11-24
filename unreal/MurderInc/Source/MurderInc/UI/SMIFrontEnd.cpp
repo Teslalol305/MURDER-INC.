@@ -1,6 +1,8 @@
 #include "UI/SMIFrontEnd.h"
 
 #include "Brushes/SlateColorBrush.h"
+#include "Brushes/SlateImageBrush.h"
+#include "Engine/Texture2D.h"
 #include "Brushes/SlateRoundedBoxBrush.h"
 #include "Flow/MIGameSubsystem.h"
 #include "Styling/SlateTypes.h"
@@ -27,6 +29,43 @@ namespace MIFrontEndUI
 	/** The controls column: the left 40 % of the screen, under the veil (2.2). Nothing is drawn right of it but the
 	 *  stage, so no panel can cover the gun at any aspect ratio. */
 	constexpr float Column = 0.40f;
+
+	/** The veil's soft edge as one horizontal gradient (review 2026-11-24: eight stacked translucent strips showed as
+	 *  hard vertical bands across the sky): a transient 512 x 1 texture, the background colour with alpha falling from
+	 *  0.88 to 0 by a smooth step, kept for the life of the process. */
+	const FSlateBrush* FadeBrush()
+	{
+		static TSharedPtr<FSlateBrush> Brush;
+		if (Brush.IsValid())
+		{
+			return Brush.Get();
+		}
+		constexpr int32 N = 512;
+		UTexture2D* Tex = UTexture2D::CreateTransient(N, 1, PF_B8G8R8A8);
+		if (!Tex)
+		{
+			Brush = MakeShared<FSlateColorBrush>(WithAlpha(Bg(), 0.44f));
+			return Brush.Get();
+		}
+		Tex->SRGB = true;
+		Tex->Filter = TF_Bilinear;
+		Tex->AddressX = TA_Clamp;
+		Tex->AddressY = TA_Clamp;
+		Tex->AddToRoot();
+		const FColor C = Bg().ToFColor(true);
+		FTexture2DMipMap& Mip = Tex->GetPlatformData()->Mips[0];
+		FColor* Px = static_cast<FColor*>(Mip.BulkData.Lock(LOCK_READ_WRITE));
+		for (int32 I = 0; I < N; ++I)
+		{
+			const float T = (I + 0.5f) / N;
+			const float A = 0.88f * (1.f - FMath::SmoothStep(0.f, 1.f, T));
+			Px[I] = FColor(C.R, C.G, C.B, static_cast<uint8>(FMath::Clamp(FMath::RoundToInt32(A * 255.f), 0, 255)));
+		}
+		Mip.BulkData.Unlock();
+		Tex->UpdateResource();
+		Brush = MakeShared<FSlateImageBrush>(Tex, FVector2D(N, 1));
+		return Brush.Get();
+	}
 
 	/** Brushes live as long as the process (Slate holds raw pointers to them). */
 	const FSlateBrush* Box(const FLinearColor& Fill, float Radius = 6.f, const FLinearColor& Edge = FLinearColor::Transparent, float EdgeWidth = 0.f)
@@ -218,13 +257,10 @@ void SMIFrontEnd::Rebuild()
 
 TSharedRef<SWidget> SMIFrontEnd::Frame(TSharedRef<SWidget> Body, bool bScroll)
 {
-	// The veil: the left 40 % holds the controls, the rest shows the stage; a soft edge in eight strips.
+	// The veil: the left 40 % holds the controls, the rest shows the stage; a soft edge as one smooth gradient.
 	TSharedRef<SHorizontalBox> Veil = SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot().FillWidth(Column)[SNew(SImage).Image(Box(WithAlpha(Bg(), 0.88f), 0.f))];
-	for (int32 I = 0; I < 8; ++I)
-	{
-		Veil->AddSlot().FillWidth(0.02f)[SNew(SImage).Image(Box(WithAlpha(Bg(), 0.88f * (1.f - (I + 1) / 9.f)), 0.f))];
-	}
+	Veil->AddSlot().FillWidth(0.16f)[SNew(SImage).Image(FadeBrush())];
 	Veil->AddSlot().FillWidth(1.f - Column - 0.16f)[SNullWidget::NullWidget];
 	TSharedRef<SWidget> Content = bScroll ? StaticCastSharedRef<SWidget>(SNew(SScrollBox) + SScrollBox::Slot()[Body]) : Body;
 	return SNew(SOverlay)

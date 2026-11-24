@@ -26,6 +26,7 @@
 #include "World/MIBlockGeometry.h"
 #include "World/MIExplosive.h"
 #include "World/MILevelData.h"
+#include "Weapons/MIEffects.h"
 #include "World/MIObjectiveActors.h"
 
 namespace MIGameSubsystemPrivate
@@ -869,7 +870,9 @@ void UMIGameSubsystem::EnemyFrame(double Dt)
 		return;
 	}
 	Dt = FMath::Min(Dt, 0.05);
-	if (bSimLive)
+	// Once the run is complete the enemy field stands still (review 2026-11-24: the pursuers spawned after the last
+	// reel kept shooting, and a tracer crossed the debrief card). The rules stop at Complete in every test and replay.
+	if (bSimLive && Rules.GetState() != EMIGameState::Complete)
 	{
 		FMIEnemyPlayer EP;
 		if (const AMIPlayerCharacter* P = GetPlayer())
@@ -995,6 +998,13 @@ void UMIGameSubsystem::ApplyState()
 	AppliedState = S;
 	bStateApplied = true;
 	UWorld* World = GetWorld();
+	if (S == EMIGameState::Complete && World)
+	{
+		if (UMIEffects* Fx = World->GetSubsystem<UMIEffects>())
+		{
+			Fx->ClearShots();  // no tracer or flash still flying over the debrief
+		}
+	}
 	APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr;
 	if ((S == EMIGameState::Paused) != (Prev == EMIGameState::Paused) && World && World->GetAuthGameMode())
 	{
