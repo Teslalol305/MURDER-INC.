@@ -6,6 +6,7 @@
 #   fix-hud          the run's start with the health band
 #   fix-fire         frozen 0.03 s after a CHOPPER round at the hip (flash, light on the forearm, casing)
 #   fix-fire-ads     the same aimed (the flash on the muzzle, not over the rear sight)
+#   fix-chopshop     the Chop Shop floor round reel 2, from the door side and (2) from the east
 #   fix-pause        the pause card
 #   fix-cage         where the nav walk from the start to reel 3 ended (fixpass-cage.txt), looking on
 #   fix-debrief      the debrief card after extraction (fixpass-debrief.txt), pursuers frozen
@@ -53,6 +54,8 @@ c "slomo 1"; run 1.0
 c "MIInput ads 1"; run 1.0
 fire_frozen; shot fix-fire-ads
 c "slomo 1"; c "MIInput ads 0"; run 0.5
+c "MIPose -1000 -1560 0 -80 -32"; run 1.0; shot fix-chopshop
+c "MIPose -700 -1700 0 -125 -30"; run 1.0; shot fix-chopshop2
 c "MIPauseKey"; settle 20; ui_shot fix-pause
 c "MIPauseKey"; settle 10
 c "MIPose 0 0 0 0 0"; run 0.5
