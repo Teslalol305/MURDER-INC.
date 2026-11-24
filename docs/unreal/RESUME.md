@@ -197,14 +197,17 @@ old zip is superseded. Next is step 6 (the owner's E3DS trial) and the explosion
   crash-log email on.
 - **Version 1 crashed on every real session** (17:46 UTC on the trial, again about 18:55 UTC on Core with ten
   slots): "Crashed ... But no crashlog was found". Version 1 wrote no log at all. Diagnosis and fix: PROGRESS.md,
-  "E3DS crash fix". Root cause **not proven** (no log exists); best supported: the server's NVIDIA driver fails
-  Unreal 5.9's Vulkan SM6 check and version 1 had no SM5 shaders to fall back to (exit 1 at 7 s, reproduced with
-  `-sm5`); also possible: graphics memory at start, a root user.
+  "E3DS crash fix". Root cause **not proven** (no log exists). Best fit since E3DS's own documentation was read
+  (PROGRESS.md, "Version 2 re-zipped"): E3DS does not add `-RenderOffScreen` and version 1's launcher did not either;
+  with no display that build exits 1 after 2.4 s with no log (box run `s-nodisp-noRO`). Also possible: the server's
+  NVIDIA driver fails Unreal 5.9's Vulkan SM6 check while version 1 had no SM5 shaders to fall back to (exit 1 at
+  7 s, reproduced with `-sm5`), graphics memory at start, a root user.
 - **Version 2** (zip of 2026-11-24 evening, game commit `e989cb8`, nine parts; sha256 and parts table in LAUNCH.md
-  section 9; download links only in the release report, never committed) fixes all of those and **always writes a
+  section 9; download links only in the release report, never committed) handles all of those and **always writes a
   log**: `MurderInc/Saved/Logs/MurderInc.log` in the app's folder on the server (LAUNCH.md section 13), plus the
   engine's crash report in `MurderInc/Saved/Crashes/`. Debug symbols for its crash call stacks are on the box in
-  `/project/ue/cloud/symbols/e989cb8/`. Verified on box ec087d85 (no stream: WebRTC is still blocked there).
+  `/project/ue/cloud/symbols/e989cb8/`. Verified on box ec087d85; a browser cannot connect there, but a non-browser
+  WebRTC client received the game's 1080p picture and sound (PROGRESS.md, "Independent check of the `82ed886a…` zip").
 - **Next:** the owner uploads version 2 as a **new version of the build `MurderInc`** (LAUNCH.md section 9, step 5)
   and opens the link in a fresh Incognito window (DECISIONS.md). If it crashes again: get the log (LAUNCH.md section
   13: browser console, launch option `-MIDev` for E3DS's crash-log feature, or E3DS support) and give it to Claude.

@@ -121,8 +121,9 @@ Paste this where the game should appear (replace the `src` with your share link)
 ## 8. If E3DS rejects the build or it never starts
 
 1. **Rejected at upload** ("no Pixel Streaming plugin" or a version message): send E3DS support the zip name and say
-   it is an Unreal 5.9 Linux build with Pixel Streaming 2 (built into the game program; its web files are in
-   `MurderInc/Samples/PixelStreaming2` inside the zip). Ask whether 5.9 builds are accepted yet.
+   it is an Unreal 5.9 Linux build with Pixel Streaming 2 (built into the game program; the zip carries only the
+   plugin's helper scripts, `MurderInc/Samples/PixelStreaming2/WebServers/get_ps_servers.sh` and `.bat`). Ask
+   whether 5.9 builds are accepted yet.
 2. **Uploads but the stream never starts, or E3DS reports a crash**: check that the configuration's platform is
    "Linux UE Build for PS" and the app name is exactly `MurderInc`, then try once more (first Linux starts are slow).
    If it still fails, get the log: section 13.
@@ -221,7 +222,8 @@ Checked after the upload: all 9 parts downloaded back from the storage, joined, 
 
 What is new in version 2 (docs/unreal/PROGRESS.md, "E3DS crash fix"): the launcher `MurderInc.sh` always starts the
 game without a window (`-RenderOffScreen`: E3DS's Linux servers have no screen and E3DS does not add that option
-itself; version 1 without it ends after 2 seconds with no log, which is what happened), writes the log above, also
+itself; on the GPU box version 1 without it ends after 2 seconds with no log, which matches what E3DS reported, though
+without E3DS's log it is not proven), writes the log above, also
 into E3DS's own log file, and never runs the game as root; the game carries the SM5 shaders too, so a server whose graphics driver fails
 Unreal 5.9's SM6 check runs a simpler picture instead of quitting; it needs less graphics memory at start; it reports
 a stop by the host as a normal quit; the home screen says "P Pause"; and the Development game rides along for E3DS's
@@ -349,6 +351,9 @@ build machine, so the menu names may differ slightly):
 - `CRASH: ... SIGSEGV` a few seconds after `[MICloud] Features ... video memory`: look for `Out Of Memory` just
   above: the server's graphics card was full (the GPU line at the top shows how much was free and what else used it).
 - `ENDED with exit code 1` within about 10 seconds: a missing shader platform or file; the lines above it say which.
+- `CRASH: ... signal 9 (SIGKILL)`: not a fault inside the game. Something outside ended it at once: the host
+  stopping the session hard, or the system's out-of-memory killer when the server ran out of memory (the memory line
+  at the top shows how much was available). Ask E3DS which one it was.
 - `quit normally` (or `stopped by SIGTERM after the host's SIGTERM`): no crash on our side; if E3DS still reported
   one, the log is the evidence to send them.
 

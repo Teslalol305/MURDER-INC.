@@ -48,9 +48,42 @@ in the `sh` fallback too.
 | fake game, ten cases | `-abslog=` in any case and quoted; crash (139) and exit code 3 passed on; unwritable file reported and the game still runs; output closed or read by `head -1`: the launcher survives; started by `sh`; no `-ABSLOG=` |
 
 **Still not known until the owner's E3DS test:** whether E3DS's signalling accepts Pixel Streaming 2 of 5.9 and a
-picture reaches the browser (the box cannot test WebRTC), the GPU and driver of E3DS's Linux machines, the start-up
+picture reaches the browser (a browser cannot connect on the box; a non-browser WebRTC client did receive the game's
+picture and sound there, next entry), the GPU and driver of E3DS's Linux machines, the start-up
 wait. The log now answers the first two in one session. The launch pre-flight (four reviews against E3DS's
 documentation, `tools/workflows/mi-launch-preflight-wf_eb57e899-664.js`) is collected in `docs/unreal/PREFLIGHT.md`.
+
+## Independent check of the `82ed886a…` zip (verifier, 2026-11-24, 21:32 to 22:10 UTC) — package and runs as reported, real WebRTC frames received; launcher superseded by `ceaf828d…`
+
+On box ec087d85, from the owner's storage, nothing reused from the build folders:
+
+- **Package**: the nine download links of that release report: HTTP 200, 8 x 251,658,240 + 241,645,324 bytes; the
+  rename loop of LAUNCH.md section 9 as it then stood matched all nine; joined in order: 2,254,911,244 bytes, sha256
+  `82ed886a…d92ee8a`; `unzip -t` no errors; 64 entries; `MurderInc.sh` mode 755 and byte-identical to
+  `tools/box/cloud/MurderInc.sh` at `3f5d85a`; `BUILD.txt`: game `e989cb8`, launcher and packaging `3f5d85a` (both
+  on the pushed branch); no `*.debug`, `*.sym` or `Saved/`; Pixel Streaming 2 in the game (it registers as a PS2
+  streamer; the zip carries only the plugin's helper scripts in `MurderInc/Samples/PixelStreaming2/WebServers`).
+- **Runs**: unzipped by a new non-root user into an empty folder; clean environment, no display; every run wrote
+  `MurderInc/Saved/Logs/MurderInc.log`; runs, launcher logs and the test scripts in `/project/ue/cloud/verify-v2/`.
+
+| Run | Result |
+|---|---|
+| E3DS/PS1-style flags (`-AudioMixer -RenderOffScreen -PixelStreamingURL= -PixelStreamingIP/Port -AllowPixelStreamingCommands -PixelStreamingEncoderCodec=H264 -PixelStreamingHideCursor -Windowed -ForceRes -ResX=1920 -ResY=1080`), Epic's signalling server (wilbur 3.3.0), fake viewer joining and leaving 10 times, 7 min | alive; 10 "Viewer joined", 10 "Connection lost: the game is paused"; TERM to the whole process group: exit 0 |
+| the same flags, 7 min, no signalling server | alive; TERM to the launcher, passed on: exit 0 |
+| only `-PixelStreamingURL=` (plus `-PixelStreamingID=`) | the game registered with the signalling server 13 s after the start |
+| **a real WebRTC viewer** (Python aiortc, `/project/ue/cloud/verify-v2/rtcview.py`) | ICE connected in 0.4 s; the game offered H.264 and Opus; first 1920 x 1080 frame 1.1 s after subscribing; 1,941 video and 2,536 audio frames decoded in 60 s; the frames are a changing, non-blank picture (dark, mean level about 22 of 255; measured, not looked at); the game logged the join and, after the viewer left, the pause |
+| headless Chrome as the viewer, 5 min | offer and answer exchanged, then nothing: Chrome gathers no ICE candidates in the box's sandbox (with or without its IP-handling or loopback flags); INT to the launcher, passed on as TERM: exit 0 |
+| `-sm5` | VULKAN_SM5, the `[MICloud] Fallback` line, `Features: hardware ray tracing off, Nanite off, Lumen on`; TERM to the game itself: exit 0 |
+| launcher started as root, root-owned copy in `/opt` | the game runs as `nobody` (`setpriv`), the log is in the app's folder; TERM to the group: exit 0 |
+| `-MIDev` | the Development game's full engine log in `MurderInc.log`, the launcher's own in `MurderInc-stdout.log`; TERM: exit 0 |
+| HUP to the launcher | nothing happened: the test harness had started it under `nohup`, so HUP was ignored from the start (as for any host using `nohup`); the harness then sent SIGKILL to the game, and the log reads `CRASH: the game was killed by signal 9 (SIGKILL)`, exit 137: an outside kill reads like a crash (LAUNCH.md section 13 now says how to read that line) |
+
+Not re-run: the graphics-memory cases (another agent shared the card meanwhile; the fixer's `v-vram5000` logs show
+4,999 MiB free and 60 fps, version 1's `s-vram5000` "Out Of Memory" then signal 11). Not tested: the `ceaf828d…`
+launcher (`-ABSLOG=`), input or a gamepad through the stream, a browser, E3DS itself. Root cause: the SM6 mechanism
+is real (version 1's Development game under `-sm5`: "Failed to initialize ShaderCodeLibrary", exit 1 at 7 s), but
+nothing shows that E3DS's drivers fail the check; the missing `-RenderOffScreen` (entry above) fits E3DS's
+documentation better. Neither is proven.
 
 ## E3DS crash fix (release engineer, 2026-11-24, evening) — version 2 packaged, verified on the box and in the owner's storage; root cause not proven
 
@@ -126,7 +159,7 @@ mid-run, no audio device, no display with `-RenderOffScreen`, a fresh user or no
   `/project/ue/cloud/repro/gdb-dev/gdb.log`), and reports a stop asked for by SIGINT, SIGTERM or SIGHUP (engine status
   128 + signal, "Exiting abnormally") as exit code 0. `-MINoExitGuard` turns it off.
 - **SM5 fallback shaders** (`package-cloud.sh` overlay): the cloud package cooks `SF_VULKAN_SM5` as well as SM6, so a
-  failed SM6 check gives a running game (no Nanite, no Lumen) instead of exit 1.
+  failed SM6 check gives a running game (no Nanite and no hardware ray tracing; Lumen in software) instead of exit 1.
 - **Crash reports headless** (overlay, `[CrashReportClient] bAgreeToCrashUpload=true`,
   `bStartCRCFromEngineHandler=false`): without a display the engine counts as unattended and skipped its report; now
   it writes `Saved/Crashes/crashinfo-MurderInc-pid-*/` (Diagnostics.txt with the call stack, CrashContext.runtime-xml).
@@ -190,9 +223,9 @@ launcher before its signal fixes; still in the storage under the same names) and
 uploaded: it had swept the box's test logs from `Saved/` into the zip, hence the `Saved/` exclusion).
 
 **Not proven / not done:** the root cause of the E3DS crashes (no E3DS log exists; the SM6/driver explanation is the best supported, not
-proven: E3DS's driver version is unknown); whether version 2 streams on E3DS (the box blocks WebRTC: no picture,
-sound, input or gamepad through a real stream was ever tested; the fake viewer only exercises the signalling and
-connection events); E3DS's command line, user, GPU sharing and crash detection (unpublished); what E3DS's
+proven: E3DS's driver version is unknown); whether version 2 streams on E3DS (a browser cannot connect on the box;
+a non-browser WebRTC client later received its picture and sound there, "Independent check" above; input and a
+gamepad through a real stream were never tested); E3DS's command line, user, GPU sharing and crash detection (unpublished); what E3DS's
 "Print UE Log in Browser Console" and "Auto Download UE Crash Log" actually read (whether they find
 `MurderInc/Saved/Logs`); `-MIForceSM6` (never needed on the box); the SM5 fallback's picture (it ran; nobody looked at
 it); a real 8 GB card (the box emulates one by holding memory; the engine still sees 96 GB). bUseLoggingInShipping
