@@ -184,3 +184,16 @@ old zip is superseded. Next is step 6 (the owner's E3DS trial) and the explosion
    the polish and still shows the grey slabs at the start and has no visible player muzzle flash.
 6. The owner then tests on the Eagle 3D Streaming free trial (LAUNCH.md section 4): the stream itself, sound,
    gamepad and delay have never been tested, because the box's sandbox blocks WebRTC.
+
+## 9. Launch status (2026-11-24, from the owner's screenshots)
+
+- The owner downloaded and joined the zip on their Mac: sha256 `8378eedd…e570a` matched.
+- E3DS (new "Projects" dashboard): the zip was uploaded as build `MurderInc`. E3DS detected Linux, Pixel Streaming
+  and `MurderInc.sh`. **E3DS's own upload test passed** (Upload ✔, Test ✔, "Your app is ready to stream"), so the
+  Unreal 5.9 Linux build streams on their machines. Project `Project_MurderInc`. The share link is in the owner's
+  E3DS dashboard; it is not written here.
+- Viewer settings advised: Locked Mouse, browser cursor off, 1920x1080, video quality High, H264, region Global,
+  15 min session with 5 min idle, a password while testing, Unreal log in the browser console on while testing,
+  crash-log email on.
+- Next: the owner plays the link in Chrome (LAUNCH.md section 4). Cursor then embeds the link on the IPX Game OS
+  page and deploys (`docs/CURSOR_HANDOFF.md`).
