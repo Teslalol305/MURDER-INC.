@@ -261,8 +261,16 @@ void AMIPlayerController::SetupInputComponent()
 	Edge(TEXT("IA_Inspect"), ETriggerEvent::Started, [](FMISwitchInput& S) { S.InspectKey(); });
 	Edge(TEXT("IA_View"), ETriggerEvent::Started, [this](FMISwitchInput& S) { S.ViewDown(Now()); });
 	Edge(TEXT("IA_View"), ETriggerEvent::Completed, [this](FMISwitchInput& S) { S.ViewUp(Now()); });
-	// The right stick: the look (PlayerTick), and the pick on the weapon wheel while that is open.
-	In->BindActionValueLambda(Actions[TEXT("IA_RightStick")], ETriggerEvent::Triggered, [this](const FInputActionValue& V) { RightStick = V.Get<FVector2D>(); Switch.Stick(RightStick); });
+	// The right stick: the look (PlayerTick), and the pick on the weapon wheel while that is open. The game viewport
+	// hands the right stick's Y over upside down (FSceneViewport::OnAnalogValueChanged negates Gamepad_RightY, and only
+	// that axis): stick up arrives as -1. Here up is +Y again, for the look and for the wheel (slot 1 at the top).
+	// Found in the stream test of 2026-11-24: stick up looked down, and the wheel picked the opposite slot.
+	In->BindActionValueLambda(Actions[TEXT("IA_RightStick")], ETriggerEvent::Triggered, [this](const FInputActionValue& V)
+	{
+		const FVector2D Raw = V.Get<FVector2D>();
+		RightStick = FVector2D(Raw.X, -Raw.Y);
+		Switch.Stick(RightStick);
+	});
 	In->BindActionValueLambda(Actions[TEXT("IA_RightStick")], ETriggerEvent::Completed, [this](const FInputActionValue&) { RightStick = FVector2D::ZeroVector; Switch.Stick(RightStick); });
 	const auto Game = [this]() { return UMIGameSubsystem::Get(this); };
 	In->BindActionValueLambda(Actions[TEXT("IA_Interact")], ETriggerEvent::Started, [Game](const FInputActionValue&) { if (UMIGameSubsystem* G = Game()) G->SetInteractHeld(true); });
@@ -424,17 +432,19 @@ void AMIPlayerController::ClearStreamMouse()
 
 bool AMIPlayerController::StreamMouseEvent(const FVector2D& Counts)
 {
+	const AMIPlayerCharacter* C = GetMICharacter();
+	if (!C || !C->TakesLook())
+	{
+		// Over a card or a set-up screen the cursor takes every move as it comes, and nothing gathers for the moment
+		// play resumes.
+		StreamPending = FVector2D::ZeroVector;
+		return true;
+	}
 	FVector2D Pixels;
 	if (!StreamMouse.Event(Counts, Pixels))
 	{
 		++MouseSpikes;
 		return false;
-	}
-	const AMIPlayerCharacter* C = GetMICharacter();
-	if (!C || !C->TakesLook())
-	{
-		StreamPending = FVector2D::ZeroVector;  // over a card: nothing gathers for the moment play resumes
-		return true;
 	}
 	StreamPending += FVector2D(Pixels.X, -Pixels.Y);  // Slate's Y grows downward; the look takes mouse up as +Y
 	return true;

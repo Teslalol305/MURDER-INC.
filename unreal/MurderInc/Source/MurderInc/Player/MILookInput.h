@@ -23,9 +23,10 @@ struct MURDERINC_API FMIPadLook
 	FMIPadLookData Config;
 
 	/**
-	 * One frame. Stick is the raw right stick as Unreal reports it (X right, Y up). Returns the degrees to add to the
-	 * look (X > 0 turns right, Y > 0 looks down): the share of the full rate after the dead zone, the curve and the
-	 * boost, times yaw rate x Sensitivity x AimSlow x Dt; the pitch also times pitchScale and the invert setting.
+	 * One frame. Stick is the raw right stick with X right and Y up (the controller puts the Y the game viewport
+	 * inverts back first). Returns the degrees to add to the look (X > 0 turns right, Y > 0 looks down): the share of
+	 * the full rate after the dead zone, the curve and the boost, times yaw rate x Sensitivity x AimSlow x Dt; the
+	 * pitch also times pitchScale and the invert setting.
 	 */
 	FVector2D Step(const FVector2D& Stick, double Dt, double Sensitivity, double AimSlow, bool bInvertY);
 	/** The device changed or the pad went away: the boost starts over. */

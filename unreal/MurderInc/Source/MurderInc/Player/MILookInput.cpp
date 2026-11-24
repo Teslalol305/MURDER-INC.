@@ -18,7 +18,7 @@ FVector2D FMIPadLook::Step(const FVector2D& Stick, double Dt, double Sensitivity
 	{
 		Dt = 0.0;
 	}
-	// Unreal's stick is +Y up; the browser's, and the look, are +Y down.
+	// The stick here is +Y up; the browser's, and the look, are +Y down.
 	const double X = MILook::Deadzone(Stick.X, P.Deadzone);
 	const double Y = MILook::Deadzone(-Stick.Y, P.Deadzone);
 	const double Length = FMath::Sqrt(X * X + Y * Y);

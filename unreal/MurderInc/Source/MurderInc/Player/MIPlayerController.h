@@ -169,7 +169,7 @@ private:
 	// The gamepad.
 	FMIPadLook PadLook;
 	FVector2D LeftStick = FVector2D::ZeroVector;   // raw, X right, Y forward
-	FVector2D RightStick = FVector2D::ZeroVector;  // raw, X right, Y up
+	FVector2D RightStick = FVector2D::ZeroVector;  // raw, X right, Y up (the viewport's inverted Y put right)
 	FVector2D KeyMove = FVector2D::ZeroVector;     // W A S D
 	FVector2D PadMove = FVector2D::ZeroVector;     // the left stick after the dead zone
 	bool bPadActive = false;

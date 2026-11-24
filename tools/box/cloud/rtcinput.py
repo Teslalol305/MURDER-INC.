@@ -199,8 +199,12 @@ async def main():
         @ch.on('message')
         def on_message(m):
             st['messages'] += 1
-            if isinstance(m, (bytes, bytearray)) and len(m) >= 2 and m[0] == 13:  # GamepadResponse
-                st['pad'] = m[1]
+            if isinstance(m, (bytes, bytearray)) and len(m) >= 2 and m[0] == 13:
+                # GamepadResponse: a UTF-16 JSON string, {"controllerId": n}; the pad's messages carry that id.
+                try:
+                    st['pad'] = int(json.loads(bytes(m[1:]).decode('utf-16-le'))['controllerId'])
+                except (ValueError, KeyError):
+                    log('gamepad response not understood:', bytes(m[:40]))
 
     def send(data):
         ch = st['channel']

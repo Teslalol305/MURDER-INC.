@@ -1148,11 +1148,17 @@ bool FMIControllerPadTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("and the weapon rules are told (the aim slow-down)"), In.bPad);
 	TestEqual(TEXT("the stick at rest turns nothing"), YawTurned(W, 10, [&]() { Rig.Axis(EKeys::Gamepad_RightX, 0.05f); W.Step(); }), 0.0);
 
-	// Stick up looks up, at 62 % of the yaw rate; half a second from level stays inside the pitch limit.
+	// Stick up looks up, at 62 % of the yaw rate. The game viewport hands the controller the right stick's Y upside
+	// down (FSceneViewport::OnAnalogValueChanged negates Gamepad_RightY): a stick pushed up arrives here as -1, and the
+	// rig stands where the viewport stands. (The stream test found it: stick up looked down.)
+	const float StickUp = -1.f;
 	Rules.Pitch = -80.0;
-	Rig.Hold(EKeys::Gamepad_RightY, 1.f, 15);
+	Rig.Hold(EKeys::Gamepad_RightY, StickUp, 15);
 	Rig.Rest(EKeys::Gamepad_RightY);
 	TestTrue(FString::Printf(TEXT("stick up for half a second looks up (pitch %.2f)"), Rules.Pitch), Rules.Pitch > -80.0 + 60.0 && Rules.Pitch < -80.0 + 80.0);
+	Rig.Hold(EKeys::Gamepad_RightY, -StickUp, 15);
+	Rig.Rest(EKeys::Gamepad_RightY);
+	TestTrue(FString::Printf(TEXT("stick down for half a second looks back down (pitch %.2f)"), Rules.Pitch), Rules.Pitch < -80.0 + 10.0);
 	Rules.Pitch = -80.0;
 
 	// A key press takes the device back; so do four pixels of mouse travel in one frame, but not a nudge.
@@ -1245,6 +1251,13 @@ bool FMIControllerPadTest::RunTest(const FString& Parameters)
 	const double WheelTurn = YawTurned(W, 10, [&]() { Rig.Axis(EKeys::Gamepad_RightX, 1.f); W.Step(); });
 	TestEqual(TEXT("the stick turns nothing while the wheel is open"), WheelTurn, 0.0);
 	TestEqual(TEXT("the stick to the right picks slot 2 of four"), Rig.PC->GetSwitch().GetSelection(), 1);
+	Rig.Rest(EKeys::Gamepad_RightX);
+	Rig.Hold(EKeys::Gamepad_RightY, StickUp, 3);
+	TestEqual(TEXT("the stick up picks slot 1, at the top of the wheel"), Rig.PC->GetSwitch().GetSelection(), 0);
+	Rig.Hold(EKeys::Gamepad_RightY, -StickUp, 3);
+	TestEqual(TEXT("the stick down picks slot 3, at the bottom"), Rig.PC->GetSwitch().GetSelection(), 2);
+	Rig.Rest(EKeys::Gamepad_RightY);
+	Rig.Hold(EKeys::Gamepad_RightX, 1.f, 3);
 	Rig.Key(EKeys::Gamepad_FaceButton_Top, IE_Released);
 	W.Step();
 	TestFalse(TEXT("releasing Y shuts the wheel"), Rig.PC->GetSwitch().IsWheelOpen());
