@@ -2311,6 +2311,7 @@ def build_backdrop(level, facade):
     rng = random.Random(1937)
     finishes = ("brick", "brown", "buff", "dark", "concrete")
     bounds = level["bounds"]["ue"]
+    backs_ue = [b["ue"] for b in level["colliders"]["boxes"] if b["tag"] == "backs" and b["owner"]["kind"] == "level"]
     masses = []          # (finish, centre, half extent)
     # The avenue continues: street walls from the bounds out to 450 m, lots 8 to 30 m wide, 2 to 6 storeys.
     for side in (-1, 1):
@@ -2323,9 +2324,21 @@ def build_backdrop(level, facade):
                 depth = rng.uniform(1500, 2500)
                 x0, x1 = (x, x + width) if direction > 0 else (x - width, x)
                 y0 = 1100 * side
-                centre = ((x0 + x1) / 2.0, y0 + side * depth / 2.0, height / 2.0)
-                masses.append((rng.choice(finishes[:4]), centre, ((x1 - x0) / 2.0 - 10, depth / 2.0, height / 2.0)))
-                x = x1 if direction > 0 else x0
+                finish = rng.choice(finishes[:4])
+                next_x = x1 if direction > 0 else x0
+                # Out of the neighbours' backs at the avenue's ends: their window bays open onto what stands
+                # behind their plane (a mass there filled the openings with brick).
+                ya, yb = sorted((y0, y0 + side * depth))
+                for back in backs_ue:
+                    if back["min"]["Y"] < yb and back["max"]["Y"] > ya and back["min"]["X"] < x1 and back["max"]["X"] > x0:
+                        if direction > 0:
+                            x0 = max(x0, back["max"]["X"] + 10.0)
+                        else:
+                            x1 = min(x1, back["min"]["X"] - 10.0)
+                if x1 - x0 > 100.0:
+                    centre = ((x0 + x1) / 2.0, y0 + side * depth / 2.0, height / 2.0)
+                    masses.append((finish, centre, ((x1 - x0) / 2.0 - 10, depth / 2.0, height / 2.0)))
+                x = next_x
     # The blocks behind: rows of 4 to 8 storeys out to 300 m, avenue gap kept clear.
     for k in range(260):
         cx, cy = rng.uniform(-30000, 30000), rng.uniform(-30000, 30000)
@@ -2343,6 +2356,10 @@ def build_backdrop(level, facade):
         cx, cy = math.cos(angle) * distance, -math.sin(angle) * distance
         masses.append((rng.choice(("concrete", "buff", "concrete")), (cx, cy, height / 2.0),
                        (rng.uniform(1500, 4000), rng.uniform(1500, 4000), height / 2.0)))
+    # No mass may reach into a neighbour's back: its window openings would show it (brick in the glass).
+    masses = [m for m in masses if not any(
+        b["min"]["X"] - 40 < m[1][0] + m[2][0] and b["max"]["X"] + 40 > m[1][0] - m[2][0] and
+        b["min"]["Y"] - 40 < m[1][1] + m[2][1] and b["max"]["Y"] + 40 > m[1][1] - m[2][1] for b in backs_ue)]
     # Towers: a tower finish, and from 60 m one or two setback tiers on top (each narrower), so the skyline steps
     # like a real one instead of ending in flat slabs. Own random stream: the masses above stay where they were.
     tower_rng = random.Random(2203)
