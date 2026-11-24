@@ -21,6 +21,7 @@
 #include "Rendering/DrawElements.h"
 #include "Rendering/SlateRenderer.h"
 #include "DynamicRHI.h"
+#include "Misc/App.h"
 #include "Misc/CoreDelegates.h"
 #include "Misc/Paths.h"
 #include "RHIStats.h"
@@ -142,7 +143,11 @@ namespace MICloudPrivate
 		Line(FString::Printf(TEXT("Features: hardware ray tracing %s (RHI support %d) | Nanite %s | Lumen %s | video memory %lld MB, texture pool %lld MB"),
 			bRT ? TEXT("on") : TEXT("off"), GRHISupportsRayTracing ? 1 : 0, bNanite ? TEXT("on") : TEXT("off"), bLumen ? TEXT("on") : TEXT("off"),
 			(long long)(T.DedicatedVideoMemory >> 20), (long long)(T.TexturePoolSize >> 20)));
-		if (!bNanite || !bLumen)
+		if (!FApp::CanEverRender())
+		{
+			// -NullRHI (the automation tests): nothing is drawn, no fallback to report.
+		}
+		else if (!bNanite || !bLumen)
 		{
 			// UE 5.9's SM6 check failed on this GPU or driver (Vulkan 1.3 with VK_KHR_compute_shader_derivatives,
 			// mesh shaders, descriptor buffers...): the engine fell back to the SM5 shaders the package also carries.
