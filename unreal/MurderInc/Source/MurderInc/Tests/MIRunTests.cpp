@@ -1143,6 +1143,7 @@ bool FMIControllerPadTest::RunTest(const FString& Parameters)
 	int32 Frame = 0;
 	const double Turned = YawTurned(W, 34, [&]() { Rig.Axis(EKeys::Gamepad_RightX, Frame++ < 30 ? 1.f : 0.f); W.Step(); });
 	TestTrue(FString::Printf(TEXT("full right stick for one second turns 264.775 degrees to the right (turned %.3f)"), Turned), FMath::IsNearlyEqual(Turned, 264.77546849244663, 0.01));
+	AddInfo(FString::Printf(TEXT("full right stick for one second (30 frames): %.4f degrees; the web game's functions give 264.7755"), Turned));
 	TestTrue(TEXT("the pad is the device in use after stick input"), Rig.PC->IsPadActive());
 	TestTrue(TEXT("and the weapon rules are told (the aim slow-down)"), In.bPad);
 	TestEqual(TEXT("the stick at rest turns nothing"), YawTurned(W, 10, [&]() { Rig.Axis(EKeys::Gamepad_RightX, 0.05f); W.Step(); }), 0.0);
@@ -1177,6 +1178,7 @@ bool FMIControllerPadTest::RunTest(const FString& Parameters)
 	// The desktop mouse is what it was: counts x player.input.mouse (0.120321 degrees) x sensitivity.
 	const double Mouse = YawTurned(W, 3, [&, N = 0]() mutable { if (N++ == 0) Rig.Axis(EKeys::MouseX, 300.f); W.Step(); });
 	TestTrue(FString::Printf(TEXT("desktop: 300 mouse counts turn 36.096 degrees (turned %.4f)"), Mouse), FMath::IsNearlyEqual(Mouse, 300.0 * 0.12032113697747288, 1e-6));
+	AddInfo(FString::Printf(TEXT("desktop mouse: 300 counts turned %.5f degrees (0.120321 a count, as before)"), Mouse));
 
 	// The mouse through a stream: events one by one, 2 counts a pixel less the one lost on the way; the engine's own
 	// mouse axis is ignored meanwhile; a spike is dropped and counted.
@@ -1198,6 +1200,7 @@ bool FMIControllerPadTest::RunTest(const FString& Parameters)
 		W.Step();
 	});
 	TestTrue(FString::Printf(TEXT("stream: 10 + 1 + 5 browser pixels turn 1.925 degrees (turned %.4f)"), Stream), FMath::IsNearlyEqual(Stream, 16.0 * 0.12032113697747288, 1e-6));
+	AddInfo(FString::Printf(TEXT("stream mouse: events of 19, 1 and 9 counts (10, 1 and 5 browser pixels) turned %.5f degrees; 16 pixels are 1.92514"), Stream));
 	TestEqual(TEXT("stream: one spike counted"), Rig.PC->GetMouseSpikes(), 1);
 	Rig.PC->ClearStreamMouse();
 

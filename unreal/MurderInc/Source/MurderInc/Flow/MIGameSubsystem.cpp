@@ -681,6 +681,8 @@ bool UMIGameSubsystem::MenuHover(const FVector2D& Point)
 bool UMIGameSubsystem::MenuClick(const FVector2D& Point)
 {
 	const FMIMenuHit Hit = Menu.HitTest(Point);
+	UE_LOG(LogMI, Log, TEXT("Card click at (%.0f, %.0f): row %d, side %d (rows from (%.0f, %.0f), %.0f wide, %.0f high, %.0f apart)"),
+		Point.X, Point.Y, Hit.Row, Hit.Side, Menu.Layout.X, Menu.Layout.Top, Menu.Layout.Width, Menu.Layout.RowHeight, Menu.Layout.RowGap);
 	if (Hit.Row == INDEX_NONE)
 	{
 		return false;

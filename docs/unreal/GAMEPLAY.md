@@ -178,8 +178,41 @@ Reel case: `AMIReelCase::GetState()` (Live, Grabbing, Taken) and `GetProgress()`
 `AMIHUD` draws it and the flow's lines on the canvas (final styling later). Input (Enhanced Input, in code):
 Interact E / gamepad X (held), Pause Esc / P / Start, menu Up / Down / Left / Right / Enter / Space / A /
 Backspace / B (these also act while paused). The mouse wheel swaps at most once per `player.input.wheelDebounce`.
-Console: `MIStart [mission|holdout] [skip]`, `MIPauseKey`, `MIMenu <up|down|left|right|confirm|back>`,
-`MIInteract <0|1>`.
+Console (not in the Shipping game, section 18): `MIStart [mission|holdout] [skip]`, `MIPauseKey`,
+`MIMenu <up|down|left|right|confirm|back>`, `MIInteract <0|1>`.
+
+**The cards take the mouse** (version 3). `AMIHUD::DrawMenu` writes where it drew the rows into `FMIMenu::Layout`
+(canvas pixels) each frame and resets it when no card is drawn. A left click (`IA_MenuClick`, also while paused) goes
+to `UMIGameSubsystem::MenuClick` with the viewport's cursor position: a button row acts as Enter does, an adjustable
+row goes one value back on its left half and one forward on its right (`FMIMenuLayout::HitTest`; the gaps between rows
+hit nothing). The cursor selects the row it moves over (`MenuHover`); a cursor that merely rests where a card opens
+selects nothing, so Enter still takes the card's first item. One hint line under the items names the keys for the
+device in use ("Up/Down choose · Enter select · Left/Right change · or click"; on a pad "D-pad choose · A select").
+
+**Nothing pressed on a card carries into play** (spec 01 3.16): Enter and the left mouse button are also fire, Space
+and the pad's A also jump. `AMIPlayerController::DropMenuPresses` clears what such a press set and ignores fresh
+presses of play actions for the next two frames of play; movement, sprint and crouch that are still held carry on.
+Look input is gathered only in a live run (`AMIPlayerCharacter::TakesLook`): what the mouse did over a card no longer
+turns the view when the run starts.
+
+**The gamepad** (spec 01 3.17; `Player/MILookInput.h`, numbers from config.json `player.input.pad`): both sticks pass
+the axial dead zone 0.14; the left stick moves on top of the keys; the right stick turns the view through the curve
+0.25 m + 0.75 m³ and the turn boost (166 degrees a second, 291 after 0.45 s at the rim; pitch at 62 %), times the
+sensitivity setting, and picks on the weapon wheel while that is open; the triggers fire and aim from their analog
+axes as well as their buttons (beyond 0.35: a pad in a browser stream sends the triggers only as axes); one click of
+L3 latches the sprint until the stick eases off forward. The device that produced real input last is the device in
+use (a key or mouse button, 4 counts of mouse travel in one frame, a pad button, a stick beyond its dead zone):
+`FMIPlayerInputState::bPad` follows it, which is what switches the weapon rules' aim slow-down on (x 0.55 over an
+enemy, right stick only).
+
+**The mouse in a stream** (`Cloud/MICloud.h`, `FMIStreamMouse`): Pixel Streaming hands the game 2 counts per browser
+pixel when the game renders at the size the player shows it, less one count per event and axis (the browser and the
+engine both cut the fraction). `UMICloudSubsystem` gives the controller the stream's shape ([MICloud] `MouseScale`
+0.5 and `MouseTruncation` 1 in DefaultGame.ini; launch options `-MIMouseScale=` and `-MIMouseTruncation=`); a Slate
+input pre-processor passes every mouse event to `AMIPlayerController::StreamMouseEvent`, which turns the counts back
+into browser pixels and drops an event beyond `player.input.mouseGlitch` (400) pixels, the web game's pointer-lock
+spike filter. The engine's own mouse axis is ignored meanwhile. On the desktop none of this applies: one count is one
+pixel, as before, and no event is dropped.
 
 ## 10. Slice 1 leftovers closed here
 
@@ -399,6 +432,11 @@ Two things the fix pass (2026-11-23) found by measuring in play, not by reading 
 | `Explosion` | a 0.45 s light, a fireball (seven emissive puffs), twelve smoke puffs rising for 5 to 8 s, a dust ring, ten debris bodies, a scorch mark |
 
 ## 18. Dev console (not in shipping builds)
+
+In the Shipping game every command of this section and of section 9 does nothing (the bodies are compiled out), and so
+do `MIAudio.Record`, `-MICrashTest=` and `-MICloudLog=`: a stream's viewer can put launch options on a link, and a
+command such as `MIShot` writes a file where its caller says. They work in the editor and in the Development game
+(the cloud zip's `-MIDev`), which the box scripts use.
 
 `MIStart [mode] [skip]` resolves the saved set-up (or the parity one) through the loadout resolver before the run,
 like the set-up screens (`UMIGameSubsystem::StartRunWithSetup`), so a console run draws the real arms and guns too.
