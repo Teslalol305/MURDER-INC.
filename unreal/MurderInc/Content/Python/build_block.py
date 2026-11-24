@@ -1254,6 +1254,12 @@ def slot_parent(slot):
     if slot.get("alpha") or slot.get("workflow") == "decal" or name.endswith("_Decals") or \
             "decal with alpha" in (slot.get("note") or ""):
         return MASKED_MASTER
+    # A sign set whose BC alpha is coverage (the manifest's texture set says so) is a card: alpha-tested. The Chop Shop's
+    # oil-stain cards (M_Sign_OilStain on SM_Struct_ShopFloor) drew as hard black squares on the opaque master (review
+    # 2026-11-24), because only the set, not the slot, carried "alpha".
+    info = manifest().get("texture_sets", {}).get(slot.get("set") or "", {})
+    if info.get("kind") == "sign" and "coverage" in (info.get("alpha") or ""):
+        return MASKED_MASTER
     return MASTER
 
 
