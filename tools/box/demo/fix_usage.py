@@ -23,6 +23,13 @@ for path in unreal.EditorAssetLibrary.list_assets('/Game/Art/Materials', recursi
     a = unreal.load_asset(path)
     if isinstance(a, unreal.Material):
         NEEDS[a.get_path_name().split('.')[0]] = ['used_with_instanced_static_meshes', 'used_with_nanite']
+# The Buzzard drone (SK_Buzzard, a skeletal mesh): its own masters need the skeletal mesh flag (review 2026-11-24).
+for path in unreal.EditorAssetLibrary.list_assets('/Game/Characters/Buzzard', recursive=True, include_folder=False):
+    a = unreal.load_asset(path)
+    if isinstance(a, (unreal.Material, unreal.MaterialInstance)):
+        base = a if isinstance(a, unreal.Material) else a.get_base_material()
+        if base and base.get_path_name().startswith('/Game/'):
+            NEEDS.setdefault(base.get_path_name().split('.')[0], []).append('used_with_skeletal_mesh')
 for path, flags in NEEDS.items():
     a = unreal.load_asset(path)
     if a is None:

@@ -10,11 +10,15 @@
 #              (else the release copy keeps the Content of its last copy, and the step says so)
 #   overlay    the packaging settings, on the release copy only (start map L_Block, folders loaded by path, fonts,
 #              no Zen store): the same as tools/box/demo/package.sh
+#   usage      set the material usage flags the cooked game needs (demo/fix_usage.py) in the release copy's
+#              Content: without them the cooked game draws the CHOPPER pack rifle, the Goons' guns, Rule's silver,
+#              the Buzzard's tracer material and the art masters on instanced meshes with the default grey material
+#              (the editor sets the flags on the fly, so play in editor never shows it)
 #   package <Development|Shipping>   BuildCookRun Linux into /project/ue/cloud/build-<config> (Shipping skips the
 #              cook when a cook exists)
 #   zip        /project/ue/cloud/MurderInc-E3DS.zip from build-Shipping: MurderInc.sh at the root (E3DS app name =
 #              script name = MurderInc), plus its sha256
-#   all        src, refresh, content, overlay, package Development, package Shipping, zip (detached; log in
+#   all        src, refresh, content, overlay, usage, package Development, package Shipping, zip (detached; log in
 #              /project/ue/cloud/package.log)
 #   status     the step running or the result, and the last log lines
 #
@@ -111,6 +115,22 @@ EOF
   say "OVERLAY OK"
 }
 
+usage() {
+  local script=$C/src/tools/box/demo/fix_usage.py
+  [ -f "$script" ] || { say "run src first (no $script)"; return 1; }
+  [ -f "$REL/MurderInc.uproject" ] || { say "run refresh and content first"; return 1; }
+  export HOME=/home/ue4
+  su ue4 -c "cd $ENGINE && env HOME=/home/ue4 UE-LocalDataCachePath=/project/ue/ddc ./Engine/Binaries/Linux/UnrealEditor-Cmd $REL/MurderInc.uproject \
+    -run=pythonscript -script=$script -unattended -nosplash -NullRHI -nopause -stdout -FullStdOutLogOutput \
+    '-DDC=(ProjectPak,InstalledProjectPak,EnginePak=InstalledEnginePak,EnterprisePak,InstalledLocal)' -ini:Engine:[Zen]:AutoLaunch=false \
+    -ini:Engine:[ConsoleVariables]:AssetRegistry.DisableDirectoryWatcher=1" > "$C/usage.log" 2>&1
+  local saved missing
+  saved=$(grep -ac 'fix_usage: .* saved True' "$C/usage.log")
+  missing=$(grep -ac 'fix_usage: missing' "$C/usage.log")
+  [ "$saved" -gt 0 ] || { say "USAGE FAILED: nothing saved (log $C/usage.log)"; return 1; }
+  say "USAGE OK: $saved material(s) saved with their flags, $missing not found (log $C/usage.log)"
+}
+
 package() {
   local cfg=${1:-Shipping} cook="-cook -IgnoreCookErrors"
   [ "$cfg" = Shipping ] && [ -d "$REL/Saved/Cooked/Linux" ] && cook="-skipcook"
@@ -154,7 +174,7 @@ EOF
 all() {
   echo RUNNING > "$ST"
   ( set -o pipefail
-    src && refresh && content && overlay && package Development && package Shipping && zipit
+    src && refresh && content && overlay && usage && package Development && package Shipping && zipit
   ) && echo OK > "$ST" || echo FAILED > "$ST"
   say "ALL $(cat "$ST")"
 }
@@ -167,7 +187,7 @@ status() {
 
 [ "$(id -u)" = 0 ] || { echo "run as root (it switches to ue4 for the engine)"; exit 1; }
 case "$1" in
-  src|refresh|content|overlay) "$1" ;;
+  src|refresh|content|overlay|usage) "$1" ;;
   zip) zipit ;;
   package) package "$2" ;;
   all) mkdir -p "$C"; setsid nohup bash "$ME" all-fg </dev/null >"$LOG" 2>&1 & echo "started: poll package-cloud.sh status" ;;
