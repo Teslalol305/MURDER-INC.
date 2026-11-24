@@ -151,7 +151,8 @@ namespace MICloudPrivate
 		{
 			// UE 5.9's SM6 check failed on this GPU or driver (Vulkan 1.3 with VK_KHR_compute_shader_derivatives,
 			// mesh shaders, descriptor buffers...): the engine fell back to the SM5 shaders the package also carries.
-			Line(TEXT("Fallback: this GPU or driver did not pass Unreal's SM6 check; running the SM5 shaders: no Nanite, no Lumen (flatter light, simpler meshes)"));
+			Line(FString::Printf(TEXT("Fallback: this GPU or driver did not pass Unreal's SM6 check; running the SM5 shaders: %s%s"),
+				bNanite ? TEXT("") : TEXT("no Nanite (simpler meshes)"), bLumen ? TEXT(", Lumen in software") : TEXT(", no Lumen (flatter light)")));
 		}
 		else if (!bRT)
 		{
