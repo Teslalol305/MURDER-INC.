@@ -65,7 +65,7 @@ delete those six old parts from your storage or ignore them, and never upload th
 
 > **Esc and P.** In a browser, Esc belongs to the browser: it gives the mouse back to you and may never reach the
 > game. So **P pauses** (Esc also works when the browser passes it on, and Start on a gamepad). The click card and
-> the pause screen say so. To take the mouse again after Esc, click the game.
+> the pause screen say so; the home screen's controls row still says "ESC Pause" in this build: use P. To take the mouse again after Esc, click the game.
 
 ## 5. Put it on the Game OS page
 
@@ -135,22 +135,52 @@ Paste this where the game should appear (replace the `src` with your share link)
 The zip of **2026-11-24** is in your Higgsfield storage, private to your account, in **ten parts** (the storage takes
 at most about 250 MB per file). They are named `MurderInc-E3DS-part1-of-10.zip` to `MurderInc-E3DS-part10-of-10.zip`;
 **the parts are not zips on their own**: put them back together first. The joined file is 2,320,153,618 bytes
-(2.2 GiB); unpacked, the game is 2.6 GB.
+(about 2.3 GB); unpacked, the game is 2.6 GB.
 
-1. Download the ten parts into one folder (Higgsfield, your files/media library; the direct download links are in
-   Claude's release report of 2026-11-24, or ask Claude for them). They are not written here because this page is
-   in a public repository and the zip holds licensed content (see below).
-2. On a Mac, open Terminal in that folder and run:
+1. Download the ten parts into one empty folder (Higgsfield, your files/media library; the direct download links are
+   in Claude's release report of 2026-11-24, or ask Claude for them). They are not written here because this page is
+   in a public repository and the zip holds licensed content (see below). **The downloads arrive with random names**
+   (like `e588797e-….zip`), not the part names, and Safari may try to open them: turn off "Open safe files after
+   downloading" in Safari's settings, or use Chrome.
+2. Give each download its part name. On a Mac, open Terminal in that folder and paste this; it reads each file's
+   fingerprint (sha256) and renames it to the matching part, so the download order does not matter:
+
+   ```
+   for f in *.zip; do
+     case "$(shasum -a 256 "$f" | cut -d' ' -f1)" in
+       3db53f8f53f16851a4662761ec2be2d19ce485754d998098c26d09724a4617a5) mv "$f" MurderInc-E3DS-part1-of-10.zip ;;
+       174c56ae0280683fef714648410f33a15c6dfd439ff77817979b36ca86426419) mv "$f" MurderInc-E3DS-part2-of-10.zip ;;
+       c0d09ed472a33ffaa8b0dae9879938aec50a5fc4801c4dbbce60ed00b39def4f) mv "$f" MurderInc-E3DS-part3-of-10.zip ;;
+       ed80c5dbd3c470918578a0782fb21478cebf6d483b72599893cab2930a219911) mv "$f" MurderInc-E3DS-part4-of-10.zip ;;
+       e5dda4056d34ef759629713fe9a91efb2dfb968cca7b129a30db804363f52b91) mv "$f" MurderInc-E3DS-part5-of-10.zip ;;
+       70d6299197b977c91858b5f7b85e37bb42bc5bbdf489a8b5d321f9a9230f8db7) mv "$f" MurderInc-E3DS-part6-of-10.zip ;;
+       0e2b5eb88a6b1259e318e4afefcd872234ca9e44ad09ab85c9a42884014d1700) mv "$f" MurderInc-E3DS-part7-of-10.zip ;;
+       ac424c938c7796b6656dcc6a0961d51590a512b13453a130fc79417de305cdd4) mv "$f" MurderInc-E3DS-part8-of-10.zip ;;
+       952b2d8fc84e3eb071a5baae1baa7fda224d5aa566c2ee220a428bbbfad7ccf0) mv "$f" MurderInc-E3DS-part9-of-10.zip ;;
+       52e4831a32bd25b16197e1cecc5b5fdb3d71d3321f3d524c923afe6c0c447002) mv "$f" MurderInc-E3DS-part10-of-10.zip ;;
+       *) echo "not a part (or incomplete, download again): $f" ;;
+     esac
+   done
+   ls MurderInc-E3DS-part*
+   ```
+
+   It must list ten parts. On Windows, rename them by hand using the table below (`certutil -hashfile <file> SHA256`
+   shows a file's fingerprint; part 10 is the small one, about 55 MB).
+3. Join them. On a Mac, in the same Terminal:
 
    ```
    cat MurderInc-E3DS-part{1,2,3,4,5,6,7,8,9,10}-of-10.zip > MurderInc-E3DS.zip
    shasum -a 256 MurderInc-E3DS.zip
    ```
 
-   (Type the braces as shown: they keep the parts in the order 1 to 10. On Windows, in Command Prompt:
-   `copy /b MurderInc-E3DS-part1-of-10.zip+MurderInc-E3DS-part2-of-10.zip+...+MurderInc-E3DS-part10-of-10.zip
-   MurderInc-E3DS.zip`, all ten names in order, then `certutil -hashfile MurderInc-E3DS.zip SHA256`.)
-3. The last line must print `8378eedde07ce04510a654dee46032c7af6bc87b7fb37852b210d6af4e9e570a`. If it does not, a
+   (Type the braces as shown: they keep the parts in the order 1 to 10.) On Windows, in Command Prompt, in that
+   folder:
+
+   ```
+   copy /b MurderInc-E3DS-part1-of-10.zip+MurderInc-E3DS-part2-of-10.zip+MurderInc-E3DS-part3-of-10.zip+MurderInc-E3DS-part4-of-10.zip+MurderInc-E3DS-part5-of-10.zip+MurderInc-E3DS-part6-of-10.zip+MurderInc-E3DS-part7-of-10.zip+MurderInc-E3DS-part8-of-10.zip+MurderInc-E3DS-part9-of-10.zip+MurderInc-E3DS-part10-of-10.zip MurderInc-E3DS.zip
+   certutil -hashfile MurderInc-E3DS.zip SHA256
+   ```
+4. The fingerprint printed must be `8378eedde07ce04510a654dee46032c7af6bc87b7fb37852b210d6af4e9e570a`. If it does not, a
    part is incomplete: compare each part with the list below (`shasum -a 256 MurderInc-E3DS-part*`), download the
    one that differs again. Upload the joined `MurderInc-E3DS.zip` to E3DS, not the parts.
 
@@ -178,7 +208,7 @@ likeness): upload it only to E3DS, do not share the links.
 The game picks a **Cloud** graphics profile by itself when it runs in a stream. E3DS's servers have 8 or 16 GB of
 graphics memory (RTX 4080 or 5070 class) and 32 GB of memory; their own advice is to stay near 4 to 6 GB.
 
-Measured on the GPU box at 1920 x 1080 (2026-11-23; how in `docs/unreal/PROGRESS.md`, "Cloud build"):
+Measured on the GPU box at 1920 x 1080 on the **older zip of 2026-11-23** (how in `docs/unreal/PROGRESS.md`, "Cloud build"):
 
 | Run | Graphics memory | Memory (RAM) |
 |---|---|---|
@@ -186,6 +216,10 @@ Measured on the GPU box at 1920 x 1080 (2026-11-23; how in `docs/unreal/PROGRESS
 | Story run, Cloud settings | 5.5 to 5.7 GB added on the whole card | 3.2 GB |
 | Hold the Block, Cloud settings (first waves) | 3.4 GB the game's own; 5.3 GB on the whole card | 3.1 GB |
 | Home screen: desktop / Cloud | 3.8 GB / 3.2 GB the game's own | 3.0 GB |
+
+The zip of 2026-11-24 has more art; in its start-up check its memory (RAM) peaked at **3.8 GB** (Shipping) and 4.0 GB
+(Development), still far under a server's 32 GB. Its graphics memory has not been measured yet; its smaller texture
+pool (below) works in its favour.
 
 "The game's own" is what the graphics driver reports for the game alone; "on the whole card" is the rise of the
 card's counter while the game ran, which also catches the driver's own share and anything else that grew meanwhile
@@ -221,5 +255,6 @@ players go to the nearer one.
 ## 12. Making a new build later
 
 Claude rebuilds the whole package with one command on the GPU box (`tools/box/cloud/package-cloud.sh all`, about
-10 minutes on a warm cache: 8 on 2026-11-24), tests it through a stream on the box (`tools/box/cloud/stream-test.sh`), and puts the new
+10 minutes on a warm cache: 8 on 2026-11-24), starts the packaged game on the box's desktop to check it (the box cannot test an actual stream: that
+is what the E3DS trial link in section 4 is for), and puts the new
 zip in your Higgsfield storage. You then upload it to E3DS as a new version (section 2) and test the link again.
