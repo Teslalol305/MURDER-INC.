@@ -586,3 +586,14 @@ The owner played version 4 on E3DS: "It is very laggy and buggy you need to ensu
 4. docs/unreal/SMOOTH.md's independent verdict is "smooth": no freezes, 60 fps held under E3DS-class limits on the front end, story and
    holdout, per-frame numbers (frames over 25 ms and 100 ms per minute, worst frame, 1 % low) better than version 4's under the same
    conditions, and every gameplay, menu and weapon bug found fixed and re-checked.
+
+## 2026-11-25 ~21:20 UTC: deaths, weapon switching, story guidance and an end-to-end play are release criteria
+
+The owner: "enemies when killed crouch over they should have blood splatter and then fall to the floor, switching between weapons
+doesnt work ... make sure to do a full end to end play so the game is ready for deployment. also the story needs to have ques to tell a
+player where to go and hints (highlighted walking paths on the ground to get to the next object)". Story mode today is one map (L_Block,
+mode mission: Reel 1, Reel 2, Reel 3, then the extraction truck). Added to the GO criteria (20:40, 21:00):
+5. docs/unreal/PLAY.md: killed enemies bleed and fall to the floor (no crouch, no sinking, no bodies blocking shots); weapon switching
+   works by keys 1-4, the wheel and the pad in every state tested, with tests; story guidance (objective line, hint after no progress,
+   on-screen marker, a highlighted walking path on the ground) leads from the start through all three reels to the extraction; an
+   independent end-to-end play from the front end to the extraction and the holdout finds no blocker or must-fix left.
