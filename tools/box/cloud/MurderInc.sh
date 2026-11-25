@@ -205,8 +205,13 @@ fi
 # the game logs "ALSA: Couldn't open audio device", "Main audio device could not be initialized", starts no sound at
 # all and sends a stream without any (measured on the GPU box, docs/unreal/PROGRESS.md "Version 3b: sound"). So the
 # launcher names the dummy device itself, under both names SDL reads.
-SNDNOTE="SDL_AUDIODRIVER=${SDL_AUDIODRIVER:-unset} SDL_AUDIO_DRIVER=${SDL_AUDIO_DRIVER:-unset} as the host set them"
+# The dummy device keeps its own size of buffer (1,024 samples): it then takes sound a little faster than real time
+# (1.011 s a second on the GPU box; a browser's player absorbs that, and no packet is ever short). Asked for 960 samples
+# (SDL_AUDIO_DEVICE_SAMPLE_FRAMES) it takes sound a little slower than real time, and the stream then has holes: 20
+# drop-outs of up to 40 ms in a minute (box run snd-env-960). So that setting is cleared as well.
+SNDNOTE="SDL_AUDIODRIVER=${SDL_AUDIODRIVER:-unset} SDL_AUDIO_DRIVER=${SDL_AUDIO_DRIVER:-unset} SDL_AUDIO_DEVICE_SAMPLE_FRAMES=${SDL_AUDIO_DEVICE_SAMPLE_FRAMES:-unset} as the host set them"
 export SDL_AUDIODRIVER=dummy SDL_AUDIO_DRIVER=dummy
+unset SDL_AUDIO_DEVICE_SAMPLE_FRAMES
 note "sound: $SNDNOTE; the game gets SDL's dummy audio device (no sound card or sound service is needed: the sound goes out with the stream)"
 
 ARGS=(MurderInc -MICloud -RenderOffScreen)
