@@ -13,7 +13,7 @@
 #   empty, dry       the magazine fired empty, then two more presses: dry_fire
 #   nine             2: holster, draw; three rounds: nine_shot, nine_close_*, nine_mech_*, nine_tail_*; R: pistol_magout,
 #                    pistol_magin, pistol_slide; 1: back to the CHOPPER
-#   melee            F: whoosh
+#   melee            F: whoosh (3.5 s after the switch back: the rules refuse the butt while a gun is being drawn)
 #   walk, sprint     W: step_* (the surface under the feet); with Shift: step_*_run; Space: jump, then land
 #   pause            P: the world goes silent, the music stays, thinner (45 %, behind 1.3 kHz)
 #   pause-menu       Down three times (ui_hover), Enter on Settings (ui_click)
@@ -104,7 +104,7 @@ key 82
 wait 3.5
 say SND chopper-again
 key 49
-wait 2
+wait 3.5
 say SND melee
 key 70
 wait 2

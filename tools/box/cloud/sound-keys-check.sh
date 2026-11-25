@@ -46,7 +46,7 @@ find_part chopper-again --rates $JIT Web/holster_01.wav Web/draw_01.wav
 find_part melee --rates 1.05:1.15:0.004 Web/whoosh_01.wav --action "key 70"
 find_part walk --rates $JIT --chunk 0.15 Gen/step_asphalt_01.wav Gen/step_asphalt_02.wav Gen/step_asphalt_03.wav Gen/step_asphalt_04.wav \
   Gen/step_concrete_01.wav Gen/step_concrete_02.wav Gen/step_concrete_03.wav Web/step_asphalt_01.wav Web/step_asphalt_02.wav Web/step_concrete_01.wav Web/step_concrete_02.wav
-find_part sprint --rates 0.99:1.09:0.004 --chunk 0.15 Gen/step_asphalt_run_01.wav Gen/step_asphalt_run_02.wav Gen/step_asphalt_run_03.wav \
+find_part sprint --rates 0.82:1.10:0.004 --chunk 0.15 Gen/step_asphalt_run_01.wav Gen/step_asphalt_run_02.wav Gen/step_asphalt_run_03.wav \
   Gen/step_concrete_run_01.wav Gen/step_concrete_run_02.wav Web/step_asphalt_run_01.wav Web/step_asphalt_run_02.wav Web/step_concrete_run_01.wav
 find_part jump --rates $JIT Web/jump_01.wav Web/land_01.wav --action "key 32"
 find_part pause --rates 1 --chunk 2 Web/stem_drums_01.wav Web/stem_hats_01.wav Web/stem_crackle_01.wav Web/bed_day_01.wav
