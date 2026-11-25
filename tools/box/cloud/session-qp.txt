@@ -1,0 +1,28 @@
+# The viewer of the encoder proofs (lag-test.sh game=dev view=session-qp.txt qp=34:34 minbit=100000 ...): E3DS's page sends
+# PixelStreaming.Encoder.MinQP and MaxQP as console commands when a session starts; here Medium (34 and 34), then High
+# (16 and 16), each with the view standing still and then turning fast (about 173 degrees a second) in the Development
+# game's Story run. The game's probe lines (one a second, qp= mbps= txFps= encFps= capFps= availMbps= qpMin= qpMax=) say
+# what the encoder did; "say PHASE ..." lines of this script give the time of each phase (view.log, seconds from the
+# viewer's start).
+wait 3
+click
+wait 3
+say PHASE medium-commands
+cmd PixelStreaming.Encoder.MinQP 34
+cmd PixelStreaming.Encoder.MaxQP 34
+wait 8
+say PHASE medium-still
+wait 10
+say PHASE medium-turn
+mouse 24 0 450 16
+wait 3
+say PHASE high-commands
+cmd PixelStreaming.Encoder.MinQP 16
+cmd PixelStreaming.Encoder.MaxQP 16
+wait 8
+say PHASE high-still
+wait 10
+say PHASE high-turn
+mouse 24 0 450 16
+wait 3
+say PHASE end

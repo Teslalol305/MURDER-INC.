@@ -78,6 +78,9 @@
 #                     (release 3c, MI.Cloud.QpBelow / QpAbove), -MIQpExact after "--" turns that off.
 #   vopts="<...>"     more options for the viewer (rtcinput.py): --delay-ms N, --link-kbps N, --link-queue-ms N,
 #                     --remb-kbps N make the viewer's link (the box has no tc: its header says how), --player WxH.
+#   viewer=0          no viewer at all: the game runs alone until its limit (secs) or until it quits by itself, which a
+#                     streamed game without -MIKeepAlive does 600 s after its start when nobody came (MI.Cloud.
+#                     ExitIfNoViewer; -- -MIExitIfNoViewer=40 shortens it). The idle game's and the unwatched game's runs.
 #   keepalive=0       the game is NOT given -MIKeepAlive (default 1). Since release 3c a streamed game idles when no
 #                     viewer watches and quits 20 s after the last viewer left (MI.Cloud.IdleFps, ExitAfterEmpty,
 #                     ExitIfNoViewer: docs/LAUNCH.md section 9): every run of this tool holds a game with no viewer on
@@ -132,7 +135,7 @@ hogs() {  # <n>[:<work ms>[:<idle ms>[:<size>]]] <pid file> <log prefix> | stop 
 run_fg() {
   local name=$1; shift
   local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= view2= cvars= csv= secs= probe=1 minbit=12000000 profile= cpus= decode=1 audio=0 demo= envs= extra=()
-  local runas=${LAG_RUNAS:-ue4} clean=${LAG_CLEAN:-0} join=${LAG_JOIN:-55} keepalive=1 qp=18:36 vopts=
+  local runas=${LAG_RUNAS:-ue4} clean=${LAG_CLEAN:-0} join=${LAG_JOIN:-55} keepalive=1 qp=18:36 vopts= withviewer=1
   while [ $# -gt 0 ]; do
     case "$1" in
       --) shift; extra=("$@"); break ;;
@@ -141,7 +144,7 @@ run_fg() {
       secs=*) secs=${1#*=} ;; probe=*) probe=${1#*=} ;; minbit=*) minbit=${1#*=} ;; profile=*) profile=${1#*=} ;;
       cpus=*) cpus=${1#*=} ;; decode=*) decode=${1#*=} ;; view2=*) view2=${1#*=} ;;
       runas=*) runas=${1#*=} ;; clean=*) clean=${1#*=} ;; join=*) join=${1#*=} ;; audio=*) audio=${1#*=} ;; demo=*) demo=${1#*=} ;; env=*) envs=${1#*=} ;;
-      keepalive=*) keepalive=${1#*=} ;; qp=*) qp=${1#*=} ;; vopts=*) vopts=${1#*=} ;;
+      keepalive=*) keepalive=${1#*=} ;; qp=*) qp=${1#*=} ;; vopts=*) vopts=${1#*=} ;; viewer=*) withviewer=${1#*=} ;;
       *) echo "unknown key $1"; return 2 ;;
     esac; shift
   done
@@ -223,6 +226,15 @@ run_fg() {
     done > "$O/others.log" 2>&1 ) &
   (cd "$T" && RUNAS="$runas" NODISPLAY=1 STOPSIG=TERM STOPTO=launcher STDOUT=0 CPUS="$cpus" BUILD="$build" ENVS="${envs//,/ }" bash e3ds-repro.sh run "lag-$name" "$secs" "${args[@]}" "${extra[@]}") >> "$O/info.txt" 2>&1
   local R=$C/repro/lag-$name
+  if [ "$withviewer" = 0 ]; then   # no viewer: the game runs alone until its limit or until it quits by itself
+    for i in $(seq 1 $((secs + 60))); do [ -f "$R/result.txt" ] && break; sleep 1; done
+    hogs stop "$O/hog.pids"
+    cp "$R/game.log" "$O/game.log" 2>/dev/null; cp "$R/result.txt" "$O/result.txt" 2>/dev/null
+    echo DONE > "$O/done"; wait
+    python3 "$T/lag_sum.py" "$O" > "$O/summary.txt" 2>&1
+    cat "$O/summary.txt"
+    return 0
+  fi
   # The viewer joins when the game streams: in a run already (dev), or on its home screen (ship), join= seconds after
   # the game's first probe line. (Until 2026-11-25 the Shipping game's wait looked for a line that never comes and
   # ran its full 60 s, so the viewer of every earlier run found a home screen that had been drawn for about 55 s.

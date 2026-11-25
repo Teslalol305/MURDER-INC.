@@ -1,0 +1,10 @@
+# A viewer that stands on the home screen for 30 s and leaves (lag-test.sh game=ship keepalive=0 view=session-menu.txt):
+# the proof of the idle game and of the game's end with its session (release 3c, docs/unreal/PROGRESS.md "Release 3c: the
+# session"). It joins, the click card is up; one click takes it away; then nothing happens for 30 s: the game is at full
+# speed on its home screen, and the box's GPU counter says what that costs. When the script ends the viewer is gone and
+# the game idles (2 s), then quits (20 s) with exit code 0. view2= with this script is a page that is reloaded.
+wait 2
+click
+say PHASE menu
+wait 30
+say PHASE end

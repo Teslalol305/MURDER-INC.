@@ -1,0 +1,8 @@
+# The viewer of the round-trip proof (lag-test.sh game=dev view=session-rtt.txt vopts="--delay-ms 40"): it stands in the
+# Development game's Story run for 40 s on a link that adds 40 ms of round trip (rtcinput.py makes the link: the box has
+# no tc). The probe lines' rttMs= and the pause card's numbers line must read about that much, and 0 nowhere.
+wait 3
+click
+say PHASE stand
+wait 40
+say PHASE end

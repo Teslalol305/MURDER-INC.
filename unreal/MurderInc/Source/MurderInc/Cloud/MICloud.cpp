@@ -164,6 +164,12 @@ namespace MICloudPrivate
 	 */
 	std::atomic<int32> GViewerEvents{0};
 
+	/** Seconds since the process started: the viewer and session lines carry it, so that a log without time stamps (the Shipping game's) says how long a countdown ran. */
+	double Uptime()
+	{
+		return FPlatformTime::Seconds() - (GStartTime > 0.0 ? GStartTime : FPlatformTime::Seconds());
+	}
+
 	/** A launch option "-Name=value" sets a console variable of this family (the same variable -MICVars reaches). */
 	void ApplyLaunchOption(const TCHAR* CommandLine, const TCHAR* Option, const TCHAR* VariableName)
 	{
@@ -927,7 +933,7 @@ void UMICloudSubsystem::OnViewerJoined()
 	if (Viewers.Join())
 	{
 		bWaitingForClick = !FParse::Param(FCommandLine::Get(), TEXT("MICloudNoCard"));
-		MICloudPrivate::Line(FString::Printf(TEXT("Viewer joined: click to play")));
+		MICloudPrivate::Line(FString::Printf(TEXT("Viewer joined: click to play (game time %.1f s)"), MICloudPrivate::Uptime()));
 	}
 	else
 	{
@@ -970,7 +976,7 @@ void UMICloudSubsystem::OnAllViewersLeft()
 #endif
 	const UGameInstance* GI = GetGameInstance();
 	ReleaseForLeave(MICloudPrivate::Game(GI), GI ? Cast<AMIPlayerController>(GI->GetFirstLocalPlayerController()) : nullptr);
-	MICloudPrivate::Line(FString::Printf(TEXT("Connection lost: the game is paused until a viewer joins, and what the viewer held is let go")));
+	MICloudPrivate::Line(FString::Printf(TEXT("Connection lost: the game is paused until a viewer joins, and what the viewer held is let go (game time %.1f s)"), MICloudPrivate::Uptime()));
 }
 
 void UMICloudSubsystem::EnsureOverlay()
@@ -1405,7 +1411,7 @@ void UMICloudSubsystem::EnterIdle(const FString& Why)
 		SavedDynamicResMax = Max->GetString();
 		bDynamicResClamped = MICloudPrivate::SetAsProfile(TEXT("r.DynamicRes.MaxScreenPercentage"), Min->GetString());
 	}
-	MICloudPrivate::Line(FString::Printf(TEXT("Nobody is watching: %s"), *Why));
+	MICloudPrivate::Line(FString::Printf(TEXT("Nobody is watching: %s (game time %.1f s)"), *Why, MICloudPrivate::Uptime()));
 }
 
 void UMICloudSubsystem::LeaveIdle(const TCHAR* Why)
@@ -1425,7 +1431,7 @@ void UMICloudSubsystem::LeaveIdle(const TCHAR* Why)
 	GovGpuSum = 0.0;
 	GovFrames = 0;
 	IdleFrameAt = 0.0;
-	MICloudPrivate::Line(FString::Printf(TEXT("Back at full speed (%s) after %.1f s and %d idle frames"), Why, FPlatformTime::Seconds() - IdleSince, IdleFrames));
+	MICloudPrivate::Line(FString::Printf(TEXT("Back at full speed (%s) after %.1f s and %d idle frames (game time %.1f s)"), Why, FPlatformTime::Seconds() - IdleSince, IdleFrames, MICloudPrivate::Uptime()));
 }
 
 void UMICloudSubsystem::SleepIdle(int32 Fps)
@@ -1458,7 +1464,7 @@ void UMICloudSubsystem::RequestSessionExit(const FString& Why)
 	{
 		LeaveIdle(TEXT("the session is over"));
 	}
-	MICloudPrivate::Line(FString::Printf(TEXT("Session over: %s. The game quits now (exit code 0)."), *Why));
+	MICloudPrivate::Line(FString::Printf(TEXT("Session over: %s. The game quits now (exit code 0). (game time %.1f s)"), *Why, MICloudPrivate::Uptime()));
 	FPlatformMisc::RequestExit(false);
 	MICloudPrivate::ArmShutdownWatchdog(30.0);
 }
@@ -1869,9 +1875,9 @@ void UMICloudSubsystem::Probe(float DeltaTime)
 		// the newest was.
 		static IConsoleVariable* QMax = IConsoleManager::Get().FindConsoleVariable(TEXT("PixelStreaming2.Encoder.MaxQuality"));
 		static IConsoleVariable* QMin = IConsoleManager::Get().FindConsoleVariable(TEXT("PixelStreaming2.Encoder.MinQuality"));
-		Out += FString::Printf(TEXT(" idle=%d idleFrames=%d qpMin=%d qpMax=%d rttN=%d rttAge=%.0f"), bIdle ? 1 : 0, bIdle ? IdleFrames : 0,
+		Out += FString::Printf(TEXT(" idle=%d idleFrames=%d qpMin=%d qpMax=%d rttN=%d rttAge=%.0f up=%.1f"), bIdle ? 1 : 0, bIdle ? IdleFrames : 0,
 			QMax ? FMIEncoderRange::QpForQuality(QMax->GetInt()) : -1, QMin ? FMIEncoderRange::QpForQuality(QMin->GetInt()) : -1,
-			RoundTrip.GetAccepted(), RoundTrip.IsKnown() ? FMath::Min(RoundTrip.AgeSeconds(FPlatformTime::Seconds()), 9999.0) : -1.0);
+			RoundTrip.GetAccepted(), RoundTrip.IsKnown() ? FMath::Min(RoundTrip.AgeSeconds(FPlatformTime::Seconds()), 9999.0) : -1.0, MICloudPrivate::Uptime());
 	}
 	MICloudPrivate::Line(Out);
 	ProbeFrames = ProbeTime = ProbeWorst = 0.0;
