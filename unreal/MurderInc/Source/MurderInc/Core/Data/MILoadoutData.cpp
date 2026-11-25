@@ -509,6 +509,7 @@ bool FMILoadoutData::Parse(const TMap<FString, TSharedPtr<FJsonObject>>& Files, 
 				Mount.Socket = NameOr(MO, TEXT("socket"));
 				Mount.Status = NameOr(MO, TEXT("status"));
 				Mount.Hide = MIJson::Names(MO, TEXT("hide"));
+				Mount.RideBone = NameOr(MO, TEXT("rideBone"));
 			}
 		}
 		Gun.MeshAsset = MIJson::StringOr(E, TEXT("art.mesh.asset"));

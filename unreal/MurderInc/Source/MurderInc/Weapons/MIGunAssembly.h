@@ -30,12 +30,24 @@ public:
 
 	/** Marker -> position in the base component's space, for every fitted part whose mesh carries the marker's socket. */
 	TMap<FName, FVector> MarkerOverrides() const;
+	/** The world transform of a fitted part's socket for a viewmodel marker (support: a grip's SupportHand); false when no
+	 *  fitted part carries it. */
+	bool MarkerTransform(FName Marker, FTransform& Out) const;
 	/** The laser's beam origin and direction in world space (the Beam socket, else the muzzle line); false without one. */
 	bool BeamWorld(FVector& OutStart, FVector& OutDir) const;
 	int32 NumParts() const { return Parts.Num(); }
 	/** The fitted part's mesh in a slot (the magazine the first-person rig shows and hides), or null. */
 	UStaticMeshComponent* PartMesh(FName Slot) const;
+	/** The factory magazine drawn on the stage (bSetBase) when no magazine part is fitted, or null. */
+	UStaticMeshComponent* GetFactoryMagazine() const { return FactoryMagazine.Get(); }
 	const FString& GetBaseMesh() const { return BaseMesh; }
+
+	/** A bone's reference pose in the mesh's own space (the frame the gun was modelled in). The importer gives every bone
+	 *  of an exported skeleton the turn of the glTF axes, so a part snapped to a bone socket is turned back by the
+	 *  inverse of this rotation (docs/unreal/ANIMATION.md 3: a magazine on its bone stuck out sideways). */
+	static bool BoneRestInMesh(const USkinnedMeshComponent* Base, FName Bone, FTransform& Out);
+	/** True when Name is a bone of the base mesh's skeleton and no socket of that name shadows it. */
+	static bool IsBoneSocket(const USkinnedMeshComponent* Base, FName Name);
 
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
@@ -56,6 +68,7 @@ private:
 
 	TArray<FPart> Parts;
 	TArray<FName> Hidden;
+	TWeakObjectPtr<UStaticMeshComponent> FactoryMagazine;  // the factory magazine the stage shows when no magazine part is fitted
 	FString BaseMesh;
 	TMap<FName, FVector> MarkerFallback;  // web markers in the base mesh's space (when the mesh has no socket)
 	FName LaserSlot;

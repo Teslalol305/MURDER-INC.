@@ -265,6 +265,7 @@ bool FMILoadoutResolver::ResolveGun(FName GunId, const FMIGunBuild* Build, const
 			{
 				R.Socket = M->Socket;
 				R.Hide = M->Hide;
+				R.RideBone = M->RideBone;
 			}
 			R.Markers = P->Sockets;
 		}

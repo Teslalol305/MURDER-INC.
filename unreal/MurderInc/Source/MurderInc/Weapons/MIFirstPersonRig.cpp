@@ -236,6 +236,7 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 	if (OwnMag) { OwnMag->DestroyComponent(); OwnMag = nullptr; }
 	if (ReserveMag) { ReserveMag->DestroyComponent(); ReserveMag = nullptr; }
 	SeatedMag.Reset();
+	GunAssembly = Assembly;
 	if (PackGun)
 	{
 		PackGun->SetVisibility(false);
@@ -383,9 +384,18 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 		UseRealArms(true);
 		Arms->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 		Arms->SetAnimInstanceClass(UMIFPAnimInstance::StaticClass());
-		// The magazine on the gun's magazine bone (the rig drops and hides that bone in the reloads).
-		const FName MagBone(*MIJson::StringOr(Set, TEXT("magazine.socket")));
-		if (UStaticMesh* M = LoadAs<UStaticMesh>(MIJson::StringOr(Set, TEXT("magazine.full"))); M && LegacyGun && LegacyGun->DoesSocketExist(MagBone))
+		// The magazine on the gun's magazine bone (the rig drops and hides that bone in the reloads). The gun's own
+		// presentation.magazine {mesh, bone} wins over the anim set's (one set per gun, or one for several); a fitted
+		// magazine part is the seated magazine and rides the same bone, so no second one is made.
+		FName MagBone(*MIJson::StringOr(Set, TEXT("magazine.socket")));
+		FString MagPath = MIJson::StringOr(Set, TEXT("magazine.full"));
+		if (const FString OwnPath = MIJson::StringOr(P, TEXT("magazine.mesh")); !OwnPath.IsEmpty())
+		{
+			MagPath = OwnPath;
+			if (const FString OwnBone = MIJson::StringOr(P, TEXT("magazine.bone")); !OwnBone.IsEmpty()) MagBone = FName(*OwnBone);
+		}
+		const bool bMagazinePart = Assembly && Assembly->PartMesh(TEXT("magazine")) != nullptr;
+		if (UStaticMesh* M = bMagazinePart ? nullptr : LoadAs<UStaticMesh>(MagPath); M && LegacyGun && LegacyGun->DoesSocketExist(MagBone))
 		{
 			OwnMag = NewObject<UStaticMeshComponent>(GetOwner(), NAME_None, RF_Transient);
 			OwnMag->SetStaticMesh(M);
@@ -397,6 +407,7 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 			// bone's reference pose so it sits in the grip and rides the bone's drop.
 			OwnMag->SetRelativeTransform(MeshSpacePartOnBone(Cast<USkeletalMesh>(LegacyGun->GetSkinnedAsset()), MagBone));
 		}
+		ApplyOpticMaterials(LegacyGun);   // the build's optic (red dot, scope) in daylight, as for the pack's
 		return Mode;
 	}
 	if (Kind != TEXT("pack") || !Resolved)
@@ -427,41 +438,7 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 	{
 		Assembly->Assemble(PackGun, *Resolved, false);
 	}
-	// The optics in daylight (review 2026-11-23: no reticle visible at 32 degrees, the glass tinted dark grey):
-	// presentation firstPerson.opticMaterials, base material name -> scalar parameters, set on dynamic instances.
-	if (const TSharedPtr<FJsonObject> OM = Obj(Root, TEXT("firstPerson.opticMaterials")))
-	{
-		TArray<USceneComponent*> Parts;
-		PackGun->GetChildrenComponents(true, Parts);
-		for (USceneComponent* SC : Parts)
-		{
-			UPrimitiveComponent* PC = Cast<UPrimitiveComponent>(SC);
-			for (int32 I = 0; PC && I < PC->GetNumMaterials(); ++I)
-			{
-				UMaterialInterface* M = PC->GetMaterial(I);
-				const UMaterial* Base = M ? M->GetBaseMaterial() : nullptr;
-				const TSharedPtr<FJsonObject> Params = Base ? Obj(OM, Base->GetName()) : nullptr;
-				if (!Params.IsValid())
-				{
-					continue;
-				}
-				UMaterialInstanceDynamic* D = Cast<UMaterialInstanceDynamic>(M);
-				if (!D)
-				{
-					D = UMaterialInstanceDynamic::Create(M, PC);
-					PC->SetMaterial(I, D);
-				}
-				for (const auto& Pair : Params->Values)
-				{
-					double V = 0.0;
-					if (Pair.Value->TryGetNumber(V))
-					{
-						D->SetScalarParameterValue(FName(FString(*Pair.Key)), static_cast<float>(V));
-					}
-				}
-			}
-		}
-	}
+	ApplyOpticMaterials(PackGun);
 	UseRealArms(true);
 	Arms->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 	Arms->SetAnimInstanceClass(UMIFPAnimInstance::StaticClass());
@@ -560,6 +537,48 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 	UE_LOG(LogMI, Log, TEXT("First person: %s drawn with the pack's clips (%d arm clips, %d gun clips, optic %d, grip %s)"),
 		*Gun.ToString(), Clips.Arms.Num(), Clips.Gun.Num(), bOptic ? 1 : 0, *GripVariant.ToString());
 	return Mode;
+}
+
+void UMIFirstPersonRig::ApplyOpticMaterials(USceneComponent* GunRoot)
+{
+	using namespace MIFirstPersonRigPrivate;
+	// The optics in daylight (review 2026-11-23: no reticle visible at 32 degrees, the glass tinted dark grey):
+	// presentation firstPerson.opticMaterials, base material name -> scalar parameters, set on dynamic instances.
+	const TSharedPtr<FJsonObject> OM = Obj(Root, TEXT("firstPerson.opticMaterials"));
+	if (!OM.IsValid() || !GunRoot)
+	{
+		return;
+	}
+	TArray<USceneComponent*> Parts;
+	GunRoot->GetChildrenComponents(true, Parts);
+	for (USceneComponent* SC : Parts)
+	{
+		UPrimitiveComponent* PC = Cast<UPrimitiveComponent>(SC);
+		for (int32 I = 0; PC && I < PC->GetNumMaterials(); ++I)
+		{
+			UMaterialInterface* M = PC->GetMaterial(I);
+			const UMaterial* Base = M ? M->GetBaseMaterial() : nullptr;
+			const TSharedPtr<FJsonObject> Params = Base ? Obj(OM, Base->GetName()) : nullptr;
+			if (!Params.IsValid())
+			{
+				continue;
+			}
+			UMaterialInstanceDynamic* D = Cast<UMaterialInstanceDynamic>(M);
+			if (!D)
+			{
+				D = UMaterialInstanceDynamic::Create(M, PC);
+				PC->SetMaterial(I, D);
+			}
+			for (const auto& Pair : Params->Values)
+			{
+				double V = 0.0;
+				if (Pair.Value->TryGetNumber(V))
+				{
+					D->SetScalarParameterValue(FName(FString(*Pair.Key)), static_cast<float>(V));
+				}
+			}
+		}
+	}
 }
 
 double UMIFirstPersonRig::WarpReload(const FReloadMap& Map, double RuleT) const
@@ -1094,23 +1113,28 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 	}
 	HandPose.Hands.Reset();
 	const FTransform ArmsWorld = Arms->GetComponentTransform();
+	// A fitted foregrip (or any part that names a support hand): the support palm goes to its SupportHand socket, not to
+	// the gun's own Palm_L, and the factory support grip (solved for the bare handguard) is let go.
+	FTransform Support;
+	const bool bGrip = GunAssembly.IsValid() && GunAssembly->MarkerTransform(TEXT("support"), Support);
 	const auto Pull = [&](FName Socket, const TCHAR* U, const TCHAR* L, const TCHAR* H, const TCHAR* Palm)
 	{
 		if (Socket.IsNone() || !Gun->DoesSocketExist(Socket))
 		{
 			return;
 		}
+		const bool bLeftHand = FCString::Strcmp(H, TEXT("hand_l")) == 0;
 		FMIFPHandIK& IK = HandPose.Hands.AddDefaulted_GetRef();
 		IK.Upper = U;
 		IK.Lower = L;
 		IK.Hand = H;
 		IK.Palm = Palm;
-		IK.Target = Gun->GetSocketTransform(Socket).GetRelativeTransform(ArmsWorld);
+		IK.Target = (bLeftHand && bGrip ? Support : Gun->GetSocketTransform(Socket)).GetRelativeTransform(ArmsWorld);
 		IK.Weight = 1.f;
 		IK.bRotation = false;  // the template clip's hand shape and wrist stay; only the palm moves onto the gun
 		// the solved grip, when there is one: the hand turned and placed as solved, each finger closed onto the gun
-		const TMap<FName, FVector>& Pts = GripPoints[FCString::Strcmp(H, TEXT("hand_l")) == 0 ? 0 : 1];
-		if (!Pts.IsEmpty() && GripWeight > 0.0)
+		const TMap<FName, FVector>& Pts = GripPoints[bLeftHand ? 0 : 1];
+		if (!Pts.IsEmpty() && GripWeight > 0.0 && !(bLeftHand && bGrip))
 		{
 			const FTransform GunWorld = Gun->GetComponentTransform();
 			for (const TPair<FName, FVector>& KV : Pts)

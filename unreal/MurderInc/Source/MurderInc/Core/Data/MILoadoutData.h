@@ -101,6 +101,7 @@ struct FMIGunMount
 	FName Socket;
 	FName Status;
 	TArray<FName> Hide;
+	FName RideBone;  // a part that moves with a gun part rides this bone (the magazine bone: it drops and hides in a reload)
 };
 
 struct FMIGunVariant

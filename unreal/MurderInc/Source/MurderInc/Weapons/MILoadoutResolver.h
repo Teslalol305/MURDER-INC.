@@ -20,6 +20,7 @@ struct FMIResolvedPart
 	FString Mesh;          // the part's mesh (empty until the pack import fills attachments.json)
 	FName Socket;          // the gun's mount socket
 	TArray<FName> Hide;    // gun parts the part replaces (the CHOPPER's Booster)
+	FName RideBone;        // the gun bone the part follows once placed on its socket (a magazine rides 'magazine')
 	TMap<FName, FName> Markers;  // viewmodel marker -> socket on the part mesh
 };
 
