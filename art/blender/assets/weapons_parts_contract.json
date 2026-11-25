@@ -385,7 +385,7 @@
     ]
    },
    "triangle_budget": 8000,
-   "triangles": 7744
+   "triangles": 7734
   },
   "scope_4x": {
    "applies_to": [
@@ -429,7 +429,7 @@
     ]
    },
    "triangle_budget": 12000,
-   "triangles": 12050
+   "triangles": 12040
   },
   "suppressor": {
    "applies_to": [

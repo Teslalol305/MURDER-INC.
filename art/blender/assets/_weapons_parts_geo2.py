@@ -50,7 +50,7 @@ def scope_4x(pi=0):
     for x, r_, nm in ((-63.2, 13.9, "SCLensE"), (80.8, 19.3, "SCLensO")):
         d = lathe_x([(x - 0.7, 0.0), (x - 0.7, r_), (x + 0.7, r_), (x + 0.7, 0.0)], 48, at=(0, 0, AX), fillet=0.2, fseg=1, name=nm)
         objs.append(fin(d, LENS, pi))
-    objs.append(fin(box_mm(-0.1, 0.1, -10.0, 10.0, AX - 10.0, AX + 10.0, bevel=0.0, name="SCRet"), RET, pi))
+    objs.append(G.reticle_plane(20.0, AX, pi, "SCRet"))
     return objs, {"SightEye": mm(-67.0, 0, AX)}
 
 

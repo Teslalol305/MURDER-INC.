@@ -26,7 +26,8 @@ import weapons as W  # noqa: E402
 
 CONTRACT = os.path.join(HERE, "weapons_parts_contract.json")
 SETS = {"M_Part_Hardware": "Weapon_Parts", "M_Part_Mags": "Weapon_PartsMags"}
-HIDE = {"optic": {"chopper": ["FrontSight"]}, "muzzle": {"chopper": ["Booster"]}}
+HIDE = {"optic": {"chopper": ["FrontSight"], "shorty": ["IronsFront"], "stretch": ["IronsRear", "IronsFront"], "rattler": ["IronsFront", "IronsRear"]},
+        "muzzle": {"chopper": ["Booster"], "shorty": ["MuzzleDevice"], "stretch": ["MuzzleDevice"], "rattler": ["MuzzleDevice"]}}
 
 
 def contract():
@@ -150,10 +151,10 @@ def assembly(key, fitted, path, view, samples=64, res=(1280, 720), lens=70, look
         ob = load_part(pid, mats)
         fit(arm, ob, rec["gun_socket"])
         used.append(ob)
-        if key == "chopper":
-            hide_bones(arm, HIDE.get(rec["slot"], {}).get(key, []))
+        hide_bones(arm, HIDE.get(rec["slot"], {}).get(key, []))
     # the standard magazine of the gun is part of the picture unless an extended one is fitted
-    std = {"chopper": "SM_Weapon_ChopperMagazine", "nine": "SM_Weapon_NineMagazine"}.get(key)
+    std = {"chopper": "SM_Weapon_ChopperMagazine", "nine": "SM_Weapon_NineMagazine", "shorty": "SM_Weapon_ShortyMagazine",
+           "stretch": "SM_Weapon_StretchMagazine", "rattler": "SM_Weapon_RattlerMagazine"}.get(key)
     ext = [p for p in fitted if p.startswith("mag_")]
     if std and not ext:
         _a, ms, _c = W.import_asset(std)
@@ -305,6 +306,11 @@ if __name__ == "__main__":
     elif what == "chopper":
         assembly("chopper", ["scope_4x", "suppressor", "foregrip_vertical_wood"], os.path.join(out, "weapons_chopper_built.jpg"),
                  (0.55, -0.85, 0.30), samples, (1280, 720), lens=60)
+    elif what in ("shorty", "stretch", "rattler"):
+        fitted = {"shorty": ["red_dot", "suppressor", "foregrip_vertical", "laser_module", "mag_ext_rifle"],
+                  "stretch": ["scope_4x", "foregrip_angled", "mag_ext_rifle"],
+                  "rattler": ["red_dot", "suppressor", "mag_ext_smg"]}[what]
+        assembly(what, fitted, os.path.join(out, "weapons_%s_built.jpg" % what), (0.45, -0.85, 0.3), samples, (960, 540), lens=60)
     elif what == "nine":
         assembly("nine", ["laser_module", "suppressor_pistol", "mag_ext_pistol"], os.path.join(out, "weapons_nine_built.jpg"),
                  (0.35, -0.9, 0.25), samples, (1280, 720), lens=70)

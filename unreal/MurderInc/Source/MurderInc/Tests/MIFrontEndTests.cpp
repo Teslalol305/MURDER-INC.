@@ -20,7 +20,8 @@ namespace MIFrontEndTestsPrivate
 	constexpr EAutomationTestFlags Flags = EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter;
 
 	/** The data with every pack rifle ready, their mounts and variants built and their parts imported (test data:
-	 *  the pack is not in a clean checkout). The CHOPPER's and NINE's mounts stay missing; the crew's looks too. */
+	 *  the pack is not in a clean checkout). The parity guns' mounts stay as the data says (round 4: the CHOPPER's and
+	 *  NINE's mounts exist now, with their own parts); the crew's looks stay missing. */
 	struct FFixture
 	{
 		FMILoadoutData Data;
@@ -83,7 +84,15 @@ bool FMIFrontendWalkTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Loadout"), R.GetScreen(), EMIFrontScreen::Loadout);
 	TestEqual(TEXT("parity guns"), R.GetSetup().Guns, TArray<FName>{TEXT("chopper"), TEXT("nine")});
 	TestTrue(TEXT("the rack offers the pack rifles with the test data"), R.Rack().Contains(TEXT("stick")) && R.Rack().Contains(TEXT("stretch")) && R.Rack().Contains(TEXT("shorty")));
-	TestFalse(TEXT("the RATTLER stays hidden"), R.Rack().Contains(TEXT("rattler")));
+	// Round 4: the RATTLER has its mesh (and the template plays its Idle), so the rack offers it; without its mesh it is
+	// hidden again (the box before the weapons import, a clean checkout).
+	TestTrue(TEXT("the RATTLER is offered with its mesh"), R.Rack().Contains(TEXT("rattler")));
+	{
+		FMIReadiness NoRattler = F.Ready;
+		NoRattler.AssetExists = [](const FString& Path) { return !Path.Contains(TEXT("/Game/Weapons/Rattler/")) && !Path.Contains(TEXT("/Characters/Crew/")); };
+		TestFalse(TEXT("the RATTLER is hidden without its mesh"), NoRattler.IsGunOffered(TEXT("rattler")));
+		TestTrue(TEXT("the others stay offered without it"), NoRattler.IsGunOffered(TEXT("shorty")) && NoRattler.IsGunOffered(TEXT("stretch")) && NoRattler.IsGunOffered(TEXT("stick")));
+	}
 
 	// 3. Carry the STICK and the STRETCH (slots 3, 4); a fifth carry asks for a slot.
 	TestTrue(TEXT("carry STICK"), R.Carry(TEXT("stick")));
@@ -143,14 +152,20 @@ bool FMIFrontendWalkTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("reset: no silencer"), R.GetSetup().PartIn(TEXT("stick"), TEXT("muzzle")), NAME_None);
 	R.ChooseBenchSlot(TEXT("optic"));
 	R.Fit(TEXT("scope"));
-	// [ / ] to the CHOPPER: its mounts are missing, no slot is offered.
+	// [ / ] to the CHOPPER: its mounts exist since round 4 (SK_Chopper carries Optic, MuzzleMount and Underbarrel).
 	R.BenchNextGun(1);
 	TestEqual(TEXT("] reaches the CHOPPER"), R.GetBenchGun(), FName(TEXT("chopper")));
-	TestEqual(TEXT("CHOPPER: no parts yet"), R.BenchSlots().Num(), 0);
+	TestEqual(TEXT("CHOPPER: optic, muzzle, underbarrel"), R.BenchSlots(), TArray<FName>{TEXT("optic"), TEXT("muzzle"), TEXT("underbarrel")});
 	R.BenchNextGun(1);
 	TestEqual(TEXT("] wraps to the STRETCH"), R.GetBenchGun(), FName(TEXT("stretch")));
+	// The STRETCH is our own marksman rifle: no laser slot, no stock slot, and its own parts.
+	TestEqual(TEXT("STRETCH: optic, muzzle, underbarrel, magazine"), R.BenchSlots(), TArray<FName>{TEXT("optic"), TEXT("muzzle"), TEXT("underbarrel"), TEXT("magazine")});
+	TestEqual(TEXT("STRETCH optics"), F.Ready.OfferedParts(TEXT("stretch"), TEXT("optic")), TArray<FName>{TEXT("scope_4x"), TEXT("red_dot")});
+	TestEqual(TEXT("STRETCH muzzle devices"), F.Ready.OfferedParts(TEXT("stretch"), TEXT("muzzle")), TArray<FName>{TEXT("suppressor")});
+	TestEqual(TEXT("STRETCH grips"), F.Ready.OfferedParts(TEXT("stretch"), TEXT("underbarrel")), TArray<FName>{TEXT("foregrip_vertical"), TEXT("foregrip_angled")});
+	TestEqual(TEXT("STRETCH magazines"), F.Ready.OfferedParts(TEXT("stretch"), TEXT("magazine")), TArray<FName>{TEXT("mag_ext_rifle")});
 	R.ChooseBenchSlot(TEXT("optic"));
-	R.Fit(TEXT("scope"));
+	R.Fit(TEXT("scope_4x"));
 	R.Next();  // Done
 	TestEqual(TEXT("Done: back on the rack"), R.GetScreen(), EMIFrontScreen::Loadout);
 
@@ -254,17 +269,54 @@ bool FMISaveSetupValidationTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("unoffered crew -> rule"), S.Crew, FName(TEXT("rule")));
 	TestEqual(TEXT("unknown level -> block"), S.Level, FName(TEXT("block")));
 	// 2. Unknown or unoffered guns dropped; none left -> the parity guns.
-	S.Guns = {TEXT("bazooka"), TEXT("rattler")};
+	S.Guns = {TEXT("bazooka")};
 	F.Ready.Validate(S);
 	TestEqual(TEXT("none left: the parity guns"), S.Guns, F.Data.ParityGuns);
+	{
+		// The RATTLER is offered once its mesh exists (round 4); a saved RATTLER whose mesh is gone degrades the same way.
+		FMIReadiness NoRattler = F.Ready;
+		NoRattler.AssetExists = [](const FString& Path) { return !Path.Contains(TEXT("/Game/Weapons/Rattler/")) && !Path.Contains(TEXT("/Characters/Crew/")); };
+		FMIRunSetup G = F.Data.ParitySetup(TEXT("mission"), TEXT("boss"), TEXT("day"));
+		G.Guns = {TEXT("rattler")};
+		NoRattler.Validate(G);
+		TestEqual(TEXT("a RATTLER without its mesh: the parity guns"), G.Guns, F.Data.ParityGuns);
+		G.Guns = {TEXT("rattler")};
+		F.Ready.Validate(G);
+		TestEqual(TEXT("a RATTLER with its mesh is kept"), G.Guns, TArray<FName>{TEXT("rattler")});
+	}
 	// 3. Parts not in the gun's options or not offered are dropped; a required slot takes its default.
 	S.Guns = {TEXT("nine"), TEXT("stick")};
 	S.Builds.Add(TEXT("nine")).Parts = {{TEXT("muzzle"), TEXT("silencer")}, {TEXT("laser"), TEXT("laser")}};
 	S.Builds.Add(TEXT("stick")).Parts = {{TEXT("optic"), TEXT("silencer")}};
 	F.Ready.Validate(S);
 	TestEqual(TEXT("a part that does not fit is dropped"), S.PartIn(TEXT("nine"), TEXT("muzzle")), NAME_None);
-	TestEqual(TEXT("a part whose mount is missing is dropped"), S.PartIn(TEXT("nine"), TEXT("laser")), NAME_None);
+	TestEqual(TEXT("a pack part the NINE does not take is dropped"), S.PartIn(TEXT("nine"), TEXT("laser")), NAME_None);
 	TestEqual(TEXT("a required slot takes its default"), S.PartIn(TEXT("stick"), TEXT("optic")), FName(TEXT("irons")));
+	// The NINE's own parts (round 4): kept while the mount and the part's mesh exist, dropped when either is gone.
+	{
+		FMIRunSetup N = F.Data.ParitySetup(TEXT("mission"), TEXT("boss"), TEXT("day"));
+		N.Builds.Add(TEXT("nine")).Parts = {{TEXT("muzzle"), TEXT("suppressor_pistol")}, {TEXT("laser"), TEXT("laser_module")}};
+		F.Ready.Validate(N);
+		TestEqual(TEXT("the NINE's pistol suppressor is kept"), N.PartIn(TEXT("nine"), TEXT("muzzle")), FName(TEXT("suppressor_pistol")));
+		TestEqual(TEXT("the NINE's laser module is kept"), N.PartIn(TEXT("nine"), TEXT("laser")), FName(TEXT("laser_module")));
+		FMIReadiness NoParts = F.Ready;
+		NoParts.AssetExists = [](const FString& Path) { return !Path.Contains(TEXT("/Game/Weapons/Parts/")) && !Path.Contains(TEXT("/Characters/Crew/")); };
+		N.Builds.Add(TEXT("nine")).Parts = {{TEXT("muzzle"), TEXT("suppressor_pistol")}};
+		NoParts.Validate(N);
+		TestEqual(TEXT("a part whose mesh is missing is dropped"), N.PartIn(TEXT("nine"), TEXT("muzzle")), NAME_None);
+		// A mount that is missing: the part is dropped for that reason alone.
+		FMIGunEntry* Nine = F.Data.Guns.Find(TEXT("nine"));
+		FMIGunMount* LaserMount = Nine ? Nine->Mounts.Find(TEXT("laser")) : nullptr;
+		if (TestNotNull(TEXT("the NINE has a laser mount"), LaserMount))
+		{
+			const FName Was = LaserMount->Status;
+			LaserMount->Status = TEXT("missing");
+			N.Builds.Add(TEXT("nine")).Parts = {{TEXT("laser"), TEXT("laser_module")}};
+			F.Ready.Validate(N);
+			TestEqual(TEXT("a part whose mount is missing is dropped"), N.PartIn(TEXT("nine"), TEXT("laser")), NAME_None);
+			LaserMount->Status = Was;
+		}
+	}
 	// 4. Duplicates and gaps removed, cut to four.
 	S.Guns = {TEXT("stick"), NAME_None, TEXT("stick"), TEXT("chopper"), TEXT("nine"), TEXT("shorty"), TEXT("stretch")};
 	F.Ready.Validate(S);

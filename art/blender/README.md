@@ -18,7 +18,7 @@
 > `_weapons_parts_mags.py`, `_weapons_parts_tex.py`, `_weapons_parts_prev.py`, `_weapons_patch.py`, `_weapons_check_parts.py` (+ `_b`),
 > `_weapons_pack_parts.py` and `weapons_parts_contract.json` exist and pass (`ALL MOUNTS KEPT`, 153 checks; `_weapons_check.py` still
 > `ALL FIXED POINTS KEPT`): `SK_Chopper` / `SK_Nine` carry the new sockets (+ bones Booster, FrontSight), 15 `SM_Part_*` files, two 2K sets;
-> commits dcdaa5e (mounts), 5079cb4 and 9264887 (first exports), 0e2e653 (final sets, the proof fixed), and the ones after it
+> commits dcdaa5e (mounts), 5079cb4 and 9264887 (first exports), 0e2e653 (final sets, the proof fixed), 635f9c5 (pictures, integration notes) and the ones after it
 > (`git log -- art/blender/assets/weapons_parts.py art/blender/assets/_weapons_patch.py`).
 
 Every asset of the Unreal rebuild is authored by a Python script: reproducible, reviewable, no hand-saved `.blend`.

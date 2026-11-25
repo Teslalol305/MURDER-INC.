@@ -1,9 +1,11 @@
 // LOADOUT.md 8: the loadout data, the resolver's parity and the attachments.
 
+#include "AnimationRuntime.h"
 #include "Core/Data/MIDataSubsystem.h"
 #include "Core/Data/MILoadoutData.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/StaticMeshSocket.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/Paths.h"
 #include "World/MILevelData.h"
@@ -81,7 +83,7 @@ bool FMILoadoutDataLoadsTest::RunTest(const FString& Parameters)
 		AddError(P);
 	}
 	TestEqual(TEXT("roster"), D.Roster.Num(), 6);
-	TestEqual(TEXT("parts"), D.Attachments.Num(), 10);
+	TestEqual(TEXT("parts"), D.Attachments.Num(), 22);  // the pack's ten and round 4's twelve (24 when the RATTLER's stock variants land)
 	TestEqual(TEXT("slots"), D.Slots.Num(), 6);
 	TestEqual(TEXT("crew"), D.CrewOrder.Num(), 4);
 	TestEqual(TEXT("parity guns"), D.ParityGuns, TArray<FName>{TEXT("chopper"), TEXT("nine")});
@@ -208,6 +210,74 @@ bool FMILoadoutMountsExistTest::RunTest(const FString& Parameters)
 		if (const UStaticMesh* S = Cast<UStaticMesh>(Mesh)) return S->FindSocket(Socket) != nullptr;
 		return false;
 	};
+	// The art's contract (round 4): where each exported socket is and which bones deform. A clean checkout has the file too.
+	TSharedPtr<FJsonObject> Contract;
+	FString ContractError;
+	UMIDataSubsystem::LoadJsonFile(TEXT("gun_contract.json"), Contract, ContractError);
+	// A bone's place in the mesh's frame (cm), or false when the mesh has no such bone.
+	const auto BonePlace = [](const USkeletalMesh* Mesh, FName Bone, FVector& Out)
+	{
+		const int32 Index = Mesh->GetRefSkeleton().FindBoneIndex(Bone);
+		if (Index == INDEX_NONE) return false;
+		Out = FAnimationRuntime::GetComponentSpaceTransformRefPose(Mesh->GetRefSkeleton(), Index).GetLocation();
+		return true;
+	};
+	// One mesh of a gun: its mounts' sockets (and, for our own guns, where the contract puts them: within 1 mm), the bones
+	// the mounts hide and ride, and the viewmodel sockets.
+	const auto CheckGunMesh = [&](const FMIGunEntry& G, const FString& L, const FString& Path, const TCHAR* SocketsKey)
+	{
+		const UObject* Mesh = FSoftObjectPath(Path).TryLoad();
+		if (!TestNotNull(L + TEXT(": the mesh loads"), Mesh))
+		{
+			return;
+		}
+		++Meshes;
+		const TSharedPtr<FJsonValue> CGun = Contract.IsValid() ? MIJson::Get(Contract, TEXT("guns.") + G.Id.ToString()) : nullptr;
+		const USkeletalMesh* Skeletal = Cast<USkeletalMesh>(Mesh);
+		for (const TPair<FName, FMIGunMount>& M : G.Mounts)
+		{
+			if (M.Value.Status != TEXT("exists"))
+			{
+				continue;
+			}
+			TestTrue(FString::Printf(TEXT("%s: mount %s has socket %s"), *L, *M.Key.ToString(), *M.Value.Socket.ToString()), HasSocket(Mesh, M.Value.Socket));
+			++Sockets;
+			FVector Place;
+			if (CGun.IsValid() && Skeletal && BonePlace(Skeletal, M.Value.Socket, Place))
+			{
+				const TSharedPtr<FJsonValue> At = MIJson::Get(CGun->AsObject(), TEXT("sockets.") + M.Value.Socket.ToString());
+				if (At.IsValid())
+				{
+					const TArray<TSharedPtr<FJsonValue>>& A = At->AsArray();
+					const FVector Want(A[0]->AsNumber() * 100.0, -A[1]->AsNumber() * 100.0, A[2]->AsNumber() * 100.0);
+					TestTrue(FString::Printf(TEXT("%s: socket %s is at %s, the contract says %s (within 1 mm)"), *L, *M.Value.Socket.ToString(), *Place.ToCompactString(), *Want.ToCompactString()), FVector::Dist(Place, Want) < 0.1);
+				}
+			}
+			if (Skeletal)
+			{
+				for (const FName H : M.Value.Hide)
+				{
+					TestTrue(FString::Printf(TEXT("%s: mount %s hides %s, a bone of the skeleton"), *L, *M.Key.ToString(), *H.ToString()), Skeletal->GetRefSkeleton().FindBoneIndex(H) != INDEX_NONE);
+				}
+				if (!M.Value.RideBone.IsNone())
+				{
+					TestTrue(FString::Printf(TEXT("%s: mount %s rides %s, a bone of the skeleton"), *L, *M.Key.ToString(), *M.Value.RideBone.ToString()), Skeletal->GetRefSkeleton().FindBoneIndex(M.Value.RideBone) != INDEX_NONE);
+				}
+			}
+		}
+		// The viewmodel sockets every variant carries (presentation.sockets).
+		if (const TSharedPtr<FJsonValue> S = MIJson::Get(G.Presentation, SocketsKey); S.IsValid() && S->Type == EJson::Object)
+		{
+			for (const auto& Socket : S->AsObject()->Values)
+			{
+				if (Socket.Value->Type == EJson::String && FString(*Socket.Key) != TEXT("note"))
+				{
+					TestTrue(FString::Printf(TEXT("%s: socket %s"), *L, *Socket.Value->AsString()), HasSocket(Mesh, FName(*Socket.Value->AsString())));
+					++Sockets;
+				}
+			}
+		}
+	};
 	for (const TPair<FName, FMIGunEntry>& Pair : D.Guns)
 	{
 		const FMIGunEntry& G = Pair.Value;
@@ -228,33 +298,22 @@ bool FMILoadoutMountsExistTest::RunTest(const FString& Parameters)
 					++Absent;
 					continue;
 				}
-				const UObject* Mesh = FSoftObjectPath(Path).TryLoad();
-				const FString L = FString::Printf(TEXT("%s %s (%s)"), *G.Id.ToString(), *V.Key.ToString(), *FPaths::GetBaseFilename(Path));
-				if (!TestNotNull(L + TEXT(": the mesh loads"), Mesh))
-				{
-					continue;
-				}
-				++Meshes;
-				for (const TPair<FName, FMIGunMount>& M : G.Mounts)
-				{
-					if (M.Value.Status == TEXT("exists"))
-					{
-						TestTrue(FString::Printf(TEXT("%s: mount %s has socket %s"), *L, *M.Key.ToString(), *M.Value.Socket.ToString()), HasSocket(Mesh, M.Value.Socket));
-						++Sockets;
-					}
-				}
-				// The viewmodel sockets every variant carries (presentation.sockets).
-				if (const TSharedPtr<FJsonValue> S = MIJson::Get(G.Presentation, TEXT("sockets")); S.IsValid() && S->Type == EJson::Object)
-				{
-					for (const auto& Socket : S->AsObject()->Values)
-					{
-						if (Socket.Value->Type == EJson::String && FString(*Socket.Key) != TEXT("note"))
-						{
-							TestTrue(FString::Printf(TEXT("%s: socket %s"), *L, *Socket.Value->AsString()), HasSocket(Mesh, FName(*Socket.Value->AsString())));
-							++Sockets;
-						}
-					}
-				}
+				CheckGunMesh(G, FString::Printf(TEXT("%s %s (%s)"), *G.Id.ToString(), *V.Key.ToString(), *FPaths::GetBaseFilename(Path)), Path, TEXT("sockets"));
+			}
+		}
+		// A gun with no variants draws its real mesh (the CHOPPER, the NINE, the RATTLER): round 4 holds it to its mounts too.
+		if (G.Variants.Num() == 0 && G.MeshStatus == TEXT("exists"))
+		{
+			const FString Real = MIJson::StringOr(G.Presentation, TEXT("realMesh"));
+			if (!Real.IsEmpty() && Exists(Real))
+			{
+				// the real block's sockets are the ones the real mesh carries (the top level's are the template stand-in's)
+				const bool bRealSockets = MIJson::Get(G.Presentation, TEXT("real.sockets")).IsValid();
+				CheckGunMesh(G, FString::Printf(TEXT("%s (%s)"), *G.Id.ToString(), *FPaths::GetBaseFilename(Real)), Real, bRealSockets ? TEXT("real.sockets") : TEXT("sockets"));
+			}
+			else if (!Real.IsEmpty())
+			{
+				++Absent;
 			}
 		}
 	}
@@ -281,6 +340,16 @@ bool FMILoadoutMountsExistTest::RunTest(const FString& Parameters)
 		{
 			TestTrue(FString::Printf(TEXT("%s: socket %s"), *A.Id.ToString(), *S.Value.ToString()), HasSocket(Mesh, S.Value));
 			++Sockets;
+			// Our own parts: the socket the import wrote is the contract's, in the part's frame, within 1 mm.
+			const UStaticMesh* Static = Cast<UStaticMesh>(Mesh);
+			const UStaticMeshSocket* Found = Static ? Static->FindSocket(S.Value) : nullptr;
+			const TSharedPtr<FJsonValue> At = Contract.IsValid() ? MIJson::Get(Contract, FString::Printf(TEXT("parts.%s.sockets.%s"), *A.Id.ToString(), *S.Value.ToString())) : nullptr;
+			if (Found && At.IsValid())
+			{
+				const TArray<TSharedPtr<FJsonValue>>& V = At->AsArray();
+				const FVector Want(V[0]->AsNumber() * 100.0, -V[1]->AsNumber() * 100.0, V[2]->AsNumber() * 100.0);
+				TestTrue(FString::Printf(TEXT("%s: socket %s is at %s, the contract says %s (within 1 mm)"), *A.Id.ToString(), *S.Value.ToString(), *Found->RelativeLocation.ToCompactString(), *Want.ToCompactString()), FVector::Dist(Found->RelativeLocation, Want) < 0.1);
+			}
 		}
 	}
 	if (Meshes == 0)

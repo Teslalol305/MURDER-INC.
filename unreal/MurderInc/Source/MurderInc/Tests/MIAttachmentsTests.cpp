@@ -79,6 +79,7 @@ namespace MIAttachmentsPrivate
 			{TEXT("rules.wallPull[0]"), D.WallStart, 100.0},
 			{TEXT("rules.wallPull[1]"), D.WallFull, 100.0},
 			{TEXT("rules.swayMax"), G.View.SwayMax, 1.0},
+			{TEXT("rules.magSize"), static_cast<double>(D.MagSize), 1.0},
 		};
 		for (const FRow& R : Rows)
 		{
@@ -254,6 +255,8 @@ bool FMIAttachmentsBuildsTest::RunTest(const FString& Parameters)
 		double Aim, Kick, Aimed, Hip, Heard, Holster, Draw;
 		double Fov = 52.0;
 		double FalloffMinDamage = -1.0;  // damage past the falloff end, when any
+		int32 MagSize = -1;              // rounds in the magazine, when the case says (an integer: the parser truncates)
+		double Reload = -1.0, MagOut = -1.0;  // tactical reload seconds and the magazine-out mark, when the case says
 	};
 	const auto P = [](const TCHAR* Slot, const TCHAR* Part) { return TPair<FName, FName>(FName(Slot), FName(Part)); };
 	const TArray<FCase> Cases = {
@@ -265,6 +268,20 @@ bool FMIAttachmentsBuildsTest::RunTest(const FString& Parameters)
 			0.346421, 0.0039292, 0.000539, 0.012, 18, 0.3339, 0.38955, 30.0, 21.25},
 		{TEXT("SHORTY silencer"), TEXT("shorty"), {P(TEXT("muzzle"), TEXT("silencer"))}, 0.1944, 0.00532, 0.00104, 0.012, 20, 0.2756, 0.3074, 52.0, 14.28},
 		{TEXT("CHOPPER scope and silencer"), TEXT("chopper"), {P(TEXT("optic"), TEXT("scope")), P(TEXT("muzzle"), TEXT("silencer"))}, 0.26244, 0.00646, 0.00084, 0.0125, 18, 0.2968, 0.3392, 30.0, 22.1},
+		// Round 4: our own parts on our own guns (docs/unreal/WEAPONS_R4_TESTS.md section 2, worked out from the data by
+		// tools/data/check_guns_data.py's resolver, which first reproduced the six cases above to 5e-6).
+		{TEXT("CHOPPER red dot, suppressor"), TEXT("chopper"), {P(TEXT("optic"), TEXT("red_dot")), P(TEXT("muzzle"), TEXT("suppressor"))},
+			0.178848, 0.00646, 0.001296, 0.0125, 18, 0.31164, 0.35616, 52.0, 22.1},
+		{TEXT("CHOPPER compensator, wooden grip"), TEXT("chopper"), {P(TEXT("muzzle"), TEXT("compensator")), P(TEXT("underbarrel"), TEXT("foregrip_vertical_wood"))},
+			0.202176, 0.00526592, 0.0012, 0.0125, 51.75, 0.294, 0.336, 52.0, -1.0},
+		{TEXT("SHORTY carry"), TEXT("shorty"), {P(TEXT("muzzle"), TEXT("compensator")), P(TEXT("underbarrel"), TEXT("foregrip_angled")), P(TEXT("laser"), TEXT("laser_module")), P(TEXT("magazine"), TEXT("mag_ext_rifle"))},
+			0.189237, 0.00473088, 0.001144, 0.0096, 57.5, 0.269724, 0.300846, 52.0, 16.8, 45, 2.3856, 0.4256},
+		{TEXT("STRETCH marksman"), TEXT("stretch"), {P(TEXT("optic"), TEXT("scope_4x")), P(TEXT("underbarrel"), TEXT("foregrip_vertical")), P(TEXT("muzzle"), TEXT("suppressor")), P(TEXT("magazine"), TEXT("mag_ext_rifle"))},
+			0.360278, 0.0039292, 0.000539, 0.012, 18, 0.350595, 0.409028, 30.0, 21.25, 45, 2.3856, 0.4256},
+		{TEXT("RATTLER close"), TEXT("rattler"), {P(TEXT("optic"), TEXT("red_dot")), P(TEXT("muzzle"), TEXT("compensator")), P(TEXT("magazine"), TEXT("mag_ext_smg"))},
+			0.14065, 0.003608, 0.00324, 0.0094, 51.75, 0.26712, 0.30051, 52.0, 16.25, 48, 2.128, 0.3808},
+		{TEXT("NINE quiet and long"), TEXT("nine"), {P(TEXT("muzzle"), TEXT("suppressor_pistol")), P(TEXT("laser"), TEXT("laser_module")), P(TEXT("magazine"), TEXT("mag_ext_pistol"))},
+			0.173094, 0.00874, 0.00187, 0.0084, 18, 0.333366, 0.380989, 52.0, 28.9, 24, 1.65, 0.198},
 	};
 	const double Deg = 180.0 / UE_DOUBLE_PI;
 	for (const FCase& C : Cases)
@@ -304,6 +321,32 @@ bool FMIAttachmentsBuildsTest::RunTest(const FString& Parameters)
 		{
 			Check(TEXT("reload"), G.Def.Reload.Tactical, 2.0022);
 			Check(TEXT("magOut"), G.Def.Reload.MagOut, 0.3572);
+		}
+		if (C.MagSize >= 0)
+		{
+			// A whole number, exactly: a fractional product would lose a round to the parser's truncation.
+			TestEqual(FString(C.Name) + TEXT(" rounds in the magazine"), G.Def.MagSize, C.MagSize);
+			Check(TEXT("reload"), G.Def.Reload.Tactical, C.Reload);
+			Check(TEXT("magOut"), G.Def.Reload.MagOut, C.MagOut);
+		}
+	}
+	// The factory builds of the six guns: nothing leaks into a bare gun (magazine sizes CHOPPER 30, NINE 15, SHORTY 30,
+	// STICK 30, STRETCH 30, RATTLER 32).
+	{
+		struct FFactory { const TCHAR* Gun; int32 Mag; };
+		for (const FFactory& F : {FFactory{TEXT("chopper"), 30}, FFactory{TEXT("nine"), 15}, FFactory{TEXT("shorty"), 30}, FFactory{TEXT("stick"), 30}, FFactory{TEXT("stretch"), 30}, FFactory{TEXT("rattler"), 32}})
+		{
+			FMIResolvedGun G;
+			FString Error;
+			if (Resolver.ResolveGun(F.Gun, nullptr, nullptr, G, Error))
+			{
+				TestEqual(FString(F.Gun) + TEXT(" factory magazine"), G.Def.MagSize, F.Mag);
+				TestEqual(FString(F.Gun) + TEXT(" factory: no part fitted"), G.Parts.Num(), 0);
+			}
+			else
+			{
+				AddError(FString(F.Gun) + TEXT(": ") + Error);
+			}
 		}
 	}
 	// The CHOPPER with scope and silencer: hitscan at 20, 37.5 and 60 m gives 26, the linear 24.05 and 22.1.

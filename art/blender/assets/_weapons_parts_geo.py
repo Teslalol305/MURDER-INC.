@@ -172,6 +172,15 @@ def screw_head_z(x, y, z, r=2.1, h=1.0, sign=1, seg=24, name="ScrewZ"):
     return move(ob, 0, 0, z)
 
 
+def reticle_plane(size_mm, axis_z, pi, name="Reticle"):
+    """The reticle: a 2-triangle plane at X 0, size x size mm on the optical axis, its face toward the eye (-X)."""
+    h = size_mm / 2.0 * MM
+    v = np.array([(0.0, -h, axis_z * MM - h), (0.0, h, axis_z * MM - h), (0.0, h, axis_z * MM + h), (0.0, -h, axis_z * MM + h)])
+    ob = geo.from_arrays(name, v, [(0, 3, 2, 1)], smooth=None)
+    ob.data.polygons[0].flip() if ob.data.polygons[0].normal.x > 0 else None
+    return fin(ob, RET, pi)
+
+
 # ------------------------------------------------------------------------------------------------------ MI-R clamp
 RAIL_HW = 10.6                  # half width of the widest point of the guns' MI-R dovetail (3 mm under the lug face)
 JAW_GAP = 0.15
@@ -242,5 +251,5 @@ def red_dot(pi=0):
     for x, nm in ((-30.4, "RDLensR"), (30.2, "RDLensF")):
         d = lathe_x([(x - 0.8, 0.0), (x - 0.8, 14.15), (x + 0.8, 14.15), (x + 0.8, 0.0)], 64, at=(0, 0, AX), fillet=0.2, fseg=1, name=nm)
         objs.append(fin(d, LENS, pi))
-    objs.append(fin(box_mm(-0.1, 0.1, -5.0, 5.0, AX - 5.0, AX + 5.0, bevel=0.0, name="RDRet"), RET, pi))
+    objs.append(reticle_plane(10.0, AX, pi, "RDRet"))
     return objs, {"SightEye": mm(-32.5, 0, AX)}

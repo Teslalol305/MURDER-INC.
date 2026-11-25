@@ -69,9 +69,22 @@ bool FMIFirstPersonRealArtTest::RunTest(const FString& Parameters)
 		const FString ChopperReal = MIJson::StringOr(F.Presentation, TEXT("guns.chopper.realMesh"));
 		const FString ChopperTemplate = MIJson::StringOr(F.Presentation, TEXT("guns.chopper.mesh"));
 		TestEqual(L + TEXT("CHOPPER base mesh"), Chopper.BaseMesh, bArt ? ChopperReal : ChopperTemplate);
-		TestEqual(L + TEXT("CHOPPER anim set"), MIJson::StringOr(Chopper.Presentation, TEXT("animSet")), bArt ? FString(TEXT("rifle")) : FString());
+		// Round 4 (DECISIONS.md 2026-11-25): SK_Chopper is the CHOPPER's own mesh again, held with the hand-IK set of our own
+		// guns; the pack rifle's dark-earth finish and finger measures are gone from its block, with the art or without.
+		TestEqual(L + TEXT("CHOPPER anim set"), MIJson::StringOr(Chopper.Presentation, TEXT("animSet")), bArt ? FString(TEXT("chopper_ik")) : FString());
 		TestEqual(L + TEXT("CHOPPER grip socket"), MIJson::StringOr(Chopper.Presentation, TEXT("sockets.grip")), bArt ? FString(TEXT("Palm_R")) : FString(TEXT("GripPoint")));
-		TestEqual(L + TEXT("CHOPPER finish"), MIJson::Get(Chopper.Presentation, TEXT("materials")).IsValid(), bArt);
+		TestFalse(L + TEXT("CHOPPER has no pack finish"), MIJson::Get(Chopper.Presentation, TEXT("materials")).IsValid());
+		TestFalse(L + TEXT("CHOPPER has no pack finger measures"), MIJson::Get(Chopper.Presentation, TEXT("fingers")).IsValid());
+		if (bArt)
+		{
+			// SK_Chopper faces +X as SK_Nine does (origin on the bore, muzzle +X): no quarter turn, no offset.
+			for (const TCHAR* Key : {TEXT("meshOffset.rot"), TEXT("meshOffset.pos")})
+			{
+				const TSharedPtr<FJsonValue> V = MIJson::Get(Chopper.Presentation, Key);
+				const bool bOk = V.IsValid() && V->Type == EJson::Array && V->AsArray().Num() == 3;
+				TestTrue(L + TEXT("CHOPPER ") + Key + TEXT(" is [0, 0, 0]"), bOk && V->AsArray()[0]->AsNumber() == 0.0 && V->AsArray()[1]->AsNumber() == 0.0 && V->AsArray()[2]->AsNumber() == 0.0);
+			}
+		}
 		TestEqual(L + TEXT("NINE anim set"), MIJson::StringOr(Nine.Presentation, TEXT("animSet")), bArt ? FString(TEXT("pistol")) : FString());
 		TestEqual(L + TEXT("NINE base mesh"), Nine.BaseMesh, MIJson::StringOr(F.Presentation, bArt ? TEXT("guns.nine.realMesh") : TEXT("guns.nine.mesh")));
 		// The rules never change with the art (DECISIONS.md: only the CHOPPER's presentation changes).
@@ -93,9 +106,10 @@ bool FMIFirstPersonOpticTwinTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	// ANIMATION.md 8.1 / 8.7: an optic over standing irons would block it, so the base mesh is the irons-folded twin.
-	for (const TCHAR* Gun : {TEXT("shorty"), TEXT("stick"), TEXT("stretch")})
+	// The STICK is the pack's rifle: an optic over its standing irons would block it, so the base mesh is the irons-folded
+	// twin (ANIMATION.md 8.1 / 8.7) and it is drawn with the pack's clips.
 	{
+		const TCHAR* Gun = TEXT("stick");
 		FMIGunBuild Irons, Scope;
 		Irons.Parts.Add(TEXT("optic"), TEXT("irons"));
 		Scope.Parts.Add(TEXT("optic"), TEXT("scope"));
@@ -109,6 +123,40 @@ bool FMIFirstPersonOpticTwinTest::RunTest(const FString& Parameters)
 		TestEqual(FString(Gun) + TEXT(" with irons: the standing irons"), A.BaseMesh, Open);
 		TestEqual(FString(Gun) + TEXT(" with the scope: the folded twin"), B.BaseMesh, Folded);
 		TestEqual(FString(Gun) + TEXT(" is drawn with the pack's clips"), MIJson::StringOr(B.Presentation, TEXT("animSet")), FString(TEXT("rifle")));
+	}
+	// Our own guns (round 4): the irons are bones of the one mesh and a fitted optic hides them (mounts.optic.hide), so there
+	// is no twin mesh: the base is the same whatever optic is fitted, drawn with the gun's own hand-IK set, and the optic
+	// part really carries the irons to hide.
+	struct FOwn { const TCHAR* Gun; const TCHAR* Set; const TCHAR* Optics[2]; };
+	const FOwn Own[] = {{TEXT("shorty"), TEXT("shorty_ik"), {TEXT("red_dot"), TEXT("scope_4x")}},
+		{TEXT("stretch"), TEXT("stretch_ik"), {TEXT("red_dot"), TEXT("scope_4x")}},
+		{TEXT("rattler"), TEXT("rattler_ik"), {TEXT("red_dot"), TEXT("red_dot")}}};
+	for (const FOwn& G : Own)
+	{
+		const FString Name = G.Gun;
+		const FString Open = Name == TEXT("rattler") ? MIJson::StringOr(F.Data.GunsJson, TEXT("guns.rattler.presentation.realMesh"))
+			: MIJson::StringOr(F.Data.GunsJson, FString::Printf(TEXT("guns.%s.variants.open.mesh"), G.Gun));
+		TestTrue(Name + TEXT(" has a mesh path"), !Open.IsEmpty());
+		TestTrue(Name + TEXT(" has no optic twin"), MIJson::StringOr(F.Data.GunsJson, FString::Printf(TEXT("guns.%s.variants.open.opticMesh"), G.Gun)).IsEmpty());
+		for (const TCHAR* Optic : G.Optics)
+		{
+			FMIGunBuild Build;
+			Build.Parts.Add(TEXT("optic"), Optic);
+			FMIResolvedGun R;
+			if (!F.Resolve(G.Gun, &Build, true, R, *this))
+			{
+				return false;
+			}
+			const FString L = Name + TEXT(" with ") + Optic;
+			TestEqual(L + TEXT(": the same base mesh"), R.BaseMesh, Open);
+			TestEqual(L + TEXT(": its hand-IK set"), MIJson::StringOr(R.Presentation, TEXT("animSet")), FString(G.Set));
+			const FMIResolvedPart* P = R.Parts.FindByPredicate([](const FMIResolvedPart& X) { return X.Slot == TEXT("optic"); });
+			if (TestNotNull(L + TEXT(": the optic is a fitted part"), P))
+			{
+				TestTrue(L + TEXT(": it hides the irons"), P->Hide.Num() > 0);
+				TestTrue(L + TEXT(": it brings its own sight"), P->Markers.Contains(TEXT("sightRear")));
+			}
+		}
 	}
 	return true;
 }
@@ -126,7 +174,8 @@ bool FMIFirstPersonClipsTest::RunTest(const FString& Parameters)
 	// On the box: every clip an anim set names loads, the arms' clips on the arms' skeleton and the rifle's on the
 	// rifle's; the reload marks rise. Without the art (a clean checkout) the template way is used: says so, passes.
 	USkeletalMesh* Arms = Cast<USkeletalMesh>(FSoftObjectPath(MIJson::StringOr(F.Presentation, TEXT("firstPerson.arms"))).TryLoad());
-	USkeletalMesh* Rifle = Cast<USkeletalMesh>(FSoftObjectPath(MIJson::StringOr(F.Presentation, TEXT("guns.chopper.realMesh"))).TryLoad());
+	// The pack rifle is the STICK's (the CHOPPER is our own SK_Chopper again, held with the hand-IK set of our own guns).
+	USkeletalMesh* Rifle = Cast<USkeletalMesh>(FSoftObjectPath(MIJson::StringOr(F.Data.GunsJson, TEXT("guns.stick.variants.open.mesh"))).TryLoad());
 	if (!Arms)
 	{
 		AddInfo(TEXT("SK_RuleArms is not in this project (clean checkout): the template body stays; nothing to check"));
@@ -217,6 +266,71 @@ bool FMIFirstPersonNineMagazineTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("magazine below the bore"), MagBox.Max.Z < 0.5);
 	TestTrue(TEXT("magazine in the grip, not beside it"), FMath::Abs(MagBox.GetCenter().Y) < 1.5 && MagBox.GetCenter().X < 6.0);
 	TestTrue(TEXT("magazine upright (taller than long)"), MagBox.GetSize().Z > MagBox.GetSize().X);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIFirstPersonOwnGunSetsTest, "MurderInc.FirstPerson.OwnGunSets", MIFirstPersonTestsPrivate::Flags)
+
+// Round 4: the five own guns are held with a hand-IK set of their own. On the box, for each: the set is an 'ik' set, both
+// palms are sockets of the gun's mesh, the magazine it seats is a static mesh that sits in the gun (inside its bounds,
+// below the bore, in the well's width) on a bone of the skeleton, and the brass it throws loads (the NINE has none).
+bool FMIFirstPersonOwnGunSetsTest::RunTest(const FString& Parameters)
+{
+	using namespace MIFirstPersonTestsPrivate;
+	FFixture F;
+	if (!F.Load(*this))
+	{
+		return false;
+	}
+	int32 Checked = 0;
+	for (const TCHAR* Gun : {TEXT("chopper"), TEXT("nine"), TEXT("shorty"), TEXT("stretch"), TEXT("rattler")})
+	{
+		FMIResolvedGun R;
+		if (!F.Resolve(Gun, nullptr, true, R, *this))
+		{
+			return false;
+		}
+		const FString L = FString(Gun) + TEXT(": ");
+		const FString SetName = MIJson::StringOr(R.Presentation, TEXT("animSet"));
+		const TSharedPtr<FJsonValue> SetValue = MIJson::Get(F.Presentation, FString(TEXT("firstPerson.animSets.")) + SetName);
+		if (!TestTrue(L + TEXT("its anim set '") + SetName + TEXT("' exists"), SetValue.IsValid() && SetValue->Type == EJson::Object))
+		{
+			continue;
+		}
+		const TSharedPtr<FJsonObject> Set = SetValue->AsObject();
+		TestEqual(L + TEXT("the set is a hand-IK set"), MIJson::StringOr(Set, TEXT("mode")), FString(TEXT("ik")));
+		USkeletalMesh* Mesh = Cast<USkeletalMesh>(FSoftObjectPath(R.BaseMesh).TryLoad());
+		if (!Mesh)
+		{
+			AddInfo(L + TEXT("its mesh is not in this project (a clean checkout): the set is checked by the data tests only"));
+			continue;
+		}
+		const auto HasBone = [Mesh](FName Name) { return Mesh->GetRefSkeleton().FindBoneIndex(Name) != INDEX_NONE || Mesh->FindSocket(Name) != nullptr; };
+		for (const TCHAR* Side : {TEXT("ik.left"), TEXT("ik.right")})
+		{
+			TestTrue(L + Side + TEXT(" is a socket of the mesh"), HasBone(FName(*MIJson::StringOr(Set, Side))));
+		}
+		const FName Bone(*MIJson::StringOr(Set, TEXT("magazine.socket")));
+		TestTrue(L + TEXT("the magazine's socket is a bone of the skeleton"), Mesh->GetRefSkeleton().FindBoneIndex(Bone) != INDEX_NONE);
+		UStaticMesh* Mag = Cast<UStaticMesh>(FSoftObjectPath(MIJson::StringOr(Set, TEXT("magazine.full"))).TryLoad());
+		if (TestNotNull(L + TEXT("the magazine loads"), Mag) && Mesh->GetRefSkeleton().FindBoneIndex(Bone) != INDEX_NONE)
+		{
+			const int32 Index = Mesh->GetRefSkeleton().FindBoneIndex(Bone);
+			const FTransform MagInGun = UMIFirstPersonRig::MeshSpacePartOnBone(Mesh, Bone) * FAnimationRuntime::GetComponentSpaceTransformRefPose(Mesh->GetRefSkeleton(), Index);
+			const FBox MagBox = Mag->GetBoundingBox().TransformBy(MagInGun);
+			const FBox GunBox = Mesh->GetImportedBounds().GetBox();
+			AddInfo(FString::Printf(TEXT("%smagazine %s, gun %s (cm)"), *L, *MagBox.ToString(), *GunBox.ToString()));
+			TestTrue(L + TEXT("the magazine is inside the gun's bounds"), GunBox.ExpandBy(1.0).IsInside(MagBox));
+			TestTrue(L + TEXT("the magazine is below the bore"), MagBox.Max.Z < 0.5);
+			TestTrue(L + TEXT("the magazine is in the well, not beside it"), FMath::Abs(MagBox.GetCenter().Y) < 1.5);
+		}
+		if (FString(Gun) != TEXT("nine"))
+		{
+			TestNotNull(L + TEXT("its brass loads"), Cast<UStaticMesh>(FSoftObjectPath(MIJson::StringOr(Set, TEXT("casing"))).TryLoad()));
+		}
+		++Checked;
+	}
+	AddInfo(FString::Printf(TEXT("%d own guns checked"), Checked));
 	return true;
 }
 
