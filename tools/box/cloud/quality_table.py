@@ -13,6 +13,7 @@ so that each variant can be LOOKED at as the stream delivers it. The game's own 
   quality_table.py baseline <game.log> <out>    the values the probe run printed, as JSON
   quality_table.py gen <dir> <baseline.json> [scenes=street,garage] [only=<label,label>]
                                                 <dir>/play.txt (the game's script), view.txt (the viewer's), labels.json
+  quality_table.py gen-steps <dir> <n> [scenes=]   the ladder walked: step 1 to n and back, with MI.Cloud.QualityStep (the new game)
   quality_table.py frames <dir> [label,label]   the received frame at the end of each variant's measuring window and the baseline's
   quality_table.py sum <dir> [csv]              the table: for every variant, the GPU time next to the baseline's, the saving,
                                                 the longest frame in the first 1.5 s after the change, and the frame to look at
@@ -229,6 +230,53 @@ def gen(out, base_file, scenes, only):
     print('%d variants x %d scene(s): the script runs about %.0f s (%d lines)' % (len(todo), len(scenes), total, len(lines)))
 
 
+def gen_steps(out, nsteps, scenes):
+    """The ladder itself, walked: step 0 (the scene alone), then up one step at a time to the last, then down again, with the new
+    binary's MI.Cloud.QualityStep (the step is pinned; the variables are applied exactly as the ladder applies them in play).
+    Each step is measured for MEASURE seconds after SETTLE seconds. 'saves' in the table is against step 0 (the scene alone, before
+    and after the walk); the hitch is the longest frame in the 1.5 s after the change."""
+    os.makedirs(out, exist_ok=True)
+    lines = ['wait 4', 'con MIStart mission skip', 'waitstate playing 40', 'god 1',
+             'con r.DynamicRes.OperationMode 0', 'con r.ScreenPercentage 50', 'con MI.Cloud.QualityStep 0', 'wait 6']
+    labels = {}
+
+    def put(text, role=None, scene=None, variant=None):
+        lines.append(text)
+        if role:
+            labels[len(lines)] = [role, scene, variant]
+
+    seq = list(range(1, nsteps + 1)) + list(range(nsteps - 1, -1, -1))
+    for scene in scenes:
+        for ln in SCENES[scene]:
+            put(ln)
+        put('wait 3')
+        put('wait %g' % MEASURE, 'base', scene, '')
+        put('wait 0.1')
+        for i, k in enumerate(seq):
+            label = ('step %d' % k) if i < nsteps else ('back to %d' % k)
+            if k == 0:
+                put('con MI.Cloud.QualityStep 0', 'set', scene, 'back to 0')
+                put('wait %g' % SETTLE)
+                put('wait %g' % MEASURE, 'base', scene, 'back to 0')
+                put('wait 0.1')
+                continue
+            put('con MI.Cloud.QualityStep %d' % k, 'set', scene, label)
+            put('wait %g' % SETTLE)
+            put('wait %g' % MEASURE, 'measure', scene, label)
+            put('wait 0.1')
+    put('wait 1')
+    put('quit')
+    open(os.path.join(out, 'play.txt'), 'w').write('\n'.join(lines) + '\n')
+    json.dump({'labels': labels, 'variants': {}, 'baseline': {}, 'frame_every': FRAME_EVERY}, open(os.path.join(out, 'labels.json'), 'w'), indent=1)
+    total = sum(float(re.match(r'wait ([\d.]+)', l).group(1)) for l in lines if l.startswith('wait '))
+    view = ['wait 3', 'click']
+    for i in range(int(total / FRAME_EVERY) + 30):
+        view.append('frame f%04d.jpg' % i)
+        view.append('wait %g' % (FRAME_EVERY - 0.2))
+    open(os.path.join(out, 'view.txt'), 'w').write('\n'.join(view) + '\n')
+    print('%d steps walked up and down in %d scene(s): about %.0f s' % (nsteps, len(scenes), total))
+
+
 def probes(log):
     out = []
     for line in open(log, errors='replace'):
@@ -376,6 +424,9 @@ def main(a):
     elif c == 'gen':
         kv = dict(x.split('=', 1) for x in a[3:] if '=' in x)
         gen(a[1], a[2], kv.get('scenes', 'street,garage').split(','), set(kv['only'].split(',')) if 'only' in kv else None)
+    elif c == 'gen-steps':
+        kv = dict(x.split('=', 1) for x in a[3:] if '=' in x)
+        gen_steps(a[1], int(a[2]), kv.get('scenes', 'street,garage').split(','))
     elif c == 'frames':
         frames(a[1], set(a[2].split(',')) if len(a) > 2 else None)
     elif c == 'sum':
