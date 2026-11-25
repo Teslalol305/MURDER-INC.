@@ -1,0 +1,53 @@
+# Release v6's gate (the guns and release 3c), trimmed from release-gate.txt to what this release must show, as one
+# queue for lag-test.sh on the unpacked zip:
+#
+#   unzip the zip as the user e3dsfresh into an empty folder, then
+#   LAG_BUILD=<that folder> LAG_RUNAS=fresh LAG_CLEAN=1 LAG_OUT=<a folder for the runs> bash lag-test.sh queue release-gate-v6.txt
+#   bash lag-test.sh list        (the summary lines; LAG_OUT again)
+#
+# 13 runs, about 40 minutes. Every run is cold (a new user's empty home, the folder's Saved removed) and started with
+# E3DS's arguments, one game at a time. Nothing else on the box meanwhile: no compile, no cook, no analysis, no other
+# job's game (lag-test.sh waits for the GPU and its watcher says CLEAN or POLLUTED: a polluted line is run again).
+#
+# It passes when every line says CLEAN (and not that a compiler ran beside it) and, in the play: no frame over 100 ms,
+# never more than 2 frames owed, memory flat, 60 frames a second on a free GPU, every game stopped with exit code 0, and
+# no number worse than version 3b's on the same line (its zip c274d3b8, game 5c1b6be, the same box; DECISIONS.md
+# 2026-11-25, runs in /project/ue/cloud/lag-v3b):
+#   v6-free          v3b: play fps 60.0 (min 59.0), worst frame 31 ms, gpu 6.4 ms
+#   v6-l8            v3b: 60.0 (min 59.1), worst 31 ms, gpu 8.4 ms
+#   v6-l20           v3b: 34.9 (min 29.9), worst 37 ms, gpu 20.4 ms
+#   v6-l35           v3b: 28.9 (min 27.4), worst 48 ms, gpu 34.1 ms
+#   v6-cpu6-l35      v3b: 29.3 (min 27.9), worst 42 ms (six CPUs: no Vulkan interrupt thread, BOX.md)
+#   v6-devstory-l35  v3b: 30.0 (min 29.9), worst 37 ms; the Development game's log: no "Timed out waiting for fence" and
+#                    no "No frames available for capture" in the run (two fence lines belong to the Crew screen's cold frame)
+#   v6-cmds          v3b ran: after "t.MaxFPS 30" the probe lines say fps=30 and target=30; "quit" and
+#                    "r.ScreenPercentage 400" are refused (cmdRun=2 cmdRefused=2); pause.jpg shows the numbers line
+# Outside the play a cold run has what lag-gate.txt describes: 3 pacer time-outs (4 at most) and one frame of about
+# 0.9 s on the Crew screen.
+#   v6-e3ds-l12      what E3DS's machine was measured to be (DECISIONS.md, 2026-11-25): 8 CPU threads and the SM5 shaders
+#                    (-sm5: no Nanite, Lumen in software), the card slowed to about 12 ms a frame (an A4000 by itself).
+#                    No version 3b number (its gate stopped before this line): information for the owner's own machine
+#   v6-proof-keys, v6-proof-pad
+#                    the stream proof (proof-keys.txt, proof-pad.txt: their tops say what the probe lines must show), with
+#                    the sound recorded: information only, the sound is not a criterion of this release
+#                    (proof-sound-check.sh <run folder> says what was heard)
+#   v6-guns, v6-guns-b
+#                    the guns (guns-keys.txt, guns-keys-b.txt: their tops say what the frames and probe lines must show):
+#                    six guns between the two runs, the Workbench on five of them with a part fitted, each drawn, aimed,
+#                    fired and reloaded in a Story run. Look at the frames with the Read tool (the guns must read apart,
+#                    the parts must be on the guns)
+#   v6-nosound       the game with -nosound (the lead's way to silence it from E3DS's launch options): it must start, show
+#                    the card, take the set-up screens and play the run exactly as with sound (proof-keys.txt's lines)
+v6-free game=ship view=lag-stops.txt join=3 secs=115 load=0
+v6-l8 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.3:1
+v6-l20 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.05:0:1024
+v6-l35 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.3:0
+v6-cpu6-l35 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.3:0 cpus=0-5
+v6-devstory-l35 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.3:0 -- -MIDev
+v6-cmds game=ship view=lag-commands.txt load=0
+v6-e3ds-l12 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.05:0.05:1024 cpus=0-7 -- -sm5
+v6-proof-keys game=ship view=proof-keys.txt audio=1 join=3 probe=0.25 secs=100 load=0
+v6-proof-pad game=ship view=proof-pad.txt audio=1 join=3 probe=0.25 secs=100 load=0
+v6-guns game=ship view=guns-keys.txt join=3 probe=0.25 secs=150 load=0
+v6-guns-b game=ship view=guns-keys-b.txt join=3 probe=0.25 secs=130 load=0
+v6-nosound game=ship view=proof-keys.txt join=3 probe=0.25 secs=100 load=0 -- -nosound

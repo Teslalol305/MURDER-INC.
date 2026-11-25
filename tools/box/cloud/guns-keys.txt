@@ -1,0 +1,173 @@
+# The guns through the stream, with mouse and keyboard (played by rtcinput.py), first of two scripts (guns-keys-b.txt
+# is the second: the guns this one does not carry):
+#   lag-test.sh run <name> game=ship view=guns-keys.txt join=3 probe=0.25 secs=150
+# A first-time player, as proof-keys.txt: the CLICK TO PLAY card, Home's "Hit the block" (a first start opens Crew),
+# Crew by keyboard (Tab to Next, Enter). On the Loadout, by keyboard (docs/unreal/LOADOUT.md 2.5, 2.6; frontend.json
+# input.menu): the focus starts on the CHOPPER's card (slot 1). E opens the Workbench of the focused gun on its first
+# offered slot with the fitted option focused (Factory); Down previews the next option (the slot's first part), Enter
+# fits it, Esc is Done. That on the CHOPPER, then Right to the NINE (slot 2) and the same, then Right to the SHORTY:
+# Enter carries it (slot 3) and the Workbench fits a part on it too. Down goes to the rack's second row (three cards
+# a row; with six guns offered that is the RATTLER, with five the last card): Enter carries it (slot 4); Left, Left
+# show the other cards of that row on the stage (the STICK and the STRETCH with six). Next by mouse as proof-keys.txt,
+# Block and Style by keyboard, the briefing's "Hit the block". In the Story run: 1 to 4 draw each carried gun; each
+# is aimed (right button), fired (a short burst, left button) and reloaded (R).
+# What the frames must show (look at them with the Read tool): four different guns in the hands, the part fitted on
+# the Workbench on the CHOPPER, the NINE and the SHORTY in the hands too (and in the aimed view through an optic), the
+# magazine of each gun. In the probe lines (python3 lag_story.py <run> state click mag fire): state 0, 1, 2; mag
+# going down after each burst and back up after each R; fire=0 at the end.
+# Frames: g-card.jpg, g-rack.jpg, g-bench-<gun>.jpg and g-bench-<gun>-fit.jpg for the three Workbench visits,
+# g-row2-*.jpg, g-briefing.jpg, g-run.jpg, then g-gun<n>.jpg (drawn), g-gun<n>-aim.jpg, g-gun<n>-fired.jpg,
+# g-gun<n>-reload.jpg for n = 1 to 4.
+wait 3
+frame g-card.jpg
+say CHECK card
+click
+wait 2.5
+say CHECK home
+click 0.106 0.448
+wait 2.5
+say CHECK crew-by-keyboard
+key 9
+wait 0.4
+key 13
+wait 2.5
+frame g-rack.jpg
+say CHECK bench-chopper
+key 69
+wait 2
+frame g-bench-chopper.jpg
+key 40
+wait 1
+key 13
+wait 1.5
+frame g-bench-chopper-fit.jpg
+key 27
+wait 1.5
+say CHECK bench-nine
+key 39
+wait 0.8
+key 69
+wait 2
+frame g-bench-nine.jpg
+key 40
+wait 1
+key 13
+wait 1.5
+frame g-bench-nine-fit.jpg
+key 27
+wait 1.5
+say CHECK carry-shorty
+key 39
+wait 0.8
+key 13
+wait 1
+key 69
+wait 2
+frame g-bench-shorty.jpg
+key 40
+wait 1
+key 13
+wait 1.5
+frame g-bench-shorty-fit.jpg
+key 27
+wait 1.5
+say CHECK carry-row2
+key 40
+wait 1
+frame g-row2-a.jpg
+key 13
+wait 1
+key 37
+wait 1
+frame g-row2-b.jpg
+key 37
+wait 1
+frame g-row2-c.jpg
+say CHECK next
+click 0.3625 0.911
+wait 2
+say CHECK block-by-keyboard
+key 9
+wait 0.4
+key 13
+wait 2.5
+frame g-briefing.jpg
+say CHECK briefing
+click 0.336 0.911
+wait 12
+say CHECK run
+frame g-run.jpg
+say CHECK gun1
+key 49
+wait 1.6
+frame g-gun1.jpg
+down 2
+wait 0.8
+frame g-gun1-aim.jpg
+up 2
+wait 0.3
+down 0
+wait 0.35
+up 0
+wait 0.5
+frame g-gun1-fired.jpg
+key 82
+wait 1.2
+frame g-gun1-reload.jpg
+wait 2
+say CHECK gun2
+key 50
+wait 1.6
+frame g-gun2.jpg
+down 2
+wait 0.8
+frame g-gun2-aim.jpg
+up 2
+wait 0.3
+down 0
+wait 0.35
+up 0
+wait 0.5
+frame g-gun2-fired.jpg
+key 82
+wait 1.2
+frame g-gun2-reload.jpg
+wait 2
+say CHECK gun3
+key 51
+wait 1.6
+frame g-gun3.jpg
+down 2
+wait 0.8
+frame g-gun3-aim.jpg
+up 2
+wait 0.3
+down 0
+wait 0.35
+up 0
+wait 0.5
+frame g-gun3-fired.jpg
+key 82
+wait 1.2
+frame g-gun3-reload.jpg
+wait 2
+say CHECK gun4
+key 52
+wait 1.6
+frame g-gun4.jpg
+down 2
+wait 0.8
+frame g-gun4-aim.jpg
+up 2
+wait 0.3
+down 0
+wait 0.35
+up 0
+wait 0.5
+frame g-gun4-fired.jpg
+key 82
+wait 1.2
+frame g-gun4-reload.jpg
+wait 2
+say CHECK end
+wait 1

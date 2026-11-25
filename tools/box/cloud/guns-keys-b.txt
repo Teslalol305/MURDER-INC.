@@ -1,0 +1,103 @@
+# The guns through the stream, second script (guns-keys.txt is the first): the guns of the rack's second row.
+#   lag-test.sh run <name> game=ship view=guns-keys-b.txt join=3 probe=0.25 secs=130
+# A first-time player again (every run starts from the parity set-up: CHOPPER and NINE). On the Loadout, from the
+# CHOPPER's card: Down to the first card of the second row (the STICK with six guns offered, else the STRETCH), Enter
+# carries it (slot 3), E opens its Workbench, Down and Enter fit the first part of its first slot, Esc; Right to the
+# next card (the STRETCH with six, else the RATTLER), the same (slot 4). Then into a Story run, where 3 and 4 draw
+# them; each is aimed, fired and reloaded as in guns-keys.txt.
+# Frames: gb-rack.jpg, gb-bench-a.jpg, gb-bench-a-fit.jpg, gb-bench-b.jpg, gb-bench-b-fit.jpg, gb-briefing.jpg,
+# gb-run.jpg, then gb-gun<n>.jpg, gb-gun<n>-aim.jpg, gb-gun<n>-fired.jpg, gb-gun<n>-reload.jpg for n = 3 and 4.
+wait 3
+click
+wait 2.5
+say CHECK home
+click 0.106 0.448
+wait 2.5
+say CHECK crew-by-keyboard
+key 9
+wait 0.4
+key 13
+wait 2.5
+frame gb-rack.jpg
+say CHECK carry-a
+key 40
+wait 1
+key 13
+wait 1
+key 69
+wait 2
+frame gb-bench-a.jpg
+key 40
+wait 1
+key 13
+wait 1.5
+frame gb-bench-a-fit.jpg
+key 27
+wait 1.5
+say CHECK carry-b
+key 39
+wait 1
+key 13
+wait 1
+key 69
+wait 2
+frame gb-bench-b.jpg
+key 40
+wait 1
+key 13
+wait 1.5
+frame gb-bench-b-fit.jpg
+key 27
+wait 1.5
+say CHECK next
+click 0.3625 0.911
+wait 2
+say CHECK block-by-keyboard
+key 9
+wait 0.4
+key 13
+wait 2.5
+frame gb-briefing.jpg
+say CHECK briefing
+click 0.336 0.911
+wait 12
+say CHECK run
+frame gb-run.jpg
+say CHECK gun3
+key 51
+wait 1.6
+frame gb-gun3.jpg
+down 2
+wait 0.8
+frame gb-gun3-aim.jpg
+up 2
+wait 0.3
+down 0
+wait 0.35
+up 0
+wait 0.5
+frame gb-gun3-fired.jpg
+key 82
+wait 1.2
+frame gb-gun3-reload.jpg
+wait 2
+say CHECK gun4
+key 52
+wait 1.6
+frame gb-gun4.jpg
+down 2
+wait 0.8
+frame gb-gun4-aim.jpg
+up 2
+wait 0.3
+down 0
+wait 0.35
+up 0
+wait 0.5
+frame gb-gun4-fired.jpg
+key 82
+wait 1.2
+frame gb-gun4-reload.jpg
+wait 2
+say CHECK end
+wait 1
