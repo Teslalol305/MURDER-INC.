@@ -64,6 +64,14 @@ data engineer and the grips helper; run `pk1` in `/project/ue/logs/repo-guns/lag
 
 So the hands engineer's data (grips and anchors) took the ball and the cut arm away on the four guns; what is still wrong in these frames is not for this entry to judge (HANDS_R4.md).
 
+**Where it stopped (17:48 UTC): the box expired.** The rental `ec087d85` reached its 24 hours (`end_reason: expired`, started 2026-11-24 17:48, 2,731.7 credits in all) while the
+suite was running on the last code of this entry (the arm stretch; the build of 16:49 was clean, the run was killed with exit 137 and left no result). The credit balance is 1,287.94, below the
+owner's floor of 2,500 (RESUME 2), so no new box was rented from here: RESUME 3 allows the same box at the same price, and the floor says the balance must not fall further without the owner.
+`/project` survives a rental (RESUME 3). **To go on** once a box is up (`/project/ue/bin/ensure-setup.sh`, then): `cd /project/ue/repo-guns/tools/box && MI_MCP_PORT=8010 bash sync.sh` (as `ue4`; git
+as root breaks the clone's object folders, BOX.md 8), `build.sh -MaxParallelActions=6`, `test.sh MurderInc` (expect 189 or more of the same, 0 failed), an editor in a quiet minute (`quiet-editor.sh`)
+and `fp/guns-shots.sh` / `bench-shots.sh`; the art is in `/project/ue/fp-in-guns` and imported (guns, rattler, parts) in the clone. **Not seen, because of it:** the optic's housing fading out
+(C++ and material are in and compile; the importer ran clean on the parts at 17:05), the arm stretch, any editor picture, the suite on the last code.
+
 ## Weapons round 4: the art hand-off page and the archive (finisher, 2026-11-25, 15:40 to 16:00 UTC)
 
 `docs/unreal/WEAPONS_R4.md` is the one page for the box engineer (every asset with triangles, sets, bones and sockets; the roster of six; the parts kit and its fit table;
