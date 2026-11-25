@@ -433,7 +433,7 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 		{
 			for (int32 I = 0; I < Optic->GetNumMaterials(); ++I)
 			{
-				const UMaterialInterface* M = Optic->GetMaterial(I);
+				UMaterialInterface* M = Optic->GetMaterial(I);
 				const UMaterial* Base = M ? M->GetBaseMaterial() : nullptr;
 				if (Base && Base->GetName() == TEXT("M_Part_Hardware"))
 				{
