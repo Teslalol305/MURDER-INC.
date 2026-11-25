@@ -382,7 +382,7 @@ def main():
     ap.add_argument('--within', type=float, default=1.5)
     ap.add_argument('--truth', default='')
     ap.add_argument('--json', default='')
-    A = ap.parse_args()
+    A = ap.parse_intermixed_args()   # sources and options in any order
     rec = Recording(A.recording, A.t_from, A.t_to)
     if A.part:
         span = rec.part(A.part)
