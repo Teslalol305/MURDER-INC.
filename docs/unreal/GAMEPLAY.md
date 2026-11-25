@@ -176,8 +176,8 @@ Reel case: `AMIReelCase::GetState()` (Live, Grabbing, Taken) and `GetProgress()`
 
 `FMIMenu` holds the screen (title, pause, settings, death card, debrief) with its lines and items from text.json;
 `AMIHUD` draws it and the flow's lines on the canvas (final styling later). Input (Enhanced Input, in code):
-Interact E / gamepad X (held), Pause Esc / P / Start, menu Up / Down / Left / Right / Enter / Space / A /
-Backspace / B (these also act while paused). The mouse wheel swaps at most once per `player.input.wheelDebounce`.
+Interact E (held) / gamepad X when a grab prompt is showing (below), Pause Esc / P / Start, menu Up / Down / Left /
+Right / Enter / Space / A / Backspace / B (these also act while paused). The mouse wheel swaps at most once per `player.input.wheelDebounce`.
 Console (not in the Shipping game, section 18): `MIStart [mission|holdout] [skip]`, `MIPauseKey`,
 `MIMenu <up|down|left|right|confirm|back>`, `MIInteract <0|1>`.
 
@@ -201,8 +201,11 @@ the axial dead zone 0.14; the left stick moves on top of the keys; the right sti
 0.25 m + 0.75 m³ and the turn boost (166 degrees a second, 291 after 0.45 s at the rim; pitch at 62 %), times the
 sensitivity setting, and picks on the weapon wheel while that is open; the triggers fire and aim from their analog
 axes as well as their buttons (beyond 0.35: a pad in a browser stream sends the triggers only as axes); one click of
-L3 latches the sprint until the stick eases off forward. The device that produced real input last is the device in
-use (a key or mouse button, 4 counts of mouse travel in one frame, a pad button, a stick beyond its dead zone):
+L3 latches the sprint until the stick eases off forward. **X (Square) is one button with two meanings**, as in the
+web game (`src/input.js` padDown; one action, `IA_PadX`, decided when the press starts): it reloads, unless a grab
+prompt is showing at that moment: then that whole hold grabs and reloads nothing. (Until the review of version 3 it
+was mapped to both actions, so every grab under fire also started a reload.) The device that produced real input
+last is the device in use (a key or mouse button, 4 counts of mouse travel in one frame, a pad button, a stick beyond its dead zone):
 `FMIPlayerInputState::bPad` follows it, which is what switches the weapon rules' aim slow-down on (x 0.55 over an
 enemy, right stick only).
 
@@ -221,9 +224,13 @@ strip lists the controller's controls (text.json `interface.controls.pad`) while
 
 **A controller in a stream** (`UMICloudSubsystem::OnKeyDown`, `TickStickMenu`; found by playing through a stream
 on the box): Pixel Streaming's browser player sends every held button again on each frame, marked as a repeat, and
-sends a stick as axes only. So in a stream (a) a gamepad button's repeats, and a second press of a button that never
-went up, stop at the Slate input pre-processor: before, one tap of A on a set-up screen acted about six times, and
-the Start that began a run paused it at once (the game takes a repeat of a key it never saw go down for a press);
+sends a stick as axes only. So in a stream (a) of one hold of a gamepad button only the first message goes on,
+whether the page marks it as a press or as a repeat (`FMIPadButtons`); the rest stop at the Slate input
+pre-processor: before, one tap of A on a set-up screen acted about six times, and the Start that began a run paused
+it at once (the game takes a repeat of a key it never saw go down for a press). The first message of a hold can
+itself be marked as a repeat: a browser shows a pad to a page only once one of its buttons is down, the page then
+takes that button for held already, and no press is ever sent for the first press of a session. Dropping every
+repeat (the first form of this rule) threw that press away: the click card stayed until a second press;
 (b) while a card or a set-up screen is up, the left stick presses the keys a desktop pad's stick presses
 (`Gamepad_LeftStick_Up` and the like, which the cards and the set-up screens already answer to), with the web
 game's timing (`FMIPadNav`: beyond 0.6, up and down repeat after 0.38 s and then every 0.17 s, left and right act
@@ -239,6 +246,27 @@ input pre-processor passes every mouse event to `AMIPlayerController::StreamMous
 into browser pixels and drops an event beyond `player.input.mouseGlitch` (400) pixels, the web game's pointer-lock
 spike filter. The engine's own mouse axis is ignored meanwhile. On the desktop none of this applies: one count is one
 pixel, as before, and no event is dropped.
+
+**A double click in a stream is two clicks** (`UMICloudSubsystem::GuardViewerInput`). A browser sends mousedown,
+mouseup, mousedown, mouseup and then dblclick, and the player page passes the last one on as "MouseDouble". Unreal
+takes that for a third press (Slate adds the button to its pressed buttons, the game viewport sends
+`IE_DoubleClick`, the player's input counts a press), and nothing releases it: E3DS's page sends no release after
+it (Epic's own page does since its version 0.3.0). The fire button stayed held: an automatic gun emptied its
+magazine, and the next click fired nothing. The game replaces Pixel Streaming's handler of that message with one
+that drops it (`RegisterMessageHandler("MouseDouble")`).
+
+**A viewer's size request** ("Resolution.Width" and "Resolution.Height": E3DS's Browser Resolution Dynamic) is
+answered by the game's own handler (`FMICloudSize`, `OnViewerSize`): sizes below 640 x 360 are ignored, larger than
+1920 x 1080 are drawn at the largest size of the same shape that fits, and the stream's mouse scale is multiplied by
+requested width / drawn width, so the mouse keeps its speed when the page shows the picture larger than it is drawn.
+
+**When the last viewer leaves** (`UMICloudSubsystem::ReleaseForLeave`): a run pauses, in its intro too, and
+`AMIPlayerController::DropAllHeld` lets go of everything: the engine's keys and axes (`FlushPressedKeys`), the
+controller's own move, sticks, fire, aim, sprint latch and grab, the pawn's input state. No release ever arrives from
+a viewer who is gone; a key that still read as down would start its action again on resume. Pixel Streaming keeps
+sending a trigger's last value every frame until a zero arrives, so the game hands it zeros for every pad it knows
+(`IPixelStreaming2InputHandler::OnControllerAnalog`); the pads stay known, because a page that reconnects may go on
+using the id it was given.
 
 ## 10. Slice 1 leftovers closed here
 
