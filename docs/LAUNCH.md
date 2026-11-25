@@ -381,7 +381,9 @@ the next build lowers the lighting quality before it lowers the rate.
 - **The lag is gone on the GPU box** at every load tried (9.3). On E3DS it is your test that says so.
 - **Mouse look** at the web game's speed, slow movements included (version 2 turned 2 to 3 times too fast and lost
   slow movements); a **double click** no longer leaves the gun firing.
-- **A controller** works from the click card to the end of a run: look, move, fire, menus, the buttons' names.
+- **A controller** works from the click card into a run and on the pause card: look, move, fire, menus, the
+  buttons' names. (Played through the stream on the GPU box up to there; the cards at the end of a run are covered
+  by the game's own tests, not yet by a play-through.)
 - **The cards** (pause, settings, dead, debrief) take mouse clicks.
 - **The pause card shows the game's numbers** (9.2), and the log gets them every 30 seconds.
 - **Tuning without a new build**: launch options `-MIFps=`, `-MICVars=`, `-MIMouseScale=` (section 13).
