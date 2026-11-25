@@ -314,10 +314,23 @@ def selftest(folder, audio_dir):
     bed_file = os.path.join(audio_dir, 'Web', 'stem_keys_01.wav')
     shot_file = os.path.join(audio_dir, 'Gen', 'chopper_close_01.wav')
     click_file = os.path.join(audio_dir, 'Gen', 'nine_close_01.wav')
-    rate, bed = read_wav_mono(bed_file)
-    _, shot = read_wav_mono(shot_file)
-    _, click = read_wav_mono(click_file)
-    assert rate == RATE, 'the library is 48 kHz'
+    def at48(path, seconds=None):
+        # The library's files are 11 to 48 kHz (the web game's own rates): brought to 48 kHz as the engine plays them.
+        rate, v = read_wav_mono(path)
+        if seconds:
+            v = v[:int(seconds * rate) + 2]
+        if rate == RATE:
+            return v
+        out, step = [], rate / RATE
+        for k in range(int((len(v) - 1) / step)):
+            p = k * step
+            i = int(p)
+            out.append(v[i] + (v[i + 1] - v[i]) * (p - i))
+        return out
+
+    bed = at48(bed_file, 17.0)
+    shot = at48(shot_file)
+    click = at48(click_file)
     bed_peak = max(abs(v) for v in bed) or 1.0
     bed_gain = 0.05 / bed_peak    # a quiet bed under the planted samples, as the music is under the guns
     for n in range(int(3.5 * RATE), 20 * RATE):
