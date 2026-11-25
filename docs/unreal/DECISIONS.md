@@ -296,3 +296,24 @@ faults; what was checked, changed and measured is in PROGRESS.md, "Version 3, re
    try if the gap is larger there.
 8. **The pad's X (Square) reloads or grabs, never both** (the web game's rule: the press decides).
 
+**Version 3a delivered, 07:50 UTC (2026-11-25; release engineer; PROGRESS.md, "Version 3a: packaged, gated and
+delivered").** What was decided on the way, for the owner to overrule:
+
+1. **No default was changed before packaging**: nothing new had arrived from the owner's E3DS test (the card, the
+   frame rates and the mouse's feel there are still unknown). Version 3a is release A as reviewed.
+2. **The gate was run on the zip itself, cold**: unpacked as a new user with an empty home into a fresh folder,
+   every run. That is stricter than the earlier gates (warm folder, warm home) and showed what a new machine costs:
+   one frame of about 0.85 s when the first set-up screen appears, and a first frame of 3 to 4.5 s before anybody
+   is connected. **It was not fixed here**: the play is not touched by it, the fix is release B's (PREFLIGHT V3-12),
+   and holding release A for it would have kept the lag fix from the owner.
+3. **"No fence time-out line" is read for a Story run as a player reaches it.** In such runs the Development
+   game's log has none, on 16 CPUs and on 6, also for a player who clicks through at once. It has two at the cold
+   frame of the first set-up screen, and one when a test script starts a run 12 s after a cold process start on 6
+   CPUs (one frame of 50 ms). Read to the letter for every run, the gate's Development lines on 6 CPUs would have
+   failed on that one line; it is reported, not hidden.
+4. **The owner's settings for version 3a**: Browser Resolution Custom 1920 x 1080 and no launch options (version
+   2's `-PixelStreamingDecoupleFramerate` comes out: decoupled, a slow server repeats pictures). The mouse is then
+   exact when the picture is shown 1920 wide and faster by the same factor when it is shown smaller; Dynamic, which
+   would make it exact at every size, waits for release B as decided in the review.
+5. **What comes back from the owner decides release B's order**: a screenshot of the pause card. A slow card (the
+   game's own number low, "target 45" or "target 30") puts the quality steps (V3-2) first.
