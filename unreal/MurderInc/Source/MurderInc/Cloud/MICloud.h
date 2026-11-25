@@ -67,10 +67,11 @@ struct MURDERINC_API FMICloudSize
 	static constexpr int32 MinWidth = 640, MinHeight = 360, MaxWidth = 1920, MaxHeight = 1080;
 	/**
 	 * False: the request is ignored (below 640 x 360: a phone held upright, a frame that is not laid out yet).
-	 * True: Out is the size to draw at: the request itself, or the largest size of its shape within 1920 x 1080 (even
-	 * numbers). OutShown is how many times wider the page shows the picture than the game draws it (1 unless the size
-	 * was cut down): Pixel Streaming's mouse counts are counts of the drawn picture, so the mouse scale grows by it
-	 * and the mouse keeps its speed.
+	 * True: Out is the size to draw at, always in even numbers (a video encoder's sizes: an odd 1365 x 767 laptop frame
+	 * is drawn at 1364 x 766): the request itself, or the largest size of its shape within 1920 x 1080. OutShown is how
+	 * many times wider the page shows the picture than the game draws it (1 unless the size was cut down; a hair over
+	 * 1 for an odd width): Pixel Streaming's mouse counts are counts of the drawn picture, so the mouse scale grows by
+	 * it and the mouse keeps its speed.
 	 */
 	static bool Fit(int32 Width, int32 Height, FIntPoint& Out, double& OutShown);
 	/**
@@ -82,6 +83,39 @@ struct MURDERINC_API FMICloudSize
 	 * (the size fits, is not known yet, or is below the smallest request size); true: Out and OutShown as for Fit.
 	 */
 	static bool FitStart(FIntPoint Launch, bool bAsGiven, FIntPoint& Out, double& OutShown);
+};
+
+/**
+ * A viewer's size requests wait until they have settled: with Browser Resolution "Dynamic" the page sends one whenever its
+ * frame changes, so a window drag or a full-screen toggle is a burst of them, and each size the game takes costs new render
+ * targets, a reset of TSR's history (a soft frame) and a new encoder. The game takes a size only once no other request has
+ * come for Settle seconds; the last one wins.
+ */
+struct MURDERINC_API FMICloudSizeWait
+{
+	static constexpr double Settle = 0.3;
+	/** A fitted request (FMICloudSize::Fit) that came at Now: it replaces any request still waiting and starts the wait again. */
+	void Request(FIntPoint InSize, double InShown, FIntPoint InAsked, double Now)
+	{
+		bPending = true;
+		Size = InSize;
+		Shown = InShown;
+		Asked = InAsked;
+		At = Now;
+	}
+	/** True once: the waiting request is due at Now (Size, Shown and Asked are then the ones to take). */
+	bool TakeDue(double Now)
+	{
+		if (!bPending || Now - At < Settle)
+		{
+			return false;
+		}
+		bPending = false;
+		return true;
+	}
+	bool bPending = false;
+	FIntPoint Size = FIntPoint(0, 0), Asked = FIntPoint(0, 0);
+	double Shown = 1.0, At = 0.0;
 };
 
 /**
@@ -296,6 +330,8 @@ private:
 	void GuardViewerInput();
 	void OnViewerCommand(const FString& Command);
 	void OnViewerSize(int32 Width, int32 Height);
+	/** Takes the viewer's size request once it has settled (FMICloudSizeWait): r.SetRes and the mouse scale. */
+	void TickViewerSize();
 	void OnViewerJoined();
 	void OnAllViewersLeft();
 	void Probe(float DeltaTime);
@@ -359,6 +395,7 @@ private:
 	int32 CommandsRun = 0, CommandsRefused = 0;
 	int32 DoubleClicksDropped = 0, SizeRequests = 0, SizeRequestsIgnored = 0;
 	bool bStartSizeChecked = false;
+	FMICloudSizeWait SizeWait;
 	FMICloudViewers Viewers;
 	FMIStreamMouse MouseShape;       // as configured ([MICloud], -MIMouseScale=)
 	double MouseShown = 1.0;         // how many times wider the page shows the picture than it is drawn (FMICloudSize)

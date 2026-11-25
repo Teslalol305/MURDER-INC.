@@ -404,7 +404,9 @@ bool FMICloudViewerSizeTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("as it is"), Size == FIntPoint(1920, 1080) && Shown == 1.0);
 	TestTrue(TEXT("1280 x 720 is taken"), Fit(1280, 720));
 	TestTrue(TEXT("as it is, too"), Size == FIntPoint(1280, 720) && Shown == 1.0);
-	TestTrue(TEXT("an odd laptop frame (1365 x 767) is taken as it is"), Fit(1365, 767) && Size == FIntPoint(1365, 767) && Shown == 1.0);
+	TestTrue(TEXT("an odd laptop frame (1365 x 767) is drawn at the even size under it, 1364 x 766"), Fit(1365, 767) && Size == FIntPoint(1364, 766));
+	TestTrue(TEXT("and the mouse scale follows the width by a hair"), FMath::IsNearlyEqual(Shown, 1365.0 / 1364.0, 1e-9));
+	TestTrue(TEXT("an even frame under 1920 x 1080 keeps its mouse scale exactly"), Fit(1600, 900) && Size == FIntPoint(1600, 900) && Shown == 1.0);
 	TestTrue(TEXT("the smallest size"), Fit(640, 360) && Size == FIntPoint(640, 360));
 	// Larger than 1920 x 1080: the largest size of the same shape that fits, and the mouse scale grows by the ratio.
 	TestTrue(TEXT("2560 x 1440 is cut down"), Fit(2560, 1440));
@@ -453,6 +455,32 @@ bool FMICloudStartSizeTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("no viewport size yet"), Start(0, 0));
 	TestFalse(TEXT("below the smallest request size (320 x 240)"), Start(320, 240));
 	TestTrue(TEXT("is left as it is"), Size == FIntPoint(320, 240) && Shown == 1.0);
+	return !HasAnyErrors();
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMICloudSizeWaitTest, "MurderInc.Cloud.SizeWait", MITest::Flags)
+
+bool FMICloudSizeWaitTest::RunTest(const FString& Parameters)
+{
+	FMICloudSizeWait W;
+	TestFalse(TEXT("nothing waits at first"), W.TakeDue(100.0));
+	// A window drag: requests every 50 ms; none is taken while they keep coming.
+	for (int32 i = 0; i < 10; ++i)
+	{
+		const double T = 10.0 + 0.05 * i;
+		W.Request(FIntPoint(1280 + 2 * i, 720), 1.0, FIntPoint(1280 + 2 * i, 720), T);
+		TestFalse(*FString::Printf(TEXT("request %d of the burst is not taken while the burst goes on"), i), W.TakeDue(T + 0.04));
+	}
+	// The last one, once it has settled.
+	TestFalse(TEXT("not before the wait (0.29 s after the last)"), W.TakeDue(10.45 + 0.29));
+	TestTrue(TEXT("taken 0.3 s after the last request"), W.TakeDue(10.45 + FMICloudSizeWait::Settle));
+	TestTrue(TEXT("and it is the last size asked"), W.Size == FIntPoint(1298, 720) && W.Asked == FIntPoint(1298, 720));
+	TestFalse(TEXT("taken once"), W.TakeDue(20.0));
+	// A single request (E3DS's page at the start of a session) is taken after the wait.
+	W.Request(FIntPoint(1920, 1080), 4.0 / 3.0, FIntPoint(2560, 1440), 30.0);
+	TestFalse(TEXT("a single request waits"), W.TakeDue(30.1));
+	TestTrue(TEXT("and is taken"), W.TakeDue(30.31));
+	TestTrue(TEXT("with its size and mouse scale"), W.Size == FIntPoint(1920, 1080) && FMath::IsNearlyEqual(W.Shown, 4.0 / 3.0, 1e-9) && W.Asked == FIntPoint(2560, 1440));
 	return !HasAnyErrors();
 }
 

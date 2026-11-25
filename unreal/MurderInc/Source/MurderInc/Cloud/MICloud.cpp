@@ -462,8 +462,9 @@ bool FMICloudSize::Fit(int32 Width, int32 Height, FIntPoint& Out, double& OutSho
 	{
 		return false;
 	}
-	Out = FIntPoint(Width, Height);
-	OutShown = 1.0;
+	// Even numbers: H.264's 4:2:0 colour has half the picture's size in both directions.
+	Out = FIntPoint(Width & ~1, Height & ~1);
+	OutShown = (double)Width / Out.X;
 	const double Scale = FMath::Min((double)MaxWidth / Width, (double)MaxHeight / Height);
 	if (Scale < 1.0)
 	{
@@ -1417,6 +1418,18 @@ void UMICloudSubsystem::OnViewerSize(int32 Width, int32 Height)
 		return;
 	}
 	++SizeRequests;
+	SizeWait.Request(Size, Shown, FIntPoint(Width, Height), FPlatformTime::Seconds());
+}
+
+void UMICloudSubsystem::TickViewerSize()
+{
+	if (!SizeWait.TakeDue(FPlatformTime::Seconds()))
+	{
+		return;
+	}
+	const FIntPoint Size = SizeWait.Size;
+	const double Shown = SizeWait.Shown;
+	const int32 Width = SizeWait.Asked.X, Height = SizeWait.Asked.Y;
 	FIntPoint Now(0, 0);
 	if (const UGameViewportClient* VC = GetGameInstance() ? GetGameInstance()->GetGameViewportClient() : nullptr; VC && VC->Viewport)
 	{
@@ -1437,7 +1450,7 @@ void UMICloudSubsystem::OnViewerSize(int32 Width, int32 Height)
 	if (SizeRequests <= 10 || bMouseChanged)
 	{
 		MICloudPrivate::Line(FString::Printf(TEXT("Viewer's size request %d x %d: drawn at %d x %d%s; mouse look %.4f browser pixels per count"), Width, Height, Size.X, Size.Y,
-			Size.X != Width || Size.Y != Height ? TEXT(" (the largest size of that shape the game draws)") : TEXT(""), GetMouseShape().Scale));
+			Size.X != Width || Size.Y != Height ? TEXT(" (the largest size of that shape the game draws, in even numbers)") : TEXT(""), GetMouseShape().Scale));
 	}
 }
 
@@ -1744,6 +1757,7 @@ bool UMICloudSubsystem::Tick(float DeltaTime)
 		EnsureOverlay();
 		EnsureVideoProducer();
 		EnsureStartSize();
+		TickViewerSize();
 		EnsureMouse();
 		GuardViewerInput();
 		TickPacing();
