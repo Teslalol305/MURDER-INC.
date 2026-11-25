@@ -118,9 +118,10 @@ NOTES = {
                               "46 mm with ears rising 17 mm, a strap under the plate and two bolts, and a laminated wooden body O30; "
                               "82.7 mm in all, hanging to Z -0.145 (gun space). Origin = the Underbarrel socket (0.305, 0, -0.0623). "
                               "SupportHand (0, 0, -0.048).",
-    "foregrip_angled": "Angled foregrip for an underside MI-R rail: clamp plate 55 x 21.2 mm, a wedge body leaning forward and down at "
+    "foregrip_angled": "Angled foregrip for an underside MI-R rail: clamp plate 47.5 x 21.2 mm, a wedge body leaning forward and down at "
                        "about 38 deg with a thumb shelf and stippled left / right panels, 2 mm radii; about 62 x 30 x 66 mm. The palm "
-                       "rests on the rear ramp: SupportHand (-0.012, 0, -0.030). Origin = the lug undersides plane, hanging in -Z.",
+                       "rests on the rear ramp: SupportHand (-0.012, 0, -0.030). Nothing above Z -0.0297 reaches past X +0.0195, so it "
+                       "clears the laser module on the SHORTY's rail (48 mm apart). Origin = the lug undersides plane, hanging in -Z.",
     "laser_module": "Compact red laser module 46 x 22 x 28 mm for an underside rail (the NINE's dust cover, the SHORTY's forend rail): a "
                     "base plate with two side walls hugging the dovetail's flanks (no hooks and no keys: it seats on either rail), a "
                     "moulded polymer body, a 9 mm emitter window with a red lens ring (E texels), a side wheel and a button. Origin = "
