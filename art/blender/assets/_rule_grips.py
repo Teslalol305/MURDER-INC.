@@ -89,9 +89,10 @@ def regrip(arm, Rr, Rl, M, name, log=print):
     from assets import _characters_pose as CP
     CP._armature_mods(arm, False)
     try:
-        gun = CP.Obstacles([CP.world_bvh(CP.gun_meshes())])
+        signed = name in CP.SIGNED_GUNS          # round 4: a finger buried in a solid part is not clear
+        gun = CP.Obstacles([CP.world_bvh(CP.gun_meshes())], signed=signed)
         rep = {"r": wrap_fingers(arm, "r", Rr, gun)}
-        obst_l = CP.Obstacles(gun.bvhs, CP.finger_capsules(arm, "r", Rr, ("index", "middle", "ring", "pinky")))
+        obst_l = CP.Obstacles(gun.bvhs, CP.finger_capsules(arm, "r", Rr, ("index", "middle", "ring", "pinky")), signed=signed)
         rep["l"] = wrap_fingers(arm, "l", Rl, obst_l, fingers=("index", "middle", "ring", "pinky"), full=(80.0, 95.0, 60.0))
     finally:
         CP._armature_mods(arm, True)

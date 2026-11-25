@@ -85,6 +85,8 @@ GUNS = {
 
 def _rifle(name):
     return GUNS[name].get("kind", "rifle") == "rifle"
+
+
 FOV_V = 54.0
 EYE_DROP = 0.0058           # the recipe's eye: the head joint lowered 0.58 cm onto the sight line
 
@@ -470,12 +472,34 @@ def world_bvh(objs):
     return BVHTree.FromPolygons([tuple(v) for v in V], [tuple(t) for t in T], all_triangles=True)
 
 
-class Obstacles:
-    """Clearance of spheres against BVHs and capsules (m)."""
+_RAYS = (Vector((1, 0, 0)), Vector((-1, 0, 0)), Vector((0, 1, 0)), Vector((0, -1, 0)), Vector((0, 0, 1)),
+         Vector((0, 0, -1)))
 
-    def __init__(self, bvhs=(), capsules=()):
+
+def _inside(bvh, p, reach=0.3):
+    """p inside the gun: in a part's material or in a hollow part's cavity (the SHORTY's moulded body, whose inner
+    walls face p, so the nearest face's side cannot tell). Either way the gun closes round p: at least five of the
+    six axis rays meet it within `reach` (one may leave by a port or a slot; the SHORTY's body cavity runs 37 cm); a
+    point beside the gun, or in a gap that opens on a side (inside the trigger guard), has two or more rays free."""
+    free = 0
+    for d in _RAYS:
+        loc, _n, _i, _dist = bvh.ray_cast(p, d, reach)
+        if loc is None:
+            free += 1
+            if free > 1:
+                return False
+    return True
+
+
+class Obstacles:
+    """Clearance of spheres against BVHs and capsules (m). signed (round 4 grips): a point inside the gun (_inside)
+    counts its distance to the nearest face as negative clearance; unsigned (the NINE's shipped solve), a finger
+    buried in a part reads as clear once its nearest face is farther than its radius."""
+
+    def __init__(self, bvhs=(), capsules=(), signed=False):
         self.bvhs = [b for b in bvhs if b is not None]
         self.capsules = list(capsules)
+        self.signed = signed
 
     def clear(self, p, r):
         p = Vector(p)
@@ -486,6 +510,8 @@ class Obstacles:
             loc, _nrm, _i, d = b.find_nearest(p, 0.25)
             if loc is None:
                 continue
+            if self.signed and d < 0.06 and _inside(b, p):
+                d = -d
             best = min(best, d - r)
         for a, b, ra, rb in self.capsules:
             ab = b - a
@@ -576,11 +602,16 @@ def close_onto(arm, side, R, f, obst, max_deg=(85, 105, 75), start=(0, 0, 0), jo
     return out
 
 
-# Round 4 grips: on the CHOPPER the search above left the firing index along the receiver over the guard, its pad
-# 25.6 mm from the trigger's face: the finger only flexes in one plane, set by the hand on the grip. These guns also
-# swing the index's first bone in the plane of the palm (deg, + toward the thumb) so the pad can find the trigger
-# inside the guard; the NINE keeps the plain search (its grip is shipped).
+# Round 4 grips: on the CHOPPER the search above left the firing index wrapped round the trigger's REAR (pad 25.6 mm
+# from its face): the mannequin's rest hand is curled, so at the first joint's -5 deg the first phalanx still points
+# 27 deg inward and the finger turns in before it is past the trigger. These guns search the first joint from -30 deg
+# (a straight finger) and also swing the first bone in the plane of the palm (deg, + toward the thumb) so the pad can
+# find the trigger's face inside the guard; the NINE keeps the plain search (its grip is shipped).
 TRIGGER_SPREAD = {k: tuple(range(-20, 21, 5)) for k in ("chopper", "shorty", "stretch", "rattler")}
+TRIGGER_MCP_MIN = -30
+# These guns' solves also use Obstacles(signed=True) and a wider thumb grid (aim_thumb: the firing thumb of the
+# SHORTY and RATTLER found no way round the grip's left side within -30 deg of swing and lay along the right side)
+SIGNED_GUNS = {"chopper", "shorty", "stretch", "rattler"}
 
 
 def _spread(arm, axis, deg):
@@ -622,7 +653,7 @@ def trigger_finger(arm, R, gun, gun_M, name):
         return (d + max(-0.002 - c, 0) * 10, angles, d, c, sp)
     best = None
     for sp in (spreads or (0,)):
-        for mcp in range(-5, 46, 5):
+        for mcp in range(TRIGGER_MCP_MIN if spreads else -5, 46, 5):
             for pip in range(0, 91, 10):
                 for dip in range(0, 61, 15):
                     s = score(sp, (mcp, pip, dip))
@@ -678,8 +709,9 @@ def aim_thumb(arm, side, R, gun_M, name, obst):
         if c3:
             _curl(arm, "thumb_03_" + side, math.radians(c3), across, palm)
     sgn = 1.0 if side == "r" else -1.0
-    for a1 in range(-30, 91, 10):
-        for a2 in range(-40, 41, 10):
+    a1s, a2s = (range(-70, 91, 10), range(-60, 61, 10)) if name in SIGNED_GUNS else (range(-30, 91, 10), range(-40, 41, 10))
+    for a1 in a1s:
+        for a2 in a2s:
             for c2 in (0, 15, 30, 45):
                 for c3 in (0, 20, 40):
                     pose(a1 * sgn, a2, c2, c3)
@@ -905,7 +937,7 @@ def hold(arm, gun_M, name, Rr, Rl, pose="hip", gun_objs=None, log=None):
     X, Y, Z = (G @ Vector(v) for v in ((1, 0, 0), (0, 1, 0), (0, 0, 1)))
     g = GUNS[name]
     sr, sl = _sgn(Rr), _sgn(Rl)
-    gun = Obstacles([world_bvh(gun_objs if gun_objs is not None else gun_meshes())])
+    gun = Obstacles([world_bvh(gun_objs if gun_objs is not None else gun_meshes())], signed=name in SIGNED_GUNS)
     rep = {"gun": name, "pose": pose}
     pr = gun_M @ Vector(g["palm_r"])
     pl = gun_M @ Vector(g["palm_l"])

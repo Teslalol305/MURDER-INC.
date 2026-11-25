@@ -121,8 +121,8 @@ def lay(S, img, axes, origin, size, facing, depth, colour=None, flip=False, gate
         v = v * gate
     S.h -= depth * v
     if colour is None:
-        S.bc *= (1.0 - 0.12 * v)[:, None]
-        S.rough += 0.06 * v
+        S.bc *= (1.0 - 0.34 * v)[:, None]
+        S.rough += 0.10 * v
     else:
         S.bc += (np.asarray(colour, np.float32)[None, :] - S.bc) * (0.92 * v)[:, None]
         S.rough += (0.62 - S.rough) * v * 0.8
@@ -143,14 +143,14 @@ def polymer_olive(S, sel, hz):
     fine = N.fbm(p, 900.0, 2, octave0=403)
     drift = N.fbm(p, 5.0, 2, octave0=405)                                           # slow colour drift over the gun
     blot = N.fbm(p, 22.0, 2, octave0=406)                                           # 4-5 cm blotches
-    col = lin("4b5232")[None, :] * (1.0 + 0.095 * mott[:, None] + 0.02 * fine[:, None] + 0.06 * drift[:, None]
-                                    + 0.05 * blot[:, None]) * (1.0 + 0.05 * (pv - 0.5))[:, None]
+    col = lin("4b5232")[None, :] * (1.0 + 0.135 * mott[:, None] + 0.03 * fine[:, None] + 0.08 * drift[:, None]
+                                    + 0.075 * blot[:, None]) * (1.0 + 0.05 * (pv - 0.5))[:, None]
     r = 0.58 + 0.07 * mott + 0.02 * fine + 0.03 * blot
     h = np.clip(hz[sel], 0, 1)
     e = S.convex[sel]
     brk = N.fbm(p, 420.0, 3, octave0=407)
     brk2 = N.fbm(p, 80.0, 2, octave0=410)
-    w = tp.smooth(e * (0.60 + 1.35 * h) + 0.30 * brk + 0.12 * brk2 - 0.62 + 0.30 * h * h, 0.0, 0.24)
+    w = tp.smooth(e * (0.60 + 1.35 * h) + 0.34 * brk + 0.14 * brk2 - 0.54 + 0.30 * h * h, 0.0, 0.24)
     chalk = lin("8f9674")
     col = col + (chalk[None, :] - col) * (0.90 * w)[:, None]                         # chalky light olive on the edges
     r = r + (0.85 - r) * w
@@ -166,7 +166,7 @@ def polymer_olive(S, sel, hz):
     r = r + 0.05 * scuff
     low = tp.smooth(-p[:, 2], 0.0, 0.07)                                            # grime runs down the flanks
     streak = tp.smooth(N.fbm(p, (45.0, 45.0, 3.5), 2, octave0=428), 0.05, 0.55)
-    gr = streak * tp.smooth(np.abs(n[:, 1]), 0.6, 0.95) * (0.25 + 0.75 * low) * 0.55
+    gr = streak * tp.smooth(np.abs(n[:, 1]), 0.6, 0.95) * (0.25 + 0.75 * low) * 0.80
     col = col * (1.0 - 0.30 * gr)[:, None]
     r = r + 0.10 * gr
     sc = S.scratches(0.7, along="X", sel=sel, freq_across=1800.0, octave=420) * tp.smooth(h + 0.25 * e, 0.12, 0.6)
@@ -252,7 +252,7 @@ def paint_shorty(G):
     S.bc *= (1.0 - 0.28 * seam)[:, None]
     S.rough += 0.10 * seam
     # ---- parkerised steel: barrel, hider, trigger, selector, front tower, carrier, rails, screws, pins, deflector hardware
-    parkerised(S, pk, hz, octave=3)
+    parkerised(S, pk, hz, octave=3, edge_gain=1.45)
     # bolt: the carrier is steel too; the bolt head, extractor and the firing-pin hole are bright
     for part in pieces(br):
         S.steel(part, lin("b1b6bd"), 0.25, hz, lin("d4d8dc"), worn_rough=0.2, rvar=0.03, cvar=0.03, octave=9, base_thr=1.2,
@@ -319,7 +319,7 @@ def paint_shorty(G):
               + gauss(p, (0.426, -0.020, 0.018), 0.030, 0.35) * ol * (y < -0.028))                     # soot on the deflector
     oil = (gauss(p, (0.372, -0.012, 0.010), 0.040, 0.9) * (y < -0.004) + gauss(p, (0.345, 0.0, 0.012), 0.060, 0.6) * br
            + gauss(p, (0.500, 0.0, 0.0), 0.080, 0.35) * pk + 0.45 * hz * ol)
-    dirt_chunked(S, 1.0, carbon=np.clip(carbon, 0, 1), oil=np.clip(oil, 0, 1))
+    dirt_chunked(S, 1.3, carbon=np.clip(carbon, 0, 1), oil=np.clip(oil, 0, 1))
     S.rough = np.maximum(S.rough, 0.16 * (S.metal > 0.5))
     ch = S.channels(height_blur=0.35)
     return ch

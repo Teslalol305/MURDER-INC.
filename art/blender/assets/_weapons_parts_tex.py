@@ -175,7 +175,14 @@ def paint_parts(Gm, offsets=None, **kw):
     S.engrave_on(SP, tp.text_image([("SUP-9  *", 256, 256, 150)], 512), (0, 2), (0.045, 0.0), (0.045, 0.045), "+Y", 5e-5)
     S.engrave_on(LZ, tp.text_image([("RL-2", 256, 256, 170)], 512), (0, 2), (0.0, -0.016), (0.020, 0.020), "+Y", 4e-5)
     S.grime(0.55)
-    return S.channels(height_blur=0.5)
+    return binary_metal(S.channels(height_blur=0.5))
+
+
+def binary_metal(ch):
+    """Metallic is binary on every gun set (a texel is metal or it is not; the wear and dirt passes grade the colour and
+    the roughness, not the metalness): partly metallic texels render as dull blotchy grey next to the guns' crisp metal."""
+    ch["metal"] = (np.asarray(ch["metal"]) >= 0.5).astype(np.float32)
+    return ch
 
 
 # ------------------------------------------------------------------------------------------------ magazines
@@ -199,4 +206,4 @@ def paint_mags(Gm, offsets=None, **kw):
     S.metal_finish(S.sel(G.COPPERM), L["copper"], L["copper"] * 1.2, 0.28, 1.0, hand * 0, wear_amount=0.3, scratch=0.3)
     S.plain(S.sel(G.BORED), np.array([0.004, 0.004, 0.0045], np.float32), 0.88, 0.0, var=0.2)
     S.grime(0.7)
-    return S.channels(height_blur=0.5)
+    return binary_metal(S.channels(height_blur=0.5))
