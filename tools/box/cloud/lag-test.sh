@@ -28,7 +28,8 @@
 #                     GPU does (400 % is sixteen times the pixels), and dynamic resolution replaces it. Default none.
 #   res=<W>x<H>       the output size. Default 1920x1080.
 #   view=<file>       the viewer's script (rtcinput.py), a path or the name of one beside this file. Default
-#                     lag-turn.txt (dev) or lag-story.txt (ship); lag-commands.txt and lag-leave.txt are the others.
+#                     lag-turn.txt (dev) or lag-story.txt (ship); lag-commands.txt, lag-leave.txt and lag-rise.txt
+#                     are the others (each says at its top what it is for).
 #   cvars=<a=b,c=d>   passed as the launch option -MICVars= (the game's own tuning switch).
 #   profile=1         for a test folder whose pak is older than the branch: version 3's additions to the cloud
 #                     profile (the r.DynamicRes., MI.Cloud. and PixelStreaming2. lines of [MICloud] in the branch's

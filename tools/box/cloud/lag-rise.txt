@@ -1,0 +1,30 @@
+# The viewer of the check that the frame-rate target comes back (lag-test.sh game=ship load=... view=lag-rise.txt
+# secs=170): into a Story run as lag-story.txt does, a few seconds of play with turning under the load (the target
+# drops there, and only there), then the pause card, where the viewer waits. Stop the load by hand once the viewer's
+# log says "PHASE paused" (kill the processes listed in the run's hog.pids): after 10 s of a GPU well under its
+# share on the card the game's log must say "Frame-rate target: 30 -> 45", after 10 s more "45 -> 60".
+wait 3
+click
+wait 2.5
+click 0.106 0.448
+wait 2.5
+click 0.3625 0.911
+wait 2
+click 0.3625 0.911
+wait 2
+click 0.3625 0.911
+wait 2.5
+click 0.336 0.911
+wait 12
+say PHASE still
+wait 3
+say PHASE turn-fast
+mouse 24 0 300 16
+wait 4
+key 80
+say PHASE paused
+wait 2
+frame paused.jpg
+wait 48
+say PHASE end
+wait 1
