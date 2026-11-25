@@ -206,7 +206,7 @@
       "sockets": {"SupportHand": [-0.012, 0, -0.03]},
       "bounds": {"min": [-0.0275, -0.0186, -0.058], "max": [0.0338, 0.0145, 0.0084]},
       "materialSlots": ["M_Part_Hardware"],
-      "triangles": 2364
+      "triangles": 2380
     },
     "foregrip_vertical": {
       "mesh": "SM_Part_ForegripVertical",
