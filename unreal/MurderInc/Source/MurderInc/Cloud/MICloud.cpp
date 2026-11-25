@@ -56,6 +56,7 @@
 #include <csignal>
 #include <chrono>
 #include <cstdlib>
+#include <cstring>
 #include <thread>
 #include <unistd.h>
 #endif
@@ -264,6 +265,62 @@ namespace MICloudPrivate
 		}
 	}
 #endif
+
+#if PLATFORM_LINUX && !WITH_EDITOR
+	/** The signal handler of the shutdown crash net (below): only calls that are safe in a handler. */
+	void ShutdownCrashHandler(int Signal)
+	{
+		static const char Head[] = "[MICloud] Exit: the engine crashed during its shutdown (signal ";
+		static const char Tail[] = "); it had been asked to quit, so this is a normal quit: exit code 0\n";
+		const char Number[2] = {(char)('0' + (Signal / 10) % 10), (char)('0' + Signal % 10)};
+		ssize_t Ignored = write(STDOUT_FILENO, Head, sizeof(Head) - 1);
+		Ignored = write(STDOUT_FILENO, Number, 2);
+		Ignored = write(STDOUT_FILENO, Tail, sizeof(Tail) - 1);
+		(void)Ignored;
+		_exit(0);
+	}
+#endif
+
+	/**
+	 * From the moment the engine has been asked to quit (the session is over and the game asked itself, or a host stopped
+	 * it with a signal), a crash in its shutdown is not a crash of the game in play: it ends the process with exit code 0
+	 * and one line in the log that names the signal, instead of a report, a crash e-mail from the host and exit code 139.
+	 * One of 27 runs of version 3b's gate ended with such a crash in its stop (SEGV, exit code 139, a null read inside
+	 * main()), and since release 3c every session ends with a shutdown. -MINoExitGuard leaves it out, for finding such a crash.
+	 */
+	void ArmShutdownCrashNet()
+	{
+#if PLATFORM_LINUX && !WITH_EDITOR
+		static std::atomic<bool> bArmed{false};
+		if (FParse::Param(FCommandLine::Get(), TEXT("MINoExitGuard")) || bArmed.exchange(true))
+		{
+			return;
+		}
+		struct sigaction Action;
+		memset(&Action, 0, sizeof(Action));
+		Action.sa_handler = &ShutdownCrashHandler;
+		sigemptyset(&Action.sa_mask);
+		for (const int Signal : {SIGSEGV, SIGBUS, SIGABRT, SIGILL, SIGFPE})
+		{
+			sigaction(Signal, &Action, nullptr);
+		}
+#endif
+	}
+
+	/** FCoreDelegates::OnPreExit: the engine is shutting down. (-MIExitCrashTest, not in the Shipping game: crashes here on purpose, to prove the net.) */
+	void ArmShutdownCrashNetAtPreExit()
+	{
+		ArmShutdownCrashNet();
+#if !UE_BUILD_SHIPPING
+		if (FParse::Param(FCommandLine::Get(), TEXT("MIExitCrashTest")))
+		{
+			printf("[MICloud] Exit crash test: crashing in the shutdown now (null write)\n");
+			fflush(nullptr);
+			volatile int32* Null = nullptr;
+			*Null = 1;
+		}
+#endif
+	}
 
 	/**
 	 * After the game has asked to quit by itself (the session is over), the process has this long to finish its shutdown.
@@ -774,6 +831,7 @@ void UMICloudSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		MICloudPrivate::ReportStartup();
 #if PLATFORM_LINUX && !WITH_EDITOR
 		FCoreDelegates::OnExit.AddStatic(&MICloudPrivate::ArmExitGuard);
+		FCoreDelegates::OnPreExit.AddStatic(&MICloudPrivate::ArmShutdownCrashNetAtPreExit);
 #endif
 	}
 #if !UE_BUILD_SHIPPING
@@ -1477,6 +1535,7 @@ void UMICloudSubsystem::RequestSessionExit(const FString& Why)
 		LeaveIdle(TEXT("the session is over"));
 	}
 	MICloudPrivate::Line(FString::Printf(TEXT("Session over: %s. The game quits now (exit code 0). (%s)"), *Why, *MICloudPrivate::Stamp()));
+	MICloudPrivate::ArmShutdownCrashNet();
 	FPlatformMisc::RequestExit(false);
 	MICloudPrivate::ArmShutdownWatchdog(30.0);
 }
