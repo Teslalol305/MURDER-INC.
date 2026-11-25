@@ -101,7 +101,19 @@ def main():
                 e.clear()
                 e.send_keys(a[2])
             else:
-                e.send_keys(a[2])
+                # A file input is usually hidden (display: none) behind a drop zone, and a hidden element takes no
+                # keys: show it for the moment, give it the path, put its style back.
+                m.execute_script(
+                    "const f = arguments[0]; f.setAttribute('data-mi-style', f.getAttribute('style') || '');"
+                    "f.style.setProperty('display', 'block', 'important'); f.style.opacity = '0.01';"
+                    "f.style.position = 'fixed'; f.style.left = '0'; f.style.top = '0';"
+                    "f.style.width = '8px'; f.style.height = '8px';", script_args=[e])
+                try:
+                    e.send_keys(a[2])
+                finally:
+                    m.execute_script(
+                        "const f = arguments[0]; f.setAttribute('style', f.getAttribute('data-mi-style'));"
+                        "f.removeAttribute('data-mi-style');", script_args=[e])
             print('ok', c, a[1])
         elif c == 'shot':
             open(a[1], 'wb').write(base64.b64decode(m.screenshot()))
