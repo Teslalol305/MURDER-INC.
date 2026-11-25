@@ -5,7 +5,8 @@
 //                                   and the PlayStation names of a controller's buttons
 //   MurderInc.UI.CardHitTest        which row of a card is under the mouse, and which half of an adjustable row
 //   MurderInc.Cloud.Viewers         the click card: for the first viewer and after everybody left, not for a guest
-//   MurderInc.Cloud.ViewerCommands  the allowlist for a viewer's console commands
+//   MurderInc.Cloud.ViewerCommands  the allowlist for a viewer's console commands (the tuning variables and their
+//                                   ranges are in MurderInc.Cloud.Tuning, Tests/MICloudPacingTests.cpp)
 //   MurderInc.Cloud.Quality         Graphics quality while streamed: the frame cap, the resolution and the cloud profile stay
 
 #include "Cloud/MICloud.h"
@@ -389,7 +390,9 @@ bool FMICloudViewerCommandsTest::RunTest(const FString& Parameters)
 	// Everything else.
 	TestFalse(TEXT("quit"), Ok(TEXT("quit")));
 	TestFalse(TEXT("a debug command of the game"), Ok(TEXT("MIShot /tmp/x.png")));
-	TestFalse(TEXT("a render setting"), Ok(TEXT("r.ScreenPercentage 200")));
+	TestFalse(TEXT("a render setting beyond its range (a visitor could exhaust the server's GPU memory)"), Ok(TEXT("r.ScreenPercentage 200")));
+	TestFalse(TEXT("a render setting that is not on the list"), Ok(TEXT("r.Lumen.Reflections.Allow 0")));
+	TestTrue(TEXT("a tuning variable of the list: E3DS's own advice for its console-commands field"), Ok(TEXT("t.MaxFPS 30")));
 	TestFalse(TEXT("the resolution (the browser's size request is its own Pixel Streaming command)"), Ok(TEXT("r.SetRes 3840x2160")));
 	TestFalse(TEXT("open a map"), Ok(TEXT("open L_Block")));
 	TestFalse(TEXT("an empty command"), Ok(TEXT("   ")));

@@ -1141,13 +1141,18 @@ void UMICloudSubsystem::OnStreamStat(FString Player, FName Stat, float Value)
 		FStreamStat& S = StreamStats.FindOrAdd(Stat);
 		S.Value = Value;
 		S.Time = FPlatformTime::Seconds();
+		if (Value >= S.Peak || S.Time - S.PeakTime > 2.0)
+		{
+			S.Peak = Value;
+			S.PeakTime = S.Time;
+		}
 	}
 }
 
-double UMICloudSubsystem::StreamStat(const TCHAR* Name, double Missing) const
+double UMICloudSubsystem::StreamStat(const TCHAR* Name, double Missing, bool bPeak) const
 {
 	const FStreamStat* S = StreamStats.Find(FName(Name));
-	return S && FPlatformTime::Seconds() - S->Time < 5.0 ? (double)S->Value : Missing;
+	return S && FPlatformTime::Seconds() - S->Time < 5.0 ? (double)(bPeak ? S->Peak : S->Value) : Missing;
 }
 
 void UMICloudSubsystem::MakeNumbersLine()
@@ -1165,7 +1170,7 @@ void UMICloudSubsystem::MakeNumbersLine()
 	FString Stream = TEXT("no viewer statistics yet");
 	if (const double Tx = StreamStat(TEXT("transmitFps")); Tx >= 0.0)
 	{
-		Stream = FString::Printf(TEXT("stream %.0f a second, %.1f Mbit/s, QP %.0f"), Tx, FMath::Max(0.0, StreamStat(TEXT("bitrateMbits"), 0.0)), FMath::Max(0.0, StreamStat(TEXT("qp"), 0.0)));
+		Stream = FString::Printf(TEXT("stream %.0f a second, %.1f Mbit/s, QP %.0f"), Tx, FMath::Max(0.0, StreamStat(TEXT("bitrateMbits"), 0.0, true)), FMath::Max(0.0, StreamStat(TEXT("qp"), 0.0)));
 		if (const double Rtt = StreamStat(TEXT("roundTripTime")); Rtt >= 0.0)
 		{
 			Stream += FString::Printf(TEXT(", round trip %.0f ms"), Rtt * 1000.0);
@@ -1213,9 +1218,11 @@ void UMICloudSubsystem::Probe(float DeltaTime)
 		P.MaxInFlight, P.Held, P.WaitMs, P.WorstWaitMs, P.TimeOuts, ProbeGameMs, ProbeRenderMs, ProbeRhiMs);
 	if (const double Tx = StreamStat(TEXT("transmitFps")); Tx >= 0.0)
 	{
-		Out += FString::Printf(TEXT(" capFps=%.0f encFps=%.0f txFps=%.0f qp=%.0f mbps=%.2f encMs=%.1f rttMs=%.0f lost=%.0f"),
-			StreamStat(TEXT("captureFps")), StreamStat(TEXT("encodeFps")), Tx, StreamStat(TEXT("qp")), StreamStat(TEXT("bitrateMbits")),
-			StreamStat(TEXT("encodeTime")), StreamStat(TEXT("roundTripTime"), -0.001) * 1000.0, StreamStat(TEXT("packetsLost")));
+		// The stream as its sender measures it: frames captured, encoded and sent a second, the encoder's QP, the bitrate
+		// sent and the bitrate the connection is thought to carry (a low one makes WebRTC drop frames), the encode time.
+		Out += FString::Printf(TEXT(" capFps=%.0f encFps=%.0f txFps=%.0f qp=%.0f mbps=%.2f availMbps=%.2f encMs=%.1f rttMs=%.0f"),
+			StreamStat(TEXT("captureFps")), StreamStat(TEXT("encodeFps")), Tx, StreamStat(TEXT("qp")), StreamStat(TEXT("bitrateMbits"), -1.0, true),
+			StreamStat(TEXT("availableOutgoingBitrate"), -1e6, true) / 1e6, StreamStat(TEXT("encodeTime")), StreamStat(TEXT("roundTripTime"), -0.001) * 1000.0);
 	}
 	Out += FString::Printf(TEXT(" rssMB=%llu peakRssMB=%llu texStreamMB=%llu texOtherMB=%llu poolMB=%lld yaw=%.4f pitch=%.4f state=%d click=%d bb=%lld pushed=%lld viewers=%d spikes=%d pad=%d cmdRun=%d cmdRefused=%d padRepeats=%d stickKeys=%d"),
 		(unsigned long long)(M.UsedPhysical >> 20), (unsigned long long)(M.PeakUsedPhysical >> 20),

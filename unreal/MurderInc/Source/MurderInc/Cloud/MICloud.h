@@ -179,8 +179,8 @@ private:
 	/** t.MaxFPS, the stream's frame rate and dynamic resolution's frame time for the target (cloud-profile priority). */
 	void ApplyFrameRateTarget();
 	void OnStreamStat(FString Player, FName Stat, float Value);
-	/** A sender statistic of the stream by name; Missing when none arrived in the last 5 s. */
-	double StreamStat(const TCHAR* Name, double Missing = -1.0) const;
+	/** A sender statistic of the stream by name (bPeak: its largest value of the last two seconds); Missing when none arrived in the last 5 s. */
+	double StreamStat(const TCHAR* Name, double Missing = -1.0, bool bPeak = false) const;
 	void MakeNumbersLine();
 
 	bool bStreamed = false;
@@ -225,6 +225,8 @@ private:
 	float PictureShare = -1.f;               // dynamic resolution's share of the output size (-1: off)
 	double NumbersNext = 0.0;
 	FString NumbersLine;
-	struct FStreamStat { float Value = 0.f; double Time = 0.0; };
+	// Peak: the largest value of the last two seconds (a viewer's audio and video report "bitrate" under one name,
+	// in turn: the video's is the larger one).
+	struct FStreamStat { float Value = 0.f, Peak = 0.f; double Time = 0.0, PeakTime = 0.0; };
 	TMap<FName, FStreamStat> StreamStats;
 };

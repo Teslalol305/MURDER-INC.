@@ -31,6 +31,9 @@
 #   csv=1             a CSV profile of the Development game from the start of the run.
 #   secs=<n>          how long the game runs. Default 110 (dev) or 125 (ship).
 #   probe=<seconds>   the probe line's period. Default 1.
+#   minbit=<bits/s>   the stream's lowest and first bitrate. Default 12000000: the Python viewer's congestion feedback
+#                     is basic and the sender would otherwise drop most frames to fit a bitrate of a megabit or less;
+#                     0 leaves the bitrate as E3DS starts it.
 # Anything after -- goes to the game as it is (for example -PixelStreamingDecoupleFramerate).
 #
 # One game at a time: a run waits (up to 10 minutes) until no other MURDER INC. game runs on the box, and a watcher
@@ -74,13 +77,13 @@ hogs() {  # <n>[:<work ms>[:<idle ms>[:<size>]]] <pid file> <log prefix> | stop 
 
 run_fg() {
   local name=$1; shift
-  local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= cvars= csv= secs= probe=1 extra=()
+  local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= cvars= csv= secs= probe=1 minbit=12000000 extra=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --) shift; extra=("$@"); break ;;
       game=*) game=${1#*=} ;; build=*) build=${1#*=} ;; load=*) load=${1#*=} ;; sp=*) sp=${1#*=} ;;
       res=*) res=${1#*=} ;; view=*) view=${1#*=} ;; cvars=*) cvars=${1#*=} ;; csv=*) csv=${1#*=} ;;
-      secs=*) secs=${1#*=} ;; probe=*) probe=${1#*=} ;;
+      secs=*) secs=${1#*=} ;; probe=*) probe=${1#*=} ;; minbit=*) minbit=${1#*=} ;;
       *) echo "unknown key $1"; return 2 ;;
     esac; shift
   done
@@ -89,8 +92,8 @@ run_fg() {
   [ -n "$secs" ] || { secs=110; [ "$game" = ship ] && secs=125; }
   local id=lag$(echo "$name" | tr -cd 'a-zA-Z0-9')
   rm -rf "$O"; mkdir -p "$O"; chmod 777 "$O"
-  printf 'name=%s\ngame=%s\nbuild=%s\nload=%s\nsp=%s\nres=%s\nview=%s\ncvars=%s\ncsv=%s\nsecs=%s\nid=%s\nextra=%s\nstarted=%s\n' \
-    "$name" "$game" "$build" "$load" "$sp" "$res" "$view" "$cvars" "$csv" "$secs" "$id" "${extra[*]}" "$(date -u +%FT%TZ)" > "$O/info.txt"
+  printf 'name=%s\ngame=%s\nbuild=%s\nload=%s\nsp=%s\nres=%s\nview=%s\ncvars=%s\ncsv=%s\nsecs=%s\nminbit=%s\nid=%s\nextra=%s\nstarted=%s\n' \
+    "$name" "$game" "$build" "$load" "$sp" "$res" "$view" "$cvars" "$csv" "$secs" "$minbit" "$id" "${extra[*]}" "$(date -u +%FT%TZ)" > "$O/info.txt"
   venv || { echo "FAILED: no Python with aiortc" > "$O/done"; return 1; }
   # One game at a time.
   local i
@@ -105,6 +108,11 @@ run_fg() {
     "-ABSLOG=$O/abs.log" -AllowPixelStreamingCommands -Windowed -ForceRes "-ResX=${res%x*}" "-ResY=${res#*x}"
     -PixelStreamingEncoderCodec=H264 -PixelStreamingWebRTCMaxBitrate=20000000 -PixelStreamingEncoderMinQP=18
     -PixelStreamingEncoderMaxQP=36 "-MICloudProbe=$probe")
+  # The Python viewer's congestion feedback is basic: the sender thinks the connection carries a quarter of a megabit,
+  # then a few, and WebRTC drops most frames to fit (run x1: 60 captured, 2 to 58 encoded a second). minbit=<bits a
+  # second> (default 12 Mbit/s; 0: as E3DS starts it) keeps the bitrate up, so the frames received say something
+  # about the game and the capture.
+  [ "$minbit" -gt 0 ] && args+=("-PixelStreamingWebRTCMinBitrate=$minbit" "-PixelStreamingWebRTCStartBitrate=$minbit")
   [ -n "$cvars" ] && args+=("-MICVars=$cvars")
   if [ "$game" = dev ]; then
     {

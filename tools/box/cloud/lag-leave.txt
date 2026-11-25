@@ -1,0 +1,10 @@
+# The viewer of a lag test that leaves (lag-test.sh view=.../lag-leave.txt): one click, a few seconds of play, then
+# the viewer goes and the game pauses itself ("Connection lost: the game is paused until a viewer joins") and stays
+# paused until the run's time is up. For the memory check: a game that hands a full GPU more frames than it finishes
+# keeps every unfinished frame in memory (box run gp-in5: 3.3 GB to 14.5 GB in 40 s, and 27 s to shut down).
+wait 3
+click
+wait 4
+say PHASE still
+wait 4
+say PHASE end
