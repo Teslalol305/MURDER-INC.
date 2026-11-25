@@ -7,6 +7,14 @@ public class MurderInc : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
+		// Every source file is compiled on its own, with no unity chunks. In a chunk the names that files keep to themselves
+		// in an anonymous namespace meet each other and the engine's headers (struct FReader in two files, constexpr Gravity
+		// in MIEnemies.cpp ahead of an engine header whose parameter has that name), and a new file anywhere cuts the chunks
+		// differently: a clean clone, which is what a release package is built from, then failed to build (found when release
+		// 3c added files) while a working clone builds, because UBT's adaptive unity build compiles the files that are
+		// changed on their own. 78 files: the full build takes minutes either way.
+		bUseUnity = false;
+
 		PublicDependencyModuleNames.AddRange(new string[] {
 			"Core",
 			"CoreUObject",
