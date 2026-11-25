@@ -21,9 +21,9 @@
 
 namespace MIEffectsPrivate
 {
-	constexpr int32 NumPuffs = 128, NumCards = 36, NumLights = 6, NumMarks = 72, NumStreaks = 24, NumViewCards = 6;
+	constexpr int32 NumPuffs = 128, NumCards = 36, NumLights = 6, NumMarks = 72, NumStreaks = 24, NumViewCards = 6;  // cards: three per flash; 9 let three Goon shots recycle the player's own flash within its 0.045 s (polish pass); puffs 128 (death pass: a kill's burst takes 6 to 8)
 	// Blood decals of their own (death pass): spatters and the pools under bodies, never recycled by bullet marks.
-	constexpr int32 NumBlood = 32;  // cards: three per flash; 9 let three Goon shots recycle the player's own flash within its 0.045 s (polish pass)
+	constexpr int32 NumBlood = 32;
 
 	template <typename T>
 	T* LoadAs(const FString& Path)
@@ -591,11 +591,11 @@ void UMIEffects::OnImpact(const FMIImpactEvent& E)
 	if (IsEnemy(E.Actor.Get()))
 	{
 		// Blood: a short dark mist out of the wound both ways, and a spatter on the wall behind within reach.
-		const FLinearColor Blood = Color(Fx, TEXT("blood.color"), FLinearColor(0.16f, 0.012f, 0.01f));
+		const FLinearColor BloodColor = Color(Fx, TEXT("blood.color"), FLinearColor(0.16f, 0.012f, 0.01f));
 		for (int32 I = 0; I < 3; ++I)
 		{
 			const FVector V = (I == 0 ? -D * 90.0 : D * FMath::FRandRange(140.0, 260.0)) + FMath::VRand() * 60.0;
-			Puff(E.Point + D * 4.0, V, FMath::FRandRange(0.3, 0.5), 5.0, FMath::FRandRange(26.0, 40.0), 0.75, Blood, 0.0, 4.0, -40.0);
+			Puff(E.Point + D * 4.0, V, FMath::FRandRange(0.3, 0.5), 5.0, FMath::FRandRange(26.0, 40.0), 0.75, BloodColor, 0.0, 4.0, -40.0);
 		}
 		FHitResult Hit;
 		FCollisionQueryParams Q(SCENE_QUERY_STAT(MIFxBlood), false, E.Actor.Get());
