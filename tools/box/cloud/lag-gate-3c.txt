@@ -16,5 +16,15 @@ c-l35 game=dev load=1:0.3:0 profile=1 -- -sm5
 c-l35-off game=dev load=1:0.3:0 profile=1 -- -sm5 -MINoLadder
 c-l48 game=dev load=1:1:0 profile=1 -- -sm5
 c-l48-off game=dev load=1:1:0 profile=1 -- -sm5 -MINoLadder
+c-l70 game=dev load=2:1:0 profile=1 -- -sm5
+c-l70-off game=dev load=2:1:0 profile=1 -- -sm5 -MINoLadder
 c-l35-cpu6 game=dev load=1:0.3:0 cpus=0-5 profile=1 -- -sm5
 c-l48-cpu6 game=dev load=1:1:0 cpus=0-5 profile=1 -- -sm5
+# A fight (ladder-fight.txt: the Goons alerted, two fights, the blast) at a load like E3DS's clean card with its fight room (about 12 ms
+# at the smallest picture standing: 1:0.05:0.05:1024 gives 11.4 ms at version 2's picture) and at the 20 ms load, ladder on and off:
+c-fight-l12 game=dev demo=ladder-fight.txt view=sound-watch.txt join=3 probe=0.5 secs=140 load=1:0.05:0.05:1024 profile=1 -- -sm5
+c-fight-l12-off game=dev demo=ladder-fight.txt view=sound-watch.txt join=3 probe=0.5 secs=140 load=1:0.05:0.05:1024 profile=1 -- -sm5 -MINoLadder
+c-fight-l20 game=dev demo=ladder-fight.txt view=sound-watch.txt join=3 probe=0.5 secs=140 load=1:0.05:0:1024 profile=1 -- -sm5
+c-fight-l20-off game=dev demo=ladder-fight.txt view=sound-watch.txt join=3 probe=0.5 secs=140 load=1:0.05:0:1024 profile=1 -- -sm5 -MINoLadder
+# The way back (ladder-rise.txt: step 3 pinned by hand and freed, 70 s of play, the first pause takes one step back, the second changes nothing):
+c-rise game=dev view=ladder-rise.txt load=0 secs=150 profile=1 -- -sm5
