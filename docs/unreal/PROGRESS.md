@@ -165,6 +165,8 @@ X 140 mm (spec 132), 4.5 mm from the magazine well, so no finger fits in front o
 
 ## Release 3c: the quality ladder (quality-ladder engineer, 2026-11-25, 15:25 to 17:50 UTC)
 
+> **Changed by the review ("Release 3c: review fixes", above):** the ladder is now OFF by default (`-MILadder` turns it on); it judges against a 60 frames a second frame, the frame-rate drop waits for it, it warms up for 15 s, never raises what the player's Graphics quality set and has no SM6; the table lines carry `<=` / `>=`. The numbers below are of the version before that review.
+
 **Read this first.** The ladder is built, unit-tested and measured step by step on the box. **The release gate (L3) was not run: the box
 expired at 17:48 UTC (24 hours after it was rented) while the work was in its last measurement, and a new box needs the owner's approval of
 its price.** So there is no gate table, no run of the ladder acting under a load, and no run of the way back in a stream. Every number
@@ -328,6 +330,8 @@ three tests, as `1e539ed`). After it: the `-MIQualityTable=` option (built in th
 
 
 ## Release 3c: the session (session engineer, 2026-11-25, 11:50 to 15:25 UTC)
+
+> **Changed by the review ("Release 3c: review fixes", above):** the game quits **60 s** after the last viewer left (this entry says 20 s throughout, and its reason (2) for 20 s does not hold: the launcher reaps leftovers at the next start); a viewer cannot set `MI.Cloud.KeepAlive`, `ExitAfterEmpty`, `ExitIfNoViewer`, `IdleFps`, `IdleAfter` or `QpExact`, and on E3DS the launcher does not pass the session options on.
 
 The game now looks after its own session, and E3DS's quality number became the centre of a range. **In the game**
 (`Source/MurderInc/Cloud/`: `MISession.h/.cpp`, `MIStreamQuality.h/.cpp`, `MICloud.h/.cpp`): it idles when nobody watches, quits when its

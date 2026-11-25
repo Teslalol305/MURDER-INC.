@@ -263,6 +263,12 @@ with fast turning has no game frame over 100 ms and no "Timed out waiting for fe
 
 ### V3-2. Step the quality down by measured GPU time (new; overrides plan B3's "Do NOT lower Lumen, Nanite or shadow quality") — DONE in release 3c (the quality ladder), see below for what is left
 
+**Review fixes (2026-11-25, docs/unreal/PROGRESS.md "Release 3c: review fixes"): the ladder is OFF in a package until its gate has run
+(`-MILadder` or `MI.Cloud.QualityLadder 1` turns it on), so the sentences below that say "(2) the ladder acts at the frame time of the
+target in force" and "(3) nothing waits" are changed: it judges against the 60 frames a second frame (the target's own when fixed by
+hand), the frame-rate governor's drop waits for it (a load under 1.3 of the frame, at most 20 s), the first 15 s of live play are not
+counted, a step never raises what the player's own Graphics quality set, and on SM6 there is no ladder.**
+
 **Status (2026-11-25, release 3c; docs/unreal/PROGRESS.md "Release 3c: the quality ladder").** Built and unit-tested; measured on
 the box with the Development game (what each setting buys, the steps walked up and down: no frame over 62 ms); **the release gate
 (`lag-gate-3c.txt`) was NOT run** (the box expired); not yet seen on E3DS and not part of any package. What it is: five steps of console variables, data in
