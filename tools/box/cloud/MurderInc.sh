@@ -28,6 +28,11 @@
 # Stop signals (TERM, INT, HUP) are passed on to the game at once (and the game is killed if it is still there 8 s
 # later); if this launcher itself is killed, a watchdog ends the game. Before the game starts, every other game of
 # this package that is still running on the machine is stopped: see "leftovers" below.
+# The game also looks after itself (release 3c, Source/MurderInc/Cloud/MISession.h): this launcher gives it its own
+# process id (-MILauncherPid=<pid>), and a game whose launcher has been gone for 5 s quits (the watchdog below does the
+# same from outside); with no viewer for 2 s the game idles, and 20 s after the last viewer left it quits, so that the
+# game of an ended session does not go on drawing on the machine. -MIKeepAlive (a launch option, passed on) turns that
+# off for a game that is held with no viewer on purpose (the box's test scripts).
 # Started as root (Unreal refuses to run as root), the game runs as the folder's owner, or "nobody", with HOME in /tmp.
 #
 # Launch options (E3DS: the stream configuration's launch options arrive as arguments, and so does whatever a visitor
@@ -274,7 +279,9 @@ export SDL_AUDIODRIVER=dummy SDL_AUDIO_DRIVER=dummy
 unset SDL_AUDIO_DEVICE_SAMPLE_FRAMES
 note "sound: $SNDNOTE; the game gets SDL's dummy audio device (no sound card or sound service is needed: the sound goes out with the stream)"
 
-ARGS=(MurderInc -MICloud -RenderOffScreen)
+# -MILauncherPid=: this launcher's own id (the game is its child, started below). Before the host's arguments: the first
+# one counts, so a link cannot name another process for the game to watch.
+ARGS=(MurderInc -MICloud -RenderOffScreen "-MILauncherPid=$$")
 [ -n "$USERDIR" ] && ARGS+=("-UserDir=$USERDIR")
 ARGS+=(-stdout -FullStdOutLogOutput)
 [ "$FORCESM6" = 1 ] && ARGS+=(-SkipVulkanProfileCheck)

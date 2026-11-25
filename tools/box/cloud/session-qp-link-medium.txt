@@ -1,0 +1,24 @@
+# The viewer of the encoder range under a thin link, E3DS's Medium (lag-test.sh game=dev qp=34:34 minbit=100000
+# view=session-qp-link-medium.txt vopts=--remb-kbps,1500,--link-kbps,1500): QP 34 and 34 in the Development game's Story
+# run, the view standing and then turning fast (about 173 degrees a second, twice). The page's own commands are sent
+# first, as E3DS's page sends them. Run it once as it is and once with -MIQpExact after "--": session_sum.py <run>
+# --phases tells, phase by phase, the QP the encoder used, the bitrate, the frames the sender captured, encoded and sent
+# and the frames the viewer received. (session-qp-link.txt is the same for High, QP 16.)
+wait 3
+click
+wait 3
+say PHASE commands
+cmd PixelStreaming.Encoder.MinQP 34
+cmd PixelStreaming.Encoder.MaxQP 34
+wait 10
+say PHASE still-1
+wait 8
+say PHASE turn-1
+mouse 24 0 450 16
+say PHASE still-2
+wait 8
+say PHASE turn-2
+mouse 24 0 450 16
+say PHASE still-3
+wait 5
+say PHASE end

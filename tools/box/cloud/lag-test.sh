@@ -73,6 +73,23 @@
 #                     before the run: a fresh copy of the zip, which is what a host unpacks for a session. Default 0,
 #                     or $LAG_CLEAN. The release gate on a package is run with both: unzip the zip as the user
 #                     e3dsfresh, then LAG_BUILD=<that folder> LAG_RUNAS=fresh LAG_CLEAN=1 lag-test.sh queue lag-gate.txt
+#   qp=<min>:<max>    the encoder's -PixelStreamingEncoderMinQP and MaxQP (default 18:36). E3DS's Medium is 34:34, its
+#                     High 16:16 (docs/unreal/DECISIONS.md, 2026-11-25); the game takes them as the centre of a range
+#                     (release 3c, MI.Cloud.QpBelow / QpAbove), -MIQpExact after "--" turns that off.
+#   vopts=<a,b,...>   more options for the viewer (rtcinput.py), the words joined by commas (a queue file's line has no
+#                     spaces to give): --delay-ms,N  --link-kbps,N  --link-queue-ms,N  --remb-kbps,N make the viewer's
+#                     link (the box has no tc: rtcinput.py's header says how), --player,WxH.
+#   viewer=0          no viewer at all: the game runs alone until its limit (secs) or until it quits by itself, which a
+#                     streamed game without -MIKeepAlive does 600 s after its start when nobody came (MI.Cloud.
+#                     ExitIfNoViewer; -- -MIExitIfNoViewer=40 shortens it). The idle game's and the unwatched game's runs.
+#   keepalive=0       the game is NOT given -MIKeepAlive (default 1). Since release 3c a streamed game idles when no
+#                     viewer watches and quits 20 s after the last viewer left (MI.Cloud.IdleFps, ExitAfterEmpty,
+#                     ExitIfNoViewer: docs/LAUNCH.md section 9): every run of this tool holds a game with no viewer on
+#                     purpose (the Development game plays its script before the viewer joins, a run goes on after its
+#                     viewer left, the calibration has no viewer at all), so each is started with -MIKeepAlive and
+#                     measures the game as before. keepalive=0 is for a run of the session's own behaviour (the idle
+#                     game, the quit after the last viewer, a viewer that comes back): the game then does what a
+#                     package does on E3DS, and a result of "ENDED BY ITSELF: EXIT 0" is the game quitting as designed.
 # Anything after -- goes to the game as it is (for example -PixelStreamingDecoupleFramerate).
 #
 # One game at a time: a run waits (up to 10 minutes) until no other MURDER INC. game runs on the box, and a watcher
@@ -119,7 +136,7 @@ hogs() {  # <n>[:<work ms>[:<idle ms>[:<size>]]] <pid file> <log prefix> | stop 
 run_fg() {
   local name=$1; shift
   local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= view2= cvars= csv= secs= probe=1 minbit=12000000 profile= cpus= decode=1 audio=0 demo= envs= extra=()
-  local runas=${LAG_RUNAS:-ue4} clean=${LAG_CLEAN:-0} join=${LAG_JOIN:-55}
+  local runas=${LAG_RUNAS:-ue4} clean=${LAG_CLEAN:-0} join=${LAG_JOIN:-55} keepalive=1 qp=18:36 vopts= withviewer=1
   while [ $# -gt 0 ]; do
     case "$1" in
       --) shift; extra=("$@"); break ;;
@@ -128,6 +145,7 @@ run_fg() {
       secs=*) secs=${1#*=} ;; probe=*) probe=${1#*=} ;; minbit=*) minbit=${1#*=} ;; profile=*) profile=${1#*=} ;;
       cpus=*) cpus=${1#*=} ;; decode=*) decode=${1#*=} ;; view2=*) view2=${1#*=} ;;
       runas=*) runas=${1#*=} ;; clean=*) clean=${1#*=} ;; join=*) join=${1#*=} ;; audio=*) audio=${1#*=} ;; demo=*) demo=${1#*=} ;; env=*) envs=${1#*=} ;;
+      keepalive=*) keepalive=${1#*=} ;; qp=*) qp=${1#*=} ;; vopts=*) vopts=${1#*=} ;; viewer=*) withviewer=${1#*=} ;;
       *) echo "unknown key $1"; return 2 ;;
     esac; shift
   done
@@ -157,8 +175,8 @@ run_fg() {
   [ -n "$secs" ] || { secs=110; [ "$game" = ship ] && secs=125; }
   local id=lag$(echo "$name" | tr -cd 'a-zA-Z0-9')
   rm -rf "$O"; mkdir -p "$O"; chmod 777 "$O"
-  printf 'name=%s\ngame=%s\nbuild=%s\nload=%s\nsp=%s\nres=%s\nview=%s\ncvars=%s\ncsv=%s\nsecs=%s\nminbit=%s\ncpus=%s\nid=%s\nextra=%s\nstarted=%s\nrunas=%s\nclean=%s\nprobe=%s\njoin=%s\naudio=%s\n' \
-    "$name" "$game" "$build" "$load" "$sp" "$res" "$view" "$cvars" "$csv" "$secs" "$minbit" "${cpus:-all}" "$id" "${extra[*]}" "$(date -u +%FT%TZ)" "$runas" "$clean" "$probe" "$join" "$audio" > "$O/info.txt"
+  printf 'name=%s\ngame=%s\nbuild=%s\nload=%s\nsp=%s\nres=%s\nview=%s\ncvars=%s\ncsv=%s\nsecs=%s\nminbit=%s\ncpus=%s\nid=%s\nextra=%s\nstarted=%s\nrunas=%s\nclean=%s\nprobe=%s\njoin=%s\naudio=%s\nkeepalive=%s\nqp=%s\nvopts=%s\n' \
+    "$name" "$game" "$build" "$load" "$sp" "$res" "$view" "$cvars" "$csv" "$secs" "$minbit" "${cpus:-all}" "$id" "${extra[*]}" "$(date -u +%FT%TZ)" "$runas" "$clean" "$probe" "$join" "$audio" "$keepalive" "$qp" "$vopts" > "$O/info.txt"
   venv || { echo "FAILED: no Python with aiortc" > "$O/done"; return 1; }
   # One game at a time.
   local i
@@ -171,14 +189,15 @@ run_fg() {
   # The game, with the arguments E3DS passes (its documentation: FAQ, command-line parameters).
   local args=(-PixelStreamingURL=ws://127.0.0.1:8888 "-PixelStreamingID=$id" -AudioMixer -log -Unattended -StdOut -FullStdOutLogOutput
     "-ABSLOG=$O/abs.log" -AllowPixelStreamingCommands -Windowed -ForceRes "-ResX=${res%x*}" "-ResY=${res#*x}"
-    -PixelStreamingEncoderCodec=H264 -PixelStreamingWebRTCMaxBitrate=20000000 -PixelStreamingEncoderMinQP=18
-    -PixelStreamingEncoderMaxQP=36 "-MICloudProbe=$probe")
+    -PixelStreamingEncoderCodec=H264 -PixelStreamingWebRTCMaxBitrate=20000000 "-PixelStreamingEncoderMinQP=${qp%%:*}"
+    "-PixelStreamingEncoderMaxQP=${qp##*:}" "-MICloudProbe=$probe")
   # The Python viewer's congestion feedback is basic: the sender thinks the connection carries a quarter of a megabit,
   # then a few, and WebRTC drops most frames to fit (run x1: 60 captured, 2 to 58 encoded a second). minbit=<bits a
   # second> (default 12 Mbit/s; 0: as E3DS starts it) keeps the bitrate up, so the frames received say something
   # about the game and the capture.
   [ "$minbit" -gt 0 ] && args+=("-PixelStreamingWebRTCMinBitrate=$minbit" "-PixelStreamingWebRTCStartBitrate=$minbit")
   [ -n "$cvars" ] && args+=("-MICVars=$cvars")
+  [ "$keepalive" = 1 ] && args+=(-MIKeepAlive)   # the game is held with no viewer on purpose (see the header)
   if [ "$game" = dev ]; then
     if [ -n "$demo" ]; then
       { grep -v '^[[:space:]]*#' "$demo"; echo "wait 900"; } > "$O/play.txt"   # the game's user must be able to read it
@@ -210,6 +229,15 @@ run_fg() {
     done > "$O/others.log" 2>&1 ) &
   (cd "$T" && RUNAS="$runas" NODISPLAY=1 STOPSIG=TERM STOPTO=launcher STDOUT=0 CPUS="$cpus" BUILD="$build" ENVS="${envs//,/ }" bash e3ds-repro.sh run "lag-$name" "$secs" "${args[@]}" "${extra[@]}") >> "$O/info.txt" 2>&1
   local R=$C/repro/lag-$name
+  if [ "$withviewer" = 0 ]; then   # no viewer: the game runs alone until its limit or until it quits by itself
+    for i in $(seq 1 $((secs + 60))); do [ -f "$R/result.txt" ] && break; sleep 1; done
+    hogs stop "$O/hog.pids"
+    cp "$R/game.log" "$O/game.log" 2>/dev/null; cp "$R/result.txt" "$O/result.txt" 2>/dev/null
+    echo DONE > "$O/done"; wait
+    python3 "$T/lag_sum.py" "$O" > "$O/summary.txt" 2>&1
+    cat "$O/summary.txt"
+    return 0
+  fi
   # The viewer joins when the game streams: in a run already (dev), or on its home screen (ship), join= seconds after
   # the game's first probe line. (Until 2026-11-25 the Shipping game's wait looked for a line that never comes and
   # ran its full 60 s, so the viewer of every earlier run found a home screen that had been drawn for about 55 s.
@@ -231,6 +259,8 @@ run_fg() {
   fi
   date -u +%T > "$O/view.start"
   local vopt=() viewer=rtcinput.py; [ "$decode" = 0 ] && vopt=(--nodecode)
+  # shellcheck disable=SC2206  (the viewer's options are separate words)
+  [ -n "$vopts" ] && vopt+=(${vopts//,/ })
   [ "$audio" = 1 ] && viewer=rtcaudio.py   # the same viewer with a recorder on the sound (sound.wav in the run's folder)
   (cd "$O" && timeout $((secs)) "$PY" "$T/$viewer" "$id" "$view" --out "$O" "${vopt[@]}" > "$O/view.log" 2>&1) || echo "VIEWER FAILED: $(tail -1 "$O/view.log")" >> "$O/info.txt"
   if [ -n "$view2" ]; then   # the next viewer, once the game has noticed that the first one left
@@ -257,7 +287,7 @@ calib_fg() {  # <name> <load> ...: one Development game standing in a Story run 
   # Full quality: no dynamic resolution, the target fixed at 60; the pacer stays on, so frames do not pile up.
   (cd "$T" && RUNAS=ue4 NODISPLAY=1 STOPSIG=TERM STOPTO=launcher STDOUT=0 BUILD="$build" bash e3ds-repro.sh run "lag-$name" "$secs" \
     -PixelStreamingURL=ws://127.0.0.1:8888 "-PixelStreamingID=$id" -AudioMixer -log -Unattended -StdOut -FullStdOutLogOutput \
-    -Windowed -ForceRes -ResX=1920 -ResY=1080 -MICloudProbe=1 -MICloudNoCard -MIDev "-ExecCmds=MIDemo.Run $O/play.txt" \
+    -Windowed -ForceRes -ResX=1920 -ResY=1080 -MICloudProbe=1 -MICloudNoCard -MIKeepAlive -MIDev "-ExecCmds=MIDemo.Run $O/play.txt" \
     "-MICVars=r.DynamicRes.OperationMode=0,MI.Cloud.FpsTarget=60") > "$O/info.txt" 2>&1
   local R=$C/repro/lag-$name
   for i in $(seq 1 60); do grep -a -q "MICloudProbe.*state=2" "$R/game.log" 2>/dev/null && break; sleep 1; done

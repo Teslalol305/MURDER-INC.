@@ -5,11 +5,20 @@
 # run a browser viewer (docs/unreal/BOX.md), so this is how input through the stream is tested there.
 #
 #   python rtcinput.py <streamerId> <script file or -> [--player WxH] [--out DIR] [--port 8090] [--nodecode] [--mono-answer]
+#                      [--delay-ms N] [--link-kbps N] [--link-queue-ms N] [--remb-kbps N]
 #
 # The answer asks for stereo sound the way Epic's own player page does (its front end adds stereo=1 and sprop-stereo=1 to
 # the Opus line of the answer): without it a WebRTC sender encodes one channel, and every recording made here until
 # 2026-11-25 was a mono stream (left minus right was digital zero in all of them, 3D sounds and the stereo street bed
 # included). --mono-answer sends aiortc's plain answer as before, for a comparison.
+#
+# The box has no tc/netem (a gVisor sandbox: no ip, no tc), so the link of a viewer is made in the viewer: --delay-ms adds
+# that much round trip (half to every packet the viewer receives, half to every one it sends: the game's round trip, which
+# it measures from the viewer's RTCP reports, grows by N ms); --link-kbps makes the viewer's downlink a bottleneck of
+# that rate with a drop-tail queue of --link-queue-ms (default 150): packets that would wait longer are dropped, as at a
+# router; --remb-kbps sets the bandwidth this viewer tells the sender it can take (the receiver-estimated bitrate it sends
+# every second; aiortc's own estimate is low and unsteady, BOX.md), so that "a link of 4 Mbit/s" is also what the sender
+# is told. With none of these the viewer is as it was.
 #
 # --nodecode leaves the video undecoded (the frames are only counted as they arrive; "frame" lines save nothing): a
 # viewer that costs the machine almost no CPU, to see whether the decoding beside the game changes what the game's
@@ -59,7 +68,76 @@ ap.add_argument('--out', default='.')
 ap.add_argument('--port', type=int, default=8090)
 ap.add_argument('--nodecode', action='store_true')
 ap.add_argument('--mono-answer', action='store_true')
+ap.add_argument('--delay-ms', type=float, default=0.0)
+ap.add_argument('--link-kbps', type=float, default=0.0)
+ap.add_argument('--link-queue-ms', type=float, default=150.0)
+ap.add_argument('--remb-kbps', type=float, default=0.0)
 A = ap.parse_args()
+
+link = {'dropped': 0, 'passed': 0, 'bytes': 0, 'maxq': 0.0}
+
+
+def install_link():
+    """The viewer's own link (see the header): delay both ways, a rate-limited drop-tail downlink, a fixed REMB."""
+    import aioice.ice as ice
+    if A.delay_ms > 0 or A.link_kbps > 0:
+        half = A.delay_ms / 2000.0
+        rate = A.link_kbps * 1000.0
+        queue = A.link_queue_ms / 1000.0
+        free = [0.0]  # the loop time at which the downlink has sent everything queued so far
+        real_received, real_send_data, real_send_stun = ice.StunProtocol.datagram_received, ice.StunProtocol.send_data, ice.StunProtocol.send_stun
+
+        def received(self, data, addr):
+            loop = asyncio.get_running_loop()
+            now = loop.time()
+            at = now
+            if rate > 0:
+                start = max(now, free[0])
+                link['maxq'] = max(link['maxq'], start - now)
+                if start - now > queue:
+                    link['dropped'] += 1
+                    return
+                at = start + len(data) * 8 / rate
+                free[0] = at
+            link['passed'] += 1
+            link['bytes'] += len(data)
+            due = at + half - now
+            if due <= 0.0005:
+                real_received(self, data, addr)
+            else:
+                loop.call_later(due, real_received, self, data, addr)
+
+        def later_send(self, data, addr):
+            try:
+                self.transport.sendto(data, addr)
+            except Exception:
+                pass  # the connection was closed while the packet was on its way
+
+        async def send_data(self, data, addr):
+            if half <= 0.0005:
+                return await real_send_data(self, data, addr)
+            asyncio.get_running_loop().call_later(half, later_send, self, data, addr)
+
+        def send_stun(self, message, addr):
+            if half <= 0.0005:
+                return real_send_stun(self, message, addr)
+            asyncio.get_running_loop().call_later(half, later_send, self, bytes(message), addr)
+
+        ice.StunProtocol.datagram_received = received
+        ice.StunProtocol.send_data = send_data
+        ice.StunProtocol.send_stun = send_stun
+    if A.remb_kbps > 0:
+        import aiortc.rate as rate_module
+        real_add = rate_module.RemoteBitrateEstimator.add
+
+        def add(self, *args, **kwargs):
+            r = real_add(self, *args, **kwargs)
+            return None if r is None else (int(A.remb_kbps * 1000), r[1])
+
+        rate_module.RemoteBitrateEstimator.add = add
+
+
+install_link()
 
 if A.nodecode:
     # The receiver hands every complete video frame to a decoder of our own, which counts it and decodes nothing.
@@ -305,7 +383,7 @@ async def main():
                 if t == 'config':
                     await ws.send(json.dumps({'type': 'listStreamers'}))
                 elif t == 'streamerList':
-                    log('streamers', msg.get('ids'))
+                    log('streamers', msg.get('ids'), f'(wall clock {time.time():.3f}: subscribing now)')
                     await ws.send(json.dumps({'type': 'subscribe', 'streamerId': A.streamer}))
                 elif t == 'offer':
                     await pc.setRemoteDescription(RTCSessionDescription(sdp=msg['sdp'], type='offer'))
@@ -334,6 +412,8 @@ async def main():
             while True:
                 await asyncio.sleep(5)
                 log('frames', st['video'], 'audio', st['audio'], 'messages from the game', st['messages'], 'repeats', st['repeats'])
+                if A.link_kbps > 0 or A.delay_ms > 0:
+                    log('link: passed', link['passed'], 'dropped', link['dropped'], 'bytes', link['bytes'], 'longest queue', round(link['maxq'] * 1000), 'ms')
 
         async def undecoded():  # --nodecode: no decoded frame ever says that the video has started
             while not ready.is_set():

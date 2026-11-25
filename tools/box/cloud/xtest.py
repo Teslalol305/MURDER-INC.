@@ -4,6 +4,8 @@
 # (what a stream's input becomes); stop the demo game first (tools/box/demo/stop.sh) so the window is on top:
 # the click card, the first click, the set-up flow into a run, mouse look, P to pause and resume.
 # Pictures with PIL from the virtual screen. Run with /opt/venv/bin/python3 -I as root.
+# The game gets -MIKeepAlive (release 3c): started with -MICloud it is a streamed game with no viewer, which would idle
+# after 10 s and quit after 600 s (docs/LAUNCH.md section 9); this test drives it by hand for as long as it likes.
 import json, os, re, subprocess, sys, time
 from PIL import ImageGrab
 
@@ -29,7 +31,7 @@ def yaw_after():
 if os.path.exists(LOG): os.remove(LOG)
 L = f'/project/ue/cloud/build-{CFG}/Linux'
 cmd = (f'cd {RUN} && HOME=/home/ue4 DISPLAY={DISP} XDG_RUNTIME_DIR=/tmp/studio/xdg setsid nohup desktop-run --vulkan {L}/MurderInc.sh '
-       f'-vulkan -unattended -nosplash -ResX=1920 -ResY=1080 -windowed -MICloud -MICloudProbe=0.5 '
+       f'-vulkan -unattended -nosplash -ResX=1920 -ResY=1080 -windowed -MICloud -MIKeepAlive -MICloudProbe=0.5 '
        f'-stdout -FullStdOutLogOutput </dev/null > {LOG} 2>&1 & echo $! > {RUN}/xgame.pid')
 t0 = time.time(); subprocess.run(['su', 'ue4', '-c', cmd])
 ok = wait(lambda: last().get('fps', 0) > 20, 180)

@@ -9,9 +9,20 @@
 #   stream-test.sh xtest <outdir> [config]                            the in-game half on the box's desktop, no WebRTC
 #   stream-test.sh stop                                                stop what this script started (by pid)
 #
+# STREAM_BUILD=<folder with MurderInc.sh> starts that folder's game instead of /project/ue/cloud/build-<config>/Linux (a test
+# folder such as /tmp/3c/app; the folders build-* are the release engineer's and are never started here by hand);
+# STREAM_KEEPALIVE=0 leaves out -MIKeepAlive (below), so that the game's own idling and quitting are in the run;
+# STREAM_RUN=<folder> keeps the run's files (game.log, the signalling server's logs, the pid files) there instead of
+# in /project/ue/cloud/run, which other jobs use.
+#
 # Needs setup-ps.sh (Node, the infrastructure, Chromium) and package-cloud.sh (the builds). Run as root.
+#
+# Release 3c: every game started here gets -MIKeepAlive. A streamed game now idles when no viewer watches and quits 20 s
+# after the last viewer left (docs/LAUNCH.md section 9); these runs hold a game with no viewer on purpose (the memory
+# runs play a script for minutes with no stream at all, the browser test waits for a viewer that this box cannot
+# supply), and measure the game as before.
 C=/project/ue/cloud
-RUN=$C/run
+RUN=${STREAM_RUN:-$C/run}
 mkdir -p "$RUN" && chown ue4 "$RUN"
 export PATH=$C/node/bin:$PATH PLAYWRIGHT_BROWSERS_PATH=$C/pw/browsers
 TOOLS=$(dirname "$(readlink -f "$0")")
@@ -39,14 +50,15 @@ PY
 
 start_game() {  # $1 config, rest: args
   local cfg=${1:-Shipping}; shift
-  local L=$C/build-$cfg/Linux
+  local L=${STREAM_BUILD:-$C/build-$cfg/Linux}
   [ -x "$L/MurderInc.sh" ] || { echo "no build in $L"; exit 1; }
+  local keep=-MIKeepAlive; [ "${STREAM_KEEPALIVE:-1}" = 0 ] && keep="" 
   echo "$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits)" > "$RUN/gpu-baseline.txt"
   date +%s.%N | cut -c1-14 > "$RUN/launch.txt"
   # What the game saw is read from its own output (game.log: the "[MICloud]" lines, which the Shipping game prints
   # and the launcher passes on). Version 3 has no -MICloudLog= in the Shipping game.
   su ue4 -c "cd $L && HOME=/home/ue4 setsid nohup ./MurderInc.sh -RenderOffScreen -vulkan -unattended -nosplash -ResX=1920 -ResY=1080 -ForceRes \
-    -stdout -FullStdOutLogOutput $(printf '%q ' "$@") </dev/null > $RUN/game.log 2>&1 & echo \$! > $RUN/game.pid"
+    -stdout -FullStdOutLogOutput $keep $(printf '%q ' "$@") </dev/null > $RUN/game.log 2>&1 & echo \$! > $RUN/game.pid"
   sleep 2
   gpu_sampler "$(cat "$RUN/game.pid")"
   echo "GAME $cfg started pid $(cat "$RUN/game.pid") (log $RUN/game.log)"
@@ -55,7 +67,9 @@ start_game() {  # $1 config, rest: args
 case "$1" in
   start)
     shift
-    if ! kill -0 "$(cat "$RUN/ss.pid" 2>/dev/null)" 2>/dev/null; then
+    # A signalling server that already listens (the box's own, e3ds-repro.sh ss start: the same Epic server on the same
+    # ports) is used as it is: a second one cannot bind them.
+    if ! kill -0 "$(cat "$RUN/ss.pid" 2>/dev/null)" 2>/dev/null && ! listening | grep -q ' 8888$'; then
       (cd "$C/infra/SignallingWebServer" && setsid nohup node --require "$TOOLS/localhost.cjs" dist/index.js --no_config \
         --serve --http_root www --homepage player.html --player_port 8090 --streamer_port 8888 --streamer_host 127.0.0.1 \
         --log_folder "$RUN/sslogs" --console_messages verbose </dev/null > "$RUN/ss.log" 2>&1 & echo $! > "$RUN/ss.pid")
@@ -79,13 +93,14 @@ case "$1" in
     ;;
   stop)
     for f in game ss sampler; do p=$(cat "$RUN/$f.pid" 2>/dev/null); [ -n "$p" ] && kill "$p" 2>/dev/null && echo "stopped $f $p"; done
-    # setsid can fork: stop the signalling server by its command line too (our preload names it).
+    # setsid can fork: stop the signalling server by its command line too (our preload names it). Not with STREAM_RUN: such
+    # a run uses the box's own signalling server (see start) and leaves it alone.
     for p in $(pgrep -x node); do
-      tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -q 'cloud/localhost.cjs' && kill "$p" && echo "stopped signalling $p"
+      [ -z "$STREAM_RUN" ] && tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -q 'cloud/localhost.cjs' && kill "$p" && echo "stopped signalling $p"
     done
     # The game runs under its launcher script: stop the binary it started (only the one in our builds).
     for p in $(pgrep -x MurderInc-Linux; pgrep -x MurderInc); do
-      tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -q "cloud/build-" && kill "$p" && echo "stopped game binary $p"
+      tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -q -F -e "cloud/build-" -e "${STREAM_BUILD:-cloud/build-}" && kill "$p" && echo "stopped game binary $p"
     done
     ;;
   *) sed -n 2,12p "$0"; exit 2 ;;
