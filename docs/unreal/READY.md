@@ -95,14 +95,16 @@ picture costs on the A4000: read the 1440p and 4K rows as best cases.
 ### The answer: the highest resolution to stream at
 
 **1920 x 1080, for the meeting and for release v6.** It is the only size proven on E3DS's own machine (version 4: 60 frames a
-second, render scale 0.50 to 0.75, QP 34) and it streamed cleanly here. **2560 x 1440 streams on the box but is not proven on
-the A4000 and is not flicker-free in fast turns at the viewer; 3840 x 2160 does not stream at all (R1).**
+second, render scale 0.50 to 0.75, QP 34) and it streamed cleanly here. **2560 x 1440 does not hold 60 at the viewer under the E3DS-faithful load (fast turns at 51 to 54 a second, the GPU at
+its floor of render scale 0.50 with 13.9 ms average and 16.6 ms peaks, the encoder down to 25 a second in its worst second);
+3840 x 2160 does not stream at all (R1).**
 
 | Output | Game (play, E3DS-like load) | Sender | Viewer (decoded frames) | Verdict |
 |---|---|---|---|---|
 | 1920 x 1080 (`s-1080`) | 59.7 fps (lowest second 36.9: one 340 ms game-thread frame, R5), GPU 8.1 ms, render scale 0.75 the whole run (0 changes) | QP 34 always, 4.5 Mbit/s average, 11.5 peak; encoded 58.4 a second (lowest second 42) | 58 to 61 frames a second in every phase, one key frame in the session (at the start); still view: `rev8` 0.029 %, `tstd99` 6.7, exposure steady (mean luma std 0.05) | **ship** |
 | 1920 x 1080, E3DS-faithful load (`s-1080-l20`) | 59.3 fps (lowest second 31.8), worst frame 175 ms (in a fast turn; 132 ms standing), GPU 13.2 ms, render scale 0.50 the whole run (0 changes) | QP 34, 4.1 Mbit/s average, 13.5 peak; encoded 59.1 a second (lowest second 45) | 56.7 to 60 a second per phase, gaps up to 192 to 199 ms in the aim and fast-turn phases; still view `rev8` 0.005 %, exposure steady | **ship** (the hitches are R5) |
 | 2560 x 1440 (`s-1440`) | 60.0 fps (lowest 55.3), worst frame 50 ms, GPU 8.3 ms, render scale 0.75 (0 changes) | QP 34, 6.4 Mbit/s average, **21.8 peak** (over the 20 Mbit/s cap), encoded 58.4 a second but **lowest second 24** | still views cleaner than 1080 (`rev8` 0.0085 %), but **fast turns and flicks arrive at 53 a second with gaps up to 120 ms** (1080: 60, 46 to 53 ms); picture `ready-render-stream-1440-still.jpg` (a received 1440p frame: the support-hand ball of R6 is this package's) | box yes; E3DS **not proven** |
+| 2560 x 1440, E3DS-faithful load (`s-1440-l20`) | 59.3 fps (lowest second 42.2), worst frame 157 ms (in turns), **GPU 13.9 ms, max 16.6** at render scale 0.50 (the floor: nothing left to give before 16.7 ms on the box; the A4000 pays more per pixel than this load models) | QP 34, 6.3 Mbit/s average, 18.6 peak; encoded 57.1 a second, **lowest second 25**, encode 9.2 ms average (20.9 at worst; 1080p: 6.3) | fast turns, flicks and the walk-turn arrive at **51 to 54 a second, a gap of 249 ms**; still views clean | **no** for E3DS's A4000 |
 | 3840 x 2160 (`s-2160`) | 60 fps drawn | **capture and encoder stop after 2 s** (`capFps` 57, then 0, then none; `encFps=0` in 208 of 212 lines) | 63 frames, then nothing for the rest of the run (sound kept coming) | **blocker** (R1) |
 
 **What to set to stream at 1920 x 1080 (nothing to rebuild):**
@@ -148,8 +150,8 @@ frame per session at the viewer); **QP fixed at 34**; the still view at the view
 `rev8` 0.035 % and 0.010 %. The slow turn (3 browser pixels every 16 ms) at the viewer: `mad` 5.2 (1080) and 6.0 (1440),
 `rev8` 3.5 % and 4.4 %, smooth arrival (60 a second, gaps under 36 ms). The menus at 2560 x 1440 are the 1080 layout scaled.
 
-**Not done:** the two heavier-load runs (`s-1080-l20`, `s-1440-l20`) and the variant run `r-dev3` waited behind other lanes'
-games for most of an hour; if they finished, the addendum below has them. A browser viewer (canvas grabs) cannot run on the
+**Not done:** the variant run `r-dev3` (which of Lumen reflections, screen traces, TSR or render scale removes R3's blink)
+waited behind other lanes' games; if it finished, the addendum below has it. A browser viewer (canvas grabs) cannot run on the
 box (BOX.md row 27: headless Chrome gathers no ICE candidates); the Python viewer decodes the same H.264 the browser would.
 No run on E3DS itself.
 
