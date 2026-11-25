@@ -63,16 +63,18 @@ for run in runs:
         if not m:
             continue
         t, rest = float(m.group(1)), m.group(2)
-        c = re.match(r'frames (\d+)', rest)
+        c = re.match(r'frames (\d+)(?:.* repeats (\d+))?', rest)
         if c:
-            counts.append((t, int(c.group(1))))
+            counts.append((t, int(c.group(1)), int(c.group(2) or 0)))
         if 'PHASE' in rest:
             phases.append((t, rest.split('PHASE', 1)[1].strip()))
     received = []
     for (a, label), (b, _) in zip(phases, phases[1:]):
         inside = [x for x in counts if a - 2.5 <= x[0] <= b + 2.5]
         if len(inside) >= 2 and inside[-1][0] > inside[0][0]:
-            received.append(f'{label} {(inside[-1][1] - inside[0][1]) / (inside[-1][0] - inside[0][0]):.0f}')
+            span = inside[-1][0] - inside[0][0]
+            repeats = (inside[-1][2] - inside[0][2]) / span
+            received.append(f'{label} {(inside[-1][1] - inside[0][1]) / span:.0f}' + (f' ({repeats:.0f} repeats)' if repeats >= 0.5 else ''))
     end = re.search(r'END (\{.*\})', view)
 
     # Did anything else use the GPU?

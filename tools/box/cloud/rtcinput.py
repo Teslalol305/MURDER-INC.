@@ -22,7 +22,9 @@
 #                                       sent 60 times a second for that long (default one message), as a browser does
 #   pad button <n> [hold ms]            the browser's button index (0 A, 1 B, 2 X, 3 Y, 9 Start, 10 L3, 12..15 D-pad)
 #   frame <file.jpg>                    save the next video frame (into --out)
-# It prints one line per step and a count of video frames every 5 s; it ends with the script.
+# It prints one line per step and a count of video frames every 5 s; it ends with the script. "repeats" in that line
+# counts received frames that show the same picture as the frame before (a sample of 2,000 points of the picture's
+# brightness differs by less than half a level): while the view turns, a repeat is a frame sent twice, not a new one.
 import argparse, asyncio, json, struct, sys, time
 
 import websockets
@@ -38,7 +40,7 @@ ap.add_argument('--port', type=int, default=8090)
 A = ap.parse_args()
 
 t0 = time.time()
-st = {'video': 0, 'audio': 0, 'size': None, 'channel': None, 'pad': None, 'want_frame': None, 'messages': 0}
+st = {'video': 0, 'audio': 0, 'size': None, 'channel': None, 'pad': None, 'want_frame': None, 'messages': 0, 'repeats': 0, 'sig': None}
 
 
 def log(*a):
@@ -173,6 +175,14 @@ async def main():
                 st['audio'] += 1
                 continue
             st['video'] += 1
+            try:
+                plane = memoryview(fr.planes[0])
+                sig = bytes(plane[::max(1, len(plane) // 2000)])
+                if st['sig'] is not None and len(sig) == len(st['sig']) and sum(abs(a - b) for a, b in zip(sig, st['sig'])) < 0.5 * len(sig):
+                    st['repeats'] += 1
+                st['sig'] = sig
+            except Exception:  # the count is a help, not the test
+                pass
             if st['size'] != [fr.width, fr.height]:
                 st['size'] = [fr.width, fr.height]
                 log('video', st['size'])
@@ -244,7 +254,7 @@ async def main():
         async def counter():
             while True:
                 await asyncio.sleep(5)
-                log('frames', st['video'], 'audio', st['audio'], 'messages from the game', st['messages'])
+                log('frames', st['video'], 'audio', st['audio'], 'messages from the game', st['messages'], 'repeats', st['repeats'])
 
         tasks = [asyncio.ensure_future(reader()), asyncio.ensure_future(counter())]
         try:
@@ -259,7 +269,7 @@ async def main():
         log('playing; player', [w, h], 'video', st['size'])
         await play(lines, send, Player(w, h))
         await asyncio.sleep(0.3)
-        log('END', json.dumps({k: st[k] for k in ('video', 'audio', 'size', 'pad', 'messages')}))
+        log('END', json.dumps({k: st[k] for k in ('video', 'audio', 'size', 'pad', 'messages', 'repeats')}))
         for t in tasks:
             t.cancel()
     await pc.close()
