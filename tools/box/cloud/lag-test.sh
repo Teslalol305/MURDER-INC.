@@ -214,10 +214,18 @@ run_fg() {
   # the game's first probe line. (Until 2026-11-25 the Shipping game's wait looked for a line that never comes and
   # ran its full 60 s, so the viewer of every earlier run found a home screen that had been drawn for about 55 s.
   # That stays the default, to keep the runs comparable; join=3 is a viewer who is there as soon as the game is.)
+  # How long the game takes to its first line is noted (firstline=): 9 to 14 s for a cold start on a quiet box. Once
+  # it took over a minute (version 3b's release, the first run of a queue, another job's compile beside it): the wait
+  # used to end after 60 s, the viewer then came before the game had reached the signalling server, found no streamer
+  # and left. It now waits up to three minutes, which is also as long as E3DS waits for an app.
+  local t0; t0=$(date +%s)
   if [ "$game" = ship ] || [ -n "$demo" ]; then
-    for i in $(seq 1 60); do grep -a -q "MICloudProbe fps=" "$R/game.log" 2>/dev/null && break; sleep 1; done
+    for i in $(seq 1 180); do grep -a -q "MICloudProbe fps=" "$R/game.log" 2>/dev/null && break; sleep 1; done
+    echo "firstline=$(( $(date +%s) - t0 ))" >> "$O/info.txt"
     sleep "$join"
   else
+    for i in $(seq 1 180); do grep -a -q "MICloudProbe fps=" "$R/game.log" 2>/dev/null && break; sleep 1; done
+    echo "firstline=$(( $(date +%s) - t0 ))" >> "$O/info.txt"
     for i in $(seq 1 60); do grep -a -q "MICloudProbe.*state=2" "$R/game.log" 2>/dev/null && break; sleep 1; done
     sleep 3
   fi
