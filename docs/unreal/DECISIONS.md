@@ -474,3 +474,21 @@ priority. What was done on E3DS from the box's browser, and what was measured:
    LAST input, "Yes, Linux" is clicked twice (both copies) and then the last "Upload". `e3ds-snd.js` (the stream's audio
    level in the page), `e3ds-probesum.py` (the probe lines summarised), `e3ds-session.sh` (a whole scripted session).
    A browser on the box that plays a stream takes CPU from a measuring run: pin it (`taskset -a -cp 13-15`) when one runs.
+
+**A PS5 controller through E3DS's own player page, tested with a simulated DualSense (2026-11-25, 13:52 to 13:59 UTC, version 4).**
+The owner asked whether the build takes a PS5 controller. Version 3a/4's controller path had been played only with
+the test client's gamepad messages sent straight into the stream (`rtcinput.py`), never through E3DS's player page.
+`e3ds-padinject.js` puts a standard-mapping DualSense into the PAGE's world (a script element: the Marionette sandbox's
+own changes to `navigator` are invisible to the page) by replacing `navigator.getGamepads` and sending a
+`gamepadconnected` event; the page's gamepad code then reads and forwards it as for a real pad (`e3ds-padseq.js` plays
+button and stick sequences). Measured on a real E3DS machine:
+1. A button press hides the CLICK TO PLAY card (`click=0`); Options on Home starts the run with the saved set-up and
+   pauses and resumes it afterwards (`state` 2, 3, 2, 3, 2); Cross accepts; R2 fired, the left stick moved, a run ended
+   in the player's death after a few seconds.
+2. **The right stick turns exactly as the web game's numbers say**: full deflection for 300 ms gave 67.2 degrees, for
+   600 ms 152.3 and 147.5, for 1000 ms 263.8 (the probe's yaw is wrapped to plus or minus 180: a change of minus 96.2
+   is 263.8; the first reading of it as 96 degrees was this wrap, not a slow stick). The web game's own function gives
+   263.775 for exactly 60 frames. So the browser, E3DS's page, the data channel and the game together add nothing.
+3. Not covered: a real DualSense in a real browser (Chrome or Edge), the Dead and Debrief cards by pad in a stream, a
+   whole Story run by pad, the delay from hand to picture, and the pad's button names (the game cannot tell which pad it
+   is: Settings, Controller row). The owner plays it next.
