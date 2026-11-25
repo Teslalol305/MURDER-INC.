@@ -170,7 +170,8 @@ Paste this where the game should appear (replace the `src` with your share link)
       `PixelStreaming.`, but not its two debug dumps, which write files on the server), the game's pacing
       (`MI.Cloud.`), the quality groups (`sg.`, 0 to 3: the levels of the Settings card), dynamic resolution
       (`r.DynamicRes.`, its smallest and largest picture between 25 and 100), `r.ScreenPercentage` (25 to 100),
-      `t.MaxFPS` (0 to 120), `r.Streaming.PoolSize` (200 to 3000), `r.GTSyncType`, `r.OneFrameThreadLag`, and the
+      `t.MaxFPS` (0 to 120), `r.Streaming.PoolSize` (200 to 3000), `r.TSR.History.ScreenPercentage` (100 to 200, from
+      the build after `f65cd7c`), `r.GTSyncType`, `r.OneFrameThreadLag`, and the
       fog's two grid sizes (`r.VolumetricFog.GridPixelSize` 8 to 32, `r.VolumetricFog.GridSizeZ` 32 to 128).
       Anything else (`quit`, `open`, a debug command, a value out of range) is refused. So E3DS's
       field "Unreal console commands to run at start" takes for example `t.MaxFPS 30` (E3DS's own advice for a
@@ -314,7 +315,7 @@ Nothing is kept until you press **Save changes**, and a change applies to new se
 | Browser Resolution (Common) | **Custom**, both boxes filled: **1920** and **1080** | the game then always sends a 1920 x 1080 picture, which is what was tested. Dynamic (E3DS's default) makes the page ask the game for each player's window size; version 3a keeps such a request between 640 x 360 and 1920 x 1080, but small sizes are not finished (the next build) |
 | Launch options (Developer) | **leave empty** | version 3a needs none: it chooses its own picture size and frame rate. Take out version 2's `-MICloudProbe=10 -PixelStreamingDecoupleFramerate`: decoupling makes a slow server repeat pictures |
 | Unreal console commands to run at start (Developer) | **leave empty** | |
-| Video Quality (Developer) | **Medium** | E3DS's default; a higher level can cost smoothness. Try High once play is smooth on an ordinary home connection |
+| Video Quality (Developer) | **Medium** | E3DS's default; a higher level can cost smoothness. Stay on Medium for version 6 (9.5: High is not safe for a demo) |
 | Codec (Developer) | **H264** | E3DS's default; every server card encodes it |
 | Max Session Time (Common) | **15** minutes | a Story run takes about five minutes; a forgotten tab then costs at most 15 of the month's 300 |
 | Log Out Automatically After Inactivity (Common) | **On**; countdown starts after **3**; countdown length **1** | both numbers are minutes |
@@ -426,6 +427,42 @@ from release 3c the game also gives up looks (step 4 above) as the card runs sho
 **The log** of every start goes to the file E3DS itself names when it starts the app (`-ABSLOG=`, the file its
 crash-log email is taken from), to the launcher's output, and to `MurderInc/Saved/Logs/MurderInc.log` in the app's
 folder. If it crashes, section 13 says how to get it.
+
+### 9.5 The E3DS settings for version 6 (the meeting, and the release)
+
+The readiness pass of 2026-11-25 (`docs/unreal/READY.md`) measured every size E3DS's Browser Resolution can ask for,
+through Pixel Streaming 2 with E3DS's own arguments and encoder setting, under the GPU load that reproduces E3DS's
+A4000 (render scale 0.50, 13.2 ms of GPU time a frame, as version 4 read on E3DS itself). **The highest size that streams
+without flicker or stalls is 1920 x 1080.** 2560 x 1440 fell to 51 to 54 frames a second at the viewer in fast turns
+(the GPU at its floor, peaks of 21.8 Mbit/s against E3DS's 20 Mbit/s cap); at 3840 x 2160 the stream stopped two
+seconds after the viewer joined (the game drew 60 a second, the capture and the encoder sent nothing). The picture
+the viewer gets at 1080p is the same size the browser shows a 4K monitor in full screen, scaled up by the browser.
+
+Set these in the stream configuration (Viewer Experience; Advanced Options on for the Developer tab), then
+**Save changes** (it applies to new sessions):
+
+| Setting | Value | Why |
+|---|---|---|
+| Browser Resolution (Common) | **Custom**, **1920** and **1080** | the size measured clean; one size for the whole session (Dynamic resizes the game on every window change). **Never a larger Custom size.** From the build after commit `7c4e515` the game itself draws a larger Custom size at 1920 x 1080 (the start size is fitted like a viewer's request), but the trial package and older builds draw what they are given |
+| Video Quality (Developer) | **Medium** | QP 34: 4.1 to 4.5 Mbit/s on average and 11.5 to 13.5 at peak at 1080p, one key frame per session, no quality swings. **Not High** (QP 16: 14.5 Mbit/s in fast turns in version 4; with version 6's range it received 22 frames a second in fast turns even on a 20 Mbit/s link) |
+| Launch options (Developer) | **`-sm5 -MIQpExact -MICVars=r.Streaming.PoolSize=1000`** | `-sm5`: the shaders every measurement was made with (E3DS's A4000 falls back to them today; a newer driver would otherwise run Nanite, hardware ray tracing and virtual shadow maps, never run on an A4000). `-MIQpExact`: the encoder takes exactly QP 34, as version 4 did on E3DS (version 6's default is a range of 24 to 42 around it, which sharpens the picture standing and softens it in turns; never seen through a browser). The pool: the opening street wants 717 to 876 MB of textures against the cloud profile's 600 (READY.md R4). Each one is printed in the game's log |
+| Unreal console commands to run at start (Developer) | **empty** | a `t.MaxFPS 30` there would pin the frame-rate target at 30 |
+| Codec (Developer) | **H264** | |
+| The other rows of 9.1 | as there | |
+
+Only if the encoder range is kept for the public release (no `-MIQpExact`): add `-PixelStreamingWebRTCStartBitrate=6000000`
+to the launch options. E3DS passes no start bitrate, so a session starts from Pixel Streaming's 1 Mbit/s and the first
+screens can arrive at QP 42 until the estimate grows. With `-MIQpExact` the start bitrate does not touch the picture.
+
+**Before the meeting:** start one session with these settings, play a Story run for two minutes and press P in a
+fight. The numbers line of the pause card must read **60 frames a second (lowest 58 or more)**, **QP 34** and **stream
+60 a second** (55 to 60 is the encoder's normal loss, 9.2). Take a screenshot of it.
+
+**Optional, after that check:** if the fire escapes of the first street shimmer at the viewer, add
+`r.DynamicRes.MinScreenPercentage=60` to the `-MICVars=` list (a comma, no space:
+`-MICVars=r.Streaming.PoolSize=1000,r.DynamicRes.MinScreenPercentage=60`). The picture is then never drawn below 60 %
+of 1080p (E3DS's card sits at the 50 % floor); READY.md gives its measured cost. From the build after `f65cd7c`
+`r.TSR.History.ScreenPercentage=200` may be added the same way.
 
 ## 10. What the cloud settings change
 
@@ -609,6 +646,7 @@ build machine, so the menu names may differ slightly):
 | `-MICVars=name=value,name=value` | from version 3: sets console variables at start without a new build, each one printed in the log (`[MICloud] Launch option -MICVars: ...`). Only the variables of section 7's list. Examples: `-MICVars=r.DynamicRes.MinScreenPercentage=40` (allow a smaller picture), `-MICVars=MI.Cloud.GpuFramesInFlight=0` (the lowest delay at the cost of some frame rate on a slow card), `-MICVars=sg.GlobalIlluminationQuality=2,sg.ShadowQuality=2` (cheaper light and shadows) |
 | `-MICloudProbe=<seconds>` | how often the game writes its line of numbers into the log (`MICloudProbe fps=... worstMs=... gpuMs=... target=... dr=... owed=...`); from version 3 every 30 s by itself, `0` turns it off |
 | `-MIForceSM6` | skip Unreal's Vulkan SM6 check on a driver that fails it |
+| `-MIStartSizeAsGiven` | from the build after `7c4e515`: keep a launch size above 1920 x 1080 (Custom 2560 x 1440 or 3840 x 2160) instead of drawing it at 1920 x 1080. For measurements only: at 3840 x 2160 the stream stops (9.5) |
 | `-MIKeepAlive` | from release 3c: the game does not idle and does not quit by itself when nobody watches (below). For the box's test scripts, which hold a game with no viewer on purpose; **leave it out on E3DS**: there the launcher does not pass it on (nor `-MIExitAfterEmpty=`, `-MIExitIfNoViewer=`, `-MIIdleFps=`, `-MIIdleAfter=` or a `-MILauncherPid=` of the host's) |
 | `-MIIdleFps=<n>` and `-MIIdleAfter=<seconds>` | from release 3c: with nobody watching for 2 s the game draws 2 pictures a second (`-MIIdleFps=0` turns that off; the first viewer's start-up gets 10 s of grace) |
 | `-MIExitAfterEmpty=<seconds>` | from release 3c: the game quits this long after the last viewer left (default 60; 0: never; how 60 was chosen: paragraph below) |
