@@ -138,10 +138,13 @@ Paste this where the game should appear (replace the `src` with your share link)
       mouse keeps its speed (the game works the scale out from the two sizes); a smaller one (a phone held upright)
       is ignored. Until the rest of that work is done (release B: the picture's sharpness and the HUD at small sizes)
       keep Browser Resolution at **Custom 1920 x 1080**.
-- [ ] A double click (from version 3): on E3DS two quick clicks used to leave the fire button held (an automatic gun
-      kept firing until the next click, and that click fired nothing), because the page sends a "double click"
-      message that Unreal takes for a third press and never releases. Version 3 drops that message: a double click is
-      two clicks. Check it once in a run: two quick clicks fire two rounds, and the gun stops.
+- [ ] A double click (from version 3): two quick clicks could leave the fire button held (an automatic gun kept
+      firing until the next click, and that click fired nothing), because the page sends a "double click" message
+      that Unreal takes for a third press, and a page that sends no release after it leaves that press held. On the
+      GPU box, with a test viewer that sends it so, version 2's code emptied the magazine after one double click;
+      whether E3DS's page sends it so was read from its script in review, not seen on E3DS. Version 3 drops the
+      message: a double click is two clicks. Check it once in a run: two quick clicks fire two rounds, and the gun
+      stops.
 - [ ] Console commands (from version 3): the game runs a console command that arrives through the stream only when
       it reads or sets one of the variables a visitor may tune: the stream's own settings (`PixelStreaming2.` or
       `PixelStreaming.`, but not its two debug dumps, which write files on the server), the game's pacing

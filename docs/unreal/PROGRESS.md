@@ -3,6 +3,303 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Version 3, release A: the review's findings (2026-11-25, 04:30 to 06:30 UTC)
+
+Two reviews of release A's changes (the diff `0f99e0e..f54b135`: the gameplay part and the lag work below) found
+ten faults. **All ten were real; all ten are fixed.** Each was checked first (in the engine's source on the box, in
+the web game, and, where a run could show it, by a run), then fixed with a test where one is possible, then checked
+through a real WebRTC stream on the box, for five of them also against the binaries from before the fix. **Nothing
+was packaged here.**
+
+The two that could have sunk the launch:
+
+- **On a server with 8 hyper-threaded CPUs or fewer the pacer froze the game for a quarter of a second in every
+  frame the GPU was the limit.** The box has 16 CPUs and could not show it; with the game held to 6 CPUs it did
+  (section 1). How many CPUs E3DS's servers have is not known; the small GPU servers of the large cloud providers
+  have 4 or 8 (from general knowledge of their lists, not from E3DS).
+- **Two quick clicks left the fire button held** when the page sends the browser's double-click message with no
+  release after it, which is how the review read E3DS's page: an automatic gun kept firing until the next click
+  was let go, and that click fired nothing (section 3). Version 2 treats the message the same way, so if the
+  reading is right the owner's test already had it.
+
+What was measured, what was only read and what is unproven is said where it applies; section 8 lists what is not
+done. Runs are named; their files are in `/project/ue/cloud/lag/<name>/` on the box.
+
+### 1. The pacer on a server with few CPUs (must-fix)
+
+**Read in the engine, then reproduced.** The pacer's game thread waited by polling a GPU fence every fifth of a
+millisecond. `FRHIGPUFence::Poll` carries the note "Do not call poll in a loop to block until completion. Some
+platform RHIs will not signal fences unless the RHI thread continues to make progress and submit GPU work. To block
+for completion, call Wait(), which can only be done from the render thread" (`RHIResources.h`). Unreal's Vulkan RHI
+is such an RHI when it starts without its interrupt thread, and it starts without it when the task graph has 6
+workers or fewer (`VulkanSubmission.cpp`, `InitializeSubmissionPipe`: `GetNumWorkerThreads() > 6`); on Linux the
+workers are the logical CPUs minus 2 with hyper-threading and the cores minus 1 without
+(`UnixPlatformMisc.cpp`, counted from the CPUs the process may run on). Finished GPU work is then collected only
+when the RHI thread submits, or when somebody waits for a sync point (`ProcessInterruptQueueUntil`). While the game
+thread waited, nothing submitted: the fence it polled could not be seen to pass.
+
+`lag-test.sh` got `cpus=<list>` (the game under `taskset`; the load and the viewer keep all CPUs). On 6 CPUs the
+game starts 5 workers; its log says "Number of logical cores available for the process: 6". **The release A code on
+6 CPUs** (binaries of `4c385f9`):
+
+| Run | Load (GPU time a frame) | In play | In the whole run |
+|---|---|---|---|
+| `rf-cpu6-l35` Shipping | 34 ms, the lag's load | **24.8 frames a second (lowest second 7.0), worst frame 253 ms**, 43 pacer time-outs, 4 frames owed | 123 time-outs |
+| `rf-cpu6-l35dev` Development | the same | 29.6 (lowest 16.9), worst frame 252 ms, 3 time-outs, **44 fence time-outs** in the engine's log | 32 time-outs; the log: "the GPU finished no frame during three waits in a row of 250 ms ... the game runs unheld for 3 s" again and again |
+| `rf-cpu6-l20` Shipping | 20 ms | clean at 45 (the GPU keeps up at 45) | **78 time-outs, all on the home screen and the set-up screens**, where the target is 60: four freezes of 250 ms, three seconds unheld at 50 frames a second, and again |
+| `rf-cpu6-free` Shipping | none | 60.0, worst frame 36 ms | 1 time-out (at the start) |
+
+The gate's summary line had said "time-outs 0" for `rf-cpu6-l20`: it counted the play only. `lag_sum.py` now also
+prints the time-outs of the whole run.
+
+**The fix** (`FMIGpuPacer::WaitOnRenderThread`, `Cloud/MIPacing.cpp`). When a frame must wait, the game thread asks
+the render thread to wait for the fence of the frame that has to be finished, with `FRHIGPUFence::Wait`: the call
+the engine's header names, and the one the engine itself uses for its occlusion read-back (`SceneOcclusion.cpp`);
+on Vulkan it is `ProcessInterruptQueueUntil`, which works with and without the interrupt thread. The command sits
+behind everything the frame before drew, so it holds up nothing that could run. The game thread still looks at the
+fences every fifth of a millisecond and keeps its 250 ms limit. That limit no longer cuts the hold short: a frame
+the GPU needs longer for still holds the next frames at the render thread, which is the hold the pacer is for.
+The game's start lines now say which kind of server it is on ("[MICloud] CPUs: 6 cores, 6 with hyper-threads, 5
+task workers (6 or fewer: the RHI runs without interrupt and submission threads)"), and the launcher's log has a
+`CPUs:` line.
+
+**The same runs with the fix** (binaries of `c7e2a09`, the final code; the full table is in section 7):
+
+| Run | Load | In play | In the whole run |
+|---|---|---|---|
+| `rg-cpu6-l35` Shipping, 6 CPUs | 34 ms | **29.8 frames a second (lowest second 27.9), worst frame 40 ms**, 2 frames owed | **0 time-outs**, longest wait 41 ms |
+| `rg-cpu6-l35dev` Development, 6 CPUs | 34 ms | 30.0 (lowest 30.0), worst frame 34 ms, **0 fence time-outs**, 0 skipped captures | 0 time-outs, longest wait 49 ms |
+| `rg-cpu6-l20` Shipping, 6 CPUs | 20 ms | 45.0 (lowest 44.8), worst frame 26 ms | 0 time-outs (78 before), longest wait 48 ms |
+| `rg-flight0-cpu6` Shipping, 6 CPUs, `MI.Cloud.GpuFramesInFlight=0` | 34 ms | 28.2 (lowest 25.8), worst frame 49 ms, 1377 frames held | 0 time-outs, longest wait 135 ms |
+| `rg-cpu4-l35` Shipping, 4 CPUs (3 task workers) | 34 ms | 29.8 (lowest 28.2), worst frame 50 ms | 0 time-outs, longest wait 55 ms |
+| `rg-cpu4-free` Shipping, 4 CPUs | none | 60.0 (lowest 59.8), worst frame 19 ms | 0 time-outs, longest wait 56 ms |
+
+The `rg-flight0-cpu6` line is the hardest case for the wait: with no frame allowed in flight the game thread waits
+for the GPU in every frame, 1377 times in the play, and never ran into the limit. The two 4-CPU lines (the
+smallest GPU servers of the cloud providers have 4) were run once each after the gate; they are not gate lines.
+
+### 2. The other nine, one by one
+
+| Finding | Checked | Changed | Verified |
+|---|---|---|---|
+| **A double click leaves the left button held** (must-fix) | Engine source on the box: `RTCInputHandler.cpp` `HandleOnMouseDoubleClick`, `InputHandler.cpp` `OnMouseDoubleClick` (the window's `OnMouseDoubleClick`), `SlateApplication.cpp` `ProcessMouseButtonDoubleClickEvent` (adds the button to the pressed buttons; "treat this event as a mouse down"), `SceneViewport.cpp` (`IE_DoubleClick`), `PlayerInput.cpp` (a press is counted). Epic's front end change log, 0.3.0: "the plugin treats MouseDouble as a press-class event but never synthesizes a release". **Shown on the box with the binaries from before the fix** (`rg-dbl-old`, section 3). **E3DS's page script was not read again** (it is not saved anywhere and its host cannot be reached from the build machine): that E3DS sends no release after the message is the review's reading. The fix does not depend on it | `UMICloudSubsystem::GuardViewerInput` replaces Pixel Streaming's handler of "MouseDouble" with one that drops the message and counts it (`dbl=` in the probe line). Both clicks have arrived as presses and releases already. With a page that does send a release after it, that release finds the button up | Stream, Shipping game (`rf-input`, and `rg-input` on the final code): two clicks and the message as a browser sends them: the magazine went 30 to 28, `dbl=1`, `fire=0`; a single click after it: 27. Seen in a received frame: "CHOPPER 28", where the old binaries show "CHOPPER 0". No automation test: the message exists only in the game target (Pixel Streaming is not in the test build) |
+| **The first press of a controller button is thrown away** | Epic's `GamepadController.ts`: `onGamepadConnected` copies the pad's state as both the current and the previous state, and the page then sends `GamepadButtonPressed` with repeat = 1 for a button that was down when the browser showed it the pad. A browser shows a pad to a page only after a button press (Chrome's behaviour: from knowledge, not measured). **Shown with the old binaries** (`rg-pad-old`): the press marked as a repeat left the click card up (`click=1` while `padRepeats` rose), the next press was spent on the card, and the script's five Start presses no longer reached the run (`state=0` to the end) | `FMIPadButtons`: of one hold only the first message goes on, marked as a repeat or not; every later one is dropped as before (one tap still acts once) | Test `MurderInc.Input.PadMenu`. Stream (`rf-pad`, `rg-pad`): the session's first button message marked as a repeat hid the click card (`click=0`); the five Start presses went into the run (`state=2`), 46 repeats dropped |
+| **What a viewer held when the connection was cut stays held** | `PlayerInput.cpp`: a key stays down until a release, an axis keeps its last sample. Pixel Streaming releases nothing when a viewer goes, and sends a trigger's last value again every frame until a zero arrives (`InputHandler.cpp`, `bKeepUnlessZero`). E3DS reconnects inside a session (its page on monitoring sessions) | `UMICloudSubsystem::ReleaseForLeave` and `AMIPlayerController::DropAllHeld`: `FlushPressedKeys`, the controller's own move, sticks, fire, aim, sprint latch and grab, the pawn's input. Pixel Streaming gets a zero for every trigger and stick of every pad it knows. **Not as the review proposed**: the pads are not reported as disconnected, because a page that reconnects may keep the id it was given (DECISIONS) | Test `MurderInc.Cloud.ViewerLeaves` (W, Shift, the left stick, the right trigger and E held; after the leave and a resume nothing moves or fires; a fresh W, click, trigger and Shift count at once). Stream (`rg-input`, `rg-pad`): the first viewer left holding W and the left button, or with the trigger pulled, while the magazine was running down; the next viewer resumed: `moveY=0.00`, `fire=0`, the magazine stood still for about 6 and 8 s; a fresh W walked, a click fired one round, and a trigger message with the first pad's id fired and stopped. The old binaries were not run with a second viewer: that they keep firing is read in the engine |
+| **Controller X reloads as well as grabs at a reel** | The web game, `src/input.js` padDown: "X reloads, unless a prompt is showing at the moment of the press: then it interacts, for that whole hold" | One action for the pad's X (`IA_PadX`), decided when the press starts; R and E as before. 70 key mappings (71). This one changes the desktop game too: the fault was there as well | Tests `MurderInc.Player.PadReloadOrGrab` (away from a reel: one reload, no grab; at a reel with rounds missing: the grab, the reel taken, no reload, the magazine as it was; R and E unchanged), `MurderInc.Core.GameClasses` |
+| **The last viewer leaving in a run's intro does not pause** | `MICloud.cpp` paused only in `Playing`; the pause key pauses in the intro too (`UMIGameSubsystem::PauseKey`) | `ReleaseForLeave` pauses in `Intro` and `Playing` | Test `MurderInc.Cloud.ViewerLeaves` (leave in the intro: paused, and still paused 4 s later) |
+| **A target that has dropped cannot come back on a card that holds 60** | The rise asked for a GPU time under 45 % of the frame time now (10 ms at 45). **Shown with the old binaries** (`rg-rise13-old`): under a 13 ms load the game held 60 in play (60.0, lowest second 59.9), and a target put at 45 on the pause card and set free stayed there for the 25 s the run still had (the card took 10 to 12 ms a frame) | The rise is judged by the rate it goes to: the GPU's time, worked out for the smallest picture, under four fifths of the next rate's frame time (13.3 ms to 60, 17.8 ms to 45). See section 4 for why the picture's size hardly enters | Test `MurderInc.Cloud.FrameRate`. Stream, the same load and script on the final code (`rg-rise13`): ten seconds after the target was free the log said "Frame-rate target: 45 -> 60 frames a second: the GPU took 10.8 ms a frame (10.8 ms at the smallest picture), under 80 % of the 16.7 ms a frame has at 60, for 10 s, and no run is being played", and the probe lines went to `target=60`. (Under the lighter 12 ms load the card takes 9.6 ms and both rules rise, `rg-rise` and `rg-rise-old`: the gate line uses the 13 ms load) |
+| **What a visitor may set can still exhaust the GPU** | `VolumetricFog.cpp`, `FroxelGridUtils.cpp`: the fog's grid is (width / GridPixelSize) x (height / GridPixelSize) x GridSizeZ and neither is limited from above. `RTCInputHandler.cpp`: the size request runs `r.SetRes` for any size of 1 or more. **Shown with the old binaries** (`rg-dbl-old`): asked for 2560 x 1440 the stream became 2560 x 1440, asked for 300 x 200 it became 300 x 200 | `MITuning`: `r.VolumetricFog.GridPixelSize` 8 to 32, `GridSizeZ` 32 to 128 and nothing else of the fog; `sg.` 0 to 3; `PixelStreaming2.Encoder.DumpDebugFrames` and `PixelStreaming2.DumpDebugAudio` refused. The size request has the game's own handler (`FMICloudSize`): ignored below 640 x 360, cut down to fit 1920 x 1080 with its shape kept, and the mouse scale multiplied by requested width / drawn width (without that the cap would have slowed the mouse of every viewer with a larger frame; the rest of PREFLIGHT V3-6 stays release B). The launcher also drops `-PixelStreaming...DumpDebug...` launch options | Tests `MurderInc.Cloud.Tuning`, `MurderInc.Cloud.ViewerSize`. Stream (`rf-input`, `rg-input`): 2560 x 1440 stayed 1920 x 1080 with `mouseScale=0.6667`; 1280 x 720 was drawn as asked (the stream changed size while running and back: both frames looked at, whole pictures); 300 x 200 was ignored. `rg-cmds`: `quit` and `r.ScreenPercentage 400` refused, `t.MaxFPS 30` taken (`cmdRun=2 cmdRefused=2`) |
+| **The debug switches are one link parameter away (`-MIDev`)** | `MurderInc.sh` took `-MIDev` from its arguments; E3DS passes what a visitor writes after `?exeLaunchArgs=` (its page on advanced command-line parameters) | The launcher starts the Development game only with `-MIDev=<key>`, the word in `MIDEV.key` at the package root; `package-cloud.sh zip` makes a new key for every zip (and keeps it in `/project/ue/cloud/MurderInc-E3DS.devkey` for the release report). A plain `-MIDev` or a wrong key starts the Shipping game and says so in the log. A folder without the file (a test folder) takes the plain switch; `e3ds-repro.sh` puts the key in for the box's tests | The launcher's argument handling run with stand-in games on the build machine (no key file; plain, wrong, right and empty key; the dump options). The new launcher with the real games on the box, in a copy of the test folder with a key file: the tests' plain `-MIDev` started the Development game (`rf-launch-dev`: "Build Configuration: Development", the key not passed on); a visitor's `-midev` with `-PixelStreamingEncoderDumpDebugFrames=true` started the Shipping game with both notes in the log and the dump option gone from the game's command line (`rf-launch-ship`). **Not run:** `package-cloud.sh zip` itself (nothing was packaged) |
+| **The stream sends about 56 of the game's 60 frames** | Section 5 | The gate file states the measured numbers; LAUNCH.md section 7 no longer blames the connection for a gap of a few frames; the sentence about `WebRTC.Fps` in the entry below is corrected here | Six runs, section 5 |
+
+### 3. The double click, as E3DS's page sends it
+
+A browser reports a double click as mousedown, mouseup, mousedown, mouseup and then dblclick. Pixel Streaming's page
+passes the last one on as its own message, "MouseDouble", and Unreal takes that message for a press of the button
+(read in four engine files, table above). On a desktop the same event stands in for the second press; through the
+browser it comes on top of both. Epic's own page has sent a release after it since its version 0.3.0; by the
+review's reading of E3DS's script, E3DS's does not. So after two quick clicks the engine held the left button
+down: the CHOPPER fired until the next click was released, that click itself fired nothing, a double click on a
+card's row acted three times, and a button on a set-up screen stayed pressed.
+
+`rtcinput.py` got `dblclick` (the five messages) and `dbl`. The same script (`lag-input.txt`) through the stream,
+Shipping game, a frame saved 3.2 s after the double click and both frames looked at:
+
+| Binaries | The weapon box in the frame | The game's probe lines |
+|---|---|---|
+| Before the fix (`4c385f9`: release A's code, which like version 2's leaves the message to Pixel Streaming; run `rg-dbl-old`) | **"CHOPPER 0" in red**: the whole magazine fired by a double click | no magazine count in that build's probe line |
+| The final code (`rg-input`; the same in `rf-input`) | **"CHOPPER 28"** | magazine 30, then 28 with `dbl=1` and `fire=0`, then 27 after one more click |
+
+So the latch is shown on the box for a page that sends no release after the message, which is how the test viewer
+sends it. Whether E3DS's page is such a page is the review's reading (section 8).
+
+### 4. The frame-rate target's way back up, and what a smaller picture buys
+
+The review proposed to judge the rise by the GPU's time at the smallest picture (time x (smallest share / share)
+squared). **Measured first, that would have changed almost nothing**: for this game on the box's card the GPU's
+time hardly depends on the picture's size.
+
+| Picture (`r.ScreenPercentage`, dynamic resolution off, target fixed at 60, Development game, Story run) | GPU time a frame | Run |
+|---|---|---|
+| 75 % | 6.39 ms | `rf-sp75` |
+| 50 % (44 % of the pixels) | 6.00 ms | `rf-sp50` |
+| 400 % (release A's lag runs) | 29 ms | c1 |
+
+Six per cent less time for 56 % fewer pixels: **about an eighth of a frame's GPU time follows the pixels**; the
+rest (Lumen, the shadow maps, Nanite, the 1080p output) does not. `MI.Cloud.FpsPixelPart=0.12` holds that share,
+and the game works the time at the smallest picture out with it (`MITuning::GpuMsAtSmallest`). Two consequences:
+
+- **Dynamic resolution between 50 and 75 % is a weak lever for this game** (release A put "a smaller picture gains
+  little" down to the test load; it is the game). It stays on, since it costs nothing. What a slow card needs is
+  the frame-rate target, and release B's quality steps (PREFLIGHT V3-2) more than the plan assumed. A card unlike
+  the box's may have another share; the variable can be set without a build.
+- **The rise needed another line, not another picture.** The first rule asked for a GPU time under 45 % of the
+  frame time now: 10 ms at 45, which is 60 % of what a frame has at 60. The new one asks for a time (at the
+  smallest picture) under **four fifths of the frame time of the next rate up**: 13.3 ms to go to 60, 17.8 ms to
+  go to 45 (`MI.Cloud.FpsRaiseUnder=0.8`, now a share of the next rate's frame time). The highest second of a gate
+  run costs about a fifth more than its average (`k-l12`: 10.9 and 12.9 ms; `k-l35`: 30.6 and 37.7 ms), which the
+  next rate then still holds; a rise that does not hold doubles the wait before the next, as before. The gate's
+  loads fall on the right sides. The two the game holds 60 under in play (11.1 and 12.2 ms of GPU time) came back
+  to 60 on the pause card (`rg-rise`, `rg-rise13`). Under the 20 ms load, which the game plays at 45, a target put
+  at 30 on the card came back to 45 after ten seconds ("30 -> 45 ...: the GPU took 17.1 ms a frame ..., under
+  80 % of the 22.2 ms a frame has at 45") and did not go on to 60 in the 12 s the run still had (`rg-rise30`, one
+  run after the gate, with a copy of the viewer's script that sets 30). The lag's load, 31 ms, is over both lines
+  by the rule's arithmetic and the test's cases; no run put it on a card.
+
+**What the first check of this taught.** The rise check was first run under the 12 ms load, and the old binaries
+rose there too (`rg-rise-old`: the card took 9.6 ms a frame, just under their 10 ms). The pair that tells the two
+rules apart is the 13 ms load (table in section 2); the gate's `gate-rise` line uses it.
+
+### 5. The stream's 56 of 60 frames
+
+Release A's gate looked at the game's frame rate. The sender's own numbers in the same runs: 60 frames captured a
+second, 56 to 57 encoded and sent, single seconds at 44 to 53, on a free GPU. Release A suspected the Python
+viewer's weak feedback. Six runs on a free GPU (Shipping, release A's code, the stream held at 12 Mbit/s) say no:
+
+| Run | What differs | Encoded and sent a second (lowest second) | Encode time |
+|---|---|---|---|
+| `rf-fps60`, `rf-cpu6-free`, `k-free` | nothing | 57.0 (44), 56.7 (48), 56.9 (48) | 8.0 to 8.1 ms |
+| `rf-fps120` | `PixelStreaming2.WebRTC.Fps=120` at the start (the stream's cap on frames a second) | 56.1 (44) | 8.4 ms |
+| `rf-nodec` | the viewer does not decode the video (`rtcinput.py --nodecode`) | 56.1 (49) | 8.4 ms |
+| `rf-lowq` | `PixelStreaming2.Encoder.QualityPreset=LOW_QUALITY` | 56.5 (49) | 8.2 ms |
+
+And at lower rates: 44 of 45 (`k-l20`; 43.4 to 43.9 in the final runs), 30 of 30 (`k-l35`; 29.3 to 29.9). The loss
+follows the encoder's time: in the seconds of `rf-fps120` with 13 to 15 ms a frame it encoded 44 to 48, in those
+with 5 ms all 60. The reading that fits: a frame that arrives while the frame before is still in the encoder is
+dropped, and a few frames in a hundred take the encoder longer than a sixtieth of a second. **Why they take that
+long was not found** (the encoder shares the card with the game's drawing; the box runs in a sandbox whose driver
+calls are slow; neither was tested). The viewer was not the cause, nor the cap, nor the preset.
+
+What follows from it:
+
+- It is **recorded, not accepted**: `lag-gate.txt` states the measured numbers as the state to compare with, and
+  the decision is the owner's once the pause card has shown E3DS's own (DECISIONS, item 7).
+- LAUNCH.md section 7 told the owner that a stream number below the game's means the connection. A gap of a few
+  frames with plenty of megabits is the encoder; the connection shows as a large gap and few megabits. Corrected.
+- **Correction to the entry below, section 5:** `PixelStreaming2.WebRTC.Fps` does not "tell the encoder how many
+  frames to spread the bitrate over". Pixel Streaming reads it once, when a viewer's video is set up, as the most
+  frames a second it may send (`EpicRtcStreamer.cpp`, `_maxFrameRate`), and otherwise only as the pace of its
+  decoupled capture thread (`VideoSourceGroup.cpp`). With the capture coupled to the game's frames, as shipped,
+  changing it on a running stream does nothing. The game keeps it in step with the target for a session that
+  turns decoupling on.
+- The final code sends the same: 56.4 to 57.0 with lowest seconds of 45 to 50 in the six runs that held 60 on a
+  free or lightly loaded GPU (section 7), 56.7 (47) on 4 CPUs.
+- Not explained, and far under the gate's 100 ms: the game's worst frame on a free GPU is 17 to 20 ms in some
+  runs (`k-free`, `rf-lowq`, `rf-nodec`, `rg-free`, `rg-cpu4-free`) and 32 to 36 ms in others with the same
+  settings (`rf-fps60`, `rf-cpu6-free`, `rf-fps120`): one frame of twice the usual time. The viewer's decoding is
+  not what decides it (runs of both kinds had the decoding viewer).
+
+### 6. Tests and builds
+
+- `TESTS OK passed=119 failed=0 skipped=0 filter=MurderInc` on the box at `1877857`, whose code is the last code
+  commit `906dfdf`; nothing under `unreal/` changed after it (the 116 tests of release A with their golden
+  replays, and three new ones: `MurderInc.Cloud.ViewerSize`, `MurderInc.Cloud.ViewerLeaves`,
+  `MurderInc.Player.PadReloadOrGrab`; `Cloud.FrameRate`, `Cloud.Tuning`, `Input.PadMenu` and `Core.GameClasses`
+  were extended). The suite also passed 119 of 119 one build earlier (`2f8f43e`, before the rise's new line).
+- The game target compiled and linked in Development and in Shipping from the release copy at `c7e2a09` (the same
+  code); the stream runs of section 7 used those two binaries in release A's test folder (`/tmp/pf/app`: version
+  2's content, so the branch's `[MICloud]` additions reach the game as `-MICVars`, and the controller's mapping
+  policy as a Saved override: `lag-test.sh profile=1`).
+- The pacer still has no automation test (it needs a GPU): its proof is the gate, now also on 6 CPUs. The double
+  click's handler and the zeros sent to Pixel Streaming when the last viewer leaves exist only in the game target:
+  their proof is the stream runs.
+
+### 7. The release gate again, with the final code
+
+The pacer and the frame-rate target changed, so the gate was repeated: every line of `lag-gate.txt` as it now
+stands, run as `rg-*` with `profile=1` on the binaries of `c7e2a09`. Every run CLEAN (one game on the GPU, nothing
+compiling), the game alive at the end and stopped with exit code 0.
+
+**It passes.** Under the load the lag was reproduced with, the Story run with fast turning has its worst frame at
+43 ms (Shipping) and 33 ms (Development), with "fence time-outs 0" in the Development game's log; the same with the
+game on 6 CPUs (40 and 34 ms); with a free GPU the game holds 60.0 (lowest second 59.8).
+
+| Run | Game | Load | Settled on: target, picture | Frames a second (lowest second) | Worst frame | GPU time (highest second) | Owed | Pacer time-outs: play, whole run (longest wait) | Sent a second (lowest second) |
+|---|---|---|---|---|---|---|---|---|---|
+| `rg-free` | Shipping | none | 60, 75 % | 60.0 (59.8) | 20 ms (17 turning) | 5.9 ms (6.8) | 2 | 0, 0 (86 ms) | 56.7 (50) |
+| `rg-l8` | Shipping | 8 ms | 60, 75 % | 60.0 (59.7) | 22 ms | 8.0 ms (8.9) | 2 | 0, 0 (57 ms) | 56.5 (45) |
+| `rg-l12` | Shipping | 12 ms | 60, 68 to 75 % | 60.0 (59.1) | 31 ms | 11.1 ms (13.0) | 2 | 0, 0 (48 ms) | 56.4 (48) |
+| `rg-l20` | Shipping | 20 ms | 45, 50 % | 45.0 (44.8) | 26 ms | 18.6 ms (21.1) | 2 | 0, 0 (56 ms) | 43.9 (40) |
+| `rg-l35` | Shipping | 34 ms | 30, 50 % | 29.8 (28.3) | **43 ms** | 31.9 ms (37.4) | 2 | 0, 0 (59 ms) | 29.3 (22) |
+| `rg-l35dev` | Development | 34 ms | 30, 50 % | 30.0 (30.0) | **33 ms** | 27.5 ms (31.1) | 1 | 0, 0 (46 ms); fence time-outs 0, skipped captures 0 | 29.9 (28) |
+| `rg-cpu6-l20` | Shipping, 6 CPUs | 20 ms | 45, 50 % | 45.0 (44.8) | 26 ms | 18.6 ms (20.5) | 2 | 0, 0 (48 ms) | 43.4 (38) |
+| `rg-cpu6-l35` | Shipping, 6 CPUs | 34 ms | 30, 50 % | 29.8 (27.9) | **40 ms** | 30.4 ms (38.8) | 2 | 0, 0 (41 ms) | 29.6 (28) |
+| `rg-cpu6-l35dev` | Development, 6 CPUs | 34 ms | 30, 50 % | 30.0 (30.0) | **34 ms** | 27.8 ms (30.8) | 2 | 0, 0 (49 ms); fence time-outs 0, skipped captures 0 | 29.5 (27) |
+
+Against release A's own gate (the entry below, section 7): the same targets and pictures at every load, worst
+frames of 20 to 43 ms where it had 20 to 40. The render-thread wait costs nothing that shows.
+
+The four lines that are not Story runs:
+
+- `rg-cmds` (a viewer's console commands, Shipping): `t.MaxFPS 30` was taken (the log: "Frame-rate target: fixed at
+  30 by t.MaxFPS = 30, set by hand"; the probe lines `fps=30`, `target=30`), `quit` and `r.ScreenPercentage 400`
+  were refused: `cmdRun=2 cmdRefused=2`.
+- `rg-rise13` (the `gate-rise` line): section 2. In its play the game held 60 under the 13 ms load: 59.9 (lowest
+  second 59.4), worst frame 23 ms, GPU 12.2 ms (highest second 14.2) at the 50 % picture.
+- `rg-input` (the `gate-input` line): the double click (magazine 30, 28, 27; `dbl=1`; `fire=0`), the three size
+  requests (`mouseScale=0.6667` at 2560 x 1440, `outW=1280 outH=720`, 300 x 200 ignored), the viewer who left
+  holding W and the left button while the magazine ran from 26 to 10 (the run paused, `fire=0`, `moveY=0.00`), and
+  the next viewer: the click card, the resume, the magazine at 8 for 6 s, a fresh W (`moveY=1.00`), one click (7).
+- `rg-pad` (the `gate-pad` line): the first press marked as a repeat hid the card; the Start presses reached the
+  run with `pad=1`; the trigger ran the magazine from 30 to 12 and the viewer left; for the next viewer `fire=0`
+  and the magazine at 11 for 8 s; a mouse click fired one round; a trigger message with the first pad's id fired
+  and stopped (7, 4, 3).
+
+Frames were looked at where the picture could have changed: the weapon box after the double click (section 3)
+and, in `rf-input` with the same input code, the three size requests' frames (whole pictures, no tearing). The
+capture path itself did not change in this pass.
+
+### 8. Not done, not proven
+
+- **E3DS's page script was not read in this pass.** That it sends no release after a double click, and marks a
+  controller's first press as a repeat, are the review's readings (its script is not saved, and its host cannot be
+  reached from the build machine). Both faults are shown on the box with a viewer that behaves that way, and both
+  fixes are right whichever way the page behaves; whether they change what the owner feels on E3DS only the next
+  test can say.
+- **How many CPUs E3DS's servers have is not known.** The fix was proven with the game held to 6 and to 4 of
+  the box's CPUs (5 and 3 task workers); a real 8-CPU hyper-threaded server starts 6 and is in the same case by
+  the engine's source. Holding the game to a few CPUs of a 16-CPU machine is not a small machine: the load and the
+  viewer kept the other CPUs, and the card is the box's.
+- **Why some frames take the encoder longer than a sixtieth of a second** (section 5).
+- **The picture's share of the GPU time (an eighth) is one scene on one card.** A Story run standing and turning
+  at the start; no fight, no other card.
+- **`package-cloud.sh zip` with the key, and the launcher inside a real package**, were not run: nothing was
+  packaged. The launcher was run with the real games in a copy of the test folder.
+- **The size request at sizes other than the three tried**, the HUD at small sizes, and the picture's sharpness
+  when the page scales a 1080p picture up: release B (V3-6). The mouse's speed after a size was cut down was
+  worked out (`mouseScale=0.6667` in the probe line), not measured with a turn.
+- **What a viewer held, with the old binaries and a second viewer**, was not run: that version 2 keeps firing for
+  the next viewer is read in the engine. The final code was run both ways (keys and mouse, controller).
+- **A real browser, a real controller, a real thin connection, a cold start, the delay between hand and picture**:
+  as in the two entries below.
+- The fog's two variables and the quality groups were limited by reading the engine; nobody tried to exhaust the
+  GPU with the old limits.
+- No release B item was started. The size request's cap and mouse scale are a small part of V3-6 that finding 8
+  needed (the cap alone would have slowed the mouse of every viewer with a frame larger than 1080p).
+
+### 9. For the packager
+
+1. `tools/box/test.sh MurderInc` must pass first: **119 tests**.
+2. After `package-cloud.sh all`: the zip step prints where the Development game's key is
+   (`/project/ue/cloud/MurderInc-E3DS.devkey`). **Give the key to the owner with the release notes; never commit
+   it.** LAUNCH.md section 13 tells the owner what it is for.
+3. The gate: `bash /project/ue/cloud/src/tools/box/cloud/lag-test.sh queue
+   /project/ue/cloud/src/tools/box/cloud/lag-gate.txt` (13 runs, about 35 minutes, no `profile=1`). The top of
+   that file says what each line must show. New against release A: the three `gate-cpu6-*` lines ("whole run:
+   pacer time-outs 0", worst frame under 100 ms), `gate-rise` (the log's "45 -> 60" line), `gate-input` and
+   `gate-pad` (read them with `python3 lag_story.py /project/ue/cloud/lag/gate-input`: the magazine 30, 28, 27;
+   `mouseScale=0.6667` after the 2560 x 1440 request; after the second viewer's resume `moveY=0.00 fire=0` and a
+   magazine that stands still).
+4. In the packaged build the controller's mapping policy comes from the pak's `DefaultInput.ini`; the box's test
+   folder had it from a Saved override. `gate-pad` is the first run that shows it from the pak: it passes when the
+   Start presses reach the run (`state=2`, `pad=1`). If the controller does nothing there, the policy did not
+   reach the game.
+5. `e3ds-verify.sh` passes `-MIDev`; `e3ds-repro.sh` turns it into the keyed form for a folder that has
+   `MIDEV.key` (run on the box in a test folder: `rf-launch-dev`). Check once that `v-crash-dev` still starts the
+   Development game on the package.
+6. Keep E3DS's Browser Resolution at Custom 1920 x 1080 (LAUNCH.md): the game now also holds a larger request down
+   to that size itself, but the setting keeps the page from asking.
+
 ## Version 3, release A: the lag (performance engineer, 2026-11-25, 00:35 to 03:55 UTC)
 
 **The lag of version 2 on E3DS is explained and, on the box, ended. Nothing was packaged here.** The owner's report

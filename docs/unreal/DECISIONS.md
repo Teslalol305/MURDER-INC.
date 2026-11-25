@@ -264,8 +264,10 @@ faults; what was checked, changed and measured is in PROGRESS.md, "Version 3, re
    (runs `rf-cpu6-l20`, `rf-cpu6-l35`). The render thread now waits with `FRHIGPUFence::Wait`, the call the engine
    uses itself; the game thread only watches. The release gate has three runs on 6 CPUs from now on.
 2. **A double click is two clicks.** Pixel Streaming's "MouseDouble" message is dropped: Unreal takes it for a
-   third press, and E3DS's page never sends its release. This is the one finding that fits the owner's word
-   "sticky" for version 2 (two quick clicks left an automatic gun firing); that link is an inference.
+   third press, and by the review's reading of its script E3DS's page never sends its release (shown on the box
+   with a viewer that sends it so: the old binaries emptied the magazine after one double click, run
+   `rg-dbl-old`). This is the one finding that fits the owner's word "sticky" for version 2 (two quick clicks left
+   an automatic gun firing); that link is an inference.
 3. **When the last viewer leaves, everything he held is let go, and the controllers stay known.** The review
    proposed to tell Pixel Streaming that every pad had disconnected. A page that reconnects inside one session may
    go on using the id it was given, and its pad would then be dead; the game instead hands Pixel Streaming a zero

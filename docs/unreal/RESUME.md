@@ -223,13 +223,16 @@ old zip is superseded. Next is step 6 (the owner's E3DS trial) and the explosion
   A second way to the same complaint was seen and cannot be fixed on the server: on a thin connection the sender
   drops most frames of a turning picture while the game holds 60. The pause card's line tells the two apart
   (LAUNCH.md section 7).
-- **Release A reviewed and fixed (2026-11-25, 05:30 UTC; PROGRESS.md, "Version 3, release A: the review's
+- **Release A reviewed and fixed (2026-11-25, 06:30 UTC; PROGRESS.md, "Version 3, release A: the review's
   findings").** Two reviews found ten faults; all were real. The two that could have sunk the launch: on a server
   with 8 hyper-threaded CPUs or fewer the pacer froze the game for 250 ms in every frame the GPU was the limit
-  (the box has 16 CPUs and never showed it), and on E3DS two quick clicks left the fire button held. Also fixed:
-  a controller's first press, what a viewer held when the connection was cut, X reloading at a reel, the pause in
-  a run's intro, the frame-rate target's way back up, what a visitor may set, the Development game behind a key.
+  (the box has 16 CPUs and never showed it; held to 6 it did), and two quick clicks left the fire button held
+  when the page sends the browser's double-click message with no release, as the review read E3DS's page (shown
+  on the box with a viewer that sends it so). Also fixed: a controller's first press, what a viewer held when the
+  connection was cut, X reloading at a reel, the pause in a run's intro, the frame-rate target's way back up, what
+  a visitor may set, the Development game behind a key. The gate was repeated with the final code and passes,
+  its three lines on 6 CPUs included; two more runs on 4 CPUs held their rates.
 - **Next:** package release A from the branch head (`tools/box/test.sh MurderInc` first: 119 tests), repeat the
-  release gate on the packaged build (`tools/box/cloud/lag-gate.txt`: 12 runs, about 35 minutes; the PROGRESS
+  release gate on the packaged build (`tools/box/cloud/lag-gate.txt`: 13 runs, about 35 minutes; the PROGRESS
   entries say how to read it), upload it, give the owner the key of `MIDEV.key` with the release notes, and ask for
   a screenshot of the pause card taken right after a turn. Then release B: the rest of PREFLIGHT.md section 2.
