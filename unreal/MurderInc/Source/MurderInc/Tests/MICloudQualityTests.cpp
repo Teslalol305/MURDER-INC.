@@ -586,6 +586,37 @@ bool FMICloudQualityGuardsTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("a pin for the whole warm-up: it is over when the pin is freed"), W.L.HoldLeft() <= 0.0 && W.L.CanStepDown());
 	}
 	{
+		// What the ladder is shown: at the top target the picture must be the smallest; below it the estimate at the smallest picture counts.
+		double Gpu = 0.0;
+		bool bSmall = false;
+		FMIQualityLadder::Judge(true, false, 22.4, 20.9, Gpu, bSmall);
+		TestTrue(TEXT("top target, picture not smallest: not evidence (unchanged)"), !bSmall && FMath::IsNearlyEqual(Gpu, 22.4));
+		FMIQualityLadder::Judge(true, true, 22.4, 22.4, Gpu, bSmall);
+		TestTrue(TEXT("top target, picture smallest: the measured time"), bSmall && FMath::IsNearlyEqual(Gpu, 22.4));
+		FMIQualityLadder::Judge(false, false, 22.4, 20.9, Gpu, bSmall);
+		TestTrue(TEXT("45 or 30, the picture grew back to 0.75: the time worked out for the smallest picture counts (c-m1's 22.4 ms)"), bSmall && FMath::IsNearlyEqual(Gpu, 20.9));
+		FMIQualityLadder::Judge(false, false, 22.4, 0.0, Gpu, bSmall);
+		TestTrue(TEXT("... not known: unchanged"), !bSmall && FMath::IsNearlyEqual(Gpu, 22.4));
+		FMIQualityLadder::Judge(false, false, 0.0, 20.9, Gpu, bSmall);
+		TestTrue(TEXT("... no GPU time at all: unchanged"), !bSmall && Gpu == 0.0);
+		FMIQualityLadder::Judge(false, true, 22.4, 25.0, Gpu, bSmall);
+		TestTrue(TEXT("... the picture already smallest: the measured time, never the larger estimate"), bSmall && FMath::IsNearlyEqual(Gpu, 22.4));
+		// The ladder then acts on such a load (20.9 ms is over 14.2 ms) although the picture is not the smallest.
+		FSim S;
+		S.Setup(Five());
+		int32 N = 0;
+		for (int32 I = 0; I < 12; ++I)
+		{
+			FMIQualityLadder::FInput In;
+			In.Seconds = 0.5;
+			FMIQualityLadder::Judge(false, false, 22.4, 20.9, In.GpuMs, In.bSmallestPicture);
+			In.FrameMs = F60;
+			In.bTargetAtTop = false;
+			N += S.L.Update(In) == FMIQualityLadder::EChange::Down ? 1 : 0;
+		}
+		TestEqual(TEXT("the ladder takes its first step after 3 s at 30 frames a second with the picture at 0.75"), N, 1);
+	}
+	{
 		// A step that changed nothing (the player's own setting is as low): the next one does not wait for evidence or for the gap.
 		FSim S;
 		S.Setup(Five());

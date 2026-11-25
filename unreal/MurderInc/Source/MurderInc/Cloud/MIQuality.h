@@ -135,6 +135,16 @@ struct MURDERINC_API FMIQualityLadder
 	};
 	enum class EChange { None, Down, Up };
 
+	/**
+	 * What the ladder is shown as the GPU's time, and whether the picture counts as the smallest. At the highest frame-rate target
+	 * the measured time at a picture that is not yet the smallest is not evidence (dynamic resolution still has a smaller one to
+	 * give). Below it the governor has already conceded the rate and dynamic resolution's budget is the longer frame, so the picture
+	 * grows back and is never the smallest: the ladder then judges the time worked out for the smallest picture (GpuMsSmallest), which
+	 * is what 60 frames a second would have to be held with. Found by the review's gate run (c-m1: 22 ms at a 0.75 picture, 30 frames a
+	 * second, the ladder never moved).
+	 */
+	static void Judge(bool bTargetAtTop, bool bSmallestPicture, double GpuMs, double GpuMsSmallest, double& OutGpuMs, bool& bOutSmallest);
+
 	/** The rungs: what each saves, and whether it may only be applied at a calm moment. The step in force goes back to 0. */
 	void Configure(const TArray<FMIQualityStep>& Steps);
 	/** One update. Down or Up: Step() is the new step and Why() says why. */
