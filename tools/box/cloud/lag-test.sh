@@ -38,8 +38,8 @@
 #                     profile (the r.DynamicRes., MI.Cloud. and PixelStreaming2. lines of [MICloud] in the branch's
 #                     DefaultGame.ini) are passed as -MICVars, and the input device mapping policy of the branch's
 #                     DefaultInput.ini is written into the folder's Saved config (without it the engine raises an
-#                     ensure when a controller connects), and so are the quality ladder's steps (the QualitySteps= lines
-#                     of the branch's DefaultGame.ini, release 3c). Not needed for a packaged build.
+#                     ensure when a controller connects), and so is the quality ladder's table (the QualitySteps= lines
+#                     of the branch's DefaultGame.ini, release 3c, read through -MIQualityTable=). Not needed for a packaged build.
 #   csv=1             a CSV profile of the Development game from the start of the run.
 #   secs=<n>          how long the game runs. Default 110 (dev) or 125 (ship).
 #   probe=<seconds>   the probe line's period. Default 1.
@@ -171,12 +171,11 @@ run_fg() {
     # a Saved ini it did not write when it exits).
     mkdir -p "$build/MurderInc/Saved/Config/Linux"
     printf '[InputPlatformSettings_Linux InputPlatformSettings]\ninput.DeviceMappingPolicy=3\n' > "$build/MurderInc/Saved/Config/Linux/Input.ini"
-    # The pak's DefaultGame.ini is older too: the quality ladder's steps (release 3c, [MICloud] QualitySteps= lines) as a Saved
-    # override (the game deletes a Saved ini it did not write when it exits: before every run). No ClearArray first: with it the
-    # game found no steps at all (box run l1c), and an older pak has none to clear.
-    { printf '[MICloud]\n'
-      sed -n '/^\[MICloud\]/,/^\[/p' "$T/../../../unreal/MurderInc/Config/DefaultGame.ini" | grep -E '^\+QualitySteps=' || true
-    } > "$build/MurderInc/Saved/Config/Linux/Game.ini"
+    # The pak's DefaultGame.ini is older too: the quality ladder's steps (release 3c, the [MICloud] QualitySteps= lines) go to a file the
+    # game is told to read (-MIQualityTable=, below; not in the Shipping game). A Saved Game.ini does not do it: a packaged game does not
+    # merge one (box run probe3: a +CVars line in it was not applied).
+    sed -n '/^\[MICloud\]/,/^\[/p' "$T/../../../unreal/MurderInc/Config/DefaultGame.ini" | grep -E '^\+QualitySteps=' > "$build/MurderInc/Saved/qtable.txt" || true
+    chmod 644 "$build/MurderInc/Saved/qtable.txt"
     chown -R ue4 "$build/MurderInc/Saved/Config" 2>/dev/null
   fi
   [ -n "$secs" ] || { secs=110; [ "$game" = ship ] && secs=125; }
@@ -204,6 +203,7 @@ run_fg() {
   # about the game and the capture.
   [ "$minbit" -gt 0 ] && args+=("-PixelStreamingWebRTCMinBitrate=$minbit" "-PixelStreamingWebRTCStartBitrate=$minbit")
   [ -n "$cvars" ] && args+=("-MICVars=$cvars")
+  [ "$profile" = 1 ] && args+=("-MIQualityTable=$build/MurderInc/Saved/qtable.txt")   # the ladder's steps for a folder whose pak is older
   [ "$keepalive" = 1 ] && args+=(-MIKeepAlive)   # the game is held with no viewer on purpose (see the header)
   if [ "$game" = dev ]; then
     if [ -n "$demo" ]; then

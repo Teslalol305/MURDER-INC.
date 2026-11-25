@@ -1844,6 +1844,33 @@ void UMICloudSubsystem::StartQuality()
 	}
 	TArray<FString> Errors;
 	QualitySteps = ReadQualityTable(&Errors);
+#if !UE_BUILD_SHIPPING
+	{
+		// For the box's test folders, whose pak is older than the branch (a Saved Game.ini is not read by a packaged game: box run
+		// probe3): the steps from a file, the QualitySteps= lines of DefaultGame.ini. Not in the Shipping game: a visitor's launch
+		// option must never be able to choose the variables the game sets.
+		FString TableFile;
+		if (FParse::Value(Cmd, TEXT("MIQualityTable="), TableFile) && !TableFile.IsEmpty())
+		{
+			TArray<FString> Lines;
+			if (FFileHelper::LoadFileToStringArray(Lines, *TableFile))
+			{
+				for (FString& Line : Lines)
+				{
+					Line.TrimStartAndEndInline();
+					Line.RemoveFromStart(TEXT("+QualitySteps="));
+				}
+				Errors.Reset();
+				QualitySteps = FMIQualityTable::Parse(Lines, &Errors);
+				MICloudPrivate::Line(FString::Printf(TEXT("Quality ladder: %d step(s) read from %s (-MIQualityTable=, not in the Shipping game)"), QualitySteps.Num(), *TableFile));
+			}
+			else
+			{
+				MICloudPrivate::Line(FString::Printf(TEXT("Quality ladder: cannot read %s (-MIQualityTable=)"), *TableFile));
+			}
+		}
+	}
+#endif
 	for (const FString& E : Errors)
 	{
 		MICloudPrivate::Line(FString::Printf(TEXT("Quality ladder: a line of [MICloud] QualitySteps cannot be used: %s"), *E));
