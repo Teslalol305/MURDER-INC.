@@ -188,6 +188,17 @@ connection state page). For a shooter, aim for under 50 ms.
 > **The gate's "no fence time-out line"** can only be read in the Development game (Shipping has no engine log);
 > the Shipping game is judged by its probe lines (`owed=`, `worstMs=`). The gate as a queue of runs:
 > `tools/box/cloud/lag-gate.txt`.
+>
+> **Release A reviewed (2026-11-25; PROGRESS.md, "Version 3, release A: the review's findings").** Ten faults,
+> all real, all fixed. What changes in this list: **V3-1**: the pacer waits on the render thread (on a server with
+> 8 hyper-threaded CPUs or fewer the first form froze for 250 ms a frame), the gate has runs on 6 CPUs, the target
+> rises by the next rate's frame time, and dynamic resolution turned out a weak lever (an eighth of the GPU's time
+> follows the picture's size): **V3-2's quality steps matter more than this list assumed**. **V3-6**: the size cap
+> (640 x 360 to 1920 x 1080) and the mouse scale for a size that was cut down are in; the rest is release B.
+> **V3-7**: a controller's first press now counts, X reloads or grabs, a trigger pulled when the viewer leaves is
+> let go. **V3-9**: the fog's variables and the quality groups have ranges, the stream's debug dumps are refused,
+> the Development game needs a key (`-MIDev=<key>`). **New for the owner's next test**: a double click no longer
+> leaves the fire button held; the pause card's stream number runs a few frames below the game's by itself.
 
 Everything below ships in **one** version 3 build. The build itself costs about an hour of box time (package, the
 full test suite, the E3DS-style runs, a stream test with input) and about an hour of the owner's time (download,

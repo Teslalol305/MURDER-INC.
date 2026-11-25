@@ -253,3 +253,44 @@ release A: the lag").**
 5. **The Python viewers of the box need the stream held at 12 Mbit/s** (`lag-test.sh minbit=`): with E3DS's
    arguments alone the sender believes their connection carries a megabit or less and drops most frames. Received
    frame rates from earlier runs without it say nothing about the game.
+
+**Decisions of the review of release A, 05:30 UTC (2026-11-25; two reviews of release A's changes found ten
+faults; what was checked, changed and measured is in PROGRESS.md, "Version 3, release A: the review's findings").**
+
+1. **The pacer's wait belongs to the render thread.** The game thread polled a GPU fence in a loop, which Unreal's
+   own header forbids: some RHIs notice finished GPU work only while the RHI thread submits. Unreal's Vulkan RHI is
+   one of them when it has 6 task workers or fewer (8 hyper-threaded CPUs: the usual small cloud GPU server), and
+   the box's 16 CPUs had hidden it. On 6 CPUs every frame the GPU was the limit froze for the pacer's 250 ms
+   (runs `rf-cpu6-l20`, `rf-cpu6-l35`). The render thread now waits with `FRHIGPUFence::Wait`, the call the engine
+   uses itself; the game thread only watches. The release gate has three runs on 6 CPUs from now on.
+2. **A double click is two clicks.** Pixel Streaming's "MouseDouble" message is dropped: Unreal takes it for a
+   third press, and E3DS's page never sends its release. This is the one finding that fits the owner's word
+   "sticky" for version 2 (two quick clicks left an automatic gun firing); that link is an inference.
+3. **When the last viewer leaves, everything he held is let go, and the controllers stay known.** The review
+   proposed to tell Pixel Streaming that every pad had disconnected. A page that reconnects inside one session may
+   go on using the id it was given, and its pad would then be dead; the game instead hands Pixel Streaming a zero
+   for every trigger and stick, which ends the repeat of a pulled trigger and keeps the ids (checked through the
+   stream: the next viewer's trigger message with the old id fires and stops).
+4. **The Development game in the zip needs a key** (`-MIDev=<key>`, the word in `MIDEV.key`, new for every zip).
+   A visitor can add launch options to a stream link, and the Development game has the switches the Shipping game
+   was built without. One zip stays enough for the owner; the key travels with the release report, never in the
+   repository.
+5. **A viewer's size request is drawn between 640 x 360 and 1920 x 1080, and the mouse scale follows a size that
+   was cut down.** The cap alone would have slowed the mouse of every viewer with a larger frame, so the scale half
+   of PREFLIGHT V3-6 came with it (five lines); the rest of V3-6 (sharpness and HUD at small sizes, Dynamic as the
+   advised setting) stays release B. Browser Resolution stays Custom 1920 x 1080 until then.
+6. **The frame-rate target rises when the next rate up would leave a fifth of its frame time free** (13.3 ms to go
+   to 60, 17.8 ms to go to 45), judged at the smallest picture. The first rule (45 % of the frame time now) could
+   not give 60 back to a card that holds it. **And a smaller picture buys little for this game**: measured on the
+   box, 6.39 ms a frame at a 75 % picture and 6.00 ms at 50 %: an eighth of the GPU's time follows the pixels.
+   Dynamic resolution stays on (it costs nothing), but the frame-rate target, and in release B the quality steps,
+   are what a slow card needs.
+7. **The stream sends 56 to 57 of the game's 60 frames a second on a free GPU on the box, and nothing tried
+   changes it** (a frame cap of 120, a viewer that does not decode, a faster encoder preset, every capture
+   setting): some frames take the encoder longer than a sixtieth of a second and the frame behind is dropped. It
+   is recorded as the measured state, not accepted as good: **the owner decides** after the pause card on E3DS has
+   shown what its servers do (the line reads "stream 56 a second (lowest 50)"). A gap of a few frames with plenty
+   of megabits is the encoder, not the connection (LAUNCH.md section 7 says so now); `-MIFps=45` is the setting to
+   try if the gap is larger there.
+8. **The pad's X (Square) reloads or grabs, never both** (the web game's rule: the press decides).
+
