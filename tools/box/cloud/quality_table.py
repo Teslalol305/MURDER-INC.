@@ -118,7 +118,14 @@ add('skylight capture slice', [('r.SkyLight.RealTimeReflectionCapture.TimeSlice'
 add('skylight capture off', [('r.SkyLight.RealTimeReflectionCapture', '0')], 'no real-time sky capture (the sky light keeps its last capture)')
 add('res 1600x900', [('r.SetRes', '1600x900')], 'the OUTPUT size 1600 x 900 (the video is smaller; the browser stretches it)')
 add('res 1280x720', [('r.SetRes', '1280x720')], 'the OUTPUT size 1280 x 720')
-EXTRA_BASE = {'r.SetRes': '1920x1080'}
+# Round 3 (the lighting level without the surface cache's resize, which hitches 40 to 119 ms set and put back: gen-hitch)
+add('gi final gather 0', [('r.Lumen.FinalGatherMethod', '0')], 'Lumen irradiance field gather instead of screen probes')
+add('gi AO 1', [('r.AOQuality', '1')], 'cheaper ambient occlusion')
+add('gi low no resize', [('r.Lumen.FinalGatherMethod', '0'), ('r.AOQuality', '1'), ('r.LumenScene.DirectLighting.UpdateFactor', '128'),
+                         ('r.LumenScene.Radiosity.UpdateFactor', '128'), ('r.LumenScene.DirectLighting.MaxLightsPerTile', '4')],
+    'the lighting level 1 without the surface cache atlas and card changes')
+EXTRA_BASE = {'r.SetRes': '1920x1080', 'r.Lumen.FinalGatherMethod': '1', 'r.AOQuality': '2', 'r.LumenScene.DirectLighting.UpdateFactor': '32',
+              'r.LumenScene.Radiosity.UpdateFactor': '64', 'r.LumenScene.DirectLighting.MaxLightsPerTile': '8'}
 
 NAMES = []
 for _l, cv, _n in V:
@@ -127,7 +134,8 @@ for _l, cv, _n in V:
             NAMES.append(n)
 NAMES += ['r.DynamicGlobalIlluminationMethod', 'r.ReflectionMethod', 'r.AntiAliasingMethod', 'r.ScreenPercentage', 'sg.TextureQuality',
           'r.Nanite', 'r.Shadow.Virtual.Enable', 'r.RayTracing', 'r.Lumen.HardwareRayTracing', 't.MaxFPS', 'r.DynamicRes.OperationMode']
-NAMES = [n for n in dict.fromkeys(NAMES) if n != 'r.SetRes']
+NAMES = [n for n in dict.fromkeys(NAMES) if n != 'r.SetRes' and n not in ('r.Lumen.FinalGatherMethod', 'r.AOQuality', 'r.LumenScene.DirectLighting.UpdateFactor', 'r.LumenScene.Radiosity.UpdateFactor', 'r.LumenScene.DirectLighting.MaxLightsPerTile')]
+NAMES += ['r.Lumen.FinalGatherMethod', 'r.AOQuality', 'r.LumenScene.DirectLighting.UpdateFactor', 'r.LumenScene.Radiosity.UpdateFactor', 'r.LumenScene.DirectLighting.MaxLightsPerTile']
 
 # ---- the scenes -----------------------------------------------------------------------------------------------------------
 # Each scene is the demo director's lines that bring the player there and look at something that costs the GPU. (x, y in cm.)
