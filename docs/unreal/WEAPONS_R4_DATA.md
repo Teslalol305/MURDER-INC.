@@ -55,8 +55,10 @@ Everything above was checked against the data's own rules, the art manifest and 
 - the box has not imported any of the new meshes, so no asset path above has been loaded;
 - `MM_Rifle_Fire` (the arms' fire clip of the four new hand-IK sets) is on the plan's list of box assets, nobody here saw it, and
   `FirstPerson.Clips` fails loudly if it is not on the arms' skeleton;
-- the first-person values (`shoulders [-6, 0, -24]`, `fireWeight 0.45`, `bobScale 0.6`, `relief`) are starting values: rifles reach 25 to
-  45 cm to the support hand and the NINE needed three review rounds;
+- the first-person values (`fireWeight 0.45`, `bobScale 0.6`, `relief`) are starting values, and the NINE needed three review rounds. The sets also
+  carry `shoulders [-6, 0, -24]` as the NINE's does, but the rig uses it only once a solved grip exists (`GripShoulderTranslation` returns early
+  without grip points), and none exists for the new guns: their arms are placed by the grip marker and the template rifle's idle, which already
+  holds a hand 25 to 30 cm ahead of the other as a rifle does; the support palm sits 21 to 27 cm ahead of the firing palm on all four rifles;
 - whether `HideBoneByName` hides on the first-person gun (a poseable component) and whether the part frame needs the bone's reference-pose
   rotation undone (the plan's G1, G2) are for the box engineer's probe; the data only names the bones;
 - the SHORTY's eye (relief 0.12) ends 14 mm ahead of its butt face: the near plane may slice the cheek rise; 0.14 is the fallback in its notes;
