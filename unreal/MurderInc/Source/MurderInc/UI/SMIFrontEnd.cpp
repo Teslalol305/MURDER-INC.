@@ -98,13 +98,17 @@ namespace MIFrontEndUI
 	// button, and the release on its successor clicked nothing (menu fixer's stream run mf2-after: DONE took two clicks).
 	enum class EBtn : uint8 { Primary, Quiet, Card, Link, Chip };
 
+	/** Styles live as long as the process, each in its own allocation: SButton keeps a raw pointer to its style, and a
+	 *  pointer into a growing TMap of values went stale when the map reallocated (the first screen, built before the
+	 *  game thread's first rebuild, was painted with freed styles: the menu fixer's run mf2-after3 crashed in
+	 *  SButton::OnPaint on frame 0). */
 	const FButtonStyle* ButtonStyle(EBtn Kind, bool bSelected = false)
 	{
-		static TMap<int32, FButtonStyle> Cache;
+		static TMap<int32, TUniquePtr<FButtonStyle>> Cache;
 		const int32 Key = static_cast<int32>(Kind) * 2 + (bSelected ? 1 : 0);
-		if (const FButtonStyle* Have = Cache.Find(Key))
+		if (const TUniquePtr<FButtonStyle>* Have = Cache.Find(Key))
 		{
-			return Have;
+			return Have->Get();
 		}
 		FButtonStyle S;
 		FLinearColor Normal, Hover, Press, Edge = FLinearColor::Transparent;
@@ -123,7 +127,7 @@ namespace MIFrontEndUI
 		S.SetDisabled(*Box(WithAlpha(Plate(), 0.4f), Radius, WithAlpha(PlateEdge(), 0.4f), EdgeW));
 		S.SetNormalPadding(FMargin(0));
 		S.SetPressedPadding(FMargin(0));
-		return &Cache.Add(Key, S);
+		return Cache.Add(Key, MakeUnique<FButtonStyle>(S)).Get();
 	}
 
 	/** Text: wrapped to the space it gets, or cut with an ellipsis; never below MinText. */
