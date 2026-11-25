@@ -3,6 +3,59 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Version 3: play through the stream (gameplay part, 2026-11-25, 00:30 UTC)
+
+The gameplay part of version 3: the seven input items of the launch pre-flight (A1 to A7), and the controller path
+the owner asked for after testing version 2 (DECISIONS, 2026-11-24 23:10). Rendering, the launcher and the package
+come next. **Nothing was packaged here**, and the lag when turning is not in this part.
+
+**How it was checked**, three ways:
+
+1. The automation suite at `71e5b44`: `TESTS OK passed=114 failed=0 skipped=0 filter=MurderInc` (the 105 tests of
+   version 2 with their golden replays, and nine new ones: `MurderInc.Input.StreamMouse`, `.Input.PadLook`,
+   `.Input.PadMenu`, `.UI.CardHitTest`, `.Cloud.Viewers`, `.Cloud.ViewerCommands`, `.Cloud.Quality`,
+   `.Player.ControllerPad`, `.Run.MenuMouse`).
+2. The game target compiled and linked from the release copy in Development and in Shipping at `71e5b44` (the
+   editor build does not contain the Pixel Streaming code or the Shipping guards).
+3. **Through a real WebRTC stream on the box**: the Development game of these commits, started as a fresh user with
+   no display and E3DS's argument list, and `tools/box/cloud/rtcinput.py` as a viewer that plays: it sends mouse,
+   keys, gamepad buttons and axes and console commands over the data channel in the browser player's own message
+   formats, and saves frames it receives. The game logged its view angles, state and counters four times a second
+   (`-MICloudProbe=0.25`). The runs quoted had the GPU to themselves (60 frames a second, no skipped capture)
+   unless the table says otherwise. Scripts and logs: `/project/ue/cloud/gp-test/` and
+   `/project/ue/cloud/repro/gp-in*`; the last three runs (`gp-in11` to `gp-in13`) are the controller-only path,
+   the same at the final commit, and the mouse and keyboard path.
+
+**What this is not:** no real browser, no real controller and not E3DS's own player page (the box cannot run a
+browser viewer). What a browser sends was read in Pixel Streaming's reference front end and in the engine source
+and reproduced by the test client. The owner's next test on E3DS is the first real one.
+
+| Item | What changed | How it was verified |
+|---|---|---|
+| A1 mouse look 2 to 3 times too fast | Read in both sources: the browser sends each mouse event as a 16-bit share of half the player's size and the engine turns it into counts of the render size, so one browser pixel is 2 counts, less one count per event and axis because both ends cut the fraction. **The cut matters**: 1 pixel arrives as 1 count, 10 pixels as 19, so slow aiming would be half speed. The game now takes the stream's mouse events one by one and turns the counts back into browser pixels (`[MICloud] MouseScale=0.5`, `MouseTruncation=1`; launch options `-MIMouseScale=`, `-MIMouseTruncation=`; printed in the `[MICloud]` start lines), and drops one event beyond 400 pixels (the web game's pointer-lock spike filter). Only while streamed | Stream: 100 events of 5 px turned 60.1606 degrees (500 px x 0.0021 rad is 60.1606), 200 events of 1 px turned 24.0642 (12.03 without putting the count back), 150 events of (-3, +2) px turned -54.1445 and -36.0963; single events of 600 px and 450 px dropped (`spikes=2`); with Sensitivity clicked down to 0.90, 200 px turned 21.658. Desktop unchanged: 300 counts are 36.096 degrees in `Player.ControllerPad`, the number of version 2 |
+| A2 no look on a gamepad | Right-stick look with the web game's numbers (dead zone 0.14, curve, 166 degrees a second, pitch 62 %, turn boost 1.75 after 0.45 s at the rim), triggers from their axes (a browser sends them only as axes), left stick with its dead zone, L3 sprint latch, the device in use from the last real input. Found on the way: the game viewport hands the right stick's Y over negated (stick up looked down, and the weapon wheel picked the opposite slot) | Stream, Sensitivity 1.00: full right stick for one second (the test client held it about 1.005 s) turned **265.76 degrees**; the web game's own functions give 263.78 for exactly 60 frames, and a frame more at the full rate adds 4.85. Stick up raised the view; the trigger axis fired; a key made the keyboard the device again. Tests: `Input.PadLook` (263.775 at 60 frames a second, 264.775 at 30), `Player.ControllerPad` |
+| A3 cards not clickable | Pause, Settings, Dead and Debrief take clicks and hover; the halves of an adjustable row change its value; one hint line under the items. Found on the way: the game-only input mode swallowed the click that takes the mouse capture, so no click on a card reached the game | Stream: hover highlights, clicks logged with their row, Sensitivity, volume and weapon position changed by halves, Close and Resume, and Resume fired no shot (30 rounds before and after). The set-up screens by mouse too: the card, Hit the block, Next three times, Hit the block, into the run, P, Settings, Close, P. Tests: `UI.CardHitTest`, `Run.MenuMouse` |
+| A4 Graphics quality side effects | In a stream the Quality row moves the scalability groups only: output resolution, render resolution, the frame cap and the cloud profile stay | Test: `Cloud.Quality` (`t.MaxFPS`, the resolution and a cloud-profile setting unchanged after every level). Stream: four clicks on the row logged "Graphics quality: 0" to "3 (scalability groups only ...)" and the received picture stayed 1920 x 1080. **The frame cap was not read in the stream**: another agent's game shared the GPU in that run (22 to 25 frames a second throughout), so the frame rate says nothing |
+| A5 click card for a guest | The card shows for the first viewer and after everybody left | Stream: a second viewer joined, the log said so, `click=0 viewers=2`. Test: `Cloud.Viewers` |
+| A6 viewer console and debug commands | Pixel Streaming's console-command handler replaced through its own API (`SetCommandHandler("ConsoleCommand")`): only `PixelStreaming2.` and `PixelStreaming.` commands run, anything else is refused and logged once per session. `MIShot`, `MIAudio.Record`, `MIInput`, `MIMenu`, `MIStart`, `MIFaceEnemy`, `-MICrashTest` and `-MICloudLog` are compiled out of Shipping | Stream: `MIShot <file>` refused and the file not written, `t.MaxFPS 20` refused (the game stayed at 60), `PixelStreaming2.WebRTC.MaxBitrate` ran (`cmdRun=1 cmdRefused=2`). Shipping compiled and linked; **not run**: that the commands are gone from Shipping is read from the source, not tried |
+| A7 card text | "No sound? Click the speaker at the bottom right." | Seen in a received frame |
+| Controller path (owner, after version 2) | Played controller-only through the stream, which showed: a browser sends a held button again every frame as a repeat, so one tap of A acted about six times on a set-up screen and the Start that began a run paused it at once; a stick arrives as axes only, so it did nothing in a menu; the HUD named keyboard keys. Now: a gamepad's repeats stop before any screen sees them; the left stick presses the menu keys with the web game's timing; the weapon bar, the grab prompt, the cards' hint, the pause line and the set-up screens name the controller's buttons while a controller is in use; Settings has a **Controller** row (Xbox / PlayStation names: a streamed game cannot tell which pad it is, and the web game's "X" is Square on a PlayStation pad); no drawn mouse arrow for a controller player; an input device mapping policy for Linux (without it the engine raised an ensure when a pad connected) | Stream, a first-time player, no mouse or key: A hid the card and pressed nothing else; Start five times went Home, Crew, Loadout, Block and Style, Briefing and into the run (`state` 1 then 2, not paused); stick and trigger looked and fired; Start paused ("START to resume"); the stick held down for 0.62 s moved three rows; A opened Settings; the Controller row set to PlayStation changed the hint to "Cross select", the line to "OPTIONS to resume" and the bar to "CREATE" and "R1"; B went back; Start resumed. The bar named the controller's buttons from the first frame of the run, and Home and the Briefing listed the controller's controls. Tests: `Input.PadMenu`, `Player.ControllerPad`, `Run.MenuMouse` |
+
+**Still open, said plainly:**
+
+- A whole Story run and a Hold the Block run were **not** played through the stream (the owner's point 4), and the
+  Dead and Debrief cards were not reached with a controller in a stream (same card code as Pause; tests reach them).
+- The delay between hand and picture was not measured here (the owner's point 2).
+- Sound still needs one click on the page: a browser's rule, which a controller press may not satisfy.
+- The weapon bar still numbers its slots 1 to 4 for a controller player (the D-pad's left and right pick 1 and 2,
+  Y swaps, holding Y opens the wheel); the web game shows arrows there, which the HUD's font may not have.
+- The Controller row's own words ("Controller", "Xbox", "PlayStation") are in the code, not in the copy deck.
+- One mouse event beyond half the player's width wraps in Pixel Streaming's 16-bit field and can arrive small
+  (3,000 px arrived as -480 counts): the spike filter cannot see such an event.
+- With `-MICloud` on a desktop the stream's mouse path applies (scale 0.5): `xtest.py` numbers from version 2 no
+  longer hold there.
+- E3DS's field "Unreal console commands to run at start" now takes only the stream's own settings (LAUNCH.md 7).
+
 ## The stream itself, received on the box (2026-11-24, 22:20 UTC)
 
 The box cannot run a browser viewer (Chrome gathers no ICE candidates in this sandbox), but a Python WebRTC client
