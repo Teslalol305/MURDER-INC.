@@ -49,6 +49,7 @@ namespace MISessionTestsPrivate
 		S.bHadViewer = bHad;
 		S.SecondsSinceChange = SinceChange;
 		S.SecondsSinceStart = SinceStart;
+		S.SecondsSinceReady = SinceStart;
 		S.LauncherGoneFor = LauncherGone;
 		return S;
 	}
@@ -119,6 +120,21 @@ bool FMICloudSessionDecisionTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("599.9 s: idles, does not quit"), Before(599.9) == EAction::Idle);
 		TestTrue(TEXT("600 s: quits"), Before(600.0) == EAction::Exit);
 		TestTrue(TEXT("the reason is named"), FMISession::Decide(O, State(0, false, 700.0, 700.0)).Why == EWhy::NeverConnected);
+	}
+	// A cold start: the process is minutes old when the game becomes streamed; its start-up grace counts from there.
+	{
+		FMISession::FState S = State(0, false, 40.0, 40.0);
+		S.SecondsSinceReady = 3.0;
+		TestTrue(TEXT("40 s after the process's start but 3 s after the game became streamed: still starting up, keeps drawing"), FMISession::Decide(O, S).Action == EAction::Keep);
+		S.SecondsSinceReady = 10.0;
+		TestTrue(TEXT("10 s after it became streamed: idles"), FMISession::Decide(O, S).Action == EAction::Idle);
+		FMISessionClock C;
+		C.Start(0.0);
+		TestEqual(TEXT("a clock that was never told the game is ready counts from the process's start"), C.Snapshot(25.0).SecondsSinceReady, 25.0);
+		C.MarkReady(20.0);
+		TestEqual(TEXT("... and one that was counts from the mark"), C.Snapshot(25.0).SecondsSinceReady, 5.0);
+		TestTrue(TEXT("a game 5 s after it became streamed: keeps drawing"), Decide(O, C, 25.0).Action == EAction::Keep);
+		TestTrue(TEXT("a game 11 s after it became streamed: idles"), Decide(O, C, 31.0).Action == EAction::Idle);
 	}
 	// The launcher: gone for 5 s ends the game, even with a viewer (its own watchdog does the same from outside).
 	{

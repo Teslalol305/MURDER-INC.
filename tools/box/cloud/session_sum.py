@@ -13,7 +13,13 @@
 #
 #   python3 session_sum.py <run folder> --phases
 #
-# one row per "say PHASE <name>" line of the viewer's script (view.log): the viewer's phase is laid on the game's clock
+#   python3 session_sum.py <run folder> --gpu
+#
+# the GPU's own utilisation (others.log: nvidia-smi once a second, the whole card, the game alone on it) between the
+# session lines of the game that carry the clock ("(game time 12.3 s, 12:37:51 UTC)": Viewer joined, Connection lost,
+# Nobody is watching, Back at full speed, Session over): the proof that an idle game costs the card almost nothing.
+#
+# --phases: one row per "say PHASE <name>" line of the viewer's script (view.log): the viewer's phase is laid on the game's clock
 # by the game's "Viewer joined (game time X s)" line and the viewer's "connection connected" time (good to about a
 # second), and the frames the viewer received a second in that phase come from its own "frames N" lines (every 5 s).
 import os
@@ -55,8 +61,29 @@ print(f'{os.path.basename(os.path.normpath(run))}: {len(probes)} probe lines; re
 if verbose:
     for i, p in enumerate(probes):
         print(i, ' '.join(f'{k}={p[k]:g}' for k in ['up'] + FIELDS if k in p))
+if '--gpu' in sys.argv:
+    def secs(h, m, sec):
+        return int(h) * 3600 + int(m) * 60 + int(sec)
+
+    events = []
+    for l in log.splitlines():
+        m = re.search(r'\(game time ([\d.]+) s, (\d\d):(\d\d):(\d\d) UTC\)', l)
+        if not m:
+            continue
+        for key, name in (('Viewer joined', 'a viewer joined'), ('Connection lost', 'the viewer left'), ('Nobody is watching', 'idle starts'),
+                          ('Back at full speed', 'idle ends'), ('Session over', 'the game quits')):
+            if key in l:
+                events.append((secs(*m.groups()[1:]), name, float(m.group(1))))
+    util = [(secs(*m.groups()[:3]), int(m.group(4)), int(m.group(5))) for m in
+            re.finditer(r'^(\d\d):(\d\d):(\d\d) others=\d+ util=(\d+) mem=(\d+)', read(f'{run}/others.log'), re.M)]
+    events.sort()
+    print('events (clock, game time):', '; '.join(f'{name} {t // 3600:02d}:{t // 60 % 60:02d}:{t % 60:02d} ({up:.1f} s)' for t, name, up in events))
+    for (t0, n0, _), (t1, n1, _) in zip(events, events[1:]):
+        w = [u for t, u, m in util if t0 + 1 <= t <= t1 - 1]
+        if len(w) >= 3:
+            print(f'  GPU utilisation from "{n0}" to "{n1}": {len(w)} s, mean {sum(w) / len(w):.1f} %, highest {max(w)} %, lowest {min(w)} %')
 wins = [w for w in args[1:] if ':' in w]
-if not wins and '--phases' not in sys.argv:
+if not wins and '--phases' not in sys.argv and '--gpu' not in sys.argv:
     print(row('whole run', probes))
 if '--phases' in sys.argv:
     view = read(f'{run}/view.log')

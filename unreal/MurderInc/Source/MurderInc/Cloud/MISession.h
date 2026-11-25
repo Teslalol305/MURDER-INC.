@@ -57,8 +57,9 @@ struct MURDERINC_API FMISession
 		/** Frames a second while idle (0: the game never idles). */
 		int32 IdleFps = 2;
 		/**
-		 * The game is never idled in the first seconds of its life while nobody has come yet: it is loading, compiling
-		 * shaders and streaming textures then, and a first viewer should find it ready.
+		 * The game is never idled in its first seconds as a streamed game while nobody has come yet: it is building its
+		 * screens, compiling shaders and streaming textures then, and a first viewer should find it ready. Counted from
+		 * the moment the game became streamed (a cold start takes seconds to get there), not from the process's start.
 		 */
 		double IdleStartupGrace = 10.0;
 		/** Seconds after the last viewer left before the game quits (0: never). */
@@ -80,6 +81,8 @@ struct MURDERINC_API FMISession
 		double SecondsSinceChange = 0.0;
 		/** Seconds since the process started. */
 		double SecondsSinceStart = 0.0;
+		/** Seconds since the game became streamed and began to look after its session (SecondsSinceStart if it never said). */
+		double SecondsSinceReady = 0.0;
 		/** Seconds the launcher has been gone; below 0: it is there, or nobody watches it. */
 		double LauncherGoneFor = -1.0;
 	};
@@ -110,9 +113,12 @@ struct MURDERINC_API FMISessionClock
 	void Start(double Now)
 	{
 		ProcessStart = Changed = Now;
+		Ready = -1.0;
 		Viewers = 0;
 		bHadViewer = false;
 	}
+	/** The game became streamed and began to look after its session: its start-up grace counts from here. */
+	void MarkReady(double Now) { Ready = Now; }
 	/** A viewer joined: whoever was counting down stops. */
 	void Joined(double Now)
 	{
@@ -142,12 +148,13 @@ struct MURDERINC_API FMISessionClock
 		S.bHadViewer = bHadViewer;
 		S.SecondsSinceChange = FMath::Max(0.0, Now - Changed);
 		S.SecondsSinceStart = FMath::Max(0.0, Now - ProcessStart);
+		S.SecondsSinceReady = FMath::Max(0.0, Now - (Ready >= 0.0 ? Ready : ProcessStart));
 		S.LauncherGoneFor = LauncherGoneFor;
 		return S;
 	}
 
 private:
-	double ProcessStart = 0.0, Changed = 0.0;
+	double ProcessStart = 0.0, Changed = 0.0, Ready = -1.0;
 	int32 Viewers = 0;
 	bool bHadViewer = false;
 };
@@ -155,10 +162,11 @@ private:
 /**
  * Whether the launcher that started the game is still there. The launcher gives the game its own process id
  * (-MILauncherPid=<pid>); the game looks at it every PollEvery seconds. Pure logic: UMICloudSubsystem does the looking
- * (ProbeProcess) and feeds the answer.
+ * (MIProbeProcess) and feeds the answer; FMISession::Decide says what a launcher that has been gone for so long means.
  *
- * Careful in both directions. A launcher that is gone leaves a game that nobody can stop, so after GoneAfter seconds the
- * game quits (the launcher's own watchdog does the same from the other side). But a game must never quit because a
+ * Careful in both directions. A launcher that is gone leaves a game that nobody can stop, so after
+ * FMISession::FOptions::LauncherGoneAfter seconds (5) the game quits (the launcher's own watchdog does the same from
+ * the other side). But a game must never quit because a
  * process id means nothing to it (a launcher in another process namespace, a /proc that hides other users' processes):
  * the watch starts only when the launcher has been seen alive, and an answer of "cannot tell" is "alive". A zombie (the
  * launcher was killed and nobody collected it) and a process id taken by another process since are "gone".
@@ -176,7 +184,6 @@ struct MURDERINC_API FMILauncherWatch
 	};
 
 	double PollEvery = 2.0;
-	double GoneAfter = 5.0;
 
 	/** True when the launcher should be looked at now (every PollEvery seconds, from the start). */
 	bool IsDue(double Now) const { return bWatching && Now >= NextPoll; }

@@ -53,7 +53,7 @@ FMISession::FDecision FMISession::Decide(const FOptions& O, const FState& S)
 		return D;
 	}
 	// Idle: nobody for IdleAfter seconds. Before the first viewer the game gets its first seconds to start up.
-	const bool bStartingUp = !S.bHadViewer && S.SecondsSinceStart < O.IdleStartupGrace;
+	const bool bStartingUp = !S.bHadViewer && S.SecondsSinceReady < O.IdleStartupGrace;
 	if (O.IdleFps > 0 && !bStartingUp && S.SecondsSinceChange >= O.IdleAfter)
 	{
 		D.Action = EAction::Idle;

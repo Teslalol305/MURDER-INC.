@@ -327,8 +327,9 @@ private:
 	FMISessionClock SessionClock;
 	FMILauncherWatch LauncherWatch;
 	uint64 LauncherStartTime = 0;
+	double LauncherGoneAfter = 5.0;
 	bool bSessionStarted = false;
-	bool bIdle = false, bExitRequested = false, bKeptAliveLogged = false;
+	bool bIdle = false, bExitRequested = false;
 	double IdleSince = 0.0, IdleFrameAt = 0.0;
 	int32 IdleFrames = 0, ViewerEventsHandled = 0;
 	FString SavedDynamicResMax;

@@ -54,6 +54,7 @@
 #include <cstdio>
 #if PLATFORM_LINUX && !WITH_EDITOR
 #include <csignal>
+#include <chrono>
 #include <cstdlib>
 #include <thread>
 #include <unistd.h>
@@ -170,6 +171,12 @@ namespace MICloudPrivate
 		return FPlatformTime::Seconds() - (GStartTime > 0.0 ? GStartTime : FPlatformTime::Seconds());
 	}
 
+	/** "game time 12.3 s, 12:37:51 UTC": the uptime and the clock, for a log that has no time stamps and a box that has other clocks (the GPU's record is by the clock). */
+	FString Stamp()
+	{
+		return FString::Printf(TEXT("game time %.1f s, %s UTC"), Uptime(), *FDateTime::UtcNow().ToString(TEXT("%H:%M:%S")));
+	}
+
 	/** A launch option "-Name=value" sets a console variable of this family (the same variable -MICVars reaches). */
 	void ApplyLaunchOption(const TCHAR* CommandLine, const TCHAR* Option, const TCHAR* VariableName)
 	{
@@ -268,7 +275,7 @@ namespace MICloudPrivate
 #if PLATFORM_LINUX && !WITH_EDITOR
 		std::thread([Seconds]
 		{
-			FPlatformProcess::Sleep((float)Seconds);
+			std::this_thread::sleep_for(std::chrono::duration<double>(Seconds));
 			printf("[MICloud] Exit: the shutdown took over %.0f s: ending the process (exit code 0)\n", Seconds);
 			fflush(nullptr);
 			_exit(0);
@@ -933,7 +940,7 @@ void UMICloudSubsystem::OnViewerJoined()
 	if (Viewers.Join())
 	{
 		bWaitingForClick = !FParse::Param(FCommandLine::Get(), TEXT("MICloudNoCard"));
-		MICloudPrivate::Line(FString::Printf(TEXT("Viewer joined: click to play (game time %.1f s)"), MICloudPrivate::Uptime()));
+		MICloudPrivate::Line(FString::Printf(TEXT("Viewer joined: click to play (%s)"), *MICloudPrivate::Stamp()));
 	}
 	else
 	{
@@ -976,7 +983,7 @@ void UMICloudSubsystem::OnAllViewersLeft()
 #endif
 	const UGameInstance* GI = GetGameInstance();
 	ReleaseForLeave(MICloudPrivate::Game(GI), GI ? Cast<AMIPlayerController>(GI->GetFirstLocalPlayerController()) : nullptr);
-	MICloudPrivate::Line(FString::Printf(TEXT("Connection lost: the game is paused until a viewer joins, and what the viewer held is let go (game time %.1f s)"), MICloudPrivate::Uptime()));
+	MICloudPrivate::Line(FString::Printf(TEXT("Connection lost: the game is paused until a viewer joins, and what the viewer held is let go (%s)"), *MICloudPrivate::Stamp()));
 }
 
 void UMICloudSubsystem::EnsureOverlay()
@@ -1302,6 +1309,7 @@ void UMICloudSubsystem::StartSession()
 		return;
 	}
 	bSessionStarted = true;
+	SessionClock.MarkReady(FPlatformTime::Seconds());
 	const TCHAR* Cmd = FCommandLine::Get();
 	// The launch options reach the same console variables -MICVars= and the console reach.
 	MICloudPrivate::ApplyLaunchOption(Cmd, TEXT("MIIdleFps="), TEXT("MI.Cloud.IdleFps"));
@@ -1325,6 +1333,7 @@ void UMICloudSubsystem::StartSession()
 		LauncherWatch.Start(Pid, FPlatformTime::Seconds());
 	}
 	const FMISession::FOptions O = ReadSessionOptions(true);
+	LauncherGoneAfter = O.LauncherGoneAfter;
 	MICloudPrivate::Line(FString::Printf(TEXT("Session: %s"),
 		O.bKeepAlive ? TEXT("-MIKeepAlive: the game keeps drawing and never quits by itself")
 			: *FString::Printf(TEXT("no viewer for %.1f s: idle at %s; the last viewer gone for %s: quit; no viewer in %s after the start: quit; launcher %s (MI.Cloud.IdleAfter, IdleFps, ExitAfterEmpty, ExitIfNoViewer)"),
@@ -1356,7 +1365,7 @@ void UMICloudSubsystem::TickSession()
 		}
 		else if (!bWasGone && LauncherWatch.GetGoneFor(Now) >= 0.0)
 		{
-			MICloudPrivate::Line(FString::Printf(TEXT("Launcher: process %d is gone; the game quits if it stays gone for %.0f s"), LauncherWatch.GetPid(), LauncherWatch.GoneAfter));
+			MICloudPrivate::Line(FString::Printf(TEXT("Launcher: process %d is gone; the game quits if it stays gone for %.0f s"), LauncherWatch.GetPid(), LauncherGoneAfter));
 		}
 	}
 	const FMISession::FOptions O = ReadSessionOptions(true);
@@ -1388,11 +1397,6 @@ void UMICloudSubsystem::TickSession()
 	{
 		LeaveIdle(TEXT("the session is live again"));
 	}
-	if (D.Why == FMISession::EWhy::KeepAlive && !bKeptAliveLogged)
-	{
-		bKeptAliveLogged = true;
-		MICloudPrivate::Line(TEXT("Session: -MIKeepAlive: this game never idles and never quits by itself"));
-	}
 	LastWhy = D.Why;
 }
 
@@ -1411,7 +1415,7 @@ void UMICloudSubsystem::EnterIdle(const FString& Why)
 		SavedDynamicResMax = Max->GetString();
 		bDynamicResClamped = MICloudPrivate::SetAsProfile(TEXT("r.DynamicRes.MaxScreenPercentage"), Min->GetString());
 	}
-	MICloudPrivate::Line(FString::Printf(TEXT("Nobody is watching: %s (game time %.1f s)"), *Why, MICloudPrivate::Uptime()));
+	MICloudPrivate::Line(FString::Printf(TEXT("Nobody is watching: %s (%s)"), *Why, *MICloudPrivate::Stamp()));
 }
 
 void UMICloudSubsystem::LeaveIdle(const TCHAR* Why)
@@ -1431,7 +1435,7 @@ void UMICloudSubsystem::LeaveIdle(const TCHAR* Why)
 	GovGpuSum = 0.0;
 	GovFrames = 0;
 	IdleFrameAt = 0.0;
-	MICloudPrivate::Line(FString::Printf(TEXT("Back at full speed (%s) after %.1f s and %d idle frames (game time %.1f s)"), Why, FPlatformTime::Seconds() - IdleSince, IdleFrames, MICloudPrivate::Uptime()));
+	MICloudPrivate::Line(FString::Printf(TEXT("Back at full speed (%s) after %.1f s and %d idle frames (%s)"), Why, FPlatformTime::Seconds() - IdleSince, IdleFrames, *MICloudPrivate::Stamp()));
 }
 
 void UMICloudSubsystem::SleepIdle(int32 Fps)
@@ -1464,7 +1468,7 @@ void UMICloudSubsystem::RequestSessionExit(const FString& Why)
 	{
 		LeaveIdle(TEXT("the session is over"));
 	}
-	MICloudPrivate::Line(FString::Printf(TEXT("Session over: %s. The game quits now (exit code 0). (game time %.1f s)"), *Why, MICloudPrivate::Uptime()));
+	MICloudPrivate::Line(FString::Printf(TEXT("Session over: %s. The game quits now (exit code 0). (%s)"), *Why, *MICloudPrivate::Stamp()));
 	FPlatformMisc::RequestExit(false);
 	MICloudPrivate::ArmShutdownWatchdog(30.0);
 }
