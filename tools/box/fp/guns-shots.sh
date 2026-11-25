@@ -13,6 +13,8 @@
 #   OPTICS="chopper=scope_4x shorty=red_dot"    gun=part pairs fitted before the run (default: none, the irons)
 #   MUZZLES="stretch=suppressor"               gun=part pairs for the muzzle slot; MAGS="shorty=mag_ext_rifle" for the magazine
 #   FITS="shorty=laser:laser_module stretch=underbarrel:foregrip_vertical"   gun=slot:part for any other slot
+#   SHOULDERS="chopper=2,1.1,-12.4 stretch=4,1.1,-12.4"   gun=x,y,z: the arms' shoulders under the eye for that gun (console
+#                                              mi.FP.Shoulders; without an entry the data's own value is used)
 #   ONLY="chopper:aim shorty:fire"             only those gun:picture pairs (the set-up and the poses still run)
 out=${1:-}
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
@@ -57,6 +59,7 @@ tail -n +"$mark" "$log" | grep -E "Set-up:|First person:" | tail -8 | cut -c1-26
 slot=1
 for g in $guns; do
   c "MIInput weapon$slot 1"; run 1.0; c "MIInput weapon$slot 0"
+  sh=$(pick "$g" "${SHOULDERS:-}"); if [ -n "$sh" ]; then c "mi.FP.Shoulders \"${sh//,/ }\""; else c "mi.FP.Shoulders data"; fi
   # hip, in the sun on the north lane, then under the El
   c "MIPose 170 -380 0 -35 -4"; run 1.2; want $g hip-sun && shot $g hip-sun
   c "MIPose -2900 80 0 0 -3"; run 1.2; want $g hip-el && shot $g hip-el
