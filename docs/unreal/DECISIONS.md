@@ -504,3 +504,17 @@ The queue and its load generator (`gpu_hog.py`) were stopped by hand. What the 2
 under the same load: 35.3, so no change); load 35 ms: 28.9; the same with the process limited to six CPUs: 30.4 and 29.3; the
 Development game's Story run under the 35 ms load: 30.0; the pad-only proof 60.0 with a worst frame of 25 ms; the input and
 console-command checks ran. Nothing showed a stall or a rule change. These are the numbers the next gate compares with.
+
+**Sound work paused until the guns release is out (2026-11-25, 14:18 UTC), at the owner's request.** The owner said: "dont let
+the sound build delay, we can work on the sound after the other part is finished". The sound-fix job (workflow
+`tools/workflows/mi-sound-fixes.js`, the review's findings in `docs/unreal/sound_review_3b.json`) was stopped and its
+half-finished edits were taken OUT of the branch head so that nothing of them can break or delay the weapons and 3c
+builds that others make from it: they are kept in history as `17da1c7` and `9b0b3a1` (the engineer's two work-in-progress
+states) and taken out again by the revert commits `c8801f7` and `fe9dafe`. **To resume the sound work:** `git revert c8801f7
+fe9dafe` brings those edits back (the audio director's voice limit, the Goons' footsteps, the mixer pace in the probe
+line, the package guard, sync.sh), then run the workflow again (it re-reads the findings). The measuring tools it added
+before (`rtcaudio.py`, `rtcinput.py` stereo answer, `music_phase.py`) stay in the branch; they change no game file. Release
+v6 therefore carries the version 3b sound as it stands (two known faults, listed in the findings), is NOT gated on it, and
+the lead can silence it from E3DS's launch options with `-nosound` if the owner prefers silence; the release workflow
+`tools/workflows/mi-release-v6.js` says so to its engineer. E3DS's own test server was stuck on the 3b upload at the
+same time (see the entry above): the new package is uploaded once, and only the weapons package.
