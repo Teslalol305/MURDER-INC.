@@ -1224,9 +1224,10 @@ void UMICloudSubsystem::Probe(float DeltaTime)
 	{
 		// The stream as its sender measures it: frames captured, encoded and sent a second, the encoder's QP, the bitrate
 		// sent and the bitrate the connection is thought to carry (a low one makes WebRTC drop frames), the encode time.
-		Out += FString::Printf(TEXT(" capFps=%.0f encFps=%.0f txFps=%.0f qp=%.0f mbps=%.2f availMbps=%.2f encMs=%.1f rttMs=%.0f"),
+		Out += FString::Printf(TEXT(" capFps=%.0f encFps=%.0f txFps=%.0f qp=%.0f mbps=%.2f availMbps=%.2f encMs=%.1f capToSendMs=%.0f rttMs=%.0f"),
 			StreamStat(TEXT("captureFps")), StreamStat(TEXT("encodeFps")), Tx, StreamStat(TEXT("qp")), StreamStat(TEXT("bitrateMbits"), -1.0, true),
-			StreamStat(TEXT("availableOutgoingBitrate"), -1e6, true) / 1e6, StreamStat(TEXT("encodeTime")), StreamStat(TEXT("roundTripTime"), -0.001) * 1000.0);
+			StreamStat(TEXT("availableOutgoingBitrate"), -1e6, true) / 1e6, StreamStat(TEXT("encodeTime")), StreamStat(TEXT("captureToSend")),
+			StreamStat(TEXT("roundTripTime"), -0.001) * 1000.0);
 	}
 	Out += FString::Printf(TEXT(" rssMB=%llu peakRssMB=%llu texStreamMB=%llu texOtherMB=%llu poolMB=%lld yaw=%.4f pitch=%.4f state=%d click=%d bb=%lld pushed=%lld viewers=%d spikes=%d pad=%d cmdRun=%d cmdRefused=%d padRepeats=%d stickKeys=%d"),
 		(unsigned long long)(M.UsedPhysical >> 20), (unsigned long long)(M.PeakUsedPhysical >> 20),
