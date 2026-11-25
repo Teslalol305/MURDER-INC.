@@ -62,6 +62,19 @@ meshes above; compatibility chopper optic [red_dot, scope_4x], muzzle [suppresso
 Where the measured guns differ from the specification's numbers (the CHOPPER's grip clamps the stock plate, the laser is tilted 1 deg, the compensator recess
 is 12.6 deep, the NINE magazine is modelled about the socket): `art/blender/PROGRESS.md` ("Where the measured guns decided against the specification").
 
+**Verifier pass on the parts kit (2026-11-25, 14:15 to 14:50 UTC).** Checked, not rebuilt. On the final files: `_weapons_check.py` (the CHOPPER and the NINE
+ALL FIXED POINTS KEPT), `_weapons_check_parts.py` (153 checks, ALL MOUNTS KEPT), and checks of its own: every part file is closed shells (no open or non-manifold
+edge, no zero-area triangle), UVs inside 0..1, the slots, the 2048 maps (BC N ORM E and BC N ORM), and every pair of parts of different slots on one gun (54
+pairs: 25 SHORTY, 13 STRETCH, 8 CHOPPER, 5 RATTLER, 3 NINE) crosses nothing. **One fault found and fixed:** on the SHORTY the **angled grip and the laser module
+crossed** (277 triangle pairs): the Workbench allows both, the grip's 55 mm plate and thumb shelf reached X +28 in its frame and the laser's rear face stands at
++23.2 (the sockets are 48 mm apart on the forend's rail). `foregrip_angled` now has a 47.5 mm plate and its front ramp and shelf stop at X +19.5 above Z -29.7
+(the laser's floor): 0 crossings, 6.3 mm gap (the vertical grip's: 6.5 mm), 2,380 triangles (was 2,364), the proof still 153 of 153. The set was unwrapped again,
+so the nine hardware parts, `Weapon_Parts`, their manifest records and the 12 pips were replaced together (the rebuild ran in a copy of the pipeline and was
+swapped in file by file); `fp-weapons-parts.tar`, `fp-weapons-mounts.tar` and `fp-weapons-r4-parts.tar` were packed again. **The `fp-weapons-r4-parts.tar` made at
+14:25 predates the final 2K bake (14:26) and the reticle plane (14:36): use one packed after 14:45.** Left as measured, not faults of the files: the clear half
+angle through the tube is 4.0 deg in both optics (above); the wooden grip is 4,092 and the scope 12,040 triangles against budgets of 4,000 and 12,000 (+2.3 % and
++0.3 %); the hardware set's texel density is 3,266 px/m, the magazines' 3,866 (the guns': 7,000 to 9,000).
+
 ## Weapons round 4: the SHORTY, our own bullpup carbine (weapons modeler, 2026-11-25, 12:20 to 13:55 UTC)
 
 The owner's report on the E3DS build, "all the guns look the same and no attachments are able to be added to the guns", is the
