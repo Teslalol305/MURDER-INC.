@@ -587,9 +587,12 @@ The generator must check that each intended leg is **at least 10 % shorter** tha
 
 ### 7.4 Hint lines (shown after no progress; the guidance lane's timing)
 
+The hints are keyed by objective id (`guide.hints` {reel4, reel5, reel6, extraction}) and say where the target is from
+anywhere, because the player may take the reels in any order. The guidance targets the nearest unsecured reel.
+
 - Reel 4: "Reel 4's on a table outside the market. South side of Canal."
 - Reel 5: "Back of the market. The cold room, by the west wall."
-- Reel 6: "Out the market's back door, down the alley to Mott. The dub room's shutter is up."
+- Reel 6: "The dub room's at the south end of Mott St. Its shutter's the only one up."
 - Extraction: "The truck's at the east end of Canal. Cut through the arcade off the square."
 
 ---------------------------------------------------------------------------------------------------
