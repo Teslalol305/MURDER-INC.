@@ -6,6 +6,10 @@
 //   MurderInc.Player.SwitchEveryWay   keys 1-4 and the number pad, the wheel, the D-pad, Q / Y; and, with four guns,
 //                                     a switch while reloading, aimed, firing, sprinting, right after the rifle butt,
 //                                     a press while paused (ignored) and after the resume, after a death and Run it back.
+//   MurderInc.FirstPerson.SwitchSurvivesGC   switching between the pack gun (the STICK) and the hand-IK guns with the
+//                                     garbage collector run after every switch: every clip an anim instance of the player
+//                                     may still evaluate survives it (version 4 crashed here: SIGSEGV in the hidden pack
+//                                     gun's animation about a minute into play, the first collection after a switch).
 
 #include "Engine/Engine.h"
 #include "Engine/LocalPlayer.h"
@@ -20,6 +24,10 @@
 #include "Tests/MITestUtil.h"
 #include "UI/MIFrontEnd.h"
 #include "Weapons/MIWeaponComponent.h"
+#include "Weapons/MIFirstPersonAnim.h"
+#include "Weapons/MIFirstPersonRig.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "UObject/UObjectGlobals.h"
 
 #if WITH_AUTOMATION_TESTS
 
@@ -325,15 +333,18 @@ bool FMISwitchEveryWayTest::RunTest(const FString& Parameters)
 			Expect(*this, W, 1, TEXT("key 2 during the rifle butt (goes through when the strike is over)"));
 		}
 		{
-			W.Game->PauseKey();
-			W.Step();
+			// The P key pauses and resumes, as a player does it. (A world made by a test has no game mode, so the engine's
+			// own pause does not stop the input here as it does in the game: the presses below do reach the controller,
+			// and the resume must still drop them.)
+			P.Tap(EKeys::P);
 			TestEqual(TEXT("paused"), (int32)W.State(), (int32)EMIGameState::Paused);
 			P.Tap(EKeys::Three);
 			P.Notch(EKeys::MouseScrollDown);
-			for (int32 I = 0; I < 120 && W.State() == EMIGameState::Paused; ++I)
+			TestEqual(TEXT("a press on the pause card changes no gun"), R.GetCurrentIndex(), 1);
+			for (int32 I = 0; I < 40 && W.State() == EMIGameState::Paused; ++I)
 			{
-				W.Game->PauseKey();  // the pause key again, once its debounce allows
-				W.Step();
+				P.Tap(EKeys::P);  // again, once the pause's debounce allows
+				for (int32 J = 0; J < 4; ++J) W.Step();
 			}
 			TestEqual(TEXT("resumed"), (int32)W.State(), (int32)EMIGameState::Playing);
 			Settle(W);
@@ -364,6 +375,102 @@ bool FMISwitchEveryWayTest::RunTest(const FString& Parameters)
 				Settle(W);
 				Expect(*this, W, 0, TEXT("wheel down after Run it back"));
 			}
+		}
+	}
+	return !HasAnyErrors();
+}
+
+namespace MISwitchPlayPrivate
+{
+	/** Every clip that a first-person anim instance on the player holds in its pose, as weak pointers. */
+	TArray<TWeakObjectPtr<UAnimSequenceBase>> PoseClips(const FWorld& W, int32& Instances)
+	{
+		TArray<TWeakObjectPtr<UAnimSequenceBase>> Out;
+		TArray<USkeletalMeshComponent*> Meshes;
+		W.Player->GetComponents<USkeletalMeshComponent>(Meshes);
+		Instances = 0;
+		for (const USkeletalMeshComponent* M : Meshes)
+		{
+			if (const UMIFPAnimInstance* A = Cast<UMIFPAnimInstance>(M->GetAnimInstance()))
+			{
+				++Instances;
+				for (const FMIFPLayer& L : A->GetPending().Layers)
+				{
+					if (L.Clip) Out.AddUnique(const_cast<UAnimSequenceBase*>(L.Clip));
+				}
+			}
+		}
+		return Out;
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMISwitchSurvivesGCTest, "MurderInc.FirstPerson.SwitchSurvivesGC", MITest::Flags)
+
+bool FMISwitchSurvivesGCTest::RunTest(const FString& Parameters)
+{
+	using namespace MISwitchPlayPrivate;
+	FWorld W;
+	if (!W.Start(*this, {TEXT("stick"), TEXT("rattler"), TEXT("nine"), TEXT("chopper")}))
+	{
+		return false;
+	}
+	FPad P(W);
+	if (!TestNotNull(TEXT("controller"), P.PC))
+	{
+		return false;
+	}
+	W.Player->GetPlayerRules().bInvulnerable = true;
+	const UMIFirstPersonRig* Rig = Weapon(W).GetFirstPersonRig();
+	Settle(W);
+	if (!Rig || Rig->GetMode() != EMIFPMode::Pack)
+	{
+		AddInfo(TEXT("The STICK is not drawn in pack mode here (the pack's art is not installed): nothing to check."));
+		return true;
+	}
+	const FKey Digits[] = {EKeys::One, EKeys::Two, EKeys::Three, EKeys::Four};
+	// Pack -> hand IK -> pack -> the pistol -> the CHOPPER -> pack -> hand IK, a collection after each.
+	for (const int32 Slot : {1, 0, 2, 3, 0, 1, 0})
+	{
+		P.Tap(Digits[Slot]);
+		Settle(W);
+		const FString What = FString::Printf(TEXT("slot %d (%s, mode %d)"), Slot + 1, *Weapon(W).GetRules().GetCurrentId().ToString(), (int32)Rig->GetMode());
+		Expect(*this, W, Slot, What);
+		int32 Instances = 0;
+		const TArray<TWeakObjectPtr<UAnimSequenceBase>> Before = PoseClips(W, Instances);
+		// The editor keeps every asset it loaded (RF_Standalone); a packaged game does not, and there an asset nothing
+		// references is freed by the next collection. The clips are made collectable as in the game, for this collection.
+		for (const TWeakObjectPtr<UAnimSequenceBase>& C : Before)
+		{
+			if (C.IsValid()) C->ClearFlags(RF_Standalone);
+		}
+		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS, true);
+		int32 Lost = 0;
+		for (const TWeakObjectPtr<UAnimSequenceBase>& C : Before)
+		{
+			if (C.IsValid()) C->SetFlags(RF_Standalone);
+			else ++Lost;
+		}
+		if (!TestEqual(*FString::Printf(TEXT("%s: every clip of the %d first-person pose(s) survives a collection"), *What, Instances), Lost, 0))
+		{
+			return false;  // the next evaluation would read a freed clip (version 4's crash): stop here
+		}
+		for (int32 I = 0; I < 10; ++I) W.Step();  // the poses are evaluated again after the collection
+	}
+	// The cost of holding the clips: SetPose on the arms' instance with its own pose (the rig calls it once a frame on the
+	// arms and once on the pack gun), timed.
+	TArray<USkeletalMeshComponent*> Meshes;
+	W.Player->GetComponents<USkeletalMeshComponent>(Meshes);
+	for (USkeletalMeshComponent* M : Meshes)
+	{
+		if (UMIFPAnimInstance* A = Cast<UMIFPAnimInstance>(M->GetAnimInstance()))
+		{
+			const FMIFPPose Pose = A->GetPending();
+			constexpr int32 N = 20000;
+			const double T0 = FPlatformTime::Seconds();
+			for (int32 I = 0; I < N; ++I) A->SetPose(Pose);
+			const double Us = (FPlatformTime::Seconds() - T0) / N * 1e6;
+			AddInfo(FString::Printf(TEXT("SetPose on %s (%d clips): %.3f us a call"), *M->GetName(), Pose.Layers.Num(), Us));
+			break;
 		}
 	}
 	return !HasAnyErrors();

@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimInstanceProxy.h"
+#include "Animation/AnimSequenceBase.h"
 #include "MIFirstPersonAnim.generated.h"
 
 class UAnimSequenceBase;
@@ -114,8 +115,23 @@ class MURDERINC_API UMIFPAnimInstance : public UAnimInstance
 	GENERATED_BODY()
 
 public:
-	/** The pose for the next evaluation (game thread). */
-	void SetPose(const FMIFPPose& InPose) { Pending = InPose; }
+	/** The pose for the next evaluation (game thread). The clips it names are held by this instance until the next pose:
+	 *  the rig lets go of a gun's clips when another gun is equipped (UMIFirstPersonRig::Equip, Loaded.Reset), and an
+	 *  instance that still holds that gun's pose (version 4: the hidden pack gun, which kept ticking) evaluated clips the
+	 *  garbage collector had freed: the SIGSEGV of a weapon switch about a minute into play (docs/unreal/PLAY.md, the
+	 *  switch lane). Reset keeps the array's memory: no allocation per frame. */
+	void SetPose(const FMIFPPose& InPose)
+	{
+		Pending = InPose;
+		HeldClips.Reset();
+		for (const FMIFPLayer& L : Pending.Layers)
+		{
+			if (L.Clip)
+			{
+				HeldClips.AddUnique(const_cast<UAnimSequenceBase*>(L.Clip));
+			}
+		}
+	}
 	const FMIFPPose& GetPending() const { return Pending; }
 	/** The hand (hand_l / hand_r) in component space as the clips posed it, before the IK (last evaluation). */
 	bool GetPreIKHand(FName Hand, FTransform& Out) const;
@@ -126,4 +142,7 @@ protected:
 
 private:
 	FMIFPPose Pending;
+	/** The clips of Pending, kept alive for the garbage collector (SetPose). */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UAnimSequenceBase>> HeldClips;
 };
