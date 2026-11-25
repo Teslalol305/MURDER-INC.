@@ -243,6 +243,21 @@ bool FMILoadoutResolver::ResolveGun(FName GunId, const FMIGunBuild* Build, const
 	{
 		Out.Presentation->SetStringField(TEXT("mesh"), Out.BaseMesh);
 	}
+	// The factory magazine the stage draws: the gun's own presentation.magazine {mesh, bone}, else its anim set's magazine
+	// {full, socket} (the same mesh the first-person rig seats), so the Workbench shows a longer magazine as a change.
+	{
+		FString Mag = MIJson::StringOr(Out.Presentation, TEXT("magazine.mesh"));
+		FString At = MIJson::StringOr(Out.Presentation, TEXT("magazine.bone"));
+		const FString SetName = MIJson::StringOr(Out.Presentation, TEXT("animSet"));
+		if (Mag.IsEmpty() && !SetName.IsEmpty() && Presentation.IsValid())
+		{
+			const FString Key = TEXT("firstPerson.animSets.") + SetName + TEXT(".magazine");
+			Mag = MIJson::StringOr(Presentation, Key + TEXT(".full"));
+			At = MIJson::StringOr(Presentation, Key + TEXT(".socket"));
+		}
+		Out.MagazineMesh = Mag;
+		Out.MagazineAttach = At.IsEmpty() ? NAME_None : FName(*At);
+	}
 	// 5. Parse once: the rules and the view from the same JSON, so they agree.
 	if (!UMIDataSubsystem::ParseGun(Out.Rules, Out.Extra, Out.Def, OutError) || !FMIViewmodelData::ParseGunView(Out.Presentation, Out.Rules, Out.View, OutError))
 	{

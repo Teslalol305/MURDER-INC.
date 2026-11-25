@@ -31,6 +31,8 @@ struct FMIResolvedGun
 	FMIWeaponDef Def;
 	FMIGunViewData View;
 	FString BaseMesh;       // the build's variant (the stock slot picks it)
+	FString MagazineMesh;   // the factory magazine the stage draws in the well (the anim set's magazine, or presentation.magazine)
+	FName MagazineAttach;   // the bone it rides (our guns: 'magazine', authored in the gun's space) or the socket it sits on (the pack's)
 	TArray<FMIResolvedPart> Parts;
 	bool bLaser = false;
 };

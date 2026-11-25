@@ -384,18 +384,11 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 		UseRealArms(true);
 		Arms->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 		Arms->SetAnimInstanceClass(UMIFPAnimInstance::StaticClass());
-		// The magazine on the gun's magazine bone (the rig drops and hides that bone in the reloads). The gun's own
-		// presentation.magazine {mesh, bone} wins over the anim set's (one set per gun, or one for several); a fitted
-		// magazine part is the seated magazine and rides the same bone, so no second one is made.
-		FName MagBone(*MIJson::StringOr(Set, TEXT("magazine.socket")));
-		FString MagPath = MIJson::StringOr(Set, TEXT("magazine.full"));
-		if (const FString OwnPath = MIJson::StringOr(P, TEXT("magazine.mesh")); !OwnPath.IsEmpty())
-		{
-			MagPath = OwnPath;
-			if (const FString OwnBone = MIJson::StringOr(P, TEXT("magazine.bone")); !OwnBone.IsEmpty()) MagBone = FName(*OwnBone);
-		}
+		// The magazine on the gun's magazine bone (the rig drops and hides that bone in the reloads). A fitted magazine part
+		// is the seated magazine and rides the same bone (mounts.magazine.rideBone), so no second one is made.
+		const FName MagBone(*MIJson::StringOr(Set, TEXT("magazine.socket")));
 		const bool bMagazinePart = Assembly && Assembly->PartMesh(TEXT("magazine")) != nullptr;
-		if (UStaticMesh* M = bMagazinePart ? nullptr : LoadAs<UStaticMesh>(MagPath); M && LegacyGun && LegacyGun->DoesSocketExist(MagBone))
+		if (UStaticMesh* M = bMagazinePart ? nullptr : LoadAs<UStaticMesh>(MIJson::StringOr(Set, TEXT("magazine.full"))); M && LegacyGun && LegacyGun->DoesSocketExist(MagBone))
 		{
 			OwnMag = NewObject<UStaticMeshComponent>(GetOwner(), NAME_None, RF_Transient);
 			OwnMag->SetStaticMesh(M);

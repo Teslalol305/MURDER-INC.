@@ -176,19 +176,19 @@ void UMIGunAssembly::Assemble(USkinnedMeshComponent* InBase, const FMIResolvedGu
 		if (!R.Socket.IsNone() && Base->DoesSocketExist(R.Socket))
 		{
 			C->AttachToComponent(Base, FAttachmentTransformRules::SnapToTargetIncludingScale, R.Socket);  // the part takes the gun's scale (a swap can be mid scale-out)
-			FTransform BoneRest;
-			if (IsBoneSocket(Base, R.Socket) && BoneRestInMesh(Base, R.Socket, BoneRest))
+			FTransform SocketRest, RideRest;
+			if (IsBoneSocket(Base, R.Socket) && BoneRestInMesh(Base, R.Socket, SocketRest))
 			{
 				// A socket that is a bone of the exported skeleton carries the importer's turn of the glTF axes; the part
 				// was modelled in the gun's own frame (X along the bore, Z up), so it is turned back (position unchanged).
-				C->SetRelativeRotation(BoneRest.GetRotation().Inverse());
-				if (!R.RideBone.IsNone() && BoneRestInMesh(Base, R.RideBone, BoneRest))
+				C->SetRelativeRotation(SocketRest.GetRotation().Inverse());
+				if (!R.RideBone.IsNone() && BoneRestInMesh(Base, R.RideBone, RideRest))
 				{
 					// A part that moves with a gun part (a magazine: it drops and hides with the 'magazine' bone in a
-					// reload) is carried by that bone from where it sits at rest.
-					const FTransform At(FQuat::Identity, Base->GetSocketTransform(R.Socket, RTS_Component).GetLocation());
+					// reload) is carried by that bone from where it sits at rest (the socket's place in the mesh's frame).
+					const FTransform At(FQuat::Identity, SocketRest.GetLocation());
 					C->AttachToComponent(Base, FAttachmentTransformRules::SnapToTargetIncludingScale, R.RideBone);
-					C->SetRelativeTransform(At.GetRelativeTransform(BoneRest));
+					C->SetRelativeTransform(At.GetRelativeTransform(RideRest));
 				}
 			}
 		}
@@ -214,26 +214,22 @@ void UMIGunAssembly::Assemble(USkinnedMeshComponent* InBase, const FMIResolvedGu
 		}
 	}
 	// The factory magazine (the stage and the crew screen: the first-person rig draws its own): in the well whenever no
-	// magazine part is fitted, so a longer one reads as a change. presentation.magazine {mesh, bone | socket}: authored in
-	// the gun's own space (our guns, carried by their 'magazine' bone) or on a socket of the mesh (the pack's rifles).
-	if (bSetBase && !PartMesh(TEXT("magazine")))
+	// magazine part is fitted, so a longer one reads as a change. Our guns' magazines are authored in the gun's own space
+	// and ride their 'magazine' bone; the pack's sit on a socket of the mesh (MagHinge).
+	if (bSetBase && !PartMesh(TEXT("magazine")) && !Gun.MagazineMesh.IsEmpty())
 	{
-		const FString MagPath = MIJson::StringOr(Gun.Presentation, TEXT("magazine.mesh"));
-		UStaticMesh* Mag = MagPath.IsEmpty() ? nullptr : Cast<UStaticMesh>(FSoftObjectPath(MagPath).TryLoad());
-		if (Mag)
+		if (UStaticMesh* Mag = Cast<UStaticMesh>(FSoftObjectPath(Gun.MagazineMesh).TryLoad()))
 		{
 			UStaticMeshComponent* C = MakePartComponent(GetOwner(), Base, Mag);
-			const FName Bone(*MIJson::StringOr(Gun.Presentation, TEXT("magazine.bone")));
-			const FName Socket(*MIJson::StringOr(Gun.Presentation, TEXT("magazine.socket")));
 			FTransform BoneRest;
-			if (BoneRestInMesh(Base, Bone, BoneRest))
+			if (IsBoneSocket(Base, Gun.MagazineAttach) && BoneRestInMesh(Base, Gun.MagazineAttach, BoneRest))
 			{
-				C->AttachToComponent(Base, FAttachmentTransformRules::SnapToTargetIncludingScale, Bone);
+				C->AttachToComponent(Base, FAttachmentTransformRules::SnapToTargetIncludingScale, Gun.MagazineAttach);
 				C->SetRelativeTransform(FTransform::Identity.GetRelativeTransform(BoneRest));
 			}
-			else if (!Socket.IsNone() && Base->DoesSocketExist(Socket))
+			else if (!Gun.MagazineAttach.IsNone() && Base->DoesSocketExist(Gun.MagazineAttach))
 			{
-				C->AttachToComponent(Base, FAttachmentTransformRules::SnapToTargetIncludingScale, Socket);
+				C->AttachToComponent(Base, FAttachmentTransformRules::SnapToTargetIncludingScale, Gun.MagazineAttach);
 			}
 			else
 			{
