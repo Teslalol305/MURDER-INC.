@@ -1261,6 +1261,11 @@ table, step 2); designs of the parts follow it, the measured geometry of the gun
 - `stock_wire_open` (optional, phase 2) is not exported by this lane. The Workbench pips `T_UI_Att_<id>` (128 x 128, white on transparent, 4x
   supersampled side views, 12 files) are rendered by `_weapons_parts_prev.py pips` into `art/out/ui/` and ride in the parts tar (`ui/`).
 - The wooden grip's body is laminated wood by recipe, not the CHOPPER's own ply field; the stippled grips are normal-map stipple.
+- Verifier pass (14:15 to 14:50 UTC, a second agent given this task; it checked and did not rebuild): the proofs hold on the final files (153 checks
+  and both ALL FIXED POINTS KEPT), 54 pairs of parts that can be fitted together on one gun cross nothing since the one fault was fixed: on the
+  SHORTY the angled grip crossed the laser module (277 triangle pairs), so `foregrip_angled` has a 47.5 mm plate and nothing above Z -29.7 reaches
+  past X +19.5 (2,380 triangles, gap 6.3 mm); the set was unwrapped again and replaced together (nine parts, `Weapon_Parts`, manifest, pips, tars).
+  `docs/unreal/PROGRESS.md` has the details. Triangle counts: the wooden grip 4,092 (budget 4,000) and the scope 12,040 (12,000) are over by 2.3 % and 0.3 %.
 ## Exact next step if resumed
 `python art/blender/assets/_weapons_pack_parts.py` (the two tars), upload them as the other archives (`fp-art.sh`), import in the game
 project (static meshes with the sockets of `weapons_parts_contract.json`), run `MountsExist`; or re-run the proof
