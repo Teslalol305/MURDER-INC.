@@ -7,10 +7,6 @@
 #   stream-test.sh run <script> [Development] [extra args]             the game alone (no stream) playing a MIDemo
 #                                                                      script, for the memory runs (Development only)
 #   stream-test.sh xtest <outdir> [config]                            the in-game half on the box's desktop, no WebRTC
-#   stream-test.sh reload <outdir> [reloads] [seconds before the first] a real browser (headless Chromium) joins the game,
-#                                                                      reloads its page again and again, leaves (reload_test.cjs):
-#                                                                      how long a reload takes to reach the first picture, and what
-#                                                                      the game logged (release 3c: the session)
 #   stream-test.sh stop                                                stop what this script started (by pid)
 #
 # STREAM_BUILD=<folder with MurderInc.sh> starts that folder's game instead of /project/ue/cloud/build-<config>/Linux (a test
@@ -91,10 +87,6 @@ case "$1" in
   test)
     out=$2; vp=${3:-1920x1080}; mkdir -p "$out"
     VW=${vp%x*} VH=${vp#*x} MATCH=${4:-false} node "$TOOLS/stream_test.cjs" "$out" "$RUN/game.log" "$RUN/launch.txt"
-    ;;
-  reload)  # a real browser reloads its page (reload_test.cjs): the game's log is read for what it saw
-    out=$2; mkdir -p "$out"
-    node "$TOOLS/reload_test.cjs" "$out" "$RUN/game.log" "${3:-5}" "${4:-0}"
     ;;
   xtest)  # the in-game half without WebRTC: a window on the box's desktop :1, XTEST input (xtest.py)
     /opt/venv/bin/python3 -I "$TOOLS/xtest.py" "$2" "${3:-Development}"

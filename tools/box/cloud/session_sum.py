@@ -77,7 +77,7 @@ if '--gpu' in sys.argv:
 
     events = []
     for l in log.splitlines():
-        m = re.search(r'\(game time ([\d.]+) s, (\d\d):(\d\d):(\d\d) UTC\)', l)
+        m = re.search(r'\(game time ([\d.]+) s, (\d\d):(\d\d):(\d\d)(?:\.\d+)? UTC\)', l)
         if not m:
             continue
         for key, name in (('Viewer joined', 'a viewer joined'), ('Connection lost', 'the viewer left'), ('Nobody is watching', 'idle starts'),

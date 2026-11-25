@@ -616,7 +616,8 @@ clean-up at the start of the next session:
   `Session over: ...`). A viewer present keeps the game for as long as he stays, and a join cancels the countdown.
   **How 20 s was chosen.** Two things have to hold. (1) A page that is reloaded must not lose its game: on a host that
   keeps the game for a reloaded page (the box's test viewers, a signalling server of your own) the new connection is
-  there in a few seconds (measured on the box with the test viewer: RELOAD_GAP), so 20 s is several times that. (2)
+  there in a few seconds (the box's test viewer, which leaves and subscribes again after 3 s, was in the game 3.5 s after the game had
+  logged the loss of its connection; a real browser's reload was not measured), so 20 s is several times that. (2)
   A game that nobody will come back to must be gone before the next one is up: E3DS starts a **new** game for a
   reloaded page or a new session (its documentation, section 6 above) and the quickest start seen was 34 s, so the
   old game has to be gone well before that. 20 s sits between the two; `-MIExitAfterEmpty=` moves it (a host whose
