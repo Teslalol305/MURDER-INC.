@@ -51,9 +51,11 @@ ME=$(readlink -f "$0")
 mkdir -p "$OUT"
 
 games() {  # MURDER INC. game processes other than those of streamer id $1
-  local n=0 p
+  local n=0 p c
   for p in $(pgrep -x MurderInc-Linux; pgrep -x MurderInc); do
-    tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -q -- "-PixelStreamingID=$1 " || n=$((n + 1))
+    c=$(tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null)
+    [ -n "$c" ] || continue   # a process on its way out has no command line left: not a game that draws
+    case "$c" in *"-PixelStreamingID=$1 "*) ;; *) n=$((n + 1)) ;; esac
   done
   echo $n
 }
