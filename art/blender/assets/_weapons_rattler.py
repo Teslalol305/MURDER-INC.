@@ -39,7 +39,8 @@ BRIGHT = W.BRIGHT        # bright steel: bolt face, extractor, worn pins
 POLY = W.POLYMER         # black stippled polymer: the pistol grip
 ZINC = W.ZINC            # dull zinc: the wire stock
 STRAP = W.TAPE           # tan woven nylon strap wrap
-BORE = W.BORE            # dark interior surfaces (cavities, bores)
+BORE = W.BORE            # very dark interior surfaces (bores, cavities that never see light)
+INNER = W.DARK           # oiled dark phosphate: the receiver's inside, the bolt body, the breech
 WHITE = W.PAINT          # white paint: sight dots
 BRASS, COPPER, PRIMER = W.BRASS, W.COPPER, W.PRIMER
 MAGSTEEL = W.COVER       # the magazine's stamped steel body (same grey phosphate as the receiver)
@@ -325,6 +326,38 @@ def build_rear_cap():
     return boss
 
 
+def rrect_pts(x0, x1, y0, y1):
+    return [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+
+
+def build_rear_frame():
+    """The rear end plate's pressed border: a 1.4 mm wide frame standing 1 mm proud round the edge of the plate, with four corner
+    rivets inside it."""
+    outer = pr(rrect_pts(-19.6, 19.6, -39.6, 27.6) if False else [(-19.6, -39.6), (19.6, -39.6), (19.6, 27.6), (-19.6, 27.6)], -1.1, 0.4, "X",
+               bevel=0.35, seg=1, fillet=2.6, name="RearFrame")
+    inner = pr([(-18.2, -38.2), (18.2, -38.2), (18.2, 26.2), (-18.2, 26.2)], -2.5, 1.5, "X", bevel=0.0, fillet=1.6, name="RearFrameIn")
+    W.cut(outer, inner)
+    out = [outer]
+    for y, z in ((-14.0, -32.0), (14.0, -32.0), (-14.0, 20.0), (14.0, 20.0)):
+        out.append(W.rivet((0.2 * MM, y * MM, z * MM), "X", r=0.0023, h=0.0009, sign=-1, seg=14))
+    return out
+
+
+def build_port_frame():
+    """The pressed lip round the ejection port: 1.8 mm wide, 0.9 mm proud, flush with the port's edge."""
+    x0, x1, z0, z1 = PORT
+    outer = pr([(x0 - 1.8, z0 - 1.8), (x1 + 1.8, z0 - 1.8), (x1 + 1.8, z1 + 1.8), (x0 - 1.8, z1 + 1.8)], -22.9, -21.4, "Y", bevel=0.35,
+               seg=1, fillet=5.8, name="PortFrame")
+    inner = pr([(x0, z0), (x1, z0), (x1, z1), (x0, z1)], -25.0, -18.0, "Y", bevel=0.0, fillet=4.0, name="PortFrameIn")
+    W.cut(outer, inner)
+    return outer
+
+
+def build_takedown():
+    """The takedown pin's head on the right flank near the rear: a knurled R 4.2 head with a screwdriver slot."""
+    return W.pin_head((22.0 * MM, -22.0 * MM, -17.5 * MM), "Y", r=0.0042, h=0.0016, sign=-1, slot=True, seg=24)
+
+
 # ----------------------------------------------------------------------------------------------- magazine well
 
 def build_well():
@@ -333,6 +366,7 @@ def build_well():
     h = bx(x0, x1, y0, y1, z0, z1, bevel=1.4, seg=2, name="WellHousing")
     xi0, xi1, yi0, yi1 = WELL_IN
     W.cut(h, bx(xi0, xi1, yi0, yi1, z0 - 1.0, z1 + 4.0, bevel=0.6, name="WellBore"))
+    W.cut(h, bx(143.5, 145.0, -1.5, 1.5, z0 - 1.0, z1 + 4.0, bevel=0.0, name="SeamRelief"))   # room for the magazine's spine weld
     W.round_edges(h, 0.35 * MM, 1, 50)
     return h
 

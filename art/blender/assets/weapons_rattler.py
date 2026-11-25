@@ -81,10 +81,11 @@ def uv_weights(ob):
     w[rec & (nr[:, 2] < -0.7)] = 0.60                                                  # the floor
     w[rec & (np.abs(nr[:, 0]) > 0.7)] = 0.55                                           # front and rear plates
     w[rec & (y > 18.0)] = 0.88                                                         # the left flank (the camera sees the right)
-    w[rec & (np.abs(y) < 20.9) & (np.abs(z - 0.9) < 29.4) & (x > 2.0) & (x < 268.0)] = 0.30   # interior walls
     w[(mid == S.SHEET) & (bid == 0) & (z > 29.5)] = 1.0                                # cover top, rail, seam
     w[(mid == S.BLACK) & (bid == 1) & (z > 30.0)] = 1.0                                # the top handle
-    w[(mid == S.BLACK) & (bid == 1) & (z <= 30.0)] = 0.75                              # the bolt body seen through the port
+    w[(mid == S.INNER) & (bid == 0) & (x < 270.5) & (np.abs(y) < 21.5) & (z > -41.5) & (z < 29.5)] = 0.30   # the receiver's inside
+    w[(mid == S.INNER) & (bid == 0) & (x > 196.0) & (r < 14.0)] = 0.55                 # the breech seen through the port
+    w[(mid == S.INNER) & (bid == 1)] = 0.75                                            # the bolt body seen through the port
     w[bid == 8] = 1.0                                                                  # the rear sight leaf
     w[(bid == 0) & (mid == S.BLACK) & (x < 30.0) & (z > 29.0)] = 0.95                  # its base
     w[(bid == 0) & (mid == S.POLY)] = 0.86                                             # the grip

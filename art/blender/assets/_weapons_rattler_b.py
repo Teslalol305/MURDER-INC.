@@ -15,7 +15,7 @@ from assets import _weapons_rattler as S
 MM = S.MM
 bx, pr, lt, tr, rot_x = S.bx, S.pr, S.lt, S.tr, S.rot_x
 SHEET, BLACK, BRIGHT, POLY, ZINC, STRAP, BORE, WHITE = S.SHEET, S.BLACK, S.BRIGHT, S.POLY, S.ZINC, S.STRAP, S.BORE, S.WHITE
-BRASS, COPPER, PRIMER, MAGSTEEL = S.BRASS, S.COPPER, S.PRIMER, S.MAGSTEEL
+BRASS, COPPER, PRIMER, MAGSTEEL, INNER = S.BRASS, S.COPPER, S.PRIMER, S.MAGSTEEL, S.INNER
 joined = S.joined
 
 # ----------------------------------------------------------------------------------------------- pistol grip
@@ -99,12 +99,12 @@ def d_profile(a, b, p=3.5, M=24):
 
 
 def build_guard():
-    """Stamped steel trigger guard: a 9 x 2.5 mm band from the well's rear face down to Z -88 and back to the grip's front
-    strap (a D loop around the trigger)."""
-    path = [(144.0, -46.0, 0.0), (144.0, -80.0, 0.0), (136.0, -88.0, 0.0), (94.0, -88.0, 0.0), (84.0, -80.0, 0.0), (82.0, -74.0, 0.0)]
+    """Stamped steel trigger guard: a flat strap 10 mm wide across the gun and 2.4 mm thick (rolled edges) from the receiver's floor
+    down the well's rear face to Z -88 and back to the grip's front strap (a D loop around the trigger)."""
+    path = [(141.7, -41.0, 0.0), (141.7, -80.0, 0.0), (134.0, -88.0, 0.0), (94.0, -88.0, 0.0), (84.0, -80.0, 0.0), (82.0, -74.0, 0.0)]
     path = [(x * MM, 0.0, z * MM) for x, z, _ in path]
     pts = geo.fillet(path, 8.0 * MM, 8)
-    prof = d_profile(4.5, 1.25, 3.5)
+    prof = K.superellipse(1.2 * MM, 5.0 * MM, 3.2, 28)
     return K.sweep_var(pts, lambda i, t: prof, name="Guard", cap=True, up=(0.0, 1.0, 0.0))
 
 
@@ -116,15 +116,16 @@ def build_trigger():
     ring round the 3 mm pin; pull = +17 deg about +Y."""
     n = 40
     cl = np.array([(float(np.interp(t, np.linspace(0, 1, len(TRIG_CL)), TRIG_CL[:, 0])),
-                    float(np.interp(t, np.linspace(0, 1, len(TRIG_CL)), TRIG_CL[:, 1]))) for t in np.linspace(0.04, 1.0, n)])
-    path = [(x * MM, 0.0, z * MM) for x, z in cl]
+                    float(np.interp(t, np.linspace(0, 1, len(TRIG_CL)), TRIG_CL[:, 1]))) for t in np.linspace(0.0, 1.0, 4 * n)])
+    cl = cl[cl[:, 1] <= -47.8]                                       # the blade starts under the hub's bore (R 1.7 round the pin)
+    path = [(x * MM, 0.0, z * MM) for x, z in cl[:: max(1, len(cl) // n)]] + [(cl[-1][0] * MM, 0.0, cl[-1][1] * MM)]
     base = K.superellipse(2.5 * MM, 3.5 * MM, 3.0, 24)
 
     def prof(i, t):
         s = 1.0 - 0.28 * float(K.smoothstep(t, 0.80, 1.0))
         return base * np.array([s, 1.0])
     blade = K.sweep_var(path, prof, name="Blade", cap=True, up=(0.0, 1.0, 0.0))
-    hub = lt([(-3.4, 1.7), (-3.4, 4.6), (3.4, 4.6), (3.4, 1.7)], 32, axis="Y", at=(127.0, 0.0, -45.0), name="Hub", fillet=0.4, closed=True)
+    hub = lt([(-3.4, 2.0), (-3.4, 4.6), (3.4, 4.6), (3.4, 2.0)], 32, axis="Y", at=(127.0, 0.0, -45.0), name="Hub", fillet=0.4, closed=True)
     return geo.join([blade, hub], "Trigger")
 
 
@@ -147,18 +148,18 @@ def build_bolt():
     channel on the right, the stem seat and the spring recess; the extractor claw (bright) on the right of the face. The top
     handle: a stem through the cover slot and the T head. Returns [(object, id)]."""
     parts = []
-    body = bx(90.0, 198.0, -15.0, 15.0, -14.0, 14.0, bevel=2.6, seg=3, name="BoltBody")
-    W.cut(body, lt([(197.0, 0.0), (197.0, 5.6), (200.0, 5.6), (200.0, 0.0)], 40, name="FaceCup"))
+    body = bx(90.0, 197.4, -15.0, 15.0, -14.0, 14.0, bevel=2.6, seg=3, name="BoltBody")
+    W.cut(body, lt([(196.4, 0.0), (196.4, 5.6), (200.0, 5.6), (200.0, 0.0)], 40, name="FaceCup"))
     W.cut(body, bx(150.0, 199.0, -16.0, -10.0, 2.0, 11.0, bevel=0.0, name="EjectChannel"))
     W.cut(body, lt([(88.0, 0.0), (88.0, 6.5), (108.0, 6.5), (108.0, 0.0)], 40, name="SpringRecess"))
     W.cut(body, bx(100.0, 140.0, -5.0, 5.0, 10.0, 16.0, bevel=0.0, name="TopRelief"))
     W.round_edges(body, 0.35 * MM, 1, 50)
-    parts.append((body, BLACK))
-    pin = lt([(195.0, 0.0), (195.0, 1.1), (198.4, 1.1), (198.4, 0.0)], 16, name="FiringPin", fillet=0.2)
+    parts.append((body, INNER))
+    pin = lt([(195.0, 0.0), (195.0, 1.1), (197.6, 1.1), (197.6, 0.0)], 16, name="FiringPin", fillet=0.2)
     parts.append((pin, BRIGHT))
-    facering = lt([(196.6, 5.0), (196.6, 5.6), (197.4, 5.6), (197.4, 5.0)], 40, name="FaceLip", closed=True)
+    facering = lt([(196.2, 5.0), (196.2, 5.6), (197.2, 5.6), (197.2, 5.0)], 40, name="FaceLip", closed=True)
     parts.append((facering, BRIGHT))
-    ext = pr([(178.0, 3.8), (198.6, 3.8), (199.2, 5.0), (197.5, 7.4), (178.0, 7.4)], -14.6, -10.2, "Y", bevel=0.35, seg=1, fillet=0.7,
+    ext = pr([(178.0, 3.8), (197.3, 3.8), (197.3, 5.0), (196.6, 7.4), (178.0, 7.4)], -14.6, -10.2, "Y", bevel=0.35, seg=1, fillet=0.7,
              name="Extractor")
     parts.append((ext, BRIGHT))
     stem = pr([(92.0, 13.0), (104.0, 13.0), (104.0, 39.5), (92.0, 39.5)], -2.9, 2.9, "Y", bevel=0.5, seg=1, fillet=1.2, name="Stem")
@@ -224,8 +225,8 @@ def build_stock():
     list of objects (all ZINC)."""
     out = []
     for z in WIRES:
-        out.append(wire(z, 2.0, 247.0))
-        k = lt([(z - 4.0, 2.35), (z - 4.0, 4.4), (z + 4.0, 4.4), (z + 4.0, 2.35)], 28, axis="Z", at=(0.0, 28.5, 0.0), name="Knuckle",
+        out.append(wire(z, 3.4, 247.0))
+        k = lt([(z - 4.0, 2.6), (z - 4.0, 4.4), (z + 4.0, 4.4), (z + 4.0, 2.6)], 28, axis="Z", at=(0.0, 28.5, 0.0), name="Knuckle",
                closed=True, fillet=0.4)
         out.append(k)
     out.append(geo.pipe([(150.0 * MM, STOCK_Y * MM, (WIRES[1] - 1.0) * MM), (150.0 * MM, STOCK_Y * MM, (WIRES[0] + 1.0) * MM)],
@@ -341,7 +342,7 @@ def build_magazine(col):
             y0, y1 = (HW - 0.6, HW + 0.9)
             if side < 0:
                 y0, y1 = -y1, -y0
-            parts.append(("rib", pr([(xr - 2.2, -200.0), (xr + 2.2, -200.0), (xr + 2.2, -64.0), (xr - 2.2, -64.0)], y0, y1, "Y", bevel=0.8,
+            parts.append(("rib", pr([(xr - 2.2, -200.0), (xr + 2.2, -200.0), (xr + 2.2, -78.0), (xr - 2.2, -78.0)], y0, y1, "Y", bevel=0.8,
                                     seg=2, fillet=2.1, name="MagRib"), MAGSTEEL))
     parts.append(("seam", bx(143.9, 146.0, -1.0, 1.0, -202.0, -44.0, bevel=0.55, seg=2, name="MagSeam"), MAGSTEEL))
     for side in (-1, 1):                                             # feed lips: the long walls turned in over the stack
@@ -397,7 +398,7 @@ def rattler_parts():
     P = S.finish
     out = []
     rec = P(S.build_receiver(), SHEET, "body")
-    S.inside_boxes(rec, S.rec_interior_boxes(), BORE)
+    S.inside_boxes(rec, S.rec_interior_boxes(), INNER)
     out.append(rec)
     out.append(P(joined(S.build_ribs(), "Ribs"), SHEET, "body"))
     out.append(P(joined(S.build_welds(), "Welds"), SHEET, "body"))
@@ -407,9 +408,13 @@ def rattler_parts():
     out.append(P(S.build_rear_cap(), SHEET, "body"))
     out.append(P(W.pin_head((-2.2 * MM, 0.0, 0.0), "X", r=0.0034, h=0.0012, sign=-1, slot=True), BLACK, "body"))
     out.append(P(S.build_well(), SHEET, "body"))
+    out.append(P(joined(S.build_rear_frame(), "RearFrame"), SHEET, "body"))
+    out.append(P(S.build_port_frame(), SHEET, "body"))
+    out.append(P(S.build_takedown(), BLACK, "body"))
     out.append(P(S.build_shroud(), BLACK, "body"))
     barrel = P(S.build_barrel(), BLACK, "body")
     S.inside_boxes(barrel, [(197.0, 425.0, -4.6, 4.6, -4.6, 4.6)], BORE)
+    S.inside_boxes(barrel, [(197.0, 270.5, -14.0, 14.0, -14.0, 14.0)], INNER)
     out.append(barrel)
     dev = P(S.build_device(), BLACK, "MuzzleDevice")
     S.inside_boxes(dev, [(409.0, 466.0, -7.3, 7.3, -7.3, 7.3)], BORE)

@@ -25,7 +25,8 @@ from assets import _weapons_rattler as S0
 
 lin = W.hexlin
 gauss = W.gauss
-SHEET, BLACK, BRIGHT, POLY, ZINC, STRAP, BORE, WHITE = S0.SHEET, S0.BLACK, S0.BRIGHT, S0.POLY, S0.ZINC, S0.STRAP, S0.BORE, S0.WHITE
+SHEET, BLACK, BRIGHT, POLY, ZINC, STRAP, BORE, WHITE, INNER = (S0.SHEET, S0.BLACK, S0.BRIGHT, S0.POLY, S0.ZINC, S0.STRAP, S0.BORE,
+                                                                  S0.WHITE, S0.INNER)
 CHUNK = 1_500_000
 
 
@@ -216,7 +217,7 @@ def strap(S, sel, hz):
     hz_ = np.clip(hz[sel], 0, 1)
     mott = N.fbm(p, 45.0, 3, octave0=390)
     fine = N.fbm(p, 1400.0, 2, octave0=393)
-    col = lin("a58f66")[None, :] * (1.0 + 0.08 * mott[:, None] + 0.04 * fine[:, None] + 0.07 * weave[:, None])
+    col = lin("9c8a68")[None, :] * (1.0 + 0.10 * mott[:, None] + 0.04 * fine[:, None] + 0.07 * weave[:, None])
     dark = tp.smooth(hz_, 0.15, 0.95)
     grime = lin("3d3326")
     col = col + (grime[None, :] - col) * (0.60 * dark * (0.6 + 0.4 * N.fbm(p, 200.0, 2, octave0=396)))[:, None]
@@ -261,8 +262,9 @@ def dirt_chunked(S, amount, carbon=None, oil=None):
 
 # ----------------------------------------------------------------------------------------------- the gun
 
-RIGHT_PLATE = (0.022, -0.0245, 0.112, 0.014)        # x0, z0, width, height of the marking band between the ribs (right flank)
-LEFT_LEGEND = (0.0765, -0.0325, 0.0055, 0.0240)     # the selector's legends beside the lever's arc (left flank)
+RIGHT_PLATE = (0.036, -0.0245, 0.100, 0.014)        # x0, z0, width, height of the marking band between the ribs (right flank)
+LEFT_LEGEND = (0.0765, -0.0325, 0.0055, 0.0240)
+LEFT_PLATE = (0.110, -0.0245, 0.054, 0.014)         # the serial and the proof star between the left ribs     # the selector's legends beside the lever's arc (left flank)
 
 
 def paint_rattler(G):
@@ -271,11 +273,16 @@ def paint_rattler(G):
     p, n, N = S.p, S.n, S.N
     x, y, z = p[:, 0], p[:, 1], p[:, 2]
     hz = handling(p, n)
-    sh, bk, br, pl, zn, st, bo, wh = (S.sel(i) for i in (SHEET, BLACK, BRIGHT, POLY, ZINC, STRAP, BORE, WHITE))
+    sh, bk, br, pl, zn, st, bo, wh, inn = (S.sel(i) for i in (SHEET, BLACK, BRIGHT, POLY, ZINC, STRAP, BORE, WHITE, INNER))
     for part in pieces(sh):
         sheet(S, part, hz)
     for part in pieces(bk):
         blackened(S, part, hz)
+    for part in pieces(inn):
+        S.steel(part, lin("40434a"), 0.40, hz, lin("9aa0a8"), worn_rough=0.22, edge_gain=1.0, rvar=0.05, cvar=0.03, octave=11, base_thr=0.95,
+                rub_polish=0.18, scratch=0.6)
+        q = S.p[part]
+        S.h[part] += 2.5e-6 * N.fbm(q, 2400.0, 2, octave0=346)
     for part in pieces(br):
         S.steel(part, lin("b1b6bd"), 0.25, hz, lin("d4d8dc"), worn_rough=0.2, rvar=0.03, cvar=0.03, octave=9, base_thr=1.2,
                 rub_polish=0.10)
@@ -311,9 +318,11 @@ def paint_rattler(G):
     S.bc += (lin("8c9094") - S.bc) * (welds * 0.30)[:, None]
     # ---- the selector legends and the stamped markings
     x0, z0, w, h_ = RIGHT_PLATE
-    plate = text_plate(w * 1000, h_ * 1000, [("mono", "SMG 9", 15.0, 7.0, 5.4), ("star", "", 37.0, 7.0, 7.0), ("mono", "R-545", 59.0, 7.0, 5.4),
-                                           ("mono", "R3-0912", 94.0, 7.0, 4.0)])
+    plate = text_plate(w * 1000, h_ * 1000, [("mono", "SMG 9", 15.0, 7.0, 5.4), ("star", "", 39.0, 7.0, 7.0), ("mono", "R-545", 62.0, 7.0, 5.4)])
     lay(S, plate, (0, 2), (x0, z0), (w, h_), "-Y", 1.8e-4)
+    xl, zl, wl, hl_ = LEFT_PLATE
+    plate_l = text_plate(wl * 1000, hl_ * 1000, [("mono", "R3-0912", 19.0, 7.0, 4.6), ("star", "", 44.0, 7.0, 6.4)])
+    lay(S, plate_l, (0, 2), (xl, zl), (wl, hl_), "+Y", 1.8e-4, flip=True)
     xs0, zs0, ws, hs = LEFT_LEGEND
     leg = text_plate(ws * 1000, hs * 1000, [("mono", "S", 2.75, 20.5, 3.0), ("mono", "1", 2.75, 12.0, 3.0), ("mono", "A", 2.75, 3.5, 3.0)])
     lay(S, leg, (0, 2), (xs0, zs0), (ws, hs), "+Y", 1.2e-4, colour=lin("cfcdbd"), flip=True)
