@@ -12,6 +12,9 @@
   fill N TEXT               type TEXT into control N (cleared first) the way a person does (key events)
   file N PATH               give the file input N a file from this box's disk
   shot OUT.png
+  pic                       where the stream's picture is drawn in the page (x y width height, video size)
+  act JSON                  real mouse and key events (a list of steps; see act() below), e.g.
+                            '[["pclick",0.1,0.45],["wait",2],["key","Tab"],["key","Enter"]]'
 
 A password is never read: inv and text leave out the value of every password field, and nothing here types one.
 """
@@ -49,6 +52,89 @@ for (const e of document.querySelectorAll(sel)) {
 }
 return out.join('\n');
 """
+
+
+PIC = r"""
+const vs = [...document.querySelectorAll('video')].filter(v => v.videoWidth > 0 && v.getBoundingClientRect().width > 0);
+if (!vs.length) return null;
+const v = vs[vs.length - 1], r = v.getBoundingClientRect(), ar = v.videoWidth / v.videoHeight;
+let w = r.width, h = r.width / ar;
+if (h > r.height) { h = r.height; w = h * ar; }
+return [r.x + (r.width - w) / 2, r.y + (r.height - h) / 2, w, h, v.videoWidth, v.videoHeight];
+"""
+
+KEYS = {'Tab': '', 'Enter': '', 'Escape': '', 'Space': ' ', 'Left': '', 'Up': '',
+        'Right': '', 'Down': '', 'Shift': '', 'Control': ''}
+
+
+def picture_rect(m):
+    """Where the stream's picture is drawn in the page: x, y, width, height (and the video's own size)."""
+    return m.execute_script(PIC)
+
+
+def act(m, steps):
+    """Real mouse and key events, as a person at the page makes them (a list of steps, each a list):
+       ["pclick", fx, fy]       click at a place on the picture (fractions 0..1 of the picture)
+       ["pmove", fx, fy]        move there
+       ["click"]                click where the mouse is
+       ["down"] / ["up"]        the left button
+       ["moveby", dx, dy, n, gap_ms]   n relative mouse moves of dx, dy pixels, gap_ms apart
+       ["key", "Tab"|"Enter"|"p"|..., hold_ms]    a key down, held, up
+       ["keydown", k] / ["keyup", k]
+       ["wait", seconds]"""
+    import time
+
+    def pointer(acts):
+        m._send_message('WebDriver:PerformActions', {'actions': [
+            {'type': 'pointer', 'id': 'mouse', 'parameters': {'pointerType': 'mouse'}, 'actions': acts}]})
+
+    def keys(acts):
+        m._send_message('WebDriver:PerformActions', {'actions': [{'type': 'key', 'id': 'kb', 'actions': acts}]})
+
+    def to_px(fx, fy):
+        r = picture_rect(m)
+        if not r:
+            raise RuntimeError('no video on the page')
+        return int(r[0] + fx * r[2]), int(r[1] + fy * r[3])
+
+    def move(x, y):
+        return {'type': 'pointerMove', 'x': int(x), 'y': int(y), 'origin': 'viewport', 'duration': 0}
+
+    for s in steps:
+        k = s[0]
+        if k == 'wait':
+            time.sleep(float(s[1]))
+        elif k in ('pclick', 'pmove'):
+            x, y = to_px(s[1], s[2])
+            acts = [move(x, y)]
+            if k == 'pclick':
+                acts += [{'type': 'pointerDown', 'button': 0}, {'type': 'pause', 'duration': 60}, {'type': 'pointerUp', 'button': 0}]
+            pointer(acts)
+        elif k == 'click':
+            pointer([{'type': 'pointerDown', 'button': 0}, {'type': 'pause', 'duration': 60}, {'type': 'pointerUp', 'button': 0}])
+        elif k == 'down':
+            pointer([{'type': 'pointerDown', 'button': 0}])
+        elif k == 'up':
+            pointer([{'type': 'pointerUp', 'button': 0}])
+        elif k == 'moveby':
+            dx, dy, n, gap = s[1], s[2], int(s[3]) if len(s) > 3 else 1, float(s[4]) if len(s) > 4 else 16
+            for _ in range(n):
+                pointer([{'type': 'pointerMove', 'x': int(dx), 'y': int(dy), 'origin': 'pointer', 'duration': 0}])
+                time.sleep(gap / 1000.0)
+        elif k == 'key':
+            v = KEYS.get(s[1], s[1])
+            hold = float(s[2]) if len(s) > 2 else 80
+            keys([{'type': 'keyDown', 'value': v}, {'type': 'pause', 'duration': int(hold)}, {'type': 'keyUp', 'value': v}])
+        elif k == 'keydown':
+            keys([{'type': 'keyDown', 'value': KEYS.get(s[1], s[1])}])
+        elif k == 'keyup':
+            keys([{'type': 'keyUp', 'value': KEYS.get(s[1], s[1])}])
+        else:
+            raise RuntimeError('unknown step ' + k)
+    try:
+        m._send_message('WebDriver:ReleaseActions', {})
+    except Exception:
+        pass
 
 
 def main():
@@ -111,10 +197,18 @@ def main():
                 try:
                     e.send_keys(a[2])
                 finally:
-                    m.execute_script(
-                        "const f = arguments[0]; f.setAttribute('style', f.getAttribute('data-mi-style'));"
-                        "f.removeAttribute('data-mi-style');", script_args=[e])
+                    try:   # the page may have replaced the input as soon as it took the file
+                        m.execute_script(
+                            "const f = arguments[0]; f.setAttribute('style', f.getAttribute('data-mi-style'));"
+                            "f.removeAttribute('data-mi-style');", script_args=[e])
+                    except Exception:
+                        pass
             print('ok', c, a[1])
+        elif c == 'pic':
+            print(json.dumps(picture_rect(m)))
+        elif c == 'act':
+            act(m, json.loads(a[1]))
+            print('ok act', len(json.loads(a[1])), 'steps')
         elif c == 'shot':
             open(a[1], 'wb').write(base64.b64decode(m.screenshot()))
             print('saved', a[1])
