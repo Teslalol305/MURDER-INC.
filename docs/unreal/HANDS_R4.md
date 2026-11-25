@@ -1,4 +1,7 @@
-# The hands on the guns of weapons round 4 (hands pass, 2026-11-25)
+# The hands on the guns of weapons round 4 (hands passes, 2026-11-25)
+
+Sections 1 to 5 are the first pass; **sections 6 to 8 are the second pass (the review's findings), and where they differ
+the second pass is the current state.**
 
 The owner, on the trial package: "the hands dont look correct ensure the hands holding the weapons are realistic". This page says
 what was wrong on each gun, what was changed (data and the grip solve's points only: no C++ was edited), the frames that show it,
@@ -85,7 +88,7 @@ The trial's faults are gone from every frame of `h4` to `h8`: no cut upper arm, 
 fingers through or beside the gun. `docs/unreal/ANIMATION.md` section 11 ("Shoulders now", the template clips) describes the old sets: it
 is not in this pass's files; this page is the current state.
 
-## 5. C++ for the lead (not edited here; the box engineer owns `MIFirstPersonRig` and `repo-guns`)
+## 5. C++ for the lead, first pass (not edited here; the box engineer owns `MIFirstPersonRig` and `repo-guns`)
 
 Nothing here is needed for the hands as they now look; these make them robust and finish the job. File and line numbers are
 this branch's at `fae8d28`.
@@ -120,3 +123,141 @@ this branch's at `fae8d28`.
    leaves the pack mode; the screenshot's extra render ticks it. Not reproduced with the STICK drawn last (`h2`, `h7`), not seen in
    any Shipping run. Suggested: when `Equip` sets a mode other than `Pack`, `PackGun->SetAnimInstanceClass(nullptr)` and
    `PackGun->SetComponentTickEnabled(false)` (and enable them again on the way back).
+
+## 6. Second pass: the review's findings, checked in play (2026-11-25, 18:00 to 19:05 UTC)
+
+The review of the first pass looked at the `h7`/`h8` frames and found the hands still unrealistic in five ways. Each was
+checked on fresh frames of the same trial game (`fd8ce12`, `/project/ue/hands/zip`) with this branch's data copied over its
+loose `Content/Data`. **Box:** the first box (`ec087d85`) had expired at 17:48; this pass ran on the box that was up after it
+(`603980d9`, same `/project`). Its `/project` was cold and shared with a 40-minute compile of another clone, so the loop was
+changed (section 6.4).
+
+### 6.1 The findings against the frames
+
+| Finding (review) | Verdict on the frames | Fixed by | Seen in |
+|---|---|---|---|
+| Support forearm rises vertically from the bottom at the hip, missing aimed (CHOPPER, STRETCH, RATTLER, SHORTY) | **Right** (`h8` `00`, `12`, `18`; `i1` `00`: the shoulder scan `[-10,-14,-7]`, `[-6,-14,-14]`, `[-4,-10,-16]` alone does not change it, `i1` `06`, `09`, `12`). The cause is the wrist: the solve put it straight under the forend, so whatever the elbow does the forearm leaves the hand downward. | Data: the whole support hand rolled about the forend's long axis toward its lower left (25 to 45 degrees, `_rule_grips.py` `SUPPORT_ROLL`), then the shoulders `[-10, -14, -7]` (the STICK's own) on the CHOPPER, STRETCH and RATTLER. On the STRETCH and RATTLER the forearm still rises more steeply than the STICK's: the C++ pole (section 8.2) lets data steer the elbow further. | `m4` `00`, `01`, `12`, `13`, `18`, `19` (hip and aimed); first seen on the RATTLER alone in `i1` `27`, `28`, `33`, `34` |
+| RATTLER support fingers stand up beside the sight when aimed | **Right** (`h8` `19`, `20`: a column of fingers right of the red dot). Data as the review read: middle tip 5.4 cm over the bore, 1 to 2.6 cm off the strap. | Data: the RATTLER's hand rolled 45 degrees about the bore (exact on its round strap: the palm keeps its contact), the middle and end phalanges laid round the strap (joint centres 3.6 and 3.45 cm from the bore, the strap is 2.75). Tips now 0.8 to 2.5 cm over the bore (middle finger 2.5, the others 1.8 or less) and 2.3 to 3.4 cm to its right, round the strap's right side instead of standing off it. 35 degrees (`m3`) still showed a fingertip right of the front sight base; 45 (`m4`) shows only the tips at the receiver's right edge, below the optic's base. The middle tip is still above the review's +1.5 cm line: a further roll lifts the wrist onto the left of the gun (worked out for 50 and 60 degrees, not tried in play). | `m4` `19`, `20` (red dot, the review's own view), `m3` `19` (irons); before: `h8` `19` |
+| CHOPPER trigger finger hooks up through the guard; firing thumbs point straight out (CHOPPER, STRETCH, SHORTY) | Trigger finger: **right in the data** (end phalanx up 1.6 cm into the receiver; SHORTY's straight up 2.6 cm, the STRETCH's up 1.5 cm). Thumbs: **right in the data** (tips 13 to 16 mm from the solve's own target, pointing left). **Not identified in a frame either way:** at the hip the firing hand sits low behind the gun and under the HUD's weapon bar, and neither the old hook nor the new finger can be told apart in `h8` `00` and `m4` `00` crops. The change is a data change read in `grips.json` only. | Data (`FIRING_TIDY`): the index end phalanx turned down onto the trigger face (CHOPPER tip at y -0.39, z -7.16 cm; dz < 0 on all three), the thumb end laid toward the solve's own thumb target along the left of the grip. Lengths kept. | data only (`grips.json`) |
+| Reload: rifle stands 60 to 75 degrees muzzle-up mid-screen, firing hand out of view | **Right** (`h8` `04`, `16`, `22`). | Data: `poses.reload` of the CHOPPER and STRETCH `[0.05, -0.08, -0.26, 0.15, 0.34, -0.7]`, the RATTLER `[0.05, -0.075, -0.27, 0.15, 0.33, -0.7]`: canted (roll -0.7) instead of stood up (pitch 0.4 -> 0.15), 2.5 cm higher. The gun now leans about 45 degrees with the muzzle forward-left. The SHORTY (a bullpup: its magazine is behind the grip) has its own, `[0.12, -0.15, -0.24, 0.12, 0.22, -0.6]`: it stays low on the right, near its hip place, canted; with the shared pose its receiver covered the crosshair (`m3` `10`, `11`). | `m4` `04`, `05`, `10`, `11`, `16`, `17`, `22`, `23` |
+| Reload: the support hand opens (V of thumb and index) and holds no magazine, on every hand-IK gun and the NINE | **Right**, on all of them (`h8` `04`, `05`, `16`, `22`; `i1` `04`, `25`, `31`; `m2` `13`, `19`, `25`; `m4` `04`, `05`, `16`, `17`, `22`, `23`). The first report had it only on the STRETCH: that was wrong. Tried in data: the support fingers' curl clip (`fingerCurl`) set to the pack's `A_TFA_FP_AR_Reload_Quick` at 1.1 to 1.35 s and `A_TFA_FP_AR_Reload_Empty` at 1.1 s (run `i1`): no visible change, the hand stays open, so it was put back. With the new reload pose the hand does come up to the magazine (`m2` `05`: the new magazine in the hand under the well) but the fingers stay open. | **C++** (section 8.1): carry the solved grip onto the magazine instead of letting it go. The lead's `reloadCurl` (1f560d7, not yet built) only closes the fingers to a loose fist. Not fixable in the trial game's data. | not yet: needs a build |
+| Every aimed optic is a black ring | **Right**, and still so: no data reaches it in this game. | C++ already in the branch (7e120ac, a88dcdc): needs a new package (section 8.4). | `h8` `01`, `19`; `m4` `01`, `19` (unchanged) |
+| SHORTY: bullpup receiver fills the hip view and covers half the aimed view | **Right** (`h8` `06`, `07`). | Data, presentation only: the SHORTY's hip view 7 cm lower and 0.05 rad more muzzle-up (`guns.json` `shorty.rules.views`, all three rows the same shift) so the butt sits low at the shoulder pocket instead of beside the cheek; its eye relief 0.12 -> 0.22 m (`shorty.presentation.relief`), so aimed the receiver is further from the eye; its own reload pose (row above). The receiver now takes the lower right at the hip, about as the STRETCH's does, and the reload leaves the crosshair clear (`m4` `06`, `10`, `11`). Aimed, the carry handle and the receiver under it still take the lower middle third (`m4` `07`): that is the carry-handle sight's own picture. `meshOffset` was not changed: the aimed view is placed from the markers in gun space (`FMIViewmodelRig::Equip`), so moving the mesh would have moved the sights off the eye. The grip solve needed no change (it is in the gun's own space). | `m4` `06` to `11`; before `h8` `06` to `11` |
+
+### 6.2 What changed (data and grip code only)
+
+| File | Change |
+|---|---|
+| `art/blender/assets/_rule_grips.py` | `--tidy` now also: `SUPPORT_ROLL` (the support hand turned about the forend's axis; idempotent: the applied roll is kept in the entry's `tidy` object), `wrap_support` (round forends: RATTLER, STRETCH), `face_support` (box forends: CHOPPER, SHORTY: middle and end phalanges up the right face 0.85 / 0.7 cm off it), `FIRING_TIDY` (index end phalanx onto the trigger, thumb end toward `THUMB_AIM`). Pure geometry, no Blender. A re-solve in Blender is followed by `python _rule_grips.py --tidy` as before. |
+| `Content/Data/grips.json` | the four rifles' `hip` and `aim` entries re-tidied (the `aim` entries are not read by this game: section 5 item 4). The NINE is untouched. |
+| `Content/Data/presentation.json` | `chopper_ik`, `stretch_ik`, `rattler_ik` `shoulders` `[-10, -14, -7]` (were `[-8, -6, -10]`; the SHORTY keeps `[-6, 0, -24]`); `guns.chopper.poses.reload`; the notes. |
+| `Content/Data/guns.json` | presentation only: `poses.reload` of the SHORTY, STRETCH and RATTLER; the SHORTY's `views` (hip) and `relief`. No fire, recoil, spread or timing number changed. `tools/data/check_guns_data.py`: 0 errors, 0 warnings. |
+
+### 6.3 Per gun now (run `m4`, this commit's data; sheets `art/previews/hands_<gun>.jpg`: top row `h8`, bottom row `m4`)
+
+| Gun | Hip | Aimed | Reload | Still open |
+|---|---|---|---|---|
+| CHOPPER | support hand on the left of the handguard, forearm in from the lower left (`00`) | red dot: no hand or finger beside the optic (`01`, `02`); irons (`m3` `01`): the support hand at the lower left of the gun | canted, muzzle forward-left, the hand comes up to the magazine (`04`, `05`) | the support hand is **open** in the reload (8.1); the red dot's black ring (8.4) |
+| SHORTY | receiver low on the right, support hand at the forend's front (`06`, `09`) | carry handle: no arm in view; the receiver takes the lower middle third (`07`, `08`) | its own pose: low on the right, crosshair clear (`10`, `11`); the support hand is below the picture | the hand's grasp in the reload (8.1, not seen: off screen) |
+| STRETCH | support hand under the walnut handguard, forearm steeper than the CHOPPER's (`12`, `15`) | irons: clean, support hand at the lower left (`13`, `14`) | canted (`16`, `17`) | the support hand is **open** in the reload (8.1); the forearm's angle (8.2) |
+| RATTLER | support hand on the strap round the shroud, wrist out to the left, forearm in from the lower left (`18`, `21`) | red dot: only the fingertips at the receiver's right edge below the optic's base, none beside the optic (`19`, `20`) | canted (`22`, `23`) | the support hand is **open** in the reload (8.1); the red dot's ring (8.4); the trigger finger about 2 cm off the trigger face (first pass) |
+| NINE, STICK | data unchanged; not re-shot in this pass (`h7` `00` to `05`, `30` to `35`). The NINE's reload has the same open support hand (8.1) | | | |
+
+### 6.4 How the frames were made this time
+
+The first engineer's loop (`try.sh`: a `git pull` of the box clone, then `lag-test.sh`) stalled on the cold box: the pull of 25
+commits sat in `git merge` for 12 minutes, and a run's game took more than 3.5 minutes to start, so `lag-test.sh` stopped it
+at its time limit before the first frame (`runs/i1-fail*`). Changes: `t/try2.sh` takes the data from a folder (the sandbox's
+`Content/Data` uploaded as a tar and fetched on the box: `data/d1` to `data/d3`), runs `lag-test.sh` from a copy of the box
+tools (`/project/ue/hands/boxtools`), with `viewer=0` (the frames are the game's own `HighResShot`s, no stream needed) and
+`secs=840`; `t/fin2.sh` waits for the script's last screenshot, stops the game, labels the frames and sends them back. Reading
+the 2.2 GB `.ucas` once (`cat > /dev/null`) before the game brought its start from minutes to seconds. `i1` still ran at 2.5 to
+8 frames a second (the other clone's compile took 10 of 16 CPUs), which stretches the reload against the script's waits:
+its reload frames are at other moments than `m2`'s and `m3`'s. `m4` is the proof run of this commit's data (`t/s4.txt`: `s3.txt` with a red dot fitted on the CHOPPER and RATTLER at the Workbench, CLEAN: no other game on the GPU; another clone's editor commandlet ran beside it, which slows frames, not poses: every shot is taken on the script's game time). **Another agent** was working in `/project/ue/hands` at the same
+time (`t/try3.sh`, a copy of the zip in `/var/tmp/hz`, its own run also named `i2`); this pass's runs are `i1`, `m2`, `m3`, `m4`
+(`t/NOTE-two-agents.txt` says so on the box).
+
+## 7. What was seen and what was only read
+
+- **Seen in play** (frames looked at, this pass): the support forearm and hand at the hip and aimed on all four rifles (`m3`, `m4`); the RATTLER's fingers with irons (`m3`) and with a red dot (`m4`); the canted reloads and the SHORTY's own reload (`m4`); the open support hand in every reload (`m4`); the black optic ring (`m4`).
+- **Only read** (data and code, not identifiable in a frame): the firing hand's trigger finger and thumb (`FIRING_TIDY`); why `fingerCurl` cannot close the hand in a reload (the trial game's `UpdateHands`, `fd8ce12`); every line of section 8.
+- **Not re-shot:** the NINE and the STICK (their data did not change; `h7` stands).
+
+## 8. C++ for the lead, second pass (not edited here; the box engineer owns `MIFirstPersonRig` and `repo-guns`)
+
+Line numbers are this branch's `Source/MurderInc/Weapons/MIFirstPersonRig.cpp` at `ef77ab7` (last changed by 1f560d7, the lead's
+uncompiled review fixes: `armStretch`, `foregripCurl`, `reloadCurl`, the pack gun's tick). Section 5's items 1 (optic fade), 2
+(`armsFallback`) and 5 (the crash) still stand; items 3 and 4 are replaced by 8.2 and 8.3 below.
+
+### 8.1 The support hand holds the magazine in a reload (must-fix: both reviewers, every hand-IK gun and the NINE)
+
+**What the frames show.** In every reload the support hand is open, thumb and index finger up in a V, under or beside the
+magazine and touching nothing (`h8` `04`, `05`, `16`, `17`, `22`, `23`; `h7` `04-nine-reload`, `26`; this pass `m3` and `m4` `04`,
+`05`, `10`, `11`, `16`, `17`, `22`, `23`). **Cause** (`UpdateHands`, lines 1238 to 1248): in a reload the palm target is lerped to
+the magazine's base pad and `L.ShapeWeight *= 1 - Smooth(K)` lets the solved grip go within 0.15 s, so the fingers fall back to the
+pack idle's own `hand_l`, which is an open hand. **Not fixable in data in the trial game:** pointing the set's `fingerCurl` clip at the
+pack's `A_TFA_FP_AR_Reload_Quick` (1.1 to 1.35 s) and `A_TFA_FP_AR_Reload_Empty` (1.1 s) changed nothing visible (run `i1`). The
+branch's `reloadCurl` (1f560d7, 35 degrees, not yet built) gives a loose fist; that is better than the open hand but still holds
+nothing. The change that makes it hold the magazine:
+
+1. **Carry the support grip onto the magazine instead of letting it go** (lines 1238 to 1248). The solved support hand is a hand
+   wrapped round a 5 to 6 cm forend; a rifle magazine body is 2.5 x 7 cm, so the same shape moved with the palm onto it reads as a hand
+   cupping the magazine from below, which is what a real reload looks like while the magazine is seated. Replace the block's last
+   line:
+   ```cpp
+   // the support grip goes with the hand: the solved points moved with the palm from the forend (the gun's
+   // LeftSocket) to the magazine's base pad, so the fingers stay closed round the magazine instead of falling open.
+   // A translation only: the hand keeps the turn it had on the forend (palm up, fingers round the body).
+   const FVector Shift = ArmsWorld.InverseTransformVector(Base.GetLocation() - Gun->GetSocketLocation(LeftSocket));
+   const float S = static_cast<float>(MIFirstPersonRigPrivate::Smooth(K));
+   for (TPair<FName, FVector>& KV : L.Shape)
+   {
+       KV.Value += Shift * S;
+   }
+   // L.ShapeWeight is kept (was: L.ShapeWeight *= 1 - Smooth(K))
+   ```
+   and lengthen the blend from 0.15 s to 0.25 s (`/ 0.25` in `K`): at 0.15 s the hand jumps. With the shape kept, `reloadCurl`
+   should drop to 0 for the hand-IK sets (the shape already closes the fingers; a curl on top would sink them into the magazine):
+   set `reloadCurl` 0 in `presentation.json` `chopper_ik`, `shorty_ik`, `stretch_ik`, `rattler_ik` when this lands.
+2. **Better, as data (when 1 is in):** a `reload` solve per gun in `grips.json`, made by `_rule_grips.py` round the magazine body
+   (palm heel on the base pad, index finger along the magazine's front face, the other fingers round its body, thumb on its rear
+   face), stored in the magazine bone's space. `Equip` loads it beside `grip.pose` (line 376, a third `GripPoints` map), and the
+   block above lerps the support `Shape` from the carried hip solve to the reload solve by `K`.
+3. **Acceptance:** reload frames at 0.5 s and 1.1 s (`s4.txt`'s two reload shots) show the support fingers closed round the
+   magazine on the four rifles and the NINE.
+
+### 8.2 The support elbow of the hand-IK guns (`supportElbowOut`)
+
+The data changes of this pass (support hand rolled to the forend's lower left, shoulders `[-10, -14, -7]`) already bring the
+support forearm in from the lower left at the hip on the CHOPPER and STRETCH (`m3`/`m4` `00`, `12`); on the RATTLER it still rises
+nearly vertically (`m4` `18`). `UpdateHands` (line 1194, the `Pull` lambda) never sets `FMIFPHandIK::PoleShift`, so the support
+elbow lies in the plane the clip's own elbow gives. Read a camera-space vector next to `supportElbowDrop` in `Equip`:
+```cpp
+SupportElbowOut = FVector::ZeroVector;   // header: FVector SupportElbowOut;
+if (const TSharedPtr<FJsonValue> E = MIJson::Get(Set, TEXT("supportElbowOut")); E.IsValid() && E->Type == EJson::Array && E->AsArray().Num() == 3)
+{
+    SupportElbowOut = FVector(E->AsArray()[0]->AsNumber(), E->AsArray()[1]->AsNumber(), E->AsArray()[2]->AsNumber());
+}
+```
+and in the `Pull` lambda, after `IK.bRotation = false;` (line 1209):
+```cpp
+if (bLeftHand && !SupportElbowOut.IsNearlyZero() && Camera)
+{
+    // camera space (X forward, Y right, Z up), cm: the support elbow pushed out and down from the clip's own pole
+    IK.PoleShift = ArmsWorld.InverseTransformVectorNoScale(Camera->GetComponentQuat().RotateVector(SupportElbowOut));
+}
+```
+In the reload block scale it out with the grip (`L.PoleShift *= 1.0 - Smooth(K);`): in a reload the hand goes down to the
+magazine, and an elbow pushed out would bring the upper arm into the picture. Data to start from: `"supportElbowOut": [-5, -25, -10]`
+on `rattler_ik` (and `[-3, -12, -6]` on `chopper_ik` and `stretch_ik`, which need less); tune against the STICK (`h7` `30-stick-hip`,
+`31-stick-aim`: the forearm enters from the lower left at about 45 degrees).
+
+### 8.3 The aimed solve
+
+`grips.json` has a hip and an aimed solve per rifle; `Equip` reads one (`grip.pose`, line 376). Load both and lerp the points by
+`W.Ads` in `UpdateHands` (two point maps, `FMath::Lerp` per point). They differ by under 1 cm on the support hand: polish.
+
+### 8.4 The optic housing
+
+Every aimed optic is still a black ring in this game (`h8` `01`, `19`; `m4` `01`, `19` with red dots). The fade (7e120ac) and the
+masked hardware material (a88dcdc) are in the branch; only a new package shows them. Re-take `s4.txt`'s aimed frames with it.

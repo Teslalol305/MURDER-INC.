@@ -3,6 +3,25 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Weapons round 4: the hands, second pass (the review's findings; hands engineer, 2026-11-25, 18:00 to 19:05 UTC)
+
+**Read this first.** The review of the first hands pass found five faults; all five are **right** on fresh frames (and the first report was
+wrong to say only the STRETCH's reload hand is open: it is open on every hand-IK gun and the NINE). **Seen in play** on the trial zip's game
+(`fd8ce12`, `/project/ue/hands/zip`) with this branch's data copied over its loose `Content/Data`, runs `i1`, `m2`, `m3`, `m4`
+(`/project/ue/hands/runs`; `m4` is this commit's data, CLEAN). Data and grip code only, no C++ edited:
+- **Support forearm** (was a vertical post at the hip, nothing aimed): the support hand rolled 25 to 45 degrees about the forend's axis to its
+  lower left (`_rule_grips.py --tidy`, `SUPPORT_ROLL`), shoulders `[-10, -14, -7]` on the CHOPPER, STRETCH and RATTLER. The forearm now comes
+  in from the lower left at the hip and the support hand shows at the lower left when aimed; the STRETCH's forearm is still steeper than the STICK's.
+- **RATTLER fingers beside the sight:** gone with a red dot (`m4` `19`, against `h8` `19`): rolled 45 degrees, fingers laid round the strap.
+- **Reload:** canted, not stood up (`poses.reload`); the SHORTY has its own pose, low on the right, the crosshair clear.
+- **SHORTY:** hip view 7 cm lower, eye relief 0.22 m, own reload pose: the receiver no longer fills the hip view.
+- **Firing hand** (trigger finger onto the trigger face, thumb along the grip): data only, not identifiable in a frame.
+- `check_guns_data.py` 0 errors; no fire, recoil, spread or timing number changed.
+
+**Still open, needs C++ (HANDS_R4.md section 8):** the support hand is open in every reload (8.1: carry the solved grip onto the magazine,
+the code is written out there); the support elbow pole for a steeper forearm (8.2); the black optic ring (8.4: a new package with 7e120ac and
+a88dcdc). Sheets: `art/previews/hands_<gun>.jpg` (top row the first pass `h8`, bottom row `m4`).
+
 ## Weapons round 4: the review of the box engineer's work, what was fixed without a box (fixer, 2026-11-25, 18:00 UTC onward)
 
 The rental ended at its 24 hours (17:48 UTC) and the balance (1,277 credits) is under the owner's 2,500 floor, so nothing below was compiled, run or

@@ -281,7 +281,7 @@ def tidy_support(entry, middle_deg=0.0, distal_deg=20.0):
 # SHORTY) the roll is smaller and turns about the box's middle (`axis_z`, cm), and the middle and end phalanges then run
 # up the right face (`face_y`, cm: HANDGUARD_EDGE of _characters_pose.py) a finger's half thickness off it.
 SUPPORT_ROLL = {   # cm, degrees; gun space (X forward, Y right, Z up)
-    "rattler": dict(roll_deg=-35.0, axis_z=0.0, wrap=(3.6, 3.45)),
+    "rattler": dict(roll_deg=-45.0, axis_z=0.0, wrap=(3.6, 3.45)),
     "stretch": dict(roll_deg=-30.0, axis_z=0.0, wrap=(3.8, 3.6)),
     "chopper": dict(roll_deg=-25.0, axis_z=-3.3, wrap=None, face_y=2.26),
     "shorty": dict(roll_deg=-25.0, axis_z=-2.6, wrap=None, face_y=3.44),
