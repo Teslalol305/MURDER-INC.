@@ -5,7 +5,7 @@
 #   LAG_BUILD=<that folder> LAG_RUNAS=fresh LAG_CLEAN=1 LAG_OUT=<a folder for the runs> bash lag-test.sh queue release-gate-v6.txt
 #   bash lag-test.sh list        (the summary lines; LAG_OUT again)
 #
-# 17 runs, about 55 minutes. Every run is cold (a new user's empty home, the folder's Saved removed) and started with
+# 19 runs, about 60 minutes. Every run is cold (a new user's empty home, the folder's Saved removed) and started with
 # E3DS's arguments, one game at a time. Nothing else on the box meanwhile: no compile, no cook, no analysis, no other
 # job's game (lag-test.sh waits for the GPU and its watcher says CLEAN or POLLUTED: a polluted line is run again).
 #
@@ -26,7 +26,12 @@
 # 0.9 s on the Crew screen.
 #   v6-e3ds-l12      what E3DS's machine was measured to be (DECISIONS.md, 2026-11-25): 8 CPU threads and the SM5 shaders
 #                    (-sm5: no Nanite, Lumen in software), the card slowed to about 12 ms a frame (an A4000 by itself).
-#                    No version 3b number (its gate stopped before this line): information for the owner's own machine
+#                    No version 3b number (its gate stopped before this line): information for the owner's own machine.
+#                    It and the next two lines run with version 6's E3DS settings (LAUNCH.md 9.5: Medium, so QP 34, and the
+#                    launch options -sm5 -MIQpExact -MICVars=r.Streaming.PoolSize=1000): the game as E3DS will start it
+#   v6-e3ds-free     the same settings on a free GPU and all CPUs
+#   v6-e3ds-guns     the guns run (guns-keys.txt) under the E3DS-class load: every gun drawn, fired and reloaded where the
+#                    owner will play it
 #   v6-proof-keys, v6-proof-pad
 #                    the stream proof (proof-keys.txt, proof-pad.txt: their tops say what the probe lines must show), with
 #                    the sound recorded: information only, the sound is not a criterion of this release
@@ -53,7 +58,9 @@ v6-l35 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.3:0
 v6-cpu6-l35 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.3:0 cpus=0-5
 v6-devstory-l35 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.3:0 -- -MIDev
 v6-cmds game=ship view=lag-commands.txt load=0
-v6-e3ds-l12 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.05:0.05:1024 cpus=0-7 -- -sm5
+v6-e3ds-l12 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.05:0.05:1024 cpus=0-7 qp=34:34 -- -sm5 -MIQpExact -MICVars=r.Streaming.PoolSize=1000
+v6-e3ds-free game=ship view=lag-stops.txt join=3 secs=115 load=0 qp=34:34 -- -sm5 -MIQpExact -MICVars=r.Streaming.PoolSize=1000
+v6-e3ds-guns game=ship view=guns-keys.txt join=3 probe=0.25 secs=150 load=1:0.05:0.05:1024 cpus=0-7 qp=34:34 -- -sm5 -MIQpExact -MICVars=r.Streaming.PoolSize=1000
 v6-proof-keys game=ship view=proof-keys.txt audio=1 join=3 probe=0.25 secs=100 load=0
 v6-proof-pad game=ship view=proof-pad.txt audio=1 join=3 probe=0.25 secs=100 load=0
 v6-guns game=ship view=guns-keys.txt join=3 probe=0.25 secs=150 load=0
