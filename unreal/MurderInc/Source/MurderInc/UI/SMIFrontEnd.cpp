@@ -8,6 +8,7 @@
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "Flow/MIGameSubsystem.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Styling/SlateTypes.h"
 #include "UI/MIFrontEnd.h"
 #include "UI/MIShowroom.h"
@@ -226,9 +227,29 @@ void SMIFrontEnd::Construct(const FArguments& InArgs)
 void SMIFrontEnd::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
 	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	++TicksSinceBuild;
+	// A pointer that left a Workbench option while the screen was being rebuilt never sends a leave (the button it
+	// left was replaced): once the new buttons have been painted, a pointer outside the hovered option ends its
+	// preview.
+	if (bHoverOn && TicksSinceBuild > 2 && FSlateApplication::IsInitialized())
+	{
+		const TWeakPtr<SWidget>* Btn = OptionButtons.Find(HoverArg);
+		const TSharedPtr<SWidget> B = Btn ? Btn->Pin() : nullptr;
+		const FVector2D Cursor = FSlateApplication::Get().GetCursorPos();
+		const bool bInside = B.IsValid() && (B->IsHovered() || B->GetTickSpaceGeometry().IsUnderLocation(Cursor));
+		HoverOutside = bInside ? 0 : HoverOutside + 1;
+		if (HoverOutside >= 2)
+		{
+			EndHover();
+		}
+	}
 	if (Owner.IsValid() && Owner->GetVersion() != Built)
 	{
+		// Slate ticks a widget while it paints it, after this frame's layout pass: the new screen's widgets have no
+		// desired size yet, and drawn now they were piled at the top of the column for one frame (the flash on every
+		// screen change, READY.md M1). Measure the new screen before it is arranged.
 		Rebuild();
+		ChildSlot.GetWidget()->SlatePrepass(AllottedGeometry.GetAccumulatedLayoutTransform().GetScale());
 	}
 	if (Owner.IsValid() && Owner->GetShowroom() && (Stick.SizeSquared() > 0.0 || Triggers != 0.f))
 	{
@@ -243,8 +264,22 @@ void SMIFrontEnd::Rebuild()
 		return;
 	}
 	Built = Owner->GetVersion();
+	++BuildGen;
+	TicksSinceBuild = 0;
+	HoverOutside = 0;
+	OptionButtons.Reset();
+	// Every build makes new scroll boxes: the new one starts where the old one was on the same screen, and scrolls the
+	// focused control into view when the focus moved (keyboard and pad focus never sits under the bottom bar, M5).
+	const EMIFrontScreen Screen = Owner->GetRules().GetScreen();
+	const FString Key = FString::Printf(TEXT("%s|%d|%d|%d"), *FMIFrontEndRules::ScreenName(Screen), Owner->Pane, Owner->FocusShown(), Owner->bOnNext ? 1 : 0);
+	const FString ScreenWas = FocusKey.Left(FocusKey.Find(TEXT("|")));
+	const float Offset = Scroller.IsValid() && ScreenWas == FMIFrontEndRules::ScreenName(Screen) ? Scroller->GetScrollOffset() : 0.f;
+	const bool bFocusMoved = Key != FocusKey;
+	FocusKey = Key;
+	Scroller.Reset();
+	FocusedWidget.Reset();
 	TSharedRef<SWidget> Body = SNullWidget::NullWidget;
-	switch (Owner->GetRules().GetScreen())
+	switch (Screen)
 	{
 	case EMIFrontScreen::Home: Body = Home(); break;
 	case EMIFrontScreen::Crew: Body = Crew(); break;
@@ -254,6 +289,60 @@ void SMIFrontEnd::Rebuild()
 	case EMIFrontScreen::Briefing: Body = Briefing(); break;
 	}
 	ChildSlot[Body];
+	if (Scroller.IsValid())
+	{
+		Scroller->SetScrollOffset(Offset);
+		if (bFocusMoved && FocusedWidget.IsValid())
+		{
+			Scroller->ScrollDescendantIntoView(FocusedWidget, false, EDescendantScrollDestination::IntoView, 12.f);
+		}
+	}
+}
+
+TSharedRef<SWidget> SMIFrontEnd::Focusable(TSharedRef<SWidget> W, bool bFocused)
+{
+	if (bFocused)
+	{
+		FocusedWidget = W;
+	}
+	return W;
+}
+
+void SMIFrontEnd::OptionHovered(const FString& Arg, int32 Gen)
+{
+	bHoverOn = true;
+	HoverArg = Arg;
+	HoverOutside = 0;
+	if (Owner.IsValid())
+	{
+		Owner->Act(TEXT("preview"), Arg);  // the part already previewed: nothing changes, no rebuild, no sound
+	}
+}
+
+void SMIFrontEnd::OptionUnhovered(const FString& Arg, int32 Gen)
+{
+	if (Gen != BuildGen || !bHoverOn || Arg != HoverArg)
+	{
+		return;  // a button the last rebuild replaced (its successor takes the hover), or not the hovered one
+	}
+	EndHover();
+}
+
+void SMIFrontEnd::EndHover()
+{
+	bHoverOn = false;
+	HoverOutside = 0;
+	if (!Owner.IsValid())
+	{
+		return;
+	}
+	FMIFrontEndRules& R = Owner->GetRules();
+	const FName Part = HoverArg == TEXT("factory") ? NAME_None : FName(*HoverArg);
+	if (R.IsPreviewing() && R.GetPreviewed() == Part)
+	{
+		R.StopPreview();  // only its own preview: a part the keyboard moved to stays shown
+		Owner->Changed();
+	}
 }
 
 // ------------------------------------------------------------------------------------------------ the frame
@@ -265,7 +354,13 @@ TSharedRef<SWidget> SMIFrontEnd::Frame(TSharedRef<SWidget> Body, bool bScroll)
 		+ SHorizontalBox::Slot().FillWidth(Column)[SNew(SImage).Image(Box(WithAlpha(Bg(), 0.88f), 0.f))];
 	Veil->AddSlot().FillWidth(0.16f)[SNew(SImage).Image(FadeBrush())];
 	Veil->AddSlot().FillWidth(1.f - Column - 0.16f)[SNullWidget::NullWidget];
-	TSharedRef<SWidget> Content = bScroll ? StaticCastSharedRef<SWidget>(SNew(SScrollBox) + SScrollBox::Slot()[Body]) : Body;
+	TSharedRef<SWidget> Content = Body;
+	if (bScroll)
+	{
+		TSharedRef<SScrollBox> Box1 = SNew(SScrollBox) + SScrollBox::Slot()[Body];
+		Scroller = Box1;
+		Content = Box1;
+	}
 	return SNew(SOverlay)
 		+ SOverlay::Slot()[Veil]
 		// Letterbox bars.
@@ -399,9 +494,9 @@ TSharedRef<SWidget> SMIFrontEnd::Home()
 				[Txt(Name.ToUpper(), Spaced(Body(MinText, true), 100), V == Now ? Bg() : InkDim())]
 			];
 		}
-		return Ring(SNew(SHorizontalBox)
+		return Focusable(Ring(SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[SNew(SBox).WidthOverride(124.f)[Txt(Label.ToUpper(), Spaced(Body(MinText, true), 160), InkFaint())]]
-			+ SHorizontalBox::Slot().FillWidth(1.f)[Chips], F == Index, 14.f);
+			+ SHorizontalBox::Slot().FillWidth(1.f)[Chips], F == Index, 14.f), F == Index);
 	};
 	const FMISettings::FRules& SR = Owner->GetGame()->GetSettings().Rules;
 	// The summary line: each part is a link that opens its screen in edit mode.
@@ -453,17 +548,18 @@ TSharedRef<SWidget> SMIFrontEnd::Home()
 		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 18.f, 0.f, 0.f)
 		[
 			SNew(SHorizontalBox)
+			// Focus 8 and 9: the keyboard and the pad reach them too (READY.md M6).
 			+ SHorizontalBox::Slot().AutoWidth()
 			[
-				SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(16.f, 8.f))
-				.OnClicked_Lambda([O]() { if (O.IsValid() && O->GetGame()) O->GetGame()->OpenSettingsFromFrontEnd(); return FReply::Handled(); })
-				[Txt(R.Text(TEXT("text.title.settings")).ToUpper(), Spaced(Body(MinText, true), 140), InkDim())]
+				Focusable(Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(16.f, 8.f))
+				.OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("settings")); return FReply::Handled(); })
+				[Txt(R.Text(TEXT("text.title.settings")).ToUpper(), Spaced(Body(MinText, true), 140), F == 8 ? Ink() : InkDim())], F == 8, 8.f, 3.f), F == 8)
 			]
 			+ SHorizontalBox::Slot().AutoWidth().Padding(10.f, 0.f, 0.f, 0.f)
 			[
-				SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(16.f, 8.f))
-				.OnClicked_Lambda([this]() { bShowControls = !bShowControls; Rebuild(); return FReply::Handled(); })
-				[Txt(R.Text(TEXT("text.title.controls")).ToUpper(), Spaced(Body(MinText, true), 140), InkDim())]
+				Focusable(Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(16.f, 8.f))
+				.OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("controls")); return FReply::Handled(); })
+				[Txt(R.Text(TEXT("text.title.controls")).ToUpper(), Spaced(Body(MinText, true), 140), F == 9 ? Ink() : InkDim())], F == 9, 8.f, 3.f), F == 9)
 			]
 		]
 		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 14.f, 0.f, 0.f)[ControlsGlance()];
@@ -507,7 +603,7 @@ TSharedRef<SWidget> SMIFrontEnd::ControlsGlance()
 	{
 		Rows.Add({TEXT("Grab"), TEXT("Hold X")});  // the drawer has it as a note on Reload
 	}
-	if (bShowControls || R.GetSetup().Guns.Num() >= R.GetData().WheelMinGuns)
+	if (Owner->bShowControls || R.GetSetup().Guns.Num() >= R.GetData().WheelMinGuns)
 	{
 		Read(MIJson::Get(R.GetData().TextJson, bPad ? TEXT("frontend.controls.pad") : TEXT("frontend.controls.kbm")));
 	}
@@ -535,7 +631,7 @@ TSharedRef<SWidget> SMIFrontEnd::ControlsGlance()
 	int32 N = 0;
 	for (const TPair<FString, FString>& Row : Rows)
 	{
-		if (!bShowControls && N++ >= 12) break;
+		if (!Owner->bShowControls && N++ >= 12) break;
 		Strip->AddSlot()
 		[
 			SNew(SHorizontalBox)
@@ -560,7 +656,7 @@ TSharedRef<SWidget> SMIFrontEnd::Crew()
 		const bool bSel = R.GetSetup().Crew == Id;
 		Cards->AddSlot()
 		[
-			Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, bSel)).ContentPadding(FMargin(16.f))
+			Focusable(Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, bSel)).ContentPadding(FMargin(16.f))
 			.OnClicked_Lambda([O, Id]() { if (O.IsValid()) O->Act(TEXT("crew"), Id.ToString()); return FReply::Handled(); })
 			[
 				SNew(SBox).WidthOverride(200.f)
@@ -578,7 +674,7 @@ TSharedRef<SWidget> SMIFrontEnd::Crew()
 					+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 0.f)[Txt(R.CrewName(Id), Display(28.f), Ink())]
 					+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)[Txt(R.CrewTagline(Id), Body(MinText), InkDim(), true)]
 				]
-			], Owner->FocusShown() == I)
+			], Owner->FocusShown() == I), Owner->FocusShown() == I)
 		];
 	}
 	return Frame(SNew(SVerticalBox)
@@ -644,10 +740,13 @@ TSharedRef<SWidget> SMIFrontEnd::GunCard(FName Gun, bool bFocused)
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f)[Bars(Gun, Build, nullptr)]
 				+ SVerticalBox::Slot().AutoHeight()[Txt(Info, Body(MinText), InkDim(), true)]
 				+ SVerticalBox::Slot().AutoHeight()[Txt(SlotsLine, Body(MinText), InkDim(), true)]
-				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)
+				// The carried tag on a line of its own: beside the Attachments button the 176-unit row cut it to "..."
+				// (READY.md M4). Every card keeps the line, so the cards of a row end level.
+				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[Txt(Tags.IsEmpty() ? FString(TEXT(" ")) : Tags, Body(MinText, true), Gold())]
+				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f, 0.f, 0.f)
 				[
 					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)[Txt(Tags, Body(MinText, true), Gold())]
+					+ SHorizontalBox::Slot().FillWidth(1.f)[SNullWidget::NullWidget]
 					+ SHorizontalBox::Slot().AutoWidth()
 					[
 						SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(6.f, 3.f)).Visibility(Slots.Num() > 0 ? EVisibility::Visible : EVisibility::Collapsed)
@@ -687,8 +786,10 @@ TSharedRef<SWidget> SMIFrontEnd::Loadout()
 	TSharedRef<SWrapBox> Grid = Wrap(4.f);
 	for (int32 I = 0; I < Rack.Num(); ++I)
 	{
-		Grid->AddSlot()[GunCard(Rack[I], Owner->Pane == 0 && F == I)];
+		Grid->AddSlot()[Focusable(GunCard(Rack[I], Owner->Pane == 0 && F == I), Owner->Pane == 0 && F == I)];
 	}
+	TSharedRef<SScrollBox> RackScroll = SNew(SScrollBox) + SScrollBox::Slot()[Grid];
+	Scroller = RackScroll;  // the rack scrolls; the slots under it always show
 	// The four slots, a strip under the rack.
 	TSharedRef<SHorizontalBox> Slots = SNew(SHorizontalBox);
 	for (int32 I = 0; I < R.GetData().CarryMax; ++I)
@@ -733,7 +834,7 @@ TSharedRef<SWidget> SMIFrontEnd::Loadout()
 	return Frame(SNew(SVerticalBox)
 		+ SVerticalBox::Slot().AutoHeight()[Heading(R.Text(TEXT("frontend.loadout.kicker")), R.Text(TEXT("frontend.loadout.title")))]
 		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 8.f, 0.f, 8.f)[Tabs]
-		+ SVerticalBox::Slot().FillHeight(1.f)[SNew(SScrollBox) + SScrollBox::Slot()[Grid]]
+		+ SVerticalBox::Slot().FillHeight(1.f)[RackScroll]
 		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 4.f)
 		[Txt(R.Text(TEXT("frontend.loadout.carry")) + TEXT(" ") + R.Text(TEXT("frontend.loadout.bag")), Body(MinText), InkDim(), true)]
 		+ SVerticalBox::Slot().AutoHeight()[Slots]
@@ -818,12 +919,15 @@ TSharedRef<SWidget> SMIFrontEnd::Workbench()
 		const FName P = Options[I];
 		const FMIAttachmentDef* Def = R.GetData().FindPart(P);
 		const FString Blurb = P.IsNone() ? R.Text(TEXT("frontend.attachments.factoryNote")) : (Def ? R.Text(Def->Text + TEXT(".blurb")) : FString());
-		Col->AddSlot().AutoHeight().Padding(0.f, 0.f, 0.f, 2.f)
-		[
-			Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, P == Fitted)).ContentPadding(FMargin(12.f, 7.f))
-			.OnHovered_Lambda([O, P]() { if (O.IsValid()) O->Act(TEXT("preview"), P.IsNone() ? TEXT("factory") : P.ToString()); })
-			.OnUnhovered_Lambda([O]() { if (O.IsValid()) { O->GetRules().StopPreview(); O->Changed(); } })
-			.OnClicked_Lambda([O, P]() { if (O.IsValid()) O->Act(TEXT("fit"), P.IsNone() ? TEXT("factory") : P.ToString()); return FReply::Handled(); })
+		// The pointer over an option previews it (once: a rebuild under a resting pointer changes nothing), a click fits.
+		const FString Arg = P.IsNone() ? FString(TEXT("factory")) : P.ToString();
+		const int32 Gen = BuildGen;
+		const TWeakPtr<SMIFrontEnd> Self = StaticCastSharedRef<SMIFrontEnd>(AsShared());
+		TSharedRef<SButton> Option = SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, P == Fitted)).ContentPadding(FMargin(12.f, 7.f))
+			.Tag(FName(*(TEXT("MIOption.") + Arg)))
+			.OnHovered_Lambda([Self, Arg, Gen]() { if (const TSharedPtr<SMIFrontEnd> S = Self.Pin()) S->OptionHovered(Arg, Gen); })
+			.OnUnhovered_Lambda([Self, Arg, Gen]() { if (const TSharedPtr<SMIFrontEnd> S = Self.Pin()) S->OptionUnhovered(Arg, Gen); })
+			.OnClicked_Lambda([O, Arg]() { if (O.IsValid()) O->Act(TEXT("fit"), Arg); return FReply::Handled(); })
 			[
 				SNew(SHorizontalBox)
 				+ SHorizontalBox::Slot().FillWidth(1.f)
@@ -834,8 +938,9 @@ TSharedRef<SWidget> SMIFrontEnd::Workbench()
 				]
 				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(8.f, 0.f, 0.f, 0.f)
 				[Txt(P == Fitted ? R.Text(TEXT("frontend.attachments.fitted")).ToUpper() : FString(), Spaced(Body(MinText, true), 120), Gold())]
-			], F == I, 8.f, 4.f)
-		];
+			];
+		OptionButtons.Add(Arg, Option);
+		Col->AddSlot().AutoHeight().Padding(0.f, 0.f, 0.f, 2.f)[Focusable(Ring(Option, F == I, 8.f, 4.f), F == I)];
 	}
 	// The focused option's effect lines (a shape for better, worse or neutral, then the words) and the six bars before
 	// (ghost) and after (fill).
@@ -888,9 +993,9 @@ TSharedRef<SWidget> SMIFrontEnd::Where()
 	const auto Row = [&](int32 Index, const FString& Label, TSharedRef<SWidget> Content)
 	{
 		// The ring pads its row: the label and the cards sit inside it.
-		return Ring(SNew(SVerticalBox)
+		return Focusable(Ring(SNew(SVerticalBox)
 			+ SVerticalBox::Slot().AutoHeight()[Txt(Label.ToUpper(), Spaced(Body(MinText, true), 160), InkFaint())]
-			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[Content], F == Index, 6.f, 10.f);
+			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[Content], F == Index, 6.f, 10.f), F == Index);
 	};
 	const auto Chip = [&](const TCHAR* Act, FName V, const FString& Label, bool bOn)
 	{
@@ -933,7 +1038,7 @@ TSharedRef<SWidget> SMIFrontEnd::Where()
 	{
 		const FName M = ModeIds[I];
 		const bool bOn = M == S.Mode;
-		const FString Best = M == TEXT("holdout") ? R.GetData().Format(TEXT("frontend.mode.best"), {{TEXT("score"), FMIText::Grouped(Owner->GetGame()->GetSettings().GetBest())}}) : FString();
+		const FString Best = M == TEXT("holdout") && Owner->GetGame()->GetSettings().GetBest() > 0 ? R.GetData().Format(TEXT("frontend.mode.best"), {{TEXT("score"), FMIText::Grouped(Owner->GetGame()->GetSettings().GetBest())}}) : FString();
 		Modes->AddSlot().FillWidth(1.f).Padding(0.f, 0.f, I + 1 < ModeIds.Num() ? 8.f : 0.f, 0.f)
 		[
 			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, bOn)).ContentPadding(FMargin(12.f, 8.f))
@@ -1000,7 +1105,7 @@ TSharedRef<SWidget> SMIFrontEnd::Briefing()
 		const FString Sc(Lines[I].Screen);
 		Card->AddSlot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)
 		[
-			Ring(SNew(SBorder).BorderImage(Box(WithAlpha(Plate(), 0.9f), 8.f, PlateEdge(), 1.f)).Padding(FMargin(14.f, 8.f))
+			Focusable(Ring(SNew(SBorder).BorderImage(Box(WithAlpha(Plate(), 0.9f), 8.f, PlateEdge(), 1.f)).Padding(FMargin(14.f, 8.f))
 			[
 				SNew(SHorizontalBox)
 				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Fill)[SNew(SBox).WidthOverride(4.f)[SNew(SImage).Image(Box(Line(FMath::Min(I, 3)), 2.f))]]
@@ -1017,7 +1122,7 @@ TSharedRef<SWidget> SMIFrontEnd::Briefing()
 					.OnClicked_Lambda([O, Sc]() { if (O.IsValid()) O->Act(TEXT("edit"), Sc); return FReply::Handled(); })
 					[Txt(R.Text(TEXT("frontend.briefing.change")).ToUpper(), Spaced(Body(MinText, true), 120), Ink())]
 				]
-			], Owner->FocusShown() == I, 8.f, 3.f)
+			], Owner->FocusShown() == I, 8.f, 3.f), Owner->FocusShown() == I)
 		];
 	}
 	Card->AddSlot().AutoHeight().Padding(0.f, 12.f, 0.f, 0.f)[ControlsGlance()];

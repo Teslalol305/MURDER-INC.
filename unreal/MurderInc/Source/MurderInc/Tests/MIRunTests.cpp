@@ -35,6 +35,9 @@
 #include "Weapons/MIGunAssembly.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Framework/Application/SlateApplication.h"
+#include "UI/SMIFrontEnd.h"
+#include "Widgets/Input/SButton.h"
 
 #if WITH_AUTOMATION_TESTS
 
@@ -611,6 +614,11 @@ bool FMIFrontendWalkWorldTest::RunTest(const FString& Parameters)
 	// Block & Style: four rows, then Next.
 	for (int32 I = 0; I < 3; ++I) Press(*this, W, F, EKeys::Down);
 	TestFalse(TEXT("the difficulty row is not Next"), F->bOnNext);
+	// Up walks back (READY.md W3: the keyboard's Up arrow), Down returns to the difficulty row.
+	Press(*this, W, F, EKeys::Up);
+	TestEqual(TEXT("Up: the mode row"), F->Focus, 2);
+	Press(*this, W, F, EKeys::Down);
+	TestEqual(TEXT("Down: the difficulty row again"), F->Focus, 3);
 	Press(*this, W, F, EKeys::Down);
 	TestTrue(TEXT("Down past the difficulty row: Next"), F->bOnNext);
 	Press(*this, W, F, EKeys::Enter);
@@ -689,6 +697,181 @@ bool FMIFrontendWalkPadTest::RunTest(const FString& Parameters)
 	for (int32 I = 0; I < 3; ++I) W.Step();
 	Press(*this, W, F, EKeys::Gamepad_Special_Right);
 	TestEqual(TEXT("Start on the Briefing: the intro"), (int32)W.State(), (int32)EMIGameState::Intro);
+	return !HasAnyErrors();
+}
+
+namespace MIRunTestsPrivate
+{
+	/** The widget of the current build whose tag is Tag (the Workbench's options are tagged MIOption.<part>). */
+	TSharedPtr<SWidget> FindTagged(const TSharedRef<SWidget>& Root, FName Tag)
+	{
+		if (Root->GetTag() == Tag)
+		{
+			return Root;
+		}
+		FChildren* Children = Root->GetChildren();
+		for (int32 I = 0; Children && I < Children->Num(); ++I)
+		{
+			if (TSharedPtr<SWidget> Found = FindTagged(Children->GetChildAt(I), Tag))
+			{
+				return Found;
+			}
+		}
+		return nullptr;
+	}
+
+	/** One Slate frame of the set-up widget as the viewport gives it: Slate ticks a widget while it paints it, after
+	 *  the frame's layout pass. */
+	void SlateFrame(SMIFrontEnd& Widget)
+	{
+		const FGeometry Geo = FGeometry::MakeRoot(FVector2f(1920.f, 1080.f), FSlateLayoutTransform());
+		Widget.Tick(Geo, FSlateApplication::Get().GetCurrentTime(), 1.f / 60.f);
+	}
+}
+
+// READY.md M1: the set-up screens flickered in the stream. (1) A screen rebuilt while Slate paints must be measured
+// before it is arranged, or its controls are drawn piled at the top for one frame. (2) A pointer resting on a Workbench
+// option is told it is hovered again after each rebuild: that must not rebuild the screen again (it strobed at 20 Hz
+// with 20 hover sounds a second); a leave from a replaced button is ignored; a pointer that left while the screen was
+// rebuilt still ends its preview.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIFrontendSteadyTest, "MurderInc.Frontend.Steady", MITest::Flags)
+
+bool FMIFrontendSteadyTest::RunTest(const FString& Parameters)
+{
+	using namespace MIRunTestsPrivate;
+	FRunWorld W;
+	UMIFrontEnd* F = BootTitle(*this, W);
+	if (!F || !TestTrue(TEXT("Slate is up"), FSlateApplication::IsInitialized()) || !TestNotNull(TEXT("a renderer measures text"), FSlateApplication::Get().GetRenderer()))
+	{
+		return false;
+	}
+	TSharedPtr<SMIFrontEnd> Widget = F->GetWidget();
+	if (!TestTrue(TEXT("the set-up widget"), Widget.IsValid()))
+	{
+		return false;
+	}
+	Widget->SlatePrepass(1.f);
+	SlateFrame(*Widget);
+	// (1) A screen change, rebuilt in the paint: the new screen has its size before it is drawn.
+	F->Act(TEXT("gearup"));
+	SlateFrame(*Widget);
+	const FVector2D Desired = Widget->GetChildren()->GetChildAt(0)->GetDesiredSize();
+	TestTrue(FString::Printf(TEXT("Crew, rebuilt while painting, is measured before it is drawn (desired %.0f x %.0f)"), Desired.X, Desired.Y), Desired.X > 100.0 && Desired.Y > 100.0);
+	// (2) The Workbench: the first carried gun with options.
+	F->Act(TEXT("next"));
+	FName Gun;
+	for (const FName G : F->GetRules().GetSetup().Guns)
+	{
+		F->Act(TEXT("bench"), G.ToString());
+		if (F->GetRules().BenchOptions(F->GetRules().GetBenchSlot()).Num() > 1)
+		{
+			Gun = G;
+			break;
+		}
+	}
+	if (!TestFalse(TEXT("a carried gun has Workbench options"), Gun.IsNone()))
+	{
+		return false;
+	}
+	SlateFrame(*Widget);
+	const TArray<FName> Options = F->GetRules().BenchOptions(F->GetRules().GetBenchSlot());
+	const FName Part = Options.Last();
+	const FString Arg = Part.IsNone() ? FString(TEXT("factory")) : Part.ToString();
+	const FName Tag(*(TEXT("MIOption.") + Arg));
+	const FPointerEvent Pointer;
+	const FGeometry Geo = FGeometry::MakeRoot(FVector2f(1920.f, 1080.f), FSlateLayoutTransform());
+	TSharedPtr<SWidget> Btn = FindTagged(Widget.ToSharedRef(), Tag);
+	if (!TestTrue(TEXT("the option's button"), Btn.IsValid()))
+	{
+		return false;
+	}
+	// The pointer comes to rest on the option: one preview, one rebuild. Then Slate does what it does after each
+	// rebuild: the replaced button is left, the new one under the pointer is entered.
+	Btn->OnMouseEnter(Geo, Pointer);
+	TestTrue(TEXT("the hover previews the part"), F->GetRules().IsPreviewing() && F->GetRules().GetPreviewed() == Part);
+	const int32 Builds0 = Widget->GetBuildCount();
+	for (int32 Frame = 0; Frame < 40; ++Frame)
+	{
+		SlateFrame(*Widget);
+		const TSharedPtr<SWidget> Now = FindTagged(Widget.ToSharedRef(), Tag);
+		if (Now.IsValid() && Now != Btn)
+		{
+			Btn->OnMouseLeave(Pointer);
+			Now->OnMouseEnter(Geo, Pointer);
+			Btn = Now;
+		}
+	}
+	TestEqual(TEXT("a pointer resting on an option for 40 frames rebuilds the Workbench once"), Widget->GetBuildCount() - Builds0, 1);
+	TestTrue(TEXT("and the part stays previewed"), F->GetRules().IsPreviewing() && F->GetRules().GetPreviewed() == Part);
+	const int32 V0 = F->GetVersion();
+	F->Act(TEXT("preview"), Arg);
+	TestEqual(TEXT("previewing the part already previewed changes nothing (no rebuild, no hover sound)"), F->GetVersion(), V0);
+	// The pointer leaves: the preview ends, the screen rebuilds once.
+	Btn->OnMouseLeave(Pointer);
+	TestFalse(TEXT("leaving the option ends its preview"), F->GetRules().IsPreviewing());
+	SlateFrame(*Widget);
+	// A leave from a replaced button does not end the preview of the new one.
+	Btn = FindTagged(Widget.ToSharedRef(), Tag);
+	Btn->OnMouseEnter(Geo, Pointer);
+	SlateFrame(*Widget);
+	Btn->OnMouseLeave(Pointer);  // the button before this rebuild
+	TestTrue(TEXT("a replaced button's leave is ignored"), F->GetRules().IsPreviewing() && F->GetRules().GetPreviewed() == Part);
+	// The new button was never entered (the pointer left during the rebuild): a few frames later the preview ends.
+	for (int32 Frame = 0; Frame < 6; ++Frame) SlateFrame(*Widget);
+	TestFalse(TEXT("a pointer gone during a rebuild still ends the preview"), F->GetRules().IsPreviewing());
+	return !HasAnyErrors();
+}
+
+// READY.md M6, M7 and W3: the keyboard's Up, Home's Settings and Controls by keys, and a pad that can always leave the
+// Loadout's slots.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIFrontendKeysReachTest, "MurderInc.Frontend.KeysReach", MITest::Flags)
+
+bool FMIFrontendKeysReachTest::RunTest(const FString& Parameters)
+{
+	using namespace MIRunTestsPrivate;
+	FRunWorld W;
+	UMIFrontEnd* F = BootTitle(*this, W);
+	if (!F)
+	{
+		return false;
+	}
+	TestEqual(TEXT("Home has ten controls"), F->NumFocusable(), 10);
+	for (int32 I = 0; I < 8; ++I) Press(*this, W, F, EKeys::Down);
+	TestEqual(TEXT("Down x8: SETTINGS"), F->Focus, 8);
+	Press(*this, W, F, EKeys::Down);
+	TestEqual(TEXT("Down: CONTROLS"), F->Focus, 9);
+	Press(*this, W, F, EKeys::Up);
+	TestEqual(TEXT("Up: back on SETTINGS"), F->Focus, 8);
+	Press(*this, W, F, EKeys::Down);
+	const bool bWas = F->bShowControls;
+	Press(*this, W, F, EKeys::Enter);
+	TestEqual(TEXT("Enter on CONTROLS opens the controls list"), F->bShowControls, !bWas);
+	TestEqual(TEXT("still Home"), F->GetRules().GetScreen(), EMIFrontScreen::Home);
+	Press(*this, W, F, EKeys::Down);
+	TestEqual(TEXT("Down from CONTROLS wraps to Hit the block"), F->Focus, 0);
+	Press(*this, W, F, EKeys::Up);
+	TestEqual(TEXT("Up from Hit the block wraps to CONTROLS"), F->Focus, 9);
+	// The pad on Loadout: RB to the slots, D-pad up from the first slot back to the rack; Y on an empty slot too.
+	F->Act(TEXT("gearup"));
+	F->Act(TEXT("next"));
+	Expect(*this, F, EMIFrontScreen::Loadout, TEXT("Loadout"));
+	Press(*this, W, F, EKeys::Gamepad_RightShoulder);
+	TestEqual(TEXT("RB: the slots"), F->Pane, 1);
+	Press(*this, W, F, EKeys::Gamepad_DPad_Up);
+	TestEqual(TEXT("D-pad up from slot 1: the rack"), F->Pane, 0);
+	Press(*this, W, F, EKeys::Gamepad_RightShoulder);
+	const int32 Empty = F->GetRules().GetSetup().Guns.Num();
+	for (int32 I = 0; I < Empty; ++I) Press(*this, W, F, EKeys::Gamepad_DPad_Right);
+	TestEqual(TEXT("D-pad right walks the slots to the first empty one"), F->Focus, Empty);
+	Press(*this, W, F, EKeys::Gamepad_FaceButton_Top);
+	TestEqual(TEXT("Y on an empty slot: the rack"), F->Pane, 0);
+	// The keyboard's Up on a set-up screen (Block & Style): Down, Down, Up.
+	F->Act(TEXT("next"));
+	Expect(*this, F, EMIFrontScreen::Where, TEXT("Block & Style"));
+	Press(*this, W, F, EKeys::Down);
+	Press(*this, W, F, EKeys::Down);
+	Press(*this, W, F, EKeys::Up);
+	TestEqual(TEXT("Up on Block & Style moves the focus up"), F->Focus, 1);
 	return !HasAnyErrors();
 }
 

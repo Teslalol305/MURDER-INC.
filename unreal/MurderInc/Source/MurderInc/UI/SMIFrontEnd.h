@@ -31,8 +31,20 @@ public:
 	virtual FReply OnAnalogValueChanged(const FGeometry& MyGeometry, const FAnalogInputEvent& InAnalogInputEvent) override;
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 
+	/** The pointer entered or left a Workbench option (Arg: a part id or "factory"; Gen: the build the button belongs
+	 *  to). A rebuild replaces the button under a resting pointer: the replaced button's leave is ignored and a second
+	 *  look at the part already previewed changes nothing (docs/unreal/READY.md M1, the 20 Hz strobe). */
+	void OptionHovered(const FString& Arg, int32 Gen);
+	void OptionUnhovered(const FString& Arg, int32 Gen);
+	/** Rebuilds so far (a test reads it: a pointer resting on an option must not rebuild the screen). */
+	int32 GetBuildCount() const { return BuildGen; }
+
 private:
 	void Rebuild();
+	/** Remembers the focused control of the screen being built (the scroll box brings it into view) and returns it. */
+	TSharedRef<SWidget> Focusable(TSharedRef<SWidget> W, bool bFocused);
+	/** A stopped hover: the preview of that part ends (and only that part's). */
+	void EndHover();
 	TSharedRef<SWidget> Frame(TSharedRef<SWidget> Body, bool bWideRight);
 	TSharedRef<SWidget> StepStrip();
 	TSharedRef<SWidget> Heading(const FString& Kicker, const FString& Title);
@@ -51,8 +63,20 @@ private:
 
 	TWeakObjectPtr<UMIFrontEnd> Owner;
 	int32 Built = -1;
+	int32 BuildGen = 0;
+	/** The scroll box of the screen built last (the column, or the rack's) and the control that has the focus there. */
+	TSharedPtr<class SScrollBox> Scroller;
+	TSharedPtr<SWidget> FocusedWidget;
+	/** Screen, pane and focus of the last build: the focused control is scrolled into view only when it changes. */
+	FString FocusKey;
+	/** The pointer rests on a Workbench option: its part, the option button of the current build, ticks since the
+	 *  build and ticks the pointer has been outside the button. */
+	bool bHoverOn = false;
+	FString HoverArg;
+	TMap<FString, TWeakPtr<SWidget>> OptionButtons;
+	int32 TicksSinceBuild = 0;
+	int32 HoverOutside = 0;
 	bool bDragging = false;
-	bool bShowControls = false;
 	FVector2D LastMouse = FVector2D::ZeroVector;
 	FVector2D Stick = FVector2D::ZeroVector;
 	float Triggers = 0.f;

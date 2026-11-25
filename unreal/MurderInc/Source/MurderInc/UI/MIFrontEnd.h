@@ -64,6 +64,8 @@ public:
 	/** A controller's button name from the data (Xbox names) in the names chosen in Settings. */
 	FString PadName(const FString& Name) const;
 	FName RackFilter = TEXT("all");
+	/** Home: the full controls list is open (the CONTROLS button, focus 9). */
+	bool bShowControls = false;
 	/** Home: the summary line's links and the pickers; Briefing: the four lines and Go. */
 	int32 NumFocusable() const;
 
@@ -78,6 +80,8 @@ public:
 	bool ResolveShown(FName Gun, const FMIGunBuild* Build, FMIResolvedGun& Out) const;
 	const FMIReadiness& GetReadiness() const { return Rules.GetReadiness(); }
 	double GetHoldReset() const { return Rules.GetResetHold(); }
+	/** The Slate screens (tests drive their hover and their layout). */
+	TSharedPtr<SMIFrontEnd> GetWidget() const { return Widget; }
 
 private:
 	void SyncStage(bool bForce);

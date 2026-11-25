@@ -199,7 +199,7 @@ int32 UMIFrontEnd::NumFocusable() const
 {
 	switch (Rules.GetScreen())
 	{
-	case EMIFrontScreen::Home: return 8;  // Hit the block, Gear up, Mode, Difficulty, Time, the summary's Crew, Guns, Where
+	case EMIFrontScreen::Home: return 10;  // Hit the block, Gear up, Mode, Difficulty, Time, the summary's Crew, Guns, Where, Settings, Controls
 	case EMIFrontScreen::Crew: return Rules.OfferedCrew().Num();
 	case EMIFrontScreen::Loadout: return Pane == 0 ? Rules.Rack(RackFilter).Num() : Rules.GetData().CarryMax;
 	case EMIFrontScreen::Workbench: return Rules.BenchOptions(Rules.GetBenchSlot()).Num();
@@ -353,12 +353,34 @@ bool UMIFrontEnd::Act(const FString& Action, const FString& Arg)
 	else if (A == TEXT("bench")) Rules.OpenWorkbench(N.IsNone() ? Rules.GetFocusGun() : N);
 	else if (A == TEXT("benchslot")) Rules.ChooseBenchSlot(N);
 	else if (A == TEXT("benchnext")) Rules.BenchNextGun(Arg.IsEmpty() ? 1 : FCString::Atoi(*Arg));
-	else if (A == TEXT("preview")) Rules.PreviewPart(Arg == TEXT("factory") ? NAME_None : N);
+	else if (A == TEXT("preview"))
+	{
+		// The part already previewed: nothing changes, so no rebuild and no hover sound. A pointer resting on an option
+		// is told it is hovered again after every rebuild, and each look rebuilt the screen: a 20 Hz strobe in the
+		// stream and 20 hover sounds a second (READY.md M1).
+		const FName Part = Arg == TEXT("factory") ? NAME_None : N;
+		if (Rules.IsPreviewing() && Rules.GetPreviewed() == Part)
+		{
+			return true;
+		}
+		Rules.PreviewPart(Part);
+	}
 	else if (A == TEXT("fit")) Rules.Fit(Arg == TEXT("factory") ? NAME_None : N);
 	else if (A == TEXT("reset")) { bool bDone = false; for (int32 I = 0; I < 120 && !bDone; ++I) bDone = Rules.HoldReset(1.0 / 60.0, true); }
 	else if (A == TEXT("level")) Rules.SetLevel(N);
 	else if (A == TEXT("time") || A == TEXT("mode") || A == TEXT("difficulty")) WriteSetting(FName(*A), N);
 	else if (A == TEXT("home")) Rules.OpenHome();
+	else if (A == TEXT("controls")) bShowControls = !bShowControls;  // Home: the full controls list
+	else if (A == TEXT("settings"))
+	{
+		if (!Game.IsValid() || Rules.GetScreen() != EMIFrontScreen::Home)
+		{
+			return false;
+		}
+		UMIGameSubsystem::UiNote(TEXT("ui:click"), Game.Get());
+		Game->OpenSettingsFromFrontEnd();  // hides the screens; Settings returns to Home
+		return true;
+	}
 	else if (A == TEXT("unready")) Rules.SetShowUnready(Arg != TEXT("0"));
 	else if (A == TEXT("showbriefing")) Rules.OpenBriefing();
 	else bOk = false;
@@ -436,9 +458,16 @@ void UMIFrontEnd::Move(int32 Dx, int32 Dy)
 			const TArray<FName> Rack = Rules.Rack(RackFilter);
 			if (Rack.IsValidIndex(Focus)) Rules.FocusGun(Rack[Focus]);
 		}
+		else if (Dy < 0 && Focus == 0)
+		{
+			// Up from the first slot returns to the rack: a pad can always leave the slots (READY.md M7).
+			Pane = 0;
+			const TArray<FName> Rack = Rules.Rack(RackFilter);
+			Focus = FMath::Max(0, Rack.IndexOfByKey(Rules.GetFocusGun()));
+		}
 		else
 		{
-			Focus = FMath::Clamp(Focus + Dy, 0, Count - 1);
+			Focus = FMath::Clamp(Focus + Dy + Dx, 0, Count - 1);  // the slots are a strip: across walks it too
 			Rules.SelectSlot(Focus);
 		}
 		break;
@@ -506,6 +535,8 @@ void UMIFrontEnd::Activate()
 		static const TCHAR* Actions[] = {TEXT("hit"), TEXT("gearup"), nullptr, nullptr, nullptr};
 		if (Focus <= 1) Act(Actions[Focus]);
 		else if (Focus <= 4) Move(1, 0);
+		else if (Focus == 8) Act(TEXT("settings"));
+		else if (Focus == 9) Act(TEXT("controls"));
 		else Act(TEXT("edit"), Focus == 5 ? TEXT("crew") : Focus == 6 ? TEXT("loadout") : TEXT("where"));
 		break;
 	}
@@ -645,6 +676,14 @@ bool UMIFrontEnd::Key(const FKey& K, bool bDown, bool bRepeat, bool bCtrl, bool 
 			if (K == EKeys::Gamepad_LeftShoulder) { Act(TEXT("swap"), FString::Printf(TEXT("%d %d"), Focus + 1, Focus)); return true; }
 			if (K == EKeys::Gamepad_RightShoulder) { Act(TEXT("swap"), FString::Printf(TEXT("%d %d"), Focus + 1, Focus + 2)); return true; }
 			if ((K == EKeys::E || K == EKeys::Gamepad_FaceButton_Top) && Rules.GetSetup().Guns.IsValidIndex(Focus)) { Act(TEXT("bench"), Rules.GetSetup().Guns[Focus].ToString()); return true; }
+			if (K == EKeys::Gamepad_FaceButton_Top)
+			{
+				// Y on an empty slot: back to the rack to pick a gun for it (it did nothing, READY.md M7).
+				Pane = 0;
+				Focus = FMath::Max(0, Rules.Rack(RackFilter).IndexOfByKey(Rules.GetFocusGun()));
+				Changed();
+				return true;
+			}
 		}
 		if (K == EKeys::Gamepad_LeftShoulder || K == EKeys::Gamepad_RightShoulder)
 		{
