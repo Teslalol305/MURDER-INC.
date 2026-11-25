@@ -50,7 +50,7 @@ struct MURDERINC_API FMIFrameRateGovernor
 		double GpuMs = 0.0;
 		/** Dynamic resolution cannot draw a smaller picture (it is at its minimum, or it is off). */
 		bool bSmallestPicture = false;
-		/** The pacer had to hold the game back for the GPU in most frames since the last update. */
+		/** The pacer held the game back for the GPU for a good part of the time since the last update. */
 		bool bHeldBack = false;
 		/** Not in live play: the target may rise. */
 		bool bSafeMoment = false;

@@ -1091,8 +1091,11 @@ void UMICloudSubsystem::TickPacing()
 	PictureShare = MICloudPrivate::PictureShare(In.bSmallestPicture);
 	if (Pacer.IsValid())
 	{
+		// Held back: the game thread spent more than a fifth of the time waiting for the GPU. (A render thread and a
+		// GPU that together take a little over one frame make it wait a millisecond or two every frame at full
+		// frame rate: that is not a GPU that cannot keep up.)
 		const FMIGpuPacer::FStats S = Pacer->Take(1);
-		In.bHeldBack = S.Frames > 0 && S.Held * 2 > S.Frames;
+		In.bHeldBack = S.WaitMs > 0.2 * Step * 1000.0;
 	}
 	const AMIPlayerController* PC = GetGameInstance() ? Cast<AMIPlayerController>(GetGameInstance()->GetFirstLocalPlayerController()) : nullptr;
 	In.bSafeMoment = !PC || !PC->IsInLivePlay();

@@ -1,0 +1,47 @@
+# The viewer of the console-command check (lag-test.sh game=ship view=.../lag-commands.txt): into a Story run as
+# lag-story.txt does, the pause card with its line of numbers (a frame is saved: look at it), then console commands
+# as a page or E3DS's "Unreal console commands to run at start" field sends them:
+#   t.MaxFPS 30               allowed: the probe lines must then say fps=30 and target=30, and the log
+#                             "Frame-rate target: fixed at 30 by t.MaxFPS"
+#   quit                      refused (the game must still run afterwards)
+#   r.ScreenPercentage 400    refused (beyond its range)
+#   MI.Cloud.FpsTarget        allowed (only read)
+# The game's log must count cmdRun=2 cmdRefused=2 in its last probe lines.
+wait 3
+click
+wait 2.5
+click 0.106 0.448
+wait 2.5
+click 0.3625 0.911
+wait 2
+click 0.3625 0.911
+wait 2
+click 0.3625 0.911
+wait 2.5
+click 0.336 0.911
+wait 12
+say PHASE still
+mouse 6 0 120 16
+wait 2
+key 80
+wait 2
+frame pause.jpg
+key 80
+wait 2
+say PHASE commands
+cmd t.MaxFPS 30
+wait 6
+cmd quit
+wait 2
+cmd r.ScreenPercentage 400
+wait 1
+cmd MI.Cloud.FpsTarget
+wait 2
+mouse 6 0 120 16
+key 80
+wait 2
+frame pause-30.jpg
+key 80
+wait 2
+say PHASE end
+wait 2
