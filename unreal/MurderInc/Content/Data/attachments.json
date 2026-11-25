@@ -414,7 +414,7 @@
       },
       "art": {
         "status": "exists",
-        "notes": "Compact enclosed red dot, no maker's marks, black anodised aluminium on a clamp base. 7,744 triangles; slots M_Part_Hardware, M_Part_Lens, M_Part_Reticle; fits CHOPPER, SHORTY, STRETCH, RATTLER; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
+        "notes": "Compact enclosed red dot, no maker's marks, black anodised aluminium on a clamp base. 7,734 triangles; slots M_Part_Hardware, M_Part_Lens, M_Part_Reticle; fits CHOPPER, SHORTY, STRETCH, RATTLER; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
       }
     },
     "scope_4x": {
@@ -438,7 +438,7 @@
       },
       "art": {
         "status": "exists",
-        "notes": "Compact fixed 4x tube scope with elevation and windage turrets, on a clamp base. The numbers are the pack scope's. 12,050 triangles; slots M_Part_Hardware, M_Part_Lens, M_Part_Reticle; fits CHOPPER, SHORTY, STRETCH; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
+        "notes": "Compact fixed 4x tube scope with elevation and windage turrets, on a clamp base. The numbers are the pack scope's. 12,040 triangles; slots M_Part_Hardware, M_Part_Lens, M_Part_Reticle; fits CHOPPER, SHORTY, STRETCH; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
       }
     },
     "suppressor": {

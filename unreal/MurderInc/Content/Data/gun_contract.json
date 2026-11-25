@@ -5,7 +5,7 @@
     "game": "MURDER INC.",
     "schema": 1,
     "units": "metres, in the mesh's own frame: x forward along the bore, y left, z up. Unreal cm = (x, -y, z) x 100; the viewmodel data's gun space (web) = (-y, z, -x).",
-    "source": "art/out/manifest.json of 2026-11-25T14:26:16 (the guns) and art/blender/assets/weapons_parts_contract.json (the parts)",
+    "source": "art/out/manifest.json of 2026-11-25T14:36:45 (the guns) and art/blender/assets/weapons_parts_contract.json (the parts)",
     "regenerate": "python3 tools/data/make_gun_contract.py   (add --check to see whether this file is stale)"
   },
   "assets": {
@@ -286,7 +286,7 @@
       "sockets": {"SightEye": [-0.0325, 0, 0.0245]},
       "bounds": {"min": [-0.032, -0.0203, -0.0084], "max": [0.032, 0.0183, 0.047]},
       "materialSlots": ["M_Part_Hardware", "M_Part_Lens", "M_Part_Reticle"],
-      "triangles": 7744
+      "triangles": 7734
     },
     "scope_4x": {
       "mesh": "SM_Part_Scope4x",
@@ -297,7 +297,7 @@
       "sockets": {"SightEye": [-0.067, 0, 0.0275]},
       "bounds": {"min": [-0.065, -0.026, -0.0084], "max": [0.085, 0.0219, 0.0535]},
       "materialSlots": ["M_Part_Hardware", "M_Part_Lens", "M_Part_Reticle"],
-      "triangles": 12050
+      "triangles": 12040
     },
     "suppressor": {
       "mesh": "SM_Part_Suppressor",
