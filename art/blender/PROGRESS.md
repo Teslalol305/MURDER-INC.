@@ -1175,7 +1175,7 @@ round_edges, texture, split_off, preview_hero / preview_fp, rig_studio).
   rearmost point is -0.255; the heel is at (-0.240, +0.020) and the top line rises to +0.052 at -0.190 as briefed.
 - Dust cover swung 170 deg open (7 mm off the flank) so the port shows the action and the width stays within 70 mm.
 - Texel density (one 4K set for 0.58 m2 of surface incl. the 52-lug rail): 6,150 px/m on the receiver flanks, top, rail, controls and
-  grip, ~4,800 on the walnut flanks and handguard, ~3,000 on barrel, brake and bipod (brief 7,000 / 5,500 / 3,500). The median over
+  grip (5,800 on the grip), ~4,800 on the stock flanks, ~4,400 on the handguard, ~3,000 on barrel, brake and bipod (brief 7,000 / 5,500 / 3,500); the magazine's 2K set is 9,000 px/m. The median over
   every face is 3,623 px/m.
 ## Self-review (8 preview renders used: hero, fp, hero, fp, side, parts, silhouette, side)
 - Round 1: the first hero was over-exposed and flat grey, and in the daylight first-person view the brief's #2b1c14 walnut and
