@@ -13,6 +13,7 @@
 #   OPTICS="chopper=scope_4x shorty=red_dot"    gun=part pairs fitted before the run (default: none, the irons)
 #   MUZZLES="stretch=suppressor"               gun=part pairs for the muzzle slot; MAGS="shorty=mag_ext_rifle" for the magazine
 #   FITS="shorty=laser:laser_module stretch=underbarrel:foregrip_vertical"   gun=slot:part for any other slot
+#   ARMSTRETCH=1.0                             console mi.FP.ArmStretch (largest stretch of an arm to reach; default 1.10)
 #   SHOULDERS="chopper=2,1.1,-12.4 stretch=4,1.1,-12.4"   gun=x,y,z: the arms' shoulders under the eye for that gun (console
 #                                              mi.FP.Shoulders; without an entry the data's own value is used)
 #   ONLY="chopper:aim shorty:fire"             only those gun:picture pairs (the set-up and the poses still run)
@@ -37,6 +38,7 @@ for i in $(seq 1 60); do tail -n +"$mark" "$log" | grep -q 'Play in editor total
 tail -n +"$mark" "$log" | grep -m1 'Play in editor total start time' || { echo "GUNS SHOTS FAILED: play in editor did not start"; exit 1; }
 sleep 4; settle 10
 for i in 1 2 3; do c "MIViewSize 1920 1080"; settle 4; done
+[ -n "${ARMSTRETCH:-}" ] && c "mi.FP.ArmStretch $ARMSTRETCH"
 # the set-up: the guns in slot order, then the builds on the Workbench
 fe home; fe gearup; fe next
 n=1
