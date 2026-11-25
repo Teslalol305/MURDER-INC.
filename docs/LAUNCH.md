@@ -16,6 +16,12 @@ version 1 (`8378eedd...`) crashed in every session. Upload version 3a as a **new
 `MurderInc`** (section 9, step 5), with the E3DS settings of section 9.1. Every start writes a log on the server
 (section 13).
 
+**Version 3a has no sound. Neither had versions 1 and 2.** The release check of version 3a measured the sound that
+arrives through the stream and found silence: the game's sound files were never packed into the build (they exist;
+a packing step was left out). The speaker button and the browser's volume change nothing, so do not look for a
+mute. Version 3a is still the build to test for the lag, the mouse and the controller; the build after it brings
+the sound (`docs/unreal/PREFLIGHT.md`, V3-14), and the game must not go public before that.
+
 ## What you need
 
 - The game file: **`MurderInc.zip`** (about 2.3 GB), in your Higgsfield storage in nine parts: join them
@@ -67,10 +73,11 @@ version 1 (`8378eedd...`) crashed in every session. Upload version 3a as a **new
    - locks the mouse to the game (mouse look),
    - starts the sound (browsers keep sound off until you click). If E3DS started the stream muted, the click does
      not bring the sound: click E3DS's **speaker button at the bottom right** of the player (from version 3 the card
-     says so),
+     says so). **Up to and including version 3a there is no sound to start: those builds are silent** (the note at
+     the top of this page),
    - hides the card. It does not press anything in the menus.
 3. Check, in this order: the menus answer the mouse and keyboard; **Gear Up** goes through crew, loadout, block and
-   briefing into a run; mouse look turns the view smoothly; W A S D moves; left click fires and you **hear** it;
+   briefing into a run; mouse look turns the view smoothly; W A S D moves; left click fires (and, from the build after version 3a, you **hear** it);
    **P** pauses and resumes (see the box below); a gamepad plugged into your computer moves and aims.
 4. Close the tab. On E3DS that ends the session at once: E3DS stops the game and frees the server (its
    documentation: "A viewer who closes the tab is never waited for"). The game also pauses by itself whenever its
@@ -126,7 +133,8 @@ Paste this where the game should appear (replace the `src` with your share link)
 
 - [ ] Steps 4 and 5 work on the Game OS page itself, in Chrome and Edge, on a normal home connection.
 - [ ] A full run plays: Gear Up, a Story run to the IPX truck, and a few waves of Hold the Block.
-- [ ] Sound plays after the first click; a gamepad works (Xbox or PlayStation pad, in Chrome).
+- [ ] Sound plays after the first click (not before the build after version 3a: versions 1 to 3a are silent); a
+      gamepad works (Xbox or PlayStation pad, in Chrome).
 - [ ] A controller alone (from version 3): plug in an Xbox or PlayStation pad, press a button on it so the browser
       sees it, and go from the CLICK TO PLAY card through the set-up screens into a run and back without touching
       the mouse or keyboard: any button hides the card, the D-pad or left stick moves, A (Cross) accepts, B (Circle)
@@ -325,6 +333,7 @@ game's Settings card (P, Settings); you can set it for everybody with the launch
 
 1. Open the link, click the **CLICK TO PLAY** card, start a Story run (Hit the block, Next three times, Hit the
    block) and play for a few minutes: turn fast, shoot, fight. Two quick clicks must fire two rounds and stop.
+   (Expect silence: version 3a has no sound.)
 2. Press **P** right after a moment that stuttered, or after a fast turn in a fight if nothing did, and **take a
    screenshot of the pause card**. The small grey line at the bottom of the card is the game's own report, for
    example:
@@ -396,9 +405,10 @@ the next build lowers the lighting quality before it lowers the rate.
 - **Safer**: a visitor's console commands and size requests are limited (section 7), the debug switches are out of
   the normal game, and the Development game in the zip starts only with its key: `-MIDev=<key>`, the word in the
   file `MIDEV.key` at the top of the zip; it comes with the release report (section 13).
-- Not yet in this build (the next one, "release B"): lower lighting quality on slow cards, the picture following
-  each player's window (Browser Resolution Dynamic), a measured hand-to-picture delay, a smoother first minute after
-  a cold start.
+- Not yet in this build (the next one, "release B"): **sound** (version 3a is silent, as versions 1 and 2 were:
+  the note at the top of this page), lower lighting quality on slow cards, the picture following each player's
+  window (Browser Resolution Dynamic), a measured hand-to-picture delay, a smoother first minute after a cold
+  start.
 
 **The log** of every start goes to the file E3DS itself names when it starts the app (`-ABSLOG=`, the file its
 crash-log email is taken from), to the launcher's output, and to `MurderInc/Saved/Logs/MurderInc.log` in the app's

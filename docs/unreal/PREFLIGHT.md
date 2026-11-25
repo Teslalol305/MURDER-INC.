@@ -210,6 +210,13 @@ connection state page). For a shooter, aim for under 50 ms.
 > home screen lists the keyboard's keys until the next controller press. The owner's settings for version 3a are in
 > LAUNCH.md 9.1 (Browser Resolution Custom 1920 x 1080, launch options empty); section 1.2's table is from the
 > version 2 test.
+>
+> **Release A checked independently (2026-11-25; PROGRESS.md, "Version 3a: the independent release check").** The
+> zip from the storage, the owner's own join commands, a session started the way E3DS starts one, the gate repeated
+> with a harder viewer (turns that stop dead), version 2 as the control under the same load (frames of 1.3 s against
+> 48 ms), a load far past the gate, two games on one card, a fight, Hold the Block and its "LIGHTS OUT" card, six
+> minutes of play: the stall is gone. **And one thing no item of this list had: the package has no sound, and
+> neither had versions 1 and 2 (new item V3-14).**
 
 Everything below ships in **one** version 3 build. The build itself costs about an hour of box time (package, the
 full test suite, the E3DS-style runs, a stream test with input) and about an hour of the owner's time (download,
@@ -219,7 +226,8 @@ join and upload 2.25 GB). The cost given per item is the extra engineering work.
 those of commit `202f020` (the working tree is being edited).
 
 Order of work if time is short: V3-1, V3-3 (the two that end the stall), V3-5, V3-6, V3-2, V3-7, V3-4, V3-9's
-allowlist fix, V3-10, V3-11, then the rest.
+allowlist fix, V3-10, V3-11, then the rest. **Added by the release check of version 3a: V3-14 (the package has no
+sound) comes first in the build after 3a; it is an hour and a half and no game code.**
 
 **The release gate for all of it** (DECISIONS.md, 23:39 UTC: "nothing may block a frame for more than a few
 milliseconds while a run is being played"): on the box, with the GPU loaded the way the lag was reproduced
@@ -424,6 +432,36 @@ with fast turning has no game frame over 100 ms and no "Timed out waiting for fe
 - **Launcher** (B7, without the fixed decouple default): signal 9 reported as "killed from outside"; the SM5 line
   says software Lumen stays; an `nvidia-smi` line every 30 s that ends with the game. Re-zip only.
 - **HUD scale** (B6): needed once Dynamic sizes are used (V3-6).
+
+### V3-14. The package has no sound (new: found by the release check of version 3a, 2026-11-25)
+
+- **What.** Versions 1, 2 and 3a are silent. Measured through the stream on the box with a viewer that reads how
+  loud the received sound is (`/project/ue/cloud/chk/rtcaudio.py`; the reading was checked with a tone through the
+  same Opus decoder first): a whole session of the Shipping game, two emptied magazines included, is digital
+  silence, every Opus packet 3 bytes. The earlier stream checks counted audio packets and called that sound.
+- **Cause.** The game plays its sounds from Sound Wave assets under `/Game/Audio/`
+  (`Audio/MIAudioData.cpp`, `AssetPath`; `Audio/MIAudioSubsystem.cpp`, `Wave`) and skips a sound whose asset is
+  missing with nothing but a Verbose log line. The WAV files are in the repository (`Content/Audio`), but the
+  import that makes the assets (`tools/box/audio-import.sh`, about 90 s, headless) was only ever run in the audio
+  work's own clone (`/project/ue/repo-audio`: 289 Sound Waves). The gameplay clone, whose `Content` every package is
+  made from, holds 291 WAV files and not one `.uasset`; the pak's own list (`Manifest_UFSFiles_Linux.txt` in the zip)
+  has no entry under `/Content/Audio/`, in version 3a and in version 2. The suite has said it in every run:
+  `MurderInc.Audio.Assets` passes with the warning "no audio assets imported yet: run tools/box/audio-import.sh".
+- **Fix (no game code).** In `/project/ue/repo-gameplay`, with its editor stopped: `bash tools/box/audio-import.sh`,
+  then `bash tools/box/audio-import.sh status` until `AUDIO-IMPORT-DONE imported=289 failed=0`; the suite again (the
+  audio tests must pass without that warning); `package-cloud.sh all`; then check the package, not the clone:
+  `grep -c -i /Content/Audio/ Manifest_UFSFiles_Linux.txt` must not be 0, and a viewer must hear the gun
+  (`rtcaudio.py` with a script that fires: Opus packets of tens of bytes, loudness well above 0 while firing and
+  low but not 0 while standing).
+- **So that it cannot happen a fourth time.** `package-cloud.sh zip` should refuse to make a zip whose pak list has
+  no `/Content/Audio/` entry, and `MurderInc.Audio.Assets` should fail, not warn, when no Sound Wave is there and
+  the test runs for a release (an environment switch from `package-cloud.sh`).
+- **Then test what was never tested: sound through the stream.** Its level against the picture, its delay, whether
+  it holds while the card is loaded (the audio threads share the CPUs with a game held to 6 of them), the gate
+  again with sound playing, and what E3DS's speaker button and a controller's first press do about the browser's
+  mute.
+- **Cost.** An hour and a half with the package and the gate. **Player gains** the sound of the game. **Loses**
+  nothing. **Before going public: must.**
 
 ### Not in version 3 (not worth a rebuild now)
 

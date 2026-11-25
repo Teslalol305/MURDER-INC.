@@ -317,3 +317,20 @@ delivered").** What was decided on the way, for the owner to overrule:
    would make it exact at every size, waits for release B as decided in the review.
 5. **What comes back from the owner decides release B's order**: a screenshot of the pause card. A slow card (the
    game's own number low, "target 45" or "target 30") puts the quality steps (V3-2) first.
+
+**The release check of version 3a, 09:20 UTC (2026-11-25; release checker; PROGRESS.md, "Version 3a: the
+independent release check").** What it decided, for the owner to overrule:
+
+1. **Version 3a is fit for the owner's test of the lag**: the gate passed again from the storage's own file, with
+   a harder viewer, and version 2 under the same load on the same morning showed the stall the owner described
+   (frames of 0.3 to 1.3 s where version 3a's longest is 48 ms).
+2. **The game has no sound, in no package so far, and this does not hold version 3a back.** Versions 1 and 2 were
+   as silent (the same missing import), so nothing is lost against what the owner has already streamed, and the lag
+   is what the owner asked to have fixed first. But the owner is told before the upload (LAUNCH.md, top of the
+   page), and **the build after 3a starts with the sound** (PREFLIGHT.md V3-14): about an hour and a half, no game
+   code. If the owner would rather wait for a build with sound than upload 2.25 GB twice, that is the owner's call.
+3. **"No fence time-out line" is read as the release engineer read it**, and the one line of the script-started
+   Development run on 6 CPUs did not appear in three repeats.
+4. **The stream's sender stays the open question for E3DS**: on the box it sends 56 of 60 frames a second with
+   single seconds at 44 to 50, and under an outside load the encoder itself slows down. Only the owner's pause-card
+   line can say what E3DS's encoder does.

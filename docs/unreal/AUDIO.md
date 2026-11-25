@@ -159,7 +159,13 @@ takes (21 of 21 today). New trigger kinds need a line in
 volume, jitter, priority, voices, gap, reference distance and roll-off, loop and stereo flags. `audio.json` holds the
 rest by hand. The import (`tools/box/audio-import.sh`, `Content/Python/mi_audio_import.py`, headless, about 90 s)
 makes `/Game/Audio/<same path>` Sound Waves next to the files, loops flagged; a file replaced under the same name is
-re-imported in place, so real material needs no code or data change.
+re-imported in place, so real material needs no code or data change. **The assets are generated content and are in
+no clone until the import has run there.** Until 2026-11-25 it had only run in the audio work's clone
+(`/project/ue/repo-audio`), never in the gameplay clone that every package's Content is copied from: the cloud
+packages of versions 1, 2 and 3a hold no sound at all, and the game, which skips a sound without its asset, is
+silent in a stream (PROGRESS.md, "Version 3a: the independent release check"; PREFLIGHT.md V3-14). Run the import in
+the gameplay clone before every package, and check the package itself: its `Manifest_UFSFiles_Linux.txt` must list
+files under `/Content/Audio/`.
 
 ### 3.2 The event table
 

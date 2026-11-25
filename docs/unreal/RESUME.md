@@ -244,14 +244,26 @@ old zip is superseded. Next is step 6 (the owner's E3DS trial) and the explosion
   what E3DS gives every session, the game's first frame takes 3 to 4.5 s (nobody is connected yet) and **the first
   set-up screen (Crew) costs one frame of about 0.85 s**; nothing else is long, and the play is not touched. Warm,
   both are gone. PREFLIGHT V3-12 (release B) is the place for it.
+- **Version 3a checked independently (2026-11-25, 09:20 UTC; PROGRESS.md, "Version 3a: the independent release
+  check").** The zip from the storage, joined with the owner's own commands; a session started the way E3DS starts
+  one; the gate repeated with a viewer whose turns stop dead (worst frame 48 ms under the lag's load, 60.0 frames a
+  second on a free card); version 2 as the control under the same load (frames of 1.3 s, 498 fence lines); a fight,
+  Hold the Block and its "LIGHTS OUT" card (click, Enter and a controller's A each go on), six minutes of play, two
+  games on one card; 119 of 119 tests. **The stall is gone.**
+- **THE GAME HAS NO SOUND, and never had in any package** (found by that check: every Opus packet of a session is 3
+  bytes of silence). The Sound Wave assets were only ever imported in the audio clone (`/project/ue/repo-audio`);
+  the gameplay clone, which every package's Content comes from, has the WAV files and no asset, and the pak has no
+  `/Content/Audio/` entry. **First thing in the next build**: `tools/box/audio-import.sh` in the gameplay clone,
+  package, check the pak's list and listen through the stream (PREFLIGHT.md V3-14). LAUNCH.md tells the owner that
+  version 3a is silent. Not to go public before this is in.
 - **Still unknown:** which graphics card E3DS's Linux sessions get, and everything a real browser, a real
   controller and a real connection add. The box is not E3DS.
 - **Next, the owner:** join the nine parts, upload the zip as a new version of the build `MurderInc`, set the
   settings of LAUNCH.md 9.1 (Browser Resolution Custom 1920 x 1080, launch options empty), play a Story run, press
   P after a fast turn or a stutter and send back a screenshot of the pause card (its bottom line names the server's
   card, both frame rates with their lowest values, the GPU's time, the picture's size and the build).
-- **Next, engineering (release B):** the rest of PREFLIGHT.md section 2: quality steps on slow cards (V3-2), the
-  hand-to-picture delay (V3-4), Browser Resolution Dynamic with the HUD at small sizes (V3-6), the rest of the
-  controller path (V3-7: the home screen names the keyboard's keys until a second controller press; a whole Story
-  and Hold the Block run through the stream), the cold start (V3-12), the smaller items (V3-13). The owner's
-  screenshot decides the order: a slow card makes V3-2 first.
+- **Next, engineering (release B):** the sound first (V3-14, above), then the rest of PREFLIGHT.md section 2:
+  quality steps on slow cards (V3-2), the hand-to-picture delay (V3-4), Browser Resolution Dynamic with the HUD at
+  small sizes (V3-6), the rest of the controller path (V3-7: the home screen names the keyboard's keys until a
+  second controller press; a whole Story and Hold the Block run through the stream), the cold start (V3-12), the
+  smaller items (V3-13). The owner's screenshot decides the order after the sound: a slow card makes V3-2 next.
