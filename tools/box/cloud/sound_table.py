@@ -43,8 +43,11 @@ def main():
     ap.add_argument('--per', type=int, default=4)
     ap.add_argument('--min', dest='min_x', type=float, default=1.5)
     ap.add_argument('--json', default='')
+    ap.add_argument('--band', default='', help='the band compared, lo:hi in Hz (audio_find.py: 150:6000; 30:800 for the low sounds)')
     ap.add_argument('--list', default='', help='only this sound, and every start looked at of it on a line (its time, file, find, delay)')
     A = ap.parse_args()
+    if A.band:
+        af.set_band(A.band)
     # The game writes names as Unreal keeps them (case folded to whatever spelling came first: "Web/Jump_01.wav",
     # "Voice/Rule/..."): the files are found whatever the case.
     on_disk = {}

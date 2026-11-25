@@ -13,6 +13,8 @@
 #                         jittered by up to 3.5 %, a faster sound being a shorter one); --rates 1 for music, voice and loops
 #   --chunk S             seconds of the source used as the template, from --at S of the file (default 0.3 from 0: a
 #                         shot's body; longer is surer for sounds played at their own speed, and wrong for jittered ones)
+#   --band LO:HI          the band compared, in Hz (default 150:6000). The low sounds (a heartbeat, a blow, a far
+#                         blast) are under it: --band 30:800
 #   --min X               how far above chance a match must stand (default 1.5 times: see below)
 #   --max N               occurrences listed per source (default 12)
 #   --decoys N            also try N other samples of --audio that the game was not asked to play there, and print the
@@ -57,6 +59,13 @@ DEC = 3
 FS = RATE // DEC
 BAND = (150.0, 6000.0)
 PAD = 0.03   # seconds of nothing around a template, so the band filter's ringing belongs to it
+
+
+def set_band(text):
+    """Another analysis band, "lo:hi" in Hz (a heartbeat or a body blow lives under 150 Hz)."""
+    global BAND
+    lo, hi = (float(v) for v in text.split(':'))
+    BAND = (lo, min(hi, FS / 2 - 500))
 
 
 def read_wav(path):
@@ -382,7 +391,10 @@ def main():
     ap.add_argument('--within', type=float, default=1.5)
     ap.add_argument('--truth', default='')
     ap.add_argument('--json', default='')
+    ap.add_argument('--band', default='')
     A = ap.parse_intermixed_args()   # sources and options in any order
+    if A.band:
+        set_band(A.band)
     rec = Recording(A.recording, A.t_from, A.t_to)
     if A.part:
         span = rec.part(A.part)
