@@ -277,10 +277,28 @@ def _plain_background(grey=0.22):
     nt.links.new(mix.outputs[0], out.inputs["Surface"])
 
 
+def preview_hero_s(ctx, gun, extra, name="weapons_stretch_hero", direction=(0.62, -1.0, 0.36), lens=70.0, strength=1.9, exposure=0.7):
+    """Three-quarter view from the right-front on the studio HDRI (brighter than the default: the gun is the darkest of the
+    set and the glossy blued steel only shows what it reflects)."""
+    W.rig_studio(strength=strength, exposure=exposure)
+    W._hide_all_but([gun] + [e for e in extra if e is not None])
+    lo, hi = scene.bounds(gun, world=True)
+    c = Vector(((lo[0] + hi[0]) / 2, 0.0, (lo[2] + hi[2]) / 2 + 0.005))
+    span = float(np.linalg.norm(hi - lo))
+    fov = 2 * math.atan(18.0 / lens)
+    d = Vector(direction).normalized()
+    dist = span * 0.52 / math.tan(fov / 2)
+    cam = render.cam_look(c + d * dist, c, lens, name="Cam_hero", dof=(dist, 5.6))
+    cam.data.clip_start = 0.01
+    render.setup(samples=ctx.args.samples, res=(1280, 720), threads=THREADS)
+    path, sec = render.render_jpeg(W._prev(ctx, name), ctx.args.samples)
+    ctx.log("preview %s (%.0f s)" % (path, sec))
+
+
 def preview_side(ctx, gun, extra, name="weapons_stretch_side"):
     """Flat orthographic LEFT side view (camera on +Y, muzzle to the left) on a plain background: the first thing a player's
     eye reads."""
-    W.rig_studio(strength=1.25)
+    W.rig_studio(strength=1.9, exposure=0.6)
     _plain_background(0.26)
     W._hide_all_but([gun] + list(extra))
     lo, hi = scene.bounds(gun, world=True)
@@ -298,7 +316,7 @@ def preview_parts_open(ctx, gun, arm, mag, top, name="weapons_stretch_parts"):
     """Posed open: the bolt locked back (95 mm), trigger pulled, selector on SEMI, bolt catch up, bipod deployed, the magazine
     dropped beside the rifle with its top round; a three-quarter view from the right-front over the open ejection port."""
     S = G.ST
-    W.rig_studio(strength=1.1)
+    W.rig_studio(strength=1.9, exposure=0.6)
     rig.pose_imported(arm, {"bolt": {"translate": (-S["travel"], 0, 0)}, "trigger": {"rotate": ((0, 1, 0), S["trigger_deg"])},
                             "selector": {"rotate": ((0, 1, 0), S["selector_deg"])},
                             "bolt_catch": {"rotate": ((0, 1, 0), S["catch_deg"])},
@@ -386,9 +404,7 @@ def on_preview(ctx, objs):
     mag = bpy.data.objects.get("SM_Weapon_StretchMagazine")
     top = bpy.data.objects.get("SM_Weapon_StretchMagazine_TopRound")
     if want("hero"):
-        lo, hi = scene.bounds(gun, world=True)
-        W.preview_hero(ctx, gun, arm, "weapons_stretch_hero", (0.62, -1.0, 0.36), ((lo[0] + hi[0]) / 2, 0.0, (lo[2] + hi[2]) / 2 + 0.01),
-                       lens=75.0, extra=(mag, top))
+        preview_hero_s(ctx, gun, (mag, top))
     if want("fp"):
         W.preview_fp(ctx, gun, arm, "SK_Stretch", "weapons_stretch_fp", extra=(mag, top))
     if want("side"):

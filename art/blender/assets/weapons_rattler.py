@@ -275,4 +275,4 @@ def on_export(ctx, objs):
 
 def on_preview(ctx, objs):
     from assets import _weapons_rattler_prev as PV
-    PV.render(ctx)
+    PV.run(ctx)

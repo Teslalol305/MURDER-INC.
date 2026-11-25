@@ -3,7 +3,7 @@
 > **Weapons round 4: who builds what (read this before building any weapon asset).** Three lanes work in this
 > repository at the same time. Lane 1 (first workflow): SHORTY (`weapons_shorty.py`, `_weapons_shorty*.py`) and STRETCH
 > (`weapons_stretch.py`, `_weapons_stretch*.py`, `_weapons_check_stretch.py`). Lane 2 (second workflow, started
-> 2025-11-25 about 13:20 UTC): the PARTS KIT with the CHOPPER and NINE mounts (`weapons_parts.py`, `_weapons_patch.py`,
+> 2026-11-25 about 13:20 UTC): the PARTS KIT with the CHOPPER and NINE mounts (`weapons_parts.py`, `_weapons_patch.py`,
 > `_weapons_check_parts.py`) and the RATTLER (`weapons_rattler.py`, `_weapons_rattler*.py`). If your task tells you to
 > build the RATTLER or the parts kit or the CHOPPER/NINE mounts, FIRST run `git log --oneline -- art/blender/assets/weapons_parts.py
 > art/blender/assets/weapons_rattler.py`: if lane 2 has commits there, you are a VERIFIER: read, run the checks, render
