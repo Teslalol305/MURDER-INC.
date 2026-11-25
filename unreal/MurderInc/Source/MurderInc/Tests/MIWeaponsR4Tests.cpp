@@ -720,6 +720,8 @@ bool FMIFirstPersonSupportHandTest::RunTest(const FString& Parameters)
 		const double Blend = MIJson::NumberOr(F.Presentation, Set + TEXT(".magazine.blend"), 0.25);
 		TestTrue(FString::Printf(TEXT("%s: magazine.blend %.2f s is 0.05 to 0.6"), Gun, Blend), Blend >= 0.05 && Blend <= 0.6);
 		TestEqual(FString::Printf(TEXT("%s: reloadCurl is 0 (the carried grip holds the magazine)"), Gun), MIJson::NumberOr(F.Presentation, Set + TEXT(".reloadCurl"), -1.0), 0.0);
+		const double InHand = MIJson::NumberOr(F.Presentation, Set + TEXT(".magazine.inHand"), 0.0);
+		TestTrue(FString::Printf(TEXT("%s: magazine.inHand %.0f is 0 or 1"), Gun, InHand), InHand == 0.0 || InHand == 1.0);
 		const double Height = MIJson::NumberOr(F.Presentation, Set + TEXT(".magazine.height"), 0.5);
 		TestTrue(FString::Printf(TEXT("%s: magazine.height %.2f is a fraction of the magazine"), Gun, Height), Height >= 0.0 && Height <= 1.0);
 		if (const TSharedPtr<FJsonValue> T = MIJson::Get(F.Presentation, Set + TEXT(".magazine.turn")))

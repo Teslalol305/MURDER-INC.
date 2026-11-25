@@ -397,6 +397,7 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 		MagSqueeze = FMath::Clamp(MIJson::NumberOr(Set, TEXT("magazine.squeeze"), 1.0), 0.2, 1.0);
 		MagBlend = FMath::Clamp(MIJson::NumberOr(Set, TEXT("magazine.blend"), 0.25), 0.05, 0.6);
 		MagHeight = MIJson::NumberOr(Set, TEXT("magazine.height"), -1.0);
+		bMagInHand = MIJson::NumberOr(Set, TEXT("magazine.inHand"), 0.0) > 0.5;
 		FVector TurnDeg = FVector::ZeroVector;   // degrees about the gun's X, then Y, then Z
 		Vec3(Set, TEXT("magazine.turn"), TurnDeg);
 		MagTurn = FQuat(FVector::ZAxisVector, FMath::DegreesToRadians(TurnDeg.Z)) * FQuat(FVector::YAxisVector, FMath::DegreesToRadians(TurnDeg.Y))
@@ -833,6 +834,9 @@ namespace MIFirstPersonRigPrivate
 	static TAutoConsoleVariable<FString> CVarShoulders(TEXT("mi.FP.Shoulders"), TEXT(""),
 		TEXT("HandIK guns: the arms' shoulders (midpoint of upperarm_l / _r) in camera space, \"x y z\" cm; ")
 		TEXT("empty or \"data\": the anim set's 'shoulders'; 'off': the wrist slide"));
+	static TAutoConsoleVariable<FString> CVarElbowOut(TEXT("mi.FP.ElbowOut"), TEXT(""),
+		TEXT("HandIK guns: the support elbow's push from the clip's pole, camera space \"x y z\" cm, hip and aimed alike; ")
+		TEXT("empty or \"data\": the anim set's supportElbowOut / supportElbowOutAim"));
 }
 
 bool UMIFirstPersonRig::GripShoulderTranslation(const FTransform& ArmsRel, FVector& Out) const
@@ -902,6 +906,11 @@ void UMIFirstPersonRig::SetTopRoundVisible(bool bVisible)
 	{
 		OwnTopRound->SetVisibility(bVisible);
 	}
+}
+
+bool UMIFirstPersonRig::KeepsMagazineInHand() const
+{
+	return Mode == EMIFPMode::HandIK && bMagInHand && bReloadingNow && HeldMag.IsValid();
 }
 
 bool UMIFirstPersonRig::IsPackGunVisible() const
@@ -1300,7 +1309,18 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 		// the magazine (an elbow pushed out there brings the upper arm into the picture).
 		if (bLeftHand && Camera)
 		{
-			const FVector Out = FMath::Lerp(SupportElbowOut, SupportElbowOutAim, static_cast<double>(AimK)) * (1.0 - MagK);
+			FVector Out = FMath::Lerp(SupportElbowOut, SupportElbowOutAim, static_cast<double>(AimK));
+			const FString Forced = MIFirstPersonRigPrivate::CVarElbowOut.GetValueOnGameThread().TrimStartAndEnd();
+			if (!Forced.IsEmpty() && Forced != TEXT("data"))
+			{
+				TArray<FString> P;
+				Forced.ParseIntoArrayWS(P);
+				if (P.Num() == 3)
+				{
+					Out = FVector(FCString::Atod(*P[0]), FCString::Atod(*P[1]), FCString::Atod(*P[2]));
+				}
+			}
+			Out *= 1.0 - MagK;
 			if (!Out.IsNearlyZero())
 			{
 				IK.PoleShift = ArmsWorld.InverseTransformVector(Camera->GetComponentQuat().RotateVector(Out));
@@ -1348,6 +1368,21 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 	if (!bReloadingNow)
 	{
 		bReloadLogged = false;
+	}
+	// Development log every 2 s: the support arm as drawn last frame (the elbow's bend, the forearm's slope on the screen:
+	// 90 degrees is the post standing straight up from the bottom, 45 the STICK's forearm from the lower left) and how far
+	// its palm is from where the IK asked for it (an arm that cannot reach is straight, and no elbow push can bend it).
+	if (Camera && GetWorld() && GetWorld()->GetTimeSeconds() - ArmLogAt > 2.0 && HandPose.Hands.Num() > 0)
+	{
+		ArmLogAt = GetWorld()->GetTimeSeconds();
+		const FVector U = Arms->GetBoneLocation(TEXT("upperarm_l")), L = Arms->GetBoneLocation(TEXT("lowerarm_l")), H = Arms->GetBoneLocation(TEXT("hand_l"));
+		const double Bend = 180.0 - FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(FVector::DotProduct((U - L).GetSafeNormal(), (H - L).GetSafeNormal()), -1.0, 1.0)));
+		const FVector F = Camera->GetComponentQuat().UnrotateVector(H - L);   // camera space: Y right, Z up
+		const double Slope = FMath::RadiansToDegrees(FMath::Atan2(F.Z, F.Y));
+		const FVector PalmW = Arms->GetBoneLocation(TEXT("middle_metacarpal_l"));
+		const double Gap = FVector::Dist(PalmW, ArmsWorld.TransformPosition(HandPose.Hands[0].Target.GetLocation()));
+		UE_LOG(LogMI, Log, TEXT("First person: support arm %s: elbow bent %.0f deg, forearm at %.0f deg on the screen (90 = straight up), palm %.1f cm off its target, aim %.2f"),
+			*GunId.ToString(), Bend, Slope, Gap, AdsNow);
 	}
 	// The support fingers: with a fitted foregrip they close a little further than the bare handguard's, onto the part
 	// (anim set foregripCurl, degrees); in a reload, on top of the carried grip (anim set reloadCurl: 0 on the rifles, whose

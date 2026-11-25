@@ -454,7 +454,9 @@ void UMIWeaponComponent::PoseParts()
 	{
 		FTransform T = Magazine.Ref;
 		T.AddToTranslation(MeshDir(D->Magazine.Drop) * (100.0 * Parts.Magazine));
-		T.SetScale3D(Parts.bMagazineVisible ? Magazine.Ref.GetScale3D() : FVector(1e-3));
+		// a hand-IK gun's support hand holds the magazine through the swap (anim set magazine.inHand): it stays drawn
+		const bool bShown = Parts.bMagazineVisible || (FPRig && FPRig->KeepsMagazineInHand());
+		T.SetScale3D(bShown ? Magazine.Ref.GetScale3D() : FVector(1e-3));
 		GunMesh->SetBoneTransformByName(D->Magazine.Bone, T, EBoneSpaces::ComponentSpace);
 	}
 }

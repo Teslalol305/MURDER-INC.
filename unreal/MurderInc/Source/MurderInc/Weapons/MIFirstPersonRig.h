@@ -101,6 +101,9 @@ public:
 	/** HandIK guns: the seated magazine's top round shows while there is a round in the magazine. */
 	void SetTopRoundVisible(bool bVisible);
 	bool IsPackGunVisible() const;
+	/** HandIK guns in a reload whose anim set says magazine.inHand: the magazine stays drawn through the swap (it is in the
+	 *  support hand, which holds it all the way down and back up), instead of vanishing at the bottom of its drop. */
+	bool KeepsMagazineInHand() const;
 
 private:
 	struct FClipSet
@@ -198,6 +201,8 @@ private:
 	 *  (magazine.height: that fraction up its front face; absent: under its base). */
 	FQuat MagTurn = FQuat::Identity;
 	double MagHeight = -1.0;
+	bool bMagInHand = false;
+	double ArmLogAt = -1e9;  // the development log of the support arm, every 2 s
 	/** HandIK guns: seconds the support hand takes to go to the magazine and back (anim set magazine.blend). */
 	double MagBlend = 0.25;
 	/** HandIK guns: the support elbow pushed from the clip's own pole (anim set supportElbowOut, camera space cm: X forward,

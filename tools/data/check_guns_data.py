@@ -896,6 +896,8 @@ def check_arm_reach():
             err("hands: animSets.%s.magazine.blend must be 0.05 to 0.6 s" % name)
         if "turn" in mag and not (num3(mag["turn"]) and all(abs(x) <= 180 for x in mag["turn"])):
             err("hands: animSets.%s.magazine.turn must be three angles in degrees (-180 to 180)" % name)
+        if mag.get("inHand", 0) not in (0, 1):
+            err("hands: animSets.%s.magazine.inHand is 0 or 1" % name)
         if "height" in mag and not (isinstance(mag["height"], (int, float)) and 0 <= mag["height"] <= 1):
             err("hands: animSets.%s.magazine.height must be 0 to 1 (a fraction of the magazine's height)" % name)
         if "aimSides" in st.get("grip", {}) and not set(st["grip"]["aimSides"]) <= set("lr"):
