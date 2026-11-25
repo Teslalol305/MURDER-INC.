@@ -1,0 +1,43 @@
+# The viewer of the quality ladder's gate (release 3c; played by rtcinput.py, for the Development game that its own script has put into
+# a Story run with god mode): lag-turn.txt's four phases, then 60 s of standing (the ladder takes one step in ten seconds at most, so
+# on a heavy load it needs a minute to reach its last step), then the fast turn and the walk with a turn again: what the picture
+# does AFTER the ladder has done its work. The summary line's "play" covers the whole stay; the ladder's own log lines say when
+# each step was taken. Run it with secs=190.
+wait 3
+click
+wait 10
+say PHASE still
+wait 6
+frame still.jpg
+wait 2
+say PHASE turn-slow
+mouse 6 0 150 16
+frame turn-slow.jpg
+mouse 6 0 450 16
+say PHASE turn-fast
+mouse 24 0 150 16
+frame turn-fast.jpg
+mouse 24 0 450 16
+say PHASE walk-turn
+keydown 87
+mouse 10 0 300 16
+frame walk-turn.jpg
+mouse 10 0 300 16
+keyup 87
+say PHASE hold
+wait 30
+frame hold-1.jpg
+wait 30
+frame hold-2.jpg
+say PHASE late-turn
+mouse -24 0 150 16
+frame late-turn-fast.jpg
+mouse -24 0 450 16
+say PHASE late-walk
+keydown 87
+mouse -10 0 300 16
+frame late-walk-turn.jpg
+mouse -10 0 300 16
+keyup 87
+say PHASE end
+wait 2
