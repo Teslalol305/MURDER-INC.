@@ -22,9 +22,11 @@
  * caller feeds it the GPU's time per frame and applies the target (t.MaxFPS, the stream's frame rate, dynamic
  * resolution's frame time).
  *
- * Down, at once: the GPU's time has been over OverShare of the frame time for DropAfter seconds although dynamic
- * resolution is already at its smallest picture (or the pacer had to hold the game back for the GPU). Lowering the
- * target needs no new shaders, so it is safe in the middle of a fight. OverShare is 90 %: measured, a GPU at 80 to
+ * Down, at once, and only in live play: the GPU's time has been over OverShare of the frame time for DropAfter
+ * seconds although dynamic resolution is already at its smallest picture (or the pacer had to hold the game back
+ * for the GPU). Lowering the target needs no new shaders, so it is safe in the middle of a fight. Outside live play
+ * nothing drops: the start of the game is full of long frames on any card, and a target lost there would stay lost
+ * for the first run on a card that is not idle enough for a rise. OverShare is 90 %: measured, a GPU at 80 to
  * 87 % of the frame time holds the rate (the pacer takes the odd late frame), and at 70 % a card that held 60 was
  * put at 45 (docs/unreal/PROGRESS.md "Version 3, release A", runs d2, d5, d6).
  * Up, only at a safe moment (a card, a set-up screen: not in live play): the GPU's time has been under UnderShare of
@@ -54,7 +56,7 @@ struct MURDERINC_API FMIFrameRateGovernor
 		bool bSmallestPicture = false;
 		/** The pacer held the game back for the GPU for a good part of the time since the last update. */
 		bool bHeldBack = false;
-		/** Not in live play: the target may rise. */
+		/** Not in live play: the target may rise, and it does not drop. */
 		bool bSafeMoment = false;
 	};
 

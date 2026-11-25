@@ -1,7 +1,8 @@
 // Version 3, release A (the lag): the decisions that keep a streamed game from running ahead of its GPU, and what
 // a visitor may tune from outside. No world, no renderer.
-//   MurderInc.Cloud.FrameRate   the frame-rate target: down at once when the GPU cannot keep up at the smallest picture,
-//                               up only at a safe moment, a rise that does not hold waits longer, a fixed target stays
+//   MurderInc.Cloud.FrameRate   the frame-rate target: down at once, in live play only, when the GPU cannot keep up at
+//                               the smallest picture; up only outside live play; a rise that does not hold waits
+//                               longer; a fixed target stays
 //   MurderInc.Cloud.Tuning      the variables -MICVars and a viewer's console command may set, their ranges, the
 //                               launch option's text split into pairs
 
@@ -83,6 +84,16 @@ bool FMICloudFrameRateTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("45"), G.Target(), 45);
 		TestEqual(TEXT("GPU time unknown and not held back: nothing to go by, nothing changes"), Run(G, 60.0, 0.0, true, true, false), 0);
 		TestEqual(TEXT("held back while the picture can still shrink: dynamic resolution's turn first"), Run(G, 10.0, 30.0, false, false, true), 0);
+	}
+	{
+		// Outside live play nothing drops: the start of the game and the set-up screens say little about a run.
+		FMIFrameRateGovernor G;
+		TestEqual(TEXT("30 ms at the smallest picture on a card for a minute: it stays at 60"), Run(G, 60.0, 30.0, true, true), 0);
+		TestEqual(TEXT("held back by the GPU on a card for a minute: it stays at 60"), Run(G, 60.0, 0.0, true, true, true), 0);
+		TestEqual(TEXT("60"), G.Target(), 60);
+		TestEqual(TEXT("half a second into the run: not yet (the time on the card did not count)"), Run(G, 0.5, 30.0, true, false), 0);
+		TestEqual(TEXT("a second into the run: down"), Run(G, 0.5, 30.0, true, false), 1);
+		TestEqual(TEXT("45"), G.Target(), 45);
 	}
 	{
 		// A fixed target (-MIFps=, MI.Cloud.FpsTarget, a t.MaxFPS set by hand).

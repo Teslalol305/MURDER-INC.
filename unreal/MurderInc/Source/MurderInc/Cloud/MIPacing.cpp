@@ -61,8 +61,10 @@ bool FMIFrameRateGovernor::Update(const FInput& In)
 	}
 	const double Frame = FrameMs();
 	// Cannot keep up: over its share of the frame although the picture is already the smallest, or held back by the
-	// pacer (the GPU did not finish in time, whatever its measured time says).
-	const bool bOver = In.bSmallestPicture && ((In.GpuMs > 0.0 && In.GpuMs > OverShare * Frame) || In.bHeldBack);
+	// pacer (the GPU did not finish in time, whatever its measured time says). Only live play counts: the seconds in
+	// which the game starts are full of long frames on any card (measured on a free GPU: the pacer waits a third of
+	// the first second), and a set-up screen is not what the player came for.
+	const bool bOver = !In.bSafeMoment && In.bSmallestPicture && ((In.GpuMs > 0.0 && In.GpuMs > OverShare * Frame) || In.bHeldBack);
 	if (bOver)
 	{
 		UnderFor = 0.0;

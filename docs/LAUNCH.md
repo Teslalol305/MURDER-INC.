@@ -319,8 +319,8 @@ frames a second the unfinished frames piled up and the game then froze until the
   is what version 2 always drew at 1080p; the sent picture stays 1920 x 1080 and is sharpened from it), aiming at 70 %
   use of the card, which is what E3DS asks of an app;
 - **lowers its frame-rate target from 60 to 45 and then 30** when the card cannot hold the higher rate even at the
-  smallest picture, and raises it again only while no run is being played. 30 steady frames a second on a slow card
-  instead of 60 that freeze.
+  smallest picture (it decides this within the first seconds of a run, never on a menu), and raises it again only
+  while no run is being played. 30 steady frames a second on a slow card instead of 60 that freeze.
 
 What you might notice on a slow server card: a softer picture, and 45 or 30 frames a second. On a fast one: nothing.
 The pause card's small line says what the game settled on (section 7).
