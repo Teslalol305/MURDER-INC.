@@ -1162,9 +1162,9 @@ round_edges, texture, split_off, preview_hero / preview_fp, rig_studio).
   cavity, cross pin heads, guard strap, catch tab), mag well sleeve with a flared mouth and release button, flip-up rear
   aperture (8 mm hole on the sight line) and front post with ears, bipod (clamp, ears, two telescoping-looking legs with locks and
   ribbed rubber feet).
-- Textures (`_weapons_stretch_tex.py`, per texel from the geometry maps): near-black oiled walnut (rings from planes tilted 13 deg,
+- Textures (`_weapons_stretch_tex.py`, per texel from the geometry maps): dark oiled walnut (base about #3a2619, the brief's #2b1c14 lifted 35 % so it still reads as wood in daylight; rings from planes tilted 13 deg,
   straight grain along X, pale pores, satin oil 0.38-0.48 -> 0.28 polished where hands rub, dents, crushed corners), deep blue-black
-  steel #2a2f39 (metallic 1, 0.26-0.42, bare steel on edges where hands rub, engraved MARKSMAN 7.6 / MOD S1 / SAFE SEMI / M1-3308 /
+  steel #384050 (the brief's #1d2128 read as a black void in daylight; metallic 1, 0.26-0.42, bare steel on edges where hands rub, engraved MARKSMAN 7.6 / MOD S1 / SAFE SEMI / M1-3308 /
   a proof star), rubber with diamond stipple, black hard-anodise with bare edges, bright ground bolt carrier, carbon at the brake
   and port, oil round the bolt path. The UV layout is cached (`textures/Stretch/uv_cache.npz`).
 ## Decisions and deviations from the brief (all measured)
@@ -1177,7 +1177,14 @@ round_edges, texture, split_off, preview_hero / preview_fp, rig_studio).
 - Texel density (one 4K set for 0.58 m2 of surface incl. the 52-lug rail): 6,150 px/m on the receiver flanks, top, rail, controls and
   grip, ~4,800 on the walnut flanks and handguard, ~3,000 on barrel, brake and bipod (brief 7,000 / 5,500 / 3,500). The median over
   every face is 3,623 px/m.
+## Self-review (8 preview renders used: hero, fp, hero, fp, side, parts, silhouette, side)
+- Round 1: the first hero was over-exposed and flat grey, and in the daylight first-person view the brief's #2b1c14 walnut and
+  #1d2128 steel read as black blocks (no wood visible at all): both albedos lifted (wood x1.35, steel to #384050), gun rebaked,
+  hero re-lit (strength 1.35, exposure +0.15). Round 2: the left side view came out empty because the bounds were read before the
+  rig had moved back from the first-person pose (`view_layer.update()` added); re-rendered.
 ## Not done / known weaknesses
+- The walnut's growth rings are evenly spaced waves, so a whole flank looks striped rather than figured; the parts picture crops
+  the muzzle (the render budget was spent).
 - The receiver is a milled slab with pockets (large flat flanks), not a stamped shell with curvature; no ejector, recoil spring or
   gas piston inside the handguard (only the barrel and gas block).
 - The steel is deliberately the darkest of the set: under the studio HDRI it reads almost black; in daylight it shows blue-black.

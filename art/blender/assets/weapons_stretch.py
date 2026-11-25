@@ -298,6 +298,7 @@ def preview_hero_s(ctx, gun, extra, name="weapons_stretch_hero", direction=(0.62
 def preview_side(ctx, gun, extra, name="weapons_stretch_side"):
     """Flat orthographic LEFT side view (camera on +Y, muzzle to the left) on a plain background: the first thing a player's
     eye reads."""
+    bpy.context.view_layer.update()              # the first-person preview moved the rig: bounds must follow it back
     W.rig_studio(strength=1.35, exposure=0.15)
     _plain_background(0.16)
     W._hide_all_but([gun] + list(extra))
@@ -316,6 +317,7 @@ def preview_parts_open(ctx, gun, arm, mag, top, name="weapons_stretch_parts"):
     """Posed open: the bolt locked back (95 mm), trigger pulled, selector on SEMI, bolt catch up, bipod deployed, the magazine
     dropped beside the rifle with its top round; a three-quarter view from the right-front over the open ejection port."""
     S = G.ST
+    bpy.context.view_layer.update()
     W.rig_studio(strength=1.35, exposure=0.15)
     rig.pose_imported(arm, {"bolt": {"translate": (-S["travel"], 0, 0)}, "trigger": {"rotate": ((0, 1, 0), S["trigger_deg"])},
                             "selector": {"rotate": ((0, 1, 0), S["selector_deg"])},
@@ -351,6 +353,7 @@ def render_silhouette(ctx, gun, extra, path=None):
     e_ = nt.nodes.new("ShaderNodeEmission")
     e_.inputs["Color"].default_value = (1, 1, 1, 1)
     nt.links.new(e_.outputs[0], o_.inputs["Surface"])
+    bpy.context.view_layer.update()
     objs = [gun] + [o for o in extra if o is not None]
     saved = [(o, [sl.material for sl in o.material_slots]) for o in objs]
     for o in objs:
