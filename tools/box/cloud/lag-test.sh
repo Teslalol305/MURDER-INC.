@@ -40,6 +40,10 @@
 #   minbit=<bits/s>   the stream's lowest and first bitrate. Default 12000000: the Python viewer's congestion feedback
 #                     is basic and the sender would otherwise drop most frames to fit a bitrate of a megabit or less;
 #                     0 leaves the bitrate as E3DS starts it.
+#   cpus=<list>       the game runs on these CPUs only (a taskset list such as 0-5): a server with few CPUs. With 6 or
+#                     fewer task workers (8 hyper-threaded CPUs or fewer; 7 or fewer on this box, which shows no
+#                     hyper-threads) Unreal's Vulkan RHI runs without its interrupt and submission threads. The load
+#                     and the viewer keep all CPUs. Default: all.
 # Anything after -- goes to the game as it is (for example -PixelStreamingDecoupleFramerate).
 #
 # One game at a time: a run waits (up to 10 minutes) until no other MURDER INC. game runs on the box, and a watcher
@@ -85,13 +89,14 @@ hogs() {  # <n>[:<work ms>[:<idle ms>[:<size>]]] <pid file> <log prefix> | stop 
 
 run_fg() {
   local name=$1; shift
-  local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= cvars= csv= secs= probe=1 minbit=12000000 profile= extra=()
+  local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= cvars= csv= secs= probe=1 minbit=12000000 profile= cpus= extra=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --) shift; extra=("$@"); break ;;
       game=*) game=${1#*=} ;; build=*) build=${1#*=} ;; load=*) load=${1#*=} ;; sp=*) sp=${1#*=} ;;
       res=*) res=${1#*=} ;; view=*) view=${1#*=} ;; cvars=*) cvars=${1#*=} ;; csv=*) csv=${1#*=} ;;
       secs=*) secs=${1#*=} ;; probe=*) probe=${1#*=} ;; minbit=*) minbit=${1#*=} ;; profile=*) profile=${1#*=} ;;
+      cpus=*) cpus=${1#*=} ;;
       *) echo "unknown key $1"; return 2 ;;
     esac; shift
   done
@@ -112,8 +117,8 @@ run_fg() {
   [ -n "$secs" ] || { secs=110; [ "$game" = ship ] && secs=125; }
   local id=lag$(echo "$name" | tr -cd 'a-zA-Z0-9')
   rm -rf "$O"; mkdir -p "$O"; chmod 777 "$O"
-  printf 'name=%s\ngame=%s\nbuild=%s\nload=%s\nsp=%s\nres=%s\nview=%s\ncvars=%s\ncsv=%s\nsecs=%s\nminbit=%s\nid=%s\nextra=%s\nstarted=%s\n' \
-    "$name" "$game" "$build" "$load" "$sp" "$res" "$view" "$cvars" "$csv" "$secs" "$minbit" "$id" "${extra[*]}" "$(date -u +%FT%TZ)" > "$O/info.txt"
+  printf 'name=%s\ngame=%s\nbuild=%s\nload=%s\nsp=%s\nres=%s\nview=%s\ncvars=%s\ncsv=%s\nsecs=%s\nminbit=%s\ncpus=%s\nid=%s\nextra=%s\nstarted=%s\n' \
+    "$name" "$game" "$build" "$load" "$sp" "$res" "$view" "$cvars" "$csv" "$secs" "$minbit" "${cpus:-all}" "$id" "${extra[*]}" "$(date -u +%FT%TZ)" > "$O/info.txt"
   venv || { echo "FAILED: no Python with aiortc" > "$O/done"; return 1; }
   # One game at a time.
   local i
@@ -151,7 +156,7 @@ run_fg() {
       echo "$(date -u +%T) others=$(games "$id") util=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ') mem=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ')"
       sleep 1
     done > "$O/others.log" 2>&1 ) &
-  (cd "$T" && RUNAS=ue4 NODISPLAY=1 STOPSIG=TERM STOPTO=launcher STDOUT=0 BUILD="$build" bash e3ds-repro.sh run "lag-$name" "$secs" "${args[@]}" "${extra[@]}") >> "$O/info.txt" 2>&1
+  (cd "$T" && RUNAS=ue4 NODISPLAY=1 STOPSIG=TERM STOPTO=launcher STDOUT=0 CPUS="$cpus" BUILD="$build" bash e3ds-repro.sh run "lag-$name" "$secs" "${args[@]}" "${extra[@]}") >> "$O/info.txt" 2>&1
   local R=$C/repro/lag-$name
   # The viewer joins when the game streams: in a run already (dev), or on its home screen (ship).
   local want='state=2'; [ "$game" = ship ] && want='MICloudProbe'

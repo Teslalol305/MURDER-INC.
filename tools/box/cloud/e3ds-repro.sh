@@ -21,6 +21,10 @@
 #   STOPTO=game|launcher  (who gets STOPSIG: the game binary (default) or the launcher MurderInc.sh, which passes it on)
 #   CRASHAT=<secs>        (SIGSEGV to the game binary after that long: a crash from outside, for the Shipping game,
 #                          which has no -MICrashTest; the run must then report ENDED BY ITSELF with signal 11)
+#   CPUS=<list>           (the launcher and the game run on these CPUs only, a taskset list such as 0-5: a server
+#                          with few CPUs. Unreal counts the CPUs it may run on, and with 6 or fewer task workers its
+#                          Vulkan RHI has no interrupt thread: completed GPU work is then noticed only when the RHI
+#                          thread submits or somebody waits for it on the render thread)
 # result.txt: "ENDED BY ITSELF: ..." is a crash or exit before the limit; "ALIVE at limit; after <sig>: ..." says how
 # the shutdown went (a clean shutdown ends with EXIT 0 or the signal's 128+n code; SIGNAL 11 is a crash on the way out).
 C=/project/ue/cloud
@@ -45,19 +49,20 @@ run() {
   local args=("$@")
   [ "${STDOUT:-1}" = 1 ] && args+=(-stdout -FullStdOutLogOutput)
   {
-    echo "name=$name build=$B user=$user home=$home cwd=$cwd nodisplay=${NODISPLAY:-0} secs=$secs"
+    echo "name=$name build=$B user=$user home=$home cwd=$cwd nodisplay=${NODISPLAY:-0} secs=$secs cpus=${CPUS:-all}"
     echo "args=${args[*]}"
   } > "$d/info.txt"
   # The runner: env built from scratch like a service manager would, then the game under timeout.
   local envs="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 USER=$user"
   [ "$home" != unset ] && envs="$envs HOME=$home"
   [ -z "$NODISPLAY" ] && [ -n "$DISPLAY" ] && envs="$envs DISPLAY=$DISPLAY"
+  local pin=; [ -n "$CPUS" ] && pin="taskset -c $(printf %q "$CPUS") "
   local q; q=$(printf '%q ' "${args[@]}")
   cat > "$d/runner.sh" <<EOF
 #!/bin/bash
 cd $(printf %q "$cwd") || { echo "EXIT cd-failed" > $d/result.txt; exit; }
 start=\$(date +%s.%N)
-env -i $envs $(printf %q "$B/MurderInc.sh") $q > $d/game.log 2>&1 &
+env -i $envs $pin$(printf %q "$B/MurderInc.sh") $q > $d/game.log 2>&1 &
 sh=\$!
 el() { python3 -c "print(round(\$(date +%s.%N)-\$start,1))"; }
 how() { local rc=\$1; if [ \$rc -gt 128 ]; then echo "SIGNAL \$((rc-128)) (\$(kill -l \$((rc-128)) 2>/dev/null))"; else echo "EXIT \$rc"; fi; }

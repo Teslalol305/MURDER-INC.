@@ -86,7 +86,8 @@ for run in runs:
     targets = sorted({int(num(p, 'target', 0)) for p in play if num(p, 'target', 0)}, reverse=True)
     drs = [num(p, 'dr') for p in play if num(p, 'dr', -1) > 0]
     parts = [
-        f"{name} {'dev' if dev else 'ship'} {commit.group(1) if commit else '?'} load={info.get('load', '0')} sp={info.get('sp', '-')}",
+        f"{name} {'dev' if dev else 'ship'} {commit.group(1) if commit else '?'} load={info.get('load', '0')} sp={info.get('sp', '-')}"
+        + (f" cpus={info['cpus']}" if info.get('cpus', 'all') not in ('all', '') else ''),
         f"play {len(play)} s: fps {f(avg([num(p, 'fps') for p in play]))} (min {f(min([num(p, 'fps') for p in play], default=float('nan')))}), "
         f"worst frame {f(max([num(p, 'worstMs') for p in play], default=float('nan')), 0)} ms",
         f"turning {len(turn)} s: fps {f(avg([num(p, 'fps') for p in turn]))}, worst {f(max([num(p, 'worstMs') for p in turn], default=float('nan')), 0)} ms"
@@ -104,7 +105,11 @@ for run in runs:
         def stat(key, rows=sent):  # a statistic the sender did not report in a second is written as -1: left out
             return avg([v for v in (num(p, key) for p in rows) if v is not None and v >= 0])
 
-        parts.append(f"sender: captured {f(stat('capFps'), 0)}, encoded {f(stat('encFps'), 0)}, sent {f(stat('txFps'), 0)} a second"
+        def low(key):  # the lowest second, the first two seconds of the stream left out (it starts with a ramp)
+            xs = [v for v in (num(p, key) for p in sent[2:]) if v is not None and v >= 0]
+            return min(xs, default=float('nan'))
+
+        parts.append(f"sender: captured {f(stat('capFps'), 0)}, encoded {f(stat('encFps'), 1)} (lowest second {f(low('encFps'), 0)}), sent {f(stat('txFps'), 1)} a second"
                      f" (turning {f(stat('txFps', [p for p in sent if p.get('turning')]), 0)}), QP {f(stat('qp'), 0)}, {f(stat('mbps'))} of {f(stat('availMbps'))} Mbit/s, encode {f(stat('encMs'))} ms"
                      + (f", capture to send {f(stat('capToSendMs'), 0)} ms" if any('capToSendMs' in p for p in sent) else ''))
     parts.append('received a second: ' + (', '.join(received) or 'no phases') + (f" (total {__import__('json').loads(end.group(1)).get('video')} frames)" if end else ' (viewer did not finish)'))
