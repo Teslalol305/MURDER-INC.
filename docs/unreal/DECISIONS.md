@@ -492,3 +492,15 @@ button and stick sequences). Measured on a real E3DS machine:
 3. Not covered: a real DualSense in a real browser (Chrome or Edge), the Dead and Debrief cards by pad in a stream, a
    whole Story run by pad, the delay from hand to picture, and the pad's button names (the game cannot tell which pad it
    is: Settings, Controller row). The owner plays it next.
+
+**The version 3b release gate was stopped at 29 of its lines (2026-11-25, 14:00 UTC), and why.** The release engineer of the
+3b workflow died on the owner's monthly spend limit for the older model, but its queue of measuring runs
+(`tools/box/cloud/lag-test.sh queue-fg`, files `/project/ue/cloud/v3b/*-queue.txt`, results in
+`/project/ue/cloud/lag-v3b/queue.out`) went on by itself and kept the box busy for an hour, which blocks every compile and
+test of the other jobs by their etiquette. The package it measured (zip c274d3b8, game 5c1b6be) is not going to be released:
+a review found two must-fix sound faults in it (`docs/unreal/sound_review_3b.json`), so the next release is a new package.
+The queue and its load generator (`gpu_hog.py`) were stopped by hand. What the 29 lines showed, on the test box: free GPU
+60.0 frames a second (lowest 59.0), worst frame 31 ms; loads of 8, 12 ms: 60 and 59.9; load 20 ms: 34.9 (version 3a's zip
+under the same load: 35.3, so no change); load 35 ms: 28.9; the same with the process limited to six CPUs: 30.4 and 29.3; the
+Development game's Story run under the 35 ms load: 30.0; the pad-only proof 60.0 with a worst frame of 25 ms; the input and
+console-command checks ran. Nothing showed a stall or a rule change. These are the numbers the next gate compares with.
