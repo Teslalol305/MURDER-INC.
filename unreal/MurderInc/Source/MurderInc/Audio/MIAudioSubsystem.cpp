@@ -125,13 +125,17 @@ UMIAudioSubsystem::FCounts UMIAudioSubsystem::GetCounts()
 	return MIAudioHostPrivate::GCounts;
 }
 
-double UMIAudioSubsystem::TakeDevicePace(double* OutClock)
+double UMIAudioSubsystem::TakeDevicePace(double* OutClock, double* OutWall)
 {
 	static double LastWall = -1.0, LastClock = -1.0;
 	const FAudioDevice* Device = GEngine ? GEngine->GetMainAudioDeviceRaw() : nullptr;
 	if (OutClock)
 	{
 		*OutClock = -1.0;
+	}
+	if (OutWall)
+	{
+		*OutWall = FPlatformTime::Seconds();
 	}
 	if (!Device)
 	{

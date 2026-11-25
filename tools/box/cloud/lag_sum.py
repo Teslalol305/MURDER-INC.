@@ -149,10 +149,30 @@ for run in runs:
                      f"{num(snd[-1], 'sndMissing', 0):.0f} without an asset, {num(snd[-1], 'sndNoDevice', 0):.0f} without an audio device"
                      + (' -- THE PACKAGE HAS MISSING SOUNDS' if num(snd[-1], 'sndMissing', 0) > 0 else '')
                      + (' -- NO AUDIO DEVICE' if num(snd[-1], 'sndNoDevice', 0) > 0 else ''))
+    # The mixer's own pace (probe fields sndClock and sndWall, from the version after 3b): seconds of sound the device
+    # rendered per second of wall clock, over the whole run and over its slowest ten seconds. Below 1.0 the stream's
+    # sound has holes; the dummy device of a server (no sound card) waits whole milliseconds for 21.33 ms of sound,
+    # so it runs a little fast on a free machine and slower when the machine is busy.
+    pace = [(num(p, 'sndWall'), num(p, 'sndClock')) for p in probes if num(p, 'sndClock', -1) >= 0 and num(p, 'sndWall') is not None]
+    if len(pace) > 2 and pace[-1][0] - pace[0][0] > 5:
+        whole = (pace[-1][1] - pace[0][1]) / (pace[-1][0] - pace[0][0])
+        slow, j = None, 0
+        for i in range(len(pace)):
+            while pace[i][0] - pace[j][0] > 10:
+                j += 1
+            if pace[i][0] - pace[j][0] > 9:
+                w = (pace[i][1] - pace[j][1]) / (pace[i][0] - pace[j][0])
+                slow = w if slow is None else min(slow, w)
+        parts.append(f"the mixer's clock ran {whole:.4f} s of sound a second of wall clock over the run"
+                     + (f" (slowest ten seconds {slow:.4f})" if slow is not None else '')
+                     + (' -- UNDER 1.0: THE STREAM HAS HOLES' if whole < 1.0 else ''))
     # What the viewer heard (lag-test.sh audio=1: rtcaudio.py's last line).
-    heard = re.search(r'SOUND (.*)', view)
+    heard = re.search(r'SOUND (?!MONO|STEREO)(.*)', view)
     if heard:
         parts.append('viewer heard: ' + heard.group(1).strip())
+    side = re.search(r'SOUND (MONO|STEREO)(.*)', view)
+    if side:
+        parts.append(('STEREO: ' + side.group(2).strip(': ')) if side.group(1) == 'STEREO' else ('MONO -- the stream carries one channel: ' + side.group(2).strip(': ')[:160]))
     # How busy the box's CPUs were while the viewer was there (others.log cpu=), in every run: a box whose CPUs are all
     # busy in the game's first half minute puts holes into the sound that are not the package's (sound-gate.txt), and
     # the box is shared: another job's compile beside a run shows here and in "a compiler ... ran beside it" below.
