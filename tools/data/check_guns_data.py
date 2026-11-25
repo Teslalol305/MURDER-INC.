@@ -669,6 +669,17 @@ def check_art():
                 err("presentation: animSets.%s magazine socket %s is not a deform bone" % (anim, mag["socket"]))
             if gid != "nine" and sets[anim].get("casing") != c.get("brass"):
                 err("presentation: animSets.%s casing %s is not the contract's %s" % (anim, sets[anim].get("casing"), c.get("brass")))
+        # the factory magazine the stage draws and the first person overrides (presentation.magazine)
+        mg = pres.get("magazine")
+        if not isinstance(mg, dict):
+            err("presentation: %s has no presentation.magazine {mesh, bone}" % gid)
+        else:
+            if mg.get("mesh") != c["magazine"]:
+                err("presentation: %s magazine.mesh %s is not the contract's %s" % (gid, mg.get("mesh"), c["magazine"]))
+            if mg.get("bone") not in c["deformBones"]:
+                err("presentation: %s magazine.bone %s is not a deform bone" % (gid, mg.get("bone")))
+            if c.get("magazineTopRound") and mg.get("topRound") != c["magazineTopRound"]:
+                err("presentation: %s magazine.topRound %s is not the contract's %s" % (gid, mg.get("topRound"), c["magazineTopRound"]))
         # eye position, for the picture review (information only)
         sr = c["sockets"]["SightRear"]
         relief = pres.get("relief")

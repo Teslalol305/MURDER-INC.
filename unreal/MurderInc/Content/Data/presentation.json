@@ -307,6 +307,12 @@
           "support": [0, -0.0615, -0.315]
         },
         "animSet": "chopper_ik",
+        "magazine": {
+          "mesh": "/Game/Weapons/Chopper/SM_Weapon_ChopperMagazine.SM_Weapon_ChopperMagazine",
+          "bone": "magazine",
+          "topRound": "/Game/Weapons/Chopper/SM_Weapon_ChopperMagazine_TopRound.SM_Weapon_ChopperMagazine_TopRound",
+          "note": "the factory magazine, in the gun's own space (our meshes: the mesh's origin is the gun's, so the part rides the 'magazine' bone); the stage draws it whenever no magazine part is fitted, so a longer one reads as a change; the first person draws it too, and a fitted magazine part replaces it"
+        },
         "note": "docs/unreal/DECISIONS.md 2026-11-25: SK_Chopper is the CHOPPER again (the pack rifle stood in from 2026-11-23). First person is the hand-IK way (animSets.chopper_ik). Merged over this object by the loadout resolver only when realMesh is the mesh drawn; the rules are untouched."
       },
       "idle": "/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS.MF_Rifle_Idle_ADS",
@@ -345,7 +351,13 @@
     "nine": {
       "mesh": "/Game/Weapons/Pistol/Meshes/SKM_Pistol.SKM_Pistol",
       "realMesh": "/Game/Weapons/Nine/SK_Nine.SK_Nine",
-      "real": {"meshOffset": {"pos": [0, 0, 0], "rot": [0, 0, 0]}, "sockets": {"muzzle": "Muzzle", "eject": "Eject", "sightRear": "SightRear", "sightFront": "SightFront", "pivot": "RecoilPivot", "magHinge": "magazine", "grip": "Palm_R", "support": "Palm_L"}, "animSet": "pistol", "note": "SK_Nine (art/blender/assets/weapons.py: origin on the web gun's origin, muzzle +X, every marker a bone). Merged by the loadout resolver only when realMesh is drawn."},
+      "real": {"meshOffset": {"pos": [0, 0, 0], "rot": [0, 0, 0]}, "sockets": {"muzzle": "Muzzle", "eject": "Eject", "sightRear": "SightRear", "sightFront": "SightFront", "pivot": "RecoilPivot", "magHinge": "magazine", "grip": "Palm_R", "support": "Palm_L"}, "animSet": "pistol",
+      "magazine": {
+        "mesh": "/Game/Weapons/Nine/SM_Weapon_NineMagazine.SM_Weapon_NineMagazine",
+        "bone": "magazine",
+        "topRound": "/Game/Weapons/Nine/SM_Weapon_NineMagazine_TopRound.SM_Weapon_NineMagazine_TopRound",
+        "note": "the factory magazine, in the gun's own space (our meshes: the mesh's origin is the gun's, so the part rides the 'magazine' bone); the stage draws it whenever no magazine part is fitted, so a longer one reads as a change; the first person draws it too, and a fitted magazine part replaces it"
+      }, "note": "SK_Nine (art/blender/assets/weapons.py: origin on the web gun's origin, muzzle +X, every marker a bone). Merged by the loadout resolver only when realMesh is drawn."},
       "idle": "/Game/Characters/Mannequins/Anims/Pistol/MF_Pistol_Idle_ADS.MF_Pistol_Idle_ADS",
       "meshOffset": { "pos": [0, -0.1015, -0.0425], "rot": [0, 1.5708, 0], "note": "as for the CHOPPER: the template pistol has its origin in the grip, muzzle along +Y, rear sight about 12 cm up and 3 cm back; the real SK_Nine needs pos [0, 0, 0]" },
       "sockets": { "muzzle": "Muzzle", "eject": "ShellEject", "sightRear": "SightRear", "sightFront": "SightFront", "pivot": "RecoilPivot", "magHinge": "MagHinge", "grip": "Root", "support": "Palm_L", "note": "grip: the Root bone of the template pistol (its origin), Palm_R on SK_Nine; eject: ShellEject on the template, Eject on SK_Nine" },

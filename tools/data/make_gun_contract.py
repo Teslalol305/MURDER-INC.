@@ -98,6 +98,7 @@ def build():
             "materialSlots": [s["slot"] for s in a["material_slots"]],
             "textureSets": [s["set"] for s in a["material_slots"]],
             "magazine": "/Game/Weapons/%s/%s.%s" % (folder, mag, mag),
+            "magazineTopRound": ("/Game/Weapons/%s/%s_TopRound.%s_TopRound" % (folder, mag, mag)) if (mag + "_TopRound") in manifest["assets"] else None,
             "brass": (BRASS_FOLDER + brass + "." + brass) if brass else None,
         }
     for pid, p in sorted(parts_src.items()):

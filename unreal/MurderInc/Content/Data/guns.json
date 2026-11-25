@@ -316,6 +316,12 @@
             "in": "magIn"
           }
         },
+        "magazine": {
+          "mesh": "/Game/Weapons/Shorty/SM_Weapon_ShortyMagazine.SM_Weapon_ShortyMagazine",
+          "bone": "magazine",
+          "topRound": "/Game/Weapons/Shorty/SM_Weapon_ShortyMagazine_TopRound.SM_Weapon_ShortyMagazine_TopRound",
+          "note": "the factory magazine, in the gun's own space (our meshes: the mesh's origin is the gun's, so the part rides the 'magazine' bone); the stage draws it whenever no magazine part is fitted, so a longer one reads as a change; the first person draws it too, and a fitted magazine part replaces it"
+        },
         "notes": "Round 4: our own bullpup carbine. Markers are the exported sockets in gun space; the real sockets replace them at run time. Bolt travel 75 mm, the trigger turns 17 degrees, the magazine drops 13 cm. relief 0.12 for the carry-handle sight: the eye ends 14 mm ahead of the butt face, so try 0.14 if the near plane slices the cheek rise. A fitted optic brings its own relief (red dot 0.14, scope 0.085).",
         "ejectDir": [0.8, 0.25, -0.55],
         "mesh": {"$variant": "stock"}
@@ -547,6 +553,11 @@
           "trigger": {"bone": null, "turn": 0.3},
           "magazine": {"bone": null, "drop": [0, -0.13, 0.02], "out": "magOut", "show": "magShow", "in": "magIn"}
         },
+        "magazine": {
+          "mesh": "/Game/ThirdParty/InfimaTFA/Weapon/Attachments/SM_TFA_AR_Magazine_Full.SM_TFA_AR_Magazine_Full",
+          "socket": "MagHinge",
+          "note": "the pack's standard magazine on the rifle's MagHinge socket: the stage draws it whenever no magazine part is fitted (the first person draws its own, animSets.rifle.magazine)"
+        },
         "notes": "provisional markers for the Default handguard; poses and strike keys are the CHOPPER's (both are two-handed long guns). Bone names are null until ANIMATION.md lists the pack rifle's bones (a null bone is skipped); measured values come from ANIMATION.md",
         "mesh": {"$variant": "stock"}
       },
@@ -761,6 +772,12 @@
             "in": "magIn"
           }
         },
+        "magazine": {
+          "mesh": "/Game/Weapons/Stretch/SM_Weapon_StretchMagazine.SM_Weapon_StretchMagazine",
+          "bone": "magazine",
+          "topRound": "/Game/Weapons/Stretch/SM_Weapon_StretchMagazine_TopRound.SM_Weapon_StretchMagazine_TopRound",
+          "note": "the factory magazine, in the gun's own space (our meshes: the mesh's origin is the gun's, so the part rides the 'magazine' bone); the stage draws it whenever no magazine part is fitted, so a longer one reads as a change; the first person draws it too, and a fitted magazine part replaces it"
+        },
         "notes": "Round 4: our own marksman rifle. Markers are the exported sockets in gun space; the real sockets replace them at run time. Bolt travel 95 mm, the trigger turns 17 degrees, the magazine drops 12 cm; the bolt catch and the bipod have no data key (the rig does not drive them). relief 0.12 for the irons. A fitted optic brings its own relief (scope 0.085, red dot 0.14).",
         "ejectDir": [0.95, 0.3, 0.15],
         "mesh": {"$variant": "stock"}
@@ -811,8 +828,8 @@
         },
         "icon": {
           "asset": "T_UI_Gun_Stretch",
-          "status": "missing",
-          "notes": "To be rendered from our SK_Stretch by the weapons pipeline (art/out/ui, white on transparent, 512 x 192); the box's old icon was rendered from the pack's mesh and is replaced."
+          "status": "exists",
+          "notes": "Rendered from our SK_Stretch by the weapons pipeline (art/out/ui/T_UI_Gun_Stretch.png, white on transparent, 512 x 192, git-ignored); the weapons import puts it in /Game/UI/Icons over the old icon, which was rendered from the pack's mesh."
         }
       },
       "clips": {
@@ -952,6 +969,12 @@
             "support": [0, -0.0275, -0.315]
           },
           "animSet": "rattler_ik",
+          "magazine": {
+            "mesh": "/Game/Weapons/Rattler/SM_Weapon_RattlerMagazine.SM_Weapon_RattlerMagazine",
+            "bone": "magazine",
+            "topRound": "/Game/Weapons/Rattler/SM_Weapon_RattlerMagazine_TopRound.SM_Weapon_RattlerMagazine_TopRound",
+            "note": "the factory magazine, in the gun's own space (our meshes: the mesh's origin is the gun's, so the part rides the 'magazine' bone); the stage draws it whenever no magazine part is fitted, so a longer one reads as a change; the first person draws it too, and a fitted magazine part replaces it"
+          },
           "ejectDir": [0.95, 0.31, 0],
           "note": "SK_Rattler (round 4). Merged over this object by the loadout resolver only when realMesh is the mesh drawn. Markers are the exported sockets: the real Palm_R sits 8.2 cm under the bore where the first estimate (from the Goon's hand) said 4.2 cm; the hands follow the sockets, the gun's place in the view is the one the data had."
         },
@@ -1046,7 +1069,11 @@
           "standIn": "SKM_Rifle",
           "notes": "art/out/glb/SK_Rattler.glb: 67,964 triangles, one 4096 set 'Rattler' (a 512 px draft until its final bake lands: same names, replaced in place), bones body, bolt, trigger, selector, magazine, stock (folded), MuzzleDevice, IronsFront, IronsRear and 10 socket bones. The Goons keep SM_Weapon_GoonSMG."
         },
-        "icon": {"asset": "T_UI_Gun_Rattler", "status": "missing"}
+        "icon": {
+          "asset": "T_UI_Gun_Rattler",
+          "status": "exists",
+          "notes": "Rendered from our SK_Rattler (art/out/ui/T_UI_Gun_Rattler.png, 512 x 192, git-ignored; the silhouette does not depend on the draft textures); the weapons import puts it in /Game/UI/Icons."
+        }
       },
       "clips": {
         "set": "rattler",

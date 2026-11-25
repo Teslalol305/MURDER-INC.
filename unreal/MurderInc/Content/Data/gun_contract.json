@@ -5,7 +5,7 @@
     "game": "MURDER INC.",
     "schema": 1,
     "units": "metres, in the mesh's own frame: x forward along the bore, y left, z up. Unreal cm = (x, -y, z) x 100; the viewmodel data's gun space (web) = (-y, z, -x).",
-    "source": "art/out/manifest.json of 2026-11-25T14:19:15 (the guns) and art/blender/assets/weapons_parts_contract.json (the parts)",
+    "source": "art/out/manifest.json of 2026-11-25T14:26:16 (the guns) and art/blender/assets/weapons_parts_contract.json (the parts)",
     "regenerate": "python3 tools/data/make_gun_contract.py   (add --check to see whether this file is stale)"
   },
   "assets": {
@@ -45,6 +45,7 @@
       "materialSlots": ["M_Chopper", "M_Chopper_Furniture", "M_Chopper_Front"],
       "textureSets": ["Chopper", "Chopper_Furniture", "Chopper_Front"],
       "magazine": "/Game/Weapons/Chopper/SM_Weapon_ChopperMagazine.SM_Weapon_ChopperMagazine",
+      "magazineTopRound": "/Game/Weapons/Chopper/SM_Weapon_ChopperMagazine_TopRound.SM_Weapon_ChopperMagazine_TopRound",
       "brass": "/Game/Weapons/Casings/SM_Weapon_CasingRifle.SM_Weapon_CasingRifle"
     },
     "nine": {
@@ -76,6 +77,7 @@
       "materialSlots": ["M_Nine"],
       "textureSets": ["Nine"],
       "magazine": "/Game/Weapons/Nine/SM_Weapon_NineMagazine.SM_Weapon_NineMagazine",
+      "magazineTopRound": "/Game/Weapons/Nine/SM_Weapon_NineMagazine_TopRound.SM_Weapon_NineMagazine_TopRound",
       "brass": null
     },
     "shorty": {
@@ -109,6 +111,7 @@
       "materialSlots": ["M_Shorty"],
       "textureSets": ["Shorty"],
       "magazine": "/Game/Weapons/Shorty/SM_Weapon_ShortyMagazine.SM_Weapon_ShortyMagazine",
+      "magazineTopRound": "/Game/Weapons/Shorty/SM_Weapon_ShortyMagazine_TopRound.SM_Weapon_ShortyMagazine_TopRound",
       "brass": "/Game/Weapons/Casings/SM_Weapon_CasingRifle.SM_Weapon_CasingRifle"
     },
     "stretch": {
@@ -144,6 +147,7 @@
       "materialSlots": ["M_Stretch"],
       "textureSets": ["Stretch"],
       "magazine": "/Game/Weapons/Stretch/SM_Weapon_StretchMagazine.SM_Weapon_StretchMagazine",
+      "magazineTopRound": "/Game/Weapons/Stretch/SM_Weapon_StretchMagazine_TopRound.SM_Weapon_StretchMagazine_TopRound",
       "brass": "/Game/Weapons/Casings/SM_Weapon_CasingRifle.SM_Weapon_CasingRifle"
     },
     "rattler": {
@@ -177,6 +181,7 @@
       "materialSlots": ["M_Rattler"],
       "textureSets": ["Rattler"],
       "magazine": "/Game/Weapons/Rattler/SM_Weapon_RattlerMagazine.SM_Weapon_RattlerMagazine",
+      "magazineTopRound": "/Game/Weapons/Rattler/SM_Weapon_RattlerMagazine_TopRound.SM_Weapon_RattlerMagazine_TopRound",
       "brass": "/Game/Weapons/Casings/SM_Weapon_CasingPistol.SM_Weapon_CasingPistol"
     }
   },
