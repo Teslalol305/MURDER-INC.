@@ -269,6 +269,11 @@ struct MURDERINC_API FMILoadoutData
 	 *  Nothing is written back. Returns the number of fields changed. */
 	int32 ApplyOverlay(const TSharedPtr<FJsonObject>& Overlay);
 
+	/** The trade of a part (LOADOUT.md 3.3): B is the sum of |ln f| over its better `mul` effects and W over its worse
+	 *  ones, counting only the stats whose `trade` is true (the rule stats: flash, sway, adsFov and adsLook are
+	 *  presentation, and `falloff.min` stands for the whole falloff). */
+	void TradeOf(const FMIAttachmentDef& Part, double& OutBetter, double& OutWorse) const;
+
 	/** The checks of LOADOUT.md 3.1 that need only the data (no resolver). Every problem is listed. */
 	void ValidateData(TArray<FString>& OutProblems) const;
 };

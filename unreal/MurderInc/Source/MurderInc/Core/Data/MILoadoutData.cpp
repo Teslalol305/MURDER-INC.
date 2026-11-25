@@ -829,6 +829,28 @@ int32 FMILoadoutData::ApplyOverlay(const TSharedPtr<FJsonObject>& Overlay)
 	return N;
 }
 
+void FMILoadoutData::TradeOf(const FMIAttachmentDef& Part, double& OutBetter, double& OutWorse) const
+{
+	OutBetter = 0.0;
+	OutWorse = 0.0;
+	for (const FMIEffect& E : Part.Effects)
+	{
+		const FMIStatDef* S = Stats.Find(E.Stat);
+		if (!S || !S->bTrade || E.Op != TEXT("mul") || !(E.Value > 0.0) || E.Value == 1.0)
+		{
+			continue;
+		}
+		const bool bLower = S->Better == TEXT("lower"), bHigher = S->Better == TEXT("higher");
+		if (!bLower && !bHigher)
+		{
+			continue;  // "none": a trade of its own kind, neither better nor worse
+		}
+		const double L = FMath::Abs(FMath::Loge(E.Value));
+		const bool bBetter = bLower ? E.Value < 1.0 : E.Value > 1.0;
+		(bBetter ? OutBetter : OutWorse) += L;
+	}
+}
+
 void FMILoadoutData::ValidateData(TArray<FString>& P) const
 {
 	for (const FString& U : Unresolved)
@@ -915,6 +937,27 @@ void FMILoadoutData::ValidateData(TArray<FString>& P) const
 			{
 				P.Add(FString::Printf(TEXT("%s: %s has several targets and takes only mul, not %s"), *A.Id.ToString(), *E.Stat.ToString(), *E.Op.ToString()));
 			}
+		}
+	}
+	// The trade check (LOADOUT.md 3.3): every part that is not a baseline makes something better and something worse,
+	// and the two weigh about the same (B / W in meta.trade). The text says this is checked here; it was not until the
+	// parts kit of round 4 (twelve new parts) needed it.
+	for (const TPair<FName, FMIAttachmentDef>& Part : Attachments)
+	{
+		const FMIAttachmentDef& A = Part.Value;
+		if (A.bBaseline)
+		{
+			continue;
+		}
+		double B = 0.0, W = 0.0;
+		TradeOf(A, B, W);
+		if (!(B > 0.0) || !(W > 0.0))
+		{
+			P.Add(FString::Printf(TEXT("%s: a part must make one stat better and one worse (better %.4f, worse %.4f)"), *A.Id.ToString(), B, W));
+		}
+		else if (B / W < TradeMin || B / W > TradeMax)
+		{
+			P.Add(FString::Printf(TEXT("%s: the trade is out of balance: better %.4f / worse %.4f = %.3f, outside [%.2f, %.2f]"), *A.Id.ToString(), B, W, B / W, TradeMin, TradeMax));
 		}
 	}
 	for (const TPair<FName, FMIStatDef>& S : Stats)
