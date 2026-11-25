@@ -720,17 +720,25 @@ namespace MIRunTestsPrivate
 		return nullptr;
 	}
 
-	/** One Slate frame of the set-up widget as the viewport gives it: Slate ticks a widget while it paints it, after
-	 *  the frame's layout pass. */
-	void SlateFrame(SMIFrontEnd& Widget)
+	/** Slate's paint of the set-up widget: Slate ticks a widget while it paints it, after the frame's layout pass. */
+	void SlatePaint(SMIFrontEnd& Widget)
 	{
 		const FGeometry Geo = FGeometry::MakeRoot(FVector2f(1920.f, 1080.f), FSlateLayoutTransform());
 		Widget.Tick(Geo, FSlateApplication::Get().GetCurrentTime(), 1.f / 60.f);
 	}
+
+	/** One engine frame: the game thread (the front end's tick), then Slate's layout pass and paint. */
+	void SlateFrame(UMIFrontEnd* F, SMIFrontEnd& Widget)
+	{
+		F->Tick(1.0 / 60.0);
+		Widget.SlatePrepass(1.f);
+		SlatePaint(Widget);
+	}
 }
 
-// READY.md M1: the set-up screens flickered in the stream. (1) A screen rebuilt while Slate paints must be measured
-// before it is arranged, or its controls are drawn piled at the top for one frame. (2) A pointer resting on a Workbench
+// READY.md M1: the set-up screens flickered in the stream. (1) A screen must never be rebuilt while Slate paints (after
+// the frame's layout pass: its controls were drawn piled at the top for one frame): it is rebuilt on the game thread,
+// before Slate's layout pass. (2) A pointer resting on a Workbench
 // option is told it is hovered again after each rebuild: that must not rebuild the screen again (it strobed at 20 Hz
 // with 20 hover sounds a second); a leave from a replaced button is ignored; a pointer that left while the screen was
 // rebuilt still ends its preview.
@@ -750,13 +758,18 @@ bool FMIFrontendSteadyTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	Widget->SlatePrepass(1.f);
-	SlateFrame(*Widget);
-	// (1) A screen change, rebuilt in the paint: the new screen has its size before it is drawn.
+	SlateFrame(F, *Widget);
+	// (1) A screen change: the paint does not rebuild; the game thread does, and Slate's layout pass then measures it.
 	F->Act(TEXT("gearup"));
-	SlateFrame(*Widget);
+	const int32 BuildsBefore = Widget->GetBuildCount();
+	SlatePaint(*Widget);
+	TestEqual(TEXT("Slate's paint never rebuilds the screen"), Widget->GetBuildCount(), BuildsBefore);
+	F->Tick(1.0 / 60.0);
+	TestEqual(TEXT("the game thread's tick rebuilds it, before Slate's frame"), Widget->GetBuildCount(), BuildsBefore + 1);
+	Widget->SlatePrepass(1.f);
 	const FVector2D Desired = Widget->GetChildren()->GetChildAt(0)->GetDesiredSize();
-	TestTrue(FString::Printf(TEXT("Crew, rebuilt while painting, is measured before it is drawn (desired %.0f x %.0f)"), Desired.X, Desired.Y), Desired.X > 100.0 && Desired.Y > 100.0);
+	TestTrue(FString::Printf(TEXT("Crew is measured before it is drawn (desired %.0f x %.0f)"), Desired.X, Desired.Y), Desired.X > 100.0 && Desired.Y > 100.0);
+	SlatePaint(*Widget);
 	// (2) The Workbench: the first carried gun with options.
 	F->Act(TEXT("next"));
 	FName Gun;
@@ -773,7 +786,7 @@ bool FMIFrontendSteadyTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	SlateFrame(*Widget);
+	SlateFrame(F, *Widget);
 	const TArray<FName> Options = F->GetRules().BenchOptions(F->GetRules().GetBenchSlot());
 	const FName Part = Options.Last();
 	const FString Arg = Part.IsNone() ? FString(TEXT("factory")) : Part.ToString();
@@ -792,7 +805,7 @@ bool FMIFrontendSteadyTest::RunTest(const FString& Parameters)
 	const int32 Builds0 = Widget->GetBuildCount();
 	for (int32 Frame = 0; Frame < 40; ++Frame)
 	{
-		SlateFrame(*Widget);
+		SlateFrame(F, *Widget);
 		const TSharedPtr<SWidget> Now = FindTagged(Widget.ToSharedRef(), Tag);
 		if (Now.IsValid() && Now != Btn)
 		{
@@ -809,15 +822,15 @@ bool FMIFrontendSteadyTest::RunTest(const FString& Parameters)
 	// The pointer leaves: the preview ends, the screen rebuilds once.
 	Btn->OnMouseLeave(Pointer);
 	TestFalse(TEXT("leaving the option ends its preview"), F->GetRules().IsPreviewing());
-	SlateFrame(*Widget);
+	SlateFrame(F, *Widget);
 	// A leave from a replaced button does not end the preview of the new one.
 	Btn = FindTagged(Widget.ToSharedRef(), Tag);
 	Btn->OnMouseEnter(Geo, Pointer);
-	SlateFrame(*Widget);
+	SlateFrame(F, *Widget);
 	Btn->OnMouseLeave(Pointer);  // the button before this rebuild
 	TestTrue(TEXT("a replaced button's leave is ignored"), F->GetRules().IsPreviewing() && F->GetRules().GetPreviewed() == Part);
 	// The new button was never entered (the pointer left during the rebuild): a few frames later the preview ends.
-	for (int32 Frame = 0; Frame < 6; ++Frame) SlateFrame(*Widget);
+	for (int32 Frame = 0; Frame < 6; ++Frame) SlateFrame(F, *Widget);
 	TestFalse(TEXT("a pointer gone during a rebuild still ends the preview"), F->GetRules().IsPreviewing());
 	return !HasAnyErrors();
 }

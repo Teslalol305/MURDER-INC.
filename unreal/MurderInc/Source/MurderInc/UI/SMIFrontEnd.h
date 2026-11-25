@@ -36,6 +36,9 @@ public:
 	 *  look at the part already previewed changes nothing (docs/unreal/READY.md M1, the 20 Hz strobe). */
 	void OptionHovered(const FString& Arg, int32 Gen);
 	void OptionUnhovered(const FString& Arg, int32 Gen);
+	/** Rebuilds the screen when the owner's rules changed. UMIFrontEnd::Tick calls it on the game thread, before Slate's
+	 *  frame, so Slate measures the new screen before it draws it. True when it rebuilt. */
+	bool Sync();
 	/** Rebuilds so far (a test reads it: a pointer resting on an option must not rebuild the screen). */
 	int32 GetBuildCount() const { return BuildGen; }
 
