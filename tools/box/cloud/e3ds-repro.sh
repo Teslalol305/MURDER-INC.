@@ -13,6 +13,9 @@
 #   RUNAS=ue4|fresh|root  (fresh: user e3dsfresh with a new empty HOME each run)
 #   HOMEDIR=<path>|unset  (HOME for the game; "unset" removes it; default the user's own)
 #   NODISPLAY=1           (DISPLAY, WAYLAND_DISPLAY, XAUTHORITY removed)
+#   ENVS="A=b C=d"        (more variables for the launcher's environment, which is otherwise built from nothing: what a
+#                          host's service environment might hold, for example SDL_AUDIODRIVER=alsa on a machine with
+#                          no sound card)
 #   CWD=<dir>             (working directory; default the build folder)
 #   STDOUT=1              (adds -stdout -FullStdOutLogOutput, default 1)
 #   WSURL=<url>           (default none: give it as an argument)
@@ -49,7 +52,7 @@ run() {
   local args=("$@")
   [ "${STDOUT:-1}" = 1 ] && args+=(-stdout -FullStdOutLogOutput)
   {
-    echo "name=$name build=$B user=$user home=$home cwd=$cwd nodisplay=${NODISPLAY:-0} secs=$secs cpus=${CPUS:-all}"
+    echo "name=$name build=$B user=$user home=$home cwd=$cwd nodisplay=${NODISPLAY:-0} secs=$secs cpus=${CPUS:-all} envs=${ENVS:-}"
     echo "args=${args[*]}"
   } > "$d/info.txt"
   # A packaged build starts its Development game only with the key of its own MIDEV.key (MurderInc.sh): the tests
@@ -62,6 +65,7 @@ run() {
   local envs="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 USER=$user"
   [ "$home" != unset ] && envs="$envs HOME=$home"
   [ -z "$NODISPLAY" ] && [ -n "$DISPLAY" ] && envs="$envs DISPLAY=$DISPLAY"
+  [ -n "$ENVS" ] && envs="$envs $ENVS"
   local pin=; [ -n "$CPUS" ] && pin="taskset -c $(printf %q "$CPUS") "
   local q; q=$(printf '%q ' "${args[@]}")
   cat > "$d/runner.sh" <<EOF

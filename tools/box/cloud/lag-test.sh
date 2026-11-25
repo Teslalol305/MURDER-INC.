@@ -47,6 +47,8 @@
 #                     0 leaves the bitrate as E3DS starts it.
 #   decode=0          the viewer does not decode the video (rtcinput.py --nodecode): it only counts the frames, and
 #                     saves none. For the question whether the decoding beside the game slows the game's encoder.
+#   env=<A=b,C=d>     more variables in the launcher's environment (e3ds-repro.sh ENVS), which is otherwise built
+#                     from nothing: what a host's own environment might hold (SDL_AUDIODRIVER=alsa, for the sound).
 #   demo=<file>       the Development game plays this script of its demo director instead of the built-in run (a path,
 #                     or the name of one beside this file: sound-demo.txt, sound-dead.txt); the viewer then joins as
 #                     for the Shipping game, join= seconds after the game's first probe line, so it is there from the
@@ -116,7 +118,7 @@ hogs() {  # <n>[:<work ms>[:<idle ms>[:<size>]]] <pid file> <log prefix> | stop 
 
 run_fg() {
   local name=$1; shift
-  local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= view2= cvars= csv= secs= probe=1 minbit=12000000 profile= cpus= decode=1 audio=0 demo= extra=()
+  local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= view2= cvars= csv= secs= probe=1 minbit=12000000 profile= cpus= decode=1 audio=0 demo= envs= extra=()
   local runas=${LAG_RUNAS:-ue4} clean=${LAG_CLEAN:-0} join=${LAG_JOIN:-55}
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -125,7 +127,7 @@ run_fg() {
       res=*) res=${1#*=} ;; view=*) view=${1#*=} ;; cvars=*) cvars=${1#*=} ;; csv=*) csv=${1#*=} ;;
       secs=*) secs=${1#*=} ;; probe=*) probe=${1#*=} ;; minbit=*) minbit=${1#*=} ;; profile=*) profile=${1#*=} ;;
       cpus=*) cpus=${1#*=} ;; decode=*) decode=${1#*=} ;; view2=*) view2=${1#*=} ;;
-      runas=*) runas=${1#*=} ;; clean=*) clean=${1#*=} ;; join=*) join=${1#*=} ;; audio=*) audio=${1#*=} ;; demo=*) demo=${1#*=} ;;
+      runas=*) runas=${1#*=} ;; clean=*) clean=${1#*=} ;; join=*) join=${1#*=} ;; audio=*) audio=${1#*=} ;; demo=*) demo=${1#*=} ;; env=*) envs=${1#*=} ;;
       *) echo "unknown key $1"; return 2 ;;
     esac; shift
   done
@@ -198,7 +200,7 @@ run_fg() {
       echo "$(date -u +%T) others=$(games "$id") util=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ') mem=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ')"
       sleep 1
     done > "$O/others.log" 2>&1 ) &
-  (cd "$T" && RUNAS="$runas" NODISPLAY=1 STOPSIG=TERM STOPTO=launcher STDOUT=0 CPUS="$cpus" BUILD="$build" bash e3ds-repro.sh run "lag-$name" "$secs" "${args[@]}" "${extra[@]}") >> "$O/info.txt" 2>&1
+  (cd "$T" && RUNAS="$runas" NODISPLAY=1 STOPSIG=TERM STOPTO=launcher STDOUT=0 CPUS="$cpus" BUILD="$build" ENVS="${envs//,/ }" bash e3ds-repro.sh run "lag-$name" "$secs" "${args[@]}" "${extra[@]}") >> "$O/info.txt" 2>&1
   local R=$C/repro/lag-$name
   # The viewer joins when the game streams: in a run already (dev), or on its home screen (ship), join= seconds after
   # the game's first probe line. (Until 2026-11-25 the Shipping game's wait looked for a line that never comes and
