@@ -38,6 +38,8 @@ public:
 	int32 NumParts() const { return Parts.Num(); }
 	/** The fitted part's mesh in a slot (the magazine the first-person rig shows and hides), or null. */
 	UStaticMeshComponent* PartMesh(FName Slot) const;
+	/** Shows or hides every magazine top round (first person: no round in the magazine, no round on top of it). */
+	void SetTopRoundsVisible(bool bVisible);
 	/** The factory magazine drawn on the stage (bSetBase) when no magazine part is fitted, or null. */
 	UStaticMeshComponent* GetFactoryMagazine() const { return FactoryMagazine.Get(); }
 	const FString& GetBaseMesh() const { return BaseMesh; }
@@ -71,6 +73,7 @@ private:
 	TArray<FPart> Parts;
 	TArray<FName> Hidden;
 	TWeakObjectPtr<UStaticMeshComponent> FactoryMagazine;  // the factory magazine the stage shows when no magazine part is fitted
+	TArray<TWeakObjectPtr<UStaticMeshComponent>> TopRounds;
 	FString BaseMesh;
 	TMap<FName, FVector> MarkerFallback;  // web markers in the base mesh's space (when the mesh has no socket)
 	FName LaserSlot;

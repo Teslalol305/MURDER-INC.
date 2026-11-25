@@ -97,6 +97,8 @@ public:
 	 *  component space), so it sits where it was modelled and follows the bone's animation. */
 	static FTransform MeshSpacePartOnBone(const USkeletalMesh* Mesh, FName Bone);
 	void SetVisible(bool bGun, bool bArms);
+	/** HandIK guns: the seated magazine's top round shows while there is a round in the magazine. */
+	void SetTopRoundVisible(bool bVisible);
 	bool IsPackGunVisible() const;
 
 private:
@@ -135,6 +137,8 @@ private:
 	TObjectPtr<USkeletalMeshComponent> PackGun;
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMeshComponent> OwnMag;
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> OwnTopRound;  // HandIK guns: the seated magazine's top round (a child of OwnMag)
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMeshComponent> ReserveMag;
 	UPROPERTY(Transient)

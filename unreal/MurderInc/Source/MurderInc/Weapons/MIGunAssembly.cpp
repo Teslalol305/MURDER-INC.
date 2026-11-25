@@ -77,6 +77,18 @@ void UMIGunAssembly::AddTopRound(UStaticMeshComponent* Magazine, const FString& 
 	UStaticMeshComponent* T = MIGunAssemblyPrivate::MakePartComponent(GetOwner(), Base, Round);
 	T->AttachToComponent(Magazine, FAttachmentTransformRules::SnapToTargetIncludingScale);
 	Owned.Add(T);
+	TopRounds.Add(T);
+}
+
+void UMIGunAssembly::SetTopRoundsVisible(bool bVisible)
+{
+	for (const TWeakObjectPtr<UStaticMeshComponent>& T : TopRounds)
+	{
+		if (T.IsValid() && T->IsVisible() != bVisible && (!bVisible || !Base || Base->IsVisible()))
+		{
+			T->SetVisibility(bVisible);
+		}
+	}
 }
 
 bool UMIGunAssembly::BoneRestInMesh(const USkinnedMeshComponent* InBase, FName Bone, FTransform& Out)
@@ -124,6 +136,7 @@ void UMIGunAssembly::Clear()
 	}
 	Hidden.Reset();
 	FactoryMagazine.Reset();
+	TopRounds.Reset();
 	LaserSlot = NAME_None;
 }
 

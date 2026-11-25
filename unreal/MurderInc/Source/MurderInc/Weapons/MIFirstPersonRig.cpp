@@ -240,6 +240,7 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 		for (USceneComponent* Piece : Pieces) Piece->DestroyComponent();
 		OwnMag->DestroyComponent();
 		OwnMag = nullptr;
+		OwnTopRound = nullptr;
 	}
 	if (ReserveMag) { ReserveMag->DestroyComponent(); ReserveMag = nullptr; }
 	SeatedMag.Reset();
@@ -417,12 +418,12 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 			// The visible top round, a piece of its own in the magazine's frame (presentation.magazine.topRound).
 			if (UStaticMesh* Round = LoadAs<UStaticMesh>(MIJson::StringOr(P, TEXT("magazine.topRound"))))
 			{
-				UStaticMeshComponent* Top = NewObject<UStaticMeshComponent>(GetOwner(), NAME_None, RF_Transient);
-				Top->SetStaticMesh(Round);
-				Top->SetMobility(EComponentMobility::Movable);
-				FirstPerson(Top, Arms);
-				Top->RegisterComponent();
-				Top->AttachToComponent(OwnMag, FAttachmentTransformRules::SnapToTargetIncludingScale);
+				OwnTopRound = NewObject<UStaticMeshComponent>(GetOwner(), NAME_None, RF_Transient);
+				OwnTopRound->SetStaticMesh(Round);
+				OwnTopRound->SetMobility(EComponentMobility::Movable);
+				FirstPerson(OwnTopRound, Arms);
+				OwnTopRound->RegisterComponent();
+				OwnTopRound->AttachToComponent(OwnMag, FAttachmentTransformRules::SnapToTargetIncludingScale);
 			}
 		}
 		ApplyOpticMaterials(LegacyGun);   // the build's optic (red dot, scope) in daylight, as for the pack's
@@ -804,6 +805,14 @@ void UMIFirstPersonRig::SetVisible(bool bGun, bool bArms)
 	for (UStaticMeshComponent* J : Jewels)
 	{
 		if (J) J->SetVisibility(bArms && Mode != EMIFPMode::Template);
+	}
+}
+
+void UMIFirstPersonRig::SetTopRoundVisible(bool bVisible)
+{
+	if (OwnTopRound && OwnTopRound->IsVisible() != bVisible && (!bVisible || (OwnMag && OwnMag->IsVisible())))
+	{
+		OwnTopRound->SetVisibility(bVisible);
 	}
 }
 
