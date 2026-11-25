@@ -31,11 +31,13 @@
  * Measured (docs/unreal/PROGRESS.md "Version 3, release A"): lines at 70, 85 and 90 % each lowered a rate that was
  * being held without a late frame (runs d2, d5, h-l20); with 100 % a GPU at 78 to 98 % of the frame time gave a
  * steady 45 (run h-l20x).
- * Up, only at a safe moment (a card, a set-up screen: not in live play): the GPU's time at the smallest picture has
- * been under UnderShare of the frame time for RaiseAfter seconds (GpuMsSmallest: the drop is judged at the smallest
- * picture, so the rise is too; judged at the larger picture the lower rate allowed, a card that holds 60 with a 50 to
- * 75 % picture never got 60 back). A rise that does not hold (the target drops again within RetryWindow seconds)
- * doubles the wait before the next try.
+ * Up, only at a safe moment (a card, a set-up screen: not in live play): the GPU's time at the smallest picture
+ * (GpuMsSmallest: the drop is judged there, so the rise is too) has been under UnderShare of the frame time of the
+ * next rate up for RaiseAfter seconds: four fifths, so 13.3 ms to go to 60 and 17.8 ms to go to 45. A scene in a
+ * fight costs about a fifth more than its average (the highest second of the gate runs), which the next rate then
+ * still holds. The first rule asked for 45 % of the frame time now (10 ms at 45): a card that took 10.6 ms at 45
+ * holds 60 and never got it back after one bad second. A rise that does not hold (the target drops again within
+ * RetryWindow seconds) doubles the wait before the next try.
  */
 struct MURDERINC_API FMIFrameRateGovernor
 {
@@ -45,7 +47,7 @@ struct MURDERINC_API FMIFrameRateGovernor
 	// Tuning ([MICloud] and the MI.Cloud.* console variables).
 	double OverShare = 1.0;
 	double DropAfter = 1.0;
-	double UnderShare = 0.45;
+	double UnderShare = 0.8;       // of the next rate's frame time
 	double RaiseAfter = 10.0;
 	double RetryWindow = 30.0;
 	double MaxRaiseAfter = 160.0;

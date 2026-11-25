@@ -1,5 +1,5 @@
 # The viewer of the input checks with mouse and keys (lag-test.sh game=ship view=lag-input.txt view2=lag-input2.txt
-# probe=0.25 secs=140): into a Story run as lag-story.txt does, then what a browser on E3DS sends in three cases the
+# probe=0.25 secs=150): into a Story run as lag-story.txt does, then what a browser on E3DS sends in three cases the
 # review of release A found. The game's probe lines (four a second here) say what happened: mag= is the rounds in the
 # magazine, fire= the trigger as the game holds it, moveY= the walk, outW= outH= the size drawn, mouseScale= the
 # mouse's scale, dbl= double-click messages dropped.
@@ -27,6 +27,7 @@ wait 1.5
 say CHECK double-click
 dblclick
 wait 3
+frame after-double.jpg
 say CHECK single-click
 click
 wait 2

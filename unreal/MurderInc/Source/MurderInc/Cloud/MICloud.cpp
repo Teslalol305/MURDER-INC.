@@ -112,14 +112,17 @@ namespace MICloudPrivate
 	int32 GFpsTarget = 0;
 	FAutoConsoleVariableRef CVarFpsTarget(TEXT("MI.Cloud.FpsTarget"), GFpsTarget,
 		TEXT("While streamed: 60, 45 or 30 fixes the frame-rate target; 0 lets the game choose it by the GPU's time (launch option -MIFps=)."));
-	float GFpsDropOver = 1.0f, GFpsDropAfter = 1.f, GFpsRaiseUnder = 0.45f, GFpsRaiseAfter = 10.f;
+	float GFpsDropOver = 1.0f, GFpsDropAfter = 1.f, GFpsRaiseUnder = 0.8f, GFpsRaiseAfter = 10.f;
 	FAutoConsoleVariableRef CVarFpsDropOver(TEXT("MI.Cloud.FpsDropOver"), GFpsDropOver,
 		TEXT("The frame-rate target drops (in live play) when the GPU's time is over this share of the frame time at the smallest picture, or when the game falls short of the rate because it waits for the GPU."));
 	FAutoConsoleVariableRef CVarFpsDropAfter(TEXT("MI.Cloud.FpsDropAfter"), GFpsDropAfter, TEXT("... for this many seconds."));
 	FAutoConsoleVariableRef CVarFpsRaiseUnder(TEXT("MI.Cloud.FpsRaiseUnder"), GFpsRaiseUnder,
-		TEXT("The frame-rate target may rise (only while no run is being played) when the GPU's time is under this share of the frame time."));
+		TEXT("The frame-rate target may rise (only while no run is being played) when the GPU's time at the smallest picture is under this share of the frame time of the next rate up."));
 	FAutoConsoleVariableRef CVarFpsRaiseAfter(TEXT("MI.Cloud.FpsRaiseAfter"), GFpsRaiseAfter, TEXT("... for this many seconds."));
-	float GFpsPixelPart = 0.6f;
+	// Measured on the box (RTX PRO 6000, Story run, 1080p): 6.39 ms a frame at a 75 % picture, 6.00 ms at 50 % (runs
+	// rf-sp75, rf-sp50), and 29 ms at 400 %: about an eighth of the frame's GPU time follows the pixels, the rest
+	// (Lumen, the shadow maps, Nanite, the 1080p output) does not.
+	float GFpsPixelPart = 0.12f;
 	FAutoConsoleVariableRef CVarFpsPixelPart(TEXT("MI.Cloud.FpsPixelPart"), GFpsPixelPart,
 		TEXT("The share of the GPU's frame time that follows the number of pixels drawn (0 to 1): the rise is judged by the time the GPU would need at the smallest picture, worked out with it."));
 

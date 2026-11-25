@@ -86,19 +86,20 @@ bool FMIFrameRateGovernor::Update(const FInput& In)
 		return false;
 	}
 	OverFor = 0.0;
-	// The rise is judged by what the GPU would need at the smallest picture, as the drop is: the higher rate has a
-	// shorter frame time, dynamic resolution then draws a smaller picture to fit it, and a card that holds the higher
-	// rate that way must get it back. Judged at the picture the lower rate allowed (the larger one), a card that took
-	// 10.6 ms at the 75 % picture stayed at 45 for the rest of the session although it holds 60 (box runs d2, k-l12).
+	// The rise is judged by the rate it would go to: the GPU's time, at the smallest picture as for the drop (the
+	// higher rate is held with a smaller picture), must be under UnderShare of the next rate's frame time. The first
+	// rule compared the time at the picture now drawn with 45 % of the frame time now (10 ms at 45): a card that took
+	// 10.6 ms at 45 holds 60 (box runs d2, k-l12, d6) and could never have 60 back after one bad second.
+	const double NextFrame = Index > 0 ? 1000.0 / Targets[Index - 1] : Frame;
 	const double AtSmallest = In.GpuMsSmallest > 0.0 ? FMath::Min(In.GpuMsSmallest, In.GpuMs) : In.GpuMs;
-	const bool bUnder = In.GpuMs > 0.0 && AtSmallest < UnderShare * Frame && !In.bHeldBack;
+	const bool bUnder = In.GpuMs > 0.0 && AtSmallest < UnderShare * NextFrame && !In.bHeldBack;
 	UnderFor = bUnder ? UnderFor + Step : 0.0;
 	if (UnderFor >= RaiseWait && In.bSafeMoment && Index > 0)
 	{
 		const int32 From = Target();
 		--Index;
-		Reason = FString::Printf(TEXT("%d -> %d frames a second: the GPU took %.1f ms a frame (%.1f ms at the smallest picture), under %.0f %% of %.1f ms for %.0f s, and no run is being played"),
-			From, Target(), In.GpuMs, AtSmallest, UnderShare * 100.0, Frame, UnderFor);
+		Reason = FString::Printf(TEXT("%d -> %d frames a second: the GPU took %.1f ms a frame (%.1f ms at the smallest picture), under %.0f %% of the %.1f ms a frame has at %d, for %.0f s, and no run is being played"),
+			From, Target(), In.GpuMs, AtSmallest, UnderShare * 100.0, NextFrame, Target(), UnderFor);
 		UnderFor = 0.0;
 		SinceRaise = 0.0;
 		return true;

@@ -55,12 +55,13 @@ bool FMICloudFrameRateTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("45 -> 30"), G.Target(), 30);
 		TestEqual(TEXT("40 ms at 30: there is no lower target"), Run(G, 20.0, 40.0, true, false), 0);
 		TestEqual(TEXT("still 30"), G.Target(), 30);
-		// 45 % of 33.3 ms is 15 ms.
+		// The rise is judged by the rate it goes to: four fifths of 22.2 ms (17.8 ms) to go to 45.
+		TestEqual(TEXT("19 ms on a card for a minute: over four fifths of what a frame has at 45, it stays at 30"), Run(G, 60.0, 19.0, false, true), 0);
 		TestEqual(TEXT("10 ms for a minute in live play: it does not rise in a fight"), Run(G, 60.0, 10.0, false, false), 0);
 		TestEqual(TEXT("the same on the pause card: it rises at once (it has been under for long enough)"), Run(G, 0.5, 10.0, false, true), 1);
 		TestEqual(TEXT("30 -> 45"), G.Target(), 45);
-		// 45 % of 22.2 ms is 10 ms: 10.5 ms is not under it.
-		TestEqual(TEXT("10.5 ms of 22.2 on a card: not well under, it stays at 45"), Run(G, 60.0, 10.5, false, true), 0);
+		// Four fifths of 16.7 ms are 13.3 ms: 14 ms is not under it.
+		TestEqual(TEXT("14 ms on a card: over four fifths of what a frame has at 60, it stays at 45"), Run(G, 60.0, 14.0, false, true), 0);
 		TestEqual(TEXT("8 ms on a card for 9.5 s: not yet"), Run(G, 9.5, 8.0, false, true), 0);
 		TestEqual(TEXT("... for 10 s: up"), Run(G, 0.5, 8.0, false, true), 1);
 		TestEqual(TEXT("45 -> 60"), G.Target(), 60);
@@ -98,28 +99,40 @@ bool FMICloudFrameRateTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("45"), G.Target(), 45);
 	}
 	{
-		// The rise is judged at the smallest picture, as the drop is. A card that takes 12 ms at the 75 % picture holds
-		// 60 with a smaller one (box runs k-l12, d6); put at 45 by one bad second, it drew the 75 % picture again and
-		// was never under 45 % of 22.2 ms (10 ms) there: 45 for the rest of the session.
+		// A card that takes 12 ms a frame holds 60 (box runs k-l12, d6). Put at 45 by one bad second, it must get 60
+		// back at the next card: with the first rule (under 45 % of the frame time now, 10 ms at 45) it never did.
 		FMIFrameRateGovernor G;
 		Run(G, 1.0, 18.0, true, false);
 		TestEqual(TEXT("down to 45 by a bad second"), G.Target(), 45);
-		const double At50 = MITuning::GpuMsAtSmallest(12.0, 0.75, 0.50, 0.6);
-		AddInfo(FString::Printf(TEXT("12 ms at the 75 %% picture is %.2f ms at the 50 %% picture (60 %% of the time follows the pixels)"), At50));
-		TestTrue(TEXT("12 ms at 75 % is about 8 ms at 50 %"), FMath::IsNearlyEqual(At50, 12.0 * (0.4 + 0.6 * 0.25 / 0.5625), 1e-9) && At50 < 10.0);
+		// At the smallest picture the GPU needs a little less: an eighth of its time follows the pixels (measured).
+		const double At50 = MITuning::GpuMsAtSmallest(12.0, 0.75, 0.50, 0.12);
+		AddInfo(FString::Printf(TEXT("12 ms at the 75 %% picture is %.2f ms at the 50 %% picture (12 %% of the time follows the pixels)"), At50));
+		TestTrue(TEXT("12 ms at 75 % is 11.2 ms at 50 %"), FMath::IsNearlyEqual(At50, 12.0 * (0.88 + 0.12 * 0.25 / 0.5625), 1e-9) && At50 < 12.0 && At50 > 11.0);
 		TestEqual(TEXT("12 ms at the 75 % picture on a card, 9.5 s: not yet"), Run(G, 9.5, 12.0, false, true, false, At50), 0);
-		TestEqual(TEXT("... 10 s: it rises (8 ms at the smallest picture is under 10 ms)"), Run(G, 0.5, 12.0, false, true, false, At50), 1);
+		TestEqual(TEXT("... 10 s: it rises (11.2 ms is under four fifths of 16.7 ms)"), Run(G, 0.5, 12.0, false, true, false, At50), 1);
 		TestEqual(TEXT("45 -> 60"), G.Target(), 60);
 		AddInfo(FString::Printf(TEXT("log line: %s"), *G.Why()));
+	}
+	{
+		// The time at the smallest picture is what counts: 14 ms at the 75 % picture is over 13.3 ms as measured, and
+		// under it at the 50 % picture when most of the time follows the pixels (a card and scene unlike the box's).
+		FMIFrameRateGovernor G;
+		Run(G, 1.0, 18.0, true, false);
+		TestEqual(TEXT("down to 45"), G.Target(), 45);
+		TestEqual(TEXT("14 ms, nothing known about a smaller picture: it stays at 45"), Run(G, 60.0, 14.0, false, true), 0);
+		const double Pixels = MITuning::GpuMsAtSmallest(14.0, 0.75, 0.50, 0.6);
+		TestTrue(TEXT("14 ms at 75 % is 9.3 ms at 50 % when 60 % of the time follows the pixels"), FMath::IsNearlyEqual(Pixels, 14.0 * (0.4 + 0.6 * 0.25 / 0.5625), 1e-9));
+		TestEqual(TEXT("then it rises after 10 s"), Run(G, 10.0, 14.0, false, true, false, Pixels), 1);
+		TestEqual(TEXT("at 60"), G.Target(), 60);
 	}
 	{
 		FMIFrameRateGovernor G;
 		Run(G, 1.0, 18.0, true, false);
 		TestEqual(TEXT("down to 45"), G.Target(), 45);
-		// The picture is the smallest already: nothing is left to gain, 12 ms is not under 10 ms.
-		const double At50 = MITuning::GpuMsAtSmallest(12.0, 0.50, 0.50, 0.6);
-		TestEqual(TEXT("at the smallest picture the time is the time"), At50, 12.0);
-		TestEqual(TEXT("12 ms at the 50 % picture on a card for a minute: it stays at 45"), Run(G, 60.0, 12.0, true, true, false, At50), 0);
+		// The picture is the smallest already: nothing is left to gain.
+		const double At50 = MITuning::GpuMsAtSmallest(14.0, 0.50, 0.50, 0.6);
+		TestEqual(TEXT("at the smallest picture the time is the time"), At50, 14.0);
+		TestEqual(TEXT("14 ms at the 50 % picture on a card for a minute: it stays at 45"), Run(G, 60.0, 14.0, true, true, false, At50), 0);
 		// The sum never comes out above the measured time, and the parts are what they say.
 		TestEqual(TEXT("dynamic resolution off (no share known): the measured time"), MITuning::GpuMsAtSmallest(12.0, -1.0, 0.5, 0.6), 12.0);
 		TestEqual(TEXT("nothing follows the pixels: the measured time"), MITuning::GpuMsAtSmallest(12.0, 0.75, 0.5, 0.0), 12.0);

@@ -1,20 +1,36 @@
 # The release gate of version 3, release A (docs/unreal/PREFLIGHT.md section 2; docs/unreal/PROGRESS.md "Version 3,
-# release A"), as a queue for lag-test.sh on the packaged build:
+# release A" and "Version 3, release A: the review's findings"), as a queue for lag-test.sh on the packaged build:
 #
-#   bash lag-test.sh queue /project/ue/cloud/src/tools/box/cloud/lag-gate.txt      (about 20 minutes; no compile meanwhile)
+#   bash lag-test.sh queue /project/ue/cloud/src/tools/box/cloud/lag-gate.txt      (about 35 minutes; no compile meanwhile)
 #   bash lag-test.sh list                                                          (the summary lines)
 #
 # It passes when every line says CLEAN and:
-#   gate-free    the Shipping game on a free GPU: fps 60 (min 57 or more), target 60, worst frame under 100 ms
+#   gate-free    the Shipping game on a free GPU: fps 60 (min 57 or more), target 60, worst frame under 100 ms. And the
+#                sender: on this box it encodes and sends 56 to 57 of the game's 60 frames a second on a free GPU
+#                (lowest two seconds 50 to 53), with every capture setting, a frame cap of 120, a faster encoder
+#                preset and a viewer that does not decode: some frames take the encoder longer than a sixtieth of a
+#                second, and the frame behind such a one is dropped. That is the measured state, not a goal: a build
+#                that sends fewer than 54, or whose lowest two seconds fall under 45, has lost something.
 #   gate-l8, gate-l12, gate-l20, gate-l35   the Shipping game with the GPU loaded by a second process (about 8, 12,
 #                20 and 34 ms of GPU time a frame at full quality on the box's card): worst frame under 100 ms, owed
-#                2 or less, pacer time-outs 0. Measured at release A: target 60, 60, 45 and 30, worst frames 25 to
-#                40 ms (the target is 60 on the set-up screens whatever the load; it moves when play begins)
+#                2 or less, pacer time-outs 0 in the play and in the whole run. Measured at release A: target 60, 60,
+#                45 and 30, worst frames 25 to 40 ms (the target is 60 on the set-up screens whatever the load; it
+#                moves when play begins)
 #   gate-l35dev  the Development game of the same package under the heaviest load: the same, and "fence time-outs 0,
 #                skipped captures 0" (only the Development game has the engine's log)
+#   gate-cpu6-l20, gate-cpu6-l35, gate-cpu6-l35dev   the same three loads with the game on 6 CPUs only: Unreal then
+#                starts 5 task workers, and with 6 or fewer its Vulkan RHI has no interrupt thread (the small cloud
+#                GPU servers with 8 hyper-threaded CPUs are in that case). Worst frame under 100 ms and "whole run:
+#                pacer time-outs 0": before the pacer waited on the render thread, every frame the GPU was the limit
+#                froze for 250 ms there (box runs rf-cpu6-l20, rf-cpu6-l35: worst frame 253 ms, 43 time-outs in play)
 #   gate-cmds    a viewer's console commands in the Shipping game: after "t.MaxFPS 30" the probe lines say fps=30 and
 #                target=30; "quit" and "r.ScreenPercentage 400" are refused (cmdRun=2 cmdRefused=2); look at the saved
 #                frame pause.jpg: the line of numbers at the bottom of the pause card
+#   gate-input   the input checks of lag-input.txt and lag-input2.txt (their tops say what the probe lines must show):
+#                a double click costs two rounds and leaves fire=0; a size request of 2560 x 1440 is drawn at
+#                1920 x 1080 with mouseScale=0.6667; what the first viewer held does nothing for the second
+#   gate-pad     the same for a controller (lag-pad.txt): the first press, marked as a repeat, hides the card; the
+#                trigger that was pulled when the viewer left does not fire for the next one
 # The loads are calibrated for box ec087d85 (RTX PRO 6000 Blackwell, driver 620.70): check them first on another card
 # with "lag-test.sh calib cal 0 1:0.3:1 1:0.05:0.05:1024 1:0.05:0:1024 1:0.3:0".
 gate-free game=ship load=0
@@ -24,3 +40,8 @@ gate-l20 game=ship load=1:0.05:0:1024
 gate-l35 game=ship load=1:0.3:0
 gate-l35dev game=dev load=1:0.3:0
 gate-cmds game=ship view=lag-commands.txt load=0
+gate-cpu6-l20 game=ship load=1:0.05:0:1024 cpus=0-5
+gate-cpu6-l35 game=ship load=1:0.3:0 cpus=0-5
+gate-cpu6-l35dev game=dev load=1:0.3:0 cpus=0-5
+gate-input game=ship view=lag-input.txt view2=lag-input2.txt probe=0.25 secs=150 load=0
+gate-pad game=ship view=lag-pad.txt view2=lag-input2.txt probe=0.25 secs=110 load=0

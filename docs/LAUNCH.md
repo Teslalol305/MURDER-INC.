@@ -102,8 +102,11 @@ Paste this where the game should appear (replace the `src` with your share link)
 
 ## 6. When the connection drops
 
-- If the player's network drops or the tab is closed, the game **pauses itself**. E3DS shows its own message in the
-  frame. Reloading the page starts a new session: a fresh game on a fresh server, with the click card again.
+- If the player's network drops or the tab is closed, the game **pauses itself** (from version 3 also in the two
+  seconds before a run goes live) and lets go of everything the player was holding: keys, mouse buttons, sticks and
+  triggers. A key that was down when the connection was cut would otherwise still count as down afterwards, and the
+  player would walk or fire by himself after a reconnect. E3DS shows its own message in the frame. Reloading the page
+  starts a new session: a fresh game on a fresh server, with the click card again.
 - Tell players on the page, next to the game: *"If the picture freezes or says disconnected, reload the page to play
   again."*
 
@@ -129,12 +132,24 @@ Paste this where the game should appear (replace the `src` with your share link)
       rebuild: put **`-MIMouseScale=<number>`** in the configuration's launch options (section 13). 0.5 is the built-in
       value; for a fixed 1920 x 1080 picture shown 1280 wide in the page use 0.333 (the rule: shown width divided by
       twice the rendered width). Players can also change **Sensitivity** on the game's Settings card.
+      With Browser Resolution **Dynamic** the page asks the game for the size of the player's frame. From version 3
+      the game draws at that size only between 640 x 360 and 1920 x 1080: a larger frame (a 1440p or 4K monitor in
+      full screen) gets the largest picture of its shape that fits 1920 x 1080, scaled up by the browser, and the
+      mouse keeps its speed (the game works the scale out from the two sizes); a smaller one (a phone held upright)
+      is ignored. Until the rest of that work is done (release B: the picture's sharpness and the HUD at small sizes)
+      keep Browser Resolution at **Custom 1920 x 1080**.
+- [ ] A double click (from version 3): on E3DS two quick clicks used to leave the fire button held (an automatic gun
+      kept firing until the next click, and that click fired nothing), because the page sends a "double click"
+      message that Unreal takes for a third press and never releases. Version 3 drops that message: a double click is
+      two clicks. Check it once in a run: two quick clicks fire two rounds, and the gun stops.
 - [ ] Console commands (from version 3): the game runs a console command that arrives through the stream only when
       it reads or sets one of the variables a visitor may tune: the stream's own settings (`PixelStreaming2.` or
-      `PixelStreaming.`), the game's pacing (`MI.Cloud.`), the quality groups (`sg.`, 0 to 4), dynamic resolution
+      `PixelStreaming.`, but not its two debug dumps, which write files on the server), the game's pacing
+      (`MI.Cloud.`), the quality groups (`sg.`, 0 to 3: the levels of the Settings card), dynamic resolution
       (`r.DynamicRes.`, its smallest and largest picture between 25 and 100), `r.ScreenPercentage` (25 to 100),
-      `t.MaxFPS` (0 to 120), `r.Streaming.PoolSize` (200 to 3000), `r.GTSyncType`, `r.OneFrameThreadLag` and
-      `r.VolumetricFog.`. Anything else (`quit`, `open`, a debug command, a value out of range) is refused. So E3DS's
+      `t.MaxFPS` (0 to 120), `r.Streaming.PoolSize` (200 to 3000), `r.GTSyncType`, `r.OneFrameThreadLag`, and the
+      fog's two grid sizes (`r.VolumetricFog.GridPixelSize` 8 to 32, `r.VolumetricFog.GridSizeZ` 32 to 128).
+      Anything else (`quit`, `open`, a debug command, a value out of range) is refused. So E3DS's
       field "Unreal console commands to run at start" takes for example `t.MaxFPS 30` (E3DS's own advice for a
       slow server: the game then holds 30 and says so on the pause card), if E3DS delivers that field to a Linux
       app (not yet seen). The launch option `-MICVars=` does the same without E3DS's field (section 13).
@@ -144,11 +159,18 @@ Paste this where the game should appear (replace the `src` with your share link)
       second, megabits, QP, round trip) and the build. Send that screenshot with any report of lag: it says whether
       the server's card, the connection or the game is the limit. Both frame rates come with their **lowest value
       of the last half minute of play**, so pause right after a stutter:
-      - "60 frames a second (lowest 58, …)" and "stream 57 a second (lowest 9)": the server was fine and the
-        **connection** was not. The sender drops frames when the connection cannot carry a moving picture (measured
-        on the GPU box: 5 to 7 frames a second received while turning at 1.7 Mbit/s, with the game at a steady 60).
-        A nearer region or a wired connection is the cure; a lower Video Quality in E3DS's panel should help too
-        (not measured). The game cannot.
+      - "60 frames a second (lowest 58, …)" and "stream 57 a second (lowest 9), 1.9 Mbit/s": the server was fine and
+        the **connection** was not: the stream's number fell far below the game's **and the megabits are low**. The
+        sender drops frames when the connection cannot carry a moving picture (measured on the GPU box: 5 to 7 frames
+        a second received while turning at 1.7 Mbit/s, with the game at a steady 60). A nearer region or a wired
+        connection is the cure; a lower Video Quality in E3DS's panel should help too (not measured). The game
+        cannot.
+      - "60 frames a second …" and "stream 56 a second (lowest 50), 11 Mbit/s": a stream number **a few below the
+        game's with plenty of megabits is the server's video encoder**, not the connection. On the GPU box the
+        encoder sends 56 to 57 of the game's 60 frames a second on a free card (single seconds near 50), whatever
+        the viewer and the settings: some frames take it longer than the sixtieth of a second it has, and the frame
+        behind such a one is dropped. At 45 frames a second it sends 44, at 30 all 30. If E3DS's servers show a
+        larger gap than the box, send the screenshot: `-MIFps=45` (section 13) is then the setting to try.
       - "31 frames a second (lowest 12, target 30)": the **server's graphics card** was the limit. Send it.
 
 ## 8. If E3DS rejects the build or it never starts
@@ -260,7 +282,7 @@ without E3DS's log it is not proven), writes the log above, also
 into E3DS's own log file, and never runs the game as root; the game carries the SM5 shaders too, so a server whose graphics driver fails
 Unreal 5.9's SM6 check runs a simpler picture instead of quitting; it needs less graphics memory at start; it reports
 a stop by the host as a normal quit; the home screen says "P Pause"; and the Development game rides along for E3DS's
-crash-log feature (launch option `-MIDev`, section 13).
+crash-log feature (launch option `-MIDev`, section 13; from version 3 `-MIDev=<key>`).
 
 The zip contains licensed content (the rifle animation pack, Epic's template content and the main character's
 likeness): upload it only to E3DS, do not share the links.
@@ -378,9 +400,15 @@ build machine, so the menu names may differ slightly):
    console shows nothing from the game, use 2 or 3.
 2. **The Development game, for E3DS's crash-log email.** E3DS's "Auto Download UE Crash Log" (stream configuration,
    **Advanced Options**, **Developer**) only works with Development builds. The zip carries one beside the normal
-   game: put **`-MIDev`** in the configuration's **launch options**, start the link again, and that session writes
-   the full engine log, with call stacks, to `MurderInc/Saved/Logs/MurderInc.log`, where Development builds keep
-   it. Take `-MIDev` out again afterwards (it keeps the developer console and checks on).
+   game: put **`-MIDev=<key>`** in the configuration's **launch options**, start the link again, and that session
+   writes the full engine log, with call stacks, to `MurderInc/Saved/Logs/MurderInc.log`, where Development builds
+   keep it. Take it out again afterwards (it keeps the developer console and checks on). **The key** (from version
+   3) is a word of 16 letters and digits that is new for every zip: it comes with the build's release notes, and it
+   is the one line of the file `MIDEV.key` at the top of the zip. E3DS hands the game whatever a visitor writes after
+   `?exeLaunchArgs=` on the stream link, and the Development game has the debug switches the normal game was built
+   without (a switch that crashes it on purpose, the developer console); with the key no visitor can start it. A
+   plain `-MIDev` or a wrong key starts the normal game and says so in the log. Do not put the key on a public page,
+   and do not leave `-MIDev=<key>` in the launch options of the public configuration.
 3. **Ask E3DS support** (email or chat) for the files above. Give them: app `MurderInc`, the version, the
    configuration, and the time of the crash in UTC (their crash email gives it in your time zone). Ask them for
    `MurderInc/Saved/Logs/MurderInc.log` and the folder `MurderInc/Saved/Crashes/` from the server that ran the
@@ -410,7 +438,7 @@ build machine, so the menu names may differ slightly):
 
 | Option | Effect |
 |---|---|
-| `-MIDev` | run the Development game (full engine log, for E3DS's crash-log feature and support) |
+| `-MIDev=<key>` | run the Development game (full engine log, for E3DS's crash-log feature and support). The key is the word in `MIDEV.key` at the top of the zip (version 2: plain `-MIDev`) |
 | `-MIMouseScale=<number>` | from version 3: mouse look speed through the stream (0.05 to 4; built-in 0.5). See section 7, "Mouse feel" |
 | `-MIFps=60` (or `45`, `30`) | from version 3: fixes the frame-rate target instead of letting the game choose it by the card's time. `-MIFps=30` is the safe setting for a server that turns out to be slow |
 | `-MICVars=name=value,name=value` | from version 3: sets console variables at start without a new build, each one printed in the log (`[MICloud] Launch option -MICVars: ...`). Only the variables of section 7's list. Examples: `-MICVars=r.DynamicRes.MinScreenPercentage=40` (allow a smaller picture), `-MICVars=MI.Cloud.GpuFramesInFlight=0` (the lowest delay at the cost of some frame rate on a slow card), `-MICVars=sg.GlobalIlluminationQuality=2,sg.ShadowQuality=2` (cheaper light and shadows) |
