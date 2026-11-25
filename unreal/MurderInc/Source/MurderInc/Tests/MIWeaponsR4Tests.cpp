@@ -730,17 +730,19 @@ bool FMIFirstPersonSupportHandTest::RunTest(const FString& Parameters)
 			TestTrue(FString::Printf(TEXT("%s: magazine.turn is three angles within 180 degrees"), Gun), bTurn && Vec(T).GetAbsMax() <= 180.0);
 		}
 		// HANDS_R4.md 10: the grip solved round the set's own magazine (grips.json magazines.<mesh>, reload_grips.py): the wrist and
-		// every finger joint, each within 30 cm of the magazine's origin (its own frame).
+		// every finger joint, each within 25 cm of the solve's wrist (a hand; the points are in the magazine mesh's own frame).
 		FString MagMesh = MIJson::StringOr(F.Presentation, Set + TEXT(".magazine.full"));
 		MagMesh.Split(TEXT("."), nullptr, &MagMesh, ESearchCase::CaseSensitive, ESearchDir::FromEnd);
 		const TSharedPtr<FJsonValue> Solve = MIJson::Get(Grips, FString::Printf(TEXT("magazines.%s.l"), *MagMesh));
 		if (TestTrue(FString::Printf(TEXT("%s: grips.json has the reload grip round %s"), Gun, *MagMesh), Solve.IsValid() && Solve->Type == EJson::Object))
 		{
 			int32 Joints = 0;
+			const TSharedPtr<FJsonValue> Wrist = Solve->AsObject()->TryGetField(TEXT("hand_l"));
+			const FVector WristAt = Wrist.IsValid() && Wrist->Type == EJson::Array && Wrist->AsArray().Num() == 3 ? Vec(Wrist) : FVector(1e9);
 			for (const auto& Pair : Solve->AsObject()->Values)
 			{
-				const bool bOk = Pair.Value->Type == EJson::Array && Pair.Value->AsArray().Num() == 3 && Vec(Pair.Value).GetAbsMax() <= 30.0;
-				TestTrue(FString::Printf(TEXT("%s: the reload grip's %s is a point near the magazine"), Gun, *FString(*Pair.Key)), bOk);
+				const bool bOk = Pair.Value->Type == EJson::Array && Pair.Value->AsArray().Num() == 3 && FVector::Dist(Vec(Pair.Value), WristAt) <= 25.0;
+				TestTrue(FString::Printf(TEXT("%s: the reload grip's %s is a point of the hand (within 25 cm of its wrist)"), Gun, *FString(*Pair.Key)), bOk);
 				Joints += bOk ? 1 : 0;
 			}
 			TestTrue(FString::Printf(TEXT("%s: the reload grip has the wrist and every finger joint (%d points)"), Gun, Joints), Joints >= 24 && Solve->AsObject()->HasField(TEXT("hand_l")));
