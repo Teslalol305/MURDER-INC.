@@ -40,6 +40,10 @@
 #              log in /project/ue/cloud/package.log)
 #   status     the step running or the result, and the last log lines
 #
+# MI_COMMIT=<40 hex digits> in the environment packages that commit of the branch instead of its head (src fetches
+# it; BUILD.txt names it). For a release while other work is pushed to the same branch: the head may by then hold
+# game code that is not tested or gated yet. The commit must be on the pushed branch.
+#
 # The package holds pack, Epic and likeness content: it stays on the box and goes only to the owner's private
 # Higgsfield storage (docs/LAUNCH.md); it is never committed.
 
@@ -48,6 +52,7 @@ REL=/project/ue/repo-release/unreal/MurderInc
 GP=/project/ue/repo-gameplay/unreal/MurderInc
 ENGINE=/project/ue/UnrealEngine
 BRANCH=${MI_BRANCH:-claude/tender-albattani-5q78qr}
+COMMIT=${MI_COMMIT:-}              # this commit of the branch instead of its head
 LOG=$C/package.log
 ST=$C/package.status
 ME=$(readlink -f "$0")
@@ -58,16 +63,18 @@ as_ue4() { su ue4 -c "$(printf '%q ' "$@")"; }
 src() {
   local url; url=$(as_ue4 git -C /project/ue/repo remote get-url origin 2>/dev/null)
   [ -n "$url" ] || { say "no origin url in /project/ue/repo"; return 1; }
+  if [ -n "$COMMIT" ] && ! [[ "$COMMIT" =~ ^[0-9a-f]{40}$ ]]; then say "SRC FAILED: MI_COMMIT must be the 40 hex digits of a commit, not '$COMMIT'"; return 1; fi
   if [ ! -d "$C/src/.git" ]; then
     rm -rf "$C/src" && mkdir -p "$C" && chown ue4 "$C"
     as_ue4 git clone -q --depth 1 --filter=blob:none --sparse -b "$BRANCH" "$url" "$C/src" || return 1
     as_ue4 git -C "$C/src" sparse-checkout set unreal/MurderInc tools/box || return 1
-  else
-    as_ue4 git -C "$C/src" fetch -q --depth 1 origin "$BRANCH" && as_ue4 git -C "$C/src" reset -q --hard FETCH_HEAD || return 1
   fi
+  # The branch's head, or the one commit asked for (MI_COMMIT).
+  as_ue4 git -C "$C/src" fetch -q --depth 1 origin "${COMMIT:-$BRANCH}" && as_ue4 git -C "$C/src" reset -q --hard FETCH_HEAD || return 1
   # git refuses a repository owned by another user (ue4) when run as root: read it as ue4.
   as_ue4 git -C "$C/src" rev-parse HEAD > "$C/src.commit" || return 1
-  say "SRC OK at $(as_ue4 git -C "$C/src" log --oneline -1)"
+  if [ -n "$COMMIT" ] && [ "$(cat "$C/src.commit")" != "$COMMIT" ]; then say "SRC FAILED: asked for commit $COMMIT, the clone is at $(cat "$C/src.commit")"; return 1; fi
+  say "SRC OK at $(as_ue4 git -C "$C/src" log --oneline -1)${COMMIT:+ (MI_COMMIT: this commit, not the head of the branch)}"
 }
 
 refresh() {
