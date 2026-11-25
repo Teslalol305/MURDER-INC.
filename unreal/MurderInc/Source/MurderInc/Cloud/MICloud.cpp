@@ -55,6 +55,7 @@
 #if PLATFORM_LINUX && !WITH_EDITOR
 #include <csignal>
 #include <cstdlib>
+#include <thread>
 #include <unistd.h>
 #endif
 
@@ -128,6 +129,55 @@ namespace MICloudPrivate
 	FAutoConsoleVariableRef CVarFpsPixelPart(TEXT("MI.Cloud.FpsPixelPart"), GFpsPixelPart,
 		TEXT("The share of the GPU's frame time that follows the number of pixels drawn (0 to 1): the rise is judged by the time the GPU would need at the smallest picture, worked out with it."));
 
+	// The session (Cloud/MISession.h) and the encoder's range (Cloud/MIStreamQuality.h): console variables like the
+	// pacing's, so the cloud profile, the launch options of StartSession, -MICVars and E3DS's console-commands field can
+	// all set them without a new build.
+	int32 GIdleFps = 2;
+	FAutoConsoleVariableRef CVarIdleFps(TEXT("MI.Cloud.IdleFps"), GIdleFps,
+		TEXT("While streamed and nobody watches: the frames a second the game idles at (launch option -MIIdleFps=). 0: it never idles."));
+	float GIdleAfter = 2.f;
+	FAutoConsoleVariableRef CVarIdleAfter(TEXT("MI.Cloud.IdleAfter"), GIdleAfter,
+		TEXT("Seconds with no viewer before the game idles (launch option -MIIdleAfter=)."));
+	float GExitAfterEmpty = 20.f;
+	FAutoConsoleVariableRef CVarExitAfterEmpty(TEXT("MI.Cloud.ExitAfterEmpty"), GExitAfterEmpty,
+		TEXT("Seconds after the last viewer left before the game quits (launch option -MIExitAfterEmpty=). A page that is reloaded reconnects within seconds; 0: never."));
+	float GExitIfNoViewer = 600.f;
+	FAutoConsoleVariableRef CVarExitIfNoViewer(TEXT("MI.Cloud.ExitIfNoViewer"), GExitIfNoViewer,
+		TEXT("Seconds after the game's start before it quits for want of a first viewer (launch option -MIExitIfNoViewer=). 0: never."));
+	int32 GKeepAlive = 0;
+	FAutoConsoleVariableRef CVarKeepAlive(TEXT("MI.Cloud.KeepAlive"), GKeepAlive,
+		TEXT("1: the game does not idle and does not quit by itself when nobody watches or its launcher is gone (launch option -MIKeepAlive; the box's test scripts)."));
+	int32 GQpBelow = 10, GQpAbove = 8, GQpFloor = 8, GQpCeiling = 48, GQpExact = 0;
+	FAutoConsoleVariableRef CVarQpBelow(TEXT("MI.Cloud.QpBelow"), GQpBelow,
+		TEXT("The encoder's lowest QP is the QP the page asks for minus this (launch option -MIQpBelow=)."));
+	FAutoConsoleVariableRef CVarQpAbove(TEXT("MI.Cloud.QpAbove"), GQpAbove,
+		TEXT("The encoder's highest QP is the QP the page asks for plus this (launch option -MIQpAbove=)."));
+	FAutoConsoleVariableRef CVarQpFloor(TEXT("MI.Cloud.QpFloor"), GQpFloor, TEXT("The range never goes below this QP (a request below it keeps its own number)."));
+	FAutoConsoleVariableRef CVarQpCeiling(TEXT("MI.Cloud.QpCeiling"), GQpCeiling, TEXT("The range never goes above this QP (a request above it keeps its own number)."));
+	FAutoConsoleVariableRef CVarQpExact(TEXT("MI.Cloud.QpExact"), GQpExact,
+		TEXT("1: the encoder gets exactly the QPs the page and the launch options ask for, no range (launch option -MIQpExact)."));
+
+	/**
+	 * One count for every viewer event (a join, all gone) as the stream reports it, from whatever thread reports it. The
+	 * idle game sleeps in small steps and looks at this: a joining viewer wakes it at once, not at the end of a 500 ms
+	 * frame. ViewerEventsHandled (the subsystem's) catches up when the game thread has processed the event.
+	 */
+	std::atomic<int32> GViewerEvents{0};
+
+	/** A launch option "-Name=value" sets a console variable of this family (the same variable -MICVars reaches). */
+	void ApplyLaunchOption(const TCHAR* CommandLine, const TCHAR* Option, const TCHAR* VariableName)
+	{
+		FString Text;
+		if (!FParse::Value(CommandLine, Option, Text, false) || Text.IsEmpty())
+		{
+			return;
+		}
+		if (IConsoleVariable* Var = IConsoleManager::Get().FindConsoleVariable(VariableName))
+		{
+			Var->Set(*Text, ECVF_SetByCommandline);
+		}
+	}
+
 	/** The commit of BUILD.txt, seven characters ("" outside a cloud package): the pause card's line. */
 	FString GBuildCommit;
 
@@ -200,6 +250,25 @@ namespace MICloudPrivate
 		}
 	}
 #endif
+
+	/**
+	 * After the game has asked to quit by itself (the session is over), the process has this long to finish its shutdown.
+	 * A 4K game once did not stop within 30 s of SIGTERM (docs/unreal/BOX.md), and a game that is stuck in its shutdown
+	 * after its session ended is the leftover this whole change is about: past the limit the process ends itself (exit
+	 * code 0, its lines flushed first). A normal shutdown takes seconds, and the exit guard ends the process first.
+	 */
+	void ArmShutdownWatchdog(double Seconds)
+	{
+#if PLATFORM_LINUX && !WITH_EDITOR
+		std::thread([Seconds]
+		{
+			FPlatformProcess::Sleep((float)Seconds);
+			printf("[MICloud] Exit: the shutdown took over %.0f s: ending the process (exit code 0)\n", Seconds);
+			fflush(nullptr);
+			_exit(0);
+		}).detach();
+#endif
+	}
 
 	/** One block of lines at start: what the server gave the game, so a crash report from a host says where it ran. */
 	void ReportStartup()
@@ -588,6 +657,29 @@ FMIStreamMouse UMICloudSubsystem::ReadMouseShape(const TCHAR* CommandLine, doubl
 	return Shape;
 }
 
+FMISession::FOptions UMICloudSubsystem::ReadSessionOptions(bool bStreamed)
+{
+	FMISession::FOptions O;
+	O.bStreamed = bStreamed;
+	O.bKeepAlive = MICloudPrivate::GKeepAlive != 0;
+	O.IdleAfter = MICloudPrivate::GIdleAfter;
+	O.IdleFps = MICloudPrivate::GIdleFps;
+	O.ExitAfterEmpty = MICloudPrivate::GExitAfterEmpty;
+	O.ExitIfNoViewer = MICloudPrivate::GExitIfNoViewer;
+	return FMISession::Sanitize(O);
+}
+
+FMIEncoderRange::FSettings UMICloudSubsystem::ReadEncoderSettings()
+{
+	FMIEncoderRange::FSettings S;
+	S.Below = MICloudPrivate::GQpBelow;
+	S.Above = MICloudPrivate::GQpAbove;
+	S.Floor = MICloudPrivate::GQpFloor;
+	S.Ceiling = MICloudPrivate::GQpCeiling;
+	S.bExact = MICloudPrivate::GQpExact != 0;
+	return S;
+}
+
 bool UMICloudSubsystem::IsViewerCommandAllowed(const FString& Command, FString* OutCommand)
 {
 	const FString C = Command.TrimStartAndEnd();
@@ -659,6 +751,8 @@ void UMICloudSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 	bProbeGiven = FParse::Value(FCommandLine::Get(), TEXT("MICloudProbe="), ProbePeriod);
+	// The session's clock runs from the process's start (a first viewer is awaited from then, not from this subsystem).
+	SessionClock.Start(GStartTime > 0.0 ? GStartTime : FPlatformTime::Seconds());
 	static bool bStarted = false;  // once per process (a game instance is made once in a packaged game)
 	if (!bStarted)
 	{
@@ -694,10 +788,13 @@ void UMICloudSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		};
 		StreamHandles.Add(D->OnConnectedToSignallingServerNative.AddLambda([OnGame](FString)
 			{ OnGame([](UMICloudSubsystem& S) { S.BecomeStreamed(TEXT("signalling server")); }); }));
+		// A viewer event is counted here, on whatever thread the stream reports it, before the game thread has it: the idle
+		// game sleeps in small steps and wakes when the count moves (SleepIdle), and does not go back to sleep until the game
+		// thread has handled the event (ViewerEventsHandled).
 		StreamHandles.Add(D->OnNewConnectionNative.AddLambda([OnGame](FString, FString)
-			{ OnGame([](UMICloudSubsystem& S) { S.OnViewerJoined(); }); }));
+			{ ++MICloudPrivate::GViewerEvents; OnGame([](UMICloudSubsystem& S) { S.OnViewerJoined(); }); }));
 		StreamHandles.Add(D->OnAllConnectionsClosedNative.AddLambda([OnGame](FString)
-			{ OnGame([](UMICloudSubsystem& S) { S.OnAllViewersLeft(); }); }));
+			{ ++MICloudPrivate::GViewerEvents; OnGame([](UMICloudSubsystem& S) { S.OnAllViewersLeft(); }); }));
 		// The sender's own statistics (frames captured, encoded and sent a second, bitrate, QP, round trip): broadcast on
 		// the game thread about once a second for each viewer.
 		StreamHandles.Add(D->OnStatChangedNative.AddUObject(this, &UMICloudSubsystem::OnStreamStat));
@@ -710,6 +807,10 @@ void UMICloudSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 void UMICloudSubsystem::Deinitialize()
 {
 	FTSTicker::GetCoreTicker().RemoveTicker(TickHandle);
+	if (bIdle)
+	{
+		LeaveIdle(TEXT("the game is shutting down"));
+	}
 #if MI_WITH_PIXELSTREAMING2
 	if (UPixelStreaming2Delegates* D = UPixelStreaming2Delegates::Get(); D && StreamHandles.Num() == 4)
 	{
@@ -771,6 +872,7 @@ void UMICloudSubsystem::BecomeStreamed(const TCHAR* Why)
 		ApplyCloudProfile();
 		ApplyTuningOption(FCommandLine::Get());
 		StartPacing();
+		StartSession();
 	}
 }
 
@@ -813,6 +915,15 @@ void UMICloudSubsystem::OnViewerJoined()
 {
 	BecomeStreamed(TEXT("viewer"));
 	bConnectionLost = false;
+	// The session: every countdown stops, the game wakes at full speed in this very frame, and the round trip of the
+	// viewer before is not this one's.
+	SessionClock.Joined(FPlatformTime::Seconds());
+	RoundTrip.Reset();
+	++ViewerEventsHandled;
+	if (bIdle)
+	{
+		LeaveIdle(TEXT("a viewer joined"));
+	}
 	if (Viewers.Join())
 	{
 		bWaitingForClick = !FParse::Param(FCommandLine::Get(), TEXT("MICloudNoCard"));
@@ -829,6 +940,11 @@ void UMICloudSubsystem::OnViewerJoined()
 void UMICloudSubsystem::OnAllViewersLeft()
 {
 	Viewers.AllLeft();
+	// The session's countdowns start from now. The pause and the release of everything the viewer held follow in this
+	// very call, seconds before the first idle frame: the idle game never has a run going.
+	SessionClock.AllLeft(FPlatformTime::Seconds());
+	RoundTrip.Reset();
+	++ViewerEventsHandled;
 	LeftStick = FVector2D::ZeroVector;  // the pad went with its viewer
 	StickNav.Reset();
 	PadButtons.Reset();
@@ -1074,6 +1190,24 @@ void UMICloudSubsystem::GuardViewerInput()
 			S->OnViewerCommand(Command);
 		}
 	});
+	// The plugin's own quality commands (a Command message, not a console command: Epic's front end sends these) set its
+	// quality variables from the QP, rounded; the range of FMIEncoderRange goes through ours instead, so that no path
+	// leaves the encoder with the one QP the page asked for (-MIQpExact: the same numbers, no range).
+	for (const bool bMin : {true, false})
+	{
+		Handler->SetCommandHandler(bMin ? TEXT("Encoder.MinQP") : TEXT("Encoder.MaxQP"), [Weak, WeakHandler, bMin](FString SourceId, FString Descriptor, FString Value)
+		{
+			const TSharedPtr<IPixelStreaming2InputHandler> H = WeakHandler.Pin();
+			if (!H.IsValid() || !H->IsElevated(SourceId) || Value.IsEmpty() || !Value.IsNumeric())
+			{
+				return;
+			}
+			if (UMICloudSubsystem* S = Weak.Get())
+			{
+				S->SetWantedQp(bMin, FMath::Clamp(FMath::RoundToInt32(FCString::Atod(*Value)), 0, FMIEncoderRange::TopQp), TEXT("the page's Encoder command"));
+			}
+		});
+	}
 	MICloudPrivate::Line(FString::Printf(TEXT("Viewer console commands: only these variables can be read or set, anything else is refused: %s"), *MITuning::AllowedList()));
 	MICloudPrivate::Line(FString::Printf(TEXT("Viewer input: a size request is taken from %d x %d up and drawn within %d x %d; a double click counts as its two clicks"),
 		FMICloudSize::MinWidth, FMICloudSize::MinHeight, FMICloudSize::MaxWidth, FMICloudSize::MaxHeight));
@@ -1119,6 +1253,13 @@ void UMICloudSubsystem::OnViewerSize(int32 Width, int32 Height)
 
 void UMICloudSubsystem::OnViewerCommand(const FString& Command)
 {
+	// E3DS's page sends "PixelStreaming.Encoder.MinQP 34" and MaxQP at the start of every session (and again and again):
+	// they match no console variable of the plugin, so they did nothing; now they set the centre of the encoder's range.
+	if (OnEncoderCommand(Command))
+	{
+		++CommandsRun;
+		return;
+	}
 	FString Run;
 	if (IsViewerCommandAllowed(Command, &Run))
 	{
@@ -1146,6 +1287,253 @@ void UMICloudSubsystem::OnViewerCommand(const FString& Command)
 	}
 }
 
+// ---- the session: idle, quit (Cloud/MISession.h) ---------------------------------------------------------------------
+
+void UMICloudSubsystem::StartSession()
+{
+	if (bSessionStarted)
+	{
+		return;
+	}
+	bSessionStarted = true;
+	const TCHAR* Cmd = FCommandLine::Get();
+	// The launch options reach the same console variables -MICVars= and the console reach.
+	MICloudPrivate::ApplyLaunchOption(Cmd, TEXT("MIIdleFps="), TEXT("MI.Cloud.IdleFps"));
+	MICloudPrivate::ApplyLaunchOption(Cmd, TEXT("MIIdleAfter="), TEXT("MI.Cloud.IdleAfter"));
+	MICloudPrivate::ApplyLaunchOption(Cmd, TEXT("MIExitAfterEmpty="), TEXT("MI.Cloud.ExitAfterEmpty"));
+	MICloudPrivate::ApplyLaunchOption(Cmd, TEXT("MIExitIfNoViewer="), TEXT("MI.Cloud.ExitIfNoViewer"));
+	MICloudPrivate::ApplyLaunchOption(Cmd, TEXT("MIQpBelow="), TEXT("MI.Cloud.QpBelow"));
+	MICloudPrivate::ApplyLaunchOption(Cmd, TEXT("MIQpAbove="), TEXT("MI.Cloud.QpAbove"));
+	if (FParse::Param(Cmd, TEXT("MIKeepAlive")))
+	{
+		MICloudPrivate::GKeepAlive = 1;
+	}
+	if (FParse::Param(Cmd, TEXT("MIQpExact")))
+	{
+		MICloudPrivate::GQpExact = 1;
+	}
+	// The launcher passes its own process id: a game started by hand or by a test script has none, and nothing is watched.
+	int32 Pid = 0;
+	if (FParse::Value(Cmd, TEXT("MILauncherPid="), Pid) && Pid > 1)
+	{
+		LauncherWatch.Start(Pid, FPlatformTime::Seconds());
+	}
+	const FMISession::FOptions O = ReadSessionOptions(true);
+	MICloudPrivate::Line(FString::Printf(TEXT("Session: %s"),
+		O.bKeepAlive ? TEXT("-MIKeepAlive: the game keeps drawing and never quits by itself")
+			: *FString::Printf(TEXT("no viewer for %.1f s: idle at %s; the last viewer gone for %s: quit; no viewer in %s after the start: quit; launcher %s (MI.Cloud.IdleAfter, IdleFps, ExitAfterEmpty, ExitIfNoViewer)"),
+				O.IdleAfter, O.IdleFps > 0 ? *FString::Printf(TEXT("%d frames a second"), O.IdleFps) : TEXT("no cap (off)"),
+				O.ExitAfterEmpty > 0.0 ? *FString::Printf(TEXT("%.0f s"), O.ExitAfterEmpty) : TEXT("never"),
+				O.ExitIfNoViewer > 0.0 ? *FString::Printf(TEXT("%.0f s"), O.ExitIfNoViewer) : TEXT("never"),
+				LauncherWatch.IsWatching() ? *FString::Printf(TEXT("pid %d watched: gone for %.0f s: quit"), LauncherWatch.GetPid(), O.LauncherGoneAfter) : TEXT("not watched (no -MILauncherPid)"))));
+	// The encoder: the numbers the host started the game with are the centre of its range.
+	FMIEncoderRange::ReadLaunchOptions(Cmd, WantedMinQp, WantedMaxQp);
+	ApplyEncoderRange(TEXT("the launch options"));
+}
+
+void UMICloudSubsystem::TickSession()
+{
+	if (!bStreamed || !bSessionStarted || bExitRequested || IsEngineExitRequested())
+	{
+		return;
+	}
+	const double Now = FPlatformTime::Seconds();
+	// The launcher: looked at every 2 s, and a launcher that was never seen alive is not watched (FMILauncherWatch).
+	if (LauncherWatch.IsDue(Now))
+	{
+		const bool bWasGone = LauncherWatch.GetGoneFor(Now) >= 0.0;
+		const FMILauncherWatch::EProbe Answer = MIProbeProcess(LauncherWatch.GetPid(), LauncherStartTime);
+		LauncherWatch.Feed(Answer, Now);
+		if (LauncherWatch.IsDisarmed())
+		{
+			MICloudPrivate::Line(FString::Printf(TEXT("Launcher: process %d (-MILauncherPid) is not there at the start of the game: it is not watched"), LauncherWatch.GetPid()));
+		}
+		else if (!bWasGone && LauncherWatch.GetGoneFor(Now) >= 0.0)
+		{
+			MICloudPrivate::Line(FString::Printf(TEXT("Launcher: process %d is gone; the game quits if it stays gone for %.0f s"), LauncherWatch.GetPid(), LauncherWatch.GoneAfter));
+		}
+	}
+	const FMISession::FOptions O = ReadSessionOptions(true);
+	const FMISession::FState State = SessionClock.Snapshot(Now, LauncherWatch.GetGoneFor(Now));
+	FMISession::FDecision D = FMISession::Decide(O, State);
+	// A viewer event that the game thread has not handled yet (a join that woke the idle game): the count is not true
+	// yet, so the game neither goes back to sleep nor quits on it.
+	if (MICloudPrivate::GViewerEvents.load() != ViewerEventsHandled && D.Action != FMISession::EAction::Keep)
+	{
+		D.Action = FMISession::EAction::Keep;
+		D.Why = FMISession::EWhy::ViewerPresent;
+	}
+	switch (D.Action)
+	{
+	case FMISession::EAction::Exit:
+		RequestSessionExit(FMISession::Describe(D, O, State));
+		return;
+	case FMISession::EAction::Idle:
+		if (!bIdle)
+		{
+			EnterIdle(FMISession::Describe(D, O, State));
+		}
+		SleepIdle(O.IdleFps);
+		return;
+	case FMISession::EAction::Keep:
+		break;
+	}
+	if (bIdle)
+	{
+		LeaveIdle(TEXT("the session is live again"));
+	}
+	if (D.Why == FMISession::EWhy::KeepAlive && !bKeptAliveLogged)
+	{
+		bKeptAliveLogged = true;
+		MICloudPrivate::Line(TEXT("Session: -MIKeepAlive: this game never idles and never quits by itself"));
+	}
+	LastWhy = D.Why;
+}
+
+void UMICloudSubsystem::EnterIdle(const FString& Why)
+{
+	bIdle = true;
+	IdleSince = FPlatformTime::Seconds();
+	IdleFrameAt = IdleSince;
+	IdleFrames = 0;
+	// The picture at its smallest while nobody looks at it (the cloud profile's dynamic resolution runs between
+	// r.DynamicRes.MinScreenPercentage and MaxScreenPercentage; a value somebody set by hand stays).
+	static IConsoleVariable* Min = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DynamicRes.MinScreenPercentage"));
+	static IConsoleVariable* Max = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DynamicRes.MaxScreenPercentage"));
+	if (Min && Max && !bDynamicResClamped)
+	{
+		SavedDynamicResMax = Max->GetString();
+		bDynamicResClamped = MICloudPrivate::SetAsProfile(TEXT("r.DynamicRes.MaxScreenPercentage"), Min->GetString());
+	}
+	MICloudPrivate::Line(FString::Printf(TEXT("Nobody is watching: %s"), *Why));
+}
+
+void UMICloudSubsystem::LeaveIdle(const TCHAR* Why)
+{
+	if (!bIdle)
+	{
+		return;
+	}
+	bIdle = false;
+	if (bDynamicResClamped)
+	{
+		MICloudPrivate::SetAsProfile(TEXT("r.DynamicRes.MaxScreenPercentage"), SavedDynamicResMax);
+		bDynamicResClamped = false;
+	}
+	// The pacing's half second counts from now: the idle frames said nothing about what a frame costs.
+	GovLast = FPlatformTime::Seconds();
+	GovGpuSum = 0.0;
+	GovFrames = 0;
+	IdleFrameAt = 0.0;
+	MICloudPrivate::Line(FString::Printf(TEXT("Back at full speed (%s) after %.1f s and %d idle frames"), Why, FPlatformTime::Seconds() - IdleSince, IdleFrames));
+}
+
+void UMICloudSubsystem::SleepIdle(int32 Fps)
+{
+	// The end of the frame (the core ticker runs after the frame's work): wait until the next idle frame is due. In steps
+	// of 10 ms, so that a viewer's arrival (the stream's thread counts it at once) or an exit request ends the wait.
+	const double Interval = 1.0 / (double)FMath::Max(1, Fps);
+	const int32 Seen = MICloudPrivate::GViewerEvents.load();
+	const double Until = IdleFrameAt + Interval;
+	for (double Now = FPlatformTime::Seconds(); Now < Until; Now = FPlatformTime::Seconds())
+	{
+		if (IsEngineExitRequested() || MICloudPrivate::GViewerEvents.load() != Seen)
+		{
+			break;
+		}
+		FPlatformProcess::SleepNoStats((float)FMath::Min(0.01, Until - Now));
+	}
+	IdleFrameAt = FPlatformTime::Seconds();
+	++IdleFrames;
+}
+
+void UMICloudSubsystem::RequestSessionExit(const FString& Why)
+{
+	if (bExitRequested)
+	{
+		return;
+	}
+	bExitRequested = true;
+	if (bIdle)
+	{
+		LeaveIdle(TEXT("the session is over"));
+	}
+	MICloudPrivate::Line(FString::Printf(TEXT("Session over: %s. The game quits now (exit code 0)."), *Why));
+	FPlatformMisc::RequestExit(false);
+	MICloudPrivate::ArmShutdownWatchdog(30.0);
+}
+
+// ---- the encoder's range (Cloud/MIStreamQuality.h) ----------------------------------------------------------------------
+
+void UMICloudSubsystem::SetWantedQp(bool bMin, int32 Qp, const TCHAR* Source)
+{
+	(bMin ? WantedMinQp : WantedMaxQp) = FMath::Clamp(Qp, 0, FMIEncoderRange::TopQp);
+	ApplyEncoderRange(Source);
+}
+
+bool UMICloudSubsystem::OnEncoderCommand(const FString& Command)
+{
+	int32 Qp = 0;
+	const FMIEncoderRange::ECommand Kind = FMIEncoderRange::ParseCommand(Command, Qp);
+	if (Kind == FMIEncoderRange::ECommand::None)
+	{
+		return false;
+	}
+	SetWantedQp(Kind == FMIEncoderRange::ECommand::MinQp, Qp, TEXT("the page's console command"));
+	return true;
+}
+
+void UMICloudSubsystem::ApplyEncoderRange(const TCHAR* Source)
+{
+	if (WantedMinQp < 0 && WantedMaxQp < 0)
+	{
+		return;  // nothing was asked for: the plugin's own defaults (no limit on either end) stay
+	}
+	// The plugin's quality variables: the LOWEST QP is its MaxQuality and the HIGHEST its MinQuality. Not there (the
+	// editor and the tests have no Pixel Streaming): nothing to set.
+	static IConsoleVariable* MaxQuality = IConsoleManager::Get().FindConsoleVariable(TEXT("PixelStreaming2.Encoder.MaxQuality"));
+	static IConsoleVariable* MinQuality = IConsoleManager::Get().FindConsoleVariable(TEXT("PixelStreaming2.Encoder.MinQuality"));
+	if (!MaxQuality || !MinQuality)
+	{
+		return;
+	}
+	const FMIEncoderRange::FSettings Settings = ReadEncoderSettings();
+	// One end given so far (the page sends the lowest and the highest as two commands): the range is worked out around
+	// that number alone and only its own end is set.
+	const int32 A = WantedMinQp >= 0 ? WantedMinQp : WantedMaxQp;
+	const int32 B = WantedMaxQp >= 0 ? WantedMaxQp : WantedMinQp;
+	const FMIEncoderRange::FRange R = FMIEncoderRange::Widen(A, B, Settings);
+	FMIEncoderRange::FRange Now = AppliedRange;
+	if (!bRangeApplied)
+	{
+		Now.MinQp = FMIEncoderRange::QpForQuality(MaxQuality->GetInt());
+		Now.MaxQp = FMIEncoderRange::QpForQuality(MinQuality->GetInt());
+	}
+	if (WantedMinQp >= 0)
+	{
+		Now.MinQp = R.MinQp;
+	}
+	if (WantedMaxQp >= 0)
+	{
+		Now.MaxQp = R.MaxQp;
+	}
+	if (bRangeApplied && Now == AppliedRange)
+	{
+		return;  // E3DS's page sends the same two numbers again and again: set once, logged once
+	}
+	// ECVF_SetByCommandline: the priority Pixel Streaming gave these variables from the launch options, so that a later
+	// handler of its own (SetWithCurrentPriority) does not find ours below it.
+	MaxQuality->Set(FMIEncoderRange::QualityForQp(Now.MinQp), ECVF_SetByCommandline);
+	MinQuality->Set(FMIEncoderRange::QualityForQp(Now.MaxQp), ECVF_SetByCommandline);
+	bRangeApplied = true;
+	AppliedRange = Now;
+	MICloudPrivate::Line(FString::Printf(TEXT("Encoder quality, from %s: asked for QP %s%s%s; the encoder may use QP %d to %d (PixelStreaming2.Encoder.MaxQuality %d, MinQuality %d)%s"),
+		Source, WantedMinQp >= 0 ? *FString::Printf(TEXT("%d at the lowest"), WantedMinQp) : TEXT(""), WantedMinQp >= 0 && WantedMaxQp >= 0 ? TEXT(", ") : TEXT(""),
+		WantedMaxQp >= 0 ? *FString::Printf(TEXT("%d at the highest"), WantedMaxQp) : TEXT(""), Now.MinQp, Now.MaxQp,
+		MaxQuality->GetInt(), MinQuality->GetInt(),
+		Settings.bExact ? TEXT(" (-MIQpExact: no range)") : *FString::Printf(TEXT(" (MI.Cloud.QpBelow %d, QpAbove %d, floor %d, ceiling %d)"), Settings.Below, Settings.Above, Settings.Floor, Settings.Ceiling)));
+}
+
 bool UMICloudSubsystem::Tick(float DeltaTime)
 {
 #if !UE_BUILD_SHIPPING
@@ -1168,6 +1556,7 @@ bool UMICloudSubsystem::Tick(float DeltaTime)
 	{
 		Probe(DeltaTime);
 	}
+	TickSession();
 	return true;
 }
 
@@ -1239,6 +1628,14 @@ void UMICloudSubsystem::TickPacing()
 			MICloudPrivate::Line(FString::Printf(TEXT("Pacing: the GPU finished no frame during three waits in a row of %.0f ms (MI.Cloud.GpuWaitLimitMs): it stands still, or its fences are not signalled; the game runs unheld for %.0f s, then the pacer tries again (pause %d of this session%s)"),
 				MICloudPrivate::GGpuWaitLimitMs, Pacer->PauseSeconds, PacerPausesLogged, PacerPausesLogged >= 5 ? TEXT("; further ones are not logged") : TEXT("")));
 		}
+	}
+	if (bIdle)
+	{
+		// Nobody is watching: the idle frames say nothing about what a frame of play costs.
+		GovLast = FPlatformTime::Seconds();
+		GovGpuSum = 0.0;
+		GovFrames = 0;
+		return;
 	}
 	GovGpuSum += FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles(0));
 	++GovFrames;
@@ -1334,6 +1731,12 @@ void UMICloudSubsystem::OnStreamStat(FString Player, FName Stat, float Value)
 		FStreamStat& S = StreamStats.FindOrAdd(Stat);
 		S.Value = Value;
 		S.Time = FPlatformTime::Seconds();
+		if (Stat == FName(TEXT("roundTripTime")))
+		{
+			// Reported under this one name for the video track and the audio track, only when it changes, and 0 until the
+			// first measurement: see FMIRoundTrip.
+			RoundTrip.Add((double)Value, S.Time);
+		}
 		if (Value >= S.Peak || S.Time - S.PeakTime > 2.0)
 		{
 			S.Peak = Value;
@@ -1342,10 +1745,10 @@ void UMICloudSubsystem::OnStreamStat(FString Player, FName Stat, float Value)
 	}
 }
 
-double UMICloudSubsystem::StreamStat(const TCHAR* Name, double Missing, bool bPeak) const
+double UMICloudSubsystem::StreamStat(const TCHAR* Name, double Missing, bool bPeak, double MaxAge) const
 {
 	const FStreamStat* S = StreamStats.Find(FName(Name));
-	return S && FPlatformTime::Seconds() - S->Time < 5.0 ? (double)(bPeak ? S->Peak : S->Value) : Missing;
+	return S && FPlatformTime::Seconds() - S->Time < MaxAge ? (double)(bPeak ? S->Peak : S->Value) : Missing;
 }
 
 void UMICloudSubsystem::MakeNumbersLine()
@@ -1373,11 +1776,13 @@ void UMICloudSubsystem::MakeNumbersLine()
 	FString Stream = TEXT("no viewer statistics yet");
 	if (const double Tx = StreamStat(TEXT("transmitFps")); Tx >= 0.0)
 	{
-		Stream = FString::Printf(TEXT("stream %.0f a second%s, %.1f Mbit/s, QP %.0f"), Tx, LowTx >= 0.f ? *FString::Printf(TEXT(" (lowest %.0f)"), LowTx) : TEXT(""),
-			FMath::Max(0.0, StreamStat(TEXT("bitrateMbits"), 0.0, true)), FMath::Max(0.0, StreamStat(TEXT("qp"), 0.0)));
-		if (const double Rtt = StreamStat(TEXT("roundTripTime")); Rtt >= 0.0)
+		Stream = FString::Printf(TEXT("stream %.0f a second%s, %.1f Mbit/s, QP %.0f%s"), Tx, LowTx >= 0.f ? *FString::Printf(TEXT(" (lowest %.0f)"), LowTx) : TEXT(""),
+			FMath::Max(0.0, StreamStat(TEXT("bitrateMbits"), 0.0, true)), FMath::Max(0.0, StreamStat(TEXT("qp"), 0.0)),
+			bRangeApplied ? *FString::Printf(TEXT(" of %d to %d"), AppliedRange.MinQp, AppliedRange.MaxQp) : TEXT(""));
+		// A round trip of the last few reports, and none when none was measured (a 0 is "not measured", never "no delay").
+		if (RoundTrip.IsKnown())
 		{
-			Stream += FString::Printf(TEXT(", round trip %.0f ms"), Rtt * 1000.0);
+			Stream += RoundTrip.Ms() < 10.0 ? FString::Printf(TEXT(", round trip %.1f ms"), RoundTrip.Ms()) : FString::Printf(TEXT(", round trip %.0f ms"), RoundTrip.Ms());
 		}
 	}
 	static IConsoleVariable* Decouple = IConsoleManager::Get().FindConsoleVariable(TEXT("PixelStreaming2.DecoupleFramerate"));
@@ -1424,10 +1829,10 @@ void UMICloudSubsystem::Probe(float DeltaTime)
 	{
 		// The stream as its sender measures it: frames captured, encoded and sent a second, the encoder's QP, the bitrate
 		// sent and the bitrate the connection is thought to carry (a low one makes WebRTC drop frames), the encode time.
-		Out += FString::Printf(TEXT(" capFps=%.0f encFps=%.0f txFps=%.0f qp=%.0f mbps=%.2f availMbps=%.2f encMs=%.1f capToSendMs=%.0f rttMs=%.0f"),
+		Out += FString::Printf(TEXT(" capFps=%.0f encFps=%.0f txFps=%.0f qp=%.0f mbps=%.2f availMbps=%.2f encMs=%.1f capToSendMs=%.0f rttMs=%.1f"),
 			StreamStat(TEXT("captureFps")), StreamStat(TEXT("encodeFps")), Tx, StreamStat(TEXT("qp")), StreamStat(TEXT("bitrateMbits"), -1.0, true),
-			StreamStat(TEXT("availableOutgoingBitrate"), -1e6, true) / 1e6, StreamStat(TEXT("encodeTime")), StreamStat(TEXT("captureToSend")),
-			StreamStat(TEXT("roundTripTime"), -0.001) * 1000.0);
+			StreamStat(TEXT("availableOutgoingBitrate"), -1e6, true, 120.0) / 1e6, StreamStat(TEXT("encodeTime")), StreamStat(TEXT("captureToSend")),
+			RoundTrip.IsKnown() ? RoundTrip.Ms() : -1.0);
 	}
 	Out += FString::Printf(TEXT(" rssMB=%llu peakRssMB=%llu texStreamMB=%llu texOtherMB=%llu poolMB=%lld yaw=%.4f pitch=%.4f state=%d click=%d bb=%lld pushed=%lld viewers=%d spikes=%d pad=%d cmdRun=%d cmdRefused=%d padRepeats=%d stickKeys=%d"),
 		(unsigned long long)(M.UsedPhysical >> 20), (unsigned long long)(M.PeakUsedPhysical >> 20),
@@ -1456,6 +1861,17 @@ void UMICloudSubsystem::Probe(float DeltaTime)
 		// package without its Sound Waves counts up here and plays nothing), starts that got no audio device.
 		const UMIAudioSubsystem::FCounts Snd = UMIAudioSubsystem::GetCounts();
 		Out += FString::Printf(TEXT(" sndPlayed=%d sndMissing=%d sndNoDevice=%d"), Snd.Played, Snd.Missing, Snd.NoDevice);
+	}
+	{
+		// The session and the encoder (release 3c): idle=1 while nobody watches (idleFrames: frames drawn in the idle
+		// episode so far); the QP range the plugin's quality variables give the encoder now (read from them, not from what
+		// this game meant to set: -1 when the plugin is not there); how many round trips were measured, and how long ago
+		// the newest was.
+		static IConsoleVariable* QMax = IConsoleManager::Get().FindConsoleVariable(TEXT("PixelStreaming2.Encoder.MaxQuality"));
+		static IConsoleVariable* QMin = IConsoleManager::Get().FindConsoleVariable(TEXT("PixelStreaming2.Encoder.MinQuality"));
+		Out += FString::Printf(TEXT(" idle=%d idleFrames=%d qpMin=%d qpMax=%d rttN=%d rttAge=%.0f"), bIdle ? 1 : 0, bIdle ? IdleFrames : 0,
+			QMax ? FMIEncoderRange::QpForQuality(QMax->GetInt()) : -1, QMin ? FMIEncoderRange::QpForQuality(QMin->GetInt()) : -1,
+			RoundTrip.GetAccepted(), RoundTrip.IsKnown() ? FMath::Min(RoundTrip.AgeSeconds(FPlatformTime::Seconds()), 9999.0) : -1.0);
 	}
 	MICloudPrivate::Line(Out);
 	ProbeFrames = ProbeTime = ProbeWorst = 0.0;

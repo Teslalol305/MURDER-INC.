@@ -73,6 +73,14 @@
 #                     before the run: a fresh copy of the zip, which is what a host unpacks for a session. Default 0,
 #                     or $LAG_CLEAN. The release gate on a package is run with both: unzip the zip as the user
 #                     e3dsfresh, then LAG_BUILD=<that folder> LAG_RUNAS=fresh LAG_CLEAN=1 lag-test.sh queue lag-gate.txt
+#   keepalive=0       the game is NOT given -MIKeepAlive (default 1). Since release 3c a streamed game idles when no
+#                     viewer watches and quits 20 s after the last viewer left (MI.Cloud.IdleFps, ExitAfterEmpty,
+#                     ExitIfNoViewer: docs/LAUNCH.md section 9): every run of this tool holds a game with no viewer on
+#                     purpose (the Development game plays its script before the viewer joins, a run goes on after its
+#                     viewer left, the calibration has no viewer at all), so each is started with -MIKeepAlive and
+#                     measures the game as before. keepalive=0 is for a run of the session's own behaviour (the idle
+#                     game, the quit after the last viewer, a viewer that comes back): the game then does what a
+#                     package does on E3DS, and a result of "ENDED BY ITSELF: EXIT 0" is the game quitting as designed.
 # Anything after -- goes to the game as it is (for example -PixelStreamingDecoupleFramerate).
 #
 # One game at a time: a run waits (up to 10 minutes) until no other MURDER INC. game runs on the box, and a watcher
@@ -119,7 +127,7 @@ hogs() {  # <n>[:<work ms>[:<idle ms>[:<size>]]] <pid file> <log prefix> | stop 
 run_fg() {
   local name=$1; shift
   local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= view2= cvars= csv= secs= probe=1 minbit=12000000 profile= cpus= decode=1 audio=0 demo= envs= extra=()
-  local runas=${LAG_RUNAS:-ue4} clean=${LAG_CLEAN:-0} join=${LAG_JOIN:-55}
+  local runas=${LAG_RUNAS:-ue4} clean=${LAG_CLEAN:-0} join=${LAG_JOIN:-55} keepalive=1
   while [ $# -gt 0 ]; do
     case "$1" in
       --) shift; extra=("$@"); break ;;
@@ -128,6 +136,7 @@ run_fg() {
       secs=*) secs=${1#*=} ;; probe=*) probe=${1#*=} ;; minbit=*) minbit=${1#*=} ;; profile=*) profile=${1#*=} ;;
       cpus=*) cpus=${1#*=} ;; decode=*) decode=${1#*=} ;; view2=*) view2=${1#*=} ;;
       runas=*) runas=${1#*=} ;; clean=*) clean=${1#*=} ;; join=*) join=${1#*=} ;; audio=*) audio=${1#*=} ;; demo=*) demo=${1#*=} ;; env=*) envs=${1#*=} ;;
+      keepalive=*) keepalive=${1#*=} ;;
       *) echo "unknown key $1"; return 2 ;;
     esac; shift
   done
@@ -157,8 +166,8 @@ run_fg() {
   [ -n "$secs" ] || { secs=110; [ "$game" = ship ] && secs=125; }
   local id=lag$(echo "$name" | tr -cd 'a-zA-Z0-9')
   rm -rf "$O"; mkdir -p "$O"; chmod 777 "$O"
-  printf 'name=%s\ngame=%s\nbuild=%s\nload=%s\nsp=%s\nres=%s\nview=%s\ncvars=%s\ncsv=%s\nsecs=%s\nminbit=%s\ncpus=%s\nid=%s\nextra=%s\nstarted=%s\nrunas=%s\nclean=%s\nprobe=%s\njoin=%s\naudio=%s\n' \
-    "$name" "$game" "$build" "$load" "$sp" "$res" "$view" "$cvars" "$csv" "$secs" "$minbit" "${cpus:-all}" "$id" "${extra[*]}" "$(date -u +%FT%TZ)" "$runas" "$clean" "$probe" "$join" "$audio" > "$O/info.txt"
+  printf 'name=%s\ngame=%s\nbuild=%s\nload=%s\nsp=%s\nres=%s\nview=%s\ncvars=%s\ncsv=%s\nsecs=%s\nminbit=%s\ncpus=%s\nid=%s\nextra=%s\nstarted=%s\nrunas=%s\nclean=%s\nprobe=%s\njoin=%s\naudio=%s\nkeepalive=%s\n' \
+    "$name" "$game" "$build" "$load" "$sp" "$res" "$view" "$cvars" "$csv" "$secs" "$minbit" "${cpus:-all}" "$id" "${extra[*]}" "$(date -u +%FT%TZ)" "$runas" "$clean" "$probe" "$join" "$audio" "$keepalive" > "$O/info.txt"
   venv || { echo "FAILED: no Python with aiortc" > "$O/done"; return 1; }
   # One game at a time.
   local i
@@ -179,6 +188,7 @@ run_fg() {
   # about the game and the capture.
   [ "$minbit" -gt 0 ] && args+=("-PixelStreamingWebRTCMinBitrate=$minbit" "-PixelStreamingWebRTCStartBitrate=$minbit")
   [ -n "$cvars" ] && args+=("-MICVars=$cvars")
+  [ "$keepalive" = 1 ] && args+=(-MIKeepAlive)   # the game is held with no viewer on purpose (see the header)
   if [ "$game" = dev ]; then
     if [ -n "$demo" ]; then
       { grep -v '^[[:space:]]*#' "$demo"; echo "wait 900"; } > "$O/play.txt"   # the game's user must be able to read it
@@ -247,7 +257,7 @@ calib_fg() {  # <name> <load> ...: one Development game standing in a Story run 
   # Full quality: no dynamic resolution, the target fixed at 60; the pacer stays on, so frames do not pile up.
   (cd "$T" && RUNAS=ue4 NODISPLAY=1 STOPSIG=TERM STOPTO=launcher STDOUT=0 BUILD="$build" bash e3ds-repro.sh run "lag-$name" "$secs" \
     -PixelStreamingURL=ws://127.0.0.1:8888 "-PixelStreamingID=$id" -AudioMixer -log -Unattended -StdOut -FullStdOutLogOutput \
-    -Windowed -ForceRes -ResX=1920 -ResY=1080 -MICloudProbe=1 -MICloudNoCard -MIDev "-ExecCmds=MIDemo.Run $O/play.txt" \
+    -Windowed -ForceRes -ResX=1920 -ResY=1080 -MICloudProbe=1 -MICloudNoCard -MIKeepAlive -MIDev "-ExecCmds=MIDemo.Run $O/play.txt" \
     "-MICVars=r.DynamicRes.OperationMode=0,MI.Cloud.FpsTarget=60") > "$O/info.txt" 2>&1
   local R=$C/repro/lag-$name
   for i in $(seq 1 60); do grep -a -q "MICloudProbe.*state=2" "$R/game.log" 2>/dev/null && break; sleep 1; done

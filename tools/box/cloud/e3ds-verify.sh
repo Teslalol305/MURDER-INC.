@@ -22,17 +22,24 @@
 #   v-vram5000    start-up with 5.0 GB of the card free (the old package segfaulted 6 s after the start)
 #   v-vram6000    the Development game plays a Story run with 6.0 GB free
 #   v-e3ds-7600   E3DS-style arguments with 7.6 GB free (an 8 GB card), signalling server and viewer
+#
+# Release 3c: a streamed game idles when no viewer watches and quits 20 s after the last viewer left (docs/LAUNCH.md
+# section 9). Most of these runs hold a game with no viewer on purpose (a start-up check, a Story run played by script,
+# a game that quits by script, a crash from outside), so every run is given -MIKeepAlive, which turns the game's own
+# session handling off and keeps each check what it was. The two runs with a fake viewer (v-long, v-e3ds-7600) are given
+# NOKEEP=1: they run the game as a session does on E3DS (idle until the viewer joins, a viewer that leaves for 10 s and
+# comes back), which the 20 s of ExitAfterEmpty must carry through.
 C=/project/ue/cloud
 R=$C/repro
 T=$(dirname "$(readlink -f "$0")")
 LOG=$R/verify.log
 B=${2:-Shipping}
 
-one() {  # name secs [env...] -- args...
+one() {  # name secs [env...] -- args...   (NOKEEP=1 among the env words: no -MIKeepAlive)
   local name=$1 secs=$2; shift 2
-  local envs=()
-  while [ "$1" != -- ]; do envs+=("$1"); shift; done; shift
-  env "${envs[@]}" STDOUT=0 bash "$T/e3ds-repro.sh" run "$name" "$secs" "$@" >> "$LOG" 2>&1
+  local envs=() keep=(-MIKeepAlive)
+  while [ "$1" != -- ]; do if [ "$1" = NOKEEP=1 ]; then keep=(); else envs+=("$1"); fi; shift; done; shift
+  env "${envs[@]}" STDOUT=0 bash "$T/e3ds-repro.sh" run "$name" "$secs" "$@" "${keep[@]}" >> "$LOG" 2>&1
   local i; for i in $(seq 1 $((secs + 120))); do [ -f "$R/$name/result.txt" ] && break; sleep 1; done
   echo "[$(date +%H:%M:%S)] $name: $(cat "$R/$name/result.txt" 2>/dev/null || echo 'NO RESULT')" >> "$LOG"
 }
@@ -60,7 +67,7 @@ run_all() {
   fi
   local ps="-PixelStreamingConnectionURL=ws://127.0.0.1:8888" none="-PixelStreamingConnectionURL=ws://127.0.0.1:8899"
   # The long run with the viewer, beside the short ones one after another.
-  one v-long 420 "${cfg[@]}" RUNAS=fresh NODISPLAY=1 STOPSIG=TERM VIEWER=25,10,12,40 -- \
+  one v-long 420 "${cfg[@]}" RUNAS=fresh NODISPLAY=1 STOPSIG=TERM VIEWER=25,10,12,40 NOKEEP=1 -- \
     "$ps" -ResX=1920 -ResY=1080 -ForceRes -MICloudProbe=30 &
   one v-sm5 120 "${cfg[@]}" NODISPLAY=1 STOPSIG=TERM -- "$none" -sm5 -MICloudProbe=30
   one v-root 90 "${cfg[@]}" RUNAS=root NODISPLAY=1 STOPSIG=TERM STOPTO=launcher -- "$none"
@@ -77,7 +84,7 @@ run_all() {
   one v-vram6000 220 "${cfg[@]}" NODISPLAY=1 STOPSIG=TERM -- -MIDev "$none" -ResX=1920 -ResY=1080 -ForceRes \
     "-ExecCmds=MIDemo.Run $T/e3ds-play.txt" -MICloudProbe=15
   hog 7600
-  one v-e3ds-7600 220 "${cfg[@]}" RUNAS=fresh NODISPLAY=1 STOPSIG=TERM VIEWER=25,10,5,40 -- -AudioMixer \
+  one v-e3ds-7600 220 "${cfg[@]}" RUNAS=fresh NODISPLAY=1 STOPSIG=TERM VIEWER=25,10,5,40 NOKEEP=1 -- -AudioMixer \
     -PixelStreamingURL=ws://127.0.0.1:8888 -PixelStreamingIP=127.0.0.1 -PixelStreamingPort=8888 \
     -AllowPixelStreamingCommands -PixelStreamingEncoderCodec=H264 -PixelStreamingHideCursor -Windowed -ForceRes \
     -ResX=1920 -ResY=1080 -MICloudProbe=20

@@ -28,6 +28,10 @@
 #                          with few CPUs. Unreal counts the CPUs it may run on, and with 6 or fewer task workers its
 #                          Vulkan RHI has no interrupt thread: completed GPU work is then noticed only when the RHI
 #                          thread submits or somebody waits for it on the render thread)
+# Release 3c: a streamed game now idles when no viewer watches and quits (exit code 0, "ENDED BY ITSELF: EXIT 0") 20 s
+# after the last viewer left, 600 s after its start when none came, and 5 s after its launcher is gone (docs/LAUNCH.md
+# section 9). A run that holds a game with no viewer on purpose passes -MIKeepAlive among the game arguments (lag-test.sh,
+# e3ds-verify.sh and stream-test.sh do); a run of the session's own behaviour leaves it out.
 # result.txt: "ENDED BY ITSELF: ..." is a crash or exit before the limit; "ALIVE at limit; after <sig>: ..." says how
 # the shutdown went (a clean shutdown ends with EXIT 0 or the signal's 128+n code; SIGNAL 11 is a crash on the way out).
 C=/project/ue/cloud

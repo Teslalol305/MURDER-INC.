@@ -10,6 +10,11 @@
 #   stream-test.sh stop                                                stop what this script started (by pid)
 #
 # Needs setup-ps.sh (Node, the infrastructure, Chromium) and package-cloud.sh (the builds). Run as root.
+#
+# Release 3c: every game started here gets -MIKeepAlive. A streamed game now idles when no viewer watches and quits 20 s
+# after the last viewer left (docs/LAUNCH.md section 9); these runs hold a game with no viewer on purpose (the memory
+# runs play a script for minutes with no stream at all, the browser test waits for a viewer that this box cannot
+# supply), and measure the game as before.
 C=/project/ue/cloud
 RUN=$C/run
 mkdir -p "$RUN" && chown ue4 "$RUN"
@@ -46,7 +51,7 @@ start_game() {  # $1 config, rest: args
   # What the game saw is read from its own output (game.log: the "[MICloud]" lines, which the Shipping game prints
   # and the launcher passes on). Version 3 has no -MICloudLog= in the Shipping game.
   su ue4 -c "cd $L && HOME=/home/ue4 setsid nohup ./MurderInc.sh -RenderOffScreen -vulkan -unattended -nosplash -ResX=1920 -ResY=1080 -ForceRes \
-    -stdout -FullStdOutLogOutput $(printf '%q ' "$@") </dev/null > $RUN/game.log 2>&1 & echo \$! > $RUN/game.pid"
+    -stdout -FullStdOutLogOutput -MIKeepAlive $(printf '%q ' "$@") </dev/null > $RUN/game.log 2>&1 & echo \$! > $RUN/game.pid"
   sleep 2
   gpu_sampler "$(cat "$RUN/game.pid")"
   echo "GAME $cfg started pid $(cat "$RUN/game.pid") (log $RUN/game.log)"
