@@ -842,6 +842,45 @@ def check_weapon_paths():
                 err("pak: %s names %s, which the weapons import does not make and no older package carried" % (name, path))
 
 
+def check_optic_fade():
+    """The optic's housing fades out as the sight comes up (LOADOUT.md 3.3): the importer makes M_Part_Hardware masked with an "AimFade"
+    scalar and the rig sets "AimFade" on every slot whose base material is "M_Part_Hardware". Three files must keep agreeing on those names,
+    or the fade silently does nothing (a render is the only proof it works; this holds the names)."""
+    def text(*parts):
+        with open(os.path.join(REPO, *parts), encoding="utf-8") as f:
+            return f.read()
+    imp = text("tools", "box", "fp", "mi_fp_import.py")
+    guns = text("tools", "box", "fp", "mi_guns_r4.py")
+    rig = text("unreal", "MurderInc", "Source", "MurderInc", "Weapons", "MIFirstPersonRig.cpp")
+    if 'BLEND_MASKED' not in imp.split("if aim_fade:")[1].split("if skeletal:")[0]:
+        err("fade: the importer's aim_fade branch no longer makes the material masked")
+    if '_scalar(m, "AimFade"' not in imp:
+        err("fade: the importer no longer makes the AimFade scalar parameter")
+    if 'SetScalarParameterValue(TEXT("AimFade")' not in rig:
+        err("fade: the rig no longer sets AimFade")
+    if 'GetName() == TEXT("M_Part_Hardware")' not in rig:
+        err("fade: the rig no longer looks for M_Part_Hardware")
+    if not re.search(r'PARTS \+ "/M_Part_Hardware".*aim_fade=True', guns):
+        err("fade: the parts import no longer makes M_Part_Hardware with aim_fade=True")
+    if '"M_Part_Hardware": hardware' not in guns:
+        err("fade: the hardware material is no longer assigned to the M_Part_Hardware slots")
+
+
+def check_arm_reach():
+    """Anim set armStretch (support arm, 1 to 1.3) and foregripCurl (degrees) on the four hand-IK rifle sets; the NINE's pistol set has none."""
+    sets = load("presentation.json")["firstPerson"]["animSets"]
+    for g in ("chopper", "shorty", "stretch", "rattler"):
+        st = sets[g + "_ik"]
+        if not (isinstance(st.get("armStretch"), (int, float)) and 1.0 <= st["armStretch"] <= 1.3):
+            err("reach: animSets.%s_ik.armStretch must be a number from 1.0 to 1.3" % g)
+        if not (isinstance(st.get("foregripCurl"), (int, float)) and 0 <= st["foregripCurl"] <= 70):
+            err("reach: animSets.%s_ik.foregripCurl must be 0 to 70 degrees" % g)
+        if not (isinstance(st.get("reloadCurl"), (int, float)) and 0 <= st["reloadCurl"] <= 70):
+            err("reach: animSets.%s_ik.reloadCurl must be 0 to 70 degrees" % g)
+    if sets["pistol"].get("armStretch", 1.0) != 1.0:
+        err("reach: the NINE's pistol set must not stretch")
+
+
 def check_freshness():
     import subprocess
     r = subprocess.run([sys.executable, os.path.join(HERE, "make_gun_contract.py"), "--check"], capture_output=True, text=True)
@@ -879,6 +918,8 @@ def main():
     safe(check_art)
     safe(check_pack_free)
     safe(check_weapon_paths)
+    safe(check_optic_fade)
+    safe(check_arm_reach)
     if "--art" in sys.argv:
         safe(check_freshness)
     for w in WARNINGS:

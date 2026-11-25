@@ -367,6 +367,7 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 		GripWeight = MIJson::NumberOr(Set, TEXT("grip.weight"), 1.0);
 		SupportStretch = FMath::Clamp(MIJson::NumberOr(Set, TEXT("armStretch"), 1.0), 1.0, 1.3);
 		ForegripCurl = MIJson::NumberOr(Set, TEXT("foregripCurl"), 0.0);
+		ReloadCurl = MIJson::NumberOr(Set, TEXT("reloadCurl"), 0.0);
 		const FString GripKey = MIJson::StringOr(Set, TEXT("grip.gun"));
 		TSharedPtr<FJsonObject> Grips;
 		FString GripError;
@@ -1220,15 +1221,17 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 	};
 	Pull(LeftSocket, TEXT("upperarm_l"), TEXT("lowerarm_l"), TEXT("hand_l"), TEXT("middle_metacarpal_l"));
 	Pull(RightSocket, TEXT("upperarm_r"), TEXT("lowerarm_r"), TEXT("hand_r"), TEXT("middle_metacarpal_r"));
-	// A fitted foregrip: the support fingers close a little further than the bare handguard's, onto the part (anim set
-	// foregripCurl, degrees; let go in a reload, when the support hand leaves the gun).
+	// The support fingers: with a fitted foregrip they close a little further than the bare handguard's, onto the part
+	// (anim set foregripCurl, degrees); in a reload the hand has let go of the gun and keeps a loose fist round the
+	// magazine instead of the open hand of the pack's idle (anim set reloadCurl). Starting values, not yet seen.
 	HandPose.Curls.Reset();
-	if (bGrip && ForegripCurl != 0.0 && !bReloadingNow)
+	const double SupportCurl = bReloadingNow ? ReloadCurl : (bGrip ? ForegripCurl : 0.0);
+	if (SupportCurl != 0.0)
 	{
 		static const TCHAR* const Fingers[] = {TEXT("index"), TEXT("middle"), TEXT("ring"), TEXT("pinky")};
 		for (const TCHAR* Finger : Fingers)
 		{
-			HandPose.Curls.Add({FName(Finger), true, static_cast<float>(ForegripCurl)});
+			HandPose.Curls.Add({FName(Finger), true, static_cast<float>(SupportCurl)});
 		}
 	}
 	// In a reload the support hand leaves the grip and works the magazine (review 2026-11-23: it stayed on the

@@ -657,6 +657,8 @@ bool FMIFirstPersonArmReachTest::RunTest(const FString& Parameters)
 		TestTrue(FString::Printf(TEXT("%s: armStretch %.2f is between 1.0 and 1.3 (the solve's clamp)"), Gun, Stretch), Stretch >= 1.0 && Stretch <= 1.3);
 		const double Curl = MIJson::NumberOr(F.Presentation, Set + TEXT(".foregripCurl"), -1.0);
 		TestTrue(FString::Printf(TEXT("%s: foregripCurl %.0f degrees is between 0 and 70"), Gun, Curl), Curl >= 0.0 && Curl <= 70.0);
+		const double Reload = MIJson::NumberOr(F.Presentation, Set + TEXT(".reloadCurl"), -1.0);
+		TestTrue(FString::Printf(TEXT("%s: reloadCurl %.0f degrees is between 0 and 70"), Gun, Reload), Reload >= 0.0 && Reload <= 70.0);
 	}
 	TestEqual(TEXT("the NINE's hands are not stretched"), MIJson::NumberOr(F.Presentation, TEXT("firstPerson.animSets.pistol.armStretch"), 1.0), 1.0);
 	// The console variable is a force for comparison pictures: 0 means each arm's own value.

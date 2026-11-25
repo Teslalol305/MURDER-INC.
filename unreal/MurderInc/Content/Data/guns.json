@@ -95,8 +95,8 @@
         },
         "icon": {
           "asset": "T_UI_Gun_Chopper",
-          "status": "missing",
-          "notes": "Side silhouette, white on transparent, 512 x 192, rendered from the exported mesh by the weapons pipeline (LOADOUT.md 6.6)."
+          "status": "exists",
+          "notes": "Side silhouette, white on transparent, 512 x 192, rendered from the exported mesh by the weapons pipeline (LOADOUT.md 6.6); art/out/ui/T_UI_Gun_Chopper.png, imported to /Game/UI/Icons with the weapons import."
         }
       },
       "clips": {
@@ -149,7 +149,7 @@
           "standIn": "SKM_Pistol",
           "notes": "art/out/glb/SK_Nine.glb (86,033 triangles, one 4096 set). Round 4 added the sockets Laser, MuzzleMount and MagHinge to the exported file (no vertex changed). Imported to /Game/Weapons/Nine; absent in a clean checkout, where the template pistol stands in."
         },
-        "icon": {"asset": "T_UI_Gun_Nine", "status": "missing"}
+        "icon": {"asset": "T_UI_Gun_Nine", "status": "exists", "notes": "Side silhouette, white on transparent, 512 x 192, art/out/ui/T_UI_Gun_Nine.png, imported to /Game/UI/Icons with the weapons import."}
       },
       "clips": {
         "set": "nine",

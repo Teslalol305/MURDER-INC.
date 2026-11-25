@@ -210,5 +210,6 @@ private:
 	TMap<FName, FVector> GripPoints[2];  // HandIK guns: the solved grip's points (gun space, cm), [0] left, [1] right
 	double GripWeight = 1.0;
 	double SupportStretch = 1.0;  // HandIK guns: the support arm's largest stretch (anim set armStretch)
+	double ReloadCurl = 0.0;      // HandIK guns: degrees the support fingers close on the magazine in a reload (anim set reloadCurl)
 	double ForegripCurl = 0.0;    // HandIK guns: degrees the support fingers close extra on a fitted foregrip (anim set foregripCurl)
 };
