@@ -1,5 +1,16 @@
 # MURDER INC. art pipeline (Blender, scripted)
 
+> **Weapons round 4: who builds what (read this before building any weapon asset).** Three lanes work in this
+> repository at the same time. Lane 1 (first workflow): SHORTY (`weapons_shorty.py`, `_weapons_shorty*.py`) and STRETCH
+> (`weapons_stretch.py`, `_weapons_stretch*.py`, `_weapons_check_stretch.py`). Lane 2 (second workflow, started
+> 2025-11-25 about 13:20 UTC): the PARTS KIT with the CHOPPER and NINE mounts (`weapons_parts.py`, `_weapons_patch.py`,
+> `_weapons_check_parts.py`) and the RATTLER (`weapons_rattler.py`, `_weapons_rattler*.py`). If your task tells you to
+> build the RATTLER or the parts kit or the CHOPPER/NINE mounts, FIRST run `git log --oneline -- art/blender/assets/weapons_parts.py
+> art/blender/assets/weapons_rattler.py`: if lane 2 has commits there, you are a VERIFIER: read, run the checks, render
+> what you need, report, and change only what you can prove wrong, never rewrite; if lane 2 is still working (its
+> last commit is under 20 minutes old), poll `git log` every 2 minutes (up to 40 minutes) and then verify. Never edit
+> another lane's files while it works. The designer's specification is `docs/unreal/weapons_r4_spec.json`.
+
 Every asset of the Unreal rebuild is authored by a Python script: reproducible, reviewable, no hand-saved `.blend`.
 `art/blender/` is committed; everything generated goes to `art/out/` (git-ignored) except the preview pictures in
 `art/previews/`.
