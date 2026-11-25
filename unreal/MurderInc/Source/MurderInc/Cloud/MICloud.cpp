@@ -159,13 +159,12 @@ namespace MICloudPrivate
 		TEXT("1: the encoder gets exactly the QPs the page and the launch options ask for, no range (launch option -MIQpExact)."));
 
 	/**
-	 * One count for every viewer event (a join, all gone) as the stream reports it, from whatever thread reports it. The
-	 * idle game sleeps in small steps and looks at this: a joining viewer wakes it at once, not at the end of a 500 ms
-	 * frame. ViewerEventsHandled (the subsystem's) catches up when the game thread has processed the event.
+	 * One count for every viewer event (a join, all gone) as the stream reports it. Pixel Streaming posts the report as a
+	 * task for the game thread, which is where the idle game sleeps: SleepIdle runs the waiting tasks every 10 ms, so the
+	 * count moves within 10 ms of the viewer's arrival and the game wakes then, not at the end of a 500 ms frame.
+	 * ViewerEventsHandled (the subsystem's) catches up when OnViewerJoined / OnAllViewersLeft has run.
 	 */
 	std::atomic<int32> GViewerEvents{0};
-	/** When the stream last reported a viewer's connection (FPlatformTime::Seconds): the log says how long the game took to wake. */
-	std::atomic<double> GJoinReportedAt{0.0};
 
 	/** Seconds since the process started: the viewer and session lines carry it, so that a log without time stamps (the Shipping game's) says how long a countdown ran. */
 	double Uptime()
@@ -173,10 +172,10 @@ namespace MICloudPrivate
 		return FPlatformTime::Seconds() - (GStartTime > 0.0 ? GStartTime : FPlatformTime::Seconds());
 	}
 
-	/** "game time 12.3 s, 12:37:51 UTC": the uptime and the clock, for a log that has no time stamps and a box that has other clocks (the GPU's record is by the clock). */
+	/** "game time 12.3 s, 12:37:51.482 UTC": the uptime and the clock to the millisecond, for a log that has no time stamps and a box that has other clocks (the GPU's record is by the clock; a viewer's own log is laid against it). */
 	FString Stamp()
 	{
-		return FString::Printf(TEXT("game time %.1f s, %s UTC"), Uptime(), *FDateTime::UtcNow().ToString(TEXT("%H:%M:%S")));
+		return FString::Printf(TEXT("game time %.1f s, %s UTC"), Uptime(), *FDateTime::UtcNow().ToString(TEXT("%H:%M:%S.%s")));
 	}
 
 	/** A launch option "-Name=value" sets a console variable of this family (the same variable -MICVars reaches). */
@@ -807,7 +806,7 @@ void UMICloudSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		// game sleeps in small steps and wakes when the count moves (SleepIdle), and does not go back to sleep until the game
 		// thread has handled the event (ViewerEventsHandled).
 		StreamHandles.Add(D->OnNewConnectionNative.AddLambda([OnGame](FString, FString)
-			{ MICloudPrivate::GJoinReportedAt.store(FPlatformTime::Seconds()); ++MICloudPrivate::GViewerEvents; OnGame([](UMICloudSubsystem& S) { S.OnViewerJoined(); }); }));
+			{ ++MICloudPrivate::GViewerEvents; OnGame([](UMICloudSubsystem& S) { S.OnViewerJoined(); }); }));
 		StreamHandles.Add(D->OnAllConnectionsClosedNative.AddLambda([OnGame](FString)
 			{ ++MICloudPrivate::GViewerEvents; OnGame([](UMICloudSubsystem& S) { S.OnAllViewersLeft(); }); }));
 		// The sender's own statistics (frames captured, encoded and sent a second, bitrate, QP, round trip): broadcast on
@@ -937,7 +936,7 @@ void UMICloudSubsystem::OnViewerJoined()
 	++ViewerEventsHandled;
 	if (bIdle)
 	{
-		LeaveIdle(TEXT("a viewer joined"), FPlatformTime::Seconds() - MICloudPrivate::GJoinReportedAt.load());
+		LeaveIdle(TEXT("a viewer joined"));
 	}
 	if (Viewers.Join())
 	{
@@ -1420,7 +1419,7 @@ void UMICloudSubsystem::EnterIdle(const FString& Why)
 	MICloudPrivate::Line(FString::Printf(TEXT("Nobody is watching: %s (%s)"), *Why, *MICloudPrivate::Stamp()));
 }
 
-void UMICloudSubsystem::LeaveIdle(const TCHAR* Why, double ReportedAgo)
+void UMICloudSubsystem::LeaveIdle(const TCHAR* Why)
 {
 	if (!bIdle)
 	{
@@ -1437,28 +1436,33 @@ void UMICloudSubsystem::LeaveIdle(const TCHAR* Why, double ReportedAgo)
 	GovGpuSum = 0.0;
 	GovFrames = 0;
 	IdleFrameAt = 0.0;
-	MICloudPrivate::Line(FString::Printf(TEXT("Back at full speed (%s%s) after %.1f s and %d idle frames (%s)"), Why,
-		ReportedAgo >= 0.0 && ReportedAgo < 60.0 ? *FString::Printf(TEXT(", %.0f ms after the stream reported the connection"), ReportedAgo * 1000.0) : TEXT(""),
-		FPlatformTime::Seconds() - IdleSince, IdleFrames, *MICloudPrivate::Stamp()));
+	MICloudPrivate::Line(FString::Printf(TEXT("Back at full speed (%s) after %.1f s and %d idle frames (%s)"), Why, FPlatformTime::Seconds() - IdleSince, IdleFrames, *MICloudPrivate::Stamp()));
 }
 
 void UMICloudSubsystem::SleepIdle(int32 Fps)
 {
 	// The end of the frame (the core ticker runs after the frame's work): wait until the next idle frame is due. In steps
-	// of 10 ms, so that a viewer's arrival (the stream's thread counts it at once) or an exit request ends the wait.
+	// of 10 ms, at the end of each of which the game thread's waiting tasks are run: Pixel Streaming reports a viewer's
+	// arrival as one of them, and without this the report would wait for the end of the idle frame (up to 500 ms at 2
+	// frames a second). The same tasks run at the start of the next frame; here they run a little earlier. A viewer's
+	// arrival (the count moves) or an exit request ends the wait.
 	const double Interval = 1.0 / (double)FMath::Max(1, Fps);
 	const int32 Seen = MICloudPrivate::GViewerEvents.load();
 	const double Until = IdleFrameAt + Interval;
 	for (double Now = FPlatformTime::Seconds(); Now < Until; Now = FPlatformTime::Seconds())
 	{
+		FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
 		if (IsEngineExitRequested() || MICloudPrivate::GViewerEvents.load() != Seen)
 		{
 			break;
 		}
 		FPlatformProcess::SleepNoStats((float)FMath::Min(0.01, Until - Now));
 	}
-	IdleFrameAt = FPlatformTime::Seconds();
-	++IdleFrames;
+	if (bIdle)  // a join handled in the loop has ended the idle already
+	{
+		IdleFrameAt = FPlatformTime::Seconds();
+		++IdleFrames;
+	}
 }
 
 void UMICloudSubsystem::RequestSessionExit(const FString& Why)

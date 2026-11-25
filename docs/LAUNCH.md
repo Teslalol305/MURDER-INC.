@@ -610,7 +610,7 @@ second session, 18 for the third). Since release 3c the game looks after that it
 clean-up at the start of the next session:
 
 - With no viewer for 2 s it draws 2 pictures a second at the smallest size (an idle game costs the card almost
-  nothing); a viewer who joins wakes it within a few hundredths of a second, and the click card shows as before. A
+  nothing); a viewer who joins wakes it within about a hundredth of a second of the stream's report (the game looks every 10 ms), and the click card shows as before. A
   game that has just started and has no first viewer yet gets 10 s of grace first.
 - 20 s after the last viewer left, the game says so in its log and quits (exit code 0; the log line is
   `Session over: ...`). A viewer present keeps the game for as long as he stays, and a join cancels the countdown.

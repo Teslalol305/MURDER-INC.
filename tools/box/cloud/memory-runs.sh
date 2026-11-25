@@ -7,7 +7,9 @@
 #   shot-cloud / shot-epic   one picture of the home screen each (shot.txt), for the before and after
 # Each run's GPU samples (nvidia-smi, once a second: the whole card, other processes included), the game's own Vulkan
 # heap peak (r.Vulkan.DumpMemory before it quits), the baseline before it started and the game's probe lines are
-# kept in /project/ue/cloud/mem/<run>/; summary.txt has the peaks. Run as root, detached:
+# kept in /project/ue/cloud/mem/<run>/; summary.txt has the peaks. Every game here is started by stream-test.sh run, which
+# gives it -MIKeepAlive (release 3c: a streamed game with no viewer idles and quits by itself; these runs play a script
+# for minutes with no viewer at all, on purpose). Run as root, detached:
 #   setsid nohup bash memory-runs.sh [runs...] > /project/ue/cloud/mem/log 2>&1 &
 T=$(dirname "$(readlink -f "$0")"); R=/project/ue/cloud/run; M=/project/ue/cloud/mem; mkdir -p "$M"
 D=$T/../demo

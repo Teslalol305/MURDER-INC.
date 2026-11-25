@@ -357,7 +357,7 @@ async def main():
                 if t == 'config':
                     await ws.send(json.dumps({'type': 'listStreamers'}))
                 elif t == 'streamerList':
-                    log('streamers', msg.get('ids'))
+                    log('streamers', msg.get('ids'), f'(wall clock {time.time():.3f}: subscribing now)')
                     await ws.send(json.dumps({'type': 'subscribe', 'streamerId': A.streamer}))
                 elif t == 'offer':
                     await pc.setRemoteDescription(RTCSessionDescription(sdp=msg['sdp'], type='offer'))

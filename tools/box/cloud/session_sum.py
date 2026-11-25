@@ -13,6 +13,15 @@
 #
 #   python3 session_sum.py <run folder> --phases
 #
+#   python3 session_sum.py <run folder> --join
+#
+# --join: how long a viewer's arrival took to reach the game: for every viewer of the run (view.log, view2.log) the wall
+# clock at which it subscribed (rtcinput.py logs it on its "streamers" line, to the millisecond) against the time of the
+# game's own "Viewer joined" line (the clock stamp of that line, to the millisecond: both clocks are the box's), and
+# whether the game was idle when it came ("Back at full speed (a viewer joined)" on the same stamp). A game that draws
+# at full speed answers in the time signalling takes; the difference of an idle game's number to that is the cost of the
+# idle frame it had to be woken from. The viewer's own log has the rest: "video [w, h]" is the first picture.
+#
 #   python3 session_sum.py <run folder> --gpu
 #
 # the GPU's own utilisation (others.log: nvidia-smi once a second, the whole card, the game alone on it) between the
@@ -25,6 +34,7 @@
 import os
 import re
 import sys
+import time
 
 args = [a for a in sys.argv[1:] if a != '-v']
 verbose = '-v' in sys.argv
@@ -82,8 +92,26 @@ if '--gpu' in sys.argv:
         w = [u for t, u, m in util if t0 + 1 <= t <= t1 - 1]
         if len(w) >= 3:
             print(f'  GPU utilisation from "{n0}" to "{n1}": {len(w)} s, mean {sum(w) / len(w):.1f} %, highest {max(w)} %, lowest {min(w)} %')
+if '--join' in sys.argv:
+    def tod(h, m, sec):
+        return int(h) * 3600 + int(m) * 60 + float(sec)
+
+    stamps = re.findall(r'(Viewer joined[^\n]*?|Back at full speed \(a viewer joined\)[^\n]*?)\(game time ([\d.]+) s, (\d\d):(\d\d):(\d\d\.\d+) UTC\)', log)
+    joined = [(tod(h, m, sec), t.startswith('Viewer joined'), float(up)) for t, up, h, m, sec in stamps]
+    wakes = [x for x in joined if not x[1]]
+    joins = [x for x in joined if x[1]]
+    viewers = []
+    for name in ('view.log', 'view2.log'):
+        for m in re.finditer(r'wall clock ([\d.]+): subscribing now', read(f'{run}/{name}')):
+            t = float(m.group(1))
+            viewers.append((name, t, tod(*time.strftime('%H %M %S', time.gmtime(t)).split()) + (t - int(t))))
+    print(f'viewers: {len(viewers)} subscribed, the game logged {len(joins)} "Viewer joined"')
+    for (name, wall, day), (jt, _, up) in zip(viewers, joins):
+        idle = any(abs(w[0] - jt) < 0.005 for w in wakes)
+        print(f'  {name}: subscribed at {time.strftime("%H:%M:%S", time.gmtime(wall))}.{int((wall % 1) * 1000):03d}, '
+              f'"Viewer joined" {(jt - day) * 1000:.0f} ms later (game time {up:.1f} s); the game was {"IDLE" if idle else "drawing at full speed"}')
 wins = [w for w in args[1:] if ':' in w]
-if not wins and '--phases' not in sys.argv and '--gpu' not in sys.argv:
+if not wins and '--phases' not in sys.argv and '--gpu' not in sys.argv and '--join' not in sys.argv:
     print(row('whole run', probes))
 if '--phases' in sys.argv:
     view = read(f'{run}/view.log')

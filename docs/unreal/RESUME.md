@@ -271,6 +271,14 @@ old zip is superseded. Next is step 6 (the owner's E3DS trial) and the explosion
   (never after it, never in play); the sound's clock runs 1 % fast. **Nobody has heard it yet**: the owner's first
   session with version 3b is the first time ears meet it (the speaker button on E3DS's page; the Volume row on the
   Settings card).
+- **Release 3c: the session (2026-11-25, afternoon UTC; PROGRESS.md, "Release 3c: the session").** In the game, not yet in any
+  package: it idles at 2 frames a second when nobody has watched for 2 s, quits 20 s after the last viewer left (600 s after its
+  start when none ever came, 5 s after its launcher is gone; `-MIKeepAlive` turns all of it off), takes E3DS's QP as the centre of
+  an encoder range (Medium 34 gives 24 to 42, High 16 gives 8 to 24; `-MIQpExact` for the old behaviour) and reads the round trip
+  from the sender's measured values. The launcher gives the game its own process id (`-MILauncherPid=`). **Every box script that
+  holds a game with no viewer passes `-MIKeepAlive` now** (list: PROGRESS.md section 7); a package's gate is
+  `tools/box/cloud/session-gate.txt` and `session-gate-dev.txt`. Not seen on E3DS: read the first session's log for `Session:`,
+  `Encoder quality, from ...`, `Session over` and `rttMs=`.
 - **Still unknown:** which graphics card E3DS's Linux sessions get, and everything a real browser, a real
   controller and a real connection add. The box is not E3DS.
 - **Next, the owner:** join the nine parts, upload the zip as a new version of the build `MurderInc`, set the

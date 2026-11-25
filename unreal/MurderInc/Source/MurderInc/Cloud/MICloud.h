@@ -119,7 +119,7 @@ struct MURDERINC_API FMICloudSize
  *  - the game looks after its own session (release 3c, Cloud/MISession.h): E3DS does not stop the game of a session
  *    that has ended, and the next session then finds the card shared with it. With no viewer for MI.Cloud.IdleAfter
  *    seconds (2) the game idles at MI.Cloud.IdleFps frames a second (2; 0 turns it off; launch options -MIIdleFps=,
- *    -MIIdleAfter=) and keeps the picture at its smallest; a joining viewer wakes it within a few milliseconds. When
+ *    -MIIdleAfter=) and keeps the picture at its smallest; a joining viewer wakes it within 10 ms of the stream's report (the idle game runs the game thread's waiting tasks every 10 ms). When
  *    the last viewer has been gone for MI.Cloud.ExitAfterEmpty seconds (20: a host that keeps the game when a page is
  *    reloaded reconnects it within seconds, E3DS starts a new game for a reloaded page and wants the old one gone before
  *    that game has started, 34 s at the quickest seen; -MIExitAfterEmpty=) the game logs one line and quits (exit code
@@ -279,8 +279,7 @@ private:
 	/** The end of a frame while idle: waits until the next idle frame is due, or until a viewer arrives. */
 	void SleepIdle(int32 Fps);
 	void EnterIdle(const FString& Why);
-	/** ReportedAgo: seconds since the stream reported the viewer's connection (a join that woke the game), or below 0. */
-	void LeaveIdle(const TCHAR* Why, double ReportedAgo = -1.0);
+	void LeaveIdle(const TCHAR* Why);
 	/** The session is over: one line, then FPlatformMisc::RequestExit(false). Once. */
 	void RequestSessionExit(const FString& Why);
 	/**
