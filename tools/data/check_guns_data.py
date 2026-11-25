@@ -708,6 +708,8 @@ def check_art():
         else:
             if mg.get("mesh") != c["magazine"]:
                 err("presentation: %s magazine.mesh %s is not the contract's %s" % (gid, mg.get("mesh"), c["magazine"]))
+            if "socket" in mg:
+                err("presentation: %s magazine has a `socket` key: the resolver reads only `mesh` and `bone`" % gid)
             if mg.get("bone") not in c["deformBones"]:
                 err("presentation: %s magazine.bone %s is not a deform bone" % (gid, mg.get("bone")))
             if c.get("magazineTopRound") and mg.get("topRound") != c["magazineTopRound"]:
@@ -749,6 +751,10 @@ def check_art():
             rel = p["presentation"].get("relief")
             if not rel or not (0.05 <= rel <= 0.3):
                 err("art: optic %s has relief %s" % (pid, rel))
+    # the STICK's factory magazine: the pack's, on a socket of its mesh (the resolver reads only magazine.mesh and magazine.bone)
+    stick_mag = GUNS["stick"]["presentation"].get("magazine")
+    if not (isinstance(stick_mag, dict) and stick_mag.get("mesh") and stick_mag.get("bone")):
+        err("presentation: stick has no presentation.magazine {mesh, bone}: the resolver reads only those two keys")
     # the compatibility must not name a part the contract does not know, except the pack's own (source pack)
     for gid in OWN:
         for slot, row in (COMPAT.get(gid) or {}).items():

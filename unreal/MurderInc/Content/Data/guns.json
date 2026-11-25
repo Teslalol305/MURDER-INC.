@@ -555,8 +555,8 @@
         },
         "magazine": {
           "mesh": "/Game/ThirdParty/InfimaTFA/Weapon/Attachments/SM_TFA_AR_Magazine_Full.SM_TFA_AR_Magazine_Full",
-          "socket": "MagHinge",
-          "note": "the pack's standard magazine on the rifle's MagHinge socket: the stage draws it whenever no magazine part is fitted (the first person draws its own, animSets.rifle.magazine)"
+          "bone": "MagHinge",
+          "note": "the pack's standard magazine on the rifle's MagHinge socket (`bone` names what the part attaches to: one of our meshes' bones, or, for the pack's rifles, a socket of the mesh): the stage draws it whenever no magazine part is fitted; the first person draws its own (animSets.rifle.magazine)"
         },
         "notes": "provisional markers for the Default handguard; poses and strike keys are the CHOPPER's (both are two-handed long guns). Bone names are null until ANIMATION.md lists the pack rifle's bones (a null bone is skipped); measured values come from ANIMATION.md",
         "mesh": {"$variant": "stock"}
