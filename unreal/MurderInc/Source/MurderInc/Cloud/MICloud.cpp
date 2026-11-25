@@ -1455,13 +1455,7 @@ void UMICloudSubsystem::Probe(float DeltaTime)
 		// audio device since the process started, sounds asked for that have no asset or no entry in the data (a
 		// package without its Sound Waves counts up here and plays nothing), starts that got no audio device.
 		const UMIAudioSubsystem::FCounts Snd = UMIAudioSubsystem::GetCounts();
-		// The mixer's pace: seconds of sound rendered per second of wall clock since the last line (sndPace; -1 on the
-		// first line and without a device) and the device's clock itself (sndClock, seconds), so the log of one session
-		// says whether the sound's clock runs fast or slow on that machine (below 1.0 the stream has holes), and a
-		// longer stretch can be worked out from any two lines.
-		double SndClock = -1.0;
-		const double SndPace = UMIAudioSubsystem::TakeDevicePace(&SndClock);
-		Out += FString::Printf(TEXT(" sndPlayed=%d sndMissing=%d sndNoDevice=%d sndClock=%.3f sndPace=%.4f"), Snd.Played, Snd.Missing, Snd.NoDevice, SndClock, SndPace);
+		Out += FString::Printf(TEXT(" sndPlayed=%d sndMissing=%d sndNoDevice=%d"), Snd.Played, Snd.Missing, Snd.NoDevice);
 	}
 	MICloudPrivate::Line(Out);
 	ProbeFrames = ProbeTime = ProbeWorst = 0.0;

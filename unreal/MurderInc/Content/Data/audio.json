@@ -8,20 +8,20 @@
   },
 
   "categories": {
-    "about": "Spec 07 4.5: the web buses as categories. volume = bus gain; option = the options slider that scales it; muffled = the low-pass states (hit, explosion, death, low health) apply; pausable = silent while paused; ui = plays while paused (bIsUISound); reverb = send to the zone reverb; voices = the web bus's channel pool (the engine's channel limit, Config/DefaultEngine.ini AudioSettings MaxChannels, is above their sum: 89); priority = the engine's rank for a voice of the category, a sound's own prio (audio_sounds.json, 1 to 10) times it: past its channel limit the engine keeps the highest loudness x priority (the player's guns first, tails next); alwaysPlay = every voice of the category keeps its place whatever it competes with and however quiet it is (the guns, silenced or not); keepLoops = a looping sound of the category keeps its voice and its place in time even at no volume (the music's stems and the street's beds: without it the stems lost their voices in a magazine dump and came back out of time).",
-    "gun":      { "volume": 1.0,  "option": "effects",  "muffled": true,  "pausable": true,  "ui": false, "reverb": 0.10, "voices": 6, "priority": 10, "alwaysPlay": true },
-    "tail":     { "volume": 0.85, "option": "effects",  "muffled": true,  "pausable": true,  "ui": false, "reverb": 0.0,  "voices": 8, "priority": 4 },
+    "about": "Spec 07 4.5: the web buses as categories. volume = bus gain; option = the options slider that scales it; muffled = the low-pass states (hit, explosion, death, low health) apply; pausable = silent while paused; ui = plays while paused (bIsUISound); reverb = send to the zone reverb.",
+    "gun":      { "volume": 1.0,  "option": "effects",  "muffled": true,  "pausable": true,  "ui": false, "reverb": 0.10, "voices": 6 },
+    "tail":     { "volume": 0.85, "option": "effects",  "muffled": true,  "pausable": true,  "ui": false, "reverb": 0.0,  "voices": 8 },
     "near":     { "volume": 0.95, "option": "effects",  "muffled": true,  "pausable": true,  "ui": false, "reverb": 0.14, "voices": 12 },
     "world":    { "volume": 1.05, "option": "effects",  "muffled": true,  "pausable": true,  "ui": false, "reverb": 0.5,  "voices": 26 },
-    "ambience": { "volume": 0.7,  "option": "ambience", "muffled": true,  "pausable": true,  "ui": false, "reverb": 0.0,  "voices": 8, "keepLoops": true },
+    "ambience": { "volume": 0.7,  "option": "ambience", "muffled": true,  "pausable": true,  "ui": false, "reverb": 0.0,  "voices": 8 },
     "ui":       { "volume": 0.95, "option": "ui",       "muffled": false, "pausable": false, "ui": true,  "reverb": 0.0,  "voices": 10 },
-    "music":    { "volume": 0.5,  "option": "music",    "muffled": false, "pausable": false, "ui": true,  "reverb": 0.0,  "voices": 16, "keepLoops": true },
+    "music":    { "volume": 0.5,  "option": "music",    "muffled": false, "pausable": false, "ui": true,  "reverb": 0.0,  "voices": 16 },
     "voice":    { "volume": 1.0,  "option": "voice",    "muffled": false, "pausable": true,  "ui": false, "reverb": 0.0,  "voices": 3 }
   },
   "busToCategory": { "gun": "gun", "tail": "tail", "near": "near", "world": "world", "amb": "ambience", "dry": "ui", "music": "music", "voice": "voice" },
 
   "options": {
-    "about": "Defaults of the audio options the options screen drives (FMIAudioOptions): per-category sliders the web game did not have, and master, a trim before the master chain. The web game's volume setting (settings.json volume, default 0.8) is applied by UMIGameSubsystem::ApplySettings as the director's master trim of every category's gain, before the master chain (Pixel Streaming takes the sound at the main submix, before the device's own volume, so a volume on the device would change nothing a viewer hears: AUDIO.md 3.3); the device's own volume stays 1. This default master stays 1.0 (it is what the director starts with and what the tests run at), or the game would play 0.8 x 0.8.",
+    "about": "Defaults of the audio options the options screen drives (FMIAudioOptions): per-category sliders the web game did not have, and master, a trim before the master chain. The web game's volume setting (settings.json volume, default 0.8) is applied by UMIGameSubsystem::ApplySettings as the audio device's primary volume, after the master chain, where spec 07 2.11 puts it: so master stays 1.0 here, or the game would play 0.8 x 0.8.",
     "master": 1.0, "effects": 1.0, "ambience": 1.0, "music": 1.0, "ui": 1.0, "voice": 1.0
   },
 
@@ -186,14 +186,14 @@
       { "name": "close",  "placeholder": true, "files": ["Gen/chopper_close_01.wav", "Gen/chopper_close_02.wav", "Gen/chopper_close_03.wav"], "vol": 0.9 },
       { "name": "mech",   "placeholder": true, "files": ["Gen/chopper_mech_01.wav", "Gen/chopper_mech_02.wav"], "vol": 0.35 } ] },
     "chopper_tail_out": { "web": 0.6, "layers": [ { "name": "distant", "placeholder": true, "files": ["Gen/chopper_tail_01.wav", "Gen/chopper_tail_02.wav"], "vol": 0.55 } ] },
-    "chopper_shot_silenced": { "web": 0.0, "category": "gun", "prio": 10, "layers": [
+    "chopper_shot_silenced": { "web": 0.0, "category": "gun", "layers": [
       { "name": "close", "placeholder": true, "files": ["Gen/chopper_sup_01.wav", "Gen/chopper_sup_02.wav", "Gen/chopper_sup_03.wav"], "vol": 0.8 },
       { "name": "mech",  "placeholder": true, "files": ["Gen/chopper_mech_01.wav", "Gen/chopper_mech_02.wav"], "vol": 0.45 } ] },
     "nine_shot": { "web": 0.35, "layers": [
       { "name": "close", "placeholder": true, "files": ["Gen/nine_close_01.wav", "Gen/nine_close_02.wav", "Gen/nine_close_03.wav"], "vol": 0.85 },
       { "name": "mech",  "placeholder": true, "files": ["Gen/nine_mech_01.wav", "Gen/nine_mech_02.wav"], "vol": 0.3 } ] },
     "nine_tail_out": { "web": 0.6, "layers": [ { "name": "distant", "placeholder": true, "files": ["Gen/nine_tail_01.wav", "Gen/nine_tail_02.wav"], "vol": 0.5 } ] },
-    "nine_shot_silenced": { "web": 0.0, "category": "gun", "prio": 10, "layers": [
+    "nine_shot_silenced": { "web": 0.0, "category": "gun", "layers": [
       { "name": "close", "placeholder": true, "files": ["Gen/nine_sup_01.wav", "Gen/nine_sup_02.wav", "Gen/nine_sup_03.wav"], "vol": 0.8 } ] },
     "dry_fire": { "web": 0.5, "layers": [ { "name": "click", "placeholder": true, "files": ["Gen/dry_fire_01.wav", "Gen/dry_fire_02.wav"], "vol": 0.7 } ] },
     "rifle_magout": { "web": 0.4, "layers": [ { "placeholder": true, "files": ["Gen/rifle_magout_01.wav"], "vol": 0.8 } ] },
@@ -228,7 +228,7 @@
     "bed_day": { "web": 0.7, "layers": [ { "placeholder": true, "files": ["Gen/roomtone_day_01.wav"], "vol": 0.6 } ] }
   },
 
-  "goonSteps": { "about": "Goons have no step event on the bus: the host strides them by their actors' ground speed (spec 07 2.12, src/audio/react.js enemy:step: the run step on the WORLD bus at the Goon's place, volume 0.75, pitch 0.88, reference distance 3 m, roll-off 1.2, priority 2, within 45 m). The step sound is a near-bus one and so 2D: category, ref and roll make it the 3D world sound the web game plays (0.13 of the level at 20 m, 0.06 at 40 m).", "stride": 1.6, "minSpeed": 1.0, "radius": 45.0, "vol": 0.75, "pitch": 0.88, "surface": "asphalt", "category": "world", "ref": 3.0, "roll": 1.2, "prio": 2 },
+  "goonSteps": { "about": "Goons have no step event on the bus: the host strides them by their actors' ground speed (spec 07 2.12: run step, volume 0.75, pitch 0.88, within 45 m).", "stride": 1.6, "minSpeed": 1.0, "radius": 45.0, "vol": 0.75, "pitch": 0.88, "surface": "asphalt" },
 
   "heartbeat": { "sound": "heartbeat", "below": 0.35, "span": 0.25, "vol": 0.25, "volPerK": 0.4, "rate": 1.0, "ratePerK": 0.35 },
 

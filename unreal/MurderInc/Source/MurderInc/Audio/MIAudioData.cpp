@@ -129,9 +129,6 @@ bool FMIAudioData::Parse(const TSharedPtr<FJsonObject>& SoundsRoot, const TShare
 		Cat.bUI = Flag(C, TEXT("ui"), false);
 		Cat.Reverb = Num(C, TEXT("reverb"), 0);
 		Cat.Voices = (int32)Num(C, TEXT("voices"), 8);
-		Cat.Priority = FMath::Max(0.0, Num(C, TEXT("priority"), 1.0));
-		Cat.bAlwaysPlay = Flag(C, TEXT("alwaysPlay"), false);
-		Cat.bKeepLoops = Flag(C, TEXT("keepLoops"), false);
 		Out.Categories.Add(Cat.Name, Cat);
 	}
 	TMap<FName, FName> BusMap;
