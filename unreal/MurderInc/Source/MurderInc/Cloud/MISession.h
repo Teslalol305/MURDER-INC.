@@ -19,7 +19,8 @@
  *  - the launcher that started the game is gone (E3DS killed it, or it died): nobody can stop the game any more, it
  *    quits (FMILauncherWatch).
  * A live session is never ended: a viewer present keeps the game for as long as he stays, and a join cancels every
- * countdown (the page of a viewer who reloads reconnects within seconds: ExitAfterEmpty is 20).
+ * countdown (a viewer who reloads the page comes back to the same game within seconds where the host keeps it, and the
+ * game E3DS starts for a new session is not up before 34 s have passed: ExitAfterEmpty is 20).
  * -MIKeepAlive turns all of it off (the box's test scripts hold games with no viewer on purpose). A game that is not
  * streamed (the desktop) is never touched.
  */

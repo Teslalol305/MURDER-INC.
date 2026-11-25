@@ -141,7 +141,7 @@ namespace MICloudPrivate
 		TEXT("Seconds with no viewer before the game idles (launch option -MIIdleAfter=)."));
 	float GExitAfterEmpty = 20.f;
 	FAutoConsoleVariableRef CVarExitAfterEmpty(TEXT("MI.Cloud.ExitAfterEmpty"), GExitAfterEmpty,
-		TEXT("Seconds after the last viewer left before the game quits (launch option -MIExitAfterEmpty=). A page that is reloaded reconnects within seconds; 0: never."));
+		TEXT("Seconds after the last viewer left before the game quits (launch option -MIExitAfterEmpty=). Long enough for a viewer who reloads the page to come back to the same game where the host allows it; 0: never."));
 	float GExitIfNoViewer = 600.f;
 	FAutoConsoleVariableRef CVarExitIfNoViewer(TEXT("MI.Cloud.ExitIfNoViewer"), GExitIfNoViewer,
 		TEXT("Seconds after the game's start before it quits for want of a first viewer (launch option -MIExitIfNoViewer=). 0: never."));

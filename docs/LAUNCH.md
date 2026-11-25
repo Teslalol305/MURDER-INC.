@@ -596,3 +596,38 @@ build machine, so the menu names may differ slightly):
 | `-MICVars=name=value,name=value` | from version 3: sets console variables at start without a new build, each one printed in the log (`[MICloud] Launch option -MICVars: ...`). Only the variables of section 7's list. Examples: `-MICVars=r.DynamicRes.MinScreenPercentage=40` (allow a smaller picture), `-MICVars=MI.Cloud.GpuFramesInFlight=0` (the lowest delay at the cost of some frame rate on a slow card), `-MICVars=sg.GlobalIlluminationQuality=2,sg.ShadowQuality=2` (cheaper light and shadows) |
 | `-MICloudProbe=<seconds>` | how often the game writes its line of numbers into the log (`MICloudProbe fps=... worstMs=... gpuMs=... target=... dr=... owed=...`); from version 3 every 30 s by itself, `0` turns it off |
 | `-MIForceSM6` | skip Unreal's Vulkan SM6 check on a driver that fails it |
+| `-MIKeepAlive` | from release 3c: the game does not idle and does not quit by itself when nobody watches (below). For the box's test scripts, which hold a game with no viewer on purpose; **leave it out on E3DS**, or an ended session's game stays on the machine again |
+| `-MIIdleFps=<n>` and `-MIIdleAfter=<seconds>` | from release 3c: with nobody watching for 2 s the game draws 2 pictures a second (`-MIIdleFps=0` turns that off; the first viewer's start-up gets 10 s of grace) |
+| `-MIExitAfterEmpty=<seconds>` | from release 3c: the game quits this long after the last viewer left (default 20; 0: never; how 20 was chosen: paragraph below) |
+| `-MIExitIfNoViewer=<seconds>` | from release 3c: the game quits this long after it started if no viewer ever connected (default 600; 0: never) |
+| `-MILauncherPid=<pid>` | from release 3c: given by `MurderInc.sh` itself (its own process id): the game quits 5 s after that process is gone. Not for the stream configuration |
+| `-MIQpExact` | from release 3c: the video encoder gets exactly the quality numbers E3DS asks for (Medium QP 34, High QP 16, a constant quantiser), as before |
+| `-MIQpBelow=<n>` and `-MIQpAbove=<n>` | from release 3c: how wide the range around E3DS's number is (default 10 below, not under QP 8, and 8 above, not over QP 48: Medium 34 gives 24 to 42, High 16 gives 8 to 24) |
+
+**What the game does when nobody watches (release 3c).** E3DS does not stop the game of a session that has ended: the
+next session on that machine found it still drawing and shared the card with it (27 pictures a second for the
+second session, 18 for the third). Since release 3c the game looks after that itself, besides the launcher's own
+clean-up at the start of the next session:
+
+- With no viewer for 2 s it draws 2 pictures a second at the smallest size (an idle game costs the card almost
+  nothing); a viewer who joins wakes it within a few hundredths of a second, and the click card shows as before. A
+  game that has just started and has no first viewer yet gets 10 s of grace first.
+- 20 s after the last viewer left, the game says so in its log and quits (exit code 0; the log line is
+  `Session over: ...`). A viewer present keeps the game for as long as he stays, and a join cancels the countdown.
+  **How 20 s was chosen.** Two things have to hold. (1) A page that is reloaded must not lose its game: on a host that
+  keeps the game for a reloaded page (the box's test viewers, a signalling server of your own) the new connection is
+  there in a few seconds (measured on the box with the test viewer: RELOAD_GAP), so 20 s is several times that. (2)
+  A game that nobody will come back to must be gone before the next one is up: E3DS starts a **new** game for a
+  reloaded page or a new session (its documentation, section 6 above) and the quickest start seen was 34 s, so the
+  old game has to be gone well before that. 20 s sits between the two; `-MIExitAfterEmpty=` moves it (a host whose
+  reload is slower can raise it, the cost is a game that stays that much longer), and `-MIKeepAlive` turns it off.
+- A game that no viewer ever connected to quits 600 s after it started, and a game whose launcher is gone (E3DS killed
+  it) quits 5 s after that.
+- The video encoder gets a **range**, not the one quality number E3DS asks for: Medium (QP 34) gives it 24 to 42,
+  High (QP 16) gives 8 to 24, so that the sender can pick the quality the connection carries instead of dropping
+  frames when it carries less. On a fast connection the picture is as sharp as the range allows (and uses more data:
+  up to E3DS's own limit of 20 Mbit/s in fast turns); on a thin one it gets softer instead of freezing.
+  `-MIQpExact` gives the old behaviour. The pause card's line shows the range after the QP (`QP 31 of 24 to 42`).
+- The pause card's round trip is the median of the last measured values, and absent when none was measured. On E3DS
+  it is the time to the other end of the game's video connection, which may be E3DS's own relay on the machine and
+  not your computer: E3DS's Info panel has the time to your computer.

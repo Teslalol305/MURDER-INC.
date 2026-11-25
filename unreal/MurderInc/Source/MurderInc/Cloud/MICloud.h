@@ -120,8 +120,10 @@ struct MURDERINC_API FMICloudSize
  *    that has ended, and the next session then finds the card shared with it. With no viewer for MI.Cloud.IdleAfter
  *    seconds (2) the game idles at MI.Cloud.IdleFps frames a second (2; 0 turns it off; launch options -MIIdleFps=,
  *    -MIIdleAfter=) and keeps the picture at its smallest; a joining viewer wakes it within a few milliseconds. When
- *    the last viewer has been gone for MI.Cloud.ExitAfterEmpty seconds (20: a page reload reconnects within seconds;
- *    -MIExitAfterEmpty=) the game logs one line and quits (exit code 0); so it does MI.Cloud.ExitIfNoViewer seconds (600;
+ *    the last viewer has been gone for MI.Cloud.ExitAfterEmpty seconds (20: a host that keeps the game when a page is
+ *    reloaded reconnects it within seconds, E3DS starts a new game for a reloaded page and wants the old one gone before
+ *    that game has started, 34 s at the quickest seen; -MIExitAfterEmpty=) the game logs one line and quits (exit code
+ *    0); so it does MI.Cloud.ExitIfNoViewer seconds (600;
  *    -MIExitIfNoViewer=) after its start when nobody ever came, and 5 s after the launcher that started it is gone
  *    (the launcher passes -MILauncherPid=<pid>; a game started without it is not watched). A viewer present keeps the
  *    game, a join cancels the countdown. -MIKeepAlive turns all of this off (the box's test scripts hold games with no
