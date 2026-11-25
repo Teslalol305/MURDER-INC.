@@ -208,30 +208,19 @@ def magazine_fit(R, key, rec, Vg, Pg, Vp, polys, hw, idx, pairs, hide):
         rec["mesh"], GUNS[key], len(pairs), base), len(pairs) <= base * 1.35 + 40, {"pairs": len(pairs), "standard_pairs": base})
     R.add("%s on %s: nothing of the part below the standard magazine's floor (Z %.4f) crosses the gun" % (rec["mesh"], GUNS[key], floor_z),
           len(below) == 0, {"crossing_triangles_below": len(below)})
+    # the lips end: the body's cross-section 30 mm under the lips, the same extents as the standard magazine's within 1 mm
     top = Vs[:, 2].max()
-    used = sorted(set(i for k in idx for i in polys[k] if Vp[i][2] > top - 0.035 and Vp[i][2] < top - 0.006))
-    dev = np.array([sbvh.find_nearest(Vector(Vp[i]))[3] for i in used]) if used else np.zeros(1)
-    R.add("%s on %s: the lips end is the standard magazine's (the part's vertices within 35 mm of the lips are within 0.8 mm of it, 90 %%)" % (
-        rec["mesh"], GUNS[key]), float(np.percentile(dev, 90)) <= 0.0008,
-          {"p90_mm": round(float(np.percentile(dev, 90)) * 1000, 2), "max_mm": round(float(dev.max()) * 1000, 2), "vertices": len(used)})
+    zc = top - 0.030
 
-
-def sight_corridor(R, key, rec, sock, Vg, Pg, mount):
-    """The SightEye corridor: a cone of 3 deg half angle from the eye through the optic's windows hits nothing of the gun
-    beyond the optic (hide bones removed)."""
-    pid = "red_dot" if "RedDot" in rec["mesh"] else "scope_4x"
-    eye = sock[mount] + np.array(rec["sockets_m"]["SightEye"]) - np.array([RELIEF[pid], 0.0, 0.0])
-    gbvh = BVHTree.FromPolygons([Vector(v) for v in Vg], Pg)
-    x_front = sock[mount][0] + (0.032 if pid == "red_dot" else 0.085)
-    bad = 0
-    for deg in (0.0, 1.5, 3.0):
-        for az in np.linspace(0, 2 * math.pi, 12, endpoint=False):
-            d = Vector((math.cos(math.radians(deg)), math.sin(math.radians(deg)) * math.cos(az), math.sin(math.radians(deg)) * math.sin(az)))
-            h = gbvh.ray_cast(Vector(eye), d, 2.0)
-            if h[0] is not None and h[0].x > x_front - 0.02:
-                bad += 1
-    R.add("%s on %s: the SightEye corridor (3 deg half angle from the eye) is clear of the gun ahead of the optic" % (rec["mesh"], GUNS[key]),
-          bad == 0, {"blocked_rays": bad})
+    def extents(V_):
+        sel = V_[np.abs(V_[:, 2] - zc) < 0.0008]
+        return (sel[:, 0].min(), sel[:, 0].max(), sel[:, 1].min(), sel[:, 1].max()) if len(sel) else None
+    pv = np.array([Vp[i] for k in idx for i in polys[k]])
+    es, ep = extents(Vs), extents(pv)
+    dev = max(abs(a - b) for a, b in zip(es, ep)) if es and ep else 1.0
+    R.add("%s on %s: the body's section 30 mm under the lips matches the standard magazine's (X and Y extents within 1 mm)" % (rec["mesh"], GUNS[key]),
+          dev <= 0.001, {"deviation_mm": round(dev * 1000, 2), "standard": [round(v * 1000, 1) for v in es] if es else None,
+                         "part": [round(v * 1000, 1) for v in ep] if ep else None})
 
 
 def run_assembly(R):

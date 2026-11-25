@@ -24,7 +24,7 @@ def scope_4x(pi=0):
     prof = [(-65.0, 14.0), (-65.0, 17.6), (-64.0, 18.2), (-58.0, 18.2), (-56.8, 19.0), (-40.0, 19.0), (-36.0, 15.6), (-35.0, 15.0),
             (46.0, 15.0), (47.5, 16.0), (52.0, 21.0), (82.0, 21.0), (82.8, 21.0), (85.0, 21.0), (85.0, 19.4), (80.0, 19.4),
             (52.0, 17.0), (46.0, 14.0), (-35.0, 14.0), (-37.0, 14.0), (-45.0, 14.0)]
-    body = lathe_x(prof, 72, at=(0, 0, AX), closed=True, fillet=0.4, fseg=1, name="SCBody")
+    body = lathe_x(prof, 56, at=(0, 0, AX), closed=True, fillet=0.4, fseg=1, name="SCBody")
     fin(body, AL, pi)
     retag(body, BORED, lambda x, y, z: (np.hypot(y, z - AX * MM) < 19.5 * MM) & (x > -64.5 * MM) & (x < 84.5 * MM)
           & ((np.hypot(y, z - AX * MM) < 14.6 * MM) | (x > 46.5 * MM)))
@@ -138,7 +138,7 @@ def grip_body(height, radius, grooves, cap_r, cap_h, neck_r=8.5, neck_h=6.0, ova
     for zc, depth in grooves:
         prof += [(-zc + 4.5, radius), (-zc + 2.0, radius - depth), (-zc - 2.0, radius - depth), (-zc - 4.5, radius)]
     prof += [(zb + 1.0, radius), (zb, radius + 0.2), (zb - 2.0, cap_r), (-height + 1.0, cap_r), (-height, cap_r - 1.2), (-height, 0.0)]
-    ob = lathe_z(prof, 32, at=(0, 0, top), fillet=0.4, fseg=1, name=name)
+    ob = lathe_z(prof, 28, at=(0, 0, top), fillet=0.4, fseg=1, name=name)
     if slot:
         W.cut(ob, box_mm(-1.6, 1.6, -30.0, 30.0, top - height + 3.0, top - height + 7.0, bevel=0.0, name="Slot"))
     geo.transform(ob, scale=(oval, 1.0, 1.0))
@@ -198,8 +198,8 @@ def foregrip_vertical_wood(pi=0):
         objs.append(fin(ear, G.STEELB, pi))
         # clamp bolts through the ears: heads on the right, nuts on the left
     for bx in (-9.0, 9.0):
-        objs.append(fin(screw_head_y(bx, float(zs(bx)) + 6.0, -18.5, r=3.4, h=2.2, sign=-1, seg=16, name="FWBolt"), STEELD, pi))
-        objs.append(fin(screw_head_y(bx, float(zs(bx)) + 6.0, 18.5, r=3.0, h=1.8, sign=+1, seg=16, name="FWNut"), STEELD, pi))
+        objs.append(fin(screw_head_y(bx, float(zs(bx)) + 6.0, -18.5, r=3.4, h=2.2, sign=-1, seg=12, name="FWBolt"), STEELD, pi))
+        objs.append(fin(screw_head_y(bx, float(zs(bx)) + 6.0, 18.5, r=3.0, h=1.8, sign=+1, seg=12, name="FWNut"), STEELD, pi))
     # strap: a thin band round the floor's middle
     objs.append(fin(box_mm(-4.0, 4.0, -18.6, 18.6, float(zs(0)) - 4.9, float(zs(0)) - 3.6, bevel=0.4, name="FWStrap"), STEELD, pi))
     # the wooden body: neck under the floor, O30 x oval body with three finger grooves, cap with a lanyard slot

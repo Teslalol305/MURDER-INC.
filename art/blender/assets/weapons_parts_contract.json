@@ -130,7 +130,7 @@
     ]
    },
    "triangle_budget": 4000,
-   "triangles": 2460
+   "triangles": 2300
   },
   "foregrip_vertical": {
    "applies_to": [
@@ -171,7 +171,7 @@
     ]
    },
    "triangle_budget": 4000,
-   "triangles": 4040
+   "triangles": 3544
   },
   "foregrip_vertical_wood": {
    "applies_to": [
@@ -211,7 +211,7 @@
     ]
    },
    "triangle_budget": 4000,
-   "triangles": 5228
+   "triangles": 4092
   },
   "laser_module": {
    "applies_to": [
@@ -252,7 +252,7 @@
     ]
    },
    "triangle_budget": 4000,
-   "triangles": 3576
+   "triangles": 3096
   },
   "mag_ext_pistol": {
    "applies_to": [
@@ -281,7 +281,7 @@
    "sockets_unreal_cm": {},
    "top_round_mesh": "SM_Part_MagPistolExt_TopRound",
    "triangle_budget": 8000,
-   "triangles": 9630
+   "triangles": 5694
   },
   "mag_ext_rifle": {
    "applies_to": [
@@ -429,7 +429,7 @@
     ]
    },
    "triangle_budget": 12000,
-   "triangles": 13554
+   "triangles": 12050
   },
   "suppressor": {
    "applies_to": [

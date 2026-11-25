@@ -157,7 +157,7 @@ def flutes(depth, n, width_frac=0.55):
 def screw_head_y(x, z, y, r=2.1, h=1.0, sign=-1, seg=20, name="Screw"):
     """A socket-head cap screw on a side face (axis Y), base at y, head standing `h` toward sign (-1: toward -Y); mm."""
     prof = [(0.0, 0.0), (0.0, r), (h * 0.75, r), (h, r * 0.84), (h, r * 0.48), (h * 0.45, r * 0.48), (h * 0.45, 0.0)]
-    ob = lathe_y(prof, seg, at=(x, 0.0, z), fillet=0.1, fseg=1, name=name)
+    ob = lathe_y(prof, seg, at=(x, 0.0, z), fillet=0.1 if seg > 16 else 0.0, fseg=1, name=name)
     if sign < 0:
         geo.transform(ob, scale=(1, -1, 1))
     return move(ob, 0, y, 0)

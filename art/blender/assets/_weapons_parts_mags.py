@@ -56,8 +56,8 @@ def stick_magazine(depth, width, height, rib_zs, rib_len, spine, pi=0, name="MG"
             ya, yb = (hy - 0.15, hy + 0.9) if sy > 0 else (-hy - 0.9, -hy + 0.15)
             objs.append(fin(box_mm(-rib_len / 2, rib_len / 2, ya, yb, z - 2.4, z + 2.4, bevel=0.9, seg=2, name=name + "Rib"), MAGST, pi))
     # the spine bead on the rear wall and the weld bead on the front wall
-    objs.append(fin(box_mm(-dx - 0.9, -dx + 0.15, -1.6, 1.6, -body_h + 3.0, -spine, bevel=0.4, name=name + "Spine"), MAGST, pi))
-    objs.append(fin(box_mm(dx - 0.15, dx + 0.45, -1.3, 1.3, -body_h + 3.0, -spine, bevel=0.3, name=name + "Weld"), MAGST, pi))
+    objs.append(fin(box_mm(-dx - 0.6, -dx + 0.15, -1.6, 1.6, -body_h + 3.0, -spine, bevel=0.3, name=name + "Spine"), MAGST, pi))
+    objs.append(fin(box_mm(dx - 0.15, dx + 0.35, -1.3, 1.3, -body_h + 3.0, -spine, bevel=0.25, name=name + "Weld"), MAGST, pi))
     # floor plate: polymer, `floor_over` wider than the body all round, with the drag tab on the front
     fp_ = box_mm(-dx - floor_over, dx + floor_over, -hy - floor_over, hy + floor_over, -height, -body_h, bevel=1.6, seg=2, name=name + "Floor")
     tb = box_mm(dx + 0.5, dx + 0.5 + tab, -hy * 0.45, hy * 0.45, -height, -height + 5.0, bevel=1.1, seg=2, name=name + "Tab")
@@ -160,7 +160,7 @@ def mag_ext_pistol(pi=0):
     sleeve = K_loft([ring_flat(z_bot, sl_sec), ring_flat(N9.BUTT_Z - 0.0030 + 0.0, sl_sec)], cap0=True, cap1=True, name="MPSleeve")
     W.round_edges(sleeve, 0.0003, 1, 50)
     objs.append(fin(sleeve, MAGPOLY, pi))
-    pad = N9.build_pad()
+    pad = build_pad_lowpoly(N9)
     geo.transform(pad, loc=tuple(-extra * A))
     objs.append(fin(pad, GOLDM, pi))
     ctop = b + A * top_t
@@ -172,6 +172,30 @@ def mag_ext_pistol(pi=0):
     for ob in objs + [top]:
         geo.transform(ob, loc=tuple(off))
     return objs, top, {}
+
+
+def build_pad_lowpoly(N9, M=48):
+    """The NINE's moulded gold pad (N9.build_pad) with 48 points round its plan instead of 112: half the triangles, the same shape."""
+    T, Bt = 0.0015, 0.0030
+    H = N9.BUTT_Z - N9.PAD_Z
+    zs = []
+    for a in np.linspace(0, math.pi / 2, 5):
+        zs.append((N9.BUTT_Z - T * (1 - math.sin(a)), T * (1 - math.cos(a))))
+    for z in np.linspace(N9.BUTT_Z - T - 0.0004, N9.PAD_Z + Bt + 0.0004, 3):
+        zs.append((z, 0.0))
+    for a in np.linspace(0, math.pi / 2, 6)[1:]:
+        zs.append((N9.PAD_Z + Bt * (1 - math.sin(a)), Bt * (1 - math.cos(a))))
+    for q in (0.0012, 0.0030):
+        zs.append((N9.PAD_Z, Bt + q))
+    zs.sort(key=lambda t: (-t[0], t[1]))
+    secs, zz = [], []
+    for z, ins in zs:
+        d = N9.BUTT_Z - z
+        lip = 0.0026 * float(K.smoothstep(d, 0.0004, 0.0026)) - 0.0020 * float(K.smoothstep(d, 0.0038, 0.0062))
+        x1 = N9.PAD_X1 + lip
+        secs.append(K.rrect(N9.PAD_X0 + ins, x1 - ins, N9.PAD_W - ins, max(0.0060 - ins * 0.7, 0.0006), max(0.0040 - ins * 0.7, 0.0006)))
+        zz.append(z)
+    return K.loft_z(secs, zz, M, name="Pad")
 
 
 def K_loft(sections, closed=True, cap0=True, cap1=True, name="Loft"):
