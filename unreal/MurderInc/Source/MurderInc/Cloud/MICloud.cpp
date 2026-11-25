@@ -106,7 +106,7 @@ namespace MICloudPrivate
 	int32 GFpsTarget = 0;
 	FAutoConsoleVariableRef CVarFpsTarget(TEXT("MI.Cloud.FpsTarget"), GFpsTarget,
 		TEXT("While streamed: 60, 45 or 30 fixes the frame-rate target; 0 lets the game choose it by the GPU's time (launch option -MIFps=)."));
-	float GFpsDropOver = 0.70f, GFpsDropAfter = 1.f, GFpsRaiseUnder = 0.45f, GFpsRaiseAfter = 10.f;
+	float GFpsDropOver = 0.90f, GFpsDropAfter = 1.f, GFpsRaiseUnder = 0.45f, GFpsRaiseAfter = 10.f;
 	FAutoConsoleVariableRef CVarFpsDropOver(TEXT("MI.Cloud.FpsDropOver"), GFpsDropOver,
 		TEXT("The frame-rate target drops when the GPU's time is over this share of the frame time at the smallest picture."));
 	FAutoConsoleVariableRef CVarFpsDropAfter(TEXT("MI.Cloud.FpsDropAfter"), GFpsDropAfter, TEXT("... for this many seconds."));
