@@ -1193,3 +1193,75 @@ round_edges, texture, split_off, preview_hero / preview_fp, rig_studio).
 ## Exact next step if resumed
 `build.py build weapons_stretch --bake --export` (about 12 min on 2 threads, flock art/out/.bake.lock), then
 `python art/blender/assets/_weapons_check_stretch.py`, then `MI_PREVIEWS=hero,fp,side,parts,sil build.py build weapons_stretch --preview`.
+
+---------------------------------------------------------------------------------------------------------------
+# Weapons round 4, lane 2: the parts kit and the CHOPPER / NINE mounts (parts modeler)
+
+Task: the owner played the build and wrote "all the guns look the same and no attachments are able to be added": the CHOPPER and
+the NINE had no mounts, so the Workbench offered no part on them. Lane 2 builds what the Workbench puts on every gun, and the
+sockets that let it on the two guns that exist. Specification `docs/unreal/weapons_r4_spec.json` (sections C and N, the parts
+table, step 2); designs of the parts follow it, the measured geometry of the guns decides where they differ (list below).
+## Done
+- **Mounts on the CHOPPER and the NINE** (`assets/_weapons_patch.py`, commit dcdaa5e): the 4K sets were baked on the exact UV
+  layout and a code rebuild re-unwraps (the preview notes call the sets "stale"), so the exported GLBs are patched, not rebuilt:
+  every accessor is read, edited and written back as one fresh binary chunk (the exporter's own layout: one primitive per slot, rigid
+  joints, the Z-up to Y-up turn on the root). CHOPPER: sockets Optic (0.1150, 0, 0.0420) (the centre of the 106 mm rail's slot 4, on
+  the lug tops 0.0420), MuzzleMount (0.4260, 0, 0), Underbarrel (0.3050, 0, -0.0623); bone Booster (the muzzle booster, a closed
+  shell of 7,063 vertices X 0.4260..0.4975, found as the connected component, moved from body); bone FrontSight (the gas block's
+  tower above Z 0.0318, its two ears, drum and post: a shell of its own, the 79 vertices it shared with the housing duplicated,
+  the housing closed by a 72-triangle planar cap on the cut plane); NINE: Laser (0.1560, 0, -0.0236), MuzzleMount (0.1960, 0, 0),
+  MagHinge (0.0177, 0, -0.0359). The diff against the unpatched export (`art/out/glb/_pre_patch/`): every position, normal, UV,
+  colour and index of the old file is the prefix of the new one, only joints and the cap change; SK_Chopper 150,415 -> 150,487
+  triangles. `_weapons_check.py`: Chopper and Nine still ALL FIXED POINTS KEPT. Re-runnable after any later export of either gun.
+- **The parts kit** (`assets/weapons_parts.py` + `_weapons_parts_geo.py`, `_geo2.py`, `_mags.py`, `_tex.py`): 15 files, each built
+  once at its mount: RedDot 7.7k tris, Scope4x 12.1k, Suppressor 5.9k, Compensator 2.6k, SuppressorPistol 3.7k, ForegripVertical 3.5k,
+  ForegripVerticalWood 4.1k, ForegripAngled 2.4k, LaserModule 3.1k, MagRifleExt 3.7k (+ top round 2.0k), MagSmgExt 3.0k (+1.7k),
+  MagPistolExt 5.7k (+1.4k). Two unique 2K sets (`Weapon_Parts` 3,243 px/m, BC N ORM E; `Weapon_PartsMags` 3,866 px/m); lens and
+  reticle are the flat slots `M_Part_Lens` / `M_Part_Reticle`. All the parts of a set lie in a row in one atlas object for the unwrap,
+  the geometry bakes and the painter, then split back; the UV layout is cached next to the set (`uv_cache.npz`: keep it, or re-export
+  and re-bake together). Draft sets (`--res 512`) bake in 15 s, a 2K set in about 3 min on one thread.
+- **Proof** (`assets/_weapons_check_parts.py`, `_b`): `guns` (every new socket by ray cast: the optic socket on the lug tops within 0.5 mm,
+  the underbarrel socket within 1 mm of the plate's underside, the muzzle mounts on the booster's base plane / the slide's front face
+  within 0.3 mm, the hide bones closed shells that open nothing when hidden, the patch diff, the re-import pose proof incl. Booster and
+  FrontSight), `parts` (origin, slots, budgets, the optical path: rays from the eye through the windows), `assembly` (every part on every
+  gun that has its mount, fresh scene, hide bones removed: no triangle of the part crosses a triangle of the gun, a vertex within 1 mm,
+  the optics' corridor clear; magazines judged against the standard magazines because the grips are solid meshes): CHOPPER, NINE,
+  SHORTY, STRETCH and RATTLER files, 153 checks, **ALL MOUNTS KEPT**. A first version of this proof stopped at the first optic (a
+  NameError after an edit) and my commit 9264887 claimed more than it had shown; 0e2e653 fixed it, a crash is now a FAIL.
+- Pictures: `weapons_parts_kit`, `weapons_chopper_built` (scope, suppressor, wooden vertical grip), `weapons_nine_built` (laser, pistol
+  suppressor, extended magazine), `weapons_parts_sights` (the sight pictures from the eye through the red dot and the scope).
+## Where the measured guns decided against the specification (the integrator should read this)
+- The CHOPPER's "Underbarrel" Z -0.0623 is the underside of the **folded stock's shoulder plate** (a 2.5 mm curved band, 30 mm wide, arc
+  R 120, hanging 20 mm under the handguard, whose own bottom is Z -0.0416), not of the handguard: `foregrip_vertical_wood` is a saddle that
+  hugs that plate (ears 17 mm, a strap under it, two bolts) with a laminated wooden body hanging to Z -0.145; the plate carries the
+  weight of a grip (and the player's palm already rests on it: Palm_L).
+- The guns' MI-R rails are not one profile: the CHOPPER's, SHORTY's and RATTLER's dovetail has a 45 deg top chamfer, a 10.6 mm shoulder 3 mm
+  under the lug face and an undercut to 7.8 mm below 6.5 mm; the STRETCH's flanks run straight at 10.6 mm. No jaw can hook under both,
+  so the clamps' jaws are side walls on the envelope of the two (0.15 mm off, plate 0.03 mm over the lug face) and the clamp screw
+  clamps. The NINE's dust cover tapers 1.9 deg (its underside climbs 0.033 mm/mm to the muzzle) and its slots are 3.5 mm: the laser
+  module has no keys and is tilted 1 deg and 0.38 mm low, so it crosses neither that nor the SHORTY's flat rail (0.03 mm off at one
+  end, under 0.75 mm at the other).
+- Compensator recess R 9.0 x **12.6** deep, not 10: the SHORTY's, STRETCH's and RATTLER's threaded stubs are 12 mm long.
+- NINE `MagHinge` (0.0177, 0, -0.0359) is the specification's point (inside the lips' body, 2 mm under the lip surface there); the lip
+  plane's own centre is (0.0269, 0, -0.0378); `mag_ext_pistol` is modelled about the socket so its lips end is the standard magazine's
+  (walls identical to 0.0 mm). The pistol suppressor has a 2.65 x 6.8 mm relief in its collar's rear face for the NINE's recoil-spring
+  plug, which stands 1.0 mm proud of the slide's front face.
+- FrontSight's box: the specification's X 0.4005..0.4175 is narrower than the tower's foot (X 0.3995..0.4185); the whole gas block's
+  length is used (nothing but the sight stands above Z 0.0316 there).
+- The scope is hollow (ocular bore R 14, dark inside) but the clear half angle from the eye at relief 0.085 is **4.0 deg** (the tube
+  is 14 mm in radius over 200 mm), not the 9 deg of the ocular alone; the red dot's is 4.0 deg through its 28 mm windows. Beyond it the
+  ray meets the tube's dark matte inside: a vignette. If the game wants the whole 30 deg picture, hide or fade the body in the aimed view.
+- The scope's width is 48 mm (windage turret to -26, objective bell +21), not 54; the angled grip is about 62 x 30 x 66 mm (the
+  specification's 92 mm length does not follow from its other numbers); the rifle magazine's drag tab is on the front (the STRETCH's
+  standard magazine has it there, the SHORTY's at the rear).
+## Not done / known weaknesses
+- Nothing was run in Unreal: the sockets, the bone hiding, the materials and the lens / reticle slots are proven in Blender only.
+- The parts' texel density is 3,243 px/m (the guns' 7,000-9,000): at 30 cm on a 4K screen the optics and the muzzle devices are about
+  half as sharp as the guns they sit on; the detail that matters (screws, knurling, flutes, bands, ports, the pad, the lips) is modelled.
+- `stock_wire_open` (optional, phase 2) is not exported by this lane; the part pips `T_UI_Att_<id>` (128 x 128) are not rendered.
+- The wooden grip's body is laminated wood by recipe, not the CHOPPER's own ply field; the stippled grips are normal-map stipple.
+## Exact next step if resumed
+`python art/blender/assets/_weapons_pack_parts.py` (the two tars), upload them as the other archives (`fp-art.sh`), import in the game
+project (static meshes with the sockets of `weapons_parts_contract.json`), run `MountsExist`; or re-run the proof
+`python art/blender/assets/_weapons_check_parts.py` after any change to a gun's export (and `python art/blender/assets/_weapons_patch.py`
+after a new export of SK_Chopper or SK_Nine).

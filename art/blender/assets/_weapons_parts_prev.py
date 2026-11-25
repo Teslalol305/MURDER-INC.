@@ -53,10 +53,39 @@ def part_materials():
     nt = r.node_tree
     nt.nodes.clear()
     out = nt.nodes.new("ShaderNodeOutputMaterial")
+    uv = nt.nodes.new("ShaderNodeTexCoord")
+    sub = nt.nodes.new("ShaderNodeVectorMath")
+    sub.operation = "DISTANCE"
+    sub.inputs[1].default_value = (0.5, 0.5, 0.0)
+    nt.links.new(uv.outputs["UV"], sub.inputs[0])
+    dot = nt.nodes.new("ShaderNodeMath")                     # 1 inside the dot (collimated additive dot)
+    dot.operation = "LESS_THAN"
+    dot.inputs[1].default_value = 0.05
+    nt.links.new(sub.outputs["Value"], dot.inputs[0])
+    ring_a = nt.nodes.new("ShaderNodeMath")
+    ring_a.operation = "SUBTRACT"
+    ring_a.inputs[1].default_value = 0.32
+    nt.links.new(sub.outputs["Value"], ring_a.inputs[0])
+    ring_b = nt.nodes.new("ShaderNodeMath")
+    ring_b.operation = "ABSOLUTE"
+    nt.links.new(ring_a.outputs[0], ring_b.inputs[0])
+    ring_c = nt.nodes.new("ShaderNodeMath")
+    ring_c.operation = "LESS_THAN"
+    ring_c.inputs[1].default_value = 0.012
+    nt.links.new(ring_b.outputs[0], ring_c.inputs[0])
+    mask = nt.nodes.new("ShaderNodeMath")
+    mask.operation = "MAXIMUM"
+    nt.links.new(dot.outputs[0], mask.inputs[0])
+    nt.links.new(ring_c.outputs[0], mask.inputs[1])
     e = nt.nodes.new("ShaderNodeEmission")
     e.inputs["Color"].default_value = (1.0, 0.03, 0.02, 1)
-    e.inputs["Strength"].default_value = 6.0
-    nt.links.new(e.outputs[0], out.inputs["Surface"])
+    e.inputs["Strength"].default_value = 8.0
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(mask.outputs[0], mix.inputs[0])
+    nt.links.new(tr.outputs[0], mix.inputs[1])
+    nt.links.new(e.outputs[0], mix.inputs[2])
+    nt.links.new(mix.outputs[0], out.inputs["Surface"])
     ms["M_Part_Reticle"] = r
     return ms
 
@@ -154,6 +183,61 @@ def assembly(key, fitted, path, view, samples=64, res=(1280, 720), lens=70, look
     return path
 
 
+def sights(path, samples=48, res=(1280, 720)):
+    """The sight pictures: the camera at the eye (SightEye shifted back by the relief of the specification), looking along the
+    bore through the optic fitted on the CHOPPER (front sight hidden), left the red dot (relief 0.14, 45 deg), right the 4x
+    scope (relief 0.085, 30 deg), in front of a range backdrop with a target."""
+    from PIL import Image
+    shots = []
+    for pid, relief, fov in (("red_dot", 0.14, 45.0), ("scope_4x", 0.085, 30.0)):
+        bpy.ops.wm.read_factory_settings(use_empty=True)
+        setup(samples, (res[0] // 2, res[1]))
+        arm, meshes = load_gun("chopper")
+        mats = part_materials()
+        ob = load_part(pid, mats)
+        rec = contract()[pid]
+        fit(arm, ob, rec["gun_socket"])
+        hide_bones(arm, ["FrontSight"])
+        # a backdrop: a pale wall 12 m ahead with a target, a ground plane
+        wall = bpy.data.objects.new("Wall", bpy.data.meshes.new("Wall"))
+        bm = __import__("bmesh").new()
+        __import__("bmesh").ops.create_grid(bm, x_segments=1, y_segments=1, size=6.0)
+        bm.to_mesh(wall.data)
+        bm.free()
+        bpy.context.scene.collection.objects.link(wall)
+        wall.rotation_euler = (0, math.radians(90), 0)
+        wall.location = (12.0, 0, 1.5)
+        wm = bpy.data.materials.new("WallM")
+        nt = wm.node_tree
+        nt.nodes.clear()
+        o = nt.nodes.new("ShaderNodeOutputMaterial")
+        b = nt.nodes.new("ShaderNodeBsdfDiffuse")
+        chk = nt.nodes.new("ShaderNodeTexChecker")
+        chk.inputs["Scale"].default_value = 6.0
+        chk.inputs["Color1"].default_value = (0.55, 0.52, 0.45, 1)
+        chk.inputs["Color2"].default_value = (0.30, 0.28, 0.25, 1)
+        co = nt.nodes.new("ShaderNodeTexCoord")
+        nt.links.new(co.outputs["Object"], chk.inputs["Vector"])
+        nt.links.new(chk.outputs["Color"], b.inputs["Color"])
+        nt.links.new(b.outputs[0], o.inputs["Surface"])
+        wall.data.materials.append(wm)
+        eye = arm.matrix_world @ arm.data.bones[rec["gun_socket"]].head_local + Vector(rec["sockets_m"]["SightEye"]) - Vector((relief, 0, 0))
+        cam = render.cam_look(eye, eye + Vector((1, 0, 0)), 50.0, name="CamEye")
+        cam.data.sensor_fit = "VERTICAL"
+        cam.data.angle_y = math.radians(fov)
+        cam.data.clip_start = 0.005
+        path_i = path + "_%s.jpg" % pid
+        render.render_jpeg(path_i, samples, res=(res[0] // 2, res[1]))
+        shots.append(path_i)
+    ims = [Image.open(p_).convert("RGB") for p_ in shots]
+    sheet = Image.new("RGB", (res[0], res[1]))
+    for i, im in enumerate(ims):
+        sheet.paste(im, (i * (res[0] // 2), 0))
+    render.save_jpeg(sheet, path, 300)
+    for p_ in shots:
+        os.remove(p_)
+
+
 def kit(path, samples=64, res=(1280, 720)):
     """Every part on a plain background in a flat side view, three groups: the optics and muzzle devices (top row), the grips and
     the laser (second row), the three magazines with their top rounds (right, standing). Labelled by position."""
@@ -216,3 +300,11 @@ if __name__ == "__main__":
     samples = int(os.environ.get("SAMPLES", "64"))
     if what == "kit":
         kit(os.path.join(out, "weapons_parts_kit.jpg"), samples)
+    elif what == "sights":
+        sights(os.path.join(out, "weapons_parts_sights.jpg"), samples)
+    elif what == "chopper":
+        assembly("chopper", ["scope_4x", "suppressor", "foregrip_vertical_wood"], os.path.join(out, "weapons_chopper_built.jpg"),
+                 (0.55, -0.85, 0.30), samples, (1280, 720), lens=60)
+    elif what == "nine":
+        assembly("nine", ["laser_module", "suppressor_pistol", "mag_ext_pistol"], os.path.join(out, "weapons_nine_built.jpg"),
+                 (0.35, -0.9, 0.25), samples, (1280, 720), lens=70)

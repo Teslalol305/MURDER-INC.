@@ -40,7 +40,7 @@ class PartSurf(TX.Surf2):
         m = self.pid == k
         return m & np.isin(self.id, ids) if ids else m
 
-    def anodised(self, sel, handling, base="1a1b1d", rough=0.44, bare="a3a7ad", edge_gain=1.0, octave=0):
+    def anodised(self, sel, handling, base="212225", rough=0.44, bare="a3a7ad", edge_gain=0.85, octave=0):
         """Hard-anodised aluminium: a dark dielectric oxide layer, bare bright aluminium (metallic 1) where the convex
         edges are rubbed; fine bead-blast grain in the normal map."""
         if not sel.any():
@@ -51,7 +51,7 @@ class PartSurf(TX.Surf2):
         mic = N.fbm(p, 600.0, 2, octave0=123 + octave)
         col = np.asarray(lin(base), np.float32)[None, :] * (1.0 + 0.10 * mac[:, None] + 0.05 * mic[:, None])
         col = col * (1.0 + 0.30 * rub[:, None])
-        wb = tp.smooth(w, 0.42, 0.58)                          # binary: oxide or bare metal
+        wb = tp.smooth(w, 0.62, 0.80)                          # binary: oxide or bare metal (a worn edge, not a bare face)
         bc = np.asarray(lin(bare), np.float32)[None, :] * (1.0 + 0.06 * mic[:, None])
         self.bc[sel] = col + (bc - col) * wb[:, None]
         r = rough + 0.04 * mac + 0.03 * mic - 0.10 * rub
@@ -105,7 +105,7 @@ def heat(S, sel, x0, x1, along=0, strength=1.0):
 
 def hand_map(S, spots):
     """0..1 handling per texel: spots = [(part, (x, y, z) mm, radius mm, weight)] in each part's frame."""
-    out = np.full(len(S.p), 0.22, np.float32)
+    out = np.full(len(S.p), 0.16, np.float32)
     for k, c, r, w in spots:
         m = S.pid == k
         if not m.any():
@@ -135,14 +135,14 @@ def paint_parts(Gm, offsets=None, **kw):
     # ------------------------------------------------------------------ black anodised aluminium (the optics' bodies, clamps)
     S.anodised(S.sel(G.AL), hand)
     # ------------------------------------------------------------------ dark steel: screws, knurled caps and knobs
-    S.steel(S.sel(G.STEELD), lin("202225"), 0.40, hand, lin("b9bcc2"), worn_rough=0.22, edge_gain=1.2, brushed=None)
+    S.steel(S.sel(G.STEELD), lin("2a2c30"), 0.42, hand, lin("b9bcc2"), worn_rough=0.24, edge_gain=1.0, brushed=None)
     # ------------------------------------------------------------------ blued / nitrided steel: the compensator, saddles
     S.steel(S.sel(G.STEELB), lin("23262b"), 0.46, hand, lin("aeb2b8"), worn_rough=0.24, thin_shift=(lin("3a3f4a"), 0.45))
     # ------------------------------------------------------------------ brushed stainless: the pistol suppressor
     S.brushed_stainless(S.sel(G.STAIN), lin("aeb1b6"), hand, np.clip(S.convex * 1.2 + 0.3 * hand, 0, 1))
     # ------------------------------------------------------------------ heat on the suppressors: front 80 / 60 mm
     su = S.of(SU, G.STEELD)
-    S.steel(su, lin("2c2e32"), 0.46, hand, lin("b9bcc2"), worn_rough=0.26, thin_shift=(lin("3d4048"), 0.3))
+    S.steel(su, lin("3a3d41"), 0.50, hand, lin("b9bcc2"), worn_rough=0.28, thin_shift=(lin("4a4e55"), 0.3))
     heat(S, su, (210 - 85) * 1e-3, 210 * 1e-3 - 0.003)
     sp = S.of(SP, G.STAIN)
     heat(S, sp, (155 - 65) * 1e-3, 155 * 1e-3 - 0.003, strength=0.95)
