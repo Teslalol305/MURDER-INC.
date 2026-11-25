@@ -5,6 +5,7 @@
 #include "Audio/MIAudioData.h"
 #include "Audio/MIAudioDirector.h"
 #include "Audio/MIAudioEventLog.h"
+#include "Audio/MIAudioSubsystem.h"
 #include "Audio/MIOfflineMix.h"
 #include "Audio/MIVoiceRules.h"
 #include "Audio/MIVoiceTriggers.h"
@@ -19,8 +20,11 @@
 #include "Misc/Paths.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
+#include "Components/AudioComponent.h"
+#include "Sound/AudioSettings.h"
 #include "Sound/SoundWave.h"
 #include "Misc/PackageName.h"
+#include "UObject/StrongObjectPtr.h"
 
 #if WITH_AUTOMATION_TESTS
 
@@ -1333,6 +1337,445 @@ bool FMIAudioEveryGunSoundsTest::RunTest(const FString& Parameters)
 	}
 	TestTrue(TEXT("nothing asked for is an id the data does not have:") + Unknown, A.Unknown().Num() == 0);
 	A.Unbind();
+	return true;
+}
+
+// ------------------------------------------------------------------------------------------------------------------
+// The review of version 3b (docs/unreal/sound_review_3b.json): the voices the music keeps, the guns' priority with and
+// without a silencer, the plays a sound may have at once, the Goons' steps, and the audio settings.
+
+namespace MIAudioVoiceLimitsPrivate
+{
+	/** The voices of a list of commands that sound at a time: started, not run out by their length, not stopped. */
+	struct FSounding
+	{
+		TArray<FMIAudioCmd> Starts;
+		TMap<int32, double> StopAt;
+
+		explicit FSounding(const TArray<FMIAudioCmd>& Cmds)
+		{
+			for (const FMIAudioCmd& C : Cmds)
+			{
+				if (C.Type == EMIAudioCmd::Start)
+				{
+					Starts.Add(C);
+				}
+				else if (C.Type == EMIAudioCmd::Stop)
+				{
+					StopAt.Add(C.Id, C.Time);
+				}
+			}
+		}
+
+		/** The voices of one sound (NAME_None: every one-shot) at time T. */
+		int32 At(double T, FName Sound = NAME_None) const
+		{
+			int32 N = 0;
+			for (const FMIAudioCmd& C : Starts)
+			{
+				if (C.Time > T || (Sound.IsNone() ? C.bLoop : C.Sound != Sound))
+				{
+					continue;
+				}
+				double End = C.bLoop ? 1e18 : C.Time + C.Secs / FMath::Max(0.25, C.Pitch);
+				if (const double* S = StopAt.Find(C.Id))
+				{
+					End = FMath::Min(End, *S);
+				}
+				N += End > T ? 1 : 0;
+			}
+			return N;
+		}
+	};
+
+	static const TCHAR* const StemNames[] = {TEXT("stem_drums"), TEXT("stem_hats"), TEXT("stem_bass"), TEXT("stem_keys"), TEXT("stem_strings"), TEXT("stem_bell"), TEXT("stem_crackle")};
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioVoicePolicyTest, "MurderInc.Audio.VoicePolicy", Flags)
+bool FMIAudioVoicePolicyTest::RunTest(const FString& Parameters)
+{
+	// What the engine is told about every voice: the player's guns, silenced or not, rank above every other sound and are
+	// never given up; the music's seven stems and the street's beds keep their voice and their place in time even at no
+	// volume (without it the engine stopped the quietest voices past its channel limit, and a stem that came back
+	// started from the top of its loop: the review of version 3b). The command is what the director decides; the
+	// component and the wave are made up here, so the test needs no audio device.
+	using namespace MIAudioVoiceLimitsPrivate;
+	FMIAudioData D;
+	FMIVoiceData V;
+	FString Error;
+	TSharedPtr<FJsonObject> Guns;
+	if (!FMIAudioData::Load(D, Error) || !FMIVoiceData::Load(V, Error) || !UMIDataSubsystem::LoadJsonFile(TEXT("guns.json"), Guns, Error))
+	{
+		AddError(Error);
+		return false;
+	}
+
+	// In the data: every sound of the gun category ranks at least as high as the highest sound outside it.
+	double GunLowest = 1e9, OtherHighest = 0.0;
+	FName OtherName, GunName;
+	for (const auto& Pair : D.Sounds)
+	{
+		const FMISoundDef& S = Pair.Value;
+		const FMIAudioCategory* Cat = D.Categories.Find(S.Category);
+		const double Rank = FMath::Clamp(S.Priority * (Cat ? Cat->Priority : 1.0), 0.0, 100.0);
+		if (S.Category == TEXT("gun"))
+		{
+			if (Rank < GunLowest)
+			{
+				GunLowest = Rank;
+				GunName = S.Name;
+			}
+		}
+		else if (Rank > OtherHighest)
+		{
+			OtherHighest = Rank;
+			OtherName = S.Name;
+		}
+	}
+	TestTrue(FString::Printf(TEXT("every gun sound ranks at least as high as any other (lowest gun %s %.0f, highest other %s %.0f)"), *GunName.ToString(), GunLowest, *OtherName.ToString(), OtherHighest),
+		GunLowest >= OtherHighest);
+	const FMIAudioCategory* Gun = D.Categories.Find(TEXT("gun"));
+	const FMIAudioCategory* Tail = D.Categories.Find(TEXT("tail"));
+	TestTrue(TEXT("the gun category is always-play"), Gun && Gun->bAlwaysPlay);
+	TestTrue(TEXT("the tails rank above the other effects"), Tail && Tail->Priority > 1.0);
+	for (const TCHAR* Name : {TEXT("music"), TEXT("ambience")})
+	{
+		const FMIAudioCategory* C = D.Categories.Find(Name);
+		TestTrue(FString::Printf(TEXT("%s keeps its loops"), Name), C && C->bKeepLoops);
+	}
+
+	FMIAudioDirector A;
+	A.Exists = [](const FString&) { return true; };
+	A.Init(&D, &V, 11);
+	FMIGameEvents Bus;
+	A.Bind(Bus);
+	A.SetListener(FVector(1000, 1200, 170), FVector::ForwardVector);
+	TArray<FMIAudioCmd> Cmds;
+	auto Step = [&A, &Cmds](double Secs)
+	{
+		for (double T = 0; T < Secs - 1e-9; T += 0.01)
+		{
+			A.Tick(0.01);
+			A.TakeCommands(Cmds);
+		}
+	};
+	Bus.Flow.Broadcast(Flow(TEXT("game:state"), TEXT("playing")));
+	Step(1.0);
+
+	// The stems and the beds.
+	TMap<FName, FMIAudioCmd> Keep;
+	for (const FMIAudioCmd& C : Cmds)
+	{
+		if (C.Type == EMIAudioCmd::Start && C.bLoop && (C.Category == TEXT("music") || C.Category == TEXT("ambience")))
+		{
+			TestTrue(FString::Printf(TEXT("%s: a loop of the music or the street keeps its voice (play-when-silent) and ranks above everything"), *C.Sound.ToString()), C.bKeepVoice && C.bAlwaysPlay);
+			Keep.Add(C.Sound, C);
+		}
+	}
+	for (const TCHAR* Stem : StemNames)
+	{
+		TestTrue(FString::Printf(TEXT("%s is started, as a loop that keeps its voice"), Stem), Keep.Contains(FName(Stem)));
+	}
+
+	// The guns, every one of the roster, with and without a silencer.
+	const TArray<TSharedPtr<FJsonValue>>* Roster = nullptr;
+	if (!Guns->TryGetArrayField(TEXT("roster"), Roster) || Roster->Num() < 2)
+	{
+		AddError(TEXT("guns.json has no roster"));
+		return false;
+	}
+	double ShotRank = 0.0, TailRank = 0.0;
+	for (const TSharedPtr<FJsonValue>& G : *Roster)
+	{
+		for (const bool bSup : {false, true})
+		{
+			Cmds.Reset();
+			FMIShotFiredEvent Shot;
+			Shot.Weapon = FName(*G->AsString());
+			Shot.bSuppressed = bSup;
+			Bus.WeaponFire.Broadcast(Shot);
+			Step(0.3);
+			int32 Shots = 0, Tails = 0;
+			for (const FMIAudioCmd& C : Cmds)
+			{
+				if (C.Type != EMIAudioCmd::Start)
+				{
+					continue;
+				}
+				if (C.Category == TEXT("gun"))
+				{
+					++Shots;
+					ShotRank = C.VoicePriority;
+					TestTrue(FString::Printf(TEXT("%s%s: %s is always-play"), *G->AsString(), bSup ? TEXT(" with a silencer") : TEXT(""), *C.Sound.ToString()), C.bAlwaysPlay);
+					TestEqual(FString::Printf(TEXT("%s%s: %s ranks 100"), *G->AsString(), bSup ? TEXT(" with a silencer") : TEXT(""), *C.Sound.ToString()), C.VoicePriority, 100.0);
+					TestTrue(FString::Printf(TEXT("%s%s: a gun voice is not a loop that keeps time"), *G->AsString(), bSup ? TEXT(" with a silencer") : TEXT("")), !C.bKeepVoice);
+				}
+				else if (C.Category == TEXT("tail"))
+				{
+					++Tails;
+					TailRank = C.VoicePriority;
+				}
+			}
+			TestTrue(FString::Printf(TEXT("%s%s: its shot is heard (%d voices)"), *G->AsString(), bSup ? TEXT(" with a silencer") : TEXT(""), Shots), Shots >= 1);
+			TestTrue(FString::Printf(TEXT("%s%s: its tail is heard"), *G->AsString(), bSup ? TEXT(" with a silencer") : TEXT("")), Tails >= 1);
+			Step(1.0);
+		}
+	}
+	// A footstep ranks lowest of the lot, a tail between.
+	Cmds.Reset();
+	FMIPlayerStepEvent St;
+	St.Surface = TEXT("asphalt");
+	Bus.PlayerStep.Broadcast(St);
+	Step(0.1);
+	double StepRank = 1e9;
+	for (const FMIAudioCmd& C : Cmds)
+	{
+		if (C.Type == EMIAudioCmd::Start && C.Sound.ToString().StartsWith(TEXT("step_")))
+		{
+			StepRank = C.VoicePriority;
+			TestTrue(TEXT("the player's step is not always-play"), !C.bAlwaysPlay);
+		}
+	}
+	TestTrue(FString::Printf(TEXT("a shot (%.0f) ranks above its tail (%.0f), which ranks above a step (%.0f)"), ShotRank, TailRank, StepRank), ShotRank > TailRank && TailRank > StepRank);
+
+	// The host: the component and the wave get what the command says.
+	TStrongObjectPtr<UAudioComponent> Comp(NewObject<UAudioComponent>(GetTransientPackage()));
+	TStrongObjectPtr<USoundWave> Wave(NewObject<USoundWave>(GetTransientPackage()));
+	for (const TCHAR* Stem : StemNames)
+	{
+		const FMIAudioCmd* C = Keep.Find(FName(Stem));
+		if (!C)
+		{
+			continue;
+		}
+		Comp->bAlwaysPlay = false;
+		Comp->bOverridePriority = false;
+		Wave->VirtualizationMode = EVirtualizationMode::Restart;
+		UMIAudioSubsystem::ApplyVoicePolicy(*Comp, *Wave, *C);
+		TestTrue(FString::Printf(TEXT("%s: its Sound Wave plays when silent"), Stem), Wave->VirtualizationMode == EVirtualizationMode::PlayWhenSilent);
+		TestTrue(FString::Printf(TEXT("%s: its component is always-play with an own priority"), Stem), Comp->bAlwaysPlay && Comp->bOverridePriority);
+	}
+	FMIAudioCmd GunCmd;
+	GunCmd.VoicePriority = 100.0;
+	GunCmd.bAlwaysPlay = true;
+	Wave->VirtualizationMode = EVirtualizationMode::Restart;
+	UMIAudioSubsystem::ApplyVoicePolicy(*Comp, *Wave, GunCmd);
+	TestTrue(TEXT("a gun's wave keeps the engine's default virtualization"), Wave->VirtualizationMode == EVirtualizationMode::Restart);
+	TestTrue(TEXT("a gun's component ranks 100 and is always-play"), Comp->bOverridePriority && Comp->bAlwaysPlay && FMath::IsNearlyEqual(Comp->Priority, 100.f));
+	FMIAudioCmd StepCmd;
+	StepCmd.VoicePriority = 3.0;
+	UMIAudioSubsystem::ApplyVoicePolicy(*Comp, *Wave, StepCmd);
+	TestTrue(TEXT("a step's component ranks 3 and is not always-play"), Comp->bOverridePriority && !Comp->bAlwaysPlay && FMath::IsNearlyEqual(Comp->Priority, 3.f));
+	A.Unbind();
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioVoiceLimitsTest, "MurderInc.Audio.VoiceLimits", Flags)
+bool FMIAudioVoiceLimitsTest::RunTest(const FString& Parameters)
+{
+	// A magazine fired empty (30 rounds at the CHOPPER's pace) in a run with the music up: the music's seven stems are
+	// started once and never stopped or started again (each one coming back from the top of its loop was the fault of
+	// version 3b), a sound's "voices" limit counts plays (the web sound and its layers together) and stops every voice of
+	// the oldest, so the sounds of a burst stay bounded.
+	using namespace MIAudioVoiceLimitsPrivate;
+	FMIAudioData D;
+	FMIVoiceData V;
+	FString Error;
+	if (!FMIAudioData::Load(D, Error) || !FMIVoiceData::Load(V, Error))
+	{
+		AddError(Error);
+		return false;
+	}
+	FMIAudioDirector A;
+	A.Exists = [](const FString&) { return true; };
+	A.Init(&D, &V, 13);
+	FMIGameEvents Bus;
+	A.Bind(Bus);
+	A.SetListener(FVector(1000, 1200, 170), FVector::ForwardVector);
+	TArray<FMIAudioCmd> Cmds;
+	auto Step = [&A, &Cmds](double Secs)
+	{
+		for (double T = 0; T < Secs - 1e-9; T += 0.01)
+		{
+			A.Tick(0.01);
+			A.TakeCommands(Cmds);
+		}
+	};
+	Bus.Flow.Broadcast(Flow(TEXT("game:state"), TEXT("playing")));
+	Step(1.0);
+	const double From = A.Now();
+	FMIShotFiredEvent Shot;
+	Shot.Weapon = TEXT("chopper");
+	for (int32 I = 0; I < 30; ++I)
+	{
+		Shot.MagLeft = 30 - I;
+		Bus.WeaponFire.Broadcast(Shot);
+		Step(0.106);
+	}
+	Step(3.0);
+	const double To = A.Now();
+
+	TSet<int32> StemIds;
+	int32 StemStarts = 0;
+	for (const FMIAudioCmd& C : Cmds)
+	{
+		if (C.Type == EMIAudioCmd::Start && C.Category == TEXT("music") && C.bLoop)
+		{
+			StemIds.Add(C.Id);
+			++StemStarts;
+		}
+	}
+	TestEqual(TEXT("the seven stems are started once each"), StemStarts, 7);
+	int32 StemStops = 0;
+	for (const FMIAudioCmd& C : Cmds)
+	{
+		StemStops += C.Type == EMIAudioCmd::Stop && StemIds.Contains(C.Id) ? 1 : 0;
+	}
+	TestEqual(TEXT("and none of them is stopped (or restarted) by a magazine dump"), StemStops, 0);
+
+	int32 MostShots = 0, MostTails = 0, MostAll = 0;
+	const FSounding Sounding(Cmds);
+	for (double T = From; T < To; T += 0.02)
+	{
+		MostShots = FMath::Max(MostShots, Sounding.At(T, TEXT("chopper_shot")));
+		MostTails = FMath::Max(MostTails, Sounding.At(T, TEXT("chopper_tail_out")));
+		MostAll = FMath::Max(MostAll, Sounding.At(T));
+	}
+	const FMISoundDef* ShotDef = D.Find(TEXT("chopper_shot"));
+	const FMISoundDef* TailDef = D.Find(TEXT("chopper_tail_out"));
+	TestTrue(TEXT("the data has the two limits"), ShotDef && TailDef && ShotDef->Max > 0 && TailDef->Max > 0);
+	// A play is the web sound and its layers: the shot's three voices (web, close, mech), the tail's two (web, distant).
+	TestTrue(FString::Printf(TEXT("a burst never has more shot voices than %d plays of three (%d at most)"), ShotDef ? ShotDef->Max : 0, MostShots), ShotDef && MostShots <= ShotDef->Max * 3);
+	TestTrue(FString::Printf(TEXT("and never more tail voices than %d plays of two (%d at most)"), TailDef ? TailDef->Max : 0, MostTails), TailDef && MostTails <= TailDef->Max * 2);
+	AddInfo(FString::Printf(TEXT("30 rounds: at most %d shot voices, %d tail voices, %d one-shot voices of every kind at once (version 3b: 72 in its demo's magazine dump)"), MostShots, MostTails, MostAll));
+	A.Unbind();
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioGoonStepsTest, "MurderInc.Audio.GoonSteps", Flags)
+bool FMIAudioGoonStepsTest::RunTest(const FString& Parameters)
+{
+	// A Goon that runs within 45 m is heard where he is, with the web game's distance (world bus, 3 m, roll-off 1.2:
+	// 0.13 of the level at 20 m, 0.06 at 40 m), and quieter than the player's own steps. Version 3b played them as the
+	// near sound they are: 2D, in the player's head, at the level of his own, whatever the distance.
+	FMIAudioData D;
+	FMIVoiceData V;
+	FString Error;
+	if (!FMIAudioData::Load(D, Error) || !FMIVoiceData::Load(V, Error))
+	{
+		AddError(Error);
+		return false;
+	}
+	FMIAudioDirector A;
+	A.Exists = [](const FString&) { return true; };
+	A.Init(&D, &V, 17);
+	FMIGameEvents Bus;
+	A.Bind(Bus);
+	A.SetListener(FVector(0, 0, 170), FVector::ForwardVector);
+	TArray<FMIAudioCmd> Cmds;
+	Bus.Flow.Broadcast(Flow(TEXT("game:state"), TEXT("playing")));
+	for (int32 I = 0; I < 50; ++I)
+	{
+		A.Tick(0.01);
+	}
+	A.TakeCommands(Cmds);
+	Cmds.Reset();
+
+	// A Goon runs towards the player along the avenue: 5 m/s from 30 m, then another one 60 m away, out of the radius.
+	FVector Pos(3000, 0, 90), Far(8000, 0, 90);
+	double AtTwenty = -1.0;
+	for (int32 I = 0; I < 200; ++I)
+	{
+		Pos.X -= 5.0;
+		Far.X -= 5.0;
+		A.SetEnemy(7, false, Pos, true);
+		A.SetEnemy(8, false, Far, true);
+		A.Tick(0.01);
+		TArray<FMIAudioCmd> Now;
+		A.TakeCommands(Now);
+		for (const FMIAudioCmd& C : Now)
+		{
+			if (C.Type != EMIAudioCmd::Start || !C.Sound.ToString().StartsWith(TEXT("step_")))
+			{
+				continue;
+			}
+			Cmds.Add(C);
+			if (AtTwenty < 0.0 && Pos.X <= 2000.0)
+			{
+				AtTwenty = FMIAudioData::DistanceGain(FVector::Dist(C.Pos, FVector(0, 0, 170)) / 100.0, C.Ref / 100.0, C.Roll);
+			}
+		}
+	}
+	TestTrue(FString::Printf(TEXT("a Goon running for two seconds makes steps (%d)"), Cmds.Num()), Cmds.Num() >= 5);
+	for (const FMIAudioCmd& C : Cmds)
+	{
+		TestTrue(TEXT("a Goon's step is a 3D sound"), C.b3D);
+		TestEqual(TEXT("in the world category (the web game's world bus)"), C.Category.ToString(), FString(TEXT("world")));
+		TestTrue(TEXT("at the Goon's place, not far from the avenue's line"), FMath::Abs(C.Pos.Y) < 1.0 && C.Pos.X > 1900.0 && C.Pos.X < 3100.0);
+		TestTrue(TEXT("with the web game's reference distance and roll-off (3 m, 1.2)"), FMath::IsNearlyEqual(C.Ref, 300.0) && FMath::IsNearlyEqual(C.Roll, 1.2));
+		TestEqual(TEXT("with the priority the web game gives it (2)"), C.Priority, 2);
+		TestTrue(TEXT("and never always-play"), !C.bAlwaysPlay && !C.bKeepVoice);
+	}
+	// The distance law: 0.13 of the level at 20 m, 0.06 at 40 m (the web game's panner), the figures of the review.
+	TestTrue(FString::Printf(TEXT("at 20 m a step is at %.3f of its level (0.128)"), AtTwenty), FMath::Abs(AtTwenty - 0.128) < 0.01);
+	TestTrue(TEXT("at 40 m at 0.063"), FMath::Abs(FMIAudioData::DistanceGain(40.0, 3.0, 1.2) - 0.0633) < 0.002);
+	TestTrue(TEXT("at 5 m at 0.56"), FMath::Abs(FMIAudioData::DistanceGain(5.0, 3.0, 1.2) - 0.556) < 0.01);
+	// Out of the radius there are no steps: the Goon at 60 m made none (every step above was within the first one's reach).
+	for (const FMIAudioCmd& C : Cmds)
+	{
+		TestTrue(TEXT("a Goon 60 m away makes no step"), C.Pos.X < 3500.0);
+	}
+
+	// The player's own steps stay 2D, near, at their own level; a Goon at 20 m is under a fifth of them.
+	Cmds.Reset();
+	FMIPlayerStepEvent St;
+	St.Surface = TEXT("asphalt");
+	St.bSprint = true;
+	Bus.PlayerStep.Broadcast(St);
+	A.Tick(0.01);
+	A.TakeCommands(Cmds);
+	double Own = 0.0;
+	for (const FMIAudioCmd& C : Cmds)
+	{
+		if (C.Type == EMIAudioCmd::Start && C.Sound.ToString().StartsWith(TEXT("step_")))
+		{
+			Own = C.Volume;
+			TestTrue(TEXT("the player's own step is 2D"), !C.b3D);
+			TestEqual(TEXT("in the near category"), C.Category.ToString(), FString(TEXT("near")));
+		}
+	}
+	TestTrue(TEXT("the player's step is heard"), Own > 0.0);
+	TestTrue(FString::Printf(TEXT("a Goon at 20 m (0.75 x %.3f) is under a fifth of the player's own step (%.3f)"), AtTwenty, Own), 0.75 * AtTwenty * 1.0 < 0.2 * Own);
+	A.Unbind();
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioSettingsTest, "MurderInc.Audio.Settings", Flags)
+bool FMIAudioSettingsTest::RunTest(const FString& Parameters)
+{
+	// The engine's audio settings the project sets in Config/DefaultEngine.ini: room for every voice the web game's pools
+	// add up to (89), the quality level the device runs at (the first) at that number, mono 2D sounds whole in both ears
+	// and equal-power panning, as the web game plays them.
+	FMIAudioData D;
+	FString Error;
+	if (!FMIAudioData::Load(D, Error))
+	{
+		AddError(Error);
+		return false;
+	}
+	int32 Pools = 0;
+	for (const auto& Pair : D.Categories)
+	{
+		Pools += Pair.Value.Voices;
+	}
+	const UAudioSettings* S = GetDefault<UAudioSettings>();
+	TestEqual(TEXT("one quality level (a second one in front of it would set the limit the device runs at)"), S->GetQualityLevelSettingsNum(), 1);
+	const int32 Channels = S->GetQualityLevelSettings(0).MaxChannels;
+	TestTrue(FString::Printf(TEXT("the channels (%d) are above the web game's pools (%d)"), Channels, Pools), Channels > Pools);
+	TestEqual(TEXT("the highest quality level is the one the device runs at"), S->GetHighestMaxChannels(), Channels);
+	TestTrue(TEXT("mono 2D sounds are played whole in both ears (FullVolume)"), S->MonoChannelUpmixMethod == EMonoChannelUpmixMethod::FullVolume);
+	TestTrue(TEXT("3D sounds are panned with equal power"), S->PanningMethod == EPanningMethod::EqualPower);
+	AddInfo(FString::Printf(TEXT("%d channels for %d pooled voices"), Channels, Pools));
 	return true;
 }
 

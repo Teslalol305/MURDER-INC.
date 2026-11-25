@@ -67,6 +67,25 @@ public:
 	/** A sound the game asked for cannot be heard (no asset, or an id the data does not have): once per sound. */
 	static void NoteMissing(const FString& What, const FString& Why);
 
+	/**
+	 * How the engine ranks and keeps the voice a Start command makes: its priority (past its channel limit the engine
+	 * keeps the highest loudness x priority), always-play for the player's guns and for the loops that keep time,
+	 * play-when-silent for those loops. Static and device-free, so a test can check a component and a wave it makes up
+	 * itself (MurderInc.Audio.VoicePolicy).
+	 */
+	static void ApplyVoicePolicy(UAudioComponent& Component, USoundWave& Wave, const FMIAudioCmd& C);
+
+	/**
+	 * The audio device's clock against the wall clock since this was last called: seconds of sound rendered per second
+	 * that went by. The dummy device a server gives the game (no sound card) waits whole milliseconds for every buffer
+	 * of 21.33 ms: a little fast on a free machine, slower when the machine is busy, and below 1.0 the stream's sound
+	 * has holes. Negative when there is no device or this is the first call. The stream's probe line carries it
+	 * (sndPace, and sndClock: the clock itself, so a longer stretch can be worked out from two lines), so the log of one
+	 * E3DS session says which side that machine is on. The clock moves in steps of one buffer (21.33 ms): over a
+	 * second the pace is good to 2 %, over half a minute to 0.1 %.
+	 */
+	static double TakeDevicePace(double* OutClock = nullptr);
+
 	/** Start or stop recording the bus to a file under Saved/Audio (console: MIAudio.Record start|stop [name]). */
 	void StartRecording();
 	bool StopRecording(const FString& Name, FString& OutPath);

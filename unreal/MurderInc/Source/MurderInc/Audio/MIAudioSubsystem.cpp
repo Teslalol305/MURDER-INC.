@@ -1,6 +1,7 @@
 #include "Audio/MIAudioSubsystem.h"
 
 #include "Audio/MIAudioMaster.h"
+#include "AudioDevice.h"
 #include "Sound/SoundEffectSubmix.h"
 
 #include "Camera/PlayerCameraManager.h"
@@ -122,6 +123,34 @@ namespace MIAudioHostPrivate
 UMIAudioSubsystem::FCounts UMIAudioSubsystem::GetCounts()
 {
 	return MIAudioHostPrivate::GCounts;
+}
+
+double UMIAudioSubsystem::TakeDevicePace(double* OutClock)
+{
+	static double LastWall = -1.0, LastClock = -1.0;
+	const FAudioDevice* Device = GEngine ? GEngine->GetMainAudioDeviceRaw() : nullptr;
+	if (OutClock)
+	{
+		*OutClock = -1.0;
+	}
+	if (!Device)
+	{
+		LastWall = LastClock = -1.0;
+		return -1.0;
+	}
+	const double Wall = FPlatformTime::Seconds(), Clock = Device->GetAudioClock();
+	if (OutClock)
+	{
+		*OutClock = Clock;
+	}
+	double Pace = -1.0;
+	if (LastWall >= 0.0 && Wall - LastWall > 0.05 && Clock >= LastClock)
+	{
+		Pace = (Clock - LastClock) / (Wall - LastWall);
+	}
+	LastWall = Wall;
+	LastClock = Clock;
+	return Pace;
 }
 
 void UMIAudioSubsystem::NoteMissing(const FString& What, const FString& Why)
@@ -284,11 +313,24 @@ void UMIAudioSubsystem::Preload()
 			}
 		}
 	}
+	Files.Add(TEXT("Gen/bleep_1k.wav"));  // the bleep of clean language mode "bleep": started by the director, named in no table
 	int32 Ready = 0;
 	for (const FString& F : Files)
 	{
 		if (USoundWave* W = Wave(F))
 		{
+			// A wave that loads but holds no audio (its encode failed in the cook, which runs with -IgnoreCookErrors) is
+			// as silent as a missing one, and the pak list cannot tell: count it as missing, so the probe line's
+			// sndMissing shows it in a Shipping game too.
+			bool bEmpty = W->Duration <= 0.01f || W->NumChannels < 1;
+#if !WITH_EDITOR
+			bEmpty = bEmpty || W->GetNumChunks() == 0;
+#endif
+			if (bEmpty)
+			{
+				NoteMissing(F, FString::Printf(TEXT("its Sound Wave holds no audio (%.3f s, %d channels): the cook could not encode it"), W->Duration, W->NumChannels));
+				continue;
+			}
 			W->RetainCompressedAudio(false);  // its audio is read from the pak now (in the background) and stays in memory
 			++Ready;
 		}
@@ -369,6 +411,28 @@ const FSoundAttenuationSettings& UMIAudioSubsystem::Attenuation(FName Category, 
 	return Attenuations.Add(Key, S);
 }
 
+void UMIAudioSubsystem::ApplyVoicePolicy(UAudioComponent& A, USoundWave& W, const FMIAudioCmd& C)
+{
+	// The engine has a channel limit (audio settings, quality level: MaxChannels). Past it, it sorts every voice by
+	// loudness x priority, keeps the highest and stops the rest, and a stopped loop that comes back starts from its
+	// first sample. A component's own Priority counts only with bOverridePriority; left alone every voice has the
+	// default 1.0 and the quietest go first: in a magazine dump the music's stems (ducked to 0.02 to 0.13) lost their
+	// voices and each came back from the top of its loop at its own moment, the bass 0.2 s and the hats 0.3 s
+	// behind the drums for the rest of the session (the review of version 3b, docs/unreal/sound_review_3b.json).
+	A.bOverridePriority = true;
+	A.Priority = (float)FMath::Clamp(C.VoicePriority, 0.0, 100.0);
+	// The player's guns (silenced or not) are never the voices the engine gives up; the loops that keep time are not
+	// either: always play ranks above everything that is ranked by loudness.
+	A.bAlwaysPlay = C.bAlwaysPlay;
+	if (C.bKeepVoice)
+	{
+		// A loop at no volume is a sound that is "not playing" to the engine, which virtualises it and later restarts it
+		// from its first sample (the strings and the bell are at 0 until a fight lifts them, and came in off the beat).
+		// Play-when-silent keeps its voice and its place in time.
+		W.VirtualizationMode = EVirtualizationMode::PlayWhenSilent;
+	}
+}
+
 void UMIAudioSubsystem::Execute(const FMIAudioCmd& C)
 {
 	UWorld* World = GetWorld();
@@ -391,6 +455,7 @@ void UMIAudioSubsystem::Execute(const FMIAudioCmd& C)
 		}
 		const FMIAudioCategory* Cat = Data.Categories.Find(C.Category);
 		A->bIsUISound = Cat && Cat->bUI;
+		ApplyVoicePolicy(*A, *W, C);
 		if (C.b3D)
 		{
 			A->bAllowSpatialization = true;

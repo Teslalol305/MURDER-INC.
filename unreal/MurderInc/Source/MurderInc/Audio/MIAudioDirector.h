@@ -48,7 +48,15 @@ struct FMIAudioCmd
 	double Ref = 300.0;     // cm
 	double Roll = 1.0;
 	bool bLoop = false;
-	int32 Priority = 5;
+	int32 Priority = 5;     // the sound's own priority (audio_sounds.json prio, 1 to 10)
+	/**
+	 * What the engine ranks this voice by when it has more of them than channels (it keeps the highest loudness x this):
+	 * Priority times the category's scale (audio.json categories.<c>.priority), 0 to 100. The player's guns, with or
+	 * without a silencer, carry the highest; a footstep the lowest.
+	 */
+	double VoicePriority = 5.0;
+	bool bAlwaysPlay = false;   // keeps its voice whatever it competes with and however quiet it is (the player's guns)
+	bool bKeepVoice = false;    // a loop that keeps its voice and its place in time at no volume (the music's stems, the beds)
 	double Secs = 0.0;      // the file's length (as data says)
 	double Fade = 0.0;      // Stop: fade-out seconds
 	FString Subtitle;       // voice lines
@@ -184,6 +192,7 @@ private:
 		double End = 0.0;
 		int32 Priority = 5;
 		FName Category;
+		int32 PlayId = 0;   // the Play() this voice belongs to: a play is the web sound and its replacement layers together
 	};
 	struct FDuck
 	{
@@ -201,6 +210,11 @@ private:
 		FVector Pos = FVector::ZeroVector;
 		bool bLoop = false;
 		bool bNoJitter = false;
+		/** A category and a distance law of this play's own, where the sound's are not what the web game plays it with (a Goon's step: the world bus, 3 m, 1.2). */
+		FName Category;
+		double Ref = -1.0;     // metres; <= 0: the sound's own
+		double Roll = -1.0;
+		int32 Priority = 0;    // <= 0: the sound's own
 	};
 
 	TSet<FName> UnknownEver;
@@ -238,6 +252,8 @@ private:
 	double Clock = 0.0;
 	double GameClock = 0.0;   // stops while paused (the voice and the ambience schedule run on it)
 	int32 NextId = 1;
+	int32 NextPlayId = 1;
+	int32 CurrentPlayId = 0;  // set while Play() starts the voices of one play
 	TArray<FMIAudioCmd> Pending;  // scheduled for later
 	TArray<FMIAudioCmd> Ready;
 	TMap<int32, FLive> Live;

@@ -259,15 +259,32 @@ int32 FMIAudioDirector::StartFile(const FMISoundDef& Def, const FString& File, d
 	C.Time = Clock + Args.Delay;
 	C.Sound = Def.Name;
 	C.File = File;
-	C.Category = Def.Category;
+	// The sound's own category, unless this play names one (the web game plays a Goon's step, a "near" sound, on the
+	// world bus at the Goon's place: react.js, bus 'world', ref 3, roll 1.2). Only the world and the ambience are 3D.
+	C.Category = Args.Category.IsNone() ? Def.Category : Args.Category;
 	C.Volume = Volume;
 	C.Pitch = Pitch;
-	C.b3D = Args.b3D && (Def.Category == TEXT("world") || Def.Category == TEXT("ambience"));
+	C.b3D = Args.b3D && (C.Category == TEXT("world") || C.Category == TEXT("ambience"));
 	C.Pos = Args.Pos;
-	C.Ref = (Def.Ref > 0.0 ? Def.Ref : Data->DefaultRef) * 100.0;
-	C.Roll = Def.Ref > 0.0 ? Def.Roll : Data->DefaultRoll;
+	if (Args.Ref > 0.0)
+	{
+		C.Ref = Args.Ref * 100.0;
+		C.Roll = Args.Roll > 0.0 ? Args.Roll : Data->DefaultRoll;
+	}
+	else
+	{
+		C.Ref = (Def.Ref > 0.0 ? Def.Ref : Data->DefaultRef) * 100.0;
+		C.Roll = Def.Ref > 0.0 ? Def.Roll : Data->DefaultRoll;
+	}
 	C.bLoop = Args.bLoop || Def.bLoop;
-	C.Priority = Def.Priority;
+	C.Priority = Args.Priority > 0 ? Args.Priority : Def.Priority;
+	// What the engine ranks the voice by (audio.json categories.<c>.priority, alwaysPlay, keepLoops): the player's guns
+	// first, a silenced round as much as an open one, a footstep last; the music's stems and the street's beds hold
+	// their voices and their place in time.
+	const FMIAudioCategory* Cat = Data->Categories.Find(C.Category);
+	C.VoicePriority = FMath::Clamp((double)C.Priority * (Cat ? Cat->Priority : 1.0), 0.0, 100.0);
+	C.bAlwaysPlay = Cat && (Cat->bAlwaysPlay || (C.bLoop && Cat->bKeepLoops));
+	C.bKeepVoice = Cat && C.bLoop && Cat->bKeepLoops;
 	C.Secs = FileSecs ? FileSecs(File) : Secs;
 	if (C.Secs <= 0.0)
 	{
@@ -278,8 +295,9 @@ int32 FMIAudioDirector::StartFile(const FMISoundDef& Def, const FString& File, d
 	L.Sound = Def.Name;
 	L.Start = C.Time;
 	L.End = C.bLoop ? 1e18 : C.Time + C.Secs / FMath::Max(0.25, Pitch);
-	L.Priority = Def.Priority;
-	L.Category = Def.Category;
+	L.Priority = C.Priority;
+	L.Category = C.Category;
+	L.PlayId = CurrentPlayId > 0 ? CurrentPlayId : NextPlayId++;   // a start outside Play() (a voice line, the bleep) is a play of its own
 	Live.Add(C.Id, L);
 	++StartedCount;
 	return C.Id;
@@ -301,7 +319,7 @@ FMIAudioDirector::FInstance FMIAudioDirector::Play(FName Sound, const FPlayArgs&
 		return Inst;
 	}
 	const double T = Clock + Args.Delay;
-	const FMIAudioCategory* Cat = Data->Categories.Find(Def->Category);
+	const FMIAudioCategory* Cat = Data->Categories.Find(Args.Category.IsNone() ? Def->Category : Args.Category);
 
 	// Refusals (spec 07 3.18).
 	if (Mix.bPaused && Cat && Cat->bPausable && Args.Delay <= 0.0)
@@ -328,33 +346,62 @@ FMIAudioDirector::FInstance FMIAudioDirector::Play(FName Sound, const FPlayArgs&
 		++RefusedCount;
 		return Inst;
 	}
-	// Voices of this name at once: the oldest makes room.
+	// Plays of this name at once (spec 07 3.18, the web game's "voices" of a sound): when the limit is reached the
+	// oldest play makes room, every voice of it. A play is the web sound and the replacement layers that sound with
+	// it (up to three voices): the limit used to count voices and stop one of them per play, so a burst of rounds
+	// (three voices each) never reached it, and 72 one-shot voices were alive at once in a magazine dump.
 	if (Def->Max > 0)
 	{
-		int32 Count = 0;
-		int32 Oldest = 0;
-		double OldestStart = 1e18;
+		TMap<int32, double> PlayStarts;   // play id -> its first voice's start
 		for (const auto& Pair : Live)
 		{
 			if (Pair.Value.Sound == Sound && Pair.Value.End > T)
 			{
-				++Count;
-				if (Pair.Value.Start < OldestStart)
+				if (double* S = PlayStarts.Find(Pair.Value.PlayId))
 				{
-					OldestStart = Pair.Value.Start;
-					Oldest = Pair.Key;
+					*S = FMath::Min(*S, Pair.Value.Start);
+				}
+				else
+				{
+					PlayStarts.Add(Pair.Value.PlayId, Pair.Value.Start);
 				}
 			}
 		}
-		if (Count >= Def->Max && Oldest)
+		while (PlayStarts.Num() >= Def->Max)
 		{
+			int32 Oldest = 0;
+			double OldestStart = 1e18;
+			for (const auto& P : PlayStarts)
+			{
+				if (P.Value < OldestStart)
+				{
+					OldestStart = P.Value;
+					Oldest = P.Key;
+				}
+			}
 			FInstance Old;
-			Old.Ids.Add(Oldest);
-			Old.Base.Add(1.0);
+			for (const auto& Pair : Live)
+			{
+				if (Pair.Value.Sound == Sound && Pair.Value.PlayId == Oldest)
+				{
+					Old.Ids.Add(Pair.Key);
+					Old.Base.Add(1.0);
+				}
+			}
 			StopInstance(Old, 0.012, Args.Delay);
+			PlayStarts.Remove(Oldest);
 		}
 	}
 	LastStartOf.Add(Sound, T);
+
+	// Every voice started below belongs to this one play.
+	struct FPlayScope
+	{
+		int32& Slot;
+		int32 Saved;
+		FPlayScope(int32& InSlot, int32 Id) : Slot(InSlot), Saved(InSlot) { Slot = Id; }
+		~FPlayScope() { Slot = Saved; }
+	} PlayScope(CurrentPlayId, NextPlayId++);
 
 	const bool bLoop = Args.bLoop || Def->bLoop;
 	const double Jitter = (bLoop || Args.bNoJitter) ? 0.0 : Def->Jitter;
@@ -878,6 +925,13 @@ void FMIAudioDirector::UpdateLoops(double Dt)
 					A.Pos = T.Pos;
 					A.Volume = Num(GS, TEXT("vol"), 0.75);
 					A.Pitch = Num(GS, TEXT("pitch"), 0.88);
+					// The web game plays a Goon's step on the world bus at the Goon's place, 3 m reference and roll-off
+					// 1.2 (src/audio/react.js: 0.13 of the level at 20 m, 0.06 at 40 m). The sound itself is a "near"
+					// one, which is 2D: left alone, a crowd ran inside the player's head at the level of his own steps.
+					A.Category = FName(*Str(GS, TEXT("category"), TEXT("")));
+					A.Ref = Num(GS, TEXT("ref"), -1.0);
+					A.Roll = Num(GS, TEXT("roll"), -1.0);
+					A.Priority = (int32)Num(GS, TEXT("prio"), 0.0);
 					const FString Fam = Str(Surface(FName(Str(GS, TEXT("surface"), TEXT("asphalt")))), TEXT("steps"), TEXT("asphalt"));
 					Play(FName(FString::Printf(TEXT("step_%s_run"), *Fam)), A);
 				}
@@ -1004,8 +1058,15 @@ void FMIAudioDirector::UpdateMusic(double Dt)
 	const double Tau = MusicMode == TEXT("dead") ? Num(M, TEXT("deadGainTime"), 0.22) : Num(M, TEXT("gainTime"), 0.5);
 	for (int32 I = 0; I < Stems.Num() && I < 7; ++I)
 	{
-		const double Next = Ease(StemGain[I], G[I], Tau, Dt);
-		if (FMath::Abs(Next - StemGain[I]) > 0.002 || bStemsStarted == false)
+		double Next = Ease(StemGain[I], G[I], Tau, Dt);
+		// The easing never arrives, and a step under 0.002 is not sent: a stem that should be silent stayed at 3 to 6 %
+		// of its level (measured). Within 0.004 of its target a stem is there.
+		const bool bArrives = FMath::Abs(G[I] - Next) < 0.004;
+		if (bArrives)
+		{
+			Next = G[I];
+		}
+		if (bArrives ? Next != StemGain[I] : FMath::Abs(Next - StemGain[I]) > 0.002)
 		{
 			StemGain[I] = Next;
 			SetInstance(Stems[I], 0.9 * StemGain[I] * StemBus);

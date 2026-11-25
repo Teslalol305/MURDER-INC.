@@ -54,6 +54,15 @@ struct FMIAudioCategory
 	bool bUI = false;
 	double Reverb = 0.0;
 	int32 Voices = 8;
+	/**
+	 * The engine's rank for a voice of this category: a sound's own priority (audio_sounds.json prio, 1 to 10) times this.
+	 * Past its channel limit the engine keeps the voices with the highest loudness x priority and stops the rest.
+	 */
+	double Priority = 1.0;
+	/** Every voice of this category keeps its place whatever it competes with and however quiet it is (the player's guns). */
+	bool bAlwaysPlay = false;
+	/** A looping sound of this category keeps its voice and its place in time even at no volume (the music's stems, the street's beds). */
+	bool bKeepLoops = false;
 };
 
 struct FMIAudioZone
