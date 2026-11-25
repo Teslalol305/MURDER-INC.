@@ -53,6 +53,10 @@
 #   runas=ue4|fresh|root   who starts the launcher (e3ds-repro.sh RUNAS): fresh is a user with a new, empty home for
 #                     every run, as on a host that starts each session on a machine that never ran the game. Default
 #                     ue4, or $LAG_RUNAS.
+#   join=<seconds>    the Shipping game's viewer joins this long after the game's first probe line (about 8 s after
+#                     the start). Default 55, or $LAG_JOIN: the home screen has warmed up by then. join=3 is a player
+#                     who is there at once and reaches the run about 20 s after the game started: with runas=fresh
+#                     clean=1 that is the coldest start a host can give.
 #   clean=1           the build folder's Saved (settings, logs, shader and pipeline caches of earlier runs) is removed
 #                     before the run: a fresh copy of the zip, which is what a host unpacks for a session. Default 0,
 #                     or $LAG_CLEAN. The release gate on a package is run with both: unzip the zip as the user
@@ -103,7 +107,7 @@ hogs() {  # <n>[:<work ms>[:<idle ms>[:<size>]]] <pid file> <log prefix> | stop 
 run_fg() {
   local name=$1; shift
   local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= view2= cvars= csv= secs= probe=1 minbit=12000000 profile= cpus= decode=1 extra=()
-  local runas=${LAG_RUNAS:-ue4} clean=${LAG_CLEAN:-0}
+  local runas=${LAG_RUNAS:-ue4} clean=${LAG_CLEAN:-0} join=${LAG_JOIN:-55}
   while [ $# -gt 0 ]; do
     case "$1" in
       --) shift; extra=("$@"); break ;;
@@ -111,7 +115,7 @@ run_fg() {
       res=*) res=${1#*=} ;; view=*) view=${1#*=} ;; cvars=*) cvars=${1#*=} ;; csv=*) csv=${1#*=} ;;
       secs=*) secs=${1#*=} ;; probe=*) probe=${1#*=} ;; minbit=*) minbit=${1#*=} ;; profile=*) profile=${1#*=} ;;
       cpus=*) cpus=${1#*=} ;; decode=*) decode=${1#*=} ;; view2=*) view2=${1#*=} ;;
-      runas=*) runas=${1#*=} ;; clean=*) clean=${1#*=} ;;
+      runas=*) runas=${1#*=} ;; clean=*) clean=${1#*=} ;; join=*) join=${1#*=} ;;
       *) echo "unknown key $1"; return 2 ;;
     esac; shift
   done
@@ -140,8 +144,8 @@ run_fg() {
   [ -n "$secs" ] || { secs=110; [ "$game" = ship ] && secs=125; }
   local id=lag$(echo "$name" | tr -cd 'a-zA-Z0-9')
   rm -rf "$O"; mkdir -p "$O"; chmod 777 "$O"
-  printf 'name=%s\ngame=%s\nbuild=%s\nload=%s\nsp=%s\nres=%s\nview=%s\ncvars=%s\ncsv=%s\nsecs=%s\nminbit=%s\ncpus=%s\nid=%s\nextra=%s\nstarted=%s\nrunas=%s\nclean=%s\nprobe=%s\n' \
-    "$name" "$game" "$build" "$load" "$sp" "$res" "$view" "$cvars" "$csv" "$secs" "$minbit" "${cpus:-all}" "$id" "${extra[*]}" "$(date -u +%FT%TZ)" "$runas" "$clean" "$probe" > "$O/info.txt"
+  printf 'name=%s\ngame=%s\nbuild=%s\nload=%s\nsp=%s\nres=%s\nview=%s\ncvars=%s\ncsv=%s\nsecs=%s\nminbit=%s\ncpus=%s\nid=%s\nextra=%s\nstarted=%s\nrunas=%s\nclean=%s\nprobe=%s\njoin=%s\n' \
+    "$name" "$game" "$build" "$load" "$sp" "$res" "$view" "$cvars" "$csv" "$secs" "$minbit" "${cpus:-all}" "$id" "${extra[*]}" "$(date -u +%FT%TZ)" "$runas" "$clean" "$probe" "$join" > "$O/info.txt"
   venv || { echo "FAILED: no Python with aiortc" > "$O/done"; return 1; }
   # One game at a time.
   local i
@@ -181,10 +185,17 @@ run_fg() {
     done > "$O/others.log" 2>&1 ) &
   (cd "$T" && RUNAS="$runas" NODISPLAY=1 STOPSIG=TERM STOPTO=launcher STDOUT=0 CPUS="$cpus" BUILD="$build" bash e3ds-repro.sh run "lag-$name" "$secs" "${args[@]}" "${extra[@]}") >> "$O/info.txt" 2>&1
   local R=$C/repro/lag-$name
-  # The viewer joins when the game streams: in a run already (dev), or on its home screen (ship).
-  local want='state=2'; [ "$game" = ship ] && want='MICloudProbe'
-  for i in $(seq 1 60); do grep -a -q "MICloudProbe.*$want" "$R/game.log" 2>/dev/null && break; sleep 1; done
-  sleep 3
+  # The viewer joins when the game streams: in a run already (dev), or on its home screen (ship), join= seconds after
+  # the game's first probe line. (Until 2026-11-25 the Shipping game's wait looked for a line that never comes and
+  # ran its full 60 s, so the viewer of every earlier run found a home screen that had been drawn for about 55 s.
+  # That stays the default, to keep the runs comparable; join=3 is a viewer who is there as soon as the game is.)
+  if [ "$game" = ship ]; then
+    for i in $(seq 1 60); do grep -a -q "MICloudProbe fps=" "$R/game.log" 2>/dev/null && break; sleep 1; done
+    sleep "$join"
+  else
+    for i in $(seq 1 60); do grep -a -q "MICloudProbe.*state=2" "$R/game.log" 2>/dev/null && break; sleep 1; done
+    sleep 3
+  fi
   date -u +%T > "$O/view.start"
   local vopt=(); [ "$decode" = 0 ] && vopt=(--nodecode)
   (cd "$O" && timeout $((secs)) "$PY" "$T/rtcinput.py" "$id" "$view" --out "$O" "${vopt[@]}" > "$O/view.log" 2>&1) || echo "VIEWER FAILED: $(tail -1 "$O/view.log")" >> "$O/info.txt"

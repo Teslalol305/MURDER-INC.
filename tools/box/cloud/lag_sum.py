@@ -99,7 +99,8 @@ for run in runs:
         f"{name} {'dev' if dev else 'ship'} {commit.group(1) if commit else '?'} load={info.get('load', '0')} sp={info.get('sp', '-')}"
         + (f" cpus={info['cpus']}" if info.get('cpus', 'all') not in ('all', '') else '')
         + (f" user={info['runas']}" if info.get('runas', 'ue4') not in ('ue4', '') else '')
-        + (' fresh-copy' if info.get('clean') == '1' else ''),
+        + (' fresh-copy' if info.get('clean') == '1' else '')
+        + (f" join={info['join']}s" if info.get('join', '55') not in ('55', '') else ''),
         f"play {len(play) * period:.0f} s: fps {f(avg([num(p, 'fps') for p in play]))} (min {f(min([num(p, 'fps') for p in play], default=float('nan')))}), "
         f"worst frame {f(max([num(p, 'worstMs') for p in play], default=float('nan')), 0)} ms" + worst_split,
         f"turning {len(turn) * period:.0f} s: fps {f(avg([num(p, 'fps') for p in turn]))}, worst {f(max([num(p, 'worstMs') for p in turn], default=float('nan')), 0)} ms"
@@ -114,6 +115,17 @@ for run in runs:
     # shows there first (box run rf-cpu6-l20: every time-out fell on the home screen and the set-up screens).
     if any('pacerTimeOuts' in p for p in probes):
         parts.append(f"whole run: pacer time-outs {f(sum(num(p, 'pacerTimeOuts', 0) for p in probes), 0)}, longest wait {f(max([num(p, 'worstWaitMs', 0) for p in probes], default=0), 0)} ms")
+    # Outside the play: the game's own start (nobody watches yet) and the screens a viewer clicks through. On a cold
+    # machine the first sight of a scene compiles its pipelines there: one long frame, and the pacer's wait runs into
+    # its limit once (a time-out). A pacer that fails shows as time-outs in second after second.
+    in_play = {id(p) for p in play}
+    outside = [p for p in probes if id(p) not in in_play]
+    seen = [p for p in outside if num(p, 'viewers', 0) >= 1]
+    unseen = [p for p in outside if num(p, 'viewers', 0) < 1]
+    if outside:
+        parts.append(f"outside the play: worst frame {f(max([num(p, 'worstMs') for p in seen], default=float('nan')), 0)} ms with a viewer there"
+                     f" ({sum(1 for p in seen if (num(p, 'worstMs') or 0) > 100)} probe line(s) with a frame over 100 ms, {f(sum(num(p, 'pacerTimeOuts', 0) for p in seen), 0)} pacer time-outs),"
+                     f" {f(max([num(p, 'worstMs') for p in unseen], default=float('nan')), 0)} ms with nobody watching (the game's start; {f(sum(num(p, 'pacerTimeOuts', 0) for p in unseen), 0)} time-outs)")
     parts.append(f"fence time-outs {fence}, skipped captures {skipped}" if dev else 'capture log n/a (Shipping)')
     # Memory: the pile of unfinished frames that was the lag kept about 11 MB a frame (3.3 GB became 14.5 GB in 40 s).
     # Flat means the same at the end of the play as five seconds into it, give or take what a run loads on the way.
