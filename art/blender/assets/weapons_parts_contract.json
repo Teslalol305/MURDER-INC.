@@ -130,7 +130,7 @@
     ]
    },
    "triangle_budget": 4000,
-   "triangles": 2372
+   "triangles": 2460
   },
   "foregrip_vertical": {
    "applies_to": [
@@ -171,7 +171,7 @@
     ]
    },
    "triangle_budget": 4000,
-   "triangles": 3952
+   "triangles": 4040
   },
   "foregrip_vertical_wood": {
    "applies_to": [
@@ -220,14 +220,14 @@
    ],
    "bounds_m": {
     "max": [
-     0.023,
+     0.0234,
      0.013,
-     0.0032
+     0.0031
     ],
     "min": [
-     -0.025,
+     -0.0248,
      -0.0138,
-     -0.028
+     -0.0287
     ]
    },
    "gun_socket": "Laser",
@@ -319,12 +319,12 @@
    ],
    "bounds_m": {
     "max": [
-     0.0285,
+     0.0282,
      0.016,
      0.0
     ],
     "min": [
-     -0.022,
+     -0.0217,
      -0.016,
      -0.242
     ]
@@ -385,7 +385,7 @@
     ]
    },
    "triangle_budget": 8000,
-   "triangles": 6696
+   "triangles": 6784
   },
   "scope_4x": {
    "applies_to": [
@@ -429,7 +429,7 @@
     ]
    },
    "triangle_budget": 12000,
-   "triangles": 13466
+   "triangles": 13554
   },
   "suppressor": {
    "applies_to": [
@@ -512,7 +512,7 @@
     ]
    },
    "triangle_budget": 4000,
-   "triangles": 3916
+   "triangles": 3936
   }
  },
  "sets": {
