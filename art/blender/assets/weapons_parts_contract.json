@@ -130,7 +130,7 @@
     ]
    },
    "triangle_budget": 4000,
-   "triangles": 2300
+   "triangles": 2364
   },
   "foregrip_vertical": {
    "applies_to": [
@@ -385,7 +385,7 @@
     ]
    },
    "triangle_budget": 8000,
-   "triangles": 6784
+   "triangles": 7744
   },
   "scope_4x": {
    "applies_to": [
@@ -440,14 +440,14 @@
    ],
    "bounds_m": {
     "max": [
-     0.2101,
-     0.0198,
-     0.0198
+     0.2106,
+     0.0201,
+     0.02
     ],
     "min": [
      0.0001,
-     -0.0198,
-     -0.0198
+     -0.0201,
+     -0.0201
     ]
    },
    "gun_socket": "MuzzleMount",
@@ -472,7 +472,7 @@
     ]
    },
    "triangle_budget": 6000,
-   "triangles": 4060
+   "triangles": 6268
   },
   "suppressor_pistol": {
    "applies_to": [
@@ -480,14 +480,14 @@
    ],
    "bounds_m": {
     "max": [
-     0.155,
-     0.0163,
-     0.0163
+     0.1556,
+     0.0166,
+     0.0165
     ],
     "min": [
      0.0001,
-     -0.0163,
-     -0.0163
+     -0.0166,
+     -0.0166
     ]
    },
    "gun_socket": "MuzzleMount",
@@ -512,7 +512,7 @@
     ]
    },
    "triangle_budget": 4000,
-   "triangles": 3936
+   "triangles": 5504
   }
  },
  "sets": {

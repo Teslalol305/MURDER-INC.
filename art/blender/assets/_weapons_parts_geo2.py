@@ -63,7 +63,7 @@ def rings_x(x0, x1, r, teeth, axis_z, name, bore=14.1):
 
 # --------------------------------------------------------------------------------------------- muzzle devices
 def suppressor(pi=0, length=210.0, r=19.5, collar_r=12.5, collar_l=16.0, rec_r=9.0, rec_d=12.0, bore_r=5.5, flutes_n=12,
-               mid=STEELD, name="SU", front_mid=None, plug_relief=False):
+               mid=STEELD, name="SU", front_mid=None, plug_relief=False, seg=48):
     """Long rifle / SMG suppressor, 210 mm, body R 19.5: a rear mount collar R 12.5 x 16 with an internal recess R 9.0 x 12
     deep (swallows the barrel stub R 8.5), 12 shallow 0.6 mm flutes, a 2 mm end cap with an 11 mm bore. Origin = the rear
     face on the bore axis; Muzzle at X +210."""
@@ -71,7 +71,7 @@ def suppressor(pi=0, length=210.0, r=19.5, collar_r=12.5, collar_l=16.0, rec_r=9
     L = length
     # rear collar with the recess, the shoulder into the body
     rear = lathe_x([(rec_d, 0.0), (rec_d, rec_r), (0.0, rec_r), (0.0, collar_r), (collar_l, collar_r), (collar_l + 1.5, r - 1.2),
-                    (collar_l + 3.0, r), (collar_l + 3.0, 0.0)], 48, closed=False, fillet=0.5, fseg=1, name=name + "Rear")
+                    (collar_l + 3.0, r), (collar_l + 3.0, 0.0)], seg, closed=False, fillet=0.5, fseg=1, name=name + "Rear")
     if plug_relief:                      # the NINE's recoil-spring plug stands 1.0 mm proud of the slide's front face at Z -9.2..-11.8
         W.cut(rear, box_mm(-1.0, 1.65, -3.4, 3.4, -12.6, -7.0, bevel=0.0, name="PlugRelief"))
     objs.append(fin(rear, mid, pi))
@@ -83,13 +83,23 @@ def suppressor(pi=0, length=210.0, r=19.5, collar_r=12.5, collar_l=16.0, rec_r=9
     objs.append(fin(body, mid, pi))
     # a thread-relief band and the end cap
     cap = lathe_x([(L - 8.0, 0.0), (L - 8.0, r - 0.2), (L - 6.5, r + 0.3), (L - 2.0, r + 0.3), (L - 0.6, r - 0.9), (L, r - 1.6),
-                   (L, bore_r + 1.2), (L - 1.0, bore_r), (L - 7.0, bore_r), (L - 7.0, 0.0)], 48, closed=False, fillet=0.35, fseg=1,
+                   (L, bore_r + 1.2), (L - 1.0, bore_r), (L - 7.0, bore_r), (L - 7.0, 0.0)], seg, closed=False, fillet=0.35, fseg=1,
                   name=name + "Cap")
     objs.append(fin(cap, front_mid if front_mid is not None else mid, pi))
+    # raised bands along the tube (clamshell rings) and six screws on the end cap's face
+    for xb in ((60.0, 120.0, 172.0) if L > 180 else (50.0, 100.0)):
+        band = lathe_x([(xb - 1.6, r - 0.3), (xb - 1.6, r + 0.55), (xb + 1.6, r + 0.55), (xb + 1.6, r - 0.3)], max(24, seg - 12), closed=True, fillet=0.3,
+                       fseg=1, name=name + "Ring")
+        objs.append(fin(band, mid, pi))
+    rf = (r + bore_r) / 2.0
+    for k in range(6):
+        a = k * math.pi / 3.0 + 0.26
+        sc = lathe_x([(L - 0.3, 0.0), (L - 0.3, 1.5), (L + 0.55, 1.5), (L + 0.55, 0.0)], 8, at=(0, rf * math.cos(a), rf * math.sin(a)), name=name + "FaceScrew")
+        objs.append(fin(sc, STEELD if mid != STAIN else STAIN, pi))
     # three wipe grooves on the collar
-    for x in (5.0, 10.0):
+    for x in ((5.0, 10.0) if L > 180 else (5.0,)):
         objs.append(fin(lathe_x([(x - 0.4, collar_r - 0.05), (x - 0.4, collar_r + 0.12), (x + 0.4, collar_r + 0.12), (x + 0.4, collar_r - 0.05)],
-                                32, closed=True, name=name + "Band"), mid, pi))
+                                24, closed=True, name=name + "Band"), mid, pi))
     for o in objs:
         geo.transform(o, loc=(0.05 * MM, 0, 0))                  # a 0.05 mm relief off the gun's mount face
     return objs, {"Muzzle": mm(L, 0, 0)}
@@ -100,7 +110,7 @@ def suppressor_pistol(pi=0):
     10 with a recess R 7.2 x 6 deep over the barrel's crown stub (R 6.8), ten 0.5 mm flutes, a 10 mm end bore. Brushed
     stainless, heat-darkened front 60 mm (in the texture). Origin = the slide's front face; Muzzle at X +155."""
     return suppressor(pi, length=155.0, r=16.0, collar_r=11.5, collar_l=10.0, rec_r=7.2, rec_d=6.0, bore_r=5.0, flutes_n=10,
-                      mid=STAIN, name="SP", plug_relief=True)
+                      mid=STAIN, name="SP", plug_relief=True, seg=32)
 
 
 def compensator(pi=0):
@@ -163,6 +173,8 @@ def foregrip_angled(pi=0):
     side = [(-26.0, -4.5), (-19.0, -16.0), (-12.0, -30.0), (-5.5, -43.0), (0.0, -52.0), (3.0, -58.0), (30.0, -58.0), (34.0, -52.0),
             (31.0, -41.0), (24.0, -28.0), (17.0, -19.0), (14.0, -14.5), (28.0, -14.5), (28.0, -4.5)]
     wedge = prism_xz(side, -13.5, 13.5, bevel=1.8, seg=3, name="FAWedge", fillet=2.0)
+    for sy in (1, -1):                                       # the stippled panels: 0.8 mm pockets in both flanks
+        W.cut(wedge, box_mm(2.0, 21.0, 12.7 if sy > 0 else -15.0, 15.0 if sy > 0 else -12.7, -50.0, -22.0, bevel=0.0, name="Panel"))
     objs.append(fin(wedge, POLY, pi))
     # the thumb shelf: a ledge on the front ramp, and two retention screws on the right
     shelf = box_mm(12.0, 28.0, -14.5, 14.5, -15.5, -13.5, bevel=0.8, name="FAShelf")

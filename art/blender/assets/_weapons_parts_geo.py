@@ -235,6 +235,9 @@ def red_dot(pi=0):
     bat = axis_to_z(knurled(6.8, 2.6, 28, 0.3, 0.5, name="RDBat"), (24.0, 0.0, 40.6))
     W.cut(bat, box_mm(21.0, 27.0, -0.8, 0.8, 42.0, 44.0, bevel=0.0, name="RDSlot"))
     objs.append(fin(bat, STEELD, pi))
+    for sx in (-4.0, 12.0):                                    # two screws on the top housing
+        for sy in (-5.2, 5.2):
+            objs.append(fin(screw_head_z(sx, sy, 43.0, r=1.5, h=0.8, sign=1, seg=12, name="RDTopScrew"), STEELD, pi))
     # lenses in both windows and the reticle plane at X 0
     for x, nm in ((-30.4, "RDLensR"), (30.2, "RDLensF")):
         d = lathe_x([(x - 0.8, 0.0), (x - 0.8, 14.15), (x + 0.8, 14.15), (x + 0.8, 0.0)], 64, at=(0, 0, AX), fillet=0.2, fseg=1, name=nm)

@@ -93,13 +93,13 @@ def bbox(objs):
     return lo, hi
 
 
-def hero(ctx, gun, arm, mags, fill=0.50, direction=(0.62, -1.0, 0.45), lens=85.0, name="weapons_rattler_hero"):
+def hero(ctx, gun, arm, mags, fill=0.56, direction=(0.62, -1.0, 0.40), lens=85.0, name="weapons_rattler_hero"):
     """Three-quarter studio view (the CHOPPER's and NINE's recipe: 85 mm, shallow focus, studio HDRI)."""
     W.rig_studio()
     W._hide_all_but([gun] + list(mags))
     objs = [gun] + list(mags)
     lo, hi = bbox(objs)
-    c = Vector(((lo + hi) / 2).tolist())
+    c = Vector(((lo + hi) / 2).tolist()) + Vector((0.0, 0.0, 0.012))
     span = float(np.linalg.norm(hi - lo))
     fov = 2 * math.atan(18.0 / lens)
     dist = span * fill / math.tan(fov / 2)
@@ -111,16 +111,52 @@ def hero(ctx, gun, arm, mags, fill=0.50, direction=(0.62, -1.0, 0.45), lens=85.0
     ctx.log("preview %s (%.0f s)" % (path, sec))
 
 
-def fp(ctx, gun, arm, mags):
+def fp(ctx, gun, arm, mags, stops=0.55):
+    """Through the viewmodel camera (54 degrees vertical, the CHOPPER's hip pose) on the day rig: the gun is lit by the day sky and
+    sun (design bearing) with a soft fill from the left, where the camera sees the folded stock; the camera sees an urban street
+    plate behind it, as the game draws the viewmodel over the world. A copy of weapons.preview_fp (which stays as it was) with
+    a little more exposure and the fill, because this gun's left flank is in the shade."""
     W.VIEWMODEL["SK_Rattler"] = anchored_view(NUDGE)
-    W.preview_fp(ctx, gun, arm, "SK_Rattler", "weapons_rattler_fp", extra=mags)
+    rd = render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING, stops=stops)
+    plate = render.hdri_path("canary_wharf")
+    if os.path.exists(plate):
+        nt = bpy.context.scene.world.node_tree
+        out = next(n for n in nt.nodes if n.bl_idname == "ShaderNodeOutputWorld")
+        sky = out.inputs["Surface"].links[0].from_node
+        env = nt.nodes.new("ShaderNodeTexEnvironment")
+        env.image = bpy.data.images.load(plate, check_existing=True)
+        bg = nt.nodes.new("ShaderNodeBackground")
+        bg.inputs["Strength"].default_value = 2.0 ** (-(rd.get("exposure", 0.0) or 0.0)) * 0.9
+        nt.links.new(env.outputs[0], bg.inputs["Color"])
+        lp = nt.nodes.new("ShaderNodeLightPath")
+        mix = nt.nodes.new("ShaderNodeMixShader")
+        nt.links.new(lp.outputs["Is Camera Ray"], mix.inputs[0])
+        nt.links.new(sky.outputs[0], mix.inputs[1])
+        nt.links.new(bg.outputs[0], mix.inputs[2])
+        nt.links.new(mix.outputs[0], out.inputs["Surface"])
+    cam = W.fp_camera(bearing=170.0, pitch_down=2.0)
+    pos, rot = W.VIEWMODEL["SK_Rattler"]
+    W.place_in_view(arm, cam, pos, rot)
+    for e in mags:
+        e.matrix_world = arm.matrix_world
+    # the fill: a large soft light over the left of the gun, aimed at the folded stock (world space, the camera looks along -bearing)
+    c = arm.matrix_world @ Vector((0.20, 0.03, 0.0))
+    left = arm.matrix_world.to_3x3() @ Vector((0.0, 1.0, 0.25))
+    area_light("FpFill", c + left.normalized() * 0.9, c, (0.9, 0.7), 38.0, (1.0, 0.97, 0.92))
+    W._hide_all_but([gun] + list(mags))
+    render.setup(samples=ctx.args.samples, res=(1280, 720))
+    path, sec = render.render_jpeg(W._prev(ctx, "weapons_rattler_fp"), ctx.args.samples)
+    ctx.log("preview %s (%.0f s)" % (path, sec))
+    arm.matrix_world = Matrix.Identity(4)
+    for e in mags:
+        e.matrix_world = Matrix.Identity(4)
 
 
 def side(ctx, gun, arm, mags):
     """Flat orthographic left side view (the camera at +Y looking at the gun's left flank, the muzzle to the left of the picture)."""
     W.rig_studio(strength=1.0)
     plain_background()
-    area_light("Fill", (0.20, 1.6, 0.35), (0.20, 0.0, -0.04), (1.6, 1.0), 260.0)
+    area_light("Fill", (0.20, 1.6, 0.35), (0.20, 0.0, -0.04), (1.6, 1.0), 90.0)
     W._hide_all_but([gun] + list(mags))
     lo, hi = bbox([gun] + list(mags))
     c = (lo + hi) / 2
@@ -144,11 +180,12 @@ def parts(ctx, gun, arm, mags):
         o.matrix_world = Matrix.Translation((0.17, -0.07, -0.01)) @ o.matrix_world
     bpy.context.view_layer.update()
     W.rig_studio(strength=1.0)
+    area_light("PortLight", (0.30, -0.55, 0.50), (0.17, -0.01, 0.01), (0.25, 0.25), 55.0)
     W._hide_all_but([gun] + list(mags))
     lo, hi = bbox([gun] + list(mags))
-    c = Vector(((lo + hi) / 2).tolist()) + Vector((0.03, 0.0, 0.02))
+    c = Vector(((lo + hi) / 2).tolist()) + Vector((0.02, 0.0, 0.0))
     d = Vector((0.40, -1.0, 0.62)).normalized()
-    cam = render.cam_look(c + d * 1.25, c, 60.0, name="Cam_parts", dof=(1.25, 9.0))
+    cam = render.cam_look(c + d * 1.45, c, 60.0, name="Cam_parts", dof=(1.45, 9.0))
     cam.data.clip_start = 0.01
     render.setup(samples=ctx.args.samples, res=(1280, 720))
     path, sec = render.render_jpeg(W._prev(ctx, "weapons_rattler_parts"), ctx.args.samples)
@@ -192,7 +229,8 @@ def silhouette(ctx, gun, arm, mags):
     ss = 4
     pw, ph = 512 * ss, 192 * ss
     mm_px = 2.2
-    lo, hi = bbox(objs)
+    pts = [rig._evaluated_world_verts(o) for o in objs]      # the POSED vertices (the deployed stock reaches X -0.256)
+    lo, hi = np.min([q.min(0) for q in pts], 0), np.max([q.max(0) for q in pts], 0)
     cx = float((lo[0] + hi[0]) / 2)                          # the gun's length centre (stock deployed)
     cz = -(96 - 84) * mm_px / 1000.0                         # the bore line sits 12 px above the middle row
     cam = render.cam_look(Vector((cx, -2.0, cz)), Vector((cx, 0.0, cz)), 50.0, name="Cam_sil")
@@ -231,6 +269,7 @@ def render_all(ctx):
         hero(ctx, gun, arm, mags)
     if want("weapons_rattler_fp"):
         fp(ctx, gun, arm, mags)
+        bpy.context.view_layer.update()
     if want("weapons_rattler_side"):
         side(ctx, gun, arm, mags)
     if want("weapons_rattler_parts"):

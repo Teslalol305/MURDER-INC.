@@ -217,7 +217,9 @@ def strap(S, sel, hz):
     hz_ = np.clip(hz[sel], 0, 1)
     mott = N.fbm(p, 45.0, 3, octave0=390)
     fine = N.fbm(p, 1400.0, 2, octave0=393)
-    col = lin("9c8a68")[None, :] * (1.0 + 0.10 * mott[:, None] + 0.04 * fine[:, None] + 0.07 * weave[:, None])
+    tan = lin("9c8a68")
+    tan = tan + (np.full(3, float(tan.mean()), np.float32) - tan) * 0.14
+    col = tan[None, :] * (1.0 + 0.09 * mott[:, None] + 0.04 * fine[:, None] + 0.07 * weave[:, None])
     dark = tp.smooth(hz_, 0.15, 0.95)
     grime = lin("3d3326")
     col = col + (grime[None, :] - col) * (0.60 * dark * (0.6 + 0.4 * N.fbm(p, 200.0, 2, octave0=396)))[:, None]
@@ -279,7 +281,7 @@ def paint_rattler(G):
     for part in pieces(bk):
         blackened(S, part, hz)
     for part in pieces(inn):
-        S.steel(part, lin("40434a"), 0.40, hz, lin("9aa0a8"), worn_rough=0.22, edge_gain=1.0, rvar=0.05, cvar=0.03, octave=11, base_thr=0.95,
+        S.steel(part, lin("4c5056"), 0.42, hz, lin("a4aab2"), worn_rough=0.22, edge_gain=1.0, rvar=0.05, cvar=0.03, octave=11, base_thr=0.95,
                 rub_polish=0.18, scratch=0.6)
         q = S.p[part]
         S.h[part] += 2.5e-6 * N.fbm(q, 2400.0, 2, octave0=346)
@@ -336,7 +338,13 @@ def paint_rattler(G):
               + (x > 0.196) * (x < 0.202) * (n[:, 0] > 0.6) * (r < 0.0135) * 0.5)                         # chamber and bolt face
     oil = (gauss(p, (0.170, -0.020, 0.010), 0.040, 0.9) * (y < -0.004) + gauss(p, (0.140, 0.0, 0.010), 0.060, 0.6) * (bk | br)
            + 0.45 * hz * sh)
-    dirt_chunked(S, 0.85, carbon=np.clip(carbon, 0, 1), oil=np.clip(oil, 0, 1))
+    # carbon and oil run down and back from the port and the vents: streaks stretched along Z on the flank below the port
+    stk = tp.smooth(N.fbm(p, (160.0, 160.0, 11.0), 2, octave0=470), 0.05, 0.55)
+    below = tp.smooth(0.004 - z, 0.0, 0.012) * tp.smooth(z + 0.034, 0.0, 0.010) * tp.smooth(x - 0.130, 0.0, 0.012) * tp.smooth(0.215 - x, 0.0, 0.012)
+    carbon = carbon + sh * (y < -0.0205) * below * stk * 0.45
+    ahead = tp.smooth(x - 0.200, 0.0, 0.010) * tp.smooth(0.262 - x, 0.0, 0.020) * (y < -0.0205) * tp.smooth(z + 0.030, 0.0, 0.010)
+    carbon = carbon + sh * ahead * stk * 0.30                                                  # the blast that runs forward along the flank
+    dirt_chunked(S, 0.62, carbon=np.clip(carbon, 0, 1), oil=np.clip(oil, 0, 1))
     S.rough = np.maximum(S.rough, 0.16 * (S.metal > 0.5))
     return S.channels(height_blur=0.35)
 
