@@ -1,0 +1,52 @@
+# The viewer of the input checks with mouse and keys (lag-test.sh game=ship view=lag-input.txt view2=lag-input2.txt
+# probe=0.25 secs=140): into a Story run as lag-story.txt does, then what a browser on E3DS sends in three cases the
+# review of release A found. The game's probe lines (four a second here) say what happened: mag= is the rounds in the
+# magazine, fire= the trigger as the game holds it, moveY= the walk, outW= outH= the size drawn, mouseScale= the
+# mouse's scale, dbl= double-click messages dropped.
+#   double click   mousedown, mouseup, mousedown, mouseup, then "MouseDouble" with no release after it: exactly two
+#                  rounds must go, and fire=0 afterwards (Unreal took the message for a third press that was never
+#                  released: an automatic gun emptied its magazine); a single click after it fires one round
+#   size request   2560 x 1440 is drawn at 1920 x 1080 with mouseScale=0.6667; 1280 x 720 as asked with 0.5000;
+#                  300 x 200 is ignored; 1920 x 1080 again
+#   the viewer leaves holding W and the left mouse button (no release is ever sent): lag-input2.txt is the next viewer
+wait 3
+click
+wait 2.5
+click 0.106 0.448
+wait 2.5
+click 0.3625 0.911
+wait 2
+click 0.3625 0.911
+wait 2
+click 0.3625 0.911
+wait 2.5
+click 0.336 0.911
+wait 12
+say CHECK start
+wait 1.5
+say CHECK double-click
+dblclick
+wait 3
+say CHECK single-click
+click
+wait 2
+say CHECK size-2560
+res 2560 1440
+wait 3
+frame size-2560.jpg
+say CHECK size-1280
+res 1280 720
+wait 3
+frame size-1280.jpg
+say CHECK size-small
+res 300 200
+wait 2
+say CHECK size-back
+res 1920 1080
+wait 3
+frame size-1920.jpg
+say CHECK hold
+keydown 87
+down 0
+wait 1.2
+say CHECK leave

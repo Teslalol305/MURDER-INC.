@@ -28,12 +28,16 @@
 #                     GPU does (400 % is sixteen times the pixels), and dynamic resolution replaces it. Default none.
 #   res=<W>x<H>       the output size. Default 1920x1080.
 #   view=<file>       the viewer's script (rtcinput.py), a path or the name of one beside this file. Default
-#                     lag-turn.txt (dev) or lag-story.txt (ship); lag-commands.txt, lag-leave.txt and lag-rise.txt
-#                     are the others (each says at its top what it is for).
+#                     lag-turn.txt (dev) or lag-story.txt (ship); lag-commands.txt, lag-leave.txt, lag-rise.txt,
+#                     lag-input.txt and lag-pad.txt are the others (each says at its top what it is for).
+#   view2=<file>      a second viewer who joins 3 s after the first has left (its log: view2.log): what the next
+#                     viewer finds (lag-input2.txt).
 #   cvars=<a=b,c=d>   passed as the launch option -MICVars= (the game's own tuning switch).
 #   profile=1         for a test folder whose pak is older than the branch: version 3's additions to the cloud
 #                     profile (the r.DynamicRes., MI.Cloud. and PixelStreaming2. lines of [MICloud] in the branch's
-#                     DefaultGame.ini) are passed as -MICVars. Not needed for a packaged build.
+#                     DefaultGame.ini) are passed as -MICVars, and the input device mapping policy of the branch's
+#                     DefaultInput.ini is written into the folder's Saved config (without it the engine raises an
+#                     ensure when a controller connects). Not needed for a packaged build.
 #   csv=1             a CSV profile of the Development game from the start of the run.
 #   secs=<n>          how long the game runs. Default 110 (dev) or 125 (ship).
 #   probe=<seconds>   the probe line's period. Default 1.
@@ -91,14 +95,14 @@ hogs() {  # <n>[:<work ms>[:<idle ms>[:<size>]]] <pid file> <log prefix> | stop 
 
 run_fg() {
   local name=$1; shift
-  local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= cvars= csv= secs= probe=1 minbit=12000000 profile= cpus= decode=1 extra=()
+  local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= view2= cvars= csv= secs= probe=1 minbit=12000000 profile= cpus= decode=1 extra=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --) shift; extra=("$@"); break ;;
       game=*) game=${1#*=} ;; build=*) build=${1#*=} ;; load=*) load=${1#*=} ;; sp=*) sp=${1#*=} ;;
       res=*) res=${1#*=} ;; view=*) view=${1#*=} ;; cvars=*) cvars=${1#*=} ;; csv=*) csv=${1#*=} ;;
       secs=*) secs=${1#*=} ;; probe=*) probe=${1#*=} ;; minbit=*) minbit=${1#*=} ;; profile=*) profile=${1#*=} ;;
-      cpus=*) cpus=${1#*=} ;; decode=*) decode=${1#*=} ;;
+      cpus=*) cpus=${1#*=} ;; decode=*) decode=${1#*=} ;; view2=*) view2=${1#*=} ;;
       *) echo "unknown key $1"; return 2 ;;
     esac; shift
   done
@@ -108,6 +112,7 @@ run_fg() {
     /*) ;;
     *) if [ -f "$T/$view" ]; then view=$T/$view; else view=$(readlink -f "$view"); fi ;;
   esac
+  case "$view2" in ''|/*) ;; *) if [ -f "$T/$view2" ]; then view2=$T/$view2; else view2=$(readlink -f "$view2"); fi ;; esac
   if [ "$profile" = 1 ]; then
     # A folder whose pak is older than the branch: version 3's additions to the cloud profile ([MICloud] of
     # DefaultGame.ini: dynamic resolution, the game's pacing, Pixel Streaming's settings) as -MICVars, this run's own
@@ -115,6 +120,11 @@ run_fg() {
     local add; add=$(sed -n '/^\[MICloud\]/,/^\[/p' "$T/../../../unreal/MurderInc/Config/DefaultGame.ini" \
       | grep -E '^\+(CVars|StreamCVars)=(r\.DynamicRes\.|MI\.Cloud\.|PixelStreaming2\.)' | sed -E 's/^\+(CVars|StreamCVars)=//' | tr '\n' ',' | sed 's/,$//')
     cvars=${add}${cvars:+,$cvars}
+    # The pak's DefaultInput.ini is older too: the mapping policy for controllers, before every run (the game deletes
+    # a Saved ini it did not write when it exits).
+    mkdir -p "$build/MurderInc/Saved/Config/Linux"
+    printf '[InputPlatformSettings_Linux InputPlatformSettings]\ninput.DeviceMappingPolicy=3\n' > "$build/MurderInc/Saved/Config/Linux/Input.ini"
+    chown -R ue4 "$build/MurderInc/Saved/Config" 2>/dev/null
   fi
   [ -n "$secs" ] || { secs=110; [ "$game" = ship ] && secs=125; }
   local id=lag$(echo "$name" | tr -cd 'a-zA-Z0-9')
@@ -167,6 +177,10 @@ run_fg() {
   date -u +%T > "$O/view.start"
   local vopt=(); [ "$decode" = 0 ] && vopt=(--nodecode)
   (cd "$O" && timeout $((secs)) "$PY" "$T/rtcinput.py" "$id" "$view" --out "$O" "${vopt[@]}" > "$O/view.log" 2>&1) || echo "VIEWER FAILED: $(tail -1 "$O/view.log")" >> "$O/info.txt"
+  if [ -n "$view2" ]; then   # the next viewer, once the game has noticed that the first one left
+    sleep 3; date -u +%T > "$O/view2.start"
+    (cd "$O" && timeout $((secs)) "$PY" "$T/rtcinput.py" "$id" "$view2" --out "$O" > "$O/view2.log" 2>&1) || echo "SECOND VIEWER FAILED: $(tail -1 "$O/view2.log")" >> "$O/info.txt"
+  fi
   for i in $(seq 1 $((secs + 60))); do [ -f "$R/result.txt" ] && break; sleep 1; done
   hogs stop "$O/hog.pids"
   cp "$R/game.log" "$O/game.log" 2>/dev/null; cp "$R/result.txt" "$O/result.txt" 2>/dev/null

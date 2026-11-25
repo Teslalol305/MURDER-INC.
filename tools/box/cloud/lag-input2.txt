@@ -1,0 +1,28 @@
+# The next viewer after lag-input.txt or lag-pad.txt (lag-test.sh view2=): the one before left holding W and the left
+# mouse button (or a controller's right trigger), and no release of them ever reached the game. The game paused
+# itself and let everything go. This viewer clicks the card away and resumes with P, touching nothing else:
+#   after the resume the probe lines must say moveY=0.00 and fire=0, and mag= must not go down;
+#   a fresh W then walks at once (moveY=1.00), and a click fires one round;
+#   a controller message with the id the first viewer's pad was given still works (a page that reconnects may keep
+#   its id): the right trigger fires and stops.
+wait 3
+say CHECK2 joined
+click
+wait 1
+key 80
+wait 3
+say CHECK2 resumed
+wait 3
+say CHECK2 walk
+keydown 87
+wait 1
+keyup 87
+wait 1
+say CHECK2 click
+click
+wait 2
+say CHECK2 trigger
+pad axis 6 1.0 0.5
+pad axis 6 0 0.2
+wait 1.5
+say CHECK2 end

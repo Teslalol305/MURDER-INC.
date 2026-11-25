@@ -98,6 +98,10 @@ for run in runs:
         parts.append(f"target {'/'.join(str(t) for t in targets) or '?'}, picture {f(min(drs, default=float('nan')), 2)}-{f(max(drs, default=float('nan')), 2)}"
                      f", owed {f(max([num(p, 'owed', 0) for p in play], default=0), 0)}, held {f(sum(num(p, 'held', 0) for p in play), 0)} frames"
                      f" (worst wait {f(max([num(p, 'worstWaitMs', 0) for p in play], default=0))} ms, time-outs {f(sum(num(p, 'pacerTimeOuts', 0) for p in play), 0)})")
+    # The whole run, not only the play: the set-up screens draw at 60 whatever the GPU does, so a pacer that fails
+    # shows there first (box run rf-cpu6-l20: every time-out fell on the home screen and the set-up screens).
+    if any('pacerTimeOuts' in p for p in probes):
+        parts.append(f"whole run: pacer time-outs {f(sum(num(p, 'pacerTimeOuts', 0) for p in probes), 0)}, longest wait {f(max([num(p, 'worstWaitMs', 0) for p in probes], default=0), 0)} ms")
     parts.append(f"fence time-outs {fence}, skipped captures {skipped}" if dev else 'capture log n/a (Shipping)')
     if any('txFps' in p for p in play):
         sent = [p for p in play if 'txFps' in p]

@@ -1,0 +1,30 @@
+# The viewer of the input checks with a controller only (lag-test.sh game=ship view=lag-pad.txt view2=lag-input2.txt
+# probe=0.25 secs=110), what a browser on E3DS sends for a first-time player who never touches mouse or keys:
+#   the first press of the session comes marked as a repeat (a browser shows a pad to a page only once a button is
+#   down, and the page then takes that button for held already): it must hide the click card (click=0), as any press;
+#   Start five times: Home, Crew, Loadout, Block and style, Briefing, into the run (state=2);
+#   the viewer leaves with the right trigger pulled (Pixel Streaming repeats a trigger's last value every frame until
+#   a zero arrives, and none does): lag-input2.txt is the next viewer.
+pad connect
+wait 0.5
+say CHECK first-press
+pad button 0 120 first
+wait 1.2
+say CHECK start-buttons
+pad button 9 150
+wait 1.2
+pad button 9 150
+wait 1.2
+pad button 9 150
+wait 1.2
+pad button 9 150
+wait 1.5
+pad button 9 150
+wait 8
+say CHECK run
+pad axis 3 1.0 1.0
+pad axis 3 0 0.2
+wait 0.6
+say CHECK trigger-held
+pad axis 6 1.0 1.2
+say CHECK leave
