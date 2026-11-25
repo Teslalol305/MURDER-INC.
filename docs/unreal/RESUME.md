@@ -256,6 +256,21 @@ old zip is superseded. Next is step 6 (the owner's E3DS trial) and the explosion
   `/Content/Audio/` entry. **First thing in the next build**: `tools/box/audio-import.sh` in the gameplay clone,
   package, check the pak's list and listen through the stream (PREFLIGHT.md V3-14). LAUNCH.md tells the owner that
   version 3a is silent. Not to go public before this is in.
+- **Version 3b: the sound is in and packaged (2026-11-25, noon UTC; PROGRESS.md, "Version 3b: sound").** Zip sha256
+  `aa7cc478…8deb`, 2,259,930,775 bytes, nine parts `MurderInc-E3DS-v3b-part<k>-of-9.zip` in `/project/ue/cloud/parts`
+  on the box: the game of `3dd4053` (121 of 121 tests), the launcher with the cleanup of leftover games. **Not
+  uploaded, and the lag gate has not been repeated on it** (the release engineer's step; LAUNCH.md still describes
+  version 3a and calls the build silent). The 289 Sound Waves are in the pak, and a package without them can no
+  longer be zipped (`package-cloud.sh`), pass the tests or come out of a clone that is brought up to date. Sound was
+  proven through the stream by measurement, kind by kind, in both games of the zip (`tools/box/cloud/rtcaudio.py`,
+  `audio_find.py`, `sound_table.py`, `sound-gate.txt`). The listening found three faults of the port, fixed with
+  tests: four of the six guns had no shot sound, the menus never played theirs, and the first round of each gun
+  sample came about 110 ms late. A server needs no sound card (SDL's dummy device; the launcher names it itself,
+  because a host environment that names another driver silenced the game). **Known and not fixed:** in the first
+  half minute after a cold start on a machine whose CPUs are all busy the stream's music has gaps of 30 to 50 ms
+  (never after it, never in play); the sound's clock runs 1 % fast. **Nobody has heard it yet**: the owner's first
+  session with version 3b is the first time ears meet it (the speaker button on E3DS's page; the Volume row on the
+  Settings card).
 - **Still unknown:** which graphics card E3DS's Linux sessions get, and everything a real browser, a real
   controller and a real connection add. The box is not E3DS.
 - **Next, the owner:** join the nine parts, upload the zip as a new version of the build `MurderInc`, set the

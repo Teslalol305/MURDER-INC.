@@ -243,7 +243,7 @@ compressor (`FMIMasterCompressor`, stereo-linked, soft knee) and the web game's 
 `UMIGameSubsystem::ApplySettings` puts it into the director's options (`FMIAudioOptions::Master`) and holds the
 device's own primary volume at 1, so it is applied once. It has to be there for a streamed game: Pixel Streaming takes
 the sound at the main submix, before the device's primary volume, so a volume set on the device would change nothing a
-viewer hears (measured through the stream, section 9: 80 % to 40 % takes the music down 6.6 dB). The web game has its
+viewer hears (measured through the stream, section 9: 80 % to 40 % takes the music down 6.7 dB). The web game has its
 volume after its limiter; here the chain therefore works 1.9 dB less at the default setting and the peaks keep the
 limiter's ceiling whatever the setting. audio.json `options.master` (1.0) is what the director starts with and what
 the automation tests run at; without the audio subsystem (a world with no audio data) the setting falls back to the
@@ -487,22 +487,23 @@ Measured on the box with a viewer that records what it receives; the tables are 
   (`pak_sounds.py`: 289 of them); the tests fail on a missing or stale asset (`Audio.Assets`, `Audio.SoundsResolve`,
   `Audio.EveryGunSounds`); `sync.sh` starts the import when a clone's assets are missing or older than their WAVs.
 - **The delay.** From the game starting a sound (its log line) to the arrival of the packet that holds the sample's
-  start: 40 ms in the middle, 24 to 66 ms by sound. From a viewer's fire input to that packet: sections 5 and 8 of
-  the PROGRESS entry (the input's own way into the game is in it). A browser's sound buffer comes on top. Before the
+  start: 44 ms in the middle. From a viewer's fire input to that packet: 45 to 95 ms (sections 5 and 8 of
+  the PROGRESS entry; the input's own way into the game is in it). A browser's sound buffer comes on top. Before the
   waves were kept in memory (section 4) the first play of each sample came about 110 ms later than every play after
   it.
 - **The levels.** The log's `mix=` is the category's gain at that moment: the data's volume times the volume
   setting (gun 0.80, tail 0.68, near 0.76, world 0.84, ui 0.76, music 0.40, voice 0.80 at the default 80 %), times
-  the ducks. Every mono sound arrives 5 to 6 dB under volume x gain, each one the same; the stereo street bed about
-  2.5 dB under.
+  the ducks. Every mono sound arrives 4.5 to 6.5 dB under volume x gain, each one the same; the stereo street bed
+  about 2.5 dB under.
 - **The clock.** The dummy device waits whole milliseconds: 21 ms for every 21.33 ms of sound, so the stream carries
   about 1 % more sound than time (1.009 to 1.011 s a second; 1.004 to 1.007 when the machine is busy). No packet is
   short. A buffer of 960 frames (20 ms exactly) is worse: the device then runs slow and the stream has holes.
-- **Holes.** When a push of sound comes late, the sender's time stamps jump 30 to 50 ms while the sound goes on where
-  it stopped: a hole in the time line that a player has to fill. It happened only while all CPUs of the box were busy
-  in the first half minute after a cold start (Unreal compiles its pipeline states on three quarters of the CPUs
-  then) with two or three more CPUs' worth of other work beside the game; never after it, never in play, never under
-  the GPU's load alone.
+- **Holes.** When a push of sound comes late, the sender's time stamps jump 30 to 70 ms while the sound goes on where
+  it stopped: a hole in the time line that a player has to fill. It happened only while the box's CPUs were at their
+  limit in the first half minute after a cold start (Unreal compiles its pipeline states on three quarters of the
+  CPUs then, which alone takes the box to 86 to 95 %) with a little other work beside the game; never after it, never
+  in play, never under the GPU's load alone. Not fixed; whether an E3DS machine, where every session is a cold start,
+  meets it is not known (PROGRESS.md, "Version 3b: sound", section 8.2).
 - **The tools** (`tools/box/cloud/`): `rtcaudio.py` records and measures what a viewer receives (`lag-test.sh ...
   audio=1`), `audio_find.py` finds a sample of `Content/Audio` in a recording, `sound_table.py` checks every sound the
   Development game's log says it started, `sound-keys.txt` with `sound-keys-check.sh` plays the Shipping game one kind
