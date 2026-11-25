@@ -292,6 +292,12 @@ FMIAudioDirector::FInstance FMIAudioDirector::Play(FName Sound, const FPlayArgs&
 	if (!Def)
 	{
 		++RefusedCount;
+		bool bAlready = false;
+		UnknownEver.Add(Sound, &bAlready);
+		if (!bAlready)
+		{
+			UnknownNew.Add(Sound);
+		}
 		return Inst;
 	}
 	const double T = Clock + Args.Delay;
@@ -450,6 +456,23 @@ void FMIAudioDirector::StopInstance(const FInstance& I, double Fade, double Dela
 		C.Fade = Fade;
 		Queue(C);
 	}
+}
+
+TArray<FName> FMIAudioDirector::TakeUnknown()
+{
+	TArray<FName> Out = MoveTemp(UnknownNew);
+	UnknownNew.Reset();
+	return Out;
+}
+
+FName FMIAudioDirector::SoundFamily(FName Weapon) const
+{
+	if (!Data || Data->Find(FName(*FString::Printf(TEXT("%s_shot"), *Weapon.ToString()))))
+	{
+		return Weapon;
+	}
+	const FString Family = Str(Data->Table(TEXT("weaponSounds")), *Weapon.ToString());
+	return Family.IsEmpty() ? Weapon : FName(*Family);
 }
 
 void FMIAudioDirector::TakeCommands(TArray<FMIAudioCmd>& Out)
@@ -1161,8 +1184,8 @@ void FMIAudioDirector::UpdateAmbience(double Dt)
 void FMIAudioDirector::OnWeaponFire(const FMIShotFiredEvent& E)
 {
 	const TSharedPtr<FJsonObject> R = Data->Event(TEXT("weapon:fire"));
-	const FName W = E.Weapon;
-	const bool bSup = Suppressed.Contains(W) || E.bSuppressed;  // the loadout's silencer, per gun or on the round
+	const FName W = SoundFamily(E.Weapon);  // a gun without sounds of its own fires with its family's
+	const bool bSup = Suppressed.Contains(E.Weapon) || E.bSuppressed;  // the loadout's silencer, per gun or on the round
 	const FName Silenced(*FString::Printf(TEXT("%s_shot_silenced"), *W.ToString()));
 	FPlayArgs Shot;
 	Play(bSup && Data->Find(Silenced) ? Silenced : FName(*FString::Printf(TEXT("%s_shot"), *W.ToString())), Shot);
@@ -1593,6 +1616,11 @@ void FMIAudioDirector::OnFlow(const FMIFlowEvent& E)
 		Out.Delay = FMath::Clamp(E.A, Num(R, TEXT("minHold"), 0.6), Num(R, TEXT("maxHold"), 12.0));
 		Play(FName(Str(R, TEXT("out"), TEXT("radio_out"))), Out);
 	}
+	else if (N == TEXT("ui:click") || N == TEXT("ui:hover"))
+	{
+		// The menus' own sounds (the web game's ui:click on every press, ui:hover on every focus move).
+		PlayEntry(Data->Event(N), NAME_None, nullptr, {});
+	}
 	else if (N == TEXT("hud:prompt"))
 	{
 		if (E.A >= 0.0 && !E.Text.IsEmpty())
@@ -1656,7 +1684,7 @@ TArray<FName> FMIAudioDirector::BusEventKeys()
 		TEXT("game:state"), TEXT("objective:done"), TEXT("objective:all"), TEXT("holdout:wave"), TEXT("extraction:reached"), TEXT("audio:sting"),
 		TEXT("player:heal"), TEXT("weapon:reserve"), TEXT("explosives:reset"), TEXT("player:reset"), TEXT("menus:card"),
 		TEXT("hud:radio"), TEXT("hud:message"), TEXT("hud:warn"), TEXT("hud:reels"), TEXT("hud:tally"), TEXT("hud:objective"), TEXT("hud:prompt"),
-		TEXT("enemy:spawn"), TEXT("enemy:killed"), TEXT("score:best")})
+		TEXT("enemy:spawn"), TEXT("enemy:killed"), TEXT("score:best"), TEXT("ui:click"), TEXT("ui:hover")})
 	{
 		K.Add(S);
 	}

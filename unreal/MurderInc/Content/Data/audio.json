@@ -161,7 +161,9 @@
     "explosives:reset":       { "rule": "fuseReset" },
     "player:reset":           { "rule": "reset" },
     "score:best":             { "silent": "voice only: a Hold the Block new best fires the voice trigger score.newBest (voice.json); no effect sound" },
-    "menus:card":             { "silent": "the card's own UI sounds are the menus' (ui_click, ui_hover)" },
+    "menus:card":             { "silent": "the card's own UI sounds are the menus' (ui:click, ui:hover)" },
+    "ui:click":               { "play": [ { "sound": "ui_click" } ], "about": "every press in a menu, on a card or on a set-up screen (the web game's ui:click, src/menus.js, src/audio/react.js)" },
+    "ui:hover":               { "play": [ { "sound": "ui_hover" } ], "about": "every focus move, and the pointer coming onto another row of a card (the web game's ui:hover)" },
     "hud:radio":              { "rule": "radio", "in": "radio_in", "out": "radio_out", "minHold": 0.6, "maxHold": 12.0 },
     "hud:message":            { "silent": "text only" },
     "hud:warn":               { "silent": "text only" },
@@ -171,6 +173,11 @@
     "hud:prompt":             { "rule": "grab", "sound": "reel_grab", "vol": 0.8, "pitchBase": 0.85, "pitchPerProgress": 0.4, "idle": 0.3 },
     "enemy:spawn":            { "silent": "the flow's copy of enemy:spawn; the enemy bus entry plays" },
     "enemy:killed":           { "silent": "the flow's copy of enemy:killed; the enemy bus entry plays" }
+  },
+
+  "weaponSounds": {
+    "about": "A gun without sounds of its own fires with the sounds of the gun named here (<gun>_shot, _shot_silenced, _tail_out, _tail_in, its gunfire duck and its brass): the web game has two guns, the loadout has six (guns.json), and a gun whose <id>_shot does not exist used to fire in silence. The pack rifles and the RATTLER take the CHOPPER's sounds until they have recorded material of their own. MurderInc.Audio.EveryGunSounds fails for a gun of guns.json that neither has its own shot nor a line here.",
+    "shorty": "chopper", "stick": "chopper", "stretch": "chopper", "rattler": "chopper"
   },
 
   "replace": {

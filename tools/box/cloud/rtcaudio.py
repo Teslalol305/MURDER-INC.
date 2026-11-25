@@ -54,8 +54,9 @@ def db(v):
 class Recorder:
     """The received sound on its own clock, written as it comes, measured per half second."""
 
-    def __init__(self, path, log=print, clock=time.time):
+    def __init__(self, path, log=print, clock=time.time, epoch=None):
         self.path, self.log, self.clock = path, log, clock
+        self.epoch = epoch         # the wall-clock time (seconds since 1970) of the clock's zero: lines up with the game's log
         self.w = wave.open(path, 'wb')
         self.w.setnchannels(2)
         self.w.setsampwidth(2)
@@ -226,7 +227,7 @@ class Recorder:
             self.gaps.append((round(self.waiting[0] / RATE, 3), round(1000 * self.waiting[1] / RATE)))
         self.w.close()
         s = self.summary()
-        meta = {'rate': RATE, 'summary': s, 'rows': self.rows, 'dropOuts': self.gaps, 'actions': self.actions, 'packets': self.packets, 'note': self.note}
+        meta = {'rate': RATE, 'epoch': self.epoch, 'summary': s, 'rows': self.rows, 'dropOuts': self.gaps, 'actions': self.actions, 'packets': self.packets, 'note': self.note}
         with open(self.path + '.json', 'w') as f:
             json.dump(meta, f)
         self.log(f"SOUND {s['seconds']:.1f} s recorded in {self.path}: rms {s['rms']} dBFS, peak {s['peak']} dBFS, clipped samples {s['clipped']}, "
@@ -519,7 +520,7 @@ def main():
     import rtcinput as V  # parses the rest of the command line as rtcinput.py does
 
     wav = ours.wav or os.path.join(V.A.out, 'sound.wav')
-    rec = Recorder(wav, log=V.log, clock=lambda: time.time() - V.t0)
+    rec = Recorder(wav, log=V.log, clock=lambda: time.time() - V.t0, epoch=V.t0)
     V.hooks['audio'] = rec.frame
     V.hooks['action'] = rec.action
     hook_packets(rec)

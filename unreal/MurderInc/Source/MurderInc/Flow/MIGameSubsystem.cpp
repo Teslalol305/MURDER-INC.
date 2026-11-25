@@ -601,9 +601,33 @@ void UMIGameSubsystem::BeginWithSetup(const FMIRunSetup& Setup)
 	StartRun(Settings.Mode);
 }
 
+void UMIGameSubsystem::UiNote(const TCHAR* Name, const UObject* WorldContext)
+{
+	static uint64 LastFrame[2] = {MAX_uint64, MAX_uint64};
+	static double LastClick = -1.0;
+	const int32 Click = FCString::Strcmp(Name, TEXT("ui:click")) == 0 ? 1 : 0;
+	const double Now = FPlatformTime::Seconds();
+	if (LastFrame[Click] == GFrameCounter || (!Click && Now - LastClick < 0.15))
+	{
+		return;
+	}
+	LastFrame[Click] = GFrameCounter;
+	if (Click)
+	{
+		LastClick = Now;
+	}
+	if (FMIGameEvents* Events = WorldContext ? UMIEventSubsystem::Get(WorldContext) : nullptr)
+	{
+		FMIFlowEvent E;
+		E.Name = Name;
+		Events->Flow.Broadcast(E);
+	}
+}
+
 void UMIGameSubsystem::MenuMove(int32 Dy)
 {
 	Menu.Move(Dy);
+	UiNote(TEXT("ui:hover"), this);
 }
 
 void UMIGameSubsystem::MenuAdjust(int32 Dx)
@@ -613,6 +637,7 @@ void UMIGameSubsystem::MenuAdjust(int32 Dx)
 	{
 		return;
 	}
+	UiNote(TEXT("ui:click"), this);
 	const FName Id = Item->Id;
 	const FMISettings::FRules& R = Settings.Rules;
 	bool bChanged = false;
@@ -646,6 +671,7 @@ void UMIGameSubsystem::MenuConfirm()
 		return;
 	}
 	const FName Id = Item->Id;
+	UiNote(TEXT("ui:click"), this);
 	if (Item->bAdjust)
 	{
 		MenuAdjust(1);
@@ -681,6 +707,10 @@ bool UMIGameSubsystem::MenuHover(const FVector2D& Point)
 	{
 		return false;
 	}
+	if (Menu.Selected != Hit.Row)
+	{
+		UiNote(TEXT("ui:hover"), this);  // the pointer came onto another row
+	}
 	Menu.Selected = Hit.Row;
 	return true;
 }
@@ -710,6 +740,7 @@ void UMIGameSubsystem::MenuBack()
 {
 	if (Menu.Screen == EMIMenuScreen::Settings)
 	{
+		UiNote(TEXT("ui:click"), this);
 		Menu.Build(Menu.Return, Settings, Copy, Ui, Rules.Card(), Rules.GetMode());
 		if (FrontEnd && Rules.GetState() == EMIGameState::Title)
 		{

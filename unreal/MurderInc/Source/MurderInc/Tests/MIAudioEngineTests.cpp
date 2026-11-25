@@ -246,8 +246,8 @@ bool FMIAudioEngineRenderTest::RunTest(const FString& Parameters)
 	}
 	if (!FPackageName::DoesPackageExist(TEXT("/Game/Audio/Web/chopper_shot_01")))
 	{
-		AddWarning(TEXT("audio assets not imported: run tools/box/audio-import.sh first"));
-		return true;
+		AddError(TEXT("audio assets not imported: the game is silent in this clone and in every package made from it (tools/box/audio-import.sh)"));
+		return false;
 	}
 	TSharedPtr<FRender> R = MakeShared<FRender>();
 	FString Error;

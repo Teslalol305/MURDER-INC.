@@ -7,7 +7,9 @@
 #   src        fetch the branch into /project/ue/cloud/src (sparse clone: unreal/MurderInc, tools/box)
 #   refresh    copy the branch's Source, Config and .uproject into the release copy /project/ue/repo-release
 #   content    copy the gameplay clone's Content into the release copy, only if no editor has that clone open
-#              (else the release copy keeps the Content of its last copy, and the step says so)
+#              (else the release copy keeps the Content of its last copy, and the step says so). It fails when a
+#              sound of the gameplay clone has no Sound Wave asset or an older one than its WAV: the assets are
+#              generated content (tools/box/audio-import.sh there), and a package without them is silent
 #   overlay    the packaging settings, on the release copy only (start map L_Block, folders loaded by path, fonts,
 #              no Zen store): the same as tools/box/demo/package.sh
 #              Also for the stream only: the SM5 shaders as well as SM6 (a server whose driver fails Unreal 5.9's SM6
@@ -21,6 +23,9 @@
 #              cube maps stored as BC6H (384 MB of graphics memory down to 48 MB)
 #   package <Development|Shipping>   BuildCookRun Linux into /project/ue/cloud/build-<config> (Shipping skips the
 #              cook when a cook exists)
+#   sounds     is every Sound Wave the game's data names in the pak list of build-Shipping and build-Development
+#              (cloud/pak_sounds.py)? "package" and "zip" ask the same and stop when one is missing: versions 1, 2
+#              and 3a were packaged without a single sound and nothing said so
 #   zip        /project/ue/cloud/MurderInc-E3DS.zip from build-Shipping: the launcher cloud/MurderInc.sh at the root
 #              (E3DS app name = script name = MurderInc; it logs to MurderInc/Saved/Logs), BUILD.txt (the commit), the
 #              Development game beside the Shipping one (launch option -MIDev=<key>; the key is a new random word
@@ -85,6 +90,16 @@ content() {
     return 0
   fi
   [ -d "$GP/Content" ] || { say "no gameplay clone Content"; return 1; }
+  # The sounds: every WAV of the gameplay clone needs its Sound Wave asset, not older than the WAV.
+  local w a missing=0 stale=0
+  while IFS= read -r w; do
+    a=${w%.wav}.uasset
+    if [ ! -f "$a" ]; then missing=$((missing + 1)); elif [ "$w" -nt "$a" ]; then stale=$((stale + 1)); fi
+  done < <(find "$GP/Content/Audio" -name '*.wav' ! -name 'IR_*' 2>/dev/null)
+  if [ "$missing" != 0 ] || [ "$stale" != 0 ] || [ ! -d "$GP/Content/Audio" ]; then
+    say "CONTENT FAILED: the gameplay clone has $missing sound(s) without a Sound Wave asset and $stale with an asset older than its WAV$([ -d "$GP/Content/Audio" ] || echo ' (no Content/Audio at all)'): the package would be silent there. Run 'bash tools/box/audio-import.sh' in /project/ue/repo-gameplay (its editor stopped), poll 'audio-import.sh status' until AUDIO-IMPORT-DONE failed=0, then package again"
+    return 1
+  fi
   # Content (not Data or Python: those come from the branch) and the editor module the cooker loads.
   (cd "$GP" && tar -cf - --exclude=Content/Data --exclude=Content/Python Content Binaries) \
     | tar --no-same-owner -C "$REL" -xf - || return 1
@@ -179,7 +194,17 @@ package() {
     '-AdditionalCookerOptions=-DDC=(ProjectPak,InstalledProjectPak,EnginePak=InstalledEnginePak,EnterprisePak,InstalledLocal) -NoDDCCleanup -ini:Engine:[Zen]:AutoLaunch=false -ini:Engine:[ConsoleVariables]:AssetRegistry.DisableDirectoryWatcher=1'" \
     || { say "PACKAGE $cfg FAILED"; return 1; }
   cp "$C/src.commit" "$C/build-$cfg.commit"  # the commit the game binaries were built from (BUILD.txt)
-  say "PACKAGE $cfg OK: $(du -sh "$C/build-$cfg/Linux" | cut -f1)"
+  local snd; snd=$(python3 "$C/src/tools/box/cloud/pak_sounds.py" "$C/build-$cfg/Linux") || { say "PACKAGE $cfg FAILED: $snd"; return 1; }
+  say "PACKAGE $cfg OK: $(du -sh "$C/build-$cfg/Linux" | cut -f1); $snd"
+}
+
+sounds() {  # every Sound Wave the game's data names must be in the pak list of both builds
+  local cfg out rc=0
+  for cfg in Shipping Development; do
+    out=$(python3 "$C/src/tools/box/cloud/pak_sounds.py" "$C/build-$cfg/Linux") || rc=1
+    say "$out"
+  done
+  return $rc
 }
 
 zipit() {
@@ -187,6 +212,8 @@ zipit() {
   local D=$C/build-Development/Linux/MurderInc/Binaries/Linux launcher=$C/src/tools/box/cloud/MurderInc.sh
   [ -f "$L/MurderInc.sh" ] || { say "no $L/MurderInc.sh"; return 1; }
   [ -f "$launcher" ] && [ -f "$C/src.commit" ] || { say "run src first (no $launcher or src.commit)"; return 1; }
+  # No zip of a game that cannot make a sound: the pak list of both games must hold every Sound Wave the data names.
+  sounds || { say "ZIP REFUSED: a sound the game plays is not in the package (lines above). No zip was made."; rm -f "$z" "$z.sha256"; return 1; }
   local sha gsha; sha=$(cat "$C/src.commit"); gsha=$(cat "$C/build-Shipping.commit" 2>/dev/null || echo "$sha")
   # Our launcher in place of the engine's (which ran MurderInc-Linux-Shipping MurderInc -MICloud "$@" and kept no
   # log): it logs to MurderInc/Saved/Logs, passes stop signals on, never runs the game as root.
@@ -257,12 +284,12 @@ status() {
 
 [ "$(id -u)" = 0 ] || { echo "run as root (it switches to ue4 for the engine)"; exit 1; }
 case "$1" in
-  src|refresh|content|overlay|usage) "$1" ;;
+  src|refresh|content|overlay|usage|sounds) "$1" ;;
   zip) zipit ;;
   parts) parts ;;
   package) package "$2" ;;
   all) mkdir -p "$C"; setsid nohup bash "$ME" all-fg </dev/null >"$LOG" 2>&1 & echo "started: poll package-cloud.sh status" ;;
   all-fg) all ;;
   status) status ;;
-  *) sed -n 2,36p "$0"; exit 2 ;;
+  *) sed -n 2,41p "$0"; exit 2 ;;
 esac

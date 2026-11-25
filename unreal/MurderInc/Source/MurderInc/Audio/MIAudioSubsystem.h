@@ -52,6 +52,21 @@ public:
 	bool IsReady() const { return bReady; }
 	int32 LiveComponents() const { return Components.Num(); }
 
+	/**
+	 * Counts since the process started, for the stream's probe line (Cloud/MICloud.cpp: a Shipping game has no log):
+	 * sounds started on the audio device; sound files or ids the game asked for that have no asset (each counted
+	 * once, each logged once as a warning); starts the engine gave no audio component for (no audio device).
+	 */
+	struct FCounts
+	{
+		int32 Played = 0;
+		int32 Missing = 0;
+		int32 NoDevice = 0;
+	};
+	static FCounts GetCounts();
+	/** A sound the game asked for cannot be heard (no asset, or an id the data does not have): once per sound. */
+	static void NoteMissing(const FString& What, const FString& Why);
+
 	/** Start or stop recording the bus to a file under Saved/Audio (console: MIAudio.Record start|stop [name]). */
 	void StartRecording();
 	bool StopRecording(const FString& Name, FString& OutPath);
@@ -87,7 +102,6 @@ private:
 	TMap<FString, TWeakObjectPtr<USoundWave>> Waves;
 	TMap<FString, bool> ExistsCache;
 	TMap<FString, FSoundAttenuationSettings> Attenuations;
-	TSet<FString> Warned;
 	FName ActiveReverb;
 	FDelegateHandle HudHandle;
 

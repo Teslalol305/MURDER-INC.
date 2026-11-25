@@ -1005,22 +1005,27 @@ bool FMIAudioMixdownTest::RunTest(const FString& Parameters)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioAssetsTest, "MurderInc.Audio.Assets", Flags)
 bool FMIAudioAssetsTest::RunTest(const FString& Parameters)
 {
-	// After tools/box/audio-import.sh: every WAV under Content/Audio is a Sound Wave of the same length, loops loop.
+	// After tools/box/audio-import.sh: every WAV under Content/Audio is a Sound Wave of the same length, not older than
+	// its WAV, and the loops loop. A clone without the assets fails here: every cloud package up to version 3a was made
+	// from such a clone and was silent (this test only warned then).
 	TArray<FString> Files;
 	IFileManager::Get().FindFilesRecursive(Files, *FMIAudioData::AudioDir(), TEXT("*.wav"), true, false);
-	int32 Checked = 0, Missing = 0, Wrong = 0, Loops = 0;
+	int32 Checked = 0, Missing = 0, Wrong = 0, Stale = 0, Loops = 0;
 	for (const FString& Path : Files)
 	{
 		FString Rel = Path;
 		FPaths::MakePathRelativeTo(Rel, *(FMIAudioData::AudioDir() + TEXT("/")));
 		if (FPaths::GetCleanFilename(Rel).StartsWith(TEXT("IR_")))
 		{
-			continue;
+			continue;  // the two reverb responses: not sounds the game plays (audio_sounds.json bus "ir"), not imported
 		}
 		const USoundWave* W = LoadObject<USoundWave>(nullptr, *FMIAudioData::AssetPath(Rel), nullptr, LOAD_NoWarn | LOAD_Quiet);
 		if (!W)
 		{
-			++Missing;
+			if (++Missing <= 8)
+			{
+				AddError(FString::Printf(TEXT("%s has no Sound Wave asset (%s)"), *Rel, *FMIAudioData::AssetPath(Rel)));
+			}
 			continue;
 		}
 		FMIWav Wav;
@@ -1029,17 +1034,305 @@ bool FMIAudioAssetsTest::RunTest(const FString& Parameters)
 			++Wrong;
 			AddError(FString::Printf(TEXT("%s: asset %.3f s, file %.3f s"), *Rel, W->Duration, Wav.Secs()));
 		}
+		// A WAV replaced after the import (a real recording under a placeholder's name) is not in the game yet.
+		FString Package = FMIAudioData::AssetPath(Rel), AssetFile;
+		Package.Split(TEXT("."), &Package, nullptr);
+		if (FPackageName::TryConvertLongPackageNameToFilename(Package, AssetFile, FPackageName::GetAssetPackageExtension()))
+		{
+			const FDateTime AssetTime = IFileManager::Get().GetTimeStamp(*AssetFile), WavTime = IFileManager::Get().GetTimeStamp(*Path);
+			if (AssetTime != FDateTime::MinValue() && WavTime > AssetTime + FTimespan::FromSeconds(2.0) && ++Stale <= 8)
+			{
+				AddError(FString::Printf(TEXT("%s is newer than its Sound Wave asset: import it again (tools/box/audio-import.sh)"), *Rel));
+			}
+		}
 		Loops += W->bLooping ? 1 : 0;
 		++Checked;
 	}
+	AddInfo(FString::Printf(TEXT("%d of %d files imported as Sound Waves (%d missing, %d with a wrong length, %d older than their WAV, %d looping)"), Checked, Checked + Missing, Missing, Wrong, Stale, Loops));
 	if (Checked == 0)
 	{
-		AddWarning(TEXT("no audio assets imported yet: run tools/box/audio-import.sh"));
-		return true;
+		AddError(TEXT("no audio assets imported: the game is silent in this clone and in every package made from it. Run tools/box/audio-import.sh (tools/box/sync.sh starts it when assets are missing)"));
+		return false;
 	}
-	AddInfo(FString::Printf(TEXT("%d of %d files imported as Sound Waves (%d missing, %d with a wrong length, %d looping)"), Checked, Checked + Missing, Missing, Wrong, Loops));
 	TestEqual(TEXT("every file has its asset"), Missing, 0);
+	TestEqual(TEXT("no asset is older than its WAV"), Stale, 0);
 	TestTrue(TEXT("the loops loop (stems, beds, rotor, train ...)"), Loops >= 15);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioSoundsResolveTest, "MurderInc.Audio.SoundsResolve", Flags)
+bool FMIAudioSoundsResolveTest::RunTest(const FString& Parameters)
+{
+	// Every sound the game's data can play ends in a Sound Wave that loads: every variant of every web sound, every
+	// file of every replacement layer, every take of every voice line of every character (the clean takes too), the
+	// bleep tone. And every sound id a table of audio.json names is a sound of the data.
+	FMIAudioData D;
+	FMIVoiceData V;
+	FString Error;
+	if (!FMIAudioData::Load(D, Error) || !FMIVoiceData::Load(V, Error))
+	{
+		AddError(Error);
+		return false;
+	}
+	TSet<FString> Files;
+	for (const auto& Pair : D.Sounds)
+	{
+		for (const FString& F : Pair.Value.Files)
+		{
+			Files.Add(F);
+		}
+	}
+	for (const auto& Pair : D.Replace)
+	{
+		for (const FMIReplaceLayer& L : Pair.Value.Layers)
+		{
+			for (const FString& F : L.Files)
+			{
+				Files.Add(F);
+			}
+		}
+	}
+	const int32 SoundFiles = Files.Num();
+	for (const auto& Pair : V.Characters)
+	{
+		for (const FMIVoiceLine& L : Pair.Value.Lines)
+		{
+			for (const TArray<FMIVoiceTake>* Set : {&L.Takes, &L.CleanTakes})
+			{
+				for (const FMIVoiceTake& T : *Set)
+				{
+					Files.Add(FString::Printf(TEXT("Voice/%s/%s"), *Pair.Key.ToString(), *T.File));
+				}
+			}
+		}
+	}
+	Files.Add(TEXT("Gen/bleep_1k.wav"));
+	int32 Loaded = 0, Bad = 0;
+	for (const FString& F : Files)
+	{
+		const USoundWave* W = LoadObject<USoundWave>(nullptr, *FMIAudioData::AssetPath(F), nullptr, LOAD_NoWarn | LOAD_Quiet);
+		if (W && W->Duration > 0.01f && W->NumChannels >= 1)
+		{
+			++Loaded;
+		}
+		else if (++Bad <= 12)
+		{
+			AddError(W ? FString::Printf(TEXT("%s: its Sound Wave is empty (%.3f s, %d channels)"), *F, W->Duration, W->NumChannels)
+				: FString::Printf(TEXT("%s: no Sound Wave loads from %s"), *F, *FMIAudioData::AssetPath(F)));
+		}
+	}
+	TestEqual(TEXT("every file the data can play is a Sound Wave that loads"), Bad, 0);
+
+	// The ids the tables name.
+	int32 Ids = 0;
+	auto Need = [this, &D, &Ids](const FString& Id, const TCHAR* Where)
+	{
+		if (Id.IsEmpty() || Id.Contains(TEXT("{")))
+		{
+			return;
+		}
+		++Ids;
+		const FMISoundDef* Def = D.Find(FName(*Id));
+		if (!Def)
+		{
+			AddError(FString::Printf(TEXT("%s names the sound %s, which the data does not have"), Where, *Id));
+		}
+		else if (Def->bReplaceOnly)
+		{
+			// A sound that exists only as layers must have material, or a fallback that is a sound.
+			const FMIReplace* Rep = D.Replace.Find(Def->Name);
+			const bool bLayers = Rep && Rep->Layers.ContainsByPredicate([](const FMIReplaceLayer& L) { return L.Files.Num() > 0; });
+			if (!bLayers && !(Rep && D.Find(Rep->Fallback)))
+			{
+				AddError(FString::Printf(TEXT("%s names %s, which has no layer file and no fallback sound"), Where, *Id));
+			}
+		}
+	};
+	using namespace MIAudioJson;
+	for (const auto& Pair : D.Events)
+	{
+		const FString Key = Pair.Key.ToString();
+		const TSharedPtr<FJsonObject>& E = Pair.Value;
+		for (const TCHAR* Field : {TEXT("sound"), TEXT("in"), TEXT("out")})
+		{
+			Need(Str(E, Field), *Key);
+		}
+		const TArray<TSharedPtr<FJsonValue>>* List = nullptr;
+		if (E->TryGetArrayField(TEXT("play"), List))
+		{
+			for (const TSharedPtr<FJsonValue>& P : *List)
+			{
+				Need(Str(P->AsObject(), TEXT("sound")), *Key);
+			}
+		}
+		if (E->TryGetArrayField(TEXT("layers"), List))
+		{
+			for (const TSharedPtr<FJsonValue>& P : *List)
+			{
+				Need(P->AsString(), *Key);
+			}
+		}
+		if (const TSharedPtr<FJsonObject> Stings = Obj(E, TEXT("stings")))
+		{
+			for (const auto& S : Stings->Values)
+			{
+				Need(S.Value->AsString(), *Key);
+			}
+		}
+	}
+	const TSharedPtr<FJsonObject> Music = D.Table(TEXT("music")), Amb = D.Table(TEXT("ambience"));
+	const TArray<TSharedPtr<FJsonValue>>* Stems = nullptr;
+	if (Music.IsValid() && Music->TryGetArrayField(TEXT("stems"), Stems))
+	{
+		for (const TSharedPtr<FJsonValue>& S : *Stems)
+		{
+			Need(S->AsString(), TEXT("music.stems"));
+		}
+	}
+	TestTrue(TEXT("the music has its stems"), Stems && Stems->Num() >= 7);
+	Need(Str(Obj(Amb, TEXT("beds")), TEXT("day")), TEXT("ambience.beds"));
+	Need(Str(Obj(Amb, TEXT("beds")), TEXT("night")), TEXT("ambience.beds"));
+	Need(Str(Obj(Amb, TEXT("wind")), TEXT("sound")), TEXT("ambience.wind"));
+	if (const TSharedPtr<FJsonObject> Schedule = Obj(Amb, TEXT("schedule")))
+	{
+		for (const auto& S : Schedule->Values)
+		{
+			if (S.Value->Type == EJson::Object)
+			{
+				Need(FString(*S.Key), TEXT("ambience.schedule"));
+			}
+		}
+	}
+	Need(Str(D.Table(TEXT("heartbeat")), TEXT("sound"), TEXT("heartbeat")), TEXT("heartbeat"));
+	if (const TSharedPtr<FJsonObject> Families = D.Table(TEXT("weaponSounds")))
+	{
+		for (const auto& F : Families->Values)
+		{
+			if (FString(*F.Key) != TEXT("about"))
+			{
+				Need(F.Value->AsString() + TEXT("_shot"), TEXT("weaponSounds"));
+				Need(F.Value->AsString() + TEXT("_tail_out"), TEXT("weaponSounds"));
+				Need(F.Value->AsString() + TEXT("_tail_in"), TEXT("weaponSounds"));
+			}
+		}
+	}
+	AddInfo(FString::Printf(TEXT("%d of %d files load as Sound Waves (%d of sounds and layers, %d voice takes, the bleep); %d sound ids named by the tables"),
+		Loaded, Files.Num(), SoundFiles, Files.Num() - SoundFiles - 1, Ids));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIAudioEveryGunSoundsTest, "MurderInc.Audio.EveryGunSounds", Flags)
+bool FMIAudioEveryGunSoundsTest::RunTest(const FString& Parameters)
+{
+	// Every gun of the roster (guns.json: the loadout offers six, the web game had two) fires with a shot and a tail,
+	// its own or its family's (audio.json weaponSounds), reloads, clicks dry and switches with a sound; nothing the
+	// game asks for in a magazine's worth of handling is an id the data does not have. And the menus' two sounds play,
+	// on a card of a paused run too.
+	FMIAudioData D;
+	FMIVoiceData V;
+	FString Error;
+	TSharedPtr<FJsonObject> Guns;
+	if (!FMIAudioData::Load(D, Error) || !FMIVoiceData::Load(V, Error) || !UMIDataSubsystem::LoadJsonFile(TEXT("guns.json"), Guns, Error))
+	{
+		AddError(Error);
+		return false;
+	}
+	const TArray<TSharedPtr<FJsonValue>>* Roster = nullptr;
+	if (!Guns->TryGetArrayField(TEXT("roster"), Roster) || Roster->Num() < 2)
+	{
+		AddError(TEXT("guns.json has no roster"));
+		return false;
+	}
+	FMIAudioDirector A;
+	A.Exists = [](const FString&) { return true; };
+	A.Init(&D, &V, 5);
+	FMIGameEvents Bus;
+	A.Bind(Bus);
+	A.SetListener(FVector(1000, 1200, 170), FVector::ForwardVector);
+	TArray<FMIAudioCmd> Cmds;
+	auto Step = [&A, &Cmds](double Secs)
+	{
+		for (double T = 0; T < Secs - 1e-9; T += 0.01)
+		{
+			A.Tick(0.01);
+			A.TakeCommands(Cmds);
+		}
+	};
+	auto Starts = [&Cmds](FName Category)
+	{
+		int32 N = 0;
+		for (const FMIAudioCmd& C : Cmds)
+		{
+			N += C.Type == EMIAudioCmd::Start && C.Category == Category ? 1 : 0;
+		}
+		return N;
+	};
+	Bus.Flow.Broadcast(Flow(TEXT("game:state"), TEXT("playing")));
+	Step(0.5);
+	FString Heard;
+	for (const TSharedPtr<FJsonValue>& G : *Roster)
+	{
+		const FName Gun(*G->AsString());
+		Cmds.Reset();
+		FMIShotFiredEvent Shot;
+		Shot.Weapon = Gun;
+		Bus.WeaponFire.Broadcast(Shot);
+		Step(0.2);
+		TestTrue(FString::Printf(TEXT("%s: a shot is heard (category gun)"), *Gun.ToString()), Starts(TEXT("gun")) >= 1);
+		TestTrue(FString::Printf(TEXT("%s: its tail is heard (category tail)"), *Gun.ToString()), Starts(TEXT("tail")) >= 1);
+		Heard += FString::Printf(TEXT(" %s as %s (%d shot layers, %d tails)"), *Gun.ToString(), *A.SoundFamily(Gun).ToString(), Starts(TEXT("gun")), Starts(TEXT("tail")));
+		Cmds.Reset();
+		Bus.WeaponDry.Broadcast(Gun);
+		for (const TCHAR* Phase : {TEXT("start"), TEXT("magout"), TEXT("magin"), TEXT("bolt"), TEXT("done")})
+		{
+			FMIReloadEvent R;
+			R.Weapon = Gun;
+			R.Phase = Phase;
+			Bus.WeaponReload.Broadcast(R);
+			Step(0.3);
+		}
+		FMISwitchEvent Sw;
+		Sw.From = Gun;
+		Sw.To = Gun;
+		Sw.Phase = TEXT("holster");
+		Bus.WeaponSwitch.Broadcast(Sw);
+		Sw.Phase = TEXT("draw");
+		Bus.WeaponSwitch.Broadcast(Sw);
+		Bus.WeaponMode.Broadcast(Gun, true);
+		Bus.WeaponSwing.Broadcast(Gun);
+		Step(0.5);
+		TestTrue(FString::Printf(TEXT("%s: dry fire, the five reload stages, holster, draw, the selector and the swing are heard (%d starts)"), *Gun.ToString(), Cmds.Num()),
+			Starts(TEXT("near")) + Starts(TEXT("ui")) >= 9);
+		Step(1.0);
+	}
+	AddInfo(TEXT("guns:") + Heard);
+
+	// The menus: a press and a focus move, in play and on the card of a paused run (the ui category is not pausable).
+	for (const TCHAR* State : {TEXT("playing"), TEXT("paused")})
+	{
+		Bus.Flow.Broadcast(Flow(TEXT("game:state"), State));
+		Step(0.2);
+		Cmds.Reset();
+		Bus.Flow.Broadcast(Flow(TEXT("ui:click")));
+		Step(0.1);
+		Bus.Flow.Broadcast(Flow(TEXT("ui:hover")));
+		Step(0.1);
+		int32 Clicks = 0, Hovers = 0;
+		for (const FMIAudioCmd& C : Cmds)
+		{
+			Clicks += C.Type == EMIAudioCmd::Start && C.Sound == TEXT("ui_click") ? 1 : 0;
+			Hovers += C.Type == EMIAudioCmd::Start && C.Sound == TEXT("ui_hover") ? 1 : 0;
+		}
+		TestEqual(FString::Printf(TEXT("%s: a press plays ui_click"), State), Clicks, 1);
+		TestEqual(FString::Printf(TEXT("%s: a focus move plays ui_hover"), State), Hovers, 1);
+	}
+	FString Unknown;
+	for (const FName N : A.Unknown())
+	{
+		Unknown += TEXT(" ") + N.ToString();
+	}
+	TestTrue(TEXT("nothing asked for is an id the data does not have:") + Unknown, A.Unknown().Num() == 0);
+	A.Unbind();
 	return true;
 }
 

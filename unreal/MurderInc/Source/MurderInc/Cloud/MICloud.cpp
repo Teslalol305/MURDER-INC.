@@ -1,5 +1,7 @@
 #include "Cloud/MICloud.h"
 
+#include "Audio/MIAudioSubsystem.h"
+
 #include <atomic>
 
 #include "Async/Async.h"
@@ -1447,6 +1449,13 @@ void UMICloudSubsystem::Probe(float DeltaTime)
 		Out += FString::Printf(TEXT(" fire=%d moveX=%.2f moveY=%.2f mag=%d dbl=%d outW=%d outH=%d mouseScale=%.4f"), C && C->GetInput().bFire ? 1 : 0,
 			C ? C->GetInput().Move.X : 0.0, C ? C->GetInput().Move.Y : 0.0, W && W->IsReady() ? W->GetRules().GetMag() : -1, DoubleClicksDropped, Size.X, Size.Y,
 			GetMouseShape().Scale);
+	}
+	{
+		// The sound (new fields go at the end of the line: the box tools read it by its names): sounds started on the
+		// audio device since the process started, sounds asked for that have no asset or no entry in the data (a
+		// package without its Sound Waves counts up here and plays nothing), starts that got no audio device.
+		const UMIAudioSubsystem::FCounts Snd = UMIAudioSubsystem::GetCounts();
+		Out += FString::Printf(TEXT(" sndPlayed=%d sndMissing=%d sndNoDevice=%d"), Snd.Played, Snd.Missing, Snd.NoDevice);
 	}
 	MICloudPrivate::Line(Out);
 	ProbeFrames = ProbeTime = ProbeWorst = 0.0;

@@ -135,6 +135,20 @@ for run in runs:
     if rss:
         start = rss[min(head, len(rss) - 1)]
         parts.append(f"memory {start:.0f} MB five seconds into the play, {rss[-1]:.0f} MB at its end ({rss[-1] - start:+.0f}), highest {max(rss):.0f} MB")
+    # The sound, by the game's own count (probe fields from version 3b on; older lines have none and say nothing here):
+    # sounds started on the audio device, sounds asked for that have no asset, starts that found no audio device.
+    if any('sndPlayed' in p for p in probes):
+        snd = [p for p in probes if 'sndPlayed' in p]
+        in_run = [p for p in play if 'sndPlayed' in p]
+        started = (num(in_run[-1], 'sndPlayed', 0) - num(in_run[0], 'sndPlayed', 0)) if len(in_run) > 1 else 0
+        parts.append(f"sound: {started:.0f} sounds started in the play ({num(snd[-1], 'sndPlayed', 0):.0f} in the whole run), "
+                     f"{num(snd[-1], 'sndMissing', 0):.0f} without an asset, {num(snd[-1], 'sndNoDevice', 0):.0f} without an audio device"
+                     + (' -- THE PACKAGE HAS MISSING SOUNDS' if num(snd[-1], 'sndMissing', 0) > 0 else '')
+                     + (' -- NO AUDIO DEVICE' if num(snd[-1], 'sndNoDevice', 0) > 0 else ''))
+    # What the viewer heard (lag-test.sh audio=1: rtcaudio.py's last line).
+    heard = re.search(r'SOUND (.*)', view)
+    if heard:
+        parts.append('viewer heard: ' + heard.group(1).strip())
     if any('txFps' in p for p in play):
         sent = [p for p in play if 'txFps' in p]
 

@@ -76,5 +76,18 @@ mi_pids_of() {
 
 mi_editor_pid() { mi_pids_of UnrealEditor | head -1; }
 
+# The sounds of a clone that the game could not play: "<missing> <stale>" = WAV files under Content/Audio (the two
+# reverb responses IR_* left out: the game does not play them) that have no Sound Wave asset beside them, and those
+# whose asset is older than the WAV. The assets are generated content (audio-import.sh makes them); every cloud package
+# up to version 3a was made from a clone that had none, and was silent.
+mi_audio_stale() {
+  local d=${1:-$MI_PROJECT_DIR}/Content/Audio missing=0 stale=0 w a
+  while IFS= read -r w; do
+    a=${w%.wav}.uasset
+    if [ ! -f "$a" ]; then missing=$((missing + 1)); elif [ "$w" -nt "$a" ]; then stale=$((stale + 1)); fi
+  done < <(find "$d" -name '*.wav' ! -name 'IR_*' 2>/dev/null)
+  echo "$missing $stale"
+}
+
 # Seconds since a file was last written, or an empty string when it does not exist.
 mi_age() { [ -e "$1" ] && echo $(( $(date +%s) - $(stat -c %Y "$1") )); }

@@ -310,6 +310,7 @@ bool UMIFrontEnd::Act(const FString& Action, const FString& Arg)
 	{
 		if (Rules.GetScreen() == EMIFrontScreen::Home ? Rules.HitTheBlock() == EMIFrontRequest::StartRun : Rules.Next() == EMIFrontRequest::StartRun)
 		{
+			UMIGameSubsystem::UiNote(TEXT("ui:click"), Game.Get());
 			StartRun();
 			return true;
 		}
@@ -319,6 +320,7 @@ bool UMIFrontEnd::Act(const FString& Action, const FString& Arg)
 	{
 		if (Rules.Next() == EMIFrontRequest::StartRun)
 		{
+			UMIGameSubsystem::UiNote(TEXT("ui:click"), Game.Get());
 			StartRun();
 			return true;
 		}
@@ -367,11 +369,18 @@ bool UMIFrontEnd::Act(const FString& Action, const FString& Arg)
 	}
 	Changed();
 	SyncStage(false);
+	if (bOk)
+	{
+		// Every press clicks; a part looked at on the workbench (the pointer over its card) is a hover.
+		if (A == TEXT("preview")) UMIGameSubsystem::UiNote(TEXT("ui:hover"), Game.Get());
+		else UMIGameSubsystem::UiNote(TEXT("ui:click"), Game.Get());
+	}
 	return bOk;
 }
 
 void UMIFrontEnd::Move(int32 Dx, int32 Dy)
 {
+	UMIGameSubsystem::UiNote(TEXT("ui:hover"), Game.Get());
 	const EMIFrontScreen S = Rules.GetScreen();
 	const int32 Count = FMath::Max(1, NumFocusable());
 	const bool bSetupScreen = S != EMIFrontScreen::Home && S != EMIFrontScreen::Briefing;

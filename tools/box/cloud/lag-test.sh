@@ -47,6 +47,11 @@
 #                     0 leaves the bitrate as E3DS starts it.
 #   decode=0          the viewer does not decode the video (rtcinput.py --nodecode): it only counts the frames, and
 #                     saves none. For the question whether the decoding beside the game slows the game's encoder.
+#   audio=1           the viewer is rtcaudio.py: the same script, and the sound it receives is recorded to sound.wav
+#                     (sound.wav.json: when every sound packet came, when every script line was sent) and measured per
+#                     half second; the summary line gets what was heard (loudness, peak, clipped samples, drop-outs).
+#                     audio_find.py then says which of the game's samples are in the recording and how long after a
+#                     fire input the gun's sound came.
 #   cpus=<list>       the game runs on these CPUs only (a taskset list such as 0-5): a server with few CPUs. With 6 or
 #                     fewer task workers (8 hyper-threaded CPUs or fewer; 7 or fewer on this box, which shows no
 #                     hyper-threads) Unreal's Vulkan RHI runs without its interrupt and submission threads. The load
@@ -107,7 +112,7 @@ hogs() {  # <n>[:<work ms>[:<idle ms>[:<size>]]] <pid file> <log prefix> | stop 
 
 run_fg() {
   local name=$1; shift
-  local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= view2= cvars= csv= secs= probe=1 minbit=12000000 profile= cpus= decode=1 extra=()
+  local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= view2= cvars= csv= secs= probe=1 minbit=12000000 profile= cpus= decode=1 audio=0 extra=()
   local runas=${LAG_RUNAS:-ue4} clean=${LAG_CLEAN:-0} join=${LAG_JOIN:-55}
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -116,7 +121,7 @@ run_fg() {
       res=*) res=${1#*=} ;; view=*) view=${1#*=} ;; cvars=*) cvars=${1#*=} ;; csv=*) csv=${1#*=} ;;
       secs=*) secs=${1#*=} ;; probe=*) probe=${1#*=} ;; minbit=*) minbit=${1#*=} ;; profile=*) profile=${1#*=} ;;
       cpus=*) cpus=${1#*=} ;; decode=*) decode=${1#*=} ;; view2=*) view2=${1#*=} ;;
-      runas=*) runas=${1#*=} ;; clean=*) clean=${1#*=} ;; join=*) join=${1#*=} ;;
+      runas=*) runas=${1#*=} ;; clean=*) clean=${1#*=} ;; join=*) join=${1#*=} ;; audio=*) audio=${1#*=} ;;
       *) echo "unknown key $1"; return 2 ;;
     esac; shift
   done
@@ -145,8 +150,8 @@ run_fg() {
   [ -n "$secs" ] || { secs=110; [ "$game" = ship ] && secs=125; }
   local id=lag$(echo "$name" | tr -cd 'a-zA-Z0-9')
   rm -rf "$O"; mkdir -p "$O"; chmod 777 "$O"
-  printf 'name=%s\ngame=%s\nbuild=%s\nload=%s\nsp=%s\nres=%s\nview=%s\ncvars=%s\ncsv=%s\nsecs=%s\nminbit=%s\ncpus=%s\nid=%s\nextra=%s\nstarted=%s\nrunas=%s\nclean=%s\nprobe=%s\njoin=%s\n' \
-    "$name" "$game" "$build" "$load" "$sp" "$res" "$view" "$cvars" "$csv" "$secs" "$minbit" "${cpus:-all}" "$id" "${extra[*]}" "$(date -u +%FT%TZ)" "$runas" "$clean" "$probe" "$join" > "$O/info.txt"
+  printf 'name=%s\ngame=%s\nbuild=%s\nload=%s\nsp=%s\nres=%s\nview=%s\ncvars=%s\ncsv=%s\nsecs=%s\nminbit=%s\ncpus=%s\nid=%s\nextra=%s\nstarted=%s\nrunas=%s\nclean=%s\nprobe=%s\njoin=%s\naudio=%s\n' \
+    "$name" "$game" "$build" "$load" "$sp" "$res" "$view" "$cvars" "$csv" "$secs" "$minbit" "${cpus:-all}" "$id" "${extra[*]}" "$(date -u +%FT%TZ)" "$runas" "$clean" "$probe" "$join" "$audio" > "$O/info.txt"
   venv || { echo "FAILED: no Python with aiortc" > "$O/done"; return 1; }
   # One game at a time.
   local i
@@ -198,11 +203,13 @@ run_fg() {
     sleep 3
   fi
   date -u +%T > "$O/view.start"
-  local vopt=(); [ "$decode" = 0 ] && vopt=(--nodecode)
-  (cd "$O" && timeout $((secs)) "$PY" "$T/rtcinput.py" "$id" "$view" --out "$O" "${vopt[@]}" > "$O/view.log" 2>&1) || echo "VIEWER FAILED: $(tail -1 "$O/view.log")" >> "$O/info.txt"
+  local vopt=() viewer=rtcinput.py; [ "$decode" = 0 ] && vopt=(--nodecode)
+  [ "$audio" = 1 ] && viewer=rtcaudio.py   # the same viewer with a recorder on the sound (sound.wav in the run's folder)
+  (cd "$O" && timeout $((secs)) "$PY" "$T/$viewer" "$id" "$view" --out "$O" "${vopt[@]}" > "$O/view.log" 2>&1) || echo "VIEWER FAILED: $(tail -1 "$O/view.log")" >> "$O/info.txt"
   if [ -n "$view2" ]; then   # the next viewer, once the game has noticed that the first one left
     sleep 3; date -u +%T > "$O/view2.start"
-    (cd "$O" && timeout $((secs)) "$PY" "$T/rtcinput.py" "$id" "$view2" --out "$O" > "$O/view2.log" 2>&1) || echo "SECOND VIEWER FAILED: $(tail -1 "$O/view2.log")" >> "$O/info.txt"
+    vopt=(); [ "$audio" = 1 ] && vopt=(--wav "$O/sound2.wav")
+    (cd "$O" && timeout $((secs)) "$PY" "$T/$viewer" "$id" "$view2" --out "$O" "${vopt[@]}" > "$O/view2.log" 2>&1) || echo "SECOND VIEWER FAILED: $(tail -1 "$O/view2.log")" >> "$O/info.txt"
   fi
   for i in $(seq 1 $((secs + 60))); do [ -f "$R/result.txt" ] && break; sleep 1; done
   hogs stop "$O/hog.pids"

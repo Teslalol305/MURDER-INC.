@@ -116,6 +116,12 @@ public:
 	void OpenSettingsFromFrontEnd();
 	/** Writes the save game: the settings, the best score and the remembered set-up. */
 	void SaveSettings();
+	/**
+	 * An interface sound: the web game's ui:click (every press) and ui:hover (every focus move, src/menus.js) as a
+	 * flow line on the world's bus, which the audio director plays (audio.json events). At most one of each a frame,
+	 * and no hover in the 0.15 s after a click (a card that is rebuilt under the pointer is not a move).
+	 */
+	static void UiNote(const TCHAR* Name, const UObject* WorldContext);
 	void MenuMove(int32 Dy);
 	void MenuAdjust(int32 Dx);
 	void MenuConfirm();

@@ -161,6 +161,15 @@ public:
 	// Counters for tests.
 	int32 Started() const { return StartedCount; }
 	int32 Refused() const { return RefusedCount; }
+	/** Sound ids something asked to play that the data does not have, since the last call (the host warns once each). */
+	TArray<FName> TakeUnknown();
+	/** All of them since Init. */
+	const TSet<FName>& Unknown() const { return UnknownEver; }
+	/**
+	 * The gun whose sounds a gun fires with: its own when the data has <gun>_shot, else the one audio.json weaponSounds
+	 * names (the web game has two guns, the loadout six: a rifle without recorded material sounds as the CHOPPER).
+	 */
+	FName SoundFamily(FName Weapon) const;
 
 private:
 	struct FInstance
@@ -193,6 +202,9 @@ private:
 		bool bLoop = false;
 		bool bNoJitter = false;
 	};
+
+	TSet<FName> UnknownEver;
+	TArray<FName> UnknownNew;
 
 	FInstance Play(FName Sound, const FPlayArgs& Args);
 	int32 StartFile(const FMISoundDef& Def, const FString& File, double Secs, double Volume, const FPlayArgs& Args, double Pitch);

@@ -27,6 +27,10 @@ DEFINE_LOG_CATEGORY_STATIC(LogMIAudioHost, Log, All);
 
 namespace MIAudioHostPrivate
 {
+	// Game thread only.
+	UMIAudioSubsystem::FCounts GCounts;
+	TSet<FString> GNoted;
+
 	UMIAudioSubsystem* FirstGameAudio(UWorld* World)
 	{
 		return World ? World->GetSubsystem<UMIAudioSubsystem>() : nullptr;
@@ -115,6 +119,24 @@ namespace MIAudioHostPrivate
 #endif
 }
 
+UMIAudioSubsystem::FCounts UMIAudioSubsystem::GetCounts()
+{
+	return MIAudioHostPrivate::GCounts;
+}
+
+void UMIAudioSubsystem::NoteMissing(const FString& What, const FString& Why)
+{
+	bool bAlready = false;
+	MIAudioHostPrivate::GNoted.Add(What, &bAlready);
+	if (bAlready)
+	{
+		return;
+	}
+	++MIAudioHostPrivate::GCounts.Missing;
+	// A warning, once per sound: versions 1 to 3a of the cloud package had no Sound Wave at all and said nothing.
+	UE_LOG(LogMIAudioHost, Warning, TEXT("sound missing: %s: %s. It will not be heard."), *What, *Why);
+}
+
 bool UMIAudioSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 {
 	const UWorld* World = Cast<UWorld>(Outer);
@@ -164,6 +186,10 @@ void UMIAudioSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		Package.Split(TEXT("."), &Package, nullptr);
 		const bool bExists = FPackageName::DoesPackageExist(Package);
 		ExistsCache.Add(File, bExists);
+		if (!bExists)
+		{
+			NoteMissing(File, FString::Printf(TEXT("no Sound Wave asset %s (tools/box/audio-import.sh in the clone the package is made from, then package again)"), *Package));
+		}
 		return bExists;
 	};
 	Director.FileSecs = [this](const FString& File)
@@ -235,10 +261,9 @@ USoundWave* UMIAudioSubsystem::Wave(const FString& File)
 	{
 		Loaded.Add(W);
 	}
-	else if (!Warned.Contains(File))
+	else
 	{
-		Warned.Add(File);
-		UE_LOG(LogMIAudioHost, Verbose, TEXT("no asset for %s (tools/box/audio-import.sh)"), *File);
+		NoteMissing(File, FString::Printf(TEXT("no Sound Wave asset %s (tools/box/audio-import.sh in the clone the package is made from, then package again)"), *FMIAudioData::AssetPath(File)));
 	}
 	Waves.Add(File, W);
 	return W;
@@ -306,6 +331,7 @@ void UMIAudioSubsystem::Execute(const FMIAudioCmd& C)
 		UAudioComponent* A = UGameplayStatics::CreateSound2D(World, W, 1.f, (float)C.Pitch, 0.f, nullptr, false, true);
 		if (!A)
 		{
+			++MIAudioHostPrivate::GCounts.NoDevice;
 			return;  // no audio device (headless runs)
 		}
 		const FMIAudioCategory* Cat = Data.Categories.Find(C.Category);
@@ -321,6 +347,10 @@ void UMIAudioSubsystem::Execute(const FMIAudioCmd& C)
 		A->SetVolumeMultiplier((float)(C.Volume * G));
 		A->Play();
 		Components.Add(C.Id, {A, C.Category, C.Volume});
+		++MIAudioHostPrivate::GCounts.Played;
+		// What played when, for the listening tests (tools/box/cloud/rtcaudio.py): -LogCmds="LogMIAudioHost Verbose".
+		UE_LOG(LogMIAudioHost, Verbose, TEXT("play %s sound=%s category=%s volume=%.3f mix=%.3f pitch=%.3f%s%s"), *C.File, *C.Sound.ToString(), *C.Category.ToString(),
+			C.Volume, G, C.Pitch, C.b3D ? TEXT(" 3d") : TEXT(""), C.bLoop ? TEXT(" loop") : TEXT(""));
 	}
 	else if (FPlaying* P = Components.Find(C.Id))
 	{
@@ -465,6 +495,10 @@ void UMIAudioSubsystem::Tick(float DeltaTime)
 	for (const FMIAudioCmd& C : Cmds)
 	{
 		Execute(C);
+	}
+	for (const FName Id : Director.TakeUnknown())
+	{
+		NoteMissing(Id.ToString(), TEXT("the game asked for this sound id and the audio data has no such sound (audio_sounds.json, audio.json replace and weaponSounds)"));
 	}
 	ApplyMix();
 	ApplyReverb();
