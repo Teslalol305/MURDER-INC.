@@ -61,3 +61,101 @@ sphere in play and the aimed red dot a thick black ring (`rm-full-1080/117`, `12
 "OVER 302 MiB" (4K) in red at the top left (`117-hud-play`); the Shipping game does not show the message, but the pool is over
 budget. `LogMaterial: M_Weapon_CasingPistol missing usage flag Nanite! Default Material will be used` and the red dot's lens and
 reticle materials invalid on a Nanite mesh (SM6 path; E3DS runs SM5).
+
+## Render and stream audit (box lane, 2026-11-25, 19:50 to 21:30 UTC)
+
+**What was looked at.** The newest package on the box, the trial zip `/project/ue/cloud/v6trial.zip` (commit `fd8ce12`; nothing newer
+in `/project/ue/cloud/v6`), unpacked privately to `/project/ue/ready/render/pkg`. Everything ran in E3DS's shader platform (`-sm5`:
+no Nanite, Lumen in software), one game at a time on the GPU (the runs' watchers say CLEAN unless a line says otherwise).
+
+- **Game frames** (lossless): the Development game with the demo director's `capture` (every frame of the game viewport,
+  HUD included, as raw BGRA), `-benchmark -fps=60` so that one engine frame is one picture, `-MICloudNoCard`, standing in the
+  Story run's first street (the El, the fire escapes, the fence cage, the pizza sign), 40 consecutive frames at render scale
+  50 %, 75 % and 100 % and during a slow turn. Run `r-dev2`.
+- **Viewer frames** (what a player receives): the Shipping game streamed through Pixel Streaming 2 to the Python viewer
+  (`rtcinput.py` with a `grab` verb: the decoded luma of N consecutive frames, and every frame's arrival time and key-frame
+  flag), menus, the Workbench, a still view, a slow turn, the aimed CHOPPER, then the release check's fast turns and flicks.
+  E3DS's encoder setting (Medium: QP 34 for minimum and maximum, `qp=34:34`), the game on 6 CPUs (`cpus=0-5`), at 1920 x 1080,
+  2560 x 1440 and 3840 x 2160 (launcher `-ResX/-ResY`, which is what E3DS's Browser Resolution Custom passes), under two loads
+  (below). Runs `s-1080`, `s-1440`, `s-2160`, `s-1080-l20`, `s-1440-l20`.
+- **The flicker number** (`flicker.py`, 8-bit luma of consecutive frames of one view): `mad` the mean change per frame;
+  `rev` the up-and-down part of it (sqrt of -d1*d2 for two consecutive changes of a pixel: steady motion gives little,
+  shimmer and blinking give a lot); `rev8` the share of pixels that go up AND down by more than 8 levels in two frames (a
+  visible blink); `tstd99` the 99th percentile of each pixel's temporal standard deviation; `mean` the picture's mean luma
+  (exposure pumping, black frames).
+
+**The load convention, and its limit.** `load=1:0.05:0.05:1024` is the release gate's "E3DS machine" line (`v6-e3ds-l12`):
+under it the game at 1080p held render scale 0.75 with 8.1 ms of GPU time (run `s-1080`). E3DS's own A4000 needed 10.2 to
+13.3 ms at render scale 0.50 to 0.63 for the same street (DECISIONS.md, version 4 on E3DS), so that load is **lighter** than
+the real card. `load=1:0.05:0:1024` (the gate's `l20`) matches it: under it the game at 1080p ran at render scale 0.50 with
+13.2 ms of GPU time (run `s-1080-l20`), which is E3DS's own reading. **`l20` is the E3DS-faithful load for this package.** A load process slows every frame by the same
+time whatever its size, while a slower card slows the size-dependent part too, so both loads understate what a larger
+picture costs on the A4000: read the 1440p and 4K rows as best cases.
+
+### The answer: the highest resolution to stream at
+
+**1920 x 1080, for the meeting and for release v6.** It is the only size proven on E3DS's own machine (version 4: 60 frames a
+second, render scale 0.50 to 0.75, QP 34) and it streamed cleanly here. **2560 x 1440 streams on the box but is not proven on
+the A4000 and is not flicker-free in fast turns at the viewer; 3840 x 2160 does not stream at all (R1).**
+
+| Output | Game (play, E3DS-like load) | Sender | Viewer (decoded frames) | Verdict |
+|---|---|---|---|---|
+| 1920 x 1080 (`s-1080`) | 59.7 fps (lowest second 36.9: one 340 ms game-thread frame, R5), GPU 8.1 ms, render scale 0.75 the whole run (0 changes) | QP 34 always, 4.5 Mbit/s average, 11.5 peak; encoded 58.4 a second (lowest second 42) | 58 to 61 frames a second in every phase, one key frame in the session (at the start); still view: `rev8` 0.029 %, `tstd99` 6.7, exposure steady (mean luma std 0.05) | **ship** |
+| 1920 x 1080, E3DS-faithful load (`s-1080-l20`) | 59.3 fps (lowest second 31.8), worst frame 175 ms (in a fast turn; 132 ms standing), GPU 13.2 ms, render scale 0.50 the whole run (0 changes) | QP 34, 4.1 Mbit/s average, 13.5 peak; encoded 59.1 a second (lowest second 45) | 56.7 to 60 a second per phase, gaps up to 192 to 199 ms in the aim and fast-turn phases; still view `rev8` 0.005 %, exposure steady | **ship** (the hitches are R5) |
+| 2560 x 1440 (`s-1440`) | 60.0 fps (lowest 55.3), worst frame 50 ms, GPU 8.3 ms, render scale 0.75 (0 changes) | QP 34, 6.4 Mbit/s average, **21.8 peak** (over the 20 Mbit/s cap), encoded 58.4 a second but **lowest second 24** | still views cleaner than 1080 (`rev8` 0.0085 %), but **fast turns and flicks arrive at 53 a second with gaps up to 120 ms** (1080: 60, 46 to 53 ms); picture `ready-render-stream-1440-still.jpg` (a received 1440p frame: the support-hand ball of R6 is this package's) | box yes; E3DS **not proven** |
+| 3840 x 2160 (`s-2160`) | 60 fps drawn | **capture and encoder stop after 2 s** (`capFps` 57, then 0, then none; `encFps=0` in 208 of 212 lines) | 63 frames, then nothing for the rest of the run (sound kept coming) | **blocker** (R1) |
+
+**What to set to stream at 1920 x 1080 (nothing to rebuild):**
+
+- **E3DS, Viewer Experience, Common: Browser Resolution Custom, 1920 and 1080** (both boxes filled). Dynamic is also safe for
+  size (the game draws a viewer's request at most 1920 x 1080, `FMICloudSize` in `Cloud/MICloud.h`) but keeps the
+  set-up screens' small sizes untested (LAUNCH.md 7). **Never Custom 2560 x 1440 or larger for the meeting**: E3DS passes the
+  custom size as `-ResX/-ResY` at start, and the game's size limit applies only to a viewer's later requests, not to the
+  start size (R1).
+- **Video Quality Medium** (QP 34, as version 4 ran): measured here, it holds the bitrate at 4.5 Mbit/s on average and 11.5 at
+  peak at 1080p, sends one key frame per session (`PixelStreaming2.Encoder.KeyframeInterval` is -1: no periodic key frames,
+  so no key-frame pulsing) and the QP never moves, so no quality swings.
+- **Launch options**: none needed. Optional, R4: `-MICVars=r.Streaming.PoolSize=1000`.
+- The game: nothing. Dynamic resolution stays 0.50 to 0.75 (`[MICloud]` of `DefaultGame.ini`); under the gate's E3DS load it
+  sat at 0.75 without a single change in two runs (no resolution oscillation to flicker); the quality ladder is not in this
+  package (the probe line has no `q=`) and is off by default in release v6 (`-MILadder` turns it on).
+
+**To try 2560 x 1440 later** (only after R1 is fixed or the start size is clamped): one E3DS session at Custom 2560 x 1440
+with `-MICloudProbe=1`, the pause card's numbers line read in a fight: it must say 60 frames a second, lowest 58, and
+"stream 60 a second". On the box's card it held 60 under the light load, but the sender's lowest second was 24 frames and
+the fast-turn viewer phases came at 53 a second with gaps up to 120 ms; peaks of 21.8 Mbit/s at QP 34 are over E3DS's 20
+Mbit/s maximum, so a home connection will queue them.
+
+### Findings, most severe first
+
+| # | Severity | Finding | Evidence | Fix (proposed, not made) |
+|---|---|---|---|---|
+| R1 | **blocker** (for any size above 1440p) | **At 3840 x 2160 the stream dies two seconds after the viewer joins**: the game draws 60 a second, Pixel Streaming captures and encodes 57 frames in the first second, 6 in the next, then nothing (`capFps=0`, then no capture statistics at all; `encFps=0` in 208 of 212 probe lines). The viewer got 63 frames in 100 s; the sound went on. The same as the menu lane's M2, here in the Shipping game with E3DS's arguments and QP, no other game on the GPU while it streamed (the run is marked POLLUTED for one sample after the stream had died; another lane's editor used CPUs in 30 of 144 samples). | Run `s-2160` (`/project/ue/ready/render/lag/s-2160`, probe lines in `/project/ue/cloud/repro/lag-s-2160/game.log`, `view.log`: "frames 63" from 50 s to the end). BOX.md row 36 (an older build): 46 frames a second at 4K, then no shutdown. | Do not offer 4K. Clamp the **start** size the way a viewer's request is clamped: run `FMICloudSize::Fit` on the viewport size at start in cloud mode (`r.SetRes` to the fitted size), so a Custom 3840 x 2160 becomes 1920 x 1080 with the mouse scale worked out as for Dynamic. The capture or encoder failure at 4K itself is the engine's (Development log of M2: `Failed to lock output bitstream [NVENC 8]`, CUDA 700). |
+| R2 | **blocker** (menu; the same fault as M1, measured independently) | **The Workbench strobes at 20 Hz while the mouse rests on an option**: every third received frame is the garbled layout (title, tabs, effect lines, BACK and DONE piled at the top left, no veil), the other two clean, for as long as the pointer stays; and the hover sound fires 20 times a second with it. | Viewer grabs `G-bench-nine-fit` of `s-1080` and `s-1440`: frames 1, 4, 7, 10 ... differ from frames 0, 2, 3, 5 ... by a mean of 9.9 luma levels and those are equal to each other to 0.0 (pattern A B A A B A ...: 13 of 40 frames garbled at both sizes); `G-bench-nine-open`: the same from the frame the Workbench opened. `sndPlayed` in the probe lines rises by 10 every half second while the pointer rests there (`s-1080`), and by 100 every 5 s for the whole of `s-2160`, whose viewer sat on the Workbench without video: 1,659 sounds in a run that never left the front end. Picture `ready-render-bench-strobe.jpg` (four consecutive viewer frames). | As M1: `SMIFrontEnd.cpp` 824-825 and `MIFrontEnd.cpp` 356/370: `Act("preview")` calls `Changed()` even when the part is already previewed, `Rebuild()` replaces the hovered button, the new button is hovered again: a rebuild loop of 3 frames. Make preview a no-op when nothing changes (no `Changed()`, no `UiNote`), let `OnUnhovered` stop only its own preview, and prepass the new body after `ChildSlot[Body]`. Not fixed at the branch head (no change under `Source/MurderInc/UI` since `fd8ce12`). |
+| R3 | should-fix | **Thin geometry blinks at render scale 0.50, the scale E3DS's card runs at** (version 4 on E3DS: 0.50 to 0.63). On the fire escapes of the first street, 8 x 8 pixel blocks jump between about 5 and 75 luma levels from one frame to the next (light blotches appearing and vanishing on the railings); at 0.75 and 1.00 the same blocks are steady. Whole picture: still small. | Game frames `r-dev2` (lossless, still camera, 40 frames each): fire-escape region (x 62-78 %, y 0-42 %) `rev8` **0.44 %** at 0.50, 0.11 % at 0.75, 0.033 % at 1.00; `tstd99` 13.9 / 5.4 / 3.0; one block's luma over 8 frames at 0.50: 77 6 6 58 62 8 11 7, at 0.75: 32 32 31 31 31 31 32 32. Whole frame `rev8` 0.044 % / 0.035 % / 0.010 %. Pictures `ready-render-fire-escape-blink.jpg` (four consecutive frames at 0.50 and at 1.00), `ready-render-flicker-map-50.jpg` (frame, temporal std x 8, up-and-down map x 8: the bright spots top right are the fire escapes). At the viewer the encoder at QP 34 smooths most of it but not all: the fire escapes of the stream's still view (x 60-68 %, y 0-40 %) have `rev8` **0.018 %** at render scale 0.50 (`s-1080-l20`) against 0.003 % at 0.75 (`s-1080`), six times more, still small next to the strobe of R2. | `r.DynamicRes.MinScreenPercentage` 50 to 60 in `[MICloud]` (or `-MICVars=r.DynamicRes.MinScreenPercentage=60` on E3DS, allowed by the viewer-command list) costs a few per cent of the GPU on the box's card (BOX.md row 43: 6.00 ms at 50 %, 6.39 ms at 75 %; more on the A4000, where the ladder's steps can pay for it) for a steadier picture; the source (Lumen reflections, screen traces or TSR on the fire-escape material) is being narrowed by run `r-dev3` (addendum below if it finished). |
+| R4 | should-fix | **The texture streaming pool is over budget in the opening street at 1080p and 1440p**: the pool is 600 MB (`[MICloud]`), the wanted textures 717 to 865 MB (1080) and 721 to 876 MB (1440). The Development game prints "TEXTURE STREAMING POOL OVER 23.104 MiB BUDGET" in red over the objective panel; the Shipping game does not print it, but drops mips the same (softer textures, mip changes while turning). | Probe lines `texStreamMB` / `poolMB=600` of `s-1080`, `s-1440`; frame `dev2-still50-f10` of `r-dev2` (red line at the top left); the menu lane's note (49.6 MB over at 1080, 302 MB at 4K). | E3DS's A4000 has 16 GB and the game used 6 to 7 GB at 1080p (BOX.md row 54): raise `r.Streaming.PoolSize` to 1000 in `[MICloud]` for the next package, or `-MICVars=r.Streaming.PoolSize=1000` now (the variable is in the viewer allowlist, 200 to 3000). |
+| R5 | should-fix | **One 340 ms freeze while standing still in play** (game thread: `gameMs=339.8`, the GPU and render thread normal), and viewer gaps of 233 ms (1080) and 126 to 132 ms (1440) in the still and aim phases. Not repeated in the 1440 run's game lines (worst 50 ms, at the start). | `s-1080` probe line 138 (`fps=36.9 worstMs=339.9 ... gameMs=339.8`, yaw unchanged, `state=2`); `analyze.py` viewer phases (`gap_max_ms`). | Run the Development game standing for two minutes with `stat hitches` / `-LogCmds="LogGarbage Log"`: a garbage collection is the first suspect (a 60 s rhythm). |
+| R6 | must-fix (fixed in the branch, not yet packaged) | In every first-person frame of this package the support hand is a large brown ball over the crosshair, and the aimed red dot is a thick black ring round a small clear circle. | Stream frames `s-1080/s-still.jpg`, `s-aim-chopper.jpg` (and the same at 1440). | Fixed in `8d0d6ac`/`7c0bc1a` (hands data and C++) and `7e120ac`/`a88dcdc` (the optic housing fades), not yet packaged. **Watch on the v6 package:** `a88dcdc` fades the housing with a screen-door dither keyed to the pixel position (not temporal): during the aim-in, at render scale 0.50 under TSR, that is a classic shimmer source. `stream-grab.txt`'s `G-aim-chopper` grab measures it (it must stay near this run's `rev8` 0.009 %). |
+| R7 | nit | On the Workbench the NINE's slide reads as flat silver with a plain white block in front of it, and an orange glow sits at the suppressor's muzzle. Not checked against the art: may be intended. | `s-1080/s-bench-nine.jpg`, `s-bench-nine-fit.jpg`. | For the weapons lane to confirm. |
+
+**Checked and clean (numbers):** no black or pink surface and no default (grid) material in any frame looked at (street,
+El, fences, shop fronts, the six-gun rack, the Workbench, the first-person guns) in the SM5 game; no start-up black frame
+in play (the lowest mean luma of any grabbed play frame 43.7, a dark aimed view); **auto exposure steady**: the mean luma
+of a still view varies by 0.01 to 0.07 levels (standard deviation) over 40 to 90 frames at every scale and size; **no
+resolution oscillation** (render scale 0.75 in every probe line of `s-1080` and `s-1440`); **no key-frame pulsing** (one key
+frame per session at the viewer); **QP fixed at 34**; the still view at the viewer: `mad` 0.04 to 0.11 levels a frame,
+`rev8` 0.007 to 0.029 % (1080 and 1440), the aimed CHOPPER 0.009 %; the game's own frames at 0.75 and 1.00: whole-picture
+`rev8` 0.035 % and 0.010 %. The slow turn (3 browser pixels every 16 ms) at the viewer: `mad` 5.2 (1080) and 6.0 (1440),
+`rev8` 3.5 % and 4.4 %, smooth arrival (60 a second, gaps under 36 ms). The menus at 2560 x 1440 are the 1080 layout scaled.
+
+**Not done:** the two heavier-load runs (`s-1080-l20`, `s-1440-l20`) and the variant run `r-dev3` waited behind other lanes'
+games for most of an hour; if they finished, the addendum below has them. A browser viewer (canvas grabs) cannot run on the
+box (BOX.md row 27: headless Chrome gathers no ICE candidates); the Python viewer decodes the same H.264 the browser would.
+No run on E3DS itself.
+
+**Tools** (on the box, not in the repository: `/project/ue/ready/render`): `rtcgrab.py` (made from `rtcinput.py` by
+`mkgrab.py`: the `grab <n> <name> [bg]` verb and `frames.json`), `stream-grab.txt` (the viewer script), `flicker.py` (the
+numbers above, `--map` for the pictures), `analyze.py` (a run's probe lines and viewer phases), `render-dev.txt` /
+`render-dev3.txt` (the demo-director captures), and `repo/tools/box/cloud/lag-test3.sh` (lag-test.sh with the viewer
+choice and a GPU claim: a placeholder process named MurderInc, as `repo-guns/r4c/hold.sh` does, from the moment the GPU is
+free until the run's own game exists).
