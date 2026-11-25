@@ -233,7 +233,10 @@ def main():
                     "const f = arguments[0]; f.setAttribute('data-mi-style', f.getAttribute('style') || '');"
                     "f.style.setProperty('display', 'block', 'important'); f.style.opacity = '0.01';"
                     "f.style.position = 'fixed'; f.style.left = '0'; f.style.top = '0';"
-                    "f.style.width = '8px'; f.style.height = '8px';", script_args=[e])
+                    "f.style.width = '40px'; f.style.height = '24px'; f.style.margin = '0'; f.style.padding = '0';"
+                    "f.style.border = '0'; f.style.clip = 'auto'; f.style.clipPath = 'none'; f.style.overflow = 'visible';"
+                    "f.style.visibility = 'visible'; f.style.pointerEvents = 'auto'; f.style.zIndex = '2147483647';"
+                    "f.removeAttribute('hidden');", script_args=[e])
                 try:
                     e.send_keys(a[2])
                 finally:
