@@ -172,8 +172,9 @@ run_fg() {
     mkdir -p "$build/MurderInc/Saved/Config/Linux"
     printf '[InputPlatformSettings_Linux InputPlatformSettings]\ninput.DeviceMappingPolicy=3\n' > "$build/MurderInc/Saved/Config/Linux/Input.ini"
     # The pak's DefaultGame.ini is older too: the quality ladder's steps (release 3c, [MICloud] QualitySteps= lines) as a Saved
-    # override, replacing whatever the pak has (the game deletes a Saved ini it did not write when it exits: before every run).
-    { printf '[MICloud]\n!QualitySteps=ClearArray\n'
+    # override (the game deletes a Saved ini it did not write when it exits: before every run). No ClearArray first: with it the
+    # game found no steps at all (box run l1c), and an older pak has none to clear.
+    { printf '[MICloud]\n'
       sed -n '/^\[MICloud\]/,/^\[/p' "$T/../../../unreal/MurderInc/Config/DefaultGame.ini" | grep -E '^\+QualitySteps=' || true
     } > "$build/MurderInc/Saved/Config/Linux/Game.ini"
     chown -R ue4 "$build/MurderInc/Saved/Config" 2>/dev/null
