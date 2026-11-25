@@ -902,6 +902,37 @@ def check_arm_reach():
             err("hands: animSets.%s.magazine.height must be 0 to 1 (a fraction of the magazine's height)" % name)
         if "aimSides" in st.get("grip", {}) and not set(st["grip"]["aimSides"]) <= set("lr"):
             err("hands: animSets.%s.grip.aimSides takes l and r only" % name)
+    check_reload_solves(sets)
+
+
+def check_reload_solves(sets):
+    """HANDS_R4.md 10: the support hand's grip round every magazine a hand-IK gun holds in a reload (grips.json magazines, made by
+    tools/data/reload_grips.py): each set's own magazine and every magazine part has one, with the wrist and every finger joint, as
+    three finite numbers (cm, the magazine mesh's frame) within reach of the magazine (60 cm)."""
+    grips = load("grips.json")
+    mags = grips.get("magazines", {})
+    want = set()
+    for name, st in sets.items():
+        full = st.get("magazine", {}).get("full", "") if st.get("mode") == "ik" else ""
+        if full:
+            want.add(full.rsplit(".", 1)[-1])
+    for pid, p in PARTS.items():   # our own magazine parts ride the hand-IK guns' magazine bone (the pack's are the STICK's)
+        mesh = str(p.get("presentation", {}).get("mesh", ""))
+        if p.get("slot") == "magazine" and p.get("source") == "own" and mesh:
+            want.add(mesh.rsplit(".", 1)[-1])
+    joints = ["hand_l"] + ["%s_%s_l" % (f, j) for f in ("index", "middle", "ring", "pinky") for j in ("metacarpal", "01", "02", "03", "tip")] \
+        + ["thumb_%s_l" % j for j in ("01", "02", "03", "tip")]
+    for m in sorted(want):
+        pts = mags.get(m, {}).get("l")
+        if not isinstance(pts, dict):
+            err("hands: grips.json magazines has no reload grip for %s (python3 tools/data/reload_grips.py)" % m)
+            continue
+        missing = [j for j in joints if j not in pts]
+        if missing:
+            err("hands: grips.json magazines.%s.l lacks %s" % (m, ", ".join(missing)))
+        for j, v in pts.items():
+            if not (isinstance(v, list) and len(v) == 3 and all(isinstance(x, (int, float)) and math.isfinite(x) and abs(x) <= 60 for x in v)):
+                err("hands: grips.json magazines.%s.l.%s must be three numbers within 60 cm" % (m, j))
 
 
 def check_freshness():
