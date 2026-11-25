@@ -3,7 +3,7 @@
 # the Goons' guns and near misses, the hurt and the ear ring, the heartbeat under a third of the health, the death (the
 # muffle, the sting, the music's dead mode), the card.
 #   lag-test.sh run <name> game=dev demo=sound-dead.txt view=sound-watch.txt audio=1 join=3 probe=0.25 secs=140 -- "-LogCmds=LogMIAudioHost Verbose"
-wait 8
+wait 20
 con MIVoice frequency often
 con MIMenu fe home
 wait 3

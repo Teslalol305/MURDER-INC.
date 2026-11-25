@@ -12,7 +12,7 @@
 # misses, the hits, their deaths, the kill lines), the propane tanks (fuse and blast), the last reel by hand (the grab's
 # rising tone), the truck (the last sting, "What's my name" and the crowd), the debrief. The player cannot die here
 # (god 1): the hurt, the heartbeat and the death are sound-dead.txt.
-wait 8
+wait 20
 con MIVoice frequency often
 con MIMenu fe home
 wait 7
