@@ -10,6 +10,12 @@
 # proofs: frame rate, GPU time, idle, viewers, the QP, the QP range the plugin was given, the bitrate, the frames the
 # sender captured, encoded and sent a second, the bandwidth it thought it had, the round trip. Without windows: the
 # whole run as one window. -v prints every probe line's fields too.
+#
+#   python3 session_sum.py <run folder> --phases
+#
+# one row per "say PHASE <name>" line of the viewer's script (view.log): the viewer's phase is laid on the game's clock
+# by the game's "Viewer joined (game time X s)" line and the viewer's "connection connected" time (good to about a
+# second), and the frames the viewer received a second in that phase come from its own "frames N" lines (every 5 s).
 import os
 import re
 import sys
@@ -50,8 +56,32 @@ if verbose:
     for i, p in enumerate(probes):
         print(i, ' '.join(f'{k}={p[k]:g}' for k in ['up'] + FIELDS if k in p))
 wins = [w for w in args[1:] if ':' in w]
-if not wins:
+if not wins and '--phases' not in sys.argv:
     print(row('whole run', probes))
+if '--phases' in sys.argv:
+    view = read(f'{run}/view.log')
+    join = re.search(r'Viewer joined.*game time ([\d.]+) s', log)
+    conn = re.search(r'^\s*([\d.]+) connection connected', view, re.M)
+    phases = [(float(m.group(1)), m.group(2)) for m in re.finditer(r'^\s*([\d.]+) > say PHASE (\S+)', view, re.M)]
+    frames = [(float(m.group(1)), int(m.group(2))) for m in re.finditer(r'^\s*([\d.]+) frames (\d+) ', view, re.M)]
+    if not (join and conn and phases):
+        print('no phases: the run has no viewer with PHASE lines, or the game did not log its join')
+    else:
+        off = float(join.group(1)) - float(conn.group(1))
+
+        def got(t):  # frames received by viewer time t (linear between the 5 s lines)
+            pts = [(0.0, 0)] + frames
+            for (t0, n0), (t1, n1) in zip(pts, pts[1:]):
+                if t0 <= t <= t1:
+                    return n0 + (n1 - n0) * (t - t0) / max(t1 - t0, 1e-9)
+            return pts[-1][1]
+
+        ends = [t for t, _ in phases[1:]] + [phases[-1][0] + 1e9]
+        for (t, name), end in zip(phases, ends):
+            if end > 1e8:
+                continue
+            r = row(name, [p for p in probes if t + off <= p['up'] < end + off])
+            print(f'{r} | viewer received {(got(end) - got(t)) / max(end - t, 1e-9):.1f} frames a second')
 for w in wins:
     name, span = w.split(':', 1)
     a, b = (float(x) for x in span.split('-'))
