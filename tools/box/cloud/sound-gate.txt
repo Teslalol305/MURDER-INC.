@@ -1,0 +1,34 @@
+# The sound gate of a package (version 3b on): a queue for lag-test.sh on the unpacked zip, as a host starts it.
+#
+#   unzip the zip as the user e3dsfresh into a folder, then
+#   LAG_BUILD=<that folder> LAG_RUNAS=fresh LAG_CLEAN=1 bash lag-test.sh queue sound-gate.txt      (7 runs, about 20 minutes)
+#   bash lag-test.sh list
+#
+# Nothing else may run on the box meanwhile (no compile, no analysis: numpy takes every core).
+# It passes when every line says CLEAN and:
+#   every line   "sound: ... 0 without an asset, 0 without an audio device", and the viewer heard no digital silence,
+#                lost nothing and counted no drop-out (the music and the street never stop)
+#   snd-dev      the Development game plays a whole Story run by its own demo director (sound-demo.txt) and logs every
+#                sound it starts: python3 sound_table.py /project/ue/cloud/lag/snd-dev --audio <Content/Audio> prints
+#                one line per sound: found in the recording or not, how far above chance, its level, its delay.
+#                Measured for version 3b: PROGRESS.md "Version 3b: sound"
+#   snd-keys     the Shipping game played with mouse and keyboard, one kind of sound at a time (sound-keys.txt):
+#                bash sound-keys-check.sh /project/ue/cloud/lag/snd-keys says what was found in every part, the
+#                delay from each fire input to the gun's sound, each part's level, and what forty presses on the
+#                Volume row did (80 % to 40 %: the music on the pause card must fall by about 6 dB, and come back)
+#   snd-env      the launcher started with SDL_AUDIODRIVER=alsa and SDL_AUDIO_DEVICE_SAMPLE_FRAMES=960 in its
+#                environment, on a machine with no sound card: the game must sound all the same (the launcher names
+#                SDL's dummy device itself; without that the game opens no audio device and is silent)
+#   snd-free, snd-l20, snd-l35, snd-cpu6-l35   the Shipping game with the GPU free and loaded as in lag-gate.txt (the
+#                game then runs at 60, 45 and 30 frames a second), five single rounds, a burst and a fast turn
+#                (sound-short.txt): fps and worst frame as in the release gate, no drop-out, and
+#                audio_find.py <run>/sound.wav --part single-shots Gen/chopper_close_01.wav Gen/chopper_close_02.wav
+#                  Gen/chopper_close_03.wav --action click --audio <Content/Audio>
+#                gives the delay from each fire input to the arrival of the gun's sound
+snd-dev game=dev demo=sound-demo.txt view=sound-watch.txt audio=1 join=3 probe=0.25 secs=330 -- -ini:Engine:[Core.Log]:LogMIAudioHost=Verbose
+snd-keys game=ship view=sound-keys.txt audio=1 join=3 probe=0.25 secs=160
+snd-env game=ship view=sound-short.txt audio=1 join=3 probe=0.25 secs=95 env=SDL_AUDIODRIVER=alsa,SDL_AUDIO_DEVICE_SAMPLE_FRAMES=960
+snd-free game=ship view=sound-short.txt audio=1 join=3 probe=0.25 secs=95 load=0
+snd-l20 game=ship view=sound-short.txt audio=1 join=3 probe=0.25 secs=95 load=1:0.05:0:1024
+snd-l35 game=ship view=sound-short.txt audio=1 join=3 probe=0.25 secs=95 load=1:0.3:0
+snd-cpu6-l35 game=ship view=sound-short.txt audio=1 join=3 probe=0.25 secs=95 load=1:0.3:0 cpus=0-5
