@@ -1044,3 +1044,82 @@ Cause, fix and the play-frame proof: `docs/unreal/CHARACTERS.md`, "SK_RuleArms, 
   as dark V shapes (the mesh measures sound: plate 0.42 mm above the bed, nail texels pale; not seen in play frames).
 - Not done: CHOPPER inspect / reload finger corrections, hair cards, an inspect forearm roll (the pack inspect keeps the
   support forearm out of frame). Higgsfield: 0 credits.
+
+---------------------------------------------------------------------------------------------------------------
+# Weapons round 4: the SHORTY (assets/weapons_shorty.py, _weapons_shorty.py, _weapons_shorty_b.py, _weapons_shorty_tex.py, _weapons_shorty_prev.py, _weapons_check_shorty.py), weapons modeler
+
+Why: the owner played the build on E3DS and wrote "all the guns look the same and no attachments are able to be added to the
+guns". True: four of the five offered guns were one purchased-pack M4 (docs/unreal/LOADOUT.md, "Read this first"). The SHORTY
+is the first of three new guns of our own, built from the round-4 designer's specification (the contract is `_weapons_shorty.SH`;
+the code works in mm, the files are metres). A compact bullpup carbine, 5.6 mm class: the action and the magazine sit BEHIND
+the pistol grip, so a 700 mm gun carries a 267 mm barrel. It shares no shape with the CHOPPER, the NINE or the pack rifle:
+a tall olive polymer block, a see-through carry handle (150 x 24 mm window) on top, a short ventilated forend, a squat
+birdcage hider. Our own design in the manner of the class: markings are invented ('CARBINE S-5.6', 'SAFE SEMI AUTO',
+a proof star, serial 'S2-0417').
+
+## State at hand-off: exported and proven (`python art/blender/assets/_weapons_check_shorty.py`: SHORTY ALL FIXED POINTS KEPT, 63 of 63)
+- `build.py build weapons_shorty --bake --export` (about 10 min on 2 threads: geometry maps 300 s, per-texel paint 290 s):
+  `SK_Shorty` 67,168 triangles (plan 95k, cap 120k; grip 9.7k, butt pad 5.7k, screws 8.6k, barrel 4.6k, body 4.3k, hider 4.3k,
+  forend 3.1k, ribs 3.6k, handle + ring 3.5k ...), one slot `M_Shorty` on the unique 4K set `Shorty` (BC, N, ORM, E = the tritium
+  insert), 7 deform bones (body root, bolt, trigger, selector, magazine (attach, no vertices), MuzzleDevice, IronsFront) + the 12
+  socket bones of the contract, every vertex on one bone with weight 1.0, every bone at rest with the gun's axes, re-import proof
+  in a fresh process (all five poses < 5e-8 m); `SM_Weapon_ShortyMagazine` 6,292 + `_TopRound` 2,804 triangles (in place, origin =
+  gun origin, 2K set `Weapon_ShortyMagazine`, slot `M_Weapon_ShortyMagazine`); new tiling `TS_GunDetail_Polymer` (12 mm; the steel
+  tile is the existing 20 mm one; the slot record gives the repeat per UV: blend by ORM.B, 1 = steel tile, 0 = polymer tile).
+- Texel density: 6,120 px/m at 4K on the weight-1 faces (both flanks, top, handle, rail), 75 % on the forend and grip, 50 % on
+  the barrel, hider, butt pad and undersides, 30-45 % on interiors; median over all faces 4,570; the magazine 8,033 px/m.
+  The specification asks 7,000 on the flanks: the 4K square holds about 0.26 m2 of weighted surface at 60 % packing; unwrap =
+  smart project 66 deg, margin 4 (at 2048), CONVEX pack (coverage 56 % of the square), weights from `weapons_shorty.uv_weights`.
+- The proof (all measured on the re-imported files): every bone and socket 1e-5 m; box 0..0.700 x -0.043..+0.040 x -0.180..+0.100;
+  aperture 9 mm round, centred Z 0.060, front post tip Z 0.060, sight radius 441, the line from the aperture to the post clear
+  (first hit the post at X 0.5734); the window 150 x 24 see-through; BOTH MI-R rails tooth by tooth (handle: 12 lugs of 5.3 mm,
+  lug tops Z 0.100, slot floors 5.4 mm down, 21.2 mm across the flanks; underside: 10 lugs, lug undersides Z -0.052); Optic,
+  Underbarrel, Laser, Palm_L on the rails, MuzzleMount on the thread shoulder (barrel R 9.5 -> R 8.2 at X 0.652); Palm_R 0.01 mm
+  from the grip's right face, trigger's rear face X 0.368 = 73 mm ahead of it, grip to magazine gap 24 mm at the bottom, the grip
+  33 x 42 mm at palm height; bolt 0..75 mm (1.0-3.0 mm clear of the cavity, the stem 5.3 mm clear of its slot), trigger 0..17
+  deg (2.0 mm clear), selector 0 / 14 / 28 deg (0.3 mm), magazine in place and dropped 130 mm: no contact; with MuzzleDevice or
+  IronsFront removed no edge opens (the barrel stub R 8.05-8.5 and the bore, R 2.8 to X 0.600, stay); the eye corridors of the
+  irons (relief 0.12), the red dot (0.14) and the 4x scope (0.085) are clear.
+- Pictures (8 renders, 4 + 4): `art/previews/weapons_shorty_hero.jpg`, `_fp.jpg`, `_side.jpg`, `_parts.jpg`, rendered from the
+  exported GLBs with their baked sets; `art/out/ui/T_UI_Gun_Shorty.png` (512 x 192, 2.2 mm per px, bore at y = 84, centred,
+  alpha film, the window transparent; not committed) via `MI_PREVIEWS=... build.py build weapons_shorty --preview --only none`.
+
+## Decisions (where the specification was silent, short or inconsistent)
+- The carry handle's FRONT leg (X 300..330) would stand in the sight line (Z 60): an 18 x 14 mm sight port is cut through it;
+  the proof checks that the line from the aperture ends on the post. The aperture is a lathe cut: 9 mm at X 130..137 (SightRear
+  X 0.134), flaring to 19 mm at the front face; the 20 mm ring is a separate solid (a union on the tangent circle left cracks).
+- Underside rail: the specification's X 455..560 is 19.8 half-pitches; 10 lugs + 9 slots (100.7 mm) are laid from X 459.95 so
+  that Palm_L (0.505) and Laser (0.536) land on lugs; Underbarrel (0.488) falls in a slot (the grip's cross-bolt sits there).
+  The top rail is 12 lugs + 11 slots from X 160.0, centred on the Optic socket (a slot centre).
+- The ejection port (X 340..400, Z 0..32) cuts the body and the first 5 mm of the forend; the deflector vane starts at its
+  front edge (X 400), reaches Y -0.043 (the specification's width), is swept 30 deg at its root, its top falls from Z 37 to 26 and
+  its tip is rolled. Vent slots (3 rows x 4 columns of 5 x 14 mm per side) sit at X 480..525 so the vane does not hide them.
+- Inside: a carrier cavity (X 215..398, Y +-16, Z -10..33) holds the bolt carrier (bright head, extractor, left stem through the
+  slot X 298..386, knob to Y +0.040); the forend is hollow with the barrel, the gas block and a gas tube behind the slots. The
+  feed path from the magazine well (X 180..232) to the chamber (X 397) is NOT modelled (the carrier is a block).
+- Shells with weapons.P: `weapons_shorty.finish()` (module `_weapons_shorty`) welds coincident vertices before it smooths; P's
+  `clean()` deletes faces under 1e-11 m2, which opened the shell after a clamped bevel (the old functions are untouched).
+- The first-person picture: the camera sees the gun's LEFT flank (the gun hangs at the right of the picture), which faces away
+  from the design sun of 260: the sun is moved to bearing 325 for this picture. The gun sits at the CHOPPER's viewmodel rotation
+  with Palm_R on the CHOPPER's Palm_R (the origin of a bullpup is its butt: views[0] = [0.2229, -0.0925, 0.0046, 0.05, 0.28, -0.35]
+  in the game's units does that), nudged 6 cm toward the centre so the whole arch is in the frame.
+- Texture memory: the per-texel painters run in pieces of 1.5 M texels and free the position, normal and id maps once the flat
+  arrays exist (measured peak 1.6 GB at a 2048 draft; the 4K run took 10 min with the other agents' jobs running).
+
+## Known weaknesses (most visible first)
+- The parkerised steel (barrel, hider, trigger, magazine) reads near black in the studio pictures: #3b3e39 at metallic 1 mirrors a dark
+  room. In the day rig it is a dark green-grey. The magazine body is a lighter phosphate (#4a4d46) for the same reason.
+- The flanks are 6,120 px/m, not 7,000; the left flank and the top got the full weight, the forend and the grip 75 %.
+- The polymer's wear is restrained: chalky edges, darker handled flats, thin scuffs along X, faint grime runs; the big flanks stay
+  mostly clean (no painted variation by hand). Steel wear is bright edges plus scratches, no rust or paint.
+- The trigger guard is the specification's 8 x 5 mm D section and reads as a wire loop from the side; the deflector vane is a
+  blocky plate (stipple on its flank).
+- Nothing was tried in Unreal: no hand pose or IK solve on Palm_R / Palm_L, no part fitted on the rails (the parts kit is another
+  agent's), no sight picture through an optic; the proof is geometric (fit rules, corridors, clearances).
+
+## Exact next step
+The Unreal integration (docs and data: guns.json shorty -> mesh SK_Shorty, mounts Optic / MuzzleMount (hide MuzzleDevice) /
+Underbarrel / Laser / MagHinge, optic.hide IronsFront, no stock slot, parts.bolt.bone 'bolt' travel 0.075, trigger.bone 'trigger',
+magazine.bone 'magazine', meshOffset pos [0,0,0] rot [0, 1.5708, 0], eject direction (0.55, -0.80, 0.25), relief 0.12 / 0.14 / 0.085,
+views[0] as above) and the animation work on Palm_R / Palm_L. If the art changes: `build.py build weapons_shorty --bake --export`
+then `python art/blender/assets/_weapons_check_shorty.py` (a draft is `--res 1024`, about 2 min).
