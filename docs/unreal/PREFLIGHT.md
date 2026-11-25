@@ -200,15 +200,16 @@ connection state page). For a shooter, aim for under 50 ms.
 > the Development game needs a key (`-MIDev=<key>`). **New for the owner's next test**: a double click no longer
 > leaves the fire button held; the pause card's stream number runs a few frames below the game's by itself.
 
-> **Release A delivered as version 3a (2026-11-25; PROGRESS.md, "Version 3a: packaged, gated and delivered").**
-> Zip sha256 `de41a708…58e4`, game and launcher `6c4d810`. The gate was run on the zip itself, unpacked as a new user
-> with an empty home into a fresh folder and started with E3DS's arguments, and passes: no frame over 38 ms in a
-> Story run at any load, on 16 CPUs and on 6. **New for V3-12:** such a cold start has numbers now: the game's first
-> frame takes 3 to 4.5 s (before anybody is connected) and the first set-up screen (Crew) costs one frame of about
-> 0.85 s, both gone with a warm graphics-driver cache, which a host that starts every session on a new machine never
-> has. **New for V3-7:** after the press that hides the click card, the home screen lists the keyboard's keys until
-> the next controller press. The owner's settings for version 3a are in LAUNCH.md 9.1 (Browser Resolution Custom
-> 1920 x 1080, launch options empty); section 1.2's table is from the version 2 test.
+> **Release A delivered as version 3a (2026-11-25; PROGRESS.md, "Version 3a: packaged, gated and delivered").** Zip
+> sha256 `de41a708…58e4`, game and launcher `6c4d810`. The gate was run on the zip itself, unpacked as a new user
+> with an empty home into a fresh folder and started with E3DS's arguments, and passes: no frame over 50 ms in play
+> at any load, on 16 CPUs and on 6 (38 ms in the Shipping game's Story runs). **New for V3-12:** such a cold start
+> has numbers now: the game's first frame takes 3 to 4.5 s (before anybody is connected) and the first set-up
+> screen (Crew) costs one frame of about 0.85 s, both gone with a warm graphics-driver cache, which a host that
+> starts every session on a new machine never has. **New for V3-7:** after the press that hides the click card, the
+> home screen lists the keyboard's keys until the next controller press. The owner's settings for version 3a are in
+> LAUNCH.md 9.1 (Browser Resolution Custom 1920 x 1080, launch options empty); section 1.2's table is from the
+> version 2 test.
 
 Everything below ships in **one** version 3 build. The build itself costs about an hour of box time (package, the
 full test suite, the E3DS-style runs, a stream test with input) and about an hour of the owner's time (download,

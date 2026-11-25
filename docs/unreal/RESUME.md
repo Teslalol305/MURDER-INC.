@@ -237,8 +237,8 @@ old zip is superseded. Next is step 6 (the owner's E3DS trial) and the explosion
   `MurderInc-E3DS-v3a-part<k>-of-9.zip` (fingerprints, join and upload steps, the E3DS settings: LAUNCH.md section 9;
   download links and the Development game's key only in the release report). Game and launcher `6c4d810`, 119 of
   119 tests. The release gate was run on the zip itself, unpacked as a new user with an empty home into a fresh
-  folder and started with E3DS's arguments: at every load, on 16 CPUs and on 6, no frame over 38 ms in a Story run,
-  memory flat, a clean stop; 60.0 frames a second on a free GPU. Play was proven through the stream with mouse and
+  folder and started with E3DS's arguments: at every load, on 16 CPUs and on 6, no frame over 50 ms in play (38 ms in
+  the Shipping game's Story runs), memory flat, a clean stop; 60.0 frames a second on a free GPU. Play was proven through the stream with mouse and
   keyboard and with a controller only.
 - **New knowledge from that gate: a cold machine.** With an empty home (no graphics-driver shader cache), which is
   what E3DS gives every session, the game's first frame takes 3 to 4.5 s (nobody is connected yet) and **the first
