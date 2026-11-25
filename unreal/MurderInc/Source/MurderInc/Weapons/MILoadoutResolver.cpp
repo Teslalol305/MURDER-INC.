@@ -257,6 +257,7 @@ bool FMILoadoutResolver::ResolveGun(FName GunId, const FMIGunBuild* Build, const
 		}
 		Out.MagazineMesh = Mag;
 		Out.MagazineAttach = At.IsEmpty() ? NAME_None : FName(*At);
+		Out.MagazineTopRound = MIJson::StringOr(Out.Presentation, TEXT("magazine.topRound"));
 	}
 	// 5. Parse once: the rules and the view from the same JSON, so they agree.
 	if (!UMIDataSubsystem::ParseGun(Out.Rules, Out.Extra, Out.Def, OutError) || !FMIViewmodelData::ParseGunView(Out.Presentation, Out.Rules, Out.View, OutError))
@@ -276,6 +277,7 @@ bool FMILoadoutResolver::ResolveGun(FName GunId, const FMIGunBuild* Build, const
 			R.Slot = P->Slot;
 			R.Part = P->Id;
 			R.Mesh = P->Mesh;
+			R.TopRoundMesh = P->TopRoundMesh;
 			if (const FMIGunMount* M = Gun->Mounts.Find(P->Slot))
 			{
 				R.Socket = M->Socket;

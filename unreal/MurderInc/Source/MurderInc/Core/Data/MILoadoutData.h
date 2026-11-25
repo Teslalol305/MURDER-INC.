@@ -67,6 +67,7 @@ struct FMIAttachmentDef
 	FString Text;                 // frontend.attachments.items.<x>
 	TArray<FMIEffect> Effects;
 	FString Mesh;                 // presentation.mesh (null until the pack import fills it)
+	FString TopRoundMesh;         // presentation.topRoundMesh: a magazine's visible top round, a piece of its own in the part's frame
 	FName Variant;                // stock options: the gun variant they select
 	TMap<FName, FName> Sockets;   // viewmodel marker -> socket on the part (sightRear -> SightEye ...)
 	double Relief = -1.0;         // m, the optic's eye relief (negative: keep the gun's)

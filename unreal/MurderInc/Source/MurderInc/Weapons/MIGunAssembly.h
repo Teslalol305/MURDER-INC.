@@ -66,6 +66,8 @@ private:
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> Owned;
 
+	void AddTopRound(UStaticMeshComponent* Magazine, const FString& Path);
+
 	TArray<FPart> Parts;
 	TArray<FName> Hidden;
 	TWeakObjectPtr<UStaticMeshComponent> FactoryMagazine;  // the factory magazine the stage shows when no magazine part is fitted

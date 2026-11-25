@@ -233,7 +233,14 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 	Action = LastAction = Presented = NAME_None;
 	ActionWeight = 0.0;
 	FireAge = 1e9;
-	if (OwnMag) { OwnMag->DestroyComponent(); OwnMag = nullptr; }
+	if (OwnMag)
+	{
+		TArray<USceneComponent*> Pieces;   // the top round rides the magazine as a child
+		OwnMag->GetChildrenComponents(false, Pieces);
+		for (USceneComponent* Piece : Pieces) Piece->DestroyComponent();
+		OwnMag->DestroyComponent();
+		OwnMag = nullptr;
+	}
 	if (ReserveMag) { ReserveMag->DestroyComponent(); ReserveMag = nullptr; }
 	SeatedMag.Reset();
 	GunAssembly = Assembly;
@@ -399,6 +406,16 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 			// The magazine is modelled in the pistol's own space (origin = pistol origin), not the bone's: undo the
 			// bone's reference pose so it sits in the grip and rides the bone's drop.
 			OwnMag->SetRelativeTransform(MeshSpacePartOnBone(Cast<USkeletalMesh>(LegacyGun->GetSkinnedAsset()), MagBone));
+			// The visible top round, a piece of its own in the magazine's frame (presentation.magazine.topRound).
+			if (UStaticMesh* Round = LoadAs<UStaticMesh>(MIJson::StringOr(P, TEXT("magazine.topRound"))))
+			{
+				UStaticMeshComponent* Top = NewObject<UStaticMeshComponent>(GetOwner(), NAME_None, RF_Transient);
+				Top->SetStaticMesh(Round);
+				Top->SetMobility(EComponentMobility::Movable);
+				FirstPerson(Top, Arms);
+				Top->RegisterComponent();
+				Top->AttachToComponent(OwnMag, FAttachmentTransformRules::SnapToTargetIncludingScale);
+			}
 		}
 		ApplyOpticMaterials(LegacyGun);   // the build's optic (red dot, scope) in daylight, as for the pack's
 		return Mode;

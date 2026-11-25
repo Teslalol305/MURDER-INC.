@@ -64,6 +64,20 @@ namespace MIGunAssemblyPrivate
 	}
 }
 
+void UMIGunAssembly::AddTopRound(UStaticMeshComponent* Magazine, const FString& Path)
+{
+	// A magazine's visible top round is a piece of its own in the magazine's frame (same origin): a child with no offset,
+	// so it slides, drops and hides with the magazine.
+	UStaticMesh* Round = Path.IsEmpty() || !Magazine ? nullptr : Cast<UStaticMesh>(FSoftObjectPath(Path).TryLoad());
+	if (!Round)
+	{
+		return;
+	}
+	UStaticMeshComponent* T = MIGunAssemblyPrivate::MakePartComponent(GetOwner(), Base, Round);
+	T->AttachToComponent(Magazine, FAttachmentTransformRules::SnapToTargetIncludingScale);
+	Owned.Add(T);
+}
+
 bool UMIGunAssembly::BoneRestInMesh(const USkinnedMeshComponent* InBase, FName Bone, FTransform& Out)
 {
 	const USkeletalMesh* Mesh = InBase ? Cast<USkeletalMesh>(InBase->GetSkinnedAsset()) : nullptr;
@@ -202,6 +216,7 @@ void UMIGunAssembly::Assemble(USkinnedMeshComponent* InBase, const FMIResolvedGu
 		}
 		Rest = C->GetRelativeTransform();
 		Owned.Add(C);
+		AddTopRound(C, R.TopRoundMesh);
 		FPart& P = Parts.AddDefaulted_GetRef();
 		P.Data = R;
 		P.Mesh = C;
@@ -236,6 +251,7 @@ void UMIGunAssembly::Assemble(USkinnedMeshComponent* InBase, const FMIResolvedGu
 				C->AttachToComponent(Base, FAttachmentTransformRules::SnapToTargetIncludingScale);
 			}
 			Owned.Add(C);
+			AddTopRound(C, Gun.MagazineTopRound);
 			FactoryMagazine = C;
 		}
 	}

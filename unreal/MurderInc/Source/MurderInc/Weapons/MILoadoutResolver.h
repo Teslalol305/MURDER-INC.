@@ -18,6 +18,7 @@ struct FMIResolvedPart
 	FName Slot;
 	FName Part;
 	FString Mesh;          // the part's mesh (empty until the pack import fills attachments.json)
+	FString TopRoundMesh;  // a magazine part's visible top round (a piece of its own, the part's frame)
 	FName Socket;          // the gun's mount socket
 	TArray<FName> Hide;    // gun parts the part replaces (the CHOPPER's Booster)
 	FName RideBone;        // the gun bone the part follows once placed on its socket (a magazine rides 'magazine')
@@ -32,6 +33,7 @@ struct FMIResolvedGun
 	FMIGunViewData View;
 	FString BaseMesh;       // the build's variant (the stock slot picks it)
 	FString MagazineMesh;   // the factory magazine the stage draws in the well (the anim set's magazine, or presentation.magazine)
+	FString MagazineTopRound;  // its top round, a piece of its own in the same frame
 	FName MagazineAttach;   // the bone it rides (our guns: 'magazine', authored in the gun's space) or the socket it sits on (the pack's)
 	TArray<FMIResolvedPart> Parts;
 	bool bLaser = false;

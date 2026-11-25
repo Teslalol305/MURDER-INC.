@@ -611,6 +611,7 @@ bool FMILoadoutData::Parse(const TMap<FString, TSharedPtr<FJsonObject>>& Files, 
 				}
 			}
 			P.Mesh = MIJson::StringOr(O, TEXT("presentation.mesh"));
+			P.TopRoundMesh = MIJson::StringOr(O, TEXT("presentation.topRoundMesh"));
 			P.Variant = NameOr(O, TEXT("presentation.variant"));
 			P.Relief = MIJson::NumberOr(O, TEXT("presentation.relief"), -1.0);
 			P.HandPose = NameOr(O, TEXT("presentation.handPose"));
