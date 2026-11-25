@@ -92,6 +92,23 @@ bool FMIQualityTable::ParseStep(const FString& Line, FMIQualityStep& Out, FStrin
 		}
 		Name.TrimStartAndEndInline();
 		Value.TrimStartAndEndInline();
+		int32 Dir = 0;
+		if (Name.EndsWith(TEXT("<")))
+		{
+			Dir = -1;
+			Name.LeftChopInline(1);
+			Name.TrimEndInline();
+		}
+		else if (Name.EndsWith(TEXT(">")))
+		{
+			Dir = 1;
+			Name.LeftChopInline(1);
+			Name.TrimEndInline();
+		}
+		if (Dir != 0 && !Value.IsNumeric())
+		{
+			return Fail(Error, FString::Printf(TEXT("\"%s\": \"%s\": a sign (<= or >=) needs a number"), *Line, *Item));
+		}
 		bool bOk = !Name.IsEmpty() && Name.Len() <= 96 && !Value.IsEmpty() && Value.Len() <= 64;
 		for (const TCHAR Ch : Name)
 		{
@@ -106,6 +123,10 @@ bool FMIQualityTable::ParseStep(const FString& Line, FMIQualityStep& Out, FStrin
 			return Fail(Error, FString::Printf(TEXT("\"%s\": \"%s\" cannot be used (a name of letters, digits, dots and underscores; a value without | ; \" ' or a comma)"), *Line, *Item));
 		}
 		S.CVars.Emplace(Name, Value);
+		if (Dir != 0)
+		{
+			S.Directions.Add(Name, Dir);
+		}
 	}
 	if (S.CVars.Num() == 0 || S.CVars.Num() > 24)
 	{
@@ -174,6 +195,86 @@ bool FMIQualityTable::ValueAt(const TArray<FMIQualityStep>& Steps, int32 Step, c
 	return false;
 }
 
+TArray<FMIQualityStep> FMIQualityTable::Prune(const TArray<FMIQualityStep>& Steps, TFunctionRef<bool(const FString&)> Exists, TArray<FString>* Notes)
+{
+	TArray<FMIQualityStep> Out;
+	for (const FMIQualityStep& S : Steps)
+	{
+		FMIQualityStep Kept = S;
+		Kept.CVars.Reset();
+		Kept.Directions.Reset();
+		for (const TPair<FString, FString>& P : S.CVars)
+		{
+			if (Exists(P.Key))
+			{
+				Kept.CVars.Add(P);
+				if (const int32* D = S.Directions.Find(P.Key))
+				{
+					Kept.Directions.Add(P.Key, *D);
+				}
+			}
+			else if (Notes)
+			{
+				Notes->Add(FString::Printf(TEXT("step \"%s\": no console variable %s in this build, left out"), *S.Name, *P.Key));
+			}
+		}
+		if (Kept.CVars.Num() > 0)
+		{
+			Out.Add(MoveTemp(Kept));
+		}
+		else if (Notes)
+		{
+			Notes->Add(FString::Printf(TEXT("step \"%s\": none of its variables exist in this build, the step is left out"), *S.Name));
+		}
+	}
+	return Out;
+}
+
+int32 FMIQualityTable::Direction(const TArray<FMIQualityStep>& Steps, const FString& Name)
+{
+	FString First, Last;
+	bool bFirst = false;
+	int32 Explicit = 0;
+	for (const FMIQualityStep& S : Steps)
+	{
+		for (const TPair<FString, FString>& P : S.CVars)
+		{
+			if (P.Key.Equals(Name, ESearchCase::IgnoreCase))
+			{
+				if (!bFirst)
+				{
+					First = P.Value;
+					bFirst = true;
+				}
+				Last = P.Value;
+				if (const int32* D = S.Directions.Find(P.Key))
+				{
+					Explicit = *D;
+				}
+			}
+		}
+	}
+	if (Explicit != 0)
+	{
+		return Explicit;
+	}
+	if (bFirst && First.IsNumeric() && Last.IsNumeric() && !FMath::IsNearlyEqual(FCString::Atod(*First), FCString::Atod(*Last), 1e-9))
+	{
+		return FCString::Atod(*Last) < FCString::Atod(*First) ? -1 : 1;
+	}
+	return 0;
+}
+
+bool FMIQualityTable::Lowers(int32 Direction, const FString& Current, const FString& Target)
+{
+	if (Direction == 0 || !Current.IsNumeric() || !Target.IsNumeric())
+	{
+		return true;
+	}
+	const double C = FCString::Atod(*Current), T = FCString::Atod(*Target);
+	return Direction < 0 ? C > T + 1e-9 : C < T - 1e-9;
+}
+
 // ---- the ladder -----------------------------------------------------------------------------------------------------
 
 void FMIQualityLadder::Configure(const TArray<FMIQualityStep>& Steps)
@@ -190,8 +291,35 @@ void FMIQualityLadder::Configure(const TArray<FMIQualityStep>& Steps)
 	OverFor = UnderFor = 0.0;
 	SinceChange = SinceUp = 1e9;
 	UpWaitNow = 0.0;
+	UpMult = 1.0;
+	WarmLeft = 0.0;
 	bPinned = false;
 	Reason.Reset();
+}
+
+void FMIQualityLadder::Hold(double Seconds)
+{
+	WarmLeft = FMath::Max(WarmLeft, FMath::Max(0.0, Seconds));
+	OverFor = UnderFor = 0.0;
+}
+
+bool FMIQualityLadder::CanStepDown() const
+{
+	return bEnabled && !bPinned && Current < Rungs.Num() && !Rungs[Current].bCalm && WarmLeft <= 0.0;
+}
+
+void FMIQualityLadder::NoteEffect(int32 Rung, bool bChangedSomething, bool bAfterDescent)
+{
+	if (Rung >= 1 && Rung <= Rungs.Num())
+	{
+		Rungs[Rung - 1].bEffective = bChangedSomething;
+	}
+	if (!bChangedSomething && bAfterDescent && Rung == Current && Rung >= 1)
+	{
+		// A step that changed nothing has nothing to wait for: the evidence that called for it still stands, so does the next step.
+		OverFor = DownAfter;
+		SinceChange = MinGap;
+	}
 }
 
 void FMIQualityLadder::Pin(int32 Step)
@@ -219,10 +347,7 @@ FMIQualityLadder::EChange FMIQualityLadder::Update(const FInput& In)
 	const double Step = FMath::Max(0.0, In.Seconds);
 	SinceChange += Step;
 	SinceUp += Step;
-	if (UpWaitNow <= 0.0)
-	{
-		UpWaitNow = UpAfter;
-	}
+	UpWaitNow = FMath::Min(UpAfter * UpMult, FMath::Max(MaxUpAfter, UpAfter));   // follows UpAfter when that is changed
 	if (!bEnabled || bPinned || Rungs.Num() == 0)
 	{
 		OverFor = UnderFor = 0.0;
@@ -231,6 +356,13 @@ FMIQualityLadder::EChange FMIQualityLadder::Update(const FInput& In)
 	const int32 N = Rungs.Num();
 	const double Frame = FMath::Max(1.0, In.FrameMs);
 	const bool bKnown = In.GpuMs > 0.0;
+
+	if (WarmLeft > 0.0)
+	{
+		WarmLeft = FMath::Max(0.0, WarmLeft - Step);
+		OverFor = UnderFor = 0.0;
+		return EChange::None;
+	}
 
 	// Evidence is gathered in live play only: a card or a set-up screen costs the GPU less than a fight does (and the
 	// start of the game is full of long frames). At a safe moment the counters stand still.
@@ -242,10 +374,12 @@ FMIQualityLadder::EChange FMIQualityLadder::Update(const FInput& In)
 		if (Current > 0 && In.bTargetAtTop && bKnown && !In.bHeldBack)
 		{
 			const double AtSmallest = In.GpuMsSmallest > 0.0 ? FMath::Min(In.GpuMsSmallest, In.GpuMs) : In.GpuMs;
-			const double Without = AtSmallest / FMath::Max(0.2, 1.0 - Rungs[Current - 1].Saves);   // the GPU's time with the last step taken off
+			const double Saved = Rungs[Current - 1].bEffective ? Rungs[Current - 1].Saves : 0.0;
+			const double Without = AtSmallest / FMath::Max(0.2, 1.0 - Saved);   // the GPU's time with the last step taken off
 			bUnder = Without < UpLoad * Frame;
 		}
-		UnderFor = bUnder ? UnderFor + Step : 0.0;
+		// One bad half second takes a little off the calm counted, not all of it: a fight's GPU time swings by a fifth.
+		UnderFor = bUnder ? UnderFor + Step : (CalmDecay > 0.0 ? FMath::Max(0.0, UnderFor - CalmDecay * Step) : 0.0);
 	}
 
 	if (OverFor >= DownAfter && Current < N && SinceChange >= MinGap && (!Rungs[Current].bCalm || In.bSafeMoment))
@@ -254,8 +388,13 @@ FMIQualityLadder::EChange FMIQualityLadder::Update(const FInput& In)
 		++Current;
 		if (SinceUp < RetryWindow)
 		{
-			UpWaitNow = FMath::Min(UpWaitNow * 2.0, MaxUpAfter);   // the last rise did not hold: wait longer for the next
+			UpMult = FMath::Min(UpMult * 2.0, FMath::Max(1.0, MaxUpAfter / FMath::Max(1.0, UpAfter)));   // the last rise did not hold: wait longer for the next
 		}
+		else
+		{
+			UpMult = 1.0;   // it held: the short wait is earned back
+		}
+		UpWaitNow = FMath::Min(UpAfter * UpMult, FMath::Max(MaxUpAfter, UpAfter));
 		Reason = FString::Printf(TEXT("step %d -> %d: at the smallest picture the GPU took %.1f ms a frame%s, over %.0f %% of the %.1f ms a frame has, for %.1f s"),
 			From, Current, In.GpuMs, In.bHeldBack ? TEXT(" and the game was held back by it") : TEXT(""), DownLoad * 100.0, Frame, OverFor);
 		OverFor = UnderFor = 0.0;

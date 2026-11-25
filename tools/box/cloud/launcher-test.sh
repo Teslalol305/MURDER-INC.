@@ -97,4 +97,16 @@ P=$(mkpkg six); FAKE_PID_FILE=/dev/null bash "$P/MurderInc.sh" -fake-exit=0 "-AB
 check "the host's log (-ABSLOG=) holds the game's lines and the launcher's" bash -c 'grep -q FAKE-GAME "$1" && grep -q "MurderInc.sh" "$1"' _ "$W/host.log"
 check "the host's own -ABSLOG= is not passed on to the game" bash -c '! grep FAKE-GAME "$1" | grep -qi -- "-ABSLOG"' _ "$W/six.out"
 
+# 7. On E3DS (the folder is under 0.apps) a link cannot keep a game alive past its session: the session options are not passed on;
+#    the other options are. In a test folder everything is passed on (case 2).
+P=$W/0.apps/acct/app/v1; mkdir -p "$P"; Q=$(mkpkg seven); rm -rf "$P"; mkdir -p "$W/0.apps/acct/app"; mv "$Q" "$P"
+FAKE_PID_FILE=/dev/null bash "$P/MurderInc.sh" -fake-exit=0 -MIKeepAlive -MIExitAfterEmpty=9999 -MIExitIfNoViewer=9999 -MIIdleFps=0 -MIIdleAfter=9999 -MILauncherPid=1234 -MIFps=45 > "$W/seven.out" 2>&1
+GA=$(grep 'FAKE-GAME' "$W/seven.out" | head -1)
+check "under 0.apps: -MIKeepAlive is not passed on" bash -c '! grep -q -- "-MIKeepAlive" <<< "$1"' _ "$GA"
+check "under 0.apps: -MIExitAfterEmpty= is not passed on" bash -c '! grep -q -- "-MIExitAfterEmpty" <<< "$1"' _ "$GA"
+check "under 0.apps: -MIExitIfNoViewer=, -MIIdleFps= and -MIIdleAfter= are not passed on" bash -c '! grep -q -E -- "-MIExitIfNoViewer|-MIIdleFps|-MIIdleAfter" <<< "$1"' _ "$GA"
+check "under 0.apps: a host's -MILauncherPid=1234 is not passed on (the launcher's own is)" bash -c '! grep -q -- "-MILauncherPid=1234" <<< "$1" && grep -q -- "-MILauncherPid=" <<< "$1"' _ "$GA"
+check "under 0.apps: an ordinary option (-MIFps=45) still is" grep -q -- "-MIFps=45" <<< "$GA"
+check "under 0.apps: the launcher's log says what it dropped" grep -q "would keep it alive past its session" "$W/seven.out"
+
 if [ "$FAILS" = 0 ]; then echo "LAUNCHER-TEST OK"; else echo "LAUNCHER-TEST FAILED ($FAILS)"; exit 1; fi

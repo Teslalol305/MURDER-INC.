@@ -30,9 +30,11 @@
 # this package that is still running on the machine is stopped: see "leftovers" below.
 # The game also looks after itself (release 3c, Source/MurderInc/Cloud/MISession.h): this launcher gives it its own
 # process id (-MILauncherPid=<pid>), and a game whose launcher has been gone for 5 s quits (the watchdog below does the
-# same from outside); with no viewer for 2 s the game idles, and 20 s after the last viewer left it quits, so that the
+# same from outside); with no viewer for 2 s the game idles, and 60 s after the last viewer left it quits, so that the
 # game of an ended session does not go on drawing on the machine. -MIKeepAlive (a launch option, passed on) turns that
-# off for a game that is held with no viewer on purpose (the box's test scripts).
+# off for a game that is held with no viewer on purpose (the box's test scripts). On E3DS (this folder is under
+# .../0.apps/...) the session options -MIKeepAlive, -MIExitAfterEmpty=, -MIExitIfNoViewer=, -MIIdleFps=, -MIIdleAfter= and
+# a host's -MILauncherPid= are NOT passed on: a stream link anybody can edit must not keep a game alive past its session.
 # Started as root (Unreal refuses to run as root), the game runs as the folder's owner, or "nobody", with HOME in /tmp.
 #
 # Launch options (E3DS: the stream configuration's launch options arrive as arguments, and so does whatever a visitor
@@ -74,7 +76,7 @@ STAMP=$(date -u +%Y%m%d-%H%M%S)
 # itself).
 trap '' PIPE
 
-DEV=0; DEVASKED=; FORCESM6=0; ABS=; PASS=(); DROPPED=; KEEPOTHERS=0; REAPALL=0
+DEV=0; DEVASKED=; FORCESM6=0; ABS=; PASS=(); DROPPED=; DROPPED_SESSION=; KEEPOTHERS=0; REAPALL=0
 # The key of the Development game: one word in MIDEV.key (absent in a test folder: the plain -MIDev then works).
 DEVKEY=$(head -c 200 "$ROOT/MIDEV.key" 2>/dev/null | tr -d ' \t\r\n')
 shopt -s nocasematch   # Unreal's arguments are case-insensitive
@@ -87,6 +89,10 @@ for a in "$@"; do
     -MIReapOthers) REAPALL=1 ;;
     -ABSLOG=*) ABS=${a#*=}; ABS=${ABS#\"}; ABS=${ABS%\"} ;;   # the host's log file: written below, not passed on
     -PixelStreaming*DumpDebug*) DROPPED="$DROPPED ${a%%=*}" ;;   # files written on the server: not from a link
+    # What keeps a game alive past its session or changes when it ends: a link must not be able to ask for it on E3DS
+    # (the folder is .../0.apps/<account>/<app>/<version>); box test folders pass them on (the test scripts hold games).
+    -MIKeepAlive|-MIKeepAlive=*|-MIExitAfterEmpty=*|-MIExitIfNoViewer=*|-MIIdleFps=*|-MIIdleAfter=*|-MILauncherPid=*)
+      case "$ROOT" in */0.apps/*) DROPPED_SESSION="$DROPPED_SESSION ${a%%=*}" ;; *) PASS+=("$a") ;; esac ;;
     *) PASS+=("$a") ;;
   esac
 done
@@ -183,6 +189,7 @@ note "memory: $(free -m 2>/dev/null | awk '/^Mem:/{print $2" MB total, "$7" MB a
 note "CPUs: $(nproc 2>/dev/null || echo '?') usable, $(grep -c '^processor' /proc/cpuinfo 2>/dev/null || echo '?') in the machine;$(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | cut -d: -f2- | tr -s ' ')"
 [ -n "$DEVASKED" ] && [ "$DEV" = 0 ] && note "launch option -MIDev NOT taken: this package starts its Development game only with -MIDev=<key> (the word in the file MIDEV.key beside this launcher; it is not printed anywhere). The Shipping game runs."
 [ -n "$DROPPED" ] && note "launch option(s) not passed on to the game (they write files on the server):$DROPPED"
+[ -n "$DROPPED_SESSION" ] && note "launch option(s) not passed on to the game (they would keep it alive past its session):$DROPPED_SESSION"
 if command -v nvidia-smi >/dev/null 2>&1; then
   section "GPU (nvidia-smi): name, driver, memory total / used / free" timeout 10 nvidia-smi --query-gpu=name,driver_version,memory.total,memory.used,memory.free --format=csv,noheader
   section "GPU processes (anything else holding graphics memory)" timeout 10 nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader

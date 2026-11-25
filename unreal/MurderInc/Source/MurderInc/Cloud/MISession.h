@@ -20,7 +20,8 @@
  *    quits (FMILauncherWatch).
  * A live session is never ended: a viewer present keeps the game for as long as he stays, and a join cancels every
  * countdown (a viewer who reloads the page comes back to the same game within seconds where the host keeps it, and the
- * game E3DS starts for a new session is not up before 34 s have passed: ExitAfterEmpty is 20).
+ * game E3DS starts for a new session is not up before 34 s have passed, and the launcher stops every other game of the package at
+ * its start, so a longer wait cannot leave two games on the card: ExitAfterEmpty is 60).
  * -MIKeepAlive turns all of it off (the box's test scripts hold games with no viewer on purpose). A game that is not
  * streamed (the desktop) is never touched.
  */
@@ -64,7 +65,7 @@ struct MURDERINC_API FMISession
 		 */
 		double IdleStartupGrace = 10.0;
 		/** Seconds after the last viewer left before the game quits (0: never). */
-		double ExitAfterEmpty = 20.0;
+		double ExitAfterEmpty = 60.0;
 		/** Seconds after the game's start before it quits for want of a first viewer (0: never). */
 		double ExitIfNoViewer = 600.0;
 		/** Seconds the launcher has to be gone before the game quits (0: not watched). */

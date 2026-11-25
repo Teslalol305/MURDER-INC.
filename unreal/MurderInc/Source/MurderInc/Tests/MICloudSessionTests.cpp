@@ -60,10 +60,10 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMICloudSessionDecisionTest, "MurderInc.Cloud.S
 bool FMICloudSessionDecisionTest::RunTest(const FString& Parameters)
 {
 	using namespace MISessionTestsPrivate;
-	const FMISession::FOptions O;  // 2 s, 2 frames a second, 10 s of start-up, 20 s, 600 s, 5 s
+	const FMISession::FOptions O;  // 2 s, 2 frames a second, 10 s of start-up, 60 s, 600 s, 5 s
 	TestEqual(TEXT("the defaults: idle after 2 s"), O.IdleAfter, 2.0);
 	TestEqual(TEXT("the defaults: 2 frames a second"), O.IdleFps, 2);
-	TestEqual(TEXT("the defaults: the last viewer gone for 20 s ends the game"), O.ExitAfterEmpty, 20.0);
+	TestEqual(TEXT("the defaults: the last viewer gone for 60 s ends the game"), O.ExitAfterEmpty, 60.0);
 	TestEqual(TEXT("the defaults: nobody in 600 s ends the game"), O.ExitIfNoViewer, 600.0);
 	TestEqual(TEXT("the defaults: the launcher gone for 5 s ends the game"), O.LauncherGoneAfter, 5.0);
 
@@ -211,15 +211,15 @@ bool FMICloudSessionClockTest::RunTest(const FString& Parameters)
 		C.AllLeft(Left);
 		TestTrue(TEXT("he leaves: keeps for the first 2 s"), Decide(O, C, Left + 1.9).Action == EAction::Keep);
 		TestTrue(TEXT("idles from 2 s"), Decide(O, C, Left + 2.0).Action == EAction::Idle);
-		TestTrue(TEXT("still idling at 19.9 s"), Decide(O, C, Left + 19.9).Action == EAction::Idle);
-		// A join at 19.9 s cancels the countdown ...
-		C.Joined(Left + 19.9);
-		TestTrue(TEXT("a join 0.1 s before the end: keeps"), Decide(O, C, Left + 20.0).Action == EAction::Keep);
+		TestTrue(TEXT("still idling at 59.9 s"), Decide(O, C, Left + 59.9).Action == EAction::Idle);
+		// A join at 59.9 s cancels the countdown ...
+		C.Joined(Left + 59.9);
+		TestTrue(TEXT("a join 0.1 s before the end: keeps"), Decide(O, C, Left + 60.0).Action == EAction::Keep);
 		TestTrue(TEXT("... for as long as he stays"), Decide(O, C, Left + 5000.0).Action == EAction::Keep);
 		// ... and the next one starts again from zero.
 		C.AllLeft(Left + 6000.0);
-		TestTrue(TEXT("a new leave: 19.9 s later it is idling, not quitting"), Decide(O, C, Left + 6019.9).Action == EAction::Idle);
-		TestTrue(TEXT("20 s later it quits"), Decide(O, C, Left + 6020.0).Action == EAction::Exit);
+		TestTrue(TEXT("a new leave: 59.9 s later it is idling, not quitting"), Decide(O, C, Left + 6059.9).Action == EAction::Idle);
+		TestTrue(TEXT("60 s later it quits"), Decide(O, C, Left + 6060.0).Action == EAction::Exit);
 	}
 	// A page reload: the viewer leaves and a viewer joins a few seconds later, again and again: the game never quits.
 	{
@@ -544,7 +544,7 @@ bool FMICloudSessionDefaultsTest::RunTest(const FString& Parameters)
 	};
 	Int(TEXT("MI.Cloud.IdleFps"), 2);
 	Float(TEXT("MI.Cloud.IdleAfter"), 2.f);
-	Float(TEXT("MI.Cloud.ExitAfterEmpty"), 20.f);
+	Float(TEXT("MI.Cloud.ExitAfterEmpty"), 60.f);
 	Float(TEXT("MI.Cloud.ExitIfNoViewer"), 600.f);
 	Int(TEXT("MI.Cloud.KeepAlive"), 0);
 	Int(TEXT("MI.Cloud.QpBelow"), 10);
@@ -553,12 +553,19 @@ bool FMICloudSessionDefaultsTest::RunTest(const FString& Parameters)
 	Int(TEXT("MI.Cloud.QpCeiling"), 48);
 	Int(TEXT("MI.Cloud.QpExact"), 0);
 	const FMISession::FOptions O = UMICloudSubsystem::ReadSessionOptions(true);
-	TestTrue(TEXT("the options as the game reads them"), O.bStreamed && !O.bKeepAlive && O.IdleFps == 2 && O.IdleAfter == 2.0 && O.ExitAfterEmpty == 20.0 && O.ExitIfNoViewer == 600.0);
+	TestTrue(TEXT("the options as the game reads them"), O.bStreamed && !O.bKeepAlive && O.IdleFps == 2 && O.IdleAfter == 2.0 && O.ExitAfterEmpty == 60.0 && O.ExitIfNoViewer == 600.0);
 	TestFalse(TEXT("a desktop game is not streamed"), UMICloudSubsystem::ReadSessionOptions(false).bStreamed);
 	const FMIEncoderRange::FSettings E = UMICloudSubsystem::ReadEncoderSettings();
 	TestTrue(TEXT("the encoder settings as the game reads them"), E.Below == 10 && E.Above == 8 && E.Floor == 8 && E.Ceiling == 48 && !E.bExact);
-	// A viewer may set these (the MI.Cloud. family): the console variables take any value, the options are sanitized.
-	TestTrue(TEXT("a visitor can put the family on a link"), UMICloudSubsystem::IsViewerCommandAllowed(TEXT("MI.Cloud.ExitAfterEmpty 0")));
+	// A viewer may set most of the MI.Cloud. family (the console variables take any value, the options are sanitized), but not
+	// what keeps the game alive or ends it with its session: a visitor's game would outlive the visitor (review of release 3c).
+	TestTrue(TEXT("a visitor can still tune the pacing from a link"), UMICloudSubsystem::IsViewerCommandAllowed(TEXT("MI.Cloud.FpsDropAfter 2")));
+	for (const TCHAR* Name : {TEXT("MI.Cloud.KeepAlive"), TEXT("MI.Cloud.ExitAfterEmpty"), TEXT("MI.Cloud.ExitIfNoViewer"), TEXT("MI.Cloud.IdleFps"), TEXT("MI.Cloud.IdleAfter"), TEXT("MI.Cloud.QpExact")})
+	{
+		TestFalse(FString::Printf(TEXT("a viewer cannot set %s"), Name), UMICloudSubsystem::IsViewerCommandAllowed(FString::Printf(TEXT("%s 1"), Name)));
+		TestFalse(FString::Printf(TEXT("... nor %s through -MICVars"), Name), MITuning::IsAllowed(Name, TEXT("1")));
+		TestFalse(FString::Printf(TEXT("... nor in other letters (%s)"), Name), MITuning::IsAllowed(FString(Name).ToUpper(), TEXT("1")));
+	}
 	return true;
 }
 

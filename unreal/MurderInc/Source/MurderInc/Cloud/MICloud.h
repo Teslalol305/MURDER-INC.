@@ -221,6 +221,13 @@ public:
 	static FMISession::FOptions ReadSessionOptions(bool bStreamed);
 	/** The encoder range settings as they are now (MI.Cloud.QpBelow, QpAbove, QpFloor, QpCeiling, QpExact). */
 	static FMIEncoderRange::FSettings ReadEncoderSettings();
+	/**
+	 * Tests only: gives this subsystem a ladder table without a stream (StartQuality needs a streamed game), so that the tests can
+	 * apply steps to real variables; bReachable: the Settings card's Graphics quality reaches it (the game's own subsystem is).
+	 */
+	void SetQualityTableForTest(const TArray<FMIQualityStep>& Steps, bool bReachable);
+	/** Tests only: pins the ladder at Step and applies it. */
+	void ApplyQualityStepForTest(int32 Step);
 	/** The quality ladder's steps: the [MICloud] QualitySteps= lines of the game's ini, in order; OutErrors gets one text per line that cannot be used. */
 	static TArray<FMIQualityStep> ReadQualityTable(TArray<FString>* OutErrors = nullptr);
 
@@ -292,8 +299,18 @@ private:
 	void TickQuality(const FMIFrameRateGovernor::FInput& In);
 	/** Once a frame: the longest frame in the two seconds after a step was applied (the ladder must not cause a hitch in play). */
 	void WatchQualityFrame(float DeltaTime);
-	/** Puts every variable of the table at the value it has at Step (the baseline where no step sets it). Logs the change and the longest frame it cost. */
-	void ApplyQualityStep(int32 Step, const FString& Why);
+	/**
+	 * Puts every variable of the table at the value it has at Step, where that lowers what the variable is now (a variable the
+	 * player's Graphics quality, the cloud profile or a launch option already holds as low or lower is left alone), and gives back
+	 * to the value and the priority they had the ones the step no longer sets. Logs the change; bAfterDescent: it was a step down.
+	 */
+	void ApplyQualityStep(int32 Step, const FString& Why, bool bAfterDescent);
+	/** The ladder has a live step to give: the frame-rate governor waits with its own drop (looks before frames). */
+	bool QualityHoldsFrameRate() const;
+	/** Gives every variable the ladder holds back to its value and priority (before the Settings card writes its level). */
+	void ReleaseQualityHolds();
+	/** Applies the step in force again, over what the player's level left. */
+	void ReapplyQualityStep(const TCHAR* Why);
 
 	/** Once, when the game becomes streamed: the session's numbers, the launcher to watch, the encoder's range. */
 	void StartSession();
@@ -370,7 +387,11 @@ private:
 	// The quality ladder (Cloud/MIQuality.h).
 	TArray<FMIQualityStep> QualitySteps;
 	FMIQualityLadder Ladder;
-	TMap<FString, FString> QualityBaseline;  // the table's variables as they were when the ladder started
+	TMap<FString, FString> QualityBaseline;  // the table's variables as they were before the ladder first touched them (read again at every descent from step 0)
+	TMap<FString, int32> QualityDirection;   // -1: the variable falls when the quality does, +1 it rises, 0 not known
+	TSet<FString> QualityHeld;               // the variables the ladder has written and not given back
+	TMap<FString, uint32> QualitySetBy;      // the priority each held variable had before the ladder wrote it
+	bool bQualityWasSafe = true;
 	bool bQualityStarted = false;
 	int32 QualityApplied = 0;                // the step the variables are at
 	int32 QualityPinnedBy = 0;               // 0 not pinned, 1 MI.Cloud.QualityStep / -MIQuality

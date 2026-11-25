@@ -43,7 +43,7 @@ void FMIFrameRateGovernor::Pin(int32 FramesPerSecond)
 			}
 		}
 	}
-	OverFor = UnderFor = 0.0;
+	OverFor = UnderFor = HeldFor = 0.0;
 }
 
 bool FMIFrameRateGovernor::Update(const FInput& In)
@@ -56,7 +56,7 @@ bool FMIFrameRateGovernor::Update(const FInput& In)
 	}
 	if (bPinned)
 	{
-		OverFor = UnderFor = 0.0;
+		OverFor = UnderFor = HeldFor = 0.0;
 		return false;
 	}
 	const double Frame = FrameMs();
@@ -71,6 +71,13 @@ bool FMIFrameRateGovernor::Update(const FInput& In)
 		OverFor += Step;
 		if (OverFor >= DropAfter && Index < NumTargets - 1)
 		{
+			if (In.bHold && (In.GpuMs <= 0.0 || In.GpuMs <= HoldOverShare * Frame) && HeldFor < HoldMax)
+			{
+				// The quality ladder has a step to give for this load: it goes first, the rate stays (a pace the pacer can keep).
+				HeldFor += Step;
+				return false;
+			}
+			HeldFor = 0.0;
 			const int32 From = Target();
 			++Index;
 			OverFor = 0.0;
@@ -86,6 +93,7 @@ bool FMIFrameRateGovernor::Update(const FInput& In)
 		return false;
 	}
 	OverFor = 0.0;
+	HeldFor = 0.0;
 	// The rise is judged by the rate it would go to: the GPU's time, at the smallest picture as for the drop (the
 	// higher rate is held with a smaller picture), must be under UnderShare of the next rate's frame time. The first
 	// rule compared the time at the picture now drawn with 45 % of the frame time now (10 ms at 45): a card that took
@@ -146,6 +154,14 @@ namespace MITuningPrivate
 		TEXT("PixelStreaming2.DumpDebugAudio"),
 		TEXT("PixelStreaming.Encoder.DumpDebugFrames"),
 		TEXT("PixelStreaming.DumpDebugAudio"),
+		// The game's own survival and the encoder's exactness: what ends a game with its session must not be switchable from a
+		// stream (a visitor's game would outlive the visitor; docs/LAUNCH.md section 13). The box's scripts use launch options.
+		TEXT("MI.Cloud.KeepAlive"),
+		TEXT("MI.Cloud.ExitAfterEmpty"),
+		TEXT("MI.Cloud.ExitIfNoViewer"),
+		TEXT("MI.Cloud.IdleFps"),
+		TEXT("MI.Cloud.IdleAfter"),
+		TEXT("MI.Cloud.QpExact"),
 	};
 
 	const FRule* Find(const FString& Name)

@@ -110,7 +110,7 @@ FMISession::FOptions FMISession::Sanitize(FOptions O)
 	};
 	O.IdleAfter = Seconds(O.IdleAfter, 2.0, 0.5, 3600.0, false);
 	O.IdleStartupGrace = Seconds(O.IdleStartupGrace, 10.0, 0.0, 3600.0, false);
-	O.ExitAfterEmpty = Seconds(O.ExitAfterEmpty, 20.0, 2.0, 86400.0, true);
+	O.ExitAfterEmpty = Seconds(O.ExitAfterEmpty, 60.0, 2.0, 86400.0, true);
 	O.ExitIfNoViewer = Seconds(O.ExitIfNoViewer, 600.0, 5.0, 86400.0, true);
 	O.LauncherGoneAfter = Seconds(O.LauncherGoneAfter, 5.0, 2.0, 600.0, true);
 	O.IdleFps = FMath::Clamp(O.IdleFps, 0, 30);

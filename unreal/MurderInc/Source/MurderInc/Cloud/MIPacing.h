@@ -51,6 +51,13 @@ struct MURDERINC_API FMIFrameRateGovernor
 	double RaiseAfter = 10.0;
 	double RetryWindow = 30.0;
 	double MaxRaiseAfter = 160.0;
+	/**
+	 * While the quality ladder has a live step to give (FInput::bHold), the drop waits: the looks go before the frames. Only for a
+	 * load a step or two can carry (the GPU's time under HoldOverShare of the frame time; a heavier one drops at once, as
+	 * it always did) and for at most HoldMax seconds over the line; then the drop comes, ladder or no ladder.
+	 */
+	double HoldOverShare = 1.3;
+	double HoldMax = 20.0;
 
 	struct FInput
 	{
@@ -70,6 +77,8 @@ struct MURDERINC_API FMIFrameRateGovernor
 		bool bHeldBack = false;
 		/** Not in live play: the target may rise, and it does not drop. */
 		bool bSafeMoment = false;
+		/** The quality ladder has a live step to give (FMIQualityLadder::CanStepDown): the drop waits for it, within HoldOverShare and HoldMax. */
+		bool bHold = false;
 	};
 
 	/** One step. True: the target changed (Target() is the new one, Why() says why in words for the log). */
@@ -90,7 +99,7 @@ struct MURDERINC_API FMIFrameRateGovernor
 private:
 	int32 Index = 0;
 	bool bPinned = false;
-	double OverFor = 0.0, UnderFor = 0.0, SinceRaise = 1e9, RaiseWait = 0.0;
+	double OverFor = 0.0, UnderFor = 0.0, SinceRaise = 1e9, RaiseWait = 0.0, HeldFor = 0.0;
 	FString Reason;
 };
 

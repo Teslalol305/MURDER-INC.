@@ -6,12 +6,19 @@
 //                                     GPU is under the line; a free GPU never moves it; a calm step waits for a calm moment; up only
 //                                     after a long calm in play and at a safe moment; a rise that does not hold doubles the wait; a
 //                                     pin and "off" hold; a recorded series of a fight (the oscillation cases are in it)
-//   MurderInc.Cloud.QualityDefaults   the console variables a package starts with; the steps of DefaultGame.ini all parse and name
-//                                     console variables that exist
+//   MurderInc.Cloud.QualityDefaults   the console variables a package starts with (the ladder is OFF until the gate has run it); the
+//                                     steps of DefaultGame.ini all parse, there are five, each sets a variable that exists
+//   MurderInc.Cloud.QualityPrune      a variable or a step the build does not have is cut; which way a variable goes; "lowers"
+//   MurderInc.Cloud.QualityGuards     warm-up, a step that changed nothing, a bad half second in a calm minute, the rise wait that
+//                                     is earned back, the governor and the ladder together (the looks go before the frames)
+//   MurderInc.Cloud.QualityApply      a step on real variables: never raises what the player's setting lowered, gives variables
+//                                     and their priority back, the Settings card's Graphics quality still works under a step
 
 #include "Cloud/MICloud.h"
+#include "Cloud/MIPacing.h"
 #include "Cloud/MIQuality.h"
 #include "HAL/IConsoleManager.h"
+#include "UObject/StrongObjectPtr.h"
 #include "Misc/AutomationTest.h"
 #include "Tests/MITestUtil.h"
 
@@ -431,7 +438,12 @@ bool FMICloudQualityDefaultsTest::RunTest(const FString& Parameters)
 		}
 		TestTrue(FString::Printf(TEXT("%s is %g (it is %s)"), Name, Expect, *V->GetString()), FMath::IsNearlyEqual((double)V->GetFloat(), Expect, 1e-4));
 	};
-	Num(TEXT("MI.Cloud.QualityLadder"), 1.0);
+	// Off until the release gate has run it on a package (review of release 3c): -MILadder turns it on.
+	Num(TEXT("MI.Cloud.QualityLadder"), 0.0);
+	Num(TEXT("MI.Cloud.QualitySm6"), 0.0);
+	Num(TEXT("MI.Cloud.QualityWarmUp"), 15.0);
+	Num(TEXT("MI.Cloud.FpsHoldMax"), 20.0);
+	Num(TEXT("MI.Cloud.FpsHoldOver"), 1.3);
 	Num(TEXT("MI.Cloud.QualityStep"), -1.0);
 	Num(TEXT("MI.Cloud.QualityDownLoad"), 0.85);
 	Num(TEXT("MI.Cloud.QualityUpLoad"), 0.70);
@@ -447,15 +459,365 @@ bool FMICloudQualityDefaultsTest::RunTest(const FString& Parameters)
 	{
 		AddError(FString::Printf(TEXT("DefaultGame.ini [MICloud] QualitySteps: %s"), *E));
 	}
-	TestTrue(TEXT("the cloud profile has a quality ladder"), Steps.Num() >= 3);
+	TestEqual(TEXT("the cloud profile has the five steps of the walked ladder"), Steps.Num(), 5);
+	// Nothing is cut when the variables all exist (here they do: the editor has them all; a build that lacks one logs it and cuts it).
+	TestEqual(TEXT("the table survives the pruning against this build's variables"),
+		FMIQualityTable::Prune(Steps, [](const FString& N) { return IConsoleManager::Get().FindConsoleVariable(*N) != nullptr; }).Num(), Steps.Num());
 	for (const FMIQualityStep& S : Steps)
 	{
+		TestTrue(FString::Printf(TEXT("step \"%s\" sets at least one variable"), *S.Name), S.CVars.Num() >= 1);
 		for (const TPair<FString, FString>& P : S.CVars)
 		{
 			TestNotNull(FString::Printf(TEXT("step \"%s\": console variable %s exists"), *S.Name, *P.Key), IConsoleManager::Get().FindConsoleVariable(*P.Key));
 		}
 		TestTrue(FString::Printf(TEXT("step \"%s\" saves something"), *S.Name), S.Saves > 0.0);
 	}
+	return true;
+}
+
+// ---- pruning, direction ---------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMICloudQualityPruneTest, "MurderInc.Cloud.QualityPrune", MITest::Flags)
+
+bool FMICloudQualityPruneTest::RunTest(const FString& Parameters)
+{
+	using namespace MIQualityTestsPrivate;
+	{
+		TArray<FMIQualityStep> Steps;
+		FMIQualityStep A = MakeStep(TEXT("a"), 0.1);
+		A.CVars.Emplace(TEXT("r.Gone"), TEXT("0"));
+		Steps.Add(A);
+		FMIQualityStep B;
+		B.Name = TEXT("b");
+		B.Saves = 0.2;
+		B.CVars.Emplace(TEXT("r.Gone"), TEXT("1"));
+		B.CVars.Emplace(TEXT("r.AlsoGone"), TEXT("1"));
+		Steps.Add(B);
+		Steps.Add(MakeStep(TEXT("c"), 0.1));
+		TArray<FString> Notes;
+		const TArray<FMIQualityStep> Out = FMIQualityTable::Prune(Steps, [](const FString& N) { return N.StartsWith(TEXT("r.Test.")); }, &Notes);
+		TestEqual(TEXT("a step with no variable left is out"), Out.Num(), 2);
+		TestEqual(TEXT("the first step keeps its variable that exists"), Out.Num() > 0 ? Out[0].CVars.Num() : -1, 1);
+		TestEqual(TEXT("... the third is now the second"), Out.Num() > 1 ? Out[1].Name : FString(), FString(TEXT("c")));
+		TestEqual(TEXT("four things were said: a variable, the two variables of a step, and the step"), Notes.Num(), 4);
+		TestEqual(TEXT("nothing is cut when everything exists"), FMIQualityTable::Prune(Steps, [](const FString&) { return true; }).Num(), 3);
+	}
+	{
+		TArray<FString> Lines;
+		Lines.Add(TEXT("a | 10 | live | r.Cascades=3, r.Radius>=0.06, r.Word=high, r.Single=1"));
+		Lines.Add(TEXT("b | 10 | live | r.Cascades=1, sg.Shadow<=1, r.Equal=2"));
+		Lines.Add(TEXT("c | 10 | live | r.Equal=2"));
+		TArray<FString> Errors;
+		const TArray<FMIQualityStep> Steps = FMIQualityTable::Parse(Lines, &Errors);
+		TestEqual(TEXT("the lines with signs are read"), Steps.Num(), 3);
+		TestEqual(TEXT("without a sign: 3 then 1 falls"), FMIQualityTable::Direction(Steps, TEXT("r.Cascades")), -1);
+		TestEqual(TEXT("with >=: it rises (the radius threshold)"), FMIQualityTable::Direction(Steps, TEXT("r.Radius")), 1);
+		TestEqual(TEXT("with <=: it falls, from one value"), FMIQualityTable::Direction(Steps, TEXT("sg.Shadow")), -1);
+		TestEqual(TEXT("one value without a sign: not known (the value is applied as it stands)"), FMIQualityTable::Direction(Steps, TEXT("r.Single")), 0);
+		TestEqual(TEXT("the same value twice: not known"), FMIQualityTable::Direction(Steps, TEXT("r.Equal")), 0);
+		TestEqual(TEXT("not a number: not known"), FMIQualityTable::Direction(Steps, TEXT("r.Word")), 0);
+		TestEqual(TEXT("not in the table: not known"), FMIQualityTable::Direction(Steps, TEXT("r.Nothing")), 0);
+		TestEqual(TEXT("the name has no sign in it"), Steps.Num() > 0 ? Steps[0].CVars[1].Key : FString(), FString(TEXT("r.Radius")));
+		FMIQualityStep S;
+		FString Error;
+		TestFalse(TEXT("a sign needs a number"), FMIQualityTable::ParseStep(TEXT("x | 5 | live | r.A<=high"), S, &Error));
+		TestFalse(TEXT("... and says so"), Error.IsEmpty());
+		TestFalse(TEXT("a lone sign is no name"), FMIQualityTable::ParseStep(TEXT("x | 5 | live | <=1"), S, &Error));
+		// A cut keeps the signs of what is left.
+		const TArray<FMIQualityStep> Cut = FMIQualityTable::Prune(Steps, [](const FString& N) { return N != TEXT("r.Cascades"); });
+		TestEqual(TEXT("the sign of a variable that is kept stays"), FMIQualityTable::Direction(Cut, TEXT("r.Radius")), 1);
+		TestEqual(TEXT("the variable that was cut has none"), FMIQualityTable::Direction(Cut, TEXT("r.Cascades")), 0);
+		TestTrue(TEXT("falls: 3 to 1 lowers"), FMIQualityTable::Lowers(-1, TEXT("3"), TEXT("1")));
+		TestFalse(TEXT("falls: 1 to 1 is nothing to lower"), FMIQualityTable::Lowers(-1, TEXT("1"), TEXT("1")));
+		TestFalse(TEXT("falls: the player already has 0, the step would raise it to 1"), FMIQualityTable::Lowers(-1, TEXT("0"), TEXT("1")));
+		TestTrue(TEXT("rises: 0.03 to 0.06 lowers the quality"), FMIQualityTable::Lowers(1, TEXT("0.030000"), TEXT("0.06")));
+		TestFalse(TEXT("rises: 0.1 is already past 0.06"), FMIQualityTable::Lowers(1, TEXT("0.1"), TEXT("0.06")));
+		TestTrue(TEXT("not known: applied"), FMIQualityTable::Lowers(0, TEXT("0"), TEXT("1")));
+		TestTrue(TEXT("not numbers (a bool prints as true): applied"), FMIQualityTable::Lowers(-1, TEXT("true"), TEXT("0")));
+	}
+	return true;
+}
+
+// ---- the guards the review asked for ------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMICloudQualityGuardsTest, "MurderInc.Cloud.QualityGuards", MITest::Flags)
+
+bool FMICloudQualityGuardsTest::RunTest(const FString& Parameters)
+{
+	using namespace MIQualityTestsPrivate;
+	{
+		// Warm-up: live play has just begun, and the evidence of its first seconds is not counted.
+		FSim S;
+		S.Setup(Five());
+		TestTrue(TEXT("a ladder with steps to give can step down"), S.L.CanStepDown());
+		S.L.Hold(15.0);
+		TestFalse(TEXT("in its warm-up it cannot"), S.L.CanStepDown());
+		S.L.Hold(5.0);
+		TestTrue(TEXT("a shorter hold does not shorten a longer one"), FMath::IsNearlyEqual(S.L.HoldLeft(), 15.0));
+		TestEqual(TEXT("17.5 s of a heavy load: nothing (15 s of warm-up and 2.5 s of evidence)"), S.Run(17.5, 40.0, F30), 0);
+		TestTrue(TEXT("the warm-up is over"), S.L.CanStepDown());
+		TestEqual(TEXT("3 s after it: the first step"), S.Run(0.5, 40.0, F30), 1);
+		// A step that waits for a calm moment is not one the governor may wait for.
+		TArray<FMIQualityStep> Steps;
+		Steps.Add(MakeStep(TEXT("hitchy"), 0.2, true));
+		FSim C;
+		C.Setup(Steps);
+		TestFalse(TEXT("the next step is a calm one: nothing to hold the frame rate for"), C.L.CanStepDown());
+		FSim P;
+		P.Setup(Five());
+		P.L.Pin(2);
+		TestFalse(TEXT("pinned: no"), P.L.CanStepDown());
+		FSim O;
+		O.Setup(Five());
+		O.L.SetEnabled(false);
+		TestFalse(TEXT("off: no"), O.L.CanStepDown());
+		FSim E;
+		E.Setup(Five());
+		E.Run(300.0, 100.0, F30);
+		TestFalse(TEXT("on the last step: nothing left to give"), E.L.CanStepDown());
+	}
+	{
+		// A step that changed nothing (the player's own setting is as low): the next one does not wait for evidence or for the gap.
+		FSim S;
+		S.Setup(Five());
+		TestEqual(TEXT("down to step 1"), S.Run(3.0, 40.0, F30), 1);
+		S.L.NoteEffect(1, false, true);
+		TestEqual(TEXT("the next update goes on to step 2"), S.Run(0.5, 40.0, F30), 1);
+		TestEqual(TEXT("step 2"), S.L.Step(), 2);
+		// Told after a rise or by the Settings card, it only changes what the step is worth for a rise.
+		S.L.NoteEffect(2, false, false);
+		TestEqual(TEXT("no hurry then: the 10 s gap holds"), S.Run(5.0, 40.0, F30), 0);
+	}
+	{
+		// A bad half second in a calm minute takes two seconds off the calm counted; it does not start the minute again.
+		FSim S;
+		S.Setup(Five(0.12));
+		TestEqual(TEXT("one step on a card that needs it"), S.Run(3.0, 15.5, F60), 1);
+		S.Run(30.0, 8.0, F60);                 // 30 s of calm
+		S.Run(0.5, 20.0, F60);                 // one bad half second (17.6 ms at step 1)
+		S.Run(30.5, 8.0, F60);                 // 29 + 30.5 = 59.5 s
+		TestEqual(TEXT("59.5 s counted: not yet, even at a safe moment"), S.Run(0.5, 8.0, F60, true), 0);
+		S.Run(0.5, 8.0, F60);
+		TestEqual(TEXT("60 s counted: up at the next safe moment"), S.Run(0.5, 8.0, F60, true), 1);
+		// A load that is bad for half of every other minute never gets a rise (decay is not a free pass).
+		FSim B;
+		B.Setup(Five(0.12));
+		B.Run(3.0, 15.5, F60);
+		for (int32 I = 0; I < 40; ++I)
+		{
+			B.Run(5.0, 8.0, F60);
+			B.Run(5.0, 20.0, F60);
+		}
+		TestEqual(TEXT("half the time bad: no rise, even at a safe moment"), B.Run(0.5, 8.0, F60, true), 0);
+	}
+	{
+		// A rise that held earns the short wait back; UpAfter is read every time.
+		FSim S;
+		S.Setup(Five());
+		S.Run(15.0, 34.0, F30);
+		TestEqual(TEXT("down to step 2"), S.L.Step(), 2);
+		S.Run(61.0, 8.0, F60);
+		TestEqual(TEXT("up"), S.Run(0.5, 8.0, F60, true), 1);
+		TestEqual(TEXT("the load comes back within 120 s: down"), S.Run(15.0, 34.0, F30), 1);
+		TestTrue(TEXT("two minutes now"), FMath::IsNearlyEqual(S.L.UpWait(), 120.0));
+		S.Run(121.0, 8.0, F60);
+		TestEqual(TEXT("up again"), S.Run(0.5, 8.0, F60, true), 1);
+		S.Run(130.0, 8.0, F60);                // the rise holds for more than two minutes
+		TestEqual(TEXT("the load comes back after that: down"), S.Run(15.0, 34.0, F30), 1);
+		TestTrue(TEXT("the wait is a minute again"), FMath::IsNearlyEqual(S.L.UpWait(), 60.0));
+		S.L.UpAfter = 30.0;
+		S.Run(0.5, 8.0, F60);
+		TestTrue(TEXT("UpAfter changed in play: the wait follows"), FMath::IsNearlyEqual(S.L.UpWait(), 30.0));
+	}
+	{
+		// The governor and the ladder together, at 60 a second (16.7 ms) with the picture at its smallest: the looks go first.
+		struct FBoth
+		{
+			FMIFrameRateGovernor G;
+			FMIQualityLadder L;
+			double Saves = 0.12, Time = 0.0, DroppedAt = -1.0;
+			bool bHold = true;
+			void Setup(double InSaves, bool bUseHold = true)
+			{
+				L.Configure(MIQualityTestsPrivate::Five(InSaves));
+				Saves = InSaves;
+				bHold = bUseHold;
+			}
+			void Run(double Seconds, double Base)
+			{
+				for (double T = 0.0; T < Seconds - 1e-9; T += 0.5)
+				{
+					Time += 0.5;
+					const double Gpu = Base * FMath::Pow(1.0 - Saves, L.Step());
+					FMIFrameRateGovernor::FInput In;
+					In.Seconds = 0.5;
+					In.GpuMs = Gpu;
+					In.bSmallestPicture = true;
+					In.bHold = bHold && L.CanStepDown();
+					const int32 Before = G.GetIndex();
+					G.Update(In);
+					if (DroppedAt < 0.0 && G.GetIndex() != Before)
+					{
+						DroppedAt = Time;
+					}
+					FMIQualityLadder::FInput Q;
+					Q.Seconds = 0.5;
+					Q.GpuMs = Gpu;
+					Q.FrameMs = 1000.0 / FMIFrameRateGovernor::Targets[0];
+					Q.bSmallestPicture = true;
+					Q.bTargetAtTop = G.GetIndex() == 0;
+					L.Update(Q);
+				}
+			}
+		};
+		FBoth Without;
+		Without.Setup(0.12, false);
+		Without.Run(60.0, 17.0);
+		TestTrue(TEXT("the governor on its own: 17 ms at 60 drops to 45 after a second (the old behaviour)"), Without.G.Target() < 60 && Without.DroppedAt <= 1.5);
+		FBoth Both;
+		Both.Setup(0.12);
+		Both.Run(120.0, 17.0);
+		TestEqual(TEXT("17 ms at 60 with a ladder to give: the rate stays at 60"), Both.G.Target(), 60);
+		TestEqual(TEXT("... the ladder gave two steps (17 -> 15 -> 13.2 ms, under 14.2)"), Both.L.Step(), 2);
+		FBoth Two;
+		Two.Setup(0.12);
+		Two.Run(120.0, 20.0);
+		TestEqual(TEXT("20 ms at 60 (1.2 x the frame): the rate stays at 60"), Two.G.Target(), 60);
+		TestEqual(TEXT("... the ladder gave three steps (20 -> 17.6 -> 15.5 -> 13.6 ms)"), Two.L.Step(), 3);
+		FBoth Heavy;
+		Heavy.Setup(0.12);
+		Heavy.Run(10.0, 30.0);
+		TestTrue(TEXT("30 ms at 60 (1.8 x): a load no step or two can carry drops at once, as it always did"), Heavy.G.Target() < 60 && Heavy.DroppedAt <= 1.5);
+		FBoth Useless;
+		Useless.Setup(0.01);
+		Useless.Run(60.0, 20.0);
+		TestTrue(TEXT("steps that save nothing: the drop comes after the hold's 20 s"), Useless.DroppedAt > 20.0 && Useless.DroppedAt <= 23.0);
+		FBoth Off;
+		Off.Setup(0.12);
+		Off.L.SetEnabled(false);
+		Off.Run(10.0, 17.0);
+		TestTrue(TEXT("a ladder that is off holds nothing"), Off.G.Target() < 60 && Off.DroppedAt <= 1.5);
+	}
+	return true;
+}
+
+// ---- a step on real variables -----------------------------------------------------------------------------------------------
+
+namespace MIQualityApplyPrivate
+{
+	TAutoConsoleVariable<int32> CVarShadow(TEXT("mi.test.q.shadow"), 3, TEXT("A test variable (the ladder's apply test)."), ECVF_Default);
+	TAutoConsoleVariable<int32> CVarCascades(TEXT("mi.test.q.cascades"), 4, TEXT("A test variable (the ladder's apply test)."), ECVF_Default);
+	TAutoConsoleVariable<float> CVarRadius(TEXT("mi.test.q.radius"), 0.03f, TEXT("A test variable (the ladder's apply test)."), ECVF_Default);
+
+	IConsoleVariable* Var(const TCHAR* Name) { return IConsoleManager::Get().FindConsoleVariable(Name); }
+	uint32 SetBy(const TCHAR* Name) { return (uint32)Var(Name)->GetFlags() & ECVF_SetByMask; }
+
+	TArray<FMIQualityStep> Table()
+	{
+		TArray<FString> Lines;
+		Lines.Add(TEXT("a | 10 | live | mi.test.q.cascades<=3, mi.test.q.radius>=0.06"));
+		Lines.Add(TEXT("b | 10 | live | mi.test.q.shadow<=1, mi.test.q.cascades<=1"));
+		return FMIQualityTable::Parse(Lines);
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMICloudQualityApplyTest, "MurderInc.Cloud.QualityApply", MITest::Flags)
+
+bool FMICloudQualityApplyTest::RunTest(const FString& Parameters)
+{
+	using namespace MIQualityApplyPrivate;
+	TStrongObjectPtr<UMICloudSubsystem> Sub(NewObject<UMICloudSubsystem>(GetTransientPackage()));
+	const auto Reset = [&]()
+	{
+		Sub->SetQualityTableForTest({}, false);
+		for (const TCHAR* N : {TEXT("mi.test.q.shadow"), TEXT("mi.test.q.cascades"), TEXT("mi.test.q.radius")})
+		{
+			Var(N)->ClearFlags(ECVF_SetByMask);
+		}
+		Var(TEXT("mi.test.q.shadow"))->Set(TEXT("3"), ECVF_SetByConstructor);
+		Var(TEXT("mi.test.q.cascades"))->Set(TEXT("4"), ECVF_SetByConstructor);
+		Var(TEXT("mi.test.q.radius"))->Set(TEXT("0.03"), ECVF_SetByConstructor);
+	};
+	Reset();
+	{
+		// Down and up the table.
+		Sub->SetQualityTableForTest(Table(), false);
+		Sub->ApplyQualityStepForTest(1);
+		TestEqual(TEXT("step 1: cascades 3"), Var(TEXT("mi.test.q.cascades"))->GetInt(), 3);
+		TestTrue(TEXT("step 1: the radius threshold rises to 0.06"), FMath::IsNearlyEqual(Var(TEXT("mi.test.q.radius"))->GetFloat(), 0.06f));
+		TestEqual(TEXT("step 1: the shadow level is not touched"), Var(TEXT("mi.test.q.shadow"))->GetInt(), 3);
+		Sub->ApplyQualityStepForTest(2);
+		TestEqual(TEXT("step 2: shadows 1"), Var(TEXT("mi.test.q.shadow"))->GetInt(), 1);
+		TestEqual(TEXT("step 2: cascades 1"), Var(TEXT("mi.test.q.cascades"))->GetInt(), 1);
+		TestTrue(TEXT("step 2: the radius is still 0.06"), FMath::IsNearlyEqual(Var(TEXT("mi.test.q.radius"))->GetFloat(), 0.06f));
+		Sub->ApplyQualityStepForTest(1);
+		TestEqual(TEXT("back to step 1: the shadow level is given back"), Var(TEXT("mi.test.q.shadow"))->GetInt(), 3);
+		TestEqual(TEXT("... its priority too"), SetBy(TEXT("mi.test.q.shadow")), (uint32)ECVF_SetByConstructor);
+		TestEqual(TEXT("... cascades back to this step's 3"), Var(TEXT("mi.test.q.cascades"))->GetInt(), 3);
+		Sub->ApplyQualityStepForTest(0);
+		TestEqual(TEXT("step 0: cascades are back"), Var(TEXT("mi.test.q.cascades"))->GetInt(), 4);
+		TestTrue(TEXT("step 0: the radius is back"), FMath::IsNearlyEqual(Var(TEXT("mi.test.q.radius"))->GetFloat(), 0.03f));
+		TestEqual(TEXT("step 0: every priority is back"), SetBy(TEXT("mi.test.q.cascades")) + SetBy(TEXT("mi.test.q.radius")) + SetBy(TEXT("mi.test.q.shadow")), (uint32)ECVF_SetByConstructor * 3);
+	}
+	Reset();
+	{
+		// The player's own setting is already lower than the step: the step leaves it alone, and never raises it.
+		Var(TEXT("mi.test.q.shadow"))->Set(TEXT("0"), ECVF_SetByScalability);
+		Var(TEXT("mi.test.q.radius"))->Set(TEXT("0.1"), ECVF_SetByScalability);
+		Sub->SetQualityTableForTest(Table(), false);
+		Sub->ApplyQualityStepForTest(2);
+		TestEqual(TEXT("shadows are 0 (Low): the step's 1 would raise them: left at 0"), Var(TEXT("mi.test.q.shadow"))->GetInt(), 0);
+		TestEqual(TEXT("... at the player's priority"), SetBy(TEXT("mi.test.q.shadow")), (uint32)ECVF_SetByScalability);
+		TestTrue(TEXT("the radius is 0.1, past the step's 0.06: left"), FMath::IsNearlyEqual(Var(TEXT("mi.test.q.radius"))->GetFloat(), 0.1f));
+		TestEqual(TEXT("cascades were 4: the step lowers them"), Var(TEXT("mi.test.q.cascades"))->GetInt(), 1);
+		Sub->ApplyQualityStepForTest(0);
+		TestEqual(TEXT("step 0: the player's shadows are as they were"), Var(TEXT("mi.test.q.shadow"))->GetInt(), 0);
+		TestEqual(TEXT("step 0: cascades are back"), Var(TEXT("mi.test.q.cascades"))->GetInt(), 4);
+	}
+	Reset();
+	{
+		// A stronger setting (a launch option) holds a variable: the step does not take it.
+		Var(TEXT("mi.test.q.cascades"))->Set(TEXT("4"), ECVF_SetByCommandline);
+		Sub->SetQualityTableForTest(Table(), false);
+		Sub->ApplyQualityStepForTest(1);
+		TestEqual(TEXT("a launch option's cascades stay"), Var(TEXT("mi.test.q.cascades"))->GetInt(), 4);
+		TestEqual(TEXT("... at the launch option's priority"), SetBy(TEXT("mi.test.q.cascades")), (uint32)ECVF_SetByCommandline);
+		Sub->ApplyQualityStepForTest(0);
+		TestEqual(TEXT("... and stay"), Var(TEXT("mi.test.q.cascades"))->GetInt(), 4);
+	}
+	Reset();
+	{
+		// The Settings card's Graphics quality under a step, with the game's real scalability group.
+		IConsoleVariable* Shadow = IConsoleManager::Get().FindConsoleVariable(TEXT("sg.ShadowQuality"));
+		if (TestNotNull(TEXT("sg.ShadowQuality exists"), Shadow))
+		{
+			const int32 ShadowBefore = Shadow->GetInt();
+			FMIQualityStep S;
+			S.Name = TEXT("shadows low");
+			S.Saves = 0.13;
+			S.CVars.Emplace(TEXT("sg.ShadowQuality"), TEXT("1"));
+			S.Directions.Add(TEXT("sg.ShadowQuality"), -1);
+			Sub->SetQualityTableForTest({S}, true);
+			UMICloudSubsystem::ApplyStreamedQuality(3);
+			TestEqual(TEXT("the card at Ultra"), Shadow->GetInt(), 3);
+			Sub->ApplyQualityStepForTest(1);
+			TestEqual(TEXT("the step lowers the shadow group from 3 to 1"), Shadow->GetInt(), 1);
+			UMICloudSubsystem::ApplyStreamedQuality(2);
+			TestEqual(TEXT("the card moved to High under the step: the step goes on holding 1 (it lowers 2)"), Shadow->GetInt(), 1);
+			UMICloudSubsystem::ApplyStreamedQuality(0);
+			TestEqual(TEXT("the card at Low: the step does not raise the shadows to 1"), Shadow->GetInt(), 0);
+			UMICloudSubsystem::ApplyStreamedQuality(3);
+			TestEqual(TEXT("the card back at Ultra: the group follows the card again, the step lowers it"), Shadow->GetInt(), 1);
+			Sub->ApplyQualityStepForTest(0);
+			TestEqual(TEXT("step 0: the player's Ultra is back"), Shadow->GetInt(), 3);
+			UMICloudSubsystem::ApplyStreamedQuality(1);
+			TestEqual(TEXT("and the card still moves the group after the ladder has been on it"), Shadow->GetInt(), 1);
+			Sub->SetQualityTableForTest({}, false);
+			UMICloudSubsystem::ApplyStreamedQuality(-1);
+			TestEqual(TEXT("auto: the group is where the game started"), Shadow->GetInt(), ShadowBefore);
+		}
+	}
+	Sub->SetQualityTableForTest({}, false);
 	return true;
 }
 
