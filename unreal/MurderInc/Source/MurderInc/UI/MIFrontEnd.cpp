@@ -130,6 +130,12 @@ void UMIFrontEnd::Show()
 	{
 		Viewport->AddViewportWidgetContent(Widget.ToSharedRef(), 10);
 	}
+	// A player who comes back from a run with a controller in the hand sees its names here at once.
+	if (const AMIPlayerController* MIPC = World ? Cast<AMIPlayerController>(World->GetFirstPlayerController()) : nullptr; MIPC && MIPC->IsPadActive())
+	{
+		bPad = true;
+		bKeysSeen = true;
+	}
 	bInputMode = false;
 	ViewTargetFor = -1;
 	Focus = 0;
