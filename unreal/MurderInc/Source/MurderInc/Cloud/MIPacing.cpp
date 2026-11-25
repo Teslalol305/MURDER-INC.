@@ -317,7 +317,7 @@ void FMIGpuPacer::OnBeginFrame()
 	const int32 OwedAtStart = Owed;
 	double Waited = 0.0;
 	bool bTimedOut = false;
-	if (MaxInFlight >= 0 && Owed > MaxInFlight && !bGaveUp)
+	if (MaxInFlight >= 0 && Owed > MaxInFlight && FPlatformTime::Seconds() >= PausedUntil)
 	{
 		// A wait, not work: the engine's game-thread time ("stat unit", the probe line's gameMs) leaves it out.
 		UE::Stats::FThreadIdleStats::FScopeIdle Idle;
@@ -337,7 +337,12 @@ void FMIGpuPacer::OnBeginFrame()
 		}
 		Waited = (FPlatformTime::Seconds() - Start) * 1000.0;
 		TimeOutsInARow = bTimedOut ? TimeOutsInARow + 1 : 0;
-		bGaveUp = TimeOutsInARow >= 3;
+		if (TimeOutsInARow >= 3)
+		{
+			TimeOutsInARow = 0;
+			++Pauses;
+			PausedUntil = FPlatformTime::Seconds() + PauseSeconds;
+		}
 	}
 	for (FStats& S : Stats)
 	{

@@ -217,7 +217,8 @@ private:
 	// Pacing (Cloud/MIPacing.h).
 	TSharedPtr<FMIGpuPacer, ESPMode::ThreadSafe> Pacer;
 	FMIFrameRateGovernor Governor;
-	bool bPacingStarted = false, bPacerGaveUpLogged = false;
+	bool bPacingStarted = false;
+	int32 PacerPausesLogged = 0;
 	int32 PinnedBy = 0;                      // 0 not pinned, 1 MI.Cloud.FpsTarget / -MIFps, 2 t.MaxFPS set by hand
 	double GovLast = 0.0, GovGpuSum = 0.0;   // since the governor's last step
 	int32 GovFrames = 0;

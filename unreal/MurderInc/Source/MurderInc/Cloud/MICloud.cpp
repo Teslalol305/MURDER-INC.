@@ -1066,10 +1066,11 @@ void UMICloudSubsystem::TickPacing()
 	{
 		Pacer->MaxInFlight = MICloudPrivate::GFramesInFlight;
 		Pacer->WaitLimitMs = MICloudPrivate::GGpuWaitLimitMs;
-		if (Pacer->HasGivenUp() && !bPacerGaveUpLogged)
+		if (Pacer->GetPauses() > PacerPausesLogged && PacerPausesLogged < 5)
 		{
-			bPacerGaveUpLogged = true;
-			MICloudPrivate::Line(TEXT("Pacing: the GPU did not report its finished frames three times in a row (each wait ran into MI.Cloud.GpuWaitLimitMs): the pacer no longer holds the game back"));
+			PacerPausesLogged = Pacer->GetPauses();
+			MICloudPrivate::Line(FString::Printf(TEXT("Pacing: three waits for the GPU in a row ran into the limit of %.0f ms (MI.Cloud.GpuWaitLimitMs); the game runs unheld for %.0f s, then the pacer tries again (pause %d of this session%s)"),
+				MICloudPrivate::GGpuWaitLimitMs, Pacer->PauseSeconds, PacerPausesLogged, PacerPausesLogged >= 5 ? TEXT("; further ones are not logged") : TEXT("")));
 		}
 	}
 	GovGpuSum += FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles(0));

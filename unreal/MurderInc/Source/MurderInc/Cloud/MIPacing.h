@@ -103,7 +103,7 @@ namespace MITuning
  * thread to put a GPU fence behind that frame's commands; at the start of the next frame, after the frame cap's
  * sleep and right before input is read, it waits (asleep in steps of a fifth of a millisecond) until no more than
  * MaxInFlight of those fences are still unsignalled, or until WaitLimitMs has passed (then it goes on and counts a
- * time-out: the game must never hang on this). With a GPU that keeps up nothing is ever waited for.
+ * time-out: the game must never hang on this; see GetPauses). With a GPU that keeps up nothing is ever waited for.
  */
 class MURDERINC_API FMIGpuPacer : public TSharedFromThis<FMIGpuPacer, ESPMode::ThreadSafe>
 {
@@ -131,11 +131,13 @@ public:
 	/** The numbers since the last call (the probe line); a second, independent set for the governor. */
 	FStats Take(int32 Reader);
 	/**
-	 * True after three waits in a row ran into the limit: the GPU does not report its finished frames here, and the
-	 * pacer has stopped holding the game back (it still counts). A game at four frames a second would be worse than
-	 * the pile it guards against.
+	 * How often three waits in a row ran into the limit (a GPU that needs more than WaitLimitMs for a frame: a long
+	 * hitch, a cold start, or fences that are never signalled). The pacer then lets the game run for PauseSeconds
+	 * and tries again: a game held at four frames a second would be worse than the pile it guards against, and a
+	 * pacer that gave up for good would bring the pile back after the first hitch.
 	 */
-	bool HasGivenUp() const { return bGaveUp; }
+	int32 GetPauses() const { return Pauses; }
+	double PauseSeconds = 3.0;
 
 private:
 	void OnBeginFrame();
@@ -148,6 +150,7 @@ private:
 	uint64 Enqueued = 0, Completed = 0;
 	FStats Stats[2];
 	FDelegateHandle BeginHandle, EndHandle;
-	bool bRunning = false, bGaveUp = false;
-	int32 TimeOutsInARow = 0;
+	bool bRunning = false;
+	int32 TimeOutsInARow = 0, Pauses = 0;
+	double PausedUntil = 0.0;
 };
