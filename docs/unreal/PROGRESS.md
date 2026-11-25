@@ -3,6 +3,119 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Release 3c: review fixes (fixer, 2026-11-25, 18:00 UTC onward)
+
+**Read this first.** A review of release 3c's game changes (the session, the encoder range, the round trip and the quality ladder) found
+ten things. Each was checked against the code before anything was changed; none was wrong. What changed in the game: **the quality ladder is
+now OFF in a package until its gate has run** (it was on by default and had only ever been walked by pinning a step); it no longer raises what
+the player's own Graphics quality set and gives its variables back with their priority; it judges against a 60 frames a second frame and the
+frame-rate drop waits for it; it warms up for 15 s after live play begins; the rise wait is earned back; it does not run on SM6; a variable the
+build lacks is cut from its step at the start. The game now quits **60 s** after the last viewer left (it was 20 s), and a visitor can no longer
+switch the session handling off from a link or from the stream. **Not done and not provable here: any run on E3DS, the ladder acting in a
+package, and the encoder range against a real browser.** The test results of this entry are in section 4.
+
+### 1. The ten findings, one by one
+
+| # | Finding (review) | Checked | What was done | Proof |
+|---|---|---|---|---|
+| 1 | `ExitAfterEmpty` 20 s rests on a constraint that does not exist | **Right.** `reap_leftovers` in `MurderInc.sh` already stops every other game of the package at the next start (TERM, KILL 4 s later), so a longer wait cannot leave two games on the card; an idle game costs about 1 % (6.1 % against 5 % empty). The 3.5 s reconnect was measured with the box's test viewer only. | Default 60 s (`MI.Cloud.ExitAfterEmpty`, `-MIExitAfterEmpty=`); the wrong rationale is replaced in `MICloud.h`, `MISession.h`, LAUNCH.md section 13, BOX.md, RESUME.md and the gate files | `MurderInc.Cloud.SessionDecision`, `.SessionClock`, `.SessionDefaults` (60); a reload of 8 s 200 times never quits (unchanged) |
+| 2 | A viewer can switch the session handling off from the stream, and from a stream link | **Right.** `MI.Cloud.` was an allowed family for `-MICVars=` and a viewer's console command with any value, and `MurderInc.sh` passed `-MIKeepAlive` on. | `MI.Cloud.KeepAlive`, `ExitAfterEmpty`, `ExitIfNoViewer`, `IdleFps`, `IdleAfter` and `QpExact` are in the `Never` list of `MITuning`. `MurderInc.sh` does not pass `-MIKeepAlive`, `-MIExitAfterEmpty=`, `-MIExitIfNoViewer=`, `-MIIdleFps=`, `-MIIdleAfter=` or a host's `-MILauncherPid=` when its folder is under `0.apps` (E3DS), and logs what it dropped. Box test folders pass them on. | `MurderInc.Cloud.SessionDefaults` (six names refused by `IsViewerCommandAllowed` and `MITuning::IsAllowed`, also in capitals; the pacing variables still allowed); `launcher-test.sh` case 7 (a package folder named `0.apps`: six checks) |
+| 3 | The final head was never built and the suite was not run on it | **Right.** | Built and run in section 4 | section 4 |
+| 4 | The encoder range changes behaviour on the path that was fine in v4 and was measured on emulated links only | **Right, and not decidable here.** The measuring viewer is aiortc with a fixed REMB estimate. On E3DS, v4 held 60 fps at QP 34 and 0.5 Mbit/s. | Default kept (the owner's call); the release note and LAUNCH.md section 13 now say what the range risks (softer in a fast turn, up to QP 42, sharper and larger standing, down to QP 24) and how to read the first E3DS session against v4's numbers; the one-line switch is `-MIQpExact` (or `-MIQpAbove=0 -MIQpBelow=0`) | none new: the numbers of the session entry section 3 stand, with the same limits |
+| 5 | The ladder is on by default and was never run for real (**must-fix**) | **Right.** | **Off by default** (`MI.Cloud.QualityLadder 0`; `-MILadder` turns it on, `-MINoLadder` wins). A variable the build lacks is cut from its step at start-up and a step left with none is dropped, with a log line each (`FMIQualityTable::Prune`), so a Shipping build cannot run a step that sets nothing while the ladder counts its saving; a step that changed nothing is told to the ladder (`NoteEffect`): its saving does not count for a rise and the next step does not wait. Three of the table's variables were looked up in the 5.9 source (`r.VolumetricCloud`, `r.LumenScene.Radiosity`, `r.Lumen.Reflections.Allow`: ordinary variables with `ECVF_Scalability`, no `UE_BUILD_SHIPPING` guard); `r.Shadow.CSM.MaxCascades`, `r.Shadow.RadiusThreshold` and `sg.ShadowQuality` were not located in the source in the time available, and the pruning is what covers them | `MurderInc.Cloud.QualityDefaults` (off, five steps, each with a variable, none cut by the pruning), `.QualityPrune`, `.QualityGuards` |
+| 6 | A step overrides the player's Graphics quality and locks the `sg.*` group against it | **Right**, in all three ways the review gave. | A step only lowers: the table says which way a variable goes (`variable<=value` caps it, `variable>=value` floors it; `=` as it stands), a variable already as low is left alone and logged. The baseline is read again at every descent from step 0 and a variable is given back with its value **and its priority** (`ClearFlags(ECVF_SetByMask)` then `Set` at the priority it had: both are public in 5.9, `IConsoleManager.h`). The Settings card's `ApplyStreamedQuality` releases the ladder's variables, writes its level and lets the ladder apply its step again over it. | `MurderInc.Cloud.QualityApply` (test variables: down, up and to step 0 with priorities; the player's 0 stays 0 under "shadows low"; a launch option's value is kept; the real `sg.ShadowQuality` through `ApplyStreamedQuality(3, 2, 0, 3, 1, -1)` under a step) |
+| 7 | Judged at the target in force, the rate drops before any quality is given up | **Right.** The governor drops after 1 s over 100 % of the frame; the ladder needs 3 s over 85 %, of the frame of the target in force. | The ladder judges against the 60 frames a second frame (the target's own when it is fixed by hand), and while it has a live step to give (`CanStepDown`) the governor's drop waits, for a load under 1.3 of the frame and for at most 20 s over the line (`MI.Cloud.FpsHoldOver`, `FpsHoldMax`). A heavier load drops at once, as it always did. | `MurderInc.Cloud.QualityGuards` (the governor and the ladder together: 17 ms at 60 stays at 60 and gives two steps; 20 ms gives three; 30 ms drops after 1 s; steps that save nothing: the drop comes after 21 s; a ladder that is off holds nothing; without the hold 17 ms drops after 1 s) |
+| 8 | The rise wait only grows | **Right.** | The multiplier is kept apart from `UpAfter` (which is read every update); a rise that held for the retry window (120 s) earns the short wait back; one bad half second takes 2 s off the calm counted instead of starting the minute again (`CalmDecay`) | `MurderInc.Cloud.QualityGuards` (a minute with one bad half second still gets its rise; a load that is bad half of the time never does; 60 s, 120 s, then 60 s again; `UpAfter` changed in play) |
+| 9 | No warm-up | **Right.** | `FMIQualityLadder::Hold`: the ladder counts nothing for 15 s (`MI.Cloud.QualityWarmUp`) after live play begins (after a menu, a pause, a retry, a map load, a viewer's return from an idle spell: all of them pass through "not live play"), logged | `MurderInc.Cloud.QualityGuards` (17.5 s of a heavy load, nothing; the step comes 3 s after the warm-up) |
+| 10 | The table was measured for SM5 only; the package also runs SM6 | **Right.** | On SM6 there is no ladder (`MI.Cloud.QualitySm6 1` allows it); the log says which feature level the ladder runs on | read in the code only: the automation process has no SM6; **not run** |
+
+### 2. Notes on the choices
+
+- **Why off, not "gate it first, then keep it on".** The gate (`lag-gate-3c.txt`) is a Development game in a test folder; the review's
+  point stands that a package's Shipping game has never run the ladder, and the first E3DS session is where a hitch from a changed variable
+  would show. Off costs nothing a v4 session did not already do (the governor and the pacer are unchanged); the release engineer turns it
+  on in the package's gate with `-MILadder` and, if the numbers hold, in the cloud profile (`+CVars=MI.Cloud.QualityLadder=1` under `[MICloud]`).
+- **Why 60 s and not 90.** A reconnect after a broken connection is seconds; PS2's own ICE failure delay comes first. 60 s is long against that
+  and short against a session that is over; the cost of more is a game that idles at 1 % of the card for longer.
+- **The sign in the table.** A single value with no way to tell which way is "down" (a step that sets `sg.ShadowQuality 1` where the player has
+  0) cannot be told from the table alone, and reading the start-up value would be wrong when the player's setting came first. So the table
+  says it (`<=`, `>=`), and the table's own first and last value decide for a variable written with `=` that changes.
+
+### 3. What the code does now (for the reader of the log)
+
+- Start-up lines: `Quality ladder: 5 step(s) on SM5: 1 clouds off (saves about 16 %), ...; OFF (the default until the gate has run it: -MILadder turns it on)`;
+  on SM6 `the game runs SM6; the steps were measured with SM5 only, so there is no ladder here`; a variable the build lacks: `Quality ladder: step "x":
+  no console variable y in this build, left out`.
+- With the ladder on: `Quality ladder: live play begins: warming up for 15 s before it counts anything`, then the `Quality: step 0 -> 1: at the smallest
+  picture the GPU took ...` lines with, since this review, `(N changed a value)`, `M given back`, `K left alone because the setting is already as low (names)`,
+  and `step n changed nothing ...` when a step did nothing at all (the next step then follows at the next half second).
+- The governor's own line `Frame-rate target: 60 -> 45 ...` is unchanged; with the ladder on and a step to give it comes later than before (up to 20 s).
+
+### 4. Tests and builds
+
+**Suite: `TESTS OK passed=203 failed=0 skipped=0 filter=MurderInc` (54 s, `UnrealEditor-Cmd`, the Development editor build of `c8a4066`, box 603980d9).** The run
+before it, on `bbc88fd`, printed `passed=200 failed=2`: `MurderInc.Cloud.QualityApply` (a game-instance subsystem needs a game instance as its outer) and
+`MurderInc.Cloud.SessionDecision` (two asserts with 20 s in them); both were mistakes of the new tests and the 20 s test, fixed in `c8a4066`, nothing weakened and no
+other test touched. The 198 + 5 = 203: new this review are `MurderInc.Cloud.QualityPrune`, `.QualityGuards` and `.QualityApply`, with asserts added to `.QualityDefaults`,
+`.SessionDefaults`, `.SessionDecision` and `.SessionClock` (the session ones changed from 20 s to 60 s; the 8 s reload test and the "launcher gone" tests are as they were).
+The Loadout tests the session engineer saw fail on a stale `SK_Nine` passed here: the clone's generated content was copied from the guns lane's clone (`cp -a --reflink=auto
+--remove-destination`) and `audio-import.sh` was run once (289 waves, 0 failed).
+
+**Builds from the same head**: the editor target (`MurderIncEditor Linux Development`, 78 s to 191 s, every time from the first compile), the game target `MurderInc Linux
+Development` and `MurderInc Linux Shipping` (`Result: Succeeded`, compile and link; **nothing was packaged, nothing was uploaded**). Two build problems that were not the code's: the clone's
+`Intermediate` and `Binaries` were root-owned from an earlier job (`Operation not permitted` on every object file: `chown -R ue4:ubuntu` fixed it), and `git`'s object
+folders likewise (`unpack-objects failed`).
+
+**The launcher**: `launcher-test.sh` as an ordinary user (`nobody`): `LAUNCHER-TEST OK`, 6 new checks in case 7 (a package folder named `0.apps`).
+
+**Gate runs on the box** (nothing else of mine on the box; the other jobs' runs came and went between them, `others=0` in every watcher line of the runs below; the test
+folder is version 2's unpacked zip with this head's Development and Shipping binaries and launcher, as the session and ladder engineers made theirs; `runas=fresh clean=1`):
+
+| Run (queue) | What | Result |
+|---|---|---|
+| `s3c-idle` (`session-gate.txt`, Shipping game, v2's pak) | nobody for 45 s, a viewer 30 s on the menu, then gone | idle 13.2 s after the start at 2 frames a second, `Back at full speed (a viewer joined)`, `Connection lost`, idle again 2 s later, **`Session over: the last viewer left 60.1 s ago (MI.Cloud.ExitAfterEmpty 60.0 s)`**, exit 0 after 148.5 s. The card's own utilisation: idle 1.0 % on average (highest 5 %), the viewer on the menu 34.0 %. |
+| `s3c-reload` | the first viewer leaves, a second joins 3 s later, stays 30 s | the game was there (`Viewer joined` twice, the second wake 1.5 s), one `Session over` **60.1 s after the second viewer left**, exit 0 after 170.6 s |
+| `s3c-nobody` (`-MIExitIfNoViewer=30`) | nobody ever comes | `Session over: no viewer connected in the 30 s since the game started`, exit 0 after 37.2 s |
+| `s3c-keep` (`-MIKeepAlive`) | no viewer for 60 s | `ALIVE at limit; after TERM: EXIT 0` |
+| `c-l20`, `c-fight-l20` (Development game, ladder on, `-sm5`, the table from `-MIQualityTable=`, load `1:0.05:0:1024`) | a card with room to spare: 12.4 and 12.7 ms at the smallest picture, 74 % of a 60 frames a second frame | 59.7 fps (lowest 44.6 in the fight), **no change of step in 190 s and 140 s**, the warm-up line once, `quality step 0-0 of 5` |
+| `c-l35` (load `1:0.3:0`, ladder on) | a card that is far over | the governor dropped 60 to 45 to 30 at once (32.6 and 39.6 ms: over 1.3 of the frame, so no hold, as designed); the ladder counted nothing for the first 15 s of live play, then took step 1 after 3.1 s over (34.5 ms; **longest frame in the 2 s after it 85.6 ms**) and step 2 10 s later (24.2 ms; **33.3 ms**), `0 -> 2` with `1 variable(s) set (1 changed a value)` for each line; later the governor went 30 to 45 at a card (15.5 ms at the smallest picture). 29.8 fps, ends on step 2 |
+
+**Runs thrown away**: `c-rise`, `c-rise2`, `c-l20-off` and `c-fight-l20-off` (every second run of the queue) started with a viewer that received 2 or 3 pictures and then
+none (`NO VIDEO or no data channel after 40 s`; the summary says `play 0 s`); the game itself ran at 60 frames a second and had no ladder or governor line that explains it; the
+hands job's runs on the same box had one of the same kind (`i1-fail`). The cause was not found (another job's game or card load between runs is the suspect; `others=0` in
+the watchers, which count only games, not the other job's load processes). Because of this **the way back (`ladder-rise.txt`) was never seen to work**, and the ladder-off
+comparison runs at the same load do not exist; at 12 ms the ladder does nothing either way. **The governor's hold (a load of 1.0 to 1.3 of the frame) was not seen in a run**:
+no load of `lag-test.sh` landed between 14 and 21 ms at the smallest picture (`c-l20` 12.4 ms, `c-l35` 32 to 34 ms); the hold is proven in the unit simulation only.
+
+
+### 5. Not proven, not done
+
+- **Nothing was run on E3DS.** What E3DS does with a game that quits 60 s after its last viewer, whether its page reconnects to the same game
+  after a reload or a broken connection, and whether its launch options reach `MurderInc.sh` the way `launcher-test.sh` assumes (its folder under `0.apps`) are
+  all unproven. The 60 s is a judgement, not a measurement.
+- **The ladder was not run in a package.** The Shipping game was built (compile and link, `MurderInc-Linux-Shipping`), not packaged and not started with the ladder
+  on; the gate runs below are the Development game with the table handed over by `-MIQualityTable=` (a Shipping game reads it from the pak's ini).
+  Whether the five variables exist and can be written in a Shipping build is covered by the start-up pruning and its log lines, not by a run.
+- **`r.Shadow.CSM.MaxCascades`, `r.Shadow.RadiusThreshold` and `sg.ShadowQuality`** were not looked up in the engine source (the first three were).
+- **SM6** was not run at all (the automation process has no SM6 device): that the ladder is off there is read in the code.
+- **The encoder range** against a real browser and E3DS's own sender: not measured (finding 4); the owner's call.
+- **The hold's 1.3 and 20 s, the warm-up's 15 s, the 60 s** are judgements: nothing measured them on a card like E3DS's.
+- A viewer of a package can still send `MI.Cloud.QualityLadder 1` or `MI.Cloud.QualityStep 5` from the stream (it costs him his own looks only).
+
+### 6. Checklist for the release engineer (what a package of this code must be proven to do)
+
+1. `bash tools/box/test.sh MurderInc` in the clone the package comes from, after importing the guns: `TESTS OK` (about 203 tests; none weakened).
+2. The package builds as Shipping from a clean clone (the module has unity chunks off).
+3. `launcher-test.sh <package's MurderInc.sh>` as an ordinary user: `LAUNCHER-TEST OK` (case 7: the E3DS-folder options are dropped).
+4. `session-gate.txt` on the unpacked package (`LAG_RUNAS=fresh LAG_CLEAN=1`): `s3c-idle` and `s3c-reload` end with `Session over` **60 s** after the last viewer left
+   and exit 0; `s3c-nobody` 30 s after the start; `s3c-keep` ALIVE at limit. Read `grep -a "Session over"` for the times.
+5. In the package's first start log: `Quality ladder: 5 step(s) on SM5 ...: OFF`. If the owner wants the ladder: run `lag-gate-3c.txt` against the package
+   (its lines carry `-MILadder`; **with a package the table is read from the pak's `DefaultGame.ini`, so `profile=1` must not be needed**), read `grep -a "Quality" game.log`:
+   a `Quality: ... N variable(s) set (M changed a value)` with M above 0 for every step, the longest frame after each change, no `no console variable` line, the
+   warm-up line once per live play. Only then put `+CVars=MI.Cloud.QualityLadder=1` under `[MICloud]` of `DefaultGame.ini`.
+6. The first E3DS session: `Session:`, `Encoder quality, from ...` (compare QP and Mbit/s of the probe lines with v4's 34 and 0.5), `Session over`, the launcher's
+   exit code, and whether a reload or a second session finds its game. `-MIQpExact` is the one-line switch back if the picture is not better.
+
 ## Weapons round 4: the hands, second pass (the review's findings; hands engineer, 2026-11-25, 18:00 to 19:05 UTC)
 
 **Read this first.** The review of the first hands pass found five faults; all five are **right** on fresh frames (and the first report was
