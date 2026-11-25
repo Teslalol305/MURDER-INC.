@@ -7,7 +7,17 @@
 #   stream-test.sh run <script> [Development] [extra args]             the game alone (no stream) playing a MIDemo
 #                                                                      script, for the memory runs (Development only)
 #   stream-test.sh xtest <outdir> [config]                            the in-game half on the box's desktop, no WebRTC
+#   stream-test.sh reload <outdir> [reloads] [seconds before the first] a real browser (headless Chromium) joins the game,
+#                                                                      reloads its page again and again, leaves (reload_test.cjs):
+#                                                                      how long a reload takes to reach the first picture, and what
+#                                                                      the game logged (release 3c: the session)
 #   stream-test.sh stop                                                stop what this script started (by pid)
+#
+# STREAM_BUILD=<folder with MurderInc.sh> starts that folder's game instead of /project/ue/cloud/build-<config>/Linux (a test
+# folder such as /tmp/3c/app; the folders build-* are the release engineer's and are never started here by hand);
+# STREAM_KEEPALIVE=0 leaves out -MIKeepAlive (below), so that the game's own idling and quitting are in the run;
+# STREAM_RUN=<folder> keeps the run's files (game.log, the signalling server's logs, the pid files) there instead of
+# in /project/ue/cloud/run, which other jobs use.
 #
 # Needs setup-ps.sh (Node, the infrastructure, Chromium) and package-cloud.sh (the builds). Run as root.
 #
@@ -16,7 +26,7 @@
 # runs play a script for minutes with no stream at all, the browser test waits for a viewer that this box cannot
 # supply), and measure the game as before.
 C=/project/ue/cloud
-RUN=$C/run
+RUN=${STREAM_RUN:-$C/run}
 mkdir -p "$RUN" && chown ue4 "$RUN"
 export PATH=$C/node/bin:$PATH PLAYWRIGHT_BROWSERS_PATH=$C/pw/browsers
 TOOLS=$(dirname "$(readlink -f "$0")")
@@ -44,14 +54,15 @@ PY
 
 start_game() {  # $1 config, rest: args
   local cfg=${1:-Shipping}; shift
-  local L=$C/build-$cfg/Linux
+  local L=${STREAM_BUILD:-$C/build-$cfg/Linux}
   [ -x "$L/MurderInc.sh" ] || { echo "no build in $L"; exit 1; }
+  local keep=-MIKeepAlive; [ "${STREAM_KEEPALIVE:-1}" = 0 ] && keep="" 
   echo "$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits)" > "$RUN/gpu-baseline.txt"
   date +%s.%N | cut -c1-14 > "$RUN/launch.txt"
   # What the game saw is read from its own output (game.log: the "[MICloud]" lines, which the Shipping game prints
   # and the launcher passes on). Version 3 has no -MICloudLog= in the Shipping game.
   su ue4 -c "cd $L && HOME=/home/ue4 setsid nohup ./MurderInc.sh -RenderOffScreen -vulkan -unattended -nosplash -ResX=1920 -ResY=1080 -ForceRes \
-    -stdout -FullStdOutLogOutput -MIKeepAlive $(printf '%q ' "$@") </dev/null > $RUN/game.log 2>&1 & echo \$! > $RUN/game.pid"
+    -stdout -FullStdOutLogOutput $keep $(printf '%q ' "$@") </dev/null > $RUN/game.log 2>&1 & echo \$! > $RUN/game.pid"
   sleep 2
   gpu_sampler "$(cat "$RUN/game.pid")"
   echo "GAME $cfg started pid $(cat "$RUN/game.pid") (log $RUN/game.log)"
@@ -79,6 +90,10 @@ case "$1" in
     out=$2; vp=${3:-1920x1080}; mkdir -p "$out"
     VW=${vp%x*} VH=${vp#*x} MATCH=${4:-false} node "$TOOLS/stream_test.cjs" "$out" "$RUN/game.log" "$RUN/launch.txt"
     ;;
+  reload)  # a real browser reloads its page (reload_test.cjs): the game's log is read for what it saw
+    out=$2; mkdir -p "$out"
+    node "$TOOLS/reload_test.cjs" "$out" "$RUN/game.log" "${3:-5}" "${4:-0}"
+    ;;
   xtest)  # the in-game half without WebRTC: a window on the box's desktop :1, XTEST input (xtest.py)
     /opt/venv/bin/python3 -I "$TOOLS/xtest.py" "$2" "${3:-Development}"
     ;;
@@ -90,7 +105,7 @@ case "$1" in
     done
     # The game runs under its launcher script: stop the binary it started (only the one in our builds).
     for p in $(pgrep -x MurderInc-Linux; pgrep -x MurderInc); do
-      tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -q "cloud/build-" && kill "$p" && echo "stopped game binary $p"
+      tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -q -F -e "cloud/build-" -e "${STREAM_BUILD:-cloud/build-}" && kill "$p" && echo "stopped game binary $p"
     done
     ;;
   *) sed -n 2,12p "$0"; exit 2 ;;

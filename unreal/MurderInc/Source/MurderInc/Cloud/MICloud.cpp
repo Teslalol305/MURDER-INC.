@@ -164,6 +164,8 @@ namespace MICloudPrivate
 	 * frame. ViewerEventsHandled (the subsystem's) catches up when the game thread has processed the event.
 	 */
 	std::atomic<int32> GViewerEvents{0};
+	/** When the stream last reported a viewer's connection (FPlatformTime::Seconds): the log says how long the game took to wake. */
+	std::atomic<double> GJoinReportedAt{0.0};
 
 	/** Seconds since the process started: the viewer and session lines carry it, so that a log without time stamps (the Shipping game's) says how long a countdown ran. */
 	double Uptime()
@@ -805,7 +807,7 @@ void UMICloudSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		// game sleeps in small steps and wakes when the count moves (SleepIdle), and does not go back to sleep until the game
 		// thread has handled the event (ViewerEventsHandled).
 		StreamHandles.Add(D->OnNewConnectionNative.AddLambda([OnGame](FString, FString)
-			{ ++MICloudPrivate::GViewerEvents; OnGame([](UMICloudSubsystem& S) { S.OnViewerJoined(); }); }));
+			{ MICloudPrivate::GJoinReportedAt.store(FPlatformTime::Seconds()); ++MICloudPrivate::GViewerEvents; OnGame([](UMICloudSubsystem& S) { S.OnViewerJoined(); }); }));
 		StreamHandles.Add(D->OnAllConnectionsClosedNative.AddLambda([OnGame](FString)
 			{ ++MICloudPrivate::GViewerEvents; OnGame([](UMICloudSubsystem& S) { S.OnAllViewersLeft(); }); }));
 		// The sender's own statistics (frames captured, encoded and sent a second, bitrate, QP, round trip): broadcast on
@@ -935,7 +937,7 @@ void UMICloudSubsystem::OnViewerJoined()
 	++ViewerEventsHandled;
 	if (bIdle)
 	{
-		LeaveIdle(TEXT("a viewer joined"));
+		LeaveIdle(TEXT("a viewer joined"), FPlatformTime::Seconds() - MICloudPrivate::GJoinReportedAt.load());
 	}
 	if (Viewers.Join())
 	{
@@ -1418,7 +1420,7 @@ void UMICloudSubsystem::EnterIdle(const FString& Why)
 	MICloudPrivate::Line(FString::Printf(TEXT("Nobody is watching: %s (%s)"), *Why, *MICloudPrivate::Stamp()));
 }
 
-void UMICloudSubsystem::LeaveIdle(const TCHAR* Why)
+void UMICloudSubsystem::LeaveIdle(const TCHAR* Why, double ReportedAgo)
 {
 	if (!bIdle)
 	{
@@ -1435,7 +1437,9 @@ void UMICloudSubsystem::LeaveIdle(const TCHAR* Why)
 	GovGpuSum = 0.0;
 	GovFrames = 0;
 	IdleFrameAt = 0.0;
-	MICloudPrivate::Line(FString::Printf(TEXT("Back at full speed (%s) after %.1f s and %d idle frames (%s)"), Why, FPlatformTime::Seconds() - IdleSince, IdleFrames, *MICloudPrivate::Stamp()));
+	MICloudPrivate::Line(FString::Printf(TEXT("Back at full speed (%s%s) after %.1f s and %d idle frames (%s)"), Why,
+		ReportedAgo >= 0.0 && ReportedAgo < 60.0 ? *FString::Printf(TEXT(", %.0f ms after the stream reported the connection"), ReportedAgo * 1000.0) : TEXT(""),
+		FPlatformTime::Seconds() - IdleSince, IdleFrames, *MICloudPrivate::Stamp()));
 }
 
 void UMICloudSubsystem::SleepIdle(int32 Fps)

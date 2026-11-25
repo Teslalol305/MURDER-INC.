@@ -1,0 +1,33 @@
+# The session gate of release 3c, the Development lines: the encoder's range and the round trip, as one queue for
+# lag-test.sh on a Development test folder (the Development game and the version's pak: tools/box/cloud/package-cloud.sh
+# keeps one in build-Development; session-gate.txt is the Shipping half). docs/unreal/PROGRESS.md, "Release 3c: the
+# session", has the numbers these lines gave and what each must show.
+#
+#   LAG_BUILD=<the Development test folder> LAG_OUT=<a folder for the runs> bash lag-test.sh queue session-gate-dev.txt
+#   python3 session_sum.py <a run's folder> --phases         (one row per phase of the viewer's script)
+#
+# About 14 minutes. Nothing else on the box meanwhile. The viewer makes its own link (rtcinput.py: the box has no tc):
+# a rate-limited drop-tail downlink and a fixed congestion estimate (--link-kbps, --remb-kbps), a delay (--delay-ms, the
+# round trip: half each way).
+#
+#   s3c-hi-range / s3c-hi-exact     E3DS's High (QP 16 and 16) on a 4 Mbit/s link, standing and turning fast (twice), once
+#                with the range (8 to 24) and once with -MIQpExact (16 and 16). The exact quantiser needs more than the
+#                link carries (7 Mbit/s a picture) and stalls: the viewer receives 0 to 3 frames a second from the first
+#                turn on; the range gives 10 to 33
+#   s3c-hi-wide                     the same with -MIQpAbove=16 (8 to 32): what a wider range buys on that link
+#   s3c-me-range / s3c-me-exact     Medium (QP 34 and 34) on a 1.5 Mbit/s link (session-qp-link-medium.txt)
+#   s3c-un-range / s3c-un-exact     a fast link (20 Mbit/s, no limit), Medium then High, standing and turning: the range
+#                must not make the picture worse where the connection is fine (see the entry for what it changes)
+#   s3c-rtt-new0 / -new40 / -new100 the pause card's and the probe line's round trip on a link with no delay, 40 ms and
+#                100 ms of round trip (rttMs= in the probe lines, the numbers line of the pause card): about 1 ms, about
+#                40 ms and about 100 ms, and 0 nowhere
+s3c-hi-range game=dev profile=1 qp=16:16 minbit=100000 view=session-qp-link.txt vopts=--remb-kbps,4000,--link-kbps,4000 secs=90
+s3c-hi-exact game=dev profile=1 qp=16:16 minbit=100000 view=session-qp-link.txt vopts=--remb-kbps,4000,--link-kbps,4000 secs=90 -- -MIQpExact
+s3c-hi-wide game=dev profile=1 qp=16:16 minbit=100000 view=session-qp-link.txt vopts=--remb-kbps,4000,--link-kbps,4000 secs=90 -- -MIQpAbove=16
+s3c-me-range game=dev profile=1 qp=34:34 minbit=100000 view=session-qp-link-medium.txt vopts=--remb-kbps,1500,--link-kbps,1500 secs=90
+s3c-me-exact game=dev profile=1 qp=34:34 minbit=100000 view=session-qp-link-medium.txt vopts=--remb-kbps,1500,--link-kbps,1500 secs=90 -- -MIQpExact
+s3c-un-range game=dev profile=1 qp=34:34 minbit=100000 view=session-qp.txt vopts=--remb-kbps,20000 secs=90
+s3c-un-exact game=dev profile=1 qp=34:34 minbit=100000 view=session-qp.txt vopts=--remb-kbps,20000 secs=90 -- -MIQpExact
+s3c-rtt-new0 game=dev profile=1 minbit=100000 qp=34:34 view=session-rtt.txt secs=70
+s3c-rtt-new40 game=dev profile=1 minbit=100000 qp=34:34 view=session-rtt.txt vopts=--delay-ms,40 secs=70
+s3c-rtt-new100 game=dev profile=1 minbit=100000 qp=34:34 view=session-rtt.txt vopts=--delay-ms,100 secs=70

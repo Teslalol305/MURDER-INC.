@@ -279,7 +279,8 @@ private:
 	/** The end of a frame while idle: waits until the next idle frame is due, or until a viewer arrives. */
 	void SleepIdle(int32 Fps);
 	void EnterIdle(const FString& Why);
-	void LeaveIdle(const TCHAR* Why);
+	/** ReportedAgo: seconds since the stream reported the viewer's connection (a join that woke the game), or below 0. */
+	void LeaveIdle(const TCHAR* Why, double ReportedAgo = -1.0);
 	/** The session is over: one line, then FPlatformMisc::RequestExit(false). Once. */
 	void RequestSessionExit(const FString& Why);
 	/**
