@@ -91,19 +91,25 @@ def walnut(S, sel, hz, rub=None, octave=0, grime=None):
     warp = 0.0019 * N.fbm(p, (5.0, 16.0, 16.0), 3, octave0=400 + octave) + 0.0006 * N.fbm(p, (28.0, 120.0, 120.0), 2, octave0=403 + octave)
     a = math.radians(13.0)
     f = p[:, 1] * math.cos(a) + p[:, 2] * math.sin(a) + warp
-    s_ = f / 0.0032
+    # irregular ring spacing: a slow drift of the ring coordinate bunches some rings and spreads others (no equal-period
+    # contour stripes), and a second, slower drift tilts the plane so the lines run out along the plank like straight grain
+    drift = 0.0075 * N.fbm(p, (2.2, 7.0, 7.0), 3, octave0=460 + octave) + 0.0035 * N.fbm(p, (9.0, 30.0, 30.0), 2, octave0=463 + octave)
+    f = f + drift + 0.9 * p[:, 0] * N.fbm(p, (1.5, 5.0, 5.0), 2, octave0=466 + octave) * 0.012
+    s_ = f / 0.0034
     k = np.floor(s_).astype(np.int64)
     fr = s_ - np.floor(s_)
-    jit = N.vals[(k * 37 + 11 + octave) & 255] * 0.16 - 0.08                      # +-8 % per ring
+    jit = N.vals[(k * 37 + 11 + octave) & 255] * 0.30 - 0.15                      # +-15 % per ring
+    wid = N.vals[(k * 53 + 5 + octave) & 255]                                      # each ring has its own late-wood width
     ringw = 0.5 + 0.5 * np.sin(2 * math.pi * s_)
-    late = tp.smooth(fr, 0.50, 0.92) * tp.smooth(1.0 - fr, 0.0, 0.08)             # the dark latewood line closing each ring
-    early = lin("3e291b")
-    lateg = lin("24170f")
+    late = tp.smooth(fr, 0.35 + 0.35 * wid, 0.92) * tp.smooth(1.0 - fr, 0.0, 0.08) * (0.5 + 0.7 * wid)   # the dark latewood line closing each ring
+    early = lin("4a3326")
+    lateg = lin("281911")
     gr = N.fbm(p, (6.0, 1300.0, 1300.0), 3, octave0=406 + octave)
     streak = tp.smooth(N.ridged(p, (10.0, 3600.0, 3600.0), 2, octave0=409 + octave), 0.74, 0.94)
     pores = tp.smooth(N.ridged(p, (34.0, 8200.0, 8200.0), 1, octave0=412 + octave), 0.93, 0.992)
-    col = early[None, :] * ((1 + jit) * (0.80 + 0.36 * ringw) * (1 + 0.16 * gr))[:, None]
-    col = col + (lateg[None, :] - col) * (0.50 * late + 0.34 * streak)[:, None]
+    patch = N.fbm(p, (3.0, 11.0, 11.0), 2, octave0=469 + octave)                       # lighter and darker bands across the plank
+    col = early[None, :] * ((1 + jit) * (0.90 + 0.18 * ringw) * (1 + 0.16 * gr) * (1 + 0.22 * patch))[:, None]
+    col = col + (lateg[None, :] - col) * (0.46 * late + 0.40 * streak)[:, None]
     pale = lin("5c4636")
     col = col + (pale[None, :] * (0.85 + 0.3 * gr[:, None]) - col) * (0.30 * pores)[:, None]
     end = tp.smooth(np.abs(n[:, 0]), 0.60, 0.90)                                  # end grain: darker, drier, the oil pooled
@@ -200,7 +206,7 @@ def paint_stretch(G):
     gain += 0.6 * ((x > 0.0) & (x < 0.22) & (z > 0.045))                          # rail's rear half wears bright
     gain += 0.5 * ((x > 0.085) & (x < 0.208) & (y > 0.018) & (z > 0.008) & (z < 0.022))
     gain += 0.6 * (x > 0.775)                                                      # brake mouth
-    TX.blued_sheet(S, bl, lin("384050"), hz, bright_edge, octave=0, rough_lo=0.26, rough_hi=0.42, edge_gain=0.62 * gain[bl])
+    TX.blued_sheet(S, bl, lin("4a4843"), hz, bright_edge, octave=0, rough_lo=0.30, rough_hi=0.46, edge_gain=0.62 * gain[bl])
     # ---- bolt carrier and head: bright ground steel
     car = S.sel(BRIGHT)
     if car.any():
@@ -293,7 +299,7 @@ def paint_stretch_mag(G):
     floor = tp.smooth(-p[:, 2], 0.118, 0.131)
     hz = np.clip(top * 0.85 + floor * 0.8 + gauss(p, (0.157, 0.0, -0.085), 0.04, 0.35), 0, 1)
     body = S.sel(BLUED)
-    TX.blued_sheet(S, body, lin("384050"), hz, lin("a9aeb6"), octave=0, rough_lo=0.28, rough_hi=0.44, edge_gain=1.0)
+    TX.blued_sheet(S, body, lin("4a4843"), hz, lin("a9aeb6"), octave=0, rough_lo=0.32, rough_hi=0.48, edge_gain=1.0)
     if body.any():
         q = p[body]
         sc = tp.smooth(N.ridged(np.stack([q[:, 0] * 400.0, q[:, 1] * 30.0, q[:, 2] * 2500.0], 1), 1.0, 2, octave0=160), 0.95, 0.995) \

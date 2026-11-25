@@ -71,18 +71,54 @@ def uv_weights(ob):
     nr = nr.reshape(-1, 3)
     x, y, z = c[:, 0], c[:, 1], c[:, 2]
     w = np.ones(n, np.float32)
-    w[(nr[:, 2] < -0.7) & (bid == 0)] = 0.50                                            # undersides
-    w[(np.abs(nr[:, 0]) > 0.7) & (bid == 0) & (x < 40.0) & (mid == S.OLIVE)] = 0.45     # the body's rear face (behind the pad)
-    w[(mid == S.RUBBER)] = 0.50                                                         # the butt pad
-    w[(mid == S.OLIVE) & (bid == 0) & (x > 392.0)] = 0.75                               # forend and deflector
-    w[(mid == S.OLIVE) & (bid == 0) & (z < -62.0) & (x > 245.0) & (x < 445.0)] = 0.75   # grip and guard
-    w[(mid == S.PARK) & (bid == 0) & (x > 396.0) & (x < 588.0) & (np.abs(y) < 29.0) & (z > -38.0) & (z < 32.0)] = 0.40  # barrel, gas
-    w[(mid == S.PARK) & (bid == 0) & (x >= 588.0)] = 0.50                               # barrel past the nose, ring
-    w[bid == 5] = 0.50                                                                  # hider
-    w[(bid == 1) & (x < 380.0)] = 0.60                                                  # the carrier body
-    w[(mid == S.PARK) & (bid == 0) & (z < -40.0) & (x > 455.0) & (x < 565.0)] = 0.75   # the underside rail
-    w[mid == S.BORE] = 0.30                                                             # interiors
+    w[(nr[:, 2] < -0.7) & (bid == 0)] = 0.40                                            # undersides
+    w[(np.abs(nr[:, 0]) > 0.7) & (bid == 0) & (x < 40.0) & (mid == S.OLIVE)] = 0.35     # the body's rear face (behind the pad)
+    w[(mid == S.RUBBER)] = 0.40                                                         # the butt pad
+    w[(mid == S.OLIVE) & (bid == 0) & (x > 392.0)] = 0.66                               # forend and deflector
+    w[(mid == S.OLIVE) & (bid == 0) & (z < -62.0) & (x > 245.0) & (x < 445.0)] = 0.66   # grip and guard
+    w[(mid == S.PARK) & (bid == 0) & (x > 396.0) & (x < 588.0) & (np.abs(y) < 29.0) & (z > -38.0) & (z < 32.0)] = 0.30  # barrel, gas
+    w[(mid == S.PARK) & (bid == 0) & (x >= 588.0)] = 0.40                               # barrel past the nose, ring
+    w[bid == 5] = 0.40                                                                  # hider
+    w[(bid == 1) & (x < 380.0)] = 0.45                                                  # the carrier body
+    w[(mid == S.PARK) & (bid == 0) & (z < -40.0) & (x > 455.0) & (x < 565.0)] = 0.60   # the underside rail
+    w[mid == S.BORE] = 0.25                                                             # interiors
     return w
+
+
+def mesh_key(ob):
+    """Hash of the mesh's geometry and topology (positions to 0.01 mm, loop counts): the cache key of its UV layout."""
+    import hashlib
+    co, _n = geo.arrays(ob)
+    lt = np.empty(len(ob.data.polygons), np.int32)
+    ob.data.polygons.foreach_get("loop_total", lt)
+    h = hashlib.sha1(np.round(co * 1e5).astype(np.int64).tobytes())
+    h.update(lt.tobytes())
+    return h.hexdigest()[:20]
+
+
+def unwrap_cached(ctx, ob, set_name, res, unwrap):
+    """Smart projection is not reproducible between processes, so the layout a set was painted on is kept in
+    art/out/textures/<Set>/uv_cache.npz (keyed by the mesh hash) and reused until the mesh changes: a preview or a
+    re-export in a later process then matches the baked textures. unwrap() runs the real unwrap and returns the density.
+    To change the UV weights on purpose: delete the cache file, then build with --bake --rebake-unique."""
+    path = os.path.join(paths.texture_set(set_name), "uv_cache.npz")
+    key = mesh_key(ob)
+    me = ob.data
+    if os.path.exists(path):
+        z = np.load(path)
+        if str(z["key"]) == key and len(z["uv"]) == len(me.loops) * 2:
+            if not me.uv_layers:
+                me.uv_layers.new(name=geo.UV)
+            me.uv_layers.active.data.foreach_set("uv", z["uv"])
+            me.update()
+            ctx.log("%s: UV layout from the cache" % ob.name)
+            return geo.uv_texel_density(ob, res)
+    dens = unwrap()
+    uv = np.empty(len(me.loops) * 2, np.float32)
+    me.uv_layers.active.data.foreach_get("uv", uv)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    np.savez(path, key=key, uv=uv)
+    return dens
 
 
 def build_gun(ctx):
@@ -90,7 +126,8 @@ def build_gun(ctx):
     gun, arm = B.shorty_build(ctx)
     ctx.log("SK_Shorty: %d tris, %d bones" % (geo.stats(gun)["triangles"], len(arm.data.bones)))
     pack = os.environ.get("MI_PACK", "CONVEX")
-    dens = geo.uv_unwrap(gun, res=res, angle=66.0, margin_px=4, pack=pack, weights=uv_weights(gun))
+    wts = uv_weights(gun)
+    dens = unwrap_cached(ctx, gun, "Shorty", res, lambda: geo.uv_unwrap(gun, res=res, angle=66.0, margin_px=4, pack=pack, weights=wts))
     ctx.log("SK_Shorty: unwrapped (%s), %.0f px/m at %d px" % (pack, dens, res))
     W.texture(ctx, gun, T.paint_shorty, res, set_name="Shorty")
     geo.ensure_wear(gun)
@@ -104,7 +141,7 @@ def build_mag(ctx):
     W.mark_piece(body, 0.0)
     W.mark_piece(top, 1.0)
     mag = geo.join([body, top], "SM_Weapon_ShortyMagazine", ctx.col)
-    W.unwrap(mag, mres)
+    unwrap_cached(ctx, mag, "Weapon_ShortyMagazine", mres, lambda: W.unwrap(mag, mres))
     W.texture(ctx, mag, T.paint_shorty_mag, mres)
     top = W.split_off(mag, None, "SM_Weapon_ShortyMagazine_TopRound", ctx.col)
     for o in (mag, top):
