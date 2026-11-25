@@ -165,6 +165,10 @@
         "shoulders": [-8, -6, -10],
         "shouldersNote": "camera space, cm: the arms' shoulders (midpoint of upperarm_l / _r) under the eye when a solved grip holds the gun (Data/grips.json); the IK reaches both hands from there (console mi.FP.Shoulders \"x y z\" to try values, \"off\" for the old wrist slide)",
         "fireWeight": 0.45,
+        "armStretch": 1.1,
+        "armStretchNote": "how far the SUPPORT arm may stretch to reach its palm target (1 = never; the arm is 58.5 cm and the support palm up to 64 cm from the shoulder, ANIMATION.md 11); the firing arm and the NINE never stretch. Console mi.FP.ArmStretch above 0 forces a value on every arm for comparison pictures. Not yet seen in a picture.",
+        "foregripCurl": 30,
+        "foregripCurlNote": "degrees every support finger closes extra when a fitted part names a SupportHand (a foregrip), so the hand wraps the part and not the bare handguard; a starting value, not yet seen in a picture",
         "bobScale": 0.6,
         "magazine": {
           "full": "/Game/Weapons/Chopper/SM_Weapon_ChopperMagazine.SM_Weapon_ChopperMagazine",
@@ -191,6 +195,10 @@
         "shoulders": [-6, 0, -24],
         "shouldersNote": "camera space, cm: the arms' shoulders (midpoint of upperarm_l / _r) under the eye when a solved grip holds the gun (Data/grips.json); the IK reaches both hands from there (console mi.FP.Shoulders \"x y z\" to try values, \"off\" for the old wrist slide)",
         "fireWeight": 0.45,
+        "armStretch": 1.1,
+        "armStretchNote": "how far the SUPPORT arm may stretch to reach its palm target (1 = never; the arm is 58.5 cm and the support palm up to 64 cm from the shoulder, ANIMATION.md 11); the firing arm and the NINE never stretch. Console mi.FP.ArmStretch above 0 forces a value on every arm for comparison pictures. Not yet seen in a picture.",
+        "foregripCurl": 30,
+        "foregripCurlNote": "degrees every support finger closes extra when a fitted part names a SupportHand (a foregrip), so the hand wraps the part and not the bare handguard; a starting value, not yet seen in a picture",
         "bobScale": 0.6,
         "magazine": {
           "full": "/Game/Weapons/Shorty/SM_Weapon_ShortyMagazine.SM_Weapon_ShortyMagazine",
@@ -217,6 +225,10 @@
         "shoulders": [-8, -6, -10],
         "shouldersNote": "camera space, cm: the arms' shoulders (midpoint of upperarm_l / _r) under the eye when a solved grip holds the gun (Data/grips.json); the IK reaches both hands from there (console mi.FP.Shoulders \"x y z\" to try values, \"off\" for the old wrist slide)",
         "fireWeight": 0.45,
+        "armStretch": 1.1,
+        "armStretchNote": "how far the SUPPORT arm may stretch to reach its palm target (1 = never; the arm is 58.5 cm and the support palm up to 64 cm from the shoulder, ANIMATION.md 11); the firing arm and the NINE never stretch. Console mi.FP.ArmStretch above 0 forces a value on every arm for comparison pictures. Not yet seen in a picture.",
+        "foregripCurl": 30,
+        "foregripCurlNote": "degrees every support finger closes extra when a fitted part names a SupportHand (a foregrip), so the hand wraps the part and not the bare handguard; a starting value, not yet seen in a picture",
         "bobScale": 0.6,
         "magazine": {
           "full": "/Game/Weapons/Stretch/SM_Weapon_StretchMagazine.SM_Weapon_StretchMagazine",
@@ -243,6 +255,10 @@
         "shoulders": [-8, -6, -10],
         "shouldersNote": "camera space, cm: the arms' shoulders (midpoint of upperarm_l / _r) under the eye when a solved grip holds the gun (Data/grips.json); the IK reaches both hands from there (console mi.FP.Shoulders \"x y z\" to try values, \"off\" for the old wrist slide)",
         "fireWeight": 0.45,
+        "armStretch": 1.1,
+        "armStretchNote": "how far the SUPPORT arm may stretch to reach its palm target (1 = never; the arm is 58.5 cm and the support palm up to 64 cm from the shoulder, ANIMATION.md 11); the firing arm and the NINE never stretch. Console mi.FP.ArmStretch above 0 forces a value on every arm for comparison pictures. Not yet seen in a picture.",
+        "foregripCurl": 30,
+        "foregripCurlNote": "degrees every support finger closes extra when a fitted part names a SupportHand (a foregrip), so the hand wraps the part and not the bare handguard; a starting value, not yet seen in a picture",
         "bobScale": 0.6,
         "magazine": {
           "full": "/Game/Weapons/Rattler/SM_Weapon_RattlerMagazine.SM_Weapon_RattlerMagazine",

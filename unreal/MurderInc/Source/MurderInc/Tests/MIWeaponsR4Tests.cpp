@@ -12,6 +12,7 @@
 #include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "HAL/IConsoleManager.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/WorldSettings.h"
 #include "Misc/AutomationTest.h"
@@ -632,6 +633,41 @@ bool FMILoadoutPartsOnEveryGunTest::RunTest(const FString& Parameters)
 	}
 	AddInfo(FString::Printf(TEXT("%d part fittings checked on both component types"), Fitted));
 	TestTrue(TEXT("parts were fitted"), Fitted > 0);
+	return !HasAnyErrors();
+}
+
+// ================================================================================================ the arms' reach
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIFirstPersonArmReachTest, "MurderInc.FirstPerson.ArmReach", MIWeaponsR4Private::Flags)
+
+bool FMIFirstPersonArmReachTest::RunTest(const FString& Parameters)
+{
+	using namespace MIWeaponsR4Private;
+	FData F;
+	if (!F.Load(*this))
+	{
+		return false;
+	}
+	// The support arm of each rifle may stretch up to 10 percent (ANIMATION.md 11); the pistol's proven hands never stretch.
+	static const TCHAR* const Rifles[] = {TEXT("chopper"), TEXT("shorty"), TEXT("stretch"), TEXT("rattler")};
+	for (const TCHAR* Gun : Rifles)
+	{
+		const FString Set = FString::Printf(TEXT("firstPerson.animSets.%s_ik"), Gun);
+		const double Stretch = MIJson::NumberOr(F.Presentation, Set + TEXT(".armStretch"), 0.0);
+		TestTrue(FString::Printf(TEXT("%s: armStretch %.2f is between 1.0 and 1.3 (the solve's clamp)"), Gun, Stretch), Stretch >= 1.0 && Stretch <= 1.3);
+		const double Curl = MIJson::NumberOr(F.Presentation, Set + TEXT(".foregripCurl"), -1.0);
+		TestTrue(FString::Printf(TEXT("%s: foregripCurl %.0f degrees is between 0 and 70"), Gun, Curl), Curl >= 0.0 && Curl <= 70.0);
+	}
+	TestEqual(TEXT("the NINE's hands are not stretched"), MIJson::NumberOr(F.Presentation, TEXT("firstPerson.animSets.pistol.armStretch"), 1.0), 1.0);
+	// The console variable is a force for comparison pictures: 0 means each arm's own value.
+	if (IConsoleVariable* Var = IConsoleManager::Get().FindConsoleVariable(TEXT("mi.FP.ArmStretch")))
+	{
+		TestEqual(TEXT("mi.FP.ArmStretch defaults to 0 (each arm's own)"), Var->GetFloat(), 0.f);
+	}
+	else
+	{
+		AddError(TEXT("console variable mi.FP.ArmStretch is not registered"));
+	}
 	return !HasAnyErrors();
 }
 

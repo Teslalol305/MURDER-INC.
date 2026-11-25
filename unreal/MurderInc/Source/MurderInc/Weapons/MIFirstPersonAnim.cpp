@@ -21,8 +21,8 @@ namespace MIFirstPersonAnimPrivate
 	/** How far an arm may stretch to reach its target (1 = never). The mannequin's arm is 58.5 cm from the upper arm to the
 	 *  palm and the support palm of a rifle is up to 64 cm from the shoulder under the eye: without a little stretch the
 	 *  hand stops short of the handguard. Console mi.FP.ArmStretch. */
-	static TAutoConsoleVariable<float> CVarArmStretch(TEXT("mi.FP.ArmStretch"), 1.10f,
-		TEXT("Largest stretch of a hand-IK arm to reach its target (1 = none)"), ECVF_Default);
+	static TAutoConsoleVariable<float> CVarArmStretch(TEXT("mi.FP.ArmStretch"), 0.f,
+		TEXT("Largest stretch of every hand-IK arm to reach its target (1 = none); 0 = each arm's own (the anim set's armStretch on the support arm of a rifle)"), ECVF_Default);
 
 	void Sample(const FMIFPLayer& L, float Time, FPoseContext& Out)
 	{
@@ -231,7 +231,8 @@ namespace MIFirstPersonAnimPrivate
 		}
 		// The elbow keeps bending the way the clip bends it (moved by PoleShift x Weight when asked).
 		const FVector Pole = LT.GetLocation() + (LT.GetLocation() - (UT.GetLocation() + ET.GetLocation()) * 0.5) * 2.0 + H.PoleShift * H.Weight;
-		const double Stretch = FMath::Clamp(static_cast<double>(CVarArmStretch.GetValueOnAnyThread()), 1.0, 1.3);
+		const double Forced = static_cast<double>(CVarArmStretch.GetValueOnAnyThread());
+		const double Stretch = FMath::Clamp(Forced > 0.0 ? Forced : static_cast<double>(H.Stretch), 1.0, 1.3);
 		AnimationCore::SolveTwoBoneIK(UT, LT, ET, Pole, Effector, Stretch > 1.0, 1.0, Stretch);
 		if (H.bRotation && !H.bKeepHand)
 		{

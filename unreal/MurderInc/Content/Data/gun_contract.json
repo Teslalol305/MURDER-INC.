@@ -5,7 +5,7 @@
     "game": "MURDER INC.",
     "schema": 1,
     "units": "metres, in the mesh's own frame: x forward along the bore, y left, z up. Unreal cm = (x, -y, z) x 100; the viewmodel data's gun space (web) = (-y, z, -x).",
-    "source": "art/out/manifest.json of 2026-11-25T14:37:54 (the guns) and art/blender/assets/weapons_parts_contract.json (the parts)",
+    "source": "art/out/manifest.json of 2026-11-25T15:44:24 (the guns) and art/blender/assets/weapons_parts_contract.json (the parts)",
     "regenerate": "python3 tools/data/make_gun_contract.py   (add --check to see whether this file is stale)"
   },
   "assets": {
@@ -324,7 +324,7 @@
   },
   "ui": {
     "folder": "/Game/UI/Icons/",
-    "gunIcons": ["T_UI_Gun_Rattler", "T_UI_Gun_Shorty", "T_UI_Gun_Stretch"],
+    "gunIcons": ["T_UI_Gun_Chopper", "T_UI_Gun_Nine", "T_UI_Gun_Rattler", "T_UI_Gun_Shorty", "T_UI_Gun_Stretch"],
     "pips": [
       "T_UI_Att_compensator",
       "T_UI_Att_foregrip_angled",

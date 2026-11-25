@@ -247,7 +247,11 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 	GunAssembly = Assembly;
 	if (PackGun)
 	{
+		// A hidden pack gun must not keep an anim instance ticking: the run STICK -> RATTLER drawn and aimed crashed in its
+		// update (HANDS_R4.md 5). The pack branch below gives it its instance and its tick back.
 		PackGun->SetVisibility(false);
+		PackGun->SetComponentTickEnabled(false);
+		PackGun->SetAnimInstanceClass(nullptr);
 	}
 	if (!Arms || !Root.IsValid())
 	{
@@ -361,6 +365,8 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 		GripPoints[0].Reset();
 		GripPoints[1].Reset();
 		GripWeight = MIJson::NumberOr(Set, TEXT("grip.weight"), 1.0);
+		SupportStretch = FMath::Clamp(MIJson::NumberOr(Set, TEXT("armStretch"), 1.0), 1.0, 1.3);
+		ForegripCurl = MIJson::NumberOr(Set, TEXT("foregripCurl"), 0.0);
 		const FString GripKey = MIJson::StringOr(Set, TEXT("grip.gun"));
 		TSharedPtr<FJsonObject> Grips;
 		FString GripError;
@@ -475,6 +481,7 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 	UseRealArms(true);
 	Arms->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 	Arms->SetAnimInstanceClass(UMIFPAnimInstance::StaticClass());
+	PackGun->SetComponentTickEnabled(true);
 	PackGun->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 	PackGun->SetAnimInstanceClass(UMIFPAnimInstance::StaticClass());
 	PackGun->SetVisibility(true);
@@ -1197,6 +1204,7 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 		IK.Palm = Palm;
 		IK.Target = (bLeftHand && bGrip ? Support : Gun->GetSocketTransform(Socket)).GetRelativeTransform(ArmsWorld);
 		IK.Weight = 1.f;
+		IK.Stretch = bLeftHand ? static_cast<float>(SupportStretch) : 1.f;  // only the support arm reaches further
 		IK.bRotation = false;  // the template clip's hand shape and wrist stay; only the palm moves onto the gun
 		// the solved grip, when there is one: the hand turned and placed as solved, each finger closed onto the gun
 		const TMap<FName, FVector>& Pts = GripPoints[bLeftHand ? 0 : 1];
@@ -1212,6 +1220,17 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 	};
 	Pull(LeftSocket, TEXT("upperarm_l"), TEXT("lowerarm_l"), TEXT("hand_l"), TEXT("middle_metacarpal_l"));
 	Pull(RightSocket, TEXT("upperarm_r"), TEXT("lowerarm_r"), TEXT("hand_r"), TEXT("middle_metacarpal_r"));
+	// A fitted foregrip: the support fingers close a little further than the bare handguard's, onto the part (anim set
+	// foregripCurl, degrees; let go in a reload, when the support hand leaves the gun).
+	HandPose.Curls.Reset();
+	if (bGrip && ForegripCurl != 0.0 && !bReloadingNow)
+	{
+		static const TCHAR* const Fingers[] = {TEXT("index"), TEXT("middle"), TEXT("ring"), TEXT("pinky")};
+		for (const TCHAR* Finger : Fingers)
+		{
+			HandPose.Curls.Add({FName(Finger), true, static_cast<float>(ForegripCurl)});
+		}
+	}
 	// In a reload the support hand leaves the grip and works the magazine (review 2026-11-23: it stayed on the
 	// rolled pistol): its palm follows the magazine's base pad on the 'magazine' bone the rig drops and seats, blended
 	// in and out over the first and last 0.15 s.

@@ -37,6 +37,9 @@ struct FMIFPHandIK
 	 *  over the palm placement above by ShapeWeight; then every finger bone is aimed at its child's point. */
 	TMap<FName, FVector> Shape;        // bone (or '<finger>_tip_<side>') -> point, component space of the arms
 	float ShapeWeight = 0.f;
+	/** Largest stretch of this arm to reach its target (1 = never). The support arm of a rifle sets it from the anim set's
+	 *  armStretch; the firing arm and the pistol keep 1. Console mi.FP.ArmStretch above 0 overrides it for every arm. */
+	float Stretch = 1.f;
 };
 
 /**
