@@ -177,6 +177,16 @@ bool FMISettings::SetPadPlayStation(bool V)
 	return true;
 }
 
+bool FMISettings::SetGuide(bool V)
+{
+	if (V == bGuide)
+	{
+		return false;
+	}
+	bGuide = V;
+	return true;
+}
+
 bool FMISettings::SetBest(double Score)
 {
 	const int32 N = static_cast<int32>(FMath::FloorToDouble(Score + 0.5));
@@ -198,6 +208,7 @@ void FMISettings::ToSave(UMISaveGame& Save) const
 	Save.Sens = Sens;
 	Save.bInvertY = bInvertY;
 	Save.bPadPlayStation = bPadPlayStation;
+	Save.bGuide = bGuide;
 	Save.Volume = Volume;
 	Save.Fov = Fov;
 	Save.View = View;
@@ -213,6 +224,7 @@ void FMISettings::FromSave(const UMISaveGame& Save)
 	SetSens(Save.Sens);
 	SetInvertY(Save.bInvertY);
 	SetPadPlayStation(Save.bPadPlayStation);
+	SetGuide(Save.bGuide);
 	SetVolume(Save.Volume);
 	SetFov(Save.Fov);
 	SetView(Save.View);

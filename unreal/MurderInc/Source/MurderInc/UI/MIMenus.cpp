@@ -88,6 +88,8 @@ void FMIMenu::Build(EMIMenuScreen InScreen, const FMISettings& S, const FMIText&
 		Items.Add(Item(TEXT("difficulty"), Ui.Get(TEXT("panel.difficulty")), Copy.Get(FString::Printf(TEXT("difficulties.%s"), *S.Difficulty.ToString())), true));
 		// The Unreal build's own row (the copy deck has no words for it): which names a controller's buttons get.
 		Items.Add(Item(TEXT("padnames"), TEXT("Controller"), S.bPadPlayStation ? TEXT("PlayStation") : TEXT("Xbox"), true));
+		// The Unreal build's own row too: the story's ground path and objective markers (docs/unreal/PLAY.md, guide lane).
+		Items.Add(Item(TEXT("guide"), TEXT("Path and markers"), S.bGuide ? Ui.Get(TEXT("panel.on")) : Ui.Get(TEXT("panel.off")), true));
 		Items.Add(Item(TEXT("back"), Ui.Get(TEXT("panel.close"))));
 		break;
 	case EMIMenuScreen::Dead:

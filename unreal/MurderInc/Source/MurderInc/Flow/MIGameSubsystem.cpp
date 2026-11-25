@@ -654,6 +654,7 @@ void UMIGameSubsystem::MenuAdjust(int32 Dx)
 	else if (Id == TEXT("fov")) bChanged = Settings.SetFov(Settings.Fov + Dx * R.FovStep);
 	else if (Id == TEXT("invert")) bChanged = Settings.SetInvertY(!Settings.bInvertY);
 	else if (Id == TEXT("padnames")) bChanged = Settings.SetPadPlayStation(!Settings.bPadPlayStation);
+	else if (Id == TEXT("guide")) bChanged = Settings.SetGuide(!Settings.bGuide);
 	else if (Id == TEXT("view")) bChanged = Settings.SetView((Settings.View - R.ViewMin + Dx + (R.ViewMax - R.ViewMin + 1)) % (R.ViewMax - R.ViewMin + 1) + R.ViewMin);
 	if (bChanged)
 	{

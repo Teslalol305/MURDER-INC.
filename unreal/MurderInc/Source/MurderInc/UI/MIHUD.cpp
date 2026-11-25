@@ -14,6 +14,8 @@
 #include "World/MIBoxWorld.h"
 #include "Core/MIEvents.h"
 #include "Camera/PlayerCameraManager.h"
+#include "World/MIGuide.h"
+#include "World/MILevelData.h"
 
 namespace MIHUDPrivate
 {
@@ -28,6 +30,13 @@ void AMIHUD::Centered(const FString& Text, double Y, const FLinearColor& Colour,
 	float TW = 0.f, TH = 0.f;
 	GetTextSize(Text, TW, TH, Font, Scale);
 	DrawText(Text, Colour, Canvas->ClipX * 0.5 - TW * 0.5, Y, Font, Scale);
+}
+
+void AMIHUD::BeginPlay()
+{
+	Super::BeginPlay();
+	// The story guidance (ground path, step marker, hints) lives beside the HUD in every played map.
+	Guide = AMIGuide::Ensure(GetWorld());
 }
 
 void AMIHUD::DrawHUD()
@@ -217,6 +226,73 @@ void AMIHUD::DrawHurt(const AMIPlayerCharacter& Player, double Hurt)
 	}
 }
 
+void AMIHUD::DrawStepMarker(const FVector& WebPos, const FString& Code, bool bExit, double Metres, double Fade)
+{
+	using namespace MIHUDPrivate;
+	const double W = Canvas->ClipX;
+	const double H = Canvas->ClipY;
+	const double K = H / 1080.0;
+	const AMIGuide* G = Guide.Get();
+	const FVector At = MI::Web::ToUnreal(WebPos) + FVector(0, 0, 150.0);
+	const FVector Screen = Project(At, true);
+	const FVector2D Mid(W * 0.5, H * 0.5);
+	FVector2D C(Screen.X, Screen.Y);
+	const double Margin = (G ? G->GetTune().MarkerEdge : 56.0) * K;
+	const bool bEdge = Screen.Z <= 0.0 || C.X < Margin || C.X > W - Margin || C.Y < Margin || C.Y > H - Margin;
+	FVector2D Dir(0.0, -1.0);
+	if (bEdge)
+	{
+		// Behind or off the screen: the direction from the centre, clamped to the edge (as the last enemies' marks).
+		Dir = C - Mid;
+		if (Screen.Z <= 0.0) Dir = -Dir;
+		if (Dir.IsNearlyZero()) Dir = FVector2D(0.0, 1.0);
+		Dir.Normalize();
+		const double SX = Dir.X != 0.0 ? (W * 0.5 - Margin) / FMath::Abs(Dir.X) : 1e9;
+		const double SY = Dir.Y != 0.0 ? (H * 0.5 - Margin) / FMath::Abs(Dir.Y) : 1e9;
+		C = Mid + Dir * FMath::Min(SX, SY);
+	}
+	else
+	{
+		// Never on the crosshair (fix pass: "[1] 24m" sat on the point of aim).
+		const double Ring = H * 0.075;
+		const FVector2D Off = C - Mid;
+		if (Off.Size() < Ring)
+		{
+			C = Mid + (Off.Size() > 1.0 ? Off / Off.Size() : FVector2D(0.0, -1.0)) * Ring;
+		}
+	}
+	const float A = static_cast<float>(Fade);
+	const FLinearColor Ink = bExit ? FLinearColor(0.5f, 1.f, 0.6f, A) : FLinearColor(Amber.R, Amber.G, Amber.B, A);
+	const FString Label = FString::Printf(TEXT("[%s] %dm"), *Code, FMath::RoundToInt32(Metres));
+	UFont* Font = GEngine ? GEngine->GetLargeFont() : nullptr;
+	const float Scale = static_cast<float>(1.1 * K);
+	float TW = 0.f, TH = 0.f;
+	GetTextSize(Label, TW, TH, Font, Scale);
+	FVector2D LabelAt = C;
+	if (bEdge)
+	{
+		// An arrow on the edge pointing out toward the step, its label just inside it.
+		const double R = 16.0 * K;
+		const FVector2D Side(-Dir.Y, Dir.X);
+		const FVector2D Tip = C + Dir * R;
+		const FVector2D B1 = C - Dir * R * 0.6 + Side * R * 0.9;
+		const FVector2D B2 = C - Dir * R * 0.6 - Side * R * 0.9;
+		const double Back = R * 1.6;
+		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.45f * A), C.X - Back, C.Y - Back, Back * 2.0, Back * 2.0);
+		// Filled with strokes from the tip across the base (no canvas item to build each frame).
+		const float LW = static_cast<float>(FMath::Max(2.0, 2.5 * K));
+		for (int32 I = 0; I <= 8; ++I)
+		{
+			const FVector2D Base = FMath::Lerp(B1, B2, I / 8.0);
+			DrawLine(Tip.X, Tip.Y, Base.X, Base.Y, Ink, LW);
+		}
+		LabelAt = C - Dir * (Back + TH * 0.9 + FMath::Abs(Dir.X) * TW * 0.5);
+	}
+	const double Pad = 5.0 * K;
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f * A), LabelAt.X - TW * 0.5 - Pad, LabelAt.Y - TH * 0.5 - Pad * 0.5, TW + Pad * 2.0, TH + Pad);
+	DrawText(Label, Ink, LabelAt.X - TW * 0.5, LabelAt.Y - TH * 0.5, Font, Scale);
+}
+
 void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 {
 	using namespace MIHUDPrivate;
@@ -228,32 +304,116 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 	if (S == EMIGameState::Intro || S == EMIGameState::Playing)
 	{
 		// Objective and tally, top left, on a soft dark band (fix pass: over brick, sky or a water tank the thin counter
-		// did not read). The counter is in the display face, larger, under the title.
+		// did not read). The counter is in the display face, larger, under the title. Under them in a story run: the step
+		// the story asks for next (guide lane: "Reel 1 — The Avenue", then "IPX truck — The Lot") and, after a while
+		// without progress, a hint line. Everything scales with the frame's height (READY.md M9: the title did not).
+		AMIGuide* G = Guide.Get();
+		if (!G)
+		{
+			Guide = G = AMIGuide::Find(GetWorld());
+		}
 		{
 			const double K = H / 1080.0;
 			const FString Title = V.Objective.ToUpper();
-			const FString Tally = Rules.GetMode() == TEXT("mission") ? FString::Printf(TEXT("%d / %d"), V.Reels, V.ReelsTotal) : V.Tally;
+			const bool bStory = Rules.GetMode() == TEXT("mission");
+			const FString Tally = bStory ? FString::Printf(TEXT("%d / %d"), V.Reels, V.ReelsTotal) : V.Tally;
+			FString StepLine, HintLine;
+			const FMILevelData* Level = Game.GetLevel();
+			if (bStory && Level)
+			{
+				const int32 Next = FMIGuidePlan::NextStep(Rules, *Level);
+				if (Level->Objectives.IsValidIndex(Next))
+				{
+					StepLine = Level->Objectives[Next].Label;
+				}
+				else if (Next == FMIGuidePlan::ExtractionStep)
+				{
+					const FString Place = Game.GetInterfaceText().Get(FString::Printf(TEXT("hud.zones.%s"), *Level->Extraction.Zone.ToString()));
+					StepLine = Place.IsEmpty() ? Level->Extraction.Label : Level->Extraction.Label + TEXT(" \u2014 ") + Place;
+				}
+				if (G && G->GetPlan().ShowsHint() && S == EMIGameState::Playing)
+				{
+					HintLine = G->GetPlan().GetHint();
+				}
+			}
 			UFont* Big = MIStyle::CanvasDisplay();
+			const float TitleScale = static_cast<float>(K * 1.3);
 			const float TallyScale = static_cast<float>(K * 1.15);
-			float TW = 0.f, TH = 0.f, CW = 0.f, CH = 0.f;
-			GetTextSize(Title, TW, TH, Font, 1.3f);
+			const float StepScale = static_cast<float>(K * 1.05);
+			const float HintScale = static_cast<float>(K * 0.95);
+			float TW = 0.f, TH = 0.f, CW = 0.f, CH = 0.f, SW = 0.f, SH = 0.f, HW = 0.f, HH = 0.f;
+			GetTextSize(Title, TW, TH, Font, TitleScale);
 			GetTextSize(Tally, CW, CH, Big, TallyScale);
+			if (!StepLine.IsEmpty())
+			{
+				GetTextSize(StepLine, SW, SH, Font, StepScale);
+			}
+			if (!HintLine.IsEmpty())
+			{
+				GetTextSize(HintLine, HW, HH, Font, HintScale);
+			}
 			const double X0 = W * 0.03, Y0 = H * 0.04;
 			const double Pad = 12.0 * K;
+			const double Gap = 4.0 * K;
+			const double StepY = Y0 + TH + Gap + CH + Gap;
+			const double HintY = StepY + (SH > 0.f ? SH + Gap * 2.0 : 0.0);
+			const double Bottom = HintY + (HH > 0.f ? HH : 0.0) - (SH > 0.f || HH > 0.f ? 0.0 : Gap);
 			if (!Title.IsEmpty() || !Tally.IsEmpty())
 			{
-				DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.42f), X0 - Pad, Y0 - Pad * 0.6, FMath::Max(TW, CW) + Pad * 2.0, TH + CH + 4.0 * K + Pad * 1.4);
+				DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.42f), X0 - Pad, Y0 - Pad * 0.6, FMath::Max(FMath::Max(TW, CW), FMath::Max(SW, HW)) + Pad * 2.0, Bottom - Y0 + Pad * 1.4);
 			}
-			DrawText(Title, White, X0, Y0, Font, 1.3f);
-			DrawText(Tally, Amber, X0, Y0 + TH + 4.0 * K, Big, TallyScale);
+			DrawText(Title, White, X0, Y0, Font, TitleScale);
+			DrawText(Tally, Amber, X0, Y0 + TH + Gap, Big, TallyScale);
+			if (!StepLine.IsEmpty())
+			{
+				// A small amber diamond before the step, the colour of its marker.
+				const double R = SH * 0.22, Cx = X0 + R, Cy = StepY + SH * 0.5;
+				const float LW = static_cast<float>(FMath::Max(1.5, 2.0 * K));
+				DrawLine(Cx, Cy - R, Cx + R, Cy, Amber, LW);
+				DrawLine(Cx + R, Cy, Cx, Cy + R, Amber, LW);
+				DrawLine(Cx, Cy + R, Cx - R, Cy, Amber, LW);
+				DrawLine(Cx - R, Cy, Cx, Cy - R, Amber, LW);
+				DrawText(StepLine, White, X0 + R * 2.0 + 8.0 * K, StepY, Font, StepScale);
+			}
+			if (!HintLine.IsEmpty())
+			{
+				DrawText(HintLine, FLinearColor(1.f, 0.86f, 0.62f, 0.95f), X0, HintY, Font, HintScale);
+			}
 		}
 		// Markers: objective codes where they are, with the distance. Hidden while the weapon wheel is open, so its
 		// labels never collide with them.
 		const AMIPlayerCharacter* P = Cast<AMIPlayerCharacter>(GetOwningPawn());
 		const AMIPlayerController* WheelPC = Cast<AMIPlayerController>(GetOwningPlayerController());
 		const bool bWheel = WheelPC && WheelPC->GetSwitch().IsWheelOpen();
-		for (const FMIFlowView::FMarker& M : bWheel ? TArray<FMIFlowView::FMarker>() : V.Markers)
+		// Settings "Path and markers" off: none. On: the story's next step gets the guide's marker (edge arrow, fade); the
+		// other reels keep their plain marker where they are on the screen.
+		const bool bMarkers = Game.GetSettings().bGuide && !bWheel;
+		const FMILevelData* MarkLevel = Game.GetLevel();
+		const int32 NextStep = MarkLevel && Rules.GetMode() == TEXT("mission") ? FMIGuidePlan::NextStep(Rules, *MarkLevel) : FMIGuidePlan::NoStep;
+		const FName NextId = !MarkLevel ? NAME_None
+			: NextStep == FMIGuidePlan::ExtractionStep ? FName(TEXT("extraction"))
+			: MarkLevel->Objectives.IsValidIndex(NextStep) ? MarkLevel->Objectives[NextStep].Id : NAME_None;
+		for (const FMIFlowView::FMarker& M : V.Markers)
 		{
+			if (!bMarkers)
+			{
+				break;
+			}
+			if (M.Id == NextId && NextId != NAME_None)
+			{
+				const FVector Feet = P ? P->GetActorLocation() : FVector::ZeroVector;
+				const double Metres = P ? FVector::Dist2D(Feet, MI::Web::ToUnreal(M.Pos)) / 100.0 : 0.0;
+				const double Far = G ? G->GetTune().MarkerFar : 10.0;
+				const double Near = G ? G->GetTune().MarkerNear : 2.5;
+				const double Fade = FMath::Clamp((Metres - Near) / FMath::Max(Far - Near, 0.1), 0.0, 1.0);
+				// The distance along the route when there is one (what the player has to walk), else the straight line.
+				const double Walk = G && G->GetPlan().IsActive() && G->GetPlan().HasRoute() ? FMath::Max(G->GetPlan().GetRemaining(), Metres) : Metres;
+				if (Fade > 0.01)
+				{
+					DrawStepMarker(M.Pos, M.Code, M.bExit, Walk, Fade);
+				}
+				continue;
+			}
 			const FVector At = MI::Web::ToUnreal(M.Pos) + FVector(0, 0, 150.0);
 			const FVector Screen = Project(At, true);
 			if (Screen.Z <= 0.0)

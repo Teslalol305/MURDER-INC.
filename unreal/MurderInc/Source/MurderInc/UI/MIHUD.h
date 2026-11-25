@@ -22,6 +22,7 @@ class MURDERINC_API AMIHUD : public AHUD
 	GENERATED_BODY()
 
 public:
+	virtual void BeginPlay() override;
 	virtual void DrawHUD() override;
 
 private:
@@ -37,7 +38,12 @@ private:
 	/** Damage at the edges (a red vignette, at most 15 % in the centre) and a marker toward where the hit came from. */
 	void DrawHurt(const class AMIPlayerCharacter& Player, double Hurt);
 
+	/** The story's next step (guide lane, docs/unreal/PLAY.md): its marker where it is, faded as the player closes in, or
+	 *  an arrow on the screen's edge when it is off the screen or behind, with the distance in metres. */
+	void DrawStepMarker(const FVector& WebPos, const FString& Code, bool bExit, double Metres, double Fade);
+
 	FDelegateHandle HitHandle;
+	TWeakObjectPtr<class AMIGuide> Guide;
 	TOptional<FVector> HitFrom;  // world (cm)
 	double HitTime = -1.0;        // world seconds of the last hit
 	/** The card the cursor was last seen on and where: the cursor selects a row only once it has moved on that card. */
