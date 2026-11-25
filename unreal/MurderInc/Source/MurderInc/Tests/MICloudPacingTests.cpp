@@ -174,6 +174,7 @@ bool FMICloudTuningTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("the frame cap off"), Ok(TEXT("t.MaxFPS"), TEXT("0")));
 	TestTrue(TEXT("the texture pool"), Ok(TEXT("r.Streaming.PoolSize"), TEXT("1000")));
 	TestTrue(TEXT("the thread sync"), Ok(TEXT("r.GTSyncType"), TEXT("1")));
+	TestTrue(TEXT("TSR's history at Epic's 200 %"), Ok(TEXT("r.TSR.History.ScreenPercentage"), TEXT("200")));
 	TestTrue(TEXT("the thread lag"), Ok(TEXT("r.OneFrameThreadLag"), TEXT("0")));
 	TestTrue(TEXT("volumetric fog: the size of a cell on screen"), Ok(TEXT("r.VolumetricFog.GridPixelSize"), TEXT("16")));
 	TestTrue(TEXT("volumetric fog: the cells in depth"), Ok(TEXT("r.VolumetricFog.GridSizeZ"), TEXT("64")));
@@ -189,6 +190,8 @@ bool FMICloudTuningTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("dynamic resolution's largest picture above the output size"), Ok(TEXT("r.DynamicRes.MaxScreenPercentage"), TEXT("400")));
 	TestFalse(TEXT("its smallest picture below a quarter"), Ok(TEXT("r.DynamicRes.MinScreenPercentage"), TEXT("5")));
 	TestFalse(TEXT("a 20 GB texture pool"), Ok(TEXT("r.Streaming.PoolSize"), TEXT("20000")));
+	TestFalse(TEXT("a TSR history four times the output"), Ok(TEXT("r.TSR.History.ScreenPercentage"), TEXT("400")));
+	TestFalse(TEXT("TSR's other variables are not on the list"), Ok(TEXT("r.TSR.ShadingRejection.Flickering"), TEXT("0")));
 	TestFalse(TEXT("a frame cap of 1000"), Ok(TEXT("t.MaxFPS"), TEXT("1000")));
 	TestFalse(TEXT("a number where a number belongs"), Ok(TEXT("t.MaxFPS"), TEXT("fast")));
 	// The fog's grid is (width / cell) x (height / cell) x depth cells, and the engine limits neither from above: one

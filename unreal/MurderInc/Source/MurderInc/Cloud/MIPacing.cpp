@@ -140,6 +140,9 @@ namespace MITuningPrivate
 		{TEXT("r.ScreenPercentage"), 25, 100},
 		{TEXT("t.MaxFPS"), 0, 120},
 		{TEXT("r.Streaming.PoolSize"), 200, 3000},
+		// TSR's history size (the cloud profile keeps 100, Epic's preset 200: about 130 MB more at 1080p): a candidate fix
+		// for thin geometry that blinks at render scale 0.50 (docs/unreal/READY.md R3), tunable on the host without a rebuild.
+		{TEXT("r.TSR.History.ScreenPercentage"), 100, 200},
 		{TEXT("r.GTSyncType"), 0, 2},
 		{TEXT("r.OneFrameThreadLag"), 0, 1},
 		// The fog's two grid sizes only, between Epic's own lowest and highest levels (the High level is 16 and 64):
