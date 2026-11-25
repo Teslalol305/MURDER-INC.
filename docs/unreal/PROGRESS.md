@@ -87,6 +87,38 @@ the butt face, not the grip), mounts optic `Optic` (hide `IronsFront`), muzzle `
 (scope); `views[0]` re-anchored on Palm_R: [0.2229, -0.0925, 0.0046, 0.05, 0.28, -0.35]. Pictures `art/previews/weapons_shorty_*.jpg`;
 the icon `T_UI_Gun_Shorty.png` is rendered (512 x 192, git-ignored). Weaknesses and decisions: `art/blender/PROGRESS.md`.
 
+## Weapons round 4: the RATTLER, the Goons' submachine gun at first-person grade (weapons modeler, lane 2, 2026-11-25, 13:15 to about 15:00 UTC)
+
+The sixth gun. The RATTLER was designed and in the data but hidden from the rack because its mesh did not exist; the Goons' own gun
+(`SM_Weapon_GoonSMG`, enemy grade) is now the player's: **an open-bolt 9 mm submachine gun of our own design**: a stamped sheet-steel
+box (hollow, 1.6 mm sheet, spot welds, ribs, a butt-welded seam), a round ventilated shroud with a tan strap wrap, a slotted muzzle
+device, a 182 mm stick magazine ahead of the pistol grip and a wire stock folded along the left flank (plainly visible from the
+shooter's eye). Verified in Blender, not in Unreal: `python art/blender/assets/_weapons_check_rattler.py` on the exported files
+says **ALL FIXED POINTS KEPT (55 of 55)**: the 19 bones and 10 sockets to 1e-5 m, the sight line (4.8 mm aperture on Z 0.0575 to the post), the
+cover's MI-R rail tooth by tooth (12 lugs, tops Z 0.042) with the Optic socket on the middle of it, MuzzleMount on the thread
+shoulder, Palm_R / Palm_L on their surfaces, the trigger 70 mm ahead of Palm_R, the bolt (50 mm), the T-handle in its slot, the
+trigger (17 deg), the selector (0 / 14 / 28 deg), the stock (0..180 deg) and the magazine drop with zero contacts, the three hide
+bones leaving no hole, and the re-import pose proof. The parts kit's assembly proof (`weapons_parts_check.json`) already fits the red
+dot (Optic), the suppressor and the compensator (MuzzleMount) and the extended magazine (MagHinge) on the exported mesh without a
+crossing triangle.
+
+What the integrator gets (art/out, git-ignored; names as the pack import expects): `glb/SK_Rattler.glb` (67,964 triangles; bones
+body root, bolt, trigger, selector, magazine (attach), stock, MuzzleDevice, IronsFront, IronsRear + the 10 socket bones `Muzzle`,
+`Eject`, `SightRear`, `SightFront`, `RecoilPivot`, `MagHinge`, `Palm_R`, `Palm_L`, `Optic`, `MuzzleMount`; positions in
+`manifest.json` under SK_Rattler, metres and Unreal cm), `glb/SM_Weapon_RattlerMagazine.glb` + `_TopRound.glb` (static, in place),
+textures `Rattler/T_Rattler_{BC,N,ORM}.png` (4096; no E file: nothing is emissive) and
+`Weapon_RattlerMagazine/T_Weapon_RattlerMagazine_{BC,N,ORM}.png` (2048), tiling detail `TS_GunDetail_Steel` (20 mm; the strap carries
+its weave in the unique normal map). Data for guns.json: the mesh asset **`SK_Rattler`** (the data says `SK_Weapon_Rattler`: rename it;
+the Blender name is the asset name), `presentation.meshOffset` pos [0,0,0] rot [0, 1.5708, 0] (origin on the bore at the receiver's rear
+face), mounts optic `Optic` (hide `IronsFront`, `IronsRear`), muzzle `MuzzleMount` (hide `MuzzleDevice`: the R 8.5 thread stub and
+the bore remain), magazine `MagHinge`; no underbarrel, no laser (a round shroud has no rail); `parts.bolt.bone` bolt (travel 0.05, the
+top T-handle moves with it), `trigger.bone` trigger, `magazine.bone` magazine (drop (0, 0, -0.14)); eject direction (0, -0.95, 0.31),
+pistol casing; the stock bone is rest = folded and +180 deg about (0, 0.0285, 0) = deployed (the optional `stock_wire_open` variant
+and the icon use it; deployed the plate stands 0.25 m behind the receiver). Palm_L is the strap wrap's underside (X 0.315, Z -0.0275).
+Pictures `art/previews/weapons_rattler_*.jpg`; the icon `T_UI_Gun_Rattler.png` is rendered (512 x 192, stock deployed, git-ignored).
+Weaknesses and decisions (the stock's deployed length is 715 mm, not 635: the specification's folded geometry mirrors about the
+hinge): `art/blender/PROGRESS.md`.
+
 ## Version 3b: sound (sound engineer, 2026-11-25, 09:28 to 12:35 UTC)
 
 Version 3b is version 3a plus sound, and it is packaged: **zip sha256

@@ -156,7 +156,7 @@ def side(ctx, gun, arm, mags):
     """Flat orthographic left side view (the camera at +Y looking at the gun's left flank, the muzzle to the left of the picture)."""
     W.rig_studio(strength=1.0)
     plain_background()
-    area_light("Fill", (0.20, 1.6, 0.35), (0.20, 0.0, -0.04), (1.6, 1.0), 90.0)
+    area_light("Fill", (0.20, 1.6, 0.35), (0.20, 0.0, -0.04), (1.6, 1.0), 28.0)
     W._hide_all_but([gun] + list(mags))
     lo, hi = bbox([gun] + list(mags))
     c = (lo + hi) / 2
@@ -177,15 +177,16 @@ def parts(ctx, gun, arm, mags):
                             "selector": {"rotate": ((0, 1, 0), RT["selector_deg"][2])},
                             "stock": {"rotate": ((0, 0, 1), 150.0), "pivot": RT["stock_hinge"]}})
     for o in mags:
-        o.matrix_world = Matrix.Translation((0.17, -0.07, -0.01)) @ o.matrix_world
+        o.matrix_world = Matrix.Translation((0.17, -0.07, -0.012)) @ o.matrix_world
     bpy.context.view_layer.update()
     W.rig_studio(strength=1.0)
-    area_light("PortLight", (0.30, -0.55, 0.50), (0.17, -0.01, 0.01), (0.25, 0.25), 55.0)
+    area_light("PortLight", (0.30, -0.55, 0.50), (0.17, -0.01, 0.01), (0.25, 0.25), 22.0)
     W._hide_all_but([gun] + list(mags))
-    lo, hi = bbox([gun] + list(mags))
-    c = Vector(((lo + hi) / 2).tolist()) + Vector((0.02, 0.0, 0.0))
+    pts = [rig._evaluated_world_verts(o) for o in [gun] + list(mags)]        # posed: the swung stock is outside the rest bounds
+    lo, hi = np.min([q.min(0) for q in pts], 0), np.max([q.max(0) for q in pts], 0)
+    c = Vector(((lo + hi) / 2).tolist())
     d = Vector((0.40, -1.0, 0.62)).normalized()
-    cam = render.cam_look(c + d * 1.45, c, 60.0, name="Cam_parts", dof=(1.45, 9.0))
+    cam = render.cam_look(c + d * 1.58, c, 60.0, name="Cam_parts", dof=(1.58, 9.0))
     cam.data.clip_start = 0.01
     render.setup(samples=ctx.args.samples, res=(1280, 720))
     path, sec = render.render_jpeg(W._prev(ctx, "weapons_rattler_parts"), ctx.args.samples)

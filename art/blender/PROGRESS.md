@@ -1266,3 +1266,91 @@ table, step 2); designs of the parts follow it, the measured geometry of the gun
 project (static meshes with the sockets of `weapons_parts_contract.json`), run `MountsExist`; or re-run the proof
 `python art/blender/assets/_weapons_check_parts.py` after any change to a gun's export (and `python art/blender/assets/_weapons_patch.py`
 after a new export of SK_Chopper or SK_Nine).
+
+---------------------------------------------------------------------------------------------------------------
+# Weapons round 4, lane 2: the RATTLER (assets/weapons_rattler.py, _weapons_rattler*.py), weapons modeler
+
+Why: the owner played the build on E3DS: "all the guns look the same and no attachments are able to be added to the guns". The
+RATTLER is the sixth gun, hidden from the rack until its mesh existed (docs/unreal/LOADOUT.md 3.2.2): the Goons' compact open-bolt
+9 mm submachine gun in the player's hands, our own design in the manner of a class of firearm (a stamped sheet-steel box, a round
+ventilated shroud with a tan strap wrap, a slotted muzzle device, a straight stick magazine ahead of the pistol grip, a wire stock
+folded along the left flank). Lane 1 builds SHORTY and STRETCH, another agent the parts kit; none of their files were touched.
+CHOPPER, NINE and every existing function in weapons.py / _weapons_kit.py / _weapons_chopper.py / _weapons_tex.py are unchanged
+(the family imports them and uses their helpers: P, prism, lathe, box, cut, round_edges, pin_head, rivet, cartridge, split_off,
+mark_piece, preview_fp / rig_studio, Surf2, chunks, kit lofts).
+## Status: task complete (geometry, rig, 4K surfaces, proof, pictures and icon from the final export)
+- `SK_Rattler` 67,964 tris (spec plan 85k, ceiling 120k), ONE unique 4096 set `Rattler` (BC, N, ORM; no E map: nothing emissive)
+  through ONE slot `M_Rattler`; `SM_Weapon_RattlerMagazine` 7,744 + `_TopRound` 1,944 tris (2K set `Weapon_RattlerMagazine`, slot
+  `M_Weapon_RattlerMagazine`). Bones body (root), bolt, trigger, selector, magazine (attach bone, no vertices), stock,
+  MuzzleDevice, IronsFront, IronsRear; sockets Muzzle, Eject, SightRear, SightFront, RecoilPivot, MagHinge, Palm_R, Palm_L, Optic,
+  MuzzleMount at the specification's positions (1e-5 m). Every vertex weighted 1.0 to one bone, every bone at rest with the gun's
+  axes. `rig.validate`, export and the re-import pose proof (6 poses: bolt 50 mm, trigger 17 deg, selector 28 deg, magazine 0.14,
+  stock +180 deg about its hinge, device and both sights moved; <= 4e-9 m) pass.
+- `python art/blender/assets/_weapons_check_rattler.py` -> `ALL FIXED POINTS KEPT`, 55 of 55 (art/out/glb/weapons_rattler_fixed_points.json):
+  bones and sockets, length -0.0044 (hinge) .. 0.465 (device face), the magazine floor Z -0.214, the sight line (4.8 mm aperture
+  centred on Z 0.0575, the post tip Z 0.0575 and the first hit of the line through the aperture, nothing between the sights above it),
+  the cover's MI-R tooth by tooth (12 lugs of 5.3 mm, tops Z 0.042, slot floors 5.4 mm back, 21.2 mm across the flanks, the
+  Optic socket on the middle of it with room for the 52 mm clamp), MuzzleMount on the thread shoulder (R 9.5 before X 0.410, the R 8.5
+  stub after) and, with MuzzleDevice removed, the stub and its bore remain; no hole opens with MuzzleDevice, IronsFront or
+  IronsRear removed (closed shells), Palm_R 1.1 mm and Palm_L 0.0 mm from the surface, the trigger's rear face X 0.132 = 70 mm
+  ahead of Palm_R, the open port, the bolt 0..50 mm (0.6 mm clear at rest), the T-handle's stem 1.26 mm clear of its slot over the whole
+  stroke, trigger 0..17 deg, selector 0 / 14 / 28 deg, the stock 0..180 deg in 15 deg steps, the magazine in its well and
+  dropped 0.14: zero triangle overlaps everywhere.
+- Pictures (1280 x 720, < 300 kB) weapons_rattler_hero / _fp / _side / _parts in art/previews; the 512 x 192 silhouette
+  `art/out/ui/T_UI_Gun_Rattler.png` (stock deployed, 2.2 mm per px; not committed).
+## What is modelled (all of it geometry, not decals)
+- Receiver: a 44 x 72 mm box, hollow (1.6 mm sheet, 3 mm outer bends, R 1.4 inside), the ejection port with a pressed lip (the bolt
+  and the breech with its chamber mouth behind it), the handle slot in the cover, the well opening and the trigger slot in the
+  floor, the barrel hole in the front plate; two stamped ribs per flank (the left ones start behind the selector), 30 spot-weld
+  nuggets on the lower edges, the butt-welded seam bead on the cover, the rear plate with a pressed border, four rivets and the
+  spring-cap boss with its slotted screw, six front rivets, a takedown pin head, the sling plate with its slot and two rivets.
+- Top: MI-R rail (12 lugs from X 0.111) on its saddle plate, the flip-up aperture sight (leaf with the 4.8 mm hole and a
+  countersink, two guard wings, hinge pin through the base ears; bone IronsRear), the T-handle (stem through the slot, head with
+  four grip grooves; bone bolt, 50 mm stroke).
+- Front: the shroud (R 25.5, 1.6 mm wall, 35 slots 5 x 9 mm in the columns the strap does not cover, flange with four socket-head
+  screws, end ring), the tan strap wrap round it (2 mm webbing, an overlapping tail and a box of 40 modelled stitches), the barrel
+  (chamber mouth, R 13 breech ring, R 8 inside the shroud, R 9.5 collars, six thread turns on the R 8.5 stub, crown, bore R 4.5
+  all through), the slotted muzzle device (rear recess over the stub, three 6 mm slots, bore, lock groove; bone MuzzleDevice), the
+  front sight tower (dovetail base, post, two guard ears; bone IronsFront), a sling stud under the nose ring.
+- Below: the magazine well housing, the stamped guard strap, the trigger on its hanger (hub ring round a 3 mm pin, cheeks, pin
+  heads), the catch button, the pistol grip (egg section 32 x 44 mm at the palm, three finger swells, lanyard hole, cap recess and
+  screw, two grip bolts), the left selector lever (ribbed pad, slotted pivot screw), the stock: a U-frame of two 5.5 mm wires at
+  Z +14 / -18 with hollow knuckles on a vertical hinge pin at (0, 28.5), a cross wire, the butt plate with two lightening slots, the
+  hinge bracket with its ears and a spring detent (bone stock, rest = folded along the left flank).
+- Open bolt (bone bolt): a 107 x 30 x 28 mm block with the face cup, the firing-pin, the ejection channel, the extractor claw
+  (bright), the spring recess; the magazine: stamped box with two ribs per side, spine seam, folded feed lips, a deep pocket with
+  three rounds (top round separate), follower, black floor plate with a drag tab.
+- Textures (`_weapons_rattler_tex.py`, per texel from the geometry maps): mid-grey phosphated sheet #6a6e73 (orange peel,
+  crystalline grain, bare steel on the lower edges / the well's mouth / the handle's stem / the selector, carbon streaks below and
+  ahead of the port, darker rougher weld seam with a ripple, stamped SMG 9 / R-545 / star / R3-0912 and the selector legends S 1 A),
+  blackened steel #34373c (shroud, barrel, device, sights, handle), oiled dark phosphate inside the box, black stippled polymer
+  grip, dull zinc wire with a faint bloom, tan nylon webbing with a 1.15 mm twill weave in the height, darker stitches, a frayed
+  edge and the support palm's grime, bright bolt steel. The UV layout is cached (`textures/Rattler/uv_cache.npz`).
+## Decisions and deviations from the specification (all measured)
+- The stock. The folded geometry (wires 230 mm, plate at X 236..256) mirrors about the fixed hinge axis X 0 to a deployed plate
+  at X -0.2495..-0.243, so the deployed gun is 715 mm long, not 635 mm (the specification's "X -0.170" would need the plate at X 170
+  folded, 100 mm short of the shroud). The plate is 18 mm wide (Y +24.4..+42.4) so it clears the flank and still reads as a plate:
+  the folded width is Y -22 .. +42.4 and, with the strap's tail on the right (R 29.3), -29.8 .. +42.4, against the specification's
+  56 mm (Y -22 .. +34). The wires sit at Y 29.0, 1.2 mm clear of the selector lever and its screw. The hinge pin is the bone
+  head's axis (0, 0.0285); its eyes and bracket reach 4.4 mm behind the receiver's rear plane.
+- Height. The rear aperture's leaf rises to Z +0.0634 (the aperture is centred on the sight line Z 0.0575; the specification's
+  "top Z +57.5" is read as the sight line): the whole gun with the magazine is 277 mm, not 271.5.
+- Open bolt: the rest pose is the bolt FORWARD, its face 0.6 mm off the breech (the data's travel is 50 mm back); the port
+  shows the bolt block and its extractor, racked it shows the breech with the chamber mouth.
+- The handle slot is X 0.038..0.106 (the specification's 40..104 cannot hold the stem's stroke from the rest head X 0.092..0.104).
+- Texel density: 6,640 px/m on the receiver flanks, cover, handle and sight (specification 7,000), 5,700 on the grip, shroud and
+  strap, 3,800 on the device, wires and the well, 2,000-3,650 on interiors and hidden faces; the median over every face is 4,789
+  px/m, 80 % of the 4K set is covered. The magazine set: 8,158 px/m (2K).
+## Not done / known weaknesses
+- In first person (the CHOPPER's viewmodel pose) the camera sees the LEFT flank: the two wires, the cross wire and the plate cover
+  half of it, and the selector lever sits behind the lower wire by the specification's own numbers.
+- The rear sight leaf is a plain plate with a hole (no ring rim); the T-handle head is a plain block with four grooves.
+- No SM_Weapon_GoonSMG v2 (deployed stock, 2K) and no `stock_wire_open` variant export (optional in the specification): pose the
+  `stock` bone +180 deg about (0, 0.0285, 0) and export a second time.
+- The receiver's inside, the breech and the bolt block carry 0.3-0.55 of the full texel density.
+## Exact next step if resumed
+`MI_GCACHE=1 flock art/out/.bake.lock nice -n 10 python art/blender/build.py build weapons_rattler --bake --rebake-unique --export`
+(about 20 min on one thread; MI_GCACHE keeps the geometry maps so a painter-only rerun skips ten minutes; delete
+art/out/textures/Rattler/gmaps_4096.npz when done), `python art/blender/assets/_weapons_check_rattler.py`, then
+`MI_PREVIEWS=weapons_rattler_hero,weapons_rattler_fp,weapons_rattler_side,weapons_rattler_parts,T_UI_Gun_Rattler build.py build
+weapons_rattler --preview --only none --samples 48`.

@@ -266,7 +266,7 @@ def dirt_chunked(S, amount, carbon=None, oil=None):
 
 RIGHT_PLATE = (0.036, -0.0245, 0.100, 0.014)        # x0, z0, width, height of the marking band between the ribs (right flank)
 LEFT_LEGEND = (0.0765, -0.0325, 0.0055, 0.0240)
-LEFT_PLATE = (0.110, -0.0245, 0.054, 0.014)         # the serial and the proof star between the left ribs     # the selector's legends beside the lever's arc (left flank)
+LEFT_PLATE = (0.110, 0.0185, 0.054, 0.0090)        # the serial and the proof star on the left flank above the folded stock's upper wire     # the selector's legends beside the lever's arc (left flank)
 
 
 def paint_rattler(G):
@@ -323,7 +323,7 @@ def paint_rattler(G):
     plate = text_plate(w * 1000, h_ * 1000, [("mono", "SMG 9", 15.0, 7.0, 5.4), ("star", "", 39.0, 7.0, 7.0), ("mono", "R-545", 62.0, 7.0, 5.4)])
     lay(S, plate, (0, 2), (x0, z0), (w, h_), "-Y", 1.8e-4)
     xl, zl, wl, hl_ = LEFT_PLATE
-    plate_l = text_plate(wl * 1000, hl_ * 1000, [("mono", "R3-0912", 19.0, 7.0, 4.6), ("star", "", 44.0, 7.0, 6.4)])
+    plate_l = text_plate(wl * 1000, hl_ * 1000, [("mono", "R3-0912", 19.0, 4.5, 4.6), ("star", "", 44.0, 4.5, 6.2)])
     lay(S, plate_l, (0, 2), (xl, zl), (wl, hl_), "+Y", 1.8e-4, flip=True)
     xs0, zs0, ws, hs = LEFT_LEGEND
     leg = text_plate(ws * 1000, hs * 1000, [("mono", "S", 2.75, 20.5, 3.0), ("mono", "1", 2.75, 12.0, 3.0), ("mono", "A", 2.75, 3.5, 3.0)])
@@ -341,9 +341,9 @@ def paint_rattler(G):
     # carbon and oil run down and back from the port and the vents: streaks stretched along Z on the flank below the port
     stk = tp.smooth(N.fbm(p, (160.0, 160.0, 11.0), 2, octave0=470), 0.05, 0.55)
     below = tp.smooth(0.004 - z, 0.0, 0.012) * tp.smooth(z + 0.034, 0.0, 0.010) * tp.smooth(x - 0.130, 0.0, 0.012) * tp.smooth(0.215 - x, 0.0, 0.012)
-    carbon = carbon + sh * (y < -0.0205) * below * stk * 0.45
+    carbon = carbon + sh * (y < -0.0205) * below * stk * 0.30
     ahead = tp.smooth(x - 0.200, 0.0, 0.010) * tp.smooth(0.262 - x, 0.0, 0.020) * (y < -0.0205) * tp.smooth(z + 0.030, 0.0, 0.010)
-    carbon = carbon + sh * ahead * stk * 0.30                                                  # the blast that runs forward along the flank
+    carbon = carbon + sh * ahead * stk * 0.20                                                  # the blast that runs forward along the flank
     dirt_chunked(S, 0.62, carbon=np.clip(carbon, 0, 1), oil=np.clip(oil, 0, 1))
     S.rough = np.maximum(S.rough, 0.16 * (S.metal > 0.5))
     return S.channels(height_blur=0.35)
