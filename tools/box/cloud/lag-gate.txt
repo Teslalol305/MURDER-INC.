@@ -14,9 +14,9 @@
 #                40, has lost something.
 #   gate-l8, gate-l12, gate-l20, gate-l35   the Shipping game with the GPU loaded by a second process (about 8, 12,
 #                20 and 34 ms of GPU time a frame at full quality on the box's card): worst frame under 100 ms, owed
-#                2 or less, pacer time-outs 0 in the play and in the whole run. Measured at release A: target 60, 60,
-#                45 and 30, worst frames 25 to 40 ms (the target is 60 on the set-up screens whatever the load; it
-#                moves when play begins)
+#                2 or less, pacer time-outs 0 in the play and in the whole run. Measured with the final code (runs
+#                rg-l8 to rg-l35): target 60, 60, 45 and 30, worst frames 22 to 43 ms (the target is 60 on the
+#                set-up screens whatever the load; it moves when play begins)
 #   gate-l35dev  the Development game of the same package under the heaviest load: the same, and "fence time-outs 0,
 #                skipped captures 0" (only the Development game has the engine's log)
 #   gate-cpu6-l20, gate-cpu6-l35, gate-cpu6-l35dev   the same three loads with the game on 6 CPUs only: Unreal then
@@ -24,9 +24,11 @@
 #                GPU servers with 8 hyper-threaded CPUs are in that case). Worst frame under 100 ms and "whole run:
 #                pacer time-outs 0": before the pacer waited on the render thread, every frame the GPU was the limit
 #                froze for 250 ms there (box runs rf-cpu6-l20, rf-cpu6-l35: worst frame 253 ms, 43 time-outs in play)
-#   gate-rise    a target lost in a bad second comes back on a card (lag-rise-card.txt): under the 12 ms load the
-#                viewer pauses, puts the target at 45 by hand and frees it; 10 s later the log must say
-#                "Frame-rate target: 45 -> 60 frames a second" and the probe lines target=60
+#   gate-rise    a target lost in a bad second comes back on a card (lag-rise-card.txt): under a 13 ms load, which
+#                the game holds at 60 in play, the viewer pauses, puts the target at 45 by hand and frees it; 10 s
+#                later the log must say "Frame-rate target: 45 -> 60 frames a second" and the probe lines target=60
+#                (run rg-rise13: the card took 10.8 ms a frame at 45. The first rule, under 45 % of the frame time
+#                now, stayed at 45 there until the run ended: rg-rise13-old. Under the 12 ms load both rules rise)
 #   gate-cmds    a viewer's console commands in the Shipping game: after "t.MaxFPS 30" the probe lines say fps=30 and
 #                target=30; "quit" and "r.ScreenPercentage 400" are refused (cmdRun=2 cmdRefused=2); look at the saved
 #                frame pause.jpg: the line of numbers at the bottom of the pause card
@@ -49,4 +51,4 @@ gate-cpu6-l35 game=ship load=1:0.3:0 cpus=0-5
 gate-cpu6-l35dev game=dev load=1:0.3:0 cpus=0-5
 gate-input game=ship view=lag-input.txt view2=lag-input2.txt probe=0.25 secs=150 load=0
 gate-pad game=ship view=lag-pad.txt view2=lag-input2.txt probe=0.25 secs=110 load=0
-gate-rise game=ship load=1:0.05:0.05:1024 view=lag-rise-card.txt secs=120
+gate-rise game=ship load=1:0.3:0.15 view=lag-rise-card.txt secs=120

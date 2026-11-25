@@ -1,10 +1,12 @@
 # The viewer of the check that a frame-rate target lost in a bad second comes back on a card whose GPU holds the
-# higher rate (lag-test.sh game=ship load=1:0.05:0.05:1024 view=lag-rise-card.txt secs=120): into a Story run as
+# higher rate (lag-test.sh game=ship load=1:0.3:0.15 view=lag-rise-card.txt secs=120): into a Story run as
 # lag-story.txt does, the pause card, and there the target is put at 45 by hand and set free again, which is what one
-# bad second in a fight leaves behind. Under this load the GPU takes about 11 ms a frame: the game holds 60 with it
-# (gate-l12), so 10 s after the target is free the log must say "Frame-rate target: 45 -> 60 frames a second ... under
-# 80 % of the 16.7 ms a frame has at 60", and the probe lines target=60. With the first rule (under 45 % of the frame
-# time at 45, 10 ms) it stayed at 45 for good.
+# bad second in a fight leaves behind. Under this load the game holds 60 in play (12 ms of GPU time a frame at the
+# smallest picture, run rg-rise13) and the card takes 10.8 ms a frame at 45, so 10 s after the target is free the log
+# must say "Frame-rate target: 45 -> 60 frames a second ... under 80 % of the 16.7 ms a frame has at 60", and the
+# probe lines target=60. With the first rule (under 45 % of the frame time at 45: 10 ms) the same build of the game
+# stayed at 45 until the run ended (rg-rise13-old). Under the lighter 12 ms load the card takes 9.6 ms and both
+# rules rise (rg-rise, rg-rise-old): that load does not tell them apart.
 wait 3
 click
 wait 2.5
