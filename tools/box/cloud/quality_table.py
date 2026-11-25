@@ -92,6 +92,32 @@ add('sky samples 32', [('r.SkyAtmosphere.SampleCountMax', '32'), ('r.SkyAtmosphe
 add('niagara 1', [('fx.Niagara.QualityLevel', '1')], 'cheaper particles')
 add('translucency lighting', [('r.TranslucencyLightingVolume.Dim', '32')], 'a smaller translucency lighting volume')
 
+# Round 2 (after the first round's GPU profile of the street scene, 'ProfileGPU': 3.8 ms on the graphics queue, of which volumetric cloud
+# shadow 0.55 ms, shadow depths 0.50 ms (one 8192 x 2048 atlas of cascaded and local shadow maps: the SM5 game has no Nanite, and its
+# shadows are not the virtual ones), cloud reconstruction and the sky capture 0.4 ms, post processing 0.42 ms; and 1.2 ms on the compute
+# queue, Lumen's scene lighting and screen probe gather).
+add('cloud shadow off', [('r.VolumetricCloud.ShadowMap', '0')], 'clouds cast no shadows on the ground')
+add('cloud shadow 1024', [('r.VolumetricCloud.ShadowMap.MaxResolution', '1024')], 'the cloud shadow map at 1024 (default 2048?)')
+add('cloud shadow rays 16', [('r.VolumetricCloud.ShadowMap.RaySampleMaxCount', '16')], 'fewer samples for the cloud shadow map')
+add('cloud view rays 128', [('r.VolumetricCloud.ViewRaySampleMaxCount', '128')], 'fewer samples along the view ray through the clouds')
+add('cloud skyAO off', [('r.VolumetricCloud.SkyAO', '0')], 'no sky occlusion from the clouds')
+add('cloud distant skylight off', [('r.VolumetricCloud.EnableDistantSkyLightSampling', '0')], 'no distant sky light sampling in the clouds')
+add('cloud lights off', [('r.VolumetricCloud.EnableLocalLightsSampling', '0'), ('r.VolumetricCloud.EnableAtmosphericLightsSampling', '0')], 'the clouds are not lit by lamps')
+add('shadow res 1024', [('r.Shadow.MaxResolution', '1024'), ('r.Shadow.MaxCSMResolution', '1024')], 'shadow maps at 1024 (cloud profile: 2048)')
+add('shadow csm 2', [('r.Shadow.CSM.MaxCascades', '2')], 'two sun shadow cascades (default 10 at level 3)')
+add('shadow csm 3', [('r.Shadow.CSM.MaxCascades', '3')], 'three sun shadow cascades')
+add('shadow dist 0.7', [('r.Shadow.DistanceScale', '0.7')], 'shadows fade out sooner')
+add('shadow radius 0.06', [('r.Shadow.RadiusThreshold', '0.06')], 'small things cast no shadow')
+add('shadow filter 3', [('r.ShadowQuality', '3')], 'fewer shadow filter taps')
+add('shadow preshadow 0.5', [('r.Shadow.PreShadowResolutionFactor', '0.5')], 'half-size per-object shadows')
+add('dfshadow off', [('r.DistanceFieldShadowing', '0')], 'no distance field shadows')
+add('capsule off', [('r.CapsuleShadows', '0')], 'no capsule shadows')
+add('skylight capture slice', [('r.SkyLight.RealTimeReflectionCapture.TimeSlice', '1')], 'the real-time sky capture in slices')
+add('skylight capture off', [('r.SkyLight.RealTimeReflectionCapture', '0')], 'no real-time sky capture (the sky light keeps its last capture)')
+add('res 1600x900', [('r.SetRes', '1600x900')], 'the OUTPUT size 1600 x 900 (the video is smaller; the browser stretches it)')
+add('res 1280x720', [('r.SetRes', '1280x720')], 'the OUTPUT size 1280 x 720')
+EXTRA_BASE = {'r.SetRes': '1920x1080'}
+
 NAMES = []
 for _l, cv, _n in V:
     for n, _v in cv:
@@ -99,7 +125,7 @@ for _l, cv, _n in V:
             NAMES.append(n)
 NAMES += ['r.DynamicGlobalIlluminationMethod', 'r.ReflectionMethod', 'r.AntiAliasingMethod', 'r.ScreenPercentage', 'sg.TextureQuality',
           'r.Nanite', 'r.Shadow.Virtual.Enable', 'r.RayTracing', 'r.Lumen.HardwareRayTracing', 't.MaxFPS', 'r.DynamicRes.OperationMode']
-NAMES = list(dict.fromkeys(NAMES))
+NAMES = [n for n in dict.fromkeys(NAMES) if n != 'r.SetRes']
 
 # ---- the scenes -----------------------------------------------------------------------------------------------------------
 # Each scene is the demo director's lines that bring the player there and look at something that costs the GPU. (x, y in cm.)
@@ -113,6 +139,8 @@ SCENES = {
 }
 
 SETTLE, MEASURE, RESTORE_SETTLE, BASE = 3.5, 4.0, 2.5, 3.0
+if os.environ.get('Q_MEASURE'):
+    MEASURE = float(os.environ['Q_MEASURE'])
 HITCH_WINDOW = 1.5
 FRAME_EVERY = 3.0
 
@@ -152,6 +180,8 @@ def baseline(log, out):
 
 def gen(out, base_file, scenes, only):
     base = json.load(open(base_file))
+    for k, v in EXTRA_BASE.items():
+        base.setdefault(k, v)
     os.makedirs(out, exist_ok=True)
     lines = ['wait 4', 'con MIStart mission skip', 'waitstate playing 40', 'god 1',
              'con r.DynamicRes.OperationMode 0', 'con r.ScreenPercentage 50', 'wait 6']
