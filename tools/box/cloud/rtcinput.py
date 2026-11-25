@@ -4,7 +4,12 @@
 # and layouts of PixelStreaming2Input's default protocol, the mouse maths of the reference front end). The box cannot
 # run a browser viewer (docs/unreal/BOX.md), so this is how input through the stream is tested there.
 #
-#   python rtcinput.py <streamerId> <script file or -> [--player WxH] [--out DIR] [--port 8090] [--nodecode]
+#   python rtcinput.py <streamerId> <script file or -> [--player WxH] [--out DIR] [--port 8090] [--nodecode] [--mono-answer]
+#
+# The answer asks for stereo sound the way Epic's own player page does (its front end adds stereo=1 and sprop-stereo=1 to
+# the Opus line of the answer): without it a WebRTC sender encodes one channel, and every recording made here until
+# 2026-11-25 was a mono stream (left minus right was digital zero in all of them, 3D sounds and the stereo street bed
+# included). --mono-answer sends aiortc's plain answer as before, for a comparison.
 #
 # --nodecode leaves the video undecoded (the frames are only counted as they arrive; "frame" lines save nothing): a
 # viewer that costs the machine almost no CPU, to see whether the decoding beside the game changes what the game's
@@ -40,7 +45,7 @@
 # rtcaudio.py (the listening tool) is this viewer with a recorder on the received sound: it imports this file, so
 # both play a script with the same code. It sets hooks['audio'] (called with every decoded audio frame) and
 # hooks['action'] (called with the time and the text of every script line as it is sent).
-import argparse, asyncio, json, struct, sys, time
+import argparse, asyncio, json, re, struct, sys, time
 
 import websockets
 from aiortc import RTCConfiguration, RTCPeerConnection, RTCSessionDescription
@@ -53,6 +58,7 @@ ap.add_argument('--player', default='')
 ap.add_argument('--out', default='.')
 ap.add_argument('--port', type=int, default=8090)
 ap.add_argument('--nodecode', action='store_true')
+ap.add_argument('--mono-answer', action='store_true')
 A = ap.parse_args()
 
 if A.nodecode:
@@ -75,6 +81,26 @@ hooks = {'audio': None, 'action': None}
 
 def log(*a):
     print(f'{time.time() - t0:8.3f}', *a, flush=True)
+
+
+def stereo_answer(sdp):
+    """The answer with stereo=1;sprop-stereo=1 on its Opus line(s): an Opus line with no parameters gets a line of its own,
+    one that has parameters keeps them (a stereo value in them is set to 1). Returns the text and the Opus lines as sent."""
+    lines = sdp.split('\r\n')
+    opus = [m.group(1) for m in (re.match(r'a=rtpmap:(\d+) opus/48000', l, re.I) for l in lines) if m]
+    out, seen = [], set()
+    for l in lines:
+        m = re.match(r'a=fmtp:(\d+) (.*)', l)
+        if m and m.group(1) in opus:
+            seen.add(m.group(1))
+            params = [p for p in m.group(2).split(';') if p and p.split('=')[0].strip() not in ('stereo', 'sprop-stereo')]
+            l = f'a=fmtp:{m.group(1)} ' + ';'.join(params + ['stereo=1', 'sprop-stereo=1'])
+        out.append(l)
+        m = re.match(r'a=rtpmap:(\d+) opus/48000', l, re.I)
+        if m and m.group(1) not in seen and not any(re.match(rf'a=fmtp:{m.group(1)} ', x) for x in lines):
+            out.append(f'a=fmtp:{m.group(1)} stereo=1;sprop-stereo=1')
+    text = '\r\n'.join(out)
+    return text, [l for l in out if re.match(r'a=fmtp:(\d+) ', l) and re.match(r'a=fmtp:(\d+)', l).group(1) in opus]
 
 
 def int16(v):
@@ -283,7 +309,12 @@ async def main():
                     await ws.send(json.dumps({'type': 'subscribe', 'streamerId': A.streamer}))
                 elif t == 'offer':
                     await pc.setRemoteDescription(RTCSessionDescription(sdp=msg['sdp'], type='offer'))
-                    await pc.setLocalDescription(await pc.createAnswer())
+                    answer = await pc.createAnswer()
+                    if not A.mono_answer:
+                        text, sent = stereo_answer(answer.sdp)
+                        answer = RTCSessionDescription(sdp=text, type=answer.type)
+                        log('answer asks for stereo:', sent)
+                    await pc.setLocalDescription(answer)
                     await ws.send(json.dumps({'type': 'answer', 'sdp': pc.localDescription.sdp}))
                 elif t == 'iceCandidate':
                     c = msg.get('candidate') or {}
