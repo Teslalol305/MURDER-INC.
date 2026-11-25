@@ -135,10 +135,13 @@ public:
 	/** The numbers since the last call (the probe line); a second, independent set for the governor. */
 	FStats Take(int32 Reader);
 	/**
-	 * How often three waits in a row ran into the limit (a GPU that needs more than WaitLimitMs for a frame: a long
-	 * hitch, a cold start, or fences that are never signalled). The pacer then lets the game run for PauseSeconds
-	 * and tries again: a game held at four frames a second would be worse than the pile it guards against, and a
-	 * pacer that gave up for good would bring the pile back after the first hitch.
+	 * How often three waits in a row ran into the limit without the GPU finishing a single frame in them: a GPU that
+	 * stands still (a very long hitch) or fences that are never signalled. The pacer then lets the game run for
+	 * PauseSeconds and tries again: a game held at four frames a second for nothing would be worse than the pile it
+	 * guards against, and a pacer that gave up for good would bring the pile back after the first hitch. A GPU that
+	 * is merely slow finishes something in every wait: the game then stays held, however long a pile takes to drain
+	 * (measured with the wait limit at 20 ms on a GPU that needs 31 ms: letting the game run on a time-out alone
+	 * grew the pile again, box run t-pause).
 	 */
 	int32 GetPauses() const { return Pauses; }
 	double PauseSeconds = 3.0;
@@ -151,7 +154,7 @@ private:
 	/** The fences: written by the render thread, read and emptied by the game thread (the RHI types stay in the .cpp). */
 	struct FFences;
 	TSharedPtr<FFences, ESPMode::ThreadSafe> Fences;
-	uint64 Enqueued = 0, Completed = 0;
+	uint64 Enqueued = 0, Completed = 0, Signalled = 0;   // Signalled: the fences the GPU has really reached
 	FStats Stats[2];
 	FDelegateHandle BeginHandle, EndHandle;
 	bool bRunning = false;

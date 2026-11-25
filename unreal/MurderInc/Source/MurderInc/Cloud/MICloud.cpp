@@ -1069,7 +1069,7 @@ void UMICloudSubsystem::TickPacing()
 		if (Pacer->GetPauses() > PacerPausesLogged && PacerPausesLogged < 5)
 		{
 			PacerPausesLogged = Pacer->GetPauses();
-			MICloudPrivate::Line(FString::Printf(TEXT("Pacing: three waits for the GPU in a row ran into the limit of %.0f ms (MI.Cloud.GpuWaitLimitMs); the game runs unheld for %.0f s, then the pacer tries again (pause %d of this session%s)"),
+			MICloudPrivate::Line(FString::Printf(TEXT("Pacing: the GPU finished no frame during three waits in a row of %.0f ms (MI.Cloud.GpuWaitLimitMs): it stands still, or its fences are not signalled; the game runs unheld for %.0f s, then the pacer tries again (pause %d of this session%s)"),
 				MICloudPrivate::GGpuWaitLimitMs, Pacer->PauseSeconds, PacerPausesLogged, PacerPausesLogged >= 5 ? TEXT("; further ones are not logged") : TEXT("")));
 		}
 	}

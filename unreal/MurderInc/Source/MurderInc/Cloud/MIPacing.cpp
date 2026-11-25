@@ -309,12 +309,14 @@ int32 FMIGpuPacer::PollCompleted()
 	if (Done > 0)
 	{
 		Fences->Entries.RemoveAt(0, Done);
+		Signalled += (uint64)Done;
 	}
 	return (int32)(Enqueued - Completed);
 }
 
 void FMIGpuPacer::OnBeginFrame()
 {
+	const uint64 SignalledBefore = Signalled;
 	int32 Owed = PollCompleted();
 	const int32 OwedAtStart = Owed;
 	double Waited = 0.0;
@@ -338,7 +340,11 @@ void FMIGpuPacer::OnBeginFrame()
 			Owed = PollCompleted();
 		}
 		Waited = (FPlatformTime::Seconds() - Start) * 1000.0;
-		TimeOutsInARow = bTimedOut ? TimeOutsInARow + 1 : 0;
+		// Stuck: at the limit, and the GPU has not finished one frame since this frame began to wait. A GPU that is
+		// only slow finishes something (the game then stays held: on a time-out it waits for the frames written
+		// from now on, which the GPU reaches after it has worked through the pile).
+		const bool bStuck = bTimedOut && Signalled == SignalledBefore;
+		TimeOutsInARow = bStuck ? TimeOutsInARow + 1 : 0;
 		if (TimeOutsInARow >= 3)
 		{
 			TimeOutsInARow = 0;
