@@ -3550,3 +3550,13 @@ Contracts: `docs/unreal/GAMEPLAY.md`. Built and tested in the second clone `/pro
 - The project `unreal/MurderInc` compiles on the box (`-NoUBA`), the headless editor starts with its MCP server, the
   bootstrap map `L_Bootstrap` is built by `mi_bootstrap_map.py`, and a picture of it came back through the transfer
   procedure (`docs/unreal/shots/bootstrap.jpg`; its black shade is the scene-capture limit found later).
+
+**Weapons round 4, first-person shoulders (lead, 2026-11-25 15:40 UTC).** The grip solves (grips.json) put the arms'
+shoulders where the support hand can reach the gun: `presentation.json firstPerson.animSets` now carries them for
+`chopper_ik` [-8.5, 1.1, -12.4], `stretch_ik` [-6.5, 1.1, -12.4] and `rattler_ik` [-2.5, 1.1, -12.4] (camera space, cm;
+they all had the NINE's [-6, 0, -24], from which the support wrist is 58 to 63 cm from the shoulder against an arm of
+about 55). **Still open for the box engineer:** the SHORTY's hip view in guns.json is the CHOPPER's numbers on a gun
+whose origin is its butt pad (its forend lands about 70 cm out): give it a view with the butt near the eye, then run
+`art/blender/assets/_rule_grips.py shorty --pose hip,aim --pictures` and set `shorty_ik.shoulders` from the solve. Check
+all four in play with `mi.FP.Shoulders`. The RATTLER's trigger finger stays about 2 cm off the trigger face (the gun's
+geometry: the trigger sits 4.5 mm from the magazine well).

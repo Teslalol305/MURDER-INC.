@@ -162,7 +162,7 @@
           "fire": "/Game/Characters/Mannequins/Anims/Rifle/MM_Rifle_Fire.MM_Rifle_Fire"
         },
         "ik": {"left": "Palm_L", "right": "Palm_R"},
-        "shoulders": [-6, 0, -24],
+        "shoulders": [-8.5, 1.1, -12.4],
         "shouldersNote": "camera space, cm: the arms' shoulders (midpoint of upperarm_l / _r) under the eye when a solved grip holds the gun (Data/grips.json); the IK reaches both hands from there (console mi.FP.Shoulders \"x y z\" to try values, \"off\" for the old wrist slide)",
         "fireWeight": 0.45,
         "bobScale": 0.6,
@@ -214,7 +214,7 @@
           "fire": "/Game/Characters/Mannequins/Anims/Rifle/MM_Rifle_Fire.MM_Rifle_Fire"
         },
         "ik": {"left": "Palm_L", "right": "Palm_R"},
-        "shoulders": [-6, 0, -24],
+        "shoulders": [-6.5, 1.1, -12.4],
         "shouldersNote": "camera space, cm: the arms' shoulders (midpoint of upperarm_l / _r) under the eye when a solved grip holds the gun (Data/grips.json); the IK reaches both hands from there (console mi.FP.Shoulders \"x y z\" to try values, \"off\" for the old wrist slide)",
         "fireWeight": 0.45,
         "bobScale": 0.6,
@@ -240,7 +240,7 @@
           "fire": "/Game/Characters/Mannequins/Anims/Rifle/MM_Rifle_Fire.MM_Rifle_Fire"
         },
         "ik": {"left": "Palm_L", "right": "Palm_R"},
-        "shoulders": [-6, 0, -24],
+        "shoulders": [-2.5, 1.1, -12.4],
         "shouldersNote": "camera space, cm: the arms' shoulders (midpoint of upperarm_l / _r) under the eye when a solved grip holds the gun (Data/grips.json); the IK reaches both hands from there (console mi.FP.Shoulders \"x y z\" to try values, \"off\" for the old wrist slide)",
         "fireWeight": 0.45,
         "bobScale": 0.6,
