@@ -186,6 +186,24 @@ def assemble(R, key, pid, rec):
     return gaps
 
 
+def sight_corridor(R, key, rec, sock, Vg, Pg, mount):
+    """The SightEye corridor: a cone of 1.5 deg half angle from the eye (relief behind SightEye) through the optic's windows hits
+    nothing of the gun within 0.8 m ahead of the optic (hide bones removed). A rail 24 mm under the axis is met beyond 0.9 m."""
+    pid = "red_dot" if "RedDot" in rec["mesh"] else "scope_4x"
+    eye = sock[mount] + np.array(rec["sockets_m"]["SightEye"]) - np.array([RELIEF[pid], 0.0, 0.0])
+    gbvh = BVHTree.FromPolygons([Vector(v) for v in Vg], Pg)
+    x_front = sock[mount][0] + (0.032 if pid == "red_dot" else 0.085)
+    bad = 0
+    for deg in (0.0, 0.75, 1.5):
+        for az in np.linspace(0, 2 * math.pi, 12, endpoint=False):
+            d = Vector((math.cos(math.radians(deg)), math.sin(math.radians(deg)) * math.cos(az), math.sin(math.radians(deg)) * math.sin(az)))
+            h = gbvh.ray_cast(Vector(eye), d, 0.8)
+            if h[0] is not None and h[0].x > x_front - 0.02:
+                bad += 1
+    R.add("%s on %s: the SightEye corridor (1.5 deg half angle, 0.8 m) is clear of the gun ahead of the optic" % (rec["mesh"], GUNS[key]),
+          bad == 0, {"blocked_rays": bad})
+
+
 def magazine_fit(R, key, rec, Vg, Pg, Vp, polys, hw, idx, pairs, hide):
     """An extended magazine against the gun: the guns' grips and wells are solid meshes with the standard magazine inside, so
     crossing is judged against the standard magazine (the extended one must cross no more), nothing of the part crosses the
@@ -208,19 +226,27 @@ def magazine_fit(R, key, rec, Vg, Pg, Vp, polys, hw, idx, pairs, hide):
         rec["mesh"], GUNS[key], len(pairs), base), len(pairs) <= base * 1.35 + 40, {"pairs": len(pairs), "standard_pairs": base})
     R.add("%s on %s: nothing of the part below the standard magazine's floor (Z %.4f) crosses the gun" % (rec["mesh"], GUNS[key], floor_z),
           len(below) == 0, {"crossing_triangles_below": len(below)})
-    # the lips end: the body's cross-section 30 mm under the lips, the same extents as the standard magazine's within 1 mm
+    # the lips end: the body's wall positions 30 mm under the lips (rays through the section at the part's axis), the same as the
+    # standard magazine's within 1 mm
     top = Vs[:, 2].max()
     zc = top - 0.030
+    pbvh = BVHTree.FromPolygons([Vector(v) for v in Vp], [polys[k] for k in idx])
+    xc = float(np.mean(Vp[:, 0]))
+    yc = 0.0
 
-    def extents(V_):
-        sel = V_[np.abs(V_[:, 2] - zc) < 0.0008]
-        return (sel[:, 0].min(), sel[:, 0].max(), sel[:, 1].min(), sel[:, 1].max()) if len(sel) else None
-    pv = np.array([Vp[i] for k in idx for i in polys[k]])
-    es, ep = extents(Vs), extents(pv)
-    dev = max(abs(a - b) for a, b in zip(es, ep)) if es and ep else 1.0
-    R.add("%s on %s: the body's section 30 mm under the lips matches the standard magazine's (X and Y extents within 1 mm)" % (rec["mesh"], GUNS[key]),
-          dev <= 0.001, {"deviation_mm": round(dev * 1000, 2), "standard": [round(v * 1000, 1) for v in es] if es else None,
-                         "part": [round(v * 1000, 1) for v in ep] if ep else None})
+    def walls(bvh_):
+        out = []
+        for o, d in (((xc - 0.3, yc, zc), (1, 0, 0)), ((xc + 0.3, yc, zc), (-1, 0, 0)), ((xc, yc - 0.3, zc), (0, 1, 0)), ((xc, yc + 0.3, zc), (0, -1, 0))):
+            h = bvh_.ray_cast(Vector(o), Vector(d), 0.6)
+            out.append(None if h[0] is None else (h[0].x if d[0] else h[0].y))
+        return out
+    ws, wp = walls(sbvh), walls(pbvh)
+    dev = max((abs(a_ - b_) for a_, b_ in zip(ws, wp) if a_ is not None and b_ is not None), default=1.0)
+    if any(v is None for v in ws + wp):
+        dev = 1.0
+    R.add("%s on %s: the walls 30 mm under the lips are the standard magazine's (X front/back and Y left/right within 1 mm)" % (rec["mesh"], GUNS[key]),
+          dev <= 0.001, {"deviation_mm": round(dev * 1000, 2), "standard_mm": [None if v is None else round(v * 1000, 1) for v in ws],
+                         "part_mm": [None if v is None else round(v * 1000, 1) for v in wp]})
 
 
 def run_assembly(R):
@@ -233,4 +259,9 @@ def run_assembly(R):
         for pid, rec in ct["parts"].items():
             if key not in rec["applies_to"]:
                 continue
-            assemble(R, key, pid, rec)
+            try:
+                assemble(R, key, pid, rec)
+            except Exception as e:                       # a crash is a failure, never a silent skip
+                import traceback
+                traceback.print_exc()
+                R.add("%s on %s: the assembly check ran" % (rec["mesh"], GUNS[key]), False, repr(e))
