@@ -176,11 +176,17 @@ connection state page). For a shooter, aim for under 50 ms.
 > stalls the game" or "a full GPU stalls", read that. What changed against this list: **V3-1** gained a third part,
 > a pacer that holds the game back while the GPU still owes it more than one frame (`MI.Cloud.GpuFramesInFlight`);
 > it alone passes the release gate, dynamic resolution and the frame-rate target keep the picture and the pacing
-> good on top of it, and the target's thresholds were set by measurement. **V3-3**: no capture setting changes the
-> stall or the frames delivered; Pixel Streaming's defaults stay, decoupling stays off, there are no `-MIDecouple`
-> switches (Pixel Streaming's own `-PixelStreamingDecoupleFramerate=true` works). **The gate's "no fence time-out
-> line"** can only be read in the Development game (Shipping has no engine log); the Shipping game is judged by its
-> probe lines (`owed=`, `worstMs=`). The gate as a queue of runs: `tools/box/cloud/lag-gate.txt`.
+> good on top of it. The target drops above **90 %** of the frame time at the smallest picture, not 70 %, and only
+> while a run is being played (at 70 % a GPU that held 60 was put at 45; DECISIONS, "Decisions of release A").
+> **V3-3**: no capture setting changes the stall or the frames delivered; Pixel Streaming's defaults stay,
+> decoupling stays off, there are no `-MIDecouple` switches (Pixel Streaming's own
+> `-PixelStreamingDecoupleFramerate=true` works). **V3-4, first bullet**: run `gp-in5`'s memory and slow exit are
+> the same pile (about 11 MB for every unfinished frame), not version 3's code. **V3-5**: the pause card's line
+> has no quality level yet (V3-2 is release B). **V3-6**: 3840 x 2160 output misbehaved in one run (the encoder at
+> 46 frames a second, a viewer's leaving missed, no shutdown within 30 s): limit the size before allowing Dynamic.
+> **The gate's "no fence time-out line"** can only be read in the Development game (Shipping has no engine log);
+> the Shipping game is judged by its probe lines (`owed=`, `worstMs=`). The gate as a queue of runs:
+> `tools/box/cloud/lag-gate.txt`.
 
 Everything below ships in **one** version 3 build. The build itself costs about an hour of box time (package, the
 full test suite, the E3DS-style runs, a stream test with input) and about an hour of the owner's time (download,

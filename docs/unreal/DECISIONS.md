@@ -219,8 +219,32 @@ game's new counter shows it directly (run p1, the GPU slowed to 130 ms a frame):
 then 26, 50, 65 while turning, then one frame of 7.3 s; again 67, 72 and a frame of 8.6 s. When the turn ends the
 occlusion read-back waits for the whole pile: that is "when the player turns it slows down". The capture's fence
 time-outs and skipped frames are the same pile seen from Pixel Streaming, and so are the 14.5 GB of memory and the
-slow shutdown of run `gp-in5` (every unfinished frame keeps its memory; at exit the engine waits for all of them).
+slow shutdown of run `gp-in5`: every unfinished frame keeps about 11 MB (measured in runs p1 and b0), `gp-in5`
+gathered about a thousand of them, and at exit the engine waits for the GPU to finish them all.
 Version 3 holds the game back itself (a pacer: no frame starts while the GPU still owes more than one), which ends
 the stall at every load tried; dynamic resolution and a frame-rate target of 60, 45 or 30 then keep the GPU from being
 the limit at all. The earlier entries above keep their measurements; their explanation ("the capture stalls the
 game") is replaced by this one.
+
+**Decisions of release A, 03:00 UTC (2026-11-25; performance engineer; measurements in PROGRESS.md, "Version 3,
+release A: the lag").**
+
+1. **The pacer allows one unfinished frame** (`MI.Cloud.GpuFramesInFlight=1`). None costs a sixth of the frame rate
+   on a full GPU, two add a frame of delay and gain nothing.
+2. **Pixel Streaming's capture settings stay at Epic's defaults; decoupling stays off; there are no `-MIDecouple`
+   switches.** With the pile gone no capture setting delivered more frames or a shorter worst frame, with a free
+   GPU or a full one. Decoupled, a full GPU sends 55 frames a second of which up to 24 repeat the one before. The
+   gain measured on version 2 was the Python viewer's bitrate. Pixel Streaming's own launch options and
+   `-MICVars=PixelStreaming2...` remain for a session that wants to try.
+3. **The frame-rate target drops above 90 % of the frame time, not 70 %** as PREFLIGHT V3-1 proposed, **and only
+   while a run is being played.** At 70 % a GPU that held 60 was put at 45, and one that held 45 at 30. The start
+   of the game is full of long frames on any card (the pacer waited a third of the first second on a free GPU), and
+   a target lost there would have stayed lost for the first run on a card that is busy but able. The pacer keeps a
+   full GPU from stalling whatever the target is, so the target only has to follow what a run can really hold. The
+   owner's order decides the rest: fluid play first, so 60 at a smaller picture before 45 at a larger one.
+4. **3840 x 2160 output waits for release B (V3-6).** On a free GPU the game held 60 but the encoder made 46 frames
+   a second, the game missed that its viewer had left and did not shut down within 30 s (run d7). 2560 x 1440 was
+   clean. Until the game limits its own size, E3DS's Browser Resolution stays Custom 1920 x 1080.
+5. **The Python viewers of the box need the stream held at 12 Mbit/s** (`lag-test.sh minbit=`): with E3DS's
+   arguments alone the sender believes their connection carries a megabit or less and drops most frames. Received
+   frame rates from earlier runs without it say nothing about the game.
