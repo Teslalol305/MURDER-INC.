@@ -7,6 +7,7 @@
 #   hunt <limit s> [kills] [head] (fight; walk the nav path to the nearest Goon when none is in sight) | hide <label part>...
 #   goto <x> <y> [sprint] (nav path from where the player is) | alert <radius m>
 #   blow [limit s] (the nearest explosive in front) | grab [limit s] (hold E until a reel is taken)
+#   guide [limit s] [sprint 0|1] (walk the route the story guidance draws, to the reel's case or until the step changes)
 #   waitstate <title|intro|playing|complete> [limit s] | quit
 
 # --- not captured: the map, the title and the stage settle --------------------------------------------------------

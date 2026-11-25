@@ -25,6 +25,7 @@
 #include "Widgets/SViewport.h"
 #include "World/MIBoxWorld.h"
 #include "World/MIExplosive.h"
+#include "World/MIGuide.h"
 #include "World/MILevelData.h"
 #include "World/MIObjectiveActors.h"
 #include <cstdio>
@@ -303,6 +304,7 @@ void UMIDemoDirector::Tick(float DeltaTime)
 		{
 			Log(TEXT("script done"));
 			bRunning = false;
+			bGuiding = false;
 			ReleaseTrigger();
 			if (P)
 			{
@@ -326,6 +328,10 @@ void UMIDemoDirector::Tick(float DeltaTime)
 	if (bHunting && !bEngaged)
 	{
 		Hunt(Dt);
+	}
+	if (bGuiding)
+	{
+		FollowGuide(Dt);
 	}
 	if (bWalking && !bEngaged)
 	{
@@ -529,6 +535,20 @@ bool UMIDemoDirector::Begin(const FAction& A)
 		bWalkFacesPath = true;
 		return !bWalking;
 	}
+	if (V == TEXT("guide"))
+	{
+		// guide [limit s] [sprint 0|1]: walk the route the story guidance draws (AMIGuide) to its step: stops at a
+		// reel's case (then grab) or when the story is complete; the route is read again every half second
+		ActionLimit = Arg(A, 0, 60.0);
+		bSprint = Arg(A, 1, 1.0) != 0.0;
+		const AMIGuide* Gd = AMIGuide::Find(GetWorld());
+		GuideStep = Gd ? Gd->GetPlan().GetStep() : INDEX_NONE;
+		bGuiding = Gd && Gd->GetPlan().IsActive();
+		ReplanIn = 0.0;
+		bWalkFacesPath = true;
+		Log(FString::Printf(TEXT("guide: step %d, %.1f m left"), GuideStep, Gd ? Gd->GetPlan().GetRemaining() : -1.0));
+		return !bGuiding;
+	}
 	if (V == TEXT("alert"))
 	{
 		// alert <radius m>: every enemy within the radius comes to look (the rules' own alert)
@@ -672,6 +692,28 @@ bool UMIDemoDirector::Step(float Dt)
 			Route.Reset();
 			P->GetInput().Move = FVector2D::ZeroVector;
 			P->GetInput().bSprint = false;
+			return true;
+		}
+		return false;
+	}
+	if (V == TEXT("guide"))
+	{
+		const AMIGuide* Gd = AMIGuide::Find(GetWorld());
+		const FMIGuidePlan* Plan = Gd ? &Gd->GetPlan() : nullptr;
+		const bool bChanged = !Plan || !Plan->IsActive() || Plan->GetStep() != GuideStep;
+		const bool bAtCase = Plan && Plan->IsActive() && Plan->GetStep() != FMIGuidePlan::ExtractionStep && G
+			&& MI::Web::Hypot(G->PlayerFeetWeb().X - Plan->GetGoal().X, G->PlayerFeetWeb().Z - Plan->GetGoal().Z) < 1.4;
+		if (bChanged || bAtCase || bTimedOut)
+		{
+			Log(FString::Printf(TEXT("guide done: %s, %.1f m left"), bTimedOut ? TEXT("time") : bAtCase ? TEXT("at the case") : TEXT("step over"),
+				Plan ? Plan->GetRemaining() : -1.0));
+			bGuiding = bWalking = false;
+			Route.Reset();
+			if (P)
+			{
+				P->GetInput().Move = FVector2D::ZeroVector;
+				P->GetInput().bSprint = false;
+			}
 			return true;
 		}
 		return false;
@@ -839,6 +881,40 @@ void UMIDemoDirector::Move(float Dt)
 	FMIPlayerInputState& In = P->GetInput();
 	In.Move = FVector2D(FMath::Sin(Rel), FMath::Cos(Rel)) * Mag;
 	In.bSprint = bSprint && FMath::Cos(Rel) > 0.85 && Dist > 250.0;
+}
+
+void UMIDemoDirector::FollowGuide(float Dt)
+{
+	ReplanIn -= Dt;
+	AMIPlayerCharacter* P = Player();
+	const AMIGuide* Gd = AMIGuide::Find(GetWorld());
+	if (!P || !Gd || ReplanIn > 0.0)
+	{
+		return;
+	}
+	ReplanIn = 0.5;
+	const TArray<FVector>& Path = Gd->GetPlan().GetPath();
+	if (Path.Num() < 2)
+	{
+		return;
+	}
+	// From the feet along the drawn route, then on to the goal itself (the truck's zone, the case).
+	Route.Reset();
+	Route.Add(FVector2D(P->GetActorLocation().X, P->GetActorLocation().Y));
+	for (int32 I = 1; I < Path.Num(); ++I)
+	{
+		const FVector U = MI::Web::ToUnreal(Path[I]);
+		Route.Add(FVector2D(U.X, U.Y));
+	}
+	const FVector Goal = MI::Web::ToUnreal(Gd->GetPlan().GetGoal());
+	if (Gd->GetPlan().GetStep() == FMIGuidePlan::ExtractionStep)
+	{
+		Route.Add(FVector2D(Goal.X, Goal.Y));
+	}
+	RouteSeg = 0;
+	WalkTo = Route.Last();
+	Arrive = 40.0;
+	bWalking = true;
 }
 
 void UMIDemoDirector::Hunt(float Dt)

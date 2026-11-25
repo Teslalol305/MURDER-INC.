@@ -129,6 +129,10 @@ private:
 	bool bHunting = false;
 	double ReplanIn = 0.0;
 	void Hunt(float Dt);
+	/** guide: walk the route the story guidance draws (AMIGuide), read again every half second. */
+	bool bGuiding = false;
+	int32 GuideStep = INDEX_NONE;
+	void FollowGuide(float Dt);
 
 	// Capture.
 	FILE* Pipe = nullptr;
