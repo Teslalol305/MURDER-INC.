@@ -114,14 +114,20 @@ struct MURDERINC_API FMICloudSize
  *    MI.Cloud.GpuFramesInFlight frames;
  *  - the launch option -MICVars=name=value,name=value sets console variables of the same list after the cloud
  *    profile, with command-line priority, each one printed in the log: tuning on the host without a new build;
- *  - the quality ladder (release 3c, Cloud/MIQuality.h, [MICloud] QualitySteps= of DefaultGame.ini): when the GPU's time is still
- *    over MI.Cloud.QualityDownLoad (0.85) of the frame time at the smallest picture, for MI.Cloud.QualityDownAfter (3) seconds
- *    in play, the game gives up the next step of the table (shadows, lighting, reflections and the like: the cheapest-looking
- *    first), at most one change in MI.Cloud.QualityMinGap (10) seconds, and takes a step back only after
- *    MI.Cloud.QualityUpAfter (60) seconds of play with room to spare, at a card or a set-up screen, and only at the highest
- *    frame-rate target. The launch option -MIQuality=<n> (or MI.Cloud.QualityStep) fixes the step (0: full quality),
- *    -MINoLadder (MI.Cloud.QualityLadder 0) turns it off; every change is a log line, the step is on the pause card and in the
- *    probe line (q=);
+ *  - the quality ladder (release 3c, Cloud/MIQuality.h, [MICloud] QualitySteps= of DefaultGame.ini; OFF by default until the
+ *    release gate has run it on a package: -MILadder or MI.Cloud.QualityLadder 1 turns it on, -MINoLadder off): when the GPU's
+ *    time is still over MI.Cloud.QualityDownLoad (0.85) of a 60 frames a second frame at the smallest picture, for
+ *    MI.Cloud.QualityDownAfter (3) seconds of play (counted MI.Cloud.QualityWarmUp, 15 s, after live play begins), the game gives up
+ *    the next step of a table (five: clouds, bounce light, reflections, lighter shadows, shadows low), at most one change in
+ *    MI.Cloud.QualityMinGap (10) seconds. While it has such a step to give, the frame-rate governor's drop waits for it, for a load a
+ *    step or two can carry (under MI.Cloud.FpsHoldOver, 1.3, of the frame; at most MI.Cloud.FpsHoldMax, 20 s): the looks go before
+ *    the frames. A step only lowers: a variable the player's Graphics quality (or the cloud profile) holds as low or lower is left
+ *    alone, and a variable the ladder gives back gets its value and its priority back, so the Settings card keeps working. It takes a step
+ *    back only after MI.Cloud.QualityUpAfter (60) seconds of play with room to spare (a bad half second takes two off the count, a
+ *    rise that holds earns the short wait back), at a card or a set-up screen, and only at the highest frame-rate target. It runs on
+ *    SM5 shaders only (the steps were measured there; MI.Cloud.QualitySm6 1 allows SM6); a variable this build does not have is
+ *    cut from its step at the start, and a step left with none is dropped. The launch option -MIQuality=<n> (or MI.Cloud.QualityStep)
+ *    fixes the step (0: full quality); every change is a log line, the step is on the pause card and in the probe line (q=);
  *  - the pause card carries one small line of the game's own numbers (GPU, frame rate and target, GPU time, the
  *    picture's drawn and sent size, the stream as its sender measures it, the build), and one "MICloudProbe" line is
  *    logged every 30 s (-MICloudProbe=<seconds> changes the period, 0 turns it off);
@@ -129,14 +135,14 @@ struct MURDERINC_API FMICloudSize
  *    that has ended, and the next session then finds the card shared with it. With no viewer for MI.Cloud.IdleAfter
  *    seconds (2) the game idles at MI.Cloud.IdleFps frames a second (2; 0 turns it off; launch options -MIIdleFps=,
  *    -MIIdleAfter=) and keeps the picture at its smallest; a joining viewer wakes it within 10 ms of the stream's report (the idle game runs the game thread's waiting tasks every 10 ms). When
- *    the last viewer has been gone for MI.Cloud.ExitAfterEmpty seconds (20: a host that keeps the game when a page is
- *    reloaded reconnects it within seconds, E3DS starts a new game for a reloaded page and wants the old one gone before
- *    that game has started, 34 s at the quickest seen; -MIExitAfterEmpty=) the game logs one line and quits (exit code
- *    0); so it does MI.Cloud.ExitIfNoViewer seconds (600;
+ *    the last viewer has been gone for MI.Cloud.ExitAfterEmpty seconds (60: long against a reconnect after a reload or a
+ *    broken connection; the launcher stops a game left over at the next start, so it does not have to be short;
+ *    -MIExitAfterEmpty=) the game logs one line and quits (exit code 0); so it does MI.Cloud.ExitIfNoViewer seconds (600;
  *    -MIExitIfNoViewer=) after its start when nobody ever came, and 5 s after the launcher that started it is gone
  *    (the launcher passes -MILauncherPid=<pid>; a game started without it is not watched). A viewer present keeps the
  *    game, a join cancels the countdown. -MIKeepAlive turns all of this off (the box's test scripts hold games with no
- *    viewer on purpose);
+ *    viewer on purpose; on E3DS the launcher does not pass it on, and a viewer's console command or -MICVars= cannot set
+ *    MI.Cloud.KeepAlive, ExitAfterEmpty, ExitIfNoViewer, IdleFps, IdleAfter or QpExact);
  *  - the encoder gets a range (release 3c, Cloud/MIStreamQuality.h): E3DS's Video Quality is a constant quantiser (Medium
  *    QP 34 for the lowest and the highest, High 16: launch options and console commands), which cannot give way to a thin
  *    connection. The two numbers are taken as the centre of a range: the lowest QP is the first minus MI.Cloud.QpBelow

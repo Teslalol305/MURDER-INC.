@@ -7,24 +7,26 @@
 #   none 6.3 ms | 1:0.3:1 8.1 | 1:0.05:0.05:1024 11.4 | 1:0.05:0:1024 19.3 | 1:0.3:0 33.8 | 1:1:0 47.9
 # and what E3DS measured (docs/unreal/DECISIONS.md, 2026-11-25): a clean card 10 to 13 ms at the smallest picture; with one
 # game left on it 33 to 37 ms at 27 frames a second; with two 52 to 57 ms at 18. The runs ending in -off are the same runs with
-# the ladder off (-MINoLadder): version 3a's behaviour in the same session, for the table.
-c-free game=dev load=0 view=ladder-turn.txt secs=190 profile=1 -- -sm5
-c-l8 game=dev load=1:0.3:1 view=ladder-turn.txt secs=190 profile=1 -- -sm5
-c-l12 game=dev load=1:0.05:0.05:1024 view=ladder-turn.txt secs=190 profile=1 -- -sm5
-c-l20 game=dev load=1:0.05:0:1024 view=ladder-turn.txt secs=190 profile=1 -- -sm5
-c-l35 game=dev load=1:0.3:0 view=ladder-turn.txt secs=190 profile=1 -- -sm5
+# the ladder off (-MINoLadder): version 3a's behaviour in the same session, for the table. Since the review of release 3c the ladder is OFF
+# unless the game gets -MILadder: every other line carries it (the review: the governor's drop waits for the ladder, the warm-up of
+# 15 s after live play begins, the ladder judges against a 60 frames a second frame, steps never raise what the player's Graphics quality set).
+c-free game=dev load=0 view=ladder-turn.txt secs=190 profile=1 -- -sm5 -MILadder
+c-l8 game=dev load=1:0.3:1 view=ladder-turn.txt secs=190 profile=1 -- -sm5 -MILadder
+c-l12 game=dev load=1:0.05:0.05:1024 view=ladder-turn.txt secs=190 profile=1 -- -sm5 -MILadder
+c-l20 game=dev load=1:0.05:0:1024 view=ladder-turn.txt secs=190 profile=1 -- -sm5 -MILadder
+c-l35 game=dev load=1:0.3:0 view=ladder-turn.txt secs=190 profile=1 -- -sm5 -MILadder
 c-l35-off game=dev load=1:0.3:0 view=ladder-turn.txt secs=190 profile=1 -- -sm5 -MINoLadder
-c-l48 game=dev load=1:1:0 view=ladder-turn.txt secs=190 profile=1 -- -sm5
+c-l48 game=dev load=1:1:0 view=ladder-turn.txt secs=190 profile=1 -- -sm5 -MILadder
 c-l48-off game=dev load=1:1:0 view=ladder-turn.txt secs=190 profile=1 -- -sm5 -MINoLadder
-c-l70 game=dev load=2:1:0 view=ladder-turn.txt secs=190 profile=1 -- -sm5
+c-l70 game=dev load=2:1:0 view=ladder-turn.txt secs=190 profile=1 -- -sm5 -MILadder
 c-l70-off game=dev load=2:1:0 view=ladder-turn.txt secs=190 profile=1 -- -sm5 -MINoLadder
-c-l35-cpu6 game=dev load=1:0.3:0 cpus=0-5 view=ladder-turn.txt secs=190 profile=1 -- -sm5
-c-l48-cpu6 game=dev load=1:1:0 cpus=0-5 view=ladder-turn.txt secs=190 profile=1 -- -sm5
+c-l35-cpu6 game=dev load=1:0.3:0 cpus=0-5 view=ladder-turn.txt secs=190 profile=1 -- -sm5 -MILadder
+c-l48-cpu6 game=dev load=1:1:0 cpus=0-5 view=ladder-turn.txt secs=190 profile=1 -- -sm5 -MILadder
 # A fight (ladder-fight.txt: the Goons alerted, two fights, the blast) at a load like E3DS's clean card with its fight room (about 12 ms
 # at the smallest picture standing: 1:0.05:0.05:1024 gives 11.4 ms at version 2's picture) and at the 20 ms load, ladder on and off:
-c-fight-l12 game=dev demo=ladder-fight.txt view=sound-watch.txt join=3 probe=0.5 secs=140 load=1:0.05:0.05:1024 profile=1 -- -sm5
+c-fight-l12 game=dev demo=ladder-fight.txt view=sound-watch.txt join=3 probe=0.5 secs=140 load=1:0.05:0.05:1024 profile=1 -- -sm5 -MILadder
 c-fight-l12-off game=dev demo=ladder-fight.txt view=sound-watch.txt join=3 probe=0.5 secs=140 load=1:0.05:0.05:1024 profile=1 -- -sm5 -MINoLadder
-c-fight-l20 game=dev demo=ladder-fight.txt view=sound-watch.txt join=3 probe=0.5 secs=140 load=1:0.05:0:1024 profile=1 -- -sm5
+c-fight-l20 game=dev demo=ladder-fight.txt view=sound-watch.txt join=3 probe=0.5 secs=140 load=1:0.05:0:1024 profile=1 -- -sm5 -MILadder
 c-fight-l20-off game=dev demo=ladder-fight.txt view=sound-watch.txt join=3 probe=0.5 secs=140 load=1:0.05:0:1024 profile=1 -- -sm5 -MINoLadder
 # The way back (ladder-rise.txt: step 3 pinned by hand and freed, 70 s of play, the first pause takes one step back, the second changes nothing):
-c-rise game=dev view=ladder-rise.txt load=0 secs=150 profile=1 -- -sm5
+c-rise game=dev view=ladder-rise.txt load=0 secs=150 profile=1 -- -sm5 -MILadder

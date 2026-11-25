@@ -23,12 +23,12 @@
 #   v-vram6000    the Development game plays a Story run with 6.0 GB free
 #   v-e3ds-7600   E3DS-style arguments with 7.6 GB free (an 8 GB card), signalling server and viewer
 #
-# Release 3c: a streamed game idles when no viewer watches and quits 20 s after the last viewer left (docs/LAUNCH.md
+# Release 3c: a streamed game idles when no viewer watches and quits 60 s after the last viewer left (docs/LAUNCH.md
 # section 9). Most of these runs hold a game with no viewer on purpose (a start-up check, a Story run played by script,
 # a game that quits by script, a crash from outside), so every run is given -MIKeepAlive, which turns the game's own
 # session handling off and keeps each check what it was. The two runs with a fake viewer (v-long, v-e3ds-7600) are given
 # NOKEEP=1: they run the game as a session does on E3DS (idle until the viewer joins, a viewer that leaves for 10 s and
-# comes back), which the 20 s of ExitAfterEmpty must carry through.
+# comes back), which the 60 s of ExitAfterEmpty must carry through.
 C=/project/ue/cloud
 R=$C/repro
 T=$(dirname "$(readlink -f "$0")")

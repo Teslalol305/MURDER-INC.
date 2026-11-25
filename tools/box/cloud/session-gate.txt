@@ -15,17 +15,17 @@
 #   s3c-idle     the game starts and nobody comes for about 55 s: it idles 12 s after it became streamed (2 s of no
 #                viewer, after the 10 s of grace a first viewer is given) at 2 frames a second and the smallest picture
 #                ("Nobody is watching" in its log); the viewer then joins (the click card, "Back at full speed"), stands
-#                on the home screen for 30 s and leaves; 2 s later it idles again, 20 s later "Session over" and the
+#                on the home screen for 30 s and leaves; 2 s later it idles again, 60 s later "Session over" and the
 #                process ends with exit code 0 (result.txt: "EXIT 0"). session_sum.py --gpu: the GPU's utilisation in
 #                the idle part against the part with the viewer on the menu
 #   s3c-reload   the first viewer leaves, a second joins a few seconds later (a page that is reloaded): the game must
-#                still be there ("Viewer joined" twice, one "Session over", at the very end, 20 s after the second
+#                still be there ("Viewer joined" twice, one "Session over", at the very end, 60 s after the second
 #                viewer left)
 #   s3c-nobody   nobody ever comes and -MIExitIfNoViewer=30: "Session over: ... never connected" about 30 s after the
 #                start, exit code 0
 #   s3c-keep     the same without a viewer for 60 s and with -MIKeepAlive: the game runs on, never idles, and is
 #                stopped by the script at its limit (result.txt: "ALIVE at limit")
-s3c-idle game=ship keepalive=0 join=45 view=session-menu.txt secs=150 qp=34:34
-s3c-reload game=ship keepalive=0 join=25 view=session-menu.txt view2=session-menu.txt secs=150 qp=34:34
+s3c-idle game=ship keepalive=0 join=45 view=session-menu.txt secs=200 qp=34:34
+s3c-reload game=ship keepalive=0 join=25 view=session-menu.txt view2=session-menu.txt secs=210 qp=34:34
 s3c-nobody game=ship keepalive=0 viewer=0 secs=70 qp=34:34 -- -MIExitIfNoViewer=30
 s3c-keep game=ship keepalive=1 viewer=0 secs=60 qp=34:34

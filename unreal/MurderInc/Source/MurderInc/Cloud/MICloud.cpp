@@ -1978,7 +1978,7 @@ void UMICloudSubsystem::ApplyQualityStepForTest(int32 Step)
 
 bool UMICloudSubsystem::QualityHoldsFrameRate() const
 {
-	return bQualityStarted && QualitySteps.Num() > 0 && MICloudPrivate::GFpsHoldMax > 0.f && Ladder.CanStepDown();
+	return bQualityStarted && QualitySteps.Num() > 0 && MICloudPrivate::GQualityLadder != 0 && MICloudPrivate::GQualityStep < 0 && MICloudPrivate::GFpsHoldMax > 0.f && Ladder.CanStepDown();
 }
 
 void UMICloudSubsystem::TickQuality(const FMIFrameRateGovernor::FInput& In)

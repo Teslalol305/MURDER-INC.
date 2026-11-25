@@ -84,7 +84,7 @@
 #                     streamed game without -MIKeepAlive does 600 s after its start when nobody came (MI.Cloud.
 #                     ExitIfNoViewer; -- -MIExitIfNoViewer=40 shortens it). The idle game's and the unwatched game's runs.
 #   keepalive=0       the game is NOT given -MIKeepAlive (default 1). Since release 3c a streamed game idles when no
-#                     viewer watches and quits 20 s after the last viewer left (MI.Cloud.IdleFps, ExitAfterEmpty,
+#                     viewer watches and quits 60 s after the last viewer left (MI.Cloud.IdleFps, ExitAfterEmpty,
 #                     ExitIfNoViewer: docs/LAUNCH.md section 9): every run of this tool holds a game with no viewer on
 #                     purpose (the Development game plays its script before the viewer joins, a run goes on after its
 #                     viewer left, the calibration has no viewer at all), so each is started with -MIKeepAlive and

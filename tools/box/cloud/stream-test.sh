@@ -17,7 +17,7 @@
 #
 # Needs setup-ps.sh (Node, the infrastructure, Chromium) and package-cloud.sh (the builds). Run as root.
 #
-# Release 3c: every game started here gets -MIKeepAlive. A streamed game now idles when no viewer watches and quits 20 s
+# Release 3c: every game started here gets -MIKeepAlive. A streamed game now idles when no viewer watches and quits 60 s
 # after the last viewer left (docs/LAUNCH.md section 9); these runs hold a game with no viewer on purpose (the memory
 # runs play a script for minutes with no stream at all, the browser test waits for a viewer that this box cannot
 # supply), and measure the game as before.
