@@ -11,7 +11,10 @@ commit before the data (checked by comparing the parsed JSON), the STICK's rules
 ## 1. The assets the import must create
 
 The data names these asset paths; `gun_contract.json` lists every one. If the importer puts a mesh elsewhere, change the data (one
-line each) and run the checker: do not change the checker to match. An asset path is `<folder>/<name>.<name>`.
+line each) and run the checker: do not change the checker to match. The release's `tools/box/cloud/pak_weapons.py` refuses a package when any
+`/Game/Weapons` object path that the data names (the contract's too) is not in the pak; the checker runs the same test on the names (all 32 paths of
+our own are in `gun_contract.json`, and the only other three the data names are the template rifle, the template pistol and the Goons' SMG, which
+earlier packages carried). `tools/box/fp/mi_guns_r4.py` already puts every one where the data says. An asset path is `<folder>/<name>.<name>`.
 
 | What | Folder | Names |
 |---|---|---|

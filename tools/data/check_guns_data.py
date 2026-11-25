@@ -21,6 +21,7 @@ import itertools
 import json
 import math
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -826,6 +827,21 @@ def check_pack_free():
             err("presentation: guns.chopper.real.%s is the pack rifle's finish / finger measures and does not fit SK_Chopper" % k)
 
 
+def check_weapon_paths():
+    """tools/box/cloud/pak_weapons.py stops a package when the data names an object path under /Game/Weapons that is not in the pak. Every
+    such path must be an asset the weapons import makes (gun_contract.json) or one of the older, already packaged ones."""
+    older = {"/Game/Weapons/Rifle/Meshes/SKM_Rifle.SKM_Rifle", "/Game/Weapons/Pistol/Meshes/SKM_Pistol.SKM_Pistol", "/Game/Weapons/GoonSMG/SM_Weapon_GoonSMG.SM_Weapon_GoonSMG"}
+    known = set(older)
+    for g in (CONTRACT or {}).get("guns", {}).values():
+        known.update(x for x in (g["asset"], g["magazine"], g.get("magazineTopRound"), g.get("brass")) if x)
+    for p in (CONTRACT or {}).get("parts", {}).values():
+        known.update(x for x in (p["asset"], p.get("topRound")) if x)
+    for name in ("guns.json", "attachments.json", "presentation.json", "gun_contract.json"):
+        for path in set(re_paths(load(name))):
+            if path.startswith("/Game/Weapons/") and re.match(r"^/Game/[A-Za-z0-9_/]+\.[A-Za-z0-9_]+$", path) and path not in known:  # pak_weapons.py's own pattern: an object path, not a folder
+                err("pak: %s names %s, which the weapons import does not make and no older package carried" % (name, path))
+
+
 def check_freshness():
     import subprocess
     r = subprocess.run([sys.executable, os.path.join(HERE, "make_gun_contract.py"), "--check"], capture_output=True, text=True)
@@ -862,6 +878,7 @@ def main():
     say("== art contract")
     safe(check_art)
     safe(check_pack_free)
+    safe(check_weapon_paths)
     if "--art" in sys.argv:
         safe(check_freshness)
     for w in WARNINGS:
