@@ -18,7 +18,8 @@
 #   game=dev|ship     the Development game (launch option -MIDev: its own script starts a Story run with god mode;
 #                     csv profile; the engine's log with Pixel Streaming's capture lines) or the Shipping game (the
 #                     viewer clicks through the set-up screens). Default dev.
-#   build=<folder>    the folder with MurderInc.sh. Default /tmp/pf/app, else /project/ue/cloud/build-Shipping/Linux.
+#   build=<folder>    the folder with MurderInc.sh: the unpacked zip (both games are in it). Default
+#                     /project/ue/cloud/build-Shipping/Linux, or $LAG_BUILD.
 #   load=<n>[:<work ms>[:<idle ms>[:<size>]]]   n second processes that keep the GPU busy (gpu_hog.py), each
 #                     working in bursts of <work ms> (4) with <idle ms> (0) between them on matrices of <size>
 #                     (2048). This is a load the game's own dynamic resolution cannot undo: a GPU that is slower
@@ -26,7 +27,8 @@
 #   sp=<percent>      r.ScreenPercentage through the Development game's script: the simple load. It is not what a slow
 #                     GPU does (400 % is sixteen times the pixels), and dynamic resolution replaces it. Default none.
 #   res=<W>x<H>       the output size. Default 1920x1080.
-#   view=<file>       the viewer's script (rtcinput.py). Default lag-turn.txt (dev) or lag-story.txt (ship).
+#   view=<file>       the viewer's script (rtcinput.py), a path or the name of one beside this file. Default
+#                     lag-turn.txt (dev) or lag-story.txt (ship); lag-commands.txt and lag-leave.txt are the others.
 #   cvars=<a=b,c=d>   passed as the launch option -MICVars= (the game's own tuning switch).
 #   csv=1             a CSV profile of the Development game from the start of the run.
 #   secs=<n>          how long the game runs. Default 110 (dev) or 125 (ship).
@@ -87,8 +89,9 @@ run_fg() {
       *) echo "unknown key $1"; return 2 ;;
     esac; shift
   done
-  [ -n "$build" ] || { build=/tmp/pf/app; [ -x "$build/MurderInc.sh" ] || build=$C/build-Shipping/Linux; }
-  [ -n "$view" ] || { view=$T/lag-turn.txt; [ "$game" = ship ] && view=$T/lag-story.txt; }
+  [ -n "$build" ] || build=${LAG_BUILD:-$C/build-Shipping/Linux}
+  [ -n "$view" ] || { view=lag-turn.txt; [ "$game" = ship ] && view=lag-story.txt; }
+  [ -f "$view" ] || view=$T/$view   # a bare name is one of the scripts beside this file
   [ -n "$secs" ] || { secs=110; [ "$game" = ship ] && secs=125; }
   local id=lag$(echo "$name" | tr -cd 'a-zA-Z0-9')
   rm -rf "$O"; mkdir -p "$O"; chmod 777 "$O"
@@ -150,8 +153,7 @@ run_fg() {
 
 calib_fg() {  # <name> <load> ...: one Development game standing in a Story run at full quality; each load for 20 s
   local name=$1; shift
-  local O=$OUT/$name id=lag$(echo "$name" | tr -cd 'a-zA-Z0-9') build=/tmp/pf/app i l
-  [ -x "$build/MurderInc.sh" ] || build=$C/build-Shipping/Linux
+  local O=$OUT/$name id=lag$(echo "$name" | tr -cd 'a-zA-Z0-9') build=${LAG_BUILD:-$C/build-Shipping/Linux} i l
   rm -rf "$O"; mkdir -p "$O"; chmod 777 "$O"
   for i in $(seq 1 120); do [ "$(games "$id")" = 0 ] && break; sleep 5; done
   printf 'wait 4\ncon MIStart mission skip\nwaitstate playing 40\ngod 1\nwait 900\n' > "$O/play.txt"

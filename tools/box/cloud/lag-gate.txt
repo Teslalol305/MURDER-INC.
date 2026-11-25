@@ -1,0 +1,24 @@
+# The release gate of version 3, release A (docs/unreal/PREFLIGHT.md section 2; docs/unreal/PROGRESS.md "Version 3,
+# release A"), as a queue for lag-test.sh on the packaged build:
+#
+#   bash lag-test.sh queue /project/ue/cloud/src/tools/box/cloud/lag-gate.txt      (about 20 minutes; no compile meanwhile)
+#   bash lag-test.sh list                                                          (the summary lines)
+#
+# It passes when every line says CLEAN and:
+#   gate-free    the Shipping game on a free GPU: fps 60 (min 57 or more), target 60, worst frame under 100 ms
+#   gate-l12, gate-l20, gate-l35   the Shipping game with the GPU loaded by a second process (about 12, 20 and 34 ms
+#                of GPU time a frame at full quality on the box's card): worst frame under 100 ms, owed 2 or less,
+#                pacer time-outs 0
+#   gate-l35dev  the Development game of the same package under the heaviest load: the same, and "fence time-outs 0,
+#                skipped captures 0" (only the Development game has the engine's log)
+#   gate-cmds    a viewer's console commands in the Shipping game: after "t.MaxFPS 30" the probe lines say fps=30 and
+#                target=30; "quit" and "r.ScreenPercentage 400" are refused (cmdRun=2 cmdRefused=2); look at the saved
+#                frame pause.jpg: the line of numbers at the bottom of the pause card
+# The loads are calibrated for box ec087d85 (RTX PRO 6000 Blackwell, driver 620.70): check them first on another card
+# with "lag-test.sh calib cal 0 1:0.05:0.05:1024 1:0.05:0:1024 1:0.3:0".
+gate-free game=ship load=0
+gate-l12 game=ship load=1:0.05:0.05:1024
+gate-l20 game=ship load=1:0.05:0:1024
+gate-l35 game=ship load=1:0.3:0
+gate-l35dev game=dev load=1:0.3:0
+gate-cmds game=ship view=lag-commands.txt load=0
