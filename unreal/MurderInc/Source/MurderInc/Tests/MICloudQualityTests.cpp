@@ -576,6 +576,14 @@ bool FMICloudQualityGuardsTest::RunTest(const FString& Parameters)
 		E.Setup(Five());
 		E.Run(300.0, 100.0, F30);
 		TestFalse(TEXT("on the last step: nothing left to give"), E.L.CanStepDown());
+		// The warm-up is time, not evidence: it runs down while the step is pinned by hand (the way-back gate pins step 3 and frees it).
+		FSim W;
+		W.Setup(Five());
+		W.L.Hold(15.0);
+		W.L.Pin(3);
+		W.Run(15.0, 40.0, F30);
+		W.L.Pin(-1);
+		TestTrue(TEXT("a pin for the whole warm-up: it is over when the pin is freed"), W.L.HoldLeft() <= 0.0 && W.L.CanStepDown());
 	}
 	{
 		// A step that changed nothing (the player's own setting is as low): the next one does not wait for evidence or for the gap.

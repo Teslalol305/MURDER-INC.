@@ -28,5 +28,5 @@ c-fight-l12 game=dev demo=ladder-fight.txt view=sound-watch.txt join=3 probe=0.5
 c-fight-l12-off game=dev demo=ladder-fight.txt view=sound-watch.txt join=3 probe=0.5 secs=140 load=1:0.05:0.05:1024 profile=1 -- -sm5 -MINoLadder
 c-fight-l20 game=dev demo=ladder-fight.txt view=sound-watch.txt join=3 probe=0.5 secs=140 load=1:0.05:0:1024 profile=1 -- -sm5 -MILadder
 c-fight-l20-off game=dev demo=ladder-fight.txt view=sound-watch.txt join=3 probe=0.5 secs=140 load=1:0.05:0:1024 profile=1 -- -sm5 -MINoLadder
-# The way back (ladder-rise.txt: step 3 pinned by hand and freed, 70 s of play, the first pause takes one step back, the second changes nothing):
-c-rise game=dev view=ladder-rise.txt load=0 secs=150 profile=1 -- -sm5 -MILadder
+# The way back (ladder-rise.txt: step 3 pinned by hand and freed, 90 s of play, the first pause takes one step back, the second changes nothing):
+c-rise game=dev view=ladder-rise.txt load=0 secs=175 profile=1 -- -sm5 -MILadder

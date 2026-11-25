@@ -348,6 +348,12 @@ FMIQualityLadder::EChange FMIQualityLadder::Update(const FInput& In)
 	SinceChange += Step;
 	SinceUp += Step;
 	UpWaitNow = FMath::Min(UpAfter * UpMult, FMath::Max(MaxUpAfter, UpAfter));   // follows UpAfter when that is changed
+	// The warm-up runs down whatever else the ladder is doing (a pin by hand, off): it is time, not evidence.
+	const bool bWarm = WarmLeft > 0.0;
+	if (bWarm)
+	{
+		WarmLeft = FMath::Max(0.0, WarmLeft - Step);
+	}
 	if (!bEnabled || bPinned || Rungs.Num() == 0)
 	{
 		OverFor = UnderFor = 0.0;
@@ -357,9 +363,8 @@ FMIQualityLadder::EChange FMIQualityLadder::Update(const FInput& In)
 	const double Frame = FMath::Max(1.0, In.FrameMs);
 	const bool bKnown = In.GpuMs > 0.0;
 
-	if (WarmLeft > 0.0)
+	if (bWarm)
 	{
-		WarmLeft = FMath::Max(0.0, WarmLeft - Step);
 		OverFor = UnderFor = 0.0;
 		return EChange::None;
 	}

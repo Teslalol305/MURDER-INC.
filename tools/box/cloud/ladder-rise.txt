@@ -1,6 +1,6 @@
 # The viewer of the quality ladder's way back (release 3c; played by rtcinput.py, for the Development game that its own script has
 # put into a Story run with god mode): the ladder is put on step 3 by hand (MI.Cloud.QualityStep 3, which the page's console
-# commands may set) and freed again; on a card with room to spare the game then plays for 70 s, and the first card (the pause
+# commands may set) and freed again; on a card with room to spare the game then plays for 90 s (the 15 s warm-up after live play begins, then the minute), and the first card (the pause
 # key, P) takes ONE step back, not more: the next needs another minute of play. The game's log must say
 # "Quality: step 3 -> 2" at the first pause and nothing before it; the second pause, a few seconds later, changes nothing.
 wait 3
@@ -12,7 +12,7 @@ wait 4
 frame step3.jpg
 cmd MI.Cloud.QualityStep -1
 say PHASE calm
-wait 70
+wait 90
 say PHASE card-1
 key 80
 wait 6
