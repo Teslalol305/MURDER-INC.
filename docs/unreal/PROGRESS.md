@@ -3,6 +3,32 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Weapons round 4: the box engineer (integration, 2026-11-25, 13:30 UTC onward): code, tests, imports, what the pictures show
+
+**Built (all of it in `unreal/MurderInc`, tests in `MIWeaponsR4Tests.cpp` and the edited suites):** the data's `rideBone`, `topRound` and the
+trade check (`MILoadoutData`, `MILoadoutResolver`); the gun assembly that works on the exported skeletons (a part snapped to a bone socket
+turns by the inverse of the bone's reference rotation: every bone of an exported skeleton carries the importer's quarter turn, BOX.md 8; parts
+hide the gun's bones, ride the magazine bone, the factory magazine and its top round stand on the stage gun); the first-person rig for hand-IK
+guns (the arms' shoulder anchor also for guns with no solved grip, brass for hand-IK guns, the support hand following a fitted foregrip, the
+seated magazine and its top round, the optic's housing fading out as the sight comes up: ANIMATION.md 11). Tools: `fp-art.sh packr4`,
+`mi_guns_r4.py` (guns, rattler, parts; `import-chars.sh r4`), `bench-shots.sh`, `guns-shots.sh`, `gun_lineup.py`, `sheet.py`, `quiet-editor.sh`.
+
+**Measured on the box (clone `/project/ue/repo-guns`, port 8010):**
+
+| What | Result |
+|---|---|
+| Editor build of the clone with the round's C++ | compiled first time (11 files), 3 min 15 s with another job's build in front of it (UBT's lock is per engine, builds of all clones queue); a later one-line fix 60 s |
+| Full suite on it | **189 of 189** (60 to 72 s). Two failures on the first run, both mine to judge: `FirstPerson.OwnGunSets` held a long banana magazine inside the gun's bounds (the CHOPPER's hangs 8.1 cm and the RATTLER's 6.9 cm below the receiver, as modelled: the test now asks for the top, front, back and sides inside and the hang under 12 cm), and `Loadout.SocketContract` held the NINE's six old hand-set markers to 1.2 mm (its support marker is 6.29 mm off its socket; the data check `check_guns_data.py` leaves the NINE's markers out and the sockets replace them at run time: the test now reports them, it does not hold them) |
+| The three art tars, unpacked and imported (`guns rattler parts`) | 1 min 30 s for all; the final archive (`fp-guns-r4.tar`, sha256 `6a521cf3…`) went up in 32 s and is unpacked in `/project/ue/fp-in-guns` |
+| A picture session needs the editor, and the box is shared | see BOX.md 8: waited 52 min for the first quiet minutes; two starts of an editor ran 20 to 30 s beside a gate run that began just after (stopped at once) |
+
+**Read from the release engineer's trial run of the packaged game (commit `fd8ce12`, the frames of `t-guns` and `t-guns-b`; looked at with the Read tool, not
+yet reproduced in the editor):** the guns read apart on the rack and in the hands (CHOPPER with its red-brown furniture, SHORTY olive bullpup, STRETCH long
+marksman rifle with a scope, RATTLER compact SMG, the STICK unchanged and well held); a part fitted at the Workbench is on the gun (red dot on the CHOPPER and SHORTY,
+4x scope on the STRETCH, the suppressor on the NINE). Faults seen in first person on the four hand-IK rifles, none on the NINE or the STICK: the support arm is a cut upper
+arm in front of the left of the picture ending in a ball (the closed fist seen end-on) that floats above the gun, and in a reload the arm fills a third of the screen;
+the optics' housings are a thick black ring in the aimed picture (the "dark tunnel" of WEAPONS_R4.md 5.5). Both are what the commits of this entry address.
+
 ## Weapons round 4: the art hand-off page and the archive (finisher, 2026-11-25, 15:40 to 16:00 UTC)
 
 `docs/unreal/WEAPONS_R4.md` is the one page for the box engineer (every asset with triangles, sets, bones and sockets; the roster of six; the parts kit and its fit table;
