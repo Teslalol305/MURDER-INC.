@@ -82,7 +82,7 @@
           "socket": "Underbarrel",
           "at": [0.305, 0, -0.0623],
           "status": "exists",
-          "notes": "The lower handguard's underside. The CHOPPER's handguard has no rail: its grip part carries its own saddle clamp."
+          "notes": "The underside of the folded stock's shoulder plate (a thin curved band that hangs 20 mm under the handguard; the handguard's own bottom is higher, at Z -0.0416). The walnut grip part is a saddle that hugs that plate and carries the weight; the player's palm rests there already (Palm_L)."
         },
         "notes": "at: the socket in the mesh's own frame, metres (x forward along the bore, y left, z up, as the art manifest lists it); MurderInc.Loadout.SocketContract holds it to Content/Data/gun_contract.json. hide: the deform bones that vanish when a part of the slot is fitted. rideBone: the bone a fitted part follows after it is placed, so a magazine part drops and hides with the reload."
       },

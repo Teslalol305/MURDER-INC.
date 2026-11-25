@@ -60,6 +60,10 @@ Everything above was checked against the data's own rules, the art manifest and 
 - whether `HideBoneByName` hides on the first-person gun (a poseable component) and whether the part frame needs the bone's reference-pose
   rotation undone (the plan's G1, G2) are for the box engineer's probe; the data only names the bones;
 - the SHORTY's eye (relief 0.12) ends 14 mm ahead of its butt face: the near plane may slice the cheek rise; 0.14 is the fallback in its notes;
+- the sight pictures of the optics: the parts lane measured the clear half angle from the eye through the red dot and through the scope at 4.0
+  degrees (the scope's ocular alone would give 9), so at the aimed field the picture is a small clear disc in a dark tunnel unless the code fades
+  or hides the part's body while aimed (`art/blender/PROGRESS.md`, "Where the measured guns decided against the specification"). Nothing in the
+  data does that; `relief` is per part, not per gun, and a smaller one widens the disc;
 - the STRETCH and the RATTLER are exported with draft textures at the time of writing; the data holds for the final bake (same names).
 
 ## 5. Re-running and re-checking

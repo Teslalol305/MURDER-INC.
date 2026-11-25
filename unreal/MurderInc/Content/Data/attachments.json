@@ -410,7 +410,7 @@
         "socketOffsetsCm": {"SightEye": [-3.25, 0, 2.45]},
         "sockets": {"sightRear": "SightEye"},
         "relief": 0.14,
-        "lens": "a hollow tube sight: the eye looks through two windows, the front and rear glass are the flat translucent slot M_Part_Lens and the collimated dot is the additive plane M_Part_Reticle (the same recipe as the pack's reticle, with its axis along +X); no second render"
+        "lens": "a hollow tube sight: the eye looks through two windows, the front and rear glass are the flat translucent slot M_Part_Lens and the collimated dot is the additive plane M_Part_Reticle (the same recipe as the pack's reticle, with its axis along +X); no second render. Measured by the parts lane: the clear half angle from the eye through the tube is 4.0 degrees and the tube's dark inside shows beyond it, so fade or hide the body in the aimed view if the whole picture is wanted"
       },
       "art": {
         "status": "exists",
@@ -434,7 +434,7 @@
         "socketOffsetsCm": {"SightEye": [-6.7, 0, 2.75]},
         "sockets": {"sightRear": "SightEye"},
         "relief": 0.085,
-        "lens": "a hollow 30 mm tube (the ocular bore is clear so the view cone passes at 0.085 relief); glass M_Part_Lens, reticle M_Part_Reticle; the world view narrows to adsFov as the sight comes up (no second render)"
+        "lens": "a hollow 30 mm tube with a clear ocular bore; glass M_Part_Lens, reticle M_Part_Reticle; the world view narrows to adsFov as the sight comes up (no second render). Measured by the parts lane: at relief 0.085 the clear half angle through the whole tube is 4.0 degrees (the ocular alone would allow 9), so the aimed picture is a clear disc in a dark tunnel at 30 degrees unless the body is faded or hidden while aimed"
       },
       "art": {
         "status": "exists",
@@ -684,7 +684,7 @@
         "default": null,
         "required": false,
         "mount": "Underbarrel",
-        "note": "a saddle clamp round the wooden handguard; no rail grip fits here"
+        "note": "a saddle clamp round the underside of the folded stock's shoulder plate; the handguard has no rail, so no rail grip fits here"
       }
     },
     "nine": {
