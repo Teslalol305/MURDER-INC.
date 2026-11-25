@@ -1,0 +1,68 @@
+# The stream proof of a package with mouse and keyboard (played by rtcinput.py):
+#   lag-test.sh run <name> game=ship view=proof-keys.txt probe=0.25 secs=100
+# A first-time player: the CLICK TO PLAY card, Home's "Hit the block" by mouse, the set-up screens by keyboard (Tab
+# puts the focus on Next, Enter presses it) and by mouse, the briefing's "Hit the block", then in the Story run: W
+# walks, the mouse turns (1,800 browser pixels: 216.6 degrees at the built-in mouse scale and Sensitivity 1.00), two
+# clicks fire two rounds, P opens the pause card, a click on its Resume row closes it (and must fire nothing), a turn
+# back. What must show in the game's probe lines (python3 lag_story.py <run> state click moveY mag fire yaw):
+#   click=1 then 0 after the first click; state 0, 1 (the two seconds before the run), 2 (the run);
+#   moveY=1.00 while W is down and 0.00 after; yaw moving by about 216.6 degrees and back; mag 30, 29, 28 and still
+#   28 after the click on Resume; fire=0 at the end.
+# Frames saved for the eye: card.jpg, home.jpg, briefing.jpg, run.jpg, turned.jpg, fired.jpg, pause.jpg (the line of
+# numbers at the bottom of the card), resumed.jpg.
+wait 3
+frame card.jpg
+say CHECK card
+click
+wait 2.5
+frame home.jpg
+say CHECK home
+click 0.106 0.448
+wait 2.5
+say CHECK crew-by-keyboard
+key 9
+wait 0.4
+key 13
+wait 2
+say CHECK loadout-by-mouse
+click 0.3625 0.911
+wait 2
+say CHECK block-by-keyboard
+key 9
+wait 0.4
+key 13
+wait 2.5
+frame briefing.jpg
+say CHECK briefing
+click 0.336 0.911
+wait 12
+say CHECK run
+frame run.jpg
+say CHECK walk
+keydown 87
+wait 1.5
+keyup 87
+wait 0.6
+say CHECK turn
+mouse 12 0 150 16
+wait 0.6
+frame turned.jpg
+say CHECK fire
+click
+wait 0.7
+click
+wait 1.0
+frame fired.jpg
+say CHECK pause
+key 80
+wait 2
+frame pause.jpg
+say CHECK resume-by-click
+click 0.5 0.519
+wait 2
+frame resumed.jpg
+say CHECK turn-back
+mouse -12 0 150 16
+wait 1
+say CHECK end
+wait 1

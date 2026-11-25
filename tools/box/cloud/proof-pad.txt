@@ -1,0 +1,54 @@
+# The stream proof of a package with a controller only (played by rtcinput.py), no mouse and no key at any point:
+#   lag-test.sh run <name> game=ship view=proof-pad.txt probe=0.25 secs=100
+# A first-time player with a pad: the first press of the session (A, marked as a repeat, as a browser's page sends
+# it) hides the CLICK TO PLAY card; Start five times goes Home, Crew, Loadout, Block and style, Briefing and into the
+# Story run; the left stick walks, the right stick turns (one second at the rim: about 264 degrees), the right
+# trigger fires, Start pauses and Start resumes. What must show in the game's probe lines (python3 lag_story.py
+# <run> state click pad moveY mag fire yaw):
+#   click=1 then 0 after the first press; pad=1; state 0, 1, 2; moveY=1.00 while the stick is up; yaw moving by
+#   about 264 degrees; mag going down while the trigger is pulled and fire=0 after it.
+# Frames saved for the eye: pad-card.jpg, pad-home.jpg (the home screen names the controller's buttons),
+# pad-run.jpg (the weapon bar names them too), pad-turned.jpg, pad-pause.jpg, pad-resumed.jpg.
+pad connect
+wait 0.5
+frame pad-card.jpg
+say CHECK first-press
+pad button 0 120 first
+wait 1.5
+frame pad-home.jpg
+say CHECK start-buttons
+pad button 9 150
+wait 1.2
+pad button 9 150
+wait 1.2
+pad button 9 150
+wait 1.2
+pad button 9 150
+wait 1.5
+pad button 9 150
+wait 9
+say CHECK run
+frame pad-run.jpg
+say CHECK walk
+pad axis 2 1.0 1.2
+pad axis 2 0 0.2
+wait 0.5
+say CHECK turn
+pad axis 3 1.0 1.0
+pad axis 3 0 0.2
+wait 0.6
+frame pad-turned.jpg
+say CHECK fire
+pad axis 6 1.0 0.4
+pad axis 6 0 0.2
+wait 0.8
+say CHECK pause
+pad button 9 150
+wait 1.5
+frame pad-pause.jpg
+say CHECK resume
+pad button 9 150
+wait 1.5
+frame pad-resumed.jpg
+say CHECK end
+wait 1
