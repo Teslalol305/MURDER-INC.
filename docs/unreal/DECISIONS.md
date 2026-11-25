@@ -334,3 +334,28 @@ independent release check").** What it decided, for the owner to overrule:
 4. **The stream's sender stays the open question for E3DS**: on the box it sends 56 of 60 frames a second with
    single seconds at 44 to 50, and under an outside load the encoder itself slows down. Only the owner's pause-card
    line can say what E3DS's encoder does.
+
+**E3DS's control panel, worked from the box (2026-11-25, 02:25 UTC; state at 09:35 UTC).** The owner asked for a
+browser to sign in to, so that E3DS's settings are changed for them instead of by them. This cloud session cannot open
+a browser on the owner's computer (the computer is seen, but it offers none of its Remote Control folders to cloud
+sessions), and creating a desktop in another service was refused by the session's safety setting. The rented box
+already has a desktop the owner can open in a browser tab ("Open desktop" on the rental), so that is used:
+`tools/box/cloud/owner-browser.sh plain` starts Firefox there on E3DS's sign-in page as a plain browser (a sign-in with
+Google refuses a browser under remote control), and `owner-browser.sh control` restarts it under remote control with
+the same profile once the owner says they are signed in; `owner-browser.py` then reads the page's controls and works
+them (`inv`, `click`, `fill`, `file`, `eval`). The password is never asked for, read, typed or saved (saving passwords
+is off; password fields are left out and refused); the profile is under `/tmp` and is wiped when the work is done
+(`owner-browser.sh wipe`). What it is for, in this order:
+1. Upload the new build from the box's own disk (`/project/ue/cloud/e3ds-upload/MurderInc.zip`) with "Upload a new
+   version of MurderInc": the owner no longer downloads, joins and uploads 2.25 GB.
+2. E3DS's settings for the build (LAUNCH.md 9.1), among them **"Unreal console commands to run at start"** (Developer
+   tab; several commands separated by a semicolon): E3DS's own way to tune a running app without a new build.
+   Version 2 runs any command a page sends (it has no allowlist); from version 3a on the game admits the tuning
+   prefixes only (`t.MaxFPS` among them).
+3. One short test session from that browser with "Print UE log in browser console" on (the browser's log receives
+   the page's console): the game's probe lines name the graphics card E3DS gives a Linux session and its time per
+   frame. That is the fact every setting so far has been chosen without.
+State: the browser has been waiting on the sign-in page since 02:25 UTC; the owner has not opened the desktop yet
+(`deskctl idle`: no human input since the box started). Version 3a was finished at 06:36 UTC and checked at about
+09:20 UTC; the check found that no package so far has sound, and version 3b (3a plus sound,
+`tools/workflows/mi-v3b-sound-wf_314f60ad-a65.js`) was started at 09:33 UTC.
