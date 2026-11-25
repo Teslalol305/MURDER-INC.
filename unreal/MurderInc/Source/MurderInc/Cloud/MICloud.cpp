@@ -159,6 +159,22 @@ namespace MICloudPrivate
 	FAutoConsoleVariableRef CVarQpExact(TEXT("MI.Cloud.QpExact"), GQpExact,
 		TEXT("1: the encoder gets exactly the QPs the page and the launch options ask for, no range (launch option -MIQpExact)."));
 
+	// The quality ladder (Cloud/MIQuality.h): the steps themselves are data ([MICloud] QualitySteps= of DefaultGame.ini).
+	int32 GQualityLadder = 1;
+	FAutoConsoleVariableRef CVarQualityLadder(TEXT("MI.Cloud.QualityLadder"), GQualityLadder,
+		TEXT("1: while streamed the game gives up the steps of the quality ladder when the GPU is still the limit at the smallest picture, and takes them back after a long calm. 0: off, full quality (launch option -MINoLadder)."));
+	int32 GQualityStep = -1;
+	FAutoConsoleVariableRef CVarQualityStep(TEXT("MI.Cloud.QualityStep"), GQualityStep,
+		TEXT("Fixes the quality ladder's step: 0 is full quality, 1 the first step, and so on up to the last one in the table. Below 0 lets the game choose (launch option -MIQuality=<n>)."));
+	float GQualityDownLoad = 0.85f, GQualityUpLoad = 0.70f, GQualityDownAfter = 3.f, GQualityUpAfter = 60.f, GQualityMinGap = 10.f;
+	FAutoConsoleVariableRef CVarQualityDownLoad(TEXT("MI.Cloud.QualityDownLoad"), GQualityDownLoad,
+		TEXT("The ladder goes down a step when the GPU's time at the smallest picture is over this share of the frame time of the frame-rate target in force ..."));
+	FAutoConsoleVariableRef CVarQualityDownAfter(TEXT("MI.Cloud.QualityDownAfter"), GQualityDownAfter, TEXT("... for this many seconds of play."));
+	FAutoConsoleVariableRef CVarQualityUpLoad(TEXT("MI.Cloud.QualityUpLoad"), GQualityUpLoad,
+		TEXT("The ladder goes up a step (at a card or a set-up screen, at the highest frame-rate target) when the GPU's time without the last step would be under this share of the frame time ..."));
+	FAutoConsoleVariableRef CVarQualityUpAfter(TEXT("MI.Cloud.QualityUpAfter"), GQualityUpAfter, TEXT("... for this many seconds of play. A rise that does not hold doubles it."));
+	FAutoConsoleVariableRef CVarQualityMinGap(TEXT("MI.Cloud.QualityMinGap"), GQualityMinGap, TEXT("The ladder changes at most once in this many seconds."));
+
 	/**
 	 * One count for every viewer event (a join, all gone) as the stream reports it. Pixel Streaming posts the report as a
 	 * task for the game thread, which is where the idle game sleeps: SleepIdle runs the waiting tasks every 10 ms, so the
@@ -751,6 +767,16 @@ FMIEncoderRange::FSettings UMICloudSubsystem::ReadEncoderSettings()
 	return S;
 }
 
+TArray<FMIQualityStep> UMICloudSubsystem::ReadQualityTable(TArray<FString>* OutErrors)
+{
+	TArray<FString> Lines;
+	if (GConfig)
+	{
+		GConfig->GetArray(TEXT("MICloud"), TEXT("QualitySteps"), Lines, GGameIni);
+	}
+	return FMIQualityTable::Parse(Lines, OutErrors);
+}
+
 bool UMICloudSubsystem::IsViewerCommandAllowed(const FString& Command, FString* OutCommand)
 {
 	const FString C = Command.TrimStartAndEnd();
@@ -944,6 +970,7 @@ void UMICloudSubsystem::BecomeStreamed(const TCHAR* Why)
 		ApplyCloudProfile();
 		ApplyTuningOption(FCommandLine::Get());
 		StartPacing();
+		StartQuality();
 		StartSession();
 	}
 }
@@ -1628,6 +1655,7 @@ bool UMICloudSubsystem::Tick(float DeltaTime)
 		EnsureMouse();
 		GuardViewerInput();
 		TickPacing();
+		WatchQualityFrame(DeltaTime);
 	}
 	if (ProbePeriod > 0.f)
 	{
@@ -1793,10 +1821,155 @@ void UMICloudSubsystem::TickPacing()
 	{
 		ApplyFrameRateTarget();  // the stream and dynamic resolution follow a cap that is changed by hand
 	}
+	TickQuality(In);
 	if (Now >= NumbersNext)
 	{
 		NumbersNext = Now + 1.0;
 		MakeNumbersLine();
+	}
+}
+
+void UMICloudSubsystem::StartQuality()
+{
+	if (bQualityStarted)
+	{
+		return;
+	}
+	bQualityStarted = true;
+	const TCHAR* Cmd = FCommandLine::Get();
+	MICloudPrivate::ApplyLaunchOption(Cmd, TEXT("MIQuality="), TEXT("MI.Cloud.QualityStep"));
+	if (FParse::Param(Cmd, TEXT("MINoLadder")))
+	{
+		MICloudPrivate::GQualityLadder = 0;
+	}
+	TArray<FString> Errors;
+	QualitySteps = ReadQualityTable(&Errors);
+	for (const FString& E : Errors)
+	{
+		MICloudPrivate::Line(FString::Printf(TEXT("Quality ladder: a line of [MICloud] QualitySteps cannot be used: %s"), *E));
+	}
+	for (const FString& Name : FMIQualityTable::Names(QualitySteps))
+	{
+		if (const IConsoleVariable* Var = IConsoleManager::Get().FindConsoleVariable(*Name))
+		{
+			QualityBaseline.Add(Name, Var->GetString());
+		}
+		else
+		{
+			MICloudPrivate::Line(FString::Printf(TEXT("Quality ladder: no console variable %s (a step that sets it leaves it out)"), *Name));
+		}
+	}
+	Ladder.Configure(QualitySteps);
+	FString List;
+	for (int32 I = 0; I < QualitySteps.Num(); ++I)
+	{
+		List += FString::Printf(TEXT("%s%d %s (saves about %.0f %%%s)"), I > 0 ? TEXT(", ") : TEXT(""), I + 1, *QualitySteps[I].Name, QualitySteps[I].Saves * 100.0,
+			QualitySteps[I].bCalm ? TEXT(", only at a calm moment") : TEXT(""));
+	}
+	MICloudPrivate::Line(QualitySteps.Num() == 0 ? FString(TEXT("Quality ladder: no steps in [MICloud] QualitySteps: full quality at every load"))
+		: FString::Printf(TEXT("Quality ladder: %d step(s): %s; %s (MI.Cloud.QualityLadder, MI.Cloud.QualityStep; launch options -MINoLadder, -MIQuality=<n>)"), QualitySteps.Num(), *List,
+			MICloudPrivate::GQualityLadder == 0 ? TEXT("OFF") : MICloudPrivate::GQualityStep >= 0 ? *FString::Printf(TEXT("fixed at step %d"), MICloudPrivate::GQualityStep)
+				: *FString::Printf(TEXT("down after %.0f s over %.0f %% of the frame at the smallest picture, up after %.0f s of play with room to spare"),
+					MICloudPrivate::GQualityDownAfter, MICloudPrivate::GQualityDownLoad * 100.0, MICloudPrivate::GQualityUpAfter)));
+}
+
+void UMICloudSubsystem::TickQuality(const FMIFrameRateGovernor::FInput& In)
+{
+	if (!bQualityStarted || QualitySteps.Num() == 0)
+	{
+		return;
+	}
+	Ladder.DownLoad = FMath::Clamp((double)MICloudPrivate::GQualityDownLoad, 0.3, 3.0);
+	Ladder.UpLoad = FMath::Clamp((double)MICloudPrivate::GQualityUpLoad, 0.1, Ladder.DownLoad);
+	Ladder.DownAfter = FMath::Max(0.5, (double)MICloudPrivate::GQualityDownAfter);
+	Ladder.UpAfter = FMath::Max(1.0, (double)MICloudPrivate::GQualityUpAfter);
+	Ladder.MinGap = FMath::Max(0.0, (double)MICloudPrivate::GQualityMinGap);
+	const bool bOn = MICloudPrivate::GQualityLadder != 0;
+	if (Ladder.IsEnabled() != bOn)
+	{
+		Ladder.SetEnabled(bOn);
+		MICloudPrivate::Line(bOn ? FString(TEXT("Quality ladder: on again")) : FString(TEXT("Quality ladder: off (MI.Cloud.QualityLadder 0 or -MINoLadder): full quality")));
+	}
+	const int32 Pin = bOn ? MICloudPrivate::GQualityStep : -1;
+	if (Pin >= 0 && (!Ladder.IsPinned() || Ladder.Step() != FMath::Min(Pin, QualitySteps.Num())))
+	{
+		Ladder.Pin(Pin);
+		MICloudPrivate::Line(FString::Printf(TEXT("Quality ladder: fixed at step %d of %d (MI.Cloud.QualityStep or -MIQuality=)"), Ladder.Step(), QualitySteps.Num()));
+	}
+	else if (Pin < 0 && Ladder.IsPinned())
+	{
+		Ladder.Pin(-1);
+		MICloudPrivate::Line(FString::Printf(TEXT("Quality ladder: free again (step %d)"), Ladder.Step()));
+	}
+	FMIQualityLadder::FInput Q;
+	Q.Seconds = In.Seconds;
+	Q.GpuMs = In.GpuMs;
+	Q.GpuMsSmallest = In.GpuMsSmallest;
+	Q.FrameMs = Governor.FrameMs();
+	Q.bSmallestPicture = In.bSmallestPicture;
+	Q.bHeldBack = In.bHeldBack;
+	Q.bSafeMoment = In.bSafeMoment;
+	Q.bTargetAtTop = Governor.GetIndex() == 0;
+	const FMIQualityLadder::EChange Change = Ladder.Update(Q);
+	if (Change != FMIQualityLadder::EChange::None)
+	{
+		ApplyQualityStep(Ladder.Step(), Ladder.Why());
+	}
+	else if (Ladder.Step() != QualityApplied)
+	{
+		ApplyQualityStep(Ladder.Step(), !bOn ? FString(TEXT("the ladder is off")) : FString(TEXT("fixed by hand")));
+	}
+}
+
+void UMICloudSubsystem::ApplyQualityStep(int32 Step, const FString& Why)
+{
+	int32 Set = 0, Held = 0;
+	for (const FString& Name : FMIQualityTable::Names(QualitySteps))
+	{
+		FString Value;
+		if (!FMIQualityTable::ValueAt(QualitySteps, Step, Name, Value))
+		{
+			const FString* Base = QualityBaseline.Find(Name);
+			if (!Base)
+			{
+				continue;  // no such variable
+			}
+			Value = *Base;
+		}
+		if (!IConsoleManager::Get().FindConsoleVariable(*Name))
+		{
+			continue;
+		}
+		if (MICloudPrivate::SetAsProfile(*Name, Value))
+		{
+			++Set;
+		}
+		else
+		{
+			++Held;  // a launch option or a viewer's command holds it
+		}
+	}
+	QualityApplied = Step;
+	++QualityChanges;
+	QualityWatchUntil = FPlatformTime::Seconds() + 2.0;
+	QualityWorstAfter = 0.0;
+	QualityWatchedStep = Step;
+	const FString StepName = Step > 0 && Step <= QualitySteps.Num() ? QualitySteps[Step - 1].Name : FString(TEXT("full quality"));
+	MICloudPrivate::Line(FString::Printf(TEXT("Quality: %s; now step %d of %d (\"%s\"), %d variable(s) set%s"), *Why, Step, QualitySteps.Num(), *StepName, Set,
+		Held > 0 ? *FString::Printf(TEXT(", %d held by a stronger setting"), Held) : TEXT("")));
+}
+
+void UMICloudSubsystem::WatchQualityFrame(float DeltaTime)
+{
+	if (QualityWatchUntil <= 0.0)
+	{
+		return;
+	}
+	QualityWorstAfter = FMath::Max(QualityWorstAfter, (double)DeltaTime * 1000.0);
+	if (FPlatformTime::Seconds() >= QualityWatchUntil)
+	{
+		QualityWatchUntil = 0.0;
+		MICloudPrivate::Line(FString::Printf(TEXT("Quality: the longest frame in the two seconds after the change to step %d was %.1f ms"), QualityWatchedStep, QualityWorstAfter));
 	}
 }
 
@@ -1863,8 +2036,15 @@ void UMICloudSubsystem::MakeNumbersLine()
 		}
 	}
 	static IConsoleVariable* Decouple = IConsoleManager::Get().FindConsoleVariable(TEXT("PixelStreaming2.DecoupleFramerate"));
-	NumbersLine = FString::Printf(TEXT("%s  ·  %.0f frames a second (%starget %d%s)  ·  GPU %.1f ms  ·  %s  ·  %s%s  ·  build %s"),
-		*GRHIAdapterName, LastFps, LowFps >= 0.f ? *FString::Printf(TEXT("lowest %.0f, "), LowFps) : TEXT(""), Governor.Target(), PinnedBy != 0 ? TEXT(", fixed") : TEXT(""), LastGpuMs, *Picture, *Stream,
+	// The quality ladder's step: "quality step 2 of 6" (full quality is step 0), "fixed" when pinned, "ladder off" when it is off.
+	FString Quality;
+	if (QualitySteps.Num() > 0)
+	{
+		Quality = FString::Printf(TEXT("  ·  quality step %d of %d%s"), Ladder.Step(), QualitySteps.Num(),
+			!Ladder.IsEnabled() ? TEXT(", ladder off") : Ladder.IsPinned() ? TEXT(", fixed") : TEXT(""));
+	}
+	NumbersLine = FString::Printf(TEXT("%s  ·  %.0f frames a second (%starget %d%s)  ·  GPU %.1f ms%s  ·  %s  ·  %s%s  ·  build %s"),
+		*GRHIAdapterName, LastFps, LowFps >= 0.f ? *FString::Printf(TEXT("lowest %.0f, "), LowFps) : TEXT(""), Governor.Target(), PinnedBy != 0 ? TEXT(", fixed") : TEXT(""), LastGpuMs, *Quality, *Picture, *Stream,
 		Decouple && Decouple->GetBool() ? TEXT(", decoupled") : TEXT(""),
 		MICloudPrivate::GBuildCommit.IsEmpty() ? TEXT("?") : *MICloudPrivate::GBuildCommit);
 }
@@ -1950,6 +2130,8 @@ void UMICloudSubsystem::Probe(float DeltaTime)
 			QMax ? FMIEncoderRange::QpForQuality(QMax->GetInt()) : -1, QMin ? FMIEncoderRange::QpForQuality(QMin->GetInt()) : -1,
 			RoundTrip.GetAccepted(), RoundTrip.IsKnown() ? FMath::Min(RoundTrip.AgeSeconds(FPlatformTime::Seconds()), 9999.0) : -1.0, MICloudPrivate::Uptime());
 	}
+	// The quality ladder (release 3c): the step in force, how many steps the table has, how many changes so far.
+	Out += FString::Printf(TEXT(" q=%d qSteps=%d qChanges=%d"), Ladder.Step(), QualitySteps.Num(), QualityChanges);
 	MICloudPrivate::Line(Out);
 	ProbeFrames = ProbeTime = ProbeWorst = 0.0;
 	ProbeGameMs = ProbeRenderMs = ProbeRhiMs = 0.0;

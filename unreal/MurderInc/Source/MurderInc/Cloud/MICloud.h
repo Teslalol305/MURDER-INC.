@@ -6,6 +6,7 @@
 #include "GenericPlatform/GenericApplicationMessageHandler.h"
 #include "InputCoreTypes.h"
 #include "Cloud/MIPacing.h"
+#include "Cloud/MIQuality.h"
 #include "Cloud/MISession.h"
 #include "Cloud/MIStreamQuality.h"
 #include "Player/MILookInput.h"
@@ -113,6 +114,14 @@ struct MURDERINC_API FMICloudSize
  *    MI.Cloud.GpuFramesInFlight frames;
  *  - the launch option -MICVars=name=value,name=value sets console variables of the same list after the cloud
  *    profile, with command-line priority, each one printed in the log: tuning on the host without a new build;
+ *  - the quality ladder (release 3c, Cloud/MIQuality.h, [MICloud] QualitySteps= of DefaultGame.ini): when the GPU's time is still
+ *    over MI.Cloud.QualityDownLoad (0.85) of the frame time at the smallest picture, for MI.Cloud.QualityDownAfter (3) seconds
+ *    in play, the game gives up the next step of the table (shadows, lighting, reflections and the like: the cheapest-looking
+ *    first), at most one change in MI.Cloud.QualityMinGap (10) seconds, and takes a step back only after
+ *    MI.Cloud.QualityUpAfter (60) seconds of play with room to spare, at a card or a set-up screen, and only at the highest
+ *    frame-rate target. The launch option -MIQuality=<n> (or MI.Cloud.QualityStep) fixes the step (0: full quality),
+ *    -MINoLadder (MI.Cloud.QualityLadder 0) turns it off; every change is a log line, the step is on the pause card and in the
+ *    probe line (q=);
  *  - the pause card carries one small line of the game's own numbers (GPU, frame rate and target, GPU time, the
  *    picture's drawn and sent size, the stream as its sender measures it, the build), and one "MICloudProbe" line is
  *    logged every 30 s (-MICloudProbe=<seconds> changes the period, 0 turns it off);
@@ -212,6 +221,8 @@ public:
 	static FMISession::FOptions ReadSessionOptions(bool bStreamed);
 	/** The encoder range settings as they are now (MI.Cloud.QpBelow, QpAbove, QpFloor, QpCeiling, QpExact). */
 	static FMIEncoderRange::FSettings ReadEncoderSettings();
+	/** The quality ladder's steps: the [MICloud] QualitySteps= lines of the game's ini, in order; OutErrors gets one text per line that cannot be used. */
+	static TArray<FMIQualityStep> ReadQualityTable(TArray<FString>* OutErrors = nullptr);
 
 	bool IsStreamed() const { return bStreamed; }
 	/** The game is idling: nobody is watching (see the class comment). */
@@ -241,6 +252,9 @@ public:
 
 	/** The frame-rate target now (60, 45 or 30). */
 	int32 GetFrameRateTarget() const { return Governor.Target(); }
+	/** The quality ladder's step now (0 is full quality) and how many steps there are. */
+	int32 GetQualityStep() const { return Ladder.Step(); }
+	int32 GetQualitySteps() const { return QualitySteps.Num(); }
 	/** The pause card's line of numbers (made once a second while streamed). */
 	const FString& GetNumbersLine() const { return NumbersLine; }
 
@@ -271,6 +285,15 @@ private:
 	/** A sender statistic of the stream by name (bPeak: its largest value of the last two seconds); Missing when none arrived in the last 5 s. */
 	double StreamStat(const TCHAR* Name, double Missing = -1.0, bool bPeak = false, double MaxAge = 5.0) const;
 	void MakeNumbersLine();
+
+	/** Once, when the game becomes streamed (after the cloud profile and -MICVars): the table, the baseline, the launch options. */
+	void StartQuality();
+	/** Twice a second from TickPacing: the ladder's decision for the GPU's time of the last half second, and its application. */
+	void TickQuality(const FMIFrameRateGovernor::FInput& In);
+	/** Once a frame: the longest frame in the two seconds after a step was applied (the ladder must not cause a hitch in play). */
+	void WatchQualityFrame(float DeltaTime);
+	/** Puts every variable of the table at the value it has at Step (the baseline where no step sets it). Logs the change and the longest frame it cost. */
+	void ApplyQualityStep(int32 Step, const FString& Why);
 
 	/** Once, when the game becomes streamed: the session's numbers, the launcher to watch, the encoder's range. */
 	void StartSession();
@@ -343,6 +366,18 @@ private:
 	FMIEncoderRange::FRange AppliedRange;
 	bool bRangeApplied = false;
 	FMIRoundTrip RoundTrip;
+
+	// The quality ladder (Cloud/MIQuality.h).
+	TArray<FMIQualityStep> QualitySteps;
+	FMIQualityLadder Ladder;
+	TMap<FString, FString> QualityBaseline;  // the table's variables as they were when the ladder started
+	bool bQualityStarted = false;
+	int32 QualityApplied = 0;                // the step the variables are at
+	int32 QualityPinnedBy = 0;               // 0 not pinned, 1 MI.Cloud.QualityStep / -MIQuality
+	int32 QualityChanges = 0;
+	double QualityWatchUntil = 0.0;          // the two seconds after a change: the longest frame is looked for
+	double QualityWorstAfter = 0.0;
+	int32 QualityWatchedStep = 0;
 
 	// Pacing (Cloud/MIPacing.h).
 	TSharedPtr<FMIGpuPacer, ESPMode::ThreadSafe> Pacer;
