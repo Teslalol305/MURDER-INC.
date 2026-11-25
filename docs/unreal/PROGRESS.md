@@ -22,19 +22,31 @@ seated magazine and its top round, the optic's housing fading out as the sight c
 | The three art tars, unpacked and imported (`guns rattler parts`) | 1 min 30 s for all; the final archive (`fp-guns-r4.tar`, sha256 `6a521cf3…`) went up in 32 s and is unpacked in `/project/ue/fp-in-guns` |
 | A picture session needs the editor, and the box is shared | see BOX.md 8: from 14:42 to 17:30 UTC (2 h 48 min) other agents' gate and profile runs, the release engineer's package, verify and test runs and the hands engineer's runs were on the box nearly all the time; the gaps that were long enough for work of mine (a build, the suite, an import) came about every 15 to 45 minutes and lasted 2 to 4 minutes; an editor for pictures was up for 25 s twice and for 70 s once beside a run that began just after it started (each stopped at once, by hand or by the watcher), and never long enough for a picture |
 
-**Pictures (18, `docs/unreal/shots/guns-r4-trial-*.jpg`, each under 300 kB): the release engineer's trial run of the packaged game, game commit `fd8ce12`, the data of
-that day (before the solved grips of the four new guns and their shoulder anchors).** They are frames of the game as a player's machine draws it (the stream
-viewer's `guns-keys.txt` script, `/project/ue/cloud/lag-v6trial/t-guns*`), not editor pictures, and they are "before" pictures for the hands. I looked at each of them
-(through contact sheets, then singly). What they show:
+**Pictures (19, `docs/unreal/shots/guns-r4-*.jpg`, each under 300 kB). None is an editor picture: the box was never quiet long enough for the editor (below), so they are frames of the
+packaged game as a player's machine draws it, from the stream viewer's `guns-keys.txt` script. I looked at every one (through contact sheets, then singly).**
+
+Set A, `guns-r4-trial-*` (9): the release engineer's trial run, game commit `fd8ce12`, the data of that day, before the solved grips of the four new guns
+(`/project/ue/cloud/lag-v6trial/t-guns*`).
 
 | Picture | What it shows |
 |---|---|
-| `rack-chopper` | the Loadout rack at 1920 x 1080: six cards, CHOPPER focused and on the stage (red-brown furniture, orange-red tipped muzzle device, black receiver) |
-| `bench-chopper-reddot`, `bench-shorty-reddot`, `bench-stretch-scope`, `bench-stick-scope`, `bench-nine-suppressor` | the Workbench with the first part of the optic or muzzle slot fitted, factory part marked "FITTED": the red dot is on the CHOPPER's and the SHORTY's rail, the 4x scope on the STRETCH, the suppressor on the NINE (a part is on the gun: the owner's "no attachments are able to be added" is answered in the game). The SHORTY is olive polymer, the STRETCH long and dark with a wood stock |
-| `fp-chopper-hip`, `fp-shorty-hip`, `fp-stretch-hip`, `fp-rattler-hip` | the four hand-IK guns in the hand: they read apart (CHOPPER with a red dot, SHORTY's wide olive bullpup body, STRETCH's long barrel and scope, RATTLER's short boxy SMG with the folded wire stock). **Fault, all four:** the support arm is a cut upper arm in front of the left of the picture ending in a ball (a closed fist seen end-on) that floats above the gun |
-| `fp-chopper-aim-reddot`, `fp-shorty-aim-reddot`, `fp-stretch-aim-scope`, `fp-rattler-aim`, `fp-stick-aim-scope`, `fp-nine-aim` | aimed. The STICK's (the pack's own optic, pack mode) and the NINE's irons read well. **Faults:** the same ball sits beside the sight on the four hand-IK guns, and their optics' housings are a thick black ring around a small clear disc (the "dark tunnel": WEAPONS_R4.md 5.5, now answered by the housing's fade, not yet seen) |
-| `fp-chopper-reload`, `fp-rattler-reload` | mid reload: the gun is turned up and the arm fills a third of the screen; the magazine is not seen |
+| `trial-rack-chopper` | the Loadout rack at 1920 x 1080: six cards, CHOPPER focused and on the stage (red-brown furniture, black receiver) |
+| `trial-bench-chopper-reddot`, `-shorty-reddot`, `-stretch-scope`, `-stick-scope`, `-nine-suppressor` | the Workbench with the first part of the optic or muzzle slot fitted, factory part marked "FITTED": the red dot is on the CHOPPER's and the SHORTY's rail, the 4x scope on the STRETCH, the suppressor on the NINE (a part is on the gun: the owner's "no attachments are able to be added" is answered in the game). The SHORTY is olive polymer, the STRETCH long and dark with a wood stock |
+| `trial-fp-chopper-hip`, `trial-fp-rattler-hip` | **before:** the support arm is a cut upper arm in front of the left of the picture ending in a ball (a closed fist seen end-on) that floats above the gun; the same on the SHORTY and the STRETCH |
+| `trial-fp-stretch-aim-scope` | the aimed STRETCH with the 4x scope: the ball beside the sight, and the scope's housing a thick black ring round a small clear disc (the "dark tunnel": WEAPONS_R4.md 5.5, answered by the housing's fade, not yet seen) |
 
+Set B, `guns-r4-grips-*` (10): the same packaged game (commit `fd8ce12`'s code, so none of this entry's C++) run with the branch's data of 17:21 UTC (the solved grips and shoulder anchors of the
+data engineer and the grips helper; run `pk1` in `/project/ue/logs/repo-guns/lag/pk1`, taken beside two other games on the card: 28 frames a second, so the run says nothing about speed).
+
+| Picture | What it shows |
+|---|---|
+| `grips-fp-chopper-hip`, `-chopper-aim-reddot` | **after:** no ball and no cut arm; the left hand is under the handguard, the right hand on the grip; aimed, the red dot's housing is still a thick ring (no fade in that build) |
+| `grips-fp-shorty-hip`, `-shorty-reload` | the bullpup in two hands, the left hand under the forend; in the reload the gun stands up and the left hand is at the magazine well |
+| `grips-fp-rattler-hip`, `-rattler-aim`, `-rattler-reload` | the SMG held in two hands, the left on the strap; aimed on the irons; reload as above |
+| `grips-fp-nine-hip` | the NINE, the regression check: unchanged |
+| `grips-rack-rattler`, `-rack-stretch` | the rack with the RATTLER and the STRETCH on the stage |
+
+So the hands engineer's data (grips and anchors) took the ball and the cut arm away on the four guns; what is still wrong in these frames is not for this entry to judge (HANDS_R4.md).
 
 ## Weapons round 4: the art hand-off page and the archive (finisher, 2026-11-25, 15:40 to 16:00 UTC)
 
