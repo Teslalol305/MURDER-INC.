@@ -559,3 +559,9 @@ ever committed.
    parser would drop the fraction). The rifle and SMG ones are 45 and 48 (a factor of 1.5).
 3. **The STRETCH's magazine looks like 10 rounds and its data says 30.** The data stays: nobody counts the rounds in the picture, and damage is
    not retuned for a drawing.
+
+## 2026-11-25 ~18:10 UTC: no credit floor
+
+The owner, asked about the balance (about 1,275 credits, under the 2,500 floor of RESUME 2 and 7): "use as many credits as needed i will
+replensih them". The floor is gone: the box (603980d9, the same spec, rented 17:50 after ec087d85 expired at its 24 hours) runs on, and
+agents may rent the same spec again when a rental ends. Unchanged: one box at a time, the same spec and price, nothing else rented.

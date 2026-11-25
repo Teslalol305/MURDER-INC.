@@ -16,7 +16,7 @@ The owner's standing instructions (verbatim):
   textures/ realistic next gen graphics"
 - "Make sure the guns and characters and all elements are being rebuilt to look realistic and very detailed textures
   and animations the entire game needs to feel next gen"
-- "spend all the higgsfield credits you need" (still: keep the balance above 2,500 so the box can run)
+- "spend all the higgsfield credits you need" (2026-11-25 ~18:10 UTC the owner lifted the floor: "use as many credits as needed i will replensih them"; there is no 2,500 floor any more, the box runs on; still one box at a time, same spec)
 - "include all the guns and animations in the sprite pack i downloaded as load out options where a user can pick 4
   guns to carry into the game from the home screen. the flow should be. Pick a charachter-pick load out and add weapon
   attachments then pick level and game style"
@@ -146,7 +146,7 @@ is the audio test that needs `node tools/ue-export/audio.mjs` run on the box); p
 
 Higgsfield generation spent so far: about 373 on vehicles and the generated Goon, 127 on the main character, 54 on
 audio. The rest of the spend is the GPU box at about 114 credits an hour. Balance was about 2,960 at the last check.
-Agents stop generating below 2,500.
+Agents stopped generating below 2,500 until 2026-11-25 ~18:10 UTC; the owner then lifted the floor ("use as many credits as needed i will replensih them"). The GPU box runs on whatever the balance; if the balance runs out the rental ends, so note it in PROGRESS.md and tell the lead.
 
 
 ## 8. Exact next steps (written 2026-11-23 evening, when Higgsfield credits ran out)
