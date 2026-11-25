@@ -18,7 +18,13 @@ game rebuilds the hand's rotation from three of those points and aims each finge
 (UMIFirstPersonRig, MIFirstPersonAnim.cpp FMIFPHandShape), whatever the bones' local axes.
 
 Run (one Blender process at a time):
-    venv/bin/python art/blender/assets/_rule_grips.py [nine chopper] [--pose hip|aim]
+    venv/bin/python art/blender/assets/_rule_grips.py [nine chopper shorty stretch rattler] [--pose hip,aim]
+        [--pictures [--samples 24]] [--check]
+
+The guns solved are MERGED into both files (a gun or pose not solved in this run keeps its entry). --pictures renders
+each solve as the game frames it (the recipe eye, the gun's view pose, 54 deg) with SK_RuleArms.glb posed like the
+solved skeleton: art/previews/grips_<gun>_<pose>.jpg. --check writes nothing: it compares the solve with what
+grips.json holds (max difference over every point, cm), the proof that a gun's grip is unchanged.
 """
 import json
 import os
@@ -99,7 +105,9 @@ def bpy_update():
     bpy.context.view_layer.update()
 
 
-def solve(guns=("nine",), poses=("hip",), log=print):
+def solve(guns=("nine",), poses=("hip",), log=print, after=None):
+    """Solve each gun at each pose; after(name, pose, arm, cam, M, entry), when given, runs on each solved scene
+    (pictures) before the gun is removed."""
     import bpy
     from mi import char
     from assets import characters as C
@@ -126,6 +134,10 @@ def solve(guns=("nine",), poses=("hip",), log=print):
                      "contacts": {k: rep.get(k) for k in ("fingers_r", "fingers_l", "push_r_m", "push_l_m", "wrist_bend_deg", "regrip")}}
             out["guns"].setdefault(name, {})[pose] = entry
             log("grip %s %s: wrist r %s l %s" % (name, pose, entry["r"]["hand_r"], entry["l"]["hand_l"]))
+            log("  hold %s %s: %s" % (name, pose, json.dumps({k: rep.get(k) for k in ("rig", "support_palm_gun", "fingers_r", "fingers_l",
+                                                                                         "push_r_m", "push_l_m", "wrist_bend_deg")})))
+            if after is not None:
+                after(name, pose, arm, cam, M, entry)
             for o in [o for o in bpy.data.objects if o.name.startswith("Gun_")]:
                 for c in list(o.children_recursive) + [o]:
                     bpy.data.objects.remove(c, do_unlink=True)
@@ -133,21 +145,106 @@ def solve(guns=("nine",), poses=("hip",), log=print):
     return out
 
 
+class Pictures:
+    """First-person pictures of the solves: SK_RuleArms.glb (the build's preview skin) posed like the solved
+    skeleton, the recipe camera at the gun's view pose (54 deg), asphalt under the design sun, 1280 x 720."""
+
+    def __init__(self, samples=24, out_dir=None, threads=1):
+        self.samples, self.threads = samples, threads
+        from mi import paths
+        self.out_dir = out_dir or paths.previews
+        self.arms = None
+
+    def _setup(self, solver_arm):
+        import bpy
+        from mi import paths, rig
+        from assets import rule
+        for o in solver_arm.children:                  # the mannequin's own body is the solver's, never drawn
+            o.hide_render = True
+        arms, meshes, _col = rig.import_glb(os.path.join(paths.glb, "SK_RuleArms.glb"), "Grip_Arms")
+        mats = rule.textured_materials()
+        for m in meshes:
+            for s in m.material_slots:
+                if s.material is not None and s.material.name.split(".")[0] in mats:
+                    s.material = mats[s.material.name.split(".")[0]]
+        me = bpy.data.meshes.new("GripGround")
+        me.from_pydata([(-60, -80, 0), (60, -80, 0), (60, 80, 0), (-60, 80, 0)], [], [(0, 1, 2, 3)])
+        g = bpy.data.materials.new("GripAsphalt")
+        b = g.node_tree.nodes["Principled BSDF"]
+        b.inputs["Base Color"].default_value = (0.075, 0.072, 0.068, 1)
+        b.inputs["Roughness"].default_value = 0.9
+        me.materials.append(g)
+        bpy.context.scene.collection.objects.link(bpy.data.objects.new("GripGround", me))
+        self.arms, self.meshes = arms, meshes
+
+    def pose(self, solver_arm):
+        from mi import char
+        if self.arms is None:
+            self._setup(solver_arm)
+        char.pose_from_armature(self.arms, solver_arm)
+
+    def __call__(self, name, pose, arm, cam, M, entry):
+        import bpy
+        from mi import render
+        self.pose(arm)
+        render.setup(samples=self.samples, res=(1280, 720), threads=self.threads)
+        render.rig_day(sun_azimuth=render.DESIGN_SUN_BEARING)
+        bpy.context.scene.camera = cam
+        p = os.path.join(self.out_dir, "grips_%s_%s.jpg" % (name, pose))
+        _p, sec = render.render_jpeg(p, self.samples, (1280, 720), max_kb=290)
+        print("picture %s %.0fs" % (p, sec))
+        return p
+
+
+def _max_diff(a, b):
+    """Largest difference (cm) between two solved entries over every point both hold; None when nothing matches."""
+    d = None
+    for side in ("r", "l"):
+        for k, v in a.get(side, {}).items():
+            w = b.get(side, {}).get(k)
+            if w is not None:
+                e = max(abs(x - y) for x, y in zip(v, w))
+                d = e if d is None else max(d, e)
+    return d
+
+
+def merge(path, data):
+    """data's guns merged into the file at path (a gun or pose not in data keeps its entry)."""
+    try:
+        old = json.load(open(path))
+    except (OSError, ValueError):
+        old = {}
+    out = {"note": data["note"], "units": data["units"], "guns": dict(old.get("guns", {}))}
+    for name, poses in data["guns"].items():
+        out["guns"].setdefault(name, {}).update(poses)
+    with open(path, "w") as f:
+        json.dump(out, f, indent=1)
+    json.load(open(path))                      # it reads back as JSON
+    return sorted(out["guns"])
+
+
 def main(argv):
     from mi import paths
-    guns = [a for a in argv if not a.startswith("--")] or ["nine"]
-    poses = ["hip"]
-    if "--pose" in argv:
-        poses = argv[argv.index("--pose") + 1].split(",")
-        guns = [g for g in guns if g not in poses]
-    data = solve(tuple(guns), tuple(poses))
+    flags = ("--pose", "--samples")
+    guns = [a for i, a in enumerate(argv) if not a.startswith("--") and (i == 0 or argv[i - 1] not in flags)] or ["nine"]
+    poses = argv[argv.index("--pose") + 1].split(",") if "--pose" in argv else ["hip"]
+    after = None
+    if "--pictures" in argv:
+        after = Pictures(samples=int(argv[argv.index("--samples") + 1]) if "--samples" in argv else 24)
+    data = solve(tuple(guns), tuple(poses), after=after)
+    game = os.path.normpath(os.path.join(HERE, "..", "..", "unreal", "MurderInc", "Content", "Data", "grips.json"))
+    if "--check" in argv:
+        held = json.load(open(game)).get("guns", {})
+        for name, ps in data["guns"].items():
+            for pose, entry in ps.items():
+                old = held.get(name, {}).get(pose)
+                d = _max_diff(entry, old) if old else None
+                print("check %s %s: %s" % (name, pose, "not in grips.json" if old is None else
+                                           "max difference %.3f cm over every point" % d))
+        return
     p = os.path.join(paths.glb, "SK_RuleArms.grips.json")
-    with open(p, "w") as f:
-        json.dump(data, f, indent=1)
-    game = os.path.join(HERE, "..", "..", "unreal", "MurderInc", "Content", "Data", "grips.json")
-    with open(game, "w") as f:
-        json.dump(data, f, indent=1)
-    print("wrote", p, "and", os.path.normpath(game))
+    for f in (p, game):
+        print("wrote", f, "guns", merge(f, data))
 
 
 if __name__ == "__main__":

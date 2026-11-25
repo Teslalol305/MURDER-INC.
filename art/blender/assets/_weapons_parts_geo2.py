@@ -166,18 +166,21 @@ def foregrip_vertical(pi=0):
 
 
 def foregrip_angled(pi=0):
-    """Angled foregrip on an underside MI-R rail: clamp plate 55 x 21.2 mm, a wedge body leaning forward and down at 38 deg
-    with a thumb shelf on its front, stippled panels left and right, 2 mm radii; about 78 x 30 x 58 mm. The palm rests on the
-    rear ramp (SupportHand (-12, 0, -30)). Origin = the lug undersides plane, hanging in -Z."""
-    objs = clamp(55.0, part=pi, under=True, plate_t=5.0, screws=1, name="FA")
+    """Angled foregrip on an underside MI-R rail: clamp plate 47.5 x 21.2 mm, a wedge body leaning forward and down at 38 deg
+    with a thumb shelf on its front, stippled panels left and right, 2 mm radii; about 61 x 30 x 66 mm. The palm rests on the
+    rear ramp (SupportHand (-12, 0, -30)). Nothing above Z -29.7 reaches further forward than X +20: on the SHORTY the grip
+    (Underbarrel socket) and the laser module (Laser socket, 48 mm ahead, its rear face at +23.2 in this frame) share the forend's
+    rail and both can be fitted, so the front of the plate, the wedge and the shelf stop short of the laser (verifier's finding:
+    277 crossing triangle pairs with the earlier 55 mm plate). Origin = the lug undersides plane, hanging in -Z."""
+    objs = clamp(47.5, part=pi, x0=-27.5, under=True, plate_t=5.0, screws=1, name="FA")
     side = [(-26.0, -4.5), (-19.0, -16.0), (-12.0, -30.0), (-5.5, -43.0), (0.0, -52.0), (3.0, -58.0), (30.0, -58.0), (34.0, -52.0),
-            (31.0, -41.0), (24.0, -28.0), (17.0, -19.0), (14.0, -14.5), (28.0, -14.5), (28.0, -4.5)]
+            (31.0, -41.0), (22.0, -31.0), (19.5, -27.0), (17.0, -19.0), (14.0, -14.5), (19.5, -14.5), (19.5, -4.5)]
     wedge = prism_xz(side, -13.5, 13.5, bevel=1.8, seg=3, name="FAWedge", fillet=2.0)
     for sy in (1, -1):                                       # the stippled panels: 0.8 mm pockets in both flanks
         W.cut(wedge, box_mm(2.0, 21.0, 12.7 if sy > 0 else -15.0, 15.0 if sy > 0 else -12.7, -50.0, -22.0, bevel=0.0, name="Panel"))
     objs.append(fin(wedge, POLY, pi))
     # the thumb shelf: a ledge on the front ramp, and two retention screws on the right
-    shelf = box_mm(12.0, 28.0, -14.5, 14.5, -15.5, -13.5, bevel=0.8, name="FAShelf")
+    shelf = box_mm(12.0, 19.5, -14.5, 14.5, -15.5, -13.5, bevel=0.8, name="FAShelf")
     objs.append(fin(shelf, POLY, pi))
     return objs, {"SupportHand": mm(-12.0, 0, -30.0)}
 

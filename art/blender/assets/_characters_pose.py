@@ -22,26 +22,69 @@ _DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..
 
 
 def _game_view(gun, fallback):
-    """views[0] of config.json as ((x, y, z), (pitch, yaw, roll))."""
+    """views[0] as ((x, y, z), (pitch, yaw, roll)): config.json weapons.<gun> for the CHOPPER and NINE, else the
+    rules block a round 4 gun carries inline in guns.json (guns.<gun>.rules.views, the same schema)."""
+    for f, keys in (("config.json", ("weapons", gun, "views")), ("guns.json", ("guns", gun, "rules", "views"))):
+        try:
+            v = json.load(open(os.path.join(_DATA, f)))
+            for k in keys:
+                v = v[k]
+            v = v[0]
+            return (tuple(v[:3]), tuple(v[3:6]))
+        except (OSError, KeyError, ValueError, IndexError, TypeError):
+            continue
+    return fallback
+
+
+def _game_relief(gun, fallback):
+    """The eye's distance behind the rear sight when aimed (m): guns.json guns.<gun>.presentation.relief."""
     try:
-        v = json.load(open(os.path.join(_DATA, "config.json")))["weapons"][gun]["views"][0]
-        return (tuple(v[:3]), tuple(v[3:6]))
-    except (OSError, KeyError, ValueError, IndexError):
+        return float(json.load(open(os.path.join(_DATA, "guns.json")))["guns"][gun]["presentation"]["relief"])
+    except (OSError, KeyError, ValueError, TypeError):
         return fallback
+
+
+def _aim_view(relief, sight_rear):
+    """The aimed view: the rear sight on the eye's axis, `relief` ahead of it, the gun level."""
+    return ((0.0, -sight_rear[2], -relief + sight_rear[0]), (0, 0, 0))
+
+
+def _r4(key, glb, mag, palm_r, palm_l, relief, sight_rear, size, hip):
+    """A round 4 gun (docs/unreal/weapons_r4_spec.json): palm and sight sockets as the spec places them (read again
+    from the exported file by load_gun), the hip view from the data, the aimed view from the data's relief and the
+    file's SightRear, the magazine and its top round as parts (modelled in gun space)."""
+    relief = _game_relief(key, relief)
+    return dict(glb=glb, parts=(mag + ".glb", mag + "_TopRound.glb"), palm_r=palm_r, palm_l=palm_l,
+                hip=_game_view(key, hip), relief=relief, aim=_aim_view(relief, sight_rear), size=size, kind="rifle")
 
 
 GUNS = {
     # gun-space palm points (X forward, Y left, Z up; metres): the guns' Palm_R / Palm_L sockets (read from the
-    # file when it is loaded); viewmodel poses (view space x right, y up, z back; radians pitch, yaw, roll, Euler YXZ)
+    # file when it is loaded); viewmodel poses (view space x right, y up, z back; radians pitch, yaw, roll, Euler YXZ);
+    # kind: "rifle" = support hand under the handguard (palm up, fingers up its right face), "pistol" = two hands on
+    # the grip
     "chopper": dict(glb="SK_Chopper.glb", parts=("SM_Weapon_ChopperMagazine.glb", "SM_Weapon_ChopperMagazine_TopRound.glb"),
                     palm_r=(0.040, -0.0155, -0.085), palm_l=(0.315, 0.0, -0.0615),
                     hip=_game_view("chopper", ((0.15, -0.09, -0.24), (0.05, 0.28, -0.35))),
-                    aim=((0.0, -0.0555, -0.16 + 0.0235), (0, 0, 0)), size=(0.502, 0.065, 0.292)),
+                    aim=((0.0, -0.0555, -0.16 + 0.0235), (0, 0, 0)), size=(0.502, 0.065, 0.292), kind="rifle"),
     "nine": dict(glb="SK_Nine.glb", parts=("SM_Weapon_NineMagazine.glb", "SM_Weapon_NineMagazine_TopRound.glb"),
                  palm_r=(0.014, -0.0146, -0.078), palm_l=(0.030, 0.0146, -0.090),
                  hip=_game_view("nine", ((0.105, -0.056, -0.36), (0.07, 0.11, -0.18))),
-                 aim=((0.0, -0.0185, -0.37 + 0.0125), (0, 0, 0)), size=(0.234, 0.031, 0.153)),
+                 aim=((0.0, -0.0185, -0.37 + 0.0125), (0, 0, 0)), size=(0.234, 0.031, 0.153), kind="pistol"),
+    # round 4: the bullpup (origin at the butt pad, grip ahead of the magazine, support palm on the forend rail's
+    # underside), the marksman rifle (support palm on the rail under the walnut tube), the open-bolt SMG (support
+    # palm under the strap wrap round the shroud)
+    "shorty": _r4("shorty", "SK_Shorty.glb", "SM_Weapon_ShortyMagazine", (0.295, -0.0165, -0.095), (0.505, 0.0, -0.052),
+                  0.12, (0.134, 0.0, 0.060), (0.700, 0.083, 0.280), ((0.15, -0.09, -0.24), (0.05, 0.28, -0.35))),
+    "stretch": _r4("stretch", "SK_Stretch.glb", "SM_Weapon_StretchMagazine", (0.046, -0.0165, -0.085), (0.300, 0.0, -0.038),
+                   0.12, (0.028, 0.0, 0.0645), (1.045, 0.070, 0.212), ((0.15, -0.09, -0.24), (0.05, 0.28, -0.35))),
+    "rattler": _r4("rattler", "SK_Rattler.glb", "SM_Weapon_RattlerMagazine", (0.062, -0.0150, -0.082), (0.315, 0.0, -0.0275),
+                   0.18, (0.012, 0.0, 0.0575), (0.470, 0.072, 0.278), ((0.14, -0.085, -0.26), (0.05, 0.26, -0.33))),
 }
+
+
+def _rifle(name):
+    return GUNS[name].get("kind", "rifle") == "rifle"
 FOV_V = 54.0
 EYE_DROP = 0.0058           # the recipe's eye: the head joint lowered 0.58 cm onto the sight line
 
@@ -106,6 +149,8 @@ def load_gun(name, col):
                 for k, b in (("palm_r", "Palm_R"), ("palm_l", "Palm_L")):
                     if b in o.data.bones:
                         g[k] = tuple(round(v, 5) for v in (o.matrix_world @ o.data.bones[b].head_local))
+                if g.get("relief") is not None and "SightRear" in o.data.bones:   # round 4: aimed on the file's sight
+                    g["aim"] = _aim_view(g["relief"], tuple(o.matrix_world @ o.data.bones["SightRear"].head_local))
         return root, True
     from mi import geo
     L, W, H = g["size"]
@@ -531,6 +576,23 @@ def close_onto(arm, side, R, f, obst, max_deg=(85, 105, 75), start=(0, 0, 0), jo
     return out
 
 
+# Round 4 grips: on the CHOPPER the search above left the firing index along the receiver over the guard, its pad
+# 25.6 mm from the trigger's face: the finger only flexes in one plane, set by the hand on the grip. These guns also
+# swing the index's first bone in the plane of the palm (deg, + toward the thumb) so the pad can find the trigger
+# inside the guard; the NINE keeps the plain search (its grip is shipped).
+TRIGGER_SPREAD = {k: tuple(range(-20, 21, 5)) for k in ("chopper", "shorty", "stretch", "rattler")}
+
+
+def _spread(arm, axis, deg):
+    """The firing index's first bone (and its children) turned by deg about `axis` through its head."""
+    pb = arm.pose.bones["index_01_r"]
+    M = arm.matrix_world @ pb.matrix
+    head = M.to_translation()
+    Rm = Matrix.Translation(head) @ Matrix.Rotation(math.radians(deg), 4, axis) @ Matrix.Translation(-head)
+    pb.matrix = arm.matrix_world.inverted() @ Rm @ M
+    bpy.context.view_layer.update()
+
+
 def trigger_finger(arm, R, gun, gun_M, name):
     """The firing index: the three joints searched on a grid for the pose whose end pad lands on the trigger's
     face (GUNS[name]['trigger_pad'], from the file) with no phalanx through the gun (2 mm of skin pressed at most)."""
@@ -539,32 +601,58 @@ def trigger_finger(arm, R, gun, gun_M, name):
         return close_onto(arm, "r", R, "index", gun, start=(INDEX_MCP[name], 0, 0), joints=(1, 2))
     T = gun_M @ Vector(tp)
     across, palm = _hinge(arm, "r", R, "index")
+    spreads = TRIGGER_SPREAD.get(name)
+    fwd, lat, _d = (Vector(v) for v in hand_axes(arm, "r", R))
+    axis = fwd.cross(-lat).normalized()             # turning fwd about it moves the finger toward the thumb
+
+    def pose(sp, angles):
+        reset_finger(arm, "r", "index")
+        if sp:
+            _spread(arm, axis, sp)
+        for k, ang in enumerate(angles):
+            if ang:
+                _curl(arm, "index_%02d_r" % (k + 1), math.radians(ang), across, palm)
+
+    def score(sp, angles):
+        pose(sp, angles)
+        c = _chain_clear(arm, "r", R, "index", (0, 1, 2), gun)
+        a_, b_, ra, rb = phalanx(arm, "r", R, "index", 2)
+        pad = a_ + (b_ - a_) * 0.55 + _pad_dir(arm, R) * rb
+        d = (pad - T).length
+        return (d + max(-0.002 - c, 0) * 10, angles, d, c, sp)
     best = None
-    for mcp in range(-5, 46, 5):
-        for pip in range(0, 91, 10):
-            for dip in range(0, 61, 15):
-                reset_finger(arm, "r", "index")
-                for k, ang in enumerate((mcp, pip, dip)):
-                    if ang:
-                        _curl(arm, "index_%02d_r" % (k + 1), math.radians(ang), across, palm)
-                c = _chain_clear(arm, "r", R, "index", (0, 1, 2), gun)
-                a_, b_, ra, rb = phalanx(arm, "r", R, "index", 2)
-                pad = a_ + (b_ - a_) * 0.55 + _pad_dir(arm, R) * rb
-                d = (pad - T).length
-                score = d + max(-0.002 - c, 0) * 10
-                if best is None or score < best[0]:
-                    best = (score, (mcp, pip, dip), d, c)
-    reset_finger(arm, "r", "index")
-    for k, ang in enumerate(best[1]):
-        if ang:
-            _curl(arm, "index_%02d_r" % (k + 1), math.radians(ang), across, palm)
-    return {"angles": best[1], "pad_mm": round(best[2] * 1000, 1), "clear_mm": round(best[3] * 1000, 1),
-            "trigger_pad": [round(v, 4) for v in tp]}
+    for sp in (spreads or (0,)):
+        for mcp in range(-5, 46, 5):
+            for pip in range(0, 91, 10):
+                for dip in range(0, 61, 15):
+                    s = score(sp, (mcp, pip, dip))
+                    if best is None or s[0] < best[0]:
+                        best = s
+    if spreads:                                     # and finer round the best
+        sp0, (m0, p0, d0) = best[4], best[1]
+        for sp in (sp0 - 2.5, sp0, sp0 + 2.5):
+            for mcp in range(m0 - 4, m0 + 5, 2):
+                for pip in range(max(0, p0 - 8), p0 + 9, 4):
+                    for dip in range(max(0, d0 - 10), d0 + 11, 5):
+                        s = score(sp, (mcp, pip, dip))
+                        if s[0] < best[0]:
+                            best = s
+    pose(best[4], best[1])
+    out = {"angles": best[1], "pad_mm": round(best[2] * 1000, 1), "clear_mm": round(best[3] * 1000, 1),
+           "trigger_pad": [round(v, 4) for v in tp]}
+    if spreads:
+        out["spread_deg"] = best[4]
+    return out
 
 
 THUMB_AIM = {   # gun space: where each thumb tip goes (firing: round the grip's left side; support: along the gun)
     ("chopper", "r"): (0.058, 0.030, -0.052), ("chopper", "l"): (0.400, 0.032, -0.030),
-    ("nine", "r"): (0.055, 0.028, -0.018), ("nine", "l"): (0.080, 0.030, -0.032)}
+    ("nine", "r"): (0.055, 0.028, -0.018), ("nine", "l"): (0.080, 0.030, -0.032),
+    # round 4, from the sections at the sockets (ray cast on the exported files): the firing thumb round the grip's
+    # left side under the receiver, the support thumb along the left face 9 mm out, as on the CHOPPER
+    ("shorty", "r"): (0.318, 0.028, -0.072), ("shorty", "l"): (0.590, 0.040, -0.020),
+    ("stretch", "r"): (0.064, 0.030, -0.052), ("stretch", "l"): (0.385, 0.034, -0.0065),
+    ("rattler", "r"): (0.080, 0.030, -0.050), ("rattler", "l"): (0.400, 0.037, 0.004)}
 
 
 def aim_thumb(arm, side, R, gun_M, name, obst):
@@ -720,12 +808,13 @@ def wrist_bend_deg(arm, side, R):
 
 
 POLE_R = Vector((0.3, 0.6, -1))
-POLE_L = {"chopper": Vector((0.1, 0.2, -1)), "nine": Vector((-0.4, 0.4, -1))}
+POLE_L = {"chopper": Vector((0.1, 0.2, -1)), "nine": Vector((-0.4, 0.4, -1)), "shorty": Vector((0.1, 0.2, -1)),
+          "stretch": Vector((0.1, 0.2, -1)), "rattler": Vector((0.1, 0.2, -1))}
 
 
 def support_axes(G, name, pose, sl, turn=0.0):
     X, Y, Z = (G @ Vector(v) for v in ((1, 0, 0), (0, 1, 0), (0, 0, 1)))
-    if name == "chopper":
+    if _rifle(name):
         fwd_l = (-Y * 0.80 + X * (0.50 if pose == "hip" else 0.40) + Z * 0.10).normalized()
         if turn:                                    # the hand turned in the plane of the palm (about the up axis)
             fwd_l = Matrix.Rotation(math.radians(turn), 3, Z) @ fwd_l
@@ -743,6 +832,13 @@ GRIP_BACK = {"chopper": 0.016, "nine": 0.012}   # the firing palm's centre behin
 GRIP_DOWN = {"chopper": 0.009, "nine": 0.006}   # and below it: the index at the trigger, the middle finger under the guard
 HANDGUARD_EDGE_Y = -0.026     # gun space: the CHOPPER handguard's right face is at y -0.0226
 SUPPORT_OUT = {"chopper": (0.0, 0.008, 0.0), "nine": (0.0, 0.0, 0.016)}   # gun space: the support palm toward the near side
+# round 4: the three new long guns start from the CHOPPER's values (their Palm_R sits on the grip's right face 70-78 mm
+# behind the trigger's face as the CHOPPER's does); the support knuckles 3.4 mm out of each forend's widest right face
+# (ray cast at Palm_L: SHORTY forend box 62 mm, STRETCH walnut tube 51.8 mm, RATTLER strap wrap 58.4 mm, right side)
+for _k in ("shorty", "stretch", "rattler"):
+    INDEX_MCP[_k], GRIP_RAKE[_k], GRIP_BACK[_k], GRIP_DOWN[_k] = 10.0, 0.0, 0.016, 0.009
+    SUPPORT_OUT[_k] = (0.0, 0.008, 0.0)
+HANDGUARD_EDGE = {"chopper": HANDGUARD_EDGE_Y, "shorty": -0.0344, "stretch": -0.0293, "rattler": -0.0326}
 
 
 def place_rig(arm, Rr, Rl, pr_fn, pl, ax_r_fn, ax_l_fn, name):
@@ -767,7 +863,7 @@ def place_rig(arm, Rr, Rl, pr_fn, pl, ax_r_fn, ax_l_fn, name):
                 ik_arm(arm, "r", Rr, pr, ax_r, POLE_R)
                 miss = (palm_point(arm, "r", Rr) - Vector(pr)).length
                 wr = wrist_bend_deg(arm, "r", Rr)
-                if name == "chopper":
+                if _rifle(name):
                     protract(arm, "l", pl, Rl)
                 ik_arm(arm, "l", Rl, pl, ax_l_fn(0.0), POLE_L[name])
                 miss += (palm_point(arm, "l", Rl) - Vector(pl)).length
@@ -781,7 +877,7 @@ def place_rig(arm, Rr, Rl, pr_fn, pl, ax_r_fn, ax_l_fn, name):
     arm.location = base + fwd * d + Vector((0, 0, dz))
     char_clav(arm)
     bpy.context.view_layer.update()
-    deg = protract(arm, "l", pl, Rl) if name == "chopper" else 0
+    deg = protract(arm, "l", pl, Rl) if _rifle(name) else 0
     # the support hand's own turn, with the shoulders where they are
     tb = min(range(-20, 11, 5), key=lambda t: _ik_wrist(arm, Rl, pl, ax_l_fn(t), POLE_L[name]) + abs(t) * 0.8)
     return {"slide_m": round(d, 3), "drop_m": round(dz, 3), "rake_r_deg": rake, "turn_l_deg": tb, "protract_deg": deg,
@@ -835,18 +931,19 @@ def hold(arm, gun_M, name, Rr, Rl, pose="hip", gun_objs=None, log=None):
         f_r["thumb"] = aim_thumb(arm, "r", Rr, gun_M, name, gun)
         rep["fingers_r"] = f_r
         bpy.context.view_layer.update()
-        if name == "chopper":
-            # support hand under the 46 mm handguard: palm up, fingers up its right face, thumb along its left
-            rep["push_l_m"] = seat_palm(arm, "l", Rl, pl, ax_l, POLE_L["chopper"], gun, -Z)
+        if _rifle(name):
+            # support hand under the handguard (CHOPPER 46 mm) or forend: palm up, fingers up its right face, thumb
+            # along its left
+            rep["push_l_m"] = seat_palm(arm, "l", Rl, pl, ax_l, POLE_L[name], gun, -Z)
             # the knuckles at the handguard's lower right edge, so the fingers can wrap up its right face
             Gi = gun_M.inverted()
             for _ in range(3):
                 mcp = Gi @ (arm.matrix_world @ arm.pose.bones["middle_01_l"].head)
-                dy = HANDGUARD_EDGE_Y - mcp.y
+                dy = HANDGUARD_EDGE[name] - mcp.y
                 if abs(dy) < 0.002:
                     break
                 pl = pl + Y * dy
-                seat_palm(arm, "l", Rl, pl, ax_l, POLE_L["chopper"], gun, -Z)
+                seat_palm(arm, "l", Rl, pl, ax_l, POLE_L[name], gun, -Z)
             rep["support_palm_gun"] = [round(v, 4) for v in Gi @ pl]
             obst_l = gun
             adduct(arm, "l", Rl)
