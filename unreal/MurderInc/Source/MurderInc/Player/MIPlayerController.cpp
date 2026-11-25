@@ -91,7 +91,10 @@ void AMIPlayerController::BuildInputAssets()
 	// only (Epic's player, Inputs/GamepadController.ts), never as the trigger buttons. Down beyond pad.trigger.
 	Map(MakeAction(TEXT("IA_FireAxis"), EInputActionValueType::Axis1D), EKeys::Gamepad_RightTriggerAxis);
 	Map(MakeAction(TEXT("IA_AimAxis"), EInputActionValueType::Axis1D), EKeys::Gamepad_LeftTriggerAxis);
-	Button(TEXT("IA_Reload"), {EKeys::R, EKeys::Gamepad_FaceButton_Left});
+	Button(TEXT("IA_Reload"), {EKeys::R});
+	// The pad's X (Square) is one button with two meanings (src/input.js padDown): it reloads, unless a grab prompt
+	// is showing at the moment of the press: then it grabs, for that whole hold. One action, decided when it starts.
+	Button(TEXT("IA_PadX"), {EKeys::Gamepad_FaceButton_Left});
 	Button(TEXT("IA_Swap"), {EKeys::Q, EKeys::Gamepad_FaceButton_Top});
 	// LOADOUT.md 4.2 (frontend.json input.game): the wheel and D-pad up / down are next and previous; with two guns
 	// they give the gun the web's swap gave. The mouse wheel steps at most once per player.input.wheelDebounce.
@@ -108,7 +111,7 @@ void AMIPlayerController::BuildInputAssets()
 	Button(TEXT("IA_View"), {EKeys::Gamepad_Special_Left});  // a tap is the selector, a hold inspects
 	Map(MakeAction(TEXT("IA_RightStick"), EInputActionValueType::Axis2D), EKeys::Gamepad_Right2D);  // the look; the wheel while it is open
 	Button(TEXT("IA_Melee"), {EKeys::F, EKeys::V, EKeys::MiddleMouseButton, EKeys::Gamepad_RightShoulder, EKeys::Gamepad_RightThumbstick});
-	Button(TEXT("IA_Interact"), {EKeys::E, EKeys::Gamepad_FaceButton_Left});
+	Button(TEXT("IA_Interact"), {EKeys::E});
 
 	// The flow and the menus: these also work while the game is paused.
 	const auto MenuButton = [&Button, this](const TCHAR* Name, std::initializer_list<FKey> Keys)
@@ -273,8 +276,31 @@ void AMIPlayerController::SetupInputComponent()
 	});
 	In->BindActionValueLambda(Actions[TEXT("IA_RightStick")], ETriggerEvent::Completed, [this](const FInputActionValue&) { RightStick = FVector2D::ZeroVector; Switch.Stick(RightStick); });
 	const auto Game = [this]() { return UMIGameSubsystem::Get(this); };
-	In->BindActionValueLambda(Actions[TEXT("IA_Interact")], ETriggerEvent::Started, [Game](const FInputActionValue&) { if (UMIGameSubsystem* G = Game()) G->SetInteractHeld(true); });
-	In->BindActionValueLambda(Actions[TEXT("IA_Interact")], ETriggerEvent::Completed, [Game](const FInputActionValue&) { if (UMIGameSubsystem* G = Game()) G->SetInteractHeld(false); });
+	// The grab is held by E or by the pad's X; the pad's X only when its press found a prompt (below).
+	In->BindActionValueLambda(Actions[TEXT("IA_Interact")], ETriggerEvent::Started, [this, Game](const FInputActionValue&) { bGrabKey = true; if (UMIGameSubsystem* G = Game()) G->SetInteractHeld(true); });
+	In->BindActionValueLambda(Actions[TEXT("IA_Interact")], ETriggerEvent::Completed, [this, Game](const FInputActionValue&) { bGrabKey = false; if (UMIGameSubsystem* G = Game()) G->SetInteractHeld(bGrabPad); });
+	In->BindActionValueLambda(Actions[TEXT("IA_PadX")], ETriggerEvent::Started, [this, State, Game](const FInputActionValue&)
+	{
+		UMIGameSubsystem* G = Game();
+		if (G && !G->GetRules().View().Prompt.IsEmpty())
+		{
+			// A reel is in reach: this hold grabs, and reloads nothing (the gun stays up under fire).
+			bGrabPad = true;
+			G->SetInteractHeld(true);
+		}
+		else if (FMIPlayerInputState* S = State(); S && !SwallowsPresses())
+		{
+			S->bReloadPressed = true;
+		}
+	});
+	In->BindActionValueLambda(Actions[TEXT("IA_PadX")], ETriggerEvent::Completed, [this, Game](const FInputActionValue&)
+	{
+		if (bGrabPad)
+		{
+			bGrabPad = false;
+			if (UMIGameSubsystem* G = Game()) G->SetInteractHeld(bGrabKey);
+		}
+	});
 	In->BindActionValueLambda(Actions[TEXT("IA_Pause")], ETriggerEvent::Started, [this, Game](const FInputActionValue&)
 	{
 		if (UMIGameSubsystem* G = Game())
@@ -416,6 +442,35 @@ void AMIPlayerController::DropMenuPresses()
 	}
 	Switch.Reset();
 	StreamPending = FVector2D::ZeroVector;
+}
+
+void AMIPlayerController::DropAllHeld()
+{
+	// The engine's side: every key and button up, every axis at rest. No release will come for them (their viewer is
+	// gone), and a key that still read as down would start its action again when the run resumes: the player would
+	// walk, turn or fire by himself. The actions that were running end with this, as on a real release.
+	FlushPressedKeys();
+	// The controller's own side, at once (the actions' own endings arrive with the next input tick).
+	KeyMove = PadMove = LeftStick = RightStick = FVector2D::ZeroVector;
+	bFireKey = bFireAxis = bAimKey = bAimAxis = false;
+	bSprintLatch = false;
+	bGrabKey = bGrabPad = false;
+	StreamPending = FVector2D::ZeroVector;
+	MouseTravel = 0.0;
+	PadLook.Reset();
+	Switch.Reset();
+	if (UMIGameSubsystem* G = UMIGameSubsystem::Get(this))
+	{
+		G->SetInteractHeld(false);
+	}
+	if (AMIPlayerCharacter* C = GetMICharacter())
+	{
+		// Everything held and every edge not yet used; which device is in use stays.
+		FMIPlayerInputState& S = C->GetInput();
+		const bool bPad = S.bPad;
+		S = FMIPlayerInputState();
+		S.bPad = bPad;
+	}
 }
 
 void AMIPlayerController::SetStreamMouse(const FMIStreamMouse& Shape)

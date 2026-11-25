@@ -92,10 +92,11 @@ bool FMIGameClassesTest::RunTest(const FString& Parameters)
 	if (TestNotNull(TEXT("mapping context"), Context))
 	{
 		// W A S D, left stick, mouse; jump 2, sprint 2 + the L3 latch 1, crouch 3, fire 3 + the trigger's axis 1, aim 2 +
-		// the trigger's axis 1, reload 2, swap 2, next / previous 4 (wheel, D-pad), weapon 3 + 3 + 2 + 2, melee 5, fire
-		// mode 1, inspect 1, View 1, right stick 1 (LOADOUT.md 8.7: the actions of frontend.json input.game; the mapping
-		// count is not a parity number). Flow and menus: the six of before and the click on a card.
-		TestEqual(TEXT("key mappings (play 50, flow and menus 21)"), Context->GetMappings().Num(), 71);
+		// the trigger's axis 1, reload 1 (R), grab 1 (E), the pad's X 1 (reload, or grab at a reel: one action), swap 2,
+		// next / previous 4 (wheel, D-pad), weapon 3 + 3 + 2 + 2, melee 5, fire mode 1, inspect 1, View 1, right stick 1
+		// (LOADOUT.md 8.7: the actions of frontend.json input.game; the mapping count is not a parity number). Flow and
+		// menus: the six of before and the click on a card.
+		TestEqual(TEXT("key mappings (play 49, flow and menus 21)"), Context->GetMappings().Num(), 70);
 	}
 	return true;
 }

@@ -3,6 +3,8 @@
 #include <atomic>
 
 #include "Async/Async.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "Dom/JsonObject.h"
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
 #include "Engine/GameViewportClient.h"
@@ -31,6 +33,8 @@
 #include "RenderTimer.h"
 #include "RenderUtils.h"
 #include "Scalability.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 #include "Styling/CoreStyle.h"
 #include "UnrealClient.h"
 #include "UObject/UObjectGlobals.h"
@@ -39,8 +43,10 @@
 #include "Core/Data/MIDataSubsystem.h"
 #include "Flow/MIGameSubsystem.h"
 #include "Flow/MIGameRules.h"
+#include "Player/MIPlayerCharacter.h"
 #include "Player/MIPlayerController.h"
 #include "UI/MIFrontEnd.h"
+#include "Weapons/MIWeaponComponent.h"
 #include "UI/MIStyle.h"
 
 #include <cstdio>
@@ -113,6 +119,9 @@ namespace MICloudPrivate
 	FAutoConsoleVariableRef CVarFpsRaiseUnder(TEXT("MI.Cloud.FpsRaiseUnder"), GFpsRaiseUnder,
 		TEXT("The frame-rate target may rise (only while no run is being played) when the GPU's time is under this share of the frame time."));
 	FAutoConsoleVariableRef CVarFpsRaiseAfter(TEXT("MI.Cloud.FpsRaiseAfter"), GFpsRaiseAfter, TEXT("... for this many seconds."));
+	float GFpsPixelPart = 0.6f;
+	FAutoConsoleVariableRef CVarFpsPixelPart(TEXT("MI.Cloud.FpsPixelPart"), GFpsPixelPart,
+		TEXT("The share of the GPU's frame time that follows the number of pixels drawn (0 to 1): the rise is judged by the time the GPU would need at the smallest picture, worked out with it."));
 
 	/** The commit of BUILD.txt, seven characters ("" outside a cloud package): the pause card's line. */
 	FString GBuildCommit;
@@ -240,8 +249,53 @@ namespace MICloudPrivate
 			}
 			Line(TEXT("Fallback: no hardware ray tracing on this server; Lumen traces in software (mesh distance fields)"));
 		}
+		// With 6 task workers or fewer Unreal's Vulkan RHI starts without its interrupt and submission threads
+		// (VulkanSubmission.cpp, InitializeSubmissionPipe): finished GPU work is then noticed only when the RHI thread
+		// submits or the render thread waits for it. The pacer waits on the render thread for that reason; this line
+		// says which kind of server a log came from.
+		const int32 Workers = FTaskGraphInterface::IsRunning() ? FTaskGraphInterface::Get().GetNumWorkerThreads() : 0;
+		Line(FString::Printf(TEXT("CPUs: %d cores, %d with hyper-threads, %d task workers (%s)"), FPlatformMisc::NumberOfCores(),
+			FPlatformMisc::NumberOfCoresIncludingHyperthreads(), Workers,
+			Workers > 6 ? TEXT("more than 6: the RHI has its interrupt and submission threads") : TEXT("6 or fewer: the RHI runs without interrupt and submission threads")));
 		Line(FString::Printf(TEXT("Command line: %s"), FCommandLine::Get()));
 	}
+
+#if MI_WITH_PIXELSTREAMING2
+	/** The default streamer's input handler (null until the plugin has made its streamer). */
+	TSharedPtr<IPixelStreaming2InputHandler> StreamInput()
+	{
+		if (!IPixelStreaming2Module::IsAvailable())
+		{
+			return nullptr;
+		}
+		IPixelStreaming2Module& Module = IPixelStreaming2Module::Get();
+		if (!Module.IsReady())
+		{
+			return nullptr;
+		}
+		const TSharedPtr<IPixelStreaming2Streamer> Streamer = Module.FindStreamer(Module.GetDefaultStreamerID());
+		return Streamer.IsValid() ? Streamer->GetInputHandler().Pin() : nullptr;
+	}
+#endif
+}
+
+bool FMICloudSize::Fit(int32 Width, int32 Height, FIntPoint& Out, double& OutShown)
+{
+	if (Width < MinWidth || Height < MinHeight || Width > 32768 || Height > 32768)
+	{
+		return false;
+	}
+	Out = FIntPoint(Width, Height);
+	OutShown = 1.0;
+	const double Scale = FMath::Min((double)MaxWidth / Width, (double)MaxHeight / Height);
+	if (Scale < 1.0)
+	{
+		// The largest size of the same shape that fits, in even numbers (a video encoder's sizes).
+		Out.X = FMath::Max(2, FMath::RoundToInt32(Width * Scale) & ~1);
+		Out.Y = FMath::Max(2, FMath::RoundToInt32(Height * Scale) & ~1);
+		OutShown = (double)Width / Out.X;
+	}
+	return true;
 }
 
 // ---- the card, the pause hint and the cursor, painted over the game viewport --------------------------------------
@@ -715,6 +769,32 @@ void UMICloudSubsystem::BecomeStreamed(const TCHAR* Why)
 	}
 }
 
+FMIStreamMouse UMICloudSubsystem::GetMouseShape() const
+{
+	FMIStreamMouse Shape = MouseShape;
+	Shape.Scale *= MouseShown;
+	return Shape;
+}
+
+void UMICloudSubsystem::ReleaseForLeave(UMIGameSubsystem* Game, AMIPlayerController* Controller)
+{
+	if (Game)
+	{
+		// In the intro as well (2.4 s after "Hit the block", 1.1 s after a retry): the run would go live by itself
+		// with nobody watching, and the next viewer's mouse and sticks would turn and move the player under the click
+		// card. The pause key pauses in the intro too (UMIGameSubsystem::PauseKey).
+		const EMIGameState State = Game->GetRules().GetState();
+		if (State == EMIGameState::Playing || State == EMIGameState::Intro)
+		{
+			Game->Pause();
+		}
+	}
+	if (Controller)
+	{
+		Controller->DropAllHeld();
+	}
+}
+
 void UMICloudSubsystem::Dismiss()
 {
 	if (bWaitingForClick)
@@ -746,15 +826,30 @@ void UMICloudSubsystem::OnAllViewersLeft()
 	Viewers.AllLeft();
 	LeftStick = FVector2D::ZeroVector;  // the pad went with its viewer
 	StickNav.Reset();
-	PadKeysDown.Reset();
+	PadButtons.Reset();
 	bRefusalLogged = false;  // the next session logs its own first refused command
 	bConnectionLost = true;
 	bWaitingForClick = false;
-	if (UMIGameSubsystem* G = MICloudPrivate::Game(GetGameInstance()); G && G->GetRules().GetState() == EMIGameState::Playing)
+#if MI_WITH_PIXELSTREAMING2
+	// A trigger that was pulled when its viewer went: Pixel Streaming sends a trigger's last value to the game again
+	// on every frame until a zero arrives (InputHandler.cpp, bKeepUnlessZero), and none comes from a viewer who is
+	// gone: the fire or the aim would stay on for the rest of the process. Give every pad it knows its zeros (the
+	// sticks too). The pads themselves stay known: a page that reconnects may go on using the id it was given.
+	if (const TSharedPtr<IPixelStreaming2InputHandler> Handler = MICloudPrivate::StreamInput())
 	{
-		G->Pause();
+		const FKey Axes[] = {EKeys::Gamepad_LeftTriggerAxis, EKeys::Gamepad_RightTriggerAxis, EKeys::Gamepad_LeftX, EKeys::Gamepad_LeftY, EKeys::Gamepad_RightX, EKeys::Gamepad_RightY};
+		for (uint8 Pad = 0; Pad < 8; ++Pad)
+		{
+			for (const FKey& Axis : Axes)
+			{
+				Handler->OnControllerAnalog(Pad, Axis, 0.0);  // false for an id it does not know
+			}
+		}
 	}
-	MICloudPrivate::Line(FString::Printf(TEXT("Connection lost: the game is paused until a viewer joins")));
+#endif
+	const UGameInstance* GI = GetGameInstance();
+	ReleaseForLeave(MICloudPrivate::Game(GI), GI ? Cast<AMIPlayerController>(GI->GetFirstLocalPlayerController()) : nullptr);
+	MICloudPrivate::Line(FString::Printf(TEXT("Connection lost: the game is paused until a viewer joins, and what the viewer held is let go")));
 }
 
 void UMICloudSubsystem::EnsureOverlay()
@@ -822,7 +917,7 @@ void UMICloudSubsystem::EnsureMouse()
 	AMIPlayerController* PC = GetGameInstance() ? Cast<AMIPlayerController>(GetGameInstance()->GetFirstLocalPlayerController()) : nullptr;
 	if (PC && !PC->UsesStreamMouse())
 	{
-		PC->SetStreamMouse(MouseShape);
+		PC->SetStreamMouse(GetMouseShape());
 	}
 }
 
@@ -846,14 +941,11 @@ bool UMICloudSubsystem::OnKeyDown(const FKey& Key, bool bRepeat)
 	{
 		return false;
 	}
-	if (Key.IsGamepadKey())
+	// Of one hold of a gamepad button only the first message goes on, marked as a repeat or not (FMIPadButtons).
+	if (Key.IsGamepadKey() && !PadButtons.Press(Key))
 	{
-		if (IsStreamPadRepeat(Key, bRepeat) || PadKeysDown.Contains(Key))
-		{
-			++PadRepeatsDropped;
-			return true;
-		}
-		PadKeysDown.Add(Key);
+		++PadRepeatsDropped;
+		return true;
 	}
 	// A pad that is attached to this machine has its stick keys made by the platform: ours would double them.
 	if (!bMakingStickKeys && (Key == EKeys::Gamepad_LeftStick_Up || Key == EKeys::Gamepad_LeftStick_Down
@@ -911,25 +1003,19 @@ void UMICloudSubsystem::TickStickMenu(float DeltaTime)
 	}
 }
 
-void UMICloudSubsystem::GuardViewerCommands()
+void UMICloudSubsystem::GuardViewerInput()
 {
 #if MI_WITH_PIXELSTREAMING2
 	// Pixel Streaming 2 runs a viewer's {"ConsoleCommand": "..."} through GEngine->Exec when the host allows viewer
 	// commands (RTCInputHandler.cpp PopulateDefaultCommandHandlers), and E3DS always passes
 	// -AllowPixelStreamingCommands. IPixelStreaming2InputHandler::SetCommandHandler replaces a handler by name: ours
-	// keeps Pixel Streaming's two conditions and adds the allowlist. The other command handlers (the browser's size,
-	// the encoder and bitrate settings) are separate names and stay as they are.
-	if (bCommandsGuarded || !IPixelStreaming2Module::IsAvailable())
+	// keeps Pixel Streaming's two conditions and adds the allowlist. The encoder and bitrate command handlers are
+	// separate names and stay as they are.
+	if (bCommandsGuarded)
 	{
 		return;
 	}
-	IPixelStreaming2Module& Module = IPixelStreaming2Module::Get();
-	if (!Module.IsReady())
-	{
-		return;
-	}
-	TSharedPtr<IPixelStreaming2Streamer> Streamer = Module.FindStreamer(Module.GetDefaultStreamerID());
-	TSharedPtr<IPixelStreaming2InputHandler> Handler = Streamer.IsValid() ? Streamer->GetInputHandler().Pin() : nullptr;
+	const TSharedPtr<IPixelStreaming2InputHandler> Handler = MICloudPrivate::StreamInput();
 	if (!Handler.IsValid())
 	{
 		return;
@@ -937,6 +1023,39 @@ void UMICloudSubsystem::GuardViewerCommands()
 	bCommandsGuarded = true;
 	TWeakObjectPtr<UMICloudSubsystem> Weak(this);
 	TWeakPtr<IPixelStreaming2InputHandler> WeakHandler = Handler;
+	// A double click. A browser sends mousedown, mouseup, mousedown, mouseup and then dblclick, and the player page
+	// passes the last one on as "MouseDouble". Unreal takes that for a third press (Slate adds the button to its
+	// pressed buttons; the game viewport sends IE_DoubleClick, which the player's input counts as a press), and no
+	// release follows it: E3DS's page sends none (Epic's own page does since its version 0.3.0, whose change log
+	// describes the stuck button). On E3DS two quick clicks therefore left the fire button held: an automatic gun kept
+	// firing until the next click was let go, and that click fired nothing. Both clicks have arrived as presses and
+	// releases already, so the message is dropped; with a page that does send a release after it, that release finds
+	// the button up. RegisterMessageHandler replaces the plugin's handler (InputHandler.cpp: DispatchTable.Add). The
+	// desktop's mouse does not come this way.
+	Handler->RegisterMessageHandler(TEXT("MouseDouble"), [Weak](FString, FMemoryReader)
+	{
+		if (UMICloudSubsystem* S = Weak.Get())
+		{
+			++S->DoubleClicksDropped;
+		}
+	});
+	// The size request (FMICloudSize). Pixel Streaming's handler asks only whether the sender may control the stream
+	// (RTCInputHandler.cpp: no AllowPixelStreamingCommands there); ours asks the same.
+	Handler->SetCommandHandler(TEXT("Resolution.Width"), [Weak, WeakHandler](FString SourceId, FString Descriptor, FString Width)
+	{
+		const TSharedPtr<IPixelStreaming2InputHandler> H = WeakHandler.Pin();
+		TSharedPtr<FJsonObject> Json;
+		double Height = 0.0;
+		if (!H.IsValid() || !H->IsElevated(SourceId) || !FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Descriptor), Json)
+			|| !Json.IsValid() || !Json->TryGetNumberField(TEXT("Resolution.Height"), Height))
+		{
+			return;
+		}
+		if (UMICloudSubsystem* S = Weak.Get())
+		{
+			S->OnViewerSize(FCString::Atoi(*Width), FMath::IsFinite(Height) ? (int32)FMath::Clamp(Height, 0.0, 1e6) : 0);
+		}
+	});
 	Handler->SetCommandHandler(TEXT("ConsoleCommand"), [Weak, WeakHandler](FString SourceId, FString Descriptor, FString Command)
 	{
 		static IConsoleVariable* Allow = IConsoleManager::Get().FindConsoleVariable(TEXT("PixelStreaming2.AllowPixelStreamingCommands"));
@@ -951,7 +1070,46 @@ void UMICloudSubsystem::GuardViewerCommands()
 		}
 	});
 	MICloudPrivate::Line(FString::Printf(TEXT("Viewer console commands: only these variables can be read or set, anything else is refused: %s"), *MITuning::AllowedList()));
+	MICloudPrivate::Line(FString::Printf(TEXT("Viewer input: a size request is taken from %d x %d up and drawn within %d x %d; a double click counts as its two clicks"),
+		FMICloudSize::MinWidth, FMICloudSize::MinHeight, FMICloudSize::MaxWidth, FMICloudSize::MaxHeight));
 #endif
+}
+
+void UMICloudSubsystem::OnViewerSize(int32 Width, int32 Height)
+{
+	FIntPoint Size(0, 0);
+	double Shown = 1.0;
+	if (!FMICloudSize::Fit(Width, Height, Size, Shown))
+	{
+		if (++SizeRequestsIgnored <= 3)
+		{
+			MICloudPrivate::Line(FString::Printf(TEXT("Viewer's size request %d x %d ignored (below %d x %d)"), Width, Height, FMICloudSize::MinWidth, FMICloudSize::MinHeight));
+		}
+		return;
+	}
+	++SizeRequests;
+	FIntPoint Now(0, 0);
+	if (const UGameViewportClient* VC = GetGameInstance() ? GetGameInstance()->GetGameViewportClient() : nullptr; VC && VC->Viewport)
+	{
+		Now = VC->Viewport->GetSizeXY();
+	}
+	if (Size != Now && GEngine)
+	{
+		GEngine->Exec(GetGameInstance() ? GetGameInstance()->GetWorld() : nullptr, *FString::Printf(TEXT("r.SetRes %dx%d"), Size.X, Size.Y));
+	}
+	// The mouse keeps its speed: the page shows the picture Shown times wider than it is drawn, and Pixel Streaming's
+	// counts are counts of the drawn picture.
+	const bool bMouseChanged = !FMath::IsNearlyEqual(Shown, MouseShown, 1e-6);
+	MouseShown = Shown;
+	if (AMIPlayerController* PC = GetGameInstance() ? Cast<AMIPlayerController>(GetGameInstance()->GetFirstLocalPlayerController()) : nullptr; PC && bMouseChanged)
+	{
+		PC->SetStreamMouse(GetMouseShape());
+	}
+	if (SizeRequests <= 10 || bMouseChanged)
+	{
+		MICloudPrivate::Line(FString::Printf(TEXT("Viewer's size request %d x %d: drawn at %d x %d%s; mouse look %.4f browser pixels per count"), Width, Height, Size.X, Size.Y,
+			Size.X != Width || Size.Y != Height ? TEXT(" (the largest size of that shape the game draws)") : TEXT(""), GetMouseShape().Scale));
+	}
 }
 
 void UMICloudSubsystem::OnViewerCommand(const FString& Command)
@@ -998,7 +1156,7 @@ bool UMICloudSubsystem::Tick(float DeltaTime)
 		EnsureOverlay();
 		EnsureVideoProducer();
 		EnsureMouse();
-		GuardViewerCommands();
+		GuardViewerInput();
 		TickPacing();
 	}
 	if (ProbePeriod > 0.f)
@@ -1052,6 +1210,10 @@ void UMICloudSubsystem::ApplyFrameRateTarget()
 	MICloudPrivate::SetAsProfile(TEXT("t.MaxFPS"), FString::FromInt(Governor.Target()));
 	const float Cap = MaxFps ? MaxFps->GetFloat() : (float)Governor.Target();
 	const float Rate = Cap >= 1.f ? FMath::Min(Cap, 60.f) : 60.f;
+	// The stream's own frame rate is kept in step, for a session that turns Pixel Streaming's decoupled capture on
+	// (its capture thread runs at this rate). With the capture coupled to the game's frames (the default) the stream
+	// sends what the game draws, and this value does nothing on a running stream: Pixel Streaming reads it once, when
+	// a viewer's video is set up, as the most frames a second it may send (EpicRtcStreamer.cpp, _maxFrameRate).
 	MICloudPrivate::SetAsProfile(TEXT("PixelStreaming2.WebRTC.Fps"), FString::FromInt(FMath::RoundToInt32(Rate)));
 	MICloudPrivate::SetAsProfile(TEXT("r.DynamicRes.FrameTimeBudget"), FString::SanitizeFloat(1000.0 / Rate));
 }
@@ -1090,6 +1252,11 @@ void UMICloudSubsystem::TickPacing()
 	GovGpuSum = 0.0;
 	GovFrames = 0;
 	PictureShare = MICloudPrivate::PictureShare(In.bSmallestPicture);
+	{
+		// For the rise: what the GPU would need at the smallest picture (the higher rate is held with a smaller one).
+		static IConsoleVariable* MinPicture = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DynamicRes.MinScreenPercentage"));
+		In.GpuMsSmallest = MITuning::GpuMsAtSmallest(In.GpuMs, PictureShare, (MinPicture ? MinPicture->GetFloat() : 50.f) / 100.0, MICloudPrivate::GFpsPixelPart);
+	}
 	if (Pacer.IsValid())
 	{
 		// Held back: the game thread spent more than a fifth of the time waiting for the GPU AND made fewer frames
@@ -1264,6 +1431,20 @@ void UMICloudSubsystem::Probe(float DeltaTime)
 		(long long)MICloudPrivate::BackBuffers.load(), (long long)MICloudPrivate::FramesPushed.load(),
 		Viewers.Count, MIPC ? MIPC->GetMouseSpikes() : 0, MIPC && MIPC->IsPadActive() ? 1 : 0, CommandsRun, CommandsRefused,
 		PadRepeatsDropped, StickKeysMade);
+	{
+		// What the stream input checks read (tools/box/cloud/rtcinput.py): is the trigger held, how the player moves,
+		// the rounds in the magazine, double clicks dropped, the size drawn (after a viewer's size request).
+		AMIPlayerCharacter* C = PC ? Cast<AMIPlayerCharacter>(PC->GetPawn()) : nullptr;
+		const UMIWeaponComponent* W = C ? C->GetWeapon() : nullptr;
+		FIntPoint Size(0, 0);
+		if (const UGameViewportClient* VC = GetGameInstance() ? GetGameInstance()->GetGameViewportClient() : nullptr; VC && VC->Viewport)
+		{
+			Size = VC->Viewport->GetSizeXY();
+		}
+		Out += FString::Printf(TEXT(" fire=%d moveX=%.2f moveY=%.2f mag=%d dbl=%d outW=%d outH=%d mouseScale=%.4f"), C && C->GetInput().bFire ? 1 : 0,
+			C ? C->GetInput().Move.X : 0.0, C ? C->GetInput().Move.Y : 0.0, W && W->IsReady() ? W->GetRules().GetMag() : -1, DoubleClicksDropped, Size.X, Size.Y,
+			GetMouseShape().Scale);
+	}
 	MICloudPrivate::Line(Out);
 	ProbeFrames = ProbeTime = ProbeWorst = 0.0;
 	ProbeGameMs = ProbeRenderMs = ProbeRhiMs = 0.0;

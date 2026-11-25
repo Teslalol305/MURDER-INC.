@@ -19,8 +19,9 @@ enum class EInputActionValueType : uint8;
  * The gamepad (spec 01 3.17, src/input.js): both sticks pass the web game's axial dead zone; the right stick turns
  * the view through its response curve and turn boost (FMIPadLook) and picks on the weapon wheel while that is open;
  * the triggers fire and aim from their analog axes too (a pad in a browser stream sends the triggers only as axes);
- * L3 latches the sprint. The device that produced real input last is the active one (3.16): the pad's aim slow-down
- * runs only while that is the pad.
+ * L3 latches the sprint; X reloads, unless a grab prompt is showing when it is pressed: then that hold grabs. The
+ * device that produced real input last is the active one (3.16): the pad's aim slow-down runs only while that is the
+ * pad.
  *
  * Mouse look through a Pixel Streaming data channel (Cloud/MICloud.h): the stream's mouse events arrive one by one
  * through StreamMouseEvent and are turned back into the browser's pixels (FMIStreamMouse); the engine's own mouse
@@ -67,6 +68,12 @@ public:
 
 	/** A card acted on a press (confirm, click, back, the pause key): what is still held does not carry into play. */
 	void DropMenuPresses();
+	/**
+	 * Everything that is held is let go: every key, button, stick and trigger, in the engine's input and in this
+	 * controller. For a player who is gone (a stream's last viewer left: UMICloudSubsystem::ReleaseForLeave): the
+	 * releases of what he held never arrive. A key pressed afterwards counts as a fresh press.
+	 */
+	void DropAllHeld();
 
 	// The console commands below are for headless checks and pictures on the box. None of them does anything in the
 	// Shipping game (their bodies are compiled out): a stream's viewer can reach the console through launch options
@@ -179,6 +186,7 @@ private:
 	bool bPadActive = false;
 	bool bSprintLatch = false;
 	bool bFireKey = false, bFireAxis = false, bAimKey = false, bAimAxis = false;
+	bool bGrabKey = false, bGrabPad = false;       // the grab is held by E, or by a press of the pad's X that found a prompt
 	double MouseTravel = 0.0;  // web pixels this frame: a nudge of the desk does not take the device back from a pad
 
 	// The mouse through a stream.

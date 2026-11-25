@@ -31,9 +31,11 @@
  * Measured (docs/unreal/PROGRESS.md "Version 3, release A"): lines at 70, 85 and 90 % each lowered a rate that was
  * being held without a late frame (runs d2, d5, h-l20); with 100 % a GPU at 78 to 98 % of the frame time gave a
  * steady 45 (run h-l20x).
- * Up, only at a safe moment (a card, a set-up screen: not in live play): the GPU's time has been under UnderShare of
- * the frame time for RaiseAfter seconds. A rise that does not hold (the target drops again within RetryWindow
- * seconds) doubles the wait before the next try.
+ * Up, only at a safe moment (a card, a set-up screen: not in live play): the GPU's time at the smallest picture has
+ * been under UnderShare of the frame time for RaiseAfter seconds (GpuMsSmallest: the drop is judged at the smallest
+ * picture, so the rise is too; judged at the larger picture the lower rate allowed, a card that holds 60 with a 50 to
+ * 75 % picture never got 60 back). A rise that does not hold (the target drops again within RetryWindow seconds)
+ * doubles the wait before the next try.
  */
 struct MURDERINC_API FMIFrameRateGovernor
 {
@@ -54,6 +56,12 @@ struct MURDERINC_API FMIFrameRateGovernor
 		double Seconds = 0.0;
 		/** The GPU's time per frame, averaged since the last update, in ms (0: not known). */
 		double GpuMs = 0.0;
+		/**
+		 * What that time would be at the smallest picture dynamic resolution may draw, in ms (0: not known, or the
+		 * picture is the smallest already: GpuMs is used). The rise is judged by it: a higher rate is held with a
+		 * smaller picture.
+		 */
+		double GpuMsSmallest = 0.0;
 		/** Dynamic resolution cannot draw a smaller picture (it is at its minimum, or it is off). */
 		bool bSmallestPicture = false;
 		/** The game fell short of the target's rate since the last update because it had to wait for the GPU. */
@@ -97,6 +105,13 @@ namespace MITuning
 	/** The families, for the log and the docs. */
 	MURDERINC_API FString AllowedList();
 	/**
+	 * The GPU's time at the smallest picture, worked out from its time at the picture drawn now: the time follows the
+	 * number of pixels (the share squared) for the part of the frame that depends on them, and PixelPart is that part
+	 * (measured on the box for this game: MI.Cloud.FpsPixelPart). Share and MinShare are dynamic resolution's shares
+	 * of the output size (0.5 to 1); a Share at or below MinShare, or not known (0 or less), gives GpuMs back.
+	 */
+	MURDERINC_API double GpuMsAtSmallest(double GpuMs, double Share, double MinShare, double PixelPart);
+	/**
 	 * Splits the launch option's text "name=value,name=value" (commas or semicolons; spaces and quotes around it are
 	 * dropped) into the pairs that may be set and the entries that are refused (not in the list, out of range, or not
 	 * of the form name=value).
@@ -107,9 +122,15 @@ namespace MITuning
 /**
  * Holds the game back while the GPU still owes it frames. At the end of every frame the game thread asks the render
  * thread to put a GPU fence behind that frame's commands; at the start of the next frame, after the frame cap's
- * sleep and right before input is read, it waits (asleep in steps of a fifth of a millisecond) until no more than
- * MaxInFlight of those fences are still unsignalled, or until WaitLimitMs has passed (then it goes on and counts a
- * time-out: the game must never hang on this; see GetPauses). With a GPU that keeps up nothing is ever waited for.
+ * sleep and right before input is read, it waits until no more than MaxInFlight of those fences are still
+ * unsignalled, or until WaitLimitMs has passed (then it goes on and counts a time-out; see GetPauses). With a GPU
+ * that keeps up nothing is ever waited for.
+ *
+ * The wait has two halves. The render thread waits for the fence with FRHIGPUFence::Wait, the one call the engine
+ * allows for blocking on a fence (and the one that makes every RHI collect its finished GPU work; see
+ * WaitOnRenderThread); the game thread looks at the fences every fifth of a millisecond and goes on when the one it
+ * needs has passed. The game thread's limit does not cut the render thread's wait short: a frame the GPU needs longer
+ * for than the limit still holds the next frames at the render thread, which is the hold the pacer is for.
  */
 class MURDERINC_API FMIGpuPacer : public TSharedFromThis<FMIGpuPacer, ESPMode::ThreadSafe>
 {
@@ -152,6 +173,8 @@ private:
 	void OnBeginFrame();
 	void OnEndFrame();
 	int32 PollCompleted();
+	/** Asks the render thread to wait until the GPU has passed the fence of frame Id (if it has not yet). */
+	void WaitOnRenderThread(uint64 Id);
 
 	/** The fences: written by the render thread, read and emptied by the game thread (the RHI types stay in the .cpp). */
 	struct FFences;

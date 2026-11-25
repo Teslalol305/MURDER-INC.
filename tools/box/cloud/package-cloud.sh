@@ -23,7 +23,10 @@
 #              cook when a cook exists)
 #   zip        /project/ue/cloud/MurderInc-E3DS.zip from build-Shipping: the launcher cloud/MurderInc.sh at the root
 #              (E3DS app name = script name = MurderInc; it logs to MurderInc/Saved/Logs), BUILD.txt (the commit), the
-#              Development game beside the Shipping one (launch option -MIDev), no *.debug / *.sym (kept on the box in
+#              Development game beside the Shipping one (launch option -MIDev=<key>; the key is a new random word
+#              in MIDEV.key at the zip's root, copied to /project/ue/cloud/MurderInc-E3DS.devkey for the release
+#              report: a visitor can add launch options to a stream link and must not be able to start the Development
+#              game, which has the debug switches; never commit the key), no *.debug / *.sym (kept on the box in
 #              /project/ue/cloud/symbols/<commit>/ to read crash call stacks), plus its sha256
 #   parts      the zip in parts of 240 MiB (the storage takes at most about 250 MB a file) in /project/ue/cloud/parts,
 #              named MurderInc-E3DS-part<k>-of-<n>.zip, with parts.sha256
@@ -187,13 +190,19 @@ zipit() {
   # Our launcher in place of the engine's (which ran MurderInc-Linux-Shipping MurderInc -MICloud "$@" and kept no
   # log): it logs to MurderInc/Saved/Logs, passes stop signals on, never runs the game as root.
   cp "$launcher" "$L/MurderInc.sh" && chmod 755 "$L/MurderInc.sh" || return 1
-  # The Development game beside the Shipping one (the same cooked content and paks): launch option -MIDev.
+  # The Development game beside the Shipping one (the same cooked content and paks): launch option -MIDev=<key>.
+  # The key: 16 random hex digits, new for every zip. The launcher starts the Development game only with it, so a
+  # visitor who adds -MIDev to a stream link gets the Shipping game. It goes to the owner with the release report;
+  # the game never sees it (the launcher keeps the option to itself) and nothing prints it.
   if [ -f "$D/MurderInc" ]; then cp "$D/MurderInc" "$B/MurderInc" && chmod 755 "$B/MurderInc" || return 1; fi
+  local key; key=$(head -c 8 /dev/urandom | od -An -tx1 | tr -d ' \n')
+  [ ${#key} = 16 ] || { say "no random key"; return 1; }
+  echo "$key" > "$L/MIDEV.key" && chmod 644 "$L/MIDEV.key" && echo "$key" > "$C/MurderInc-E3DS.devkey" || return 1
   {
     echo "MURDER INC. cloud build for Eagle 3D Streaming (Linux, Unreal Engine 5.9, Pixel Streaming 2)"
     echo "commit $gsha (branch $BRANCH)$( [ "$gsha" != "$sha" ] && echo "; launcher and packaging from commit $sha")"
     echo "packaged $(date -u '+%Y-%m-%d %H:%M UTC') with tools/box/cloud/package-cloud.sh"
-    echo "games: MurderInc/Binaries/Linux/MurderInc-Linux-Shipping (default), MurderInc/Binaries/Linux/MurderInc (Development: launch option -MIDev)"
+    echo "games: MurderInc/Binaries/Linux/MurderInc-Linux-Shipping (default), MurderInc/Binaries/Linux/MurderInc (Development: launch option -MIDev=<key>, the word in MIDEV.key)"
     echo "shaders: Vulkan SM6 (Nanite, Lumen, hardware ray tracing) and the SM5 fallback; log: MurderInc/Saved/Logs/MurderInc.log"
   } > "$L/BUILD.txt"
   # Debug symbols stay on the box, by commit, to turn a crash report's addresses into function names.
@@ -215,7 +224,7 @@ with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as z:
 EOF
   ) || return 1
   sha256sum "$z" | cut -d' ' -f1 > "$z.sha256"
-  say "ZIP OK: $z $(du -h "$z" | cut -f1) sha256 $(cat "$z.sha256") (game ${gsha:0:7}, launcher ${sha:0:7}; symbols in $S)"
+  say "ZIP OK: $z $(du -h "$z" | cut -f1) sha256 $(cat "$z.sha256") (game ${gsha:0:7}, launcher ${sha:0:7}; symbols in $S; the Development game's key is in $C/MurderInc-E3DS.devkey: give it to the owner with the release report, never commit it)"
 }
 
 parts() {

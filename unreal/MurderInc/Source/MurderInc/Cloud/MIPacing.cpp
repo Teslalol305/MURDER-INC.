@@ -86,14 +86,19 @@ bool FMIFrameRateGovernor::Update(const FInput& In)
 		return false;
 	}
 	OverFor = 0.0;
-	const bool bUnder = In.GpuMs > 0.0 && In.GpuMs < UnderShare * Frame && !In.bHeldBack;
+	// The rise is judged by what the GPU would need at the smallest picture, as the drop is: the higher rate has a
+	// shorter frame time, dynamic resolution then draws a smaller picture to fit it, and a card that holds the higher
+	// rate that way must get it back. Judged at the picture the lower rate allowed (the larger one), a card that took
+	// 10.6 ms at the 75 % picture stayed at 45 for the rest of the session although it holds 60 (box runs d2, k-l12).
+	const double AtSmallest = In.GpuMsSmallest > 0.0 ? FMath::Min(In.GpuMsSmallest, In.GpuMs) : In.GpuMs;
+	const bool bUnder = In.GpuMs > 0.0 && AtSmallest < UnderShare * Frame && !In.bHeldBack;
 	UnderFor = bUnder ? UnderFor + Step : 0.0;
 	if (UnderFor >= RaiseWait && In.bSafeMoment && Index > 0)
 	{
 		const int32 From = Target();
 		--Index;
-		Reason = FString::Printf(TEXT("%d -> %d frames a second: the GPU took %.1f ms a frame, under %.0f %% of %.1f ms for %.0f s, and no run is being played"),
-			From, Target(), In.GpuMs, UnderShare * 100.0, Frame, UnderFor);
+		Reason = FString::Printf(TEXT("%d -> %d frames a second: the GPU took %.1f ms a frame (%.1f ms at the smallest picture), under %.0f %% of %.1f ms for %.0f s, and no run is being played"),
+			From, Target(), In.GpuMs, AtSmallest, UnderShare * 100.0, Frame, UnderFor);
 		UnderFor = 0.0;
 		SinceRaise = 0.0;
 		return true;
@@ -111,12 +116,15 @@ namespace MITuningPrivate
 		double Min, Max;     // the range of a single variable; Min > Max: any value
 	};
 	// docs/unreal/PREFLIGHT.md V3-9 and V3-11. The ranges are for the variables that could exhaust the GPU or its
-	// memory (a crash is an email to the owner): a visitor can put these on a link.
+	// memory (a crash is an email to the owner): a visitor can put these on a link. The first match counts, so a
+	// single variable stands before its family.
 	const FRule Rules[] = {
 		{TEXT("PixelStreaming2."), 1, 0},
 		{TEXT("PixelStreaming."), 1, 0},
 		{TEXT("MI.Cloud."), 1, 0},
-		{TEXT("sg."), 0, 4},
+		// The Settings card's own levels, low to ultra. (4 is the engine's "cinematic": full-resolution Lumen and
+		// shadows that the cloud budgets were never measured with.)
+		{TEXT("sg."), 0, 3},
 		{TEXT("r.DynamicRes.MinScreenPercentage"), 25, 100},
 		{TEXT("r.DynamicRes.MaxScreenPercentage"), 25, 100},
 		{TEXT("r.DynamicRes."), 1, 0},
@@ -125,11 +133,29 @@ namespace MITuningPrivate
 		{TEXT("r.Streaming.PoolSize"), 200, 3000},
 		{TEXT("r.GTSyncType"), 0, 2},
 		{TEXT("r.OneFrameThreadLag"), 0, 1},
-		{TEXT("r.VolumetricFog."), 1, 0},
+		// The fog's two grid sizes only, between Epic's own lowest and highest levels (the High level is 16 and 64):
+		// the grid is (width / GridPixelSize) x (height / GridPixelSize) x GridSizeZ cells, and the engine limits
+		// neither value from above (1 and 2048 would ask for volumes of tens of GB).
+		{TEXT("r.VolumetricFog.GridPixelSize"), 8, 32},
+		{TEXT("r.VolumetricFog.GridSizeZ"), 32, 128},
+	};
+	// Inside an allowed family, but never from outside: these write files on the server for as long as they are on.
+	const TCHAR* Never[] = {
+		TEXT("PixelStreaming2.Encoder.DumpDebugFrames"),
+		TEXT("PixelStreaming2.DumpDebugAudio"),
+		TEXT("PixelStreaming.Encoder.DumpDebugFrames"),
+		TEXT("PixelStreaming.DumpDebugAudio"),
 	};
 
 	const FRule* Find(const FString& Name)
 	{
+		for (const TCHAR* N : Never)
+		{
+			if (Name.Equals(N, ESearchCase::IgnoreCase))
+			{
+				return nullptr;
+			}
+		}
 		for (const FRule& R : Rules)
 		{
 			const FString Rule(R.Name);
@@ -140,6 +166,17 @@ namespace MITuningPrivate
 		}
 		return nullptr;
 	}
+}
+
+double MITuning::GpuMsAtSmallest(double GpuMs, double Share, double MinShare, double PixelPart)
+{
+	if (GpuMs <= 0.0 || Share <= 0.0 || MinShare <= 0.0 || Share <= MinShare)
+	{
+		return GpuMs;
+	}
+	const double Part = FMath::Clamp(PixelPart, 0.0, 1.0);
+	const double Pixels = FMath::Square(MinShare / Share);
+	return GpuMs * ((1.0 - Part) + Part * Pixels);
 }
 
 bool MITuning::IsAllowed(const FString& Name, const FString& Value)
@@ -315,6 +352,43 @@ int32 FMIGpuPacer::PollCompleted()
 	return (int32)(Enqueued - Completed);
 }
 
+void FMIGpuPacer::WaitOnRenderThread(uint64 Id)
+{
+	// The wait itself belongs to the render thread: FRHIGPUFence::Poll only looks, and the engine's own note on it
+	// (RHIResources.h) says not to poll in a loop to block, because some RHIs do not signal a fence unless the RHI
+	// thread keeps submitting. Unreal's Vulkan RHI is one of them on a machine with few CPUs: with 6 task workers or
+	// fewer (8 hyper-threaded CPUs: the usual small cloud GPU server) it has no interrupt thread, and finished GPU work
+	// is then noticed only when the RHI thread submits or when somebody waits on the render thread
+	// (VulkanSubmission.cpp, InitializeSubmissionPipe and ProcessInterruptQueueUntil). The game thread's polling alone
+	// then saw nothing until its time limit: a freeze of 250 ms in every frame the GPU was the limit (box run
+	// rf-cpu6-l20). FRHIGPUFence::Wait is what the engine itself calls for its occlusion read-back; it works with and
+	// without that thread. The command sits behind everything the frame before drew, so it holds nothing up that
+	// could run: the render thread has no later work until the game thread goes on.
+	ENQUEUE_RENDER_COMMAND(MIFrameFenceWait)([List = Fences, Id](FRHICommandListImmediate& RHICmdList)
+	{
+		FGPUFenceRHIRef Fence;
+		{
+			FScopeLock Scope(&List->Lock);
+			for (const FFences::FEntry& Entry : List->Entries)
+			{
+				if (Entry.Id == Id)
+				{
+					Fence = Entry.Fence;
+					break;
+				}
+			}
+		}
+		// Not in the list: the game thread has seen it pass already.
+		if (Fence.IsValid() && !Fence->Poll())
+		{
+			// Everything recorded so far goes to the RHI thread first (the fence's own command among it).
+			RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
+			FRenderThreadIdleScope Idle(ERenderThreadIdleTypes::WaitingForGPUQuery);  // a wait, not render-thread work
+			Fence->Wait(RHICmdList, FRHIGPUMask::All());
+		}
+	});
+}
+
 void FMIGpuPacer::OnBeginFrame()
 {
 	const uint64 SignalledBefore = Signalled;
@@ -324,6 +398,9 @@ void FMIGpuPacer::OnBeginFrame()
 	bool bTimedOut = false;
 	if (MaxInFlight >= 0 && Owed > MaxInFlight && FPlatformTime::Seconds() >= PausedUntil)
 	{
+		// The render thread waits for the frame that must be finished before this one may start; the game thread
+		// watches for it here (a look every fifth of a millisecond) and keeps its time limit.
+		WaitOnRenderThread(Enqueued - (uint64)MaxInFlight);
 		// A wait, not work: the engine's game-thread time ("stat unit", the probe line's gameMs) leaves it out.
 		UE::Stats::FThreadIdleStats::FScopeIdle Idle;
 		const double Start = FPlatformTime::Seconds();

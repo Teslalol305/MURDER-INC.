@@ -1,10 +1,13 @@
 // Version 3 (play through the stream): input shaping and the cloud rules that need no world.
 //   MurderInc.Input.StreamMouse     Pixel Streaming's mouse counts back to browser pixels, the spike filter, the launch option
 //   MurderInc.Input.PadLook         the right stick against numbers worked out with the web game's own functions
-//   MurderInc.Input.PadMenu         menus on the left stick (the web game's repeat), a held button's repeats in a stream,
-//                                   and the PlayStation names of a controller's buttons
+//   MurderInc.Input.PadMenu         menus on the left stick (the web game's repeat), a held button's repeats in a stream
+//                                   (and a first press that the page marks as a repeat), the PlayStation names of a
+//                                   controller's buttons
 //   MurderInc.UI.CardHitTest        which row of a card is under the mouse, and which half of an adjustable row
 //   MurderInc.Cloud.Viewers         the click card: for the first viewer and after everybody left, not for a guest
+//   MurderInc.Cloud.ViewerSize      a viewer's size request: ignored below 640 x 360, cut down to fit 1920 x 1080 with
+//                                   its shape kept, and the mouse scale that goes with a size that was cut down
 //   MurderInc.Cloud.ViewerCommands  the allowlist for a viewer's console commands (the tuning variables and their
 //                                   ranges are in MurderInc.Cloud.Tuning, Tests/MICloudPacingTests.cpp)
 //   MurderInc.Cloud.Quality         Graphics quality while streamed: the frame cap, the resolution and the cloud profile stay
@@ -283,11 +286,23 @@ bool FMIPadMenuTest::RunTest(const FString& Parameters)
 	Run(FVector2D(-1.0, 0.0), 1, X, Y);
 	TestEqual(TEXT("after a reset a held stick steps again"), X, -1);
 
-	// A held gamepad button in a stream: the browser sends it again every frame as a repeat, and those go nowhere.
-	TestTrue(TEXT("a gamepad button's repeat is dropped"), UMICloudSubsystem::IsStreamPadRepeat(EKeys::Gamepad_FaceButton_Bottom, true));
-	TestTrue(TEXT("Start's repeat too"), UMICloudSubsystem::IsStreamPadRepeat(EKeys::Gamepad_Special_Right, true));
-	TestFalse(TEXT("the press itself goes through"), UMICloudSubsystem::IsStreamPadRepeat(EKeys::Gamepad_FaceButton_Bottom, false));
-	TestFalse(TEXT("a keyboard key's repeat goes through (the arrows repeat as on a desktop)"), UMICloudSubsystem::IsStreamPadRepeat(EKeys::Down, true));
+	// A held gamepad button in a stream: the browser sends it again every frame, and of one hold only the first
+	// message goes on. Whether the page marks a message as a press or as a repeat does not matter: the first press of
+	// a session comes marked as a repeat (a browser shows the pad to the page only once a button is down, and the page
+	// then takes that button for held already), and it must hide the click card like any press.
+	{
+		FMIPadButtons Pad;
+		TestTrue(TEXT("the first message of a hold goes on (a press, or the session's first press marked as a repeat)"), Pad.Press(EKeys::Gamepad_FaceButton_Bottom));
+		TestFalse(TEXT("the next message of the same hold is dropped"), Pad.Press(EKeys::Gamepad_FaceButton_Bottom));
+		TestFalse(TEXT("and every one after it"), Pad.Press(EKeys::Gamepad_FaceButton_Bottom));
+		TestTrue(TEXT("another button meanwhile goes on"), Pad.Press(EKeys::Gamepad_Special_Right));
+		TestFalse(TEXT("its repeats are dropped too (the Start that began a run does not pause it)"), Pad.Press(EKeys::Gamepad_Special_Right));
+		Pad.Release(EKeys::Gamepad_FaceButton_Bottom);
+		TestTrue(TEXT("after the release a new press goes on"), Pad.Press(EKeys::Gamepad_FaceButton_Bottom));
+		TestFalse(TEXT("the other button is still held"), Pad.Press(EKeys::Gamepad_Special_Right));
+		Pad.Reset();
+		TestTrue(TEXT("after the viewer left nothing is held: the next viewer's press goes on"), Pad.Press(EKeys::Gamepad_Special_Right));
+	}
 
 	// The names of a controller's buttons: the data's are the Xbox names.
 	const auto Ps = [](const TCHAR* Name) { return MILook::PadName(Name, true); };
@@ -374,6 +389,39 @@ bool FMICloudViewersTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("everybody left"), V.Count, 0);
 	TestTrue(TEXT("the first viewer after everybody left gets the card again"), V.Join());
 	TestFalse(TEXT("and the next one does not"), V.Join());
+	return !HasAnyErrors();
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMICloudViewerSizeTest, "MurderInc.Cloud.ViewerSize", MITest::Flags)
+
+bool FMICloudViewerSizeTest::RunTest(const FString& Parameters)
+{
+	FIntPoint Size(0, 0);
+	double Shown = 0.0;
+	const auto Fit = [&](int32 W, int32 H) { Size = FIntPoint(0, 0); Shown = 0.0; return FMICloudSize::Fit(W, H, Size, Shown); };
+	// Sizes the game draws as asked: the mouse scale stays.
+	TestTrue(TEXT("1920 x 1080 is taken"), Fit(1920, 1080));
+	TestTrue(TEXT("as it is"), Size == FIntPoint(1920, 1080) && Shown == 1.0);
+	TestTrue(TEXT("1280 x 720 is taken"), Fit(1280, 720));
+	TestTrue(TEXT("as it is, too"), Size == FIntPoint(1280, 720) && Shown == 1.0);
+	TestTrue(TEXT("an odd laptop frame (1365 x 767) is taken as it is"), Fit(1365, 767) && Size == FIntPoint(1365, 767) && Shown == 1.0);
+	TestTrue(TEXT("the smallest size"), Fit(640, 360) && Size == FIntPoint(640, 360));
+	// Larger than 1920 x 1080: the largest size of the same shape that fits, and the mouse scale grows by the ratio.
+	TestTrue(TEXT("2560 x 1440 is cut down"), Fit(2560, 1440));
+	TestTrue(TEXT("to 1920 x 1080"), Size == FIntPoint(1920, 1080));
+	TestTrue(TEXT("the page shows it 4/3 times wider than it is drawn"), FMath::IsNearlyEqual(Shown, 4.0 / 3.0, 1e-9));
+	TestTrue(TEXT("3840 x 2160 is cut down to 1920 x 1080, shown twice as wide"), Fit(3840, 2160) && Size == FIntPoint(1920, 1080) && FMath::IsNearlyEqual(Shown, 2.0, 1e-9));
+	TestTrue(TEXT("an ultra-wide 3440 x 1440 keeps its shape"), Fit(3440, 1440) && Size == FIntPoint(1920, 804));
+	TestTrue(TEXT("and its mouse scale follows the width"), FMath::IsNearlyEqual(Shown, 3440.0 / 1920.0, 1e-9));
+	TestTrue(TEXT("a tall frame (1200 x 1600) is limited by its height"), Fit(1200, 1600) && Size == FIntPoint(810, 1080));
+	TestTrue(TEXT("1920 x 1200 is limited by its height too"), Fit(1920, 1200) && Size == FIntPoint(1728, 1080));
+	// Too small, or no size at all: ignored (Pixel Streaming's own handler ran r.SetRes for any size of 1 or more).
+	TestFalse(TEXT("a phone held upright (390 x 844) is ignored"), Fit(390, 844));
+	TestFalse(TEXT("a frame that is not laid out yet (1 x 1)"), Fit(1, 1));
+	TestFalse(TEXT("wide enough but too low (1000 x 300)"), Fit(1000, 300));
+	TestFalse(TEXT("no size"), Fit(0, 0));
+	TestFalse(TEXT("a negative size"), Fit(-1920, 1080));
+	TestFalse(TEXT("an absurd size"), Fit(100000, 100000));
 	return !HasAnyErrors();
 }
 

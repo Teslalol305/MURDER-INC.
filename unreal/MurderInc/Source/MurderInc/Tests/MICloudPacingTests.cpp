@@ -1,8 +1,8 @@
 // Version 3, release A (the lag): the decisions that keep a streamed game from running ahead of its GPU, and what
 // a visitor may tune from outside. No world, no renderer.
 //   MurderInc.Cloud.FrameRate   the frame-rate target: down at once, in live play only, when the GPU cannot keep up at
-//                               the smallest picture; up only outside live play; a rise that does not hold waits
-//                               longer; a fixed target stays
+//                               the smallest picture; up only outside live play, judged at the smallest picture too; a
+//                               rise that does not hold waits longer; a fixed target stays
 //   MurderInc.Cloud.Tuning      the variables -MICVars and a viewer's console command may set, their ranges, the
 //                               launch option's text split into pairs
 
@@ -16,7 +16,7 @@
 namespace MICloudPacingTestsPrivate
 {
 	/** Feeds the governor the same half-second steps the game does, for a time. Returns how often the target changed. */
-	int32 Run(FMIFrameRateGovernor& G, double Seconds, double GpuMs, bool bSmallestPicture, bool bSafeMoment, bool bHeldBack = false)
+	int32 Run(FMIFrameRateGovernor& G, double Seconds, double GpuMs, bool bSmallestPicture, bool bSafeMoment, bool bHeldBack = false, double GpuMsSmallest = 0.0)
 	{
 		int32 Changes = 0;
 		for (double T = 0.0; T < Seconds - 1e-9; T += 0.5)
@@ -24,6 +24,7 @@ namespace MICloudPacingTestsPrivate
 			FMIFrameRateGovernor::FInput In;
 			In.Seconds = 0.5;
 			In.GpuMs = GpuMs;
+			In.GpuMsSmallest = GpuMsSmallest;
 			In.bSmallestPicture = bSmallestPicture;
 			In.bSafeMoment = bSafeMoment;
 			In.bHeldBack = bHeldBack;
@@ -97,6 +98,35 @@ bool FMICloudFrameRateTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("45"), G.Target(), 45);
 	}
 	{
+		// The rise is judged at the smallest picture, as the drop is. A card that takes 12 ms at the 75 % picture holds
+		// 60 with a smaller one (box runs k-l12, d6); put at 45 by one bad second, it drew the 75 % picture again and
+		// was never under 45 % of 22.2 ms (10 ms) there: 45 for the rest of the session.
+		FMIFrameRateGovernor G;
+		Run(G, 1.0, 18.0, true, false);
+		TestEqual(TEXT("down to 45 by a bad second"), G.Target(), 45);
+		const double At50 = MITuning::GpuMsAtSmallest(12.0, 0.75, 0.50, 0.6);
+		AddInfo(FString::Printf(TEXT("12 ms at the 75 %% picture is %.2f ms at the 50 %% picture (60 %% of the time follows the pixels)"), At50));
+		TestTrue(TEXT("12 ms at 75 % is about 8 ms at 50 %"), FMath::IsNearlyEqual(At50, 12.0 * (0.4 + 0.6 * 0.25 / 0.5625), 1e-9) && At50 < 10.0);
+		TestEqual(TEXT("12 ms at the 75 % picture on a card, 9.5 s: not yet"), Run(G, 9.5, 12.0, false, true, false, At50), 0);
+		TestEqual(TEXT("... 10 s: it rises (8 ms at the smallest picture is under 10 ms)"), Run(G, 0.5, 12.0, false, true, false, At50), 1);
+		TestEqual(TEXT("45 -> 60"), G.Target(), 60);
+		AddInfo(FString::Printf(TEXT("log line: %s"), *G.Why()));
+	}
+	{
+		FMIFrameRateGovernor G;
+		Run(G, 1.0, 18.0, true, false);
+		TestEqual(TEXT("down to 45"), G.Target(), 45);
+		// The picture is the smallest already: nothing is left to gain, 12 ms is not under 10 ms.
+		const double At50 = MITuning::GpuMsAtSmallest(12.0, 0.50, 0.50, 0.6);
+		TestEqual(TEXT("at the smallest picture the time is the time"), At50, 12.0);
+		TestEqual(TEXT("12 ms at the 50 % picture on a card for a minute: it stays at 45"), Run(G, 60.0, 12.0, true, true, false, At50), 0);
+		// The sum never comes out above the measured time, and the parts are what they say.
+		TestEqual(TEXT("dynamic resolution off (no share known): the measured time"), MITuning::GpuMsAtSmallest(12.0, -1.0, 0.5, 0.6), 12.0);
+		TestEqual(TEXT("nothing follows the pixels: the measured time"), MITuning::GpuMsAtSmallest(12.0, 0.75, 0.5, 0.0), 12.0);
+		TestTrue(TEXT("everything follows the pixels: the ratio of the pixels"), FMath::IsNearlyEqual(MITuning::GpuMsAtSmallest(12.0, 0.75, 0.5, 1.0), 12.0 * 0.25 / 0.5625, 1e-9));
+		TestEqual(TEXT("no GPU time known"), MITuning::GpuMsAtSmallest(0.0, 0.75, 0.5, 0.6), 0.0);
+	}
+	{
 		// A fixed target (-MIFps=, MI.Cloud.FpsTarget, a t.MaxFPS set by hand).
 		FMIFrameRateGovernor G;
 		G.Pin(30);
@@ -132,7 +162,9 @@ bool FMICloudTuningTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("the texture pool"), Ok(TEXT("r.Streaming.PoolSize"), TEXT("1000")));
 	TestTrue(TEXT("the thread sync"), Ok(TEXT("r.GTSyncType"), TEXT("1")));
 	TestTrue(TEXT("the thread lag"), Ok(TEXT("r.OneFrameThreadLag"), TEXT("0")));
-	TestTrue(TEXT("volumetric fog"), Ok(TEXT("r.VolumetricFog.GridPixelSize"), TEXT("16")));
+	TestTrue(TEXT("volumetric fog: the size of a cell on screen"), Ok(TEXT("r.VolumetricFog.GridPixelSize"), TEXT("16")));
+	TestTrue(TEXT("volumetric fog: the cells in depth"), Ok(TEXT("r.VolumetricFog.GridSizeZ"), TEXT("64")));
+	TestTrue(TEXT("the highest scalability level of the Settings card"), Ok(TEXT("sg.GlobalIlluminationQuality"), TEXT("3")));
 	TestTrue(TEXT("the stream's own settings"), Ok(TEXT("PixelStreaming2.WebRTC.Fps"), TEXT("30")));
 	TestTrue(TEXT("a text value of the stream"), Ok(TEXT("PixelStreaming2.Encoder.Codec"), TEXT("H264")));
 	TestTrue(TEXT("the game's pacing"), Ok(TEXT("MI.Cloud.GpuFramesInFlight"), TEXT("0")));
@@ -146,6 +178,17 @@ bool FMICloudTuningTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("a 20 GB texture pool"), Ok(TEXT("r.Streaming.PoolSize"), TEXT("20000")));
 	TestFalse(TEXT("a frame cap of 1000"), Ok(TEXT("t.MaxFPS"), TEXT("1000")));
 	TestFalse(TEXT("a number where a number belongs"), Ok(TEXT("t.MaxFPS"), TEXT("fast")));
+	// The fog's grid is (width / cell) x (height / cell) x depth cells, and the engine limits neither from above: one
+	// pixel a cell and 2048 cells in depth would ask for volumes of tens of GB.
+	TestFalse(TEXT("fog cells of one pixel"), Ok(TEXT("r.VolumetricFog.GridPixelSize"), TEXT("1")));
+	TestFalse(TEXT("2048 fog cells in depth"), Ok(TEXT("r.VolumetricFog.GridSizeZ"), TEXT("2048")));
+	TestFalse(TEXT("the fog's other variables are not on the list"), Ok(TEXT("r.VolumetricFog.HistoryMissSupersampleCount"), TEXT("16")));
+	TestFalse(TEXT("the engine's cinematic scalability level (above the Settings card's ultra)"), Ok(TEXT("sg.ShadowQuality"), TEXT("4")));
+	// Inside the stream's own family, but they write files on the server for as long as they are on.
+	TestFalse(TEXT("the encoder's frame dump"), Ok(TEXT("PixelStreaming2.Encoder.DumpDebugFrames"), TEXT("1")));
+	TestFalse(TEXT("the audio dump"), Ok(TEXT("PixelStreaming2.DumpDebugAudio"), TEXT("true")));
+	TestFalse(TEXT("in any letter case"), Ok(TEXT("pixelstreaming2.encoder.dumpdebugframes"), TEXT("1")));
+	TestFalse(TEXT("not even to read"), Ok(TEXT("PixelStreaming2.Encoder.DumpDebugFrames"), TEXT("")));
 	// Everything else.
 	TestFalse(TEXT("another render setting"), Ok(TEXT("r.Lumen.DiffuseIndirect.Allow"), TEXT("0")));
 	TestFalse(TEXT("a name that only starts like the frame cap"), Ok(TEXT("t.MaxFPSx"), TEXT("30")));

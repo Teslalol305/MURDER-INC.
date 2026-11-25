@@ -52,6 +52,12 @@ run() {
     echo "name=$name build=$B user=$user home=$home cwd=$cwd nodisplay=${NODISPLAY:-0} secs=$secs cpus=${CPUS:-all}"
     echo "args=${args[*]}"
   } > "$d/info.txt"
+  # A packaged build starts its Development game only with the key of its own MIDEV.key (MurderInc.sh): the tests
+  # write -MIDev, and the key is put in here (not into info.txt).
+  if [ -f "$B/MIDEV.key" ]; then
+    local i key; key=$(tr -d ' \t\r\n' < "$B/MIDEV.key")
+    for i in "${!args[@]}"; do [ "${args[$i]}" = -MIDev ] && args[$i]="-MIDev=$key"; done
+  fi
   # The runner: env built from scratch like a service manager would, then the game under timeout.
   local envs="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 USER=$user"
   [ "$home" != unset ] && envs="$envs HOME=$home"

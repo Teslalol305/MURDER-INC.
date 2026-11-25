@@ -5,7 +5,11 @@
 //   MurderInc.Run.StoryDeath     a bot that does not fight dies; the death card; Run it back starts the run again
 //   MurderInc.Run.HoldTheBlock   a bot holds the start through three waves; scores, resupply, the card and the best
 //   MurderInc.Run.Menus          title, settings validation, pause and resume through the menu model
+//   MurderInc.Player.PadReloadOrGrab   the pad's X: a reload, or the grab when a reel is in reach, never both
+//   MurderInc.Cloud.ViewerLeaves       a stream's last viewer leaves: the run pauses (in its intro too) and what the
+//                                      viewer held is let go
 
+#include "Cloud/MICloud.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
@@ -1424,6 +1428,222 @@ bool FMIRunMenuMouseTest::RunTest(const FString& Parameters)
 	Rig.Key(EKeys::LeftShift, IE_Released);
 	W.Step();
 	TestFalse(TEXT("until it is released"), In.bSprint);
+	return !HasAnyErrors();
+}
+
+// The pad's X (Square) is one button with two meanings, as in the web game (src/input.js padDown): it reloads, unless a
+// grab prompt is showing at the moment of the press: then that hold grabs, and reloads nothing. (Until version 3's
+// review it did both at a reel: every grab under fire put the gun out of action for a reload.) R and E are what they
+// were.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIPadReloadOrGrabTest, "MurderInc.Player.PadReloadOrGrab", MITest::Flags)
+
+bool FMIPadReloadOrGrabTest::RunTest(const FString& Parameters)
+{
+	using namespace MIRunTestsPrivate;
+	FRunWorld W;
+	if (!W.Boot(*this, TEXT("mission"), TEXT("boss")))
+	{
+		return false;
+	}
+	for (int32 I = 0; I < 30 * 4 && W.State() != EMIGameState::Playing; ++I) W.Step();
+	if (!TestEqual(TEXT("playing"), (int32)W.State(), (int32)EMIGameState::Playing))
+	{
+		return false;
+	}
+	FControllerRig Rig(W);
+	if (!TestNotNull(TEXT("controller"), Rig.PC))
+	{
+		return false;
+	}
+	W.Player->GetPlayerRules().bInvulnerable = true;
+	const FMIWeaponRules& Gun = W.Player->GetWeapon()->GetRules();
+	int32 Reloads = 0;
+	FDelegateHandle Handle;
+	FMIGameEvents* Events = UMIEventSubsystem::Get(W.World);
+	if (!TestNotNull(TEXT("events"), Events))
+	{
+		return false;
+	}
+	Handle = Events->WeaponReload.AddLambda([&Reloads](const FMIReloadEvent& E) { if (E.Phase == TEXT("start")) ++Reloads; });
+	const auto Shoot = [&]()
+	{
+		Rig.Key(EKeys::LeftMouseButton, IE_Pressed);
+		for (int32 I = 0; I < 8; ++I) W.Step();
+		Rig.Key(EKeys::LeftMouseButton, IE_Released);
+		for (int32 I = 0; I < 20; ++I) W.Step();
+	};
+	const auto Settle = [&]() { for (int32 I = 0; I < 30 * 4; ++I) W.Step(); };
+	const int32 Full = Gun.GetMag();
+	Shoot();
+	TestTrue(FString::Printf(TEXT("a few rounds are gone (%d of %d left)"), Gun.GetMag(), Full), Gun.GetMag() < Full);
+
+	// Away from every reel: X reloads and holds no grab.
+	TestTrue(TEXT("no reel in reach: no prompt"), W.Game->GetRules().View().Prompt.IsEmpty());
+	Rig.Key(EKeys::Gamepad_FaceButton_Left, IE_Pressed);
+	W.Step();
+	W.Step();
+	TestEqual(TEXT("X away from a reel starts a reload"), Reloads, 1);
+	TestFalse(TEXT("and holds no grab"), W.Game->IsInteractHeld());
+	Rig.Key(EKeys::Gamepad_FaceButton_Left, IE_Released);
+	Settle();
+	TestEqual(TEXT("the magazine is full again"), Gun.GetMag(), Full);
+
+	// At a reel, with rounds missing: X grabs, for that whole hold, and reloads nothing.
+	Shoot();
+	const int32 Left = Gun.GetMag();
+	TestTrue(TEXT("rounds are missing again"), Left < Full);
+	const FMILevelData* Level = W.Game->GetLevel();
+	if (!TestTrue(TEXT("the level has a reel"), Level && Level->Objectives.Num() > 0))
+	{
+		Events->WeaponReload.Remove(Handle);
+		return false;
+	}
+	StandAt(W, Level->Objectives[0].Pos + FVector(0.4, 0, 0));
+	W.Step();
+	W.Step();
+	TestFalse(TEXT("at the reel the grab prompt shows"), W.Game->GetRules().View().Prompt.IsEmpty());
+	Rig.Key(EKeys::Gamepad_FaceButton_Left, IE_Pressed);
+	W.Step();
+	W.Step();
+	TestTrue(TEXT("X at a reel holds the grab"), W.Game->IsInteractHeld());
+	TestEqual(TEXT("and starts no reload"), Reloads, 1);
+	for (int32 I = 0; I < 30 * 3 && W.Game->GetRules().GetRun().Reels == 0; ++I)
+	{
+		StandAt(W, Level->Objectives[0].Pos + FVector(0.4, 0, 0));
+		W.Step();
+	}
+	TestEqual(TEXT("held, X takes the reel"), W.Game->GetRules().GetRun().Reels, 1);
+	TestEqual(TEXT("no reload during the whole hold (the prompt is gone once the reel is taken)"), Reloads, 1);
+	TestEqual(TEXT("the magazine is as it was"), Gun.GetMag(), Left);
+	Rig.Key(EKeys::Gamepad_FaceButton_Left, IE_Released);
+	W.Step();
+	W.Step();
+	TestFalse(TEXT("letting X go lets the grab go"), W.Game->IsInteractHeld());
+
+	// The keyboard is what it was: R reloads, E grabs.
+	Rig.Key(EKeys::R, IE_Pressed);
+	W.Step();
+	W.Step();
+	Rig.Key(EKeys::R, IE_Released);
+	TestEqual(TEXT("R reloads"), Reloads, 2);
+	Rig.Key(EKeys::E, IE_Pressed);
+	W.Step();
+	W.Step();
+	TestTrue(TEXT("E holds the grab"), W.Game->IsInteractHeld());
+	TestEqual(TEXT("and reloads nothing"), Reloads, 2);
+	Rig.Key(EKeys::E, IE_Released);
+	W.Step();
+	W.Step();
+	TestFalse(TEXT("until it is let go"), W.Game->IsInteractHeld());
+	Events->WeaponReload.Remove(Handle);
+	return !HasAnyErrors();
+}
+
+// A stream's last viewer leaves (UMICloudSubsystem::ReleaseForLeave, version 3's review). The run pauses, in its intro
+// too (it paused only in play: a viewer lost in the 2.4 s of the intro left a live run behind). And everything the
+// viewer held is let go: no release arrives from a viewer who is gone, and a key or trigger that still read as down
+// walked, turned or fired for the next viewer (a trigger's axis held the fire for good: neither the trigger nor the
+// mouse fired again). A key pressed afterwards counts at once.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMICloudViewerLeavesTest, "MurderInc.Cloud.ViewerLeaves", MITest::Flags)
+
+bool FMICloudViewerLeavesTest::RunTest(const FString& Parameters)
+{
+	using namespace MIRunTestsPrivate;
+	FRunWorld W;
+	if (!W.Boot(*this, TEXT("mission"), TEXT("boss")))
+	{
+		return false;
+	}
+	W.Step();
+	// In the intro.
+	TestEqual(TEXT("the run begins with its intro"), (int32)W.State(), (int32)EMIGameState::Intro);
+	UMICloudSubsystem::ReleaseForLeave(W.Game, nullptr);
+	TestEqual(TEXT("the last viewer leaves in the intro: paused"), (int32)W.State(), (int32)EMIGameState::Paused);
+	for (int32 I = 0; I < 30 * 4; ++I) W.Step();
+	TestEqual(TEXT("and it stays paused: no run goes live with nobody watching"), (int32)W.State(), (int32)EMIGameState::Paused);
+	UMICloudSubsystem::ReleaseForLeave(W.Game, nullptr);
+	TestEqual(TEXT("leaving again changes nothing"), (int32)W.State(), (int32)EMIGameState::Paused);
+	UMICloudSubsystem::ReleaseForLeave(nullptr, nullptr);  // no game yet (the stream can lose its viewer before the map is up)
+	W.Game->Resume();
+	W.Step();
+	TestEqual(TEXT("resumed: playing"), (int32)W.State(), (int32)EMIGameState::Playing);
+
+	FControllerRig Rig(W);
+	if (!TestNotNull(TEXT("controller"), Rig.PC))
+	{
+		return false;
+	}
+	FMIPlayerInputState& In = W.Player->GetInput();
+	W.Player->GetPlayerRules().bInvulnerable = true;
+	for (int32 I = 0; I < 10; ++I) W.Step();
+
+	// The viewer holds W and Shift, pushes the left stick and pulls the right trigger; then the connection is cut.
+	Rig.Key(EKeys::W, IE_Pressed);
+	Rig.Key(EKeys::LeftShift, IE_Pressed);
+	W.Step();
+	TestTrue(TEXT("W walks forward"), In.Move.Y > 0.5);
+	TestTrue(TEXT("Shift sprints"), In.bSprint);
+	Rig.Hold(EKeys::Gamepad_LeftX, 1.f, 2);
+	TestTrue(TEXT("the left stick moves to the right"), In.Move.X > 0.5);
+	Rig.Hold(EKeys::Gamepad_RightTriggerAxis, 1.f, 2);
+	TestTrue(TEXT("the right trigger fires"), In.bFire);
+	Rig.Key(EKeys::E, IE_Pressed);
+	W.Step();
+	TestTrue(TEXT("E holds the grab"), W.Game->IsInteractHeld());
+
+	UMICloudSubsystem::ReleaseForLeave(W.Game, Rig.PC);
+	TestEqual(TEXT("the last viewer leaves in play: paused"), (int32)W.State(), (int32)EMIGameState::Paused);
+	TestTrue(TEXT("at once: no move"), In.Move.IsZero());
+	TestFalse(TEXT("at once: no fire"), In.bFire);
+	TestFalse(TEXT("at once: no sprint"), In.bSprint);
+	TestFalse(TEXT("at once: no grab"), W.Game->IsInteractHeld());
+	for (int32 I = 0; I < 30; ++I) W.Step();
+
+	// The next viewer resumes without touching anything: nothing moves, nothing fires.
+	W.Game->Resume();
+	bool bMoved = false, bFired = false, bSprinted = false;
+	for (int32 I = 0; I < 30; ++I)
+	{
+		W.Step();
+		bMoved |= !In.Move.IsZero();
+		bFired |= In.bFire || In.bFirePressed;
+		bSprinted |= In.bSprint;
+	}
+	TestEqual(TEXT("resumed"), (int32)W.State(), (int32)EMIGameState::Playing);
+	TestFalse(TEXT("the W that was held when the viewer left does not walk for the next viewer"), bMoved);
+	TestFalse(TEXT("the trigger that was pulled does not fire"), bFired);
+	TestFalse(TEXT("the Shift that was held does not sprint"), bSprinted);
+	TestFalse(TEXT("the E that was held does not grab"), W.Game->IsInteractHeld());
+
+	// What the next viewer presses counts at once (the releases of the old holds never came).
+	Rig.Key(EKeys::W, IE_Pressed);
+	W.Step();
+	W.Step();
+	TestTrue(TEXT("a fresh W walks"), In.Move.Y > 0.5);
+	Rig.Key(EKeys::W, IE_Released);
+	W.Step();
+	W.Step();
+	TestTrue(TEXT("and stops when let go"), In.Move.IsZero());
+	Rig.Key(EKeys::LeftMouseButton, IE_Pressed);
+	W.Step();
+	W.Step();
+	TestTrue(TEXT("the left mouse button fires again (the old trigger pull no longer holds the fire)"), In.bFire);
+	Rig.Key(EKeys::LeftMouseButton, IE_Released);
+	W.Step();
+	W.Step();
+	TestFalse(TEXT("and stops"), In.bFire);
+	Rig.Hold(EKeys::Gamepad_RightTriggerAxis, 1.f, 3);
+	TestTrue(TEXT("a fresh pull of the trigger fires"), In.bFire);
+	Rig.Rest(EKeys::Gamepad_RightTriggerAxis);
+	TestFalse(TEXT("and stops"), In.bFire);
+	Rig.Key(EKeys::LeftShift, IE_Pressed);
+	W.Step();
+	W.Step();
+	TestTrue(TEXT("a fresh Shift sprints"), In.bSprint);
+	Rig.Key(EKeys::LeftShift, IE_Released);
+	W.Step();
+	W.Step();
+	TestFalse(TEXT("and stops"), In.bSprint);
 	return !HasAnyErrors();
 }
 

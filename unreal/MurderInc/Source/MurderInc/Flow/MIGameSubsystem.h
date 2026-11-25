@@ -102,6 +102,7 @@ public:
 	void ToTitle();
 	void SetDifficulty(FName Difficulty);
 	void SetInteractHeld(bool bHeld) { bInteract = bHeld; }
+	bool IsInteractHeld() const { return bInteract; }
 
 	FMIMenu& GetMenu() { return Menu; }
 	/** The set-up flow (LOADOUT.md 2) inside the title state, or null (no loadout data: the canvas title stays). */

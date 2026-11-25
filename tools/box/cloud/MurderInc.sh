@@ -27,11 +27,19 @@
 # Stop signals (TERM, INT, HUP) are passed on to the game, which then quits normally (exit code 0).
 # Started as root (Unreal refuses to run as root), the game runs as the folder's owner, or "nobody", with HOME in /tmp.
 #
-# Launch options (E3DS: the stream configuration's launch options arrive as arguments):
-#   -MIDev        run the Development game in the zip instead (the full engine log in MurderInc/Saved/Logs, with call
-#                 stacks): for a crash the Shipping log does not explain
+# Launch options (E3DS: the stream configuration's launch options arrive as arguments, and so does whatever a visitor
+# writes after ?exeLaunchArgs= on the stream link):
+#   -MIDev=<key>  run the Development game in the zip instead (the full engine log in MurderInc/Saved/Logs, with call
+#                 stacks): for a crash the Shipping log does not explain. The key is the word in the file MIDEV.key
+#                 beside this launcher (package-cloud.sh makes a new one for every zip; it is never printed). Without
+#                 the right key the Shipping game runs: the Development game has the developer console, -ExecCmds and
+#                 the debug switches the Shipping game was built without (-MICrashTest=, -MICloudLog=), and a visitor
+#                 must not be able to start it from a link. A folder without MIDEV.key (a test folder on the box) takes
+#                 the plain -MIDev.
 #   -MIForceSM6   skip Unreal's Vulkan SM6 check (-SkipVulkanProfileCheck) on a driver that fails it; the game otherwise
 #                 falls back to its SM5 shaders by itself (no Nanite, no Lumen)
+# Not passed on to the game: Pixel Streaming's debug dumps (-PixelStreaming...DumpDebug...), which write every frame or
+# the sound to files on the server for as long as the game runs.
 
 # Started by sh (dash) instead of bash: run again under bash; with no bash at all, start the game the engine's way.
 if [ -z "$BASH_VERSION" ]; then
@@ -55,13 +63,17 @@ STAMP=$(date -u +%Y%m%d-%H%M%S)
 # itself).
 trap '' PIPE
 
-DEV=0; FORCESM6=0; ABS=; PASS=()
+DEV=0; DEVASKED=; FORCESM6=0; ABS=; PASS=(); DROPPED=
+# The key of the Development game: one word in MIDEV.key (absent in a test folder: the plain -MIDev then works).
+DEVKEY=$(head -c 200 "$ROOT/MIDEV.key" 2>/dev/null | tr -d ' \t\r\n')
 shopt -s nocasematch   # Unreal's arguments are case-insensitive
 for a in "$@"; do
   case "$a" in
-    -MIDev) DEV=1 ;;
+    -MIDev) DEVASKED=1; [ -z "$DEVKEY" ] && DEV=1 ;;
+    -MIDev=*) DEVASKED=1; v=${a#*=}; v=${v#\"}; v=${v%\"}; { [ -z "$DEVKEY" ] || [ "$v" = "$DEVKEY" ]; } && DEV=1 ;;
     -MIForceSM6) FORCESM6=1 ;;
     -ABSLOG=*) ABS=${a#*=}; ABS=${ABS#\"}; ABS=${ABS%\"} ;;   # the host's log file: written below, not passed on
+    -PixelStreaming*DumpDebug*) DROPPED="$DROPPED ${a%%=*}" ;;   # files written on the server: not from a link
     *) PASS+=("$a") ;;
   esac
 done
@@ -153,6 +165,11 @@ note "launcher user $(id 2>/dev/null); game user $RUNUSER; HOME=${HOME:-unset} P
 note "DISPLAY=${DISPLAY:-unset} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-unset}"
 note "system: $(uname -srm 2>/dev/null); $(grep -m1 PRETTY_NAME /etc/os-release 2>/dev/null)"
 note "memory: $(free -m 2>/dev/null | awk '/^Mem:/{print $2" MB total, "$7" MB available"}'); disk here: $(df -Pm "$ROOT" 2>/dev/null | awk 'NR==2{print $4" MB free"}'); core dumps: $(ulimit -c)"
+# The CPUs the game may use. With 8 hyper-threaded CPUs or fewer Unreal starts 6 task workers or fewer, and its Vulkan
+# RHI then runs without its interrupt and submission threads (the game's own "CPUs:" line below says which it is).
+note "CPUs: $(nproc 2>/dev/null || echo '?') usable, $(grep -c '^processor' /proc/cpuinfo 2>/dev/null || echo '?') in the machine;$(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | cut -d: -f2- | tr -s ' ')"
+[ -n "$DEVASKED" ] && [ "$DEV" = 0 ] && note "launch option -MIDev NOT taken: this package starts its Development game only with -MIDev=<key> (the word in the file MIDEV.key beside this launcher; it is not printed anywhere). The Shipping game runs."
+[ -n "$DROPPED" ] && note "launch option(s) not passed on to the game (they write files on the server):$DROPPED"
 if command -v nvidia-smi >/dev/null 2>&1; then
   section "GPU (nvidia-smi): name, driver, memory total / used / free" timeout 10 nvidia-smi --query-gpu=name,driver_version,memory.total,memory.used,memory.free --format=csv,noheader
   section "GPU processes (anything else holding graphics memory)" timeout 10 nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader

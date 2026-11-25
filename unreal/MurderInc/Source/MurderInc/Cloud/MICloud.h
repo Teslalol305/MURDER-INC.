@@ -11,6 +11,8 @@
 
 class SMICloudOverlay;
 class FMICloudInput;
+class AMIPlayerController;
+class UMIGameSubsystem;
 
 /**
  * Who is watching the stream, as far as the click card needs it: the card shows for the first viewer and again for
@@ -29,6 +31,48 @@ struct MURDERINC_API FMICloudViewers
 };
 
 /**
+ * A gamepad's buttons as a stream reports them. A browser's player page reads the pad once a frame and sends every
+ * button that is down again, marked as a repeat (a desktop pad repeats slowly or not at all). Passed on, one tap of A
+ * on a set-up screen acted six times, and the Start that began a run paused it at once. So of one hold only the first
+ * message goes on, whether the page marks it as a press or as a repeat: a browser shows a pad to a page only once one
+ * of its buttons is pressed, the page then takes that button for held already, and its first message for it is a
+ * repeat (no press is ever sent for the first press of a session: Epic's GamepadController.ts, onGamepadConnected).
+ */
+struct MURDERINC_API FMIPadButtons
+{
+	/** A button-down message. True: the first of a hold, it goes on; false: the button is down already, it is dropped. */
+	bool Press(const FKey& Key)
+	{
+		bool bAlready = false;
+		Down.Add(Key, &bAlready);
+		return !bAlready;
+	}
+	void Release(const FKey& Key) { Down.Remove(Key); }
+	void Reset() { Down.Reset(); }
+
+	TSet<FKey> Down;
+};
+
+/**
+ * The size a viewer's page asks the game to draw at (Pixel Streaming's "Resolution.Width" command: E3DS's Browser
+ * Resolution "Dynamic" sends the viewer's frame size whenever it changes), fitted to what the game allows. Pixel
+ * Streaming's own handler ran r.SetRes for any size of 1 or more; at 3840 x 2160 the encoder fell behind and the game
+ * missed its viewer's leaving (box run d7), and a visitor can ask for any size from the browser's own tools.
+ */
+struct MURDERINC_API FMICloudSize
+{
+	static constexpr int32 MinWidth = 640, MinHeight = 360, MaxWidth = 1920, MaxHeight = 1080;
+	/**
+	 * False: the request is ignored (below 640 x 360: a phone held upright, a frame that is not laid out yet).
+	 * True: Out is the size to draw at: the request itself, or the largest size of its shape within 1920 x 1080 (even
+	 * numbers). OutShown is how many times wider the page shows the picture than the game draws it (1 unless the size
+	 * was cut down): Pixel Streaming's mouse counts are counts of the drawn picture, so the mouse scale grows by it
+	 * and the mouse keeps its speed.
+	 */
+	static bool Fit(int32 Width, int32 Height, FIntPoint& Out, double& OutShown);
+};
+
+/**
  * The game played in a browser through Pixel Streaming 2 (docs/LAUNCH.md, tools/box/cloud/).
  *
  * Streamed means: the command line carries a Pixel Streaming connection (-PixelStreamingURL=,
@@ -41,8 +85,12 @@ struct MURDERINC_API FMICloudViewers
  *    click to lock the pointer for mouse look and to start the sound); the click is eaten so it presses nothing;
  *  - the second pause key is shown (the browser keeps Esc to free the pointer: P pauses);
  *  - a software cursor is drawn wherever the game shows the mouse (menus): the stream carries no OS cursor;
- *  - when the last viewer disconnects, a running game pauses; the next viewer gets the click card again, a guest
- *    who joins a session in progress does not (FMICloudViewers);
+ *  - when the last viewer disconnects, a run pauses (in its intro too) and everything that viewer held is let go
+ *    (keys, buttons, sticks, triggers: no release arrives from a viewer who is gone); the next viewer gets the click
+ *    card again, a guest who joins a session in progress does not (FMICloudViewers, ReleaseForLeave);
+ *  - a double click is two clicks: the browser sends both presses and releases and then a "MouseDouble" message,
+ *    which Unreal takes for a third press that is never released (E3DS's page sends no release after it); that
+ *    message is dropped (GuardViewerInput);
  *  - mouse look takes the stream's mouse events one by one and turns the counts back into the browser's pixels:
  *    [MICloud] MouseScale (0.5: Pixel Streaming sends 2 counts per browser pixel when the game renders at the size the
  *    player shows it; launch option -MIMouseScale=<number> to tune it on the host without a rebuild), MouseTruncation
@@ -52,7 +100,8 @@ struct MURDERINC_API FMICloudViewers
  *    variables a visitor may tune (MITuning: the stream's own settings PixelStreaming2.* and PixelStreaming.*, the
  *    scalability groups, dynamic resolution, t.MaxFPS and a few more, some only within a range); anything else is
  *    refused and the first refusal of a session is logged (IsViewerCommandAllowed). The browser's size requests are
- *    a separate Pixel Streaming command and still work;
+ *    a separate Pixel Streaming command: they still work, within 640 x 360 and 1920 x 1080 (FMICloudSize; the mouse
+ *    scale follows a size that was cut down);
  *  - Graphics quality on the Settings card changes the scalability groups only: not the output resolution, the frame
  *    cap or the cloud profile (ApplyStreamedQuality);
  *  - the game never runs ahead of the GPU and keeps it head-room (Cloud/MIPacing.h): dynamic resolution (the cloud
@@ -124,27 +173,29 @@ public:
 	 */
 	static void ApplyStreamedQuality(int32 Level);
 
+	/**
+	 * The last viewer left: a run that is live or in its intro pauses (nobody is watching; the intro would end by
+	 * itself after 2.4 s), and everything the viewer held is let go (AMIPlayerController::DropAllHeld): a key, button,
+	 * stick or trigger that was down when the connection was cut gets no release, and would walk, turn or fire for the
+	 * next viewer. Static, with the game's parts as arguments, for the tests; either may be null.
+	 */
+	static void ReleaseForLeave(UMIGameSubsystem* Game, AMIPlayerController* Controller);
+
 	bool IsStreamed() const { return bStreamed; }
 	bool IsWaitingForClick() const { return bWaitingForClick; }
 	/** The first click, key or button of a viewer: hides the card. */
 	void Dismiss();
-	const FMIStreamMouse& GetMouseShape() const { return MouseShape; }
+	/** The stream's mouse shape now: the configured one, its scale times what the last size request was cut down by. */
+	FMIStreamMouse GetMouseShape() const;
 	/** One mouse event on its way through Slate. True: a spike, the event goes no further. */
 	bool OnMouseEvent(const FVector2D& Delta);
 
 	/**
-	 * A browser sends a held gamepad button again on every frame, marked as a repeat (Pixel Streaming's player reads
-	 * the pad once a frame and sends every button that is down; a desktop pad repeats slowly or not at all). Passed
-	 * on, one tap of A on a set-up screen acted six times, and the Start that began a run paused it at once, because
-	 * the game sees a repeat of a key it never saw go down as a press. So in a stream a gamepad's repeats go nowhere.
-	 */
-	static bool IsStreamPadRepeat(const FKey& Key, bool bRepeat) { return bRepeat && Key.IsGamepadKey(); }
-	/**
-	 * A key press on its way through Slate. True: it goes no further (a gamepad button's repeat, or a second press of
-	 * a gamepad button that never went up: a player page that does not mark its repeats).
+	 * A key press on its way through Slate. True: it goes no further (a message for a gamepad button that is down
+	 * already: FMIPadButtons).
 	 */
 	bool OnKeyDown(const FKey& Key, bool bRepeat);
-	void OnKeyUp(const FKey& Key) { PadKeysDown.Remove(Key); }
+	void OnKeyUp(const FKey& Key) { PadButtons.Release(Key); }
 	/** An axis on its way through Slate: the left stick is kept for the menus. */
 	void OnAnalog(const FKey& Key, float Value, FPlatformUserId User, FInputDeviceId Device);
 	/**
@@ -166,9 +217,13 @@ private:
 	void EnsureVideoProducer();
 	/** Gives the player controller the stream's mouse shape (again after a map load made a new controller). */
 	void EnsureMouse();
-	/** Puts the allowlist in place of Pixel Streaming's console-command handler, once the streamer is there. */
-	void GuardViewerCommands();
+	/**
+	 * Once the streamer is there, three of Pixel Streaming's handlers get ours in their place: the console command
+	 * (the allowlist), the size request (FMICloudSize) and the double click (dropped).
+	 */
+	void GuardViewerInput();
 	void OnViewerCommand(const FString& Command);
+	void OnViewerSize(int32 Width, int32 Height);
 	void OnViewerJoined();
 	void OnAllViewersLeft();
 	void Probe(float DeltaTime);
@@ -191,14 +246,16 @@ private:
 	bool bCommandsGuarded = false;
 	bool bRefusalLogged = false;
 	int32 CommandsRun = 0, CommandsRefused = 0;
+	int32 DoubleClicksDropped = 0, SizeRequests = 0, SizeRequestsIgnored = 0;
 	FMICloudViewers Viewers;
-	FMIStreamMouse MouseShape;
+	FMIStreamMouse MouseShape;       // as configured ([MICloud], -MIMouseScale=)
+	double MouseShown = 1.0;         // how many times wider the page shows the picture than it is drawn (FMICloudSize)
 	FMIPadNav StickNav;
 	FVector2D LeftStick = FVector2D::ZeroVector;
 	FPlatformUserId StickUser = PLATFORMUSERID_NONE;
 	FInputDeviceId StickDevice = INPUTDEVICEID_NONE;
 	TArray<FName> StickKeysDown;  // pressed last frame, let go this frame
-	TSet<FKey> PadKeysDown;       // the gamepad buttons that are down, as the stream reported them
+	FMIPadButtons PadButtons;     // the gamepad buttons that are down, as the stream reported them
 	bool bMakingStickKeys = false, bPlatformStickKeys = false;
 	int32 PadRepeatsDropped = 0, StickKeysMade = 0;
 	FTSTicker::FDelegateHandle TickHandle;
