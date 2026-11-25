@@ -256,7 +256,10 @@ void FMIGpuPacer::Start()
 		return;
 	}
 	bRunning = true;
-	BeginHandle = FCoreDelegates::OnBeginFrame.AddRaw(this, &FMIGpuPacer::OnBeginFrame);
+	// OnSamplingInput: after the frame cap's sleep and right before the engine reads this frame's input, so the wait
+	// costs no frame rate while the GPU keeps up (it has had the whole sleep to finish) and the input the frame is
+	// made from is as fresh as it can be when the GPU is the limit.
+	BeginHandle = FCoreDelegates::OnSamplingInput.AddRaw(this, &FMIGpuPacer::OnBeginFrame);
 	EndHandle = FCoreDelegates::OnEndFrame.AddRaw(this, &FMIGpuPacer::OnEndFrame);
 }
 
@@ -265,7 +268,7 @@ void FMIGpuPacer::Stop()
 	if (bRunning)
 	{
 		bRunning = false;
-		FCoreDelegates::OnBeginFrame.Remove(BeginHandle);
+		FCoreDelegates::OnSamplingInput.Remove(BeginHandle);
 		FCoreDelegates::OnEndFrame.Remove(EndHandle);
 	}
 }

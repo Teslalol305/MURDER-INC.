@@ -100,10 +100,10 @@ namespace MITuning
 
 /**
  * Holds the game back while the GPU still owes it frames. At the end of every frame the game thread asks the render
- * thread to put a GPU fence behind that frame's commands; at the start of the next frame it waits (asleep in steps
- * of a fifth of a millisecond, before input is read) until no more than MaxInFlight of those fences are still
- * unsignalled, or until WaitLimitMs has passed (then it goes on and counts a time-out: the game must never hang
- * on this). With a GPU that keeps up nothing is ever waited for.
+ * thread to put a GPU fence behind that frame's commands; at the start of the next frame, after the frame cap's
+ * sleep and right before input is read, it waits (asleep in steps of a fifth of a millisecond) until no more than
+ * MaxInFlight of those fences are still unsignalled, or until WaitLimitMs has passed (then it goes on and counts a
+ * time-out: the game must never hang on this). With a GPU that keeps up nothing is ever waited for.
  */
 class MURDERINC_API FMIGpuPacer : public TSharedFromThis<FMIGpuPacer, ESPMode::ThreadSafe>
 {
