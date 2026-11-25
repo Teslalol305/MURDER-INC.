@@ -3,6 +3,37 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Weapons round 4: the importer's tiling detail and contract check (2026-11-25)
+
+The two importer gaps of the art review below (`tools/box/fp/`). **Not yet run in Unreal**: checked by `py_compile` and an off-box test of the
+comparison with a stub `unreal` module (below).
+
+- **Tiling detail.** `mi_fp_import._surface(..., detail=)` (helper `_detail`) adds UV 0 x the slot's repeat (`DetailRepeat`, `DetailPolymerRepeat`) on the
+  tiling set's N and ORM, blends the tile normal over the unique N (whiteout) and adds `ORM.G - 0.5` of the tile to the roughness, weighted by the unique
+  ORM.B: steel where it is 1, polymer where it is 0, and nothing there on a slot with no polymer set (the RATTLER's strap, the CHOPPER's furniture);
+  `DetailStrength` scales both. The unique set keeps its own UV. `mi_guns_r4._gun()` reads `detail_set`, `detail_repeat_per_uv`
+  (+ `detail_set_polymer`, `detail_polymer_repeat_per_uv`) from each slot's record in `manifest.json`, which comes from the parts archive. It imports the
+  sets once into `/Game/Weapons/Detail/Textures`, and logs `built WITHOUT the tiling detail: <why>` for a slot it cannot detail. The import report lists
+  each slot's repeats.
+  **`fp-art.sh packr4` now carries the two sets**: steel and polymer in the guns archive, steel in the rattler one. The archives made before this commit
+  have neither, so re-pack before importing.
+- **Contract check.** `mi_guns_r4.sockets()` compares `weapons_r4.json` with the project to 0.01 cm and returns the number of differences, one
+  `MI-R4 DIFF` line each:
+  - every gun bone's `head_unreal_cm` and socket's `unreal_cm` against the imported skeleton's reference pose (component space);
+  - each of those bones' turn against the importer's quarter turn about X (BOX.md), to 1 mrad;
+  - a skeletal mesh socket of the same name, if one shadows the bone;
+  - `eject_dir_unreal` against the presentation's `ejectDir` (web to Unreal, `real` first, `meshOffset.rot` must be zero);
+  - `hide_bones_when_fitted` against `guns.json` `mounts.<slot>.hide`, each hide bone a bone of the mesh;
+  - every part's `sockets_unreal_cm` against the static mesh's sockets.
+
+  Not counted, printed as notes: bones the contract does not list, and the CHOPPER's and the NINE's missing `ejectDir` (left out by design, see
+  WEAPONS_R4_TESTS.md).
+- **Off-box test.** A contract built from `gun_contract.json` and the art contract's `EJECT` and `HIDE` was run against the repository's own `guns.json`
+  and `presentation.json`, with a skeleton holding exactly the contract with the turn: 0 differences, two notes. Six planted faults gave six differences:
+  a socket 0.02 cm off (0.009 cm passes), a bone without the turn, a missing socket, a shadowing mesh socket, a dropped hide bone and a flipped `ejectDir`.
+- **On the box:** `fp-art.sh packr4`, unpack, `import-chars.sh r4 all`. Expect `MI-FP sockets 0 differences` and the detail repeats in the report;
+  then look at the guns at 25 to 60 cm.
+
 ## Weapons round 4: the review fixes of the art (fixer, 2026-11-25, 15:00 to 16:30 UTC): what the integration engineer must know
 
 Details, evidence and what was rejected: `art/blender/PROGRESS.md`, section "Weapons round 4: the review fixes". Verified in Blender only (re-import proofs,

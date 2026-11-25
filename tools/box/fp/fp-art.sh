@@ -16,7 +16,8 @@
 #
 # Weapons round 4 (the five own guns, their magazines and the parts kit):
 #   local:  tools/box/fp/fp-art.sh packr4 [guns] [rattler] [parts]
-#                -> art/out/fp-weapons-r4-guns.tar    (SK_Chopper, SK_Nine, SK_Shorty, SK_Stretch, their magazines and sets, the brass)
+#                -> art/out/fp-weapons-r4-guns.tar    (SK_Chopper, SK_Nine, SK_Shorty, SK_Stretch, their magazines and sets, the brass,
+#                                                      the tiling detail sets TS_GunDetail_Steel and TS_GunDetail_Polymer)
 #                   art/out/fp-weapons-r4-rattler.tar (SK_Rattler, its magazine and sets: re-carried alone when its final bake lands)
 #                   art/out/fp-weapons-r4-parts.tar   (SM_Part_* with their sockets, the part and magazine sets, manifest.json,
 #                                                      weapons_r4.json and the icons when they exist)
@@ -56,8 +57,9 @@ case "${1:-}" in
         guns)    # the four finished guns (the CHOPPER has three sets), their magazines and the brass
           for n in Chopper Nine Shorty Stretch; do cp $O/glb/SK_$n.glb $S/glb/; cp_mag $n; done
           for s in Chopper Chopper_Front Chopper_Furniture Nine Shorty Stretch; do cp_set $s; done
+          cp_set TS_GunDetail_Steel; cp_set TS_GunDetail_Polymer     # the tiling detail (manifest detail_set*), 1024 px each
           cp $O/glb/SM_Weapon_CasingRifle.glb $O/glb/SM_Weapon_CasingPistol.glb $S/glb/ 2>/dev/null; cp_set Weapon_CasingRifle; cp_set Weapon_CasingPistol ;;
-        rattler) cp $O/glb/SK_Rattler.glb $S/glb/; cp_mag Rattler; cp_set Rattler ;;
+        rattler) cp $O/glb/SK_Rattler.glb $S/glb/; cp_mag Rattler; cp_set Rattler; cp_set TS_GunDetail_Steel ;;
         parts)   # the parts kit with its sockets, the contract and the icons
           cp $O/glb/SM_Part_*.glb $O/glb/SM_Part_*.sockets.json $S/glb/ 2>/dev/null
           cp_set Weapon_Parts; cp_set Weapon_PartsMags

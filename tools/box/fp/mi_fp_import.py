@@ -98,17 +98,70 @@ def _tex(m, path, x, y, kind):
     return n
 
 
-def _surface(path, tex, set_name, skeletal=True, emissive=False):
-    """BC / ORM / N (OpenGL sets: green flipped on import) [+ E] on the default lit model."""
+# The tiling micro detail of the guns (art/blender/assets/_weapons_tex.py detail_set, _weapons_shorty_tex.py detail_polymer):
+# a tangent-space normal and a roughness offset in ORM.G (0.5 = no change), steel where the unique ORM.B (metallic) is 1,
+# polymer where it is 0 (no polymer set: no detail there). Whiteout blend over the unique normal, as the arms' skin grain.
+DETAIL_NORMAL_HLSL = """float3 d = normalize(lerp(float3(0, 0, 1), lerp(Dp, Ds, saturate(M)), saturate(S)));
+return normalize(float3(B.xy + d.xy, B.z * d.z));"""
+DETAIL_ROUGH_HLSL = "return saturate(G + saturate(S) * lerp(Gp - 0.5, Gs - 0.5, saturate(M)));"
+
+
+def _detail(m, orm, nm, detail):
+    """The second UV (UV 0 x the slot's repeat per UV unit) on the tiling sets, blended into N and ORM.G by ORM.B.
+    detail: {"steel": (texture path prefix, repeat), "polymer": (prefix, repeat) or None}; a prefix is
+    <folder>/T_<Set>, its _N and _ORM are sampled. The unique set keeps its own UV (no second scale on it)."""
+    uv = _expr(m, unreal.MaterialExpressionTextureCoordinate, -1500, 900)
+
+    def tile(prefix, rep, param, y):
+        uvt = _expr(m, unreal.MaterialExpressionMultiply, -1300, y)
+        MEL.connect_material_expressions(uv, "", uvt, "A")
+        MEL.connect_material_expressions(_scalar(m, param, round(float(rep), 2), -1500, y + 100), "", uvt, "B")
+        n = _tex(m, prefix + "_N", -1050, y, "normal")
+        r = _tex(m, prefix + "_ORM", -1050, y + 300, "masks")
+        MEL.connect_material_expressions(uvt, "", n, "UVs")
+        MEL.connect_material_expressions(uvt, "", r, "UVs")
+        return n, r
+
+    sn, sr = tile(detail["steel"][0], detail["steel"][1], "DetailRepeat", 800)
+    nb = _custom(m, -400, 400, DETAIL_NORMAL_HLSL, ["B", "Ds", "Dp", "M", "S"], out=unreal.CustomMaterialOutputType.CMOT_FLOAT3)
+    rb = _custom(m, -400, 100, DETAIL_ROUGH_HLSL, ["G", "Gs", "Gp", "M", "S"])
+    if detail.get("polymer"):
+        pn, pr = tile(detail["polymer"][0], detail["polymer"][1], "DetailPolymerRepeat", 1500)
+        MEL.connect_material_expressions(pn, "RGB", nb, "Dp")
+        MEL.connect_material_expressions(pr, "G", rb, "Gp")
+    else:       # no polymer tile: a flat normal and no roughness offset where ORM.B is 0
+        flat = _expr(m, unreal.MaterialExpressionConstant3Vector, -700, 1500)
+        flat.set_editor_property("constant", unreal.LinearColor(0, 0, 1, 0))
+        MEL.connect_material_expressions(flat, "", nb, "Dp")
+        MEL.connect_material_expressions(_expr(m, unreal.MaterialExpressionConstant, -700, 1600, r=0.5), "", rb, "Gp")
+    strength = _scalar(m, "DetailStrength", 1.0, -700, 1300)
+    MEL.connect_material_expressions(nm, "RGB", nb, "B")
+    MEL.connect_material_expressions(sn, "RGB", nb, "Ds")
+    MEL.connect_material_expressions(orm, "B", nb, "M")
+    MEL.connect_material_expressions(strength, "", nb, "S")
+    MEL.connect_material_expressions(orm, "G", rb, "G")
+    MEL.connect_material_expressions(sr, "G", rb, "Gs")
+    MEL.connect_material_expressions(orm, "B", rb, "M")
+    MEL.connect_material_expressions(strength, "", rb, "S")
+    MEL.connect_material_property(nb, "", unreal.MaterialProperty.MP_NORMAL)
+    MEL.connect_material_property(rb, "", unreal.MaterialProperty.MP_ROUGHNESS)
+
+
+def _surface(path, tex, set_name, skeletal=True, emissive=False, detail=None):
+    """BC / ORM / N (OpenGL sets: green flipped on import) [+ E] on the default lit model; with detail (see _detail) the
+    tiling micro detail goes into N and the roughness."""
     m = _material(path)
     bc = _tex(m, "%s/T_%s_BC" % (tex, set_name), -600, -200, "color")
     orm = _tex(m, "%s/T_%s_ORM" % (tex, set_name), -600, 100, "masks")
     nm = _tex(m, "%s/T_%s_N" % (tex, set_name), -600, 400, "normal")
     MEL.connect_material_property(bc, "RGB", unreal.MaterialProperty.MP_BASE_COLOR)
     MEL.connect_material_property(orm, "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION)
-    MEL.connect_material_property(orm, "G", unreal.MaterialProperty.MP_ROUGHNESS)
     MEL.connect_material_property(orm, "B", unreal.MaterialProperty.MP_METALLIC)
-    MEL.connect_material_property(nm, "RGB", unreal.MaterialProperty.MP_NORMAL)
+    if detail:
+        _detail(m, orm, nm, detail)
+    else:
+        MEL.connect_material_property(orm, "G", unreal.MaterialProperty.MP_ROUGHNESS)
+        MEL.connect_material_property(nm, "RGB", unreal.MaterialProperty.MP_NORMAL)
     if emissive and ASSETS.does_asset_exist("%s/T_%s_E" % (tex, set_name)):
         e = _tex(m, "%s/T_%s_E" % (tex, set_name), -600, 700, "color")
         MEL.connect_material_property(e, "RGB", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
