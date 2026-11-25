@@ -65,44 +65,43 @@ def uv_weights(ob):
     nr = nr.reshape(-1, 3)
     x, y, z = c[:, 0], c[:, 1], c[:, 2]
     r = np.hypot(y, z)
-    w = np.full(n, 0.60, np.float32)
+    w = np.full(n, 0.50, np.float32)
     blued, wood, bright, dark, rub, bore = (mid == G.BLUED), (mid == G.WOOD), (mid == G.BRIGHT), (mid == G.DARK), (mid == G.RUBBER), (mid == G.BORE)
     # walnut: the stock flanks and the handguard sides are the big read; grip and tube a little finer
     stock = wood & (x < 0.004)
-    w[stock] = 0.72
-    w[stock & (np.abs(nr[:, 1]) > 0.6)] = 0.82
-    w[stock & (x < -0.0)] *= 1.0
+    w[stock] = 0.62
+    w[stock & (np.abs(nr[:, 1]) > 0.6)] = 0.78
     hg = wood & (x > 0.2) & (x < 0.55)
-    w[hg] = 0.80
-    w[hg & (r < 0.0235)] = 0.40                              # the tube's inside, seen through the slots
+    w[hg] = 0.72
+    w[hg & (r < 0.0235)] = 0.30                              # the tube's inside, seen through the slots
     w[wood & (x > 0.0) & (x < 0.1) & (z < -0.028)] = 0.95     # grip
     # receiver: outer flanks, top and rear read; the cavity does not
     rec = blued & (x > 0.0) & (x < 0.2352) & (np.abs(y) < 0.0222) & (z > -0.0322) & (z < 0.0402)
     w[rec] = 1.0
     cav = rec & (np.abs(y) < 0.0194) & (z > -0.0292) & (z < 0.0372) & (x > 0.0038) & (x < 0.2098)
-    w[cav] = 0.35
-    w[cav & (y < -0.012) & (z > -0.004) & (x > 0.09) & (x < 0.215)] = 0.60   # far wall seen through the port / near wall through the slot
+    w[cav] = 0.28
+    w[cav & (y < -0.012) & (z > -0.004) & (x > 0.09) & (x < 0.215)] = 0.55   # far wall seen through the port / near wall through the slot
     w[rec & (nr[:, 0] > 0.8) | rec & (nr[:, 0] < -0.8)] = 0.5
     w[rec & (nr[:, 2] < -0.8)] = 0.6
     # rails: lugs read from above, the web's feet and flank run hidden
     lugs = blued & (z > 0.0452) & (z < 0.0522) & (np.abs(y) < 0.0107)
     w[lugs] = 0.85
-    w[blued & (z > 0.0225) & (z < 0.0402) & (x > 0.2352) & (np.abs(y) < 0.0095)] = 0.55       # web
-    w[blued & (z < -0.0215) & (z > -0.0382) & (x > 0.2845) & (x < 0.4815) & (np.abs(y) < 0.0107)] = 0.6   # bottom rail
+    w[blued & (z > 0.0225) & (z < 0.0402) & (x > 0.2352) & (np.abs(y) < 0.0095)] = 0.45       # web
+    w[blued & (z < -0.0215) & (z > -0.0382) & (x > 0.2845) & (x < 0.4815) & (np.abs(y) < 0.0107)] = 0.55   # bottom rail
     # controls, charging handle, bolt group, grip hardware: full
     w[(blued | dark) & (y > 0.0220)] = 1.0
     w[bright] = 1.0
     w[(blued | dark) & (x > 0.088) & (x < 0.152) & (z < -0.030) & (z > -0.105)] = 0.95       # trigger group
     w[(blued | dark) & (x > 0.075) & (x < 0.190) & (z < -0.030) & (z > -0.050)] = 0.8        # magazine well
     # steel furniture
-    w[blued & (r < 0.0127) & (x > 0.235) & (x < 0.545)] = 0.35                               # barrel inside the handguard
-    w[blued & (r < 0.0127) & (x > 0.209) & (x <= 0.235)] = 0.3
-    w[blued & (r < 0.0128) & (x >= 0.545) & (x < 0.716)] = 0.55
-    w[blued & (x > 0.7149)] = 0.55
-    w[bore] = 0.35
+    w[blued & (r < 0.0127) & (x > 0.235) & (x < 0.545)] = 0.30                               # barrel inside the handguard
+    w[blued & (r < 0.0127) & (x > 0.209) & (x <= 0.235)] = 0.25
+    w[blued & (r < 0.0128) & (x >= 0.545) & (x < 0.716)] = 0.50
+    w[blued & (x > 0.7149)] = 0.50
+    w[bore] = 0.30
     w[rub & (x < -0.20)] = 0.55
     w[dark & (z > 0.052)] = 0.75                                                              # flip-up irons
-    w[(dark | blued | rub) & (x > 0.31) & (x < 0.485) & (z < -0.040)] = 0.55                 # bipod
+    w[(dark | blued | rub) & (x > 0.31) & (x < 0.485) & (z < -0.040)] = 0.50                 # bipod
     return w
 
 

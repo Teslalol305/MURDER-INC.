@@ -647,11 +647,11 @@ def pistol_grip(parts):
     parts.append(P(pl, BLUED, "body"))
     cap = grip_section(GZ[1], 0.0)
     xm = (cap.x0 + cap.x1) / 2
-    c = lathe([(0.0, 0.0), (0.0, 0.0082), (-0.0007, 0.0082), (-0.0010, 0.0076), (-0.0012, 0.0), ], 28, axis="Z",
-              at=(xm, 0.0, GZ[1] * mm + 0.0002), name="GripCap")
+    c = lathe([(0.0, 0.0), (0.0, 0.0082), (-0.0003, 0.0082), (-0.0006, 0.0076), (-0.0008, 0.0), ], 28, axis="Z",
+              at=(xm, 0.0, GZ[1] * mm + 0.0006), name="GripCap")
     c.data.transform(Matrix.Identity(4))
     parts.append(P(fix_normals(c), BLUED, "body"))
-    plate = K.loft_z([grip_section(GZ[1] + 0.5, 0.0008), grip_section(GZ[1], 0.0008)], [(GZ[1] + 2.0) * mm, (GZ[1] - 1.2) * mm],
+    plate = K.loft_z([grip_section(GZ[1] + 0.5, 0.0008), grip_section(GZ[1], 0.0008)], [(GZ[1] + 2.0) * mm, GZ[1] * mm],
                      64, name="HeelPlate")
     round_edges(plate, 0.0004, 1, 40)
     parts.append(P(plate, BLUED, "body"))
@@ -661,7 +661,7 @@ def trigger_group(parts):
     """Trigger housing under the receiver (X 88..131), cross pin with its heads, the trigger blade (bone trigger), the guard
     strap from the grip front to the magazine well, and the magazine catch tab."""
     hs = box(88 * mm, 131 * mm, -12.5 * mm, 12.5 * mm, -52.0 * mm, -31.3 * mm, bevel=0.0018, seg=2, name="TrigHousing")
-    cut(hs, box(90 * mm, 122 * mm, -3.3 * mm, 3.3 * mm, -53.0 * mm, -47.5 * mm, bevel=0.0))
+    cut(hs, box(90 * mm, 122 * mm, -3.8 * mm, 3.8 * mm, -53.0 * mm, -47.5 * mm, bevel=0.0))
     round_edges(hs, 0.0003, 1, 55)
     parts.append(P(hs, BLUED, "body"))
     for sy in (1, -1):
