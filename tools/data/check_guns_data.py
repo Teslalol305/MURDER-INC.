@@ -885,8 +885,8 @@ def check_arm_reach():
         if st.get("mode") != "ik":
             continue
         for key in ("supportElbowOut", "supportElbowOutAim"):
-            if key in st and not (num3(st[key]) and all(abs(x) <= 40 for x in st[key]) and st[key][1] <= 0 and st[key][2] <= 0):
-                err("hands: animSets.%s.%s must be three numbers within 40 cm, y (right) and z (up) not above 0" % (name, key))
+            if key in st and not (num3(st[key]) and all(abs(x) <= 80 for x in st[key]) and st[key][1] <= 0 and st[key][2] <= 0):
+                err("hands: animSets.%s.%s must be three numbers within 80 cm, y (right) and z (up) not above 0" % (name, key))
         mag = st.get("magazine", {})
         if "palm" in mag and not (num3(mag["palm"]) and all(abs(x) <= 60 for x in mag["palm"])):
             err("hands: animSets.%s.magazine.palm must be three numbers (cm, the magazine's frame)" % name)

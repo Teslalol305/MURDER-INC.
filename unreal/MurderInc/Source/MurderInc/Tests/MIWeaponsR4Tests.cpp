@@ -697,7 +697,7 @@ bool FMIFirstPersonSupportHandTest::RunTest(const FString& Parameters)
 	for (const TCHAR* Gun : Rifles)
 	{
 		const FString Set = FString::Printf(TEXT("firstPerson.animSets.%s_ik"), Gun);
-		// 8.2: the support elbow's pole, camera space cm: out to the left (Y not right) and down (Z not up), within 40 cm.
+		// 8.2: the support elbow's pole, camera space cm: out to the left (Y not right) and down (Z not up), within 80 cm (a push of the pole: its size sets how far the elbow swings).
 		for (const TCHAR* Key : {TEXT(".supportElbowOut"), TEXT(".supportElbowOutAim")})
 		{
 			const TSharedPtr<FJsonValue> V = MIJson::Get(F.Presentation, Set + Key);
@@ -710,8 +710,8 @@ bool FMIFirstPersonSupportHandTest::RunTest(const FString& Parameters)
 			if (bThree)
 			{
 				const FVector E = Vec(V);
-				TestTrue(FString::Printf(TEXT("%s%s %s: within 40 cm, to the left and down"), Gun, Key, *E.ToCompactString()),
-					E.GetAbsMax() <= 40.0 && E.Y <= 0.0 && E.Z <= 0.0);
+				TestTrue(FString::Printf(TEXT("%s%s %s: within 80 cm, to the left and down"), Gun, Key, *E.ToCompactString()),
+					E.GetAbsMax() <= 80.0 && E.Y <= 0.0 && E.Z <= 0.0);
 			}
 		}
 		// 8.1: the carried grip closes the hand on the magazine; a curl on top would sink the fingers into it.

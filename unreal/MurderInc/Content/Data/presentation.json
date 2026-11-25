@@ -172,8 +172,8 @@
         "foregripCurl": 30,
         "reloadCurl": 0,
         "reloadCurlNote": "degrees every support finger closes, on top of the grip, while the support hand holds the magazine in a reload; 0 on the rifles: the solved support grip goes with the palm onto the magazine (magazine.palm, magazine.squeeze) and already closes the hand round it, a curl on top would sink the fingers into the magazine (HANDS_R4.md 8.1)",
-        "supportElbowOut": [-3, -12, -6],
-        "supportElbowOutNote": "camera space, cm (X forward, Y right, Z up): the support elbow pushed this far from the pole the clip gives it, so the support forearm comes in from the lower left at about 45 degrees as the STICK's does instead of standing up from the bottom of the picture (HANDS_R4.md 8.2); supportElbowOutAim (optional) is the aimed value, the same when absent; let go while the hand holds the magazine in a reload",
+        "supportElbowOut": [-10, -60, -30],
+        "supportElbowOutNote": "camera space, cm (X forward, Y right, Z up): the support elbow pushed this far from the pole the clip gives it, so the support forearm comes in from the lower left at about 45 degrees as the STICK's does instead of standing up from the bottom of the picture (HANDS_R4.md 8.2); supportElbowOutAim (optional) is the aimed value, the same when absent; let go while the hand holds the magazine in a reload. Tuned in play (HANDS_R4.md 9, the development log's support arm: the forearm's slope on the screen, 90 degrees the post straight up, the STICK's about 45): with none the CHOPPER, STRETCH and RATTLER forearms stand at 95 to 98 degrees at the hip and 117 to 119 aimed; [-10, -40, -20] gives 61 / 64 to 70; [-10, -60, -30] gives the CHOPPER 52 / 60",
         "foregripCurlNote": "degrees every support finger closes extra when a fitted part names a SupportHand (a foregrip), so the hand wraps the part and not the bare handguard; a starting value, not yet seen in a picture",
         "bobScale": 0.6,
         "magazine": {
@@ -212,6 +212,8 @@
         "foregripCurl": 30,
         "reloadCurl": 0,
         "reloadCurlNote": "degrees every support finger closes, on top of the grip, while the support hand holds the magazine in a reload; 0 on the rifles: the solved support grip goes with the palm onto the magazine (magazine.palm, magazine.squeeze) and already closes the hand round it, a curl on top would sink the fingers into the magazine (HANDS_R4.md 8.1)",
+        "supportElbowOut": [-10, -40, -20],
+        "supportElbowOutNote": "as the other rifles' (HANDS_R4.md 9): tuned in play by the support-arm log, the forearm's slope on the screen 104 -> 57 degrees at the hip, 121 -> 90 aimed (its own shoulders [-6, 0, -24] put the support hand low and near)",
         "foregripCurlNote": "degrees every support finger closes extra when a fitted part names a SupportHand (a foregrip), so the hand wraps the part and not the bare handguard; a starting value, not yet seen in a picture",
         "bobScale": 0.6,
         "magazine": {
@@ -250,8 +252,8 @@
         "foregripCurl": 30,
         "reloadCurl": 0,
         "reloadCurlNote": "degrees every support finger closes, on top of the grip, while the support hand holds the magazine in a reload; 0 on the rifles: the solved support grip goes with the palm onto the magazine (magazine.palm, magazine.squeeze) and already closes the hand round it, a curl on top would sink the fingers into the magazine (HANDS_R4.md 8.1)",
-        "supportElbowOut": [-3, -12, -6],
-        "supportElbowOutNote": "camera space, cm (X forward, Y right, Z up): the support elbow pushed this far from the pole the clip gives it, so the support forearm comes in from the lower left at about 45 degrees as the STICK's does instead of standing up from the bottom of the picture (HANDS_R4.md 8.2); supportElbowOutAim (optional) is the aimed value, the same when absent; let go while the hand holds the magazine in a reload",
+        "supportElbowOut": [-10, -60, -30],
+        "supportElbowOutNote": "camera space, cm (X forward, Y right, Z up): the support elbow pushed this far from the pole the clip gives it, so the support forearm comes in from the lower left at about 45 degrees as the STICK's does instead of standing up from the bottom of the picture (HANDS_R4.md 8.2); supportElbowOutAim (optional) is the aimed value, the same when absent; let go while the hand holds the magazine in a reload. Tuned in play (HANDS_R4.md 9, the development log's support arm: the forearm's slope on the screen, 90 degrees the post straight up, the STICK's about 45): with none the CHOPPER, STRETCH and RATTLER forearms stand at 95 to 98 degrees at the hip and 117 to 119 aimed; [-10, -40, -20] gives 61 / 64 to 70; [-10, -60, -30] gives the CHOPPER 52 / 60",
         "foregripCurlNote": "degrees every support finger closes extra when a fitted part names a SupportHand (a foregrip), so the hand wraps the part and not the bare handguard; a starting value, not yet seen in a picture",
         "bobScale": 0.6,
         "magazine": {
@@ -290,8 +292,8 @@
         "foregripCurl": 30,
         "reloadCurl": 0,
         "reloadCurlNote": "degrees every support finger closes, on top of the grip, while the support hand holds the magazine in a reload; 0 on the rifles: the solved support grip goes with the palm onto the magazine (magazine.palm, magazine.squeeze) and already closes the hand round it, a curl on top would sink the fingers into the magazine (HANDS_R4.md 8.1)",
-        "supportElbowOut": [-5, -25, -10],
-        "supportElbowOutNote": "camera space, cm (X forward, Y right, Z up): the support elbow pushed this far from the pole the clip gives it, so the support forearm comes in from the lower left at about 45 degrees as the STICK's does instead of standing up from the bottom of the picture (HANDS_R4.md 8.2); supportElbowOutAim (optional) is the aimed value, the same when absent; let go while the hand holds the magazine in a reload",
+        "supportElbowOut": [-10, -60, -30],
+        "supportElbowOutNote": "camera space, cm (X forward, Y right, Z up): the support elbow pushed this far from the pole the clip gives it, so the support forearm comes in from the lower left at about 45 degrees as the STICK's does instead of standing up from the bottom of the picture (HANDS_R4.md 8.2); supportElbowOutAim (optional) is the aimed value, the same when absent; let go while the hand holds the magazine in a reload. Tuned in play (HANDS_R4.md 9, the development log's support arm: the forearm's slope on the screen, 90 degrees the post straight up, the STICK's about 45): with none the CHOPPER, STRETCH and RATTLER forearms stand at 95 to 98 degrees at the hip and 117 to 119 aimed; [-10, -40, -20] gives 61 / 64 to 70; [-10, -60, -30] gives the CHOPPER 52 / 60",
         "foregripCurlNote": "degrees every support finger closes extra when a fitted part names a SupportHand (a foregrip), so the hand wraps the part and not the bare handguard; a starting value, not yet seen in a picture",
         "bobScale": 0.6,
         "magazine": {
