@@ -100,12 +100,15 @@ def act(m, steps):
     def move(x, y):
         return {'type': 'pointerMove', 'x': int(x), 'y': int(y), 'origin': 'viewport', 'duration': 0}
 
+    cur = [None, None]   # where the pointer is (page pixels): Marionette refuses a move that would leave the page
+
     for s in steps:
         k = s[0]
         if k == 'wait':
             time.sleep(float(s[1]))
         elif k in ('pclick', 'pmove'):
             x, y = to_px(s[1], s[2])
+            cur[0], cur[1] = x, y
             acts = [move(x, y)]
             if k == 'pclick':
                 acts += [{'type': 'pointerDown', 'button': 0}, {'type': 'pause', 'duration': 60}, {'type': 'pointerUp', 'button': 0}]
@@ -117,9 +120,25 @@ def act(m, steps):
         elif k == 'up':
             pointer([{'type': 'pointerUp', 'button': 0}])
         elif k == 'moveby':
+            # n mouse moves of dx, dy pixels, gap_ms apart. A locked mouse turns without end; the page does not: when
+            # the pointer would leave the middle of the picture it jumps back to the middle in one move of more than
+            # 400 pixels, which the game drops as a pointer-lock spike (a real browser reports none of these).
             dx, dy, n, gap = s[1], s[2], int(s[3]) if len(s) > 3 else 1, float(s[4]) if len(s) > 4 else 16
+            r = picture_rect(m)
+            cx, cy = r[0] + r[2] / 2.0, r[1] + r[3] / 2.0
+            if cur[0] is None:
+                cur[0], cur[1] = cx, cy
+                pointer([move(cx, cy)])
+                time.sleep(0.05)
             for _ in range(n):
-                pointer([{'type': 'pointerMove', 'x': int(dx), 'y': int(dy), 'origin': 'pointer', 'duration': 0}])
+                nx, ny = cur[0] + dx, cur[1] + dy
+                if abs(nx - cx) > 450 or abs(ny - cy) > 250:
+                    pointer([move(cx, cy)])
+                    cur[0], cur[1] = cx, cy
+                    nx, ny = cx + dx, cy + dy
+                    time.sleep(0.03)
+                pointer([move(nx, ny)])
+                cur[0], cur[1] = nx, ny
                 time.sleep(gap / 1000.0)
         elif k == 'key':
             v = KEYS.get(s[1], s[1])
