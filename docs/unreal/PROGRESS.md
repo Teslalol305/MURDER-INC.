@@ -3,6 +3,22 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Weapons round 4: the hands on the rifles (hands engineer, 2026-11-25, 16:20 to 17:50 UTC)
+
+The owner: "the hands dont look correct". **Seen in play** on the trial zip's game (`fd8ce12`, unpacked to `/project/ue/hands/zip`, the
+branch's data copied over its loose `Content/Data`; the Development game driven by a demo-director script, frames by `HighResShot`):
+the trial's cut upper arm and fist end-on came from the trial's `grips.json` (no rifle solves, so that game used the wrist slide); with
+the solves the template's third-person rifle clips still stood the support forearm straight up and swung the upper arm into view on
+every shot (`h2` `26-rattler-aimfire`), and aimed, the support fingers stood out beside the handguard. **Changed (data and the grip
+points only):** the CHOPPER, SHORTY, STRETCH and RATTLER sets play the pack's first-person rifle idle and fire clips (the STICK's);
+shoulders `[-8, -6, -10]` (SHORTY `[-6, 0, -24]`, its reload) chosen from eight scanned in play with `mi.FP.Shoulders`; the support
+fingers' middle and end phalanges rebuilt along the forend (`art/blender/assets/_rule_grips.py --tidy`). No rules number and no view
+changed; `check_guns_data.py` 0 errors. Proof: runs `h4` to `h8` (`/project/ue/hands/runs`), the sheets `art/previews/hands_<gun>.jpg`;
+the NINE and STICK unchanged (`h7`). **Not fixed here:** the aimed optics' black housing ring (the fade of 7e120ac is not in the trial
+game: a new package), the STRETCH's open support hand in the reload, the SHORTY's hip-fire frame not re-shot with the final data. C++
+for the lead (an `armsFallback` set for builds without the pack, the support elbow pole for hand-IK guns, the aimed grip solve, a
+`HighResShot` crash seen once with the pack gun's anim instance): `docs/unreal/HANDS_R4.md` section 5.
+
 ## Weapons round 4: the box engineer (integration, 2026-11-25, 13:30 UTC onward): code, tests, imports, what the pictures show
 
 **Built (all of it in `unreal/MurderInc`, tests in `MIWeaponsR4Tests.cpp` and the edited suites):** the data's `rideBone`, `topRound` and the
@@ -20,21 +36,41 @@ seated magazine and its top round, the optic's housing fading out as the sight c
 | Editor build of the clone with the round's C++ | compiled first time (11 files), 3 min 15 s with another job's build in front of it (UBT's lock is per engine, builds of all clones queue); a later one-line fix 60 s |
 | Full suite on it | **189 of 189** (60 to 72 s). Two failures on the first run, both mine to judge: `FirstPerson.OwnGunSets` held a long banana magazine inside the gun's bounds (the CHOPPER's hangs 8.1 cm and the RATTLER's 6.9 cm below the receiver, as modelled: the test now asks for the top, front, back and sides inside and the hang under 12 cm), and `Loadout.SocketContract` held the NINE's six old hand-set markers to 1.2 mm (its support marker is 6.29 mm off its socket; the data check `check_guns_data.py` leaves the NINE's markers out and the sockets replace them at run time: the test now reports them, it does not hold them) |
 | The three art tars, unpacked and imported (`guns rattler parts`) | 1 min 30 s for all; the final archive (`fp-guns-r4.tar`, sha256 `6a521cf3…`) went up in 32 s and is unpacked in `/project/ue/fp-in-guns` |
-| A picture session needs the editor, and the box is shared | see BOX.md 8: waited 52 min for the first quiet minutes; two starts of an editor ran 20 to 30 s beside a gate run that began just after (stopped at once) |
+| A picture session needs the editor, and the box is shared | see BOX.md 8: from 14:42 to 17:30 UTC (2 h 48 min) other agents' gate and profile runs, the release engineer's package, verify and test runs and the hands engineer's runs were on the box nearly all the time; the gaps that were long enough for work of mine (a build, the suite, an import) came about every 15 to 45 minutes and lasted 2 to 4 minutes; an editor for pictures was up for 25 s twice and for 70 s once beside a run that began just after it started (each stopped at once, by hand or by the watcher), and never long enough for a picture |
 
-**Pictures (18, `docs/unreal/shots/guns-r4-trial-*.jpg`, each under 300 kB): the release engineer's trial run of the packaged game, game commit `fd8ce12`, the data of
-that day (before the solved grips of the four new guns and their shoulder anchors).** They are frames of the game as a player's machine draws it (the stream
-viewer's `guns-keys.txt` script, `/project/ue/cloud/lag-v6trial/t-guns*`), not editor pictures, and they are "before" pictures for the hands. I looked at each of them
-(through contact sheets, then singly). What they show:
+**Pictures (19, `docs/unreal/shots/guns-r4-*.jpg`, each under 300 kB). None is an editor picture: the box was never quiet long enough for the editor (below), so they are frames of the
+packaged game as a player's machine draws it, from the stream viewer's `guns-keys.txt` script. I looked at every one (through contact sheets, then singly).**
+
+Set A, `guns-r4-trial-*` (9): the release engineer's trial run, game commit `fd8ce12`, the data of that day, before the solved grips of the four new guns
+(`/project/ue/cloud/lag-v6trial/t-guns*`).
 
 | Picture | What it shows |
 |---|---|
-| `rack-chopper` | the Loadout rack at 1920 x 1080: six cards, CHOPPER focused and on the stage (red-brown furniture, orange-red tipped muzzle device, black receiver) |
-| `bench-chopper-reddot`, `bench-shorty-reddot`, `bench-stretch-scope`, `bench-stick-scope`, `bench-nine-suppressor` | the Workbench with the first part of the optic or muzzle slot fitted, factory part marked "FITTED": the red dot is on the CHOPPER's and the SHORTY's rail, the 4x scope on the STRETCH, the suppressor on the NINE (a part is on the gun: the owner's "no attachments are able to be added" is answered in the game). The SHORTY is olive polymer, the STRETCH long and dark with a wood stock |
-| `fp-chopper-hip`, `fp-shorty-hip`, `fp-stretch-hip`, `fp-rattler-hip` | the four hand-IK guns in the hand: they read apart (CHOPPER with a red dot, SHORTY's wide olive bullpup body, STRETCH's long barrel and scope, RATTLER's short boxy SMG with the folded wire stock). **Fault, all four:** the support arm is a cut upper arm in front of the left of the picture ending in a ball (a closed fist seen end-on) that floats above the gun |
-| `fp-chopper-aim-reddot`, `fp-shorty-aim-reddot`, `fp-stretch-aim-scope`, `fp-rattler-aim`, `fp-stick-aim-scope`, `fp-nine-aim` | aimed. The STICK's (the pack's own optic, pack mode) and the NINE's irons read well. **Faults:** the same ball sits beside the sight on the four hand-IK guns, and their optics' housings are a thick black ring around a small clear disc (the "dark tunnel": WEAPONS_R4.md 5.5, now answered by the housing's fade, not yet seen) |
-| `fp-chopper-reload`, `fp-rattler-reload` | mid reload: the gun is turned up and the arm fills a third of the screen; the magazine is not seen |
+| `trial-rack-chopper` | the Loadout rack at 1920 x 1080: six cards, CHOPPER focused and on the stage (red-brown furniture, black receiver) |
+| `trial-bench-chopper-reddot`, `-shorty-reddot`, `-stretch-scope`, `-stick-scope`, `-nine-suppressor` | the Workbench with the first part of the optic or muzzle slot fitted, factory part marked "FITTED": the red dot is on the CHOPPER's and the SHORTY's rail, the 4x scope on the STRETCH, the suppressor on the NINE (a part is on the gun: the owner's "no attachments are able to be added" is answered in the game). The SHORTY is olive polymer, the STRETCH long and dark with a wood stock |
+| `trial-fp-chopper-hip`, `trial-fp-rattler-hip` | **before:** the support arm is a cut upper arm in front of the left of the picture ending in a ball (a closed fist seen end-on) that floats above the gun; the same on the SHORTY and the STRETCH |
+| `trial-fp-stretch-aim-scope` | the aimed STRETCH with the 4x scope: the ball beside the sight, and the scope's housing a thick black ring round a small clear disc (the "dark tunnel": WEAPONS_R4.md 5.5, answered by the housing's fade, not yet seen) |
 
+Set B, `guns-r4-grips-*` (10): the same packaged game (commit `fd8ce12`'s code, so none of this entry's C++) run with the branch's data of 17:21 UTC (the solved grips and shoulder anchors of the
+data engineer and the grips helper; run `pk1` in `/project/ue/logs/repo-guns/lag/pk1`, taken beside two other games on the card: 28 frames a second, so the run says nothing about speed).
+
+| Picture | What it shows |
+|---|---|
+| `grips-fp-chopper-hip`, `-chopper-aim-reddot` | **after:** no ball and no cut arm; the left hand is under the handguard, the right hand on the grip; aimed, the red dot's housing is still a thick ring (no fade in that build) |
+| `grips-fp-shorty-hip`, `-shorty-reload` | the bullpup in two hands, the left hand under the forend; in the reload the gun stands up and the left hand is at the magazine well |
+| `grips-fp-rattler-hip`, `-rattler-aim`, `-rattler-reload` | the SMG held in two hands, the left on the strap; aimed on the irons; reload as above |
+| `grips-fp-nine-hip` | the NINE, the regression check: unchanged |
+| `grips-rack-rattler`, `-rack-stretch` | the rack with the RATTLER and the STRETCH on the stage |
+
+So the hands engineer's data (grips and anchors) took the ball and the cut arm away on the four guns; what is still wrong in these frames is not for this entry to judge (HANDS_R4.md).
+
+**Where it stopped (17:48 UTC): the box expired.** The rental `ec087d85` reached its 24 hours (`end_reason: expired`, started 2026-11-24 17:48, 2,731.7 credits in all) while the
+suite was running on the last code of this entry (the arm stretch; the build of 16:49 was clean, the run was killed with exit 137 and left no result). The credit balance is 1,287.94, below the
+owner's floor of 2,500 (RESUME 2), so no new box was rented from here: RESUME 3 allows the same box at the same price, and the floor says the balance must not fall further without the owner.
+`/project` survives a rental (RESUME 3). **To go on** once a box is up (`/project/ue/bin/ensure-setup.sh`, then): `cd /project/ue/repo-guns/tools/box && MI_MCP_PORT=8010 bash sync.sh` (as `ue4`; git
+as root breaks the clone's object folders, BOX.md 8), `build.sh -MaxParallelActions=6`, `test.sh MurderInc` (expect 189 or more of the same, 0 failed), an editor in a quiet minute (`quiet-editor.sh`)
+and `fp/guns-shots.sh` / `bench-shots.sh`; the art is in `/project/ue/fp-in-guns` and imported (guns, rattler, parts) in the clone. **Not seen, because of it:** the optic's housing fading out
+(C++ and material are in and compile; the importer ran clean on the parts at 17:05), the arm stretch, any editor picture, the suite on the last code.
 
 ## Weapons round 4: the art hand-off page and the archive (finisher, 2026-11-25, 15:40 to 16:00 UTC)
 
