@@ -7,7 +7,8 @@ four guns** with **attachments**, then the **level and the game style** (with di
 | File | What it holds |
 |---|---|
 | `unreal/MurderInc/Content/Data/guns.json` | The roster (six guns), the `ready` gate, the shared ammunition bag, rule numbers, presentation, stock variants, mounts, and the status of every clip role per gun (3.2, 5, 6) |
-| `unreal/MurderInc/Content/Data/attachments.json` | Six slots, the stats an attachment may change with a clamp per target, ten pack parts with their effects, the trade check, per-gun compatibility (3.3) |
+| `unreal/MurderInc/Content/Data/attachments.json` | Six slots, the stats an attachment may change with a clamp per target, ten pack parts and twelve of our own with their effects, the trade check, per-gun compatibility (3.3) |
+| `unreal/MurderInc/Content/Data/gun_contract.json` | What the art lanes exported for our five own guns and twelve parts: sockets, deform bones, part mounts. The data is held to it (6.8) |
 | `unreal/MurderInc/Content/Data/crew.json` | Four crew members as looks on the same arms, in two art phases (3.4) |
 | `unreal/MurderInc/Content/Data/levels.json` | Levels with what they provide, modes with what they need (3.5) |
 | `unreal/MurderInc/Content/Data/frontend.json` | Screens, shortcuts, transitions, the 3D stage, new inputs, the weapon wheel, the weapon bar, the save schema (2, 4, 7) |
@@ -21,6 +22,12 @@ design changes no file under `Source/` and no existing `Content/Data` file; 4.9 
 
 ## Read this first: what the pack holds, and what the player can pick
 
+**Update, 2026-11-25 (weapons round 4).** The owner saw this section's problem on the stream: "all the guns look the same and no
+attachments are able to be added to the guns" (DECISIONS.md). Four of the five offered guns were the pack's one M4. Since round 4 only
+the STICK is the pack's rifle. The CHOPPER is `SK_Chopper` again, the SHORTY (a bullpup carbine) and the STRETCH (a marksman rifle) are
+meshes of our own, the RATTLER has its own mesh and is offered, and twelve parts of our own fit every gun (3.3, 6.8). Read what follows as
+the history of the pack and the STICK's story.
+
 **The pack holds one rifle.** The "Tactical FPS Animation Pack - Assault Rifle" is one M4-style carbine. It comes in
 three handguard lengths (Short, Default, Extended), each with the stock open or folded, and eight add-on parts: angled
 grip, vertical grip, laser, scope, folding irons, silencer, standard and transparent magazine.
@@ -29,14 +36,14 @@ grip, vertical grip, laser, scope, folding irons, silencer, standard and transpa
 the **STRETCH**, each with its own numbers and no handguard slot. With our **CHOPPER** and **NINE** and the **RATTLER**
 (the Goon's gun) the roster is six.
 
-**What that means for the player:** once the pack is fully imported on the box (6.2), the player picks up to four guns
-out of five. Today the box offers three (CHOPPER, NINE, STICK). The RATTLER stays hidden until its mesh exists (3.2). In a clean checkout, which never contains the pack, only the
-CHOPPER and the NINE are offered, so the player picks one or two of two. The screen is titled "Pick up to four".
+**What that means for the player:** once the weapons import has run on the box (6.8), the player picks up to four guns
+out of six; before it the box offers three (CHOPPER, NINE, STICK). In a clean checkout, which holds none of our meshes and no pack,
+only the CHOPPER and the NINE are offered, on the template meshes, so the player picks one or two of two. The screen is titled
+"Pick up to four".
 
-**Nothing on the Workbench can be shown yet.** The pack import brings in one combined rifle and one magazine. It brings
-in no part mesh, no other length, no folded stock and no socket. Section 6.2 is the plan that fixes this, and it comes
-before the gun assembly in the build order (9). Until then no slot is offered, so the Workbench says "No parts on
-this gun yet" instead of showing parts that cannot be seen.
+**The Workbench.** For the STICK the pack import (6.2) brings the part meshes, the lengths and the sockets. For our own guns the weapons
+import (6.8) does. Until an import has run, a gun offers no slot and the Workbench says "No parts on this gun yet" instead of showing
+parts that cannot be seen.
 
 The other choice, one STICK with the handguard as an attachment slot, is kept as open question 1.
 
@@ -44,16 +51,16 @@ The other choice, one STICK with the handguard as an attachment slot, is kept as
 
 ## 0. The design on one page
 
-- **Six guns, up to four carried.** The CHOPPER and the NINE play exactly as on the web. The three pack rifles each
-  get one clear edge (3.2). The RATTLER is designed, but hidden until its art exists. A gun is offered only when it is
+- **Six guns, up to four carried.** The CHOPPER and the NINE play exactly as on the web. The three rifles each
+  get one clear edge (3.2). The RATTLER is offered once its mesh is imported. A gun is offered only when it is
   **ready**: its mesh exists and its core motion plays. The parity guns are always offered.
 - **Carrying more costs something.** Every gun with a finite reserve draws on **one shared bag of rounds**, which
   starts at 150 and gets the web's 90 per Hold the Block wave (cap 240). Extra long guns bring only their loaded
   magazines. The economy that Hold the Block's wave scaling was tuned for stays the web's (3.2.3).
-- **Attachments** go in six slots: optic, muzzle, underbarrel, laser, magazine, stock. There are ten parts, all from
-  the pack. Every part has a balanced trade that `DataLoads` checks. A stat change is resolved on the gun's JSON in web
-  units *before* parsing, so a gun with no parts is its JSON untouched (3.3, 3.7). Our own guns take a scope and a
-  silencer (CHOPPER), a laser (NINE) or a silencer (RATTLER), but only once those mounts are built (6.6).
+- **Attachments** go in six slots: optic, muzzle, underbarrel, laser, magazine, stock. There are twenty-two parts: ten from
+  the pack (the STICK's) and twelve of our own (round 4). Every part has a balanced trade that `DataLoads` checks. A stat change is resolved on the gun's JSON in web
+  units *before* parsing, so a gun with no parts is its JSON untouched (3.3, 3.7). Every gun takes parts: 3 / 3 / 5 / 5 / 4 / 3 slots on
+  CHOPPER / NINE / SHORTY / STICK / STRETCH / RATTLER once their meshes are imported (3.3, 6.8).
 - **The crew has four members:** Rule, plus DEUCE, SMOKE and KEYS as looks on Rule's arms. A member's card shows only
   once its look exists. The first looks need only material instances (3.4). The crew is cosmetic.
 - **The flow** runs Home → Crew → Loadout (⇄ Workbench) → Block & Style → Briefing → intro, five presses for a first
@@ -480,13 +487,14 @@ A gun entry has `id`, `class`, `text` (name and blurb), `melee` (the HUD's melee
 - each core role (`Idle`, `Fire`, `ReloadTactical`, `Holster`, `Draw`) plays now (exists, template or procedural).
 
 Inside a ready gun, a slot is offered only once its mount exists, and a stock option only once its variant exists.
-`mi.Setup.ShowUnready 1` shows the hidden guns with a `DEV` tag. The RATTLER stays hidden until `SK_Weapon_Rattler`
-lands. The pack rifles are ready on the box once their open variant is imported. The STICK's is imported already, and
-the procedural rig plays their core roles until the pack clips land, as it does for the CHOPPER.
+`mi.Setup.ShowUnready 1` shows the hidden guns with a `DEV` tag. The RATTLER is offered once `SK_Rattler` is
+imported. The SHORTY and the STRETCH are ready once their own open variant (`SK_Shorty`, `SK_Stretch`) is imported; the STICK's
+pack variant is imported already. The rig plays every core role of our guns from the rules: `Idle` is the template rifle's idle
+(status `template`), as for the CHOPPER, and the roles that waited for pack clips are `missing`, not in progress.
 
 **The numbers** (web units; the resolver and the rack use exactly these):
 
-| | CHOPPER | NINE | SHORTY | STICK | STRETCH | RATTLER (hidden) |
+| | CHOPPER | NINE | SHORTY | STICK | STRETCH | RATTLER |
 |---|---|---|---|---|---|---|
 | Class; modes | rifle; auto, semi | pistol; semi | rifle; auto, semi | rifle; auto, semi | rifle; auto, semi | smg; auto, semi |
 | Damage per round (head × 2.2) | 26 | 34 | 21, falloff 20→45 m to 0.8 × | 21 | 25 | 25, falloff 15→35 m to 0.65 × |
@@ -542,9 +550,10 @@ stated factor:
 | flash scale, light; wallPull | 1, 45; [1.05, .42] | × 0.9; × 1.05 | .9, 40; [1.1, .44] |
 | springs, sway, views, poses, strike keys | | same | provisional until the pack is measured |
 
-The **SHORTY** and the **STRETCH** are the STICK with the pack's other handguards:
+The **SHORTY** and the **STRETCH** were worked out from the STICK when they were still the pack's other two handguards. Round 4 gave
+them bodies of their own and left every number as it was:
 
-| Field | SHORTY (Short) | STRETCH (Extended) |
+| Field | SHORTY | STRETCH |
 |---|---|---|
 | damage, rpm | 21, 860 (short gas system) | 25, 700 (longer barrel) |
 | adsTime; holster, draw | × 0.9 → 0.18; × 0.92 → 0.26, 0.29 | × 1.1 → 0.22; × 1.08 → 0.30, 0.35 |
@@ -553,7 +562,7 @@ The **SHORTY** and the **STRETCH** are the STICK with the pack's other handguard
 | flash scale, light; noise | × 1.3 → 1.17, 52; 50 m | same; 45 m |
 | falloff | 20 → 45 m, down to 0.8 × | none |
 | wallPull; swayMax | × 0.86 → [.95, .38]; same | × 1.15 → [1.27, .51]; × 1.1 → .077 |
-| markers muzzle, support (gun space) | z −0.56, −0.30 | z −0.78, −0.42 |
+| markers muzzle, support (gun space) | the exported sockets: z −0.445, −0.250 | z −0.79, −0.300 |
 
 #### 3.2.2 How the RATTLER's numbers come from the Goon's gun
 
@@ -610,6 +619,7 @@ instead of adding a child mesh, because the pack ships the folded stock as whole
 | `recoil.yaw` | `recoil.yaw` [0, .01], `yawEarly` [0, .005], `weaveAmp` [0, .012], `weaveRandom` [0, .005], `kick.yaw` [0, 2], `kick.roll` [0, 3] (a target the gun lacks is skipped) | lower |
 | `swapTime` | `extra.holster`, `extra.draw` [0.12, 0.6] s | lower |
 | `reloadTime` | every number under `rules.reload` (lengths, marks, each `pressCheck` element), **no per-value clamp** | lower |
+| `magSize` | `rules.magSize` [5, 100] rounds; the parser drops a fraction, so a part's factor must give a whole number on every gun that takes it (30 × 1.5, 32 × 1.5, 15 × 1.6) | higher |
 | `noise` | `extra.noise` [5, 90] m | lower |
 | `flash` | `flash.scale` [0, 2.5], `flash.light` [0, 100] | lower (presentation) |
 | `falloff.start`, `.end`, `.min` | `extra.falloff.*` [5, ∞] m, [5, ∞] m, [0.3, 1] | higher |
@@ -631,10 +641,12 @@ After the stats, the resolver enforces falloff `end = max(end, start)`, and `sta
 **The trade check** (`meta.trade`). Every non-baseline part must make one stat better and one worse. Its trade must
 also be balanced: let B be the sum of |ln f| over its better `mul` effects and W the same over its worse ones. Only
 rule stats count (flash, sway, adsFov and adsLook are presentation), and `falloff.min` stands for the whole falloff.
-B / W must lie in [0.4, 2.5]. The parts today: scope 0.63, silencer 2.35, vertical grip 2.31, angled grip 1.74, laser
-1.82, clear mag 1.58, folded stock 0.58.
+B / W must lie in [0.4, 2.5]. The pack parts: scope 0.63, silencer 2.35, vertical grip 2.31, angled grip 1.74, laser
+1.82, clear mag 1.58, folded stock 0.58. Ours: 4x scope 0.63, red dot 1.68, suppressors 2.35, compensator 1.30, vertical grips 2.31,
+angled grip 1.74, laser module 1.82, extended magazines 2.01 (rifle), 1.84 (SMG) and 2.04 (pistol). `DataLoads` computes it, and
+`tools/data/check_guns_data.py` prints the table.
 
-**The ten parts** (◦ = baseline, the "no change" choice of a required slot, with no effects):
+**The ten pack parts** (the STICK's; ◦ = baseline, the "no change" choice of a required slot, with no effects):
 
 | Part | Slot | Better | Worse |
 |---|---|---|---|
@@ -651,15 +663,41 @@ B / W must lie in [0.4, 2.5]. The parts today: scope 0.63, silencer 2.35, vertic
 
 The laser's cost is real: its heavier front end and the dot pull the eye off the sight.
 
-**Compatibility** (`attachments.json compatibility`; an unlisted slot does not exist on that gun; *gated* = offered
-only once the mount exists, 6.6):
+**The twelve parts of our own** (round 4, art in `art/blender/assets/weapons_parts_contract.json`; none is a baseline: on our guns the
+factory part is the gun's own, `default` is null and no slot is required):
+
+| Part | Slot | Fits | Better | Worse | B / W |
+|---|---|---|---|---|---|
+| Red dot | optic (eye relief 0.14) | CHOPPER, SHORTY, STRETCH, RATTLER | aim time × 0.92, aimed spread on the move × 0.88 | aimed spread × 1.08, swap × 1.05 | 1.68 |
+| 4x scope | optic (relief 0.085) | CHOPPER, SHORTY, STRETCH | aimed spread × 0.7 | aim time × 1.35, aimed spread on the move × 1.3, sway × 1.2; aimed view 30°, look × 0.6 | 0.63 |
+| Suppressor | muzzle | CHOPPER, SHORTY, STRETCH, RATTLER | heard × 0.4, flash × 0.15, kick × 0.95 | damage falls from 25 m to 0.85 × at 50 m, aim time × 1.08, swap × 1.06, length × 1.12 | 2.35 |
+| Pistol suppressor | muzzle | NINE | the same | the same | 2.35 |
+| Compensator | muzzle | CHOPPER, SHORTY, RATTLER | kick × 0.88, side-to-side × 0.9 | heard × 1.15, aim time × 1.04, flash × 1.3 | 1.30 |
+| Vertical grip | underbarrel | SHORTY, STRETCH | kick × 0.88, side × 0.85 | aim time × 1.08, swap × 1.05 | 2.31 |
+| Vertical grip (walnut) | underbarrel | CHOPPER | the same | the same | 2.31 |
+| Angled grip | underbarrel | SHORTY, STRETCH | aim time × 0.9, swap × 0.95, kick × 0.96 | side × 1.12 | 1.74 |
+| Laser module | laser | NINE, SHORTY | hip spread × 0.8, moving hip × 0.85 | aimed spread × 1.1, aim time × 1.08, swap × 1.04 | 1.82 |
+| Extended mag (rifle) | magazine | SHORTY, STRETCH | rounds × 1.5 (30 to 45) | reload × 1.12, swap × 1.05, aim time × 1.04 | 2.01 |
+| Extended mag (SMG) | magazine | RATTLER | rounds × 1.5 (32 to 48) | reload × 1.12, swap × 1.06, aim time × 1.05 | 1.84 |
+| Extended mag (pistol) | magazine | NINE | rounds × 1.6 (15 to 24) | reload × 1.10, swap × 1.08, aim time × 1.06 | 2.04 |
+
+The extended pistol magazine is × 1.6, not × 1.67: 15 × 1.67 is 25.05 and the parser drops the fraction, so a round would vanish.
+
+**Compatibility** (`attachments.json compatibility`; an unlisted slot does not exist on that gun; a listed slot is offered only once
+its mount exists and at least one of its parts has its mesh, so a clean checkout shows none):
 
 | | Optic | Muzzle | Underbarrel | Laser | Magazine | Stock |
 |---|---|---|---|---|---|---|
-| CHOPPER | scope (top-cover rail), gated | silencer (replaces the booster), gated | | | | |
-| NINE | | | | laser (dust-cover rail), gated, and dropped if the pack laser is longer than 50 mm | | |
-| SHORTY, STICK, STRETCH | irons◦ or scope, required | silencer | vertical or angled grip | laser | standard◦ or clear, required | open◦ or folded, required (variant) |
-| RATTLER | (rail too short) | silencer (replaces its device) | | (the light fills the handguard) | | |
+| CHOPPER | red dot, 4x scope | suppressor, compensator | walnut vertical grip | | | |
+| NINE | | pistol suppressor | | laser module | extended pistol mag | |
+| SHORTY | red dot, 4x scope | suppressor, compensator | vertical or angled grip | laser module | extended rifle mag | |
+| STICK | irons◦ or scope, required | silencer | vertical or angled grip | laser | standard◦ or clear, required | open◦ or folded, required (variant; hidden while the folded variant has no art) |
+| STRETCH | 4x scope, red dot | suppressor | vertical or angled grip | | extended rifle mag | |
+| RATTLER | red dot | suppressor, compensator | | | extended SMG mag | |
+
+Slots offered once the meshes are imported: 3 / 3 / 5 / 5 / 4 / 3 on CHOPPER / NINE / SHORTY / STICK / STRETCH / RATTLER. The
+STRETCH has no compensator (it has a brake) and no laser; the RATTLER takes no scope (its rail is short) and no grip (the strap wraps
+the forend); a bullpup has no stock to fold.
 
 **Builds, worked out** (exact values from the data; `Attachments.Builds` asserts them, 8.2):
 
@@ -671,6 +709,12 @@ only once the mount exists, 6.6):
 | STRETCH long and quiet: scope, vertical grip, silencer | 0.346421 | 0.0039292 | 0.000539 | 0.012 | 18 | 0.3339 / 0.38955 | 30°; 21.25 damage past 50 m |
 | SHORTY, silencer | 0.1944 | 0.00532 | 0.00104 | 0.012 | 20 | 0.2756 / 0.3074 | falloff 20 → 45 m to 0.68 × (14.28) |
 | CHOPPER, scope and silencer | 0.26244 | 0.00646 | 0.00084 | 0.0125 | 18 | 0.2968 / 0.3392 | 30°; 22.1 damage past 50 m |
+| CHOPPER, red dot and suppressor | 0.178848 | 0.00646 | 0.001296 | 0.0125 | 18 | 0.31164 / 0.35616 | 22.1 damage past 50 m |
+| CHOPPER, compensator and walnut grip | 0.202176 | 0.00526592 | 0.0012 | 0.0125 | 51.75 | 0.294 / 0.336 | |
+| SHORTY carry: compensator, angled grip, laser module, extended mag | 0.189237 | 0.00473088 | 0.001144 | 0.0096 | 57.5 | 0.269724 / 0.300846 | 45 rounds; reload 2.3856, magOut 0.4256; 16.8 damage past 45 m |
+| STRETCH marksman: 4x scope, vertical grip, suppressor, extended mag | 0.360278 | 0.0039292 | 0.000539 | 0.012 | 18 | 0.350595 / 0.409028 | 30°; 45 rounds; 21.25 damage past 50 m |
+| RATTLER close: red dot, compensator, extended mag | 0.14065 | 0.003608 | 0.00324 | 0.0094 | 51.75 | 0.26712 / 0.30051 | 48 rounds; reload 2.128; 16.25 damage past 35 m |
+| NINE quiet and long: pistol suppressor, laser module, extended mag | 0.173094 | 0.00874 | 0.00187 | 0.0084 | 18 | 0.333366 / 0.380989 | 24 rounds; reload 1.65; 28.9 damage past 50 m |
 
 ### 3.4 Crew (`crew.json`)
 
@@ -962,17 +1006,20 @@ prepared), **missing** (nobody has started).
 
 | Gun | Mesh | Mounts for its slots | Clips | Offered |
 |---|---|---|---|---|
-| CHOPPER | `SK_Chopper` inProgress (rebuild); `SKM_Rifle` stands in | `Optic`, `MuzzleMount` + separate `Booster`: missing (6.6) | procedural + template Idle; reloads inProgress; 8 roles missing | always (parity); no slot offered yet |
-| NINE | `SK_Nine` inProgress; `SKM_Pistol` stands in | `Laser`: missing; pack laser length unmeasured | procedural + template Idle | always (parity); no slot offered yet |
-| SHORTY | Short variants: inPack | five sockets: inPack | pack clips inProgress, procedural meanwhile | after 6.2 |
-| STICK | `SK_TFA_AR_Default_Combined` exists on the box (open); folded inPack | five sockets: inPack | the same | yes on the box (no slot until 6.2); no in a clean checkout |
-| STRETCH | Extended variants: inPack | five sockets: inPack | the same | after 6.2 |
-| RATTLER | `SK_Weapon_Rattler` missing (a skeletal, first-person-grade `SM_Weapon_GoonSMG`) | `MuzzleMount` + `MuzzleDevice` bone: missing | nothing started | no (hidden) |
+| CHOPPER | `SK_Chopper` exists (150,415 triangles, three 4K sets): back on slot 1 | `Optic`, `MuzzleMount` (hides `Booster`), `Underbarrel`: exist; `FrontSight` hides under an optic | hand IK on `Palm_R` / `Palm_L` (`chopper_ik`); procedural + template Idle | always (parity); 3 slots after the import |
+| NINE | `SK_Nine` exists | `Laser`, `MuzzleMount`, `MagHinge`: exist | hand IK (`pistol`); procedural + template Idle | always (parity); 3 slots after the import |
+| SHORTY | `SK_Shorty` exists (our bullpup carbine, 67,168 triangles, one 4K set) | `Optic`, `MuzzleMount`, `Underbarrel`, `Laser`, `MagHinge`: exist | hand IK (`shorty_ik`) | after the import; 5 slots |
+| STICK | `SK_TFA_AR_Default_Combined` exists on the box (open); folded: no art | five sockets: exist (pack import) | the pack's clips (`rifle`, Pack mode) | yes on the box; no in a clean checkout; 5 slots |
+| STRETCH | `SK_Stretch` exists (our marksman rifle, 61,792 triangles, one 4K set) | `Optic`, `MuzzleMount`, `Underbarrel`, `MagHinge`: exist; no `Laser` | hand IK (`stretch_ik`) | after the import; 4 slots |
+| RATTLER | `SK_Rattler` exists (67,964 triangles; its 4K set is a 512 px draft until the final bake) | `Optic`, `MuzzleMount`, `MagHinge`: exist | hand IK (`rattler_ik`); Idle template | after the import; 3 slots |
 
-The icons `T_UI_Gun_*` are missing for every gun. Until they exist, the rack, the wheel and the bar show the name in
-the display font.
+The icons `T_UI_Gun_*` are rendered for the SHORTY, the STRETCH and the RATTLER from our meshes (`art/out/ui`, not committed) and
+still missing for the CHOPPER and the NINE; the box's own pack renders cover the STICK. No widget draws an icon today: the rack, the
+wheel and the bar show the name in the display font.
 
 ### 6.2 The pack import: parts, variants and sockets
+
+**Since round 4 this section is the STICK's story.** Our own guns and parts come in by the weapons import (6.8).
 
 Today `tools/box/anim/ue_import_pack.py` imports `Meshes/SK_TFA_AR_Default_Combined.fbx` and
 `Meshes/SK_TFA_AR_Magazine.fbx` only. That brings no part mesh, none of the other five rifle variants, and no socket.
@@ -1042,12 +1089,59 @@ These are hand-offs. This design does not edit their files.
 | Animation agent | Add to `ANIMATION.md`'s scope for the CHOPPER: `Inspect`, `MagCheck`, `ModeSemi`, `ModeAuto`, `MeleeA`, `MeleeB`, `Equip`, `Holster`, `Draw`, adapted to the AK's rock-in magazine and left-side lever (like the reloads in `mi_adapt.py`); or record them as missing | the parity gun is in slot 1, so every Crew screen and Briefing shows it |
 | Characters | The six phase-1 material instances (6.4) | three crew cards |
 
+**Status, 2026-11-25.** Done by the weapons lanes of round 4: the CHOPPER's `Optic`, `MuzzleMount`, `Underbarrel` and the separate
+`Booster` and `FrontSight` bones; the NINE's `Laser`, `MuzzleMount` and `MagHinge`; the silhouettes of the SHORTY, STRETCH and RATTLER.
+Still open: the CHOPPER's and the NINE's silhouettes, the part pips `T_UI_Att_*`, and the CHOPPER's extra clip roles (it is hand IK now,
+so they stay `missing` by design). The compact laser for the NINE is done: the module is 46 mm, under the 50 mm gate.
+
 ### 6.7 Licence
 
 The pack (Fab licence) and Epic's mannequin content are used but never committed. A clean checkout has no pack mesh, no
 pack clip and no pack-rifle icon. The pack rifles are then not ready and are not offered, and every rule and test still
 works, because the tests use the data, not the meshes (except `MountsExist`, which skips without the pack). Only data,
 scripts and pictures of our own work are committed.
+
+### 6.8 Weapons round 4: our own guns and parts (the data)
+
+The art is in `art/blender/` (README, PROGRESS) and `art/out/` (git-ignored: it holds the GLB files and textures, which reach the box by
+`tools/box/send-art.sh` and `tools/box/fp/fp-art.sh packr4`, then `tools/box/fp/import-chars.sh r4`). The data is committed. What it says:
+
+| Gun | Mesh asset (`/Game/Weapons/...`) | The mesh's origin | Hidden under a part | Mesh offset (gun space, web) | Hand-IK set |
+|---|---|---|---|---|---|
+| CHOPPER | `Chopper/SK_Chopper` | on the bore at the back of the receiver | `FrontSight` (optic), `Booster` (muzzle) | identity | `chopper_ik` |
+| NINE | `Nine/SK_Nine` | the web gun's origin | none | identity | `pistol` |
+| SHORTY | `Shorty/SK_Shorty` | on the bore at the butt face | `IronsFront` (optic), `MuzzleDevice` (muzzle) | pos [-0.001, 0.010, 0.255] | `shorty_ik` |
+| STRETCH | `Stretch/SK_Stretch` | on the bore at the back of the receiver (the stock reaches 25 cm behind it) | `IronsRear`, `IronsFront` (optic), `MuzzleDevice` (muzzle) | identity | `stretch_ik` |
+| RATTLER | `Rattler/SK_Rattler` | on the bore at the back of the receiver | `IronsFront`, `IronsRear` (optic), `MuzzleDevice` (muzzle) | identity | `rattler_ik` |
+
+Magazines are `<Gun>/SM_Weapon_<Gun>Magazine` (and `_TopRound`), brass `Casings/SM_Weapon_CasingRifle` and `_CasingPistol`, the parts
+`Parts/SM_Part_<Name>` (the extended magazines also `_TopRound`). Every path is in `gun_contract.json`; the importer puts each mesh there.
+
+**Frames.** Blender metres (x forward, y left, z up) become Unreal centimetres as (x, −y, z) × 100 and the viewmodel data's gun space as
+(−y, z, −x). Our meshes face +X, so `meshOffset.rot` is the identity (the pack rifles face +Y and needed a quarter turn; the
+specification's `[0, 1.5708, 0]` for ours would turn a gun sideways). Every view, pose and melee key of `config.json` is authored for
+the CHOPPER's gun space, with the firing palm at web (0.0155, −0.085, −0.040). `meshOffset.pos` carries each gun there: the SHORTY, whose
+origin is its butt, 25.5 cm back; the STRETCH and the RATTLER already sit within 6 and 22 mm of it. (The specification moved `views[0]`
+instead, which moves only one of the poses; the offset gives the same hip pose to 0.5 mm and keeps the sprint, reload, wall, holster
+and melee poses right too.) `tools/data/make_gun_contract.py --anchors` prints the numbers.
+
+**Mounts** (`guns.json mounts.<slot>`): `socket` (a non-deform bone of the mesh), `at` (its place in the mesh's frame, metres, held to the
+contract), `hide` (deform bones that vanish while a part of the slot is fitted), `rideBone` (on magazine mounts: the bone a part follows
+after it is placed), `status`.
+
+**Presentation.** The markers are the exported sockets in gun space and the real sockets replace them at run time. `magazine` is the
+factory magazine the stage draws when no magazine part is fitted. `ejectDir` is the casing's direction. The first-person sets
+(`firstPerson.animSets.<gun>_ik`) clone the NINE's: the template rifle's idle and fire clips on the arms, both palms put on `Palm_R` and
+`Palm_L` by two-bone IK, the support hand's fingers from the pack's rifle idle when the pack is installed. Shoulders, `fireWeight`
+and `bobScale` are first guesses.
+
+**Checks.** `python3 tools/data/check_guns_data.py` (no engine) runs the data's rules, every compatible build, the ready rule in three
+worlds and the art contract; `python3 tools/data/make_gun_contract.py --check` says whether `gun_contract.json` is stale. The tests
+this data changes are listed in `WEAPONS_R4_TESTS.md`; the numbers and decisions of the data in `WEAPONS_R4_DATA.md`.
+
+**Not done, and why.** The wall pull of the new guns is not re-measured (a rule number; DECISIONS.md). `grips.json` has entries for the NINE
+only: the new guns' hands are the palm IK alone until Blender solves their grips. The RATTLER's deployed-stock variant (`stock_wire_open`)
+waits for a second export. The CHOPPER's and the NINE's silhouettes and the part pips are not rendered.
 
 ---
 
@@ -1108,7 +1202,9 @@ All run headless (`tools/box/test.sh`) and are named `MurderInc.*`.
   gets its tests by being added. Each case resolves the first roster gun whose compatibility row takes the part
   (mounts ignored), with only that part, and checks the resolved `FMIWeaponDef` field against base × factor (relative
   1e-12). There is no settling: `Spread` converges through `MI::Damp` and never arrives, so spreads are checked on the
-  resolved field. 37 cases (scope 6, silencer 9, vertical grip 4, angled grip 4, laser 5, clear mag 2, folded stock 7),
+  resolved field. 37 cases for the pack parts (scope 6, silencer 9, vertical grip 4, angled grip 4, laser 5, clear mag 2, folded stock 7)
+  and 62 for ours (red dot 4, 4x scope 6, suppressor 9, pistol suppressor 9, compensator 5, vertical grips 4 and 4, angled grip 4, laser
+  module 5, extended magazines 4 each),
   plus three `…Baseline` cases (irons, standard mag, open stock) asserting the JSON is unchanged.
 - **Probes in play** for the stats a field cannot prove alone:
   - `adsTime`: frames at 60 Hz to `Ads` = 1 equal ceil(resolved × 60).
@@ -1120,7 +1216,7 @@ All run headless (`tools/box/test.sh`) and are named `MurderInc.*`.
     24.05 and 22.1.
   - `noise`: a Goon at 30 m **behind a wall and facing away** is alerted by a bare round and not by a silenced one; one
     at 15 m, also behind the wall, by both.
-- **`Attachments.Builds`**: the six builds of the 3.3 table, every listed value exact.
+- **`Attachments.Builds`**: the twelve builds of the 3.3 table (the six pack ones and six of ours), every listed value exact.
 - **`Attachments.Ops`**: a fixture file (`Tests/Fixtures/attachments_ops.json`, new) with two `set` effects in two
   slots (the later wins), an `add`, two `mul` (they multiply), two `min` and a `max` on one stat, checked against
   hand values.
@@ -1171,7 +1267,7 @@ window), and check that a focused card loses NEW and keeps it through a save; th
    Move slot 4 to 1. Empty slot 2 (the rest close up). Right-click off a slot: nothing.
 4. Workbench on the STICK: fit the scope, the silencer and the folded stock (the base mesh swaps). The effect lines,
    with their ▲ / ▼, and the bars equal the resolver's. A tap of R does nothing; a 0.6 s hold resets. [ / ] reaches the
-   CHOPPER: with its mounts missing it shows `noPartsYet`. Done.
+   CHOPPER: three slots (optic, muzzle, underbarrel). Done. On the STRETCH the optic is the 4x scope.
 5. Next → Block & Style: night, Hold the Block, Kingpin. Next → Briefing: the four lines read back the set-up, and the
    Style line is the Hold the Block tagline.
 6. Change on Carrying → Loadout in edit mode → Done → back on the Briefing. Ctrl+Enter from Crew → Briefing.
@@ -1195,6 +1291,10 @@ silenced round is heard at 15 m and not at 30 m, the bare one at 30 m) and `Enem
 exception of 4.5 on the field alone). `Save.SetupRoundTrip` writes a set-up and reads it back equal. `Save.SetupValidation` covers each rule of 7.
 
 ### 8.7 Existing tests that change
+
+Round 4's data falsifies eleven existing expectations (10 parts, a pack-rifle CHOPPER, the pack twins, a hidden RATTLER, no CHOPPER slots, the
+pack scope on the STRETCH, no `magSize` row) and adds seven tests (trade band, distinct guns, slot counts, the socket contract that runs in
+a clean checkout, parts on every gun, the own guns' first-person sets, the extended `MountsExist`): all in `WEAPONS_R4_TESTS.md`.
 
 `Core.GameClasses` counts 38 key mappings today. It becomes 38 plus the actions of `frontend.json input.game` (the
 mapping count is not a parity number). No golden file is regenerated.
@@ -1246,5 +1346,4 @@ Each has a default, and work proceeds on the default until the user answers.
 9. **The shared bag of rounds.** **Default:** one bag for every finite gun (3.2.3). The alternatives are one bag per
    ammunition type (AK rounds apart from the pack rifles' rounds, which costs a resupply rule per type) or a move-speed
    cost per extra long gun.
-10. **The RATTLER.** **Default:** designed and in the data, hidden until someone builds `SK_Weapon_Rattler` and its clips.
-    Say if you want it built or dropped.
+10. **The RATTLER.** **Default:** built in round 4 (`SK_Rattler`, hand IK) and offered once imported. Say if you want it dropped.
