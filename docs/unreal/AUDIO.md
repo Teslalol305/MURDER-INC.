@@ -239,9 +239,15 @@ puts two Submix Effect Dynamics Processors on the device's master submix when a 
 compressor with the make-up as its output gain (+1.2 dB), then a soft-knee limiter (threshold -0.3 dB, knee 8.2 dB,
 look-ahead 3 ms) standing in for the web curve, whose knee starts at -4.4 dB (0.6). The offline mix runs the same
 compressor (`FMIMasterCompressor`, stereo-linked, soft knee) and the web game's exact curve. The game's volume setting
-(default 0.8) is not in these gains: `UMIGameSubsystem::ApplySettings` sets it as the device's primary volume, after
-the chain, where the browser has it; audio.json `options.master` is only a trim before the chain and stays 1.0 (it was
-0.8 before the fix pass, which with the device volume played the game at 0.64).
+(default 0.8, the Volume row of the Settings card) **is the master trim of every category's gain, before the chain**:
+`UMIGameSubsystem::ApplySettings` puts it into the director's options (`FMIAudioOptions::Master`) and holds the
+device's own primary volume at 1, so it is applied once. It has to be there for a streamed game: Pixel Streaming takes
+the sound at the main submix, before the device's primary volume, so a volume set on the device would change nothing a
+viewer hears (measured through the stream, section 9: 80 % to 40 % takes the music down 6.6 dB). The web game has its
+volume after its limiter; here the chain therefore works 1.9 dB less at the default setting and the peaks keep the
+limiter's ceiling whatever the setting. audio.json `options.master` (1.0) is what the director starts with and what
+the automation tests run at; without the audio subsystem (a world with no audio data) the setting falls back to the
+device's primary volume.
 
 ### 3.4 Space
 
@@ -436,7 +442,8 @@ whose files are missing falls back to the web sound.
   +0.2 dB: the truck's sting and the music under it), R-U-L-E! at 45.6 s -18.8 / -13.1 (+2.1 / +2.2 dB), I-N-C! on the
   card at 48.4 s -20.3 / -14.6 (+4.4 / +5.2 dB). The lines sit at the level of the fight around them, a little above
   it when it is quiet: the voice duck (music 0.5, ambience 0.55 ...) holds them out of the mix rather than above it.
-  At the game's default volume (0.8, the device's primary volume) everything is 1.9 dB lower.
+  At the game's default volume (0.8, a trim of every category before the chain, section 3.3) the quiet parts are
+  1.9 dB lower and the loud ones a little less than that, because the compressor then has less to do.
 - What the first engine runs taught: the old recording (65,536 bytes of silence) was a WAV the process quit before
   writing; a complete file from an earlier run then passed the wait at once (the test now deletes it); the dummy
   driver's clock runs up to 3 % off the wall clock (the device's clock is the reference now); and master-submix
@@ -455,3 +462,49 @@ whose files are missing falls back to the web sound.
 - Hand-offs to other packages (one line each, PROGRESS.md): the options screen calling `SetOptions`, the crew apply
   calling `SetCharacter`, the flow emitting `score:best`. Until then clean language is off by default (section 1).
 - The crew members deuce, smoke and keys have no lines (silent by design until their voices exist).
+- From the stream measurements of version 3b (section 9): the pointer entering a button of the set-up screens plays
+  nothing yet (the web game plays `ui_hover` there; keys, sticks and the cards do); the stereo street bed sits about
+  3 dB higher against the mono sounds than the data's numbers say (Unreal plays a mono 2D source at half amplitude
+  in each front channel); with the volume setting before the limiter the peaks reach the limiter's ceiling at every
+  setting (two samples at full scale in the half second of a magazine dump); the four loadout guns fire with the
+  CHOPPER's sounds until they have their own (`weaponSounds`); the sound's clock runs 1 % fast and a machine whose
+  CPUs are all busy in the first half minute of a cold start leaves holes in the stream's sound.
+
+## 9. The sound in the stream (version 3b)
+
+Measured on the box with a viewer that records what it receives; the tables are in PROGRESS.md, "Version 3b: sound".
+
+- **The way out.** Pixel Streaming listens on the mixer's main submix (after the master chain), folds the six
+  channels of the mix to two and sends Opus packets of 20 ms (651 bytes each: about 260 kbit/s). Nothing of the
+  machine's sound hardware is in that path.
+- **The device.** The launcher starts the game with `-RenderOffScreen`, and Unreal then asks SDL for its "dummy"
+  audio driver: a device that needs no sound card and no sound service. A host environment that names another
+  driver (`SDL_AUDIODRIVER=alsa` on a machine without a sound card) left the game without any audio device and the
+  stream silent; `MurderInc.sh` therefore sets `SDL_AUDIODRIVER` and `SDL_AUDIO_DRIVER` to `dummy` itself and clears
+  `SDL_AUDIO_DEVICE_SAMPLE_FRAMES`. The probe line counts what the game could not play: `sndMissing` (no asset),
+  `sndNoDevice` (no audio device).
+- **Never silent again.** `package-cloud.sh` refuses a package whose pak list lacks a Sound Wave the data names
+  (`pak_sounds.py`: 289 of them); the tests fail on a missing or stale asset (`Audio.Assets`, `Audio.SoundsResolve`,
+  `Audio.EveryGunSounds`); `sync.sh` starts the import when a clone's assets are missing or older than their WAVs.
+- **The delay.** From the game starting a sound (its log line) to the arrival of the packet that holds the sample's
+  start: 40 ms in the middle, 24 to 66 ms by sound. From a viewer's fire input to that packet: sections 5 and 8 of
+  the PROGRESS entry (the input's own way into the game is in it). A browser's sound buffer comes on top. Before the
+  waves were kept in memory (section 4) the first play of each sample came about 110 ms later than every play after
+  it.
+- **The levels.** The log's `mix=` is the category's gain at that moment: the data's volume times the volume
+  setting (gun 0.80, tail 0.68, near 0.76, world 0.84, ui 0.76, music 0.40, voice 0.80 at the default 80 %), times
+  the ducks. Every mono sound arrives 5 to 6 dB under volume x gain, each one the same; the stereo street bed about
+  2.5 dB under.
+- **The clock.** The dummy device waits whole milliseconds: 21 ms for every 21.33 ms of sound, so the stream carries
+  about 1 % more sound than time (1.009 to 1.011 s a second; 1.004 to 1.007 when the machine is busy). No packet is
+  short. A buffer of 960 frames (20 ms exactly) is worse: the device then runs slow and the stream has holes.
+- **Holes.** When a push of sound comes late, the sender's time stamps jump 30 to 50 ms while the sound goes on where
+  it stopped: a hole in the time line that a player has to fill. It happened only while all CPUs of the box were busy
+  in the first half minute after a cold start (Unreal compiles its pipeline states on three quarters of the CPUs
+  then) with two or three more CPUs' worth of other work beside the game; never after it, never in play, never under
+  the GPU's load alone.
+- **The tools** (`tools/box/cloud/`): `rtcaudio.py` records and measures what a viewer receives (`lag-test.sh ...
+  audio=1`), `audio_find.py` finds a sample of `Content/Audio` in a recording, `sound_table.py` checks every sound the
+  Development game's log says it started, `sound-keys.txt` with `sound-keys-check.sh` plays the Shipping game one kind
+  of sound at a time, `sound-gate.txt` is the whole proof of a package as one queue. `rtcaudio.py --selftest` and
+  `audio_find.py --truth` check the instrument with a known tone and a known sample through the same path.

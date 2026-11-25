@@ -230,8 +230,25 @@ class Recorder:
         meta = {'rate': RATE, 'epoch': self.epoch, 'summary': s, 'rows': self.rows, 'dropOuts': self.gaps, 'actions': self.actions, 'packets': self.packets, 'note': self.note}
         with open(self.path + '.json', 'w') as f:
             json.dump(meta, f)
+        where = ''
+        if self.gaps:
+            # Where they were, by the script's own markers ("say ..." lines): holes in the first half minute of a cold
+            # start on a machine whose CPUs are all busy are another matter than holes in the play (PROGRESS.md,
+            # "Version 3b: sound", section 8).
+            says = [(t, line.split()[-1]) for t, line in self.actions if line.startswith('say ')]
+            count = {}
+            for at, _ in self.gaps:
+                when = self.arrival(int(at * RATE))
+                name = 'before the first marker'
+                for t, text in says:
+                    if when is not None and t <= when:
+                        name = text
+                count[name] = count.get(name, 0) + 1
+            where = f"; the first at {self.gaps[0][0]:.1f} s and the last at {self.gaps[-1][0]:.1f} s of the recording"
+            if says:
+                where += ', by the script\'s markers: ' + ', '.join(f'{k} {v}' for k, v in count.items())
         self.log(f"SOUND {s['seconds']:.1f} s recorded in {self.path}: rms {s['rms']} dBFS, peak {s['peak']} dBFS, clipped samples {s['clipped']}, "
-                 f"digital silence {s['silentSeconds']} s, lost {s['lostMs']} ms, drop-outs {s['dropOuts']} (longest {s['longestDropOutMs']} ms)"
+                 f"digital silence {s['silentSeconds']} s, lost {s['lostMs']} ms, drop-outs {s['dropOuts']} (longest {s['longestDropOutMs']} ms{where})"
                  + (f", {s['soundPerWallSecond']} s of sound a second of wall clock, longest wait for a packet {s['longestWaitForAPacketMs']} ms" if 'soundPerWallSecond' in s else '')
                  + (f"; {self.note}" if self.note else ''))
         for at, ms in self.gaps[:20]:

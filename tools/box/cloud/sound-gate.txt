@@ -1,13 +1,20 @@
 # The sound gate of a package (version 3b on): a queue for lag-test.sh on the unpacked zip, as a host starts it.
 #
 #   unzip the zip as the user e3dsfresh into a folder, then
-#   LAG_BUILD=<that folder> LAG_RUNAS=fresh LAG_CLEAN=1 bash lag-test.sh queue sound-gate.txt      (7 runs, about 20 minutes)
+#   LAG_BUILD=<that folder> LAG_RUNAS=fresh LAG_CLEAN=1 bash lag-test.sh queue sound-gate.txt      (9 runs, about 25 minutes)
 #   bash lag-test.sh list
 #
-# Nothing else may run on the box meanwhile (no compile, no analysis: numpy takes every core).
+# Nothing else may run on the box meanwhile (no compile, no package, no analysis: numpy takes every core, and a box
+# whose CPUs are all busy puts holes into the sound; the note under the list).
 # It passes when every line says CLEAN and:
-#   every line   "sound: ... 0 without an asset, 0 without an audio device", and the viewer heard no digital silence,
-#                lost nothing and counted no drop-out (the music and the street never stop)
+#   every line   "sound: ... 0 without an asset, 0 without an audio device"
+#   snd-dev, snd-keys, snd-env, snd-free, snd-l20-late, snd-l20-c12, snd-cpu6-l35
+#                the viewer heard no digital silence, lost nothing and counted no drop-out (the music and the street
+#                never stop)
+#   snd-l20, snd-l35
+#                no drop-out from the script's marker "run" on: the summary names the markers the drop-outs fell under
+#                ("by the script's markers: card 2, home 5, briefing 6"). Drop-outs under card, home and briefing are
+#                the box in the first half minute of a cold start (the note below); measured for version 3b: 13 and 4
 #   snd-dev      the Development game plays a whole Story run by its own demo director (sound-demo.txt) and logs every
 #                sound it starts: python3 sound_table.py /project/ue/cloud/lag/snd-dev --audio <Content/Audio> prints
 #                one line per sound: found in the recording or not, how far above chance, its level, its delay.
@@ -21,10 +28,22 @@
 #                SDL's dummy device itself; without that the game opens no audio device and is silent)
 #   snd-free, snd-l20, snd-l35, snd-cpu6-l35   the Shipping game with the GPU free and loaded as in lag-gate.txt (the
 #                game then runs at 60, 45 and 30 frames a second), five single rounds, a burst and a fast turn
-#                (sound-short.txt): fps and worst frame as in the release gate, no drop-out, and
+#                (sound-short.txt): fps and worst frame as in the release gate, and
 #                audio_find.py <run>/sound.wav --part single-shots Gen/chopper_close_01.wav Gen/chopper_close_02.wav
 #                  Gen/chopper_close_03.wav --action click --audio <Content/Audio>
 #                gives the delay from each fire input to the arrival of the gun's sound
+#   snd-l20-late the same load, the viewer joins 55 s after the game's first probe line: the cold start is over
+#   snd-l20-c12  the same load from the first second, the game on 12 of the box's 16 CPUs (the load, the viewer and
+#                the desktop keep the other four)
+#
+# The first half minute of a cold start. A game that has never run on a machine compiles its pipeline states for
+# about 30 s on three quarters of the CPUs (Unreal's precompile pool: twelve threads on this box, each 70 to 90 %
+# busy). On this box the load process, the viewer and the desktop's browser take two to three CPUs more, all 16 are
+# then busy, the game's sound threads wake late, and Pixel Streaming's sender leaves holes of 30 to 50 ms in the
+# sound's time line (the sound itself goes on where it stopped). Measured for version 3b (PROGRESS.md, section 8):
+# with the load 4 to 22 holes in that half minute and none after it, in the menus or in the play; none at all when
+# the game keeps off four CPUs, when the viewer comes after the half minute, or on a free GPU; 57 on a free GPU with
+# two busy loops beside the game. It is the box's CPUs, not the GPU's load and not the frame rate.
 snd-dev game=dev demo=sound-demo.txt view=sound-watch.txt audio=1 join=3 probe=0.25 secs=330 -- -ini:Engine:[Core.Log]:LogMIAudioHost=Verbose
 snd-keys game=ship view=sound-keys.txt audio=1 join=3 probe=0.25 secs=160
 snd-env game=ship view=sound-short.txt audio=1 join=3 probe=0.25 secs=95 env=SDL_AUDIODRIVER=alsa,SDL_AUDIO_DEVICE_SAMPLE_FRAMES=960
@@ -32,3 +51,5 @@ snd-free game=ship view=sound-short.txt audio=1 join=3 probe=0.25 secs=95 load=0
 snd-l20 game=ship view=sound-short.txt audio=1 join=3 probe=0.25 secs=95 load=1:0.05:0:1024
 snd-l35 game=ship view=sound-short.txt audio=1 join=3 probe=0.25 secs=95 load=1:0.3:0
 snd-cpu6-l35 game=ship view=sound-short.txt audio=1 join=3 probe=0.25 secs=95 load=1:0.3:0 cpus=0-5
+snd-l20-late game=ship view=sound-short.txt audio=1 join=55 probe=0.25 secs=150 load=1:0.05:0:1024
+snd-l20-c12 game=ship view=sound-short.txt audio=1 join=3 probe=0.25 secs=95 load=1:0.05:0:1024 cpus=0-11

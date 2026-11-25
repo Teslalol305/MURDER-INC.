@@ -26,7 +26,8 @@ find_part menu-moves --rates 0.98:1.02:0.0025 --chunk 0.1 Web/ui_hover_01.wav We
 for p in hit-the-block next-crew next-loadout next-block briefing; do
   find_part $p --rates 0.98:1.02:0.0025 --chunk 0.1 Web/ui_click_01.wav Web/ui_hover_01.wav
 done
-find_part run --rates 1 --chunk 0.5 Voice/rule/inc_01.wav Voice/rule/inc_02.wav Voice/rule/inc_03.wav Web/radio_in_01.wav Web/radio_out_01.wav
+# The run's first line and its radio clicks come with the run's intro, which the script passes under "briefing".
+find_part briefing --rates 1 --chunk 0.5 Voice/rule/inc_01.wav Voice/rule/inc_02.wav Voice/rule/inc_03.wav Web/radio_in_01.wav Web/radio_out_01.wav
 find_part selector --rates 1.54:1.66:0.004 --chunk 0.1 Gen/dry_fire_01.wav Gen/dry_fire_02.wav Web/dry_fire_01.wav Web/dry_fire_02.wav
 find_part single-shots --rates $JIT Gen/chopper_close_01.wav Gen/chopper_close_02.wav Gen/chopper_close_03.wav Gen/chopper_mech_01.wav Gen/chopper_mech_02.wav \
   Gen/chopper_tail_01.wav Gen/chopper_tail_02.wav Web/chopper_shot_01.wav Web/chopper_shot_02.wav Web/chopper_shot_03.wav Web/chopper_shot_04.wav \
