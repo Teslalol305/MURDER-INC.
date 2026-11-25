@@ -148,6 +148,50 @@ def unwrap_cached(ctx, ob, set_name, res, weights, angle=66.0, margin_px=4, pack
     return dens
 
 
+# ------------------------------------------------------------------------------------------------------ texture
+
+def texture(ctx, ob, painter, res, set_name):
+    """As weapons.texture: bake the geometry maps, author the channels, write the set (only with --bake when the set is missing or
+    stale), then give the object its baked material M_<Set>. With MI_GCACHE=1 the geometry maps of a 4K bake are kept in
+    art/out/textures/<Set>/gmaps_<res>.npz (keyed by the mesh and its UV layout) so that a later run that only changes the painter
+    skips the ~10 minute map bake; delete the file when done (about 1 GB)."""
+    from mi import texpaint as tp
+    d = paths.texture_set(set_name)
+    old = bake.read_set(set_name)
+    uvh = geo.uv_hash(ob)
+    stale = not old or old.get("uv_hash") != uvh or old.get("resolution", [0])[0] != res
+    if ctx.args.bake and (stale or ctx.args.force or ctx.args.rebake_unique) or not old:
+        ctx.log("texture %s at %d px" % (set_name, res))
+        cache = os.path.join(d, "gmaps_%d.npz" % res)
+        key = mesh_key(ob, uvh)
+        G = None
+        if os.environ.get("MI_GCACHE") and os.path.exists(cache):
+            z = np.load(cache, allow_pickle=False)
+            if str(z["__key"]) == key:
+                G = {k: z[k] for k in z.files if k != "__key"}
+                G["m_px"] = float(G["m_px"])
+                G["res"] = int(G["res"])
+                ctx.log("  geometry maps from the cache")
+        if G is None:
+            G = tp.geometry_maps(ob, res=res, samples=8 if res >= 2048 else 16)
+            if os.environ.get("MI_GCACHE"):
+                np.savez(cache, __key=key, **{k: np.asarray(v) for k, v in G.items()})
+        ch = painter(G)
+        dens = geo.uv_texel_density(ob, res)
+        bake.write_set(set_name, ch, meta={"kind": "unique", "asset": ob.name, "uv_hash": uvh,
+                                           "texel_density_px_per_m": round(dens, 1),
+                                           "authoring": "mi.texpaint: geometry maps + numpy layers (assets/_weapons_rattler_tex.py)"})
+        ctx.log("  wrote %s (%.0f px/m)" % (d, dens))
+    elif stale:
+        ctx.log("WARNING %s: set is stale (mesh changed); run with --bake" % set_name)
+    m = mat.from_texture_set(d, name="M_" + set_name, masks=False, macro=0.0, ao_strength=0.0, alpha="none")
+    ob.data.materials.clear()
+    ob.data.materials.append(m)
+    if set_name not in ctx.sets:
+        ctx.sets.append(set_name)
+    return m
+
+
 # ---------------------------------------------------------------------------------------------------------- build
 
 def build_gun(ctx):
@@ -159,7 +203,7 @@ def build_gun(ctx):
     wts = uv_weights(gun)
     dens = unwrap_cached(ctx, gun, "Rattler", res, wts, pack=pack)
     ctx.log("SK_Rattler: unwrapped (%s), %.0f px/m on the full-weight faces at %d px" % (pack, dens, res))
-    W.texture(ctx, gun, T.paint_rattler, res, set_name="Rattler")
+    texture(ctx, gun, T.paint_rattler, res, "Rattler")
     geo.ensure_wear(gun)
     SKINNED["SK_Rattler"] = {"ob": gun, "arm": arm, "expect_size": (0.470, 0.072, 0.208), "poses": poses(), "notes": NOTES}
     return [gun, arm]
@@ -176,7 +220,7 @@ def build_mag(ctx):
     mag.data.attributes["mid"].data.foreach_get("value", mid)
     mw = np.where(np.rint(mid) == W.BORE, 0.35, 1.0).astype(np.float32)
     unwrap_cached(ctx, mag, "Weapon_RattlerMagazine", mres, mw, angle=66.0, margin_px=4, pack=os.environ.get("MI_PACK", "CONVEX"))
-    W.texture(ctx, mag, T.paint_rattler_mag, mres)
+    texture(ctx, mag, T.paint_rattler_mag, mres, "Weapon_RattlerMagazine")
     top = W.split_off(mag, None, "SM_Weapon_RattlerMagazine_TopRound", ctx.col)
     for o in (mag, top):
         geo.ensure_wear(o)

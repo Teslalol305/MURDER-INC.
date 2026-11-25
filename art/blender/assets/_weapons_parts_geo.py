@@ -173,27 +173,33 @@ def screw_head_z(x, y, z, r=2.1, h=1.0, sign=1, seg=24, name="ScrewZ"):
 
 
 # ------------------------------------------------------------------------------------------------------ MI-R clamp
-RAIL_HW = 10.6                  # half width of the dovetail at its shoulder (z -3.1 under the lug top)
+RAIL_HW = 10.6                  # half width of the widest point of the guns' MI-R dovetail (3 mm under the lug face)
 JAW_GAP = 0.15
+FACE_GAP = 0.03                 # the plate rides 0.03 mm over the lug face (no coplanar contact)
 
 
 def jaw_poly():
     """Half cross-section (y >= 0, z) of one clamp jaw for a rail whose lug face is the z = 0 plane and whose body is at
-    z < 0 (a top rail: the part grows to +z); mirror z for an underside rail."""
-    return [(8.30, -6.35), (RAIL_HW + JAW_GAP, -3.15), (RAIL_HW + JAW_GAP, 0.0), (13.4, 0.0), (13.4, -6.4), (12.0, -8.2),
-            (8.30, -8.2)]
+    z < 0 (a top rail: the part grows to +z); mirror z for an underside rail. Measured on the five guns: the CHOPPER's, the
+    SHORTY's and the RATTLER's dovetail has a 45 deg top chamfer (half width 7.6 at the lug face to 10.6 at 3 mm) and an
+    undercut to 7.8 below 6.5 mm; the STRETCH's rail has the same chamfer (7.86 to 10.6) and straight flanks at 10.6 below
+    it. No jaw can hook under the shoulder of one without crossing the other, so the jaws are side walls that follow the
+    chamfer (0.15 mm gap) and hold the rail's flanks down to 7.5 mm; the clamp screw does the clamping."""
+    g = JAW_GAP
+    env = [(7.86, 0.0), (8.36, -0.5), (8.86, -1.0), (9.37, -1.5), (9.88, -2.0), (10.40, -2.5), (RAIL_HW, -3.0)]   # the envelope of the guns' profiles
+    return [(y + g, z) for y, z in env] + [(RAIL_HW + g, -7.5), (13.4, -7.5), (13.4, 1.5), (env[0][0] + g, 1.5)]
 
 
 def clamp(length, part=0, x0=None, under=False, plate_t=6.0, knob=True, name="Clamp", mid=AL, jaw_mid=STEELD, width=26.8,
           screws=0):
-    """MI-R clamp footprint `length` mm long centred on X = 0 (or starting at x0): plate on the lug face (z 0..plate_t, or
-    0..-plate_t for an underside rail), two jaws hooked under the dovetail's shoulders, a clamp screw knob on the right,
-    optional extra hex screws (`screws`) along the right jaw. Returns finished objects."""
+    """MI-R clamp footprint `length` mm long centred on X = 0 (or starting at x0): plate on the lug face (z 0.03..plate_t, or
+    mirrored for an underside rail), two jaws along the dovetail's flanks, a clamp screw knob on the right, optional extra
+    hex screws (`screws`) along the right jaw. Returns finished objects."""
     s = -1.0 if under else 1.0
     xa = (-length / 2.0) if x0 is None else x0
     xb = xa + length
     out = []
-    z0, z1 = (0.0, plate_t) if not under else (-plate_t, 0.0)
+    z0, z1 = (FACE_GAP, plate_t) if not under else (-plate_t, -FACE_GAP)
     out.append(fin(box_mm(xa, xb, -width / 2, width / 2, z0, z1, bevel=0.9, name=name + "Plate"), mid, part))
     for side in (1, -1):
         pts = [(side * y, s * z) for y, z in jaw_poly()]

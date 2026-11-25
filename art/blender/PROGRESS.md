@@ -1123,3 +1123,66 @@ Underbarrel / Laser / MagHinge, optic.hide IronsFront, no stock slot, parts.bolt
 magazine.bone 'magazine', meshOffset pos [0,0,0] rot [0, 1.5708, 0], eject direction (0.55, -0.80, 0.25), relief 0.12 / 0.14 / 0.085,
 views[0] as above) and the animation work on Palm_R / Palm_L. If the art changes: `build.py build weapons_shorty --bake --export`
 then `python art/blender/assets/_weapons_check_shorty.py` (a draft is `--res 1024`, about 2 min).
+
+---------------------------------------------------------------------------------------------------------------
+# Weapons round 4: STRETCH (assets/weapons_stretch.py, _weapons_stretch_geo.py, _weapons_stretch_tex.py, _weapons_check_stretch.py), gun modeler
+
+Why: the owner played the build on E3DS: "all the guns look the same and no attachments are able to be added to the guns".
+SHORTY, STICK and STRETCH were one purchased M4 in three handguard lengths. The STRETCH is now our own marksman rifle: a
+1,045 mm semi-automatic 7.6 mm class rifle (walnut stock, receiver with a charging T-handle, a 195 mm top rail and a bottom
+rail, a slim round handguard, a free-floating barrel with a ported brake, a folding bipod). Other agents build SHORTY, RATTLER
+and the parts kit (weapons_parts.py) at the same time; none of their files were touched. CHOPPER, NINE and every existing
+function in weapons.py are unchanged (the family imports weapons.py and uses its helpers: P, prism, lathe, box, cut,
+round_edges, texture, split_off, preview_hero / preview_fp, rig_studio).
+## Status: task complete (first-person, hero, side and parts previews + silhouette rendered from the final export)
+- `SK_Stretch` 61,792 tris (budget 105k, ceiling 120k), ONE unique 4096 set `Stretch` (BC, N, ORM; no E map) through ONE slot
+  `M_Stretch`; `SM_Weapon_StretchMagazine` 4,198 + `_TopRound` 2,592 tris (2K set `Weapon_StretchMagazine`, slot
+  `M_Weapon_StretchMagazine`). Bones body (root), bolt, trigger, selector, bolt_catch, magazine (attach bone), bipod,
+  MuzzleDevice, IronsRear, IronsFront; sockets Muzzle, Eject, SightRear, SightFront, RecoilPivot, MagHinge, Palm_R, Palm_L,
+  Optic, MuzzleMount, Underbarrel at the brief positions (1e-5 m). Every vertex weighted 1.0 to one bone, rest orientation =
+  gun axes, 93 closed shells. `rig.validate`, export and the re-import pose proof (7 poses, <= 7e-8 m) pass.
+- `python art/blender/assets/_weapons_check_stretch.py` -> `ALL FIXED POINTS KEPT` (art/out/glb/stretch_fixed_points.json):
+  bones and sockets, length -0.255..0.790, width 69.9 mm (comb / dust cover -0.0295 .. T-knob +0.0404), sight line (post is its
+  first hit, nothing between the sights above Z 0.0645), Palm_R 0.03 mm and Palm_L 0.0 mm from the surface, trigger face 69.7 mm
+  ahead of Palm_R, MI-R (52 lugs at 10.5-10.6 pitch, slots 5.3 mm, 21.2 mm across the flanks, tops Z 0.0520, slot floor Z
+  0.0453; the bottom rail 19 lugs with undersides at Z -0.038), Optic / Underbarrel / MuzzleMount on their surfaces (< 0.3
+  mm), brake removed leaves no hole, bolt 95 mm in 20 steps, T-handle stem >= 0.72 mm from its slot, trigger 17 deg (0.8 mm
+  clear), selector, bolt catch, bipod 0..-100 deg: no contact; the magazine sits in its well without contact and drops (0, 0, -0.12).
+- Previews (1280 x 720, < 300 kB) weapons_stretch_hero / _fp / _side / _parts in art/previews; the 512 x 192 silhouette
+  `art/out/ui/T_UI_Gun_Stretch.png` (not committed).
+## What is modelled (all of it geometry, not decals)
+- Stock: walnut loft with a bent R 150 butt, 14 mm rubber pad (two slotted screws), stippled cheek riser seated in a rebate (top
+  Z +0.058), flanks bowed 1.3 mm, sling stud under the toe and a boss on the left, four stock bolts. Receiver: 44 x 72 box, hollow
+  (cavity, breech block with the chamber), left charging slot with its washer and the serrated 28 x 9 mm T-handle (out to Y +0.040),
+  right ejection port with the bolt carrier (lightening pocket, cam groove), bolt head (six lugs, firing-pin hole, extractor)
+  inside and the dust cover hanging open on its hinge rod; milled pockets round slot, port, selector and bolt catch; selector and bolt
+  catch levers; twelve screws and pins. Top rail MI-R over a web, bottom rail, walnut handguard tube (14 slots 4 x 24 mm, two
+  3 mm vents, barrel and gas block visible inside), castle barrel nut, front cap, sling cup, barrel with crown and thread stub, brake
+  (two baffles, three ports per flank and a top port), grip with three finger grooves, trigger group (housing with the blade's
+  cavity, cross pin heads, guard strap, catch tab), mag well sleeve with a flared mouth and release button, flip-up rear
+  aperture (8 mm hole on the sight line) and front post with ears, bipod (clamp, ears, two telescoping-looking legs with locks and
+  ribbed rubber feet).
+- Textures (`_weapons_stretch_tex.py`, per texel from the geometry maps): near-black oiled walnut (rings from planes tilted 13 deg,
+  straight grain along X, pale pores, satin oil 0.38-0.48 -> 0.28 polished where hands rub, dents, crushed corners), deep blue-black
+  steel #2a2f39 (metallic 1, 0.26-0.42, bare steel on edges where hands rub, engraved MARKSMAN 7.6 / MOD S1 / SAFE SEMI / M1-3308 /
+  a proof star), rubber with diamond stipple, black hard-anodise with bare edges, bright ground bolt carrier, carbon at the brake
+  and port, oil round the bolt path. The UV layout is cached (`textures/Stretch/uv_cache.npz`).
+## Decisions and deviations from the brief (all measured)
+- Slot of the charging handle X 0.088..0.206 (the brief's 65..185 cannot hold the stem's 95 mm stroke from the bone head X 0.195).
+- Height: the body is 198 mm (cheek riser +0.058 to grip -0.140); the flip-up rear aperture ring tops at +0.0717, so the bounding
+  box is 211.9 mm. The brief's "tops Z +64.5" is read as the sight line (aperture centre, post tip).
+- Stock heel: the brief's comb points near the butt (Z +20 at X -0.255, +36 at -0.240) cannot go with a convex R 150 face whose
+  rearmost point is -0.255; the heel is at (-0.240, +0.020) and the top line rises to +0.052 at -0.190 as briefed.
+- Dust cover swung 170 deg open (7 mm off the flank) so the port shows the action and the width stays within 70 mm.
+- Texel density (one 4K set for 0.58 m2 of surface incl. the 52-lug rail): 6,150 px/m on the receiver flanks, top, rail, controls and
+  grip, ~4,800 on the walnut flanks and handguard, ~3,000 on barrel, brake and bipod (brief 7,000 / 5,500 / 3,500). The median over
+  every face is 3,623 px/m.
+## Not done / known weaknesses
+- The receiver is a milled slab with pockets (large flat flanks), not a stamped shell with curvature; no ejector, recoil spring or
+  gas piston inside the handguard (only the barrel and gas block).
+- The steel is deliberately the darkest of the set: under the studio HDRI it reads almost black; in daylight it shows blue-black.
+- The first-person preview uses the CHOPPER's viewmodel pose (guns.json views[0]); with the origin at the receiver rear the butt
+  lies on the camera side of it, so the stock fills the lower right: the integration must re-anchor `views` on Palm_R.
+## Exact next step if resumed
+`build.py build weapons_stretch --bake --export` (about 12 min on 2 threads, flock art/out/.bake.lock), then
+`python art/blender/assets/_weapons_check_stretch.py`, then `MI_PREVIEWS=hero,fp,side,parts,sil build.py build weapons_stretch --preview`.

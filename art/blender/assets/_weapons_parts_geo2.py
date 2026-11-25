@@ -31,7 +31,7 @@ def scope_4x(pi=0):
     objs.append(body)
     # lens rings: knurled collars at the eyepiece end and at the objective's mouth (1.5 mm pitch)
     objs.append(fin(rings_x(-65.0, -57.4, 18.8, 30, AX, "SCEye"), STEELD, pi))
-    objs.append(fin(rings_x(76.0, 85.0, 22.0, 40, AX, "SCObj"), STEELD, pi))
+    objs.append(fin(rings_x(76.0, 85.0, 22.0, 40, AX, "SCObj", bore=19.5), STEELD, pi))
     # mount rings round the tube and the riser block that joins them to the plate
     objs.append(fin(box_mm(-25.0, 25.0, -9.5, 9.5, 5.0, 15.0, bevel=1.2, name="SCRiser"), AL, pi))
     for x0 in (-24.0, 10.0):
@@ -54,15 +54,16 @@ def scope_4x(pi=0):
     return objs, {"SightEye": mm(-67.0, 0, AX)}
 
 
-def rings_x(x0, x1, r, teeth, axis_z, name):
-    """A knurled collar along X from x0 to x1 around the axis (0, 0, axis_z) (mm)."""
+def rings_x(x0, x1, r, teeth, axis_z, name, bore=14.1):
+    """A knurled collar along X from x0 to x1 around the axis (0, 0, axis_z) (mm), bored through (R `bore`): the optical path."""
     ob = knurled(r, x1 - x0, teeth, 0.30, 0.6, name=name)
+    W.cut(ob, lathe_x([(-1.0, 0.0), (-1.0, bore), (x1 - x0 + 1.0, bore), (x1 - x0 + 1.0, 0.0)], 48, name="Bore"))
     return move(ob, x0, 0, axis_z)
 
 
 # --------------------------------------------------------------------------------------------- muzzle devices
 def suppressor(pi=0, length=210.0, r=19.5, collar_r=12.5, collar_l=16.0, rec_r=9.0, rec_d=12.0, bore_r=5.5, flutes_n=12,
-               mid=STEELD, name="SU", front_mid=None):
+               mid=STEELD, name="SU", front_mid=None, plug_relief=False):
     """Long rifle / SMG suppressor, 210 mm, body R 19.5: a rear mount collar R 12.5 x 16 with an internal recess R 9.0 x 12
     deep (swallows the barrel stub R 8.5), 12 shallow 0.6 mm flutes, a 2 mm end cap with an 11 mm bore. Origin = the rear
     face on the bore axis; Muzzle at X +210."""
@@ -71,6 +72,8 @@ def suppressor(pi=0, length=210.0, r=19.5, collar_r=12.5, collar_l=16.0, rec_r=9
     # rear collar with the recess, the shoulder into the body
     rear = lathe_x([(rec_d, 0.0), (rec_d, rec_r), (0.0, rec_r), (0.0, collar_r), (collar_l, collar_r), (collar_l + 1.5, r - 1.2),
                     (collar_l + 3.0, r), (collar_l + 3.0, 0.0)], 48, closed=False, fillet=0.5, fseg=1, name=name + "Rear")
+    if plug_relief:                      # the NINE's recoil-spring plug stands 1.0 mm proud of the slide's front face at Z -9.2..-11.8
+        W.cut(rear, box_mm(-1.0, 1.65, -3.4, 3.4, -12.6, -7.0, bevel=0.0, name="PlugRelief"))
     objs.append(fin(rear, mid, pi))
     # fluted body (rings straight along the tube, the flutes fade in and out)
     fl = G.flutes(0.6, flutes_n)
@@ -87,6 +90,8 @@ def suppressor(pi=0, length=210.0, r=19.5, collar_r=12.5, collar_l=16.0, rec_r=9
     for x in (5.0, 10.0):
         objs.append(fin(lathe_x([(x - 0.4, collar_r - 0.05), (x - 0.4, collar_r + 0.12), (x + 0.4, collar_r + 0.12), (x + 0.4, collar_r - 0.05)],
                                 32, closed=True, name=name + "Band"), mid, pi))
+    for o in objs:
+        geo.transform(o, loc=(0.05 * MM, 0, 0))                  # a 0.05 mm relief off the gun's mount face
     return objs, {"Muzzle": mm(L, 0, 0)}
 
 
@@ -95,15 +100,15 @@ def suppressor_pistol(pi=0):
     10 with a recess R 7.2 x 6 deep over the barrel's crown stub (R 6.8), ten 0.5 mm flutes, a 10 mm end bore. Brushed
     stainless, heat-darkened front 60 mm (in the texture). Origin = the slide's front face; Muzzle at X +155."""
     return suppressor(pi, length=155.0, r=16.0, collar_r=11.5, collar_l=10.0, rec_r=7.2, rec_d=6.0, bore_r=5.0, flutes_n=10,
-                      mid=STAIN, name="SP")
+                      mid=STAIN, name="SP", plug_relief=True)
 
 
 def compensator(pi=0):
-    """Three-chamber compensator, 62 mm, R 15: rear collar with a recess R 9.0 x 10, a chamber through the body, three 4 x 14
+    """Three-chamber compensator, 62 mm, R 15: rear collar with a recess R 9.0 x 12.6 (the specification says 10, the guns' stub is 12 long), a chamber through the body, three 4 x 14
     mm vertical ports on top and one angled port per side, a solid front face with a 7 mm bore and a scalloped crown, carbon
     in the ports (texture). Origin on the bore at the mount; Muzzle at X +62."""
-    prof = [(10.0, 0.0), (10.0, 9.0), (0.0, 9.0), (0.0, 12.5), (14.0, 12.5), (15.5, 15.0), (56.0, 15.0), (58.0, 14.2), (61.2, 12.8),
-            (62.0, 11.4), (62.0, 3.5), (55.0, 3.5), (55.0, 5.2), (14.0, 5.2), (14.0, 0.0)]
+    prof = [(12.6, 0.0), (12.6, 9.0), (0.0, 9.0), (0.0, 12.5), (14.0, 12.5), (15.5, 15.0), (56.0, 15.0), (58.0, 14.2), (61.2, 12.8),
+            (62.0, 11.4), (62.0, 3.5), (55.0, 3.5), (55.0, 5.2), (14.2, 5.2), (14.2, 0.0)]
     body = lathe_x(prof, 40, closed=False, fillet=0.3, fseg=1, name="CPBody")
     # the ports: three vertical slots on top, one angled slot per side, six scallops in the crown
     cut = []
@@ -120,6 +125,7 @@ def compensator(pi=0):
     for c in cut:
         W.cut(body, c)
     fin(body, G.STEELB, pi)
+    geo.transform(body, loc=(0.05 * MM, 0, 0))                   # a 0.05 mm relief off the gun's mount face
     return [body], {"Muzzle": mm(62.0, 0, 0)}
 
 
@@ -132,7 +138,7 @@ def grip_body(height, radius, grooves, cap_r, cap_h, neck_r=8.5, neck_h=6.0, ova
     for zc, depth in grooves:
         prof += [(-zc + 4.5, radius), (-zc + 2.0, radius - depth), (-zc - 2.0, radius - depth), (-zc - 4.5, radius)]
     prof += [(zb + 1.0, radius), (zb, radius + 0.2), (zb - 2.0, cap_r), (-height + 1.0, cap_r), (-height, cap_r - 1.2), (-height, 0.0)]
-    ob = lathe_z(prof, 40, at=(0, 0, top), fillet=0.5, fseg=1, name=name)
+    ob = lathe_z(prof, 32, at=(0, 0, top), fillet=0.4, fseg=1, name=name)
     if slot:
         W.cut(ob, box_mm(-1.6, 1.6, -30.0, 30.0, top - height + 3.0, top - height + 7.0, bevel=0.0, name="Slot"))
     geo.transform(ob, scale=(oval, 1.0, 1.0))
@@ -204,26 +210,40 @@ def foregrip_vertical_wood(pi=0):
 
 # ------------------------------------------------------------------------------------------------------- LASER
 def laser_module(pi=0):
-    """Compact red laser module 46 x 22 x 28 mm on an underside rail (the NINE's dust cover, the SHORTY's MI-R forend): a base
+    """Compact red laser module 46 x 22 x 28 mm for an underside rail (the NINE's dust cover, the SHORTY's MI-R forend): a base
     plate with two side walls hugging the rail's flanks (no hooks, no keys: it seats on either dovetail), a moulded polymer
-    body, a 9 mm emitter window on the front face with a red lens ring, a side wheel and a button. Origin = the rail's
-    underside plane at the middle of the module; Beam at (+23.5, 0, -12.5) along +X."""
+    body, a 9 mm emitter window in a recessed pocket on the front face (a steel lens ring and the red emitter), a knurled side
+    wheel, a rubber button, a battery cap, four screws. Origin = the rail's underside plane at the middle of the module; Beam at
+    (+23.5, 0, -12.5) along +X."""
     objs = []
-    # plate (z 0..-4) and the walls along the dovetail's flanks (inner face 10.75, up to +3.2)
-    objs.append(fin(box_mm(-20.0, 20.0, -13.0, 13.0, -4.0, 0.0, bevel=0.8, name="LZPlate"), POLY, pi))
+    # plate under the rail (z -4..-0.03) and the walls along the dovetail's flanks (inner face 10.75, up to +3.2)
+    objs.append(fin(box_mm(-20.0, 20.0, -13.0, 13.0, -4.0, -G.FACE_GAP, bevel=0.8, name="LZPlate"), POLY, pi))
     for s in (1, -1):
-        wall = box_mm(-19.0, 19.0, s * 10.75 if s > 0 else -13.0, 13.0 if s > 0 else -10.75, 0.0, 3.2, bevel=0.5, name="LZWall")
+        wall = box_mm(-19.0, 19.0, 10.75 if s > 0 else -13.0, 13.0 if s > 0 else -10.75, -4.0, 3.2, bevel=0.5, name="LZWall")
         objs.append(fin(wall, G.STEELB, pi))
-    # body: x -23..+23, y +-11, z -4..-28, big radii; chamfered front
-    body = box_mm(-23.0, 23.0, -11.0, 11.0, -28.0, -3.0, bevel=2.4, seg=3, name="LZBody")
+    # moulded body: x -23..+23, y +-11, z -4..-28, 2.6 mm radii, a pocket for the emitter in the front face
+    body = box_mm(-23.0, 23.0, -11.0, 11.0, -28.0, -3.0, bevel=2.6, seg=3, name="LZBody")
+    W.cut(body, lathe_x([(19.6, 0.0), (19.6, 6.4), (24.0, 6.4), (24.0, 0.0)], 40, at=(0, 0, -12.5), name="Pocket"))
+    # a shallow recess round the button and the wheel on the sides
+    W.cut(body, box_mm(-13.0, -5.0, 10.2, 12.0, -21.0, -14.0, bevel=0.0, name="BtnPocket"))
     objs.append(fin(body, POLY, pi))
-    # emitter window, lens ring and the bright emitter disc on the front face (+X)
-    ring = lathe_x([(22.4, 0.0), (22.4, 5.6), (23.3, 5.6), (23.3, 4.6), (22.8, 4.5), (22.8, 0.0)], 48, at=(0, 0, -12.5), fillet=0.2, fseg=1,
+    ring = lathe_x([(19.8, 0.0), (19.8, 5.7), (22.4, 5.7), (22.4, 4.6), (21.2, 4.5), (21.2, 0.0)], 40, at=(0, 0, -12.5), fillet=0.15, fseg=1,
                    name="LZRing")
     objs.append(fin(ring, G.STEELB, pi))
-    em = lathe_x([(22.5, 0.0), (22.5, 4.5), (23.0, 4.5), (23.0, 0.0)], 40, at=(0, 0, -12.5), fillet=0.1, fseg=1, name="LZEmit")
+    em = lathe_x([(20.0, 0.0), (20.0, 4.5), (21.5, 4.5), (21.5, 0.0)], 32, at=(0, 0, -12.5), name="LZEmit")
     objs.append(fin(em, RED, pi))
-    # side wheel (right), a button (left), a rear battery cap
-    objs.append(fin(axis_to_ny(knurled(4.8, 3.2, 20, 0.3, 0.4, name="LZWheel"), (-6.0, -11.0, -12.0)), STEELD, pi))
-    objs.append(fin(box_mm(-12.0, -6.0, 11.0, 12.6, -20.0, -15.0, bevel=0.8, name="LZButton"), RUBBER, pi))
+    # right side: the knurled windage wheel; left side: the rubber pressure button; rear: the battery cap; four screws
+    objs.append(fin(axis_to_ny(knurled(4.8, 3.4, 20, 0.3, 0.45, name="LZWheel"), (-4.0, -10.4, -12.0)), STEELD, pi))
+    objs.append(fin(box_mm(-12.0, -6.0, 10.2, 12.2, -20.0, -15.0, bevel=0.9, name="LZButton"), RUBBER, pi))
+    cap = knurled(7.0, 2.6, 24, 0.3, 0.5, name="LZCap")
+    geo.transform(cap, rot=(0, 0, 180))
+    objs.append(fin(move(cap, -22.4, 0.0, -15.0), STEELD, pi))
+    for sx, sz in ((-17.0, -8.0), (-17.0, -22.0), (15.0, -8.0), (15.0, -22.0)):
+        objs.append(fin(screw_head_y(sx, sz, 11.0, r=1.6, h=0.9, sign=+1, seg=12, name="LZScrew"), STEELD, pi))
+    # the NINE's dust cover tapers 1.9 deg (its underside climbs 0.033 mm per mm toward the muzzle) and the SHORTY's rail is
+    # flat: the module is tilted 1 deg nose up and sits 0.38 mm low, so it crosses neither (0.03 mm off at one end, under 0.75
+    # mm at the other on both rails)
+    for o in objs:
+        geo.transform(o, rot=(0, -1.0, 0))
+        geo.transform(o, loc=(0, 0, -0.38 * MM))
     return objs, {"Beam": mm(23.5, 0, -12.5)}

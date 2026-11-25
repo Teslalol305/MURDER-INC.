@@ -87,7 +87,7 @@ def mag_ext_rifle(pi=0):
 def mag_ext_smg(pi=0):
     """Extended stick magazine for the RATTLER: 30 x 42 mm, 242 mm from the lips (the 50-round look), grey stamped steel with
     two ribs per side and a spine like the standard stick, a black floor plate with a drag tab. Origin = MagHinge."""
-    objs, top = stick_magazine(42.0, 30.0, 242.0, (-98.0, -170.0), 26.0, 10.0, pi, name="MS", corner=3.0, round_len=29.0, round_r=4.9,
+    objs, top = stick_magazine(41.4, 30.0, 242.0, (-98.0, -170.0), 26.0, 10.0, pi, name="MS", corner=3.0, round_len=29.0, round_r=4.9,
                                rifle=False, floor_t=8.0, tab=7.0)
     return objs, top, {}
 
@@ -147,9 +147,13 @@ def mag_ext_pistol(pi=0):
     for k in range(1, 10):
         t = top_t - 0.004 - 0.0062 * k
         c = b + A * t + F * (-D + 0.002)
-        rd = W.cartridge(0.030, 0.0047, name="Stack", rifle=False, seg=16)
+        if k <= 2:                                              # the two rounds under the lips: full cartridges
+            rd = W.cartridge(0.030, 0.0047, name="Stack", rifle=False, seg=14)
+            retag_round(rd, pi)
+        else:                                                   # deeper in the stack: plain brass slugs (seen through the witness holes)
+            rd = W.lathe([(0.0, 0.0), (0.0, 0.0047), (0.030, 0.0047), (0.030, 0.0)], 10, axis="X", name="Slug")
+            rd = fin(rd, BRASSM, pi)
         geo.transform(rd, loc=(c[0], (0.0035 if k % 2 else -0.0035), c[2]))
-        retag_round(rd, pi)
         objs.append(rd)
     # the polymer sleeve: 0.6 mm proud over the last 48 mm of the body, closed at the bottom by the pad
     sl_sec = geo.fillet([(u * (D + 0.0006) / D, v * (Wm + 0.0006) / Wm) for u, v in sec], 0.0016, 2, closed=True)
@@ -160,7 +164,7 @@ def mag_ext_pistol(pi=0):
     geo.transform(pad, loc=tuple(-extra * A))
     objs.append(fin(pad, GOLDM, pi))
     ctop = b + A * top_t
-    top = W.cartridge(0.030, 0.0048, name="MPTopRound", rifle=False, seg=24)
+    top = W.cartridge(0.030, 0.0048, name="MPTopRound", rifle=False, seg=20)
     geo.transform(top, loc=(ctop[0] - 0.0175, 0.0, -0.0335))
     retag_round(top, pi)
     # everything into the socket's frame: the origin is MagHinge (0.0177, 0, -0.0359)

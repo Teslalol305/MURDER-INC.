@@ -209,6 +209,8 @@ def build_hinge_body():
     pin = lt([(-28.2, 0.0), (-28.2, 2.4), (-27.2, 3.2), (-26.8, 2.1), (20.8, 2.1), (21.4, 3.2), (22.4, 2.8), (22.8, 0.0)], 24, axis="Z",
              at=(0.0, 28.5, 0.0), name="HingePin", fillet=0.3)
     out.append(pin)
+    out.append(lt([(24.2, 0.0), (24.2, 3.4), (25.6, 3.4), (25.6, 2.8), (26.6, 2.8), (26.9, 2.0), (26.9, 0.0)], 24, axis="Y", at=(10.0, 0.0, 3.0),
+                  name="Detent", fillet=0.25))                                   # the spring detent that holds the stock when it is folded
     out.append(W.pin_head((10.0 * MM, 24.4 * MM, 14.0 * MM), "Y", r=0.0024, h=0.0009, sign=1, slot=False, seg=16))
     out.append(W.pin_head((10.0 * MM, 24.4 * MM, -20.0 * MM), "Y", r=0.0024, h=0.0009, sign=1, slot=False, seg=16))
     return out
@@ -216,7 +218,7 @@ def build_hinge_body():
 
 def wire(z, x0, x1, r=2.75):
     path = [(x0 * MM, STOCK_Y * MM, z * MM), (x1 * MM, STOCK_Y * MM, z * MM)]
-    return geo.pipe(path, radius=r * MM, segments=14, cap=True, name="Wire")
+    return geo.pipe(path, radius=r * MM, segments=18, cap=True, name="Wire")
 
 
 def build_stock():

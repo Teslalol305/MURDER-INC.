@@ -62,7 +62,7 @@
      0.015
     ],
     "min": [
-     0.0,
+     0.0001,
      -0.015,
      -0.015
     ]
@@ -130,7 +130,7 @@
     ]
    },
    "triangle_budget": 4000,
-   "triangles": 2428
+   "triangles": 2372
   },
   "foregrip_vertical": {
    "applies_to": [
@@ -171,7 +171,7 @@
     ]
    },
    "triangle_budget": 4000,
-   "triangles": 4680
+   "triangles": 3952
   },
   "foregrip_vertical_wood": {
    "applies_to": [
@@ -211,7 +211,7 @@
     ]
    },
    "triangle_budget": 4000,
-   "triangles": 5900
+   "triangles": 5228
   },
   "laser_module": {
    "applies_to": [
@@ -220,13 +220,13 @@
    ],
    "bounds_m": {
     "max": [
-     0.0233,
+     0.023,
      0.013,
      0.0032
     ],
     "min": [
-     -0.023,
-     -0.0142,
+     -0.025,
+     -0.0138,
      -0.028
     ]
    },
@@ -252,7 +252,95 @@
     ]
    },
    "triangle_budget": 4000,
-   "triangles": 2184
+   "triangles": 3576
+  },
+  "mag_ext_pistol": {
+   "applies_to": [
+    "nine"
+   ],
+   "bounds_m": {
+    "max": [
+     0.0276,
+     0.013,
+     0.0029
+    ],
+    "min": [
+     -0.0432,
+     -0.013,
+     -0.1451
+    ]
+   },
+   "gun_socket": "MagHinge",
+   "material_slots": [
+    "M_Part_Mags"
+   ],
+   "mesh": "SM_Part_MagPistolExt",
+   "mount": "the NINE's MagHinge (0.0177, 0, -0.0359): modelled pre-canted along the grip axis (0.250, 0, 0.968)",
+   "slot": "magazine",
+   "sockets_m": {},
+   "sockets_unreal_cm": {},
+   "top_round_mesh": "SM_Part_MagPistolExt_TopRound",
+   "triangle_budget": 8000,
+   "triangles": 9630
+  },
+  "mag_ext_rifle": {
+   "applies_to": [
+    "shorty",
+    "stretch"
+   ],
+   "bounds_m": {
+    "max": [
+     0.0325,
+     0.013,
+     0.0
+    ],
+    "min": [
+     -0.025,
+     -0.013,
+     -0.235
+    ]
+   },
+   "gun_socket": "MagHinge",
+   "material_slots": [
+    "M_Part_Mags"
+   ],
+   "mesh": "SM_Part_MagRifleExt",
+   "mount": "the centre of the feed lips' top face; the magazine hangs in -Z",
+   "slot": "magazine",
+   "sockets_m": {},
+   "sockets_unreal_cm": {},
+   "top_round_mesh": "SM_Part_MagRifleExt_TopRound",
+   "triangle_budget": 10000,
+   "triangles": 3712
+  },
+  "mag_ext_smg": {
+   "applies_to": [
+    "rattler"
+   ],
+   "bounds_m": {
+    "max": [
+     0.0285,
+     0.016,
+     0.0
+    ],
+    "min": [
+     -0.022,
+     -0.016,
+     -0.242
+    ]
+   },
+   "gun_socket": "MagHinge",
+   "material_slots": [
+    "M_Part_Mags"
+   ],
+   "mesh": "SM_Part_MagSmgExt",
+   "mount": "the centre of the feed lips' top face; the magazine hangs in -Z",
+   "slot": "magazine",
+   "sockets_m": {},
+   "sockets_unreal_cm": {},
+   "top_round_mesh": "SM_Part_MagSmgExt_TopRound",
+   "triangle_budget": 10000,
+   "triangles": 2992
   },
   "red_dot": {
    "applies_to": [
@@ -297,7 +385,7 @@
     ]
    },
    "triangle_budget": 8000,
-   "triangles": 6752
+   "triangles": 6696
   },
   "scope_4x": {
    "applies_to": [
@@ -341,7 +429,7 @@
     ]
    },
    "triangle_budget": 12000,
-   "triangles": 13128
+   "triangles": 13466
   },
   "suppressor": {
    "applies_to": [
@@ -352,12 +440,12 @@
    ],
    "bounds_m": {
     "max": [
-     0.21,
+     0.2101,
      0.0198,
      0.0198
     ],
     "min": [
-     0.0,
+     0.0001,
      -0.0198,
      -0.0198
     ]
@@ -397,7 +485,7 @@
      0.0163
     ],
     "min": [
-     0.0,
+     0.0001,
      -0.0163,
      -0.0163
     ]

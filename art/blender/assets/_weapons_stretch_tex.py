@@ -83,7 +83,7 @@ def stretch_handling(p, n):
 def walnut(S, sel, hz, rub=None, octave=0, grime=None):
     """Near-black oiled walnut from a solid plank: growth-ring planes (tilted 13 deg about X, gently warped), early
     and late wood bands, straight grain streaks along X, pale-brown pores as short slits, satin oil with a hand polish, dents
-    and crushed corners. Base #2b1c14 +-8 % per ring; the figure is carried by ring, streak and pore contrast."""
+    and crushed corners. Base about #3a2619 (the brief's #2b1c14 lifted 35 % so the wood still reads as wood in daylight) +-8 % per ring; the figure is carried by ring, streak and pore contrast."""
     if not sel.any():
         return
     p, N = S.p[sel], S.N
@@ -97,14 +97,14 @@ def walnut(S, sel, hz, rub=None, octave=0, grime=None):
     jit = N.vals[(k * 37 + 11 + octave) & 255] * 0.16 - 0.08                      # +-8 % per ring
     ringw = 0.5 + 0.5 * np.sin(2 * math.pi * s_)
     late = tp.smooth(fr, 0.50, 0.92) * tp.smooth(1.0 - fr, 0.0, 0.08)             # the dark latewood line closing each ring
-    early = lin("34231a")
-    lateg = lin("1c120d")
+    early = lin("3e291b")
+    lateg = lin("24170f")
     gr = N.fbm(p, (6.0, 1300.0, 1300.0), 3, octave0=406 + octave)
     streak = tp.smooth(N.ridged(p, (10.0, 3600.0, 3600.0), 2, octave0=409 + octave), 0.74, 0.94)
     pores = tp.smooth(N.ridged(p, (34.0, 8200.0, 8200.0), 1, octave0=412 + octave), 0.93, 0.992)
     col = early[None, :] * ((1 + jit) * (0.80 + 0.36 * ringw) * (1 + 0.16 * gr))[:, None]
     col = col + (lateg[None, :] - col) * (0.50 * late + 0.34 * streak)[:, None]
-    pale = lin("4f3b2c")
+    pale = lin("5c4636")
     col = col + (pale[None, :] * (0.85 + 0.3 * gr[:, None]) - col) * (0.30 * pores)[:, None]
     end = tp.smooth(np.abs(n[:, 0]), 0.60, 0.90)                                  # end grain: darker, drier, the oil pooled
     col = col * (1 - 0.28 * end)[:, None]
@@ -200,7 +200,7 @@ def paint_stretch(G):
     gain += 0.6 * ((x > 0.0) & (x < 0.22) & (z > 0.045))                          # rail's rear half wears bright
     gain += 0.5 * ((x > 0.085) & (x < 0.208) & (y > 0.018) & (z > 0.008) & (z < 0.022))
     gain += 0.6 * (x > 0.775)                                                      # brake mouth
-    TX.blued_sheet(S, bl, lin("2a2f39"), hz, bright_edge, octave=0, rough_lo=0.26, rough_hi=0.42, edge_gain=0.62 * gain[bl])
+    TX.blued_sheet(S, bl, lin("384050"), hz, bright_edge, octave=0, rough_lo=0.26, rough_hi=0.42, edge_gain=0.62 * gain[bl])
     # ---- bolt carrier and head: bright ground steel
     car = S.sel(BRIGHT)
     if car.any():
@@ -293,7 +293,7 @@ def paint_stretch_mag(G):
     floor = tp.smooth(-p[:, 2], 0.118, 0.131)
     hz = np.clip(top * 0.85 + floor * 0.8 + gauss(p, (0.157, 0.0, -0.085), 0.04, 0.35), 0, 1)
     body = S.sel(BLUED)
-    TX.blued_sheet(S, body, lin("2a2f39"), hz, lin("a9aeb6"), octave=0, rough_lo=0.28, rough_hi=0.44, edge_gain=1.0)
+    TX.blued_sheet(S, body, lin("384050"), hz, lin("a9aeb6"), octave=0, rough_lo=0.28, rough_hi=0.44, edge_gain=1.0)
     if body.any():
         q = p[body]
         sc = tp.smooth(N.ridged(np.stack([q[:, 0] * 400.0, q[:, 1] * 30.0, q[:, 2] * 2500.0], 1), 1.0, 2, octave0=160), 0.95, 0.995) \

@@ -277,7 +277,7 @@ def _plain_background(grey=0.22):
     nt.links.new(mix.outputs[0], out.inputs["Surface"])
 
 
-def preview_hero_s(ctx, gun, extra, name="weapons_stretch_hero", direction=(0.62, -1.0, 0.36), lens=70.0, strength=1.9, exposure=0.7):
+def preview_hero_s(ctx, gun, extra, name="weapons_stretch_hero", direction=(0.62, -1.0, 0.36), lens=70.0, strength=1.35, exposure=0.15):
     """Three-quarter view from the right-front on the studio HDRI (brighter than the default: the gun is the darkest of the
     set and the glossy blued steel only shows what it reflects)."""
     W.rig_studio(strength=strength, exposure=exposure)
@@ -298,8 +298,8 @@ def preview_hero_s(ctx, gun, extra, name="weapons_stretch_hero", direction=(0.62
 def preview_side(ctx, gun, extra, name="weapons_stretch_side"):
     """Flat orthographic LEFT side view (camera on +Y, muzzle to the left) on a plain background: the first thing a player's
     eye reads."""
-    W.rig_studio(strength=1.9, exposure=0.6)
-    _plain_background(0.26)
+    W.rig_studio(strength=1.35, exposure=0.15)
+    _plain_background(0.16)
     W._hide_all_but([gun] + list(extra))
     lo, hi = scene.bounds(gun, world=True)
     c = Vector(((lo[0] + hi[0]) / 2, 0.0, (lo[2] + hi[2]) / 2))
@@ -316,7 +316,7 @@ def preview_parts_open(ctx, gun, arm, mag, top, name="weapons_stretch_parts"):
     """Posed open: the bolt locked back (95 mm), trigger pulled, selector on SEMI, bolt catch up, bipod deployed, the magazine
     dropped beside the rifle with its top round; a three-quarter view from the right-front over the open ejection port."""
     S = G.ST
-    W.rig_studio(strength=1.9, exposure=0.6)
+    W.rig_studio(strength=1.35, exposure=0.15)
     rig.pose_imported(arm, {"bolt": {"translate": (-S["travel"], 0, 0)}, "trigger": {"rotate": ((0, 1, 0), S["trigger_deg"])},
                             "selector": {"rotate": ((0, 1, 0), S["selector_deg"])},
                             "bolt_catch": {"rotate": ((0, 1, 0), S["catch_deg"])},
