@@ -347,7 +347,7 @@ game's Settings card (P, Settings); you can set it for everybody with the launch
    | `60 frames a second (lowest 58, target 60)` | pictures the game draws each second now; the lowest in the last half minute of play; the rate the game is aiming for (60, 45 or 30) |
    | `GPU 9.8 ms` | the time the card needs for one picture: 60 a second needs under 16.7 ms, 45 under 22.2, 30 under 33.3 |
    | `drawn 1440 x 810, sent 1920 x 1080` | the size the game draws at (it shrinks when the card is busy) and the size of the video |
-   | `stream 57 a second (lowest 50), 11.0 Mbit/s, QP 20, round trip 38 ms` | the video as the server sends it: pictures a second and their lowest, the data rate, the compression (lower QP is sharper), and the time to your computer and back |
+   | `stream 57 a second (lowest 50), 11.0 Mbit/s, QP 20, round trip 38 ms` | the video as the server sends it: pictures a second and their lowest, the data rate, the compression (lower QP is sharper), and the time to your computer and back. From release 3c the QP is followed by the range the encoder may use (`QP 31 of 24 to 42`: E3DS's Medium is QP 34, the game allows 10 below and 8 above), and the round trip is the median of the last measured values, left out when none was measured (before it was the last report, which read 0 ms whenever the audio's report came last). It is the time to the other end of the game's own video connection: on E3DS that may be E3DS's relay on the server and not your computer, and then it reads about 1 ms whatever your line; E3DS's Info panel has the time to your computer |
    | `build 6c4d810` | the build: version 3a must say `6c4d810` |
 
    The numbers in brackets ("lowest …") are the lowest of the last half minute of play; the numbers in front of
