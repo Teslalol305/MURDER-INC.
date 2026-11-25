@@ -279,6 +279,9 @@ def build_magazine(col):
             if side < 0:
                 y0, y1 = -y1, -y0
             parts.append(("rib", bx(190.0, 222.0, y0, y1, z - 1.6, z + 1.6, bevel=0.5, name="MagRib"), MAGSTEEL))
+    bead = lt([(-176.0, 0.0), (-176.0, 0.9), (-173.0, 1.25), (-27.0, 1.25), (-24.0, 0.9), (-24.0, 0.0)], 14, axis="Z",
+              at=(182.0, 0.0, 0.0), name="WeldBead", fillet=0.2)
+    parts.append(("bead", bead, MAGSTEEL))                                    # the seam weld down the rear of the stamped box
     for side in (-1, 1):                                                      # feed lips: tabs turned in over the rounds
         sgn = float(side)
         lip = pr([(sgn * 11.0, -27.0), (sgn * 11.0, -20.0), (sgn * 8.9, -20.0), (sgn * 8.9, -21.9), (sgn * 10.1, -21.9),

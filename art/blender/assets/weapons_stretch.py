@@ -65,44 +65,43 @@ def uv_weights(ob):
     nr = nr.reshape(-1, 3)
     x, y, z = c[:, 0], c[:, 1], c[:, 2]
     r = np.hypot(y, z)
-    w = np.full(n, 0.60, np.float32)
+    w = np.full(n, 0.50, np.float32)
     blued, wood, bright, dark, rub, bore = (mid == G.BLUED), (mid == G.WOOD), (mid == G.BRIGHT), (mid == G.DARK), (mid == G.RUBBER), (mid == G.BORE)
     # walnut: the stock flanks and the handguard sides are the big read; grip and tube a little finer
     stock = wood & (x < 0.004)
-    w[stock] = 0.72
-    w[stock & (np.abs(nr[:, 1]) > 0.6)] = 0.82
-    w[stock & (x < -0.0)] *= 1.0
+    w[stock] = 0.62
+    w[stock & (np.abs(nr[:, 1]) > 0.6)] = 0.78
     hg = wood & (x > 0.2) & (x < 0.55)
-    w[hg] = 0.80
-    w[hg & (r < 0.0235)] = 0.40                              # the tube's inside, seen through the slots
+    w[hg] = 0.72
+    w[hg & (r < 0.0235)] = 0.30                              # the tube's inside, seen through the slots
     w[wood & (x > 0.0) & (x < 0.1) & (z < -0.028)] = 0.95     # grip
     # receiver: outer flanks, top and rear read; the cavity does not
     rec = blued & (x > 0.0) & (x < 0.2352) & (np.abs(y) < 0.0222) & (z > -0.0322) & (z < 0.0402)
     w[rec] = 1.0
     cav = rec & (np.abs(y) < 0.0194) & (z > -0.0292) & (z < 0.0372) & (x > 0.0038) & (x < 0.2098)
-    w[cav] = 0.35
-    w[cav & (y < -0.012) & (z > -0.004) & (x > 0.09) & (x < 0.215)] = 0.60   # far wall seen through the port / near wall through the slot
+    w[cav] = 0.28
+    w[cav & (y < -0.012) & (z > -0.004) & (x > 0.09) & (x < 0.215)] = 0.55   # far wall seen through the port / near wall through the slot
     w[rec & (nr[:, 0] > 0.8) | rec & (nr[:, 0] < -0.8)] = 0.5
     w[rec & (nr[:, 2] < -0.8)] = 0.6
     # rails: lugs read from above, the web's feet and flank run hidden
     lugs = blued & (z > 0.0452) & (z < 0.0522) & (np.abs(y) < 0.0107)
     w[lugs] = 0.85
-    w[blued & (z > 0.0225) & (z < 0.0402) & (x > 0.2352) & (np.abs(y) < 0.0095)] = 0.55       # web
-    w[blued & (z < -0.0215) & (z > -0.0382) & (x > 0.2845) & (x < 0.4815) & (np.abs(y) < 0.0107)] = 0.6   # bottom rail
+    w[blued & (z > 0.0225) & (z < 0.0402) & (x > 0.2352) & (np.abs(y) < 0.0095)] = 0.45       # web
+    w[blued & (z < -0.0215) & (z > -0.0382) & (x > 0.2845) & (x < 0.4815) & (np.abs(y) < 0.0107)] = 0.55   # bottom rail
     # controls, charging handle, bolt group, grip hardware: full
     w[(blued | dark) & (y > 0.0220)] = 1.0
     w[bright] = 1.0
     w[(blued | dark) & (x > 0.088) & (x < 0.152) & (z < -0.030) & (z > -0.105)] = 0.95       # trigger group
     w[(blued | dark) & (x > 0.075) & (x < 0.190) & (z < -0.030) & (z > -0.050)] = 0.8        # magazine well
     # steel furniture
-    w[blued & (r < 0.0127) & (x > 0.235) & (x < 0.545)] = 0.35                               # barrel inside the handguard
-    w[blued & (r < 0.0127) & (x > 0.209) & (x <= 0.235)] = 0.3
-    w[blued & (r < 0.0128) & (x >= 0.545) & (x < 0.716)] = 0.55
-    w[blued & (x > 0.7149)] = 0.55
-    w[bore] = 0.35
+    w[blued & (r < 0.0127) & (x > 0.235) & (x < 0.545)] = 0.30                               # barrel inside the handguard
+    w[blued & (r < 0.0127) & (x > 0.209) & (x <= 0.235)] = 0.25
+    w[blued & (r < 0.0128) & (x >= 0.545) & (x < 0.716)] = 0.50
+    w[blued & (x > 0.7149)] = 0.50
+    w[bore] = 0.30
     w[rub & (x < -0.20)] = 0.55
     w[dark & (z > 0.052)] = 0.75                                                              # flip-up irons
-    w[(dark | blued | rub) & (x > 0.31) & (x < 0.485) & (z < -0.040)] = 0.55                 # bipod
+    w[(dark | blued | rub) & (x > 0.31) & (x < 0.485) & (z < -0.040)] = 0.50                 # bipod
     return w
 
 
@@ -252,3 +251,149 @@ def on_export(ctx, objs):
         entry = rig.manifest_entry(ob, arm, ctx.family, path, s["notes"], slots=slots, sockets=sockets, poses_report=rep)
         export.write_manifest([entry], [m.name[2:] for m in ob.data.materials if m and m.name.startswith("M_")]
                               + [TX.DETAIL_SET])
+
+
+# ================================================================================================ previews
+
+PREVIEW_ONLY = os.environ.get("MI_PREVIEWS", "")
+if os.environ.get("MI_PREVIEW_DIR"):                      # development renders go elsewhere than art/previews
+    paths.previews = os.environ["MI_PREVIEW_DIR"]
+W.VIEWMODEL["SK_Stretch"] = ((0.15, -0.09, -0.24), (0.05, 0.28, -0.35))      # guns.json stretch views[0], the CHOPPER's pose
+
+
+def _plain_background(grey=0.22):
+    """Studio light for the gun, a plain grey for the camera's own rays."""
+    nt = bpy.context.scene.world.node_tree
+    out = next(n for n in nt.nodes if n.bl_idname == "ShaderNodeOutputWorld")
+    src = out.inputs["Surface"].links[0].from_node
+    bg = nt.nodes.new("ShaderNodeBackground")
+    bg.inputs["Color"].default_value = (grey, grey, grey * 1.02, 1.0)
+    bg.inputs["Strength"].default_value = 1.0
+    lp = nt.nodes.new("ShaderNodeLightPath")
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(lp.outputs["Is Camera Ray"], mix.inputs[0])
+    nt.links.new(src.outputs[0], mix.inputs[1])
+    nt.links.new(bg.outputs[0], mix.inputs[2])
+    nt.links.new(mix.outputs[0], out.inputs["Surface"])
+
+
+def preview_side(ctx, gun, extra, name="weapons_stretch_side"):
+    """Flat orthographic LEFT side view (camera on +Y, muzzle to the left) on a plain background: the first thing a player's
+    eye reads."""
+    W.rig_studio(strength=1.25)
+    _plain_background(0.26)
+    W._hide_all_but([gun] + list(extra))
+    lo, hi = scene.bounds(gun, world=True)
+    c = Vector(((lo[0] + hi[0]) / 2, 0.0, (lo[2] + hi[2]) / 2))
+    cam = render.cam_look(c + Vector((0.0, 1.6, 0.0)), c, 50.0, name="Cam_side")
+    cam.data.type = "ORTHO"
+    cam.data.ortho_scale = 1.12
+    cam.data.clip_start, cam.data.clip_end = 0.1, 6.0
+    render.setup(samples=ctx.args.samples, res=(1280, 720), threads=THREADS)
+    path, sec = render.render_jpeg(W._prev(ctx, name), ctx.args.samples)
+    ctx.log("preview %s (%.0f s)" % (path, sec))
+
+
+def preview_parts_open(ctx, gun, arm, mag, top, name="weapons_stretch_parts"):
+    """Posed open: the bolt locked back (95 mm), trigger pulled, selector on SEMI, bolt catch up, bipod deployed, the magazine
+    dropped beside the rifle with its top round; a three-quarter view from the right-front over the open ejection port."""
+    S = G.ST
+    W.rig_studio(strength=1.1)
+    rig.pose_imported(arm, {"bolt": {"translate": (-S["travel"], 0, 0)}, "trigger": {"rotate": ((0, 1, 0), S["trigger_deg"])},
+                            "selector": {"rotate": ((0, 1, 0), S["selector_deg"])},
+                            "bolt_catch": {"rotate": ((0, 1, 0), S["catch_deg"])},
+                            "bipod": {"rotate": ((0, 1, 0), S["bipod_deg"]), "pivot": S["bipod_hinge"]}})
+    M = Matrix.Translation((0.0, -0.075, -0.150))
+    for o in (mag, top):
+        o.matrix_world = M @ Matrix.Rotation(math.radians(-8.0), 4, "Y")
+    W._hide_all_but([gun, mag, top])
+    lo, hi = scene.bounds(gun, world=True)
+    c = Vector(((lo[0] + hi[0]) / 2 - 0.05, -0.02, (lo[2] + hi[2]) / 2 - 0.02))
+    d = Vector((0.30, -1.0, 0.50)).normalized()
+    cam = render.cam_look(c + d * 1.55, c, 55.0, name="Cam_parts", dof=(1.55, 8.0))
+    cam.data.clip_start = 0.01
+    render.setup(samples=ctx.args.samples, res=(1280, 720), threads=THREADS)
+    path, sec = render.render_jpeg(W._prev(ctx, name), ctx.args.samples)
+    ctx.log("preview %s (%.0f s)" % (path, sec))
+    rig.pose_imported(arm, {})
+    for o in (mag, top):
+        o.matrix_world = Matrix.Identity(4)
+
+
+def render_silhouette(ctx, gun, extra, path=None):
+    """T_UI_Gun_Stretch: white on transparent, 512 x 192, right side (camera on -Y, muzzle to the right), 2.2 mm per px, the bore
+    line at y = 84 px, centred horizontally, 4x supersampled, alpha film. Written to art/out/ui (not committed)."""
+    from PIL import Image
+    path = path or os.path.join(paths.out, "ui", "T_UI_Gun_Stretch.png")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    wm = bpy.data.materials.new("Sil")
+    nt = wm.node_tree
+    nt.nodes.clear()
+    o_ = nt.nodes.new("ShaderNodeOutputMaterial")
+    e_ = nt.nodes.new("ShaderNodeEmission")
+    e_.inputs["Color"].default_value = (1, 1, 1, 1)
+    nt.links.new(e_.outputs[0], o_.inputs["Surface"])
+    objs = [gun] + [o for o in extra if o is not None]
+    saved = [(o, [sl.material for sl in o.material_slots]) for o in objs]
+    for o in objs:
+        for sl in o.material_slots:
+            sl.material = wm
+    W._hide_all_but(objs)
+    render._clear_rig()
+    w, wnt = render._world()
+    bgn = wnt.nodes.new("ShaderNodeBackground")
+    bgn.inputs["Color"].default_value = (0, 0, 0, 1)
+    wout = wnt.nodes.new("ShaderNodeOutputWorld")
+    wnt.links.new(bgn.outputs[0], wout.inputs["Surface"])
+    render.look("Standard", "None", 0.0)
+    ss, wpx, hpx, mm_px = 4, 512, 192, 2.2
+    mid_x = 0.5 * (G.ST["sockets"]["Muzzle"][0] + (-0.255))                 # centre the 1,045 mm of length
+    cam = render.cam_look(Vector((mid_x, -3.0, 0.0)), Vector((mid_x, 0.0, 0.0)), 50.0, name="Cam_sil")
+    cam.data.type = "ORTHO"
+    cam.data.ortho_scale = wpx * mm_px / 1000.0                             # width of the frame in metres
+    cam.data.sensor_fit = "HORIZONTAL"
+    cam.data.clip_start, cam.data.clip_end = 0.1, 8.0
+    cam.data.shift_y = ((hpx / 2 - 84) * mm_px / 1000.0) / cam.data.ortho_scale      # bore line (Z 0) at y = 84 px
+    s = bpy.context.scene
+    render.setup(samples=16, res=(wpx * ss, hpx * ss), threads=THREADS)
+    s.render.film_transparent = True
+    s.render.image_settings.file_format = "PNG"
+    s.render.image_settings.color_mode = "RGBA"
+    tmp = os.path.join(paths.out, "ui", "_sil_tmp.png")
+    s.render.filepath = tmp
+    bpy.ops.render.render(write_still=True)
+    im = Image.open(tmp).convert("RGBA")
+    a = np.asarray(im, dtype=np.float32)[..., 3] / 255.0
+    a = a.reshape(hpx, ss, wpx, ss).mean(axis=(1, 3))
+    out = np.zeros((hpx, wpx, 4), np.uint8)
+    out[..., :3] = 255
+    out[..., 3] = np.clip(a * 255.0 + 0.5, 0, 255).astype(np.uint8)
+    Image.fromarray(out, "RGBA").save(path)
+    os.remove(tmp)
+    for o, mats in saved:
+        for sl, m in zip(o.material_slots, mats):
+            sl.material = m
+    ctx.log("silhouette %s" % path)
+    return path
+
+
+def on_preview(ctx, objs):
+    want = lambda n: not PREVIEW_ONLY or n in PREVIEW_ONLY.split(",")
+    if "SK_Stretch" not in SKINNED:
+        return
+    s = SKINNED["SK_Stretch"]
+    gun, arm = s["ob"], s["arm"]
+    mag = bpy.data.objects.get("SM_Weapon_StretchMagazine")
+    top = bpy.data.objects.get("SM_Weapon_StretchMagazine_TopRound")
+    if want("hero"):
+        lo, hi = scene.bounds(gun, world=True)
+        W.preview_hero(ctx, gun, arm, "weapons_stretch_hero", (0.62, -1.0, 0.36), ((lo[0] + hi[0]) / 2, 0.0, (lo[2] + hi[2]) / 2 + 0.01),
+                       lens=75.0, extra=(mag, top))
+    if want("fp"):
+        W.preview_fp(ctx, gun, arm, "SK_Stretch", "weapons_stretch_fp", extra=(mag, top))
+    if want("side"):
+        preview_side(ctx, gun, (mag, top))
+    if want("parts"):
+        preview_parts_open(ctx, gun, arm, mag, top)
+    if want("sil"):
+        render_silhouette(ctx, gun, (mag, top))

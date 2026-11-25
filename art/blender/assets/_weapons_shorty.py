@@ -38,6 +38,8 @@ WHITE = W.PAINT          # white paint (selector marks)
 BRASS, COPPER, PRIMER = W.BRASS, W.COPPER, W.PRIMER
 MAGSTEEL = W.BLUED       # the magazine's stamped steel body
 
+BONE_ID = {"body": 0, "bolt": 1, "trigger": 2, "selector": 3, "magazine": 4, "MuzzleDevice": 5, "IronsFront": 6}
+
 SH = {   # brief numbers, metres (gun space)
     "length": 0.700, "height": 0.280,
     "bolt_head": (0.380, 0.0, 0.012), "bolt_travel": 0.075,
@@ -108,9 +110,14 @@ def finish(ob, mid, bone, smooth=50.0):
     geo.smooth_by_angle(ob, smooth)
     geo.weighted_normals(ob)
     me = ob.data
-    for nm in ("mid", "part"):
+    for nm in ("mid", "part", "bid"):
         a = me.attributes.get(nm) or me.attributes.new(nm, "FLOAT", "FACE")
-        v = float(mid) if nm == "mid" else float(np.random.default_rng(len(bpy.data.objects) * 7919).random())
+        if nm == "mid":
+            v = float(mid)
+        elif nm == "bid":
+            v = float(BONE_ID.get(bone, 0))
+        else:
+            v = float(np.random.default_rng(len(bpy.data.objects) * 7919).random())
         a.data.foreach_set("value", np.full(len(me.polygons), v, np.float32))
     if bone:
         from mi import rig

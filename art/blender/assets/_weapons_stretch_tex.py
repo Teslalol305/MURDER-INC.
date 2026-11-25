@@ -81,44 +81,46 @@ def stretch_handling(p, n):
 # ================================================================================================= materials
 
 def walnut(S, sel, hz, rub=None, octave=0, grime=None):
-    """Near-black oiled walnut from a solid plank: growth-ring planes (tilted 9 deg about X, warped into long arches),
-    straight grain along X, pale-brown pores as slits, satin oil with a hand polish, dents and crushed corners."""
+    """Near-black oiled walnut from a solid plank: growth-ring planes (tilted 9 deg about X, warped into long arches), early
+    and late wood bands, straight grain streaks along X, pale-brown pores as short slits, satin oil with a hand polish, dents
+    and crushed corners. Base #2b1c14 +-8 % per ring; the figure is carried by ring, streak and pore contrast."""
     if not sel.any():
         return
     p, N = S.p[sel], S.N
     n = S.n[sel]
-    warp = 0.0032 * N.fbm(p, (5.0, 18.0, 18.0), 3, octave0=400 + octave) + 0.0007 * N.fbm(p, (30.0, 140.0, 140.0), 2, octave0=403 + octave)
+    warp = 0.0034 * N.fbm(p, (5.0, 16.0, 16.0), 3, octave0=400 + octave) + 0.0008 * N.fbm(p, (28.0, 120.0, 120.0), 2, octave0=403 + octave)
     a = math.radians(9.0)
     f = p[:, 1] * math.cos(a) + p[:, 2] * math.sin(a) + warp
-    s_ = f / 0.0027
+    s_ = f / 0.0030
     k = np.floor(s_).astype(np.int64)
     fr = s_ - np.floor(s_)
     jit = N.vals[(k * 37 + 11 + octave) & 255] * 0.16 - 0.08                      # +-8 % per ring
-    ringw = np.sin(2 * math.pi * s_) * 0.5 + 0.5
-    late = tp.smooth(fr, 0.55, 0.95) * tp.smooth(1.0 - fr, 0.0, 0.10)             # darker latewood band at each ring's edge
-    base = lin("2b1c14")
-    gr = N.fbm(p, (7.0, 1500.0, 1500.0), 3, octave0=406 + octave)
-    streak = tp.smooth(N.ridged(p, (12.0, 4600.0, 4600.0), 2, octave0=409 + octave), 0.78, 0.96)
-    pores = tp.smooth(N.ridged(p, (44.0, 9800.0, 9800.0), 1, octave0=412 + octave), 0.91, 0.985)
-    col = base[None, :] * ((1 + jit) * (0.88 + 0.20 * ringw - 0.16 * late) * (1 + 0.12 * gr))[:, None]
-    col = col * (1 - 0.34 * streak)[:, None]
-    pale = lin("5e4634")
-    col = col + (pale[None, :] * (0.9 + 0.2 * gr[:, None]) - col) * (0.55 * pores)[:, None]
+    ringw = 0.5 + 0.5 * np.sin(2 * math.pi * s_)
+    late = tp.smooth(fr, 0.50, 0.92) * tp.smooth(1.0 - fr, 0.0, 0.08)             # the dark latewood line closing each ring
+    early = lin("34231a")
+    lateg = lin("1c120d")
+    gr = N.fbm(p, (6.0, 1300.0, 1300.0), 3, octave0=406 + octave)
+    streak = tp.smooth(N.ridged(p, (10.0, 3600.0, 3600.0), 2, octave0=409 + octave), 0.74, 0.94)
+    pores = tp.smooth(N.ridged(p, (34.0, 8200.0, 8200.0), 1, octave0=412 + octave), 0.93, 0.992)
+    col = early[None, :] * ((1 + jit) * (0.80 + 0.36 * ringw) * (1 + 0.16 * gr))[:, None]
+    col = col + (lateg[None, :] - col) * (0.50 * late + 0.34 * streak)[:, None]
+    pale = lin("4f3b2c")
+    col = col + (pale[None, :] * (0.85 + 0.3 * gr[:, None]) - col) * (0.30 * pores)[:, None]
     end = tp.smooth(np.abs(n[:, 0]), 0.60, 0.90)                                  # end grain: darker, drier, the oil pooled
-    col = col * (1 - 0.30 * end)[:, None]
+    col = col * (1 - 0.28 * end)[:, None]
     hzs = np.clip(hz[sel], 0, 1)
     brk = N.fbm(p, 240.0, 3, octave0=415 + octave)
     e = S.convex[sel]
-    worn = tp.smooth(e * (0.50 + 0.9 * hzs) + 0.22 * brk - 0.55, 0.0, 0.18)       # finish rubbed off the edges
-    bare = tp.smooth(e * (0.42 + 1.0 * hzs) + 0.25 * brk - 0.92, 0.0, 0.10)       # to pale raw wood
-    raw = lin("7c5a3e")
-    col = col * (1 + 0.10 * worn)[:, None]
+    worn = tp.smooth(e * (0.45 + 0.9 * hzs) + 0.22 * brk - 0.58, 0.0, 0.18)       # finish rubbed off the edges
+    bare = tp.smooth(e * (0.38 + 1.0 * hzs) + 0.25 * brk - 0.95, 0.0, 0.10)       # to pale raw wood
+    raw = lin("6a4a31")
+    col = col * (1 + 0.14 * worn)[:, None]
     col = col + (raw[None, :] * (0.9 + 0.2 * gr[:, None]) - col) * bare[:, None]
-    r = 0.43 + 0.04 * N.fbm(p, 120.0, 2, octave0=418 + octave) + 0.12 * pores + 0.06 * end        # satin oil 0.38 .. 0.48
+    r = 0.43 + 0.04 * N.fbm(p, 120.0, 2, octave0=418 + octave) + 0.10 * pores + 0.06 * end        # satin oil 0.38 .. 0.48
     r = r + (0.50 - r) * np.clip(worn * 0.7 + bare, 0, 1)
     polish = hzs * (0.55 + 0.45 * tp.smooth(N.fbm(p, 110.0, 2, octave0=419 + octave), -0.3, 0.4))
     r = r + (0.28 - r) * np.clip(polish * (1 - pores) * (1 - bare), 0, 1)                        # hands polish it to 0.28
-    col = col * (1 + 0.05 * polish)[:, None]
+    col = col * (1 + 0.10 * polish)[:, None]
     if rub is not None:
         rb = np.clip(rub[sel], 0, 1)
         r = r + (0.30 - r) * rb * 0.6
@@ -126,16 +128,16 @@ def walnut(S, sel, hz, rub=None, octave=0, grime=None):
         gm = np.clip(grime[sel], 0, 1) * (0.6 + 0.4 * N.fbm(p, 200.0, 2, octave0=421 + octave))
         col = col * (1 - 0.35 * gm)[:, None]
         r = r + 0.10 * gm
-    _id, dd = N.cells(p, 0.010, 0.9, octave=424 + octave)
-    dent = tp.smooth(0.28 - dd, 0.0, 0.20) * (_id > 0.84)
+    _id, dd = N.cells(p, 0.011, 0.9, octave=424 + octave)
+    dent = tp.smooth(0.26 - dd, 0.0, 0.18) * (_id > 0.88)
     crush = tp.smooth(e * (0.5 + hzs) - 0.75, 0.0, 0.1) * tp.smooth(N.fbm(p, 60.0, 2, octave0=427 + octave), 0.35, 0.6)
     col = col * (1 - 0.14 * dent - 0.16 * crush)[:, None]
     r = r + 0.08 * dent + 0.12 * crush
     S.bc[sel] = col
     S.rough[sel] = np.clip(r, 0.22, 0.62)
     S.metal[sel] = 0.0
-    S.h[sel] += (-1.6e-5 * pores - 6e-6 * streak + 3.0e-6 * gr - 4.5e-5 * bare * (0.5 + 0.5 * brk) - 9e-5 * dent - 1.3e-4 * crush
-                 + 0.8e-6 * N.fbm(p, 3500.0, 1, octave0=429 + octave))
+    S.h[sel] += (-1.4e-5 * pores - 8e-6 * streak - 5e-6 * late + 3.0e-6 * gr - 4.5e-5 * bare * (0.5 + 0.5 * brk) - 9e-5 * dent
+                 - 1.3e-4 * crush + 0.8e-6 * N.fbm(p, 3500.0, 1, octave0=429 + octave))
 
 
 def rubber(S, sel, hz, octave=0):
@@ -198,7 +200,7 @@ def paint_stretch(G):
     gain += 0.6 * ((x > 0.0) & (x < 0.22) & (z > 0.045))                          # rail's rear half wears bright
     gain += 0.5 * ((x > 0.085) & (x < 0.208) & (y > 0.018) & (z > 0.008) & (z < 0.022))
     gain += 0.6 * (x > 0.775)                                                      # brake mouth
-    TX.blued_sheet(S, bl, lin("1d2128"), hz, bright_edge, octave=0, rough_lo=0.26, rough_hi=0.42, edge_gain=gain[bl])
+    TX.blued_sheet(S, bl, lin("2a2f39"), hz, bright_edge, octave=0, rough_lo=0.26, rough_hi=0.42, edge_gain=0.82 * gain[bl])
     # ---- bolt carrier and head: bright ground steel
     car = S.sel(BRIGHT)
     if car.any():
@@ -269,11 +271,11 @@ def paint_stretch(G):
         S.engrave(img, (0, 2), (x0, z0), (w_m, h_m), "-Y", depth)
     engrave_left("MARKSMAN 7.6", 0.095, 0.0265, 0.064, 0.0058)
     engrave_left("MOD S1", 0.168, 0.0265, 0.030, 0.0058)
-    engrave_left("M1-3308", 0.018, -0.0298, 0.036, 0.0050)
-    engrave_left("SAFE", 0.0225, -0.0030, 0.017, 0.0040)
-    engrave_left("SEMI", 0.0225, -0.0215, 0.017, 0.0040)
-    engrave_right("MOD S1", 0.040, 0.0330, 0.028, 0.0058)
-    engrave_right("M1-3308", 0.040, -0.0300, 0.036, 0.0050)
+    engrave_left("M1-3308", 0.012, -0.0270, 0.036, 0.0050)
+    engrave_left("SAFE", 0.0575, -0.0050, 0.0185, 0.0040)           # marks at the lever tip's two positions (rest, +16 deg)
+    engrave_left("SEMI", 0.0575, -0.0215, 0.0185, 0.0040)
+    engrave_right("MOD S1", 0.040, 0.0250, 0.028, 0.0058)
+    engrave_right("M1-3308", 0.040, -0.0265, 0.036, 0.0050)
     star = tp.text_image([("✶", 256, 256, 330)], 512)
     S.engrave(star[:, ::-1], (0, 2), (0.0095, 0.0225), (0.0085, 0.0085), "+Y", 1.5e-4)
     # trigger blade: fine ridges across its face; charging knob knurl is modelled
@@ -291,7 +293,7 @@ def paint_stretch_mag(G):
     floor = tp.smooth(-p[:, 2], 0.118, 0.131)
     hz = np.clip(top * 0.85 + floor * 0.8 + gauss(p, (0.157, 0.0, -0.085), 0.04, 0.35), 0, 1)
     body = S.sel(BLUED)
-    TX.blued_sheet(S, body, lin("1d2128"), hz, lin("a9aeb6"), octave=0, rough_lo=0.28, rough_hi=0.44, edge_gain=1.2)
+    TX.blued_sheet(S, body, lin("2a2f39"), hz, lin("a9aeb6"), octave=0, rough_lo=0.28, rough_hi=0.44, edge_gain=1.0)
     if body.any():
         q = p[body]
         sc = tp.smooth(N.ridged(np.stack([q[:, 0] * 400.0, q[:, 1] * 30.0, q[:, 2] * 2500.0], 1), 1.0, 2, octave0=160), 0.95, 0.995) \

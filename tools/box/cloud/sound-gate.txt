@@ -1,13 +1,15 @@
 # The sound gate of a package (version 3b on): a queue for lag-test.sh on the unpacked zip, as a host starts it.
 #
 #   unzip the zip as the user e3dsfresh into a folder, then
-#   LAG_BUILD=<that folder> LAG_RUNAS=fresh LAG_CLEAN=1 bash lag-test.sh queue sound-gate.txt      (9 runs, about 25 minutes)
+#   LAG_BUILD=<that folder> LAG_RUNAS=fresh LAG_CLEAN=1 bash lag-test.sh queue sound-gate.txt      (10 runs, about 27 minutes)
 #   bash lag-test.sh list
 #
 # Nothing else may run on the box meanwhile (no compile, no package, no analysis: numpy takes every core, and a box
 # whose CPUs are all busy puts holes into the sound; the note under the list). The box is shared: every summary says
 # how busy its CPUs were ("the box's CPUs: 62 % busy in the viewer's first 40 s (busiest second 81 %), 30 % after
-# them"), so a line that met a busy box can be told from a line that failed.
+# them") and whether a compiler, a cook or an editor of another job ran beside the run ("A COMPILER, A COOK OR AN
+# EDITOR ran beside it in 51 of 87 samples": version 3b's release met one and had 41 holes in that line's first half
+# minute, none in its repeat), so a line that met a busy box can be told from a line that failed.
 # It passes when every line says CLEAN and:
 #   every line   "sound: ... 0 without an asset, 0 without an audio device"
 #   every line   no drop-out in the play: the summary says when the first and the last drop-out were and under which
@@ -33,6 +35,10 @@
 #   snd-env      the launcher started with SDL_AUDIODRIVER=alsa and SDL_AUDIO_DEVICE_SAMPLE_FRAMES=960 in its
 #                environment, on a machine with no sound card: the game must sound all the same (the launcher names
 #                SDL's dummy device itself; without that the game opens no audio device and is silent)
+#   snd-nosvc    the launcher started with SDL_AUDIODRIVER=pulseaudio and the address of a sound service that does
+#                not exist (PULSE_SERVER, XDG_RUNTIME_DIR): a host whose environment expects a sound service on a
+#                machine that runs none. The same must hold: the launcher's "sound:" line names what the host set,
+#                and the game sounds
 #   snd-free, snd-l20, snd-l35, snd-cpu6-l35   the Shipping game with the GPU free and loaded as in lag-gate.txt (the
 #                game then runs at 60, 45 and 30 frames a second), five single rounds, a burst and a fast turn
 #                (sound-short.txt): fps and worst frame as in the release gate, and
@@ -56,6 +62,7 @@
 snd-dev game=dev demo=sound-demo.txt view=sound-watch.txt audio=1 join=3 probe=0.25 secs=330 -- -ini:Engine:[Core.Log]:LogMIAudioHost=Verbose
 snd-keys game=ship view=sound-keys.txt audio=1 join=3 probe=0.25 secs=160
 snd-env game=ship view=sound-short.txt audio=1 join=3 probe=0.25 secs=95 env=SDL_AUDIODRIVER=alsa,SDL_AUDIO_DEVICE_SAMPLE_FRAMES=960
+snd-nosvc game=ship view=sound-short.txt audio=1 join=3 probe=0.25 secs=95 env=SDL_AUDIODRIVER=pulseaudio,PULSE_SERVER=unix:/nonexistent/pulse,XDG_RUNTIME_DIR=/nonexistent
 snd-free game=ship view=sound-short.txt audio=1 join=3 probe=0.25 secs=95 load=0
 snd-l20 game=ship view=sound-short.txt audio=1 join=3 probe=0.25 secs=95 load=1:0.05:0:1024
 snd-l35 game=ship view=sound-short.txt audio=1 join=3 probe=0.25 secs=95 load=1:0.3:0
