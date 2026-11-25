@@ -15,6 +15,7 @@
 //                                     and their priority back, the Settings card's Graphics quality still works under a step
 
 #include "Cloud/MICloud.h"
+#include "Engine/GameInstance.h"
 #include "Cloud/MIPacing.h"
 #include "Cloud/MIQuality.h"
 #include "HAL/IConsoleManager.h"
@@ -726,7 +727,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMICloudQualityApplyTest, "MurderInc.Cloud.Qual
 bool FMICloudQualityApplyTest::RunTest(const FString& Parameters)
 {
 	using namespace MIQualityApplyPrivate;
-	TStrongObjectPtr<UMICloudSubsystem> Sub(NewObject<UMICloudSubsystem>(GetTransientPackage()));
+	// A game instance subsystem needs a game instance as its outer.
+	TStrongObjectPtr<UGameInstance> Instance(NewObject<UGameInstance>(GetTransientPackage()));
+	TStrongObjectPtr<UMICloudSubsystem> Sub(NewObject<UMICloudSubsystem>(Instance.Get()));
 	const auto Reset = [&]()
 	{
 		Sub->SetQualityTableForTest({}, false);

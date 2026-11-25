@@ -95,11 +95,13 @@ bool FMICloudSessionDecisionTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("1.9 s: keeps drawing (a reload reconnects before this)"), After(1.9) == EAction::Keep);
 		TestTrue(TEXT("2.0 s: idles"), After(2.0) == EAction::Idle);
 		TestTrue(TEXT("10 s: idles"), After(10.0) == EAction::Idle);
-		TestTrue(TEXT("19.9 s: idles, does not quit"), After(19.9) == EAction::Idle);
-		TestTrue(TEXT("20.0 s: quits"), After(20.0) == EAction::Exit);
+		TestTrue(TEXT("19.9 s: idles, does not quit (the old limit)"), After(19.9) == EAction::Idle);
+		TestTrue(TEXT("20.0 s: idles still (the review of release 3c made it 60 s)"), After(20.0) == EAction::Idle);
+		TestTrue(TEXT("59.9 s: idles, does not quit"), After(59.9) == EAction::Idle);
+		TestTrue(TEXT("60.0 s: quits"), After(60.0) == EAction::Exit);
 		TestTrue(TEXT("an hour: quits"), After(3600.0) == EAction::Exit);
-		TestTrue(TEXT("the reason is named"), FMISession::Decide(O, State(0, true, 25.0, 1025.0)).Why == EWhy::EmptyTooLong);
-		AddInfo(FString::Printf(TEXT("log line: %s"), *FMISession::Describe(FMISession::Decide(O, State(0, true, 25.0, 1025.0)), O, State(0, true, 25.0, 1025.0))));
+		TestTrue(TEXT("the reason is named"), FMISession::Decide(O, State(0, true, 65.0, 1065.0)).Why == EWhy::EmptyTooLong);
+		AddInfo(FString::Printf(TEXT("log line: %s"), *FMISession::Describe(FMISession::Decide(O, State(0, true, 65.0, 1065.0)), O, State(0, true, 65.0, 1065.0))));
 	}
 	// A viewer present keeps the game: for any time, whatever the other numbers say.
 	{
@@ -148,7 +150,7 @@ bool FMICloudSessionDecisionTest::RunTest(const FString& Parameters)
 		FMISession::FOptions N = O;
 		N.IdleFps = 0;
 		TestTrue(TEXT("IdleFps 0: never idles ..."), FMISession::Decide(N, State(0, true, 10.0, 1010.0)).Action == EAction::Keep);
-		TestTrue(TEXT("... and still quits"), FMISession::Decide(N, State(0, true, 20.0, 1020.0)).Action == EAction::Exit);
+		TestTrue(TEXT("... and still quits"), FMISession::Decide(N, State(0, true, 60.0, 1060.0)).Action == EAction::Exit);
 		N = O;
 		N.ExitAfterEmpty = 0.0;
 		TestTrue(TEXT("ExitAfterEmpty 0: idles, never quits"), FMISession::Decide(N, State(0, true, 1e6, 1e6)).Action == EAction::Idle);
