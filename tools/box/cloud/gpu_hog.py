@@ -21,6 +21,8 @@ size = int(sys.argv[3]) if len(sys.argv) > 3 else 2048
 
 a = torch.rand(size, size, device='cuda')
 b = torch.rand(size, size, device='cuda')
+for _ in range(20):  # the first products load the libraries: not part of the measurement
+    c = a @ b
 torch.cuda.synchronize()
 # How many products fit in one burst when the card is free (measured once, before the game starts).
 n, t0 = 0, time.perf_counter()

@@ -1,0 +1,28 @@
+# The viewer of a lag test (lag-test.sh view=turn; played by rtcinput.py) for the Development game, which its own
+# script has already put into a Story run: one click on the card, then the view still, a slow turn (360 browser pixels
+# a second, about 43 degrees a second), a fast turn (1,440 pixels, about 173 degrees a second) and a turn while
+# walking forward, about ten seconds each. One received frame is saved in every phase: look at them whenever a
+# capture setting changes (a torn, stale or half-drawn frame is a defect).
+wait 3
+click
+wait 10
+say PHASE still
+wait 6
+frame still.jpg
+wait 2
+say PHASE turn-slow
+mouse 6 0 150 16
+frame turn-slow.jpg
+mouse 6 0 450 16
+say PHASE turn-fast
+mouse 24 0 150 16
+frame turn-fast.jpg
+mouse 24 0 450 16
+say PHASE walk-turn
+keydown 87
+mouse 10 0 300 16
+frame walk-turn.jpg
+mouse 10 0 300 16
+keyup 87
+say PHASE end
+wait 2

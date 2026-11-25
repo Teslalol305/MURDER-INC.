@@ -1,0 +1,38 @@
+# The viewer of a lag test for the Shipping game (lag-test.sh view=story; played by rtcinput.py), which has no debug
+# commands: a first-time player with a mouse. The card, Home's "Hit the block", Next three times (crew, loadout, block
+# and style), the briefing's "Hit the block", then the phases of lag-turn.txt in the Story run. The clicks are places
+# on a 16:9 picture (fractions of its width and height); the waits leave room for a game at 20 frames a second.
+wait 3
+click
+wait 2.5
+click 0.106 0.448
+wait 2.5
+click 0.3625 0.911
+wait 2
+click 0.3625 0.911
+wait 2
+click 0.3625 0.911
+wait 2.5
+frame briefing.jpg
+click 0.336 0.911
+wait 12
+say PHASE still
+wait 6
+frame still.jpg
+wait 2
+say PHASE turn-slow
+mouse 6 0 150 16
+frame turn-slow.jpg
+mouse 6 0 450 16
+say PHASE turn-fast
+mouse 24 0 150 16
+frame turn-fast.jpg
+mouse 24 0 450 16
+say PHASE walk-turn
+keydown 87
+mouse 10 0 300 16
+frame walk-turn.jpg
+mouse 10 0 300 16
+keyup 87
+say PHASE end
+wait 2

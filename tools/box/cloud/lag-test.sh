@@ -1,0 +1,184 @@
+#!/bin/bash
+# The lag test: one game at a time on the box's GPU, streamed to a viewer that turns, under a chosen GPU load, with
+# one summary line per run. It is how the lag of version 2 on E3DS ("when the player turns it slows down") was
+# reproduced and explained, and it is the release gate of version 3 (docs/unreal/PREFLIGHT.md section 2,
+# docs/unreal/PROGRESS.md "Version 3, release A"). Run as root on the box.
+#
+#   lag-test.sh run <name> [key=value ...] [-- game arguments]   start one run, detached (about 2 minutes)
+#   lag-test.sh wait <name> [seconds]                             wait for it (at most 75 s a call: the box's limit)
+#   lag-test.sh sum [-v] <name> ...                               the summary line(s) (lag_sum.py; -v: every probe line)
+#   lag-test.sh csv <name> [limit ms]                             where the long frames went (lag_csv.py; csv=1 runs)
+#   lag-test.sh calib <name> <load> <load> ...                    the GPU's time per frame under each load, one game
+#   lag-test.sh hogs <n>[:<work ms>[:<idle ms>]] | stop           the load by hand
+#   lag-test.sh list                                              every run so far, one line each
+#
+# Keys of run:
+#   game=dev|ship     the Development game (launch option -MIDev: its own script starts a Story run with god mode;
+#                     csv profile; the engine's log with Pixel Streaming's capture lines) or the Shipping game (the
+#                     viewer clicks through the set-up screens). Default dev.
+#   build=<folder>    the folder with MurderInc.sh. Default /tmp/pf/app, else /project/ue/cloud/build-Shipping/Linux.
+#   load=<n>[:<work ms>[:<idle ms>]]   n second processes that keep the GPU busy (gpu_hog.py), each working for
+#                     <work ms> (4) and idle for <idle ms> (0: never). This is a load the game's own dynamic
+#                     resolution cannot undo: a GPU that is slower for the game whatever it draws. Default 0.
+#   sp=<percent>      r.ScreenPercentage through the Development game's script: the simple load. It is not what a slow
+#                     GPU does (400 % is sixteen times the pixels), and dynamic resolution replaces it. Default none.
+#   res=<W>x<H>       the output size. Default 1920x1080.
+#   view=<file>       the viewer's script (rtcinput.py). Default lag-turn.txt (dev) or lag-story.txt (ship).
+#   cvars=<a=b,c=d>   passed as the launch option -MICVars= (the game's own tuning switch).
+#   csv=1             a CSV profile of the Development game from the start of the run.
+#   secs=<n>          how long the game runs. Default 110 (dev) or 125 (ship).
+#   probe=<seconds>   the probe line's period. Default 1.
+# Anything after -- goes to the game as it is (for example -PixelStreamingDecoupleFramerate).
+#
+# One game at a time: a run waits (up to 10 minutes) until no other MURDER INC. game runs on the box, and a watcher
+# notes once a second whether one appeared and how busy the GPU was; the summary says CLEAN or POLLUTED. Runs that
+# shared the GPU are thrown away (several games on one card produce the very stall this test is about).
+# Each run keeps its files in /project/ue/cloud/lag/<name>/: info.txt, game.log, view.log, others.log, the frames the
+# viewer saved, the CSV profile, summary.txt.
+C=/project/ue/cloud
+T=$(dirname "$(readlink -f "$0")")
+OUT=${LAG_OUT:-$C/lag}
+PY=/tmp/fps/venv/bin/python
+ME=$(readlink -f "$0")
+mkdir -p "$OUT"
+
+games() {  # MURDER INC. game processes other than those of streamer id $1
+  local n=0 p
+  for p in $(pgrep -x MurderInc-Linux; pgrep -x MurderInc); do
+    tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -q -- "-PixelStreamingID=$1 " || n=$((n + 1))
+  done
+  echo $n
+}
+
+venv() {  # the viewer's Python (aiortc); /tmp is lost when the box restarts
+  [ -x "$PY" ] && "$PY" -c 'import aiortc, websockets, PIL' 2>/dev/null && return 0
+  python3 -m venv /tmp/fps/venv && /tmp/fps/venv/bin/pip -q install aiortc websockets pillow
+}
+
+hogs() {  # <n>[:<work>[:<idle>]] <pid file> <log prefix> | stop <pid file>
+  if [ "$1" = stop ]; then
+    local p; for p in $(cat "$2" 2>/dev/null); do kill "$p" 2>/dev/null; done; rm -f "$2"; return
+  fi
+  local n=${1%%:*} rest work=4 idle=0 i
+  rest=${1#*:}; [ "$rest" != "$1" ] && { work=${rest%%:*}; [ "${rest#*:}" != "$rest" ] && idle=${rest#*:}; }
+  for i in $(seq 1 "$n"); do
+    setsid nohup /opt/venv/bin/python3 -I "$T/gpu_hog.py" "$work" "$idle" > "$3$i.log" 2>&1 < /dev/null &
+    echo $! >> "$2"
+  done
+  [ "$n" -gt 0 ] && for i in $(seq 1 40); do [ "$(cat "$3"*.log 2>/dev/null | grep -c 'hog running')" -ge "$n" ] && break; sleep 0.5; done
+}
+
+run_fg() {
+  local name=$1; shift
+  local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= cvars= csv= secs= probe=1 extra=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --) shift; extra=("$@"); break ;;
+      game=*) game=${1#*=} ;; build=*) build=${1#*=} ;; load=*) load=${1#*=} ;; sp=*) sp=${1#*=} ;;
+      res=*) res=${1#*=} ;; view=*) view=${1#*=} ;; cvars=*) cvars=${1#*=} ;; csv=*) csv=${1#*=} ;;
+      secs=*) secs=${1#*=} ;; probe=*) probe=${1#*=} ;;
+      *) echo "unknown key $1"; return 2 ;;
+    esac; shift
+  done
+  [ -n "$build" ] || { build=/tmp/pf/app; [ -x "$build/MurderInc.sh" ] || build=$C/build-Shipping/Linux; }
+  [ -n "$view" ] || { view=$T/lag-turn.txt; [ "$game" = ship ] && view=$T/lag-story.txt; }
+  [ -n "$secs" ] || { secs=110; [ "$game" = ship ] && secs=125; }
+  local id=lag$(echo "$name" | tr -cd 'a-zA-Z0-9')
+  rm -rf "$O"; mkdir -p "$O"; chmod 777 "$O"
+  printf 'name=%s\ngame=%s\nbuild=%s\nload=%s\nsp=%s\nres=%s\nview=%s\ncvars=%s\ncsv=%s\nsecs=%s\nid=%s\nextra=%s\nstarted=%s\n' \
+    "$name" "$game" "$build" "$load" "$sp" "$res" "$view" "$cvars" "$csv" "$secs" "$id" "${extra[*]}" "$(date -u +%FT%TZ)" > "$O/info.txt"
+  venv || { echo "FAILED: no Python with aiortc" > "$O/done"; return 1; }
+  # One game at a time.
+  local i
+  for i in $(seq 1 120); do [ "$(games "$id")" = 0 ] && break; sleep 5; done
+  echo "waited $((i - 1)) x 5 s for the GPU; other games now: $(games "$id")" >> "$O/info.txt"
+  # A signalling server (Epic's; streamers on 8888, players on 8090): the one that runs, or ours.
+  (exec 3<>/dev/tcp/127.0.0.1/8888) 2>/dev/null || { bash "$T/e3ds-repro.sh" ss start >> "$O/info.txt" 2>&1; sleep 4; }
+  # The load.
+  [ "${load%%:*}" -gt 0 ] 2>/dev/null && hogs "$load" "$O/hog.pids" "$O/hog"
+  # The game, with the arguments E3DS passes (its documentation: FAQ, command-line parameters).
+  local args=(-PixelStreamingURL=ws://127.0.0.1:8888 "-PixelStreamingID=$id" -AudioMixer -log -Unattended -StdOut -FullStdOutLogOutput
+    "-ABSLOG=$O/abs.log" -AllowPixelStreamingCommands -Windowed -ForceRes "-ResX=${res%x*}" "-ResY=${res#*x}"
+    -PixelStreamingEncoderCodec=H264 -PixelStreamingWebRTCMaxBitrate=20000000 -PixelStreamingEncoderMinQP=18
+    -PixelStreamingEncoderMaxQP=36 "-MICloudProbe=$probe")
+  [ -n "$cvars" ] && args+=("-MICVars=$cvars")
+  if [ "$game" = dev ]; then
+    {
+      echo "wait 4"; echo "con MIStart mission skip"; echo "waitstate playing 40"; echo "god 1"
+      [ -n "$sp" ] && echo "con r.ScreenPercentage $sp"
+      [ "$csv" = 1 ] && echo "con csvprofile start"
+      echo "wait $((secs - 25))"
+      [ "$csv" = 1 ] && echo "con csvprofile stop"
+      echo "wait 900"
+    } > "$O/play.txt"
+    args+=(-MIDev "-ExecCmds=MIDemo.Run $O/play.txt")
+    rm -rf "$build/MurderInc/Saved/Profiling/CSV"
+  fi
+  rm -rf "$build/MurderInc/Saved/SaveGames"   # a setting changed in one run (Look sensitivity) must not reach the next
+  ( while [ ! -f "$O/done" ]; do
+      echo "$(date -u +%T) others=$(games "$id") util=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ') mem=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ')"
+      sleep 1
+    done > "$O/others.log" 2>&1 ) &
+  (cd "$T" && RUNAS=ue4 NODISPLAY=1 STOPSIG=TERM STOPTO=launcher STDOUT=0 BUILD="$build" bash e3ds-repro.sh run "lag-$name" "$secs" "${args[@]}" "${extra[@]}") >> "$O/info.txt" 2>&1
+  local R=$C/repro/lag-$name
+  # The viewer joins when the game streams: in a run already (dev), or on its home screen (ship).
+  local want='state=2'; [ "$game" = ship ] && want='MICloudProbe'
+  for i in $(seq 1 60); do grep -a -q "MICloudProbe.*$want" "$R/game.log" 2>/dev/null && break; sleep 1; done
+  sleep 3
+  date -u +%T > "$O/view.start"
+  (cd "$O" && timeout $((secs)) "$PY" "$T/rtcinput.py" "$id" "$view" --out "$O" > "$O/view.log" 2>&1)
+  for i in $(seq 1 $((secs + 60))); do [ -f "$R/result.txt" ] && break; sleep 1; done
+  hogs stop "$O/hog.pids"
+  cp "$R/game.log" "$O/game.log" 2>/dev/null; cp "$R/result.txt" "$O/result.txt" 2>/dev/null
+  cp "$build"/MurderInc/Saved/Profiling/CSV/*.csv "$O/" 2>/dev/null
+  echo DONE > "$O/done"; wait
+  python3 "$T/lag_sum.py" "$O" > "$O/summary.txt" 2>&1
+  cat "$O/summary.txt"
+}
+
+calib_fg() {  # <name> <load> ...: one Development game standing in a Story run at full quality; each load for 20 s
+  local name=$1; shift
+  local O=$OUT/$name id=lag$(echo "$name" | tr -cd 'a-zA-Z0-9') build=/tmp/pf/app i l
+  [ -x "$build/MurderInc.sh" ] || build=$C/build-Shipping/Linux
+  rm -rf "$O"; mkdir -p "$O"; chmod 777 "$O"
+  for i in $(seq 1 120); do [ "$(games "$id")" = 0 ] && break; sleep 5; done
+  printf 'wait 4\ncon MIStart mission skip\nwaitstate playing 40\ngod 1\nwait 900\n' > "$O/play.txt"
+  local secs=$((45 + 22 * $#))
+  # Full quality: no dynamic resolution, the target fixed at 60; the pacer stays on, so frames do not pile up.
+  (cd "$T" && RUNAS=ue4 NODISPLAY=1 STOPSIG=TERM STOPTO=launcher STDOUT=0 BUILD="$build" bash e3ds-repro.sh run "lag-$name" "$secs" \
+    -PixelStreamingURL=ws://127.0.0.1:8888 "-PixelStreamingID=$id" -AudioMixer -log -Unattended -StdOut -FullStdOutLogOutput \
+    -Windowed -ForceRes -ResX=1920 -ResY=1080 -MICloudProbe=1 -MICloudNoCard -MIDev "-ExecCmds=MIDemo.Run $O/play.txt" \
+    "-MICVars=r.DynamicRes.OperationMode=0,MI.Cloud.FpsTarget=60") > "$O/info.txt" 2>&1
+  local R=$C/repro/lag-$name
+  for i in $(seq 1 60); do grep -a -q "MICloudProbe.*state=2" "$R/game.log" 2>/dev/null && break; sleep 1; done
+  sleep 8
+  for l in "$@"; do
+    rm -f "$O/hog.pids"; [ "${l%%:*}" -gt 0 ] 2>/dev/null && hogs "$l" "$O/hog.pids" "$O/hog-$l-"
+    sleep 6; local from; from=$(grep -a -c MICloudProbe "$R/game.log")
+    sleep 12
+    grep -a MICloudProbe "$R/game.log" | tail -n +$((from + 1)) | python3 -c "
+import re, sys
+p = [dict(re.findall(r'(\w+)=(-?[\d.]+)', l)) for l in sys.stdin]
+a = lambda k: sum(float(x[k]) for x in p) / max(len(p), 1)
+print(f'load $l: GPU {a(\"gpuMs\"):5.1f} ms a frame, {a(\"fps\"):5.1f} frames a second, worst frame {max(float(x[\"worstMs\"]) for x in p):.0f} ms, other games $(games "$id") ({len(p)} s)')" | tee -a "$O/summary.txt"
+    hogs stop "$O/hog.pids"; sleep 3
+  done
+  for i in $(seq 1 $((secs + 60))); do [ -f "$R/result.txt" ] && break; sleep 1; done
+  cp "$R/game.log" "$O/game.log" 2>/dev/null
+  echo DONE > "$O/done"
+}
+
+[ "$(id -u)" = 0 ] || { echo "run as root"; exit 1; }
+case "$1" in
+  run) shift; setsid nohup bash "$ME" run-fg "$@" < /dev/null > "$OUT/$1.out" 2>&1 & echo "started $1: poll lag-test.sh wait $1" ;;
+  run-fg) shift; run_fg "$@" ;;
+  calib) shift; setsid nohup bash "$ME" calib-fg "$@" < /dev/null > "$OUT/$1.out" 2>&1 & echo "started $1: poll lag-test.sh wait $1" ;;
+  calib-fg) shift; calib_fg "$@" ;;
+  wait) for i in $(seq 1 "${3:-75}"); do [ -f "$OUT/$2/done" ] && break; sleep 1; done
+        if [ -f "$OUT/$2/done" ]; then cat "$OUT/$2/summary.txt" 2>/dev/null || cat "$OUT/$2/done"; else echo "RUNNING $2: $(tail -1 "$OUT/$2/view.log" 2>/dev/null | cut -c1-100)"; fi ;;
+  sum) shift; v=; [ "$1" = -v ] && { v=-v; shift; }; for n in "$@"; do python3 "$T/lag_sum.py" $v "$OUT/$n"; done ;;
+  csv) python3 "$T/lag_csv.py" "$(ls "$OUT/$2"/*.csv | head -1)" "${3:-50}" ;;
+  hogs) if [ "$2" = stop ]; then hogs stop "$OUT/hand.pids"; else hogs "$2" "$OUT/hand.pids" "$OUT/hand-hog"; cat "$OUT"/hand-hog*.log; fi ;;
+  list) for d in "$OUT"/*/; do [ -f "$d/summary.txt" ] && cat "$d/summary.txt"; done ;;
+  *) sed -n 2,41p "$0"; exit 2 ;;
+esac
