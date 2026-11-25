@@ -4,13 +4,20 @@
 # and layouts of PixelStreaming2Input's default protocol, the mouse maths of the reference front end). The box cannot
 # run a browser viewer (docs/unreal/BOX.md), so this is how input through the stream is tested there.
 #
-#   python rtcinput.py <streamerId> <script file or -> [--player WxH] [--out DIR] [--port 8090]
+#   python rtcinput.py <streamerId> <script file or -> [--player WxH] [--out DIR] [--port 8090] [--nodecode]
+#
+# --nodecode leaves the video undecoded (the frames are only counted as they arrive; "frame" lines save nothing): a
+# viewer that costs the machine almost no CPU, to see whether the decoding beside the game changes what the game's
+# encoder manages.
 #
 # --player is the size the page would show the picture at, in browser pixels (default: the video's own size, which is
 # what E3DS's Dynamic resolution gives); mouse movement is given in those pixels. Script lines (# starts a comment):
 #   wait <seconds>
 #   say <text>                          print a line with the time (to line up with the game's log)
 #   click [x y]                         left button down and up at a place (fractions 0..1 of the picture; default 0.5 0.5)
+#   dblclick [x y]                      a double click as a browser reports it: down, up, down, up, then the page's
+#                                       "MouseDouble" message (and no release after it, as on E3DS's page)
+#   dbl [button] [x y]                  the "MouseDouble" message alone
 #   down <button> [x y] / up <button> [x y]     button 0 left, 1 middle, 2 right
 #   mouse <dx> <dy> [events] [gap ms]   that many mouse events of dx, dy browser pixels each (default 1 event, 16 ms apart)
 #   key <keyCode> [hold ms]             a JavaScript keyCode down, then up (P 80, Enter 13, Esc 27, W 87, Space 32, arrows 37..40)
@@ -20,7 +27,11 @@
 #   pad connect                         a gamepad appears (the game answers with its id)
 #   pad axis <n> <value> [seconds]      n: 1 left X, 2 left Y, 3 right X, 4 right Y (up is +), 5 left trigger, 6 right trigger;
 #                                       sent 60 times a second for that long (default one message), as a browser does
-#   pad button <n> [hold ms]            the browser's button index (0 A, 1 B, 2 X, 3 Y, 9 Start, 10 L3, 12..15 D-pad)
+#   pad button <n> [hold ms] [first]    the browser's button index (0 A, 1 B, 2 X, 3 Y, 9 Start, 10 L3, 12..15 D-pad),
+#                                       sent again every frame while held, marked as a repeat from the second message
+#                                       on; with the word "first" the first message is marked as a repeat too: the
+#                                       first press of a page's session (a browser shows the pad to the page only once
+#                                       a button is down, and the page then takes that button for held already)
 #   frame <file.jpg>                    save the next video frame (into --out)
 # It prints one line per step and a count of video frames every 5 s; it ends with the script. "repeats" in that line
 # counts received frames that show the same picture as the frame before (a sample of 2,000 points of the picture's
@@ -37,7 +48,21 @@ ap.add_argument('script')
 ap.add_argument('--player', default='')
 ap.add_argument('--out', default='.')
 ap.add_argument('--port', type=int, default=8090)
+ap.add_argument('--nodecode', action='store_true')
 A = ap.parse_args()
+
+if A.nodecode:
+    # The receiver hands every complete video frame to a decoder of our own, which counts it and decodes nothing.
+    import aiortc.rtcrtpreceiver as _receiver
+
+    _real_decoder = _receiver.get_decoder
+
+    class _CountOnly:
+        def decode(self, encoded_frame):
+            st['video'] += 1
+            return []
+
+    _receiver.get_decoder = lambda codec: _CountOnly() if codec.mimeType.lower().startswith('video/') else _real_decoder(codec)
 
 t0 = time.time()
 st = {'video': 0, 'audio': 0, 'size': None, 'channel': None, 'pad': None, 'want_frame': None, 'messages': 0, 'repeats': 0, 'sig': None}
@@ -93,6 +118,18 @@ async def play(lines, send, player):
         log('>', line)
         if verb == 'say':
             pass
+        elif verb == 'dblclick':
+            x, y = player.pos(float(a[0]), float(a[1])) if len(a) >= 2 else player.pos()
+            for _ in range(2):
+                send(struct.pack('<BBHH', 72, 0, x, y))
+                await asyncio.sleep(0.06)
+                send(struct.pack('<BBHH', 73, 0, x, y))
+                await asyncio.sleep(0.06)
+            send(struct.pack('<BBHH', 76, 0, x, y))
+        elif verb == 'dbl':
+            button = int(a[0]) if a else 0
+            x, y = player.pos(float(a[1]), float(a[2])) if len(a) >= 3 else player.pos()
+            send(struct.pack('<BBHH', 76, button, x, y))
         elif verb in ('click', 'down', 'up'):
             button = 0 if verb == 'click' else int(a[0])
             at = a if verb == 'click' else a[1:]
@@ -141,14 +178,16 @@ async def play(lines, send, player):
                 await asyncio.sleep(1 / 60)
         elif verb == 'pad' and a[0] == 'button':
             pad = st['pad'] or 0
-            hold = float(a[2]) / 1000 if len(a) > 2 else 0.1
+            hold = float(a[2]) / 1000 if len(a) > 2 and a[2] != 'first' else 0.1
             until = time.time() + hold
-            repeat = 0
+            repeat = 1 if 'first' in a[2:] else 0
             while time.time() < until:
                 send(struct.pack('<BBBB', 90, pad, int(a[1]), repeat))
                 repeat = 1
                 await asyncio.sleep(1 / 60)
             send(struct.pack('<BBBB', 91, pad, int(a[1]), 0))
+        elif verb == 'frame' and A.nodecode:
+            log('not decoding: no frame saved')
         elif verb == 'frame':
             st['want_frame'] = f'{A.out}/{a[0]}'
             for _ in range(100):
@@ -256,7 +295,16 @@ async def main():
                 await asyncio.sleep(5)
                 log('frames', st['video'], 'audio', st['audio'], 'messages from the game', st['messages'], 'repeats', st['repeats'])
 
+        async def undecoded():  # --nodecode: no decoded frame ever says that the video has started
+            while not ready.is_set():
+                if st['video'] >= 5 and st['channel'] is not None and st['channel'].readyState == 'open':
+                    st['size'] = st['size'] or [1920, 1080]
+                    ready.set()
+                await asyncio.sleep(0.1)
+
         tasks = [asyncio.ensure_future(reader()), asyncio.ensure_future(counter())]
+        if A.nodecode:
+            tasks.append(asyncio.ensure_future(undecoded()))
         try:
             await asyncio.wait_for(ready.wait(), 40)
         except asyncio.TimeoutError:

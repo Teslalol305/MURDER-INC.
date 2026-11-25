@@ -40,6 +40,8 @@
 #   minbit=<bits/s>   the stream's lowest and first bitrate. Default 12000000: the Python viewer's congestion feedback
 #                     is basic and the sender would otherwise drop most frames to fit a bitrate of a megabit or less;
 #                     0 leaves the bitrate as E3DS starts it.
+#   decode=0          the viewer does not decode the video (rtcinput.py --nodecode): it only counts the frames, and
+#                     saves none. For the question whether the decoding beside the game slows the game's encoder.
 #   cpus=<list>       the game runs on these CPUs only (a taskset list such as 0-5): a server with few CPUs. With 6 or
 #                     fewer task workers (8 hyper-threaded CPUs or fewer; 7 or fewer on this box, which shows no
 #                     hyper-threads) Unreal's Vulkan RHI runs without its interrupt and submission threads. The load
@@ -89,14 +91,14 @@ hogs() {  # <n>[:<work ms>[:<idle ms>[:<size>]]] <pid file> <log prefix> | stop 
 
 run_fg() {
   local name=$1; shift
-  local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= cvars= csv= secs= probe=1 minbit=12000000 profile= cpus= extra=()
+  local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= cvars= csv= secs= probe=1 minbit=12000000 profile= cpus= decode=1 extra=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --) shift; extra=("$@"); break ;;
       game=*) game=${1#*=} ;; build=*) build=${1#*=} ;; load=*) load=${1#*=} ;; sp=*) sp=${1#*=} ;;
       res=*) res=${1#*=} ;; view=*) view=${1#*=} ;; cvars=*) cvars=${1#*=} ;; csv=*) csv=${1#*=} ;;
       secs=*) secs=${1#*=} ;; probe=*) probe=${1#*=} ;; minbit=*) minbit=${1#*=} ;; profile=*) profile=${1#*=} ;;
-      cpus=*) cpus=${1#*=} ;;
+      cpus=*) cpus=${1#*=} ;; decode=*) decode=${1#*=} ;;
       *) echo "unknown key $1"; return 2 ;;
     esac; shift
   done
@@ -163,7 +165,8 @@ run_fg() {
   for i in $(seq 1 60); do grep -a -q "MICloudProbe.*$want" "$R/game.log" 2>/dev/null && break; sleep 1; done
   sleep 3
   date -u +%T > "$O/view.start"
-  (cd "$O" && timeout $((secs)) "$PY" "$T/rtcinput.py" "$id" "$view" --out "$O" > "$O/view.log" 2>&1) || echo "VIEWER FAILED: $(tail -1 "$O/view.log")" >> "$O/info.txt"
+  local vopt=(); [ "$decode" = 0 ] && vopt=(--nodecode)
+  (cd "$O" && timeout $((secs)) "$PY" "$T/rtcinput.py" "$id" "$view" --out "$O" "${vopt[@]}" > "$O/view.log" 2>&1) || echo "VIEWER FAILED: $(tail -1 "$O/view.log")" >> "$O/info.txt"
   for i in $(seq 1 $((secs + 60))); do [ -f "$R/result.txt" ] && break; sleep 1; done
   hogs stop "$O/hog.pids"
   cp "$R/game.log" "$O/game.log" 2>/dev/null; cp "$R/result.txt" "$O/result.txt" 2>/dev/null

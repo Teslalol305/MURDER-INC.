@@ -105,11 +105,12 @@ for run in runs:
         def stat(key, rows=sent):  # a statistic the sender did not report in a second is written as -1: left out
             return avg([v for v in (num(p, key) for p in rows) if v is not None and v >= 0])
 
-        def low(key):  # the lowest second, the first two seconds of the stream left out (it starts with a ramp)
+        def low(key):  # the lowest average of two seconds in a row (the sender's reports do not fall on our seconds: one
+            # second can hold two of them and the next none), the stream's first two seconds left out (it starts with a ramp)
             xs = [v for v in (num(p, key) for p in sent[2:]) if v is not None and v >= 0]
-            return min(xs, default=float('nan'))
+            return min(((a + b) / 2 for a, b in zip(xs, xs[1:])), default=float('nan'))
 
-        parts.append(f"sender: captured {f(stat('capFps'), 0)}, encoded {f(stat('encFps'), 1)} (lowest second {f(low('encFps'), 0)}), sent {f(stat('txFps'), 1)} a second"
+        parts.append(f"sender: captured {f(stat('capFps'), 0)}, encoded {f(stat('encFps'), 1)} (lowest 2 s {f(low('encFps'), 0)}), sent {f(stat('txFps'), 1)} a second"
                      f" (turning {f(stat('txFps', [p for p in sent if p.get('turning')]), 0)}), QP {f(stat('qp'), 0)}, {f(stat('mbps'))} of {f(stat('availMbps'))} Mbit/s, encode {f(stat('encMs'))} ms"
                      + (f", capture to send {f(stat('capToSendMs'), 0)} ms" if any('capToSendMs' in p for p in sent) else ''))
     parts.append('received a second: ' + (', '.join(received) or 'no phases') + (f" (total {__import__('json').loads(end.group(1)).get('video')} frames)" if end else ' (viewer did not finish)'))
