@@ -12,8 +12,9 @@
 > another lane's files while it works. The designer's specification is `docs/unreal/weapons_r4_spec.json`.
 > Lane 2, RATTLER (2026-11-25): `weapons_rattler.py` + `_weapons_rattler.py`, `_weapons_rattler_b.py`, `_weapons_rattler_tex.py`,
 > `_weapons_rattler_prev.py`, `_weapons_check_rattler.py` exist and pass (SK_Rattler 68k tris, 4K set Rattler, magazine, top round,
-> proof `ALL FIXED POINTS KEPT`, four pictures); commits 13b5cbc (geometry, rig, family), 28996f3 (proof script, clearances), the
-> surfaces and pictures after them (`git log -- art/blender/assets/weapons_rattler.py`).
+> proof `ALL FIXED POINTS KEPT` 55 of 55, four pictures); commits 13b5cbc (geometry, rig, family), 28996f3 (proof script,
+> clearances), 92dc179 (the four pictures from the final 4K export and the notes); the final surfaces went in with the WIP
+> snapshot b726bbd (`git log -- art/blender/assets/weapons_rattler.py`).
 > Lane 2, PARTS KIT and the CHOPPER / NINE mounts (2026-11-25): `weapons_parts.py` + `_weapons_parts_geo.py`, `_weapons_parts_geo2.py`,
 > `_weapons_parts_mags.py`, `_weapons_parts_tex.py`, `_weapons_parts_prev.py`, `_weapons_patch.py`, `_weapons_check_parts.py` (+ `_b`),
 > `_weapons_pack_parts.py` and `weapons_parts_contract.json` exist and pass (`ALL MOUNTS KEPT`, 153 checks; `_weapons_check.py` still
