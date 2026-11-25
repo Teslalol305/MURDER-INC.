@@ -3,6 +3,220 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Version 3a: the independent release check (release checker, 2026-11-25, 07:56 to 09:20 UTC)
+
+A second pair of hands took version 3a from the owner's storage, not from the box's build folder, and repeated the
+release gate without trusting the entry below. **It holds: the stall of version 2 is gone and the file can be
+uploaded. And it found what no check before it had looked for: the game has no sound** (section 7; neither had
+versions 1 and 2: the sound was never packed). Every number here is from this check's own runs
+(`/project/ue/cloud/chk/lag/chk-*` on box ec087d85, the scripts in `/project/ue/cloud/chk/`); where a number of the
+entry below was re-read from its raw log, that is said. What is not proven is in section 8, and it is the same
+list as before: the box is not E3DS.
+
+### 1. The file, from the storage
+
+- The nine parts were downloaded on the box by their links (random names, as a browser saves them): eight of
+  251,658,240 bytes and one of 241,696,231, every sha256 as in LAUNCH.md section 9.
+- **The owner's own commands** (the rename loop and the join line, cut out of LAUNCH.md byte for byte and run with
+  `shasum` as on a Mac) named the nine parts and joined them: `MurderInc.zip`, 2,254,962,151 bytes, sha256
+  `de41a7089a3e940c010806753640e1c84b3f357f0e551e067f300b006eef58e4`. `unzip -t`: no errors, 65 files.
+- In the zip: `MurderInc.sh` executable and byte for byte the repository's (sha256 `4254cbef…3343`, the same at
+  `6c4d810` and at the head), `BUILD.txt` naming `6c4d810`, `MIDEV.key` equal to the box's copy, no `Saved/`, no
+  symbols, no logs. The two game programs are, by sha256, the ones in `/project/ue/cloud/build-Shipping` and
+  `build-Development`. The Shipping program holds the texts of the last code commit `906dfdf`
+  (`MI.Cloud.FpsPixelPart`, the sentence of the frame-rate target's rise) and none of the Development switches
+  (`MICrashTest`, `MICloudLog`, `MIDemo.Run`). The `Source` folder of the release copy, of the gameplay clone and of
+  the pushed branch are one and the same (one fingerprint over its 138 files).
+
+### 2. The suite
+
+`build.sh` in `/project/ue/repo-gameplay` at `6c4d810`: "Target is up to date". `tools/box/test.sh MurderInc`, run
+again at 08:03 UTC: **`TESTS OK passed=119 failed=0 skipped=0`** (55 s); the report lists 119 tests, all "Success",
+116 clean and the 3 audio ones with their usual warnings, the 11 golden replays among them. Nothing under `unreal/`
+differs between `906dfdf`, `6c4d810` and the head.
+
+### 3. One session the way E3DS starts it, by hand
+
+Not with the box's test tools: a user that did not exist before (`useradd -m`; its home held the three skeleton
+files), the zip unpacked by that user into an empty folder, an environment built from nothing, the working
+directory `/`, no display, and E3DS's documented arguments and nothing else (`-PixelStreamingURL= -PixelStreamingID=
+-AudioMixer -log -Unattended -StdOut -FullStdOutLogOutput -ABSLOG= -AllowPixelStreamingCommands -Windowed -ForceRes
+-ResX=1920 -ResY=1080 -PixelStreamingEncoderCodec=H264 -PixelStreamingWebRTCMaxBitrate= -PixelStreamingEncoderMinQP=
+-PixelStreamingEncoderMaxQP=`): no launch option, no probe option, none of the bitrate options the box's viewer
+usually gets. Script: `/project/ue/cloud/chk/first-run.sh`.
+
+- The launcher's lines name the build, the user, the card, "Vulkan SM6 check: all 16 extensions present"; the game's
+  first numbers line came 10.1 s after the start.
+- A viewer (rtcinput.py) clicked the card away, went through the set-up screens into a Story run and turned fast for
+  95 s. The game's own line every 30 s, for the two half minutes that lie wholly in the play: **60.0 frames a
+  second, worst frame 22.1 and 16.9 ms**, the stream 55 to 57 a second at 17 to 18 Mbit/s.
+- Stop as a host that closes "the process we start and every child process under it": SIGTERM to the launcher, tee
+  and the game in the same moment. "the game quit normally after 170s (stop asked by SIGTERM)", exit code 0 two
+  seconds later, no process left.
+- The file named with `-ABSLOG=`, `MurderInc/Saved/Logs/MurderInc.log` and the launcher's output are the same 50
+  lines, byte for byte.
+- Frames looked at (1920 x 1080 as received): the click card over the dimmed home screen with its three lines; the
+  home screen; the street at the start of the run; a frame after fast turning (whole, sharp, "CHOPPER 28" after two
+  clicks); **the pause card with its line**: "NVIDIA RTX PRO 6000 Blackwell Server Edition · 60 frames a second
+  (lowest 60, target 60) · GPU 5.1 ms · drawn 1440 x 810, sent 1920 x 1080 · stream 60 a second (lowest 38),
+  19.2 Mbit/s, QP 22, round trip 0 ms · build 6c4d810".
+
+### 4. The gate, repeated
+
+`lag-test.sh` on the zip unpacked as `e3dsfresh`, every run with a new empty home and the folder's `Saved` removed
+(cold), one game on the card at a time (every run CLEAN), the viewer there as soon as the game is (`join=3`). The
+viewer is this check's own (`chk/chk-story.txt`): it turns more and faster than `lag-story.txt` (173 and 288
+degrees a second) and **stops dead eight times** between flicks of 180 degrees, because version 2 froze when a turn
+ended; it walks, holds the fire button while turning and reloads. About 6,000 degrees of turning in a minute of
+play. The numbers are read from the game's raw lines by this check's own script (`chk/chk_probe.py`), not by
+`lag_sum.py`.
+
+| Run | Game | Load (GPU time a frame) | Frames a second (lowest second) | Worst frame in play | Frames over 100 ms | Owed | Fence lines in play | Memory over the play | Stop |
+|---|---|---|---|---|---|---|---|---|---|
+| `chk-free` | Shipping | none (5.9 ms) | **60.0 (59.1)** | 31 ms | 0 | 2 | (no engine log) | 3,963 to 3,941 MB | exit 0 |
+| `chk-l20` | Shipping | 18.8 ms | 45.0 (44.8) | 27 ms | 0 | 2 | | 3,912 to 3,843 MB | exit 0 |
+| `chk-l35` | Shipping | **31.6 ms: the lag's load** | **29.8 (28.4)** | **48 ms** | **0** | 2 | | 3,905 to 3,868 MB | exit 0 |
+| `chk-l35dev` | Development, played from the home screen | 27.5 ms | 30.0 (29.8) | 39 ms | 0 | 2 | **0** (2 at the Crew screen's cold frame) | 4,151 to 4,106 MB | exit 0 |
+| `chk-cpu6-l35` | Shipping, 6 CPUs | 29.8 ms | 30.0 (28.7) | 38 ms | 0 | 2 | | level, one step when the view first turns (below) | exit 0 |
+| `chk-cpu6-l35dev` | Development from the home screen, 6 CPUs | 28.0 ms | 30.0 (29.8) | 39 ms | 0 | 2 | **0** (2 at the Crew screen) | the same | exit 0 |
+| `chk-l35dev-script` | Development, run started by script | 28.3 ms | 30.0 (29.9) | 37 ms | 0 | 2 | 0 | | exit 0 |
+| `chk-cpu6-l35dev-script`, `-b`, `-c` | the same on 6 CPUs, three times (the gate line that logged one fence line in the entry below) | 27.8 to 28.3 ms | 30.0 (30.0, 29.8, 30.0) | 35, 39 and 34 ms | 0 | 2 | **0, 0 and 0** | | exit 0 |
+
+"No frames available for capture": in no run. Pacer time-outs in the play: none in any run (2 to 4 in the whole run,
+at the cold start and the Crew screen, as the entry below says). The engine's own CSV profile of
+`chk-l35dev-script` (2,554 frames, 85 s) agrees with the game's line: longest frame 62 ms, none over 100 ms, the
+middle frame 33.3 ms.
+
+**So the gate passes here too**: with the card loaded the way the lag is reproduced, a Story run with fast turning
+and dead stops has no frame over 100 ms (48 ms at the most in the Shipping game), no fence line in the play, level
+memory and a clean stop; with a free card the game holds 60.0.
+
+Memory on 6 CPUs, since the table's number alone would mislead: 2,945 to 2,971 MB for the first 23 s of the play,
+one step to about 3,200 MB in the three seconds in which the view first turns right round (the rest of the block
+comes into view), then level between 3,197 and 3,264 MB to the end. A pile grows by hundreds of MB every second.
+
+### 5. Version 2 under the same load, the same morning
+
+The control that makes the table mean something: version 2's zip (`ceaf828d…`, game `e989cb8`), unpacked the same
+way, the same load, the same tool (`chk-v2-l35dev`: the Development game with its script-started run, the viewer of
+`lag-turn.txt`), next to version 3a in the same harness (`chk-l35dev-script`).
+
+| | Version 2 | Version 3a |
+|---|---|---|
+| Frames a second in the run | 34.6 on average, lowest second 13.5 | 30.0, lowest second 29.9 |
+| Worst frame | **1,302 ms** | **37 ms** |
+| Seconds with a frame over 100 ms | 16 of 56 (1,302 and 1,095 ms, then ten seconds in a row with frames of 291 to 346 ms, then 737, 685 and 702 ms) | 0 of 50 |
+| "Timed out waiting for fence" | 498 | 0 |
+| "No frames available for capture" | 2,282 | 0 |
+| Memory | 3.8 GB five seconds into the run, 4.8 GB at its end and still rising | level once the level has loaded |
+| Stop | did not end within 30 s of SIGTERM, killed | exit 0 |
+
+### 6. Beyond the gate
+
+| Run | What | Result |
+|---|---|---|
+| `chk-l48` | a load far past the gate: the card needs 83.5 ms a frame at the smallest picture | **a steady 12.0 frames a second** (lowest second 11.4), worst frame 96 ms, 2 frames owed, memory level, exit 0. Too slow to play, but no freeze: the game follows the card down instead of piling up |
+| `chk-fight-ship`, `chk-fight-free` | the Shipping game, sprinting into the block with the fire button held in bursts, turning, reloading (lag's load; free card) | 29.3 (27.8), worst frame 60 ms; 60.0 (59.1), worst frame 31 ms. The enemies answered ("They made you…", health 94 in one frame) |
+| `chk-fight-dev` | the same in the Development game with god mode | 30.0 (29.1), worst frame 38 ms, no fence line, no skipped capture |
+| `chk-l35-v2opts` | version 2's launch option left in by mistake (`-PixelStreamingDecoupleFramerate`), lag's load | 29.7 (28.1), worst frame 56 ms, exit 0; the viewer counted 1,210 repeated pictures of 2,765, as LAUNCH.md warns |
+| `chk-long-l35` | six minutes of play under the lag's load | 319 s of play, 31,992 degrees turned: **29.8 frames a second (lowest second 28.3), worst frame 64 ms, none over 100 ms**; memory 3,871 MB five seconds in, 3,909 MB at the end, never over 3,984 MB; the card's counter level; exit 0 after 408 s |
+| `chk-hold-l35` | Hold the Block, chosen with the mouse on the home screen, a minute of quarter turns and bursts under the lag's load | the mode chip took the click ("HOLD THE BLOCK · Wave 1"); 29.8 frames a second (lowest second 27.6), worst frame 41 ms; **the wave killed the player after 23 s** and the "LIGHTS OUT" card came through the stream whole and sharp (time on the block 0:23, RUN IT BACK, CHANGE SET-UP, BACK TO TITLE, "Up/Down choose · Enter select · or click"); no frame over 100 ms at the death or on the card |
+| `chk-dead` | Hold the Block on a free card, standing until the wave kills the player, three times | the "LIGHTS OUT" card was left three ways and each started a new run (the game's state went dead, intro, playing): **a mouse click on RUN IT BACK, Enter, and a controller's A** (`pad=1` from that press on) |
+| `chk-two` | **two copies of version 3a on the one card, each with its own viewer**: the load the lag was first reproduced with (version 2: frames of 7 s) | no freeze in either: one copy settled on 30 and drew 24.7 frames a second on average (lowest second 19.7), **worst frame 84 ms**; the other on 45, 36.9 on average (lowest 27.5), **worst frame 80 ms**; no frame over 100 ms, 2 frames owed at the most, no pacer time-out in the play, each game's memory level at 3.9 GB after one step when the view first turns, both stopped with exit code 0. Uneven (two games fight for one card, which E3DS does not do: one app a machine), but frames of a twelfth of a second where version 2 had frames of seven seconds |
+
+### 7. Input through the stream, and the sound
+
+The two proof scripts on the zip from the storage (cold, free card, the viewer there at once):
+
+- **Mouse and keyboard** (`chk-keys`, `proof-keys.txt`): one click hid the card; Home by mouse, Crew and Block by
+  Tab and Enter, Loadout and the briefing by mouse: state 0, 1, 2. W: `moveY=1.00` then `0.00`. 1,800 browser pixels
+  of mouse: the view turned **+216.58 degrees**, and the same back -216.58 (the web game's 0.0021 rad a pixel gives
+  216.578). Two clicks: magazine 30, 29, 28. P: paused; a click on Resume: playing again, the magazine still 28.
+  Meanwhile 59.9 frames a second, worst frame 33 ms.
+- **Controller only** (`chk-pad`, `proof-pad.txt`): the game answered the pad with id 0; the first press, marked as
+  a repeat, hid the card; Start five times reached the run (`pad=1`); left stick: `moveY=1.00`; right stick at the
+  rim for a second: **263.81 degrees**; trigger: magazine 30, 27, 25 and `fire` back to 0; Start paused, Start
+  resumed. 60.0 frames a second, worst frame 19 ms.
+- **The sound: there is none.** A copy of the viewer that measures the received sound (`chk/rtcaudio.py`; its
+  reading was checked first with a tone through the same Opus decoder) heard digital silence for a whole session
+  of the Shipping game, two emptied magazines included (runs `chkaudio`, `chkaudio2`): loudness 0 in every two
+  seconds, **every Opus packet 3 bytes**. The earlier checks counted the audio packets and called that sound.
+  **The cause is the package, not the stream**: the game plays its sounds from Sound Wave assets under
+  `/Game/Audio/` (`FMIAudioData::AssetPath`) and skips a sound whose asset is missing without a word; the gameplay
+  clone and the release copy hold the 291 WAV files under `Content/Audio` and **not one `.uasset`** (the import,
+  `tools/box/audio-import.sh`, was only ever run in the audio work's own clone `/project/ue/repo-audio`: 289 Sound
+  Waves there); the list of what is in the pak (`Manifest_UFSFiles_Linux.txt` in the zip) has **no entry under
+  `/Content/Audio/`**, in version 3a and in version 2's zip alike; the Development game of the zip, asked to log
+  it, says "no asset for Voice/Rule/inc_02.wav (tools/box/audio-import.sh)". The suite has said so in every run:
+  `MurderInc.Audio.Assets` passes with the warning "no audio assets imported yet", one of the "3 with audio
+  warnings". **So versions 1, 2 and 3a are silent on E3DS too**, whatever the speaker button does. The fix is no
+  game code: run `tools/box/audio-import.sh` in the gameplay clone, package again, check that the pak's list has
+  `/Content/Audio/` entries and that a viewer hears the gun (PREFLIGHT.md V3-14). Sound through the stream has
+  therefore never been tested at all: its cost in frames, its delay and its level are unknown.
+- Re-read from the entry below's own logs: `v3a-input` (double click 30 to 28 with `dbl=1` and `fire=0`; the size
+  request of 2560 x 1440 drawn at 1920 x 1080 with `mouseScale=0.6667`; what the first viewer held does nothing for
+  the next) and the three gate runs `v3a-free`, `v3a-l35`, `v3a-cpu6-l35dev` say what that entry says they say,
+  the one fence line of the last included.
+
+### 8. What this check found, and what stays unproven
+
+- **No sound** (section 7). The one finding that must be fixed before the game goes public. It is not a fault of
+  release A (versions 1 and 2 were as silent), and no reason to keep version 3a from the owner's test of the lag,
+  the mouse and the controller: LAUNCH.md now tells the owner to expect silence. PREFLIGHT.md V3-14 has the fix.
+- **The one fence line** of the script-started Development run on 6 CPUs (entry below, section 4) did not come
+  back: three repeats of that gate line here logged none (worst frames 35, 39 and 34 ms), and neither did the two
+  runs in which the Development game was played from the home screen. The entry below read it as a cold-start
+  artefact of the test script and not as the stall; this check agrees and adds that it is not there every time.
+  The gate's line "no fence time-out in a Story run" is met in every run of this check.
+- **Cold start, confirmed**: in every run the game's first frame takes 3.2 to 3.7 s (4.2 s on 6 CPUs) with nobody
+  connected, and the Crew screen costs one frame of 0.87 to 0.92 s; once, one frame of 105 ms on a later set-up
+  screen. Nothing of it in the play. Release B (PREFLIGHT V3-12).
+- **The stream's sender is not as even as the game.** On a free card it sent 55.8 of the game's 60 frames a second
+  with single seconds at 44 to 50 (the encoder's time for a frame: 8.5 ms on average). Under this check's outside
+  load the encoder is slowed too (10.5 to 14 ms on average, single seconds of 22 to 40 ms), and in `chk-l20` it sent
+  only 24 to 36 of 45 frames for six seconds of the fast turn while the game drew every one of its 45. That part is
+  the test's own load, which shares the card with the encoder as it does with the game; what E3DS's encoder does
+  when the game is the only load cannot be seen on the box. If the owner still sees turning stutter with version 3a,
+  the pause card's line tells: the game's number steady and the stream's low is this, not the stall.
+- **Graphics memory**: the card's counter stands at 6.1 to 6.8 GB through a Story run (one game alone, 1920 x 1080)
+  and touched 7.2 GB for 20 s in the controller run. A little over E3DS's "4 to 6 GB" advice; LAUNCH.md section 10
+  says so now.
+- **In the Development game's picture** during the fight sprint: the engine's red line that the texture pool is
+  over its budget (by 264 MB). The Shipping game does not draw it, but the condition is the same: textures come in
+  softer than they were made. PREFLIGHT V3-13 (release B) has the pool size.
+- **The mouse on the Game OS page**: with Browser Resolution Custom 1920 x 1080 the speed is exact when the picture
+  is shown 1920 wide; in a frame 1280 wide, which is what LAUNCH.md section 5's embed makes, the view turns one and
+  a half times as fast. LAUNCH.md 9.1 gives the launch option (`-MIMouseScale=0.333` for that frame).
+- **Unproven, as before**: E3DS itself (its card, its player page, its encoder settings), a real browser, a real
+  controller, a real connection, the delay between hand and picture, a whole Story run to the truck, the Dead and
+  Debrief cards, Browser Resolution Dynamic. E3DS's documentation says its idle log-out watches "mouse, keyboard or
+  touch"; PREFLIGHT read in its player script that gamepad input counts too: a controller-only player should check
+  that the countdown does not appear after three minutes.
+
+### 9. The commits since `0f99e0e`
+
+79 commits before this check's own, all by the same author line; no change under `src/`; no binary file; the
+only web addresses are E3DS's public documentation and host names and the session line of the commit trailers; no
+email address but the trailer's; no storage link, no key, no account or user name, no person's name in any added
+line or message (the starring name on the title screen is the game's own billing, in the repository since its first
+commit and in none of these).
+
+### 10. Changed by this check
+
+- `docs/LAUNCH.md`: that version 3a is silent and why (top of the page, sections 4, 7, 9.2, 9.4); E3DS's names and
+  facts where the page still had the first upload's guesses (Platform "Linux"; 12 to 16 GB; "Print UE log in
+  browser console" and the crash email; closing the tab ends the session; the Core plan renews by itself and added
+  minutes recur); version 3a's graphics memory.
+- `docs/unreal/PREFLIGHT.md`: V3-14 (the package has no sound). `docs/unreal/DECISIONS.md`, `docs/unreal/RESUME.md`
+  section 9, `docs/unreal/AUDIO.md`: the same, where each is read. `docs/unreal/BOX.md`: the pitfalls this check met.
+- `tools/box/cloud/lag-stops.txt`: the viewer with dead stops. `tools/box/cloud/lag_sum.py`: a run of version 2's
+  zip is counted. No game code, nothing under `src/`.
+- On the box only (`/project/ue/cloud/chk/`): `first-run.sh` (a session the way E3DS starts one), `two.sh` (two
+  games at once), `chk_probe.py` (the raw probe lines read without `lag_sum.py`), `rtcaudio.py` (the viewer that
+  measures the sound), the viewer scripts of the fight, Hold the Block, Dead card, long and sound runs, and every
+  run's folder under `chk/lag/`. In the owner's storage, to delete: three small tars of received frames
+  (`mi-chk-frames-1.tar` to `-3.tar`) and three used-up address files (`mi-chk-stage-1.txt` to `-3.txt`).
+
 ## Version 3a: packaged, gated and delivered (release engineer, 2026-11-25, 06:25 to 07:55 UTC)
 
 Release A of version 3 (the three entries below: play through the stream, the lag, the review's findings) is
