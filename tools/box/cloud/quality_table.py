@@ -21,6 +21,7 @@ so that each variant can be LOOKED at as the stream delivers it. The game's own 
 How the runs are started (tools/box/cloud/lag-test.sh, the Development game of a test folder, E3DS's own shader platform):
   lag-test.sh run q-street game=dev demo=<dir>/play.txt view=<dir>/view.txt join=3 probe=0.2 secs=<n> profile=1 -- -sm5 -MIFps=60
 """
+import collections
 import datetime
 import json
 import os
@@ -277,6 +278,77 @@ def gen_steps(out, nsteps, scenes):
     print('%d steps walked up and down in %d scene(s): about %.0f s' % (nsteps, len(scenes), total))
 
 
+# What sets the lighting level's hitch: the variables of sg.GlobalIlluminationQuality 3 -> 1 (BaseScalability.ini), one group at a time,
+# each set and put back REPS times (a change in play is one of these, in either direction).
+HITCH = [
+    ('gi group 1', [('sg.GlobalIlluminationQuality', '1', '3')]),
+    ('gi atlas 2048', [('r.LumenScene.SurfaceCache.AtlasSize', '2048', '4096')]),
+    ('gi cards', [('r.LumenScene.SurfaceCache.CardTexelDensityScale', '50', '100'), ('r.LumenScene.SurfaceCache.CardMaxResolution', '256', '512'),
+                  ('r.LumenScene.SurfaceCache.CardClipSphereCulling.Radius', '2500', '0')]),
+    ('gi final gather 0', [('r.Lumen.FinalGatherMethod', '0', '1')]),
+    ('gi AO 1', [('r.AOQuality', '1', '2')]),
+    ('gi surface light', [('r.LumenScene.DirectLighting.UpdateFactor', '128', '32'), ('r.LumenScene.Radiosity.UpdateFactor', '128', '64'),
+                          ('r.LumenScene.DirectLighting.MaxLightsPerTile', '4', '8')]),
+    ('shadow group 1', [('sg.ShadowQuality', '1', '3')]),
+    ('shadow csm 3 + radius', [('r.Shadow.CSM.MaxCascades', '3', '10'), ('r.Shadow.RadiusThreshold', '0.06', '0.01')]),
+    ('clouds off', [('r.VolumetricCloud', '0', '1')]),
+    ('radiosity off', [('r.LumenScene.Radiosity', '0', '1')]),
+    ('lumen reflections off', [('r.Lumen.Reflections.Allow', '0', '1')]),
+]
+
+
+def gen_hitch(out, reps, scenes):
+    os.makedirs(out, exist_ok=True)
+    lines = ['wait 4', 'con MIStart mission skip', 'waitstate playing 40', 'god 1',
+             'con r.DynamicRes.OperationMode 0', 'con r.ScreenPercentage 50', 'con MI.Cloud.QualityStep 0', 'wait 6']
+    labels = {}
+
+    def put(text, role=None, scene=None, variant=None):
+        lines.append(text)
+        if role:
+            labels[len(lines)] = [role, scene, variant]
+
+    for scene in scenes:
+        for ln in SCENES[scene]:
+            put(ln)
+        put('wait 3')
+        for label, cv in HITCH:
+            for r in range(reps):
+                for c, v, _b in cv:
+                    put('con %s %s' % (c, v), 'set', scene, label)
+                put('wait 3')
+                for c, _v, b in cv:
+                    put('con %s %s' % (c, b), 'restore', scene, label)
+                put('wait 3')
+    put('wait 1')
+    put('quit')
+    open(os.path.join(out, 'play.txt'), 'w').write('\n'.join(lines) + '\n')
+    json.dump({'labels': labels, 'variants': {}, 'baseline': {}}, open(os.path.join(out, 'labels.json'), 'w'), indent=1)
+    view = ['wait 3', 'click', 'wait 20']
+    print('%d variants x %d reps x %d scene(s)' % (len(HITCH), reps, len(scenes)))
+    open(os.path.join(out, 'view.txt'), 'w').write('\n'.join(view) + '\n')
+
+
+def sum_hitch(d):
+    L = json.load(open(os.path.join(d, 'labels.json')))
+    labels = {int(k): v for k, v in L['labels'].items()}
+    P, M = probes(os.path.join(d, 'game.log')), markers(os.path.join(d, 'game.log'))
+    byline = {}
+    for t, ln, txt in M:
+        byline.setdefault(ln, t)
+    res = collections.OrderedDict()
+    for ln in sorted(labels):
+        role, scene, var = labels[ln]
+        t0 = byline.get(ln)
+        if t0 is None:
+            continue
+        ps = [p for p in P if t0 <= p[0] < t0 + HITCH_WINDOW]
+        res.setdefault((scene, var), {'set': [], 'restore': []})[role].append(max([p[2] for p in ps] or [0.0]))
+    print('%-8s %-26s %-32s %s' % ('scene', 'variant', 'set (ms, each repeat)', 'put back (ms, each repeat)'))
+    for (scene, var), r in res.items():
+        print('%-8s %-26s %-32s %s' % (scene, var, ' '.join('%4.0f' % x for x in r['set']), ' '.join('%4.0f' % x for x in r['restore'])))
+
+
 def probes(log):
     out = []
     for line in open(log, errors='replace'):
@@ -424,6 +496,11 @@ def main(a):
     elif c == 'gen':
         kv = dict(x.split('=', 1) for x in a[3:] if '=' in x)
         gen(a[1], a[2], kv.get('scenes', 'street,garage').split(','), set(kv['only'].split(',')) if 'only' in kv else None)
+    elif c == 'gen-hitch':
+        kv = dict(x.split('=', 1) for x in a[2:] if '=' in x)
+        gen_hitch(a[1], int(kv.get('reps', 4)), kv.get('scenes', 'street,garage').split(','))
+    elif c == 'sum-hitch':
+        sum_hitch(a[1])
     elif c == 'gen-steps':
         kv = dict(x.split('=', 1) for x in a[3:] if '=' in x)
         gen_steps(a[1], int(a[2]), kv.get('scenes', 'street,garage').split(','))
