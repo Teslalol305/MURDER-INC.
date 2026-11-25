@@ -112,6 +112,13 @@ Paste this where the game should appear (replace the `src` with your share link)
 - [ ] Steps 4 and 5 work on the Game OS page itself, in Chrome and Edge, on a normal home connection.
 - [ ] A full run plays: Gear Up, a Story run to the IPX truck, and a few waves of Hold the Block.
 - [ ] Sound plays after the first click; a gamepad works (Xbox or PlayStation pad, in Chrome).
+- [ ] A controller alone (from version 3): plug in an Xbox or PlayStation pad, press a button on it so the browser
+      sees it, and go from the CLICK TO PLAY card through the set-up screens into a run and back without touching
+      the mouse or keyboard: any button hides the card, the D-pad or left stick moves, A (Cross) accepts, B (Circle)
+      goes back, Start (Options) is Next, Hit the block and Pause. The game shows the Xbox names of the buttons until
+      the player picks **Controller buttons: PlayStation** on the Settings card (pause, Settings); it cannot tell
+      which pad it is through a stream. Sound still needs one click on the page (the browser's rule), or E3DS's
+      speaker button.
 - [ ] The picture stays smooth for 10 minutes (no "Out of video memory" stop): the cloud settings are made for this
       (section 10).
 - [ ] Max session time and idle logout are set (section 3), so minutes are not wasted.
@@ -122,6 +129,10 @@ Paste this where the game should appear (replace the `src` with your share link)
       rebuild: put **`-MIMouseScale=<number>`** in the configuration's launch options (section 13). 0.5 is the built-in
       value; for a fixed 1920 x 1080 picture shown 1280 wide in the page use 0.333 (the rule: shown width divided by
       twice the rendered width). Players can also change **Sensitivity** on the game's Settings card.
+- [ ] Console commands (from version 3): the game runs a console command that arrives through the stream only when
+      it is one of the stream's own settings (it starts with `PixelStreaming2.` or `PixelStreaming.`); anything else
+      is refused. So E3DS's field "Unreal console commands to run at start" and its player's console take only those.
+      Game settings go in the launch options instead (section 13).
 
 ## 8. If E3DS rejects the build or it never starts
 

@@ -187,7 +187,8 @@ to `UMIGameSubsystem::MenuClick` with the viewport's cursor position: a button r
 row goes one value back on its left half and one forward on its right (`FMIMenuLayout::HitTest`; the gaps between rows
 hit nothing). The cursor selects the row it moves over (`MenuHover`); a cursor that merely rests where a card opens
 selects nothing, so Enter still takes the card's first item. One hint line under the items names the keys for the
-device in use ("Up/Down choose · Enter select · Left/Right change · or click"; on a pad "D-pad choose · A select").
+device in use ("Up/Down choose · Enter select · Left/Right change · or click"; on a pad "D-pad or stick choose ·
+A select").
 
 **Nothing pressed on a card carries into play** (spec 01 3.16): Enter and the left mouse button are also fire, Space
 and the pad's A also jump. `AMIPlayerController::DropMenuPresses` clears what such a press set and ignores fresh
@@ -204,6 +205,28 @@ L3 latches the sprint until the stick eases off forward. The device that produce
 use (a key or mouse button, 4 counts of mouse travel in one frame, a pad button, a stick beyond its dead zone):
 `FMIPlayerInputState::bPad` follows it, which is what switches the weapon rules' aim slow-down on (x 0.55 over an
 enemy, right stick only).
+
+**What the controls are called** follows the device in use: `UMIGameSubsystem::ControlName` reads text.json
+`input.glyphs` (grab is E on the keyboard and X on a controller, melee F and RB, pause Start), the weapon bar's
+fire-mode key cap and melee slot, the grab prompt (`FMIGameRules::InteractGlyph`), the cards' hint line and the
+stream's "... to resume" line use it. The data's controller names are the Xbox ones. The Settings card's row
+**Controller buttons** (Xbox / PlayStation; saved with the other settings) turns them into the names printed on a
+PlayStation pad wherever they are drawn, the set-up screens included (`MILook::PadName`: Cross, Circle, Square,
+Triangle, L1, R1, L2, R2, Options, Create). It is a setting because a streamed game cannot ask which pad the player
+holds: Pixel Streaming sends buttons and axes, not the pad's name. It matters most for the web game's "X": on a
+PlayStation pad the button in that place is Square, and the button marked with a cross is the one that jumps.
+
+**A controller in a stream** (`UMICloudSubsystem::OnKeyDown`, `TickStickMenu`; found by playing through a stream
+on the box): Pixel Streaming's browser player sends every held button again on each frame, marked as a repeat, and
+sends a stick as axes only. So in a stream (a) a gamepad button's repeats, and a second press of a button that never
+went up, stop at the Slate input pre-processor: before, one tap of A on a set-up screen acted about six times, and
+the Start that began a run paused it at once (the game takes a repeat of a key it never saw go down for a press);
+(b) while a card or a set-up screen is up, the left stick presses the keys a desktop pad's stick presses
+(`Gamepad_LeftStick_Up` and the like, which the cards and the set-up screens already answer to), with the web
+game's timing (`FMIPadNav`: beyond 0.6, up and down repeat after 0.38 s and then every 0.17 s, left and right act
+once per push). A pad attached to the machine itself is left alone (the platform makes those keys). Linux needs an
+input device mapping policy in DefaultInput.ini (`input.DeviceMappingPolicy=3`: every pad belongs to the one
+player); without it the engine raises an ensure when the first pad connects.
 
 **The mouse in a stream** (`Cloud/MICloud.h`, `FMIStreamMouse`): Pixel Streaming hands the game 2 counts per browser
 pixel when the game renders at the size the player shows it, less one count per event and axis (the browser and the
