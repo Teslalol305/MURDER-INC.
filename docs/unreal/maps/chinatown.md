@@ -22,7 +22,7 @@ They are design numbers. The real generator must recompute them from the final c
 | Setting | Jamaica Ave under the El, Hollis, Queens, 4:15 PM, day | Canal St and Mott St, Chinatown, Manhattan, 7:40 PM, night, the street still wet after rain |
 | Bounds (web) | x -46..46, z -34..34 (92 x 68 m, 6,256 m²) | **x -44..44, z -34..32 (88 x 66 m, 5,808 m²)** |
 | Nav grid | 184 x 136 cells, 9,052 free | 176 x 132 cells, about 11,170 free (prototype) |
-| Feel | Open avenue, one big shop, an open lot | Packed and close-quarters: one wide street, a narrow street, two alleys, a covered market, three walk-in interiors, one low roof |
+| Feel | Open avenue, one big shop, an open lot | Packed and close-quarters: one wide street, a narrow street, two alleys, four walk-in interiors (the market, the bakery, the arcade, the banquet hall with the dub room), one low roof |
 | Objectives | Reel 1 The Avenue, Reel 2 Chop Shop, Reel 3 The Cage | **Reel 4 The Tables, Reel 5 The Market, Reel 6 The Dub Room** |
 | Extraction | IPX truck at the south end of the lot | IPX truck idling at the east end of Canal St |
 | Critical path (A* on nav) | 39.0 + 25.0 + 65.8 + 63.9 = **193.7 m** | 34.5 + 27.4 + 59.6 + 60.2 = **181.7 m** |
