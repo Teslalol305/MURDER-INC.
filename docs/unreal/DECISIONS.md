@@ -359,3 +359,54 @@ State: the browser has been waiting on the sign-in page since 02:25 UTC; the own
 (`deskctl idle`: no human input since the box started). Version 3a was finished at 06:36 UTC and checked at about
 09:20 UTC; the check found that no package so far has sound, and version 3b (3a plus sound,
 `tools/workflows/mi-v3b-sound-wf_314f60ad-a65.js`) was started at 09:33 UTC.
+
+**What E3DS's machines really are, measured from the box's browser (2026-11-25, 11:00 to 11:30 UTC).** The owner signed
+in to E3DS's control panel in the box's desktop browser (`tools/box/cloud/owner-browser.sh`); version 3a was uploaded
+from the box's disk (24 s up, E3DS's test launch 76 s, everything on the streaming machines 4 min 40 s) and three stream
+sessions were opened from that browser with the stream configuration's "Show the Unreal log in the browser console" on:
+the game's own lines (launcher, `[MICloud]`, probe) arrive in the page's console, which the browser writes to its log.
+1. **The machine.** NVIDIA RTX A4000 (GA104GL), driver 550.90.07, 16 GB; AMD EPYC 7402P, 8 usable threads; 20 GB of memory;
+   9 to 12 GB of disk free; Ubuntu 22.04.4, kernel 6.5; no display; the streamer in the United States (Region: Global).
+   It is **not** the RTX 4080 or 5070 of E3DS's own hardware page. The card is about a quarter of the test box's in
+   speed.
+2. **SM5, not SM6.** This driver fails Unreal 5.9's Vulkan SM6 check, so the game runs its SM5 shaders there: no Nanite,
+   Lumen in software. (Version 2 did the same: what the owner saw is this look.)
+3. **What E3DS starts the game with** (Medium quality, Custom 1920 x 1080): `-PixelStreamingEncoderCodec=H264 -AudioMixer
+   -AllowPixelStreamingCommands -PixelStreamingURL=ws://127.0.0.1:3000 -PixelStreamingWebRTCMinBitrate=100000
+   -PixelStreamingWebRTCMaxBitrate=20000000 -PixelStreamingEncoderMinQP=34 -PixelStreamingEncoderMaxQP=34 -Windowed
+   -ForceRes -ResX=1920 -ResY=1080 -PixelStreamingID=...`, and `-PixelStreamingEncoderMaxQP=31` once more at the end.
+   So "Medium" is a **constant quantiser of 34** (the picture's quality is fixed and the bitrate follows the motion, up
+   to 20 Mbit/s: fast turns make big frames); E3DS's own page prints "Picture compression: 34 (good)". The signalling
+   server is at port 3000 of the machine in every session: one session per machine.
+4. **Menus, a free card, 1920 x 1080:** 60 frames a second, 11 ms of GPU time at 75 % render scale, encoder 4 ms, 0.15
+   Mbit/s; E3DS's info panel: 60 fps, response delay 91 ms from the test box (in Europe) to the US machine.
+5. **A session takes about two minutes to start** the first time (queue, "Acquiring App", "Preparing App", the game's
+   own start); the next one on the same machine started in 34 s.
+6. **THE FINDING: E3DS does not stop the game of a session that has ended.** The launcher's "GPU processes" line of the
+   second session listed the first session's game (pid, same program, 3,405 MiB) still holding the card, 61 s after that
+   session ended; the third session's listed two (6,732 MiB in all), and the first one was still there 4 minutes after its
+   session ended. Each leftover game goes on drawing the menu at full speed, so the card is shared: the second session
+   measured **gpuMs 33 to 37 at the smallest picture (render scale 0.50) and 27 frames a second** (first session: 11 ms
+   at 0.75, 60 frames), the third **gpuMs 52 to 57 and 18 frames a second**. The pacer of version 3a held the game
+   steady (frames of 40 and 62 ms, owed 2) but the picture was slow. **This is very probably most of what the owner
+   met on E3DS**: a test session started within minutes of the last one lands on the same machine with the last game
+   still on the card; version 2 had no pacer, so every such overload became a freeze. (The two mechanisms add up:
+   the unpaced pile of frames explains why a turn stalled, the leftovers explain why it was slow at all.)
+7. **Why the leftover survives** (read in the launcher): it passed a stop signal on to the game only after waiting 5 s
+   for the game to end by itself; a host that stops just the launcher and kills it a moment later leaves the game
+   running with nothing to stop it. What E3DS really sends is not known: the fix does not depend on it.
+8. **The fix, in the launcher (commit 2322f3c; tested with a fake game, then on the box):** a stop signal goes on to the game
+   at once (KILL 8 s later if needed: the game stops with a signal 0.35 s after the launcher's); a watchdog stops the game
+   if the launcher is killed (4.5 s in the test); and before it starts, the launcher stops every other game of the package
+   on the machine (all of them on an E3DS machine, whose folder is `.../0.apps/<account>/<app>/<version>`; elsewhere only
+   those whose launcher is gone; `-MIKeepOthers`, `-MIReapOthers`). It prints each one it finds (pid, parent, age, memory)
+   and the card's memory before and after, so the next session's log shows what E3DS leaves behind. **Still to do in the
+   game (release 3c):** the game itself should stop drawing when no viewer is connected and quit a little after the last
+   one left (E3DS's own documentation says an ended session "frees the machine"; it does not stop the app), and the quality
+   steps of PREFLIGHT V3-2 matter more than thought: a card this slow, shared or not, has little room.
+9. **Stream settings now** (set from the box's browser): Browser Resolution Custom 1920 x 1080, Video Quality Medium,
+   "Show the Unreal log in the browser console" on, launch option `-MICloudProbe=1` (a log line every second: for the
+   tests only), crash-log email on (the owner's own), session limit 15 minutes, idle log-out as before, password
+   **off** (the owner chooses a password themselves: nothing here types one), mouse Locked.
+10. **E3DS's storage is 10 GB:** versions 1 (2.2 GB), 2 (2.1) and 3 (2.1) fill 6.4; one more build fits (3.6 GB free),
+    the next does not: older versions have to be deleted (the owner's decision).
