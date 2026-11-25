@@ -22,6 +22,8 @@
 #include "Misc/AutomationTest.h"
 #include "Tests/MITestUtil.h"
 
+#include <limits>
+
 #if PLATFORM_LINUX
 #include <csignal>
 #include <unistd.h>
@@ -144,9 +146,9 @@ bool FMICloudSessionDecisionTest::RunTest(const FString& Parameters)
 	// Numbers from a link or a console: a number that is not one, or is under its floor, is the default or its floor.
 	{
 		FMISession::FOptions B = O;
-		B.IdleAfter = TNumericLimits<double>::QuietNaN();
+		B.IdleAfter = std::numeric_limits<double>::quiet_NaN();
 		B.ExitAfterEmpty = -5.0;
-		B.ExitIfNoViewer = TNumericLimits<double>::Infinity();
+		B.ExitIfNoViewer = std::numeric_limits<double>::infinity();
 		B.IdleFps = 5000;
 		B.LauncherGoneAfter = 0.1;
 		const FMISession::FOptions S = FMISession::Sanitize(B);
@@ -465,8 +467,8 @@ bool FMICloudRoundTripTest::RunTest(const FString& Parameters)
 	// What the sender reports before it has measured anything, and what is not a time.
 	R.Add(0.0, 1.0);
 	R.Add(-0.01, 1.0);
-	R.Add(TNumericLimits<double>::QuietNaN(), 1.0);
-	R.Add(TNumericLimits<double>::Infinity(), 1.0);
+	R.Add(std::numeric_limits<double>::quiet_NaN(), 1.0);
+	R.Add(std::numeric_limits<double>::infinity(), 1.0);
 	R.Add(61.0, 1.0);
 	TestFalse(TEXT("0, negative, not a number, infinite, over a minute: not measurements"), R.IsKnown());
 	TestEqual(TEXT("five reports ignored, counted"), R.GetIgnored(), 5);
