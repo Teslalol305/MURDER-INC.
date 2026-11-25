@@ -3,6 +3,14 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Weapons round 4: the art hand-off page and the archive (finisher, 2026-11-25, 15:40 to 16:00 UTC)
+
+`docs/unreal/WEAPONS_R4.md` is the one page for the box engineer (every asset with triangles, sets, bones and sockets; the roster of six; the parts kit and its fit table;
+the data as it stands; the import checklist; the first-person arm notes; what is not done; the weaknesses). Every family was re-exported from the committed code in a fresh process
+(31 GLBs byte-identical to the previous exports) and all proofs pass: `_weapons_check.py` (CHOPPER and NINE ALL FIXED POINTS KEPT), the SHORTY, STRETCH and RATTLER checks, `_weapons_check_parts.py`
+(ALL MOUNTS KEPT) and `_weapons_r4_contract.py` (CONTRACT KEPT). Archive: `art/out/fp-guns-r4.tar` (git-ignored), 300,011,520 bytes, sha256
+`6a521cf3653be7ebc98f976f7ee17a69442f00ae92b3fed191453a7dedbd5741`, the three `fp-weapons-r4-*.tar` merged in one tar with the same layout. Nothing was run in Unreal.
+
 ## Weapons round 4: the review fixes of the art (fixer, 2026-11-25, 15:00 to 16:30 UTC): what the integration engineer must know
 
 Details, evidence and what was rejected: `art/blender/PROGRESS.md`, section "Weapons round 4: the review fixes". Verified in Blender only (re-import proofs,
