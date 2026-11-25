@@ -85,12 +85,24 @@ for run in runs:
 
     targets = sorted({int(num(p, 'target', 0)) for p in play if num(p, 'target', 0)}, reverse=True)
     drs = [num(p, 'dr') for p in play if num(p, 'dr', -1) > 0]
+    # The first seconds of a run apart from the rest: on a machine that never ran the game (a fresh user, a fresh copy
+    # of the zip: lag-test.sh runas=fresh clean=1) the first sight of every material compiles its pipelines, and those
+    # frames are long whatever the GPU's load is. "Once the run is under way" is everything after them.
+    period = num(info, 'probe', 1.0) or 1.0
+    head = max(1, round(5.0 / period))
+    early, late = play[:head], play[head:]
+    worst_split = ''
+    if late:
+        worst_split = (f" (first 5 s of the run {f(max([num(p, 'worstMs') for p in early], default=float('nan')), 0)} ms,"
+                       f" after them {f(max([num(p, 'worstMs') for p in late], default=float('nan')), 0)} ms)")
     parts = [
         f"{name} {'dev' if dev else 'ship'} {commit.group(1) if commit else '?'} load={info.get('load', '0')} sp={info.get('sp', '-')}"
-        + (f" cpus={info['cpus']}" if info.get('cpus', 'all') not in ('all', '') else ''),
-        f"play {len(play)} s: fps {f(avg([num(p, 'fps') for p in play]))} (min {f(min([num(p, 'fps') for p in play], default=float('nan')))}), "
-        f"worst frame {f(max([num(p, 'worstMs') for p in play], default=float('nan')), 0)} ms",
-        f"turning {len(turn)} s: fps {f(avg([num(p, 'fps') for p in turn]))}, worst {f(max([num(p, 'worstMs') for p in turn], default=float('nan')), 0)} ms"
+        + (f" cpus={info['cpus']}" if info.get('cpus', 'all') not in ('all', '') else '')
+        + (f" user={info['runas']}" if info.get('runas', 'ue4') not in ('ue4', '') else '')
+        + (' fresh-copy' if info.get('clean') == '1' else ''),
+        f"play {len(play) * period:.0f} s: fps {f(avg([num(p, 'fps') for p in play]))} (min {f(min([num(p, 'fps') for p in play], default=float('nan')))}), "
+        f"worst frame {f(max([num(p, 'worstMs') for p in play], default=float('nan')), 0)} ms" + worst_split,
+        f"turning {len(turn) * period:.0f} s: fps {f(avg([num(p, 'fps') for p in turn]))}, worst {f(max([num(p, 'worstMs') for p in turn], default=float('nan')), 0)} ms"
         f"; still: worst {f(max([num(p, 'worstMs') for p in still], default=float('nan')), 0)} ms",
         f"gpu {f(avg([num(p, 'gpuMs') for p in play]))} ms (max {f(max([num(p, 'gpuMs') for p in play], default=float('nan')))})",
     ]
@@ -103,6 +115,12 @@ for run in runs:
     if any('pacerTimeOuts' in p for p in probes):
         parts.append(f"whole run: pacer time-outs {f(sum(num(p, 'pacerTimeOuts', 0) for p in probes), 0)}, longest wait {f(max([num(p, 'worstWaitMs', 0) for p in probes], default=0), 0)} ms")
     parts.append(f"fence time-outs {fence}, skipped captures {skipped}" if dev else 'capture log n/a (Shipping)')
+    # Memory: the pile of unfinished frames that was the lag kept about 11 MB a frame (3.3 GB became 14.5 GB in 40 s).
+    # Flat means the same at the end of the play as five seconds into it, give or take what a run loads on the way.
+    rss = [v for v in (num(p, 'rssMB') for p in play) if v is not None]
+    if rss:
+        start = rss[min(head, len(rss) - 1)]
+        parts.append(f"memory {start:.0f} MB five seconds into the play, {rss[-1]:.0f} MB at its end ({rss[-1] - start:+.0f}), highest {max(rss):.0f} MB")
     if any('txFps' in p for p in play):
         sent = [p for p in play if 'txFps' in p]
 

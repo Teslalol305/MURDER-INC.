@@ -50,6 +50,13 @@
 #                     fewer task workers (8 hyper-threaded CPUs or fewer; 7 or fewer on this box, which shows no
 #                     hyper-threads) Unreal's Vulkan RHI runs without its interrupt and submission threads. The load
 #                     and the viewer keep all CPUs. Default: all.
+#   runas=ue4|fresh|root   who starts the launcher (e3ds-repro.sh RUNAS): fresh is a user with a new, empty home for
+#                     every run, as on a host that starts each session on a machine that never ran the game. Default
+#                     ue4, or $LAG_RUNAS.
+#   clean=1           the build folder's Saved (settings, logs, shader and pipeline caches of earlier runs) is removed
+#                     before the run: a fresh copy of the zip, which is what a host unpacks for a session. Default 0,
+#                     or $LAG_CLEAN. The release gate on a package is run with both: unzip the zip as the user
+#                     e3dsfresh, then LAG_BUILD=<that folder> LAG_RUNAS=fresh LAG_CLEAN=1 lag-test.sh queue lag-gate.txt
 # Anything after -- goes to the game as it is (for example -PixelStreamingDecoupleFramerate).
 #
 # One game at a time: a run waits (up to 10 minutes) until no other MURDER INC. game runs on the box, and a watcher
@@ -96,6 +103,7 @@ hogs() {  # <n>[:<work ms>[:<idle ms>[:<size>]]] <pid file> <log prefix> | stop 
 run_fg() {
   local name=$1; shift
   local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= view2= cvars= csv= secs= probe=1 minbit=12000000 profile= cpus= decode=1 extra=()
+  local runas=${LAG_RUNAS:-ue4} clean=${LAG_CLEAN:-0}
   while [ $# -gt 0 ]; do
     case "$1" in
       --) shift; extra=("$@"); break ;;
@@ -103,6 +111,7 @@ run_fg() {
       res=*) res=${1#*=} ;; view=*) view=${1#*=} ;; cvars=*) cvars=${1#*=} ;; csv=*) csv=${1#*=} ;;
       secs=*) secs=${1#*=} ;; probe=*) probe=${1#*=} ;; minbit=*) minbit=${1#*=} ;; profile=*) profile=${1#*=} ;;
       cpus=*) cpus=${1#*=} ;; decode=*) decode=${1#*=} ;; view2=*) view2=${1#*=} ;;
+      runas=*) runas=${1#*=} ;; clean=*) clean=${1#*=} ;;
       *) echo "unknown key $1"; return 2 ;;
     esac; shift
   done
@@ -113,6 +122,8 @@ run_fg() {
     *) if [ -f "$T/$view" ]; then view=$T/$view; else view=$(readlink -f "$view"); fi ;;
   esac
   case "$view2" in ''|/*) ;; *) if [ -f "$T/$view2" ]; then view2=$T/$view2; else view2=$(readlink -f "$view2"); fi ;; esac
+  # A fresh copy of the zip: nothing an earlier run left (the launcher makes Saved again, as the game's user).
+  [ "$clean" = 1 ] && rm -rf "$build/MurderInc/Saved"
   if [ "$profile" = 1 ]; then
     # A folder whose pak is older than the branch: version 3's additions to the cloud profile ([MICloud] of
     # DefaultGame.ini: dynamic resolution, the game's pacing, Pixel Streaming's settings) as -MICVars, this run's own
@@ -129,8 +140,8 @@ run_fg() {
   [ -n "$secs" ] || { secs=110; [ "$game" = ship ] && secs=125; }
   local id=lag$(echo "$name" | tr -cd 'a-zA-Z0-9')
   rm -rf "$O"; mkdir -p "$O"; chmod 777 "$O"
-  printf 'name=%s\ngame=%s\nbuild=%s\nload=%s\nsp=%s\nres=%s\nview=%s\ncvars=%s\ncsv=%s\nsecs=%s\nminbit=%s\ncpus=%s\nid=%s\nextra=%s\nstarted=%s\n' \
-    "$name" "$game" "$build" "$load" "$sp" "$res" "$view" "$cvars" "$csv" "$secs" "$minbit" "${cpus:-all}" "$id" "${extra[*]}" "$(date -u +%FT%TZ)" > "$O/info.txt"
+  printf 'name=%s\ngame=%s\nbuild=%s\nload=%s\nsp=%s\nres=%s\nview=%s\ncvars=%s\ncsv=%s\nsecs=%s\nminbit=%s\ncpus=%s\nid=%s\nextra=%s\nstarted=%s\nrunas=%s\nclean=%s\nprobe=%s\n' \
+    "$name" "$game" "$build" "$load" "$sp" "$res" "$view" "$cvars" "$csv" "$secs" "$minbit" "${cpus:-all}" "$id" "${extra[*]}" "$(date -u +%FT%TZ)" "$runas" "$clean" "$probe" > "$O/info.txt"
   venv || { echo "FAILED: no Python with aiortc" > "$O/done"; return 1; }
   # One game at a time.
   local i
@@ -168,7 +179,7 @@ run_fg() {
       echo "$(date -u +%T) others=$(games "$id") util=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ') mem=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ')"
       sleep 1
     done > "$O/others.log" 2>&1 ) &
-  (cd "$T" && RUNAS=ue4 NODISPLAY=1 STOPSIG=TERM STOPTO=launcher STDOUT=0 CPUS="$cpus" BUILD="$build" bash e3ds-repro.sh run "lag-$name" "$secs" "${args[@]}" "${extra[@]}") >> "$O/info.txt" 2>&1
+  (cd "$T" && RUNAS="$runas" NODISPLAY=1 STOPSIG=TERM STOPTO=launcher STDOUT=0 CPUS="$cpus" BUILD="$build" bash e3ds-repro.sh run "lag-$name" "$secs" "${args[@]}" "${extra[@]}") >> "$O/info.txt" 2>&1
   local R=$C/repro/lag-$name
   # The viewer joins when the game streams: in a run already (dev), or on its home screen (ship).
   local want='state=2'; [ "$game" = ship ] && want='MICloudProbe'
