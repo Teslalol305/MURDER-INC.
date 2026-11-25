@@ -3,6 +3,28 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Weapons round 4: the solved grips of the CHOPPER, SHORTY, STRETCH and RATTLER (grips helper, 2026-11-25, 14:28 to 15:45 UTC)
+
+`Content/Data/grips.json` now holds five guns: the NINE (hip, unchanged: re-solved with `_rule_grips.py nine --check`, max difference
+0.000 cm over every point) and the CHOPPER, SHORTY, STRETCH and RATTLER (hip and aim), written by `art/blender/assets/_rule_grips.py
+chopper shorty stretch rattler --pose hip,aim --pictures` on the exported files: Palm_R / Palm_L from each file, the hip view from the data
+(config.json, or guns.json rules.views for the new guns), the aimed view from guns.json relief and the file's SightRear; the support palm up
+under the handguard or forend, fingers up its right face, as on the CHOPPER. New for these four (`_characters_pose.py`; the NINE's search
+is untouched): the trigger index may straighten (first joint from -30 deg) and swing in the plane of the palm, a point inside the gun counts
+as negative clearance, the thumb grid is wider. Checked in Blender, **not yet in Unreal**: pictures `art/previews/grips_<gun>_hip.jpg` (and
+`grips_chopper_aim.jpg`, `grips_rattler_aim.jpg`; the aimed SHORTY and STRETCH show only the stock and sights) plus close-ups from the
+right, from below and under the support hand; at the hip the index pad sits 0.8 mm (CHOPPER), 2.6 (SHORTY), 7.0 (STRETCH) and 20.6 mm
+(RATTLER) from the trigger's face, the firing thumb round the grip's left side within 13 to 16 mm of its aim, every phalanx clear or at most
+2.7 mm pressed. The four rifle anim sets of `presentation.json` get the NINE's key, `"grip": {"gun": ..., "pose": "hip", "weight": 1.0}`
+(its own commit). **To tune in play**: with a grip the set's `shoulders` anchor takes over, and all four carry the NINE's [-6, 0, -24],
+where the support wrist ends about 58 to 63 cm from its shoulder (estimated; the arm reaches about 55); the solves put the shoulders
+(camera space, cm) at CHOPPER [-8.5, 1.1, -12.4], STRETCH [-6.5, 1.1, -12.4], RATTLER [-2.5, 1.1, -12.4] (try them with
+`mi.FP.Shoulders`). The SHORTY's hip view
+is the CHOPPER's numbers on a gun whose origin is its butt pad: its forend sits 70 cm out (support wrist 77 cm from the anchor; the solve
+needed its shoulders at [11.5, 1.1, -16.4], ahead of the eye), so its view wants the butt near the eye. The RATTLER's trigger face is at
+X 140 mm (spec 132), 4.5 mm from the magazine well, so no finger fits in front of it, and from its back strap to the trigger is 10.3 cm
+(CHOPPER 9.25): its firing thumb lies along the right side, outside the gun.
+
 ## Release 3c: the session (session engineer, 2026-11-25, 11:50 to 15:25 UTC)
 
 The game now looks after its own session, and E3DS's quality number became the centre of a range. **In the game**
