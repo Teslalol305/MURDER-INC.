@@ -261,3 +261,81 @@ on `rattler_ik` (and `[-3, -12, -6]` on `chopper_ik` and `stretch_ik`, which nee
 
 Every aimed optic is still a black ring in this game (`h8` `01`, `19`; `m4` `01`, `19` with red dots). The fade (7e120ac) and the
 masked hardware material (a88dcdc) are in the branch; only a new package shows them. Re-take `s4.txt`'s aimed frames with it.
+
+## 9. The C++ of section 8, built and seen in editor play (2026-11-25, 19:10 to 22:30 UTC, box `603980d9`, clone `repo-guns`)
+
+Code: `Source/MurderInc/Weapons/MIFirstPersonRig.cpp/.h` (and one line in `MIWeaponComponent.cpp`, one warning in
+`MIFirstPersonAnim.cpp`), data `presentation.json`, checks `tools/data/check_guns_data.py` and the engine test
+`MurderInc.FirstPerson.SupportHand` (`Tests/MIWeaponsR4Tests.cpp`). Commits `7c0bc1a`, `833fae5`, `f816d20`, `2a9d999`,
+`1b0cfed`. No fire, recoil, spread, damage or timing number was touched: every key below is under `firstPerson.animSets`.
+
+### 9.1 What the code does now
+
+| Item | Code | Data (anim set) |
+|---|---|---|
+| 8.1 the support hand holds the magazine | `UpdateHands`: in a reload the solved support grip is no longer let go (`ShapeWeight` stays). Its points go with the palm onto the magazine the rig drops and seats (`HeldMag`: our own magazine, or a fitted magazine part riding the same bone), turned about the palm, narrowed across the gun, blended in and out over `magazine.blend` s. The elbow push is let go meanwhile. `KeepsMagazineInHand()`: the magazine bone is no longer shrunk away at the bottom of its drop while the hand holds it (`MIWeaponComponent::PoseView`, the one line), so the hand holds a magazine all through the swap. | `magazine.palm` (cm in the magazine mesh's frame) or `magazine.height` (that fraction up its front face, the palm bone 2 cm in front) or, with neither, under its base; `magazine.turn` [0, -90, 0] (degrees about the gun's X, Y, Z: the handguard grip stood up round the magazine's body, palm on its front, fingers round its right side, thumb up its left); `magazine.squeeze` 0.55; `magazine.blend` 0.25; `magazine.inHand` 1; `reloadCurl` 0 on the four rifles. The NINE has `inHand` 1 only (its grip goes under the base). |
+| 8.2 the support elbow | `Pull`: `IK.PoleShift` from `supportElbowOut` (camera space, cm), blended to `supportElbowOutAim` by the aim; console `mi.FP.ElbowOut "x y z"` forces a value for every gun (tuning). | CHOPPER, STRETCH, RATTLER `[-10, -60, -30]`, SHORTY `[-10, -40, -20]` (tuned, 9.3) |
+| 8.3 the aimed solve | `Equip` loads `grip.aimPose` ("aim") beside `grip.pose`; `UpdateHands` lerps each point by smoothstep(aim). Only the hands `grip.aimSides` names ("l" by default): the RATTLER's aimed firing solve has the index finger straight off the trigger (6.4 cm from the hip solve's), so the firing hand keeps the hip solve. | `grip.aimSides` (optional) |
+| 5.2 `armsFallback` | `Equip`: when a clip of `arms` is missing, the set's `armsFallback` object is tried (clips and the loaded list reset first) before the template way. | none set (optional) |
+| 5.5 the pack-gun crash guard (1f560d7) | Read and built: on every `Equip` the hidden pack gun loses its anim instance and its tick (`SetAnimInstanceClass(nullptr)` clears the instance, the pack branch sets the class and the tick again before `SetVisibility(true)`); every other use of the pack gun's anim instance is behind `Mode == Pack`. It compiles and is right as far as reading goes; the STICK -> RATTLER + `HighResShot` crash of run `h1` was not re-run. | |
+| Development logs (Development and editor builds) | `First person: reload hold <gun>: on the magazine 1 (k, points), palm N cm from its place on the magazine, middle finger bent N deg` once a reload; `First person: support arm <gun>: elbow bent N deg, forearm at N deg on the screen (90 = straight up), palm N cm off its target, aim N` every 2 s; `First person: <gun> reload palm on the magazine at ... (the magazine's bounds), squeeze, turn, elbow out` per equip; a warning when a solved grip cannot be laid on a hand (never seen). | |
+
+### 9.2 How the frames were made
+
+The box was shared with three other agents running `lag-test.sh` queues back to back (release 3c gate, the menu audit, the
+render audit, weapon switching), so `quiet-editor.sh` never saw its 90 quiet seconds after 19:35. The pictures were taken
+under `lag-test.sh`'s own rule instead: a run waits until no process named `MurderInc*` runs (`games()`), so
+`/project/ue/logs/repo-guns/r4c/hold.sh` waits for no game **and no `lag-test.sh` run alive** for 20 s, holds a placeholder
+process named `MurderInc` (so the others' runs wait), starts this clone's editor, runs `gs.sh` (a copy of
+`fp/guns-shots.sh` with `SETTLE`, 15 redraws a frame) or `tune.sh` (the same set-up, then `mi.FP.Shoulders` /
+`mi.FP.ElbowOut` combinations read from the support-arm log, no pictures), stops the editor and lets go. Twice a hold ran
+past the others' 10-minute wait and their next run started beside this editor (about 21:47 and 21:50; the second one for
+about 30 s, the editor was stopped by hand): those runs of theirs may read POLLUTED. The first version of the hold also
+took the GPU straight back after its own release; `hold.sh` now leaves it to a run that was waiting. Frames: the editor's
+play-in-editor `HighResShot` 1920x1080 with the HUD, frozen 1.2 s into a tactical reload (`MIFreezeOn reload 1.2`).
+
+| Run (folder `/project/ue/logs/repo-guns/r4c/<run>/`) | Code / data | What |
+|---|---|---|
+| `c1` | `7c0bc1a` | CHOPPER hip, aimed (irons), reload: the reload hand cupping the base pad |
+| `d1` | `833fae5` (logs) | CHOPPER reload: the log says palm 0.5 cm from the base pad, middle finger bent 99 degrees, yet the frame reads as an open hand right in front of the eye |
+| `e1`, `f1` | `f816d20` (turn, height) | CHOPPER and RATTLER hip, aimed, reload; `f1` the RATTLER with the elbow push off on the box copy of the data (the forearm post stays: 9.3) |
+| `t1`, `t2` | `2a9d999` (`mi.FP.ElbowOut`, the arm log) | the tuning table of 9.3 (`t1.log`, `t2.log`, lines `TUNE`) |
+| `p1` | `1b0cfed` (final data) | CHOPPER, SHORTY, STRETCH hip, aimed, reload (the RATTLER part was cut short to let a waiting gate run have the GPU) |
+| `p2`, `p3`, `p4` | `1b0cfed` | optics aimed (red dot CHOPPER and RATTLER, 4x scope STRETCH and SHORTY); the NINE; the RATTLER hip, aimed, reload and the STRETCH reload (9.4) |
+
+### 9.3 The support elbow, tuned by the arm log (runs `t1`, `t2`; hip / aimed, the forearm's slope on the screen)
+
+90 degrees is the forearm standing straight up from the bottom of the picture (the post of section 8.2); the STICK's
+forearm comes in from the lower left at about 45. A larger number than 90 leans the other way (the elbow right of the
+hand). "Elbow" is the bend between upper arm and forearm (180 = straight).
+
+| Gun, shoulders | none | `[-5, -25, -10]` | `[-10, -40, -20]` | `[-10, -60, -30]` |
+|---|---|---|---|---|
+| CHOPPER, data `[-10, -14, -7]` | 98 / 120 (elbow 103 / 114) | | 61 / 70 | **52 / 60** |
+| RATTLER, data | 95 / 117 to 119 (elbow 87 / 104 to 133) | 69 / 82 | 61 / 64 to 70 | **52 / 57** |
+| STRETCH, data | 96 / 117 (elbow 99 / 125) | 69 / 80 | 61 / 68 | (not run; given the CHOPPER's and RATTLER's value) |
+| SHORTY, data `[-6, 0, -24]` | 104 / 121 (elbow 116 / 62) | | **57 / 90** | 51 / 87 |
+| RATTLER, shoulders `[-4, -14, -7]` | 98 / 118 | 72 / 79 | 62 / 67 | |
+| STRETCH, shoulders `[-4, -14, -7]` | 98 / 114 | 73 / | / 65 | |
+| CHOPPER, shoulders `[-10, -22, -10]` | | | 61 / 67 | |
+
+What the numbers say: the push of the pole works and saturates (25 cm takes the post from 95 to 69, 60 cm to 52); moving
+the shoulders forward or further left changes the bend but hardly the slope. The data now has `[-10, -60, -30]` on the
+CHOPPER, STRETCH and RATTLER and `[-10, -40, -20]` on the SHORTY (whose aimed arm is bent to 62 degrees by its own low
+shoulders and barely answers the push). The `palm ... off its target` figure of the log is 4 to 5 cm on every rifle: it
+measures the palm bone against the gun's `Palm_L` socket, and the solved grip puts the palm that far from it (the grip
+decides, not the socket). In `t2` the RATTLER (slot 3, drawn after the SHORTY) read 20 cm off at the hip and aimed, in
+`t1` (slot 1) 4.9: not explained (the frames `p4` were to show whether its support hand reached the strap).
+
+### 9.4 What the frames show (looked at, one by one or in contact sheets; crops in `docs/unreal/shots/hands-r4c-*.jpg`)
+
+| Frame (run folder on the box) | Seen | Verdict against the acceptance of 8.1 to 8.3 |
+|---|---|---|
+| CHOPPER hip, `p1/r4-fp-chopper-hip-el.jpg` (`hands-r4c-p1-chopper-hip.jpg`) | support hand on the left of the handguard, the forearm in from the lower left on a slant | **better**: no post; the slant is shallower than the STICK's 45 only by the numbers (52) |
+| STRETCH hip, `p1/r4-fp-stretch-hip-el.jpg` (`hands-r4c-p1-stretch-hip.jpg`) | the same: hand on the walnut handguard's left, forearm from the lower left | **better** |
+| CHOPPER, STRETCH aimed (irons), `p1/...-aim.jpg` | the front sight centred, the support hand only at the lower left edge, no fingers beside the sight | as before (good) |
+| SHORTY hip, aimed, reload, `p1/r4-fp-shorty-*.jpg` | the support hand is below the picture at the hip and in the reload; aimed, the carry handle and receiver as in 6.1 | nothing to judge of the hand; no post |
+| RATTLER hip before the tuning, `f1/r4-fp-rattler-hip-el.jpg` (`hands-r4c-f1-rattler-reload-and-hip.jpg`, right) | a tattooed forearm standing straight up from the bottom to the receiver: the post of 8.2 (the push off, 95 degrees) | **the fault**, measured 95 / 117; tuned to 52 / 57 (9.3), not yet seen in a frame with the final data |
+| CHOPPER reload, base pad (`d1`, `hands-r4c-d1-chopper-reload-basepad.jpg`) | the hand right in front of the eye under the dropped magazine, fingers fanned toward the camera | **not a grasp**: the log said palm 0.5 cm from the pad and the fingers bent 99 degrees, but cupping the base reads as an open hand. Hence the turn and `height` (`f816d20`) |
+| RATTLER, CHOPPER reload with the turn (`e1`, `f1`; `hands-r4c-f1-rattler-reload-and-hip.jpg`, left) | the hand stood up at the magazine's front, the back of the hand and the fingers toward the camera, large, and **no magazine in it**: the rig shrinks the magazine bone to nothing between the bottom of its drop and its show mark, which is where a 1.2 s reload frame lands | **not yet**: the hand holds air. Hence `magazine.inHand` (`2a9d999`): the magazine stays drawn in the hand through the swap |
+| CHOPPER reload with the final data, `p1/r4-fp-chopper-reload.jpg` (`hands-r4c-p1-chopper-reload.jpg`) | canted gun, the support hand under it at the magazine, fingers up round it; the log: palm 0.1 cm from its place, middle finger bent 99 degrees | **closer**; at this size the fingers still read as spread more than wrapped |
