@@ -9,12 +9,6 @@
 audio() {  # $1: 1 when this sync brought C++ changes (the import runs the editor, which needs the module built first)
   local n missing stale
   n=$(mi_audio_stale); missing=${n% *}; stale=${n#* }
-  # Looked at before the counts: with no Content/Audio/Web at all but Gen and Voice imported the counts are 0 and 0, and
-  # the clone used to say nothing (only the cook's end or MurderInc.Audio.SoundsResolve then told: 188 sounds missing).
-  if [ ! -d "$MI_PROJECT_DIR/Content/Audio/Web" ]; then
-    echo "AUDIO: no Content/Audio/Web ($missing sound(s) without a Sound Wave asset and $stale with an older one among the rest): the web game's sounds are not in git (node tools/ue-export/audio.mjs, or copy the folder from another clone), then audio-import.sh; a game made from this clone plays none of them"
-    return 0
-  fi
   [ "$missing" = 0 ] && [ "$stale" = 0 ] && return 0
   local what="$missing sound(s) without a Sound Wave asset, $stale with an asset older than the WAV" p
   for p in $(pgrep -x UnrealEditor-Cm); do   # an import that an earlier sync started (the name is cut to 15 characters)

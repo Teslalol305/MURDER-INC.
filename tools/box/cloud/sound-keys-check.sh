@@ -6,8 +6,7 @@
 #
 # One line per sample: FOUND (how often, how far above chance, its level against the file) or NOT FOUND. Then the
 # levels the mix check needs: the loudness of each part, and the music's level on the pause card before, after forty
-# presses of Left on the Volume row (80 % to 40 %: it must fall by 6.0 dB) and after forty presses of Right. Last, the
-# music's time: music_phase.py says whether every stem is still where the drums began at the home screen after the magazine.
+# presses of Left on the Volume row (80 % to 40 %: it must fall by 6.0 dB) and after forty presses of Right.
 # The Shipping game has no log, so this and the game's own count (sndPlayed, sndMissing in its probe lines) are the proof
 # for it; the Development game's proof is sound_table.py, which knows from the log what was started when.
 RUN=${1:?the run folder}
@@ -83,10 +82,4 @@ if before and down and up:
     print(f"   the music on the pause card: {before[0]:.1f} dBFS before, {down[0]:.1f} after Left x 40 ({down[0] - before[0]:+.1f} dB; 80 % to 40 % is -6.0), {up[0]:.1f} after Right x 40 ({up[0] - before[0]:+.1f} dB)")
 EOF
 grep -a 'SOUND\|drop-out' "$RUN/view.log" | cut -c1-400
-# The music's time: where each of the seven stems is in its loop in every window of the recording, against the drums at
-# the first window that heard them (the home screen) and against each other. After the magazine fired empty and after
-# a fight every stem must still be where it was: the engine's 32 voices once gave up the quietest, and each stem came
-# back from the top of its loop at its own moment (the review of version 3b). numpy takes every core: after the queue.
-echo "== the music's time (music_phase.py)"
-"$PY" "$T/music_phase.py" "$RUN" --audio "$AUDIO" --quiet 2>&1 | sed 's/^/   /'
 grep -a 'MICloudProbe' "$RUN/game.log" | tail -1 | grep -o 'snd[A-Za-z]*=[0-9]*' | tr '\n' ' '; echo

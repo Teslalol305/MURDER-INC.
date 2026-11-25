@@ -1458,10 +1458,10 @@ void UMICloudSubsystem::Probe(float DeltaTime)
 		// The mixer's pace: seconds of sound rendered per second of wall clock since the last line (sndPace; -1 on the
 		// first line and without a device) and the device's clock itself (sndClock, seconds), so the log of one session
 		// says whether the sound's clock runs fast or slow on that machine (below 1.0 the stream has holes), and a
-		// longer stretch can be worked out from any two lines (sndClock and sndWall, seconds).
-		double SndClock = -1.0, SndWall = 0.0;
-		const double SndPace = UMIAudioSubsystem::TakeDevicePace(&SndClock, &SndWall);
-		Out += FString::Printf(TEXT(" sndPlayed=%d sndMissing=%d sndNoDevice=%d sndClock=%.3f sndWall=%.3f sndPace=%.4f"), Snd.Played, Snd.Missing, Snd.NoDevice, SndClock, SndWall, SndPace);
+		// longer stretch can be worked out from any two lines.
+		double SndClock = -1.0;
+		const double SndPace = UMIAudioSubsystem::TakeDevicePace(&SndClock);
+		Out += FString::Printf(TEXT(" sndPlayed=%d sndMissing=%d sndNoDevice=%d sndClock=%.3f sndPace=%.4f"), Snd.Played, Snd.Missing, Snd.NoDevice, SndClock, SndPace);
 	}
 	MICloudPrivate::Line(Out);
 	ProbeFrames = ProbeTime = ProbeWorst = 0.0;

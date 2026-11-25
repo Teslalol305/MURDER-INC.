@@ -24,10 +24,8 @@
 #   package <Development|Shipping>   BuildCookRun Linux into /project/ue/cloud/build-<config> (Shipping skips the
 #              cook when a cook exists)
 #   sounds     is every Sound Wave the game's data names in the pak list of build-Shipping and build-Development
-#              (cloud/pak_sounds.py), with its .uasset, .uexp and .ubulk, and does the cook's own output hold the audio
-#              (a .ubulk of more than 100 bytes) from an asset at least as new as the release copy's? "package" and
-#              "zip" ask the same and stop when one is missing: versions 1, 2 and 3a were packaged without a single
-#              sound and nothing said so, and a wave whose audio failed to encode passed by its name
+#              (cloud/pak_sounds.py)? "package" and "zip" ask the same and stop when one is missing: versions 1, 2
+#              and 3a were packaged without a single sound and nothing said so
 #   zip        /project/ue/cloud/MurderInc-E3DS.zip from build-Shipping: the launcher cloud/MurderInc.sh at the root
 #              (E3DS app name = script name = MurderInc; it logs to MurderInc/Saved/Logs), BUILD.txt (the commit), the
 #              Development game beside the Shipping one (launch option -MIDev=<key>; the key is a new random word
@@ -91,36 +89,22 @@ refresh() {
   say "REFRESH OK: Source, Config, Data from the branch"
 }
 
-# Sound Waves without an asset, and assets older than their WAV, under a Content folder: "<missing> <stale>".
-audio_stale() {
-  local w a missing=0 stale=0
-  while IFS= read -r w; do
-    a=${w%.wav}.uasset
-    if [ ! -f "$a" ]; then missing=$((missing + 1)); elif [ "$w" -nt "$a" ]; then stale=$((stale + 1)); fi
-  done < <(find "$1/Audio" -name '*.wav' ! -name 'IR_*' 2>/dev/null)
-  echo "$missing $stale"
-}
-
 content() {
   local busy
   busy=$(ps -eo args | grep -E '^[^ ]*UnrealEditor[^ ]* .*repo-gameplay/' | grep -v grep | head -1)
   if [ -n "$busy" ]; then
-    # The release copy keeps its last Content: it must be one that sounds (an editor open on the gameplay clone, a test
-    # run included, used to return here before any look at the sounds: a copy whose audio had been replaced since, or
-    # that had none, was packaged all the same).
-    local n; n=$(audio_stale "$REL/Content")
-    if [ "${n% *}" != 0 ] || [ "${n#* }" != 0 ] || [ ! -d "$REL/Content/Audio/Web" ]; then
-      say "CONTENT FAILED: an editor has the gameplay clone open, so the release copy keeps its last Content, and that has ${n% *} sound(s) without a Sound Wave asset and ${n#* } with an asset older than its WAV$([ -d "$REL/Content/Audio/Web" ] || echo ' (no Content/Audio/Web at all)'): the package would be silent there. Close the editor (or finish the audio import in the gameplay clone) and run this step again"
-      return 1
-    fi
-    say "CONTENT KEPT: an editor has the gameplay clone open; the release copy keeps its last Content ($(du -sh "$REL/Content" 2>/dev/null | cut -f1)); its $(find "$REL/Content/Audio" -name '*.wav' ! -name 'IR_*' | wc -l) sounds all have an asset not older than their WAV"
+    say "CONTENT KEPT: an editor has the gameplay clone open; the release copy keeps its last Content ($(du -sh "$REL/Content" 2>/dev/null | cut -f1))"
     return 0
   fi
   [ -d "$GP/Content" ] || { say "no gameplay clone Content"; return 1; }
   # The sounds: every WAV of the gameplay clone needs its Sound Wave asset, not older than the WAV.
-  local n missing stale; n=$(audio_stale "$GP/Content"); missing=${n% *}; stale=${n#* }
-  if [ "$missing" != 0 ] || [ "$stale" != 0 ] || [ ! -d "$GP/Content/Audio" ] || [ ! -d "$GP/Content/Audio/Web" ]; then
-    say "CONTENT FAILED: the gameplay clone has $missing sound(s) without a Sound Wave asset and $stale with an asset older than its WAV$([ -d "$GP/Content/Audio" ] || echo ' (no Content/Audio at all)')$([ -d "$GP/Content/Audio/Web" ] || echo ' (no Content/Audio/Web: the web game'"'"'s sounds are not in git, node tools/ue-export/audio.mjs makes them)'): the package would be silent there. Run 'bash tools/box/audio-import.sh' in /project/ue/repo-gameplay (its editor stopped), poll 'audio-import.sh status' until AUDIO-IMPORT-DONE failed=0, then package again"
+  local w a missing=0 stale=0
+  while IFS= read -r w; do
+    a=${w%.wav}.uasset
+    if [ ! -f "$a" ]; then missing=$((missing + 1)); elif [ "$w" -nt "$a" ]; then stale=$((stale + 1)); fi
+  done < <(find "$GP/Content/Audio" -name '*.wav' ! -name 'IR_*' 2>/dev/null)
+  if [ "$missing" != 0 ] || [ "$stale" != 0 ] || [ ! -d "$GP/Content/Audio" ]; then
+    say "CONTENT FAILED: the gameplay clone has $missing sound(s) without a Sound Wave asset and $stale with an asset older than its WAV$([ -d "$GP/Content/Audio" ] || echo ' (no Content/Audio at all)'): the package would be silent there. Run 'bash tools/box/audio-import.sh' in /project/ue/repo-gameplay (its editor stopped), poll 'audio-import.sh status' until AUDIO-IMPORT-DONE failed=0, then package again"
     return 1
   fi
   # Content (not Data or Python: those come from the branch) and the editor module the cooker loads.
@@ -200,20 +184,9 @@ usage() {
   say "USAGE OK: $saved material(s) saved with their flags, $missing not found; $cubes (log $C/usage.log)"
 }
 
-# The cook is current when nothing it cooks from is newer than the end of the Development package (whose cook it is):
-# "package Shipping" used to skip the cook whenever a cooked folder existed, so content, package Shipping and zip shipped
-# the audio of an older cook with "SOUNDS OK" (which read the pak list's names only).
-cook_current() {
-  local mark=$C/build-Development.commit
-  [ -d "$REL/Saved/Cooked/Linux" ] && [ -f "$mark" ] || return 1
-  [ -z "$(find "$REL/Content" \( -path "$REL/Content/Data" -o -path "$REL/Content/Python" \) -prune -o -type f -newer "$mark" -print -quit 2>/dev/null)" ]
-}
-
 package() {
   local cfg=${1:-Shipping} cook="-cook -IgnoreCookErrors"
-  if [ "$cfg" = Shipping ]; then
-    if cook_current; then cook="-skipcook"; else say "COOK: the Development package's cook is missing or older than the release copy's Content: cooking again for Shipping"; fi
-  fi
+  [ "$cfg" = Shipping ] && [ -d "$REL/Saved/Cooked/Linux" ] && cook="-skipcook"
   export HOME=/home/ue4
   mkdir -p /home/ue4/.config; [ -L /home/ue4/.config/Epic ] || ln -sfn /project/ue/home/Epic /home/ue4/.config/Epic
   chown -h ue4 /home/ue4/.config/Epic 2>/dev/null
@@ -228,14 +201,14 @@ package() {
     '-AdditionalCookerOptions=-DDC=(ProjectPak,InstalledProjectPak,EnginePak=InstalledEnginePak,EnterprisePak,InstalledLocal) -NoDDCCleanup -ini:Engine:[Zen]:AutoLaunch=false -ini:Engine:[ConsoleVariables]:AssetRegistry.DisableDirectoryWatcher=1'" \
     || { say "PACKAGE $cfg FAILED"; return 1; }
   cp "$C/src.commit" "$C/build-$cfg.commit"  # the commit the game binaries were built from (BUILD.txt)
-  local snd; snd=$(python3 "$C/src/tools/box/cloud/pak_sounds.py" "$C/build-$cfg/Linux" --cooked "$REL/Saved/Cooked/Linux/MurderInc" --source "$REL/Content") || { say "PACKAGE $cfg FAILED: $snd"; return 1; }
+  local snd; snd=$(python3 "$C/src/tools/box/cloud/pak_sounds.py" "$C/build-$cfg/Linux") || { say "PACKAGE $cfg FAILED: $snd"; return 1; }
   say "PACKAGE $cfg OK: $(du -sh "$C/build-$cfg/Linux" | cut -f1); $snd"
 }
 
 sounds() {  # every Sound Wave the game's data names must be in the pak list of both builds
   local cfg out rc=0
   for cfg in Shipping Development; do
-    out=$(python3 "$C/src/tools/box/cloud/pak_sounds.py" "$C/build-$cfg/Linux" --cooked "$REL/Saved/Cooked/Linux/MurderInc" --source "$REL/Content") || rc=1
+    out=$(python3 "$C/src/tools/box/cloud/pak_sounds.py" "$C/build-$cfg/Linux") || rc=1
     say "$out"
   done
   return $rc

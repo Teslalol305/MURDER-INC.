@@ -80,11 +80,11 @@ public:
 	 * that went by. The dummy device a server gives the game (no sound card) waits whole milliseconds for every buffer
 	 * of 21.33 ms: a little fast on a free machine, slower when the machine is busy, and below 1.0 the stream's sound
 	 * has holes. Negative when there is no device or this is the first call. The stream's probe line carries it
-	 * (sndPace, and sndClock with sndWall: the clock and the wall clock themselves, so a longer stretch can be worked out
-	 * from two lines), so the log of one E3DS session says which side that machine is on. The clock moves in steps of one buffer (21.33 ms): over a
+	 * (sndPace, and sndClock: the clock itself, so a longer stretch can be worked out from two lines), so the log of one
+	 * E3DS session says which side that machine is on. The clock moves in steps of one buffer (21.33 ms): over a
 	 * second the pace is good to 2 %, over half a minute to 0.1 %.
 	 */
-	static double TakeDevicePace(double* OutClock = nullptr, double* OutWall = nullptr);
+	static double TakeDevicePace(double* OutClock = nullptr);
 
 	/** Start or stop recording the bus to a file under Saved/Audio (console: MIAudio.Record start|stop [name]). */
 	void StartRecording();
