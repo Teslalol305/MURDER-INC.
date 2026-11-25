@@ -42,6 +42,7 @@ struct MURDERINC_API FMIEnemyLook
 		double Bone = 330.0, BoneHead = 480.0, Carry = 110.0, CarryHead = 140.0, Blast = 650.0, BlastUp = 320.0, MaxSpeed = 900.0;
 		double SettleSpeed = 18.0, SettleFor = 0.5, MinSim = 1.2, MaxSim = 5.0, PoolFade = 2.5;
 		double LinearDamping = 0.15, AngularDamping = 0.6;
+		int32 StartsPerFrame = 2;  // ragdolls started in one frame at most; more deaths in the same frame fall a frame later
 	} GoonRagdoll;
 	FName HeadBone = TEXT("head");
 	FLinearColor GoonLampColour = FLinearColor(1.0f, 0.74f, 0.42f);

@@ -36,8 +36,9 @@ p = mesh.get_socket_location("pelvis")
 a = math.atan2(me.y - p.y, me.x - p.x) + math.radians($2)
 x, y = p.x + math.cos(a) * $1 * 100, p.y + math.sin(a) * $1 * 100
 yaw = math.degrees(math.atan2(p.y - y, p.x - x))
-pitch = math.degrees(math.atan2(p.z - 160.0 - (p.z - 90.0), $1 * 100)) - 20.0
-unreal.SystemLibrary.execute_console_command(w, "MIPose %.0f %.0f %.0f %.1f %.1f" % (x, y, p.z - 95.0, yaw, pitch))
+pitch = -math.degrees(math.atan2(150.0, $1 * 100))   # the eye about 1.6 m up, the body on the ground
+feet = g[0].get_actor_location().z - 90.0   # the rules' unit stands where it died: its feet are on the ground there
+unreal.SystemLibrary.execute_console_command(w, "MIPose %.0f %.0f %.0f %.1f %.1f" % (x, y, feet, yaw, pitch))
 "pelvis %.0f %.0f %.0f" % (p.x, p.y, p.z)
 PY
   pie_mcp py "$PIE_PY/_obs.py"

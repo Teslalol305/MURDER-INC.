@@ -49,6 +49,24 @@ namespace MIEnemyActorsPrivate
 
 	// The death pass's switch: 1 a killed Goon falls as a ragdoll from its killing hit, 0 the death clip by direction
 	// (the behaviour before the pass). A launch option can set it (-MICVars=mi.Goon.Ragdoll=0).
+	/** One ragdoll start of this frame's budget (GFrameCounter: the engine frame), or false when it is spent. */
+	bool TakeRagdollStart(int32 Budget)
+	{
+		static uint64 Frame = 0;
+		static int32 Used = 0;
+		if (Frame != GFrameCounter)
+		{
+			Frame = GFrameCounter;
+			Used = 0;
+		}
+		if (Budget > 0 && Used >= Budget)
+		{
+			return false;
+		}
+		++Used;
+		return true;
+	}
+
 	TAutoConsoleVariable<int32> CVarRagdoll(TEXT("mi.Goon.Ragdoll"), 1,
 		TEXT("1: a killed Goon falls as a ragdoll from its killing hit; 0: the death clip by the shot's direction"));
 
@@ -160,6 +178,7 @@ bool FMIEnemyLook::Load(FMIEnemyLook& Out, FString& OutError)
 		R->TryGetNumberField(TEXT("poolFade"), D.PoolFade);
 		R->TryGetNumberField(TEXT("linearDamping"), D.LinearDamping);
 		R->TryGetNumberField(TEXT("angularDamping"), D.AngularDamping);
+		R->TryGetNumberField(TEXT("startsPerFrame"), D.StartsPerFrame);
 	}
 	if (const TSharedPtr<FJsonObject> Bones = Obj(G, TEXT("bones")))
 	{
@@ -440,7 +459,12 @@ void AMIGoon::Sync(const FMIEnemy& E, const FVector& HeadWeb, double Dt)
 
 	if (!E.bAlive && !bDying)
 	{
-		StartDeath(E);
+		// Ragdolls start at most RagTune.StartsPerFrame a frame (each makes 22 bodies and their joints): a grenade's
+		// eight deaths fall over four frames instead of in one long frame. The blood of the killing hit is already out.
+		if (!Ragdoll || MIEnemyActorsPrivate::CVarRagdoll.GetValueOnGameThread() == 0 || MIEnemyActorsPrivate::TakeRagdollStart(RagTune.StartsPerFrame))
+		{
+			StartDeath(E);
+		}
 	}
 	else if (bRagdoll && !bSettled)
 	{

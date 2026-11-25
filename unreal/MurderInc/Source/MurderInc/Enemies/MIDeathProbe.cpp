@@ -2,13 +2,14 @@
 // player's round or a blast does (through IMIDamageable, the same path as the weapon) and measures what the deaths cost
 // in the frames that follow. Not in the Shipping game.
 //
-//   MI.Goon.Kill <count> [body|head|blast] [max metres] [delay s] [x y [z from]]
+//   MI.Goon.Kill <count> [body|head|blast|drones] [max metres] [delay s] [x y [z from]]
 //       kills the <count> nearest living Goons within the distance (0: any distance), each by one round from the
 //       player's eye at its body or head point (or one blast beside it on the player's side), after the delay (default
 //       1 s, 0: on the next frame), then logs, for the delay before and the 3 s after, the frame time, the game thread's time and the worst of each, the ragdoll start
 //       time of each body and how many bodies were frozen at the end. With x y (cm) the first body is staged there
 //       before it falls (on the ground under the point, traced down from z, default 400 cm), turned to the player:
-//       a presentation test of a fall on stairs or against a wall; the rules' unit stays where it was.
+//       a presentation test of a fall on stairs or against a wall; the rules' unit stays where it was. "drones" kills
+//       every living Buzzard at once instead (so that a Hold the Block wave ends and the next, larger one comes).
 
 #include "CoreMinimal.h"
 
@@ -72,6 +73,27 @@ namespace MIDeathProbePrivate
 			return;
 		}
 		const FVector Eye = Me->GetPlayerRules().Eye;
+		if (P.Part == TEXT("drones"))
+		{
+			int32 N = 0;
+			for (int32 I = 0; I < G->GetEnemies().GetSlots().Num(); ++I)
+			{
+				AMIBuzzard* B = Cast<AMIBuzzard>(G->GetEnemyActor(I));
+				if (B && G->GetEnemies().GetSlots()[I].bAlive)
+				{
+					FMIDamage D;
+					D.Amount = 100000.0;
+					D.Source = EMIDamageSource::Player;
+					D.From = Eye;
+					D.Direction = (B->GetActorLocation() - Eye).GetSafeNormal();
+					D.Point = B->GetActorLocation();
+					D.Weapon = TEXT("chopper");
+					N += B->ApplyMIDamage(D).bKilled ? 1 : 0;
+				}
+			}
+			UE_LOG(LogMI, Display, TEXT("MI.Goon.Kill: %d Buzzards killed"), N);
+			return;
+		}
 		TArray<TPair<double, AMIGoon*>> Live;
 		const TArray<FMIEnemy>& Slots = G->GetEnemies().GetSlots();
 		for (int32 I = 0; I < Slots.Num(); ++I)
