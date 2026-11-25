@@ -1,6 +1,6 @@
 # Picking up where we left off
 
-Last updated 2026-11-24 (evening, the E3DS crash fix) by the lead session (branch `claude/tender-albattani-5q78qr`, never merged, no pull request).
+Last updated 2026-11-25 (morning, version 3a delivered: section 9) by the release engineer (branch `claude/tender-albattani-5q78qr`, never merged, no pull request).
 A new session starts here: read this page, then `DECISIONS.md`, then the documents it points to.
 
 ## 1. What this project is
@@ -232,7 +232,26 @@ old zip is superseded. Next is step 6 (the owner's E3DS trial) and the explosion
   connection was cut, X reloading at a reel, the pause in a run's intro, the frame-rate target's way back up, what
   a visitor may set, the Development game behind a key. The gate was repeated with the final code and passes,
   its three lines on 6 CPUs included; two more runs on 4 CPUs held their rates.
-- **Next:** package release A from the branch head (`tools/box/test.sh MurderInc` first: 119 tests), repeat the
-  release gate on the packaged build (`tools/box/cloud/lag-gate.txt`: 13 runs, about 35 minutes; the PROGRESS
-  entries say how to read it), upload it, give the owner the key of `MIDEV.key` with the release notes, and ask for
-  a screenshot of the pause card taken right after a turn. Then release B: the rest of PREFLIGHT.md section 2.
+- **Version 3a (release A) is packaged, gated and in the owner's storage (2026-11-25; PROGRESS.md, "Version 3a:
+  packaged, gated and delivered").** Zip sha256 `de41a708…58e4`, 2,254,962,151 bytes, nine parts named
+  `MurderInc-E3DS-v3a-part<k>-of-9.zip` (fingerprints, join and upload steps, the E3DS settings: LAUNCH.md section 9;
+  download links and the Development game's key only in the release report). Game and launcher `6c4d810`, 119 of
+  119 tests. The release gate was run on the zip itself, unpacked as a new user with an empty home into a fresh
+  folder and started with E3DS's arguments: at every load, on 16 CPUs and on 6, no frame over 38 ms in a Story run,
+  memory flat, a clean stop; 60.0 frames a second on a free GPU. Play was proven through the stream with mouse and
+  keyboard and with a controller only.
+- **New knowledge from that gate: a cold machine.** With an empty home (no graphics-driver shader cache), which is
+  what E3DS gives every session, the game's first frame takes 3 to 4.5 s (nobody is connected yet) and **the first
+  set-up screen (Crew) costs one frame of about 0.85 s**; nothing else is long, and the play is not touched. Warm,
+  both are gone. PREFLIGHT V3-12 (release B) is the place for it.
+- **Still unknown:** which graphics card E3DS's Linux sessions get, and everything a real browser, a real
+  controller and a real connection add. The box is not E3DS.
+- **Next, the owner:** join the nine parts, upload the zip as a new version of the build `MurderInc`, set the
+  settings of LAUNCH.md 9.1 (Browser Resolution Custom 1920 x 1080, launch options empty), play a Story run, press
+  P after a fast turn or a stutter and send back a screenshot of the pause card (its bottom line names the server's
+  card, both frame rates with their lowest values, the GPU's time, the picture's size and the build).
+- **Next, engineering (release B):** the rest of PREFLIGHT.md section 2: quality steps on slow cards (V3-2), the
+  hand-to-picture delay (V3-4), Browser Resolution Dynamic with the HUD at small sizes (V3-6), the rest of the
+  controller path (V3-7: the home screen names the keyboard's keys until a second controller press; a whole Story
+  and Hold the Block run through the stream), the cold start (V3-12), the smaller items (V3-13). The owner's
+  screenshot decides the order: a slow card makes V3-2 first.
