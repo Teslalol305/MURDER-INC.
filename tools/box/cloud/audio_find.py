@@ -158,7 +158,7 @@ class Recording:
         self.Xw = np.fft.rfft(self.x, self.size) * self.W
         xw = np.fft.irfft(self.Xw, self.size)[:self.n]
         self.cumw = np.concatenate(([0.0], np.cumsum(xw * xw)))
-        self.meta, self.keys, self.times = None, None, None
+        self.meta, self.keys, self.times, self.part_wall = None, None, None, None
         if os.path.exists(path + '.json'):
             with open(path + '.json') as f:
                 self.meta = json.load(f)
@@ -187,6 +187,7 @@ class Recording:
             if line.split()[-1] == name:
                 end = says[k + 1][0] if k + 1 < len(says) else float('inf')
                 a, b = self.media(t), self.media(end) if end != float('inf') else self.seconds
+                self.part_wall = (t, end)
                 return a, b
         return None
 
@@ -388,7 +389,9 @@ def main():
         if span is None:
             sys.exit(f'no "say ... {A.part}" line in {A.recording}.json')
         A.t_from, A.t_to = span[0], span[1] + 0.5
+        wall = rec.part_wall
         rec = rec.cut(A.t_from, A.t_to)
+        rec.part_wall = wall
         print(f'part "{A.part}": {span[0]:.2f} to {span[1]:.2f} s of the sound')
     if A.truth:
         with open(A.truth) as f:
@@ -435,7 +438,8 @@ def main():
               + (f'; FOUND as well: {", ".join(found)} (they may be playing: the music and the street never stop)' if found else '; none found'))
         results['_decoys'] = {'tried': min(A.decoys, len(pool)), 'strongestXChance': round(worst[0], 2), 'strongest': worst[1], 'found': found}
     if A.action:
-        actions = [(t, line) for t, line in (rec.meta or {}).get('actions', []) if line.startswith(A.action)]
+        actions = [(t, line) for t, line in (rec.meta or {}).get('actions', []) if line.startswith(A.action)
+                   and (rec.part_wall is None or rec.part_wall[0] <= t < rec.part_wall[1])]
         if not actions:
             print(f'no script line starting with "{A.action}" in {A.recording}.json')
         every = sorted((h['seconds'], name) for name, r in results.items() if not name.startswith('_') for h in r['hits'])
