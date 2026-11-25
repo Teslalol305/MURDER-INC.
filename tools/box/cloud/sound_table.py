@@ -43,7 +43,15 @@ def main():
     ap.add_argument('--per', type=int, default=4)
     ap.add_argument('--min', dest='min_x', type=float, default=1.5)
     ap.add_argument('--json', default='')
+    ap.add_argument('--list', default='', help='also print every start looked at of this sound (its time, file, find, delay)')
     A = ap.parse_args()
+    # The game writes names as Unreal keeps them (case folded to whatever spelling came first: "Web/Jump_01.wav",
+    # "Voice/Rule/..."): the files are found whatever the case.
+    on_disk = {}
+    for root, _, files in os.walk(A.audio):
+        for f in files:
+            full = os.path.join(root, f)
+            on_disk[os.path.relpath(full, A.audio).lower()] = full
     rec = af.Recording(os.path.join(A.run, 'sound.wav'))
     if not rec.meta or not rec.meta.get('epoch') or not rec.meta.get('packets'):
         sys.exit('sound.wav.json has no clock: record with rtcaudio.py')
@@ -75,9 +83,10 @@ def main():
             continue
         if e['file'] not in sources:
             try:
-                sources[e['file']] = af.mono48(os.path.join(A.audio, e['file']))
-            except (OSError, ValueError):
+                sources[e['file']] = af.mono48(on_disk[e['file'].lower()])
+            except (OSError, ValueError, KeyError):
                 sources[e['file']] = None
+                print(f"cannot read {e['file']} under {A.audio}")
         src = sources[e['file']]
         if src is None:
             continue
@@ -90,8 +99,13 @@ def main():
         hits, top = af.find(part, src, [e['pitch']], chunk=chunk, min_x=A.min_x, max_n=1)
         if not hits:
             row['missed'].append(f"{e['file']} at {e['wall']:.1f} s ({top:.2f} x chance)")
+            if A.list and e['sound'].lower() == A.list.lower():
+                print(f"  {e['sound']} started {e['wall']:8.3f}  {e['file']}  volume {e['volume']:.2f} x mix {e['mix']:.2f}  pitch {e['pitch']:.3f}: not found ({top:.2f} x chance)")
             continue
         h = hits[0]
+        if A.list and e['sound'].lower() == A.list.lower():
+            print(f"  {e['sound']} started {e['wall']:8.3f}  {e['file']}  volume {e['volume']:.2f} x mix {e['mix']:.2f}  pitch {e['pitch']:.3f}: found {h['x']} x chance, gain {h['gainDb']:+.1f} dB, "
+                  f"its packet arrived {(rec.arrival(h['seconds']) - e['wall']) * 1000:.0f} ms after the log line")
         row['found'] += 1
         row['files'].add(e['file'])
         row['x'].append(h['x'])
@@ -102,8 +116,9 @@ def main():
     order = ['music', 'ambience', 'ui', 'gun', 'tail', 'near', 'world', 'voice']
     print('category | sound | started | found of looked at | x chance | score | gain dB (measured; the game\'s volume x mix) | ms from the log line to the packet | files matched')
     out = []
-    for name, r in sorted(rows.items(), key=lambda kv: (order.index(kv[1]['category']) if kv[1]['category'] in order else 99, kv[0])):
-        kind = r['category'] + (' 3D' if r['3d'] else '') + (' loop' if r['loop'] else '')
+    for name, r in sorted(rows.items(), key=lambda kv: (order.index(kv[1]['category'].lower()) if kv[1]['category'].lower() in order else 99, kv[0].lower())):
+        name = name.lower()
+        kind = r['category'].lower() + (' 3D' if r['3d'] else '') + (' loop' if r['loop'] else '')
         if r['found']:
             print(f"{kind} | {name} | {r['started']} | {r['found']} of {r['tested']} | {median(r['x']):.1f} | {median(r['score']):.2f} | "
                   f"{median(r['gain']):+.1f}; {median(r['expect']):+.1f} | {median(r['delay']):.0f} ({min(r['delay']):.0f} to {max(r['delay']):.0f}) | {', '.join(sorted(r['files']))}")
