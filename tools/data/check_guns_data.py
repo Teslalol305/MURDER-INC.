@@ -567,6 +567,36 @@ def check_readiness():
     return results
 
 
+def check_view_parse():
+    """FMIViewmodelData::ParseGunView needs these keys on a gun's resolved presentation (and the rules' views); a missing one makes Resolve
+    fail, so the set-up cannot start with that gun. Checked for the presentation as drawn with the template and with the real mesh."""
+    def vec(v, n):
+        return isinstance(v, list) and len(v) == n and all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in v)
+    for gid in ROSTER:
+        base = copy.deepcopy(GUNS[gid]["presentation"])
+        worlds = [("template", base)]
+        if isinstance(base.get("real"), dict) and base.get("realMesh"):
+            merged = copy.deepcopy(base)
+            merged.update(copy.deepcopy(base["real"]))
+            worlds.append(("real mesh", merged))
+        for label, p in worlds:
+            need = [("meshOffset.pos", 3), ("meshOffset.rot", 3)] + [("markers." + m, 3) for m in ("muzzle", "eject", "sightRear", "pivot", "grip", "support")]
+            need += [("poses." + k, 6) for k in ("sprint", "reload", "wall", "holster")]
+            for path, n in need:
+                if not vec(get(p, path), n):
+                    err("parse: %s (%s) presentation.%s is not %d numbers" % (gid, label, path, n))
+            for path in ("relief", "flash.star", "flash.jet"):
+                v = get(p, path)
+                if isinstance(v, bool) or not isinstance(v, (int, float)):
+                    err("parse: %s (%s) presentation.%s is not a number" % (gid, label, path))
+            for k, m in (p.get("parts") or {}).items():
+                if isinstance(m, dict) and "bone" in m and m["bone"] is not None and not isinstance(m["bone"], str):
+                    err("parse: %s (%s) parts.%s.bone is not a string" % (gid, label, k))
+        views = GUNS[gid]["rules"].get("views")
+        if not (isinstance(views, list) and views and all(vec(v, 6) for v in views)):
+            err("parse: %s rules.views is not a list of six-number poses" % gid)
+
+
 # ---------------------------------------------------------------------------------------------- art cross-checks
 def web(b):
     return [-b[1], b[2], -b[0]]
@@ -645,7 +675,9 @@ def check_art():
         pos = mo.get("pos", [0, 0, 0])
         for name, sk in (("muzzle", "Muzzle"), ("eject", "Eject"), ("sightRear", "SightRear"), ("pivot", "RecoilPivot"), ("grip", "Palm_R"), ("support", "Palm_L")):
             want = [a + b for a, b in zip(web(c["sockets"][sk]), pos)]
-            have = pres["markers"][name]
+            have = (pres.get("markers") or {}).get(name)
+            if have is None:
+                continue  # check_view_parse reports it
             tol = 2e-3 if gid == "nine" else 1.2e-3
             if gid not in ("nine",) and not near(have, want, tol):
                 err("presentation: %s markers.%s %s is not the exported %s in gun space %s" % (gid, name, have, sk, [round(x, 4) for x in want]))
@@ -768,24 +800,35 @@ def check_freshness():
 
 
 # ------------------------------------------------------------------------------------------------------------ main
+def safe(fn, *a):
+    """A check that trips over malformed data reports that as an error and lets the others run."""
+    try:
+        return fn(*a)
+    except Exception as e:  # noqa: BLE001
+        err("the checker could not finish %s: %s %s" % (fn.__name__, type(e).__name__, e))
+        return None
+
+
 def main():
-    validate_data()
-    trade = check_trade()
-    check_base_in_clamps()
-    nbuilds = check_builds()
-    ready = check_readiness()
+    safe(validate_data)
+    trade = safe(check_trade) or []
+    safe(check_base_in_clamps)
+    safe(check_view_parse)
+    nbuilds = safe(check_builds) or 0
+    ready = safe(check_readiness)
     say("== effect trade (B better, W worse, B/W inside %s)" % BAND)
     for pid, b, w, ratio in sorted(trade):
         say("  %-24s B %.4f  W %.4f  B/W %.3f  %s" % (pid, b, w, ratio, "own" if PARTS[pid].get("source") == "own" else ""))
     say("== %d compatible builds resolved (falloff, clamps)" % nbuilds)
     say("== what is offered (guns, slots)")
     for kind in ("clean", "box-before", "box-after"):
-        say("  %-10s %s" % (kind, "  ".join("%s:%s" % (g, ("%d" % len(ready[kind][g][1])) if ready[kind][g][0] else "-") for g in ROSTER)))
+        if ready:
+            say("  %-10s %s" % (kind, "  ".join("%s:%s" % (g, ("%d" % len(ready[kind][g][1])) if ready[kind][g][0] else "-") for g in ROSTER)))
     say("== art contract")
-    check_art()
-    check_pack_free()
+    safe(check_art)
+    safe(check_pack_free)
     if "--art" in sys.argv:
-        check_freshness()
+        safe(check_freshness)
     for w in WARNINGS:
         print("WARNING:", w)
     for e in ERRORS:
