@@ -339,3 +339,44 @@ decides, not the socket). In `t2` the RATTLER (slot 3, drawn after the SHORTY) r
 | CHOPPER reload, base pad (`d1`, `hands-r4c-d1-chopper-reload-basepad.jpg`) | the hand right in front of the eye under the dropped magazine, fingers fanned toward the camera | **not a grasp**: the log said palm 0.5 cm from the pad and the fingers bent 99 degrees, but cupping the base reads as an open hand. Hence the turn and `height` (`f816d20`) |
 | RATTLER, CHOPPER reload with the turn (`e1`, `f1`; `hands-r4c-f1-rattler-reload-and-hip.jpg`, left) | the hand stood up at the magazine's front, the back of the hand and the fingers toward the camera, large, and **no magazine in it**: the rig shrinks the magazine bone to nothing between the bottom of its drop and its show mark, which is where a 1.2 s reload frame lands | **not yet**: the hand holds air. Hence `magazine.inHand` (`2a9d999`): the magazine stays drawn in the hand through the swap |
 | CHOPPER reload with the final data, `p1/r4-fp-chopper-reload.jpg` (`hands-r4c-p1-chopper-reload.jpg`) | canted gun, the support hand under it at the magazine, fingers up round it; the log: palm 0.1 cm from its place, middle finger bent 99 degrees | **closer**; at this size the fingers still read as spread more than wrapped |
+
+### 9.5 The suite, and what was not seen
+
+**Suite:** `tools/box/test.sh MurderInc` on the clone built at `1b0cfed` (the last code and data commit of this section):
+**203 passed, 0 failed** (81 s), golden replays included; the new `MurderInc.FirstPerson.SupportHand` passes. (The first run, at
+`7c0bc1a`, had 201 passed and 2 failed, `Cloud.QualityApply` and `Cloud.SessionDecision`: the release engineer's tests, fixed
+by their `bbc88fd`, which was in the next pull.) `tools/data/check_guns_data.py`: 0 errors, 0 warnings.
+
+**Not seen in a frame** (the GPU was claimed back to back by other lanes' gate runs from 21:50; the runs `p2`, `p3`, `p4` never
+started and nothing was taken in their folders):
+
+- the optic housing fade (8.4) on any aimed optic: the red dot on the CHOPPER and RATTLER and the 4x scope on the STRETCH and
+  SHORTY. Whether every aimed optic is still a black ring in this build is **unknown** (read only: `AimFade`, `M_Part_Hardware`,
+  7e120ac, a88dcdc; the checker's fade checks pass);
+- the NINE (its reload with `inHand`, hip, aimed);
+- the RATTLER with the final elbow push (only its numbers, 52 / 57 degrees, `t2`) and its reload with `inHand`; the STRETCH
+  reload with the final data;
+- any reload with `magazine.inHand` (the magazine kept drawn in the hand): it is in `p1`'s code for the CHOPPER and SHORTY
+  frames, but the CHOPPER frame is too small to tell a magazine in the hand from the hand itself (`hands-r4c-p1-chopper-reload.jpg`);
+- the pack-gun crash of 5.5 (STICK then RATTLER, aimed, `HighResShot`).
+
+To take them, on the box as root, once the GPU is free (it waits for that itself, and holds it fairly):
+`cd /project/ue/logs/repo-guns/r4c && setsid nohup bash hold.sh 'p2|GUNS=chopper shorty stretch rattler|OPTICS=chopper=red_dot rattler=red_dot stretch=scope_4x shorty=scope_4x|ONLY=chopper:aim shorty:aim stretch:aim rattler:aim|SETTLE=15' > hold8.log 2>&1 &`,
+then the same with `'p4|GUNS=rattler stretch|ONLY=rattler:hip-el rattler:aim rattler:reload stretch:reload|SETTLE=15'` and
+`'p3|GUNS=nine|ONLY=nine:hip-el nine:aim nine:reload|SETTLE=15'` (one hold at a time: each starts and stops this clone's editor).
+
+**Still wrong, as seen:**
+
+1. **The reload grasp is not convincing yet.** The support hand now goes to the magazine and keeps the solved grip (the log:
+   palm 0.1 to 0.9 cm from its place, fingers bent 99 to 116 degrees), but in a 1.2 s reload frame of the canted gun the hand
+   is large and close to the eye, and its fingers read as spread rather than wrapped (`d1`, `e1`, `f1`, `p1` reload frames).
+   The turned handguard grip is an approximation; the real fix is 8.1 step 2: a `reload` solve per gun in `grips.json`, made
+   round each magazine's own body by `_rule_grips.py`, loaded beside `grip.pose`. The C++ is ready for it in all but the load
+   (the carry, turn and squeeze would then be 0). The reload pose itself (`poses.reload` in `guns.json`) brings the magazine
+   close to the eye; it is presentation, but it was not changed here.
+2. **The forearm slope** is 52 to 61 degrees at the hip and 57 to 70 aimed after the push (the STICK's is about 45; the post was
+   95 / 117 to 121): better, not the STICK's. The push saturates; a further step would need the shoulders lower and further
+   left together with it, which brought the upper arm into the reloads before (section 4).
+3. **The SHORTY** aimed: its support arm is bent to 62 degrees by its own low shoulders and its forearm stands at 87 to 90
+   degrees whatever the push (hidden below the picture in `p1`, so not seen as a post).
+4. The RATTLER's 20 cm palm gap in `t2` (slot 3 after the SHORTY) against 4.9 cm in `t1` (slot 1): unexplained.
