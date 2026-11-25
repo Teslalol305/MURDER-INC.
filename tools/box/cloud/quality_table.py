@@ -139,7 +139,7 @@ def parse_ts(line):
 def baseline(log, out):
     vals = {}
     for line in open(log, errors='replace'):
-        m = re.search(r'\]\s*(\S+) = "([^"]*)"', line)
+        m = re.match(r'\[[^\]]*\]\[[^\]]*\](\S+) = "([^"]*)"', line)
         if m and m.group(1) in NAMES:
             vals[m.group(1)] = m.group(2)
     json.dump(vals, open(out, 'w'), indent=1, sort_keys=True)
