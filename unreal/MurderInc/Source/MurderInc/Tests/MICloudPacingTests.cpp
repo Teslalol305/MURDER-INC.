@@ -1,0 +1,193 @@
+// Version 3, release A (the lag): the decisions that keep a streamed game from running ahead of its GPU, and what
+// a visitor may tune from outside. No world, no renderer.
+//   MurderInc.Cloud.FrameRate   the frame-rate target: down at once when the GPU cannot keep up at the smallest picture,
+//                               up only at a safe moment, a rise that does not hold waits longer, a fixed target stays
+//   MurderInc.Cloud.Tuning      the variables -MICVars and a viewer's console command may set, their ranges, the
+//                               launch option's text split into pairs
+
+#include "Cloud/MICloud.h"
+#include "Cloud/MIPacing.h"
+#include "Misc/AutomationTest.h"
+#include "Tests/MITestUtil.h"
+
+#if WITH_AUTOMATION_TESTS
+
+namespace MICloudPacingTestsPrivate
+{
+	/** Feeds the governor the same half-second steps the game does, for a time. Returns how often the target changed. */
+	int32 Run(FMIFrameRateGovernor& G, double Seconds, double GpuMs, bool bSmallestPicture, bool bSafeMoment, bool bHeldBack = false)
+	{
+		int32 Changes = 0;
+		for (double T = 0.0; T < Seconds - 1e-9; T += 0.5)
+		{
+			FMIFrameRateGovernor::FInput In;
+			In.Seconds = 0.5;
+			In.GpuMs = GpuMs;
+			In.bSmallestPicture = bSmallestPicture;
+			In.bSafeMoment = bSafeMoment;
+			In.bHeldBack = bHeldBack;
+			Changes += G.Update(In) ? 1 : 0;
+		}
+		return Changes;
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMICloudFrameRateTest, "MurderInc.Cloud.FrameRate", MITest::Flags)
+
+bool FMICloudFrameRateTest::RunTest(const FString& Parameters)
+{
+	using namespace MICloudPacingTestsPrivate;
+	{
+		FMIFrameRateGovernor G;
+		TestEqual(TEXT("it starts at 60"), G.Target(), 60);
+		// 70 % of 16.7 ms is 11.7 ms.
+		TestEqual(TEXT("11 ms of 16.7: under the line, nothing changes"), Run(G, 20.0, 11.0, true, false), 0);
+		TestEqual(TEXT("14 ms while dynamic resolution can still draw a smaller picture: nothing changes"), Run(G, 20.0, 14.0, false, false), 0);
+		TestEqual(TEXT("14 ms at the smallest picture for half a second: not yet"), Run(G, 0.5, 14.0, true, false), 0);
+		TestEqual(TEXT("... for a second: down, in the middle of play"), Run(G, 0.5, 14.0, true, false), 1);
+		TestEqual(TEXT("60 -> 45"), G.Target(), 45);
+		AddInfo(FString::Printf(TEXT("log line: %s"), *G.Why()));
+		// 70 % of 22.2 ms is 15.6 ms.
+		TestEqual(TEXT("14 ms of 22.2: fine at 45"), Run(G, 20.0, 14.0, true, false), 0);
+		TestEqual(TEXT("20 ms at the smallest picture for a second: down again"), Run(G, 1.0, 20.0, true, false), 1);
+		TestEqual(TEXT("45 -> 30"), G.Target(), 30);
+		TestEqual(TEXT("40 ms at 30: there is no lower target"), Run(G, 20.0, 40.0, true, false), 0);
+		TestEqual(TEXT("still 30"), G.Target(), 30);
+		// 45 % of 33.3 ms is 15 ms.
+		TestEqual(TEXT("10 ms for a minute in live play: it does not rise in a fight"), Run(G, 60.0, 10.0, false, false), 0);
+		TestEqual(TEXT("the same on the pause card: it rises at once (it has been under for long enough)"), Run(G, 0.5, 10.0, false, true), 1);
+		TestEqual(TEXT("30 -> 45"), G.Target(), 45);
+		// 45 % of 22.2 ms is 10 ms: 10.5 ms is not under it.
+		TestEqual(TEXT("10.5 ms of 22.2 on a card: not well under, it stays at 45"), Run(G, 60.0, 10.5, false, true), 0);
+		TestEqual(TEXT("8 ms on a card for 9.5 s: not yet"), Run(G, 9.5, 8.0, false, true), 0);
+		TestEqual(TEXT("... for 10 s: up"), Run(G, 0.5, 8.0, false, true), 1);
+		TestEqual(TEXT("45 -> 60"), G.Target(), 60);
+		TestEqual(TEXT("8 ms at 60 on a card: there is no higher target"), Run(G, 60.0, 5.0, false, true), 0);
+	}
+	{
+		// A rise that does not hold: the next one waits twice as long.
+		FMIFrameRateGovernor G;
+		Run(G, 1.0, 14.0, true, false);
+		TestEqual(TEXT("down to 45"), G.Target(), 45);
+		TestEqual(TEXT("up after 10 s on a card"), Run(G, 10.0, 8.0, false, true), 1);
+		TestEqual(TEXT("down again a second into the run"), Run(G, 1.0, 14.0, true, false), 1);
+		TestEqual(TEXT("at 45"), G.Target(), 45);
+		TestEqual(TEXT("10 s on a card are not enough now"), Run(G, 10.0, 8.0, false, true), 0);
+		TestEqual(TEXT("20 s are"), Run(G, 10.0, 8.0, false, true), 1);
+		TestEqual(TEXT("at 60"), G.Target(), 60);
+	}
+	{
+		// The pacer's word counts even when the GPU's measured time looks fine or is not known.
+		FMIFrameRateGovernor G;
+		TestEqual(TEXT("held back by the GPU at the smallest picture, GPU time unknown: down after a second"), Run(G, 1.0, 0.0, true, false, true), 1);
+		TestEqual(TEXT("45"), G.Target(), 45);
+		TestEqual(TEXT("GPU time unknown and not held back: nothing to go by, nothing changes"), Run(G, 60.0, 0.0, true, true, false), 0);
+		TestEqual(TEXT("held back while the picture can still shrink: dynamic resolution's turn first"), Run(G, 10.0, 30.0, false, false, true), 0);
+	}
+	{
+		// A fixed target (-MIFps=, MI.Cloud.FpsTarget, a t.MaxFPS set by hand).
+		FMIFrameRateGovernor G;
+		G.Pin(30);
+		TestEqual(TEXT("fixed at 30"), G.Target(), 30);
+		TestTrue(TEXT("it says so"), G.IsPinned());
+		TestEqual(TEXT("an idle GPU on a card does not raise it"), Run(G, 60.0, 3.0, false, true), 0);
+		G.Pin(45);
+		TestEqual(TEXT("fixed at 45: a full GPU does not lower it"), Run(G, 60.0, 30.0, true, false), 0);
+		TestEqual(TEXT("45"), G.Target(), 45);
+		G.Pin(0);
+		TestFalse(TEXT("free again"), G.IsPinned());
+		TestEqual(TEXT("and it moves again"), Run(G, 1.0, 30.0, true, false), 1);
+		TestEqual(TEXT("30"), G.Target(), 30);
+		TestEqual(TEXT("a cap of 50 is the 45 target"), FMIFrameRateGovernor::TargetFor(50), 45);
+		TestEqual(TEXT("a cap of 20 is the 30 target"), FMIFrameRateGovernor::TargetFor(20), 30);
+		TestEqual(TEXT("no cap is the 60 target"), FMIFrameRateGovernor::TargetFor(0), 60);
+		TestEqual(TEXT("a cap of 120 is the 60 target"), FMIFrameRateGovernor::TargetFor(120), 60);
+	}
+	return !HasAnyErrors();
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMICloudTuningTest, "MurderInc.Cloud.Tuning", MITest::Flags)
+
+bool FMICloudTuningTest::RunTest(const FString& Parameters)
+{
+	const auto Ok = [](const TCHAR* Name, const TCHAR* Value) { return MITuning::IsAllowed(Name, Value); };
+	// The families of docs/unreal/PREFLIGHT.md V3-9 and V3-11.
+	TestTrue(TEXT("a scalability group"), Ok(TEXT("sg.ShadowQuality"), TEXT("2")));
+	TestTrue(TEXT("dynamic resolution"), Ok(TEXT("r.DynamicRes.OperationMode"), TEXT("2")));
+	TestTrue(TEXT("its frame time"), Ok(TEXT("r.DynamicRes.FrameTimeBudget"), TEXT("22.2")));
+	TestTrue(TEXT("the frame cap"), Ok(TEXT("t.MaxFPS"), TEXT("30")));
+	TestTrue(TEXT("the frame cap off"), Ok(TEXT("t.MaxFPS"), TEXT("0")));
+	TestTrue(TEXT("the texture pool"), Ok(TEXT("r.Streaming.PoolSize"), TEXT("1000")));
+	TestTrue(TEXT("the thread sync"), Ok(TEXT("r.GTSyncType"), TEXT("1")));
+	TestTrue(TEXT("the thread lag"), Ok(TEXT("r.OneFrameThreadLag"), TEXT("0")));
+	TestTrue(TEXT("volumetric fog"), Ok(TEXT("r.VolumetricFog.GridPixelSize"), TEXT("16")));
+	TestTrue(TEXT("the stream's own settings"), Ok(TEXT("PixelStreaming2.WebRTC.Fps"), TEXT("30")));
+	TestTrue(TEXT("a text value of the stream"), Ok(TEXT("PixelStreaming2.Encoder.Codec"), TEXT("H264")));
+	TestTrue(TEXT("the game's pacing"), Ok(TEXT("MI.Cloud.GpuFramesInFlight"), TEXT("0")));
+	TestTrue(TEXT("any letter case"), Ok(TEXT("T.MAXFPS"), TEXT("45")));
+	TestTrue(TEXT("only read"), Ok(TEXT("t.MaxFPS"), TEXT("")));
+	// The ranges: a visitor can put these on a link, and a server out of GPU memory is a crash email to the owner.
+	TestFalse(TEXT("a screen percentage above the output size"), Ok(TEXT("r.ScreenPercentage"), TEXT("200")));
+	TestTrue(TEXT("a screen percentage below it"), Ok(TEXT("r.ScreenPercentage"), TEXT("60")));
+	TestFalse(TEXT("dynamic resolution's largest picture above the output size"), Ok(TEXT("r.DynamicRes.MaxScreenPercentage"), TEXT("400")));
+	TestFalse(TEXT("its smallest picture below a quarter"), Ok(TEXT("r.DynamicRes.MinScreenPercentage"), TEXT("5")));
+	TestFalse(TEXT("a 20 GB texture pool"), Ok(TEXT("r.Streaming.PoolSize"), TEXT("20000")));
+	TestFalse(TEXT("a frame cap of 1000"), Ok(TEXT("t.MaxFPS"), TEXT("1000")));
+	TestFalse(TEXT("a number where a number belongs"), Ok(TEXT("t.MaxFPS"), TEXT("fast")));
+	// Everything else.
+	TestFalse(TEXT("another render setting"), Ok(TEXT("r.Lumen.DiffuseIndirect.Allow"), TEXT("0")));
+	TestFalse(TEXT("a name that only starts like the frame cap"), Ok(TEXT("t.MaxFPSx"), TEXT("30")));
+	TestFalse(TEXT("a family's name without its dot"), Ok(TEXT("sg"), TEXT("1")));
+	TestFalse(TEXT("a command"), Ok(TEXT("quit"), TEXT("")));
+	TestFalse(TEXT("a second command in the value"), Ok(TEXT("sg.ShadowQuality"), TEXT("2 | quit")));
+	TestFalse(TEXT("a name with a space"), Ok(TEXT("t.MaxFPS 30"), TEXT("30")));
+	TestFalse(TEXT("no name"), Ok(TEXT(""), TEXT("1")));
+
+	// The launch option's text.
+	{
+		TArray<TPair<FString, FString>> Allowed;
+		TArray<FString> Refused;
+		MITuning::ParseOption(TEXT("\"t.MaxFPS=30, sg.ShadowQuality=2;r.DynamicRes.MinScreenPercentage=40,quit,r.ScreenPercentage=400,PixelStreaming2.WebRTC.Fps=30\""), Allowed, Refused);
+		TestEqual(TEXT("four pairs may be set"), Allowed.Num(), 4);
+		if (Allowed.Num() == 4)
+		{
+			TestEqual(TEXT("first name"), Allowed[0].Key, FString(TEXT("t.MaxFPS")));
+			TestEqual(TEXT("first value"), Allowed[0].Value, FString(TEXT("30")));
+			TestEqual(TEXT("second, after a comma and a space"), Allowed[1].Key, FString(TEXT("sg.ShadowQuality")));
+			TestEqual(TEXT("third, after a semicolon"), Allowed[2].Key, FString(TEXT("r.DynamicRes.MinScreenPercentage")));
+			TestEqual(TEXT("fourth"), Allowed[3].Value, FString(TEXT("30")));
+		}
+		TestEqual(TEXT("two entries are refused"), Refused.Num(), 2);
+		if (Refused.Num() == 2)
+		{
+			TestEqual(TEXT("the command"), Refused[0], FString(TEXT("quit")));
+			TestEqual(TEXT("the value out of range"), Refused[1], FString(TEXT("r.ScreenPercentage=400")));
+		}
+		Allowed.Reset();
+		Refused.Reset();
+		MITuning::ParseOption(TEXT(""), Allowed, Refused);
+		TestTrue(TEXT("an empty option sets and refuses nothing"), Allowed.Num() == 0 && Refused.Num() == 0);
+		MITuning::ParseOption(TEXT("t.MaxFPS="), Allowed, Refused);
+		TestTrue(TEXT("a name without a value is refused"), Allowed.Num() == 0 && Refused.Num() == 1);
+	}
+
+	// A viewer's console command: the same list, as "name value", "name=value" or "name".
+	{
+		FString Run;
+		TestTrue(TEXT("E3DS's own advice for its console-commands field"), UMICloudSubsystem::IsViewerCommandAllowed(TEXT("t.MaxFPS 30"), &Run));
+		TestEqual(TEXT("it runs as written"), Run, FString(TEXT("t.MaxFPS 30")));
+		TestTrue(TEXT("with an equals sign"), UMICloudSubsystem::IsViewerCommandAllowed(TEXT(" sg.ShadowQuality=1 "), &Run));
+		TestEqual(TEXT("it runs as name and value"), Run, FString(TEXT("sg.ShadowQuality 1")));
+		TestTrue(TEXT("with spaces around the equals sign"), UMICloudSubsystem::IsViewerCommandAllowed(TEXT("r.DynamicRes.MinScreenPercentage = 40"), &Run));
+		TestEqual(TEXT("it runs as name and value too"), Run, FString(TEXT("r.DynamicRes.MinScreenPercentage 40")));
+		TestTrue(TEXT("only the name: the game prints the value"), UMICloudSubsystem::IsViewerCommandAllowed(TEXT("MI.Cloud.FpsTarget"), &Run));
+		TestEqual(TEXT("it runs as the name"), Run, FString(TEXT("MI.Cloud.FpsTarget")));
+		TestFalse(TEXT("quit"), UMICloudSubsystem::IsViewerCommandAllowed(TEXT("quit")));
+		TestFalse(TEXT("a screen percentage of 400"), UMICloudSubsystem::IsViewerCommandAllowed(TEXT("r.ScreenPercentage 400")));
+		TestFalse(TEXT("an allowed variable with a second command behind it"), UMICloudSubsystem::IsViewerCommandAllowed(TEXT("t.MaxFPS 30 | quit")));
+	}
+	AddInfo(FString::Printf(TEXT("allowed: %s"), *MITuning::AllowedList()));
+	return !HasAnyErrors();
+}
+
+#endif  // WITH_AUTOMATION_TESTS

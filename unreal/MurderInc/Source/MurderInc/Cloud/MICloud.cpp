@@ -21,14 +21,18 @@
 #include "Rendering/DrawElements.h"
 #include "Rendering/SlateRenderer.h"
 #include "DynamicRHI.h"
+#include "DynamicRenderScaling.h"
+#include "DynamicResolutionState.h"
 #include "Misc/App.h"
 #include "Misc/CoreDelegates.h"
 #include "Misc/Paths.h"
 #include "RHIStats.h"
 #include "RHIStrings.h"
+#include "RenderTimer.h"
 #include "RenderUtils.h"
 #include "Scalability.h"
 #include "Styling/CoreStyle.h"
+#include "UnrealClient.h"
 #include "UObject/UObjectGlobals.h"
 #include "Widgets/SCompoundWidget.h"
 
@@ -88,6 +92,66 @@ namespace MICloudPrivate
 
 namespace MICloudPrivate
 {
+	// Pacing (Cloud/MIPacing.h). Console variables, so the cloud profile ([MICloud] +CVars), the launch option -MICVars
+	// and E3DS's console-commands field can all set them without a new build.
+	int32 GFramesInFlight = 1;
+	FAutoConsoleVariableRef CVarFramesInFlight(TEXT("MI.Cloud.GpuFramesInFlight"), GFramesInFlight,
+		TEXT("While streamed: how many frames the GPU may still owe the game when it starts the next one.\n")
+		TEXT(" 0: none (the lowest delay; fewer frames a second when the GPU is the limit)\n")
+		TEXT(" 1: one (default: no frame rate is lost)\n")
+		TEXT("-1: no limit: the frames are only counted (the engine's own behaviour off screen: they can pile up)"));
+	float GGpuWaitLimitMs = 250.f;
+	FAutoConsoleVariableRef CVarGpuWaitLimit(TEXT("MI.Cloud.GpuWaitLimitMs"), GGpuWaitLimitMs,
+		TEXT("While streamed: the longest the start of a frame waits for the GPU, in ms (then it goes on and counts a time-out)."));
+	int32 GFpsTarget = 0;
+	FAutoConsoleVariableRef CVarFpsTarget(TEXT("MI.Cloud.FpsTarget"), GFpsTarget,
+		TEXT("While streamed: 60, 45 or 30 fixes the frame-rate target; 0 lets the game choose it by the GPU's time (launch option -MIFps=)."));
+	float GFpsDropOver = 0.70f, GFpsDropAfter = 1.f, GFpsRaiseUnder = 0.45f, GFpsRaiseAfter = 10.f;
+	FAutoConsoleVariableRef CVarFpsDropOver(TEXT("MI.Cloud.FpsDropOver"), GFpsDropOver,
+		TEXT("The frame-rate target drops when the GPU's time is over this share of the frame time at the smallest picture."));
+	FAutoConsoleVariableRef CVarFpsDropAfter(TEXT("MI.Cloud.FpsDropAfter"), GFpsDropAfter, TEXT("... for this many seconds."));
+	FAutoConsoleVariableRef CVarFpsRaiseUnder(TEXT("MI.Cloud.FpsRaiseUnder"), GFpsRaiseUnder,
+		TEXT("The frame-rate target may rise (only while no run is being played) when the GPU's time is under this share of the frame time."));
+	FAutoConsoleVariableRef CVarFpsRaiseAfter(TEXT("MI.Cloud.FpsRaiseAfter"), GFpsRaiseAfter, TEXT("... for this many seconds."));
+
+	/** The commit of BUILD.txt, seven characters ("" outside a cloud package): the pause card's line. */
+	FString GBuildCommit;
+
+	/** Sets a variable the way the cloud profile does, unless something stronger (a launch option, the console) holds it. */
+	bool SetAsProfile(const TCHAR* Name, const FString& Value)
+	{
+		IConsoleVariable* Var = IConsoleManager::Get().FindConsoleVariable(Name);
+		if (!Var || (Var->GetFlags() & ECVF_SetByMask) > ECVF_SetByDeviceProfile)
+		{
+			return false;
+		}
+		if (Var->GetString() != Value)  // no change, no change callbacks (the stream's frame rate refreshes its bitrate)
+		{
+			Var->Set(*Value, ECVF_SetByDeviceProfile);
+		}
+		return true;
+	}
+
+	/** Dynamic resolution's share of the output size now (0.5 to 1), or -1 when it is off; OutSmallest: at its minimum. */
+	float PictureShare(bool& OutSmallest)
+	{
+		OutSmallest = true;  // off: nothing left to take from the resolution
+		if (!GEngine)
+		{
+			return -1.f;
+		}
+		FDynamicResolutionStateInfos Infos;
+		GEngine->GetDynamicResolutionCurrentStateInfos(Infos);
+		if (Infos.Status != EDynamicResolutionStatus::Enabled)
+		{
+			return -1.f;
+		}
+		const float Share = Infos.ResolutionFractionApproximations[GDynamicPrimaryResolutionFraction];
+		static IConsoleVariable* Min = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DynamicRes.MinScreenPercentage"));
+		OutSmallest = Share <= (Min ? Min->GetFloat() : 50.f) / 100.f + 0.02f;
+		return Share;
+	}
+
 	UMIGameSubsystem* Game(const UGameInstance* GI)
 	{
 		UWorld* World = GI ? GI->GetWorld() : nullptr;
@@ -134,6 +198,10 @@ namespace MICloudPrivate
 			Build.TrimStartAndEndInline();
 		}
 		Line(FString::Printf(TEXT("Build: %s"), Build.IsEmpty() ? TEXT("(no BUILD.txt: not a cloud package)") : *Build));
+		if (const int32 At = Build.Find(TEXT("commit ")); At != INDEX_NONE)
+		{
+			GBuildCommit = Build.Mid(At + 7, 7);
+		}
 		FString Level;
 		GetFeatureLevelName(GMaxRHIFeatureLevel, Level);
 		const EShaderPlatform SP = GMaxRHIShaderPlatform;
@@ -245,6 +313,12 @@ public:
 			Text(Out, Layer, Geo, bPad ? (Pause.IsEmpty() ? FString(TEXT("START")) : Pause) + TEXT(" to resume")
 					: FString(TEXT("P to resume  ·  Esc gives the mouse back to the browser; click the game to take it again")),
 				MIStyle::Body(18 * S, true), MIStyle::Ink(), Size.Y - 64 * S);
+			// The game's own numbers, small and dim: a screenshot of the pause card answers what the server's log would
+			// (which GPU, how fast, how large the picture, how the stream is doing).
+			if (!O->GetNumbersLine().IsEmpty())
+			{
+				Text(Out, Layer, Geo, O->GetNumbersLine(), MIStyle::Body(13 * S), MIStyle::InkDim(), Size.Y - 30 * S);
+			}
 		}
 
 		// The stream has no operating-system cursor: draw one wherever the game shows the mouse (not for a player
@@ -382,7 +456,51 @@ int32 UMICloudSubsystem::ApplyCloudProfile()
 			UE_LOG(LogMICloud, Warning, TEXT("Cloud profile: no console variable %s"), *Name);
 		}
 	}
-	MICloudPrivate::Line(FString::Printf(TEXT("Cloud profile applied: %d of %d settings"), N, Lines.Num()));
+	// Pixel Streaming 2's own settings (the capture and the stream's pacing): the plugin is only in the game target,
+	// so these lines are apart from the ones every build must know.
+	TArray<FString> Stream;
+	GConfig->GetArray(TEXT("MICloud"), TEXT("StreamCVars"), Stream, GGameIni);
+	int32 StreamSet = 0;
+	for (const FString& Line : Stream)
+	{
+		FString Name, Value;
+		if (Line.Split(TEXT("="), &Name, &Value))
+		{
+			StreamSet += MICloudPrivate::SetAsProfile(*Name.TrimStartAndEnd(), Value.TrimStartAndEnd()) ? 1 : 0;
+		}
+	}
+	MICloudPrivate::Line(FString::Printf(TEXT("Cloud profile applied: %d of %d settings, %d of %d stream settings"), N, Lines.Num(), StreamSet, Stream.Num()));
+	return N;
+}
+
+int32 UMICloudSubsystem::ApplyTuningOption(const TCHAR* CommandLine)
+{
+	FString Text;
+	if (!CommandLine || !FParse::Value(CommandLine, TEXT("MICVars="), Text, false) || Text.IsEmpty())
+	{
+		return 0;
+	}
+	TArray<TPair<FString, FString>> Allowed;
+	TArray<FString> Refused;
+	MITuning::ParseOption(Text, Allowed, Refused);
+	int32 N = 0;
+	for (const TPair<FString, FString>& Pair : Allowed)
+	{
+		if (IConsoleVariable* Var = IConsoleManager::Get().FindConsoleVariable(*Pair.Key))
+		{
+			Var->Set(*Pair.Value, ECVF_SetByCommandline);
+			MICloudPrivate::Line(FString::Printf(TEXT("Launch option -MICVars: %s = %s (now %s)"), *Pair.Key, *Pair.Value, *Var->GetString()));
+			++N;
+		}
+		else
+		{
+			MICloudPrivate::Line(FString::Printf(TEXT("Launch option -MICVars: no console variable %s"), *Pair.Key));
+		}
+	}
+	for (const FString& Entry : Refused)
+	{
+		MICloudPrivate::Line(FString::Printf(TEXT("Launch option -MICVars: refused \"%s\" (write name=value,name=value; allowed: %s)"), *Entry, *MITuning::AllowedList()));
+	}
 	return N;
 }
 
@@ -411,7 +529,7 @@ FMIStreamMouse UMICloudSubsystem::ReadMouseShape(const TCHAR* CommandLine, doubl
 	return Shape;
 }
 
-bool UMICloudSubsystem::IsViewerCommandAllowed(const FString& Command)
+bool UMICloudSubsystem::IsViewerCommandAllowed(const FString& Command, FString* OutCommand)
 {
 	const FString C = Command.TrimStartAndEnd();
 	if (C.IsEmpty() || C.Len() > 256)
@@ -426,7 +544,31 @@ bool UMICloudSubsystem::IsViewerCommandAllowed(const FString& Command)
 			return false;
 		}
 	}
-	return C.StartsWith(TEXT("PixelStreaming2."), ESearchCase::IgnoreCase) || C.StartsWith(TEXT("PixelStreaming."), ESearchCase::IgnoreCase);
+	// "name", "name value" or "name=value".
+	int32 Cut = INDEX_NONE;
+	for (int32 I = 0; I < C.Len(); ++I)
+	{
+		if (C[I] == TEXT(' ') || C[I] == TEXT('='))
+		{
+			Cut = I;
+			break;
+		}
+	}
+	const FString Name = Cut == INDEX_NONE ? C : C.Left(Cut);
+	FString Value = Cut == INDEX_NONE ? FString() : C.Mid(Cut + 1).TrimStartAndEnd();
+	if (Value.StartsWith(TEXT("=")))
+	{
+		Value = Value.Mid(1).TrimStartAndEnd();  // "name = value"
+	}
+	if (!MITuning::IsAllowed(Name, Value))
+	{
+		return false;
+	}
+	if (OutCommand)
+	{
+		*OutCommand = Value.IsEmpty() ? Name : Name + TEXT(" ") + Value;
+	}
+	return true;
 }
 
 void UMICloudSubsystem::ApplyStreamedQuality(int32 Level)
@@ -457,7 +599,7 @@ void UMICloudSubsystem::ApplyStreamedQuality(int32 Level)
 void UMICloudSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
-	FParse::Value(FCommandLine::Get(), TEXT("MICloudProbe="), ProbePeriod);
+	bProbeGiven = FParse::Value(FCommandLine::Get(), TEXT("MICloudProbe="), ProbePeriod);
 	static bool bStarted = false;  // once per process (a game instance is made once in a packaged game)
 	if (!bStarted)
 	{
@@ -497,6 +639,9 @@ void UMICloudSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 			{ OnGame([](UMICloudSubsystem& S) { S.OnViewerJoined(); }); }));
 		StreamHandles.Add(D->OnAllConnectionsClosedNative.AddLambda([OnGame](FString)
 			{ OnGame([](UMICloudSubsystem& S) { S.OnAllViewersLeft(); }); }));
+		// The sender's own statistics (frames captured, encoded and sent a second, bitrate, QP, round trip): broadcast on
+		// the game thread about once a second for each viewer.
+		StreamHandles.Add(D->OnStatChangedNative.AddUObject(this, &UMICloudSubsystem::OnStreamStat));
 	}
 #endif
 
@@ -507,14 +652,20 @@ void UMICloudSubsystem::Deinitialize()
 {
 	FTSTicker::GetCoreTicker().RemoveTicker(TickHandle);
 #if MI_WITH_PIXELSTREAMING2
-	if (UPixelStreaming2Delegates* D = UPixelStreaming2Delegates::Get(); D && StreamHandles.Num() == 3)
+	if (UPixelStreaming2Delegates* D = UPixelStreaming2Delegates::Get(); D && StreamHandles.Num() == 4)
 	{
 		D->OnConnectedToSignallingServerNative.Remove(StreamHandles[0]);
 		D->OnNewConnectionNative.Remove(StreamHandles[1]);
 		D->OnAllConnectionsClosedNative.Remove(StreamHandles[2]);
+		D->OnStatChangedNative.Remove(StreamHandles[3]);
 	}
 #endif
 	StreamHandles.Reset();
+	if (Pacer.IsValid())
+	{
+		Pacer->Stop();
+		Pacer.Reset();
+	}
 	if (Input.IsValid() && FSlateApplication::IsInitialized())
 	{
 		FSlateApplication::Get().UnregisterInputPreProcessor(Input);
@@ -559,6 +710,8 @@ void UMICloudSubsystem::BecomeStreamed(const TCHAR* Why)
 	{
 		bProfileApplied = true;
 		ApplyCloudProfile();
+		ApplyTuningOption(FCommandLine::Get());
+		StartPacing();
 	}
 }
 
@@ -797,18 +950,23 @@ void UMICloudSubsystem::GuardViewerCommands()
 			S->OnViewerCommand(Command);
 		}
 	});
-	MICloudPrivate::Line(TEXT("Viewer console commands: only PixelStreaming2.* and PixelStreaming.* run; anything else is refused"));
+	MICloudPrivate::Line(FString::Printf(TEXT("Viewer console commands: only these variables can be read or set, anything else is refused: %s"), *MITuning::AllowedList()));
 #endif
 }
 
 void UMICloudSubsystem::OnViewerCommand(const FString& Command)
 {
-	if (IsViewerCommandAllowed(Command))
+	FString Run;
+	if (IsViewerCommandAllowed(Command, &Run))
 	{
 		++CommandsRun;
 		if (GEngine)
 		{
-			GEngine->Exec(GetGameInstance() ? GetGameInstance()->GetWorld() : nullptr, *Command.TrimStartAndEnd());
+			GEngine->Exec(GetGameInstance() ? GetGameInstance()->GetWorld() : nullptr, *Run);
+		}
+		if (CommandsRun <= 20)
+		{
+			MICloudPrivate::Line(FString::Printf(TEXT("Viewer console command: %s"), *Run));
 		}
 		return;
 	}
@@ -821,7 +979,7 @@ void UMICloudSubsystem::OnViewerCommand(const FString& Command)
 		{
 			if (Ch < TEXT(' ')) Ch = TEXT(' ');
 		}
-		MICloudPrivate::Line(FString::Printf(TEXT("Viewer console command refused: \"%s\" (only PixelStreaming2.* and PixelStreaming.* run; further refusals of this session are counted, not logged)"), *Shown));
+		MICloudPrivate::Line(FString::Printf(TEXT("Viewer console command refused: \"%s\" (not one of the variables a viewer may set, or out of its range; further refusals of this session are counted, not logged)"), *Shown));
 	}
 }
 
@@ -841,6 +999,7 @@ bool UMICloudSubsystem::Tick(float DeltaTime)
 		EnsureVideoProducer();
 		EnsureMouse();
 		GuardViewerCommands();
+		TickPacing();
 	}
 	if (ProbePeriod > 0.f)
 	{
@@ -849,11 +1008,185 @@ bool UMICloudSubsystem::Tick(float DeltaTime)
 	return true;
 }
 
+void UMICloudSubsystem::StartPacing()
+{
+	if (bPacingStarted)
+	{
+		return;
+	}
+	bPacingStarted = true;
+	// One probe line every 30 s unless the launch option says otherwise (-MICloudProbe=0: none): the numbers of a
+	// session are in its log without anybody having asked for them beforehand.
+	if (!bProbeGiven)
+	{
+		ProbePeriod = 30.f;
+	}
+	// -MIFps=60|45|30 fixes the frame-rate target (the same as MI.Cloud.FpsTarget).
+	int32 Fixed = 0;
+	if (FParse::Value(FCommandLine::Get(), TEXT("MIFps="), Fixed) && Fixed > 0)
+	{
+		MICloudPrivate::GFpsTarget = FMIFrameRateGovernor::TargetFor(Fixed);
+	}
+	GovLast = FPlatformTime::Seconds();
+	if (FApp::CanEverRender())
+	{
+		Pacer = MakeShared<FMIGpuPacer, ESPMode::ThreadSafe>();
+		Pacer->MaxInFlight = MICloudPrivate::GFramesInFlight;
+		Pacer->WaitLimitMs = MICloudPrivate::GGpuWaitLimitMs;
+		Pacer->Start();
+	}
+	ApplyFrameRateTarget();
+	bool bSmallest = true;
+	const float Share = MICloudPrivate::PictureShare(bSmallest);
+	MICloudPrivate::Line(FString::Printf(TEXT("Pacing: frame-rate target %d (%s), the GPU may owe %d frame(s) at the start of a frame (MI.Cloud.GpuFramesInFlight; pacer %s), dynamic resolution %s"),
+		Governor.Target(), MICloudPrivate::GFpsTarget > 0 ? TEXT("fixed") : TEXT("60, 45 or 30 by the GPU's time"),
+		MICloudPrivate::GFramesInFlight, Pacer.IsValid() && Pacer->IsRunning() ? TEXT("on") : TEXT("off: no renderer"),
+		Share > 0.f ? TEXT("on") : TEXT("not on yet (it starts with the first frame if the cloud profile turns it on)")));
+}
+
+void UMICloudSubsystem::ApplyFrameRateTarget()
+{
+	// A t.MaxFPS set by hand (a launch option, the console, E3DS's console-commands field) stays: the stream and
+	// dynamic resolution follow it. 0 or less is no cap: budget for 60.
+	static IConsoleVariable* MaxFps = IConsoleManager::Get().FindConsoleVariable(TEXT("t.MaxFPS"));
+	MICloudPrivate::SetAsProfile(TEXT("t.MaxFPS"), FString::FromInt(Governor.Target()));
+	const float Cap = MaxFps ? MaxFps->GetFloat() : (float)Governor.Target();
+	const float Rate = Cap >= 1.f ? FMath::Min(Cap, 60.f) : 60.f;
+	MICloudPrivate::SetAsProfile(TEXT("PixelStreaming2.WebRTC.Fps"), FString::FromInt(FMath::RoundToInt32(Rate)));
+	MICloudPrivate::SetAsProfile(TEXT("r.DynamicRes.FrameTimeBudget"), FString::SanitizeFloat(1000.0 / Rate));
+}
+
+void UMICloudSubsystem::TickPacing()
+{
+	if (!bPacingStarted)
+	{
+		return;
+	}
+	if (Pacer.IsValid())
+	{
+		Pacer->MaxInFlight = MICloudPrivate::GFramesInFlight;
+		Pacer->WaitLimitMs = MICloudPrivate::GGpuWaitLimitMs;
+		if (Pacer->HasGivenUp() && !bPacerGaveUpLogged)
+		{
+			bPacerGaveUpLogged = true;
+			MICloudPrivate::Line(TEXT("Pacing: the GPU did not report its finished frames three times in a row (each wait ran into MI.Cloud.GpuWaitLimitMs): the pacer no longer holds the game back"));
+		}
+	}
+	GovGpuSum += FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles(0));
+	++GovFrames;
+	const double Now = FPlatformTime::Seconds();
+	const double Step = Now - GovLast;
+	if (Step < 0.5)
+	{
+		return;
+	}
+	GovLast = Now;
+	FMIFrameRateGovernor::FInput In;
+	In.Seconds = Step;
+	In.GpuMs = GovFrames > 0 ? GovGpuSum / GovFrames : 0.0;
+	LastGpuMs = In.GpuMs;
+	LastFps = GovFrames / Step;
+	GovGpuSum = 0.0;
+	GovFrames = 0;
+	PictureShare = MICloudPrivate::PictureShare(In.bSmallestPicture);
+	if (Pacer.IsValid())
+	{
+		const FMIGpuPacer::FStats S = Pacer->Take(1);
+		In.bHeldBack = S.Frames > 0 && S.Held * 2 > S.Frames;
+	}
+	const AMIPlayerController* PC = GetGameInstance() ? Cast<AMIPlayerController>(GetGameInstance()->GetFirstLocalPlayerController()) : nullptr;
+	In.bSafeMoment = !PC || !PC->IsInLivePlay();
+
+	Governor.OverShare = MICloudPrivate::GFpsDropOver;
+	Governor.DropAfter = MICloudPrivate::GFpsDropAfter;
+	Governor.UnderShare = MICloudPrivate::GFpsRaiseUnder;
+	Governor.RaiseAfter = MICloudPrivate::GFpsRaiseAfter;
+
+	// Fixed from outside: MI.Cloud.FpsTarget (or -MIFps=), or a t.MaxFPS that something stronger than the cloud
+	// profile holds (-MICVars, the console, E3DS's console-commands field).
+	static IConsoleVariable* MaxFps = IConsoleManager::Get().FindConsoleVariable(TEXT("t.MaxFPS"));
+	const bool bByHand = MaxFps && (MaxFps->GetFlags() & ECVF_SetByMask) > ECVF_SetByDeviceProfile;
+	const int32 By = bByHand ? 2 : MICloudPrivate::GFpsTarget > 0 ? 1 : 0;
+	const int32 Fixed = By == 2 ? FMIFrameRateGovernor::TargetFor(FMath::RoundToInt32(MaxFps->GetFloat())) : By == 1 ? FMIFrameRateGovernor::TargetFor(MICloudPrivate::GFpsTarget) : 0;
+	if (By != PinnedBy || (By != 0 && Fixed != Governor.Target()))
+	{
+		PinnedBy = By;
+		Governor.Pin(Fixed);
+		ApplyFrameRateTarget();
+		MICloudPrivate::Line(By == 0 ? FString(TEXT("Frame-rate target: free again (60, 45 or 30 by the GPU's time)"))
+			: FString::Printf(TEXT("Frame-rate target: fixed at %d by %s"), Governor.Target(),
+				By == 2 ? *FString::Printf(TEXT("t.MaxFPS = %s, set by hand (a launch option or a console command)"), *MaxFps->GetString()) : TEXT("MI.Cloud.FpsTarget (launch option -MIFps=)")));
+	}
+	if (Governor.Update(In))
+	{
+		ApplyFrameRateTarget();
+		MICloudPrivate::Line(FString::Printf(TEXT("Frame-rate target: %s"), *Governor.Why()));
+	}
+	else if (PinnedBy == 2)
+	{
+		ApplyFrameRateTarget();  // the stream and dynamic resolution follow a cap that is changed by hand
+	}
+	if (Now >= NumbersNext)
+	{
+		NumbersNext = Now + 1.0;
+		MakeNumbersLine();
+	}
+}
+
+void UMICloudSubsystem::OnStreamStat(FString Player, FName Stat, float Value)
+{
+	// "Application" carries the plugin's settings and its per-frame capture timings: not the stream to a viewer.
+	if (Player != TEXT("Application"))
+	{
+		FStreamStat& S = StreamStats.FindOrAdd(Stat);
+		S.Value = Value;
+		S.Time = FPlatformTime::Seconds();
+	}
+}
+
+double UMICloudSubsystem::StreamStat(const TCHAR* Name, double Missing) const
+{
+	const FStreamStat* S = StreamStats.Find(FName(Name));
+	return S && FPlatformTime::Seconds() - S->Time < 5.0 ? (double)S->Value : Missing;
+}
+
+void UMICloudSubsystem::MakeNumbersLine()
+{
+	FIntPoint Sent(0, 0);
+	if (const UGameViewportClient* VC = GetGameInstance() ? GetGameInstance()->GetGameViewportClient() : nullptr; VC && VC->Viewport)
+	{
+		Sent = VC->Viewport->GetSizeXY();
+	}
+	FString Picture = FString::Printf(TEXT("%d x %d"), Sent.X, Sent.Y);
+	if (PictureShare > 0.f)
+	{
+		Picture = FString::Printf(TEXT("drawn %d x %d, sent %d x %d"), FMath::RoundToInt32(Sent.X * PictureShare), FMath::RoundToInt32(Sent.Y * PictureShare), Sent.X, Sent.Y);
+	}
+	FString Stream = TEXT("no viewer statistics yet");
+	if (const double Tx = StreamStat(TEXT("transmitFps")); Tx >= 0.0)
+	{
+		Stream = FString::Printf(TEXT("stream %.0f a second, %.1f Mbit/s, QP %.0f"), Tx, FMath::Max(0.0, StreamStat(TEXT("bitrateMbits"), 0.0)), FMath::Max(0.0, StreamStat(TEXT("qp"), 0.0)));
+		if (const double Rtt = StreamStat(TEXT("roundTripTime")); Rtt >= 0.0)
+		{
+			Stream += FString::Printf(TEXT(", round trip %.0f ms"), Rtt * 1000.0);
+		}
+	}
+	static IConsoleVariable* Decouple = IConsoleManager::Get().FindConsoleVariable(TEXT("PixelStreaming2.DecoupleFramerate"));
+	NumbersLine = FString::Printf(TEXT("%s  ·  %.0f frames a second (target %d%s)  ·  GPU %.1f ms  ·  %s  ·  %s%s  ·  build %s"),
+		*GRHIAdapterName, LastFps, Governor.Target(), PinnedBy != 0 ? TEXT(", fixed") : TEXT(""), LastGpuMs, *Picture, *Stream,
+		Decouple && Decouple->GetBool() ? TEXT(", decoupled") : TEXT(""),
+		MICloudPrivate::GBuildCommit.IsEmpty() ? TEXT("?") : *MICloudPrivate::GBuildCommit);
+}
+
 void UMICloudSubsystem::Probe(float DeltaTime)
 {
 	ProbeFrames += 1.0;
 	ProbeTime += DeltaTime;
 	ProbeWorst = FMath::Max(ProbeWorst, (double)DeltaTime);
+	// The engine's own per-frame times of each thread, without its waits (what "stat unit" shows).
+	ProbeGameMs = FMath::Max(ProbeGameMs, FPlatformTime::ToMilliseconds(GGameThreadTime));
+	ProbeRenderMs = FMath::Max(ProbeRenderMs, FPlatformTime::ToMilliseconds(GRenderThreadTime));
+	ProbeRhiMs = FMath::Max(ProbeRhiMs, FPlatformTime::ToMilliseconds(GRHIThreadTime));
 	const double Now = FPlatformTime::Seconds();
 	if (Now < ProbeNext)
 	{
@@ -871,13 +1204,27 @@ void UMICloudSubsystem::Probe(float DeltaTime)
 	const AMIPlayerController* MIPC = Cast<AMIPlayerController>(PC);
 	const FRotator R = PC ? PC->GetControlRotation() : FRotator::ZeroRotator;
 	UMIGameSubsystem* G = MICloudPrivate::Game(GetGameInstance());
-	MICloudPrivate::Line(FString::Printf(TEXT("MICloudProbe fps=%.1f worstMs=%.1f gpuMs=%.2f rssMB=%llu peakRssMB=%llu texStreamMB=%llu texOtherMB=%llu poolMB=%lld yaw=%.4f pitch=%.4f state=%d click=%d bb=%lld pushed=%lld viewers=%d spikes=%d pad=%d cmdRun=%d cmdRefused=%d padRepeats=%d stickKeys=%d"),
-		ProbeTime > 0 ? ProbeFrames / ProbeTime : 0.0, ProbeWorst * 1000.0, GpuMs,
+	const FMIGpuPacer::FStats P = Pacer.IsValid() ? Pacer->Take(0) : FMIGpuPacer::FStats();
+	bool bSmallest = true;
+	const float Share = MICloudPrivate::PictureShare(bSmallest);
+	// fps, worstMs and gpuMs stay first: the box tools read the line by its names (tools/box/cloud/lag_sum.py).
+	FString Out = FString::Printf(TEXT("MICloudProbe fps=%.1f worstMs=%.1f gpuMs=%.2f target=%d dr=%.2f owed=%d held=%d waitMs=%.1f worstWaitMs=%.1f pacerTimeOuts=%d gameMs=%.1f renderMs=%.1f rhiMs=%.1f"),
+		ProbeTime > 0 ? ProbeFrames / ProbeTime : 0.0, ProbeWorst * 1000.0, GpuMs, bPacingStarted ? Governor.Target() : 0, Share,
+		P.MaxInFlight, P.Held, P.WaitMs, P.WorstWaitMs, P.TimeOuts, ProbeGameMs, ProbeRenderMs, ProbeRhiMs);
+	if (const double Tx = StreamStat(TEXT("transmitFps")); Tx >= 0.0)
+	{
+		Out += FString::Printf(TEXT(" capFps=%.0f encFps=%.0f txFps=%.0f qp=%.0f mbps=%.2f encMs=%.1f rttMs=%.0f lost=%.0f"),
+			StreamStat(TEXT("captureFps")), StreamStat(TEXT("encodeFps")), Tx, StreamStat(TEXT("qp")), StreamStat(TEXT("bitrateMbits")),
+			StreamStat(TEXT("encodeTime")), StreamStat(TEXT("roundTripTime"), -0.001) * 1000.0, StreamStat(TEXT("packetsLost")));
+	}
+	Out += FString::Printf(TEXT(" rssMB=%llu peakRssMB=%llu texStreamMB=%llu texOtherMB=%llu poolMB=%lld yaw=%.4f pitch=%.4f state=%d click=%d bb=%lld pushed=%lld viewers=%d spikes=%d pad=%d cmdRun=%d cmdRefused=%d padRepeats=%d stickKeys=%d"),
 		(unsigned long long)(M.UsedPhysical >> 20), (unsigned long long)(M.PeakUsedPhysical >> 20),
 		(unsigned long long)(T.StreamingMemorySize >> 20), (unsigned long long)(T.NonStreamingMemorySize >> 20), (long long)(T.TexturePoolSize >> 20),
 		R.Yaw, R.Pitch, G ? (int32)G->GetRules().GetState() : -1, bWaitingForClick ? 1 : 0,
 		(long long)MICloudPrivate::BackBuffers.load(), (long long)MICloudPrivate::FramesPushed.load(),
 		Viewers.Count, MIPC ? MIPC->GetMouseSpikes() : 0, MIPC && MIPC->IsPadActive() ? 1 : 0, CommandsRun, CommandsRefused,
-		PadRepeatsDropped, StickKeysMade));
+		PadRepeatsDropped, StickKeysMade);
+	MICloudPrivate::Line(Out);
 	ProbeFrames = ProbeTime = ProbeWorst = 0.0;
+	ProbeGameMs = ProbeRenderMs = ProbeRhiMs = 0.0;
 }

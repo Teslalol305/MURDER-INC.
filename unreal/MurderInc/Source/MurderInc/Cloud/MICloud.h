@@ -5,6 +5,7 @@
 #include "Containers/Ticker.h"
 #include "GenericPlatform/GenericApplicationMessageHandler.h"
 #include "InputCoreTypes.h"
+#include "Cloud/MIPacing.h"
 #include "Player/MILookInput.h"
 #include "MICloud.generated.h"
 
@@ -47,11 +48,23 @@ struct MURDERINC_API FMICloudViewers
  *    player shows it; launch option -MIMouseScale=<number> to tune it on the host without a rebuild), MouseTruncation
  *    (the count each event loses on the way) and the web game's pointer-lock spike filter (FMIStreamMouse,
  *    AMIPlayerController::StreamMouseEvent). On the desktop the mouse is untouched;
- *  - a viewer's console commands (the host passes -AllowPixelStreamingCommands) run only if they are the stream's own
- *    settings, PixelStreaming2.* or PixelStreaming.*; anything else is refused and the first refusal of a session is
- *    logged (IsViewerCommandAllowed). The browser's size requests are a separate Pixel Streaming command and still work;
+ *  - a viewer's console commands (the host passes -AllowPixelStreamingCommands) run only if they set one of the
+ *    variables a visitor may tune (MITuning: the stream's own settings PixelStreaming2.* and PixelStreaming.*, the
+ *    scalability groups, dynamic resolution, t.MaxFPS and a few more, some only within a range); anything else is
+ *    refused and the first refusal of a session is logged (IsViewerCommandAllowed). The browser's size requests are
+ *    a separate Pixel Streaming command and still work;
  *  - Graphics quality on the Settings card changes the scalability groups only: not the output resolution, the frame
- *    cap or the cloud profile (ApplyStreamedQuality).
+ *    cap or the cloud profile (ApplyStreamedQuality);
+ *  - the game never runs ahead of the GPU and keeps it head-room (Cloud/MIPacing.h): dynamic resolution (the cloud
+ *    profile turns it on), a frame-rate target of 60, 45 or 30 that t.MaxFPS, the stream's frame rate and dynamic
+ *    resolution's frame time follow (launch option -MIFps=60|45|30 or MI.Cloud.FpsTarget fixes it; so does a t.MaxFPS
+ *    set by hand), and a pacer that does not start a frame while the GPU still owes more than
+ *    MI.Cloud.GpuFramesInFlight frames;
+ *  - the launch option -MICVars=name=value,name=value sets console variables of the same list after the cloud
+ *    profile, with command-line priority, each one printed in the log: tuning on the host without a new build;
+ *  - the pause card carries one small line of the game's own numbers (GPU, frame rate and target, GPU time, the
+ *    picture's drawn and sent size, the stream as its sender measures it, the build), and one "MICloudProbe" line is
+ *    logged every 30 s (-MICloudProbe=<seconds> changes the period, 0 turns it off).
  *
  * At start (every run, streamed or not): one block of lines with the build (BUILD.txt at the package root), the GPU,
  * driver, RHI, shader platform, ray tracing, Nanite, Lumen and video memory; if hardware ray tracing is missing,
@@ -61,9 +74,10 @@ struct MURDERINC_API FMICloudViewers
  * reports a stop asked for by SIGINT/SIGTERM/SIGHUP as exit code 0. Not in the Shipping game: -MICrashTest=<seconds>
  * crashes on purpose, -MICloudLog=<file> copies every line to a file (a viewer can add launch options to a link).
  *
- * -MICloudProbe=<seconds> logs one "MICloudProbe" line per period (frame time, GPU time, process memory, the GPU
- * memory the RHI reports, the view's yaw and pitch, the game state, mouse spikes dropped, the device in use) for the
- * cloud budget measurements.
+ * -MICloudProbe=<seconds> logs one "MICloudProbe" line per period (frame rate, worst frame, GPU time, the frame-rate
+ * target, dynamic resolution's share, what the pacer did, the worst game, render and RHI thread times, the stream's
+ * sender statistics, process memory, the GPU memory the RHI reports, the view's yaw and pitch, the game state, mouse
+ * spikes dropped, the device in use) for the cloud budget measurements and the lag tests (tools/box/cloud/lag-test.sh).
  */
 UCLASS()
 class MURDERINC_API UMICloudSubsystem : public UGameInstanceSubsystem
@@ -76,8 +90,17 @@ public:
 
 	/** True when the command line says the game is streamed (see the class comment). */
 	static bool IsStreamedByCommandLine();
-	/** Sets every [MICloud] CVars line; returns how many were set. */
+	/**
+	 * Sets every [MICloud] CVars line; returns how many were set. The StreamCVars lines (Pixel Streaming 2's own
+	 * settings: the plugin is only in the game target) are set as well where the plugin is compiled in, and are not
+	 * counted.
+	 */
 	static int32 ApplyCloudProfile();
+	/**
+	 * The launch option -MICVars=name=value,name=value on CommandLine: sets the variables MITuning allows, with
+	 * command-line priority (above the cloud profile), and logs each one and each refusal. Returns how many were set.
+	 */
+	static int32 ApplyTuningOption(const TCHAR* CommandLine);
 
 	/**
 	 * The stream's mouse shape: [MICloud] MouseScale and MouseTruncation of DefaultGame.ini, the scale overridden by
@@ -86,8 +109,11 @@ public:
 	 */
 	static FMIStreamMouse ReadMouseShape(const TCHAR* CommandLine, double Glitch);
 
-	/** True for a viewer's console command that may run: one of the stream's own settings (see the class comment). */
-	static bool IsViewerCommandAllowed(const FString& Command);
+	/**
+	 * True for a viewer's console command that may run: it reads or sets one variable MITuning allows ("name",
+	 * "name value" or "name=value"; see the class comment). OutCommand, when given, is the command to run: "name value".
+	 */
+	static bool IsViewerCommandAllowed(const FString& Command, FString* OutCommand = nullptr);
 
 	/**
 	 * Graphics quality from the Settings card while streamed. Level 0..3 (low .. ultra) sets the scalability groups
@@ -128,6 +154,11 @@ public:
 	 */
 	void TickStickMenu(float DeltaTime);
 
+	/** The frame-rate target now (60, 45 or 30). */
+	int32 GetFrameRateTarget() const { return Governor.Target(); }
+	/** The pause card's line of numbers (made once a second while streamed). */
+	const FString& GetNumbersLine() const { return NumbersLine; }
+
 private:
 	void BecomeStreamed(const TCHAR* Why);
 	bool Tick(float DeltaTime);
@@ -141,6 +172,16 @@ private:
 	void OnViewerJoined();
 	void OnAllViewersLeft();
 	void Probe(float DeltaTime);
+	/** The pacer, the frame-rate target and the default probe period, once, when the game becomes streamed. */
+	void StartPacing();
+	/** Once a frame while streamed: the GPU's time, twice a second the frame-rate target's decision. */
+	void TickPacing();
+	/** t.MaxFPS, the stream's frame rate and dynamic resolution's frame time for the target (cloud-profile priority). */
+	void ApplyFrameRateTarget();
+	void OnStreamStat(FString Player, FName Stat, float Value);
+	/** A sender statistic of the stream by name; Missing when none arrived in the last 5 s. */
+	double StreamStat(const TCHAR* Name, double Missing = -1.0) const;
+	void MakeNumbersLine();
 
 	bool bStreamed = false;
 	bool bProfileApplied = false;
@@ -167,7 +208,23 @@ private:
 
 	double CrashTestAt = 0.0;
 	float ProbePeriod = 0.f;
+	bool bProbeGiven = false;
 	double ProbeNext = 0.0;
 	double ProbeFrames = 0.0, ProbeTime = 0.0, ProbeWorst = 0.0;
+	double ProbeGameMs = 0.0, ProbeRenderMs = 0.0, ProbeRhiMs = 0.0;  // the worst of each thread in the window
 	TArray<FDelegateHandle> StreamHandles;
+
+	// Pacing (Cloud/MIPacing.h).
+	TSharedPtr<FMIGpuPacer, ESPMode::ThreadSafe> Pacer;
+	FMIFrameRateGovernor Governor;
+	bool bPacingStarted = false, bPacerGaveUpLogged = false;
+	int32 PinnedBy = 0;                      // 0 not pinned, 1 MI.Cloud.FpsTarget / -MIFps, 2 t.MaxFPS set by hand
+	double GovLast = 0.0, GovGpuSum = 0.0;   // since the governor's last step
+	int32 GovFrames = 0;
+	double LastGpuMs = 0.0, LastFps = 0.0;   // the last half second, for the pause card
+	float PictureShare = -1.f;               // dynamic resolution's share of the output size (-1: off)
+	double NumbersNext = 0.0;
+	FString NumbersLine;
+	struct FStreamStat { float Value = 0.f; double Time = 0.0; };
+	TMap<FName, FStreamStat> StreamStats;
 };
