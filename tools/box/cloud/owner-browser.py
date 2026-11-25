@@ -63,6 +63,20 @@ if (h > r.height) { h = r.height; w = h * ar; }
 return [r.x + (r.width - w) / 2, r.y + (r.height - h) / 2, w, h, v.videoWidth, v.videoHeight];
 """
 
+JSMOVE = r"""
+const a = arguments[0], dx = a[0], dy = a[1], n = a[2], gap = a[3];
+const el = document.pointerLockElement || document.activeElement || document.body;
+return new Promise(res => {
+  let i = 0;
+  const t = setInterval(() => {
+    const ev = new MouseEvent('mousemove', {bubbles: true, cancelable: true, view: window, movementX: dx, movementY: dy,
+      clientX: Math.round(innerWidth / 2), clientY: Math.round(innerHeight / 2)});
+    el.dispatchEvent(ev);
+    if (++i >= n) { clearInterval(t); res(i); }
+  }, gap);
+});
+"""
+
 KEYS = {'Tab': '', 'Enter': '', 'Escape': '', 'Space': ' ', 'Left': '', 'Up': '',
         'Right': '', 'Down': '', 'Shift': '', 'Control': ''}
 
@@ -78,7 +92,8 @@ def act(m, steps):
        ["pmove", fx, fy]        move there
        ["click"]                click where the mouse is
        ["down"] / ["up"]        the left button
-       ["moveby", dx, dy, n, gap_ms]   n relative mouse moves of dx, dy pixels, gap_ms apart
+       ["moveby", dx, dy, n, gap_ms]   n relative mouse moves of dx, dy pixels, gap_ms apart (real pointer moves)
+       ["jsmove", dx, dy, n, gap_ms]   the same as events the page receives from a locked mouse (this turns a locked view)
        ["key", "Tab"|"Enter"|"p"|..., hold_ms]    a key down, held, up
        ["keydown", k] / ["keyup", k]
        ["wait", seconds]"""
@@ -140,6 +155,12 @@ def act(m, steps):
                 pointer([move(nx, ny)])
                 cur[0], cur[1] = nx, ny
                 time.sleep(gap / 1000.0)
+        elif k == 'jsmove':
+            # n mouse-move events that carry their movement (movementX/Y), dispatched in the page on the locked
+            # element or the document: what the player's page receives from a locked mouse. (Marionette's own pointer
+            # moves do not turn a locked view: the browser derives no movement from them.)
+            dx, dy, n, gap = s[1], s[2], int(s[3]) if len(s) > 3 else 1, float(s[4]) if len(s) > 4 else 16
+            m.execute_script(JSMOVE, script_args=[[dx, dy, n, gap]])
         elif k == 'key':
             v = KEYS.get(s[1], s[1])
             hold = float(s[2]) if len(s) > 2 else 80
