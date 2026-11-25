@@ -1,0 +1,20 @@
+# The release gate of release 3c's quality ladder (docs/unreal/PROGRESS.md "Release 3c: the quality ladder"): version 3a's gate
+# (lag-gate.txt) at its loads and at two heavier ones, on the Development game of this branch with the cloud profile as the
+# cloud has it, with E3DS's shader platform (-sm5). It is NOT the packaged game (a Development game in a test folder: the pak
+# is older than the branch, lag-test.sh profile=1 hands it the cloud profile and the ladder's steps). Run as
+#   LAG_BUILD=<test folder> LAG_OUT=<runs> bash lag-test.sh queue lag-gate-3c.txt        (about 45 minutes; no compile meanwhile)
+# The loads (docs/unreal/PROGRESS.md, version 3a, calibration; the GPU's time a frame of version 2's picture on the box):
+#   none 6.3 ms | 1:0.3:1 8.1 | 1:0.05:0.05:1024 11.4 | 1:0.05:0:1024 19.3 | 1:0.3:0 33.8 | 1:1:0 47.9
+# and what E3DS measured (docs/unreal/DECISIONS.md, 2026-11-25): a clean card 10 to 13 ms at the smallest picture; with one
+# game left on it 33 to 37 ms at 27 frames a second; with two 52 to 57 ms at 18. The runs ending in -off are the same runs with
+# the ladder off (-MINoLadder): version 3a's behaviour in the same session, for the table.
+c-free game=dev load=0 profile=1 -- -sm5
+c-l8 game=dev load=1:0.3:1 profile=1 -- -sm5
+c-l12 game=dev load=1:0.05:0.05:1024 profile=1 -- -sm5
+c-l20 game=dev load=1:0.05:0:1024 profile=1 -- -sm5
+c-l35 game=dev load=1:0.3:0 profile=1 -- -sm5
+c-l35-off game=dev load=1:0.3:0 profile=1 -- -sm5 -MINoLadder
+c-l48 game=dev load=1:1:0 profile=1 -- -sm5
+c-l48-off game=dev load=1:1:0 profile=1 -- -sm5 -MINoLadder
+c-l35-cpu6 game=dev load=1:0.3:0 cpus=0-5 profile=1 -- -sm5
+c-l48-cpu6 game=dev load=1:1:0 cpus=0-5 profile=1 -- -sm5

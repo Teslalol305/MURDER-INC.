@@ -1,0 +1,29 @@
+# The fight of the quality ladder's gate (release 3c): the Development game plays a Story run by itself with its demo director
+# (Source/MurderInc/Flow/MIDemoDirector.cpp; tools/box/demo/demo.txt says what every verb does): the avenue under the El, the
+# Goons alerted, two fights, the propane tanks, then standing still. A fight costs the GPU more than the first room does (the
+# Goons, their shots, the muzzle flashes, the blast): this is the load the ladder is for. Run it as
+#   lag-test.sh run <name> game=dev demo=ladder-fight.txt view=sound-watch.txt join=3 probe=0.5 secs=130 load=<...> profile=1 -- -sm5
+# and read the probe lines: gpuMs, target, dr (the picture), q (the ladder's step). Played by the game, watched by a viewer
+# that only clicks the card away.
+wait 4
+con MIStart mission skip
+waitstate playing 40
+god 1
+secure 1
+secure 2
+wait 6
+spring 1.3 110 1.7
+face path -2
+auto 1 1
+route 0 -3725 875 -3475 875 -3175 675 -2775 525 -2775 425 -1500 150
+alert 60
+fight 22 3 1 5
+con MIInput reload 1
+wait 2.8
+fight 12 2 1 3
+auto 0
+lookat -420 -800 60 2.5
+blow 5
+wait 3
+con MIDemo.Stop
+wait 900
