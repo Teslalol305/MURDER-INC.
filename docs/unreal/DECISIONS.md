@@ -565,3 +565,16 @@ ever committed.
 The owner, asked about the balance (about 1,275 credits, under the 2,500 floor of RESUME 2 and 7): "use as many credits as needed i will
 replensih them". The floor is gone: the box (603980d9, the same spec, rented 17:50 after ec087d85 expired at its 24 hours) runs on, and
 agents may rent the same spec again when a rental ends. Unchanged: one box at a time, the same spec and price, nothing else rented.
+
+## 2026-11-25 ~20:40 UTC: release v6 waits for the full checks ("no shortcuts we need this to be perfect")
+
+The owner chose the fully checked release over uploading the trial package (fd8ce12) now, then said: "no shortcuts we need this to be
+perfect". The lead creates /project/ue/cloud/RELEASE-V6-GO only when all of these hold on one commit:
+1. The hands C++ pass (HANDS_R4.md 8) is built, its review's must-fix items are closed, and the support hand holds the magazine in
+   every reload and the aimed optics show no black ring, in pictures someone other than the engineer looked at.
+2. The readiness pass (docs/unreal/READY.md) says go: rendering faults fixed, flicker measured at the viewer and within limits at the
+   chosen stream resolution, every menu screen clean at every tested size, every gun with every part fitting, showing and playing.
+3. The full suite passes on that commit in a clone with the guns imported fresh (golden replays included, nothing skipped).
+Then the release engineer packages exactly that commit and gates it; an independent check plays the package; only then is it uploaded,
+and E3DS's copy is played through the E3DS page (every gun, every part, keyboard, mouse and pad) before the owner switches the pin.
+Anything that fails any step goes back to its lane; nothing is waived for time.
