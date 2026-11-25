@@ -158,11 +158,11 @@
       "chopper_ik": {
         "mode": "ik",
         "arms": {
-          "idle": "/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS.MF_Rifle_Idle_ADS",
-          "fire": "/Game/Characters/Mannequins/Anims/Rifle/MM_Rifle_Fire.MM_Rifle_Fire"
+          "idle": "/Game/ThirdParty/InfimaTFA/Character/FP/Locomotion/A_TFA_FP_AR_Idle_Loop_Standing.A_TFA_FP_AR_Idle_Loop_Standing",
+          "fire": "/Game/ThirdParty/InfimaTFA/Character/FP/Combat/A_TFA_FP_AR_Fire_Semi.A_TFA_FP_AR_Fire_Semi"
         },
         "ik": {"left": "Palm_L", "right": "Palm_R"},
-        "shoulders": [-8.5, 1.1, -12.4],
+        "shoulders": [-8, -6, -10],
         "shouldersNote": "camera space, cm: the arms' shoulders (midpoint of upperarm_l / _r) under the eye when a solved grip holds the gun (Data/grips.json); the IK reaches both hands from there (console mi.FP.Shoulders \"x y z\" to try values, \"off\" for the old wrist slide)",
         "fireWeight": 0.45,
         "bobScale": 0.6,
@@ -179,16 +179,16 @@
           "note": "the support hand's fingers only (the bones below hand_l) from the pack's rifle idle, wrapped round a 5 cm handguard as they now wrap the firing hand; optional: without the pack the fingers keep the template pose"
         },
         "grip": {"gun": "chopper", "pose": "hip", "weight": 1.0},
-        "note": "The CHOPPER (SK_Chopper): the engine template's rifle idle and fire clips (on the mannequin skeleton, as the NINE's pistol clips) on SK_RuleArms, both palms pulled onto the gun's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its bolt, trigger and magazine (ANIMATION.md 4). The support hand's fingers come from the pack's rifle idle when the pack is installed (fingerCurl), else the template pose. No solved grip yet (grips.json has no entry for this gun: the palm IK alone), so the arms are placed by the gun's grip marker and the template rifle idle, and `shoulders` does nothing until a grip is solved (GripShoulderTranslation returns early without grip points). Starting values, to be tuned in play: fireWeight, bobScale. Slot 1, the web gun: its numbers in config.json are the web game's."
+        "note": "The CHOPPER (SK_Chopper): the pack's first-person rifle idle and fire clips (A_TFA_FP_AR_Idle_Loop_Standing, A_TFA_FP_AR_Fire_Semi: the STICK's, on SK_RuleArms' own skeleton; the template's third-person rifle clips put the support arm straight up and swung the upper arm into view on every shot: docs/unreal/HANDS_R4.md) on SK_RuleArms, both palms pulled onto the gun's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its bolt, trigger and magazine (ANIMATION.md 4). The support hand's fingers come from the pack's rifle idle when the pack is installed (fingerCurl), else the template pose. The solved grip (grips.json, support fingers laid along the forend by _rule_grips.py --tidy) shapes both hands; `shoulders` [-8, -6, -10] chosen in play between the solve's [-8.5, 1.1, -12.4] (support forearm straight up from the bottom) and the STICK's own [-10, -14, -7] (the left upper arm in view in the reloads): HANDS_R4.md. Starting values, to be tuned in play: fireWeight, bobScale. Slot 1, the web gun: its numbers in config.json are the web game's."
       },
       "shorty_ik": {
         "mode": "ik",
         "arms": {
-          "idle": "/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS.MF_Rifle_Idle_ADS",
-          "fire": "/Game/Characters/Mannequins/Anims/Rifle/MM_Rifle_Fire.MM_Rifle_Fire"
+          "idle": "/Game/ThirdParty/InfimaTFA/Character/FP/Locomotion/A_TFA_FP_AR_Idle_Loop_Standing.A_TFA_FP_AR_Idle_Loop_Standing",
+          "fire": "/Game/ThirdParty/InfimaTFA/Character/FP/Combat/A_TFA_FP_AR_Fire_Semi.A_TFA_FP_AR_Fire_Semi"
         },
         "ik": {"left": "Palm_L", "right": "Palm_R"},
-        "shoulders": [-6, 0, -24],
+        "shoulders": [-8, -6, -10],
         "shouldersNote": "camera space, cm: the arms' shoulders (midpoint of upperarm_l / _r) under the eye when a solved grip holds the gun (Data/grips.json); the IK reaches both hands from there (console mi.FP.Shoulders \"x y z\" to try values, \"off\" for the old wrist slide)",
         "fireWeight": 0.45,
         "bobScale": 0.6,
@@ -205,16 +205,16 @@
           "note": "the support hand's fingers only (the bones below hand_l) from the pack's rifle idle, wrapped round a 5 cm handguard as they now wrap the firing hand; optional: without the pack the fingers keep the template pose"
         },
         "grip": {"gun": "shorty", "pose": "hip", "weight": 1.0},
-        "note": "The SHORTY (SK_Shorty): the engine template's rifle idle and fire clips (on the mannequin skeleton, as the NINE's pistol clips) on SK_RuleArms, both palms pulled onto the gun's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its bolt, trigger and magazine (ANIMATION.md 4). The support hand's fingers come from the pack's rifle idle when the pack is installed (fingerCurl), else the template pose. No solved grip yet (grips.json has no entry for this gun: the palm IK alone), so the arms are placed by the gun's grip marker and the template rifle idle, and `shoulders` does nothing until a grip is solved (GripShoulderTranslation returns early without grip points). Starting values, to be tuned in play: fireWeight, bobScale. Bullpup: the support hand is 21 cm ahead of the firing hand."
+        "note": "The SHORTY (SK_Shorty): the pack's first-person rifle idle and fire clips (A_TFA_FP_AR_Idle_Loop_Standing, A_TFA_FP_AR_Fire_Semi: the STICK's, on SK_RuleArms' own skeleton; the template's third-person rifle clips put the support arm straight up and swung the upper arm into view on every shot: docs/unreal/HANDS_R4.md) on SK_RuleArms, both palms pulled onto the gun's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its bolt, trigger and magazine (ANIMATION.md 4). The support hand's fingers come from the pack's rifle idle when the pack is installed (fingerCurl), else the template pose. The solved grip (grips.json, support fingers laid along the forend by _rule_grips.py --tidy) shapes both hands; `shoulders` [-8, -6, -10] chosen in play between the solve's [-8.5, 1.1, -12.4] (support forearm straight up from the bottom) and the STICK's own [-10, -14, -7] (the left upper arm in view in the reloads): HANDS_R4.md. Starting values, to be tuned in play: fireWeight, bobScale. Bullpup: the support hand is 21 cm ahead of the firing hand."
       },
       "stretch_ik": {
         "mode": "ik",
         "arms": {
-          "idle": "/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS.MF_Rifle_Idle_ADS",
-          "fire": "/Game/Characters/Mannequins/Anims/Rifle/MM_Rifle_Fire.MM_Rifle_Fire"
+          "idle": "/Game/ThirdParty/InfimaTFA/Character/FP/Locomotion/A_TFA_FP_AR_Idle_Loop_Standing.A_TFA_FP_AR_Idle_Loop_Standing",
+          "fire": "/Game/ThirdParty/InfimaTFA/Character/FP/Combat/A_TFA_FP_AR_Fire_Semi.A_TFA_FP_AR_Fire_Semi"
         },
         "ik": {"left": "Palm_L", "right": "Palm_R"},
-        "shoulders": [-6.5, 1.1, -12.4],
+        "shoulders": [-8, -6, -10],
         "shouldersNote": "camera space, cm: the arms' shoulders (midpoint of upperarm_l / _r) under the eye when a solved grip holds the gun (Data/grips.json); the IK reaches both hands from there (console mi.FP.Shoulders \"x y z\" to try values, \"off\" for the old wrist slide)",
         "fireWeight": 0.45,
         "bobScale": 0.6,
@@ -231,16 +231,16 @@
           "note": "the support hand's fingers only (the bones below hand_l) from the pack's rifle idle, wrapped round a 5 cm handguard as they now wrap the firing hand; optional: without the pack the fingers keep the template pose"
         },
         "grip": {"gun": "stretch", "pose": "hip", "weight": 1.0},
-        "note": "The STRETCH (SK_Stretch): the engine template's rifle idle and fire clips (on the mannequin skeleton, as the NINE's pistol clips) on SK_RuleArms, both palms pulled onto the gun's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its bolt, trigger and magazine (ANIMATION.md 4). The support hand's fingers come from the pack's rifle idle when the pack is installed (fingerCurl), else the template pose. No solved grip yet (grips.json has no entry for this gun: the palm IK alone), so the arms are placed by the gun's grip marker and the template rifle idle, and `shoulders` does nothing until a grip is solved (GripShoulderTranslation returns early without grip points). Starting values, to be tuned in play: fireWeight, bobScale. The support hand reaches 25 cm ahead of the firing hand; the bipod stays folded."
+        "note": "The STRETCH (SK_Stretch): the pack's first-person rifle idle and fire clips (A_TFA_FP_AR_Idle_Loop_Standing, A_TFA_FP_AR_Fire_Semi: the STICK's, on SK_RuleArms' own skeleton; the template's third-person rifle clips put the support arm straight up and swung the upper arm into view on every shot: docs/unreal/HANDS_R4.md) on SK_RuleArms, both palms pulled onto the gun's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its bolt, trigger and magazine (ANIMATION.md 4). The support hand's fingers come from the pack's rifle idle when the pack is installed (fingerCurl), else the template pose. The solved grip (grips.json, support fingers laid along the forend by _rule_grips.py --tidy) shapes both hands; `shoulders` [-8, -6, -10] chosen in play between the solve's [-8.5, 1.1, -12.4] (support forearm straight up from the bottom) and the STICK's own [-10, -14, -7] (the left upper arm in view in the reloads): HANDS_R4.md. Starting values, to be tuned in play: fireWeight, bobScale. The support hand reaches 25 cm ahead of the firing hand; the bipod stays folded."
       },
       "rattler_ik": {
         "mode": "ik",
         "arms": {
-          "idle": "/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS.MF_Rifle_Idle_ADS",
-          "fire": "/Game/Characters/Mannequins/Anims/Rifle/MM_Rifle_Fire.MM_Rifle_Fire"
+          "idle": "/Game/ThirdParty/InfimaTFA/Character/FP/Locomotion/A_TFA_FP_AR_Idle_Loop_Standing.A_TFA_FP_AR_Idle_Loop_Standing",
+          "fire": "/Game/ThirdParty/InfimaTFA/Character/FP/Combat/A_TFA_FP_AR_Fire_Semi.A_TFA_FP_AR_Fire_Semi"
         },
         "ik": {"left": "Palm_L", "right": "Palm_R"},
-        "shoulders": [-2.5, 1.1, -12.4],
+        "shoulders": [-8, -6, -10],
         "shouldersNote": "camera space, cm: the arms' shoulders (midpoint of upperarm_l / _r) under the eye when a solved grip holds the gun (Data/grips.json); the IK reaches both hands from there (console mi.FP.Shoulders \"x y z\" to try values, \"off\" for the old wrist slide)",
         "fireWeight": 0.45,
         "bobScale": 0.6,
@@ -257,7 +257,7 @@
           "note": "the support hand's fingers only (the bones below hand_l) from the pack's rifle idle, wrapped round a 5 cm handguard as they now wrap the firing hand; optional: without the pack the fingers keep the template pose"
         },
         "grip": {"gun": "rattler", "pose": "hip", "weight": 1.0},
-        "note": "The RATTLER (SK_Rattler): the engine template's rifle idle and fire clips (on the mannequin skeleton, as the NINE's pistol clips) on SK_RuleArms, both palms pulled onto the gun's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its bolt, trigger and magazine (ANIMATION.md 4). The support hand's fingers come from the pack's rifle idle when the pack is installed (fingerCurl), else the template pose. No solved grip yet (grips.json has no entry for this gun: the palm IK alone), so the arms are placed by the gun's grip marker and the template rifle idle, and `shoulders` does nothing until a grip is solved (GripShoulderTranslation returns early without grip points). Starting values, to be tuned in play: fireWeight, bobScale. The folded wire stock stays folded; the strap under the forend is the support hand's place."
+        "note": "The RATTLER (SK_Rattler): the pack's first-person rifle idle and fire clips (A_TFA_FP_AR_Idle_Loop_Standing, A_TFA_FP_AR_Fire_Semi: the STICK's, on SK_RuleArms' own skeleton; the template's third-person rifle clips put the support arm straight up and swung the upper arm into view on every shot: docs/unreal/HANDS_R4.md) on SK_RuleArms, both palms pulled onto the gun's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its bolt, trigger and magazine (ANIMATION.md 4). The support hand's fingers come from the pack's rifle idle when the pack is installed (fingerCurl), else the template pose. The solved grip (grips.json, support fingers laid along the forend by _rule_grips.py --tidy) shapes both hands; `shoulders` [-8, -6, -10] chosen in play between the solve's [-8.5, 1.1, -12.4] (support forearm straight up from the bottom) and the STICK's own [-10, -14, -7] (the left upper arm in view in the reloads): HANDS_R4.md. Starting values, to be tuned in play: fireWeight, bobScale. The folded wire stock stays folded; the strap under the forend is the support hand's place."
       }
     }
   },

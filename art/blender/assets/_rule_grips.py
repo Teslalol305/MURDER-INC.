@@ -224,7 +224,77 @@ def merge(path, data):
     return sorted(out["guns"])
 
 
+RIFLES = ("chopper", "shorty", "stretch", "rattler")
+
+
+def tidy_support(entry, middle_deg=0.0, distal_deg=20.0):
+    """The support hand of a rifle solve, its middle and end phalanges laid along the forend's right face (hands pass,
+    weapons round 4, docs/unreal/HANDS_R4.md). In the solves the end segment of every support finger points away from
+    the gun (the '_tip' point, the tail of the _03 bone, runs 2 cm out to the right: middle finger 03 -> tip
+    (-0.9, +2.1, +0.9) cm on the CHOPPER), so in the game, aimed, four straight fingers stood out to the right of the
+    handguard like an open hand (stream runs h2 and h3, 01-chopper-aim, 21-stretch-aim). The metacarpal, knuckle (_01)
+    and proximal joint (_02) points stay as the contact solve put them (knuckles at the forend's lower right edge, the
+    proximal phalanx up its face); the middle phalanx continues the proximal one turned `middle_deg` toward the gun's
+    centre line, the end one a further `distal_deg`: the fingers lie on the face instead of leaving it. Segment
+    lengths are kept; points only (the game aims each finger bone at its child's point). Pure geometry: no Blender."""
+    import math
+    pts = entry["l"]
+
+    def sub(a, b):
+        return [a[i] - b[i] for i in range(3)]
+
+    def length(a):
+        return math.sqrt(sum(x * x for x in a))
+
+    def norm(a):
+        n = length(a) or 1.0
+        return [x / n for x in a]
+
+    for f in ("index", "middle", "ring", "pinky"):
+        p1, p2, p3, tip = (pts["%s_%s_l" % (f, k)] for k in ("01", "02", "03", "tip"))
+        u = norm(sub(p2, p1))
+        d = -u[1]                                       # inward (gun space -Y: the right face's inside) along u
+        n = norm([0.0 - d * u[0], -1.0 - d * u[1], 0.0 - d * u[2]])
+        l2, l3 = length(sub(p3, p2)), length(sub(tip, p3))
+
+        def turned(deg):
+            a = math.radians(deg)
+            return [u[i] * math.cos(a) + n[i] * math.sin(a) for i in range(3)]
+        t2, t3 = turned(middle_deg), turned(middle_deg + distal_deg)
+        q3 = [p2[i] + t2[i] * l2 for i in range(3)]
+        qt = [q3[i] + t3[i] * l3 for i in range(3)]
+        pts["%s_03_l" % f] = [round(x, 3) for x in q3]
+        pts["%s_tip_l" % f] = [round(x, 3) for x in qt]
+    return entry
+
+
+def tidy_file(path, guns=RIFLES, poses=("hip", "aim")):
+    """tidy_support on the rifle entries of a grips file (written back); returns what changed."""
+    data = json.load(open(path))
+    done = []
+    for g in guns:
+        for p in poses:
+            e = data.get("guns", {}).get(g, {}).get(p)
+            if e and "l" in e:
+                tidy_support(e)
+                done.append("%s/%s" % (g, p))
+    with open(path, "w") as f:
+        json.dump(data, f, indent=1)
+    json.load(open(path))
+    return done
+
+
 def main(argv):
+    if "--tidy" in argv:
+        # after a rifle solve: python _rule_grips.py --tidy [guns...]  (no Blender: grips.json's points only). The
+        # proximal points are kept and the rest rebuilt from them with the same lengths, so a second run changes nothing.
+        game = os.path.normpath(os.path.join(HERE, "..", "..", "unreal", "MurderInc", "Content", "Data", "grips.json"))
+        glb = os.path.normpath(os.path.join(HERE, "..", "out", "glb", "SK_RuleArms.grips.json"))
+        guns = [a for a in argv if not a.startswith("--")] or list(RIFLES)
+        for f in (glb, game):
+            if os.path.exists(f):
+                print("tidied", f, tidy_file(f, guns))
+        return
     from mi import paths
     flags = ("--pose", "--samples")
     guns = [a for i, a in enumerate(argv) if not a.startswith("--") and (i == 0 or argv[i - 1] not in flags)] or ["nine"]
