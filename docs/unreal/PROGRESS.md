@@ -3,6 +3,293 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Version 3a: packaged, gated and delivered (release engineer, 2026-11-25, 06:25 to 07:55 UTC)
+
+Release A of version 3 (the three entries below: play through the stream, the lag, the review's findings) is
+packaged, and **the package itself passed the release gate**: the zip, unpacked as a new user with an empty home
+into a fresh folder, started with E3DS's documented arguments. It is in the owner's storage in nine parts, checked
+from there. No game code changed in this step. What was measured, what was only read and what is unproven is said
+where it applies; section 8 lists what is not proven.
+
+**The zip: sha256 `de41a7089a3e940c010806753640e1c84b3f357f0e551e067f300b006eef58e4`, 2,254,962,151 bytes**, game and
+launcher from commit `6c4d810` (the game's code last changed at `906dfdf`). `docs/LAUNCH.md` section 9 has the parts,
+the E3DS settings and what the owner sends back.
+
+### 1. Before packaging
+
+- **No new data from the owner's E3DS test** had arrived (`DECISIONS.md` ends with the review's decisions of 05:30
+  UTC): which graphics card E3DS gave the sessions, its frame rates and the mouse's feel are still unknown. **So no
+  default was changed.** Version 3a ships the cloud profile of the two entries below as it stands.
+- **The suite at the packaged head:** `TESTS OK passed=119 failed=0 skipped=0 filter=MurderInc 51 s (report)` on the
+  box at `6c4d810` (116 without and 3 with the audio warnings this clone always had; the 11 golden replays among
+  them; the editor "Target is up to date"). Nothing under `unreal/` differs between `906dfdf` and `6c4d810`.
+
+### 2. The package
+
+`MI_TAG=v3a tools/box/cloud/package-cloud.sh all`, 06:31:29 to 06:36:12 UTC (4 min 43 s): a full cook (2,232
+packages, none skipped), both game targets "up to date" (the binaries are those compiled at 05:22 UTC from the same
+code, by the review pass), the zip and nine parts. 65 files (version 2's 64 and `MIDEV.key`), 2,729,232,371 bytes
+unpacked; no `Saved/`, no `*.debug` or `*.sym`, no log; `MurderInc.sh` in the zip is byte for byte the repository's
+(sha256 `4254cbef…3343`); `BUILD.txt` names `6c4d810` for the game and the launcher. Debug symbols:
+`/project/ue/cloud/symbols/6c4d810/` on the box. Version 2's zip is kept there as `v2-ceaf828d.zip`.
+
+**The Development game's key** (`-MIDev=<key>`, `MIDEV.key` at the top of the zip) is new for this zip. It is in the
+release report to the owner and in `/project/ue/cloud/MurderInc-E3DS.devkey` on the box, nowhere in this repository.
+
+### 3. The release gate on the zip
+
+**How.** The zip unpacked by the user `e3dsfresh` into `/tmp/v3a/zip` on the box. Every run: that user with a new,
+empty home (`lag-test.sh runas=fresh`), the folder's `Saved` removed first (`clean=1`: no settings, no shader or
+pipeline cache from the run before, which is what a host that unpacks a fresh copy for every session gives), no
+display, the launcher of the zip, and E3DS's arguments (`-PixelStreamingURL= -PixelStreamingID= -AudioMixer -log
+-Unattended -StdOut -FullStdOutLogOutput -ABSLOG= -AllowPixelStreamingCommands -Windowed -ForceRes -ResX=1920
+-ResY=1080 -PixelStreamingEncoderCodec=H264 -PixelStreamingWebRTCMaxBitrate= -PixelStreamingEncoderMinQP=
+-PixelStreamingEncoderMaxQP=`, plus the two bitrate options the box's Python viewer needs and `-MICloudProbe=1`).
+One game on the GPU at a time, every run CLEAN, the 13 lines of `tools/box/cloud/lag-gate.txt` as runs `v3a-…`
+(`/project/ue/cloud/lag/v3a-*/`). The viewer clicks the card, goes through the set-up screens into a Story run,
+stands, turns slowly, turns fast and walks while turning. Box ec087d85 (RTX PRO 6000 Blackwell, driver 620.70).
+
+**It passes.** In play, at every load, on all CPUs and on 6: **no frame over 38 ms in the Shipping game's Story
+runs** and none over 50 ms in the Development game's (the gate asks for none over 100 ms), never more than 2 frames
+owed, no pacer time-out, memory flat, and every game stopped with exit code 0 within 8 s of SIGTERM. With a free
+GPU the game holds 60.0 frames a second (lowest second 59.8). The fence lines of the Development game's log need a
+sentence more: section 4.
+
+| Run | Game | Load (GPU time a frame) | Settled on: target, picture | Frames a second (lowest second) | Worst frame in play (first 5 s; after) | GPU time (highest second) | Owed | Pacer time-outs in play | Memory 5 s into the play, change to its end | Sent a second (lowest second) | Stop |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `v3a-free` | Shipping | none | 60, 75 % | **60.0 (59.8)** | 21 ms (17; 21) | 5.9 ms (6.7) | 2 | 0 | 3,813 MB, +17 | 57.0 (51) | exit 0 |
+| `v3a-l8` | Shipping | 8 ms | 60, 75 % | 60.0 (59.8) | 20 ms (17; 20) | 8.1 ms (9.5) | 2 | 0 | 3,907 MB, +17 | 55.1 (38) | exit 0 |
+| `v3a-l12` | Shipping | 12 ms | 60, 70 to 75 % | 60.0 (59.8) | 20 ms (17; 20) | 11.0 ms (12.9) | 2 | 0 | 3,888 MB, +22 | 56.5 (43) | exit 0 |
+| `v3a-l20` | Shipping | 20 ms | 45, 50 % | 45.0 (44.8) | 26 ms (22; 26) | 18.8 ms (21.6) | 2 | 0 | 3,937 MB, +15 | 42.5 (22) | exit 0 |
+| `v3a-l35` | Shipping | **34 ms: the lag's load** | 30, 50 % | **29.9 (28.9)** | **37 ms** (37; 33) | 29.9 ms (36.5) | 2 | 0 | 3,923 MB, +2 | 29.7 (28) | exit 0 |
+| `v3a-l35dev` | Development | the same | 30, 50 % | 30.0 (30.0) | 33 ms (33; 33) | 28.1 ms (32.1) | 1 | 0 | 3,735 MB, +324 (see below) | 29.9 (28) | exit 0 |
+| `v3a-cpu6-l20` | Shipping, 6 CPUs | 20 ms | 45, 50 % | 45.0 (44.9) | 24 ms (22; 24) | 18.8 ms (21.3) | 2 | 0 | 3,230 MB, +4 | 43.6 (38) | exit 0 |
+| `v3a-cpu6-l35` | Shipping, 6 CPUs | 34 ms | 30, 50 % | 29.9 (28.8) | **38 ms** (38; 38) | 30.3 ms (35.3) | 2 | 0 | 3,203 MB, +45 | 29.6 (26) | exit 0 |
+| `v3a-cpu6-l35dev` | Development, 6 CPUs | 34 ms | 30, 50 % | 30.0 (29.5) | 50 ms (35; 50) | 27.6 ms (30.9) | 2 | 0 | 3,053 MB, +392 (see below) | 29.7 (28) | exit 0 |
+
+The four lines that are not Story runs:
+
+- `v3a-cmds` (a viewer's console commands, Shipping): `t.MaxFPS 30` was taken (the log: "Frame-rate target: fixed at
+  30 by t.MaxFPS = 30, set by hand"; the last probe lines `fps=30.0 target=30`), `quit` and `r.ScreenPercentage 400`
+  were refused, `MI.Cloud.FpsTarget` was read: `cmdRun=2 cmdRefused=2`. **The pause card's line was looked at** in
+  the frame the viewer saved: "NVIDIA RTX PRO 6000 Blackwell Server Edition · 60 frames a second (lowest 60, target
+  60) · GPU 4.9 ms · drawn 1440 x 810, sent 1920 x 1080 · stream 53 a second (lowest 50), 11.0 Mbit/s, QP 18, round
+  trip 0 ms · build 6c4d810": the package's own commit.
+- `v3a-input`: the double click cost two rounds (magazine 30, 28, `dbl=1`, `fire=0`; one more click: 27); a size
+  request of 2560 x 1440 was drawn at 1920 x 1080 with `mouseScale=0.6667`, 1280 x 720 as asked, 300 x 200 ignored;
+  the viewer left holding W and the left button while the magazine ran from 24 to 9: the run paused, `fire=0`,
+  `moveY=0.00`; for the next viewer the magazine stood at 8 for 6 s after the resume, a fresh W walked, one click
+  fired one round.
+- `v3a-pad`: **the first run in which the controller's mapping policy comes from the pak** (earlier test folders had
+  it from a Saved override). The first press, marked as a repeat, hid the card; five Start presses reached the run
+  (`state=2`, `pad=1`); the trigger ran the magazine from 30 to 10 and the viewer left; for the next viewer `fire=0`
+  and the magazine at 8 for 8 s; a click fired one round; a trigger message with the first pad's id fired and
+  stopped. 46 repeats dropped.
+- `v3a-rise` (13 ms load): the game held 60.0 (59.8) in play, worst frame 20 ms; on the pause card the target put at
+  45 and set free came back: "Frame-rate target: 45 -> 60 frames a second: the GPU took 10.8 ms a frame (10.8 ms at
+  the smallest picture), under 80 % of the 16.7 ms a frame has at 60, for 10 s, and no run is being played".
+
+**Memory.** Flat in every Shipping run (+2 to +45 MB over about 45 s of play, 3.2 to 3.9 GB; version 2's pile grew
+by 250 to 300 MB a second). The two script-started Development runs rise by 0.3 to 0.4 GB in the first 20 s of their
+play and then stand still (3,425, 3,725, 3,735, 3,940, 4,095, 4,100, 4,112, 4,114, 4,118, 4,118 MB at 5 s steps in
+`v3a-l35dev`): their script starts the run 12 s after the process, while the level is still loading. With the
+Development game played from the home screen like a Shipping run: +35 and +39 MB (`v3a-devstory-…`, below).
+
+**The sender** (recorded, as before; not a gate line): 55 to 57 of the game's 60 frames a second encoded and sent
+(lowest seconds 38 to 51), 42.5 to 43.6 of 45 (lowest 22 and 38), 29.6 to 29.9 of 30 (lowest 26 to 28). The box's
+second process shares the card with the encoder as it does with the game; `v3a-l8`'s one second at 38 and
+`v3a-l20`'s at 22 are lower than the review's runs showed (45 and 40). The game's own frames were not touched in
+those seconds.
+
+**One frame looked at** for the picture itself (the capture path did not change, but the cloud profile now comes
+from the pak): `v3a-l35`'s fast-turn frame, 30 frames a second with the picture at 50 %: a whole picture, no tear,
+nothing half-drawn, the HUD sharp; the scene is soft and the room behind the shop window smears while turning.
+
+### 4. What a cold machine adds (new in this step)
+
+Every gate run before this one reused a warm folder and a warm home. A host that starts each session on a machine
+that never ran the game has neither, and the runs above show what that costs. It is the same in every run:
+
+| Where | What | Seen by a player? |
+|---|---|---|
+| The game's first frame | 3.1 to 3.4 s (4.2 to 4.5 s on 6 CPUs); the pacer's wait runs into its 250 ms limit 2 or 3 times | No: nobody is connected yet |
+| **The first set-up screen (Crew), about 2 s after "Hit the block" on Home** | **one frame of 0.82 to 0.92 s**, with one pacer time-out before it; in the Development game's log two "Timed out waiting for fence" lines at that moment | **Yes, once per session**: a hitch of about a second on a menu |
+| Every other screen, and the play | before the play nothing over 92 ms (one frame of 107 ms on a later set-up screen in the loaded run of the fastest player, below); in the Story runs nothing over 40 ms (50 ms once in the script-started Development run on 6 CPUs) | |
+
+**It is the graphics driver's shader cache, which lives in the user's home.** The same package run by the user
+`ue4`, whose home has run these binaries before (runs `v3a-warm1…` to `v3a-warm3…`; that folder's own `Saved` was
+new): the game's first frame takes 0.30 to 0.40 s, the whole run has no pacer time-out (longest wait 44 to 48 ms),
+the script-started Development run on 6 CPUs logs no fence line (twice: worst frames 37 and 34 ms), and the Crew
+screen costs 57 ms. The engine's own pipeline cache file is off in this build (its log: "Vulkan PSO Precaching = 1,
+PipelineFileCache = 0"), so a folder's `Saved` carries nothing from run to run; the driver's cache does. A host that
+gives every session a new machine never has it: **on E3DS the table above is what every session starts with.**
+Making the first minute smoother (PREFLIGHT V3-12) is release B; these numbers are where it starts.
+
+**The fence lines, exactly.** "Timed out waiting for fence" appears in the Development game's log only (Shipping has
+no engine log). The gate asks for none in a Story run with fast turning:
+
+| Run | Lines | Where |
+|---|---|---|
+| `v3a-l35dev` (script-started run, all CPUs) | 0 | |
+| `v3a-devstory-l35`, `v3a-devstory-cpu6-l35` (the Development game **played from the home screen by the viewer**, as a player reaches a run; all CPUs and 6) | 2 each | both at the Crew screen's cold frame (2.8 s after the card was clicked away, `state=0`); **none in the run**: 30.0 frames a second (lowest second 30.0), worst frame 35 and 34 ms |
+| `v3a-cpu6-l35dev` and its repeat `v3a-cpu6-l35dev-b` (script-started run, 6 CPUs) | 1 each | 25 s after the process started, 13 s into a run that the script starts 12 s after the process: one render frame of 84 ms, one game frame of 50 ms, no skipped capture, 2 frames owed |
+
+So in a Story run as a player can reach it there is no fence line, on 16 CPUs and on 6. The one line of the
+script-started runs on 6 CPUs comes from starting a run 12 s after a cold process start, which no player can do
+(the stream has to connect and five screens have to be clicked through first); it is one frame of 50 ms, not a
+stall. "No frames available for capture" appeared in no run. **The gate's lines for the script-started Development
+game should be read with that in mind from now on**; `lag-gate.txt` says so.
+
+**The fastest player** (`lag-test.sh join=3`: every run above had a viewer who joined 55 s after the game's first
+probe line, because the Shipping game's wait in `lag-test.sh` looked for a line that never comes; `join=3` is a
+viewer who is there 12 s after the game starts and reaches the run 22 to 27 s after it, cold):
+
+| Run | Game | Load | In the run | Before the run, viewer there |
+|---|---|---|---|---|
+| `v3a-j3-free` | Shipping | none | 60.0 frames a second (lowest second 58.4), worst frame 40 ms | the Crew frame of 872 ms |
+| `v3a-j3-l35` | Shipping | 34 ms | 29.9 (28.7), worst frame 38 ms | the Crew frame of 916 ms, and one of 107 ms four seconds later |
+| `v3a-j3-devstory-cpu6-l35` | Development, played from the home screen, 6 CPUs | 34 ms | 30.0 (29.9), worst frame 36 ms; **no fence line in the run**, no skipped capture | the Crew frame of 906 ms with the two fence lines |
+
+So the earliest run a player can have is as clean as a late one.
+
+### 5. e3ds-verify
+
+`tools/box/cloud/e3ds-verify.sh start /tmp/v3a/zip-ue4` (the same zip unpacked as `ue4`; 07:31 to 07:49 UTC; two
+games at a time, so its frame rates are not measurements). Every run through the zip's own launcher, with a clean
+environment:
+
+| Run | What | Result |
+|---|---|---|
+| `v-long` | 7 minutes, a new user with an empty home and no display, a viewer joining and leaving 11 times, `-ForceRes` 1920 x 1080 | alive at the limit, 11 "Viewer joined" and 11 "Connection lost: the game is paused", memory about 3.7 GB throughout; TERM: exit 0. (The folder is not that user's: `Saved` went to its home, as the launcher's fallback says) |
+| `v-sm5` | `-sm5`: the shaders a driver gets that fails Unreal's SM6 check | `VULKAN_SM5`, "Fallback: this GPU or driver did not pass Unreal's SM6 check"; alive 120 s; TERM: exit 0 |
+| `v-root` | started as root | the game runs as the folder's owner; TERM to the launcher: "the game quit normally" |
+| `v-crash` | the Shipping game killed with SIGSEGV from outside after 30 s | "CRASH: the game was killed by signal 11 (SIGSEGV) after 29s" and the crash report's folder in the launcher's log |
+| `v-crash-dev` | `-MIDev -MICrashTest=30` (`e3ds-repro.sh` puts the zip's key in) | **the Development game of the zip started with the key** and crashed on purpose after 35 s; the same log lines |
+| `v-nort` | INT to the launcher (the ray-tracing switch of this run does nothing in the Shipping game, which ignores `-ini:`; as noted for version 2) | "got SIGINT: passed it on to the game as SIGTERM", exit 0 |
+| `v-dev-quit` | the Development game quits by itself | exit 0 after 48 s |
+| `v-vram5000` | 5.0 GB of the card's memory free | starts, 60 frames a second on the home screen; TERM: exit 0 |
+| `v-vram6000` | the Development game plays a Story run with 6.0 GB free | 60 frames a second in the run; TERM: exit 0 |
+| `v-e3ds-7600` | E3DS-style arguments, 7.6 GB free (an 8 GB card), a new user, a viewer joining and leaving 5 times | 60 frames a second, 5 joins and 5 leaves; TERM: exit 0 |
+
+Two more runs on the zip, by hand with `e3ds-repro.sh`:
+
+- `v3a-plain-midev` (what a visitor could add to a link: `-midev -PixelStreamingEncoderDumpDebugFrames=true`): the
+  launcher's log says "launch option -MIDev NOT taken: this package starts its Development game only with
+  -MIDev=<key> … The Shipping game runs." and "launch option(s) not passed on to the game (they write files on the
+  server): -PixelStreamingEncoderDumpDebugFrames"; the start line names the Shipping game with neither option.
+- `v3a-dev-nort` (the Development game with `r.RayTracing=False`, where the override does work): "Ray tracing is
+  disabled", "Features: hardware ray tracing off … Lumen on", "Fallback: no hardware ray tracing on this server;
+  Lumen traces in software"; 60 s; TERM: exit 0.
+
+The signalling server that was already running was used and left running (`e3ds-verify.sh` used to stop it).
+
+### 6. Play through the stream
+
+Two runs of the packaged Shipping game (fresh user, fresh copy, free GPU), each played by `rtcinput.py` through
+the stream from the click card on; the game's probe lines four times a second say what it did
+(`python3 lag_story.py <run> state click pad moveY mag fire`), and the viewer saved the frames it received.
+
+| | Mouse and keyboard (`proof-keys.txt`, run `v3a-proof-keys`) | Controller only (`proof-pad.txt`, run `v3a-proof-pad`) |
+|---|---|---|
+| The click card | one click: `click=1` to `0` | the first press (A, marked as a repeat, as a browser's page sends the first press of a session): `click=1` to `0` |
+| To the run | Home's "Hit the block" by mouse; Crew and Block by keyboard (Tab to Next, Enter); Loadout's Next and the briefing's "Hit the block" by mouse: `state` 0, 1, 2 | Start five times: `state` 0, 1, 2 with `pad=1` |
+| Move | W for 1.5 s: `moveY=1.00`, then `0.00` | left stick up for 1.2 s: `moveY=1.00`, then `0.00` |
+| Turn | 150 mouse events of 12 pixels: the view turned **216.58 degrees** (1,800 browser pixels at the built-in scale are 216.58); the same back: 0.01 degrees from where it started | right stick at the rim for 1.0 s: 268.7 degrees (the web game's rate gives 263.8 for exactly 60 frames, one frame more 4.85) |
+| Fire | two clicks: magazine 30, 29, 28 | trigger for 0.4 s: 30, 29, 26, 24, `fire=1` then `0` |
+| Pause and resume | P: `state=3`; a click on the card's Resume row: `state=2`, the magazine still 28 (the click fired nothing) | Start: `state=3`; Start: `state=2` |
+| The game meanwhile | 59.8 frames a second in play (lowest second 53.6), worst frame 38 ms | 59.9 (58.4), worst frame 23 ms |
+| When the viewer left | paused, "Connection lost: the game is paused until a viewer joins, and what the viewer held is let go" | the same |
+
+**Frames looked at** (1920 x 1080 as received; the four the task names at full size, the others on two sheets at
+half size; local copies deleted):
+
+- **Home** (after the click): the title, the starring line, the tag line, "HIT THE BLOCK" focused and "GEAR UP", the
+  set-up line "RULE · CHOPPER / NINE · The Block · Day", mode, difficulty and time chips, Settings and Controls,
+  the two rows of keys ("W A S D Move … P Pause"), and behind it the garage looking out on the sunlit street. Sharp
+  text, a whole picture, the game's mouse arrow in the middle, black bars above and below (the title camera's).
+  Looks wrong: the word DIFFICULTY touches its first chip (no gap), and the dark half of the garage is grainy.
+- **In the run**: the street under the elevated tracks in daylight, the pizzeria's awning, a taxi, the truck behind
+  the fence, three distance markers, the arm with its tattoo and the rifle; objective "0 / 3", health 100, the bar
+  "CHOPPER 30 · NINE 15 · F RIFLE BUTT · BAG 150", "B SWITCH TO SEMI". Sharp at the 75 % picture, nothing torn or
+  missing.
+- **After turning** (216 degrees): the closed station gate, a candy shop, a grey car and "ROAD CLOSED" boards under
+  the tracks, a hazy shaft of light. A whole, sharp picture; the HUD unchanged. Looks wrong: the rooms behind some
+  upper windows are coarse blocks (the small baked room pictures), and the crosshair is reduced to a short tick
+  right after the turn.
+- **The pause card**: "HOLD UP / PAUSED", Resume (highlighted), Restart run, Difficulty "< Boss >", Settings, the
+  hint "Up/Down choose · Enter select · Left/Right change · or click", "P to resume · Esc gives the mouse back to the
+  browser; click the game to take it again", and the line of numbers, small, dim and readable: "NVIDIA RTX PRO 6000
+  Blackwell Server Edition · 60 frames a second (lowest 56, target 60) · GPU 5.3 ms · drawn 1440 x 810, sent
+  1920 x 1080 · stream 60 a second (lowest 48), 4.0 Mbit/s, QP 19, round trip 0 ms · build 6c4d810". The game's
+  mouse arrow is on the card.
+- On the sheets: the click card over the dimmed home screen with its three lines ("… a gamepad works too", "No
+  sound? Click the speaker at the bottom right."); the briefing ("HERE'S HOW IT GOES", crew, guns, block, style,
+  "HIT THE BLOCK ENTER"); the weapon box at "CHOPPER 28" after the two clicks and still 28 after the click on
+  Resume. Controller run: the pause card says "D-pad or stick choose · A select · Left/Right change" and "START to
+  resume"; in play the bar says "VIEW SWITCH TO SEMI" and "RB RIFLE BUTT".
+- **Two things a controller player will notice** (frames `pad-home`, `pad-pause`): right after the first press has
+  hidden the card, the home screen still lists the keyboard's keys; it names the controller's buttons from the next
+  press on (the press that hides the card does nothing else, so the screens have not seen a controller yet). And
+  the pause card's line can read "stream 40 a second (lowest 50)": the number in front is of the paused moment, the
+  one in brackets the lowest of the last half minute of play. Neither was changed here.
+
+### 7. Delivery
+
+Nine parts of at most 240 MiB (`MurderInc-E3DS-v3a-part1-of-9.zip` to `…part9-of-9.zip`: eight of 251,658,240
+bytes, the ninth 241,696,231), PUT from the box to the owner's Higgsfield storage (all nine HTTP 200) and confirmed
+there. The parts went up only after the gate and the stream proof had passed. **Checked from the storage** on the
+build machine: every part downloaded back, each sha256 as in `/project/ue/cloud/parts.sha256` and LAUNCH.md section
+9; joined: 2,254,962,151 bytes, sha256 `de41a708…58e4`; `unzip -t`: no errors, 65 files; `MurderInc.sh` byte for byte
+the repository's; `BUILD.txt` names `6c4d810`, which is on the pushed branch; no `Saved/`, no symbols, no log. The
+local copies were deleted. The download links and the Development game's key are in the release report only.
+
+**The E3DS settings the owner should use** (LAUNCH.md 9.1): Browser Resolution Custom 1920 x 1080; launch options
+empty (take out version 2's `-MICloudProbe=10 -PixelStreamingDecoupleFramerate`); the console-commands field empty;
+Video Quality Medium; H264; Max Session Time 15; inactivity 3 and 1 (minutes); mouse Locked; the browser log and
+the crash email on while testing. **What to send back:** a screenshot of the pause card taken after a fast turn or
+a stutter.
+
+### 8. Not done, not proven
+
+- **E3DS itself.** Everything here is the box: one RTX PRO 6000 Blackwell, a second process as the load, a Python
+  viewer on the same machine (round trip 0 ms). Which card E3DS's Linux sessions get, and whether it is slow the way
+  the test load is, is still not known; the owner's pause-card screenshot is the first data.
+- **A real browser, a real controller, E3DS's own player page, a real connection.** The viewer sends what Pixel
+  Streaming's reference page sends, as read in its source. Whether E3DS's page sends the double click without a
+  release, marks a controller's first press as a repeat, or delivers its console-commands field to a Linux app, is
+  unproven; so is whether a controller press alone starts the sound.
+- **A whole Story run and a Hold the Block run through the stream**, the Dead and Debrief cards in a stream, a
+  fight: the runs here play the first 20 to 50 s of a Story run, standing, walking, turning and firing a few
+  rounds. No enemy was fought.
+- **The delay between hand and picture** was not measured (release B, V3-4).
+- **The cold start on E3DS.** The box's cold runs have an empty driver cache but a warm file cache (the zip had
+  just been unpacked), and a far faster card and processor than a small cloud server. The 0.85 s at the Crew screen
+  and the 3 to 4.5 s first frame may be longer there. Why the Crew screen is the one that costs (what it compiles)
+  was not traced.
+- **The one fence line of the script-started Development run on 6 CPUs** (section 4) is explained by where it
+  falls, not by a trace of the 84 ms render frame behind it.
+- **The sender's low seconds** (38 of 60, 22 of 45 in two runs) are recorded, not explained; as before, some frames
+  take the encoder longer than a frame lasts.
+- **Browser Resolution Dynamic** stays untested beyond the three size requests of `v3a-input`; the settings keep it
+  off.
+- **A thin connection**: not tested; the pause card's line tells it apart from a slow card.
+- **Browsers other than Chrome, the Game OS page itself, the minutes a session costs**: the owner's side.
+- Seen in the frames and left as it is: the home screen lists the keyboard's keys to a controller player until a
+  second controller press; "DIFFICULTY" touches its first chip on the home screen; the pause card's stream number
+  can be lower than its "lowest"; coarse rooms behind some windows.
+
+### 9. Tools changed in this step
+
+- `lag-test.sh`: `runas=fresh`, `clean=1` (the gate as a host starts a package), `join=<seconds>` (when the Shipping
+  game's viewer joins: its wait looked for a line that never comes, so every earlier run's viewer found a home
+  screen that had been drawn for about 55 s; that stays the default, `join=3` is a viewer who is there at once).
+- `lag_sum.py`: the worst frame of the first 5 s of a run apart from the rest; the game's memory at the start and
+  the end of the play; the worst frame and the pacer's time-outs outside the play, with a viewer there and with
+  nobody watching.
+- `e3ds-verify.sh` uses a signalling server that already listens and leaves it running (it used to stop one that
+  other tests were using). `package-cloud.sh parts`: `MI_TAG` names the parts for the storage.
+- `proof-keys.txt`, `proof-pad.txt`: the stream proof as viewer scripts.
+
 ## Version 3, release A: the review's findings (2026-11-25, 04:30 to 06:30 UTC)
 
 Two reviews of release A's changes (the diff `0f99e0e..f54b135`: the gameplay part and the lag work below) found
