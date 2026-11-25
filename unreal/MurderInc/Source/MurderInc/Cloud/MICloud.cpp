@@ -475,6 +475,25 @@ bool FMICloudSize::Fit(int32 Width, int32 Height, FIntPoint& Out, double& OutSho
 	return true;
 }
 
+bool FMICloudSize::FitStart(FIntPoint Launch, bool bAsGiven, FIntPoint& Out, double& OutShown)
+{
+	Out = Launch;
+	OutShown = 1.0;
+	if (bAsGiven || Launch.X <= 0 || Launch.Y <= 0)
+	{
+		return false;
+	}
+	FIntPoint Fitted(0, 0);
+	double Shown = 1.0;
+	if (!Fit(Launch.X, Launch.Y, Fitted, Shown) || Fitted == Launch)
+	{
+		return false;
+	}
+	Out = Fitted;
+	OutShown = Shown;
+	return true;
+}
+
 // ---- the card, the pause hint and the cursor, painted over the game viewport --------------------------------------
 
 class SMICloudOverlay : public SCompoundWidget
@@ -1172,6 +1191,47 @@ void UMICloudSubsystem::EnsureMouse()
 	}
 }
 
+void UMICloudSubsystem::EnsureStartSize()
+{
+	if (bStartSizeChecked)
+	{
+		return;
+	}
+	const UGameViewportClient* VC = GetGameInstance() ? GetGameInstance()->GetGameViewportClient() : nullptr;
+	const FIntPoint Launch = VC && VC->Viewport ? VC->Viewport->GetSizeXY() : FIntPoint(0, 0);
+	if (Launch.X <= 0 || Launch.Y <= 0)
+	{
+		return;  // no viewport yet: next tick
+	}
+	bStartSizeChecked = true;
+	if (SizeRequests > 0)
+	{
+		return;  // a viewer's size request came first and was fitted already (OnViewerSize)
+	}
+	const bool bAsGiven = FParse::Param(FCommandLine::Get(), TEXT("MIStartSizeAsGiven"));
+	FIntPoint Size(0, 0);
+	double Shown = 1.0;
+	if (!FMICloudSize::FitStart(Launch, bAsGiven, Size, Shown))
+	{
+		MICloudPrivate::Line(FString::Printf(TEXT("Start size %d x %d: drawn as it is%s"), Launch.X, Launch.Y,
+			bAsGiven ? TEXT(" (-MIStartSizeAsGiven)") : TEXT("")));
+		return;
+	}
+	if (GEngine)
+	{
+		GEngine->Exec(GetGameInstance()->GetWorld(), *FString::Printf(TEXT("r.SetRes %dx%d"), Size.X, Size.Y));
+	}
+	// As for a viewer's request: the page shows the picture Shown times wider than it is drawn, and the mouse keeps the
+	// speed it had at the launch size.
+	MouseShown = Shown;
+	if (AMIPlayerController* PC = Cast<AMIPlayerController>(GetGameInstance()->GetFirstLocalPlayerController()))
+	{
+		PC->SetStreamMouse(GetMouseShape());
+	}
+	MICloudPrivate::Line(FString::Printf(TEXT("Start size %d x %d: drawn and streamed at %d x %d (the largest size of that shape the game draws; -MIStartSizeAsGiven keeps the launch size); mouse look %.4f browser pixels per count"),
+		Launch.X, Launch.Y, Size.X, Size.Y, GetMouseShape().Scale));
+}
+
 bool UMICloudSubsystem::OnMouseEvent(const FVector2D& Delta)
 {
 	if (!bStreamed || Delta.IsZero())
@@ -1683,6 +1743,7 @@ bool UMICloudSubsystem::Tick(float DeltaTime)
 	{
 		EnsureOverlay();
 		EnsureVideoProducer();
+		EnsureStartSize();
 		EnsureMouse();
 		GuardViewerInput();
 		TickPacing();

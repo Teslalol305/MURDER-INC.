@@ -425,6 +425,37 @@ bool FMICloudViewerSizeTest::RunTest(const FString& Parameters)
 	return !HasAnyErrors();
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMICloudStartSizeTest, "MurderInc.Cloud.StartSize", MITest::Flags)
+
+bool FMICloudStartSizeTest::RunTest(const FString& Parameters)
+{
+	FIntPoint Size(0, 0);
+	double Shown = 0.0;
+	const auto Start = [&](int32 W, int32 H, bool bAsGiven = false) { Size = FIntPoint(0, 0); Shown = 0.0; return FMICloudSize::FitStart(FIntPoint(W, H), bAsGiven, Size, Shown); };
+	// E3DS's Browser Resolution Custom passes its size as -ResX/-ResY: the sizes that fit are drawn as they are.
+	TestFalse(TEXT("Custom 1920 x 1080 needs no change"), Start(1920, 1080));
+	TestTrue(TEXT("and stays 1920 x 1080, mouse as configured"), Size == FIntPoint(1920, 1080) && Shown == 1.0);
+	TestFalse(TEXT("Custom 1280 x 720 needs no change"), Start(1280, 720));
+	TestTrue(TEXT("and stays as it is"), Size == FIntPoint(1280, 720) && Shown == 1.0);
+	// Larger launch sizes are fitted the way a viewer's request is (the 4K stream stopped after two seconds).
+	TestTrue(TEXT("Custom 3840 x 2160 is changed"), Start(3840, 2160));
+	TestTrue(TEXT("to 1920 x 1080, shown twice as wide"), Size == FIntPoint(1920, 1080) && FMath::IsNearlyEqual(Shown, 2.0, 1e-9));
+	TestTrue(TEXT("Custom 2560 x 1440 is changed to 1920 x 1080"), Start(2560, 1440) && Size == FIntPoint(1920, 1080) && FMath::IsNearlyEqual(Shown, 4.0 / 3.0, 1e-9));
+	TestTrue(TEXT("an ultra-wide launch size keeps its shape"), Start(3440, 1440) && Size == FIntPoint(1920, 804));
+	// The same answer as a viewer's request of that size.
+	FIntPoint Request(0, 0);
+	double RequestShown = 0.0;
+	TestTrue(TEXT("the fit of a 3840 x 2160 request"), FMICloudSize::Fit(3840, 2160, Request, RequestShown));
+	TestTrue(TEXT("is the start size's fit"), Start(3840, 2160) && Size == Request && Shown == RequestShown);
+	// -MIStartSizeAsGiven (measurements of the large sizes) keeps the launch size; no size or a tiny one is left alone.
+	TestFalse(TEXT("-MIStartSizeAsGiven keeps 3840 x 2160"), Start(3840, 2160, true));
+	TestTrue(TEXT("as it is"), Size == FIntPoint(3840, 2160) && Shown == 1.0);
+	TestFalse(TEXT("no viewport size yet"), Start(0, 0));
+	TestFalse(TEXT("below the smallest request size (320 x 240)"), Start(320, 240));
+	TestTrue(TEXT("is left as it is"), Size == FIntPoint(320, 240) && Shown == 1.0);
+	return !HasAnyErrors();
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMICloudViewerCommandsTest, "MurderInc.Cloud.ViewerCommands", MITest::Flags)
 
 bool FMICloudViewerCommandsTest::RunTest(const FString& Parameters)

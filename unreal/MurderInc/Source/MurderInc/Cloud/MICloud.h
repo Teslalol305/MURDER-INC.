@@ -73,6 +73,15 @@ struct MURDERINC_API FMICloudSize
 	 * and the mouse keeps its speed.
 	 */
 	static bool Fit(int32 Width, int32 Height, FIntPoint& Out, double& OutShown);
+	/**
+	 * The size the game starts drawing at, streamed: the host's launch size (E3DS's Browser Resolution Custom passes
+	 * it as -ResX/-ResY) is fitted the way a viewer's request is (Fit), so a Custom 2560 x 1440 or 3840 x 2160 is drawn
+	 * and encoded at 1920 x 1080 (at 3840 x 2160 the stream stopped two seconds after the viewer joined: capture and
+	 * encoder at 0 while the game drew 60 a second; 2560 x 1440 did not hold 60 at the viewer on an E3DS-class card).
+	 * bAsGiven (launch option -MIStartSizeAsGiven, for measurements) keeps the launch size. False: nothing to change
+	 * (the size fits, is not known yet, or is below the smallest request size); true: Out and OutShown as for Fit.
+	 */
+	static bool FitStart(FIntPoint Launch, bool bAsGiven, FIntPoint& Out, double& OutShown);
 };
 
 /**
@@ -278,6 +287,8 @@ private:
 	void EnsureVideoProducer();
 	/** Gives the player controller the stream's mouse shape (again after a map load made a new controller). */
 	void EnsureMouse();
+	/** Once, when the game viewport first has a size: the launch size fitted to what the game draws (FMICloudSize::FitStart). */
+	void EnsureStartSize();
 	/**
 	 * Once the streamer is there, three of Pixel Streaming's handlers get ours in their place: the console command
 	 * (the allowlist), the size request (FMICloudSize) and the double click (dropped).
@@ -347,6 +358,7 @@ private:
 	bool bRefusalLogged = false;
 	int32 CommandsRun = 0, CommandsRefused = 0;
 	int32 DoubleClicksDropped = 0, SizeRequests = 0, SizeRequestsIgnored = 0;
+	bool bStartSizeChecked = false;
 	FMICloudViewers Viewers;
 	FMIStreamMouse MouseShape;       // as configured ([MICloud], -MIMouseScale=)
 	double MouseShown = 1.0;         // how many times wider the page shows the picture than it is drawn (FMICloudSize)
