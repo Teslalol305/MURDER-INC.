@@ -22,12 +22,19 @@ seated magazine and its top round, the optic's housing fading out as the sight c
 | The three art tars, unpacked and imported (`guns rattler parts`) | 1 min 30 s for all; the final archive (`fp-guns-r4.tar`, sha256 `6a521cf3…`) went up in 32 s and is unpacked in `/project/ue/fp-in-guns` |
 | A picture session needs the editor, and the box is shared | see BOX.md 8: waited 52 min for the first quiet minutes; two starts of an editor ran 20 to 30 s beside a gate run that began just after (stopped at once) |
 
-**Read from the release engineer's trial run of the packaged game (commit `fd8ce12`, the frames of `t-guns` and `t-guns-b`; looked at with the Read tool, not
-yet reproduced in the editor):** the guns read apart on the rack and in the hands (CHOPPER with its red-brown furniture, SHORTY olive bullpup, STRETCH long
-marksman rifle with a scope, RATTLER compact SMG, the STICK unchanged and well held); a part fitted at the Workbench is on the gun (red dot on the CHOPPER and SHORTY,
-4x scope on the STRETCH, the suppressor on the NINE). Faults seen in first person on the four hand-IK rifles, none on the NINE or the STICK: the support arm is a cut upper
-arm in front of the left of the picture ending in a ball (the closed fist seen end-on) that floats above the gun, and in a reload the arm fills a third of the screen;
-the optics' housings are a thick black ring in the aimed picture (the "dark tunnel" of WEAPONS_R4.md 5.5). Both are what the commits of this entry address.
+**Pictures (18, `docs/unreal/shots/guns-r4-trial-*.jpg`, each under 300 kB): the release engineer's trial run of the packaged game, game commit `fd8ce12`, the data of
+that day (before the solved grips of the four new guns and their shoulder anchors).** They are frames of the game as a player's machine draws it (the stream
+viewer's `guns-keys.txt` script, `/project/ue/cloud/lag-v6trial/t-guns*`), not editor pictures, and they are "before" pictures for the hands. I looked at each of them
+(through contact sheets, then singly). What they show:
+
+| Picture | What it shows |
+|---|---|
+| `rack-chopper` | the Loadout rack at 1920 x 1080: six cards, CHOPPER focused and on the stage (red-brown furniture, orange-red tipped muzzle device, black receiver) |
+| `bench-chopper-reddot`, `bench-shorty-reddot`, `bench-stretch-scope`, `bench-stick-scope`, `bench-nine-suppressor` | the Workbench with the first part of the optic or muzzle slot fitted, factory part marked "FITTED": the red dot is on the CHOPPER's and the SHORTY's rail, the 4x scope on the STRETCH, the suppressor on the NINE (a part is on the gun: the owner's "no attachments are able to be added" is answered in the game). The SHORTY is olive polymer, the STRETCH long and dark with a wood stock |
+| `fp-chopper-hip`, `fp-shorty-hip`, `fp-stretch-hip`, `fp-rattler-hip` | the four hand-IK guns in the hand: they read apart (CHOPPER with a red dot, SHORTY's wide olive bullpup body, STRETCH's long barrel and scope, RATTLER's short boxy SMG with the folded wire stock). **Fault, all four:** the support arm is a cut upper arm in front of the left of the picture ending in a ball (a closed fist seen end-on) that floats above the gun |
+| `fp-chopper-aim-reddot`, `fp-shorty-aim-reddot`, `fp-stretch-aim-scope`, `fp-rattler-aim`, `fp-stick-aim-scope`, `fp-nine-aim` | aimed. The STICK's (the pack's own optic, pack mode) and the NINE's irons read well. **Faults:** the same ball sits beside the sight on the four hand-IK guns, and their optics' housings are a thick black ring around a small clear disc (the "dark tunnel": WEAPONS_R4.md 5.5, now answered by the housing's fade, not yet seen) |
+| `fp-chopper-reload`, `fp-rattler-reload` | mid reload: the gun is turned up and the arm fills a third of the screen; the magazine is not seen |
+
 
 ## Weapons round 4: the art hand-off page and the archive (finisher, 2026-11-25, 15:40 to 16:00 UTC)
 

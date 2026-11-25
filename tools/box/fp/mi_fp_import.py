@@ -100,7 +100,7 @@ def _tex(m, path, x, y, kind):
 
 def _surface(path, tex, set_name, skeletal=True, emissive=False, aim_fade=False):
     """BC / ORM / N (OpenGL sets: green flipped on import) [+ E] on the default lit model. With aim_fade the material is
-    masked, its opacity a temporal dither of 1 - AimFade (scalar parameter, 0 = solid): the first-person rig fades a fitted
+    masked, its opacity a screen-door dither of AimFade (scalar parameter, 0 = solid, 1 = gone): the first-person rig fades a fitted
     optic's housing out as the sight comes up, so the aimed picture is not a dark tunnel (LOADOUT.md 3.3)."""
     m = _material(path)
     bc = _tex(m, "%s/T_%s_BC" % (tex, set_name), -600, -200, "color")
@@ -117,11 +117,12 @@ def _surface(path, tex, set_name, skeletal=True, emissive=False, aim_fade=False)
     if aim_fade:
         _set(m, blend_mode=unreal.BlendMode.BLEND_MASKED)
         fade = _scalar(m, "AimFade", 0.0, -900, 700)
-        inv = _expr(m, unreal.MaterialExpressionOneMinus, -700, 700)
-        MEL.connect_material_expressions(fade, "", inv, "")
-        dither = _expr(m, unreal.MaterialExpressionDitherTemporalAA, -500, 700)
-        MEL.connect_material_expressions(inv, "", dither, "")
-        MEL.connect_material_property(dither, "", unreal.MaterialProperty.MP_OPACITY_MASK)
+        # a screen-door dither (interleaved gradient noise on the pixel): 1 where the pixel stays, 0 where it is cut away
+        cu = _custom(m, -600, 700,
+                     "float n = frac(52.9829189 * frac(dot(floor(Parameters.SvPosition.xy), float2(0.06711056, 0.00583715))));\n"
+                     "return (Fade > n) ? 0.0 : 1.0;", ["Fade"])
+        MEL.connect_material_expressions(fade, "", cu, "Fade")
+        MEL.connect_material_property(cu, "", unreal.MaterialProperty.MP_OPACITY_MASK)
     if skeletal:
         _set(m, used_with_skeletal_mesh=True)
     return _finish(m, path)
