@@ -13,6 +13,16 @@
 #
 # Re-run all four steps whenever the character agents re-export SK_RuleArms or the Goons: the import replaces the
 # assets in place, so the game picks the new versions up with no data change.
+#
+# Weapons round 4 (the five own guns, their magazines and the parts kit):
+#   local:  tools/box/fp/fp-art.sh packr4 [guns] [rattler] [parts]
+#                -> art/out/fp-weapons-r4-guns.tar    (SK_Chopper, SK_Nine, SK_Shorty, SK_Stretch, their magazines and sets, the brass)
+#                   art/out/fp-weapons-r4-rattler.tar (SK_Rattler, its magazine and sets: re-carried alone when its final bake lands)
+#                   art/out/fp-weapons-r4-parts.tar   (SM_Part_* with their sockets, the part and magazine sets, manifest.json,
+#                                                      weapons_r4.json and the icons when they exist)
+#   box:    FP_IN=/project/ue/fp-in-guns bash tools/box/fp/fp-art.sh unpack <url> [url ...]
+#           (a folder of its own: /project/ue/fp-in is read by other clones; the importer reads the same variable, MI_FP_IN)
+#   box:    MI_FP_IN=/project/ue/fp-in-guns bash tools/box/fp/import-chars.sh r4
 set -u
 case "${1:-}" in
   pack)
@@ -32,6 +42,33 @@ case "${1:-}" in
     for s in Nine Weapon_NineMagazine Weapon_GoonSMG Buzzard; do cp_set $s; done
     tar -cf $O/fp-guns.tar -C $S . && ls -la $O/fp-guns.tar
     rm -rf $S ;;
+  packr4)
+    # packr4 [guns] [rattler] [parts]   (default: all three); each group is one tar under 240 MB, so a group that the
+    # modelers re-export later is carried again alone: art/out/fp-weapons-r4-<group>.tar
+    cd "$(dirname "${BASH_SOURCE[0]}")/../../.." || exit 1
+    O=art/out; S=$O/fp-stage-r4; shift; groups=${*:-guns rattler parts}
+    cp_set() { mkdir -p $S/textures/$1; for k in BC N ORM E A; do [ -f $O/textures/$1/T_$1_$k.png ] && cp $O/textures/$1/T_$1_$k.png $S/textures/$1/; done
+               [ -f $O/textures/$1/set.json ] && cp $O/textures/$1/set.json $S/textures/$1/; return 0; }
+    cp_mag() { cp $O/glb/SM_Weapon_${1}Magazine.glb $O/glb/SM_Weapon_${1}Magazine_TopRound.glb $S/glb/ 2>/dev/null; cp_set Weapon_${1}Magazine; }
+    for g in $groups; do
+      rm -rf $S; mkdir -p $S/glb $S/textures $S/ui
+      case $g in
+        guns)    # the four finished guns (the CHOPPER has three sets), their magazines and the brass
+          for n in Chopper Nine Shorty Stretch; do cp $O/glb/SK_$n.glb $S/glb/; cp_mag $n; done
+          for s in Chopper Chopper_Front Chopper_Furniture Nine Shorty Stretch; do cp_set $s; done
+          cp $O/glb/SM_Weapon_CasingRifle.glb $O/glb/SM_Weapon_CasingPistol.glb $S/glb/ 2>/dev/null; cp_set Weapon_CasingRifle; cp_set Weapon_CasingPistol ;;
+        rattler) cp $O/glb/SK_Rattler.glb $S/glb/; cp_mag Rattler; cp_set Rattler ;;
+        parts)   # the parts kit with its sockets, the contract and the icons
+          cp $O/glb/SM_Part_*.glb $O/glb/SM_Part_*.sockets.json $S/glb/ 2>/dev/null
+          cp_set Weapon_Parts; cp_set Weapon_PartsMags
+          cp $O/manifest.json $S/manifest.json 2>/dev/null; cp $O/weapons_r4.json $S/weapons_r4.json 2>/dev/null
+          cp $O/ui/T_UI_Gun_*.png $O/ui/T_UI_Att_*.png $S/ui/ 2>/dev/null ;;
+        *) echo "packr4: unknown group $g"; exit 2 ;;
+      esac
+      rmdir $S/ui 2>/dev/null
+      tar -cf $O/fp-weapons-r4-$g.tar -C $S . && ls -la $O/fp-weapons-r4-$g.tar
+    done
+    rm -rf $S ;;
   put)
     url=$2; tar=$3
     for i in 1 2 3; do
@@ -41,7 +78,7 @@ case "${1:-}" in
     done
     exit 1 ;;
   unpack)
-    shift; D=/project/ue/fp-in; mkdir -p $D
+    shift; D=${FP_IN:-/project/ue/fp-in}; mkdir -p $D
     for url in "$@"; do
       tmp=$(mktemp /tmp/fp-XXXXXX.tar)
       code=$(curl -sSL -o "$tmp" -w '%{http_code}' "$url"); [ "$code" = 200 ] || { echo "UNPACK FAILED: HTTP $code"; exit 1; }
@@ -50,5 +87,5 @@ case "${1:-}" in
     done
     chown -R ue4 $D 2>/dev/null
     echo "UNPACK OK $D: $(ls $D/glb | wc -l) files in glb, $(ls $D/textures | wc -l) texture sets, $(du -sm $D | cut -f1) MB" ;;
-  *) echo "usage: fp-art.sh pack | put <upload_url> <tar> | unpack <url> [url ...]"; exit 2 ;;
+  *) echo "usage: fp-art.sh pack | packr4 | put <upload_url> <tar> | unpack <url> [url ...]  (unpack: FP_IN=<folder> to change /project/ue/fp-in)"; exit 2 ;;
 esac
