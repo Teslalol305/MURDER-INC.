@@ -203,3 +203,24 @@ tuning commands through (PREFLIGHT V3-9).
 (all seven input items and the controller path, 114 tests passing at `71e5b44`, head `6116a2a`); nothing was lost.
 The final-build workflow was resumed as **release A** (the lag: PREFLIGHT V3-1, V3-3, V3-5, V3-11, V3-9's widening,
 V3-10), with the rest of version 3 as release B afterwards.
+
+**The cause, 01:10 UTC (2026-11-25; performance engineer, release A; runs, tables and what was changed are in
+`docs/unreal/PROGRESS.md`, "Version 3, release A: the lag").** It is not Pixel Streaming's capture that stalls the
+game, and a full GPU alone does not either. **A game that renders off screen never waits for the GPU**: with no
+window to present to, Unreal 5.9's Vulkan viewport returns before its wait for the previous frame (read in the
+engine source, not single-stepped: `VulkanViewport.cpp:842-850`, "Skip present if the native window has been
+destroyed", comes before the wait at `:873-878`, and with `-RenderOffScreen` Linux runs the Null application,
+`LinuxPlatformApplicationMisc.cpp:635-638`, which has no native window). The only thing that still held the game to the GPU's pace was a side
+effect: the render thread reads last frame's occlusion results at the start of a frame and blocks until the GPU has
+them. While the view turns that wait is zero (CSV profiles of runs x2 and b0: 25 ms a frame with a still view, 0.0 ms
+in every turning frame, in which the engine draws no occlusion tests at all), the game runs at its 60 cap, the GPU
+finishes half of that, and the unfinished frames pile up. The
+game's new counter shows it directly (run p1, the GPU slowed to 130 ms a frame): 3 frames owed with a still view,
+then 26, 50, 65 while turning, then one frame of 7.3 s; again 67, 72 and a frame of 8.6 s. When the turn ends the
+occlusion read-back waits for the whole pile: that is "when the player turns it slows down". The capture's fence
+time-outs and skipped frames are the same pile seen from Pixel Streaming, and so are the 14.5 GB of memory and the
+slow shutdown of run `gp-in5` (every unfinished frame keeps its memory; at exit the engine waits for all of them).
+Version 3 holds the game back itself (a pacer: no frame starts while the GPU still owes more than one), which ends
+the stall at every load tried; dynamic resolution and a frame-rate target of 60, 45 or 30 then keep the GPU from being
+the limit at all. The earlier entries above keep their measurements; their explanation ("the capture stalls the
+game") is replaced by this one.

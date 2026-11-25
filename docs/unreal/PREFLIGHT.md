@@ -170,6 +170,18 @@ connection state page). For a shooter, aim for under 50 ms.
 
 ## 2. Version 3: the must-fix list
 
+> **Release A measured (2026-11-25; `docs/unreal/PROGRESS.md`, "Version 3, release A: the lag").** The cause is
+> not the capture: a game that renders off screen never waits for the GPU, and the unfinished frames pile up while
+> the view turns (up to 79 were counted; the pile is the frame of seconds). Where the items below say "the capture
+> stalls the game" or "a full GPU stalls", read that. What changed against this list: **V3-1** gained a third part,
+> a pacer that holds the game back while the GPU still owes it more than one frame (`MI.Cloud.GpuFramesInFlight`);
+> it alone passes the release gate, dynamic resolution and the frame-rate target keep the picture and the pacing
+> good on top of it, and the target's thresholds were set by measurement. **V3-3**: no capture setting changes the
+> stall or the frames delivered; Pixel Streaming's defaults stay, decoupling stays off, there are no `-MIDecouple`
+> switches (Pixel Streaming's own `-PixelStreamingDecoupleFramerate=true` works). **The gate's "no fence time-out
+> line"** can only be read in the Development game (Shipping has no engine log); the Shipping game is judged by its
+> probe lines (`owed=`, `worstMs=`). The gate as a queue of runs: `tools/box/cloud/lag-gate.txt`.
+
 Everything below ships in **one** version 3 build. The build itself costs about an hour of box time (package, the
 full test suite, the E3DS-style runs, a stream test with input) and about an hour of the owner's time (download,
 join and upload 2.25 GB). The cost given per item is the extra engineering work. "Status" is the state at commit
