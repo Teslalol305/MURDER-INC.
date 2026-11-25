@@ -3,6 +3,399 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Version 3, release A: the lag (performance engineer, 2026-11-25, 00:35 to 03:55 UTC)
+
+**The lag of version 2 on E3DS is explained and, on the box, ended. Nothing was packaged here.** The owner's report
+was "the game is sticky", "when the player turns it slows down; it is not a viable experience". On the box the same
+thing is one frame of 1 to 8 seconds whenever the view has turned for a moment on a GPU that is slower than the
+game's frame rate. With this branch's code the same Story run with fast turning has no frame over 60 ms at any
+load up to the one the lag was reproduced with, no "Timed out waiting for fence" line, and a steady 60 frames a
+second on a free GPU: the release gate passes (section 7). With the GPU slowed to a twentieth of its speed the
+worst frame is one GPU frame, 158 ms, where it was 8.6 s.
+
+**Two things this entry cannot promise.** That E3DS's servers were slow in this way: the box reproduces the
+symptom, it is not E3DS. And that the owner's lag was only this: a thin connection makes the same picture (smooth
+when the view stands, a few frames a second when it turns) while the game holds 60, and nothing on the server
+cures that (section 5). Version 3's pause card now says which of the two it was (section 8).
+
+What was measured, what was only read in source and what is unproven is said where it applies; section 11 lists
+what was not done. Runs are named; their files are on the box in `/project/ue/cloud/lag/<name>/` (the summary line
+in `summary.txt`, the game's log, the viewer's log, the frames it saved).
+
+### 1. The cause
+
+**A game that renders off screen never waits for the GPU.** E3DS's servers have no display, so the launcher adds
+`-RenderOffScreen` (without it version 1 died at start). Linux then runs Unreal's Null application, which has no
+native window, and Unreal 5.9's Vulkan viewport returns from `Present` before its wait for the previous frame
+(`VulkanViewport.cpp:842-850`, "Skip present if the native window has been destroyed", ahead of the wait at
+`:873-878`; `LinuxPlatformApplicationMisc.cpp:635-638`). This is read in the engine source, not single-stepped; every
+measurement below fits it. With a window, that wait is what holds a game to its GPU.
+
+What still held the game back most of the time was a side effect: at the start of a frame the render thread reads the
+occlusion results of the frame before and blocks until the GPU has them. **While the view turns, that wait is zero**:
+the engine draws no occlusion tests in those frames (`DrawCall/BeginOcclusionTests` in the profile is 1 or more in
+every frame with a still view and 0 in every turning frame; why it issues none then was not traced in the source), so
+there is nothing to read back. The game then runs at its 60 cap, the GPU finishes what it can, and the
+frames it has not finished pile up. When the turn ends, the occlusion read-back comes back and waits for the whole
+pile: one frame that lasts as long as the pile takes. Pixel Streaming's messages ("Timed out waiting for fence",
+"No frames available for capture ... Skipping") are the same pile seen from the capture: its fences sit behind
+seconds of queued work, and its eight capture textures are all waiting.
+
+How it was found, in the order of the instruction "profile before fixing":
+
+| Evidence | Run | What it shows |
+|---|---|---|
+| CSV profile of the Development game (`csvprofile`), one game alone, the GPU slowed by a second process | `x2` | 2,098 frames in 65.8 s. Game thread 2.1 ms, render thread 7.7 ms, RHI thread 3.3 ms, GPU 31 ms a frame on average. The worst frame, 1,580 ms: game 7.8, render 6.6, RHI 4.7, GPU 31.3 ms of work, and **1,570.7 ms of the render thread waiting for a GPU query** (`RenderThreadIdle/GPUQuery`). All eight frames over 100 ms are that wait |
+| The same profile in half-second steps | `x2` | view still: 32 frames a second, the query wait 25 ms in every frame (the game runs at the GPU's pace). View turning: the query wait is **0.0 ms**, the game runs at **56 to 60 frames a second** while the GPU still needs 30 ms a frame, for 2.5 s; then the 1,580 ms frame. Five more times in the next 25 s (507 to 1,127 ms) |
+| The game's own counter of frames the GPU still owes (a GPU fence behind every frame; new in version 3, here only counting) | `p1`, GPU slowed to 130 ms a frame | view still: 3 owed. Turning: 26, 50, 65 owed in three seconds, then a frame of **7.3 s**; again 67, 72 and a frame of **8.6 s**. 594 fence time-outs, 204 skipped captures |
+| The same with the game held back by that counter (the pacer, below) | `p2` | never more than 2 owed, worst frame 158 ms (one GPU frame at that load), no skipped capture |
+
+It also explains two older observations: a 400 % screen percentage stalled with every capture setting, fence or
+not (DECISIONS, runs c1 to d2: the wait was the occlusion read-back, not the capture), and two games on one card
+stalled for 4 to 7 s (each made the GPU slow for the other).
+
+### 2. What version 3 does about it (`Source/MurderInc/Cloud/MIPacing.h`, `MICloud.cpp`, `[MICloud]` in `DefaultGame.ini`)
+
+1. **A pacer.** At the end of every frame the game puts a GPU fence behind that frame's commands; before it reads
+   the next frame's input it waits until the GPU owes it no more than `MI.Cloud.GpuFramesInFlight` frames (1), for
+   at most `MI.Cloud.GpuWaitLimitMs` (250 ms; only when the GPU finished nothing at all during three such waits in
+   a row, a GPU that stands still or fences that are never signalled, does it let the game run for 3 s, say so in
+   the log and try again). The pile cannot form, whatever the GPU's speed. With a GPU that keeps up it waits for
+   nothing. The wait sits just before the frame reads its input, after the frame cap's sleep,
+   so the input a frame is drawn with is as fresh as it can be.
+2. **Dynamic resolution** (`r.DynamicRes.OperationMode=2`, 50 to 75 % of the output size, 30 % head-room): the
+   picture shrinks while the GPU's time is over 70 % of the frame time. 75 % is version 2's fixed picture at 1080p.
+3. **A frame-rate target** of 60, 45 or 30 (`FMIFrameRateGovernor`): down, within a second and only while a run
+   is being played, when the picture is already at its smallest and the game falls more than 8 % short of the
+   rate because it has to wait for the GPU (or the GPU's own time is over the whole frame time); up again only
+   while no run is being played (a card, a set-up screen), after 10 s under 45 % of the frame time; a rise that
+   does not hold doubles the wait before the next. `t.MaxFPS`, `PixelStreaming2.WebRTC.Fps` and dynamic
+   resolution's frame time follow it. `-MIFps=` or `MI.Cloud.FpsTarget` fixes it; so does a `t.MaxFPS` set by a
+   launch option or a console command. How the rule came to be this one is in section 6.
+
+### 3. The lag test (`tools/box/cloud/lag-test.sh`)
+
+The investigator's scripts in `/project/ue/cloud/lag-2026-11-24/` are now one committed tool. `lag-test.sh run <name>
+key=value ...` starts one game with E3DS's argument list, waits until no other MURDER INC. game runs (a watcher notes
+once a second whether one appears: the summary says CLEAN or POLLUTED), loads the GPU, lets a viewer
+(`rtcinput.py`) stand, turn slowly (43 degrees a second), turn fast (173 degrees a second) and walk while turning,
+and prints one line from the game's own probe lines, the engine's log, the sender's statistics and the frames
+received. `queue <file>` runs a list; `calib` measures the loads; `csv <name>` reads a CSV profile (`lag_csv.py`).
+Viewer scripts: `lag-turn.txt` (Development game), `lag-story.txt` (Shipping: clicks through the set-up screens),
+`lag-commands.txt` (console commands and the pause card), `lag-leave.txt` (the viewer leaves). `lag-gate.txt` is
+the release gate as a queue.
+
+**Two loads.** `sp=<percent>` sets `r.ScreenPercentage` in the Development game: simple, but it is not what a slow GPU
+does, and dynamic resolution replaces it. `load=<n>:<work ms>:<idle ms>:<size>` starts second processes that keep
+the GPU busy (`gpu_hog.py`, PyTorch): the driver gives the two processes turns, so each of the game's frames takes
+longer whatever the game draws. **Calibrated** on box ec087d85 (one game alone in a Story run, standing, 1080p,
+version 2's fixed picture size, no viewer; `lag-test.sh calib`, runs `cal1`, `cal2`):
+
+| Load | GPU time of a frame | Frames a second (60 cap) |
+|---|---|---|
+| none | 6.3 ms | 59.7 |
+| `1:0.3:1` | 8.1 ms | 60.0 |
+| `1:0.05:0.05:1024` | 11.4 ms | 59.9 |
+| `1:0.3:0.15` | 13.5 ms | 59.9 |
+| `1:0.05:0:1024` | 19.3 ms | 50.0 |
+| `2:0.05:0:1024` | 27.5 ms | 35.6 |
+| `1:0.3:0` (the load of the lag runs) | 33.8 ms | 29.5 |
+| `1:1:0` | 47.9 ms | 20.7 |
+| `1:4:0` | 142.7 ms | 7.0 |
+
+**The Python viewer and the bitrate.** With the arguments E3DS passes, the sender believed the connection to the
+Python viewer carried 0.25 to a few Mbit/s and WebRTC dropped most frames to fit (run `x1`, free GPU: 60 frames
+captured, 2 to 58 encoded a second). That, not the game, is why earlier runs "received 3 to 7 frames a second while
+turning". `lag-test.sh` therefore starts the stream at 12 Mbit/s and keeps it there (`minbit=`); the viewer then
+receives what the game makes (below). `-PixelStreamingLogStats` logs nothing when given on the command line (the
+plugin starts its logger only when the variable changes later); version 3's probe line carries the sender's
+statistics itself.
+
+### 4. The pacer, measured
+
+Development game of this branch (version 2's content), 1920 x 1080, one viewer, a Story run with god mode, CLEAN
+runs. Dynamic resolution off and the target fixed at 60, so that only the pacer differs. "Owed" is the largest
+number of frames the GPU still owed when a frame started.
+
+| Load (GPU time a frame) | Pacer | Frames a second (lowest second) | Worst frame | Owed | Fence time-outs | Skipped captures | Run |
+|---|---|---|---|---|---|---|---|
+| `1:0.3:0` (31 ms) | off (version 2's behaviour) | 35.5 (12.4) | **1,659 ms** | 57 | 57 | 280 | `b0` |
+| the same | holds at 0 owed | 26.1 (24.9) | 64 ms | 1 | 0 | 0 | `b2` |
+| the same | **holds at 1 owed (the default)** | 31.5 (29.6) | **39 ms** | 2 | 0 | 0 | `b1` |
+| the same | holds at 2 owed | 31.9 (29.0) | 44 ms | 3 | 0 | 0 | `b3` |
+| `1:4:0` (130 ms) | off | 13.4 (4.3) | **8,564 ms** | 79 | 594 | 204 | `p1` |
+| the same | holds at 1 owed | 7.2 (6.6) | 158 ms | 2 | 728 | 0 | `p2` |
+| none (6 ms) | off | 59.9 (57.8) | 50 ms | 3 | 0 | 0 | `f0` |
+| none (6 ms) | holds at 1 owed | 60.0 (59.5) | 24 ms | 2 | 0 | 0 | `c0` |
+
+Reading it: holding at 1 costs no frame rate (31.5 against the GPU's own 32) and ends the stall; holding at 0 gives
+the freshest input but starves the GPU (26 a second); 2 adds a frame of delay for nothing. At 130 ms a frame every
+capture fence still times out with the pacer (Pixel Streaming waits 100 ms for a frame that takes 130): nothing
+stalls, but below about 10 frames a second that line cannot go away. With a free GPU the pacer waits for nothing
+(23 of 3,000 frames waited at all, the frames in which the GPU itself was late). Runs `b0` to `b3`, `p1` and
+`p2` were made while the pacer's wait still sat at the very start of the frame; from `c0` on it sits just before
+the input is read. The runs of section 7 are the final code.
+
+### 5. V3-3: Pixel Streaming's capture settings, measured under load
+
+The same set-up with the pacer on, dynamic resolution off and the target fixed (so only the capture differs), the
+stream held at 12 Mbit/s. "Sent" is the sender's own count (`transmitFps`); "received" the viewer's count while
+turning fast; "repeats" are received frames that show the same picture as the one before.
+
+| Capture setting | GPU free: game, sent, received (repeats) | GPU at 31 ms a frame: game, sent, received (repeats) | Worst frame, free / loaded | Runs |
+|---|---|---|---|---|
+| **defaults** (Media Capture with its fence, coupled) | 60.0, 57, 58 | 31.9, 31, 32 | 24 / 40 ms | `c0`, `c4` |
+| `-PixelStreamingDecoupleFramerate=true` | 60.0, 55, 54 (1) | 31.4, 55, 55 (9 to 24 a second) | 19 / 38 ms | `c1`, `c5` |
+| `-PixelStreamingUseMediaCapture=false` (RHI capturer with its fence) | 60.0, 56, 56 | 32.2, 32, 32 | 17 / 40 ms | `c2`, `c6` |
+| the same with `-PixelStreamingCaptureUseFence=false` (no fence) | 60.0, 57, 56 | 31.3, 31, 31 | 24 / 39 ms | `c3`, `c7` |
+| defaults with the target fixed at 30 (`t.MaxFPS` 30, `WebRTC.Fps` 30) | | 30.0 (lowest second 29.2), 30, 29 | 37 ms (33 while turning) | `c8` |
+| the same, decoupled | | 30.0 (lowest second 30.0), 29, 29 | 33 ms | `c9` |
+
+No run logged a fence time-out or a skipped capture. Frames looked at (four of each: still, slow turn, fast turn,
+walking turn): the defaults under load (`c4`) and no fence under load (`c7`): whole pictures, no tear line, nothing
+half-drawn, the HUD intact.
+
+**Decision: Pixel Streaming's capture defaults stay** (nothing is set in `[MICloud]`; a `StreamCVars` list exists
+for the day one is needed). No setting delivers more frames or a shorter worst frame than the defaults; the fence is
+Epic's protection against a texture being drawn to while it is encoded, and removing it buys nothing measurable.
+**Decoupling stays off**: with a full GPU it sends 55 frames a second of which up to 24 are repeats (what E3DS's
+own article found), and with a free GPU it sends slightly fewer new frames than coupled (55 against 57). The gain
+measured on version 2 ("40 received coupled, 55 decoupled") was the Python viewer's bitrate, not the capture. So
+there is no `-MIDecouple` switch; Pixel Streaming's own `-PixelStreamingDecoupleFramerate=true` (or `-MICVars=
+PixelStreaming2.DecoupleFramerate=true`) turns it on for a session. `PixelStreaming2.WebRTC.Fps` follows the
+frame-rate target (it tells the encoder how many frames to spread the bitrate over).
+`PixelStreaming2.WebRTC.DisableFrameDropper` **stays off, measured** (runs `e0`, `e1`: a free GPU and the stream's
+bitrate left as E3DS starts it, which the Python viewer's feedback lets fall to 1.7 Mbit/s):
+
+| | Game | Sender: encoded and sent | Bitrate | A frame waits between capture and send | Received while turning |
+|---|---|---|---|---|---|
+| frame dropper on (the default), `e0` | 60.0 | 28 a second (15 while turning) | 1.7 of 1.7 Mbit/s | 52 ms | 5 to 7 a second |
+| frame dropper off, `e1` | 60.0 | 57 a second | 3.9 Mbit/s against the 1.7 the connection is thought to carry | **644 ms** | 49 to 56 a second |
+
+Without the dropper every frame is sent, but each waits two thirds of a second in the sender: on a real thin
+connection that is delay, the worse evil in a shooter. (In every other run with the final probe line a frame
+waited 2 to 5 ms.)
+
+**These two runs also show a second way to the owner's complaint, one the server cannot fix.** On a connection the
+sender believes to carry 1.7 Mbit/s, the sender encoded 15 frames a second of a turning 1080p picture and the
+viewer counted 5 to 7 in the two turn phases, **while the game held a steady 60**: the picture stutters in every
+turn and is smooth when the view stands still. Whether the
+owner's sessions on E3DS had a full GPU (the pile, sections 1 to 4), a thin connection, or both, cannot be told from
+here: version 2 wrote neither number anywhere the owner could read. Version 3's pause card now says both
+(section 8).
+
+### 6. V3-1: dynamic resolution and the frame-rate target, measured
+
+The whole cloud profile on (dynamic resolution 50 to 75 %, 30 % head-room, the target free, the pacer at 1), the
+Development game, 1080p unless said, the stream at 12 Mbit/s, every run CLEAN. "Load" is the GPU's time for a frame
+at version 2's fixed picture (section 3). The first set was run with the line the pre-flight proposed (the target
+drops when the GPU's time is over 70 % of the frame time at the smallest picture) and with 85 %, and with a target
+that could still drop anywhere, also while the game started:
+
+| Load | Drop line | What the game settled on | Frames a second (lowest second) | Worst frame | GPU time | Run |
+|---|---|---|---|---|---|---|
+| none (6 ms) | 70 % | target 60, picture 75 % | 60.0 (59.3) | 29 ms | 6.3 ms | `d0` |
+| 8 ms | 70 % | target 60, picture 75 % | 60.0 (58.9) | 24 ms | 8.3 ms | `d1` |
+| 12 ms | 70 % | **target 45** after 10 s, picture back at 75 % | 45.0 (44.9) | 25 ms | 10.6 ms | `d2` |
+| 12 ms | 85 % | target 60, picture 57 to 75 % | 60.0 (59.3) | 28 ms | 11.7 ms | `d6` |
+| 20 ms | 70 % | target 30 (60 to 45 to 30 within 2 s), picture 75 % | 30.0 (30.0) | 34 ms | 18.6 ms | `d3` |
+| 20 ms | 85 % | target 45 for 8 s (a steady 45), then **30** | 30.0 (30.0) | 33 ms | 16.8 ms | `d5` |
+| 34 ms | 70 % | target 30, picture 50 % | 30.0 (30.0) | 34 ms | 27.8 ms | `d4` |
+| 34 ms | 85 % | target 30, picture 50 % | 30.0 (30.0) | 34 ms | 28.0 ms | `d9` |
+| none, 2560 x 1440 output | 70 % | target 60, picture 75 % | 60.0 (59.4) | 26 ms | 7.0 ms | `d8` |
+| none, 3840 x 2160 output | 70 % | target 60, picture 75 % | 59.9 (55.5) | 92 ms (see below) | 8.9 ms | `d7` |
+
+What the table says:
+
+- **On a free or lightly loaded GPU nothing changes against version 2**: 60 frames a second at the same picture.
+- **No run has a frame over 100 ms**, whatever the load and whatever the line.
+- **Every line drawn at a share of the frame time lowered a rate that was being held.** At 70 %: a GPU at 12 ms
+  held a steady 60 until the target put it at 45 (`d2`; at 85 % it stayed at 60, `d6`). At 85 %: a GPU at 20 ms held
+  a steady 45 for eight seconds until one second at 19.3 ms (87 % of 22.2 ms) put it at 30 (`d5`). At 90 %, the
+  line of the first two gate sets (section 7): the same load was put at 30 in the first second of the run, 0.4 ms
+  over the line, although its average afterwards was 89 % of 45's frame time in the Shipping game and 78 % in the
+  Development game (`h-l20`, `h-l20dev`). With the line out of the way
+  (`h-l20x`) the Shipping game ran **a steady 45.0 for 23 seconds, no frame over 22.3 ms, with the GPU at 78 to
+  98 % of the frame time**, and was then put at 30 by the other rule, "the pacer waited a fifth of the time", in a
+  second that still had 45.0 frames and no late one: while the rate is held, the pacer's wait before the input
+  only takes the place of the frame cap's sleep.
+- **The final rule**: the target drops, in live play and at the smallest picture, after a second in which the game
+  made **more than 8 % fewer frames than the target asks for while it waited for the GPU**, or in which the GPU's
+  own time was over the whole frame time (`MI.Cloud.FpsDropOver=1.0`). The pacer already keeps a full GPU from
+  stalling the game, so the target only has to follow what a run can really hold; the owner's order is fluid play
+  first, the look second: 60 frames a second at a smaller picture before 45 at a larger one. The gate runs of
+  section 7 use it.
+- **It never drops outside live play.** The start of the game is full of long frames on any card: on a free GPU
+  the pacer waited a third of the first second (`g-free`, `g-l8`, `g-l12`), and under load the first gate set had
+  the target at 45 or 30 before a viewer had joined (`g-l20`, `d5`). A target lost there comes back only after 10 s
+  under 45 % on a card or a set-up screen, so a server that is busy but able would have played its first run below
+  what it can hold.
+- **With this kind of load a smaller picture gains little**: the second process takes its turns on the card however
+  little the game draws (at 20 ms: 15 to 19 ms at a 50 % picture and 15 to 18.5 ms at 75 %). That is the load the
+  instruction asked for ("a second way dynamic resolution cannot undo"). A card that is slow only because the game's
+  own picture is heavy for it (a weaker GPU) was **not measured**: the box has one card. There dynamic resolution
+  should carry more of the load before the target moves.
+- **The target rises only outside live play** and only after 10 s under 45 % of the frame time, so a game put at 45
+  by a busy minute stays there until the next card or set-up screen. **Seen in a stream run** (`rise`, Shipping,
+  `lag-rise.txt`, build `3875973`; the rise's code did not change after it): at the lag's load the target went 60, 45, 30 in play; the viewer paused and the load was stopped;
+  the log said "Frame-rate target: 30 -> 45 frames a second: the GPU took 5.0 ms a frame, under 45 % of 33.3 ms for
+  10 s, and no run is being played" and ten seconds later "45 -> 60", and the probe lines followed (45.0, then
+  60.0). The picture stayed at 50 % on the pause card (dynamic resolution did not move while the game was paused;
+  not looked into: in `d2` it was back at 75 % three seconds into play).
+- **3840 x 2160 output is not ready** (run `d7`, free GPU): the game itself held 60 and the GPU took 8.9 ms, but the
+  encoder made only 46 frames a second (19 to 59 by the second, 11.8 ms each), the 92 ms frame and one fence
+  time-out came in the second the viewer left, the game then **did not notice that the viewer had gone** (no pause)
+  and **did not shut down within 30 s of SIGTERM** (it stopped after "CleanupWorld" and was killed). 2560 x 1440 was
+  clean (`d8`: 60.0, 56 sent, exit in 7.5 s). Not investigated: the output size is release B's item V3-6, which
+  limits it; until then E3DS's Browser Resolution should stay Custom 1920 x 1080, as LAUNCH.md and the pre-flight say.
+
+### 7. The release gate, with the final code
+
+**The gate** (PREFLIGHT section 2): on the box, with the GPU loaded the way the lag was reproduced, a Story run with
+fast turning has no game frame over 100 ms and no "Timed out waiting for fence" line; with a free GPU the game holds
+60 frames a second. **It passes.**
+
+The Shipping game and the Development game compiled at `4c385f9` (the last code commit of this entry), in a test
+folder with version 2's content, 1920 x 1080, one viewer who clicks through the set-up screens into a Story run,
+stands, turns slowly, turns fast and walks while turning (`lag-story.txt`; the Development game starts the run
+itself, `lag-turn.txt`). Every run CLEAN. "Load" is the GPU's time for a frame at version 2's fixed picture
+(section 3); "GPU time" is what the game measured in the run; "owed" the most frames the GPU still owed when a
+frame started.
+
+| Run | Game | Load | Settled on: target, picture | Frames a second (lowest second) | Worst frame (while turning) | GPU time (highest second) | Owed | Pacer time-outs | Sent, received in the fast turn |
+|---|---|---|---|---|---|---|---|---|---|
+| `k-free` | Shipping | none (6 ms) | 60, 75 % | **60.0 (59.8)** | 20 ms (17) | 5.9 ms (6.8) | 2 | 0 | 57, 56 |
+| `k-l8` | Shipping | 8 ms | 60, 75 % | 60.0 (59.5) | 25 ms (25) | 8.0 ms (10.0) | 2 | 0 | 57, 56 |
+| `k-l12` | Shipping | 12 ms | 60, 70 to 75 % | 59.9 (58.6) | 33 ms (27) | 10.9 ms (12.9) | 2 | 0 | 57, 56 |
+| `k-l20` | Shipping | 20 ms | 45, 50 % | 45.0 (44.9) | 25 ms (22) | 18.3 ms (21.3) | 2 | 0 | 44, 43 |
+| `k-l35` | Shipping | **34 ms: the lag's load** | 30, 50 % | **29.9 (28.3)** | **40 ms (40)** | 30.6 ms (37.7) | 2 | 0 | 30, 30 |
+| `k-l35dev` | Development | the same | 30, 50 % | 30.0 (30.0) | 34 ms (34) | 28.0 ms (32.7) | 1 | 0 | 30, 30; **fence time-outs 0, skipped captures 0** |
+
+For comparison, version 2's behaviour at the lag's load (run `b0`, section 4): worst frame 1,659 ms, 57 frames
+owed, 57 fence time-outs, 280 skipped captures.
+
+- **"No fence time-out line" can only be read in the Development game** (the Shipping game has no engine log):
+  `k-l35dev` logged none, and no skipped capture. The Shipping game is judged by its own probe lines: no frame over
+  100 ms, never more than 2 frames owed, no pacer time-out.
+- **The gate was run three times**, once for each state of the target's rule (section 6), because each change
+  needed a build. The two earlier sets:
+
+| Load | Build `52b2816` (drops at 90 %, anywhere): runs `g-…` | Build `3875973` (drops at 90 %, only in live play): runs `h-…` |
+|---|---|---|
+| none | Shipping: 60.0 (59.8), worst 19 ms, target 60 | Shipping: 60.0 (59.8), worst 20 ms, target 60 |
+| 8 ms | Shipping: 60.0 (59.3), worst 28 ms, target 60 | Shipping: 60.0 (59.9), worst 18 ms, target 60 |
+| 12 ms | Shipping: 59.9 (59.3), worst 26 ms, target 60, picture 70 to 75 % | Shipping: 60.0 (59.7), worst 21 ms, target 60, picture 70 to 75 % |
+| about 13 ms (`1:0.3:0.1`, not calibrated) | | Shipping: 60.0 (59.0), worst 33 ms, target 60, picture 50 %, GPU 12.6 ms (one second at 15.5) |
+| 20 ms | Shipping: 30.0 (30.0), worst 33 ms, target 30 (lost while the game started) | Shipping: 30.0 (30.0), worst 34 ms, target 30 (lost in the first two seconds of play); Development: 30.0 (29.9), worst 37 ms, no fence line |
+| 34 ms, the lag's load | Shipping: 29.7 (27.9), worst 49 ms, target 30, picture 50 %; Development: 30.0 (30.0), worst 34 ms, no fence line | Shipping: 29.9 (28.1), worst 52 ms, target 30, picture 50 %; Development: 30.0 (30.0), worst 33 ms, no fence line |
+
+  No run of either set had a pacer time-out or more than 2 frames owed.
+- **Frames looked at:** four received frames each of the Shipping game at the lag's load (30 a second, picture at
+  50 %) and on a free GPU (60, 75 %), and the fast-turn frame at the lag's load at full size: whole pictures, no
+  tear, nothing half-drawn, the HUD sharp (it is drawn at the output size). At 50 % the scene is soft; reflections
+  in the shop window smear while turning, at 75 % too. (From the first gate set, runs `g-l35` and `g-free`; the
+  picture's path did not change after it.)
+- **Where the target is decided.** On the set-up screens the target stays at 60 whatever the GPU does: at the 20 ms
+  load the game ran there at the GPU's pace, 46 to 55 frames a second, the pacer holding every frame, no frame over
+  42 ms (`h-l20`). The target moves when the player takes control, and the log names the reason each time
+  (`k-l20`: "Frame-rate target: 60 -> 45 frames a second: at the smallest picture the game fell short of the rate
+  because it had to wait for the GPU for 1.0 s (the GPU took 19.3 ms a frame; a frame has 16.7 ms)", and nothing
+  after it: a steady 45 for the whole run, where the two earlier rules ended at 30).
+- **The pacer's wait limit**, tried on purpose at 20 ms on a GPU that needs 31 ms a frame (target fixed at 60,
+  dynamic resolution off). A limit shorter than the GPU's frame cannot hold the game to the GPU's pace: a frame
+  goes through every 20 ms and a pile forms in the turns again. With the first version of the rule for a GPU that
+  does not answer (three waits in a row at the limit, then 3 s without holding) the worst frame was 1,604 ms
+  (`t-pause`, 53 frames owed). The final rule lets the game run unheld only when the GPU finished **nothing** during
+  three waits in a row; the same run then never ran unheld and its worst frame was 957 ms (`t-pause2`), which is the
+  20 ms limit itself. **With the default limit of 250 ms no run ever had a time-out**, down to a GPU at 130 ms a
+  frame (`p2`); a GPU slower than four frames a second would get past the pacer. After a time-out the counter
+  starts again from the frames written from then on, so `owed` under-reports such a pile: `pacerTimeOuts` in the
+  same probe line is the sign to look for.
+
+### 8. The smaller items of release A
+
+| Item | What was done | How it was checked |
+|---|---|---|
+| **V3-5** the game shows its own numbers | One dim line at the bottom of the pause card when streamed: the graphics card's name, frames a second and the target (", fixed" when something holds it), the GPU's time, the size drawn and the size sent, what the stream sends (frames a second, Mbit/s, QP, round trip when the viewer reports one, "decoupled" when it is), the build's commit. Both frame rates come with their **lowest value of the last half minute of play**: the pause card is a still picture, so the current numbers alone would hide a stutter; the two lowest values say whether the server's card (the game's number fell) or the connection (only the stream's did, section 5) was the cause. The probe line is written every 30 s by default when streamed (`-MICloudProbe=<seconds>` changes it) and carries the pacer, the target, the picture's share and the sender's statistics | **Looked at** in three frames a viewer received from the Shipping game (runs `h-cmds`, `rise`; the bottom strips at full size): "NVIDIA RTX PRO 6000 Blackwell Server Edition · 60 frames a second (lowest 59, target 60) · GPU 4.9 ms · drawn 1440 x 810, sent 1920 x 1080 · stream 50 a second (lowest 50), 11.0 Mbit/s, QP 18, round trip 0 ms · build e989cb8"; after the viewer's `t.MaxFPS 30`: "30 frames a second (lowest 30, target 30, fixed) · GPU 5.4 ms · … · stream 31 a second (lowest 27), 11.8 Mbit/s, QP 19, …" (the longest form: it fits 1920 pixels with about 30 to spare on each side); and under the lag's load: "30 frames a second (lowest 28, target 30) · GPU 27.6 ms · drawn 960 x 540, sent 1920 x 1080 · stream 31 a second (lowest 25), 9.5 Mbit/s, QP 19, round trip 0 ms · build e989cb8". Small, dim, readable at 1080p. The build shown is the test folder's `BUILD.txt` (version 2's); the round trip is 0 because the viewer sat on the same machine. The 30 s default: a Shipping run without the option wrote its probe line at the start and after 30, 60 and 90 s (`pf-probe`). These frames are from the build before the last change to the target's rule; the line's code did not change after it. **Not in the line:** the quality level (it comes with V3-2 in release B) |
+| **V3-11** tuning without a rebuild | Launch option `-MICVars=name=value,name=value`: sets the variables of the list below with the strength of a launch option (the cloud profile and the frame-rate target do not override them) and logs each one, set or refused. `-MIFps=60/45/30` fixes the target | Every `profile=1` run passes eleven variables this way; the Shipping game's log lists each ("Launch option -MICVars: r.DynamicRes.MinScreenPercentage = 50 (now 50)") and they act (the picture moves between 50 and 75 %; run `h-l20x` passed `MI.Cloud.FpsDropOver=1.0` on top of them and the target's rule followed it). `-MIFps=30` in the Shipping game: 30.0 a second from the first second, target 30, 30 sent and received (run `g-fps30`). Refusals, in the Shipping game's log of run `rise`: "refused "r.ScreenPercentage=400"", "refused "r.Streaming.PoolSize=5000"" and "refused "quit=1"", each with the list of what is allowed, next to "PixelStreaming2.WebRTC.DisableFrameDropper = true (now true)"; and test `MurderInc.Cloud.Tuning` |
+| **V3-9** the viewer's console commands, widened | A viewer (the player page, E3DS's "Unreal console commands to run at start" field) may read or set: `PixelStreaming2.*`, `PixelStreaming.*`, `MI.Cloud.*`, `sg.*` (0 to 4), `r.DynamicRes.*` (minimum and maximum screen percentage 25 to 100), `r.ScreenPercentage` (25 to 100), `t.MaxFPS` (0 to 120), `r.Streaming.PoolSize` (200 to 3000), `r.GTSyncType`, `r.OneFrameThreadLag`, `r.VolumetricFog.*`. Anything else, and any value outside its range, is refused. "name value", "name=value" and "name = value" are all understood | **In the Shipping game through a stream** (runs `g-cmds` and, one build later, `h-cmds`; `rtcinput.py` sends them as the browser does): `t.MaxFPS 30` ran, the log said "Frame-rate target: fixed at 30 by t.MaxFPS = 30, set by hand", the probe lines said `fps=30.0 target=30` and the viewer received 30 a second; `quit` was refused and the game went on; `r.ScreenPercentage 400` was refused; `MI.Cloud.FpsTarget` (a read) ran; the counters ended at `cmdRun=2 cmdRefused=2`. Tests `MurderInc.Cloud.Tuning`, `MurderInc.Cloud.ViewerCommands` |
+| **V3-10** box tests that version 3 broke | `e3ds-verify.sh`: the Shipping game has no `-MICrashTest` any more, so `v-crash` now crashes it from outside (`e3ds-repro.sh CRASHAT=30`: SIGSEGV to the game after 30 s) and a new `v-crash-dev` keeps the old path for the Development game. `stream-test.sh`, `stream_test.cjs`, `xtest.py` and `memory-runs.sh` read the game's `[MICloud]` lines from its own output instead of `-MICloudLog=`, which Shipping no longer has | Run by hand with `e3ds-repro.sh` on the test folder (build `52b2816`): the Shipping game with `CRASHAT=30` "ENDED BY ITSELF: SIGNAL 11 (SEGV) after 30.1s", its launcher's log says "CRASH: the game was killed by signal 11 (SIGSEGV) after 29s" and names the crash report's folder; the Development game with `-MIDev -MICrashTest=30` the same after 35.1 s (runs `pf-crash`, `pf-crash-dev`). The whole of `e3ds-verify.sh` was **not run**. `stream_test.cjs`: syntax checked, and its probe reading run on a Shipping game's log (124 probe lines read). That showed a fault of the repair: the game's output also echoes its command line, which holds `-MICloudProbe=`, and those lines were taken for probe lines; fixed in all three readers. `stream-test.sh`, `xtest.py` and `memory-runs.sh` themselves were **not run**: they need the box's desktop, which another task's browser session was using, and a browser cannot connect to the game on this box anyway |
+| **V3-4, first bullet** box run `gp-in5`: 14.5 GB and "HUNG in shutdown" | It is the same pile, not version 3's code. Every frame the GPU has not finished keeps about **11 MB** of memory (measured in the pacer-off runs: `p1`, 3 to 65 frames owed, 3,488 to 4,179 MB; `b0`, 3 to 57 owed, 3,462 to 4,093 MB). `gp-in5` shared the card with other agents' games; from the second its viewer turned (the first of 511 fence time-outs) the game ran 43 to 51 frames a second against a GPU that finished far fewer, for 54 s, also while paused: memory rose by 250 to 300 MB a second, 11.2 GB in all, about 1,000 unfinished frames. At exit the engine waits for the GPU to finish them all (1,000 frames at 25 to 30 ms): longer than the 30 s it was given | The numbers above are from the runs' own probe lines. With the pacer the GPU never owes more than 2 frames, so neither can happen: memory stayed flat in every gate run and every run ended within 8 s of SIGTERM. **Not reproduced:** why `gp-in5`'s pile kept growing after its view stood still. In a one-game run the pile is drained by one long frame when the turn ends, and a game that is paused without a turn before it does not pile up at all (run `m0`, pacer off: 3 owed, memory flat, exit in 7 s; `m1`, pacer on: 2 owed, memory flat, exit in 7 s) |
+
+### 9. Tests and builds
+
+- The automation suite at `f0f57f5` (the code of `4c385f9`, the last code commit): `TESTS OK passed=116 failed=0
+  skipped=0 filter=MurderInc` (the 114 tests of the gameplay part with their golden replays, and two
+  new ones: `MurderInc.Cloud.FrameRate`, the frame-rate target's decisions, and `MurderInc.Cloud.Tuning`, what
+  `-MICVars` and a viewer may set). `MurderInc.Cloud.ViewerCommands` was extended for the wider list.
+- The game target compiled and linked in Development and in Shipping from the release copy at the same commit; the
+  gate runs above used those two binaries.
+- The pacer itself has no unit test: it needs a GPU. Its proof is the runs (sections 4 and 7). Its path for a GPU
+  that does not answer was provoked with an absurd wait limit (section 7); a GPU that really finishes nothing for
+  three waits in a row was never seen, so that the game then runs unheld for 3 s is read in the code, not shown.
+- **Nothing was packaged.** The test folder is version 2's unpacked zip with this branch's two game binaries; its
+  pak is version 2's, so `DefaultGame.ini` of this branch was not in it and `lag-test.sh profile=1` handed the
+  branch's `[MICloud]` additions to the game as `-MICVars`. That the same lines act from a packaged `DefaultGame.ini`
+  (they are read by the code that already reads the profile's other ten lines) is for the packager's gate runs to
+  show.
+
+### 10. What cloud mode now sets, and why
+
+| Setting (`[MICloud]` in `DefaultGame.ini`) | Value | Why |
+|---|---|---|
+| `r.DynamicRes.OperationMode`, `MinScreenPercentage`, `MaxScreenPercentage` | 2, 50, 75 | dynamic resolution on; 75 % is the picture version 2 always drew at 1080p, so a free GPU shows no change; 50 % was looked at (section 7): soft, readable |
+| `r.DynamicRes.TargetedGPUHeadRoomPercentage` | 30 | the picture shrinks above 70 % GPU use: E3DS asks for 50 to 70 % |
+| `MI.Cloud.GpuFramesInFlight`, `MI.Cloud.GpuWaitLimitMs` | 1, 250 | the pacer: 1 loses no frame rate and ends the stall (0 costs a sixth of the frame rate, 2 adds a frame of delay for nothing: runs `b1` to `b3`); 250 ms is the longest a frame's start waits |
+| `MI.Cloud.FpsTarget` | 0 | the game chooses 60, 45 or 30; `-MIFps=` or a console command fixes it |
+| `MI.Cloud.FpsDropOver`, `MI.Cloud.FpsDropAfter` | 1.0, 1.0 | down, in live play and at the smallest picture, after a second in which the game fell more than 8 % short of the rate because it waited for the GPU, or in which the GPU's time was over the whole frame time (section 6) |
+| `MI.Cloud.FpsRaiseUnder`, `MI.Cloud.FpsRaiseAfter` | 0.45, 10 | up only outside live play, after 10 s under 45 %: the next rate up then starts at about two thirds of its frame time |
+| Pixel Streaming's capture settings | not set | its defaults measured best (section 5); decoupling off |
+| `PixelStreaming2.WebRTC.Fps`, `r.DynamicRes.FrameTimeBudget`, `t.MaxFPS` | follow the target | set by the game whenever the target changes |
+| the probe line | every 30 s | so that a log from E3DS always holds the numbers; `-MICloudProbe=` changes it |
+
+Desktop play (no `-MICloud`, no stream) is unchanged: none of this starts there.
+
+### 11. Not done, not proven
+
+- **E3DS itself.** Everything above is the box: one RTX PRO 6000, a second process as the load, a Python viewer on
+  the same machine. Whether E3DS's servers are slow in the way the load is (a shared card) or in another way is not
+  known; the pacer does not depend on the kind of slowness, the target's numbers might.
+- **A real browser.** The box cannot run one against the game. The Python viewer has no congestion control worth
+  the name (the stream had to be held at 12 Mbit/s) and its round trip is 0 ms.
+- **The delay between hand and picture** (V3-4's other bullets) was not measured: release B. The pacer waits just
+  before the input is read, which is the right place for the delay, but no number says so.
+- **Why the engine draws no occlusion tests while the view turns** was not traced in the source, and the off-screen
+  `Present` path was read, not single-stepped.
+- **The sender's dips.** In several runs, with every capture setting, the sender's encoded frames a second dipped
+  for a few seconds (to 36 to 47 of 60) while the game held 60. The cause was not found; the viewer's weak feedback
+  is the first suspect.
+- **A thin connection.** The frame dropper's two runs (section 5) used the Python viewer's weak feedback as the thin
+  connection; the box has no real one. What a browser's congestion control does at 2 Mbit/s was not seen.
+- **How the final rule behaves between the loads tried.** It was run at five loads; a GPU that sits exactly at a
+  target's frame time (16.7 or 22.2 ms) was not among them. There the game runs at the GPU's pace until it is more
+  than 8 % short.
+- **A cold start.** The box's games start warm (shaders and files cached). The rule that the target drops only in
+  live play was made for the long frames of a start, but a cold start on E3DS was not seen.
+- **3840 x 2160 output** (section 6) and the size limit: release B, V3-6.
+- **`stream-test.sh`, `xtest.py`, `memory-runs.sh`** were repaired by reading and not run (section 8).
+
+### 12. For the packager: the gate to repeat on the packaged Shipping game
+
+1. Package from the head of this branch. `tools/box/test.sh MurderInc` must pass first (116 tests).
+2. `bash /project/ue/cloud/src/tools/box/cloud/lag-test.sh queue /project/ue/cloud/src/tools/box/cloud/lag-gate.txt`
+   (about 20 minutes; it uses `/project/ue/cloud/build-Shipping/Linux`, the packaged build; `LAG_BUILD=<folder>`
+   for another one; no `profile=1`: the packaged `DefaultGame.ini` carries the lines). Nothing else may use the GPU
+   and nothing may compile meanwhile; each line must end in CLEAN. `bash lag-test.sh list` prints the lines.
+3. It passes when: `gate-free` holds 60 (lowest second 57 or more) at target 60; `gate-l8` to `gate-l35` have no
+   frame over 100 ms, `owed` 2 or less and no pacer time-out (measured here: targets 60, 60, 45 and 30, worst
+   frames 25, 33, 25 and 40 ms); `gate-l35dev` also says "fence time-outs 0, skipped
+   captures 0" (only the Development game has the engine's log; the Shipping game is judged by its probe lines);
+   `gate-cmds` ends with `cmdRun=2 cmdRefused=2` and its probe lines say `fps=30.0 target=30` after the command.
+   Look at `gate-cmds`' `pause.jpg`: the line of numbers must show the package's own commit.
+4. The loads are calibrated for box ec087d85. On another card run `lag-test.sh calib cal 0 1:0.3:1
+   1:0.05:0.05:1024 1:0.05:0:1024 1:0.3:0` first and compare with the table in section 3.
+5. The viewer's Python lives in `/tmp/fps/venv` (lost when the box restarts; `lag-test.sh` builds it again).
+
 ## Version 3: play through the stream (gameplay part, 2026-11-25, 00:30 UTC)
 
 The gameplay part of version 3: the seven input items of the launch pre-flight (A1 to A7), and the controller path

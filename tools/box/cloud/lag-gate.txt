@@ -8,7 +8,8 @@
 #   gate-free    the Shipping game on a free GPU: fps 60 (min 57 or more), target 60, worst frame under 100 ms
 #   gate-l8, gate-l12, gate-l20, gate-l35   the Shipping game with the GPU loaded by a second process (about 8, 12,
 #                20 and 34 ms of GPU time a frame at full quality on the box's card): worst frame under 100 ms, owed
-#                2 or less, pacer time-outs 0. Measured at release A: target 60, 60, 45, 30
+#                2 or less, pacer time-outs 0. Measured at release A: target 60, 60, 45 and 30, worst frames 25 to
+#                40 ms (the target is 60 on the set-up screens whatever the load; it moves when play begins)
 #   gate-l35dev  the Development game of the same package under the heaviest load: the same, and "fence time-outs 0,
 #                skipped captures 0" (only the Development game has the engine's log)
 #   gate-cmds    a viewer's console commands in the Shipping game: after "t.MaxFPS 30" the probe lines say fps=30 and
