@@ -104,6 +104,16 @@ public:
 	/** HandIK guns in a reload whose anim set says magazine.inHand: the magazine stays drawn through the swap (it is in the
 	 *  support hand, which holds it all the way down and back up), instead of vanishing at the bottom of its drop. */
 	bool KeepsMagazineInHand() const;
+	/** HandIK guns: the hands as last pulled onto the gun (UpdateHands), for tests: [0] the support hand, [1] the firing one. */
+	const FMIFPPose& GetHandPose() const { return HandPose; }
+	/** HandIK guns: how far the support hand is on the magazine (0 on the handguard, 1 holding the magazine), and whether its
+	 *  grip there is the solve round that magazine (grips.json magazines.<mesh>) rather than the handguard's turned. */
+	double GetMagazineHold() const { return MagKNow; }
+	bool HasReloadSolve() const { return !ReloadPoints.IsEmpty(); }
+	/** HandIK guns: where the support palm goes on the held magazine (world), false when no magazine can be held. */
+	bool MagazinePalmTarget(FVector& Out) const;
+	/** HandIK guns: where the last UpdateHands sent the support palm (world), false when it pulled no support hand. */
+	bool SupportPalmTarget(FVector& Out) const;
 
 private:
 	struct FClipSet
@@ -236,4 +246,12 @@ private:
 	double SupportStretch = 1.0;  // HandIK guns: the support arm's largest stretch (anim set armStretch)
 	double ReloadCurl = 0.0;      // HandIK guns: degrees the support fingers close on the magazine in a reload (anim set reloadCurl)
 	double ForegripCurl = 0.0;    // HandIK guns: degrees the support fingers close extra on a fitted foregrip (anim set foregripCurl)
+	/** HandIK guns: the support hand's grip round the magazine it holds in a reload (grips.json magazines.<static mesh>.l,
+	 *  tools/data/reload_grips.py), in that magazine mesh's own frame (cm); empty: the handguard's grip turned onto it. */
+	TMap<FName, FVector> ReloadPoints;
+	/** HandIK guns: the support hand's way onto the magazine, 0 to 1 (linear; smoothstepped where used), moved at most
+	 *  1 / magazine.blend a second, so a reload cut short lets the hand go back over that time instead of in one frame. */
+	double MagKState = 0.0, MagKNow = 0.0;
+	double HandDt = 1.0 / 60.0;   // HandIK guns: the frame time of the last Update (UpdateHands has none of its own)
+	bool bMagNoSocketWarned = false;
 };

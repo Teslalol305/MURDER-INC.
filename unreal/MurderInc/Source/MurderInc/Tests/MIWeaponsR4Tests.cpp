@@ -729,6 +729,22 @@ bool FMIFirstPersonSupportHandTest::RunTest(const FString& Parameters)
 			const bool bTurn = T->Type == EJson::Array && T->AsArray().Num() == 3;
 			TestTrue(FString::Printf(TEXT("%s: magazine.turn is three angles within 180 degrees"), Gun), bTurn && Vec(T).GetAbsMax() <= 180.0);
 		}
+		// HANDS_R4.md 10: the grip solved round the set's own magazine (grips.json magazines.<mesh>, reload_grips.py): the wrist and
+		// every finger joint, each within 30 cm of the magazine's origin (its own frame).
+		FString MagMesh = MIJson::StringOr(F.Presentation, Set + TEXT(".magazine.full"));
+		MagMesh.Split(TEXT("."), nullptr, &MagMesh, ESearchCase::CaseSensitive, ESearchDir::FromEnd);
+		const TSharedPtr<FJsonValue> Solve = MIJson::Get(Grips, FString::Printf(TEXT("magazines.%s.l"), *MagMesh));
+		if (TestTrue(FString::Printf(TEXT("%s: grips.json has the reload grip round %s"), Gun, *MagMesh), Solve.IsValid() && Solve->Type == EJson::Object))
+		{
+			int32 Joints = 0;
+			for (const auto& Pair : Solve->AsObject()->Values)
+			{
+				const bool bOk = Pair.Value->Type == EJson::Array && Pair.Value->AsArray().Num() == 3 && Vec(Pair.Value).GetAbsMax() <= 30.0;
+				TestTrue(FString::Printf(TEXT("%s: the reload grip's %s is a point near the magazine"), Gun, *FString(*Pair.Key)), bOk);
+				Joints += bOk ? 1 : 0;
+			}
+			TestTrue(FString::Printf(TEXT("%s: the reload grip has the wrist and every finger joint (%d points)"), Gun, Joints), Joints >= 24 && Solve->AsObject()->HasField(TEXT("hand_l")));
+		}
 		// 8.3: the aimed solve blended by the aim has every point of the hip solve, and the support hand moves little.
 		const FString Key = MIJson::StringOr(F.Presentation, Set + TEXT(".grip.gun"));
 		const FString Hip = MIJson::StringOr(F.Presentation, Set + TEXT(".grip.pose"), TEXT("hip"));

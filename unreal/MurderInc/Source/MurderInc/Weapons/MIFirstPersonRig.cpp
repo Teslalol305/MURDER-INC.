@@ -245,6 +245,8 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 	if (ReserveMag) { ReserveMag->DestroyComponent(); ReserveMag = nullptr; }
 	SeatedMag.Reset();
 	HeldMag.Reset();
+	ReloadPoints.Reset();
+	MagKState = MagKNow = 0.0;
 	GunAssembly = Assembly;
 	if (PackGun)
 	{
@@ -494,8 +496,39 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 					? FVector(B.Max.X + 2.0, B.GetCenter().Y, B.Min.Z + MagHeight * (B.Max.Z - B.Min.Z))  // on its front face, that far up
 					: FVector(B.GetCenter().X, B.GetCenter().Y, B.Min.Z - 1.5);                          // under its base
 			}
-			UE_LOG(LogTemp, Log, TEXT("First person: %s reload palm on the magazine at %s (magazine frame, cm; the magazine %s), squeeze %.2f, turn %s, elbow out %s / %s"),
-				*Gun.ToString(), *MagBasePad.ToCompactString(), *B.ToString(), MagSqueeze, *MagTurn.Euler().ToCompactString(), *SupportElbowOut.ToCompactString(), *SupportElbowOutAim.ToCompactString());
+			// The support hand's grip solved round this magazine (tools/data/reload_grips.py: palm on its left face, fingers
+			// round its front edge onto its right face, thumb up its left face), in the magazine mesh's frame.
+			ReloadPoints.Reset();
+			TSharedPtr<FJsonObject> Grips;
+			FString GripError;
+			if (UMIDataSubsystem::LoadJsonFile(TEXT("grips.json"), Grips, GripError))
+			{
+				if (const TSharedPtr<FJsonObject> Pts = Obj(Grips, TEXT("magazines.") + Held->GetStaticMesh()->GetName() + TEXT(".l")))
+				{
+					for (const auto& Pair : Pts->Values)
+					{
+						const TArray<TSharedPtr<FJsonValue>>* A = nullptr;
+						if (Pair.Value.IsValid() && Pair.Value->TryGetArray(A) && A->Num() == 3)
+						{
+							ReloadPoints.Add(FName(FString(*Pair.Key)), FVector((*A)[0]->AsNumber(), (*A)[1]->AsNumber(), (*A)[2]->AsNumber()));
+						}
+					}
+				}
+			}
+			if (const FVector* Palm = ReloadPoints.Find(TEXT("middle_metacarpal_l")); Palm && !ReloadPoints.Contains(TEXT("hand_l")))
+			{
+				ReloadPoints.Reset();   // a solve without its wrist cannot be laid on the hand
+			}
+			if (Held->GetAttachSocketName().IsNone() && !bMagNoSocketWarned)
+			{
+				// the hand follows the magazine's bone; a magazine attached without one is never held (bMagHold stays false)
+				bMagNoSocketWarned = true;
+				UE_LOG(LogMI, Warning, TEXT("First person: %s: the magazine %s rides no bone: the support hand will not hold it in a reload"), *Gun.ToString(), *Held->GetStaticMesh()->GetName());
+			}
+			UE_LOG(LogTemp, Log, TEXT("First person: %s reload palm on the magazine at %s (magazine frame, cm; the magazine %s %s), %s, squeeze %.2f, turn %s, elbow out %s / %s"),
+				*Gun.ToString(), *MagBasePad.ToCompactString(), *Held->GetStaticMesh()->GetName(), *B.ToString(),
+				ReloadPoints.IsEmpty() ? TEXT("the handguard's grip turned onto it (no solve in grips.json magazines)") : *FString::Printf(TEXT("the grip solved round it (%d points)"), ReloadPoints.Num()),
+				MagSqueeze, *MagTurn.Euler().ToCompactString(), *SupportElbowOut.ToCompactString(), *SupportElbowOutAim.ToCompactString());
 		}
 		ApplyOpticMaterials(LegacyGun);   // the build's optic (red dot, scope) in daylight, as for the pack's
 		// The optic's housing fades out as the sight comes up (UpdateOpticFade): one dynamic instance of its hardware slot.
@@ -837,6 +870,9 @@ namespace MIFirstPersonRigPrivate
 	static TAutoConsoleVariable<FString> CVarElbowOut(TEXT("mi.FP.ElbowOut"), TEXT(""),
 		TEXT("HandIK guns: the support elbow's push from the clip's pole, camera space \"x y z\" cm, hip and aimed alike; ")
 		TEXT("empty or \"data\": the anim set's supportElbowOut / supportElbowOutAim"));
+	static TAutoConsoleVariable<int32> CVarReloadGrip(TEXT("mi.FP.ReloadGrip"), 1,
+		TEXT("HandIK guns, in a reload: 1 the support hand takes the grip solved round the magazine (grips.json magazines), ")
+		TEXT("0 the handguard's grip turned onto it (magazine.turn / squeeze: the earlier way, for comparison pictures)"));
 }
 
 bool UMIFirstPersonRig::GripShoulderTranslation(const FTransform& ArmsRel, FVector& Out) const
@@ -913,6 +949,30 @@ bool UMIFirstPersonRig::KeepsMagazineInHand() const
 	return Mode == EMIFPMode::HandIK && bMagInHand && bReloadingNow && HeldMag.IsValid();
 }
 
+bool UMIFirstPersonRig::MagazinePalmTarget(FVector& Out) const
+{
+	const UStaticMeshComponent* Held = HeldMag.Get();
+	const USkinnedMeshComponent* Gun = HandGun.Get();
+	const FName Bone = Held ? Held->GetAttachSocketName() : NAME_None;
+	if (Mode != EMIFPMode::HandIK || !Held || !Gun || Bone.IsNone() || !Gun->DoesSocketExist(Bone))
+	{
+		return false;
+	}
+	const FVector* Solved = ReloadPoints.Find(TEXT("middle_metacarpal_l"));
+	Out = (Held->GetRelativeTransform() * Gun->GetSocketTransform(Bone)).TransformPosition(Solved ? *Solved : MagBasePad);
+	return true;
+}
+
+bool UMIFirstPersonRig::SupportPalmTarget(FVector& Out) const
+{
+	if (Mode != EMIFPMode::HandIK || !Arms || HandPose.Hands.Num() == 0 || HandPose.Hands[0].Hand != FName(TEXT("hand_l")))
+	{
+		return false;
+	}
+	Out = Arms->GetComponentTransform().TransformPosition(HandPose.Hands[0].Target.GetLocation());
+	return true;
+}
+
 bool UMIFirstPersonRig::IsPackGunVisible() const
 {
 	return PackGun && PackGun->IsVisible();
@@ -930,6 +990,7 @@ void UMIFirstPersonRig::Update(double Dt, const FMIWeaponView& W, const FMIViewm
 	{
 		bReloadingNow = W.Activity == EMIWeaponActivity::Reloading;
 		AdsNow = W.Ads;
+		HandDt = FMath::Clamp(Dt, 0.0, 0.1);
 		ReloadNowT = W.ActivityTime;
 		ReloadNowLeft = FMath::Max(0.0, W.ActivityLength - W.ActivityTime);
 		HandPose.Layers.Reset();
@@ -1268,19 +1329,28 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 	const bool bGrip = GunAssembly.IsValid() && GunAssembly->MarkerTransform(TEXT("support"), Support);
 	// The hip and the aimed solve blend by the aim (HANDS_R4.md 8.3).
 	const float AimK = static_cast<float>(Smooth(AdsNow));
-	// In a reload the support hand leaves the handguard and holds the magazine the rig drops and seats (HANDS_R4.md 8.1): the
-	// solved support grip goes with the palm from the handguard onto the magazine (magazine.palm, in the magazine's frame),
-	// narrowed across the gun (magazine.squeeze: the solve wraps a 5 to 6 cm handguard, a magazine is 2.5 to 3 cm), so the
-	// fingers stay closed round the magazine instead of falling open to the clip's own hand. A translation only: the hand
-	// keeps the turn it had on the handguard. Blended in and out over the first and last magazine.blend seconds.
+	// In a reload the support hand leaves the handguard and holds the magazine the rig drops and seats (HANDS_R4.md 8.1, 10):
+	// it takes the grip solved round that magazine (grips.json magazines.<mesh>, tools/data/reload_grips.py: palm on its left
+	// face, fingers round its front edge onto its right face, thumb up its left face), carried with the magazine's bone. Without
+	// a solve for that magazine the handguard's grip is turned onto it (magazine.turn / squeeze / palm, the earlier way). The way
+	// there and back takes magazine.blend seconds, and a reload cut short lets go over that time too (MagKState is moved at most
+	// 1 / magazine.blend a second: no jump in one frame).
 	const UStaticMeshComponent* Held = HeldMag.Get();
 	const FName MagBone = Held ? Held->GetAttachSocketName() : NAME_None;
-	const bool bMagHold = bReloadingNow && Held && !MagBone.IsNone() && Gun->DoesSocketExist(MagBone);
-	const double MagK = bMagHold ? Smooth(FMath::Clamp(FMath::Min(ReloadNowT, ReloadNowLeft) / MagBlend, 0.0, 1.0)) : 0.0;
+	const bool bMagReady = Held && !MagBone.IsNone() && Gun->DoesSocketExist(MagBone);
+	const bool bMagHold = bReloadingNow && bMagReady;
+	const double MagTarget = bMagHold ? FMath::Clamp(FMath::Min(ReloadNowT, ReloadNowLeft) / MagBlend, 0.0, 1.0) : 0.0;
+	MagKState = bMagReady ? FMath::FInterpConstantTo(MagKState, MagTarget, HandDt, 1.0 / MagBlend) : 0.0;
+	const double MagK = Smooth(MagKState);
+	MagKNow = MagK;
+	const bool bSolved = !ReloadPoints.IsEmpty() && MIFirstPersonRigPrivate::CVarReloadGrip.GetValueOnGameThread() != 0;
+	FTransform MagWorld = FTransform::Identity;
 	FVector PadWorld = FVector::ZeroVector, PadGun = FVector::ZeroVector;
-	if (bMagHold)
+	if (bMagReady && MagK > 0.0)
 	{
-		PadWorld = (FTransform(MagBasePad) * Held->GetRelativeTransform() * Gun->GetSocketTransform(MagBone)).GetLocation();
+		MagWorld = Held->GetRelativeTransform() * Gun->GetSocketTransform(MagBone);
+		const FVector* SolvedPalm = bSolved ? ReloadPoints.Find(TEXT("middle_metacarpal_l")) : nullptr;
+		PadWorld = MagWorld.TransformPosition(SolvedPalm ? *SolvedPalm : MagBasePad);
 		PadGun = GunWorld.InverseTransformPosition(PadWorld);
 	}
 	const auto Pull = [&](FName Socket, const TCHAR* U, const TCHAR* L, const TCHAR* H, const TCHAR* Palm)
@@ -1326,10 +1396,13 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 				IK.PoleShift = ArmsWorld.InverseTransformVector(Camera->GetComponentQuat().RotateVector(Out));
 			}
 		}
-		// the solved grip, when there is one: the hand turned and placed as solved, each finger closed onto the gun
+		// the solved grip, when there is one: the hand turned and placed as solved, each finger closed onto the gun. With a
+		// fitted foregrip the support hand keeps the clip's own hand on the part (no bare-handguard solve there) and takes the
+		// magazine's grip only in a reload, weighted by how far it is on its way (the open V hand of HANDS_R4.md 8.1 otherwise).
 		const TMap<FName, FVector>& Pts = GripPoints[bLeftHand ? 0 : 1];
 		const TMap<FName, FVector>& Aimed = GripPointsAim[bLeftHand ? 0 : 1];
-		if (!Pts.IsEmpty() && GripWeight > 0.0 && !(bLeftHand && bGrip))
+		const bool bOnPart = bLeftHand && bGrip;
+		if (!Pts.IsEmpty() && GripWeight > 0.0 && (!bOnPart || bCarry))
 		{
 			// the shape's palm (the bone the IK lands), which goes onto the magazine in a reload
 			const FVector* PalmHip = Pts.Find(FName(Palm));
@@ -1338,32 +1411,63 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 			for (const TPair<FName, FVector>& KV : Pts)
 			{
 				const FVector* A = Aimed.Find(KV.Key);
-				FVector P = A ? FMath::Lerp(KV.Value, *A, AimK) : KV.Value;
+				const FVector P = A ? FMath::Lerp(KV.Value, *A, AimK) : KV.Value;
+				FVector W = GunWorld.TransformPosition(P);
 				if (bCarry)
 				{
-					// about the palm: turned (magazine.turn: the handguard's grip laid round the magazine's body), onto the
-					// magazine, narrowed across the gun
-					FVector Q = PadGun + MagTurn.RotateVector(P - PalmAt);
-					Q.Y = PadGun.Y + (Q.Y - PadGun.Y) * MagSqueeze;
-					P = FMath::Lerp(P, Q, MagK);
+					FVector OnMag;
+					if (const FVector* R = bSolved ? ReloadPoints.Find(KV.Key) : nullptr)
+					{
+						OnMag = MagWorld.TransformPosition(*R);   // the grip solved round this magazine
+					}
+					else
+					{
+						// about the palm: turned (magazine.turn: the handguard's grip laid round the magazine's body), onto the
+						// magazine, narrowed across the gun
+						FVector Q = PadGun + MagTurn.RotateVector(P - PalmAt);
+						Q.Y = PadGun.Y + (Q.Y - PadGun.Y) * MagSqueeze;
+						OnMag = GunWorld.TransformPosition(Q);
+					}
+					// on a fitted part the shape fades in with the hand's way (it starts from the clip's hand), else it moves
+					W = bOnPart ? OnMag : FMath::Lerp(W, OnMag, MagK);
 				}
-				IK.Shape.Add(KV.Key, ArmsWorld.InverseTransformPosition(GunWorld.TransformPosition(P)));
+				IK.Shape.Add(KV.Key, ArmsWorld.InverseTransformPosition(W));
 			}
-			IK.ShapeWeight = static_cast<float>(GripWeight);
+			IK.ShapeWeight = static_cast<float>(bOnPart ? GripWeight * MagK : GripWeight);
 		}
 	};
 	Pull(LeftSocket, TEXT("upperarm_l"), TEXT("lowerarm_l"), TEXT("hand_l"), TEXT("middle_metacarpal_l"));
 	Pull(RightSocket, TEXT("upperarm_r"), TEXT("lowerarm_r"), TEXT("hand_r"), TEXT("middle_metacarpal_r"));
-	// Development log, once a reload, a second in: where the support palm is against the magazine it should hold, and how far
-	// its middle finger is closed (the angle between the hand's middle knuckle and the finger's end, as drawn last frame).
+	// Development log, once a reload, a second in: where the support hand is against the magazine it holds, as drawn last
+	// frame, in the magazine mesh's frame against the mesh's bounding box (0 inside it; a finger bone lies about 0.8 cm under
+	// its skin, so a finger touching the magazine reads about 0.8 cm): the palm, and the middle and end joints of the four
+	// fingers (how many are within 1.5 cm). The box is a bound, not the surface: a curved magazine's box stands off its body.
 	if (bReloadingNow && ReloadNowT > 1.0 && !bReloadLogged)
 	{
 		bReloadLogged = true;
 		const FVector PalmW = Arms->GetBoneLocation(TEXT("middle_metacarpal_l"));
 		const FVector K1 = Arms->GetBoneLocation(TEXT("middle_01_l")), K2 = Arms->GetBoneLocation(TEXT("middle_02_l")), K3 = Arms->GetBoneLocation(TEXT("middle_03_l"));
 		const double Bend = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(FVector::DotProduct((K1 - PalmW).GetSafeNormal(), (K3 - K2).GetSafeNormal()), -1.0, 1.0)));
-		UE_LOG(LogMI, Log, TEXT("First person: reload hold %s: on the magazine %d (k %.2f, %d support points), palm %.1f cm from its place on the magazine, middle finger bent %.0f deg"),
-			*GunId.ToString(), bMagHold ? 1 : 0, MagK, HandPose.Hands.Num() > 0 ? HandPose.Hands[0].Shape.Num() : -1, bMagHold ? FVector::Dist(PalmW, PadWorld) : -1.0, Bend);
+		double PalmBox = -1.0;
+		int32 Near = 0, Joints = 0;
+		if (bMagReady && Held->GetStaticMesh())
+		{
+			const FTransform MagNow = Held->GetRelativeTransform() * Gun->GetSocketTransform(MagBone);
+			const FBox Box = Held->GetStaticMesh()->GetBoundingBox();
+			const auto BoxDist = [&](const FVector& World) { return FMath::Sqrt(Box.ComputeSquaredDistanceToPoint(MagNow.InverseTransformPosition(World))); };
+			PalmBox = BoxDist(PalmW);
+			for (const TCHAR* F : {TEXT("index"), TEXT("middle"), TEXT("ring"), TEXT("pinky")})
+			{
+				for (int32 J = 2; J <= 3; ++J)
+				{
+					++Joints;
+					Near += BoxDist(Arms->GetBoneLocation(FName(FString::Printf(TEXT("%s_%02d_l"), F, J)))) <= 1.5 ? 1 : 0;
+				}
+			}
+		}
+		UE_LOG(LogMI, Log, TEXT("First person: reload hold %s: on the magazine %d (k %.2f, %s, %d support points), palm %.1f cm from its place, palm %.1f cm from the magazine's box, %d of %d finger joints within 1.5 cm of it, middle finger bent %.0f deg"),
+			*GunId.ToString(), bMagHold ? 1 : 0, MagK, bSolved ? TEXT("the solve round the magazine") : TEXT("the handguard's grip turned"),
+			HandPose.Hands.Num() > 0 ? HandPose.Hands[0].Shape.Num() : -1, bMagHold ? FVector::Dist(PalmW, PadWorld) : -1.0, PalmBox, Near, Joints, Bend);
 	}
 	if (!bReloadingNow)
 	{
@@ -1385,10 +1489,10 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 			*GunId.ToString(), Bend, Slope, Gap, AdsNow);
 	}
 	// The support fingers: with a fitted foregrip they close a little further than the bare handguard's, onto the part
-	// (anim set foregripCurl, degrees); in a reload, on top of the carried grip (anim set reloadCurl: 0 on the rifles, whose
-	// carried shape already closes the hand: a curl on top would sink the fingers into the magazine).
+	// (anim set foregripCurl, degrees), let go as the hand goes to the magazine; there, reloadCurl on top of the magazine's grip
+	// (0 on the rifles, whose grip closes the hand: a curl on top would sink the fingers into the magazine).
 	HandPose.Curls.Reset();
-	const double SupportCurl = bReloadingNow ? ReloadCurl : (bGrip ? ForegripCurl : 0.0);
+	const double SupportCurl = (bGrip ? ForegripCurl : 0.0) * (1.0 - MagK) + (bReloadingNow ? ReloadCurl : 0.0) * (MagK > 0.0 ? MagK : 1.0);
 	if (SupportCurl != 0.0)
 	{
 		static const TCHAR* const Fingers[] = {TEXT("index"), TEXT("middle"), TEXT("ring"), TEXT("pinky")};
