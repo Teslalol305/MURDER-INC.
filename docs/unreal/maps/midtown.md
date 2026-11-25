@@ -57,7 +57,7 @@ securing it turns the screens to IPX. Then Rule runs the square to the truck.
 | Light court | (void between the columns) | x -30..-28, z -38..22, filled to y 10.4 | 10.4 | | Never walkable; guarded on both sides |
 
 The roof surface is the top of the mass collider. Parapets are 0.30 m thick and 1.10 m tall on every roof edge, broken only
-at the openings listed in section 4. The mass colliders' storey tables go to the facade kit (section 14).
+at the openings listed in section 5.3. The mass colliders' storey tables go to the facade kit (section 14).
 
 ### 2.2 The street (y 0, slabs 0.15)
 
@@ -347,7 +347,7 @@ lane can take or leave.
 | Approach 1 | A → C | 0:05 to 1:10 | First contact at the steel stair head: Goons on C below, a Buzzard over C |
 | Reel 1 | Tank house | 1:10 to 1:20 | Hold 2.4 s inside the house; wave 1 comes over the planks from B and down the tank stair from A |
 | Approach 2 | C → D → gantry | 1:20 to 2:40 | Fight on C and D, the drop D1 as a shortcut |
-| Reel 2 | Gantry | 2:40 to 2:50 | The LED wall glitches and goes dark (presentation only, section 12.4); wave 2: Buzzards up from the square, Goons out of the service stair bulkhead and over the pipe bridge, street Goons firing up through the letterbox |
+| Reel 2 | Gantry | 2:40 to 2:50 | The LED wall glitches and goes dark (presentation only, section 12.2); wave 2: Buzzards up from the square, Goons out of the service stair bulkhead and over the pipe bridge, street Goons firing up through the letterbox |
 | Descent | Scaffold | 2:50 to 3:40 | 8 flights under Buzzard fire, landings open to the square |
 | Approach 3 | The square, south to north | 3:40 to 4:40 | Street fight up the west roadway and the plaza, the Stand as high ground |
 | Reel 3 | Booth | 4:40 to 4:50 | The screens turn to IPX; wave 3 from both ends of W 46 St, the north barricades and the theatre doors |
@@ -525,8 +525,7 @@ Each explosive has its own collider (owner kind explosive), as on the Block.
   C's billboard.
 - **The Gantry (D and the gantry deck, R1).** D (20 x 26): THE PERCH, a closed rooftop lounge (bar counter, stacked
   loungers, folded umbrellas, planters: the cover), the service stair bulkhead, the two doors to the gantry (z 0.5..2.5
-  and 11..13). The gantry
-  (3.5 x 16 m) sits behind the LED wall. Standing, the player sees the square through a letterbox between the front rail
+  and 11..13). The gantry (3.5 x 16 m) sits behind the LED wall. Standing, the player sees the square through a letterbox between the front rail
   (15.1) and the wall's bottom edge (16.2), and the street sees his head. It is the most exposed place in the level and is
   meant to be short.
 - **The Scaffold.** 8 flights, 2.4 m wide. Each landing opens east to the square (1.5 m openings): Buzzards circle the tower,
