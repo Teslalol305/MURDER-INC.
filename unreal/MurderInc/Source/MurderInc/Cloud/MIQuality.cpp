@@ -297,17 +297,6 @@ void FMIQualityLadder::Configure(const TArray<FMIQualityStep>& Steps)
 	Reason.Reset();
 }
 
-void FMIQualityLadder::Judge(bool bTargetAtTop, bool bSmallestPicture, double GpuMs, double GpuMsSmallest, double& OutGpuMs, bool& bOutSmallest)
-{
-	OutGpuMs = GpuMs;
-	bOutSmallest = bSmallestPicture;
-	if (!bTargetAtTop && !bSmallestPicture && GpuMs > 0.0 && GpuMsSmallest > 0.0)
-	{
-		OutGpuMs = FMath::Min(GpuMs, GpuMsSmallest);
-		bOutSmallest = true;
-	}
-}
-
 void FMIQualityLadder::Hold(double Seconds)
 {
 	WarmLeft = FMath::Max(WarmLeft, FMath::Max(0.0, Seconds));

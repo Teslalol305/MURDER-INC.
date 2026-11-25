@@ -2023,15 +2023,14 @@ void UMICloudSubsystem::TickQuality(const FMIFrameRateGovernor::FInput& In)
 	bQualityWasSafe = In.bSafeMoment;
 	FMIQualityLadder::FInput Q;
 	Q.Seconds = In.Seconds;
-	Q.bTargetAtTop = Governor.GetIndex() == 0;
-	// Below the highest target the picture grows back (the budget is the longer frame) and is never the smallest: judge the time worked
-	// out for the smallest picture then (FMIQualityLadder::Judge).
-	FMIQualityLadder::Judge(Q.bTargetAtTop, In.bSmallestPicture, In.GpuMs, In.GpuMsSmallest, Q.GpuMs, Q.bSmallestPicture);
+	Q.GpuMs = In.GpuMs;
 	Q.GpuMsSmallest = In.GpuMsSmallest;
 	// The highest target's frame time, whatever the governor is on (the looks go before the frames), unless the rate is fixed by hand.
 	Q.FrameMs = Governor.IsPinned() ? Governor.FrameMs() : 1000.0 / FMIFrameRateGovernor::Targets[0];
+	Q.bSmallestPicture = In.bSmallestPicture;
 	Q.bHeldBack = In.bHeldBack;
 	Q.bSafeMoment = In.bSafeMoment;
+	Q.bTargetAtTop = Governor.GetIndex() == 0;
 	const FMIQualityLadder::EChange Change = Ladder.Update(Q);
 	if (Change != FMIQualityLadder::EChange::None)
 	{
