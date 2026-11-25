@@ -3,7 +3,7 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
-## Version 3b: sound (sound engineer, 2026-11-25, 09:28 to 12:45 UTC)
+## Version 3b: sound (sound engineer, 2026-11-25, 09:28 to 12:35 UTC)
 
 Version 3b is version 3a plus sound, and it is packaged: **zip sha256
 `aa7cc478f80ddb3ab077a718d518b300844b4f4d07eab6e07595b95038218deb`, 2,259,930,775 bytes** (version 3a: 2,254,962,151;
