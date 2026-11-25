@@ -167,9 +167,9 @@ Paste this where the game should appear (replace the `src` with your share link)
         cannot.
       - "60 frames a second …" and "stream 56 a second (lowest 50), 11 Mbit/s": a stream number **a few below the
         game's with plenty of megabits is the server's video encoder**, not the connection. On the GPU box the
-        encoder sends 56 to 57 of the game's 60 frames a second on a free card (single seconds near 50), whatever
+        encoder sends 56 to 57 of the game's 60 frames a second on a free card (single seconds at 45 to 50), whatever
         the viewer and the settings: some frames take it longer than the sixtieth of a second it has, and the frame
-        behind such a one is dropped. At 45 frames a second it sends 44, at 30 all 30. If E3DS's servers show a
+        behind such a one is dropped. At 45 frames a second it sends 43 to 44, at 30 all 30. If E3DS's servers show a
         larger gap than the box, send the screenshot: `-MIFps=45` (section 13) is then the setting to try.
       - "31 frames a second (lowest 12, target 30)": the **server's graphics card** was the limit. Send it.
 
@@ -346,10 +346,19 @@ frames a second the unfinished frames piled up and the game then froze until the
 - **does not start a frame while the card still owes it more than one** (the pile cannot form, whatever the card);
 - **draws a smaller picture when the card is busy** (dynamic resolution: between 50 and 75 % of the size sent, 75 %
   is what version 2 always drew at 1080p; the sent picture stays 1920 x 1080 and is sharpened from it), aiming at 70 %
-  use of the card, which is what E3DS asks of an app;
+  use of the card, which is what E3DS asks of an app. Measured later on the GPU box, this saves little for this
+  game: the smallest picture costs the card only 6 % less time than the largest (most of a frame's work, the
+  lighting, the shadows and the geometry, does not depend on the picture's size);
 - **lowers its frame-rate target from 60 to 45 and then 30** when the card cannot hold the higher rate even at the
   smallest picture (it decides this within the first seconds of a run, never on a menu), and raises it again only
-  while no run is being played. 30 steady frames a second on a slow card instead of 60 that freeze.
+  while no run is being played (on a card or a set-up screen, after ten seconds in which the card would have a
+  fifth of the higher rate's frame time to spare). 30 steady frames a second on a slow card instead of 60 that
+  freeze. This is the lever that counts on a slow card.
+
+The pacing was first proven on the GPU box with 16 processor cores. A small cloud server has 8 or fewer, and Unreal
+then collects the card's finished work differently: the first form of the pacing froze for a quarter of a second
+per frame there. It was found in review, fixed, and the release check now also runs with the game held to 6 cores
+(`docs/unreal/PROGRESS.md`, "Version 3, release A: the review's findings").
 
 What you might notice on a slow server card: a softer picture, and 45 or 30 frames a second. On a fast one: nothing.
 The pause card's small line says what the game settled on (section 7).

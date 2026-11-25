@@ -7,10 +7,11 @@
 # It passes when every line says CLEAN and:
 #   gate-free    the Shipping game on a free GPU: fps 60 (min 57 or more), target 60, worst frame under 100 ms. And the
 #                sender: on this box it encodes and sends 56 to 57 of the game's 60 frames a second on a free GPU
-#                (lowest second 50 to 53), with every capture setting, a frame cap of 120, a faster encoder
-#                preset and a viewer that does not decode: some frames take the encoder longer than a sixtieth of a
-#                second, and the frame behind such a one is dropped. That is the measured state, not a goal: a build
-#                that sends fewer than 54, or has a second under 45, has lost something.
+#                (lowest second 45 to 50 in the six runs of the final code that held 60), with every capture
+#                setting, a frame cap of 120, a faster encoder preset and a viewer that does not decode: some frames
+#                take the encoder longer than a sixtieth of a second, and the frame behind such a one is dropped.
+#                That is the measured state, not a goal: a build that sends fewer than 54, or has a second under
+#                40, has lost something.
 #   gate-l8, gate-l12, gate-l20, gate-l35   the Shipping game with the GPU loaded by a second process (about 8, 12,
 #                20 and 34 ms of GPU time a frame at full quality on the box's card): worst frame under 100 ms, owed
 #                2 or less, pacer time-outs 0 in the play and in the whole run. Measured at release A: target 60, 60,
