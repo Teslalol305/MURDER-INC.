@@ -147,7 +147,8 @@ Paste this where the game should appear (replace the `src` with your share link)
       - "60 frames a second (lowest 58, …)" and "stream 57 a second (lowest 9)": the server was fine and the
         **connection** was not. The sender drops frames when the connection cannot carry a moving picture (measured
         on the GPU box: 5 to 7 frames a second received while turning at 1.7 Mbit/s, with the game at a steady 60).
-        A nearer region, a wired connection or a lower Video Quality in E3DS's panel helps; the game cannot.
+        A nearer region or a wired connection is the cure; a lower Video Quality in E3DS's panel should help too
+        (not measured). The game cannot.
       - "31 frames a second (lowest 12, target 30)": the **server's graphics card** was the limit. Send it.
 
 ## 8. If E3DS rejects the build or it never starts

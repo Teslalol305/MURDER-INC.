@@ -212,3 +212,18 @@ old zip is superseded. Next is step 6 (the owner's E3DS trial) and the explosion
   and opens the link in a fresh Incognito window (DECISIONS.md). If it crashes again: get the log (LAUNCH.md section
   13: browser console, launch option `-MIDev` for E3DS's crash-log feature, or E3DS support) and give it to Claude.
   If it streams: Cursor embeds the link on the IPX Game OS page and deploys (`docs/CURSOR_HANDOFF.md`).
+- **Version 2 streamed, and lagged** (the owner's test, 2026-11-24): "the game is sticky", "when the player turns it
+  slows down; it is not a viable experience". Version 3 is being built in two releases (DECISIONS.md, 2026-11-25).
+- **Version 3, release A (2026-11-25): the lag, explained and ended in the code; not packaged yet.** A game that
+  renders off screen never waits for the GPU, so on a GPU slower than the frame rate the unfinished frames pile up
+  while the view turns and one frame then lasts seconds (reproduced on the box: frames of 1 to 8 s). Version 3 holds
+  itself back (a pacer), draws a smaller picture when the GPU is busy (dynamic resolution) and lowers its frame-rate
+  target (60, 45, 30); the pause card shows the numbers the owner could never read. Everything measured is in
+  PROGRESS.md, "Version 3, release A: the lag"; the gameplay part (mouse, controller, cards) is the entry below it.
+  A second way to the same complaint was seen and cannot be fixed on the server: on a thin connection the sender
+  drops most frames of a turning picture while the game holds 60. The pause card's line tells the two apart
+  (LAUNCH.md section 7).
+- **Next:** package release A from the branch head (`tools/box/test.sh MurderInc` first), repeat the release gate on
+  the packaged build (`tools/box/cloud/lag-gate.txt`; the last section of the PROGRESS entry says how to read it),
+  upload it, and ask the owner for a screenshot of the pause card taken right after a turn. Then release B: the
+  rest of PREFLIGHT.md section 2.
