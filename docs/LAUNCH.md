@@ -142,7 +142,13 @@ Paste this where the game should appear (replace the `src` with your share link)
       card names the server's graphics card, the frames a second and the frame-rate target, the GPU's time for a
       frame, the size the picture is drawn at and the size it is sent at, the stream as the server sends it (frames a
       second, megabits, QP, round trip) and the build. Send that screenshot with any report of lag: it says whether
-      the server's card, the connection or the game is the limit.
+      the server's card, the connection or the game is the limit. Both frame rates come with their **lowest value
+      of the last half minute of play**, so pause right after a stutter:
+      - "60 frames a second (lowest 58, …)" and "stream 57 a second (lowest 9)": the server was fine and the
+        **connection** was not. The sender drops frames when the connection cannot carry a moving picture (measured
+        on the GPU box: 5 to 7 frames a second received while turning at 1.7 Mbit/s, with the game at a steady 60).
+        A nearer region, a wired connection or a lower Video Quality in E3DS's panel helps; the game cannot.
+      - "31 frames a second (lowest 12, target 30)": the **server's graphics card** was the limit. Send it.
 
 ## 8. If E3DS rejects the build or it never starts
 
