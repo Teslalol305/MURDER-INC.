@@ -130,9 +130,19 @@ Paste this where the game should appear (replace the `src` with your share link)
       value; for a fixed 1920 x 1080 picture shown 1280 wide in the page use 0.333 (the rule: shown width divided by
       twice the rendered width). Players can also change **Sensitivity** on the game's Settings card.
 - [ ] Console commands (from version 3): the game runs a console command that arrives through the stream only when
-      it is one of the stream's own settings (it starts with `PixelStreaming2.` or `PixelStreaming.`); anything else
-      is refused. So E3DS's field "Unreal console commands to run at start" and its player's console take only those.
-      Game settings go in the launch options instead (section 13).
+      it reads or sets one of the variables a visitor may tune: the stream's own settings (`PixelStreaming2.` or
+      `PixelStreaming.`), the game's pacing (`MI.Cloud.`), the quality groups (`sg.`, 0 to 4), dynamic resolution
+      (`r.DynamicRes.`, its smallest and largest picture between 25 and 100), `r.ScreenPercentage` (25 to 100),
+      `t.MaxFPS` (0 to 120), `r.Streaming.PoolSize` (200 to 3000), `r.GTSyncType`, `r.OneFrameThreadLag` and
+      `r.VolumetricFog.`. Anything else (`quit`, `open`, a debug command, a value out of range) is refused. So E3DS's
+      field "Unreal console commands to run at start" takes for example `t.MaxFPS 30` (E3DS's own advice for a
+      slow server: the game then holds 30 and says so on the pause card), if E3DS delivers that field to a Linux
+      app (not yet seen). The launch option `-MICVars=` does the same without E3DS's field (section 13).
+- [ ] The numbers (from version 3): press P in a run and take a screenshot. The small line at the bottom of the pause
+      card names the server's graphics card, the frames a second and the frame-rate target, the GPU's time for a
+      frame, the size the picture is drawn at and the size it is sent at, the stream as the server sends it (frames a
+      second, megabits, QP, round trip) and the build. Send that screenshot with any report of lag: it says whether
+      the server's card, the connection or the game is the limit.
 
 ## 8. If E3DS rejects the build or it never starts
 
@@ -297,7 +307,23 @@ What the Cloud settings change, and what you might notice:
 - **The rooms behind shop and home windows** are stored compressed (BC6H), an eighth of the memory, same size.
 - The picture is capped at 60 frames a second, the rate the stream sends.
 
-Lighting itself (Lumen with hardware ray tracing), Nanite, the art and the resolution are unchanged.
+Lighting itself (Lumen with hardware ray tracing), Nanite and the art are unchanged.
+
+**From version 3 the game never runs the graphics card full.** Version 2 lagged on E3DS ("when the player turns it
+slows down"): a game that draws without a screen never waits for the graphics card, so on a card slower than 60
+frames a second the unfinished frames piled up and the game then froze until the card had caught up (frames of 1 to
+8 seconds on the GPU box with a slowed-down card; `docs/unreal/PROGRESS.md`, "Version 3, release A"). Version 3:
+
+- **does not start a frame while the card still owes it more than one** (the pile cannot form, whatever the card);
+- **draws a smaller picture when the card is busy** (dynamic resolution: between 50 and 75 % of the size sent, 75 %
+  is what version 2 always drew at 1080p; the sent picture stays 1920 x 1080 and is sharpened from it), aiming at 70 %
+  use of the card, which is what E3DS asks of an app;
+- **lowers its frame-rate target from 60 to 45 and then 30** when the card cannot hold the higher rate even at the
+  smallest picture, and raises it again only while no run is being played. 30 steady frames a second on a slow card
+  instead of 60 that freeze.
+
+What you might notice on a slow server card: a softer picture, and 45 or 30 frames a second. On a fast one: nothing.
+The pause card's small line says what the game settled on (section 7).
 
 ## 11. Prices (as researched on 2026-11-23: check eagle3dstreaming.com/pricing before you pay)
 
@@ -379,4 +405,7 @@ build machine, so the menu names may differ slightly):
 |---|---|
 | `-MIDev` | run the Development game (full engine log, for E3DS's crash-log feature and support) |
 | `-MIMouseScale=<number>` | from version 3: mouse look speed through the stream (0.05 to 4; built-in 0.5). See section 7, "Mouse feel" |
+| `-MIFps=60` (or `45`, `30`) | from version 3: fixes the frame-rate target instead of letting the game choose it by the card's time. `-MIFps=30` is the safe setting for a server that turns out to be slow |
+| `-MICVars=name=value,name=value` | from version 3: sets console variables at start without a new build, each one printed in the log (`[MICloud] Launch option -MICVars: ...`). Only the variables of section 7's list. Examples: `-MICVars=r.DynamicRes.MinScreenPercentage=40` (allow a smaller picture), `-MICVars=MI.Cloud.GpuFramesInFlight=0` (the lowest delay at the cost of some frame rate on a slow card), `-MICVars=sg.GlobalIlluminationQuality=2,sg.ShadowQuality=2` (cheaper light and shadows) |
+| `-MICloudProbe=<seconds>` | how often the game writes its line of numbers into the log (`MICloudProbe fps=... worstMs=... gpuMs=... target=... dr=... owed=...`); from version 3 every 30 s by itself, `0` turns it off |
 | `-MIForceSM6` | skip Unreal's Vulkan SM6 check on a driver that fails it |

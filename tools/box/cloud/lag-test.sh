@@ -30,6 +30,9 @@
 #   view=<file>       the viewer's script (rtcinput.py), a path or the name of one beside this file. Default
 #                     lag-turn.txt (dev) or lag-story.txt (ship); lag-commands.txt and lag-leave.txt are the others.
 #   cvars=<a=b,c=d>   passed as the launch option -MICVars= (the game's own tuning switch).
+#   profile=1         for a test folder whose pak is older than the branch: version 3's additions to the cloud
+#                     profile (the r.DynamicRes., MI.Cloud. and PixelStreaming2. lines of [MICloud] in the branch's
+#                     DefaultGame.ini) are passed as -MICVars. Not needed for a packaged build.
 #   csv=1             a CSV profile of the Development game from the start of the run.
 #   secs=<n>          how long the game runs. Default 110 (dev) or 125 (ship).
 #   probe=<seconds>   the probe line's period. Default 1.
@@ -81,19 +84,27 @@ hogs() {  # <n>[:<work ms>[:<idle ms>[:<size>]]] <pid file> <log prefix> | stop 
 
 run_fg() {
   local name=$1; shift
-  local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= cvars= csv= secs= probe=1 minbit=12000000 extra=()
+  local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= cvars= csv= secs= probe=1 minbit=12000000 profile= extra=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --) shift; extra=("$@"); break ;;
       game=*) game=${1#*=} ;; build=*) build=${1#*=} ;; load=*) load=${1#*=} ;; sp=*) sp=${1#*=} ;;
       res=*) res=${1#*=} ;; view=*) view=${1#*=} ;; cvars=*) cvars=${1#*=} ;; csv=*) csv=${1#*=} ;;
-      secs=*) secs=${1#*=} ;; probe=*) probe=${1#*=} ;; minbit=*) minbit=${1#*=} ;;
+      secs=*) secs=${1#*=} ;; probe=*) probe=${1#*=} ;; minbit=*) minbit=${1#*=} ;; profile=*) profile=${1#*=} ;;
       *) echo "unknown key $1"; return 2 ;;
     esac; shift
   done
   [ -n "$build" ] || build=${LAG_BUILD:-$C/build-Shipping/Linux}
   [ -n "$view" ] || { view=lag-turn.txt; [ "$game" = ship ] && view=lag-story.txt; }
   [ -f "$view" ] || view=$T/$view   # a bare name is one of the scripts beside this file
+  if [ "$profile" = 1 ]; then
+    # A folder whose pak is older than the branch: version 3's additions to the cloud profile ([MICloud] of
+    # DefaultGame.ini: dynamic resolution, the game's pacing, Pixel Streaming's settings) as -MICVars, this run's own
+    # cvars after them.
+    local add; add=$(sed -n '/^\[MICloud\]/,/^\[/p' "$T/../../../unreal/MurderInc/Config/DefaultGame.ini" \
+      | grep -E '^\+(CVars|StreamCVars)=(r\.DynamicRes\.|MI\.Cloud\.|PixelStreaming2\.)' | sed -E 's/^\+(CVars|StreamCVars)=//' | tr '\n' ',' | sed 's/,$//')
+    cvars=${add}${cvars:+,$cvars}
+  fi
   [ -n "$secs" ] || { secs=110; [ "$game" = ship ] && secs=125; }
   local id=lag$(echo "$name" | tr -cd 'a-zA-Z0-9')
   rm -rf "$O"; mkdir -p "$O"; chmod 777 "$O"
