@@ -128,6 +128,10 @@ for run in runs:
         parts.append(f"outside the play: worst frame {f(max([num(p, 'worstMs') for p in seen], default=float('nan')), 0)} ms with a viewer there"
                      f" ({sum(1 for p in seen if (num(p, 'worstMs') or 0) > 100)} probe line(s) with a frame over 100 ms, {f(sum(num(p, 'pacerTimeOuts', 0) for p in seen), 0)} pacer time-outs),"
                      f" {f(max([num(p, 'worstMs') for p in unseen], default=float('nan')), 0)} ms with nobody watching (the game's start; {f(sum(num(p, 'pacerTimeOuts', 0) for p in unseen), 0)} time-outs)")
+    # The game's start: from the launcher's start to the game's first line of numbers (lag-test.sh notes it from
+    # version 3b's release on). A host waits only so long for an app (E3DS: three minutes).
+    if info.get('firstline', '').isdigit():
+        parts.append(f"the game's first line {info['firstline']} s after the launcher started")
     parts.append(f"fence time-outs {fence}, skipped captures {skipped}" if dev else 'capture log n/a (Shipping)')
     # Memory: the pile of unfinished frames that was the lag kept about 11 MB a frame (3.3 GB became 14.5 GB in 40 s).
     # Flat means the same at the end of the play as five seconds into it, give or take what a run loads on the way.
