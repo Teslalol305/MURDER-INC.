@@ -268,8 +268,87 @@ def tidy_support(entry, middle_deg=0.0, distal_deg=20.0):
     return entry
 
 
+# Second hands pass (review of the first, 2026-11-25). Pure geometry on grips.json's points, like tidy_support.
+#
+# The RATTLER's support hand under the strap of a round shroud (R 25.5 mm, the strap 27.5 mm, axis on the bore): the solve
+# left the knuckles at the lower right (about 4:30 seen from behind) and every finger straight up the right side, so the
+# middle and end phalanges stood 1 to 2.6 cm off the strap and up to 5.4 cm over the bore, beside the sight when aimed
+# (h8 19-rattler-aim). On a tube the whole hand can turn about the tube's axis and keep its contact exactly: the support
+# hand is rolled toward the left (palm from 6 o'clock toward 7:30, the wrist with it), then the middle and end phalanges of
+# each finger are laid round the strap (a joint centre a finger's half thickness off it) instead of running on straight.
+ROUND_SUPPORT = {"rattler": dict(roll_deg=-35.0, r_mid=3.6, r_tip=3.45)}   # cm, gun space (X forward, Y right, Z up)
+
+# The firing hand: the end phalanx of the trigger finger turned down onto the trigger's face (on the CHOPPER, SHORTY and
+# STRETCH it pointed up into the receiver: h8 00-chopper-hip shows a finger standing in the guard), and the end of the
+# firing thumb laid forward along the receiver's left side toward the solve's own thumb target (THUMB_AIM, which the
+# solve missed by 13 to 16 mm: the tip pointed straight out to the left). Directions in gun space; lengths kept.
+FIRING_TIDY = {
+    "chopper": dict(index=(0.35, -0.55, -0.75), thumb_to=(5.8, -3.0, -5.2)),
+    "stretch": dict(index=(0.40, -0.45, -0.60), thumb_to=(6.4, -3.0, -5.2)),
+    "shorty": dict(index=(0.30, -0.70, -0.50), thumb_to=(31.8, -2.8, -7.2)),
+}
+
+
+def _rot_x(p, deg):
+    import math
+    a = math.radians(deg)
+    c, s = math.cos(a), math.sin(a)
+    return [p[0], p[1] * c - p[2] * s, p[1] * s + p[2] * c]
+
+
+def _on_tube(p, old, length, radius):
+    """The next joint after p: `length` from it, on the circle of `radius` round the gun's X axis, further round (toward
+    the top) than p; the step along X taken from the old segment (at most half its length)."""
+    import math
+    dx = max(-0.5 * length, min(0.5 * length, old[0] - p[0]))
+    chord = math.sqrt(max(length * length - dx * dx, 1e-9))
+    rp, ap = math.hypot(p[1], p[2]), math.atan2(p[2], p[1])
+    c = (rp * rp + radius * radius - chord * chord) / (2.0 * rp * radius)
+    a = ap + math.acos(max(-1.0, min(1.0, c)))
+    return [p[0] + dx, radius * math.cos(a), radius * math.sin(a)]
+
+
+def round_support(entry, roll_deg, r_mid, r_tip):
+    """ROUND_SUPPORT on one entry's support hand. Idempotent: the roll already applied is kept in entry['tidy']."""
+    import math
+    pts = entry["l"]
+    done = entry.setdefault("tidy", {}).get("support_roll_deg", 0.0)
+    if abs(roll_deg - done) > 1e-6:
+        for k in list(pts):
+            pts[k] = _rot_x(pts[k], roll_deg - done)
+    for f in ("index", "middle", "ring", "pinky"):
+        p2, p3, tip = (pts["%s_%s_l" % (f, k)] for k in ("02", "03", "tip"))
+        l2, l3 = math.dist(p2, p3), math.dist(p3, tip)
+        q3 = _on_tube(p2, p3, l2, r_mid)
+        qt = _on_tube(q3, tip, l3, r_tip)
+        pts["%s_03_l" % f] = [round(x, 3) for x in q3]
+        pts["%s_tip_l" % f] = [round(x, 3) for x in qt]
+    for k in pts:
+        pts[k] = [round(x, 3) for x in pts[k]]
+    entry["tidy"].update(support_roll_deg=roll_deg, support_wrap_cm=[r_mid, r_tip])
+    return entry
+
+
+def tidy_firing(entry, index, thumb_to):
+    """FIRING_TIDY on one entry's firing hand (the index and thumb end points only, segment lengths kept)."""
+    import math
+    pts = entry["r"]
+
+    def put(base, tip_key, direction):
+        b = pts[base]
+        n = math.sqrt(sum(d * d for d in direction))
+        length = math.dist(b, pts[tip_key])
+        pts[tip_key] = [round(b[i] + direction[i] / n * length, 3) for i in range(3)]
+    put("index_03_r", "index_tip_r", index)
+    t3 = pts["thumb_03_r"]
+    put("thumb_03_r", "thumb_tip_r", [thumb_to[i] - t3[i] for i in range(3)])
+    entry.setdefault("tidy", {}).update(firing="index end down onto the trigger, thumb end along the left side")
+    return entry
+
+
 def tidy_file(path, guns=RIFLES, poses=("hip", "aim")):
-    """tidy_support on the rifle entries of a grips file (written back); returns what changed."""
+    """tidy_support on the rifle entries of a grips file (written back), then ROUND_SUPPORT and FIRING_TIDY where a gun
+    has them; returns what changed."""
     data = json.load(open(path))
     done = []
     for g in guns:
@@ -277,6 +356,10 @@ def tidy_file(path, guns=RIFLES, poses=("hip", "aim")):
             e = data.get("guns", {}).get(g, {}).get(p)
             if e and "l" in e:
                 tidy_support(e)
+                if g in ROUND_SUPPORT:
+                    round_support(e, **ROUND_SUPPORT[g])
+                if g in FIRING_TIDY and "r" in e:
+                    tidy_firing(e, **FIRING_TIDY[g])
                 done.append("%s/%s" % (g, p))
     with open(path, "w") as f:
         json.dump(data, f, indent=1)
