@@ -396,6 +396,11 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 		ReloadCurl = MIJson::NumberOr(Set, TEXT("reloadCurl"), 0.0);
 		MagSqueeze = FMath::Clamp(MIJson::NumberOr(Set, TEXT("magazine.squeeze"), 1.0), 0.2, 1.0);
 		MagBlend = FMath::Clamp(MIJson::NumberOr(Set, TEXT("magazine.blend"), 0.25), 0.05, 0.6);
+		MagHeight = MIJson::NumberOr(Set, TEXT("magazine.height"), -1.0);
+		FVector TurnDeg = FVector::ZeroVector;   // degrees about the gun's X, then Y, then Z
+		Vec3(Set, TEXT("magazine.turn"), TurnDeg);
+		MagTurn = FQuat(FVector::ZAxisVector, FMath::DegreesToRadians(TurnDeg.Z)) * FQuat(FVector::YAxisVector, FMath::DegreesToRadians(TurnDeg.Y))
+			* FQuat(FVector::XAxisVector, FMath::DegreesToRadians(TurnDeg.X));
 		MagBasePad = FVector(1.5, 0.0, -15.0);
 		const FString GripKey = MIJson::StringOr(Set, TEXT("grip.gun"));
 		TSharedPtr<FJsonObject> Grips;
@@ -481,13 +486,15 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 		HeldMag = OwnMag ? OwnMag.Get() : (bMagazinePart ? Assembly->PartMesh(TEXT("magazine")) : nullptr);
 		if (UStaticMeshComponent* Held = HeldMag.Get(); Held && Held->GetStaticMesh())
 		{
+			const FBox B = Held->GetStaticMesh()->GetBoundingBox();
 			if (!Vec3(Set, TEXT("magazine.palm"), MagBasePad))
 			{
-				const FBox B = Held->GetStaticMesh()->GetBoundingBox();
-				MagBasePad = FVector(B.GetCenter().X, B.GetCenter().Y, B.Min.Z - 1.5);
+				MagBasePad = MagHeight >= 0.0
+					? FVector(B.Max.X + 2.0, B.GetCenter().Y, B.Min.Z + MagHeight * (B.Max.Z - B.Min.Z))  // on its front face, that far up
+					: FVector(B.GetCenter().X, B.GetCenter().Y, B.Min.Z - 1.5);                          // under its base
 			}
-			UE_LOG(LogTemp, Log, TEXT("First person: %s reload palm on the magazine at %s (magazine frame, cm), squeeze %.2f, elbow out %s / %s"),
-				*Gun.ToString(), *MagBasePad.ToCompactString(), MagSqueeze, *SupportElbowOut.ToCompactString(), *SupportElbowOutAim.ToCompactString());
+			UE_LOG(LogTemp, Log, TEXT("First person: %s reload palm on the magazine at %s (magazine frame, cm; the magazine %s), squeeze %.2f, turn %s, elbow out %s / %s"),
+				*Gun.ToString(), *MagBasePad.ToCompactString(), *B.ToString(), MagSqueeze, *MagTurn.Euler().ToCompactString(), *SupportElbowOut.ToCompactString(), *SupportElbowOutAim.ToCompactString());
 		}
 		ApplyOpticMaterials(LegacyGun);   // the build's optic (red dot, scope) in daylight, as for the pack's
 		// The optic's housing fades out as the sight comes up (UpdateOpticFade): one dynamic instance of its hardware slot.
@@ -1304,22 +1311,19 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 		const TMap<FName, FVector>& Aimed = GripPointsAim[bLeftHand ? 0 : 1];
 		if (!Pts.IsEmpty() && GripWeight > 0.0 && !(bLeftHand && bGrip))
 		{
-			FVector Shift = FVector::ZeroVector;
-			if (bCarry)
-			{
-				// the shape's palm (the bone the IK lands) onto the magazine
-				const FVector* PalmHip = Pts.Find(FName(Palm));
-				const FVector* PalmAim = Aimed.Find(FName(Palm));
-				const FVector PalmAt = PalmHip ? (PalmAim ? FMath::Lerp(*PalmHip, *PalmAim, AimK) : *PalmHip) : GunWorld.InverseTransformPosition(Gun->GetSocketLocation(Socket));
-				Shift = PadGun - PalmAt;
-			}
+			// the shape's palm (the bone the IK lands), which goes onto the magazine in a reload
+			const FVector* PalmHip = Pts.Find(FName(Palm));
+			const FVector* PalmAim = Aimed.Find(FName(Palm));
+			const FVector PalmAt = PalmHip ? (PalmAim ? FMath::Lerp(*PalmHip, *PalmAim, AimK) : *PalmHip) : GunWorld.InverseTransformPosition(Gun->GetSocketLocation(Socket));
 			for (const TPair<FName, FVector>& KV : Pts)
 			{
 				const FVector* A = Aimed.Find(KV.Key);
 				FVector P = A ? FMath::Lerp(KV.Value, *A, AimK) : KV.Value;
 				if (bCarry)
 				{
-					FVector Q = P + Shift;
+					// about the palm: turned (magazine.turn: the handguard's grip laid round the magazine's body), onto the
+					// magazine, narrowed across the gun
+					FVector Q = PadGun + MagTurn.RotateVector(P - PalmAt);
 					Q.Y = PadGun.Y + (Q.Y - PadGun.Y) * MagSqueeze;
 					P = FMath::Lerp(P, Q, MagK);
 				}

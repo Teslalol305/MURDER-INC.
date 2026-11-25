@@ -193,6 +193,11 @@ private:
 	/** HandIK guns, in a reload: the support grip carried onto the magazine is narrowed across the gun by this factor about
 	 *  the magazine's middle (anim set magazine.squeeze: the solve wraps a 5 to 6 cm forend, a magazine is 2.5 to 3 cm). */
 	double MagSqueeze = 1.0;
+	/** HandIK guns, in a reload: the turn of the carried support grip about the palm (anim set magazine.turn, degrees about the
+	 *  gun's X, Y, Z), so the handguard's grip closes round the magazine's body; and where on the magazine the palm goes
+	 *  (magazine.height: that fraction up its front face; absent: under its base). */
+	FQuat MagTurn = FQuat::Identity;
+	double MagHeight = -1.0;
 	/** HandIK guns: seconds the support hand takes to go to the magazine and back (anim set magazine.blend). */
 	double MagBlend = 0.25;
 	/** HandIK guns: the support elbow pushed from the clip's own pole (anim set supportElbowOut, camera space cm: X forward,

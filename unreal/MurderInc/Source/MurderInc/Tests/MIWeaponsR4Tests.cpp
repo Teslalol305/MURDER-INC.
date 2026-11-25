@@ -720,6 +720,13 @@ bool FMIFirstPersonSupportHandTest::RunTest(const FString& Parameters)
 		const double Blend = MIJson::NumberOr(F.Presentation, Set + TEXT(".magazine.blend"), 0.25);
 		TestTrue(FString::Printf(TEXT("%s: magazine.blend %.2f s is 0.05 to 0.6"), Gun, Blend), Blend >= 0.05 && Blend <= 0.6);
 		TestEqual(FString::Printf(TEXT("%s: reloadCurl is 0 (the carried grip holds the magazine)"), Gun), MIJson::NumberOr(F.Presentation, Set + TEXT(".reloadCurl"), -1.0), 0.0);
+		const double Height = MIJson::NumberOr(F.Presentation, Set + TEXT(".magazine.height"), 0.5);
+		TestTrue(FString::Printf(TEXT("%s: magazine.height %.2f is a fraction of the magazine"), Gun, Height), Height >= 0.0 && Height <= 1.0);
+		if (const TSharedPtr<FJsonValue> T = MIJson::Get(F.Presentation, Set + TEXT(".magazine.turn")))
+		{
+			const bool bTurn = T->Type == EJson::Array && T->AsArray().Num() == 3;
+			TestTrue(FString::Printf(TEXT("%s: magazine.turn is three angles within 180 degrees"), Gun), bTurn && Vec(T).GetAbsMax() <= 180.0);
+		}
 		// 8.3: the aimed solve blended by the aim has every point of the hip solve, and the support hand moves little.
 		const FString Key = MIJson::StringOr(F.Presentation, Set + TEXT(".grip.gun"));
 		const FString Hip = MIJson::StringOr(F.Presentation, Set + TEXT(".grip.pose"), TEXT("hip"));

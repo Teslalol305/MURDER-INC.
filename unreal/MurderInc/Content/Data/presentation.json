@@ -179,7 +179,9 @@
           "socket": "magazine",
           "squeeze": 0.55,
           "blend": 0.25,
-          "note": "in a reload the support palm goes to magazine.palm (the magazine mesh's frame, cm; absent: under the middle of its bottom) and the solved support grip goes with it, narrowed across the gun by squeeze (the solve wraps a 5 to 6 cm handguard, the magazine is 2.5 to 3 cm), blended in and out over blend seconds (HANDS_R4.md 8.1)"
+          "turn": [0, -90, 0],
+          "height": 0.35,
+          "note": "in a reload the support palm goes onto the magazine: magazine.palm (the magazine mesh's frame, cm), else height (that fraction up its front face, the palm bone 2 cm in front of it), else under its base; the solved support grip goes with it, turned about the palm by turn (degrees about the gun's X, Y, Z: [0, -90, 0] stands the handguard's grip up round the magazine's body, palm on its front, fingers round its right side, thumb up its left), narrowed across the gun by squeeze (the solve wraps a 5 to 6 cm handguard, the magazine is 2.5 to 3 cm), blended in and out over blend seconds (HANDS_R4.md 8.1, 9)"
         },
         "casing": "/Game/Weapons/Casings/SM_Weapon_CasingRifle.SM_Weapon_CasingRifle",
         "fingerCurl": {
@@ -214,7 +216,9 @@
           "socket": "magazine",
           "squeeze": 0.55,
           "blend": 0.25,
-          "note": "in a reload the support palm goes to magazine.palm (the magazine mesh's frame, cm; absent: under the middle of its bottom) and the solved support grip goes with it, narrowed across the gun by squeeze (the solve wraps a 5 to 6 cm handguard, the magazine is 2.5 to 3 cm), blended in and out over blend seconds (HANDS_R4.md 8.1)"
+          "turn": [0, -90, 0],
+          "height": 0.35,
+          "note": "in a reload the support palm goes onto the magazine: magazine.palm (the magazine mesh's frame, cm), else height (that fraction up its front face, the palm bone 2 cm in front of it), else under its base; the solved support grip goes with it, turned about the palm by turn (degrees about the gun's X, Y, Z: [0, -90, 0] stands the handguard's grip up round the magazine's body, palm on its front, fingers round its right side, thumb up its left), narrowed across the gun by squeeze (the solve wraps a 5 to 6 cm handguard, the magazine is 2.5 to 3 cm), blended in and out over blend seconds (HANDS_R4.md 8.1, 9)"
         },
         "casing": "/Game/Weapons/Casings/SM_Weapon_CasingRifle.SM_Weapon_CasingRifle",
         "fingerCurl": {
@@ -251,7 +255,9 @@
           "socket": "magazine",
           "squeeze": 0.55,
           "blend": 0.25,
-          "note": "in a reload the support palm goes to magazine.palm (the magazine mesh's frame, cm; absent: under the middle of its bottom) and the solved support grip goes with it, narrowed across the gun by squeeze (the solve wraps a 5 to 6 cm handguard, the magazine is 2.5 to 3 cm), blended in and out over blend seconds (HANDS_R4.md 8.1)"
+          "turn": [0, -90, 0],
+          "height": 0.35,
+          "note": "in a reload the support palm goes onto the magazine: magazine.palm (the magazine mesh's frame, cm), else height (that fraction up its front face, the palm bone 2 cm in front of it), else under its base; the solved support grip goes with it, turned about the palm by turn (degrees about the gun's X, Y, Z: [0, -90, 0] stands the handguard's grip up round the magazine's body, palm on its front, fingers round its right side, thumb up its left), narrowed across the gun by squeeze (the solve wraps a 5 to 6 cm handguard, the magazine is 2.5 to 3 cm), blended in and out over blend seconds (HANDS_R4.md 8.1, 9)"
         },
         "casing": "/Game/Weapons/Casings/SM_Weapon_CasingRifle.SM_Weapon_CasingRifle",
         "fingerCurl": {
@@ -288,7 +294,9 @@
           "socket": "magazine",
           "squeeze": 0.55,
           "blend": 0.25,
-          "note": "in a reload the support palm goes to magazine.palm (the magazine mesh's frame, cm; absent: under the middle of its bottom) and the solved support grip goes with it, narrowed across the gun by squeeze (the solve wraps a 5 to 6 cm handguard, the magazine is 2.5 to 3 cm), blended in and out over blend seconds (HANDS_R4.md 8.1)"
+          "turn": [0, -90, 0],
+          "height": 0.35,
+          "note": "in a reload the support palm goes onto the magazine: magazine.palm (the magazine mesh's frame, cm), else height (that fraction up its front face, the palm bone 2 cm in front of it), else under its base; the solved support grip goes with it, turned about the palm by turn (degrees about the gun's X, Y, Z: [0, -90, 0] stands the handguard's grip up round the magazine's body, palm on its front, fingers round its right side, thumb up its left), narrowed across the gun by squeeze (the solve wraps a 5 to 6 cm handguard, the magazine is 2.5 to 3 cm), blended in and out over blend seconds (HANDS_R4.md 8.1, 9)"
         },
         "casing": "/Game/Weapons/Casings/SM_Weapon_CasingPistol.SM_Weapon_CasingPistol",
         "fingerCurl": {
