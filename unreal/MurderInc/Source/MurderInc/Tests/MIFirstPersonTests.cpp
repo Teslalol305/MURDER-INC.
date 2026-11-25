@@ -320,7 +320,13 @@ bool FMIFirstPersonOwnGunSetsTest::RunTest(const FString& Parameters)
 			const FBox MagBox = Mag->GetBoundingBox().TransformBy(MagInGun);
 			const FBox GunBox = Mesh->GetImportedBounds().GetBox();
 			AddInfo(FString::Printf(TEXT("%smagazine %s, gun %s (cm)"), *L, *MagBox.ToString(), *GunBox.ToString()));
-			TestTrue(L + TEXT("the magazine is inside the gun's bounds"), GunBox.ExpandBy(1.0).IsInside(MagBox));
+			// The magazine is a separate piece that stands in the well: its top, front, back and sides are inside the gun's
+			// bounds (1 cm slack); a long banana magazine hangs out below the receiver, by up to 12 cm (the CHOPPER's 8.1 cm
+			// and the RATTLER's 6.9 cm measured on the box; the NINE, SHORTY and STRETCH are fully inside).
+			const FBox Slack = GunBox.ExpandBy(1.0);
+			TestTrue(L + TEXT("the magazine is inside the gun's bounds (its body may hang below the receiver)"),
+				MagBox.Min.X >= Slack.Min.X && MagBox.Max.X <= Slack.Max.X && MagBox.Min.Y >= Slack.Min.Y && MagBox.Max.Y <= Slack.Max.Y && MagBox.Max.Z <= Slack.Max.Z);
+			TestTrue(L + TEXT("the magazine hangs no more than 12 cm below the gun"), MagBox.Min.Z >= GunBox.Min.Z - 12.0);
 			TestTrue(L + TEXT("the magazine is below the bore"), MagBox.Max.Z < 0.5);
 			TestTrue(L + TEXT("the magazine is in the well, not beside it"), FMath::Abs(MagBox.GetCenter().Y) < 1.5);
 		}
