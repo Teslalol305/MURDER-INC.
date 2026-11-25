@@ -1,0 +1,451 @@
+{
+ "about": "Round 4 parts kit and mounts (lane 2). Part frame: X forward along the bore, Y left, Z up, metres; the part's origin is its mount. Unreal = (x, -y, z) x 100. A static mesh's sockets are written from here at import (ue_import_guns._put_static_socket). The part sets: Weapon_Parts (slot M_Part_Hardware), Weapon_PartsMags (slot M_Part_Mags); lens and reticle are the flat slots M_Part_Lens and M_Part_Reticle.",
+ "gun_sockets_added_to_the_exported_guns": {
+  "SK_Chopper": {
+   "MuzzleMount": [
+    0.426,
+    0.0,
+    0.0
+   ],
+   "Optic": [
+    0.115,
+    0.0,
+    0.042
+   ],
+   "Underbarrel": [
+    0.305,
+    0.0,
+    -0.0623
+   ],
+   "bones": {
+    "Booster": [
+     0.426,
+     0.0,
+     0.0
+    ],
+    "FrontSight": [
+     0.409,
+     0.0,
+     0.031
+    ]
+   }
+  },
+  "SK_Nine": {
+   "Laser": [
+    0.156,
+    0.0,
+    -0.0236
+   ],
+   "MagHinge": [
+    0.0177,
+    0.0,
+    -0.0359
+   ],
+   "MuzzleMount": [
+    0.196,
+    0.0,
+    0.0
+   ]
+  }
+ },
+ "parts": {
+  "compensator": {
+   "applies_to": [
+    "chopper",
+    "shorty",
+    "rattler"
+   ],
+   "bounds_m": {
+    "max": [
+     0.062,
+     0.015,
+     0.015
+    ],
+    "min": [
+     0.0,
+     -0.015,
+     -0.015
+    ]
+   },
+   "gun_socket": "MuzzleMount",
+   "material_slots": [
+    "M_Part_Hardware"
+   ],
+   "mesh": "SM_Part_Compensator",
+   "mount": "the rear face on the bore axis; recess R 9.0 x 10 deep",
+   "slot": "muzzle",
+   "sockets_m": {
+    "Muzzle": [
+     0.062,
+     0.0,
+     0.0
+    ]
+   },
+   "sockets_unreal_cm": {
+    "Muzzle": [
+     6.2,
+     -0.0,
+     0.0
+    ]
+   },
+   "triangle_budget": 3000,
+   "triangles": 2628
+  },
+  "foregrip_angled": {
+   "applies_to": [
+    "shorty",
+    "stretch"
+   ],
+   "bounds_m": {
+    "max": [
+     0.0338,
+     0.0145,
+     0.0084
+    ],
+    "min": [
+     -0.0275,
+     -0.0186,
+     -0.058
+    ]
+   },
+   "gun_socket": "Underbarrel",
+   "material_slots": [
+    "M_Part_Hardware"
+   ],
+   "mesh": "SM_Part_ForegripAngled",
+   "mount": "the lug undersides of an underside MI-R rail (the part hangs in -Z)",
+   "slot": "underbarrel",
+   "sockets_m": {
+    "SupportHand": [
+     -0.012,
+     0.0,
+     -0.03
+    ]
+   },
+   "sockets_unreal_cm": {
+    "SupportHand": [
+     -1.2,
+     -0.0,
+     -3.0
+    ]
+   },
+   "triangle_budget": 4000,
+   "triangles": 2428
+  },
+  "foregrip_vertical": {
+   "applies_to": [
+    "shorty",
+    "stretch"
+   ],
+   "bounds_m": {
+    "max": [
+     0.02,
+     0.017,
+     0.0084
+    ],
+    "min": [
+     -0.02,
+     -0.0186,
+     -0.092
+    ]
+   },
+   "gun_socket": "Underbarrel",
+   "material_slots": [
+    "M_Part_Hardware"
+   ],
+   "mesh": "SM_Part_ForegripVertical",
+   "mount": "the lug undersides of an underside MI-R rail (the part hangs in -Z)",
+   "slot": "underbarrel",
+   "sockets_m": {
+    "SupportHand": [
+     0.0,
+     0.0,
+     -0.052
+    ]
+   },
+   "sockets_unreal_cm": {
+    "SupportHand": [
+     0.0,
+     -0.0,
+     -5.2
+    ]
+   },
+   "triangle_budget": 4000,
+   "triangles": 4680
+  },
+  "foregrip_vertical_wood": {
+   "applies_to": [
+    "chopper"
+   ],
+   "bounds_m": {
+    "max": [
+     0.018,
+     0.0203,
+     0.0212
+    ],
+    "min": [
+     -0.018,
+     -0.0207,
+     -0.0827
+    ]
+   },
+   "gun_socket": "Underbarrel",
+   "material_slots": [
+    "M_Part_Hardware"
+   ],
+   "mesh": "SM_Part_ForegripVerticalWood",
+   "mount": "the underside of the CHOPPER's folded stock plate (the saddle hugs it); hangs to Z -0.145 in gun space",
+   "slot": "underbarrel",
+   "sockets_m": {
+    "SupportHand": [
+     0.0,
+     0.0,
+     -0.048
+    ]
+   },
+   "sockets_unreal_cm": {
+    "SupportHand": [
+     0.0,
+     -0.0,
+     -4.8
+    ]
+   },
+   "triangle_budget": 4000,
+   "triangles": 5900
+  },
+  "laser_module": {
+   "applies_to": [
+    "nine",
+    "shorty"
+   ],
+   "bounds_m": {
+    "max": [
+     0.0233,
+     0.013,
+     0.0032
+    ],
+    "min": [
+     -0.023,
+     -0.0142,
+     -0.028
+    ]
+   },
+   "gun_socket": "Laser",
+   "material_slots": [
+    "M_Part_Hardware"
+   ],
+   "mesh": "SM_Part_LaserModule",
+   "mount": "the underside plane of the rail (the NINE's dust cover, the SHORTY's forend rail), the middle of the module",
+   "slot": "laser",
+   "sockets_m": {
+    "Beam": [
+     0.0235,
+     0.0,
+     -0.0125
+    ]
+   },
+   "sockets_unreal_cm": {
+    "Beam": [
+     2.35,
+     -0.0,
+     -1.25
+    ]
+   },
+   "triangle_budget": 4000,
+   "triangles": 2184
+  },
+  "red_dot": {
+   "applies_to": [
+    "chopper",
+    "shorty",
+    "stretch",
+    "rattler"
+   ],
+   "bounds_m": {
+    "max": [
+     0.032,
+     0.0183,
+     0.047
+    ],
+    "min": [
+     -0.032,
+     -0.0203,
+     -0.0084
+    ]
+   },
+   "gun_socket": "Optic",
+   "material_slots": [
+    "M_Part_Hardware",
+    "M_Part_Lens",
+    "M_Part_Reticle"
+   ],
+   "mesh": "SM_Part_RedDot",
+   "mount": "the centre of an MI-R clamp footprint on the lug tops (the rail's lug face is the origin plane)",
+   "slot": "optic",
+   "sockets_m": {
+    "SightEye": [
+     -0.0325,
+     0.0,
+     0.0245
+    ]
+   },
+   "sockets_unreal_cm": {
+    "SightEye": [
+     -3.25,
+     -0.0,
+     2.45
+    ]
+   },
+   "triangle_budget": 8000,
+   "triangles": 6752
+  },
+  "scope_4x": {
+   "applies_to": [
+    "chopper",
+    "shorty",
+    "stretch"
+   ],
+   "bounds_m": {
+    "max": [
+     0.085,
+     0.0219,
+     0.0535
+    ],
+    "min": [
+     -0.065,
+     -0.026,
+     -0.0084
+    ]
+   },
+   "gun_socket": "Optic",
+   "material_slots": [
+    "M_Part_Hardware",
+    "M_Part_Lens",
+    "M_Part_Reticle"
+   ],
+   "mesh": "SM_Part_Scope4x",
+   "mount": "the centre of an MI-R clamp footprint on the lug tops",
+   "slot": "optic",
+   "sockets_m": {
+    "SightEye": [
+     -0.067,
+     0.0,
+     0.0275
+    ]
+   },
+   "sockets_unreal_cm": {
+    "SightEye": [
+     -6.7,
+     -0.0,
+     2.75
+    ]
+   },
+   "triangle_budget": 12000,
+   "triangles": 13128
+  },
+  "suppressor": {
+   "applies_to": [
+    "chopper",
+    "shorty",
+    "stretch",
+    "rattler"
+   ],
+   "bounds_m": {
+    "max": [
+     0.21,
+     0.0198,
+     0.0198
+    ],
+    "min": [
+     0.0,
+     -0.0198,
+     -0.0198
+    ]
+   },
+   "gun_socket": "MuzzleMount",
+   "material_slots": [
+    "M_Part_Hardware"
+   ],
+   "mesh": "SM_Part_Suppressor",
+   "mount": "the rear face on the bore axis; the collar's recess (R 9.0 x 12 deep) swallows the barrel stub",
+   "slot": "muzzle",
+   "sockets_m": {
+    "Muzzle": [
+     0.21,
+     0.0,
+     0.0
+    ]
+   },
+   "sockets_unreal_cm": {
+    "Muzzle": [
+     21.0,
+     -0.0,
+     0.0
+    ]
+   },
+   "triangle_budget": 6000,
+   "triangles": 4060
+  },
+  "suppressor_pistol": {
+   "applies_to": [
+    "nine"
+   ],
+   "bounds_m": {
+    "max": [
+     0.155,
+     0.0163,
+     0.0163
+    ],
+    "min": [
+     0.0,
+     -0.0163,
+     -0.0163
+    ]
+   },
+   "gun_socket": "MuzzleMount",
+   "material_slots": [
+    "M_Part_Hardware"
+   ],
+   "mesh": "SM_Part_SuppressorPistol",
+   "mount": "the slide's front face on the bore axis; the recess (R 7.2 x 6 deep) swallows the barrel's crown stub",
+   "slot": "muzzle",
+   "sockets_m": {
+    "Muzzle": [
+     0.155,
+     0.0,
+     0.0
+    ]
+   },
+   "sockets_unreal_cm": {
+    "Muzzle": [
+     15.5,
+     -0.0,
+     0.0
+    ]
+   },
+   "triangle_budget": 4000,
+   "triangles": 3916
+  }
+ },
+ "sets": {
+  "Weapon_Parts": {
+   "maps": [
+    "BC",
+    "N",
+    "ORM",
+    "E"
+   ],
+   "resolution": 2048,
+   "slot": "M_Part_Hardware"
+  },
+  "Weapon_PartsMags": {
+   "maps": [
+    "BC",
+    "N",
+    "ORM"
+   ],
+   "resolution": 2048,
+   "slot": "M_Part_Mags"
+  }
+ }
+}
