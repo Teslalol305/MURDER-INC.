@@ -3,6 +3,306 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Release 3c: the session (session engineer, 2026-11-25, 11:50 to (not measured yet when this was written) UTC)
+
+The game now looks after its own session, and E3DS's quality number became the centre of a range. Four things changed in the
+game (`Source/MurderInc/Cloud/`: `MISession.h/.cpp`, `MIStreamQuality.h/.cpp`, `MICloud.h/.cpp`), one in the launcher
+(`tools/box/cloud/MurderInc.sh`: it gives the game its own process id), and the box got the tools to prove them. **No package
+was made and nothing was uploaded** (the release engineer's step: section 7 has the commands that prove each item on a
+package). The code is on the branch `claude/tender-albattani-5q78qr`; the game of this entry is the commit `(not measured yet when this was written)`.
+
+**Why.** E3DS does not stop the game of a session that has ended (DECISIONS.md, "the verification runs on version 4", point 6):
+the next session on that machine found the old game still drawing the menu at full speed and shared the card with it (27
+frames a second for the second session, 18 for the third). The launcher of version 4 stops leftovers when the next session
+starts; this release makes the game stop drawing when nobody watches and quit when its session is over, so that nothing is
+left to find. The same measurement showed that E3DS's Video Quality is a constant quantiser, which cannot give way to a thin
+connection (section 3), and that the round trip on the pause card read 0 ms (section 4).
+
+| | What | Proven how |
+|---|---|---|
+| 1 | no viewer for 2 s: 2 frames a second at the smallest picture; a join wakes it within a frame; the click card still shows | the Shipping game on the box: the card's utilisation idle against a viewer on the menu: **(not measured yet when this was written)** |
+| 2 | the game quits 20 s after the last viewer left (a join cancels the countdown), 600 s after its start if nobody ever came, 5 s after its launcher is gone; `-MIKeepAlive` turns it all off | unit tests of the decision and the clock; the Shipping game on the box with a viewer who leaves, one who reloads, none, and a stand-in launcher that is killed; a real browser that reloads its page: **(not measured yet when this was written)** |
+| 3 | E3DS's QP is the centre of a range (Medium 34: 24 to 42, High 16: 8 to 24); `-MIQpExact` pins the old behaviour | read in the engine's source, then 9 runs through a stream on the box with an emulated link: **stalls on a thin link are gone**, a fast link is not worse (it uses more data standing) |
+| 4 | the round trip on the pause card and in the probe line is the median of the sender's measured values, and absent when there is none | a 40 ms link: **(not measured yet when this was written)** |
+| 5 | build, full suite, docs | **(not measured yet when this was written)** |
+
+### 1. Nobody watching, nothing drawn
+
+**What the game does** (`UMICloudSubsystem::TickSession`, `EnterIdle`, `SleepIdle`, `LeaveIdle`; the decision is the pure function
+`FMISession::Decide` in `Cloud/MISession.h`). A streamed game (the launcher always adds `-MICloud`) counts the viewers the
+stream reports. With **no viewer for `MI.Cloud.IdleAfter` = 2 s** it idles:
+
+- it draws `MI.Cloud.IdleFps` = **2 frames a second**: at the end of every frame (the core ticker runs after the frame's work)
+  it sleeps until the next idle frame is due, in steps of 10 ms; the idle frames are real frames, so the game thread, the
+  render thread and the pacer go on as before, only twelve times less often than the 60 of a play;
+- dynamic resolution's maximum is set to its minimum (the cloud profile's 50 to 75 % become 50 %), and put back on the way
+  out; a value somebody set by hand stays;
+- the governor of the frame-rate target (`TickPacing`) skips the idle frames: they say nothing about what a frame costs.
+
+**A viewer who joins wakes it at once.** The stream's callback counts the event on whatever thread it comes (an atomic
+counter) and the sleeping game looks at that counter every 10 ms, so it does not wait out the 500 ms of an idle frame; the
+game thread then handles the join in its next frame: `LeaveIdle` puts the picture size back, the pacing's half second starts
+afresh, and **the click card comes up as for any first viewer** (`Viewers.Join()` → `bWaitingForClick`; a guest on a session
+that is watched already gets no card). The game does not go back to sleep until the game thread has handled the event
+(`ViewerEventsHandled`), so a join cannot be slept through. The log says how long it took: `Back at full speed (a viewer
+joined, 12 ms after the stream reported the connection) after 40.1 s and 79 idle frames`.
+
+**A first viewer is given time.** A game that has just started has not been watched yet and is building its screens,
+compiling shaders and streaming textures; it is never idled in its first `IdleStartupGrace` = 10 s after it became streamed
+(counted from that moment, not from the process's start: a cold start takes seconds to get there), so a first viewer finds
+it ready. The pause and the release of everything the last viewer held happen in the call that reports the viewer gone, 2 s
+before the first idle frame: the idle game never has a run going (`ReleaseForLeave`).
+
+`-MIKeepAlive` turns the idling off with the quitting; `MI.Cloud.IdleFps` 0 turns just the idling off (`-MIIdleFps=0`).
+
+(not measured yet when this was written)
+
+### 2. The game ends with its session
+
+**(a) 20 s after the last viewer left** (`MI.Cloud.ExitAfterEmpty`, `-MIExitAfterEmpty=`; 0: never): one log line, `Session over:
+the last viewer left 20.1 s ago ... The game quits now (exit code 0)`, then `FPlatformMisc::RequestExit(false)` from the game thread.
+The game's own exit guard turns the engine's status into exit code 0 and skips the static destructors (the codec registry
+crashed in one on every exit of a build with logging); a watchdog thread ends the process with `_exit(0)` if the engine's
+shutdown has not finished 30 s after the request. **A join cancels the countdown**: the clock (`FMISessionClock`) restarts
+at every change between "somebody" and "nobody", and a viewer present resets nothing and keeps the game for as long as he
+stays: the unit test lets a viewer sit for ten hours, then 200 reloads of 8 s, and the game never quits.
+
+**How 20 s was chosen, against a page reload.** Two things must hold at once.
+1. *A page that is reloaded must not lose its game.* On a host that keeps the game for a reloaded page (the box's test
+   viewers, a signalling server of your own) the reload is a new connection to the same game. A real browser (headless Chromium
+   on the box, five reloads of the page: `reload_test.cjs`) took (not measured yet when this was written) from the reload to the first picture,
+   and the game's own log says (not measured yet when this was written) between "Connection lost" and the next "Viewer joined"; the test viewer
+   (aiortc) (not measured yet when this was written). 20 s is several times that, so a reload never ends the game.
+2. *A game that nobody comes back to must be gone before the next game is up.* E3DS starts a **new** game for a reloaded page or
+   a new session (LAUNCH.md section 6: a reload starts a new session, a fresh game on a fresh server; E3DS's documentation says a
+   broken connection ends an Unreal app's session at once), and the quickest start seen was 34 s (DECISIONS.md, the first E3DS
+   runs: two minutes the first time, 34 s for the next session on the same machine). A game that is gone 20 s plus its exit time
+   after the last viewer is gone well before that, on a card the new game then has to itself.
+Between the two: 20 s. A host with a slower reload sets `-MIExitAfterEmpty=` higher (the cost is a game that stays that
+much longer, idling at 2 frames a second); the value cannot be below 2 s (`FMISession::Sanitize`: a smaller one would end a
+reload).
+
+**(b) 600 s after its start with no viewer ever** (`MI.Cloud.ExitIfNoViewer`, `-MIExitIfNoViewer=`; 0: never): a machine given
+to a session whose viewer never arrived. Not under 5 s. E3DS's first start takes about two minutes before the game even
+begins, so 600 s counts from the game's own start and is generous.
+
+**(c) the launcher is gone** (`MurderInc.sh` passes `"-MILauncherPid=$$"` as the first of the host's arguments, before them, so
+that a link cannot name another process; the first one counts). On Linux the game looks at `/proc/<pid>/stat` and `kill(pid, 0)` every 2 s
+(`MIProbeProcess`: gone is no such process, state `Z`/`X` (a launcher that was killed and nobody collected is a zombie), or
+another start time (the id was taken by another process since)); **5 s** after the first "gone" it quits, even with a viewer
+connected (nobody can stop a game whose launcher is gone). **Careful in both directions** (`FMILauncherWatch`): nothing is
+watched without `-MILauncherPid`; the watch starts only when the launcher has been *seen alive* (an id that is not there at the
+first look, as in another process namespace, says "not watched" in the log and disarms the watch); "cannot tell" counts as alive.
+The v4 launcher's behaviours are unchanged (`launcher-test.sh`: the stop signal goes on to the game at once, the watchdog ends the
+game when the launcher is killed, the exit code passes through, the host's log is written, a leftover game of the package is
+stopped).
+
+**(d) `-MIKeepAlive`** (or `MI.Cloud.KeepAlive 1`) turns (a), (b), (c) and the idling off: for a game that is held without a
+viewer on purpose, and it says so in the log (`Session: -MIKeepAlive: ...`). Every script of the box that holds a game without
+a viewer passes it, and says why in its header: `lag-test.sh` (default; `keepalive=0` for a run of the session's own behaviour,
+`viewer=0` for no viewer at all; the calibration too), `e3ds-verify.sh` (all runs but `v-long` and `v-e3ds-7600`, which have a fake
+viewer and run with `NOKEEP=1`: a viewer that leaves for 10 s and comes back, which the 20 s has to carry), `stream-test.sh` (so
+`memory-runs.sh`; `STREAM_KEEPALIVE=0` leaves it out), `xtest.py`; `e3ds-repro.sh`'s header says to pass it among the game's
+arguments. The scripts in `/project/ue/cloud/chk/` are not in the repository.
+
+(not measured yet when this was written)
+
+### 3. The encoder gets a range, not E3DS's one number
+
+**What E3DS asks for.** E3DS's Video Quality is a constant quantiser: Medium is QP 34 for the lowest and the highest, High is
+QP 16 and 16 (launch options `-PixelStreamingEncoderMinQP=` and `-PixelStreamingEncoderMaxQP=`, and the page's console
+commands `PixelStreaming.Encoder.MinQP` / `MaxQP`, which it sends again and again). A constant quantiser cannot give way:
+when the connection carries less than a picture of that quality needs, the sender drops frames instead (the stall of
+version 2 was one cause of that; a thin link is another).
+
+**Which source wins (read in the engine, 5.9 `PixelStreaming2` plugin, then shown by a run).**
+
+| Where | What it does |
+|---|---|
+| `PixelStreaming2Settings/Private/PixelStreaming2PluginSettings.cpp` ~1395-1411 (`ParseLegacyCommandlineArgs`) | the launch option MinQP becomes the variable `PixelStreaming2.Encoder.MaxQuality` and MaxQP becomes `MinQuality`, as `quality = int(100 * (1 - QP / 51))` (QP 34 gives 33, QP 16 gives 68). It is applied once, at start |
+| `PixelStreaming2RTC/Private/EpicRtcStreamer.cpp` 519-540 | the data channel's `Command` messages `Encoder.MinQP` / `MaxQP` / `MinQuality` / `MaxQuality` set the same two variables with `SetWithCurrentPriority`, so a viewer's Command message does win over the launch option |
+| `PixelStreaming2RTC/Private/EpicRtcVideoEncoder.cpp` 175 and 661 | the encoder reads the two variables when it is created and on every rate update (`UpdateConfig`), rate control is CBR |
+| `Experimental/AVCodecs/NVCodecs/.../VideoEncoderConfigNVENC.cpp` 123-124, 147-148 | NVENC's minimum QP is `(1 - MaxQuality/100) * 51` and its maximum `(1 - MinQuality/100) * 51` (cut), the limits are switched on when MaxQuality < 100 and MinQuality > 0 |
+| **E3DS's console commands** `PixelStreaming.Encoder.MinQP 16` | **there is no console object of that name in PixelStreaming2** (its variables are `PixelStreaming2.Encoder.MinQuality` ...): the engine does nothing with the command. On the box, on the code before this change, a viewer that sent High's QP 16 after a launch with QP 34 left the encoder at QP 34 in every probe line of its session (67 of 67, run `s3c-b-qp`). So **what E3DS's page sends as console commands has never changed the encoder**; only the launch options did |
+
+**What the game does now** (`Cloud/MIStreamQuality.h`, `UMICloudSubsystem::ApplyEncoderRange`). The two numbers are the centre
+of a range: lowest QP = first number minus `MI.Cloud.QpBelow` (10, not under `MI.Cloud.QpFloor` 8), highest QP = second number
+plus `MI.Cloud.QpAbove` (8, not over `MI.Cloud.QpCeiling` 48); a number that is already outside keeps itself, equal numbers
+are the centre of both ends, and a page that sends them the wrong way round gets the same two numbers. So **Medium 34 gives
+24 to 42 and High 16 gives 8 to 24**. The game takes the numbers from the launch options at the start and from every
+`PixelStreaming(2).Encoder.MinQP` / `MaxQP` command of a viewer (as a console command, which the engine ignores, and as a
+`Command` message; both go through `OnEncoderCommand`), works the range out and sets the two quality variables with the launch
+option's priority (`ECVF_SetByCommandline`, so that the plugin's own `SetWithCurrentPriority` finds nothing above it). Each
+change is logged once, with the source of the numbers (the page sends the same two again and again: set once, logged once):
+
+`Encoder quality, from the launch options: asked for QP 16 at the lowest, 16 at the highest; the encoder may use QP 8 to 24
+(PixelStreaming2.Encoder.MaxQuality 84, MinQuality 52) (MI.Cloud.QpBelow 10, QpAbove 8, floor 8, ceiling 48)`
+
+`-MIQpExact` pins the old behaviour (both numbers as given; the viewer's commands still count, now they reach the encoder),
+`-MIQpBelow=` and `-MIQpAbove=` change the width. The pause card's line shows the range after the QP (`QP 31 of 24 to 42`).
+The numbers go through the plugin's own conversion in both directions: `QpForQuality(QualityForQp(q)) == q` for every QP 0 to 51
+(test `MurderInc.Cloud.EncoderRange`).
+
+**Measured** (box, one run of each, 90 s, the Development game's Story run, `session_sum.py --phases`; the viewer makes its link:
+`rtcinput.py --link-kbps` is a drop-tail queue, `--remb-kbps` the bandwidth the sender is told it has; "sent" is what the
+sender's own statistics say it sent a second, "received" what the viewer counted; the last phase is 5 s long and not counted
+here). The box has no `tc`, so this is the emulated link of the viewer, not a network.
+
+| Link and quality | Phase | exact: QP used, Mbit/s, sent, **received** | range: QP used, Mbit/s, sent, **received** |
+|---|---|---|---|
+| **4 Mbit/s, High (QP 16)**, range 8 to 24 | the page's commands | 16, 1.5, 2.4, **2.6** | 21, 0.9, 9.2, **15.9** |
+| | standing | 16, 1.9, 2.4, **2.3** | 21, 1.7, 13.2, **12.3** |
+| | turning fast | 16, 4.4, 2.4, **0.8** | 21, 4.9, 17.0, **10.0** |
+| | standing | 16, 7.2, 2.4, **0.0** | 20, 2.9, 27.9, **32.9** |
+| | turning fast | 16, 7.1, 2.4, **0.0** | 20, 5.8, 19.9, **11.3** |
+| 4 Mbit/s, High, range 8 to 32 (`-MIQpAbove=16`) | the page's commands / standing / turning / standing / turning | | QP 29 and received **54, 38, 17, 42, 15** |
+| **1.5 Mbit/s, Medium (QP 34)**, range 24 to 42 | the page's commands | 34, 0.4, 49.3, **52.3** | 35.8, 0.3, 56.1, **56.1** |
+| | standing | 34, 1.0, 43.0, **31.6** | 33.4, 1.0, 56.6, **56.2** |
+| | turning fast | 34, 2.3, 15.1, **11.0** | 38.3, 1.8, 21.9, **17.2** |
+| | standing | 34, 0.8, 32.9, **35.9** | 34.5, 1.1, 41.1, **44.2** |
+| | turning fast | 34, 2.2, 16.1, **11.2** | 35.6, 1.7, 22.5, **7.9** |
+| **20 Mbit/s (fast), Medium**, range 24 to 42 | standing | 34.0, 0.9, 53.3, **49.0** | 33.7, 0.7, 56.1, **54.8** |
+| | turning fast | 34.0, 2.5, 19.7, **25.1** | 37.1, 2.5, 41.3, **41.6** |
+| **20 Mbit/s, High**, range 8 to 24 | the page's commands | 21.1 (still coming down from 34), 4.5, 52.5, **53.8** | 18.2, 3.4, 57.2, **56.3** |
+| | standing | 16.0, 7.2, 57.0, **54.7** | 11.7, 8.6, 54.8, **53.5** |
+| | turning fast | 16.0, 18.8, 23.6, **23.6** | 18.7, 18.9, 38.3, **22.0** |
+
+What it shows, and what it does not:
+
+- **On a thin link the exact quantiser stalls and the range does not.** High on 4 Mbit/s: a still picture at QP 16 takes
+  about 7 Mbit/s at 57 frames a second (the 20 Mbit/s run below), the link carries 4; the sender then sends 2.4 frames a
+  second (it puts 7 Mbit/s into the 4) and after the first turn the viewer gets nothing at all (0.0 received in both phases
+  after it), where the range sends 13 to 28 and the viewer receives 10 to 33 (QP 20 to 21, never the 24 it was allowed).
+  Medium on 1.5 Mbit/s: the range is better standing (56 against 32 and 44 against 36 frames a second received) and **not
+  better turning** (17 against 11 in the first turn, **7.9 against 11.2 in the second**: the link is full either way and the
+  range's second turn received fewer). A wider range helps High on 4 Mbit/s further (`-MIQpAbove=16`: 38 to 54 frames a
+  second standing, QP 29 on average at most), at the price of a softer picture; the default stays 8 as asked.
+- **On a fast link nothing gets worse that matters, one thing costs data.** Turning, Medium's range gives 41.6 frames a
+  second received against 25.1. **Standing, High's range goes sharper than the old number: QP 11.7 against 16 and 8.6
+  Mbit/s against 7.2** (the range allows down to QP 8 and a still picture lets the encoder go there). That is more data
+  for a still picture: on E3DS's 20 Mbit/s ceiling nothing is lost, but a player whose link is 10 Mbit/s uses more of it. If
+  that is not wanted, `-MIQpBelow=0` makes High's range 16 to 24 (never sharper than asked).
+- One run of each, one scene, one emulated link, no repeat: how much two runs of the same line differ was not measured,
+  so a difference of a few frames a second between two rows is not shown to be real. The stall (0 against 10 to 33), the
+  fast link's Medium turn (42 against 25) and the standing difference on 1.5 Mbit/s are large next to that.
+- Not measured: a real browser's decoder, a real network, E3DS's own sender. **E3DS may apply its own quality setting after
+  the game has set the variables** (its Video Quality menu); the game logs the numbers it set and every change, so a session's
+  log says who wrote last (the first session with this build should be read for the `Encoder quality, from ...` lines).
+
+### 4. The round trip reads what the sender measured
+
+**Where it was read.** The pause card's numbers line (`MakeNumbersLine`) and the probe line's `rttMs=` read the statistic
+`roundTripTime` that Pixel Streaming 2 broadcasts on the game thread (`UPixelStreaming2Delegates::OnStatChangedNative`, our
+`OnStreamStat`), in seconds. The old reading kept **the last value** and printed it (`round trip %.0f ms`; since release A).
+That value is wrong in three ways, all read in the plugin and the engine's libwebrtc and shown by the probe lines:
+
+1. the plugin reports a statistic **only when it changes**, so the last report can be a minute old;
+2. **the video track and the audio track report under the same name**, one after the other: an audio report of 0 hides the
+   video's value, and the card shows the last of the two (the baseline run on the older build printed `rttMs=0` in every probe
+   line of a session on a free loopback, where the true round trip is about 1 ms);
+3. libwebrtc reports **0 until it has measured one** (its smallest measured value is 1 ms), so "0" is "not measured", never "no
+   delay"; the old line printed "round trip 0 ms" and E3DS's owner read it as a link with no delay.
+
+**What it reads now** (`FMIRoundTrip`, `Cloud/MIStreamQuality.h`): the **median of the last five positive reports** (under 60 s
+each; zeros, negatives, NaN and absurd values are counted as ignored and never stored), cleared when the viewers change (the
+round trip of the viewer before is not this one's), and **absent when none was measured**: the pause card says nothing
+instead of "0 ms", the probe line says `rttMs=-1` and carries how many values it has (`rttN=`) and how old the newest is
+(`rttAge=`). The median of five takes the plugin's occasional spike (a report during a keyframe) out without hiding a link
+that really changed within a few seconds.
+
+(not measured yet when this was written)
+
+**What this does not tell.** It is the time to the other end of the game's own video connection. On E3DS that may be E3DS's
+relay on the machine and not the player's computer (the game's connection goes to E3DS's signalling and media layer; nothing
+here shows where its other end is), in which case the game reads about 1 ms whatever the player's line: E3DS's Info panel
+("response delay", 91 ms from the box's location in the first session) is the time to the player's computer. That 0 ms was
+shown on E3DS is explained by the three points above (and possibly a local relay on top); **how the new reading looks on E3DS is
+not known until a session has run it**: the first session's log has `rttMs=` in every probe line.
+
+### 5. Tests
+
+Six new automation tests (`Source/MurderInc/Tests/MICloudSessionTests.cpp`), all of pure logic the game itself runs (no world, no
+renderer, no stream), and no existing test was changed or weakened (the diff of this release touches no other file under
+`Tests/`; the golden replays are among the suite's tests, unchanged):
+
+| Test | What it holds |
+|---|---|
+| `MurderInc.Cloud.SessionDecision` | every branch of `FMISession::Decide`: not streamed and `-MIKeepAlive` keep whatever the clock says; the last viewer gone 0, 1.9, 2.0, 19.9, 20.0 s and an hour; a viewer present for 0 s to 1e9 s keeps; nobody ever: 9.9 s keeps, 10 s idles, 599.9 s idles, 600 s quits; a cold start's grace counts from the moment the game became streamed; the launcher gone for 5 s quits even with a viewer; zero turns a part off; bad numbers (NaN, negatives, a 0.5 s exit that would end a reload) fall back |
+| `MurderInc.Cloud.SessionClock` | the bookkeeping the game keeps, driven through whole sessions: **a viewer present for ten hours keeps the game; 200 reloads of 8 s each never end it; a join cancels the countdown (19.9 s into it); a viewer who joins a game that idles wakes it** |
+| `MurderInc.Cloud.LauncherWatch` | gone for 5 s quits, "cannot tell" never counts, an id never seen alive is not watched; and the real looking at processes on Linux: a `sleep 60` child is alive, killed it is gone (a zombie too: nobody collects it), an id that never existed is gone, our own id is alive |
+| `MurderInc.Cloud.EncoderRange` | Medium 34 gives 24 to 42, High 16 gives 8 to 24, the floor 8 and the ceiling 48 (a request below or above keeps its own number), `-MIQpExact` gives the numbers as asked, a page that sends them the wrong way round, `QpForQuality(QualityForQp(q)) == q` for every QP 0 to 51, the page's console commands and Pixel Streaming's launch options are read the way the plugin reads them |
+| `MurderInc.Cloud.RoundTrip` | a 0 is not a measurement, the median of the last five positive reports, a spike does not move it, the viewers' change clears it, absent when none |
+| `MurderInc.Cloud.SessionDefaults` | the console variables a package starts with (`MI.Cloud.IdleFps` 2, `IdleAfter` 2, `ExitAfterEmpty` 20, `ExitIfNoViewer` 600, `KeepAlive` 0, `QpBelow` 10, `QpAbove` 8, `QpFloor` 8, `QpCeiling` 48, `QpExact` 0) and their limits |
+
+The launcher has a test of its own that needs no GPU and no Unreal: **`tools/box/cloud/launcher-test.sh`** runs `MurderInc.sh` against a fake
+game (a few seconds a case, as an ordinary user): the launcher passes its own process id as `-MILauncherPid=<pid>` before the
+host's arguments (and a `-MILauncherPid=999999` from the host stands behind it, the game reads the first), the game's parent is the
+launcher, the exit code passes through, SIGTERM to the launcher goes on to the game at once, a launcher killed with SIGKILL is followed
+by its watchdog within 12 s, a leftover game of the package is stopped before the new one starts, the host's log file (`-ABSLOG=`) is
+written and the option is not passed on. The v4 launcher (the commit before this release, `git show 5c1b6be:tools/box/cloud/MurderInc.sh`)
+passes everything except the three checks about the process id, which is the point of the test.
+
+### 6. What is not proven
+
+- **Nothing was run on E3DS.** Whether E3DS applies its own Video Quality *after* the game has set the range, whether a reload on
+  E3DS really starts a new game (its documentation says so: LAUNCH.md section 6), how soon its own page reconnects after a
+  broken link, and what its machine does with a game that quits by itself: all from documentation and from the first runs
+  (DECISIONS.md), none from this release's runs. **The first E3DS session with this build should be read for**: `Session:`,
+  `Encoder quality, from ...`, `Nobody is watching`, `Back at full speed ... ms after the stream reported the connection`,
+  `Session over`, `rttMs=` in the probe lines (with `-MICloudProbe=1` in the launch options).
+- **The link of the QP runs is emulated** (the viewer's own rate limit, delay and bandwidth estimate: `rtcinput.py`), one run of
+  each line and no repeat; a real browser's decoder and a real network are not in them. The box's card is not E3DS's A4000.
+- The idle numbers are the box's card with the game alone on it; the GPU's utilisation is `nvidia-smi`'s once a second.
+- **High's range on a thin link** (8 to 24) still stalls part of the time on 4 Mbit/s in a fast turn (received 10 to 11 frames a
+  second against 60); the wider range (`-MIQpAbove=16`) is better there and costs sharpness. Which the owner prefers is the
+  owner's decision; the defaults are the 10 and 8 that were asked for.
+- The round trip on E3DS: see section 4.
+- **A visitor can turn the session handling off.** E3DS passes whatever a visitor adds to a stream link on to the game as launch
+  options (MurderInc.sh's header), and `-MIKeepAlive`, `-MIExitAfterEmpty=0` and the `MI.Cloud.` variables are launch options and
+  console variables of the same kind as `-MICVars=`: a visitor who types them keeps his own game on the machine after his session,
+  which is the leftover this release removes for everybody else. Nothing here stops that (the box's scripts need `-MIKeepAlive` in the
+  Shipping game); what is left to find it is the launcher's clean-up of other games of the package when the next session starts.
+
+### 7. To prove each item on a package (the release engineer's commands)
+
+The proofs are queues for `tools/box/cloud/lag-test.sh` (its header says what every key does), nothing else running on the box
+(no compile, no cook, no other game).
+
+```
+# the unit tests (in the clone the package came from): TESTS OK passed=N failed=0
+bash tools/box/test.sh MurderInc
+
+# the launcher (no GPU): LAUNCHER-TEST OK; the packaged launcher must say 1 or more:
+bash tools/box/cloud/launcher-test.sh <the package's MurderInc.sh>        # as an ordinary user
+grep -c MILauncherPid <the package's MurderInc.sh>
+
+# the game's own watch on its launcher (the Development test folder; as root): SESSION-TEST OK
+bash tools/box/cloud/session-test.sh launcher <Development test folder>
+
+# 1 and 2: idle, quit, reload, no viewer, -MIKeepAlive (the Shipping game on the unzipped package, about 12 minutes)
+LAG_BUILD=<unzipped package> LAG_RUNAS=fresh LAG_CLEAN=1 LAG_OUT=<runs> bash tools/box/cloud/lag-test.sh queue tools/box/cloud/session-gate.txt
+python3 tools/box/cloud/session_sum.py <runs>/s3c-idle --gpu           # the card idle against a viewer on the menu
+grep -a "Session over" <runs>/s3c-*/game.log; cat <runs>/s3c-*/result.txt   # exit code 0 after each quit; ALIVE at limit for s3c-keep
+
+# a real browser that reloads its page (signalling server on 8090 and 8888: no lag-test meanwhile):
+STREAM_BUILD=<unzipped package> STREAM_KEEPALIVE=0 STREAM_RUN=<a folder> bash tools/box/cloud/stream-test.sh start Shipping
+bash tools/box/cloud/stream-test.sh reload <out> 5 15      # with STREAM_RUN as above; then wait 30 s
+grep -a "Session over" <a folder>/game.log; bash tools/box/cloud/stream-test.sh stop
+
+# 3 and 4: the encoder's range and the round trip (the Development game; about 20 minutes)
+LAG_BUILD=<Development test folder> LAG_OUT=<runs> bash tools/box/cloud/lag-test.sh queue tools/box/cloud/session-gate-dev.txt
+python3 tools/box/cloud/session_sum.py <runs>/s3c-hi-range --phases ; python3 tools/box/cloud/session_sum.py <runs>/s3c-hi-exact --phases
+python3 tools/box/cloud/session_sum.py <runs>/s3c-rtt-new40 --phases   # rttMs about 40; 0 nowhere
+```
+
+**Which scripts now pass `-MIKeepAlive`** (so that a game held without a viewer on purpose is not ended by its own session
+logic): `lag-test.sh` (by default; `keepalive=0` for a run that is about the session; also the calibration), `e3ds-verify.sh` (all
+runs but `v-long` and `v-e3ds-7600`, which have a fake viewer and run with `NOKEEP=1`), `stream-test.sh` (so `memory-runs.sh`;
+`STREAM_KEEPALIVE=0` leaves it out), `xtest.py`. `e3ds-repro.sh` passes the game's arguments on as they are: its header says to give
+`-MIKeepAlive` to a run that holds a game with no viewer. **The existing gates (`release-gate.txt`, `lag-gate.txt`, `sound-gate.txt`)
+run with it** (a viewer is there the whole time, so the game would not idle in them anyway); a package's own release gate that
+should include the session's behaviour adds `keepalive=0` to a line.
+
 ## Version 3b: sound (sound engineer, 2026-11-25, 09:28 to 12:35 UTC)
 
 Version 3b is version 3a plus sound, and it is packaged: **zip sha256
