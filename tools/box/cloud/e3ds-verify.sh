@@ -49,8 +49,15 @@ hog() {  # free MiB, or stop
 run_all() {
   local cfg=(CFG=Shipping); [ -d "$B" ] && cfg=(BUILD="$B")
   echo "[$(date +%H:%M:%S)] verify start (${cfg[*]})" > "$LOG"
-  bash "$T/e3ds-repro.sh" ss start >> "$LOG" 2>&1
-  sleep 3
+  # A signalling server: the one that already listens (somebody else's tests may be using it: it is left running at
+  # the end), or our own.
+  local own_ss=
+  if (exec 3<>/dev/tcp/127.0.0.1/8888) 2>/dev/null; then
+    echo "[$(date +%H:%M:%S)] a signalling server already listens on 8888: used as it is and left running" >> "$LOG"
+  else
+    bash "$T/e3ds-repro.sh" ss start >> "$LOG" 2>&1; own_ss=1
+    sleep 3
+  fi
   local ps="-PixelStreamingConnectionURL=ws://127.0.0.1:8888" none="-PixelStreamingConnectionURL=ws://127.0.0.1:8899"
   # The long run with the viewer, beside the short ones one after another.
   one v-long 420 "${cfg[@]}" RUNAS=fresh NODISPLAY=1 STOPSIG=TERM VIEWER=25,10,12,40 -- \
@@ -75,7 +82,7 @@ run_all() {
     -AllowPixelStreamingCommands -PixelStreamingEncoderCodec=H264 -PixelStreamingHideCursor -Windowed -ForceRes \
     -ResX=1920 -ResY=1080 -MICloudProbe=20
   hog stop
-  bash "$T/e3ds-repro.sh" ss stop >> "$LOG" 2>&1
+  [ -n "$own_ss" ] && bash "$T/e3ds-repro.sh" ss stop >> "$LOG" 2>&1
   echo "[$(date +%H:%M:%S)] verify done" >> "$LOG"
 }
 

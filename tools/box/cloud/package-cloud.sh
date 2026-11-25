@@ -29,7 +29,8 @@
 #              game, which has the debug switches; never commit the key), no *.debug / *.sym (kept on the box in
 #              /project/ue/cloud/symbols/<commit>/ to read crash call stacks), plus its sha256
 #   parts      the zip in parts of 240 MiB (the storage takes at most about 250 MB a file) in /project/ue/cloud/parts,
-#              named MurderInc-E3DS-part<k>-of-<n>.zip, with parts.sha256
+#              named MurderInc-E3DS-part<k>-of-<n>.zip, with parts.sha256 (MI_TAG=v3a in the environment names them
+#              MurderInc-E3DS-v3a-part<k>-of-<n>.zip: the names the owner sees in the storage)
 #   all        src, refresh, content, overlay, usage, package Development, package Shipping, zip, parts (detached;
 #              log in /project/ue/cloud/package.log)
 #   status     the step running or the result, and the last log lines
@@ -232,10 +233,10 @@ parts() {
   [ -f "$z" ] && [ -f "$z.sha256" ] || { say "no $z"; return 1; }
   rm -rf "$P"; mkdir -p "$P"
   (cd "$P" && split -b 240M -d -a 2 "$z" tmp-part-) || return 1
-  local n k=0 f; n=$(ls "$P"/tmp-part-* | wc -l)
-  for f in $(ls "$P"/tmp-part-* | sort); do k=$((k + 1)); mv "$f" "$P/MurderInc-E3DS-part$k-of-$n.zip"; done
-  (cd "$P" && for k in $(seq 1 "$n"); do sha256sum "MurderInc-E3DS-part$k-of-$n.zip"; done) > "$C/parts.sha256"
-  local joined; joined=$(for k in $(seq 1 "$n"); do cat "$P/MurderInc-E3DS-part$k-of-$n.zip"; done | sha256sum | cut -d' ' -f1)
+  local n k=0 f stem=MurderInc-E3DS-${MI_TAG:+$MI_TAG-}part; n=$(ls "$P"/tmp-part-* | wc -l)
+  for f in $(ls "$P"/tmp-part-* | sort); do k=$((k + 1)); mv "$f" "$P/$stem$k-of-$n.zip"; done
+  (cd "$P" && for k in $(seq 1 "$n"); do sha256sum "$stem$k-of-$n.zip"; done) > "$C/parts.sha256"
+  local joined; joined=$(for k in $(seq 1 "$n"); do cat "$P/$stem$k-of-$n.zip"; done | sha256sum | cut -d' ' -f1)
   [ "$joined" = "$(cat "$z.sha256")" ] || { say "PARTS FAILED: joined sha256 $joined differs from the zip's"; return 1; }
   say "PARTS OK: $n parts in $P (list $C/parts.sha256), joined sha256 = the zip's"
 }
