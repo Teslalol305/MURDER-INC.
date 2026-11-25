@@ -29,7 +29,8 @@
 #   res=<W>x<H>       the output size. Default 1920x1080.
 #   view=<file>       the viewer's script (rtcinput.py), a path or the name of one beside this file. Default
 #                     lag-turn.txt (dev) or lag-story.txt (ship); lag-commands.txt, lag-leave.txt, lag-rise.txt,
-#                     lag-input.txt and lag-pad.txt are the others (each says at its top what it is for).
+#                     lag-input.txt and lag-pad.txt are the others (each says at its top what it is for);
+#                     lag-stops.txt is lag-story.txt with faster turns that stop dead (the release check's viewer).
 #   view2=<file>      a second viewer who joins 3 s after the first has left (its log: view2.log): what the next
 #                     viewer finds (lag-input2.txt).
 #   cvars=<a=b,c=d>   passed as the launch option -MICVars= (the game's own tuning switch).

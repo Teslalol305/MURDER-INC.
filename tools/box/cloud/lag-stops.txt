@@ -1,0 +1,58 @@
+# The release checker's viewer for the gate (played by rtcinput.py): a first-time player with a mouse, as
+# lag-story.txt, but with more and faster turning, and with turns that stop dead: version 2 froze when a turn ended
+# (the wait for the pile of unfinished frames). Card, Home's "Hit the block", Next three times, the briefing's
+# "Hit the block", then in the Story run: stand, turn fast one way and faster the other, eight flicks of about 180
+# degrees with half a second of standing between them, walk and turn, hold the fire button while turning, reload.
+wait 3
+click
+wait 2.5
+click 0.106 0.448
+wait 2.5
+click 0.3625 0.911
+wait 2
+click 0.3625 0.911
+wait 2
+click 0.3625 0.911
+wait 2.5
+click 0.336 0.911
+wait 12
+say PHASE still
+wait 6
+frame still.jpg
+say PHASE turn-fast
+mouse 24 0 600 16
+frame turn-fast.jpg
+mouse -40 0 600 16
+say PHASE flick
+mouse 60 3 25 16
+wait 0.5
+mouse -60 -3 25 16
+wait 0.5
+mouse 60 0 25 16
+wait 0.5
+mouse -60 0 25 16
+wait 0.5
+mouse 60 3 25 16
+wait 0.5
+mouse -60 -3 25 16
+wait 0.5
+mouse 60 0 25 16
+wait 0.5
+mouse -60 0 25 16
+wait 0.5
+frame flick.jpg
+say PHASE walk-turn
+keydown 87
+mouse 24 4 300 16
+frame walk-turn.jpg
+mouse -24 -4 300 16
+keyup 87
+say PHASE fire-turn
+down 0
+mouse 30 0 150 16
+up 0
+key 82
+mouse -30 0 300 16
+frame fire-turn.jpg
+say PHASE end
+wait 2

@@ -47,7 +47,9 @@ for run in runs:
     for a, b in zip(probes, probes[1:]):
         dy = abs(num(b, 'yaw', 0) - num(a, 'yaw', 0))
         b['turning'] = min(dy, 360 - dy) >= 0.5
-    play = [p for p in probes if num(p, 'state') == 2 and num(p, 'viewers', 0) >= 1 and num(p, 'click', 0) == 0]
+    # A line without viewers= is version 2's (its probe line had no such field): a control run with that zip counts
+    # every line of the run, or its summary would say "play 0 s".
+    play = [p for p in probes if num(p, 'state') == 2 and num(p, 'viewers', 1) >= 1 and num(p, 'click', 0) == 0]
     turn = [p for p in play if p.get('turning')]
     still = [p for p in play if not p.get('turning')]
     dev = 'LogMICloud' in log
