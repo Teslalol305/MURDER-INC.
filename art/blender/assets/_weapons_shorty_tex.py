@@ -31,6 +31,13 @@ DETAIL_POLY = "TS_GunDetail_Polymer"
 DETAIL_POLY_TILE_M = 0.012
 
 
+def release(G):
+    """Free the geometry maps the flat per-texel arrays already hold (position, normal, ids, edge masks): at 4K that is
+    ~0.7 GB of the ~5 GB this painter peaks at. The AO, cavity, mask and texel-size maps stay (channels() reads them)."""
+    for k in ("pos", "nrm", "id", "part", "edge", "convex"):
+        G.pop(k, None)
+
+
 def pieces(sel, size=CHUNK):
     yield from TX.chunks(sel, size)
 
@@ -125,7 +132,9 @@ def lay(S, img, axes, origin, size, facing, depth, colour=None, flip=False, gate
 # ----------------------------------------------------------------------------------------------- surfaces
 
 def polymer_olive(S, sel, hz):
-    """The olive moulded polymer on the texels of sel (one piece of the chunking)."""
+    """The olive moulded polymer on the texels of sel (one piece of the chunking): mottled #4b5232, chalky light olive on
+    the edges a hand or the sling rubs, handled flats darker and glossier, sun-faded tops, scuffs, vertical grime runs on the
+    flanks, scratches along the way the gun is handled."""
     if not sel.any():
         return np.zeros(0, np.float32)
     p, n, N = S.p[sel], S.n[sel], S.N
@@ -133,32 +142,41 @@ def polymer_olive(S, sel, hz):
     mott = N.fbm(p, 55.0, 3, octave0=400)
     fine = N.fbm(p, 900.0, 2, octave0=403)
     drift = N.fbm(p, 5.0, 2, octave0=405)                                           # slow colour drift over the gun
-    col = lin("4b5232")[None, :] * (1.0 + 0.075 * mott[:, None] + 0.02 * fine[:, None] + 0.05 * drift[:, None]) \
-        * (1.0 + 0.05 * (pv - 0.5))[:, None]
-    r = 0.58 + 0.06 * mott + 0.02 * fine
+    blot = N.fbm(p, 22.0, 2, octave0=406)                                           # 4-5 cm blotches
+    col = lin("4b5232")[None, :] * (1.0 + 0.095 * mott[:, None] + 0.02 * fine[:, None] + 0.06 * drift[:, None]
+                                    + 0.05 * blot[:, None]) * (1.0 + 0.05 * (pv - 0.5))[:, None]
+    r = 0.58 + 0.07 * mott + 0.02 * fine + 0.03 * blot
     h = np.clip(hz[sel], 0, 1)
     e = S.convex[sel]
     brk = N.fbm(p, 420.0, 3, octave0=407)
     brk2 = N.fbm(p, 80.0, 2, octave0=410)
-    w = tp.smooth(e * (0.50 + 1.25 * h) + 0.30 * brk + 0.12 * brk2 - 0.68 + 0.30 * h * h, 0.0, 0.22)
-    chalk = lin("8a916f")
-    col = col + (chalk[None, :] - col) * (0.88 * w)[:, None]                         # chalky light olive on the edges
-    r = r + (0.84 - r) * w
+    w = tp.smooth(e * (0.60 + 1.35 * h) + 0.30 * brk + 0.12 * brk2 - 0.62 + 0.30 * h * h, 0.0, 0.24)
+    chalk = lin("8f9674")
+    col = col + (chalk[None, :] - col) * (0.90 * w)[:, None]                         # chalky light olive on the edges
+    r = r + (0.85 - r) * w
     sun = tp.smooth(n[:, 2], 0.35, 0.95) * (0.55 + 0.45 * N.fbm(p, 14.0, 2, octave0=412))   # top faces fade in the sun
-    col = col + (chalk[None, :] - col) * (0.16 * sun)[:, None]
-    r = r + 0.06 * sun
+    col = col + (chalk[None, :] - col) * (0.11 * sun)[:, None]
+    r = r + 0.05 * sun
     rub = np.clip(h * (0.5 + 0.5 * N.fbm(p, 130.0, 2, octave0=413)), 0, 1)
-    r = r - 0.10 * rub * (1.0 - w)                                                    # rubbed flats take a faint sheen
-    col = col * (1.0 + 0.10 * rub * (1.0 - w))[:, None]
-    # fine scratches along the way the gun is handled (drawn, slung, set down), chalky on the olive
-    sc = S.scratches(0.6, along="X", sel=sel, freq_across=1800.0, octave=420) * tp.smooth(h + 0.25 * e, 0.12, 0.6)
-    col = col + (chalk[None, :] - col) * (0.40 * sc)[:, None]
+    r = r - 0.17 * rub * (1.0 - w)                                                    # handled flats: darker, glossier
+    col = col * (1.0 - 0.10 * rub * (1.0 - w))[:, None]
+    scuff_n = N.fbm(p, (45.0, 420.0, 420.0), 3, octave0=425)                        # thin scuffs along X: dragged, drawn, set down
+    scuff = tp.smooth(scuff_n - 0.22, 0.0, 0.30) * tp.smooth(0.7 * h + 0.7 * e + 0.10, 0.30, 0.8)
+    col = col + (chalk[None, :] - col) * (0.20 * scuff)[:, None]
+    r = r + 0.05 * scuff
+    low = tp.smooth(-p[:, 2], 0.0, 0.07)                                            # grime runs down the flanks
+    streak = tp.smooth(N.fbm(p, (45.0, 45.0, 3.5), 2, octave0=428), 0.05, 0.55)
+    gr = streak * tp.smooth(np.abs(n[:, 1]), 0.6, 0.95) * (0.25 + 0.75 * low) * 0.55
+    col = col * (1.0 - 0.30 * gr)[:, None]
+    r = r + 0.10 * gr
+    sc = S.scratches(0.7, along="X", sel=sel, freq_across=1800.0, octave=420) * tp.smooth(h + 0.25 * e, 0.12, 0.6)
+    col = col + (chalk[None, :] - col) * (0.42 * sc)[:, None]
     r = r + 0.06 * sc
     S.bc[sel] = col
     S.rough[sel] = np.clip(r, 0.25, 0.9)
     S.metal[sel] = 0.0
     S.h[sel] += (1.2e-5 * N.fbm(p, 2400.0, 2, octave0=416) + 4.0e-6 * N.fbm(p, 9000.0, 1, octave0=418)
-                 - 3.0e-5 * w * (0.5 + 0.5 * brk) - 5.0e-6 * sc)
+                 - 3.0e-5 * w * (0.5 + 0.5 * brk) - 5.0e-6 * sc - 6.0e-6 * scuff)
     return w
 
 
@@ -167,8 +185,8 @@ def parkerised(S, sel, hz, octave=0, base="3b3e39", worn="8a9098", edge_gain=1.0
     if not sel.any():
         return
     for part in pieces(sel):
-        S.steel(part, lin(base), rough, hz, lin(worn), worn_rough=0.26, edge_gain=edge_gain, rvar=0.08, cvar=0.03,
-                octave=octave, base_thr=0.90, rub_polish=0.14, scratch=0.55)
+        S.steel(part, lin(base), rough, hz, lin(worn), worn_rough=0.26, edge_gain=edge_gain * 1.35, rvar=0.08, cvar=0.035,
+                octave=octave, base_thr=0.82, rub_polish=0.16, scratch=0.65)
         p = S.p[part]
         S.h[part] += 4.5e-6 * S.N.fbm(p, 7000.0, 2, octave0=430) + 2.0e-6 * S.N.fbm(p, 21000.0, 1, octave0=433)
 
@@ -206,6 +224,7 @@ LEFT_PANEL = (0.044, -0.034, 0.068, 0.010)          # the serial recess (left fl
 
 def paint_shorty(G):
     S = TX.Surf2(G, 301)
+    release(G)
     p, n, N = S.p, S.n, S.N
     x, y, z = p[:, 0], p[:, 1], p[:, 2]
     hz = handling(p, n)
@@ -223,9 +242,9 @@ def paint_shorty(G):
     for part in pieces(grip):
         S.stipple(part, 0.00115, 2.4e-4)
     # the forend and the handle's bar carry a finer moulded grip pattern on their flanks
-    grippy = ol & (x > 0.396) & (x < 0.592) & (np.abs(n[:, 1]) > 0.8) & (z > -0.036) & (z < 0.030)
+    grippy = ol & (x > 0.396) & (x < 0.592) & (np.abs(n[:, 1]) > 0.8) & (np.abs(y) > 0.0300) & (np.abs(y) < 0.0316) & (z > -0.036) & (z < 0.030)
     for part in pieces(grippy):
-        S.stipple(part, 0.0016, 1.2e-4)
+        S.stipple(part, 0.0016, 7e-5)
     # parting line: 0.4 mm wide, 0.15 mm deep along the top and the bottom centre of the shells and down the grip's
     # front and back
     seam = ol & (np.abs(y) < 0.0002) & ((np.abs(n[:, 2]) > 0.92) | ((np.abs(n[:, 0]) > 0.92) & (z < -0.06))) & (x > 0.030)
@@ -300,7 +319,7 @@ def paint_shorty(G):
               + gauss(p, (0.426, -0.020, 0.018), 0.030, 0.35) * ol * (y < -0.028))                     # soot on the deflector
     oil = (gauss(p, (0.372, -0.012, 0.010), 0.040, 0.9) * (y < -0.004) + gauss(p, (0.345, 0.0, 0.012), 0.060, 0.6) * br
            + gauss(p, (0.500, 0.0, 0.0), 0.080, 0.35) * pk + 0.45 * hz * ol)
-    dirt_chunked(S, 0.85, carbon=np.clip(carbon, 0, 1), oil=np.clip(oil, 0, 1))
+    dirt_chunked(S, 1.0, carbon=np.clip(carbon, 0, 1), oil=np.clip(oil, 0, 1))
     S.rough = np.maximum(S.rough, 0.16 * (S.metal > 0.5))
     ch = S.channels(height_blur=0.35)
     return ch
@@ -312,12 +331,13 @@ def paint_shorty_mag(G):
     """SHORTY magazine: parkerised stamped steel with bright insertion scuffs and pouch scratches, an olive polymer floor
     plate with its drag tab and follower, dark feed lips, the rounds. Spine weld bead on the rear face."""
     S = TX.Surf2(G, 17)
+    release(G)
     p, n, N = S.p, S.n, S.N
     top = tp.smooth(p[:, 2], -0.060, -0.026)
     floor = tp.smooth(-p[:, 2], 0.165, 0.178)
     hz = np.clip(top * 0.85 + floor * 0.75 + gauss(p, (0.206, 0.0, -0.150), 0.040, 0.45), 0, 1)
     body = S.sel(W.BLUED)
-    parkerised(S, body, hz, octave=11, base="3d403b", rough=0.55, edge_gain=1.15)
+    parkerised(S, body, hz, octave=11, base="4a4d46", rough=0.52, edge_gain=1.3)
     if body.any():
         q = p[body]
         sc = tp.smooth(N.ridged(np.stack([q[:, 0] * 400.0, q[:, 1] * 30.0, q[:, 2] * 2500.0], 1), 1.0, 2, octave0=160), 0.95, 0.995)

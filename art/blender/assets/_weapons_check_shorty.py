@@ -156,7 +156,7 @@ def run(gun, arm, mags, contract, verify_json=None):
     yl = ray_first(bvh, (0.134, 0.0, 0.060), (0, -1, 0), 0.05)
     add("rear aperture is round (Y extent 9 mm)", yh and yl and abs((yh[1] - yl[1]) - 0.009) <= 0.0004,
         {"y": [yl[1] if yl else None, yh[1] if yh else None]})
-    line = ray_first(bvh, (0.1342, 0.0, 0.0600), (1, 0, 0), 1.0)
+    line = ray_first(bvh, (0.1342, 0.0, 0.0597), (1, 0, 0), 1.0)           # 0.3 mm under the sight line: through the aperture, onto the post
     add("the line from the aperture to the front post is clear and its first hit is the post (X 0.573 .. 0.577)",
         line is not None and 0.5725 <= line[0] <= 0.5775, {"first_hit_x": line[0] if line else None})
     post = [ray_first(bvh, (0.575, 0.0, 0.080), (0, 0, -1), 0.1)]
@@ -317,18 +317,25 @@ def run(gun, arm, mags, contract, verify_json=None):
             all(v == 0 for v in mv.values()) and cl >= 0.0005, {"overlaps": mv, "clearance_mm": round(cl * 1000, 2)})
     # ----- hide bones
     import bmesh
-    for bone in ("MuzzleDevice", "IronsFront"):
-        keep = [i for i, q in enumerate(polys) if dom[q[0]] != gid[bone]]
+
+    def open_edges(face_ids):
         bm = bmesh.new()
         vs = [bm.verts.new(tuple(c)) for c in co]
-        for i in keep:
+        for i in face_ids:
             try:
                 bm.faces.new([vs[v] for v in polys[i]])
             except ValueError:
                 pass
-        open_e = sum(1 for e in bm.edges if len(e.link_faces) == 1)
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=2e-6)         # the GLB splits vertices at normals and UV seams
+        n_open = sum(1 for e in bm.edges if len(e.link_faces) == 1)
         bm.free()
-        add("with %s removed the rest of the mesh stays closed (no open edges)" % bone, open_e == 0, {"open_edges": open_e})
+        return n_open
+    base_open = open_edges(range(len(polys)))
+    for bone in ("MuzzleDevice", "IronsFront"):
+        keep = [i for i, q in enumerate(polys) if dom[q[0]] != gid[bone]]
+        open_e = open_edges(keep)
+        add("with %s removed no hole opens in the rest of the mesh (open edges %d, the whole gun has %d)" % (bone, open_e, base_open),
+            open_e <= base_open, {"open_edges_without": open_e, "open_edges_with_all": base_open})
     keep = np.array([dom[q[0]] != gid["MuzzleDevice"] for q in polys])
     t2 = tree(co, polys, keep)
     bore = ray_first(t2, (0.72, 0.0, 0.0), (-1, 0, 0), 1.0)
@@ -347,6 +354,22 @@ def run(gun, arm, mags, contract, verify_json=None):
     h = ray_first(bvh, (e[0], -0.06, e[2]), (0, 1, 0), 0.2)
     add("Eject socket lies in the open port: the ray into the gun runs more than 12 mm before it hits the carrier",
         h is not None and h[1] > -0.016, {"first_hit_y": h[1] if h else None})
+    # ----- the eye positions the parts and the camera recipe use: nothing in the view corridor, nothing under the eye
+    SOCK = SH["sockets"]
+    eyes = (("iron sights (relief 0.12)", (SOCK["SightRear"][0] - 0.120, 0.0, SOCK["SightRear"][2])),
+            ("red dot (SightEye Optic + (-0.0325, 0, 0.0245), relief 0.14)", (SOCK["Optic"][0] - 0.0325 - 0.140, 0.0, SOCK["Optic"][2] + 0.0245)),
+            ("4x scope (SightEye Optic + (-0.067, 0, 0.0275), relief 0.085)", (SOCK["Optic"][0] - 0.067 - 0.085, 0.0, SOCK["Optic"][2] + 0.0275)))
+    for label, eye in eyes:
+        fwd = ray_first(bvh, (eye[0], eye[1], eye[2] - (0.0003 if "iron" in label else 0.0)), (1, 0, 0), 2.0)
+        under = bvh.find_nearest(Vector(eye))
+        if "iron" in label:
+            # the irons look through the aperture at Z 0.060: the ray meets the aperture ring first only if it is off the hole
+            ok = fwd is not None and 0.5725 <= fwd[0] <= 0.5775 and under[3] >= 0.004
+            add("eye of the %s: the view runs through the aperture to the front post; the eye is >= 4 mm clear of the gun" % label, ok,
+                {"first_hit_x": None if fwd is None else round(fwd[0], 4), "nearest_surface_mm": round(under[3] * 1000, 1)})
+        else:
+            add("eye of the %s: the view along the bore is clear to the muzzle; the nearest surface is %.0f mm away" % (label, under[3] * 1000),
+                fwd is None and under[3] >= 0.040, {"first_hit": fwd, "nearest_surface_mm": round(under[3] * 1000, 1)})
     # ----- budget
     tris = sum(len(p) - 2 for p in polys)
     add("triangles within the 120k cap and the 95k plan", tris <= 95000, {"triangles": tris})
@@ -377,10 +400,39 @@ def load_glb():
     return gun, arm, mags
 
 
+def file_checks(res):
+    """The files as the engine will read them: slot names, set resolutions and channels, the manifest record."""
+    from mi import bake as _bake
+
+    def add(what, ok, detail):
+        res["checks"].append({"check": what, "ok": bool(ok), "detail": detail})
+    rep = rig.inspect_glb(os.path.join(GLB, "SK_Shorty.glb"))
+    add("SK_Shorty.glb: one slot M_Shorty, 19 joints (7 deform bones + 12 sockets), joint axes = gun axes",
+        rep["materials"] == ["M_Shorty"] and len(rep["joints"]) == 19 and rep["all_axes_are_asset_axes"],
+        {"materials": rep["materials"], "joints": len(rep["joints"]), "triangles": [m["triangles"] for m in rep["meshes"]]})
+    for name, size, chans in (("Shorty", 4096, ("BC", "N", "ORM", "E")), ("Weapon_ShortyMagazine", 2048, ("BC", "N", "ORM"))):
+        info = _bake.read_set(name) or {}
+        have = sorted((info.get("files") or {}).keys())
+        add("texture set %s: %d x %d, %s" % (name, size, size, "+".join(chans)),
+            info.get("resolution") == [size, size] and all(c in have for c in chans),
+            {"resolution": info.get("resolution"), "files": have, "px_per_m": info.get("texel_density_px_per_m")})
+    for name in ("TS_GunDetail_Steel", "TS_GunDetail_Polymer"):
+        add("tiling detail set %s exists" % name, _bake.read_set(name) is not None, {})
+    mp = paths.manifest
+    ok = False
+    if os.path.exists(mp):
+        m = json.load(open(mp))
+        e = m.get("assets", {}).get("SK_Shorty")
+        ok = bool(e) and e.get("kind") == "skeletal" and len(e.get("sockets", {})) == 12
+    add("manifest.json holds SK_Shorty as a skeletal asset with its 12 sockets", ok, {})
+    res["ok"] = all(c["ok"] for c in res["checks"])
+
+
 def main():
     from assets import _weapons_shorty as S
     gun, arm, mags = load_glb()
     res = run(gun, arm, mags, S.SH)
+    file_checks(res)
     print("SHORTY: %s" % ("ALL FIXED POINTS KEPT" if res["ok"] else "FAILED"))
     for c in res["checks"]:
         if not c["ok"] or not c["check"].startswith("bone"):

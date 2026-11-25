@@ -186,6 +186,8 @@ def ribs():
             if side < 0:
                 y0, y1 = -y1, -y0
             out.append(bx(x - 1.3, x + 1.3, y0, y1, -44.0, 34.0, bevel=0.45, seg=2, name="Rib"))
+    for x in (196.0, 204.0, 212.0, 220.0, 228.0, 236.0):                     # the left flank's centre panel (the side the player sees)
+        out.append(bx(x - 1.3, x + 1.3, 27.4, 29.5, -42.0, 30.0, bevel=0.45, seg=2, name="RibL"))
     for z in (-52.0, -47.0, -42.0):
         for side in (-1, 1):
             y0, y1 = (28.0 - 0.6, 28.0 + 1.2)
@@ -240,6 +242,35 @@ def build_release():
            name="Release", fillet=0.3)
     geo.transform(b, scale=(1, -1, 1))
     return b
+
+
+FORE_SCREWS = [(408, 26), (408, -34), (574, 26), (574, -32)]
+
+
+def forend_screws():
+    out = []
+    for side in (-1, 1):
+        for x, z in FORE_SCREWS:
+            out.append(W.pin_head((x * MM, 31.0 * side * MM, z * MM), "Y", r=2.6 * MM, h=1.0 * MM, sign=side, slot=True, seg=20))
+    return out
+
+
+def handle_ribs():
+    """Moulded grip ribs on both sides of the carry handle's bar."""
+    out = []
+    for side in (-1, 1):
+        for x in np.arange(190.0, 291.0, 10.0):
+            y0, y1 = 16.4, 17.8
+            if side < 0:
+                y0, y1 = -y1, -y0
+            out.append(bx(x - 0.6, x + 0.6, y0, y1, 79.0, 85.2, bevel=0.3, seg=1, name="BarRib"))
+    return out
+
+
+def build_holdopen():
+    """The bolt hold-open paddle in its thumb recess on the left flank."""
+    return pr([(329.5, -13.3), (355.0, -13.3), (355.0, -8.7), (329.5, -8.7)], 27.0, 28.6, "Y", bevel=0.3, seg=1, fillet=1.8,
+              name="HoldOpen")
 
 
 def build_pins():
@@ -374,6 +405,9 @@ def shorty_parts():
     out.append(P(joined(build_pins(), "Pins"), PARK, "body"))
     out.append(P(build_deflector(), OLIVE, "body"))
     out.append(P(build_sling(), PARK, "body"))
+    out.append(P(joined(forend_screws(), "ForeScrews"), PARK, "body"))
+    out.append(P(joined(handle_ribs(), "BarRibs"), OLIVE, "body"))
+    out.append(P(build_holdopen(), PARK, "body"))
     out.append(P(build_release(), PARK, "body"))
     return out
 

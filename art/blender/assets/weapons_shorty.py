@@ -42,12 +42,17 @@ SKINNED = {}
 
 
 def tex_res(ctx, name):
+    """4096 for the gun and 2048 for the magazine at --res >= 2048; smaller --res gives draft sets (1/4096 of the gun's
+    size per px of --res); MI_TEXRES=2048 forces a 2048 gun set (1024 magazine) whatever --res says."""
     full = RES[name]
+    forced = os.environ.get("MI_TEXRES")
+    if forced:
+        return max(128, full * int(forced) // 4096)
     return full if ctx.args.res >= 2048 else max(128, full * ctx.args.res // 4096)
 
 
 def uv_weights(ob):
-    """Per-face UV scale: 1.0 on what the camera reads (the right flank, top, handle, rail), 0.85 on the left flank, 0.75 on the forend
+    """Per-face UV scale: 1.0 on what the camera reads (both flanks, top, handle, rail), 0.75 on the forend
     and the grip, 0.5 on the barrel, hider, butt pad and the undersides, 0.3-0.45 on interiors and the parts seen
     through slots."""
     me = ob.data
@@ -67,7 +72,6 @@ def uv_weights(ob):
     x, y, z = c[:, 0], c[:, 1], c[:, 2]
     w = np.ones(n, np.float32)
     w[(nr[:, 2] < -0.7) & (bid == 0)] = 0.50                                            # undersides
-    w[(nr[:, 1] > 0.7) & (bid == 0) & (x < 392.0)] = 0.85                               # the left flank (the camera sees the right)
     w[(np.abs(nr[:, 0]) > 0.7) & (bid == 0) & (x < 40.0) & (mid == S.OLIVE)] = 0.45     # the body's rear face (behind the pad)
     w[(mid == S.RUBBER)] = 0.50                                                         # the butt pad
     w[(mid == S.OLIVE) & (bid == 0) & (x > 392.0)] = 0.75                               # forend and deflector
@@ -203,4 +207,4 @@ def on_export(ctx, objs):
 
 def on_preview(ctx, objs):
     from assets import _weapons_shorty_prev as PV
-    PV.render(ctx)
+    PV.run_previews(ctx)

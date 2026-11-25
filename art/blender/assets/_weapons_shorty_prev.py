@@ -23,18 +23,25 @@ from assets import weapons as W
 from assets import _weapons_shorty as S
 
 PREVIEW_ONLY = os.environ.get("MI_PREVIEWS", "")
+PROBE_RES = tuple(int(v) for v in os.environ["MI_PROBE_RES"].split("x")) if os.environ.get("MI_PROBE_RES") else None   # low-res composition probes
+SIDE_FILL = float(os.environ.get("MI_SIDE_FILL", "55"))
 
 
 def want(name):
     return not PREVIEW_ONLY or name in PREVIEW_ONLY.split(",")
 
 
-def anchored_view():
-    """The CHOPPER's hip viewmodel pose, with the gun moved so that its Palm_R sits where the CHOPPER's Palm_R sits."""
+NUDGE = tuple(float(v) for v in os.environ.get("MI_FP_NUDGE", "-0.060,0.0,-0.020").split(","))
+
+
+def anchored_view(nudge=(0.0, 0.0, 0.0)):
+    """The CHOPPER's hip viewmodel pose (the same rotation), with the gun moved so that its Palm_R sits where the CHOPPER's
+    Palm_R sits (the origin of a bullpup is its butt, not its grip). nudge: an extra shift in viewmodel space (x right,
+    y up, z toward the viewer), metres, to bring the whole carry handle into the picture."""
     pos, rot = W.VIEWMODEL["SK_Chopper"]
     pc = W.view_matrix(pos, rot) @ Vector(W.CH["sockets"]["Palm_R"])
     p0 = W.view_matrix((0, 0, 0), rot) @ Vector(S.SH["sockets"]["Palm_R"])
-    return tuple(pc - p0), rot
+    return tuple(pc - p0 + Vector(nudge)), rot
 
 
 def load():
@@ -80,14 +87,65 @@ def area_light(name, loc, target, size, watts, colour=(1.0, 1.0, 1.0)):
     return ob
 
 
-def hero(ctx, gun, arm, mags):
-    W.preview_hero(ctx, gun, arm, "weapons_shorty_hero", (0.60, -1.0, 0.42), (0.35, -0.005, -0.045), lens=85.0, fstop=5.6,
-                   extra=mags)
+def hero(ctx, gun, arm, mags, fill=0.46, direction=(0.60, -1.0, 0.42), lens=85.0):
+    """Three-quarter studio view (the CHOPPER's and NINE's recipe: 85 mm, shallow focus, studio HDRI), framed so the gun
+    spans about half the picture's diagonal: the magazine is in it."""
+    W.rig_studio()
+    W._hide_all_but([gun] + list(mags))
+    objs = [gun] + list(mags)
+    lo = np.min([scene.bounds(o, world=True)[0] for o in objs], 0)
+    hi = np.max([scene.bounds(o, world=True)[1] for o in objs], 0)
+    c = Vector(((lo + hi) / 2).tolist())
+    span = float(np.linalg.norm(hi - lo))
+    fov = 2 * math.atan(18.0 / lens)
+    dist = span * fill / math.tan(fov / 2)
+    d = Vector(direction).normalized()
+    cam = render.cam_look(c + d * dist, c, lens, name="Cam_hero", dof=(dist, 5.6))
+    cam.data.clip_start = 0.01
+    render.setup(samples=ctx.args.samples, res=PROBE_RES or (1280, 720))
+    path, sec = render.render_jpeg(W._prev(ctx, "weapons_shorty_hero"), ctx.args.samples, res=PROBE_RES or (1280, 720))
+    ctx.log("preview %s (%.0f s)" % (path, sec))
+
+
+FP_SUN = float(os.environ.get("MI_FP_SUN", "325"))        # compass bearing of the sun: it lights the left flank the camera sees
+FP_STOPS = float(os.environ.get("MI_FP_STOPS", "0.0"))
 
 
 def fp(ctx, gun, arm, mags):
-    W.VIEWMODEL["SK_Shorty"] = anchored_view()
-    W.preview_fp(ctx, gun, arm, "SK_Shorty", "weapons_shorty_fp", extra=mags)
+    """The CHOPPER's first-person recipe (W.preview_fp: the day rig, the street plate behind, the 54 degree viewmodel camera)
+    with the SHORTY anchored on Palm_R. The camera sees the gun's LEFT flank (the gun hangs at the right of the picture), which
+    faces away from the design sun of 260, so the sun is moved to the north-west for this picture."""
+    W.VIEWMODEL["SK_Shorty"] = anchored_view(NUDGE)
+    rd = render.rig_day(sun_azimuth=FP_SUN, stops=FP_STOPS)
+    plate = render.hdri_path("canary_wharf")
+    if os.path.exists(plate):
+        nt = bpy.context.scene.world.node_tree
+        out = next(n for n in nt.nodes if n.bl_idname == "ShaderNodeOutputWorld")
+        sky = out.inputs["Surface"].links[0].from_node
+        env = nt.nodes.new("ShaderNodeTexEnvironment")
+        env.image = bpy.data.images.load(plate, check_existing=True)
+        bg = nt.nodes.new("ShaderNodeBackground")
+        bg.inputs["Strength"].default_value = 2.0 ** (-(rd.get("exposure", 0.0) or 0.0)) * 0.9
+        nt.links.new(env.outputs[0], bg.inputs["Color"])
+        lp = nt.nodes.new("ShaderNodeLightPath")
+        mix = nt.nodes.new("ShaderNodeMixShader")
+        nt.links.new(lp.outputs["Is Camera Ray"], mix.inputs[0])
+        nt.links.new(sky.outputs[0], mix.inputs[1])
+        nt.links.new(bg.outputs[0], mix.inputs[2])
+        nt.links.new(mix.outputs[0], out.inputs["Surface"])
+    cam = W.fp_camera(bearing=170.0, pitch_down=2.0)
+    pos, rot = W.VIEWMODEL["SK_Shorty"]
+    W.place_in_view(arm, cam, pos, rot)
+    for e in mags:
+        e.matrix_world = arm.matrix_world
+    W._hide_all_but([gun] + list(mags))
+    render.setup(samples=ctx.args.samples, res=PROBE_RES or (1280, 720))
+    path, sec = render.render_jpeg(W._prev(ctx, "weapons_shorty_fp"), ctx.args.samples, res=PROBE_RES or (1280, 720))
+    ctx.log("preview %s (%.0f s)" % (path, sec))
+    arm.matrix_world = Matrix.Identity(4)
+    for e in mags:
+        e.matrix_world = Matrix.Identity(4)
+    bpy.context.view_layer.update()
 
 
 def side(ctx, gun, arm, mags):
@@ -95,7 +153,7 @@ def side(ctx, gun, arm, mags):
     is avoided: it is mirrored on purpose so the picture reads as the player's left side)."""
     W.rig_studio(strength=1.0)
     plain_background()
-    area_light("Fill", (0.35, 1.6, 0.35), (0.35, 0.0, -0.04), (1.6, 1.0), 260.0)
+    area_light("Fill", (0.35, 1.6, 0.35), (0.35, 0.0, -0.04), (1.6, 1.0), SIDE_FILL)
     W._hide_all_but([gun] + list(mags))
     lo, hi = np.min([scene.bounds(o, world=True)[0] for o in [gun] + list(mags)], 0), np.max(
         [scene.bounds(o, world=True)[1] for o in [gun] + list(mags)], 0)
@@ -104,8 +162,8 @@ def side(ctx, gun, arm, mags):
     cam.data.type = "ORTHO"
     cam.data.ortho_scale = max(hi[0] - lo[0], (hi[2] - lo[2]) * 16 / 9) * 1.10
     cam.data.clip_start, cam.data.clip_end = 0.05, 20.0
-    render.setup(samples=ctx.args.samples, res=(1280, 720))
-    path, sec = render.render_jpeg(W._prev(ctx, "weapons_shorty_side"), ctx.args.samples)
+    render.setup(samples=ctx.args.samples, res=PROBE_RES or (1280, 720))
+    path, sec = render.render_jpeg(W._prev(ctx, "weapons_shorty_side"), ctx.args.samples, res=PROBE_RES or (1280, 720))
     ctx.log("preview %s (%.0f s)" % (path, sec))
 
 
@@ -116,7 +174,7 @@ def parts(ctx, gun, arm, mags):
                             "trigger": {"rotate": ((0, 1, 0), SH["trigger_deg"])},
                             "selector": {"rotate": ((0, 1, 0), SH["selector_deg"][1])}})
     for o in mags:
-        o.matrix_world = Matrix.Translation((0.31, -0.095, -0.012)) @ o.matrix_world
+        o.matrix_world = Matrix.Translation((0.37, -0.02, -0.05)) @ o.matrix_world
     bpy.context.view_layer.update()
     W.rig_studio(strength=1.0)
     W._hide_all_but([gun] + list(mags))
@@ -126,8 +184,8 @@ def parts(ctx, gun, arm, mags):
     d = Vector((0.30, -1.0, 0.50)).normalized()
     cam = render.cam_look(c + d * 1.45, c + Vector((0.0, 0.0, 0.0)), 62.0, name="Cam_parts", dof=(1.45, 9.0))
     cam.data.clip_start = 0.01
-    render.setup(samples=ctx.args.samples, res=(1280, 720))
-    path, sec = render.render_jpeg(W._prev(ctx, "weapons_shorty_parts"), ctx.args.samples)
+    render.setup(samples=ctx.args.samples, res=PROBE_RES or (1280, 720))
+    path, sec = render.render_jpeg(W._prev(ctx, "weapons_shorty_parts"), ctx.args.samples, res=PROBE_RES or (1280, 720))
     ctx.log("preview %s (%.0f s)" % (path, sec))
     for o in mags:
         o.matrix_world = Matrix.Identity(4)
@@ -197,18 +255,20 @@ def silhouette(ctx, gun, arm, mags):
 
 def render_all(ctx):
     gun, arm, mags = load()
-    print("armature matrix identity:", np.allclose(np.array(arm.matrix_world), np.eye(4), atol=1e-6))
-    if want("weapons_shorty_hero"):
-        hero(ctx, gun, arm, mags)
-    if want("weapons_shorty_fp"):
-        fp(ctx, gun, arm, mags)
-    if want("weapons_shorty_side"):
-        side(ctx, gun, arm, mags)
-    if want("weapons_shorty_parts"):
-        parts(ctx, gun, arm, mags)
+    if os.environ.get("MI_PROBE_DIR"):                                  # probes: low-res pictures go to a scratch folder
+        W._prev = lambda ctx_, name: os.path.join(os.environ["MI_PROBE_DIR"], name + "_probe.jpg")
+    for name, fn in (("weapons_shorty_hero", hero), ("weapons_shorty_fp", fp), ("weapons_shorty_side", side),
+                     ("weapons_shorty_parts", parts)):
+        if want(name):
+            arm.matrix_world = Matrix.Identity(4)
+            for o in mags:
+                o.matrix_world = Matrix.Identity(4)
+            bpy.context.view_layer.update()                             # children keep stale matrices until it runs
+            fn(ctx, gun, arm, mags)
     if want("T_UI_Gun_Shorty"):
+        bpy.context.view_layer.update()
         silhouette(ctx, gun, arm, mags)
 
 
-def render(ctx):
+def run_previews(ctx):
     render_all(ctx)

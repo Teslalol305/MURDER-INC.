@@ -271,7 +271,7 @@ def build_pad():
         secs.append(K.rrect(x0 * MM, 31.0 * MM, (19.0 - d) * MM, 6.0 * MM, 2.0 * MM, bulge_b=1.4 * MM))
         zz.append(z * MM)
     pad = K.loft_z(secs, zz, 72, name="Pad")
-    hole = lt([(-30, 0), (-30, 2.0), (30, 2.0), (30, 0)], 20, axis="Y", at=(21.0, 0.0, -69.0), name="Lanyard")
+    hole = lt([(-30, 0), (-30, 2.0), (30, 2.0), (30, 0)], 20, axis="Y", at=(25.5, 0.0, -68.0), name="Lanyard")
     W.cut(pad, hole)
     return pad
 
@@ -388,8 +388,8 @@ def build_gas(piston=True):
 
 def build_hider():
     """Squat six-slot birdcage flash hider, X 652..700, R 12.5, bore R 2.8, one closed shell on its own bone."""
-    h = lt([(652.0, 0.0), (652.0, 11.5), (653.0, 12.5), (698.5, 12.5), (700.0, 11.0), (700.0, 0.0)], 64, name="Hider",
-           fillet=0.3)
+    h = lt([(652.0, 0.0), (652.0, 11.5), (653.0, 12.5), (656.0, 12.5), (656.0, 11.6), (657.8, 11.6), (657.8, 12.5), (698.5, 12.5),
+            (700.0, 11.0), (700.0, 0.0)], 64, name="Hider", fillet=0.3)
     W.cut(h, lt([(651.0, 0.0), (651.0, 8.9), (655.0, 8.9), (655.0, 9.3), (693.0, 9.3), (694.0, 7.0), (694.0, 0.0)], 56,
                 name="HiderCavity"))
     W.cut(h, lt([(690.0, 0.0), (690.0, 2.8), (701.0, 2.8), (701.0, 0.0)], 24, name="HiderBore"))
