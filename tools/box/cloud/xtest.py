@@ -8,12 +8,12 @@ import json, os, re, subprocess, sys, time
 from PIL import ImageGrab
 
 OUT = sys.argv[1]; CFG = sys.argv[2] if len(sys.argv) > 2 else 'Development'
-RUN = '/project/ue/cloud/run'; LOG = f'{RUN}/cloud.log'; DISP = ':1'
+RUN = '/project/ue/cloud/run'; LOG = f'{RUN}/xgame.log'; DISP = ':1'  # the game's own output: its [MICloud] lines
 os.makedirs(OUT, exist_ok=True)
 R = {}
 def note(k, v): R[k] = v; print(k, json.dumps(v)); json.dump(R, open(f'{OUT}/results.json', 'w'), indent=1)
-def text(): return open(LOG).read() if os.path.exists(LOG) else ''
-def probes(): return [dict((k, float(v)) for k, v in re.findall(r'(\w+)=(-?[\d.]+)', l)) for l in text().splitlines() if 'MICloudProbe' in l]
+def text(): return open(LOG, errors='replace').read() if os.path.exists(LOG) else ''
+def probes(): return [dict((k, float(v)) for k, v in re.findall(r'(\w+)=(-?[\d.]+)', l.split('MICloudProbe', 1)[1])) for l in text().splitlines() if 'MICloudProbe' in l]
 def last(): p = probes(); return p[-1] if p else {}
 def wait(fn, s):
     t = time.time()
@@ -29,8 +29,8 @@ def yaw_after():
 if os.path.exists(LOG): os.remove(LOG)
 L = f'/project/ue/cloud/build-{CFG}/Linux'
 cmd = (f'cd {RUN} && HOME=/home/ue4 DISPLAY={DISP} XDG_RUNTIME_DIR=/tmp/studio/xdg setsid nohup desktop-run --vulkan {L}/MurderInc.sh '
-       f'-vulkan -unattended -nosplash -ResX=1920 -ResY=1080 -windowed -MICloud -MICloudProbe=0.5 -MICloudLog={LOG} '
-       f'-stdout -FullStdOutLogOutput </dev/null > {RUN}/xgame.log 2>&1 & echo $! > {RUN}/xgame.pid')
+       f'-vulkan -unattended -nosplash -ResX=1920 -ResY=1080 -windowed -MICloud -MICloudProbe=0.5 '
+       f'-stdout -FullStdOutLogOutput </dev/null > {LOG} 2>&1 & echo $! > {RUN}/xgame.pid')
 t0 = time.time(); subprocess.run(['su', 'ue4', '-c', cmd])
 ok = wait(lambda: last().get('fps', 0) > 20, 180)
 note('start', {'seconds_to_running': round(time.time() - t0, 1), 'ok': bool(ok)})

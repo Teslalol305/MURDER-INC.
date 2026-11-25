@@ -19,6 +19,8 @@
 #   VIEWER=<secs on>,<secs off>,<cycles>[,delay]  (a fake viewer joins and leaves through the signalling server)
 #   STOPSIG=INT|TERM|HUP  (sent to the game binary when it is still alive at <secs>; default INT), GRACE=<secs> (30)
 #   STOPTO=game|launcher  (who gets STOPSIG: the game binary (default) or the launcher MurderInc.sh, which passes it on)
+#   CRASHAT=<secs>        (SIGSEGV to the game binary after that long: a crash from outside, for the Shipping game,
+#                          which has no -MICrashTest; the run must then report ENDED BY ITSELF with signal 11)
 # result.txt: "ENDED BY ITSELF: ..." is a crash or exit before the limit; "ALIVE at limit; after <sig>: ..." says how
 # the shutdown went (a clean shutdown ends with EXIT 0 or the signal's 128+n code; SIGNAL 11 is a crash on the way out).
 C=/project/ue/cloud
@@ -60,7 +62,14 @@ sh=\$!
 el() { python3 -c "print(round(\$(date +%s.%N)-\$start,1))"; }
 how() { local rc=\$1; if [ \$rc -gt 128 ]; then echo "SIGNAL \$((rc-128)) (\$(kill -l \$((rc-128)) 2>/dev/null))"; else echo "EXIT \$rc"; fi; }
 # Wait up to the limit; the launcher (sh) returns the game's status (128+n when a signal ended it).
-for i in \$(seq 1 $secs); do kill -0 \$sh 2>/dev/null || break; sleep 1; done
+for i in \$(seq 1 $secs); do
+  kill -0 \$sh 2>/dev/null || break
+  if [ "\$i" = "${CRASHAT:-0}" ]; then
+    game=\$(pgrep -P \$sh -x MurderInc-Linux | head -1); [ -n "\$game" ] || game=\$(pgrep -P \$sh -x MurderInc | head -1)
+    echo "at \$(el)s: SIGSEGV to the game \$game (CRASHAT)" > $d/crash.txt; kill -SEGV \$game
+  fi
+  sleep 1
+done
 if ! kill -0 \$sh 2>/dev/null; then wait \$sh; rc=\$?; echo "ENDED BY ITSELF: \$(how \$rc) after \$(el)s" > $d/result.txt; exit; fi
 # Alive at the limit: stop it the way a host would (STOPSIG to the game binary, the launcher's child), then KILL.
 # The game is the launcher's child named after the binary (the logging launcher also runs tee); setpriv execs it.

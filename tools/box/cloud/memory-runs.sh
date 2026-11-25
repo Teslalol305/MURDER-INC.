@@ -17,14 +17,14 @@ one() {  # name script args...
   local pid; pid=$(cat "$R/game.pid"); local t=0
   while kill -0 "$pid" 2>/dev/null && [ $t -lt 600 ]; do sleep 5; t=$((t + 5)); done
   kill "$pid" 2>/dev/null; sleep 3
-  mkdir -p "$M/$n"; cp "$R/gpu.csv" "$R/gpu-baseline.txt" "$R/cloud.log" "$R/game.log" "$M/$n/" 2>/dev/null
+  mkdir -p "$M/$n"; cp "$R/gpu.csv" "$R/gpu-baseline.txt" "$R/game.log" "$M/$n/" 2>/dev/null
   [ -f "$R/shot.png" ] && mv "$R/shot.png" "$M/$n/shot.png"
   python3 - "$M/$n" "$n" >> "$M/summary.txt" <<'PY'
 import re, sys
 d, n = sys.argv[1], sys.argv[2]
 base = int(open(f'{d}/gpu-baseline.txt').read().split()[0])
 gpu = [int(l.split(',')[1]) for l in open(f'{d}/gpu.csv') if l.count(',') >= 2]
-pr = [dict((k, float(v)) for k, v in re.findall(r'(\w+)=(-?[\d.]+)', l)) for l in open(f'{d}/cloud.log') if 'MICloudProbe' in l]
+pr = [dict((k, float(v)) for k, v in re.findall(r'(\w+)=(-?[\d.]+)', l.split('MICloudProbe', 1)[1])) for l in open(f'{d}/game.log', errors='replace') if 'MICloudProbe' in l]
 fps = [p['fps'] for p in pr if p.get('state') == 2]
 # The game's own Vulkan allocations (r.Vulkan.DumpMemory before quit): the device-local heap's peak, and the
 # process's usage of it from the memory-budget extension. Other processes on the card do not count here.

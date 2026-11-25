@@ -12,7 +12,10 @@
 #   v-sm5         -sm5: the shader platform a driver failing Unreal's SM6 check gets (it used to exit 1 after 7 s)
 #   v-root        started as root (Unreal refuses root): the launcher runs the game as the folder's owner; TERM to
 #                 the launcher, which passes it on
-#   v-crash       -MICrashTest=30: a crash on purpose; the log must say CRASH and carry the engine's crash report
+#   v-crash       the Shipping game crashed from outside after 30 s (SIGSEGV from the harness: version 3 has no
+#                 -MICrashTest in Shipping, so no visitor can cause a crash email); the log must say CRASH and carry
+#                 the engine's crash report
+#   v-crash-dev   -MIDev -MICrashTest=30: the Development game crashes on purpose; the same, with a full call stack
 #   v-nort        hardware ray tracing off (a GPU or driver without it): software Lumen; INT to the launcher
 #   v-dev-quit    the Development game (-MIDev) quits by itself: exit code 0 (it used to segfault on every exit)
 # then one at a time, with tools/box/cloud/vram_hog.py holding graphics memory:
@@ -54,7 +57,8 @@ run_all() {
     "$ps" -ResX=1920 -ResY=1080 -ForceRes -MICloudProbe=30 &
   one v-sm5 120 "${cfg[@]}" NODISPLAY=1 STOPSIG=TERM -- "$none" -sm5 -MICloudProbe=30
   one v-root 90 "${cfg[@]}" RUNAS=root NODISPLAY=1 STOPSIG=TERM STOPTO=launcher -- "$none"
-  one v-crash 90 "${cfg[@]}" NODISPLAY=1 -- "$none" -MICrashTest=30
+  one v-crash 90 "${cfg[@]}" NODISPLAY=1 CRASHAT=30 -- "$none"
+  one v-crash-dev 90 "${cfg[@]}" NODISPLAY=1 -- -MIDev "$none" -MICrashTest=30
   one v-nort 90 "${cfg[@]}" NODISPLAY=1 STOPSIG=INT STOPTO=launcher -- "$none" \
     "-ini:Engine:[/Script/Engine.RendererSettings]:r.RayTracing=False"
   one v-dev-quit 150 "${cfg[@]}" NODISPLAY=1 -- -MIDev "$none" "-ExecCmds=MIDemo.Run $T/e3ds-quit.txt"
