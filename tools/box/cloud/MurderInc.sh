@@ -9,7 +9,8 @@
 #   -UserDir=<here>/MurderInc   Saved/ (logs, crash reports, settings) next to the game, where a Development build
 #                         keeps it, when this folder is writable (else under $HOME, else /tmp)
 #   -stdout -FullStdOutLogOutput   everything the game prints goes to the log below
-# and the host's own arguments last ("$@": the Pixel Streaming connection, resolution, launch options).
+# and the host's own arguments last ("$@": the Pixel Streaming connection, resolution, launch options). The game's
+# environment gets SDL_AUDIODRIVER=dummy: the sound device that needs no sound card (the sound goes out with the stream).
 #
 # The log: MurderInc/Saved/Logs/MurderInc.log (the run before is kept as MurderInc-backup-<time>.log). It holds the
 # build (BUILD.txt), who and where the game runs, the GPU and driver, the Vulkan check Unreal 5.9 needs, the free
@@ -45,7 +46,7 @@
 if [ -z "$BASH_VERSION" ]; then
   command -v bash >/dev/null 2>&1 && exec bash "$0" "$@"
   chmod +x "$(dirname "$0")/MurderInc/Binaries/Linux/MurderInc-Linux-Shipping" 2>/dev/null
-  exec "$(dirname "$0")/MurderInc/Binaries/Linux/MurderInc-Linux-Shipping" MurderInc -MICloud -RenderOffScreen "$@"
+  SDL_AUDIODRIVER=dummy SDL_AUDIO_DRIVER=dummy exec "$(dirname "$0")/MurderInc/Binaries/Linux/MurderInc-Linux-Shipping" MurderInc -MICloud -RenderOffScreen "$@"
 fi
 
 # Started as a background job of a non-interactive shell, this launcher would ignore SIGINT and could not trap it:
@@ -195,6 +196,18 @@ if command -v vulkaninfo >/dev/null 2>&1; then
 else
   note "no vulkaninfo on this server: the Vulkan check is in the game's own lines below ([MICloud] GPU / Features)"
 fi
+
+# ---- the sound: the same on every server, whatever its environment says ----
+# The game's sound needs no sound card: Unreal mixes it and Pixel Streaming sends it to the browser. But Unreal's mixer
+# only runs on an audio device that SDL can open. With -RenderOffScreen Unreal asks SDL for its "dummy" device, which
+# needs nothing from the machine (LinuxPlatformApplicationMisc.cpp, ApplySDLAudioDriverHint) -- unless the environment
+# already names a driver, which SDL then obeys: started with SDL_AUDIODRIVER=alsa on a machine without a sound card,
+# the game logs "ALSA: Couldn't open audio device", "Main audio device could not be initialized", starts no sound at
+# all and sends a stream without any (measured on the GPU box, docs/unreal/PROGRESS.md "Version 3b: sound"). So the
+# launcher names the dummy device itself, under both names SDL reads.
+SNDNOTE="SDL_AUDIODRIVER=${SDL_AUDIODRIVER:-unset} SDL_AUDIO_DRIVER=${SDL_AUDIO_DRIVER:-unset} as the host set them"
+export SDL_AUDIODRIVER=dummy SDL_AUDIO_DRIVER=dummy
+note "sound: $SNDNOTE; the game gets SDL's dummy audio device (no sound card or sound service is needed: the sound goes out with the stream)"
 
 ARGS=(MurderInc -MICloud -RenderOffScreen)
 [ -n "$USERDIR" ] && ARGS+=("-UserDir=$USERDIR")

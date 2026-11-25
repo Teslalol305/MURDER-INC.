@@ -80,6 +80,13 @@ private:
 	};
 
 	USoundWave* Wave(const FString& File);
+	/**
+	 * Every Sound Wave the data can ask for, loaded and its compressed audio kept in memory before anything plays.
+	 * Unreal loads a wave's audio from the pak the first time it plays: measured through a stream, the first round of
+	 * each gun sample reached the viewer 140 to 150 ms after the game started it, every later one after 27 to 50 ms.
+	 * The web game decodes every sound when it loads. Only with an audio device (never in the tests' worlds).
+	 */
+	void Preload();
 	const FSoundAttenuationSettings& Attenuation(FName Category, double Ref, double Roll);
 	void Execute(const FMIAudioCmd& C);
 	void ApplyMix();

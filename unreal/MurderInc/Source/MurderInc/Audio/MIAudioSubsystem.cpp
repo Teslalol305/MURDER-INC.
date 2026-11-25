@@ -244,6 +244,61 @@ void UMIAudioSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	{
 		UE_LOG(LogMIAudioHost, Display, TEXT("master chain on the master submix: compressor, make-up, soft-knee limiter (audio.json master)"));
 	}
+	if (bReady && InWorld.GetAudioDeviceRaw())
+	{
+		Preload();
+	}
+}
+
+void UMIAudioSubsystem::Preload()
+{
+	const double T0 = FPlatformTime::Seconds();
+	TSet<FString> Files;
+	for (const auto& Pair : Data.Sounds)
+	{
+		for (const FString& F : Pair.Value.Files)
+		{
+			Files.Add(F);
+		}
+	}
+	for (const auto& Pair : Data.Replace)
+	{
+		for (const FMIReplaceLayer& L : Pair.Value.Layers)
+		{
+			for (const FString& F : L.Files)
+			{
+				Files.Add(F);
+			}
+		}
+	}
+	for (const auto& Pair : Voice.Characters)
+	{
+		for (const FMIVoiceLine& L : Pair.Value.Lines)
+		{
+			for (const TArray<FMIVoiceTake>* Set : {&L.Takes, &L.CleanTakes})
+			{
+				for (const FMIVoiceTake& T : *Set)
+				{
+					Files.Add(FString::Printf(TEXT("Voice/%s/%s"), *Pair.Key.ToString(), *T.File));
+				}
+			}
+		}
+	}
+	int32 Ready = 0;
+	for (const FString& F : Files)
+	{
+		if (USoundWave* W = Wave(F))
+		{
+			W->RetainCompressedAudio(false);  // its audio is read from the pak now (in the background) and stays in memory
+			++Ready;
+		}
+	}
+	const int32 Missing = Files.Num() - Ready;
+	if (Missing > 0)
+	{
+		UE_LOG(LogMIAudioHost, Warning, TEXT("sounds: %d of the %d Sound Waves the data names are MISSING from this build (each is named above): the game will be silent where they belong"), Missing, Files.Num());
+	}
+	UE_LOG(LogMIAudioHost, Display, TEXT("sounds: %d of %d Sound Waves loaded and kept in memory in %.0f ms"), Ready, Files.Num(), (FPlatformTime::Seconds() - T0) * 1000.0);
 }
 
 USoundWave* UMIAudioSubsystem::Wave(const FString& File)
