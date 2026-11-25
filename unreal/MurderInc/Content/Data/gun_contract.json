@@ -5,7 +5,7 @@
     "game": "MURDER INC.",
     "schema": 1,
     "units": "metres, in the mesh's own frame: x forward along the bore, y left, z up. Unreal cm = (x, -y, z) x 100; the viewmodel data's gun space (web) = (-y, z, -x).",
-    "source": "art/out/manifest.json of 2026-11-25T14:36:45 (the guns) and art/blender/assets/weapons_parts_contract.json (the parts)",
+    "source": "art/out/manifest.json of 2026-11-25T14:37:54 (the guns) and art/blender/assets/weapons_parts_contract.json (the parts)",
     "regenerate": "python3 tools/data/make_gun_contract.py   (add --check to see whether this file is stale)"
   },
   "assets": {
@@ -18,7 +18,7 @@
     "chopper": {
       "mesh": "SK_Chopper",
       "asset": "/Game/Weapons/Chopper/SK_Chopper.SK_Chopper",
-      "triangles": 150415,
+      "triangles": 150487,
       "bounds": {"min": [-0.0045, -0.0229, -0.1486], "max": [0.4975, 0.042, 0.063]},
       "deformBones": {
         "Booster": [0.426, 0, 0],
@@ -321,5 +321,24 @@
       "materialSlots": ["M_Part_Hardware"],
       "triangles": 3684
     }
+  },
+  "ui": {
+    "folder": "/Game/UI/Icons/",
+    "gunIcons": ["T_UI_Gun_Rattler", "T_UI_Gun_Shorty", "T_UI_Gun_Stretch"],
+    "pips": [
+      "T_UI_Att_compensator",
+      "T_UI_Att_foregrip_angled",
+      "T_UI_Att_foregrip_vertical",
+      "T_UI_Att_foregrip_vertical_wood",
+      "T_UI_Att_laser_module",
+      "T_UI_Att_mag_ext_pistol",
+      "T_UI_Att_mag_ext_rifle",
+      "T_UI_Att_mag_ext_smg",
+      "T_UI_Att_red_dot",
+      "T_UI_Att_scope_4x",
+      "T_UI_Att_suppressor",
+      "T_UI_Att_suppressor_pistol"
+    ],
+    "note": "rendered by the weapons pipeline (white on transparent: guns 512 x 192, pips 128 x 128), never committed; the weapons import puts them in /Game/UI/Icons"
   }
 }

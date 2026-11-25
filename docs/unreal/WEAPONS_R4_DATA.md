@@ -20,7 +20,7 @@ line each) and run the checker: do not change the checker to match. An asset pat
 | Brass | `/Game/Weapons/Casings/` | `SM_Weapon_CasingRifle` (CHOPPER, SHORTY, STRETCH), `SM_Weapon_CasingPistol` (RATTLER) |
 | The twelve parts (static, origin = mount, with the sockets of `gun_contract.json` written at import) | `/Game/Weapons/Parts/` | `SM_Part_RedDot`, `SM_Part_Scope4x`, `SM_Part_Suppressor`, `SM_Part_SuppressorPistol`, `SM_Part_Compensator`, `SM_Part_ForegripVertical`, `SM_Part_ForegripVerticalWood`, `SM_Part_ForegripAngled`, `SM_Part_LaserModule`, `SM_Part_MagRifleExt`, `SM_Part_MagSmgExt`, `SM_Part_MagPistolExt` (the three magazines also `_TopRound`) |
 | Materials the optics need (made by the import, not from the art) | `/Game/Weapons/Parts/` | `M_Part_Lens`, `M_Part_Reticle` (the reticle's axis along +X); their scalar parameters are named as the pack's (`Brightness`, `Opacity`, `Roughness`), the daylight values are in `presentation.json firstPerson.opticMaterials` |
-| Icons | `/Game/UI/Icons/` | `T_UI_Gun_Shorty`, `T_UI_Gun_Stretch`, `T_UI_Gun_Rattler` exist in `art/out/ui` today (they replace the box's pack-rendered ones); the CHOPPER's and the NINE's are not rendered. No widget draws an icon, so this blocks nothing. |
+| Icons and pips | `/Game/UI/Icons/` | `T_UI_Gun_Shorty`, `T_UI_Gun_Stretch`, `T_UI_Gun_Rattler` (they replace the box's pack-rendered ones) and the twelve `T_UI_Att_<part id>` exist in `art/out/ui` (listed in `gun_contract.json`, named in each part's `art.pip`); the CHOPPER's and the NINE's icons are not rendered. No widget draws an icon or a pip, so this blocks nothing. |
 
 Static-mesh sockets cannot be read from a GLB: the part sockets (`SightEye`, `Muzzle`, `SupportHand`, `Beam`) come from
 `art/out/weapons_r4.json` (when the art lanes write it) or from `gun_contract.json`, in metres in the part's frame, written as
@@ -66,7 +66,7 @@ Everything above was checked against the data's own rules, the art manifest and 
   degrees (the scope's ocular alone would give 9), so at the aimed field the picture is a small clear disc in a dark tunnel unless the code fades
   or hides the part's body while aimed (`art/blender/PROGRESS.md`, "Where the measured guns decided against the specification"). Nothing in the
   data does that; `relief` is per part, not per gun, and a smaller one widens the disc;
-- the STRETCH and the RATTLER are exported with draft textures at the time of writing; the data holds for the final bake (same names).
+- the textures: the STRETCH's and the RATTLER's final 4096 sets were in `art/out` at 14:40 UTC; the data names no texture, so a re-bake changes nothing here;
 
 ## 5. Re-running and re-checking
 

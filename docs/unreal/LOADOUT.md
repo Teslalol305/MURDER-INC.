@@ -1006,12 +1006,12 @@ prepared), **missing** (nobody has started).
 
 | Gun | Mesh | Mounts for its slots | Clips | Offered |
 |---|---|---|---|---|
-| CHOPPER | `SK_Chopper` exists (150,415 triangles, three 4K sets): back on slot 1 | `Optic`, `MuzzleMount` (hides `Booster`), `Underbarrel`: exist; `FrontSight` hides under an optic | hand IK on `Palm_R` / `Palm_L` (`chopper_ik`); procedural + template Idle | always (parity); 3 slots after the import |
+| CHOPPER | `SK_Chopper` exists (150,487 triangles, three 4K sets): back on slot 1 | `Optic`, `MuzzleMount` (hides `Booster`), `Underbarrel`: exist; `FrontSight` hides under an optic | hand IK on `Palm_R` / `Palm_L` (`chopper_ik`); procedural + template Idle | always (parity); 3 slots after the import |
 | NINE | `SK_Nine` exists | `Laser`, `MuzzleMount`, `MagHinge`: exist | hand IK (`pistol`); procedural + template Idle | always (parity); 3 slots after the import |
 | SHORTY | `SK_Shorty` exists (our bullpup carbine, 67,168 triangles, one 4K set) | `Optic`, `MuzzleMount`, `Underbarrel`, `Laser`, `MagHinge`: exist | hand IK (`shorty_ik`) | after the import; 5 slots |
 | STICK | `SK_TFA_AR_Default_Combined` exists on the box (open); folded: no art | five sockets: exist (pack import) | the pack's clips (`rifle`, Pack mode) | yes on the box; no in a clean checkout; 5 slots |
 | STRETCH | `SK_Stretch` exists (our marksman rifle, 61,792 triangles, one 4K set) | `Optic`, `MuzzleMount`, `Underbarrel`, `MagHinge`: exist; no `Laser` | hand IK (`stretch_ik`) | after the import; 4 slots |
-| RATTLER | `SK_Rattler` exists (67,964 triangles; its 4K set is a 512 px draft until the final bake) | `Optic`, `MuzzleMount`, `MagHinge`: exist | hand IK (`rattler_ik`); Idle template | after the import; 3 slots |
+| RATTLER | `SK_Rattler` exists (67,964 triangles, one 4K set) | `Optic`, `MuzzleMount`, `MagHinge`: exist | hand IK (`rattler_ik`); Idle template | after the import; 3 slots |
 
 The icons `T_UI_Gun_*` are rendered for the SHORTY, the STRETCH and the RATTLER from our meshes (`art/out/ui`, not committed) and
 still missing for the CHOPPER and the NINE; the box's own pack renders cover the STICK. No widget draws an icon today: the rack, the
@@ -1074,7 +1074,7 @@ region, imported onto `SK_Mannequin`. Never a real person's likeness, no logos, 
 ### 6.5 Front end
 
 The stage room, bench and turntable (`frontend.json stage`), the level thumbnail `T_UI_Level_Block`, the gun icons, the
-part pips and the crew portraits are missing. Engine shapes and text stand in for all of them, so no binary asset is
+part pips and the crew portraits are missing (the pips of our twelve parts and three of the gun icons are rendered since round 4; no widget draws them). Engine shapes and text stand in for all of them, so no binary asset is
 needed to run the flow.
 
 ### 6.6 Requests to other agents
@@ -1091,7 +1091,7 @@ These are hand-offs. This design does not edit their files.
 
 **Status, 2026-11-25.** Done by the weapons lanes of round 4: the CHOPPER's `Optic`, `MuzzleMount`, `Underbarrel` and the separate
 `Booster` and `FrontSight` bones; the NINE's `Laser`, `MuzzleMount` and `MagHinge`; the silhouettes of the SHORTY, STRETCH and RATTLER.
-Still open: the CHOPPER's and the NINE's silhouettes, the part pips `T_UI_Att_*`, and the CHOPPER's extra clip roles (it is hand IK now,
+Still open: the CHOPPER's and the NINE's silhouettes (the twelve part pips `T_UI_Att_<id>` are rendered) and the CHOPPER's extra clip roles (it is hand IK now,
 so they stay `missing` by design). The compact laser for the NINE is done: the module is 46 mm, under the 50 mm gate.
 
 ### 6.7 Licence
@@ -1141,7 +1141,7 @@ this data changes are listed in `WEAPONS_R4_TESTS.md`; the numbers and decisions
 
 **Not done, and why.** The wall pull of the new guns is not re-measured (a rule number; DECISIONS.md). `grips.json` has entries for the NINE
 only: the new guns' hands are the palm IK alone until Blender solves their grips. The RATTLER's deployed-stock variant (`stock_wire_open`)
-waits for a second export. The CHOPPER's and the NINE's silhouettes and the part pips are not rendered.
+waits for a second export. The CHOPPER's and the NINE's silhouettes are not rendered (the twelve part pips are, in `art/out/ui`, and named in each part's `art.pip`).
 
 ---
 

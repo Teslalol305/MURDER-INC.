@@ -91,7 +91,7 @@
           "asset": "SK_Chopper",
           "status": "exists",
           "standIn": "SKM_Rifle",
-          "notes": "Back in the game on slot 1 (DECISIONS.md 2026-11-25). art/out/glb/SK_Chopper.glb: 150,415 triangles, three 4096 sets, bones body, bolt, trigger, selector, magazine, Booster, FrontSight and the 11 socket bones of the manifest (Optic, MuzzleMount and Underbarrel are the round 4 additions). Imported to /Game/Weapons/Chopper by tools/box/fp/import-chars.sh r4; absent in a clean checkout, where the template rifle stands in."
+          "notes": "Back in the game on slot 1 (DECISIONS.md 2026-11-25). art/out/glb/SK_Chopper.glb: 150,487 triangles, three 4096 sets, bones body, bolt, trigger, selector, magazine, Booster, FrontSight and the 11 socket bones of the manifest (Optic, MuzzleMount and Underbarrel are the round 4 additions). Imported to /Game/Weapons/Chopper by tools/box/fp/import-chars.sh r4; absent in a clean checkout, where the template rifle stands in."
         },
         "icon": {
           "asset": "T_UI_Gun_Chopper",
@@ -1067,7 +1067,7 @@
           "asset": "SK_Rattler",
           "status": "exists",
           "standIn": "SKM_Rifle",
-          "notes": "art/out/glb/SK_Rattler.glb: 67,964 triangles, one 4096 set 'Rattler' (a 512 px draft until its final bake lands: same names, replaced in place), bones body, bolt, trigger, selector, magazine, stock (folded), MuzzleDevice, IronsFront, IronsRear and 10 socket bones. The Goons keep SM_Weapon_GoonSMG."
+          "notes": "art/out/glb/SK_Rattler.glb: 67,964 triangles, one 4096 set 'Rattler' (the final bake), bones body, bolt, trigger, selector, magazine, stock (folded), MuzzleDevice, IronsFront, IronsRear and 10 socket bones. The Goons keep SM_Weapon_GoonSMG."
         },
         "icon": {
           "asset": "T_UI_Gun_Rattler",

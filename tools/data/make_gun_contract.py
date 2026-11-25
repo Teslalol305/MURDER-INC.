@@ -116,6 +116,14 @@ def build():
         if p.get("top_round_mesh"):
             entry["topRound"] = PARTS_FOLDER + p["top_round_mesh"] + "." + p["top_round_mesh"]
         contract["parts"][pid] = entry
+    ui = os.path.join(OUT, "ui")
+    names = sorted(os.path.splitext(f)[0] for f in os.listdir(ui)) if os.path.isdir(ui) else []
+    contract["ui"] = {
+        "folder": "/Game/UI/Icons/",
+        "gunIcons": [n for n in names if n.startswith("T_UI_Gun_")],
+        "pips": [n for n in names if n.startswith("T_UI_Att_")],
+        "note": "rendered by the weapons pipeline (white on transparent: guns 512 x 192, pips 128 x 128), never committed; the weapons import puts them in /Game/UI/Icons",
+    }
     r4 = os.path.join(OUT, "weapons_r4.json")
     if os.path.exists(r4):
         check_against_r4(contract, json.load(open(r4)))

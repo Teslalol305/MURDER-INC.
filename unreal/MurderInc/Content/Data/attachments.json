@@ -414,6 +414,7 @@
       },
       "art": {
         "status": "exists",
+        "pip": {"asset": "T_UI_Att_red_dot", "status": "exists"},
         "notes": "Compact enclosed red dot, no maker's marks, black anodised aluminium on a clamp base. Slots M_Part_Hardware, M_Part_Lens, M_Part_Reticle; fits CHOPPER, SHORTY, STRETCH, RATTLER; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
       }
     },
@@ -438,6 +439,7 @@
       },
       "art": {
         "status": "exists",
+        "pip": {"asset": "T_UI_Att_scope_4x", "status": "exists"},
         "notes": "Compact fixed 4x tube scope with elevation and windage turrets, on a clamp base. The numbers are the pack scope's. Slots M_Part_Hardware, M_Part_Lens, M_Part_Reticle; fits CHOPPER, SHORTY, STRETCH; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
       }
     },
@@ -465,6 +467,7 @@
       },
       "art": {
         "status": "exists",
+        "pip": {"asset": "T_UI_Att_suppressor", "status": "exists"},
         "notes": "Long suppressor (210 mm), flutes and a heat-darkened front; the collar swallows the barrel stub. The numbers are the pack silencer's. Slots M_Part_Hardware; fits CHOPPER, SHORTY, STRETCH, RATTLER; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
       }
     },
@@ -492,6 +495,7 @@
       },
       "art": {
         "status": "exists",
+        "pip": {"asset": "T_UI_Att_suppressor_pistol", "status": "exists"},
         "notes": "Pistol suppressor (155 mm), brushed stainless to echo the NINE's slide. The NINE has no falloff of its own: the part's falloff entries make one. Slots M_Part_Hardware; fits NINE; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
       }
     },
@@ -513,6 +517,7 @@
       },
       "art": {
         "status": "exists",
+        "pip": {"asset": "T_UI_Att_compensator", "status": "exists"},
         "notes": "Three-chamber compensator (62 mm), black nitrided steel with carbon in the ports. Not offered on the STRETCH (it has a brake). Slots M_Part_Hardware; fits CHOPPER, SHORTY, RATTLER; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
       }
     },
@@ -533,6 +538,7 @@
       },
       "art": {
         "status": "exists",
+        "pip": {"asset": "T_UI_Att_foregrip_vertical", "status": "exists"},
         "notes": "Vertical foregrip on an MI-R clamp, three finger grooves. The numbers are the pack's vertical grip's. Slots M_Part_Hardware; fits SHORTY, STRETCH; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
       }
     },
@@ -553,6 +559,7 @@
       },
       "art": {
         "status": "exists",
+        "pip": {"asset": "T_UI_Att_foregrip_vertical_wood", "status": "exists"},
         "notes": "The vertical grip's twin for the CHOPPER's rail-less wooden handguard: the clamp is a saddle built into the part, so it reads as a different part. Slots M_Part_Hardware; fits CHOPPER; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
       }
     },
@@ -573,6 +580,7 @@
       },
       "art": {
         "status": "exists",
+        "pip": {"asset": "T_UI_Att_foregrip_angled", "status": "exists"},
         "notes": "Angled foregrip on an MI-R clamp, a wedge with a thumb shelf. The numbers are the pack's angled grip's. Slots M_Part_Hardware; fits SHORTY, STRETCH; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
       }
     },
@@ -601,6 +609,7 @@
       },
       "art": {
         "status": "exists",
+        "pip": {"asset": "T_UI_Att_laser_module", "status": "exists"},
         "notes": "Compact red laser module (46 mm), under the 50 mm gate that dropped the pack laser from the NINE. The numbers are the pack laser's. Slots M_Part_Hardware; fits NINE, SHORTY; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
       }
     },
@@ -620,6 +629,7 @@
       },
       "art": {
         "status": "exists",
+        "pip": {"asset": "T_UI_Att_mag_ext_rifle", "status": "exists"},
         "notes": "Extended rifle magazine (235 mm, a 45-round look), the same cross-section as the SHORTY's and the STRETCH's standard magazine; the top round is a separate piece. Slots M_Part_Mags; fits SHORTY, STRETCH; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
       }
     },
@@ -639,6 +649,7 @@
       },
       "art": {
         "status": "exists",
+        "pip": {"asset": "T_UI_Att_mag_ext_smg", "status": "exists"},
         "notes": "Extended stick magazine for the RATTLER (242 mm, a 50-round look); the top round is a separate piece. Slots M_Part_Mags; fits RATTLER; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
       }
     },
@@ -658,6 +669,7 @@
       },
       "art": {
         "status": "exists",
+        "pip": {"asset": "T_UI_Att_mag_ext_pistol", "status": "exists"},
         "notes": "Extended pistol magazine raked along the grip axis (modelled in the socket's frame), with the NINE's gold base pad; the top round is a separate piece. Its factor is 1.6, not the specification's 1.67: 15 x 1.6 is 24 exactly, and the parser truncates magSize. Slots M_Part_Mags; fits NINE; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
       }
     }

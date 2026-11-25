@@ -751,6 +751,19 @@ def check_art():
             rel = p["presentation"].get("relief")
             if not rel or not (0.05 <= rel <= 0.3):
                 err("art: optic %s has relief %s" % (pid, rel))
+    # the icons and pips: the data says exists exactly when the art lanes rendered the file
+    ui = CONTRACT.get("ui") or {}
+    for gid in OWN:
+        ic = GUNS[gid]["art"].get("icon") or {}
+        have = ic.get("asset") in (ui.get("gunIcons") or [])
+        if (ic.get("status") == "exists") != have:
+            err("art: %s icon %s is marked %s but the art lanes %s it" % (gid, ic.get("asset"), ic.get("status"), "rendered" if have else "did not render"))
+    for pid, p in PARTS.items():
+        if p.get("source") != "own":
+            continue
+        pip = (p["art"].get("pip") or {})
+        if pip.get("asset") not in (ui.get("pips") or []) or pip.get("status") != "exists":
+            err("art: %s pip %s is not one the art lanes rendered" % (pid, pip))
     # where the eye ends up behind each optic (information for the picture review: the near plane may slice what is under the eye)
     for gid in sorted(OWN):
         c = cg[gid]
