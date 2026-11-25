@@ -228,3 +228,92 @@ profile (`ApplyStreamedQuality`), and the cloud profile's device-profile priorit
 the idle state clamps and then restores `r.DynamicRes.MaxScreenPercentage` and does not touch `WebRTC.Fps`; a viewer's size request is
 drawn at most 1920 x 1080 (`FMICloudSize`, `MICloud.h` 67); the viewer allowlist keeps `MI.Cloud.QpExact` and the session options out
 of a visitor's reach. The 4K stop (R1, M2) is not a setting: the only way a session reaches it is a Custom size above 1920 x 1080.
+
+## Weapon selection and attachments audit (box lane, 2026-11-25, 21:25 to 22:35 UTC)
+
+**What was looked at.** The newest package on the box, the trial zip `/project/ue/cloud/v6trial.zip` (commit `fd8ce12`; nothing newer
+in `/project/ue/cloud/v6`), unpacked privately to `/project/ue/ready/weapons/zip`, its own Content/Data unchanged. Since `fd8ce12` the
+branch has changed no Workbench code (`UI/`, `Flow/MIFrontEndRules.cpp`) and not `attachments.json`; it has changed the first-person
+rig (`MIFirstPersonRig.cpp`, the optic fade `7e120ac`/`a88dcdc`, the pack-gun tick `1f560d7`, the hands `7c0bc1a` onward) and the
+hands data in `guns.json`/`grips.json`/`presentation.json`. So the Workbench findings hold for the head; the first-person ones say which
+commit should fix them. Every run took the GPU the way the box's lanes now do (a placeholder process named `MurderInc` held while the
+runs went, released at the end) and ran one game at a time.
+
+| Run (`/project/ue/ready/weapons/runs`, pictures in `shots/`) | Game | What it did |
+|---|---|---|
+| `rw-wa3` | Development, MIShot, 142 pictures | The Workbench of all six guns: every offered part of every slot previewed (`MIMenu fe preview`, the hover's twin), fitted (`fit`, the click's twin), then the slot put back to Factory (or the default part where the slot is required); six parts that a gun's row does not list fitted by console; the keyboard on one slot; the run's builds fitted; Block & Style, back, two benches, the Briefing; `MISetup dump` at the start, after the builds and at the end |
+| `rw-wb` | Development, MIShot, 46 pictures, probe lines every 0.5 s | A new start of the game with that save: the Briefing straight away, a Story run with CHOPPER (red dot, suppressor, wooden grip), NINE (pistol suppressor, laser, extended magazine), SHORTY (4x scope, compensator, angled grip, laser, extended magazine), RATTLER (red dot, suppressor, extended magazine); each drawn by its number key, aimed, fired aimed and at the hip, reloaded; then switching by key, mouse wheel, pad and Q (real key events through Slate, `MIKey`); the NINE emptied and reloaded. `log LogMIAudioHost Verbose` for the sounds |
+| `rw-w2` | Development, MIShot | Saved builds of STICK, STRETCH, NINE, RATTLER reopened; a run with STICK (scope, silencer, grip, laser, clear magazine), STRETCH (4x scope, suppressor, grip, extended magazine), CHOPPER (4x scope, compensator), SHORTY (red dot, suppressor, vertical grip). **Crashed** (W1) |
+| `rw-st` | Shipping, through Pixel Streaming 2 with the Python viewer (`rtcinput.py`, a `wheel` verb added in this lane's copy), probe lines every 0.25 s | The same save, Hit the block, keys 1 to 4, right button, left button, R as a browser sends them. **Crashed** (W1). Its pictures were then lost: a second copy of this run, started by a waiter of mine that I believed stopped, cleared the run folder before I stopped it (it never started a game); the probe lines and the game's log were kept |
+
+Expected values were worked out without the engine: `tools/data/check_guns_data.py`'s resolver (the mirror of
+`FMILoadoutResolver::ApplyEffects`) run on each gun's default build with and without each part, formatted as
+`FMIFrontEndRules::EffectLines` formats them.
+
+### Findings, most severe first
+
+| # | Severity | Finding | Evidence | Fix (proposed, not made) |
+|---|---|---|---|---|
+| W1 | **blocker** | **The game crashes after the STICK has been used and the player moves on to the other guns.** SIGSEGV, a null read, in the hidden pack gun's animation. Seen twice, in both games: the Development game after STICK, STRETCH, CHOPPER, then SHORTY aimed; the Shipping game through the stream after STICK, STRETCH, CHOPPER, SHORTY, then key 1 back to the STICK. On E3DS this ends the session in the middle of a run. A run without the STICK (`rw-wb`: four guns, 13 switches, every gun aimed, fired and reloaded) did not crash. | `rw-w2` game log 22:23:31: `Unhandled Exception: SIGSEGV: invalid attempt to read memory at address 0x0` with `AnimationContext: SkeletalMeshComponent='FirstPersonPackGun' SkeletalMesh='SK_TFA_AR_Default_Combined_Folded' AnimInstance='MIFPAnimInstance_...'`, 1.2 s after `MIInput ads 1` on the SHORTY. `rw-st`: `[MurderInc.sh] CRASH: the game was killed by signal 11 (SIGSEGV) after 67s`; its last probe line is the SHORTY reloaded to 30, the viewer's next input was key 1. | `fd8ce12` leaves the hidden pack gun ticking with its anim instance after the rig leaves pack mode. `1f560d7` (`MIFirstPersonRig.cpp` 249-255) stops its tick and clears its anim instance: **probably fixed in `1f560d7`, not yet packaged**, and never run on this sequence (PROGRESS says the crash was seen once and the test for it not written). Prove on the v6 package: carry the STICK in slot 1, then 2, 3, 4, aim each, back to 1, in the Development game and through the stream; write the automation test the review asked for (STICK, RATTLER, STICK with world ticks). |
+| W2 | **blocker for this package** (fixed in the branch, not yet packaged) | **Aimed optics and the support hand.** Every optic of our own (red dot on CHOPPER, RATTLER; 4x scope on SHORTY, STRETCH, CHOPPER) is a thick black ring round a small clear disc, and the support hand is a brown ball (a fist seen end-on) that covers the left third to half of the aimed picture and sits beside the gun at the hip and in reloads, on the CHOPPER, SHORTY, STRETCH and RATTLER. The NINE (irons) and the STICK (pack holo sight) are clean. The reticle is centred and visible in each optic. | `rw-wb` 005, 019, 026 (aimed), 004, 018, 025 (hip), 009, 023 (reload); `rw-w2` 021, 028 (4x scopes), 020, 027 (hip); picture `ready-weapons-aim-package.jpg`. | The fade of the optic's housing is `7e120ac`/`a88dcdc`, the solved grips and anchors are the hands data of `8d0d6ac`, `7c0bc1a` and later (the hands engineer's runs `m4`/`d1` show the ball gone): **fixed in those commits, not yet packaged**. The black ring cannot be judged until a package has the fade: repeat `rw-wb`'s aimed pictures on the v6 package. |
+| W3 | must-fix | **The keyboard's Up arrow does nothing on the set-up screens.** On the Workbench a player who previews down the list cannot come back up (Down, Down, Enter fits the angled grip; Up leaves the focus on it; Enter fits it again). Down, Left, Right, Enter, Escape and the pad's D-pad Up are handled. | `rw-wa3` log: every `MIKey Up` was `not handled` (Workbench 1 of 1 here; in the first, discarded run `rw-wa` 5 on the Workbench, 2 on Crew, 2 on Loadout, 1 on Block & Style, 2 on the Briefing), every `MIKey Down` `handled`; the menu lane's pad run logs `MIKey Gamepad_DPad_Up: handled`. Frames `rw-wa3` 128 and 129; picture `ready-weapons-keyboard-up.jpg`. `MIKey` sends a real Slate key event to the screens' widget, the path the WalkWorld test uses; `UMIFrontEnd::Key` handles `EKeys::Up` (`UI/MIFrontEnd.cpp` 614), so the event does not reach it. Not yet confirmed with a browser's key 38 through the stream (those pictures were lost, above). | Find where Slate stops the Up key before `SMIFrontEnd::OnKeyDown` (an input preprocessor or a focused child; the stream's own preprocessor `FMICloudInput` returns false for it); add Up to `MurderInc.Frontend.WalkWorld`, which walks only Down today. |
+| W4 | should-fix | **The SHORTY's and RATTLER's extended magazines look like the factory ones on the Workbench.** The stage stands the gun on the turntable by its factory magazine, so the longer magazine goes down into the turntable; the STRETCH and NINE show theirs. The 45 and 48 rounds are real in play (W-ok below). | Pixel difference of the stage between fitted and Factory, threshold 12: SHORTY 191 pixels, RATTLER 273 (the texture of the magazine, not its length), STRETCH 493, NINE 4,256; `rw-wa3` 061/062, 122/123, 106/107, 033/034; picture `ready-weapons-bench-mags.jpg`. | Stand the gun on the lowest point of the assembled gun with its parts (or raise the stage camera's subject when a magazine part is fitted). |
+| W5 | should-fix (owner's decision) | **The STRETCH is drawn and described as a semi-automatic marksman rifle but plays as an automatic rifle.** Its art has a SAFE/SEMI selector and a bolt that locks back (WEAPONS_R4.md 1.1, 2); its rules are `auto: true`, 700 rounds a minute, and the HUD shows AUTO and "B SWITCH TO SEMI". | `guns.json` `guns.stretch.rules`; `rw-w2` 020, 021 (HUD). | A rules change is a gameplay change: not for this pass. Decide whether the STRETCH starts in semi, or describe it as a battle rifle. |
+| W6 | should-fix | **The suppressors cut the muzzle flash by half, not by 85 %.** `attachments.json` gives `flash` x0.15 (the table in WEAPONS_R4.md 4 says so too), but `flash` has two targets, and a stat with several targets takes its factor through the global clamp [0.5, 2.0]; the Workbench says "−50% muzzle flash", which is what the game does. `check_guns_data.py` reports a clamp that swallows an effect only for a target's own clamp, not for this factor clamp. | `rw-wa3` 012, 024, 044, 070, 095, 115 (all "−50% muzzle flash"); `attachments.json` `meta.factor` [0.5, 2.0]; the checker: 0 errors, 0 warnings. | Either say x0.5 in the data and the page, or let `flash` through the clamp; make the checker warn when the factor clamp changes a multi-target effect. |
+| W7 | nit | The laser shows in play only as a 5-pixel red point and a 0.25-unit line at 55 % opacity (`UMIWeaponComponent::DrawLaser`): in a 1080 picture, and more so after the stream's compression, it is hard to find. | `rw-wb` 011 (NINE at the hip: the dot on the lamp post), 018. | A brighter dot (an emissive decal or a small sprite) if the laser should read in the stream. |
+| W8 | nit | On the Workbench the suppressors' heat-tint band shows as a rainbow stripe at the muzzle, which reads as a rendering fault (WEAPONS_R4.md 9 calls it garish). | `rw-wa3` 012 (CHOPPER), 089 (STRETCH), 115 (RATTLER). | Tone the tint down in the parts texture. |
+| W9 | nit | Workbench stage framing: the STRETCH's stock and the RATTLER's receiver run behind the left column with a suppressor fitted; the STICK is nearly black on the stage; the SHORTY's laser module and angled grip are a few pixels. | `rw-wa3` 091 to 097, 115 to 116, 066 to 086, 057, 053. | Per-gun stage distance and fill light (the menu lane's stage notes). |
+| W10 | nit | Log noise of a fitted gun: drawing the SHORTY after the CHOPPER logs `Invalid Bone Name 'FrontSight'` and `'Booster'` (the CHOPPER's hidden bones asked of the SHORTY's mesh), and every red dot logs `Invalid material ... used on Nanite static mesh [SM_Part_RedDot] ... BLEND_Translucent` / `BLEND_Additive` (the SM6 path; E3DS runs SM5). The dot still shows. | `rw-w2` game log 22:23:28. | Unhide only bones the mesh has; build the lens and reticle parts without Nanite. |
+| W11 | nit | With a part fitted but the keyboard focus on Factory, the Workbench's effect column says "No change to the rules". | `rw-wa3` 134. | Show the fitted part's lines when Factory is focused but not fitted. |
+
+**Checked and correct** (in the package, with the evidence named):
+
+- **Slots and offered parts** are the data's: CHOPPER optic, muzzle, underbarrel; NINE muzzle, laser, magazine; SHORTY five; STICK five (the
+  stock slot hidden: no folded mesh); STRETCH optic, muzzle, underbarrel, magazine; RATTLER optic, muzzle, magazine; each slot lists Factory
+  (or, for the STICK's optic and magazine, the required default) and exactly the parts of the gun's row (`rw-wa3` tabs 005 to 120). A part
+  not in the row is refused and the build does not change: scope on the CHOPPER, suppressor (rifle) on the NINE, the SMG magazine on the
+  SHORTY, the compensator on the STRETCH, the 4x scope and the rifle magazine on the RATTLER (`rw-wa3` 021, 035, 063, 108, 124, 125).
+- **Every part of every gun appears on the Workbench stage when previewed and when fitted, and goes when the slot is put back**: 34 parts,
+  23 slots, `rw-wa3` 006 to 123 (W4 is the one that does not read). The stage swaps at once; no picture of this run is garbled (the menu
+  lane's M1 flicker is a stream effect that MIShot cannot catch).
+- **The effect lines are the data's** for all 34 parts on their guns, sign, colour and number: e.g. red dot "▲ −8% aim time, ▲ −12% aimed
+  spread on the move, ▼ +8% aimed spread, ▼ +5% swap time"; 4x scope "• Aimed view 30° (from 52°)"; SHORTY suppressor "Heard 20 m out
+  (from 50 m) ... 68% damage at long range"; extended magazines "+60%" (NINE), "+50%" (rifles, SMG) "rounds per magazine" (`rw-wa3`
+  previews; picture `ready-weapons-bench-preview.jpg`).
+- **The choice survives**: Block & Style and back, two benches reopened, the Briefing (whose Carrying row shows each gun's part count), a
+  quit and a new start of the game (`MISetup dump` identical at the end of `rw-wa3`, the start of `rw-wb` and of `rw-w2`; `rw-w2` 004 to 007
+  reopen the STICK, STRETCH, NINE and RATTLER benches with their parts), and into the run (below).
+- **In the run** (`rw-wb`, probe lines): every gun draws on its number key, fires (the magazine goes down), aims and reloads to its full
+  count. Magazines: CHOPPER 30, NINE 24 with the extended magazine (the data's 15 x 1.6), SHORTY 45, RATTLER 48, STRETCH 45, STICK 30 (`rw-w2`), every
+  reload back to that count; the NINE emptied to 0, then reloaded to 24. **Switching** (picture `ready-weapons-switching.jpg`): key 1,
+  mouse wheel down four times (NINE, SHORTY, RATTLER, then back round to the CHOPPER), wheel up (RATTLER), pad D-pad up (next) and down
+  (previous), D-pad right (slot 2) and left (slot 1), pad Y (last gun), Q (last gun), key 4: every step lands on the right gun, and the
+  glyphs change to the pad's (RB) after a pad button. **Suppressors act**: the CHOPPER and RATTLER fired the silenced layers (39 plays of
+  `chopper_sup_*`), the NINE `nine_sup_*` (26), the SHORTY with the compensator the plain ones (24 `chopper_shot_*`, 24
+  `chopper_close_*`); no flash at the suppressed muzzles, a large one at the compensated SHORTY (`rw-wb` 008 against 022). Parts are on
+  the first-person guns (scopes, red dots, suppressors, grips, the NINE's pistol suppressor at the hip in `rw-wb` 011 and 015).
+- **Through the stream** (Shipping, `rw-st` probe lines): keys 1 to 4, the right and left buttons and R as a browser sends them drew,
+  aimed, fired and reloaded the STICK (30 to 24 to 30), STRETCH (45 to 40 to 45), CHOPPER (30 to 25 to 30) and SHORTY (30 to 24 to 30),
+  60 frames a second, until W1. The wheel and the pad through the stream were not reached.
+
+**What the automation tests cover, and what they do not** (`Tests/*.cpp`, read, not run). Covered: each part's effect on the rules, the
+factory magazines, the ops and clamps and falloff (`MurderInc.Attachments*`); the slots each gun offers (`Loadout.SlotCounts`); every
+offered part fitted alone on each own gun's mesh, on the stage's and the first-person component types, its mount, frame, SightEye,
+hidden bones, materials and the magazine following its bone (`Loadout.PartsOnEveryGun`); the trade band, distinct guns, the socket contract;
+the Workbench at the rules level on the STICK and STRETCH, with the STICK's scope lines (`Frontend.Walk`); the save of builds
+(`Save.SetupRoundTrip`, `SetupValidation`); switching rules and the input layer with real mappings for keys 1 to 4, Q, the wheel and the
+pad (`Weapons.FourGuns`, `Player.ControllerSwitching`, `ControllerKeys`, `ControllerPad`); the STICK's scope and silencer reaching the
+weapon component in play (`Loadout.BuildPIE`). **Not covered**: (1) the pack gun's teardown when switching to a hand-IK gun (W1: no test
+ticks a world through STICK, own gun, STICK); (2) the Workbench driven by keys or the mouse in a world (`Frontend.WalkWorld` never opens it,
+and walks only Down: W3 would have failed it); (3) the effect lines of our own parts (only the STICK's scope) and each part's effect on any
+gun but the first that takes it (`GunFor`); (4) the Slate layout of the set-up screens (M1's garbled frame, the stage framing, W4); (5) a
+full build of every slot at once on one gun (WEAPONS_R4.md 8 lists it as to do); (6) a build of our own guns reaching play: the extended
+magazines' counts, the laser drawn, the suppressor's silenced event and flash, a red dot's or scope's aimed view (BuildPIE uses the pack
+STICK only); (7) the optic fade (`check_guns_data.py`'s `check_optic_fade` holds the names, no C++ test sets AimFade); (8) the factor clamp
+swallowing a multi-target effect (W6). **Not run in this lane**: the suite (it needs an editor build of a clone, and the box's GPU and
+build queue were held by other lanes; PROGRESS says the suite has not run on the head: it must before v6 is packaged).
+
+**Not done:** the wheel, pad and Up arrow through the stream (W1 ended the run first; the rerun's pictures were lost); a run of the
+branch's data over the package (the hands lanes' runs cover the hands data); the aimed views with the fade (needs a package of the head).
+Scripts on the box: `/project/ue/ready/weapons` (`gen_w.py` makes the demo scripts, `go.sh`, `chain.sh`, `goship.sh`, `stream-w.txt`,
+`pack.sh`).
