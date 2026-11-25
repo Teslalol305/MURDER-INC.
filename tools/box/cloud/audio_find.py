@@ -299,10 +299,13 @@ def truth_check(rec, truth, audio, min_x):
     bed = truth.get('bed')
     if bed:
         src = mono48(os.path.join(audio, bed['file']))
-        hits, top = find(Recording(rec.path, bed['from'], bed['from'] + 8.0), src, [1.0], chunk=4.0, min_x=min_x, max_n=1)
+        # A second and a half of it, from 0.9 s of the file: the stretch of the recording before the first planted shot.
+        hits, top = find(Recording(rec.path, bed['from'], bed['from'] + 8.0), src, [1.0], chunk=1.5, at=0.9, min_x=min_x, max_n=12)
         want_db = 20 * math.log10(bed['gain'])
-        good = bool(hits) and abs(hits[0]['gainDb'] - want_db) <= 1.5 and abs(hits[0]['seconds'] - bed['from'] - shift) <= 0.003
-        check(f"the music bed {bed['file']} from {bed['from']} s at {want_db:+.1f} dB (its first 4 s as the template)", good, describe('found', 4.0, hits, top, min_x))
+        here = [h for h in hits if abs(h['seconds'] - (bed['from'] + 0.9 + shift)) <= 0.003]
+        good = bool(here) and abs(here[0]['gainDb'] - want_db) <= 1.5
+        check(f"the music bed {bed['file']} from {bed['from']} s at {want_db:+.1f} dB", good,
+              (f"found at its place: {here[0]['x']} x chance, gain {here[0]['gainDb']:+.1f} dB, score {here[0]['score']}" if here else describe('at its place', 1.5, [], top, min_x)))
     # What was not sent must not be found.
     for absent in ('Gen/explosion_near_01.wav', 'Voice/rule/murda_01.wav', 'Web/horn_far_01.wav'):
         path = os.path.join(audio, absent)

@@ -330,7 +330,7 @@ def selftest(folder, audio_dir):
              'clip': {'at': 14.0, 'ms': 20}, 'actions': []}
     for n in range(1 * RATE, 3 * RATE):
         x[n] = 0.1 * math.sin(2 * math.pi * 1000 * n / RATE)
-    bed_file = os.path.join(audio_dir, 'Web', 'stem_keys_01.wav')
+    bed_file = os.path.join(audio_dir, 'Web', 'stem_drums_01.wav')
     shot_file = os.path.join(audio_dir, 'Gen', 'chopper_close_01.wav')
     click_file = os.path.join(audio_dir, 'Gen', 'nine_close_01.wav')
     def at48(path, seconds=None):
@@ -498,6 +498,7 @@ def selftest(folder, audio_dir):
     s = rec.summary()
     check('nothing lost', s['lostMs'] == 0, f"{s['lostMs']} ms lost, {s['packets']} packets")
     check('the sound\'s clock', abs((s.get('soundPerWallSecond') or 0) - 1) < 0.01, f"{s.get('soundPerWallSecond')} s of sound a second of wall clock")
+    print('(the first drop-out, half a second at 3.0 s, is the pause the signal has between its tone and its music)')
     print(('SELFTEST PART 1 PASSED' if ok else 'SELFTEST PART 1 FAILED') + f': now run audio_find.py {wav} --truth {os.path.join(folder, "selftest-truth.json")} --audio {audio_dir}')
     sys.exit(0 if ok else 1)
 
