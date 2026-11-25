@@ -610,7 +610,8 @@ second session, 18 for the third). Since release 3c the game looks after that it
 clean-up at the start of the next session:
 
 - With no viewer for 2 s it draws 2 pictures a second at the smallest size (an idle game costs the card almost
-  nothing); a viewer who joins wakes it within about a hundredth of a second of the stream's report (the game looks every 10 ms), and the click card shows as before. A
+  nothing: 6 % of the box's card against 39 % for a game that draws the home screen); a viewer who joins is let in 0.2 to 0.55 s later than into a game that
+  draws (the first picture came 0.5 to 0.9 s after he started in the box's runs), and the click card shows as before. A
   game that has just started and has no first viewer yet gets 10 s of grace first.
 - 20 s after the last viewer left, the game says so in its log and quits (exit code 0; the log line is
   `Session over: ...`). A viewer present keeps the game for as long as he stays, and a join cancels the countdown.
@@ -624,6 +625,13 @@ clean-up at the start of the next session:
   reload is slower can raise it, the cost is a game that stays that much longer), and `-MIKeepAlive` turns it off.
 - A game that no viewer ever connected to quits 600 s after it started, and a game whose launcher is gone (E3DS killed
   it) quits 5 s after that.
+- A crash inside the engine's shutdown, after it was asked to quit (by itself or by a stop signal), ends the game with exit
+  code 0 and one log line (`[MICloud] Exit: the engine crashed during its shutdown (signal 11); ...`), not with exit
+  code 139 and a crash e-mail: since this release every session ends with a shutdown, and one stop of the 27 of version 3b's gate
+  crashed in it. `-MINoExitGuard` leaves that out (and the exit guard of the static destructors with it), to find such a crash.
+- E3DS passes what a visitor adds to a stream link on to the game as launch options, so a visitor can type `-MIKeepAlive` (or
+  `-MIExitAfterEmpty=0`) and keep his own game on the machine after his session. Nothing stops that but the launcher's clean-up
+  of other games of the package when the next session starts.
 - The video encoder gets a **range**, not the one quality number E3DS asks for: Medium (QP 34) gives it 24 to 42,
   High (QP 16) gives 8 to 24, so that the sender can pick the quality the connection carries instead of dropping
   frames when it carries less. On a fast connection the picture is as sharp as the range allows (and uses more data:
