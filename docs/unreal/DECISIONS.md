@@ -578,3 +578,11 @@ perfect". The lead creates /project/ue/cloud/RELEASE-V6-GO only when all of thes
 Then the release engineer packages exactly that commit and gates it; an independent check plays the package; only then is it uploaded,
 and E3DS's copy is played through the E3DS page (every gun, every part, keyboard, mouse and pad) before the owner switches the pin.
 Anything that fails any step goes back to its lane; nothing is waived for time.
+
+## 2026-11-25 ~21:00 UTC: smooth play is a release criterion
+
+The owner played version 4 on E3DS: "It is very laggy and buggy you need to ensure this is built for a smooth gaming experience"
+(asked: stutter or freezes and a low frame rate; bugs in menus, weapons and gameplay). Added to the GO criteria of 20:40:
+4. docs/unreal/SMOOTH.md's independent verdict is "smooth": no freezes, 60 fps held under E3DS-class limits on the front end, story and
+   holdout, per-frame numbers (frames over 25 ms and 100 ms per minute, worst frame, 1 % low) better than version 4's under the same
+   conditions, and every gameplay, menu and weapon bug found fixed and re-checked.
