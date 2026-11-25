@@ -1,8 +1,15 @@
 # The viewer of the round-trip proof (lag-test.sh game=dev view=session-rtt.txt vopts=--delay-ms,40): it stands in the
-# Development game's Story run for 40 s on a link that adds 40 ms of round trip (rtcinput.py makes the link: the box has
-# no tc). The probe lines' rttMs= and the pause card's numbers line must read about that much, and 0 nowhere.
+# Development game's Story run for 25 s on a link that adds 40 ms of round trip (rtcinput.py makes the link: the box has
+# no tc), then presses P: the pause card shows the game's own numbers line, and the viewer saves the picture of it
+# (pause-card.jpg in the run's folder: "... stream 57 a second, ... QP 20 of 24 to 42, round trip 41 ms ..."). The probe
+# lines' rttMs= must read about the link's round trip, and 0 nowhere.
 wait 3
 click
 say PHASE stand
-wait 40
+wait 25
+key 80
+wait 2
+frame pause-card.jpg
+say PHASE card
+wait 4
 say PHASE end
