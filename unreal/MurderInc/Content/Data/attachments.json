@@ -1,7 +1,7 @@
 {
   "meta": {
     "file": "attachments.json",
-    "about": "Weapon attachments (docs/unreal/LOADOUT.md 3.3): the six slots, the stats an attachment may change, the ten pack parts with their rule effects and art, and the per-gun compatibility table. Adding an attachment is one entry in `attachments` plus its id in the `compatibility` rows of the guns it fits; adding a gun is one row in `compatibility`. The pack's three handguard lengths are three guns (guns.json shorty, stick, stretch), not a slot.",
+    "about": "Weapon attachments (docs/unreal/LOADOUT.md 3.3): the six slots, the stats an attachment may change, the ten pack parts and the twelve parts of our own (round 4) with their rule effects and art, and the per-gun compatibility table. Adding an attachment is one entry in `attachments` plus its id in the `compatibility` rows of the guns it fits; adding a gun is one row in `compatibility`. The pack's three handguard lengths are three guns (guns.json shorty, stick, stretch), not a slot.",
     "game": "MURDER INC.",
     "schema": 2,
     "units": "effects and clamps are in web units on the gun's JSON (config.json: metres, seconds, radians, vertical degrees); a `mul` value is a plain factor. The resolver applies them before parsing (LOADOUT.md 3.7).",
@@ -113,6 +113,16 @@
       "trade": true,
       "text": "frontend.effects.reloadTime",
       "note": "every number under rules.reload (both lengths, every mark, each element of pressCheck) times the same factor, with no per-value clamp, so the marks stay exactly marks x factor and the clip plays at 1 / factor"
+    },
+    "magSize": {
+      "targets": [
+        {"path": "rules.magSize", "clamp": [5, 100]}
+      ],
+      "unit": "rounds",
+      "better": "higher",
+      "trade": true,
+      "text": "frontend.effects.magSize",
+      "note": "rounds in a magazine; the extended magazines' only way to do more. ParseGun truncates a fractional magSize, so a part's factor must give a whole number on every gun that takes it (30 x 1.5, 32 x 1.5, 15 x 1.6), which Loadout.TradeBand and tools/data/check_guns_data.py both check."
     },
     "noise": {
       "targets": [{"path": "extra.noise", "clamp": [5, 90]}],
@@ -384,60 +394,344 @@
         "note": "not a child mesh: the gun's base mesh switches to its `folded` variant (guns.json variants)"
       },
       "art": {"status": "missing", "notes": "the pack has no folded stock (its '_Folded' rifles fold the irons; the stock is identical in all six, measured): new art needed"}
+    },
+    "red_dot": {
+      "slot": "optic",
+      "source": "own",
+      "text": "frontend.attachments.items.redDot",
+      "effects": [
+        {"stat": "adsTime", "op": "mul", "value": 0.92},
+        {"stat": "spread.moveAds", "op": "mul", "value": 0.88},
+        {"stat": "spread.ads", "op": "mul", "value": 1.08},
+        {"stat": "swapTime", "op": "mul", "value": 1.05}
+      ],
+      "presentation": {
+        "mesh": "/Game/Weapons/Parts/SM_Part_RedDot.SM_Part_RedDot",
+        "socketOffsetsCm": {"SightEye": [-3.25, 0, 2.45]},
+        "sockets": {"sightRear": "SightEye"},
+        "relief": 0.14,
+        "lens": "a hollow tube sight: the eye looks through two windows, the front and rear glass are the flat translucent slot M_Part_Lens and the collimated dot is the additive plane M_Part_Reticle (the same recipe as the pack's reticle, with its axis along +X); no second render"
+      },
+      "art": {
+        "status": "exists",
+        "notes": "Compact enclosed red dot, no maker's marks, black anodised aluminium on a clamp base. 7,744 triangles; slots M_Part_Hardware, M_Part_Lens, M_Part_Reticle; fits CHOPPER, SHORTY, STRETCH, RATTLER; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
+      }
+    },
+    "scope_4x": {
+      "slot": "optic",
+      "source": "own",
+      "text": "frontend.attachments.items.scope4x",
+      "effects": [
+        {"stat": "adsFov", "op": "set", "value": 30},
+        {"stat": "adsLook", "op": "mul", "value": 0.6},
+        {"stat": "spread.ads", "op": "mul", "value": 0.7},
+        {"stat": "adsTime", "op": "mul", "value": 1.35},
+        {"stat": "spread.moveAds", "op": "mul", "value": 1.3},
+        {"stat": "sway", "op": "mul", "value": 1.2}
+      ],
+      "presentation": {
+        "mesh": "/Game/Weapons/Parts/SM_Part_Scope4x.SM_Part_Scope4x",
+        "socketOffsetsCm": {"SightEye": [-6.7, 0, 2.75]},
+        "sockets": {"sightRear": "SightEye"},
+        "relief": 0.085,
+        "lens": "a hollow 30 mm tube (the ocular bore is clear so the view cone passes at 0.085 relief); glass M_Part_Lens, reticle M_Part_Reticle; the world view narrows to adsFov as the sight comes up (no second render)"
+      },
+      "art": {
+        "status": "exists",
+        "notes": "Compact fixed 4x tube scope with elevation and windage turrets, on a clamp base. The numbers are the pack scope's. 12,050 triangles; slots M_Part_Hardware, M_Part_Lens, M_Part_Reticle; fits CHOPPER, SHORTY, STRETCH; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
+      }
+    },
+    "suppressor": {
+      "slot": "muzzle",
+      "source": "own",
+      "text": "frontend.attachments.items.suppressor",
+      "effects": [
+        {"stat": "noise", "op": "mul", "value": 0.4},
+        {"stat": "flash", "op": "mul", "value": 0.15},
+        {"stat": "recoil.pitch", "op": "mul", "value": 0.95},
+        {"stat": "falloff.start", "op": "min", "value": 25},
+        {"stat": "falloff.end", "op": "min", "value": 50},
+        {"stat": "falloff.min", "op": "mul", "value": 0.85},
+        {"stat": "adsTime", "op": "mul", "value": 1.08},
+        {"stat": "swapTime", "op": "mul", "value": 1.06},
+        {"stat": "length", "op": "mul", "value": 1.12}
+      ],
+      "presentation": {
+        "mesh": "/Game/Weapons/Parts/SM_Part_Suppressor.SM_Part_Suppressor",
+        "socketOffsetsCm": {"Muzzle": [21, 0, 0]},
+        "sockets": {"muzzle": "Muzzle"},
+        "sound": "suppressed",
+        "smoke": "muzzle smoke from the suppressor's end, half density"
+      },
+      "art": {
+        "status": "exists",
+        "notes": "Long suppressor (210 mm), flutes and a heat-darkened front; the collar swallows the barrel stub. The numbers are the pack silencer's. 5,852 triangles; slots M_Part_Hardware; fits CHOPPER, SHORTY, STRETCH, RATTLER; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
+      }
+    },
+    "suppressor_pistol": {
+      "slot": "muzzle",
+      "source": "own",
+      "text": "frontend.attachments.items.suppressorPistol",
+      "effects": [
+        {"stat": "noise", "op": "mul", "value": 0.4},
+        {"stat": "flash", "op": "mul", "value": 0.15},
+        {"stat": "recoil.pitch", "op": "mul", "value": 0.95},
+        {"stat": "falloff.start", "op": "min", "value": 25},
+        {"stat": "falloff.end", "op": "min", "value": 50},
+        {"stat": "falloff.min", "op": "mul", "value": 0.85},
+        {"stat": "adsTime", "op": "mul", "value": 1.08},
+        {"stat": "swapTime", "op": "mul", "value": 1.06},
+        {"stat": "length", "op": "mul", "value": 1.12}
+      ],
+      "presentation": {
+        "mesh": "/Game/Weapons/Parts/SM_Part_SuppressorPistol.SM_Part_SuppressorPistol",
+        "socketOffsetsCm": {"Muzzle": [15.5, 0, 0]},
+        "sockets": {"muzzle": "Muzzle"},
+        "sound": "suppressed",
+        "smoke": "muzzle smoke from the suppressor's end, half density"
+      },
+      "art": {
+        "status": "exists",
+        "notes": "Pistol suppressor (155 mm), brushed stainless to echo the NINE's slide. The NINE has no falloff of its own: the part's falloff entries make one. 3,684 triangles; slots M_Part_Hardware; fits NINE; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
+      }
+    },
+    "compensator": {
+      "slot": "muzzle",
+      "source": "own",
+      "text": "frontend.attachments.items.compensator",
+      "effects": [
+        {"stat": "recoil.pitch", "op": "mul", "value": 0.88},
+        {"stat": "recoil.yaw", "op": "mul", "value": 0.9},
+        {"stat": "noise", "op": "mul", "value": 1.15},
+        {"stat": "adsTime", "op": "mul", "value": 1.04},
+        {"stat": "flash", "op": "mul", "value": 1.3}
+      ],
+      "presentation": {
+        "mesh": "/Game/Weapons/Parts/SM_Part_Compensator.SM_Part_Compensator",
+        "socketOffsetsCm": {"Muzzle": [6.2, 0, 0]},
+        "sockets": {"muzzle": "Muzzle"}
+      },
+      "art": {
+        "status": "exists",
+        "notes": "Three-chamber compensator (62 mm), black nitrided steel with carbon in the ports. Not offered on the STRETCH (it has a brake). 2,628 triangles; slots M_Part_Hardware; fits CHOPPER, SHORTY, RATTLER; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
+      }
+    },
+    "foregrip_vertical": {
+      "slot": "underbarrel",
+      "source": "own",
+      "text": "frontend.attachments.items.foregripVertical",
+      "effects": [
+        {"stat": "recoil.pitch", "op": "mul", "value": 0.88},
+        {"stat": "recoil.yaw", "op": "mul", "value": 0.85},
+        {"stat": "adsTime", "op": "mul", "value": 1.08},
+        {"stat": "swapTime", "op": "mul", "value": 1.05}
+      ],
+      "presentation": {
+        "mesh": "/Game/Weapons/Parts/SM_Part_ForegripVertical.SM_Part_ForegripVertical",
+        "socketOffsetsCm": {"SupportHand": [0, 0, -5.2]},
+        "sockets": {"support": "SupportHand"}
+      },
+      "art": {
+        "status": "exists",
+        "notes": "Vertical foregrip on an MI-R clamp, three finger grooves. The numbers are the pack's vertical grip's. 3,544 triangles; slots M_Part_Hardware; fits SHORTY, STRETCH; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
+      }
+    },
+    "foregrip_vertical_wood": {
+      "slot": "underbarrel",
+      "source": "own",
+      "text": "frontend.attachments.items.foregripVerticalWood",
+      "effects": [
+        {"stat": "recoil.pitch", "op": "mul", "value": 0.88},
+        {"stat": "recoil.yaw", "op": "mul", "value": 0.85},
+        {"stat": "adsTime", "op": "mul", "value": 1.08},
+        {"stat": "swapTime", "op": "mul", "value": 1.05}
+      ],
+      "presentation": {
+        "mesh": "/Game/Weapons/Parts/SM_Part_ForegripVerticalWood.SM_Part_ForegripVerticalWood",
+        "socketOffsetsCm": {"SupportHand": [0, 0, -4.8]},
+        "sockets": {"support": "SupportHand"}
+      },
+      "art": {
+        "status": "exists",
+        "notes": "The vertical grip's twin for the CHOPPER's rail-less wooden handguard: the clamp is a saddle built into the part, so it reads as a different part. 4,092 triangles; slots M_Part_Hardware; fits CHOPPER; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
+      }
+    },
+    "foregrip_angled": {
+      "slot": "underbarrel",
+      "source": "own",
+      "text": "frontend.attachments.items.foregripAngled",
+      "effects": [
+        {"stat": "adsTime", "op": "mul", "value": 0.9},
+        {"stat": "swapTime", "op": "mul", "value": 0.95},
+        {"stat": "recoil.pitch", "op": "mul", "value": 0.96},
+        {"stat": "recoil.yaw", "op": "mul", "value": 1.12}
+      ],
+      "presentation": {
+        "mesh": "/Game/Weapons/Parts/SM_Part_ForegripAngled.SM_Part_ForegripAngled",
+        "socketOffsetsCm": {"SupportHand": [-1.2, 0, -3]},
+        "sockets": {"support": "SupportHand"}
+      },
+      "art": {
+        "status": "exists",
+        "notes": "Angled foregrip on an MI-R clamp, a wedge with a thumb shelf. The numbers are the pack's angled grip's. 2,364 triangles; slots M_Part_Hardware; fits SHORTY, STRETCH; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
+      }
+    },
+    "laser_module": {
+      "slot": "laser",
+      "source": "own",
+      "text": "frontend.attachments.items.laserModule",
+      "effects": [
+        {"stat": "spread.hip", "op": "mul", "value": 0.8},
+        {"stat": "spread.moveHip", "op": "mul", "value": 0.85},
+        {"stat": "spread.ads", "op": "mul", "value": 1.1},
+        {"stat": "adsTime", "op": "mul", "value": 1.08},
+        {"stat": "swapTime", "op": "mul", "value": 1.04}
+      ],
+      "presentation": {
+        "mesh": "/Game/Weapons/Parts/SM_Part_LaserModule.SM_Part_LaserModule",
+        "socketOffsetsCm": {"Beam": [2.35, 0, -1.25]},
+        "sockets": {"beam": "Beam"},
+        "beam": {
+          "color": "#ff2a1a",
+          "dotRadius": 0.006,
+          "maxLength": 60,
+          "hiddenAboveAds": 0.6,
+          "note": "as the pack laser's: always on, no key; the dot sits where the beam meets the first Bullet-channel hit; the beam fades out while aimed. Its cost: a dot that pulls the eye off the sight (aimed spread x 1.1, aim time x 1.08)"
+        }
+      },
+      "art": {
+        "status": "exists",
+        "notes": "Compact red laser module (46 mm), under the 50 mm gate that dropped the pack laser from the NINE. The numbers are the pack laser's. 3,096 triangles; slots M_Part_Hardware; fits NINE, SHORTY; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
+      }
+    },
+    "mag_ext_rifle": {
+      "slot": "magazine",
+      "source": "own",
+      "text": "frontend.attachments.items.magExtRifle",
+      "effects": [
+        {"stat": "magSize", "op": "mul", "value": 1.5},
+        {"stat": "reloadTime", "op": "mul", "value": 1.12},
+        {"stat": "swapTime", "op": "mul", "value": 1.05},
+        {"stat": "adsTime", "op": "mul", "value": 1.04}
+      ],
+      "presentation": {
+        "mesh": "/Game/Weapons/Parts/SM_Part_MagRifleExt.SM_Part_MagRifleExt",
+        "topRoundMesh": "/Game/Weapons/Parts/SM_Part_MagRifleExt_TopRound.SM_Part_MagRifleExt_TopRound"
+      },
+      "art": {
+        "status": "exists",
+        "notes": "Extended rifle magazine (235 mm, a 45-round look), the same cross-section as the SHORTY's and the STRETCH's standard magazine; the top round is a separate piece. 3,712 triangles; slots M_Part_Mags; fits SHORTY, STRETCH; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
+      }
+    },
+    "mag_ext_smg": {
+      "slot": "magazine",
+      "source": "own",
+      "text": "frontend.attachments.items.magExtSmg",
+      "effects": [
+        {"stat": "magSize", "op": "mul", "value": 1.5},
+        {"stat": "reloadTime", "op": "mul", "value": 1.12},
+        {"stat": "swapTime", "op": "mul", "value": 1.06},
+        {"stat": "adsTime", "op": "mul", "value": 1.05}
+      ],
+      "presentation": {
+        "mesh": "/Game/Weapons/Parts/SM_Part_MagSmgExt.SM_Part_MagSmgExt",
+        "topRoundMesh": "/Game/Weapons/Parts/SM_Part_MagSmgExt_TopRound.SM_Part_MagSmgExt_TopRound"
+      },
+      "art": {
+        "status": "exists",
+        "notes": "Extended stick magazine for the RATTLER (242 mm, a 50-round look); the top round is a separate piece. 2,992 triangles; slots M_Part_Mags; fits RATTLER; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
+      }
+    },
+    "mag_ext_pistol": {
+      "slot": "magazine",
+      "source": "own",
+      "text": "frontend.attachments.items.magExtPistol",
+      "effects": [
+        {"stat": "magSize", "op": "mul", "value": 1.6},
+        {"stat": "reloadTime", "op": "mul", "value": 1.1},
+        {"stat": "swapTime", "op": "mul", "value": 1.08},
+        {"stat": "adsTime", "op": "mul", "value": 1.06}
+      ],
+      "presentation": {
+        "mesh": "/Game/Weapons/Parts/SM_Part_MagPistolExt.SM_Part_MagPistolExt",
+        "topRoundMesh": "/Game/Weapons/Parts/SM_Part_MagPistolExt_TopRound.SM_Part_MagPistolExt_TopRound"
+      },
+      "art": {
+        "status": "exists",
+        "notes": "Extended pistol magazine raked along the grip axis (modelled in the socket's frame), with the NINE's gold base pad; the top round is a separate piece. Its factor is 1.6, not the specification's 1.67: 15 x 1.6 is 24 exactly, and the parser truncates magSize. 5,694 triangles; slots M_Part_Mags; fits NINE; its origin is its mount (art/blender/assets/weapons_parts_contract.json)."
+      }
     }
   },
   "compatibility": {
     "about": "Per gun and slot: `options` the player may fit, `default` the choice of a new build (null = the factory part, no effect), `required` true when the slot can never be empty (then `default` is one of `options`), `mount` the gun's mount (guns.json mounts) the part sits on, or `variant` true when the option switches the gun's base mesh. A slot a gun does not list does not exist on that gun. A listed slot is offered only when its mount is exists (or, for a variant slot, only the options whose variant is exists); see guns.json ready. `dropped` (under a gun) keeps, for the record, a row taken out by its gate, with the measured value and why: it is not a slot and is never read as one.",
     "chopper": {
       "optic": {
-        "options": ["scope"],
+        "options": ["red_dot", "scope_4x"],
         "default": null,
         "required": false,
         "mount": "Optic",
-        "note": "the 106 mm rail on the top cover; the iron sights stay and the scope sits on the rail ahead of the rear sight. Hidden until the Optic socket exists on SK_Chopper"
+        "note": "the 106 mm rail on the top cover; the iron sights stay as the gun's own (the front sight tower is hidden under any optic)"
       },
       "muzzle": {
-        "options": ["silencer"],
+        "options": ["suppressor", "compensator"],
         "default": null,
         "required": false,
         "mount": "MuzzleMount",
-        "note": "replaces the muzzle booster. Hidden until MuzzleMount and the separate Booster exist on SK_Chopper"
+        "note": "replaces the muzzle booster"
+      },
+      "underbarrel": {
+        "options": ["foregrip_vertical_wood"],
+        "default": null,
+        "required": false,
+        "mount": "Underbarrel",
+        "note": "a saddle clamp round the wooden handguard; no rail grip fits here"
       }
     },
     "nine": {
-      "dropped": {
-        "laser": {
-          "options": ["laser"],
-          "default": null,
-          "required": false,
-          "mount": "Laser",
-          "gate": {"maxLength": 0.05, "measure": "the pack laser's length along the bore, after import", "measured": 0.155},
-          "why": "dropped by its gate: the pack laser measures 155 mm along the bore (56 mm without its pressure-switch tail), over gate.maxLength 0.05 m; a compact pistol laser is missing art (LOADOUT.md 6.6, ANIMATION.md 8.4)"
-        }
-      }
+      "muzzle": {
+        "options": ["suppressor_pistol"],
+        "default": null,
+        "required": false,
+        "mount": "MuzzleMount",
+        "note": "over the barrel's crown stub, on the frame"
+      },
+      "laser": {
+        "options": ["laser_module"],
+        "default": null,
+        "required": false,
+        "mount": "Laser",
+        "note": "the dust-cover rail: the module is 46 mm, under the old 50 mm gate that dropped the pack laser"
+      },
+      "magazine": {"options": ["mag_ext_pistol"], "default": null, "required": false, "mount": "MagHinge"}
     },
     "shorty": {
-      "optic": {"options": ["irons", "scope"], "default": "irons", "required": true, "mount": "Optic"},
-      "muzzle": {"options": ["silencer"], "default": null, "required": false, "mount": "MuzzleMount"},
+      "optic": {
+        "options": ["red_dot", "scope_4x"],
+        "default": null,
+        "required": false,
+        "mount": "Optic",
+        "note": "the carry handle's rail; the front sight is hidden under any optic"
+      },
+      "muzzle": {
+        "options": ["suppressor", "compensator"],
+        "default": null,
+        "required": false,
+        "mount": "MuzzleMount",
+        "note": "replaces the flash hider"
+      },
       "underbarrel": {
-        "options": ["grip_vertical", "grip_angled"],
+        "options": ["foregrip_vertical", "foregrip_angled"],
         "default": null,
         "required": false,
         "mount": "Underbarrel"
       },
-      "laser": {"options": ["laser"], "default": null, "required": false, "mount": "Laser"},
+      "laser": {"options": ["laser_module"], "default": null, "required": false, "mount": "Laser"},
       "magazine": {
-        "options": ["mag_standard", "mag_clear"],
-        "default": "mag_standard",
-        "required": true,
-        "mount": "MagHinge"
-      },
-      "stock": {
-        "options": ["stock_open", "stock_folded"],
-        "default": "stock_open",
-        "required": true,
-        "mount": null,
-        "variant": true
+        "options": ["mag_ext_rifle"],
+        "default": null,
+        "required": false,
+        "mount": "MagHinge",
+        "note": "no stock slot: a bullpup has none"
       }
     },
     "stick": {
@@ -465,36 +759,55 @@
       }
     },
     "stretch": {
-      "optic": {"options": ["irons", "scope"], "default": "irons", "required": true, "mount": "Optic"},
-      "muzzle": {"options": ["silencer"], "default": null, "required": false, "mount": "MuzzleMount"},
+      "optic": {
+        "options": ["scope_4x", "red_dot"],
+        "default": null,
+        "required": false,
+        "mount": "Optic",
+        "note": "both flip-up irons are hidden under any optic"
+      },
+      "muzzle": {
+        "options": ["suppressor"],
+        "default": null,
+        "required": false,
+        "mount": "MuzzleMount",
+        "note": "replaces the brake; no compensator (the gun has a brake)"
+      },
       "underbarrel": {
-        "options": ["grip_vertical", "grip_angled"],
+        "options": ["foregrip_vertical", "foregrip_angled"],
         "default": null,
         "required": false,
         "mount": "Underbarrel"
       },
-      "laser": {"options": ["laser"], "default": null, "required": false, "mount": "Laser"},
       "magazine": {
-        "options": ["mag_standard", "mag_clear"],
-        "default": "mag_standard",
-        "required": true,
-        "mount": "MagHinge"
-      },
-      "stock": {
-        "options": ["stock_open", "stock_folded"],
-        "default": "stock_open",
-        "required": true,
-        "mount": null,
-        "variant": true
+        "options": ["mag_ext_rifle"],
+        "default": null,
+        "required": false,
+        "mount": "MagHinge",
+        "note": "no laser and no stock slot"
       }
     },
     "rattler": {
+      "optic": {
+        "options": ["red_dot"],
+        "default": null,
+        "required": false,
+        "mount": "Optic",
+        "note": "a red dot only: the rail is too short for the scope"
+      },
       "muzzle": {
-        "options": ["silencer"],
+        "options": ["suppressor", "compensator"],
         "default": null,
         "required": false,
         "mount": "MuzzleMount",
-        "note": "replaces the slotted muzzle device. No optic: the 70 mm top rail is shorter than the scope's mount. No laser: the weapon light fills the handguard"
+        "note": "replaces the slotted muzzle device"
+      },
+      "magazine": {
+        "options": ["mag_ext_smg"],
+        "default": null,
+        "required": false,
+        "mount": "MagHinge",
+        "note": "no laser (the strap wraps the forend) and no underbarrel"
       }
     }
   }

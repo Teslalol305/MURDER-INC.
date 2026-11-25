@@ -1,0 +1,320 @@
+{
+  "meta": {
+    "file": "gun_contract.json",
+    "about": "What the art lanes exported for weapons round 4, as data: the own guns' sockets and deform bones and the parts kit's mounts and sockets. guns.json mounts (socket, at, hide, rideBone), presentation.json (sockets, markers, parts bones, meshOffset) and attachments.json (part meshes, sockets, compatibility) are held to it by tools/data/check_guns_data.py and by MurderInc.Loadout.SocketContract, which runs in a clean checkout (art/out is never committed).",
+    "game": "MURDER INC.",
+    "schema": 1,
+    "units": "metres, in the mesh's own frame: x forward along the bore, y left, z up. Unreal cm = (x, -y, z) x 100; the viewmodel data's gun space (web) = (-y, z, -x).",
+    "source": "art/out/manifest.json of 2026-11-25T14:19:15 (the guns) and art/blender/assets/weapons_parts_contract.json (the parts)",
+    "regenerate": "python3 tools/data/make_gun_contract.py   (add --check to see whether this file is stale)"
+  },
+  "assets": {
+    "folder": "/Game/Weapons/",
+    "parts": "/Game/Weapons/Parts/",
+    "brass": "/Game/Weapons/Casings/",
+    "note": "an asset path is <folder>/<mesh>.<mesh>; the weapons import (tools/box/fp/import-chars.sh r4) puts each mesh there"
+  },
+  "guns": {
+    "chopper": {
+      "mesh": "SK_Chopper",
+      "asset": "/Game/Weapons/Chopper/SK_Chopper.SK_Chopper",
+      "triangles": 150415,
+      "bounds": {"min": [-0.0045, -0.0229, -0.1486], "max": [0.4975, 0.042, 0.063]},
+      "deformBones": {
+        "Booster": [0.426, 0, 0],
+        "FrontSight": [0.409, 0, 0.031],
+        "body": [0, 0, 0],
+        "bolt": [0.18, 0, 0.0145],
+        "magazine": [0, 0, 0],
+        "selector": [0.012, 0.0172, -0.004],
+        "trigger": [0.108, 0, -0.038]
+      },
+      "sockets": {
+        "Eject": [0.15, -0.019, 0.018],
+        "MagHinge": [0.222, 0, -0.04],
+        "Muzzle": [0.4975, 0, 0],
+        "MuzzleMount": [0.426, 0, 0],
+        "Optic": [0.115, 0, 0.042],
+        "Palm_L": [0.315, 0, -0.0615],
+        "Palm_R": [0.04, -0.0155, -0.085],
+        "RecoilPivot": [-0.02, 0, -0.03],
+        "SightFront": [0.409, 0, 0.0555],
+        "SightRear": [0.0235, 0, 0.0555],
+        "Underbarrel": [0.305, 0, -0.0623]
+      },
+      "materialSlots": ["M_Chopper", "M_Chopper_Furniture", "M_Chopper_Front"],
+      "textureSets": ["Chopper", "Chopper_Furniture", "Chopper_Front"],
+      "magazine": "/Game/Weapons/Chopper/SM_Weapon_ChopperMagazine.SM_Weapon_ChopperMagazine",
+      "brass": "/Game/Weapons/Casings/SM_Weapon_CasingRifle.SM_Weapon_CasingRifle"
+    },
+    "nine": {
+      "mesh": "SK_Nine",
+      "asset": "/Game/Weapons/Nine/SK_Nine.SK_Nine",
+      "triangles": 86033,
+      "bounds": {"min": [-0.033, -0.0152, -0.1275], "max": [0.201, 0.0161, 0.0185]},
+      "deformBones": {
+        "barrel": [0.07, 0, -0.008],
+        "frame": [0, 0, 0],
+        "hammer": [-0.0135, 0, -0.0105],
+        "magazine": [0, 0, 0],
+        "slide": [0, 0, 0],
+        "slide_stop": [0.0955, 0, -0.0165],
+        "trigger": [0.091, 0, -0.031]
+      },
+      "sockets": {
+        "Eject": [0.105, -0.012, 0.014],
+        "Laser": [0.156, 0, -0.0236],
+        "MagHinge": [0.0177, 0, -0.0359],
+        "Muzzle": [0.201, 0, 0],
+        "MuzzleMount": [0.196, 0, 0],
+        "Palm_L": [0.03, 0.0146, -0.09],
+        "Palm_R": [0.014, -0.0146, -0.078],
+        "RecoilPivot": [-0.03, 0, -0.085],
+        "SightFront": [0.186, 0, 0.0185],
+        "SightRear": [0.0125, 0, 0.0185]
+      },
+      "materialSlots": ["M_Nine"],
+      "textureSets": ["Nine"],
+      "magazine": "/Game/Weapons/Nine/SM_Weapon_NineMagazine.SM_Weapon_NineMagazine",
+      "brass": null
+    },
+    "shorty": {
+      "mesh": "SK_Shorty",
+      "asset": "/Game/Weapons/Shorty/SK_Shorty.SK_Shorty",
+      "triangles": 67168,
+      "bounds": {"min": [0, -0.043, -0.1738], "max": [0.7, 0.04, 0.1]},
+      "deformBones": {
+        "IronsFront": [0.575, 0, 0.034],
+        "MuzzleDevice": [0.652, 0, 0],
+        "body": [0, 0, 0],
+        "bolt": [0.38, 0, 0.012],
+        "magazine": [0, 0, 0],
+        "selector": [0.3, 0.0285, -0.022],
+        "trigger": [0.362, 0, -0.05]
+      },
+      "sockets": {
+        "Eject": [0.372, -0.0285, 0.016],
+        "Laser": [0.536, 0, -0.052],
+        "MagHinge": [0.206, 0, -0.02],
+        "Muzzle": [0.7, 0, 0],
+        "MuzzleMount": [0.652, 0, 0],
+        "Optic": [0.221, 0, 0.1],
+        "Palm_L": [0.505, 0, -0.052],
+        "Palm_R": [0.295, -0.0165, -0.095],
+        "RecoilPivot": [0.015, 0, -0.012],
+        "SightFront": [0.575, 0, 0.06],
+        "SightRear": [0.134, 0, 0.06],
+        "Underbarrel": [0.488, 0, -0.052]
+      },
+      "materialSlots": ["M_Shorty"],
+      "textureSets": ["Shorty"],
+      "magazine": "/Game/Weapons/Shorty/SM_Weapon_ShortyMagazine.SM_Weapon_ShortyMagazine",
+      "brass": "/Game/Weapons/Casings/SM_Weapon_CasingRifle.SM_Weapon_CasingRifle"
+    },
+    "stretch": {
+      "mesh": "SK_Stretch",
+      "asset": "/Game/Weapons/Stretch/SK_Stretch.SK_Stretch",
+      "triangles": 61792,
+      "bounds": {"min": [-0.255, -0.0295, -0.1402], "max": [0.79, 0.0404, 0.0717]},
+      "deformBones": {
+        "IronsFront": [0.505, 0, 0.052],
+        "IronsRear": [0.028, 0, 0.052],
+        "MuzzleDevice": [0.715, 0, 0],
+        "bipod": [0.47, 0, -0.05],
+        "body": [0, 0, 0],
+        "bolt": [0.195, 0, 0.015],
+        "bolt_catch": [0.125, 0.0225, -0.012],
+        "magazine": [0, 0, 0],
+        "selector": [0.04, 0.0225, -0.01],
+        "trigger": [0.1, 0, -0.045]
+      },
+      "sockets": {
+        "Eject": [0.135, -0.0225, 0.02],
+        "MagHinge": [0.157, 0, -0.024],
+        "Muzzle": [0.79, 0, 0],
+        "MuzzleMount": [0.715, 0, 0],
+        "Optic": [0.15, 0, 0.052],
+        "Palm_L": [0.3, 0, -0.038],
+        "Palm_R": [0.046, -0.0165, -0.085],
+        "RecoilPivot": [-0.245, 0, -0.03],
+        "SightFront": [0.505, 0, 0.0645],
+        "SightRear": [0.028, 0, 0.0645],
+        "Underbarrel": [0.3, 0, -0.038]
+      },
+      "materialSlots": ["M_Stretch"],
+      "textureSets": ["Stretch"],
+      "magazine": "/Game/Weapons/Stretch/SM_Weapon_StretchMagazine.SM_Weapon_StretchMagazine",
+      "brass": "/Game/Weapons/Casings/SM_Weapon_CasingRifle.SM_Weapon_CasingRifle"
+    },
+    "rattler": {
+      "mesh": "SK_Rattler",
+      "asset": "/Game/Weapons/Rattler/SK_Rattler.SK_Rattler",
+      "triangles": 67964,
+      "bounds": {"min": [-0.0044, -0.0298, -0.1449], "max": [0.465, 0.0424, 0.0634]},
+      "deformBones": {
+        "IronsFront": [0.412, 0, 0.0255],
+        "IronsRear": [0.012, 0, 0.03],
+        "MuzzleDevice": [0.41, 0, 0],
+        "body": [0, 0, 0],
+        "bolt": [0.215, 0, 0],
+        "magazine": [0, 0, 0],
+        "selector": [0.045, 0.0225, -0.014],
+        "stock": [0, 0.0285, 0],
+        "trigger": [0.127, 0, -0.045]
+      },
+      "sockets": {
+        "Eject": [0.165, -0.0225, 0.008],
+        "MagHinge": [0.166, 0, -0.032],
+        "Muzzle": [0.465, 0, 0],
+        "MuzzleMount": [0.41, 0, 0],
+        "Optic": [0.172, 0, 0.042],
+        "Palm_L": [0.315, 0, -0.0275],
+        "Palm_R": [0.062, -0.015, -0.082],
+        "RecoilPivot": [-0.02, 0, -0.03],
+        "SightFront": [0.412, 0, 0.0575],
+        "SightRear": [0.012, 0, 0.0575]
+      },
+      "materialSlots": ["M_Rattler"],
+      "textureSets": ["Rattler"],
+      "magazine": "/Game/Weapons/Rattler/SM_Weapon_RattlerMagazine.SM_Weapon_RattlerMagazine",
+      "brass": "/Game/Weapons/Casings/SM_Weapon_CasingPistol.SM_Weapon_CasingPistol"
+    }
+  },
+  "parts": {
+    "compensator": {
+      "mesh": "SM_Part_Compensator",
+      "asset": "/Game/Weapons/Parts/SM_Part_Compensator.SM_Part_Compensator",
+      "slot": "muzzle",
+      "gunSocket": "MuzzleMount",
+      "appliesTo": ["chopper", "shorty", "rattler"],
+      "sockets": {"Muzzle": [0.062, 0, 0]},
+      "bounds": {"min": [0.0001, -0.015, -0.015], "max": [0.062, 0.015, 0.015]},
+      "materialSlots": ["M_Part_Hardware"],
+      "triangles": 2628
+    },
+    "foregrip_angled": {
+      "mesh": "SM_Part_ForegripAngled",
+      "asset": "/Game/Weapons/Parts/SM_Part_ForegripAngled.SM_Part_ForegripAngled",
+      "slot": "underbarrel",
+      "gunSocket": "Underbarrel",
+      "appliesTo": ["shorty", "stretch"],
+      "sockets": {"SupportHand": [-0.012, 0, -0.03]},
+      "bounds": {"min": [-0.0275, -0.0186, -0.058], "max": [0.0338, 0.0145, 0.0084]},
+      "materialSlots": ["M_Part_Hardware"],
+      "triangles": 2364
+    },
+    "foregrip_vertical": {
+      "mesh": "SM_Part_ForegripVertical",
+      "asset": "/Game/Weapons/Parts/SM_Part_ForegripVertical.SM_Part_ForegripVertical",
+      "slot": "underbarrel",
+      "gunSocket": "Underbarrel",
+      "appliesTo": ["shorty", "stretch"],
+      "sockets": {"SupportHand": [0, 0, -0.052]},
+      "bounds": {"min": [-0.02, -0.0186, -0.092], "max": [0.02, 0.017, 0.0084]},
+      "materialSlots": ["M_Part_Hardware"],
+      "triangles": 3544
+    },
+    "foregrip_vertical_wood": {
+      "mesh": "SM_Part_ForegripVerticalWood",
+      "asset": "/Game/Weapons/Parts/SM_Part_ForegripVerticalWood.SM_Part_ForegripVerticalWood",
+      "slot": "underbarrel",
+      "gunSocket": "Underbarrel",
+      "appliesTo": ["chopper"],
+      "sockets": {"SupportHand": [0, 0, -0.048]},
+      "bounds": {"min": [-0.018, -0.0207, -0.0827], "max": [0.018, 0.0203, 0.0212]},
+      "materialSlots": ["M_Part_Hardware"],
+      "triangles": 4092
+    },
+    "laser_module": {
+      "mesh": "SM_Part_LaserModule",
+      "asset": "/Game/Weapons/Parts/SM_Part_LaserModule.SM_Part_LaserModule",
+      "slot": "laser",
+      "gunSocket": "Laser",
+      "appliesTo": ["nine", "shorty"],
+      "sockets": {"Beam": [0.0235, 0, -0.0125]},
+      "bounds": {"min": [-0.0248, -0.0138, -0.0287], "max": [0.0234, 0.013, 0.0031]},
+      "materialSlots": ["M_Part_Hardware"],
+      "triangles": 3096
+    },
+    "mag_ext_pistol": {
+      "mesh": "SM_Part_MagPistolExt",
+      "asset": "/Game/Weapons/Parts/SM_Part_MagPistolExt.SM_Part_MagPistolExt",
+      "slot": "magazine",
+      "gunSocket": "MagHinge",
+      "appliesTo": ["nine"],
+      "sockets": {},
+      "bounds": {"min": [-0.0432, -0.013, -0.1451], "max": [0.0276, 0.013, 0.0029]},
+      "materialSlots": ["M_Part_Mags"],
+      "triangles": 5694,
+      "topRound": "/Game/Weapons/Parts/SM_Part_MagPistolExt_TopRound.SM_Part_MagPistolExt_TopRound"
+    },
+    "mag_ext_rifle": {
+      "mesh": "SM_Part_MagRifleExt",
+      "asset": "/Game/Weapons/Parts/SM_Part_MagRifleExt.SM_Part_MagRifleExt",
+      "slot": "magazine",
+      "gunSocket": "MagHinge",
+      "appliesTo": ["shorty", "stretch"],
+      "sockets": {},
+      "bounds": {"min": [-0.025, -0.013, -0.235], "max": [0.0325, 0.013, 0]},
+      "materialSlots": ["M_Part_Mags"],
+      "triangles": 3712,
+      "topRound": "/Game/Weapons/Parts/SM_Part_MagRifleExt_TopRound.SM_Part_MagRifleExt_TopRound"
+    },
+    "mag_ext_smg": {
+      "mesh": "SM_Part_MagSmgExt",
+      "asset": "/Game/Weapons/Parts/SM_Part_MagSmgExt.SM_Part_MagSmgExt",
+      "slot": "magazine",
+      "gunSocket": "MagHinge",
+      "appliesTo": ["rattler"],
+      "sockets": {},
+      "bounds": {"min": [-0.0217, -0.016, -0.242], "max": [0.0282, 0.016, 0]},
+      "materialSlots": ["M_Part_Mags"],
+      "triangles": 2992,
+      "topRound": "/Game/Weapons/Parts/SM_Part_MagSmgExt_TopRound.SM_Part_MagSmgExt_TopRound"
+    },
+    "red_dot": {
+      "mesh": "SM_Part_RedDot",
+      "asset": "/Game/Weapons/Parts/SM_Part_RedDot.SM_Part_RedDot",
+      "slot": "optic",
+      "gunSocket": "Optic",
+      "appliesTo": ["chopper", "shorty", "stretch", "rattler"],
+      "sockets": {"SightEye": [-0.0325, 0, 0.0245]},
+      "bounds": {"min": [-0.032, -0.0203, -0.0084], "max": [0.032, 0.0183, 0.047]},
+      "materialSlots": ["M_Part_Hardware", "M_Part_Lens", "M_Part_Reticle"],
+      "triangles": 7744
+    },
+    "scope_4x": {
+      "mesh": "SM_Part_Scope4x",
+      "asset": "/Game/Weapons/Parts/SM_Part_Scope4x.SM_Part_Scope4x",
+      "slot": "optic",
+      "gunSocket": "Optic",
+      "appliesTo": ["chopper", "shorty", "stretch"],
+      "sockets": {"SightEye": [-0.067, 0, 0.0275]},
+      "bounds": {"min": [-0.065, -0.026, -0.0084], "max": [0.085, 0.0219, 0.0535]},
+      "materialSlots": ["M_Part_Hardware", "M_Part_Lens", "M_Part_Reticle"],
+      "triangles": 12050
+    },
+    "suppressor": {
+      "mesh": "SM_Part_Suppressor",
+      "asset": "/Game/Weapons/Parts/SM_Part_Suppressor.SM_Part_Suppressor",
+      "slot": "muzzle",
+      "gunSocket": "MuzzleMount",
+      "appliesTo": ["chopper", "shorty", "stretch", "rattler"],
+      "sockets": {"Muzzle": [0.21, 0, 0]},
+      "bounds": {"min": [0.0001, -0.0201, -0.0201], "max": [0.2106, 0.0201, 0.02]},
+      "materialSlots": ["M_Part_Hardware"],
+      "triangles": 5852
+    },
+    "suppressor_pistol": {
+      "mesh": "SM_Part_SuppressorPistol",
+      "asset": "/Game/Weapons/Parts/SM_Part_SuppressorPistol.SM_Part_SuppressorPistol",
+      "slot": "muzzle",
+      "gunSocket": "MuzzleMount",
+      "appliesTo": ["nine"],
+      "sockets": {"Muzzle": [0.155, 0, 0]},
+      "bounds": {"min": [0.0001, -0.0166, -0.0166], "max": [0.1556, 0.0166, 0.0165]},
+      "materialSlots": ["M_Part_Hardware"],
+      "triangles": 3684
+    }
+  }
+}

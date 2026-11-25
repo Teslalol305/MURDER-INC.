@@ -141,7 +141,28 @@
         "magStandard": {"name": "Standard mag", "blurb": "Thirty rounds, steel."},
         "magClear": {"name": "Clear mag", "blurb": "See what's left. Lighter, so it kicks a touch more."},
         "stockOpen": {"name": "Stock open", "blurb": "On the shoulder."},
-        "stockFolded": {"name": "Stock folded", "blurb": "Quick hands, wild kick."}
+        "stockFolded": {"name": "Stock folded", "blurb": "Quick hands, wild kick."},
+        "redDot": {"name": "Red dot", "blurb": "Gets on target fast. The dot covers the small stuff."},
+        "scope4x": {"name": "4x scope", "blurb": "Four times the reach. Slow to come up, shaky on the move."},
+        "suppressor": {"name": "Suppressor", "blurb": "Long and quiet. Loses a little bite at range."},
+        "suppressorPistol": {"name": "Pistol suppressor", "blurb": "Quiet in the hand. Loses a little bite at range."},
+        "compensator": {"name": "Compensator", "blurb": "Keeps the muzzle down. Louder, with a bigger flash."},
+        "foregripVertical": {"name": "Vertical grip", "blurb": "Holds the muzzle down. Heavier in the hands."},
+        "foregripVerticalWood": {
+          "name": "Vertical grip",
+          "blurb": "Walnut, clamped round the handguard. Holds the muzzle down."
+        },
+        "foregripAngled": {"name": "Angled grip", "blurb": "Quick to the eye. Wanders more sideways."},
+        "laserModule": {
+          "name": "Laser module",
+          "blurb": "Tightens hip fire. The dot pulls your eye off the sight."
+        },
+        "magExtRifle": {"name": "Extended mag", "blurb": "Forty-five rounds. Slower to reload and to swap."},
+        "magExtSmg": {
+          "name": "Extended mag",
+          "blurb": "Forty-eight rounds in a long stick. Slower to reload and to swap."
+        },
+        "magExtPistol": {"name": "Extended mag", "blurb": "Twenty-four rounds. Longer, so slower to reload."}
       },
       "noPartsYet": "No parts on this gun yet.",
       "noPartsYetNote": "Its mounts are not built yet. Nothing to fit for now."
@@ -216,6 +237,13 @@
           "template": "{mark} {sign}{pct}% reload time",
           "params": ["mark", "sign", "pct"],
           "example": {"args": ["▲", "−", 6], "value": "▲ −6% reload time"}
+        }
+      },
+      "magSize": {
+        "$template": {
+          "template": "{mark} {sign}{pct}% rounds per magazine",
+          "params": ["mark", "sign", "pct"],
+          "example": {"args": ["▲", "+", 50], "value": "▲ +50% rounds per magazine"}
         }
       },
       "noise": {
@@ -319,9 +347,9 @@
     "cards": {"changeSetup": "Change set-up"},
     "hud": {"modes": {"auto": "AUTO", "semi": "SEMI", "switchTo": "SWITCH TO"}, "wheel": "Pick a gun", "empty": "Empty", "bag": "BAG"},
     "weapons": {
-      "shorty": {"name": "SHORTY", "blurb": "Short-barrel rail carbine, 30 rounds, quick in tight spots"},
+      "shorty": {"name": "SHORTY", "blurb": "Bullpup carbine, 30 rounds, quick in tight spots"},
       "stick": {"name": "STICK", "blurb": "Rail carbine, 30 rounds, takes every attachment"},
-      "stretch": {"name": "STRETCH", "blurb": "Long-barrel rail carbine, 30 rounds, hits harder, steady at range"},
+      "stretch": {"name": "STRETCH", "blurb": "Marksman rifle, 30 rounds, hits harder, steady at range"},
       "rattler": {"name": "RATTLER", "blurb": "Taken off a Vulture, 32 rounds, quick hands, short reach"},
       "melee": {"shorty": "Stock bash", "stick": "Stock bash", "stretch": "Stock bash", "rattler": "Stock bash"}
     },
