@@ -71,7 +71,9 @@ start_game() {  # $1 config, rest: args
 case "$1" in
   start)
     shift
-    if ! kill -0 "$(cat "$RUN/ss.pid" 2>/dev/null)" 2>/dev/null; then
+    # A signalling server that already listens (the box's own, e3ds-repro.sh ss start: the same Epic server on the same
+    # ports) is used as it is: a second one cannot bind them.
+    if ! kill -0 "$(cat "$RUN/ss.pid" 2>/dev/null)" 2>/dev/null && ! listening | grep -q ' 8888$'; then
       (cd "$C/infra/SignallingWebServer" && setsid nohup node --require "$TOOLS/localhost.cjs" dist/index.js --no_config \
         --serve --http_root www --homepage player.html --player_port 8090 --streamer_port 8888 --streamer_host 127.0.0.1 \
         --log_folder "$RUN/sslogs" --console_messages verbose </dev/null > "$RUN/ss.log" 2>&1 & echo $! > "$RUN/ss.pid")
@@ -99,9 +101,10 @@ case "$1" in
     ;;
   stop)
     for f in game ss sampler; do p=$(cat "$RUN/$f.pid" 2>/dev/null); [ -n "$p" ] && kill "$p" 2>/dev/null && echo "stopped $f $p"; done
-    # setsid can fork: stop the signalling server by its command line too (our preload names it).
+    # setsid can fork: stop the signalling server by its command line too (our preload names it). Not with STREAM_RUN: such
+    # a run uses the box's own signalling server (see start) and leaves it alone.
     for p in $(pgrep -x node); do
-      tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -q 'cloud/localhost.cjs' && kill "$p" && echo "stopped signalling $p"
+      [ -z "$STREAM_RUN" ] && tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | grep -q 'cloud/localhost.cjs' && kill "$p" && echo "stopped signalling $p"
     done
     # The game runs under its launcher script: stop the binary it started (only the one in our builds).
     for p in $(pgrep -x MurderInc-Linux; pgrep -x MurderInc); do
