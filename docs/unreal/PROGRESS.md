@@ -3,6 +3,65 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Weapons round 4: the parts kit and the CHOPPER and NINE mounts (parts modeler, lane 2, 2026-11-25, 13:20 to 14:45 UTC)
+
+Why the Workbench was empty on the two guns the owner has played: `guns.json` mounts of the CHOPPER and NINE were `missing`, because
+the exported meshes had no Optic / MuzzleMount / Underbarrel / Laser socket and the booster was not its own bone. This round adds them
+**to the exported files** (art/out, git-ignored) and builds the parts that go on them. Verified in Blender, **not in Unreal**: `python
+art/blender/assets/_weapons_check_parts.py` on the exported files says **ALL MOUNTS KEPT (153 checks)**: every new socket against the
+gun's surface by ray cast, the hide bones closed shells that open nothing when hidden, the patch changing nothing but joints (diff
+against the unpatched export), every part on every gun that carries its mount (the CHOPPER, NINE, SHORTY, STRETCH and RATTLER files) with
+no triangle crossed and a vertex within 1 mm of the gun, the optics' corridors clear; `_weapons_check.py` still says ALL FIXED POINTS KEPT
+for the CHOPPER and the NINE. Pictures `art/previews/weapons_parts_kit.jpg`, `weapons_chopper_built.jpg`, `weapons_nine_built.jpg`,
+`weapons_parts_sights.jpg` (the sight pictures from the eye through the red dot and the scope).
+
+**What the integrator gets** (two archives in the layout of fp-guns.tar, `python art/blender/assets/_weapons_pack_parts.py`: `art/out/fp-weapons-parts.tar`
+21 MB: 15 SM_Part_* GLBs + `.sockets.json`, the sets Weapon_Parts and Weapon_PartsMags, `weapons_r4_parts.json`; `fp-weapons-mounts.tar` 134 MB: the
+patched SK_Chopper.glb and SK_Nine.glb, their sets and the two standard magazines; the committed contract is
+`art/blender/assets/weapons_parts_contract.json`):
+
+| Gun socket (gun space, metres; Unreal cm = (x, -y, z) x 100) | CHOPPER | NINE |
+|---|---|---|
+| Optic | (0.1150, 0, 0.0420) = (11.5, 0, 4.2): the centre of slot 4 of the 106 mm rail, on the lug tops | |
+| MuzzleMount | (0.4260, 0, 0) = (42.6, 0, 0): the booster's base plane | (0.1960, 0, 0) = (19.6, 0, 0): the slide's front face |
+| Underbarrel | (0.3050, 0, -0.0623) = (30.5, 0, -6.23): the underside of the folded stock's shoulder plate | |
+| Laser | | (0.1560, 0, -0.0236) = (15.6, 0, -2.36): the dust cover's middle lug |
+| MagHinge | (0.222, 0, -0.040) (unchanged) | (0.0177, 0, -0.0359) = (1.77, 0, -3.59) |
+| new deform bones | `Booster` (head (0.4260, 0, 0): the muzzle booster, hide it for a muzzle part), `FrontSight` (head (0.409, 0, 0.031): the sight tower, ears, drum and post; hide it for an optic) | none |
+
+Part sockets (part frame, metres; the part's origin is its mount): red_dot `SightEye` (-0.0325, 0, 0.0245); scope_4x `SightEye` (-0.067, 0, 0.0275);
+suppressor `Muzzle` (0.210, 0, 0); compensator `Muzzle` (0.062, 0, 0); suppressor_pistol `Muzzle` (0.155, 0, 0); foregrip_vertical `SupportHand` (0, 0, -0.052);
+foregrip_vertical_wood `SupportHand` (0, 0, -0.048); foregrip_angled `SupportHand` (-0.012, 0, -0.030); laser_module `Beam` (0.0235, 0, -0.0125) along +X; the
+three magazines have none (the origin is MagHinge). Files: `SM_Part_RedDot`, `SM_Part_Scope4x`, `SM_Part_Suppressor`, `SM_Part_Compensator`,
+`SM_Part_SuppressorPistol`, `SM_Part_ForegripVertical`, `SM_Part_ForegripVerticalWood`, `SM_Part_ForegripAngled`, `SM_Part_LaserModule`,
+`SM_Part_MagRifleExt`, `SM_Part_MagSmgExt`, `SM_Part_MagPistolExt` (+ `_TopRound` for the three magazines).
+
+**What the Unreal import must do**: (1) re-import SK_Chopper and SK_Nine (the skeletons gain bones; they are the same meshes, UVs and sets: re-link
+the existing sets); (2) import the 15 part GLBs as **static meshes** and write their sockets from `weapons_r4_parts.json`
+(`ue_import_guns._put_static_socket`: a GLB cannot carry them), slots by name: `M_Part_Hardware` = set `Weapon_Parts` (BC N ORM E), `M_Part_Mags` =
+set `Weapon_PartsMags` (BC N ORM), `M_Part_Lens` = a translucent smoked glass made in the editor (copy `ue_import_guns.glass()`), `M_Part_Reticle` = the
+collimated additive dot (copy `reticle()`; the plane is 10 mm on the red dot, 20 mm on the scope, at X 0 of the part, facing the eye); (3) attach with
+`SnapToTargetIncludingScale` at the gun's socket of the same name (sockets carry no rotation: the parts are built in the gun's axes, the NINE
+magazine pre-canted); (4) hide with `HideBoneByName` per fitted part: optic -> `FrontSight` on the CHOPPER (`IronsFront` / `IronsRear` on the new guns),
+muzzle -> `Booster` (CHOPPER) / `MuzzleDevice`; a hidden shell collapses to its bone head, so nothing opens (checked); (5) the magazines replace
+the gun's standard magazine mesh on the `magazine` bone, the top round hides when empty; (6) the camera of an aimed optic sits at
+`SightEye - relief` along the bore (relief 0.14 red dot, 0.085 scope).
+Optics: the **clear half angle from the eye through the tube is 4.0 deg** (red dot and scope; measured), not the 9 deg of the ocular alone: beyond it the
+ray meets the tube's dark matte inside. The scope view will therefore look like a small clear disc in a dark tunnel at an aimed field of 30 deg; hide or
+fade the scope's body in the aimed view if the whole picture is wanted (the lens ring and the turrets are not in the way of the sight line).
+
+**Data** (`guns.json`, `attachments.json`, from the specification's sections A and B with these numbers): chopper mounts optic {Optic [0.115, 0, 0.042], exists,
+hide ['FrontSight']}, muzzle {MuzzleMount [0.426, 0, 0], exists, hide ['Booster']}, underbarrel {Underbarrel [0.305, 0, -0.0623], exists}; nine mounts laser
+{Laser [0.156, 0, -0.0236]}, muzzle {MuzzleMount [0.196, 0, 0]}, magazine {MagHinge [0.0177, 0, -0.0359]}, all exists; remove `compatibility.nine.dropped.laser`
+(the module is 46 mm, under the 50 mm gate); attachments with the ids red_dot, scope_4x, suppressor, suppressor_pistol, compensator, foregrip_vertical,
+foregrip_vertical_wood (CHOPPER only: its own text key "Vertical grip"), foregrip_angled, laser_module, mag_ext_rifle, mag_ext_smg, mag_ext_pistol and the
+meshes above; compatibility chopper optic [red_dot, scope_4x], muzzle [suppressor, compensator], underbarrel [foregrip_vertical_wood]; nine muzzle
+[suppressor_pistol], laser [laser_module], magazine [mag_ext_pistol]; shorty optic [red_dot, scope_4x], muzzle [suppressor, compensator], underbarrel
+[foregrip_vertical, foregrip_angled], laser [laser_module], magazine [mag_ext_rifle]; stretch optic [scope_4x, red_dot], muzzle [suppressor], underbarrel
+[foregrip_vertical, foregrip_angled], magazine [mag_ext_rifle]; rattler optic [red_dot], muzzle [suppressor, compensator], magazine [mag_ext_smg].
+Where the measured guns differ from the specification's numbers (the CHOPPER's grip clamps the stock plate, the laser is tilted 1 deg, the compensator recess
+is 12.6 deep, the NINE magazine is modelled about the socket): `art/blender/PROGRESS.md` ("Where the measured guns decided against the specification").
+
 ## Weapons round 4: the SHORTY, our own bullpup carbine (weapons modeler, 2026-11-25, 12:20 to 13:55 UTC)
 
 The owner's report on the E3DS build, "all the guns look the same and no attachments are able to be added to the guns", is the
