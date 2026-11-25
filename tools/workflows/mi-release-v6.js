@@ -2,6 +2,7 @@ export const meta = {
   name: 'mi-release-v6',
   description: 'Release v6: package the head of the branch (sound fixes, 3c game fixes, the new guns and parts), prove sound and play through a stream, gate it, review it independently, fix what must be fixed; the lead uploads it to E3DS',
   phases: [
+    { title: 'Prep', detail: 'the packaging clone ready, a trial package of the current head, then wait for the GO file' },
     { title: 'Merge', detail: 'one head, one test run, the weapons content imported in the packaging clone' },
     { title: 'Package', detail: 'package, sound guard, gate, stream proof (reviewers read meanwhile)' },
     { title: 'Check', detail: 'independent check of the zip' },
@@ -15,7 +16,7 @@ const REPORTS = args || {}
 
 const CONTEXT = `
 PROJECT: MURDER INC., a first-person shooter in Unreal Engine 5.9 (C++ project unreal/MurderInc), packaged for Linux with Pixel Streaming 2 and streamed by Eagle 3D Streaming (E3DS) into the owner's website. Repo /home/user/MURDER-INC. (branch ${BRANCH}: commit and push there, small commits, each ending with exactly these two lines:
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01HkcHdD7NbyxwnFfuuSpZY4
 git pull --no-rebase before every push, git add with explicit paths only, never force-push, no pull request; no link, storage address, email, E3DS account or host user name, or person's name in any commit; no model name anywhere else).
 
@@ -73,8 +74,31 @@ YOU ARE THE RELEASE ENGINEER of release v6.${extra}
 7. Docs for a non-technical owner: docs/LAUNCH.md section 9 for release v6 (what changed for the player: sound, guns and accessories, anything not done, the E3DS settings including the session length and idle logout the lead set: 45 and 10 plus 2 minutes), PROGRESS.md, RESUME.md section 9, PREFLIGHT.md items closed with evidence.
 Report through the schema; set ok_to_upload only if the tests passed, the gate passed, the guns were shown in the stream, and nothing in the zip stalls or crashes. The sound is not part of that decision.`
 
+
+const PREP = {
+  type: 'object',
+  properties: {
+    summary: { type: 'string' },
+    trial_package: { type: 'string' },
+    problems_found: { type: 'array', items: { type: 'string' } },
+    go_commit: { type: 'string' },
+    waited_minutes: { type: 'number' },
+  },
+  required: ['summary', 'trial_package', 'problems_found', 'go_commit', 'waited_minutes'],
+}
+
+phase('Prep')
+const prep = await agent(`${CONTEXT}
+
+YOU ARE THE RELEASE ENGINEER of release v6, AND THE WORK IS NOT FINISHED YET: the weapons integration (two engineers: a data engineer in this repository and a box engineer in /project/ue/repo-guns) and the 3c code engineer (/project/ue/repo-3c) are still committing. The owner wants the guns out AS SOON AS POSSIBLE, so you prepare everything now, so that the final package takes minutes, not hours, once they are done.
+1. The packaging clone /project/ue/repo-release: look at its state (git status, log), git pull --no-rebase the branch, sync, build what package-cloud.sh needs. Its generated content: the art and map copies and the audio import are there from version 3b (check); add the WEAPONS: read tools/box/fp/fp-art.sh, tools/box/fp/import-chars.sh and tools/box/fp/mi_guns_r4.py (the box engineer's round 4 import) and the notes they leave in docs (WEAPONS_R4*.md, PROGRESS.md); the art inputs are unpacked on the box in /project/ue/fp-in-guns (read-only for you: point the import at it, never move or change it); run the same import in the packaging clone when the box engineer's import works in theirs (watch their commits; do not race them: your import must use their latest script).
+2. A TRIAL PACKAGE of the current branch head (package-cloud.sh all with MI_COMMIT=<head>, MI_TAG=v6trial, nice -n 19, at most 6 jobs; never while a measuring run is active), then e3ds-verify.sh on it: it finds what would stop the real package (cook paths for /Game/Weapons and the parts, size, memory, the sound guard). Fix what is yours to fix (packaging scripts, cook rules), report the rest. Keep the trial zip OUT of the upload names: /project/ue/cloud/v6trial.zip only.
+3. Prepare the trimmed gate queue file (lag-test.sh queue format, like /project/ue/cloud/v3b/gate-queue.txt: free GPU; loads 8, 20 and 35 ms; load 35 with cpus=0-5; the Development game's Story run under load 35; the console-command check; the views proof-keys.txt and proof-pad.txt) and a keys view script that equips every gun, opens the Workbench (E) on three guns and fits a part, fires and reloads (extend proof-keys.txt or write guns-keys.txt in tools/box/cloud; read rtcinput.py for its format).
+4. Then WAIT FOR THE GO: the lead creates the file /project/ue/cloud/RELEASE-V6-GO (its first line is the commit to package) when the engineers are done. Check for it every 3 minutes (a quick ls through the box tool), and in the meantime keep the clone current (pull, build) but start nothing heavy that is not needed. Wait at most 7 hours. When it appears, return through the schema with go_commit set to its first line.
+Report problems_found honestly: everything that would have stopped the real package.`, { label: 'release:prep', phase: 'Prep', schema: PREP })
+
 phase('Merge')
-const rel = await agent(releasePrompt(''), { label: 'release:v6', phase: 'Package', schema: RELEASE })
+const rel = await agent(releasePrompt(` THE PREPARATION is done (JSON): ${JSON.stringify(prep)}. Package exactly the commit go_commit (pull first; if the branch has moved past it, package go_commit anyway: it is the one the lead chose).`), { label: 'release:v6', phase: 'Package', schema: RELEASE })
 
 phase('Check')
 const LENSES = [
