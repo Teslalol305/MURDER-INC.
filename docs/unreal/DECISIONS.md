@@ -149,3 +149,28 @@ lower its frame-rate target to 45 or 30 when it has to, rather than run GPU-boun
 chosen by measurement under load (`CaptureUseFence`, `UseMediaCapture`, `DecoupleFramerate`, `WebRTC.Fps` equal to
 the frame-rate target, `WebRTC.DisableFrameDropper`), and nothing may block a frame for more than a few
 milliseconds while a run is being played.
+
+**Correction, 00:20 UTC (2026-11-25): which runs were clean.** The gameplay engineer's stream tests ran on the same
+GPU at the same time as runs s0, s1, q0 and q1 above, so those four were two games on one card, not one game at a
+200 % screen percentage. Repeated with a guard that no other game runs
+(`/project/ue/cloud/lag-2026-11-24/out3`, `out4`):
+
+| Run | GPU time a frame | The game | Capture |
+|---|---|---|---|
+| a1: one game alone, `r.ScreenPercentage 200`, 60 fps cap | 11 ms | a steady 60, worst frame while turning 26 ms | no fence time-out, no skipped frame |
+| b1: the same with `-PixelStreamingCaptureUseFence=false` | 11 ms | the same (worst 18 ms) | the same |
+| c1: one game alone, `r.ScreenPercentage 400` (truly GPU-bound) | 29 ms | 33 a second, **worst frame while turning 1.0 s** | 239 fence time-outs, 1,145 skipped frames |
+| c2: the same with `-PixelStreamingCaptureUseFence=false` | 29 ms | the same (worst 1.1 s) | 240 time-outs, 1,181 skipped: the option changed nothing |
+
+So: a 200 % screen percentage alone does not load this GPU enough (11 ms of 16.7); the stall needs a GPU that is
+really full: one game at 400 % (29 ms), or two games on one card (the worst case: frames of 4 to 7 s). The earlier
+conclusion stands (a full GPU makes Pixel Streaming 2's capture stall the game), with one addition from the engine
+source: with `PixelStreaming2.UseMediaCapture` on (the default) the capturer is `FPixelCaptureCapturerMediaCapture`,
+which always waits on its fence; `PixelStreaming2.CaptureUseFence` is only read when `UseMediaCapture` is off
+(`PixelStreaming2/Private/VideoCapturer.cpp:189-203`: `FPixelCaptureCapturerRHI` with the fence,
+`FPixelCaptureCapturerRHIRDG` without). Epic's own note there (`PixelStreaming2Module.cpp:86-88`): without a fence
+"we get frequent and intermittent stuttering as textures are rendered to while being encoded"; with NVENC "acceptable
+without a fence in most cases". Runs with `-PixelStreamingUseMediaCapture=false` (d1, d2), decoupled under load (c3)
+and version 2's Shipping game steered by a viewer's console commands next to a second game (t1) follow below.
+For the release gate use a load the game's own dynamic resolution cannot undo (a second process on the GPU), and
+check that nothing else runs.
