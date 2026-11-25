@@ -798,6 +798,12 @@ void UMIFrontEnd::Tick(double Dt)
 			}
 		}
 	}
+	// What changed since the last frame (an input from Slate, the console, the reset hold) is built here, on the game
+	// thread before Slate's frame, so Slate measures the new screen before it draws it (READY.md M1).
+	if (Widget.IsValid())
+	{
+		Widget->Sync();
+	}
 }
 
 void UMIFrontEnd::SyncViewTarget()
