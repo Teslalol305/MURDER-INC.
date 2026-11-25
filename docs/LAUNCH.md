@@ -9,10 +9,12 @@ preview version**. E3DS lists support up to 5.8 for the original streaming plugi
 (Pixel Streaming 2, which we use), and it does **not** test Linux uploads before you stream them. So the free trial
 is the real test: do steps 1 to 6 on the trial before paying for anything.
 
-**The build to upload** is **version 2** of 2026-11-24 (sha256 `ceaf828d...`, nine parts, section 9): the E3DS
-crash fix. Version 1 (sha256 `8378eedd...`) passed E3DS's upload check but crashed in every session, with no log; it
-is superseded, as is the zip of 2026-11-23 (`4ff06998...`). Upload version 2 as a **new version of the existing
-build `MurderInc`** (section 9, step 5). Every start now writes a log on the server (section 13).
+**The build to upload** is **version 3a** of 2026-11-25 (sha256 `de41a708...`, nine parts, section 9): the build
+that ends the lag of version 2, sets the mouse speed right, makes a controller work and shows its own numbers on the
+pause card. Version 2 (sha256 `ceaf828d...`) streamed on E3DS but lagged ("when the player turns it slows down");
+version 1 (`8378eedd...`) crashed in every session. Upload version 3a as a **new version of the existing build
+`MurderInc`** (section 9, step 5), with the E3DS settings of section 9.1. Every start writes a log on the server
+(section 13).
 
 ## What you need
 
@@ -39,6 +41,10 @@ build `MurderInc`** (section 9, step 5). Every start now writes a log on the ser
    exists** (version 1 was uploaded on 2026-11-24), upload the zip as a new version of it instead: section 9, step 5.
 
 ## 3. Make the stream configuration
+
+> For version 3a the settings to use, with E3DS's current names and places, are in **section 9.1**. Where the steps
+> below differ (session time, the resolution, the tab names), section 9.1 is right; this section is from before the
+> first upload and will be rewritten with the next build.
 
 1. In the Control Panel open **Configurations** (or **Stream settings**) for the app, on the **Development** tab.
 2. Create a new configuration for `MurderInc`.
@@ -194,41 +200,41 @@ Paste this where the game should appear (replace the `src` with your share link)
 
 ## 9. Getting the file
 
-The zip of **2026-11-24, version 2** (the E3DS crash fix, commit `e989cb8`) is in your Higgsfield storage,
-private to your account, in **9 parts** (the storage takes at most about 250 MB per file). They are named
-`MurderInc-E3DS-v2b-part1-of-9.zip` to `MurderInc-E3DS-v2b-part9-of-9.zip`; **the parts are not zips on their own**: put them back
-together first. The joined file is 2,254,912,173 bytes (about 2.3 GB); unpacked, the game is 2.7 GB.
-The ten parts of version 1 (`MurderInc-E3DS-part1-of-10.zip` ..., sha256 `8378eedd…`) are superseded: do not upload
-them again. Your storage also holds two earlier uploads of version 2 (`MurderInc-E3DS-v2-part<k>-of-9.zip`, joined
-sha256 `a57e2288…` and `82ed886a…`: the same game with older launchers, which did not write E3DS's own log file):
-ignore or delete them. Use the links of the release report; the rename step below only accepts the right parts.
-The joined file is called `MurderInc.zip` on purpose: E3DS names a build after the file, and a Linux build's name
-must be its launcher's name (`MurderInc.sh`).
+The zip of **2026-11-25, version 3a** (commit `6c4d810`) is in your Higgsfield storage, private to your account, in
+**9 parts** (the storage takes at most about 250 MB per file). They are named `MurderInc-E3DS-v3a-part1-of-9.zip` to
+`MurderInc-E3DS-v3a-part9-of-9.zip`; **the parts are not zips on their own**: put them back together first. The
+joined file is 2,254,962,151 bytes (about 2.3 GB); unpacked, the game is 2.7 GB.
+
+Everything older in your storage is superseded: ignore or delete the parts of version 2
+(`MurderInc-E3DS-v2b-part<k>-of-9.zip` and `MurderInc-E3DS-v2-part<k>-of-9.zip`) and of version 1
+(`MurderInc-E3DS-part<k>-of-10.zip`). Use the links of the release report of version 3a; the rename step below only
+accepts the right parts. The joined file is called `MurderInc.zip` on purpose: E3DS names a build after the file, and
+a Linux build's name must be its launcher's name (`MurderInc.sh`).
 
 1. Download the 9 parts into one empty folder (Higgsfield, your files/media library; the direct download links are
-   in Claude's release report of 2026-11-24, version 2, or ask Claude for them). They are not written here because
-   this page is in a public repository and the zip holds licensed content (see below). **The downloads arrive with
-   random names** (like `e588797e-….zip`), not the part names, and Safari may try to open them: turn off "Open safe
-   files after downloading" in Safari's settings, or use Chrome.
+   in Claude's release report of version 3a, or ask Claude for them). They are not written here because this page is
+   in a public repository and the zip holds licensed content (see below). **The downloads arrive with random names**
+   (like `e588797e-….zip`), not the part names, and Safari may try to open them: turn off "Open safe files after
+   downloading" in Safari's settings, or use Chrome.
 2. Give each download its part name. On a Mac, open Terminal in that folder and paste this; it reads each file's
    fingerprint (sha256) and renames it to the matching part, so the download order does not matter:
 
    ```
    for f in *.zip; do
      case "$(shasum -a 256 "$f" | cut -d' ' -f1)" in
-       5d4627fc22ab913e8551a99093f2b49b9abc05dede870425c251194a17138da4) mv "$f" MurderInc-E3DS-v2b-part1-of-9.zip ;;
-       7310851ba820c53b73eaeebb5bc0cf6524ae516654f9e74fe61b9dbd3cead106) mv "$f" MurderInc-E3DS-v2b-part2-of-9.zip ;;
-       f84079f3c16b65d0c0d8325d731990b6aa5a6c1c6815926b3cdf9626bd72f2a4) mv "$f" MurderInc-E3DS-v2b-part3-of-9.zip ;;
-       83b64ca6de7c72209d271f534089172523c6fa4d4b1b9b9b9d54649d6fb57f6f) mv "$f" MurderInc-E3DS-v2b-part4-of-9.zip ;;
-       5d07e67a5fe4c6f86103ee87cddcdc78a805c1fdc1c7f9f41357588e55a7e304) mv "$f" MurderInc-E3DS-v2b-part5-of-9.zip ;;
-       1332ca38d21dd230797ea5207907fbf8b84f37809c90677497b6188c92a3c805) mv "$f" MurderInc-E3DS-v2b-part6-of-9.zip ;;
-       6c8c1f3e87c89447797603e5506e2f35ea9d19b43f08c747472dc3338995b152) mv "$f" MurderInc-E3DS-v2b-part7-of-9.zip ;;
-       2d650732c1d2167510b55a17f150cd9bce14174a70f4526a4db2a6754444cd64) mv "$f" MurderInc-E3DS-v2b-part8-of-9.zip ;;
-       f5289a9c2860aa6bb067488cf315416065196cb2c2d9954c3955343d3c084fdc) mv "$f" MurderInc-E3DS-v2b-part9-of-9.zip ;;
+       ce4507d81784d274f9a8499c482a2e6e1047bc7e5d1dc6f714eb2ce3a24f6d94) mv "$f" MurderInc-E3DS-v3a-part1-of-9.zip ;;
+       d387f5a4065da5f4a913f87a4d08488aee209fdce8f51b846f6c43e3cc26832a) mv "$f" MurderInc-E3DS-v3a-part2-of-9.zip ;;
+       070db64bd2f041c2952258c577d30f691977eb39bd5fae4c77f6dfd647dabc83) mv "$f" MurderInc-E3DS-v3a-part3-of-9.zip ;;
+       6d3d1f0229bc8b86471fa57d8f88adc7f73aae50a24ce3a2b7e533c63b6c762f) mv "$f" MurderInc-E3DS-v3a-part4-of-9.zip ;;
+       2d0a04a975a87a1c397365fcaa94cfca1701398f7a9cc5393d08d35a7d29f571) mv "$f" MurderInc-E3DS-v3a-part5-of-9.zip ;;
+       452d9ea0ddac18103186dd0a8a3f18c009e0a962597a8ce10e970806e1ac1624) mv "$f" MurderInc-E3DS-v3a-part6-of-9.zip ;;
+       4cc3c4599b8780b27b4eb5080a345bc2e71dee22a2f762588d24f6d367bc354a) mv "$f" MurderInc-E3DS-v3a-part7-of-9.zip ;;
+       efaec6ea574ebd3e4e3fe6cf3d4eb304abc1f9060f9afff9225e573d284e4f55) mv "$f" MurderInc-E3DS-v3a-part8-of-9.zip ;;
+       d04652438afdc595139a8722d074c60098db769be78f2e01775129e074046fad) mv "$f" MurderInc-E3DS-v3a-part9-of-9.zip ;;
        *) echo "not a part (or incomplete, download again): $f" ;;
      esac
    done
-   ls MurderInc-E3DS-v2b-part*
+   ls MurderInc-E3DS-v3a-part*
    ```
 
    It must list 9 parts. On Windows, rename them by hand using the table below (`certutil -hashfile <file> SHA256`
@@ -236,7 +242,7 @@ must be its launcher's name (`MurderInc.sh`).
 3. Join them. On a Mac, in the same Terminal:
 
    ```
-   cat MurderInc-E3DS-v2b-part{1,2,3,4,5,6,7,8,9}-of-9.zip > MurderInc.zip
+   cat MurderInc-E3DS-v3a-part{1,2,3,4,5,6,7,8,9}-of-9.zip > MurderInc.zip
    shasum -a 256 MurderInc.zip
    ```
 
@@ -244,51 +250,151 @@ must be its launcher's name (`MurderInc.sh`).
    folder:
 
    ```
-   copy /b MurderInc-E3DS-v2b-part1-of-9.zip+MurderInc-E3DS-v2b-part2-of-9.zip+MurderInc-E3DS-v2b-part3-of-9.zip+MurderInc-E3DS-v2b-part4-of-9.zip+MurderInc-E3DS-v2b-part5-of-9.zip+MurderInc-E3DS-v2b-part6-of-9.zip+MurderInc-E3DS-v2b-part7-of-9.zip+MurderInc-E3DS-v2b-part8-of-9.zip+MurderInc-E3DS-v2b-part9-of-9.zip MurderInc.zip
+   copy /b MurderInc-E3DS-v3a-part1-of-9.zip+MurderInc-E3DS-v3a-part2-of-9.zip+MurderInc-E3DS-v3a-part3-of-9.zip+MurderInc-E3DS-v3a-part4-of-9.zip+MurderInc-E3DS-v3a-part5-of-9.zip+MurderInc-E3DS-v3a-part6-of-9.zip+MurderInc-E3DS-v3a-part7-of-9.zip+MurderInc-E3DS-v3a-part8-of-9.zip+MurderInc-E3DS-v3a-part9-of-9.zip MurderInc.zip
    certutil -hashfile MurderInc.zip SHA256
    ```
-4. The fingerprint printed must be `ceaf828d10a8b3d7997e8b76ccaa7701e87a8f5dab7f488a1976a3b7944674c5`. If it does not, a
-   part is incomplete: compare each part with the list below (`shasum -a 256 MurderInc-E3DS-v2b-part*`), download the
-   one that differs again.
-5. **Upload it to E3DS as a new version of the existing build `MurderInc`**, not as a new build (E3DS's own
-   names, from its documentation): **Your Projects**, open `Project_MurderInc`, tab **Builds**, **Upload a new
-   version of MurderInc** (the same button is **New version** on the project list). Choose the joined
-   `MurderInc.zip` (not the parts). The window shows the versions the build has and that this upload becomes
-   version 2. If it asks: Streams with **Pixel Streaming**, Runs on **Linux**, executable **MurderInc.sh**. When the
-   upload is processed the project streams the new version by itself (nothing to choose or save) and the link stays
-   the same; "Run a fixed version" must read **Latest**. E3DS does not stream-test Linux uploads, so a green check
-   proves nothing: test the link (section 4), best in a fresh Incognito window. Once version 2 streams, delete
-   version 1 with the **Delete** button beside it in the version list, **not** by deleting the build.
-6. **The log** of every start goes to the file E3DS itself names when it starts the app (`-ABSLOG=`, the file its
-   crash-log email is taken from), to the launcher's output, and to `MurderInc/Saved/Logs/MurderInc.log` in the
-   app's folder. If it crashes again, section 13 says how to get it.
+4. The fingerprint printed must be `de41a7089a3e940c010806753640e1c84b3f357f0e551e067f300b006eef58e4`. If it is
+   not, a part is incomplete: compare each part with the list below (`shasum -a 256 MurderInc-E3DS-v3a-part*`) and
+   download the one that differs again.
+5. **Upload it to E3DS as a new version of the existing build `MurderInc`**, not as a new build (E3DS's own names,
+   from its documentation): **Your Projects**, open `Project_MurderInc`, tab **Builds**, **Upload a new version of
+   MurderInc** (the same button is **New version** on the project list). Choose the joined `MurderInc.zip` (not the
+   parts). The window shows the versions the build has and that this upload becomes the next one (version 3). If it
+   asks: Streams with **Pixel Streaming**, Runs on **Linux**, executable **MurderInc.sh**. When the upload is
+   processed the project streams the new version by itself (nothing to choose or save) and the link stays the same;
+   "Run a fixed version" must read **Latest**. Keep version 2 until version 3 has played well (to go back, choose
+   version 2 under "Run a fixed version"); version 1 never worked: remove it with the **Delete** button beside it in
+   the version list, **not** with the build's trash icon, which deletes the whole build.
+6. Set the E3DS settings of 9.1, press **Save changes**, and open the link in a new Chrome Incognito window. E3DS
+   does not stream-test Linux uploads, so a green check proves nothing: the link is the test.
 
 | Part | Bytes | sha256 |
 |---|---|---|
-| 1 | 251,658,240 | `5d4627fc22ab913e8551a99093f2b49b9abc05dede870425c251194a17138da4` |
-| 2 | 251,658,240 | `7310851ba820c53b73eaeebb5bc0cf6524ae516654f9e74fe61b9dbd3cead106` |
-| 3 | 251,658,240 | `f84079f3c16b65d0c0d8325d731990b6aa5a6c1c6815926b3cdf9626bd72f2a4` |
-| 4 | 251,658,240 | `83b64ca6de7c72209d271f534089172523c6fa4d4b1b9b9b9d54649d6fb57f6f` |
-| 5 | 251,658,240 | `5d07e67a5fe4c6f86103ee87cddcdc78a805c1fdc1c7f9f41357588e55a7e304` |
-| 6 | 251,658,240 | `1332ca38d21dd230797ea5207907fbf8b84f37809c90677497b6188c92a3c805` |
-| 7 | 251,658,240 | `6c8c1f3e87c89447797603e5506e2f35ea9d19b43f08c747472dc3338995b152` |
-| 8 | 251,658,240 | `2d650732c1d2167510b55a17f150cd9bce14174a70f4526a4db2a6754444cd64` |
-| 9 | 241,646,253 | `f5289a9c2860aa6bb067488cf315416065196cb2c2d9954c3955343d3c084fdc` |
+| 1 | 251,658,240 | `ce4507d81784d274f9a8499c482a2e6e1047bc7e5d1dc6f714eb2ce3a24f6d94` |
+| 2 | 251,658,240 | `d387f5a4065da5f4a913f87a4d08488aee209fdce8f51b846f6c43e3cc26832a` |
+| 3 | 251,658,240 | `070db64bd2f041c2952258c577d30f691977eb39bd5fae4c77f6dfd647dabc83` |
+| 4 | 251,658,240 | `6d3d1f0229bc8b86471fa57d8f88adc7f73aae50a24ce3a2b7e533c63b6c762f` |
+| 5 | 251,658,240 | `2d0a04a975a87a1c397365fcaa94cfca1701398f7a9cc5393d08d35a7d29f571` |
+| 6 | 251,658,240 | `452d9ea0ddac18103186dd0a8a3f18c009e0a962597a8ce10e970806e1ac1624` |
+| 7 | 251,658,240 | `4cc3c4599b8780b27b4eb5080a345bc2e71dee22a2f762588d24f6d367bc354a` |
+| 8 | 251,658,240 | `efaec6ea574ebd3e4e3fe6cf3d4eb304abc1f9060f9afff9225e573d284e4f55` |
+| 9 | 241,696,231 | `d04652438afdc595139a8722d074c60098db769be78f2e01775129e074046fad` |
 
-Checked after the upload: all 9 parts downloaded back from the storage, joined, the sha256 above, and
-`unzip -t` reports no errors (64 files; `MurderInc.sh` and `BUILD.txt` at the root).
-
-What is new in version 2 (docs/unreal/PROGRESS.md, "E3DS crash fix"): the launcher `MurderInc.sh` always starts the
-game without a window (`-RenderOffScreen`: E3DS's Linux servers have no screen and E3DS does not add that option
-itself; on the GPU box version 1 without it ends after 2 seconds with no log, which matches what E3DS reported, though
-without E3DS's log it is not proven), writes the log above, also
-into E3DS's own log file, and never runs the game as root; the game carries the SM5 shaders too, so a server whose graphics driver fails
-Unreal 5.9's SM6 check runs a simpler picture instead of quitting; it needs less graphics memory at start; it reports
-a stop by the host as a normal quit; the home screen says "P Pause"; and the Development game rides along for E3DS's
-crash-log feature (launch option `-MIDev`, section 13; from version 3 `-MIDev=<key>`).
+Checked after the upload (2026-11-25, 07:37 UTC): all 9 parts downloaded back from the storage, every fingerprint
+as in the table, joined to 2,254,962,151 bytes with the sha256 of step 4, and `unzip -t` reports no errors (65
+files; `MurderInc.sh`, `BUILD.txt` and `MIDEV.key` at the top; no `Saved/` folder, no debug symbols, no logs).
+`MurderInc.sh` in the zip is byte for byte the repository's, and `BUILD.txt` names commit `6c4d810` for the game and
+the launcher.
 
 The zip contains licensed content (the rifle animation pack, Epic's template content and the main character's
 likeness): upload it only to E3DS, do not share the links.
+
+### 9.1 The E3DS settings for version 3a
+
+In the Control Panel: **Your Projects**, `Project_MurderInc`, **Settings** (the gear), tab **Viewer Experience**
+(its **Search settings** box finds a setting by a word; turn **Advanced Options** on to see the Developer tab).
+Nothing is kept until you press **Save changes**, and a change applies to new sessions only.
+
+| Setting | Value | Why |
+|---|---|---|
+| Browser Resolution (Common) | **Custom**, both boxes filled: **1920** and **1080** | the game then always sends a 1920 x 1080 picture, which is what was tested. Dynamic (E3DS's default) makes the page ask the game for each player's window size; version 3a keeps such a request between 640 x 360 and 1920 x 1080, but small sizes are not finished (the next build) |
+| Launch options (Developer) | **leave empty** | version 3a needs none: it chooses its own picture size and frame rate. Take out version 2's `-MICloudProbe=10 -PixelStreamingDecoupleFramerate`: decoupling makes a slow server repeat pictures |
+| Unreal console commands to run at start (Developer) | **leave empty** | |
+| Video Quality (Developer) | **Medium** | E3DS's default; a higher level can cost smoothness. Try High once play is smooth on an ordinary home connection |
+| Codec (Developer) | **H264** | E3DS's default; every server card encodes it |
+| Max Session Time (Common) | **15** minutes | a Story run takes about five minutes; a forgotten tab then costs at most 15 of the month's 300 |
+| Log Out Automatically After Inactivity (Common) | **On**; countdown starts after **3**; countdown length **1** | both numbers are minutes |
+| The mouse mode (search "mouse") | **Locked** | "Hovering" would stop the view turning at the edge of the picture |
+| Platform; Select Region (Developer) | **Linux**; **Global** | |
+| Print UE log in browser console (Developer) | **On** while you test, **Off** for the public | it shows the game's own lines in Chrome's console (F12) |
+| Email To Send Log Upon App Crash (Developer) | **On**, your own address | |
+| Password Protect Stream (Common) | **On** until launch | |
+
+**The mouse.** With a fixed 1920 x 1080 picture the mouse speed is exactly the web game's when the picture is shown
+1920 pixels wide (a 1080p monitor in full screen, or the Game OS page in a wide window). Shown smaller it turns
+faster by the same factor (a third faster in a 1440-wide window). A player sets it with **Sensitivity** on the
+game's Settings card (P, Settings); you can set it for everybody with the launch option `-MIMouseScale=` (section 7).
+
+### 9.2 What to check, and what to send back
+
+1. Open the link, click the **CLICK TO PLAY** card, start a Story run (Hit the block, Next three times, Hit the
+   block) and play for a few minutes: turn fast, shoot, fight. Two quick clicks must fire two rounds and stop.
+2. Press **P** right after a moment that stuttered, or after a fast turn in a fight if nothing did, and **take a
+   screenshot of the pause card**. The small grey line at the bottom of the card is the game's own report, for
+   example:
+
+   `NVIDIA GeForce RTX 4080 · 60 frames a second (lowest 58, target 60) · GPU 9.8 ms · drawn 1440 x 810, sent
+   1920 x 1080 · stream 57 a second (lowest 50), 11.0 Mbit/s, QP 20, round trip 38 ms · build 6c4d810`
+
+   | In the line | What it means |
+   |---|---|
+   | `NVIDIA …` | the graphics card of the E3DS server that ran your session |
+   | `60 frames a second (lowest 58, target 60)` | pictures the game draws each second now; the lowest in the last half minute of play; the rate the game is aiming for (60, 45 or 30) |
+   | `GPU 9.8 ms` | the time the card needs for one picture: 60 a second needs under 16.7 ms, 45 under 22.2, 30 under 33.3 |
+   | `drawn 1440 x 810, sent 1920 x 1080` | the size the game draws at (it shrinks when the card is busy) and the size of the video |
+   | `stream 57 a second (lowest 50), 11.0 Mbit/s, QP 20, round trip 38 ms` | the video as the server sends it: pictures a second and their lowest, the data rate, the compression (lower QP is sharper), and the time to your computer and back |
+   | `build 6c4d810` | the build: version 3a must say `6c4d810` |
+
+   The numbers in brackets ("lowest …") are the lowest of the last half minute of play; the numbers in front of
+   them are of the moment the screenshot shows, so on the pause card the stream's number can be the lower one.
+3. **Send back that screenshot**, with a sentence on how it felt (smooth or not, the mouse too fast or too slow, the
+   answer to your hand late or immediate). One screenshot answers what no log could: the game's number low means
+   the server's card is the limit; only the stream's number low with few megabits means the connection; a stream
+   number a few below the game's with plenty of megabits is the server's video encoder (section 7 has the three
+   cases).
+4. With a controller: plug in a PS5 or Xbox pad, press a button on it, and play without touching the mouse or
+   keyboard (section 7, "A controller alone"). On the Settings card choose **Controller: PlayStation** for the
+   PlayStation names of the buttons.
+
+### 9.3 What the game does on a slow server
+
+Version 2 froze for seconds when the server's graphics card could not keep up. Version 3a never lets the card fall
+behind, in three steps, by itself:
+
+1. **It waits for the card.** A new picture is not started while the card still owes the game more than one. This
+   alone ends the freezes, whatever the card.
+2. **It draws a smaller picture** when the card is busy (down to half the size, sharpened back to 1920 x 1080).
+3. **It lowers its rate** from 60 pictures a second to 45, and then to 30, when the card cannot hold the higher rate
+   even with the smallest picture. It decides this in the first seconds of a run and goes back up only on a menu or
+   the pause card.
+
+So on a slow server you get a softer picture and a steady 45 or 30 pictures a second instead of 60 that freeze, and
+the pause card's line says "target 45" or "target 30". On a fast server nothing changes: 60, at version 2's picture.
+Measured on the GPU box with the zip of this section, unpacked and started the way E3DS does it
+(`docs/unreal/PROGRESS.md`, "Version 3a: packaged, gated and delivered"): with the card free the game holds 60.0
+pictures a second (lowest second 59.8). With the card slowed down so that one picture takes it 8, 12, 20 and 34 ms,
+the game settles on 60, 60, 45 and 30 and holds them (lowest seconds 59.8, 59.8, 44.8 and 28.9); its longest single
+picture in play is 37 ms, where version 2 under the heaviest of these loads froze for 1.7 seconds. The same on a
+server with only 6 processor cores (38 ms).
+
+**One pause you will see at the start of every session:** the first time the Crew screen appears (after "Hit the
+block" on the home screen) the picture stands still for a little under a second. A server that has never run the
+game compiles its graphics programs at that moment, and E3DS starts every session on such a server. It happens once,
+on the menu, not in play; making it shorter is for the next build.
+
+If your line says "target 30" (or the game's number is under 30), send it: E3DS support can say whether your
+sessions can run on their faster cards, `-MIFps=30` (section 13) makes the rate steady from the first second, and
+the next build lowers the lighting quality before it lowers the rate.
+
+### 9.4 What is new in version 3a
+
+- **The lag is gone on the GPU box** at every load tried (9.3). On E3DS it is your test that says so.
+- **Mouse look** at the web game's speed, slow movements included (version 2 turned 2 to 3 times too fast and lost
+  slow movements); a **double click** no longer leaves the gun firing.
+- **A controller** works from the click card to the end of a run: look, move, fire, menus, the buttons' names.
+- **The cards** (pause, settings, dead, debrief) take mouse clicks.
+- **The pause card shows the game's numbers** (9.2), and the log gets them every 30 seconds.
+- **Tuning without a new build**: launch options `-MIFps=`, `-MICVars=`, `-MIMouseScale=` (section 13).
+- **Safer**: a visitor's console commands and size requests are limited (section 7), the debug switches are out of
+  the normal game, and the Development game in the zip starts only with its key: `-MIDev=<key>`, the word in the
+  file `MIDEV.key` at the top of the zip; it comes with the release report (section 13).
+- Not yet in this build (the next one, "release B"): lower lighting quality on slow cards, the picture following
+  each player's window (Browser Resolution Dynamic), a measured hand-to-picture delay, a smoother first minute after
+  a cold start.
+
+**The log** of every start goes to the file E3DS itself names when it starts the app (`-ABSLOG=`, the file its
+crash-log email is taken from), to the launcher's output, and to `MurderInc/Saved/Logs/MurderInc.log` in the app's
+folder. If it crashes, section 13 says how to get it.
 
 ## 10. What the cloud settings change
 
@@ -381,12 +487,16 @@ players go to the nearer one.
 
 ## 12. Making a new build later
 
-Claude rebuilds the whole package with one command on the GPU box (`tools/box/cloud/package-cloud.sh all`: about
-10 minutes on a warm cache, 8 on 2026-11-24; on a freshly rented box the first cook of version 2 with its SM5 shaders
-took about 20 minutes), runs the crash-cause checks (`tools/box/cloud/e3ds-verify.sh`, about 20 minutes: the box
-cannot test an actual stream, that is what the E3DS link in section 4 is for), and puts the new zip, in parts, in
-your Higgsfield storage. You then upload it to E3DS as a new version of the build `MurderInc` (section 9, step 5)
-and test the link again.
+Claude rebuilds the whole package with one command on the GPU box (`tools/box/cloud/package-cloud.sh all`: 5 minutes
+on 2026-11-25 with a warm cache and the game already compiled, about 10 otherwise; on a freshly rented box the first
+cook of version 2 with its SM5 shaders took about 20 minutes). Then, on the zip unpacked the way a host does it (a
+new user, a fresh copy): the release gate (`tools/box/cloud/lag-gate.txt`, 13 runs, about 35 minutes: the game under
+a loaded graphics card, on few processor cores, with a viewer that plays), the crash-cause checks
+(`tools/box/cloud/e3ds-verify.sh`, about 20 minutes) and a play-through of the stream with mouse and keyboard and
+with a controller (`proof-keys.txt`, `proof-pad.txt`). The box receives the stream with its own viewer program and
+sends input through it; it cannot run a browser against the game, and it is not E3DS: the E3DS link (section 4) is
+the last test. The new zip then goes, in parts, to your Higgsfield storage; you upload it to E3DS as a new version of
+the build `MurderInc` (section 9, step 5) and test the link again.
 
 ## 13. If it crashes again: the log
 
