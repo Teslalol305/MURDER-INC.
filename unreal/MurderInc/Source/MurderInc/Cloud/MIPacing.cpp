@@ -78,8 +78,9 @@ bool FMIFrameRateGovernor::Update(const FInput& In)
 			{
 				RaiseWait = FMath::Min(RaiseWait * 2.0, MaxRaiseAfter);  // the last rise did not hold: try later next time
 			}
-			Reason = FString::Printf(TEXT("%d -> %d frames a second: the GPU took %.1f ms a frame%s at the smallest picture, over %.0f %% of %.1f ms for %.1f s"),
-				From, Target(), In.GpuMs, In.bHeldBack ? TEXT(" and held the game back") : TEXT(""), OverShare * 100.0, Frame, DropAfter);
+			Reason = FString::Printf(TEXT("%d -> %d frames a second: at the smallest picture %s for %.1f s (the GPU took %.1f ms a frame; a frame has %.1f ms)"),
+				From, Target(), In.bHeldBack ? TEXT("the game fell short of the rate because it had to wait for the GPU")
+					: *FString::Printf(TEXT("the GPU's time was over %.0f %% of the frame time"), OverShare * 100.0), DropAfter, In.GpuMs, Frame);
 			return true;
 		}
 		return false;

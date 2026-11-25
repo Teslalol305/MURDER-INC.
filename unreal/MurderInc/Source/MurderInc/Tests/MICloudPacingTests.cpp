@@ -41,16 +41,16 @@ bool FMICloudFrameRateTest::RunTest(const FString& Parameters)
 	{
 		FMIFrameRateGovernor G;
 		TestEqual(TEXT("it starts at 60"), G.Target(), 60);
-		// 90 % of 16.7 ms is 15 ms.
-		TestEqual(TEXT("14 ms of 16.7: under the line, nothing changes"), Run(G, 20.0, 14.0, true, false), 0);
-		TestEqual(TEXT("16 ms while dynamic resolution can still draw a smaller picture: nothing changes"), Run(G, 20.0, 16.0, false, false), 0);
-		TestEqual(TEXT("16 ms at the smallest picture for half a second: not yet"), Run(G, 0.5, 16.0, true, false), 0);
-		TestEqual(TEXT("... for a second: down, in the middle of play"), Run(G, 0.5, 16.0, true, false), 1);
+		// The line is the whole frame time: 16.7 ms at 60.
+		TestEqual(TEXT("16 ms of 16.7: under the line, nothing changes"), Run(G, 20.0, 16.0, true, false), 0);
+		TestEqual(TEXT("18 ms while dynamic resolution can still draw a smaller picture: nothing changes"), Run(G, 20.0, 18.0, false, false), 0);
+		TestEqual(TEXT("18 ms at the smallest picture for half a second: not yet"), Run(G, 0.5, 18.0, true, false), 0);
+		TestEqual(TEXT("... for a second: down, in the middle of play"), Run(G, 0.5, 18.0, true, false), 1);
 		TestEqual(TEXT("60 -> 45"), G.Target(), 45);
 		AddInfo(FString::Printf(TEXT("log line: %s"), *G.Why()));
-		// 90 % of 22.2 ms is 20 ms.
-		TestEqual(TEXT("19 ms of 22.2: it holds at 45"), Run(G, 20.0, 19.0, true, false), 0);
-		TestEqual(TEXT("21 ms at the smallest picture for a second: down again"), Run(G, 1.0, 21.0, true, false), 1);
+		// 22.2 ms at 45.
+		TestEqual(TEXT("21.5 ms of 22.2: it holds at 45"), Run(G, 20.0, 21.5, true, false), 0);
+		TestEqual(TEXT("24 ms at the smallest picture for a second: down again"), Run(G, 1.0, 24.0, true, false), 1);
 		TestEqual(TEXT("45 -> 30"), G.Target(), 30);
 		TestEqual(TEXT("40 ms at 30: there is no lower target"), Run(G, 20.0, 40.0, true, false), 0);
 		TestEqual(TEXT("still 30"), G.Target(), 30);
@@ -68,10 +68,10 @@ bool FMICloudFrameRateTest::RunTest(const FString& Parameters)
 	{
 		// A rise that does not hold: the next one waits twice as long.
 		FMIFrameRateGovernor G;
-		Run(G, 1.0, 16.0, true, false);
+		Run(G, 1.0, 18.0, true, false);
 		TestEqual(TEXT("down to 45"), G.Target(), 45);
 		TestEqual(TEXT("up after 10 s on a card"), Run(G, 10.0, 8.0, false, true), 1);
-		TestEqual(TEXT("down again a second into the run"), Run(G, 1.0, 16.0, true, false), 1);
+		TestEqual(TEXT("down again a second into the run"), Run(G, 1.0, 18.0, true, false), 1);
 		TestEqual(TEXT("at 45"), G.Target(), 45);
 		TestEqual(TEXT("10 s on a card are not enough now"), Run(G, 10.0, 8.0, false, true), 0);
 		TestEqual(TEXT("20 s are"), Run(G, 10.0, 8.0, false, true), 1);
@@ -80,7 +80,8 @@ bool FMICloudFrameRateTest::RunTest(const FString& Parameters)
 	{
 		// The pacer's word counts even when the GPU's measured time looks fine or is not known.
 		FMIFrameRateGovernor G;
-		TestEqual(TEXT("held back by the GPU at the smallest picture, GPU time unknown: down after a second"), Run(G, 1.0, 0.0, true, false, true), 1);
+		TestEqual(TEXT("short of the rate for the GPU's sake at the smallest picture, GPU time unknown: down after a second"), Run(G, 1.0, 0.0, true, false, true), 1);
+		AddInfo(FString::Printf(TEXT("log line: %s"), *G.Why()));
 		TestEqual(TEXT("45"), G.Target(), 45);
 		TestEqual(TEXT("GPU time unknown and not held back: nothing to go by, nothing changes"), Run(G, 60.0, 0.0, true, true, false), 0);
 		TestEqual(TEXT("held back while the picture can still shrink: dynamic resolution's turn first"), Run(G, 10.0, 30.0, false, false, true), 0);

@@ -22,13 +22,15 @@
  * caller feeds it the GPU's time per frame and applies the target (t.MaxFPS, the stream's frame rate, dynamic
  * resolution's frame time).
  *
- * Down, at once, and only in live play: the GPU's time has been over OverShare of the frame time for DropAfter
- * seconds although dynamic resolution is already at its smallest picture (or the pacer had to hold the game back
- * for the GPU). Lowering the target needs no new shaders, so it is safe in the middle of a fight. Outside live play
- * nothing drops: the start of the game is full of long frames on any card, and a target lost there would stay lost
- * for the first run on a card that is not idle enough for a rise. OverShare is 90 %: measured, a GPU at 80 to
- * 87 % of the frame time holds the rate (the pacer takes the odd late frame), and at 70 % a card that held 60 was
- * put at 45 (docs/unreal/PROGRESS.md "Version 3, release A", runs d2, d5, d6).
+ * Down, at once, and only in live play: at the smallest picture dynamic resolution may draw, for DropAfter seconds,
+ * either the game fell short of the rate because it had to wait for the GPU (bHeldBack), or the GPU's time was
+ * over OverShare of the frame time. Lowering the target needs no new shaders, so it is safe in the middle of a
+ * fight. Outside live play nothing drops: the start of the game is full of long frames on any card, and a target
+ * lost there would stay lost for the first run on a card that is not idle enough for a rise. OverShare is 100 %:
+ * the pacer keeps a full GPU from stalling the game, so the target has to follow only what a run can really hold.
+ * Measured (docs/unreal/PROGRESS.md "Version 3, release A"): lines at 70, 85 and 90 % each lowered a rate that was
+ * being held without a late frame (runs d2, d5, h-l20); with 100 % a GPU at 78 to 98 % of the frame time gave a
+ * steady 45 (run h-l20x).
  * Up, only at a safe moment (a card, a set-up screen: not in live play): the GPU's time has been under UnderShare of
  * the frame time for RaiseAfter seconds. A rise that does not hold (the target drops again within RetryWindow
  * seconds) doubles the wait before the next try.
@@ -39,7 +41,7 @@ struct MURDERINC_API FMIFrameRateGovernor
 	static constexpr int32 Targets[NumTargets] = {60, 45, 30};
 
 	// Tuning ([MICloud] and the MI.Cloud.* console variables).
-	double OverShare = 0.90;
+	double OverShare = 1.0;
 	double DropAfter = 1.0;
 	double UnderShare = 0.45;
 	double RaiseAfter = 10.0;
@@ -54,7 +56,7 @@ struct MURDERINC_API FMIFrameRateGovernor
 		double GpuMs = 0.0;
 		/** Dynamic resolution cannot draw a smaller picture (it is at its minimum, or it is off). */
 		bool bSmallestPicture = false;
-		/** The pacer held the game back for the GPU for a good part of the time since the last update. */
+		/** The game fell short of the target's rate since the last update because it had to wait for the GPU. */
 		bool bHeldBack = false;
 		/** Not in live play: the target may rise, and it does not drop. */
 		bool bSafeMoment = false;

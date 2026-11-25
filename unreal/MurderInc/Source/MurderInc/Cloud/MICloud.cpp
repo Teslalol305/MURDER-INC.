@@ -106,9 +106,9 @@ namespace MICloudPrivate
 	int32 GFpsTarget = 0;
 	FAutoConsoleVariableRef CVarFpsTarget(TEXT("MI.Cloud.FpsTarget"), GFpsTarget,
 		TEXT("While streamed: 60, 45 or 30 fixes the frame-rate target; 0 lets the game choose it by the GPU's time (launch option -MIFps=)."));
-	float GFpsDropOver = 0.90f, GFpsDropAfter = 1.f, GFpsRaiseUnder = 0.45f, GFpsRaiseAfter = 10.f;
+	float GFpsDropOver = 1.0f, GFpsDropAfter = 1.f, GFpsRaiseUnder = 0.45f, GFpsRaiseAfter = 10.f;
 	FAutoConsoleVariableRef CVarFpsDropOver(TEXT("MI.Cloud.FpsDropOver"), GFpsDropOver,
-		TEXT("The frame-rate target drops when the GPU's time is over this share of the frame time at the smallest picture."));
+		TEXT("The frame-rate target drops (in live play) when the GPU's time is over this share of the frame time at the smallest picture, or when the game falls short of the rate because it waits for the GPU."));
 	FAutoConsoleVariableRef CVarFpsDropAfter(TEXT("MI.Cloud.FpsDropAfter"), GFpsDropAfter, TEXT("... for this many seconds."));
 	FAutoConsoleVariableRef CVarFpsRaiseUnder(TEXT("MI.Cloud.FpsRaiseUnder"), GFpsRaiseUnder,
 		TEXT("The frame-rate target may rise (only while no run is being played) when the GPU's time is under this share of the frame time."));
@@ -1092,11 +1092,12 @@ void UMICloudSubsystem::TickPacing()
 	PictureShare = MICloudPrivate::PictureShare(In.bSmallestPicture);
 	if (Pacer.IsValid())
 	{
-		// Held back: the game thread spent more than a fifth of the time waiting for the GPU. (A render thread and a
-		// GPU that together take a little over one frame make it wait a millisecond or two every frame at full
-		// frame rate: that is not a GPU that cannot keep up.)
+		// Held back: the game thread spent more than a fifth of the time waiting for the GPU AND made fewer frames
+		// than the target asks for (more than 8 % short). The wait alone is not it: while the rate is held, a wait
+		// before the input is read only takes the place of the frame cap's sleep (measured: a steady 45.0 frames
+		// a second, no frame late, with a fifth of the time waited: box run h-l20x).
 		const FMIGpuPacer::FStats S = Pacer->Take(1);
-		In.bHeldBack = S.WaitMs > 0.2 * Step * 1000.0;
+		In.bHeldBack = S.WaitMs > 0.2 * Step * 1000.0 && LastFps < 0.92 * Governor.Target();
 	}
 	const AMIPlayerController* PC = GetGameInstance() ? Cast<AMIPlayerController>(GetGameInstance()->GetFirstLocalPlayerController()) : nullptr;
 	In.bSafeMoment = !PC || !PC->IsInLivePlay();
