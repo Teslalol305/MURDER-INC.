@@ -3,6 +3,29 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Weapons round 4: the review fixes of the art (fixer, 2026-11-25, 15:00 to 16:30 UTC): what the integration engineer must know
+
+Details, evidence and what was rejected: `art/blender/PROGRESS.md`, section "Weapons round 4: the review fixes". Verified in Blender only (re-import proofs,
+pictures); nothing was run in Unreal.
+
+- **Re-carry the art.** SK_Shorty and SK_Stretch were re-baked (new textures, same geometry, same bones and sockets: `_weapons_check_shorty.py` 63 of 63,
+  `_weapons_check_stretch.py` ALL FIXED POINTS KEPT), the two parts sets were re-baked (metallic is now binary). Run `tools/box/fp/fp-art.sh packr4` again
+  (guns 230.5 MB, rattler 48 MB, parts 21.5 MB) and import over the old ones; paths and slot names did not change. The parts archive now also carries
+  `ui/T_UI_Gun_{Chopper,Nine,Shorty,Stretch,Rattler}.png` (512 x 192, one scale: 2.2 mm per px) and `weapons_r4.json`.
+- **weapons_r4.json is real now** (`art/blender/assets/_weapons_r4_contract.py`, proof `CONTRACT KEPT`): per gun `bones` and `sockets` in `m` and `unreal_cm`,
+  `eject_dir_gun` / `eject_dir_unreal`, `workbench_slots`, `hide_bones_when_fitted`; per part the same as `weapons_parts_contract.json`. `mi_guns_r4.sockets()` still
+  only prints the keys: make it compare `guns.<id>.sockets[*].unreal_cm` and `.bones[*].head_unreal_cm` with the imported skeleton (the importer leaves a bone turn,
+  see BOX.md) and `parts.<id>.sockets_unreal_cm` with the static meshes' sockets, and return the number of differences.
+- **The aimed view of an optic needs a material rule, not a mesh.** The red dot's clear cone is 4 degrees and no tube can do 9 at the data's relief (see the art
+  PROGRESS): while aiming, set the fitted optic's `M_Part_Hardware` slot to a material that fades out (dither or opacity by the aim alpha, fully gone above ~0.6)
+  and keep `M_Part_Lens` and `M_Part_Reticle`; the scope keeps its body (its tunnel is the intended 30 degree scope picture).
+- **The tiling detail is not applied by the importer** (`mi_fp_import._surface()` wires BC, ORM, N, E only): the manifest slot records of all five guns carry
+  `detail_set` and `detail_repeat_per_uv` (the SHORTY also the polymer pair): add the second UV tile and blend the tiling normal into N, steel where ORM.B = 1,
+  polymer where 0. It is what lifts the 6.2 to 6.6 k px/m unique texel density at 25 to 60 cm.
+- **The STICK icon** (pack rifle, `bl_icons.py` on the box) is still at 1.906 mm per px; re-render it at 2.2 so the six icons compare by length.
+- Corrected statement of the modelers: the RATTLER's strap is NOT hidden by the folded wires (wires end at X 256, the strap starts at X 290); the CHOPPER's hip pose looks
+  along the barrel. The wires and plate do cover about half of the left flank in first person: judge it in the engine camera.
+
 ## Weapons round 4: the solved grips of the CHOPPER, SHORTY, STRETCH and RATTLER (grips helper, 2026-11-25, 14:28 to 15:45 UTC)
 
 `Content/Data/grips.json` now holds five guns: the NINE (hip, unchanged: re-solved with `_rule_grips.py nine --check`, max difference
