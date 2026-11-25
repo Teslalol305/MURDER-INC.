@@ -597,3 +597,11 @@ mode mission: Reel 1, Reel 2, Reel 3, then the extraction truck). Added to the G
    works by keys 1-4, the wheel and the pad in every state tested, with tests; story guidance (objective line, hint after no progress,
    on-screen marker, a highlighted walking path on the ground) leads from the start through all three reels to the extraction; an
    independent end-to-end play from the front end to the extraction and the holdout finds no blocker or must-fix left.
+
+## 2026-11-25 ~21:40 UTC: three maps, three levels; the fixes release ships first
+
+The owner: "we need 3 maps to start we can add more later but the player needs to progress to 3 levels each map is a different newyork
+setting". Asked, the owner chose Level 1 = the Block (the street under the El, as now), Level 2 = Chinatown / Canal Street, Level 3 =
+Midtown rooftops / Times Square, and "Ship fixes, then maps": the guns-and-fixes release (v6, the GO criteria of 20:40 to 21:20) goes
+out as soon as it passes every check, with one map; the three-level story is the next release and meets the same bar. Design and
+build plan: docs/unreal/MAPS.md and docs/unreal/maps/ (workflow mi-maps-design). Invented names only on signs and billboards.
