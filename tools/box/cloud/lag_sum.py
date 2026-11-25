@@ -113,6 +113,14 @@ for run in runs:
         parts.append(f"target {'/'.join(str(t) for t in targets) or '?'}, picture {f(min(drs, default=float('nan')), 2)}-{f(max(drs, default=float('nan')), 2)}"
                      f", owed {f(max([num(p, 'owed', 0) for p in play], default=0), 0)}, held {f(sum(num(p, 'held', 0) for p in play), 0)} frames"
                      f" (worst wait {f(max([num(p, 'worstWaitMs', 0) for p in play], default=0))} ms, time-outs {f(sum(num(p, 'pacerTimeOuts', 0) for p in play), 0)})")
+    # The quality ladder (release 3c): the step the game was on in the play, where it ended, how many changes, and the longest
+    # frame in the two seconds after each change (the game's own log line).
+    if play and any('q' in p for p in play):
+        qs = [int(num(p, 'q', 0)) for p in play]
+        glog = read(f'{run}/game.log')
+        hitches = re.findall(r'the longest frame in the two seconds after the change to step (\d+) was ([\d.]+) ms', glog)
+        parts.append(f"quality step {min(qs)}-{max(qs)} of {int(num(play[-1], 'qSteps', 0))}, ends at {qs[-1]}, {int(num(play[-1], 'qChanges', 0))} change(s) so far"
+                     + (f" (longest frame in the 2 s after each: {', '.join(h[1] + ' ms' for h in hitches)})" if hitches else ''))
     # The whole run, not only the play: the set-up screens draw at 60 whatever the GPU does, so a pacer that fails
     # shows there first (box run rf-cpu6-l20: every time-out fell on the home screen and the set-up screens).
     if any('pacerTimeOuts' in p for p in probes):

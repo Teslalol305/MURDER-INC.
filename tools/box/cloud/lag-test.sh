@@ -38,7 +38,8 @@
 #                     profile (the r.DynamicRes., MI.Cloud. and PixelStreaming2. lines of [MICloud] in the branch's
 #                     DefaultGame.ini) are passed as -MICVars, and the input device mapping policy of the branch's
 #                     DefaultInput.ini is written into the folder's Saved config (without it the engine raises an
-#                     ensure when a controller connects). Not needed for a packaged build.
+#                     ensure when a controller connects), and so are the quality ladder's steps (the QualitySteps= lines
+#                     of the branch's DefaultGame.ini, release 3c). Not needed for a packaged build.
 #   csv=1             a CSV profile of the Development game from the start of the run.
 #   secs=<n>          how long the game runs. Default 110 (dev) or 125 (ship).
 #   probe=<seconds>   the probe line's period. Default 1.
@@ -170,6 +171,11 @@ run_fg() {
     # a Saved ini it did not write when it exits).
     mkdir -p "$build/MurderInc/Saved/Config/Linux"
     printf '[InputPlatformSettings_Linux InputPlatformSettings]\ninput.DeviceMappingPolicy=3\n' > "$build/MurderInc/Saved/Config/Linux/Input.ini"
+    # The pak's DefaultGame.ini is older too: the quality ladder's steps (release 3c, [MICloud] QualitySteps= lines) as a Saved
+    # override, replacing whatever the pak has (the game deletes a Saved ini it did not write when it exits: before every run).
+    { printf '[MICloud]\n!QualitySteps=ClearArray\n'
+      sed -n '/^\[MICloud\]/,/^\[/p' "$T/../../../unreal/MurderInc/Config/DefaultGame.ini" | grep -E '^\+QualitySteps=' || true
+    } > "$build/MurderInc/Saved/Config/Linux/Game.ini"
     chown -R ue4 "$build/MurderInc/Saved/Config" 2>/dev/null
   fi
   [ -n "$secs" ] || { secs=110; [ "$game" = ship ] && secs=125; }
