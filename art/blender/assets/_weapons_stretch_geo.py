@@ -202,6 +202,11 @@ def stock_section(x, grow=0.0, inset=0.0, M=None):
     pts = ccw(pts)
     if inset > 0:
         pts = offset(pts, -inset)
+    if grow == 0.0:                                                  # the flanks bow out 1.3 mm at mid height (not on the pad)
+        bow = 1.3 * float(sstep(x, -228.0, -190.0)) * (1.0 - float(sstep(x, -40.0, -4.0))) * mm
+        zc, hh = 0.5 * (zt + zb) * mm, 0.5 * (zt - zb) * mm
+        pts = pts.copy()
+        pts[:, 0] += np.sign(pts[:, 0]) * bow * np.clip(1.0 - ((pts[:, 1] - zc) / hh) ** 2, 0.0, 1.0)
     return pts
 
 
@@ -333,9 +338,25 @@ def receiver(parts):
     mo = poly_prism(np.array(ccw(rpoly(np.array([(131, -13), (183, -13), (183, 13), (131, 13)]) * mm, [2.5 * mm] * 4,
                                        [5] * 4, [1] * 4))), -33 * mm, -28 * mm, "Z", "MagOpen")
     cut(ob, mo)
+    # milled pockets 0.7 mm deep with R 4-6 corners: left behind the slot (selector well), round the bolt catch and the slot,
+    # right round the ejection port and a long panel behind it
+    for (x0_, x1_, z0_, z1_, r_, side) in ((8, 80, -30, 7, 5, 1), (100, 163, -23, -0.5, 4, 1), (84, 212, 4, 26, 6, 1),
+                                          (98, 204, -3, 37, 6, -1), (8, 92, -28, 33, 6, -1)):
+        yy0, yy1 = (21.3, 24.0) if side > 0 else (-24.0, -21.3)
+        cut(ob, poly_prism(rrect_xz(x0_, x1_, z0_, z1_, r_, 5), yy0 * mm, yy1 * mm, "Y", "Pocket"))
     round_edges(ob, 0.00035, 2, 50)
     parts.append(P(ob, BLUED, "body"))
     return ob
+
+
+def receiver_screws(parts):
+    """Slotted screws and cross-pin heads on both flanks (pins hold the trunnion block, screws the rear plate)."""
+    for sy in (1, -1):
+        yf = sy * 22.0 * mm
+        for (x, z) in ((12.0, 33.5), (222.0, 33.5), (222.0, -25.0), (12.0, -26.5)):
+            parts.append(screw((x * mm, yf, z * mm), "Y", sy, r=0.0024, h=0.0009, seg=18))
+        for (x, z) in ((216.0, 19.0), (216.0, -14.0)):
+            parts.append(screw((x * mm, yf, z * mm), "Y", sy, r=0.0034, h=0.0010, slot=False, seg=20, bone="body"))
 
 
 def trunnion_and_ring(parts):
@@ -525,6 +546,11 @@ def handguard(parts):
             cut(ob, v)
     round_edges(ob, 0.0003, 2, 50)
     parts.append(P(ob, WOOD, "body"))
+    # sling socket: a steel cup R 6 on the left flank, low and forward, with a through hole for the loop
+    cup = lathe([(0.0246, 0.0), (0.0246, 0.0060), (0.0262, 0.0060), (0.0268, 0.0054), (0.0268, 0.0034), (0.0262, 0.0030),
+                 (0.0258, 0.0030), (0.0258, 0.0)], 28, axis="Y", at=(512 * mm, 0.0, -9.0 * mm), name="SlingCup")
+    cut(cup, box(508.5 * mm, 515.5 * mm, 25.0 * mm, 28.0 * mm, -10.4 * mm, -7.6 * mm, bevel=0.0))
+    parts.append(P(fix_normals(cup), BLUED, "body"))
     # steel front cap ring: R 26.6 outside, R 14.6 bore, 4.5 mm long, chamfered
     cap = [(TUBE["x1"], 14.6), (TUBE["x1"], 26.0), (TUBE["x1"] + 0.8, 26.8), (TUBE["x1"] + 3.8, 26.8), (TUBE["x1"] + 4.5, 26.0),
            (TUBE["x1"] + 4.5, 14.6)]
@@ -541,7 +567,7 @@ def barrel(parts):
             (727.0, 8.5), (727.0, 3.8)]
     # bore: a closed loop (the bore runs the whole length, so the barrel is a tube): chamber hole at the breech
     prof = [(207.0, 5.6), (207.0, 10.6), (208.2, 11.8), (212.0, 12.5), (712.0, 12.5), (712.0, 12.1), (715.0, 12.1),
-            (715.0, 8.5), (727.0, 8.5), (727.0, 3.8), (219.0, 3.8), (219.0, 5.6)]
+            (715.0, 8.5), (726.0, 8.5), (727.0, 7.5), (727.0, 4.7), (726.2, 3.8), (219.0, 3.8), (219.0, 5.6)]
     ob = lathe([(t * mm, r * mm) for t, r in prof], seg, axis="X", name="Barrel", closed=True)
     parts.append(P(ob, BLUED, "body"))
     gp = [(428.0, 12.0), (428.0, 14.6), (430.0, 16.0), (452.0, 16.0), (454.0, 14.6), (454.0, 12.0)]
@@ -665,7 +691,7 @@ def trigger_group(parts):
 def selector(parts):
     """Selector lever on the left flank (bone selector, pivot X 40, Z -10): hub R 6.8, thumb lever with serrations."""
     px, pz = 40.0, -10.0
-    boss = lathe([(0.0215, 0.0), (0.0215, 0.0068), (0.0236, 0.0068), (0.0244, 0.0059), (0.0244, 0.0)], 28, axis="Y",
+    boss = lathe([(0.0211, 0.0), (0.0211, 0.0068), (0.0236, 0.0068), (0.0244, 0.0059), (0.0244, 0.0)], 28, axis="Y",
                  at=(px * mm, 0.0, pz * mm), name="SelHub")
     lever = np.array([(-4.5, -3.0), (-1, -5.0), (10, -4.0), (22, -3.2), (26.5, -1.8), (27.5, 1.4), (24.5, 3.6), (12, 3.8),
                       (0, 5.0), (-5, 2.5)])
@@ -683,12 +709,12 @@ def bolt_catch(parts):
     """Bolt catch lever on the left flank (bone bolt_catch, pivot X 125, Z -12): stamped plate with a thumb pad."""
     outline = np.array([(106, -5.5), (111, -3.5), (118, -4.6), (128, -8.5), (143, -10.6), (152, -12.8), (153, -15.8), (148, -17.2),
                         (132, -16.6), (122, -15.6), (116, -12), (110, -8.8)]) * mm
-    lv = prism([tuple(p) for p in outline], 22.2 * mm, 24.8 * mm, axis="Y", bevel=0.0004, seg=2, name="Catch", fillet=0.0012)
-    boss = lathe([(0.0220, 0.0), (0.0220, 0.0046), (0.0248, 0.0046), (0.0248, 0.0)], 24, axis="Y", at=(125 * mm, 0.0, -12 * mm),
+    lv = prism([tuple(p) for p in outline], 21.6 * mm, 24.2 * mm, axis="Y", bevel=0.0004, seg=2, name="Catch", fillet=0.0012)
+    boss = lathe([(0.0211, 0.0), (0.0211, 0.0046), (0.0246, 0.0046), (0.0246, 0.0)], 24, axis="Y", at=(125 * mm, 0.0, -12 * mm),
                  name="CatchHub")
     ob = geo.join([lv, boss], "BoltCatch")
     parts.append(P(fix_normals(ob), BLUED, "bolt_catch"))
-    parts.append(screw((125 * mm, 24.8 * mm, -12 * mm), "Y", 1, r=0.0030, h=0.0009, seg=18, bone="bolt_catch"))
+    parts.append(screw((125 * mm, 24.6 * mm, -12 * mm), "Y", 1, r=0.0030, h=0.0009, seg=18, bone="bolt_catch"))
 
 
 def charging_handle(parts):
@@ -697,7 +723,7 @@ def charging_handle(parts):
     cx, cz = 195.0, 15.0
     stem = lathe([(0.0088, 0.0), (0.0088, 0.0034), (0.0334, 0.0034), (0.0334, 0.0)], 20, axis="Y", at=(cx * mm, 0.0, cz * mm),
                  name="Stem")
-    wash = lathe([(0.0220, 0.0), (0.0220, 0.0053), (0.0238, 0.0053), (0.0238, 0.0)], 28, axis="Y", at=(cx * mm, 0.0, cz * mm),
+    wash = lathe([(0.0213, 0.0), (0.0213, 0.0053), (0.0236, 0.0053), (0.0236, 0.0)], 28, axis="Y", at=(cx * mm, 0.0, cz * mm),
                  name="StemWasher")
     bar = poly_prism(stadium(28.0, 9.0, 8) * mm + np.array([cx * mm, cz * mm]), 32.0 * mm, 40.4 * mm, "Y", "TBar")
     round_edges(bar, 0.0011, 2, 40)
@@ -920,7 +946,7 @@ def stretch_magazine(col):
 
 def stretch_parts():
     parts = []
-    for fn in (stock_wood, butt_pad, cheek_pad, sling_studs, stock_screws, receiver, trunnion_and_ring, dust_cover, mag_well,
+    for fn in (stock_wood, butt_pad, cheek_pad, sling_studs, stock_screws, receiver, receiver_screws, trunnion_and_ring, dust_cover, mag_well,
                rail_top, rail_bottom, handguard, barrel, muzzle_brake, pistol_grip, trigger_group, selector, bolt_catch,
                charging_handle, bolt_group, bipod, irons_rear, irons_front):
         fn(parts)
