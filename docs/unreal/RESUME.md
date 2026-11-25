@@ -290,3 +290,43 @@ old zip is superseded. Next is step 6 (the owner's E3DS trial) and the explosion
   small sizes (V3-6), the rest of the controller path (V3-7: the home screen names the keyboard's keys until a
   second controller press; a whole Story and Hold the Block run through the stream), the cold start (V3-12), the
   smaller items (V3-13). The owner's screenshot decides the order after the sound: a slow card makes V3-2 next.
+
+## 10. Weapons round 4: six guns, twelve parts (box engineer, 2026-11-25)
+
+The owner's complaint ("all the guns look the same and no attachments are able to be added to the guns") is answered in the game: six
+guns that read apart (CHOPPER, NINE, SHORTY, STICK, STRETCH, RATTLER), twelve parts that fit on every gun that can take them (offered:
+CHOPPER 3 slots, NINE 3, SHORTY 5, STICK 5, STRETCH 4, RATTLER 3), shown on the rack and on the Workbench and drawn on the gun in first
+person (PROGRESS.md, "Weapons round 4: the box engineer"; the guns' hand-IK sets: ANIMATION.md 11; the data: WEAPONS_R4_DATA.md and
+LOADOUT.md 3.3; the art: WEAPONS_R4.md). In a clean checkout (no art, no pack) the pack rifles are not offered and the five own guns' data
+checks still run; nothing else changes.
+
+**Everything the guns need that is not in git** lives on the box and is made by scripts from the art archive:
+
+| What | Where | How |
+|---|---|---|
+| Art archive `fp-guns-r4.tar` (300 MB, sha256 `6a521cf3653be7ebc98f976f7ee17a69442f00ae92b3fed191453a7dedbd5741`, made by `art/blender/` and `tools/box/fp/fp-art.sh packr4`) | unpacked in `/project/ue/fp-in-guns` (the tar itself: `/project/ue/art-in-guns/final.tar`) | `FP_IN=<folder> bash tools/box/fp/fp-art.sh unpack <url>` or plain `tar xf` into the folder; the storage takes bodies up to about 500 MB |
+| The imported assets (`Content/Weapons/*`, `Content/UI/Icons/*`; git-ignored) | each clone's own `unreal/MurderInc/Content` | editor stopped: `MI_FP_IN=/project/ue/fp-in-guns bash tools/box/fp/import-chars.sh r4 guns rattler parts` (1 min 30 s; `status` shows the `MI-R4` lines; `probe` and `sockets` only read) |
+
+**To get the guns into a packaging clone (the release engineer):** pull the branch, then in that clone, with its editor stopped,
+`MI_FP_IN=/project/ue/fp-in-guns bash tools/box/fp/import-chars.sh r4 guns rattler parts` (it re-imports over what is there: the parts'
+hardware material is rebuilt with the `AimFade` parameter the optics' fade needs, so a clone that imported before 16:00 UTC must run it
+again), then build, run the suite (189 tests on the box with the art), and `package-cloud.sh` checks `/Game/Weapons` against the data
+(it said "all 35 assets" on the trial package). Without the import the build still starts and plays; the five own guns are simply not
+offered.
+
+**To re-prove the pictures** (editor on `/Game/Maps/L_Block`, `MI_MCP_PORT` of the clone; each script writes JPEGs to the folder it is given):
+
+    bash tools/box/fp/gun_lineup.py     (through mi_mcp.py py ...; prints CAM lines for shot.sh)   raw art, five guns and the parts
+    bash tools/box/bench-shots.sh <out>                          rack and Workbench of every gun and part (about 20 s a picture)
+    bash tools/box/fp/guns-shots.sh <out>                        first person: hip, aimed, reload, one frame of a burst, per gun
+    python3 tools/box/sheet.py out.jpg --cols 3 a.jpg b.jpg ...  a contact sheet to look at many at once
+
+**The box is shared.** A gate run (`lag-test.sh`, `package-cloud.sh`, `e3ds-verify.sh`) or anybody's game measures the machine and an editor beside
+it spoils the number: `tools/box/quiet-editor.sh` keeps an editor of the clone only while no gate run and no game is running and stops it at once when
+one starts (BOX.md 8). Builds and test suites of others do not count. Another agent's long profile runs (30 and 33 minutes each on the afternoon of
+2026-11-25) held it off for long stretches.
+
+**Open (honest list):** see the report of the box engineer in PROGRESS.md: the hands' fit per gun, the optic fade seen only on the pictures listed
+there, `grip.pose` that reads one pose (the aimed solves are in `grips.json` but unused), the SHORTY's shoulder anchor (the data engineer's item),
+`wallPull` not re-measured on the real meshes, the tiling detail normal not applied by the importer, textures: all five guns have their final 4K sets
+(the SHORTY, STRETCH and RATTLER one 4K set each, the CHOPPER three) and the parts one set; none is a draft.

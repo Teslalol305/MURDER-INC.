@@ -261,7 +261,7 @@ def parts():
     names = sorted(f[:-4] for f in os.listdir(gd) if f.startswith("SM_Part_") and f.endswith(".glb")) if os.path.isdir(gd) else []
     for s in ("Weapon_Parts", "Weapon_PartsMags"):
         _import_set(s, PARTS)
-    hardware = F._surface(PARTS + "/M_Part_Hardware", PARTS + "/Textures", "Weapon_Parts", skeletal=False, emissive=True)
+    hardware = F._surface(PARTS + "/M_Part_Hardware", PARTS + "/Textures", "Weapon_Parts", skeletal=False, emissive=True, aim_fade=True)
     mags = F._surface(PARTS + "/M_Part_Mags", PARTS + "/Textures", "Weapon_PartsMags", skeletal=False)
     lens = _lens(PARTS + "/" + LENS_NAME)
     ret = _reticle(PARTS + "/" + RETICLE_NAME)

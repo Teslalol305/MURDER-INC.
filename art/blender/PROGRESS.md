@@ -1359,3 +1359,68 @@ mark_piece, preview_fp / rig_studio, Surf2, chunks, kit lofts).
 art/out/textures/Rattler/gmaps_4096.npz when done), `python art/blender/assets/_weapons_check_rattler.py`, then
 `MI_PREVIEWS=weapons_rattler_hero,weapons_rattler_fp,weapons_rattler_side,weapons_rattler_parts,T_UI_Gun_Rattler build.py build
 weapons_rattler --preview --only none --samples 48`.
+
+# Weapons round 4: the review fixes (fixer, 2026-11-25, about 15:00 to 16:30 UTC)
+
+The reviewers' eleven findings on the round-4 art, each checked before it was fixed. What was done, what was rejected, what is left.
+
+## Fixed (in code, re-exported, re-proved, pictures re-rendered and looked at)
+- **SHORTY had no `uv_cache.npz`** (confirmed: every other new set has one, `weapons_shorty.py` called `geo.uv_unwrap` in every process, so a
+  preview or a re-export in a later process wrote UVs that no longer matched the 4K set). `weapons_shorty.py` now has `mesh_key` and
+  `unwrap_cached` (the STRETCH's mechanism, keyed by the mesh hash; gun and magazine): `art/out/textures/Shorty/uv_cache.npz` and
+  `Weapon_ShortyMagazine/uv_cache.npz`. A fresh-process preview now says "UV layout from the cache" and matches the bake. To change the UV
+  weights on purpose: delete the cache file and build with `--bake --rebake-unique`.
+- **SHORTY surfaces flat and soft** (partly confirmed: the 1:1 crop is near-uniform olive, the flank density was 6,120 px/m). The weights of
+  the hidden and secondary faces went down (undersides 0.40, barrel 0.30, hider 0.40, pad 0.40, rear face 0.35, forend and grip 0.66,
+  interiors 0.25), so the weight-1 faces (flanks, handle, rail) now read 6,506 px/m (was 6,120; the brief's 7,000 does not fit one 4K set:
+  coverage is already 82 %). The polymer has more mottle (0.135 against 0.095), more chalky edge wear, stronger grime runs and rim dirt,
+  darker moulded markings (so CARBINE S-5.6, the proof star and the serial read at 30 cm), and the parkerised steel wears brighter at its
+  edges. Geometry untouched (the forend and body already carry the 2.5 mm radii and 4 mm chamfers); `_weapons_check_shorty.py`: 63 of 63.
+- **STRETCH walnut read as evenly spaced contour stripes** (confirmed on the 4K crop and the side picture). `walnut()` now drifts the ring
+  coordinate with two slow noises (some rings bunch, some spread, the lines run out along the plank), gives every ring its own late-wood
+  width and +-15 % tone, adds lighter and darker bands across the plank and less ring contrast. A 1024 draft was looked at before the 4K bake:
+  cathedral figure and irregular spacing. The stock's silhouette (comb, toe) is the brief's own pchip lines (+36 at X -240, +58 at X -110, +48
+  at X -40, toe -110 / -70 / -40) and was not changed: the "blobby" look is the heavy 130 mm butt of the brief plus the cheek riser's rebate.
+- **STRETCH and CHOPPER read alike in first person** (confirmed: both navy). The STRETCH's steel is now a warm graphite (#4a4843, roughness
+  0.30 to 0.46, same on its magazine) and the walnut is a darker brown with a visible grain: the picture reads black and brown against the
+  CHOPPER's blue-grey and red laminate. Proof still ALL FIXED POINTS KEPT.
+- **Parts sets broke the binary metallic convention** (confirmed: 14 % and 29 % intermediate texels). `_weapons_parts_tex.binary_metal()` thresholds
+  ORM.B at 0.5 on both sets; both re-baked at 2K (UV cache reused): 0.0 % intermediate texels now. `_weapons_check_parts.py`: ALL MOUNTS KEPT.
+- **T_UI_Gun_Chopper and T_UI_Gun_Nine did not exist, no lineup picture** (confirmed). New `assets/_weapons_icons.py`: the five silhouettes at
+  one scale (2.2 mm per px, bore at y = 84, centred, 4x supersampled, alpha film; measured widths 502 / 233 / 700 / 1045 / 713 mm, the RATTLER
+  with its stock deployed), and `weapons_lineup.jpg` (committed). The icons ride in `fp-art.sh packr4 parts` (it already copies `ui/T_UI_Gun_*`).
+  The STICK's icon is a pack rifle rendered on the box (`bl_icons.py`): still at 1.906 mm per px, the animation agent has to re-render it at 2.2.
+- **weapons_r4.json was never produced** (confirmed). New `assets/_weapons_r4_contract.py` writes `art/out/weapons_r4.json` (all deform bones
+  and sockets of the five guns in metres and Unreal cm, eject directions, hide bones, Workbench slots, the 12 parts' sockets) from the manifest and the
+  parts contract and PROVES it by re-importing every GLB (every joint head to 1e-5 m, triangle counts, every part `.sockets.json`): `CONTRACT KEPT`.
+  `fp-art.sh packr4 parts` copies it. What is still missing is the box side: `mi_guns_r4.sockets()` only prints the contract's keys (tools/, not
+  mine); it has to compare `guns.<id>.sockets[*].unreal_cm` with the imported skeleton's sockets (see the integration notes in the report).
+
+## Rejected or not fixable in art (with the evidence)
+- **Optic sight picture is a 4 degree porthole** (confirmed as a measurement, but the 9 degrees of the brief cannot be met by any tube): a 28 mm
+  window at the 140 mm relief the data asks for is atan(14 / 172) = 4.6 degrees at the rear window alone; the front window is 64 mm further
+  from the eye. The scope's 30 mm tube gives the same 4.5 degrees at 152 mm. A tube sight really looks like this; at the scope's 30 degree
+  aimed field that is the usual dark-tunnel scope picture and is meant. For the red dot (60 degree aimed field) it is not acceptable, and the
+  fix is in the sight picture, which the parts already allow: the lens (`M_Part_Lens`) and the reticle (`M_Part_Reticle`) are their own material
+  slots, so the aimed view sets `M_Part_Hardware` on the fitted optic to a material that is hidden (or dithered out) while the aim is above
+  ~0.6 and leaves lens and reticle; the clamp and the body come back when the aim drops. Not done in art because widening the tube to 7
+  degrees needs a 50 mm body that collides with the turret and the battery cap, and a different part. `_weapons_check_parts_b.py` measures the
+  real cone (a fan of rays, gate 3.4 degrees), it is not a one-ray check.
+- **RATTLER first person: "the folded stock hides the strap"** (rejected as stated). The wires end in the butt plate at X 236..256 and the strap
+  wrap is X 290..350, so no wire can cover it; in the CHOPPER's hip pose the camera looks nearly along the barrel and sees the strap's rear end
+  (the cream disc), foreshortened. What IS true: the two wires and the plate cover a good half of the left flank in that pose (the brief's
+  intent: "plainly visible from the shooter's eye"), and the selector sits 1.2 mm behind the lower wire. Whether the real game camera sees
+  more has to be judged in the engine; if it is too much, the cheap option is to fold the stock to the right side (mirror the bone's rest), not to move the strap.
+- **Tiling detail sets never applied by the importer** (confirmed, tools/ side): `mi_fp_import._surface()` wires BC, ORM, N and E only. The manifest
+  slot records carry `detail_set`, `detail_repeat_per_uv`, and for the SHORTY the polymer pair; the importer has to add the second UV tile and
+  blend the tiling normal where ORM.B is 1 (steel) or 0 (polymer). One shared function fixes all five guns. Not editable from here.
+
+## Numbers after the fixes
+SK_Shorty 67,168 tris, SK_Stretch 61,792, SK_Rattler 67,964 (unchanged), SK_Chopper 150,487, SK_Nine 86,033; Shorty set 4096 (weight-1 faces
+6,506 px/m, median 4,268), Stretch set 4096 (3,623 median, 6,150 on the receiver), parts sets 2048 (3,266 / 3,857 px/m, metallic binary).
+Proofs: `_weapons_check.py` (CHOPPER, NINE) ALL FIXED POINTS KEPT, `_weapons_check_shorty.py` 63 of 63, `_weapons_check_stretch.py` ALL FIXED POINTS
+KEPT, `_weapons_check_rattler.py` unchanged, `_weapons_check_parts.py` ALL MOUNTS KEPT, `_weapons_r4_contract.py` CONTRACT KEPT.
+Re-run recipe: `flock art/out/.bake.lock python art/blender/build.py build weapons_<gun> --bake --rebake-unique --export --res 4096 --samples 48`
+(SHORTY about 11 min, STRETCH about 12 min, parts `--res 2048` about 5 min), then the gun's check, `_weapons_icons.py <gun>`, `_weapons_icons.py lineup`,
+`_weapons_r4_contract.py`, `tools/box/fp/fp-art.sh packr4`. Pictures from a fresh process need no `--only none` for the STRETCH (it builds the
+gun from the cache; `--only none` builds nothing and renders nothing).

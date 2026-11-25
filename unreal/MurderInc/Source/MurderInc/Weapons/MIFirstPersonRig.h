@@ -10,6 +10,7 @@ class FJsonObject;
 class FMIViewmodelRig;
 class UAnimSequenceBase;
 class UCameraComponent;
+class UMaterialInstanceDynamic;
 class UMIGunAssembly;
 class UMIWeaponComponent;
 class USkeletalMesh;
@@ -139,6 +140,9 @@ private:
 	TObjectPtr<UStaticMeshComponent> OwnMag;
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMeshComponent> OwnTopRound;  // HandIK guns: the seated magazine's top round (a child of OwnMag)
+	/** HandIK guns: the fitted optic's hardware material, one dynamic instance per slot; its scalar "AimFade" goes 0 to 1 as
+	 *  the sight comes up (the housing fades out, the glass and the reticle stay: the aimed picture is not a dark tunnel). */
+	TArray<TWeakObjectPtr<UMaterialInstanceDynamic>> OpticHardware;
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMeshComponent> ReserveMag;
 	UPROPERTY(Transient)

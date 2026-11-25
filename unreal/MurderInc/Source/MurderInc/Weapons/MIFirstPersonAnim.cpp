@@ -5,6 +5,7 @@
 #include "AnimationRuntime.h"
 #include "BonePose.h"
 #include "TwoBoneIK.h"
+#include "HAL/IConsoleManager.h"
 
 void FMIFPAnimProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSeconds)
 {
@@ -17,6 +18,12 @@ void FMIFPAnimProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSeconds
 
 namespace MIFirstPersonAnimPrivate
 {
+	/** How far an arm may stretch to reach its target (1 = never). The mannequin's arm is 58.5 cm from the upper arm to the
+	 *  palm and the support palm of a rifle is up to 64 cm from the shoulder under the eye: without a little stretch the
+	 *  hand stops short of the handguard. Console mi.FP.ArmStretch. */
+	static TAutoConsoleVariable<float> CVarArmStretch(TEXT("mi.FP.ArmStretch"), 1.10f,
+		TEXT("Largest stretch of a hand-IK arm to reach its target (1 = none)"), ECVF_Default);
+
 	void Sample(const FMIFPLayer& L, float Time, FPoseContext& Out)
 	{
 		FAnimationPoseData Data(Out);
@@ -224,7 +231,8 @@ namespace MIFirstPersonAnimPrivate
 		}
 		// The elbow keeps bending the way the clip bends it (moved by PoleShift x Weight when asked).
 		const FVector Pole = LT.GetLocation() + (LT.GetLocation() - (UT.GetLocation() + ET.GetLocation()) * 0.5) * 2.0 + H.PoleShift * H.Weight;
-		AnimationCore::SolveTwoBoneIK(UT, LT, ET, Pole, Effector, false, 1.0, 1.0);
+		const double Stretch = FMath::Clamp(static_cast<double>(CVarArmStretch.GetValueOnAnyThread()), 1.0, 1.3);
+		AnimationCore::SolveTwoBoneIK(UT, LT, ET, Pole, Effector, Stretch > 1.0, 1.0, Stretch);
 		if (H.bRotation && !H.bKeepHand)
 		{
 			ET.SetRotation(FQuat::Slerp(E0.GetRotation(), H.Target.GetRotation(), H.Weight).GetNormalized());

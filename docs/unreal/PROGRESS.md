@@ -3,6 +3,85 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Weapons round 4: the box engineer (integration, 2026-11-25, 13:30 UTC onward): code, tests, imports, what the pictures show
+
+**Built (all of it in `unreal/MurderInc`, tests in `MIWeaponsR4Tests.cpp` and the edited suites):** the data's `rideBone`, `topRound` and the
+trade check (`MILoadoutData`, `MILoadoutResolver`); the gun assembly that works on the exported skeletons (a part snapped to a bone socket
+turns by the inverse of the bone's reference rotation: every bone of an exported skeleton carries the importer's quarter turn, BOX.md 8; parts
+hide the gun's bones, ride the magazine bone, the factory magazine and its top round stand on the stage gun); the first-person rig for hand-IK
+guns (the arms' shoulder anchor also for guns with no solved grip, brass for hand-IK guns, the support hand following a fitted foregrip, the
+seated magazine and its top round, the optic's housing fading out as the sight comes up: ANIMATION.md 11). Tools: `fp-art.sh packr4`,
+`mi_guns_r4.py` (guns, rattler, parts; `import-chars.sh r4`), `bench-shots.sh`, `guns-shots.sh`, `gun_lineup.py`, `sheet.py`, `quiet-editor.sh`.
+
+**Measured on the box (clone `/project/ue/repo-guns`, port 8010):**
+
+| What | Result |
+|---|---|
+| Editor build of the clone with the round's C++ | compiled first time (11 files), 3 min 15 s with another job's build in front of it (UBT's lock is per engine, builds of all clones queue); a later one-line fix 60 s |
+| Full suite on it | **189 of 189** (60 to 72 s). Two failures on the first run, both mine to judge: `FirstPerson.OwnGunSets` held a long banana magazine inside the gun's bounds (the CHOPPER's hangs 8.1 cm and the RATTLER's 6.9 cm below the receiver, as modelled: the test now asks for the top, front, back and sides inside and the hang under 12 cm), and `Loadout.SocketContract` held the NINE's six old hand-set markers to 1.2 mm (its support marker is 6.29 mm off its socket; the data check `check_guns_data.py` leaves the NINE's markers out and the sockets replace them at run time: the test now reports them, it does not hold them) |
+| The three art tars, unpacked and imported (`guns rattler parts`) | 1 min 30 s for all; the final archive (`fp-guns-r4.tar`, sha256 `6a521cf3…`) went up in 32 s and is unpacked in `/project/ue/fp-in-guns` |
+| A picture session needs the editor, and the box is shared | see BOX.md 8: waited 52 min for the first quiet minutes; two starts of an editor ran 20 to 30 s beside a gate run that began just after (stopped at once) |
+
+**Read from the release engineer's trial run of the packaged game (commit `fd8ce12`, the frames of `t-guns` and `t-guns-b`; looked at with the Read tool, not
+yet reproduced in the editor):** the guns read apart on the rack and in the hands (CHOPPER with its red-brown furniture, SHORTY olive bullpup, STRETCH long
+marksman rifle with a scope, RATTLER compact SMG, the STICK unchanged and well held); a part fitted at the Workbench is on the gun (red dot on the CHOPPER and SHORTY,
+4x scope on the STRETCH, the suppressor on the NINE). Faults seen in first person on the four hand-IK rifles, none on the NINE or the STICK: the support arm is a cut upper
+arm in front of the left of the picture ending in a ball (the closed fist seen end-on) that floats above the gun, and in a reload the arm fills a third of the screen;
+the optics' housings are a thick black ring in the aimed picture (the "dark tunnel" of WEAPONS_R4.md 5.5). Both are what the commits of this entry address.
+
+## Weapons round 4: the art hand-off page and the archive (finisher, 2026-11-25, 15:40 to 16:00 UTC)
+
+`docs/unreal/WEAPONS_R4.md` is the one page for the box engineer (every asset with triangles, sets, bones and sockets; the roster of six; the parts kit and its fit table;
+the data as it stands; the import checklist; the first-person arm notes; what is not done; the weaknesses). Every family was re-exported from the committed code in a fresh process
+(31 GLBs byte-identical to the previous exports) and all proofs pass: `_weapons_check.py` (CHOPPER and NINE ALL FIXED POINTS KEPT), the SHORTY, STRETCH and RATTLER checks, `_weapons_check_parts.py`
+(ALL MOUNTS KEPT) and `_weapons_r4_contract.py` (CONTRACT KEPT). Archive: `art/out/fp-guns-r4.tar` (git-ignored), 300,011,520 bytes, sha256
+`6a521cf3653be7ebc98f976f7ee17a69442f00ae92b3fed191453a7dedbd5741`, the three `fp-weapons-r4-*.tar` merged in one tar with the same layout. Nothing was run in Unreal.
+
+## Weapons round 4: the review fixes of the art (fixer, 2026-11-25, 15:00 to 16:30 UTC): what the integration engineer must know
+
+Details, evidence and what was rejected: `art/blender/PROGRESS.md`, section "Weapons round 4: the review fixes". Verified in Blender only (re-import proofs,
+pictures); nothing was run in Unreal.
+
+- **Re-carry the art.** SK_Shorty and SK_Stretch were re-baked (new textures, same geometry, same bones and sockets: `_weapons_check_shorty.py` 63 of 63,
+  `_weapons_check_stretch.py` ALL FIXED POINTS KEPT), the two parts sets were re-baked (metallic is now binary). Run `tools/box/fp/fp-art.sh packr4` again
+  (guns 230.5 MB, rattler 48 MB, parts 21.5 MB) and import over the old ones; paths and slot names did not change. The parts archive now also carries
+  `ui/T_UI_Gun_{Chopper,Nine,Shorty,Stretch,Rattler}.png` (512 x 192, one scale: 2.2 mm per px) and `weapons_r4.json`.
+- **weapons_r4.json is real now** (`art/blender/assets/_weapons_r4_contract.py`, proof `CONTRACT KEPT`): per gun `bones` and `sockets` in `m` and `unreal_cm`,
+  `eject_dir_gun` / `eject_dir_unreal`, `workbench_slots`, `hide_bones_when_fitted`; per part the same as `weapons_parts_contract.json`. `mi_guns_r4.sockets()` still
+  only prints the keys: make it compare `guns.<id>.sockets[*].unreal_cm` and `.bones[*].head_unreal_cm` with the imported skeleton (the importer leaves a bone turn,
+  see BOX.md) and `parts.<id>.sockets_unreal_cm` with the static meshes' sockets, and return the number of differences.
+- **The aimed view of an optic needs a material rule, not a mesh.** The red dot's clear cone is 4 degrees and no tube can do 9 at the data's relief (see the art
+  PROGRESS): while aiming, set the fitted optic's `M_Part_Hardware` slot to a material that fades out (dither or opacity by the aim alpha, fully gone above ~0.6)
+  and keep `M_Part_Lens` and `M_Part_Reticle`; the scope keeps its body (its tunnel is the intended 30 degree scope picture).
+- **The tiling detail is not applied by the importer** (`mi_fp_import._surface()` wires BC, ORM, N, E only): the manifest slot records of all five guns carry
+  `detail_set` and `detail_repeat_per_uv` (the SHORTY also the polymer pair): add the second UV tile and blend the tiling normal into N, steel where ORM.B = 1,
+  polymer where 0. It is what lifts the 6.2 to 6.6 k px/m unique texel density at 25 to 60 cm.
+- **The STICK icon** (pack rifle, `bl_icons.py` on the box) is still at 1.906 mm per px; re-render it at 2.2 so the six icons compare by length.
+- Corrected statement of the modelers: the RATTLER's strap is NOT hidden by the folded wires (wires end at X 256, the strap starts at X 290); the CHOPPER's hip pose looks
+  along the barrel. The wires and plate do cover about half of the left flank in first person: judge it in the engine camera.
+
+## Weapons round 4: the solved grips of the CHOPPER, SHORTY, STRETCH and RATTLER (grips helper, 2026-11-25, 14:28 to 15:45 UTC)
+
+`Content/Data/grips.json` now holds five guns: the NINE (hip, unchanged: re-solved with `_rule_grips.py nine --check`, max difference
+0.000 cm over every point) and the CHOPPER, SHORTY, STRETCH and RATTLER (hip and aim), written by `art/blender/assets/_rule_grips.py
+chopper shorty stretch rattler --pose hip,aim --pictures` on the exported files: Palm_R / Palm_L from each file, the hip view from the data
+(config.json, or guns.json rules.views for the new guns), the aimed view from guns.json relief and the file's SightRear; the support palm up
+under the handguard or forend, fingers up its right face, as on the CHOPPER. New for these four (`_characters_pose.py`; the NINE's search
+is untouched): the trigger index may straighten (first joint from -30 deg) and swing in the plane of the palm, a point inside the gun counts
+as negative clearance, the thumb grid is wider. Checked in Blender, **not yet in Unreal**: pictures `art/previews/grips_<gun>_hip.jpg` (and
+`grips_chopper_aim.jpg`, `grips_rattler_aim.jpg`; the aimed SHORTY and STRETCH show only the stock and sights) plus close-ups from the
+right, from below and under the support hand; at the hip the index pad sits 0.8 mm (CHOPPER), 2.6 (SHORTY), 7.0 (STRETCH) and 20.6 mm
+(RATTLER) from the trigger's face, the firing thumb round the grip's left side within 13 to 16 mm of its aim, every phalanx clear or at most
+2.7 mm pressed. The four rifle anim sets of `presentation.json` get the NINE's key, `"grip": {"gun": ..., "pose": "hip", "weight": 1.0}`
+(its own commit). **To tune in play**: with a grip the set's `shoulders` anchor takes over, and all four carry the NINE's [-6, 0, -24],
+where the support wrist ends about 58 to 63 cm from its shoulder (estimated; the arm reaches about 55); the solves put the shoulders
+(camera space, cm) at CHOPPER [-8.5, 1.1, -12.4], STRETCH [-6.5, 1.1, -12.4], RATTLER [-2.5, 1.1, -12.4] (try them with
+`mi.FP.Shoulders`). The SHORTY's hip view
+is the CHOPPER's numbers on a gun whose origin is its butt pad: its forend sits 70 cm out (support wrist 77 cm from the anchor; the solve
+needed its shoulders at [11.5, 1.1, -16.4], ahead of the eye), so its view wants the butt near the eye. The RATTLER's trigger face is at
+X 140 mm (spec 132), 4.5 mm from the magazine well, so no finger fits in front of it, and from its back strap to the trigger is 10.3 cm
+(CHOPPER 9.25): its firing thumb lies along the right side, outside the gun.
+
 ## Release 3c: the session (session engineer, 2026-11-25, 11:50 to 15:25 UTC)
 
 The game now looks after its own session, and E3DS's quality number became the centre of a range. **In the game**
@@ -3528,3 +3607,13 @@ Contracts: `docs/unreal/GAMEPLAY.md`. Built and tested in the second clone `/pro
 - The project `unreal/MurderInc` compiles on the box (`-NoUBA`), the headless editor starts with its MCP server, the
   bootstrap map `L_Bootstrap` is built by `mi_bootstrap_map.py`, and a picture of it came back through the transfer
   procedure (`docs/unreal/shots/bootstrap.jpg`; its black shade is the scene-capture limit found later).
+
+**Weapons round 4, first-person shoulders (lead, 2026-11-25 15:40 UTC).** The grip solves (grips.json) put the arms'
+shoulders where the support hand can reach the gun: `presentation.json firstPerson.animSets` now carries them for
+`chopper_ik` [-8.5, 1.1, -12.4], `stretch_ik` [-6.5, 1.1, -12.4] and `rattler_ik` [-2.5, 1.1, -12.4] (camera space, cm;
+they all had the NINE's [-6, 0, -24], from which the support wrist is 58 to 63 cm from the shoulder against an arm of
+about 55). **Still open for the box engineer:** the SHORTY's hip view in guns.json is the CHOPPER's numbers on a gun
+whose origin is its butt pad (its forend lands about 70 cm out): give it a view with the butt near the eye, then run
+`art/blender/assets/_rule_grips.py shorty --pose hip,aim --pictures` and set `shorty_ik.shoulders` from the solve. Check
+all four in play with `mi.FP.Shoulders`. The RATTLER's trigger finger stays about 2 cm off the trigger face (the gun's
+geometry: the trigger sits 4.5 mm from the magazine well).

@@ -293,6 +293,23 @@ def pips(out_dir=None, samples=16):
     return out_dir
 
 
+def plain_background(grey=0.30):
+    """Studio light for the parts, a plain mid grey for the camera's own rays (the dark studio backdrop swallowed the black
+    anodised and parkerised parts: the review found the kit picture unreadable)."""
+    nt = bpy.context.scene.world.node_tree
+    out = next(n for n in nt.nodes if n.bl_idname == "ShaderNodeOutputWorld")
+    src = out.inputs["Surface"].links[0].from_node
+    bg = nt.nodes.new("ShaderNodeBackground")
+    bg.inputs["Color"].default_value = (grey, grey, grey * 1.02, 1.0)
+    bg.inputs["Strength"].default_value = 1.0
+    lp = nt.nodes.new("ShaderNodeLightPath")
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(lp.outputs["Is Camera Ray"], mix.inputs[0])
+    nt.links.new(src.outputs[0], mix.inputs[1])
+    nt.links.new(bg.outputs[0], mix.inputs[2])
+    nt.links.new(mix.outputs[0], out.inputs["Surface"])
+
+
 def kit(path, samples=64, res=(1280, 720)):
     """Every part on a plain background in a flat side view, three groups: the optics and muzzle devices (top row), the grips and
     the laser (second row), the three magazines with their top rounds (right, standing). Labelled by position."""
@@ -300,6 +317,7 @@ def kit(path, samples=64, res=(1280, 720)):
     from bpy_extras.object_utils import world_to_camera_view
     bpy.ops.wm.read_factory_settings(use_empty=True)
     setup(samples, res)
+    plain_background(0.30)
     mats = part_materials()
     ct = contract()
     width = 0.90                                              # metres across the frame

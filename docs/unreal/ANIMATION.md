@@ -490,3 +490,35 @@ copies and the manifest to `/project/ue/packs/tactical-rifle/adapted` (`export_a
 them into the game project. The CHOPPER's geometry the adaptation aims at (`mi_adapt.CH`: palms, sights, magazine
 hinge, knob, bolt travel) is written in `mi_adapt.py` from `weapons.json`: if the rebuild moves a socket, change `CH`
 first.
+
+## 11. Our own guns' hand-IK sets (weapons round 4)
+
+The four guns of round 4 (CHOPPER back on slot 1 with its own mesh, SHORTY, STRETCH, RATTLER) and the NINE are drawn in first
+person in **HandIK** mode (`presentation.json firstPerson.animSets.<gun>_ik`, `"mode": "ik"`; the NINE's set is `pistol`). The STICK
+keeps the purchased pack's clips (`"mode": "pack"`, section 9). One gun is one poseable skeletal mesh on the camera, the arms are
+`SK_RuleArms`; no clip was authored for any of the five.
+
+| Piece | What it does | Where |
+|---|---|---|
+| Arms | The engine template's rifle idle and fire clips (`MF_Rifle_Idle_ADS`, `MM_Rifle_Fire`; the NINE's pistol clips) play on the arms: breathing and recoil of the whole body. `fireWeight` is how much of the fire clip is mixed in (0.45 for the rifles, 0.35 for the NINE), `bobScale` how much walk bob (0.6 / 1.0). | `UMIFirstPersonRig::Update`, set keys `arms.idle`, `arms.fire`, `fireWeight`, `bobScale` |
+| Hands | Two-bone IK puts each palm (`middle_metacarpal_l/_r`) on the gun's bones `Palm_L` and `Palm_R` (the sockets of the exported skeleton, `ik.left`, `ik.right`). The hand's shape and wrist turn stay the clip's (`bRotation = false`) unless a solved grip is named. | `UMIFirstPersonRig::UpdateHands`, `FMIFPHandIK` in `MIFirstPersonAnim.cpp` |
+| Solved grips | `grip: {gun, pose, weight}` names an entry of `Content/Data/grips.json` (written by `art/blender/assets/_rule_grips.py`): the wrist and every finger joint as points in the gun's space; after the palm IK the fingers are bent onto them (`ShapeHand`, `ShapeFingers`). All five guns have a `hip` solve; CHOPPER, SHORTY, STRETCH and RATTLER also an `aim` solve, which the rig does not use yet (the code reads one pose, `grip.pose`). | `grips.json`, `MIFirstPersonAnim.cpp` |
+| Shoulders | `shoulders`: where the arms' shoulders (the midpoint of `upperarm_l` and `upperarm_r`) hang under the eye, camera space, cm. The arms are carried so the shoulders sit there and the IK reaches both hands from there. Console `mi.FP.Shoulders "x y z"` tries values in play, `off` the older wrist slide. Since 2026-11-25 the anchor also carries a gun with no solved grip (before, the template rifle clip's left shoulder came into the view as a cut upper arm in front of the eye: the first pictures of the four new guns in the trial package). | `GripShoulderTranslation`, `UMIWeaponComponent::PoseView` |
+| Fingers | The support hand's fingers wrap from the pack's rifle idle (`fingerCurl`) when the pack is installed; without it the template pose stays. | `CurlClip` |
+| Moving parts | Bolt, trigger, barrel and magazine are bones of the gun, posed by `SetBoneTransformByName` (component space) from the rules' view: bolt travel and axis, trigger swing, magazine drop (`UMIWeaponComponent::PoseParts`). | `presentation.json guns.<gun>.parts` |
+| Magazine and reload | The factory magazine is a static mesh on the `magazine` bone (`magazine.full`, `magazine.socket`); a fitted magazine part rides the same bone (`mounts.magazine.rideBone`) and no second one is made. In a reload the support palm follows the magazine's base pad and the grip lets go (`ShapeWeight` to 0 over the first and last 0.15 s). The top round of a magazine is a piece of its own that hides when the magazine is empty. | `UMIFirstPersonRig::UpdateHands`, `UpdateMagazines` |
+| Brass | A hand-IK gun throws its brass from the `Eject` bone along the data's `ejectDir` (web gun space), with `casing` as the mesh (rifle or pistol brass). | `EjectDirMesh` |
+| Fitted parts | An optic's `SightEye` replaces the `sightRear` marker (the aimed camera sits at it minus the part's `relief`), a muzzle part's `Muzzle` replaces the flash origin, a foregrip's `SupportHand` replaces the support palm target. The fitted optic's housing fades out as the sight comes up (about 0.45 to 0.75 of the aim): the importer makes the parts' hardware material masked with a dithered `AimFade` parameter and the rig sets it. | `UMIGunAssembly::MarkerTransform`, `UMIFirstPersonRig::Update` |
+
+**Per gun** (what the set says; what the pictures show is in PROGRESS.md, "Weapons round 4: the box engineer"):
+
+| Gun | Set | Support hand relative to the firing hand | Shoulders now | Brass |
+|---|---|---|---|---|
+| CHOPPER | `chopper_ik` | on the handguard, about 25 cm ahead | [-8.5, 1.1, -12.4] (from the grip solve) | rifle |
+| SHORTY | `shorty_ik` | bullpup: the forend is 21 cm ahead of the firing hand but 70 cm out from the butt | [-6, 0, -24] (the NINE's; the solve wanted [11.5, 1.1, -16.4], ahead of the eye: the data engineer's open item) | rifle |
+| STRETCH | `stretch_ik` | 25 cm ahead; the bipod stays folded | [-6.5, 1.1, -12.4] | rifle |
+| RATTLER | `rattler_ik` | on the strap under the forend; the wire stock stays folded | [-2.5, 1.1, -12.4] | pistol |
+| NINE | `pistol` | cupping the firing fist | [-6, 0, -24] | none (the pistol's own) |
+
+**To tune a gun in play**: `mi.FP.Shoulders "x y z"` (shoulders), `MIGripProbe <label>` (where each fingertip lands on the gun),
+then write the numbers in `presentation.json` (the data engineer's file). `fireWeight` and `bobScale` are starting values.
