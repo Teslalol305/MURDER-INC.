@@ -406,7 +406,7 @@ def mag_well(parts):
     for z, grow in inner_st:
         polys.append((ccw(rpoly(np.array([(131 - grow, -13 - grow), (183 + grow, -13 - grow), (183 + grow, 13 + grow),
                                           (131 - grow, 13 + grow)]) * mm, [2.0 * mm] * 4, [4] * 4, [1] * 4)), z))
-    cutter = loft_polys([p for p, _ in polys], [z * mm for _, z in inner_st], "WellCut", axis="Z")
+    cutter = loft_polys([p for p, _ in polys], [z * mm for z, _ in inner_st], "WellCut", axis="Z")
     cut(parts_w, cutter)
     round_edges(parts_w, 0.00025, 1, 55)
     parts.append(P(parts_w, BLUED, "body"))
@@ -415,7 +415,7 @@ def mag_well(parts):
             (0.0040, 0.0024), (0.0042, 0.0)]
     b = lathe(prof, 24, axis="Y", name="MagRelease")
     geo.transform(b, scale=(1, -1, 1))
-    geo.transform(b, loc=(171 * mm, -WELL["hw"] * mm, -40 * mm))
+    geo.transform(b, loc=(171 * mm, -(WELL["hw"] - 0.35) * mm, -40 * mm))
     parts.append(P(fix_normals(b), BLUED, "body"))
 
 
@@ -668,8 +668,9 @@ def trigger_group(parts):
         parts.append(screw((100 * mm, sy * 12.5 * mm, -45 * mm), "Y", sy, r=0.0032, h=0.0010, slot=False, seg=20))
     # trigger blade, 6 mm wide
     outline = np.array([(95, -43), (99, -39.2), (105, -39.2), (108.5, -43.5), (110.5, -50), (113.5, -57), (116, -63),
-                        (115.5, -69), (112, -74.5), (107.5, -75.5), (104.5, -72.5), (102, -64), (98.5, -54), (95.5, -47)]) * mm
-    tr = prism([tuple(p) for p in outline], -3.0 * mm, 3.0 * mm, axis="Y", bevel=0.0006, seg=2, name="Trigger", fillet=0.0012)
+                        (115.5, -69), (112, -74.5), (107.5, -75.5), (104.5, -72.5), (102, -64), (98.5, -54), (95.5, -47)])
+    outline = K.spline(outline, 5, closed=True) * mm
+    tr = prism([tuple(p) for p in outline], -3.0 * mm, 3.0 * mm, axis="Y", bevel=0.0006, seg=2, name="Trigger")
     parts.append(P(tr, DARK if False else BLUED, "trigger"))
     # the guard: 3.2 x 12 mm strap, rolled edges, from the grip front under the trigger up the well's rear face
     gp = np.array([(73, -90.5), (77, -96.5), (85, -100.5), (100, -101.8), (118, -101.8), (125, -99.5), (129.2, -92.0), (129.2, -50.0)])
@@ -695,8 +696,9 @@ def selector(parts):
                  at=(px * mm, 0.0, pz * mm), name="SelHub")
     lever = np.array([(-4.5, -3.0), (-1, -5.0), (10, -4.0), (22, -3.2), (26.5, -1.8), (27.5, 1.4), (24.5, 3.6), (12, 3.8),
                       (0, 5.0), (-5, 2.5)])
+    lever = K.spline(lever, 5, closed=True)
     lv = prism([((px + a) * mm, (pz + b) * mm) for a, b in lever], 24.2 * mm, 27.6 * mm, axis="Y", bevel=0.0005, seg=2,
-               name="SelLever", fillet=0.0010)
+               name="SelLever")
     rid = [box((px + 16 + 3.0 * k) * mm, (px + 17.4 + 3.0 * k) * mm, 27.2 * mm, 28.0 * mm, (pz - 3.4) * mm, (pz + 3.2) * mm,
                bevel=0.0002, seg=1) for k in range(3)]                          # thumb ridges
     scr = screw((px * mm, 27.6 * mm, pz * mm), "Y", 1, r=0.0026, h=0.0009, seg=18, bone="selector")
@@ -708,8 +710,9 @@ def selector(parts):
 def bolt_catch(parts):
     """Bolt catch lever on the left flank (bone bolt_catch, pivot X 125, Z -12): stamped plate with a thumb pad."""
     outline = np.array([(106, -5.5), (111, -3.5), (118, -4.6), (128, -8.5), (143, -10.6), (152, -12.8), (153, -15.8), (148, -17.2),
-                        (132, -16.6), (122, -15.6), (116, -12), (110, -8.8)]) * mm
-    lv = prism([tuple(p) for p in outline], 21.6 * mm, 24.2 * mm, axis="Y", bevel=0.0004, seg=2, name="Catch", fillet=0.0012)
+                        (132, -16.6), (122, -15.6), (116, -12), (110, -8.8)])
+    outline = K.spline(outline, 4, closed=True) * mm
+    lv = prism([tuple(p) for p in outline], 21.6 * mm, 24.2 * mm, axis="Y", bevel=0.0004, seg=2, name="Catch")
     boss = lathe([(0.0211, 0.0), (0.0211, 0.0046), (0.0246, 0.0046), (0.0246, 0.0)], 24, axis="Y", at=(125 * mm, 0.0, -12 * mm),
                  name="CatchHub")
     ob = geo.join([lv, boss], "BoltCatch")
@@ -914,11 +917,12 @@ def stretch_magazine(col):
     # two stamped ribs on each side wall: 3 mm wide, 0.8 mm proud, 30 mm long, rounded
     for z in (-64.0, -101.0):
         for sy in (1, -1):
-            rb = box((x0 + 9.0) * mm, (x1 - 9.0) * mm, 0.0, 0.0009, (z - 1.6) * mm, (z + 1.6) * mm, bevel=0.0007, seg=2, name="Rib")
-            geo.transform(rb, loc=(0, sy * (hy * mm - 0.0001) if sy > 0 else sy * (hy * mm - 0.0001), 0))
-            if sy < 0:
-                geo.transform(rb, scale=(1, -1, 1), loc=(0, 0, 0))
+            ya, yb = (hy - 0.15, hy + 1.0) if sy > 0 else (-hy - 1.0, -hy + 0.15)
+            rb = box((x0 + 8.0) * mm, (x1 - 8.0) * mm, ya * mm, yb * mm, (z - 2.4) * mm, (z + 2.4) * mm, bevel=0.0009, seg=2, name="Rib")
             parts.append(P(rb, BLUED, None))
+    # the vertical weld seam on the front wall (a 1.2 mm bead) and a rolled bead under the lips
+    wd = box((x1 - 0.5) * mm, (x1 + 0.45) * mm, -1.4 * mm, 1.4 * mm, -128.0 * mm, -27.0 * mm, bevel=0.0004, seg=2, name="Weld")
+    parts.append(P(wd, BLUED, None))
     # follower: stamped plate under the second round with a centre rib
     fl = box((x0 + 1.5) * mm, (x1 - 1.5) * mm, -9.8 * mm, 9.8 * mm, -50.5 * mm, -48.8 * mm, bevel=0.0005, seg=1, name="Follower")
     fr = box((x0 + 12) * mm, (x1 - 12) * mm, -3.0 * mm, 3.0 * mm, -53.2 * mm, -50.4 * mm, bevel=0.0006, seg=1, name="FollowerRib")
