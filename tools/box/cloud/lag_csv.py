@@ -17,21 +17,20 @@ limit = float(sys.argv[2]) if len(sys.argv) > 2 else 50.0
 listed = int(sys.argv[3]) if len(sys.argv) > 3 else 12
 
 rows = list(csv.reader(open(path, errors='replace')))
-header = rows[0]
-frames = []
-for r in rows[1:]:
-    if not r or r[0] == 'EVENTS' or r[0].startswith('['):
-        continue
-    if len(r) != len(header):
-        continue
-    frames.append(r)
+# The profiler adds columns as new timers appear: the header row at the end of the file is the complete one, and an
+# earlier row simply ends before the columns it did not have yet.
+header = [r for r in rows if r and r[0] == 'EVENTS'][-1]
+frames = [r for r in rows if r and r[0] != 'EVENTS' and not r[0].startswith('[') and len(r) > 50]
 col = {name: i for i, name in enumerate(header)}
+first = rows[0]
+if first[0] == 'EVENTS' and first != header[:len(first)]:
+    print('WARNING: the first header row is not the start of the last one: early rows may be read under the wrong names')
 
 
 def val(r, name):
     try:
         return float(r[col[name]])
-    except (KeyError, ValueError):
+    except (KeyError, ValueError, IndexError):
         return 0.0
 
 
