@@ -149,19 +149,20 @@ for run in runs:
     heard = re.search(r'SOUND (.*)', view)
     if heard:
         parts.append('viewer heard: ' + heard.group(1).strip())
-        # How busy the box's CPUs were while the viewer listened to the game's first half minute (others.log cpu=): a
-        # box whose CPUs are all busy then puts holes into the sound that are not the package's (sound-gate.txt).
-        cpu = [(l[:8], float(m.group(1))) for l in others for m in [re.search(r'cpu=(\d+)', l)] if m]
-        began = read(f'{run}/view.start').strip()
-        if cpu and re.fullmatch(r'\d\d:\d\d:\d\d', began):
-            def clock(t):
-                return int(t[:2]) * 3600 + int(t[3:5]) * 60 + int(t[6:8])
-            since = [((clock(t) - clock(began)) % 86400, v) for t, v in cpu]
-            first = [v for s, v in since if s < 40]
-            later = [v for s, v in since if 40 <= s < 43200]
-            if first:
-                parts.append(f"the box's CPUs: {avg(first):.0f} % busy in the viewer's first 40 s (busiest second {max(first):.0f} %)"
-                             + (f", {avg(later):.0f} % after them" if later else ''))
+    # How busy the box's CPUs were while the viewer was there (others.log cpu=), in every run: a box whose CPUs are all
+    # busy in the game's first half minute puts holes into the sound that are not the package's (sound-gate.txt), and
+    # the box is shared: another job's compile beside a run shows here and in "a compiler ... ran beside it" below.
+    cpu = [(l[:8], float(m.group(1))) for l in others for m in [re.search(r'cpu=(\d+)', l)] if m]
+    began = read(f'{run}/view.start').strip()
+    if cpu and re.fullmatch(r'\d\d:\d\d:\d\d', began):
+        def clock(t):
+            return int(t[:2]) * 3600 + int(t[3:5]) * 60 + int(t[6:8])
+        since = [((clock(t) - clock(began)) % 86400, v) for t, v in cpu]
+        first = [v for s, v in since if s < 40]
+        later = [v for s, v in since if 40 <= s < 43200]
+        if first:
+            parts.append(f"the box's CPUs: {avg(first):.0f} % busy in the viewer's first 40 s (busiest second {max(first):.0f} %)"
+                         + (f", {avg(later):.0f} % after them" if later else ''))
     if any('txFps' in p for p in play):
         sent = [p for p in play if 'txFps' in p]
 
@@ -185,7 +186,12 @@ for run in runs:
                      f" (turning {f(stat('txFps', [p for p in sent if p.get('turning')]), 0)}), QP {f(stat('qp'), 0)}, {f(stat('mbps'))} of {f(stat('availMbps'))} Mbit/s, encode {f(stat('encMs'))} ms"
                      + (f", capture to send {f(stat('capToSendMs'), 0)} ms" if any('capToSendMs' in p for p in sent) else ''))
     parts.append('received a second: ' + (', '.join(received) or 'no phases') + (f" (total {__import__('json').loads(end.group(1)).get('video')} frames)" if end else ' (viewer did not finish)'))
+    # CLEAN is about other games on the GPU. A compiler, a cook or an editor of another job beside the run takes CPUs,
+    # not the GPU: it is said apart (others.log build=, from version 3b's release on), and such a run is repeated
+    # before a number of it is believed.
+    building = sum(1 for l in others if re.search(r'build=[1-9]', l))
     parts.append(('CLEAN' if foreign == 0 and others else f'POLLUTED: another game ran in {foreign} of {len(others)} samples' if others else 'no watcher log')
+                 + (f'; A COMPILER, A COOK OR AN EDITOR ran beside it in {building} of {len(others)} samples' if building else '')
                  + f", GPU use {f(util, 0)} %; {result or 'no result'}")
     print(' | '.join(parts))
     if verbose:

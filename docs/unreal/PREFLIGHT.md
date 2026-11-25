@@ -459,9 +459,19 @@ this item asked for, and what was done beyond it:
 - **A server with no sound card** needs nothing: with `-RenderOffScreen` Unreal uses SDL's dummy audio device. But an
   environment that names another driver (`SDL_AUDIODRIVER=alsa`) left the game without any audio device and the
   stream without sound; the launcher now names the dummy device itself.
+- **Not as wanted, and not fixed: holes in the music in the first half minute of a cold start on a busy machine.**
+  A game that has never run in its folder compiles pipeline states on three quarters of the CPUs for about 30 s;
+  with two or three more CPUs' worth of other work beside it (on the box: the gate's load process, the viewer, the
+  desktop) the sound's threads wake late and Pixel Streaming's sender leaves gaps of 30 to 50 ms in the sound's time
+  line: 4 to 22 in that half minute under the gate's loads while the desktop's browser was busy, 57 with two busy
+  loops on a free GPU; none after the half minute, none in play, none from the GPU's load alone, none when the game
+  keeps off four CPUs, and none in any load line of the gate on the zip to upload. Whether an E3DS
+  machine meets it is not known. Fewer precompile threads (`r.pso.PrecompileThreadPoolPercentOfHardwareThreads`)
+  would lessen it and needs the lag gate's cold lines: a decision, not taken here.
 - **Left for the owner's test on E3DS:** what its player page's speaker button and a controller's first press do
   about the browser's mute; how the sound sits against the picture in a real browser (the delay measured here ends
-  at the packet's arrival: a browser's own sound buffer comes on top).
+  at the packet's arrival: a browser's own sound buffer comes on top); whether the music is whole in the first half
+  minute of a session.
 
 ### Not in version 3 (not worth a rebuild now)
 

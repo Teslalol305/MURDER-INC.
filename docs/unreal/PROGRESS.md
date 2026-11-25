@@ -3,6 +3,417 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Version 3b: sound (sound engineer, 2026-11-25, 09:28 to 12:35 UTC)
+
+Version 3b is version 3a plus sound, and it is packaged: **zip sha256
+`aa7cc478f80ddb3ab077a718d518b300844b4f4d07eab6e07595b95038218deb`, 2,259,930,775 bytes** (version 3a: 2,254,962,151;
+5.0 MB more), the game from commit `3dd4053`, the launcher from `5bba2dd`, nine parts
+`MurderInc-E3DS-v3b-part<k>-of-9.zip` in `/project/ue/cloud/parts` on the box. **Not uploaded and not gated for lag:
+that is the release engineer's step** (section 11). It was zipped twice from one build: at 10:50 UTC with the
+launcher of `3dd4053` (sha256 `8ec0f7f7…f3a4`: the first measurements and the search of section 8.2) and at 11:53
+UTC with the launcher of the branch head, because the cleanup of leftover games (`2322f3c`) had reached the branch
+meanwhile. The two zips differ in three files only (`MurderInc.sh`, `MIDEV.key`, `BUILD.txt`: compared file by file
+after unpacking). The sound gate was run on the second one, and the tables of sections 4, 6 and 8.1 are from it.
+
+The sound was measured through a real WebRTC stream on the box, in the Development game and in the Shipping game of
+the zip, unpacked as a new user into a fresh folder and started with E3DS's arguments. Nobody here has ears: "heard"
+below means that the game's own sample was found in what the viewer received, at the time the game's log or the
+viewer's input gives; where only a level could be measured, or nothing, that is said. Section 10 lists what is not
+proven. Runs are in `/project/ue/cloud/lag/<name>/` on box ec087d85 (`sound.wav` is what the viewer received; the
+runs of the first zip carry `-z1` at the end of their names).
+
+Three faults of the port came out of the listening and are fixed with tests (section 5): **four of the six guns had
+no shot sound at all, the menus never played their two sounds, and the first round of each gun sample came about
+110 ms late.** One way a host could silence the game without knowing: an environment that names an audio driver
+(section 7); the launcher now rules it out. **And one thing is not as the brief wanted it: in the first half minute
+after a cold start, on a machine whose CPUs are at their limit, the stream's sound can have short holes** (section
+8.2: seen in ten of the cold starts here; never after that half minute, never in play, never from the GPU's load
+alone, and in none of the load lines of the gate on the zip to upload).
+
+### 1. The assets
+
+- `tools/box/audio-import.sh` in `/project/ue/repo-gameplay` (its editor stopped), 09:29 UTC:
+  **`AUDIO-IMPORT-DONE imported=289 failed=0`** after 55 s.
+- **291 WAV files, 289 Sound Waves.** The two that are not imported are `Web/IR_shop.wav` and `Web/IR_street.wav`, the
+  reverb responses (the import skips `IR_*`; audio_sounds.json gives them the bus `ir`, which the game's parser skips).
+  **No sound the game plays is among the difference**: the data names exactly 289 files (`pak_sounds.py --names
+  Content/Data`: 188 under `Web`, 80 under `Gen`, 21 voice takes), each of them a WAV in the folder, and the only WAVs
+  the data does not name are those two.
+- **The release copy and the package take them** (read in `package-cloud.sh`, then checked): the `content` step
+  copies the gameplay clone's whole `Content` (but `Data` and `Python`) with tar, nothing under `Content/Audio`
+  filtered (release copy after it: 188, 80 and 21 `.uasset`); the cook rule was already there
+  (`+DirectoriesToAlwaysCook=(Path="/Game/Audio")` in the overlay: the game loads the waves by path, nothing references
+  them), so nothing had to be fixed in the rules: the assets had simply never been in the clone. The cook: 2,528
+  packages (2,232 in version 3a). **The pak list (`Manifest_UFSFiles_Linux.txt`) holds 867 entries under
+  `MurderInc/Content/Audio/`: 289 `.uasset`, 289 `.uexp`, 289 `.ubulk`** (version 3a: none).
+
+### 2. Never silent again
+
+| What | How it was shown |
+|---|---|
+| (a) `package-cloud.sh` refuses a zip without the sounds | `pak_sounds.py` reads the packaged data (`MurderInc/Content/Data/*.json`), works out every Sound Wave it can ask for the way the game does, and looks each up in the pak list. On the new package: "SOUNDS OK: all 289 Sound Waves the game's data names are in the pak list ... (289 under MurderInc/Content/Audio/)", printed by `package`, by `zip` and by the new step `sounds`. **On version 3a's own unpacked zip** (`MI_CLOUD` pointed at it): "SOUNDS MISSING: the game's data names 289 Sound Waves and the pak list ... holds 0 of them", then "ZIP REFUSED: a sound the game plays is not in the package (lines above). No zip was made.", exit code 1, no zip. The `content` step also stops when the gameplay clone has a sound without an asset or with an older one |
+| (b) the tests fail | `MurderInc.Audio.Assets` fails (it warned) when an asset is missing or older than its WAV. New: `MurderInc.Audio.SoundsResolve` (289 of 289 files load as Sound Waves; 70 sound ids named by the tables are sounds) and `MurderInc.Audio.EveryGunSounds`. **Shown red**: with one asset moved away and one gun's line taken out of the data, `TESTS FAILED passed=20 failed=3` ("Web/ui_click_01.wav has no Sound Wave asset", "no Sound Wave loads from /Game/Audio/Web/ui_click_01", "rattler: a shot is heard (category gun)"); both put back |
+| (c) a clone that is brought up to date imports its sounds | `sync.sh` (BOX.md's first step for a clone) counts the WAVs without an asset and those newer than their asset and starts `audio-import.sh`, or says what stands in the way (C++ just changed: build first; the editor open; no `Content/Audio/Web`). **Shown**: one asset moved away and one WAV touched: "AUDIO: 1 sound(s) without a Sound Wave asset, 1 with an asset older than the WAV: AUDIO-IMPORT started"; a second sync meanwhile: "the import is running"; 55 s later `AUDIO-IMPORT-DONE imported=289 failed=0` and the next sync is silent |
+| (d) a missing sound is a warning, and it is counted | Once per sound: "sound missing: <file>: no Sound Wave asset ... It will not be heard." (it was a Verbose line, and a missing web sound said nothing at all); the same for a sound id the data does not have. Three new fields at the end of the probe line: `sndPlayed` (sounds started on the audio device), `sndMissing`, `sndNoDevice` (starts that found no audio device). `lag_sum.py` prints them ("sound: 503 sounds started in the play (529 in the whole run), 0 without an asset, 0 without an audio device") and reads lines without them as before (tried on a version 3a line and a new one) |
+
+### 3. The listening tool
+
+`/project/ue/cloud/chk/rtcaudio.py` (a copy of the viewer with a loudness reading of every eighth sample) became
+three tools in `tools/box/cloud/`:
+
+- **`rtcaudio.py`**: the viewer of `rtcinput.py` (it imports that file, so the scripts are played by the same code)
+  with a recorder. It writes what arrives to `sound.wav`, every decoded frame at the place its RTP timestamp gives it;
+  prints loudness and peak per half second, clipped samples, digital silence, lost sound and the size of the Opus
+  packets; counts drop-outs (10 ms to 1 s of digital silence with sound on both sides) and says under which of the
+  script's markers they fell; compares the sound's clock with the wall clock; and keeps the time of every script line
+  and the arrival of every sound packet (taken before the viewer's own jitter buffer) in `sound.wav.json`.
+  `lag-test.sh ... audio=1` uses it.
+- **`audio_find.py`**: is this sample of `Content/Audio` in that recording, where, how strongly? A matched filter in
+  the band an Opus stream keeps the waveform of (150 Hz to 6 kHz), at every speed the game's pitch jitter can give
+  (3.5 %: 37 speeds). What chance scores is measured, not assumed: the same sample backwards, and at six speeds the
+  game does not use. A find is 1.5 times that or more. For a find it gives the correlation, the sample's level against
+  the file and, with the viewer's times, the delay from a script action to the arrival of the packet that holds the
+  sample's start.
+- **`sound_table.py`**: the Development game logs every sound it starts (`-LogCmds="LogMIAudioHost Verbose"`: file,
+  volume, category gain, speed); this looks each of them up in the recording at that time and speed.
+
+**The instrument, checked first with a known signal through the same path** (`rtcaudio.py --selftest`: a sender in
+the same process sends through Opus, RTP, the jitter buffer and the recorder; `audio_find.py --truth`). Its Opus
+encoder runs at 96 kbit/s, a third of the game's stream (651 bytes a packet), so the test is the harder case:
+
+| Sent | Received |
+|---|---|
+| a 1 kHz tone at -23.01 dBFS RMS | -22.99 dBFS, 1,000 cycles a second |
+| a gap of 100 ms in a street bed | found as a drop-out of 70 ms at the right place (the codec rings 20 ms into each end) |
+| a full-scale square burst, 960 samples | peak 0.0 dBFS; 19 samples at 99 % of full scale or more: **a clipped count through Opus is a lower bound** (the decoder rounds the tops off), the peak is the surer sign |
+| nothing lost; the sound's clock | 0 ms lost in 1,115 packets; 1.0001 s of sound a second |
+| the CHOPPER's close sample at 6 s, 8 s and 10 s, at -6.0, -12.0 and -18.1 dB and speeds 1.0, 0.97 and 1.03, over the drum stem and the street bed | each found 0.04 ms from its place, at -6.3, -12.3 and -18.2 dB, at exactly its speed, 8.5 to 9.1 times chance |
+| the drum stem at -24.6 dB | found at its place, -25.2 dB, 9.0 times chance |
+| three samples that were not sent (a blast, a voice line, a far horn) | 0.55 to 0.93 times chance: not found |
+| a sample started by each of three script actions | the packet with its start arrived 25, 16 and 25 ms after the action; the sender had handed that frame to its encoder 24, 15 and 24 ms after it |
+
+Its limits, met on the game (BOX.md): a sample that is only a tone (the ear ring, a far siren) or only a short low
+thump (the hurt and the heartbeat have 98 % of their energy under 150 Hz) cannot be told from chance, and a far
+3D sound under gunfire is too quiet. For those the table below says what was measured instead.
+
+### 4. The sound, kind by kind
+
+Two games of the zip `aa7cc478…`, unpacked as the user `e3dsfresh` with a new empty home into `/tmp/v3b2/zip`, no
+display, E3DS's arguments (which include `-AudioMixer`), free GPU, one game at a time (both runs CLEAN):
+
+- **Development game**, run `snd-dev` (12:17 UTC): its own demo director plays `sound-demo.txt` (the set-up screens
+  with four guns, the run, each gun's single rounds, a burst, reloads, the rifle butt, steps, a jump, two reels, a
+  fight on the avenue, the propane tanks, the last reel by hand, the truck, the debrief; 128 s of play at 59.9 frames
+  a second). The game started **1,148 sounds, 0 without an asset, 0 without an audio device**; the viewer recorded
+  321 s with no digital silence, nothing lost and no drop-out. `sound_table.py` looked at 396 of the starts (the first
+  four of every file) and **found 174 of them; of the 65 different sounds the game started, 40 were found at least
+  once**. The middle delay from the game's log line to the arrival of the packet with the sample's start: **44 ms**.
+- **Shipping game**, run `snd-keys` (12:01 UTC): a viewer plays `sound-keys.txt` with mouse and keyboard, one kind of
+  sound at a time under a marker; `sound-keys-check.sh` looks in each part for the samples that belong there. 522
+  sounds started, 0 missing (the game's own count); 146 s recorded, no digital silence, nothing lost, no drop-out.
+- The same two runs on the first zip (`snd-dev-z1`, `snd-keys-z1`) gave the same picture (174 of 394 found, 38 of 65
+  sounds; middle delay 40 ms); where the two differ the table says so.
+- The death (the Development game without god mode, `sound-dead.txt`, run `snd-dead1`) was run on the package of
+  10:18 UTC (`924bbce`: the same audio data; the preload of section 5 came after it).
+
+"x" is how far above chance the find was (1.5 or more is a find). "Level" is the sample's amplitude in the recording
+against the file's own; after the semicolon what the game's own numbers give (its volume times the category's gain at
+that moment). "Delay" is from the game's log line (D, the Development run) or from the viewer's input (S, the
+Shipping run) to the arrival of the packet that holds the sample's start. "n of m" is found of looked at.
+
+| Kind | How it was triggered | Heard | Sample matched | Level | Delay |
+|---|---|---|---|---|---|
+| Music and street behind the click card and on the home screen | the viewer joins; a click | yes | S, in the whole recording: `stem_drums_01` at each of its five loop starts (up to 7.8 x), `stem_keys_01` once (2.5 x), `bed_day_01` at nine loop starts (up to 7.6 x); the bed also under the click card alone (4.1 x) | drums -16.3 to -17.1 dB. Bed -11.4 and -12.6 dB on the card and the home screen (the title's street is 0.6 of the run's), -7.1 to -9.1 dB in the run | none to measure |
+| Menu: a move, a press | S: Down and Up, then every button of the set-up screens; five moves and five presses on the pause card. D: the demo's presses | yes | S: `ui_click_01` in four of the five set-up parts (1.7 to 2.1 x, correlation 0.70 to 0.78; all five in the first zip's run) and 5 times on the pause card (3.0 x, 0.96); `ui_hover_01` 3 times in the set-up moves (1.7 x) and 5 times on the pause card (2.2 x, 0.79). D: `ui_click` 3 of 4 (2.1 x) | -7.5 to -8.3 dB (S); -7.5; -2.5 (D) | 32 ms (D) |
+| The run's start: the radio and Rule's line | the Briefing's button | yes | D: `radio_in_01` 4 of 4 (3.8 x), `radio_out_01` 4 of 4 (1.9 x), `Voice/rule/inc_02`. S: `inc_02` under the briefing (6.6 x, correlation 0.87); the radio's two clicks not found there | radio -7.7; -2.8. Voice -7.1 dB (S); -7.7; -1.9 (D) | 62 and 60 ms (D) |
+| CHOPPER, single rounds | S: three clicks two seconds apart. D: the demo's fire | yes | S: `chopper_close_01`, `_02`, `_03` (3.1, 5.9 and 3.8 x), the case on the ground `brass_asphalt_03` (1.5 x); 12 other samples of the library tried on the same part: none found. D: `chopper_shot` 13 of 36 (5.6 x, the close layers and the web shot), `chopper_tail_out` 3 of 16 (2.3 x), `brass_asphalt` 10 of 28 (2.4 x) | close layer -7.9 to -10.7 dB (S); -8.8; -3.1 (D). Tail -13.2; -8.4 | **41, 50 and 61 ms after the click (S)**; 31 ms (D) |
+| CHOPPER, a burst and a magazine fired empty | S: the button held | yes | S: 6 rounds found in the burst, 29 in the emptied magazine (10, 8 and 11 of the three close samples) | -8.7 to -9.8 dB | 69 ms after the button went down |
+| Reload | S: R. D: the demo | yes | S: `cloth_01` (5.1 x), `rifle_magout_01` (1.9 x), `rifle_bolt_01` (1.7 x), and the web layers of magazine out and in (1.6 and 1.9 x). D: `rifle_magout`, `rifle_magin`, `rifle_bolt` 4 of 4 each (2.1 to 2.2 x), `cloth` 6 of 6 (5.7 x) | -10.1 dB (S); -9.8 to -11.5; -4.3 to -5.0 (D) | 45 ms after R (S); 38 to 62 ms (D) |
+| Dry fire, the fire selector's click | S: B; two clicks on an empty magazine. D: the demo | hardly | Not found in these two runs (1.4 x at most); once in the first zip's Development run (2.4 x, 1 of 6). It is 0.15 s long and the quietest sound of the gun (volume 0.30); the selector plays it at 1.6 times its pitch, and the dry click falls under the last round's tail before the game reloads by itself. The game started it 6 times (the log) | -18.0; -12.8 (first zip, D) | not measured |
+| NINE: drawn, three rounds, reload, back to the CHOPPER | S: 2, three clicks, R, 1. D: the demo | yes | S: `nine_close_01`, `_02`, `_03` (3.8, 4.2 and 2.9 x), `draw_01` at 1.17 times its speed for the NINE (3.1 x) and at its own for the CHOPPER (6.7 x), `pistol_magout_01` (2.0 x). D: `nine_shot` 2 of 6 (7.2 x), `nine_tail_out` 2 of 4 (2.7 x), `holster` 4 of 4 (7.2 x), `draw` 4 of 4 (7.2 x), `pistol_magin` and `pistol_magout` 2 of 2 each | NINE -11.6 to -12.4 dB (S); -8.9; -3.9 (D) | **27, 35 and 54 ms after the click (S)**; 41 ms (D); holster 38, draw 60 ms (D) |
+| The other four guns (they fire with the CHOPPER's sounds, section 5) | D: the demo's loadout: the STICK with its silencer, the STRETCH | yes | `chopper_sup_02`, `_03` 2 of 2 (5.8 x) for the STICK; the STRETCH's rounds are among the `chopper_shot` finds | -9.6; -4.0 | 48 ms |
+| Rifle butt | F | yes | S: `whoosh_01` (6.8 x, correlation 0.70). D: `whoosh` 1 of 1 (6.2 x); a Goon's `pipe_swing_01` 2 of 3 (2.1 x). (In the first zip's Shipping run the press fell into the draw of the gun, where the rules refuse the butt: no whoosh, rightly; the script now waits) | -9.1 dB (S); -8.9; -3.8 (D) | 78 ms after F (S); 45 ms (D) |
+| Steps, a jump, the landing | S: W, Shift with W, Space. D: the demo's walks | yes; the steps only in D | D: `step_asphalt` 12 of 32 (2.0 x), `step_asphalt_run` 16 of 24 (2.4 x), `jump` and `land` 1 of 1 (6.5 and 3.5 x). S: `jump_01` (7.1 x), `land_01` (3.4 x); the steps not found in this run (two of the walk's in the first zip's run, 2.0 and 2.5 x; the sprint's in neither): they are the quietest sounds of the player (volume 0.37 to 0.42) | steps -17.1; -11.3 and -13.3; -7.8 (D). Jump -11.2 dB (S) | 35 ms after Space (S); steps 52 and 38, jump 40, land 36 ms (D) |
+| Enemies: their calls and their guns | D: the fight on the avenue, a Buzzard | yes, in part | `alert_goon` 7 of 9 (2.6 x), `alert_buzzard` 4 of 4 (4.0 x), `smg_shot` 4 of 23 (3.2 x), `bolt_shot` 18 of 20 (2.5 x), bullets passing `whizz` 12 of 12 (3.4 x), `buzzard_charge` 2 of 4, `rotor` 2 of 8. Not found: `goon_ready`, `goon_rush`, `grunt_hit`, `grunt_death` (2 of 3 in the earlier run `snd-dev1`) | 3D sounds: no one level | not read (3D) |
+| Hits and kills | D | in part | `kill_confirm` 4 of 4 (2.4 x), `hit_head` 1 of 3 (1.7 x), `buzzard_death` 1 of 1 (2.7 x). Not found: `hit_confirm` (a short tone), `body_fall`, the bullet impacts `imp_*`, `ricochet` | kill -7.2; -2.7 | 43 ms |
+| Blasts | D: the propane tanks | yes | `explosion_small` 2 of 2 (2.7 x), `explosion_big` 1 of 4 (3.5 x), `explosion_far` 1 of 2 (1.8 x). Not found: the fuse's `hiss` | -18 to -25 dB; -3.1 to -5.8 before distance (3D, 20 m away and more) | not read (3D) |
+| Reels and stings | D: two reels given, the last one taken by hand, the truck | yes | `reel_secure` 1 of 1 (3.0 x), the last reel's `sting_all` 1 of 1 (1.6 x), the debrief's `sting_complete` 1 of 1 (2.1 x). Not found: the grab's rising tone `reel_grab`. Not triggered: `sting_reel` | reel -8.5; -3.1. Stings -15.4; -8.9 and -13.0; -8.1 | 48, 48 and 41 ms |
+| Rule's lines in play and on the debrief | D | yes, all six | `inc_02` at the run's start, `rulebaby_03`, `murda_01`, `name_01`, the crowd's `rule_chant_03`, `inc_01` on the debrief: 6 of 6 (4.3 x in the middle; `holla_02` in the first zip's run) | -7.7; -1.9 | 56 ms in the middle (28 to 63) |
+| The street's life | every run | the bed yes, the rest hardly | Not found in this run: `pigeons` (2 of 6 at 1.7 x in the first zip's), the far one-shots `bus_pull`, `chime_far`, `dog_far`, `horn_far`, `jackhammer`, `kids_far`, `siren_far` and the train's three loops (3D, 60 to 150 m away, under the music) | not read | not read |
+| Hurt, the ear ring, death | D without god mode (`snd-dead1`): the player dies 19 s into the run | yes, by level | `sting_dead` (3.1 x). The hurt (12 starts): no sample find (a low thump), but the band from 40 to 120 Hz rises 5 to 7.5 dB in the 0.3 s after each start. The ear ring: 4.0 to 4.35 kHz rises 11 dB at the first hit. After the death the band above 2 kHz falls from -28.6 to -57.9 dB (the web game's "everything muffles"). The heartbeat started 0.8 s before the death: not shown | as said | not read |
+| Paused | S: P | as the web game | the street bed stops (no loop start of it between 103.8 and 138.5 s of the recording; found again after the resume, 5.9 x); the music stays, thinned (`stem_drums_01` on the card at -25.7 dB, about 9 dB under its level in the run); the card's moves and presses are found (row 2) | -35.6 dBFS against -27.3 in the run | none to measure |
+
+**Not heard as their own sample, and why**: the far one-shots of the street (3D, 60 to 150 m away, under the
+music), the bullet impacts (3D, down the avenue, under the gun that made them), body falls, the Goons' "ready" call
+and grunts, the fuse's hiss, the train's loops, the grab's rising tone and the hit tick (short tones), the dry click.
+The game started every one of them (the log), with its asset; whether a player can make them out in that mix is a
+question for ears, and the web game mixes them the same way.
+
+### 5. Three faults of the port, fixed
+
+1. **Four of the six guns fired in silence.** The web game has two guns; the loadout added four (`guns.json`: SHORTY,
+   STICK, STRETCH, RATTLER). The gunshot rule asked for `<gun>_shot` and `<gun>_tail_out`, which exist for the CHOPPER
+   and the NINE only. `audio.json weaponSounds` now names the gun whose sounds each of them fires with (all four the
+   CHOPPER's, until they have material of their own; no new audio), `FMIAudioDirector::SoundFamily` reads it, and
+   `MurderInc.Audio.EveryGunSounds` fires, runs dry, reloads and switches every gun of the roster. In the stream: the
+   STICK with its silencer played `chopper_sup_01` and `_02` (found, 6.5 times chance), the STRETCH the CHOPPER's shot.
+2. **The menus were silent.** The web game plays `ui_click` on every press and `ui_hover` on every focus move
+   (`src/menus.js`); the port had the samples and never played them. `UMIGameSubsystem::UiNote` now puts `ui:click`
+   and `ui:hover` on the bus from the set-up screens and the cards, the event table plays them, the test above checks
+   both (in play and on a paused run's card). In the stream: every press of the set-up screens and every move and
+   press on the pause card found (correlation 0.70 to 0.96). Not done: the pointer entering a button of the set-up
+   screens.
+3. **The first round of each gun sample came late.** Unreal reads a wave's audio from the pak the first time it
+   plays. Before the fix (package `924bbce`, runs `snd-dev1`, `snd-keys1`): the packet with the CHOPPER's first three
+   single rounds arrived 144, 155 and 166 ms after the click (one for each of its three close samples), the NINE's
+   145, 156 and 184 ms, the first whoosh 141 ms, the first jump 171 ms; a burst right after: 33 ms. Now every wave is
+   loaded and its audio kept in memory when the world begins play (`UMIAudioSubsystem::Preload`; the log: "sounds:
+   288 of 288 Sound Waves loaded and kept in memory in 88 ms"). **After the fix** (run `snd-keys`; in brackets the first zip's
+   run): the CHOPPER's first three rounds **41, 50 and 61 ms** after the click (32, 54, 65), the NINE's **27, 35
+   and 54 ms** (31, 33, 34), the jump 35 ms (41), the reload's first sound 45 ms after R (47).
+
+A sound without its asset, or an id the data does not have, now also shows in a running Shipping game: `sndMissing`
+in the probe line (0 in every run here).
+
+### 6. The mix
+
+- **Nothing clips, by a hair.** Peaks of the two long runs: -0.8 dBFS (Shipping) and 0.0 dBFS with 2 samples at full
+  scale out of 31 million (Development; both in the half second in which a whole magazine is fired). The seven short
+  runs with a burst of 1.2 s: -1.2 to 0.0 dBFS, in five of them 2 samples at full scale. The game's limiter stops at
+  -0.3 dBFS and the codec adds the rest; the web game has 1.9 dB more room there, because its volume setting comes
+  after its limiter and here it comes before (as a gain of the mix: Pixel Streaming takes the sound before the
+  device's own volume, so the Volume row could not work otherwise). Not changed; AUDIO.md 3.3 says it as it is now.
+- **The music does not drown the guns or the voice** (Shipping run, dBFS RMS per part): the home screen -28.0,
+  standing in the run -27.3, single rounds -25.1 with half seconds of -19.8, a burst -15.3, a magazine emptied
+  -14.1, the pause card -35.6. The run-start line ("I-N-C!") lifts its half second to -21.5 over a bed of -27. By
+  sample: the drum stem arrives at -16 to -17 dB, the CHOPPER's close layer at -8 to -11 dB, the voice at -7 dB.
+- **Against the data and the web game's code.** The category gains the game applies are the data's volumes times the
+  volume setting, as `src/audio` has its buses: gun 1.0, tail 0.85, near 0.95, world 1.05, ui 0.95, music 0.5, voice
+  1.0, each times 0.8 (the log's `mix=`: 0.80, 0.68, 0.76, 0.84, 0.76, 0.40, 0.80). **Every mono sound then arrives
+  4.5 to 6.5 dB under volume x gain, each the same** (25 sounds of the Development run's table: clicks, the radio,
+  both guns and their tails, the reload's parts, steps, the jump, the whoosh, the voice, the stings), so the levels
+  between the kinds are as the data gives them. The stereo street bed arrives about 2.5 dB under: Unreal plays a mono
+  source at half amplitude in each front channel and a stereo one nearly whole, where the web game plays both whole.
+  **So the street bed sits about 3 dB higher against everything else than the numbers say.** Measured, not changed.
+- **The Volume row works through the stream** (the Settings card has one, the master volume): on the pause card,
+  forty presses of Left (80 % to 40 %) took the music from **-35.9 to -42.6 dBFS (-6.7 dB; the setting alone is
+  -6.0 dB)**, and forty presses of Right brought it back to -35.4 (the first zip's run: -35.7, -42.3, -35.7).
+- **Paused**: the street bed stops (no loop start of it while the card is up; found again after the resume), the
+  music stays, about 9 dB down (the drum stem at -25.7 dB against -17; the part's level -35.6 dBFS; the data: 45 %
+  behind 1.3 kHz), the card's moves and presses sound. That is the web game's pause (`src/audio`: the world's buses
+  close, the dry bus and the thinned music stay).
+- **On the click card** the home screen's music and street play as on the home screen itself (-28.4 and -28.0
+  dBFS; the street bed found under the card). The web game is silent before its first click because a browser starts
+  no sound without one; here E3DS's page holds the stream muted until the same click, which the card asks for.
+
+### 7. What the server gives
+
+**Read in the engine, then measured.** With `-RenderOffScreen` (the launcher always passes it) Unreal 5.9 asks SDL
+for its "dummy" audio driver (`LinuxPlatformApplicationMisc.cpp`, `ApplySDLAudioDriverHint`), unless `SDL_AUDIODRIVER`
+or `SDL_AUDIO_DRIVER` is set. The game's log on the box, as a new user with no display: "Initialized SDL using dummy
+platform API backend", "Using Audio Hardware Device System audio playback device", 6 channels, 48 kHz, buffers of
+1,024 frames. The dummy device needs nothing from the machine: the box has no sound card (no `/dev/snd`), and root's
+PulseAudio is never asked. Pixel Streaming listens on the mixer's main submix (`AudioProducer.cpp`), folds the six
+channels to two and sends what the mixer renders. **So a server with no sound card and no sound service gets the
+whole sound**: that is the condition of every run in this entry.
+
+| Condition (Shipping or Development game of a package, new user, no display, no sound card) | The game | The viewer |
+|---|---|---|
+| nothing in the environment (every run above) | dummy device; all sounds started | sound, no drop-out |
+| `SDL_AUDIODRIVER=alsa` in the launcher's environment, launcher of `924bbce` (run `snd-env-alsa`) | "ALSA: Couldn't open audio device: No such file or directory", "FAudioDevice::Init Failed!", "Main audio device could not be initialized"; `sndPlayed=0`, `sndNoDevice=203` | **0.0 s of sound: the stream has no sound at all** |
+| the same variable and `SDL_AUDIO_DEVICE_SAMPLE_FRAMES=960`, **launcher of version 3b** (run `snd-env`; the same on the first zip) | "sound: SDL_AUDIODRIVER=alsa ... as the host set them; the game gets SDL's dummy audio device"; 208 sounds started, 0 without a device; 60.0 frames a second | 66.2 s, -25.8 dBFS, no digital silence, nothing lost, no drop-out |
+
+So **`MurderInc.sh` now sets `SDL_AUDIODRIVER` and `SDL_AUDIO_DRIVER` to `dummy` and clears
+`SDL_AUDIO_DEVICE_SAMPLE_FRAMES`**, with the reason in a comment and a `sound:` line in the log. Unreal's own null
+device, which keeps real time exactly, cannot be chosen: `FMixerPlatformSDL::OpenAudioStream` returns false when SDL
+lists no device.
+
+**The dummy device runs about 1 % fast.** It waits a whole 21 ms for every 21.33 ms of sound, so the stream carries
+1.009 to 1.011 s of sound per second of wall clock on a free box (1.004 to 1.007 when the box is busy: the wait
+overshoots more). No packet is ever short, and a browser's player makes up a sender's clock drift by itself; **what a
+real browser makes of 1 % was not heard** (section 10). The obvious cure is worse: asked for buffers of 960 frames
+(20 ms exactly) the device runs slower than real time by its wait's overshoot, and the stream has holes: 20 drop-outs
+of up to 40 ms and 610 ms lost in 65 s (run `snd-env-960`). Hence the cleared variable.
+
+### 8. Sound under load, and its cost
+
+`sound-short.txt` (the click card and the set-up screens, a run, five single rounds, a burst of 1.2 s, a fast turn,
+the pause card: 66 s) on the Shipping game of the zip, new user, fresh copy, the viewer there three seconds after the
+game's first probe line (55 s after it in the line called late), the gate's loads from a second process.
+
+#### 8.1 The frame rates, the gun, the music, the memory
+
+The zip to upload (`aa7cc478…`), 12:06 to 12:17 UTC, every line CLEAN:
+
+| Run | Load | Frames a second in the play (lowest second) | Worst frame in the play | Target | GPU time | Sounds started in the play | Drop-outs; sound lost | The five single rounds: click to the arrival of the gun's sound (shortest, middle, longest); the burst | Memory in the play (highest) |
+|---|---|---|---|---|---|---|---|---|---|
+| `snd-free` | none | **60.0** (59.0) | 21 ms | 60 | 6.5 ms | 183 | 0; 0 ms | 45, **73**, 81 ms; 35 ms | 3,917 to 3,888 MB (3,945) |
+| `snd-l20` | 20 ms a frame | 36.7 (29.9) | 34 ms | 45, then 30 | 21.3 ms | 184 | 0; 0 ms | 53, **59**, 94 ms; 58 ms | 3,970 to 3,935 MB (4,030) |
+| `snd-l35` | 34 ms a frame | 29.1 (27.0) | 42 ms | 30 | 33.6 ms | 174 | 0; 0 ms | 57, **85**, 92 ms; 69 ms | 3,963 to 3,919 MB (3,982) |
+| `snd-cpu6-l35` | 34 ms, the game on 6 CPUs | 29.2 (26.5) | 42 ms | 30 | 33.6 ms | 181 | 0; 0 ms | 55, **76**, 84 ms; 54 ms | 3,004 to 3,218 MB (3,391) |
+| `snd-l20-late` | 20 ms, the viewer 55 s later | 30.6 (29.9) | 35 ms | 30 (it had left 45 before the play) | 20.8 ms | 185 | 0; 0 ms | 58, **80**, 95 ms; 80 ms | 3,975 to 3,978 MB (3,978) |
+| `snd-l20-c12` | 20 ms, the game on 12 CPUs | 30.2 (29.5) | 38 ms | 45, then 30 | 21.1 ms | 184 | 0; 0 ms | 56, **68**, 85 ms; 59 ms | 3,712 to 3,652 MB (3,808) |
+
+- **The music has no gap in any of these runs, and the gun's sound follows the input at every load**: all five
+  rounds of every run were found; the delay from the click to the arrival of the gun's sound is 45 to 95 ms with a
+  middle of 59 to 85 ms, and the load makes no difference that these runs can show (the first zip's runs: middle
+  57 ms free, 85 and 75 ms under the two loads). It holds the input's own way into the game, which waits for a frame.
+- **The worst frame stays far under 100 ms** (42 ms at most under load); **with a free GPU the game holds 60**. No
+  pacer time-out in any play; three or four in each whole run and one frame of 0.86 to 0.90 s on the Crew screen:
+  the cold start that version 3a's gate describes.
+- **For the lag gate to look at**: under the 20 ms load the game went on from 45 to 30 frames a second in these
+  runs (GPU 20.8 to 21.3 ms a frame, the edge of what 45 allows); version 3a's gate held 45 at 18.8 ms, and so did
+  one run here (`snd-x10`, 45.0, lowest second 43.7). Nothing in version 3b draws more; the load process is the same
+  script. Not looked into further.
+- **Against version 3a**: the zip is 5.0 MB larger. The Shipping game's memory in a cold Story run is 3,986 MB five
+  seconds into the play and 3,944 MB at its end in the run by keyboard (highest 4,037), where version 3a's gate had
+  3,813 to 3,963 MB in other scripts: no difference that these runs can show; the waves kept in memory are about
+  5 MB of compressed audio. The Development game's full run with a fight: 4,181 MB five seconds in, 4,242 MB at its
+  end.
+
+#### 8.2 Holes in the first half minute of a cold start
+
+**In the first zip's runs the music had gaps in the two runs under load on 16 CPUs, all of them before the run
+began:**
+
+| Run | Drop-outs | Sound lost | When | Sound per second of wall clock |
+|---|---|---|---|---|
+| `snd-free-z1` (no load) | 0 | 0 ms | | 1.0085 s |
+| `snd-l20-z1` | **13** (30 to 40 ms each) | 450 ms | 1.4 to 23.7 s of the recording; the run began at 30.8 s | 1.0063 s |
+| `snd-l35-z1` | **4** | 150 ms | 3.2 to 21.0 s | 1.0041 s |
+| `snd-cpu6-l35-z1` | 0 | 0 ms | | 1.0050 s |
+
+What a hole is (looked at in the packets and in the sound of `snd-l20-z1`): the sender's RTP time stamps jump 30 or
+40 ms between two packets that follow each other, and **the sound goes on where it stopped**: across each of the 13
+holes the street bed's place in its own file steps 30 ms less than the time stamps do (in the seven holes of 30 ms
+nothing of the sound is missing, in the six of 40 ms 10 ms are). Nothing was thrown away that mattered; for that
+moment no sound was made in time, and Pixel Streaming's sender (closed code: the EpicRtc library) marks the wait as a
+gap in the time line. A player has to fill such a gap; **what a browser makes of it was not heard** (section 10). The
+Development game's log has no underrun line in such a phase.
+
+**The cause is the box's CPUs in the half minute of a cold start, not the GPU's load, the frame rate or the
+menus.** Shown one step at a time, each a run of its own (`snd-x1` to `snd-x10`, first zip):
+
+| What was tried | Result |
+|---|---|
+| The Development game left on its home screen for a minute under the 20 ms load (`snd-x1`, `-x2`, `-x5`) | 24 to 84 holes, **the last between 28.5 and 30.2 s** of the recording; none in the 22 to 39 s after them: the same screen, the same load, the frame rate still short of its target |
+| `top -H` during that half minute, and after it | the game uses **1,050 to 1,380 % of a CPU**: twelve `PSOPrec-Pool` threads at 70 to 90 % each. That is Unreal's pipeline-state precompile, which a game that has never run in its folder does on three quarters of the CPUs (`r.pso.PrecompileThreadPoolPercentOfHardwareThreads`, 75 by default). Beside it: the load process 90 to 120 %, the viewer 20 to 50 %, the desktop's browser up to 110 % (it was playing E3DS sessions for another piece of work). The box: 86 to 95 % busy, which is its limit. After the half minute: the game 290 to 480 %, the box 22 to 46 % |
+| The same load, the game on 12 of the 16 CPUs (`snd-x7`), on 8 (`snd-x8`), on 6 (`snd-cpu6-l35-z1`) | **0 holes** |
+| The same load on 16 CPUs, the viewer joining 55 s after the first probe line (`snd-x10`) | **0 holes**, 66 s at 45.0 frames a second (lowest 43.7), worst frame 30 ms |
+| A free GPU, two busy loops (two CPUs' worth) beside the game from its start (`snd-x9`) | **57 holes**, 2,020 ms lost, all in the first 31.5 s; none in the 35 s after them, the busy loops still running; 58.9 frames a second in the play |
+| A free GPU, nothing beside the game but the viewer and the desktop (`snd-free-z1`, `snd-keys-z1`, `snd-dev-z1`, `snd-env-z1`) | 0 holes in four cold starts |
+| The 20 ms load twice more on 16 CPUs (`snd-x4`, `snd-x6`) | 22 and 8 holes, all before the run began |
+| The same two loads again half an hour later, on the second zip, the desktop's browser idle (`snd-l20`, `snd-l35`, section 8.1) | **0 holes** in both |
+
+So: for about half a minute after its first start in a folder the game takes three quarters of the machine's CPUs
+to compile pipeline states, which alone brings this box to its limit; a little more work beside it then (the load
+process and a browser that plays a stream; two busy loops) and the threads that make and send the sound wake late:
+holes. The box makes this easy to meet: its kernel is a sandbox (gVisor) whose timers are weaker than a real
+kernel's when every CPU is busy, and the test's own load process, viewer and desktop are the other work. **Whether
+an E3DS machine meets it is not known.** Every session there is a cold start (an empty home), and its machines are
+shared with other sessions' games (DECISIONS.md, today), so other work beside a cold start is likely there; whether
+its kernel then lets the sound's threads wake in time is what the box cannot say.
+**Not fixed.** What would lessen it is fewer precompile threads (a line in the cloud profile); that changes how long
+the cold start's hitches last, which is the lag gate's ground and not a sound change, so it is left as a decision
+(section 11). The instrument got what it needed to tell the two apart: the summary of a sound run now says under
+which of the script's markers the drop-outs fell and how busy the box's CPUs were in the viewer's first 40 s
+(`lag-test.sh`'s watcher notes it every second), and `sound-gate.txt` says what each line must show.
+
+#### 8.3 The sound gate on the zip to upload
+
+`sound-gate.txt` (nine lines) was run on the zip `aa7cc478…` from 11:55 to 12:17 UTC: the six lines of 8.1, the two
+runs of section 4 and `snd-env` (section 7). Every line CLEAN; in every line 0 sounds without an asset and 0 without
+an audio device; **no drop-out in eight of the nine**. The ninth is the queue's first line, the Development game's
+run at 11:55 (kept as `snd-dev-first`): **115 drop-outs of up to 70 ms and 4.9 s of sound lost in its first 35 s, on
+a free GPU, and none in the 286 s after them** (59.9 frames a second in the play, 1,141 sounds started, none
+missing). What the box was doing in those 35 s was not recorded; the record of its CPUs was added to `lag-test.sh`
+because of this line, and the line was run again at 12:17 (`snd-dev`, section 4): **no drop-out; "the box's CPUs:
+74 % busy in the viewer's first 40 s (busiest second 95 %), 27 % after them"**. That busiest stretch is the game
+itself: 86 to 95 % for 33 s with nothing else on the box. So a Development game's cold start alone takes this box to
+its limit, and whether the sound then has holes hangs on what little else happens in that half minute.
+
+### 9. Tests, builds, commits
+
+- **`TESTS OK passed=121 failed=0 skipped=0 filter=MurderInc 59 s (report)`** on the box at 12:30 UTC, the gameplay
+  clone at `8391b33`, whose game code is the packaged `3dd4053` (the 119 of version 3a with their 11 golden replays,
+  and `Audio.SoundsResolve` and `Audio.EveryGunSounds`); the same 121 of 121 at `83d2c61` (56 s) and at `924bbce`,
+  and 119 of 119 at `6de5b0b` right after the import, before any code changed. No test was weakened, skipped or
+  re-recorded; `Audio.Assets` and `Audio.EngineRender` got stricter.
+- **No warning about missing sound is left.** Two warnings remain in the report and neither is one: `Audio.VoiceData`
+  ("21 of 21 takes are placeholders", which is true until the owner's recordings arrive) and `Audio.EngineRender`
+  ("no audio device in this process (-NoSound)": the suite runs without a device; with one,
+  `tools/box/audio-engine-render.sh`, it was not run in this pass).
+- Editor target built at `924bbce` (115 s) and `83d2c61` (93 s); both game targets compiled by `package-cloud.sh all`
+  at `924bbce` and at `3dd4053`. The gameplay clone on the box is at the pushed head; nothing under `unreal/` differs
+  between `3dd4053` and the head, and the zip's launcher is the branch's at `5bba2dd`.
+- Changed in the game: `Audio/MIAudioSubsystem` (the warning, the counts, the preload, the Verbose "play" line),
+  `Audio/MIAudioDirector` (unknown ids, the gun's sound family, the two menu events), `Cloud/MICloud.cpp` (the probe
+  fields), `Flow/MIGameSubsystem` and `UI/MIFrontEnd.cpp` (the menus' notes), `Content/Data/audio.json`
+  (`weaponSounds`, `ui:click`, `ui:hover`), the three audio test files. No rule of play changed; `src/` untouched;
+  no audio file added, replaced or generated.
+
+### 10. Not done, not proven
+
+- **Not heard by anyone.** Everything here is measurement: which sample, when, how loud. Whether the game sounds
+  good, whether the placeholder voice and the generated gun layers are what the owner wants, nobody here can say.
+- **The music can have gaps in the first half minute of a cold start** when the machine's CPUs are at their limit
+  (section 8.2): measured, explained, not fixed, and not known for E3DS's machines, where every session is a cold
+  start.
+- **E3DS itself, a real browser.** The viewer is a Python client on the same machine. What Chrome's player makes of
+  a sound clock that runs 1 % fast (it should shorten the sound by that much, inaudibly; unproven) and of a gap of
+  30 to 70 ms in the time line, whether E3DS's page starts muted and its speaker button unmutes, whether a
+  controller's first press counts as the gesture, how the sound sits against the picture: the owner's first session
+  with version 3b.
+- **The delay ends at the packet's arrival.** A browser's own sound buffer (tens of milliseconds) comes on top, and
+  so does the way from the browser to E3DS and back.
+- **The heartbeat** under a third of the health: the game started it 0.8 s before the death in `snd-dead1`; too short
+  to show in the recording. The hurt and the ear ring are shown as levels, not as samples (table).
+- **Sounds the game started that were not found as samples** (the list under the table, the steps in the Shipping
+  run among them): their assets are in the pak and the game started them; that a viewer can make them out is not
+  shown.
+- **`sting_reel`** (a reel secured that is not the last) did not come up: the demo script's two first reels are
+  given, not taken. The last reel's sting did. The NINE's slide (a reload from empty), the melee hit, steps on
+  surfaces other than asphalt, the four guns other than the STICK and the STRETCH in a stream, Hold the Block, the
+  night bed: covered by the tests or by the same code paths, not by a stream run.
+- **The street bed 3 dB high and the 1.9 dB less headroom** (section 6): measured and left, because the brief says
+  not to redesign the mix.
+- **The pointer's hover on the set-up screens** has no sound yet; **`Audio.EngineRender` with a device** was not
+  rerun; the lag gate on the zip (`lag-gate.txt`) was not run here: the load lines of section 8 are sound checks
+  with the gate's loads, not the gate.
+- The dead run and the `snd-env-alsa` run are of the package of 10:18 UTC, and the runs `snd-x1` to `snd-x10` of
+  section 8.2 are of the first zip (the game's files are the same in both zips).
+
+### 11. For the release engineer
+
+1. The zip: `/project/ue/cloud/MurderInc-E3DS.zip`, sha256 `aa7cc478…8deb`, parts in `/project/ue/cloud/parts`
+   (`parts.sha256`), the Development game's key in `MurderInc-E3DS.devkey` (new for this zip; the first zip's
+   fingerprint, key and parts list are kept as `v3b-8ec0f7f7.*`). Version 3a's zip is kept as
+   `/project/ue/cloud/v3a-de41a708.zip` with its key and parts list. `/tmp/v3b2/zip` is the zip unpacked as
+   `e3dsfresh` (lost when the box stops). If the launcher changes again before the upload: `package-cloud.sh src`,
+   `zip`, `MI_TAG=v3b package-cloud.sh parts` (two minutes; no cook), then the sound gate.
+2. **The lag gate must be repeated on this zip** (`lag-gate.txt`, 13 runs): the game's code changed (the preload at
+   world start, the probe line, the menus' notes), every run now has sound playing, the launcher has the leftovers
+   cleanup, and under the 20 ms load the game sat at 30 where version 3a's gate had 45 (section 8.1).
+3. **The sound gate** is `sound-gate.txt` (9 runs, about 25 minutes):
+   `LAG_BUILD=<unpacked zip> LAG_RUNAS=fresh LAG_CLEAN=1 bash lag-test.sh queue sound-gate.txt`, then
+   `python3 sound_table.py /project/ue/cloud/lag/snd-dev --audio /project/ue/repo-gameplay/unreal/MurderInc/Content/Audio`
+   and `bash sound-keys-check.sh /project/ue/cloud/lag/snd-keys` (both in `/opt/venv/bin/python3`, after the queue:
+   they take every CPU). The file's top says what each line must show. **It needs a quiet box**: no other work, and
+   the desktop's browser not playing a stream; each summary now says how busy the box's CPUs were in the viewer's
+   first 40 s, and a line with drop-outs in its first half minute on a busy box is run again before the package is
+   blamed. The short proof that a package has sound at all: `package-cloud.sh sounds` ("SOUNDS OK: all 289 ...") and
+   any summary line's "sound: N sounds started ..., 0 without an asset, 0 without an audio device" with "viewer
+   heard: ... digital silence 0.0 s, lost 0 ms, drop-outs 0".
+4. **A decision for the lead: the cold start's CPUs** (section 8.2). `r.pso.PrecompileThreadPoolPercentOfHardwareThreads`
+   (75 by default; it must be in the engine's ini, the launch option `-dpcvars=` did not change the pool in the
+   Shipping game) would leave more of the machine to the sound in the first half minute; it needs a package and the
+   lag gate's cold lines, because the precompile then takes longer. Nothing was changed.
+5. `LAUNCH.md` still tells the owner that the build is silent (top of the page, sections 4, 7, 9.2, 9.4) and names
+   version 3a's parts: it needs version 3b's parts, fingerprints and a line on the sound (the speaker button at the
+   bottom right of E3DS's page; the Volume row on the Settings card; a gap in the music in a session's first half
+   minute is worth a word back).
+6. Storage: nothing was uploaded in this pass.
+
 ## Version 3a: the independent release check (release checker, 2026-11-25, 07:56 to 09:20 UTC)
 
 A second pair of hands took version 3a from the owner's storage, not from the box's build folder, and repeated the

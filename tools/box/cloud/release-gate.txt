@@ -1,0 +1,64 @@
+# The release gate of a package from version 3b on, as one queue for lag-test.sh on the unpacked zip (lag-gate.txt
+# is the gate of release A's code and says what every one of its lines is for; sound-gate.txt is the sound's):
+#
+#   unzip the zip as the user e3dsfresh into an empty folder, then
+#   LAG_BUILD=<that folder> LAG_RUNAS=fresh LAG_CLEAN=1 LAG_OUT=<a folder for the runs> bash lag-test.sh queue release-gate.txt
+#   bash lag-test.sh list        (the summary lines; LAG_OUT again)
+#
+# 23 runs, about 50 minutes. Every run is cold (a new user's empty home, the folder's Saved removed) and is started
+# with E3DS's arguments. Nothing else on the box meanwhile: no compile, no cook, no analysis.
+#
+# It passes when every line says CLEAN (and not that a compiler ran beside it) and, in the play: no frame over
+# 100 ms, never more than 2 frames owed, no pacer time-out, memory flat, 60 frames a second on a free GPU, and every
+# game stopped with exit code 0. Outside the play a cold run has what lag-gate.txt describes: 3 pacer time-outs (4
+# at most) and one frame of about 0.9 s on the Crew screen.
+#
+#   v3b-free, -l8, -l12, -l20, -l35, -cpu6-l20, -cpu6-l35
+#                the Story lines of lag-gate.txt with the viewer whose turns stop dead (lag-stops.txt: version 2 froze
+#                when a turn ended) and who is there three seconds after the game's first line (join=3: the coldest
+#                run a player can have). The independent check of version 3a ran these with the same viewer
+#                (PROGRESS.md, "Version 3a: the independent release check")
+#   v3b-devstory-l35, v3b-devstory-cpu6-l35
+#                the Development game played from the home screen like a Shipping run, under the heaviest load: the
+#                engine's log must have no "Timed out waiting for fence" and no "No frames available for capture"
+#                line in the run (two fence lines belong to the Crew screen's cold frame)
+#   v3b-l35dev, v3b-cpu6-l35dev
+#                lag-gate.txt's own Development lines (a script starts the run 12 s after the process)
+#   v3b-cmds, v3b-input, v3b-pad, v3b-rise
+#                as in lag-gate.txt: a viewer's console commands, the input checks, the controller, the target's way
+#                back up
+#   v3b-late-free, v3b-late-l20, v3b-late-l35
+#                three lines exactly as version 3a's gate ran them (lag-story.txt, the viewer 55 s after the game's
+#                first line), so that the numbers stand next to that table like for like
+#   v3b-e3ds-free, v3b-e3ds-l12, v3b-e3ds-l35
+#                what E3DS's Linux machine was measured to be (DECISIONS.md, 2026-11-25): 8 CPU threads, and a driver
+#                that fails Unreal's SM6 check, so the game runs its SM5 shaders (-sm5: no Nanite, Lumen in
+#                software). Free, with the card slowed to about 12 ms a frame (an A4000 by itself) and to about 34 ms
+#                (an A4000 shared with a leftover game). With the sound recorded: the first half minute of a cold
+#                start on 8 CPUs is where the music could have holes
+#   v3b-proof-keys, v3b-proof-pad
+#                the stream proof (proof-keys.txt, proof-pad.txt: their tops say what the probe lines must show)
+#                with the sound recorded: proof-sound-check.sh <run folder> says what was heard
+v3b-free game=ship view=lag-stops.txt join=3 secs=115 load=0
+v3b-l8 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.3:1
+v3b-l12 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.05:0.05:1024
+v3b-l20 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.05:0:1024
+v3b-l35 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.3:0
+v3b-cpu6-l20 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.05:0:1024 cpus=0-5
+v3b-cpu6-l35 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.3:0 cpus=0-5
+v3b-devstory-l35 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.3:0 -- -MIDev
+v3b-devstory-cpu6-l35 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.3:0 cpus=0-5 -- -MIDev
+v3b-l35dev game=dev load=1:0.3:0
+v3b-cpu6-l35dev game=dev load=1:0.3:0 cpus=0-5
+v3b-cmds game=ship view=lag-commands.txt load=0
+v3b-input game=ship view=lag-input.txt view2=lag-input2.txt probe=0.25 secs=150 load=0
+v3b-pad game=ship view=lag-pad.txt view2=lag-input2.txt probe=0.25 secs=110 load=0
+v3b-rise game=ship load=1:0.3:0.15 view=lag-rise-card.txt secs=120
+v3b-late-free game=ship load=0
+v3b-late-l20 game=ship load=1:0.05:0:1024
+v3b-late-l35 game=ship load=1:0.3:0
+v3b-e3ds-free game=ship view=lag-stops.txt join=3 secs=115 audio=1 load=0 cpus=0-7 -- -sm5
+v3b-e3ds-l12 game=ship view=lag-stops.txt join=3 secs=115 audio=1 load=1:0.05:0.05:1024 cpus=0-7 -- -sm5
+v3b-e3ds-l35 game=ship view=lag-stops.txt join=3 secs=115 audio=1 load=1:0.3:0 cpus=0-7 -- -sm5
+v3b-proof-keys game=ship view=proof-keys.txt audio=1 join=3 probe=0.25 secs=100 load=0
+v3b-proof-pad game=ship view=proof-pad.txt audio=1 join=3 probe=0.25 secs=100 load=0

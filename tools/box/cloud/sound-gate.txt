@@ -19,8 +19,9 @@
 #                stop). With drop-outs in the first half minute and the box's CPUs about 90 % busy or more in the
 #                viewer's first 40 s, the line met a busy box (the note below): run it again before blaming the package
 #   snd-l20, snd-l35
-#                these two make the box busy themselves (the load process beside a cold start on all 16 CPUs): drop-outs
-#                under card, home and briefing are expected; measured for version 3b: 13 and 4
+#                these two bring the box nearest its limit by themselves (the load process beside a cold start on all
+#                16 CPUs): drop-outs under card, home and briefing are the box. Measured for version 3b: 13 and 4 while
+#                the desktop's browser played a stream beside them, 0 and 0 half an hour later when it did not
 #   snd-dev      the Development game plays a whole Story run by its own demo director (sound-demo.txt) and logs every
 #                sound it starts: python3 sound_table.py /project/ue/cloud/lag/snd-dev --audio <Content/Audio> prints
 #                one line per sound: found in the recording or not, how far above chance, its level, its delay.
@@ -47,9 +48,11 @@
 # busy). On this box the load process, the viewer and the desktop's browser take two to three CPUs more, all 16 are
 # then busy, the game's sound threads wake late, and Pixel Streaming's sender leaves holes of 30 to 50 ms in the
 # sound's time line (the sound itself goes on where it stopped). Measured for version 3b (PROGRESS.md, section 8):
-# with the load 4 to 22 holes in that half minute and none after it, in the menus or in the play; none at all when
-# the game keeps off four CPUs, when the viewer comes after the half minute, or on a free GPU; 57 on a free GPU with
-# two busy loops beside the game. It is the box's CPUs, not the GPU's load and not the frame rate.
+# with the load and a busy desktop 4 to 22 holes in that half minute and none after it, in the menus or in the play;
+# none at all when the game keeps off four CPUs, when the viewer comes after the half minute, or on a quiet box; 57 on
+# a free GPU with two busy loops beside the game, and once 115 in the Development game's line on a free GPU while
+# something else was busy on the box. The Development game's cold start alone takes the box to 86 to 95 % for 33 s.
+# It is the box's CPUs, not the GPU's load and not the frame rate.
 snd-dev game=dev demo=sound-demo.txt view=sound-watch.txt audio=1 join=3 probe=0.25 secs=330 -- -ini:Engine:[Core.Log]:LogMIAudioHost=Verbose
 snd-keys game=ship view=sound-keys.txt audio=1 join=3 probe=0.25 secs=160
 snd-env game=ship view=sound-short.txt audio=1 join=3 probe=0.25 secs=95 env=SDL_AUDIODRIVER=alsa,SDL_AUDIO_DEVICE_SAMPLE_FRAMES=960

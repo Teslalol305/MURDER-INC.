@@ -215,14 +215,16 @@ run_fg() {
     rm -rf "$build/MurderInc/Saved/Profiling/CSV"
   fi
   rm -rf "$build/MurderInc/Saved/SaveGames"   # a setting changed in one run (Look sensitivity) must not reach the next
-  # The watcher: other games, the GPU, and (cpu=) how busy all of the box's CPUs were in the last second. The last
-  # one is for the sound: a box whose CPUs are all busy in the half minute of a cold start puts holes into the
-  # stream's sound that are not the package's (sound-gate.txt), so a sound run says what the box was doing.
+  # The watcher: other games, the GPU, (cpu=) how busy all of the box's CPUs were in the last second, and (build=)
+  # how many compiler, cook or editor processes ran (another job's on a shared box: they take CPUs, not the GPU, so
+  # "CLEAN" does not see them). cpu= is for the sound first: a box whose CPUs are all busy in the half minute of a
+  # cold start puts holes into the stream's sound that are not the package's (sound-gate.txt), so a run says what
+  # the box was doing.
   ( ptot=; pidl=; while [ ! -f "$O/done" ]; do
       read -r _ cu cn cs ci cw cq csq cst _ < /proc/stat; tot=$((cu + cn + cs + ci + cw + cq + csq + cst)); idl=$((ci + cw)); busy=
       [ -n "$ptot" ] && [ $((tot - ptot)) -gt 0 ] && busy=$(( 100 * ((tot - ptot) - (idl - pidl)) / (tot - ptot) ))
       ptot=$tot; pidl=$idl
-      echo "$(date -u +%T) others=$(games "$id") util=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ') mem=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ') cpu=$busy"
+      echo "$(date -u +%T) others=$(games "$id") util=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ') mem=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ') cpu=$busy build=$(pgrep -c -x 'clang\+\+|UnrealEditor|UnrealEditor-Cm|ShaderCompileWo|UnrealPak')"
       sleep 1
     done > "$O/others.log" 2>&1 ) &
   (cd "$T" && RUNAS="$runas" NODISPLAY=1 STOPSIG=TERM STOPTO=launcher STDOUT=0 CPUS="$cpus" BUILD="$build" ENVS="${envs//,/ }" bash e3ds-repro.sh run "lag-$name" "$secs" "${args[@]}" "${extra[@]}") >> "$O/info.txt" 2>&1
