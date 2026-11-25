@@ -5,7 +5,7 @@
 #   LAG_BUILD=<that folder> LAG_RUNAS=fresh LAG_CLEAN=1 LAG_OUT=<a folder for the runs> bash lag-test.sh queue release-gate-v6.txt
 #   bash lag-test.sh list        (the summary lines; LAG_OUT again)
 #
-# 13 runs, about 40 minutes. Every run is cold (a new user's empty home, the folder's Saved removed) and started with
+# 17 runs, about 55 minutes. Every run is cold (a new user's empty home, the folder's Saved removed) and started with
 # E3DS's arguments, one game at a time. Nothing else on the box meanwhile: no compile, no cook, no analysis, no other
 # job's game (lag-test.sh waits for the GPU and its watcher says CLEAN or POLLUTED: a polluted line is run again).
 #
@@ -38,6 +38,14 @@
 #                    the parts must be on the guns)
 #   v6-nosound       the game with -nosound (the lead's way to silence it from E3DS's launch options): it must start, show
 #                    the card, take the set-up screens and play the run exactly as with sound (proof-keys.txt's lines)
+#   v6-s-idle, v6-s-reload, v6-s-nobody, v6-s-keep
+#                    release 3c's session (session-gate.txt, whose top says what each line must show): the game idles
+#                    when nobody watches, "Session over" 60 s after the last viewer left with exit code 0 (twice joined
+#                    in the reload line), 30 s with -MIExitIfNoViewer=30 when nobody ever came, and ALIVE at limit with
+#                    -MIKeepAlive. Read grep -a "Session over" in each run's game.log for the times
+# Before the queue (PROGRESS.md, "Release 3c: review fixes", section 6): launcher-test.sh <the unpacked MurderInc.sh> as an
+# ordinary user says LAUNCHER-TEST OK, and the first run's game.log says "Quality ladder: ... OFF" (the ladder stays off
+# in this package unless its own gate, lag-gate-3c.txt, has run on it).
 v6-free game=ship view=lag-stops.txt join=3 secs=115 load=0
 v6-l8 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.3:1
 v6-l20 game=ship view=lag-stops.txt join=3 secs=115 load=1:0.05:0:1024
@@ -51,3 +59,7 @@ v6-proof-pad game=ship view=proof-pad.txt audio=1 join=3 probe=0.25 secs=100 loa
 v6-guns game=ship view=guns-keys.txt join=3 probe=0.25 secs=150 load=0
 v6-guns-b game=ship view=guns-keys-b.txt join=3 probe=0.25 secs=130 load=0
 v6-nosound game=ship view=proof-keys.txt join=3 probe=0.25 secs=100 load=0 -- -nosound
+v6-s-idle game=ship keepalive=0 join=45 view=session-menu.txt secs=200 qp=34:34
+v6-s-reload game=ship keepalive=0 join=25 view=session-menu.txt view2=session-menu.txt secs=210 qp=34:34
+v6-s-nobody game=ship keepalive=0 viewer=0 secs=70 qp=34:34 -- -MIExitIfNoViewer=30
+v6-s-keep game=ship keepalive=1 viewer=0 secs=60 qp=34:34
