@@ -226,6 +226,9 @@ private:
 	float PictureShare = -1.f;               // dynamic resolution's share of the output size (-1: off)
 	double NumbersNext = 0.0;
 	FString NumbersLine;
+	/** The last half minute of live play in half-second steps: X the game's frames a second, Y the stream's (-1: not known). */
+	TArray<FVector2f> PlayLows;
+	int32 PlayLowNext = 0;
 	// Peak: the largest value of the last two seconds (a viewer's audio and video report "bitrate" under one name,
 	// in turn: the video's is the larger one).
 	struct FStreamStat { float Value = 0.f, Peak = 0.f; double Time = 0.0, PeakTime = 0.0; };

@@ -1100,6 +1100,22 @@ void UMICloudSubsystem::TickPacing()
 	}
 	const AMIPlayerController* PC = GetGameInstance() ? Cast<AMIPlayerController>(GetGameInstance()->GetFirstLocalPlayerController()) : nullptr;
 	In.bSafeMoment = !PC || !PC->IsInLivePlay();
+	if (!In.bSafeMoment)
+	{
+		// For the pause card: the lowest frame rates of the last half minute of play. A stutter is the server when the
+		// game's own number fell and the connection when only the stream's did (the sender drops frames to fit a thin
+		// connection: measured, 5 to 7 a second while turning at 1.7 Mbit/s with the game at 60).
+		const FVector2f Sample((float)LastFps, (float)StreamStat(TEXT("transmitFps")));
+		if (PlayLows.Num() < 60)
+		{
+			PlayLows.Add(Sample);
+		}
+		else
+		{
+			PlayLows[PlayLowNext] = Sample;
+			PlayLowNext = (PlayLowNext + 1) % 60;
+		}
+	}
 
 	Governor.OverShare = MICloudPrivate::GFpsDropOver;
 	Governor.DropAfter = MICloudPrivate::GFpsDropAfter;
@@ -1171,18 +1187,29 @@ void UMICloudSubsystem::MakeNumbersLine()
 	{
 		Picture = FString::Printf(TEXT("drawn %d x %d, sent %d x %d"), FMath::RoundToInt32(Sent.X * PictureShare), FMath::RoundToInt32(Sent.Y * PictureShare), Sent.X, Sent.Y);
 	}
+	// The lowest of the last half minute of play, for both frame rates.
+	float LowFps = -1.f, LowTx = -1.f;
+	for (const FVector2f& S : PlayLows)
+	{
+		LowFps = LowFps < 0.f ? S.X : FMath::Min(LowFps, S.X);
+		if (S.Y >= 0.f)
+		{
+			LowTx = LowTx < 0.f ? S.Y : FMath::Min(LowTx, S.Y);
+		}
+	}
 	FString Stream = TEXT("no viewer statistics yet");
 	if (const double Tx = StreamStat(TEXT("transmitFps")); Tx >= 0.0)
 	{
-		Stream = FString::Printf(TEXT("stream %.0f a second, %.1f Mbit/s, QP %.0f"), Tx, FMath::Max(0.0, StreamStat(TEXT("bitrateMbits"), 0.0, true)), FMath::Max(0.0, StreamStat(TEXT("qp"), 0.0)));
+		Stream = FString::Printf(TEXT("stream %.0f a second%s, %.1f Mbit/s, QP %.0f"), Tx, LowTx >= 0.f ? *FString::Printf(TEXT(" (lowest %.0f)"), LowTx) : TEXT(""),
+			FMath::Max(0.0, StreamStat(TEXT("bitrateMbits"), 0.0, true)), FMath::Max(0.0, StreamStat(TEXT("qp"), 0.0)));
 		if (const double Rtt = StreamStat(TEXT("roundTripTime")); Rtt >= 0.0)
 		{
 			Stream += FString::Printf(TEXT(", round trip %.0f ms"), Rtt * 1000.0);
 		}
 	}
 	static IConsoleVariable* Decouple = IConsoleManager::Get().FindConsoleVariable(TEXT("PixelStreaming2.DecoupleFramerate"));
-	NumbersLine = FString::Printf(TEXT("%s  ·  %.0f frames a second (target %d%s)  ·  GPU %.1f ms  ·  %s  ·  %s%s  ·  build %s"),
-		*GRHIAdapterName, LastFps, Governor.Target(), PinnedBy != 0 ? TEXT(", fixed") : TEXT(""), LastGpuMs, *Picture, *Stream,
+	NumbersLine = FString::Printf(TEXT("%s  ·  %.0f frames a second (%starget %d%s)  ·  GPU %.1f ms  ·  %s  ·  %s%s  ·  build %s"),
+		*GRHIAdapterName, LastFps, LowFps >= 0.f ? *FString::Printf(TEXT("lowest %.0f, "), LowFps) : TEXT(""), Governor.Target(), PinnedBy != 0 ? TEXT(", fixed") : TEXT(""), LastGpuMs, *Picture, *Stream,
 		Decouple && Decouple->GetBool() ? TEXT(", decoupled") : TEXT(""),
 		MICloudPrivate::GBuildCommit.IsEmpty() ? TEXT("?") : *MICloudPrivate::GBuildCommit);
 }
