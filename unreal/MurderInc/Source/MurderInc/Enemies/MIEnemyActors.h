@@ -131,6 +131,9 @@ public:
 	/** The body is a ragdoll (fell from its killing hit) / has come to rest and is frozen where it lies. */
 	bool IsRagdoll() const { return bRagdoll; }
 	bool IsBodySettled() const { return bSettled; }
+	/** The death probe's staged test only (MI.Goon.Kill ... at): the drawn body stands at Feet until the next unit takes
+	 *  the slot, wherever the rules' unit is (presentation only: a body placed on stairs or by a wall before it falls). */
+	void StageBodyAt(const FVector& Feet, double Yaw);
 	/** Seconds the last death's ragdoll start took on the game thread (the cost probe). */
 	double GetRagdollStartCost() const { return RagdollStartCost; }
 	USphereComponent* GetHeadHit() const { return HeadHit; }
@@ -189,7 +192,7 @@ private:
 	FVector MeshScale = FVector::OneVector;
 	double DeadFor = 0.0, StillFor = 0.0, RagdollStartCost = 0.0;
 	int32 PoolHandle = 0;
-	bool bRagdoll = false, bSettled = false;
+	bool bRagdoll = false, bSettled = false, bStaged = false;
 	FRotator MeshRotation = FRotator::ZeroRotator;  // the mesh's rest rotation in the actor (presentation goon.meshYaw)
 	double AimTurn = 0.0;                            // eased yaw (deg) turning the drawn body onto the rules' aim
 

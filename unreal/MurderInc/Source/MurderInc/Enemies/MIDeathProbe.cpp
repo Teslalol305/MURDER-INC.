@@ -2,17 +2,20 @@
 // player's round or a blast does (through IMIDamageable, the same path as the weapon) and measures what the deaths cost
 // in the frames that follow. Not in the Shipping game.
 //
-//   MI.Goon.Kill <count> [body|head|blast] [max metres] [delay s]
+//   MI.Goon.Kill <count> [body|head|blast] [max metres] [delay s] [x y [z from]]
 //       kills the <count> nearest living Goons within the distance (0: any distance), each by one round from the
 //       player's eye at its body or head point (or one blast beside it on the player's side), after the delay (default
 //       1 s, 0: on the next frame), then logs, for the delay before and the 3 s after, the frame time, the game thread's time and the worst of each, the ragdoll start
-//       time of each body and how many bodies were frozen at the end.
+//       time of each body and how many bodies were frozen at the end. With x y (cm) the first body is staged there
+//       before it falls (on the ground under the point, traced down from z, default 400 cm), turned to the player:
+//       a presentation test of a fall on stairs or against a wall; the rules' unit stays where it was.
 
 #include "CoreMinimal.h"
 
 #if !UE_BUILD_SHIPPING
 
 #include "Components/CapsuleComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Components/SphereComponent.h"
 #include "Containers/Ticker.h"
 #include "Core/MIDamageable.h"
@@ -52,6 +55,7 @@ namespace MIDeathProbePrivate
 		int32 Count = 1;
 		FName Part = TEXT("body");
 		double MaxMetres = 0.0, Delay = 1.0;
+		TOptional<FVector> Stage;
 		bool bFired = false;
 		FTSTicker::FDelegateHandle Handle;
 	};
@@ -87,6 +91,17 @@ namespace MIDeathProbePrivate
 		for (int32 I = 0; I < Live.Num() && I < P.Count; ++I)
 		{
 			AMIGoon* Goon = Live[I].Value;
+			if (I == 0 && P.Stage.IsSet())
+			{
+				const FVector S = P.Stage.GetValue();
+				FHitResult Ground;
+				FCollisionQueryParams Q(SCENE_QUERY_STAT(MIDeathProbe), false, Me);
+				Q.AddIgnoredActor(Goon);
+				const FVector Feet = World->LineTraceSingleByChannel(Ground, S, S - FVector(0, 0, 2000.0), ECC_Visibility, Q) ? Ground.ImpactPoint : FVector(S.X, S.Y, 0.0);
+				const FVector ToMe = Eye - Feet;
+				Goon->StageBodyAt(Feet, FMath::RadiansToDegrees(FMath::Atan2(ToMe.Y, ToMe.X)));
+				UE_LOG(LogMI, Display, TEXT("MI.Goon.Kill: %s staged at %s"), *Goon->GetName(), *Feet.ToCompactString());
+			}
 			FMIDamage D;
 			D.Amount = 100000.0;
 			D.Source = EMIDamageSource::Player;
@@ -114,7 +129,9 @@ namespace MIDeathProbePrivate
 			else
 			{
 				const bool bHead = P.Part == TEXT("head");
-				const FVector Point = bHead ? Goon->GetHeadHit()->GetComponentLocation() : Goon->GetBodyHit()->GetComponentLocation();
+				// A staged body is aimed at as drawn (its hit volumes stay with the rules' unit).
+				const FVector Point = (I == 0 && P.Stage.IsSet()) ? Goon->GetMesh()->GetBoneLocation(bHead ? FName(TEXT("head")) : FName(TEXT("spine_03")))
+					: bHead ? Goon->GetHeadHit()->GetComponentLocation() : Goon->GetBodyHit()->GetComponentLocation();
 				D.Kind = EMIDamageKind::Bullet;
 				D.From = Eye;
 				D.Direction = (Point - Eye).GetSafeNormal();
@@ -217,6 +234,10 @@ namespace MIDeathProbePrivate
 			Active->Part = Args.Num() > 1 ? FName(*Args[1].ToLower()) : FName(TEXT("body"));
 			Active->MaxMetres = Args.Num() > 2 ? FCString::Atod(*Args[2]) : 0.0;
 			Active->Delay = Args.Num() > 3 ? FMath::Max(0.0, FCString::Atod(*Args[3])) : 1.0;
+			if (Args.Num() > 5)
+			{
+				Active->Stage = FVector(FCString::Atod(*Args[4]), FCString::Atod(*Args[5]), Args.Num() > 6 ? FCString::Atod(*Args[6]) : 400.0);
+			}
 			Active->Handle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&Tick));
 			UE_LOG(LogMI, Display, TEXT("MI.Goon.Kill: %d %s in %.1f s"), Active->Count, *Active->Part.ToString(), Active->Delay);
 		}));

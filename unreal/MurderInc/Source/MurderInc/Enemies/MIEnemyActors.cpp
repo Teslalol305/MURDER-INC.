@@ -6,6 +6,7 @@
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "PhysicsEngine/BodyInstance.h"
 #include "HAL/PlatformTime.h"
+#include "HAL/IConsoleManager.h"
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/PointLightComponent.h"
@@ -45,6 +46,11 @@ namespace MIEnemyActorsPrivate
 	}
 
 	FVector DirToUnreal(const FVector& D) { return FVector(D.X, D.Z, D.Y); }
+
+	// The death pass's switch: 1 a killed Goon falls as a ragdoll from its killing hit, 0 the death clip by direction
+	// (the behaviour before the pass). A launch option can set it (-MICVars=mi.Goon.Ragdoll=0).
+	TAutoConsoleVariable<int32> CVarRagdoll(TEXT("mi.Goon.Ragdoll"), 1,
+		TEXT("1: a killed Goon falls as a ragdoll from its killing hit; 0: the death clip by the shot's direction"));
 
 	double Ease(double Current, double Target, double Rate, double Dt) { return Current + (Target - Current) * (1.0 - FMath::Exp(-Rate * Dt)); }
 
@@ -374,7 +380,7 @@ void AMIGoon::Sync(const FMIEnemy& E, const FVector& HeadWeb, double Dt)
 	Show(true);
 	const double Half = Tune.Height * 50.0;
 	const FVector Feet = ToUnreal(E.Pos);
-	if (!bRagdoll)  // a ragdoll lies where it fell; the rules' unit does not move once dead
+	if (!bRagdoll && !bStaged)  // a ragdoll lies where it fell; the rules' unit does not move once dead
 	{
 		SetActorLocationAndRotation(Feet + FVector(0, 0, Half), FRotator(0, YawToUnreal(E.Yaw), 0), false, nullptr, ETeleportType::TeleportPhysics);
 	}
@@ -471,7 +477,7 @@ void AMIGoon::StartDeath(const FMIEnemy& E)
 bool AMIGoon::StartRagdoll(const FVector& ShotDir)
 {
 	USkeletalMeshComponent* M = GetMesh();
-	if (!Ragdoll || !M->GetSkinnedAsset() || !GetWorld() || !GetWorld()->GetPhysicsScene())
+	if (!Ragdoll || MIEnemyActorsPrivate::CVarRagdoll.GetValueOnGameThread() == 0 || !M->GetSkinnedAsset() || !GetWorld() || !GetWorld()->GetPhysicsScene())
 	{
 		return false;
 	}
@@ -547,16 +553,23 @@ void AMIGoon::UpdateRagdoll(double Dt)
 			PoolHandle = Fx->BloodPool(Floor.ImpactPoint, Floor.ImpactNormal);
 		}
 	}
-	M->PutAllRigidBodiesToSleep();
 	M->SetComponentTickEnabled(false);
 	M->bNoSkeletonUpdate = true;
+	M->SetSimulatePhysics(false);
 	M->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	bSettled = true;
+}
+
+void AMIGoon::StageBodyAt(const FVector& Feet, double Yaw)
+{
+	bStaged = true;
+	SetActorLocationAndRotation(Feet + FVector(0, 0, Tune.Height * 50.0), FRotator(0, Yaw, 0), false, nullptr, ETeleportType::TeleportPhysics);
 }
 
 void AMIGoon::ResetBody()
 {
 	KillHit = FKillHit();
+	bStaged = false;
 	DeadFor = StillFor = 0.0;
 	if (!bRagdoll && !bSettled)
 	{
