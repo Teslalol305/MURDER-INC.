@@ -100,9 +100,13 @@ for run in runs:
     parts.append(f"fence time-outs {fence}, skipped captures {skipped}" if dev else 'capture log n/a (Shipping)')
     if any('txFps' in p for p in play):
         sent = [p for p in play if 'txFps' in p]
-        parts.append(f"sender: captured {f(avg([num(p, 'capFps') for p in sent]), 0)}, encoded {f(avg([num(p, 'encFps') for p in sent]), 0)}, sent {f(avg([num(p, 'txFps') for p in sent]), 0)} a second"
-                     f" (turning {f(avg([num(p, 'txFps') for p in sent if p.get('turning')]), 0)}), QP {f(avg([num(p, 'qp') for p in sent]), 0)}, {f(avg([num(p, 'mbps') for p in sent]))} of {f(avg([num(p, 'availMbps') for p in sent]))} Mbit/s, encode {f(avg([num(p, 'encMs') for p in sent]))} ms"
-                     + (f", capture to send {f(avg([num(p, 'capToSendMs') for p in sent]), 0)} ms" if any('capToSendMs' in p for p in sent) else ''))
+
+        def stat(key, rows=sent):  # a statistic the sender did not report in a second is written as -1: left out
+            return avg([v for v in (num(p, key) for p in rows) if v is not None and v >= 0])
+
+        parts.append(f"sender: captured {f(stat('capFps'), 0)}, encoded {f(stat('encFps'), 0)}, sent {f(stat('txFps'), 0)} a second"
+                     f" (turning {f(stat('txFps', [p for p in sent if p.get('turning')]), 0)}), QP {f(stat('qp'), 0)}, {f(stat('mbps'))} of {f(stat('availMbps'))} Mbit/s, encode {f(stat('encMs'))} ms"
+                     + (f", capture to send {f(stat('capToSendMs'), 0)} ms" if any('capToSendMs' in p for p in sent) else ''))
     parts.append('received a second: ' + (', '.join(received) or 'no phases') + (f" (total {__import__('json').loads(end.group(1)).get('video')} frames)" if end else ' (viewer did not finish)'))
     parts.append(('CLEAN' if foreign == 0 and others else f'POLLUTED: another game ran in {foreign} of {len(others)} samples' if others else 'no watcher log')
                  + f", GPU use {f(util, 0)} %; {result or 'no result'}")
