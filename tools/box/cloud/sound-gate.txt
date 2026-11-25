@@ -5,16 +5,22 @@
 #   bash lag-test.sh list
 #
 # Nothing else may run on the box meanwhile (no compile, no package, no analysis: numpy takes every core, and a box
-# whose CPUs are all busy puts holes into the sound; the note under the list).
+# whose CPUs are all busy puts holes into the sound; the note under the list). The box is shared: every summary says
+# how busy its CPUs were ("the box's CPUs: 62 % busy in the viewer's first 40 s (busiest second 81 %), 30 % after
+# them"), so a line that met a busy box can be told from a line that failed.
 # It passes when every line says CLEAN and:
 #   every line   "sound: ... 0 without an asset, 0 without an audio device"
+#   every line   no drop-out in the play: the summary says when the first and the last drop-out were and under which
+#                of the script's markers they fell ("by the script's markers: card 2, home 5, briefing 6"): none from
+#                the marker "run" on, and for snd-dev (its script has no markers) none after the first 40 s of the
+#                recording
 #   snd-dev, snd-keys, snd-env, snd-free, snd-l20-late, snd-l20-c12, snd-cpu6-l35
-#                the viewer heard no digital silence, lost nothing and counted no drop-out (the music and the street
-#                never stop)
+#                on a quiet box no digital silence, nothing lost and no drop-out at all (the music and the street never
+#                stop). With drop-outs in the first half minute and the box's CPUs about 90 % busy or more in the
+#                viewer's first 40 s, the line met a busy box (the note below): run it again before blaming the package
 #   snd-l20, snd-l35
-#                no drop-out from the script's marker "run" on: the summary names the markers the drop-outs fell under
-#                ("by the script's markers: card 2, home 5, briefing 6"). Drop-outs under card, home and briefing are
-#                the box in the first half minute of a cold start (the note below); measured for version 3b: 13 and 4
+#                these two make the box busy themselves (the load process beside a cold start on all 16 CPUs): drop-outs
+#                under card, home and briefing are expected; measured for version 3b: 13 and 4
 #   snd-dev      the Development game plays a whole Story run by its own demo director (sound-demo.txt) and logs every
 #                sound it starts: python3 sound_table.py /project/ue/cloud/lag/snd-dev --audio <Content/Audio> prints
 #                one line per sound: found in the recording or not, how far above chance, its level, its delay.

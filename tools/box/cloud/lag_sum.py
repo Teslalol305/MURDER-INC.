@@ -149,6 +149,19 @@ for run in runs:
     heard = re.search(r'SOUND (.*)', view)
     if heard:
         parts.append('viewer heard: ' + heard.group(1).strip())
+        # How busy the box's CPUs were while the viewer listened to the game's first half minute (others.log cpu=): a
+        # box whose CPUs are all busy then puts holes into the sound that are not the package's (sound-gate.txt).
+        cpu = [(l[:8], float(m.group(1))) for l in others for m in [re.search(r'cpu=(\d+)', l)] if m]
+        began = read(f'{run}/view.start').strip()
+        if cpu and re.fullmatch(r'\d\d:\d\d:\d\d', began):
+            def clock(t):
+                return int(t[:2]) * 3600 + int(t[3:5]) * 60 + int(t[6:8])
+            since = [((clock(t) - clock(began)) % 86400, v) for t, v in cpu]
+            first = [v for s, v in since if s < 40]
+            later = [v for s, v in since if 40 <= s < 43200]
+            if first:
+                parts.append(f"the box's CPUs: {avg(first):.0f} % busy in the viewer's first 40 s (busiest second {max(first):.0f} %)"
+                             + (f", {avg(later):.0f} % after them" if later else ''))
     if any('txFps' in p for p in play):
         sent = [p for p in play if 'txFps' in p]
 
