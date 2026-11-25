@@ -1330,6 +1330,21 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 	};
 	Pull(LeftSocket, TEXT("upperarm_l"), TEXT("lowerarm_l"), TEXT("hand_l"), TEXT("middle_metacarpal_l"));
 	Pull(RightSocket, TEXT("upperarm_r"), TEXT("lowerarm_r"), TEXT("hand_r"), TEXT("middle_metacarpal_r"));
+	// Development log, once a reload, a second in: where the support palm is against the magazine it should hold, and how far
+	// its middle finger is closed (the angle between the hand's middle knuckle and the finger's end, as drawn last frame).
+	if (bReloadingNow && ReloadNowT > 1.0 && !bReloadLogged)
+	{
+		bReloadLogged = true;
+		const FVector PalmW = Arms->GetBoneLocation(TEXT("middle_metacarpal_l"));
+		const FVector K1 = Arms->GetBoneLocation(TEXT("middle_01_l")), K2 = Arms->GetBoneLocation(TEXT("middle_02_l")), K3 = Arms->GetBoneLocation(TEXT("middle_03_l"));
+		const double Bend = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(FVector::DotProduct((K1 - PalmW).GetSafeNormal(), (K3 - K2).GetSafeNormal()), -1.0, 1.0)));
+		UE_LOG(LogMI, Log, TEXT("First person: reload hold %s: on the magazine %d (k %.2f, %d support points), palm %.1f cm from its place on the magazine, middle finger bent %.0f deg"),
+			*GunId.ToString(), bMagHold ? 1 : 0, MagK, HandPose.Hands.Num() > 0 ? HandPose.Hands[0].Shape.Num() : -1, bMagHold ? FVector::Dist(PalmW, PadWorld) : -1.0, Bend);
+	}
+	if (!bReloadingNow)
+	{
+		bReloadLogged = false;
+	}
 	// The support fingers: with a fitted foregrip they close a little further than the bare handguard's, onto the part
 	// (anim set foregripCurl, degrees); in a reload, on top of the carried grip (anim set reloadCurl: 0 on the rifles, whose
 	// carried shape already closes the hand: a curl on top would sink the fingers into the magazine).

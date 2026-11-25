@@ -198,6 +198,7 @@ private:
 	/** HandIK guns: the support elbow pushed from the clip's own pole (anim set supportElbowOut, camera space cm: X forward,
 	 *  Y right, Z up), at the hip; aimed it blends to supportElbowOutAim (the same when the set gives none). */
 	FVector SupportElbowOut = FVector::ZeroVector, SupportElbowOutAim = FVector::ZeroVector;
+	bool bReloadLogged = false;  // the development log of the support hand in a reload, once a reload
 	double AdsNow = 0.0;  // HandIK guns: the aim weight of the last Update (the grip solves and the elbow blend by it)
 	FName GunId;
 	FTransform ArmsRest = FTransform::Identity;

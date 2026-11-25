@@ -6,6 +6,7 @@
 #include "BonePose.h"
 #include "TwoBoneIK.h"
 #include "HAL/IConsoleManager.h"
+#include <atomic>
 
 void FMIFPAnimProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSeconds)
 {
@@ -224,6 +225,14 @@ namespace MIFirstPersonAnimPrivate
 		const bool bShape = H.ShapeWeight > 0.f && !H.bKeepHand && !H.Shape.IsEmpty();
 		FTransform Shaped;
 		const bool bShaped = bShape && ShapeHand(CS, H, Shaped);
+		if (bShape && !bShaped)
+		{
+			static std::atomic<int32> Misses{0};
+			if (Misses.fetch_add(1) % 300 == 0)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("First person: the solved grip of %s could not be laid on the hand (%d points)"), *H.Hand.ToString(), H.Shape.Num());
+			}
+		}
 		if (bShaped)
 		{
 			Effector = FMath::Lerp(Effector, Shaped.GetLocation(), FMath::Clamp(H.ShapeWeight, 0.f, 1.f));
