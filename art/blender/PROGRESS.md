@@ -1258,7 +1258,8 @@ table, step 2); designs of the parts follow it, the measured geometry of the gun
 - Nothing was run in Unreal: the sockets, the bone hiding, the materials and the lens / reticle slots are proven in Blender only.
 - The parts' texel density is 3,243 px/m (the guns' 7,000-9,000): at 30 cm on a 4K screen the optics and the muzzle devices are about
   half as sharp as the guns they sit on; the detail that matters (screws, knurling, flutes, bands, ports, the pad, the lips) is modelled.
-- `stock_wire_open` (optional, phase 2) is not exported by this lane; the part pips `T_UI_Att_<id>` (128 x 128) are not rendered.
+- `stock_wire_open` (optional, phase 2) is not exported by this lane. The Workbench pips `T_UI_Att_<id>` (128 x 128, white on transparent, 4x
+  supersampled side views, 12 files) are rendered by `_weapons_parts_prev.py pips` into `art/out/ui/` and ride in the parts tar (`ui/`).
 - The wooden grip's body is laminated wood by recipe, not the CHOPPER's own ply field; the stippled grips are normal-map stipple.
 ## Exact next step if resumed
 `python art/blender/assets/_weapons_pack_parts.py` (the two tars), upload them as the other archives (`fp-art.sh`), import in the game

@@ -66,6 +66,12 @@ def main():
             for s in ("Weapon_Parts", "Weapon_PartsMags"):
                 stage_set(s)
             shutil.copy2(CONTRACT, os.path.join(STAGE, "weapons_r4_parts.json"))
+            ui = os.path.join(OUT, "ui")
+            if os.path.isdir(ui):                                   # the Workbench pips, 128 x 128 white on transparent
+                os.makedirs(os.path.join(STAGE, "ui"), exist_ok=True)
+                for f in sorted(os.listdir(ui)):
+                    if f.startswith("T_UI_Att_"):
+                        shutil.copy2(os.path.join(ui, f), os.path.join(STAGE, "ui"))
             path = os.path.join(OUT, "fp-weapons-parts.tar")
         else:
             for g in ("SK_Chopper", "SK_Nine"):

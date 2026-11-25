@@ -428,6 +428,7 @@ def update_manifest(key, rep):
                  "rest_orientation": "identity: local X = asset X (bore), Z = up, Y = left"}
         sock[s] = [round(v, 5) for v in pos]
     e["proof"] = {"poses": rep.get("poses"), "ok": rep.get("ok")}
+    e["triangles"] = int(sum(m["triangles"] for m in info["meshes"]))             # the FrontSight's cap adds 72 triangles to the CHOPPER
     add = CHOPPER_NOTES_ADD if key == "chopper" else NINE_NOTES_ADD
     if add.strip()[:30] not in e.get("notes", ""):
         e["notes"] = e.get("notes", "") + add

@@ -239,6 +239,60 @@ def sights(path, samples=48, res=(1280, 720)):
         os.remove(p_)
 
 
+def pips(out_dir=None, samples=16):
+    """The Workbench pips T_UI_Att_<id>: 128 x 128, white on transparent, each part from the right (the muzzle to the right,
+    magazines upright), fitted with an 8 px margin, 4x supersampled through a flat emission material and an alpha film."""
+    from PIL import Image
+    out_dir = out_dir or os.path.join(paths.out, "ui")
+    os.makedirs(out_dir, exist_ok=True)
+    ss, px, margin = 4, 128, 8
+    for pid in contract():
+        bpy.ops.wm.read_factory_settings(use_empty=True)
+        render.setup(samples=samples, res=(px * ss, px * ss), threads=1)
+        s_ = bpy.context.scene
+        s_.render.film_transparent = True
+        render._clear_rig()
+        w, nt = render._world()
+        bg = nt.nodes.new("ShaderNodeBackground")
+        bg.inputs["Color"].default_value = (0, 0, 0, 1)
+        wo = nt.nodes.new("ShaderNodeOutputWorld")
+        nt.links.new(bg.outputs[0], wo.inputs["Surface"])
+        render.look("Standard", "None", 0.0)
+        wm = bpy.data.materials.new("Pip")
+        n2 = wm.node_tree
+        n2.nodes.clear()
+        o_ = n2.nodes.new("ShaderNodeOutputMaterial")
+        e_ = n2.nodes.new("ShaderNodeEmission")
+        e_.inputs["Color"].default_value = (1, 1, 1, 1)
+        n2.links.new(e_.outputs[0], o_.inputs["Surface"])
+        ob = load_part(pid, {})
+        parts = [ob]
+        rec = contract()[pid]
+        for o in parts:
+            for sl in o.material_slots:
+                sl.material = wm
+        lo, hi = scene.bounds(ob, world=True)
+        c = Vector(((lo[0] + hi[0]) / 2, 0.0, (lo[2] + hi[2]) / 2))
+        size = max(hi[0] - lo[0], hi[2] - lo[2]) * (px / (px - 2 * margin))
+        cam = render.cam_look(c + Vector((0.0, -2.0, 0.0)), c, 50.0, name="CamPip")
+        cam.data.type = "ORTHO"
+        cam.data.ortho_scale = size
+        cam.data.clip_start, cam.data.clip_end = 0.1, 6.0
+        tmp = os.path.join(out_dir, "_pip_tmp.png")
+        s_.render.image_settings.file_format = "PNG"
+        s_.render.image_settings.color_mode = "RGBA"
+        s_.render.filepath = tmp
+        bpy.ops.render.render(write_still=True)
+        a = np.asarray(Image.open(tmp).convert("RGBA"), dtype=np.float32)[..., 3] / 255.0
+        a = a.reshape(px, ss, px, ss).mean(axis=(1, 3))
+        img = np.zeros((px, px, 4), np.uint8)
+        img[..., :3] = 255
+        img[..., 3] = np.clip(a * 255.0 + 0.5, 0, 255).astype(np.uint8)
+        Image.fromarray(img, "RGBA").save(os.path.join(out_dir, "T_UI_Att_%s.png" % pid))
+        os.remove(tmp)
+    return out_dir
+
+
 def kit(path, samples=64, res=(1280, 720)):
     """Every part on a plain background in a flat side view, three groups: the optics and muzzle devices (top row), the grips and
     the laser (second row), the three magazines with their top rounds (right, standing). Labelled by position."""
@@ -301,6 +355,8 @@ if __name__ == "__main__":
     samples = int(os.environ.get("SAMPLES", "64"))
     if what == "kit":
         kit(os.path.join(out, "weapons_parts_kit.jpg"), samples)
+    elif what == "pips":
+        print(pips())
     elif what == "sights":
         sights(os.path.join(out, "weapons_parts_sights.jpg"), samples)
     elif what == "chopper":
