@@ -159,19 +159,31 @@ takes (21 of 21 today). New trigger kinds need a line in
 volume, jitter, priority, voices, gap, reference distance and roll-off, loop and stereo flags. `audio.json` holds the
 rest by hand. The import (`tools/box/audio-import.sh`, `Content/Python/mi_audio_import.py`, headless, about 90 s)
 makes `/Game/Audio/<same path>` Sound Waves next to the files, loops flagged; a file replaced under the same name is
-re-imported in place, so real material needs no code or data change. **The assets are generated content and are in
-no clone until the import has run there.** Until 2026-11-25 it had only run in the audio work's clone
-(`/project/ue/repo-audio`), never in the gameplay clone that every package's Content is copied from: the cloud
-packages of versions 1, 2 and 3a hold no sound at all, and the game, which skips a sound without its asset, is
-silent in a stream (PROGRESS.md, "Version 3a: the independent release check"; PREFLIGHT.md V3-14). Run the import in
-the gameplay clone before every package, and check the package itself: its `Manifest_UFSFiles_Linux.txt` must list
-files under `/Content/Audio/`.
+re-imported in place, so real material needs no code or data change.
+
+**The assets are generated content: a clone has them only after the import has run there.** Every cloud package up to
+version 3a was made from a clone that had none, and was silent (PROGRESS.md, "Version 3a: the independent release
+check"). Since version 3b nothing can go that way again without saying so:
+
+| Where | What happens when a sound has no asset, or an asset older than its WAV |
+|---|---|
+| `tools/box/sync.sh` (how a clone is brought up to date) | it starts `audio-import.sh` by itself, or says what stands in the way (the module not built, the editor open, no `Content/Audio/Web`) |
+| `MurderInc.Audio.Assets` | fails (it used to warn), naming the files |
+| `MurderInc.Audio.SoundsResolve` | loads every Sound Wave the data can ask for (289 today: 188 web variants, 79 layer files, 21 voice takes, the bleep) and checks every sound id the tables of audio.json name (70) |
+| `package-cloud.sh content` | stops before the cook when the gameplay clone has a sound without an asset |
+| `package-cloud.sh package`, `zip`, `sounds` | `pak_sounds.py` works out from the packaged data which Sound Waves the game can ask for and looks each up in the pak's own list (`Manifest_UFSFiles_Linux.txt`); a package or a zip without one of them is refused with the count ("SOUNDS OK: all 289 ..." when it is right; version 3a's zip: "holds 0 of them") |
+| the game | a sound without its asset, or a sound id the data does not have, is a warning once per sound, and the stream's probe line counts them (`sndMissing`), with the sounds started (`sndPlayed`) and the starts that found no audio device (`sndNoDevice`) |
+
+The folder holds 291 WAV files and the import makes 289 Sound Waves: the two it leaves out are `Web/IR_shop.wav` and
+`Web/IR_street.wav`, the reverb responses (bus `ir` in audio_sounds.json). The game does not play them (the parser
+skips that bus; the convolution reverb they are for is an open issue, section 8), and no sound the game plays is among
+the difference: `pak_sounds.py --names Content/Data` lists exactly the 289.
 
 ### 3.2 The event table
 
 `audio.json events` has an entry for every key the bus can produce (`FMIAudioDirector::BusEventKeys()`, plus every
 `Note(TEXT("..."))` flow line the gameplay source emits, which `MurderInc.Audio.EventTable` scans so a new flow line
-fails the test until it gets an entry): 63 keys, 22 that play a list of sounds, 24 that name a code rule, 18 explicit
+fails the test until it gets an entry): 65 keys, 24 that play a list of sounds, 24 that name a code rule, 18 explicit
 `silent` with the reason. The test also reads `Core/MIEvents.h` and fails on any `FMIGameEvents` delegate missing from
 `FMIAudioDirector::BusDelegates()` (20 today; it caught the loadout's new `WeaponMode`, now a selector click). The rules: `gunshot` (spec 07 3.20: dry shot, layers, street and garage tails split by the
 interior zone, the burst rule, the casing on the ground 0.45 to 0.65 s later by the surface underfoot, the gunfire
@@ -181,6 +193,23 @@ actor, the six nearest within 90 m heard), `telegraph` (charge pitched to the te
 the enemy-fire duck, the near-miss whizz of spec 07 3.21 with an occlusion trace), `grunt` (no hit grunt on the
 killing hit), `fuse` (hiss rising with the burnt fraction), `reelSecured`, `sting`, `radio`, `grab`, `state`,
 `reset`, `music`.
+
+**Guns without sounds of their own (since version 3b).** The web game has two guns and the loadout offers six
+(guns.json). `gunshot` asked for `<gun>_shot`, `<gun>_tail_out` and `<gun>_tail_in`, which exist for the CHOPPER and
+the NINE only: the SHORTY, the STICK, the STRETCH and the RATTLER fired in silence. `audio.json weaponSounds` now
+names the gun whose sounds each of them fires with (all four: the CHOPPER's, its silenced set, its gunfire duck and
+its brass, until they have material of their own); `FMIAudioDirector::SoundFamily` reads it.
+`MurderInc.Audio.EveryGunSounds` fires, runs dry, reloads and switches every gun of the roster and fails for one
+without a shot or a tail, or when anything asked for is an id the data does not have.
+
+**The menus' sounds (since version 3b).** The web game plays `ui_click` on every press and `ui_hover` on every focus
+move or pointer entering a button (`src/menus.js`, `src/audio/react.js`); the port had the two samples and never
+played them. Now `UMIGameSubsystem::UiNote` puts `ui:click` and `ui:hover` on the bus as flow lines (at most one of
+each a frame, no hover in the 0.15 s after a click) and the event table plays them: every action of the set-up
+screens (`UMIFrontEnd::Act`: a press), every focus move there (`Move`), a part looked at on the workbench (a hover);
+on the cards every row move, every change of a value, every confirm, Back out of Settings, and the pointer coming
+onto another row. Not yet: the pointer entering a button of the set-up screens (their Slate buttons have no hover
+handler), and `ui_tick`, which the web game does not play either.
 
 ### 3.3 The mix (spec 07 2.11, 3.19, 4.5, 4.6)
 
@@ -244,7 +273,13 @@ real seconds, executes the commands (`CreateSound2D` then spatialisation, attenu
 advance fades), applies the mix, switches the reverb zone, and draws the subtitle. It installs the master chain on
 begin play and removes it when the world goes. It logs once per world `voice: N of M takes are placeholders`, and
 in every build but Shipping draws a small dim "placeholder voice" tag under a subtitle whose take is a placeholder.
-A file with no asset is skipped (logged once, Verbose); a missing replacement layer falls back to the web sound.
+A file with no asset is skipped with a warning, once per sound ("sound missing: ..."), and so is a sound id the data
+does not have; a missing replacement layer falls back to the web sound. When a world with an audio device begins play
+the subsystem loads every Sound Wave the data can ask for and keeps its compressed audio in memory
+(`UMIAudioSubsystem::Preload`, `USoundWave::RetainCompressedAudio`): Unreal otherwise reads a wave's audio from the pak
+the first time it plays, and the first round of each gun sample then reached a stream's viewer about 110 ms later than
+every round after it (section 9). With `-LogCmds="LogMIAudioHost Verbose"` (Development) every start is a log line:
+`play <file> sound=<name> category=<c> volume=<the game's> mix=<the category's gain now> pitch=<speed>`.
 
 ## 5. The recording brief (for the real voice)
 
