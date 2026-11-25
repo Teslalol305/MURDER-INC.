@@ -472,7 +472,7 @@
     ]
    },
    "triangle_budget": 6000,
-   "triangles": 6268
+   "triangles": 5852
   },
   "suppressor_pistol": {
    "applies_to": [
@@ -512,7 +512,7 @@
     ]
    },
    "triangle_budget": 4000,
-   "triangles": 5504
+   "triangles": 3684
   }
  },
  "sets": {
