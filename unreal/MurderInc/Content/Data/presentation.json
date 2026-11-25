@@ -162,7 +162,7 @@
           "fire": "/Game/ThirdParty/InfimaTFA/Character/FP/Combat/A_TFA_FP_AR_Fire_Semi.A_TFA_FP_AR_Fire_Semi"
         },
         "ik": {"left": "Palm_L", "right": "Palm_R"},
-        "shoulders": [-8, -6, -10],
+        "shoulders": [-10, -14, -7],
         "shouldersNote": "camera space, cm: the arms' shoulders (midpoint of upperarm_l / _r) under the eye when a solved grip holds the gun (Data/grips.json); the IK reaches both hands from there (console mi.FP.Shoulders \"x y z\" to try values, \"off\" for the old wrist slide)",
         "fireWeight": 0.45,
         "armStretch": 1.1,
@@ -185,7 +185,7 @@
           "note": "the support hand's fingers only (the bones below hand_l) from the pack's rifle idle, wrapped round a 5 cm handguard as they now wrap the firing hand; optional: without the pack the fingers keep the template pose"
         },
         "grip": {"gun": "chopper", "pose": "hip", "weight": 1.0},
-        "note": "The CHOPPER (SK_Chopper): the pack's first-person rifle idle and fire clips (A_TFA_FP_AR_Idle_Loop_Standing, A_TFA_FP_AR_Fire_Semi: the STICK's, on SK_RuleArms' own skeleton; the template's third-person rifle clips put the support arm straight up and swung the upper arm into view on every shot: docs/unreal/HANDS_R4.md) on SK_RuleArms, both palms pulled onto the gun's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its bolt, trigger and magazine (ANIMATION.md 4). The support hand's fingers come from the pack's rifle idle when the pack is installed (fingerCurl), else the template pose. The solved grip (grips.json, support fingers laid along the forend by _rule_grips.py --tidy) shapes both hands; `shoulders` [-8, -6, -10] chosen in play between the solve's [-8.5, 1.1, -12.4] (support forearm straight up from the bottom) and the STICK's own [-10, -14, -7] (the left upper arm in view in the reloads): HANDS_R4.md. Starting values, to be tuned in play: fireWeight, bobScale. Slot 1, the web gun: its numbers in config.json are the web game's."
+        "note": "The CHOPPER (SK_Chopper): the pack's first-person rifle idle and fire clips (A_TFA_FP_AR_Idle_Loop_Standing, A_TFA_FP_AR_Fire_Semi: the STICK's, on SK_RuleArms' own skeleton; the template's third-person rifle clips put the support arm straight up and swung the upper arm into view on every shot: docs/unreal/HANDS_R4.md) on SK_RuleArms, both palms pulled onto the gun's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its bolt, trigger and magazine (ANIMATION.md 4). The support hand's fingers come from the pack's rifle idle when the pack is installed (fingerCurl), else the template pose. The solved grip (grips.json, support fingers laid along the forend by _rule_grips.py --tidy) shapes both hands; `shoulders` [-10, -14, -7] (the STICK's own) since the second hands pass: with the support hand rolled to the forend's lower left (grips.json, _rule_grips.py SUPPORT_ROLL) and the reload pose canted instead of stood up, it brings the support forearm in from the lower left at the hip and aimed, and the reloads show no upper arm (HANDS_R4.md 6). Starting values, to be tuned in play: fireWeight, bobScale. Slot 1, the web gun: its numbers in config.json are the web game's."
       },
       "shorty_ik": {
         "mode": "ik",
@@ -217,7 +217,7 @@
           "note": "the support hand's fingers only (the bones below hand_l) from the pack's rifle idle, wrapped round a 5 cm handguard as they now wrap the firing hand; optional: without the pack the fingers keep the template pose"
         },
         "grip": {"gun": "shorty", "pose": "hip", "weight": 1.0},
-        "note": "The SHORTY (SK_Shorty): the pack's first-person rifle idle and fire clips (A_TFA_FP_AR_Idle_Loop_Standing, A_TFA_FP_AR_Fire_Semi: the STICK's, on SK_RuleArms' own skeleton; the template's third-person rifle clips put the support arm straight up and swung the upper arm into view on every shot: docs/unreal/HANDS_R4.md) on SK_RuleArms, both palms pulled onto the gun's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its bolt, trigger and magazine (ANIMATION.md 4). The support hand's fingers come from the pack's rifle idle when the pack is installed (fingerCurl), else the template pose. The solved grip (grips.json, support fingers laid along the forend by _rule_grips.py --tidy) shapes both hands; `shoulders` [-8, -6, -10] chosen in play between the solve's [-8.5, 1.1, -12.4] (support forearm straight up from the bottom) and the STICK's own [-10, -14, -7] (the left upper arm in view in the reloads): HANDS_R4.md. Starting values, to be tuned in play: fireWeight, bobScale. Bullpup: the support hand is 21 cm ahead of the firing hand. Its shoulders stay [-6, 0, -24]: the magazine is behind the grip, so in a reload the support hand comes back to the body and with [-8, -6, -10] the forearm filled the lower left of the picture (HANDS_R4.md)."
+        "note": "The SHORTY (SK_Shorty): the pack's first-person rifle idle and fire clips (A_TFA_FP_AR_Idle_Loop_Standing, A_TFA_FP_AR_Fire_Semi: the STICK's, on SK_RuleArms' own skeleton; the template's third-person rifle clips put the support arm straight up and swung the upper arm into view on every shot: docs/unreal/HANDS_R4.md) on SK_RuleArms, both palms pulled onto the gun's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its bolt, trigger and magazine (ANIMATION.md 4). The support hand's fingers come from the pack's rifle idle when the pack is installed (fingerCurl), else the template pose. The solved grip (grips.json, support fingers laid along the forend by _rule_grips.py --tidy) shapes both hands; `shoulders` [-6, 0, -24] (HANDS_R4.md 6): the support hand is rolled to the forend's lower left (grips.json, _rule_grips.py SUPPORT_ROLL). Starting values, to be tuned in play: fireWeight, bobScale. Bullpup: the support hand is 21 cm ahead of the firing hand. Its shoulders stay [-6, 0, -24]: the magazine is behind the grip, so in a reload the support hand comes back to the body and with [-8, -6, -10] the forearm filled the lower left of the picture (HANDS_R4.md)."
       },
       "stretch_ik": {
         "mode": "ik",
@@ -226,7 +226,7 @@
           "fire": "/Game/ThirdParty/InfimaTFA/Character/FP/Combat/A_TFA_FP_AR_Fire_Semi.A_TFA_FP_AR_Fire_Semi"
         },
         "ik": {"left": "Palm_L", "right": "Palm_R"},
-        "shoulders": [-8, -6, -10],
+        "shoulders": [-10, -14, -7],
         "shouldersNote": "camera space, cm: the arms' shoulders (midpoint of upperarm_l / _r) under the eye when a solved grip holds the gun (Data/grips.json); the IK reaches both hands from there (console mi.FP.Shoulders \"x y z\" to try values, \"off\" for the old wrist slide)",
         "fireWeight": 0.45,
         "armStretch": 1.1,
@@ -249,7 +249,7 @@
           "note": "the support hand's fingers only (the bones below hand_l) from the pack's rifle idle, wrapped round a 5 cm handguard as they now wrap the firing hand; optional: without the pack the fingers keep the template pose"
         },
         "grip": {"gun": "stretch", "pose": "hip", "weight": 1.0},
-        "note": "The STRETCH (SK_Stretch): the pack's first-person rifle idle and fire clips (A_TFA_FP_AR_Idle_Loop_Standing, A_TFA_FP_AR_Fire_Semi: the STICK's, on SK_RuleArms' own skeleton; the template's third-person rifle clips put the support arm straight up and swung the upper arm into view on every shot: docs/unreal/HANDS_R4.md) on SK_RuleArms, both palms pulled onto the gun's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its bolt, trigger and magazine (ANIMATION.md 4). The support hand's fingers come from the pack's rifle idle when the pack is installed (fingerCurl), else the template pose. The solved grip (grips.json, support fingers laid along the forend by _rule_grips.py --tidy) shapes both hands; `shoulders` [-8, -6, -10] chosen in play between the solve's [-8.5, 1.1, -12.4] (support forearm straight up from the bottom) and the STICK's own [-10, -14, -7] (the left upper arm in view in the reloads): HANDS_R4.md. Starting values, to be tuned in play: fireWeight, bobScale. The support hand reaches 25 cm ahead of the firing hand; the bipod stays folded."
+        "note": "The STRETCH (SK_Stretch): the pack's first-person rifle idle and fire clips (A_TFA_FP_AR_Idle_Loop_Standing, A_TFA_FP_AR_Fire_Semi: the STICK's, on SK_RuleArms' own skeleton; the template's third-person rifle clips put the support arm straight up and swung the upper arm into view on every shot: docs/unreal/HANDS_R4.md) on SK_RuleArms, both palms pulled onto the gun's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its bolt, trigger and magazine (ANIMATION.md 4). The support hand's fingers come from the pack's rifle idle when the pack is installed (fingerCurl), else the template pose. The solved grip (grips.json, support fingers laid along the forend by _rule_grips.py --tidy) shapes both hands; `shoulders` [-10, -14, -7] (the STICK's own) since the second hands pass: with the support hand rolled to the forend's lower left (grips.json, _rule_grips.py SUPPORT_ROLL) and the reload pose canted instead of stood up, it brings the support forearm in from the lower left at the hip and aimed, and the reloads show no upper arm (HANDS_R4.md 6). Starting values, to be tuned in play: fireWeight, bobScale. The support hand reaches 25 cm ahead of the firing hand; the bipod stays folded."
       },
       "rattler_ik": {
         "mode": "ik",
@@ -258,7 +258,7 @@
           "fire": "/Game/ThirdParty/InfimaTFA/Character/FP/Combat/A_TFA_FP_AR_Fire_Semi.A_TFA_FP_AR_Fire_Semi"
         },
         "ik": {"left": "Palm_L", "right": "Palm_R"},
-        "shoulders": [-8, -6, -10],
+        "shoulders": [-10, -14, -7],
         "shouldersNote": "camera space, cm: the arms' shoulders (midpoint of upperarm_l / _r) under the eye when a solved grip holds the gun (Data/grips.json); the IK reaches both hands from there (console mi.FP.Shoulders \"x y z\" to try values, \"off\" for the old wrist slide)",
         "fireWeight": 0.45,
         "armStretch": 1.1,
@@ -281,7 +281,7 @@
           "note": "the support hand's fingers only (the bones below hand_l) from the pack's rifle idle, wrapped round a 5 cm handguard as they now wrap the firing hand; optional: without the pack the fingers keep the template pose"
         },
         "grip": {"gun": "rattler", "pose": "hip", "weight": 1.0},
-        "note": "The RATTLER (SK_Rattler): the pack's first-person rifle idle and fire clips (A_TFA_FP_AR_Idle_Loop_Standing, A_TFA_FP_AR_Fire_Semi: the STICK's, on SK_RuleArms' own skeleton; the template's third-person rifle clips put the support arm straight up and swung the upper arm into view on every shot: docs/unreal/HANDS_R4.md) on SK_RuleArms, both palms pulled onto the gun's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its bolt, trigger and magazine (ANIMATION.md 4). The support hand's fingers come from the pack's rifle idle when the pack is installed (fingerCurl), else the template pose. The solved grip (grips.json, support fingers laid along the forend by _rule_grips.py --tidy) shapes both hands; `shoulders` [-8, -6, -10] chosen in play between the solve's [-8.5, 1.1, -12.4] (support forearm straight up from the bottom) and the STICK's own [-10, -14, -7] (the left upper arm in view in the reloads): HANDS_R4.md. Starting values, to be tuned in play: fireWeight, bobScale. The folded wire stock stays folded; the strap under the forend is the support hand's place."
+        "note": "The RATTLER (SK_Rattler): the pack's first-person rifle idle and fire clips (A_TFA_FP_AR_Idle_Loop_Standing, A_TFA_FP_AR_Fire_Semi: the STICK's, on SK_RuleArms' own skeleton; the template's third-person rifle clips put the support arm straight up and swung the upper arm into view on every shot: docs/unreal/HANDS_R4.md) on SK_RuleArms, both palms pulled onto the gun's Palm_R / Palm_L by two-bone IK; the procedural rig poses the gun, its bolt, trigger and magazine (ANIMATION.md 4). The support hand's fingers come from the pack's rifle idle when the pack is installed (fingerCurl), else the template pose. The solved grip (grips.json, support fingers laid along the forend by _rule_grips.py --tidy) shapes both hands; `shoulders` [-10, -14, -7] (the STICK's own) since the second hands pass: with the support hand rolled to the forend's lower left (grips.json, _rule_grips.py SUPPORT_ROLL) and the reload pose canted instead of stood up, it brings the support forearm in from the lower left at the hip and aimed, and the reloads show no upper arm (HANDS_R4.md 6). Starting values, to be tuned in play: fireWeight, bobScale. The folded wire stock stays folded; the strap under the forend is the support hand's place."
       }
     }
   },
@@ -358,7 +358,7 @@
       "flash": { "star": 0.2, "jet": 0.34 },
       "poses": {
         "sprint": [0.05, -0.2, -0.27, -0.32, 0.8, -0.3],
-        "reload": [0.05, -0.105, -0.31, 0.4, 0.34, -0.55],
+        "reload": [0.05, -0.08, -0.26, 0.15, 0.34, -0.7],
         "wall": [0.09, -0.15, -0.14, 0.62, 0.12, -0.1],
         "holster": [0.2, -0.46, -0.2, -0.55, 0.25, -0.45]
       },

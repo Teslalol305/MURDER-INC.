@@ -270,13 +270,22 @@ def tidy_support(entry, middle_deg=0.0, distal_deg=20.0):
 
 # Second hands pass (review of the first, 2026-11-25). Pure geometry on grips.json's points, like tidy_support.
 #
-# The RATTLER's support hand under the strap of a round shroud (R 25.5 mm, the strap 27.5 mm, axis on the bore): the solve
-# left the knuckles at the lower right (about 4:30 seen from behind) and every finger straight up the right side, so the
-# middle and end phalanges stood 1 to 2.6 cm off the strap and up to 5.4 cm over the bore, beside the sight when aimed
-# (h8 19-rattler-aim). On a tube the whole hand can turn about the tube's axis and keep its contact exactly: the support
-# hand is rolled toward the left (palm from 6 o'clock toward 7:30, the wrist with it), then the middle and end phalanges of
-# each finger are laid round the strap (a joint centre a finger's half thickness off it) instead of running on straight.
-ROUND_SUPPORT = {"rattler": dict(roll_deg=-35.0, r_mid=3.6, r_tip=3.45)}   # cm, gun space (X forward, Y right, Z up)
+# The support hand rolled about the forend's long axis (gun X), toward the left: palm from under the forend toward its
+# lower left side, the wrist with it. In the first pass the support wrist sat straight under the forend, so the forearm
+# rose vertically from the bottom of the picture like a post (h8 00-chopper-hip, 12-stretch-hip) and, aimed, the RATTLER's
+# straight fingers stood 1 to 2.6 cm off its strap and up to 5.4 cm over the bore, beside the sight (h8 19-rattler-aim).
+# Rolled, the wrist is out to the left and the forearm comes in from the lower left, as on the STICK (seen in run i1,
+# 27-rattler-hip). On a round forend (the RATTLER's strap on its shroud, R 27.5 mm on the bore; the STRETCH's walnut tube,
+# R 29.3 mm) the roll keeps the palm's contact exactly, and the middle and end phalanges are then laid round it (a joint
+# centre a finger's half thickness off the surface: `wrap`, cm) instead of running on straight. On a boxy one (CHOPPER,
+# SHORTY) the roll is smaller and turns about the box's middle (`axis_z`, cm), and the middle and end phalanges then run
+# up the right face (`face_y`, cm: HANDGUARD_EDGE of _characters_pose.py) a finger's half thickness off it.
+SUPPORT_ROLL = {   # cm, degrees; gun space (X forward, Y right, Z up)
+    "rattler": dict(roll_deg=-35.0, axis_z=0.0, wrap=(3.6, 3.45)),
+    "stretch": dict(roll_deg=-30.0, axis_z=0.0, wrap=(3.8, 3.6)),
+    "chopper": dict(roll_deg=-25.0, axis_z=-3.3, wrap=None, face_y=2.26),
+    "shorty": dict(roll_deg=-25.0, axis_z=-2.6, wrap=None, face_y=3.44),
+}
 
 # The firing hand: the end phalanx of the trigger finger turned down onto the trigger's face (on the CHOPPER, SHORTY and
 # STRETCH it pointed up into the receiver: h8 00-chopper-hip shows a finger standing in the guard), and the end of the
@@ -289,11 +298,12 @@ FIRING_TIDY = {
 }
 
 
-def _rot_x(p, deg):
+def _rot_x(p, deg, axis_z=0.0):
     import math
     a = math.radians(deg)
-    c, s = math.cos(a), math.sin(a)
-    return [p[0], p[1] * c - p[2] * s, p[1] * s + p[2] * c]
+    c, s_ = math.cos(a), math.sin(a)
+    z = p[2] - axis_z
+    return [p[0], p[1] * c - z * s_, p[1] * s_ + z * c + axis_z]
 
 
 def _on_tube(p, old, length, radius):
@@ -308,24 +318,53 @@ def _on_tube(p, old, length, radius):
     return [p[0] + dx, radius * math.cos(a), radius * math.sin(a)]
 
 
-def round_support(entry, roll_deg, r_mid, r_tip):
-    """ROUND_SUPPORT on one entry's support hand. Idempotent: the roll already applied is kept in entry['tidy']."""
-    import math
+def roll_support(entry, roll_deg, axis_z):
+    """The whole support hand of one entry turned about the line Y = 0, Z = axis_z (gun X). Idempotent: the roll already
+    applied is kept in entry['tidy']."""
     pts = entry["l"]
     done = entry.setdefault("tidy", {}).get("support_roll_deg", 0.0)
     if abs(roll_deg - done) > 1e-6:
         for k in list(pts):
-            pts[k] = _rot_x(pts[k], roll_deg - done)
+            pts[k] = [round(x, 3) for x in _rot_x(pts[k], roll_deg - done, axis_z)]
+    entry["tidy"].update(support_roll_deg=roll_deg, support_roll_axis_z_cm=axis_z)
+    return entry
+
+
+def wrap_support(entry, r_mid, r_tip, axis_z=0.0):
+    """The middle and end phalanges of the support fingers laid round a round forend (radii of the joint centres, cm)."""
+    import math
+    pts = entry["l"]
     for f in ("index", "middle", "ring", "pinky"):
-        p2, p3, tip = (pts["%s_%s_l" % (f, k)] for k in ("02", "03", "tip"))
+        p2, p3, tip = ([v[0], v[1], v[2] - axis_z] for v in (pts["%s_%s_l" % (f, k)] for k in ("02", "03", "tip")))
         l2, l3 = math.dist(p2, p3), math.dist(p3, tip)
         q3 = _on_tube(p2, p3, l2, r_mid)
         qt = _on_tube(q3, tip, l3, r_tip)
-        pts["%s_03_l" % f] = [round(x, 3) for x in q3]
-        pts["%s_tip_l" % f] = [round(x, 3) for x in qt]
-    for k in pts:
-        pts[k] = [round(x, 3) for x in pts[k]]
-    entry["tidy"].update(support_roll_deg=roll_deg, support_wrap_cm=[r_mid, r_tip])
+        pts["%s_03_l" % f] = [round(q3[0], 3), round(q3[1], 3), round(q3[2] + axis_z, 3)]
+        pts["%s_tip_l" % f] = [round(qt[0], 3), round(qt[1], 3), round(qt[2] + axis_z, 3)]
+    entry.setdefault("tidy", {}).update(support_wrap_cm=[r_mid, r_tip])
+    return entry
+
+
+def face_support(entry, face_y):
+    """The middle and end phalanges of the support fingers up the right face of a boxy forend (Y = face_y, cm): the
+    middle phalanx's centre line 0.85 cm off the face, the end one 0.7 cm, both rising; the step along X kept from the
+    solve (at most half the segment). Lengths kept."""
+    import math
+    pts = entry["l"]
+    for f in ("index", "middle", "ring", "pinky"):
+        p2, p3, tip = (pts["%s_%s_l" % (f, k)] for k in ("02", "03", "tip"))
+        out = []
+        for a, b, off in ((p2, p3, 0.85), (None, tip, 0.7)):
+            a = a if a is not None else out[-1]
+            length = math.dist(a, b) if not out else math.dist(p3, tip)
+            dx = max(-0.5 * length, min(0.5 * length, b[0] - a[0]))
+            dy = (face_y + off) - a[1]
+            dy = max(-0.8 * length, min(0.8 * length, dy))
+            dz = math.sqrt(max(length * length - dx * dx - dy * dy, 0.0))
+            out.append([a[0] + dx, a[1] + dy, a[2] + dz])
+        pts["%s_03_l" % f] = [round(x, 3) for x in out[0]]
+        pts["%s_tip_l" % f] = [round(x, 3) for x in out[1]]
+    entry.setdefault("tidy", {}).update(support_face_y_cm=face_y)
     return entry
 
 
@@ -347,17 +386,22 @@ def tidy_firing(entry, index, thumb_to):
 
 
 def tidy_file(path, guns=RIFLES, poses=("hip", "aim")):
-    """tidy_support on the rifle entries of a grips file (written back), then ROUND_SUPPORT and FIRING_TIDY where a gun
-    has them; returns what changed."""
+    """On the rifle entries of a grips file (written back): SUPPORT_ROLL's roll, tidy_support, SUPPORT_ROLL's wrap on a
+    round forend, FIRING_TIDY; returns what changed. Idempotent (the solve's proximal points are kept, the roll recorded)."""
     data = json.load(open(path))
     done = []
     for g in guns:
         for p in poses:
             e = data.get("guns", {}).get(g, {}).get(p)
             if e and "l" in e:
+                roll = SUPPORT_ROLL.get(g)
+                if roll:
+                    roll_support(e, roll["roll_deg"], roll["axis_z"])
                 tidy_support(e)
-                if g in ROUND_SUPPORT:
-                    round_support(e, **ROUND_SUPPORT[g])
+                if roll and roll["wrap"]:
+                    wrap_support(e, *roll["wrap"], axis_z=roll["axis_z"])
+                elif roll and roll.get("face_y") is not None:
+                    face_support(e, roll["face_y"])
                 if g in FIRING_TIDY and "r" in e:
                     tidy_firing(e, **FIRING_TIDY[g])
                 done.append("%s/%s" % (g, p))
