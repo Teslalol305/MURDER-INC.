@@ -382,8 +382,9 @@ A sprint off the shed lands on the parked van (roof 2.0 m) or on the roadway; bo
 - Buzzards attack freely up here, as on the Block's scaffold deck. Three air spawns sit over the roof and yard and one
   over the kitchen roof.
 - Until step A exists (the early grey box), the roof spawns are switched off in the data and the roof is the
-  Block-like player-and-Buzzards-only space. Canal Street does not ship like that: Hold Canal Street on a Goon-free
-  roof is the camping exploit the reviews found (8.6).
+  Block-like player-and-Buzzards-only space. The release does not ship like that: Hold Canal Street on a Goon-free
+  roof is the camping exploit the reviews found (8.6), and in Story the roof would be a safe gallery over wave 2. If
+  step A slips, the lead chooses between a slip and leaving Hold Canal Street out (MAPS.md section 6).
 
 ### 4.5 The bakery (W3: shell x 0..8, z -14..10; walk-through shop)
 
