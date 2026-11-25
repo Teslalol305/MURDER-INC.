@@ -17,6 +17,11 @@
 #   SHOULDERS="chopper=2,1.1,-12.4 stretch=4,1.1,-12.4"   gun=x,y,z: the arms' shoulders under the eye for that gun (console
 #                                              mi.FP.Shoulders; without an entry the data's own value is used)
 #   ONLY="chopper:aim shorty:fire"             only those gun:picture pairs (the set-up and the poses still run)
+#   HUD=0                                      the HUD hidden for the pictures (console showhud once the run plays): the firing
+#                                              hand, trigger finger and thumb are under the weapon bar otherwise
+#   RELOADS="0.5 1.2"                          the reload frames, seconds into the tactical reload (default 1.2): each is
+#                                              r4-fp-<gun>-reload.jpg at 1.2 and r4-fp-<gun>-reload-<t>.jpg otherwise
+#   SETTLE=30                                  redraws before each picture (Lumen, exposure and TSR settle)
 out=${1:-}
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 . ./pie.sh
@@ -30,7 +35,7 @@ fe() { pie_con "MIMenu fe $*" > /dev/null; }
 c() { pie_con "$*" > /dev/null; }
 run() { c "MIFreezeAfter $1"; sleep "$(python3 -c "print(max(2.0, $1 * 3.0 + 1.5))")"; }
 want() { [ -z "${ONLY:-}" ] || [[ " $ONLY " == *" $1:$2 "* ]]; }
-shot() { settle "${3:-30}"; pie_shot "$out/r4-fp-$1-$2.jpg"; }
+shot() { settle "${SETTLE:-30}"; pie_shot "$out/r4-fp-$1-$2.jpg"; }
 pick() { local pair; for pair in $2; do [ "${pair%%=*}" = "$1" ] && echo "${pair#*=}"; done; }
 
 pie_start > /dev/null
@@ -56,6 +61,7 @@ for g in $guns; do
 done
 fe next; fe time day; fe next; fe mode mission; fe difficulty hustler; fe hit
 sleep 10; settle 10
+[ "${HUD:-1}" = 0 ] && c "showhud"
 tail -n +"$mark" "$log" | grep -E "Set-up:|First person:" | tail -8 | cut -c1-260
 
 slot=1
@@ -69,8 +75,12 @@ for g in $guns; do
   c "MIInput ads 1"; run 0.9; want $g aim && shot $g aim
   c "MIInput ads 0"; run 0.3
   # mid tactical reload: a few rounds spent, the fresh magazine on its way
-  c "MIPose -2900 80 0 0 6"; c "MIInput fire 1"; run 0.3; c "MIInput fire 0"; run 0.3
-  c "MIFreezeOn reload 1.2"; c "MIInput reload 1"; sleep 5; c "MIInput reload 0"; want $g reload && shot $g reload; c "slomo 1"; run 3.0
+  for t in ${RELOADS:-1.2}; do
+    name=reload; [ "$t" = 1.2 ] || name=reload-$t
+    want $g "$name" || continue
+    c "MIPose -2900 80 0 0 6"; c "MIInput fire 1"; run 0.3; c "MIInput fire 0"; run 0.3
+    c "MIFreezeOn reload $t"; c "MIInput reload 1"; sleep 5; c "MIInput reload 0"; want $g "$name" && shot $g "$name"; c "slomo 1"; run 3.0
+  done
   # one frame of a burst from the hip, 0.02 s after the round
   c "MIPose -2900 80 0 0 -3"; run 0.3
   c "MIFreezeOn fire 0.02"; c "MIInput fire 1"; sleep 4; want $g fire && shot $g fire
