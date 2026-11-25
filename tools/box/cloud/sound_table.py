@@ -43,7 +43,7 @@ def main():
     ap.add_argument('--per', type=int, default=4)
     ap.add_argument('--min', dest='min_x', type=float, default=1.5)
     ap.add_argument('--json', default='')
-    ap.add_argument('--list', default='', help='also print every start looked at of this sound (its time, file, find, delay)')
+    ap.add_argument('--list', default='', help='only this sound, and every start looked at of it on a line (its time, file, find, delay)')
     A = ap.parse_args()
     # The game writes names as Unreal keeps them (case folded to whatever spelling came first: "Web/Jump_01.wav",
     # "Voice/Rule/..."): the files are found whatever the case.
@@ -74,6 +74,8 @@ def main():
           f"the recording is {rec.seconds:.1f} s; the viewer's clock starts {epoch:.3f}")
     sources, per_file, rows = {}, {}, {}
     for e in heard:
+        if A.list and e['sound'].lower() != A.list.lower():
+            continue   # --list: that sound alone
         n = per_file.get(e['file'], 0)
         per_file[e['file']] = n + 1
         row = rows.setdefault(e['sound'], {'category': e['category'], 'started': 0, 'tested': 0, 'found': 0, 'x': [], 'score': [], 'gain': [], 'expect': [],
