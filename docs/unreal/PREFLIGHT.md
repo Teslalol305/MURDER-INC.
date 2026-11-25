@@ -176,8 +176,9 @@ connection state page). For a shooter, aim for under 50 ms.
 > stalls the game" or "a full GPU stalls", read that. What changed against this list: **V3-1** gained a third part,
 > a pacer that holds the game back while the GPU still owes it more than one frame (`MI.Cloud.GpuFramesInFlight`);
 > it alone passes the release gate, dynamic resolution and the frame-rate target keep the picture and the pacing
-> good on top of it. The target drops above **90 %** of the frame time at the smallest picture, not 70 %, and only
-> while a run is being played (at 70 % a GPU that held 60 was put at 45; DECISIONS, "Decisions of release A").
+> good on top of it. The target does **not** drop at 70 % of the frame time: it drops only while a run is being
+> played and only when the game falls short of the rate because it waits for the GPU (at 70, 85 and 90 % a rate
+> that was being held was lowered; DECISIONS, "Decisions of release A").
 > **V3-3**: no capture setting changes the stall or the frames delivered; Pixel Streaming's defaults stay,
 > decoupling stays off, there are no `-MIDecouple` switches (Pixel Streaming's own
 > `-PixelStreamingDecoupleFramerate=true` works). **V3-4, first bullet**: run `gp-in5`'s memory and slow exit are

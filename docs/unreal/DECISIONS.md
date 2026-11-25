@@ -236,12 +236,17 @@ release A: the lag").**
    GPU or a full one. Decoupled, a full GPU sends 55 frames a second of which up to 24 repeat the one before. The
    gain measured on version 2 was the Python viewer's bitrate. Pixel Streaming's own launch options and
    `-MICVars=PixelStreaming2...` remain for a session that wants to try.
-3. **The frame-rate target drops above 90 % of the frame time, not 70 %** as PREFLIGHT V3-1 proposed, **and only
-   while a run is being played.** At 70 % a GPU that held 60 was put at 45, and one that held 45 at 30. The start
-   of the game is full of long frames on any card (the pacer waited a third of the first second on a free GPU), and
-   a target lost there would have stayed lost for the first run on a card that is busy but able. The pacer keeps a
-   full GPU from stalling whatever the target is, so the target only has to follow what a run can really hold. The
-   owner's order decides the rest: fluid play first, so 60 at a smaller picture before 45 at a larger one.
+3. **The frame-rate target drops only when a run cannot hold the rate**, not at 70 % of the frame time as
+   PREFLIGHT V3-1 proposed: in live play, at the smallest picture, after a second in which the game made more than
+   8 % fewer frames than the target asks for while it waited for the GPU, or in which the GPU's own time was over
+   the whole frame time. Lines at 70, 85 and 90 % were each tried and each lowered a rate that was being held
+   without one late frame (a GPU that held 60 was put at 45; one that held 45 was put at 30), and so did "the
+   pacer waited a fifth of the time" on its own: while the rate is held, that wait only takes the place of the
+   frame cap's sleep. And it never drops outside live play: the start of the game is full of long frames on any
+   card (the pacer waited a third of the first second on a free GPU), and a target lost there would have stayed
+   lost for the first run on a card that is busy but able. The pacer keeps a full GPU from stalling whatever the
+   target is, so the target only has to follow what a run can really hold. The owner's order decides the rest:
+   fluid play first, so 60 at a smaller picture before 45 at a larger one.
 4. **3840 x 2160 output waits for release B (V3-6).** On a free GPU the game held 60 but the encoder made 46 frames
    a second, the game missed that its viewer had left and did not shut down within 30 s (run d7). 2560 x 1440 was
    clean. Until the game limits its own size, E3DS's Browser Resolution stays Custom 1920 x 1080.
