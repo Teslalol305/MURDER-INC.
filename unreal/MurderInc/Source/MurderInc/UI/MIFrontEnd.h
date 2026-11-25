@@ -61,6 +61,8 @@ public:
 	void UsePad(bool bIn) { if (bIn != bPad) { bPad = bIn; Changed(); } }
 	/** frontend.glyphs.<kbm|pad>.<Key>: the key or button name for the device in use. */
 	FString Glyph(const TCHAR* Key) const;
+	/** A controller's button name from the data (Xbox names) in the names chosen in Settings. */
+	FString PadName(const FString& Name) const;
 	FName RackFilter = TEXT("all");
 	/** Home: the summary line's links and the pickers; Briefing: the four lines and Go. */
 	int32 NumFocusable() const;
@@ -106,6 +108,7 @@ private:
 	bool bResetDown = false;
 	bool bInputMode = false;  // the UI-only input mode, set once the player controller exists
 	bool bPad = false;
+	bool bKeysSeen = false;  // a key or a pad button worked these screens (a mouse alone says nothing about the device)
 	bool bViewHeld = false;   // the pad's View button, held: View+Start jumps to the Briefing
 	int32 ViewTargetFor = -1;
 	int32 CameraCutFrames = 0;  // frames still to mark as camera cuts

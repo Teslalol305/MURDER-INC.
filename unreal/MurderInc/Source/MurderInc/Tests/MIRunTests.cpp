@@ -1360,7 +1360,7 @@ bool FMIRunMenuMouseTest::RunTest(const FString& Parameters)
 	Draw();
 	// The names of a controller's buttons: the Xbox names unless the player chooses the PlayStation ones.
 	TestFalse(TEXT("Xbox names at the start"), W.Game->GetSettings().bPadPlayStation);
-	TestTrue(TEXT("a click on Controller buttons"), W.Game->MenuClick(At(TEXT("padnames"), 0.8)));
+	TestTrue(TEXT("a click on the Controller row"), W.Game->MenuClick(At(TEXT("padnames"), 0.8)));
 	TestTrue(TEXT("chooses the PlayStation names"), W.Game->GetSettings().bPadPlayStation);
 	Draw();
 	TestTrue(TEXT("a second click"), W.Game->MenuClick(At(TEXT("padnames"), 0.2)));

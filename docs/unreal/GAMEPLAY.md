@@ -210,11 +210,14 @@ enemy, right stick only).
 `input.glyphs` (grab is E on the keyboard and X on a controller, melee F and RB, pause Start), the weapon bar's
 fire-mode key cap and melee slot, the grab prompt (`FMIGameRules::InteractGlyph`), the cards' hint line and the
 stream's "... to resume" line use it. The data's controller names are the Xbox ones. The Settings card's row
-**Controller buttons** (Xbox / PlayStation; saved with the other settings) turns them into the names printed on a
+**Controller** (Xbox / PlayStation; saved with the other settings) turns them into the names printed on a
 PlayStation pad wherever they are drawn, the set-up screens included (`MILook::PadName`: Cross, Circle, Square,
 Triangle, L1, R1, L2, R2, Options, Create). It is a setting because a streamed game cannot ask which pad the player
 holds: Pixel Streaming sends buttons and axes, not the pad's name. It matters most for the web game's "X": on a
 PlayStation pad the button in that place is Square, and the button marked with a cross is the one that jumps.
+The set-up screens take their keys before the controller sees them, so they tell it which device worked them when a
+run starts (`SetDeviceFromMenu`: the HUD names a controller's buttons from the first frame), and their controls
+strip lists the controller's controls (text.json `interface.controls.pad`) while a controller works them.
 
 **A controller in a stream** (`UMICloudSubsystem::OnKeyDown`, `TickStickMenu`; found by playing through a stream
 on the box): Pixel Streaming's browser player sends every held button again on each frame, marked as a repeat, and

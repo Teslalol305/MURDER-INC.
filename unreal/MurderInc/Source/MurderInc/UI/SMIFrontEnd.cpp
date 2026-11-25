@@ -499,10 +499,24 @@ TSharedRef<SWidget> SMIFrontEnd::ControlsGlance()
 			Rows.Add({A[0]->AsString(), FString::Join(Keys, TEXT(" "))});
 		}
 	};
-	Read(MIJson::Get(R.TextJson, TEXT("interface.glance")));
+	// With a controller in the hand the strip is the controller's list (interface.controls.pad: the web game's
+	// Controls drawer), in the names chosen in Settings; the keyboard's strip told a controller player nothing.
+	const bool bPad = Owner->IsPad();
+	Read(MIJson::Get(R.TextJson, bPad ? TEXT("interface.controls.pad.rows") : TEXT("interface.glance")));
+	if (bPad)
+	{
+		Rows.Add({TEXT("Grab"), TEXT("Hold X")});  // the drawer has it as a note on Reload
+	}
 	if (bShowControls || R.GetSetup().Guns.Num() >= R.GetData().WheelMinGuns)
 	{
-		Read(MIJson::Get(R.GetData().TextJson, Owner->IsPad() ? TEXT("frontend.controls.pad") : TEXT("frontend.controls.kbm")));
+		Read(MIJson::Get(R.GetData().TextJson, bPad ? TEXT("frontend.controls.pad") : TEXT("frontend.controls.kbm")));
+	}
+	if (bPad)
+	{
+		for (TPair<FString, FString>& Row : Rows)
+		{
+			Row.Value = Owner->PadName(Row.Value);
+		}
 	}
 	// In the stream (-MICloud, Cloud/MICloud.h) the browser keeps Esc to free the mouse: the keyboard's pause key
 	// there is P, as the click-to-play card and the pause card say.

@@ -12,6 +12,7 @@
 #include "GameFramework/PlayerController.h"
 #include "MurderInc.h"
 #include "Player/MIPlayerCharacter.h"
+#include "Player/MIPlayerController.h"
 #include "UI/MIShowroom.h"
 #include "UI/MIStyle.h"
 #include "UI/SMIFrontEnd.h"
@@ -163,6 +164,12 @@ void UMIFrontEnd::Hide()
 		FInputModeGameOnly Mode;
 		Mode.SetConsumeCaptureMouseDown(false);
 		PC->SetInputMode(Mode);
+		// A player who worked the screens with a controller holds a controller: the HUD names its buttons from the
+		// first frame of the run.
+		if (AMIPlayerController* MIPC = Cast<AMIPlayerController>(PC); MIPC && bKeysSeen)
+		{
+			MIPC->SetDeviceFromMenu(bPad);
+		}
 	}
 	if (AMIPlayerCharacter* P = Game.IsValid() ? Game->GetPlayer() : nullptr)
 	{
@@ -271,7 +278,12 @@ FString UMIFrontEnd::Glyph(const TCHAR* Key) const
 {
 	const FString Name = Rules.Text(FString(TEXT("frontend.glyphs.")) + (bPad ? TEXT("pad.") : TEXT("kbm.")) + Key);
 	// A controller's buttons in the names the player chose in Settings (Xbox or PlayStation).
-	return bPad && Game.IsValid() ? Game->PadName(Name) : Name;
+	return bPad ? PadName(Name) : Name;
+}
+
+FString UMIFrontEnd::PadName(const FString& Name) const
+{
+	return Game.IsValid() ? Game->PadName(Name) : Name;
 }
 
 bool UMIFrontEnd::ResolveShown(FName Gun, const FMIGunBuild* Build, FMIResolvedGun& Out) const
@@ -520,6 +532,7 @@ bool UMIFrontEnd::Key(const FKey& K, bool bDown, bool bRepeat, bool bCtrl, bool 
 	if (bDown && !K.IsMouseButton())
 	{
 		UsePad(K.IsGamepadKey());  // the glyphs follow the device in use
+		bKeysSeen = true;
 	}
 	if (K == EKeys::Gamepad_Special_Left)
 	{

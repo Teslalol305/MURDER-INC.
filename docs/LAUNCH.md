@@ -116,7 +116,7 @@ Paste this where the game should appear (replace the `src` with your share link)
       sees it, and go from the CLICK TO PLAY card through the set-up screens into a run and back without touching
       the mouse or keyboard: any button hides the card, the D-pad or left stick moves, A (Cross) accepts, B (Circle)
       goes back, Start (Options) is Next, Hit the block and Pause. The game shows the Xbox names of the buttons until
-      the player picks **Controller buttons: PlayStation** on the Settings card (pause, Settings); it cannot tell
+      the player picks **Controller: PlayStation** on the Settings card (pause, Settings); it cannot tell
       which pad it is through a stream. Sound still needs one click on the page (the browser's rule), or E3DS's
       speaker button.
 - [ ] The picture stays smooth for 10 minutes (no "Out of video memory" stop): the cloud settings are made for this
