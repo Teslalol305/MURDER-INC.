@@ -416,6 +416,6 @@
         ["Inspect", ["Hold View"]]
       ]
     },
-    "where": {"kicker": "Where and how", "title": "Pick the block and the style"}
+    "where": {"kicker": "Where and how", "title": "Block and style"}
   }
 }

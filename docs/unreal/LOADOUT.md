@@ -291,7 +291,7 @@ gap (emptying slot 2 of three moves slot 3 up). At zero guns, Next is disabled w
 | Empty a slot | right-click the slot (right-click elsewhere does nothing) | Delete | X |
 | Attachments | the wrench, or double-click | E | Y |
 | Turn, zoom | drag, wheel | none | right stick, LT / RT |
-| Switch panes | none | Tab (rack, slots, Next) | LB / RB |
+| Switch panes | none | Tab (rack, slots, Next); Up from the first slot returns to the rack | LB / RB on the rack; on the slots LB / RB reorder, so D-pad up from the first slot (or Y on an empty slot) returns to the rack |
 | Next / Back | buttons | Enter on Next (Tab or Down to it) / Esc | Start, or D-pad down past the last row then A / B |
 
 **Stat bars** (`frontend.loadout.stats`), each filled 0 to 1 and clamped. The numbers are those of the resolved JSON
