@@ -89,6 +89,170 @@ needed its shoulders at [11.5, 1.1, -16.4], ahead of the eye), so its view wants
 X 140 mm (spec 132), 4.5 mm from the magazine well, so no finger fits in front of it, and from its back strap to the trigger is 10.3 cm
 (CHOPPER 9.25): its firing thumb lies along the right side, outside the gun.
 
+## Release 3c: the quality ladder (quality-ladder engineer, 2026-11-25, 15:25 to 17:50 UTC)
+
+**Read this first.** The ladder is built, unit-tested and measured step by step on the box. **The release gate (L3) was not run: the box
+expired at 17:48 UTC (24 hours after it was rented) while the work was in its last measurement, and a new box needs the owner's approval of
+its price.** So there is no gate table, no run of the ladder acting under a load, and no run of the way back in a stream. Every number
+below says what it measured; what is not proven is listed in section 6. The ladder is **on by default** in the cloud profile
+(`MI.Cloud.QualityLadder 1`): a release that wants it off until the gate has been run adds `+CVars=MI.Cloud.QualityLadder=0` to
+`[MICloud]` of `DefaultGame.ini`, or `-MINoLadder` to the launch options.
+
+| | What | Proven how |
+|---|---|---|
+| L1 | the GPU time each setting buys, in two scenes of the Story run, with the picture looked at | 98 variant measurements in two runs on the box (`l1a`, `l1b`; the run folders `l1a` to `l1g` are in `/project/ue/cloud/lag-3d/`), the avenue and the garage at render scale 50 %, SM5 (E3DS's shader platform), received frames compared (section 1) |
+| L2 | the ladder in the head-room controller: a state machine over the GPU's time, steps as data, launch options, log lines, the step on the numbers line and in the probe line | `Cloud/MIQuality.h/.cpp`, `MurderInc.Cloud.QualityTable`, `.QualityLadder` (the oscillation cases), `.QualityDefaults`; **`TESTS OK passed=198 failed=0` at `1840f85`** (editor build); the steps applied by the game through its own pinned step, walked up and down in two scenes (sections 2 and 3) |
+| L3 | the release gate, at its loads and two heavier ones | **not done** (section 4: what was prepared) |
+| L4 | build, suite, commits, documents | built; suite as above (not re-run on the last commit: section 5); this entry, PREFLIGHT V3-2, LAUNCH.md |
+
+### 1. What each setting buys (L1)
+
+**How it was measured.** The Development game (the test folder `/tmp/3d/app`: version 2's content with this branch's binary, the cloud
+profile handed over as `lag-test.sh profile=1` does) in E3DS's own shader platform (`-sm5`: no Nanite, software Lumen: the log says
+"feature level SM5 ... Nanite off | Lumen on"), 1920 x 1080 output, a Story run with god mode, **render scale fixed at 50 %**
+(dynamic resolution off, `r.ScreenPercentage 50`: the smallest picture the controller draws) and the frame-rate target fixed at 60,
+standing, in two scenes: the avenue under the elevated line (sun, shadows of the El, shop windows, vehicles; three Goons in view) and the
+garage by the last reel (sun through a fence, a small room). One variant at a time: set the variables, 3.5 s to settle, GPU time of the
+frame (the game's probe line, 5 a second) for 4 s (round 1) or 8 s (round 2), put the variables back, 2.5 s to settle, 3 s of baseline
+(the baseline of a variant is the mean of the baseline windows before and after it). A viewer saved a received frame every 3 s, so each
+variant could be looked at as the stream delivers it (`tools/box/cloud/quality_table.py`, `pairsheet.py`; the runs are
+`/project/ue/cloud/lag-3d/l1a`, `l1b`). 59 variants in round 1, 39 (the best of round 1 and 19 new ones) in round 2.
+
+**The scene alone costs 4.4 to 4.9 ms** at 50 % on the box's card (the card there is about 2.5 times slower on this game: DECISIONS.md,
+10 to 13 ms at 0.50 to 0.63; the savings below are the box's, in milliseconds a factor of about 2.5 larger on E3DS, in shares of the
+frame about the same, **unproven**). Where it goes (`ProfileGPU` in the avenue at 50 %, graphics queue 3.8 ms, compute queue 1.2 ms):
+volumetric cloud shadow 0.55, shadow depth maps 0.50 (one 8192 x 2048 atlas: with no Nanite the shadows are the classic cascaded ones, not
+virtual shadow maps, which is why every `r.Shadow.Virtual.*` variable saved nothing), cloud reconstruction and the sky capture 0.40,
+post processing 0.42 (Temporal Super Resolution 960 x 540 to 1920 x 1080: 0.14), Lumen's scene lighting 0.36 and screen-probe gather
+0.70 on the compute queue. **The output size is not where the time is**: 1600 x 900 saved 0.07 and 0.28 ms, 1280 x 720 0.16 and
+0.09 (2 to 4 %), so lowering the video's size is not a step (it would only help the encoder).
+
+**Noise.** The baseline windows of one scene vary by about 0.15 ms (standard deviation) and a variant's by the same: only savings of
+0.3 ms or more mean anything, and the ranking below is of the repeatable ones (rows with two numbers per scene were measured in both
+rounds; a negative saving is the variable making it dearer or the noise).
+
+| Variant (round 1 and 2) | Saved, avenue (ms) | Saved, garage (ms) | Mean share | Longest frame in 1.5 s after the change (set or put back) | Look in the received frames |
+|---|---|---|---|---|---|
+| `r.VolumetricCloud 0` (clouds off) | 0.85 / 0.84 | 0.84 / 0.68 | **17.5 %** | 47 ms | **nothing**: the daytime sky of this level is clear; the difference picture is noise |
+| `sg.GlobalIlluminationQuality 1` | 0.42 / 0.70 | 0.78 / 0.92 | **14.8 %** | 71 ms | a little flatter bounce light in the shade (difference picture: faint, in the shadows only) |
+| `sg.ShadowQuality 1` | 0.41 / 0.95 | 0.77 / 0.27 | 12.3 % | 69 ms | softer edges on the sun's shadows; one cascade only |
+| `r.VolumetricCloud.ShadowMap 0` (the clouds' shadows only) | 0.39 | 0.60 | 10.9 % | 17 ms | nothing (a subset of the first row) |
+| `r.LumenScene.Radiosity 0` (no bounce light in the surface cache) | 0.32 / 0.43 | 0.37 / 0.46 | **8.1 %** | 39 ms | nothing visible; difference picture: grain |
+| `sg.ShadowQuality 2` | 0.28 / 0.57 | 0.69 / -0.02 | 7.8 % | 32 ms | not looked at |
+| `r.Shadow.RadiusThreshold 0.06` (small things cast no shadow) | 0.38 | 0.36 | 8.0 % | 19 ms | not looked at alone |
+| `sg.GlobalIlluminationQuality 2` | 0.36 / 0.18 | 0.18 / 0.77 | 7.7 % | **256 ms** | not used: it hitches |
+| `r.Shadow.CSM.MaxCascades 2` / `3` | 0.29 / 0.38 | 0.40 / 0.24 | 7.2 / 6.3 % | 21 / 20 ms | fewer cascades: the shadows next to the player get softer (seen in the walked ladder, section 3) |
+| `r.Lumen.Reflections.Allow 0` | 0.57 / 0.27 | -0.16 / 0.33 | 5.1 % | 35 ms | nothing visible; the window and car reflections lose a little |
+| `r.SkyLight.RealTimeReflectionCapture 0` | 0.17 | 0.20 | 4.0 % | **214 ms** | not used: it hitches |
+| `r.Lumen.ScreenProbeGather.TracingOctahedronResolution 6` / `4` | 0.04 / 0.16 | 0.33 / 0.28 | 3.8 / 3.5 % | 23 / 25 ms | not looked at |
+| `sg.ReflectionQuality 1` | 0.19 / 0.32 | 0.14 / -0.01 | 3.3 % | 36 ms | not looked at |
+| `r.AntiAliasingMethod 1` (FXAA) | 0.05 / 0.04 | 0.35 / 0.19 | 3.4 % | 58 ms | **visibly softer** (the drawn 960 x 540 is stretched without Temporal Super Resolution); and `2` (TAA) is the same |
+| `r.DepthOfFieldQuality 0` | 0.22 / 0.21 | 0.18 / -0.12 | 2.6 % | 26 ms | nothing (no depth of field in play) |
+| `r.VolumetricFog 0` | 0.29 / -0.16 | -0.03 / 0.23 | 1.8 % | 32 ms | nothing visible |
+| `sg.PostProcessQuality 2` / `1`, `sg.EffectsQuality 2` / `1`, `sg.ViewDistanceQuality 1`, `sg.ShadingQuality 2` / `1` | -0.3 to 0.3 | -0.3 to 0.2 | -5 to 3 % | up to **220 ms** (effects 2) | no saving worth a look; effects 2 hitches |
+| the other 40 Lumen, TSR, virtual shadow, fog, cloud and sky variables of `quality_table.py` | -1.4 to 0.4 | -0.3 to 0.4 | below 4 % | up to 214 ms | not looked at |
+
+Not worth the look: anything under 3 %. **Not a step because it hitches in play:** `sg.GlobalIlluminationQuality 2` (256 ms),
+`sg.EffectsQuality 2` (220 ms), `r.Lumen.ScreenProbeGather.StochasticInterpolation 1` (196 ms), the real-time sky capture off (214 ms).
+The groups' level 1 (lighting, shadows) set in play cost 44 to 71 ms, which is under the line of 100 ms.
+
+
+### 2. The ladder (L2)
+
+`Cloud/MIQuality.h/.cpp` (decision logic and the table, no engine state) and `UMICloudSubsystem` (`StartQuality`, `TickQuality`,
+`ApplyQualityStep`, `WatchQualityFrame`). **The steps are data**: `[MICloud]` `QualitySteps=` lines of `DefaultGame.ini`, `name | percent of the
+GPU's time it saves | live or calm | variable=value, ...`, in the order they are given up. **Down:** one step when, in live play, with the
+picture at its smallest, the GPU's time has been over 85 % of the frame time of the target in force (or the game was held back by the GPU)
+for 3 s, and the last change was 10 s ago. It acts at the frame time of the target in force, so at 60 it keeps the head-room a fight needs
+(E3DS's card: about 4 ms in hand at the smallest picture) while the governor still holds the rate (it drops at 100 %), and at 30 it is the last
+thing left to give. **Up:** one step, only at a safe moment (a card or a set-up screen), only when the target is the highest one, after 60 s of
+play in which the GPU's time, worked out for the step above with that step's measured saving, stayed under 70 % of the frame time: 0.7 times
+a fight's 1.2 is under 0.85, so a step taken off is not at once needed again; a rise that did not hold (a fall within 120 s) doubles the wait
+(up to 8 minutes). A `calm` step is applied only at a safe moment (none is in the table). `-MIQuality=<n>` (or `MI.Cloud.QualityStep`, which a
+page's console-commands field may set; -1 frees it) fixes the step, `-MINoLadder` (`MI.Cloud.QualityLadder 0`) turns the ladder off; the tuning
+numbers are `MI.Cloud.QualityDownLoad/DownAfter/UpLoad/UpAfter/MinGap`. A step sets its variables with the cloud profile's priority (a launch
+option or a viewer's command that holds one of them wins; the log says how many were held). The scalability groups stay in the viewer-command
+allowlist as they were. Every change is a log line (`[MICloud] Quality: step 0 -> 1: ... now step 1 of 5 ("clouds off"), 7 variable(s) set`), followed
+two seconds later by the longest frame in them (`the longest frame in the two seconds after the change to step 1 was 16.7 ms`). The numbers
+line says `quality step 2 of 5` (`, fixed`, `, ladder off`), the probe line `q= qSteps= qChanges=`, and `lag_sum.py` prints the step range, where it
+ended and the longest frame after each change.
+
+**The final table** (what was measured for it: sections 1 and 3):
+
+| Step | Sets | Saves (of the GPU's time before it, the box) | Look |
+|---|---|---|---|
+| 1 clouds off | `r.VolumetricCloud=0` | 16 % (0.85 ms of 4.8) | nothing (this level's sky has no clouds by day) |
+| 2 no bounce light | `r.LumenScene.Radiosity=0` | 8 % | nothing in the received frames |
+| 3 no Lumen reflections | `r.Lumen.Reflections.Allow=0` | 6 % | nothing in the received frames |
+| 4 lighter shadows | `r.Shadow.CSM.MaxCascades=3, r.Shadow.RadiusThreshold=0.06` | 13 % | the sun's shadows next to the player get softer |
+| 5 shadows low | `sg.ShadowQuality=1, r.Shadow.CSM.MaxCascades=1` | 13 % | softer again |
+
+The savings are the first walk's per-step shares; the table as it stands (five steps) was **not walked as a whole**: the walks were of a six-step
+table that had the lighting level in it (below). Added up they are "about half of the GPU's time" for the six steps on the box's card, 52 to
+55 % at 50 % render scale (street 4.74 to 2.13 ms, garage 4.59 to 2.26 ms); without the lighting step about 45 % if the other steps keep
+their shares (0.84 x 0.92 x 0.94 x 0.87 x 0.87: an estimate, not a measurement). The saving is much less under a load that shares the card: 13.9 ms to 9.4 ms (32 %) at the
+`1:0.05:0:1024` load (the box slowed to about three times), 4.45 ms saved against 2.6 ms unloaded (run `l1d`, six steps).
+
+### 3. Step by step: what the walked ladder costs and takes
+
+`quality_table.py gen-steps` walks the game's own pinned step (`MI.Cloud.QualityStep`: the variables applied exactly as the ladder applies them in
+play) from 0 to the last step and back, 8 s on each, in both scenes, with the longest frame in the 1.5 s after every change.
+
+| Run | Table | Shares saved against step 0 at steps 1 to 6, avenue | garage | Longest frame after a change, going down (set) | going up (put back) |
+|---|---|---|---|---|---|
+| `l1c` | clouds, bounce, **lighting low (`sg.GlobalIlluminationQuality 1`)** at step 4, shadows... (first order) | 18.5, 26.0, 35.2, 44.2, 48.9, 55.0 % | 13.9, 20.2, 30.7, 40.2, 42.5, 50.8 % | 16.7 to 40.5 ms | 16.7 to 43.5 ms |
+| `l1e` | clouds, bounce, **lighting low at step 3**, reflections, lighter shadows, shadows low | 17.9, 23.8, 35.2, 38.5, 49.6, 52.3 % | 14.5, 17.1, 27.0, 36.4, 44.1, 51.8 % | **111 ms and 84 ms at the lighting step**, 16.7 to 27 at the others | 16.7 to 56 ms |
+| `l1d` (load `1:0.05:0:1024`, avenue only, `l1c`'s table) | | 9.6, 10.9, 13.8, 17.9, 24.5, 32.0 % (13.88 to 9.43 ms) | | 17 to 50 ms | 17 to 41 ms |
+
+**The lighting step hitches.** `l1f` set and put back each group of its variables three times (`quality_table.py gen-hitch`; longest frame in the
+1.5 s after, ms): the whole group `sg.GlobalIlluminationQuality 1`: set 45 50 27 / 32 53 31, **put back 119 54 78 / 67 33 34** (avenue / garage);
+its surface-cache atlas alone (`r.LumenScene.SurfaceCache.AtlasSize` 4096 to 2048): 38 31 28 / 40 28 57, put back 42 50 46 / 24 21 74; its
+other variables (the card limits, the update factors, the final gather method, the ambient occlusion quality): 17 to 43, one 40 on the first
+use of the final gather method. The other steps: clouds off 17 to 34, bounce light off 17 to 30, Lumen reflections off 17 to 62, cascades and
+radius 17 to 31, `sg.ShadowQuality 1` 17 to 35. So the lighting step, whose 14 % was the biggest after the clouds, is **left out** because a change in play (111 ms in `l1e`)
+can pass the 100 ms line; **its variables without the atlas and card changes** (`r.Lumen.FinalGatherMethod 0`, `r.AOQuality 1`, the update
+factors: round 3 in `quality_table.py`, run `l1g`) **were being measured when the box expired**. That is the first thing to do with a new box:
+if they save about 10 % without a hitch they go back in as step 3.
+
+**Looks of the walked ladder** (pairs of received frames, base, changed, difference times six; `pairsheet.py`): steps 1 and 2 are not
+distinguishable from step 0 in either scene; step 4 of `l1c` (lighting low and lighter shadows) shows the sunlit patches on the road and the
+fence's shadows in the garage clearly softer; step 6 (`sg.ShadowQuality 1`, one cascade) weaker still. The frames of a pair are a few seconds apart
+and the Goons and traffic move, so differences there are not the setting's.
+
+### 4. The gate (L3): what was prepared, what ran
+
+Prepared and committed: `tools/box/cloud/lag-gate-3c.txt` (version 3a's gate at its loads, ladder on and off, two heavier loads `1:1:0` and
+`2:1:0`, the 6-CPU runs, four fight runs with `ladder-fight.txt` at the 12 ms and 20 ms loads, the way-back run with `ladder-rise.txt`),
+`ladder-turn.txt` (the viewer: lag-turn's phases, a minute of standing for the ladder to finish, the turns again), `lag-test.sh` knows the ladder
+(`profile=1` hands the table to a Development game of an older pak through `-MIQualityTable=`, a Development-only option: a packaged game does
+not merge a Saved `Game.ini`, box run `probe3`), `lag_sum.py` prints the step range and the longest frame after each change. The
+first gate run was started and stopped (the table was being changed). **No number of the gate exists.** The runs would be the Development
+game, not the packaged game, as the task said.
+
+### 5. Tests and commits
+
+New tests (`Tests/MICloudQualityTests.cpp`): `MurderInc.Cloud.QualityTable` (a step's line, 14 refused forms, the value of a variable at each step, the
+baseline, the most steps), `.QualityLadder` (a free GPU never moves it for ten minutes; 15.5 ms of 16.7 at 60 steps once at 3.0 s; the walk down
+a 40 ms load at 30 stops on the fourth step at 3, 13, 23, 33 s and goes to the last step at 100 ms; not at a picture that can still shrink; a card does not
+count; a calm step waits for a calm moment; the way back needs 60 s of play AND a safe moment AND the highest target and takes one step; a rise that did not
+hold waits 120 s; a load swinging across the line every 5 s changes the step at most five times, never within 10 s of the last change; a recorded
+series of a street and a fight gives one change at 63.0 s; pin and off), `.QualityDefaults` (the console variables, the table of `DefaultGame.ini` parses and
+its variables exist). **`TESTS OK passed=198 failed=0 skipped=0 filter=MurderInc 69 s` at `1840f85`** (the head before the last changes; 195 before this release's
+three tests, as `1e539ed`). After it: the `-MIQualityTable=` option (built in the Development game target, 1 file; the editor target and the suite were
+**not** run again: the box was not quiet, another job's runs went back to back), the table's order and its last change (data, which the test reads:
+**the final table of five steps was not read by the test**), documents and tools.
+
+### 6. Not proven, not done
+
+- The gate, in any of its lines (section 4). The ladder acting under a load in the Story run (its decisions are unit-tested, its steps walked by pin: the
+  two have not met in a run). The way back in a stream. The ladder on a cold machine (fresh user, no caches): the hitches above are of a warm folder.
+- The final five-step table as a whole (savings, hitches, looks): measured as parts. The lighting step's replacement (`l1g`).
+- E3DS's card: its savings are the box's. The SM6 game (hardware ray tracing) was not measured at all.
+- The clouds step is free because this level has no daytime clouds; other times of day were not looked at.
+- Two things this session left on the box: a load process of run `l1d` kept running about 6 minutes after the run was stopped (another job's runs
+  were on the card then; killed at 17:22), and the first gate run's files. Nothing was packaged or uploaded.
+
+
 ## Release 3c: the session (session engineer, 2026-11-25, 11:50 to 15:25 UTC)
 
 The game now looks after its own session, and E3DS's quality number became the centre of a range. **In the game**

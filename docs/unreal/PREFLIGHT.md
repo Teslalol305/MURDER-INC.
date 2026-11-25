@@ -263,8 +263,9 @@ with fast turning has no game frame over 100 ms and no "Timed out waiting for fe
 
 ### V3-2. Step the quality down by measured GPU time (new; overrides plan B3's "Do NOT lower Lumen, Nanite or shadow quality") — DONE in release 3c (the quality ladder), see below for what is left
 
-**Status (2026-11-25, release 3c; docs/unreal/PROGRESS.md "Release 3c: the quality ladder").** Built, unit-tested and gated on the
-box with the Development game; not yet seen on E3DS and not part of any package. What it is: six steps of console variables, data in
+**Status (2026-11-25, release 3c; docs/unreal/PROGRESS.md "Release 3c: the quality ladder").** Built and unit-tested; measured on
+the box with the Development game (what each setting buys, the steps walked up and down: no frame over 62 ms); **the release gate
+(`lag-gate-3c.txt`) was NOT run** (the box expired); not yet seen on E3DS and not part of any package. What it is: five steps of console variables, data in
 `DefaultGame.ini` `[MICloud]` (`QualitySteps=` lines, one per step, in the order they are given up), `Cloud/MIQuality.h/.cpp` for the
 decision (a pure function of the GPU's time) and `UMICloudSubsystem` for the application. It goes down one step when, in live play at
 the smallest picture, the GPU's time has been over 85 % of the frame time of the frame-rate target in force for 3 s (at most one
@@ -273,11 +274,11 @@ its measured saving, under 70 % of the frame time), at a card or a set-up screen
 hold doubles the wait. `-MIQuality=<n>` fixes the step, `-MINoLadder` turns it off; the step is on the pause card's line and in the
 probe line. What was decided differently from the text below, and why: (1) the order is not the one planned here (Lumen at Epic's 60 fps
 level first): the measurement, step by step on the box's card in E3DS's own shader platform (SM5, no Nanite, software Lumen), put the
-volumetric clouds first (about a sixth of the GPU's time, nothing visible in this level's clear sky), then the bounce light, the sun's
-shadow cascades, the lighting level, Lumen's reflections and the shadow level; (2) the ladder acts at the frame time of the target in
+volumetric clouds first (about a sixth of the GPU's time, nothing visible in this level's clear sky), then the bounce light, Lumen's reflections, the sun's
+shadow cascades and the shadow level (the lighting level, 14 %, was left out: it hitched 84 to 119 ms); (2) the ladder acts at the frame time of the target in
 force (so at 60 it keeps the head-room a fight needs while the rate is still held), not only after the rate has fallen to 30; (3) nothing
-waits for a "safe moment" to go down, because no step of the final table hitches in play (the longest frame in the two seconds after
-any change was 44 ms in the warm test folder; the table still supports a `calm` step for a variable that does); (4) the steps are
+waits for a "safe moment" to go down, because no step of the final table hitches in play (the longest frame after a single step was 17 to 62 ms in the warm test folder, in
+repeated sets and put-backs; cold machines were not measured; the table still supports a `calm` step for a variable that does); (4) the steps are
 applied as console variables of the cloud profile's priority, not through `ApplyStreamedQuality`, which belongs to the Settings card.
 **What is left:** (a) a run on E3DS (the first session's log must show the `Quality ladder:` line, the `Quality:` lines of any change and
 `q=` in the probe line); (b) the card there is a different card: the savings are the box's, in milliseconds a factor of about 2.5 larger on
