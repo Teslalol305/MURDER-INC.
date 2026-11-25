@@ -9,6 +9,7 @@
 #include "RHICommandList.h"
 #include "RHIResources.h"
 #include "RenderingThread.h"
+#include "Stats/ThreadIdleStats.h"
 
 // ---- the frame-rate target ------------------------------------------------------------------------------------------
 
@@ -315,6 +316,8 @@ void FMIGpuPacer::OnBeginFrame()
 	bool bTimedOut = false;
 	if (MaxInFlight >= 0 && Owed > MaxInFlight && !bGaveUp)
 	{
+		// A wait, not work: the engine's game-thread time ("stat unit", the probe line's gameMs) leaves it out.
+		UE::Stats::FThreadIdleStats::FScopeIdle Idle;
 		const double Start = FPlatformTime::Seconds();
 		const double Limit = FMath::Clamp(WaitLimitMs, 1.0, 2000.0) / 1000.0;
 		while (Owed > MaxInFlight)
