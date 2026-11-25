@@ -43,7 +43,7 @@
 # The package holds pack, Epic and likeness content: it stays on the box and goes only to the owner's private
 # Higgsfield storage (docs/LAUNCH.md); it is never committed.
 
-C=/project/ue/cloud
+C=${MI_CLOUD:-/project/ue/cloud}   # (another folder only to try a step on a copy)
 REL=/project/ue/repo-release/unreal/MurderInc
 GP=/project/ue/repo-gameplay/unreal/MurderInc
 ENGINE=/project/ue/UnrealEngine

@@ -1,0 +1,18 @@
+# The sound proof of the Development game, second part: what a player hears when hit and killed (sound-demo.txt cannot
+# die). A Story run on the hardest difficulty, the Goons called, the player standing in the avenue with no god mode:
+# the Goons' guns and near misses, the hurt and the ear ring, the heartbeat under a third of the health, the death (the
+# muffle, the sting, the music's dead mode), the card.
+#   lag-test.sh run <name> game=dev demo=sound-dead.txt view=sound-watch.txt audio=1 join=3 probe=0.25 secs=140 -- "-LogCmds=LogMIAudioHost Verbose"
+wait 8
+con MIVoice frequency often
+con MIMenu fe home
+wait 3
+con MIMenu fe difficulty kingpin
+con MIStart mission skip
+waitstate playing 30
+wait 4
+spring 1.3 110 1.7
+face path -2
+route 0 -3725 875 -3475 875 -3175 675 -2775 525
+alert 80
+wait 70

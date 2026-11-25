@@ -1,0 +1,309 @@
+# The sound proof with mouse and keyboard, for the Shipping game (played by rtcaudio.py):
+#   lag-test.sh run <name> game=ship view=sound-keys.txt audio=1 join=3 probe=0.25 secs=200
+# One kind of sound at a time, each under a "say SND <name>" line, so audio_find.py can be asked for that part of the
+# recording (the times are in view.log and in sound.wav.json). What each part must hold (Content/Data/audio.json):
+#   card, home       the title music (stem_*) and the street (bed_day) behind the click card and on the home screen
+#   menu-moves       Down, Up: ui_hover each; hit-the-block, the Next buttons: ui_click each
+#   briefing, run    the run starts: radio_in, a voice line (inc_*, 8 runs in 10), then street and music
+#   selector         B: dry_fire at 1.6 times its pitch, quiet; three single rounds two seconds apart: chopper_shot,
+#                    chopper_close_*, chopper_mech_*, chopper_tail_*, and the case on the ground half a second later
+#                    (brass_asphalt_* or brass_concrete_*)
+#   burst            half a second of automatic fire
+#   reload           R: cloth, rifle_magout, rifle_magin, rifle_bolt, cloth
+#   empty, dry       the magazine fired empty, then two more presses: dry_fire
+#   nine             2: holster, draw; three rounds: nine_shot, nine_close_*, nine_mech_*, nine_tail_*; R: pistol_magout,
+#                    pistol_magin, pistol_slide; 1: back to the CHOPPER
+#   melee            F: whoosh
+#   walk, sprint     W: step_* (the surface under the feet); with Shift: step_*_run; Space: jump, then land
+#   pause            P: the world goes silent, the music stays, thinner (45 %, behind 1.3 kHz)
+#   pause-menu       Down three times (ui_hover), Enter on Settings (ui_click)
+#   volume-down      on the Volume row: Left forty times, 80 % to 40 %: the music must fall by 6.0 dB
+#   volume-up        Right forty times: back where it was
+#   resume           Backspace closes Settings, P resumes: street and music again
+wait 3
+say SND card
+wait 4
+click
+wait 3
+say SND home
+wait 5
+say SND menu-moves
+key 40
+wait 0.8
+key 38
+wait 0.8
+key 40
+wait 0.8
+key 38
+wait 1.2
+say SND hit-the-block
+click 0.106 0.448
+wait 2.5
+say SND next-crew
+key 9
+wait 0.8
+key 13
+wait 2
+say SND next-loadout
+click 0.3625 0.911
+wait 2
+say SND next-block
+key 9
+wait 0.8
+key 13
+wait 2.5
+say SND briefing
+click 0.336 0.911
+wait 12
+say SND run
+wait 8
+say SND selector
+key 66
+wait 1.5
+say SND single-shots
+click
+wait 2
+click
+wait 2
+click
+wait 2
+key 66
+wait 1.5
+say SND burst
+down 0
+wait 0.5
+up 0
+wait 2.5
+say SND reload
+key 82
+wait 4
+say SND empty
+down 0
+wait 3.2
+up 0
+wait 1
+say SND dry
+click
+wait 1
+click
+wait 4
+say SND reload-again
+key 82
+wait 4
+say SND nine
+key 50
+wait 2
+click
+wait 1.5
+click
+wait 1.5
+click
+wait 2
+say SND nine-reload
+key 82
+wait 3.5
+say SND chopper-again
+key 49
+wait 2
+say SND melee
+key 70
+wait 2
+say SND walk
+keydown 87
+wait 3.5
+say SND sprint
+keydown 16
+wait 3.5
+keyup 16
+keyup 87
+wait 1.5
+say SND jump
+key 32
+wait 2
+say SND pause
+key 80
+wait 5
+say SND pause-menu
+key 40
+wait 0.6
+key 40
+wait 0.6
+key 40
+wait 0.6
+key 13
+wait 1.5
+key 40
+wait 0.6
+key 40
+wait 4
+say SND volume-down
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+key 37 30
+wait 0.06
+wait 4
+say SND volume-up
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+key 39 30
+wait 0.06
+wait 3
+say SND resume
+key 8
+wait 1.5
+key 80
+wait 6
+say SND end
+wait 1

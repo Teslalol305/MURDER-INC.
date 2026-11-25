@@ -1,0 +1,5 @@
+# The viewer of a sound proof that the Development game plays by itself (sound-demo.txt, sound-dead.txt): it clicks
+# the CLICK TO PLAY card away and listens. Played by rtcaudio.py; the run's length is lag-test.sh's secs=.
+wait 3
+click
+wait 900

@@ -1,0 +1,169 @@
+# The sound proof of the Development game: the game's own demo director (Source/MurderInc/Flow/MIDemoDirector.cpp) plays
+# everything a run can sound like, and with -LogCmds="LogMIAudioHost Verbose" the log names every file it starts
+# ("play <file> sound=... category=... volume=... pitch=..."), so sound_table.py can ask the viewer's recording for
+# each of them. On the box, with a package:
+#   lag-test.sh run <name> game=dev demo=sound-demo.txt view=sound-watch.txt audio=1 join=3 probe=0.25 secs=330 -- "-LogCmds=LogMIAudioHost Verbose"
+#   python3 sound_table.py /project/ue/cloud/lag/<name>
+# In order: the home screen (title music and the street alone), the set-up screens (every press a ui_click, a part
+# looked at a ui_hover), four guns (the CHOPPER, the NINE, the STICK with a silencer, the STRETCH: the two rifles of
+# the pack fire with the CHOPPER's sounds), the run's start (radio, the run-start line), each gun's single rounds, a
+# burst, the reload, the empty magazine and the dry press, the rifle butt, steps walking and running, a jump; two
+# reels taken (the reel sound, its sting, a line), a fight on the avenue (the Goons' alert, their guns, the near
+# misses, the hits, their deaths, the kill lines), the propane tanks (fuse and blast), the last reel by hand (the grab's
+# rising tone), the truck (the last sting, "What's my name" and the crowd), the debrief. The player cannot die here
+# (god 1): the hurt, the heartbeat and the death are sound-dead.txt.
+wait 8
+con MIVoice frequency often
+con MIMenu fe home
+wait 7
+con MIMenu fe gearup
+wait 1.5
+con MIMenu fe crew rule
+wait 1.5
+con MIMenu fe next
+wait 1.5
+con MIMenu fe focusgun chopper
+wait 0.7
+con MIMenu fe slot 1 chopper
+wait 0.9
+con MIMenu fe focusgun nine
+wait 0.7
+con MIMenu fe slot 2 nine
+wait 0.9
+con MIMenu fe focusgun stick
+wait 0.7
+con MIMenu fe slot 3 stick
+wait 0.9
+con MIMenu fe focusgun stretch
+wait 0.7
+con MIMenu fe slot 4 stretch
+wait 1.2
+con MIMenu fe bench stick
+wait 1.2
+con MIMenu fe benchslot muzzle
+wait 0.8
+con MIMenu fe preview silencer
+wait 1.0
+con MIMenu fe fit silencer
+wait 1.2
+con MIMenu fe done
+wait 0.8
+con MIMenu fe next
+wait 0.8
+con MIMenu fe level block
+con MIMenu fe time day
+wait 0.6
+con MIMenu fe mode mission
+wait 0.6
+con MIMenu fe difficulty hustler
+wait 1.2
+con MIMenu fe next
+wait 3
+con MIMenu fe hit
+waitstate playing 20
+god 1
+wait 9
+con MIInput firemode 1
+wait 1.5
+con MIInput fire 1
+wait 0.05
+con MIInput fire 0
+wait 2
+con MIInput fire 1
+wait 0.05
+con MIInput fire 0
+wait 2
+con MIInput fire 1
+wait 0.05
+con MIInput fire 0
+wait 2
+con MIInput firemode 1
+wait 1.5
+con MIInput fire 1
+wait 0.6
+con MIInput fire 0
+wait 2.5
+con MIInput reload 1
+wait 4
+con MIInput fire 1
+wait 3.2
+con MIInput fire 0
+wait 1
+con MIInput fire 1
+wait 0.1
+con MIInput fire 0
+wait 4
+con MIInput reload 1
+wait 4
+con MIInput weapon2 1
+wait 2
+con MIInput fire 1
+wait 0.05
+con MIInput fire 0
+wait 1.5
+con MIInput fire 1
+wait 0.05
+con MIInput fire 0
+wait 1.5
+con MIInput reload 1
+wait 3.5
+con MIInput weapon3 1
+wait 2
+con MIInput fire 1
+wait 0.05
+con MIInput fire 0
+wait 1.5
+con MIInput fire 1
+wait 0.05
+con MIInput fire 0
+wait 1.5
+con MIInput weapon4 1
+wait 2
+con MIInput fire 1
+wait 0.05
+con MIInput fire 0
+wait 1.5
+con MIInput fire 1
+wait 0.05
+con MIInput fire 0
+wait 1.5
+con MIInput weapon1 1
+wait 2
+con MIInput melee 1
+wait 2
+con MIInput forward 1
+wait 3.5
+con MIInput sprint 1
+wait 3.5
+con MIInput sprint 0
+con MIInput forward 0
+wait 1.5
+con MIInput jump 1
+wait 2.5
+secure 1
+wait 6
+secure 2
+wait 6
+spring 1.3 110 1.7
+face path -2
+goto -3725 875
+auto 1 1
+route 0 -3725 875 -3475 875 -3175 675 -2775 525 -2775 425 -1500 150
+alert 60
+fight 22 3 1 5
+auto 0
+wait 1.0
+lookat -420 -800 60 2.5
+blow 5
+wait 3
+auto 1 1
+goto -490 130
+auto 0
+lookat -400 100 60 1.5
+grab 6
+wait 1.0
+goto 3475 2525 1
+face point 4130 2970 170
+walk 3480 2930 0 60 8
+waitstate complete 20
+wait 12

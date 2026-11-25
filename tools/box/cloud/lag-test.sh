@@ -47,6 +47,10 @@
 #                     0 leaves the bitrate as E3DS starts it.
 #   decode=0          the viewer does not decode the video (rtcinput.py --nodecode): it only counts the frames, and
 #                     saves none. For the question whether the decoding beside the game slows the game's encoder.
+#   demo=<file>       the Development game plays this script of its demo director instead of the built-in run (a path,
+#                     or the name of one beside this file: sound-demo.txt, sound-dead.txt); the viewer then joins as
+#                     for the Shipping game, join= seconds after the game's first probe line, so it is there from the
+#                     script's first seconds. Give the script's length with secs=.
 #   audio=1           the viewer is rtcaudio.py: the same script, and the sound it receives is recorded to sound.wav
 #                     (sound.wav.json: when every sound packet came, when every script line was sent) and measured per
 #                     half second; the summary line gets what was heard (loudness, peak, clipped samples, drop-outs).
@@ -112,7 +116,7 @@ hogs() {  # <n>[:<work ms>[:<idle ms>[:<size>]]] <pid file> <log prefix> | stop 
 
 run_fg() {
   local name=$1; shift
-  local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= view2= cvars= csv= secs= probe=1 minbit=12000000 profile= cpus= decode=1 audio=0 extra=()
+  local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= view2= cvars= csv= secs= probe=1 minbit=12000000 profile= cpus= decode=1 audio=0 demo= extra=()
   local runas=${LAG_RUNAS:-ue4} clean=${LAG_CLEAN:-0} join=${LAG_JOIN:-55}
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -121,7 +125,7 @@ run_fg() {
       res=*) res=${1#*=} ;; view=*) view=${1#*=} ;; cvars=*) cvars=${1#*=} ;; csv=*) csv=${1#*=} ;;
       secs=*) secs=${1#*=} ;; probe=*) probe=${1#*=} ;; minbit=*) minbit=${1#*=} ;; profile=*) profile=${1#*=} ;;
       cpus=*) cpus=${1#*=} ;; decode=*) decode=${1#*=} ;; view2=*) view2=${1#*=} ;;
-      runas=*) runas=${1#*=} ;; clean=*) clean=${1#*=} ;; join=*) join=${1#*=} ;; audio=*) audio=${1#*=} ;;
+      runas=*) runas=${1#*=} ;; clean=*) clean=${1#*=} ;; join=*) join=${1#*=} ;; audio=*) audio=${1#*=} ;; demo=*) demo=${1#*=} ;;
       *) echo "unknown key $1"; return 2 ;;
     esac; shift
   done
@@ -132,6 +136,7 @@ run_fg() {
     *) if [ -f "$T/$view" ]; then view=$T/$view; else view=$(readlink -f "$view"); fi ;;
   esac
   case "$view2" in ''|/*) ;; *) if [ -f "$T/$view2" ]; then view2=$T/$view2; else view2=$(readlink -f "$view2"); fi ;; esac
+  case "$demo" in ''|/*) ;; *) if [ -f "$T/$demo" ]; then demo=$T/$demo; else demo=$(readlink -f "$demo"); fi ;; esac
   # A fresh copy of the zip: nothing an earlier run left (the launcher makes Saved again, as the game's user).
   [ "$clean" = 1 ] && rm -rf "$build/MurderInc/Saved"
   if [ "$profile" = 1 ]; then
@@ -173,6 +178,9 @@ run_fg() {
   [ "$minbit" -gt 0 ] && args+=("-PixelStreamingWebRTCMinBitrate=$minbit" "-PixelStreamingWebRTCStartBitrate=$minbit")
   [ -n "$cvars" ] && args+=("-MICVars=$cvars")
   if [ "$game" = dev ]; then
+    if [ -n "$demo" ]; then
+      { grep -v '^[[:space:]]*#' "$demo"; echo "wait 900"; } > "$O/play.txt"   # the game's user must be able to read it
+    else
     {
       echo "wait 4"; echo "con MIStart mission skip"; echo "waitstate playing 40"; echo "god 1"
       [ -n "$sp" ] && echo "con r.ScreenPercentage $sp"
@@ -181,6 +189,7 @@ run_fg() {
       [ "$csv" = 1 ] && echo "con csvprofile stop"
       echo "wait 900"
     } > "$O/play.txt"
+    fi
     args+=(-MIDev "-ExecCmds=MIDemo.Run $O/play.txt")
     rm -rf "$build/MurderInc/Saved/Profiling/CSV"
   fi
@@ -195,7 +204,7 @@ run_fg() {
   # the game's first probe line. (Until 2026-11-25 the Shipping game's wait looked for a line that never comes and
   # ran its full 60 s, so the viewer of every earlier run found a home screen that had been drawn for about 55 s.
   # That stays the default, to keep the runs comparable; join=3 is a viewer who is there as soon as the game is.)
-  if [ "$game" = ship ]; then
+  if [ "$game" = ship ] || [ -n "$demo" ]; then
     for i in $(seq 1 60); do grep -a -q "MICloudProbe fps=" "$R/game.log" 2>/dev/null && break; sleep 1; done
     sleep "$join"
   else

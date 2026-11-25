@@ -7,6 +7,8 @@
 #   python3 audio_find.py <selftest.wav> --truth <selftest-truth.json> --audio <Content/Audio>     checks the instrument (rtcaudio.py --selftest)
 #
 #   --from S, --to S      only this part of the recording (seconds on the sound's own clock)
+#   --part NAME           only the part a viewer script marked: from its line "say <anything> NAME" to its next "say"
+#                         line (the recording's .json has the times; sound-keys.txt marks every kind of sound so)
 #   --rates A:B:STEP      playback speeds tried (default 0.955:1.045:0.0025: the game starts most sounds at a pitch
 #                         jittered by up to 3.5 %, a faster sound being a shorter one); --rates 1 for music, voice and loops
 #   --chunk S             seconds of the source used as the template, from --at S of the file (default 0.3 from 0: a
@@ -122,11 +124,14 @@ def rates_of(text):
 
 
 class Recording:
-    def __init__(self, path, t_from=0.0, t_to=None):
+    def __init__(self, path, t_from=0.0, t_to=None, whole=None):
         self.path = path
-        rate, x = read_wav(path)
-        if rate != RATE:
-            raise ValueError(f'{path}: {rate} Hz, want {RATE}')
+        if whole is None:
+            rate, whole = read_wav(path)
+            if rate != RATE:
+                raise ValueError(f'{path}: {rate} Hz, want {RATE}')
+        self.whole = whole
+        x = whole
         self.seconds = len(x) / RATE
         self.offset = max(0.0, t_from)
         a, b = int(self.offset * RATE), len(x) if t_to is None else min(len(x), int(t_to * RATE))
@@ -153,10 +158,37 @@ class Recording:
         self.Xw = np.fft.rfft(self.x, self.size) * self.W
         xw = np.fft.irfft(self.Xw, self.size)[:self.n]
         self.cumw = np.concatenate(([0.0], np.cumsum(xw * xw)))
-        self.meta, self.keys = None, None
+        self.meta, self.keys, self.times = None, None, None
         if os.path.exists(path + '.json'):
             with open(path + '.json') as f:
                 self.meta = json.load(f)
+
+    def cut(self, t_from, t_to):
+        """A part of this recording (the file is not read again)."""
+        r = Recording(self.path, t_from, t_to, whole=self.whole)
+        r.meta = self.meta
+        return r
+
+    def media(self, wall):
+        """The place on the sound's clock (seconds) of the first packet that arrived at or after that wall time."""
+        packets = self.meta and self.meta.get('packets')
+        if not packets:
+            return None
+        if self.times is None:
+            self.times = [p[1] for p in packets]
+        i = min(len(packets) - 1, bisect.bisect_left(self.times, wall))
+        return packets[i][0] / RATE
+
+    def part(self, name):
+        """(from, to) on the sound's clock of the part a viewer script marked with "say ... <name>": from that line to
+        the next "say" line."""
+        says = [(t, line) for t, line in (self.meta or {}).get('actions', []) if line.startswith('say ')]
+        for k, (t, line) in enumerate(says):
+            if line.split()[-1] == name:
+                end = says[k + 1][0] if k + 1 < len(says) else float('inf')
+                a, b = self.media(t), self.media(end) if end != float('inf') else self.seconds
+                return a, b
+        return None
 
     def arrival(self, seconds):
         """When the packet that holds that moment of the sound arrived at the viewer (rtcaudio.py's clock, the one its
@@ -336,6 +368,7 @@ def main():
     ap.add_argument('sources', nargs='*')
     ap.add_argument('--library', default='')
     ap.add_argument('--audio', default=os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'unreal', 'MurderInc', 'Content', 'Audio'))
+    ap.add_argument('--part', default='')
     ap.add_argument('--from', dest='t_from', type=float, default=0.0)
     ap.add_argument('--to', dest='t_to', type=float, default=None)
     ap.add_argument('--rates', default='0.955:1.045:0.0025')
@@ -350,6 +383,13 @@ def main():
     ap.add_argument('--json', default='')
     A = ap.parse_args()
     rec = Recording(A.recording, A.t_from, A.t_to)
+    if A.part:
+        span = rec.part(A.part)
+        if span is None:
+            sys.exit(f'no "say ... {A.part}" line in {A.recording}.json')
+        A.t_from, A.t_to = span[0], span[1] + 0.5
+        rec = rec.cut(A.t_from, A.t_to)
+        print(f'part "{A.part}": {span[0]:.2f} to {span[1]:.2f} s of the sound')
     if A.truth:
         with open(A.truth) as f:
             sys.exit(0 if truth_check(rec, json.load(f), A.audio, A.min_x) else 1)
