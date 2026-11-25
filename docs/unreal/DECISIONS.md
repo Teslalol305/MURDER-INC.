@@ -410,3 +410,35 @@ the game's own lines (launcher, `[MICloud]`, probe) arrive in the page's console
    **off** (the owner chooses a password themselves: nothing here types one), mouse Locked.
 10. **E3DS's storage is 10 GB:** versions 1 (2.2 GB), 2 (2.1) and 3 (2.1) fill 6.4; one more build fits (3.6 GB free),
     the next does not: older versions have to be deleted (the owner's decision).
+
+**E3DS, the verification runs on version 4 (version 3a + the launcher fix), 2026-11-25 11:36 to 11:47 UTC.**
+Version 4 was uploaded from the box's disk (24 s up, E3DS's test 75 s, on the streaming machines after 4 min 38 s) and
+two more sessions were played from the box's browser with the game's log at one line a second (`-MICloudProbe=1`).
+Both landed on a clean machine (the launcher printed "leftovers: no other game of this package is running", the card at
+2 MiB), so **the cleanup itself has not yet been seen to stop a leftover**; it ran without error.
+1. **A Story run on a clean E3DS card is smooth.** Home screen to run by keyboard (Enter on Home and Crew, Tab Tab Enter on
+   the Loadout, Tab Enter on Block & Style, Enter on the Briefing), then walking, fast turns (yaw swings of 100 to 270
+   degrees a second) and two shots: **60 frames a second in every second of the log, the worst frame 16.7 ms (18.4 ms in the
+   worst second), GPU 10.2 to 13.3 ms at render scale 0.50 to 0.63** (the smallest picture is 0.50: the card has about 4 ms
+   in hand), owed 1 or 2, held 0 to 4, the encoder 4.4 to 7.3 ms. The pause card on E3DS reads (E3DS's real page): "NVIDIA RTX
+   A4000 - 60 frames a second (lowest 60, target 60) - GPU 10.7 ms - drawn 1183 x 665, sent 1920 x 1080 - stream 60 a second
+   (lowest 59), 0.3 Mbit/s, QP 34, round trip 0 ms - build 6c4d810". (The round trip reads 0 ms on E3DS too: the game's
+   reading of it is not working; E3DS's own info panel says 91 ms from the test box.) What was not tried: a fight (enemies,
+   explosions) and a long run: the first room of the Story run has no enemies in sight.
+2. **E3DS's Video Quality is a constant quantiser, not a bitrate**: Medium = QP 34 for both the minimum and the maximum
+   (0.1 Mbit/s standing, up to 1.6 Mbit/s in fast turns, soft and blocky in the dark parts of the picture), High = **QP 16** for both
+   (6 Mbit/s standing, **up to 14.5 Mbit/s in fast turns**, 60 fps held, the street scene crisp: the taxi, the lettering on the
+   truck). With the minimum equal to the maximum the encoder cannot lower the quality to fit a thin connection: the extra
+   bits queue in the sender, and a viewer whose connection cannot carry them sees a turn stall: another way for the owner's
+   "it slows down when I turn" to arise, and the owner had High set when they tested version 2 (the author advised it from a
+   free-card measurement: wrong advice, withdrawn). **Medium is set again. Release 3c should give the encoder a RANGE** (the
+   game takes E3DS's `PixelStreaming.Encoder.MinQP` / `MaxQP` commands, which the page sends at the start of every session, as
+   the middle of a range, for example 8 below to 8 above, so the sender picks the quality the connection can carry: this is
+   what E3DS's own page calls "automatic quality, planned").
+3. **Input from the box's browser**: the CLICK TO PLAY click makes the page lock the mouse. Marionette's own pointer moves do
+   not turn a locked view; `owner-browser.sh ff act '[["jsmove",12,0,50,16]]'` (mouse-move events carrying their movement,
+   dispatched in the page) does. Absolute clicks work only until the lock: use the keyboard for the set-up screens. Ctrl+Enter
+   ("jump to the Briefing") arrives as a plain Enter through the page: the page does not pass Ctrl on.
+4. **Storage and minutes**: 1.5 GB of the 10 GB left (versions 1 to 4); 259 of the 300 minutes left (the tests used 21; a
+   session counts from the moment it starts, the machine's first start takes about two minutes of it). The next upload needs
+   an older version deleted: the owner's decision (version 3 is the same game as version 4; version 1 never worked).
