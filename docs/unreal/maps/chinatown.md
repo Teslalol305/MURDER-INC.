@@ -2,7 +2,32 @@
 
 Status: design for the three-map release (DECISIONS.md 2026-11-25 ~21:40). Nothing here is built. This file is the
 level designer's brief. It is meant for whoever writes the level data and its generator, the art lane (Blender and
-the box), the gameplay/C++ lane and the lead.
+the box), the gameplay/C++ lane and the lead. The staged build plan and the lanes are in [../MAPS.md](../MAPS.md).
+
+**Revision 2 (lead review, 2026-11-25).** Two design reviews found four must-fix problems across the three designs, two
+of them in this level, and several should-fix ones. This revision resolves them:
+
+- **Falls hurt.** config.json `player.fall` deals damage above a 13 m/s landing (gravity 21), so any drop over 4.02 m
+  costs health. Every drop this level invites is now 4.0 m or less: the gap in the kitchen roof's Mott parapet drops
+  2.5 m onto a sidewalk shed on the bakery's Mott face, and the shed drops 3.05 m to the sidewalk. The drop to Canal is
+  gone, and every other roof edge has a playerOnly edge guard (4.4, 4.6, check 4 in section 17).
+- **The roof is not a safe camp.** The market roof, B0 and the kitchen roof form a nav layer of their own (`roof`,
+  y 5.7). Three Goon spawns sit at a roof bulkhead on B0. A Goon whose target is on another layer moves to a cell of its
+  own layer that can see him, instead of walking under the slab toward his (x, z). This works without stair links (nav
+  step A, MAPS.md lane N). The yard stair becomes a nav link when step B lands (4.4, 8.2, 8.6).
+- **No spawn in the player's room.** A spawn inside the interior box the player is in is skipped, so wave 2 comes
+  through the gates and the yard door, not from behind the next counter (8.4).
+- **Goons must read.** The Goons wear oxblood on black, so red is kept out of the backgrounds of the main fight spaces
+  and the palette is amber, pink, green and cool white. A readability check at 15 and 25 m runs in the five worst views
+  (1, 11.3, check 11).
+- **Less postcard, more Canal Street.** The Square is a worn neighbourhood park with card tables and a basketball
+  hoop. There is one lantern string, the lions stand only at the banquet doors, and the art budget goes to everyday
+  clutter (4.8, 13).
+- **One schema for all three levels.** Text uses progression.md 7.2's keys (`frontend.story.chinatown.*`), and the HUD
+  says "reels" while the radio says "masters" (15.3). `el` is optional, so there is no degenerate deck. Audio sits in
+  `audio_chinatown.json` through levels.json `data.audio`. The nav and the cover filter are written by the engine's
+  bake step, not re-implemented in Python (15, 16, 17).
+- **One notch harder than the Block:** maxAlive +1 on every difficulty through the level's `tuning` (8.1).
 
 Conventions are the ones `level.json` uses. Units are web units: metres, +Y up, x east, z south, so north is -Z.
 Unreal (X, Y, Z) cm = web (x, z, y) x 100. A web yaw of 0 looks north (-Z), and a positive yaw turns left, so
@@ -26,7 +51,7 @@ They are design numbers. The real generator must recompute them from the final c
 | Objectives | Reel 1 The Avenue, Reel 2 Chop Shop, Reel 3 The Cage | **Reel 4 The Tables, Reel 5 The Market, Reel 6 The Dub Room** |
 | Extraction | IPX truck at the south end of the lot | IPX truck idling at the east end of Canal St |
 | Critical path (A* on nav) | 39.0 + 25.0 + 65.8 + 63.9 = **193.7 m** | 34.5 + 27.4 + 59.6 + 60.2 = **181.7 m** |
-| Spawns | 29 ground, 17 air | 35 ground, 18 air |
+| Spawns | 29 ground, 17 air | 38 ground (3 of them on the roof layer), 18 air |
 | Explosives | 21 (14 propane, 7 rack) | 18 (15 propane, 3 rack) |
 | Colliders | 777 | budget at most 800 (planned about 780) |
 | Lighting | Day rig (sun, clouds, sky) | Night rig: no sun shadow and no volumetric clouds. About 48 placed local lights, at most 10 of them shadowed. Emissive neon. Wet ground |
@@ -54,8 +79,12 @@ Square. Below 15 m they cannot fly over the five- to seven-storey buildings, so 
   and fire escapes near the player, and steam from manholes and kitchen vents.
 - **Light:** neon, lightboxes and shop interiors carry the street. Cool LED street lamps match the art bible's
   2010s to 2020s street kit. The market hall has hard white light from bare bulbs and fluorescents. The bakery is
-  warm pink-white. Red paper lanterns are strung over the Square and the alley. The sky is a low overcast lit
-  orange-brown from below by the city.
+  warm pink-white. One string of red paper lanterns hangs over the banquet hall's doors, and nowhere else. The sky
+  is a low overcast lit orange-brown from below by the city.
+- **Palette (readability).** The Goons wear oxblood red on black (DESIGN.md), so red must not be the background they
+  fight in. The street reads amber and sodium, pink, jade green and cool white. Red emissive is allowed only on signs
+  that are never behind a fight from the critical path: in the market aisles, alley B, the arcade and the Square, the
+  light behind an enemy is never red. Section 11.3 gives the per-sign colours, and check 11 in section 17 measures it.
 - **Sound:** wet tyres from beyond the street ends, the buzz of a transformer, Cantonese talk radio from a shop
   (invented content), mahjong tiles from a second-floor window, kitchen fans in the alleys, fish-tank pumps in the
   market, and a distant train rumble across the bridge to the east every 90 to 150 s. That rumble replaces the
@@ -75,7 +104,9 @@ Square. Below 15 m they cannot fly over the five- to seven-storey buildings, so 
   the cell is 50 cm.
 - **The front-end stage** stays at (0, 0, 100000) cm. The tallest geometry here is the backdrop towers (at most
   about 120 m) and the bridge silhouette far to the east (about 600 to 900 m away). Both stay well under 1 km and
-  outside the stage room's view.
+  outside the stage room's view. The unlit sky dome (11.1) has a radius of 2 km, so it would enclose the stage room
+  1 km up: it is a sky-only mesh, hidden while the front-end stage is shown, and the stage room keeps its own
+  lighting. The fog's opacity and the bloom are checked at the stage camera before the first art build.
 - **Edges.**
   - **West:** a street dig with steel plates, jersey barriers across the roadway at x -43.6..-42.8 and a parked
     box truck. The player arrives here.
@@ -177,15 +208,16 @@ flowchart LR
   market -- "side door 1.4 m (player only)" --> alleyA
   market -- "rear roll-up 4 m" --> yard[Market yard]
   yard --> alleyB[Lantern Alley B]
-  yard -- "switchback stair" --> roof[(Market roof 5.7 m)]
+  yard -- "switchback stair (nav link in step B)" --> roof[(Market roof 5.7 m, nav layer 'roof')]
   roof -- "0.3 m curb" --> kroof[(Kitchen roof 5.7 m)]
-  kroof -. "drop 5.55 m, no fall damage" .-> mott
-  roof -. "drop" .-> canal
+  roof -- "B0 bulkhead door 2 m (roof Goons' spawn)" --> roof
+  kroof -. "parapet gap, drop 2.5 m" .-> shed[(Sidewalk shed deck 3.2 m)]
+  shed -. "missing panel, drop 3.05 m" .-> mott
   alleyA -- "dog-leg" --> alleyB
   alleyB --> mott
   bakery -- "door 2 m" --> alleyB
   bakery -- "door 2 m" --> mott
-  mott --> square[The Square<br/>pavilion, lanterns]
+  mott --> square[The Square<br/>a worn park: pavilion, card tables]
   mott -- "roll-up 3 m" --> dub[Dub room]
   square -- "main doors 4 m" --> banquet[Banquet hall]
   banquet -- "door 2 m" --> dub
@@ -201,6 +233,13 @@ flowchart LR
 Every opening that Goons must use is at least **2.0 m** wide. With the 0.5 m inflate, that leaves at least one
 free column of nav cells. Player-only gaps are 1.4 m. Every step the player climbs is at most 0.42 m: risers are
 0.219, the stage is 0.40, the plinth 0.30, kerbs 0.15 and the roof curb 0.30.
+
+Every drop the level invites is at most **4.0 m**. Falls hurt: config.json `player.fall` deals (landing speed − 13)
+× 7 damage, and with gravity 21 a 4.02 m drop lands at 13 m/s, the limit. A drop of 5.7 m from the roof would land at
+15.5 m/s and cost about 17 of 100 health, and that can kill a player on low health in wave 2. Every edge that is not
+an authored drop therefore has an **edge guard**: a playerOnly box on the parapet's outer face, from the walking surface
+to 3.0 m above it. A 1.0 m parapet alone is not enough, because a 0.42 m box next to it plus the 1.0 m jump clears it.
+The guard blocks movement only, so shots and sight pass. The authored drops are listed in 4.4.
 
 ### 4.1 Canal Street (zone `canal`, x -44..44, z -34..-14)
 
@@ -240,8 +279,11 @@ free column of nav cells. Player-only gaps are 1.4 m. Every step the player clim
 ### 4.2 Lantern Alley (zone `alley`; A: x -30..-26, z -14..14; B: x -30..8, z 10..14)
 
 - **A** is a 4 m slot off Canal between W1 (a six-storey tenement) and the market's west wall. A painted wooden
-  board over the mouth reads 燈籠巷 LANTERN ALLEY. This is an in-world nickname, not a city street sign.
-- Red lanterns are strung across the alley at 5 to 7 m, as art only.
+  board over the mouth reads 燈籠巷 LANTERN ALLEY. This is an in-world nickname, not a city street sign: the alley is
+  named after the party-goods wholesaler whose back door opens on it.
+- No lanterns hang over the alley. It is a working back alley: the wholesaler's cartons stacked on a hand truck, fish
+  boxes and styrofoam from the market, cardboard bales, trash bags, kitchen exhaust fans, bare bulkhead lamps, wet
+  concrete.
 - Alley A has a dumpster at x -29.9..-28.3, z -9..-7.2 and a stack of crates at x -27.6..-26, z 4..5.4. The market
   side door (1.4 m, player only) is at z -2.9..-1.5 in the market's west wall. Restaurant back doors and three fire
   escapes are on W1's east face, as dressing.
@@ -281,7 +323,7 @@ slab whose top is the walkable roof at **5.7 m**. The floor is concrete at y 0. 
 - **Sight lines:** 25 m along each aisle, 25 m across the cross aisle. The counters are chest-high cover. This is
   the close-quarters room of the level.
 
-### 4.4 The yard, the stair and the roofs (rooftop play, player and Buzzards only)
+### 4.4 The yard, the stair and the roofs (rooftop play: the `roof` nav layer)
 
 - **The yard** is x -16..0, z 6..10, concrete at y 0, open to alley B along z 10. It holds a dumpster
   (x -1.9..-0.4, z 6.3..8.1) and a cage of gas cylinders (two propane, x -9..-7.2, z 8.8..9.8, next to the rear
@@ -293,26 +335,55 @@ slab whose top is the walkable roof at **5.7 m**. The floor is concrete at y 0. 
   - The mid landing is x -14.6..-13.2, z 6.0..8.2, at y 2.85.
   - Flight 2 runs east in the north lane (z 6.0..7.2), from x -13.2 to x -9.8 (y 5.7).
   - The top landing is x -9.8..-8.6, z 6.0..7.2, at y 5.7, through a gap in the roof parapet.
-  - That is 26 step boxes plus 2 landings plus 2 side plates, about 30 colliders. Goons cannot climb it, because
-    its boxes block nav, as the Block's shed stair does.
+  - That is 26 step boxes plus 2 landings plus 2 side plates, about 30 colliders. Its boxes block the street
+    layer's nav, as the Block's shed stair does. With nav step B (MAPS.md lane N) it is a **nav link** `yardStair`
+    from the street layer at (-9.4, 0, 7.7) to the roof layer at (-9.2, 5.7, 6.6), so Goons then follow the player
+    up and down it. Its outer side is guarded (playerOnly to 3.0 m over each tread), so nobody falls off a flight.
 - **The market roof** is x -26..0, z -14..6, plus the back building B0 (x -26..-16, z 6..10), all at y 5.7, as
   tar and gravel. It has:
-  - parapets 1.1 m on Canal (north), 1.0 m on alley A (west) and 1.0 m on the yard (south), except at the stair;
-  - four skylight boxes 2 x 3 x 0.8 m and three condensers 1.2 m tall, as cover from Buzzards;
+  - parapets 1.1 m on Canal (north), 1.0 m on alley A (west) and 1.0 m on the yard and alley B (south), except at
+    the stair head, each with an edge guard (section 4);
+  - four skylight boxes 2 x 3 x 0.8 m and three condensers 1.2 m tall, as cover from Buzzards and from roof Goons;
   - rooftop letters 金潮市場 on a steel frame standing on the north parapet. They are the landmark you see from
-    Canal St, and the frame legs give cover.
+    Canal St, and the frame legs give cover;
+  - **the B0 bulkhead**, the storeroom's roof-access stair house (x -25.4..-22.4, z 6.6..9.4, 2.6 m tall), with
+    its 2.0 m door on the east face at z 7.0..9.0. It is the roof Goons' door: three ground spawns of the `roof`
+    layer sit here and on the roof (8.2). The stair inside it is art only, like the Block's shop interiors.
 - **The kitchen roof** is the bakery's one-storey rear extension (x 0..8, z -3..10) at y 5.7. It joins the market
-  roof over a 0.30 m curb at x 0. Its east parapet on Mott (1.0 m) has a broken 3 m section at z 2..5, lit by the
-  glow of the LILY CAFE sign opposite.
+  roof over a 0.30 m curb at x 0. Its east parapet on Mott (1.0 m, guarded) has a broken 3 m section at z 2..5, lit
+  by the glow of the LILY CAFE sign opposite. That gap is the roof's one way down besides the stair.
 
-**What the roof is for:** it is optional.
+**The authored drops (every one 4.0 m or less, checked by check 4 in section 17):**
+
+| Drop | From | To | Height | Landing speed | Damage |
+|---|---|---|---|---|---|
+| R1 | the kitchen roof's parapet gap (x 8, z 2..5, y 5.7) | the sidewalk shed deck on the bakery's Mott face (4.6, top 3.2) | 2.5 m | 10.2 m/s | 0 |
+| R2 | the shed deck's missing plywood panel (x 10, z 2..5, y 3.2) | the Mott west sidewalk (0.15) or the roadway (0) | 3.05 to 3.2 m | 11.3 to 11.6 m/s | 0 |
+| | the mid landing of the stair (2.85), over its rail | the yard (0) | 2.85 m | 10.9 m/s | 0 (the rail is guarded anyway) |
+
+A sprint off the shed lands on the parked van (roof 2.0 m) or on the roadway; both are free.
+
+**What the roof is for:** it is optional in Story, and it is contested ground, never a safe camp.
 
 - From the roof you look over Canal (Reel 4 and the street) and down Mott toward the Square.
-- It is a short cut from Reel 5 to Mott St: up the stair, across the roofs and down through the gap. There is no
-  fall damage, so the drop costs nothing.
-- Goons cannot get up and shoot from the street, so the parapets matter. Buzzards attack freely up here. That
-  rule already holds on the Block's scaffold deck.
-- Three air spawns sit over the roof and yard, so the roof is never a safe camp.
+- It is a short cut from Reel 5 to Mott St: up the stair, across the roofs, down onto the shed and to the street,
+  with no damage taken.
+- **Enemies up here.** The roof is the nav layer `roof` (y 5.7, rect x -26..8, z -14..10). With nav step A
+  (layers, no links, MAPS.md lane N):
+  - Three roof Goon spawns (rf1 to rf3, 8.2) put Goons on the roof whenever the player is on it, or is in Canal,
+    alley A or the market below it (each point's `overlooks` zones). Roof Goons fire down over the parapets.
+  - A Goon whose target is on another layer does not path toward the target's (x, z). It moves to the nearest cell
+    of its own layer within 30 m that has a line of sight to him (a **firing cell**) and fights from there. So street
+    Goons take the yard, alley B, the Canal sidewalk and Mott, looking up, instead of bunching in the market under the
+    slab.
+  - A Goon with no firing cell, out of the player's view and not having seen him for 10 s, goes back to the pool
+    and its wave slot back to the queue (the stranded rule of midtown.md 7.2).
+  - With nav step B, the yard stair is a link and Goons follow the player up and down.
+- Buzzards attack freely up here, as on the Block's scaffold deck. Three air spawns sit over the roof and yard and one
+  over the kitchen roof.
+- Until step A exists (the early grey box), the roof spawns are switched off in the data and the roof is the
+  Block-like player-and-Buzzards-only space. Canal Street does not ship like that: Hold Canal Street on a Goon-free
+  roof is the camping exploit the reviews found (8.6).
 
 ### 4.5 The bakery (W3: shell x 0..8, z -14..10; walk-through shop)
 
@@ -329,6 +400,15 @@ slab whose top is the walkable roof at **5.7 m**. The floor is concrete at y 0. 
 
 - West sidewalk x 8..10, one-way roadway x 10..16, east sidewalk x 16..18, kerbs 0.15.
 - West-lane parking: a sedan (z -8..-3.5), a van (z 3..8.5) and a taxi (z 18..22.5).
+- **A sidewalk shed** along the bakery's Mott face (x 8..10, z -3..10): a plywood-and-pipe deck with its top at
+  3.2 m, its posts on the kerb line (x 9.7..9.9, every 3 m, clear of the bakery's Mott door at z 2..4) and a 1.0 m
+  plywood parapet on its outer edge, guarded, with one missing panel at z 2..5. It is the landing of drop R1 and the
+  start of drop R2 (4.4). The deck is above the nav band, so only its posts block the street layer. About 10
+  colliders.
+- **The everyday street:** a fruit stand under the shed's south end with crates on the sidewalk, two delivery e-bikes
+  chained to the shed posts, cardboard bales and trash bags on the kerb, a 七星巴士 SEVEN STARS COACH storefront (an
+  intercity bus ticket office, with its waiting-line stanchions) on S3, and a 快匯 QUICK WIRE money transfer and phone
+  shop next to the grocery. These are the details that make it Canal and Mott rather than a set.
 - A box truck across the south end (x 9.6..17.6, z 27.2..29.8).
 - 46 m long and narrow, so Goons push up and down it.
 - The fronts on Mott: the bakery's kitchen door; S3 如意雜貨 GOOD WISHES GROCERY, with fruit boxes on the
@@ -351,15 +431,19 @@ slab whose top is the walkable roof at **5.7 m**. The floor is concrete at y 0. 
 
 ### 4.8 The Square (x 18..44, z 2..18, paved, y 0.15)
 
-- A small public square with a **pavilion** at its centre:
+- A worn neighbourhood park, not a festival set: cracked asphalt and old hexagonal pavers, a low chain-link fence
+  around two dirt beds, folding card tables where old men play cards and xiangqi in the evening, a basketball hoop on
+  a pole in the south-east corner (x 40.6..40.9, z 16.0..16.3), park benches with armrests, a city trash can at every
+  exit, pigeons. At its centre stands an old **pavilion**, its paint peeling, lit from below by one work lamp:
   - a plinth at x 27.5..34.5, z 6.5..13.5, y 0.15..0.45. Its top is under 0.47, so it does not block nav;
   - four columns 0.4 m square at (28.2, 7.2), (33.8, 7.2), (28.2, 12.8) and (33.8, 12.8);
   - a pagoda roof slab at 3.6..4.4. It blocks shots and Buzzards, and it is above the nav band.
-- Four planters 3 x 1 x 0.9 m at the corners: (20..23, 4..5), (39..42, 4..5), (20..23, 15..16) and
-  (39..42, 15..16).
-- Benches and mahjong folding tables at x 23..23.8 and 38..38.8, z 9..11.
-- A pair of stone guardian lions at the banquet doors, at (29.5, 16.8) and (36.5, 16.8).
-- Lantern strings from the pavilion to the facades at 6 to 8 m, art only.
+- Four raised concrete beds 3 x 1 x 0.9 m at the corners, edged with chain-link: (20..23, 4..5), (39..42, 4..5),
+  (20..23, 15..16) and (39..42, 15..16).
+- Benches and folding card tables at x 23..23.8 and 38..38.8, z 9..11.
+- A pair of small stone lions at the banquet hall's doors, at (29.5, 16.8) and (36.5, 16.8): the hall's own, as
+  restaurants have them. They are the only lions in the level.
+- No lantern strings over the Square. The level's one lantern string hangs over the banquet doors (4.9).
 - This is the Buzzards' arena: 26 x 16 m of open air over three-storey E2, at most 15 m of flight ceiling.
 - Exits: the Mott edge (x 18), the arcade mouth (x 29.4..33.6 at z 2) and the banquet hall doors (x 31..35 at
   z 18).
@@ -367,7 +451,8 @@ slab whose top is the walkable roof at **5.7 m**. The floor is concrete at y 0. 
 ### 4.9 The banquet hall and the dub room (E2, x 18..44, z 18..32)
 
 - **The banquet hall** is 鶴亭酒家 CRANE PAVILION BANQUET HALL, interior x 26.3..43.6, z 18.4..31.6.
-  - Floor 0.15, clear height 5.0. The main doors (4 m, red lacquer with 囍 panels) are at x 31..35 on the Square.
+  - Floor 0.15, clear height 5.0. The main doors (4 m, red lacquer with 囍 panels) are at x 31..35 on the Square,
+    under the level's one string of red lanterns (16 lanterns, art only).
   - Seven round tables with cloths and chairs (1.7 m collider boxes) at (29.5, 21.5), (33.5, 21.5), (29.5, 25),
     (33.5, 25), (37.5, 21.5), (29.5, 28.8) and (33.5, 28.8).
   - A stage at x 40.8..43.6, z 18.8..26.6, 0.40 high, with a backdrop panel.
@@ -396,15 +481,15 @@ adds 0.9.
 | N6 | 26..44, -36..-33 | 7 | 22.4 / 23.3 | Canal | red brick | 晴天洗衣 SUNNY DAY LAUNDROMAT; 明月旅館 BRIGHT MOON HOTEL (4-storey blade, the east landmark) | 0 |
 | W1 | -44..-30, -14..32 | 6 | 19.3 / 20.2 | Canal, alley A | red brick | 西城五金 WEST CITY HARDWARE (gate down) | 3 (alley A) |
 | M | -26..0, -14..6 | 1 (hall) | 5.7 / 6.8 (Canal side) | Canal | painted block and corrugated fascia | 金潮市場 GOLDEN TIDE MARKET (walk in) | 0 (the climbable stair is separate) |
-| B0 | -26..-16, 6..10 | 1 | 5.7 | alley A | common brick | market storeroom (shut) | 0 |
-| W3 | 0..8, -14..-3 (front), -3..10 (one-storey rear) | 5 / 1 | 16.2 / 17.1; rear 5.7 | Canal, Mott | buff brick | 月門餅家 MOON GATE BAKERY (walk through) | 0 |
+| B0 | -26..-16, 6..10 | 1 | 5.7 | alley A | common brick | market storeroom (shut); its roof bulkhead is the roof Goons' door (4.4) | 0 |
+| W3 | 0..8, -14..-3 (front), -3..10 (one-storey rear) | 5 / 1 | 16.2 / 17.1; rear 5.7 | Canal, Mott | buff brick, sidewalk shed on Mott | 月門餅家 MOON GATE BAKERY (walk through) | 0 |
 | S1 | -30..-14, 14..32 | 5 | 16.2 / 17.1 | alley B (backs) | common brick | backs | 2 (alley B) |
 | S2 | -14..0, 14..32 | 5 | 16.2 / 17.1 | alley B (backs) | painted brick | backs | 1 (alley B) |
-| S3 | 0..8, 14..32 | 6 | 19.3 / 20.2 | Mott | brown brick | 如意雜貨 GOOD WISHES GROCERY | 1 (Mott) |
+| S3 | 0..8, 14..32 | 6 | 19.3 / 20.2 | Mott | brown brick | 如意雜貨 GOOD WISHES GROCERY; 七星巴士 SEVEN STARS COACH; 快匯 QUICK WIRE | 1 (Mott) |
 | E1a | 18..29.4, -14..2 | 5 | 16.2 / 17.1 | Canal, Mott, Square | red brick | 金福電器 GOLDEN LUCK ELECTRONICS (Canal); 百合茶餐廳 LILY CAFE (Mott); 巧手裁縫 CLEVER HANDS TAILOR (Square) | 1 (Mott) |
 | Arcade | 29.4..33.6, -14..2 | under E1 | 4.2 (ceiling) | Canal, Square | terrazzo, glass kiosks | 梅花商場 PLUM BLOSSOM ARCADE | 0 |
 | E1b | 33.6..44, -14..2 | 6 | 19.3 / 20.2 | Canal | buff brick | 清晰眼鏡 CLEAR VIEW OPTICAL (Canal); 大光招牌 BIG LIGHT SIGNS (inside, off the arcade) | 0 |
-| E2 | 18..44, 18..32 | 3 | 10.0 / 10.9 | Square, Mott | painted stucco, red and gold | 鶴亭酒家 CRANE PAVILION BANQUET HALL; 銀浪影音 SILVER WAVE VIDEO (the dub room) | 0 |
+| E2 | 18..44, 18..32 | 3 | 10.0 / 10.9 | Square, Mott | painted stucco, cream with gold trim | 鶴亭酒家 CRANE PAVILION BANQUET HALL; 銀浪影音 SILVER WAVE VIDEO (the dub room) | 0 |
 
 In total there are **10 fire-escape stacks** and one climbable stair. Only N1's and N3's escapes are in the
 start view (section 13.4, flicker).
@@ -420,7 +505,7 @@ start view (section 13.4, flicker).
 - **First view:** east down Canal. The table row and the glowing market entrances are on the right, the TWIN
   CARP and JADE TEAPOT signs on the left, and the 明月旅館 blade 77 m away above the IPX truck, so the end of the
   level is in sight from the first second. The Reel 4 marker is 30 m ahead and slightly right.
-- **Patrol check:** the starting patrol must spawn at least 32 m away. 27 of the 35 ground points qualify (the
+- **Patrol check:** the starting patrol must spawn at least 32 m away. 27 of the 35 street ground points qualify, plus the 3 roof points (the
   market, Mott, the Square, east Canal).
 
 ---------------------------------------------------------------------------------------------------
@@ -449,6 +534,11 @@ Whether to keep 1 to 3 per level instead is open question 2.
   case's 75 cm lift suits a reel on a table or pallet.
 - Before all three reels are in, the refusal prompt plays every 8 s, as on the Block. The Block's line ("Reels
   still out there — the truck won't roll without all three") is not tied to the Block's place, so Canal reuses it.
+- **Staging.** The truck idles from the start, as on the Block, but boxed in: the stalled delivery truck at the east
+  barriers sits across its nose. Its hazard lights blink until all three reels are in; then its rear doors open
+  (AMITruck Open, the existing state) and its beacon turns on, which is what draws the eye down the arcade. Midtown
+  stages its truck differently (it rolls in at the end, midtown.md 6.3), so the three extractions do not feel the
+  same.
 
 ---------------------------------------------------------------------------------------------------
 
@@ -488,8 +578,8 @@ The generator must check that each intended leg is **at least 10 % shorter** tha
 |---|---|---|
 | The market grid | Four identical rows; hanging goods cut the long view | Ground path. The cold-room sign 冷庫 is lit cold white and visible down the west aisle. The boombox loop at the case. The objective marker. |
 | Three ways out of the market (gates, side door, rear roll-up) | The side door into alley A is the nearest exit from the cold room in a straight line | The path takes the rear roll-up, which is lit by a work lamp and a green exit box. The side door is a narrow dark door for the player only. Alley A loops to alley B anyway, so it is never a dead end. |
-| Alley A's dog-leg | The alley seems to end in a wall | Stencilled "MOTT ST →" and a lit kitchen door at the bend (x -28, z 12), and a lantern string turning the corner. |
-| The roof | After climbing the stair, the way down may not be obvious | The broken parapet on Mott is lit from the LILY CAFE sign. The stair head has a hazard-yellow handrail. A drop anywhere is safe. |
+| Alley A's dog-leg | The alley seems to end in a wall | Stencilled "MOTT ST →" and a lit kitchen door at the bend (x -28, z 12), and the wholesaler's lit back door with its cartons at the corner. |
+| The roof | After climbing the stair, the way down may not be obvious | The one gap in the kitchen roof's Mott parapet is lit by the LILY CAFE sign; it drops 2.5 m onto the sidewalk shed, whose missing panel drops 3.05 m to Mott, both free of damage. The stair head has a hazard-yellow handrail. Every other edge is guarded, so nobody falls by accident and nobody is tempted into a drop that hurts. |
 | Mott St south | The dub room roll-up is on the left among other shopfronts | The only raised shutter on Mott, with a flickering dead neon over it, and light spilling onto wet asphalt. The marker. |
 | After Reel 6 | Two exits (the Mott roll-up or the banquet hall) | The path goes through the hall. The radio line names the arcade. The arcade's arch sign is the brightest object on the Square. |
 | The arcade | A tunnel; the truck is not visible from the Square | The truck's beacon and the 明月旅館 blade show through the arcade's north mouth. |
@@ -517,9 +607,16 @@ The rules come from MIGameRules and config.json:
 - tooClose 9 m (re-pick), waves from at least 18 m, the patrol from at least 32 m, and the 26 m ring as a
   fallback.
 
-Chinatown needs no rule change.
+Chinatown changes no rule. It reads two things from its level file (`tuning`, section 15), both of them absent for
+the Block:
 
-### 8.2 Ground spawns (35)
+- `tuning.difficulty.maxAliveAdd` **1**: maxAlive 10, 12 and 14 on hustler, boss and kingpin. The close quarters
+  make every extra Goon count, and the pools (12 Goons, 8 Buzzards) still cover it.
+- `tuning.spawn.excludePlayerRoom` **true** (8.4).
+
+The Buzzard share is not raised here: Buzzards are at their weakest in 4 to 10 m streets (8.5).
+
+### 8.2 Ground spawns (38)
 
 - y is 0 on asphalt and 0.15 on sidewalks and interior floors.
 - Facing is toward the nearest opening or the play space, as the exporter's `facingSource` does.
@@ -531,6 +628,10 @@ Chinatown needs no rule change.
 | Alley (5) | a1 (-28, -12), a2 (-28, -4), a3 (-28, 7), a4 (-28, 12.5), a5 (-19, 12) | a3, a5 and m3 are within 9 m of Reel 5, so the 9 m re-pick drops them for that wave. |
 | Market (9) | m1 (-24.2, -12.4) NW inside, m2 (-2.6, -12.4) NE inside, m3 (-23.6, 0.4) back aisle west, m4 (-6.5, 4.2) by the rear door, m5 (-13, 9.2) yard, m6 (-4.5, 8.6) yard, m7 (2.0, 7.0) bakery kitchen, m8 (-6, 12) alley B, m9 (5.5, 12.4) alley B east | `interior` is true for m1 to m4 and m7. |
 | Mott and east (9) | t1 (9.0, -6) W3 side, t2 (17.0, -4) E1a door on Mott, t3 (13, 30.8) behind the south box truck, t4 (9.0, 22) S3 door, t5 (31.5, -1.0) arcade (interior), t6 (21.5, 16.6) Square SW behind a planter, t7 (42.6, 4.0) Square NE service gate, t8 (40.0, 29.5) banquet kitchen (interior), t9 (24.8, 30.4) dub room (interior) | |
+| Roof (3), layer `roof`, y 5.7 | rf1 (-21.4, 5.7, 8.0) at the B0 bulkhead door, rf2 (-4.0, 5.7, -12.4) behind the rooftop letters' legs, rf3 (-24.0, 5.7, -5.0) behind the west condenser | `layer` roof, `overlooks` [canal, alley, market]: a candidate only when the player is on the roof or in those zones. Needs nav step A; switched off in the data until then (4.4). |
+
+Every other point carries `layer` street. The spawn reach of this level is street → [street, roof] and roof →
+[roof, street], filtered by each roof point's `overlooks`.
 
 ### 8.3 Air spawns (18)
 
@@ -554,7 +655,8 @@ ceiling is 15 m absolute), and at least 1.5 m from any collider.
   east and west and out of the north shops, with Buzzards over the roadway. The market entrances behind you are
   the cover. That is the intended push.
 - **Wave 2** (Reel 5, in the cold room). The candidates are the Canal doors, the bakery kitchen, alley B
-  (m8, m9), m2 inside the market's NE corner, and Mott. The fight comes into the market from the front gates and
+  (m8, m9), Mott and the roof (rf1 to rf3, firing down into the yard). m1 to m4 are inside the market's interior
+  box, which the player is in, so `excludePlayerRoom` drops them: no Goon appears behind the next counter. The fight comes into the market from the front gates and
   the yard at once. The player fights out through the rear roll-up into alley B, or climbs to the roof.
 - **Wave 3** (Reel 6, in the dub room). The candidates are the arcade (t5), the Square (t6, t7), the banquet
   kitchen (t8), Mott north (t1, t2) and the Canal east end. The pursuit then refills from the same pool while you
@@ -565,10 +667,11 @@ ceiling is 15 m absolute), and at least 1.5 m from any collider.
 
 ### 8.5 Buzzards here
 
-- **No El.** The loader requires `el.deck`, and the Buzzards plan around it. Chinatown parks a degenerate deck
-  **outside the bounds**: underside 40, rail top 40.33, x 300..301, z 300..301. Every deck test in MIEnemies.cpp
-  (lines 1715-1718 and 1949-1970) is a point-in-rectangle check, so a deck 250 m outside the bounds never applies.
-  No code change is needed. Making `el` optional would be cleaner, and that is the gameplay lane's choice.
+- **No El.** The loader requires `el.deck` today, and the Buzzards plan around it. Revision 2 makes `el` optional
+  once, for both new levels (`bHasDeck`, MAPS.md lane E, item E2): the level file has no `el` section and the deck
+  logic is skipped. The Block's file has its deck, so its code path is unchanged. The degenerate-deck trick of the
+  first draft (a deck parked 250 m outside the bounds) is the fallback only if E2 slips: every deck test in
+  MIEnemies.cpp is a point-in-rectangle check, so it would never apply.
 - **Ceiling.** maxAltitude 15 m absolute. Only E2 (10.9 m) and the one-storey roofs can be flown over. Everything
   else is a wall, so Buzzards travel along Canal, Mott, the Square and the market airspace.
 - **Orbit in narrow streets.** Orbit radius 14 to 22 m (clamp 13 to 23) is wider than Mott (10 m) and alley B
@@ -584,8 +687,11 @@ ceiling is 15 m absolute), and at least 1.5 m from any collider.
 
 ### 8.6 Hold mode (holdout) on Canal Street
 
-Holdout is offered on Canal St: it has 35 ground and 18 air spawns, and its explosives come back every second
-wave. It needs:
+Holdout is offered on Canal St: it has 38 ground and 18 air spawns, and its explosives come back every second
+wave. **It ships only with nav step A**, because without roof Goons the roof is a camp: a player at the stair head,
+behind a 1.1 m parapet, shooting Goons who cannot reach him, scores without limit. With step A the roof spawns
+(rf1 to rf3) come out of the B0 bulkhead while he is up there and street Goons take firing cells that see him, so the
+roof is a place to pass through, not to hold. A Holdout bot test proves it (check 12 in section 17). It needs:
 
 - a per-level mode name, "Hold Canal Street", because "Hold the Block" reads wrong here;
 - a tagline, "One street. Endless Vultures.";
@@ -617,7 +723,7 @@ level explosive i. Each item owns one collider.
 | 13 | propane | (9.0, 0.15, -1.0) | mott | false | bakery kitchen's Mott door |
 | 14 | rack | (37.0, 0.15, -8.4) | mott | true | the neon workshop |
 | 15 | rack | (33.0, 0.15, -12.0) | mott | true | arcade, the sign-repair kiosk (the arcade narrows to 3.2 m here) |
-| 16 | propane | (21.8, 0.15, 10.0) | mott | false | Square, hot-pot cart by the mahjong tables |
+| 16 | propane | (21.8, 0.15, 10.0) | mott | false | Square, hot-pot cart by the card tables |
 | 17 | propane | (41.8, 0.15, 30.8) | mott | true | banquet kitchen |
 
 Rule of thumb: every fight space has one pair that can be shot. Nothing explosive sits within 4 m of a reel
@@ -625,7 +731,7 @@ case, a doorway centre or the extraction zone.
 
 ---------------------------------------------------------------------------------------------------
 
-## 10. Cover points (about 104)
+## 10. Cover points (about 112)
 
 The rule is the exporter's:
 
@@ -645,6 +751,7 @@ The rule is the exporter's:
 | Arcade and workshop | 4 | kiosk pillar (2), workshop door jambs (2) |
 | Square | 8 | planters (4), pavilion columns, too thin to qualify, so none; benches and tables (2); lions (2) |
 | Banquet and dub room | 6 | tables (4), cutting table (2) |
+| Roof (layer `roof`) | 8 | skylights (3), condensers (2), the letters' legs (2), the B0 bulkhead (1) |
 
 ---------------------------------------------------------------------------------------------------
 
@@ -693,12 +800,25 @@ lamps.rig: the nearest lamps get real lights) is the fallback if the count in vi
 | Arcade and workshop | 4 + 1 | 0 | rects along the ceiling, 4500 K; the workshop's half-lit sign |
 | Alleys and yard | 3 + 1 | 0 | bulkhead lamps over back doors, 3000 K |
 | Kitchen roof | 1 | 0 | the LILY CAFE spill at the broken parapet |
-| Square | 1 | 1 (pavilion lantern spot) | warm spot down through the pavilion; the lantern strings are emissive only |
+| Square | 1 | 1 (pavilion work-lamp spot) | warm spot down through the pavilion; the one lantern string over the banquet doors is emissive only |
 | Banquet hall and dub room | 3 + 2 | 1 (stage) | chandelier points (unshadowed), stage spot (shadowed), dub room work lamp and screen glow |
 | Banquet kitchen | 1 | 0 | fluorescent |
 | **Total** | **48** | **10** | |
 
 Small clutter does not cast shadows: props under 0.5 m, lanterns, sign tubes, cables and hanging goods.
+
+Rules for the shadowed ten, because SM5 has no virtual shadow maps:
+
+- **Spots only.** A shadowed point light renders six cube faces; a spot renders one. The market's two shadowed
+  lights are its bulb spots, not the fluorescent rects. No point light casts a shadow.
+- The lights are movable but never move, so whole-scene shadow caching (`r.Shadow.CacheWholeSceneShadows` 1, the
+  engine default) keeps their static-geometry depths cached and redraws only what moves (Goons, Buzzards, the player).
+  The box checks the cached path is active with `stat shadowrendering`.
+- Shadow maps at 512 px (street lamps) and 1024 px (the stage spot) at most.
+
+**Measure before art.** This rig is shared with Midtown (one piece of work, MAPS.md lane L). It is built first in the
+grey box with placeholder sign quads, and its five worst views are measured under the l20 load (MAPS.md stage 2)
+before any sign is drawn. Wetness is the first quality-ladder step to drop if the numbers miss (11.4).
 
 ### 11.3 Emissive
 
@@ -711,7 +831,20 @@ The values follow ART_BIBLE 5.2:
 - Shop interiors through glass: the interior cube maps.
 
 At most **3 signs flicker**, all slow dropouts and never a strobe: SILVER WAVE VIDEO (dying), the 麻將 window
-neon, and one stroke of the rooftop 金潮市場. Lanterns glow red at 40 to 80 nits.
+neon, and one stroke of the rooftop 金潮市場. The one lantern string glows red at 40 to 80 nits.
+
+**Colour plan (readability, section 1).** The Goons are oxblood on black, so:
+
+- Market aisles: hard white bulbs and fluorescents (5000 K), the cold room cold white, the stall boards painted, not
+  lit. No red emissive inside the hall.
+- Alley B and the yard: bulkhead lamps at 3000 K, the lit kitchen door, the bakery's alley door pink-white. No red.
+- The arcade: 4500 K rects, the arch signs in jade green and white, the workshop's half-finished sign in blue.
+- The Square: the pavilion work lamp (warm white), the CRANE PAVILION band in gold and cream; red only on the
+  lacquered doors and the one lantern string over them, which a player looks at only when walking into the hall.
+- Canal: the mix of the sign table in 13.3, with red limited to signs on the north row above 4 m (JADE TEAPOT's
+  blade keeps a red outline; TWIN CARP's gold-on-red band is the one red-ground lightbox, at 3.2 to 4.2 m).
+- The Goons' look is not changed for this level unless check 11 (section 17) fails. If it fails, the fix is a
+  per-level `tuning.enemyLook` rim boost (MAPS.md lane E, item E9), then sign colours, never a brighter street.
 
 ### 11.4 Wet ground
 
@@ -722,6 +855,10 @@ neon, and one stroke of the rooftop 金潮市場. Lanterns glow red at 40 to 80 
 - Puddles come from `puddles.pools` as decals (a new M_MI_Decal kind `puddle`) at roughness 0.04 with a
   rain-ripple normal off. The Block keeps Wetness 0, so its look is unchanged.
 - Vertex-colour Wear A (splash/wetness) adds wet streaks at the kerbs and wall bases.
+- **Damp fallback.** Wet ground puts most street pixels into Lumen's reflection pass, and on SM5 Lumen traces only
+  the global distance field (r.Lumen.TraceMeshSDFs=0), so off-screen neon reflects as soft blobs at a cost. If the
+  grey-box measurement (MAPS.md stage 2) misses budget, the level switches to `damp`: Wetness 0.3, roughness at least
+  0.45, puddle decals kept. `damp` is also the first step of the quality ladder for this level.
 
 ### 11.5 Steam and drips
 
@@ -802,10 +939,13 @@ fallback triangles.
 | Market hall shell: walls, roof slab, parapets, skylights, rooftop gravel | 1 set | 40k total | Fitted to the colliders (structures.py's measuring step) |
 | Market stall counter (2 m), fish counter with ice tray, produce crate stack, dry-goods sacks and bins, styrofoam boxes, hanging stall board, tarp, pendant bulb cage, fish tank, hanging scale, hand truck | 11 | 1-6k | Instanced (ISM) |
 | Vendor folding table with cloth; goods clusters: unbranded bags, generic watches in a case, sunglasses rack, "NEW YORK" T-shirts, "CANAL ST" caps, phone cases and chargers, the disc and USB-stick table; market umbrella; clothing rail | 9 | 2-6k | No logo, monogram or pattern that resembles any brand |
-| Red paper lantern A and B, lantern string | 3 | 0.6k | ISM, at most 120 instances |
-| Pavilion (plinth, 4 columns, pagoda roof) | 1 | 40k | Roof tiles as a tiling set, not modelled one by one |
-| Guardian lion (stone) | 1 (mirrored) | 15k | Generic cultural form, no copy of a real statue |
-| Mahjong folding table and stools, park bench | 3 | 1-3k | |
+| Red paper lantern, lantern string | 2 | 0.6k | ISM, one string of 16 over the banquet doors |
+| Pavilion (plinth, 4 columns, pagoda roof), weathered | 1 | 40k | Roof tiles as a tiling set, not modelled one by one; peeling paint in the material |
+| Small stone lion (banquet doors) | 1 (mirrored) | 12k | Generic restaurant-door form, no copy of a real statue |
+| Folding card table and stools, park bench with armrests, basketball hoop and pole, chain-link bed edging | 4 | 1-4k | The Square as a worn park |
+| Everyday street: delivery e-bike (no brand), cardboard bale, fruit-stand crates and scale, waiting-line stanchions, coach-office counter | 5 | 2-6k | The everyday clutter the reviews asked for; trash bags, crates and shopping carts are reused |
+| SM_Struct_CT_SidewalkShed_Mott (deck, posts, plywood parapet with the missing panel) | 1 | 10k | Fitted to its colliders (4.6); the Block's SidewalkShed modules where they fit |
+| SM_Struct_CT_RoofBulkhead_B0 | 1 | 4k | The roof Goons' door (4.4) |
 | Banquet round table with cloth and 8 chairs, stage and backdrop panel (囍), red lacquer double door, chandelier, kitchen range and woks | 5 | 3-10k | Tables and chairs as ISM |
 | Dub room: reel-to-reel deck, tape deck rack, disc-burner tower, blank-disc boxes, cutting table, monitor without a brand, cable bundles | 7 | 2-8k | |
 | Neon workshop: tube bundles, bending bench, transformer boxes, half-finished sign | 4 | 2-6k | |
@@ -831,14 +971,14 @@ Every name below is made up for the game. Before any face is drawn:
 
 | Sign | Chinese | Meaning | Where | Built as | Night |
 |---|---|---|---|---|---|
-| GOLDEN TIDE MARKET | 金潮市場 | golden-tide market | market: rooftop letters + Canal band + 2 blades | rooftop open-face pan letters with red neon; band lightbox | on; one stroke flickers |
+| GOLDEN TIDE MARKET | 金潮市場 | golden-tide market | market: rooftop letters + Canal band + 2 blades | rooftop open-face pan letters with warm white and gold neon; band lightbox | on; one stroke flickers |
 | Stall boards: FRESH FISH, FRUIT, VEGETABLES, DRY GOODS, TOFU, ROAST MEAT | 鮮魚, 生果, 蔬菜, 乾貨, 豆腐, 燒味 | generic trade words | market stalls | painted boards | lit by bulbs |
 | COLD ROOM | 冷庫 | cold storage | cold-room door | small lightbox, cold white | on |
 | MOON GATE BAKERY | 月門餅家 | moon-gate bakery | W3 Canal | pink exposed neon + band | on |
 | WEST CITY HARDWARE | 西城五金 | west-city hardware | W1 Canal | lightbox | off (shut, gate down) |
-| LANTERN ALLEY | 燈籠巷 | lantern lane | alley A mouth | painted wooden board | lit by lanterns |
+| LANTERN ALLEY | 燈籠巷 | lantern lane | alley A mouth | painted wooden board, the wholesaler's | lit by a bulkhead lamp |
 | GOLD HITS RECORDS | 金曲唱片 | golden-hits records | N1 ground | lightbox band; "CDs · VINYL" in the window | on |
-| JADE TEAPOT DIM SUM | 玉壺點心 | jade-teapot dim sum | N1 2F, 6 m blade | exposed neon red and green | on |
+| JADE TEAPOT DIM SUM | 玉壺點心 | jade-teapot dim sum | N1 2F, 6 m blade | exposed neon green and white, red outline | on |
 | TWIN CARP JEWELRY | 雙鯉珠寶 | twin-carp jewellery | N2 | gold-on-red lightbox, the brightest band | on |
 | SEA BREEZE TRAVEL | 海風旅行社 | sea-breeze travel agency | N2 3F | window vinyl | lit window |
 | EIGHT TREASURE BBQ | 八寶燒臘 | eight-treasure roast meats | N3 | lightbox + roast-duck window | on |
@@ -854,7 +994,7 @@ Every name below is made up for the game. Before any face is drawn:
 | Kiosks: WATCH REPAIR, KEYS CUT, PHONES, NEON SIGNS | 修錶, 配匙, 手機, 光管招牌 | generic trades | arcade | small lightboxes | on |
 | BIG LIGHT SIGNS | 大光招牌 | big-light signs | neon workshop | half-finished glowing sign | on |
 | CLEAR VIEW OPTICAL | 清晰眼鏡 | clear-view glasses | E1b Canal | lightbox | on |
-| CRANE PAVILION BANQUET HALL | 鶴亭酒家 | crane-pavilion restaurant | E2 Square | red and gold band; 囍 (double happiness) on the doors | on |
+| CRANE PAVILION BANQUET HALL | 鶴亭酒家 | crane-pavilion restaurant | E2 Square | gold and cream band; 囍 (double happiness) on the red doors | on |
 | SILVER WAVE VIDEO | 銀浪影音 | silver-wave audio-video | E2 Mott, over the dub room | exposed neon, half dead | flickers |
 | GOOD WISHES GROCERY | 如意雜貨 | as-you-wish grocery | S3 Mott | lightbox + fruit boxes | on |
 | SHOP FOR RENT / FOR LEASE | 吉舖出租, 招租 | vacant shop to let | upper windows | paper signs, no numbers | |
@@ -862,6 +1002,8 @@ Every name below is made up for the game. Before any face is drawn:
 | Vendor placards | | "CDs $5", "USB $10", "BAGS $20", "SUNGLASSES $5", "3 FOR $10" | tables | card and marker | |
 | Street blades | | CANAL ST, MOTT ST | corners | plain green blade, no agency mark | retroreflective |
 | Graffiti | | VULTURES, VLTR (oxblood), RULE, INC (gold) | alleys, gates | spray paint | |
+| SEVEN STARS COACH | 七星巴士 | seven-stars bus | S3 Mott | lightbox band, timetable posters with invented towns, no prices of real routes | on |
+| QUICK WIRE · PHONES | 快匯 · 手機 | quick remittance, phones | S3 Mott, next to the grocery | lightbox + window stickers (generic phone shapes, no makes) | on |
 
 ### 13.4 Rules for this level's art
 
@@ -913,14 +1055,14 @@ The bar is the Block's measured envelope. Every number is checked on the box wit
 | Colliders (axis-aligned boxes, brute-force rays) | 777 | **at most 800** (planned about 780, 14.1) |
 | Oriented boxes sliced into colliders | 322 | at most 40 (everything parked square to the street) |
 | Actors | 1,083 | at most 1,100 (facades as one holder per building with ISMs; signs merged per building) |
-| ISM instances | 1,350 | at most 2,200 (lanterns, stalls, chairs, goods) |
+| ISM instances | 1,350 | at most 2,200 (stalls, chairs, goods, street clutter) |
 | Triangles drawn (SM5 fallback), worst view | unmeasured | **at most 1.5 M** (aim 1.1 M); shadow-depth passes at most 0.8 M |
 | Draw calls (mesh draw commands), worst view | unmeasured | **at most 1,500** base pass; at most 600 across shadow passes |
 | Local lights | none (day) | 48 placed / at most 20 in view / 10 shadowed placed / at most 4 shadowed in view |
 | Translucency | steam | at most 2 layers (steam) near the camera; no rain; glass is opaque (M_MI_Glass) |
 | Texture streaming want at 1080p, worst view | 717 to 865 MB against a 600 MB pool | **at most 800 MB**, which assumes the 1000 MB pool of READY.md R4. If the pool stays at 600: LOD bias +1 on the sign atlases and dressing sets, and at most 600 MB. |
 | New texture sets | 225 in the Block | at most 12 tiling + 30 unique + 3 sign atlases (about 600 MB on disk) |
-| Cooked size added by the map | one version is 2.1 to 2.2 GB | at most +0.9 GB (E3DS storage is 10 GB) |
+| Cooked size added by the map | one version is 2.1 to 2.2 GB | at most **+0.6 GB** (both new maps together at most +1.0 GB: every E3DS session copies the whole zip to a cold machine, 1 to 3 minutes today, and storage is 10 GB) |
 | Card memory through a run | 6.1 to 6.8 GB | at most 7.0 GB |
 
 **Shared risk with the Block: vehicles and the road.** Vehicles are 150k to 179k triangles each, and
@@ -951,7 +1093,9 @@ fallback settings that view alone could pass 1.5 M. Before Canal St art goes in:
 | Bakery: walls 10, counter, table, ovens 5 | 15 |
 | Arcade and workshop: walls and kiosks 16, pillar 1 | 17 |
 | Banquet and dub room: walls 12, tables 7, stage 1, kitchen 4, racks and cutting table 4 | 28 |
-| Climbable stair and landings | 30 |
+| Climbable stair and landings, with their outer guards | 30 |
+| Sidewalk shed on Mott (deck, posts, parapet, guards) | 10 |
+| Roof edge guards (playerOnly) and the B0 bulkhead | 16 |
 | Kitchen roof slab and parapets | 6 |
 | Vendor tables, goods racks, carts | 34 |
 | Vehicles: 12 parked + IPX truck, sliced as the exporter does (about 5 per car, 8 per truck) | 76 |
@@ -960,7 +1104,7 @@ fallback settings that view alone could pass 1.5 M. Before Canal St art goes in:
 | The Square: columns 4, roof 1, planters 4, benches and tables 4, lions 2 | 15 |
 | Explosives | 18 |
 | Map edges: barriers, dig plates, end trucks | 30 |
-| Spare | 71 |
+| Spare | 45 |
 | **Total** | **about 780** |
 
 ---------------------------------------------------------------------------------------------------
@@ -981,8 +1125,8 @@ fallback. The others feed the art builder, the tests or the guidance lane.
 | `playerStart` | loader | zone canal, web pos (-40.0, 0, -24.5), yaw -1.5708, facing (1, 0, 0); ue (-4000, -2450, 0), yaw 0 |
 | `objectives[]` | loader, rules, HUD | the three rows of section 6 (index, id, code, label, zone, place, interior, prop, web pos/rotationY/forward, ue) |
 | `extraction` | loader, rules | section 6; truck.pos and rotationY are required (loader line 128) |
-| `enemySpawns.points` | loader, spawning | 35 ground + 18 air (section 8), each with type, zone, place, interior, facing and facingSource |
-| `coverPoints.points` | loader, AI | about 104 (section 10), onDeck false |
+| `enemySpawns.points` | loader, spawning | 38 ground + 18 air (section 8), each with type, zone, place, interior, facing, facingSource and the new optional `layer` (street or roof) and `overlooks` (zones) |
+| `coverPoints.points` | loader, AI | about 112 (section 10), onDeck false, each with `layer` |
 | `explosives.items` | loader, combat | 18 (section 9), each with its collider index (owner kind explosive) |
 | `interior` | loader, AI, audio | fade 1.5. boxes: market (-25.6, 0, -13.6)..(-0.4, 5.4, 5.6); bakery front (0.4, 0, -13.6)..(7.6, 3.8, -3.2); bakery kitchen (0.4, 0, -3.0)..(7.6, 5.4, 9.6); arcade (29.4, 0, -14)..(33.6, 4.2, 2); workshop (34.0, 0, -10)..(37.6, 3.8, -4); banquet (26.3, 0, 18.4)..(43.6, 5.0, 31.6); dub room (18.4, 0, 18.4)..(26.0, 4.2, 31.6). doorways (outside → inside, y): market gates (-20, 2.6, -16.5)→(-20, 2.6, -11.8), (-13, …), (-6, …); market rear (-5, 2.6, 8.6)→(-5, 2.6, 3.6); arcade north (31.5, 2.6, -16.5)→(31.5, 2.6, -11); arcade south (31.5, 2.6, 4.5)→(31.5, 2.6, -1); banquet doors (33, 2.5, 15.5)→(33, 2.5, 20.0); dub room roll-up (15.5, 2.4, 25.5)→(21.0, 2.4, 25.5). That is 8 doorways. |
 | `vantage` | reference, tests | stairsFoot (-9.4, 0, 7.7); deck (-12, 5.7, -4) (the market roof) |
@@ -990,9 +1134,11 @@ fallback. The others feed the art builder, the tests or the guidance lane.
 | `steam.vents` | art, FX | 7 (11.5) |
 | `puddles.pools` | art (wet decals) | about 18: along both Canal gutters (z -29.6 and -19.2) every 8 to 12 m, radius 0.8 to 2.4; Mott gutters; alley low points (-28, 6) and (-10, 12); the yard drain (-6, 9); the Square's SW corner |
 | `buildings` | art, tests | storeys {ground 3.8, upper 3.1}; list = the 4.10 table (id, name, wall, floors, colliders, web rect, roof, parapetTop); backs [] |
-| `el` | loader (deck only) | `deck` degenerate outside the bounds (8.5): {underside 40, railTop 40.33, minX 300, maxX 301, minZ 300, maxZ 301, tracksZ []}; `present: false`; bents, columns, girders, station, layout empty. The art builder must skip the El when `present` is false. |
+| `el` | loader (deck only) | **absent** (8.5). The loader treats a missing `el` as no deck (MAPS.md item E2), and the art builder skips the El. |
 | `train` | not read by C++ | omitted; the train pass is per-level audio (12) |
-| `nav` | Golden-style test | generated by the same rule (`physics` constants), cols 176, rows 132, origin (-44, -34); must equal FMIBoxWorld's rebuild cell for cell |
+| `nav` | Golden-style test, AI | `layers`: street (y 0, the plane rule of today, cols 176, rows 132, origin (-44, -34)) and roof (y 5.7, "boxes", rect x -26..8, z -14..10); `links`: yardStair (written, used from nav step B); `spawnReach` street [street, roof], roof [roof, street]. The grids are **written by the engine's bake step** (MAPS.md lane D, `-run=MILevelBake`), from the colliders, with FMIBoxWorld's own code, never by the Python tool |
+| `tuning` | rules, AI (new, optional) | `difficulty.maxAliveAdd` 1; `spawn.excludePlayerRoom` true; `startPitch` 4; `rating` absent (the config table) |
+| `drops` | tests | R1, R2 of 4.4 (from, to, height) |
 | `physics` | reference | the Block's constants, unchanged: STEP_HEIGHT 0.42, NAV_CELL 0.5, NAV_INFLATE 0.5, band 0.47..1.5, … |
 | `colliders.boxes` | loader (collision, sight, nav) | about 780 AABBs with tag, surface, owner, blocks and flags (14.1); byTag, byOwner and bySurface summaries |
 | `orientedBoxes` | art, reference | few or none |
@@ -1030,11 +1176,12 @@ The front-end thumbnail `T_UI_Level_Chinatown` is a 16:9 frame from key 1.
   "text": "frontend.levels.chinatown",
   "map": "/Game/Maps/L_Chinatown",
   "data": {"level": "level_chinatown.json", "props": "props_chinatown.json", "atmos": "atmos_chinatown.json", "audio": "audio_chinatown.json"},
-  "place": {"night": "frontend.levels.chinatown.place.night"},
+  "place": {"night": "frontend.story.chinatown.location.byTime.night"},
+  "number": 2, "par": 5.0, "story": "frontend.story.chinatown", "greyMap": "/Game/Maps/L_GreyChinatown",
   "times": ["night"],
   "provides": {
     "playerStart": true, "objectives": 3, "extraction": true,
-    "enemySpawns": {"ground": 35, "air": 18},
+    "enemySpawns": {"ground": 38, "air": 18},
     "nav": true, "coverPoints": true, "explosives": true, "titlePath": true, "showroom": null
   },
   "preview": {"camera": "titlePath", "thumbnail": {"asset": "T_UI_Level_Chinatown", "status": "missing", "notes": "16:9 frame from title key 1 (the tables)"}},
@@ -1042,118 +1189,135 @@ The front-end thumbnail `T_UI_Level_Chinatown` is a 16:9 frame from key 1.
 }
 ```
 
-`order` becomes ["block", "chinatown", "midtown"]. `default` stays "block".
+`order` becomes ["block", "chinatown", "midtown"] only in the change that ships the split Level and Style screens and
+map travel (progression.md 7.1). Until then the entry exists, its data loads in tests by id, and the front end is
+unchanged. `default` stays "block".
 
-### 15.3 Per-level text (frontend_text.json `frontend.levels.chinatown`; never shadows text.json)
+### 15.3 Per-level text (frontend_text.json `frontend.story.chinatown`; never shadows text.json)
 
-Lines that name the player use `{name}` for DEUCE, SMOKE and KEYS. Rule's own line is the same sentence with
-"Rule" (crew.json lines.replaces).
+Revision 2 moves this level's text to the shared overlay schema of progression.md 7.2, which holds the full JSON.
+The overlay's key paths are text.json's own (`radio.intro`, `cards.debrief.kicker`, `objectives.mission`, ...), radio
+entries are `{text, secs}`, and any key it lacks falls back to text.json. What changed from the first draft:
 
-```json
-"chinatown": {
-  "name": "Canal Street",
-  "blurb": "Chinatown after the rain. The tables, the market, the dub room. Tight corners, lots of neon.",
-  "place": {"night": "Chinatown, Manhattan · Canal St · 7:40 PM"},
-  "story": {
-    "eyebrow": "IPX PRESENTS · CHINATOWN, MANHATTAN",
-    "tagline": "Three more masters. One market. Tight corners.",
-    "taglineHoldout": "One street. Endless Vultures.",
-    "holdoutName": "Hold Canal Street",
-    "objectives": ["Take back three more masters", "Two masters left", "Last master", "Get to the IPX truck"],
-    "radio": {
-      "intro": "{name}, it's the Vault. Vultures moved three more masters to Canal — the tables, the market, the dub room. Bring them home.",
-      "introRule": "Rule, it's the Vault. Vultures moved three more masters to Canal — the tables, the market, the dub room. Bring them home.",
-      "reel": ["That's one. Canal heard it — more coming.", "Two. They're pouring out of the back rooms.", "All three. The IPX truck is idling at the east end of Canal. Cut through the arcade. Move."],
-      "done": "Masters are in the vault. Canal's clean, {name}. They're taking what's left uptown.",
-      "introHoldout": "Vultures are coming out of every door on Canal. Hold the street, {name}."
-    },
-    "cards": {"debriefKicker": "Chinatown, Manhattan · Debrief", "debriefTitle": "Canal is yours", "deadTime": "Time on Canal"},
-    "boot": ["Lighting the signs", "Hosing down the market", "Stacking the tables", "Waiting out the rain"],
-    "zones": {"canal": "CANAL ST", "alley": "LANTERN ALLEY", "market": "THE MARKET", "mott": "MOTT ST"},
-    "hints": ["Reel 4's on a table outside the market. South side of Canal.", "Back of the market. The cold room, by the west wall.", "Out the market's back door, down the alley to Mott. The dub room's shutter is up.", "The truck's at the east end of Canal. Cut through the arcade off the square."]
-  }
-}
-```
+- The keys moved from `frontend.levels.chinatown.story.*` to `frontend.story.chinatown.*`, and the flat names took
+  text.json's paths: `debriefKicker` → `cards.debrief.kicker`, `debriefTitle` → `cards.debrief.title`, `deadTime` →
+  `cards.dead.stats.time`, `holdoutName` → `modes.holdout.name`, `tagline` / `taglineHoldout` →
+  `location.tagline` / `location.taglineHoldout`, `hints` → `guide.hints`, `place.night` → `location.byTime.night`.
+- `introRule` is gone: `{name}` resolves to "Rule" for Rule, so one line serves every crew member.
+- **One word on the HUD.** The HUD says "reels" on every map, the radio says "masters" (the Vault's word). The
+  objective lines read "Take back three more master reels", "Two reels left", "Last reel", "Get to the IPX truck".
+  The reel labels stay "Reel 4 — The Tables" and so on, and the loading card and debrief show the album count
+  ("Album · 6 of 9 home", progression.md 1.2).
+- The radio reel lines name no reel by place, so they hold in any order: "That's one. Canal heard it — more coming.",
+  "Two. They're pouring out of the back rooms.", then the all-in line, which may name the truck because it plays only
+  when every reel is in.
+- The level card keeps `frontend.levels.chinatown.name` ("Canal Street"), `blurb` and `placeShort` (progression.md
+  3.8).
 
-The radio lines are kept within the Block's lengths: the intro runs about 125 characters, as the Block's does
-(4.4 s at 58 characters per second). The `prompts.refuse` and `radio.contact` lines are reused from text.json.
+The radio lines stay within the Block's lengths: the intro runs about 121 characters (4.3 s at the Block's typing
+pace). `prompts.refuse` and `radio.contact` are reused from text.json.
 
 ---------------------------------------------------------------------------------------------------
 
 ## 16. What this level needs from the code and pipeline lanes (none of it changes the Block)
 
-These are shared with Level 3. Owners and order are for the lead (MAPS.md).
+These are shared with Level 3. MAPS.md section 3 gives each item its lane, its stage and its tests; the item codes
+(E1, N1, ...) are MAPS.md's.
 
-1. **Level-aware data.** `FMILevelData::Get(LevelId)` loads levels.json `data.level`. `Get()` stays the Block,
-   so every golden and run test is unchanged. `rules`, `text`, `audio` and `atmos` are chosen the same way.
-2. **Map travel** on "Hit the block" and on a debrief "Next: Canal Street", with the set-up handed over and the
-   intro on arrival. It must come from game code: the cloud console refuses `open`. Add L_Chinatown (and
-   L_GreyChinatown) to BlockMaps, or make the check read levels.json maps.
-3. **Times per chosen level.** Boot reads the default level's `times` and refuses night. It must read the loaded
-   level, and build `rigs.night` from the level's atmos file (11.1).
-4. **Per-level audio zones and ambience** (12). Without this the Block's chop shop reverb box lands on Canal St.
-5. **Per-level strings** (15.3), falling back to text.json for the Block. That covers the HUD location card,
-   objective lines, radio, cards, boot lines, zones, the mode display name and the eyebrow.
-6. **Per-level `startPitch`** (4°), and per-level rating thresholds if the playtests ask for them.
-7. **Save:** completed levels, plus a best score per level for Hold mode.
-8. **Optional:** a per-level Buzzard orbit override (8.5), and `el` made optional instead of the degenerate deck.
-9. **Generator and tests:**
-   - The layout tool writes `level_chinatown.json` from a rectangle table (Appendix A is the seed).
-   - mi_greyblock_map.py takes a level id and makes L_GreyChinatown.
-   - New tests: Level.Chinatown.Nav (rebuild equals file), Level.Chinatown.DataLoads (provides vs file), and a
-     Run.StoryComplete smoke test on Chinatown.
-10. **Art builder.** build_block.py is parameterised by level: map path, data files, street extent, backdrop and
-    rig from levels.json and the level's atmos. It must reproduce L_Block exactly.
-    - send-art.sh learns the `SM_*_CT_*` patterns.
-    - package-cloud.sh cooks /Game/Maps/L_Chinatown, and the start map stays L_Block.
+1. **Level-aware data (E1).** `FMILevelData::ForLevel(Id)` loads levels.json `data.level`. `Get()` stays the
+   Block, so every golden and run test is unchanged. Text, audio, atmos and tuning are chosen the same way.
+2. **`el` optional (E2)** instead of a degenerate deck (8.5).
+3. **Map travel (T1 to T4)** on "Hit the block" and on the debrief's "Next: Canal Street", with the set-up handed
+   over and the intro on arrival, from game code (the cloud console refuses `open`). The boot gate reads levels.json
+   `map` and `greyMap` (E3).
+4. **Times per chosen level and the night rig (E4, L1).** Boot reads the loaded level's `times` and builds
+   `rigs.night` from the level's atmos file (11.1).
+5. **Per-level audio zones and ambience (E6)** from `audio_chinatown.json` (12). Without this the Block's chop-shop
+   reverb box lands on Canal St.
+6. **Per-level strings (E5)**, the overlay of 15.3, falling back to text.json for the Block.
+7. **Per-level `tuning` (E7):** startPitch 4°, `difficulty.maxAliveAdd`, `spawn.excludePlayerRoom` (E8), and the
+   rating table if playtests ask for one.
+8. **Nav step A (N1 to N4):** per-layer grids, `layer` on spawns and covers, spawn reach with `overlooks`, firing
+   cells, the stranded rule. **This level needs it to ship** (4.4, 8.6). Nav step B (N5, links) makes the yard stair a
+   link; the level is complete without it.
+9. **Save (P2):** cleared levels, a best rating per level and a Hold best per map.
+10. **Generator and bake (D1 to D4):** the shared layout tool (`tools/levels/build_level.py`, one schema for both
+    levels; Appendix A is the seed of this level's table) writes colliders, points, layers and links; the engine's
+    bake step writes `nav`, filters cover and writes the reach report with FMIBoxWorld's own code. mi_greyblock_map.py
+    takes a level id and makes L_GreyChinatown.
+11. **Tests (Q1 to Q6):** Levels.Chinatown.Loads, .Nav, .Reach, .Drops and .RoofHold; Run.Chinatown.StoryComplete,
+    StoryDeath and Holdout; a recorded golden once the data is final.
+12. **Art builder (A0, B1):** build_block.py becomes `build_level.py --level <id>`; `--level block` reproduces
+    L_Block exactly, proved by a dump-and-diff of manifest, placements and actor list taken before the refactor.
+    send-art.sh learns the `SM_*_CT_*` patterns; package-cloud.sh cooks /Game/Maps/L_Chinatown, and the start map
+    stays L_Block.
 
 ---------------------------------------------------------------------------------------------------
 
 ## 17. Checks the level data must pass (generator gates, before any art)
 
-1. **Nav equality.** FMIBoxWorld's grid rebuilt from `colliders` equals `nav` cell for cell.
-2. **Connectivity.** One component holds:
+1. **Nav equality.** The `nav` in the file is the engine bake's output, so this check guards against hand edits and
+   stale files: FMIBoxWorld's rebuild from `colliders` equals `nav` cell for cell, per layer.
+2. **Connectivity.** One component of the street layer holds:
    - the start;
    - a cell within 2.2 m of each reel (and 2.5 m vertically);
    - the extraction disc;
-   - every ground spawn, or a cell within 4 m of it.
+   - every street ground spawn, or a cell within 4 m of it.
+   The roof layer's spawns are on one roof component, and (with step B) the yard stair joins the two.
 3. **Legs.** Each leg is within ±10 % of section 7.1. The intended routes for legs 3 and 4 are at least 10 %
    shorter than the best alternative.
-4. **Gaps and steps.**
+4. **Gaps, steps, edges and drops.**
    - Every Goon doorway is at least 2.0 m wide.
    - Every walkable step is at most 0.42 m.
    - The stair is walked bottom to top and back by a PlayerSim test.
-   - A drop from every roof edge lands on a walkable cell.
+   - **Edges (Levels.Chinatown.Drops):** a sprinting PlayerSim capsule pushed outward, with jumps, every 1 m along
+     every edge of the roof, the stair, the shed and the stage never leaves its surface, except through the authored
+     drops R1 and R2; every authored drop is at most 4.0 m, and the landing takes no damage under config.json
+     `player.fall`.
 5. **Spawns.**
-   - Ground points are on free cells.
+   - Ground points are on free cells of their layer.
    - Air points are 2.2 to 12 m over the ground below, at least 1.5 m from any box, and inside the bounds minus
      the Buzzards' margin of 1.2 m.
 6. **Fallback ring.** Sample player positions every 2 m on the nav. At each one, count the ground points at least
-   9 m away and hidden from the eye (1.6 m) by the box ray cast. If any sample has fewer than 3, add a point near
-   it.
+   9 m away, hidden from the eye (1.6 m) by the box ray cast, not in the player's interior box, and on an allowed
+   layer. If any sample has fewer than 3, add a point near it.
 7. **Colliders.** At most 800, all axis-aligned. Explosive collider indices match `explosives.items`. Every
    interior doorway's inside point lies in exactly one interior box.
 8. **Run smoke.**
-   - Story completes on the scripted route.
+   - Story completes on the scripted route, and again in the order 6, 4, 5 (the radio and hints read right in any
+     order).
    - Holdout spawns both kinds.
    - The Block's goldens still pass unchanged.
 9. **Performance gates** (14): the five worst views on the box with l20 at 1080p, then on E3DS. Flicker
    (rev8 at 0.50) on the alley A and Mott fire escapes. Texture streaming want and cooked size recorded.
 10. **Content.** Every name in 13.3 searched, the Chinese signed off, no brand look-alikes (ART_BIBLE 5.7).
+11. **Readability.** In each of the five worst views (14), with the final lighting, a Goon placed at 15 m and at
+    25 m on the critical path: its silhouette's mean luminance differs from the background behind it by at least
+    a factor of 1.6 at render scale 0.50, and a reviewer who did not build the level finds it in the stream frame
+    within 2 s. A failure is fixed by sign colours, then by the `tuning.enemyLook` rim boost (11.3).
+12. **The roof is no camp (Levels.Chinatown.RoofHold).** A Holdout bot holds the stair head and then the roof's
+    centre, invulnerable, for 120 s each on boss: Goons engage him on the roof (from the bulkhead or from firing
+    cells) within 20 s of each wave start, at least 60 % of the wave's Goons fire at him at least once, and no Goon
+    stands for more than 10 s inside the market under him.
+13. **Reel rooms are reachable.** Every interior box that holds a reel (the cold room, the dub room) has a Goon path
+    from at least two ground spawns, and at least one spawn reaches it within 30 s of walking.
 
 ---------------------------------------------------------------------------------------------------
 
 ## 18. Build order
 
-1. **Data first.** Write the rectangle table (Appendix A, finished), generate `level_chinatown.json`, pass
-   checks 1 to 7, and build L_GreyChinatown. Play the grey box on the box: spawns, Buzzards in the narrow
-   streets, the roof, the guidance path. Tune the points and cover. No art yet.
-2. **Light prototype in the grey box.** Night rig, the 48 lights on their posts, wet M_MI_Surface on grey boxes,
-   emissive placeholder sign quads. Measure the worst views with l20. This decides the light count before any
-   sign is drawn.
+MAPS.md section 3 schedules this level's work in stages and lanes. In short:
+
+1. **Data first.** Write the rectangle table (Appendix A, finished), run the layout tool and the engine bake to
+   produce `level_chinatown.json`, pass checks 1 to 7, and build L_GreyChinatown. Play the grey box on the box:
+   spawns, Buzzards in the narrow streets, the roof (once nav step A is in), the guidance path. Tune the points and
+   cover. No art yet.
+2. **Light prototype in the grey box.** The shared night rig, the 48 lights on their posts, wet M_MI_Surface on grey
+   boxes, emissive placeholder sign quads. Measure the five worst views with l20, wet and damp. This decides the light
+   count and the wetness before any sign is drawn. Check 11 runs here with grey Goons first.
 3. **Blender:**
    - the Chinatown family;
-   - signs.py atlases and Chinese tube lettering;
+   - signs.py atlases and Chinese tube lettering, after the names are searched and the Chinese is signed off;
    - facade tables for N1 to N6, W1, W3, S1 to S3, E1a/b and E2 (as data, beside the Block's SHOPS and
      BUILDINGS, not in them);
    - placements;
@@ -1167,17 +1331,16 @@ These are shared with Level 3. Owners and order are for the lead (MAPS.md).
 
 ## 19. Open questions (owner or lead)
 
+Decided in revision 2: the reel codes stay 4 to 6 (one album, progression.md); the roof is a nav layer with roof
+Goons (4.4); each level starts fresh with the set-up handed over (progression.md 2.2). Still open:
+
 1. **Time of day.** This design picks night (7:40 PM, wet). The other option is dusk, about 4:45 PM, sun at 2 to
    4°. Dusk keeps the sun cascade and needs the clouds, losing their quality step. It also reads as "lots of
    neon" only in the shade.
-2. **Reel codes** 4 to 6 (one album across the levels, this design) or 1 to 3 per level?
-3. **Who checks the Chinese text**, and are the Noto CJK fonts acceptable (or WenQuanYi)?
-4. **Hold mode name** "Hold Canal Street" and a best score per level. Accepted?
-5. **The roof** is player and Buzzard space only (Goons shoot up from below), as the Block's shed deck. Is that
-   acceptable, or should Level 2 wait for multi-layer nav, which Level 3 may need anyway?
-6. **A campaign run:** does health or ammo carry over from the Block, or does each level start fresh with its own
-   debrief? This level assumes a fresh start, with the set-up handed over.
-7. **The bridge silhouette** to the east is a real structure shown far away and unnamed. Is it allowed under
+2. **Who checks the Chinese text**, and are the Noto CJK fonts acceptable (or WenQuanYi)? Nothing in 13.3 is final
+   until a reader of Traditional Chinese has signed it.
+3. **Hold mode name** "Hold Canal Street" and a best score per map. Accepted?
+4. **The bridge silhouette** to the east is a real structure shown far away and unnamed. Is it allowed under
    ART_BIBLE 5.7, or should it be generic towers only?
 
 ---------------------------------------------------------------------------------------------------
@@ -1199,6 +1362,9 @@ stall rows         R1 -21.6..-19.8, R2 -16.4..-14.6, R3 -11.2..-9.4, R4 -6.0..-4
 fish counters      -1.4..-0.4, -10..-1
 pallets            -15..-13.4, -12.6..-11, -10.2..-9.4; z 2.4..5.2
 yard stair         -14.6..-8.6, 6.0..8.2 (flights and landings: 4.4; the prototype blocked -16..-9.8)
+B0 bulkhead        -25.4..-22.4, 6.6..9.4 on the B0 roof (5.7 to 8.3), door on the east face z 7.0..9.0
+roof guards        playerOnly on every outer roof edge, 5.7..8.7, except the stair head and the Mott gap z 2..5
+Mott shed          deck 8..10, -3..10 (top 3.2); posts at x 9.7..9.9; parapet 1.0 with the missing panel z 2..5
 yard dumpster      -1.9..-0.4, 6.3..8.1;   gas cage -9.0..-7.2, 8.8..9.8
 bakery shell       0..8, -14..10; Canal door x 2..4; partition z -3.2..-3 with a door x 3..5
                    Mott door z 2..4; alley door x 4..6; counter 0.4..5, -8..-7; table 3.6..5, 4.6..8.4
