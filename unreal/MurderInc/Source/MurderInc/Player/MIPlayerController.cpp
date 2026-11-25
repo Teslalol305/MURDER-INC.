@@ -929,8 +929,15 @@ void AMIPlayerController::MIKey(const FString& Command)
 		UE_LOG(LogMI, Error, TEXT("MIKey: unknown key '%s'"), *Command);
 		return;
 	}
-	const bool bCtrl = Parts.Contains(TEXT("ctrl")), bShift = Parts.Contains(TEXT("shift"));
-	const bool bDownOnly = Parts.Contains(TEXT("down")), bUpOnly = Parts.Contains(TEXT("up"));
+	// Only the words after the key name: FString compares without case, so the arrow keys "Up" and "Down" read as the
+	// release-only and press-only words, and "MIKey Up" sent a bare release (logged "not handled", READY.md W3).
+	TArray<FString> Words = Parts;
+	if (Words.Num() > 0)
+	{
+		Words.RemoveAt(0);
+	}
+	const bool bCtrl = Words.Contains(TEXT("ctrl")), bShift = Words.Contains(TEXT("shift"));
+	const bool bDownOnly = Words.Contains(TEXT("down")), bUpOnly = Words.Contains(TEXT("up"));
 	UMIGameSubsystem* G = UMIGameSubsystem::Get(this);
 	UMIFrontEnd* F = G ? G->GetFrontEnd() : nullptr;
 	bool bHandled = false;
