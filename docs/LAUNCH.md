@@ -348,7 +348,8 @@ game's Settings card (P, Settings); you can set it for everybody with the launch
    | `GPU 9.8 ms` | the time the card needs for one picture: 60 a second needs under 16.7 ms, 45 under 22.2, 30 under 33.3 |
    | `drawn 1440 x 810, sent 1920 x 1080` | the size the game draws at (it shrinks when the card is busy) and the size of the video |
    | `stream 57 a second (lowest 50), 11.0 Mbit/s, QP 20, round trip 38 ms` | the video as the server sends it: pictures a second and their lowest, the data rate, the compression (lower QP is sharper), and the time to your computer and back. From release 3c the QP is followed by the range the encoder may use (`QP 31 of 24 to 42`: E3DS's Medium is QP 34, the game allows 10 below and 8 above), and the round trip is the median of the last measured values, left out when none was measured (before it was the last report, which read 0 ms whenever the audio's report came last). It is the time to the other end of the game's own video connection: on E3DS that may be E3DS's relay on the server and not your computer, and then it reads about 1 ms whatever your line; E3DS's Info panel has the time to your computer |
-   | `build 6c4d810` | the build: version 3a must say `6c4d810` |
+   | `quality step 2 of 6` | from the quality ladder (release 3c, section 9.3): `0 of 6` is full quality; each step up is a setting the game gave up because the card was still the limit (`, fixed` when a launch option holds it, `, ladder off` when it is off). It sits after the GPU time |
+| `build 6c4d810` | the build: version 3a must say `6c4d810` |
 
    The numbers in brackets ("lowest …") are the lowest of the last half minute of play; the numbers in front of
    them are of the moment the screenshot shows, so on the pause card the stream's number can be the lower one.
@@ -372,6 +373,13 @@ behind, in three steps, by itself:
 3. **It lowers its rate** from 60 pictures a second to 45, and then to 30, when the card cannot hold the higher rate
    even with the smallest picture. It decides this in the first seconds of a run and goes back up only on a menu or
    the pause card.
+4. **It gives up looks** (release 3c: the quality ladder). When the card is still over 85 % of the frame time with the
+   smallest picture, for 3 seconds of play, the game takes the next of six steps, at most one in ten seconds, cheapest-looking
+   first: the volumetric clouds off (this level's daytime sky has none to see), the bounce light in Lumen's surface cache off, the
+   sun's shadow cascades cut from ten to three and the smallest things casting no shadow, lighting at level 1 (flatter bounce light),
+   Lumen's reflections off, shadows at level 1. Together they take about half of the GPU's time on the box's card. It goes back up
+   one step only after a minute of play with room to spare, on a card or a set-up screen, and never while the rate is below 60. The
+   pause card's line says "quality step 3 of 6"; the log has a line for every change (`[MICloud] Quality: ...`).
 
 So on a slow server you get a softer picture and a steady 45 or 30 pictures a second instead of 60 that freeze, and
 the pause card's line says "target 45" or "target 30". On a fast server nothing changes: 60, at version 2's picture.
@@ -389,7 +397,7 @@ on the menu, not in play; making it shorter is for the next build.
 
 If your line says "target 30" (or the game's number is under 30), send it: E3DS support can say whether your
 sessions can run on their faster cards, `-MIFps=30` (section 13) makes the rate steady from the first second, and
-the next build lowers the lighting quality before it lowers the rate.
+from release 3c the game also gives up looks (step 4 above) as the card runs short, and the line then says "quality step n of 6".
 
 ### 9.4 What is new in version 3a
 
@@ -601,6 +609,8 @@ build machine, so the menu names may differ slightly):
 | `-MIExitAfterEmpty=<seconds>` | from release 3c: the game quits this long after the last viewer left (default 20; 0: never; how 20 was chosen: paragraph below) |
 | `-MIExitIfNoViewer=<seconds>` | from release 3c: the game quits this long after it started if no viewer ever connected (default 600; 0: never) |
 | `-MILauncherPid=<pid>` | from release 3c: given by `MurderInc.sh` itself (its own process id): the game quits 5 s after that process is gone. Not for the stream configuration |
+| `-MIQuality=<n>` | from release 3c: fixes the quality ladder at step `n` (0 is full quality, 6 the last step of the cloud profile), whatever the card does. The same as `MI.Cloud.QualityStep` (which a page's console-commands field may set, `-1` frees it) |
+| `-MINoLadder` | from release 3c: turns the quality ladder off (full quality at every load; `MI.Cloud.QualityLadder 0` does the same). The frame-rate target still moves |
 | `-MIQpExact` | from release 3c: the video encoder gets exactly the quality numbers E3DS asks for (Medium QP 34, High QP 16, a constant quantiser), as before |
 | `-MIQpBelow=<n>` and `-MIQpAbove=<n>` | from release 3c: how wide the range around E3DS's number is (default 10 below, not under QP 8, and 8 above, not over QP 48: Medium 34 gives 24 to 42, High 16 gives 8 to 24) |
 

@@ -261,9 +261,32 @@ with fast turning has no game frame over 100 ms and no "Timed out waiting for fe
 - **Player gains** a game that never freezes on a turn, at 60 frames a second wherever the card allows. **Loses**
   some sharpness, and on slow cards 45 or 30 frames a second, which is still far better than multi-second freezes.
 
-### V3-2. Step the quality down by measured GPU time (new; overrides plan B3's "Do NOT lower Lumen, Nanite or shadow quality")
+### V3-2. Step the quality down by measured GPU time (new; overrides plan B3's "Do NOT lower Lumen, Nanite or shadow quality") — DONE in release 3c (the quality ladder), see below for what is left
 
-- **Change.** `Source/MurderInc/Cloud/MICloud.cpp` and `.h`: a governor in `UMICloudSubsystem::Tick`, next to
+**Status (2026-11-25, release 3c; docs/unreal/PROGRESS.md "Release 3c: the quality ladder").** Built, unit-tested and gated on the
+box with the Development game; not yet seen on E3DS and not part of any package. What it is: six steps of console variables, data in
+`DefaultGame.ini` `[MICloud]` (`QualitySteps=` lines, one per step, in the order they are given up), `Cloud/MIQuality.h/.cpp` for the
+decision (a pure function of the GPU's time) and `UMICloudSubsystem` for the application. It goes down one step when, in live play at
+the smallest picture, the GPU's time has been over 85 % of the frame time of the frame-rate target in force for 3 s (at most one
+change in 10 s); it comes back up one step only after 60 s of play with room to spare (what the step above would cost, worked out with
+its measured saving, under 70 % of the frame time), at a card or a set-up screen, and only at the highest target; a rise that does not
+hold doubles the wait. `-MIQuality=<n>` fixes the step, `-MINoLadder` turns it off; the step is on the pause card's line and in the
+probe line. What was decided differently from the text below, and why: (1) the order is not the one planned here (Lumen at Epic's 60 fps
+level first): the measurement, step by step on the box's card in E3DS's own shader platform (SM5, no Nanite, software Lumen), put the
+volumetric clouds first (about a sixth of the GPU's time, nothing visible in this level's clear sky), then the bounce light, the sun's
+shadow cascades, the lighting level, Lumen's reflections and the shadow level; (2) the ladder acts at the frame time of the target in
+force (so at 60 it keeps the head-room a fight needs while the rate is still held), not only after the rate has fallen to 30; (3) nothing
+waits for a "safe moment" to go down, because no step of the final table hitches in play (the longest frame in the two seconds after
+any change was 44 ms in the warm test folder; the table still supports a `calm` step for a variable that does); (4) the steps are
+applied as console variables of the cloud profile's priority, not through `ApplyStreamedQuality`, which belongs to the Settings card.
+**What is left:** (a) a run on E3DS (the first session's log must show the `Quality ladder:` line, the `Quality:` lines of any change and
+`q=` in the probe line); (b) the card there is a different card: the savings are the box's, in milliseconds a factor of about 2.5 larger on
+E3DS's A4000, in shares of the frame about the same; the table's percentages are only used to judge a rise; (c) the clouds step is free
+because this level's sky has none in the daytime: a level or a time of day with visible clouds makes it cost a look (check the other
+times of day); (d) output size (`r.SetRes` smaller, stretched by the browser) saved only 2 to 6 % of the GPU's time in the box's runs and
+was left out; (e) hardware ray tracing (SM6) was not measured at all: the SM6 game's steps are the same variables with other costs.
+
+- **Change as planned (kept for the record).** `Source/MurderInc/Cloud/MICloud.cpp` and `.h`: a governor in `UMICloudSubsystem::Tick`, next to
   V3-1. Every 5 s it averages the GPU time (`RHIGetGPUFrameCycles`, already read by the probe). If V3-1 had to lower
   the frame-rate target, or dynamic resolution sat at its minimum for 10 s, it steps the quality down one level at the
   next **safe moment** (home screen, set-up screens, pause, between waves, before a run starts: quality changes can
@@ -275,7 +298,8 @@ with fast turning has no game frame over 100 ms and no "Timed out waiting for fe
   frame-rate target stays V3-1's lever). It steps back up only on the home screen, when the GPU stays under 8 ms. Apply groups through the
   existing `UMICloudSubsystem::ApplyStreamedQuality`. Log each step, show the level on the pause card (V3-5), and
   add a launch option `-MIQuality=0..3` that pins a level. The exact cvars per step come from `BaseScalability.ini`,
-  checked on the box.
+  checked on the box. (What the measurement found about this order: group level 2 of Lumen and of the effects hitched for 120 to 256 ms
+  when set in play and saved 4 to 8 %; level 1 of the lighting saved 15 %, hitched 44 to 71 ms.)
 - **Why.** The owner's decision of 23:10 UTC. A T4-class card would otherwise give 15 to 25 frames a second.
 - **Cost.** About a day with box tests on a slowed GPU (DECISIONS.md item 2 asks for the same set-up).
 - **Player gains** about 60 frames a second on T4- or A10-class cards. **Loses**, on such cards only: flatter
