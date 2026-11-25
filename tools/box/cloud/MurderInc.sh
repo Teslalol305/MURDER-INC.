@@ -25,7 +25,9 @@
 # found"), so this launcher writes it: everything that goes to the log above also goes to that file and to this
 # launcher's own output. The argument itself is not passed on to the game (one writer per file).
 #
-# Stop signals (TERM, INT, HUP) are passed on to the game, which then quits normally (exit code 0).
+# Stop signals (TERM, INT, HUP) are passed on to the game at once (and the game is killed if it is still there 8 s
+# later); if this launcher itself is killed, a watchdog ends the game. Before the game starts, every other game of
+# this package that is still running on the machine is stopped: see "leftovers" below.
 # Started as root (Unreal refuses to run as root), the game runs as the folder's owner, or "nobody", with HOME in /tmp.
 #
 # Launch options (E3DS: the stream configuration's launch options arrive as arguments, and so does whatever a visitor
@@ -39,6 +41,9 @@
 #                 the plain -MIDev.
 #   -MIForceSM6   skip Unreal's Vulkan SM6 check (-SkipVulkanProfileCheck) on a driver that fails it; the game otherwise
 #                 falls back to its SM5 shaders by itself (no Nanite, no Lumen)
+#   -MIKeepOthers do not stop other games of this package that are running on the machine (see "leftovers" below)
+#   -MIReapOthers stop every other game of this package, also off E3DS (the default there; elsewhere only those whose
+#                 launcher is gone)
 # Not passed on to the game: Pixel Streaming's debug dumps (-PixelStreaming...DumpDebug...), which write every frame or
 # the sound to files on the server for as long as the game runs.
 
@@ -64,7 +69,7 @@ STAMP=$(date -u +%Y%m%d-%H%M%S)
 # itself).
 trap '' PIPE
 
-DEV=0; DEVASKED=; FORCESM6=0; ABS=; PASS=(); DROPPED=
+DEV=0; DEVASKED=; FORCESM6=0; ABS=; PASS=(); DROPPED=; KEEPOTHERS=0; REAPALL=0
 # The key of the Development game: one word in MIDEV.key (absent in a test folder: the plain -MIDev then works).
 DEVKEY=$(head -c 200 "$ROOT/MIDEV.key" 2>/dev/null | tr -d ' \t\r\n')
 shopt -s nocasematch   # Unreal's arguments are case-insensitive
@@ -73,6 +78,8 @@ for a in "$@"; do
     -MIDev) DEVASKED=1; [ -z "$DEVKEY" ] && DEV=1 ;;
     -MIDev=*) DEVASKED=1; v=${a#*=}; v=${v#\"}; v=${v%\"}; { [ -z "$DEVKEY" ] || [ "$v" = "$DEVKEY" ]; } && DEV=1 ;;
     -MIForceSM6) FORCESM6=1 ;;
+    -MIKeepOthers) KEEPOTHERS=1 ;;
+    -MIReapOthers) REAPALL=1 ;;
     -ABSLOG=*) ABS=${a#*=}; ABS=${ABS#\"}; ABS=${ABS%\"} ;;   # the host's log file: written below, not passed on
     -PixelStreaming*DumpDebug*) DROPPED="$DROPPED ${a%%=*}" ;;   # files written on the server: not from a link
     *) PASS+=("$a") ;;
@@ -177,6 +184,59 @@ if command -v nvidia-smi >/dev/null 2>&1; then
 else
   note "no nvidia-smi"
 fi
+
+# ---- leftovers: games of earlier sessions that are still running ----
+# E3DS gives a machine to one session at a time (its documentation: a dedicated session has its own machine) but does
+# not always end the game of the session before. Measured on E3DS (docs/unreal/DECISIONS.md, 2026-11-25): the game of a
+# session that had ended minutes before was still running, holding 3.4 GB of the card and drawing at full speed; the
+# next session on that machine ran at a third of the speed, the one after that at a fifth. So before this game starts,
+# the other games of this package on the machine (the Shipping or the Development binary, any folder) are stopped: always
+# those that nobody started and nothing waits for (their launcher is gone: the parent is init), and on an E3DS machine
+# (the folder is .../0.apps/<account>/<app>/<version>) every other one, whatever its parent. TERM first, KILL 4 s later.
+#   -MIKeepOthers  leave them alone (two games of this package on one machine, on purpose)
+#   -MIReapOthers  stop every other game, also off E3DS (a test machine)
+pstate() { local s; s=$(< "/proc/$1/stat") 2>/dev/null || return 1; s=${s##*) }; echo "${s%% *}"; }
+pppid() { local s; s=$(< "/proc/$1/stat") 2>/dev/null || return 1; s=${s##*) }; set -- $s; echo "$2"; }
+reap_leftovers() {
+  [ "$KEEPOTHERS" = 1 ] && { note "leftovers: not looked for (-MIKeepOthers)"; return 0; }
+  local anc=" " p d pid cmd ppid st age rss mode=orphans victims=() v n=0
+  # This launcher and everything above it are never touched.
+  p=$$; while [ -n "$p" ] && [ "$p" -gt 1 ] 2>/dev/null; do anc="$anc$p "; p=$(pppid "$p"); done
+  case "$ROOT" in */0.apps/*) mode=all ;; esac
+  [ "$REAPALL" = 1 ] && mode=all
+  for d in /proc/[0-9]*; do
+    pid=${d#/proc/}
+    case "$anc" in *" $pid "*) continue ;; esac
+    cmd=$(tr '\0' ' ' < "$d/cmdline" 2>/dev/null) || continue
+    case "$cmd" in
+      */Binaries/Linux/MurderInc-Linux-Shipping\ *|*/Binaries/Linux/MurderInc\ MurderInc\ *) ;;
+      *) continue ;;
+    esac
+    st=$(pstate "$pid") || continue
+    [ "$st" = Z ] || [ "$st" = X ] && continue   # already dead, only not collected yet
+    ppid=$(pppid "$pid")
+    age=$(ps -o etimes= -p "$pid" 2>/dev/null | tr -d ' '); rss=$(awk '/^VmRSS/{printf "%d", $2/1024}' "$d/status" 2>/dev/null)
+    if [ "$mode" = all ] || [ "$ppid" = 1 ]; then
+      victims+=("$pid"); note "leftover game: pid $pid (parent $ppid, state $st, running ${age:-?} s, ${rss:-?} MB): stopping it"
+    else
+      note "other game: pid $pid (parent $ppid, state $st, running ${age:-?} s, ${rss:-?} MB): left alone (it has a launcher; -MIReapOthers stops it)"
+    fi
+  done
+  [ ${#victims[@]} -gt 0 ] || { note "leftovers: no other game of this package is running"; return 0; }
+  for v in "${victims[@]}"; do kill -s TERM "$v" 2>/dev/null; done
+  for n in 1 2 3 4 5 6 7 8; do
+    p=0; for v in "${victims[@]}"; do [ -d "/proc/$v" ] && st=$(pstate "$v") && [ "$st" != Z ] && p=1; done
+    [ "$p" = 0 ] && break; sleep 0.5
+  done
+  for v in "${victims[@]}"; do
+    if [ -d "/proc/$v" ] && st=$(pstate "$v") && [ "$st" != Z ] && [ "$st" != X ]; then kill -s KILL "$v" 2>/dev/null; note "leftover game $v did not stop in 4 s: killed"; fi
+  done
+  sleep 1
+  note "leftovers: ${#victims[@]} stopped"
+  command -v nvidia-smi >/dev/null 2>&1 && section "GPU after the leftovers were stopped: name, driver, memory total / used / free" timeout 10 nvidia-smi --query-gpu=name,driver_version,memory.total,memory.used,memory.free --format=csv,noheader
+}
+reap_leftovers
+
 # Libraries the game cannot start without (the Vulkan loader and the NVIDIA Vulkan driver come from the server).
 MISSINGLIB=$(ldd "$BIN" 2>/dev/null | grep "not found" | tr -s ' \t' ' ')
 note "libraries: ${MISSINGLIB:+MISSING$MISSINGLIB}${MISSINGLIB:-all found (ldd)}; Vulkan loader: $( (ldconfig -p 2>/dev/null | grep -m1 -o 'libvulkan.so.1 .*') || echo 'not in ldconfig')"
@@ -243,21 +303,37 @@ else
 fi
 GAME=$!
 NOTEE=; [ -z "$FIFO" ] && NOTEE=1
-# A stop signal for this launcher goes on to the game, once, and only if the game did not get it too: a host that
-# signals the whole process group reaches the game directly, and Unreal treats a second signal during its shutdown as
-# "quit now" (no clean exit). So: wait up to 5 s for the game to end by itself, then pass the signal on.
+# A stop signal for this launcher goes on to the game AT ONCE, once, as SIGTERM (the game may still ignore SIGINT, see
+# DEFSIG, never SIGTERM), and the game is killed if it is still there 8 s later. This used to wait 5 s for the game to
+# end by itself (a host that signals the whole process group reaches the game directly, and Unreal takes a second
+# signal during its shutdown as "quit now": no clean exit); but a host that stops only this launcher and kills it a
+# moment later then left the game running with nobody to stop it, which is what E3DS did: the game of an ended session
+# went on drawing on the card for minutes (docs/unreal/DECISIONS.md, 2026-11-25). A game that quits at once instead of
+# cleanly is the lesser harm.
 STOPPED=; FWD=
-alive() { local st=; read -r _ _ st _ 2>/dev/null < "/proc/$GAME/stat"; [ -n "$st" ] && [ "$st" != Z ]; }
+alive() { local st; st=$(pstate "$GAME") && [ "$st" != Z ] && [ "$st" != X ]; }
 trap 'STOPPED=TERM' TERM
 trap 'STOPPED=INT' INT
 trap 'STOPPED=HUP' HUP
+# If this launcher is killed (SIGKILL cannot be trapped), a watchdog outlives it, sees it gone and stops the game: TERM
+# after 3 s (a host that signals the whole group stops the game itself in that time), KILL 8 s after that. It holds
+# none of the launcher's pipes (the host would otherwise wait for it) and ends with the game.
+LAUNCHER=$$
+(
+  trap '' TERM INT HUP PIPE
+  while :; do l=$(pstate "$LAUNCHER") || break; [ "$l" = Z ] || [ "$l" = X ] && break; sleep 2; done
+  sleep 3
+  if g=$(pstate "$GAME") && [ "$g" != Z ] && [ "$g" != X ]; then
+    kill -s TERM "$GAME" 2>/dev/null; sleep 8
+    if g=$(pstate "$GAME") && [ "$g" != Z ] && [ "$g" != X ]; then kill -s KILL "$GAME" 2>/dev/null; fi
+  fi
+) > /dev/null 2>&1 < /dev/null &
 while :; do
   wait "$GAME"; RC=$?
   alive || break
   if [ -n "$STOPPED" ] && [ -z "$FWD" ]; then
-    for i in 1 2 3 4 5 6 7 8 9 10; do alive || break; sleep 0.5; done
-    # Always as SIGTERM: the game may still ignore SIGINT (see DEFSIG), never SIGTERM.
-    if alive; then kill -s TERM "$GAME" 2>/dev/null; FWD=1; note "got SIG$STOPPED: passed it on to the game as SIGTERM"; fi
+    kill -s TERM "$GAME" 2>/dev/null; FWD=1; note "got SIG$STOPPED: passed it on to the game as SIGTERM"
+    ( sleep 8; kill -s KILL "$GAME" 2>/dev/null ) > /dev/null 2>&1 < /dev/null &
   fi
 done
 # The game may have been reaped by the wait that the trap interrupted: its status is then the last wait's.
