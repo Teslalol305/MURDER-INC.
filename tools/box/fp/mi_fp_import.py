@@ -515,7 +515,7 @@ return shape;
 
 DECAL_HLSL = r"""
 // Kind 0: a bullet strike (dark crater with a lighter chipped ring); 1: a blood spatter (droplets around a stain);
-// 2: a blast scorch (soot fading out). Returns the colour; Alpha and Rough as extra outputs.
+// 1.25: a pool under a body; 2: a blast scorch (soot fading out). Returns the colour; Alpha and Rough as extra outputs.
 float2 p = UV * 2.0 - 1.0;
 float r = length(p);
 float a = atan2(p.y, p.x);
@@ -530,6 +530,15 @@ if (Kind < 0.5) {
   col = lerp(Tint * 1.25, float3(0.015, 0.013, 0.012), hole);
   Alpha = saturate(hole + chip * 0.85 + dust * (1.0 - chip));
   col = lerp(col, Tint * 0.7, dust * (1.0 - chip) * (1.0 - hole));
+} else if (Kind > 1.2 && Kind < 1.5) {
+  // 1.25: a pool under a body (death pass): one irregular, glossy, nearly black-red stain, darker where it is deep,
+  // no droplets (a material made before this branch draws 1.25 as the spatter below).
+  float wob = 0.07 * sin(a * 3.0 + h * 6.3) + 0.045 * sin(a * 7.0 + h * 11.0) + 0.025 * sin(a * 13.0 + h * 2.1);
+  float pool = 1.0 - smoothstep(0.66 + wob, 0.74 + wob, r);
+  float deep = 1.0 - smoothstep(0.0, 0.6 + wob, r);
+  col = lerp(float3(0.10, 0.007, 0.005), float3(0.045, 0.003, 0.002), deep);
+  Alpha = pool * 0.96;
+  Rough = 0.08;
 } else if (Kind < 1.5) {
   float stain = 1.0 - smoothstep(0.18, 0.42 + 0.1 * sin(a * 5.0 + h * 6.0), r);
   float drops = 0.0;

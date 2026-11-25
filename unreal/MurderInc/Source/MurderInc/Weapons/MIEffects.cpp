@@ -21,7 +21,9 @@
 
 namespace MIEffectsPrivate
 {
-	constexpr int32 NumPuffs = 96, NumCards = 36, NumLights = 6, NumMarks = 72, NumStreaks = 24, NumViewCards = 6;  // cards: three per flash; 9 let three Goon shots recycle the player's own flash within its 0.045 s (polish pass)
+	constexpr int32 NumPuffs = 128, NumCards = 36, NumLights = 6, NumMarks = 72, NumStreaks = 24, NumViewCards = 6;
+	// Blood decals of their own (death pass): spatters and the pools under bodies, never recycled by bullet marks.
+	constexpr int32 NumBlood = 32;  // cards: three per flash; 9 let three Goon shots recycle the player's own flash within its 0.045 s (polish pass)
 
 	template <typename T>
 	T* LoadAs(const FString& Path)
@@ -179,9 +181,22 @@ void UMIEffects::OnWorldBeginPlay(UWorld& InWorld)
 		X.Decal->SetVisibility(false);
 		X.Decal->RegisterComponent();
 	}
+	for (int32 I = 0; I < NumBlood && MarkMat; ++I)
+	{
+		FBlood& X = Bloods.AddDefaulted_GetRef();
+		X.Decal = NewObject<UDecalComponent>(Host);
+		X.Decal->SetUsingAbsoluteLocation(true);
+		X.Decal->SetUsingAbsoluteRotation(true);
+		X.Mat = UMaterialInstanceDynamic::Create(MarkMat, X.Decal);
+		X.Decal->SetDecalMaterial(X.Mat);
+		X.Decal->SetFadeScreenSize(0.f);
+		X.Decal->SortOrder = 1;  // over the bullet marks and the scorch
+		X.Decal->SetVisibility(false);
+		X.Decal->RegisterComponent();
+	}
 	Bind();
 	bReady = true;
-	UE_LOG(LogMI, Log, TEXT("Effects: ready (%d puffs, %d cards, %d view cards, %d lights, %d marks, %d streaks)"), Puffs.Num(), Cards.Num(), ViewCards.Num(), Lights.Num(), Marks.Num(), Streaks.Num());
+	UE_LOG(LogMI, Log, TEXT("Effects: ready (%d puffs, %d cards, %d view cards, %d lights, %d marks, %d blood, %d streaks)"), Puffs.Num(), Cards.Num(), ViewCards.Num(), Lights.Num(), Marks.Num(), Bloods.Num(), Streaks.Num());
 }
 
 void UMIEffects::Bind()
@@ -261,6 +276,34 @@ void UMIEffects::Mark(const FVector& Point, const FVector& Normal, double Size, 
 	X.Mat->SetScalarParameterValue(TEXT("Fade"), 1.f);
 	X.Mat->SetVectorParameterValue(TEXT("Tint"), Tint);
 	X.Decal->SetVisibility(true);
+}
+
+int32 UMIEffects::Blood(const FVector& Point, const FVector& Normal, double Size0, double Size1, double Grow, double Kind, double Life, double Depth)
+{
+	if (Bloods.Num() == 0)
+	{
+		return 0;
+	}
+	FBlood& X = Bloods[NextBlood];
+	NextBlood = (NextBlood + 1) % Bloods.Num();
+	X.Age = 0.0;
+	X.Life = Life;
+	X.Size0 = Size0;
+	X.Size1 = Size1;
+	X.Grow = Grow;
+	X.FadeOut = 3.0;
+	X.Serial = ++BloodSerial;
+	FRotator R = FRotationMatrix::MakeFromX(-Normal).Rotator();
+	R.Roll = FMath::FRandRange(0.0, 360.0);
+	X.Decal->SetWorldLocationAndRotation(Point, R);
+	const double Size = Grow > 0.0 ? Size0 : Size1;
+	X.Decal->DecalSize = FVector(Depth, Size * 0.5, Size * 0.5);
+	X.Decal->MarkRenderStateDirty();
+	X.Mat->SetScalarParameterValue(TEXT("Kind"), static_cast<float>(Kind));
+	X.Mat->SetScalarParameterValue(TEXT("Seed"), FMath::FRandRange(0.f, 50.f));
+	X.Mat->SetScalarParameterValue(TEXT("Fade"), 1.f);
+	X.Decal->SetVisibility(true);
+	return X.Serial;
 }
 
 void UMIEffects::Light(const FVector& At, double Candela, double Radius, double Life, const FLinearColor& Color)
@@ -558,7 +601,8 @@ void UMIEffects::OnImpact(const FMIImpactEvent& E)
 		FCollisionQueryParams Q(SCENE_QUERY_STAT(MIFxBlood), false, E.Actor.Get());
 		if (UWorld* World = GetWorld(); World && World->LineTraceSingleByChannel(Hit, E.Point, E.Point + D * MIJson::NumberOr(Fx, TEXT("blood.reach"), 260.0), ECC_Visibility, Q) && !IsEnemy(Hit.GetActor()))
 		{
-			Mark(Hit.ImpactPoint, Hit.ImpactNormal, FMath::FRandRange(28.0, 46.0), 1.0, Blood, 40.0);
+			const double Sz = FMath::FRandRange(28.0, 46.0);
+			Blood(Hit.ImpactPoint, Hit.ImpactNormal, Sz, Sz, 0.0, 1.0, MIJson::NumberOr(Fx, TEXT("blood.spatterLife"), 40.0), 6.0);
 		}
 		return;
 	}
@@ -580,6 +624,110 @@ void UMIEffects::OnImpact(const FMIImpactEvent& E)
 		X.Mat->SetScalarParameterValue(TEXT("Seed"), FMath::FRandRange(0.f, 50.f));
 		X.Mesh->SetVisibility(true);
 	}
+}
+
+void UMIEffects::BloodKill(const FVector& Point, const FVector& Dir, bool bHead, bool bBlast, const AActor* Victim)
+{
+	using namespace MIEffectsPrivate;
+	if (!bReady)
+	{
+		return;
+	}
+	const FLinearColor Dark = Color(Fx, TEXT("blood.color"), FLinearColor(0.16f, 0.012f, 0.01f));
+	const FVector D = Dir.IsNearlyZero() ? FVector::ForwardVector : Dir.GetSafeNormal();
+	const double K = MIJson::NumberOr(Fx, bHead ? TEXT("blood.kill.head") : bBlast ? TEXT("blood.kill.blast") : TEXT("blood.kill.body"), bHead ? 1.35 : 1.0);
+	// The exit spray: a dense dark core along the shot, thinning mist behind it, falling as it slows (Rise < 0).
+	const int32 N = bBlast ? 7 : bHead ? 7 : 5;
+	for (int32 I = 0; I < N; ++I)
+	{
+		FVector V;
+		if (bBlast)
+		{
+			V = (FMath::VRand() * FVector(1, 1, 0.4) + FVector(0, 0, 0.3)).GetSafeNormal() * FMath::FRandRange(160.0, 320.0);
+		}
+		else
+		{
+			const double Along = I == 0 ? 120.0 : FMath::FRandRange(220.0, 420.0) * K;
+			V = D * Along + FMath::VRand() * FMath::FRandRange(40.0, 90.0);
+		}
+		const double Life = FMath::FRandRange(0.35, 0.65);
+		const double S1 = FMath::FRandRange(30.0, 52.0) * K * (I == 0 ? 0.8 : 1.0);
+		Puff(Point + D * 6.0, V, Life, 6.0, S1, I == 0 ? 0.9 : 0.7, Dark * (I == 0 ? 0.8f : 1.0f), 0.0, 4.5, -90.0);
+	}
+	// One puff back out of the entry wound (a head shot's is stronger).
+	if (!bBlast)
+	{
+		Puff(Point - D * 3.0, -D * FMath::FRandRange(60.0, 110.0) + FMath::VRand() * 30.0, 0.3, 4.0, 22.0 * K, 0.6, Dark, 0.0, 5.0, -60.0);
+	}
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	FCollisionQueryParams Q(SCENE_QUERY_STAT(MIFxBloodKill), false, Victim);
+	const double Reach = MIJson::NumberOr(Fx, TEXT("blood.kill.reach"), 320.0);
+	const double SpatterLife = MIJson::NumberOr(Fx, TEXT("blood.spatterLife"), 40.0);
+	// The spatter on the nearest surface behind the hit: along the shot, then a little to either side.
+	int32 Hits = 0;
+	for (int32 I = 0; I < 3 && Hits < 2; ++I)
+	{
+		const FVector Ray = I == 0 ? D : (D + FMath::VRand() * 0.25).GetSafeNormal();
+		FHitResult Hit;
+		if (World->LineTraceSingleByChannel(Hit, Point, Point + Ray * Reach, ECC_Visibility, Q) && !IsEnemy(Hit.GetActor()))
+		{
+			// Nearer walls take a tighter, denser spatter; far ones a wider, thinner one.
+			const double Near = FMath::Clamp(Hit.Distance / Reach, 0.0, 1.0);
+			const double Sz = FMath::Lerp(55.0, 95.0, Near) * K * FMath::FRandRange(0.85, 1.15);
+			Blood(Hit.ImpactPoint, Hit.ImpactNormal, Sz, Sz, 0.0, 1.0, SpatterLife, 8.0);
+			++Hits;
+		}
+	}
+	// Drops on the ground a little along the shot (the blast: around the body).
+	FHitResult Floor;
+	const FVector Ahead = Point + (bBlast ? FVector::ZeroVector : D.GetSafeNormal2D() * FMath::FRandRange(50.0, 110.0));
+	if (World->LineTraceSingleByChannel(Floor, Ahead, Ahead - FVector(0, 0, 400.0), ECC_Visibility, Q) && !IsEnemy(Floor.GetActor()))
+	{
+		const double Sz = FMath::FRandRange(45.0, 70.0) * K;
+		Blood(Floor.ImpactPoint, Floor.ImpactNormal, Sz, Sz, 0.0, 1.0, SpatterLife, 10.0);
+	}
+}
+
+int32 UMIEffects::BloodPool(const FVector& Point, const FVector& Normal)
+{
+	if (!bReady)
+	{
+		return 0;
+	}
+	const double S1 = MIJson::NumberOr(Fx, TEXT("blood.pool.size"), 110.0) * FMath::FRandRange(0.85, 1.15);
+	return Blood(Point, Normal, S1 * 0.25, S1, MIJson::NumberOr(Fx, TEXT("blood.pool.grow"), 6.0), 1.25,
+		MIJson::NumberOr(Fx, TEXT("blood.pool.life"), 60.0), MIJson::NumberOr(Fx, TEXT("blood.pool.depth"), 24.0));
+}
+
+void UMIEffects::EndBloodPool(int32 Handle, double Seconds)
+{
+	if (Handle == 0)
+	{
+		return;
+	}
+	for (FBlood& X : Bloods)
+	{
+		if (X.Serial == Handle && X.Age < X.Life)
+		{
+			X.FadeOut = FMath::Max(0.1, Seconds);
+			X.Life = FMath::Min(X.Life, X.Age + X.FadeOut);
+			return;
+		}
+	}
+}
+
+int32 UMIEffects::CountBlood() const
+{
+	int32 N = 0;
+	for (const FBlood& X : Bloods)
+	{
+		N += X.Age < X.Life ? 1 : 0;
+	}
+	return N;
 }
 
 void UMIEffects::OnExplosion(const FMIExplosionEvent& E)
@@ -706,6 +854,26 @@ void UMIEffects::Tick(float DeltaTime)
 		X.Age += Dt;
 		const double Left = X.Life - X.Age;
 		if (Left < 3.0) X.Mat->SetScalarParameterValue(TEXT("Fade"), static_cast<float>(FMath::Max(0.0, Left / 3.0)));
+		if (X.Age >= X.Life) X.Decal->SetVisibility(false);
+	}
+	for (FBlood& X : Bloods)
+	{
+		if (X.Age >= X.Life)
+		{
+			continue;
+		}
+		const double Before = X.Age;
+		X.Age += Dt;
+		if (X.Grow > 0.0 && Before < X.Grow)
+		{
+			// A pool spreads fast at first and slows (1 - (1 - k)^2).
+			const double K = FMath::Min(1.0, X.Age / X.Grow);
+			const double Size = FMath::Lerp(X.Size0, X.Size1, 1.0 - FMath::Square(1.0 - K));
+			X.Decal->DecalSize = FVector(X.Decal->DecalSize.X, Size * 0.5, Size * 0.5);
+			X.Decal->MarkRenderStateDirty();
+		}
+		const double Left = X.Life - X.Age;
+		if (Left < X.FadeOut) X.Mat->SetScalarParameterValue(TEXT("Fade"), static_cast<float>(FMath::Max(0.0, Left / X.FadeOut)));
 		if (X.Age >= X.Life) X.Decal->SetVisibility(false);
 	}
 	for (FStreak& X : Streaks)

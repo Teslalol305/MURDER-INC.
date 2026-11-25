@@ -34,6 +34,15 @@ struct MURDERINC_API FMIEnemyLook
 	TOptional<FVector> GoonSupportGrip;                   // the left palm's point in the static weapon's frame (cm)
 	FName GoonMuzzleSocket = TEXT("Muzzle");
 	TMap<FName, FSoftObjectPath> GoonDeath;  // front, back, left, right
+	/** The ragdoll of the death pass (presentation.json enemies.goon.ragdoll): the mannequin skeleton's physics asset and
+	 *  the push the killing hit gives, as a change of speed in cm/s (bone: the bone hit; carry: the whole body). */
+	struct FRagdoll
+	{
+		FSoftObjectPath PhysicsAsset;
+		double Bone = 330.0, BoneHead = 480.0, Carry = 110.0, CarryHead = 140.0, Blast = 650.0, BlastUp = 320.0, MaxSpeed = 900.0;
+		double SettleSpeed = 18.0, SettleFor = 0.5, MinSim = 1.2, MaxSim = 5.0, PoolFade = 2.5;
+		double LinearDamping = 0.15, AngularDamping = 0.6;
+	} GoonRagdoll;
 	FName HeadBone = TEXT("head");
 	FLinearColor GoonLampColour = FLinearColor(1.0f, 0.74f, 0.42f);
 	double GoonLampCandela = 60.0, GoonLampRadius = 900.0, GoonLampRise = 30.0, GoonLampFall = 9.0;
@@ -119,6 +128,11 @@ public:
 	int32 GetSlot() const { return Slot; }
 	const FMIEnemyView& GetView() const { return View; }
 	UCapsuleComponent* GetBodyHit() const { return BodyHit; }
+	/** The body is a ragdoll (fell from its killing hit) / has come to rest and is frozen where it lies. */
+	bool IsRagdoll() const { return bRagdoll; }
+	bool IsBodySettled() const { return bSettled; }
+	/** Seconds the last death's ragdoll start took on the game thread (the cost probe). */
+	double GetRagdollStartCost() const { return RagdollStartCost; }
 	USphereComponent* GetHeadHit() const { return HeadHit; }
 
 	// IMIDamageable
@@ -130,6 +144,12 @@ public:
 
 private:
 	void Show(bool bOn);
+	/** The death as drawn: the ragdoll from the killing hit, or (no physics asset) the death clip by direction. */
+	void StartDeath(const FMIEnemy& E);
+	bool StartRagdoll(const FVector& ShotDir);
+	void UpdateRagdoll(double Dt);
+	/** Back to a living body for a new unit in this slot (physics off, mesh on its place in the capsule). */
+	void ResetBody();
 
 	UPROPERTY(VisibleAnywhere, Category = "MurderInc")
 	TObjectPtr<UCapsuleComponent> BodyHit;
@@ -154,6 +174,22 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UClass> AnimClass;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UPhysicsAsset> Ragdoll;
+
+	/** The killing hit as the damage gave it (ApplyMIDamage): presentation only, never read by the rules. */
+	struct FKillHit
+	{
+		bool bSet = false, bHead = false, bBlast = false;
+		FVector Point = FVector::ZeroVector, Dir = FVector::ZeroVector, From = FVector::ZeroVector;
+	} KillHit;
+	FMIEnemyLook::FRagdoll RagTune;
+	FName HeadBone = TEXT("head");
+	FVector MeshScale = FVector::OneVector;
+	double DeadFor = 0.0, StillFor = 0.0, RagdollStartCost = 0.0;
+	int32 PoolHandle = 0;
+	bool bRagdoll = false, bSettled = false;
 	FRotator MeshRotation = FRotator::ZeroRotator;  // the mesh's rest rotation in the actor (presentation goon.meshYaw)
 	double AimTurn = 0.0;                            // eased yaw (deg) turning the drawn body onto the rules' aim
 

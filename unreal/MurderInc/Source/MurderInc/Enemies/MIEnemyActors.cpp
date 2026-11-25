@@ -3,6 +3,9 @@
 
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimSequence.h"
+#include "PhysicsEngine/PhysicsAsset.h"
+#include "PhysicsEngine/BodyInstance.h"
+#include "HAL/PlatformTime.h"
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/PointLightComponent.h"
@@ -133,6 +136,25 @@ bool FMIEnemyLook::Load(FMIEnemyLook& Out, FString& OutError)
 			Out.GoonDeath.Add(FName(FString(*Pair.Key)), FSoftObjectPath(Pair.Value->AsString()));
 		}
 	}
+	if (const TSharedPtr<FJsonObject> R = Obj(G, TEXT("ragdoll")))
+	{
+		FRagdoll& D = Out.GoonRagdoll;
+		D.PhysicsAsset = FSoftObjectPath(MIJson::StringOr(R, TEXT("physicsAsset")));
+		R->TryGetNumberField(TEXT("bone"), D.Bone);
+		R->TryGetNumberField(TEXT("boneHead"), D.BoneHead);
+		R->TryGetNumberField(TEXT("carry"), D.Carry);
+		R->TryGetNumberField(TEXT("carryHead"), D.CarryHead);
+		R->TryGetNumberField(TEXT("blast"), D.Blast);
+		R->TryGetNumberField(TEXT("blastUp"), D.BlastUp);
+		R->TryGetNumberField(TEXT("maxSpeed"), D.MaxSpeed);
+		R->TryGetNumberField(TEXT("settleSpeed"), D.SettleSpeed);
+		R->TryGetNumberField(TEXT("settleFor"), D.SettleFor);
+		R->TryGetNumberField(TEXT("minSim"), D.MinSim);
+		R->TryGetNumberField(TEXT("maxSim"), D.MaxSim);
+		R->TryGetNumberField(TEXT("poolFade"), D.PoolFade);
+		R->TryGetNumberField(TEXT("linearDamping"), D.LinearDamping);
+		R->TryGetNumberField(TEXT("angularDamping"), D.AngularDamping);
+	}
 	if (const TSharedPtr<FJsonObject> Bones = Obj(G, TEXT("bones")))
 	{
 		Out.HeadBone = FName(Bones->GetStringField(TEXT("head")));
@@ -174,6 +196,13 @@ AMIGoon::AMIGoon(const FObjectInitializer& ObjectInitializer)
 	Off(GetCapsuleComponent());
 	Off(GetMesh());
 	GetMesh()->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered;
+	// The ragdoll's bodies (death pass) collide with the world's geometry only: never with the player, other bodies,
+	// rounds (the Bullet channel), the camera or a sight line. Off until the killing hit.
+	GetMesh()->SetCollisionObjectType(ECC_PhysicsBody);
+	GetMesh()->SetCollisionResponseToAllChannels(ECR_Ignore);
+	GetMesh()->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+	GetMesh()->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Block);
+	GetMesh()->bReceivesDecals = false;  // blood and bullet marks land on the world, not on a Goon
 	if (UCharacterMovementComponent* Move = GetCharacterMovement())
 	{
 		Move->PrimaryComponentTick.bStartWithTickEnabled = false;
@@ -195,9 +224,11 @@ AMIGoon::AMIGoon(const FObjectInitializer& ObjectInitializer)
 	Gun = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Gun"));
 	Gun->SetupAttachment(GetMesh());
 	Off(Gun);
+	Gun->bReceivesDecals = false;
 	GunStatic = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("GunStatic"));
 	GunStatic->SetupAttachment(GetMesh());
 	Off(GunStatic);
+	GunStatic->bReceivesDecals = false;
 	GunStatic->SetCastShadow(true);
 	Lamp = CreateDefaultSubobject<UPointLightComponent>(TEXT("Lamp"));
 	Lamp->SetupAttachment(Gun);
@@ -227,7 +258,16 @@ void AMIGoon::Setup(int32 InSlot, const FMIEnemyLook& Look, const FMIGoonTune& I
 			Variants.Add(Cast<USkeletalMesh>(Path.TryLoad()));
 		}
 	}
-	GetMesh()->SetRelativeScale3D(FVector(bReal ? Look.GoonMeshScale : 1.0));
+	MeshScale = FVector(bReal ? Look.GoonMeshScale : 1.0);
+	GetMesh()->SetRelativeScale3D(MeshScale);
+	// The mannequin skeleton's physics asset for the ragdoll (the Goons are skinned on it bone for bone).
+	RagTune = Look.GoonRagdoll;
+	HeadBone = Look.HeadBone;
+	Ragdoll = RagTune.PhysicsAsset.IsValid() ? Cast<UPhysicsAsset>(RagTune.PhysicsAsset.TryLoad()) : nullptr;
+	if (Ragdoll)
+	{
+		GetMesh()->SetPhysicsAsset(Ragdoll, false);
+	}
 	if (Variants.Num() > 0 && Variants[0])
 	{
 		GetMesh()->SetSkinnedAssetAndUpdate(Variants[0], true);  // the sockets the gun hangs on
@@ -283,10 +323,19 @@ void AMIGoon::Show(bool bOn)
 	}
 	bShown = bOn;
 	SetActorHiddenInGame(!bOn);
-	GetMesh()->SetComponentTickEnabled(bOn);
+	GetMesh()->SetComponentTickEnabled(bOn && !bSettled);
 	Lamp->SetVisibility(bOn);
 	if (!bOn)
 	{
+		// The body is gone (the rules removed it): its pool fades with it.
+		if (PoolHandle != 0)
+		{
+			if (UMIEffects* Fx = UMIEffects::Get(this))
+			{
+				Fx->EndBloodPool(PoolHandle, RagTune.PoolFade);
+			}
+			PoolHandle = 0;
+		}
 		BodyHit->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		HeadHit->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
@@ -309,6 +358,7 @@ void AMIGoon::Sync(const FMIEnemy& E, const FVector& HeadWeb, double Dt)
 		SpawnId = E.Id;
 		bDying = false;
 		View = FMIEnemyView();
+		ResetBody();
 		const int32 V = Variants.Num() > 0 ? FMath::Clamp(E.Variant, 0, Variants.Num() - 1) : -1;
 		if (V >= 0 && Variants[V] && V != ShownVariant)
 		{
@@ -324,7 +374,10 @@ void AMIGoon::Sync(const FMIEnemy& E, const FVector& HeadWeb, double Dt)
 	Show(true);
 	const double Half = Tune.Height * 50.0;
 	const FVector Feet = ToUnreal(E.Pos);
-	SetActorLocationAndRotation(Feet + FVector(0, 0, Half), FRotator(0, YawToUnreal(E.Yaw), 0), false, nullptr, ETeleportType::TeleportPhysics);
+	if (!bRagdoll)  // a ragdoll lies where it fell; the rules' unit does not move once dead
+	{
+		SetActorLocationAndRotation(Feet + FVector(0, 0, Half), FRotator(0, YawToUnreal(E.Yaw), 0), false, nullptr, ETeleportType::TeleportPhysics);
+	}
 	BlastTarget = Feet + FVector(0, 0, Tune.Height * 50.0);
 
 	const FVector Velocity = DirToUnreal(E.Vel) * 100.0;
@@ -362,7 +415,7 @@ void AMIGoon::Sync(const FMIEnemy& E, const FVector& HeadWeb, double Dt)
 	}
 	if (UMIGoonMeshComponent* Body = Cast<UMIGoonMeshComponent>(GetMesh()))
 	{
-		Body->SetSupportWeight(E.bAlive && !bDying ? 1.f : FMath::Max(0.f, Body->GetSupportWeight() - static_cast<float>(4.0 * Dt)));
+		Body->SetSupportWeight(E.bAlive && !bDying ? 1.f : bRagdoll ? 0.f : FMath::Max(0.f, Body->GetSupportWeight() - static_cast<float>(4.0 * Dt)));
 	}
 
 	// Hit volumes from the rule state (config.json sizes), never from the drawn pose.
@@ -381,22 +434,146 @@ void AMIGoon::Sync(const FMIEnemy& E, const FVector& HeadWeb, double Dt)
 
 	if (!E.bAlive && !bDying)
 	{
-		bDying = true;
-		// The killing shot's direction in model space (x right, z back): fall away from it.
-		const FVector D = E.DeathDir;
-		View.DeathDirection = FVector(-D.Z, D.X, 0.0).GetSafeNormal();
-		const FName Clip = FMath::Abs(D.X) > FMath::Abs(D.Z) ? (D.X > 0.0 ? FName(TEXT("left")) : FName(TEXT("right"))) : (D.Z > 0.0 ? FName(TEXT("back")) : FName(TEXT("front")));
-		const TObjectPtr<UAnimSequence>* Seq = Deaths.Find(Clip);
-		if (!Seq || !*Seq)
-		{
-			Seq = Deaths.Find(TEXT("front"));
-		}
-		if (Seq && *Seq)
-		{
-			GetMesh()->PlayAnimation(*Seq, false);
-		}
-		Lamp->SetIntensity(0.f);
+		StartDeath(E);
 	}
+	else if (bRagdoll && !bSettled)
+	{
+		UpdateRagdoll(Dt);
+	}
+}
+
+void AMIGoon::StartDeath(const FMIEnemy& E)
+{
+	bDying = true;
+	DeadFor = StillFor = 0.0;
+	// The killing shot's direction in model space (x right, z back): fall away from it.
+	const FVector D = E.DeathDir;
+	View.DeathDirection = FVector(-D.Z, D.X, 0.0).GetSafeNormal();
+	const FVector ShotDir = KillHit.bSet && !KillHit.Dir.IsNearlyZero() ? KillHit.Dir.GetSafeNormal() : GetActorRotation().RotateVector(View.DeathDirection);
+	const FName Clip = FMath::Abs(D.X) > FMath::Abs(D.Z) ? (D.X > 0.0 ? FName(TEXT("left")) : FName(TEXT("right"))) : (D.Z > 0.0 ? FName(TEXT("back")) : FName(TEXT("front")));
+	const TObjectPtr<UAnimSequence>* Seq = Deaths.Find(Clip);
+	if (!Seq || !*Seq)
+	{
+		Seq = Deaths.Find(TEXT("front"));
+	}
+	Lamp->SetIntensity(0.f);
+	const double T0 = FPlatformTime::Seconds();
+	// The body falls from the hit as a ragdoll (bodies made from this frame's pose); the clip still plays underneath for
+	// the bones that have no body (fingers, twists), so the hands go slack instead of keeping the grip.
+	bRagdoll = StartRagdoll(ShotDir);
+	if (Seq && *Seq)
+	{
+		GetMesh()->PlayAnimation(*Seq, false);
+	}
+	RagdollStartCost = FPlatformTime::Seconds() - T0;
+}
+
+bool AMIGoon::StartRagdoll(const FVector& ShotDir)
+{
+	USkeletalMeshComponent* M = GetMesh();
+	if (!Ragdoll || !M->GetSkinnedAsset() || !GetWorld() || !GetWorld()->GetPhysicsScene())
+	{
+		return false;
+	}
+	if (UMIGoonMeshComponent* Body = Cast<UMIGoonMeshComponent>(M))
+	{
+		Body->SetSupportWeight(0.f);
+	}
+	M->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
+	if (M->Bodies.Num() == 0)
+	{
+		M->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		return false;
+	}
+	M->SetSimulatePhysics(true);
+	for (FBodyInstance* B : M->Bodies)
+	{
+		if (B)
+		{
+			B->LinearDamping = static_cast<float>(RagTune.LinearDamping);
+			B->AngularDamping = static_cast<float>(RagTune.AngularDamping);
+			B->UpdateDampingProperties();
+		}
+	}
+	M->WakeAllRigidBodies();
+	const FVector Dir = ShotDir.IsNearlyZero() ? -GetActorForwardVector() : ShotDir.GetSafeNormal();
+	if (KillHit.bBlast)
+	{
+		// Thrown away from the blast and up off the ground.
+		FVector Away = GetActorLocation() - KillHit.From;
+		Away.Z = 0.0;
+		Away = Away.IsNearlyZero() ? Dir.GetSafeNormal2D() : Away.GetSafeNormal();
+		M->SetAllPhysicsLinearVelocity((Away * RagTune.Blast + FVector(0, 0, RagTune.BlastUp)).GetClampedToMaxSize(RagTune.MaxSpeed));
+		M->AddImpulse(FVector(0, 0, RagTune.BlastUp * 0.5), TEXT("pelvis"), true);
+	}
+	else
+	{
+		// The whole body carried a little along the shot, the bone that was hit pushed hard (a head shot snaps the head).
+		const bool bHead = KillHit.bHead;
+		M->SetAllPhysicsLinearVelocity(Dir * (bHead ? RagTune.CarryHead : RagTune.Carry));
+		FName Bone = bHead ? HeadBone : NAME_None;
+		if (Bone.IsNone() && KillHit.bSet)
+		{
+			Bone = M->FindClosestBone(KillHit.Point, nullptr, 0.f, true);
+		}
+		if (Bone.IsNone() || M->GetBodyInstance(Bone) == nullptr)
+		{
+			Bone = TEXT("spine_03");
+		}
+		M->AddImpulse((Dir * (bHead ? RagTune.BoneHead : RagTune.Bone)).GetClampedToMaxSize(RagTune.MaxSpeed), Bone, true);
+	}
+	return true;
+}
+
+void AMIGoon::UpdateRagdoll(double Dt)
+{
+	USkeletalMeshComponent* M = GetMesh();
+	DeadFor += Dt;
+	const FVector V = M->GetPhysicsLinearVelocity(TEXT("pelvis"));
+	StillFor = V.Size() < RagTune.SettleSpeed ? StillFor + Dt : 0.0;
+	if (!((DeadFor > RagTune.MinSim && StillFor > RagTune.SettleFor) || DeadFor > RagTune.MaxSim))
+	{
+		return;
+	}
+	// At rest: a pool spreads under the hips, and the body is frozen as it lies (no bodies, no pose updates: a body
+	// costs nothing more until the rules remove it).
+	const FVector Pelvis = M->GetBoneLocation(TEXT("pelvis"));
+	FHitResult Floor;
+	FCollisionQueryParams Q(SCENE_QUERY_STAT(MIGoonPool), false, this);
+	if (GetWorld() && GetWorld()->LineTraceSingleByChannel(Floor, Pelvis + FVector(0, 0, 30), Pelvis - FVector(0, 0, 150), ECC_Visibility, Q))
+	{
+		if (UMIEffects* Fx = UMIEffects::Get(this))
+		{
+			PoolHandle = Fx->BloodPool(Floor.ImpactPoint, Floor.ImpactNormal);
+		}
+	}
+	M->PutAllRigidBodiesToSleep();
+	M->SetComponentTickEnabled(false);
+	M->bNoSkeletonUpdate = true;
+	M->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	bSettled = true;
+}
+
+void AMIGoon::ResetBody()
+{
+	KillHit = FKillHit();
+	DeadFor = StillFor = 0.0;
+	if (!bRagdoll && !bSettled)
+	{
+		return;
+	}
+	USkeletalMeshComponent* M = GetMesh();
+	M->SetSimulatePhysics(false);
+	M->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	M->bNoSkeletonUpdate = false;
+	bRagdoll = bSettled = false;
+	M->SetComponentTickEnabled(bShown);
+	if (M->GetAttachParent() != GetCapsuleComponent())
+	{
+		M->AttachToComponent(GetCapsuleComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	}
+	M->SetRelativeLocationAndRotation(FVector(0, 0, -Tune.Height * 50.0), MeshRotation, false, nullptr, ETeleportType::ResetPhysics);
+	M->SetRelativeScale3D(MeshScale);
 }
 
 void AMIGoon::OnRuleEvent(const FMIEnemyEvent& Event)
@@ -423,7 +600,22 @@ void AMIGoon::OnRuleEvent(const FMIEnemyEvent& Event)
 FMIDamageResult AMIGoon::ApplyMIDamage(const FMIDamage& Damage)
 {
 	UMIGameSubsystem* Game = UMIGameSubsystem::Get(this);
-	return Game ? Game->DamageEnemy(Slot, Damage) : FMIDamageResult();
+	const FMIDamageResult R = Game ? Game->DamageEnemy(Slot, Damage) : FMIDamageResult();
+	if (R.bKilled)
+	{
+		// Presentation of the killing hit (death pass): where and how it struck, for the fall and the blood.
+		KillHit.bSet = true;
+		KillHit.bBlast = Damage.Kind == EMIDamageKind::Blast;
+		KillHit.bHead = !KillHit.bBlast && Damage.Part == TEXT("head");
+		KillHit.From = Damage.From.Get(Damage.Point);
+		KillHit.Point = KillHit.bBlast ? BlastTarget : Damage.Point;
+		KillHit.Dir = KillHit.bBlast ? (BlastTarget - KillHit.From).GetSafeNormal() : Damage.Direction.GetSafeNormal();
+		if (UMIEffects* Fx = UMIEffects::Get(this))
+		{
+			Fx->BloodKill(KillHit.Point, KillHit.Dir, KillHit.bHead, KillHit.bBlast, this);
+		}
+	}
+	return R;
 }
 
 // ================================================================================================ AMIBuzzard

@@ -48,6 +48,8 @@ public:
 	FMIWeaponView GetView() const { return Rules.GetView(); }
 	const FMIViewmodelRig& GetRig() const { return Rig; }
 	bool IsReady() const { return bReady; }
+	/** The gun whose mesh the hands hold now (the view's gun once the step has equipped it). */
+	FName GetShownGun() const { return MeshFor; }
 
 	/** Seconds since the last round or strike that hurt an enemy, and whether it killed (HUD hit marker). */
 	double GetSinceHit() const { return SinceHit; }

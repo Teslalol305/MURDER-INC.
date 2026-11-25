@@ -72,6 +72,17 @@ public:
 	 *  fx.casing.viewLife s, then at its true size from its true place (WorldAt, WorldVelocity) for fx.casing.life. */
 	void Casing(UStaticMesh* Mesh, const FTransform& ViewAt, const FVector& ViewVelocity, const FTransform& WorldAt, const FVector& WorldVelocity);
 
+	/** The killing hit on a Goon (death pass): a dark burst out of the wound along the shot (fx.blood.kill; heavier and
+	 *  more forward for a head shot, low and wide for a blast) and a spatter on the nearest surface behind the hit and on
+	 *  the ground beside it. Victim is left out of the traces. Presentation only. */
+	void BloodKill(const FVector& Point, const FVector& Dir, bool bHead, bool bBlast, const AActor* Victim);
+	/** A pool spreading under a body that has come to rest (fx.blood.pool): returns a handle for EndBloodPool, or 0. */
+	int32 BloodPool(const FVector& Point, const FVector& Normal);
+	/** The body is gone: its pool fades out over Seconds (a pool that was already recycled is left alone). */
+	void EndBloodPool(int32 Handle, double Seconds);
+	/** Number of blood decals showing (tests and the cost probe). */
+	int32 CountBlood() const;
+
 	virtual void OnWorldBeginPlay(UWorld& InWorld) override;
 	virtual void Deinitialize() override;
 	virtual void Tick(float DeltaTime) override;
@@ -103,6 +114,14 @@ private:
 		TObjectPtr<UMaterialInstanceDynamic> Mat;
 		double Age = 1e9, Life = 20.0;
 	};
+	/** A blood decal (spatter or pool) in its own pool, so bullet marks never recycle a body's pool. */
+	struct FBlood
+	{
+		TObjectPtr<UDecalComponent> Decal;
+		TObjectPtr<UMaterialInstanceDynamic> Mat;
+		double Age = 1e9, Life = 40.0, Size0 = 40.0, Size1 = 40.0, Grow = 0.0, FadeOut = 3.0;
+		int32 Serial = 0;
+	};
 	struct FStreak
 	{
 		TObjectPtr<UStaticMeshComponent> Mesh;
@@ -116,6 +135,8 @@ private:
 	void Puff(const FVector& Pos, const FVector& Vel, double Life, double Size0, double Size1, double Opacity, const FLinearColor& Color, double Fire = 0.0, double Drag = 2.0, double Rise = 0.0);
 	void Mark(const FVector& Point, const FVector& Normal, double Size, double Kind, const FLinearColor& Tint, double Life);
 	void Light(const FVector& At, double Candela, double Radius, double Life, const FLinearColor& Color);
+	/** One blood decal: Kind 1 a spatter, 1.25 a pool (MD_FX_Mark; an older material draws 1.25 as a spatter). */
+	int32 Blood(const FVector& Point, const FVector& Normal, double Size0, double Size1, double Grow, double Kind, double Life, double Depth);
 	FLinearColor SurfaceColor(FName Surface, bool& bSparks) const;
 
 	UPROPERTY(Transient)
@@ -147,7 +168,8 @@ private:
 	TArray<FLight> Lights;
 	TArray<FMark> Marks;
 	TArray<FStreak> Streaks;
-	int32 NextPuff = 0, NextCard = 0, NextViewCard = 0, NextLight = 0, NextMark = 0, NextStreak = 0;
+	TArray<FBlood> Bloods;
+	int32 NextPuff = 0, NextCard = 0, NextViewCard = 0, NextLight = 0, NextMark = 0, NextStreak = 0, NextBlood = 0, BloodSerial = 0;
 	TArray<FDelegateHandle> Handles;
 	TSharedPtr<class FJsonObject> Fx;
 	bool bReady = false;
