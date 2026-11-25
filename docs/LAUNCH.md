@@ -48,8 +48,9 @@ version 1 (`8378eedd...`) crashed in every session. Upload version 3a as a **new
 
 1. In the Control Panel open **Configurations** (or **Stream settings**) for the app, on the **Development** tab.
 2. Create a new configuration for `MurderInc`.
-3. Open **Advanced Options** and set **Platform** to **"Linux UE Build for PS"**. This is the setting that makes a
-   Linux upload stream; without it the stream never starts.
+3. Turn **Advanced Options** on and, on the **Developer** tab, set **Platform** to **Linux** (the field offers
+   Streaming App, Windows and Linux). This is the setting that makes a Linux upload stream; without it the stream
+   never starts.
 4. Mouse: choose the **locked** mouse mode (the mouse is captured by the game after the first click). Do **not**
    choose "hovering": in a shooter the view would stop turning at the edge of the window.
 5. Resolution: **1920 x 1080** (or "match the browser window"; see the note in section 7).
@@ -71,7 +72,9 @@ version 1 (`8378eedd...`) crashed in every session. Upload version 3a as a **new
 3. Check, in this order: the menus answer the mouse and keyboard; **Gear Up** goes through crew, loadout, block and
    briefing into a run; mouse look turns the view smoothly; W A S D moves; left click fires and you **hear** it;
    **P** pauses and resumes (see the box below); a gamepad plugged into your computer moves and aims.
-4. Close the tab. The game pauses by itself when the last viewer leaves.
+4. Close the tab. On E3DS that ends the session at once: E3DS stops the game and frees the server (its
+   documentation: "A viewer who closes the tab is never waited for"). The game also pauses by itself whenever its
+   last viewer leaves, so nothing plays on unseen in between.
 
 > **Esc and P.** In a browser, Esc belongs to the browser: it gives the mouse back to you and may never reach the
 > game. So **P pauses** (Esc also works when the browser passes it on, and Start on a gamepad). The click card, the
@@ -112,7 +115,10 @@ Paste this where the game should appear (replace the `src` with your share link)
   seconds before a run goes live) and lets go of everything the player was holding: keys, mouse buttons, sticks and
   triggers. A key that was down when the connection was cut would otherwise still count as down afterwards, and the
   player would walk or fire by himself after a reconnect. E3DS shows its own message in the frame. Reloading the page
-  starts a new session: a fresh game on a fresh server, with the click card again.
+  starts a new session: a fresh game on a fresh server, with the click card again. (By E3DS's documentation a broken
+  connection ends an Unreal app's session at once; its setting "Keep the app running when a viewer loses
+  connection" applies to Omniverse apps only today. So a player never comes back into the same game: the pause
+  covers only the moment before E3DS stops it.)
 - Tell players on the page, next to the game: *"If the picture freezes or says disconnected, reload the page to play
   again."*
 
@@ -188,8 +194,8 @@ Paste this where the game should appear (replace the `src` with your share link)
    it is an Unreal 5.9 Linux build with Pixel Streaming 2 (built into the game program; the zip carries only the
    plugin's helper scripts, `MurderInc/Samples/PixelStreaming2/WebServers/get_ps_servers.sh` and `.bat`). Ask
    whether 5.9 builds are accepted yet.
-2. **Uploads but the stream never starts, or E3DS reports a crash**: check that the configuration's platform is
-   "Linux UE Build for PS" and the app name is exactly `MurderInc`, then try once more (first Linux starts are slow).
+2. **Uploads but the stream never starts, or E3DS reports a crash**: check that **Platform** (Developer tab) is
+   **Linux** and the build's name is exactly `MurderInc`, then try once more (first Linux starts are slow).
    If it still fails, get the log: section 13.
 3. **The fallback: Amazon GameLift Streams.** It runs any Linux program (no streaming plugin needed, so the engine
    version does not matter) on its Ubuntu 22.04 runtime. The costs and the work are different: you need an AWS
@@ -400,8 +406,10 @@ folder. If it crashes, section 13 says how to get it.
 
 ## 10. What the cloud settings change
 
-The game picks a **Cloud** graphics profile by itself when it runs in a stream. E3DS's servers have 8 or 16 GB of
-graphics memory (RTX 4080 or 5070 class) and 32 GB of memory; their own advice is to stay near 4 to 6 GB.
+The game picks a **Cloud** graphics profile by itself when it runs in a stream. E3DS's own machines are RTX 4080 or
+RTX 5070 class with 12 to 16 GB of graphics memory and 32 GB of memory (its "System requirements" page); it asks an
+app to stay near 4 to 6 GB of graphics memory and 50 to 70 % of the card. Which card a Linux session really gets is
+not published: from version 3 the pause card's line names it (section 9.2).
 
 Measured on the GPU box at 1920 x 1080 on the **older zip of 2026-11-23** (how in `docs/unreal/PROGRESS.md`, "Cloud build"):
 
@@ -430,8 +438,12 @@ than the table for the whole process (about 2 GB more for version 1: the driver'
 
 "The game's own" is what the graphics driver reports for the game alone; "on the whole card" is the rise of the
 card's counter while the game ran, which also catches the driver's own share and anything else that grew meanwhile
-(other work shared the box's card). Either way the game stays **under 7 GB**, inside an 8 GB server card, with
-room to spare on a 16 GB one, and far under the 32 GB of memory.
+(other work shared the box's card). Either way the game stays **under 7 GB**: inside a 12 GB server card with room
+to spare (it also ran on the box with only 7.6 GB of the card left free), and far under the 32 GB of memory.
+Version 3a, measured again in its release check (one game alone on the box's card, 1920 x 1080): the card's counter
+stands at 6.1 to 6.8 GB through a Story run and touched 7.2 GB for about 20 seconds in one run (a controller player
+who went through the set-up screens in six seconds). That is a little over E3DS's "4 to 6 GB" advice and no problem
+on a 12 or 16 GB card; with less memory free the game takes less (the runs above with 5.0 to 7.6 GB left free).
 
 What the Cloud settings change, and what you might notice:
 
@@ -480,12 +492,15 @@ The pause card's small line says what the game settled on (section 7).
 |---|---|---|---|
 | Trial | free, no card | 60 minutes in total | 1 |
 | Core | $29 a month (or $290 a year) | 300 minutes a month (unused minutes expire) | 10 |
-| Extra minutes | $0.10 a minute, bought 100 at a time | | |
+| Extra minutes | $0.10 a minute, added in steps of 50 ($5) on the monthly plan (1,000 on the yearly) | | |
 | Enterprise | custom, about $0.10 a minute | | up to 1,000, more regions |
 
-One player for one hour uses 60 minutes, so beyond the included minutes it costs about **$6 per player-hour**. E3DS
-never bills automatically: when the minutes run out, streaming stops. Servers: US (Texas) and EU on Trial and Core;
-players go to the nearer one.
+One player for one hour uses 60 minutes, so beyond the included minutes it costs about **$6 per player-hour**.
+**What is charged by itself and what is not** (E3DS's "Plans and billing" page, read 2026-11-25): the Core plan
+renews automatically every month (or year) on the card on file until you cancel it. Going over is never charged:
+when the month's minutes run out, streaming stops (a stream that is running is ended) until the next billing month
+starts or you add minutes. Extra minutes you add are billed at once **and then again every month** until you lower
+them (lowering applies from the next month). Servers: US and EU on Trial and Core; players go to the nearer one.
 
 ## 12. Making a new build later
 
@@ -518,16 +533,19 @@ log's first lines say where.
 **Getting it** (E3DS's own options, as their documentation describes them; we could not open their pages from the
 build machine, so the menu names may differ slightly):
 
-1. **Browser console.** Keep "Show the Unreal log in the browser console" on. Open Chrome's developer tools
+1. **Browser console.** Keep **Print UE log in browser console** (Developer tab) on. Open Chrome's developer tools
    (**F12**, or **Cmd+Option+J** on a Mac) on the **Console** tab *before* opening the link, then play. If it
    crashes, right-click in the console and choose **Save as...**. E3DS does not say which file it prints; if the
    console shows nothing from the game, use 2 or 3.
-2. **The Development game, for E3DS's crash-log email.** E3DS's "Auto Download UE Crash Log" (stream configuration,
-   **Advanced Options**, **Developer**) only works with Development builds. The zip carries one beside the normal
-   game: put **`-MIDev=<key>`** in the configuration's **launch options**, start the link again, and that session
-   writes the full engine log, with call stacks, to `MurderInc/Saved/Logs/MurderInc.log`, where Development builds
-   keep it. Take it out again afterwards (it keeps the developer console and checks on). **The key** (from version
-   3) is a word of 16 letters and digits that is new for every zip: it comes with the build's release notes, and it
+2. **The crash email, and the Development game for a fuller log.** Of E3DS's log options on the **Developer** tab,
+   **Email To Send Log Upon App Crash** is the one to use: as far as its documentation tells, it takes the log from
+   the file E3DS names when it starts the app (`-ABSLOG=`), and the launcher writes that file for the normal game
+   too. (E3DS's own documentation says of **Auto-Download UE Crash Log**: "not working at present".) For the full
+   engine log with call stacks the zip carries a Development game beside the normal one: put **`-MIDev=<key>`** in
+   the configuration's **launch options**, start the link again, and that session writes the engine's own log to
+   `MurderInc/Saved/Logs/MurderInc.log`, where Development builds keep it. Take it out again afterwards (it keeps
+   the developer console and checks on). **The key** (from version 3) is a word of 16 letters and digits that is new
+   for every zip: it comes with the build's release notes, and it
    is the one line of the file `MIDEV.key` at the top of the zip. E3DS hands the game whatever a visitor writes after
    `?exeLaunchArgs=` on the stream link, and the Development game has the debug switches the normal game was built
    without (a switch that crashes it on purpose, the developer console); with the key no visitor can start it. A
