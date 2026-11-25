@@ -3,6 +3,22 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Weapons round 4: the hands on the rifles (hands engineer, 2026-11-25, 16:20 to 17:50 UTC)
+
+The owner: "the hands dont look correct". **Seen in play** on the trial zip's game (`fd8ce12`, unpacked to `/project/ue/hands/zip`, the
+branch's data copied over its loose `Content/Data`; the Development game driven by a demo-director script, frames by `HighResShot`):
+the trial's cut upper arm and fist end-on came from the trial's `grips.json` (no rifle solves, so that game used the wrist slide); with
+the solves the template's third-person rifle clips still stood the support forearm straight up and swung the upper arm into view on
+every shot (`h2` `26-rattler-aimfire`), and aimed, the support fingers stood out beside the handguard. **Changed (data and the grip
+points only):** the CHOPPER, SHORTY, STRETCH and RATTLER sets play the pack's first-person rifle idle and fire clips (the STICK's);
+shoulders `[-8, -6, -10]` (SHORTY `[-6, 0, -24]`, its reload) chosen from eight scanned in play with `mi.FP.Shoulders`; the support
+fingers' middle and end phalanges rebuilt along the forend (`art/blender/assets/_rule_grips.py --tidy`). No rules number and no view
+changed; `check_guns_data.py` 0 errors. Proof: runs `h4` to `h8` (`/project/ue/hands/runs`), the sheets `art/previews/hands_<gun>.jpg`;
+the NINE and STICK unchanged (`h7`). **Not fixed here:** the aimed optics' black housing ring (the fade of 7e120ac is not in the trial
+game: a new package), the STRETCH's open support hand in the reload, the SHORTY's hip-fire frame not re-shot with the final data. C++
+for the lead (an `armsFallback` set for builds without the pack, the support elbow pole for hand-IK guns, the aimed grip solve, a
+`HighResShot` crash seen once with the pack gun's anim instance): `docs/unreal/HANDS_R4.md` section 5.
+
 ## Weapons round 4: the box engineer (integration, 2026-11-25, 13:30 UTC onward): code, tests, imports, what the pictures show
 
 **Built (all of it in `unreal/MurderInc`, tests in `MIWeaponsR4Tests.cpp` and the edited suites):** the data's `rideBone`, `topRound` and the
