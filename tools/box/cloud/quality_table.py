@@ -222,7 +222,7 @@ def gen(out, base_file, scenes, only):
     total = sum(float(re.match(r'wait ([\d.]+)', l).group(1)) for l in lines if l.startswith('wait '))
     # the viewer: click the card, then a frame every FRAME_EVERY seconds for as long as the game's script runs
     view = ['wait 3', 'click']
-    count = int(total / FRAME_EVERY) + 30
+    count = int(total / FRAME_EVERY) + 4
     for i in range(count):
         view.append('frame f%04d.jpg' % i)
         view.append('wait %g' % (FRAME_EVERY - 0.2))
@@ -270,7 +270,7 @@ def gen_steps(out, nsteps, scenes):
     json.dump({'labels': labels, 'variants': {}, 'baseline': {}, 'frame_every': FRAME_EVERY}, open(os.path.join(out, 'labels.json'), 'w'), indent=1)
     total = sum(float(re.match(r'wait ([\d.]+)', l).group(1)) for l in lines if l.startswith('wait '))
     view = ['wait 3', 'click']
-    for i in range(int(total / FRAME_EVERY) + 30):
+    for i in range(int(total / FRAME_EVERY) + 4):
         view.append('frame f%04d.jpg' % i)
         view.append('wait %g' % (FRAME_EVERY - 0.2))
     open(os.path.join(out, 'view.txt'), 'w').write('\n'.join(view) + '\n')
