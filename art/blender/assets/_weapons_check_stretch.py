@@ -131,7 +131,7 @@ def check():
     # ---- sight line
     sr, sf = np.array(SOCKETS["SightRear"]), np.array(SOCKETS["SightFront"])
     add("sight line parallel to the bore (same Z)", abs(sr[2] - sf[2]) < 1e-9, {"z": float(sr[2])})
-    h = ray(bvh, sr - np.array([0.02, 0, 0]), (1, 0, 0), 2.0)
+    h = ray(bvh, sr - np.array([0.02, 0, 0.0004]), (1, 0, 0), 2.0)           # 0.4 mm under the line: the post's tip is on it
     add("sight line from behind the aperture: first hit is the front post (X 0.5036..0.5064)",
         h is not None and 0.5035 <= h[0].x <= 0.5065, {"hit_x": None if h is None else round(h[0].x, 4)})
     mid = (co[:, 0] > 0.034) & (co[:, 0] < 0.499)
@@ -141,19 +141,22 @@ def check():
     for s in ("Palm_R", "Palm_L"):
         loc, _n, _i, d = bvh.find_nearest(Vector(SOCKETS[s]))
         add("%s within 1.5 mm of the surface" % s, d <= 0.0015, {"distance_mm": round(d * 1000, 2)})
-    hh = ray(bvh, (0.25, 0.0, -0.062), (-1, 0, 0), 0.5)
+    hh = ray(bvh, (0.125, 0.0, -0.062), (-1, 0, 0), 0.5)
     tr = SOCKETS["Palm_R"][0]
     add("trigger blade face 70 mm ahead of Palm_R (the data's trigger reach)", hh is not None and abs((hh[0].x - tr) - 0.070) <= 0.0015,
         {"face_x": None if hh is None else round(hh[0].x, 4), "reach_mm": None if hh is None else round((hh[0].x - tr) * 1000, 1)})
     # ---- MI-R rails
     top_hits = []
+    irons = (dom == gid["IronsRear"]) | (dom == gid["IronsFront"])
+    rail_t = tree(co, polys, np.array([not irons[p[0]] for p in polys]))        # the rail without the flip-up irons on it
     for x in np.arange(0.0, 0.5466, 0.0005):
-        hit = ray(bvh, (x, 0.0, 0.0580), (0, 0, -1), 0.05)
+        hit = ray(rail_t, (x, 0.0, 0.0580), (0, 0, -1), 0.05)
         top_hits.append(None if hit is None else hit[0].z)
     z_top = np.array([np.nan if v is None else v for v in top_hits])
     is_lug = z_top > 0.0515
     edges = np.nonzero(np.diff(is_lug.astype(int)) != 0)[0]
-    starts = [np.arange(0.0, 0.5466, 0.0005)[i + 1] for i in edges if not is_lug[i]]
+    xs_scan = np.arange(0.0, 0.5466, 0.0005)
+    starts = ([xs_scan[0]] if is_lug[0] else []) + [xs_scan[i + 1] for i in edges if not is_lug[i]]
     pitch = np.diff(starts)
     add("top rail: 52 lugs at the 10.6 mm pitch, tops at Z 0.0520", len(starts) == 52 and abs(float(np.median(pitch)) - 0.0106) <= 0.0006
         and abs(float(np.nanmax(z_top)) - 0.052) <= 2e-4,
@@ -162,9 +165,9 @@ def check():
     s_hit = ray(bvh, (0.0106 * 14 + 0.0053 + 0.0026, 0.0, 0.0580), (0, 0, -1), 0.05)
     add("top rail slots 5.3 mm wide, floor Z 0.0453", s_hit is not None and abs(s_hit[0].z - 0.0453) <= 2e-4,
         {"slot_floor_z": None if s_hit is None else round(s_hit[0].z, 5)})
-    wl = ray(bvh, (0.150 + 0.0027, 0.0300, 0.0500), (0, -1, 0), 0.1)
-    wr = ray(bvh, (0.150 + 0.0027, -0.0300, 0.0500), (0, 1, 0), 0.1)
-    add("rail 21.2 mm across the 45 deg flanks (at Z 0.0500)", wl is not None and wr is not None and abs((wl[0].y - wr[0].y) - 0.0212) <= 3e-4,
+    wl = ray(bvh, (0.150 + 0.0027, 0.0300, 0.0480), (0, -1, 0), 0.1)
+    wr = ray(bvh, (0.150 + 0.0027, -0.0300, 0.0480), (0, 1, 0), 0.1)
+    add("rail 21.2 mm across the flanks (at Z 0.0480, below the 45 deg chamfers)", wl is not None and wr is not None and abs((wl[0].y - wr[0].y) - 0.0212) <= 3e-4,
         {"across_mm": None if wl is None or wr is None else round((wl[0].y - wr[0].y) * 1000, 2)})
     ft = ray(bvh, (0.1503, 0.0, 0.0580), (0, 0, -1), 0.05)
     add("socket Optic on the lug tops (0.3 mm)", ft is not None and abs(ft[0].z - SOCKETS["Optic"][2]) <= 3e-4,
@@ -184,8 +187,8 @@ def check():
     bm.from_mesh(ob.data)
     bm.verts.ensure_lookup_table()
     kill = [v for v in bm.verts if brake[v.index]]
-    import bmesh as _b
-    _b.ops.delete(bm, geom=kill, context="VERTS")
+    bmesh.ops.delete(bm, geom=kill, context="VERTS")
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)             # the importer splits vertices at seams and hard edges
     holes = sum(1 for e in bm.edges if e.is_boundary)
     bm.free()
     add("MuzzleDevice removed leaves no hole (closed shells only)", holes == 0, {"boundary_edges": holes})
@@ -202,7 +205,13 @@ def check():
         other = np.array([dom[p[0]] != gid[part] for p in polys])
         t_o = tree(co, polys, other)
         t_m = tree(c2, polys, mp)
-        n_ov = len(t_m.overlap(t_o))
+        pairs = t_m.overlap(t_o)
+        n_ov = len(pairs)
+        if n_ov and "where" not in res:
+            mp_idx = np.nonzero(mp)[0]
+            ot_idx = np.nonzero(other)[0]
+            a, b = pairs[0]
+            res["where"] = {part: [np.round(c2[polys[mp_idx[a]]].mean(0) * 1000, 1).tolist(), np.round(co[polys[ot_idx[b]]].mean(0) * 1000, 1).tolist()]}
         clear = min(t_o.find_nearest(Vector(v))[3] for v in c2[m][::3]) if m.any() else None
         return n_ov, clear
     worst = (0, 1.0)

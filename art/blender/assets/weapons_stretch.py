@@ -353,7 +353,7 @@ def render_silhouette(ctx, gun, extra, path=None):
     cam.data.ortho_scale = wpx * mm_px / 1000.0                             # width of the frame in metres
     cam.data.sensor_fit = "HORIZONTAL"
     cam.data.clip_start, cam.data.clip_end = 0.1, 8.0
-    cam.data.shift_y = ((hpx / 2 - 84) * mm_px / 1000.0) / cam.data.ortho_scale      # bore line (Z 0) at y = 84 px
+    cam.data.shift_y = -((hpx / 2 - 84) * mm_px / 1000.0) / cam.data.ortho_scale     # bore line (Z 0) at y = 84 px
     s = bpy.context.scene
     render.setup(samples=16, res=(wpx * ss, hpx * ss), threads=THREADS)
     s.render.film_transparent = True

@@ -81,17 +81,17 @@ def stretch_handling(p, n):
 # ================================================================================================= materials
 
 def walnut(S, sel, hz, rub=None, octave=0, grime=None):
-    """Near-black oiled walnut from a solid plank: growth-ring planes (tilted 9 deg about X, warped into long arches), early
+    """Near-black oiled walnut from a solid plank: growth-ring planes (tilted 13 deg about X, gently warped), early
     and late wood bands, straight grain streaks along X, pale-brown pores as short slits, satin oil with a hand polish, dents
     and crushed corners. Base #2b1c14 +-8 % per ring; the figure is carried by ring, streak and pore contrast."""
     if not sel.any():
         return
     p, N = S.p[sel], S.N
     n = S.n[sel]
-    warp = 0.0034 * N.fbm(p, (5.0, 16.0, 16.0), 3, octave0=400 + octave) + 0.0008 * N.fbm(p, (28.0, 120.0, 120.0), 2, octave0=403 + octave)
-    a = math.radians(9.0)
+    warp = 0.0019 * N.fbm(p, (5.0, 16.0, 16.0), 3, octave0=400 + octave) + 0.0006 * N.fbm(p, (28.0, 120.0, 120.0), 2, octave0=403 + octave)
+    a = math.radians(13.0)
     f = p[:, 1] * math.cos(a) + p[:, 2] * math.sin(a) + warp
-    s_ = f / 0.0030
+    s_ = f / 0.0032
     k = np.floor(s_).astype(np.int64)
     fr = s_ - np.floor(s_)
     jit = N.vals[(k * 37 + 11 + octave) & 255] * 0.16 - 0.08                      # +-8 % per ring
@@ -200,7 +200,7 @@ def paint_stretch(G):
     gain += 0.6 * ((x > 0.0) & (x < 0.22) & (z > 0.045))                          # rail's rear half wears bright
     gain += 0.5 * ((x > 0.085) & (x < 0.208) & (y > 0.018) & (z > 0.008) & (z < 0.022))
     gain += 0.6 * (x > 0.775)                                                      # brake mouth
-    TX.blued_sheet(S, bl, lin("2a2f39"), hz, bright_edge, octave=0, rough_lo=0.26, rough_hi=0.42, edge_gain=0.82 * gain[bl])
+    TX.blued_sheet(S, bl, lin("2a2f39"), hz, bright_edge, octave=0, rough_lo=0.26, rough_hi=0.42, edge_gain=0.62 * gain[bl])
     # ---- bolt carrier and head: bright ground steel
     car = S.sel(BRIGHT)
     if car.any():

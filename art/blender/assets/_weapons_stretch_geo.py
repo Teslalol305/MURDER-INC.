@@ -560,14 +560,14 @@ def handguard(parts):
 
 
 def barrel(parts):
-    """R 12.5 barrel from the breech (X 207, chamber hole R 5.5 and bore R 3.8) to the thread shoulder at 715 with the
+    """R 12.5 barrel from the breech (X 209.5, chamber hole R 5.6 and bore R 3.8) to the thread shoulder at 715 with the
     0.4 mm step, threaded stub R 8.5 to 727 (hidden by the brake), and the gas block R 16 at X 428..454."""
     seg = 48
     prof = [(207.0, 3.8), (207.0, 10.6), (208.2, 11.8), (212.0, 12.5), (712.0, 12.5), (712.0, 12.1), (715.0, 12.1), (715.0, 8.5),
             (727.0, 8.5), (727.0, 3.8)]
     # bore: a closed loop (the bore runs the whole length, so the barrel is a tube): chamber hole at the breech
-    prof = [(207.0, 5.6), (207.0, 10.6), (208.2, 11.8), (212.0, 12.5), (712.0, 12.5), (712.0, 12.1), (715.0, 12.1),
-            (715.0, 8.5), (726.0, 8.5), (727.0, 7.5), (727.0, 4.7), (726.2, 3.8), (219.0, 3.8), (219.0, 5.6)]
+    prof = [(209.5, 5.6), (209.5, 10.6), (210.7, 11.8), (214.0, 12.5), (712.0, 12.5), (712.0, 12.1), (715.0, 12.1),
+            (715.0, 8.5), (726.0, 8.5), (727.0, 7.5), (727.0, 4.7), (726.2, 3.8), (221.5, 3.8), (221.5, 5.6)]
     ob = lathe([(t * mm, r * mm) for t, r in prof], seg, axis="X", name="Barrel", closed=True)
     parts.append(P(ob, BLUED, "body"))
     gp = [(428.0, 12.0), (428.0, 14.6), (430.0, 16.0), (452.0, 16.0), (454.0, 14.6), (454.0, 12.0)]
@@ -661,7 +661,7 @@ def trigger_group(parts):
     """Trigger housing under the receiver (X 88..131), cross pin with its heads, the trigger blade (bone trigger), the guard
     strap from the grip front to the magazine well, and the magazine catch tab."""
     hs = box(88 * mm, 131 * mm, -12.5 * mm, 12.5 * mm, -52.0 * mm, -31.3 * mm, bevel=0.0018, seg=2, name="TrigHousing")
-    cut(hs, box(90 * mm, 122 * mm, -3.8 * mm, 3.8 * mm, -53.0 * mm, -47.5 * mm, bevel=0.0))
+    cut(hs, box(91 * mm, 122 * mm, -3.8 * mm, 3.8 * mm, -53.0 * mm, -33.4 * mm, bevel=0.0))
     round_edges(hs, 0.0003, 1, 55)
     parts.append(P(hs, BLUED, "body"))
     for sy in (1, -1):
@@ -692,7 +692,7 @@ def trigger_group(parts):
 def selector(parts):
     """Selector lever on the left flank (bone selector, pivot X 40, Z -10): hub R 6.8, thumb lever with serrations."""
     px, pz = 40.0, -10.0
-    boss = lathe([(0.0211, 0.0), (0.0211, 0.0068), (0.0236, 0.0068), (0.0244, 0.0059), (0.0244, 0.0)], 28, axis="Y",
+    boss = lathe([(0.02132, 0.0), (0.02132, 0.0068), (0.0236, 0.0068), (0.0244, 0.0059), (0.0244, 0.0)], 28, axis="Y",
                  at=(px * mm, 0.0, pz * mm), name="SelHub")
     lever = np.array([(-4.5, -3.0), (-1, -5.0), (10, -4.0), (22, -3.2), (26.5, -1.8), (27.5, 1.4), (24.5, 3.6), (12, 3.8),
                       (0, 5.0), (-5, 2.5)])
@@ -712,8 +712,8 @@ def bolt_catch(parts):
     outline = np.array([(106, -5.5), (111, -3.5), (118, -4.6), (128, -8.5), (143, -10.6), (152, -12.8), (153, -15.8), (148, -17.2),
                         (132, -16.6), (122, -15.6), (116, -12), (110, -8.8)])
     outline = K.spline(outline, 4, closed=True) * mm
-    lv = prism([tuple(p) for p in outline], 21.6 * mm, 24.2 * mm, axis="Y", bevel=0.0004, seg=2, name="Catch")
-    boss = lathe([(0.0211, 0.0), (0.0211, 0.0046), (0.0246, 0.0046), (0.0246, 0.0)], 24, axis="Y", at=(125 * mm, 0.0, -12 * mm),
+    lv = prism([tuple(p) for p in outline], 21.64 * mm, 24.2 * mm, axis="Y", bevel=0.0004, seg=2, name="Catch")
+    boss = lathe([(0.02132, 0.0), (0.02132, 0.0046), (0.0246, 0.0046), (0.0246, 0.0)], 24, axis="Y", at=(125 * mm, 0.0, -12 * mm),
                  name="CatchHub")
     ob = geo.join([lv, boss], "BoltCatch")
     parts.append(P(fix_normals(ob), BLUED, "bolt_catch"))
@@ -726,7 +726,7 @@ def charging_handle(parts):
     cx, cz = 195.0, 15.0
     stem = lathe([(0.0088, 0.0), (0.0088, 0.0034), (0.0334, 0.0034), (0.0334, 0.0)], 20, axis="Y", at=(cx * mm, 0.0, cz * mm),
                  name="Stem")
-    wash = lathe([(0.0213, 0.0), (0.0213, 0.0053), (0.0236, 0.0053), (0.0236, 0.0)], 28, axis="Y", at=(cx * mm, 0.0, cz * mm),
+    wash = lathe([(0.02132, 0.0), (0.02132, 0.0049), (0.0236, 0.0049), (0.0236, 0.0)], 28, axis="Y", at=(cx * mm, 0.0, cz * mm),
                  name="StemWasher")
     bar = poly_prism(stadium(28.0, 9.0, 8) * mm + np.array([cx * mm, cz * mm]), 32.0 * mm, 40.4 * mm, "Y", "TBar")
     round_edges(bar, 0.0011, 2, 40)
@@ -758,7 +758,7 @@ def bolt_group(parts):
         lobes.append((math.cos(a) * (7.2 + 1.5 * (1.0 if lug > 0.55 else 0.0)) * mm, math.sin(a) * (7.2 + 1.5 * (1.0 if lug > 0.55 else 0.0)) * mm))
     star = poly_prism(np.array(lobes), 196.0 * mm, 205.0 * mm, "X", "Lugs")
     round_edges(star, 0.0003, 1, 40)
-    ext = prism([(196 * mm, -1.6 * mm), (210.0 * mm, -1.6 * mm), (210.6 * mm, -0.2 * mm), (208.6 * mm, 1.8 * mm), (196 * mm, 1.8 * mm)],
+    ext = prism([(196 * mm, -1.6 * mm), (209.2 * mm, -1.6 * mm), (209.3 * mm, -0.4 * mm), (208.4 * mm, 1.8 * mm), (196 * mm, 1.8 * mm)],
                 -9.6 * mm, -6.8 * mm, axis="Y", bevel=0.0003, seg=1, name="Extractor")
     ob = geo.join([head, star, ext], "BoltHeadGroup")
     parts.append(P(fix_normals(ob), BRIGHT, "bolt"))
@@ -788,15 +788,12 @@ def bipod(parts):
         if sy < 0:
             geo.transform(j, scale=(1, -1, 1))
         parts.append(P(j, BLUED, "body"))
-        e = box(463.5 * mm, 476.5 * mm, 13.0 * mm, 18.2 * mm, -56.0 * mm, -43.5 * mm, bevel=0.0012, seg=2, name="Ear")
+        e = box(463.5 * mm, 476.5 * mm, 12.9 * mm, 17.6 * mm, -56.0 * mm, -43.5 * mm, bevel=0.0012, seg=2, name="Ear")
         if sy < 0:
             geo.transform(e, scale=(1, -1, 1))
         parts.append(P(e, BLUED, "body"))
     parts.append(screw((460 * mm, -13.1 * mm, -34.2 * mm), "Y", -1, r=0.0034, h=0.0020, slot=False, seg=20))
     parts.append(hexnut((460 * mm, 13.1 * mm, -34.2 * mm), "Y", 0.0036, 0.0024, 1))
-    pin = lathe([(-0.0262, 0.0), (-0.0262, 0.0022), (0.0262, 0.0022), (0.0262, 0.0)], 16, axis="Y", at=(470 * mm, 0.0, -50 * mm),
-                name="BipodPin")
-    parts.append(P(fix_normals(pin), DARK, "bipod"))
     for sy in (1, -1):
         parts.append(screw((470 * mm, sy * 26.2 * mm, -50 * mm), "Y", sy, r=0.0034, h=0.0010, slot=False, seg=18, bone="bipod"))
         kn = lathe([(0.0195, 0.0), (0.0195, 0.0054), (0.0252, 0.0054), (0.0252, 0.0)], 24, axis="Y", at=(470 * mm, 0.0, -50 * mm),
@@ -851,7 +848,7 @@ def irons_rear(parts):
     ring = circle_pts(7.2 * mm, 28)
     ring[:, 1] += 64.5 * mm
     leaf = poly_prism(np.vstack([ring]), 26.0 * mm, 30.0 * mm, "X", "RLeaf")
-    neck = poly_prism(np.array([(-5.0, 58.0), (5.0, 58.0), (5.0, 64.5), (-5.0, 64.5)]) * mm, 26.0 * mm, 30.0 * mm, "X", "RNeck")
+    neck = poly_prism(np.array([(-5.0, 57.6), (5.0, 57.6), (5.0, 60.1), (-5.0, 60.1)]) * mm, 26.0 * mm, 30.0 * mm, "X", "RNeck")
     base = poly_prism(np.array([(-8.0, 57.0), (8.0, 57.0), (8.0, 61.0), (-8.0, 61.0)]) * mm, 25.5 * mm, 30.5 * mm, "X", "RBase")
     hole = xcyl(24.0 * mm, 32.0 * mm, 4.0 * mm, 24, "RHole", at=(0.0, 64.5 * mm))
     cut(leaf, hole)
