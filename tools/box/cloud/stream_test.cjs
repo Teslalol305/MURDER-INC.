@@ -10,7 +10,7 @@ const R = {};
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const note = (k, v) => { R[k] = v; console.log(k, JSON.stringify(v)); fs.writeFileSync(`${OUT}/results.json`, JSON.stringify(R, null, 1)); };
 const log = () => { try { return fs.readFileSync(GAMELOG, 'utf8'); } catch (e) { return ''; } };
-const probes = () => log().split('\n').filter((l) => l.includes('MICloudProbe')).map((l) => {
+const probes = () => log().split('\n').filter((l) => l.includes('MICloudProbe fps=')).map((l) => {
   const o = {}; for (const m of l.matchAll(/(\w+)=(-?[\d.]+)/g)) o[m[1]] = +m[2]; return o;
 });
 const last = () => { const p = probes(); return p[p.length - 1] || {}; };

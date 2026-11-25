@@ -13,7 +13,7 @@ os.makedirs(OUT, exist_ok=True)
 R = {}
 def note(k, v): R[k] = v; print(k, json.dumps(v)); json.dump(R, open(f'{OUT}/results.json', 'w'), indent=1)
 def text(): return open(LOG, errors='replace').read() if os.path.exists(LOG) else ''
-def probes(): return [dict((k, float(v)) for k, v in re.findall(r'(\w+)=(-?[\d.]+)', l.split('MICloudProbe', 1)[1])) for l in text().splitlines() if 'MICloudProbe' in l]
+def probes(): return [dict((k, float(v)) for k, v in re.findall(r'(\w+)=(-?[\d.]+)', l.split('MICloudProbe ', 1)[1])) for l in text().splitlines() if 'MICloudProbe fps=' in l]
 def last(): p = probes(); return p[-1] if p else {}
 def wait(fn, s):
     t = time.time()
