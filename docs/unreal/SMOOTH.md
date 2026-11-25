@@ -146,6 +146,7 @@ set-up screen; the Story and Hold lines start with the title screen. E3DS-class 
 | `v4-story-l20` | 4 | the Story script, load **l20 (E3DS's GPU time)** | 6,197, 103.8 s | 59.70 (60 in every play second, render scale 0.50) | 40.1 | 194.4 ms (title) | 3.5 / 1.7 |
 | `v6-story-l20` | v6 trial | the same, l20 | 6,395, 107.2 s | 59.64 (60 in every play second, render scale 0.50) | 37.5 | 221.1 ms (title) | 5.6 / 1.7 |
 | `v6-hold-l20` | v6 trial | Hold the Block, load **l20 (E3DS's GPU time)** | 7,047, 191.0 s | **36.90** (60 for 42 s, then **30 to the end**, H2) | 25.5 | 190.4 ms (title) | 1,367.6 (the 33.3 ms frames of the 30 lock) / 0.6 |
+| `v6-hold-l15` | v6 trial | Hold the Block, load `1:0.05:0.02:1024` (GPU 9.1 ms at 0.75: close to l12, not between) | probe lines, 215 s of play | 59.9 (lowest second 52.1), target 60 in all 219 play seconds | | 170 ms (probe) | |
 | `v6-hold-free` | v6 trial | Hold the Block, no load | 10,497, 215.1 s | 48.79 (60 for 50 s, then 45 to the end: another lane's game took the card from 23:33:06 to 23:35:11, H2) | 35.6 | 188.2 ms (title) | 3.9 / 0.8 |
 
 The two menu runs shared the box's CPUs with other lanes' compiles in 109 and 130 of their 133 samples (the summary
