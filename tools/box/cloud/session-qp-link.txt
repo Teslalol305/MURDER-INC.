@@ -1,5 +1,5 @@
 # The viewer of the encoder range under a thin link (lag-test.sh game=dev qp=16:16 minbit=100000 view=session-qp-link.txt
-# vopts="--remb-kbps 4000 --link-kbps 4000"): E3DS's High (QP 16 and 16) in the Development game's Story run, the view
+# vopts=--remb-kbps,4000,--link-kbps,4000): E3DS's High (QP 16 and 16) in the Development game's Story run, the view
 # standing and then turning fast (about 173 degrees a second, twice). The page's own commands are sent first, as E3DS's
 # page sends them. Run it once as it is and once with -MIQpExact after "--": session_sum.py <run> --phases tells, phase
 # by phase, the QP the encoder used, the bitrate, the frames the sender captured, encoded and sent and the frames the

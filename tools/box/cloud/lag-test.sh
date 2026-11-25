@@ -76,8 +76,9 @@
 #   qp=<min>:<max>    the encoder's -PixelStreamingEncoderMinQP and MaxQP (default 18:36). E3DS's Medium is 34:34, its
 #                     High 16:16 (docs/unreal/DECISIONS.md, 2026-11-25); the game takes them as the centre of a range
 #                     (release 3c, MI.Cloud.QpBelow / QpAbove), -MIQpExact after "--" turns that off.
-#   vopts="<...>"     more options for the viewer (rtcinput.py): --delay-ms N, --link-kbps N, --link-queue-ms N,
-#                     --remb-kbps N make the viewer's link (the box has no tc: its header says how), --player WxH.
+#   vopts=<a,b,...>   more options for the viewer (rtcinput.py), the words joined by commas (a queue file's line has no
+#                     spaces to give): --delay-ms,N  --link-kbps,N  --link-queue-ms,N  --remb-kbps,N make the viewer's
+#                     link (the box has no tc: rtcinput.py's header says how), --player,WxH.
 #   viewer=0          no viewer at all: the game runs alone until its limit (secs) or until it quits by itself, which a
 #                     streamed game without -MIKeepAlive does 600 s after its start when nobody came (MI.Cloud.
 #                     ExitIfNoViewer; -- -MIExitIfNoViewer=40 shortens it). The idle game's and the unwatched game's runs.
@@ -249,7 +250,7 @@ run_fg() {
   date -u +%T > "$O/view.start"
   local vopt=() viewer=rtcinput.py; [ "$decode" = 0 ] && vopt=(--nodecode)
   # shellcheck disable=SC2206  (the viewer's options are separate words)
-  [ -n "$vopts" ] && vopt+=($vopts)
+  [ -n "$vopts" ] && vopt+=(${vopts//,/ })
   [ "$audio" = 1 ] && viewer=rtcaudio.py   # the same viewer with a recorder on the sound (sound.wav in the run's folder)
   (cd "$O" && timeout $((secs)) "$PY" "$T/$viewer" "$id" "$view" --out "$O" "${vopt[@]}" > "$O/view.log" 2>&1) || echo "VIEWER FAILED: $(tail -1 "$O/view.log")" >> "$O/info.txt"
   if [ -n "$view2" ]; then   # the next viewer, once the game has noticed that the first one left
