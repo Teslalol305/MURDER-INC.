@@ -4,7 +4,8 @@
 #
 #   - writes the received sound to a WAV (stereo, 48 kHz, 16 bit), every decoded Opus frame at the place its RTP
 #     timestamp gives it, so a lost packet leaves a hole of the right length instead of shortening the recording;
-#   - prints one line per half second: loudness (RMS) and peak in dBFS, clipped samples (at full scale), digital
+#   - prints one line per half second: loudness (RMS) and peak in dBFS, clipped samples (at 99 % of full scale or
+#     more: a lower bound, because the Opus decoder rounds a clipped top off; the peak is the surer sign), digital
 #     silence, lost sound, the size of the Opus packets (silence is 3 bytes a packet; the game's sound is hundreds);
 #   - counts drop-outs: 10 ms to 1 s of digital silence with sound right before and right after it (a mixer that
 #     starves or a sender that had nothing to send; the game's music and street never stop, so there is no such
@@ -40,7 +41,9 @@ RATE = 48000
 HALF = RATE // 2          # frames in half a second
 SUB = RATE // 100         # frames in 10 ms: the grain of the silence and drop-out search
 QUIET = 3                 # a 10 ms grain whose samples all lie within +-3 of zero is digital silence
+HOLE = 16                 # ... within +-16 (-66 dBFS): the codec's ringing at the edge of a silence
 LOUD = 64                 # about -54 dBFS: what "sound right before and after" a drop-out means
+FULL = 32440              # 99 % of full scale: a clipped sample (the Opus decoder rounds a clipped top off)
 
 
 def db(v):
@@ -65,8 +68,11 @@ class Recorder:
         self.lost = self.clipped = self.silent = self.late = 0
         self.sum_sq = 0.0
         self.peak = 0
-        self.run_start, self.run_len, self.before = None, 0, 0   # the run of silent grains being followed
-        self.heard = False
+        # Drop-outs: the hole being followed (grains within +-HOLE), the loudest of the three grains before it, and
+        # the hole that waits for the three grains after it.
+        self.hole = None           # [start frame, frames, has a grain of digital silence, loudest before]
+        self.recent = []
+        self.waiting = None        # [start, frames, loudest before, grains seen after, loudest after]
         self.closed = False
         self.note = ''
 
@@ -146,23 +152,14 @@ class Recorder:
         hi, lo = max(buf), min(buf)
         peak = max(hi, -lo)
         sq = sum(v * v for v in buf)
-        clipped = buf.count(32767) + buf.count(-32768)
+        clipped = sum(1 for v in buf if v >= FULL or v <= -FULL) if peak >= FULL else 0
         silent = 0
         for k in range(0, n, SUB * 2):
             grain = buf[k:k + SUB * 2]
             g = max(max(grain), -min(grain))
-            pos = at + k // 2
             if g <= QUIET:
                 silent += len(grain) // 2
-                if self.run_start is None:
-                    self.run_start, self.run_len = pos, 0
-                self.run_len += len(grain) // 2
-            else:
-                if self.run_start is not None and self.heard and SUB <= self.run_len <= RATE and self.before >= LOUD and g >= LOUD:
-                    self.gaps.append((round(self.run_start / RATE, 3), round(1000 * self.run_len / RATE)))
-                self.run_start = None
-                self.before = g
-                self.heard = True
+            self._grain(at + k // 2, len(grain) // 2, g)
         self.sum_sq += sq
         self.peak = max(self.peak, peak)
         self.clipped += clipped
@@ -180,6 +177,30 @@ class Recorder:
         size = f"  {row['bytes']:.0f} bytes a packet" if row['bytes'] is not None else ''
         self.log(f"sound at {row['at']:7.2f} s  {arrived}  rms {row['rms']:6.1f} dBFS  peak {row['peak']:6.1f} dBFS  clipped {clipped}"
                  f"  silent {row['silentMs']} ms  lost {row['lostMs']} ms{size}")
+
+    def _grain(self, pos, frames, peak):
+        """The drop-out search, one 10 ms grain at a time: a hole is 10 ms to 1 s within +-HOLE that holds digital
+        silence and has sound (LOUD or more) in the three grains before it and in the three after it."""
+        if self.waiting is not None:
+            w = self.waiting
+            w[3] += 1
+            w[4] = max(w[4], peak)
+            if w[3] >= 3 or peak <= HOLE:
+                if w[2] >= LOUD and w[4] >= LOUD:
+                    self.gaps.append((round(w[0] / RATE, 3), round(1000 * w[1] / RATE)))
+                self.waiting = None
+        if peak <= HOLE:
+            if self.hole is None:
+                self.hole = [pos, 0, False, max(self.recent, default=0)]
+            self.hole[1] += frames
+            self.hole[2] = self.hole[2] or peak <= QUIET
+        else:
+            if self.hole is not None:
+                h = self.hole
+                if h[2] and SUB <= h[1] <= RATE:
+                    self.waiting = [h[0], h[1], h[3], 1, peak]
+                self.hole = None
+            self.recent = (self.recent + [peak])[-3:]
 
     def summary(self):
         n = self.frames * 2
@@ -205,6 +226,8 @@ class Recorder:
         self.closed = True
         if len(self.pending):
             self._row(self.pending)
+        if self.waiting is not None and self.waiting[2] >= LOUD and self.waiting[4] >= LOUD:
+            self.gaps.append((round(self.waiting[0] / RATE, 3), round(1000 * self.waiting[1] / RATE)))
         self.w.close()
         s = self.summary()
         meta = {'rate': RATE, 'summary': s, 'rows': self.rows, 'dropOuts': self.gaps, 'actions': self.actions, 'packets': self.packets, 'note': self.note}
@@ -333,8 +356,10 @@ def selftest(folder, audio_dir):
     click = at48(click_file)
     bed_peak = max(abs(v) for v in bed) or 1.0
     bed_gain = 0.05 / bed_peak    # a quiet bed under the planted samples, as the music is under the guns
+    street = at48(os.path.join(audio_dir, 'Web', 'bed_day_01.wav'), 17.0)
+    street_gain = 0.03 / (max(abs(v) for v in street) or 1.0)
     for n in range(int(3.5 * RATE), 20 * RATE):
-        x[n] += bed_gain * bed[(n - int(3.5 * RATE)) % len(bed)]
+        x[n] += bed_gain * bed[(n - int(3.5 * RATE)) % len(bed)] + street_gain * street[(n - int(3.5 * RATE)) % len(street)]
     truth['bed'] = {'file': os.path.relpath(bed_file, audio_dir), 'from': 3.5, 'to': 20.0, 'gain': round(bed_gain, 5)}
 
     def plant(sample, at, gain, speed):
@@ -470,8 +495,10 @@ def selftest(folder, audio_dir):
         gap = [g for g in rec.gaps if abs(g[0] - shift / RATE - 12.0) < 0.03]
         check('the 100 ms gap', bool(gap) and 60 <= gap[0][1] <= 110, f"found {gap[0] if gap else rec.gaps} (at 12.0 s for 100 ms, sent; the codec rings into its ends)")
         burst = left[14 * RATE + shift - 480:14 * RATE + shift + 1440]
-        clipped = burst.count(32767) + burst.count(-32768)
-        check('the clipped burst', clipped >= 100 and rec.clipped >= 2 * clipped - 4, f'{clipped} samples at full scale on one channel in the burst (960 sent; Opus rounds some off), {rec.clipped} counted in all')
+        clipped = sum(1 for v in burst if abs(v) >= FULL)
+        check('the clipped burst', clipped >= 10 and rec.clipped >= 2 * clipped - 4 and rec.peak >= 32767,
+              f'{clipped} samples at 99 % of full scale or more on one channel in the burst (960 were sent so: Opus keeps the edges and rounds the tops off, '
+              f'so the count is a lower bound), {rec.clipped} counted in all, peak {db(rec.peak):.1f} dBFS')
     s = rec.summary()
     check('nothing lost', s['lostMs'] == 0, f"{s['lostMs']} ms lost, {s['packets']} packets")
     check('the sound\'s clock', abs((s.get('soundPerWallSecond') or 0) - 1) < 0.01, f"{s.get('soundPerWallSecond')} s of sound a second of wall clock")
