@@ -38,7 +38,7 @@ bursts, last = 0, time.perf_counter()
 while True:
     for _ in range(count):
         c = a @ b
-    torch.cuda.synchronize()
+    torch.cuda.synchronize()  # the burst ends when the card has done it: here the driver lets the game in
     bursts += 1
     if idle > 0:
         time.sleep(idle)

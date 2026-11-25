@@ -9,7 +9,7 @@
 #   lag-test.sh sum [-v] <name> ...                               the summary line(s) (lag_sum.py; -v: every probe line)
 #   lag-test.sh csv <name> [limit ms]                             where the long frames went (lag_csv.py; csv=1 runs)
 #   lag-test.sh calib <name> <load> <load> ...                    the GPU's time per frame under each load, one game
-#   lag-test.sh hogs <n>[:<work ms>[:<idle ms>]] | stop           the load by hand
+#   lag-test.sh hogs <n>[:<work ms>[:<idle ms>[:<size>]]] | stop  the load by hand
 #   lag-test.sh list                                              every run so far, one line each
 #
 # Keys of run:
@@ -17,9 +17,10 @@
 #                     csv profile; the engine's log with Pixel Streaming's capture lines) or the Shipping game (the
 #                     viewer clicks through the set-up screens). Default dev.
 #   build=<folder>    the folder with MurderInc.sh. Default /tmp/pf/app, else /project/ue/cloud/build-Shipping/Linux.
-#   load=<n>[:<work ms>[:<idle ms>]]   n second processes that keep the GPU busy (gpu_hog.py), each working for
-#                     <work ms> (4) and idle for <idle ms> (0: never). This is a load the game's own dynamic
-#                     resolution cannot undo: a GPU that is slower for the game whatever it draws. Default 0.
+#   load=<n>[:<work ms>[:<idle ms>[:<size>]]]   n second processes that keep the GPU busy (gpu_hog.py), each
+#                     working in bursts of <work ms> (4) with <idle ms> (0) between them on matrices of <size>
+#                     (2048). This is a load the game's own dynamic resolution cannot undo: a GPU that is slower
+#                     for the game whatever it draws. Calibrated loads: see "calib" and PROGRESS.md. Default 0.
 #   sp=<percent>      r.ScreenPercentage through the Development game's script: the simple load. It is not what a slow
 #                     GPU does (400 % is sixteen times the pixels), and dynamic resolution replaces it. Default none.
 #   res=<W>x<H>       the output size. Default 1920x1080.
@@ -55,14 +56,15 @@ venv() {  # the viewer's Python (aiortc); /tmp is lost when the box restarts
   python3 -m venv /tmp/fps/venv && /tmp/fps/venv/bin/pip -q install aiortc websockets pillow
 }
 
-hogs() {  # <n>[:<work>[:<idle>]] <pid file> <log prefix> | stop <pid file>
+hogs() {  # <n>[:<work ms>[:<idle ms>[:<size>]]] <pid file> <log prefix> | stop <pid file>
   if [ "$1" = stop ]; then
     local p; for p in $(cat "$2" 2>/dev/null); do kill "$p" 2>/dev/null; done; rm -f "$2"; return
   fi
-  local n=${1%%:*} rest work=4 idle=0 i
-  rest=${1#*:}; [ "$rest" != "$1" ] && { work=${rest%%:*}; [ "${rest#*:}" != "$rest" ] && idle=${rest#*:}; }
+  local n=${1%%:*} rest= i
+  [ "${1#*:}" != "$1" ] && rest=${1#*:}
   for i in $(seq 1 "$n"); do
-    setsid nohup /opt/venv/bin/python3 -I "$T/gpu_hog.py" "$work" "$idle" > "$3$i.log" 2>&1 < /dev/null &
+    # shellcheck disable=SC2086  (work, idle and size are separate arguments)
+    setsid nohup /opt/venv/bin/python3 -I "$T/gpu_hog.py" ${rest//:/ } > "$3$i.log" 2>&1 < /dev/null &
     echo $! >> "$2"
   done
   [ "$n" -gt 0 ] && for i in $(seq 1 40); do [ "$(cat "$3"*.log 2>/dev/null | grep -c 'hog running')" -ge "$n" ] && break; sleep 0.5; done
