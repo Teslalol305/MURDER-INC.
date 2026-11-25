@@ -12,6 +12,7 @@
 #   GUNS="chopper shorty stretch rattler"      the carried guns, slot 1 to 4 (default)
 #   OPTICS="chopper=scope_4x shorty=red_dot"    gun=part pairs fitted before the run (default: none, the irons)
 #   MUZZLES="stretch=suppressor"               gun=part pairs for the muzzle slot; MAGS="shorty=mag_ext_rifle" for the magazine
+#   FITS="shorty=laser:laser_module stretch=underbarrel:foregrip_vertical"   gun=slot:part for any other slot
 #   ONLY="chopper:aim shorty:fire"             only those gun:picture pairs (the set-up and the poses still run)
 out=${1:-}
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
@@ -40,9 +41,10 @@ n=1
 for g in $guns; do fe slot $n $g; n=$((n + 1)); done
 while [ $n -le 4 ]; do fe empty $n; n=$((n + 1)); done
 for g in $guns; do
-  o=$(pick "$g" "${OPTICS:-}"); m=$(pick "$g" "${MUZZLES:-}"); mg=$(pick "$g" "${MAGS:-}")
-  [ -n "$o$m$mg" ] || continue
+  o=$(pick "$g" "${OPTICS:-}"); m=$(pick "$g" "${MUZZLES:-}"); mg=$(pick "$g" "${MAGS:-}"); fx=$(pick "$g" "${FITS:-}")
+  [ -n "$o$m$mg$fx" ] || continue
   fe bench "$g"
+  [ -n "$fx" ] && { fe benchslot "${fx%%:*}"; fe fit "${fx#*:}"; }
   [ -n "$o" ] && { fe benchslot optic; fe fit "$o"; }
   [ -n "$m" ] && { fe benchslot muzzle; fe fit "$m"; }
   [ -n "$mg" ] && { fe benchslot magazine; fe fit "$mg"; }
