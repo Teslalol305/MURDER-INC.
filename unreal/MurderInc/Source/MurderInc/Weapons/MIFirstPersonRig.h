@@ -164,6 +164,7 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<USkeletalMesh> RealArms;
 
+	TWeakObjectPtr<UStaticMeshComponent> HeldMag;    // HandIK guns: the magazine the support hand holds in a reload (OwnMag or the fitted part)
 	TWeakObjectPtr<UStaticMeshComponent> SeatedMag;  // the magazine on MagHinge (the assembly's part, or OwnMag)
 	TWeakObjectPtr<UMIGunAssembly> GunAssembly;      // the build of the gun in hand (a fitted grip gives the support hand its place)
 	TWeakObjectPtr<const USkinnedMeshComponent> HandGun;  // HandIK guns: the poseable gun the hands were last pulled onto (its Eject socket throws the brass)
@@ -186,7 +187,18 @@ private:
 	bool bShoulderAnchor = false;
 	bool bReloadingNow = false;
 	double ReloadNowT = 0.0, ReloadNowLeft = 0.0;
-	FVector MagBasePad = FVector(1.5, 0.0, -15.0);  // HandIK guns: the palm under the magazine's base (gun space, cm)  // anim set supportElbowDrop (arms component space, cm)  // the irons' zeroing turn of the gun in hand (reset on equip)
+	/** HandIK guns: where the support palm goes on the magazine in a reload, in the magazine part's own frame (cm): anim set
+	 *  magazine.palm, or the middle of the magazine mesh's bottom when the set gives none. */
+	FVector MagBasePad = FVector(1.5, 0.0, -15.0);
+	/** HandIK guns, in a reload: the support grip carried onto the magazine is narrowed across the gun by this factor about
+	 *  the magazine's middle (anim set magazine.squeeze: the solve wraps a 5 to 6 cm forend, a magazine is 2.5 to 3 cm). */
+	double MagSqueeze = 1.0;
+	/** HandIK guns: seconds the support hand takes to go to the magazine and back (anim set magazine.blend). */
+	double MagBlend = 0.25;
+	/** HandIK guns: the support elbow pushed from the clip's own pole (anim set supportElbowOut, camera space cm: X forward,
+	 *  Y right, Z up), at the hip; aimed it blends to supportElbowOutAim (the same when the set gives none). */
+	FVector SupportElbowOut = FVector::ZeroVector, SupportElbowOutAim = FVector::ZeroVector;
+	double AdsNow = 0.0;  // HandIK guns: the aim weight of the last Update (the grip solves and the elbow blend by it)
 	FName GunId;
 	FTransform ArmsRest = FTransform::Identity;
 	double FovIrons = 38.0, FovOptic = 32.0;
@@ -208,6 +220,7 @@ private:
 	FMIFPPose HandPose;
 	FName LeftSocket, RightSocket;
 	TMap<FName, FVector> GripPoints[2];  // HandIK guns: the solved grip's points (gun space, cm), [0] left, [1] right
+	TMap<FName, FVector> GripPointsAim[2];  // the aimed solve (grip.aimPose, default "aim"); empty: the hip solve aimed too
 	double GripWeight = 1.0;
 	double SupportStretch = 1.0;  // HandIK guns: the support arm's largest stretch (anim set armStretch)
 	double ReloadCurl = 0.0;      // HandIK guns: degrees the support fingers close on the magazine in a reload (anim set reloadCurl)

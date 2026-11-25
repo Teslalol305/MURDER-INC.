@@ -879,6 +879,23 @@ def check_arm_reach():
             err("reach: animSets.%s_ik.reloadCurl must be 0 to 70 degrees" % g)
     if sets["pistol"].get("armStretch", 1.0) != 1.0:
         err("reach: the NINE's pistol set must not stretch")
+    # HANDS_R4.md 8: the support elbow pole (camera space cm, out to the left and down) and the reload hold on the magazine
+    num3 = lambda v: isinstance(v, list) and len(v) == 3 and all(isinstance(x, (int, float)) for x in v)
+    for name, st in sets.items():
+        if st.get("mode") != "ik":
+            continue
+        for key in ("supportElbowOut", "supportElbowOutAim"):
+            if key in st and not (num3(st[key]) and all(abs(x) <= 40 for x in st[key]) and st[key][1] <= 0 and st[key][2] <= 0):
+                err("hands: animSets.%s.%s must be three numbers within 40 cm, y (right) and z (up) not above 0" % (name, key))
+        mag = st.get("magazine", {})
+        if "palm" in mag and not (num3(mag["palm"]) and all(abs(x) <= 60 for x in mag["palm"])):
+            err("hands: animSets.%s.magazine.palm must be three numbers (cm, the magazine's frame)" % name)
+        if not (isinstance(mag.get("squeeze", 1.0), (int, float)) and 0.2 <= mag.get("squeeze", 1.0) <= 1.0):
+            err("hands: animSets.%s.magazine.squeeze must be 0.2 to 1" % name)
+        if not (isinstance(mag.get("blend", 0.25), (int, float)) and 0.05 <= mag.get("blend", 0.25) <= 0.6):
+            err("hands: animSets.%s.magazine.blend must be 0.05 to 0.6 s" % name)
+        if "aimSides" in st.get("grip", {}) and not set(st["grip"]["aimSides"]) <= set("lr"):
+            err("hands: animSets.%s.grip.aimSides takes l and r only" % name)
 
 
 def check_freshness():

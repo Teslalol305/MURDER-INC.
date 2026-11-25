@@ -673,4 +673,84 @@ bool FMIFirstPersonArmReachTest::RunTest(const FString& Parameters)
 	return !HasAnyErrors();
 }
 
+
+// ================================================================================================ the support hand (HANDS_R4.md 8)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIFirstPersonSupportHandTest, "MurderInc.FirstPerson.SupportHand", MIWeaponsR4Private::Flags)
+
+bool FMIFirstPersonSupportHandTest::RunTest(const FString& Parameters)
+{
+	using namespace MIWeaponsR4Private;
+	FData F;
+	if (!F.Load(*this))
+	{
+		return false;
+	}
+	TSharedPtr<FJsonObject> Grips;
+	FString Error;
+	if (!UMIDataSubsystem::LoadJsonFile(TEXT("grips.json"), Grips, Error))
+	{
+		AddError(TEXT("grips.json: ") + Error);
+		return false;
+	}
+	static const TCHAR* const Rifles[] = {TEXT("chopper"), TEXT("shorty"), TEXT("stretch"), TEXT("rattler")};
+	for (const TCHAR* Gun : Rifles)
+	{
+		const FString Set = FString::Printf(TEXT("firstPerson.animSets.%s_ik"), Gun);
+		// 8.2: the support elbow's pole, camera space cm: out to the left (Y not right) and down (Z not up), within 40 cm.
+		for (const TCHAR* Key : {TEXT(".supportElbowOut"), TEXT(".supportElbowOutAim")})
+		{
+			const TSharedPtr<FJsonValue> V = MIJson::Get(F.Presentation, Set + Key);
+			if (!V.IsValid())
+			{
+				continue;
+			}
+			const bool bThree = V->Type == EJson::Array && V->AsArray().Num() == 3;
+			TestTrue(FString::Printf(TEXT("%s%s is three numbers"), Gun, Key), bThree);
+			if (bThree)
+			{
+				const FVector E = Vec(V);
+				TestTrue(FString::Printf(TEXT("%s%s %s: within 40 cm, to the left and down"), Gun, Key, *E.ToCompactString()),
+					E.GetAbsMax() <= 40.0 && E.Y <= 0.0 && E.Z <= 0.0);
+			}
+		}
+		// 8.1: the carried grip closes the hand on the magazine; a curl on top would sink the fingers into it.
+		const double Squeeze = MIJson::NumberOr(F.Presentation, Set + TEXT(".magazine.squeeze"), 1.0);
+		TestTrue(FString::Printf(TEXT("%s: magazine.squeeze %.2f is 0.2 to 1"), Gun, Squeeze), Squeeze >= 0.2 && Squeeze <= 1.0);
+		const double Blend = MIJson::NumberOr(F.Presentation, Set + TEXT(".magazine.blend"), 0.25);
+		TestTrue(FString::Printf(TEXT("%s: magazine.blend %.2f s is 0.05 to 0.6"), Gun, Blend), Blend >= 0.05 && Blend <= 0.6);
+		TestEqual(FString::Printf(TEXT("%s: reloadCurl is 0 (the carried grip holds the magazine)"), Gun), MIJson::NumberOr(F.Presentation, Set + TEXT(".reloadCurl"), -1.0), 0.0);
+		// 8.3: the aimed solve blended by the aim has every point of the hip solve, and the support hand moves little.
+		const FString Key = MIJson::StringOr(F.Presentation, Set + TEXT(".grip.gun"));
+		const FString Hip = MIJson::StringOr(F.Presentation, Set + TEXT(".grip.pose"), TEXT("hip"));
+		const FString Aim = MIJson::StringOr(F.Presentation, Set + TEXT(".grip.aimPose"), TEXT("aim"));
+		const TSharedPtr<FJsonValue> H = MIJson::Get(Grips, FString::Printf(TEXT("guns.%s.%s.l"), *Key, *Hip));
+		const TSharedPtr<FJsonValue> A = MIJson::Get(Grips, FString::Printf(TEXT("guns.%s.%s.l"), *Key, *Aim));
+		if (!TestTrue(FString::Printf(TEXT("%s: grips.json has the support hand's %s and %s solves"), Gun, *Hip, *Aim),
+			H.IsValid() && A.IsValid() && H->Type == EJson::Object && A->Type == EJson::Object))
+		{
+			continue;
+		}
+		double Worst = 0.0;
+		int32 Points = 0;
+		for (const auto& Pair : H->AsObject()->Values)
+		{
+			const TSharedPtr<FJsonValue>* Other = A->AsObject()->Values.Find(Pair.Key);
+			if (Pair.Value->Type != EJson::Array || Pair.Value->AsArray().Num() != 3)
+			{
+				continue;
+			}
+			++Points;
+			if (!TestTrue(FString::Printf(TEXT("%s: the aimed support solve has %s"), Gun, *FString(*Pair.Key)), Other && (*Other)->Type == EJson::Array && (*Other)->AsArray().Num() == 3))
+			{
+				continue;
+			}
+			Worst = FMath::Max(Worst, FVector::Dist(Vec(Pair.Value), Vec(*Other)));
+		}
+		TestTrue(FString::Printf(TEXT("%s: %d support points"), Gun, Points), Points >= 20);
+		TestTrue(FString::Printf(TEXT("%s: the support hand moves %.2f cm from hip to aimed (at most 4: a blend, not a new grip)"), Gun, Worst), Worst <= 4.0);
+	}
+	return !HasAnyErrors();
+}
+
 #endif

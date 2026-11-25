@@ -168,13 +168,18 @@
         "armStretch": 1.1,
         "armStretchNote": "how far the SUPPORT arm may stretch to reach its palm target (1 = never; the arm is 58.5 cm and the support palm up to 64 cm from the shoulder, ANIMATION.md 11); the firing arm and the NINE never stretch. Console mi.FP.ArmStretch above 0 forces a value on every arm for comparison pictures. Not yet seen in a picture.",
         "foregripCurl": 30,
-        "reloadCurl": 35,
-        "reloadCurlNote": "degrees every support finger closes while the support hand works the magazine in a reload (a loose fist instead of the pack idle's open hand); a starting value, not yet seen in a picture",
+        "reloadCurl": 0,
+        "reloadCurlNote": "degrees every support finger closes, on top of the grip, while the support hand holds the magazine in a reload; 0 on the rifles: the solved support grip goes with the palm onto the magazine (magazine.palm, magazine.squeeze) and already closes the hand round it, a curl on top would sink the fingers into the magazine (HANDS_R4.md 8.1)",
+        "supportElbowOut": [-3, -12, -6],
+        "supportElbowOutNote": "camera space, cm (X forward, Y right, Z up): the support elbow pushed this far from the pole the clip gives it, so the support forearm comes in from the lower left at about 45 degrees as the STICK's does instead of standing up from the bottom of the picture (HANDS_R4.md 8.2); supportElbowOutAim (optional) is the aimed value, the same when absent; let go while the hand holds the magazine in a reload",
         "foregripCurlNote": "degrees every support finger closes extra when a fitted part names a SupportHand (a foregrip), so the hand wraps the part and not the bare handguard; a starting value, not yet seen in a picture",
         "bobScale": 0.6,
         "magazine": {
           "full": "/Game/Weapons/Chopper/SM_Weapon_ChopperMagazine.SM_Weapon_ChopperMagazine",
-          "socket": "magazine"
+          "socket": "magazine",
+          "squeeze": 0.55,
+          "blend": 0.25,
+          "note": "in a reload the support palm goes to magazine.palm (the magazine mesh's frame, cm; absent: under the middle of its bottom) and the solved support grip goes with it, narrowed across the gun by squeeze (the solve wraps a 5 to 6 cm handguard, the magazine is 2.5 to 3 cm), blended in and out over blend seconds (HANDS_R4.md 8.1)"
         },
         "casing": "/Game/Weapons/Casings/SM_Weapon_CasingRifle.SM_Weapon_CasingRifle",
         "fingerCurl": {
@@ -200,13 +205,16 @@
         "armStretch": 1.1,
         "armStretchNote": "how far the SUPPORT arm may stretch to reach its palm target (1 = never; the arm is 58.5 cm and the support palm up to 64 cm from the shoulder, ANIMATION.md 11); the firing arm and the NINE never stretch. Console mi.FP.ArmStretch above 0 forces a value on every arm for comparison pictures. Not yet seen in a picture.",
         "foregripCurl": 30,
-        "reloadCurl": 35,
-        "reloadCurlNote": "degrees every support finger closes while the support hand works the magazine in a reload (a loose fist instead of the pack idle's open hand); a starting value, not yet seen in a picture",
+        "reloadCurl": 0,
+        "reloadCurlNote": "degrees every support finger closes, on top of the grip, while the support hand holds the magazine in a reload; 0 on the rifles: the solved support grip goes with the palm onto the magazine (magazine.palm, magazine.squeeze) and already closes the hand round it, a curl on top would sink the fingers into the magazine (HANDS_R4.md 8.1)",
         "foregripCurlNote": "degrees every support finger closes extra when a fitted part names a SupportHand (a foregrip), so the hand wraps the part and not the bare handguard; a starting value, not yet seen in a picture",
         "bobScale": 0.6,
         "magazine": {
           "full": "/Game/Weapons/Shorty/SM_Weapon_ShortyMagazine.SM_Weapon_ShortyMagazine",
-          "socket": "magazine"
+          "socket": "magazine",
+          "squeeze": 0.55,
+          "blend": 0.25,
+          "note": "in a reload the support palm goes to magazine.palm (the magazine mesh's frame, cm; absent: under the middle of its bottom) and the solved support grip goes with it, narrowed across the gun by squeeze (the solve wraps a 5 to 6 cm handguard, the magazine is 2.5 to 3 cm), blended in and out over blend seconds (HANDS_R4.md 8.1)"
         },
         "casing": "/Game/Weapons/Casings/SM_Weapon_CasingRifle.SM_Weapon_CasingRifle",
         "fingerCurl": {
@@ -232,13 +240,18 @@
         "armStretch": 1.1,
         "armStretchNote": "how far the SUPPORT arm may stretch to reach its palm target (1 = never; the arm is 58.5 cm and the support palm up to 64 cm from the shoulder, ANIMATION.md 11); the firing arm and the NINE never stretch. Console mi.FP.ArmStretch above 0 forces a value on every arm for comparison pictures. Not yet seen in a picture.",
         "foregripCurl": 30,
-        "reloadCurl": 35,
-        "reloadCurlNote": "degrees every support finger closes while the support hand works the magazine in a reload (a loose fist instead of the pack idle's open hand); a starting value, not yet seen in a picture",
+        "reloadCurl": 0,
+        "reloadCurlNote": "degrees every support finger closes, on top of the grip, while the support hand holds the magazine in a reload; 0 on the rifles: the solved support grip goes with the palm onto the magazine (magazine.palm, magazine.squeeze) and already closes the hand round it, a curl on top would sink the fingers into the magazine (HANDS_R4.md 8.1)",
+        "supportElbowOut": [-3, -12, -6],
+        "supportElbowOutNote": "camera space, cm (X forward, Y right, Z up): the support elbow pushed this far from the pole the clip gives it, so the support forearm comes in from the lower left at about 45 degrees as the STICK's does instead of standing up from the bottom of the picture (HANDS_R4.md 8.2); supportElbowOutAim (optional) is the aimed value, the same when absent; let go while the hand holds the magazine in a reload",
         "foregripCurlNote": "degrees every support finger closes extra when a fitted part names a SupportHand (a foregrip), so the hand wraps the part and not the bare handguard; a starting value, not yet seen in a picture",
         "bobScale": 0.6,
         "magazine": {
           "full": "/Game/Weapons/Stretch/SM_Weapon_StretchMagazine.SM_Weapon_StretchMagazine",
-          "socket": "magazine"
+          "socket": "magazine",
+          "squeeze": 0.55,
+          "blend": 0.25,
+          "note": "in a reload the support palm goes to magazine.palm (the magazine mesh's frame, cm; absent: under the middle of its bottom) and the solved support grip goes with it, narrowed across the gun by squeeze (the solve wraps a 5 to 6 cm handguard, the magazine is 2.5 to 3 cm), blended in and out over blend seconds (HANDS_R4.md 8.1)"
         },
         "casing": "/Game/Weapons/Casings/SM_Weapon_CasingRifle.SM_Weapon_CasingRifle",
         "fingerCurl": {
@@ -264,13 +277,18 @@
         "armStretch": 1.1,
         "armStretchNote": "how far the SUPPORT arm may stretch to reach its palm target (1 = never; the arm is 58.5 cm and the support palm up to 64 cm from the shoulder, ANIMATION.md 11); the firing arm and the NINE never stretch. Console mi.FP.ArmStretch above 0 forces a value on every arm for comparison pictures. Not yet seen in a picture.",
         "foregripCurl": 30,
-        "reloadCurl": 35,
-        "reloadCurlNote": "degrees every support finger closes while the support hand works the magazine in a reload (a loose fist instead of the pack idle's open hand); a starting value, not yet seen in a picture",
+        "reloadCurl": 0,
+        "reloadCurlNote": "degrees every support finger closes, on top of the grip, while the support hand holds the magazine in a reload; 0 on the rifles: the solved support grip goes with the palm onto the magazine (magazine.palm, magazine.squeeze) and already closes the hand round it, a curl on top would sink the fingers into the magazine (HANDS_R4.md 8.1)",
+        "supportElbowOut": [-5, -25, -10],
+        "supportElbowOutNote": "camera space, cm (X forward, Y right, Z up): the support elbow pushed this far from the pole the clip gives it, so the support forearm comes in from the lower left at about 45 degrees as the STICK's does instead of standing up from the bottom of the picture (HANDS_R4.md 8.2); supportElbowOutAim (optional) is the aimed value, the same when absent; let go while the hand holds the magazine in a reload",
         "foregripCurlNote": "degrees every support finger closes extra when a fitted part names a SupportHand (a foregrip), so the hand wraps the part and not the bare handguard; a starting value, not yet seen in a picture",
         "bobScale": 0.6,
         "magazine": {
           "full": "/Game/Weapons/Rattler/SM_Weapon_RattlerMagazine.SM_Weapon_RattlerMagazine",
-          "socket": "magazine"
+          "socket": "magazine",
+          "squeeze": 0.55,
+          "blend": 0.25,
+          "note": "in a reload the support palm goes to magazine.palm (the magazine mesh's frame, cm; absent: under the middle of its bottom) and the solved support grip goes with it, narrowed across the gun by squeeze (the solve wraps a 5 to 6 cm handguard, the magazine is 2.5 to 3 cm), blended in and out over blend seconds (HANDS_R4.md 8.1)"
         },
         "casing": "/Game/Weapons/Casings/SM_Weapon_CasingPistol.SM_Weapon_CasingPistol",
         "fingerCurl": {
