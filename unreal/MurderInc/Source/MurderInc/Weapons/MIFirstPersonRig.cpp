@@ -427,6 +427,20 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 			}
 		}
 		ApplyOpticMaterials(LegacyGun);   // the build's optic (red dot, scope) in daylight, as for the pack's
+		// The optic's housing fades out as the sight comes up (UpdateOpticFade): one dynamic instance of its hardware slot.
+		OpticHardware.Reset();
+		if (UStaticMeshComponent* Optic = Assembly ? Assembly->PartMesh(TEXT("optic")) : nullptr)
+		{
+			for (int32 I = 0; I < Optic->GetNumMaterials(); ++I)
+			{
+				const UMaterialInterface* M = Optic->GetMaterial(I);
+				const UMaterial* Base = M ? M->GetBaseMaterial() : nullptr;
+				if (Base && Base->GetName() == TEXT("M_Part_Hardware"))
+				{
+					OpticHardware.Add(Optic->CreateAndSetMaterialInstanceDynamic(I));
+				}
+			}
+		}
 		return Mode;
 	}
 	if (Kind != TEXT("pack") || !Resolved)
@@ -854,6 +868,16 @@ void UMIFirstPersonRig::Update(double Dt, const FMIWeaponView& W, const FMIViewm
 			Curl.Time = static_cast<float>(CurlTime);
 			Curl.Weight = static_cast<float>(CurlWeight);
 			Curl.Branch = CurlBranch;
+		}
+		// The fitted optic's housing out of the picture as the sight comes up (about 0.45 to 0.75 of the aim): the glass and
+		// the reticle stay. Without the importer's "AimFade" parameter on the material this does nothing.
+		const float Fade = static_cast<float>(Smooth((W.Ads - 0.45) / 0.30));
+		for (const TWeakObjectPtr<UMaterialInstanceDynamic>& D : OpticHardware)
+		{
+			if (D.IsValid())
+			{
+				D->SetScalarParameterValue(TEXT("AimFade"), Fade);
+			}
 		}
 		return;  // the hands come in UpdateHands, after the arms are placed on the grip
 	}

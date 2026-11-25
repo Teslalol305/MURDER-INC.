@@ -98,8 +98,10 @@ def _tex(m, path, x, y, kind):
     return n
 
 
-def _surface(path, tex, set_name, skeletal=True, emissive=False):
-    """BC / ORM / N (OpenGL sets: green flipped on import) [+ E] on the default lit model."""
+def _surface(path, tex, set_name, skeletal=True, emissive=False, aim_fade=False):
+    """BC / ORM / N (OpenGL sets: green flipped on import) [+ E] on the default lit model. With aim_fade the material is
+    masked, its opacity a temporal dither of 1 - AimFade (scalar parameter, 0 = solid): the first-person rig fades a fitted
+    optic's housing out as the sight comes up, so the aimed picture is not a dark tunnel (LOADOUT.md 3.3)."""
     m = _material(path)
     bc = _tex(m, "%s/T_%s_BC" % (tex, set_name), -600, -200, "color")
     orm = _tex(m, "%s/T_%s_ORM" % (tex, set_name), -600, 100, "masks")
@@ -112,6 +114,14 @@ def _surface(path, tex, set_name, skeletal=True, emissive=False):
     if emissive and ASSETS.does_asset_exist("%s/T_%s_E" % (tex, set_name)):
         e = _tex(m, "%s/T_%s_E" % (tex, set_name), -600, 700, "color")
         MEL.connect_material_property(e, "RGB", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    if aim_fade:
+        _set(m, blend_mode=unreal.BlendMode.BLEND_MASKED)
+        fade = _scalar(m, "AimFade", 0.0, -900, 700)
+        inv = _expr(m, unreal.MaterialExpressionOneMinus, -700, 700)
+        MEL.connect_material_expressions(fade, "", inv, "")
+        dither = _expr(m, unreal.MaterialExpressionDitherTemporalAA, -500, 700)
+        MEL.connect_material_expressions(inv, "", dither, "")
+        MEL.connect_material_property(dither, "", unreal.MaterialProperty.MP_OPACITY_MASK)
     if skeletal:
         _set(m, used_with_skeletal_mesh=True)
     return _finish(m, path)
