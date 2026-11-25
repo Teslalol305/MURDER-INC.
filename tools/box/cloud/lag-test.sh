@@ -96,7 +96,10 @@ run_fg() {
   done
   [ -n "$build" ] || build=${LAG_BUILD:-$C/build-Shipping/Linux}
   [ -n "$view" ] || { view=lag-turn.txt; [ "$game" = ship ] && view=lag-story.txt; }
-  [ -f "$view" ] || view=$T/$view   # a bare name is one of the scripts beside this file
+  case "$view" in   # a bare name is one of the scripts beside this file; the viewer runs in the run's own folder
+    /*) ;;
+    *) if [ -f "$T/$view" ]; then view=$T/$view; else view=$(readlink -f "$view"); fi ;;
+  esac
   if [ "$profile" = 1 ]; then
     # A folder whose pak is older than the branch: version 3's additions to the cloud profile ([MICloud] of
     # DefaultGame.ini: dynamic resolution, the game's pacing, Pixel Streaming's settings) as -MICVars, this run's own
@@ -154,7 +157,7 @@ run_fg() {
   for i in $(seq 1 60); do grep -a -q "MICloudProbe.*$want" "$R/game.log" 2>/dev/null && break; sleep 1; done
   sleep 3
   date -u +%T > "$O/view.start"
-  (cd "$O" && timeout $((secs)) "$PY" "$T/rtcinput.py" "$id" "$view" --out "$O" > "$O/view.log" 2>&1)
+  (cd "$O" && timeout $((secs)) "$PY" "$T/rtcinput.py" "$id" "$view" --out "$O" > "$O/view.log" 2>&1) || echo "VIEWER FAILED: $(tail -1 "$O/view.log")" >> "$O/info.txt"
   for i in $(seq 1 $((secs + 60))); do [ -f "$R/result.txt" ] && break; sleep 1; done
   hogs stop "$O/hog.pids"
   cp "$R/game.log" "$O/game.log" 2>/dev/null; cp "$R/result.txt" "$O/result.txt" 2>/dev/null
