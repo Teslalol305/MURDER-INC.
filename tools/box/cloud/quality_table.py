@@ -13,6 +13,7 @@ so that each variant can be LOOKED at as the stream delivers it. The game's own 
   quality_table.py baseline <game.log> <out>    the values the probe run printed, as JSON
   quality_table.py gen <dir> <baseline.json> [scenes=street,garage] [only=<label,label>]
                                                 <dir>/play.txt (the game's script), view.txt (the viewer's), labels.json
+  quality_table.py frames <dir> [label,label]   the received frame at the end of each variant's measuring window and the baseline's
   quality_table.py sum <dir> [csv]              the table: for every variant, the GPU time next to the baseline's, the saving,
                                                 the longest frame in the first 1.5 s after the change, and the frame to look at
 
@@ -133,7 +134,7 @@ def parse_ts(line):
     if not m:
         return None
     y, mo, d, h, mi, s, ms = (int(x) for x in m.groups())
-    return datetime.datetime(y, mo, d, h, mi, s, ms * 1000).timestamp()
+    return datetime.datetime(y, mo, d, h, mi, s, ms * 1000, tzinfo=datetime.timezone.utc).timestamp()
 
 
 def baseline(log, out):
@@ -288,6 +289,49 @@ def summarize(d, csv=False):
     return 0
 
 
+def frames(d, wanted):
+    """For each variant (all, or the labels in wanted) the received frame saved at the end of its measuring window, and the frame at
+    the end of the baseline window before it. Prints 'scene|variant|measure frame|baseline frame'."""
+    L = json.load(open(os.path.join(d, 'labels.json')))
+    labels = {int(k): v for k, v in L['labels'].items()}
+    M = markers(os.path.join(d, 'game.log'))
+    byline = {}
+    for t, ln, txt in M:
+        byline.setdefault(ln, t)
+    ends = sorted(byline.items())
+    view = open(os.path.join(d, 'view.log'), errors='replace').read().splitlines()
+    t0 = None
+    saved = []   # (epoch, file)
+    for line in view:
+        m = re.match(r'\s*([\d.]+)\s+streamers .*wall clock ([\d.]+)', line)
+        if m:
+            t0 = float(m.group(2)) - float(m.group(1))
+        m = re.match(r'\s*([\d.]+)\s+saved (\S+)', line)
+        if m and t0 is not None:
+            saved.append((t0 + float(m.group(1)), m.group(2)))
+
+    def near(t):
+        return min(saved, key=lambda x: abs(x[0] - t))[1] if saved else None
+
+    def end_of(ln):
+        t = byline.get(ln)
+        nxt = [x for l, x in ends if l > ln]
+        return (nxt[0] - 0.25) if t and nxt else None
+
+    out, last_base = [], {}
+    for ln in sorted(labels):
+        role, scene, var = labels[ln]
+        e = end_of(ln)
+        if e is None:
+            continue
+        if role == 'base':
+            last_base[scene] = near(e)
+        elif role == 'measure' and (not wanted or var in wanted):
+            out.append((scene, var, near(e), last_base.get(scene)))
+    for r in out:
+        print('|'.join(str(x) for x in r))
+
+
 def main(a):
     if not a:
         print(__doc__)
@@ -302,6 +346,8 @@ def main(a):
     elif c == 'gen':
         kv = dict(x.split('=', 1) for x in a[3:] if '=' in x)
         gen(a[1], a[2], kv.get('scenes', 'street,garage').split(','), set(kv['only'].split(',')) if 'only' in kv else None)
+    elif c == 'frames':
+        frames(a[1], set(a[2].split(',')) if len(a) > 2 else None)
     elif c == 'sum':
         return summarize(a[1], 'csv' in a[2:])
     else:
