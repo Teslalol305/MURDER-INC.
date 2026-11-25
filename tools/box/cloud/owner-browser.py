@@ -29,7 +29,9 @@ const lab = e => (e.innerText || e.getAttribute('aria-label') || e.title || e.pl
   .trim().replace(/\s+/g, ' ').slice(0, 90);
 const out = [];
 let i = 0;
-const sel = 'a[href], button, input, select, textarea, [role=button], [role=tab], [role=switch], [role=checkbox], ' +
+// Numbers of an earlier listing stay on elements the page has since hidden: clear them, or a number names two things.
+document.querySelectorAll('[data-mi]').forEach(e => e.removeAttribute('data-mi'));
+const sel ='a[href], button, input, select, textarea, [role=button], [role=tab], [role=switch], [role=checkbox], ' +
   '[role=radio], [role=menuitem], [role=option], [role=combobox], [contenteditable=true], label';
 for (const e of document.querySelectorAll(sel)) {
   const t = e.tagName.toLowerCase(); const ty = e.getAttribute('type') || e.getAttribute('role') || '';
@@ -82,7 +84,11 @@ def main():
             r = m.execute_script(src, script_args=[arg], new_sandbox=False)
             print(r if isinstance(r, str) else json.dumps(r, indent=1))
         elif c in ('click', 'fill', 'file'):
-            e = m.find_element(By.CSS_SELECTOR, '[data-mi="%s"]' % a[1])
+            es = m.find_elements(By.CSS_SELECTOR, '[data-mi="%s"]' % a[1])
+            if len(es) != 1:
+                print('refused: %d elements carry the number %s (list the page again with inv)' % (len(es), a[1]))
+                sys.exit(4)
+            e = es[0]
             if e.get_attribute('type') == 'password':
                 print('refused: a password field')
                 sys.exit(3)
