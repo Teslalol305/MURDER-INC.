@@ -308,7 +308,7 @@ void AMIPlayerCharacter::SetViewmodelVisible(bool bVisible)
 	const bool bArms = bVisible && !bArmsHidden;
 	if (GunMesh->IsVisible() != bVisible)
 	{
-		GunMesh->SetVisibility(bVisible);
+		GunMesh->SetVisibility(bVisible, true);  // with its children: the fitted parts, the seated magazine and its top round
 	}
 	if (ArmsMesh->IsVisible() != bArms)
 	{

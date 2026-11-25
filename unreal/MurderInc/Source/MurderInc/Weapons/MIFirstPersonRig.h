@@ -158,6 +158,8 @@ private:
 
 	TWeakObjectPtr<UStaticMeshComponent> SeatedMag;  // the magazine on MagHinge (the assembly's part, or OwnMag)
 	TWeakObjectPtr<UMIGunAssembly> GunAssembly;      // the build of the gun in hand (a fitted grip gives the support hand its place)
+	TWeakObjectPtr<const USkinnedMeshComponent> HandGun;  // HandIK guns: the poseable gun the hands were last pulled onto (its Eject socket throws the brass)
+	FVector EjectDirMesh = FVector::ZeroVector;      // HandIK guns: the casing's direction in the gun mesh's frame (presentation ejectDir), zero when none
 	/** The optics in daylight: presentation firstPerson.opticMaterials (base material name -> scalar parameters) set on
 	 *  dynamic instances of every material of the gun's child parts, for every mode (the pack's optics and our own). */
 	void ApplyOpticMaterials(USceneComponent* GunRoot);

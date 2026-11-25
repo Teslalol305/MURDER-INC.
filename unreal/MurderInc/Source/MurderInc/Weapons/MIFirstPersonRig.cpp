@@ -331,6 +331,14 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 	MeleeRange = Num(Set, TEXT("meleeRange"), 1.0);
 	InspectAfter = Resolved ? Resolved->Def.InspectAfter : 24.0;
 	CasingMesh = LoadAs<UStaticMesh>(MIJson::StringOr(Set, TEXT("casing")));
+	// HandIK guns carry no rotation on their sockets: the brass leaves along presentation ejectDir (web gun space).
+	EjectDirMesh = FVector::ZeroVector;
+	HandGun.Reset();
+	if (const TSharedPtr<FJsonValue> E = MIJson::Get(P, TEXT("ejectDir")); E.IsValid() && E->Type == EJson::Array && E->AsArray().Num() == 3 && View)
+	{
+		const FVector Web(E->AsArray()[0]->AsNumber(), E->AsArray()[1]->AsNumber(), E->AsArray()[2]->AsNumber());
+		EjectDirMesh = View->MeshOffset.InverseTransformVectorNoScale(FMIViewmodelRig::WebToUE(Web).GetSafeNormal());
+	}
 
 	CurlClip = nullptr;
 	if (Kind == TEXT("ik"))
@@ -664,6 +672,17 @@ bool UMIFirstPersonRig::MuzzleInCamera(FVector& OutPos, FVector& OutDir) const
 
 bool UMIFirstPersonRig::EjectInCamera(FTransform& Out) const
 {
+	if (Mode == EMIFPMode::HandIK)
+	{
+		// The poseable gun's Eject bone, the brass along ejectDir (in the mesh's frame, turned with the gun).
+		if (!HandGun.IsValid() || EjectDirMesh.IsNearlyZero() || !HandGun->DoesSocketExist(TEXT("Eject")))
+		{
+			return false;
+		}
+		const FVector Dir = HandGun->GetComponentQuat().RotateVector(EjectDirMesh);
+		Out = CameraSpace(FTransform(FRotationMatrix::MakeFromX(Dir).ToQuat(), HandGun->GetSocketLocation(TEXT("Eject"))));
+		return true;
+	}
 	if (Mode != EMIFPMode::Pack || !PackGun || !PackGun->DoesSocketExist(TEXT("Eject")))
 	{
 		return false;
@@ -1121,6 +1140,7 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 	{
 		return;
 	}
+	HandGun = Gun;
 	HandPose.Hands.Reset();
 	const FTransform ArmsWorld = Arms->GetComponentTransform();
 	// A fitted foregrip (or any part that names a support hand): the support palm goes to its SupportHand socket, not to

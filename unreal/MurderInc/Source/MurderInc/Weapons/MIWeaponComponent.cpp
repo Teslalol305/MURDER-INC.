@@ -278,7 +278,7 @@ void UMIWeaponComponent::EquipMesh(FName Gun)
 		UE_LOG(LogMI, Warning, TEXT("Weapons: no mesh at %s for %s (tools/box/seed-content.sh installs the placeholders)"), *D->Mesh.ToString(), *Gun.ToString());
 	}
 	GunMesh->SetSkinnedAssetAndUpdate(Mesh, true);
-	GunMesh->SetVisibility(Mesh != nullptr);
+	GunMesh->SetVisibility(Mesh != nullptr, true);  // with its children (the fitted parts, the seated magazine)
 
 	// Real art brings its own markers as sockets; the data keeps the web values for meshes without them.
 	for (const TPair<FName, FName>& Socket : D->Sockets)

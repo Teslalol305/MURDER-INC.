@@ -59,6 +59,7 @@ namespace MIGunAssemblyPrivate
 		C->SetCastShadow(Base->CastShadow);
 		C->bOnlyOwnerSee = Base->bOnlyOwnerSee;
 		C->SetFirstPersonPrimitiveType(Base->FirstPersonPrimitiveType);
+		C->SetVisibility(Base->IsVisible());  // a gun hidden by the viewmodel switch brings no part to life
 		C->RegisterComponent();
 		return C;
 	}
