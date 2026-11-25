@@ -5,7 +5,9 @@
 # docs/unreal/PROGRESS.md "Version 3, release A"). Run as root on the box.
 #
 #   lag-test.sh run <name> [key=value ...] [-- game arguments]   start one run, detached (about 2 minutes)
-#   lag-test.sh wait <name> [seconds]                             wait for it (at most 75 s a call: the box's limit)
+#   lag-test.sh queue <file>                                      one run per line of the file (the words after
+#                                                                 "run"), one after another, detached; "# ..." skipped
+#   lag-test.sh wait <name> [seconds]                             wait for it (at most 45 s a call: the box's limit)
 #   lag-test.sh sum [-v] <name> ...                               the summary line(s) (lag_sum.py; -v: every probe line)
 #   lag-test.sh csv <name> [limit ms]                             where the long frames went (lag_csv.py; csv=1 runs)
 #   lag-test.sh calib <name> <load> <load> ...                    the GPU's time per frame under each load, one game
@@ -176,7 +178,13 @@ case "$1" in
   run-fg) shift; run_fg "$@" ;;
   calib) shift; setsid nohup bash "$ME" calib-fg "$@" < /dev/null > "$OUT/$1.out" 2>&1 & echo "started $1: poll lag-test.sh wait $1" ;;
   calib-fg) shift; calib_fg "$@" ;;
-  wait) for i in $(seq 1 "${3:-75}"); do [ -f "$OUT/$2/done" ] && break; sleep 1; done
+  queue) setsid nohup bash "$ME" queue-fg "$2" < /dev/null > "$OUT/queue.out" 2>&1 & echo "started the queue $2: watch $OUT/queue.out" ;;
+  queue-fg) while read -r line; do
+              case "$line" in ''|'#'*) continue ;; esac
+              # shellcheck disable=SC2086  (the line is the run's words)
+              run_fg $line < /dev/null
+            done < "$2"; echo QUEUE-DONE ;;
+  wait) for i in $(seq 1 "${3:-45}"); do [ -f "$OUT/$2/done" ] && break; sleep 1; done
         if [ -f "$OUT/$2/done" ]; then cat "$OUT/$2/summary.txt" 2>/dev/null || cat "$OUT/$2/done"; else echo "RUNNING $2: $(tail -1 "$OUT/$2/view.log" 2>/dev/null | cut -c1-100)"; fi ;;
   sum) shift; v=; [ "$1" = -v ] && { v=-v; shift; }; for n in "$@"; do python3 "$T/lag_sum.py" $v "$OUT/$n"; done ;;
   csv) python3 "$T/lag_csv.py" "$(ls "$OUT/$2"/*.csv | head -1)" "${3:-50}" ;;
