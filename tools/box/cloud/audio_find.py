@@ -16,7 +16,9 @@
 #   --decoys N            also try N other samples of --audio that the game was not asked to play there, and print the
 #                         strongest of them: what "not there" looks like in the same recording
 #   --action TEXT         with the recording's .json (rtcaudio.py writes it): for every script line that starts with
-#                         TEXT (for example "down 0", the fire button), the first occurrence after it and the delay
+#                         TEXT (for example "down 0", the fire button), the first occurrence after it and the delay:
+#                         from the moment the viewer sent the input to the arrival of the packet that holds the
+#                         sample's start (a browser plays it a little later: its own sound buffer comes on top)
 #   --within S            ... looked for this long after the action (default 1.5)
 #   --json FILE           the results as JSON
 #
@@ -24,10 +26,13 @@
 # an Opus stream and the game's own compression keep the waveform of). To find the sample, both are weighted by the
 # inverse of the recording's own long-term spectrum (the textbook detector for a known signal in coloured noise), the
 # sample is slid along the recording at each speed, and the score at a place is their correlation there. What chance
-# gives is measured, not assumed: the same sample played backwards (the same spectrum, the same length, and it is
-# certainly not in the game) is slid along the same recording, and its best score is the chance level. A place counts
-# as a find when the sample scores 1.5 times that or more; "x chance" in the lines is that ratio (a sample that is
-# there scores 2 to 50; a steady tone cannot be told from itself backwards and is never "found", which is right).
+# gives is measured, not assumed, in two ways: the same sample at six speeds the game does not play it at (a quarter
+# tone to a third off the speeds tried: the same spectrum and shape, out of tune with any music), and the same sample
+# played backwards (a tone is the same backwards, and a note of the music matches any tone of its pitch: so a sample
+# that is only a tone is never "found" in music, which is right). The best score of all those is the chance level. A
+# place counts as a find when the sample scores 1.5 times that or more; "x chance" in the lines is that ratio (a
+# sample that is there scores 2 to 50). For music and other long sounds played at their own speed, use a long
+# template (--rates 1 --chunk 4): a tune is not itself backwards.
 # For every find the plain numbers are then worked out at its place and speed: "score" is the correlation of the
 # unweighted waveforms, from -1 to 1 (1: the recording is the sample alone there, 0.7: as much other sound as sample,
 # 0.1: the sample 20 dB under the rest), and "gain" is the sample's amplitude in the recording against the file's own
@@ -148,21 +153,21 @@ class Recording:
         self.Xw = np.fft.rfft(self.x, self.size) * self.W
         xw = np.fft.irfft(self.Xw, self.size)[:self.n]
         self.cumw = np.concatenate(([0.0], np.cumsum(xw * xw)))
-        self.meta = None
+        self.meta, self.keys = None, None
         if os.path.exists(path + '.json'):
             with open(path + '.json') as f:
                 self.meta = json.load(f)
 
-    def wall(self, seconds):
-        """When that moment of the sound arrived at the viewer (rtcaudio.py's clock), or None without its .json."""
+    def arrival(self, seconds):
+        """When the packet that holds that moment of the sound arrived at the viewer (rtcaudio.py's clock, the one its
+        script lines are timed on), or None without the recording's .json."""
         packets = self.meta and self.meta.get('packets')
         if not packets:
             return None
-        pos = seconds * RATE
-        keys = [p[0] for p in packets]
-        i = max(0, bisect.bisect_right(keys, pos) - 1)
-        end = packets[i + 1][0] if i + 1 < len(packets) else packets[i][0] + 960
-        return packets[i][1] - max(0.0, end - pos) / RATE
+        if self.keys is None:
+            self.keys = [p[0] for p in packets]
+        i = max(0, bisect.bisect_right(self.keys, seconds * RATE) - 1)
+        return packets[i][1]
 
 
 def template(seg, r):
@@ -210,12 +215,15 @@ def find(rec, src48, rates, chunk=0.3, at=0.0, min_x=1.5, max_n=12):
         better = part > best[pad:hi]
         best[pad:hi] = np.where(better, part, best[pad:hi])
         which[pad:hi] = np.where(better, k, which[pad:hi])
-    # Chance: the same chunk backwards, at every fourth speed (the best of a quarter of the tries is within a few
-    # per cent of the best of all of them).
-    back = seg[::-1]
+    # Chance, measured two ways and the higher taken. The same chunk at speeds the game does not play it at, between
+    # the notes of any music (one and a half, two and a half and three and a half semitones beyond the speeds tried):
+    # the null for noises and transients. And the chunk backwards at every eighth speed: the null for tones, which a
+    # note of the music matches at the right speed whatever instrument played it.
     chance = 0.0
-    for r in sorted(set(rates[::4]) | {min(rates, key=lambda v: abs(v - 1.0))}):
-        s = scores(rec, back, r)
+    nulls = [(seg, min(rates) * v) for v in (0.917, 0.8655, 0.817)] + [(seg, max(rates) * v) for v in (1.0905, 1.1554, 1.2241)]
+    nulls += [(seg[::-1], r) for r in sorted(set(rates[::8]) | {min(rates, key=lambda v: abs(v - 1.0))})]
+    for chunk_, r in nulls:
+        s = scores(rec, chunk_, r)
         if s is not None and len(s):
             chance = max(chance, float(s.max()))
     if chance <= 0:
@@ -291,10 +299,10 @@ def truth_check(rec, truth, audio, min_x):
     bed = truth.get('bed')
     if bed:
         src = mono48(os.path.join(audio, bed['file']))
-        hits, top = find(Recording(rec.path, bed['from'], bed['from'] + 5.0), src, [1.0], chunk=1.0, min_x=min_x, max_n=1)
+        hits, top = find(Recording(rec.path, bed['from'], bed['from'] + 8.0), src, [1.0], chunk=4.0, min_x=min_x, max_n=1)
         want_db = 20 * math.log10(bed['gain'])
         good = bool(hits) and abs(hits[0]['gainDb'] - want_db) <= 1.5 and abs(hits[0]['seconds'] - bed['from'] - shift) <= 0.003
-        check(f"the music bed {bed['file']} from {bed['from']} s at {want_db:+.1f} dB", good, describe('found', 1.0, hits, top, min_x))
+        check(f"the music bed {bed['file']} from {bed['from']} s at {want_db:+.1f} dB (its first 4 s as the template)", good, describe('found', 4.0, hits, top, min_x))
     # What was not sent must not be found.
     for absent in ('Gen/explosion_near_01.wav', 'Voice/rule/murda_01.wav', 'Web/horn_far_01.wav'):
         path = os.path.join(audio, absent)
@@ -305,15 +313,16 @@ def truth_check(rec, truth, audio, min_x):
     click = mono48(os.path.join(audio, truth['clickFile']))
     hits, top = find(Recording(rec.path, 15.0), click, [1.0], min_x=min_x, max_n=10)
     for a in truth['actions']:
-        after = sorted(h['seconds'] for h in hits if rec.wall(h['seconds']) is not None and rec.wall(h['seconds']) >= a['sent'] - 0.01)
+        after = sorted(h['seconds'] for h in hits if rec.arrival(h['seconds']) is not None and rec.arrival(h['seconds']) >= a['sent'] - 0.01)
         if not after:
             check(f"the sample started by the action at {a['sent']:.3f} s", False, 'not found')
             continue
-        measured = (rec.wall(after[0]) - a['sent']) * 1000
+        measured = (rec.arrival(after[0]) - a['sent']) * 1000
         true = (a['frameLeft'] - a['sent']) * 1000
         place = (after[0] - (a['at'] + shift)) * 1000
-        check(f"the delay from the action at {a['sent']:.3f} s to its sound", abs(measured - true) <= 25 and abs(place) <= 3,
-              f"measured {measured:.0f} ms; the sender handed the frame over {true:.0f} ms after the action; the sample was found {place:+.2f} ms from its place")
+        check(f"the delay from the action at {a['sent']:.3f} s to its sound", abs(measured - true) <= 8 and abs(place) <= 3,
+              f"the packet with the sample's start arrived {measured:.0f} ms after the action; the sender handed that frame to its encoder {true:.0f} ms after it; "
+              f"the sample was found {place:+.2f} ms from its place")
     print('SELFTEST PART 2 PASSED' if ok else 'SELFTEST PART 2 FAILED')
     return ok
 
@@ -362,7 +371,7 @@ def main():
             continue
         print(describe(name, len(src) / RATE, hits, top, A.min_x))
         for h in sorted(hits, key=lambda h: h['seconds']):
-            w = rec.wall(h['seconds'])
+            w = rec.arrival(h['seconds'])
             print(f"    at {h['seconds']:9.3f} s" + (f" (arrived {w:8.3f})" if w is not None else '') + f"  {h['x']:5.1f} x chance  score {h['score']:.2f}  speed {h['rate']:.4f}  gain {h['gainDb']:+.1f} dB")
     if A.library:
         print(f"{sum(1 for r in results.values() if r['hits'])} of {len(results)} samples of the library found")
@@ -389,16 +398,16 @@ def main():
         every = sorted((h['seconds'], name) for name, r in results.items() if not name.startswith('_') for h in r['hits'])
         delays = []
         for t, line in actions:
-            first = next(((s, name) for s, name in every if rec.wall(s) is not None and t - 0.005 <= rec.wall(s) <= t + A.within), None)
+            first = next(((s, name) for s, name in every if rec.arrival(s) is not None and t - 0.005 <= rec.arrival(s) <= t + A.within), None)
             if first is None:
                 print(f'action "{line}" at {t:.3f}: no occurrence within {A.within:g} s')
                 continue
-            d = (rec.wall(first[0]) - t) * 1000
+            d = (rec.arrival(first[0]) - t) * 1000
             delays.append(d)
-            print(f'action "{line}" at {t:.3f}: {first[1]} starts {d:.0f} ms later (at {first[0]:.3f} s of the sound)')
+            print(f'action "{line}" at {t:.3f}: the packet with the start of {first[1]} arrived {d:.0f} ms later (the start is at {first[0]:.3f} s of the sound)')
         if delays:
             delays.sort()
-            print(f'delay from "{A.action}" to the sound: {len(delays)} measured, shortest {delays[0]:.0f} ms, middle {delays[len(delays) // 2]:.0f} ms, longest {delays[-1]:.0f} ms')
+            print(f'delay from "{A.action}" sent to the arrival of its sound: {len(delays)} measured, shortest {delays[0]:.0f} ms, middle {delays[len(delays) // 2]:.0f} ms, longest {delays[-1]:.0f} ms')
             results['_delays'] = delays
     if A.json:
         with open(A.json, 'w') as f:

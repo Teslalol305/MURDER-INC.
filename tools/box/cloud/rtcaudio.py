@@ -24,7 +24,8 @@
 #                                                    check itself, and audio_find.py --truth checks the rest
 #
 # Runs in the viewer's Python (/tmp/fps/venv on the box: aiortc, no numpy). Times in the lines: "at" is the sound's own
-# clock (seconds from the first packet), "arrived" the wall clock rtcinput.py's lines use (seconds from the start).
+# clock (seconds from the first packet), "arrived" is when the packet that holds that moment came in, on the wall clock
+# rtcinput.py's lines use (seconds from the start).
 import argparse
 import array
 import bisect
@@ -135,16 +136,11 @@ class Recorder:
             self._row(self.pending[:HALF * 2])
             del self.pending[:HALF * 2]
 
-    def wall(self, pos):
-        """When the sample at this place on the sound's clock arrived: its packet's arrival, less what the packet
-        still held after it (a packet cannot leave the sender before its last sample exists)."""
+    def arrival(self, pos):
+        """When the packet that holds this place on the sound's clock arrived."""
         if not self.packets:
             return None
-        i = bisect.bisect_right(self.packets, (pos, float('inf'), 0)) - 1
-        i = max(0, i)
-        start, at, _ = self.packets[i]
-        end = self.packets[i + 1][0] if i + 1 < len(self.packets) else start + 960
-        return at - max(0, end - pos) / RATE
+        return self.packets[max(0, bisect.bisect_right(self.packets, (pos, float('inf'), 0)) - 1)][1]
 
     def _row(self, buf):
         n = len(buf)
@@ -167,7 +163,7 @@ class Recorder:
         a, b = at, at + n // 2
         sizes = [p[2] for p in self.packets[bisect.bisect_left(self.packets, (a, 0, 0)):bisect.bisect_left(self.packets, (b, 0, 0))]]
         row = {
-            'at': round(a / RATE, 3), 'arrived': self.wall(a), 'rms': round(db(math.sqrt(sq / max(1, n))), 1), 'peak': round(db(peak), 1),
+            'at': round(a / RATE, 3), 'arrived': self.arrival(a), 'rms': round(db(math.sqrt(sq / max(1, n))), 1), 'peak': round(db(peak), 1),
             'clipped': clipped, 'silentMs': round(1000 * silent / RATE), 'lostMs': round(1000 * self.pending_lost / RATE),
             'bytes': round(sum(sizes) / len(sizes), 1) if sizes else None,
         }
