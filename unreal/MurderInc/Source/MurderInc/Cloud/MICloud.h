@@ -6,6 +6,8 @@
 #include "GenericPlatform/GenericApplicationMessageHandler.h"
 #include "InputCoreTypes.h"
 #include "Cloud/MIPacing.h"
+#include "Cloud/MISession.h"
+#include "Cloud/MIStreamQuality.h"
 #include "Player/MILookInput.h"
 #include "MICloud.generated.h"
 
@@ -113,7 +115,29 @@ struct MURDERINC_API FMICloudSize
  *    profile, with command-line priority, each one printed in the log: tuning on the host without a new build;
  *  - the pause card carries one small line of the game's own numbers (GPU, frame rate and target, GPU time, the
  *    picture's drawn and sent size, the stream as its sender measures it, the build), and one "MICloudProbe" line is
- *    logged every 30 s (-MICloudProbe=<seconds> changes the period, 0 turns it off).
+ *    logged every 30 s (-MICloudProbe=<seconds> changes the period, 0 turns it off);
+ *  - the game looks after its own session (release 3c, Cloud/MISession.h): E3DS does not stop the game of a session
+ *    that has ended, and the next session then finds the card shared with it. With no viewer for MI.Cloud.IdleAfter
+ *    seconds (2) the game idles at MI.Cloud.IdleFps frames a second (2; 0 turns it off; launch options -MIIdleFps=,
+ *    -MIIdleAfter=) and keeps the picture at its smallest; a joining viewer wakes it within 10 ms of the stream's report (the idle game runs the game thread's waiting tasks every 10 ms). When
+ *    the last viewer has been gone for MI.Cloud.ExitAfterEmpty seconds (20: a host that keeps the game when a page is
+ *    reloaded reconnects it within seconds, E3DS starts a new game for a reloaded page and wants the old one gone before
+ *    that game has started, 34 s at the quickest seen; -MIExitAfterEmpty=) the game logs one line and quits (exit code
+ *    0); so it does MI.Cloud.ExitIfNoViewer seconds (600;
+ *    -MIExitIfNoViewer=) after its start when nobody ever came, and 5 s after the launcher that started it is gone
+ *    (the launcher passes -MILauncherPid=<pid>; a game started without it is not watched). A viewer present keeps the
+ *    game, a join cancels the countdown. -MIKeepAlive turns all of this off (the box's test scripts hold games with no
+ *    viewer on purpose);
+ *  - the encoder gets a range (release 3c, Cloud/MIStreamQuality.h): E3DS's Video Quality is a constant quantiser (Medium
+ *    QP 34 for the lowest and the highest, High 16: launch options and console commands), which cannot give way to a thin
+ *    connection. The two numbers are taken as the centre of a range: the lowest QP is the first minus MI.Cloud.QpBelow
+ *    (10, not under MI.Cloud.QpFloor 8), the highest the second plus MI.Cloud.QpAbove (8, not over MI.Cloud.QpCeiling 48):
+ *    34 gives 24 to 42, 16 gives 8 to 24. It holds for the launch options -PixelStreamingEncoderMinQP= and MaxQP= and for
+ *    a viewer's PixelStreaming.Encoder.MinQP / MaxQP commands (each change is logged once); -MIQpExact turns the range
+ *    off (launch options -MIQpBelow=, -MIQpAbove= set the numbers);
+ *  - the round trip on the pause card and in the probe line is the median of the sender's last five measured values
+ *    (FMIRoundTrip: Pixel Streaming reports a statistic only when it changes, and an unmeasured one is 0), cleared when
+ *    the viewers change.
  *
  * At start (every run, streamed or not): one block of lines with the build (BUILD.txt at the package root), the GPU,
  * driver, RHI, shader platform, ray tracing, Nanite, Lumen and video memory; if hardware ray tracing is missing,
@@ -181,7 +205,17 @@ public:
 	 */
 	static void ReleaseForLeave(UMIGameSubsystem* Game, AMIPlayerController* Controller);
 
+	/**
+	 * What this game does about its session, from the console variables and launch options as they are now (the numbers
+	 * of the class comment). Static, for the tests and the probe.
+	 */
+	static FMISession::FOptions ReadSessionOptions(bool bStreamed);
+	/** The encoder range settings as they are now (MI.Cloud.QpBelow, QpAbove, QpFloor, QpCeiling, QpExact). */
+	static FMIEncoderRange::FSettings ReadEncoderSettings();
+
 	bool IsStreamed() const { return bStreamed; }
+	/** The game is idling: nobody is watching (see the class comment). */
+	bool IsIdle() const { return bIdle; }
 	bool IsWaitingForClick() const { return bWaitingForClick; }
 	/** The first click, key or button of a viewer: hides the card. */
 	void Dismiss();
@@ -235,8 +269,28 @@ private:
 	void ApplyFrameRateTarget();
 	void OnStreamStat(FString Player, FName Stat, float Value);
 	/** A sender statistic of the stream by name (bPeak: its largest value of the last two seconds); Missing when none arrived in the last 5 s. */
-	double StreamStat(const TCHAR* Name, double Missing = -1.0, bool bPeak = false) const;
+	double StreamStat(const TCHAR* Name, double Missing = -1.0, bool bPeak = false, double MaxAge = 5.0) const;
 	void MakeNumbersLine();
+
+	/** Once, when the game becomes streamed: the session's numbers, the launcher to watch, the encoder's range. */
+	void StartSession();
+	/** Once a frame while streamed: idle, quit, or neither (FMISession::Decide). */
+	void TickSession();
+	/** The end of a frame while idle: waits until the next idle frame is due, or until a viewer arrives. */
+	void SleepIdle(int32 Fps);
+	void EnterIdle(const FString& Why);
+	void LeaveIdle(const TCHAR* Why);
+	/** The session is over: one line, then FPlatformMisc::RequestExit(false). Once. */
+	void RequestSessionExit(const FString& Why);
+	/**
+	 * Gives Pixel Streaming the encoder's QP range around the numbers wanted (launch options, a page's commands): sets
+	 * its MaxQuality (the lowest QP) and MinQuality (the highest). Logs when the range changes.
+	 */
+	void ApplyEncoderRange(const TCHAR* Source);
+	/** A viewer's "PixelStreaming.Encoder.MinQP 34" or MaxQP command. True: it was one. */
+	bool OnEncoderCommand(const FString& Command);
+	/** The lowest (bMin) or highest QP that was asked for, from Source: sets the encoder's range around it. */
+	void SetWantedQp(bool bMin, int32 Qp, const TCHAR* Source);
 
 	bool bStreamed = false;
 	bool bProfileApplied = false;
@@ -270,6 +324,25 @@ private:
 	double ProbeFrames = 0.0, ProbeTime = 0.0, ProbeWorst = 0.0;
 	double ProbeGameMs = 0.0, ProbeRenderMs = 0.0, ProbeRhiMs = 0.0;  // the worst of each thread in the window
 	TArray<FDelegateHandle> StreamHandles;
+
+	// The session (Cloud/MISession.h).
+	FMISessionClock SessionClock;
+	FMILauncherWatch LauncherWatch;
+	uint64 LauncherStartTime = 0;
+	double LauncherGoneAfter = 5.0;
+	bool bSessionStarted = false;
+	bool bIdle = false, bExitRequested = false;
+	double IdleSince = 0.0, IdleFrameAt = 0.0;
+	int32 IdleFrames = 0, ViewerEventsHandled = 0;
+	FString SavedDynamicResMax;
+	bool bDynamicResClamped = false;
+	FMISession::EWhy LastWhy = FMISession::EWhy::Waiting;
+
+	// The encoder's range and the round trip (Cloud/MIStreamQuality.h).
+	int32 WantedMinQp = -1, WantedMaxQp = -1;   // what the launch options or the page asked for (-1: not given)
+	FMIEncoderRange::FRange AppliedRange;
+	bool bRangeApplied = false;
+	FMIRoundTrip RoundTrip;
 
 	// Pacing (Cloud/MIPacing.h).
 	TSharedPtr<FMIGpuPacer, ESPMode::ThreadSafe> Pacer;
