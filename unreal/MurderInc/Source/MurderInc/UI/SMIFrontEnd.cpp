@@ -93,6 +93,9 @@ namespace MIFrontEndUI
 		return B.Get();
 	}
 
+	// Every button of the screens clicks on the press (EButtonClickMethod::MouseDown): a screen rebuilt between the press
+	// and the release (the pointer leaving a Workbench option ends its preview on the way to DONE) replaced the pressed
+	// button, and the release on its successor clicked nothing (menu fixer's stream run mf2-after: DONE took two clicks).
 	enum class EBtn : uint8 { Primary, Quiet, Card, Link, Chip };
 
 	const FButtonStyle* ButtonStyle(EBtn Kind, bool bSelected = false)
@@ -197,9 +200,17 @@ namespace MIFrontEndUI
 		return N;
 	}
 
-	TSharedRef<SWrapBox> Wrap(float Gap = 8.f)
+	/** The width of the controls column in Slate units (the viewport's width x Column, less the column's padding), from
+	 *  the last frame the screens were given. */
+	float ColumnWidth = 690.f;
+
+	/** A wrap box that wraps at the room it gets. Until its first paint a wrap box wraps at its preferred size (100 units
+	 *  by default): a rebuilt screen was laid out once with every chip and card on a line of its own (taller, the rest
+	 *  pushed down) and then once right, a one-frame jump in the stream. Less is the room the box loses inside the column
+	 *  (labels, ring and card padding), so the first layout is already the right one. */
+	TSharedRef<SWrapBox> Wrap(float Gap = 8.f, float Less = 0.f)
 	{
-		return SNew(SWrapBox).UseAllottedSize(true).InnerSlotPadding(FVector2D(Gap, Gap));
+		return SNew(SWrapBox).UseAllottedSize(true).PreferredSize(FMath::Max(100.f, ColumnWidth - Less)).InnerSlotPadding(FVector2D(Gap, Gap));
 	}
 
 	/** An effect line's text without its leading mark character (the mark is drawn as a shape beside it). */
@@ -248,6 +259,7 @@ void SMIFrontEnd::Tick(const FGeometry& AllottedGeometry, const double InCurrent
 		// Slate ticks a widget while it paints it, after this frame's layout pass: the new screen's widgets have no
 		// desired size yet, and drawn now they were piled at the top of the column for one frame (the flash on every
 		// screen change, READY.md M1). Measure the new screen before it is arranged.
+		ColumnWidth = FMath::Max(100.f, static_cast<float>(AllottedGeometry.GetLocalSize().X) * Column - (56.f + 22.f));
 		Rebuild();
 		ChildSlot.GetWidget()->SlatePrepass(AllottedGeometry.GetAccumulatedLayoutTransform().GetScale());
 	}
@@ -400,7 +412,7 @@ TSharedRef<SWidget> SMIFrontEnd::StepStrip()
 		TWeakObjectPtr<UMIFrontEnd> O = Owner;
 		Row->AddSlot()
 		[
-			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Link)).IsEnabled(R.IsStepReachable(Step)).ContentPadding(FMargin(2.f, 2.f, 10.f, 2.f))
+			SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Link)).IsEnabled(R.IsStepReachable(Step)).ContentPadding(FMargin(2.f, 2.f, 10.f, 2.f))
 			.OnClicked_Lambda([O, Step]() { if (O.IsValid()) O->Act(TEXT("step"), FString::FromInt(Step)); return FReply::Handled(); })
 			[
 				SNew(SHorizontalBox)
@@ -449,7 +461,7 @@ TSharedRef<SWidget> SMIFrontEnd::BottomBar()
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 			[
-				Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(18.f, 10.f))
+				Ring(SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(18.f, 10.f))
 				.OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("back")); return FReply::Handled(); })
 				[
 					SNew(SHorizontalBox)
@@ -460,7 +472,7 @@ TSharedRef<SWidget> SMIFrontEnd::BottomBar()
 			+ SHorizontalBox::Slot().FillWidth(1.f)[SNullWidget::NullWidget]
 			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 			[
-				Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Primary)).ContentPadding(FMargin(24.f, 10.f)).IsEnabled(Blocked.IsEmpty())
+				Ring(SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Primary)).ContentPadding(FMargin(24.f, 10.f)).IsEnabled(Blocked.IsEmpty())
 				.OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("next")); return FReply::Handled(); })
 				[
 					SNew(SHorizontalBox)
@@ -481,7 +493,7 @@ TSharedRef<SWidget> SMIFrontEnd::Home()
 	const int32 F = Owner->FocusShown();
 	const auto Picker = [&](int32 Index, const FString& Label, const TCHAR* Which, const TArray<FName>& Values, FName Now)
 	{
-		TSharedRef<SWrapBox> Chips = Wrap(6.f);
+		TSharedRef<SWrapBox> Chips = Wrap(6.f, 124.f + 2.f * 14.f);  // beside the 124-unit label, inside the ring
 		for (const FName V : Values)
 		{
 			const FString Name = Which == FString(TEXT("mode")) ? R.Text(TEXT("text.modes.") + V.ToString() + TEXT(".name"))
@@ -489,7 +501,7 @@ TSharedRef<SWidget> SMIFrontEnd::Home()
 			const FString W(Which);
 			Chips->AddSlot()
 			[
-				SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Chip, V == Now)).ContentPadding(FMargin(14.f, 5.f))
+				SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Chip, V == Now)).ContentPadding(FMargin(14.f, 5.f))
 				.OnClicked_Lambda([O, W, V]() { if (O.IsValid()) O->Act(W, V.ToString()); return FReply::Handled(); })
 				[Txt(Name.ToUpper(), Spaced(Body(MinText, true), 100), V == Now ? Bg() : InkDim())]
 			];
@@ -505,7 +517,7 @@ TSharedRef<SWidget> SMIFrontEnd::Home()
 	const auto Link = [&](int32 Index, const FString& Label, const TCHAR* Screen)
 	{
 		const FString Sc(Screen);
-		return Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Link)).ContentPadding(FMargin(6.f, 3.f))
+		return Ring(SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Link)).ContentPadding(FMargin(6.f, 3.f))
 			.OnClicked_Lambda([O, Sc]() { if (O.IsValid()) O->Act(TEXT("edit"), Sc); return FReply::Handled(); })
 			[Txt(Label, Body(16.f, true), Ink())], F == Index, 4.f, 3.f);
 	};
@@ -528,13 +540,13 @@ TSharedRef<SWidget> SMIFrontEnd::Home()
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot().AutoWidth()
 			[
-				Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Primary)).ContentPadding(FMargin(30.f, 12.f))
+				Ring(SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Primary)).ContentPadding(FMargin(30.f, 12.f))
 				.OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("hit")); return FReply::Handled(); })
 				[Txt(R.Text(TEXT("frontend.home.start")).ToUpper(), Display(32.f), Bg())], F == 0, 8.f)
 			]
 			+ SHorizontalBox::Slot().AutoWidth().Padding(10.f, 0.f, 0.f, 0.f).VAlign(VAlign_Center)
 			[
-				Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(20.f, 12.f))
+				Ring(SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(20.f, 12.f))
 				.OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("gearup")); return FReply::Handled(); })
 				[Txt(R.Text(TEXT("frontend.home.setup")).ToUpper(), Spaced(Body(16.f, true), 140), Ink())], F == 1, 8.f)
 			]
@@ -551,13 +563,13 @@ TSharedRef<SWidget> SMIFrontEnd::Home()
 			// Focus 8 and 9: the keyboard and the pad reach them too (READY.md M6).
 			+ SHorizontalBox::Slot().AutoWidth()
 			[
-				Focusable(Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(16.f, 8.f))
+				Focusable(Ring(SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(16.f, 8.f))
 				.OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("settings")); return FReply::Handled(); })
 				[Txt(R.Text(TEXT("text.title.settings")).ToUpper(), Spaced(Body(MinText, true), 140), F == 8 ? Ink() : InkDim())], F == 8, 8.f, 3.f), F == 8)
 			]
 			+ SHorizontalBox::Slot().AutoWidth().Padding(10.f, 0.f, 0.f, 0.f)
 			[
-				Focusable(Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(16.f, 8.f))
+				Focusable(Ring(SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(16.f, 8.f))
 				.OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("controls")); return FReply::Handled(); })
 				[Txt(R.Text(TEXT("text.title.controls")).ToUpper(), Spaced(Body(MinText, true), 140), F == 9 ? Ink() : InkDim())], F == 9, 8.f, 3.f), F == 9)
 			]
@@ -656,7 +668,7 @@ TSharedRef<SWidget> SMIFrontEnd::Crew()
 		const bool bSel = R.GetSetup().Crew == Id;
 		Cards->AddSlot()
 		[
-			Focusable(Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, bSel)).ContentPadding(FMargin(16.f))
+			Focusable(Ring(SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Card, bSel)).ContentPadding(FMargin(16.f))
 			.OnClicked_Lambda([O, Id]() { if (O.IsValid()) O->Act(TEXT("crew"), Id.ToString()); return FReply::Handled(); })
 			[
 				SNew(SBox).WidthOverride(200.f)
@@ -723,7 +735,7 @@ TSharedRef<SWidget> SMIFrontEnd::GunCard(FName Gun, bool bFocused)
 	if (bSemiOnly) Info += TEXT("  ") + R.Text(TEXT("frontend.loadout.stats.semi"));
 	const FString SlotsLine = Slots.Num() > 0 ? R.GetData().Format(TEXT("frontend.loadout.slots"), {{TEXT("n"), FString::FromInt(Slots.Num())}}) : R.Text(TEXT("frontend.loadout.noSlots"));
 	const bool bDev = !R.GetReadiness().IsGunReady(Gun);
-	return Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, Slot != INDEX_NONE)).ContentPadding(FMargin(12.f, 10.f))
+	return Ring(SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Card, Slot != INDEX_NONE)).ContentPadding(FMargin(12.f, 10.f))
 		.OnClicked_Lambda([O, Gun]() { if (O.IsValid()) O->Act(TEXT("carry"), Gun.ToString()); return FReply::Handled(); })
 		[
 			SNew(SBox).WidthOverride(176.f)
@@ -749,7 +761,7 @@ TSharedRef<SWidget> SMIFrontEnd::GunCard(FName Gun, bool bFocused)
 					+ SHorizontalBox::Slot().FillWidth(1.f)[SNullWidget::NullWidget]
 					+ SHorizontalBox::Slot().AutoWidth()
 					[
-						SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(6.f, 3.f)).Visibility(Slots.Num() > 0 ? EVisibility::Visible : EVisibility::Collapsed)
+						SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(6.f, 3.f)).Visibility(Slots.Num() > 0 ? EVisibility::Visible : EVisibility::Collapsed)
 						.ToolTipText(FText::FromString(R.Text(TEXT("frontend.loadout.attachments"))))
 						.OnClicked_Lambda([O, Gun]() { if (O.IsValid()) O->Act(TEXT("bench"), Gun.ToString()); return FReply::Handled(); })
 						[
@@ -776,14 +788,14 @@ TSharedRef<SWidget> SMIFrontEnd::Loadout()
 		const bool bOn = Owner->RackFilter == Filter;
 		Tabs->AddSlot()
 		[
-			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Chip, bOn)).ContentPadding(FMargin(12.f, 4.f))
+			SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Chip, bOn)).ContentPadding(FMargin(12.f, 4.f))
 			.OnClicked_Lambda([O, Filter]() { if (O.IsValid()) O->Act(TEXT("filter"), Filter.ToString()); return FReply::Handled(); })
 			[Txt(R.Text(FString(TEXT("frontend.loadout.filters.")) + Filt).ToUpper(), Spaced(Body(MinText, true), 100), bOn ? Bg() : InkDim())]
 		];
 	}
 	// The rack: as many cards a row as the column holds (three at 16:9).
 	const TArray<FName> Rack = R.Rack(Owner->RackFilter);
-	TSharedRef<SWrapBox> Grid = Wrap(4.f);
+	TSharedRef<SWrapBox> Grid = Wrap(4.f, 12.f);  // beside the scroll bar
 	for (int32 I = 0; I < Rack.Num(); ++I)
 	{
 		Grid->AddSlot()[Focusable(GunCard(Rack[I], Owner->Pane == 0 && F == I), Owner->Pane == 0 && F == I)];
@@ -800,7 +812,7 @@ TSharedRef<SWidget> SMIFrontEnd::Loadout()
 		const int32 SlotIndex = I;
 		Slots->AddSlot().FillWidth(1.f).Padding(0.f, 0.f, I + 1 < R.GetData().CarryMax ? 4.f : 0.f, 0.f)
 		[
-			Ring(SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, bSel)).ContentPadding(FMargin(10.f, 8.f))
+			Ring(SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Card, bSel)).ContentPadding(FMargin(10.f, 8.f))
 			.OnClicked_Lambda([O, SlotIndex]() { if (O.IsValid()) O->Act(TEXT("selectslot"), FString::FromInt(SlotIndex + 1)); return FReply::Handled(); })
 			[
 				SNew(SBox).HeightOverride(76.f)
@@ -816,7 +828,7 @@ TSharedRef<SWidget> SMIFrontEnd::Loadout()
 					[bHave ? Pips(CountPips(R, Gun)) : StaticCastSharedRef<SWidget>(Txt(R.Text(TEXT("frontend.loadout.emptyHint")), Body(MinText), InkFaint(), true))]
 					+ SVerticalBox::Slot().FillHeight(1.f).VAlign(VAlign_Bottom).HAlign(HAlign_Right)
 					[
-						SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Link)).ContentPadding(FMargin(4.f, 0.f)).Visibility(bHave ? EVisibility::Visible : EVisibility::Collapsed)
+						SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Link)).ContentPadding(FMargin(4.f, 0.f)).Visibility(bHave ? EVisibility::Visible : EVisibility::Collapsed)
 						.OnClicked_Lambda([O, SlotIndex]() { if (O.IsValid()) O->Act(TEXT("empty"), FString::FromInt(SlotIndex + 1)); return FReply::Handled(); })
 						[Txt(R.Text(TEXT("frontend.loadout.remove")), Body(MinText), InkDim())]
 					]
@@ -858,7 +870,7 @@ TSharedRef<SWidget> SMIFrontEnd::Workbench()
 	TSharedRef<SWrapBox> Strip = Wrap(6.f);
 	Strip->AddSlot()
 	[
-		SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(8.f, 4.f)).OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("benchnext"), TEXT("-1")); return FReply::Handled(); })
+		SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(8.f, 4.f)).OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("benchnext"), TEXT("-1")); return FReply::Handled(); })
 		[
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[SNew(SMIMark).Kind(SMIMark::EKind::Left).Colour(InkDim()).Size(14.f)]
@@ -870,14 +882,14 @@ TSharedRef<SWidget> SMIFrontEnd::Workbench()
 		const bool bOn = G == Gun;
 		Strip->AddSlot()
 		[
-			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Chip, bOn)).ContentPadding(FMargin(12.f, 4.f))
+			SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Chip, bOn)).ContentPadding(FMargin(12.f, 4.f))
 			.OnClicked_Lambda([O, G]() { if (O.IsValid()) O->Act(TEXT("bench"), G.ToString()); return FReply::Handled(); })
 			[Txt(R.GunName(G), Body(MinText, true), bOn ? Bg() : InkDim())]
 		];
 	}
 	Strip->AddSlot()
 	[
-		SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(8.f, 4.f)).OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("benchnext"), TEXT("1")); return FReply::Handled(); })
+		SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(8.f, 4.f)).OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("benchnext"), TEXT("1")); return FReply::Handled(); })
 		[
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Key(Owner->Glyph(TEXT("nextGun")), InkDim(), WithAlpha(PlateEdge(), 0.9f))]
@@ -904,7 +916,7 @@ TSharedRef<SWidget> SMIFrontEnd::Workbench()
 		const FMISlotDef* Def = R.GetData().FindSlot(S);
 		Tabs->AddSlot()
 		[
-			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Chip, bOn)).ContentPadding(FMargin(12.f, 4.f))
+			SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Chip, bOn)).ContentPadding(FMargin(12.f, 4.f))
 			.OnClicked_Lambda([O, S]() { if (O.IsValid()) O->Act(TEXT("benchslot"), S.ToString()); return FReply::Handled(); })
 			[Txt((Def ? R.Text(Def->Text) : S.ToString()).ToUpper(), Spaced(Body(MinText, true), 100), bOn ? Bg() : InkDim())]
 		];
@@ -923,7 +935,7 @@ TSharedRef<SWidget> SMIFrontEnd::Workbench()
 		const FString Arg = P.IsNone() ? FString(TEXT("factory")) : P.ToString();
 		const int32 Gen = BuildGen;
 		const TWeakPtr<SMIFrontEnd> Self = StaticCastSharedRef<SMIFrontEnd>(AsShared());
-		TSharedRef<SButton> Option = SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, P == Fitted)).ContentPadding(FMargin(12.f, 7.f))
+		TSharedRef<SButton> Option = SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Card, P == Fitted)).ContentPadding(FMargin(12.f, 7.f))
 			.Tag(FName(*(TEXT("MIOption.") + Arg)))
 			.OnHovered_Lambda([Self, Arg, Gen]() { if (const TSharedPtr<SMIFrontEnd> S = Self.Pin()) S->OptionHovered(Arg, Gen); })
 			.OnUnhovered_Lambda([Self, Arg, Gen]() { if (const TSharedPtr<SMIFrontEnd> S = Self.Pin()) S->OptionUnhovered(Arg, Gen); })
@@ -1000,7 +1012,7 @@ TSharedRef<SWidget> SMIFrontEnd::Where()
 	const auto Chip = [&](const TCHAR* Act, FName V, const FString& Label, bool bOn)
 	{
 		const FString A(Act);
-		return SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Chip, bOn)).ContentPadding(FMargin(14.f, 5.f))
+		return SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Chip, bOn)).ContentPadding(FMargin(14.f, 5.f))
 			.OnClicked_Lambda([O, A, V]() { if (O.IsValid()) O->Act(A, V.ToString()); return FReply::Handled(); })
 			[Txt(Label.ToUpper(), Spaced(Body(MinText, true), 100), bOn ? Bg() : InkDim())];
 	};
@@ -1014,7 +1026,7 @@ TSharedRef<SWidget> SMIFrontEnd::Where()
 		const FString Place = E.Place.Contains(S.Time) ? R.Text(E.Place[S.Time]) : FString();
 		Levels->AddSlot().AutoHeight().Padding(0.f, 0.f, 0.f, 6.f)
 		[
-			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, L == S.Level)).ContentPadding(FMargin(14.f, 10.f))
+			SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Card, L == S.Level)).ContentPadding(FMargin(14.f, 10.f))
 			.OnClicked_Lambda([O, L]() { if (O.IsValid()) O->Act(TEXT("level"), L.ToString()); return FReply::Handled(); })
 			[
 				SNew(SVerticalBox)
@@ -1026,7 +1038,7 @@ TSharedRef<SWidget> SMIFrontEnd::Where()
 		];
 	}
 	// 2. Time.
-	TSharedRef<SWrapBox> Times = Wrap(6.f);
+	TSharedRef<SWrapBox> Times = Wrap(6.f, 2.f * 10.f);  // inside the row's ring
 	for (const FName T : Owner->GetGame()->GetSettings().Rules.Times)
 	{
 		Times->AddSlot()[Chip(TEXT("time"), T, R.Text(TEXT("frontend.level.times.") + T.ToString()), T == S.Time)];
@@ -1041,7 +1053,7 @@ TSharedRef<SWidget> SMIFrontEnd::Where()
 		const FString Best = M == TEXT("holdout") && Owner->GetGame()->GetSettings().GetBest() > 0 ? R.GetData().Format(TEXT("frontend.mode.best"), {{TEXT("score"), FMIText::Grouped(Owner->GetGame()->GetSettings().GetBest())}}) : FString();
 		Modes->AddSlot().FillWidth(1.f).Padding(0.f, 0.f, I + 1 < ModeIds.Num() ? 8.f : 0.f, 0.f)
 		[
-			SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Card, bOn)).ContentPadding(FMargin(12.f, 8.f))
+			SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Card, bOn)).ContentPadding(FMargin(12.f, 8.f))
 			.OnClicked_Lambda([O, M]() { if (O.IsValid()) O->Act(TEXT("mode"), M.ToString()); return FReply::Handled(); })
 			[
 				SNew(SVerticalBox)
@@ -1052,7 +1064,7 @@ TSharedRef<SWidget> SMIFrontEnd::Where()
 		];
 	}
 	// 4. Difficulty.
-	TSharedRef<SWrapBox> Diffs = Wrap(6.f);
+	TSharedRef<SWrapBox> Diffs = Wrap(6.f, 2.f * 10.f);
 	for (const FName D : Owner->GetGame()->GetSettings().Rules.Difficulties)
 	{
 		Diffs->AddSlot()[Chip(TEXT("difficulty"), D, R.Text(TEXT("text.difficulties.") + D.ToString()), D == S.Difficulty)];
@@ -1078,7 +1090,7 @@ TSharedRef<SWidget> SMIFrontEnd::Briefing()
 	TWeakObjectPtr<UMIFrontEnd> O = Owner;
 	const FMILevelEntry* L = R.GetData().Levels.Find(S.Level);
 	// Carrying: each gun as its slot number, its name and its pips, wrapping to the card's width.
-	TSharedRef<SWrapBox> Guns = Wrap(10.f);
+	TSharedRef<SWrapBox> Guns = Wrap(10.f, 2.f * 3.f + 2.f * 14.f + 4.f + 2.f * 12.f + 110.f);  // inside the card, beside CHANGE
 	for (int32 I = 0; I < S.Guns.Num(); ++I)
 	{
 		Guns->AddSlot()
@@ -1118,7 +1130,7 @@ TSharedRef<SWidget> SMIFrontEnd::Briefing()
 				]
 				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 				[
-					SNew(SButton).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(12.f, 5.f))
+					SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Quiet)).ContentPadding(FMargin(12.f, 5.f))
 					.OnClicked_Lambda([O, Sc]() { if (O.IsValid()) O->Act(TEXT("edit"), Sc); return FReply::Handled(); })
 					[Txt(R.Text(TEXT("frontend.briefing.change")).ToUpper(), Spaced(Body(MinText, true), 120), Ink())]
 				]
