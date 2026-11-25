@@ -499,11 +499,11 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 			// The support hand's grip solved round this magazine (tools/data/reload_grips.py: palm on its left face, fingers
 			// round its front edge onto its right face, thumb up its left face), in the magazine mesh's frame.
 			ReloadPoints.Reset();
-			TSharedPtr<FJsonObject> Grips;
-			FString GripError;
-			if (UMIDataSubsystem::LoadJsonFile(TEXT("grips.json"), Grips, GripError))
+			TSharedPtr<FJsonObject> MagGrips;
+			FString MagGripError;
+			if (UMIDataSubsystem::LoadJsonFile(TEXT("grips.json"), MagGrips, MagGripError))
 			{
-				if (const TSharedPtr<FJsonObject> Pts = Obj(Grips, TEXT("magazines.") + Held->GetStaticMesh()->GetName() + TEXT(".l")))
+				if (const TSharedPtr<FJsonObject> Pts = Obj(MagGrips, TEXT("magazines.") + Held->GetStaticMesh()->GetName() + TEXT(".l")))
 				{
 					for (const auto& Pair : Pts->Values)
 					{
