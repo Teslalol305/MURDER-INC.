@@ -751,6 +751,22 @@ def check_art():
             rel = p["presentation"].get("relief")
             if not rel or not (0.05 <= rel <= 0.3):
                 err("art: optic %s has relief %s" % (pid, rel))
+    # where the eye ends up behind each optic (information for the picture review: the near plane may slice what is under the eye)
+    for gid in sorted(OWN):
+        c = cg[gid]
+        row = (COMPAT.get(gid) or {}).get("optic")
+        if not row or "Optic" not in c["sockets"]:
+            continue
+        for o in row["options"]:
+            part, pc = PARTS.get(o), cp.get(o)
+            if not part or not pc or "SightEye" not in pc["sockets"]:
+                continue
+            ex = c["sockets"]["Optic"][0] + pc["sockets"]["SightEye"][0] - part["presentation"]["relief"]
+            ez = c["sockets"]["Optic"][2] + pc["sockets"]["SightEye"][2]
+            above = (ez - c["bounds"]["max"][2]) * 1000
+            say("  eye: %-8s + %-9s eye at x %+.3f m, z %.3f m: %s mm %s the mesh's top (bounds x %.3f .. %.3f)%s"
+                % (gid, o, ex, ez, "%.0f" % abs(above), "above" if above >= 0 else "BELOW", c["bounds"]["min"][0], c["bounds"]["max"][0],
+                   "  <- check the near plane" if (above < 10 and c["bounds"]["min"][0] <= ex <= c["bounds"]["max"][0]) else ""))
     # the STICK's factory magazine: the pack's, on a socket of its mesh (the resolver reads only magazine.mesh and magazine.bone)
     stick_mag = GUNS["stick"]["presentation"].get("magazine")
     if not (isinstance(stick_mag, dict) and stick_mag.get("mesh") and stick_mag.get("bone")):
