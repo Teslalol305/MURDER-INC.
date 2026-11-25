@@ -174,3 +174,32 @@ without a fence in most cases". Runs with `-PixelStreamingUseMediaCapture=false`
 and version 2's Shipping game steered by a viewer's console commands next to a second game (t1) follow below.
 For the release gate use a load the game's own dynamic resolution cannot undo (a second process on the GPU), and
 check that nothing else runs.
+
+**The remaining lag runs, 00:20 to 00:31 UTC** (`/project/ue/cloud/lag-2026-11-24/out4`, `out5`, `out6`; the gameplay
+engineer's report lists when its own games and compiles ran: 23:46:08-23:47:49, 23:51:15-23:53:06, 00:05:01-00:06:36,
+00:07:32-00:09:12, 00:22:15-00:23:55, 00:24:08-00:25:49; compiles on all cores about 00:01-00:04, 00:13-00:17,
+00:19-00:21):
+
+| Run | What | Result |
+|---|---|---|
+| c3: one game, 400 %, `-PixelStreamingDecoupleFramerate` | GPU-bound, decoupled | the same as c1 on the game's side (33 a second, worst frame while turning 1.07 s, 241 fence time-outs, 1,168 skipped frames) |
+| d1: one game, 400 %, `-PixelStreamingUseMediaCapture=false` | the RHI capturer with its fence | **not clean** (another game on the card for most of it): ignore the numbers; no capture error lines |
+| d2: one game, 400 %, `-PixelStreamingUseMediaCapture=false -PixelStreamingCaptureUseFence=false` (clean) | the RDG capturer, no fence | no fence time-out, no skipped frame, **but still one frame of 1.1 s while turning** and 33 a second |
+| t1: version 2's **Shipping** game next to a second game that keeps the GPU busy; the viewer sends console commands | `r.DynamicRes.OperationMode 2`, `FrameTimeBudget 16.67`, min 50, max 75, then `t.MaxFPS 30` | the game logged every one as set: **a viewer's console commands work in version 2's Shipping game**. `MIStart mission skip` did not start a run there (the game stayed on the home screen), so nothing was played; frame rate and GPU time did not change (28 a second, about 35 ms: with a second process on the card the game's measured GPU time includes the other process's share) |
+
+What to take from them: (1) the capturer decides whether frames are skipped and fence lines are logged, but the
+second-long frame at 400 % is there without any fence, so the capture is not the whole story: **find where the long
+frames go (game thread, render thread, RHI, waiting for the GPU, capture) with a profile before choosing fixes**;
+(2) a 400 % screen percentage is not a slow GPU: it is sixteen times the pixels (shadow pages, Lumen caches, a 600 MB
+texture pool), and its one-second frame comes at about the same moment of the turn in every run; a slow GPU does
+the same work more slowly. The closest thing to the owner's report so far is two games on one card (q0, q1: frames of
+4 to 7 s, the frame counter standing still while a fence time-out is logged every 100 ms); build the load for the
+release gate that way (a second process), and check what dynamic resolution does when the measured GPU time
+includes another process's share; (3) E3DS's "Unreal console commands to run at start" field can steer version 2
+without a build if E3DS delivers the commands the way a viewer does (unproven); version 3's allowlist must let the
+tuning commands through (PREFLIGHT V3-9).
+
+**State at 00:30 UTC:** the session's container restarted at about 00:29. The gameplay engineer had just reported
+(all seven input items and the controller path, 114 tests passing at `71e5b44`, head `6116a2a`); nothing was lost.
+The final-build workflow was resumed as **release A** (the lag: PREFLIGHT V3-1, V3-3, V3-5, V3-11, V3-9's widening,
+V3-10), with the rest of version 3 as release B afterwards.
