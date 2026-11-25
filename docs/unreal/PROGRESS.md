@@ -3,6 +3,31 @@
 What is verified on the box, newest first. Every entry says how it was verified. The loop and the pitfalls are in
 `docs/unreal/BOX.md`.
 
+## Weapons round 4: the SHORTY, our own bullpup carbine (weapons modeler, 2026-11-25, 12:20 to 13:55 UTC)
+
+The owner's report on the E3DS build, "all the guns look the same and no attachments are able to be added to the guns", is the
+loadout design's own "Read this first" (four of the five offered guns are one pack M4). The SHORTY replaces the pack's Short
+rifle: **a compact bullpup carbine of our own** (700 mm, magazine behind the pistol grip, an olive polymer block with a see-through
+carry handle on top, a ventilated forend, a birdcage hider). Verified in Blender, not in Unreal: `python
+art/blender/assets/_weapons_check_shorty.py` on the exported files says **ALL FIXED POINTS KEPT (63 of 63)**: the 19 bones and
+12 sockets to 1e-5 m, both MI-R rails tooth by tooth with Optic / Underbarrel / Laser / Palm_L on them, MuzzleMount on the thread
+shoulder, the sight line clear from the aperture (Z 0.060) to the post, Palm_R on the grip and the trigger 73 mm ahead of it,
+the bolt (75 mm), trigger (17 deg), selector (0 / 14 / 28 deg) and the magazine drop with zero contacts, the hide bones leaving no
+hole, the eye corridors of the irons, the red dot and the scope, and the re-import pose proof.
+
+What the integrator gets (art/out, git-ignored; names as the pack import expects): `glb/SK_Shorty.glb` (67,168 triangles, bones
+body root, bolt, trigger, selector, magazine (attach), MuzzleDevice, IronsFront + the 12 socket bones `Muzzle`, `Eject`,
+`SightRear`, `SightFront`, `RecoilPivot`, `MagHinge`, `Palm_R`, `Palm_L`, `Optic`, `MuzzleMount`, `Underbarrel`, `Laser`; positions
+in `manifest.json` under SK_Shorty, metres and Unreal cm), `glb/SM_Weapon_ShortyMagazine.glb` + `_TopRound.glb` (static, in place),
+textures `Shorty/T_Shorty_{BC,N,ORM,E}.png` (4096, E = the tritium insert) and `Weapon_ShortyMagazine/T_Weapon_ShortyMagazine_{BC,N,ORM}.png`
+(2048), tiling detail `TS_GunDetail_Steel` (20 mm) and the new `TS_GunDetail_Polymer` (12 mm; blend by ORM.B). Data for guns.json: the
+mesh asset `SK_Shorty` (the Blender name is the asset name), `presentation.meshOffset` pos [0,0,0] rot [0, 1.5708, 0] (the origin is
+the butt face, not the grip), mounts optic `Optic` (hide `IronsFront`), muzzle `MuzzleMount` (hide `MuzzleDevice`), underbarrel
+`Underbarrel`, laser `Laser`, magazine `MagHinge`, no stock slot; `parts.bolt.bone` bolt (travel 0.075), `trigger.bone` trigger,
+`magazine.bone` magazine (drop (0, 0, -0.13)); eject direction (0.55, -0.80, 0.25); relief 0.12 (irons) / 0.14 (red dot) / 0.085
+(scope); `views[0]` re-anchored on Palm_R: [0.2229, -0.0925, 0.0046, 0.05, 0.28, -0.35]. Pictures `art/previews/weapons_shorty_*.jpg`;
+the icon `T_UI_Gun_Shorty.png` is rendered (512 x 192, git-ignored). Weaknesses and decisions: `art/blender/PROGRESS.md`.
+
 ## Version 3b: sound (sound engineer, 2026-11-25, 09:28 to 12:35 UTC)
 
 Version 3b is version 3a plus sound, and it is packaged: **zip sha256
