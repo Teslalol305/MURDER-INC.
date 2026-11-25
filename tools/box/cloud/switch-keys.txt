@@ -1,0 +1,148 @@
+# Weapon switching through the stream (docs/unreal/PLAY.md, the switch lane), played by rtcinput.py:
+#   LAG_OUT=<folder> lag-test.sh run <name> game=ship build=<package>/Linux view=switch-keys.txt join=3 probe=0.25 secs=150
+# The set-up screens as proof-keys.txt (the saved or first-time set-up: two guns, the CHOPPER in slot 1 and the NINE in
+# slot 2), then in the Story run every way to change guns that a keyboard and mouse player has, each followed by a
+# frame (the HUD's gun strip shows the gun in hand) and, from the package that has it, the probe line's gun= field:
+#   number keys 2, 1 (and the number pad's 2, 1), Q, the mouse wheel one notch down (next) and up (previous), a fast
+#   flick of three notches (one step: the wheel is debounced), switching while reloading, aimed, firing, sprinting,
+#   right after the rifle butt, after a pause and resume, and a press made while paused (it must not switch).
+# Then the pad (a browser pad: Y, the D-pad left / right / up / down).
+wait 3
+frame s-card.jpg
+say CHECK card
+click
+wait 2.5
+say CHECK home
+click 0.106 0.448
+wait 2.5
+say CHECK crew-by-keyboard
+key 9
+wait 0.4
+key 13
+wait 2
+frame s-loadout.jpg
+say CHECK loadout-by-mouse
+click 0.3625 0.911
+wait 2
+say CHECK block-by-keyboard
+key 9
+wait 0.4
+key 13
+wait 2.5
+say CHECK briefing
+click 0.336 0.911
+wait 12
+say CHECK run
+frame s-run.jpg
+say CHECK key2
+key 50
+wait 1.2
+frame s-key2.jpg
+say CHECK key1
+key 49
+wait 1.2
+frame s-key1.jpg
+say CHECK numpad2
+key 98
+wait 1.2
+frame s-numpad2.jpg
+say CHECK numpad1
+key 97
+wait 1.2
+say CHECK q
+key 81
+wait 1.2
+frame s-q.jpg
+say CHECK q-back
+key 81
+wait 1.2
+say CHECK wheel-down
+wheel -120
+wait 1.2
+frame s-wheel-down.jpg
+say CHECK wheel-up
+wheel 120
+wait 1.2
+frame s-wheel-up.jpg
+say CHECK wheel-flick
+wheel -120 3 30
+wait 1.2
+frame s-wheel-flick.jpg
+say CHECK key1-again
+key 49
+wait 1.2
+say CHECK mid-reload
+click
+wait 0.3
+key 82
+wait 0.3
+key 50
+wait 1.2
+frame s-mid-reload.jpg
+say CHECK mid-aim
+down 2
+wait 0.7
+key 49
+wait 1.2
+frame s-mid-aim.jpg
+up 2
+wait 0.5
+say CHECK mid-fire
+down 0
+wait 0.3
+key 50
+wait 1.0
+frame s-mid-fire.jpg
+up 0
+wait 0.5
+say CHECK sprint
+keydown 16
+keydown 87
+wait 0.8
+key 49
+wait 1.0
+frame s-sprint.jpg
+keyup 87
+keyup 16
+wait 0.5
+say CHECK melee-then-switch
+key 70
+wait 0.1
+key 50
+wait 1.5
+frame s-melee.jpg
+say CHECK pause
+key 80
+wait 1.5
+say CHECK press-while-paused
+key 49
+wait 0.5
+frame s-paused.jpg
+say CHECK resume
+key 80
+wait 1.5
+frame s-resumed.jpg
+say CHECK key1-after-pause
+key 49
+wait 1.2
+frame s-after-pause.jpg
+say CHECK pad
+pad connect
+wait 0.5
+pad button 3 120
+wait 1.2
+frame s-pad-y.jpg
+pad button 14 120
+wait 1.2
+frame s-pad-left.jpg
+pad button 15 120
+wait 1.2
+frame s-pad-right.jpg
+pad button 12 120
+wait 1.2
+frame s-pad-up.jpg
+pad button 13 120
+wait 1.2
+frame s-pad-down.jpg
+say CHECK end
+wait 1

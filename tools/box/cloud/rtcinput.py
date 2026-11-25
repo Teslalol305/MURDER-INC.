@@ -36,6 +36,9 @@
 #   mouse <dx> <dy> [events] [gap ms]   that many mouse events of dx, dy browser pixels each (default 1 event, 16 ms apart)
 #   key <keyCode> [hold ms]             a JavaScript keyCode down, then up (P 80, Enter 13, Esc 27, W 87, Space 32, arrows 37..40)
 #   keydown <keyCode> / keyup <keyCode>
+#   wheel <delta> [events] [gap ms] [x y]   the page's "MouseWheel" message (id 75: int16 delta, then the position as a
+#                                       click's): the reference front end sends the browser's wheelDelta, +120 for one
+#                                       notch up (away from the player), -120 for one notch down; events default 1, 16 ms apart
 #   cmd <console command>               {"ConsoleCommand": "..."}, what a page's emitConsoleCommand sends
 #   res <width> <height>                {"Resolution.Width": w, "Resolution.Height": h}, the page's size request
 #   pad connect                         a gamepad appears (the game answers with its id)
@@ -267,6 +270,14 @@ async def play(lines, send, player):
             send(struct.pack('<BBB', 60, int(a[0]), 0))
         elif verb == 'keyup':
             send(struct.pack('<BB', 61, int(a[0])))
+        elif verb == 'wheel':
+            n = int(a[1]) if len(a) > 1 else 1
+            gap = float(a[2]) / 1000 if len(a) > 2 else 0.016
+            x, y = player.pos(float(a[3]), float(a[4])) if len(a) >= 5 else player.pos()
+            for i in range(n):
+                send(struct.pack('<BhHH', 75, int16(float(a[0])), x, y))
+                if i + 1 < n:
+                    await asyncio.sleep(gap)
         elif verb == 'cmd':
             send(descriptor(51, json.dumps({'ConsoleCommand': line.split(None, 1)[1]})))
         elif verb == 'res':
