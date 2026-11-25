@@ -518,3 +518,46 @@ v6 therefore carries the version 3b sound as it stands (two known faults, listed
 the lead can silence it from E3DS's launch options with `-nosound` if the owner prefers silence; the release workflow
 `tools/workflows/mi-release-v6.js` says so to its engineer. E3DS's own test server was stuck on the 3b upload at the
 same time (see the entry above): the new package is uploaded once, and only the weapons package.
+
+## 2026-11-25 (14:40 UTC): the guns come first, and they must read apart: the CHOPPER is SK_Chopper again
+
+**Asked.** After the owner's test of the streamed game: "all the guns look the same and no attachments are able to be added to the guns", then
+"the guns need to be priority with attachments", and for the day's work: "make sure the game is ready with guns and accesories and smooth turns".
+
+**What this reverses.** The mesh part of the decision of 2026-11-23, "Use the pack rifle". That decision made the CHOPPER the pack's Short
+rifle in a dark-earth finish and retired `SK_Chopper`. Together with the pack's other two handguard lengths (the SHORTY, the STICK, the
+STRETCH) it left four of the five offered guns as one M4 in three lengths, and none of the three of ours could take a part. The owner saw
+exactly that. The rest of the 2026-11-23 decision stands: the NINE stays, the CHOPPER's rules stay the web game's, nothing from the pack is
+ever committed.
+
+**The answer, in effect (binding):**
+
+- **`SK_Chopper` is the CHOPPER's mesh again**, in slot 1, with its own first-person hands (hand IK on its `Palm_R` and `Palm_L`, as the
+  NINE's). The pack rifle stays only as the STICK. Its rules, its numbers, its reload stage times and everything the golden tests replay are
+  untouched: this is a presentation change. Going back is one data commit: `presentation.json guns.chopper.realMesh` and its `real` block as
+  they were before commit 19265f1.
+- **The SHORTY and the STRETCH are our own guns now** (a bullpup carbine, a marksman rifle with a folding bipod), one body each. The
+  **RATTLER**, the Goons' SMG, gets its own mesh and is offered. The rack shows six guns that read apart by their silhouettes: CHOPPER, NINE,
+  SHORTY, STICK, STRETCH, RATTLER.
+- **Attachments on every gun**, twelve parts of our own on top of the pack's ten: a red dot, a 4x scope, a suppressor, a pistol suppressor, a
+  compensator, a vertical grip (and a walnut one for the CHOPPER's handguard), an angled grip, a laser module and three extended magazines,
+  with the compatibility of the specification. The Workbench offers 3 / 3 / 5 / 5 / 4 / 3 slots on CHOPPER / NINE / SHORTY / STICK / STRETCH /
+  RATTLER. Every part still makes one thing better and one worse, inside the trade band of LOADOUT.md 3.3, and a new stat, rounds per magazine,
+  is how the extended magazines pay off.
+- **Priority inside the work:** the guns on the stage and the Workbench with their parts first (the owner sees them first), then the same in
+  first person (hip, aimed through an optic, one reload, one burst), then polish (casings, the laser dot, solved grips). Attachments come before
+  hand polish.
+- **A clean checkout is unchanged in what it offers:** the CHOPPER and the NINE on the template meshes, no slot, everything else hidden,
+  because none of our meshes or parts is committed (they live on the box, imported by `tools/box/fp/import-chars.sh r4`).
+
+**Defaults taken, to be changed on the owner's word:**
+
+1. **The wall pull of the new guns is the one they had** (SHORTY [0.95, 0.38], STRETCH [1.27, 0.51], RATTLER [0.85, 0.34]). The specification asked
+   for a re-measure with the real meshes (the bullpup is 0.70 m long where the pack's Short rifle was longer); a rule number does not change
+   without a reason a test can show, so it stays until someone measures it in play.
+2. **The extended pistol magazine holds 24 rounds, not the 25 of the specification** (a factor of 1.6 on 15, where 1.67 gives 25.05: the
+   parser would drop the fraction). The rifle and SMG ones are 45 and 48 (a factor of 1.5).
+3. **The STRETCH's magazine looks like 10 rounds and its data says 30.** The data stays: nobody counts the rounds in the picture, and damage is
+   not retuned for a drawing.
+4. **The RATTLER's textures are a 512-pixel draft** until its final bake lands; the files keep their names, so the final ones replace them
+   in place, with no data change.
