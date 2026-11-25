@@ -39,6 +39,21 @@
 #                trigger that was pulled when the viewer left does not fire for the next one
 # The loads are calibrated for box ec087d85 (RTX PRO 6000 Blackwell, driver 620.70): check them first on another card
 # with "lag-test.sh calib cal 0 1:0.3:1 1:0.05:0.05:1024 1:0.05:0:1024 1:0.3:0".
+#
+# On a package, as a host starts it (the gate of version 3a, docs/unreal/PROGRESS.md "Version 3a"): unzip the zip as
+# the user e3dsfresh, then
+#   LAG_BUILD=<that folder> LAG_RUNAS=fresh LAG_CLEAN=1 bash lag-test.sh queue lag-gate.txt
+# Every run is then cold: a new home has no driver shader cache. The play measures as above; three things differ
+# outside it, the same in every run:
+#   the game's first frame takes 3 to 4.5 s (0.3 s warm) and costs 2 or 3 pacer time-outs, before anybody watches;
+#   the first set-up screen (Crew) costs one frame of about 0.85 s and one pacer time-out (the Development game logs
+#   two "Timed out waiting for fence" lines there);
+#   gate-cpu6-l35dev logs one fence line 13 s into its run, which its script starts 12 s after the process (one frame
+#   of 50 ms, no skipped capture). The Development game played from the home screen like a Shipping run
+#   ("game=ship load=1:0.3:0 cpus=0-5 -- -MIDev") logs none in its run.
+# So "whole run: pacer time-outs" reads 3 (4 at most) on a cold run: in the game's first second and at the Crew
+# screen, nowhere else (lag_sum.py prints them apart: "outside the play"). More than that, or one in the play, is the
+# fault the gate-cpu6 lines are for.
 gate-free game=ship load=0
 gate-l8 game=ship load=1:0.3:1
 gate-l12 game=ship load=1:0.05:0.05:1024
