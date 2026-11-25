@@ -36,6 +36,10 @@
 # It prints one line per step and a count of video frames every 5 s; it ends with the script. "repeats" in that line
 # counts received frames that show the same picture as the frame before (a sample of 2,000 points of the picture's
 # brightness differs by less than half a level): while the view turns, a repeat is a frame sent twice, not a new one.
+#
+# rtcaudio.py (the listening tool) is this viewer with a recorder on the received sound: it imports this file, so
+# both play a script with the same code. It sets hooks['audio'] (called with every decoded audio frame) and
+# hooks['action'] (called with the time and the text of every script line as it is sent).
 import argparse, asyncio, json, struct, sys, time
 
 import websockets
@@ -66,6 +70,7 @@ if A.nodecode:
 
 t0 = time.time()
 st = {'video': 0, 'audio': 0, 'size': None, 'channel': None, 'pad': None, 'want_frame': None, 'messages': 0, 'repeats': 0, 'sig': None}
+hooks = {'audio': None, 'action': None}
 
 
 def log(*a):
@@ -116,6 +121,8 @@ async def play(lines, send, player):
             await asyncio.sleep(float(a[0]))
             continue
         log('>', line)
+        if hooks['action']:
+            hooks['action'](time.time() - t0, line)
         if verb == 'say':
             pass
         elif verb == 'dblclick':
@@ -212,6 +219,8 @@ async def main():
                 return
             if track.kind != 'video':
                 st['audio'] += 1
+                if hooks['audio']:
+                    hooks['audio'](fr)
                 continue
             st['video'] += 1
             try:
@@ -323,4 +332,5 @@ async def main():
     await pc.close()
 
 
-asyncio.run(main())
+if __name__ == '__main__':
+    asyncio.run(main())
