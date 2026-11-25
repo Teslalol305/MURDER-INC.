@@ -10,6 +10,10 @@
 #   - counts drop-outs: 10 ms to 1 s of digital silence with sound right before and right after it (a mixer that
 #     starves or a sender that had nothing to send; the game's music and street never stop, so there is no such
 #     silence in a healthy stream), and compares the sound's own clock with the wall clock;
+#   - measures the side of the sound, (left - right) / 2, against the middle, (left + right) / 2, per half second and
+#     for the whole recording, and says MONO when left minus right is digital zero: a stream whose Opus sender was
+#     asked for one channel (the viewer's answer lacked stereo=1: every recording until 2026-11-25) carries no
+#     direction at all, whatever the game does with 3D sounds, and the stereo street bed folds into the middle;
 #   - notes the time of every script line it sends, and the arrival time of every sound packet, in <wav>.json, so
 #     audio_find.py can say how long after a fire input the gun's sound started.
 #
@@ -69,6 +73,8 @@ class Recorder:
         self.first_raw = None
         self.lost = self.clipped = self.silent = self.late = 0
         self.sum_sq = 0.0
+        self.sum_side = self.sum_mid = 0.0   # sums of ((L - R) / 2)^2 and ((L + R) / 2)^2 over every frame
+        self.side_peak = 0                   # the largest |L - R| of any frame: 0 is a mono stream
         self.peak = 0
         # Drop-outs: the hole being followed (grains within +-HOLE), the loudest of the three grains before it, and
         # the hole that waits for the three grains after it.
@@ -149,6 +155,14 @@ class Recorder:
         hi, lo = max(buf), min(buf)
         peak = max(hi, -lo)
         sq = sum(v * v for v in buf)
+        side_sq = mid_sq = 0
+        side_peak = 0
+        for l, r in zip(buf[0::2], buf[1::2]):
+            d = l - r
+            m = l + r
+            side_sq += d * d
+            mid_sq += m * m
+            side_peak = max(side_peak, d if d >= 0 else -d)
         clipped = sum(1 for v in buf if v >= FULL or v <= -FULL) if peak >= FULL else 0
         silent = 0
         for k in range(0, n, SUB * 2):
@@ -158,6 +172,9 @@ class Recorder:
                 silent += len(grain) // 2
             self._grain(at + k // 2, len(grain) // 2, g)
         self.sum_sq += sq
+        self.sum_side += side_sq / 4.0
+        self.sum_mid += mid_sq / 4.0
+        self.side_peak = max(self.side_peak, side_peak)
         self.peak = max(self.peak, peak)
         self.clipped += clipped
         self.silent += silent
@@ -167,13 +184,14 @@ class Recorder:
             'at': round(a / RATE, 3), 'arrived': self.arrival(a), 'rms': round(db(math.sqrt(sq / max(1, n))), 1), 'peak': round(db(peak), 1),
             'clipped': clipped, 'silentMs': round(1000 * silent / RATE), 'lostMs': round(1000 * self.pending_lost / RATE),
             'bytes': round(sum(sizes) / len(sizes), 1) if sizes else None,
+            'side': round(db(math.sqrt(side_sq / 4.0 / max(1, n // 2))), 1), 'mid': round(db(math.sqrt(mid_sq / 4.0 / max(1, n // 2))), 1),
         }
         self.pending_lost = 0
         self.rows.append(row)
         arrived = f"arrived {row['arrived']:8.3f}" if row['arrived'] is not None else ''
         size = f"  {row['bytes']:.0f} bytes a packet" if row['bytes'] is not None else ''
         self.log(f"sound at {row['at']:7.2f} s  {arrived}  rms {row['rms']:6.1f} dBFS  peak {row['peak']:6.1f} dBFS  clipped {clipped}"
-                 f"  silent {row['silentMs']} ms  lost {row['lostMs']} ms{size}")
+                 f"  silent {row['silentMs']} ms  lost {row['lostMs']} ms  side {row['side']:6.1f} mid {row['mid']:6.1f}{size}")
 
     def _grain(self, pos, frames, peak):
         """The drop-out search, one 10 ms grain at a time: a hole is 10 ms to 1 s within +-HOLE that holds digital
@@ -207,6 +225,8 @@ class Recorder:
             'clipped': self.clipped, 'silentSeconds': round(self.silent / RATE, 2), 'lostMs': round(1000 * self.lost / RATE),
             'lateMs': round(1000 * self.late / RATE), 'dropOuts': len(self.gaps),
             'longestDropOutMs': max((g[1] for g in self.gaps), default=0), 'packets': len(self.packets),
+            'sideRms': round(db(math.sqrt(self.sum_side / max(1, self.frames))), 1), 'midRms': round(db(math.sqrt(self.sum_mid / max(1, self.frames))), 1),
+            'sidePeakSample': self.side_peak, 'mono': self.frames > 0 and self.side_peak == 0,
         }
         if len(self.packets) > 100:
             # The sound's clock against the wall clock, between the first and the last packet: a sender whose mixer
@@ -251,6 +271,13 @@ class Recorder:
                  f"digital silence {s['silentSeconds']} s, lost {s['lostMs']} ms, drop-outs {s['dropOuts']} (longest {s['longestDropOutMs']} ms{where})"
                  + (f", {s['soundPerWallSecond']} s of sound a second of wall clock, longest wait for a packet {s['longestWaitForAPacketMs']} ms" if 'soundPerWallSecond' in s else '')
                  + (f"; {self.note}" if self.note else ''))
+        if s['mono']:
+            self.log('SOUND MONO: left minus right is digital zero in every sample: the stream carries ONE channel (the sender was asked for mono: '
+                     'the answer to its offer needs stereo=1;sprop-stereo=1 on the Opus line, as rtcinput.py sends it unless --mono-answer), '
+                     'so no sound has a side and the stereo street bed is folded into the middle')
+        else:
+            self.log(f"SOUND STEREO: side (L-R)/2 at {s['sideRms']} dBFS RMS against the middle (L+R)/2 at {s['midRms']} dBFS "
+                     f"(side to middle {s['sideRms'] - s['midRms']:+.1f} dB); the largest left-right difference of any sample is {s['sidePeakSample']} of 65536")
         for at, ms in self.gaps[:20]:
             self.log(f'drop-out at {at:.3f} s: {ms} ms of digital silence inside sound')
 
@@ -341,9 +368,11 @@ def selftest(folder, audio_dir):
     def log(*a):
         print(f'{time.time() - t0:8.3f}', *a, flush=True)
 
-    # The known signal, mono floats at 48 kHz (sent on both channels).
+    # The known signal, mono floats at 48 kHz (sent on both channels), except the last seconds: a tone in the left channel
+    # only and one in the right only, so the side level (left minus right) has something known to measure.
     total = 22 * RATE
     x = [0.0] * total
+    arrays = [x]   # what a planted sample is added to: the left channel, and the right once it is a copy of it
     truth = {'tone': {'from': 1.0, 'to': 3.0, 'hz': 1000, 'peak': 0.1}, 'planted': [], 'gap': {'at': 12.0, 'ms': 100},
              'clip': {'at': 14.0, 'ms': 20}, 'actions': []}
     for n in range(1 * RATE, 3 * RATE):
@@ -384,7 +413,8 @@ def selftest(folder, audio_dir):
             i = int(p)
             v = sample[i] + (sample[i + 1] - sample[i]) * (p - i) if i + 1 < len(sample) else sample[i]
             if start + k < total:
-                x[start + k] += gain * v
+                for arr in arrays:
+                    arr[start + k] += gain * v
         return start
 
     for at, gain, speed in ((6.0, 0.5, 1.0), (8.0, 0.25, 0.97), (10.0, 0.125, 1.03)):
@@ -395,6 +425,15 @@ def selftest(folder, audio_dir):
     for n in range(14 * RATE, int(14.02 * RATE)):
         x[n] = 1.0 if (n // 48) % 2 == 0 else -1.0   # a 500 Hz square at full scale: 960 clipped samples a channel
     truth['clickFile'] = os.path.relpath(click_file, audio_dir)
+    y = list(x)            # the right channel: the same signal ...
+    arrays.append(y)
+    for n in range(20 * RATE, 21 * RATE):    # ... but for a 700 Hz tone in the left channel alone, then a 900 Hz tone in the right alone
+        x[n] = 0.1 * math.sin(2 * math.pi * 700 * n / RATE)
+        y[n] = 0.0
+    for n in range(21 * RATE, int(21.5 * RATE)):
+        x[n] = 0.0
+        y[n] = 0.1 * math.sin(2 * math.pi * 900 * n / RATE)
+    truth['stereo'] = {'left': {'from': 20.0, 'to': 21.0, 'hz': 700, 'peak': 0.1}, 'right': {'from': 21.0, 'to': 21.5, 'hz': 900, 'peak': 0.1}}
 
     class Known(MediaStreamTrack):
         kind = 'audio'
@@ -417,10 +456,10 @@ def selftest(folder, audio_dir):
                 truth['actions'].append({'sent': sent, 'at': round(a / RATE, 4), 'frameLeft': round(time.time() - t0, 4)})
             self.want = []
             seg = x[a:a + 960] if a + 960 <= total else [0.0] * 960
+            segr = y[a:a + 960] if a + 960 <= total else [0.0] * 960
             pcm = array.array('h', bytes(960 * 4))
-            ints = [max(-32768, min(32767, int(round(v * 32767)))) for v in seg]
-            pcm[0::2] = array.array('h', ints)
-            pcm[1::2] = array.array('h', ints)
+            pcm[0::2] = array.array('h', [max(-32768, min(32767, int(round(v * 32767)))) for v in seg])
+            pcm[1::2] = array.array('h', [max(-32768, min(32767, int(round(v * 32767)))) for v in segr])
             fr = av.AudioFrame(format='s16', layout='stereo', samples=960)
             fr.planes[0].update(pcm.tobytes())
             fr.pts = a
@@ -513,6 +552,29 @@ def selftest(folder, audio_dir):
         check('the clipped burst', clipped >= 10 and rec.clipped >= 2 * clipped - 4 and rec.peak >= 32767,
               f'{clipped} samples at 99 % of full scale or more on one channel in the burst (960 were sent so: Opus keeps the edges and rounds the tops off, '
               f'so the count is a lower bound), {rec.clipped} counted in all, peak {db(rec.peak):.1f} dBFS')
+    if onset is not None:
+        right = a[1::2]
+        shift = onset - RATE
+
+        def rms_of(ch, t0_, t1_):
+            seg = ch[int((t0_) * RATE) + shift:int((t1_) * RATE) + shift]
+            return db(math.sqrt(sum(v * v for v in seg) / max(1, len(seg))))
+
+        def side_mid(t0_, t1_):
+            lo, hi = int(t0_ * RATE) + shift, int(t1_ * RATE) + shift
+            sd = [(l - r) / 2 for l, r in zip(left[lo:hi], right[lo:hi])]
+            md = [(l + r) / 2 for l, r in zip(left[lo:hi], right[lo:hi])]
+            return (db(math.sqrt(sum(v * v for v in sd) / max(1, len(sd)))), db(math.sqrt(sum(v * v for v in md) / max(1, len(md)))))
+
+        lt, lr = rms_of(left, 20.2, 20.8), rms_of(right, 20.2, 20.8)
+        check('a tone in the left channel only', abs(lt - (-23.01)) < 0.7 and lr < -50, f'left {lt:.2f} dBFS, right {lr:.2f} dBFS (sent -23.01 and silence)')
+        rt, rl = rms_of(right, 21.1, 21.4), rms_of(left, 21.1, 21.4)
+        check('a tone in the right channel only', abs(rt - (-23.01)) < 0.7 and rl < -50, f'right {rt:.2f} dBFS, left {rl:.2f} dBFS (sent -23.01 and silence)')
+        sd, md = side_mid(20.2, 20.8)
+        check('the side level of the left-only tone', abs(sd - (-29.03)) < 1.0 and abs(md - (-29.03)) < 1.0, f'side (L-R)/2 {sd:.2f} dBFS, middle (L+R)/2 {md:.2f} dBFS (sent -29.03 each)')
+        sd2, md2 = side_mid(5.0, 5.5)
+        check('the side level of the same sound in both channels', sd2 - md2 < -25.0, f'side {sd2:.1f} dBFS against middle {md2:.1f} dBFS')
+        check('not a mono recording', not rec.summary()['mono'], f"largest L-R difference {rec.summary()['sidePeakSample']}")
     s = rec.summary()
     check('nothing lost', s['lostMs'] == 0, f"{s['lostMs']} ms lost, {s['packets']} packets")
     check('the sound\'s clock', abs((s.get('soundPerWallSecond') or 0) - 1) < 0.01, f"{s.get('soundPerWallSecond')} s of sound a second of wall clock")
