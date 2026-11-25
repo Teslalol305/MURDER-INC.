@@ -140,3 +140,115 @@ gun and both arms leave the picture entirely in version 4 (`s-sprint`); the HUD 
   are covered by `SwitchEveryWay` and by `ControllerPad`.
 - E3DS's own page was not used (no E3DS session was spent): its key and wheel handling were taken from Epic's player
   library and from the version 4 sessions in DECISIONS.md.
+
+## Story guidance (the guide lane)
+
+The owner: "the story needs to have ques to tell a player where to go and hints (highlighted walking paths on the ground
+to get to the next object. this is important for story mode so the player can advance through levels." Story mode is one
+map (the Block) with three reels and the IPX truck: Reel 1 The Avenue, Reel 2 Chop Shop, Reel 3 The Cage, then the truck's
+rear doors. The rules let the reels be taken in any order; the guidance always points at the first one not yet taken
+(the radio's own order: "the avenue, the chop shop, the cage"), then the truck. Nothing of it is a rule: no collision, no
+timing, no decision of the flow or the enemies reads it.
+
+### What the player sees
+
+| Cue | What it is | Where it comes from |
+|---|---|---|
+| Objective block (top left) | The flow's line ("TAKE BACK THE THREE MASTER REELS", "TWO REELS LEFT", "LAST REEL", "GET TO THE IPX TRUCK") and the reels count as before, and under them the **step**: a small amber diamond and "Reel 1 — The Avenue", "Reel 2 — Chop Shop", "Reel 3 — The Cage", then "IPX truck — The Lot". The block now scales with the frame's height (READY.md M9: the title stayed 1080-sized at 4K) | `text.json` objectives, `level.json` objectives labels, `interface.hud.zones` |
+| Hint line | Under the step, in a warm white, after **45 s of play without progress** (fighting does not count: the clock stops while any enemy is engaging; the intro does not count). Progress is being 3 m closer along the route than ever before on this step; the line goes at once when that happens and comes back after another 45 s | `guide.json` `levels.block.steps.<id>.hint` |
+| Step marker | The step's "[1] 24m" where it stands; the distance is what is left **along the route**. Off the screen or behind: an amber arrow on the screen's edge pointing toward it, with its label inside. It fades from 10 m and is gone at 2.5 m, where the grab prompt takes over. The other reels keep their plain marker. Hidden while the weapon wheel is open (as before) | `guide.json` `marker` |
+| Ground path | Amber chevrons on the ground from 1.4 m ahead of the player to the step, at most 30 m of it, 1.5 m apart, each pointing along the way; a light runs along them toward the goal (four phases, 0.9 a second). Dimmer under a roof, the El or inside the chop shop (the eye is adapted darker there), and toned down to 35 % while an enemy is engaging. Depth-tested (walls hide it), drawn on the floor under it (kerbs and slabs), no shadow, no collision, no part in Lumen or distance fields | `guide.json` `path`, `look` |
+| Settings | A new row on the Settings card, **Path and markers: On / Off** (on by default, saved): Off hides the ground path, the step marker and the reel markers. The step line and the hint stay | `FMISettings::bGuide` |
+
+The hint lines, in the voice of the radio (`text.radio`) and the prompts:
+
+| Step | Line |
+|---|---|
+| Reel 1 | Reel 1's out on the avenue, under the El. Head east. |
+| Reel 2 | Reel 2's inside V&R Auto Body, north side. The bay door's open. |
+| Reel 3 | Reel 3's in the cage at the north-east end. The gate's off the avenue. |
+| Truck | The IPX truck's idling at the south end of the lot. Get to its back doors. |
+
+### How the path is found
+
+- **The Goons' own nav grid** (`FMIBoxWorld::FindPath`: A* on the 0.5 m occupancy grid of `level.json` with string
+  pulling, the one `MurderInc.Golden.World` checks against the web game), searched on a **private copy** of the box
+  world (`AMIGuide::SyncNav`), refreshed only when the box list changes (a run's start, an explosive gone). The
+  simulation's own world is never searched by the guide, so not even its search buffers are touched.
+- A search every second, at once (after 0.25 s) when the player is 2.5 m off the drawn route, and on every step change. A
+  new route replaces the drawn one only when it is 5 % shorter than what is left of it, so two routes of about the same
+  length never flip back and forth.
+- The chevrons are laid **from the goal backwards** in slots of 1.5 m, so a chevron stays where it is while the player
+  walks the route (test `Stable`: 0 moved in 6 s of walking); only the two ends grow in and out.
+- **Upper floors**: the grid is the ground's. A player on the scaffold shed's deck or the chop shop's mezzanine (feet more
+  than 1 m above the ground under them) is first led down that floor's own stair (`guide.json` `waysDown`), never through
+  the parapet to the street under it. The station's stair is not a way down: its steps are 0.75 m, more than the 0.42 m a
+  body climbs, so nobody gets up there.
+- The route ends on the free cell nearest the reel's case (0.8 m from its centre, inside the 2.2 m grab range), and in the
+  truck's zone.
+
+The routes as the guide draws them (test `Routes`, from the step before):
+
+| Leg | Route | Straight line | Way |
+|---|---|---|---|
+| Start → Reel 1 | 37.7 m | 34.2 m | East along the south sidewalk, then across the avenue under the El to the case |
+| Reel 1 → Reel 2 | 25.2 m | 23.4 m | North across the avenue, through the chop shop's bay door (x -3.2 to 0.6), inside to the case |
+| Reel 2 → Reel 3 | 64.8 m | 44.0 m | Out of the bay door, east along the north sidewalk past the deli, through the cage's south gate |
+| Reel 3 → truck | 60.0 m | 52.2 m | Out of the cage gate, across the avenue, into the lot by its entry (x 28.6 to 35), south to the truck's rear doors |
+| The whole story | 187.7 m | | (the maps lane measured 193.7 m with its own A* from the start) |
+
+### The end-to-end play
+
+`MurderInc.Guide.EndToEnd` plays the whole story in a world with the block's collision and the real player movement: a
+bot that **only follows the drawn route** (pure pursuit on `AMIGuide`'s path, sprinting), holds the grab at each case,
+and walks to the truck; the enemies are live and shoot (the bot is patched up each frame, as in `Run.StoryComplete`).
+It fails if the bot gains no metre along the route in 8 s anywhere. Result: **story complete in 37.2 s of game time**,
+steps of 7.9 s, 6.4 s and 11.8 s to the reels (grabs included) and the rest to the truck, never more than 0.48 m from the
+drawn route, the path shown in every frame of the story and nothing drawn after the truck. No place was found where the
+route goes through a wall, off the block or onto the wrong floor (`Routes` checks every leg of every step from the start
+and from the step before: every leg clear on the grid, every point inside the block and on the ground floor, every
+chevron on walkable ground at the floor's height).
+
+### The cost (game thread)
+
+| What | Measured | Where |
+|---|---|---|
+| The guide's frame (plan, strips, light) | **0.021 ms a frame on average**, worst 0.87 ms (the first frame of a run: the box world copied, the grid built; 1.88 ms in another run) | `EndToEnd` in the suite run below, 1,120 frames, `AMIGuide::GetCost` |
+| A path search | 0.116 ms on average, worst 0.52 ms, once a second | same |
+| Strips moved | 1,590 in 1,120 frames (about 1.4 a frame while sprinting: the two ends of the path) | same |
+| Strips drawn | at most 40 (20 chevrons x 2 flat strips, the engine plane), one of 8 material instances each; per frame 8 scalar parameters are set, nothing else | same |
+| Allocations in play | none after the first route of a step: the input, the search buffers, the chevrons and the slot cache are reused; the strips are built once at the map's start | code |
+
+The headless suite cannot measure the GPU: 40 small additive quads on the ground in the translucency pass. `MIGuide.Stats`
+(console) prints the same numbers in any game; the packaged game under the gate's load (PREFLIGHT.md) has not been
+measured yet (below).
+
+### What was changed
+
+- `World/MIGuide.h/.cpp` (new): `FMIGuideTune` (guide.json), `FMIGuidePlan` (the step, the route, the hint clock, the
+  chevrons; no engine), `AMIGuide` (the actor the HUD spawns: the private box world, the strip pool, the light);
+  console `MIGuide.Stats`, `MIGuide.Reset`, `MIGuide.HintAfter <s>`, `MIGuide.Show 0|1`.
+- `Content/Data/guide.json` (new): timings, look, the hint lines, the ways down.
+- `UI/MIHUD.*`: the step line and the hint in the objective block (scaled with the frame), the step marker with its edge
+  arrow and fade, the Settings row's effect on the markers; `BeginPlay` spawns the guide.
+- `Flow/MISettings.*`, `UI/MIMenus.cpp`, `Flow/MIGameSubsystem.cpp`: the Settings row "Path and markers" (saved).
+- `Flow/MIDemoDirector.*`, `tools/box/demo/demo.txt`: the verb `guide [limit] [sprint]` (walk the drawn route to the
+  step; with `grab` and `waitstate complete` it plays the story by the guidance alone).
+- `Tests/MIGuideTests.cpp` (new): `MurderInc.Guide.Data`, `Routes`, `Hint`, `Stable`, `EndToEnd`.
+- `tools/box/fp/guide-shots.sh` (new): the pictures below and the walk in play in editor.
+
+The rules, the golden replays and every other test are untouched (the suite: below).
+
+### The suite
+
+`tools/box/test.sh MurderInc` on the branch at `7209dc4` with this lane's change (clone `/project/ue/play/guide` on the
+box): **216 passed, 0 failed** (78 s), the golden replays included; no test weakened, skipped or re-recorded.
+
+### For the other lanes
+
+- **READY.md M9** (the objective title not scaling at 4K) is done here, in the same block: the title, the counter, the
+  step and the hint all scale with the frame's height.
+- The hands engineer: nothing (no change to `MIFirstPersonRig.*` is needed).
+- The release engineer: `guide.json` ships with `Content/Data` (loose files); the chevrons use `/Game/FX/M_FX_Tracer` and
+  the engine plane, both already in every package (no new asset, no usage flag: static meshes are the material's default).
+  Without them the guide says so in the log and draws only the HUD cues.
