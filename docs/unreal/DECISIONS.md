@@ -442,3 +442,35 @@ Both landed on a clean machine (the launcher printed "leftovers: no other game o
 4. **Storage and minutes**: 1.5 GB of the 10 GB left (versions 1 to 4); 259 of the 300 minutes left (the tests used 21; a
    session counts from the moment it starts, the machine's first start takes about two minutes of it). The next upload needs
    an older version deleted: the owner's decision (version 3 is the same game as version 4; version 1 never worked).
+
+**E3DS in the hour before the owner's 9 am (2026-11-25, 13:00 to 13:40 UTC; the owner's calendar is US Eastern, so 9 am is 14:00 UTC).**
+The owner asked for a game that is "playable and perfect by 9 am" and then said the guns with attachments are the
+priority. What was done on E3DS from the box's browser, and what was measured:
+1. **The link was pinned to version 4** (Builds tab, "Run a fixed version": Version 4), so that an upload does not change
+   what the owner's link streams until the new version is chosen. **Version 1 was deleted** (2.2 GB; it never worked; the
+   other versions stay): 6.3 of 10 GB used. Deleting a version: Storage page, open the build, "Delete version N".
+2. **Two project settings would have cut a demo short**: "Longest a session can last" was **15 minutes** (a hard cap, even
+   for an active viewer) and the idle logout started after 5 minutes (countdown 1 minute). Set to **45 minutes** and **10 + 2
+   minutes**. They cost E3DS minutes only when a viewer stays (250 of 300 minutes were left at 13:35).
+3. **Version 4 on a real E3DS machine, Hold the Block** (session `v4a`, 13:23 to 13:28): picture after 112 s (cold start), the
+   set-up screens by keyboard (on Home, Down twice reaches the Mode row and Right switches it), the run began, the player
+   died after 24 s without a kill (the scripted fight does not aim): over the 130 probe lines of the session **60.0 frames
+   a second on average (lowest 59.7), worst frame 16.7 ms on average (21.1 ms at most), GPU 10.6 to 13.2 ms at render scale
+   0.50 to 0.75, QP 34, 0.5 Mbit/s on average (8 at most, in a turn), encoder 3.8 to 8.0 ms**. A short sample, not a long
+   fight, and the first one on E3DS. The street, the HUD, the CHOPPER in the hands and the tattooed arm read well in the
+   picture. **The stream carries no sound** (every sample: "stream has no audio track"): version 4 has none.
+4. **The launcher found a clean machine again** four minutes after the last session ended (`leftovers: no other game of this
+   package is running`): E3DS now stops the game with its session (the stop signal that version 4's launcher forwards at
+   once works on the real path). The reaping of a game that survived has still not been seen; the game quitting by itself
+   (release 3c) is the second layer.
+5. **Version 3b (sound) is uploaded, but E3DS's own test did not finish.** Upload 25 s at 89 MB/s; E3DS's test machine took
+   the build at 13:10:47 and stayed at "Download, unpack, virus scan" ("Unpacking on our build-testing server: 70 %") for
+   more than 25 minutes, where versions 3a and 4 took 75 s. A second upload (13:29:57) then waited "for a free test machine".
+   Nothing in the build is involved before the app starts: the test server is stuck or slow. No version 5 exists, and the
+   link streams version 4. When it passes: pin version 5 ("Run a fixed version"), run `e3ds-session.sh`, read the sound
+   level (`e3ds-snd.js`: rms and peak must be above zero in the menu and in the run), then make it the latest.
+6. **Tools (committed):** `owner-browser.py file` now types into E3DS's file input even when the page clips it to nothing
+   (class `sr-only`: it was refused as "not reachable by keyboard"); the dialogs are duplicated, so the file goes to the
+   LAST input, "Yes, Linux" is clicked twice (both copies) and then the last "Upload". `e3ds-snd.js` (the stream's audio
+   level in the page), `e3ds-probesum.py` (the probe lines summarised), `e3ds-session.sh` (a whole scripted session).
+   A browser on the box that plays a stream takes CPU from a measuring run: pin it (`taskset -a -cp 13-15`) when one runs.
