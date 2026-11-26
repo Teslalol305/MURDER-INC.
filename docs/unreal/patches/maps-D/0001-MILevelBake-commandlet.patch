@@ -1,0 +1,342 @@
+diff --git a/unreal/MurderInc/Source/MurderInc/Tools/MILevelBakeCommandlet.cpp b/unreal/MurderInc/Source/MurderInc/Tools/MILevelBakeCommandlet.cpp
+new file mode 100644
+index 0000000..7a95f25
+--- /dev/null
++++ b/unreal/MurderInc/Source/MurderInc/Tools/MILevelBakeCommandlet.cpp
+@@ -0,0 +1,300 @@
++#include "Tools/MILevelBakeCommandlet.h"
++
++#include "Core/MIMath.h"
++#include "Dom/JsonObject.h"
++#include "Dom/JsonValue.h"
++#include "HAL/FileManager.h"
++#include "Misc/FileHelper.h"
++#include "Misc/Paths.h"
++#include "MurderInc.h"
++#include "Serialization/JsonReader.h"
++#include "Serialization/JsonSerializer.h"
++#include "Serialization/JsonWriter.h"
++#include "World/MIBoxWorld.h"
++
++namespace
++{
++	FVector WebVec(const TSharedPtr<FJsonObject>& O)
++	{
++		return FVector(O->GetNumberField(TEXT("x")), O->GetNumberField(TEXT("y")), O->GetNumberField(TEXT("z")));
++	}
++
++	bool LoadJson(const FString& Path, TSharedPtr<FJsonObject>& Out, FString& Error)
++	{
++		FString Text;
++		if (!FFileHelper::LoadFileToString(Text, *Path))
++		{
++			Error = FString::Printf(TEXT("cannot read %s"), *Path);
++			return false;
++		}
++		const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Text);
++		if (!FJsonSerializer::Deserialize(Reader, Out) || !Out.IsValid())
++		{
++			Error = FString::Printf(TEXT("%s is not valid JSON: %s"), *Path, *Reader->GetErrorMessage());
++			return false;
++		}
++		return true;
++	}
++
++	bool SaveJson(const FString& Path, const TSharedRef<FJsonObject>& Root)
++	{
++		FString Text;
++		const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Text);
++		if (!FJsonSerializer::Serialize(Root, Writer))
++		{
++			return false;
++		}
++		return FFileHelper::SaveStringToFile(Text + TEXT("\n"), *Path, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
++	}
++
++	/** The colliders exactly as FMILevelData::Load reads them (MILevelData.cpp 92-112). */
++	void ReadColliders(const TSharedPtr<FJsonObject>& Root, TArray<FMIBox>& Out)
++	{
++		for (const TSharedPtr<FJsonValue>& V : Root->GetObjectField(TEXT("colliders"))->GetArrayField(TEXT("boxes")))
++		{
++			const TSharedPtr<FJsonObject>& C = V->AsObject();
++			const TSharedPtr<FJsonObject>& W = C->GetObjectField(TEXT("web"));
++			FMIBox Box;
++			Box.Min = WebVec(W->GetObjectField(TEXT("min")));
++			Box.Max = WebVec(W->GetObjectField(TEXT("max")));
++			Box.Tag = FName(C->GetStringField(TEXT("tag")));
++			Box.Surface = FName(C->GetStringField(TEXT("surface")));
++			const TSharedPtr<FJsonObject>& F = C->GetObjectField(TEXT("flags"));
++			Box.bBulletOnly = F->GetBoolField(TEXT("bulletOnly"));
++			Box.bPlayerOnly = F->GetBoolField(TEXT("playerOnly"));
++			Box.bNoNav = F->GetBoolField(TEXT("noNav"));
++			Box.Id = static_cast<int32>(C->GetNumberField(TEXT("index")));
++			Out.Add(Box);
++		}
++	}
++
++	FMIBounds RectBounds(const TSharedPtr<FJsonObject>& R)
++	{
++		FMIBounds B;
++		B.MinX = R->GetNumberField(TEXT("minX"));
++		B.MaxX = R->GetNumberField(TEXT("maxX"));
++		B.MinZ = R->GetNumberField(TEXT("minZ"));
++		B.MaxZ = R->GetNumberField(TEXT("maxZ"));
++		return B;
++	}
++
++	/** One layer's grid as level.json writes it: one string per row j (north to south), '#' blocked, '.' free. */
++	TSharedRef<FJsonObject> GridJson(FMIBoxWorld& World, int32& OutFree, int32& OutBlocked)
++	{
++		TArray<TSharedPtr<FJsonValue>> Rows;
++		OutFree = OutBlocked = 0;
++		for (int32 J = 0; J < World.NavRows(); ++J)
++		{
++			FString Row;
++			Row.Reserve(World.NavCols());
++			for (int32 I = 0; I < World.NavCols(); ++I)
++			{
++				const bool bBlocked = World.NavBlocked(I, J);
++				Row.AppendChar(bBlocked ? TEXT('#') : TEXT('.'));
++				(bBlocked ? OutBlocked : OutFree)++;
++			}
++			Rows.Add(MakeShared<FJsonValueString>(Row));
++		}
++		TSharedRef<FJsonObject> Grid = MakeShared<FJsonObject>();
++		Grid->SetStringField(TEXT("rows"), TEXT("one string per row j (north to south), one character per cell i (west to east): # blocked, . free"));
++		Grid->SetArrayField(TEXT("cells"), Rows);
++		return Grid;
++	}
++}
++
++UMILevelBakeCommandlet::UMILevelBakeCommandlet()
++{
++	IsClient = false;
++	IsEditor = false;
++	IsServer = false;
++	LogToConsole = true;
++}
++
++int32 UMILevelBakeCommandlet::Main(const FString& Params)
++{
++	FString In, Out, ReportPath;
++	if (!FParse::Value(*Params, TEXT("In="), In))
++	{
++		UE_LOG(LogMI, Error, TEXT("MILevelBake: -In=<level_<id>.json> is required"));
++		return 1;
++	}
++	if (FPaths::IsRelative(In))
++	{
++		In = FPaths::Combine(FPaths::ProjectDir(), TEXT("../.."), In);
++	}
++	FParse::Value(*Params, TEXT("Out="), Out);
++	if (Out.IsEmpty())
++	{
++		Out = In;
++	}
++	TSharedPtr<FJsonObject> Root;
++	FString Error;
++	if (!LoadJson(In, Root, Error))
++	{
++		UE_LOG(LogMI, Error, TEXT("MILevelBake: %s"), *Error);
++		return 1;
++	}
++	const FString LevelId = Root->GetObjectField(TEXT("meta"))->GetStringField(TEXT("level"));
++	if (!FParse::Value(*Params, TEXT("Report="), ReportPath))
++	{
++		ReportPath = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("LevelBake"), FString::Printf(TEXT("bake_%s.json"), *LevelId));
++	}
++	if (LevelId == TEXT("block") || !Root->HasField(TEXT("nav")))
++	{
++		UE_LOG(LogMI, Error, TEXT("MILevelBake: %s has no nav layers (the Block's nav comes from the web exporter)"), *In);
++		return 1;
++	}
++
++	TArray<FMIBox> Boxes;
++	ReadColliders(Root, Boxes);
++	const TSharedPtr<FJsonObject>& Nav = Root->GetObjectField(TEXT("nav"));
++	TSharedRef<FJsonObject> Report = MakeShared<FJsonObject>();
++	Report->SetStringField(TEXT("level"), LevelId);
++	Report->SetNumberField(TEXT("colliders"), Boxes.Num());
++	TArray<TSharedPtr<FJsonValue>> LayerReports;
++	TMap<FString, TSharedPtr<FMIBoxWorld>> Worlds;
++	const FMIRng Rng(static_cast<uint32>(Root->GetObjectField(TEXT("meta"))->GetNumberField(TEXT("seed"))));
++
++	for (const TSharedPtr<FJsonValue>& V : Nav->GetArrayField(TEXT("layers")))
++	{
++		const TSharedPtr<FJsonObject>& Layer = V->AsObject();
++		const FString Id = Layer->GetStringField(TEXT("id"));
++		const FString Floor = Layer->GetStringField(TEXT("floor"));
++		TSharedRef<FJsonObject> LR = MakeShared<FJsonObject>();
++		LR->SetStringField(TEXT("id"), Id);
++		if (Floor == TEXT("plane"))
++		{
++			TSharedPtr<FMIBoxWorld> World = MakeShared<FMIBoxWorld>();
++			World->Reset(RectBounds(Layer->GetObjectField(TEXT("rect"))), Rng);
++			for (const FMIBox& B : Boxes)
++			{
++				World->AddBox(B);
++			}
++			int32 Free = 0, Blocked = 0;
++			Layer->SetObjectField(TEXT("grid"), GridJson(*World, Free, Blocked));
++			Layer->SetNumberField(TEXT("cols"), World->NavCols());
++			Layer->SetNumberField(TEXT("rows"), World->NavRows());
++			Layer->SetNumberField(TEXT("free"), Free);
++			Layer->SetNumberField(TEXT("blocked"), Blocked);
++			Layer->SetStringField(TEXT("bakedBy"), TEXT("MILevelBake (FMIBoxWorld::RebuildNav)"));
++			LR->SetNumberField(TEXT("free"), Free);
++			Worlds.Add(Id, World);
++		}
++		else
++		{
++#if defined(MI_WITH_NAV_LAYERS) && MI_WITH_NAV_LAYERS
++			// Nav step A (MAPS.md N1) adds FMIBoxWorld::ResetLayer(Bounds, Rng, LayerY) for the "boxes" rule of
++			// midtown.md 17.3; the bake then writes the roof grids with that same code.
++			TSharedPtr<FMIBoxWorld> World = MakeShared<FMIBoxWorld>();
++			World->ResetLayer(RectBounds(Layer->GetObjectField(TEXT("rect"))), Rng, Layer->GetNumberField(TEXT("y")));
++			for (const FMIBox& B : Boxes)
++			{
++				World->AddBox(B);
++			}
++			int32 Free = 0, Blocked = 0;
++			Layer->SetObjectField(TEXT("grid"), GridJson(*World, Free, Blocked));
++			Layer->SetNumberField(TEXT("free"), Free);
++			Layer->SetNumberField(TEXT("blocked"), Blocked);
++			Layer->SetStringField(TEXT("bakedBy"), TEXT("MILevelBake (FMIBoxWorld layer build, nav step A)"));
++			LR->SetNumberField(TEXT("free"), Free);
++			Worlds.Add(Id, World);
++#else
++			Layer->SetField(TEXT("grid"), MakeShared<FJsonValueNull>());
++			Layer->SetStringField(TEXT("bakedBy"), TEXT("pending: needs nav step A (MAPS.md N1)"));
++			LR->SetStringField(TEXT("pending"), TEXT("needs nav step A (MAPS.md N1)"));
++#endif
++		}
++		LayerReports.Add(MakeShared<FJsonValueObject>(LR));
++	}
++	Report->SetArrayField(TEXT("layers"), LayerReports);
++
++	// Cover filter: drop cover points that are not on a walkable cell of their (baked) layer.
++	TArray<TSharedPtr<FJsonValue>> Kept, Dropped;
++	for (const TSharedPtr<FJsonValue>& V : Root->GetObjectField(TEXT("coverPoints"))->GetArrayField(TEXT("points")))
++	{
++		const TSharedPtr<FJsonObject>& P = V->AsObject();
++		FString LayerId = TEXT("street");
++		P->TryGetStringField(TEXT("layer"), LayerId);
++		const FVector Pos = WebVec(P->GetObjectField(TEXT("web"))->GetObjectField(TEXT("pos")));
++		const TSharedPtr<FMIBoxWorld>* World = Worlds.Find(LayerId);
++		if (World && !(*World)->IsWalkable(Pos.X, Pos.Z))
++		{
++			Dropped.Add(MakeShared<FJsonValueNumber>(P->GetNumberField(TEXT("index"))));
++			continue;
++		}
++		Kept.Add(V);
++	}
++	for (int32 I = 0; I < Kept.Num(); ++I)
++	{
++		Kept[I]->AsObject()->SetNumberField(TEXT("index"), I);
++	}
++	Root->GetObjectField(TEXT("coverPoints"))->SetArrayField(TEXT("points"), Kept);
++	Report->SetArrayField(TEXT("coverDropped"), Dropped);
++
++	// Spawns on walkable cells of their layer.
++	TArray<TSharedPtr<FJsonValue>> OffSpawns;
++	for (const TSharedPtr<FJsonValue>& V : Root->GetObjectField(TEXT("enemySpawns"))->GetArrayField(TEXT("points")))
++	{
++		const TSharedPtr<FJsonObject>& P = V->AsObject();
++		if (P->GetStringField(TEXT("type")) != TEXT("ground"))
++		{
++			continue;
++		}
++		FString LayerId = TEXT("street");
++		P->TryGetStringField(TEXT("layer"), LayerId);
++		const FVector Pos = WebVec(P->GetObjectField(TEXT("web"))->GetObjectField(TEXT("pos")));
++		const TSharedPtr<FMIBoxWorld>* World = Worlds.Find(LayerId);
++		if (World && !(*World)->IsWalkable(Pos.X, Pos.Z))
++		{
++			OffSpawns.Add(MakeShared<FJsonValueNumber>(P->GetNumberField(TEXT("index"))));
++		}
++	}
++	Report->SetArrayField(TEXT("spawnsOffNav"), OffSpawns);
++
++	// Reach on the street plane, from playerStart when it stands on it (Canal; Midtown's start is on r3 and needs N5).
++	FString StartLayer = TEXT("street");
++	const TSharedPtr<FJsonObject>& Start = Root->GetObjectField(TEXT("playerStart"));
++	Start->TryGetStringField(TEXT("layer"), StartLayer);
++	TArray<TSharedPtr<FJsonValue>> Reach;
++	if (const TSharedPtr<FMIBoxWorld>* Street = Worlds.Find(TEXT("street")))
++	{
++		const FVector From = WebVec(Start->GetObjectField(TEXT("web"))->GetObjectField(TEXT("pos")));
++		auto Try = [&](const FString& What, const TSharedPtr<FJsonObject>& Obj)
++		{
++			FString L = TEXT("street");
++			Obj->TryGetStringField(TEXT("layer"), L);
++			TSharedRef<FJsonObject> R = MakeShared<FJsonObject>();
++			R->SetStringField(TEXT("to"), What);
++			if (StartLayer != TEXT("street") || L != TEXT("street"))
++			{
++				R->SetStringField(TEXT("result"), TEXT("across layers: needs nav step B (MAPS.md N5)"));
++			}
++			else
++			{
++				TArray<FVector> Path;
++				const bool bOk = (*Street)->FindPath(From, WebVec(Obj->GetObjectField(TEXT("web"))->GetObjectField(TEXT("pos"))), Path);
++				double Len = 0.0;
++				for (int32 K = 1; K < Path.Num(); ++K)
++				{
++					Len += FVector::Dist2D(Path[K - 1], Path[K]);
++				}
++				R->SetStringField(TEXT("result"), bOk ? TEXT("path") : TEXT("NO PATH"));
++				R->SetNumberField(TEXT("length"), Len);
++			}
++			Reach.Add(MakeShared<FJsonValueObject>(R));
++		};
++		for (const TSharedPtr<FJsonValue>& V : Root->GetArrayField(TEXT("objectives")))
++		{
++			Try(V->AsObject()->GetStringField(TEXT("id")), V->AsObject());
++		}
++		Try(TEXT("extraction"), Root->GetObjectField(TEXT("extraction")));
++	}
++	Report->SetArrayField(TEXT("reach"), Reach);
++
++	Nav->SetStringField(TEXT("source"), Nav->GetStringField(TEXT("source")) + TEXT(" Baked by -run=MILevelBake."));
++	IFileManager::Get().MakeDirectory(*FPaths::GetPath(ReportPath), true);
++	const bool bSaved = SaveJson(Out, Root.ToSharedRef()) && SaveJson(ReportPath, Report);
++	UE_LOG(LogMI, Display, TEXT("MILevelBake: %s -> %s, report %s (%d cover dropped, %d spawns off nav)"),
++		*In, *Out, *ReportPath, Dropped.Num(), OffSpawns.Num());
++	return bSaved && OffSpawns.Num() == 0 ? 0 : 1;
++}
+diff --git a/unreal/MurderInc/Source/MurderInc/Tools/MILevelBakeCommandlet.h b/unreal/MurderInc/Source/MurderInc/Tools/MILevelBakeCommandlet.h
+new file mode 100644
+index 0000000..7493fe1
+--- /dev/null
++++ b/unreal/MurderInc/Source/MurderInc/Tools/MILevelBakeCommandlet.h
+@@ -0,0 +1,30 @@
++#pragma once
++
++#include "Commandlets/Commandlet.h"
++#include "MILevelBakeCommandlet.generated.h"
++
++/**
++ * The engine bake of a new level file (docs/unreal/MAPS.md lane D, item D2):
++ *
++ *   UnrealEditor-Cmd MurderInc.uproject -run=MILevelBake -In=<level_<id>.json> [-Out=<file>] [-Report=<file>]
++ *
++ * Reads the layout tool's file (tools/levels/data/level_<id>.json), fills an FMIBoxWorld with its colliders and writes
++ * back, with the runtime's own code and nothing re-implemented:
++ *  - `nav.layers[*].grid` for every "plane" layer (FMIBoxWorld::RebuildNav through NavCols/NavRows/NavBlocked, the
++ *    same rows format as level.json `nav.grid`), with cols, rows, free and blocked;
++ *  - for "boxes" layers (roofs), the grid only when nav step A's per-layer build exists (MAPS.md N1, compiled in with
++ *    MI_WITH_NAV_LAYERS); until then the layer keeps `grid: null` and the report says so;
++ *  - the cover filter: cover points on a plane layer that are not on a walkable cell are dropped and listed;
++ *  - the reach report: FindPath from playerStart to each objective and to the extraction when both are on the street
++ *    plane (Canal), and every ground spawn's walkability on its layer.
++ * The Block's level.json is never an input: its nav comes from the web exporter.
++ */
++UCLASS()
++class UMILevelBakeCommandlet : public UCommandlet
++{
++	GENERATED_BODY()
++
++public:
++	UMILevelBakeCommandlet();
++	virtual int32 Main(const FString& Params) override;
++};
