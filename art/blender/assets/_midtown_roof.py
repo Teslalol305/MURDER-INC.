@@ -238,7 +238,7 @@ def done(ctx, b, name, M, ground=True, ledges=(), faces=None, **asset):
 # ================================================================================================= decks and parapets
 
 def m_deck(ctx, M, kind):
-    """Roof deck panel 4 x 4 m, top at z = 0: gravel ballast on the membrane, or concrete pavers on pedestals (THE PERCH,
+    """Roof deck panel 4 x 4 m, top at z = 0: gravel ballast on the membrane, or concrete pavers on pedestals (THE LOFTLARK,
     walkways). Pivot: a corner (x, y from 0 to 4)."""
     b = B(301 if kind == "Gravel" else 302, step=0.5)
     if kind == "Gravel":
@@ -253,7 +253,7 @@ def m_deck(ctx, M, kind):
     return done(ctx, b, name, M, ground=False, expect_size=(4.0, 4.0, None),
                 notes=("Roof deck panel 4 x 4 m, top at z = 0 (the roof surface of the level data): %s. Pivot at a corner. "
                        "Tile it over each roof between the parapets.") % ("ballast gravel on the membrane" if kind == "Gravel" else
-                                                                        "2 ft concrete pavers on rubber pedestals (THE PERCH, walkways)"))
+                                                                        "2 ft concrete pavers on rubber pedestals (THE LOFTLARK, walkways)"))
 
 
 def m_parapet(ctx, M, brick, L):

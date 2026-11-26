@@ -50,9 +50,9 @@ DENS = {"billboard": 128, "band": 256, "plaque": 384, "label": 1024}
 H_CELL, V_CELL = (2048, 1024), (1024, 2048)
 LAYOUT = {
     "G1_Takeover": ("A", 0, 0), "G1_NoSignal": ("A", 2048, 0), "G1_StandBy": ("A", 0, 1024), "IPX_Presents": ("A", 2048, 1024),
-    "E1_Orbelle": ("A", 0, 2048), "E1_Northbound": ("A", 2048, 2048), "E3_Alderway": ("A", 0, 3072), "E3_Vesperline": ("A", 2048, 3072),
+    "E1_Miravesse": ("A", 0, 2048), "E1_Northbound": ("A", 2048, 2048), "E3_Meridale": ("A", 0, 3072), "E3_Vesperline": ("A", 2048, 3072),
     "E2a_Kestrel": ("B", 0, 0), "E2b_BrassBun": ("B", 1024, 0), "IPX_Presents_E1": ("B", 0, 2048), "IPX_Presents_E3": ("B", 0, 3072),
-    "N1_Quillon": ("B", 2048, 0), "N1_TamsinGray": ("B", 2048, 1024), "N1_Halcyon": ("B", 2048, 2048), "S1_Duskline": ("B", 2048, 3072),
+    "N1_Horovan": ("B", 2048, 0), "N1_Northweft": ("B", 2048, 1024), "N1_Fizzwick": ("B", 2048, 2048), "S1_Duskline": ("B", 2048, 3072),
 }
 
 
@@ -227,7 +227,7 @@ def draw_slide(key, S, k=128):
         else:
             left = S.get("art") in ("bottle", "dial", "stripes", "bubbles", "skyline", "horizon", "contrail")
             cx, al, mw = (W * 0.07, "l", W * 0.52) if left else (W / 2, "c", W * 0.86)
-            if key == "E3_Alderway":
+            if key == "E3_Meridale":
                 m, _w, _s = cv.text(L[0], "mt_serif", H * 0.055, W / 2, H * 0.16, track=0.08, max_w=W * 0.8)
                 cv.put(m, rgb(acc))
                 m, _w, _s = cv.text(L[1], "mt_heavy", H * 0.20, W / 2, H * 0.44, cond=0.88, track=0.04, max_w=W * 0.86)
@@ -236,11 +236,11 @@ def draw_slide(key, S, k=128):
                 m, _w, _s = cv.text(L[2], "mt_script", H * 0.09, W / 2, H * 0.70, max_w=W * 0.6)
                 cv.put(m, rgb(acc))
             else:
-                m, _w, _s = cv.text(L[0], "mt_heavy" if key != "E1_Orbelle" else "mt_serif", H * 0.14, cx, H * 0.40, cond=0.92,
+                m, _w, _s = cv.text(L[0], "mt_heavy" if key != "E1_Miravesse" else "mt_serif", H * 0.14, cx, H * 0.40, cond=0.92,
                                     track=0.06, max_w=mw, align=al)
                 cv.put(m, rgb(ink))
                 if len(L) > 1:
-                    f = "mt_script" if key in ("E1_Orbelle",) else "mt_italic" if key in ("N1_TamsinGray", "N1_Quillon") else "mt_semi"
+                    f = "mt_script" if key in ("E1_Miravesse",) else "mt_italic" if key in ("N1_Northweft", "N1_Horovan") else "mt_semi"
                     m, _w, _s = cv.text(L[1], f, H * (0.085 if f == "mt_script" else 0.06), cx, H * 0.58, track=0.02,
                                         max_w=mw, align=al)
                     cv.put(m, rgb(acc))

@@ -221,7 +221,7 @@ def screens(out):
                 wx, wz = x_of(i)
                 P(out, "SM_Sign_LEDWall_Tile_2m", "screens", "%s tile" % sid, wx, y0 + 2.0 * j, wz, rot, chosen=True,
                   screen=sid, tile=[i, j], tiles=[cols, rows], first_slide=slide)
-    tiled("E1", 12, 9, lambda i: (33.0, -30.0 + 2.0 * i), 10.0, -90.0, "E1_Orbelle")       # east tower podium, faces west
+    tiled("E1", 12, 9, lambda i: (33.0, -30.0 + 2.0 * i), 10.0, -90.0, "E1_Miravesse")       # east tower podium, faces west
     tiled("E2a", 4, 10, lambda i: (33.0, -4.0 + 2.0 * i), 6.0, -90.0, "E2a_Kestrel")       # east hotel verticals
     tiled("E2b", 4, 10, lambda i: (33.0, 6.0 + 2.0 * i), 6.0, -90.0, "E2b_BrassBun")
     # E3: the corner screen at x 30, z 22, ten columns turned 6 degrees apart (54 degrees of arc, radius 19.1 m), the arc's
@@ -238,10 +238,10 @@ def screens(out):
         bx_, by_ = px - math.cos(th), py - math.sin(th)                      # pivot: the tile's left end
         for j in range(6):
             P(out, "SM_Sign_LEDWall_Tile_2m", "screens", "E3 tile", bx_, 14.0 + 2.0 * j, -by_, math.degrees(th), chosen=True,
-              screen="E3", tile=[i, j], tiles=[10, 6], first_slide="E3_Alderway")
+              screen="E3", tile=[i, j], tiles=[10, 6], first_slide="E3_Meridale")
     tiled("S1", 6, 3, lambda i: (12.0 - 2.0 * i, 36.4), 6.0, 180.0, "S1_Duskline")       # W 46 St south facade, faces north
     P(out, "SM_Sign_TowerStack", "screens", "N1 tower stack (faces south)", 5.0, 22.0, -48.0, 0.0, chosen=True, screen="N1",
-      first_slide="N1_Quillon")
+      first_slide="N1_Horovan")
     for i in range(6):                                                       # the ticker on the theatre, faces west
         P(out, "SM_Sign_Ticker_4m", "screens", "ticker module %d" % i, 30.0, 8.0, -30.0 + 4.0 * i, -90.0, module=i)
 

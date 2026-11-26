@@ -229,7 +229,7 @@ of the new sections, so the old code path runs.
   meshes: roofs, parapets, water towers, bulkheads, HVAC, roof stairs and bridges, the gantry and the back of G1, C1's frame,
   the LED tile, ticker and tower stack, the scaffold stair kit), the two screen atlases, the ticker, digits, LED mask and the
   English-only sign atlas, the roof, gantry, scaffold and screen placements, art/previews/maps/mt_*; record and open items in
-  [maps/midtown_art.md](maps/midtown_art.md). Still to make: the square family, THE PERCH, the bus, the facade tables.
+  [maps/midtown_art.md](maps/midtown_art.md). Still to make: the square family, THE LOFTLARK, the bus, the facade tables.
 - **Acceptance:** as A-CT; members at least 6 cm within 25 m of the path (flicker); netting opaque.
 - **Depends on:** D4 colliders; C for the names. Estimate: 3 days.
 

@@ -38,14 +38,14 @@ ROW = {
     "N1": dict(x=(-44.0, -29.0), storeys=6, brick="Painted", front="Wide", band="GoldHits", alcove=-35.0, escape=2,
                blade=("JadeTeapot", 1.2, GROUND + 0.9)),
     "N2": dict(x=(-29.0, -15.0), storeys=5, brick="Red", front="Jewelry", band="TwinCarp", alcove=-22.0, escape=None,
-               window=("SeaBreeze", GROUND + 2 * STOREY + 0.95)),
+               window=("FarShore", GROUND + 2 * STOREY + 0.95)),
     "N3": dict(x=(-15.0, -1.0), storeys=5, brick="Buff", front="Restaurant", band="EightTreasure", alcove=-8.0, escape=1,
                awning=4.0),
     "N4": dict(x=(-1.0, 13.0), storeys=6, brick="Red", front="Grocery", band="SpringPine", alcove=5.0, escape=None),
     "N5": dict(x=(13.0, 26.0), storeys=5, brick="Painted", front="Wide", band="LongLife", alcove=20.0, escape=None,
                neon=("MahjongNeon", 1, GROUND + WIN_SILL + 0.55), awning=6.0),
     "N6": dict(x=(26.0, 44.0), storeys=7, brick="Red", front="Wide", band="SunnyDay", alcove=31.0, escape=None,
-               blade=("BrightMoon", None, GROUND + 1.6)),
+               blade=("HarborStar", None, GROUND + 1.6)),
 }
 
 

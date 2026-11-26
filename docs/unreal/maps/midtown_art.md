@@ -69,12 +69,12 @@ art-only screens past the bounds. Positions the design leaves open carry `"chose
 
 ## 4. Every invented name this lane uses (all to be searched, MAPS.md C1)
 
-From midtown.md 12.2 and 12.4, unchanged: ORBELLE (Eau de Nuit), NORTHBOUND AIRWAYS (Fly the late one), KESTREL MOBILE
-(Five bars, five boroughs), BRASS & BUN (Burgers till four), THE ALDERWAY THEATRE and its show NIGHT SHIFT (a new
-musical), VESPERLINE CRUISES, QUILLON (watches), TAMSIN GRAY (fall collection), HALCYON SODA, DUSKLINE TOURS (The city
-after dark), MARLOWE & FINCH (The holiday floor is open), SEVENTH AV SOUVENIRS, MIDTOWN SLICE, 46TH ST CAMERA &
-ELECTRONICS, LANTERN SAVINGS, HOTEL CASTELLANE, BRANNIGAN'S CHOP HOUSE, CORNER CHEMISTS, HALVORSEN BUILDING, CORVIN HALL,
-KESSLER & ROTH SCAFFOLD, BRIGHTWIRE EVENTS, CITY CROSSTOWN, THE PERCH (listed; its neon is the square lane's), the VLTR tag,
+From midtown.md 12.2 and 12.4, unchanged: MIRAVESSE (Eau de Nuit), NORTHBOUND AIRWAYS (Fly the late one), KESTREL MOBILE
+(Five bars, five boroughs), BRASS & BUN (Burgers till four), THE MERIDALE THEATRE and its show LAMPLIGHT AVENUE (a new
+musical), VESPERLINE CRUISES, HOROVAN (watches), NORTHWEFT (fall collection), FIZZWICK SODA, DUSKLINE TOURS (The city
+after dark), MARLOWE & FINCH (The holiday floor is open), SEVENTH AV SOUVENIRS, SLICE OF SEVENTH, SHUTTERBOX CAMERA &
+ELECTRONICS, BELLHAVEN SAVINGS, HOTEL CASTELLANE, BRANNIGAN'S CHOP HOUSE, ASHBY & CROSS PHARMACY, HALVORSEN BUILDING, CORVIN HALL,
+KESSLER & ROTH SCAFFOLD, BRIGHTWIRE EVENTS, CITY CROSSTOWN, THE LOFTLARK (listed; its neon is the square lane's), the VLTR tag,
 the ticker's three headlines.
 
 Added by this lane (generic words, no business name): the sub-lines STAGING · LIGHTING · SCREENS (Brightwire) and SIDEWALK
@@ -103,7 +103,7 @@ nothing written under unreal/MurderInc): ALL CHECKS PASS.
 - **Lane D:** fit the placements to the Midtown colliders when the layout exists (the decks and parapets follow 2.1 exactly; the
   chosen positions may move).
 - **Lane A-MT, still to make:** the square family (the Stand and the Booth, planters, kiosks, carts, café furniture, light
-  poles, barriers, generator, cable ramps), THE PERCH's furniture and neon, the city bus, the Midtown facade tables and the
+  poles, barriers, generator, cable ramps), THE LOFTLARK's furniture and neon, the city bus, the Midtown facade tables and the
   east podium modules (theatre marquee, hotel canopy), the storefront carriers for the bands in Sign_MT_Atlas1, the crowd's
   leftovers (12.4).
 - **Lane C:** the name searches; the sign art is final only after them.

@@ -1486,7 +1486,7 @@ landing bands, all thickened), files, atlases, placements, emissive (7 large scr
 **Pictures** `art/previews/maps/mt_roofs.jpg`, `mt_gantry.jpg`, `mt_square.jpg`, `mt_faces.jpg` (night, from the placements; the
 building masses, facades and street are flat stand-ins).
 
-**Still open:** the square family, THE PERCH, the bus, the Midtown facade tables and podium modules; fitting to lane D's
+**Still open:** the square family, THE LOFTLARK, the bus, the Midtown facade tables and podium modules; fitting to lane D's
 colliders; the name searches (C1); the box import and the picture rounds with the night rig (lanes B, L, E11).
 
 Re-run: `venv/bin/python art/blender/build.py build midtown --export` (10 s; `--bake` redraws the faces, about 2 min), then
