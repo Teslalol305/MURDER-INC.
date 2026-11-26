@@ -279,7 +279,7 @@ The guard blocks movement only, so shots and sight pass. The authored drops are 
 ### 4.2 Lantern Alley (zone `alley`; A: x -30..-26, z -14..14; B: x -30..8, z 10..14)
 
 - **A** is a 4 m slot off Canal between W1 (a six-storey tenement) and the market's west wall. A painted wooden
-  board over the mouth reads 燈籠巷 LANTERN ALLEY. This is an in-world nickname, not a city street sign: the alley is
+  board over the mouth reads LANTERN ALLEY. This is an in-world nickname, not a city street sign: the alley is
   named after the party-goods wholesaler whose back door opens on it.
 - No lanterns hang over the alley. It is a working back alley: the wholesaler's cartons stacked on a hand truck, fish
   boxes and styrofoam from the market, cardboard bales, trash bags, kitchen exhaust fans, bare bulkhead lamps, wet
@@ -296,7 +296,7 @@ The guard blocks movement only, so shots and sight pass. The authored drops are 
 ### 4.3 The covered market (zone `market`; shell x -26..0, z -14..6; interior x -25.6..-0.4, z -13.6..5.6)
 
 The market is a former garage turned into a market hall: one tall storey with a clear height of 5.4 m and a roof
-slab whose top is the walkable roof at **5.7 m**. The floor is concrete at y 0. 金潮市場 GOLDEN TIDE MARKET.
+slab whose top is the walkable roof at **5.7 m**. The floor is concrete at y 0. GOLDEN TIDE MARKET.
 
 **Openings:**
 
@@ -315,10 +315,10 @@ slab whose top is the walkable roof at **5.7 m**. The floor is concrete at y 0. 
 - **The fish counters** run along the east wall (x -1.4..-0.4, z -10..-1), with ice trays, styrofoam boxes and
   live tanks (opaque glass, the bubbles in the material).
 - **The cold room** is at x -25.6..-18.4, z 1.5..5.6, with walls 0.25 m thick. Its door (2.0 m, a PVC strip
-  curtain, art only) is in the north wall at x -21..-19, under a lit sign 冷庫 COLD ROOM. **Reel 5 is here.**
+  curtain, art only) is in the north wall at x -21..-19, under a lit sign COLD ROOM. **Reel 5 is here.**
 - **The stockroom** is three pallet stacks at x -15..-13.4, -12.6..-11 and -10.2..-9.4, z 2.4..5.2.
-- **Overhead:** bare-bulb pendants, hanging stall boards (鮮魚 FRESH FISH, 生果 FRUIT, 蔬菜 VEGETABLES, 乾貨 DRY
-  GOODS, 豆腐 TOFU, 燒味 ROAST MEAT), tarps, and skylights in the roof. All of it sits above 2.4 m and is art only,
+- **Overhead:** bare-bulb pendants, hanging stall boards (FRESH FISH, FRUIT, VEGETABLES, DRY
+  GOODS, TOFU, ROAST MEAT), tarps, and skylights in the roof. All of it sits above 2.4 m and is art only,
   so it never blocks sight.
 - **Sight lines:** 25 m along each aisle, 25 m across the cross aisle. The counters are chest-high cover. This is
   the close-quarters room of the level.
@@ -344,7 +344,7 @@ slab whose top is the walkable roof at **5.7 m**. The floor is concrete at y 0. 
   - parapets 1.1 m on Canal (north), 1.0 m on alley A (west) and 1.0 m on the yard and alley B (south), except at
     the stair head, each with an edge guard (section 4);
   - four skylight boxes 2 x 3 x 0.8 m and three condensers 1.2 m tall, as cover from Buzzards and from roof Goons;
-  - rooftop letters 金潮市場 on a steel frame standing on the north parapet. They are the landmark you see from
+  - rooftop letters GOLDEN TIDE MARKET on a steel frame standing on the north parapet. They are the landmark you see from
     Canal St, and the frame legs give cover;
   - **the B0 bulkhead**, the storeroom's roof-access stair house (x -25.4..-22.4, z 6.6..9.4, 2.6 m tall), with
     its 2.0 m door on the east face at z 7.0..9.0. It is the roof Goons' door: three ground spawns of the `roof`
@@ -388,7 +388,7 @@ A sprint off the shed lands on the parked van (roof 2.0 m) or on the roadway; bo
 
 ### 4.5 The bakery (W3: shell x 0..8, z -14..10; walk-through shop)
 
-- 月門餅家 MOON GATE BAKERY, in pink exposed neon.
+- MOON GATE BAKERY, in pink exposed neon.
 - **The front shop** is x 0.4..7.6, z -13.6..-3.2. Its floor is at 0.15 and its ceiling at 3.8. It has a display
   counter at x 0.4..5 (the aisle is 2.6 m) and a Canal door at x 2..4.
 - **The kitchen** is x 0.4..7.6, z -3..9.6, with a clear height of 5.4. A partition with a 2 m door at x 3..5
@@ -407,23 +407,23 @@ A sprint off the shed lands on the parked van (roof 2.0 m) or on the roadway; bo
   start of drop R2 (4.4). The deck is above the nav band, so only its posts block the street layer. About 10
   colliders.
 - **The everyday street:** a fruit stand under the shed's south end with crates on the sidewalk, two delivery e-bikes
-  chained to the shed posts, cardboard bales and trash bags on the kerb, a 七星巴士 SEVEN STARS COACH storefront (an
-  intercity bus ticket office, with its waiting-line stanchions) on S3, and a 快匯 QUICK WIRE money transfer and phone
+  chained to the shed posts, cardboard bales and trash bags on the kerb, a SEVEN STARS COACH storefront (an
+  intercity bus ticket office, with its waiting-line stanchions) on S3, and a QUICK WIRE money transfer and phone
   shop next to the grocery. These are the details that make it Canal and Mott rather than a set.
 - A box truck across the south end (x 9.6..17.6, z 27.2..29.8).
 - 46 m long and narrow, so Goons push up and down it.
-- The fronts on Mott: the bakery's kitchen door; S3 如意雜貨 GOOD WISHES GROCERY, with fruit boxes on the
-  sidewalk; E1a's 百合茶餐廳 LILY CAFE; and the dub room's roll-up (x 18, z 24..27, 3 m, open) under the dead neon
-  of 銀浪影音 SILVER WAVE VIDEO.
+- The fronts on Mott: the bakery's kitchen door; S3 GOOD WISHES GROCERY, with fruit boxes on the
+  sidewalk; E1a's LILY CAFE; and the dub room's roll-up (x 18, z 24..27, 3 m, open) under the dead neon
+  of SILVER WAVE VIDEO.
 - The fire escape on S3's Mott face is dressing.
 
 ### 4.7 The arcade and the neon workshop (x 29.4..33.6, z -14..2; workshop x 34..37.6, z -10..-4)
 
-- 梅花商場 PLUM BLOSSOM ARCADE. It is a covered passage 4.2 m wide and 4.2 m tall under E1, with lit arch signs
+- PLUM BLOSSOM ARCADE. It is a covered passage 4.2 m wide and 4.2 m tall under E1, with lit arch signs
   at both mouths.
-- On either side are kiosks behind glass that you cannot enter: 修錶 WATCH REPAIR, 配匙 KEYS CUT, 手機 PHONES.
+- On either side are kiosks behind glass that you cannot enter: WATCH REPAIR, KEYS CUT, PHONES.
 - One kiosk pillar stands at x 31..31.6, z -9.5..-8.9.
-- **The neon workshop** is 大光招牌 BIG LIGHT SIGNS. It opens off the arcade through a 2 m door at x 33.6,
+- **The neon workshop** is BIG LIGHT SIGNS. It opens off the arcade through a 2 m door at x 33.6,
   z -8..-6. Inside are bundles of glass tube, a bending bench, a half-finished sign glowing on the wall, and the
   torch rack (an explosive of type `rack`, which is the Block's welding rack). It is a dead-end pocket with good
   cover.
@@ -451,8 +451,8 @@ A sprint off the shed lands on the parked van (roof 2.0 m) or on the roadway; bo
 
 ### 4.9 The banquet hall and the dub room (E2, x 18..44, z 18..32)
 
-- **The banquet hall** is 鶴亭酒家 CRANE PAVILION BANQUET HALL, interior x 26.3..43.6, z 18.4..31.6.
-  - Floor 0.15, clear height 5.0. The main doors (4 m, red lacquer with 囍 panels) are at x 31..35 on the Square,
+- **The banquet hall** is CRANE PAVILION BANQUET HALL, interior x 26.3..43.6, z 18.4..31.6.
+  - Floor 0.15, clear height 5.0. The main doors (4 m, red lacquer with gold lattice panels, no characters) are at x 31..35 on the Square,
     under the level's one string of red lanterns (16 lanterns, art only).
   - Seven round tables with cloths and chairs (1.7 m collider boxes) at (29.5, 21.5), (33.5, 21.5), (29.5, 25),
     (33.5, 25), (37.5, 21.5), (29.5, 28.8) and (33.5, 28.8).
@@ -474,23 +474,23 @@ adds 0.9.
 
 | Id | Footprint (x, z) | Storeys | Roof / parapet top | Front | Facade | Shops (ground; upper) | Fire escapes |
 |---|---|---|---|---|---|---|---|
-| N1 | -44..-29, -36..-33 | 6 | 19.3 / 20.2 | Canal | painted brick, cream | 金曲唱片 GOLD HITS RECORDS; 2F 玉壺點心 JADE TEAPOT DIM SUM (blade) | 1 (Canal) |
-| N2 | -29..-15, -36..-33 | 5 | 16.2 / 17.1 | Canal | red brick | 雙鯉珠寶 TWIN CARP JEWELRY; 3F 海風旅行社 SEA BREEZE TRAVEL (window letters) | 0 |
-| N3 | -15..-1, -36..-33 | 5 | 16.2 / 17.1 | Canal | buff brick | 八寶燒臘 EIGHT TREASURE BBQ (roast-duck window) | 1 (Canal) |
-| N4 | -1..13, -36..-33 | 6 | 19.3 / 20.2 | Canal | brown brick, sidewalk shed in front | 春松參茸行 SPRING PINE HERBS & GINSENG | 0 |
-| N5 | 13..26, -36..-33 | 5 | 16.2 / 17.1 | Canal | painted green | 長壽麵家 LONG LIFE NOODLE HOUSE; 2F 麻將 MAHJONG (window neon) | 0 |
-| N6 | 26..44, -36..-33 | 7 | 22.4 / 23.3 | Canal | red brick | 晴天洗衣 SUNNY DAY LAUNDROMAT; 明月旅館 BRIGHT MOON HOTEL (4-storey blade, the east landmark) | 0 |
-| W1 | -44..-30, -14..32 | 6 | 19.3 / 20.2 | Canal, alley A | red brick | 西城五金 WEST CITY HARDWARE (gate down) | 3 (alley A) |
-| M | -26..0, -14..6 | 1 (hall) | 5.7 / 6.8 (Canal side) | Canal | painted block and corrugated fascia | 金潮市場 GOLDEN TIDE MARKET (walk in) | 0 (the climbable stair is separate) |
+| N1 | -44..-29, -36..-33 | 6 | 19.3 / 20.2 | Canal | painted brick, cream | GOLD HITS RECORDS; 2F JADE TEAPOT DIM SUM (blade) | 1 (Canal) |
+| N2 | -29..-15, -36..-33 | 5 | 16.2 / 17.1 | Canal | red brick | TWIN CARP JEWELRY; 3F SEA BREEZE TRAVEL (window letters) | 0 |
+| N3 | -15..-1, -36..-33 | 5 | 16.2 / 17.1 | Canal | buff brick | EIGHT TREASURE BBQ (roast-duck window) | 1 (Canal) |
+| N4 | -1..13, -36..-33 | 6 | 19.3 / 20.2 | Canal | brown brick, sidewalk shed in front | SPRING PINE HERBS & GINSENG | 0 |
+| N5 | 13..26, -36..-33 | 5 | 16.2 / 17.1 | Canal | painted green | LONG LIFE NOODLE HOUSE; 2F MAHJONG (window neon) | 0 |
+| N6 | 26..44, -36..-33 | 7 | 22.4 / 23.3 | Canal | red brick | SUNNY DAY LAUNDROMAT; BRIGHT MOON HOTEL (4-storey blade, the east landmark) | 0 |
+| W1 | -44..-30, -14..32 | 6 | 19.3 / 20.2 | Canal, alley A | red brick | WEST CITY HARDWARE (gate down) | 3 (alley A) |
+| M | -26..0, -14..6 | 1 (hall) | 5.7 / 6.8 (Canal side) | Canal | painted block and corrugated fascia | GOLDEN TIDE MARKET (walk in) | 0 (the climbable stair is separate) |
 | B0 | -26..-16, 6..10 | 1 | 5.7 | alley A | common brick | market storeroom (shut); its roof bulkhead is the roof Goons' door (4.4) | 0 |
-| W3 | 0..8, -14..-3 (front), -3..10 (one-storey rear) | 5 / 1 | 16.2 / 17.1; rear 5.7 | Canal, Mott | buff brick, sidewalk shed on Mott | 月門餅家 MOON GATE BAKERY (walk through) | 0 |
+| W3 | 0..8, -14..-3 (front), -3..10 (one-storey rear) | 5 / 1 | 16.2 / 17.1; rear 5.7 | Canal, Mott | buff brick, sidewalk shed on Mott | MOON GATE BAKERY (walk through) | 0 |
 | S1 | -30..-14, 14..32 | 5 | 16.2 / 17.1 | alley B (backs) | common brick | backs | 2 (alley B) |
 | S2 | -14..0, 14..32 | 5 | 16.2 / 17.1 | alley B (backs) | painted brick | backs | 1 (alley B) |
-| S3 | 0..8, 14..32 | 6 | 19.3 / 20.2 | Mott | brown brick | 如意雜貨 GOOD WISHES GROCERY; 七星巴士 SEVEN STARS COACH; 快匯 QUICK WIRE | 1 (Mott) |
-| E1a | 18..29.4, -14..2 | 5 | 16.2 / 17.1 | Canal, Mott, Square | red brick | 金福電器 GOLDEN LUCK ELECTRONICS (Canal); 百合茶餐廳 LILY CAFE (Mott); 巧手裁縫 CLEVER HANDS TAILOR (Square) | 1 (Mott) |
-| Arcade | 29.4..33.6, -14..2 | under E1 | 4.2 (ceiling) | Canal, Square | terrazzo, glass kiosks | 梅花商場 PLUM BLOSSOM ARCADE | 0 |
-| E1b | 33.6..44, -14..2 | 6 | 19.3 / 20.2 | Canal | buff brick | 清晰眼鏡 CLEAR VIEW OPTICAL (Canal); 大光招牌 BIG LIGHT SIGNS (inside, off the arcade) | 0 |
-| E2 | 18..44, 18..32 | 3 | 10.0 / 10.9 | Square, Mott | painted stucco, cream with gold trim | 鶴亭酒家 CRANE PAVILION BANQUET HALL; 銀浪影音 SILVER WAVE VIDEO (the dub room) | 0 |
+| S3 | 0..8, 14..32 | 6 | 19.3 / 20.2 | Mott | brown brick | GOOD WISHES GROCERY; SEVEN STARS COACH; QUICK WIRE | 1 (Mott) |
+| E1a | 18..29.4, -14..2 | 5 | 16.2 / 17.1 | Canal, Mott, Square | red brick | GOLDEN LUCK ELECTRONICS (Canal); LILY CAFE (Mott); CLEVER HANDS TAILOR (Square) | 1 (Mott) |
+| Arcade | 29.4..33.6, -14..2 | under E1 | 4.2 (ceiling) | Canal, Square | terrazzo, glass kiosks | PLUM BLOSSOM ARCADE | 0 |
+| E1b | 33.6..44, -14..2 | 6 | 19.3 / 20.2 | Canal | buff brick | CLEAR VIEW OPTICAL (Canal); BIG LIGHT SIGNS (inside, off the arcade) | 0 |
+| E2 | 18..44, 18..32 | 3 | 10.0 / 10.9 | Square, Mott | painted stucco, cream with gold trim | CRANE PAVILION BANQUET HALL; SILVER WAVE VIDEO (the dub room) | 0 |
 
 In total there are **10 fire-escape stacks** and one climbable stair. Only N1's and N3's escapes are in the
 start view (section 13.4, flicker).
@@ -504,7 +504,7 @@ start view (section 13.4, flicker).
 - **Yaw:** -1.5708 (facing east). The Unreal pose is (-4000, -2450, 0) cm, yaw 0.
 - **Start pitch:** +4°. The Block uses 7° (presentation.json block.startPitch), so this needs a per-level value.
 - **First view:** east down Canal. The table row and the glowing market entrances are on the right, the TWIN
-  CARP and JADE TEAPOT signs on the left, and the 明月旅館 blade 77 m away above the IPX truck, so the end of the
+  CARP and JADE TEAPOT signs on the left, and the BRIGHT MOON HOTEL blade 77 m away above the IPX truck, so the end of the
   level is in sight from the first second. The Reel 4 marker is 30 m ahead and slightly right.
 - **Patrol check:** the starting patrol must spawn at least 32 m away. 27 of the 35 street ground points qualify, plus the 3 roof points (the
   market, Mott, the Square, east Canal).
@@ -577,13 +577,13 @@ The generator must check that each intended leg is **at least 10 % shorter** tha
 
 | Spot | Why | Fix (data and art, no map-specific code) |
 |---|---|---|
-| The market grid | Four identical rows; hanging goods cut the long view | Ground path. The cold-room sign 冷庫 is lit cold white and visible down the west aisle. The boombox loop at the case. The objective marker. |
+| The market grid | Four identical rows; hanging goods cut the long view | Ground path. The cold-room sign COLD ROOM is lit cold white and visible down the west aisle. The boombox loop at the case. The objective marker. |
 | Three ways out of the market (gates, side door, rear roll-up) | The side door into alley A is the nearest exit from the cold room in a straight line | The path takes the rear roll-up, which is lit by a work lamp and a green exit box. The side door is a narrow dark door for the player only. Alley A loops to alley B anyway, so it is never a dead end. |
 | Alley A's dog-leg | The alley seems to end in a wall | Stencilled "MOTT ST →" and a lit kitchen door at the bend (x -28, z 12), and the wholesaler's lit back door with its cartons at the corner. |
 | The roof | After climbing the stair, the way down may not be obvious | The one gap in the kitchen roof's Mott parapet is lit by the LILY CAFE sign; it drops 2.5 m onto the sidewalk shed, whose missing panel drops 3.05 m to Mott, both free of damage. The stair head has a hazard-yellow handrail. Every other edge is guarded, so nobody falls by accident and nobody is tempted into a drop that hurts. |
 | Mott St south | The dub room roll-up is on the left among other shopfronts | The only raised shutter on Mott, with a flickering dead neon over it, and light spilling onto wet asphalt. The marker. |
 | After Reel 6 | Two exits (the Mott roll-up or the banquet hall) | The path goes through the hall. The radio line names the arcade. The arcade's arch sign is the brightest object on the Square. |
-| The arcade | A tunnel; the truck is not visible from the Square | The truck's beacon and the 明月旅館 blade show through the arcade's north mouth. |
+| The arcade | A tunnel; the truck is not visible from the Square | The truck's beacon and the BRIGHT MOON HOTEL blade show through the arcade's north mouth. |
 | Closed shopfronts | Players try doors that are art only | Rule: open = gate up, interior lit, door gap at least 2 m. Closed = gate down and tagged, or dark glass. Never a lit, open-looking door that is solid. |
 
 ### 7.4 Hint lines (shown after no progress; the guidance lane's timing)
@@ -834,8 +834,8 @@ The values follow ART_BIBLE 5.2:
 - Window grid (lit flats) 8 to 15, with about 35 % of upper windows lit.
 - Shop interiors through glass: the interior cube maps.
 
-At most **3 signs flicker**, all slow dropouts and never a strobe: SILVER WAVE VIDEO (dying), the 麻將 window
-neon, and one stroke of the rooftop 金潮市場. The one lantern string glows red at 40 to 80 nits.
+At most **3 signs flicker**, all slow dropouts and never a strobe: SILVER WAVE VIDEO (dying), the MAHJONG window
+neon, and one stroke of the rooftop GOLDEN TIDE MARKET letters. The one lantern string glows red at 40 to 80 nits.
 
 **Colour plan (readability, section 1).** The Goons are oxblood on black, so:
 
@@ -939,7 +939,7 @@ fallback triangles.
 |---|---|---|---|
 | SM_Facade_Shopfront_CT_{Wide, Narrow, Restaurant, Jewelry, Grocery} | 5 generic modules | 6-15k | Not one module per shop: the sign is a separate actor from the sign atlas, so 14 shops need 5 meshes. Roll gates are reused. |
 | SM_Facade_CT_WindowGrille, CT_StackedSignRail | 2 | 1-3k | Security grilles on low windows; the steel rail that carries the stacked signs |
-| Sign carriers: SM_Sign_CT_Blade_4m / 6m / 12m, SM_Sign_CT_Band_{6,8,10}m, SM_Sign_CT_Arch (arcade), SM_Sign_CT_RooftopFrame (market letters) | 9 | 2-12k | Faces in the atlases (13.5). Exposed-neon Chinese characters are tubes generated from font outlines, 6-sided tube profile, at most 12k per sign. |
+| Sign carriers: SM_Sign_CT_Blade_4m / 6m / 12m, SM_Sign_CT_Band_{6,8,10}m, SM_Sign_CT_Arch (arcade), SM_Sign_CT_RooftopFrame (market letters) | 9 | 2-12k | Faces in the atlases (13.5). Exposed-neon English letters are tubes generated from font outlines, 6-sided tube profile, at most 12k per sign. |
 | Market hall shell: walls, roof slab, parapets, skylights, rooftop gravel | 1 set | 40k total | Fitted to the colliders (structures.py's measuring step) |
 | Market stall counter (2 m), fish counter with ice tray, produce crate stack, dry-goods sacks and bins, styrofoam boxes, hanging stall board, tarp, pendant bulb cage, fish tank, hanging scale, hand truck | 11 | 1-6k | Instanced (ISM) |
 | Vendor folding table with cloth; goods clusters: unbranded bags, generic watches in a case, sunglasses rack, "NEW YORK" T-shirts, "CANAL ST" caps, phone cases and chargers, the disc and USB-stick table; market umbrella; clothing rail | 9 | 2-6k | No logo, monogram or pattern that resembles any brand |
@@ -950,7 +950,7 @@ fallback triangles.
 | Everyday street: delivery e-bike (no brand), cardboard bale, fruit-stand crates and scale, waiting-line stanchions, coach-office counter | 5 | 2-6k | The everyday clutter the reviews asked for; trash bags, crates and shopping carts are reused |
 | SM_Struct_CT_SidewalkShed_Mott (deck, posts, plywood parapet with the missing panel) | 1 | 10k | Fitted to its colliders (4.6); the Block's SidewalkShed modules where they fit |
 | SM_Struct_CT_RoofBulkhead_B0 | 1 | 4k | The roof Goons' door (4.4) |
-| Banquet round table with cloth and 8 chairs, stage and backdrop panel (囍), red lacquer double door, chandelier, kitchen range and woks | 5 | 3-10k | Tables and chairs as ISM |
+| Banquet round table with cloth and 8 chairs, stage and backdrop panel (a gold lattice, no characters), red lacquer double door, chandelier, kitchen range and woks | 5 | 3-10k | Tables and chairs as ISM |
 | Dub room: reel-to-reel deck, tape deck rack, disc-burner tower, blank-disc boxes, cutting table, monitor without a brand, cable bundles | 7 | 2-8k | |
 | Neon workshop: tube bundles, bending bench, transformer boxes, half-finished sign | 4 | 2-6k | |
 | Bakery: display case (opaque glass), trays of buns, counter, ovens, rack trolleys | 5 | 2-6k | |
@@ -959,62 +959,87 @@ fallback triangles.
 | Rooftop: condenser, skylight, roof hatch | 3 | 2-5k | |
 | Decals: `puddle` (new kind), red firecracker paper, gum, painted kerb, stencil "MOTT ST →" | 5 kinds | | M_MI_Decal |
 
-### 13.3 Signs and names (invented; Traditional Chinese, Cantonese usage)
+### 13.3 Signs and names (invented; ENGLISH ONLY)
 
-Every name below is made up for the game. Before any face is drawn:
+**Revision 3 (2026-11-26), the owner's answer (DECISIONS.md 2026-11-26 ~02:00): Canal Street signs are in English only.
+No Chinese characters anywhere: on signs, boards, posters, lanterns, doors or screens.** Chinatown reads through the
+architecture (packed walk-ups, fire escapes, grilles, stacked blades), the lanterns, the market and its produce, the
+awnings, the sign style (lightbox bands with keylines and coin ornaments, blades with stacked letters, exposed neon,
+painted boards) and the English shop names. The earlier Chinese strings and the reader sign-off are gone with it.
 
-1. **Search each name** as written, in English and in Chinese, against New York, and change any that turns out to
-   be a real business, brand or trade dress. Pearl River, Kowloon, Golden Phoenix and an electronics maker's Hong Kong trade
-   name (樂聲) were already avoided for that reason.
-2. **A reader of Traditional Chinese must check every string** for meaning and register, and sign it off in this
-   table before the art is final. No reader has checked them yet (open question 3).
-3. **No phone numbers.** Manhattan would be (212), which ART_BIBLE 5.7 does not allow without the owner's approval.
-   **No web addresses.**
-4. **The new real place names** need the lead to add them to ART_BIBLE 5.7's list of allowed real places:
+Every name below is made up for the game. The table is generated from the art's own list
+(`art/blender/assets/_chinatown_names.py`, which also fails the build on any non-English character) and the faces are
+drawn from it into the sign atlas (`Sign_CT_Atlas1`, cells in `art/out/chinatown/signs_chinatown.json`). Before the art
+is final:
+
+1. **Search each name** as written against New York, and change any that turns out to be a real business, brand or
+   trade dress (MAPS.md C1). Pearl River, Kowloon and Golden Phoenix were already avoided for that reason. Not searched
+   yet: a changed name is one line in the list and a re-run of the atlas.
+2. **No phone numbers.** Manhattan would be (212), which ART_BIBLE 5.7 does not allow without the owner's approval.
+   **No web addresses, no prices of real routes.**
+3. **The new real place names** need the lead to add them to ART_BIBLE 5.7's list of allowed real places:
    CHINATOWN, MANHATTAN, CANAL ST, MOTT ST, and the bridge as an unnamed silhouette.
+4. IPX is the only real mark in the game and is on no Canal sign.
 
-| Sign | Chinese | Meaning | Where | Built as | Night |
-|---|---|---|---|---|---|
-| GOLDEN TIDE MARKET | 金潮市場 | golden-tide market | market: rooftop letters + Canal band + 2 blades | rooftop open-face pan letters with warm white and gold neon; band lightbox | on; one stroke flickers |
-| Stall boards: FRESH FISH, FRUIT, VEGETABLES, DRY GOODS, TOFU, ROAST MEAT | 鮮魚, 生果, 蔬菜, 乾貨, 豆腐, 燒味 | generic trade words | market stalls | painted boards | lit by bulbs |
-| COLD ROOM | 冷庫 | cold storage | cold-room door | small lightbox, cold white | on |
-| MOON GATE BAKERY | 月門餅家 | moon-gate bakery | W3 Canal | pink exposed neon + band | on |
-| WEST CITY HARDWARE | 西城五金 | west-city hardware | W1 Canal | lightbox | off (shut, gate down) |
-| LANTERN ALLEY | 燈籠巷 | lantern lane | alley A mouth | painted wooden board, the wholesaler's | lit by a bulkhead lamp |
-| GOLD HITS RECORDS | 金曲唱片 | golden-hits records | N1 ground | lightbox band; "CDs · VINYL" in the window | on |
-| JADE TEAPOT DIM SUM | 玉壺點心 | jade-teapot dim sum | N1 2F, 6 m blade | exposed neon green and white, red outline | on |
-| TWIN CARP JEWELRY | 雙鯉珠寶 | twin-carp jewellery | N2 | gold-on-red lightbox, the brightest band | on |
-| SEA BREEZE TRAVEL | 海風旅行社 | sea-breeze travel agency | N2 3F | window vinyl | lit window |
-| EIGHT TREASURE BBQ | 八寶燒臘 | eight-treasure roast meats | N3 | lightbox + roast-duck window | on |
-| SPRING PINE HERBS & GINSENG | 春松參茸行 | spring-pine ginseng and herb shop | N4 | lightbox band | on |
-| LONG LIFE NOODLE HOUSE | 長壽麵家 | long-life noodle house | N5 | lightbox + neon bowl outline | on |
-| MAHJONG | 麻將 | mahjong | N5 2F window | green window neon | flickers |
-| SUNNY DAY LAUNDROMAT | 晴天洗衣 | sunny-day laundry | N6 ground | lightbox, cold interior | on |
-| BRIGHT MOON HOTEL | 明月旅館 | bright-moon hotel | N6, 12 m blade (4 storeys) | white and blue exposed neon | on: the east landmark over the truck |
-| GOLDEN LUCK ELECTRONICS | 金福電器 | golden-luck electrical | E1a Canal | LED flex outline + band | on |
-| LILY CAFE | 百合茶餐廳 | lily tea restaurant | E1a Mott | lightbox | on (lights the roof gap) |
-| CLEVER HANDS TAILOR | 巧手裁縫 | clever-hands tailor | E1a, Square side | small lightbox | on |
-| PLUM BLOSSOM ARCADE | 梅花商場 | plum-blossom arcade | both arcade mouths | lit arch, channel letters | on |
-| Kiosks: WATCH REPAIR, KEYS CUT, PHONES, NEON SIGNS | 修錶, 配匙, 手機, 光管招牌 | generic trades | arcade | small lightboxes | on |
-| BIG LIGHT SIGNS | 大光招牌 | big-light signs | neon workshop | half-finished glowing sign | on |
-| CLEAR VIEW OPTICAL | 清晰眼鏡 | clear-view glasses | E1b Canal | lightbox | on |
-| CRANE PAVILION BANQUET HALL | 鶴亭酒家 | crane-pavilion restaurant | E2 Square | gold and cream band; 囍 (double happiness) on the red doors | on |
-| SILVER WAVE VIDEO | 銀浪影音 | silver-wave audio-video | E2 Mott, over the dub room | exposed neon, half dead | flickers |
-| GOOD WISHES GROCERY | 如意雜貨 | as-you-wish grocery | S3 Mott | lightbox + fruit boxes | on |
-| SHOP FOR RENT / FOR LEASE | 吉舖出租, 招租 | vacant shop to let | upper windows | paper signs, no numbers | |
-| Opera gala poster | 粵劇 · 春暉劇團 | Cantonese opera, "Spring Sunshine Troupe" | walls | wheat-paste, no faces | |
-| Vendor placards | | "CDs $5", "USB $10", "BAGS $20", "SUNGLASSES $5", "3 FOR $10" | tables | card and marker | |
-| Street blades | | CANAL ST, MOTT ST | corners | plain green blade, no agency mark | retroreflective |
-| Graffiti | | VULTURES, VLTR (oxblood), RULE, INC (gold) | alleys, gates | spray paint | |
-| SEVEN STARS COACH | 七星巴士 | seven-stars bus | S3 Mott | lightbox band, timetable posters with invented towns, no prices of real routes | on |
-| QUICK WIRE · PHONES | 快匯 · 手機 | quick remittance, phones | S3 Mott, next to the grocery | lightbox + window stickers (generic phone shapes, no makes) | on |
+| Sign (every word on it) | Where | Built as (carrier) | Night |
+|---|---|---|---|
+| GOLD HITS RECORDS / CDs  ·  VINYL  ·  KARAOKE | N1 ground, Canal | lightbox band (SM_Sign_CT_Band_8m) | on |
+| JADE TEAPOT / DIM SUM | N1 2F blade over Canal (red outline above 4 m) | double-sided lightbox blade, letters stacked (SM_Sign_CT_Blade_6m) | on |
+| TWIN CARP JEWELRY / GOLD  ·  JADE  ·  WATCHES | N2 ground, Canal: the one red-ground lightbox, 3.2 to 4.2 m | lightbox band (SM_Sign_CT_Band_8m) | on |
+| SEA BREEZE TRAVEL / TICKETS  ·  TOURS | N2 3F window (window vinyl, lit by the room) | small lightbox (SM_Sign_CT_Kiosk_3m) | off |
+| EIGHT TREASURE BBQ / ROAST DUCK  ·  ROAST PORK  ·  SOY CHICKEN | N3 ground, Canal, over the roast-duck window | lightbox band (SM_Sign_CT_Band_8m) | on |
+| SPRING PINE HERBS & GINSENG / DRIED GOODS  ·  TEAS  ·  REMEDIES | N4 ground, Canal, behind the sidewalk shed | lightbox band (SM_Sign_CT_Band_10m) | on |
+| LONG LIFE NOODLE HOUSE / HAND-PULLED NOODLES  ·  WONTON SOUP | N5 ground, Canal | lightbox band (SM_Sign_CT_Band_8m) | on |
+| SUNNY DAY LAUNDROMAT / WASH  ·  DRY  ·  FOLD | N6 ground, Canal | lightbox band (SM_Sign_CT_Band_8m) | on |
+| BRIGHT MOON / HOTEL | N6, four-storey blade: the east landmark over the IPX truck | double-sided lightbox blade, letters stacked (SM_Sign_CT_Blade_12m) | on |
+| GOLDEN TIDE MARKET / FISH  ·  PRODUCE  ·  DRY GOODS  ·  OPEN 7 DAYS | the market's Canal band | lightbox band (SM_Sign_CT_Band_10m) | on |
+| MARKET | the market's two blades | double-sided lightbox blade, letters stacked (SM_Sign_CT_Blade_4m) | on |
+| FRESH FISH | market stall board | painted board (SM_Sign_CT_StallBoard) |  |
+| FRUIT | market stall board | painted board (SM_Sign_CT_StallBoard) |  |
+| VEGETABLES | market stall board | painted board (SM_Sign_CT_StallBoard) |  |
+| DRY GOODS | market stall board | painted board (SM_Sign_CT_StallBoard) |  |
+| TOFU | market stall board | painted board (SM_Sign_CT_StallBoard) |  |
+| ROAST MEAT | market stall board (inside the hall: painted, never lit) | painted board (SM_Sign_CT_StallBoard) |  |
+| COLD ROOM | over the cold-room door | small lightbox (SM_Sign_CT_Kiosk_1m) | on |
+| LANTERN ALLEY | alley A mouth: the party-goods wholesaler's painted board | painted board (SM_Sign_CT_Board) |  |
+| MOON GATE BAKERY / BUNS  ·  CAKES  ·  EGG TARTS | W3 Canal band under the pink neon | lightbox band (SM_Sign_CT_Band_6m) | on |
+| WEST CITY HARDWARE / TOOLS  ·  PAINT  ·  KEYS | W1 Canal (shut, gate down, sign off) | lightbox band (SM_Sign_CT_Band_8m) | off |
+| GOLDEN LUCK ELECTRONICS / PHONES  ·  CAMERAS  ·  REPAIRS | E1a Canal | lightbox band (SM_Sign_CT_Band_10m) | on |
+| LILY CAFE / MILK TEA  ·  BUNS  ·  NOODLES | E1a Mott (lights the kitchen-roof gap) | lightbox band (SM_Sign_CT_Band_6m) | on |
+| CLEVER HANDS TAILOR / ALTERATIONS  ·  HEMS | E1a, Square side | small lightbox (SM_Sign_CT_Kiosk_3m) | on |
+| PLUM BLOSSOM ARCADE | both arcade mouths | lit arch (SM_Sign_CT_Arch) | on |
+| WATCH REPAIR | arcade kiosk | small lightbox (SM_Sign_CT_Kiosk_1m) | on |
+| KEYS CUT | arcade kiosk | small lightbox (SM_Sign_CT_Kiosk_1m) | on |
+| PHONES | arcade kiosk | small lightbox (SM_Sign_CT_Kiosk_1m) | on |
+| NEON SIGNS | arcade kiosk | small lightbox (SM_Sign_CT_Kiosk_1m) | on |
+| CLEAR VIEW OPTICAL / EYE EXAMS  ·  FRAMES  ·  CONTACTS | E1b Canal | lightbox band (SM_Sign_CT_Band_8m) | on |
+| CRANE PAVILION BANQUET HALL / WEDDINGS  ·  BANQUETS  ·  DIM SUM | E2 Square, over the red doors (gold and cream) | lightbox band (SM_Sign_CT_Band_10m) | on |
+| GOOD WISHES GROCERY / PRODUCE  ·  RICE  ·  SAUCES  ·  SNACKS | S3 Mott, over the fruit boxes | lightbox band (SM_Sign_CT_Band_8m) | on |
+| SEVEN STARS COACH / DAILY COACH  ·  TICKETS INSIDE | S3 Mott: an intercity bus ticket office (no towns, no prices) | lightbox band (SM_Sign_CT_Band_8m) | on |
+| QUICK WIRE  ·  PHONES / MONEY TRANSFER  ·  PREPAID  ·  CASES | S3 Mott, next to the grocery | lightbox band (SM_Sign_CT_Band_6m) | on |
+| BIG LIGHT SIGNS | the neon workshop's door board (the half-finished sign is neon geometry) | painted board (SM_Sign_CT_Board) |  |
+| FOR RENT / SHOP  ·  INQUIRE INSIDE | upper windows (paper, no numbers) | paper poster (SM_Sign_CT_Poster_A) |  |
+| FOR LEASE / RETAIL SPACE | vacant shop window (paper, no numbers) | paper poster (SM_Sign_CT_Poster_A) |  |
+| OPERA GALA / SPRING SUNSHINE / TROUPE / ONE NIGHT ONLY | wheat-paste on walls (no faces; an invented troupe) | paper poster (SM_Sign_CT_Poster_B) |  |
+| CDs $5 | vendor tables | card and marker (SM_Sign_CT_Placard) |  |
+| USB $10 | vendor tables | card and marker (SM_Sign_CT_Placard) |  |
+| BAGS $20 | vendor tables | card and marker (SM_Sign_CT_Placard) |  |
+| SUNGLASSES $5 | vendor tables | card and marker (SM_Sign_CT_Placard) |  |
+| 3 FOR $10 | vendor tables | card and marker (SM_Sign_CT_Placard) |  |
+| CANAL ST | corners (plain green blade, no agency mark) | street blade, retroreflective (SM_Sign_CT_StreetBlade) |  |
+| MOTT ST | corners (plain green blade, no agency mark) | street blade, retroreflective (SM_Sign_CT_StreetBlade) |  |
+| MOON GATE / BAKERY | W3 Canal, over the band: pink exposed neon on a pan | exposed neon (SM_Sign_CT_Neon_MoonGate) | on |
+| MAHJONG | N5 2F window neon (flickers) | exposed neon (SM_Sign_CT_Neon_Mahjong) | flickers |
+| SILVER WAVE / VIDEO | E2 Mott, over the dub room's roll-up: half dead (flickers) | exposed neon (SM_Sign_CT_Neon_SilverWave) | flickers |
+| BIG LIGHT | the neon workshop's half-finished sign on the wall | exposed neon (SM_Sign_CT_Neon_BigLight) | on |
+| GOLDEN TIDE MARKET (rooftop) | the market's north parapet | open-face pan letters with gold neon on a steel frame (SM_Sign_CT_RooftopFrame) | on; one stroke flickers |
+| Graffiti VULTURES, VLTR (oxblood), RULE, INC (gold); stencil MOTT ST → | alleys, gates, the alley A corner | decals (not built yet) | |
 
 ### 13.4 Rules for this level's art
 
-- **Fonts.** The art bible allows OFL or Apache type only (ART_BIBLE 5.6). Chinese faces use Noto Serif CJK TC
-  and Noto Sans CJK TC (OFL), subset to the glyphs used, so only small files land in art/blender/fonts. The sandbox
-  also has WenQuanYi Zen Hei (GPL with a font exception), which is acceptable for baked textures if the lead
-  prefers it. Sign painters' brush lettering comes from the serif face with a hand-drawn wobble pass in PIL.
+- **Fonts.** The art bible allows OFL or Apache type only (ART_BIBLE 5.6). English only, so no CJK font is needed:
+  Inter Display Black and Inter Bold / SemiBold (OFL) for the signs, Old Standard Bold (OFL, in art/blender/fonts) for the
+  painted and banquet serif, Carlito Bold (OFL) for the marker placards with a hand-drawn wobble pass in PIL.
 - **Fire escapes and flicker.** Thin steel flickers at render scale 0.50 (READY.md R3). The rules:
   - 10 stacks in all, 2 in the start view;
   - railings at least 40 mm thick;
@@ -1037,7 +1062,9 @@ Every name below is made up for the game. Before any face is drawn:
   - TS_Paper_Lantern, TS_Tile_RoofGlazed (pavilion).
 - **Unique sets (at most 30, 2K):** the market stall dressing, vendor goods (one atlas), dub room kit, bakery kit,
   roast-duck window, pavilion, lion, banquet set, workshop kit.
-- **Sign faces: 3 atlases of 4096 x 4096**, at most about 40 faces, instead of one 4096 x 512 set per shop:
+- **Sign faces: atlases of 4096 x 4096** instead of one 4096 x 512 set per shop. Made (lane A-CT): one page,
+  `Sign_CT_Atlas1`, holds all 45 English faces at 71 % fill (lit faces 256 px/m, paper and boards 512 px/m), so the
+  budget of three is two pages under:
   - BC: BC7.
   - Emissive: a BC4 mask times a per-sign colour parameter.
   - ORM: shared.
@@ -1294,7 +1321,8 @@ These are shared with Level 3. MAPS.md section 3 gives each item its lane, its s
    - The Block's goldens still pass unchanged.
 9. **Performance gates** (14): the five worst views on the box with l20 at 1080p, then on E3DS. Flicker
    (rev8 at 0.50) on the alley A and Mott fire escapes. Texture streaming want and cooked size recorded.
-10. **Content.** Every name in 13.3 searched, the Chinese signed off, no brand look-alikes (ART_BIBLE 5.7).
+10. **Content.** Every name in 13.3 searched, English only (the art's own check fails on any other character), no
+    brand look-alikes (ART_BIBLE 5.7).
 11. **Readability.** In each of the five worst views (14), with the final lighting, a Goon placed at 15 m and at
     25 m on the critical path: its silhouette's mean luminance differs from the background behind it by at least
     a factor of 1.6 at render scale 0.50, and a reviewer who did not build the level finds it in the stream frame
@@ -1321,7 +1349,8 @@ MAPS.md section 3 schedules this level's work in stages and lanes. In short:
    count and the wetness before any sign is drawn. Check 11 runs here with grey Goons first.
 3. **Blender:**
    - the Chinatown family;
-   - signs.py atlases and Chinese tube lettering, after the names are searched and the Chinese is signed off;
+   - the sign atlas and the neon tube lettering, English only (made: assets/chinatown.py), final after the names are
+     searched;
    - facade tables for N1 to N6, W1, W3, S1 to S3, E1a/b and E2 (as data, beside the Block's SHOPS and
      BUILDINGS, not in them);
    - placements;
@@ -1341,8 +1370,8 @@ Goons (4.4); each level starts fresh with the set-up handed over (progression.md
 1. **Time of day.** This design picks night (7:40 PM, wet). The other option is dusk, about 4:45 PM, sun at 2 to
    4°. Dusk keeps the sun cascade and needs the clouds, losing their quality step. It also reads as "lots of
    neon" only in the shade.
-2. **Who checks the Chinese text**, and are the Noto CJK fonts acceptable (or WenQuanYi)? Nothing in 13.3 is final
-   until a reader of Traditional Chinese has signed it.
+2. ~~Who checks the Chinese text~~ **Answered 2026-11-26: English only**, no Chinese characters, no reader needed
+   (13.3).
 3. **Hold mode name** "Hold Canal Street" and a best score per map. Accepted?
 4. **The bridge silhouette** to the east is a real structure shown far away and unnamed. Is it allowed under
    ART_BIBLE 5.7, or should it be generic towers only?

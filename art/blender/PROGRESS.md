@@ -1424,3 +1424,42 @@ Re-run recipe: `flock art/out/.bake.lock python art/blender/build.py build weapo
 (SHORTY about 11 min, STRETCH about 12 min, parts `--res 2048` about 5 min), then the gun's check, `_weapons_icons.py <gun>`, `_weapons_icons.py lineup`,
 `_weapons_r4_contract.py`, `tools/box/fp/fp-art.sh packr4`. Pictures from a fresh process need no `--only none` for the STRETCH (it builds the
 gun from the cache; `--only none` builds nothing and renders nothing).
+
+# Canal Street art, lane A-CT (2026-11-26, no box, no Unreal)
+
+The owner asked for three New York levels; Level 2 is Canal Street at night, wet after rain, and its signs are in
+**English only** (DECISIONS.md 2026-11-26 ~02:00). Everything here was made in this container with bpy and needs neither
+the box nor Unreal; nothing the game loads was touched (levels.json, level.json, art_catalogue.json, Config, Source).
+
+**Made** (`art/blender/assets/chinatown.py` and `_chinatown_{names,atlas,kit,front,place,preview,check}.py`):
+- 66 meshes in art/out/glb, all through `mi.export` validation, 248,398 triangles in all, each within chinatown.md 13.2
+  (largest the rooftop letters, 30.8k; neon signs 11 to 12k each; shop fronts 9 to 15k; props 0.3 to 12k). Groups: six
+  generic shop fronts, fascia, window grille, stacked-sign rail, three box awnings; fourteen sign carriers that carry no
+  words; four exposed-neon signs and the GOLDEN TIDE MARKET rooftop pan letters; the market kit (stall counter, fish counter,
+  three produce displays, dry goods, styrofoam, tarp, pendant bulb, fish tank, scale, hand truck); vendors (table, five goods
+  clusters, umbrella, clothing rail); the lantern and the one lantern string; street and Square furniture; roof props.
+- The sign atlas `Sign_CT_Atlas1` (4096; BC, ORM at 2048, E): 45 English faces at 71 % fill, a skyline packer, cells in its
+  set.json and in `art/out/chinatown/signs_chinatown.json` with the carrier, glow colour and where each goes.
+- Every invented name in one list (`_chinatown_names.py`), with 34 business names; none searched yet (MAPS.md C1).
+- Placements of the Canal north row N1..N6 (481 instances of 43 meshes: the Block's piers, bays, fills, cornice, parapet,
+  fire escapes, air conditioners and blinds, and this kit's fronts, fascias, bands, blades, neon, grilles, awnings, paper signs).
+- Pictures (Cycles 16 samples, 30 to 45 s each): `art/previews/maps/ct_canal_north.jpg`, `ct_market.jpg`, `ct_street.jpg`,
+  `ct_sign_atlas.jpg`, each under 300 kB.
+- The lane manifest `art/out/chinatown/manifest_chinatown.json` and the archive `art/out/maps-chinatown.tar` (GLBs, atlas,
+  lane JSON, placements, the .blend; sha256 and file list in `art/out/chinatown/ARCHIVE.json`). The TS_* scan sets the slots
+  name are the Block's (not in the archive).
+
+**Checks** (`venv/bin/python art/blender/assets/_chinatown_check.py`, and `--build` for the in-memory validation):
+english (82 strings, ASCII and the middle dot only), names (IPX on none), validation (66 of 66), budgets (66 of 66), files
+(every GLB on disk and in the shared manifest with the same triangles and bounds), atlas (4096, no overlaps, every face a
+cell, every carrier exists), placements (every mesh known, every placed face has a cell), block (facade.py, signs.py,
+place_buildings.py and the Block's data files unchanged): ALL CHECKS PASS.
+
+**Still open:** the structures fitted to lane D's colliders (market hall shell, yard stair, Mott sidewalk shed, B0 bulkhead,
+pavilion, stage, banquet and dub-room kits, bakery kit, roast-duck window, stone lion); the six alcoves as real 1.0 m
+recesses; the other buildings' placements (W1, M, W3, S1..S3, E1a/b, E2); decals (puddle, graffiti, stencil); the name
+searches; the box import (B lane: send-art.sh pattern `SM_*_CT_*`, the MI per placed sign from signs_chinatown.json) and
+picture rounds in the engine with the night rig.
+
+Re-run: `venv/bin/python art/blender/build.py build chinatown --export` (14 s; `--bake` redraws the atlas, 48 s), then
+`--preview --samples 16` (about 2 min for the three night pictures), then the check script.
