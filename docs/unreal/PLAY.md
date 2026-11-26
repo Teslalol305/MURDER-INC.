@@ -530,3 +530,48 @@ lines' "speeds held back" says how often the caps bit); the whole story with `gu
 now reach each reel) and with `goto` legs as the review planned (`r1-demo.txt`); Settings Ground path off: the [1] [2] [3]
 [IPX] markers still drawn; then the release package played through the stream with a blood pool under a body (it must
 not be a spatter).
+
+## The visual pass: what the fixer lane's changes look like (2026-11-26, from 16:26 UTC)
+
+Play in editor on the integration clone (`/project/ue/int/repo`, branch head `0017a21` built, `unreal/` tree `3fbc520`; box
+`8496fd8c`), 1920 x 1080 `HighResShot`, the world frozen for each frame. The GPU was taken run by run by
+`/project/ue/logs/int-repo/vis/queue.sh` (lag-test.sh's rule; a watcher notes other games and editors every 2 s): every
+run named below was CLEAN for all its frames. Hands, optics and finishes: HANDS_R4.md section 11.
+
+### Story guidance (runs `g1` and `g3`; `tools/box/fp/guide-shots.sh` and the new `guide-orders.sh`)
+
+| Picture (`/project/ue/logs/int-repo/vis/g1/`) | Seen | Verdict |
+|---|---|---|
+| `shots/start.jpg` (`shots/vis-guide-story.jpg`) | the objective block with the step "Reel 1 — The Avenue", "[1] 38m", cyan chevrons on their dark strips along the shaded south sidewalk | pass |
+| `shots/el.jpg`, `shots/fight.jpg`, `orders/b2.jpg`, `orders/c2.jpg` | under the El, where the sun falls through the deck in stripes: one or two faint cyan marks, most of the path not seen | **fail** (fixed in part, below) |
+| `shots/inside.jpg`, `orders/b3.jpg`, `orders/c1.jpg` | inside the chop shop: the chevrons bright and clear on the dark floor, leading to the case or out of the bay door | pass |
+| `orders/b1.jpg` (the cage, open sun) | the chevrons on their dark strips read in full sun: **the underlay draws dark**, so `/Engine/BasicShapes/BasicShapeMaterial` takes the `Color` parameter (the fixer lane's open question) | pass |
+| `shots/hint.jpg` | the hint "Reel 1's out on the avenue, under the El. Head east." under the step | pass |
+| `shots/behind.jpg` | turned away: the edge arrow "[1] 23m" above the weapon bar | pass |
+| `shots/off.jpg` (Settings Ground path off) | no chevrons; the [1], [2] and [3] markers still drawn; the step line stays | pass |
+| `shots/shop.jpg`, `shots/avenue.jpg`, `shots/lot.jpg`, `shots/cage.jpg`, `shots/truck.jpg` | the path toward the bay door and the cage reads where it lies in shade; in the sunlit stripes under the El it does not; two of the script's poses put the eye in a doorway (`cage`) or against a barrier (`lot`) | as above |
+
+**Other reel orders** (`guide-orders.sh`; sheet `shots/vis-guide-orders.jpg`). The guidance points at the first reel not
+taken, then the truck; every new leg was asked for and the step line and route followed (MIGuide.Stats at each picture,
+`g1/orders.log`):
+
+| Order | Where | Step shown | Route left | Path seen |
+|---|---|---|---|---|
+| Reel 3 first | in the cage after Reel 3 (`b1`) | Reel 1 — The Avenue | 56.8 m | yes, out of the cage gate, in sun |
+| | on the avenue, on the way west (`b2`) | Reel 1 | 23.3 m | no (under the El) |
+| | in the chop shop after Reels 3, 1, 2 (`b3`) | IPX truck — The Lot | 78.3 m | yes, to the bay door |
+| Reel 2 first | in the chop shop after Reel 2 (`c1`) | Reel 1 | 24.5 m | yes, to the bay door |
+| | at Reel 1 after Reels 2, 1 (`c2`), and under fire (`c3`) | Reel 3 — The Cage | 58.1 m | no (under the El) |
+
+0 failed searches in every run; the guide's own cost 0.0135 to 0.0246 ms a frame on average (worst 0.598 ms), a search
+0.06 to 0.27 ms on average.
+
+**Fixed here (data, `666eabc`):** `guide.json` `look.intensity` 10000 to 18000, `look.shade` 0.3 to 0.35, `look.low` 0.4
+to 0.6. Re-shot (`g3`, CLEAN; sheet `shots/vis-guide-retune.jpg`): under the El the sunlit chevrons are brighter and the
+nearest read, though still weaker than in shade; inside the chop shop brighter and clear, no glare. **Still to change
+(C++, `World/MIGuide.cpp`, the chevron's roof test):** `C.bShade = Nav.Raycast(..., 40.0, Hit)` calls the El's deck (its
+underside 6.5 m up, `level.json el.deck.ue.underside 650`) a roof, so every chevron under the El is drawn at the
+roof's 0.35 although the sun reaches the street through the deck. Shade only inside `level.json interior.boxes` (the
+chop shop, 0 to 6.3 m) or under a roof less than 4 m above (an awning): `C.bShade = InsideInterior(P) || (Nav.Raycast(...,
+40.0, Hit) && Hit.Distance < 4.0)`. Acceptance: `guide-shots.sh ONLY="el fight"` and `guide-orders.sh ONLY="b2 c2"`
+show the path under the El as clearly as in `start`.
