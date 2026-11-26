@@ -52,14 +52,14 @@ are 2 to 3 times shorter. The target never left 60 in any run.
 | version 4 `v4-long-nv` | **crashed at 126.4 s**: `SIGSEGV`, `Unhandled Exception`, exit 139 | | | | | | |
 
 Other facts, from the same runs:
-- **Crashes**: none in the head's 12 runs (about 55 minutes of play). Version 4: 1 of 1 today, 2 of 2 in the hitch lane.
-- **Target drops**: none in any run. No spell under 60 (`tgt.py`: 0 seconds at 45 or 30 in 2,900 probe lines of the head). So there
+- **Crashes**: none in the head's 8 runs (about 40 minutes of play). Version 4: 1 of 1 today, 2 of 2 in the hitch lane.
+- **Target drops**: none in any run. No spell under 60 (`tgt.py`: 0 seconds at 45 or 30 in about 3,000 probe lines of the head). So there
   was nothing to recover from; the drop and recovery rules were not exercised by these loads.
 - **Synchronous loads** (`FlushAsyncLoading` events in play): 0 in the head's runs, 40 in version 4's Story.
 - **PSO creation hitch frames**: version 4 5 in its 99-s Story run and 10 to 12 in the menus runs; the head 0 in the Story and 4
   in the menus runs, 3 of them inside the first 8 s.
 - **Graphics quality press** (`n-q`, new only): 1 frame of 99.3 ms at 9.8 s, 2.9 / 1.5 / 0.0 a minute over 41 s.
-- **Memory** in the holdout: no growth; 15 garbage collections, none over a frame budget.
+- **Garbage collections** in the holdout: 15 (CSV events), no frame over 36 ms in the run.
 
 ### What is left (all for the game's owner; no game code was edited here)
 
@@ -68,8 +68,8 @@ Other facts, from the same runs:
    (3.1 / 7.3 / 2.6 / 12.1), so the lateness is in how the shared card hands the frame over, not in a thread. They cluster:
    13 of `n-menus`'s 30 are between 70 and 90 s (guns being drawn). The stream carries twice the data (17.4 and 13.6 Mbit/s
    against version 4's 7.8 and 6.6), so the new guns and screens are heavier to encode and to draw. **The cause is not
-   proven**; a GPU trace of the guns phase on this load would show it. The Story, where the same guns are used, has none, so
-   it is the draw of a gun for the first time after a switch (a texture or mesh streaming in), not the gun itself.
+   proven**; a GPU trace of the guns phase on this load would show it. The Story, where the same guns are used, has none; one
+   reading is the first draw of a gun after a switch, but that is a guess.
 2. **The start is 3.4 to 4.1 s longer.** From `Opened FPipelineCacheFile` to `Game Engine Initialized` the log spans 4.4 s in the
    head (20:40:02.176 to 20:40:06.601) against 0.5 s in version 4 (the engine's cache open and the save of the device
    pipeline cache sit in that span). The 405 PSOs compile in 0.12 s, so the time is the cache's own set-up. It happens

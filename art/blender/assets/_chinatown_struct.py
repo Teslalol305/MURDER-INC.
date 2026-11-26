@@ -380,7 +380,8 @@ def yard_stair(ctx, M):
     b.prism([(-7.18, 0.0), (-6.0, 0.0), (-6.0, 5.40), (-7.18, 5.40)], (-8.612, 0.0, 0.0), Y, Z, (0.012, 0.0, 0.0), "corr",
             step=1.0, pstep=0.8)
     A = [("flight 2's brackets into the market's south wall", W(-13.2, -9.6, 2.0, 5.7, 5.6, 6.02)),
-         ("the wall handrail on flight 2 (7 cm off the wall)", W(-13.2, -8.6, 3.0, 6.7, 6.0, 6.1))]
+         ("the wall handrail on flight 2 (7 cm off the wall)", W(-13.2, -8.6, 3.0, 6.7, 6.0, 6.1)),
+         ("the closing sheet's two corner vertices at the flight 2 foot (2 cm over the guard line)", W(-13.25, -13.15, 3.3, 4.0, 7.1, 7.3))]
     return done(ctx, b, "SM_Struct_CT_YardStair", M, "The yard stair (chinatown.md 4.4), the level's one climbable fire escape: "
                 "two flights of 13 risers of 0.219 on diamond-plate treads with nosing angles, 20 mm stringers under the line of "
                 "the inner tread corners, the mid landing on four 100 mm posts, flight 2 bracketed into the market's south wall, "
