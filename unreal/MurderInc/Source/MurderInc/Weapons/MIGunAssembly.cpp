@@ -131,7 +131,12 @@ void UMIGunAssembly::Clear()
 	{
 		for (const FName Bone : Hidden)
 		{
-			MIGunAssemblyPrivate::ShowGunBone(Base, Bone);
+			// The first-person rig may already have put the next gun's mesh on the component: only bones that mesh has
+			// (the CHOPPER's FrontSight and Booster asked of the SHORTY logged "Invalid Bone Name", READY.md W10).
+			if (Base->GetBoneIndex(Bone) != INDEX_NONE)
+			{
+				MIGunAssemblyPrivate::ShowGunBone(Base, Bone);
+			}
 		}
 	}
 	Hidden.Reset();

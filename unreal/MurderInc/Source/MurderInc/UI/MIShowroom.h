@@ -53,6 +53,13 @@ public:
 	/** The point the camera aims at (stage space) and the stage-space bounding sphere of the shown gun, for tests. */
 	FVector GetAimPoint() const { return AimPoint; }
 	FSphere GetGunSphere() const;
+	/** The turntable gun with its parts: the gap (cm) between its lowest point and the turntable plate's top (negative:
+	 *  something goes into the plate), and how far the gun stands raised so that a long magazine clears the plate. */
+	double GetPlateGap() const { return LowestInPivot() - PlateTop; }
+	double GetStandLift() const { return StandLift; }
+	/** True once the turntable shows a gun mesh (false where the gun's art is not installed). */
+	bool HasGunMesh() const;
+	static constexpr double PlateClearance = 1.5;  // cm the lowest point of a raised gun stays above the plate
 
 	/** Mouse drag (pixels), wheel steps, right stick (-1..1 per axis), triggers (zoom). */
 	void Drag(const FVector2D& Pixels);
@@ -106,5 +113,14 @@ private:
 	void PlaceArmsOnGrip();
 	FVector GunCentre = FVector::ZeroVector;
 	double GunRadius = 40.0;  // cm, the shown gun's bounding sphere: the camera stands off to frame it
+	/** The lowest point (cm, z in the turntable's frame without its spin or swap scale) of the gun and every visible
+	 *  part on it. */
+	double LowestInPivot() const;
+	/** The raise that keeps that lowest point PlateClearance above the plate (0 when it already is): an extended
+	 *  magazine reaches below the factory one and went into the plate (READY.md W4). */
+	double WantedLift() const;
+	void ApplyStandLift(double Lift);
+	double PlateTop = -14.0;  // the plate's top in the turntable's frame (cm; Setup)
+	double StandLift = 0.0;   // cm the gun now stands raised above its centred place
 	bool bReducedMotion = false;
 };

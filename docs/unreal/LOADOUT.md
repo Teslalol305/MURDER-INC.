@@ -631,7 +631,10 @@ instead of adding a child mesh, because the pack ships the folded stock as whole
 1. Every `set` in slot order (the later slot wins), then the sum of every `add`, the product of every `mul`, every
    `min` (the smallest wins), every `max`.
 2. A stat with more than one target accepts only `mul` (DataLoads checks it). Its combined factor is clamped to
-   `meta.factor` [0.5, 2] and then multiplied into each target.
+   `meta.factor` [0.15, 2] and then multiplied into each target. (The lower end was 0.5 until READY.md W6: it turned
+   every silencer's `flash` x0.15 into x0.5, and the Workbench said "−50% muzzle flash". No other multi-target stat
+   comes below 0.5 or above 2 in any of the 230 builds; `tools/data/check_guns_data.py` warns when the clamp changes a
+   part's effect or a stacked build's.)
 3. Each target is then clamped to its own clamp. `reloadTime` has none, so the marks are exactly marks × factor.
 4. **A stat that no fitted part names is not touched at all,** neither ops nor clamp. A gun with no parts is its JSON
    unchanged, which proves parity.

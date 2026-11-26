@@ -336,6 +336,9 @@ def apply_effects(parts, doc, swallowed=None):
         multi = len(s["targets"]) > 1 or any(t["path"].endswith("*") for t in s["targets"])
         if multi:
             f = min(FACTOR[1], max(FACTOR[0], o["mul"]))
+            # the factor clamp (meta.factor) changes the combined factor itself, on every target at once
+            if swallowed is not None and abs(f - o["mul"]) > 1e-12:
+                swallowed.append((sid, "factor of " + ", ".join(t["path"] for t in s["targets"]), o["mul"], f))
             for t in s["targets"]:
                 if t["path"].endswith(".*"):
                     parent = t["path"][:-2]
@@ -399,6 +402,7 @@ def check_builds():
     """Every compatible build of every gun resolves with falloff.end >= start and falloff.min inside its clamp; each part's effect is not swallowed."""
     fmin_t = STATS["falloff.min"]["targets"][0]
     total = 0
+    factor_warned = set()  # (gun, stat): one warning for the first build whose stacked factor the clamp changes
     for gid in ROSTER:
         row = COMPAT.get(gid) or {}
         slots = [s for s in SLOT_IDS if s in row and not row[s].get("variant")]
@@ -407,7 +411,14 @@ def check_builds():
         for combo in itertools.product(*choices):
             parts = [p for p in combo if p is not None]
             doc = gun_doc(gid)
-            apply_effects(parts, doc)
+            sw = []
+            apply_effects(parts, doc, sw)
+            for sid, path, want, got in sw:
+                # a single part's clamp is reported below; here only parts stacked on one stat
+                stacked = sum(1 for p in parts for e in PARTS[p]["effects"] if e["stat"] == sid) > 1
+                if path.startswith("factor of ") and stacked and (gid, sid) not in factor_warned:
+                    factor_warned.add((gid, sid))
+                    warn("factor clamp %s changes the combined %s of build %s %s: wanted x%.6g, got x%.6g" % (FACTOR, sid, gid, parts, want, got))
             st, en, mn = number(get(doc, "extra.falloff.start")), number(get(doc, "extra.falloff.end")), number(get(doc, "extra.falloff.min"))
             if en < st:
                 err("build %s %s: falloff.end %s < start %s" % (gid, parts, en, st))

@@ -122,6 +122,7 @@ void AMIShowroom::Setup(const TSharedPtr<FJsonObject>& Frontend, const FMIViewmo
 	const FVector TableAt = Vec(Frontend, S + TEXT("turntable.at"), FVector(0, 0, 92));
 	Dress(Piece(Cylinder, TableAt - FVector(0, 0, 1.5), FVector(74, 74, 3), FLinearColor(0.02f, 0.02f, 0.022f)), TEXT("turntable"));
 	Pivot->SetRelativeLocation(TableAt + FVector(0, 0, 14.0));
+	PlateTop = TableAt.Z - Pivot->GetRelativeLocation().Z;
 
 	// Lights (lux at the aim point, colour temperature in kelvin).
 	if (const TSharedPtr<FJsonValue> Lights = MIJson::Get(Frontend, S + TEXT("lights")); Lights.IsValid() && Lights->Type == EJson::Array)
@@ -246,7 +247,7 @@ bool AMIShowroom::FindSlotLocal(FVector& Out) const
 	// No such socket (a template stand-in, the stock): frontend.json's offset for the slot, in the gun's frame.
 	if (!FocusedSlot.IsNone() && Focus.IsValid())
 	{
-		Out = MIShowroomPrivate::Vec(Focus, FocusedSlot.ToString() + TEXT(".offset"), FVector::ZeroVector);
+		Out = MIShowroomPrivate::Vec(Focus, FocusedSlot.ToString() + TEXT(".offset"), FVector::ZeroVector) + GunCentre;  // the gun's frame, raised with it
 		return true;
 	}
 	return false;
@@ -280,6 +281,51 @@ void AMIShowroom::PlaceGunOnPivot()
 		GunRadius = FMath::Clamp(B.BoxExtent.Size(), 10.0, 120.0);  // the box's own sphere: the whole gun at any turn
 	}
 	GunCentre = FVector::ZeroVector;
+	StandLift = 0.0;
+	ApplyStandLift(WantedLift());  // a new gun: stood clear of the plate at once (it is scaled out meanwhile)
+}
+
+bool AMIShowroom::HasGunMesh() const
+{
+	return Gun && Gun->GetSkinnedAsset() != nullptr && Gun->IsVisible();
+}
+
+double AMIShowroom::LowestInPivot() const
+{
+	// Every visible primitive of the gun (the mesh and the parts the assembly attached to it, the factory magazine
+	// included), in the turntable's own frame: the spin is about z and the swap scale about the origin, so neither
+	// changes the order of heights.
+	const FTransform PivotT = Pivot->GetComponentTransform();
+	double Low = TNumericLimits<double>::Max();
+	const auto Take = [&Low](const FBoxSphereBounds& B) { Low = FMath::Min(Low, B.Origin.Z - B.BoxExtent.Z); };
+	if (const USkinnedAsset* Asset = Gun->GetSkinnedAsset(); Asset && Gun->IsVisible())
+	{
+		Take(Asset->GetBounds().TransformBy(Gun->GetComponentTransform().GetRelativeTransform(PivotT)));
+	}
+	TArray<USceneComponent*> Pieces;
+	Gun->GetChildrenComponents(true, Pieces);
+	for (const USceneComponent* C : Pieces)
+	{
+		const UStaticMeshComponent* P = Cast<UStaticMeshComponent>(C);
+		if (P && P->IsVisible() && P->GetStaticMesh())
+		{
+			Take(P->GetStaticMesh()->GetBounds().TransformBy(P->GetComponentTransform().GetRelativeTransform(PivotT)));
+		}
+	}
+	return Low == TNumericLimits<double>::Max() ? PlateTop + PlateClearance + StandLift : Low;
+}
+
+double AMIShowroom::WantedLift() const
+{
+	// The lowest point as it would be with no raise, and the raise that puts it PlateClearance above the plate.
+	return FMath::Max(0.0, PlateTop + PlateClearance - (LowestInPivot() - StandLift));
+}
+
+void AMIShowroom::ApplyStandLift(double Lift)
+{
+	Gun->AddRelativeLocation(FVector(0.0, 0.0, Lift - StandLift));
+	StandLift = Lift;
+	GunCentre = FVector(0.0, 0.0, StandLift);  // the camera frames the raised gun
 }
 
 void AMIShowroom::ShowGun(const FMIResolvedGun& InGun)
@@ -457,6 +503,15 @@ void AMIShowroom::Tick(float DeltaSeconds)
 	}
 	Pivot->SetRelativeScale3D(FVector(FMath::Max(0.01, Ease(Scale))));
 	Pivot->SetRelativeRotation(FRotator(0.0, Yaw, 0.0));
+	// The same gun with a part changed (a longer magazine slides in): the stand rises or settles with it, eased.
+	if (!bPendingSwap && Shot == EShot::Turntable)
+	{
+		const double Want = WantedLift();
+		if (!FMath::IsNearlyEqual(Want, StandLift, 0.01))
+		{
+			ApplyStandLift(bReducedMotion ? Want : FMath::FInterpTo(StandLift, Want, static_cast<float>(Dt), 14.f));
+		}
+	}
 	// The slot focus: once the mesh is in place, the gun turns the mount's side to the camera and the camera looks
 	// from above for a top mount, from below for an underbarrel one.
 	FVector Local;
