@@ -580,11 +580,11 @@ void AMIGoon::UpdateRagdoll(double Dt)
 	// A body falls; it is never thrown. No part goes faster than maxSpeed or rises faster than maxUp (a blast: 1.5 x
 	// blastUp): a ragdoll that starts against a wall or a ledge is pushed out by the solver, which can fling it metres up
 	// (review: bodies over the pizza awning and up a shop front). Real kills on open ground never reach the caps.
-	if (DeadFor < RagTune.FallFor && RagTune.FallPull > 0.0 && !KillHit.bBlast)
+	if (DeadFor < RagTune.FallFor && RagTune.FallPull > 0.0)
 	{
 		// Death reads at once: the fall is pulled harder at the start (a body whose last pose is a kneel or an aimed arm
 		// otherwise hangs in it for a third of a second, like a wounded man still fighting).
-		M->AddForceToAllBodiesBelow(FVector(0, 0, -RagTune.FallPull), TEXT("pelvis"), true, true);
+		M->AddForceToAllBodiesBelow(FVector(0, 0, -RagTune.FallPull * (KillHit.bBlast ? 0.6 : 1.0)), TEXT("pelvis"), true, true);
 	}
 	const double UpMax = KillHit.bBlast ? RagTune.BlastUp * 1.5 : RagTune.MaxUp;
 	for (FBodyInstance* B : M->Bodies)

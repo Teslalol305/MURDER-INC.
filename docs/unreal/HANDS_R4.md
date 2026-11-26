@@ -754,3 +754,39 @@ Verdict: Partly accepted, not shippable on this evidence. The offline reconstruc
 - **nit**: STRETCH/SHORTY mirror finish is unfixed and unproved. HANDS_R4.md 13.1 row (3): offline renders cannot reproduce the texture-residency fault. The fix (finish_textures, pie.sh wait) is unverified. Item (3) of the owner's report must be confirmed on a box frame.
 
 For the release fixer (mi-v6-fix): every must-fix above is open and must be closed on the box, in engine frames, before the GO.
+
+## 14. Seen in the engine at last: the release fixer's pass (2026-11-26, from 22:20 UTC, box `8496fd8c`, clone `/project/ue/int/repo`)
+
+Every picture is play in editor in `L_Block`, 1920 x 1080, HUD hidden (`guns-shots.sh HUD=0`), the world frozen per picture, the
+data of 13 (`shoulders` [12, 12, -36] on the rifles) and the rig patch of `docs/unreal/patches/hands-offline/` (applied in `16f819d`:
+`FiringReachShort`, the `firing hand` log line and the `ReloadHold` check of the firing palm). The suite passed on the build: 222 of 222.
+
+**Log.** `First person: firing hand <gun>: palm N cm from its place on the grip`: CHOPPER 0.3 cm (12 lines, hip and reload), SHORTY 0.3,
+RATTLER 0.3, STRETCH 0.3 (0.2 to 2.1 cm for a moment right after the draw, 0.2 to 1.1 cm in the reload). `MurderInc.FirstPerson.ReloadHold`
+now fails above 1.5 cm at the hip and through the reload and passes.
+
+| Fault (11, 12) | Engine frame | Verdict |
+|---|---|---|
+| Firing hand makes a V under the receiver | `shots/v6-hands-chopper.jpg`, `-rattler`, `-stretch`: the fingers close round the pistol grip at the hip, in the sun and under the El, and in the reload | **fixed** on CHOPPER, RATTLER, STRETCH, SHORTY |
+| Open fanned hand in front of the eye in the reloads, no magazine | the same sheets, reload 0.5 s and 1.1 s: the support hand holds a visible magazine under the well, the firing hand stays on the grip; no cut upper arm | **fixed** on CHOPPER, RATTLER, STRETCH; SHORTY below |
+| Torn back of the hand (finger bend 176 degrees) | not in any of the 40 frames of this pass (hip, aimed, both reload times, four guns) | **not seen**; it was a symptom of the open hand's bend, not separately changed |
+| SHORTY reload: nothing in the frame / SHORTY firing forearm | `shots/v6-hands-shorty-before.jpg`: with `shoulders` [2, 2, -20] and the offline reload pose the firing forearm filled the screen (a skin-coloured wall); `shots/v6-hands-shorty-after.jpg`: with [12, 12, -36] both hands and the magazine are in the picture, the firing forearm with its bracelet crosses the lower right | **fixed** (presentation.json; the reload pose of 13 stays) |
+| Skin-coloured ball against walls and looking down | `shots/v6-hands-wall.jpg`: CHOPPER, SHORTY, STRETCH against the shop fronts, level and looking down at 35 degrees: no ball; the gun is pulled back as designed and the hands stay on it | **not reproduced** with the new shoulders (the review's frames were taken with the old anchor, whose firing arm stretched to its limit) |
+| Black / skin dome at the lower left in `death-shots.sh` frames | it appears only when a run starts with `MIStart mission skip`, which uses the template body's arms (the open upper arm of LOADOUT.md 6.6); every run through the front end (Crew RULE) uses `SK_RuleArms` and shows nothing there | **not a play fault**; the death-shots tool should start through the front end |
+| Crew screen: skin-coloured stump beside the gun | the stage poses the pack's idle with no solved grip: the support arm ends in a fist round nothing. `mi.FE.CrewArms` (default 0) now shows the turntable gun there until the stage uses the first-person rig | **fixed** by not showing it (picture in section 15 of READY.md's v6 GO readiness) |
+| STRETCH / SHORTY finish (grey or white and black mirror) | SHORTY: olive paint, right, in every frame after `tools/box/fp/guns-resident.py` (every first-person gun texture never streamed). STRETCH: **still wrong** in the same frames (`shots/v6-hands-stretch.jpg`: bright steel receiver, white and black marbling on the stock where the art has walnut) | **SHORTY fixed, STRETCH open** (below) |
+
+**The STRETCH's finish is not a residency fault.** After never-stream was saved on every gun texture and the editor was restarted
+(and again after a second restart), the STRETCH still draws its stock marbled. Evidence: the box's `SK_Stretch.glb`, `T_Stretch_BC.png` and
+`T_Stretch_ORM.png` have the same md5 as `art/out/` in the repo, so the offline render (walnut and painted steel) and the engine read the
+same files; the base colour's walnut islands are where the offline stock is, the engine's stock is where its black rectangles are (the
+ORM reads metallic there), a mirror in the sun. Likely a UV set or island mismatch in the engine import (the offline lane renders from the
+GLB's own UVs). Needs the importer's UV channel checked (`mi_fp_import._import_mesh`: which `TEXCOORD` the material samples) and one
+picture of the material's texture coordinate in the editor; not done here for lack of time.
+
+**Not changed:** the STRETCH's reload (the support hand covers part of the magazine, 13.4): in the engine frame the magazine is in the
+support hand and in view; the far-face solve stays an improvement for later.
+
+**SHORTY aimed:** the irons now show the carry handle's ribs across the lower middle of the picture and nothing in front of the target
+(`v6-hands-wall.jpg` is not it; see the SHORTY aim frame in `v6-hands-shorty-after.jpg`, top right): the butt's rear face is gone, the
+target is clear, there is no aperture ring to look through (art: a taller sight line, 12.6).
