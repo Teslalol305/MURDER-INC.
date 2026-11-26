@@ -1463,3 +1463,31 @@ picture rounds in the engine with the night rig.
 
 Re-run: `venv/bin/python art/blender/build.py build chinatown --export` (14 s; `--bake` redraws the atlas, 48 s), then
 `--preview --samples 16` (about 2 min for the three night pictures), then the check script.
+
+# Midtown roofs, screens' backs and scaffold (MAPS.md lane A-MT, stage 1, 2026-11-26)
+
+**Made, without Unreal and without the box:** `assets/midtown.py` and `_midtown_{names,atlas,roof,screens,scaffold,place,preview,check}.py`.
+39 meshes, 143k triangles, every one within midtown.md 14.2: roof decks and parapets (1.10 m, 0.30 thick, broken at every
+opening of 5.3), the HALVORSEN / CORVIN name panel, two water tanks (4.6 m and 3.6 m, staves, hoops, cone, caged ladder) on
+4 m and 2 m steel stands (I legs, girts, angle X braces, no tie rods), the stair bulkheads I1 / B and I4, the tank house I2
+(carries WT-C) and the machine room I3 with 2.0 m Goon doors, HVAC units L and M, skylight, vent, chimney, tar kettle, dish,
+antenna, work light, the roof stair L1 to L4, its head bridge, the planks and the pipe bridge, the gantry with Reel 8's
+cabinet, G1's back (cabinets, posts, girts, braces, outriggers), C1's lightbox frame with catwalk and floods, the 2 m LED
+tile, the ticker module, N1's tower stack, and the scaffold stair kit (flight, landing, bay frame, opaque netting, contractor's
+board). Faces: `MT_Screens_A/_B` (16 slides), `MT_Ticker`, `MT_Digits`, `MT_LEDMask`, `Sign_MT_Atlas1` (18 faces): about 46 MB
+new, no new tiling set. Placements: 720 instances (roofs A to E, stairs, bridges, the gantry and G1, C1, the scaffold tower,
+the art-only screens E1, E2a/b, E3, S1, N1 and the ticker). Every name is invented and English (the list and the words this lane
+added are in docs/unreal/maps/midtown_art.md 4); IPX is only on the IPX slides.
+
+**Checks** (`venv/bin/python art/blender/assets/_midtown_check.py`, and `--build`): english, names, validation (39 of 39),
+budgets (39 of 39), thin (no member over 0.6 m long under 5 cm: it caught the LED tile's rails, the flight nosings and the
+landing bands, all thickened), files, atlases, placements, emissive (7 large screens of 9), block: ALL CHECKS PASS.
+
+**Pictures** `art/previews/maps/mt_roofs.jpg`, `mt_gantry.jpg`, `mt_square.jpg`, `mt_faces.jpg` (night, from the placements; the
+building masses, facades and street are flat stand-ins).
+
+**Still open:** the square family, THE PERCH, the bus, the Midtown facade tables and podium modules; fitting to lane D's
+colliders; the name searches (C1); the box import and the picture rounds with the night rig (lanes B, L, E11).
+
+Re-run: `venv/bin/python art/blender/build.py build midtown --export` (10 s; `--bake` redraws the faces, about 2 min), then
+`--preview --samples 12`, then the check script. Hand-off archive: `art/out/maps-midtown.tar` (`art/out/midtown/ARCHIVE.json`).
