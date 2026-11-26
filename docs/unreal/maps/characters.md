@@ -597,3 +597,85 @@ rainwear). Below the hand-built Goons at 1 m (fused layers, rigid gloves, the ey
 
 **Credits (this character):** 18 (one Tripo take, `tripo_h3_1_multiview_to_3d`, detailed, 110k); the sheet's 3.25
 is in section 5. No GPU box was rented or used.
+
+## 9. `SK_Vulture_RoofLookout` (Level 3 rank and file, built)
+
+Built 2026-11-26 from the first Tripo take, on the pipeline as committed after section 7 (with the bind fixes of
+8d5fde1 and 34379e2), with no change to it: `build.py build vultures --only roof_lookout --export` (39 s) then
+`--preview --samples 32` (2.3 min on 3 threads). Outputs (git-ignored): `art/out/glb/SK_Vulture_RoofLookout.glb`
+(3.6 MB) with `.check.json`, the set `art/out/textures/VultureRoofLookout/`, the manifest record; sources in
+`art/out/characters/maps/roof_lookout/` (the sheet, the four views, `roof_lookout_tripo.glb`).
+
+![turnaround](../../../art/previews/characters/maps/vulture_roof_lookout_turnaround.jpg)
+
+`vulture_roof_lookout_turnaround.jpg`: the sheet made in the first pass (`sheet_v1.png`), used as it was, and the
+four views split from it in that pass, uploaded unchanged. Checked before spending: four figures, view 2 faces the
+image's left and view 4 its right; the slate-grey fleece-lined softshell zipped to the top, its tall collar over nose
+and mouth with the fleece lining showing at the rim; the black knit beanie with the oxblood turned-up cuff; amber
+wraparound shooting glasses; the small black crossbody pouch at the left hip on the sling, which runs from the right
+shoulder to the left hip as the brief says; black slim cargo trousers tucked into black lace-up hiking boots; black
+softshell gloves; the oxblood crew V high on the back; no brand, lettering or maker's mark anywhere.
+
+| Measure | Result |
+|---|---|
+| Tripo take | first take kept (1 of at most 3): 104,306 triangles (budget 120k), one connected piece, 0 floaters, 0 edges of opposite winding, 4096 maps (Color, ORM, NormalGL), UVs inside 0..1, 32 % of a 512 grid's cells hit |
+| Clean-up | turned 90 degrees (arm span 0.52 m on Y against 0.17 on X) and 180 (facing +Y), as the others; no decimation |
+| Size | beanie top 1.815 m in the fitted pose and 1.815 m over the floor in the reference pose (mannequin 1.805 x 1.006); 0.98 in the game; 1.15 m across the A-pose hands, 0.46 m deep. Beside SK_Goon_Hoodie in clay: the same height, a slim woman's build, narrower in the shoulders and hips than the Goon and than canal_bomber (`vulture_roof_lookout_wire.jpg`) |
+| Fit to the skeleton | arms 23.2 / 22.4 degrees below the mannequin's A-pose, lengths x 0.99; legs 0.2 / 0.2 degrees, x 1.00 (her stance matches the mannequin's almost exactly; the others were 2 to 3 degrees off); weights from the mannequin surface median 2.8 cm away (99th percentile 8.7 cm, the closest fit so far: the softshell is fitted) |
+| Weights by segment | torso 22,819 vertices, arms 5,887 / 5,400, legs 9,091 / 8,926; 0 limb vertices disconnected from their hand or foot (the pouch hangs on the sling at the hip, clear of the forearm); 2,492 cross-segment weights removed before smoothing, 2,522 after, 0 after the 4-influence limit; 0 unweighted |
+| Skeleton | 89 joints; round trip against SKM_Manny_Simple: largest change 0.0000005 m, 0.00013 degrees; re-import 104,306 of 104,306 triangles; **0 validation errors** |
+| Pose check | 99 poses, **99 pass** the capsule test; the worst vertex is 0.1 cm outside its capsules (the overhead swing; the limit is 6 cm) |
+| Edge stretch (edges over 2 x their rest length, share of about 156,500; 99.9th percentile; the worst frame of each clip) | jog 0.7 %, x 3.9; aim 0.5 %, x 2.9; reloads 0.8 %, x 4.1; melee 1.1 %, x 4.2; death fall 2.0 %, x 5.3; kneel 0.5 %, x 4.2; crouch 0.8 %, x 4.6; overhead swing 0.8 %, x 5.2 |
+| Against the Goons (same measure) | SK_Goon_Hoodie jog 1.05 %, x 9.6, aim 1.3 %, x 8.6, death 2.4 %, x 11.9; SK_Goon_Puffer jog 1.9 %, x 6.2, death 3.2 %, x 11.1. **Below both Goons in every compared pose, on both measures**, and the lowest of the five Vultures built (canal_shell jog 1.1 %, death 2.8 %; roof_rigger 1.1 %, 2.7 %) |
+| Reference pose against the generated surface (`build.bind.rest_stretch`) | 99.9th percentile x 2.7, worst edge x 10.5, 305 edges over 2 x, **37 over 4 x** (canal_bomber 222, roof_rigger 262): the under-arm fins of section 7 are nearly absent. The fitted softshell sleeve leaves little loose cloth under the arm for the mannequin's higher A-pose to pull out |
+| Texture set | 4096, albedo mean linear 0.044 / 0.039 / 0.039 (the lightest Vulture, as the brief says, and still under the 0.08 rule), roughness mean 0.80 after the remap, metallic 0 (no texel over 0.5), occlusion mean 0.998 (empty, as on the others) |
+
+![hero](../../../art/previews/characters/maps/vulture_roof_lookout_hero.jpg)
+
+`vulture_roof_lookout_hero.jpg`: front and back three-quarter, studio and street night. The slate softshell with its
+seamed panels, zipped hand pockets and the tall collar zipped over the face, the oxblood beanie cuff and the amber
+glasses, the sling and the pouch at the left hip, slim cargos into hiking boots; at night a slim grey figure whose
+beanie cuff and amber lenses are the two accents, lighter and narrower than the Rigger beside her on the roofs.
+
+![detail](../../../art/previews/characters/maps/vulture_roof_lookout_detail.jpg)
+
+`vulture_roof_lookout_detail.jpg`: head at 1 m (rib-knit beanie with the oxblood cuff, the amber wraparound glasses,
+the collar's fleece rim and zip pull, the sling's slider, the softshell's seams and zips) and the legs at 1.3 m (cargo
+pockets with flaps, slim legs gathered into laced hiking boots with lugged soles).
+
+![poses](../../../art/previews/characters/maps/vulture_roof_lookout_poses.jpg)
+
+`vulture_roof_lookout_poses.jpg`: jog, aim, crouch and the forward death fall on the bound mesh; no tearing at
+shoulders, elbows, hips or knees, and the pouch stays at the hip. (The held crouch bends the legs without moving the
+root, so the feet leave the ground in the picture, as for the others.)
+
+![wire](../../../art/previews/characters/maps/vulture_roof_lookout_wire.jpg)
+
+`vulture_roof_lookout_wire.jpg`: clay beside SK_Goon_Hoodie, and the wireframe at 1.2 m (Tripo's even
+triangulation, no edge loops; the zips, collar, sling, pouch and glasses are relief on the one surface).
+
+**Known weaknesses (for the art review)**
+
+- **The crew V is faint.** On the sheet it is a clear oxblood V; on the model it reads as a pale grey V with a dull
+  red edge just under the collar (the hero's back figure, studio half). Tripo lightened it when it baked the back
+  view. It is still there and placed right, but it does not carry the crew colour at play distance. Fix if the review
+  asks: paint the V's texels in `T_VultureRoofLookout_BC` to #5a1419 (a texture edit, no credits).
+- **More face than the Goons.** The collar stops at the bridge of the nose and the glasses are amber, so the eyes,
+  brows and a band of skin show through and round them; an invented woman's face, mostly covered, so the rules hold,
+  but at 1 m it shows more skin than the Goons' r3 masks. The glasses are relief on the face, not a separate lens.
+- **The softshell reads a little like brushed leather in the studio light at 1 m** (soft highlights on the sleeves),
+  the shared roughness remap again (sections 7 and 8); it reads as matte fabric in the night half and at play
+  distance.
+- As the others: one fused surface (softshell, collar, sling, pouch, trousers), rigid one-piece gloves (no finger
+  curl round the SMG's grip), no edge loops, LODs or corrective shapes, occlusion map empty, not imported in Unreal
+  yet (the enemy lane's check: scale 0.98, materials, the SMG on `hand_r`, a readability frame on the Midtown roofs).
+
+**Verdict.** Usable as Level 3 rank and file at 3 to 40 m: a realistic, invented woman in believable winter New York
+outdoor wear, the Goons' height, on the same skeleton and clips, all 99 poses inside the capsules, the least stretch
+of any Vulture and well under both Goons, the closest fit to the mannequin and almost none of the under-arm fins. She
+reads apart from the Rigger on the same roofs (slim slate softshell, oxblood beanie cuff and amber lenses against navy
+canvas and knee pads) and from the Canal crew. Below the hand-built Goons at 1 m (fused layers, rigid gloves, the
+eye band, the faint crew V).
+
+**Credits (this character):** 18 (one Tripo take, `tripo_h3_1_multiview_to_3d`, detailed, 110k); the sheet's 3.25
+is in section 5. No GPU box was rented or used.
