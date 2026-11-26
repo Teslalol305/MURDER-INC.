@@ -185,6 +185,38 @@ def segment_labels(arm, co):
     return lab
 
 
+def connected_labels(ob, arm, co, lab, seed_r=0.12):
+    """A limb label must reach its hand (arms) or ankle (legs) over mesh edges between vertices of the same label;
+    unreached islands go to the torso. canal_bomber: the hip pouch lies against the hanging forearm and part of it
+    was labelled arm, so binding to the mannequin's higher A-pose tore it into flat sheets beside the hip."""
+    E = _edges(ob)
+    M = arm.matrix_world
+    out = lab.copy()
+    moved = []
+    for k, joint in ((1, "hand_l"), (2, "hand_r"), (3, "foot_l"), (4, "foot_r")):
+        mine = lab == k
+        if not mine.any():
+            moved.append(0)
+            continue
+        j = np.array(M @ arm.pose.bones[joint].head)
+        seen = mine & (np.linalg.norm(co - j, axis=1) < seed_r)
+        if not seen.any():
+            d = np.where(mine, np.linalg.norm(co - j, axis=1), np.inf)
+            seen[int(np.argmin(d))] = True
+        e = E[mine[E[:, 0]] & mine[E[:, 1]]]
+        while True:                          # grow the reached set along same-label edges until it stops
+            grow = (seen[e[:, 0]] & ~seen[e[:, 1]])
+            back = (seen[e[:, 1]] & ~seen[e[:, 0]])
+            if not grow.any() and not back.any():
+                break
+            seen[e[grow, 1]] = True
+            seen[e[back, 0]] = True
+        cut = mine & ~seen
+        out[cut] = 0
+        moved.append(int(cut.sum()))
+    return out, moved
+
+
 def allowed(names):
     """Boolean matrix (5 segments x bones): which bones a segment may keep."""
     A = np.zeros((5, len(names)), bool)
@@ -272,6 +304,9 @@ def bind(ctx, ob, top_factor, log):
             W[:, names.index("hand" + nm[-2:])] += W[:, j]
             W[:, j] = 0
     lab = segment_labels(arm, co)
+    lab, moved = connected_labels(ob, arm, co, lab)
+    log("  limb islands not connected to their hand or foot, moved to the torso: arms %d / %d, legs %d / %d vertices"
+        % tuple(moved))
     A = vertex_allowed(arm, co, lab, allowed(names), names)
     W, n0 = segment_mask(W, lab, A, names)
     W = GG.smooth_weights(ob, W.astype(np.float32))
@@ -282,6 +317,14 @@ def bind(ctx, ob, top_factor, log):
         "smoothing, %d after the limit" % tuple([int((lab == k).sum()) for k in range(5)] + [n0, n1, n2]))
     fits = GG.bone_fit_matrices(arm)
     rest = GG.unpose(co, names, W, fits)
+    # the reference pose is the mannequin's A-pose, the arms higher than the generated ones: what that does to the
+    # generated surface (the posed check measures against this rest, so it cannot see it)
+    E = _edges(ob)
+    rs = np.linalg.norm(rest[E[:, 0]] - rest[E[:, 1]], axis=1) / (np.linalg.norm(co[E[:, 0]] - co[E[:, 1]], axis=1) + 1e-9)
+    rest_stretch = {"p999": round(float(np.percentile(rs, 99.9)), 2), "max": round(float(rs.max()), 1),
+                    "edges_over_2x": int((rs > 2).sum()), "edges_over_4x": int((rs > 4).sum())}
+    log("  reference pose against the generated surface: p99.9 x%.2f, max x%.1f, %d edges over 2x, %d over 4x"
+        % (rest_stretch["p999"], rest_stretch["max"], rest_stretch["edges_over_2x"], rest_stretch["edges_over_4x"]))
     GG._set_verts(ob, rest)
     GG.write_groups(ob, names, W)
     char.rest_pose(arm)
@@ -297,7 +340,7 @@ def bind(ctx, ob, top_factor, log):
     char.rest_pose(arm)
     return arm, body, {"segments": [int((lab == k).sum()) for k in range(5)], "cross_removed": [n0, n1, n2],
                        "round_trip_mean_m": round(float(err.mean()), 5), "round_trip_max_m": round(float(err.max()), 5),
-                       "fit": rep}
+                       "fit": rep, "limb_islands_to_torso": moved, "rest_stretch": rest_stretch}
 
 
 # ------------------------------------------------------------------------------------------------- pose check
