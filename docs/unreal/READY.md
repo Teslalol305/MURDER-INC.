@@ -385,3 +385,41 @@ clone by its folder): this lane's `build.status`, `test.status` and `test-report
 commandlet (`audio-import.sh`) rewrote the clone's `Config/DefaultEngine.ini` (Android file server settings); restore it before a build
 or the makefile is rebuilt. Scripts: `/project/ue/ready/stream/q` (`go.sh` the gated queue, `rd4.txt`/`rd5.txt` the captures,
 `an.sh`, `sheet.py`, `pool.py`).
+
+## Weapons fixes (fixer lane, 2026-11-26 00:10 to 01:05 UTC)
+
+**What changed** (commits `66d4840` (W6), `b057e3a` (W4), `11ff1ff` (W10) on the branch; on the box the clone `/project/ue/ready/weaponsfix/repo-weaponsfix`, named
+so that its logs go to `/project/ue/logs/repo-weaponsfix` and not to the main clone's, and a worktree at `fd8ce12` with only the
+stage change, `/project/ue/ready/weaponsfix/fd8`, whose Development game binary was put into a private copy of the trial
+package, the menu lane's method). The full suite on the head with every change of this lane: **217 passed, 0 failed** in 83 s on `959d1a0` with the three changes (the menu lane's 216 plus the new test)** (`test.sh
+MurderInc`, golden replays included; the new test is `MurderInc.Frontend.StageFloor`). No test was weakened, skipped or
+re-recorded; no gameplay rule was touched (W6 below shows why the factor change is not one).
+
+| # | Status | Fix | Proof |
+|---|---|---|---|
+| W1 (crash after the STICK) | **fixed in the branch, not yet packaged** (no change here) | The hidden pack gun loses its anim instance and its tick on every `Equip` (`MIFirstPersonRig.cpp` 251-258, from `ef65217`/`1f560d7`), and the anim instances hold the clips of their pose (`68ce52c`, `HeldClips`). Neither is in `fd8ce12`. | `MurderInc.FirstPerson.SwitchSurvivesGC` (STICK, RATTLER, NINE, CHOPPER: pack, hand IK, pack, pistol, CHOPPER, pack, hand IK, a garbage collection after each switch, ten frames evaluated after it) passed in this lane's suite on the head; PLAY.md's negative control (the teardown and `HeldClips` taken out) fails it at the first switch out of the pack gun. The audit's sequence on a package (STICK in slot 1, then 2, 3, 4 aimed, back to 1) is for the v6 package's gate (below). |
+| W2 (black optic ring, brown-ball hand) | **fixed in the branch, not yet packaged** (no change here) | The optic housing's fade (`7e120ac`/`a88dcdc`) and the hands data (`8d0d6ac`, `7c0bc1a` and later). | The hands lane's runs (HANDS_R4.md); the aimed views are for the v6 package's gate. |
+| W3 (keyboard Up) | **fixed in `11eb373`** (the menu lane: the `MIKey` tool, not the game) | | Menu fixes above. |
+| W4 (extended magazines read as factory ones on the Workbench) | **fixed** (`b057e3a`) | `AMIShowroom` stood every gun centred on its mesh 14 cm above the turntable plate, so a magazine longer than the factory one went into the plate. The stage now measures the lowest point of the gun and of every part on it (the mesh's and each part's own bounds, in the turntable's frame, so the spin and the swap's scale do not matter) and raises the stand just enough to keep it 1.5 cm above the plate: at once for a new gun, eased (about 0.3 s) when a part changes on the same gun; the camera frames the raised gun. A gun whose parts clear the plate is not moved, so nothing else on the stage changes. | Test `MurderInc.Frontend.StageFloor` (new): the real set-up screens in a booted block, all six Workbenches, every offered option of every slot fitted in turn and the slot put back, 84 stage states: the gun and its parts stay 1.49 to 6.01 cm above the plate in every one, and the stand returns to where it was when a part comes off. The raises it measured: the extended magazines need 9.30 cm on the SHORTY, 9.97 on the STRETCH, 10.82 on the RATTLER and 0.14 on the NINE; and the stage had the factory guns in the plate too, CHOPPER by 4.66 cm, RATTLER 3.33, STICK 1.41, SHORTY 0.31 (raised 6.16, 4.83, 2.91, 1.81 cm; the NINE and STRETCH were clear and do not move). The audit's frames show it (`rw-wa3` 004 CHOPPER: magazine and grip down into the plate; 062/061 SHORTY: factory and extended magazines both cut by the plate; 122 RATTLER). Before/after pictures on the trial package with this binary: queued behind the other lanes' GPU claims (`/project/ue/ready/weaponsfix/run.sh`, runs `wf1`, `wf3`); they will be added here. |
+| W5 (STRETCH: semi-automatic in the art and the page, automatic in the rules) | **for the owner** (below) | A rules change is a gameplay change. | |
+| W6 (suppressors: "−50% muzzle flash", not −85 %) | **fixed** (`66d4840`) | `attachments.json` `meta.factor` [0.5, 2.0] to [0.15, 2.0], so a silencer's `flash` x0.15 is applied as the data, WEAPONS_R4.md 4 and the text's own example (`frontend_text.json`: "▲ −85% muzzle flash") say. `check_guns_data.py` now reports a change of the factor clamp: per part ("effect swallowed by a clamp: ... factor of rules.flash.scale, rules.flash.light wanted 0.15, got 0.5") and for a build that stacks several parts on one stat. LOADOUT.md 3.7 updated. **Not a gameplay change:** the checker's resolver over all 230 compatible builds of the six guns, with [0.5, 2] and with [0.15, 2], differs only in `rules.flash.scale` and `rules.flash.light` (recoil, swap, reload and length never reach 0.5 or 2 in any build), and a suppressed gun draws no flash and no light at all in play (`UMIWeaponComponent::MuzzleFlash` returns for `bSuppressed`; every part with flash x0.15 has `presentation.sound` "suppressed"; no enemy reads the flash, attachments.json `stats.flash.note`). So the change is the Workbench's line. | Checker before: 0 errors, **6 warnings** (the six suppressor/silencer parts on their guns); after: **0 errors, 0 warnings**. The Workbench's lines before/after on a private copy of the trial package (`attachments.json` swapped): queued with the runs above (`wf1`, `wf2`). |
+| W7 (laser hard to see in the stream) | not changed (nit) | A brighter dot is a look decision. | |
+| W8 (rainbow heat tint on the suppressors) | not changed (nit) | The parts texture: an art pass. | |
+| W9 (stage framing of the STRETCH, RATTLER, STICK) | not changed (nit) | Per-gun stage distance and fill light: left for after v6. | |
+| W10 (log noise of a fitted gun) | **bones fixed** (`11ff1ff`); the Nanite warning for the lead | `UMIGunAssembly::Clear` shows again only the hidden bones the component's current mesh has: the first-person rig puts the next gun's mesh on the component before the assembly is rebuilt, so the CHOPPER's `FrontSight` and `Booster` were asked of the SHORTY ("Invalid Bone Name"). No bone that the mesh has is treated differently. | Built and the suite passed (above); the log lines themselves are for the v6 package's run. |
+| W11 (Factory focused shows "No change to the rules" with a part fitted) | not changed (nit) | The column describes the focused option, as it does for every other option; showing the fitted part there is a design choice. | |
+
+### For the lead
+
+- **W5, the STRETCH's fire mode (the owner decides).** `guns.json` `guns.stretch.rules` has `auto: true` and `rpm` 700, so it starts in
+  AUTO and the HUD offers "B SWITCH TO SEMI"; its art (a SAFE/SEMI selector) and WEAPONS_R4.md 1.1 and 2 call it a semi-automatic
+  marksman rifle. Either it starts in semi (a rules change: the suite's golden replays and `Weapons.*` tests decide whether anything
+  else moves), or the page and the Workbench describe it as a battle rifle. Nothing was changed in this pass.
+- **W10, the red dot's lens on the SM6 path.** `Invalid material ... used on Nanite static mesh [SM_Part_RedDot] ... BLEND_Translucent`
+  / `BLEND_Additive` (audit `rw-w2` log): the lens and reticle parts are imported with Nanite on. E3DS runs SM5 (no Nanite), where the
+  warning does not apply; for the SM6 build, re-import those parts with Nanite off (the parts import, not C++).
+- **The v6 package's weapons gate.** Package from the head (`11ff1ff` or later), then repeat on it, in the Development game and once
+  through the stream: the STICK-first switching sequence (W1), the aimed views of every optic (W2: ring and hand), the Workbench
+  with each extended magazine (W4) and a suppressor's line (W6, "−85% muzzle flash"). The scripts are
+  `/project/ue/ready/weaponsfix/gen_f.py` (`flash`, `mags`) and the audit's `/project/ue/ready/weapons/gen_w.py` (`wb`, `w2`) with
+  `go.sh` (set `BUILD=` to the unpacked package).
