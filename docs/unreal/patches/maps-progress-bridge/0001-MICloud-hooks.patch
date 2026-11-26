@@ -1,0 +1,31 @@
+diff --git a/unreal/MurderInc/Source/MurderInc/Cloud/MICloud.cpp b/unreal/MurderInc/Source/MurderInc/Cloud/MICloud.cpp
+index 8851f1f..10353f8 100644
+--- a/unreal/MurderInc/Source/MurderInc/Cloud/MICloud.cpp
++++ b/unreal/MurderInc/Source/MurderInc/Cloud/MICloud.cpp
+@@ -1,4 +1,5 @@
+ #include "Cloud/MICloud.h"
++#include "Cloud/MIProgressBridge.h"
+ 
+ #include "Audio/MIAudioSubsystem.h"
+ 
+@@ -941,7 +942,7 @@ void UMICloudSubsystem::Initialize(FSubsystemCollectionBase& Collection)
+ 		// game sleeps in small steps and wakes when the count moves (SleepIdle), and does not go back to sleep until the game
+ 		// thread has handled the event (ViewerEventsHandled).
+ 		StreamHandles.Add(D->OnNewConnectionNative.AddLambda([OnGame](FString, FString)
+-			{ ++MICloudPrivate::GViewerEvents; OnGame([](UMICloudSubsystem& S) { S.OnViewerJoined(); }); }));
++			{ ++MICloudPrivate::GViewerEvents; OnGame([](UMICloudSubsystem& S) { S.OnViewerJoined(); FMIProgressBridge::ScheduleHello(); }); }));
+ 		StreamHandles.Add(D->OnAllConnectionsClosedNative.AddLambda([OnGame](FString)
+ 			{ ++MICloudPrivate::GViewerEvents; OnGame([](UMICloudSubsystem& S) { S.OnAllViewersLeft(); }); }));
+ 		// The sender's own statistics (frames captured, encoded and sent a second, bitrate, QP, round trip): broadcast on
+@@ -1440,6 +1441,11 @@ void UMICloudSubsystem::GuardViewerInput()
+ 			{
+ 				PluginUi(SourceId, FMemoryReader(Bytes));
+ 			}
++			// The IPX page's progress message (progression.md 4.4): read strictly, handed to the progress store.
++			if (FMIProgressBridge::OnPageMessage(Bytes))
++			{
++				return;
++			}
+ 			if (!IsAwayMessage(Bytes))
+ 			{
+ 				return;

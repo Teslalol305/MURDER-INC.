@@ -1,0 +1,337 @@
+diff --git a/n/unreal/MurderInc/Source/MurderInc/Cloud/MIProgressBridge.h b/unreal/MurderInc/Source/MurderInc/Cloud/MIProgressBridge.h
+new file mode 100644
+index 0000000..783ac04
+--- /dev/null
++++ b/unreal/MurderInc/Source/MurderInc/Cloud/MIProgressBridge.h
+@@ -0,0 +1,66 @@
++#pragma once
++
++#include "CoreMinimal.h"
++
++/**
++ * The game's half of the IPX page bridge (docs/unreal/maps/progression.md 4.4, tools/ipx-bridge/).
++ *
++ * Page -> game: E3DS's player turns {cmd: 'sendToUe4', value: {...}} into a Pixel Streaming UIInteraction message. The
++ * descriptor is read here, checked, and handed to OnReceived; the maps branch's progress store merges it (4.5).
++ * Game -> page: SendToPage sends the same JSON as a Pixel Streaming "Response" message to every viewer.
++ *
++ * Message: {"mi":"progress","v":1,"code":"4FMY-N7W6","hold":{"block":12345,"chinatown":0,"midtown":0}}, at most 256
++ * UTF-16 units. Nothing here opens the console allowlist or touches a rule of play.
++ */
++struct MURDERINC_API FMIProgressMessage
++{
++	/** Canonical 'XXXX-XXXX'. */
++	FString Code;
++	/** Hold the Block bests: block, chinatown, midtown, each 0..99,999,999. */
++	int32 Hold[3] = { 0, 0, 0 };
++};
++
++class MURDERINC_API FMIProgressBridge
++{
++public:
++	static constexpr int32 MaxUnits = 256;
++	static constexpr int32 MaxHold = 99999999;
++
++	/**
++	 * Checks a progress code (progression.md 4.3, format v1): 8 upper-case Crockford base32 characters with an
++	 * optional hyphen after the fourth, CRC-16/CCITT-FALSE over "MURDERINC-PROGRESS-1" + the 3 payload bytes, version
++	 * 1, reserved bits 0, cleared bits agreeing with points and difficulty, cleared levels a prefix, the album bit
++	 * needing all three. Returns the canonical form, or an empty string. (The maps branch's own decoder is the same
++	 * rule; when it lands, CheckCode should call it.)
++	 */
++	static FString CheckCode(const FString& Input);
++
++	/** A descriptor (JSON text) -> a message. False and Out untouched when anything is wrong. */
++	static bool ParseDescriptor(const FString& Descriptor, FMIProgressMessage& Out);
++
++	/** The raw UIInteraction message (a 16-bit count of UTF-16 units, then the units, little-endian) -> a message. */
++	static bool ParseUIBytes(const TArray<uint8>& Message, FMIProgressMessage& Out);
++
++	/** The JSON a message is sent as. */
++	static FString BuildJson(const FMIProgressMessage& Message);
++
++	/** Called with a good message from the page (game thread). The progress store merges it (4.5). */
++	DECLARE_MULTICAST_DELEGATE_OneParam(FOnReceived, const FMIProgressMessage&);
++	static FOnReceived& OnReceived();
++
++	/** Returns the progress to tell the page: false when the game has nothing to say yet. The progress store sets it. */
++	DECLARE_DELEGATE_RetVal_OneParam(bool, FProvider, FMIProgressMessage&);
++	static FProvider& Provider();
++
++	/** The stream's UIInteraction hook: reads and publishes a progress message. True when the message was one. */
++	static bool OnPageMessage(const TArray<uint8>& Message);
++
++	/** Sends the message to every viewer as a Pixel Streaming Response. False when there is no stream. */
++	static bool SendToPage(const FMIProgressMessage& Message);
++
++	/** Call after every change of progress (2.4): sends what the Provider says now. */
++	static void SendCurrent();
++
++	/** A viewer joined: sends the current progress once, 1 s later (the data channel needs that long). */
++	static void ScheduleHello();
++};
+diff --git a/n/unreal/MurderInc/Source/MurderInc/Cloud/MIProgressBridge.cpp b/unreal/MurderInc/Source/MurderInc/Cloud/MIProgressBridge.cpp
+new file mode 100644
+index 0000000..089ae89
+--- /dev/null
++++ b/unreal/MurderInc/Source/MurderInc/Cloud/MIProgressBridge.cpp
+@@ -0,0 +1,259 @@
++#include "Cloud/MIProgressBridge.h"
++
++#include "Containers/Ticker.h"
++#include "Dom/JsonObject.h"
++#include "Dom/JsonValue.h"
++#include "MurderInc.h"
++#include "Serialization/JsonReader.h"
++#include "Serialization/JsonSerializer.h"
++#include "Serialization/JsonWriter.h"
++
++#if MI_WITH_PIXELSTREAMING2
++#include "IPixelStreaming2Module.h"
++#include "IPixelStreaming2Streamer.h"
++#endif
++
++namespace
++{
++	const TCHAR* const Alphabet = TEXT("0123456789ABCDEFGHJKMNPQRSTVWXYZ");
++
++	uint16 Crc16(const TArray<uint8>& Bytes)
++	{
++		uint32 Crc = 0xFFFF;
++		for (const uint8 B : Bytes)
++		{
++			Crc ^= (uint32)B << 8;
++			for (int32 I = 0; I < 8; ++I)
++			{
++				Crc = (Crc & 0x8000) ? (((Crc << 1) ^ 0x1021) & 0xFFFF) : ((Crc << 1) & 0xFFFF);
++			}
++		}
++		return (uint16)Crc;
++	}
++
++	bool ReadHold(const TSharedPtr<FJsonObject>& Hold, const TCHAR* Key, int32& Out)
++	{
++		Out = 0;
++		if (!Hold.IsValid() || !Hold->HasField(Key))
++		{
++			return true;  // a missing level is zero
++		}
++		double V = 0.0;
++		if (!Hold->TryGetNumberField(Key, V) || !FMath::IsFinite(V) || V != FMath::FloorToDouble(V) || V < 0.0 || V > (double)FMIProgressBridge::MaxHold)
++		{
++			return false;
++		}
++		Out = (int32)V;
++		return true;
++	}
++}
++
++FString FMIProgressBridge::CheckCode(const FString& Input)
++{
++	FString S = Input;
++	if (S.Len() == 9 && S[4] == TEXT('-'))
++	{
++		S = S.Left(4) + S.Mid(5);
++	}
++	if (S.Len() != 8)
++	{
++		return FString();
++	}
++	uint64 Big = 0;
++	const FString Letters(Alphabet);
++	for (int32 I = 0; I < 8; ++I)
++	{
++		int32 Index = INDEX_NONE;
++		if (!Letters.FindChar(S[I], Index))
++		{
++			return FString();
++		}
++		Big = Big * 32 + (uint64)Index;
++	}
++	const uint32 Payload = (uint32)(Big >> 16);
++	const uint32 Check = (uint32)(Big & 0xFFFF);
++	TArray<uint8> Bytes;
++	const FString Salt = TEXT("MURDERINC-PROGRESS-1");
++	for (int32 I = 0; I < Salt.Len(); ++I)
++	{
++		Bytes.Add((uint8)Salt[I]);
++	}
++	Bytes.Add((uint8)((Payload >> 16) & 255));
++	Bytes.Add((uint8)((Payload >> 8) & 255));
++	Bytes.Add((uint8)(Payload & 255));
++	if (Crc16(Bytes) != Check || ((Payload >> 21) & 7) != 1 || ((Payload >> 19) & 3) != 0)
++	{
++		return FString();
++	}
++	const uint32 Mask = (Payload >> 16) & 7;
++	bool bPrev = true, bAll = true;
++	for (int32 L = 0; L < 3; ++L)
++	{
++		const bool bCleared = ((Mask >> L) & 1) != 0;
++		const uint32 Points = (Payload >> (7 + 3 * L)) & 7;
++		const uint32 Diff = (Payload >> (1 + 2 * L)) & 3;
++		if (Points == 6 || bCleared != (Points != 7) || bCleared != (Diff != 3) || (bCleared && !bPrev))
++		{
++			return FString();
++		}
++		bPrev = bCleared;
++		bAll = bAll && bCleared;
++	}
++	if ((Payload & 1) != 0 && !bAll)
++	{
++		return FString();
++	}
++	return S.Left(4) + TEXT("-") + S.Mid(4);
++}
++
++bool FMIProgressBridge::ParseDescriptor(const FString& Descriptor, FMIProgressMessage& Out)
++{
++	if (Descriptor.Len() <= 0 || Descriptor.Len() > MaxUnits || !Descriptor.Contains(TEXT("progress")))
++	{
++		return false;
++	}
++	TSharedPtr<FJsonObject> Json;
++	if (!FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Descriptor), Json) || !Json.IsValid())
++	{
++		return false;
++	}
++	FString Mi, Code;
++	double Version = 0.0;
++	if (!Json->TryGetStringField(TEXT("mi"), Mi) || Mi != TEXT("progress") || !Json->TryGetNumberField(TEXT("v"), Version) || Version != 1.0
++		|| !Json->TryGetStringField(TEXT("code"), Code))
++	{
++		return false;
++	}
++	FMIProgressMessage M;
++	M.Code = CheckCode(Code);
++	if (M.Code.IsEmpty())
++	{
++		return false;
++	}
++	TSharedPtr<FJsonObject> Hold;
++	if (Json->HasField(TEXT("hold")))
++	{
++		const TSharedPtr<FJsonObject>* HoldPtr = nullptr;
++		if (!Json->TryGetObjectField(TEXT("hold"), HoldPtr) || !HoldPtr)
++		{
++			return false;
++		}
++		Hold = *HoldPtr;
++	}
++	if (!ReadHold(Hold, TEXT("block"), M.Hold[0]) || !ReadHold(Hold, TEXT("chinatown"), M.Hold[1]) || !ReadHold(Hold, TEXT("midtown"), M.Hold[2]))
++	{
++		return false;
++	}
++	Out = M;
++	return true;
++}
++
++bool FMIProgressBridge::ParseUIBytes(const TArray<uint8>& Message, FMIProgressMessage& Out)
++{
++	const int32 Units = Message.Num() >= 2 ? (int32)(Message[0] | (Message[1] << 8)) : 0;
++	if (Units <= 0 || Units > MaxUnits || Message.Num() < 2 + 2 * Units)
++	{
++		return false;
++	}
++	FString Descriptor;
++	Descriptor.Reserve(Units);
++	for (int32 I = 0; I < Units; ++I)
++	{
++		Descriptor.AppendChar((TCHAR)(Message[2 + 2 * I] | (Message[3 + 2 * I] << 8)));
++	}
++	// A page that stringifies its value twice sends a JSON string holding the JSON: read through one level.
++	if (Descriptor.StartsWith(TEXT("\"")))
++	{
++		TSharedPtr<FJsonValue> Value;
++		FString Inner;
++		if (FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Descriptor), Value) && Value.IsValid() && Value->TryGetString(Inner))
++		{
++			Descriptor = Inner;
++		}
++	}
++	return ParseDescriptor(Descriptor, Out);
++}
++
++FString FMIProgressBridge::BuildJson(const FMIProgressMessage& Message)
++{
++	FString Out;
++	const TSharedRef<TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>> W = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&Out);
++	W->WriteObjectStart();
++	W->WriteValue(TEXT("mi"), TEXT("progress"));
++	W->WriteValue(TEXT("v"), 1);
++	W->WriteValue(TEXT("code"), Message.Code);
++	W->WriteObjectStart(TEXT("hold"));
++	W->WriteValue(TEXT("block"), FMath::Clamp(Message.Hold[0], 0, MaxHold));
++	W->WriteValue(TEXT("chinatown"), FMath::Clamp(Message.Hold[1], 0, MaxHold));
++	W->WriteValue(TEXT("midtown"), FMath::Clamp(Message.Hold[2], 0, MaxHold));
++	W->WriteObjectEnd();
++	W->WriteObjectEnd();
++	W->Close();
++	return Out;
++}
++
++FMIProgressBridge::FOnReceived& FMIProgressBridge::OnReceived()
++{
++	static FOnReceived D;
++	return D;
++}
++
++FMIProgressBridge::FProvider& FMIProgressBridge::Provider()
++{
++	static FProvider P;
++	return P;
++}
++
++bool FMIProgressBridge::OnPageMessage(const TArray<uint8>& Message)
++{
++	FMIProgressMessage M;
++	if (!ParseUIBytes(Message, M))
++	{
++		return false;  // most UIInteraction messages are not ours (the away word)
++	}
++	OnReceived().Broadcast(M);
++	return true;
++}
++
++bool FMIProgressBridge::SendToPage(const FMIProgressMessage& Message)
++{
++#if MI_WITH_PIXELSTREAMING2
++	if (!IPixelStreaming2Module::IsAvailable())
++	{
++		return false;
++	}
++	IPixelStreaming2Module& Module = IPixelStreaming2Module::Get();
++	if (!Module.IsReady())
++	{
++		return false;
++	}
++	const TSharedPtr<IPixelStreaming2Streamer> Streamer = Module.FindStreamer(Module.GetDefaultStreamerID());
++	if (!Streamer.IsValid())
++	{
++		return false;
++	}
++	// A Pixel Streaming "Response" message: the player's onResponse, which E3DS's page relays (README: check once).
++	Streamer->SendAllPlayersMessage(TEXT("Response"), BuildJson(Message));
++	return true;
++#else
++	return false;
++#endif
++}
++
++void FMIProgressBridge::SendCurrent()
++{
++	FMIProgressMessage M;
++	if (Provider().IsBound() && Provider().Execute(M) && !CheckCode(M.Code).IsEmpty())
++	{
++		SendToPage(M);
++	}
++}
++
++void FMIProgressBridge::ScheduleHello()
++{
++	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([](float)
++	{
++		SendCurrent();
++		return false;  // once
++	}), 1.0f);
++}
