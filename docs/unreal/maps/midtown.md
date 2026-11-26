@@ -81,7 +81,7 @@ Then Rule runs the square to it.
 | B | (no name, back building) | x -50..-30, z -12..8 | 17.6 (R2) | ground 4.7 + 4 x 3.225 | Flank roof: machine room, WT-B, bulkhead B (where waves come up) |
 | E | (back building) | x -50..-30, z 8..22 | 14.0 (R1) | ground 4.7 + 3 x 3.10 | Flank roof: the pipe bridge to D |
 | C | CORVIN HALL | x -28..-8, z -38..-4 | 17.6 (R2) | ground 4.7 + 4 x 3.225 | The tank house and WT-C (Reel 7), the roof billboard on its east edge |
-| D | (taller lower floors, the setback) | x -28..-8, z -4..22, minus the stair shaft x -13..-8, z 4..10 | 14.0 (R1) | ground 4.7 + 3 x 3.10 | Roof lounge THE PERCH (closed), service stair, doors to the gantry |
+| D | (taller lower floors, the setback) | x -28..-8, z -4..22, minus the stair shaft x -13..-8, z 4..10 | 14.0 (R1) | ground 4.7 + 3 x 3.10 | Roof lounge THE LOFTLARK (closed), service stair, doors to the gantry |
 | Light court | (void between the columns) | x -30..-28, z -38..22, filled to y 10.4 | 10.4 | | Never walkable; guarded on both sides |
 
 The roof surface is the top of the mass collider. Parapets are 0.30 m thick and 1.10 m tall on every roof edge, broken only
@@ -510,7 +510,7 @@ the grey box is played with each.
 | g18 | street | square | (-6.0, 0.15, -36.5) | west sidewalk, north barricade |
 | g19 | street | square | (5.5, 0, -36.0) | behind the production truck |
 | g20 | street | square | (25.0, 0, -36.5) | Broadway north |
-| g21 | street | square | (29.2, 0.15, -14.0) | theatre doors (THE ALDERWAY) |
+| g21 | street | square | (29.2, 0.15, -14.0) | theatre doors (THE MERIDALE) |
 | g22 | street | square | (29.2, 0.15, 6.0) | hotel doors (HOTEL CASTELLANE) |
 | g23 | street | square | (25.0, 0, 18.0) | behind the water barriers, Broadway south |
 | g24 | street | w46 | (29.0, 0, 30.0) | W 46 St east end |
@@ -567,7 +567,7 @@ where noted.
 | x3 | rack | r2 | (-12.5, 17.6, -24.0) | 1.5708 | under the roof billboard frame (sign crew's kit) |
 | x4 | propane | r2 | (-33.0, 17.6, -11.0) | 0 | B, by the planks |
 | x5 | propane | r2 | (-46.5, 17.6, 6.0) | 0 | B, by bulkhead B (punishes the wave door) |
-| x6 | propane | r1 | (-22.0, 14.0, 10.0) | 0 | THE PERCH's patio heater tank |
+| x6 | propane | r1 | (-22.0, 14.0, 10.0) | 0 | THE LOFTLARK's patio heater tank |
 | x7 | rack | r1 | (-16.0, 14.0, 19.0) | 0 | D, roof repair |
 | x8 | propane | r1 | (-40.0, 14.0, 18.5) | 0 | E |
 | x9 | rack | r1 | (-6.6, 14.0, 12.6) | 1.5708 | gantry south end, at the scaffold head (12.6 m from Reel 8) |
@@ -628,7 +628,7 @@ with no doorway loads and routes; the Block always has doorways.)
   -36..-20: its legs and catwalk are a cover line, its lit face points at the square). B (20 x 20): the machine room,
   WT-B (short stand), bulkhead B (the wave door), the planks to C. Lines: about 30 m across C, 45 m from B's west edge to
   C's billboard.
-- **The Gantry (D and the gantry deck, R1).** D (20 x 26): THE PERCH, a closed rooftop lounge (bar counter, stacked
+- **The Gantry (D and the gantry deck, R1).** D (20 x 26): THE LOFTLARK, a closed rooftop lounge (bar counter, stacked
   loungers, folded umbrellas, planters: the cover), the service stair bulkhead, the two doors to the gantry (z 0.5..2.5
   and 11..13). The gantry (3.5 x 16 m) sits behind the LED wall. Standing, the player sees the square through a letterbox between the front rail
   (15.1) and the wall's bottom edge (16.2), and the street sees his head. It is the most exposed place in the level and is
@@ -684,7 +684,7 @@ from the critical path shows a red field (12.2). The readability check of chinat
 | Hero LED screens (G1, E1, E3, N1) | 450 | The Block's signs are 900 by day; night exposure is about 9 stops lower |
 | Secondary screens and the ticker | 300 | |
 | Lightboxes (C billboard, kiosks, storefronts) | 200 | |
-| Exposed neon (THE PERCH, marquees' script) | 250 | MI_Neon_* at night strength |
+| Exposed neon (THE LOFTLARK, marquees' script) | 250 | MI_Neon_* at night strength |
 | Marquee bulb bands | 350 | One bulb texture with a slow chase (3 s cycle, no flashing) |
 | Window grid on the backdrop towers | 25 to 60 | The existing window-grid material, night lit fraction 0.35 |
 
@@ -699,7 +699,12 @@ from the critical path shows a red field (12.2). The readability check of chinat
   look of any specific real tower's screen stack. Real place names are fine: TIMES SQ, BROADWAY, SEVENTH AV, W 46 ST, NEW
   YORK, MIDTOWN. No phone numbers (212 needs the owner's approval: ART_BIBLE 5.7). IPX is the only real mark (the owner's).
 - Each name below is checked against a trademark search before its art is final. A name that turns out to be real is
-  replaced, never kept.
+  replaced, never kept. **Searched 2026-11-26 (lane C): the approved list, each query and what it found are in
+  [names.md](names.md).** Eleven names collided with a real business or mark, or with a famous title or a real
+  person's name, and are replaced in 12.2 and 12.4 (names.md 5 gives the old names and the evidence). English only,
+  like Canal Street: no other script on any screen or sign. The art's list and the level layout still carry the old
+  names until their lanes change them: `python3 tools/names/check_names.py` lists every line and passes when none is
+  left.
 - A sign is an object first (cabinet, frame, power, mounting), then its face (ART_BIBLE 5.1).
 
 ### 12.2 Screens (all opaque; one master material)
@@ -707,10 +712,10 @@ from the critical path shows a red field (12.2). The readability check of chinat
 | Id | Where | Size | Slides (cycle) |
 |---|---|---|---|
 | G1 | The gantry LED wall, facing east over the square (playable behind it) | 16 x 9 m | Until **reel8** is secured: a Vulture takeover, "WORLD PREMIERE · MIDNIGHT" in white on black with a small oxblood VLTR mark in one corner (not a red field behind the Goons on the gantry), and a countdown clock (digits atlas). The clock starts at 8:00 at the intro, matching the 11:52 PM place line; if it reaches 0:00 first it reads "STAND BY" and the premiere waits (no gameplay effect). When reel8 is secured: a 0.4 s glitch, then black with a dim "NO SIGNAL". When all three are in: "IPX PRESENTS" |
-| E1 | East tower podium, facing west | 24 x 18 m | ORBELLE · Eau de Nuit (perfume) → NORTHBOUND AIRWAYS · Fly the late one |
+| E1 | East tower podium, facing west | 24 x 18 m | MIRAVESSE · Eau de Nuit (perfume) → NORTHBOUND AIRWAYS · Fly the late one |
 | E2a, E2b | East hotel, two verticals | 8 x 20 m each | KESTREL MOBILE · Five bars, five boroughs / BRASS & BUN · Burgers till four |
-| E3 | Corner screen at x 30, z 22 (curved) | 20 x 12 m | THE ALDERWAY THEATRE presents NIGHT SHIFT, a new musical → VESPERLINE CRUISES |
-| N1 | North tower stack beyond z -38 (three screens) | 3 x 14 x 8 m | QUILLON watches / TAMSIN GRAY fall collection / HALCYON SODA |
+| E3 | Corner screen at x 30, z 22 (curved) | 20 x 12 m | THE MERIDALE THEATRE presents LAMPLIGHT AVENUE, a new musical → VESPERLINE CRUISES |
+| N1 | North tower stack beyond z -38 (three screens) | 3 x 14 x 8 m | HOROVAN watches / NORTHWEFT fall collection / FIZZWICK SODA |
 | S1 | W 46 St south facade | 12 x 6 m | DUSKLINE TOURS · The city after dark |
 | Ticker | Band on the theatre at y 8.0 to 8.8, x 30, z -30..-6 | 24 x 0.8 m | Invented headlines: "SQUARE CLOSED TONIGHT FOR A PREMIERE", "CROSSTOWN TRAFFIC HEAVY", "FORECAST: CLEAR, 41°" |
 | C1 | C's roof billboard (a lightbox, not LED), facing east | 16 x 8 m | MARLOWE & FINCH · The holiday floor is open |
@@ -735,10 +740,10 @@ When the last reel is secured, whichever it is, every hero screen (G1, E1, E3, N
 
 ### 12.4 Storefronts and lettering (invented)
 
-West facades (C and D, ground floor): SEVENTH AV SOUVENIRS, MIDTOWN SLICE, 46TH ST CAMERA & ELECTRONICS, a closed bank
-lobby (LANTERN SAVINGS). East: THE ALDERWAY THEATRE marquee, HOTEL CASTELLANE canopy. South (W 46 St): a steakhouse
-(BRANNIGAN'S CHOP HOUSE), a pharmacy (CORNER CHEMISTS). Roofs: HALVORSEN BUILDING in raised letters on A's parapet,
-CORVIN HALL on C's cornice, THE PERCH in neon on D (unlit: the lounge is closed). The scaffold carries an invented
+West facades (C and D, ground floor): SEVENTH AV SOUVENIRS, SLICE OF SEVENTH, SHUTTERBOX CAMERA & ELECTRONICS, a closed bank
+lobby (BELLHAVEN SAVINGS). East: THE MERIDALE THEATRE marquee, HOTEL CASTELLANE canopy. South (W 46 St): a steakhouse
+(BRANNIGAN'S CHOP HOUSE), a pharmacy (ASHBY & CROSS PHARMACY). Roofs: HALVORSEN BUILDING in raised letters on A's parapet,
+CORVIN HALL on C's cornice, THE LOFTLARK in neon on D (unlit: the lounge is closed). The scaffold carries an invented
 contractor's sign (KESSLER & ROTH SCAFFOLD). The production truck: BRIGHTWIRE EVENTS, with VLTR sprayed over it.
 Graffiti tags as on the Block (VULTURES, VLTR, RULE, INC.). The stalled bus: an invented operator (CITY CROSSTOWN, plain
 blue and white, no real livery).
@@ -797,7 +802,7 @@ triangles, so what is authored is what E3DS draws. The triangle figures are caps
 | | SM_Roof_SteelStair_3p6 (2 m wide, 18 art risers) and SM_Roof_StairHead_2p4 | 15k, 6k | galvanised, solid stringers |
 | | SM_Roof_PlankBridge_2p6x2, SM_Roof_PipeBridge_2p6x2 | 6k each | scaffold boards with pipe rails at least 6 cm |
 | | SM_Roof_HVAC_RTU_L, _M; SM_Roof_Skylight_2x3; SM_Roof_Vent_Mushroom; SM_Roof_ChimneyStack; SM_Roof_TarKettle; SM_Roof_Dish; SM_Roof_Antenna; SM_Roof_WorkLight | 10k / 6k / 3k / 4k / 4k / 3k / 2k / 2k | rooftop dressing |
-| | SM_Roof_Lounge_Bar, _Lounger_Stack, _Umbrella_Folded, _PlanterBox | 8k / 4k / 3k / 3k | THE PERCH |
+| | SM_Roof_Lounge_Bar, _Lounger_Stack, _Umbrella_Folded, _PlanterBox | 8k / 4k / 3k / 3k | THE LOFTLARK |
 | assets/gantry.py | SM_Roof_Gantry_16m (deck, grating, rails, cabinet) | 25k | grating as a texture on plates, not open mesh |
 | | SM_Sign_LEDWall_16x9 (cabinet tiles, truss back) | 30k | the playable back is plate and truss, not lattice |
 | | SM_Roof_BillboardFrame_16x8 (C1) | 25k | catwalk, 4 lamps |
@@ -1097,6 +1102,6 @@ resets health and stats per level and ends on the album card (progression.md); M
 
 1. Night (recommended, "bright square") or dusk? Dusk keeps the day rig's sky but loses most of the screens' punch, and
    brings the cloud cost back.
-2. The invented brand list in 12.2 and 12.4: approve, change or add. Every name still needs its trademark search. And
-   are IPX slides on every screen after the last reel wanted?
+2. The invented brand list in 12.2 and 12.4: approve, change or add. Searched 2026-11-26, eleven replaced; the list
+   for the owner's sign-off is [names.md](names.md). And are IPX slides on every screen after the last reel wanted?
 3. Hold the Square on this map: ship it, with a best score per map?

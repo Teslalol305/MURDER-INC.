@@ -351,7 +351,7 @@ slab whose top is the walkable roof at **5.7 m**. The floor is concrete at y 0. 
     layer sit here and on the roof (8.2). The stair inside it is art only, like the Block's shop interiors.
 - **The kitchen roof** is the bakery's one-storey rear extension (x 0..8, z -3..10) at y 5.7. It joins the market
   roof over a 0.30 m curb at x 0. Its east parapet on Mott (1.0 m, guarded) has a broken 3 m section at z 2..5, lit
-  by the glow of the LILY CAFE sign opposite. That gap is the roof's one way down besides the stair.
+  by the glow of the LITTLE KITE CAFE sign opposite. That gap is the roof's one way down besides the stair.
 
 **The authored drops (every one 4.0 m or less, checked by check 4 in section 17):**
 
@@ -413,7 +413,7 @@ A sprint off the shed lands on the parked van (roof 2.0 m) or on the roadway; bo
 - A box truck across the south end (x 9.6..17.6, z 27.2..29.8).
 - 46 m long and narrow, so Goons push up and down it.
 - The fronts on Mott: the bakery's kitchen door; S3 GOOD WISHES GROCERY, with fruit boxes on the
-  sidewalk; E1a's LILY CAFE; and the dub room's roll-up (x 18, z 24..27, 3 m, open) under the dead neon
+  sidewalk; E1a's LITTLE KITE CAFE; and the dub room's roll-up (x 18, z 24..27, 3 m, open) under the dead neon
   of SILVER WAVE VIDEO.
 - The fire escape on S3's Mott face is dressing.
 
@@ -475,11 +475,11 @@ adds 0.9.
 | Id | Footprint (x, z) | Storeys | Roof / parapet top | Front | Facade | Shops (ground; upper) | Fire escapes |
 |---|---|---|---|---|---|---|---|
 | N1 | -44..-29, -36..-33 | 6 | 19.3 / 20.2 | Canal | painted brick, cream | GOLD HITS RECORDS; 2F JADE TEAPOT DIM SUM (blade) | 1 (Canal) |
-| N2 | -29..-15, -36..-33 | 5 | 16.2 / 17.1 | Canal | red brick | TWIN CARP JEWELRY; 3F SEA BREEZE TRAVEL (window letters) | 0 |
+| N2 | -29..-15, -36..-33 | 5 | 16.2 / 17.1 | Canal | red brick | TWIN CARP JEWELRY; 3F FAR SHORE TRAVEL (window letters) | 0 |
 | N3 | -15..-1, -36..-33 | 5 | 16.2 / 17.1 | Canal | buff brick | EIGHT TREASURE BBQ (roast-duck window) | 1 (Canal) |
 | N4 | -1..13, -36..-33 | 6 | 19.3 / 20.2 | Canal | brown brick, sidewalk shed in front | SPRING PINE HERBS & GINSENG | 0 |
 | N5 | 13..26, -36..-33 | 5 | 16.2 / 17.1 | Canal | painted green | LONG LIFE NOODLE HOUSE; 2F MAHJONG (window neon) | 0 |
-| N6 | 26..44, -36..-33 | 7 | 22.4 / 23.3 | Canal | red brick | SUNNY DAY LAUNDROMAT; BRIGHT MOON HOTEL (4-storey blade, the east landmark) | 0 |
+| N6 | 26..44, -36..-33 | 7 | 22.4 / 23.3 | Canal | red brick | SUNNY DAY LAUNDROMAT; HARBOR STAR HOTEL (4-storey blade, the east landmark) | 0 |
 | W1 | -44..-30, -14..32 | 6 | 19.3 / 20.2 | Canal, alley A | red brick | WEST CITY HARDWARE (gate down) | 3 (alley A) |
 | M | -26..0, -14..6 | 1 (hall) | 5.7 / 6.8 (Canal side) | Canal | painted block and corrugated fascia | GOLDEN TIDE MARKET (walk in) | 0 (the climbable stair is separate) |
 | B0 | -26..-16, 6..10 | 1 | 5.7 | alley A | common brick | market storeroom (shut); its roof bulkhead is the roof Goons' door (4.4) | 0 |
@@ -487,9 +487,9 @@ adds 0.9.
 | S1 | -30..-14, 14..32 | 5 | 16.2 / 17.1 | alley B (backs) | common brick | backs | 2 (alley B) |
 | S2 | -14..0, 14..32 | 5 | 16.2 / 17.1 | alley B (backs) | painted brick | backs | 1 (alley B) |
 | S3 | 0..8, 14..32 | 6 | 19.3 / 20.2 | Mott | brown brick | GOOD WISHES GROCERY; SEVEN STARS COACH; QUICK WIRE | 1 (Mott) |
-| E1a | 18..29.4, -14..2 | 5 | 16.2 / 17.1 | Canal, Mott, Square | red brick | GOLDEN LUCK ELECTRONICS (Canal); LILY CAFE (Mott); CLEVER HANDS TAILOR (Square) | 1 (Mott) |
+| E1a | 18..29.4, -14..2 | 5 | 16.2 / 17.1 | Canal, Mott, Square | red brick | GOLDEN LUCK ELECTRONICS (Canal); LITTLE KITE CAFE (Mott); CLEVER HANDS TAILOR (Square) | 1 (Mott) |
 | Arcade | 29.4..33.6, -14..2 | under E1 | 4.2 (ceiling) | Canal, Square | terrazzo, glass kiosks | PLUM BLOSSOM ARCADE | 0 |
-| E1b | 33.6..44, -14..2 | 6 | 19.3 / 20.2 | Canal | buff brick | CLEAR VIEW OPTICAL (Canal); BIG LIGHT SIGNS (inside, off the arcade) | 0 |
+| E1b | 33.6..44, -14..2 | 6 | 19.3 / 20.2 | Canal | buff brick | WILLOW BRIDGE OPTICAL (Canal); BIG LIGHT SIGNS (inside, off the arcade) | 0 |
 | E2 | 18..44, 18..32 | 3 | 10.0 / 10.9 | Square, Mott | painted stucco, cream with gold trim | CRANE PAVILION BANQUET HALL; SILVER WAVE VIDEO (the dub room) | 0 |
 
 In total there are **10 fire-escape stacks** and one climbable stair. Only N1's and N3's escapes are in the
@@ -504,7 +504,7 @@ start view (section 13.4, flicker).
 - **Yaw:** -1.5708 (facing east). The Unreal pose is (-4000, -2450, 0) cm, yaw 0.
 - **Start pitch:** +4°. The Block uses 7° (presentation.json block.startPitch), so this needs a per-level value.
 - **First view:** east down Canal. The table row and the glowing market entrances are on the right, the TWIN
-  CARP and JADE TEAPOT signs on the left, and the BRIGHT MOON HOTEL blade 77 m away above the IPX truck, so the end of the
+  CARP and JADE TEAPOT signs on the left, and the HARBOR STAR HOTEL blade 77 m away above the IPX truck, so the end of the
   level is in sight from the first second. The Reel 4 marker is 30 m ahead and slightly right.
 - **Patrol check:** the starting patrol must spawn at least 32 m away. 27 of the 35 street ground points qualify, plus the 3 roof points (the
   market, Mott, the Square, east Canal).
@@ -580,10 +580,10 @@ The generator must check that each intended leg is **at least 10 % shorter** tha
 | The market grid | Four identical rows; hanging goods cut the long view | Ground path. The cold-room sign COLD ROOM is lit cold white and visible down the west aisle. The boombox loop at the case. The objective marker. |
 | Three ways out of the market (gates, side door, rear roll-up) | The side door into alley A is the nearest exit from the cold room in a straight line | The path takes the rear roll-up, which is lit by a work lamp and a green exit box. The side door is a narrow dark door for the player only. Alley A loops to alley B anyway, so it is never a dead end. |
 | Alley A's dog-leg | The alley seems to end in a wall | Stencilled "MOTT ST →" and a lit kitchen door at the bend (x -28, z 12), and the wholesaler's lit back door with its cartons at the corner. |
-| The roof | After climbing the stair, the way down may not be obvious | The one gap in the kitchen roof's Mott parapet is lit by the LILY CAFE sign; it drops 2.5 m onto the sidewalk shed, whose missing panel drops 3.05 m to Mott, both free of damage. The stair head has a hazard-yellow handrail. Every other edge is guarded, so nobody falls by accident and nobody is tempted into a drop that hurts. |
+| The roof | After climbing the stair, the way down may not be obvious | The one gap in the kitchen roof's Mott parapet is lit by the LITTLE KITE CAFE sign; it drops 2.5 m onto the sidewalk shed, whose missing panel drops 3.05 m to Mott, both free of damage. The stair head has a hazard-yellow handrail. Every other edge is guarded, so nobody falls by accident and nobody is tempted into a drop that hurts. |
 | Mott St south | The dub room roll-up is on the left among other shopfronts | The only raised shutter on Mott, with a flickering dead neon over it, and light spilling onto wet asphalt. The marker. |
 | After Reel 6 | Two exits (the Mott roll-up or the banquet hall) | The path goes through the hall. The radio line names the arcade. The arcade's arch sign is the brightest object on the Square. |
-| The arcade | A tunnel; the truck is not visible from the Square | The truck's beacon and the BRIGHT MOON HOTEL blade show through the arcade's north mouth. |
+| The arcade | A tunnel; the truck is not visible from the Square | The truck's beacon and the HARBOR STAR HOTEL blade show through the arcade's north mouth. |
 | Closed shopfronts | Players try doors that are art only | Rule: open = gate up, interior lit, door gap at least 2 m. Closed = gate down and tagged, or dark glass. Never a lit, open-looking door that is solid. |
 
 ### 7.4 Hint lines (shown after no progress; the guidance lane's timing)
@@ -803,7 +803,7 @@ lamps.rig: the nearest lamps get real lights) is the fallback if the count in vi
 | Bakery | 2 | 0 | warm 3200 K rect, pink sign wash |
 | Arcade and workshop | 4 + 1 | 0 | rects along the ceiling, 4500 K; the workshop's half-lit sign |
 | Alleys and yard | 3 + 1 | 0 | bulkhead lamps over back doors, 3000 K |
-| Kitchen roof | 1 | 0 | the LILY CAFE spill at the broken parapet |
+| Kitchen roof | 1 | 0 | the LITTLE KITE CAFE spill at the broken parapet |
 | Square | 1 | 1 (pavilion work-lamp spot) | warm spot down through the pavilion; the one lantern string over the banquet doors is emissive only |
 | Banquet hall and dub room | 3 + 2 | 1 (stage) | chandelier points (unshadowed), stage spot (shadowed), dub room work lamp and screen glow |
 | Banquet kitchen | 1 | 0 | fluorescent |
@@ -967,14 +967,19 @@ architecture (packed walk-ups, fire escapes, grilles, stacked blades), the lante
 awnings, the sign style (lightbox bands with keylines and coin ornaments, blades with stacked letters, exposed neon,
 painted boards) and the English shop names. The earlier Chinese strings and the reader sign-off are gone with it.
 
-Every name below is made up for the game. The table is generated from the art's own list
+Every name below is made up for the game. The table was generated from the art's own list
 (`art/blender/assets/_chinatown_names.py`, which also fails the build on any non-English character) and the faces are
 drawn from it into the sign atlas (`Sign_CT_Atlas1`, cells in `art/out/chinatown/signs_chinatown.json`). Before the art
 is final:
 
 1. **Search each name** as written against New York, and change any that turns out to be a real business, brand or
-   trade dress (MAPS.md C1). Pearl River, Kowloon and Golden Phoenix were already avoided for that reason. Not searched
-   yet: a changed name is one line in the list and a re-run of the atlas.
+   trade dress (MAPS.md C1). Pearl River, Kowloon and Golden Phoenix were already avoided for that reason. **Searched
+   2026-11-26 (revision 4, lane C): the approved list, each query and what it found are in [names.md](names.md).**
+   Four names collided with real businesses (a travel agency, a hotel a few blocks away, a Brooklyn cafe, a Bronx
+   optometrist) and are replaced in this table by FAR SHORE TRAVEL, HARBOR STAR HOTEL, LITTLE KITE CAFE and WILLOW
+   BRIDGE OPTICAL; names.md 4 gives the old names and the evidence. The art's list and the level layout still carry
+   the old four until their lanes change them and re-run the atlas: `python3 tools/names/check_names.py` lists every
+   line that must change and passes when none is left.
 2. **No phone numbers.** Manhattan would be (212), which ART_BIBLE 5.7 does not allow without the owner's approval.
    **No web addresses, no prices of real routes.**
 3. **The new real place names** need the lead to add them to ART_BIBLE 5.7's list of allowed real places:
@@ -986,12 +991,12 @@ is final:
 | GOLD HITS RECORDS / CDs  ·  VINYL  ·  KARAOKE | N1 ground, Canal | lightbox band (SM_Sign_CT_Band_8m) | on |
 | JADE TEAPOT / DIM SUM | N1 2F blade over Canal (red outline above 4 m) | double-sided lightbox blade, letters stacked (SM_Sign_CT_Blade_6m) | on |
 | TWIN CARP JEWELRY / GOLD  ·  JADE  ·  WATCHES | N2 ground, Canal: the one red-ground lightbox, 3.2 to 4.2 m | lightbox band (SM_Sign_CT_Band_8m) | on |
-| SEA BREEZE TRAVEL / TICKETS  ·  TOURS | N2 3F window (window vinyl, lit by the room) | small lightbox (SM_Sign_CT_Kiosk_3m) | off |
+| FAR SHORE TRAVEL / TICKETS  ·  TOURS | N2 3F window (window vinyl, lit by the room) | small lightbox (SM_Sign_CT_Kiosk_3m) | off |
 | EIGHT TREASURE BBQ / ROAST DUCK  ·  ROAST PORK  ·  SOY CHICKEN | N3 ground, Canal, over the roast-duck window | lightbox band (SM_Sign_CT_Band_8m) | on |
 | SPRING PINE HERBS & GINSENG / DRIED GOODS  ·  TEAS  ·  REMEDIES | N4 ground, Canal, behind the sidewalk shed | lightbox band (SM_Sign_CT_Band_10m) | on |
 | LONG LIFE NOODLE HOUSE / HAND-PULLED NOODLES  ·  WONTON SOUP | N5 ground, Canal | lightbox band (SM_Sign_CT_Band_8m) | on |
 | SUNNY DAY LAUNDROMAT / WASH  ·  DRY  ·  FOLD | N6 ground, Canal | lightbox band (SM_Sign_CT_Band_8m) | on |
-| BRIGHT MOON / HOTEL | N6, four-storey blade: the east landmark over the IPX truck | double-sided lightbox blade, letters stacked (SM_Sign_CT_Blade_12m) | on |
+| HARBOR STAR / HOTEL | N6, four-storey blade: the east landmark over the IPX truck | double-sided lightbox blade, letters stacked (SM_Sign_CT_Blade_12m) | on |
 | GOLDEN TIDE MARKET / FISH  ·  PRODUCE  ·  DRY GOODS  ·  OPEN 7 DAYS | the market's Canal band | lightbox band (SM_Sign_CT_Band_10m) | on |
 | MARKET | the market's two blades | double-sided lightbox blade, letters stacked (SM_Sign_CT_Blade_4m) | on |
 | FRESH FISH | market stall board | painted board (SM_Sign_CT_StallBoard) |  |
@@ -1005,14 +1010,14 @@ is final:
 | MOON GATE BAKERY / BUNS  ·  CAKES  ·  EGG TARTS | W3 Canal band under the pink neon | lightbox band (SM_Sign_CT_Band_6m) | on |
 | WEST CITY HARDWARE / TOOLS  ·  PAINT  ·  KEYS | W1 Canal (shut, gate down, sign off) | lightbox band (SM_Sign_CT_Band_8m) | off |
 | GOLDEN LUCK ELECTRONICS / PHONES  ·  CAMERAS  ·  REPAIRS | E1a Canal | lightbox band (SM_Sign_CT_Band_10m) | on |
-| LILY CAFE / MILK TEA  ·  BUNS  ·  NOODLES | E1a Mott (lights the kitchen-roof gap) | lightbox band (SM_Sign_CT_Band_6m) | on |
+| LITTLE KITE CAFE / MILK TEA  ·  BUNS  ·  NOODLES | E1a Mott (lights the kitchen-roof gap) | lightbox band (SM_Sign_CT_Band_6m) | on |
 | CLEVER HANDS TAILOR / ALTERATIONS  ·  HEMS | E1a, Square side | small lightbox (SM_Sign_CT_Kiosk_3m) | on |
 | PLUM BLOSSOM ARCADE | both arcade mouths | lit arch (SM_Sign_CT_Arch) | on |
 | WATCH REPAIR | arcade kiosk | small lightbox (SM_Sign_CT_Kiosk_1m) | on |
 | KEYS CUT | arcade kiosk | small lightbox (SM_Sign_CT_Kiosk_1m) | on |
 | PHONES | arcade kiosk | small lightbox (SM_Sign_CT_Kiosk_1m) | on |
 | NEON SIGNS | arcade kiosk | small lightbox (SM_Sign_CT_Kiosk_1m) | on |
-| CLEAR VIEW OPTICAL / EYE EXAMS  ·  FRAMES  ·  CONTACTS | E1b Canal | lightbox band (SM_Sign_CT_Band_8m) | on |
+| WILLOW BRIDGE OPTICAL / EYE EXAMS  ·  FRAMES  ·  CONTACTS | E1b Canal | lightbox band (SM_Sign_CT_Band_8m) | on |
 | CRANE PAVILION BANQUET HALL / WEDDINGS  ·  BANQUETS  ·  DIM SUM | E2 Square, over the red doors (gold and cream) | lightbox band (SM_Sign_CT_Band_10m) | on |
 | GOOD WISHES GROCERY / PRODUCE  ·  RICE  ·  SAUCES  ·  SNACKS | S3 Mott, over the fruit boxes | lightbox band (SM_Sign_CT_Band_8m) | on |
 | SEVEN STARS COACH / DAILY COACH  ·  TICKETS INSIDE | S3 Mott: an intercity bus ticket office (no towns, no prices) | lightbox band (SM_Sign_CT_Band_8m) | on |
@@ -1322,7 +1327,8 @@ These are shared with Level 3. MAPS.md section 3 gives each item its lane, its s
 9. **Performance gates** (14): the five worst views on the box with l20 at 1080p, then on E3DS. Flicker
    (rev8 at 0.50) on the alley A and Mott fire escapes. Texture streaming want and cooked size recorded.
 10. **Content.** Every name in 13.3 searched, English only (the art's own check fails on any other character), no
-    brand look-alikes (ART_BIBLE 5.7).
+    brand look-alikes (ART_BIBLE 5.7). Searched 2026-11-26 ([names.md](names.md)); `tools/names/check_names.py`
+    passes (no retired name, no unlisted name, no CJK character in the level's files) before the atlas is final.
 11. **Readability.** In each of the five worst views (14), with the final lighting, a Goon placed at 15 m and at
     25 m on the critical path: its silhouette's mean luminance differs from the background behind it by at least
     a factor of 1.6 at render scale 0.50, and a reviewer who did not build the level finds it in the stream frame
