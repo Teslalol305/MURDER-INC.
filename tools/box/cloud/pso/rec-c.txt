@@ -1,0 +1,354 @@
+# The pipeline-cache recording (C): the Development game with -logPSO plays this through its demo director
+# (tools/box/cloud/pso-cache.sh record); every pipeline state drawn is written to Saved/CollectedPSOs at each Save.
+# docs/unreal/SMOOTH.md H3, H4. The Story through the front end with SHORTY red dot + compensator + vertical grip + long magazine, NINE long magazine, STICK irons + standard magazine + open stock + angled grip, CHOPPER factory, each drawn, fired and aimed; then Graphics quality Low, Medium, High and Ultra in play (a fight on each) and back to Auto, a fight, a blast.
+wait 0.5
+con csvprofile start
+wait 3
+con MIMenu fe home
+wait 3
+con MIMenu fe controls
+wait 1.5
+con MIMenu fe controls
+wait 1
+con MIMenu fe settings
+wait 2
+con MIMenu back
+wait 2
+con MIMenu fe home
+wait 1.5
+con MIMenu fe gearup
+wait 2
+con MIMenu fe crew rule
+wait 1.5
+con MIMenu fe next
+wait 2
+con MIMenu fe focusgun shorty
+wait 0.7
+con MIMenu fe slot 1 shorty
+wait 0.7
+con MIMenu fe focusgun nine
+wait 0.7
+con MIMenu fe slot 2 nine
+wait 0.7
+con MIMenu fe focusgun stick
+wait 0.7
+con MIMenu fe slot 3 stick
+wait 0.7
+con MIMenu fe focusgun chopper
+wait 0.7
+con MIMenu fe slot 4 chopper
+wait 0.7
+con MIMenu fe bench shorty
+wait 1.2
+con MIMenu fe benchslot optic
+wait 0.6
+con MIMenu fe preview red_dot
+wait 0.8
+con MIMenu fe fit red_dot
+wait 0.8
+con MIMenu fe benchslot muzzle
+wait 0.6
+con MIMenu fe preview compensator
+wait 0.8
+con MIMenu fe fit compensator
+wait 0.8
+con MIMenu fe benchslot underbarrel
+wait 0.6
+con MIMenu fe preview foregrip_vertical
+wait 0.8
+con MIMenu fe fit foregrip_vertical
+wait 0.8
+con MIMenu fe benchslot magazine
+wait 0.6
+con MIMenu fe preview mag_ext_rifle
+wait 0.8
+con MIMenu fe fit mag_ext_rifle
+wait 0.8
+con MIMenu fe done
+wait 0.8
+con MIMenu fe bench nine
+wait 1.2
+con MIMenu fe benchslot magazine
+wait 0.6
+con MIMenu fe preview mag_ext_pistol
+wait 0.8
+con MIMenu fe fit mag_ext_pistol
+wait 0.8
+con MIMenu fe done
+wait 0.8
+con MIMenu fe bench stick
+wait 1.2
+con MIMenu fe benchslot optic
+wait 0.6
+con MIMenu fe preview irons
+wait 0.8
+con MIMenu fe fit irons
+wait 0.8
+con MIMenu fe benchslot magazine
+wait 0.6
+con MIMenu fe preview mag_standard
+wait 0.8
+con MIMenu fe fit mag_standard
+wait 0.8
+con MIMenu fe benchslot stock
+wait 0.6
+con MIMenu fe preview stock_open
+wait 0.8
+con MIMenu fe fit stock_open
+wait 0.8
+con MIMenu fe benchslot underbarrel
+wait 0.6
+con MIMenu fe preview grip_angled
+wait 0.8
+con MIMenu fe fit grip_angled
+wait 0.8
+con MIMenu fe done
+wait 0.8
+con MIMenu fe next
+wait 1
+con MIMenu fe level block
+con MIMenu fe time day
+wait 0.6
+con MIMenu fe mode mission
+wait 0.6
+con MIMenu fe difficulty hustler
+wait 1.5
+con MIMenu fe next
+wait 3.5
+con MIMenu fe hit
+waitstate playing 30
+god 1
+wait 3
+con MIInput weapon1 1
+wait 1.4
+con MIInput fire 1
+wait 0.6
+con MIInput fire 0
+wait 0.4
+con MIInput ads 1
+wait 0.8
+con MIInput fire 1
+wait 0.8
+con MIInput fire 0
+wait 1.0
+con MIInput ads 0
+wait 0.4
+con MIInput reload 1
+wait 3.0
+con MIInput inspect 1
+wait 2.0
+con MIInput weapon2 1
+wait 1.4
+con MIInput fire 1
+wait 0.6
+con MIInput fire 0
+wait 0.4
+con MIInput ads 1
+wait 0.8
+con MIInput fire 1
+wait 0.8
+con MIInput fire 0
+wait 1.0
+con MIInput ads 0
+wait 0.4
+con MIInput reload 1
+wait 3.0
+con MIInput inspect 1
+wait 2.0
+con MIInput weapon3 1
+wait 1.4
+con MIInput fire 1
+wait 0.6
+con MIInput fire 0
+wait 0.4
+con MIInput ads 1
+wait 0.8
+con MIInput fire 1
+wait 0.8
+con MIInput fire 0
+wait 1.0
+con MIInput ads 0
+wait 0.4
+con MIInput reload 1
+wait 3.0
+con MIInput inspect 1
+wait 2.0
+con MIInput weapon4 1
+wait 1.4
+con MIInput fire 1
+wait 0.6
+con MIInput fire 0
+wait 0.4
+con MIInput ads 1
+wait 0.8
+con MIInput fire 1
+wait 0.8
+con MIInput fire 0
+wait 1.0
+con MIInput ads 0
+wait 0.4
+con MIInput reload 1
+wait 3.0
+con MIInput inspect 1
+wait 2.0
+con r.ShaderPipelineCache.Save
+con MIPauseKey
+wait 1
+con MIMenu down
+con MIMenu down
+con MIMenu down
+con MIMenu confirm
+wait 0.5
+con MIMenu down
+con MIMenu down
+con MIMenu down
+con MIMenu down
+con MIMenu down
+wait 0.5
+con MIMenu right
+wait 0.5
+wait 1
+con MIMenu back
+wait 0.5
+con MIMenu back
+wait 1
+look 40 2 2
+look -20 2 2
+look 0 2 2
+spring 1.3 110 1.7
+auto 1 1
+alert 40
+fight 12 2 1 4
+auto 0
+con MIPauseKey
+wait 1
+con MIMenu down
+con MIMenu down
+con MIMenu down
+con MIMenu confirm
+wait 0.5
+con MIMenu down
+con MIMenu down
+con MIMenu down
+con MIMenu down
+con MIMenu down
+wait 0.5
+con MIMenu right
+wait 0.5
+wait 1
+con MIMenu back
+wait 0.5
+con MIMenu back
+wait 1
+look 40 2 2
+look -20 2 2
+look 0 2 2
+spring 1.3 110 1.7
+auto 1 1
+alert 40
+fight 12 2 1 4
+auto 0
+con MIPauseKey
+wait 1
+con MIMenu down
+con MIMenu down
+con MIMenu down
+con MIMenu confirm
+wait 0.5
+con MIMenu down
+con MIMenu down
+con MIMenu down
+con MIMenu down
+con MIMenu down
+wait 0.5
+con MIMenu right
+wait 0.5
+wait 1
+con MIMenu back
+wait 0.5
+con MIMenu back
+wait 1
+look 40 2 2
+look -20 2 2
+look 0 2 2
+spring 1.3 110 1.7
+auto 1 1
+alert 40
+fight 12 2 1 4
+auto 0
+con MIPauseKey
+wait 1
+con MIMenu down
+con MIMenu down
+con MIMenu down
+con MIMenu confirm
+wait 0.5
+con MIMenu down
+con MIMenu down
+con MIMenu down
+con MIMenu down
+con MIMenu down
+wait 0.5
+con MIMenu right
+wait 0.5
+wait 1
+con MIMenu back
+wait 0.5
+con MIMenu back
+wait 1
+look 40 2 2
+look -20 2 2
+look 0 2 2
+spring 1.3 110 1.7
+auto 1 1
+alert 40
+fight 12 2 1 4
+auto 0
+con r.ShaderPipelineCache.Save
+con MIPauseKey
+wait 1
+con MIMenu down
+con MIMenu down
+con MIMenu down
+con MIMenu confirm
+wait 0.5
+con MIMenu down
+con MIMenu down
+con MIMenu down
+con MIMenu down
+con MIMenu down
+wait 0.5
+con MIMenu left
+wait 0.5
+con MIMenu left
+wait 0.5
+con MIMenu left
+wait 0.5
+con MIMenu left
+wait 0.5
+wait 1
+con MIMenu back
+wait 0.5
+con MIMenu back
+wait 1
+face path -2
+auto 1 1
+route 0 -3725 875 -3475 875 -3175 675 -2775 525 -2775 425 -1500 150
+fight 20 3 1 5
+con MIInput weapon3 1
+wait 1.4
+con MIInput ads 1
+fight 8 1 1 3
+con MIInput ads 0
+auto 0
+lookat -420 -800 60 2.5
+blow 5
+wait 3
+wait 2
+con r.ShaderPipelineCache.Save
+wait 2
+con csvprofile stop
+wait 2
+con r.ShaderPipelineCache.Save
+wait 2
+quit

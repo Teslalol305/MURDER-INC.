@@ -1,0 +1,415 @@
+# The pipeline-cache recording (A): the Development game with -logPSO plays this through its demo director
+# (tools/box/cloud/pso-cache.sh record); every pipeline state drawn is written to Saved/CollectedPSOs at each Save.
+# docs/unreal/SMOOTH.md H3, H4. Every set-up screen, every crew member, every gun and every part on the Workbench, then the Story run (guidance on, fights, deaths, a blast, the reels, the truck) with CHOPPER red dot + suppressor, NINE laser + suppressor, SHORTY 4x scope + laser + angled grip, STRETCH red dot + vertical grip, each drawn, fired from the hip and aimed.
+wait 0.5
+con csvprofile start
+wait 3
+con MIMenu fe home
+wait 3
+con MIMenu fe controls
+wait 1.5
+con MIMenu fe controls
+wait 1
+con MIMenu fe settings
+wait 2
+con MIMenu back
+wait 2
+con MIMenu fe home
+wait 1.5
+con MIMenu fe gearup
+wait 2
+con MIMenu fe crew deuce
+wait 1.5
+con MIMenu fe crew smoke
+wait 1.5
+con MIMenu fe crew keys
+wait 1.5
+con MIMenu fe crew rule
+wait 1.5
+con MIMenu fe next
+wait 2
+con MIMenu fe focusgun chopper
+wait 1.0
+con MIMenu fe focusgun nine
+wait 1.0
+con MIMenu fe focusgun shorty
+wait 1.0
+con MIMenu fe focusgun stick
+wait 1.0
+con MIMenu fe focusgun stretch
+wait 1.0
+con MIMenu fe focusgun rattler
+wait 1.0
+con MIMenu fe bench chopper
+wait 1.5
+con MIMenu fe benchslot optic
+wait 0.8
+con MIMenu fe preview red_dot
+wait 1.2
+con MIMenu fe preview scope_4x
+wait 1.2
+con MIMenu fe benchslot muzzle
+wait 0.8
+con MIMenu fe preview suppressor
+wait 1.2
+con MIMenu fe preview compensator
+wait 1.2
+con MIMenu fe benchslot underbarrel
+wait 0.8
+con MIMenu fe preview foregrip_vertical_wood
+wait 1.2
+con MIMenu fe done
+wait 0.8
+con MIMenu fe bench nine
+wait 1.5
+con MIMenu fe benchslot muzzle
+wait 0.8
+con MIMenu fe preview suppressor_pistol
+wait 1.2
+con MIMenu fe benchslot laser
+wait 0.8
+con MIMenu fe preview laser_module
+wait 1.2
+con MIMenu fe benchslot magazine
+wait 0.8
+con MIMenu fe preview mag_ext_pistol
+wait 1.2
+con MIMenu fe done
+wait 0.8
+con MIMenu fe bench shorty
+wait 1.5
+con MIMenu fe benchslot optic
+wait 0.8
+con MIMenu fe preview red_dot
+wait 1.2
+con MIMenu fe preview scope_4x
+wait 1.2
+con MIMenu fe benchslot muzzle
+wait 0.8
+con MIMenu fe preview suppressor
+wait 1.2
+con MIMenu fe preview compensator
+wait 1.2
+con MIMenu fe benchslot underbarrel
+wait 0.8
+con MIMenu fe preview foregrip_vertical
+wait 1.2
+con MIMenu fe preview foregrip_angled
+wait 1.2
+con MIMenu fe benchslot laser
+wait 0.8
+con MIMenu fe preview laser_module
+wait 1.2
+con MIMenu fe benchslot magazine
+wait 0.8
+con MIMenu fe preview mag_ext_rifle
+wait 1.2
+con MIMenu fe done
+wait 0.8
+con MIMenu fe bench stick
+wait 1.5
+con MIMenu fe benchslot optic
+wait 0.8
+con MIMenu fe preview irons
+wait 1.2
+con MIMenu fe preview scope
+wait 1.2
+con MIMenu fe benchslot muzzle
+wait 0.8
+con MIMenu fe preview silencer
+wait 1.2
+con MIMenu fe benchslot underbarrel
+wait 0.8
+con MIMenu fe preview grip_vertical
+wait 1.2
+con MIMenu fe preview grip_angled
+wait 1.2
+con MIMenu fe benchslot laser
+wait 0.8
+con MIMenu fe preview laser
+wait 1.2
+con MIMenu fe benchslot magazine
+wait 0.8
+con MIMenu fe preview mag_standard
+wait 1.2
+con MIMenu fe preview mag_clear
+wait 1.2
+con MIMenu fe benchslot stock
+wait 0.8
+con MIMenu fe preview stock_open
+wait 1.2
+con MIMenu fe preview stock_folded
+wait 1.2
+con MIMenu fe done
+wait 0.8
+con MIMenu fe bench stretch
+wait 1.5
+con MIMenu fe benchslot optic
+wait 0.8
+con MIMenu fe preview scope_4x
+wait 1.2
+con MIMenu fe preview red_dot
+wait 1.2
+con MIMenu fe benchslot muzzle
+wait 0.8
+con MIMenu fe preview suppressor
+wait 1.2
+con MIMenu fe benchslot underbarrel
+wait 0.8
+con MIMenu fe preview foregrip_vertical
+wait 1.2
+con MIMenu fe preview foregrip_angled
+wait 1.2
+con MIMenu fe benchslot magazine
+wait 0.8
+con MIMenu fe preview mag_ext_rifle
+wait 1.2
+con MIMenu fe done
+wait 0.8
+con MIMenu fe bench rattler
+wait 1.5
+con MIMenu fe benchslot optic
+wait 0.8
+con MIMenu fe preview red_dot
+wait 1.2
+con MIMenu fe benchslot muzzle
+wait 0.8
+con MIMenu fe preview suppressor
+wait 1.2
+con MIMenu fe preview compensator
+wait 1.2
+con MIMenu fe benchslot magazine
+wait 0.8
+con MIMenu fe preview mag_ext_smg
+wait 1.2
+con MIMenu fe done
+wait 0.8
+con r.ShaderPipelineCache.Save
+con MIMenu fe focusgun chopper
+wait 0.7
+con MIMenu fe slot 1 chopper
+wait 0.7
+con MIMenu fe focusgun nine
+wait 0.7
+con MIMenu fe slot 2 nine
+wait 0.7
+con MIMenu fe focusgun shorty
+wait 0.7
+con MIMenu fe slot 3 shorty
+wait 0.7
+con MIMenu fe focusgun stretch
+wait 0.7
+con MIMenu fe slot 4 stretch
+wait 0.7
+con MIMenu fe bench chopper
+wait 1.2
+con MIMenu fe benchslot optic
+wait 0.6
+con MIMenu fe preview red_dot
+wait 0.8
+con MIMenu fe fit red_dot
+wait 0.8
+con MIMenu fe benchslot muzzle
+wait 0.6
+con MIMenu fe preview suppressor
+wait 0.8
+con MIMenu fe fit suppressor
+wait 0.8
+con MIMenu fe done
+wait 0.8
+con MIMenu fe bench nine
+wait 1.2
+con MIMenu fe benchslot laser
+wait 0.6
+con MIMenu fe preview laser_module
+wait 0.8
+con MIMenu fe fit laser_module
+wait 0.8
+con MIMenu fe benchslot muzzle
+wait 0.6
+con MIMenu fe preview suppressor_pistol
+wait 0.8
+con MIMenu fe fit suppressor_pistol
+wait 0.8
+con MIMenu fe done
+wait 0.8
+con MIMenu fe bench shorty
+wait 1.2
+con MIMenu fe benchslot optic
+wait 0.6
+con MIMenu fe preview scope_4x
+wait 0.8
+con MIMenu fe fit scope_4x
+wait 0.8
+con MIMenu fe benchslot laser
+wait 0.6
+con MIMenu fe preview laser_module
+wait 0.8
+con MIMenu fe fit laser_module
+wait 0.8
+con MIMenu fe benchslot underbarrel
+wait 0.6
+con MIMenu fe preview foregrip_angled
+wait 0.8
+con MIMenu fe fit foregrip_angled
+wait 0.8
+con MIMenu fe done
+wait 0.8
+con MIMenu fe bench stretch
+wait 1.2
+con MIMenu fe benchslot optic
+wait 0.6
+con MIMenu fe preview red_dot
+wait 0.8
+con MIMenu fe fit red_dot
+wait 0.8
+con MIMenu fe benchslot underbarrel
+wait 0.6
+con MIMenu fe preview foregrip_vertical
+wait 0.8
+con MIMenu fe fit foregrip_vertical
+wait 0.8
+con MIMenu fe done
+wait 0.8
+con MIMenu fe next
+wait 1
+con MIMenu fe level block
+con MIMenu fe time day
+wait 0.6
+con MIMenu fe mode mission
+wait 0.6
+con MIMenu fe difficulty hustler
+wait 1.5
+con MIMenu fe next
+wait 3.5
+con MIMenu fe hit
+waitstate playing 30
+god 1
+wait 3
+con MIInput weapon1 1
+wait 1.4
+con MIInput fire 1
+wait 0.6
+con MIInput fire 0
+wait 0.4
+con MIInput ads 1
+wait 0.8
+con MIInput fire 1
+wait 0.8
+con MIInput fire 0
+wait 1.0
+con MIInput ads 0
+wait 0.4
+con MIInput reload 1
+wait 3.0
+con MIInput inspect 1
+wait 2.0
+con MIInput weapon2 1
+wait 1.4
+con MIInput fire 1
+wait 0.6
+con MIInput fire 0
+wait 0.4
+con MIInput ads 1
+wait 0.8
+con MIInput fire 1
+wait 0.8
+con MIInput fire 0
+wait 1.0
+con MIInput ads 0
+wait 0.4
+con MIInput reload 1
+wait 3.0
+con MIInput inspect 1
+wait 2.0
+con MIInput weapon3 1
+wait 1.4
+con MIInput fire 1
+wait 0.6
+con MIInput fire 0
+wait 0.4
+con MIInput ads 1
+wait 0.8
+con MIInput fire 1
+wait 0.8
+con MIInput fire 0
+wait 1.0
+con MIInput ads 0
+wait 0.4
+con MIInput reload 1
+wait 3.0
+con MIInput inspect 1
+wait 2.0
+con MIInput weapon4 1
+wait 1.4
+con MIInput fire 1
+wait 0.6
+con MIInput fire 0
+wait 0.4
+con MIInput ads 1
+wait 0.8
+con MIInput fire 1
+wait 0.8
+con MIInput fire 0
+wait 1.0
+con MIInput ads 0
+wait 0.4
+con MIInput reload 1
+wait 3.0
+con MIInput inspect 1
+wait 2.0
+con r.ShaderPipelineCache.Save
+secure 1
+secure 2
+spring 1.3 110 1.7
+face path -2
+auto 1 1
+route 0 -3725 875 -3475 875 -3175 675 -2775 525 -2775 425 -1500 150
+alert 60
+fight 22 3 1 5
+con MIInput reload 1
+wait 2.8
+con MIInput weapon2 1
+wait 1.4
+fight 8 1 1 3
+con MIInput weapon3 1
+wait 1.4
+con MIInput ads 1
+fight 8 1 1 3
+con MIInput ads 0
+con MIInput weapon4 1
+wait 1.4
+con MIInput ads 1
+fight 8 1 1 3
+con MIInput ads 0
+auto 0
+con MIInput weapon1 1
+wait 1.0
+lookat -420 -800 60 2.5
+blow 5
+wait 2.5
+con r.ShaderPipelineCache.Save
+auto 1 1
+goto -490 130
+auto 0
+lookat -400 100 60 1.5
+grab 6
+wait 1.0
+con MIPauseKey
+wait 2
+con MIPauseKey
+wait 1
+auto 0
+goto 3475 2525 1
+face point 4130 2970 170
+walk 3480 2930 0 60 8
+waitstate complete 30
+wait 6
+wait 2
+con r.ShaderPipelineCache.Save
+wait 2
+con csvprofile stop
+wait 2
+con r.ShaderPipelineCache.Save
+wait 2
+quit

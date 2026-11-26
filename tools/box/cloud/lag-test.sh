@@ -124,6 +124,16 @@ venv() {  # the viewer's Python (aiortc); /tmp is lost when the box restarts
   python3 -m venv /tmp/fps/venv && /tmp/fps/venv/bin/pip -q install aiortc websockets pillow
 }
 
+savedcopy() {  # <build> <run name> <run folder>: the CSV profile and a -logPSO run's recording (pso-cache.sh) into the run's folder
+  # The launcher puts Saved next to the game when the game's user may write there (a folder unzipped as that user, as
+  # E3DS does and the release gate does with e3dsfresh), else under the user's home (runas=fresh: /tmp/e3dsfresh-lag-<run>).
+  local d f=
+  [ "$runas" = fresh ] && f="/tmp/e3dsfresh-lag-$2/MurderInc-cloud/Saved"   # (run_fg's own runas)
+  for d in "$1/MurderInc/Saved" $f; do
+    cp "$d"/Profiling/CSV/*.csv "$d"/CollectedPSOs/*.upipelinecache "$3/" 2>/dev/null
+  done
+}
+
 hogs() {  # <n>[:<work ms>[:<idle ms>[:<size>]]] <pid file> <log prefix> | stop <pid file>
   if [ "$1" = stop ]; then
     local p; for p in $(cat "$2" 2>/dev/null); do kill "$p" 2>/dev/null; done; rm -f "$2"; return
@@ -261,7 +271,7 @@ run_fg() {
     for i in $(seq 1 $((secs + 60))); do [ -f "$R/result.txt" ] && break; sleep 1; done
     hogs stop "$O/hog.pids"
     cp "$R/game.log" "$O/game.log" 2>/dev/null; cp "$R/result.txt" "$O/result.txt" 2>/dev/null
-    cp "$build"/MurderInc/Saved/Profiling/CSV/*.csv "$build"/MurderInc/Saved/CollectedPSOs/*.upipelinecache "$O/" 2>/dev/null
+    savedcopy "$build" "$name" "$O"
     echo DONE > "$O/done"; wait
     python3 "$T/lag_sum.py" "$O" > "$O/summary.txt" 2>&1
     cat "$O/summary.txt"
@@ -300,8 +310,7 @@ run_fg() {
   for i in $(seq 1 $((secs + 60))); do [ -f "$R/result.txt" ] && break; sleep 1; done
   hogs stop "$O/hog.pids"
   cp "$R/game.log" "$O/game.log" 2>/dev/null; cp "$R/result.txt" "$O/result.txt" 2>/dev/null
-  cp "$build"/MurderInc/Saved/Profiling/CSV/*.csv "$O/" 2>/dev/null
-  cp "$build"/MurderInc/Saved/CollectedPSOs/*.upipelinecache "$O/" 2>/dev/null   # a -logPSO run's recording (pso-cache.sh)
+  savedcopy "$build" "$name" "$O"
   echo DONE > "$O/done"; wait
   python3 "$T/lag_sum.py" "$O" > "$O/summary.txt" 2>&1
   cat "$O/summary.txt"
