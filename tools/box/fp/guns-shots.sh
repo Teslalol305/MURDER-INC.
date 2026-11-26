@@ -38,8 +38,15 @@ want() { [ -z "${ONLY:-}" ] || [[ " $ONLY " == *" $1:$2 "* ]]; }
 shot() { settle "${SETTLE:-30}"; pie_shot "$out/r4-fp-$1-$2.jpg"; }
 pick() { local pair; for pair in $2; do [ "${pair%%=*}" = "$1" ] && echo "${pair#*=}"; done; }
 
-pie_start > /dev/null
-for i in $(seq 1 60); do tail -n +"$mark" "$log" | grep -q 'Play in editor total start time' && break; sleep 2; done
+# Play in editor asked while the editor still loads the map (the first start of a clone: its game thread is busy for a
+# minute or two) is ignored: ask again, up to five times
+for k in 1 2 3 4 5; do
+  mark=$(wc -l < "$log")
+  pie_start > /dev/null
+  for i in $(seq 1 30); do tail -n +"$mark" "$log" | grep -q 'Play in editor total start time' && break; sleep 2; done
+  tail -n +"$mark" "$log" | grep -q 'Play in editor total start time' && break
+  sleep 10
+done
 tail -n +"$mark" "$log" | grep -m1 'Play in editor total start time' || { echo "GUNS SHOTS FAILED: play in editor did not start"; exit 1; }
 sleep 4; settle 10
 for i in 1 2 3; do c "MIViewSize 1920 1080"; settle 4; done
