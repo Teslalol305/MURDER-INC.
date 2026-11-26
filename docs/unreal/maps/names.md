@@ -220,7 +220,7 @@ new levels' files. Today it reports the replaced names in these files (no one el
 | Lane | Files | Change |
 |---|---|---|
 | A-CT (Canal art) | `art/blender/assets/_chinatown_names.py`, `_chinatown_place.py` | The four faces' text (and their ids, suggested `FarShore`, `HarborStar`, `LittleKite`, `WillowBridge`); re-run the atlas and the north-row previews |
-| A-MT (Midtown art) | `art/blender/assets/_midtown_names.py`, `_midtown_atlas.py` | The slides and faces of section 4.2 (ids suggested `E1_Miravesse`, `E3_Meridale`, `N1_Horovan`, `N1_Northweft`, `N1_Fizzwick`, `Band_SliceOfSeventh`, `Band_Shutterbox`, `Band_BellhavenSavings`, `Band_MeridaleTheatre`, `Band_AshbyCross`); `business_names()` from the approved list; THE LOFTLARK for the lounge neon |
+| A-MT (Midtown art) | `art/blender/assets/_midtown_names.py`, `_midtown_atlas.py`, `_midtown_roof.py` (two comments) | The slides and faces of section 4.2 (ids suggested `E1_Miravesse`, `E3_Meridale`, `N1_Horovan`, `N1_Northweft`, `N1_Fizzwick`, `Band_SliceOfSeventh`, `Band_Shutterbox`, `Band_BellhavenSavings`, `Band_MeridaleTheatre`, `Band_AshbyCross`); `business_names()` from the approved list; THE LOFTLARK for the lounge neon |
 | D (level data) | `tools/levels/layouts/chinatown.py`, `layouts/midtown.py`, then `build_level.py` | The shop strings, the face ids and the screen slides; the rebuilt `tools/levels/data/level_*.json` follow |
 | Lead | `docs/unreal/MAPS.md` 1.4 row 6, `docs/unreal/ART_BIBLE.md` 5.7 | Point decision 6 at this file; add the real places of section 6 |
 
