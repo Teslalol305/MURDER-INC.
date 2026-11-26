@@ -110,7 +110,7 @@ def ground(key, B, out):
     x0, x1 = B["x"]
     W = x1 - x0
     a0, a1 = B["alcove"] - 1.4 - x0, B["alcove"] + 1.4 - x0
-    out.append(entry("SM_Facade_ResEntry_Red", a0, 0.0, 0.0, x0, key, "alcove entrance"))
+    out.append(entry("SM_Facade_CT_Alcove_" + B["brick"], a0, 0.0, 0.0, x0, key, "alcove entrance"))
     shops = []
     for (s0, s1), fronts in zip(((0.0, a0), (a1, W)), B["fronts"]):
         widths = [FRONTS[f] for f, _sg in fronts]
@@ -226,12 +226,53 @@ def needed_widths():
     return {k: sorted(v) for k, v in need.items()}
 
 
-def assemble():
+def assemble_north():
     out = []
     for key, B in ROW.items():
         ground(key, B, out)
         uppers(key, B, out)
     return out
+
+
+_ASM = {}
+
+
+def assemble_all():
+    """The north row, then round 2 (_chinatown_streets): the other buildings, lane D's signs, the props and the structures."""
+    if "all" not in _ASM:
+        from assets import _chinatown_streets as st
+        out = assemble_north()
+        more, rep = st.assemble()
+        _ASM["all"], _ASM["report"] = out + more, rep
+    return list(_ASM["all"])
+
+
+def assemble():
+    return assemble_all()
+
+
+def report():
+    assemble_all()
+    return _ASM["report"]
+
+
+def needed_round2():
+    from assets import _chinatown_streets as st
+    return st.needed()
+
+
+def _round2_buildings():
+    from assets import _chinatown_streets as st
+    return st.buildings()
+
+
+def _round2_proxies():
+    from assets import _chinatown_streets as st
+    return [{"mesh": "SM_Facade_CT_Far_" + k, "building": k, "blender_m": v["pivot_blender_m"],
+             "location_cm": [round(v["pivot_blender_m"][0] * 100, 2), round(-v["pivot_blender_m"][1] * 100, 2),
+                             round(v["pivot_blender_m"][2] * 100, 2)], "yaw": 0.0, "lodSwitch_m": 30.0,
+             "use": "the building's LOD1 / HLOD proxy: its faces' modules merged; drawn instead of them past lodSwitch_m"}
+            for k, v in st.buildings().items()]
 
 
 def write_placements(path):
@@ -241,14 +282,16 @@ def write_placements(path):
                     "the Canal kit. Unreal centimetres (X east, Y south, Z up), yaw degrees about Z (0 = module as imported), "
                     "optional scale along the module's run (X); blender_m / rot_z_deg are the same in Blender metres. Signs carry "
                     "their face key and atlas cell (uv v-up). See the module docstring for what waits on lane D's colliders.",
-           "buildings": {k: {"x_web": list(B["x"]), "storeys": B["storeys"], "brick": B["brick"], "fronts": B["fronts"], "band": B["band"]}
-                         for k, B in ROW.items()},
+           "buildings": dict({k: {"x_web": list(B["x"]), "storeys": B["storeys"], "brick": B["brick"], "fronts": B["fronts"], "band": B["band"]}
+                              for k, B in ROW.items()}, **_round2_buildings()),
+           "notPlaced": report()["notPlaced"], "unmappedProps": report()["unmapped"],
+           "propFit": report()["fit"],
            "count": len(out), "instances": out,
            "farProxies": [{"mesh": "SM_Facade_CT_Far_" + k, "building": k, "blender_m": [B["x"][0], LINE_Y, KERB_H],
                            "location_cm": [round(B["x"][0] * 100, 2), round(-LINE_Y * 100, 2), round(KERB_H * 100, 2)], "yaw": 0.0,
                            "lodSwitch_m": 30.0,
                            "use": "the building's LOD1 / HLOD proxy: drawn instead of its modules past lodSwitch_m from the camera"}
-                          for k, B in ROW.items()]}
+                          for k, B in ROW.items()] + _round2_proxies()}
     with open(path, "w") as f:
         json.dump(doc, f, indent=1)
     return len(out)

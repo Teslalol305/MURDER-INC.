@@ -310,7 +310,7 @@ def _coord(ow, x, z):
 def data_signs(shops, out, report):
     from assets import _chinatown_front_pure as fp
     planes = _planes(shops)
-    for sg in lv.level()["signage"]["items"]:
+    for sg in lv.level()["signage"]["placements"]:
         sid, kind, fk = sg["id"], sg["kind"], sg.get("face")
         if sg.get("building") in NORTH_ROW or sid in SKIP_IDS:
             continue

@@ -449,13 +449,8 @@ def m_neon(ctx, M, key, N):
 
 
 def rooftop_legs():
-    """The rooftop frame's legs as lane D placed them (market.letters.leg colliders): (east end x, [leg centre x], face z)."""
-    from assets import _chinatown_struct as st
-    legs = [st.cbox(i) for i in st.parts("market.letters.leg")]
-    xs = sorted(float((lo[0] + hi[0]) / 2) for lo, hi in legs)
-    x_e = max(float(hi[0]) for lo, hi in legs)
-    yc = float(np.mean([(lo[1] + hi[1]) / 2 for lo, hi in legs]))
-    return x_e, xs, yc
+    from assets._chinatown_front_pure import rooftop_legs as f
+    return f()
 
 
 def m_rooftop_letters(ctx, M):
