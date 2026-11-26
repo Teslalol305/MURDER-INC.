@@ -60,8 +60,30 @@ r
 PY
   echo "side $1: $(pie_mcp py "$PIE_PY/_side.py" 2>&1 | tr '\n' ' ' | cut -c1-400)"
 }
-shots() {  # <gun> <state>: eye, left, right
+# nogun <1|0>: everything the player carries hidden but the arms (the hands' own shape, nothing in them), and back
+nogun() {
+  cat > "$PIE_PY/_nogun.py" <<PY
+import unreal
+w = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world()
+pawn = unreal.GameplayStatics.get_player_controller(w, 0).get_controlled_pawn()
+n = []
+if $1:
+    unreal.mi_hidden = []
+    for comp in pawn.get_components_by_class(unreal.PrimitiveComponent):
+        if comp.get_name() == "FirstPersonArms" or isinstance(comp, unreal.ShapeComponent) or not comp.is_visible():
+            continue
+        comp.set_visibility(False, False); unreal.mi_hidden.append(comp); n.append(comp.get_name())
+else:
+    for comp in getattr(unreal, "mi_hidden", []):
+        comp.set_visibility(True, False); n.append(comp.get_name())
+    unreal.mi_hidden = []
+"nogun $1: " + ",".join(n)
+PY
+  echo "$(pie_mcp py "$PIE_PY/_nogun.py" 2>&1 | tr '\n' ' ' | cut -c1-400)"
+}
+shots() {  # <gun> <state>: eye, the hands alone from the eye, left, right
   settle 12; pie_shot "$out/$1-$2-eye.jpg"
+  nogun 1; settle 8; pie_shot "$out/$1-$2-hands.jpg"; nogun 0
   side left; settle 10; pie_shot "$out/$1-$2-left.jpg"
   side right; settle 10; pie_shot "$out/$1-$2-right.jpg"
   side off; settle 4
