@@ -208,24 +208,31 @@ def allowed(names):
 
 SHOULDER_R = 0.13      # a torso vertex may follow an upper arm only this close to its shoulder joint (m)
 HIP_DROP = 0.05        # and a thigh only below the hip joint + this (m)
+ARM_SPINE_R = 0.18     # an arm vertex may keep upper-spine weight only this close to its shoulder joint (m)
 
 
 def vertex_allowed(arm, co, lab, A, names):
     """Per-vertex allowed bones: the segment's row, with the torso's shoulder and hip allowances limited to the
-    joints' neighbourhood (a loose jacket's side panel must not swing with the arm)."""
+    joints' neighbourhood (a loose jacket's side panel must not swing with the arm), and the arms' upper-spine
+    allowance limited to the shoulder (canal_bomber: forearm vertices by the hip pouch kept 0.4 of spine_03 and
+    were left behind by the forearm, 5 to 8 vertices up to 12.5 cm out in the reload, melee, death and swing)."""
     Av = A[lab].copy()
     core = lab == 0
     M = arm.matrix_world
-    for sd in ("l", "r"):
+    for k, sd in ((1, "l"), (2, "r")):
         sh = np.array(M @ arm.pose.bones["upperarm_" + sd].head)
         hip = np.array(M @ arm.pose.bones["thigh_" + sd].head)
-        near = np.linalg.norm(co - sh, axis=1) < SHOULDER_R
+        dsh = np.linalg.norm(co - sh, axis=1)
+        near = dsh < SHOULDER_R
         low = co[:, 2] < hip[2] + HIP_DROP
+        arm_far = (lab == k) & (dsh > ARM_SPINE_R)
         for j, n in enumerate(names):
             if n.endswith("_" + sd) and n.startswith("upperarm"):
                 Av[core & ~near, j] = False
             if n.endswith("_" + sd) and n.startswith("thigh"):
                 Av[core & ~low, j] = False
+            if n in ("spine_03", "spine_04", "spine_05"):
+                Av[arm_far, j] = False
     return Av
 
 
