@@ -7,7 +7,7 @@
 # Run detached with L_Block open:  setsid nohup bash death-shots.sh [out] > log 2>&1 &
 #   ONLY="front back" takes only those sequences (front head back blast stairs wall ten). OLD=1 runs with the ragdoll
 #   switched off (mi.Goon.Ragdoll 0: the death clip as before the pass), for the "before" pictures. CLOSE=1 frames every
-#   picture from beside the body (near, below). A Story run starts with three Goons alive: at most three kills a run.
+#   picture from beside the body (near, below); SETTLE=<n> redraws before each picture (default 24). A Story run starts with three Goons alive: at most three kills a run.
 # Pictures: <out>/<sequence>-<n>.jpg (default $MI_LOGS/death); ends with DEATH SHOTS DONE.
 out=${1:-}
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
@@ -19,7 +19,7 @@ mark=$(wc -l < "$log")
 settle() { local i; for i in $(seq 1 "${1:-30}"); do pie_mcp tool SceneCaptureToolset.SceneCaptureToolset.CaptureEditorViewport '{}' > /dev/null 2>&1; done; }
 c() { pie_con "$*" > /dev/null; }
 run() { c "MIFreezeAfter $1"; sleep "$(python3 -c "print(max(2.0, $1 * 3.0 + 1.5))")"; }
-shot() { settle "${2:-24}"; pie_shot "$out/$1.jpg"; }
+shot() { settle "${2:-${SETTLE:-24}}"; pie_shot "$out/$1.jpg"; }
 want() { [ -z "${ONLY:-}" ] || [[ " $ONLY " == *" $1 "* ]]; }
 killed() { tail -n +"$1" "$log" | grep -o 'MI.Goon.Kill: [A-Za-z0-9_]* [a-z]* at [0-9.]* m, shot [a-z ]*' | tail -1; }
 # obs <metres> <degrees>: the player beside the last Goon killed (its pelvis), <degrees> round from the line it was
@@ -69,10 +69,11 @@ PY
 }
 
 # near: with CLOSE=1, the player is posed CLOSE_M metres from the last body killed (its pelvis, CLOSE_DEG degrees round from
-# the line it was shot along), looking down at it, before each picture: the frames show the body, the burst, the spatter
+# the line it was shot along: 0, between the body and where the shot came from, the open side), looking down at it,
+# before each picture: the frames show the body, the burst, the spatter
 # and the pool from close by (the side camera of cam cannot be spawned from Python in the play world in this engine, so
 # without CLOSE the frames are the player's own view from where the shot came)
-near() { [ "${CLOSE:-0}" = 1 ] && obs "${CLOSE_M:-3}" "${CLOSE_DEG:-60}" > /dev/null; return 0; }
+near() { [ "${CLOSE:-0}" = 1 ] && obs "${CLOSE_M:-2.5}" "${CLOSE_DEG:-0}" > /dev/null; return 0; }
 # kseq <name> <side metres> <side degrees> <MI.Goon.Kill arguments>: one kill and its frames (named kseq: a function
 # called seq would hide the seq command that settle and the waits use)
 kseq() {
