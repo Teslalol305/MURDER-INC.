@@ -43,10 +43,11 @@ def load(cid):
     bpy.ops.import_scene.gltf(filepath=path)
     new = [o for o in bpy.data.objects if o not in before]
     meshes = [o for o in new if o.type == "MESH" and len(o.vertex_groups)]
-    for o in new:
-        if o.type == "MESH" and o not in meshes:
-            bpy.data.objects.remove(o, do_unlink=True)
-    roots = [o for o in new if o.name in bpy.data.objects and o.parent is None]
+    drop = [o.name for o in new if o.type == "MESH" and o not in meshes]     # the importer's bone-shape sphere
+    keep = [o.name for o in new if o.name not in drop]
+    for nm in drop:
+        bpy.data.objects.remove(bpy.data.objects[nm], do_unlink=True)
+    roots = [bpy.data.objects[nm] for nm in keep if bpy.data.objects[nm].parent is None]
     m = V.set_material("M_" + asset[3:], V._set_name(asset))
     for o in meshes:
         o.data.materials.clear()

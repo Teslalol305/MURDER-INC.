@@ -418,6 +418,7 @@ def fin_band(ob, arm, co, W, names, fits, log):
     E = _edges(ob)
     L = np.linalg.norm(co[E[:, 0]] - co[E[:, 1]], axis=1) + 1e-9
     hipz = max(float(arm.pose.bones["thigh_" + sd].head[2]) for sd in ("l", "r")) + 0.05
+    pelvis_z = float(arm.pose.bones["pelvis"].head[2])
     arm_cols = np.array([n.startswith(("upperarm", "lowerarm", "hand")) or (n.startswith(GG.FINGERS)) for n in names])
     sh = {sd: np.array(arm.pose.bones["upperarm_" + sd].head) for sd in ("l", "r")}
     dsh = np.minimum(np.linalg.norm(co - sh["l"], axis=1), np.linalg.norm(co - sh["r"], axis=1))
@@ -467,6 +468,17 @@ def fin_band(ob, arm, co, W, names, fits, log):
         keep = np.clip((a - 0.2) / 0.3, 0, 1)
         sel = far & (a < 0.5)
         Wn[np.ix_(sel, arm_cols)] *= keep[sel, None]
+        # above the hips, the torso side of a blended vertex hangs from the chest, not the pelvis (roof_lieutenant:
+        # the coat's side at 1.17 m, pelvis 0.4 + upper arm 0.5, left 5 vertices 7.3 cm out in a reload frame): the
+        # pelvis and thigh shares there move to spine_03 and spine_04
+        a = Wn[:, arm_cols].sum(1)
+        up = band & (a > 0.15) & (co[:, 2] > pelvis_z + 0.12)
+        low_cols = [j for j, n in enumerate(names) if n == "pelvis" or n.startswith("thigh")]
+        moved = Wn[np.ix_(up, low_cols)].sum(1)
+        Wn[np.ix_(up, low_cols)] = 0.0
+        for nm in ("spine_03", "spine_04"):
+            if nm in names:
+                Wn[up, names.index(nm)] += 0.5 * moved
         W = GG.limit_normalise(Wn.astype(np.float32), 4)
         rest2 = GG.unpose(co, names, W, fits)
         rs2 = np.linalg.norm(rest2[E[:, 0]] - rest2[E[:, 1]], axis=1) / L
