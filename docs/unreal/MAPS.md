@@ -242,7 +242,12 @@ of the new sections, so the old code path runs.
   meshes: roofs, parapets, water towers, bulkheads, HVAC, roof stairs and bridges, the gantry and the back of G1, C1's frame,
   the LED tile, ticker and tower stack, the scaffold stair kit), the two screen atlases, the ticker, digits, LED mask and the
   English-only sign atlas, the roof, gantry, scaffold and screen placements, art/previews/maps/mt_*; record and open items in
-  [maps/midtown_art.md](maps/midtown_art.md). Still to make: the square family, THE LOFTLARK, the bus, the facade tables.
+  [maps/midtown_art.md](maps/midtown_art.md). Round 2 (2026-11-26, offline): the square family (24 meshes: THE STAND
+  and THE BOOTH as the level data has them, planters, kiosks, carts, cafe furniture, LED poles, barriers, the generator,
+  road cases), four new English-only faces, every placement fitted to tools/levels/data/level_midtown.json (159 instances on
+  186 colliders; the water towers, bulkhead B and the roof dressing moved onto the data's boxes), the square's emissive cost
+  checked at 0.5 % of the screens', previews mt_stand, mt_plaza, mt_booth (midtown_art.md 7). Still to make: THE LOFTLARK,
+  the bus, the facade tables, the premiere's trucks and towers, the rest of the roof boxes.
 - **Acceptance:** as A-CT; members at least 6 cm within 25 m of the path (flicker); netting opaque.
 - **Depends on:** D4 colliders; C for the names. Estimate: 3 days.
 
