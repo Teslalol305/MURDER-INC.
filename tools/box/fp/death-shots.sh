@@ -73,7 +73,9 @@ kseq() {
   local n=$1 om=$2 od=$3; shift 3
   want "$n" || return 0
   m=$(wc -l < "$log")
-  c "MI.Goon.Kill $*"
+  # the world runs at full speed when the bodies are made: a ragdoll started in the frozen world (time dilation
+  # 0.0001) is solved with steps of microseconds and its joints throw it into the air (seen in the first pictures)
+  c "slomo 1"; c "MI.Goon.Kill $*"
   run 0.05; shot "$n-1"
   run 0.2; shot "$n-2"
   run 0.35; shot "$n-3"
