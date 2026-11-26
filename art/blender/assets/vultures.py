@@ -284,6 +284,28 @@ def segment_mask(W, lab, A, names):
     return W / np.maximum(W.sum(1, keepdims=True), 1e-12), n
 
 
+def arm_guess(arm, co, rep, log):
+    """goon_generated.mesh_joint looks for the wrist's cross-section near the skeleton's own arm line. When the
+    generated arm hangs too far below it, the slice holds fewer than 20 points, the search stops at its start and
+    the arm is left unfitted (exactly 0 degrees, length x 1.000; roof_lieutenant's right arm, 20 degrees lower).
+    Then the search starts on the line from the shoulder to the mesh's fingertip: the point of that side farthest
+    from the shoulder among those 15 cm outside it and below it. Arms the default search fits are left as they are."""
+    out = {}
+    for up, _lo, end, side in GG.LIMBS[:2]:
+        r = rep.get(up)
+        if not r or r["angle_deg"] != 0 or r["stretch"] != 1.0:
+            continue
+        S, W = GG.joint(arm, up), GG.joint(arm, end)
+        sel = co[((co[:, 0] * side) > abs(S[0]) + 0.15) & (co[:, 2] < S[2])]
+        if len(sel) < 20:
+            continue
+        P = sel[np.argmax(np.linalg.norm(sel - S, axis=1))]
+        out[up] = S + (P - S) / np.linalg.norm(P - S) * np.linalg.norm(W - S)
+        log("  %s: no wrist cross-section near the skeleton's arm line; search restarted towards the fingertip at "
+            "(%.3f, %.3f, %.3f)" % (up, P[0], P[1], P[2]))
+    return out
+
+
 def bind(ctx, ob, top_factor, log):
     rig_col = scene.collection("Mannequin_" + ob.name)
     arm, body = GG.load_mannequin(char.MANNEQUIN, rig_col)
@@ -293,6 +315,9 @@ def bind(ctx, ob, top_factor, log):
     co = GG._verts(ob)
     log("  scaled to %.3f m (mannequin %.3f m x %.3f)" % (np.ptp(co[:, 2]), top, top_factor))
     rep = GG.fit_pose(arm, co)
+    guess = arm_guess(arm, co, rep, log)
+    if guess:
+        rep = GG.fit_pose(arm, co, guess)
     for k, v in rep.items():
         log("  fit %-12s %5.1f deg, length x%.3f" % (k, v["angle_deg"], v["stretch"]))
     names, BW = GG.body_weights(body)
@@ -333,7 +358,7 @@ def bind(ctx, ob, top_factor, log):
     md = ob.modifiers.new("Armature", "ARMATURE")
     md.object = arm
     body.hide_render = body.hide_viewport = True
-    GG.fit_pose(arm, co)
+    GG.fit_pose(arm, co, guess)
     back, _t = GG._evaluated(ob)
     err = np.linalg.norm(back - co, axis=1)
     log("  round trip (fitted pose on the bound mesh): mean %.4f m, max %.4f m" % (err.mean(), err.max()))

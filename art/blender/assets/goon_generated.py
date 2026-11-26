@@ -275,8 +275,10 @@ def leg_end_slice(ankle_z):
     return f
 
 
-def fit_pose(arm, co):
-    """Pose the mannequin's limbs onto the generated mesh. Returns a log of the measured joints."""
+def fit_pose(arm, co, guess=None):
+    """Pose the mannequin's limbs onto the generated mesh. Returns a log of the measured joints.
+    guess: optional {upper bone: start point} for the search of the mesh's wrist or ankle (default: the
+    skeleton's own joint; vultures.bind passes one when that search finds no cross-section)."""
     report = {}
     pbs = arm.pose.bones
     for pb in pbs:
@@ -287,9 +289,9 @@ def fit_pose(arm, co):
             continue
         S, E, W = joint(arm, up), joint(arm, lo), joint(arm, end)
         if up.startswith("upperarm"):
-            Wm = mesh_joint(co, S, W, side, arm_end_slice(np.linalg.norm(W - S)))
+            Wm = mesh_joint(co, S, (guess or {}).get(up, W), side, arm_end_slice(np.linalg.norm(W - S)))
         else:
-            Wm = mesh_joint(co, S, W, side, leg_end_slice(W[2]))
+            Wm = mesh_joint(co, S, (guess or {}).get(up, W), side, leg_end_slice(W[2]))
         a, b = Vector(W - S).normalized(), Vector(Wm - S).normalized()
         R = a.rotation_difference(b).to_matrix().to_4x4()
         T = lambda p: Matrix.Translation(Vector(p))      # noqa: E731
