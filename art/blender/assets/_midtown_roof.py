@@ -296,7 +296,7 @@ def m_namepanel(ctx, M):
 
 # ================================================================================================= water towers
 
-def m_tankstand(ctx, M, h, span):
+def m_tankstand(ctx, M, h, span, tower=None):
     """Steel stand under a water tank: four I-section legs on concrete piers, a ring of girts at mid height, angle
     braces (no tie rods: flicker), two main beams and cross beams on top with timber dunnage. Pivot: centre, on the roof.
     The tank sits at z = h + 0.30 (the dunnage top)."""
@@ -327,14 +327,15 @@ def m_tankstand(ctx, M, h, span):
         bx(b, (xx - 0.075, -L - 0.30, h + 0.30 - 0.15), (xx + 0.075, L + 0.30, h + 0.30), "timber", ch=0.006, axis="y")
     for (cx, cy) in corners:                                                                   # cap plates and bolts
         b.rivets([(cx + dx, cy + dy, h + 0.30) for dx in (-0.05, 0.05) for dy in (-0.05, 0.05)], Z, "black", d=0.035, h=0.02, leak=0.3)
-    name = "SM_Roof_TankStand_%dm" % int(round(h))
+    name = "SM_Roof_TankStand_%s" % (tower or "%dm" % int(round(h)))
     return done(ctx, b, name, M, ground=True, expect_size=(None, None, h + 0.30),
-                notes=("Water tank stand, %.0f m (legs %.1f m apart): I-section legs on concrete piers, girts, angle X braces (no "
-                       "tie rods: members 6 cm and up), main beams, timber dunnage. Pivot: centre on the roof; the tank goes on at "
-                       "z = %.2f. WT-A uses the 4 m stand, WT-B and WT-C the 2 m.") % (h, span, h + 0.30))
+                notes=("Water tank stand%s, %.2f m to the dunnage top (legs %.1f m apart, centre to centre): I-section legs on "
+                       "concrete piers, girts, angle X braces (no tie rods: members 6 cm and up), main beams, timber dunnage. Pivot: "
+                       "centre on the roof; the tank goes on at z = %.2f. Sized to the level data's leg colliders (round 2).")
+                % (" of WT-" + tower if tower else "", h + 0.30, span, h + 0.30))
 
 
-def m_watertank(ctx, M, D, H, cone):
+def m_watertank(ctx, M, D, H, cone, tower=None):
     """Timber water tank: staves (V joints) of diameter D and height H, steel hoops with lugs, a conical roof with a
     hatch and finial, an outlet pipe and a caged access ladder (rails and rungs 6 cm). Pivot: centre of the floor."""
     b = B(341 + int(D * 10), step=0.6)
@@ -389,11 +390,12 @@ def m_watertank(ctx, M, D, H, cone):
     for t in np.linspace(-math.pi / 2, math.pi / 2, 5)[1:-1]:                                   # cage verticals
         bar(b, (xl + 0.36 * math.cos(t), 0.36 * math.sin(t), 2.2), (xl + 0.36 * math.cos(t), 0.36 * math.sin(t), z_top + 0.9),
             MEMBER_MIN, MEMBER_MIN * 0.5 + 0.03, "black", up=X, ch=0.003)
-    name = "SM_Roof_WaterTank_%s" % ("%.1f" % D).replace(".", "p")
+    name = "SM_Roof_WaterTank_%s" % (tower or ("%.1f" % D).replace(".", "p"))
     return done(ctx, b, name, M, ground=False, expect_size=(None, None, None),
-                notes=("Timber water tank %.1f m across, staves %.1f m, cone roof %.1f m, hoops, hatch, outlet, caged ladder (+X). "
-                       "Pivot: centre of the floor; set on a SM_Roof_TankStand at its dunnage top. WT-A: 4.6 m on the 4 m stand "
-                       "(tank 25.2 to 30.8, roof to 32.4, midtown.md 4); WT-B and WT-C: 3.6 m on the 2 m stand.") % (D, H, cone))
+                notes=("Timber water tank%s %.1f m across, staves %.1f m (floor to the top of the staves %.2f), cone roof %.1f m, "
+                       "hoops, hatch, outlet, caged ladder (+X). Pivot: centre of the floor; set on its SM_Roof_TankStand at the "
+                       "dunnage top. Sized to the level data's tank collider (round 2: WT-A 6 x 6 x 5.6 from 25.2, WT-B 4 x 4 x 4 "
+                       "from 19.6, WT-C 5 x 5 x 5 from 22.4).") % (" WT-" + tower if tower else "", D, H, H + 0.10, cone))
 
 
 # ================================================================================================= rooms on the roof
@@ -563,8 +565,8 @@ def m_servicebulkhead(ctx, M):
 def m_hvac(ctx, M, size):
     """Packaged rooftop unit on its curb: cabinet with access panels and handles, a condenser coil face behind a
     louvred guard, condenser fans with guards on top, an economiser hood, conduit and a disconnect box."""
-    L, W, H = (3.6, 1.8, 1.3) if size == "L" else (2.2, 1.3, 1.05)
-    b = B(391 if size == "L" else 392, step=0.5)
+    L, W, H = {"L": (3.6, 1.8, 1.3), "M": (2.2, 1.3, 1.05), "S": (1.8, 1.8, 1.05)}[size]
+    b = B({"L": 391, "M": 392, "S": 393}[size], step=0.5)
     bx(b, (-L / 2 - 0.05, -W / 2 - 0.05, 0.0), (L / 2 + 0.05, W / 2 + 0.05, 0.35), "galv", ch=0.005, axis="x")   # curb
     bx(b, (-L / 2, -W / 2, 0.35), (L / 2, W / 2, 0.35 + H), "hvac", ch=0.012, axis="x")
     zt = 0.35 + H
@@ -859,10 +861,15 @@ PROPS = [
     lambda c, M: m_parapet(c, M, "Buff", 4), lambda c, M: m_parapet(c, M, "Buff", 1),
     lambda c, M: m_parapet(c, M, "Red", 4), lambda c, M: m_parapet(c, M, "Red", 1),
     m_namepanel,
-    lambda c, M: m_tankstand(c, M, 4.0, 3.4), lambda c, M: m_tankstand(c, M, 2.0, 2.6),
-    lambda c, M: m_watertank(c, M, 4.6, 5.6, 1.6), lambda c, M: m_watertank(c, M, 3.6, 4.2, 1.2),
+    # round 2: one stand and one tank per tower, sized to the level data (tools/levels/data/level_midtown.json): legs 0.45
+    # square at their centres, the tank's box from the dunnage top (WT-A legs +-2.2 to 25.2, B +-1.5 to 19.6, C +-2.5 from
+    # the tank house roof 20.7 to 22.4)
+    lambda c, M: m_tankstand(c, M, 3.70, 4.4, "A"), lambda c, M: m_tankstand(c, M, 1.70, 3.0, "B"),
+    lambda c, M: m_tankstand(c, M, 1.40, 5.0, "C"),
+    lambda c, M: m_watertank(c, M, 5.9, 5.5, 1.6, "A"), lambda c, M: m_watertank(c, M, 3.9, 3.9, 1.2, "B"),
+    lambda c, M: m_watertank(c, M, 4.9, 4.9, 1.4, "C"),
     m_bulkhead, m_tankhouse, m_machineroom, m_servicebulkhead,
-    lambda c, M: m_hvac(c, M, "L"), lambda c, M: m_hvac(c, M, "M"),
+    lambda c, M: m_hvac(c, M, "L"), lambda c, M: m_hvac(c, M, "M"), lambda c, M: m_hvac(c, M, "S"),
     m_skylight, m_vent, m_chimney, m_tarkettle, m_dish, m_antenna, m_worklight,
     m_steelstair, m_stairhead, m_plankbridge, m_pipebridge,
 ]

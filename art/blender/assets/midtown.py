@@ -14,9 +14,14 @@ What it makes (design: docs/unreal/maps/midtown.md 12 and 14.2; English only, ev
     screens      SM_Roof_Gantry_16m, SM_Sign_LEDWall_16x9 (G1, its truss back is the playable side), SM_Roof_BillboardFrame_16x8
                  (C1), SM_Sign_LEDWall_Tile_2m (the art-only screens are tiled from it), SM_Sign_Ticker_4m, SM_Sign_TowerStack (N1)
     scaffold     SM_Scaf_Flight_2p4, SM_Scaf_Landing_2p4, SM_Scaf_Bay_Frame, SM_Scaf_Netting_Panel, SM_Scaf_Sign
-    faces        MT_Screens_A/_B (16 slides), MT_Ticker, MT_Digits, MT_LEDMask, Sign_MT_Atlas1 (18 printed faces)
-Reused from the Block unchanged (midtown.md 14.1): facade kit, furniture, gaps, street, vehicles, props; not built here: the
-square's furniture, the Stand and the Booth, the bus, the facade tables (lane A-MT's other families, still open).
+    square       (round 2) SM_Sq_Stand_Tier_{12,3}m, SM_Sq_Stand_WingSide, SM_Sq_Stand_Back, SM_Sq_Booth_{WallSide,FrontWall,Desk,
+                 Rack,Monitor,MonitorCart}, SM_Sq_Planter_Granite_4m, SM_Sq_Kiosk_Souvenir, SM_Sq_FoodCart, SM_Sq_CafeTable,
+                 SM_Sq_CafeChair(_Stack), SM_Sq_LightPole_LED, SM_Sq_Barrier_{Jersey_1p8,Water_1p9,Bike_2p4}, SM_Sq_Generator,
+                 SM_Sq_RoadCase_Stack, SM_Sq_CableRamp_1p2, SM_Sq_CableDrum (assets/_midtown_square.py)
+    faces        MT_Screens_A/_B (16 slides), MT_Ticker, MT_Digits, MT_LEDMask, Sign_MT_Atlas1 (22 printed faces)
+Reused from the Block unchanged (midtown.md 14.1): facade kit, furniture, gaps, street, vehicles, props (the square places the
+gaps bench and litter basket and the furniture street lamp); not built here: THE LOFTLARK, the bus, the facade tables (lane
+A-MT's other families, still open). Round 2 fits every placement on a level collider to tools/levels/data/level_midtown.json.
 
 Outputs (art/out, git-ignored): glb/SM_Roof_*, SM_Scaf_*, SM_Sign_LEDWall_*, SM_Sign_Ticker_4m, SM_Sign_TowerStack; the shared
 manifest.json (merged under its lock); textures/MT_* and Sign_MT_Atlas1; midtown/manifest_midtown.json (this lane's assets,
@@ -33,7 +38,8 @@ from mi import export, geo, paths, scene
 
 FAMILY = {"name": "midtown",
           "description": "Midtown rooftops (Level 3): roofs, parapets, water towers, bulkheads, HVAC, stairs and bridges, the gantry and "
-                         "LED wall backs, the roof billboard, the scaffold stair; the screen and sign atlases"}
+                         "LED wall backs, the roof billboard, the scaffold stair, the square (the Stand, the Booth, the plaza's "
+                         "furniture and barriers); the screen and sign atlases"}
 
 OUT = os.path.join(paths.out, "midtown")
 
@@ -48,7 +54,14 @@ BUDGET = {
     "SM_Roof_Gantry_16m": 25000, "SM_Sign_LEDWall_16x9": 30000, "SM_Roof_BillboardFrame_16x8": 25000,
     "SM_Sign_LEDWall_Tile_2m": 2000, "SM_Sign_LEDWall_Edge_": 200, "SM_Sign_Ticker_4m": 2000, "SM_Sign_TowerStack": 40000,
     "SM_Scaf_Flight_2p4": 8000, "SM_Scaf_Landing_2p4": 4000, "SM_Scaf_Bay_Frame": 6000, "SM_Scaf_Netting_Panel": 500,
-    "SM_Scaf_Sign": 1000,
+    "SM_Scaf_Sign": 1000, "SM_Roof_HVAC_RTU_S": 6000,
+    # the square (midtown.md 14.2 where it names the asset; the rest by kind)
+    "SM_Sq_Stand_Tier_12m": 12000, "SM_Sq_Stand_Tier_3m": 4000, "SM_Sq_Stand_WingSide": 6000, "SM_Sq_Stand_Back": 8000,
+    "SM_Sq_Booth_WallSide": 6000, "SM_Sq_Booth_FrontWall": 6000, "SM_Sq_Booth_Desk": 8000, "SM_Sq_Booth_Rack": 4000,
+    "SM_Sq_Booth_Monitor": 1000, "SM_Sq_Booth_MonitorCart": 3000, "SM_Sq_Planter_Granite_4m": 6000, "SM_Sq_CafeTable": 2000,
+    "SM_Sq_CafeChair": 1500, "SM_Sq_CafeChair_Stack": 3000, "SM_Sq_Kiosk_Souvenir": 20000, "SM_Sq_FoodCart": 10000,
+    "SM_Sq_LightPole_LED": 5000, "SM_Sq_Barrier_Jersey_1p8": 2000, "SM_Sq_Barrier_Water_1p9": 3000, "SM_Sq_Barrier_Bike_2p4": 3000,
+    "SM_Sq_Generator": 8000, "SM_Sq_RoadCase_Stack": 6000, "SM_Sq_CableRamp_1p2": 1000, "SM_Sq_CableDrum": 3000,
 }
 
 # How the screens stay within the design's emissive budget (midtown.md 11.2, 12.3, 15): recorded with the art.
@@ -68,6 +81,13 @@ EMISSIVE_PLAN = {
     "light": "Lumen from the emissive plus 4 unshadowed rect lights (G1, E1, E3, N1) sized to the screens; if Lumen blotches at "
              "0.5 render scale the screen meshes' Affect Dynamic Indirect Lighting goes off",
     "palette": "no red field on any slide (the Goons are oxblood); VLTR is a small corner mark",
+    "square": {"riser_glass": "MI_Stand_RiserGlass, 40 nits, opaque: 13 tiers' risers (10 x 3 m + 3 x 12 m, 0.34 high) and their 6 cm nosing strips, about 26 m2 seen from the front",
+               "lightboxes": "kiosk headers (2 x 2 faces, 3.2 x 0.23) and cart menus (2 x 1.34 x 0.34): M_Sign_MT_Face, 200 nits",
+               "booth_monitors": "5 monitors 0.56 x 0.34 in M_MI_Screen on a slide (the program feed), about 1 m2 in all, LED mask off; "
+                                 "not large screens (the ceiling of 9 counts the 7 big surfaces only)",
+               "lamps": "the 4 plaza poles' 8 LED heads (MI_Lamp_LED) and the strip and indicator lights: small; the light itself is "
+                        "lane L's 12 placed spots",
+               "translucency": "none: the riser glass, the shards and the sneeze glass are opaque"},
 }
 
 
@@ -101,6 +121,9 @@ def build(ctx):
         kits += scaffold.PROPS
     except ImportError:
         pass
+    from assets import _midtown_square as square
+    square.materials(ctx, M)
+    kits += square.PROPS
     for f in kits:
         f(ctx, M)
     tris = {n: geo.stats(o)["triangles"] for n, o in ctx.K.items()}
@@ -132,7 +155,7 @@ def write_lane_files(ctx, entries):
         with open(os.path.join(paths.texture_set(s), "set.json")) as f:
             info = json.load(f)
         sets[s] = {"resolution": info["resolution"], "files": info["files"], "cells": len(info.get("cells", {}))}
-    man = {"about": "MAPS.md lane A-MT, Midtown roof, screen and scaffold art (assets/midtown.py). The GLBs and textures stay in "
+    man = {"about": "MAPS.md lane A-MT, Midtown roof, screen, scaffold and square art (assets/midtown.py). The GLBs and textures stay in "
                     "art/out (git-ignored); this file lists what the lane made and how it measures against midtown.md 14 and 15.",
            "updated": time.strftime("%Y-%m-%dT%H:%M:%S"), "family": "midtown", "count": len(rows),
            "triangles_total": sum(r["triangles"] for r in rows), "assets": rows,
