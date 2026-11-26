@@ -21,6 +21,7 @@
 #                                              hand, trigger finger and thumb are under the weapon bar otherwise
 #   RELOADS="0.5 1.2"                          the reload frames, seconds into the tactical reload (default 1.2): each is
 #                                              r4-fp-<gun>-reload.jpg at 1.2 and r4-fp-<gun>-reload-<t>.jpg otherwise
+#   WALL=1                                     also three pictures against a wall: wall-a, wall-b (looking down), wall-c
 #   SETTLE=30                                  redraws before each picture (Lumen, exposure and TSR settle)
 out=${1:-}
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
@@ -78,6 +79,13 @@ for g in $guns; do
   # hip, in the sun on the north lane, then under the El
   c "MIPose 170 -380 0 -35 -4"; run 1.2; want $g hip-sun && shot $g hip-sun
   c "MIPose -2900 80 0 0 -3"; run 1.2; want $g hip-el && shot $g hip-el
+  # WALL=1: against the shop fronts on the south side (the wall pose), level and looking down (READY W2: the support arm
+  # drawn as a huge ball near the lens)
+  if [ "${WALL:-0}" = 1 ]; then
+    c "MIPose -570 -880 0 -90 -4"; run 1.0; want $g wall-a && shot $g wall-a
+    c "MIPose -570 -880 0 -90 -35"; run 1.0; want $g wall-b && shot $g wall-b
+    c "MIPose -570 -900 0 -90 -4"; run 1.0; want $g wall-c && shot $g wall-c
+  fi
   # aimed: the irons, or the optic the set-up fitted
   c "MIInput ads 1"; run 0.9; want $g aim && shot $g aim
   c "MIInput ads 0"; run 0.3

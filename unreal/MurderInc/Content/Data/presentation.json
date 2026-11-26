@@ -204,8 +204,8 @@
           "fire": "/Game/ThirdParty/InfimaTFA/Character/FP/Combat/A_TFA_FP_AR_Fire_Semi.A_TFA_FP_AR_Fire_Semi"
         },
         "ik": {"left": "Palm_L", "right": "Palm_R"},
-        "shoulders": [2, 2, -20],
-        "shouldersNote": "camera space, cm: the arms' shoulders (midpoint of upperarm_l / _r) under the eye when a solved grip holds the gun (Data/grips.json); the IK reaches both hands from there (console mi.FP.Shoulders \"x y z\" to try values, \"off\" for the old wrist slide) HANDS_R4.md 13: [2, 2, -20] (was [-6, 0, -24]): the firing hand 2.8 cm off its grip at the hip from the old anchor; from this one both hands reach in every state with no upper arm in the picture (tools/box/fp/offline/tune.py shoulders)",
+        "shoulders": [12, 12, -36],
+        "shouldersNote": "camera space, cm: the arms' shoulders (midpoint of upperarm_l / _r) under the eye when a solved grip holds the gun (Data/grips.json); the IK reaches both hands from there (console mi.FP.Shoulders \"x y z\" to try values, \"off\" for the old wrist slide) HANDS_R4.md 13 and the v6 release pass: [12, 12, -36] (was [2, 2, -20], before that [-6, 0, -24]; seen in the engine: with [2, 2, -20] the firing forearm filled the screen in the reload): the firing hand 2.8 cm off its grip at the hip from the old anchor; from this one both hands reach in every state with no upper arm in the picture (tools/box/fp/offline/tune.py shoulders)",
         "fireWeight": 0.45,
         "armStretch": 1.1,
         "armStretchNote": "how far the SUPPORT arm may stretch to reach its palm target (1 = never; the arm is 58.5 cm and the support palm up to 64 cm from the shoulder, ANIMATION.md 11); the firing arm and the NINE never stretch. Console mi.FP.ArmStretch above 0 forces a value on every arm for comparison pictures. Not yet seen in a picture.",
