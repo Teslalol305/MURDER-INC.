@@ -22,8 +22,8 @@ summary for the owner (section 1) and the staged build plan with its lanes (sect
 | Length | about 5 minutes | about 5 minutes | about 6 to 7 minutes |
 
 The story: the Vultures stole a whole album, nine master reels, and Rule takes them back across one day and night. The
-IPX Vault's dispatcher stays the only voice on the radio. Every name on a sign or a screen is invented (English and
-Chinese); IPX is the only real mark.
+IPX Vault's dispatcher stays the only voice on the radio. Every name on a sign or a screen is invented and, on Canal
+Street, in English only (the owner's answer of 2026-11-26); IPX is the only real mark.
 
 ### 1.2 How the player progresses
 
@@ -57,7 +57,7 @@ The Block itself does not change: its data, text and recorded replays stay byte 
 | 4 | Night for Canal Street and Midtown | **Night**: neon and screens only read at night, and it frees GPU time for the lights |
 | 5 | Will the IPX page store the progress code (a small change on the site) | **Yes**; the code alone works without it |
 | 6 | The invented sign and billboard names | Approve the lists in chinatown.md 13.3 and midtown.md 12; each is searched before its art is final |
-| 7 | Who reads the Chinese signs | Someone fluent in Traditional Chinese must sign them off; nothing Chinese is final until then |
+| 7 | ~~Who reads the Chinese signs~~ | **Answered 2026-11-26: English only**, no Chinese characters anywhere, no reader needed |
 | 8 | Hold mode names (Hold Canal Street, Hold the Square) | Accept |
 | 9 | The far-off bridge silhouette east of Canal Street | Allowed, unnamed; or generic towers |
 
@@ -68,7 +68,7 @@ being checked (they touch only tools, docs and a separate code branch). That is 
 took about two and a half days in Blender and three more on the build machine, and the new maps have as much art each,
 plus engine work the Block never needed (multi-level navigation for the roofs, map loading, the campaign). The build
 machine is the bottleneck (one at a time): about **100 hours** of it, about 11,000 credits at today's rate. Two things
-outside our control can hold the art back: the Chinese reader's sign-off and the name searches.
+outside our control can hold the art back: the name searches.
 
 ---
 
@@ -104,10 +104,10 @@ one job at a time. They include one review-and-fix loop per stage; a second loop
 
 | Stage | What | Lanes | Estimate | Depends on | Gate |
 |---|---|---|---|---|---|
-| **0. Proofs and baselines** | The travel stream proof (box, then one E3DS session); the Block's SM5 triangle and draw-call baseline; the L_Block dump for the builder diff; owner decisions; the name searches and the Chinese reader started | T, R, B, C | 2 days (box 9 h) | nothing; can run while v6 is checked, in a box slot when no one measures frame rates | Travel chosen (hard travel or the persistent-map fallback); baseline numbers recorded; dump committed as a report |
+| **0. Proofs and baselines** | The travel stream proof (box, then one E3DS session); the Block's SM5 triangle and draw-call baseline; the L_Block dump for the builder diff; owner decisions; the name searches started (Canal signs are English only: no reader) | T, R, B, C | 2 days (box 9 h) | nothing; can run while v6 is checked, in a box slot when no one measures frame rates | Travel chosen (hard travel or the persistent-map fallback); baseline numbers recorded; dump committed as a report |
 | **1. Foundations, no GPU** | The layout tool and the engine bake; both level files; the loader, `el` optional, text overlay, tuning, audio, boot gate; nav step A; progress code and save; the per-level data tests; the night-rig code; Blender families that need no final names | D, E, N, P, Q, L, A-CT, A-MT | 5 days | stage 0 (the travel choice); C++ on a maps branch cut from the v6 commit | Both level files load and pass checks 1 to 7 (chinatown.md 17) and midtown.md 19's data tests; every Block golden unchanged |
 | **2. Grey boxes playable** | L_GreyChinatown and L_GreyMidtown; travel between grey maps with the loading card; the night rig prototype with the lights on posts, measured wet and damp; guidance on both levels in any order; nav step B begun; playtests and tuning | T, L, G, N, Q, R, D | 4 days (box 24 h) | stage 1 | Both levels complete in Story (any order) and Holdout in the grey box; the roof-hold and any-order tests pass; travel timings within progression.md 6.5; the night rigs within budget in the worst views |
-| **3. Art and front end** | Blender art for both maps (two lanes); sign and screen atlases once names and Chinese are signed; the parameterised builder (L_Block identical); both art maps built on the box with 2 to 3 picture rounds each; the Level and Style screens, cards, Continue, Progress drawer, debrief items, album card, thumbnails; `order` grows to three; nav step B merged if it passes | A-CT, A-MT, B, P, N, E, C | 8 days (box 33 h) | stage 2 (the light count and the budgets); C for the signs | Picture rounds signed off by someone other than the builder; front-end screenshots at 1920 x 1080 and 1280 x 720 for every card state; Block golden replays unchanged |
+| **3. Art and front end** | Blender art for both maps (two lanes); sign and screen atlases once the names are searched; the parameterised builder (L_Block identical); both art maps built on the box with 2 to 3 picture rounds each; the Level and Style screens, cards, Continue, Progress drawer, debrief items, album card, thumbnails; `order` grows to three; nav step B merged if it passes | A-CT, A-MT, B, P, N, E, C | 8 days (box 33 h) | stage 2 (the light count and the budgets); C for the signs | Picture rounds signed off by someone other than the builder; front-end screenshots at 1920 x 1080 and 1280 x 720 for every card state; Block golden replays unchanged |
 | **4. Performance and package** | Every map's worst views under the l20 load against the Block in the same run; fixes; flicker at render scale 0.50; texture pool; per-map shader caches recorded; the three-map package with its size and copy-time gates; recorded goldens for the new levels | R, T, B, Q | 4 days (box 27 h) | stage 3 | All budgets of chinatown.md 14 and midtown.md 15 met; package at most +1.0 GB; recorded goldens 0 mismatches |
 | **5. Release gates** | An independent end-to-end play (fresh save through all three levels, the album, Hold the Square, then a fresh session with a code); per-map E3DS runs with SMOOTH.md's frame metrics; the owner's preview; the fix loop | X, R, all | 3 days (box 6 h) | stage 4 | The bar of section 1.3, on one commit, nothing waived |
 | **Total** | | | **26 working days**, about five calendar weeks; about four if stages 0 and 1 overlap v6's checks | | |
@@ -119,7 +119,7 @@ flowchart LR
   S2 --> S3[3 Art and front end<br/>8 d]
   S3 --> S4[4 Performance and package<br/>4 d]
   S4 --> S5[5 Release gates<br/>3 d]
-  C[C content checks: names, Chinese] -.-> S3
+  C[C content checks: names] -.-> S3
   V6[v6 ships] -.-> S1
 ```
 
@@ -214,8 +214,9 @@ of the new sections, so the old code path runs.
 
 - **Inputs:** chinatown.md 13; the level file's colliders (the art is fitted to them); ART_BIBLE.md.
 - **Outputs:** the `chinatown` family (about 60 meshes, generic shopfront modules, market kit, everyday clutter, the
-  stair, the shed, the bulkhead), Chinatown facade tables beside the Block's, sign carriers, three 4096 x 4096 sign
-  atlases with Chinese faces in an OFL font (after C1 and C2), placements, the manifest.
+  stair, the shed, the bulkhead), Chinatown facade tables beside the Block's, sign carriers, English-only sign
+  atlases (made: one 4096 x 4096 page holds all 45 faces; final after C1), placements, the manifest. Made in stage 1
+  without the box: art/blender/assets/chinatown.py (66 meshes, the atlas, the north-row placements, art/previews/maps/ct_*).
 - **Acceptance:** triangle caps per asset and at most 300k per mesh; manifest bounds; previews; no real mark; facade.py
   and place_buildings.py give the Block's outputs byte for byte (A0 diff).
 - **Depends on:** D3 colliders; C for the faces. Estimate: 3 days.
@@ -262,8 +263,8 @@ of the new sections, so the old code path runs.
 
 ### C · Content checks
 
-- **Outputs:** C1 every invented name searched (English and Chinese) against real New York businesses, brands and trade
-  dress, replaced where real; C2 every Chinese string signed off by a reader of Traditional Chinese; C3 a look-alike
+- **Outputs:** C1 every invented name searched against real New York businesses, brands and trade
+  dress, replaced where real; C2 dropped (2026-11-26: English only, nothing to sign off); C3 a look-alike
   review of every billboard and storefront; the new real place names added to ART_BIBLE 5.7's list by the lead.
 - **Acceptance:** a signed table per map. **External**: these can block the sign art regardless of the build.
 
@@ -301,6 +302,6 @@ of the new sections, so the old code path runs.
 | Night rigs and wet ground over budget on SM5 | Frame rate below 60 on E3DS | Measured in the grey box in stage 2; spots-only shadows; the `damp` step; fewer lights |
 | Nanite fallback meshes (vehicles, the road) too heavy | Triangle and draw-call budgets missed on every map, the Block included | R0 baseline in stage 0; explicit fallback settings, coordinated with the READY and SMOOTH lanes |
 | Package and copy time grow | Slower session starts; fewer versions fit in 10 GB | Size ceilings per map, a copy-time gate, shared tiling sets and atlased signs |
-| Chinese sign-off or name searches late | Sign art cannot be final | Started in stage 0; the sign atlases are the last art step |
+| Name searches late | Sign art cannot be final | Started in stage 0; the sign atlases are the last art step |
 | Shader precompiles on a fresh machine every session | Stalls during play | Scoped per map, behind the title, debrief and loading card; measured with SMOOTH.md's metrics |
 | The box is the bottleneck | Stages 3 and 4 take longer | Plan about 100 box hours; batch imports; one picture round less if the first is clean |
