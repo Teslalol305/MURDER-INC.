@@ -68,6 +68,8 @@ def build(ctx):
     for f in kit.PROPS:
         f(ctx, M)
     front.build_front(ctx, M)
+    from assets import _chinatown_struct as struct
+    struct.build_structs(ctx, M)
     from assets import _chinatown_lod as lod
     lod.build_far_proxies(ctx)
     tris = {n: geo.stats(o)["triangles"] for n, o in ctx.K.items()}
@@ -112,6 +114,8 @@ def write_lane_files(ctx, entries):
              "lantern_hooks_m": getattr(ctx, "lantern_hooks", None)}
     with open(os.path.join(OUT, "signs_chinatown.json"), "w") as f:
         json.dump(signs, f, indent=1, sort_keys=True)
+    from assets import _chinatown_struct as struct
+    struct.write_fit(ctx, os.path.join(OUT, "fit_chinatown.json"))
     from assets import _chinatown_place as place
     n = place.write_placements(os.path.join(paths.out, "placements", "placements_chinatown.json"))
     ctx.log("lane files: %d assets, %d faces, %d placements" % (len(rows), len(atlas["cells"]), n))

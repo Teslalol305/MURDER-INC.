@@ -173,13 +173,17 @@ def build_far_proxies(ctx):
         cache[name] = ob
         return ob
 
+    from assets import _chinatown_streets as streets
+    pivots = {k: [B["x"][0], place.LINE_Y, place.KERB_H] for k, B in place.ROW.items()}
+    pivots.update({k: v["pivot_blender_m"] for k, v in streets.buildings().items()})
     by_b = {}
     for e in inst:
-        by_b.setdefault(e["building"], []).append(e)
+        if e["building"] in pivots and (e["mesh"].startswith("SM_Facade") or e["mesh"].startswith("SM_Sign")):
+            by_b.setdefault(e["building"], []).append(e)
     made = []
     for b, es in sorted(by_b.items()):
         parts = []
-        x0 = place.ROW[b]["x"][0]
+        x0, y0, z0 = pivots[b]
         for e in es:
             src = source(e["mesh"])
             if src is None:
@@ -190,7 +194,7 @@ def build_far_proxies(ctx):
             sx = e.get("scale", [1, 1, 1])[0]
             ob.scale = (sx, 1.0, 1.0)
             ob.rotation_euler = (0.0, 0.0, math.radians(e.get("rot_z_deg", 0.0)))
-            ob.location = (e["blender_m"][0] - x0, e["blender_m"][1] - place.LINE_Y, e["blender_m"][2] - place.KERB_H)
+            ob.location = (e["blender_m"][0] - x0, e["blender_m"][1] - y0, e["blender_m"][2] - z0)
             if e.get("atlas_uv"):
                 u0, v0, u1, v1 = e["atlas_uv"]
                 uvl = me.uv_layers[0].data
@@ -253,11 +257,12 @@ def build_far_proxies(ctx):
         for m in uniq:
             if m.name == "M_Sign_CT_Atlas1":
                 slots[m.name] = {"workflow": "sign_atlas", "sets": ["Sign_CT_Atlas1"], "uv": "the cell of each placed face"}
-        W = round(max(e["blender_m"][0] for e in es) - x0 + 3.1, 2)
+        W = round(max(max(abs(e["blender_m"][0] - x0), abs(e["blender_m"][1] - y0)) for e in es) + 3.1, 2)
         ctx.asset(ob, collision="none", slots=slots, cover_height=None,
                   notes="Far proxy of north-row building %s (HLOD-style): every placed module merged, sign faces on their atlas "
                         "cells, collapsed to about %dk triangles. Drawn past %.0f m from the camera (LOD1 / HLOD); pivot at the "
-                        "building's west end on the facade line at the sidewalk, as the placements' frame (row width about %.1f m)."
+                        "building's first face's start on its wall plane at the sidewalk (the north row: its west end on the facade line); modules "
+                        "keep their world yaw (extent about %.1f m)."
                         % (b, FAR_TRIS // 1000, LOD_SWITCH, W))
         ctx.K[ob.name] = ob
         made.append(ob)
