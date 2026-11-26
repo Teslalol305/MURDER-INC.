@@ -1843,4 +1843,158 @@ bool FMICloudViewerLeavesTest::RunTest(const FString& Parameters)
 	return !HasAnyErrors();
 }
 
+// SMOOTH.md B4: a run can be left for the menus from the pause card. Change set-up and Back to title follow the card's
+// own rows (Resume, Restart run, Difficulty, Settings), stay after a visit to Settings, and do what the death card's
+// rows do: Back to title opens Home, Change set-up opens the Briefing; a new run from there plays.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIRunPauseCardLeaveTest, "MurderInc.Run.PauseCardLeave", MITest::Flags)
+
+bool FMIRunPauseCardLeaveTest::RunTest(const FString& Parameters)
+{
+	using namespace MIRunTestsPrivate;
+	FRunWorld W;
+	UMIFrontEnd* F = StartWith(*this, W, [](FMIRunSetup&) {});
+	if (!F)
+	{
+		return false;
+	}
+	FMIMenu& M = W.Game->GetMenu();
+	const auto CheckRows = [this, &M](const TCHAR* When)
+	{
+		const int32 Settings = M.IndexOf(TEXT("settings"));
+		const int32 Change = M.IndexOf(TEXT("changesetup"));
+		const int32 Title = M.IndexOf(TEXT("totitle"));
+		TestTrue(FString::Printf(TEXT("%s: the card's own rows first"), When), M.IndexOf(TEXT("resume")) == 0 && M.IndexOf(TEXT("restart")) == 1 && Settings == 3);
+		TestTrue(FString::Printf(TEXT("%s: Change set-up after Settings"), When), Change == Settings + 1);
+		TestTrue(FString::Printf(TEXT("%s: Back to title last"), When), Title == Change + 1 && Title == M.Items.Num() - 1);
+		TestTrue(FString::Printf(TEXT("%s: both have their words"), When), Change != INDEX_NONE && Title != INDEX_NONE && !M.Items[Change].Label.IsEmpty() && !M.Items[Title].Label.IsEmpty());
+	};
+	// Pause: the two rows are there, once, and again after Settings and Back.
+	W.Game->PauseKey();
+	if (!TestEqual(TEXT("the pause card"), (int32)M.Screen, (int32)EMIMenuScreen::Pause))
+	{
+		return false;
+	}
+	CheckRows(TEXT("on pausing"));
+	M.Selected = M.IndexOf(TEXT("settings"));
+	W.Game->MenuConfirm();
+	TestEqual(TEXT("Settings from the pause card"), (int32)M.Screen, (int32)EMIMenuScreen::Settings);
+	W.Game->MenuBack();
+	TestEqual(TEXT("back on the pause card"), (int32)M.Screen, (int32)EMIMenuScreen::Pause);
+	CheckRows(TEXT("after Settings"));
+	M.Selected = M.IndexOf(TEXT("difficulty"));
+	W.Game->MenuAdjust(1);
+	W.Game->MenuAdjust(-1);
+	CheckRows(TEXT("after a difficulty change"));
+	// Back to title: the run ends, Home is up.
+	M.Selected = M.IndexOf(TEXT("totitle"));
+	W.Game->MenuConfirm();
+	TestEqual(TEXT("Back to title: the title"), (int32)W.State(), (int32)EMIGameState::Title);
+	TestTrue(TEXT("the front end is up"), F->IsShown());
+	TestEqual(TEXT("... on Home"), F->GetRules().GetScreen(), EMIFrontScreen::Home);
+	TestEqual(TEXT("no game card over it"), (int32)M.Screen, (int32)EMIMenuScreen::Title);
+	// A new run, paused, Change set-up: the Briefing.
+	F->Act(TEXT("hit"));
+	for (int32 I = 0; I < 30 * 4 && W.State() != EMIGameState::Playing; ++I) W.Step();
+	TestEqual(TEXT("a new run plays"), (int32)W.State(), (int32)EMIGameState::Playing);
+	for (int32 I = 0; I < 12; ++I) W.Step();
+	W.Game->PauseKey();
+	CheckRows(TEXT("the second run"));
+	M.Selected = M.IndexOf(TEXT("changesetup"));
+	W.Game->MenuConfirm();
+	TestEqual(TEXT("Change set-up: the title"), (int32)W.State(), (int32)EMIGameState::Title);
+	TestEqual(TEXT("... on the Briefing"), F->GetRules().GetScreen(), EMIFrontScreen::Briefing);
+	TestTrue(TEXT("the front end is up"), F->IsShown());
+	return !HasAnyErrors();
+}
+
+// SMOOTH.md B5: a viewer who stops looking (the pointer left the picture, or the page's away word) pauses a run in play
+// or in its intro and lets go of what was held; on a menu, a card or a run already paused it changes nothing. And the
+// page's word is read from a UIInteraction message exactly as Pixel Streaming hands it over.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMICloudViewerAwayTest, "MurderInc.Cloud.ViewerAway", MITest::Flags)
+
+bool FMICloudViewerAwayTest::RunTest(const FString& Parameters)
+{
+	using namespace MIRunTestsPrivate;
+	// The message: a 16-bit count of UTF-16 code units, then the units, little-endian (RTCInputHandler.cpp).
+	const auto Message = [](const FString& Text, int32 Cut = 0)
+	{
+		TArray<uint8> B;
+		const int32 N = Text.Len();
+		B.Add((uint8)(N & 0xff));
+		B.Add((uint8)((N >> 8) & 0xff));
+		for (int32 I = 0; I < N; ++I)
+		{
+			const uint32 C = (uint32)Text[I];
+			B.Add((uint8)(C & 0xff));
+			B.Add((uint8)((C >> 8) & 0xff));
+		}
+		B.SetNum(FMath::Max(0, B.Num() - Cut));
+		return B;
+	};
+	TestTrue(TEXT("{\"murderinc\":\"away\"} is the away word"), UMICloudSubsystem::IsAwayMessage(Message(TEXT("{\"murderinc\":\"away\"}"))));
+	TestTrue(TEXT("with spaces and other fields too"), UMICloudSubsystem::IsAwayMessage(Message(TEXT("{ \"from\": \"page\", \"murderinc\": \"AWAY\" }"))));
+	TestFalse(TEXT("another word is not"), UMICloudSubsystem::IsAwayMessage(Message(TEXT("{\"murderinc\":\"back\"}"))));
+	TestFalse(TEXT("another key is not"), UMICloudSubsystem::IsAwayMessage(Message(TEXT("{\"game\":\"away\"}"))));
+	TestFalse(TEXT("a plain string is not"), UMICloudSubsystem::IsAwayMessage(Message(TEXT("murderinc away"))));
+	TestFalse(TEXT("a message cut short is not"), UMICloudSubsystem::IsAwayMessage(Message(TEXT("{\"murderinc\":\"away\"}"), 3)));
+	TestFalse(TEXT("an empty message is not"), UMICloudSubsystem::IsAwayMessage(TArray<uint8>()));
+	TestFalse(TEXT("nor a count with nothing after it"), UMICloudSubsystem::IsAwayMessage(Message(FString())));
+
+	FRunWorld W;
+	if (!W.Boot(*this, TEXT("mission"), TEXT("boss")))
+	{
+		return false;
+	}
+	W.Step();
+	TestEqual(TEXT("the run begins with its intro"), (int32)W.State(), (int32)EMIGameState::Intro);
+	TestTrue(TEXT("away in the intro: it pauses"), UMICloudSubsystem::PauseForAway(W.Game, nullptr));
+	TestEqual(TEXT("paused"), (int32)W.State(), (int32)EMIGameState::Paused);
+	for (int32 I = 0; I < 30 * 4; ++I) W.Step();
+	TestEqual(TEXT("and stays paused: the intro does not end into a live run"), (int32)W.State(), (int32)EMIGameState::Paused);
+	TestFalse(TEXT("away again on the pause card: nothing to do"), UMICloudSubsystem::PauseForAway(W.Game, nullptr));
+	TestEqual(TEXT("still the pause card"), (int32)W.Game->GetMenu().Screen, (int32)EMIMenuScreen::Pause);
+	TestFalse(TEXT("no game: nothing to do"), UMICloudSubsystem::PauseForAway(nullptr, nullptr));
+	W.Game->Resume();
+	W.Step();
+	TestEqual(TEXT("resumed"), (int32)W.State(), (int32)EMIGameState::Playing);
+
+	FControllerRig Rig(W);
+	if (!TestNotNull(TEXT("controller"), Rig.PC))
+	{
+		return false;
+	}
+	FMIPlayerInputState& In = W.Player->GetInput();
+	W.Player->GetPlayerRules().bInvulnerable = true;
+	for (int32 I = 0; I < 10; ++I) W.Step();
+	Rig.Key(EKeys::W, IE_Pressed);
+	Rig.Key(EKeys::LeftMouseButton, IE_Pressed);
+	W.Step();
+	W.Step();
+	TestTrue(TEXT("W walks"), In.Move.Y > 0.5);
+	TestTrue(TEXT("the mouse button fires"), In.bFire);
+	TestTrue(TEXT("away in play: it pauses"), UMICloudSubsystem::PauseForAway(W.Game, Rig.PC));
+	TestEqual(TEXT("paused"), (int32)W.State(), (int32)EMIGameState::Paused);
+	TestTrue(TEXT("at once: no move"), In.Move.IsZero());
+	TestFalse(TEXT("at once: no fire"), In.bFire);
+	for (int32 I = 0; I < 30; ++I) W.Step();
+	// The player comes back and resumes without touching anything: the W and the button held when they left do nothing.
+	W.Game->Resume();
+	bool bMoved = false, bFired = false;
+	for (int32 I = 0; I < 30; ++I)
+	{
+		W.Step();
+		bMoved |= !In.Move.IsZero();
+		bFired |= In.bFire || In.bFirePressed;
+	}
+	TestEqual(TEXT("resumed"), (int32)W.State(), (int32)EMIGameState::Playing);
+	TestFalse(TEXT("the W held when the player went away does not walk"), bMoved);
+	TestFalse(TEXT("the button held does not fire"), bFired);
+	// On the title nothing changes.
+	W.Game->ToTitle();
+	W.Step();
+	TestFalse(TEXT("away on the title: nothing to do"), UMICloudSubsystem::PauseForAway(W.Game, Rig.PC));
+	TestEqual(TEXT("still the title"), (int32)W.State(), (int32)EMIGameState::Title);
+	return !HasAnyErrors();
+}
+
 #endif
