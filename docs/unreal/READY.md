@@ -2,6 +2,56 @@
 
 One section per lane of the readiness pass. Every finding names the evidence it rests on (a picture, a log line, a number).
 
+## v6 GO readiness (release fixer, 2026-11-26, 22:15 to 00:30 UTC)
+
+**Proposed commit: none yet. Verdict: NOT YET (no go).** The last code commit of this pass is `ef28d60`; the full suite passes on it
+(`TESTS OK passed=222 failed=0 skipped=0`, golden replays included, nothing skipped, weakened or re-recorded; run in the integration clone
+`/project/ue/int/repo` with the guns imported, log `/project/ue/v6fix/c4-test.txt`). The hands, the reload magazines, the Crew screen, the
+deaths and the guide are fixed and were looked at in engine frames (enlarged, one by one). Four things stop a GO: the STRETCH's finish,
+the smoothness numbers (not re-measured: no new package was built), the independent look at these frames, and the independent end-to-end play
+of a package built from the fixed commit. Each criterion of DECISIONS.md (2026-11-25 20:40, 21:00, 21:20):
+
+| # | Criterion | Pass / fail | Evidence |
+|---|---|---|---|
+| 1a | Hands C++ pass built, review's must-fix closed | **pass for CHOPPER, RATTLER, SHORTY, STRETCH hands**; STRETCH finish fails (see 2) | `16f819d` (reach guard, firing-hand log, `ReloadHold` checks the firing palm within 1.5 cm); engine log `firing hand <gun>: palm 0.3 cm` on all four rifles; frames `shots/v6-hands-chopper.jpg`, `-rattler`, `-stretch`, `-shorty-after`, HANDS_R4.md 14 |
+| 1b | Support hand holds the magazine in every reload | **pass** | reload 0.5 s on CHOPPER, RATTLER, STRETCH, SHORTY in the sheets above: the magazine is in the support hand, the firing hand on the grip |
+| 1c | Aimed optics show no black ring | **pass (not re-taken)** | the visual pass (PLAY.md): red dot and 2x/4x scopes without the ring; the aimed frames of this pass (chopper, stretch, shorty, rattler) show none |
+| 1d | Pictures looked at by someone other than the engineer | **fail (pending)** | the fixer's own look only; a second reviewer must open `shots/v6-hands-*.jpg` |
+| 2a | Readiness pass says go, rendering faults fixed | **fail** | STRETCH finish (HANDS_R4.md 14): the stock draws as marbled white and black mirror in every frame with the box's files identical to the repo's; SHORTY's olive finish is right after `guns-resident.py` |
+| 2b | Menus clean, every gun with every part fitting | not re-run | READY.md M and W items stand as the readiness lane recorded them; open here: Workbench keeps previewing a removed part, framing hides STRETCH/STICK/NINE muzzle fits, pause card diagnostics line (e2e review should-fix) |
+| 3 | Full suite on one commit, guns imported fresh | **pass** | 222/222 on `ef28d60`'s unreal tree (also on `e28598d` and `6fb9f92`); the clone's guns were imported fresh on 2026-11-26 16:07 and the first-person gun textures set never-stream on 22:43 |
+| 4 | SMOOTH.md verdict "smooth" | **fail (not re-measured)** | the prover's NOT-YET stands (menus-with-guns 25 ms frames, engine start). What this pass changed that touches it: the Crew stage is drawn once behind the title card (H3), first-person gun textures are never streamed (about +416 MB resident). Neither was measured: that needs a package of the fixed commit and the lag harness (`package-cloud.sh`, `lag-test.sh`), which this pass did not run |
+| 5a | Killed enemies bleed and fall (no crouch) | **pass in frames** | `shots/v6-deaths-back.jpg`, `-stairs`: the body is on the ground by 0.25 s (before: kneeling with the gun ready until 0.6 s). Blast (`shots/v6-crew-guide-blast.jpg`, bottom): the Goon next to a pallet stack slumps against it at 0.6 s with one arm up and is down at 1.5 s: acceptable, not perfect (a body leaning on a wall) |
+| 5b | Weapon switching by keys, wheel and pad, with tests | pass (earlier) | PLAY.md switching lane, tests green |
+| 5c | Story guidance leads start to extraction | **pass in frames, tuned twice** | the roof test now reaches 5 m (the El's deck at 6.5 m no longer counts as a roof) and the path is brighter and wider; `shots/v6-crew-guide-blast.jpg` (top middle and right) |
+| 5d | Independent end-to-end play, no blocker or must-fix | **fail (pending)** | needs a package of the fixed commit; the earlier play's must-fixes are answered below |
+
+### The must-fix and blocker list of `v6-proofs.json`, one by one
+
+| Finding | State | What was done / evidence |
+|---|---|---|
+| Hands: reload fanned hand, no magazine | **fixed** | shoulders anchor [12, 12, -36] (data of the offline lane, HANDS_R4.md 13) plus the reach guard; engine frames |
+| Firing hand V on the rifles | **fixed** | palm 0.3 cm off the grip, frames |
+| Torn back of the hand | not seen in 40 frames | HANDS_R4.md 14 |
+| Skin-coloured ball (wall, Crew) | **Crew fixed; wall not reproduced** | the Crew stage showed the pack idle's fist as a stump: `mi.FE.CrewArms` 0 shows the turntable gun (`d611454`); against walls the new anchor leaves nothing (HANDS_R4.md 14, `shots/v6-hands-wall.jpg`); the black dome of the death-shot runs is the template body's arm in `MIStart mission skip` runs, not a play fault |
+| SHORTY reload pose and eye relief | **fixed** | `shoulders` [12, 12, -36] (was [2, 2, -20]: the forearm filled the screen), the offline reload pose and relief 0.12; aimed frame clear of the butt (no aperture ring: art) |
+| Deaths read as alive 0.25 to 0.6 s | **fixed in frames** | `fallPull` 1800 cm/s2 for 0.8 s (60 percent in blasts) and angular damping 0.6 to 0.25 (`7e4eb8d`, `ef28d60`); no gameplay rule touched (presentation of the ragdoll only) |
+| Stiff arm on stairs | **not seen** | `shots/v6-deaths-stairs.jpg`: the body slumps on the treads, no raised arm; the rest on the stair is out of frame at 1.5 s and 4 s |
+| Story path invisible in sun under the El | **improved, check** | `MIGuide` shade raycast 40 m to `look.shadeReach` 5 m; intensity 18000 to 80000, width 0.14 to 0.2 m (`ef28d60`); frames in `shots/v6-crew-guide-blast.jpg` (top middle and right) (at 36000 the path was still faint; in the frames where the path lies in view, back and stairs sequences, it is bright) |
+| Gun finish (mirror) | **SHORTY fixed, STRETCH open** | `tools/box/fp/guns-resident.py` and `mi_guns_r4.keep_resident` (never stream): SHORTY olive in every frame; STRETCH still marbled, box files = repo files (md5), so a UV/island mismatch on import, not residency: owner of `mi_fp_import._import_mesh` |
+| 349.7 ms freeze under load | **not fixed** | evidence in the game.log (`e2eb2`, 20:01:40): two `UPixelCaptureMediaCapture::WaitForGPU: Timed out waiting for fence` lines 100 ms apart on the game thread (`gameMs` 98.7), then the pacer's 250 ms wait: one event in 4.5 minutes, none in the 15-minute holdout; the cause is the stream capture's copy not finishing (the engine's own time-out, with a hog process sharing the card), not the pacer; lowering `MI.Cloud.GpuWaitLimitMs` from 250 would cap the pacer's share but is untested on the A4000 emulation and was not changed |
+| Crew screen's first frame (H3) | **changed, not measured** | `WarmStage`: the Crew arms and the turntable are drawn once into a 192 x 108 target behind the title (`d611454`); measuring it needs the package |
+| B2: 77 s wait for an unhurt Buzzard | **not changed: owner decision** | `UpdateLastEnemies` (60 s limit, persist builds only) is the guard that ends such a wave; the HUD already marks the last enemies (`MIHUD.cpp:465`). Shortening the limit changes when a wave ends, so it is written up for the owner: pick a limit (30 s?) or leave it |
+| Owner's polish decisions (2x scope name, 90 degree default field of view, STRETCH semi-automatic) | **not done by this fixer** | they change gameplay data (the STRETCH's fire mode) and defaults (FOV; golden tests read 74); this pass was bound by "gameplay rules must not change", so they wait for the lead to say go; each is a data edit plus the tests that read the old value |
+| POLISH.md v6 shortlist | **not done** | no time left in this pass (wedge timer, blast hit marker, NEXT label, slider steps, HUD scale, plates) |
+
+### What is still needed before a GO
+
+1. The STRETCH's finish (UV or material), one picture of it right.
+2. A package of the final commit (`tools/box/cloud/package-cloud.sh`), the lag harness on it (menus with guns, Story, holdout: frames over 25 ms per minute, engine start, the Crew screen's first frame) and a new SMOOTH.md verdict.
+3. A second reviewer's look at the pictures named above, and the independent end-to-end play of that package.
+4. The lead's word on the three owner decisions and the POLISH.md shortlist; the owner's on B2.
+
 > **For the v6 fixer (2026-11-26 ~22:40 UTC, the lead):** besides the items in this file, SMOOTH.md, PLAY.md and HANDS_R4.md 11 to 13,
 > also do the v6 shortlist of docs/unreal/POLISH.md (the cheap and safe polish items marked v6: the damage wedge timer, blast kills
 > without hit marker or kill tick, the invisible NEXT label, slider steps and repeat, HUD scale K = H/1080, plates and font for the
