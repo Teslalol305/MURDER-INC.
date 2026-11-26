@@ -898,10 +898,28 @@ void UMIDemoDirector::FollowGuide(float Dt)
 	{
 		return;
 	}
-	// From the feet along the drawn route, then on to the goal itself (the truck's zone, the case).
+	// From the feet along the drawn route, then on to the goal itself (the truck's zone, the case). The drawn route starts
+	// where the player stood at its search, which may be far behind by now (a new route replaces it only when it is
+	// shorter): join it at the segment nearest the feet, never back at its first corner (review: "guide 120" walked
+	// 2 m in 120 s, turning back and forth between the feet and a corner already passed).
+	const FVector2D Feet(P->GetActorLocation().X, P->GetActorLocation().Y);
+	int32 Join = 0;
+	double Nearest = TNumericLimits<double>::Max();
+	for (int32 I = 0; I + 1 < Path.Num(); ++I)
+	{
+		const FVector UA = MI::Web::ToUnreal(Path[I]), UB = MI::Web::ToUnreal(Path[I + 1]);
+		const FVector2D A(UA.X, UA.Y), AB = FVector2D(UB.X, UB.Y) - A;
+		const double T = FMath::Clamp(FVector2D::DotProduct(Feet - A, AB) / FMath::Max(1.0, AB.SizeSquared()), 0.0, 1.0);
+		const double D = FVector2D::Distance(Feet, A + AB * T);
+		if (D < Nearest)
+		{
+			Nearest = D;
+			Join = I;
+		}
+	}
 	Route.Reset();
-	Route.Add(FVector2D(P->GetActorLocation().X, P->GetActorLocation().Y));
-	for (int32 I = 1; I < Path.Num(); ++I)
+	Route.Add(Feet);
+	for (int32 I = Join + 1; I < Path.Num(); ++I)
 	{
 		const FVector U = MI::Web::ToUnreal(Path[I]);
 		Route.Add(FVector2D(U.X, U.Y));
