@@ -24,8 +24,16 @@ stats() { local m; m=$(wc -l < "$log"); c "MIGuide.Stats"; sleep 1; tail -n +"$m
 # pose <x> <y> <z> <yaw> <pitch> (Unreal cm, degrees), then two seconds of play so the guide searches from there
 pose() { c "MIPose $*"; sleep 2.5; }
 
-pie_start > /dev/null
-for i in $(seq 1 40); do tail -n +"$mark" "$log" | grep -q 'Play in editor total start time' && break; sleep 2; done
+# A first start of a fresh clone loads for many minutes: wait for its MCP (at most 20 minutes)
+for i in $(seq 1 240); do bash ./editor.sh status 2>/dev/null | grep -q "MCP ok" && break; sleep 5; done
+# Play in editor asked while the editor still settles is ignored: ask again, up to five times
+for k in 1 2 3 4 5; do
+  mark=$(wc -l < "$log")
+  pie_start > /dev/null
+  for i in $(seq 1 30); do tail -n +"$mark" "$log" | grep -q 'Play in editor total start time' && break; sleep 2; done
+  tail -n +"$mark" "$log" | grep -q 'Play in editor total start time' && break
+  sleep 10
+done
 tail -n +"$mark" "$log" | grep -m1 'Play in editor total start time' || { echo "GUIDE SHOTS FAILED: play in editor did not start"; exit 1; }
 sleep 4; settle 10
 for i in 1 2 3; do c "MIViewSize 1920 1080"; settle 4; done
@@ -36,12 +44,21 @@ sleep 1
 
 if [ "${PLAY:-1}" != only ]; then
   # Reel 1: from the start (west end, looking east down the avenue), under the El, and turned round (the edge arrow)
-  want start && { pose -3740 815 15 -4.6 -7; shot start; stats; }
-  want el && { pose -2150 760 15 -12 -9; shot el; }
+  want start && { pose -3740 815 15 -4.6 -18; shot start; stats; }
+  want el && { pose -1600 700 15 -27 -16; shot el; }
   want behind && { pose -2150 760 15 168 -4; shot behind; }
+  # The GPU's cost of the path: ProfileGPU's translucency passes with the path shown and hidden (same view)
+  if want gpu; then
+    pose -2150 760 15 -12 -9; settle 20
+    for on in 1 0 1 0; do
+      c "MIGuide.Show $on"; settle 12; m=$(wc -l < "$log"); c "ProfileGPU"; settle 6; sleep 2
+      echo "gpu path=$on: $(tail -n +"$m" "$log" | grep -iE 'Translucen' | sed 's/^.*LogRHI: *//' | head -6 | tr -s ' ' | tr '\n' '|')"
+    done
+    c "MIGuide.Show 1"
+  fi
   # The hint: no progress for the (shortened) wait
   if want hint; then
-    pose -3740 815 15 -4.6 -7; c "MIGuide.HintAfter 3"; sleep 5; shot hint; c "MIGuide.HintAfter 45"
+    pose -3740 815 15 -4.6 -18; c "MIGuide.HintAfter 3"; sleep 5; shot hint; c "MIGuide.HintAfter 45"
   fi
   # Settings off: no path, no markers
   if want off; then
@@ -49,19 +66,19 @@ if [ "${PLAY:-1}" != only ]; then
   fi
   # Reel 2: from beside Reel 1, the path to the chop shop's bay door; inside the shop
   demo "secure 0"; sleep 1
-  want shop && { pose -330 130 0 -95 -8; shot shop; stats; }
-  want inside && { pose -150 -1350 0 -140 -10; shot inside; }
+  want shop && { pose -330 130 0 -95 -18; shot shop; stats; }
+  want inside && { pose -150 -1350 0 -140 -20; shot inside; }
   # Reel 3: out of the shop and east along the avenue to the cage; at the cage gate
   demo "secure 1"; sleep 1
-  want avenue && { pose 900 -950 15 -5 -8; shot avenue; }
-  want cage && { pose 3450 -820 15 -88 -9; shot cage; }
+  want avenue && { pose 200 -950 15 0 -16; shot avenue; }
+  want cage && { pose 3100 -800 15 -63 -16; shot cage; }
   # The truck: down the lot from the avenue; close to the truck (the marker fades)
   demo "secure 2"; sleep 1
-  want lot && { pose 2900 -300 0 75 -8; shot lot; stats; }
-  want truck && { pose 3250 2450 0 50 -6; shot truck; }
+  want lot && { pose 2800 -600 0 90 -16; shot lot; stats; }
+  want truck && { pose 3000 2000 0 59 -14; shot truck; }
   # A fight: the path toned down while enemies engage
   if want fight; then
-    pose 2900 -300 0 75 -8; demo "alert 80"; sleep 6; shot fight; stats
+    pose 2900 -300 0 75 -18; demo "alert 80"; sleep 6; shot fight; stats
   fi
 fi
 
