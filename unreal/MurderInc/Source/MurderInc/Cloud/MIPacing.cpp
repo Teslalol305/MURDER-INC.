@@ -85,6 +85,10 @@ bool FMIFrameRateGovernor::Update(const FInput& In)
 			{
 				RaiseWait = FMath::Min(RaiseWait * 2.0, MaxRaiseAfter);  // the last rise did not hold: try later next time
 			}
+			else if (SinceRaise >= EarnBackAfter)
+			{
+				RaiseWait = RaiseAfter;  // the last rise held for minutes (or there was none): the short wait is earned back
+			}
 			Reason = FString::Printf(TEXT("%d -> %d frames a second: at the smallest picture %s for %.1f s (the GPU took %.1f ms a frame; a frame has %.1f ms)"),
 				From, Target(), In.bHeldBack ? TEXT("the game fell short of the rate because it had to wait for the GPU")
 					: *FString::Printf(TEXT("the GPU's time was over %.0f %% of the frame time"), OverShare * 100.0), DropAfter, In.GpuMs, Frame);
@@ -102,12 +106,14 @@ bool FMIFrameRateGovernor::Update(const FInput& In)
 	const double AtSmallest = In.GpuMsSmallest > 0.0 ? FMath::Min(In.GpuMsSmallest, In.GpuMs) : In.GpuMs;
 	const bool bUnder = In.GpuMs > 0.0 && AtSmallest < UnderShare * NextFrame && !In.bHeldBack;
 	UnderFor = bUnder ? UnderFor + Step : 0.0;
-	if (UnderFor >= RaiseWait && In.bSafeMoment && Index > 0)
+	// In live play too (bRiseInPlay): Hold the Block has no card between its waves (docs/unreal/SMOOTH.md H2).
+	if (UnderFor >= RaiseWait && (In.bSafeMoment || bRiseInPlay) && Index > 0)
 	{
 		const int32 From = Target();
 		--Index;
-		Reason = FString::Printf(TEXT("%d -> %d frames a second: the GPU took %.1f ms a frame (%.1f ms at the smallest picture), under %.0f %% of the %.1f ms a frame has at %d, for %.0f s, and no run is being played"),
-			From, Target(), In.GpuMs, AtSmallest, UnderShare * 100.0, NextFrame, Target(), UnderFor);
+		Reason = FString::Printf(TEXT("%d -> %d frames a second: the GPU took %.1f ms a frame (%.1f ms at the smallest picture), under %.0f %% of the %.1f ms a frame has at %d, for %.0f s, %s"),
+			From, Target(), In.GpuMs, AtSmallest, UnderShare * 100.0, NextFrame, Target(), UnderFor,
+			In.bSafeMoment ? TEXT("and no run is being played") : TEXT("in play"));
 		UnderFor = 0.0;
 		SinceRaise = 0.0;
 		return true;

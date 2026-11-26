@@ -122,8 +122,11 @@ namespace MICloudPrivate
 		TEXT("The frame-rate target drops (in live play) when the GPU's time is over this share of the frame time at the smallest picture, or when the game falls short of the rate because it waits for the GPU."));
 	FAutoConsoleVariableRef CVarFpsDropAfter(TEXT("MI.Cloud.FpsDropAfter"), GFpsDropAfter, TEXT("... for this many seconds."));
 	FAutoConsoleVariableRef CVarFpsRaiseUnder(TEXT("MI.Cloud.FpsRaiseUnder"), GFpsRaiseUnder,
-		TEXT("The frame-rate target may rise (only while no run is being played) when the GPU's time at the smallest picture is under this share of the frame time of the next rate up."));
+		TEXT("The frame-rate target may rise (in play too, unless MI.Cloud.FpsRiseInPlay is 0) when the GPU's time at the smallest picture is under this share of the frame time of the next rate up."));
 	FAutoConsoleVariableRef CVarFpsRaiseAfter(TEXT("MI.Cloud.FpsRaiseAfter"), GFpsRaiseAfter, TEXT("... for this many seconds."));
+	int32 GFpsRiseInPlay = 1;
+	FAutoConsoleVariableRef CVarFpsRiseInPlay(TEXT("MI.Cloud.FpsRiseInPlay"), GFpsRiseInPlay,
+		TEXT("1 (default): the frame-rate target may rise in live play too (Hold the Block shows no card between its waves: docs/unreal/SMOOTH.md H2); 0: only while no run is being played."));
 	// Measured on the box (RTX PRO 6000, Story run, 1080p): 6.39 ms a frame at a 75 % picture, 6.00 ms at 50 % (runs
 	// rf-sp75, rf-sp50), and 29 ms at 400 %: about an eighth of the frame's GPU time follows the pixels, the rest
 	// (Lumen, the shadow maps, Nanite, the 1080p output) does not.
@@ -1905,6 +1908,7 @@ void UMICloudSubsystem::TickPacing()
 	Governor.DropAfter = MICloudPrivate::GFpsDropAfter;
 	Governor.UnderShare = MICloudPrivate::GFpsRaiseUnder;
 	Governor.RaiseAfter = MICloudPrivate::GFpsRaiseAfter;
+	Governor.bRiseInPlay = MICloudPrivate::GFpsRiseInPlay != 0;
 
 	// Fixed from outside: MI.Cloud.FpsTarget (or -MIFps=), or a t.MaxFPS that something stronger than the cloud
 	// profile holds (-MICVars, the console, E3DS's console-commands field).

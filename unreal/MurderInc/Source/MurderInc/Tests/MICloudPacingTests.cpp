@@ -1,8 +1,10 @@
 // Version 3, release A (the lag): the decisions that keep a streamed game from running ahead of its GPU, and what
 // a visitor may tune from outside. No world, no renderer.
 //   MurderInc.Cloud.FrameRate   the frame-rate target: down at once, in live play only, when the GPU cannot keep up at
-//                               the smallest picture; up only outside live play, judged at the smallest picture too; a
-//                               rise that does not hold waits longer; a fixed target stays
+//                               the smallest picture; up in live play and on a card alike (Hold the Block shows no card
+//                               between its waves: docs/unreal/SMOOTH.md H2), judged at the smallest picture too; a
+//                               rise that does not hold waits longer, one that holds earns the short wait back; the
+//                               old rule (up only outside live play) on request; a fixed target stays
 //   MurderInc.Cloud.Tuning      the variables -MICVars and a viewer's console command may set, their ranges, the
 //                               launch option's text split into pairs
 
@@ -57,9 +59,10 @@ bool FMICloudFrameRateTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("still 30"), G.Target(), 30);
 		// The rise is judged by the rate it goes to: four fifths of 22.2 ms (17.8 ms) to go to 45.
 		TestEqual(TEXT("19 ms on a card for a minute: over four fifths of what a frame has at 45, it stays at 30"), Run(G, 60.0, 19.0, false, true), 0);
-		TestEqual(TEXT("10 ms for a minute in live play: it does not rise in a fight"), Run(G, 60.0, 10.0, false, false), 0);
-		TestEqual(TEXT("the same on the pause card: it rises at once (it has been under for long enough)"), Run(G, 0.5, 10.0, false, true), 1);
+		TestEqual(TEXT("10 ms in live play for 9.5 s: not yet"), Run(G, 9.5, 10.0, false, false), 0);
+		TestEqual(TEXT("... for 10 s: it rises in play (SMOOTH.md H2: it used to wait for a card that Hold the Block never shows)"), Run(G, 0.5, 10.0, false, false), 1);
 		TestEqual(TEXT("30 -> 45"), G.Target(), 45);
+		TestTrue(TEXT("the log line says it rose in play"), G.Why().Contains(TEXT("in play")));
 		// Four fifths of 16.7 ms are 13.3 ms: 14 ms is not under it.
 		TestEqual(TEXT("14 ms on a card: over four fifths of what a frame has at 60, it stays at 45"), Run(G, 60.0, 14.0, false, true), 0);
 		TestEqual(TEXT("8 ms on a card for 9.5 s: not yet"), Run(G, 9.5, 8.0, false, true), 0);
@@ -78,6 +81,48 @@ bool FMICloudFrameRateTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("10 s on a card are not enough now"), Run(G, 10.0, 8.0, false, true), 0);
 		TestEqual(TEXT("20 s are"), Run(G, 10.0, 8.0, false, true), 1);
 		TestEqual(TEXT("at 60"), G.Target(), 60);
+	}
+	{
+		// Hold the Block under E3DS's GPU time (SMOOTH.md H2, run v6-hold-l20): the first fight drops 60 -> 45 -> 30,
+		// the GPU is light again between the waves, and the target must come back without a card.
+		FMIFrameRateGovernor G;
+		TestEqual(TEXT("a fight's second over the line: 60 -> 45"), Run(G, 1.0, 21.0, true, false), 1);
+		TestEqual(TEXT("another: 45 -> 30"), Run(G, 1.0, 24.0, true, false), 1);
+		TestEqual(TEXT("at 30"), G.Target(), 30);
+		TestEqual(TEXT("the fight goes on, 20 ms at the smallest picture (over 17.8 ms): it stays at 30"), Run(G, 60.0, 20.0, true, false), 0);
+		const double At50 = MITuning::GpuMsAtSmallest(12.0, 0.75, 0.50, 0.12);
+		TestEqual(TEXT("between the waves, 12 ms at the 75 % picture in play for 10 s: 30 -> 45"), Run(G, 10.0, 12.0, false, false, false, At50), 1);
+		TestEqual(TEXT("10 s more: 45 -> 60"), Run(G, 10.0, 12.0, false, false, false, At50), 1);
+		TestEqual(TEXT("at 60, in play, no card shown"), G.Target(), 60);
+		AddInfo(FString::Printf(TEXT("log line: %s"), *G.Why()));
+		TestEqual(TEXT("the calm goes on at 60: nothing changes"), Run(G, 50.0, 12.0, false, false, false, At50), 0);
+		TestEqual(TEXT("the next wave's fight, almost a minute after the rise: down"), Run(G, 1.0, 21.0, true, false), 1);
+		TestEqual(TEXT("the rise had held past the retry window: 10 s of calm bring 60 back"), Run(G, 10.0, 12.0, false, false, false, At50), 1);
+		TestEqual(TEXT("5 s later the fight is back: down (this rise did not hold)"), Run(G, 5.0, 12.0, false, false, false, At50) + Run(G, 1.0, 21.0, true, false), 1);
+		TestEqual(TEXT("the next try waits twice as long: 10 s are not enough"), Run(G, 10.0, 12.0, false, false, false, At50), 0);
+		TestEqual(TEXT("20 s are"), Run(G, 10.0, 12.0, false, false, false, At50), 1);
+		TestEqual(TEXT("two minutes at 60"), Run(G, 120.0, 12.0, false, false, false, At50), 0);
+		TestEqual(TEXT("a fight: down"), Run(G, 1.0, 21.0, true, false), 1);
+		TestEqual(TEXT("the last rise held for two minutes: the short wait is earned back (10 s)"), Run(G, 10.0, 12.0, false, false, false, At50), 1);
+		TestEqual(TEXT("at 60"), G.Target(), 60);
+	}
+	{
+		// A shared card for two minutes (SMOOTH.md H2, run v6-long): after it the GPU reads 7 to 9 ms and 60 comes back in play.
+		FMIFrameRateGovernor G;
+		TestEqual(TEXT("the other game's load: 60 -> 45"), Run(G, 1.0, 20.6, true, false), 1);
+		TestEqual(TEXT("two minutes of it at 45 (17 ms, under 22.2, over 13.3): it stays"), Run(G, 120.0, 17.0, true, false), 0);
+		TestEqual(TEXT("the other game leaves: 8 ms for 10 s, back to 60"), Run(G, 10.0, 8.0, false, false), 1);
+		TestEqual(TEXT("60"), G.Target(), 60);
+	}
+	{
+		// The old rule on request (MI.Cloud.FpsRiseInPlay 0): up only at a safe moment.
+		FMIFrameRateGovernor G;
+		G.bRiseInPlay = false;
+		Run(G, 1.0, 21.0, true, false);
+		TestEqual(TEXT("down to 45"), G.Target(), 45);
+		TestEqual(TEXT("8 ms for a minute in live play: it does not rise"), Run(G, 60.0, 8.0, false, false), 0);
+		TestEqual(TEXT("the same on the pause card: it rises at once (it has been under for long enough)"), Run(G, 0.5, 8.0, false, true), 1);
+		TestEqual(TEXT("60"), G.Target(), 60);
 	}
 	{
 		// The pacer's word counts even when the GPU's measured time looks fine or is not known.

@@ -31,13 +31,19 @@
  * Measured (docs/unreal/PROGRESS.md "Version 3, release A"): lines at 70, 85 and 90 % each lowered a rate that was
  * being held without a late frame (runs d2, d5, h-l20); with 100 % a GPU at 78 to 98 % of the frame time gave a
  * steady 45 (run h-l20x).
- * Up, only at a safe moment (a card, a set-up screen: not in live play): the GPU's time at the smallest picture
+ * Up, in live play as on a card or a set-up screen (bRiseInPlay): the GPU's time at the smallest picture
  * (GpuMsSmallest: the drop is judged there, so the rise is too) has been under UnderShare of the frame time of the
  * next rate up for RaiseAfter seconds: four fifths, so 13.3 ms to go to 60 and 17.8 ms to go to 45. A scene in a
  * fight costs about a fifth more than its average (the highest second of the gate runs), which the next rate then
  * still holds. The first rule asked for 45 % of the frame time now (10 ms at 45): a card that took 10.6 ms at 45
  * holds 60 and never got it back after one bad second. A rise that does not hold (the target drops again within
- * RetryWindow seconds) doubles the wait before the next try.
+ * RetryWindow seconds) doubles the wait before the next try, up to MaxRaiseAfter; a rise that held for EarnBackAfter
+ * seconds before the next drop gives the short wait back.
+ * Until 2026-11-26 the target rose only at a safe moment. Hold the Block shows no card between its waves, so one
+ * heavy second held 45 or 30 to the end of the run however fast the GPU was afterwards (docs/unreal/SMOOTH.md H2:
+ * 30 for 146 of 189 play seconds with E3DS's GPU time; 45 for the last 5.2 minutes after two minutes of a shared
+ * card). A rise, like a drop, needs no new shaders: t.MaxFPS, the stream's frame rate and dynamic resolution's frame
+ * time follow it. MI.Cloud.FpsRiseInPlay 0 gives the old rule back.
  */
 struct MURDERINC_API FMIFrameRateGovernor
 {
@@ -51,6 +57,9 @@ struct MURDERINC_API FMIFrameRateGovernor
 	double RaiseAfter = 10.0;
 	double RetryWindow = 30.0;
 	double MaxRaiseAfter = 160.0;
+	double EarnBackAfter = 120.0;
+	/** The target may rise in live play too (false: only at a safe moment, the rule until 2026-11-26). */
+	bool bRiseInPlay = true;
 	/**
 	 * While the quality ladder has a live step to give (FInput::bHold), the drop waits: the looks go before the frames. Only for a
 	 * load a step or two can carry (the GPU's time under HoldOverShare of the frame time; a heavier one drops at once, as
@@ -75,7 +84,7 @@ struct MURDERINC_API FMIFrameRateGovernor
 		bool bSmallestPicture = false;
 		/** The game fell short of the target's rate since the last update because it had to wait for the GPU. */
 		bool bHeldBack = false;
-		/** Not in live play: the target may rise, and it does not drop. */
+		/** Not in live play: the target does not drop (it may rise; in live play only with bRiseInPlay). */
 		bool bSafeMoment = false;
 		/** The quality ladder has a live step to give (FMIQualityLadder::CanStepDown): the drop waits for it, within HoldOverShare and HoldMax. */
 		bool bHold = false;

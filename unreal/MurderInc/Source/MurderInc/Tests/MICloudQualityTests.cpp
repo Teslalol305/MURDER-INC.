@@ -681,8 +681,15 @@ bool FMICloudQualityGuardsTest::RunTest(const FString& Parameters)
 		};
 		FBoth Without;
 		Without.Setup(0.12, false);
+		Without.G.bRiseInPlay = false;   // the rule until 2026-11-26: no rise in play (the case below has it)
 		Without.Run(60.0, 17.0);
 		TestTrue(TEXT("the governor on its own: 17 ms at 60 drops to 45 after a second (the old behaviour)"), Without.G.Target() < 60 && Without.DroppedAt <= 1.5);
+		FBoth Back;
+		Back.Setup(0.12, false);
+		Back.Run(90.0, 17.0);
+		TestTrue(TEXT("the governor on its own with the rise in play (SMOOTH.md H2): it still drops after a second"), Back.DroppedAt > 0.0 && Back.DroppedAt <= 1.5);
+		TestEqual(TEXT("... the ladder's two steps (17 -> 15 -> 13.2 ms) then bring 60 back in play"), Back.G.Target(), 60);
+		TestEqual(TEXT("... two steps"), Back.L.Step(), 2);
 		FBoth Both;
 		Both.Setup(0.12);
 		Both.Run(120.0, 17.0);
