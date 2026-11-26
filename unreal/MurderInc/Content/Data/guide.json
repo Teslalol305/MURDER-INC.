@@ -30,6 +30,7 @@
     "color": [0.2, 0.85, 1.0],
     "intensity": 18000,
     "shade": 0.35,
+    "shadeReach": 5.0,
     "combat": 0.75,
     "combatFade": 0.6,
     "phases": 4,

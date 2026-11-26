@@ -38,6 +38,8 @@ struct MURDERINC_API FMIGuideTune
 	FLinearColor UnderColor = FLinearColor(0.02f, 0.018f, 0.016f);
 	double UnderWidth = 2.4, UnderLonger = 0.1, UnderDrop = 0.012;
 	int32 Phases = 4;
+	/** metres above a chevron within which a roof makes it shade: the El's deck (6.5 m) lets the sun in at its sides, a shop ceiling does not */
+	double ShadeReach = 5.0;
 	double Chase = 0.9, Low = 0.4;
 	// marker
 	double MarkerFar = 10.0, MarkerNear = 2.5, MarkerEdge = 56.0;

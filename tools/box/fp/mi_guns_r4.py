@@ -134,7 +134,24 @@ def _import_set(set_name, dest):
         return False
     C.import_textures(folder, dest + "/Textures")
     F.finish_textures()     # built before the material and the save (HANDS_R4.md 13: the black-mirror finish)
+    keep_resident(dest + "/Textures")
     return True
+
+
+def keep_resident(folder):
+    """Every texture of a first-person gun is never streamed, full size (v6 release pass: the STRETCH and SHORTY drew as a
+    grey mirror in the package frames, a texture not yet streamed in sampled as about 0 when the gun was drawn at the
+    switch; the arms' sets have been resident since the hands-and-tattoos pass, mi_fp_import.ARMS_TEX). About 416 MB of
+    the five guns' sets at 4096 (BC1 base colour and ORM 10.7 MB each with mips, BC5 normals 21.3 MB)."""
+    n = 0
+    for a in ASSETS.list_assets(folder, recursive=False, include_folder=False):
+        t = unreal.load_asset(str(a))
+        if isinstance(t, unreal.Texture2D):
+            t.set_editor_property("never_stream", True)
+            t.set_editor_property("lod_bias", 0)
+            ASSETS.save_loaded_asset(t)
+            n += 1
+    log("keep_resident %s: %d textures" % (folder, n))
 
 
 def _gun(name, sets):

@@ -133,6 +133,7 @@ bool FMIGuideTune::Parse(const TSharedPtr<FJsonObject>& Root, FName Level, FMIGu
 	N(TEXT("look.armLength"), Out.ArmLength);
 	N(TEXT("look.armWidth"), Out.ArmWidth);
 	N(TEXT("look.armAngle"), Out.ArmAngle);
+	N(TEXT("look.shadeReach"), Out.ShadeReach);
 	N(TEXT("look.lift"), Out.Lift);
 	const FVector C = Triple(MIJson::Get(Root, TEXT("look.color")), FVector(Out.Color.R, Out.Color.G, Out.Color.B));
 	Out.Color = FLinearColor(C.X, C.Y, C.Z, 1.f);
@@ -389,7 +390,7 @@ void FMIGuidePlan::Lay(FMIBoxWorld& Nav, double S0)
 			FMIRayHit Hit;
 			C.Tip = P;
 			C.Dir = D;
-			C.bShade = Nav.Raycast(FVector(P.X, P.Y + 0.3, P.Z), FVector(0.0, 1.0, 0.0), 40.0, Hit);
+			C.bShade = Nav.Raycast(FVector(P.X, P.Y + 0.3, P.Z), FVector(0.0, 1.0, 0.0), Tune.ShadeReach, Hit);
 			C.bValid = true;
 		}
 		FMIGuideChevron& V = Chevrons.AddDefaulted_GetRef();

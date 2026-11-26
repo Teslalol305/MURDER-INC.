@@ -42,6 +42,7 @@ struct MURDERINC_API FMIEnemyLook
 		double Bone = 330.0, BoneHead = 480.0, Carry = 110.0, CarryHead = 140.0, Blast = 650.0, BlastUp = 320.0, MaxSpeed = 900.0;
 		double SettleSpeed = 18.0, SettleFor = 0.5, MinSim = 1.2, MaxSim = 5.0, PoolFade = 2.5;
 		double LinearDamping = 0.15, AngularDamping = 0.6;
+		double FallPull = 0.0, FallFor = 0.0;  // extra downward cm/s^2 for the first FallFor s: a limp body drops at once instead of holding its stance
 		double MaxUp = 250.0;  // cm/s: no part of a falling body rises faster (a blast: 1.5 x BlastUp)
 		int32 StartsPerFrame = 2;  // ragdolls started in one frame at most; more deaths in the same frame fall a frame later
 	} GoonRagdoll;
