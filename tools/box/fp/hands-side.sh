@@ -58,7 +58,7 @@ else:
     r = "side %s at %s" % (mode, at)
 r
 PY
-  pie_mcp py "$PIE_PY/_side.py" > /dev/null
+  echo "side $1: $(pie_mcp py "$PIE_PY/_side.py" 2>&1 | tr '\n' ' ' | cut -c1-400)"
 }
 shots() {  # <gun> <state>: eye, left, right
   settle 12; pie_shot "$out/$1-$2-eye.jpg"
