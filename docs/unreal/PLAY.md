@@ -464,3 +464,44 @@ The suite on the box (`tools/box/test.sh MurderInc`, the branch at `d469d73` wit
 - A body staged onto a car or a ledge (the probe's staging) can start inside it and be thrown out; the rules never put a
   living Goon inside a car, so this is the probe's, not the game's, but a Goon killed while overlapping a prop collider
   would do the same.
+
+## The review's findings, fixed (the fixer lane)
+
+The end-to-end review of 2026-11-26 found one blocker, four must-fix and six should-fix items (below). The GPU box ended
+(credits used up, 03:33 UTC) before this lane started, so **nothing here has been built, tested, played or pictured**.
+The suite has to pass on what goes on the branch, so the game code changes are held back on a local branch of the
+checkout on the lead's machine, **`fixer/unbuilt-review-fixes`** (four commits on top of `293fd82`), not pushed. What is
+pushed is only what no test or build reads: the release script's new `fx` step and this section.
+
+To land the held-back commits once a box is back: merge `fixer/unbuilt-review-fixes`, build with
+`-MaxParallelActions=6`, run `tools/box/test.sh MurderInc` (two new tests: `MurderInc.Guide.Combat`,
+`MurderInc.Death.Retired`; nothing existing changed in its checks), then the pictures and plays listed under "To see"
+below. The gameplay rules are not touched: every change is presentation or a dev tool, and the golden replays must stay
+as they are.
+
+| Finding | Severity | What was done | Where |
+|---|---|---|---|
+| No rendered end-to-end play of a package | blocker | Not fixable here: no box. The review's prepared runs (`/project/ue/play/review/scripts/r1..r3`) are the plan once a box is back; give one lane the GPU at a time. | open |
+| Ragdolls thrown metres up in the staged frames | must-fix | Each frame a body falls, no part of it may go faster than `maxSpeed` (900 cm/s) or rise faster than `maxUp` (250 cm/s; a blast 1.5 x `blastUp` = 480): a body started against a wall or a ledge is pushed out by the solver, and the push no longer flings it. Real kills on open ground (1.5 s, 15 to 17 cm over the floor in the review's run) are under the caps and fall as before. The rest line in the log counts the speeds held back. | held back: `MIEnemyActors.cpp` `UpdateRagdoll`, `presentation.json` `enemies.goon.ragdoll.maxUp` |
+| Blood-pool material not in the release copy | must-fix | `package-cloud.sh` has a new step `fx` after `content` (in `all`, and alone as `package-cloud.sh fx`): `mi_fp_import.py fx` makes the effect materials again in the release copy, and the step fails unless `MD_FX_Mark.uasset` holds the pool branch's own words ("a pool under a body") afterwards. | **pushed** |
+| Ground path unreadable in direct sun, and dimmed where Goons are | must-fix | The chevrons are cyan (no road paint, crosswalk or brick on the block is) and lie on a dark strip each (`look.underlay`: the engine plane's own lit material with its `Color` parameter near black, 2.4 x the arm's width, 10 cm longer, 1.2 cm under it): an additive line on bare concrete only brightens it, a lit line on black reads in full sun. In a fight the path drops to 0.75 instead of 0.35. No new asset. | held back: `MIGuide.cpp/.h`, `guide.json` |
+| The demo director's `guide` verb did not walk | should-fix | The guide's drawn route starts where the player stood at its search and is kept while it stays the shortest, so its first corner was soon behind the player; the verb walked back to it every half second. It now joins the route at the segment nearest the feet. | held back: `MIDemoDirector.cpp` `FollowGuide` |
+| Settings off removed the objective markers | should-fix | Off now hides only the ground path; every objective keeps its plain marker (as the web game draws them), and the next step's marker is the plain one too. The row is renamed "Ground path" (still English in code, like "Controller", READY.md M11). | held back: `MIHUD.cpp`, `MIMenus.cpp` |
+| Orange support-hand blob in the death-shot poses | should-fix | For the hands engineer (`MIFirstPersonRig.*`, not edited here): `/project/ue/play/death-run/s4` stairs-1..5 and blast-1..5, sheets `/project/ue/play/review/out/d4a.jpg`, `d4b.jpg`; it looks like READY.md W2. | passed on |
+| Guide checked fights with slot indexes as unit ids | must-fix | `AMIGuide::Step` reads `GetSlots()[I]` for each listed slot (as `UMIGameSubsystem::UpdateLastEnemies` does). New test `MurderInc.Guide.Combat`: one engaging Goon whose id is no listed slot's index raises the plan's combat; nobody engaging brings it back to 0 (the old code fails it). | held back: `MIGuide.cpp`, `MIGuideTests.cpp` |
+| Pools recycled by later spatters | should-fix | A new blood decal goes round the ring of 32 past every pool still under a body (when every slot is a live pool, the next is taken anyway). At most 32 checks, no allocation. | held back: `MIEffects.cpp/.h` |
+| A retired ragdoll kept simulating hidden | should-fix | `AMIGoon::Show(false)` freezes a body that is still falling (physics off, no collision, no pose update, no tick), as at rest; a new unit in the slot resets it as before. New test `MurderInc.Death.Retired`: kill, clear the field while the body falls, and it no longer simulates. | held back: `MIEnemyActors.cpp`, `MIDeathTests.cpp` |
+| Two ragdoll starts a frame, measured only without rendering | should-fix | Not changed: it needs the Shipping package measured under the gate's load (Hold the Block wave 4 with a grenade). If the kill frame rises, `enemies.goon.ragdoll.startsPerFrame` 1 is a data change. | open |
+
+**API risks for the first build** (no compiler here): `FBodyInstance::IsInstanceSimulatingPhysics`,
+`GetUnrealWorldVelocity` and `SetLinearVelocity(FVector, bool)` in `UpdateRagdoll`; `AActor::IsHidden` in the new death
+test. The underlay assumes `/Engine/BasicShapes/BasicShapeMaterial` has a vector parameter `Color`; if it does not, the
+underlay draws in the material's own light grey: then set `look.underlay.material` to `""` (no underlay) or point it at a
+material that has one.
+
+**To see, once built** (none of it has been seen): `guide-shots.sh` again in the sun (avenue, the lot, the chop shop
+front) and in a fight; `death-shots.sh` with the wall, back and stairs cases (the bodies must stay down, and the rest
+lines' "speeds held back" says how often the caps bit); the whole story with `guide` legs in the demo director (it should
+now reach each reel) and with `goto` legs as the review planned (`r1-demo.txt`); Settings Ground path off: the [1] [2] [3]
+[IPX] markers still drawn; then the release package played through the stream with a blood pool under a body (it must
+not be a spatter).

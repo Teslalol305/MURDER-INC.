@@ -18,6 +18,12 @@
 #              generated content (tools/box/audio-import.sh there), and a package without them is silent. The folders
 #              the weapons import owns (Content/Weapons/Chopper, Nine, Shorty, Stretch, Rattler, Parts, Casings) are
 #              only filled where the release copy lacks a file (cp --update=none): never over its own import
+#   fx         the effect materials (Content/FX: flash, smoke, tracer, the decal material MD_FX_Mark with the blood pool
+#              of the death pass, brass, debris) made again in the release copy by the commit's
+#              tools/box/fp/mi_fp_import.py fx, headless, as import-chars.sh fx does in a clone. content copies the
+#              gameplay clone's Content/FX, whose MD_FX_Mark may be older than the commit (a material made before the
+#              death pass draws the pool under a body as a spatter), so it runs after content every time; it fails
+#              when MD_FX_Mark has no pool branch afterwards
 #   weapons    the weapons of round 4 (the five own guns, their magazines, the brass, the parts kit) imported into
 #              the release copy by the commit's tools/box/fp/mi_guns_r4.py from the art in MI_FP_IN
 #              (/project/ue/fp-in-guns: fp-art.sh unpack; read only), headless, as import-chars.sh r4 does in a clone.
@@ -170,6 +176,28 @@ content() {
   done
   chown -R ue4 "$REL/Content"
   say "CONTENT OK: $(du -sh "$REL/Content" | cut -f1) from the gameplay clone (Content/Weapons/{${R4_FOLDERS// /,}}: only what the release copy lacked)"
+}
+
+fx() {  # the effect materials of this commit into the release copy, as import-chars.sh fx does in a clone
+  local script=$C/src/tools/box/fp/mi_fp_import.py fl=$C/fx.log mark=$REL/Content/FX/MD_FX_Mark.uasset
+  if [ ! -f "$script" ]; then say "FX SKIPPED: this commit has no tools/box/fp/mi_fp_import.py"; return 0; fi
+  [ -f "$REL/Binaries/Linux/libUnrealEditor-MurderInc.so" ] || { say "FX FAILED: the release copy has no editor module (run editor first)"; return 1; }
+  ue4_home
+  say "FX import of the effect materials (Content/FX) from $script"
+  su ue4 -c "cd $ENGINE && env HOME=/home/ue4 UE-LocalDataCachePath=/project/ue/ddc nice -n 19 ./Engine/Binaries/Linux/UnrealEditor-Cmd \
+    $REL/MurderInc.uproject -run=pythonscript '-script=$script fx' -unattended -nosplash -NoSound -stdout -FullStdOutLogOutput \
+    -RenderOffscreen -AllowCommandletRendering -NoDDCCleanup $CACHE_ARGS" > "$fl" 2>&1 < /dev/null
+  if ! grep -a -q 'MI-DONE' "$fl" || ! grep -a -q 'MI-FP fx ok' "$fl"; then
+    say "FX FAILED (log $fl: $(grep -a -E 'MI-FP fx|Traceback|Error: ' "$fl" | head -2 | cut -c1-200 | tr '\n' ' '))"
+    return 1
+  fi
+  # The pool branch's own words are in the material's custom expression (stored as plain text in the asset).
+  if ! grep -a -q 'a pool under a body' "$mark" 2>/dev/null; then
+    say "FX FAILED: $mark has no pool branch after the import (pools under bodies would draw as spatters)"
+    return 1
+  fi
+  chown -R ue4 "$REL/Content/FX"
+  say "FX OK: MD_FX_Mark.uasset $(stat -c '%s bytes, %y' "$mark" | cut -c1-36) with the pool branch (log $fl)"
 }
 
 weapons() {  # the weapons of round 4 into the release copy, as import-chars.sh r4 does in a clone
@@ -383,7 +411,7 @@ parts() {
 all() {
   echo RUNNING > "$ST"
   ( set -o pipefail
-    src && refresh && editor && content && weapons && overlay && usage && package Development && package Shipping && zipit \
+    src && refresh && editor && content && fx && weapons && overlay && usage && package Development && package Shipping && zipit \
       && if [ "${MI_PARTS:-1}" = 0 ]; then say "PARTS LEFT OUT (MI_PARTS=0)"; else parts; fi
   ) && echo OK > "$ST" || echo FAILED > "$ST"
   say "ALL $(cat "$ST")"
@@ -397,7 +425,7 @@ status() {
 
 [ "$(id -u)" = 0 ] || { echo "run as root (it switches to ue4 for the engine)"; exit 1; }
 case "$1" in
-  src|refresh|editor|content|weapons|overlay|usage|sounds|guns) "$1" ;;
+  src|refresh|editor|content|fx|weapons|overlay|usage|sounds|guns) "$1" ;;
   zip) zipit ;;
   parts) parts ;;
   package) package "$2" ;;
