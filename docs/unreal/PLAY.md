@@ -468,32 +468,57 @@ The suite on the box (`tools/box/test.sh MurderInc`, the branch at `d469d73` wit
 ## The review's findings, fixed (the fixer lane)
 
 The end-to-end review of 2026-11-26 found one blocker, four must-fix and six should-fix items (below). The GPU box ended
-(credits used up, 03:33 UTC) before this lane started, so **nothing here has been built, tested, played or pictured**.
-The suite has to pass on what goes on the branch, so the game code changes are held back on a local branch of the
-checkout on the lead's machine, **`fixer/unbuilt-review-fixes`** (four commits on top of `293fd82`), not pushed. What is
-pushed is only what no test or build reads: the release script's new `fx` step and this section.
+(credits used up, 03:33 UTC) before this lane started, so its game code changes were first held back, unbuilt, as four
+patches (`docs/unreal/patches/unbuilt-review-fixes`, base `293fd82`). **They are landed now** (integrator, 2026-11-26,
+15:46 to 16:12 UTC, box `8496fd8c`): applied with `git am` as they were, built and tested before anything was pushed; the
+patch folder is deleted. The four commits on the branch are `4925c1e` (guide), `401ca99` (demo director), `6b90888`
+(deaths) and `ea75710` (blood), on top of `98f35a0`.
 
-To land the held-back commits once a box is back: merge `fixer/unbuilt-review-fixes`, build with
-`-MaxParallelActions=6`, run `tools/box/test.sh MurderInc` (two new tests: `MurderInc.Guide.Combat`,
-`MurderInc.Death.Retired`; nothing existing changed in its checks), then the pictures and plays listed under "To see"
-below. The gameplay rules are not touched: every change is presentation or a dev tool, and the golden replays must stay
-as they are.
+**How they were checked** (a new integration clone, `/project/ue/int/repo`, logs `/project/ue/logs/int-repo`; the chain
+that made it is `/project/ue/int-tools/int-chain.sh`):
+
+- The clone: the branch at `98f35a0`, the generated content of `/project/ue/repo-guns` copied in (reflinks, never over a
+  file of the checkout) except the folders the guns import owns (`Content/Weapons/{Chopper,Nine,Shorty,Stretch,Rattler,Parts,Casings}`),
+  then the four patches with `git am`. The guns imported fresh: `MI_FP_IN=/project/ue/fp-in-guns import-chars.sh r4 all`
+  (`MI-FP sockets ok`, `MI-DONE`; the seven folders written 16:07 to 16:09 UTC), `audio-import.sh` once
+  (`AUDIO-IMPORT-DONE imported=289 failed=0`), and the effect materials made again from the commit
+  (`import-chars.sh fx`: `MI-FP fx ok`; `Content/FX/MD_FX_Mark.uasset`, 12,285 bytes, holds the pool branch's words "a
+  pool under a body"), as `package-cloud.sh fx` does in the release copy.
+- The build (`build.sh -MaxParallelActions=6`, cold box, makefile included): **95 actions, 465 s, `Result: Succeeded`,
+  no error**. The first-build API risks named below all compiled as written. The only warnings of the project's own files
+  are the two old `CompositeFont` deprecations in `UI/MIStyle.cpp`, which no patch touches.
+- The full suite (`tools/box/test.sh MurderInc`, nothing filtered): **TESTS OK passed=222 failed=0 skipped=0, 104 s**
+  (220 before plus the two new tests), the 11 golden replays among them, unchanged and not re-recorded.
+  `MurderInc.Death.Retired` and `MurderInc.Guide.Combat` passed with no warning (the death test did not take its "no
+  physics asset" exit). The test log has 0 `Invalid Bone Name` lines; its rest lines now end with the count of speeds held
+  back, and the kills on open ground in the death tests show "0 speeds held back" (for example "Goon 0 at rest after
+  1.33 s: ... 16 cm over the floor under them (found), 103 cm from where it died, 0 speeds held back"). Three tests pass
+  with a warning, none of them about these changes (`Audio.EngineRender`: no audio device under `-NoSound`;
+  `Audio.VoiceData`: placeholder takes; `Frontend.StageFloor`: the pack's transparent magazine is not in the project).
+- The working tree after the suite differs only by the editor's own rewrite of `Config/DefaultEngine.ini` (the Android
+  file server section), as in every clone (READY.md); it is not committed.
+
+**Not yet seen** (no picture or play has been taken of these changes): everything under "To see, once built" below is
+still to do, by the lanes that own the pictures and the end-to-end play, on this clone (it is built and has the guns
+imported; editor work takes `MI_MCP_PORT=8020` or another free port, and the GPU claim of `lag-test.sh` before anything
+renders). Whether `/Engine/BasicShapes/BasicShapeMaterial` takes the `Color` parameter (the underlay) shows only in a
+picture of the path.
 
 | Finding | Severity | What was done | Where |
 |---|---|---|---|
 | No rendered end-to-end play of a package | blocker | Not fixable here: no box. The review's prepared runs (`/project/ue/play/review/scripts/r1..r3`) are the plan once a box is back; give one lane the GPU at a time. | open |
-| Ragdolls thrown metres up in the staged frames | must-fix | Each frame a body falls, no part of it may go faster than `maxSpeed` (900 cm/s) or rise faster than `maxUp` (250 cm/s; a blast 1.5 x `blastUp` = 480): a body started against a wall or a ledge is pushed out by the solver, and the push no longer flings it. Real kills on open ground (1.5 s, 15 to 17 cm over the floor in the review's run) are under the caps and fall as before. The rest line in the log counts the speeds held back. | held back: `MIEnemyActors.cpp` `UpdateRagdoll`, `presentation.json` `enemies.goon.ragdoll.maxUp` |
+| Ragdolls thrown metres up in the staged frames | must-fix | Each frame a body falls, no part of it may go faster than `maxSpeed` (900 cm/s) or rise faster than `maxUp` (250 cm/s; a blast 1.5 x `blastUp` = 480): a body started against a wall or a ledge is pushed out by the solver, and the push no longer flings it. Real kills on open ground (1.5 s, 15 to 17 cm over the floor in the review's run) are under the caps and fall as before. The rest line in the log counts the speeds held back. | landed `6b90888`: `MIEnemyActors.cpp` `UpdateRagdoll`, `presentation.json` `enemies.goon.ragdoll.maxUp` |
 | Blood-pool material not in the release copy | must-fix | `package-cloud.sh` has a new step `fx` after `content` (in `all`, and alone as `package-cloud.sh fx`): `mi_fp_import.py fx` makes the effect materials again in the release copy, and the step fails unless `MD_FX_Mark.uasset` holds the pool branch's own words ("a pool under a body") afterwards. | **pushed** |
-| Ground path unreadable in direct sun, and dimmed where Goons are | must-fix | The chevrons are cyan (no road paint, crosswalk or brick on the block is) and lie on a dark strip each (`look.underlay`: the engine plane's own lit material with its `Color` parameter near black, 2.4 x the arm's width, 10 cm longer, 1.2 cm under it): an additive line on bare concrete only brightens it, a lit line on black reads in full sun. In a fight the path drops to 0.75 instead of 0.35. No new asset. | held back: `MIGuide.cpp/.h`, `guide.json` |
-| The demo director's `guide` verb did not walk | should-fix | The guide's drawn route starts where the player stood at its search and is kept while it stays the shortest, so its first corner was soon behind the player; the verb walked back to it every half second. It now joins the route at the segment nearest the feet. | held back: `MIDemoDirector.cpp` `FollowGuide` |
-| Settings off removed the objective markers | should-fix | Off now hides only the ground path; every objective keeps its plain marker (as the web game draws them), and the next step's marker is the plain one too. The row is renamed "Ground path" (still English in code, like "Controller", READY.md M11). | held back: `MIHUD.cpp`, `MIMenus.cpp` |
+| Ground path unreadable in direct sun, and dimmed where Goons are | must-fix | The chevrons are cyan (no road paint, crosswalk or brick on the block is) and lie on a dark strip each (`look.underlay`: the engine plane's own lit material with its `Color` parameter near black, 2.4 x the arm's width, 10 cm longer, 1.2 cm under it): an additive line on bare concrete only brightens it, a lit line on black reads in full sun. In a fight the path drops to 0.75 instead of 0.35. No new asset. | landed `4925c1e`: `MIGuide.cpp/.h`, `guide.json` |
+| The demo director's `guide` verb did not walk | should-fix | The guide's drawn route starts where the player stood at its search and is kept while it stays the shortest, so its first corner was soon behind the player; the verb walked back to it every half second. It now joins the route at the segment nearest the feet. | landed `401ca99`: `MIDemoDirector.cpp` `FollowGuide` |
+| Settings off removed the objective markers | should-fix | Off now hides only the ground path; every objective keeps its plain marker (as the web game draws them), and the next step's marker is the plain one too. The row is renamed "Ground path" (still English in code, like "Controller", READY.md M11). | landed `4925c1e`: `MIHUD.cpp`, `MIMenus.cpp` |
 | Orange support-hand blob in the death-shot poses | should-fix | For the hands engineer (`MIFirstPersonRig.*`, not edited here): `/project/ue/play/death-run/s4` stairs-1..5 and blast-1..5, sheets `/project/ue/play/review/out/d4a.jpg`, `d4b.jpg`; it looks like READY.md W2. | passed on |
-| Guide checked fights with slot indexes as unit ids | must-fix | `AMIGuide::Step` reads `GetSlots()[I]` for each listed slot (as `UMIGameSubsystem::UpdateLastEnemies` does). New test `MurderInc.Guide.Combat`: one engaging Goon whose id is no listed slot's index raises the plan's combat; nobody engaging brings it back to 0 (the old code fails it). | held back: `MIGuide.cpp`, `MIGuideTests.cpp` |
-| Pools recycled by later spatters | should-fix | A new blood decal goes round the ring of 32 past every pool still under a body (when every slot is a live pool, the next is taken anyway). At most 32 checks, no allocation. | held back: `MIEffects.cpp/.h` |
-| A retired ragdoll kept simulating hidden | should-fix | `AMIGoon::Show(false)` freezes a body that is still falling (physics off, no collision, no pose update, no tick), as at rest; a new unit in the slot resets it as before. New test `MurderInc.Death.Retired`: kill, clear the field while the body falls, and it no longer simulates. | held back: `MIEnemyActors.cpp`, `MIDeathTests.cpp` |
+| Guide checked fights with slot indexes as unit ids | must-fix | `AMIGuide::Step` reads `GetSlots()[I]` for each listed slot (as `UMIGameSubsystem::UpdateLastEnemies` does). New test `MurderInc.Guide.Combat`: one engaging Goon whose id is no listed slot's index raises the plan's combat; nobody engaging brings it back to 0 (the old code fails it). | landed `4925c1e`: `MIGuide.cpp`, `MIGuideTests.cpp`; the test passes |
+| Pools recycled by later spatters | should-fix | A new blood decal goes round the ring of 32 past every pool still under a body (when every slot is a live pool, the next is taken anyway). At most 32 checks, no allocation. | landed `ea75710`: `MIEffects.cpp/.h` |
+| A retired ragdoll kept simulating hidden | should-fix | `AMIGoon::Show(false)` freezes a body that is still falling (physics off, no collision, no pose update, no tick), as at rest; a new unit in the slot resets it as before. New test `MurderInc.Death.Retired`: kill, clear the field while the body falls, and it no longer simulates. | landed `6b90888`: `MIEnemyActors.cpp`, `MIDeathTests.cpp`; the test passes |
 | Two ragdoll starts a frame, measured only without rendering | should-fix | Not changed: it needs the Shipping package measured under the gate's load (Hold the Block wave 4 with a grenade). If the kill frame rises, `enemies.goon.ragdoll.startsPerFrame` 1 is a data change. | open |
 
-**API risks for the first build** (no compiler here): `FBodyInstance::IsInstanceSimulatingPhysics`,
+**API risks for the first build** (all compiled in the first build, 2026-11-26 15:58 UTC): `FBodyInstance::IsInstanceSimulatingPhysics`,
 `GetUnrealWorldVelocity` and `SetLinearVelocity(FVector, bool)` in `UpdateRagdoll`; `AActor::IsHidden` in the new death
 test. The underlay assumes `/Engine/BasicShapes/BasicShapeMaterial` has a vector parameter `Color`; if it does not, the
 underlay draws in the material's own light grey: then set `look.underlay.material` to `""` (no underlay) or point it at a
