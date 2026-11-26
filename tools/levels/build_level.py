@@ -3,8 +3,9 @@
 
     python3 tools/levels/build_level.py --level chinatown|midtown|all [--out DIR] [--el-fallback]
 
-Writes unreal/MurderInc/Content/Data/levels/level_<id>.json (a folder the game does not read: levels.json is not
-touched until the split screens and map travel ship, MAPS.md section 5). Deterministic: the same table gives the same
+Writes tools/levels/data/level_<id>.json, outside Content/Data: the game does not see these files and no package
+carries them until the maps branch moves them into Content/Data with the loader (E1) and levels.json joins them
+(MAPS.md section 5). Deterministic: the same table gives the same
 bytes. Derived values (cover points, spawn facings) use tools/levels/navgrid.py, the checker's mirror of the nav rule;
 the nav grids themselves are left to the engine bake.
 """
@@ -23,7 +24,7 @@ sys.path.insert(0, os.path.join(HERE, "layouts"))
 import navgrid  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
-OUT = os.path.join(ROOT, "unreal", "MurderInc", "Content", "Data", "levels")
+OUT = os.path.join(HERE, "data")
 LEVELS = ("chinatown", "midtown")
 
 

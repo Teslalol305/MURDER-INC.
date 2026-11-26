@@ -22,7 +22,7 @@ sys.path.insert(0, HERE)
 import navgrid  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
-DATA = os.path.join(ROOT, "unreal", "MurderInc", "Content", "Data", "levels")
+DATA = os.path.join(HERE, "data")
 REPORTS = os.path.join(HERE, "reports")
 
 EXPECT = {

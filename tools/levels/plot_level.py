@@ -26,7 +26,7 @@ sys.path.insert(0, HERE)
 import navgrid  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
-DATA = os.path.join(ROOT, "unreal", "MurderInc", "Content", "Data", "levels")
+DATA = os.path.join(HERE, "data")
 OUT = os.path.join(ROOT, "art", "previews", "maps")
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 FONTB = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"

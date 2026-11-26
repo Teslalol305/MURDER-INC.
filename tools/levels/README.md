@@ -4,7 +4,7 @@ Level 2 (Canal Street) and Level 3 (Midtown) as data, before any engine or art w
 (both in this container's system Python); no Unreal, no box, no Blender.
 
 ```
-python3 tools/levels/build_level.py   # layouts/<id>.py -> unreal/MurderInc/Content/Data/levels/level_<id>.json
+python3 tools/levels/build_level.py   # layouts/<id>.py -> tools/levels/data/level_<id>.json
 python3 tools/levels/check_level.py   # the checks below -> tools/levels/reports/check_<id>.json (exit 1 on a FAIL)
 python3 tools/levels/plot_level.py    # top-down plans -> art/previews/maps/plan_<id>.jpg
 ```
@@ -58,9 +58,10 @@ that list and a rebuild here. Canal Street reads as Chinatown through the market
 bakery's pink neon, the arcade and the English shop names of chinatown.md 13.3. Every name is invented and still
 needs the C1 search before its face is drawn; IPX is the only real mark.
 
-The files live in `Content/Data/levels/`, a folder no code reads. levels.json is untouched. Note for the release
-engineer: Config/DefaultGame.ini stages `Content/Data` as loose files, so a package cut from a commit with this folder
-carries these two inert files (about 1 MB); nothing loads them.
+The files live in `tools/levels/data/`, outside `Content/Data` on purpose: Content/Data is staged as loose files into
+every package (Config/DefaultGame.ini) and git-ignores subfolders, and the release in progress (v6) must not change.
+The maps branch moves them to `Content/Data/level_<id>.json` when the loader (E1) lands and levels.json joins them
+(stage 3); `build_level.py --out` writes anywhere. levels.json is untouched.
 
 ## Checks (check_level.py)
 
