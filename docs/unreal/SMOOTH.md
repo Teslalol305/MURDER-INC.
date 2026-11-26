@@ -233,3 +233,111 @@ than version 4 on the per-frame numbers that matter, and nothing in it removes H
 named above, the unzipped packages in `v4/`, `v6t/` and their local copies in `/tmp/smooth-hitch/` (lost when the box stops).
 The lane's copy of `lag-test.sh` (`/project/ue/smooth/hitch/repo/tools/box/cloud/`) differs from the branch in two lines:
 a run without a viewer keeps its CSV profile, and a `-nullrhi` game or this lane's own claim does not count as a game.
+
+## Gameplay, menu and weapon bug hunt (lane `bugs`, 2026-11-25 22:35 to 2026-11-26 00:40 UTC)
+
+**Verdict of this lane: not smooth yet.** The game's rules hold up. Every mode, death, Run it back, Restart, results card,
+debrief, Back to title and new start played in both packages without a stuck state, a refused command or an error line.
+On E3DS-faithful limits the newest package also played the same life cycle with no frame over 50 ms: front end, run start,
+gun switches, pause, Settings, death, Run it back by a real key, a second run. Three things a player meets in normal play
+are wrong:
+
+- **B1, blocker in version 4:** version 4 crashes after a gun switch. This is the switch lane's crash. It reproduces here
+  with no GPU at all, so any machine can check a package for it.
+- **B2, must-fix:** every Hold the Block wave ends with 50 to 165 s of waiting for the last Buzzards. To a player the wave
+  looks stuck.
+- **B3, should-fix:** each press on the Graphics quality row freezes the picture for one frame of 62 to 377 ms.
+
+B4 to B8 are smaller. Nothing in this lane explains a sustained low frame rate. Ultra graphics costs no more GPU time than
+Auto on E3DS-class limits (B3), and the game thread's 99th percentile is 3.6 ms.
+
+![Pause card, death card and results card of version 4 (top); pause card, the run after Run it back and Back to title of the newest package (bottom)](shots/smooth-bugs-cards.jpg)
+
+### How it was played
+
+| What | Value |
+|---|---|
+| Packages | **Version 4**: the zip of `6c4d810` (`/project/ue/cloud/v3a-fix/out/MurderInc.zip`, PLAY.md). **The newest**: `v6trial.zip` (`fd8ce12`). Both were unpacked privately to the box's local disk (`/tmp/smooth-bugs/v4`, `/tmp/smooth-bugs/v6t`), as C6 asks. The Development game of each package was used; its rules and flow code is the Shipping game's |
+| Same code at the head? | Between `6c4d810` and `fd8ce12`, `Flow/`, `Player/`, `UI/` and `Weapons/MIWeaponRules.cpp` differ by 47 lines (`git diff --stat`). From `fd8ce12` to the head, `Flow/` and `MIWeaponRules.cpp` are unchanged. `UI/` and `MIPlayerController.cpp` carry the set-up screen fixes of `d072184` (READY.md M1 to M10). So every rules or flow finding below holds for version 4 and for the head; the Head column says so finding by finding |
+| Logic runs (no GPU) | The Development game with `-nullrhi`, on CPUs 14 and 15 at `nice 19`, `t.MaxFPS 60` (`/project/ue/smooth/bugs/nr.sh`). The demo director plays a script: **n1** is the life cycle in the next row, **n2** plays Story twice to the debrief, **n3** is 12 minutes of Hold the Block. The probe line comes every 0.5 s (`state`, `fire`, `mag`). The director logs every flow event, reload phase, switch phase and kill. Rules and animation run as with a GPU: version 4's crash reproduced this way (B1). There are no pictures, and these runs need no GPU claim |
+| What n1 plays (both packages) | The front end as a first-time player: Home, Gear up, Crew, Loadout, Block & Style (Story, Kingpin), Briefing, Hit the block. A reload while sprinting. A switch in the middle of a reload, and back. Aiming while switching, firing aimed on the new gun, switching back aimed. The pause key with the trigger held at full auto, then resume. Pause, Settings (look speed and field of view changed), back, resume. A walk to the avenue aimed and firing, until death. Run it back, death again, Back to title. Hold the Block from the front end, death, the results card, Run it back, Restart from the pause card, and a quit in the middle of the run |
+| GPU runs | `lag-test.sh` (this lane's copy, `/project/ue/smooth/bugs/repo`) with `game=dev`, `load=1:0.05:0:1024`, `cpus=0-5`, `-sm5`, 1920 x 1080, a viewer through Pixel Streaming and a CSV profile. That load is the render lane's E3DS-faithful `l20`. **g1** is n1's script with 19 `MIShot` pictures; the death card is answered with a real `Enter` key event and the pause opened with a real `P`. **g2** steps Graphics quality from Auto through Low, Medium and High to Ultra during a run, fights on Ultra, then steps back to Auto. The runs held the GPU claim (`gq.sh`, queue `q/q1.txt`), one game at a time |
+| How close to E3DS | `g1-v6t`, first 84 s: **GPU 11.1 to 13.7 ms at render scale 0.50, 60 frames a second**. Version 4 on E3DS's A4000 read 10.2 to 13.3 ms at 0.50 to 0.63 (DECISIONS.md, 2026-11-25). From t 84 s of `g1-v6t` another job took the card: video memory rose from 7.9 GB to 12 to 13 GB, `others=1` showed in 7 watcher samples, the GPU went to 20 to 27 ms and the target to 30. Only the first 84 s are used. `g1-v4` shared the box throughout: every CPU was 97 to 98 % busy with another lane's build, and the target stayed at 30. Its pictures and logic are used, its frame times are not. `g2-v4` and `g2-v6t` were clean (`others=0` in all 140 and 135 samples) |
+| Instrument | An `MIShot` holds its frame for 200 to 340 ms while the viewport is read back (B8). Each such frame and the two after it are left out of the per-frame numbers (57 frames a run); the CSV's `Cmd: MIShot` events mark them |
+
+**Per-frame numbers, the newest package, E3DS-faithful load** (`g1-v6t`, 0 to 84 s, CSV, `MIShot` frames left out): 4,596
+frames, **58.3 fps, 7 frames over 25 ms, none over 50 ms, worst 46.3 ms, 1 % low 40.9 fps, game thread p99 3.6 ms.** This window
+covers the front end, Hit the block, the reload while sprinting, four gun switches, two pauses, Settings, the walk, the
+first death, the death card, Run it back by the `Enter` key and the second run.
+
+### Findings
+
+| # | Severity | Bug | Steps to reproduce | Evidence | Head |
+|---|---|---|---|---|---|
+| B1 | **blocker** (version 4) | **Version 4 crashes after a gun switch.** The crash is a SIGSEGV, a null read, at the next periodic garbage collection after the CHOPPER (the pack gun) is put away. This is the switch lane's crash (PLAY.md), found here a third way: with no GPU and no stream, so any machine can check a package for it in three minutes | Hold the Block or Story: press 2 (the NINE) and keep the NINE for a minute | `n3-v4`: `switch chopper -> Nine draw` at t 134.2 s, then `Signal 11 caught ... SIGSEGV: invalid attempt to read memory at address 0x0` at 22:57:01 (t about 183 s, the first collection after the switch), exit code 139. `n3-v6t` ran the same script with the trial's hand-IK CHOPPER, played on to t 715 s and exited 0. `n1-v4` did not crash: it switched back to the CHOPPER within 4 s each time | Fixed in the branch (`1f560d7` and the `HeldClips` commit, PLAY.md) and proven by `SwitchSurvivesGC`. Not yet in a package. **Gate for the v6 package:** `nr.sh <package> scripts/n3.txt` (no GPU) must exit 0 after 10 minutes of switches |
+| B2 | must-fix (the owner decides: a timing rule) | **Every Hold the Block wave ends with 50 to 165 s of waiting for the last Buzzards.** The Goons are all dead 23 to 43 s into a wave. Then the player stands in an empty street while one to three drones circle out of reach. The wave goes on until they are shot, or until the game's own rule brings them down after 60 s without a hit. Waves 1 to 5 lasted 94, 98, 193, 120 and 151 s; the wait is 54 to 85 % of each. A player reads it as a stuck wave | Hold the Block on any difficulty: kill every Goon, then watch the wave banner and the tally | `n3-v6t`, summed up by `waves.py`: the seconds after the wave's start at which a Goon (g) or Buzzard (b) fell. Wave 1: `15g 16g 19g 23g 34b 53b 94b`. Wave 2: `16b 19g 21g 23g 26g 27g 41b 53b 98b`. Wave 3: `11g 17g 21g 21g 24g 26g 29g 42b 49b 133b AUTO 193b`. Wave 4: last Goon at 43 s, cleared at 120 s. Wave 5: last Goon at 41 s, `AUTO`, cleared at 151 s. `AUTO` is the log line `Hold: 1 Buzzard(s) unhurt for 60 s as the wave's last enemies: brought down, the wave counts as cleared`. `n3-v4`: wave 1's last Goon at 24 s, `AUTO`, cleared at 102 s. The shooter is the demo director (`auto 1 1`): it fires at whatever it can see from the start. A player who walks may find the drones sooner, but cannot make them come down | Same rules at the head: `UMIGameSubsystem::UpdateLastEnemies` (`MIGameSubsystem.cpp`, `const double Limit = 60.0`, waves with only Buzzards left). The 60 s rule exists only in the Unreal game and is off in tests and replays (`Boots.bPersist`). So it can change without touching the golden runs, for example to 15 s counted from the last Goon's death. It is still a timing rule, so it needs the owner's word under the release criteria |
+| B3 | should-fix | **Each press on Settings, Graphics quality freezes the picture for one frame of 62 to 377 ms**, in the stream as on the box. **Ultra costs no more than Auto**: on the E3DS-faithful load both draw at render scale 0.50 with 11.9 to 14.7 ms of GPU time (single samples of 16.7 to 20.9 ms in both). So the setting brings a hitch and no visible gain on E3DS | Pause, Settings, Graphics quality, Right four times (Auto to Ultra), back, play; then Left four times | `g2-v4`, the frame after each `Cmd: MIMenu right` (CSV rows 760, 769, 788, 803): **377.3, 214.9, 276.6 and 70.9 ms**, with the render thread at 23 to 42 ms in those frames. `g2-v6t`: 74.7, 72.1, 75.9 and 73.7 ms going up; 71.2, 71.9, 62.3 and **167.8 ms** (render thread 125.5 ms) going back to Auto. The game logs `Graphics quality: 0` through `3 (scalability groups only; ...)`, one line a press. Probe `gpuMs`, `dr=0.50` and `target=60` throughout | Same at the head (`UMICloudSubsystem::ApplyStreamedQuality` on every `UMIGameSubsystem::MenuAdjust`). Fix idea: apply the level once, when Settings closes. Or hide the row in a stream, where the cloud profile and dynamic resolution already decide the picture |
+| B4 | should-fix | **A run cannot be left for the menus.** The pause card offers Resume, Restart run, Difficulty and Settings. Only death or the debrief lead to Back to title or Change set-up. A first-time player who wants another gun, mode or crew has to get killed first | Start any run and press P or Esc | Picture (both pause cards). `MIMenus.cpp`, `EMIMenuScreen::Pause`: `resume`, `restart`, `difficulty`, `settings`. That is the web game's card (`src/menus.js`, `paused()`), but the web game has no set-up screens to go back to | Same at the head. Add `changesetup` and `totitle` to the pause card: `UMIGameSubsystem::MenuConfirm` already handles both ids, which the death card uses |
+| B5 | must-fix, **not proven in a browser** | **The stream does not pause when the player leaves the page.** The web game pauses on `blur` and `visibilitychange` (`src/game.js` 923-928) and drops held keys when focus or the pointer lock goes (`src/input.js` 1196-1206). The Unreal game pauses only when the viewer's connection ends (`UMICloudSubsystem::ReleaseForLeave`, from `OnAllViewersLeft`). It has no handler for Pixel Streaming's `MouseLeave`. Its own cards tell the player "Esc gives the mouse back to the browser" (the click card, and the pause card's last line in the picture). So a player who presses Esc or switches tabs leaves the run going behind the page and is shot while away. A key held at that moment may stay down if the page sends no key-up | Through E3DS: start a run, press Esc (or Alt+Tab) for 10 s, come back | Code and the cards' text, as cited. The box cannot run a browser viewer (BOX.md row 27), and no E3DS session was spent | Same at the head. To check in one E3DS session from the box's browser (`owner-browser.sh`): press Esc in a run; the pause card must show. Fix idea: pause on `MouseLeave` and on a message the page sends on `blur` |
+| B6 | should-fix | **Nothing a player chooses survives an E3DS visit.** Look speed, field of view, volume, quality, the four guns, the Workbench builds and the Hold the Block best all live in the save slot. E3DS starts a fresh machine for every session (PROGRESS.md, "What a cold machine adds"; C2). The box keeps its saves, so READY.md's "the choice survives" holds there and not on E3DS | Set up guns, play, close the page, open the link again | Every run here starts with `Saved/SaveGames` deleted, as on a fresh E3DS machine (`nr.sh`, `lag-test.sh`). Every first screen then shows the defaults (picture: Back to title shows CHOPPER / NINE and Story, the defaults) | Same at the head. The page bridge of `docs/unreal/maps/progression.md` is the place to keep these |
+| B7 | nit | The set-up line in the log spells names as Unreal first met them: `"guns":["chopper","Nine"]`, `"level":"bLock"`, `"time":"Day"` | Any run from the front end | `n1-v6t` log: `Set-up: {"crew":"Rule","guns":["chopper","Nine"],...,"level":"bLock",...,"time":"Day"}` | Harmless today: an `FName` compares without case. The progression's page bridge will carry these strings, so write them lower-case |
+| B8 | nit (instrument) | `MIShot` holds its frame for 200 to 340 ms, so a CSV or probe line from a run that takes pictures shows those frames as freezes | Any demo script with `MIShot` | All 11 frames over 100 ms in `g1-v6t` are `Cmd: MIShot` frames. In `g1-v4`, 19 of 20 are. The 20th, 112.2 ms (row 3499) in Hold the Block wave 1, came while every CPU of the box was busy | Not the game. Lanes that read frame times from picture runs should leave those frames out, as done above |
+
+### Checked and right (both packages unless named)
+
+- **Weapons in play** (`n1`: probe `mag`, the director's reload and switch lines):
+  - A reload while sprinting runs to the end (`start`, `magout`, `magin` 22 to 30, `bolt`, `done` with `sprint 1` held).
+  - A switch in the middle of a reload cancels it (`reload chopper cancel`, then `switch chopper -> Nine holster`) and
+    keeps the magazine's count: 24 before, 24 after switching back.
+  - Aiming survives a switch both ways, and the NINE fires aimed (15 to 14).
+  - With the trigger held, the pause fires nothing (`mag` 20 through the pause). Firing goes on after resume, since the
+    button is still held (20 to 15).
+  - Pictures `05` to `07`: the right gun in the hands after each switch, aimed after an aimed switch.
+- **Pause and Settings.** P opens the pause card from a real key event (picture `08` of both packages). Look speed and field
+  of view change and apply at once (`09`, `10`: 1.05x and 76 degrees). Back returns to the pause card; Back again resumes.
+- **Death and Run it back.** The death card comes 1.5 s after death (`menus:card dead`), with the run's time, reels and
+  kills. A real `Enter` key event starts the run again (picture `13`: a full magazine, health 100). Run it back resets the
+  reels, the explosives and the enemies (`explosives:reset`, `player:reset`, seven `enemy:spawn`). Aiming does not carry
+  into the next run (`14`). Two deaths, then Back to title, give the Home screen with the set-up kept (`16`).
+- **Hold the Block.** The results card shows waves cleared, kills, score and best (picture: 1, 8, 1,565, "New best"). Run it
+  back and Restart from the pause card both restart wave 1 (`holdout:wave 1 7`).
+- **Story to the end, twice** (`n2`). Three reels and the truck reach `game:state complete` and the debrief. Run it again
+  resets everything, and the second run reaches the debrief too (t 68 and 133 s in v6t). Then Back to title and a new run.
+- **Quit in the middle of a run.** The game exits with code 0 (`n1`, `n2`, `g1`, `g2`: `[MurderInc.sh] the game quit normally`).
+- **Transitions on E3DS-faithful limits** (`g1-v6t`, first 84 s, above): no frame over 50 ms at the run's start, a switch,
+  a pause, Settings, the death, the death card or Run it back.
+- **Logs.** No `Error` or `Ensure` line in any logic run apart from B1's crash. The only warnings come from the box
+  (`/proc/meminfo`, netlink), the first start's missing save, and a console-lookup note for `MIMenu`.
+
+### What this lane says about the owner's session
+
+- **Stutter or freezes:** B1 ends a version 4 session about a minute after any switch off the CHOPPER: the picture freezes,
+  then the stream is lost. A player who touches Graphics quality gets a third of a second of freeze per press (B3).
+- **Bugs in gameplay:** Hold the Block's long empty waits (B2) and a run that cannot be left (B4). If the owner pressed Esc
+  or left the tab, the run went on without them (B5, unproven).
+- **Low frame rate:** nothing in this lane. With the card to itself, the newest package held 58.3 fps through the whole
+  life cycle at E3DS's GPU time. When another job shared the card, the game's target fell to 45 and then 30, as the pacer
+  is built to do (`g1-v6t` from t 84 s). A busy E3DS machine would look the same: that is the render and stream lanes'
+  ground.
+
+### Not done, not proven
+
+- B5 in a real browser: there is no browser viewer on the box, and no E3DS session was spent.
+- The simulated pad on the death, results and pause cards in a stream. The menu lane's pad run covers the set-up screens,
+  and `SwitchEveryWay` covers the pad in play. Under `-nullrhi` the game takes no key events (runs `t1` and `t2`: keys were
+  "handled" but changed nothing), so the logic runs used the director's commands.
+- A long Story session on a clean GPU with frame times: `g1-v4`'s frame times are not usable (above).
+- The head itself: no package of it exists yet. The rules and flow findings were read in its code (the Head column).
+
+### Files (on the box, not in the repository)
+
+`/project/ue/smooth/bugs/` holds:
+
+- `nr.sh` (the logic runs) and `scripts/` (`n1`, `n2`, `n3`, `g1`, `g2`).
+- `runs/`: the logic runs (`game.log`, `result.txt`).
+- `lag/`: the GPU runs (CSV, `game.log`, `others.log`, `seg.txt`).
+- `ev.py`, `waves.py`, `seg.py` (per-segment frame numbers from a demo run's CSV) and `sheet.py`.
+- `gq.sh`: this lane's GPU queue and claim.
+
+The pictures are in `/tmp/smooth-bugs/shots/` (`g1-v4`, `g1-v6t`, `g2-v4`, `g2-v6t`), on the local disk, so they are lost
+when the box stops.
