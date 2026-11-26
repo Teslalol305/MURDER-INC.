@@ -1,0 +1,19 @@
+--- a/unreal/MurderInc/Source/MurderInc/World/MILevelData.cpp	2026-11-26 17:40:16.870735601 +0000
++++ b/unreal/MurderInc/Source/MurderInc/World/MILevelData.cpp	2026-11-26 17:40:16.889178809 +0000
+@@ -112,7 +112,15 @@
+ 	}
+ 	for (const TSharedPtr<FJsonValue>& V : Root->GetObjectField(TEXT("enemySpawns"))->GetArrayField(TEXT("points")))
+ 	{
+-		Out.Spawns.Add(Point(V->AsObject()));
++		// MAPS.md E8: a point the level marks `"enabled": false` (Canal's roof spawns until nav step A) is not a spawn.
++		// The Block's points carry no such field, so its list is unchanged.
++		const TSharedPtr<FJsonObject>& P = V->AsObject();
++		bool bEnabled = true;
++		if (P->TryGetBoolField(TEXT("enabled"), bEnabled) && !bEnabled)
++		{
++			continue;
++		}
++		Out.Spawns.Add(Point(P));
+ 	}
+ 	for (const TSharedPtr<FJsonValue>& V : Root->GetObjectField(TEXT("coverPoints"))->GetArrayField(TEXT("points")))
+ 	{

@@ -36,12 +36,17 @@ optional and absent from the Block's file, so the Block's code path is unchanged
   flights), `spawnReach`, `firingCellRange`, `strandedAfter`. **`grid` is null**: the grids are written by the engine
   bake (`-run=MILevelBake`, MAPS.md D2) with FMIBoxWorld's own code, never by this tool (the designs' rule: no second,
   Python copy of the nav rules in the data). The checker's mirror is for testing only.
-- spawn points carry `layer`, `name`, and on Canal's roof `overlooks` and `enabled: false` (off until nav step A);
+- spawn points carry `layer`, `name`, and on Canal's roof `overlooks` and `enabled: false` (off until nav step A;
+  the loader must skip a disabled point, MAPS.md E8, and `check_level.py --release` fails while one is left);
   objectives carry `layer`; Midtown's `extraction` carries `arrival: "afterAll"` and its truck colliders are owner kind
-  `truck`, noNav (E10).
-- `guide`: Canal is the single-layer search (`mode: singleLayer`, the design's legs and the two route-tie
-  alternatives); Midtown is the route graph (`guide.graph` nodes and edges: links both ways, drops down only, the
-  service stair and drops biased +10 m so the scaffold is the drawn way down).
+  `truck` and not noNav: the bake blocks the stop spot from the start, the box world takes the colliders on arrival (E10).
+- `guide`: both levels carry the route graph (`mode: routeGraph`, `guide.graph` nodes and edges: links both ways, drops
+  down only). Canal's graph is the yard stair and the kitchen-roof drop onto the Mott shed and off it, so a player on the
+  roof is drawn a walkable way down; on the street its path is the street layer's own search, as on the Block. Midtown's
+  biases the service stair and the drops +10 m so the scaffold is the drawn way down. `guide.pathHysteresis` (0.10) is
+  MAPS.md G4; `guide.waivers` records every gate a level fails on purpose, with the reason and the owner.
+- `colliderBudget`: the design's clutter groups, planned against placed, and every clutter prop the layout tool skipped
+  because it would have stood on a spawn, a reel, a door, a link or another collider (`levelkit.Level.clutter`).
 - `drops` (every authored drop with its height), `tuning` (maxAliveAdd, excludePlayerRoom, startPitch, Midtown's
   waveAdd, pursuitBudgetAdd, Buzzard maxAltitude 36, rating), `checks` (inputs for the checker), Midtown's `views`.
 - Art side: `ground.surfaces/floors` (rectangles), `buildings` (mass colliders, roofs, facades, shops), `propPlacements`
@@ -66,64 +71,83 @@ The maps branch moves them to `Content/Data/level_<id>.json` when the loader (E1
 
 ## Checks (check_level.py)
 
+`python3 tools/levels/check_level.py [--level id] [--quick] [--release]`. A gate that fails is FAIL (exit 1) unless the
+level records a waiver for it (`guide.waivers`: the check, the legs it covers, the reason, the owner); it is then
+WAIVED and printed with the reason. WARN is used for one advisory check only (`spawns.allEnabledForRelease`, a FAIL with
+`--release`).
+
 | Check | Rule |
 |---|---|
 | schema.loaderSections, .counts, .reelIds, .zonesTileBounds | every loader section and field present with its type; ue mirror = web x 100; counts = levels.json `provides` (Canal 3 / 38 ground / 18 air / 18 explosives / 14 title keys; Midtown 3 / 30 / 18 / 17 / 14); the zones tile the bounds |
-| content.englishOnly, .noRejectedRealNames | no CJK character anywhere in the file; none of the names the designs rejected as real |
+| content.englishOnly, .noRejectedRealNames | no CJK character anywhere in the file; none of the names the designs rejected and no real mark the art bible forbids, anywhere |
+| content.noRetiredNames, .namesOnApprovedList | tools/names/names.json (lane C): no retired name or id built from one anywhere in the file; every sign face, screen slide and shop list names an approved name, a generic word, a real place or a story mark of the level |
 | colliders.count, .explosiveIndices, .noThinMovementBoxes, .surfacesKnown | at most 800 / 820, all axis-aligned; each explosive owns its collider; no movement box under 0.05 m; every surface a key of audio.json surfaces |
-| explosives.clearOfReelsAndTruck | none within 4 m of a reel or the extraction |
+| colliders.plannedClutter | the design's clutter groups (chinatown.md 14.1, midtown.md 15) placed at 75 % of the plan or more, under the cap |
+| explosives.clearOfReelsAndTruck, .clearOfDoorways | none within 4 m of a reel or the extraction; none within 4 m of a doorway centre or a Goon door (chinatown.md 9; a design exception goes in checks.explosiveDoorExceptions) |
+| extraction.lateTruckBlocksNav | Midtown: the arriving truck's footprint is blocked on the street nav from the start; its colliders stay out of rays and movement until it arrives |
 | spawns.groundOnFreeCells, .groundOneComponentPerLayer, .groundNotInsideColliders, .air | ground points on free cells of their own layer, one region per layer, no capsule inside a solid; air points 2.2 to 12 m over the ground below, 1.5 m from any collider, inside the bounds minus 1.2 m |
-| spawns.fallbackRingNeverNeeded | chinatown.md 17 check 6: every 2 m on every layer, 3 or more ground points 9 m away, hidden from the eye by the box ray cast, outside the player's room, on an allowed layer (`overlooks` honoured) |
+| spawns.allEnabledForRelease | every point enabled (WARN; FAIL with `--release`) |
+| spawns.fallbackRingNeverNeeded | chinatown.md 17 check 6, a gate: every 2 m on every layer, 3 or more enabled ground points 9 m away, hidden from the eye by the box ray cast, outside the player's room, on an allowed layer (`overlooks` honoured) |
 | reach.navCellNearEveryReel, reach.player | a free nav cell within 2.2 m of each reel on its layer; walking only (steps of 0.42 or less) the player reaches every reel and the extraction from playerStart |
-| guide.everyReelOrder | a guidance path for all six reel orders, every leg start -> 3 reels -> IPX, over the street layer (Canal) or the route graph (Midtown) |
-| guide.intendedLegsVsDesign, guide.routeTie.* | the intended order's legs within 10 % of the design's (WARN: design numbers); Canal's intended legs 3 and 4 at least 10 % shorter than the best route avoiding them |
+| guide.everyReelOrder, guide.fromEveryLayer | a guidance path for all six reel orders over the route graph; from cells every 4 m on every upper layer, a route to each reel and the extraction |
+| guide.intendedLegsVsDesign, guide.routeTie.* | gates: the intended order's legs within 10 % of the design's; Canal's intended legs 3 and 4 at least 10 % shorter than the best route avoiding them |
 | guide.linksOnWalkingSurfaces | every link polyline within 0.6 m over a tread, landing or deck every 0.25 m |
-| reelRooms.goonPaths, doors.* | every reel has Goon paths from 2 or more ground spawns outside its room, one under 30 s at run speed; the Goon doors are open on the nav; Canal's player-only side door is closed to it |
-| edges.noDropOver4m, drops.* | walking and jumping from playerStart the player never drops more than 4.02 m (the 13 m/s fall-damage landing); every authored drop is at most 4.0 m and both its ends are reached |
+| reelRooms.goonPaths, doors.* | every reel has Goon paths from 2 or more ground spawns outside its room, one under 30 s at run speed; the Goon doors are open on the nav; every player-only gap is closed to the nav and 1.0 m wide or less (closed at every grid alignment) |
+| edges.noDamagingDrop, drops.authoredFreeWhenJumped, drops.authoredReachable | walking from playerStart no drop over 4.02 m; jumping (the jump flood), no drop over 3.02 m: a jump's 1.0 m apex adds to the fall (MIPlayerRules takes the peak fall speed); every authored drop plus 1.0 m stays under 4.02 m, and both its ends are reached |
+| sight.* | eye to eye at 1.6 m, street cells sampled every 1 or 2 m: Canal no open line over 81 m (the 77 m start-to-truck line between nav cells) and none over 45 m along the south sidewalk (the protected lane); Midtown none over 45 m in the square (midtown.md 10) |
 | slot.booth.* | Midtown: a ray passes the booth's slot; its frame is playerOnly |
 
-Results on the committed files: **Canal Street 29 pass, 1 warn, 0 fail; Midtown 28 pass, 1 warn, 0 fail** (the reports
-have every number). The warnings are design questions, below.
+Results on the committed files: **Canal Street 37 pass, 1 warn, 1 waived, 0 fail; Midtown 36 pass, 0 warn, 1 waived,
+0 fail** (the reports have every number). The warn is Canal's three roof spawns, still disabled until nav step A. The
+waivers: Canal's leg-4 route tie (6 %, the guidance's path hysteresis, MAPS.md G4) and Midtown's two long legs (the
+design counted the steel stair and the scaffold short; the rating times are re-timed in the grey box).
+
+## Clutter (chinatown.md 14.1, midtown.md 15)
+
+The layouts author the street furniture, alley and yard props, vendor goods, map edges, the premiere's structures, W 46
+St and the roof dressing as colliders (`L.clutter`), so the grey box of stage 2 is built with its cover; the art lanes
+fit their meshes to them. Canal: 599 colliders (clutter 337 of the 414 planned in those groups; the rest of the 780 is
+the vehicle slicing the design assumed, about 5 boxes a car, where the data keeps the Block's body-and-glass pair).
+Midtown: 613 colliders (clutter 248 of 299). The line breakers are named in the tables: Canal's garment rails turned
+across the south sidewalk and the tall shop displays (the protected lane), newsstands and steam chimneys; Midtown's
+broadcast, cable, catering and staging trucks, trailers, light towers, press walls, tents, booths and truss towers of the
+premiere (the 45 m rule). Cover points: Canal 240 (design about 112), Midtown 160 (110; W 46 St 17 of 10), before the
+bake's filter.
 
 ## Deviations from the designs (also in each file's meta.deviationsFromDesign)
 
 Canal Street:
-- The market's player-only side door moved 0.2 m (z -2.7..-1.3): at the design position one nav column stayed free and
-  Goons could use it.
-- One air point over the yard moved to z 9.4 (it was 0.75 m from the stair's guard).
-- A THE DUB ROOM place region so the HUD names the reel's room.
+- The market's player-only side door is 1.0 m (z -2.7..-1.7, centred where the design put its 1.4 m door): a gap of
+  1.0 m or less is closed to Goon nav at every grid alignment; the 1.4 m door was closed only by where the cells fell.
+- The Mott sidewalk shed's deck is 3.0 m (design 3.2): jumped, 3.2 + 1.0 m lands over the damage speed; R1 is 2.7 m, R2 3.0 m.
+- A guard on the yard parapet over the stair's flight 2 (the parapet top stood 3.2 m over the treads).
+- Explosives moved 4 m or more off the doorways: propane 1 and 2 with their stall to the market's corner pier, propane 6
+  to x 7.2, rack 14 into the workshop's back corner, rack 15 out of the arcade to the Square's east side.
+- Reel 6 at x 22.2 (design 21.2): the leg-4 route tie from 0.4 % to 6 %; the rest is G4 (waiver).
+- The north-lane SUV by the IPX truck is a step van (2.1 m): with the newsstands it ends the long lines at 81 m.
+- Vendor racks hang bags to 1.9 m over the whole table (design 1.3 m): with the chicanes they screen the protected lane.
+- One air point over the yard at z 9.4; a THE DUB ROOM place region (unchanged from the first build).
 
 Midtown:
 - **The Stand's tiers 1 to 5 are two wings around a front court at plaza level (x 13..19).** As drawn, tier 5 (top
-  2.15 m) stands in front of the booth's slot (1.0 to 2.0 m) and hides it, so nobody outside could fire in. The court
-  makes the slot work. The designer should confirm the shape.
-- The sidewalk shed by the scaffold runs z 20.1..24.4 (the design's z 20..30 would stand in the W 46 St roadway).
-- The shed-hop opening in the tower's south guard is over the west column only.
-- Broadway's water barriers at z 17.6..18.2 (south of the parked van); g23 moved to z 18.8 to stay behind them.
-- Surfaces use audio.json's keys: the design's granite, gravel, bitumen, grating and steel are concrete, asphalt,
-  asphalt, metal and metal, so footsteps and impacts resolve.
+  2.15 m) stands in front of the booth's slot (1.0 to 2.0 m) and hides it. The designer should confirm the shape.
+- THE LOFTLARK's raised deck on D and a dunnage platform on E, both 0.6 m with a 0.3 m step: D1 and D2 land on them, so
+  each drop is 3.0 m and free even when jumped (design 3.6 m, about 6 damage jumped).
+- The scaffold's sidewalk shed deck is 3.0 m (design 3.2), so D3b is 3.0 m.
+- Guards on the Stand's top tier and the booth's back wall (north and sides, 3.2 m over the plaza).
+- Rack x9 in the scaffold head's east corner (design: 1.7 m from the gantry door north).
+- The arriving truck is not noNav (the bake blocks the stop spot from the start).
+- The sidewalk shed by the scaffold runs z 20.1..24.4; the shed-hop opening is over the west column only; Broadway's
+  water barriers at z 17.6..18.2; g23 at z 18.8; g12 at (-25.5, 4.8) off the deck; surface names are audio.json's keys.
 
 ## Open
 
-- **Canal leg 4 route tie (WARN).** From Reel 6 the intended way out (partition door, banquet hall, the Square, the
-  arcade) measures 60.7 m and the way out the Mott roll-up and up Mott St 60.9 m on the 8-neighbour A* the guidance
-  uses: a 0.4 % margin, under the design's 10 %. The drawn path can flip between them. The design's reason (the roll-up
-  "south of the reel's partition door") does not hold for its own numbers (roll-up z 24..27, partition door z 26..28,
-  reel at z 28.4). Choices for the lead: path hysteresis in the guidance (G2), or a layout change (the reel and the
-  racks against the partition, the roll-up moved north, or the hall's tables cleared into a straight aisle); none gives
-  10 % alone by my measurements, so hysteresis is the likely answer.
-- **Midtown legs vs the design (WARN).** Start -> Reel 7 42.2 m (design 37) and Reel 8 -> Reel 9 128.9 m (design 108):
-  the scaffold's eight flights and landings walked as a polyline are about 45 m, longer than the design counted. The
-  rating times (330 s / 480 s) should be re-checked in the grey box.
+- **Canal leg 4 (WAIVED):** the guidance's path hysteresis (G4) keeps the drawn route until another is 10 % shorter.
+- **Midtown legs (WAIVED):** start to Reel 7 42.5 m (design 37), Reel 8 to Reel 9 135 m (108): re-time the rating in the
+  grey box.
+- Canal's roof spawns stay disabled until nav step A; the loader must honour `enabled` (E8); `--release` fails until then.
 - Nav step A (N1 to N4) and the loader's `el`/`ForLevel` (E1, E2) are C++ for lanes N and E: nothing here replaces
   them. The checks above are design checks; Levels.<Id>.Loads / .Nav / .Reach / .Edges / .ReelRooms in the
   engine stay the authority.
-- Collider counts are 336 (Canal) and 422 (Midtown), well under the caps: the designs' planned street clutter (about
-  230 small colliders on Canal) is left for the art lanes to add with their placements, inside the caps.
-- Cover points: 150 (Canal, design about 112) and 138 (Midtown, design 110, only 2 on W 46 St against 10 planned:
-  the street has few solids yet). The bake re-filters them.
-- `audio_<id>.json` (zones in audio.json's schema, the beds and one-shots as names for the audio lane) is written next
-  to each level file. props_<id>.json and atmos_<id>.json are not: the level files carry `propPlacements` and the
-  sign faces, and the night rigs and lights are lane L's.
-- The engine bake is a patch, not built: docs/unreal/patches/maps-D (the street grids with FMIBoxWorld's code now; the
-  roof grids when nav step A exists).
+- The engine bake (docs/unreal/patches/maps-D) is unbuilt and runs on the maps branch; `enabled` in the loader is the
+  patch docs/unreal/patches/maps-D/0002 (unbuilt). The files move from tools/levels/data to Content/Data with E1.

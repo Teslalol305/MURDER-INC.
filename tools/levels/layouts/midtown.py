@@ -28,8 +28,9 @@ def build():
         "reach are written; the grids are the engine bake's (-run=MILevelBake). The scaffold and service-stair polylines "
         "are generated here from the towers' landings and flights; the bake re-derives them.",
         "No Buzzard doorways on purpose (midtown.md 9.1): interior.doorways is empty.",
-        "The IPX truck's colliders are owner kind `truck`, noNav: out of the box world until all three reels are in "
-        "(extraction.arrival afterAll, MAPS.md E10).",
+        "The IPX truck's colliders are owner kind `truck`: out of the box world (shots, sight, movement) until all three reels "
+        "are in (extraction.arrival afterAll, MAPS.md E10), but not noNav: the bake blocks its stop spot on the nav from the "
+        "start, so the finale's pursuers never path into it.",
     ]
     L.deviations = []
 
@@ -61,7 +62,7 @@ def build():
             ("B", "", -50, -30, -12, 8, R2, "ground 4.7 + 4 x 3.225", "flank roof: machine room, WT-B, bulkhead B"),
             ("E", "", -50, -30, 8, 22, R1, "ground 4.7 + 3 x 3.10", "flank roof: the pipe bridge to D"),
             ("C", "CORVIN HALL", -28, -8, -38, -4, R2, "ground 4.7 + 4 x 3.225", "the tank house and WT-C (Reel 7), the roof billboard"),
-            ("D", "", -28, -8, -4, 22, R1, "ground 4.7 + 3 x 3.10", "THE PERCH (closed), the service stair, doors to the gantry")]
+            ("D", "", -28, -8, -4, 22, R1, "ground 4.7 + 3 x 3.10", "THE LOFTLARK (closed), the service stair, doors to the gantry")]
     for bid, name, x0, x1, z0, z1, top, storeys, role in blds:
         if bid == "D":
             cols = [L.box("D", -28, -13, 0, top, -4, 22, surface="brick", part="D.mass"),
@@ -236,12 +237,15 @@ def build():
     ss_poly = [[-14.2, R1, 4.8], [-12.2, R1, 4.8]] + ss_poly + [[-9.2, SW, 4.8], [-9.0, SW, 4.8], [-7.0, SW, 4.8]]
     ss_poly = [[round(p[0], 3), round(p[1], 3), round(p[2], 3)] for p in ss_poly]
 
-    # the sidewalk shed beside the tower's south face (deck top 3.2): the shed hop D3
-    L.box("shed-deck", -8, -4.2, 3.0, 3.2, 20.1, 24.4, surface="wood", no_nav=True, part="shed.deck")
+    # the sidewalk shed beside the tower's south face (deck top 3.0; design 3.2): the shed hop D3. A jump off the deck adds
+    # the 1.0 m apex to the fall (MIPlayerRules takes the peak fall speed): 3.2 + 1.0 lands over the 13 m/s damage speed,
+    # 3.0 + 1.0 = 4.0 stays under the 4.02 m threshold
+    SHED = 3.0
+    L.box("shed-deck", -8, -4.2, SHED - 0.2, SHED, 20.1, 24.4, surface="wood", no_nav=True, part="shed.deck")
     for z in (20.6, 24.2):
-        L.box("shed-post", -4.4, -4.2, SW, 3.0, z - 0.1, z + 0.1, surface="metal", part="shed.post")
-    L.guard("shed-guard", -8.1, -8.0, 3.2, 6.2, 22.0, 24.5, part="shed.guard.west")
-    L.guard("shed-guard", -8.0, -4.2, 3.2, 6.2, 24.4, 24.5, part="shed.guard.south")
+        L.box("shed-post", -4.4, -4.2, SW, SHED - 0.2, z - 0.1, z + 0.1, surface="metal", part="shed.post")
+    L.guard("shed-guard", -8.1, -8.0, SHED, SHED + 3.0, 22.0, 24.5, part="shed.guard.west")
+    L.guard("shed-guard", -8.0, -4.2, SHED, SHED + 3.0, 24.4, 24.5, part="shed.guard.south")
     L.deviations.append("the sidewalk shed by the tower runs z 20.1..24.4 over the west sidewalk only (design: z 20..30, which "
                         "would stand in the W 46 St roadway); its south end is guarded, its east edge is the D3 drop (3.2 m).")
 
@@ -274,7 +278,13 @@ def build():
     L.box("bulkhead", -48, -44, R2, 20.4, 0, 4, surface="brick", part="bulkheadB")
     L.prop("hvac_rtu", [(-41, -39, R2, R2 + 1.4, 3.5, 5.5, "metal")])
     # E
-    L.prop("hvac_rtu", [(-44, -42, R1, R1 + 1.4, 12, 14, "metal")])
+    L.prop("hvac_rtu", [(-41, -39, R1, R1 + 1.4, 11.5, 13.5, "metal")])
+    # E: the old cooling tower's steel dunnage platform, 0.6 m over the roof with a 0.3 step on its open sides: D2 lands
+    # on it, so the drop from B is 3.0 m (free even when jumped: 3.0 + the 1.0 m apex < 4.02)
+    DECK = R1 + 0.6
+    L.box("deck", -49.7, -43.5, R1, DECK, 8.3, 14.5, surface="metal", part="E.dunnage.deck")
+    L.box("deck", -43.5, -43.0, R1, R1 + 0.3, 8.3, 15.0, surface="metal", part="E.dunnage.step")
+    L.box("deck", -49.7, -43.5, R1, R1 + 0.3, 14.5, 15.0, surface="metal", part="E.dunnage.step")
     L.prop("vent_box", [(-38, -37, R1, R1 + 1.2, 17, 18, "metal")])
     # C: the tank house (I2, Reel 7) with WT-C on it, the roof billboard C1, HVAC row
     L.box("tank-house", -22, -16, R2, 20.4, -35, -34.75, surface="brick", part="tankhouse.wall.north")
@@ -292,11 +302,16 @@ def build():
     L.prop("hvac_rtu", [(-12.5, -10, R2, R2 + 1.4, -14.5, -13, "metal")])
     L.prop("hvac_rtu", [(-25, -23, R2, R2 + 1.4, -13, -11, "metal")])
     L.prop("vent_box", [(-20, -19, R2, R2 + 1.2, -25, -24, "metal")])
-    # D: THE PERCH (closed rooftop lounge): bar counter, lounger stacks, planters
+    # D: THE LOFTLARK (closed rooftop lounge): bar counter, lounger stacks, planters
+    # D: THE LOFTLARK's raised timber deck, 0.6 m over the roof with a 0.3 step on its open sides: D1 lands on it, so the
+    # drop from C is 3.0 m (free even when jumped)
+    L.box("deck", -27.7, -18.5, R1, DECK, -3.7, 3.0, surface="wood", part="D.lounge.deck")
+    L.box("deck", -18.5, -18.0, R1, R1 + 0.3, -3.7, 3.5, surface="wood", part="D.lounge.step")
+    L.box("deck", -27.7, -18.5, R1, R1 + 0.3, 3.0, 3.5, surface="wood", part="D.lounge.step")
     L.prop("lounge_bar", [(-24, -20, R1, R1 + 1.1, 6, 7, "wood")])
     L.prop("lounger_stack", [(-18, -16.5, R1, R1 + 0.9, 13, 15, "wood")])
     L.prop("lounger_stack", [(-22, -20.5, R1, R1 + 0.9, 16, 17.5, "wood")])
-    for x0, x1, z0, z1 in ((-26, -25, -1, 1), (-20, -18, 2, 3), (-12, -11, 13, 15), (-25, -24, 11, 13), (-15.5, -14.5, 8, 10)):
+    for x0, x1, z0, z1 in ((-26, -25, 8.5, 10.0), (-13.0, -12.0, -2.5, -0.5), (-12, -11, 13, 15), (-25, -24, 11, 13), (-15.5, -14.5, 8, 10)):
         L.prop("planter_box", [(x0, x1, R1, R1 + 0.9, z0, z1, "wood")])
 
     # ------------------------------------------------------------------ the Stand and the Booth (2.3)
@@ -315,6 +330,12 @@ def build():
         z0, z1 = -22 - 1.5 * k, -22 - 1.5 * (k - 1)
         t = round(SW + 0.4 * k, 3)
         L.box("stand", 10, 22, t - 0.3, t, z0, z1, surface="metal", part="stand.tier%d" % k)
+    top = round(SW + 0.4 * 8, 3)
+    L.guard("stand-guard", 9.9, 22.1, 2.2, top + 3.0, -34.4, -34.3, part="stand.guard.north")
+    L.guard("stand-guard", 9.9, 10.0, 2.2, top + 3.0, -34.3, -32.5, part="stand.guard.west")
+    L.guard("stand-guard", 22.0, 22.1, 2.2, top + 3.0, -34.3, -32.5, part="stand.guard.east")
+    L.deviations.append("the Stand's top tier (3.35) and the booth's back wall carry playerOnly guards on their north and side "
+                        "edges: 3.2 m over the plaza, a jump off them lands over the 13 m/s damage speed.")
     for x0, x1, side in ((10, 10.6, "west"), (21.4, 22, "east")):
         L.box("booth", x0, x1, SW, 3.05, -34, -33, surface="metal", part="booth.wall." + side)
         L.box("booth", x0, x1, 2.15, 3.05, -33, -32.5, surface="metal", part="booth.wall.%s.lintel" % side)
@@ -385,10 +406,11 @@ def build():
     E("rack", -12.5, R2, -24.0, rotation_y=1.5708, note="under the roof billboard frame (sign crew's kit)")
     E("propane", -33.0, R2, -11.0, note="B, by the planks")
     E("propane", -46.5, R2, 6.0, note="B, by bulkhead B (punishes the wave door)")
-    E("propane", -22.0, R1, 10.0, note="THE PERCH's patio heater tank")
+    E("propane", -22.0, R1, 10.0, note="THE LOFTLARK's patio heater tank")
     E("rack", -16.0, R1, 19.0, note="D, roof repair")
     E("propane", -40.0, R1, 18.5, note="E")
-    E("rack", -6.6, R1, 12.6, rotation_y=1.5708, note="gantry south end, at the scaffold head (12.6 m from Reel 8)")
+    E("rack", -3.7, R1, 15.0, rotation_y=1.5708, note="at the scaffold head, in the top landing's east corner (5.5 m from the gantry "
+      "door north; design (-6.6, 12.6) was 1.7 m from it)")
     E("propane", 12.0, SW, 6.0, note="food cart (plaza)")
     E("propane", 18.5, SW, -12.0, note="food cart (plaza)")
     E("propane", 21.0, SW, -20.5, note="the premiere's generator by the Stand (8.9 m from x11: no chain)")
@@ -414,9 +436,11 @@ def build():
     L.objective("reel9", "9", "Reel 9 — The Booth", "THE BOOTH", "square", (16.0, SW, -32.6), -1.5708, True, layer="street",
                 note="the premiere desk in the booth under the Stand (2.0 m doors on both sides, the front a shoot-through slot)")
     tx, tz = 20.0, 29.0
-    tcols = [L.box("ipx_truck", tx - 3.4, tx + 0.55, 0, 2.86, tz - 1.17, tz + 1.17, surface="car", no_nav=True,
+    # noNav false: the bake stamps the stop spot (plain roadway) from the start, so pursuers never path into the truck once it
+    # has arrived; the colliders join the box world for shots and movement only on arrival (MAPS.md E10)
+    tcols = [L.box("ipx_truck", tx - 3.4, tx + 0.55, 0, 2.86, tz - 1.17, tz + 1.17, surface="car", no_nav=False,
                    owner={"kind": "truck"}, part="truck.cargo"),
-             L.box("ipx_truck", tx + 0.55, tx + 3.4, 0, 2.58, tz - 1.17, tz + 1.17, surface="car", no_nav=True,
+             L.box("ipx_truck", tx + 0.55, tx + 3.4, 0, 2.58, tz - 1.17, tz + 1.17, surface="car", no_nav=False,
                    owner={"kind": "truck"}, part="truck.cab")]
     L.extraction = {"source": "midtown.md 6.3: the zone behind the truck's rear doors (truck - 5.4 m x forward); the truck is "
                               "not on the map until the last reel is in, then rolls in along W 46 St over 5 s",
@@ -431,7 +455,7 @@ def build():
     ground = [("g0", "r3", -34.0, -14.0), ("g1", "r3", -47.0, -21.0), ("g2", "r3", -32.5, -36.5), ("g3", "r3", -40.0, -13.5),
               ("g4", "r2", -43.0, 2.0), ("g5", "r2", -37.0, -9.0), ("g6", "r2", -33.0, 6.5), ("g7", "r2", -48.0, -2.0),
               ("g8", "r2", -25.5, -36.5), ("g9", "r2", -13.5, -12.0), ("g10", "r2", -26.0, -6.0), ("g11", "r2", -14.0, -37.0),
-              ("g12", "r1", -26.5, 2.0), ("g13", "r1", -20.0, 20.5), ("g14", "r1", -14.2, 4.8), ("g15", "r1", -10.0, 20.5),
+              ("g12", "r1", -25.5, 4.8), ("g13", "r1", -20.0, 20.5), ("g14", "r1", -14.2, 4.8), ("g15", "r1", -10.0, 20.5),
               ("g16", "r1", -47.0, 20.5), ("g17", "r1", -34.0, 14.0)]
     ys = {"r1": R1, "r2": R2, "r3": R3}
     for n, ly, x, z in ground:
@@ -451,7 +475,9 @@ def build():
     # along long faces, and the inner faces of the parapets every 4 m
     L.extra["_coverRule"] = {"minHeight": 0.9, "maxHeight": 1.7, "maxSide": 12.0, "out": 0.6, "spacing": 2.2, "every": 4.5,
                              "shortSideMin": 1.8, "parapetTags": ["parapet"], "parapetEvery": 12.0,
-                             "tags": ["roof-stair"], "skipTags": ["explosive", "trash_can", "light_pole", "street_lamp", "cafe_table"]}
+                             "tags": ["roof-stair"], "skipTags": ["explosive", "trash_can", "light_pole", "street_lamp", "cafe_table", "sign_pole", "muni_meter", "standpipe", "alarm_pedestal", "bike_rack", "traffic_cone", "traffic_drum", "bollard",
+                            "exhaust_fan", "roof_vent", "antenna_mast", "truss_tower", "wayfinding_pylon", "shed_post", "cable_ramp", "hydrant",
+                            "fire_hydrant", "milk_crates", "bucket_stack", "vendor_stool", "goods_carton", "cafe_chairs", "pallet_single"]}
 
     # ------------------------------------------------------------------ nav layers, links, reach; the guide graph; drops; tuning
     links = [
@@ -493,25 +519,34 @@ def build():
                       "bias": 10.0 if lk["id"] == "serviceStair" else 0.0,
                       "step": {"kind": "stair", "link": lk["id"], "height": round(abs(lk["path"][0][1] - lk["path"][-1][1]), 2)}})
     drops = [
-        {"id": "D1", "from": [-23.0, R2, -4.6], "to": [-23.0, R1, -2.8], "height": 3.6, "fromLayer": "r2", "toLayer": "r1",
-         "what": "C's south parapet gap x -24..-22 onto D: the shortcut from Reel 7 to D, one way"},
-        {"id": "D2", "from": [-47.0, R2, 7.4], "to": [-47.0, R1, 9.0], "height": 3.6, "fromLayer": "r2", "toLayer": "r1",
-         "what": "B's south parapet gap x -48..-46 onto E: the flank, one way"},
-        {"id": "D3a", "from": [-6.8, levels[5], 19.2], "to": [-6.8, 3.2, 21.5], "height": round(levels[5] - 3.2, 2),
+        {"id": "D1", "from": [-23.0, R2, -4.6], "to": [-23.0, DECK, -2.8], "height": round(R2 - DECK, 2), "fromLayer": "r2", "toLayer": "r1",
+         "walkOff": [[-23.0, DECK, 3.0], [-23.0, R1 + 0.3, 3.25], [-23.0, R1, 4.4]],
+         "what": "C's south parapet gap x -24..-22 onto THE LOFTLARK's raised deck (0.6 m) on D: the shortcut from Reel 7 to D, one way"},
+        {"id": "D2", "from": [-47.0, R2, 7.4], "to": [-47.0, DECK, 9.0], "height": round(R2 - DECK, 2), "fromLayer": "r2", "toLayer": "r1",
+         "walkOff": [[-47.0, DECK, 14.5], [-47.0, R1 + 0.3, 14.75], [-47.0, R1, 15.8]],
+         "what": "B's south parapet gap x -48..-46 onto the dunnage platform (0.6 m) on E: the flank, one way"},
+        {"id": "D3a", "from": [-6.8, levels[5], 19.2], "to": [-6.8, SHED, 21.5], "height": round(levels[5] - SHED, 2),
          "what": "the scaffold's south landing (5.35) through the opening onto the shed roof"},
-        {"id": "D3b", "from": [-5.0, 3.2, 22.5], "to": [-3.0, 0.0, 22.5], "height": 3.2, "what": "off the shed's east edge to the roadway"},
+        {"id": "D3b", "from": [-5.0, SHED, 22.5], "to": [-3.0, 0.0, 22.5], "height": SHED, "what": "off the shed's east edge to the roadway"},
     ]
     for d in drops[:2]:
+        # the bottom node is where the deck's step meets the roof (the deck itself is off the r1 layer's band)
         a = node(d["id"] + ".top", d["fromLayer"], d["from"])
-        b = node(d["id"] + ".bottom", d["toLayer"], d["to"])
+        b = node(d["id"] + ".bottom", d["toLayer"], d["walkOff"][-1])
         edges.append({"from": a, "to": b, "kind": "drop", "drop": d["id"], "oneWay": True, "bias": 10.0,
-                      "path": [d["from"], d["to"]], "step": {"kind": "drop", "link": d["id"], "height": d["height"]}})
+                      "path": [d["from"], d["to"]] + d["walkOff"], "step": {"kind": "drop", "link": d["id"], "height": d["height"]}})
     L.guide = {"source": "midtown.md 6.4: the route graph the guidance draws over (nearest unsecured reel by route length; to the "
                          "extraction once all are in); within a layer the layer's own path search at run time, across layers "
                          "these edges (stairs both ways, drops down only). The service stair and the drops cost 10 m more, so "
                          "the scaffold is the drawn way down. D3 (the shed hop) is a free player choice, never drawn.",
                "mode": "routeGraph", "graph": {"nodes": nodes, "edges": edges}, "targetHysteresis": 0.15, "markerHeightLabelOver": 3.0,
                "intendedOrder": ["reel7", "reel8", "reel9"],
+               "waivers": [{"check": "guide.intendedLegsVsDesign", "legs": ["start -> reel7", "reel8 -> reel9"],
+                            "owner": "the designer (midtown.md 6.5), with the grey box of stage 2",
+                            "reason": "the design's numbers count the steel stair and the scaffold short: L1's head bridge and "
+                                      "eight steps, and the scaffold's eight flights and landings, walked as the polylines "
+                                      "the link check proves, are 42 m and 135 m. The routes are the design's; the rating "
+                                      "times (330 s, 480 s) are re-timed in the grey box (MAPS.md stage 2)."}],
                "designLegs": [{"from": "start", "to": "reel7", "m": 37}, {"from": "reel7", "to": "reel8", "m": 47},
                               {"from": "reel8", "to": "reel9", "m": 108}, {"from": "reel9", "to": "extraction", "m": 75}]}
     L.drops = drops
@@ -552,6 +587,9 @@ def build():
             (-13.15, 5.2, "r1", "service stair roof door"), (-7.85, 5.2, "street", "service stair street door"),
             (10.3, -32.0, "street", "booth west door"), (21.7, -32.0, "street", "booth east door"),
             (-44.1, -35.0, "r3", "bulkhead A door"), (-8.15, 1.5, "r1", "gantry door south"), (-8.15, 12.0, "r1", "gantry door north"))],
+        "sightlines": {"source": "midtown.md 10 (check_level.py sight.*)", "rules": [
+            {"id": "squareUnder45m", "rect": [-8, 31, -38, 22], "max": 45.0, "step": 2.0,
+             "why": "breakers keep every open ground line in the square under 45 m, the Goons' sight range"}]},
         "shootThrough": [{"id": "booth", "a": [16.0, 1.5, -26.0], "b": [16.0, 1.5, -31.5], "frame": [slot],
                           "what": "a ray from the front court at 1.5 m through the booth's slot reaches the desk side"}],
     }
@@ -579,11 +617,12 @@ def build():
                        (0.0, rect(-50, 31, 24.5, 33.5), "W 46 St roadway"), (SW, rect(-8, -4, -38, 22), "west sidewalk"),
                        (SW, rect(8, 22, -38, 22), "the plaza"), (SW, rect(28, 30, -38, 22), "east sidewalk"),
                        (SW, rect(-50, 31, 22, 24.5), "W 46 St north sidewalk"), (SW, rect(-50, 31, 33.5, 36), "W 46 St south sidewalk"),
-                       (3.2, rect(-8, -4.2, 20.1, 24.4), "sidewalk shed"), (R1, rect(-50, -30, 8, 22), "E roof (r1)"),
+                       (SHED, rect(-8, -4.2, 20.1, 24.4), "sidewalk shed"), (R1, rect(-50, -30, 8, 22), "E roof (r1)"),
                        (R1, rect(-28, -8, -4, 22), "D roof (r1)"), (R1, rect(-8, -4.5, -2, 14), "the gantry deck (r1)"),
                        (R2, rect(-50, -30, -12, 8), "B roof (r2)"), (R2, rect(-28, -8, -38, -4), "C roof (r2)"), (R3, rect(-50, -30, -38, -12), "A roof (r3)")):
         L.floors.append({"h": h, "rect": r, "what": what})
     _signs(L)
+    _clutter(L)
     L.layout = {"WALK_LEVELS": {"street": 0.0, "r1": R1, "r2": R2, "r3": R3}, "PARAPET": {"height": PH, "thickness": PT, "guard": GH},
                 "SEVENTH": {"westSidewalk": [-8, -4], "roadway": [-4, 8]}, "PLAZA": [8, 22], "BROADWAY": {"roadway": [22, 28], "eastSidewalk": [28, 30]},
                 "W46": {"northSidewalk": [22, 24.5], "roadway": [24.5, 33.5], "southSidewalk": [33.5, 36]},
@@ -610,30 +649,30 @@ def _signs(L):
     add("G1", "WORLD PREMIERE · MIDNIGHT", "screen", -3.9, 20.7, 6.0, 1, 0, 16, 9, "white on black, a small oxblood VLTR mark",
         note="playable behind it; countdown from 8:00; dies (0.4 s glitch, NO SIGNAL) when reel8 is secured; IPX PRESENTS when all three are in",
         slides=["WORLD PREMIERE · MIDNIGHT + countdown", "STAND BY", "NO SIGNAL", "IPX PRESENTS"])
-    add("E1", "ORBELLE · Eau de Nuit", "screen", 30.9, 14.0, -24.0, -1, 0, 24, 18, "cool", note="east tower podium (art, past the bound)",
-        slides=["ORBELLE · Eau de Nuit", "NORTHBOUND AIRWAYS · Fly the late one", "IPX (6 s after the last reel)"])
+    add("E1", "MIRAVESSE · Eau de Nuit", "screen", 30.9, 14.0, -24.0, -1, 0, 24, 18, "cool", note="east tower podium (art, past the bound)",
+        slides=["MIRAVESSE · Eau de Nuit", "NORTHBOUND AIRWAYS · Fly the late one", "IPX (6 s after the last reel)"])
     add("E2a", "KESTREL MOBILE · Five bars, five boroughs", "screen", 30.9, 16.0, -6.0, -1, 0, 8, 20, "blue and white", note="east hotel, vertical")
     add("E2b", "BRASS & BUN · Burgers till four", "screen", 30.9, 16.0, 6.0, -1, 0, 8, 20, "warm white", note="east hotel, vertical")
-    add("E3", "THE ALDERWAY THEATRE presents NIGHT SHIFT, a new musical", "screen", 30.0, 12.0, 22.0, -1, -1, 20, 12, "cool",
-        note="curved corner screen", slides=["THE ALDERWAY THEATRE presents NIGHT SHIFT, a new musical", "VESPERLINE CRUISES", "IPX"])
-    add("N1", "QUILLON watches", "screen", 10.0, 22.0, -39.0, 0, 1, 14, 8, "cool", note="north tower stack beyond the bound (three screens)",
-        slides=["QUILLON watches", "TAMSIN GRAY fall collection", "HALCYON SODA", "IPX"])
+    add("E3", "THE MERIDALE THEATRE presents LAMPLIGHT AVENUE, a new musical", "screen", 30.0, 12.0, 22.0, -1, -1, 20, 12, "cool",
+        note="curved corner screen", slides=["THE MERIDALE THEATRE presents LAMPLIGHT AVENUE, a new musical", "VESPERLINE CRUISES", "IPX"])
+    add("N1", "HOROVAN watches", "screen", 10.0, 22.0, -39.0, 0, 1, 14, 8, "cool", note="north tower stack beyond the bound (three screens)",
+        slides=["HOROVAN watches", "NORTHWEFT fall collection", "FIZZWICK SODA", "IPX"])
     add("S1", "DUSKLINE TOURS · The city after dark", "screen", 5.0, 9.0, 35.95, 0, -1, 12, 6, "cool", note="W 46 St south facade")
     add("ticker", "SQUARE CLOSED TONIGHT FOR A PREMIERE · CROSSTOWN TRAFFIC HEAVY · FORECAST: CLEAR, 41°", "ticker", 29.95, 8.4, -18.0, -1, 0, 24, 0.8,
         "amber LED", note="on the theatre, panned 0.35 m/s")
     add("C1", "MARLOWE & FINCH · The holiday floor is open", "billboard", -8.9, 23.6, -28.0, 1, 0, 16, 8, "lightbox, warm white", note="C's roof billboard, lit face east")
     for i, (t, x, y, z, nx, nz, w, h, col, note, lit) in enumerate((
             ("SEVENTH AV SOUVENIRS", -8.05, 3.6, -30.0, 1, 0, 6, 0.9, "lightbox", "C ground floor", True),
-            ("MIDTOWN SLICE", -8.05, 3.6, -20.0, 1, 0, 5, 0.9, "lightbox", "C ground floor", True),
-            ("46TH ST CAMERA & ELECTRONICS", -8.05, 3.6, -10.0, 1, 0, 7, 0.9, "LED flex", "C ground floor", True),
-            ("LANTERN SAVINGS", -8.05, 3.6, 17.0, 1, 0, 5, 0.9, "closed bank lobby, unlit", "D ground floor", False),
-            ("THE ALDERWAY THEATRE", 29.95, 5.0, -14.0, -1, 0, 10, 2.2, "marquee bulb band, slow chase", "east sidewalk", True),
+            ("SLICE OF SEVENTH", -8.05, 3.6, -20.0, 1, 0, 5, 0.9, "lightbox", "C ground floor", True),
+            ("SHUTTERBOX CAMERA & ELECTRONICS", -8.05, 3.6, -10.0, 1, 0, 7, 0.9, "LED flex", "C ground floor", True),
+            ("BELLHAVEN SAVINGS", -8.05, 3.6, 17.0, 1, 0, 5, 0.9, "closed bank lobby, unlit", "D ground floor", False),
+            ("THE MERIDALE THEATRE", 29.95, 5.0, -14.0, -1, 0, 10, 2.2, "marquee bulb band, slow chase", "east sidewalk", True),
             ("HOTEL CASTELLANE", 29.95, 4.2, 6.0, -1, 0, 7, 1.0, "canopy letters", "east sidewalk", True),
             ("BRANNIGAN'S CHOP HOUSE", 14.0, 3.6, 35.95, 0, -1, 8, 1.0, "neon", "W 46 St south", True),
-            ("CORNER CHEMISTS", -24.0, 3.6, 35.95, 0, -1, 6, 1.0, "lightbox", "W 46 St south", True),
+            ("ASHBY & CROSS PHARMACY", -24.0, 3.6, 35.95, 0, -1, 6, 1.0, "lightbox", "W 46 St south", True),
             ("HALVORSEN BUILDING", -30.05, 22.0, -26.0, 1, 0, 9, 0.7, "raised letters on A's parapet", "A", False),
             ("CORVIN HALL", -8.05, 16.8, -21.0, 1, 0, 7, 0.7, "on C's cornice", "C", False),
-            ("THE PERCH", -8.05, 15.8, 18.0, 1, 0, 4, 0.8, "neon, unlit (the lounge is closed)", "D", False),
+            ("THE LOFTLARK", -8.05, 15.8, 18.0, 1, 0, 4, 0.8, "neon, unlit (the lounge is closed)", "D", False),
             ("KESSLER & ROTH SCAFFOLD", -3.0, 2.6, 17.0, 1, 0, 2.4, 0.6, "contractor's board", "the scaffold tower", False),
             ("BRIGHTWIRE EVENTS", 3.55, 2.0, -32.0, 1, 0, 5, 0.8, "truck livery, VLTR sprayed over it", "the production truck", False),
             ("CITY CROSSTOWN", 25.35, 2.2, 0.0, 1, 0, 6, 0.5, "plain blue and white, no real livery", "the stalled bus", False))):
@@ -644,3 +683,163 @@ def _signs(L):
     for i, (t, x, y, z, nx, nz, col) in enumerate((("VULTURES", -30.05, 22.4, -16.0, 1, 0, "oxblood"), ("VLTR", 3.55, 1.4, -34.0, 1, 0, "oxblood"),
                                                    ("RULE", -7.95, 1.2, 0.0, 1, 0, "gold"), ("INC.", 13.0, 0.9, -29.15, 0, 1, "gold"))):
         add("graffiti.%d" % i, t, "graffiti", x, y, z, nx, nz, 1.6, 0.6, col, lit=False)
+
+
+# Planned collider breakdown (midtown.md 15, 760): the groups this table authors as clutter, with the plan. The
+# premiere structures and the rest of the street come out of the 167 contingency.
+PLAN = {"street": 67, "barriers": 26, "roof": 76, "premiere": 40, "w46": 30, "spare": 60}
+
+
+def _clutter(L):
+    """Street and plaza furniture, barriers, the premiere's structures, W 46 St and the rooftop dressing of midtown.md 15.
+    The breakers (the premiere's broadcast van, catering truck, light towers, staging truck, press walls, tents and
+    the kiosks) keep every open ground line in the square under 45 m (midtown.md 10, check sight.squareUnder45m)."""
+    C = L.clutter
+    S = SW
+    # ---------------------------------------------------------------- the premiere's vehicles and structures (the breakers)
+    for x0, x1, z0, z1, h, name, what in (
+            (-3.8, -1.6, -21.0, -14.2, 3.4, "broadcast_van", "a broadcast truck, dish folded, no network mark"),
+            (5.7, 7.9, -4.2, 2.6, 3.0, "catering_truck", "a catering truck, hatch shut"),
+            (-3.8, -1.6, 7.4, 11.6, 3.2, "generator_truck", "the premiere's generator truck, cables to the Stand"),
+            (2.4, 4.6, -26.0, -19.5, 3.4, "broadcast_van", "a second broadcast truck, mast down"),
+            (0.8, 3.4, -13.0, -6.0, 3.3, "cable_truck", "the cable and rigging truck"),
+            (4.0, 6.1, -13.4, -7.4, 3.0, "production_trailer", "a production office trailer, blinds down"),
+            (-1.8, 0.6, -0.2, 6.2, 3.0, "production_trailer", "the talent trailer, steps folded"),
+            (2.0, 3.4, 12.8, 15.8, 2.6, "light_tower", "a light tower on its trailer, mast up"),
+            (22.1, 24.5, -22.0, -14.0, 3.3, "staging_truck", "a staging truck, ramp up (BRIGHTWIRE EVENTS on the box)"),
+            (26.2, 27.7, 7.6, 10.8, 2.6, "light_tower", "a light tower on its trailer, mast up"),
+            (9.0, 12.0, -8.6, -5.6, 2.8, "vip_tent", "a white pop-up tent, sides down"),
+            (18.8, 20.4, -4.4, -3.2, 2.5, "merch_booth", "a merch booth, shuttered"),
+            (15.0, 16.4, -5.6, -4.6, 2.2, "coat_check", "the premiere's coat-check booth"),
+            (18.9, 19.5, -0.6, 0.0, 4.2, "truss_tower", "a lighting truss tower"),
+            (10.8, 11.4, -0.6, 0.0, 4.2, "truss_tower", "a lighting truss tower"),
+            (9.0, 10.4, 1.6, 3.0, 2.6, "security_booth", "a security booth"),
+            (19.0, 20.2, 9.4, 10.6, 4.0, "sound_tower", "a sound tower: two speaker stacks on a riser"),
+            (8.6, 11.0, 14.4, 15.6, 2.3, "portable_toilets", "a row of portable toilets"),
+            (10.0, 13.4, -21.7, -21.4, 2.4, "press_wall", "the press wall (step-and-repeat), blank panels"),
+            (20.2, 21.8, -13.6, -12.8, 2.6, "camera_riser", "a camera riser with a jib"),
+            (20.0, 21.4, 4.8, 5.6, 2.6, "speaker_stack", "a speaker stack"),
+            (10.6, 12.0, 9.6, 11.0, 2.3, "photo_booth", "a photo booth, curtain drawn"),
+            (17.2, 17.8, -6.6, -6.0, 4.2, "truss_tower", "a lighting truss tower"),
+            (14.6, 15.2, -15.8, -15.2, 4.2, "truss_tower", "a lighting truss tower"),
+            (-7.95, -7.6, -20.0, -14.0, 2.4, "hoarding", "a plywood hoarding round a shopfront refit"),
+            (-6.7, -6.2, -3.6, -2.4, 2.5, "phone_kiosk", "a sidewalk phone kiosk, no brand"),
+            (24.6, 25.6, -12.4, -9.4, 2.6, "light_tower", "a light tower on its trailer"),
+            (13.6, 16.4, -12.6, -12.3, 2.4, "press_wall", "the photographers' backdrop"),
+            (14.4, 16.8, 11.0, 11.3, 2.4, "press_wall", "a sponsor wall, blank"),
+            (28.5, 29.9, -24.0, -22.0, 2.6, "newsstand", "a newsstand on the east sidewalk"),
+            (28.5, 29.9, 9.4, 11.4, 2.6, "newsstand", "a closed newsstand"),
+            (-6.2, -4.2, -12.0, -8.0, 2.5, "bus_shelter", "a bus shelter, its ad panel dark"),
+            (8.2, 8.8, -9.6, -8.6, 2.4, "wayfinding_pylon", "a wayfinding pylon (a map, no logos)"),
+            (8.2, 8.8, 7.0, 7.95, 2.4, "wayfinding_pylon", "a wayfinding pylon (a map, no logos)"),
+            (11.0, 11.6, -3.6, -3.0, 4.2, "truss_tower", "a lighting truss tower"),
+            (18.4, 19.0, -16.6, -16.0, 4.2, "truss_tower", "a lighting truss tower"),
+            (-1.6, -0.2, -27.0, -24.0, 2.6, "light_tower", "a light tower on its trailer"),
+            (0.4, 1.8, 17.0, 20.0, 2.6, "light_tower", "a light tower on its trailer"),
+            (-5.0, -4.6, -33.6, -32.4, 2.5, "phone_kiosk", "a sidewalk phone kiosk, no brand"),
+            (25.6, 27.8, -27.0, -20.0, 3.4, "satellite_truck", "a satellite uplink truck, dish stowed"),
+            (25.6, 27.0, -2.0, 1.0, 2.6, "light_tower", "a light tower on its trailer"),
+            (13.4, 14.6, -0.4, 2.2, 2.4, "info_booth", "the premiere's information booth"),
+            (15.0, 19.0, -9.8, -9.2, 4.0, "screen_trailer", "a mobile screen on its trailer, showing the countdown"),
+            (20.6, 21.8, -18.8, -16.7, 2.6, "light_tower", "a light tower on its trailer"),
+            (-1.0, 0.4, -11.0, -9.0, 1.9, "road_cases", "the crew's road cases, stacked"),
+            (3.2, 4.6, 1.2, 2.8, 1.9, "road_cases", "the crew's road cases, stacked"),
+            (-7.85, -6.6, -26.0, -24.0, 2.5, "newsstand", "a newsstand on the west sidewalk")):
+        C("premiere", name, x0, x1, z0, z1, h, y0=(S if 8 <= x0 < 22 or x0 >= 28 or x1 <= -4 else 0.0), what=what)
+    # ---------------------------------------------------------------- crowd-control barriers (1.1 m): the red carpet's edges and the closures
+    for x0, z0 in ((8.4, -14.5), (8.4, -11.0), (21.6, -16.0), (21.6, -9.0)):
+        C("barriers", "bike_barrier", x0, x0 + 0.5, z0, z0 + 2.4, 1.1, y0=S if x0 < 22 else 0.0, what="a steel crowd barrier")
+    for x0, z0 in ((-3.8, -32.0), (4.6, -33.2), (-3.0, 18.6), (4.0, 20.0), (22.4, 20.4), (25.0, 20.4), (12.0, 20.2), (16.4, 20.2)):
+        C("barriers", "bike_barrier", x0, x0 + 2.4, z0, z0 + 0.5, 1.1, y0=S if 8 <= x0 < 22 else 0.0, what="a steel crowd barrier")
+    for x0 in (-3.6, 0.6, 4.8):
+        C("barriers", "jersey_barrier", x0, x0 + 2.8, 23.8, 24.4, 0.81, surface="concrete", what="the Seventh Av closure at W 46 St")
+    for z0 in (-34.0, -11.0, 19.0):
+        C("barriers", "water_barrier", 26.2, 27.8, z0, z0 + 1.8, 0.9, surface="rubber", what="a water-filled barrier")
+    # ---------------------------------------------------------------- plaza and sidewalk furniture
+    for x, z in ((9.0, -16.5), (21.4, -5.0), (9.0, 6.6), (21.4, 15.8), (14.4, -20.9), (28.6, -32.0), (28.6, 0.0), (28.6, 18.0),
+                 (-7.6, -12.0), (-7.6, 0.4)):
+        C("street", "trash_can", x - 0.29, x + 0.29, z - 0.29, z + 0.29, 0.95, y0=S)
+    for x, z in ((11.4, 9.0), (18.6, -8.0), (14.2, 17.0), (18.2, 17.0)):
+        C("street", "bench", x - 0.9, x + 0.9, z - 0.3, z + 0.3, 0.85, y0=S, what="a plaza bench")
+    for x, z in ((13.4, -6.4), (16.4, -7.0)):
+        C("street", "cafe_chairs", x - 0.25, x + 0.25, z - 0.25, z + 0.25, 0.9, y0=S, what="cafe chairs, stacked two high")
+    for x, z in ((11.0, -12.0), (19.6, -11.0), (19.8, 14.6)):
+        C("street", "bollard_planter", x - 0.35, x + 0.35, z - 0.35, z + 0.35, 0.9, y0=S, surface="concrete", what="a round granite bollard-planter")
+    for x, z in ((-7.8, -33.0), (-7.8, -20.0), (29.7, -20.0), (29.7, 8.8), (-7.8, 2.0)):
+        C("street", "standpipe", x - 0.15, x + 0.15, z - 0.15, z + 0.15, 0.9, y0=S)
+    for x, z in ((-4.4, -24.0), (-4.4, -12.0), (-4.4, 0.0), (28.4, -30.0), (28.4, -8.0), (28.4, 4.0)):
+        C("street", "hydrant", x - 0.16, x + 0.16, z - 0.16, z + 0.16, 0.74, y0=S)
+    for x, z in ((-4.5, -34.0), (-4.5, -28.0), (-4.5, -16.0), (-4.5, -3.0), (28.3, -28.4), (28.3, -17.5), (28.3, -4.0), (28.3, 10.0), (28.3, 16.0)):
+        C("street", "sign_pole", x - 0.038, x + 0.038, z - 0.038, z + 0.038, 2.7, y0=S, what="a street-sign pole")
+    for x, z in ((-7.6, -29.0), (-7.6, -16.6), (29.6, -24.0), (29.6, -12.0)):
+        C("street", "newspaper_box", x - 0.24, x + 0.24, z - 0.21, z + 0.21, 1.08, y0=S)
+    for x, z in ((12.0, -16.0), (18.0, -14.6), (12.4, 4.2), (17.6, 8.6), (13.0, 19.8), (20.8, 19.8)):
+        C("street", "cable_ramp", x - 0.6, x + 0.6, z - 0.25, z + 0.25, 0.08, y0=S, surface="rubber", what="a cable ramp over the premiere's feeds")
+    for x0, x1, z0, z1, h, name, what in ((28.2, 29.8, -36.4, -35.4, 1.1, "valet_stand", "the theatre's valet stand"),
+                                         (28.3, 28.9, -22.6, -21.0, 1.2, "queue_rail", "the theatre's queue rail"),
+                                         (28.3, 28.9, -15.6, -14.6, 1.2, "queue_rail", "the theatre's queue rail"),
+                                         (28.3, 29.8, 3.0, 3.6, 1.2, "luggage_cart", "the hotel's luggage cart"),
+                                         (-7.9, -6.6, -6.0, -4.6, 1.0, "crate_stack", "a sidewalk delivery"),
+                                         (-7.9, -7.2, -37.6, -36.8, 1.4, "atm_kiosk", "a street-side cash machine, no bank mark")):
+        C("street", name, x0, x1, z0, z1, h, y0=S, what=what)
+    # ---------------------------------------------------------------- W 46 St
+    for x in (-46.0, -38.0, -30.0, -22.0, -14.0, 4.0, 10.0, 26.0):
+        C("w46", "planter", x - 0.6, x + 0.6, 35.3, 35.95, 0.95, y0=S, surface="concrete", what="a planter at a restaurant front")
+    for x in (-42.0, -34.0, -18.0, 0.0, 7.0, 24.0, 29.6):
+        C("w46", "trash_can", x - 0.29, x + 0.29, 33.7, 34.28, 0.95, y0=S)
+    for x in (-44.0, -26.0, -2.0, 12.0):
+        C("w46", "newspaper_box", x - 0.24, x + 0.24, 33.7, 34.12, 1.08, y0=S)
+    for x in (-48.0, -36.0, -20.0, -10.0, 2.0, 18.0, 27.0):
+        C("w46", "sign_pole", x - 0.038, x + 0.038, 33.62, 33.7, 2.7, y0=S)
+    for x in (-48.0, -40.0, -32.0, -24.0, -16.0, 6.0, 12.0, 26.0):
+        C("w46", "sign_pole", x - 0.038, x + 0.038, 24.3, 24.376, 2.7, y0=S)
+    for x in (-38.0, -20.0, 8.0, 22.0):
+        C("w46", "hydrant", x - 0.16, x + 0.16, 23.8, 24.12, 0.74, y0=S)
+    for x0, x1, z0, z1, h, name in ((-28.6, -26.8, 22.05, 22.7, 1.2, "crate_stack"), (-16.6, -15.4, 22.05, 22.65, 0.95, "trash_bags"),
+                                    (-45.0, -43.2, 22.05, 22.7, 1.2, "crate_stack"), (-6.8, -5.0, 35.25, 35.95, 1.1, "crate_stack"),
+                                    (-34.0, -32.6, 35.3, 35.95, 0.95, "trash_bags"), (8.0, 9.4, 35.3, 35.95, 0.95, "trash_bags")):
+        C("w46", name, x0, x1, z0, z1, h, y0=S, surface="cloth" if name == "trash_bags" else "wood")
+    # ---------------------------------------------------------------- rooftop dressing (vents, ducts, pipes on sleepers, conduit boxes, dishes)
+    roofs = {"A": (R3, [(-48.6, -48.0, -28.0, -27.4, 0.9, "roof_vent"), (-41.0, -40.4, -34.0, -33.4, 0.9, "roof_vent"),
+                        (-32.6, -32.0, -24.0, -23.4, 0.9, "roof_vent"), (-46.0, -44.4, -21.0, -19.4, 1.1, "duct_box"),
+                        (-33.0, -31.4, -20.6, -19.6, 0.7, "conduit_box"), (-48.8, -48.2, -16.0, -14.0, 1.5, "antenna_mast"),
+                        (-42.0, -40.0, -14.4, -13.6, 0.35, "pipe_sleepers"), (-36.4, -35.2, -37.0, -36.4, 1.3, "satellite_dish")]),
+             "B": (R2, [(-49.0, -48.4, -10.0, -9.4, 0.9, "roof_vent"), (-44.0, -43.4, -11.0, -10.4, 0.9, "roof_vent"),
+                        (-33.6, -32.0, -6.0, -4.4, 1.1, "duct_box"), (-37.0, -35.6, 0.6, 1.4, 0.7, "conduit_box"),
+                        (-44.6, -43.0, 6.4, 7.2, 0.35, "pipe_sleepers"), (-32.4, -31.8, 2.0, 2.6, 0.9, "roof_vent"),
+                        (-40.6, -39.4, -11.4, -10.6, 1.3, "satellite_dish")]),
+             "C": (R2, [(-26.8, -26.2, -36.4, -35.8, 0.9, "roof_vent"), (-13.6, -13.0, -36.0, -35.4, 0.9, "roof_vent"),
+                        (-26.8, -25.2, -26.0, -24.4, 1.1, "duct_box"), (-14.0, -12.4, -20.0, -18.4, 1.1, "duct_box"),
+                        (-26.4, -26.0, -16.0, -12.0, 0.7, "conduit_run"), (-20.0, -18.4, -8.2, -7.4, 0.35, "pipe_sleepers"),
+                        (-11.4, -10.8, -9.0, -8.4, 0.9, "roof_vent"), (-24.0, -23.4, -30.0, -29.4, 0.9, "roof_vent")]),
+             "D": (R1, [(-26.8, -26.2, 20.4, 21.0, 0.9, "roof_vent"), (-13.0, -12.4, 18.4, 19.0, 0.9, "roof_vent"),
+                        (-17.4, -15.8, 4.6, 6.2, 1.1, "duct_box"), (-11.4, -10.6, 15.2, 16.4, 0.7, "conduit_box"),
+                        (-23.0, -21.4, 13.6, 14.4, 0.35, "pipe_sleepers"), (-10.0, -9.4, -2.8, -2.2, 0.9, "roof_vent")]),
+             "E": (R1, [(-49.0, -48.4, 18.0, 18.6, 0.9, "roof_vent"), (-36.4, -35.8, 20.4, 21.0, 0.9, "roof_vent"),
+                        (-32.6, -31.0, 9.0, 10.6, 1.1, "duct_box"), (-46.0, -44.4, 19.0, 19.8, 0.35, "pipe_sleepers")])}
+    for bid, (y, items) in roofs.items():
+        for x0, x1, z0, z1, h, name in items:
+            C("roof", name, x0, x1, z0, z1, h, y0=y, what="%s's roof" % bid)
+    # the deck furniture (THE LOFTLARK's deck, E's platform): loungers, umbrellas folded, an old fan housing
+    for x0, x1, z0, z1, h, name in ((-27.0, -25.6, -3.2, -2.2, 0.5, "lounger"), (-27.0, -25.6, -1.4, -0.4, 0.5, "lounger"),
+                                    (-21.0, -20.6, 1.6, 2.6, 2.2, "umbrella_folded"), (-25.0, -24.6, 1.6, 2.6, 2.2, "umbrella_folded"),
+                                    (-49.2, -47.6, 12.4, 14.0, 1.0, "fan_housing")):
+        C("roof", name, x0, x1, z0, z1, h, y0=R1 + 0.6)
+    # spare: the booth's dressing and the service stair's foot
+    for x0, x1, z0, z1, h, name in ((10.7, 11.5, -33.9, -33.2, 1.6, "equipment_case"), (12.0, 13.2, -33.9, -33.4, 1.0, "monitor_cart"),
+                                    (18.4, 19.2, -30.4, -29.6, 0.95, "cable_drum"), (-12.8, -12.0, 9.2, 9.9, 1.0, "mop_bucket")):
+        C("spare", name, x0, x1, z0, z1, h, y0=S)
+
+    named = {"planter_granite": "street", "kiosk_souvenir": "street", "food_cart": "street", "cafe_table": "street", "light_pole": "street",
+             "street_lamp": "street", "trash_can": "street", "jersey_barrier": "barriers", "water_barrier": "barriers", "generator": "premiere",
+             "hvac_rtu": "roof", "skylight": "roof", "chimney_stack": "roof", "tar_kettle": "roof", "vent_box": "roof", "lounge_bar": "roof",
+             "lounger_stack": "roof", "planter_box": "roof"}
+    groups = {}
+    for p in L.props:
+        g = p.get("group") or named.get(p["name"])
+        if g:
+            groups[g] = groups.get(g, 0) + len(p["colliders"])
+    L.extra["colliderBudget"] = {"source": "midtown.md 15 (760, cap 820): the clutter groups this table authors, planned against placed "
+                                           "(the premiere's structures, W 46 St and spare come out of the 167 contingency)",
+                                 "plannedTotal": 760, "cap": 820, "clutterPlanned": PLAN, "clutterPlaced": groups,
+                                 "skipped": L.clutter_skipped}

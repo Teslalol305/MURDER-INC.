@@ -102,6 +102,7 @@ class Level:
         self.extra = {}
         self.notes = []
         self.deviations = []
+        self.clutter_skipped = []
 
     # ------------------------------------------------------------------ colliders
     def box(self, tag, x0, x1, y0, y1, z0, z1, surface="concrete", owner=None, bullet_only=False, player_only=False,
@@ -224,6 +225,68 @@ class Level:
                     L = z1 - z0; gl = L * p["glassLen"]; c = (z0 + z1) / 2
                     bx.append((x0 + p["glassInset"], x1 - p["glassInset"], y0 + p["body"], y0 + p["glass"], c - gl / 2, c + gl / 2, "glass"))
         return self.prop(kind, bx, pos=((x0 + x1) / 2, y0, (z0 + z1) / 2), rotation_y=rot, surface="car", **flags)
+
+    # ------------------------------------------------------------------ clutter (the designs' collider breakdown)
+    def clutter(self, group, name, x0, x1, z0, z1, h, y0=0.0, surface="metal", what=None, boxes=None, **flags):
+        """A dressing prop that the designs count in their collider breakdown (street furniture, alley and yard props,
+        vendor goods, map edges, roof dressing): its colliders are authored here, the art lane fits the mesh to them.
+        `boxes` (list of (x0, x1, y0, y1, z0, z1[, surface])) replaces the single box when a prop needs more than one.
+        The prop is skipped (and listed in `clutterSkipped`) when it would overlap a collider or stand on a point the
+        game needs clear: a spawn, a reel, an explosive, the start, the extraction zone, a doorway, a Goon door, a
+        player-only gap, a link or an authored drop. Deterministic: the same table gives the same file."""
+        bxs = boxes or [(x0, x1, y0, y0 + h, z0, z1, surface)]
+        why = self._clutter_conflict(bxs)
+        if why:
+            self.clutter_skipped.append({"group": group, "name": name, "rect": [x0, x1, z0, z1], "why": why})
+            return None
+        return self.prop(name, bxs, surface=surface, extra={"group": group, **({"what": what} if what else {})}, **flags)
+
+    def _clutter_conflict(self, bxs):
+        def rd(b, x, z):  # 2D distance from a point to a box footprint
+            dx = max(b[0] - x, 0.0, x - b[1])
+            dz = max(b[4] - z, 0.0, z - b[5])
+            return math.hypot(dx, dz)
+
+        for b in bxs:
+            for o in self.boxes:
+                if o["flags"]["bulletOnly"]:
+                    continue
+                (ox0, oy0, oz0), (ox1, oy1, oz1) = o["min"], o["max"]
+                if b[0] < ox1 - 0.01 and b[1] > ox0 + 0.01 and b[4] < oz1 - 0.01 and b[5] > oz0 + 0.01 \
+                        and b[2] < oy1 - 0.01 and b[3] > oy0 + 0.01:
+                    return "overlaps %s" % (o.get("part") or o["tag"])
+
+            def near(p, r):
+                return rd(b, p[0], p[2]) < r and abs(p[1] - b[2]) < 2.5
+
+            for s in self.spawns:
+                if s["type"] == "ground" and near(s["pos"], 1.0):
+                    return "spawn " + s["name"]
+            for o in self.objectives:
+                if near(o["pos"], 2.5):
+                    return "reel " + o["id"]
+            for e in self.explosives:
+                if near(e["pos"], 1.0):
+                    return "explosive"
+            if self.player_start and near(self.player_start["pos"], 3.0):
+                return "player start"
+            if self.extraction and near(self.extraction["pos"], self.extraction["radius"] + 1.0):
+                return "extraction"
+            for d in self.doorways:
+                if near(d["outside"], 1.5) or near(d["inside"], 1.5):
+                    return "doorway " + d["name"]
+            chk = self.extra.get("checks") or {}
+            for d in chk.get("goonDoors", []) + chk.get("playerOnlyGaps", []):
+                if rd(b, d["x"], d["z"]) < 1.5 and b[2] < 3.0:
+                    return "door " + d["what"]
+            for lk in (self.nav or {}).get("links", []):
+                for p in lk["path"]:
+                    if near(p, 1.2):
+                        return "link " + lk["id"]
+            for d in self.drops:
+                if near(d["from"], 1.5) or near(d["to"], 1.5):
+                    return "drop " + d["id"]
+        return None
 
     # ------------------------------------------------------------------ zones and places
     def zone(self, zid, name, r):

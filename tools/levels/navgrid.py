@@ -310,7 +310,9 @@ class PlayerFlood:
                 return False
         return True
 
-    def flood(self, start, jump=False, max_states=2_000_000):
+    def flood(self, start, jump=False, max_states=2_000_000, safe_drop=4.024, apex=0.0):
+        """`falls` lists every drop of more than safe_drop - apex: with apex 1.0 (the jump flood) a drop is taken with
+        a jump, whose 1.0 m apex adds to the fall (MIPlayerRules takes the peak fall speed)."""
         # a jump lifts the feet 1.0 m (launch 6.48 m/s, gravity 21) and an airborne body lands on tops within AIR_STEP
         # 0.08 of its feet, so a jump climbs 1.08 m; walking climbs STEP_HEIGHT 0.42. Chains (a crate, then a jump) come
         # from the flood itself.
@@ -357,7 +359,7 @@ class PlayerFlood:
                     if not ok:
                         continue
                 key = (nb, round(f, 2))
-                if h - f > 4.024:
+                if h - f > safe_drop - apex + 1e-6:
                     falls.append((c, h, nb, f))
                 if key in seen:
                     continue

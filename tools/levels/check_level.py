@@ -20,6 +20,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import navgrid  # noqa: E402
+sys.path.insert(0, os.path.join(HERE, "..", "names"))
+import check_names  # noqa: E402  (tools/names: the approved and retired names, names.json)
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 DATA = os.path.join(HERE, "data")
@@ -36,6 +38,8 @@ CJK = re.compile("[⺀-⿿　-〿぀-ヿ㄀-ㇿ㈀-鿿가-힯豈-﫿︰-﹏＀-�
 REAL_NAMES = ["PEARL RIVER", "KOWLOON", "GOLDEN PHOENIX", "TKTS", "I ♥ NY", "I LOVE NY", "MTA", "NYPD", "COCA", "PEPSI",
               "SAMSUNG", "PANASONIC", "TOSHIBA", "SONY", "M&M", "HERSHEY", "DISNEY", "NASDAQ", "REUTERS"]
 GOON_RUN = 4.5  # config.json enemies.goon.runSpeed
+SAFE_DROP = 13.0 ** 2 / (2 * 21.0)  # 4.024 m: config.json player.fall (damage above a 13 m/s landing, gravity 21)
+JUMP_APEX = 1.0                     # a jump lifts the feet 1.0 m, and MIPlayerRules takes the peak fall speed: a drop jumped is 1.0 m longer
 
 
 class Report:
@@ -44,8 +48,16 @@ class Report:
         self.checks = []
         self.data = {}
 
-    def add(self, name, ok, detail, warn=False):
-        self.checks.append({"check": name, "result": "PASS" if ok else ("WARN" if warn else "FAIL"), "detail": detail})
+    def add(self, name, ok, detail, warn=False, waivers=None):
+        """warn=True only for advisory checks (listed as such in the README). A gate that fails is FAIL unless the level
+        records a waiver for it (guide.waivers or checks.waivers: {check, reason, owner}); then WAIVED, with the reason."""
+        res = "PASS" if ok else ("WARN" if warn else "FAIL")
+        if res == "FAIL" and waivers:
+            w = [x for x in waivers if x.get("check") == name]
+            if w:
+                res = "WAIVED"
+                detail = {"detail": detail, "waiver": w[0]}
+        self.checks.append({"check": name, "result": res, "detail": detail})
 
     @property
     def failed(self):
@@ -153,10 +165,53 @@ def check_schema(doc, rep, exp, raw):
     hits = sorted(set(CJK.findall(raw)))
     rep.add("content.englishOnly", not hits, "no CJK characters in the file" if not hits else "CJK characters: " + "".join(hits[:40]))
     texts = " ".join(s.get("text", "") for s in doc.get("signage", {}).get("placements", [])).upper()
-    real = [n for n in REAL_NAMES if re.search(r"(?<![A-Z])" + re.escape(n) + r"(?![A-Z])", texts)]
-    rep.add("content.noRejectedRealNames", not real, real or "none of the rejected or real marks appear on a sign (the full "
-            "name search is MAPS.md C1, outside this tool); %d sign faces" % len(doc.get("signage", {}).get("placements", [])))
+    real = [n for n in REAL_NAMES if re.search(r"(?<![A-Z])" + re.escape(n) + r"(?![A-Z])", raw.upper())]
+    rep.add("content.noRejectedRealNames", not real, real or "none of the names the designs rejected and no real mark the art "
+            "bible forbids appears anywhere in the file")
+    check_name_lists(doc, raw, rep)
     return True
+
+
+def check_name_lists(doc, raw, rep):
+    """The approved list (tools/names/names.json, MAPS.md C1): no retired name anywhere in the file (ids built from one
+    included), and every sign, screen slide and shop list names an approved name, a generic word, a real place or a story
+    mark of this level."""
+    data = check_names.load()
+    lid = doc["meta"]["level"]["id"] if isinstance(doc["meta"].get("level"), dict) else doc["meta"].get("level")
+    hits = []
+    for name, toks in check_names.RETIRED_TOKENS.items():
+        for t in toks:
+            n = len(check_names.token_re(t).findall(raw))
+            if n:
+                hits.append("%s x%d (retired: %s)" % (t, n, name))
+    rep.add("content.noRetiredNames", not hits, hits or "no retired name (%d) appears anywhere in the file" % len(check_names.RETIRED_TOKENS))
+    strip = lambda t: re.sub(r"\s*\(.*?\)", "", t).strip().upper()
+    allowed = [strip(n["text"]) for n in data["names"] if n["status"] == "approved" and n.get("level") == lid]
+    allowed += [strip(g) for g in data["generic"].get(lid, []) if not g.startswith("the ")]
+    allowed += [strip(g) for g in data["realPlaces"] + data["storyMarks"]]
+    allowed = [a for a in allowed if len(a) >= 2]
+
+    def listed(text):
+        t = re.sub(r"\s+", " ", text.replace(" / ", " ").upper()).strip()
+        # the text names an allowed name, or is two or more words of one (the half-finished BIG LIGHT neon)
+        return not t or any(a in t for a in allowed) or (" " in t and any(t in a for a in allowed))
+
+    bad = []
+    for s in doc.get("signage", {}).get("placements", []):
+        if s.get("kind") in ("exitbox", "lanterns"):
+            continue  # a plain EXIT box; the lantern string carries no words
+        for t in [s.get("text") or ""] + list(s.get("slides") or []):
+            if not listed(t):
+                bad.append((s["id"], t))
+    for b in (doc.get("buildings") or {}).get("list", []):
+        for raw_part in (b.get("shops") or "").split(";"):
+            if raw_part.strip()[:1].islower():
+                continue  # prose about the building, not a sign
+            part = re.sub(r"^\d+F\s+", "", strip(raw_part))
+            if part and not any(w in part.lower() for w in ("storeroom", "backs", "shut")) and not listed(part):
+                bad.append((b["id"], part))
+    rep.add("content.namesOnApprovedList", not bad, bad[:20] or "every sign face, screen slide and shop list names an approved "
+            "name (names.md), a generic word, a real place or a story mark; %d faces" % len(doc.get("signage", {}).get("placements", [])))
 
 
 # ---------------------------------------------------------------------------------------------------------- colliders
@@ -193,6 +248,24 @@ def check_colliders(doc, boxes, rep, exp):
             if d < 4.0 and abs(p[1] - q[1]) < 3:
                 close.append((i, round(d, 2)))
     rep.add("explosives.clearOfReelsAndTruck", not close, close or "no explosive within 4 m of a reel case or the extraction zone")
+    # ... and 4 m from every doorway centre (interior.doorways: the middle of outside and inside) and Goon door
+    # (checks.goonDoors), chinatown.md 9; an exception the design wants is listed in checks.explosiveDoorExceptions
+    chk = doc.get("checks") or {}
+    doors = [(d.get("name"), ((d["web"]["outside"]["x"] + d["web"]["inside"]["x"]) / 2, (d["web"]["outside"]["y"] + d["web"]["inside"]["y"]) / 2,
+                              (d["web"]["outside"]["z"] + d["web"]["inside"]["z"]) / 2)) for d in doc["interior"]["doorways"]]
+    lay_y = {ly["id"]: ly["y"] for ly in doc["nav"]["layers"]}
+    doors += [(d["what"], (d["x"], lay_y.get(d.get("layer", "street"), 0.0), d["z"])) for d in chk.get("goonDoors", [])]
+    exc = {(e["explosive"], e["door"]): e for e in chk.get("explosiveDoorExceptions", [])}
+    near, excused = [], []
+    for i, e in enumerate(doc["explosives"]["items"]):
+        p = W(e["web"]["pos"])
+        for name, q in doors:
+            d = math.hypot(p[0] - q[0], p[2] - q[2])
+            if d < 4.0 and abs(p[1] - q[1]) < 3.0:
+                (excused if (i, name) in exc else near).append({"explosive": i, "type": e["type"], "door": name, "m": round(d, 2)})
+    rep.add("explosives.clearOfDoorways", not near, near or "no explosive within 4 m of a doorway centre or a Goon door (%d doors)%s" % (
+        len(doors), "; design exceptions: %s" % [(x["explosive"], x["door"], x["m"], exc[(x["explosive"], x["door"])]["why"]) for x in excused]
+        if excused else ""))
 
 
 # ---------------------------------------------------------------------------------------------------------- nav and spawns
@@ -434,7 +507,11 @@ def check_guidance(doc, grids, rep, exp):
             ok &= within
             rows.append({"leg": "%s -> %s" % (d["from"], d["to"]), "design": d["m"], "data": m, "within10pct": within})
         tot = sum(m for m in got if m)
-        rep.add("guide.intendedLegsVsDesign", ok, {"legs": rows, "total": round(tot, 1), "designTotal": round(sum(d["m"] for d in dl), 1)}, warn=True)
+        # a waiver covers only the legs it names: a leg outside the design's 10 % that no waiver names is a FAIL
+        failing = {r["leg"] for r in rows if not r["within10pct"]}
+        wv = [w for w in (g.get("waivers") or []) if w.get("check") == "guide.intendedLegsVsDesign" and failing <= set(w.get("legs", []))]
+        rep.add("guide.intendedLegsVsDesign", ok, {"legs": rows, "total": round(tot, 1), "designTotal": round(sum(d["m"] for d in dl), 1)},
+                waivers=wv)
     # intended legs at least 10 % shorter than the best route avoiding them (chinatown.md 7.2)
     alts = g.get("alternatives") or []
     for alt in alts:
@@ -446,7 +523,7 @@ def check_guidance(doc, grids, rep, exp):
             margin = (r1["length"] - r0["length"]) / r1["length"]
             rep.add("guide.routeTie.%s-%s" % (alt["from"], alt["to"]), margin >= 0.10,
                     {"intended": round(r0["length"], 1), "bestAvoiding": round(r1["length"], 1), "margin": round(margin, 3),
-                     "avoided": alt["what"]}, warn=True)
+                     "avoided": alt["what"]}, waivers=g.get("waivers"))
         else:
             rep.add("guide.routeTie.%s-%s" % (alt["from"], alt["to"]), r0 is not None, {"intended": r0 and round(r0["length"], 1),
                     "bestAvoiding": None, "avoided": alt["what"], "note": "no route avoiding it"})
@@ -512,7 +589,8 @@ def check_player(doc, boxes, rep, quick=False):
     # drops: the walk flood and the jump flood (parapets, cars, counters climbed with a 1.0 m jump)
     falls = list(falls_walk)
     if not quick:
-        seen_j, falls_j = fl.flood(st, jump=True)
+        # every edge he can stand at he can also jump off: the jump flood tests take-off + 1.0 m (the apex) against 4.02
+        seen_j, falls_j = fl.flood(st, jump=True, safe_drop=SAFE_DROP, apex=JUMP_APEX)
         falls += falls_j
         rep.data["playerStatesWithJumps"] = len(seen_j)
     clusters = []
@@ -526,11 +604,13 @@ def check_player(doc, boxes, rep, quick=False):
         else:
             clusters.append({"x": round(x, 2), "z": round(z, 2), "fromY": h, "toY": f, "drop": round(h - f, 2), "n": 1})
     rep.data["falls"] = clusters
-    rep.add("edges.noDropOver4m", not clusters, clusters[:12] or "no reachable edge drops more than 4.02 m (the 13 m/s fall-damage "
-            "landing), walking or jumping (1.0 m) from playerStart; every authored drop is reachable and free")
+    rep.add("edges.noDamagingDrop", not clusters, clusters[:12] or "no reachable edge drops more than 4.02 m walking off, or more "
+            "than 3.02 m where he can jump off (take-off + the 1.0 m apex against the 13 m/s fall-damage landing)%s" % (
+                " (quick: walking only)" if quick else ""))
     drops = (doc.get("drops") or {}).get("items", [])
-    over = [d["id"] for d in drops if d["height"] > 4.0]
-    rep.add("drops.authoredUnder4m", not over, over or ", ".join("%s %.2f m" % (d["id"], d["height"]) for d in drops))
+    over = [(d["id"], d["height"]) for d in drops if d["height"] + JUMP_APEX > SAFE_DROP + 1e-6]
+    rep.add("drops.authoredFreeWhenJumped", not over, over or ", ".join("%s %.2f m" % (d["id"], d["height"]) for d in drops) +
+            ": every authored drop plus the 1.0 m jump apex stays under 4.02 m, so it is free walked or jumped")
     # each authored drop happens in the flood: a state near `from` at its height and one near `to`
     missing = []
     for d in drops:
@@ -591,6 +671,9 @@ def check_rooms(doc, grids, rep, router):
             open_gaps.append(gp)
     if gaps:
         rep.add("doors.playerOnlyGapsClosedToNav", not open_gaps, open_gaps or ", ".join(gp["what"] for gp in gaps))
+        wide = [gp["what"] for gp in gaps if gp.get("width", 99) > 1.0 + 1e-6]
+        rep.add("doors.playerOnlyGapsAtMost1m", not wide, wide or "every player-only gap is 1.0 m or less, so the 0.5 m cells and "
+                "0.5 m inflate close it to Goons at every grid alignment (the 0.64 m capsule still passes)")
     # Goon doors stay open on the nav
     doors = (doc.get("checks") or {}).get("goonDoors", [])
     shut = [d["what"] for d in doors if not grids[d.get("layer", "street")].free(d["x"], d["z"])]
@@ -603,7 +686,7 @@ def check_fallback(doc, boxes, grids, rep, quick=False):
     import numpy as np
     rays = navgrid.Rays(boxes)
     reach = doc["nav"].get("spawnReach", {})
-    pts = [p for p in doc["enemySpawns"]["points"] if p["type"] == "ground"]
+    pts = [p for p in doc["enemySpawns"]["points"] if p["type"] == "ground" and p.get("enabled", True)]
     rooms = doc["interior"]["boxes"]
     zones = doc["zones"]
 
@@ -657,7 +740,103 @@ def check_fallback(doc, boxes, grids, rep, quick=False):
     rep.data["fallbackLow"] = low
     rep.add("spawns.fallbackRingNeverNeeded", not low, {"samples": n, "below3": low[:15], "count": len(low)} if low else
             "%d player positions sampled every %d m on every layer: each has 3 or more ground points 9 m away, hidden from "
-            "the eye, outside the player's room, on an allowed layer" % (n, step), warn=bool(low))
+            "the eye, outside the player's room, on an allowed layer; disabled points not counted" % (n, step))
+
+
+# ---------------------------------------------------------------------------------------------------------- disabled points
+def check_enabled(doc, rep, release=False):
+    off = [p.get("name") or p["index"] for p in doc["enemySpawns"]["points"] if p.get("enabled") is False]
+    detail = ("%d points still carry enabled:false (%s): the loader must skip them (MAPS.md E8) and the release turns them on "
+              "once nav step A exists" % (len(off), ", ".join(map(str, off)))) if off else "every spawn point is enabled"
+    rep.add("spawns.allEnabledForRelease", not off, detail, warn=not release)
+
+
+# ---------------------------------------------------------------------------------------------------------- sight lines
+def check_sightlines(doc, boxes, grids, rep):
+    """The designs' sight-line rules (chinatown.md 4.1: the longest open line is the roadway from the start to the truck,
+    77 m, and the south sidewalk is the protected lane; midtown.md 10: breakers keep every open ground line in the
+    square under 45 m, the Goons' sight range). Eye to eye at 1.6 m over the floor, between free street cells sampled
+    in each rule's rectangle, through the box ray cast."""
+    rules = ((doc.get("checks") or {}).get("sightlines") or {}).get("rules", [])
+    if not rules:
+        return
+    rays = navgrid.Rays(boxes)
+    g = grids["street"]
+    sup = [b for b in boxes if not b["flags"]["bulletOnly"] and b["max"][1] <= 0.42]
+
+    def floor(x, z):
+        f = 0.0
+        for b in sup:
+            if b["min"][0] <= x <= b["max"][0] and b["min"][2] <= z <= b["max"][2] and b["max"][1] > f:
+                f = b["max"][1]
+        return f
+
+    for r in rules:
+        x0, x1, z0, z1 = r["rect"]
+        st = r.get("step", 2.0)
+        pts = []
+        x = x0 + st / 2
+        while x < x1:
+            z = z0 + st / 2
+            while z < z1:
+                if g.free(x, z):
+                    pts.append((x, floor(x, z) + 1.6, z))
+                z += st
+            x += st
+        n, clear = 0, []
+        for i in range(len(pts)):
+            for j in range(i + 1, len(pts)):
+                d = math.hypot(pts[i][0] - pts[j][0], pts[i][2] - pts[j][2])
+                if d <= r["max"]:
+                    continue
+                n += 1
+                if rays.clear(pts[i], pts[j]):
+                    clear.append((round(d, 1), [round(pts[i][0], 1), round(pts[i][2], 1)], [round(pts[j][0], 1), round(pts[j][2], 1)]))
+        clear.sort(reverse=True)
+        rep.add("sight.%s" % r["id"], not clear, {"open": len(clear), "of": n, "longest": clear[:6], "rule": r.get("why")} if clear else
+                "no open line longer than %.0f m between %d street cells sampled every %.1f m (%d pairs tested): %s" % (
+                    r["max"], len(pts), st, n, r.get("why", "")))
+
+
+# ---------------------------------------------------------------------------------------------------------- the planned clutter
+def check_clutter(doc, rep, exp):
+    b = doc.get("colliderBudget")
+    if not b:
+        rep.add("colliders.plannedClutter", False, "no colliderBudget: the clutter groups of the design's collider breakdown are not authored")
+        return
+    plan, placed = b["clutterPlanned"], b["clutterPlaced"]
+    tp, tg = sum(plan.values()), sum(placed.values())
+    ok = tg >= 0.75 * tp and len(doc["colliders"]["boxes"]) <= exp["colliderCap"]
+    rep.add("colliders.plannedClutter", ok, {"planned": plan, "placed": placed, "clutterPlaced": tg, "clutterPlanned": tp,
+                                             "share": round(tg / tp, 2), "colliders": len(doc["colliders"]["boxes"]),
+                                             "plannedTotal": b.get("plannedTotal"), "skipped": len(b.get("skipped", [])),
+                                             "rule": "the clutter groups at 75 % of the design's breakdown or more, under the cap"})
+
+
+# ---------------------------------------------------------------------------------------------------------- guidance from every layer
+def check_guide_layers(doc, grids, rep, router):
+    """From every free cell (every 4 m) of every layer but the street, the guidance finds a way to each reel and to the
+    extraction (chinatown.md 7.3: players get lost on the roof; the route graph carries the stair and the drops)."""
+    tgt = [(o["id"], (objective_layer(doc, o), o["web"]["pos"]["x"], o["web"]["pos"]["z"])) for o in doc["objectives"]]
+    x = doc["extraction"]
+    tgt.append(("extraction", (x.get("layer", "street"), x["web"]["pos"]["x"], x["web"]["pos"]["z"])))
+    bad, n = [], 0
+    for lid, g in grids.items():
+        if lid == "street":
+            continue
+        main = None
+        for j in range(2, g.rows - 2, 8):
+            for i in range(2, g.cols - 2, 8):
+                if g.blocked[j, i]:
+                    continue
+                cx, cz = g.centre(i, j)
+                for name, t in tgt:
+                    n += 1
+                    if router.route((lid, cx, cz), t) is None:
+                        bad.append({"layer": lid, "x": round(cx, 1), "z": round(cz, 1), "to": name})
+    if n:
+        rep.add("guide.fromEveryLayer", not bad, bad[:10] or "%d routes from cells sampled every 4 m on the upper layers reach every "
+                "reel and the extraction over the route graph" % n)
 
 
 # ---------------------------------------------------------------------------------------------------------- level-specific
@@ -672,7 +851,7 @@ def check_specific(doc, boxes, rep):
         rep.add("slot.%s.playerBlocked" % s["id"], okf, "the slot's frame is playerOnly (movement blocked, shots and sight pass)")
 
 
-def run(lid, path=None, quick=False):
+def run(lid, path=None, quick=False, release=False):
     path = path or os.path.join(DATA, "level_%s.json" % lid)
     raw = open(path, encoding="utf-8").read()
     doc = json.loads(raw)
@@ -680,16 +859,31 @@ def run(lid, path=None, quick=False):
     exp = EXPECT[lid]
     if not check_schema(doc, rep, exp, raw):
         return rep, doc
-    boxes = boxes_of(doc)
-    check_colliders(doc, boxes, rep, exp)
-    grids = build_grids(doc, boxes)
+    all_boxes = boxes_of(doc)
+    # an extraction truck that arrives after the last reel (Midtown, E10) is out of the box world until then: its
+    # colliders block the nav from the start (the bake stamps them, noNav false) but not shots, sight or movement
+    late = doc["extraction"].get("arrival") == "afterAll"
+    boxes = [b for b in all_boxes if not (late and b["owner"].get("kind") == "truck")]
+    check_colliders(doc, all_boxes, rep, exp)
+    check_clutter(doc, rep, exp)
+    grids = build_grids(doc, all_boxes)
+    if late:
+        tb = [b for b in all_boxes if b["owner"].get("kind") == "truck"]
+        g = grids["street"]
+        free = [b["index"] for b in tb if b["flags"]["noNav"] or g.free((b["min"][0] + b["max"][0]) / 2, (b["min"][2] + b["max"][2]) / 2)]
+        rep.add("extraction.lateTruckBlocksNav", not free, free or "the arriving truck's footprint is blocked on the street nav from "
+                "the start (so pursuers never path into it at the extraction), while its colliders stay out of rays and movement "
+                "until it arrives")
     rep.data["navCells"] = {k: {"cols": g.cols, "rows": g.rows, "free": int((g.blocked == 0).sum())} for k, g in grids.items()}
     check_spawns(doc, boxes, grids, rep)
+    check_enabled(doc, rep, release)
     router, orders = check_guidance(doc, grids, rep, exp)
+    check_guide_layers(doc, grids, rep, router)
     check_links_on_surfaces(doc, boxes, rep)
     check_rooms(doc, grids, rep, router)
     check_player(doc, boxes, rep, quick)
     check_fallback(doc, boxes, grids, rep, quick)
+    check_sightlines(doc, boxes, grids, rep)
     check_specific(doc, boxes, rep)
     return rep, doc
 
@@ -699,25 +893,28 @@ def main():
     ap.add_argument("--level", default="all", choices=("chinatown", "midtown", "all"))
     ap.add_argument("--file")
     ap.add_argument("--quick", action="store_true", help="skip the jump flood and sample the fallback ring every 4 m")
+    ap.add_argument("--release", action="store_true", help="release gate: a spawn point still disabled is a FAIL, not a WARN")
     a = ap.parse_args()
     bad = 0
     os.makedirs(REPORTS, exist_ok=True)
     for lid in (("chinatown", "midtown") if a.level == "all" else (a.level,)):
-        rep, doc = run(lid, a.file, a.quick)
+        rep, doc = run(lid, a.file, a.quick, a.release)
         out = {"level": lid, "file": os.path.relpath(a.file or os.path.join(DATA, "level_%s.json" % lid), ROOT),
                "tool": "tools/levels/check_level.py", "summary": {
                    "pass": sum(1 for c in rep.checks if c["result"] == "PASS"),
                    "warn": sum(1 for c in rep.checks if c["result"] == "WARN"),
+                   "waived": sum(1 for c in rep.checks if c["result"] == "WAIVED"),
                    "fail": len(rep.failed)}, "checks": rep.checks, "data": rep.data}
         data = out.pop("data")
         text = json.dumps(out, indent=1)
         with open(os.path.join(REPORTS, "check_%s.json" % lid), "w") as f:
             f.write(text[:-2] + ',\n "data": ' + json.dumps(data, separators=(",", ":")) + "\n}\n")
-        print("== %s: %d pass, %d warn, %d fail" % (lid, out["summary"]["pass"], out["summary"]["warn"], out["summary"]["fail"]))
+        print("== %s: %d pass, %d warn, %d waived, %d fail" % (lid, out["summary"]["pass"], out["summary"]["warn"], out["summary"]["waived"],
+                                                              out["summary"]["fail"]))
         for c in rep.checks:
             d = c["detail"]
             s = d if isinstance(d, str) else json.dumps(d)[:300]
-            print("  %-4s %-40s %s" % (c["result"], c["check"], s))
+            print("  %-6s %-40s %s" % (c["result"], c["check"], s))
         bad += len(rep.failed)
     sys.exit(1 if bad else 0)
 

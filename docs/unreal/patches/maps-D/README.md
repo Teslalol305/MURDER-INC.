@@ -32,3 +32,19 @@ no spawn off the nav.
 To check on the maps branch: it compiles (the commandlet needs only Core, CoreUObject, Engine and Json, already in
 MurderInc.Build.cs), the baked Canal street grid equals the mirror's (`tools/levels/navgrid.py layer_grid`), and a
 second run is byte-identical.
+
+## 0002: the loader skips disabled spawn points (MAPS.md E8), unbuilt
+
+`0002-MILevelData-skip-disabled-spawns.patch` changes one loop in `FMILevelData::Load`: a spawn point whose JSON carries
+`"enabled": false` is not added to `Spawns`. Canal Street's three roof points (rf1 to rf3) carry it until nav step A
+exists; without this, any build before N1 (and the loader test with `--el-fallback`) would spawn Goons at y 5.7 on a
+street-only nav, and they would walk off the roof edges (the roof guards are playerOnly). The Block's level.json has no
+`enabled` field, so its spawn list, indices and goldens are unchanged. Spawns after a skipped point shift down by one in
+the loaded list; nothing in the game addresses a spawn by its file index (the spawner draws from the list), but the
+maps branch should confirm that with `Levels.Chinatown.Loads` (expected: 35 ground + 18 air loaded while rf1 to rf3
+are off). The release turns the three points on (`enabled` true or absent) once N1 lands;
+`python3 tools/levels/check_level.py --release` fails while any point is still disabled.
+
+```
+git apply docs/unreal/patches/maps-D/0002-MILevelData-skip-disabled-spawns.patch   # on the maps branch only
+```
