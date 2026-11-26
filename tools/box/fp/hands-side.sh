@@ -50,7 +50,7 @@ else:
     if cams:
         cam = cams[0]
     else:
-        cam = unreal.GameplayStatics.finish_spawning_actor(unreal.GameplayStatics.begin_deferred_actor_spawn_from_class(w, unreal.CameraActor, unreal.Transform()), unreal.Transform())
+        cam = w.spawn_actor(unreal.CameraActor, unreal.Vector(0, 0, 0), unreal.Rotator()) if hasattr(w, "spawn_actor") else unreal.GameplayStatics.finish_spawning_actor(unreal.GameplayStatics.begin_deferred_actor_spawn_from_class(w, unreal.CameraActor, unreal.Transform()), unreal.Transform())
         cam.rename("SideCam")
     cam.set_actor_location_and_rotation(at, unreal.MathLibrary.find_look_at_rotation(at, look), False, True)
     cam.camera_component.set_field_of_view(45.0)
