@@ -30,7 +30,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fp_math as fm  # noqa: E402
 import fp_offline as fo  # noqa: E402
 
-STATES = ("hip", "aim", ("reload", 0.5), ("reload", 1.1))
+STATES = ("hip", "aim", ("reload", 0.5), ("reload", 0.8), ("reload", 1.1), ("reload", 1.4))
+MIN_FIRING_BEND = 30.0
 
 
 class Rig:
@@ -141,6 +142,29 @@ def tune_pose(gid, shoulders, target):
     return p
 
 
+def upper_arm_in_view(gun, F, state, radius=6.0):
+    """How far into the picture an upper arm comes (frame fractions; <= 0: outside): the segment shoulder -> elbow of
+    each arm, grown by its radius (the arms mesh is cut at the shoulder: a cut upper arm in the picture is the fault of
+    the first rifle pictures, HANDS_R4.md 9)."""
+    pose = F["pose"]
+    tv = math.tan(math.radians(gun.fov_v(state)) * 0.5)
+    th = tv * 16.0 / 9.0
+    worst = -9.0
+    for side in ("l", "r"):
+        U, L = pose.P("upperarm_" + side), pose.P("lowerarm_" + side)
+        for k in np.linspace(0.0, 1.0, 9):
+            p = U + (L - U) * k
+            if p[0] < 1.0:
+                continue
+            m_v = radius / (p[0] * 2 * tv)
+            m_u = radius / (p[0] * 2 * th)
+            u = 0.5 + p[1] / p[0] / (2 * th)
+            v = 0.5 - p[2] / p[0] / (2 * tv)
+            into = min(v + m_v - 0.0, 1.0 - (v - m_v), u + m_u - 0.0, 1.0 - (u - m_u))
+            worst = max(worst, into)
+    return worst
+
+
 def reach_rows(rig, anchor, states=STATES):
     g = rig.gun
     g.shoulders = np.array(anchor, float)
@@ -148,7 +172,8 @@ def reach_rows(rig, anchor, states=STATES):
     for st in states:
         F = rig.frame(st)
         R = F["reports"]
-        rows.append((st, R["l"]["gap_cm"], R["r"]["gap_cm"], R["r"]["bend_deg"], R["l"]["bend_deg"], R["l"]["slope_deg"]))
+        rows.append((st, R["l"]["gap_cm"], R["r"]["gap_cm"], R["r"]["bend_deg"], R["l"]["bend_deg"], R["l"]["slope_deg"],
+                     upper_arm_in_view(g, F, st)))
     return rows
 
 
@@ -156,20 +181,22 @@ def scan_shoulders(gids, around):
     rigs = [Rig(g) for g in gids]
     base = np.array(around, float)
     found = []
-    for x, y, z in itertools.product(range(-10, 15, 2), range(-14, 13, 2), range(-34, -3, 2)):
+    for x, y, z in itertools.product(range(-12, 15, 2), range(-16, 13, 2), range(-40, -3, 2)):
         a = np.array([x, y, z], float)
-        worst, bend_r, bend_l = 0.0, 180.0, 180.0
+        worst, bend_r, bend_l, seen = 0.0, 180.0, 180.0, -9.0
         for rig in rigs:
-            for st, gl, gr, br, bl, _ in reach_rows(rig, a):
+            for st, gl, gr, br, bl, _, up in reach_rows(rig, a):
                 worst = max(worst, gl, gr)
                 bend_r = min(bend_r, br)
                 bend_l = min(bend_l, bl)
-        if worst < 0.05 and bend_r >= 35.0:
-            found.append((float(np.linalg.norm(a - base)), a, bend_r, bend_l))
+                seen = max(seen, up)
+        if worst < 0.05 and bend_r >= MIN_FIRING_BEND and seen <= 0.0:
+            found.append((float(np.linalg.norm(a - base)), a, bend_r, bend_l, seen))
     found.sort(key=lambda r: r[0])
-    print("SHOULDERS for %s: both arms reach in every state, the firing elbow bent 35 degrees or more, nearest %s first" % (",".join(gids), base.tolist()))
-    for d, a, br, bl in found[:10]:
-        print("  %s  %.1f cm away  firing bend >= %.0f  support bend >= %.0f" % (a.tolist(), d, br, bl))
+    print("SHOULDERS for %s: both arms reach in every state, the firing elbow bent %d degrees or more, no upper arm in the "
+          "picture; nearest %s first" % (",".join(gids), MIN_FIRING_BEND, base.tolist()))
+    for d, a, br, bl, up in found[:10]:
+        print("  %s  %.1f cm away  firing bend >= %.0f  support bend >= %.0f  upper arms %.2f frame outside" % (a.tolist(), d, br, bl, -up))
     return found[0][1].tolist() if found else None
 
 
@@ -221,8 +248,9 @@ def main():
                 F = rig.frame(st)
                 inside, cuv, eye = mag_in_view(rig, F, st)
                 R = F["reports"]
-                print("REPORT %-8s %-14s mag in picture %.2f centre %s | gap l %.1f r %.1f | bend l %.0f r %.0f | slope l %.0f"
-                      % (gid, st, inside, cuv.round(2).tolist(), R["l"]["gap_cm"], R["r"]["gap_cm"], R["l"]["bend_deg"], R["r"]["bend_deg"], R["l"]["slope_deg"]))
+                print("REPORT %-8s %-14s mag in picture %.2f centre %s | gap l %.1f r %.1f | bend l %.0f r %.0f | slope l %.0f | upper arm %.2f"
+                      % (gid, st, inside, cuv.round(2).tolist(), R["l"]["gap_cm"], R["r"]["gap_cm"], R["l"]["bend_deg"], R["r"]["bend_deg"],
+                         R["l"]["slope_deg"], upper_arm_in_view(rig.gun, F, st)))
 
 
 if __name__ == "__main__":
