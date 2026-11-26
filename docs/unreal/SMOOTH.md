@@ -5,6 +5,97 @@ weapons and gameplay). DECISIONS.md (2026-11-25, ~21:00) makes this file's verdi
 lane; every number names the run it comes from. Severities: blocker (a freeze, a crash, a stuck state, or under 50 fps
 sustained on E3DS-class limits), must-fix (a player would feel or see it), should-fix, nit.
 
+## Independent verdict (prover lane, 2026-11-26, 02:50 to 03:33 UTC)
+
+**Verdict: NOT SMOOTH, and the proof is incomplete.** DECISIONS.md criterion 4 (21:00) is **not met**:
+
+- **60 fps is not held frame by frame** under the E3DS-class load. On a package of the head:
+  - Story play: 57.1 fps, 30 frames over 25 ms a minute, 1 % low 30.2 fps.
+  - Playing all four guns through the stream: 82 frames over 25 ms a minute, 1 % low 26.0 fps.
+- **The cold-start freezes are still there**: 260.7 ms on the title, 163.8 ms at the first Crew draw and 145.0 ms in the
+  streamed front end. This is H3, which is not fixed.
+- **"Better than version 4 under the same conditions" is not shown.** The version 4 control runs and the 15-minute
+  holdout never ran, because **the box ended at 03:33:22 UTC with `credits_exhausted`** (`gpu_rental`: status `ended`,
+  1,105.84 credits spent). That happened 10 minutes into the holdout run and before any version 4 run. No lane can
+  measure on the box until the owner adds credits and a box runs again. This lane may not rent one.
+
+What the fixes did deliver is real, and it is listed below.
+
+### The package measured
+
+| What | Value |
+|---|---|
+| Source | The branch head `5566ee4`. Its `unreal/` tree is identical to `9032311`, where the perf lane's suite passed 220 of 220 with 0 skipped and the golden replays included (`git diff --quiet 9032311 5566ee4 -- unreal`). It contains every fixer's commit: `63d4862`, `3ac39ee`, `de28380`, `4b621b7`, `36da424`, `e618e90` and the `HeldClips` fix |
+| How it was built | The branch's own `package-cloud.sh` at `5566ee4` (`MI_COMMIT` set, so `BUILD.txt` names that commit), in this lane's folders on the box: `/project/ue/smooth/prove/pkg.sh`, release copy `prove/rel`, cloud folder `prove/cloud`. The generated content is reflinked, read-only, from the bug lane's clone; nothing in the inputs of that content changed between `1119352` and `5566ee4`. The steps were src, refresh, editor, weapons (guns, rattler, parts and sockets ok), overlay, usage, the Development and Shipping cooks (289 of 289 Sound Waves and 35 of 35 weapon assets in both pak lists) and the zip: `MurderInc-prove.zip`, 2.3 GB, sha256 `ac778ef3...`, 02:54 to 03:10 UTC. It is a proof package, not a release |
+| E3DS-class limits | The hitch lane's line: `lag-test.sh` with `load=1:0.05:0:1024` (`l20`, the load that reproduces E3DS's own GPU readings), `cpus=0-7` (the 7 task workers E3DS logs), `-sm5`, 1920 x 1080, `runas=fresh clean=1` (a cold user, a fresh `Saved`), the package unpacked on the box's local disk (C6), a viewer through Pixel Streaming, a CSV profile of every frame. The runs held the GPU claim (`prove/gated.sh`, a placeholder named `MurderInc`, `prove-claim`) |
+| How close the emulation is | **GPU: close.** The probe read 12.9 ms (max 14.6) in the guns run and 12.9 ms (max 15.2) in the Story, at render scale 0.50 to 0.75. E3DS read 10.6 to 13.2 ms at 0.50 to 0.75. **CPU: the same kind** (7 workers, the RHI's extra threads), with faster cores. **Box:** CLEAN in both runs (`others=0`, no compiler, `build=0`); the box's CPUs were 65 to 67 % busy in each viewer's first 40 s and 24 to 42 % after that. **Not like E3DS:** the load shares the card in time slices. The game's frame is then late even when its own GPU work is 12 to 13 ms, and the load also slows the encoder (BOX.md) |
+
+### Per-frame numbers (every CSV frame; `prove/scripts/prove_sum.py`)
+
+| Run, scene | Frames, length | fps | Frames over 25 / 50 / 100 ms a minute | Worst frame | 1 % low | Steady (median of 10-s buckets) | Sync loads |
+|---|---|---|---|---|---|---|---|
+| `p-new-menus`, engine start before any viewer (0 to 8.4 s) | 183, 8.4 s | 21.8 | | 3,523.5 ms (engine init), 1,350 ms, 231.5 ms | | | (388 at engine init) |
+| `p-new-menus`, the streamed front end (8.4 to 52.8 s): CLICK TO PLAY, Home, Crew, Loadout by keys and mouse, three Workbench visits, Block and Style, the Briefing | 2,643, 44.4 s | 59.50 | 47.3 / 4.1 / **1.4** | **145.0 ms** at 14.94 s (render thread 109 ms; Pixel Capture's `Timed out waiting for fence` in the same second) | 26.3 | 59.9 | **0** |
+| `p-new-menus`, play (55 to 137 s): four guns drawn, aimed, fired and reloaded through the stream | 4,849, 82.0 s | 59.15 | **82.0** / 2.9 / 0 | 62.7 ms | **26.0** | 59.1 | 0 |
+| `p-new-story`, the front end by script (0 to 32.1 s) | 1,862, 32.1 s | 58.08 | 50.5 / 9.4 / **3.7** | **260.7 ms** (the title, 1.13 s), **163.8 ms** (`MIMenu fe gearup`, 6.08 s) | 16.6 | 58.8 | **0** |
+| `p-new-story`, the whole Story run to the truck (32.1 to 104.1 s), four guns, reloads | 4,116, 72.1 s | **57.11** | **30.0** / 1.7 / 0 | 53.0 ms | 30.2 | 59.1 (slowest bucket **47.8**) | 0 |
+| `p-new-long`, Hold the Block, `sm-long.txt` | **lost**: the box ended about 10 minutes into the run. The CSV lived on the box's local disk, and the copy of the game log was not written. What I read from its probe and log lines while it ran is in the H2 and C1 rows below | | | | | | |
+
+**What the frames over 25 ms are.** In the guns run's play the 112 frames over 25 ms have a median of 30.2 ms, which is
+one display refresh missed. Their medians are: game thread 1.9 ms, render thread 18.0 ms, RHI 2.8 ms, GPU 12.4 ms. Only
+5 of the 112 have a PSO miss (`prove/scripts/long25.py`). They come 2 to 13 times in every 5 s of play. So this is not
+H4's shader stutter and not the game thread. It is the frame waiting for a card it shares with the load: in 1 to 2
+frames a second the finished frame comes late. Whether E3DS's A4000 does the same, when the game is alone on it, can
+only be measured there. The probe lines of our own E3DS sample of version 4 (DECISIONS.md 13:23) read a worst frame of
+16.77 ms on average, so on that day the A4000 did not. This emulation is therefore harsher than that sample.
+
+**Version 4 under the same conditions:** not measured today; the queued runs `p-v4-menus`, `p-v4-story` and `p-v4-long`
+never started. The only matching numbers are the hitch lane's from 2026-11-25. They used the same `l20` load, the same
+CPUs and a cold user, but they had **no viewer** (version 4's Development game pauses when a viewer leaves).
+- `v4-story-l20`: 59.70 fps over the capture, 1 % low 40.1 fps, frames over 25 / 100 ms a minute 3.5 / 1.7, and 60 fps
+  in every play second.
+- Version 4 **crashed in 2 of 2** Hold the Block sessions (H1).
+- On those numbers the head's Story under `l20` is **not better** than version 4's frame by frame. It has more 30 ms
+  frames and a lower 1 % low; its own viewer's encoder shares the card, and version 4's runs had none. The holdout is
+  better only in the sense that it no longer crashes.
+
+### Every bug marked fixed, re-checked on this package
+
+| Item | Re-check | Verdict |
+|---|---|---|
+| H1 / C1 / B1: the crash at the garbage collection after a gun switch | **No GPU** (`prove/nr.sh`, `-nullrhi`, CPUs 14 and 15): `cpu-nr-new`, the CPU lane's `full-csv.txt`. The switches came at 89.7, 98.3, 103.4 and 108.5 s, then `game:state complete` at 185.3 s, and the script played to its end at t 208.6 s. There was no `Signal 11` line. The run was stopped by its 330 s limit (exit 124). The v6 trial died at about 121 s on this script. **With the GPU:** `p-new-long` made 7 switches by 03:31:44 with no `Signal 11` line, until the box ended at 03:33. `n3-new`, the 15-minute no-GPU gate, was lost with the box | **Confirmed** for the CPU lane's script, past the second periodic collection. The long sessions on this package were cut short by the box. The bug lane's 14-minute `sb-long` and 12-minute `n3-fix` on its own package (`ab55e0d` plus its fixes, the same `HeldClips` code) still stand |
+| H2: the frame-rate target never rises in play | Every drop on this package came back to 60 in play. `p-new-story`: `60 -> 45` at 03:19:39.671 (`the GPU took 13.2 ms a frame`), then `45 -> 60 ... for 10 s, in play` at 03:19:49.892 (10.2 s later). `p-new-long`: `60 -> 45` at 03:26:01.641, back at 03:26:15.452 (13.8 s). `60 -> 45` at 03:30:39.746; a second `60 -> 45` at 03:31:03.639 means the target had come back to 60 in between (that line was not read before the box ended). Back again at 03:31:24.121 (20.5 s). Probe lines over the holdout's first 135 play seconds: mean 59.2 fps, 12 seconds under 57 | **Confirmed fixed** (it rises in play). **But the drops still happen** under this load, three times in 9 minutes of holdout. Each one costs 10 to 20 s at 45 (the Story's slowest 10-s bucket: 47.8 fps). On a 60 Hz screen 45 judders |
+| C2: synchronous loads | `Preload: 114 of 114 assets named by the data files are in memory, 0.2 s after the title screen came up` (`p-new-menus` game log, 03:15:49.658). `FlushAsyncLoading` events in the front end and play: **0** in both runs (the 388 in `p-new-menus` all fall in engine init, frame 0) | **Confirmed** |
+| B4: the pause card cannot leave a run | `b4-new` (no GPU, the bug lane's `b4.txt`): `MIMenu changesetup` at t 20.419 s and `game:state title` in the same frame; `MIMenu totitle` at t 33.821 s and `game:state title` in the same frame. The next screens were `screen crew` and then `screen briefing`. Exit 0 | **Confirmed** |
+| B3: Graphics quality press freezes | `p-new-q` was queued and never ran (box ended) | **Not re-checked** (the perf lane's before / after pair stands) |
+| B5: pause when the viewer leaves | `p-new-away` was queued and never ran | **Not re-checked** (the bug lane's `sb-away-fix` stands). The page's half is still not done |
+| C4: HUD trace scopes | Instrumentation only; no trace was taken | Not a smoothness fix; open as the perf lane says |
+| C6: `lag-test.sh local=1` | Present in `5566ee4`'s `lag-test.sh`; every run here was from local disk anyway | Confirmed in the script |
+
+### Still wrong (blocks the "smooth" verdict)
+
+1. **Frames that miss a refresh in play under the E3DS-class load**: 30 a minute in the Story and 82 a minute with all
+   four guns, a 1 % low of 26 to 30 fps, and 45 fps spells of 10 to 20 s after each target drop (H2's drop rule is
+   unchanged; only the rise is fixed). It is not yet known whether this is E3DS's card or only this emulation: one
+   E3DS session of this package with `-MICloudProbe=1` and the browser console's log would settle it (worst frame and
+   target per second).
+2. **H3, the cold-start PSO freezes**: 260.7 ms on the title, 163.8 ms at the first Crew draw (no synchronous load in
+   it any more, so it is shaders), and 145.0 ms in the streamed front end. It needs the bundled pipeline cache (perf
+   lane, "For the lead" 1). It is not done.
+3. **H6, the front end's frame per key press**: not fixed (perf lane).
+4. **B2, the long waits at the end of Hold the Block waves**: the owner's decision. **B6**, settings lost each session:
+   the page bridge. **B5's page half**: the lead's.
+5. **Not proven, because the box ended**: the 15-minute holdout on this package, version 4 under the same conditions,
+   B3 and B5 on this package, and the no-GPU 15-minute gate (`n3`).
+
+To finish this proof once a box runs again: unzip `/project/ue/smooth/prove/cloud/MurderInc-prove.zip` (the local
+copies were lost with the box), then `bash /project/ue/smooth/prove/gated.sh /project/ue/smooth/prove/queue1.txt`. The
+queue's first two lines are done and can be commented out. The `v4` line needs version 4's zip
+(`/project/ue/cloud/v3a-fix/out/MurderInc.zip`) unpacked to `/tmp/smooth-prove/v4`. Kept on `/project`: the scripts
+(`pkg.sh`, `package-cloud.sh`, `gated.sh`, `after.sh`, `nr.sh`, `queue1.txt`), this lane's copy of `lag-test.sh` (with the
+perf lane's `spike=` key, the CSV kept for runs without a viewer, and its own claim ignored), `scripts/prove_sum.py`,
+`scripts/long25.py`, and the runs `p-new-menus`, `p-new-story` (each with its CSV), `b4-new` and `cpu-nr-new`.
+
 ## CPU and game-thread cost (lane `cpu`, 2026-11-25, 21:20 to 22:40 UTC)
 
 **Verdict of this lane: not smooth, because of one crash; the game thread itself is not the lag.** Run from a local disk,
