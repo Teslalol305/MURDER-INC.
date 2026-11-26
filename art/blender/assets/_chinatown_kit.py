@@ -108,7 +108,7 @@ def materials(ctx):
     SLOT_META["MI_Glass_Store"] = {"workflow": "glass", "note": "M_MI_Glass, opaque in this level (chinatown.md 14: no translucency)"}
     SLOT_META["MI_Glass_Window"] = {"workflow": "glass", "note": "M_MI_Glass, opaque with a parallax room"}
     M["interior"] = F("MI_Interior_Dark", (0.022, 0.021, 0.02), 0.9, note="shallow dark room behind the glass (the TC_* cube maps in Unreal)")
-    M["interiorLit"] = F("MI_Interior_Lit", (0.30, 0.28, 0.24), 0.8, emit=(1.0, 0.86, 0.66), strength=0.6,
+    M["interiorLit"] = F("MI_Interior_Lit", (0.10, 0.095, 0.085), 0.8, emit=(1.0, 0.86, 0.66), strength=0.6,
                          note="a lit shop interior seen through glass at night (warm); 8 to 15 nits")
     M["face"] = F("M_Sign_CT_Face", (0.35, 0.35, 0.35), 0.4,
                   note="sign face on 0..1 UVs: the MI of a placed sign reads Sign_CT_Atlas<N> (BC, ORM, E) and maps 0..1 to "
