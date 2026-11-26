@@ -70,7 +70,7 @@ The maps branch moves them to `Content/Data/level_<id>.json` when the loader (E1
 |---|---|
 | schema.loaderSections, .counts, .reelIds, .zonesTileBounds | every loader section and field present with its type; ue mirror = web x 100; counts = levels.json `provides` (Canal 3 / 38 ground / 18 air / 18 explosives / 14 title keys; Midtown 3 / 30 / 18 / 17 / 14); the zones tile the bounds |
 | content.englishOnly, .noRejectedRealNames | no CJK character anywhere in the file; none of the names the designs rejected as real |
-| colliders.count, .explosiveIndices, .noThinMovementBoxes | at most 800 / 820, all axis-aligned; each explosive owns its collider; no movement box under 0.05 m |
+| colliders.count, .explosiveIndices, .noThinMovementBoxes, .surfacesKnown | at most 800 / 820, all axis-aligned; each explosive owns its collider; no movement box under 0.05 m; every surface a key of audio.json surfaces |
 | explosives.clearOfReelsAndTruck | none within 4 m of a reel or the extraction |
 | spawns.groundOnFreeCells, .groundOneComponentPerLayer, .groundNotInsideColliders, .air | ground points on free cells of their own layer, one region per layer, no capsule inside a solid; air points 2.2 to 12 m over the ground below, 1.5 m from any collider, inside the bounds minus 1.2 m |
 | spawns.fallbackRingNeverNeeded | chinatown.md 17 check 6: every 2 m on every layer, 3 or more ground points 9 m away, hidden from the eye by the box ray cast, outside the player's room, on an allowed layer (`overlooks` honoured) |
@@ -82,7 +82,7 @@ The maps branch moves them to `Content/Data/level_<id>.json` when the loader (E1
 | edges.noDropOver4m, drops.* | walking and jumping from playerStart the player never drops more than 4.02 m (the 13 m/s fall-damage landing); every authored drop is at most 4.0 m and both its ends are reached |
 | slot.booth.* | Midtown: a ray passes the booth's slot; its frame is playerOnly |
 
-Results on the committed files: **Canal Street 28 pass, 1 warn, 0 fail; Midtown 27 pass, 1 warn, 0 fail** (the reports
+Results on the committed files: **Canal Street 29 pass, 1 warn, 0 fail; Midtown 28 pass, 1 warn, 0 fail** (the reports
 have every number). The warnings are design questions, below.
 
 ## Deviations from the designs (also in each file's meta.deviationsFromDesign)
@@ -100,7 +100,8 @@ Midtown:
 - The sidewalk shed by the scaffold runs z 20.1..24.4 (the design's z 20..30 would stand in the W 46 St roadway).
 - The shed-hop opening in the tower's south guard is over the west column only.
 - Broadway's water barriers at z 17.6..18.2 (south of the parked van); g23 moved to z 18.8 to stay behind them.
-- ground.surfaces uses the design's surface words (granite, gravel, bitumen, grating, steel); the audio lane maps them.
+- Surfaces use audio.json's keys: the design's granite, gravel, bitumen, grating and steel are concrete, asphalt,
+  asphalt, metal and metal, so footsteps and impacts resolve.
 
 ## Open
 
