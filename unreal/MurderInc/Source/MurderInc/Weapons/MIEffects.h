@@ -121,6 +121,7 @@ private:
 		TObjectPtr<UMaterialInstanceDynamic> Mat;
 		double Age = 1e9, Life = 40.0, Size0 = 40.0, Size1 = 40.0, Grow = 0.0, FadeOut = 3.0;
 		int32 Serial = 0;
+		bool bPool = false;  // a pool under a body: never taken by a later spatter while it lasts
 	};
 	struct FStreak
 	{

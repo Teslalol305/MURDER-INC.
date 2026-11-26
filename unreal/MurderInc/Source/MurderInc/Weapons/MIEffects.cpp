@@ -284,8 +284,23 @@ int32 UMIEffects::Blood(const FVector& Point, const FVector& Normal, double Size
 	{
 		return 0;
 	}
-	FBlood& X = Bloods[NextBlood];
-	NextBlood = (NextBlood + 1) % Bloods.Num();
+	// Round the ring from the next slot, past every pool still under a body (a burst at a living Goon after a grenade's
+	// kills would otherwise take the pools while the bodies lie there, and they would vanish at once); when every slot
+	// is a live pool, the next one is taken anyway.
+	int32 Pick = NextBlood;
+	for (int32 K = 0; K < Bloods.Num(); ++K)
+	{
+		const int32 I = (NextBlood + K) % Bloods.Num();
+		const FBlood& B = Bloods[I];
+		if (!(B.bPool && B.Age < B.Life))
+		{
+			Pick = I;
+			break;
+		}
+	}
+	FBlood& X = Bloods[Pick];
+	NextBlood = (Pick + 1) % Bloods.Num();
+	X.bPool = Kind > 1.1 && Kind < 1.4;
 	X.Age = 0.0;
 	X.Life = Life;
 	X.Size0 = Size0;
