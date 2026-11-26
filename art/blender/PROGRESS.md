@@ -1491,3 +1491,41 @@ colliders; the name searches (C1); the box import and the picture rounds with th
 
 Re-run: `venv/bin/python art/blender/build.py build midtown --export` (10 s; `--bake` redraws the faces, about 2 min), then
 `--preview --samples 12`, then the check script. Hand-off archive: `art/out/maps-midtown.tar` (`art/out/midtown/ARCHIVE.json`).
+
+# Canal Street and Midtown art, fix pass after the lane review (2026-11-26, no box, no Unreal)
+
+What changed, how to re-run, what is checked (the records: docs/unreal/maps/chinatown.md revision 4, midtown_art.md 2a):
+
+- **Names.** The 15 retired names (names.md) are gone from the lists, the atlas and placement code, the atlases and every
+  preview; `python3 tools/names/check_names.py` passes. Lane manifests say the names were searched; the owner's sign-off
+  on names.md is still to come.
+- **Canal budgets as chinatown.md 13.2.** RooftopFrame 9.4k (was 30.8k), produce displays 4.4 to 4.8k (were 8 to 10k), the
+  fruit stand 5.3k (was 11.5k), the lantern string under 0.6k; the awnings and the far proxies have rows in 13.2. The
+  heavy props use a coarse wear grid (B(..., step=0.6)) and one visible layer of fruit on a false bottom.
+- **The market and vendor goods atlas** (`_chinatown_matlas.py`, CT_MarketGoods, one 2K page of 27 cells: produce, crate
+  plastics, card, pallet, ice, fish, the vendor fabrics and plastics) replaces the flat slots of every SM_Prop_CT_* mesh:
+  a produce display has one slot, the rest of the props two or three.
+- **Thin members.** The kit draws every member over 0.6 m at least 36 mm across (rod / bx / bar wrappers, and the Block's
+  door and glazing helpers through them while a CT front is built; facade.py unchanged); `_chinatown_check.py --build`
+  tests 34 mm (thin: PASS). Midtown's check runs at 5.5 cm (the 6 cm floor across an octagon).
+- **The north row without stretching** (`_chinatown_place.py`): end piers, upper fills, parapet fills, cornice ends and
+  fascias are built at each building's own widths (`_chinatown_front.m_ct_widths`), no instance carries a scale; every
+  front has a sign (its band, a generic lightbox or a painted stall board), six stacked sign rails, four awnings, one
+  vacancy paper (it was eight), front variety (Wide, Restaurant, Jewelry, Grocery, Narrow).
+- **Far proxies** (`_chinatown_lod.py`): SM_Facade_CT_Far_N1..N6 (each building's modules merged, its signs on their
+  atlas cells, collapsed to 10k), drawn past 30 m; `placements_chinatown.json` lists them under farProxies. Worst view 1
+  (the start, looking east): the north row is 0.98 M triangles at LOD0 and 0.41 M with the proxies (check views: PASS).
+- **Lettering.** Each Canal face has its own style (`STYLE` in `_chinatown_names.py`: font, layout, ornament, accent, wear),
+  Midtown's bands and slides their own faces; every font is an OFL file in art/blender/fonts (FONTS.md). Blades keep a gap
+  between words.
+- **Midtown:** flush LED tiles with outside bezel pieces (SM_Sign_LEDWall_Edge_H_2m, _V_2m), three ads on N1 (FaceIndex UV),
+  10-riser scaffold flights, previews under the 11:52 PM dome with window-grid stand-ins.
+- **Previews re-staged:** the market under hard white 5000 K, the lantern string over the banquet doors only (clear of
+  the neon), Midtown at night.
+
+Re-run (one Blender job at a time; check `ps` first):
+
+    venv/bin/python art/blender/assets/_chinatown_atlas.py && venv/bin/python art/blender/assets/_chinatown_matlas.py
+    venv/bin/python art/blender/build.py build chinatown --export && venv/bin/python art/blender/assets/_chinatown_check.py
+    venv/bin/python art/blender/build.py build midtown --export && venv/bin/python art/blender/assets/_midtown_check.py
+    venv/bin/python art/blender/build.py build chinatown --preview --samples 16   # then midtown

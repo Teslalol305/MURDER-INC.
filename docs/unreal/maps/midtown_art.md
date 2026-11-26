@@ -57,7 +57,25 @@ Faces (new texture memory about 46 MB with mips, BC1, against the 180 MB of midt
   crossfades, nothing faster than 3 Hz. The art holds no animation.
 - **No red field on any slide** (the Goons are oxblood); the VLTR mark is under 5 % of the takeover's height.
 
-## 3. Placements (`art/out/placements/placements_midtown.json`, 720 instances)
+## 2a. Fix pass (2026-11-26, after the lane review)
+
+- **No seams on the tiled screens.** SM_Sign_LEDWall_Tile_2m's module rails sit behind the face, so a wall of tiles is
+  flush; the bezel is SM_Sign_LEDWall_Edge_H_2m / _V_2m, placed only round each tiled screen's outside (E1, E2a, E2b, E3
+  on its arc, S1).
+- **N1 shows three ads.** SM_Sign_TowerStack carries a second UV map, FaceIndex (u = 0, 1, 2 from the bottom face up), and
+  its placement lists `slides` (HOROVAN, NORTHWEFT, FIZZWICK SODA): M_MI_Screen reads the slide for each face from it.
+- **Scaffold flights** draw 10 risers of 0.173 m over 0.25 m treads on the data's 5 collider steps of 0.346 m (as the roof
+  stair: art risers finer than the collider steps).
+- **Thin check at the floor:** 5.5 cm across (the 6 cm floor of midtown.md 15 measured across an octagon), no longer 5 cm;
+  the machine room's louvre gaps widened to pass it.
+- **Type:** the storefront bands and several slides use their own OFL faces (Bebas Neue, Passion One, Archivo Black, Alfa
+  Slab One, Fjalla One, Anton, Old Standard, Inter), all kept in art/blender/fonts (FONTS.md), no longer read from the
+  system.
+- **Previews re-staged:** the 11:52 PM dome (#6a3e5a at the horizon to #0b0d18 at the zenith, midtown.md 11.1) at exposure
+  0.7, stand-in masses with a window grid (about a third lit), screens at their nits rather than washed out.
+- Names: the 11 retired names are replaced everywhere (names.md); every name here is on the approved list.
+
+## 3. Placements (`art/out/placements/placements_midtown.json`, 868 instances)
 
 The west block's five roofs at their collider heights (A 21.2, B and C 17.6, D and E 14.0): 159 deck panels, 136 parapet
 modules broken at every opening of 5.3 (L1 to L4, the planks, the pipe bridge, the drops D1 and D2, the gantry doors, the
@@ -67,7 +85,7 @@ bridges on their 5.3 lines, the gantry and G1 over the west sidewalk, C1 on C's 
 art-only screens past the bounds. Positions the design leaves open carry `"chosen": true` (WT-A at (-38, -25), WT-B at
 (-45, -5), bulkhead B at (-44, 3.5), the HVAC rows, the art-only screens): lane D's colliders win where they differ.
 
-## 4. Every invented name this lane uses (all to be searched, MAPS.md C1)
+## 4. Every invented name this lane uses (searched 2026-11-26, docs/unreal/maps/names.md; owner sign-off pending)
 
 From midtown.md 12.2 and 12.4, unchanged: MIRAVESSE (Eau de Nuit), NORTHBOUND AIRWAYS (Fly the late one), KESTREL MOBILE
 (Five bars, five boroughs), BRASS & BUN (Burgers till four), THE MERIDALE THEATRE and its show LAMPLIGHT AVENUE (a new
@@ -86,7 +104,7 @@ no real brand; IPX is the only real mark. The single source is `art/blender/asse
 ## 5. Checks (`_midtown_check.py`; results of 2026-11-26)
 
 english (76 strings, plus 61 in the atlas cells and ticker: ASCII, the middle dot and the degree sign only), names (IPX on
-the 3 IPX slides only), validation (39 of 39), budgets (39 of 39), thin (no member over 0.6 m long under 5 cm across),
+the 3 IPX slides only), validation (41 of 41), budgets (41 of 41), thin (no member over 0.6 m long under 5.5 cm across),
 files (every GLB on disk and in the shared manifest with the same triangles and bounds), atlases (2 x 8 slides, no overlap;
 ticker, digits, mask sizes; 18 faces, no overlap), placements (every mesh, face, slide and tile accounted for), emissive (7
 screens, 46 MB, no new tiling set), block (facade.py, signs.py, place_buildings.py, level.json and levels.json untouched;
@@ -97,13 +115,15 @@ nothing written under unreal/MurderInc): ALL CHECKS PASS.
 - Hand-off: `art/out/maps-midtown.tar` with its sha256 and file list in `art/out/midtown/ARCHIVE.json` (the GLBs, the five face
   sets, the lane manifest, signs_midtown.json, placements_midtown.json, midtown.blend), as the Canal lane's archive. The TS_*
   scans the slots name are the Block's (not in the archive).
-- **Box and engine (lane B, L, E11):** the import (send-art patterns `SM_Roof_*`, `SM_Scaf_*`, `SM_Sign_LEDWall_*`,
-  `SM_Sign_Ticker_4m`, `SM_Sign_TowerStack`), `M_MI_Screen` and its MPC, the per-instance tile offsets, the night rig and the
-  picture rounds at V1 to V6; flicker.py at V2 to V4.
+- **Box and engine (lane B, L, E11):** the import (`send-art.sh pack --maps 'SM_Roof_*' 'SM_Scaf_*' 'SM_Sign_LEDWall_*'
+  'SM_Sign_Ticker_4m' 'SM_Sign_TowerStack'`: the default pack leaves the map families out), `M_MI_Screen` and its MPC
+  (per-instance tile offsets, and the FaceIndex slide choice for N1), the night rig and the picture rounds at V1 to V6;
+  flicker.py at V2 to V4.
 - **Lane D:** fit the placements to the Midtown colliders when the layout exists (the decks and parapets follow 2.1 exactly; the
   chosen positions may move).
 - **Lane A-MT, still to make:** the square family (the Stand and the Booth, planters, kiosks, carts, café furniture, light
   poles, barriers, generator, cable ramps), THE LOFTLARK's furniture and neon, the city bus, the Midtown facade tables and the
   east podium modules (theatre marquee, hotel canopy), the storefront carriers for the bands in Sign_MT_Atlas1, the crowd's
   leftovers (12.4).
-- **Lane C:** the name searches; the sign art is final only after them.
+- **Lane C:** done (names.md); the owner's sign-off on the list, and the US trademark-register search names.md asks for
+  before release, are still to come.
