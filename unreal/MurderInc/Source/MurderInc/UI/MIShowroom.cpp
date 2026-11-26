@@ -427,6 +427,9 @@ bool AMIShowroom::ShowArms(const FMICrewEntry* Crew, const FMIResolvedGun& InGun
 		{
 			Arms->HideBoneByName(Bone, PBO_None);
 		}
+		// The stage holds the gun with the firing hand only (v6 release pass: the support arm of the pack's idle ends in a
+		// fist round nothing, a skin-coloured stump beside the gun on the first 3D screen a player sees).
+		Arms->HideBoneByName(TEXT("upperarm_l"), PBO_None);
 	}
 	Arms->EmptyOverrideMaterials();
 	if (Crew)
