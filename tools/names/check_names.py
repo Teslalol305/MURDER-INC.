@@ -34,6 +34,7 @@ SCAN = [
     "art/blender/assets/chinatown.py", "art/blender/assets/signs.py",
     "art/blender/assets/_midtown_names.py", "art/blender/assets/_midtown_atlas.py", "art/blender/assets/_midtown_screens.py",
     "art/blender/assets/_midtown_roof.py", "art/blender/assets/_midtown_scaffold.py", "art/blender/assets/midtown.py",
+    "art/blender/assets/_midtown_square.py", "art/blender/assets/_midtown_place.py",
     "tools/levels/layouts/chinatown.py", "tools/levels/layouts/midtown.py",
     "tools/levels/data/level_chinatown.json", "tools/levels/data/level_midtown.json",
     "docs/unreal/maps/chinatown.md", "docs/unreal/maps/midtown.md", "docs/unreal/maps/progression.md",

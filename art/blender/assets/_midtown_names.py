@@ -107,6 +107,18 @@ FACES = {
                               lines=["DANGER", "HIGH VOLTAGE"], field="#f2c418", ink="#141414", where="HVAC and gantry cabinets"),
     "Label_TankNumber": dict(kind="label", w=0.50, h=0.30, lit=False, carrier="SM_Roof_WaterTank_* staves",
                              lines=["TANK 2", "DRINKING WATER"], field="#2a2522", ink="#e8e2d6", where="the water tanks (stencil)"),
+    # the square (round 2): the kiosks' headers, the carts' menus, the crew's road cases, the Booth's doors
+    "Kiosk_SeventhAv": dict(kind="band", w=3.2, h=0.23, lit=True, carrier="SM_Sq_Kiosk_Souvenir header (front and back)",
+                            lines=["SEVENTH AV SOUVENIRS"], field="#10233f", ink="#ffd23a", font="bebas",
+                            where="the two plaza kiosks (a branch of the souvenir shop on C's ground floor)"),
+    "Cart_Menu": dict(kind="band", w=1.34, h=0.34, lit=True, carrier="SM_Sq_FoodCart menu panel",
+                      lines=["HOT DOGS · PRETZELS", "SODA · WATER · COFFEE"], field="#f2efe6", ink="#14325c", sub="#2a5a3a",
+                      font="fjalla", where="the two food carts (no business name; no red field)"),
+    "Stencil_Brightwire": dict(kind="label", w=0.50, h=0.17, lit=False, carrier="SM_Sq_RoadCase_Stack -Y faces",
+                               lines=["BRIGHTWIRE EVENTS", "STAGE LEFT"], field="#141416", ink="#e6e6e2",
+                               where="the crew's road cases (the production company, invented)"),
+    "Label_CrewOnly": dict(kind="label", w=0.40, h=0.28, lit=False, carrier="SM_Sq_Booth_WallSide, over both doors",
+                           lines=["BROADCAST BOOTH", "CREW ONLY"], field="#f4f4f0", ink="#141414", where="the Booth's two doors"),
 }
 
 # marks that are not names of a business

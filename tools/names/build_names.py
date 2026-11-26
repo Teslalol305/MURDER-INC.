@@ -198,7 +198,8 @@ GENERIC = {
                 "The city after dark", "The holiday floor is open", "SIDEWALK SHEDS · SCAFFOLD · HOISTS",
                 "STAGING · LIGHTING · SCREENS", "ROOF DOOR / KEEP CLOSED", "MACHINE ROOM / AUTHORIZED ONLY",
                 "DANGER / HIGH VOLTAGE", "TANK 2 / DRINKING WATER",
-                "SQUARE CLOSED TONIGHT FOR A PREMIERE", "CROSSTOWN TRAFFIC HEAVY", "FORECAST: CLEAR, 41°"],
+                "SQUARE CLOSED TONIGHT FOR A PREMIERE", "CROSSTOWN TRAFFIC HEAVY", "FORECAST: CLEAR, 41°",
+                "HOT DOGS · PRETZELS", "SODA · WATER · COFFEE", "STAGE LEFT", "BROADCAST BOOTH / CREW ONLY"],
 }
 REAL_PLACES = ["CHINATOWN", "MANHATTAN", "CANAL ST", "MOTT ST", "MIDTOWN", "SEVENTH AV", "W 46 ST", "BROADWAY", "NEW YORK",
                "the bridge east of Canal St (an unnamed silhouette)"]
