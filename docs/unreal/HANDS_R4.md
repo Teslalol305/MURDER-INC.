@@ -454,3 +454,81 @@ this lane beside them would have broken the rule the task sets (never beside a m
 run to any `lag-test.sh` run that starts waiting, runs `queue.txt` to its `END` and stops this clone's editor. Pictures will
 land in `r4d/q1` to `r4d/q4`, the material check in `r4d/py-1.log`. If it has been stopped, start it again on the box as root:
 `cd /project/ue/logs/repo-guns/r4d && rm -f done.n && setsid nohup bash hold.sh > hold.log 2>&1 &`.
+
+## 11. Seen at last: the visual pass on the integration clone (2026-11-26, from 16:26 UTC, box `8496fd8c`, clone `/project/ue/int/repo`)
+
+The clone is the integrator's: branch head `0017a21` built (its `unreal/` tree `3fbc520`, unchanged by every later push of the
+day), the guns imported fresh. Every picture is play in editor in `L_Block` (`tools/box/fp/guns-shots.sh`, 1920 x 1080
+`HighResShot`, the world frozen for each frame, `HUD=0` so the firing hand is not under the weapon bar, `RELOADS="0.5 1.1"`
+for the two reload frames of 9.5, `SETTLE=15`). The GPU was taken run by run by `/project/ue/logs/int-repo/vis/queue.sh`
+(lag-test.sh's rule: it waits until no game, no claim placeholder and no other drawing editor runs, holds a placeholder
+named `MurderInc`, starts this clone's editor, runs one picture script with a hard limit of 13 minutes, stops the editor
+and lets go; a watcher notes other games and editors every 2 s). Each run below says whether it shared the GPU. Run
+folders: `/project/ue/logs/int-repo/vis/<run>/`; the sheets in `docs/unreal/shots/vis-*.jpg` are made from those frames.
+
+| Run | Guns, build | Pictures | GPU |
+|---|---|---|---|
+| `h1a` | CHOPPER, RATTLER | none: the editor's first start in this clone was busy for minutes after the map loaded and ignored play in editor; `guns-shots.sh` and `death-shots.sh` now ask again (7e39725) | |
+| `h1b` | STRETCH, SHORTY, no parts | hip under the El, aimed (irons), reload at 0.5 and 1.1 s, firing | CLEAN (161 samples) |
+| `h2` | CHOPPER and RATTLER red dot, STRETCH and SHORTY 4x scope | aimed | frames CLEAN; one sample after the last frame, while this run's editor was stopping, counted another lane's headless editor |
+| `h3` | STICK with the pack scope, NINE, RATTLER | STICK hip and aimed, NINE hip, aimed, reloads, firing, RATTLER aimed after the STICK (the 5.5 crash case) | CLEAN (151) |
+| `h4` | CHOPPER walnut vertical grip, SHORTY vertical grip, STRETCH angled grip | CHOPPER hip, the three reloads at 0.5 and 1.1 s | CLEAN (264) |
+
+### 11.1 What the frames show
+
+| Item (9.5's list) | Seen | Verdict |
+|---|---|---|
+| Aimed optics: red dot on CHOPPER and RATTLER, 4x scope on STRETCH and SHORTY (`h2`, sheet `shots/vis-optics-aimed.jpg`) | the housing is gone as the sight comes up; the red reticle sits in a clear disc; a faint lens disc (the glass, kept on purpose) darkens a circle about a quarter of the frame wide; the 4x scopes magnify | **pass**: no black ring on any of the four |
+| STICK's pack scope (`h3`, `shots/vis-stick-scope-and-aims.jpg`) | a holographic sight's square window with the red ring, the frame of the housing round it, the view through it clear | **pass**: no black ring (the pack scope has no fade; it never had a ring) |
+| STICK, then RATTLER aimed, then `HighResShot` (5.5) | the picture was taken, the editor kept running | **pass** (no crash) |
+| Reload grip at 0.5 and 1.1 s, no foregrip: STRETCH, SHORTY (`h1b`); NINE (`h3`) | STRETCH: an open left hand fills the lower middle of the frame, fingers fanned toward the eye, **no magazine anywhere in the picture**; at 1.1 s a jagged tear across the back of the hand (two skin surfaces through each other). SHORTY: no hand and no magazine in the frame at either time. NINE: the support hand open beside the pistol, fingers spread, no magazine seen | **fail** (8.1's acceptance not met on any gun seen) |
+| Reload grip with a foregrip: CHOPPER, SHORTY, STRETCH (`h4`, `shots/vis-hands-reload-eye.jpg`) | the same open hand close to the eye on the CHOPPER and STRETCH; the SHORTY again shows no hand | **fail** |
+| The firing hand, HUD hidden (`h1b`, `h4`, `h3`; `shots/vis-hands-hip-hudoff.jpg`) | never seen before this pass. STRETCH and CHOPPER at the hip and firing: thumb and index finger stand apart in a V below the receiver, large and close to the eye, not closed round the pistol grip. NINE: the right hand round the pistol's grip, the support hand cupping it: reads right | **fail** on the rifles, **pass** on the NINE |
+| Support arm at the hip, CHOPPER and STRETCH (`h1b`, `h4`) | the forearm comes in from the lower left onto the handguard; the log has the forearm at 49 to 52 degrees (9.3's 52) | as 9.4 (better, not the STICK's 45) |
+| RATTLER hip and aimed with the final elbow push | not yet: `h1a` took no picture; `h1c` is queued | open |
+| Finish of the own guns | the STRETCH reads walnut and painted metal in one editor session (`h1b`) and as black mirror reflecting the sky in another (`h4`, the same place and light); the materials are wired as they should be (a headless listing: `M_Stretch`, `M_Shorty`, `M_Rattler`, `M_Chopper`, `M_Chopper_Furniture` take base colour from `_BC`, roughness from `_ORM` G, metallic from `_ORM` B, AO from `_ORM` R, normal from `_N`; the ORM textures are linear `TC_MASKS`) | the mirror is textures that were not resident in that session (a black base colour and ORM give roughness 0), not the material: 10.4's "mirror chrome" is this. It must be checked in a package frame (cooked textures, the stream pool of the release) before anyone changes a texture or the importer |
+| SHORTY aimed through its irons (`h1b`) | the rear of the receiver fills the lower half of the frame; with the finish fault above it reads as a white and black box | must be judged again once the finish is right |
+
+The development log of the reload frames (`/project/ue/int/repo/unreal/MurderInc/Saved/Logs/MurderInc-backup-2026.11.26-16.35.45.log`):
+`First person: reload hold stretch: on the magazine 1 (k 1.00, the solve round the magazine, 25 support points), palm 0.6 cm
+from its place, palm 1.9 cm from the magazine's box, 6 of 8 finger joints within 1.5 cm of it, middle finger bent 176 deg`
+(the same for the SHORTY). By the engine's numbers the hand is on the magazine with the fingers round it; on the screen it is
+not. Either the magazine is not drawn where the hand holds it, or the hand lies on the magazine's face toward the eye and
+covers all of it from there. 11.2 says how the next pass tells the two apart.
+
+### 11.2 Trying to see where the hands really are (`s1`, `s2`, `tools/box/fp/hands-side.sh`)
+
+`hands-side.sh` takes, at the hip and at both reload times, the eye's frame, a frame with everything the player carries
+hidden but the arms, and frames from cameras beside the eye. In `s2` (CLEAN) the hiding did not hold (the rig shows its
+components again every frame: the "hands alone" frames still show the gun) and the side camera could not be made from
+Python in the play world (`GameplayStatics` has no `finish_spawning_actor` in this engine's Python; `death-shots.sh`'s
+`cam` falls back to the same call, so its side-camera frames are the player's view too, see PLAY.md). What `s2` did give:
+the list of what the player carries and draws at the 0.5 s and 1.1 s reload frames (`nogun 1: CharacterMesh0,
+FirstPersonGun, StaticMeshComponent_0, _8, _9, _10, _11`: the gun and five static meshes, the fitted parts and the
+magazines; which one is the held magazine is not named), and in this session the STRETCH's walnut and painted finish was
+right again (the residency case of 11.1).
+
+The likeliest reading, not yet proven by a picture from the side: the reload hand covers the magazine. The solve lays the
+palm on the magazine's left face (`reload_grips.py`), the face the eye looks at in the reload pose, and the hand, about
+18 cm long against a magazine of 6 x 11 cm (STRETCH), covers all of it 25 to 35 cm from the eye; the engine's own numbers
+(palm 1.9 cm from the magazine's box, 6 of 8 finger joints within 1.5 cm) put the hand on the magazine.
+
+### 11.3 For the owner of `MIFirstPersonRig` (not changed here: C++)
+
+1. **The reload hand must show the magazine.** Lay the solve round the magazine from its far (right) face: palm on the
+   right face, fingers round the front edge onto the left face toward the eye, thumb on the right face (`reload_grips.py`:
+   mirror `palm_off` and the finger closing across the magazine's Y; the C++ takes the points as they are). Then the eye sees
+   the fingertips over the magazine's front edge and its whole left face with the rounds above the hand. Acceptance: the
+   0.5 s and 1.1 s frames of `guns-shots.sh RELOADS="0.5 1.1" HUD=0` show the magazine's body between the fingers and the
+   magazine well on the CHOPPER, SHORTY, STRETCH, RATTLER and NINE.
+2. **The torn back of the hand** (`h1b` STRETCH 1.1 s): a finger closed 176 degrees by the log's measure (the middle
+   finger's tip pointing back at the palm) pushes the knuckle skin through the palm's; clamp the summed bend of a finger
+   to 150 degrees in `ShapeFingers`, or let the solve stop at 150 in `reload_grips.py` (`MAX_BEND` sums to 275 today).
+3. **The firing hand on the rifles** (first seen in this pass, HUD hidden): thumb and index finger apart in a V under the
+   receiver, not round the grip. Add to the support-arm development log one line for the firing hand like the reload
+   hold's (palm bone against `Palm_R`, index tip against the trigger, middle finger's bend) and check whether the 'r'
+   solve's 25 points are laid on the right hand at all (`Shape.Num()` of `HandPose.Hands[1]`); the NINE's firing hand
+   reads right, the rifles' do not.
+4. **Pictures from beside the player.** A console command on `AMIPlayerController` that sets the view target to a camera
+   it spawns at an offset in the eye's frame (and back) would let a picture show the hands from the side; Python cannot
+   spawn one in the play world here.
