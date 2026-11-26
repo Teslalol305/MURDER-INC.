@@ -907,6 +907,13 @@ needs the menu fixer's tests and stream frames, not made here.
 - The release engineer's package: `package-cloud.sh` now prints `PSO CACHE OK` for both games and refuses the zip without
   it; READY.md "Before upload" has the check.
 
+### The suite
+
+`tools/box/test.sh MurderInc` in this lane's clone (`/project/ue/smooth/pso/repo`: the branch, the integration clone's
+generated Content, `audio-import.sh` run once), golden replays included, nothing skipped, weakened or re-recorded:
+`TESTS OK passed=222 failed=0 skipped=0` on `09d3343` (`HEAD:unreal` `038455c`, the config and probe change) in 71 s, and
+again on `7444307` (`HEAD:unreal` `27fed6c`, the same tree as `e17401d`'s: the config and the `.spc`) in 67 s.
+
 ### Files
 
 On the box, `/project/ue/smooth/pso/`: `repo` (this lane's clone, built, the suite), `rel` (the release copy), `cloud`
