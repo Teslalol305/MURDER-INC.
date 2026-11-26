@@ -2,6 +2,115 @@
 
 One section per lane of the readiness pass. Every finding names the evidence it rests on (a picture, a log line, a number).
 
+## Go / no-go for E3DS (verifier lane, 2026-11-26, 01:00 to 01:30 UTC)
+
+**Verdict: GO WITH CAVEATS for version 6, packaged from `04c66c8cb4118c3ed13f858339ca99e949d3cef3`** (the branch head when
+this was written; the last code commit is `11ff1ff`; a later commit that changes only docs is the same build). It is a go
+only once that package has passed the release gate and the four package checks listed under "Before upload" below. **Do not
+upload the trial zip** (`fd8ce12`): it contains none of the fixes, so it still has the Workbench strobe, the 4K stream death
+and the aimed optic's black ring.
+
+**What this verification rests on.** No v6 package exists yet: `/project/ue/cloud/v6` holds only the release engineer's
+`final.sh`, which waits for `RELEASE-V6-GO`. Other lanes held the GPU for the whole window (a 7200 s claim from 01:08 UTC,
+and the weapons fixer's queue had been waiting since 00:30), so I started no game. Instead:
+
+- I built the exact head `04c66c8` in my own clone (`/project/ue/ready/verify/repo-verify`, build OK, 93 of 93 actions).
+  The full suite passed: **TESTS OK, passed=217, failed=0, skipped=0, 90 s**, golden replays included. The test log has
+  0 `Invalid Bone Name` lines. The only change in the working tree is the editor's own rewrite of `DefaultEngine.ini`
+  (blank lines and the Android file server section).
+- I re-measured the fixers' recorded stream frames with my own counter (`/project/ue/ready/verify/tools/vflash.py`,
+  `steps.py`, `blend.py`).
+- I read each fix in the code at the head.
+- I ran the data checks: `check_guns_data.py` gives 0 errors and 0 warnings. My own walk of every build of every gun
+  (278) is described under W6 below.
+
+### Fixed items: confirmed or not
+
+| Item | Fixer's commit | Verdict | Evidence |
+|---|---|---|---|
+| M1: Workbench strobes at 20 Hz while the pointer rests on an option, and the hover sound repeats | `d072184`, `7bc34df`, `959d1a0` | **Confirmed** | My count of one-frame flashes on the fixer's stream frames: before (`mf2-before`), **48 in 600 frames**; 29 of 90 while hovering "Pistol suppressor" and 19 of 60 after the click (frame-to-frame step 19.8 luma levels, every third frame). After (`mf2-after4`), **0 in 350**; the largest step is 3.0 while hovering and 5.0 on the click, then 0.0. The three front-end files that game was built from (`8103f35`) are byte-identical to the head's (`git diff --stat` empty). In the code, `Act("preview")` on the part already previewed returns before `Changed()` and `UiNote`, so there is no rebuild and no sound. `MurderInc.Frontend.Steady` passed in my suite. |
+| R2 / M1: one garbled frame on each screen change | `7bc34df` (rebuild on the game thread, before Slate's frame) | **Partly confirmed** | Before: Crew, Loadout, back to Loadout, Block & Style and the Briefing each had an in-between frame between the two screens (for example Crew: 34.0 from the old screen and 16.9 from the new one). On the final build only the Workbench opening was caught: one clean step (21.8, then 0.6 from the new screen). The Crew and Loadout bursts began after their change (largest step 1.1 and 1.9). Block & Style and the Briefing were not run on the final build. The code fix is sound, but the stream proof covers 1 of 6 screens. |
+| M4: carried tag shows "..." | `d072184` | **Confirmed** | `ready-menu-fixes.jpg`, panel 3 (`mf2-after4`, final front end): "Carried · slot 1" and "Carried · slot 2" in full. |
+| M5: focused control not scrolled into view | `d072184` | **Confirmed for rack row 2** | `ready-menu-fixes.jpg`, panel 4: the STRETCH row is fully visible. The Difficulty row at 1280 x 800 was not re-shot. |
+| M6: Home's SETTINGS and CONTROLS unreachable by keys / pad | `d072184` | **Confirmed by test** | `MurderInc.Frontend.KeysReach` passed in my suite. No stream frame. |
+| M7: pad trapped in the Loadout slots | `d072184` | **Confirmed by test** | `KeysReach` passed (RB to the slots, D-pad Up back to the rack, Y on an empty slot back to the rack). No stream frame. |
+| M9: HUD objective label does not scale at 4K | `104b068` | **Confirmed in code only** | `MIHUD.cpp` 340-365: `TitleScale = K * 1.3` is used for both the measurement and the drawing. No 4K frame (and 4K is no longer drawn on E3DS, see R1). |
+| M10: "STYLE" wraps alone; "Best 0" | `9858e85`, `d072184` | **Confirmed** | `frontend_text.json`: "Block and style". `ready-menu-fixes.jpg` panel 5: one line, no Best. That panel comes from the `d072184` build, not the final one. |
+| W3: keyboard Up "not handled" | `11eb373` (the test tool, not the game) | **Agreed, not a game fault** | `WalkWorld` and `KeysReach` press Up and passed in my suite. |
+| R1 / M2: 3840 x 2160 stream dies; R-config: 2560 x 1440 does not hold 60 | `7c4e515` | **Confirmed in log and test; not seen through a stream** | `ed4k-fit` (editor game, E3DS's `-ResX=3840 -ResY=2160 -ForceRes`): `Start size 3840 x 2160: drawn and streamed at 1920 x 1080 ...`. In its probe lines, 85 of 86 read `outW=1920 outH=1080`; the one at 3840 is the first, before the fit. `MurderInc.Cloud.StartSize` passed in my suite. The engine's NVENC failure at a real 4K picture is prevented, not fixed. |
+| Size requests: no debounce, odd sizes | `7209dc4` | **Confirmed by test** | `Cloud.SizeWait` and `Cloud.ViewerSize` (1365 x 767 becomes 1364 x 766) passed. Moot with Custom 1920 x 1080. |
+| R4: texture pool over budget | `16cd4c8` (pool 1000 MB) | **Confirmed, with a note** | `sf-1080-pool` (Shipping, E3DS-faithful load, CPUs 0-5, CLEAN): 60.0 fps (lowest second 59.8), worst frame 18 ms, GPU 13.2 ms, sender 57.3 a second at QP 34, viewer 57 to 58 a second in every phase. The fixer's `rd4`/`rd5` frames lose the red over-budget text. Note: the RHI counter `texStreamMB` still reads 1,155 to 1,200 MB against `poolMB=1000` in 267 of 289 probe lines (1,062 to 1,065 in `rd5`, which shows no message), so that counter is not the streamer's budget. The "5 GB of the card free" check (`vram_hog`) at 1000 MB is still open. |
+| TSR history 100 % as the cause of the blink | `f65cd7c` (tunable only) | **Agreed, not the cause** | `rd4`: 0.467 % falls only to 0.437 % at history 200. `Cloud.Tuning` passed. |
+| QP range, start bitrate, SM5 | `3e65029` (LAUNCH.md 9.5) | **Confirmed as written** | These are E3DS panel settings: LAUNCH.md 9.5 lists `-sm5 -MIQpExact`, and the start bitrate only if the range ships. They can only be proven in one E3DS session. |
+| W1: crash in the hidden pack gun after the STICK | `ef65217`/`1f560d7`, `68ce52c` | **Confirmed by code and test; not in a package** | `MIFirstPersonRig.cpp` 251-258: Equip hides the pack gun, turns off its tick and clears its anim class. `HeldClips` is in `MIFirstPersonAnim.h`. `FirstPerson.SwitchSurvivesGC` passed in my suite. |
+| W2: aimed optics' black ring; support hand drawn as a brown ball | `7e120ac`, `a88dcdc`, hands data `8d0d6ac`, `7c0bc1a` | **Not confirmed (nothing seen)** | The code and the importer are at the head. `7e120ac` and `a88dcdc` are ancestors of `54806a1`, the commit the release copy's weapons were imported from at 19:04, so the faded material should be in the cooked content. No aimed frame of any build that contains them exists. |
+| W4: extended magazines sink into the stage plate | `b057e3a` | **Confirmed by test** | `Frontend.StageFloor` passed: "84 stage states checked, 61 with the stand raised"; "rattler magazine back to factory: 1.51 cm above the plate, stand raised 4.83 cm". No stage picture. |
+| W6: suppressor flash says -50 % instead of -85 % | `66d4840` | **Confirmed, and no other rule moves** | `meta.factor` is [0.15, 2.0]. My walk of 278 builds (every option per slot, empty where allowed): the only multi-target factor outside [0.5, 2] is `flash` x0.15 (116 builds). Recoil, swap time and length never go below 0.5, so no gameplay rule changes. Suppressed guns skip `MuzzleFlash` (`MIWeaponComponent.cpp` 724). |
+| W10: Invalid Bone Name log noise | `11ff1ff` | **Confirmed** | 0 lines in my suite's log. |
+| Game-thread hitches (340 ms) | not fixed | **Open** | Not reproduced from local disk (`sf-1080-pool`: worst 18 ms). `sf-1080-min60` has one 168 ms render-thread frame in a turn. |
+
+### What works
+
+- **Weapon selection and parts:**
+  - All six guns and their parts resolve: `PartsOnEveryGun` (52 fittings), `DataLoads`, `ParityResolve` and `StageFloor`
+    (every offered option of every slot on all six guns) passed at the head.
+  - The JSON check is clean.
+  - The trial package showed the rack and the Workbench working (audit).
+- **Menus:** the strobe and hover-sound loop are gone. The carried tag, the scrolling, the keys and pad reach, and the
+  title text are fixed.
+- **Rendering at E3DS's scale (A4000-class load):** 60.0 fps, lowest second 59.8, worst frame 18 ms, GPU 13.2 ms at
+  render scale 0.50.
+- **Streaming at 1920 x 1080, QP 34:** the sender encodes 57.3 frames a second at 6.6 Mbit/s on average and 14.9 at most.
+  The viewer receives 57 to 58 a second in still, fast-turn, flick, walk-turn and fire-turn phases.
+- **Resolution:** **1920 x 1080 is the highest that streams clean.**
+  - 2560 x 1440 dropped to 51 to 54 frames a second in turns and peaked at 21.8 Mbit/s.
+  - 3840 x 2160 stops in the engine's encoder.
+  - From `7c4e515` the game draws any larger launch size at 1920 x 1080.
+
+### Still wrong or unproven
+
+1. **No v6 package yet.** Every fix above is in the branch only.
+2. **Thin geometry blinks at render scale 0.50:** the lit windows behind the fire escapes. 0.44 to 0.47 % of that region's
+   pixels blink in game frames, and 0.018 % at the viewer at QP 34. Not fixed. The 0.60 floor costs stream frames in turns,
+   so it is not for the meeting.
+3. **The pause card shows a diagnostics line in Shipping** (server GPU name, frame rates, QP, build hash): M8, not changed.
+   The one-line change is in "Menu fixes, For the lead". Note that the pre-meeting check in LAUNCH.md 9.5 reads that line,
+   so if M8 is applied, the check session needs `-MINumbers`.
+4. **W5:** the STRETCH starts in AUTO (700 rpm) but is described as semi-automatic. This is the owner's decision; it is a
+   gameplay change.
+5. **Nits:** W7 (the laser is faint), W8 (heat-tint stripe), W9 (stage framing) and W11.
+6. **Never seen on a build that contains the fix:** the aimed optic views (W2), the screen-change frames of Crew, Loadout,
+   Block & Style and the Briefing, any Workbench or stage picture with the new magazines or the -85 % line, and the 4K
+   launch through a viewer.
+7. **Leftover WIP branches:** `claude/menufix-wip` and `claude/menufix-wip3` are still on the remote.
+
+### E3DS settings (LAUNCH.md 9.5, unchanged)
+
+| Setting | Value |
+|---|---|
+| Browser Resolution | **Custom 1920 x 1080** (never larger; never Dynamic) |
+| Video Quality | **Medium** (QP 34; not High) |
+| Codec | **H264** |
+| Launch options | **`-sm5 -MIQpExact -MICVars=r.Streaming.PoolSize=1000`** (the pool is already 1000 in v6's profile; harmless) |
+| Unreal console commands at start | **empty** |
+
+### Before upload (on the v6 package; each is a no-go if it fails)
+
+1. The release engineer's `final.sh`: the suite in the release copy, the launcher test and `release-gate-v6.txt`.
+2. The menu burst viewer (`/project/ue/ready/menufix/fix.txt` with `flash.py`) through the stream at 1920 x 1080. It must show
+   0 flashes and 0 in-between frames, with Crew, Loadout, Workbench, Block & Style and the Briefing each caught opening
+   (a largest step above 10 in that burst).
+3. The weapons checks:
+   - the STICK-first switching sequence (W1);
+   - every optic aimed: no black ring, a hand and not a ball (W2);
+   - each extended magazine on the Workbench stage (W4);
+   - a suppressor's line reading -85 % (W6).
+   Scripts: `/project/ue/ready/weaponsfix/gen_f.py` and `/project/ue/ready/weapons/gen_w.py`.
+4. One E3DS session with the settings above, as LAUNCH.md 9.5 describes: the pause card's line must read 60 frames a second
+   (lowest 58 or more), QP 34 and a stream of 55 to 60 a second.
+
+If v6 cannot pass these before the meeting, show version 4 (already on E3DS, 60 fps at 1920 x 1080), not the trial.
+
 ## Menu audit (box lane, 2026-11-25, 19:50 to 21:00 UTC)
 
 **What was looked at.** The newest package on the box: the trial zip `/project/ue/cloud/v6trial.zip` (commit `fd8ce12`, no newer

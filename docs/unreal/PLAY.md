@@ -157,7 +157,7 @@ timing, no decision of the flow or the enemies reads it.
 | Objective block (top left) | The flow's line ("TAKE BACK THE THREE MASTER REELS", "TWO REELS LEFT", "LAST REEL", "GET TO THE IPX TRUCK") and the reels count as before, and under them the **step**: a small amber diamond and "Reel 1 — The Avenue", "Reel 2 — Chop Shop", "Reel 3 — The Cage", then "IPX truck — The Lot". The block now scales with the frame's height (READY.md M9: the title stayed 1080-sized at 4K) | `text.json` objectives, `level.json` objectives labels, `interface.hud.zones` |
 | Hint line | Under the step, in a warm white, after **45 s of play without progress** (fighting does not count: the clock stops while any enemy is engaging; the intro does not count). Progress is being 3 m closer along the route than ever before on this step; the line goes at once when that happens and comes back after another 45 s | `guide.json` `levels.block.steps.<id>.hint` |
 | Step marker | The step's "[1] 24m" where it stands; the distance is what is left **along the route**. Off the screen or behind: an amber arrow on the screen's edge pointing toward it, with its label inside. It fades from 10 m and is gone at 2.5 m, where the grab prompt takes over. The other reels keep their plain marker. Hidden while the weapon wheel is open (as before) | `guide.json` `marker` |
-| Ground path | Amber chevrons on the ground from 1.4 m ahead of the player to the step, at most 30 m of it, 1.5 m apart, each pointing along the way; a light runs along them toward the goal (four phases, 0.9 a second). Dimmer under a roof, the El or inside the chop shop (the eye is adapted darker there), and toned down to 35 % while an enemy is engaging. Depth-tested (walls hide it), drawn on the floor under it (kerbs and slabs), no shadow, no collision, no part in Lumen or distance fields | `guide.json` `path`, `look` |
+| Ground path | Amber chevrons (two flat strips of 60 x 14 cm each) on the ground from 1.4 m ahead of the player to the step, at most 30 m of it, 1.5 m apart, each pointing along the way; a light runs along them toward the goal (four phases, 0.9 a second). Dimmer under a roof, the El or inside the chop shop (the eye is adapted darker there), and toned down to 35 % while an enemy is engaging. Depth-tested (walls hide it), drawn on the floor under it (kerbs and slabs), no shadow, no collision, no part in Lumen or distance fields | `guide.json` `path`, `look` |
 | Settings | A new row on the Settings card, **Path and markers: On / Off** (on by default, saved): Off hides the ground path, the step marker and the reel markers. The step line and the hint stay | `FMISettings::bGuide` |
 
 The hint lines, in the voice of the radio (`text.radio`) and the prompts:
@@ -225,9 +225,37 @@ chevron on walkable ground at the floor's height).
 | Strips drawn | at most 40 (20 chevrons x 2 flat strips, the engine plane), one of 8 material instances each; per frame 8 scalar parameters are set, nothing else | same |
 | Allocations in play | none after the first route of a step: the input, the search buffers, the chevrons and the slot cache are reused; the strips are built once at the map's start | code |
 
-The headless suite cannot measure the GPU: 40 small additive quads on the ground in the translucency pass. `MIGuide.Stats`
-(console) prints the same numbers in any game; the packaged game under the gate's load (PREFLIGHT.md) has not been
-measured yet (below).
+| The path on the GPU | `ProfileGPU` in play in editor (L_Block, the avenue, 1920 x 1080, RTX PRO 6000): the `Translucency` pass **0.016 ms with the path, 0.002 to 0.011 ms without** (two pairs), the whole `Scene` 5.8 to 6.6 ms either way: about 0.01 ms, under the noise of the frame | editor log of run `shots2`, four `ProfileGPU` dumps |
+| In play in editor | 0.011 to 0.015 ms a frame on average, worst 0.59 ms; searches 0.10 to 0.16 ms on average, worst 0.42 ms | `MIGuide.Stats`, runs `shots` and `shots2` |
+
+The packaged game under the gate's load (PREFLIGHT.md: `lag-test.sh` with `load=1:0.05:0.05:1024`, 6 CPUs, `-sm5`) has
+not been measured with the guidance (it needs a package of this commit; the release engineer's gate covers it). On an A4000
+the translucency cost scales with the pixels the chevrons cover (a few thousand), a few hundredths of a millisecond at most.
+
+### What it looks like (play in editor, L_Block)
+
+Pictures from `tools/box/fp/guide-shots.sh` in this lane's clone (`/project/ue/play/guide`, runs in
+`/project/ue/play/guide-lane/shots*`), looked at one by one:
+
+| Picture | What it shows |
+|---|---|
+| ![start](shots/play-guide-start.jpg) `shots/play-guide-start.jpg` | The run's start on the south sidewalk: the objective block with the step "Reel 1 — The Avenue", the chevrons along the sidewalk toward the avenue, the step marker "[1] 38m" and the plain markers of the other reels |
+| ![inside](shots/play-guide-inside.jpg) `shots/play-guide-inside.jpg` | Inside the chop shop (Reel 2): the chevrons on the dark floor up to the case, "[2] 13m" |
+| ![hint](shots/play-guide-hint.jpg) `shots/play-guide-hint.jpg` | The hint line under the step after no progress (here after 3 s: `MIGuide.HintAfter 3`) |
+| ![behind](shots/play-guide-behind.jpg) `shots/play-guide-behind.jpg` | Turned away from the step: the edge arrow with "[1] 23m". In this picture it sat on the weapon bar (bottom right); fixed since (below) |
+| ![lot](shots/play-guide-lot.jpg) `shots/play-guide-lot.jpg` | The last leg, "IPX truck — The Lot", "[IPX] 37m": in full sun on the asphalt the chevrons of the first tuning were not visible; brightened since (below) |
+| ![off](shots/play-guide-off.jpg) `shots/play-guide-off.jpg` | Settings "Path and markers" off: no chevrons, no markers; the step line and the hint stay |
+
+These pictures are of run `shots2`, the first tuning (chevrons 50 x 11 cm at 4,000 nits). What they taught, changed in
+`e294785` (suite 217 passed): on sunlit asphalt and concrete (the lot, the cage's court) the chevrons washed out, so they
+are now 60 x 14 cm at 10,000 nits (3,000 under a roof); the edge arrow for a step behind the player sat on the weapon bar,
+so it now turns with the view's yaw and stays above the bottom fifth of the frame; the step and hint lines were small at
+1080 and are now 1.2 and 1.15 times the large font. The same stills with that tuning (run `shots3`) are queued on the box
+behind the other lanes' GPU claims (`/project/ue/play/guide-lane/chain3.sh`); they replace these when they come.
+
+The PIE walk of the whole story by the demo director (`guide` verb, `auto 1`) did not finish: with "fight what you see"
+on, the director stops walking whenever an enemy is in sight, and in 120 s of the first leg it gained 5 m. It is a
+limit of the director's fighting, not of the route; the whole story by the drawn route is `MurderInc.Guide.EndToEnd`.
 
 ### What was changed
 
@@ -248,7 +276,8 @@ The rules, the golden replays and every other test are untouched (the suite: bel
 ### The suite
 
 `tools/box/test.sh MurderInc` on the branch at `7209dc4` with this lane's change (clone `/project/ue/play/guide` on the
-box): **216 passed, 0 failed** (78 s), the golden replays included; no test weakened, skipped or re-recorded.
+box): **216 passed, 0 failed** (78 s), the golden replays included; no test weakened, skipped or re-recorded. With the
+retune `e294785` on `04c66c8`: **217 passed, 0 failed** (83 s).
 
 ### For the other lanes
 
@@ -258,3 +287,19 @@ box): **216 passed, 0 failed** (78 s), the golden replays included; no test weak
 - The release engineer: `guide.json` ships with `Content/Data` (loose files); the chevrons use `/Game/FX/M_FX_Tracer` and
   the engine plane, both already in every package (no new asset, no usage flag: static meshes are the material's default).
   Without them the guide says so in the log and draws only the HUD cues.
+
+### Still open (guide lane)
+
+- The retuned look (`e294785`: 10,000 nits, 60 x 14 cm, the edge arrow above the weapon bar) has passed the suite but has
+  not been seen in a picture yet (run `shots3` queued behind the other lanes' GPU claims). 10,000 nits may glare in deep
+  shade outside a roof (a building's shadow is not "under a roof" for the guide); `look.intensity` and `look.shade` in
+  `guide.json` tune it without a build.
+- Not measured in the packaged game under the gate's load, and not seen through the E3DS stream.
+- The reels can be taken in any order (a rule); the guidance always points at the first one not taken. A player who goes
+  for Reel 3 first is led back to Reel 1 by the path (the other reels keep their plain markers).
+- The ways down from the scaffold shed's deck and the chop shop's mezzanine are tested on the plan only; no picture of
+  chevrons on a stair.
+- The hint lines and the Settings row "Path and markers" are English text (the row is in code, as "Controller" is:
+  READY.md M11).
+- Seen on the way, for the demo director's owner: its `goto` and `hunt` verbs search the simulation's own box world
+  (dev only; the search is result-pure, it only reuses the search buffers).

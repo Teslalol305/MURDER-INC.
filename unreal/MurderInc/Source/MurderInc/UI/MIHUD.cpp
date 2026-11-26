@@ -243,18 +243,29 @@ void AMIHUD::DrawStepMarker(const FVector& WebPos, const FString& Code, bool bEx
 	const FVector2D Mid(W * 0.5, H * 0.5);
 	FVector2D C(Screen.X, Screen.Y);
 	const double Margin = (G ? G->GetTune().MarkerEdge : 56.0) * K;
-	const bool bEdge = Screen.Z <= 0.0 || C.X < Margin || C.X > W - Margin || C.Y < Margin || C.Y > H - Margin;
+	// The arrow keeps above the weapon bar and the health (bottom 20 % of the frame), clear of every other edge.
+	const double Bottom = H * 0.80;
+	const bool bEdge = Screen.Z <= 0.0 || C.X < Margin || C.X > W - Margin || C.Y < Margin || C.Y > Bottom;
 	FVector2D Dir(0.0, -1.0);
 	if (bEdge)
 	{
-		// Behind or off the screen: the direction from the centre, clamped to the edge (as the last enemies' marks).
-		Dir = C - Mid;
-		if (Screen.Z <= 0.0) Dir = -Dir;
-		if (Dir.IsNearlyZero()) Dir = FVector2D(0.0, 1.0);
-		Dir.Normalize();
-		const double SX = Dir.X != 0.0 ? (W * 0.5 - Margin) / FMath::Abs(Dir.X) : 1e9;
-		const double SY = Dir.Y != 0.0 ? (H * 0.5 - Margin) / FMath::Abs(Dir.Y) : 1e9;
-		C = Mid + Dir * FMath::Min(SX, SY);
+		// Off the screen or behind: the direction the player would turn (0 = ahead = up the frame, 90 = right), from the
+		// view's yaw (a point behind the camera projects mirrored), clamped to the box inside the edges.
+		const APlayerController* PC = GetOwningPlayerController();
+		if (PC && PC->PlayerCameraManager)
+		{
+			const FVector To = (At - PC->PlayerCameraManager->GetCameraLocation()).GetSafeNormal2D();
+			const double Rel = FMath::DegreesToRadians(FRotator::NormalizeAxis(To.Rotation().Yaw - PC->PlayerCameraManager->GetCameraRotation().Yaw));
+			Dir = FVector2D(FMath::Sin(Rel), -FMath::Cos(Rel));
+			if (Screen.Z > 0.0 && FMath::Abs(Rel) < UE_DOUBLE_HALF_PI)
+			{
+				Dir = (C - Mid).GetSafeNormal();  // in front but off the frame (above or below): where it projects
+				if (Dir.IsNearlyZero()) Dir = FVector2D(0.0, -1.0);
+			}
+		}
+		const double TX = Dir.X > 1e-6 ? (W - Margin - Mid.X) / Dir.X : Dir.X < -1e-6 ? (Margin - Mid.X) / Dir.X : 1e9;
+		const double TY = Dir.Y > 1e-6 ? (Bottom - Mid.Y) / Dir.Y : Dir.Y < -1e-6 ? (Margin - Mid.Y) / Dir.Y : 1e9;
+		C = Mid + Dir * FMath::Min(TX, TY);
 	}
 	else
 	{
@@ -345,14 +356,15 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 			UFont* Big = MIStyle::CanvasDisplay();
 			const float TitleScale = static_cast<float>(K * 1.3);
 			const float TallyScale = static_cast<float>(K * 1.15);
-			const float StepScale = static_cast<float>(K * 1.05);
-			const float HintScale = static_cast<float>(K * 0.95);
+			const float StepScale = static_cast<float>(K * 1.2);
+			const float HintScale = static_cast<float>(K * 1.15);
 			float TW = 0.f, TH = 0.f, CW = 0.f, CH = 0.f, SW = 0.f, SH = 0.f, HW = 0.f, HH = 0.f;
 			GetTextSize(Title, TW, TH, Font, TitleScale);
 			GetTextSize(Tally, CW, CH, Big, TallyScale);
 			if (!StepLine.IsEmpty())
 			{
 				GetTextSize(StepLine, SW, SH, Font, StepScale);
+				SW += static_cast<float>(SH * 0.44 + 8.0 * K);  // the diamond before it
 			}
 			if (!HintLine.IsEmpty())
 			{
