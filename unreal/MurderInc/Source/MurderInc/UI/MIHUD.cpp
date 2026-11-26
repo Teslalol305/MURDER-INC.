@@ -403,9 +403,11 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 		const AMIPlayerCharacter* P = Cast<AMIPlayerCharacter>(GetOwningPawn());
 		const AMIPlayerController* WheelPC = Cast<AMIPlayerController>(GetOwningPlayerController());
 		const bool bWheel = WheelPC && WheelPC->GetSwitch().IsWheelOpen();
-		// Settings "Path and markers" off: none. On: the story's next step gets the guide's marker (edge arrow, fade); the
-		// other reels keep their plain marker where they are on the screen.
-		const bool bMarkers = Game.GetSettings().bGuide && !bWheel;
+		// Every objective keeps its plain marker where it is on the screen, as the web game draws them. Settings "Ground
+		// path" on: the story's next step gets the guide's marker instead (edge arrow, distance along the route, fade);
+		// off: the ground path is hidden and the next step keeps a plain marker like the others.
+		const bool bMarkers = !bWheel;
+		const bool bGuideMarker = Game.GetSettings().bGuide;
 		const FMILevelData* MarkLevel = Game.GetLevel();
 		const int32 NextStep = MarkLevel && Rules.GetMode() == TEXT("mission") ? FMIGuidePlan::NextStep(Rules, *MarkLevel) : FMIGuidePlan::NoStep;
 		const FName NextId = !MarkLevel ? NAME_None
@@ -417,7 +419,7 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 			{
 				break;
 			}
-			if (M.Id == NextId && NextId != NAME_None)
+			if (bGuideMarker && M.Id == NextId && NextId != NAME_None)
 			{
 				const FVector Feet = P ? P->GetActorLocation() : FVector::ZeroVector;
 				const double Metres = P ? FVector::Dist2D(Feet, MI::Web::ToUnreal(M.Pos)) / 100.0 : 0.0;

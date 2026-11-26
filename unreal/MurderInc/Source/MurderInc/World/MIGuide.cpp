@@ -61,13 +61,13 @@ namespace MIGuidePrivate
 		}));
 
 	FAutoConsoleCommandWithWorldAndArgs ShowCmd(TEXT("MIGuide.Show"),
-		TEXT("MIGuide.Show 0|1: the Settings row Path and markers (not saved; for pictures and tests)"),
+		TEXT("MIGuide.Show 0|1: the Settings row Ground path (not saved; for pictures and tests)"),
 		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
 		{
 			if (UMIGameSubsystem* Game = UMIGameSubsystem::Get(World); Game && Args.Num() > 0)
 			{
 				Game->GetSettings().SetGuide(FCString::Atoi(*Args[0]) != 0);
-				UE_LOG(LogMI, Display, TEXT("MIGuide: path and markers %s"), Game->GetSettings().bGuide ? TEXT("on") : TEXT("off"));
+				UE_LOG(LogMI, Display, TEXT("MIGuide: ground path %s"), Game->GetSettings().bGuide ? TEXT("on") : TEXT("off"));
 			}
 		}));
 
@@ -141,6 +141,12 @@ bool FMIGuideTune::Parse(const TSharedPtr<FJsonObject>& Root, FName Level, FMIGu
 	N(TEXT("look.combat"), Out.Combat);
 	N(TEXT("look.combatFade"), Out.CombatFade);
 	N(TEXT("look.chase"), Out.Chase);
+	Out.UnderMaterial = MIJson::StringOr(Root, TEXT("look.underlay.material"), Out.UnderMaterial);
+	const FVector UC = Triple(MIJson::Get(Root, TEXT("look.underlay.color")), FVector(Out.UnderColor.R, Out.UnderColor.G, Out.UnderColor.B));
+	Out.UnderColor = FLinearColor(UC.X, UC.Y, UC.Z, 1.f);
+	N(TEXT("look.underlay.width"), Out.UnderWidth);
+	N(TEXT("look.underlay.longer"), Out.UnderLonger);
+	N(TEXT("look.underlay.drop"), Out.UnderDrop);
 	N(TEXT("look.low"), Out.Low);
 	N(TEXT("marker.fadeFar"), Out.MarkerFar);
 	N(TEXT("marker.fadeNear"), Out.MarkerNear);
@@ -594,10 +600,24 @@ void AMIGuide::Build()
 			Mats.Add(M);
 		}
 	}
+	// The dark underlay's material (an engine material in every package: the plane's own), one instance for all strips.
+	UMaterialInterface* UnderBase = Tune.UnderMaterial.IsEmpty() ? nullptr : LoadObject<UMaterialInterface>(nullptr, *Tune.UnderMaterial);
+	UnderMat = nullptr;
+	if (UnderBase)
+	{
+		UnderMat = UMaterialInstanceDynamic::Create(UnderBase, this);
+		UnderMat->SetVectorParameterValue(TEXT("Color"), Tune.UnderColor);
+	}
+	else if (!Tune.UnderMaterial.IsEmpty())
+	{
+		UE_LOG(LogMI, Log, TEXT("Guide: %s is not in this project: chevrons without their dark underlay"), *Tune.UnderMaterial);
+	}
 	const int32 N = Tune.MaxChevrons * 2;
 	Strips.Reset();
-	for (int32 I = 0; I < N; ++I)
+	Unders.Reset();
+	for (int32 I = 0; I < N * (UnderMat ? 2 : 1); ++I)
 	{
+		const bool bUnder = I >= N;
 		UStaticMeshComponent* C = NewObject<UStaticMeshComponent>(this, NAME_None, RF_Transient);
 		C->SetMobility(EComponentMobility::Movable);
 		C->SetUsingAbsoluteLocation(true);
@@ -616,11 +636,11 @@ void AMIGuide::Build()
 		C->bReceivesDecals = false;
 		C->SetVisibleInRayTracing(false);
 		C->SetTranslucentSortPriority(-1);
-		C->SetMaterial(0, Mats[0]);
+		C->SetMaterial(0, bUnder ? static_cast<UMaterialInterface*>(UnderMat.Get()) : static_cast<UMaterialInterface*>(Mats[0].Get()));
 		C->SetVisibility(false);
 		C->SetupAttachment(RootComponent);
 		C->RegisterComponent();
-		Strips.Add(C);
+		(bUnder ? Unders : Strips).Add(C);
 	}
 	StripMat.Init(0, N);
 	StripAt.Init(FTransform::Identity, N);
@@ -672,9 +692,11 @@ void AMIGuide::Step(double Dt)
 			In.Secured[I] = R.IsSecured(I);
 		}
 		const FMIEnemyField& Field = Game->GetEnemies();
-		for (const int32 Id : Field.GetList())
+		// GetList holds slot indexes (not the units' spawn ids, which Find takes): read the slot itself.
+		const TArray<FMIEnemy>& Slots = Field.GetSlots();
+		for (const int32 I : Field.GetList())
 		{
-			const FMIEnemy* E = Field.Find(Id);
+			const FMIEnemy* E = Slots.IsValidIndex(I) ? &Slots[I] : nullptr;
 			if (E && E->bAlive && E->Mode == EMIEnemyMode::Engage)
 			{
 				In.bCombat = true;
@@ -737,6 +759,18 @@ void AMIGuide::Place()
 			C->SetWorldTransform(T);
 			StripAt[I] = T;
 			Cost.Moves++;
+			if (Unders.IsValidIndex(I))
+			{
+				// Wider, a little longer and just under the lit strip (its arm direction is the plane's X).
+				const FVector Scale = T.GetScale3D();
+				const FVector Down(0.0, 0.0, -Tune.UnderDrop * 100.0);
+				Unders[I]->SetWorldTransform(FTransform(T.GetRotation(), T.GetLocation() + Down,
+					FVector(Scale.X + Tune.UnderLonger, Scale.Y * Tune.UnderWidth, 1.0)));
+			}
+		}
+		if (Unders.IsValidIndex(I) && !Unders[I]->IsVisible())
+		{
+			Unders[I]->SetVisibility(true);
 		}
 		if (StripMat[I] != Mat && Mats.IsValidIndex(Mat))
 		{
@@ -780,6 +814,10 @@ void AMIGuide::Place()
 			{
 				Strips[I]->SetVisibility(false);
 				StripOn[I] = false;
+				if (Unders.IsValidIndex(I))
+				{
+					Unders[I]->SetVisibility(false);
+				}
 			}
 		}
 	}
@@ -811,6 +849,10 @@ void AMIGuide::HideAll()
 		{
 			Strips[I]->SetVisibility(false);
 			StripOn[I] = false;
+			if (Unders.IsValidIndex(I))
+			{
+				Unders[I]->SetVisibility(false);
+			}
 		}
 	}
 	bDrawn = false;

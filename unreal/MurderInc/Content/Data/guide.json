@@ -27,15 +27,23 @@
     "armWidth": 0.14,
     "armAngle": 52,
     "lift": 0.035,
-    "color": [1.0, 0.62, 0.22],
+    "color": [0.2, 0.85, 1.0],
     "intensity": 10000,
     "shade": 0.3,
-    "combat": 0.35,
+    "combat": 0.75,
     "combatFade": 0.6,
     "phases": 4,
     "chase": 0.9,
     "low": 0.4,
-    "note": "Chevrons of two thin flat strips on the engine plane, in the unlit additive tracer material (no new asset: it is in every package), depth tested, no collision, no shadow. shade: intensity under a roof, the El or inside the chop shop (a box above the chevron), where the eye is adapted darker; combat: intensity while any enemy is engaging (faded over combatFade seconds); phases and chase: a light runs toward the goal through phases groups at chase cycles a second, between low and 1 of the intensity"
+    "underlay": {
+      "material": "/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial",
+      "color": [0.02, 0.018, 0.016],
+      "width": 2.4,
+      "longer": 0.1,
+      "drop": 0.012,
+      "note": "A dark strip under each lit arm (the engine plane's own lit material, in every package: its Color parameter), width x the arm's width, longer metres longer, drop metres under it: the chevron reads as a lit line on black on sunlit concrete and asphalt (review: amber on the bare ground read as faded line paint and vanished in full sun). An empty material draws none"
+    },
+    "note": "Colour: cyan, unlike any road paint, crosswalk or brick on the block (amber read as faded yellow line paint). Chevrons of two thin flat strips on the engine plane, in the unlit additive tracer material (no new asset: it is in every package), depth tested, no collision, no shadow. shade: intensity under a roof, the El or inside the chop shop (a box above the chevron), where the eye is adapted darker; combat: intensity while any enemy is engaging (faded over combatFade seconds); phases and chase: a light runs toward the goal through phases groups at chase cycles a second, between low and 1 of the intensity"
   },
   "marker": {
     "fadeFar": 10.0,

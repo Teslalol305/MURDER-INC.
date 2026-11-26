@@ -32,6 +32,11 @@ struct MURDERINC_API FMIGuideTune
 	double ArmLength = 0.5, ArmWidth = 0.11, ArmAngle = 52.0, Lift = 0.035;
 	FLinearColor Color = FLinearColor(1.f, 0.62f, 0.22f);
 	double Intensity = 2600.0, Shade = 0.3, Combat = 0.35, CombatFade = 0.6;
+	// a dark strip under each arm (look.underlay), so the chevron reads as a lit line on black in full sun, not as one
+	// more pale stripe of road paint: an empty material draws none
+	FString UnderMaterial;
+	FLinearColor UnderColor = FLinearColor(0.02f, 0.018f, 0.016f);
+	double UnderWidth = 2.4, UnderLonger = 0.1, UnderDrop = 0.012;
 	int32 Phases = 4;
 	double Chase = 0.9, Low = 0.4;
 	// marker
@@ -158,7 +163,7 @@ struct FMIGuideCost
  * pool of flat strips (two per chevron) in the tracer material, one material instance per light phase and shade, so
  * a frame only sets a few scalar parameters; strips move only when the route or the player's end of it changes.
  * Spawned by the HUD (AMIHUD::BeginPlay): tests and the simulation run without it. The HUD draws the step line, the hint
- * and the marker from GetPlan(). Settings: Guidance off hides the path and the markers.
+ * and the marker from GetPlan(). Settings "Ground path" off hides the path; the objectives keep their plain markers.
  *
  * Console: MIGuide.Stats (the cost so far: average and worst milliseconds a frame, searches, the state), MIGuide.Reset
  * (zero the cost), MIGuide.HintAfter <s> and MIGuide.Show 0|1 (pictures: the hint sooner, the Settings row).
@@ -186,7 +191,7 @@ public:
 	const FMIGuideTune& GetTune() const { return Tune; }
 	/** Dev (console MIGuide.HintAfter): the seconds without progress before the hint line. */
 	void SetHintAfter(double Seconds) { Tune.HintAfter = Seconds; Plan.SetHintAfter(Seconds); }
-	/** Path and markers wanted: guidance on in Settings and a step to show. */
+	/** The ground path wanted: on in Settings and a step to show. */
 	bool IsShown() const { return bShown; }
 	/** Strips drawn right now (for tests and pictures). */
 	int32 VisibleStrips() const;
@@ -219,7 +224,13 @@ private:
 	TArray<TObjectPtr<UStaticMeshComponent>> Strips;  // two per pool entry: entry p shows the chevron of slot k with k % pool == p
 
 	UPROPERTY(Transient)
+	TArray<TObjectPtr<UStaticMeshComponent>> Unders;  // the dark strip under Strips[i] (empty without look.underlay)
+
+	UPROPERTY(Transient)
 	TArray<TObjectPtr<UMaterialInstanceDynamic>> Mats;  // [phase + Phases * shade]
+
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInstanceDynamic> UnderMat;
 
 	FMIGuideInput Input;        // reused every frame
 	TArray<bool> PoolUsed;

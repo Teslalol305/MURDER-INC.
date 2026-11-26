@@ -5,6 +5,8 @@
 //                              the chevrons on the floor; the upper floors go down their stair first
 //   MurderInc.Guide.Hint       the hint after 45 s of play without progress (combat does not count), gone on progress
 //   MurderInc.Guide.Stable     chevrons stay put while the player walks the route; no flip between equal routes
+//   MurderInc.Guide.Combat     the guide sees a fight from the enemy field's slots (its list holds slot indexes, not the
+//                              units' ids): one engaging Goon dims the path, none brings it back
 //   MurderInc.Guide.EndToEnd   the whole story walked with the real movement on the block's collision, by a bot that only
 //                              follows the drawn route: Reel 1, Reel 2, Reel 3, the truck; the guide's cost per frame
 
@@ -417,6 +419,74 @@ namespace MIGuideTestsPrivate
 	};
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIGuideCombatTest, "MurderInc.Guide.Combat", MITest::Flags)
+
+bool FMIGuideCombatTest::RunTest(const FString& Parameters)
+{
+	using namespace MIGuideTestsPrivate;
+	FGuideWorld W;
+	FMIBootOptions O;
+	O.bTitle = false;
+	O.Mode = TEXT("mission");
+	O.Difficulty = TEXT("hustler");
+	O.bPersist = false;
+	O.bDrawGrey = false;
+	if (!TestTrue(TEXT("the game boots"), W.Player && W.Game && W.Game->Boot(O)))
+	{
+		return false;
+	}
+	W.Guide = AMIGuide::Ensure(W.World);
+	if (!TestNotNull(TEXT("the guide is in the world"), W.Guide))
+	{
+		return false;
+	}
+	for (int32 I = 0; I < 30; ++I)
+	{
+		W.Step();
+	}
+	// A living unit whose spawn id is not the index of any listed slot: read by id instead of by slot (the bug this test
+	// was written for), the guide would never find it.
+	FMIEnemyField& Field = W.Game->GetEnemies();
+	int32 Pick = INDEX_NONE;
+	for (const int32 I : Field.GetList())
+	{
+		const FMIEnemy& E = Field.GetSlots()[I];
+		if (E.bAlive && !Field.GetList().Contains(E.Id))
+		{
+			Pick = I;
+			break;
+		}
+	}
+	if (!TestTrue(TEXT("a living unit whose id is no listed slot's index"), Pick != INDEX_NONE))
+	{
+		return false;
+	}
+	// The field set by hand (the rules are not stepped here): that one unit engaging, every other one calm.
+	const auto SetModes = [&Field](int32 Engaging)
+	{
+		for (const int32 I : Field.GetList())
+		{
+			if (FMIEnemy* E = Field.Find(Field.GetSlots()[I].Id))
+			{
+				E->Mode = I == Engaging ? EMIEnemyMode::Engage : EMIEnemyMode::Patrol;
+			}
+		}
+	};
+	SetModes(Pick);
+	for (int32 I = 0; I < 3; ++I)
+	{
+		W.Guide->Step(0.1);
+	}
+	TestTrue(FString::Printf(TEXT("one engaging Goon is a fight (combat %.2f)"), W.Guide->GetPlan().GetCombat()), W.Guide->GetPlan().GetCombat() > 0.3);
+	SetModes(INDEX_NONE);
+	for (int32 I = 0; I < 10; ++I)
+	{
+		W.Guide->Step(0.1);
+	}
+	TestEqual(TEXT("nobody engaging: no fight"), W.Guide->GetPlan().GetCombat(), 0.0);
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIGuideEndToEndTest, "MurderInc.Guide.EndToEnd", MITest::Flags)
 
 bool FMIGuideEndToEndTest::RunTest(const FString& Parameters)
@@ -440,7 +510,7 @@ bool FMIGuideEndToEndTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	TestTrue(TEXT("Path and markers on by default"), W.Game->GetSettings().bGuide);
+	TestTrue(TEXT("Ground path on by default"), W.Game->GetSettings().bGuide);
 	const FMILevelData* Level = W.Game->GetLevel();
 	const int32 Limit = 30 * 60 * 6;
 	int32 Step = -2;
