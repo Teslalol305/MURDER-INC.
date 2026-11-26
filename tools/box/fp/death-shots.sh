@@ -6,7 +6,8 @@
 # the last two also from beside the body.
 # Run detached with L_Block open:  setsid nohup bash death-shots.sh [out] > log 2>&1 &
 #   ONLY="front back" takes only those sequences (front head back blast stairs wall ten). OLD=1 runs with the ragdoll
-#   switched off (mi.Goon.Ragdoll 0: the death clip as before the pass), for the "before" pictures.
+#   switched off (mi.Goon.Ragdoll 0: the death clip as before the pass), for the "before" pictures. CLOSE=1 frames every
+#   picture from beside the body (near, below). A Story run starts with three Goons alive: at most three kills a run.
 # Pictures: <out>/<sequence>-<n>.jpg (default $MI_LOGS/death); ends with DEATH SHOTS DONE.
 out=${1:-}
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
@@ -67,6 +68,11 @@ PY
   pie_mcp py "$PIE_PY/_cam.py"
 }
 
+# near: with CLOSE=1, the player is posed CLOSE_M metres from the last body killed (its pelvis, CLOSE_DEG degrees round from
+# the line it was shot along), looking down at it, before each picture: the frames show the body, the burst, the spatter
+# and the pool from close by (the side camera of cam cannot be spawned from Python in the play world in this engine, so
+# without CLOSE the frames are the player's own view from where the shot came)
+near() { [ "${CLOSE:-0}" = 1 ] && obs "${CLOSE_M:-3}" "${CLOSE_DEG:-60}" > /dev/null; return 0; }
 # kseq <name> <side metres> <side degrees> <MI.Goon.Kill arguments>: one kill and its frames (named kseq: a function
 # called seq would hide the seq command that settle and the waits use)
 kseq() {
@@ -76,13 +82,13 @@ kseq() {
   # the world runs at full speed when the bodies are made: a ragdoll started in the frozen world (time dilation
   # 0.0001) is solved with steps of microseconds and its joints throw it into the air (seen in the first pictures)
   c "slomo 1"; c "MI.Goon.Kill $*"
-  run 0.05; shot "$n-1"
-  run 0.2; shot "$n-2"
-  run 0.35; shot "$n-3"
-  run 0.9; shot "$n-4"
+  run 0.05; near; shot "$n-1"
+  run 0.2; near; shot "$n-2"
+  run 0.35; near; shot "$n-3"
+  run 0.9; near; shot "$n-4"
   echo "$n: $(killed "$m")"
   if [ "$om" != 0 ]; then obs "$om" "$od"; run 0.05; fi
-  run 3.0; shot "$n-5"
+  run 3.0; near; shot "$n-5"
   tail -n +"$m" "$log" | grep -E "MI.Goon.Kill (staged|result)" | cut -c1-200
 }
 
