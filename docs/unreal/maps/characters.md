@@ -334,3 +334,77 @@ hand-built Goons at 1 m (fused layers, rigid gloves). Proceed with the five rema
 | **Total this pass** | **37.5** (cap 600) |
 
 No GPU box was rented or used.
+
+## 6. `SK_Vulture_CanalLieutenant` (Level 2 lieutenant, built)
+
+Built 2026-11-26 on the pipeline of section 3 as committed in 3119628, with no change to it, from the first Tripo
+take: `build.py build vultures --only canal_lieutenant --export` (42 s) then `--preview --samples 32` (2.7 min on 3
+threads). Outputs (git-ignored): `art/out/glb/SK_Vulture_CanalLieutenant.glb` (3.8 MB) with `.check.json`, the set
+`art/out/textures/VultureCanalLieutenant/`, the manifest record; sources in `art/out/characters/maps/canal_lieutenant/`
+(the sheet, the four views, `canal_lieutenant_tripo.glb`).
+
+![turnaround](../../../art/previews/characters/maps/vulture_canal_lieutenant_turnaround.jpg)
+
+`vulture_canal_lieutenant_turnaround.jpg`: the sheet made in the first pass (`sheet_v1.png`), used as it was. Checked
+before spending: four figures, view 2 faces the image's left and view 4 its right, the oxblood band on the LEFT upper
+arm (seen in the front, the left profile and the back, hidden in the right profile), the crew V on the upper back, the
+sling from the right shoulder to the left hip, no brand or lettering, the face covered by the watch cap and the gaiter.
+
+| Measure | Result |
+|---|---|
+| Tripo take | first take kept (1 of at most 3): 108,150 triangles (budget 120k), one connected piece, 0 floaters, 0 edges of opposite winding (canal_shell had 11), 4096 maps (Color, ORM, NormalGL), UVs inside 0..1, 32 % of a 512 grid's cells hit |
+| Clean-up | turned 90 degrees (arm span 0.54 m on Y against 0.23 on X) and 180 (facing +Y), as canal_shell; no decimation |
+| Size | cap top 1.815 m in the reference pose (mannequin 1.805 x 1.006), 0.98 in the game; 1.13 m across the A-pose hands, 0.54 m deep (the open parka). Beside SK_Goon_Hoodie in clay: same height and stance, visibly broader in the shoulders and coat, as a lieutenant should read (`vulture_canal_lieutenant_wire.jpg`) |
+| Fit to the skeleton | arms 20.7 / 21.9 degrees below the mannequin's A-pose, lengths x 0.98 / 0.99; legs 2.5 / 2.9 degrees, x 1.00; weights from the mannequin surface median 4.1 cm away (99th percentile 16 cm: the parka stands off the body more than the shell) |
+| Weights by segment | torso 24,460 vertices (the parka skirt), arms 5,746 / 5,339, legs 9,245 / 9,283; 4,769 cross-segment weights removed before smoothing, 7,100 after, 0 after the 4-influence limit; 0 unweighted |
+| Skeleton | 89 joints; round trip against SKM_Manny_Simple: largest change 0.0000005 m, 0.00013 degrees; re-import 108,150 of 108,150 triangles; **0 validation errors** |
+| Pose check | 99 poses, **98 pass** the capsule test (canal_shell 97). The one failure: 9 vertices up to 7.8 cm out in the 12th frame of the death fall (under the arms, as on canal_shell, where it was 16 vertices and 10 cm) |
+| Edge stretch (edges over 2 x their rest length, share of 162,225; 99.9th percentile; the worst frame of each clip) | jog 1.7 %, x 5.4; aim 1.4 %, x 4.0; reloads 1.8 %, x 5.8; melee 3.0 %, x 8.7; death fall 4.0 %, x 9.8; kneel 1.4 %, x 9.3; crouch 2.0 %, x 8.9; overhead swing 1.4 %, x 6.1 |
+| Against the Goons (same measure) | SK_Goon_Hoodie jog 1.05 %, x 9.6, death 2.4 %, x 11.9; SK_Goon_Puffer jog 1.9 %, x 6.2, death 3.2 %, x 11.1. The worst stretch (99.9th percentile) is below both Goons in every compared pose; the share of stretched edges sits between the two Goons in the jog and above both in the death fall. Against canal_shell it is about 1.5 x the stretched edges: the long open parka is the hardest garment for skinning alone |
+| Where it stretches | by the dominant bone of each stretched edge: the pelvis-weighted parka skirt (z 0.6 to 0.95 m, about 1,300 of the 3,350 crouch edges, 1,900 of the 6,000 in the death fall), then the thigh-twist zones and the spine under the vest. In the previews the skirt follows the thighs in the crouch (it shortens rather than tears) and no tearing shows at shoulders, elbows, hips or knees |
+| Texture set | 4096, albedo mean linear 0.037 / 0.035 / 0.037 (a dark figure, under the 0.08 rule), roughness mean 0.75 after the remap, metallic 0 (no texel over 0.5), occlusion mean 0.998 (empty, as on canal_shell) |
+
+![hero](../../../art/previews/characters/maps/vulture_canal_lieutenant_hero.jpg)
+
+`vulture_canal_lieutenant_hero.jpg`: front and back three-quarter, studio and street night. The open charcoal parka
+with its four flap pockets and corduroy collar up, the black vest with the two-pouch placard and belt, the knotted
+oxblood band on the left arm, the crew V high on the back with the sling across it; at night a broad dark figure with
+the oxblood band as the one accent, the Goons' reading.
+
+![detail](../../../art/previews/characters/maps/vulture_canal_lieutenant_detail.jpg)
+
+`vulture_canal_lieutenant_detail.jpg`: head at 1 m (knit watch cap, fleece gaiter over nose and mouth, the corduroy
+collar, the sling buckle, snaps and pocket flaps, rain on the waxed shoulders) and the legs at 1.3 m (cargo pockets,
+cuffs gathered over laced leather boots).
+
+![poses](../../../art/previews/characters/maps/vulture_canal_lieutenant_poses.jpg)
+
+`vulture_canal_lieutenant_poses.jpg`: jog, aim, crouch and the forward death fall on the bound mesh.
+
+![wire](../../../art/previews/characters/maps/vulture_canal_lieutenant_wire.jpg)
+
+`vulture_canal_lieutenant_wire.jpg`: clay beside SK_Goon_Hoodie, and the wireframe at 1.2 m (Tripo's even
+triangulation, no edge loops).
+
+**Known weaknesses (for the art review)**
+
+- **Skin round the eyes.** Between the cap and the gaiter a band of skin shows: brows, eyes, the bridge of the nose
+  (the sheet was made before the "eyes in deep shadow" advice of 3.1). It is an invented face and mostly covered, so
+  the rules hold, but at 1 m it shows more face than the Goons' r3 masks. Fix if the review asks: a sheet with the
+  gaiter pulled to just under the eyes and the eyes in deep shadow, then one more Tripo take (21.25 credits).
+- The waxed parka reads closer to worn leather than to waxed cotton at 1 m (the generated base colour carries
+  light rain streaks on the shoulders and sleeves); right for a wet night, a step from the brief's cotton.
+- The parka skirt is skinning only: it shortens with the thighs in the crouch and stretches more than the shell's
+  hem in the death fall (above). A per-character skirt weight blend (pelvis and both thighs by position) would
+  lower it; not done here, to keep the shared pipeline unchanged while the other lanes build on it.
+- As canal_shell: one fused surface (coat, vest, sling, gaiter, trousers), rigid one-piece gloves (no finger curl
+  round the SMG's grip), no edge loops, LODs or corrective shapes, occlusion map empty, not imported in Unreal yet
+  (the enemy lane's check: scale 0.98, materials, the SMG on `hand_r`, a readability frame on Canal Street).
+
+**Verdict.** Usable as the Level 2 lieutenant at 3 to 40 m: realistic, the Goons' height, a clearly heavier and
+better-dressed silhouette than the rank and file with the rank band readable from the front, side and back, on the
+same skeleton and clips, 98 of 99 poses inside the capsules and a cleaner mesh than the proof (0 validation errors).
+Below the hand-built Goons at 1 m (fused layers, rigid gloves, the eye band).
+
+**Credits (this character):** 18 (one Tripo take, `tripo_h3_1_multiview_to_3d`, detailed, 110k); the sheet's 3.25
+is in section 5. No GPU box was rented or used.
