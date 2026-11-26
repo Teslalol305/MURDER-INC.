@@ -3,6 +3,7 @@
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/Font.h"
+#include "Stats/Stats.h"
 #include "Core/Data/MIDataSubsystem.h"
 #include "Flow/MIGameSubsystem.h"
 #include "Enemies/MIEnemies.h"
@@ -41,6 +42,7 @@ void AMIHUD::BeginPlay()
 
 void AMIHUD::DrawHUD()
 {
+	SCOPED_NAMED_EVENT(MIHUD_DrawHUD, FColor::Emerald);  // a named scope in traces (SMOOTH.md C4: HUD frames of 15 to 22 ms with nothing named inside)
 	Super::DrawHUD();
 	if (!Canvas)
 	{
@@ -74,6 +76,7 @@ void AMIHUD::DrawHUD()
 
 void AMIHUD::DrawPlay(UFont* Font)
 {
+	SCOPED_NAMED_EVENT(MIHUD_DrawPlay, FColor::Emerald);
 	using namespace MIHUDPrivate;
 	const AMIPlayerCharacter* Player = Cast<AMIPlayerCharacter>(GetOwningPawn());
 	if (!Player || !Player->GetWeapon() || !Player->GetWeapon()->IsReady())
@@ -170,6 +173,7 @@ void AMIHUD::DrawPlay(UFont* Font)
 
 void AMIHUD::DrawHurt(const AMIPlayerCharacter& Player, double Hurt)
 {
+	SCOPED_NAMED_EVENT(MIHUD_DrawHurt, FColor::Emerald);
 	UWorld* World = GetWorld();
 	if (World && !HitHandle.IsValid())
 	{
@@ -228,6 +232,7 @@ void AMIHUD::DrawHurt(const AMIPlayerCharacter& Player, double Hurt)
 
 void AMIHUD::DrawStepMarker(const FVector& WebPos, const FString& Code, bool bExit, double Metres, double Fade)
 {
+	SCOPED_NAMED_EVENT(MIHUD_DrawStepMarker, FColor::Emerald);
 	using namespace MIHUDPrivate;
 	const double W = Canvas->ClipX;
 	const double H = Canvas->ClipY;
@@ -295,6 +300,7 @@ void AMIHUD::DrawStepMarker(const FVector& WebPos, const FString& Code, bool bEx
 
 void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 {
+	SCOPED_NAMED_EVENT(MIHUD_DrawFlow, FColor::Emerald);
 	using namespace MIHUDPrivate;
 	const FMIGameRules& Rules = Game.GetRules();
 	const FMIFlowView& V = Rules.View();
@@ -528,6 +534,7 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 
 void AMIHUD::DrawMenu(UMIGameSubsystem& Game, UFont* Font)
 {
+	SCOPED_NAMED_EVENT(MIHUD_DrawMenu, FColor::Emerald);
 	// The in-game cards (title, pause, settings, game over, debrief) in the front end's look (review 2026-11-24: small
 	// default-font text centred over a dimmed frame read as a placeholder next to the styled set-up screens): a dark
 	// plate with a gold rule, the kicker in gold, the title in the display face, the selected item as a gold button with
@@ -721,6 +728,7 @@ void AMIHUD::DrawPlate(double X, double Y, double W, double H, const FLinearColo
 
 void AMIHUD::DrawWeaponBar(const AMIPlayerCharacter& Player, UMIGameSubsystem* Game)
 {
+	SCOPED_NAMED_EVENT(MIHUD_DrawWeaponBar, FColor::Emerald);
 	using namespace MIStyle;
 	const UMIWeaponComponent* Weapon = Player.GetWeapon();
 	const FMIWeaponRules& R = Weapon->GetRules();
@@ -869,6 +877,7 @@ void AMIHUD::DrawWeaponBar(const AMIPlayerCharacter& Player, UMIGameSubsystem* G
 
 void AMIHUD::DrawWheel(const AMIPlayerCharacter& Player)
 {
+	SCOPED_NAMED_EVENT(MIHUD_DrawWheel, FColor::Emerald);
 	using namespace MIStyle;
 	const AMIPlayerController* PC = Cast<AMIPlayerController>(GetOwningPlayerController());
 	if (!PC || !PC->GetSwitch().IsWheelOpen())

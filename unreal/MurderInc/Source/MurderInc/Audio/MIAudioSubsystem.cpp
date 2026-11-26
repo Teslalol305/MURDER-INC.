@@ -10,6 +10,7 @@
 #include "Enemies/MIEnemyActors.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
+#include "Stats/Stats.h"
 #include "Engine/Font.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -608,6 +609,7 @@ bool UMIAudioSubsystem::StopRecording(const FString& Name, FString& OutPath)
 
 void UMIAudioSubsystem::DrawSubtitle(AHUD* HUD, UCanvas* Canvas)
 {
+	SCOPED_NAMED_EVENT(MIAudio_DrawSubtitle, FColor::Emerald);  // a named scope in traces (SMOOTH.md C4: new subtitle text is shaped the first time)
 	if (!HUD || !Canvas || HUD->GetWorld() != GetWorld())
 	{
 		return;
