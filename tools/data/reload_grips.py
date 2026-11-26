@@ -39,12 +39,19 @@ MAGAZINES = {
     "SM_Weapon_ShortyMagazine": {},
     "SM_Weapon_StretchMagazine": {},
     "SM_Weapon_RattlerMagazine": {},
-    "SM_Weapon_NineMagazine": {"height": 0.45},
+    "SM_Weapon_NineMagazine": {},
     "SM_Part_MagRifleExt": {},
     "SM_Part_MagSmgExt": {},
-    "SM_Part_MagPistolExt": {"height": 0.45},
+    "SM_Part_MagPistolExt": {},
 }
-DEFAULT = {"height": 0.40, "tilt": 0.0, "thumb_rise_deg": 35.0, "palm_off": 1.5, "knuckle_ahead": 0.9, "finger_r": 0.8, "thumb_off": 0.9}
+# "base" (HANDS_R4.md 13, the default): palm under the base plate, fingers up the front face, thumb up the left face.
+# "side" (HANDS_R4.md 10): palm flat on the left face, the face the eye looks at in a reload: it hid the magazine (11, 12.4).
+DEFAULTS = {
+    "base": {"style": "base", "palm_off": 1.5, "knuckle_ahead": 1.0, "finger_r": 0.8, "thumb_off": 0.9, "thumb_rise_deg": 70.0,
+             "max_sum": 150.0, "axis_lo": 3.0, "axis_hi": 9.0, "base_band": 2.0, "index_in": 0.6, "yaw": 0.0},
+    "side": {"style": "side", "height": 0.40, "tilt": 0.0, "thumb_rise_deg": 35.0, "palm_off": 1.5, "knuckle_ahead": 0.9,
+             "finger_r": 0.8, "thumb_off": 0.9, "max_sum": 150.0},
+}
 FINGERS = ("index", "middle", "ring", "pinky")
 MAX_BEND = (90.0, 105.0, 80.0)   # knuckle, middle joint, end joint (degrees)
 
@@ -157,6 +164,7 @@ class Magazine:
 
     def __init__(self, tris):
         verts = [v for t in tris for v in t]
+        self.verts = verts
         self.z0 = min(v[2] for v in verts)
         self.z1 = max(v[2] for v in verts)
         self.ymin = min(v[1] for v in verts)
@@ -264,7 +272,7 @@ def solve(mag, T, rule):
             return pts
         for j in range(3):
             step = 2.0
-            while angles[j] + step <= MAX_BEND[j]:
+            while angles[j] + step <= MAX_BEND[j] and sum(angles) + step <= rule.get("max_sum", 999.0):
                 trial = list(angles)
                 trial[j] += step
                 pts = chain(trial)
@@ -315,6 +323,126 @@ def solve(mag, T, rule):
     return {k: [round(v[0], 3), round(v[1], 3), round(v[2], 3)] for k, v in out.items()}, report
 
 
+def solve_base(mag, T, rule):
+    """The base hold (HANDS_R4.md 13): the magazine held from below, as a shooter seats one. The palm flat under the base
+    plate (the palm bones `palm_off` under it), the fingers forward with their knuckle line just ahead of the front edge
+    (`knuckle_ahead`), each closed joint by joint until it lies on the front face (no finger bent more than `max_sum`
+    degrees in all: a finger with nothing to hold curls, it does not fold through the palm), the thumb up the magazine's
+    left face, the side toward the eye. From the eye (behind, above and left of the magazine in a reload) the magazine's
+    rear and left faces stay in sight: the hand is under and in front of it. A curved magazine is held square to its own
+    axis near the base (the midline of its sections `axis_lo` to `axis_hi` cm above its lowest point)."""
+    W, M1, I1, P1 = T["hand_l"], T["middle_01_l"], T["index_01_l"], T["pinky_01_l"]
+    xs, ys, zs = frame(sub(M1, W), sub(I1, P1))
+    curl = [sum(T[f + "_tip_l"][i] - T[f + "_01_l"][i] for f in FINGERS) for i in range(3)]
+    s = 1.0 if dot(curl, zs) > 0 else -1.0
+
+    def mid(z):
+        sec = mag.section(min(max(z, mag.z0), mag.z1))
+        return (min(p[0] for p in sec) + max(p[0] for p in sec)) * 0.5
+    za = min(mag.z0 + rule["axis_lo"], mag.z1 - 1.0)
+    zb = min(mag.z0 + rule["axis_hi"], mag.z1 - 0.5)
+    u = norm([mid(za) - mid(zb), 0.0, za - zb])            # down the magazine's axis at its base
+    f = [-u[2], 0.0, u[0]]                                  # forward, square to it (both in the X-Z plane)
+    b = max(dot(v, u) for v in mag.verts)                   # the base plate, along u
+    low = [v for v in mag.verts if dot(v, u) > b - rule["base_band"]]
+    fmax = max(dot(v, f) for v in low)
+    ymin = min(v[1] for v in low)
+    palm_n = mul(u, -1.0)                                   # the palm faces up the magazine, onto its base
+    xt = norm(rot(f, palm_n, rule.get("yaw", 0.0)))        # the fingers forward, turned `yaw` about the axis
+    zt = mul(palm_n, s)
+    yt = cross(zt, xt)
+    knuckle = add(add(mul(u, b + rule["palm_off"]), mul(f, fmax + rule["knuckle_ahead"])), [0.0, 0.0, 0.0])
+
+    palm = {"hand_l", "thumb_01_l"} | {g + "_metacarpal_l" for g in FINGERS} | {g + "_01_l" for g in FINGERS}
+
+    def place(p, flat, at):
+        d = sub(p, M1)
+        loc = [dot(d, xs), dot(d, ys), 0.0 if flat else dot(d, zs)]
+        return add(at, add(add(mul(xt, loc[0]), mul(yt, loc[1])), mul(zt, loc[2])))
+    out = {k: place(v, k in palm, knuckle) for k, v in T.items()}
+    # across the magazine: the index knuckle `index_in` cm inside the left face, so the index takes the front-left corner and
+    # the others the front and the right (a hand is wider than a magazine)
+    shift = (ymin + rule["index_in"]) - out["index_01_l"][1]
+    knuckle = add(knuckle, [0.0, shift, 0.0])
+    out = {k: add(v, [0.0, shift, 0.0]) for k, v in out.items()}
+    report = {"axis_down": [round(x, 3) for x in u]}
+    for g in FINGERS:
+        report[g] = close_finger(mag, T, out, g, palm_n, rule)
+    # the thumb up the left face (toward the eye), from its base under the plate: its tip 88 % of its length away, `thumb_rise_deg`
+    # from the forward direction toward the magazine's top, 2 cm under the top at most
+    up = palm_n
+    tn = ["thumb_01_l", "thumb_02_l", "thumb_03_l", "thumb_tip_l"]
+    tl = [math.dist(T[tn[i]], T[tn[i + 1]]) for i in range(3)]
+    y_face = ymin - rule["thumb_off"]
+    base = out["thumb_01_l"]
+    reach = 0.88 * sum(tl)
+    rise = math.radians(rule["thumb_rise_deg"])
+    target = add(base, add(mul(f, reach * math.cos(rise)), mul(up, reach * math.sin(rise))))
+    target[1] = y_face
+    best = None
+    for a10 in range(-300, 1201, 15):          # the first segment's direction in the face's plane (degrees from forward toward up)
+        for c10 in range(0, 451, 15):          # the even bend at each of its two joints (toward forward: the thumb curls to the fingers)
+            a, c = math.radians(a10 / 10.0), math.radians(c10 / 10.0)
+            p, ang, pts = base, a, []
+            for i in range(3):
+                d = add(mul(f, math.cos(ang)), mul(up, math.sin(ang)))
+                q = add(p, mul(d, tl[i]))
+                q[1] = p[1] + (y_face - p[1]) * (0.5 if i == 0 else 1.0)
+                q = add(p, mul(norm(sub(q, p)), tl[i]))
+                pts.append(q)
+                p = q
+                ang -= c
+            if pts[-1][2] > mag.z1 - 2.0 or any(mag.depth(q) > -0.7 for q in pts):
+                continue
+            miss = math.dist(pts[-1], target)
+            if best is None or miss < best[0]:
+                best = (miss, pts, a10 / 10.0, c10 / 10.0)
+    if best is not None:
+        for n, q in zip(tn[1:], best[1]):
+            out[n] = q
+        report["thumb"] = {"tip_miss_cm": round(best[0], 2), "first_deg": best[2], "bend_deg": best[3]}
+    report["wrist"] = [round(v, 2) for v in out["hand_l"]]
+    report["knuckle"] = [round(v, 2) for v in knuckle]
+    report["deepest_point_cm"] = round(max(mag.depth(v) for v in out.values()), 2)
+    return {k: [round(v[0], 3), round(v[1], 3), round(v[2], 3)] for k, v in out.items()}, report
+
+
+def close_finger(mag, T, out, f, palm_n, rule):
+    """One finger, straight on from its metacarpal, closed joint by joint toward the palm until a phalanx touches the
+    magazine, a joint reaches its largest bend (MAX_BEND) or the finger's summed bend reaches `max_sum`."""
+    names = ["%s_%02d_l" % (f, k) for k in (1, 2, 3)] + [f + "_tip_l"]
+    lens = [math.dist(T[names[i]], T[names[i + 1]]) for i in range(3)]
+    base = out[names[0]]
+    d0 = norm(sub(base, out[f + "_metacarpal_l"]))
+    hinge = norm(cross(d0, palm_n))
+    if dot(rot(d0, hinge, 10.0), palm_n) < dot(d0, palm_n):
+        hinge = mul(hinge, -1.0)
+    angles = [0.0, 0.0, 0.0]
+
+    def chain(ang):
+        pts, d = [base], d0
+        for i in range(3):
+            d = rot(d, hinge, ang[i])
+            pts.append(add(pts[-1], mul(d, lens[i])))
+        return pts
+    for j in range(3):
+        step = 2.0
+        while angles[j] + step <= MAX_BEND[j] and sum(angles) + step <= rule.get("max_sum", 999.0):
+            trial = list(angles)
+            trial[j] += step
+            pts = chain(trial)
+            if any(touches(mag, pts[i], pts[i + 1], rule["finger_r"]) for i in range(j, 3)):
+                break
+            angles = trial
+    pts = chain(angles)
+    for n, p in zip(names, pts):
+        out[n] = p
+    return [round(a) for a in angles]
+
+
+SOLVERS = {"side": solve, "base": solve_base}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--glb", default=os.path.join(ROOT, "art", "out", "glb"))
@@ -323,7 +451,12 @@ def main():
     a = ap.parse_args()
     grips = json.load(open(GRIPS))
     T = template(grips)
-    over = {kv.split("=")[0]: float(kv.split("=")[1]) for kv in a.set}
+    def val(x):
+        try:
+            return float(x)
+        except ValueError:
+            return x
+    over = {kv.split("=")[0]: val(kv.split("=")[1]) for kv in a.set}
     mags = grips.get("magazines", {})
     worst = 0.0
     for name, own in MAGAZINES.items():
@@ -331,8 +464,9 @@ def main():
         if not os.path.exists(path):
             print("skip %s: no %s" % (name, path))
             continue
-        rule = dict(DEFAULT, **own, **over)
-        pts, rep = solve(Magazine(glb_triangles(path)), T, rule)
+        style = over.get("style", own.get("style", "base"))
+        rule = dict(DEFAULTS[style], **own, **over)
+        pts, rep = SOLVERS[style](Magazine(glb_triangles(path)), T, rule)
         print("%-28s %s" % (name, json.dumps(rep)))
         if a.check:
             old = mags.get(name, {}).get("l", {})
