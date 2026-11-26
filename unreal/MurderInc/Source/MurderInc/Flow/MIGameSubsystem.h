@@ -265,4 +265,10 @@ private:
 	bool bSimLive = false;
 	bool bArt = false;
 	bool bPrerequisite = false;
+	/**
+	 * In a stream the Graphics quality level waits while Settings is open and is written once when it closes: each level
+	 * written cost one frame of 62 to 377 ms (docs/unreal/SMOOTH.md B3), so stepping Auto to Ultra froze the picture four times.
+	 */
+	bool bStreamedQualityPending = false;
+	int32 PendingStreamedQuality = -1;
 };

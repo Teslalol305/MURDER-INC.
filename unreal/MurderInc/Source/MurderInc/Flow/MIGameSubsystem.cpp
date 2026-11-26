@@ -818,7 +818,18 @@ void UMIGameSubsystem::ApplySettings()
 	{
 		// In a stream the setting moves the scalability groups only: UGameUserSettings::ApplySettings would also ask
 		// for its own resolution and window mode, clear the 60 fps cap and render Ultra at the full output size.
-		UMICloudSubsystem::ApplyStreamedQuality(Scalability);
+		// While Settings is open the level waits (FlowFrame writes it when the card closes): every level written costs a
+		// frame of 62 to 377 ms (SMOOTH.md B3), and a player steps through several on the way to the one they want.
+		if (Menu.Screen == EMIMenuScreen::Settings)
+		{
+			bStreamedQualityPending = true;
+			PendingStreamedQuality = Scalability;
+		}
+		else
+		{
+			bStreamedQualityPending = false;
+			UMICloudSubsystem::ApplyStreamedQuality(Scalability);
+		}
 	}
 	else if (UGameUserSettings* User = GEngine ? GEngine->GetGameUserSettings() : nullptr)
 	{
@@ -916,6 +927,12 @@ void UMIGameSubsystem::FlowFrame(double Dt)
 		return;
 	}
 	Dt = FMath::Min(Dt, 0.05);
+	if (bStreamedQualityPending && Menu.Screen != EMIMenuScreen::Settings)
+	{
+		// Settings has closed (Back, the pause key, a resume): the Graphics quality chosen there is written now, once.
+		bStreamedQualityPending = false;
+		UMICloudSubsystem::ApplyStreamedQuality(PendingStreamedQuality);
+	}
 	if (FrontEnd && FrontEnd->IsShown())
 	{
 		FrontEnd->Tick(Dt);
