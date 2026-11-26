@@ -20,6 +20,10 @@
 #                     viewer clicks through the set-up screens). Default dev.
 #   build=<folder>    the folder with MurderInc.sh: the unpacked zip (both games are in it). Default
 #                     /project/ue/cloud/build-Shipping/Linux, or $LAG_BUILD.
+#   local=1           a build on the box's network volume (/project, 9p) is copied to the local disk (/tmp/lag-local,
+#                     once) and run from there, or $LAG_LOCAL=1. From /project the same package and script had frames
+#                     of 100 to 280 ms (4 a minute) that the local disk did not have (docs/unreal/SMOOTH.md C6); a run
+#                     from /project without it says so in its info.txt and summary output.
 #   load=<n>[:<work ms>[:<idle ms>[:<size>]]]   n second processes that keep the GPU busy (gpu_hog.py), each
 #                     working in bursts of <work ms> (4) with <idle ms> (0) between them on matrices of <size>
 #                     (2048). This is a load the game's own dynamic resolution cannot undo: a GPU that is slower
@@ -138,6 +142,7 @@ run_fg() {
   local name=$1; shift
   local O=$OUT/$name game=dev build= load=0 sp= res=1920x1080 view= view2= cvars= csv= secs= probe=1 minbit=12000000 profile= cpus= decode=1 audio=0 demo= envs= extra=()
   local runas=${LAG_RUNAS:-ue4} clean=${LAG_CLEAN:-0} join=${LAG_JOIN:-55} keepalive=1 qp=18:36 vopts= withviewer=1
+  local tolocal=${LAG_LOCAL:-0} volnote=
   while [ $# -gt 0 ]; do
     case "$1" in
       --) shift; extra=("$@"); break ;;
@@ -147,10 +152,25 @@ run_fg() {
       cpus=*) cpus=${1#*=} ;; decode=*) decode=${1#*=} ;; view2=*) view2=${1#*=} ;;
       runas=*) runas=${1#*=} ;; clean=*) clean=${1#*=} ;; join=*) join=${1#*=} ;; audio=*) audio=${1#*=} ;; demo=*) demo=${1#*=} ;; env=*) envs=${1#*=} ;;
       keepalive=*) keepalive=${1#*=} ;; qp=*) qp=${1#*=} ;; vopts=*) vopts=${1#*=} ;; viewer=*) withviewer=${1#*=} ;;
+      local=*) tolocal=${1#*=} ;;
       *) echo "unknown key $1"; return 2 ;;
     esac; shift
   done
   [ -n "$build" ] || build=${LAG_BUILD:-$C/build-Shipping/Linux}
+  # The box's network volume stalls a game that runs from it (page faults on the mapped binary and paks in the sandbox:
+  # docs/unreal/SMOOTH.md C6). local=1 runs a copy on the local disk; otherwise the run says where it ran from.
+  case "$(readlink -f "$build")" in
+    /project/*)
+      if [ "$tolocal" = 1 ]; then
+        local L=/tmp/lag-local/$(readlink -f "$build" | tr -c 'a-zA-Z0-9\n' '_')
+        [ -f "$L/MurderInc.sh" ] || { rm -rf "$L"; mkdir -p "$L" && cp -a "$build/." "$L/"; }
+        volnote="build copied to the local disk: $L"
+        build=$L
+      else
+        volnote="warning: the build runs from the network volume /project: long frames may be the box's, not the game's (docs/unreal/SMOOTH.md C6; local=1 runs a local copy)"
+        echo "$volnote"
+      fi ;;
+  esac
   [ -n "$view" ] || { view=lag-turn.txt; [ "$game" = ship ] && view=lag-story.txt; }
   case "$view" in   # a bare name is one of the scripts beside this file; the viewer runs in the run's own folder
     /*) ;;
@@ -183,6 +203,7 @@ run_fg() {
   rm -rf "$O"; mkdir -p "$O"; chmod 777 "$O"
   printf 'name=%s\ngame=%s\nbuild=%s\nload=%s\nsp=%s\nres=%s\nview=%s\ncvars=%s\ncsv=%s\nsecs=%s\nminbit=%s\ncpus=%s\nid=%s\nextra=%s\nstarted=%s\nrunas=%s\nclean=%s\nprobe=%s\njoin=%s\naudio=%s\nkeepalive=%s\nqp=%s\nvopts=%s\n' \
     "$name" "$game" "$build" "$load" "$sp" "$res" "$view" "$cvars" "$csv" "$secs" "$minbit" "${cpus:-all}" "$id" "${extra[*]}" "$(date -u +%FT%TZ)" "$runas" "$clean" "$probe" "$join" "$audio" "$keepalive" "$qp" "$vopts" > "$O/info.txt"
+  [ -n "$volnote" ] && echo "volume=$volnote" >> "$O/info.txt"
   venv || { echo "FAILED: no Python with aiortc" > "$O/done"; return 1; }
   # One game at a time.
   local i
