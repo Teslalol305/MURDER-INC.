@@ -2,12 +2,10 @@
 
 #include "CoreMinimal.h"
 #include "Containers/Ticker.h"
+#include "Engine/StreamableManager.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "UObject/SoftObjectPath.h"
 #include "MIPreload.generated.h"
-
-struct FStreamableHandle;
-struct FStreamableManager;
 
 /**
  * Loads, in the background and once a session, every asset the data files name (every string that starts with /Game/
