@@ -341,3 +341,153 @@ first death, the death card, Run it back by the `Enter` key and the second run.
 
 The pictures are in `/tmp/smooth-bugs/shots/` (`g1-v4`, `g1-v6t`, `g2-v4`, `g2-v6t`), on the local disk, so they are lost
 when the box stops.
+
+## Bug fixes (lane `bug`, the fixer of the bug findings, 2026-11-26 00:35 to 03:00 UTC)
+
+**Verdict of this lane: the crash is gone from a package of the branch; two of the five other bugs are fixed, one waits
+for the owner, two wait for the page.** Every claim below comes from a run on the box named in the tables (per-frame CSV
+lines, probe lines every 0.25 to 1 s, the director's event log, the engine's crash handler).
+
+| # | Finding | Status | Commit |
+|---|---|---|---|
+| H1, C1, B1 | The SIGSEGV at the garbage collection after a gun switch | **fixed** (the branch's `HeldClips`, now in a package and proven past many collections) | in the branch before this lane (`HeldClips`, test `SwitchSurvivesGC`) |
+| B5 | The stream does not pause when the player leaves the page | **fixed in the game**; the page's half is for the lead (below) | `63d4862` |
+| B4 | A run cannot be left for the menus | **fixed** | `3ac39ee` |
+| B2 | Hold the Block waves end with long waits for the last Buzzards | **not fixed**: a timing rule, the owner's word (below) | |
+| B6 | Settings, guns, builds and the best score lost on every E3DS session | **not fixed**: needs the page bridge of the next release (below) | |
+
+### The package these proofs ran on
+
+No package of the branch existed (the release engineer packages only at the GO of DECISIONS.md 20:40), so this lane made
+its own with the branch's own `package-cloud.sh` steps, in its own folders (`/project/ue/smooth/bug/pkg/pkg.sh`: the
+release copy `/project/ue/smooth/bug/rel-smoothbug`, the cloud folder `/project/ue/smooth/bug/cloud`; nothing of the
+release engineer's was read or written but the shared art input). Source: the branch at `ab55e0d` plus this lane's two
+fixes (the C++ of `63d4862` and `3ac39ee`); the copied `Source/` is identical file for file to that tree
+(`diff -r` against a worktree of `ab55e0d` with the patch applied), `Config/` differs only by the section the editor writes
+for its Android file server plugin (`bIncludeInShipping=False`). Every step passed: editor build, the round-4 weapons
+import (guns, rattler, parts, sockets ok), overlay, usage (20 materials, 6 cube maps), Development and Shipping cooks,
+289 of 289 Sound Waves and 35 of 35 weapon assets in both pak lists, zip `MurderInc-bug.zip` (2.3 GB, sha256
+`94c8719c...`). It is a proof package, never to be uploaded: it lacks the commits pushed after `ab55e0d` by other lanes.
+Unpacked on the box's local disk (`/tmp/smooth-bug/fix`, CPU lane C6). The "before" runs used the v6 trial (`fd8ce12`,
+unpacked privately to `/tmp/smooth-bug/v6t`), whose code has the crash; version 4's crash is the earlier lanes' runs.
+
+### H1 / C1 / B1: the crash after a gun switch
+
+**Before and after on the same script, with no GPU** (`nr.sh`: the Development game, `-nullrhi`, two CPUs, the demo
+director playing the CPU lane's whole `full-csv.txt`: home, every set-up screen, the Workbench, a Story run with shots,
+reloads, switches to guns 2, 3, 4 and back to 1, then the fight):
+
+| Run | Package | Switches (the director's `switch ... draw` events) | End |
+|---|---|---|---|
+| `cpu-nr-v6t` | v6 trial `fd8ce12` | CHOPPER to NINE 89.7 s, NINE to STICK 98.3 s, STICK to STRETCH 103.4 s, STRETCH to CHOPPER 108.3 s | **`Signal 11 caught ... SIGSEGV: invalid attempt to read memory at address 0x0` at t 120.7 s, exit code 139**; crash context `SkeletalMeshComponent='FirstPersonPackGun' SkeletalMesh='SK_TFA_AR_Default_Combined' AnimInstance='MIFPAnimInstance_...'` (the CPU lane's C1, here without a GPU) |
+| `cpu-nr-fix` | this lane's package | the same four at 89.7, 98.3, 103.4 and 108.4 s | no signal; the script played to its end (t 208 s, into the fight on the avenue that C1 never let any earlier run reach), the process was stopped by the run's own time limit |
+| `n3-fix` (the bugs lane's 12-minute Hold the Block gate, `scripts/n3.txt`) | this lane's package | CHOPPER to NINE at 134.2 s (version 4 crashed about 49 s after this switch, `n3-v4`), and back and forth every 120 s to 614.4 s | **exit code 0** at t 858 s after seven waves, the director's own `quit`; no `Signal 11` line |
+
+The periodic collection runs every 61.1 s (CPU lane C8), so `n3-fix` passed about 14 collections and `cpu-nr-fix` three
+after the first switch.
+
+**With the GPU, under E3DS-class limits** (this lane's copy of `lag-test.sh`, the GPU claim held, local disk): the CPU
+lane's line (`sb-cpu-full`) and the hitch lane's 11-minute holdout (`sb-long`) on this lane's package are queued behind
+the perf lane's GPU queue; their per-frame numbers follow in this section's next commit.
+
+### B5: a run pauses when the player stops looking
+
+**What E3DS's player does** (its live script `e3dsCore.min_ns_dark.js`, fetched on the box 2026-11-26 00:39 UTC and read,
+not kept): its mouse controller listens for `mouseenter` and `mouseleave` on the video's parent in every mouse mode and
+sends Pixel Streaming's `MouseEnter` / `MouseLeave` (and releases the mouse buttons); its locked-mouse controller, when the
+pointer lock ends (Esc, another window), only stops sending mouse moves and sends a `KeyUp` for every held key; it tells
+the page around it `streamFocusLost` / `streamFocusGained` when `document.hasFocus()` changes; and a page command
+`{cmd: 'sendToUe4', value: ...}` (also `sendDataToUE`, `sendMessageToStreamingBuild`) reaches the game as
+`emitUIInteraction(value)`, Pixel Streaming's `UIInteraction` message. So after Esc nothing reaches the game until the
+pointer leaves the picture, and a tab switch reaches it only through the page.
+
+**The fix** (`63d4862`, `Cloud/MICloud.cpp`, `GuardViewerInput`): the plugin's `MouseLeave` and `UIInteraction`
+handlers are wrapped (each still runs first, with the message as it came). A `MouseLeave` from the viewer who has the
+input, or a `UIInteraction` descriptor `{"murderinc": "away"}`, calls `UMICloudSubsystem::PauseForAway`: a run in play or
+in its intro pauses and everything the viewer held is let go (`ReleaseForLeave`, the same as when the connection ends);
+on a menu, a card or a run already paused nothing changes. The `MouseLeave` Pixel Streaming sends itself when a
+connection closes has no sender and is ignored (the connection's own end pauses already). A probe line now ends
+`away=<signals> awayPaused=<runs paused>`, and the log says `Viewer away (<why>): the run is paused ...`. No rule of play
+changes: the pause is the pause key's. Tests: `MurderInc.Cloud.ViewerAway` (the pause in the intro and in play, the held
+W and mouse button let go and not acting after Resume, nothing on the pause card or the title, and the page's word read
+from bytes laid out as Pixel Streaming hands them over: the word, other words, other keys, a plain string, a message cut
+short, an empty one). `rtcinput.py` gained the verbs `leave`, `enter` and `ui <text>`.
+
+**Through the stream, before and after** (the Development game's director starts a Story run; the viewer `away-view.txt`
+sends a `MouseLeave` in play, presses P, sends the page's word in play, presses P, sends another word, pauses with P and
+sends a `MouseLeave` on the pause card, presses P): queued with the GPU runs above (`sb-away-v6t`, `sb-away-fix`).
+
+### B4: the pause card can leave the run
+
+**The fix** (`3ac39ee`, `Flow/MIGameSubsystem.cpp`, `PatchCards`): the pause card gains **Change set-up** and **Back to
+title** after its own four rows, with the death card's words (`frontend.cards.changeSetup`, `cards.toTitle`), also when
+it is built again after Settings (`MenuBack`). `MenuConfirm` already ended a run for both ids, as the death card's rows
+do. `src/menus.js` is untouched: the web game has no set-up screens to go back to. Test `MurderInc.Run.PauseCardLeave`
+(the rows' order, the rows after Settings and after a difficulty change, Back to title to Home, a new run, Change set-up
+to the Briefing).
+
+**In the packages, before and after** (no GPU, `scripts/b4.txt`: a Story run, the pause key, `MIMenu changesetup`, Hit the
+block again, the pause key, `MIMenu totitle`; the console command selects the row and confirms it only if the card has
+it):
+
+| Run | Package | `MIMenu changesetup` on the pause card (t 20.4 s) | `MIMenu totitle` on the pause card (t 33.8 s) |
+|---|---|---|---|
+| `b4-v6t` | v6 trial | nothing: no event, the run stays paused (probe `state=3`) | nothing: no event, still paused |
+| `b4-fix` | this lane's package | `game:state title` in the same frame; the front end's next answer is `screen briefing` | `game:state title` in the same frame; the next set-up command answers `screen crew` from Home |
+
+(The director's front-end commands act even behind a paused run, which is how `b4-v6t` went on at all; a player has no
+such path.)
+
+### B2: the long waits at the end of Hold the Block waves (not fixed: the owner decides)
+
+Seen again on this lane's package (`n3-fix`): the waves began at 15.0, 101.8, 148.9, 224.4, 358.6, 532.9 and 715.7 s, so
+waves 1 to 6 lasted 86.8, 47.1, 75.5, 134.2, 174.3 and 182.8 s, and three of them (4, 5, 6) ended only by the rule
+`Hold: N Buzzard(s) unhurt for 60 s as the wave's last enemies: brought down`. It is a timing rule: under the release
+criteria it changes only on the owner's word (below).
+
+### B6: choices lost on every E3DS session (not fixed: the page bridge)
+
+Nothing in the game can keep them: every E3DS session is a new machine. The keeper is the page bridge of
+`docs/unreal/maps/progression.md` 4.4 (the next release). That plan's open question, "the exact E3DS iframe command that
+forwards a page message to the game" (its line 521), is answered by the read above: `sendToUe4` (or `sendDataToUE`,
+`sendMessageToStreamingBuild`) arrives in the game as a `UIInteraction` descriptor, the path B5's word uses and tests.
+The other direction was seen in the same script only as far as the player (`HandleResponseFromUnreal` and its response
+listeners); whether the player passes a game's response up to the page was not read.
+
+### For the lead
+
+1. **B5, the page's half** (PREFLIGHT.md section 3's prompt for the website and `docs/CURSOR_HANDOFF.md`, section 6 "Focus,
+   keys, controllers and full screen"): add this item, so that a tab switch or a click on the page pauses the run, as the
+   web game does:
+   > - While the stream is playing, tell the game when the player looks away: on `streamFocusLost`, and when the tab becomes
+   >   hidden (`visibilitychange` with `document.visibilityState === 'hidden'`), send
+   >   `frame.contentWindow.postMessage(JSON.stringify({cmd: 'sendToUe4', value: {murderinc: 'away'}}), '*')` before anything
+   >   else you do for that moment. The game pauses the run; the player resumes it with P or the pause card. Send nothing when
+   >   the player comes back.
+2. **B2, the owner's question** (a timing rule; DECISIONS.md 20:40, nothing waived): "In Hold the Block, when only drones
+   are left and nobody has hit them, the game brings them down after 60 seconds. Shorten it to 15 seconds?" On a yes, the
+   change is one number in `UMIGameSubsystem::UpdateLastEnemies` (`Flow/MIGameSubsystem.cpp`, `const double Limit = 60.0;`
+   to `15.0`); the rule is off in tests and replays (`Boots.bPersist`), so the golden runs are untouched; re-run `n3` with
+   `nr.sh` and read the wave lengths.
+3. **The release package** must be gated on the crash as `cpu-nr-fix` and `n3-fix` were: `nr.sh <unpacked package>
+   scripts/full-csv.txt <name> 330` and `nr.sh <unpacked package> scripts/n3.txt <name> 900` (no GPU, about 6 and 15
+   minutes, CPUs of their own), each without a `Signal 11` line; the v6 trial fails the first in two minutes.
+
+### Suite
+
+`tools/box/test.sh MurderInc` in this lane's clone (`/project/ue/smooth/bug/repo-smoothbug`, the guns imported with
+`import-chars.sh r4 all` from `/project/ue/fp-in-guns` as the guns lane does, the Sound Waves re-imported, built with
+`-MaxParallelActions=6`): **218 passed, 0 failed, 0 skipped** at `ab55e0d` plus the two fixes, **219 passed, 0 failed, 0
+skipped** at `04c66c8` plus the two fixes (the commits as pushed) and **219 passed, 0 failed, 0 skipped** at the merge
+`1119352`, the golden replays included (`Golden.*`, `Loadout.ParityGolden`, all Success). The three warnings are not this
+lane's: `Audio.EngineRender` (no audio device under `-NoSound`), `Audio.VoiceData` (placeholder voice takes),
+`Frontend.StageFloor` (a pack magazine mesh absent from the clone).
+
+### Files (on the box, not in the repository)
+
+`/project/ue/smooth/bug/`: `repo-smoothbug` (the clone), `pkg/` (`pkg.sh`, the private copy of `package-cloud.sh`),
+`cloud/` (the package's build folders, zip, symbols), `nr.sh`, `nr2.sh` (`NR_CPUS=`), `gq.sh` and `q1.txt` (the GPU queue
+and its claim), `lagtools/` (a copy of `tools/box` whose `lag-test.sh` does not count a `-nullrhi` game or this lane's
+claim as another game, and whose `rtcinput.py` has the new verbs), `scripts/` (`b4.txt`, `away-demo.txt`,
+`away-view.txt`, and copies of `full-csv.txt`, `n3.txt`, `sm-long.txt`), `runs/` (the no-GPU runs), `lag/` (the GPU runs),
+`logs/`. The unpacked packages are in `/tmp/smooth-bug/` (lost when the box stops).
