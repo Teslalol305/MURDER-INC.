@@ -9,8 +9,8 @@ Checks (each prints PASS or FAIL with the evidence; the script exits 1 on any FA
   2 names        IPX appears only on the IPX slides (the owner's mark); no invented name repeats another
   3 validation   (--build) every asset passes mi.export.validate (names, scale, faces, winding, slots, UVs, Wear)
   4 budgets      triangles per asset within midtown.md 14.2 (midtown.BUDGET), none over 300k
-  5 thin         (--build) no loose member longer than 0.6 m is thinner than 5 cm across (the 6 cm floor of midtown.md 15
-                 with the octagon's flat-to-flat allowance): flicker at render scale 0.50
+  5 thin         (--build) no loose member longer than 0.6 m is thinner than 5.5 cm across (the 6 cm floor of midtown.md 15
+                 with the octagon's flat-to-flat allowance, 6 cm x cos 22.5): flicker at render scale 0.50
   6 files        every manifest_midtown.json asset has its GLB in art/out/glb and the same triangles and bounds in the shared
                  manifest
   7 atlases      MT_Screens_A/B 4096 with 8 cells each, every slide in a cell, no overlaps; the ticker 4096 x 256, the digits
@@ -74,7 +74,7 @@ def check_english():
            "%d invented names, IPX only on the 3 IPX slides (%s)" % (len(biz), ipx or "ok"))
 
 
-def thin_members(ob, min_w=0.05, min_len=0.6):
+def thin_members(ob, min_w=0.055, min_len=0.6):
     """Loose parts (connected components) longer than min_len whose second extent is under min_w."""
     import numpy as np
     me = ob.data
@@ -135,7 +135,7 @@ def check_build():
             thin[name] = tm
     report(errs == 0, "validation", "%d assets, %d failing" % (len(ctx.assets), errs))
     report(over == 0, "budgets", "%d assets, %d over budget" % (len(ctx.assets), over))
-    report(not thin, "thin", "%d assets, members under 5 cm across and over 0.6 m long: %s"
+    report(not thin, "thin", "%d assets, members under 5.5 cm across and over 0.6 m long: %s"
            % (len(ctx.assets), {k: v[:3] for k, v in thin.items()} or "none"))
 
 

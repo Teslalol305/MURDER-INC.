@@ -516,7 +516,7 @@ def m_machineroom(ctx, M):
     bx(b, (x1, -1.0, 1.0), (x1 + 0.06, 1.0, 2.2), "grey", ch=0.006, pin=False, axis="y")          # louvre frame
     for zz in np.arange(1.08, 2.15, 0.12):
         bx(b, (x1 + 0.06, -0.95, zz), (x1 + 0.13, 0.95, zz + 0.065), "grey", pin=False, axis="y")
-        bx(b, (x1 + 0.055, -0.95, zz + 0.065), (x1 + 0.06, 0.95, zz + 0.12), "grille", pin=False, axis="y")
+        bx(b, (x1 + 0.045, -0.95, zz + 0.055), (x1 + 0.06, 0.95, zz + 0.12), "grille", pin=False, axis="y")
     for i in range(2):                                                                          # motors and a cabinet inside
         cx = x0 + 1.3 + i * 2.0
         bx(b, (cx - 0.6, y1 - 1.8, 0.0), (cx + 0.6, y1 - 0.6, 0.15), "conc", ch=0.01, pin=False)

@@ -46,7 +46,7 @@ BUDGET = {
     "SM_Roof_Vent_Mushroom": 4000, "SM_Roof_ChimneyStack": 4000, "SM_Roof_TarKettle": 3000, "SM_Roof_Dish": 3000,
     "SM_Roof_Antenna": 2000, "SM_Roof_WorkLight": 2000,
     "SM_Roof_Gantry_16m": 25000, "SM_Sign_LEDWall_16x9": 30000, "SM_Roof_BillboardFrame_16x8": 25000,
-    "SM_Sign_LEDWall_Tile_2m": 2000, "SM_Sign_Ticker_4m": 2000, "SM_Sign_TowerStack": 40000,
+    "SM_Sign_LEDWall_Tile_2m": 2000, "SM_Sign_LEDWall_Edge_": 200, "SM_Sign_Ticker_4m": 2000, "SM_Sign_TowerStack": 40000,
     "SM_Scaf_Flight_2p4": 8000, "SM_Scaf_Landing_2p4": 4000, "SM_Scaf_Bay_Frame": 6000, "SM_Scaf_Netting_Panel": 500,
     "SM_Scaf_Sign": 1000,
 }
@@ -139,7 +139,7 @@ def write_lane_files(ctx, entries):
            "texture_sets_new": sets, "texture_sets_reused": sorted(s for s in ctx.sets if s.startswith("TS_")),
            "new_tiling_sets": 0, "emissive_plan": EMISSIVE_PLAN,
            "rules": {"english_only": True, "strings_checked": names.check_english(), "real_marks": "IPX only (the owner's)",
-                     "names_searched": False, "collision": "none on the art: the level data decides (MAPS.md lane B)",
+                     "names_searched": "2026-11-26 (docs/unreal/maps/names.md); owner sign-off pending", "collision": "none on the art: the level data decides (MAPS.md lane B)",
                      "thin_members_min_m": roof.MEMBER_MIN}}
     with open(os.path.join(OUT, "manifest_midtown.json"), "w") as f:
         json.dump(man, f, indent=1, sort_keys=True)
@@ -154,7 +154,7 @@ def write_lane_files(ctx, entries):
                       "assets/_midtown_names.py) with its atlas cell. A screen = its mesh's M_MI_Screen slot + the slide cells; a "
                       "printed face = its carrier + an MI of M_Sign_MT_Face mapping 0..1 to the cell (v up).",
              "slides": scr, "faces": faces, "ticker": names.TICKER, "digits": names.DIGITS, "marks": names.MARKS,
-             "business_names": names.business_names(), "names_status": "invented, not yet searched (MAPS.md C1)"}
+             "business_names": names.business_names(), "names_status": "invented; searched 2026-11-26 (MAPS.md C1, docs/unreal/maps/names.md), the colliding ones replaced; owner sign-off pending"}
     with open(os.path.join(OUT, "signs_midtown.json"), "w") as f:
         json.dump(signs, f, indent=1, sort_keys=True)
     n = 0

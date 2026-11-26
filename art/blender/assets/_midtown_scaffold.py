@@ -22,7 +22,7 @@ def coupler(b, p, slot="galv"):
 
 
 def m_flight(ctx, M):
-    """One flight: 5 risers of 0.346 over 2.5 m (treads 0.5, the top one is the landing's edge), 2.4 m wide, plate
+    """One flight: 10 art risers of 0.173 over 2.5 m (treads 0.25; the data's 5 collider steps are 0.346), 2.4 m wide, plate
     stringers, checker treads with nosings, tube handrails (1.0 m) and mid rails both sides. Pivot: the foot of the flight
     on its centre line at the lower landing (z = 0), rising along +X."""
     b = B(701, step=0.6)
@@ -34,9 +34,12 @@ def m_flight(ctx, M):
         up = np.cross(d, Y)
         up = up if up[2] > 0 else -up
         R.fc.bar(b, p0, p1, 0.06, 0.22, "galv", up=up, ch=0.004)
-    for i in range(n - 1):
-        x0, z = i * run, (i + 1) * rise
-        bx(b, (x0 + 0.0, -W / 2 + 0.06, z - 0.008), (x0 + run + 0.03, W / 2 - 0.06, z), "plate", ch=0.002, pin=False, axis="y")
+    # the art draws 10 risers of 0.173 over 0.25 m treads (a real scaffold stair) on the data's 5 collider steps of 0.346
+    # (the roof stair does the same: 18 art risers over 8 collider steps); 5 steps of 0.35 read as a ladder of giant steps
+    na, ra, ta = 2 * n, rise / 2, run / 2
+    for i in range(na - 1):
+        x0, z = i * ta, (i + 1) * ra
+        bx(b, (x0 + 0.0, -W / 2 + 0.06, z - 0.008), (x0 + ta + 0.03, W / 2 - 0.06, z), "plate", ch=0.002, pin=False, axis="y")
         bx(b, (x0 + 0.0, -W / 2 + 0.06, z - 0.06), (x0 + 0.06, W / 2 - 0.06, z), "plate", pin=False, axis="y")      # nosing, 6 cm
     for s in (-1, 1):
         y = s * (W / 2 + 0.02)
@@ -47,7 +50,7 @@ def m_flight(ctx, M):
             R.tube(b, (xx, y, z - 0.10), (xx, y, z + 1.0 + 0.02), "galv", TUBE)
             coupler(b, (xx, y, z + 1.0))
     return R.done(ctx, b, "SM_Scaf_Flight_2p4", M, ground=False, expect_size=(None, None, None),
-                  notes="Scaffold stair flight (L5): 5 risers of 0.346 over 2.5 m, 2.4 m wide, plate stringers, checker treads, 6 cm "
+                  notes="Scaffold stair flight (L5): 10 art risers of 0.173 over 2.5 m (the level's 5 collider steps of 0.346), 2.4 m wide, plate stringers, checker treads, 6 cm "
                         "tube rails 1.0 and 0.5. Pivot: foot of the flight, centre line, lower landing level, rising +X.")
 
 

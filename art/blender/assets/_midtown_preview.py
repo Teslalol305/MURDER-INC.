@@ -118,7 +118,20 @@ def place_all(ctx, col):
         ob["mi_placed"] = True
         if e.get("face"):
             set_slot(ob, "M_Sign_MT_Face", face_mat(e["face"]))
-        if e.get("screen"):
+        if e.get("slides"):                                           # N1: one ad per face (the FaceIndex UV)
+            ob.data = ob.data.copy()
+            me = ob.data
+            si = [i for i, m in enumerate(me.materials) if m and m.name.startswith("M_MI_Screen")]
+            fi = me.uv_layers.get("FaceIndex")
+            if si and fi:
+                base = len(me.materials)
+                for key in e["slides"]:
+                    me.materials.append(slide_mat(key, None, STRENGTH["hero"]))
+                for p in me.polygons:
+                    if p.material_index == si[0]:
+                        k = int(fi.data[p.loop_indices[0]].uv[0])
+                        p.material_index = base + min(k, len(e["slides"]) - 1)
+        elif e.get("screen") and e.get("first_slide") or e.get("screen") == "G1":
             sid = e["screen"]
             hero = sid in ("G1", "E1", "E3", "N1")
             key = {"G1": "G1_Takeover"}.get(sid, e.get("first_slide"))
@@ -151,9 +164,89 @@ def box(col, name, x0, x1, y0, y1, z0, z1, m):
     return o
 
 
+def window_grid(name, base, lit=(1.0, 0.80, 0.55), share=0.35, cool=False):
+    """A stand-in facade with a window grid (1.5 x 3.1 m bays): dark wall, dark glass, about `share` of the windows lit
+    warm (or cool for office towers); object coordinates in metres, so every stand-in keeps the storey height."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    p = nt.nodes["Principled BSDF"]
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    br = nt.nodes.new("ShaderNodeTexBrick")
+    br.offset, br.squash = 0.0, 1.0
+    br.inputs["Scale"].default_value = 1.0
+    br.inputs["Mortar Size"].default_value = 0.35
+    br.inputs["Brick Width"].default_value = 1.55
+    br.inputs["Row Height"].default_value = 3.1
+    br.inputs["Color1"].default_value = (1.0, 1.0, 1.0, 1.0)
+    br.inputs["Color2"].default_value = (0.0, 0.0, 0.0, 1.0)
+    br.inputs["Mortar"].default_value = (0.0, 0.0, 0.0, 1.0)
+    mp = nt.nodes.new("ShaderNodeMapping")
+    nt.links.new(tc.outputs["Object"], mp.inputs["Vector"])
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    comb = nt.nodes.new("ShaderNodeCombineXYZ")
+    nt.links.new(mp.outputs[0], sep.inputs[0])
+    add = nt.nodes.new("ShaderNodeMath")
+    add.operation = "ADD"
+    nt.links.new(sep.outputs["X"], add.inputs[0])
+    nt.links.new(sep.outputs["Y"], add.inputs[1])                    # windows run round the corners
+    nt.links.new(add.outputs[0], comb.inputs["X"])
+    nt.links.new(sep.outputs["Z"], comb.inputs["Y"])
+    nt.links.new(comb.outputs[0], br.inputs["Vector"])
+    win = br.outputs["Fac"]
+    noise = nt.nodes.new("ShaderNodeTexWhiteNoise")
+    nt.links.new(comb.outputs[0], noise.inputs["Vector"])
+    snap = nt.nodes.new("ShaderNodeVectorMath")
+    snap.operation = "SNAP"
+    snap.inputs[1].default_value = (1.55, 3.1, 1.0)
+    nt.links.new(comb.outputs[0], snap.inputs[0])
+    nt.links.new(snap.outputs[0], noise.inputs["Vector"])
+    gt = nt.nodes.new("ShaderNodeMath")
+    gt.operation = "LESS_THAN"
+    gt.inputs[1].default_value = share
+    nt.links.new(noise.outputs["Value"], gt.inputs[0])
+    mul = nt.nodes.new("ShaderNodeMath")
+    mul.operation = "MULTIPLY"
+    nt.links.new(gt.outputs[0], mul.inputs[0])
+    nt.links.new(br.outputs["Color"], mul.inputs[1])
+    mix = nt.nodes.new("ShaderNodeMix")
+    mix.data_type = "RGBA"
+    mix.inputs[6].default_value = (*base, 1.0)
+    mix.inputs[7].default_value = (0.012, 0.014, 0.02, 1.0)               # dark glass
+    nt.links.new(br.outputs["Color"], mix.inputs[0])
+    nt.links.new(mix.outputs[2], p.inputs["Base Color"])
+    p.inputs["Roughness"].default_value = 0.6
+    p.inputs["Emission Color"].default_value = (*((0.62, 0.74, 1.0) if cool else lit), 1.0)
+    nt.links.new(mul.outputs[0], p.inputs["Emission Strength"])
+    sc = nt.nodes.new("ShaderNodeMath")
+    sc.operation = "MULTIPLY"
+    sc.inputs[1].default_value = 1.2
+    nt.links.new(mul.outputs[0], sc.inputs[0])
+    nt.links.new(sc.outputs[0], p.inputs["Emission Strength"])
+    return m
+
+
+def night_dome(strength=0.9):
+    """midtown.md 11.1: the 11:52 PM dome, #6a3e5a at the horizon (the square's glow on the haze) to #0b0d18 at the zenith."""
+    w = bpy.context.scene.world
+    for n in w.node_tree.nodes:
+        if n.type == "VALTORGB":
+            els = n.color_ramp.elements
+            while len(els) > 2:
+                els.remove(els[-1])
+            els[0].position, els[0].color = 0.0, (0.010, 0.008, 0.010, 1.0)
+            els[1].position, els[1].color = 1.0, (0.0033, 0.0040, 0.0090, 1.0)     # #0b0d18
+            e = els.new(0.02)
+            e.color = (0.144, 0.048, 0.102, 1.0)                                      # #6a3e5a
+            e = els.new(0.30)
+            e.color = (0.016, 0.012, 0.024, 1.0)
+        if n.type == "BACKGROUND":
+            n.inputs["Strength"].default_value = strength
+
+
 def standins(col):
-    wall = mat.flat("Prev_Mass", (0.07, 0.055, 0.045), 0.85)
-    dark = mat.flat("Prev_Tower", (0.035, 0.037, 0.045), 0.6)
+    wall = window_grid("Prev_Mass", (0.07, 0.055, 0.045), share=0.30)
+    dark = window_grid("Prev_Tower", (0.035, 0.037, 0.045), share=0.45, cool=True)
     road = mat.flat("Prev_WetAsphalt", (0.03, 0.03, 0.032), 0.15)
     walk = mat.flat("Prev_Pavers", (0.10, 0.10, 0.105), 0.3)
     for k, (x0, x1, z0, z1, h) in {"A": (-50, -30, -38, -12, 21.2), "B": (-50, -30, -12, 8, 17.6), "E": (-50, -30, 8, 22, 14.0),
@@ -175,7 +268,8 @@ def standins(col):
 
 def rig(col_rig):
     render.rig_night(lamp=(15.0, 0.0, 9.0), extra_lamps=[(15.0, 18.0, 9.0), (15.0, -18.0, 9.0), (-2.0, -26.0, 8.0), (25.0, 8.0, 8.0)],
-                     lamp_watts=1400.0, sky=3.0)
+                     lamp_watts=1400.0, sky=0.9)
+    night_dome(0.9)
     for o in bpy.data.objects:                                       # the plaza poles are 4000 K LED (11.1)
         if o.type == "LIGHT" and o.name.startswith("Sodium"):
             o.data.temperature = 4000.0
@@ -235,7 +329,7 @@ def render_all(ctx):
     shots = [n for n in ("mt_roofs", "mt_gantry", "mt_square") if want(n)]
     if not shots:
         return
-    for key, s in (("sodium", 6.0), ("led", 8.0)):
+    for key, s in (("sodium", 6.0), ("led", 6.0)):
         mat.principled(ctx.M[key]).inputs["Emission Strength"].default_value = s
     ctx.kit.hide_render = True
     col = scene.collection("PrevMidtown")
@@ -244,7 +338,7 @@ def render_all(ctx):
     rig(scene.collection("Rig"))
     for name in shots:
         render.setup(samples=a.samples, res=(1280, 720))
-        render.look(render.VIEW, render.LOOK_NIGHT, getattr(a, "exposure", None) or 1.6)
+        render.look(render.VIEW, render.LOOK_NIGHT, getattr(a, "exposure", None) or 0.7)
         view(name)
         _p, sec = render.render_jpeg(os.path.join(PV, name + ".jpg"), a.samples)
         ctx.log("preview %s.jpg %.0fs" % (name, sec))

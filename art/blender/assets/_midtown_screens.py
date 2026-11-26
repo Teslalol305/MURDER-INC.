@@ -193,13 +193,34 @@ def m_ledtile(ctx, M):
     face, face toward -Y."""
     b = B(631, step=1.0)
     fr = screen_face(b, 0.0, 2.0, 0.0, 2.0, 0.0)
+    # the module rails sit behind the face (y >= 0.004): the screen side is flush, so a wall of tiles reads as one seamless
+    # screen (no dark line every 2 m to shimmer at render scale 0.50); the bezel is the separate edge pieces round the
+    # outside of each screen (SM_Sign_LEDWall_Edge_H_2m, _V_2m)
     for (za, zb) in ((0.0, 0.06), (1.94, 2.0)):                                                  # module rails, 6 cm
-        bx(b, (0.0, -0.004, za), (2.0, 0.06, zb), "black", pin=False, axis="x")
+        bx(b, (0.0, 0.004, za), (2.0, 0.06, zb), "black", pin=False, axis="x")
     cabinet_backs(b, 0.0, 2.0, 0.0, 2.0, 0.02, cell=1.0, depth=0.14)
     return R.done(ctx, b, "SM_Sign_LEDWall_Tile_2m", M, ground=False, faces=[(SCREEN, fr)], expect_size=(2.0, None, 2.0),
                   notes="LED cabinet module 2 x 2 m: screen face (M_MI_Screen, 0..1 per tile; the MI offsets each tile into its "
                         "screen's slide cell by row and column), back plates, handles, power boxes. E1 12 x 9 tiles, E2a/b 4 x 10, "
                         "E3 10 x 6 (turned 6 degrees apart for the curve), S1 6 x 3. Pivot: bottom-left of the face, face -Y.")
+
+
+def m_ledtile_edge(ctx, M, kind):
+    """The bezel round the outside of a tiled screen, in 2 m pieces: H runs along the bottom and top edges (2.0 x 0.12 m,
+    pivot at its left end on the face's edge line, the strip below the pivot for a bottom piece, rotate 180 about the
+    face normal for the top), V along the sides (0.12 x 2.0 m). Black powder-coat, 0.10 m proud. Face toward -Y."""
+    b = B(632 if kind == "H" else 633, step=1.0)
+    if kind == "H":
+        bx(b, (0.0, -0.10, -0.12), (2.0, 0.06, 0.0), "black", ch=0.006, pin=False, axis="x")
+        size = (2.0, None, 0.12)
+    else:
+        bx(b, (-0.12, -0.10, 0.0), (0.0, 0.06, 2.0), "black", ch=0.006, pin=False, axis="z")
+        size = (0.12, None, 2.0)
+    return R.done(ctx, b, "SM_Sign_LEDWall_Edge_%s_2m" % kind, M, ground=False, expect_size=size,
+                  notes="LED wall bezel, %s piece (outside edge only; the tiles themselves are flush). Pivot on the face plane at "
+                        "the screen's edge: H pieces lie below their pivot (bottom edge; the top edge uses them raised by the "
+                        "screen's height + 0.12), V pieces left of it (left edge; the right edge uses them at the screen's width + "
+                        "0.12)." % ("horizontal" if kind == "H" else "vertical"))
 
 
 def m_ticker(ctx, M):
@@ -239,9 +260,23 @@ def m_towerstack(ctx, M):
     bx(b, (-0.6, -0.6, -2.0), (W + 0.6, 1.4, -0.4), "stone", ch=0.02, axis="x")
     for xx in np.arange(0.5, W, 2.0):                                                            # maintenance light bar
         R.tube(b, (xx, -0.25, -0.3), (xx, -0.25, -0.05), "grey", 0.03)
-    return R.done(ctx, b, "SM_Sign_TowerStack", M, ground=False, faces=faces, expect_size=(None, None, None),
-                  notes="N1, the north tower's stack of three 14 x 8 m screens (art only, beyond z -38): three faces in M_MI_Screen "
-                        "(each 0..1), bezels, side girders, a back truss, a stone base. Pivot: bottom-left of the lowest face, face -Y.")
+    ob = R.done(ctx, b, "SM_Sign_TowerStack", M, ground=False, faces=faces, expect_size=(None, None, None),
+                notes="N1, the north tower's stack of three 14 x 8 m screens (art only, beyond z -38): three faces in M_MI_Screen "
+                      "(each 0..1), bezels, side girders, a back truss, a stone base. The second UV map (FaceIndex: u = 0, 1, 2 "
+                      "from the bottom face up) lets the material show a different slide on each face (the placement's "
+                      "`slides`), so the three screens carry three ads. Pivot: bottom-left of the lowest face, face -Y.")
+    me = ob.data
+    uvf = me.uv_layers.new(name="FaceIndex")
+    data = np.zeros(len(me.loops) * 2, np.float32)
+    for p in me.polygons:
+        if me.materials[p.material_index].name.startswith(SCREEN):
+            zc = sum(me.vertices[v].co.z for v in p.vertices) / len(p.vertices)
+            k = min(2, max(0, int(zc // (H + gap))))
+            for li in p.loop_indices:
+                data[2 * li] = k + 0.5
+    uvf.data.foreach_set("uv", data)
+    return ob
 
 
-PROPS = [m_gantry, m_ledwall, m_billboard, m_ledtile, m_ticker, m_towerstack]
+PROPS = [m_gantry, m_ledwall, m_billboard, m_ledtile, lambda c, M: m_ledtile_edge(c, M, "H"), lambda c, M: m_ledtile_edge(c, M, "V"),
+         m_ticker, m_towerstack]

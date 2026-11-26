@@ -33,15 +33,22 @@ from mi import paths  # noqa: E402
 
 ATLAS = 4096
 PAD = 8
-FD = "/usr/share/fonts"
+# Every font is an OFL face kept in art/blender/fonts (FONTS.md), so a rebuild on any machine draws the same letters.
+FD = os.path.join(os.path.dirname(HERE), "fonts")
 FONT_FILES = {
-    "mt_heavy": FD + "/opentype/inter/InterDisplay-Black.otf",
-    "mt_bold": FD + "/opentype/inter/Inter-Bold.otf",
-    "mt_semi": FD + "/opentype/inter/Inter-SemiBold.otf",
-    "mt_light": FD + "/opentype/inter/Inter-Light.otf",
-    "mt_italic": FD + "/opentype/inter/Inter-Italic.otf",
-    "mt_serif": os.path.join(os.path.dirname(HERE), "fonts", "OldStandard-Bold.ttf"),
-    "mt_script": os.path.join(os.path.dirname(HERE), "fonts", "PinyonScript-Regular.ttf"),
+    "mt_heavy": os.path.join(FD, "InterDisplay-Black.otf"),
+    "mt_bold": os.path.join(FD, "Inter-Bold.otf"),
+    "mt_semi": os.path.join(FD, "Inter-SemiBold.otf"),
+    "mt_light": os.path.join(FD, "Inter-Light.otf"),
+    "mt_italic": os.path.join(FD, "Inter-Italic.otf"),
+    "mt_serif": os.path.join(FD, "OldStandard-Bold.ttf"),
+    "mt_script": os.path.join(FD, "PinyonScript-Regular.ttf"),
+    "mt_anton": os.path.join(FD, "Anton-Regular.ttf"),
+    "mt_bebas": os.path.join(FD, "BebasNeue-Regular.ttf"),
+    "mt_archivo": os.path.join(FD, "ArchivoBlack-Regular.ttf"),
+    "mt_slab": os.path.join(FD, "AlfaSlabOne-Regular.ttf"),
+    "mt_fjalla": os.path.join(FD, "FjallaOne-Regular.ttf"),
+    "mt_passion": os.path.join(FD, "PassionOne-Bold.ttf"),
 }
 sg.FONTS.update(FONT_FILES)           # in-memory only: signs.Canvas.text looks fonts up by key
 DENS = {"billboard": 128, "band": 256, "plaque": 384, "label": 1024}
@@ -236,7 +243,8 @@ def draw_slide(key, S, k=128):
                 m, _w, _s = cv.text(L[2], "mt_script", H * 0.09, W / 2, H * 0.70, max_w=W * 0.6)
                 cv.put(m, rgb(acc))
             else:
-                m, _w, _s = cv.text(L[0], "mt_heavy" if key != "E1_Miravesse" else "mt_serif", H * 0.14, cx, H * 0.40, cond=0.92,
+                m, _w, _s = cv.text(L[0], ("mt_" + S["font"]) if S.get("font") else "mt_heavy" if key != "E1_Miravesse" else "mt_serif",
+                                    H * 0.14, cx, H * 0.40, cond=0.92,
                                     track=0.06, max_w=mw, align=al)
                 cv.put(m, rgb(ink))
                 if len(L) > 1:
@@ -377,7 +385,7 @@ def draw_face(key, F, rng):
     cv = sg.Canvas(W, H, k, rgb(F["field"]))
     ink = rgb(F["ink"])
     sub = rgb(F.get("sub", F["ink"]))
-    font = "mt_serif" if F.get("font") == "serif" else "mt_heavy"
+    font = "mt_" + F["font"] if F.get("font") and "mt_" + F["font"] in FONT_FILES else "mt_heavy"     # each storefront its own type
     L = F["lines"]
     letters = cv.blank()
     kind = F["kind"]

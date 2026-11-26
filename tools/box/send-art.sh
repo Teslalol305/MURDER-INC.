@@ -21,17 +21,27 @@ EXTRA_SETS="TS_Brick_ScanRedCommon TS_Concrete_ScanWeathered TS_Concrete_ScanRou
 case "${1:-}" in
   pack)
     shift
+    # The new levels' art (families chinatown and midtown: SM_*_CT_*, SM_Roof_*, SM_Scaf_*, SM_Sign_LEDWall_*,
+    # SM_Sign_Ticker_4m, SM_Sign_TowerStack, their atlases and placements) is left out unless `--maps` comes first:
+    # the default patterns SM_Facade_*, SM_Prop_* and SM_Sign_* would otherwise carry it into a release's art pack
+    # (MAPS.md lane B; the release in progress must not change). A maps pack: send-art.sh pack --maps 'SM_*_CT_*' ...
+    MAPS=0
+    if [ "${1:-}" = "--maps" ]; then MAPS=1; shift; fi
     [ $# -gt 0 ] || set -- 'SM_El_*' 'SM_Street_*' 'SM_Facade_*' 'SM_Prop_*' 'SM_Gameplay_*' 'SM_Furn_*' 'SM_Struct_*' 'SM_Sign_*' 'SM_Vehicle_*'
-    python3 - "$TAR" "$EXTRA_SETS" "$@" <<'PY' || exit 1
+    python3 - "$TAR" "$EXTRA_SETS" "$MAPS" "$@" <<'PY' || exit 1
 import fnmatch, json, os, sys, tarfile
-out, extra, patterns = sys.argv[1], sys.argv[2].split(), sys.argv[3:]
+out, extra, maps, patterns = sys.argv[1], sys.argv[2].split(), sys.argv[3] == "1", sys.argv[4:]
+MAP_FAMILIES = {"chinatown", "midtown"}
 root = "art/out"
 manifest = json.load(open(os.path.join(root, "manifest.json")))
 files, sets, missing = ["manifest.json"], set(extra), []
 if os.path.isdir(os.path.join(root, "placements")):
-    files += [os.path.join("placements", f) for f in sorted(os.listdir(os.path.join(root, "placements"))) if f.endswith(".json")]
+    files += [os.path.join("placements", f) for f in sorted(os.listdir(os.path.join(root, "placements")))
+              if f.endswith(".json") and (maps or not any(f == "placements_%s.json" % m for m in MAP_FAMILIES))]
 for name, asset in sorted(manifest["assets"].items()):
     if not any(fnmatch.fnmatch(name, p) for p in patterns) or not asset.get("glb"):
+        continue
+    if asset.get("family") in MAP_FAMILIES and not maps:
         continue
     if not os.path.exists(os.path.join(root, asset["glb"])):
         missing.append(asset["glb"]); continue

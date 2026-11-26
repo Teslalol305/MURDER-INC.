@@ -8,6 +8,9 @@ Pure arithmetic: no mesh is built. Coordinates: the web level's (x, y, z) are Bl
 of Blender; yaw = -rotation about Z (degrees). The north facade plane is web z = -33.0 (Blender y = +33.0), facing south,
 so every module stands at rotation 0 on a frame running east from the building's west end, on the sidewalk (0.15 m).
 
+No module is scaled (the review's finding: bricks stretched up to 5 times along end piers and fills): the piers, fills,
+parapet fills, cornice ends and fascias at a building's own widths are Canal modules built at those widths.
+
 Simplifications to settle with lane D's colliders (MAPS.md D3): the six 2.4 x 1.0 m alcoves are a residents' entrance
 (SM_Facade_ResEntry_Red, flat, 2.8 m) at the alcove's x, not yet a 1.0 m recess; the ground storey is the Block's 3.65 m
 (the design says 3.8: the upper floors sit 0.15 m lower); N4's brown brick and N5's green paint use the Block's Red and
@@ -26,27 +29,42 @@ if os.path.dirname(HERE) not in sys.path:
 from assets import _chinatown_names as names  # noqa: E402
 
 BAY, STOREY, GROUND, PIER_W, WIN_SILL = 3.1, 3.1, 3.65, 0.32, 0.60
+PIER_MIN = 0.30                   # a pier at a front's end: at least this wide
 ESC_L = 2.99
 KERB_H = 0.15
 LINE_Y = 33.0                     # Blender y of the north facade plane (web z = -33.0)
-ENDS = {"Red": (0.60, 0.80), "Buff": (0.60, 0.85), "Painted": (0.60,)}
 FRONTS = {"Wide": 6.0, "Narrow": 2.4, "Restaurant": 5.0, "Jewelry": 4.0, "Grocery": 6.0, "Shut": 6.0}
 
-# web x range, storeys, brick, main front, face key (band), alcove centre x (web), fire escape bay (index or None),
-# extras: blades (face key, s from the west end, z), neon (key, s, z), window sign (face key, s, z), awning (length, shop)
+# web x range, storeys, brick, the fronts west and east of the alcove [(front, sign)], the band's face (it hangs over the
+# front marked "band"), alcove centre x, fire-escape bay, and the extras: blades (face, s from the west end, z), window
+# neon, window letters, awnings (front index), stacked sign rails [(s, faces from the bottom up)].
+# Every front carries a sign: the band, a generic lightbox (WATCH REPAIR, KEYS CUT, PHONES) or a painted stall board
+# (ROAST MEAT, FRUIT, VEGETABLES, DRY GOODS, TOFU): the generic words need no name search (tools/names/names.json).
+# One vacancy paper on the whole row (it was eight). No module is scaled: piers, fills, parapet fills, cornice ends and
+# fascias are built at the widths this table needs (needed_widths(), _chinatown_front.m_ct_widths), so no brick is stretched.
 ROW = {
-    "N1": dict(x=(-44.0, -29.0), storeys=6, brick="Painted", front="Wide", band="GoldHits", alcove=-35.0, escape=2,
-               blade=("JadeTeapot", 1.2, GROUND + 0.9)),
-    "N2": dict(x=(-29.0, -15.0), storeys=5, brick="Red", front="Jewelry", band="TwinCarp", alcove=-22.0, escape=None,
-               window=("FarShore", GROUND + 2 * STOREY + 0.95)),
-    "N3": dict(x=(-15.0, -1.0), storeys=5, brick="Buff", front="Restaurant", band="EightTreasure", alcove=-8.0, escape=1,
-               awning=4.0),
-    "N4": dict(x=(-1.0, 13.0), storeys=6, brick="Red", front="Grocery", band="SpringPine", alcove=5.0, escape=None),
-    "N5": dict(x=(13.0, 26.0), storeys=5, brick="Painted", front="Wide", band="LongLife", alcove=20.0, escape=None,
-               neon=("MahjongNeon", 1, GROUND + WIN_SILL + 0.55), awning=6.0),
-    "N6": dict(x=(26.0, 44.0), storeys=7, brick="Red", front="Wide", band="SunnyDay", alcove=31.0, escape=None,
-               blade=("HarborStar", None, GROUND + 1.6)),
+    "N1": dict(x=(-44.0, -29.0), storeys=6, brick="Painted", alcove=-35.0, escape=2, band="GoldHits",
+               fronts=[[("Wide", "band")], [("Jewelry", "KioskWatch")]],
+               blade=("JadeTeapot", 1.2, GROUND + 0.9), rails=[(12.6, ["KioskKeys", "KioskPhones"])]),
+    "N2": dict(x=(-29.0, -15.0), storeys=5, brick="Red", alcove=-22.0, escape=None, band="TwinCarp",
+               fronts=[[("Jewelry", "band")], [("Restaurant", "StallRoast")]],
+               window=("FarShore", GROUND + 2 * STOREY + 0.95), awnings=[1], rails=[(9.0, ["KioskWatch", "KioskNeon"])]),
+    "N3": dict(x=(-15.0, -1.0), storeys=5, brick="Buff", alcove=-8.0, escape=1, band="EightTreasure",
+               fronts=[[("Restaurant", "band")], [("Jewelry", "KioskPhones")]], awnings=[0],
+               rails=[(12.4, ["StallRoast", "KioskKeys"])]),
+    "N4": dict(x=(-1.0, 13.0), storeys=6, brick="Red", alcove=5.0, escape=None, band="SpringPine",
+               fronts=[[("Jewelry", "StallDry")], [("Grocery", "band")]], rails=[(1.4, ["StallTofu", "KioskWatch"])]),
+    "N5": dict(x=(13.0, 26.0), storeys=5, brick="Painted", alcove=20.0, escape=None, band="LongLife",
+               fronts=[[("Restaurant", "band")], [("Jewelry", "StallFruit")]],
+               neon=("MahjongNeon", 1, GROUND + WIN_SILL + 0.55), awnings=[0], rails=[(9.6, ["StallVeg", "KioskPhones"])]),
+    "N6": dict(x=(26.0, 44.0), storeys=7, brick="Red", alcove=31.0, escape=None, band="SunnyDay",
+               fronts=[[("Narrow", "ForLease")], [("Wide", "band"), ("Jewelry", "KioskKeys")]],
+               blade=("HarborStar", None, GROUND + 1.6), awnings=[1], rails=[(6.6, ["KioskWatch", "StallFish"])]),
 }
+
+
+def cm(w):
+    return "%03d" % int(round(w * 100))
 
 
 def rng_seq(key):
@@ -88,59 +106,44 @@ def cells():
     return _CELLS
 
 
-def fill_name(k, p):
-    w = min(ENDS[k], key=lambda v: abs(v - p))
-    return "SM_Facade_Fill_%03d_%s" % (round(w * 100), k), w
-
-
 def ground(key, B, out):
     x0, x1 = B["x"]
     W = x1 - x0
     a0, a1 = B["alcove"] - 1.4 - x0, B["alcove"] + 1.4 - x0
     out.append(entry("SM_Facade_ResEntry_Red", a0, 0.0, 0.0, x0, key, "alcove entrance"))
-    segs = [(0.0, a0), (a1, W)]
-    main = max(segs, key=lambda sg_: sg_[1] - sg_[0])
     shops = []
-    for (s0, s1) in segs:
-        span = s1 - s0
-        mods = []
-        first = B["front"] if (s0, s1) == main else None
-        rest = span - PIER_W
-        if first and FRONTS[first] + PIER_W <= rest + 1e-6:
-            mods.append(first)
-            rest -= FRONTS[first] + PIER_W
-        while rest >= FRONTS["Narrow"] + PIER_W + 0.6:
-            mods.append("Narrow")
-            rest -= FRONTS["Narrow"] + PIER_W
-        if not mods:
-            mods.append("Narrow" if rest >= FRONTS["Narrow"] + 0.2 else None)
-            if mods[0]:
-                rest -= FRONTS["Narrow"] + PIER_W
-        mods = [m for m in mods if m]
-        end = PIER_W + max(rest, 0.0) / 2                          # the leftover goes into the two end piers
+    for (s0, s1), fronts in zip(((0.0, a0), (a1, W)), B["fronts"]):
+        widths = [FRONTS[f] for f, _sg in fronts]
+        n = len(fronts)
+        spare = (s1 - s0) - sum(widths) - (n - 1) * PIER_W
+        assert spare >= 2 * PIER_MIN - 1e-6, (key, fronts, s1 - s0)
+        end = spare / 2                                              # the two end piers take the rest, each built at its width
         s = s0
-        out.append(entry("SM_Facade_Pier_" + B["brick"], s, 0.0, 0.0, x0, key, "pier", scale=end / PIER_W))
+        out.append(entry("SM_Facade_CT_Pier_%s_%s" % (B["brick"], cm(end)), s, 0.0, 0.0, x0, key, "pier"))
         s += end
-        for i, m in enumerate(mods):
-            out.append(entry("SM_Facade_Shopfront_CT_" + m, s, 0.0, 0.0, x0, key, "shop front"))
-            out.append(entry("SM_Facade_CT_Fascia_1m", s, 2.77, 0.0, x0, key, "fascia", scale=FRONTS[m]))
-            shops.append((m, s, FRONTS[m]))
-            s += FRONTS[m]
-            if i < len(mods) - 1:
+        for i, (f, sign) in enumerate(fronts):
+            c = FRONTS[f]
+            out.append(entry("SM_Facade_Shopfront_CT_" + f, s, 0.0, 0.0, x0, key, "shop front"))
+            out.append(entry("SM_Facade_CT_Fascia_" + cm(c), s, 2.77, 0.0, x0, key, "fascia"))
+            shops.append((f, s, c, sign))
+            s += c
+            if i < n - 1:
                 out.append(entry("SM_Facade_Pier_" + B["brick"], s, 0.0, 0.0, x0, key, "pier"))
                 s += PIER_W
-        out.append(entry("SM_Facade_Pier_" + B["brick"], s, 0.0, 0.0, x0, key, "pier", scale=(s1 - s) / PIER_W))
-    # the band: over the main front, centred, in front of the fascia
-    m, s, c = next(sh for sh in shops if sh[0] == B["front"]) if any(sh[0] == B["front"] for sh in shops) else shops[0]
-    F = names.FACES[B["band"]]
-    out.append(entry(F["carrier"], s + c / 2 - F["w"] / 2, 2.76, -0.075 - 0.20, x0, key, "sign band", face=B["band"]))
-    for (m2, s2, c2) in shops:                                       # the other fronts: a shut neighbour's face stays blank
-        if (m2, s2) != (m, s) and m2 == "Narrow":
-            fk = "ForLease" if int(s2) % 2 else "ForRent"                 # a vacant neighbour: a paper sign in its glass
-            out.append(entry(names.FACES[fk]["carrier"], s2 + 0.15, 1.35, -0.09, x0, key, "vacant sign", face=fk))
-    if B.get("awning"):
-        L = B["awning"]
-        out.append(entry("SM_Facade_CT_Awning_Box_%dm" % int(L), s + c / 2 - L / 2, 2.35, 0.0, x0, key, "awning"))
+        out.append(entry("SM_Facade_CT_Pier_%s_%s" % (B["brick"], cm(end)), s, 0.0, 0.0, x0, key, "pier"))
+    for idx, (f, s, c, sign) in enumerate(shops):
+        if sign == "band":
+            F = names.FACES[B["band"]]
+            out.append(entry(F["carrier"], s + c / 2 - F["w"] / 2, 2.76, -0.075 - 0.20, x0, key, "sign band", face=B["band"]))
+        elif sign in ("ForLease", "ForRent"):
+            out.append(entry(names.FACES[sign]["carrier"], s + 0.15, 1.35, -0.09, x0, key, "vacant sign", face=sign))
+        else:
+            F = names.FACES[sign]
+            z = 3.05 if F["kind"] == "kiosk" else 3.10
+            out.append(entry(F["carrier"], s + c / 2 - F["w"] / 2, z, -0.12, x0, key, "shop sign", face=sign))
+        if idx in B.get("awnings", []) and c >= 3.0:
+            L = max(v for v in (3, 4, 6) if v <= c)
+            out.append(entry("SM_Facade_CT_Awning_Box_%dm" % L, s + c / 2 - L / 2, 2.35, 0.0, x0, key, "awning"))
     return shops
 
 
@@ -149,14 +152,13 @@ def uppers(key, B, out):
     W, k = x1 - x0, B["brick"]
     n = int(W // BAY + 1e-6)
     p = (W - n * BAY) / 2
-    fname, fw = fill_name(k, p)
     rnd = rng_seq(key)
     esc = None if B["escape"] is None else p + B["escape"] * BAY + BAY / 2 - ESC_L / 2
     ups = B["storeys"] - 1
     for i in range(ups):
         z = GROUND + i * STOREY
-        out.append(entry(fname, 0.0, z, 0.0, x0, key, "fill", scale=p / fw))
-        out.append(entry(fname, W - p, z, 0.0, x0, key, "fill", scale=p / fw))
+        out.append(entry("SM_Facade_CT_Fill_%s_%s" % (k, cm(p)), 0.0, z, 0.0, x0, key, "fill"))
+        out.append(entry("SM_Facade_CT_Fill_%s_%s" % (k, cm(p)), W - p, z, 0.0, x0, key, "fill"))
         for j in range(n):
             out.append(entry("SM_Facade_BayWindow_" + k, p + j * BAY, z, 0.0, x0, key, "bay"))
             xw = p + j * BAY + BAY / 2
@@ -172,12 +174,10 @@ def uppers(key, B, out):
             elif u < 0.95:
                 out.append(entry("SM_Facade_WindowBlind", xw, z + WIN_SILL, 0.0, x0, key, "blind"))
     zr = GROUND + ups * STOREY
-    cl, cw = min(((v, "SM_Facade_CorniceEnd_L_%03d" % round(v * 100)) for v in (0.25, 0.60, 0.80, 0.85)), key=lambda t: abs(t[0] - p))
-    out.append(entry(cw, 0.0, zr, 0.0, x0, key, "cornice", scale=p / cl))
-    out.append(entry(cw.replace("_L_", "_R_"), W - p, zr, 0.0, x0, key, "cornice", scale=p / cl))
-    pname, pw = fill_name(k, p)
-    out.append(entry(pname.replace("Fill_", "ParapetFill_"), 0.0, zr, 0.0, x0, key, "parapet", scale=p / pw))
-    out.append(entry(pname.replace("Fill_", "ParapetFill_"), W - p, zr, 0.0, x0, key, "parapet", scale=p / pw))
+    out.append(entry("SM_Facade_CT_CorniceEnd_L_" + cm(p), 0.0, zr, 0.0, x0, key, "cornice"))
+    out.append(entry("SM_Facade_CT_CorniceEnd_R_" + cm(p), W - p, zr, 0.0, x0, key, "cornice"))
+    out.append(entry("SM_Facade_CT_ParapetFill_%s_%s" % (k, cm(p)), 0.0, zr, 0.0, x0, key, "parapet"))
+    out.append(entry("SM_Facade_CT_ParapetFill_%s_%s" % (k, cm(p)), W - p, zr, 0.0, x0, key, "parapet"))
     for j in range(n):
         out.append(entry("SM_Facade_Cornice_310", p + j * BAY, zr, 0.0, x0, key, "cornice"))
         out.append(entry("SM_Facade_Parapet_310_" + k, p + j * BAY, zr, 0.0, x0, key, "parapet"))
@@ -198,7 +198,32 @@ def uppers(key, B, out):
     if B.get("window"):
         fk, z = B["window"]
         out.append(entry(names.FACES[fk]["carrier"], p + BAY + BAY / 2 - 1.5, z, -0.12, x0, key, "window sign", face=fk))
+    for s, faces in B.get("rails", []):                               # stacked signs: the Chinatown read in English
+        zr0 = GROUND + 0.35
+        out.append(entry("SM_Facade_CT_StackedSignRail", s, zr0, 0.0, x0, key, "stacked sign rail"))
+        for i, fk in enumerate(faces):
+            F = names.FACES[fk]
+            out.append(entry(F["carrier"], s + 0.45 - F["w"] / 2, zr0 + 0.25 + 1.05 * i, -0.65, x0, key, "stacked sign",
+                             face=fk, rot=90.0))
     return n
+
+
+def needed_widths():
+    """The width-specific modules this table places: {"pier": {(brick, w)}, "fill": ..., "parapet": ..., "cornice": {w},
+    "fascia": {w}} (built by _chinatown_front.m_ct_widths)."""
+    out = assemble()
+    need = {"pier": set(), "fill": set(), "parapet": set(), "cornice": set(), "fascia": set()}
+    for e in out:
+        m = e["mesh"]
+        for tag, pre in (("pier", "SM_Facade_CT_Pier_"), ("fill", "SM_Facade_CT_Fill_"), ("parapet", "SM_Facade_CT_ParapetFill_")):
+            if m.startswith(pre):
+                k, w = m[len(pre):].rsplit("_", 1)
+                need[tag].add((k, int(w) / 100.0))
+        if m.startswith("SM_Facade_CT_CorniceEnd_"):
+            need["cornice"].add(int(m.rsplit("_", 1)[1]) / 100.0)
+        if m.startswith("SM_Facade_CT_Fascia_") and not m.endswith("_1m"):
+            need["fascia"].add(int(m.rsplit("_", 1)[1]) / 100.0)
+    return {k: sorted(v) for k, v in need.items()}
 
 
 def assemble():
@@ -216,9 +241,14 @@ def write_placements(path):
                     "the Canal kit. Unreal centimetres (X east, Y south, Z up), yaw degrees about Z (0 = module as imported), "
                     "optional scale along the module's run (X); blender_m / rot_z_deg are the same in Blender metres. Signs carry "
                     "their face key and atlas cell (uv v-up). See the module docstring for what waits on lane D's colliders.",
-           "buildings": {k: {"x_web": list(B["x"]), "storeys": B["storeys"], "brick": B["brick"], "front": B["front"], "band": B["band"]}
+           "buildings": {k: {"x_web": list(B["x"]), "storeys": B["storeys"], "brick": B["brick"], "fronts": B["fronts"], "band": B["band"]}
                          for k, B in ROW.items()},
-           "count": len(out), "instances": out}
+           "count": len(out), "instances": out,
+           "farProxies": [{"mesh": "SM_Facade_CT_Far_" + k, "building": k, "blender_m": [B["x"][0], LINE_Y, KERB_H],
+                           "location_cm": [round(B["x"][0] * 100, 2), round(-LINE_Y * 100, 2), round(KERB_H * 100, 2)], "yaw": 0.0,
+                           "lodSwitch_m": 30.0,
+                           "use": "the building's LOD1 / HLOD proxy: drawn instead of its modules past lodSwitch_m from the camera"}
+                          for k, B in ROW.items()]}
     with open(path, "w") as f:
         json.dump(doc, f, indent=1)
     return len(out)

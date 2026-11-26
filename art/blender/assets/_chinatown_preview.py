@@ -220,20 +220,24 @@ def market(ctx, a):
     put(K["SM_Sign_CT_Kiosk_1m"], (-5.6, 3.85, 2.4), 0.0, 1.0, col, "ColdRoom")
     for x in (-4.0, -1.0, 2.0, 4.6):
         put(K["SM_Prop_CT_PendantBulb"], (x, -1.5, 2.6), 0.0, 1.0, col)
-    render.rig_night(lamp=(0.0, -1.0, 5.2), lamp_watts=500.0, sky=0.3)
+    render.rig_night(lamp=(0.0, -1.0, 5.2), lamp_watts=300.0, sky=0.3)
+    for o in bpy.data.objects:                                                    # the hall is hard white 5000 K (11.1, 11.3),
+        if o.type == "LIGHT" and o.name.startswith("Sodium"):                    # not the street's sodium
+            o.data.temperature = 5000.0
     rig = scene.collection("Rig")
-    for x in (-4.0, -1.0, 2.0, 4.6):
+    for x in (-4.0, -1.0, 2.0, 4.6):                                              # the stalls' bare bulbs: small warm accents
         L = bpy.data.lights.new("PrevBulb", "POINT")
-        L.energy, L.use_temperature, L.temperature, L.shadow_soft_size = 60.0, True, 3600.0, 0.05
+        L.energy, L.use_temperature, L.temperature, L.shadow_soft_size = 25.0, True, 3600.0, 0.05
         o = bpy.data.objects.new("PrevBulb", L)
         o.location = (x, -1.5, 2.62)
         rig.objects.link(o)
-    for x in (-3.0, 2.0):                                                         # fluorescent rects, 5000 K (11.2)
-        L = bpy.data.lights.new("PrevTube", "AREA")
-        L.shape, L.size, L.size_y, L.energy, L.use_temperature, L.temperature = "RECTANGLE", 1.2, 0.15, 220.0, True, 5000.0
-        o = bpy.data.objects.new("PrevTube", L)
-        o.location = (x, -2.2, 4.6)
-        rig.objects.link(o)
+    for x in (-5.0, -2.0, 1.0, 4.0):                                              # fluorescent rects, 5000 K: the key (11.2)
+        for y in (-2.2, 1.6):
+            L = bpy.data.lights.new("PrevTube", "AREA")
+            L.shape, L.size, L.size_y, L.energy, L.use_temperature, L.temperature = "RECTANGLE", 1.2, 0.15, 260.0, True, 5000.0
+            o = bpy.data.objects.new("PrevTube", L)
+            o.location = (x, y, 4.6)
+            rig.objects.link(o)
     render.look(render.VIEW, render.LOOK_NIGHT, -0.4)
     render.cam_look((-7.5, -7.2, 2.3), (-0.6, 0.8, 0.9), lens=28, name="Cam_Market")
 
@@ -247,20 +251,23 @@ def street(ctx, a):
     wall.data.materials.append(mat.flat("Prev_Brick", (0.16, 0.07, 0.05), 0.85))
     scene.link(wall, col)
     K = ctx.K
-    put(K["SM_Sign_CT_Neon_MoonGate"], (-9.5, 4.0, 3.9), 0.0, 1.0, col)
-    put(K["SM_Sign_CT_Band_6m"], (-10.4, 3.79, 2.7), 0.0, 1.0, col, "MoonGate")
-    put(K["SM_Facade_Shopfront_CT_Wide"], (-10.4, 4.0, 0.0), 0.0, 1.0, col)
-    put(K["SM_Sign_CT_Neon_SilverWave"], (-2.5, 4.0, 3.7), 0.0, 1.0, col)
-    put(K["SM_Facade_Shopfront_CT_Shut"], (-3.4, 4.0, 0.0), 0.0, 1.0, col)
-    put(K["SM_Sign_CT_Arch"], (3.2, 3.8, 3.9), 0.0, 1.0, col, "PlumBlossom")
-    put(K["SM_Sign_CT_Blade_6m"], (8.2, 4.0, 2.6), 0.0, 1.0, col, "JadeTeapot")
-    put(K["SM_Sign_CT_Kiosk_3m"], (3.7, 3.85, 2.4), 0.0, 1.0, col, "CleverHands")
-    put(K["SM_Sign_CT_Neon_Mahjong"], (4.3, 4.0, 5.3), 0.0, 1.0, col)
-    put(K["SM_Sign_CT_Poster_B"], (1.0, 3.99, 1.2), 0.0, 1.0, col, "OperaGala")
-    put(K["SM_Sign_CT_Board"], (9.6, 3.99, 2.9), 0.0, 1.0, col, "LanternAlley")
-    s = put(K["SM_Prop_CT_LanternString_14m"], (-7.0, -1.0, 4.6), 0.0, 1.0, col)
+    # left: the bakery's pink neon over its band and the dub room's half-dead SILVER WAVE over a shut front; right: the
+    # banquet hall's doors under its band, and the level's one lantern string over them only (chinatown.md 4.9), clear
+    # of every neon letter
+    put(K["SM_Sign_CT_Neon_MoonGate"], (-10.2, 4.0, 3.9), 0.0, 1.0, col)
+    put(K["SM_Sign_CT_Band_6m"], (-11.0, 3.79, 2.7), 0.0, 1.0, col, "MoonGate")
+    put(K["SM_Facade_Shopfront_CT_Wide"], (-11.0, 4.0, 0.0), 0.0, 1.0, col)
+    put(K["SM_Sign_CT_Neon_SilverWave"], (-4.0, 4.0, 3.7), 0.0, 1.0, col)
+    put(K["SM_Facade_Shopfront_CT_Shut"], (-4.6, 4.0, 0.0), 0.0, 1.0, col)
+    put(K["SM_Sign_CT_Poster_B"], (1.6, 3.99, 1.2), 0.0, 1.0, col, "OperaGala")
+    put(K["SM_Sign_CT_Band_10m"], (2.6, 3.79, 3.2), 0.0, 1.0, col, "CranePavilion")
+    doors = geo.box((4.0, 0.12, 3.0), bevel=0.01, name="PrevBanquetDoors")       # red lacquer double doors (stand-in)
+    geo.transform(doors, loc=(7.6, 3.95, 0.0))
+    doors.data.materials.append(mat.flat("Prev_RedLacquer", (0.36, 0.03, 0.025), 0.35))
+    scene.link(doors, col)
+    s = put(K["SM_Prop_CT_LanternString_14m"], (0.6, 2.6, 5.4), 0.0, 1.0, col)
     for hx, hy, hz in getattr(ctx, "lantern_hooks", []):
-        put(K["SM_Prop_CT_Lantern"], (-7.0 + hx, -1.0 + hy, 4.6 + hz), 0.0, 1.0, col)
+        put(K["SM_Prop_CT_Lantern"], (0.6 + hx, 2.6 + hy, 5.4 + hz), 0.0, 1.0, col)
     put(K["SM_Prop_CT_ParkBench"], (-6.0, -4.2, 0.0), 0.0, 1.0, col)
     put(K["SM_Prop_CT_CardTable"], (-2.0, -4.0, 0.0), 0.0, 1.0, col)
     for dx, dy in ((-0.6, 0), (0.6, 0), (0, -0.6)):
@@ -277,9 +284,9 @@ def street(ctx, a):
         if o.type == "LIGHT" and o.name.startswith("Sodium"):
             o.data.temperature = 4000.0
     rig = scene.collection("Rig")
-    wash(rig, (-7.4, 3.0, 3.2), "#ff8fc8", 160.0, (6.0, 1.0), (0, -1, -0.5))
-    wash(rig, (-0.7, 3.0, 4.0), "#7fe8ff", 80.0, (3.6, 1.0), (0, -1, -0.5))
-    wash(rig, (5.2, 3.0, 4.2), "#8affd0", 80.0, (4.0, 0.8), (0, -1, -0.5))
+    wash(rig, (-8.0, 3.0, 3.2), "#ff8fc8", 160.0, (6.0, 1.0), (0, -1, -0.5))
+    wash(rig, (-2.2, 3.0, 4.0), "#7fe8ff", 80.0, (3.6, 1.0), (0, -1, -0.5))
+    wash(rig, (7.6, 3.0, 3.6), "#ffe8b0", 90.0, (10.0, 1.0), (0, -1, -0.5))
     render.look(render.VIEW, render.LOOK_NIGHT, -0.3)
     render.cam_look((-1.0, -14.5, 2.6), (0.0, 2.0, 2.6), lens=22, name="Cam_Street")
 

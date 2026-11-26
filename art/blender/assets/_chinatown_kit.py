@@ -10,9 +10,10 @@ import os
 
 import numpy as np
 
+from assets import _chinatown_matlas as matlas
 from assets import facade as fc
 from assets import signs as sg
-from assets.facade import B, bx, rod, sheet
+from assets.facade import B, sheet
 from mi import geo, mat, paths, scene
 
 X, Y, Z = np.eye(3)
@@ -134,6 +135,10 @@ def materials(ctx):
         M["neon" + n_] = sg.neon_mat(n_, h_)
         SLOT_META["MI_Neon_" + n_] = {"workflow": "emissive", "emissive": h_,
                                       "note": "glass tube, 400 .. 2,000 nits at night, x 0.55 by day (ART_BIBLE 5.2)"}
+    M["_atlas"] = matlas.material(ctx)
+    SLOT_META[matlas.SLOT] = {"workflow": "atlas", "set": matlas.SET, "uv": "each face inside one 256 px cell of the 2K page",
+                              "note": "the market and vendor goods atlas (assets/_chinatown_matlas.py): produce, crate plastics, "
+                                      "card, pallet, ice, fish, the vendor fabrics and plastics"}
     M["neonWhite"] = sg.neon_mat("White", "#f4f8ff")
     SLOT_META["MI_Neon_White"] = {"workflow": "emissive", "emissive": "#f4f8ff", "note": "white neon, about 1,200 nits"}
     return M
@@ -141,9 +146,58 @@ def materials(ctx):
 
 # ================================================================================================= helpers
 
+# The flicker floor (chinatown.md 13.4: railings 40 mm or more; READY.md R3 at render scale 0.50): any member longer than
+# MIN_LEN is drawn at least MIN_W across (with the polygon's flat-to-flat allowance). The kit's rods, boxes and bars go
+# through these wrappers, so a detail can never be modelled thinner; _chinatown_check.py tests the result.
+MIN_LEN, MIN_W = 0.6, 0.036
+
+
+def rod(b, p0, p1, r, slot, n=8, **kw):
+    if float(np.linalg.norm(np.asarray(p1, float) - np.asarray(p0, float))) > MIN_LEN - 0.02:
+        r = max(r, (MIN_W / 2) / math.cos(math.pi / max(n, 3)) * 1.02)
+    return _FC_ROD(b, p0, p1, r, slot, n=n, **kw)
+
+
+def bx(b, lo, hi, slot, ch=0.0, pin=True, axis=None, **kw):
+    lo, hi = np.minimum(lo, hi).astype(float), np.maximum(lo, hi).astype(float)
+    d = hi - lo
+    if d.max() > MIN_LEN - 0.02:
+        order = np.argsort(d)
+        if d[order[1]] < MIN_W:                       # long and thin in two directions: a member, not a panel
+            for k in order[:2]:
+                if d[k] < MIN_W:
+                    c = (lo[k] + hi[k]) / 2
+                    lo[k], hi[k] = c - MIN_W / 2, c + MIN_W / 2
+    return _FC_BX(b, lo, hi, slot, ch=ch, pin=pin, axis=axis, **kw)
+
+_FC_ROD, _FC_BX = fc.rod, fc.bx
+
+
+def rod_floor(b, p0, p1, r, slot, n=8, **kw):
+    """rod() for code that calls facade.rod by name (see _chinatown_front.thick_members): the floor, then the original."""
+    if float(np.linalg.norm(np.asarray(p1, float) - np.asarray(p0, float))) > MIN_LEN - 0.02:
+        r = max(r, (MIN_W / 2) / math.cos(math.pi / max(n, 3)) * 1.02)
+    return _FC_ROD(b, p0, p1, r, slot, n=n, **kw)
+
+
+def bx_floor(b, lo, hi, slot, ch=0.0, pin=True, axis=None, **kw):
+    lo, hi = np.minimum(lo, hi).astype(float), np.maximum(lo, hi).astype(float)
+    d = hi - lo
+    if d.max() > MIN_LEN - 0.02:
+        order = np.argsort(d)
+        if d[order[1]] < MIN_W:
+            for k in order[:2]:
+                if d[k] < MIN_W:
+                    c = (lo[k] + hi[k]) / 2
+                    lo[k], hi[k] = c - MIN_W / 2, c + MIN_W / 2
+    return _FC_BX(b, lo, hi, slot, ch=ch, pin=pin, axis=axis, **kw)
+
+
 def bar(b, p0, p1, w, t, slot, up=Z, **kw):
     """facade.bar, with the `up` vector swapped when the bar runs along it (a vertical bar would be degenerate)."""
     d = np.asarray(p1, float) - np.asarray(p0, float)
+    if float(np.linalg.norm(d)) > MIN_LEN and max(w, t) < MIN_W:
+        w = max(w, MIN_W)
     if abs(float(np.dot(d / np.linalg.norm(d), up))) > 0.98:
         up = Y if abs(d[1]) < abs(d[0]) or abs(d[2]) > 0 else X
     return fc.bar(b, p0, p1, w, t, slot, up=up, **kw)
@@ -187,7 +241,7 @@ def crate(b, x0, y0, z0, L, W, H, slot, t=0.008):
             bx(b, (xx, yy, z0), (xx + 0.03, yy + 0.03, z0 + H), slot, pin=False)
 
 
-def fill_fruit(b, rng, x0, y0, z0, L, W, r, slot, layers=2, jit=0.15, seg=6):
+def fill_fruit(b, rng, x0, y0, z0, L, W, r, slot, layers=1, jit=0.15, seg=5):
     n = 0
     for k in range(layers):
         nx, ny = int(L / (2 * r)), int(W / (2 * r))
@@ -201,7 +255,7 @@ def fill_fruit(b, rng, x0, y0, z0, L, W, r, slot, layers=2, jit=0.15, seg=6):
                      z0 + rr + k * r * 1.55)
                 if c[0] + rr > x0 + L + 0.01 or c[1] + rr > y0 + W + 0.01:
                     continue
-                ball(b, rr, c, slot, seg=seg, rings=max(4, seg - 3), squash=(1.0, 1.0, rng.uniform(0.88, 0.98)))
+                ball(b, rr, c, slot, seg=seg, rings=4, squash=(1.0, 1.0, rng.uniform(0.88, 0.98)))
                 n += 1
     return n
 
@@ -223,6 +277,10 @@ def greens(b, rng, x0, y0, z0, L, W, slot_leaf="leaf", slot_stem="stem", n=10):
 
 def done(ctx, b, name, M, ground=True, ledges=(), collision="box", **asset):
     ob = b.finish(name, M, ctx.kit)
+    if name.startswith("SM_Prop_CT_"):
+        # the small surfaces of the market and vendor props go onto the one 2K atlas (chinatown.md 13.5): one slot
+        # for a produce display, two or three for the rest, instead of up to seven flat slots
+        matlas.remap(ob, M, M["_atlas"])
     fc.weather(ctx, b, ob, name, ledges=list(ledges), ground=ground)
     ctx.asset(ob, collision=collision, slots=SLOT_META, **asset)
     ctx.K[name] = ob
@@ -287,28 +345,32 @@ def m_fish_counter(ctx, M):
 
 def m_produce(ctx, M, kind):
     """Sloped produce display: four plastic crates on a timber stand, filled with fruit or greens."""
-    b = B(203 + len(kind))
+    b = B(203 + len(kind), step=0.6)
     rng = ctx.rng("produce", kind)
     L, W = 1.4, 1.0
     bx(b, (-L / 2, -W / 2, 0), (L / 2, W / 2, 0.06), "pallet", pin=False)
     for xx in (-L / 2, L / 2 - 0.06):
         bx(b, (xx, -W / 2, 0.06), (xx + 0.06, W / 2, 0.50), "timber", pin=False)
-    plat = B(204)
+    plat = B(204, step=0.6)
     for j, yy in enumerate((-W / 2, 0.0)):                                                     # two rows, the front one lower
         for i, xx in enumerate((-L / 2 + 0.06, 0.02)):
             z0 = 0.50 + j * 0.16
             slot = ("plasticBlue", "plasticGreen")[(i + j) % 2]
             crate(plat, xx, yy, z0, 0.62, 0.48, 0.20, slot)
+            # the crate reads full from one visible layer on a false bottom (the layers under it are never seen)
             if kind == "Greens" and (i + j) % 2 == 0:
-                greens(plat, rng, xx + 0.02, yy + 0.02, z0 + 0.02, 0.58, 0.44)
+                bx(plat, (xx + 0.02, yy + 0.02, z0 + 0.012), (xx + 0.60, yy + 0.46, z0 + 0.10), "leaf", pin=False)
+                greens(plat, rng, xx + 0.02, yy + 0.02, z0 + 0.10, 0.58, 0.44, n=8)
             else:
                 fr = {"Citrus": ("orange", "yellow")[(i + j) % 2], "Greens": "apple", "Mixed": ("orange", "apple", "yellow", "orange")[i + 2 * j]}[kind]
-                fill_fruit(plat, rng, xx + 0.02, yy + 0.02, z0 + 0.012, 0.58, 0.44, 0.042 if fr != "yellow" else 0.038, fr, layers=2, seg=6)
+                bx(plat, (xx + 0.02, yy + 0.02, z0 + 0.012), (xx + 0.60, yy + 0.46, z0 + 0.09), fr, pin=False)
+                fill_fruit(plat, rng, xx + 0.02, yy + 0.02, z0 + 0.09, 0.58, 0.44, 0.045 if fr != "yellow" else 0.042, fr, layers=1, seg=5)
     bx(b, (-L / 2, -W / 2 - 0.02, 0.06), (L / 2, -W / 2 + 0.02, 0.50), "timber", pin=False)
     fc.sub(b, plat, 0.0, (0, 0, 0))
     return done(ctx, b, "SM_Prop_CT_Produce_" + kind, M, expect_size=(L, None, None), cover_height=0.7,
                 notes="Produce display %s: four plastic crates on a timber stand, the front row lower; fruit as low spheres "
-                      "(flat MI_Produce_* slots). Market aisles, the fruit stand on Mott, the grocery's sidewalk." % kind)
+                      "on a false bottom, one slot: the market and vendor goods atlas M_CT_MarketGoods. Market aisles, the fruit "
+                      "stand on Mott, the grocery's sidewalk." % kind)
 
 
 def m_dry_goods(ctx, M):
@@ -366,7 +428,7 @@ def m_tarp(ctx, M):
 
 def m_pendant(ctx, M):
     b = B(210)
-    rod(b, (0, 0, 1.0), (0, 0, 0.16), 0.004, "rubber", n=6)
+    rod(b, (0, 0, 0.55), (0, 0, 0.16), 0.006, "rubber", n=6)          # a short drop from the stall's frame (under 0.6 m)
     lathe(b, [(0.0, 0.08), (0.03, 0.08), (0.035, 0.12), (0.022, 0.16), (0.0, 0.16)], "black", seg=10)
     ball(b, 0.045, (0, 0, 0.05), "bulb", seg=10, rings=7, squash=(1, 1, 1.2))
     for a in range(6):                                                                         # wire cage
@@ -431,8 +493,8 @@ def m_vendor_table(ctx, M):
     b = B(220)
     L, W, H = 1.8, 0.76, 0.75
     for x in (-L / 2 + 0.06, L / 2 - 0.06):
-        rod(b, (x, -W / 2 + 0.05, 0.0), (x, W / 2 - 0.05, H - 0.04), 0.012, "grey", n=6)
-        rod(b, (x, W / 2 - 0.05, 0.0), (x, -W / 2 + 0.05, H - 0.04), 0.012, "grey", n=6)
+        rod(b, (x, -W / 2 + 0.05, 0.0), (x, W / 2 - 0.05, H - 0.04), 0.02, "grey", n=6)
+        rod(b, (x, W / 2 - 0.05, 0.0), (x, -W / 2 + 0.05, H - 0.04), 0.02, "grey", n=6)
     bx(b, (-L / 2, -W / 2, H - 0.04), (L / 2, W / 2, H), "plastic", ch=0.008)
     xs, zs = np.linspace(-L / 2 - 0.02, L / 2 + 0.02, 37), np.linspace(0.0, 1.0, 9)
     for s in (-1, 1):                                                                           # the cloth's skirt, front and back
@@ -507,7 +569,7 @@ def m_goods(ctx, M, kind):
 def m_umbrella(ctx, M):
     b = B(230)
     R, zr = 1.1, 2.15
-    rod(b, (0, 0, 0.08), (0, 0, zr + 0.12), 0.019, "alu", n=10)
+    rod(b, (0, 0, 0.08), (0, 0, zr + 0.12), 0.024, "alu", n=10)
     lathe(b, [(0.0, 0.0), (0.24, 0.0), (0.24, 0.08), (0.06, 0.10), (0.0, 0.10)], "plastic", seg=14)
     n = 8
     for i in range(n):
@@ -520,7 +582,7 @@ def m_umbrella(ctx, M):
         Fv[..., 1] = rs[:, None] * np.sin(aa)[None, :]
         Fv[..., 2] = zr - 0.42 * (rs[:, None] / R) ** 1.3 + 0.03 * np.sin(np.pi * us)[None, :] * (rs[:, None] / R)
         sheet(b, Fv, 0.003, ("fabricGreen", "fabricWhite")[i % 2], vdir=Z, fdir=X)
-        rod(b, (0, 0, zr - 0.02), (R * math.cos(a0), R * math.sin(a0), zr - 0.425), 0.006, "alu", n=5)
+        rod(b, (0, 0, zr - 0.02), (R * math.cos(a0), R * math.sin(a0), zr - 0.425), 0.018, "alu", n=5)
     return done(ctx, b, "SM_Prop_CT_MarketUmbrella", M, collision="none", cover_height=None,
                 notes="Vendor umbrella 2.2 m across in green and white panels, aluminium pole in a weighted base (red is kept off the "
                       "street's fight backgrounds, chinatown.md 1). Canopy above the nav band; only the base blocks.")
@@ -531,9 +593,9 @@ def m_clothing_rail(ctx, M):
     rng = ctx.rng("rail")
     L = 1.5
     for x in (-L / 2, L / 2):
-        rod(b, (x, 0, 0.05), (x, 0, 1.55), 0.014, "chrome", n=8)
-        rod(b, (x, -0.25, 0.04), (x, 0.25, 0.04), 0.014, "chrome", n=8)
-    rod(b, (-L / 2, 0, 1.55), (L / 2, 0, 1.55), 0.012, "chrome", n=8)
+        rod(b, (x, 0, 0.05), (x, 0, 1.55), 0.02, "chrome", n=8)
+        rod(b, (x, -0.25, 0.04), (x, 0.25, 0.04), 0.02, "chrome", n=8)
+    rod(b, (-L / 2, 0, 1.55), (L / 2, 0, 1.55), 0.02, "chrome", n=8)
     for i in range(14):
         x = -L / 2 + 0.10 + i * (L - 0.2) / 13 + rng.uniform(-0.02, 0.02)
         rod(b, (x, 0, 1.55), (x, 0, 1.47), 0.003, "chrome", n=4)
@@ -573,14 +635,15 @@ def m_lantern_string(ctx, M):
     instances of SM_Prop_CT_Lantern at the hook points (listed in the notes and in signs_chinatown.json)."""
     b = B(241)
     L, sag = 14.0, 0.55
-    xs = np.linspace(0, L, 57)
+    xs = np.linspace(0, L, 21)
     zs = -sag * (1 - ((xs - L / 2) / (L / 2)) ** 2)
-    sg.tube(b, np.stack([xs, np.zeros_like(xs), zs], 1), 0.004, "black", seg=5, closed=False, plane=Y)
+    # a 40 mm sleeved messenger cable, not an 8 mm wire: thin lines crawl at render scale 0.50 (chinatown.md 13.4)
+    sg.tube(b, np.stack([xs, np.zeros_like(xs), zs], 1), 0.026, "black", seg=4, closed=False, plane=Y)
     hooks = []
     for i in range(16):
         x = L * (i + 0.5) / 16
         z = -sag * (1 - ((x - L / 2) / (L / 2)) ** 2)
-        rod(b, (x, 0, z), (x, 0, z - 0.12), 0.0025, "black", n=4)
+        rod(b, (x, 0, z), (x, 0, z - 0.12), 0.006, "black", n=3)
         hooks.append((round(x, 3), 0.0, round(z - 0.12 - 0.65, 3)))
     for x in (0.0, L):
         bx(b, (x - 0.04, -0.04, -0.05), (x + 0.04, 0.04, 0.05), "black", pin=False)
@@ -721,11 +784,11 @@ def m_edging(ctx, M):
 
 def m_fruit_stand(ctx, M):
     """Mott Street fruit stand: a three-step timber display with fruit in boxes, a scale and a price card stand."""
-    b = B(258)
+    b = B(258, step=0.6)      # coarse wear grid: the stand is small and its trays carry the detail
     rng = ctx.rng("fruitstand")
     L, W = 2.4, 1.2
     for i, (yy, z) in enumerate(((-W / 2, 0.55), (-W / 2 + 0.40, 0.80), (-W / 2 + 0.80, 1.05))):
-        bx(b, (-L / 2, yy, 0.0), (L / 2, yy + 0.40, z), "wood", ch=0.006, pin=False)
+        bx(b, (-L / 2, yy, 0.0), (L / 2, yy + 0.40, z), "wood", pin=False)
         for j in range(4):
             x0 = -L / 2 + 0.04 + j * 0.59
             bx(b, (x0, yy + 0.03, z), (x0 + 0.55, yy + 0.37, z + 0.012), "card", pin=False)
@@ -733,9 +796,9 @@ def m_fruit_stand(ctx, M):
                 bx(b, (x0, yy + 0.03 + s * 0.33, z), (x0 + 0.55, yy + 0.04 + s * 0.33, z + 0.10), "card", pin=False)
             fr = ("orange", "apple", "yellow", "orange", "apple", "leaf")[(i * 4 + j) % 6]
             if fr == "leaf":
-                greens(b, rng, x0, yy + 0.04, z + 0.012, 0.55, 0.32, n=6)
+                greens(b, rng, x0, yy + 0.04, z + 0.012, 0.55, 0.32, n=3)
             else:
-                fill_fruit(b, rng, x0 + 0.01, yy + 0.045, z + 0.012, 0.53, 0.31, 0.042, fr, layers=1, seg=6)
+                fill_fruit(b, rng, x0 + 0.01, yy + 0.045, z + 0.012, 0.53, 0.31, 0.052, fr, layers=1, seg=5)
     return done(ctx, b, "SM_Prop_CT_FruitStand", M, cover_height=1.0,
                 notes="Sidewalk fruit stand 2.4 x 1.2 m, three steps of cardboard trays with fruit and greens (under the Mott shed's "
                       "south end, chinatown.md 4.6; S3's grocery front).")
@@ -747,9 +810,9 @@ def m_condenser(ctx, M):
     b = B(260)
     bx(b, (-0.55, -0.45, 0.0), (0.55, 0.45, 0.12), "black", pin=False)
     bx(b, (-0.50, -0.40, 0.12), (0.50, 0.40, 1.20), "galv", ch=0.01)
-    for z in np.arange(0.20, 1.10, 0.05):                                                       # coil fins on the long faces
-        bx(b, (-0.46, -0.41, z), (0.46, -0.40, z + 0.02), "alu", pin=False)
-        bx(b, (-0.46, 0.40, z), (0.46, 0.41, z + 0.02), "alu", pin=False)
+    for z in np.arange(0.20, 1.10, 0.09):                                                       # coil guard bars on the long faces
+        fc.bx(b, (-0.46, -0.43, z), (0.46, -0.40, z + 0.04), "alu", pin=False)
+        fc.bx(b, (-0.46, 0.40, z), (0.46, 0.43, z + 0.04), "alu", pin=False)
     lathe(b, [(0.0, 1.20), (0.36, 1.20), (0.36, 1.26), (0.0, 1.26)], "black", seg=16)
     for a in range(5):
         t = a * 2 * math.pi / 5

@@ -17,6 +17,9 @@ Checks (each prints PASS or FAIL with the evidence; the script exits 1 on any FA
                  facade kit in the shared manifest; every sign placed with a face has its cell
   8 block        facade.py, signs.py and place_buildings.py are unchanged against the branch head (the A0 rule: the Block's
                  outputs byte for byte)
+  9 thin         (--build) no loose member longer than 0.6 m is thinner than 34 mm across (chinatown.md 13.4's 40 mm
+                 railings with the hexagon's flat-to-flat allowance): flicker at render scale 0.50
+ 10 views        the north row's triangles in worst view 1 with the far proxies (chinatown.md 14: at most 1.5 M, aim 1.1 M)
 """
 import json
 import os
@@ -86,6 +89,19 @@ def check_build():
             print("    %s: %d triangles, budget %d" % (name, t, cap))
     report(errs == 0, "validation", "%d assets, %d failing" % (len(ctx.assets), errs))
     report(over == 0, "budgets", "%d over budget" % over)
+    # thin members: chinatown.md 13.4 (railings 40 mm or more; no thin steel on the critical-path sight lines). A loose part
+    # longer than 0.6 m must be 34 mm or more across (a 40 mm tube with the hexagon's flat-to-flat allowance): thinner
+    # lines crawl at render scale 0.50 (READY.md R3)
+    from assets._midtown_check import thin_members
+    thin = {}
+    for name, a in ctx.assets.items():
+        tm = thin_members(a["ob"], min_w=0.034, min_len=0.6)
+        if tm:
+            thin[name] = tm[:3]
+    for k, v in thin.items():
+        print("    %s: %s" % (k, v))
+    report(not thin, "thin", "no loose member longer than 0.6 m is thinner than 34 mm across (%d assets)" % len(ctx.assets)
+           if not thin else "%d assets with thin members" % len(thin))
 
 
 def check_outputs():
@@ -136,6 +152,22 @@ def check_outputs():
            % (pl["count"], len({e["mesh"] for e in pl["instances"]}), unknown or 0, noface or 0))
 
 
+def check_views():
+    """chinatown.md 14: worst view 1 (Canal St from the start, looking east) at most 1.5 M triangles drawn, aim 1.1 M. The
+    north row is the only part placed so far, so its share must leave room for the south row, the vehicles and the
+    road: it passes at 0.55 M or less with the far proxies (half the aim)."""
+    from assets import _chinatown_lod as lod
+    try:
+        full, prox, rows = lod.view_triangles()
+    except (OSError, KeyError) as e:
+        report(False, "views", "cannot measure: %s" % e)
+        return
+    for b, r in rows.items():
+        print("    %s: %s" % (b, r))
+    report(prox <= 550000, "views", "worst view 1, north row: %d triangles with every module at LOD0, %d with the far proxies past "
+           "%.0f m (budget 1.5 M, aim 1.1 M for the whole view; the north row's share at most 0.55 M)" % (full, prox, lod.LOD_SWITCH))
+
+
 def check_block():
     repo = os.path.dirname(os.path.dirname(BLENDER_DIR))
     files = ["art/blender/assets/facade.py", "art/blender/assets/signs.py", "art/blender/place_buildings.py",
@@ -153,6 +185,7 @@ if __name__ == "__main__":
         check_build()
     else:
         check_outputs()
+        check_views()
     check_block()
     print("ALL CHECKS PASS" if not FAILS else "FAILED: %s" % ", ".join(FAILS))
     sys.exit(1 if FAILS else 0)

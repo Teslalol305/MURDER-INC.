@@ -30,14 +30,24 @@ from mi import paths  # noqa: E402
 ATLAS = 4096
 PAD = 8
 DENS = {"band": 256, "blade": 256, "kiosk": 256, "arch": 256, "board": 512, "poster": 512, "placard": 512, "street": 512}
+# Every font is an OFL face kept in art/blender/fonts (FONTS.md), so a rebuild on any machine draws the same letters.
+FD = os.path.join(os.path.dirname(HERE), "fonts")
 FONT_FILES = {
-    "ct_heavy": "/usr/share/fonts/opentype/inter/InterDisplay-Black.otf",
-    "ct_bold": "/usr/share/fonts/opentype/inter/Inter-Bold.otf",
-    "ct_street": "/usr/share/fonts/opentype/inter/Inter-SemiBold.otf",
-    "ct_marker": "/usr/share/fonts/truetype/crosextra/Carlito-Bold.ttf",
-    "ct_serif": os.path.join(os.path.dirname(HERE), "fonts", "OldStandard-Bold.ttf"),
+    "ct_heavy": os.path.join(FD, "InterDisplay-Black.otf"),
+    "ct_bold": os.path.join(FD, "Inter-Bold.otf"),
+    "ct_street": os.path.join(FD, "Inter-SemiBold.otf"),
+    "ct_marker": os.path.join(FD, "Kalam-Bold.ttf"),
+    "ct_serif": os.path.join(FD, "OldStandard-Bold.ttf"),
+    "ct_anton": os.path.join(FD, "Anton-Regular.ttf"),
+    "ct_bebas": os.path.join(FD, "BebasNeue-Regular.ttf"),
+    "ct_archivo": os.path.join(FD, "ArchivoBlack-Regular.ttf"),
+    "ct_slab": os.path.join(FD, "AlfaSlabOne-Regular.ttf"),
+    "ct_fjalla": os.path.join(FD, "FjallaOne-Regular.ttf"),
+    "ct_kalam": os.path.join(FD, "Kalam-Bold.ttf"),
+    "ct_passion": os.path.join(FD, "PassionOne-Bold.ttf"),
+    "ct_carlito": os.path.join(FD, "Carlito-Bold.ttf"),
 }
-FONT_KEY = {"heavy": "ct_heavy", "bold": "ct_bold", "street": "ct_street", "marker": "ct_marker", "serif": "ct_serif"}
+FONT_KEY = {k[3:]: k for k in FONT_FILES}
 sg.FONTS.update(FONT_FILES)          # in-memory only: signs.Canvas.text looks fonts up by key
 
 
@@ -120,19 +130,27 @@ def cell_px(F):
 
 def stacked(cv, F, ink):
     """Blade letters stacked top to bottom, one word group per line, a dot between groups."""
+    st = names.STYLE.get(F.get("_key"), {})
     letters = []
     for gi, (text, _c, _y, font) in enumerate(F["lines"]):
+        font = st.get("fonts", (font,))[0]
         if gi:
-            letters.append(("·", font))
-        letters += [(ch, font) for ch in text if ch != " "]
-    n = len(letters)
+            letters.append(("·", font, 1.0))
+        for wi, word in enumerate(text.split()):
+            if wi:
+                letters.append((" ", font, 0.55))      # the space between words reads on a blade: DIM SUM, not DIMSUM
+            letters += [(ch, font, 1.0) for ch in word]
     rim = 0.11 * F["w"]
     usable = F["h"] - 2 * rim - 0.06
-    step = usable / n
+    step = usable / sum(w for _c, _f, w in letters)
     cap = min(step * 0.74, (F["w"] - 2 * rim) * 0.70)
     mask = cv.blank()
-    for i, (ch, font) in enumerate(letters):
-        cy = rim + 0.03 + step * (i + 0.5)
+    pos = 0.0
+    for ch, font, wgt in letters:
+        cy = rim + 0.03 + step * (pos + wgt / 2)
+        pos += wgt
+        if ch == " ":
+            continue
         m, _w, _s = cv.text(ch, FONT_KEY[font], cap if ch != "·" else cap * 0.5, F["w"] / 2, cy,
                             max_w=(F["w"] - 2 * rim) * 0.86)
         mask = np.maximum(mask, m)
@@ -141,12 +159,26 @@ def stacked(cv, F, ink):
 
 
 def lines(cv, F, ink, sub_ink=None, wobble=0.0, rng=None):
+    """The face's lines in its own style (names.STYLE): fonts, alignment, a condensed or wide set, so the street's
+    signs read as many sign-makers' work, not one template."""
+    st = names.STYLE.get(F.get("_key"), {})
+    fonts = st.get("fonts")
+    align = st.get("align", "c")
     mask = cv.blank()
-    inner = F["w"] - 2 * max(0.10 * F["h"], 0.03) - 0.06
+    inner = F["w"] - 2 * max(0.10 * F["h"], 0.03) - 0.06 - (0.9 * F["h"] if st.get("orn") == "badge" else 0.0) \
+        - (0.95 if st.get("orn", "coins") == "coins" and F["kind"] == "band" else 0.0) - (0.5 if st.get("orn") == "bars" else 0.0)
     for i, (text, cap, cy, font) in enumerate(F["lines"]):
-        cond = 0.86 if font == "heavy" else 0.94
-        m, _w, _s = cv.text(text, FONT_KEY[font], cap * F["h"], F["w"] / 2, cy * F["h"], cond, 0.02 if font == "heavy" else 0.05,
-                            max_w=inner)
+        if fonts:
+            font = fonts[min(i, len(fonts) - 1)]
+        cap = cap * st.get("cap", 1.0) if i == 0 else cap
+        if i and st.get("orn") in ("border", "stripe"):
+            cy -= 0.035 if st.get("orn") == "border" else -0.02     # clear the painted border; sit under the stripe
+        cond = st.get("cond", 0.86 if font == "heavy" else 0.94)
+        x = F["w"] / 2
+        if align == "l":
+            x = max(0.10 * F["h"], 0.03) + 0.06 + (0.9 * F["h"] if st.get("orn") == "badge" else 0.0)
+        m, _w, _s = cv.text(text, FONT_KEY[font], cap * F["h"], x, cy * F["h"], cond, 0.02 if font == "heavy" else 0.05,
+                            max_w=inner, **({"align": "l"} if align == "l" else {}))
         if wobble and rng is not None:                                    # marker on card: a hand-drawn wobble
             im = Image.fromarray((m * 255).astype(np.uint8)).rotate(float(rng.uniform(-2.5, 2.5)), Image.BICUBIC)
             m = np.asarray(im, np.float32) / 255.0
@@ -174,7 +206,26 @@ def draw(key, F, rng):
         cv.put(cv.rect(ki, ki, F["w"] - ki, F["h"] - ki, r=0.02, outline=0.010), ink)            # printed keyline
         cv.put(cv.rect(ki + 0.025, ki + 0.025, F["w"] - ki - 0.025, F["h"] - ki - 0.025, r=0.015, outline=0.005), ink, 0.7)
         letters = lines(cv, F, ink, sub)
-        if kind == "band":                                                                       # end ornaments: coin and lattice
+        st = names.STYLE.get(F.get("_key"), {})
+        orn = st.get("orn", "coins")
+        if kind == "band" and orn == "bars":                                                     # end bars in the accent colour
+            acc = sg.paint(st.get("accent", F.get("sub") or F["ink"]))
+            for x0 in (ki + 0.06, F["w"] - ki - 0.06 - 0.18 * F["h"]):
+                bar_m = cv.rect(x0, ki + 0.05, x0 + 0.18 * F["h"], F["h"] - ki - 0.05, r=0.01)
+                cv.put(bar_m, acc)
+                letters = np.maximum(letters, bar_m)
+        elif kind == "band" and orn == "stripe":                                                 # a stripe under the name
+            acc = sg.paint(st.get("accent", F.get("sub") or F["ink"]))
+            strip = cv.rect(ki + 0.05, F["h"] * 0.655, F["w"] - ki - 0.05, F["h"] * 0.695, r=0.005)
+            cv.put(strip, acc)
+        elif kind == "band" and orn == "badge":                                                  # a square badge at the left end
+            acc = sg.paint(st.get("accent", F.get("sub") or F["ink"]))
+            bm = cv.rect(ki + 0.05, ki + 0.05, ki + 0.05 + 0.80 * F["h"], F["h"] - ki - 0.05, r=0.02)
+            cv.put(bm, acc)
+            letters = np.maximum(letters, bm)
+        elif kind == "band" and orn == "border":                                                 # a heavy painted border
+            cv.put(cv.rect(ki + 0.04, ki + 0.04, F["w"] - ki - 0.04, F["h"] - ki - 0.04, r=0.03, outline=0.03), ink)
+        if kind == "band" and orn == "coins":                                                    # end ornaments: coin and lattice
             for xs in (ki + 0.22, F["w"] - ki - 0.22):
                 cy, r = F["h"] * 0.40, F["h"] * 0.17
                 ring = cv.draw(lambda d, kk: d.ellipse([(xs - r) * kk, (cy - r) * kk, (xs + r) * kk, (cy + r) * kk], outline=255,
@@ -184,7 +235,7 @@ def draw(key, F, rng):
                 cv.put(np.maximum(ring, sq), ink)
                 letters = np.maximum(letters, np.maximum(ring, sq))
         clean = cv.c.copy()
-        rough = 0.28 + sg.weather_face(cv, rng, 0.9, bugs=int(60 * F["w"]), crack=False)
+        rough = 0.28 + sg.weather_face(cv, rng, 0.9 * st.get("wear", 1.0), bugs=int(60 * F["w"] * st.get("wear", 1.0)), crack=st.get("wear", 1.0) > 1.4)
         frame = frame_mask(cv, fw)
         cv.put(frame, sg.paint("#1b1c20"))
         rough = np.where(frame > 0.5, 0.55, rough)
@@ -194,7 +245,7 @@ def draw(key, F, rng):
         cv.put(cv.rect(rim * 0.8, rim * 0.8, F["w"] - rim * 0.8, F["h"] - rim * 0.8, r=0.03, outline=0.012), ink, 0.8)
         letters = stacked(cv, F, ink)
         clean = cv.c.copy()
-        rough = 0.30 + sg.weather_face(cv, rng, 0.8, top_fade=0.15, bugs=int(40 * F["h"]))
+        rough = 0.30 + sg.weather_face(cv, rng, 0.8 * names.STYLE.get(F.get("_key"), {}).get("wear", 1.0), top_fade=0.15, bugs=int(40 * F["h"]))
     elif kind == "board":
         n = sg.vnoise(rng, cv.H, cv.W, cv.k * 0.05)
         cv.c = cv.c * (0.90 + 0.10 * n[..., None])                                              # brush strokes along the board
@@ -244,6 +295,7 @@ def build_atlases(seed=0, log=print):
     cells = {}
     for key, F in names.FACES.items():
         rng = np.random.default_rng(sum(map(ord, key)) * 7919 + seed)
+        F = dict(F, _key=key)
         c, r, e = draw(key, F, rng)
         p, x, y = where[key]
         w, h = sizes[key]
@@ -283,7 +335,8 @@ def build_atlases(seed=0, log=print):
                     emissive_day=0.3, cells=mine, fill=round(used, 3),
                     albedo_mean=[round(float(v), 4) for v in lin.reshape(-1, 3).mean(0)],
                     roughness_mean=round(float(RO[p].mean()), 3), metallic_mean=0.0,
-                    fonts=sorted({os.path.basename(FONT_FILES[FONT_KEY[t[3]]]) for F in names.FACES.values() for t in F["lines"]}),
+                    fonts=sorted({os.path.basename(FONT_FILES[FONT_KEY[f]]) for k, F in names.FACES.items() for t in F["lines"]
+                                  for f in [t[3]] + list(names.STYLE.get(k, {}).get("fonts", ()))}),
                     note="Canal Street sign faces, English only, invented names (assets/_chinatown_names.py). The MI of a placed "
                          "sign maps the carrier's 0..1 face UVs to its cell (uv, v up).")
         with open(os.path.join(d, "set.json"), "w") as f:

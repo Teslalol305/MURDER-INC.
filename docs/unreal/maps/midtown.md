@@ -13,6 +13,29 @@ DECISIONS.md 2026-11-25 ~21:40), after the guns-and-fixes release. It must meet 
 guidance (objective line, hints, marker, ground path), clean menus, enemy deaths, weapons and attachments. The staged build
 plan and its lanes are in [../MAPS.md](../MAPS.md).
 
+**Revision 4 (fix pass after the lane review, 2026-11-26).** Changes the level data, its checker and the art made
+after the review (each also in the level file's meta.deviationsFromDesign or its checks):
+
+- **A jump adds 1.0 m to every fall** (MIPlayerRules takes the peak fall speed): a drop is free only at 3.02 m or less.
+  D1 lands on THE LOFTLARK's raised timber deck on D and D2 on a steel dunnage platform on E, both 0.6 m with a 0.3 m
+  step on their open sides, so each is 3.0 m (was 3.6 m: about 6 damage jumped). The scaffold's shed deck is 3.0 m
+  (D3a 2.35, D3b 3.0). The Stand's top tier and the booth's back wall carry edge guards on their north and side edges
+  (3.2 m over the plaza). The checker tests take-off plus 1.0 m.
+- **Breakers keep every open ground line in the square under 45 m (section 10), and a check proves it.** The
+  premiere's unit base supplies them: two broadcast trucks, a cable truck, production and talent trailers, a catering
+  truck, a staging and a satellite truck, light towers, the press walls, a tent, booths, a sound tower and truss
+  towers, with the street furniture, crowd barriers, W 46 St and the rooftop dressing of section 15 (613 colliders).
+- **Rack x9** is in the scaffold head's east corner (-3.7, 14.0, 15.0), 5.5 m from the gantry door north (it was 1.7 m).
+- **The arriving truck blocks the nav from the start.** Its colliders are not noNav: the bake stamps the stop spot
+  (plain roadway) so the finale's pursuers never path into the truck; the box world takes them on arrival (17.10).
+- **Legs (6.5):** start to Reel 7 is 42.5 m and Reel 8 to Reel 9 135 m as walked (the steel stair and the scaffold's
+  eight flights counted short here); the rating times (330 s, 480 s) are re-timed in the grey box. Waived in the level
+  file until then.
+- **Art:** the tiled LED screens are flush (the bezel is only round each screen's outside: no seam every 2 m); N1's
+  three faces show three ads (a FaceIndex UV); the scaffold flights draw 10 risers of 0.173 m over the data's 5 collider
+  steps; the thin-member check runs at the 6 cm floor (5.5 cm measured across an octagon); the storefronts and slides
+  use several OFL faces kept in art/blender/fonts.
+
 **Revision 2 (lead review, 2026-11-25).** The two design reviews found three must-fix problems in this level, and this
 revision resolves them with the should-fix items worth doing:
 
@@ -292,14 +315,15 @@ by mistake.
 - Bridges and planks have playerOnly side rails to 1.2 m over the deck.
 - The gantry's front guard runs from the deck to the underside of the LED wall (14.0 to 16.2). Its ends rise to 17.0.
 - The scaffold tower's outer faces are playerOnly from the street to 15.0, except the shed-hop opening at the 5.35 landing.
-- The only deliberate drops are the three below. Each is 3.6 m or less and takes no damage. A test checks every authored
+- The only deliberate drops are the three below. Each is 3.0 m or less and takes no damage even when jumped (revision
+  4: a jump adds its 1.0 m apex to the fall; the threshold is 4.02 m). A test checks every authored
   drop and walks the rest of the edges (section 19).
 
 | Drop | From | To | Height | Use |
 |---|---|---|---|---|
-| D1 | C south edge, parapet gap x -24..-22 at z -4 (17.6) | D roof (14.0) at about (-23, 14.0, -3) | 3.6 | Shortcut from Reel 7 to D, one way |
-| D2 | B south edge, gap x -48..-46 at z 8 (17.6) | E roof (14.0) | 3.6 | Flank, one way |
-| D3 | Scaffold south landing at 5.35, onto the shed roof (3.2), then off the shed's east edge to the roadway (0) | | 2.15, then 3.2 | Skips the last three flights |
+| D1 | C south edge, parapet gap x -24..-22 at z -4 (17.6) | THE LOFTLARK's raised deck on D (14.6, x -27.7..-18.5, z -3.7..3.0, a 0.3 step round its open sides) | 3.0 | Shortcut from Reel 7 to D, one way |
+| D2 | B south edge, gap x -48..-46 at z 8 (17.6) | the dunnage platform on E (14.6, x -49.7..-43.5, z 8.3..14.5, a 0.3 step) | 3.0 | Flank, one way |
+| D3 | Scaffold south landing at 5.35, onto the shed roof (3.0), then off the shed's east edge to the roadway (0) | | 2.35, then 3.0 | Skips the last three flights |
 
 ### 5.3 Traversal links (every way between walk levels)
 
@@ -364,7 +388,8 @@ the gantry. So everything in this level keys on the **id** or on "all in", never
 - **When the last reel is secured**, whichever it is: the radio line "rolling up on Forty-Sixth", the hero screens turn
   to IPX (12.2), and the truck pulls in from beyond the west bound along W 46 St over 5 s, headlights sweeping the
   south end of the plaza, and stops at (20.0, 0, 29.0), rotationY 0 (nose east). It is a presentation move: the truck's
-  colliders (owner kind `truck`, `noNav`) join the box world when it stops, and nothing it passes is pushed. The IPX
+  colliders (owner kind `truck`; revision 4: not noNav, so the bake blocks the stop spot on the nav from the start and
+  pursuers never path into it) join the box world when it stops, and nothing it passes is pushed. The IPX
   marker appears with it, as on every level.
 - The zone is behind its rear doors at (14.6, 0, 29.0), radius 2.5, code IPX, label IPX truck, zone w46: the Block's
   offset, truck x minus 5.4. Unreal: zone (1460, 2900, 0) r 250; truck (2000, 2900, 0) yaw 0.
@@ -570,7 +595,7 @@ where noted.
 | x6 | propane | r1 | (-22.0, 14.0, 10.0) | 0 | THE LOFTLARK's patio heater tank |
 | x7 | rack | r1 | (-16.0, 14.0, 19.0) | 0 | D, roof repair |
 | x8 | propane | r1 | (-40.0, 14.0, 18.5) | 0 | E |
-| x9 | rack | r1 | (-6.6, 14.0, 12.6) | 1.5708 | gantry south end, at the scaffold head (12.6 m from Reel 8) |
+| x9 | rack | r1 | (-3.7, 14.0, 15.0) | 1.5708 | the scaffold head, the top landing's east corner (revision 4: 5.5 m from the gantry door north; it was 1.7 m) |
 | x10 | propane | street | (12.0, 0.15, 6.0) | 0 | food cart (plaza) |
 | x11 | propane | street | (18.5, 0.15, -12.0) | 0 | food cart (plaza) |
 | x12 | propane | street | (21.0, 0.15, -20.5) | 0 | the premiere's generator by the Stand (8.9 m from x11: no chain) |
@@ -1018,7 +1043,7 @@ The item codes in brackets are MAPS.md's lanes and items.
 | 17.7 | Per-level `tuning` merged over config (E7): buzzard.maxAltitude, flow.rating.time, presentation startPitch, difficulty `waveAdd` / `pursuitBudgetAdd` / `maxAliveAdd`, `spawn.excludePlayerRoom` (E8) | Enemies/MIEnemyTune.cpp, Flow/MIGameRules.cpp, MIGameSubsystem.cpp 51-66 | No tuning block: config as now |
 | 17.8 | Per-level text overlay `frontend.story.<level>.*` with fallback to text.json (E5) | Flow/MIFlowRules.cpp FMIText, UI/MIHUD.cpp 344-348 | Falls back to text.json: same strings, Golden.Directors unchanged |
 | 17.9 | Per-level rig and audio zones (E4, E6, L1): `night_midtown` from atmos_midtown.json, audio_midtown.json; `times: ["night"]` honoured per level | MIGameSubsystem.cpp ~180-212, Audio/MIAudioData.cpp | Day rig, global audio zones |
-| 17.10 | Extraction arrival (E10): with `extraction.arrival: "afterAll"`, the truck is hidden and its colliders (owner kind `truck`, `noNav`) are out of the box world until all reels are in; then the 5 s roll-in, the colliders join, the zone goes live; no refusal before | Flow/MIGameRules.cpp UpdateExtraction 675-694, World/MITruck.cpp, World/MIBoxWorld.cpp | No `arrival`: the idling truck and the refusal as now |
+| 17.10 | Extraction arrival (E10): with `extraction.arrival: "afterAll"`, the truck is hidden and its colliders (owner kind `truck`, not noNav: the nav keeps the stop spot blocked from the start) are out of the box world until all reels are in; then the 5 s roll-in, the colliders join, the zone goes live; no refusal before | Flow/MIGameRules.cpp UpdateExtraction 675-694, World/MITruck.cpp, World/MIBoxWorld.cpp | No `arrival`: the idling truck and the refusal as now |
 | 17.11 | Screen director (E11, presentation only): MPC slides from props_midtown.json; listens to `objective:secured` by id (reel8) and to all reels in | new AMIScreenDirector | Not spawned on the Block |
 | 17.12 | Guidance over the route graph (G2, G3) when the level has nav layers above the street: nearest unsecured reel, hysteresis, step marks, hints by id, the marker's height | the PLAY.md lane's guidance code | Block path unchanged |
 | 17.13 | Art builder (A0, B1): build_block.py becomes build_level.py --level <id>; facade.py and place_buildings.py take per-level tables; mi_greyblock_map.py --level midtown → L_GreyMidtown | Content/Python, art/blender, tools/box/block.sh | `--level block` reproduces L_Block exactly, proved by a dump-and-diff |

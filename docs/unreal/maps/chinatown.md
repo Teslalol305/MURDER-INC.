@@ -4,6 +4,32 @@ Status: design for the three-map release (DECISIONS.md 2026-11-25 ~21:40). Nothi
 level designer's brief. It is meant for whoever writes the level data and its generator, the art lane (Blender and
 the box), the gameplay/C++ lane and the lead. The staged build plan and the lanes are in [../MAPS.md](../MAPS.md).
 
+**Revision 4 (fix pass after the lane review, 2026-11-26).** The level data, its checker and the art were reviewed
+against this design; these changes follow (each also in the level file's meta.deviationsFromDesign or its checks):
+
+- **A jump adds 1.0 m to every fall.** MIPlayerRules takes the peak fall speed, so a drop taken with a jump falls 1.0 m
+  more: a drop is free only at 3.02 m or less. The Mott shed deck is 3.0 m (was 3.2): R1 2.7 m, R2 3.0 m. The yard
+  parapet over the stair's upper flight (its top 3.2 m over the treads) has an edge guard. The checker tests take-off
+  plus 1.0 m (section 17 check 4).
+- **Player-only gaps are 1.0 m.** A gap of 1.0 m or less is closed to Goon nav at every grid alignment (0.5 m cells,
+  0.5 m inflate) and still passes the player's 0.64 m capsule; a 1.4 m gap was closed only by where the cells fell.
+  The market side door is z -2.7..-1.7.
+- **Explosives keep 4 m from doorways too**, and the checker tests it: propane 1 and 2 with their stall at the market's
+  corner pier (x -24.4), propane 6 at x 7.2, rack 14 in the workshop's back corner (37.1, -9.4), rack 15 out of the
+  arcade (its 7.5 m blast covered the whole 3.2 m exit) to the Square's east side (42.4, 10.5).
+- **The clutter is data.** The street furniture, alley and yard props, vendor goods and the map edges of 14.1 are
+  colliders in the layout (tools/levels/layouts/chinatown.py), so the grey box is built with its cover. Sight lines
+  are a check: no open line over 81 m (the 77 m start-to-truck line between nav cells) and none over 45 m along the
+  south sidewalk, the protected lane; the garment rails turned across it, the tall shop displays, the vendor racks
+  (bags to 1.9 m) and the newsstands make it so.
+- **Route tie, leg 4.** The roll-up at z 24..27 is north of the partition door, not south (north is -z), so the premise
+  of 7.2 does not hold. With Reel 6 at x 22.2 the intended way out is 6 % shorter than the best route avoiding the
+  partition door; the guidance keeps its drawn route until another is 10 % shorter (MAPS.md G4, path hysteresis).
+- **The roof has a way down in the guidance.** Canal carries the route graph (MAPS.md G2): the yard stair both ways and
+  the kitchen-roof drop onto the shed and off it (down only).
+- **Art budgets as 13.2 says**, with two rows added: the box awnings (2-6k) and the far facade proxies (12k). The north
+  row's worst-view load is measured (14).
+
 **Revision 2 (lead review, 2026-11-25).** Two design reviews found four must-fix problems across the three designs, two
 of them in this level, and several should-fix ones. This revision resolves them:
 
@@ -205,13 +231,13 @@ flowchart LR
   canal -- "door 2 m" --> bakery[Bakery front + kitchen]
   canal -- "kerb" --> mott[Mott St<br/>10 m wide]
   canal -- "arcade mouth 4 m" --> arcade[Plum Blossom Arcade<br/>+ neon workshop]
-  market -- "side door 1.4 m (player only)" --> alleyA
+  market -- "side door 1.0 m (player only)" --> alleyA
   market -- "rear roll-up 4 m" --> yard[Market yard]
   yard --> alleyB[Lantern Alley B]
   yard -- "switchback stair (nav link in step B)" --> roof[(Market roof 5.7 m, nav layer 'roof')]
   roof -- "0.3 m curb" --> kroof[(Kitchen roof 5.7 m)]
   roof -- "B0 bulkhead door 2 m (roof Goons' spawn)" --> roof
-  kroof -. "parapet gap, drop 2.5 m" .-> shed[(Sidewalk shed deck 3.2 m)]
+  kroof -. "parapet gap, drop 2.7 m" .-> shed[(Sidewalk shed deck 3.0 m)]
   shed -. "missing panel, drop 3.05 m" .-> mott
   alleyA -- "dog-leg" --> alleyB
   alleyB --> mott
@@ -231,7 +257,7 @@ flowchart LR
 ## 4. The spaces
 
 Every opening that Goons must use is at least **2.0 m** wide. With the 0.5 m inflate, that leaves at least one
-free column of nav cells. Player-only gaps are 1.4 m. Every step the player climbs is at most 0.42 m: risers are
+free column of nav cells. Player-only gaps are 1.0 m (revision 4: closed to Goon nav at every grid alignment). Every step the player climbs is at most 0.42 m: risers are
 0.219, the stage is 0.40, the plinth 0.30, kerbs 0.15 and the roof curb 0.30.
 
 Every drop the level invites is at most **4.0 m**. Falls hurt: config.json `player.fall` deals (landing speed − 13)
@@ -285,7 +311,7 @@ The guard blocks movement only, so shots and sight pass. The authored drops are 
   boxes and styrofoam from the market, cardboard bales, trash bags, kitchen exhaust fans, bare bulkhead lamps, wet
   concrete.
 - Alley A has a dumpster at x -29.9..-28.3, z -9..-7.2 and a stack of crates at x -27.6..-26, z 4..5.4. The market
-  side door (1.4 m, player only) is at z -2.9..-1.5 in the market's west wall. Restaurant back doors and three fire
+  side door (1.0 m, player only) is at z -2.7..-1.7 in the market's west wall. Restaurant back doors and three fire
   escapes are on W1's east face, as dressing.
 - **The dog-leg** is at x -30..-26, z 10..14. Alley A ends visually in the S1 wall, so alley B opens only when
   you reach the corner. A stencilled arrow "MOTT ST →" and a lit kitchen door mark the turn (section 7.3).
@@ -301,7 +327,7 @@ slab whose top is the walkable roof at **5.7 m**. The floor is concrete at y 0. 
 **Openings:**
 
 - Three Canal entrances with roll gates up, each 4 m wide and 3.4 m tall: x -22..-18, -15..-11 and -8..-4.
-- A side door to alley A, 1.4 m (player only).
+- A side door to alley A, 1.0 m (player only).
 - A rear roll-up to the yard at x -7..-3 (4 m).
 - The east wall (x -0.4..0, a party wall with the bakery) has no door. A door there would give a second route of
   almost equal length to Mott and make the drawn path flip.
@@ -357,8 +383,8 @@ slab whose top is the walkable roof at **5.7 m**. The floor is concrete at y 0. 
 
 | Drop | From | To | Height | Landing speed | Damage |
 |---|---|---|---|---|---|
-| R1 | the kitchen roof's parapet gap (x 8, z 2..5, y 5.7) | the sidewalk shed deck on the bakery's Mott face (4.6, top 3.2) | 2.5 m | 10.2 m/s | 0 |
-| R2 | the shed deck's missing plywood panel (x 10, z 2..5, y 3.2) | the Mott west sidewalk (0.15) or the roadway (0) | 3.05 to 3.2 m | 11.3 to 11.6 m/s | 0 |
+| R1 | the kitchen roof's parapet gap (x 8, z 2..5, y 5.7) | the sidewalk shed deck on the bakery's Mott face (4.6, top 3.0) | 2.7 m | 10.6 m/s (12.5 jumped) | 0 |
+| R2 | the shed deck's missing plywood panel (x 10, z 2..5, y 3.0) | the Mott west sidewalk (0.15) or the roadway (0) | 2.85 to 3.0 m | 10.9 to 11.2 m/s (13.0 jumped) | 0 |
 | | the mid landing of the stair (2.85), over its rail | the yard (0) | 2.85 m | 10.9 m/s | 0 (the rail is guarded anyway) |
 
 A sprint off the shed lands on the parked van (roof 2.0 m) or on the roadway; both are free.
@@ -568,10 +594,14 @@ Legs 3 and 4 each have a second route of similar length:
 The layout makes the intended route clearly shorter:
 
 - The market has no east door.
-- The roll-up sits at z 24..27, south of the reel's partition door.
+- The roll-up sits at z 24..27, which is north of the reel's partition door (z 26..28; north is -z), so it does not
+  make leg 4 longer (revision 4). Reel 6 moves to x 22.2, toward the partition door: the intended way out is 6 %
+  shorter than the best route avoiding the partition door (out the roll-up, across the Square and through the arcade).
 
-The generator must check that each intended leg is **at least 10 % shorter** than the best route that avoids it
-(section 17). If the guidance lane adds hysteresis to the path, the margin can be smaller.
+The generator checks that each intended leg is **at least 10 % shorter** than the best route that avoids it (section
+17, a gate). Leg 3 passes (25 %). Leg 4 is waived in the level file (`guide.waivers`) on the guidance's path
+hysteresis, MAPS.md G4: the drawn route is kept until another is 10 % shorter, so the line cannot flip inside the dub
+room.
 
 ### 7.3 Where players get lost, and the fix
 
@@ -712,12 +742,12 @@ level explosive i. Each item owns one collider.
 | i | type | web pos (x, y, z) | zone | interior | Where and why |
 |---|---|---|---|---|---|
 | 0 | propane | (-32.6, 0.15, -14.6) | canal | false | dumpling cart outside W1 |
-| 1 | propane | (-16.6, 0.15, -14.6) | canal | false | fried-snack stall at the market pier, a pair with 2 |
-| 2 | propane | (-16.6, 0.15, -15.45) | canal | false | as 1. It is about 7 m from Reel 4 (the Block's first pair is 9 m from Reel 1). |
+| 1 | propane | (-24.4, 0.15, -14.6) | canal | false | fried-snack stall at the market's corner pier, a pair with 2 (revision 4: 4.4 m from the west gate) |
+| 2 | propane | (-24.4, 0.15, -15.45) | canal | false | as 1. It is about 14 m from Reel 4. |
 | 3 | propane | (-3.0, 0.15, -32.6) | canal | false | EIGHT TREASURE BBQ kitchen tanks, a pair with 4, next to alcove c4 |
 | 4 | propane | (-2.15, 0.15, -32.6) | canal | false | as 3 |
 | 5 | propane | (24.0, 0.15, -32.6) | canal | false | LONG LIFE NOODLE HOUSE, next to alcove c6 |
-| 6 | propane | (6.6, 0.15, -14.6) | canal | false | bakery front, roasted-nut cart |
+| 6 | propane | (7.2, 0.15, -14.6) | canal | false | bakery front, roasted-nut cart (revision 4: 4.3 m from the bakery door) |
 | 7 | propane | (-13.0, 0, 4.9) | market | true | stockroom, between pallets |
 | 8 | propane | (-0.9, 0, -11.2) | market | true | fish-counter boiler, NE corner |
 | 9 | propane | (-8.6, 0, 9.3) | market | false | yard gas cage, a pair with 10, next to the rear roll-up |
@@ -725,8 +755,8 @@ level explosive i. Each item owns one collider.
 | 11 | propane | (-26.5, 0, 8.0) | alley | false | alley A, a restaurant's back door at B0 |
 | 12 | rack | (-17.0, 0, 13.4) | market | false | alley B, a sign hanger's torch rack against S1 |
 | 13 | propane | (9.0, 0.15, -1.0) | mott | false | bakery kitchen's Mott door |
-| 14 | rack | (37.0, 0.15, -8.4) | mott | true | the neon workshop |
-| 15 | rack | (33.0, 0.15, -12.0) | mott | true | arcade, the sign-repair kiosk (the arcade narrows to 3.2 m here) |
+| 14 | rack | (37.1, 0.15, -9.4) | mott | true | the neon workshop, its back corner (revision 4: 4.1 m from the door) |
+| 15 | rack | (42.4, 0.15, 10.5) | mott | false | the Square's east side, a sign hanger's torch rack by the hoop fence (revision 4: out of the arcade, whose 3.2 m exit its 7.5 m blast covered) |
 | 16 | propane | (21.8, 0.15, 10.0) | mott | false | Square, hot-pot cart by the card tables |
 | 17 | propane | (41.8, 0.15, 30.8) | mott | true | banquet kitchen |
 
@@ -939,6 +969,9 @@ fallback triangles.
 |---|---|---|---|
 | SM_Facade_Shopfront_CT_{Wide, Narrow, Restaurant, Jewelry, Grocery} | 5 generic modules | 6-15k | Not one module per shop: the sign is a separate actor from the sign atlas, so 14 shops need 5 meshes. Roll gates are reused. |
 | SM_Facade_CT_WindowGrille, CT_StackedSignRail | 2 | 1-3k | Security grilles on low windows; the steel rail that carries the stacked signs |
+| SM_Facade_CT_Awning_Box_{3,4,6}m | 3 | 2-6k | Box awnings over the fronts (revision 4: the row was missing) |
+| SM_Facade_CT_{Pier, Fill, ParapetFill, CorniceEnd, Fascia}_<width> | as the row needs | 0.1-6k | The Block's parts built at each building's own width, so no module is scaled and no brick stretched (revision 4) |
+| SM_Facade_CT_Far_<building> | 6 (N1..N6) | 12k | A building's merged, reduced facade (HLOD-style), drawn past 30 m (revision 4: the north row was 1.2 M triangles placed) |
 | Sign carriers: SM_Sign_CT_Blade_4m / 6m / 12m, SM_Sign_CT_Band_{6,8,10}m, SM_Sign_CT_Arch (arcade), SM_Sign_CT_RooftopFrame (market letters) | 9 | 2-12k | Faces in the atlases (13.5). Exposed-neon English letters are tubes generated from font outlines, 6-sided tube profile, at most 12k per sign. |
 | Market hall shell: walls, roof slab, parapets, skylights, rooftop gravel | 1 set | 40k total | Fitted to the colliders (structures.py's measuring step) |
 | Market stall counter (2 m), fish counter with ice tray, produce crate stack, dry-goods sacks and bins, styrofoam boxes, hanging stall board, tarp, pendant bulb cage, fish tank, hanging scale, hand truck | 11 | 1-6k | Instanced (ISM) |
@@ -1042,9 +1075,15 @@ is final:
 
 ### 13.4 Rules for this level's art
 
-- **Fonts.** The art bible allows OFL or Apache type only (ART_BIBLE 5.6). English only, so no CJK font is needed:
-  Inter Display Black and Inter Bold / SemiBold (OFL) for the signs, Old Standard Bold (OFL, in art/blender/fonts) for the
-  painted and banquet serif, Carlito Bold (OFL) for the marker placards with a hand-drawn wobble pass in PIL.
+- **Fonts.** The art bible allows OFL or Apache type only (ART_BIBLE 5.6). English only, so no CJK font is needed.
+  Revision 4: one typeface for every sign read as a template, so each face has its own lettering (the `STYLE` table of
+  assets/_chinatown_names.py: font, layout, ornament, accent, wear), from OFL faces kept in art/blender/fonts
+  (FONTS.md): Anton, Bebas Neue, Archivo Black, Alfa Slab One, Fjalla One, Passion One and Inter for the lightboxes,
+  Old Standard for the painted serif, Kalam for the hand-painted stall boards and the marker placards. Stacked blades
+  keep a gap between words (JADE TEAPOT · DIM SUM).
+- **Thin members.** Every member longer than 0.6 m is at least 36 mm across in the kit (the 40 mm railing rule with the
+  tube's flat-to-flat allowance; _chinatown_check.py tests 34 mm): the lantern string is a 52 mm sleeved cable, the
+  umbrella ribs, rails and table legs 36 to 48 mm.
 - **Fire escapes and flicker.** Thin steel flickers at render scale 0.50 (READY.md R3). The rules:
   - 10 stacks in all, 2 in the start view;
   - railings at least 40 mm thick;

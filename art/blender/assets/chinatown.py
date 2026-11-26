@@ -38,13 +38,14 @@ FAMILY = {"name": "chinatown",
 
 OUT = os.path.join(paths.out, "chinatown")
 
-# Triangle budgets per asset (chinatown.md 13.2, the upper end of each range; SM5 draws LOD0 / the Nanite fallback).
+# Triangle budgets per asset: chinatown.md 13.2, the upper end of each range (SM5 draws LOD0 / the Nanite fallback). The
+# awnings and the far facade proxies have their rows in 13.2 since revision 4.
 BUDGET = {
     "SM_Facade_Shopfront_CT_": 15000, "SM_Facade_CT_WindowGrille": 3000, "SM_Facade_CT_StackedSignRail": 3000,
-    "SM_Facade_CT_Fascia": 3000, "SM_Facade_CT_Awning": 8000, "SM_Sign_CT_Neon_": 12000, "SM_Sign_CT_RooftopFrame": 40000,
-    "SM_Sign_CT_": 12000, "SM_Prop_CT_StallCounter": 6000, "SM_Prop_CT_FishCounter": 6000, "SM_Prop_CT_Produce": 12000,
-    "SM_Prop_CT_FruitStand": 12000, "SM_Prop_CT_Lantern": 1500, "SM_Prop_CT_LanternString": 1500, "SM_Prop_CT_Goods": 8000,
-    "SM_Prop_CT_EBike": 6000, "SM_Prop_CT_": 6000,
+    "SM_Facade_CT_Fascia": 3000, "SM_Facade_CT_Awning": 6000, "SM_Sign_CT_Neon_": 12000, "SM_Sign_CT_RooftopFrame": 12000,
+    "SM_Sign_CT_": 12000, "SM_Prop_CT_StallCounter": 6000, "SM_Prop_CT_FishCounter": 6000, "SM_Prop_CT_Produce": 6000,
+    "SM_Prop_CT_FruitStand": 6000, "SM_Prop_CT_Lantern": 600, "SM_Prop_CT_LanternString": 600, "SM_Prop_CT_Goods": 6000,
+    "SM_Prop_CT_EBike": 6000, "SM_Prop_CT_": 6000, "SM_Facade_CT_Far_": 12000, "SM_Facade_CT_": 6000,
 }
 
 
@@ -67,6 +68,8 @@ def build(ctx):
     for f in kit.PROPS:
         f(ctx, M)
     front.build_front(ctx, M)
+    from assets import _chinatown_lod as lod
+    lod.build_far_proxies(ctx)
     tris = {n: geo.stats(o)["triangles"] for n, o in ctx.K.items()}
     ctx.log("%d assets, %d triangles in all, largest %s (%d)" % (len(tris), sum(tris.values()), max(tris, key=tris.get), max(tris.values())))
     return [a["ob"] for a in ctx.assets.values()]
@@ -98,14 +101,14 @@ def write_lane_files(ctx, entries):
            "texture_sets_new": ["Sign_CT_Atlas1"], "texture_sets_reused": sorted(s for s in ctx.sets if s.startswith("TS_")),
            "atlas": {"name": "Sign_CT_Atlas1", "resolution": atlas["resolution"], "faces": len(atlas["cells"]), "fill": atlas["fill"]},
            "rules": {"english_only": True, "strings_checked": names.check_english(), "real_marks": "none (IPX is not on this level's signs)",
-                     "names_searched": False}}
+                     "names_searched": "2026-11-26 (docs/unreal/maps/names.md); owner sign-off pending"}}
     with open(os.path.join(OUT, "manifest_chinatown.json"), "w") as f:
         json.dump(man, f, indent=1, sort_keys=True)
     signs = {"about": "Every word on a Canal Street sign (English only, invented names; assets/_chinatown_names.py) with its atlas "
                       "cell. A placed sign = its carrier mesh + an MI of M_Sign_CT_Face with the atlas textures and the cell's uv "
                       "rect (v up: uv' = uv * (u1 - u0, v1 - v0) + (u0, v0)); glow = the colour of its sign-wash light.",
              "faces": atlas["cells"], "neon": names.NEON, "other": names.OTHER_TEXT, "decal_text_not_built": names.DECAL_TEXT,
-             "business_names": names.business_names(), "names_status": "invented, not yet searched (MAPS.md C1)",
+             "business_names": names.business_names(), "names_status": "invented; searched 2026-11-26 (MAPS.md C1, docs/unreal/maps/names.md), the colliding ones replaced; owner sign-off pending",
              "lantern_hooks_m": getattr(ctx, "lantern_hooks", None)}
     with open(os.path.join(OUT, "signs_chinatown.json"), "w") as f:
         json.dump(signs, f, indent=1, sort_keys=True)

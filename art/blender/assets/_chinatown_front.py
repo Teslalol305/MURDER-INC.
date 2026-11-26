@@ -17,9 +17,24 @@ import numpy as np
 
 from assets import facade as fc
 from assets import signs as sg
-from assets._chinatown_kit import SLOT_META, absorb, bar, done, lathe, rod
-from assets.facade import BAND0, BULK, DOOR_W, HEAD, B, bx, sheet
+from assets._chinatown_kit import SLOT_META, absorb, bar, bx, done, lathe, rod
+from assets.facade import BAND0, BULK, DOOR_W, HEAD, B, sheet
 from mi import geo
+
+
+class thick_members:
+    """While the Block's own door and glazing helpers draw a CT shop front, their rods and boxes go through the Canal
+    kit's flicker floor (members over 0.6 m at least 36 mm across). facade.py itself is not changed, so the Block's
+    outputs stay byte for byte."""
+
+    def __enter__(self):
+        from assets import _chinatown_kit as kit
+        self.saved = (fc.rod, fc.bx)
+        fc.rod, fc.bx = kit.rod_floor, kit.bx_floor
+        return self
+
+    def __exit__(self, *a):
+        fc.rod, fc.bx = self.saved
 
 X, Y, Z = np.eye(3)
 
@@ -119,10 +134,13 @@ def m_shopfront(ctx, M, name):
     else:
         gate_up(b, 0.0, c, BAND0)
         if d0 > 0.05:
-            fc.glazing(b, 0.0, d0, HEAD - 0.32, bulk)
+            with thick_members():
+                fc.glazing(b, 0.0, d0, HEAD - 0.32, bulk)
         if c - d0 - DOOR_W > 0.05:
-            fc.glazing(b, d0 + DOOR_W, c, HEAD - 0.32, bulk)
-        fc.shop_door(b, d0, HEAD - 0.32)
+            with thick_members():
+                fc.glazing(b, d0 + DOOR_W, c, HEAD - 0.32, bulk)
+        with thick_members():
+            fc.shop_door(b, d0, HEAD - 0.32)
         bx(b, (0, -0.12, HEAD - 0.32), (c, 0.02, BAND0 - 0.30), "trim", ch=0.004, axis="x", pin=False)
         if name == "Restaurant":                                                                             # roast-meat rail
             rod(b, (d0 + DOOR_W + 0.15, 0.25, 1.95), (c - 0.15, 0.25, 1.95), 0.012, "chrome", n=6)
@@ -412,18 +430,18 @@ def m_rooftop_letters(ctx, M):
     """GOLDEN TIDE MARKET in open-face pan letters with gold neon inside, on a steel frame on the market's north parapet."""
     w, h, Dl, t = 12.0, 1.5, 0.11, 0.004
     z0 = 1.6
-    b = B(395)
-    loops, (FV, FF), ink_left, sc = sg.layout_line("GOLDEN TIDE MARKET", "heavy", 1.0, 0.84, 0.06, w, h, 0.5, w - 0.4, step=0.045)
+    b = B(395, step=0.6)      # coarse wear grid on the 12 m rails and the letter backs
+    # outlines resampled every 0.10 m and a 4-sided tube: 12k triangles at most (chinatown.md 13.2, sign carriers 2-12k)
+    loops, (FV, FF), ink_left, sc = sg.layout_line("GOLDEN TIDE MARKET", "heavy", 1.0, 0.84, 0.06, w, h, 0.5, w - 0.4, step=0.10)
     lift = lambda P: P + np.array([0.0, z0])
     for P in loops:
         Ni = sg.ink_normals(P, ink_left)
         Pin = P + Ni * t
         Nout = np.column_stack([-Ni[:, 0], np.zeros(len(P)), -Ni[:, 1]])
         sg.strip(b, sg.to3(lift(P), 0.0), sg.to3(lift(P), Dl), "trim", Nout)
-        sg.strip(b, sg.to3(lift(Pin), 0.0), sg.to3(lift(Pin), Dl - t), "trim", -Nout)
-        sg.strip(b, sg.to3(lift(P), 0.0), sg.to3(lift(Pin), 0.0), "trim", np.tile([0, -1.0, 0], (len(P), 1)))
+        # (the return's 4 mm inner wall and lip are never seen from the street: not modelled)
         Q = lift(P + Ni * 0.03)
-        sg.tube(b, sg.to3(Q, 0.05), 0.0065, "neonGold", seg=5)
+        sg.tube(b, sg.to3(Q, 0.05), 0.0065, "neonGold", seg=4)
     FV2 = np.asarray(FV) + np.array([0.0, z0])
     sg.fill(b, FV2, FF, Dl - t, "black", front=True)
     sg.fill(b, FV2, FF, Dl, "trim", front=False)
@@ -445,12 +463,61 @@ def m_rooftop_letters(ctx, M):
     return ob
 
 
+def m_ct_widths(ctx, M):
+    """The north row's modules at the widths its own buildings need (_chinatown_place.needed_widths()): end piers, upper
+    fills, parapet fills, cornice ends and fascias. The Block's kit has a few fixed widths and the first placements
+    stretched them up to 5 times along their run, so the brick stretched with them (the tiling UVs are in metres); these
+    are built with the Block's own parts and materials at the exact width, so every brick is the scan's size. facade.py
+    is not changed (its outputs stay byte for byte)."""
+    from assets import _chinatown_place as place
+    need = place.needed_widths()
+    Mb = fc.materials(ctx)
+    Mx = dict(M)
+    Mx.update({k: v for k, v in Mb.items() if k.startswith("brick") or k in ("stone", "grey")})
+    out = []
+    cm = place.cm
+    for k, w in need["pier"]:
+        b = fc.B(11)
+        fc.bx(b, (0, -fc.PIER_OUT, 0), (w, fc.T, fc.GROUND), "brick", ch=0.006, axis="z")
+        fc.bx(b, (0, -fc.PIER_OUT - 0.025, 0), (w, 0.0, 0.24), "stone", ch=0.010, axis="x")
+        out.append(fc.done(ctx, b, "SM_Facade_CT_Pier_%s_%s" % (k, cm(w)), Mx, k, wear=dict(ground=True), collision="box",
+                           expect_size=(w, None, fc.GROUND),
+                           notes="Canal shop-front end pier %.2f m wide (the Block's pier at this building's width: no scaling)." % w))
+    for k, w in need["fill"]:
+        b = fc.B(43)
+        fc.bx(b, (0, 0, 0), (w, fc.T, fc.STOREY), "brick", axis="z")
+        out.append(fc.done(ctx, b, "SM_Facade_CT_Fill_%s_%s" % (k, cm(w)), Mx, k, collision="box", expect_size=(w, fc.T, fc.STOREY),
+                           notes="Plain brick end pier of an upper storey, %.2f m (built at the width, not scaled)." % w))
+    for k, w in need["parapet"]:
+        b = fc.B(43)
+        fc.parapet_parts(b, w)
+        out.append(fc.done(ctx, b, "SM_Facade_CT_ParapetFill_%s_%s" % (k, cm(w)), Mx, k,
+                           wear=dict(ledges=[(-1.0, w + 1.0, 0.90, 0.9)]), collision="box", expect_size=(w, 0.38, 0.97),
+                           notes="Parapet over an end pier, %.2f m (built at the width, not scaled)." % w))
+    for w in need["cornice"]:
+        for end in ("L", "R"):
+            b = fc.B(51)
+            fc.cornice_parts(b, w, end)
+            out.append(fc.done(ctx, b, "SM_Facade_CT_CorniceEnd_%s_%s" % (end, cm(w)), Mx, expect_size=(w, None, None),
+                               notes="Pressed-metal cornice end piece %.2f m (%s) with console, built at the width." % (w, end)))
+    for w in need["fascia"]:
+        b = B(319, step=0.5)
+        bx(b, (0.0, -0.06, 0.0), (w, 0.30, 0.88), "trim", axis="x", pin=False)
+        bx(b, (0.0, -0.075, 0.02), (w, -0.06, 0.86), "trim", ch=0.002, axis="x", pin=False)
+        fc.belt(b, 0.0, w, 0.70)
+        out.append(done(ctx, b, "SM_Facade_CT_Fascia_" + cm(w), M, ground=False, collision="box", expect_size=(w, None, None),
+                        ledges=[(0.0, w, 0.70, 0.6)],
+                        notes="Fascia strip over a %.1f m Canal shop front (2.77 to 3.65 m), built at the width." % w))
+    return out
+
+
 def build_front(ctx, M):
     from assets import _chinatown_names as names
     out = []
     for n in SHOPFRONTS:
         out.append(m_shopfront(ctx, M, n))
     out.append(m_fascia(ctx, M))
+    out += m_ct_widths(ctx, M)
     out.append(m_grille(ctx, M))
     out.append(m_sign_rail(ctx, M))
     for L, slot in ((3.0, "fabricGreen"), (4.0, "fabricGreen"), (6.0, "fabricGreen")):

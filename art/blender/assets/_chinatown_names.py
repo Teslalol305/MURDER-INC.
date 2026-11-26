@@ -11,8 +11,9 @@ the game and does not appear on this level's signs. No phone numbers, no web add
 geometry along the letter outlines (no texture). `check_english()` fails on any character outside printable ASCII
 plus the few typographic marks listed in ALLOWED, so a CJK character can never slip into a face or a mesh.
 
-Name status: every name is invented and NOT YET SEARCHED against real New York businesses, brands and trade dress
-(MAPS.md lane C, item C1). The atlases are redrawn from this table when a name changes.
+Name status: every name is invented and was searched on 2026-11-26 (MAPS.md lane C, item C1; docs/unreal/maps/names.md);
+the four that collided with real businesses were replaced. The owner's sign-off on names.md is still to come. The
+atlases are redrawn from this table when a name changes.
 """
 
 ALLOWED = set(" !&'(),-./0123456789:?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz$#+·→")
@@ -143,6 +144,47 @@ FACES = {
                         carrier="SM_Sign_CT_StreetBlade", where="corners (plain green blade, no agency mark)"),
     "StreetMott": dict(kind="street", w=0.9, h=0.2, field="#1b6b3a", ink="#ffffff", lines=[("MOTT ST", 0.56, 0.52, "street")],
                        carrier="SM_Sign_CT_StreetBlade", where="corners (plain green blade, no agency mark)"),
+}
+
+# Each face's lettering, so the street reads as many sign-makers' work over many years, not one template
+# (_chinatown_atlas.lines): fonts (headline, sub-line; OFL faces in art/blender/fonts), alignment ("l" or centre),
+# ornament ("coins" lattice coins, "bars" accent bars at the ends, "stripe" under the name, "badge" a square at the left,
+# "border" a heavy painted border, "none"), accent colour, wear (1 = as drawn, more is older and dirtier), cap
+# (headline cap height x), cond (horizontal scale of the set).
+STYLE = {
+    "GoldHits": dict(fonts=("anton", "bold"), orn="bars", accent="#c8322a", wear=1.3, cap=1.12, cond=1.0),
+    "JadeTeapot": dict(fonts=("slab",)),
+    "TwinCarp": dict(fonts=("archivo", "bold"), orn="coins", wear=0.8),
+    "FarShore": dict(fonts=("fjalla", "bold"), wear=0.7),
+    "EightTreasure": dict(fonts=("slab", "kalam"), orn="border", wear=1.5, cond=0.92),
+    "SpringPine": dict(fonts=("serif", "bold"), orn="border", wear=1.6, cond=0.98),
+    "LongLife": dict(fonts=("passion", "fjalla"), orn="coins", wear=1.1, cap=1.08, cond=1.0),
+    "SunnyDay": dict(fonts=("bebas", "bold"), orn="stripe", accent="#f2c21a", wear=0.9, cap=1.05, cond=1.0),
+    "HarborStar": dict(fonts=("bebas",)),
+    "GoldenTide": dict(fonts=("archivo", "fjalla"), orn="bars", accent="#c8322a", wear=1.2),
+    "GoldenTideBlade": dict(fonts=("archivo",)),
+    "StallFish": dict(fonts=("kalam",), wear=1.4), "StallFruit": dict(fonts=("kalam",), wear=1.3),
+    "StallVeg": dict(fonts=("kalam",), wear=1.5), "StallDry": dict(fonts=("slab",), wear=1.6),
+    "StallTofu": dict(fonts=("kalam",), wear=1.2), "StallRoast": dict(fonts=("slab",), wear=1.7),
+    "LanternAlley": dict(fonts=("serif",), wear=1.8),
+    "MoonGate": dict(fonts=("passion", "kalam"), orn="none", wear=1.0, cap=1.1, cond=1.0),
+    "WestCity": dict(fonts=("fjalla", "bold"), orn="badge", accent="#1e2a38", align="l", wear=1.9),
+    "GoldenLuck": dict(fonts=("anton", "fjalla"), orn="stripe", accent="#7fe8ff", wear=1.0, cap=1.0, cond=1.0),
+    "LittleKite": dict(fonts=("passion", "kalam"), orn="none", wear=0.8, cond=1.0),
+    "CleverHands": dict(fonts=("serif", "fjalla"), wear=1.2),
+    "PlumBlossom": dict(fonts=("slab",), wear=1.3),
+    "KioskWatch": dict(fonts=("bebas",)), "KioskKeys": dict(fonts=("anton",)), "KioskPhones": dict(fonts=("fjalla",)),
+    "KioskNeon": dict(fonts=("passion",)),
+    "WillowBridge": dict(fonts=("heavy", "bold"), orn="badge", accent="#14365c", align="l", wear=0.7),
+    "CranePavilion": dict(fonts=("serif", "fjalla"), orn="border", wear=1.1),
+    "GoodWishes": dict(fonts=("archivo", "bold"), orn="coins", wear=1.4),
+    "SevenStars": dict(fonts=("fjalla", "bold"), orn="stripe", accent="#f2c21a", wear=1.0, cap=1.0),
+    "QuickWire": dict(fonts=("heavy", "fjalla"), orn="bars", accent="#0f5a3a", wear=0.9),
+    "BigLight": dict(fonts=("bebas",), wear=1.6),
+    "ForRent": dict(fonts=("heavy", "bold")), "ForLease": dict(fonts=("bebas", "fjalla")),
+    "OperaGala": dict(fonts=("serif", "slab", "slab", "fjalla")),
+    "PlacardCDs": dict(fonts=("marker",)), "PlacardUSB": dict(fonts=("marker",)), "PlacardBags": dict(fonts=("marker",)),
+    "PlacardShades": dict(fonts=("marker",)), "PlacardThree": dict(fonts=("marker",)),
 }
 
 # Exposed glass neon built as geometry (tubes along the letter outlines). colour: tube colour (sRGB).

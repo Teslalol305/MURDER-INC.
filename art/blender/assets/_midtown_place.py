@@ -215,12 +215,29 @@ def scaffold(out):
 
 def screens(out):
     """The art-only screens beyond the bounds (positions chosen by this lane; midtown.md 12.2 gives sizes and sides)."""
+    def edges(sid, cols, rows, pivot_of, ldir_of, y0, rot_of):
+        """The bezel round a tiled screen's outside: H pieces under the bottom row and over the top one, V pieces left of
+        the first column and right of the last (the tiles are flush, the bezel is only here)."""
+        for i in range(cols):
+            (wx, wz), rot = pivot_of(i), rot_of(i)
+            P(out, "SM_Sign_LEDWall_Edge_H_2m", "screens", "%s bezel bottom" % sid, wx, y0, wz, rot, chosen=True, screen=sid)
+            P(out, "SM_Sign_LEDWall_Edge_H_2m", "screens", "%s bezel top" % sid, wx, y0 + 2.0 * rows + 0.12, wz, rot, chosen=True,
+              screen=sid)
+        for i, off in ((0, 0.0), (cols - 1, 2.12)):
+            (wx, wz), (lx, lz), rot = pivot_of(i), ldir_of(i), rot_of(i)
+            for j in range(rows):
+                P(out, "SM_Sign_LEDWall_Edge_V_2m", "screens", "%s bezel side" % sid, wx + lx * off, y0 + 2.0 * j, wz + lz * off, rot,
+                  chosen=True, screen=sid)
+
     def tiled(sid, cols, rows, x_of, y0, rot, slide):
         for i in range(cols):
             for j in range(rows):
                 wx, wz = x_of(i)
                 P(out, "SM_Sign_LEDWall_Tile_2m", "screens", "%s tile" % sid, wx, y0 + 2.0 * j, wz, rot, chosen=True,
                   screen=sid, tile=[i, j], tiles=[cols, rows], first_slide=slide)
+        a, b_ = x_of(0), x_of(1)
+        ld = ((b_[0] - a[0]) / 2.0, (b_[1] - a[1]) / 2.0)                    # the tile's local +X in web (x, z)
+        edges(sid, cols, rows, x_of, lambda i: ld, y0, lambda i: rot)
     tiled("E1", 12, 9, lambda i: (33.0, -30.0 + 2.0 * i), 10.0, -90.0, "E1_Miravesse")       # east tower podium, faces west
     tiled("E2a", 4, 10, lambda i: (33.0, -4.0 + 2.0 * i), 6.0, -90.0, "E2a_Kestrel")       # east hotel verticals
     tiled("E2b", 4, 10, lambda i: (33.0, 6.0 + 2.0 * i), 6.0, -90.0, "E2b_BrassBun")
@@ -230,18 +247,22 @@ def screens(out):
     n_mid = math.atan2(-1.0, -1.0)                                          # the middle faces Blender (-1, -1): web south-west
     mx, my = 31.5, -23.5                                                     # the middle tile's centre, Blender
     cx, cy = mx - R * math.cos(n_mid), my - R * math.sin(n_mid)              # the arc's centre, behind the face
+    e3 = []
     for i in range(10):
         phi = n_mid + math.radians(-27.0 + 6.0 * i)
         nx, ny = math.cos(phi), math.sin(phi)                               # the tile faces outward from the centre
         px, py = cx + R * nx, cy + R * ny
         th = math.atan2(nx, -ny)                                             # local -Y -> (nx, ny)
         bx_, by_ = px - math.cos(th), py - math.sin(th)                      # pivot: the tile's left end
+        e3.append(((bx_, -by_), (math.cos(th), -math.sin(th)), math.degrees(th)))
         for j in range(6):
             P(out, "SM_Sign_LEDWall_Tile_2m", "screens", "E3 tile", bx_, 14.0 + 2.0 * j, -by_, math.degrees(th), chosen=True,
               screen="E3", tile=[i, j], tiles=[10, 6], first_slide="E3_Meridale")
+    edges("E3", 10, 6, lambda i: e3[i][0], lambda i: e3[i][1], 14.0, lambda i: e3[i][2])
     tiled("S1", 6, 3, lambda i: (12.0 - 2.0 * i, 36.4), 6.0, 180.0, "S1_Duskline")       # W 46 St south facade, faces north
     P(out, "SM_Sign_TowerStack", "screens", "N1 tower stack (faces south)", 5.0, 22.0, -48.0, 0.0, chosen=True, screen="N1",
-      first_slide="N1_Horovan")
+      slides=["N1_Horovan", "N1_Northweft", "N1_Fizzwick"],
+      slides_note="one ad per face, bottom to top (the mesh's FaceIndex UV: u 0, 1, 2); they rotate together on the 12 s cycle")
     for i in range(6):                                                       # the ticker on the theatre, faces west
         P(out, "SM_Sign_Ticker_4m", "screens", "ticker module %d" % i, 30.0, 8.0, -30.0 + 4.0 * i, -90.0, module=i)
 

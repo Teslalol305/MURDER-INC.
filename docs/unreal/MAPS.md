@@ -139,7 +139,10 @@ of the new sections, so the old code path runs.
   → `Content/Data/level_chinatown.json`, `props_`, `atmos_`, `audio_chinatown.json`; D4 the same for Midtown; D5
   `mi_greyblock_map.py --level <id>`.
 - **Acceptance:** chinatown.md 17 checks 1 to 7 and 13; midtown.md 19 Loads, Nav, Reach, ReelRooms, Edges, Budgets;
-  colliders at most 800 (Canal) and 820 (Midtown).
+  colliders at most 800 (Canal) and 820 (Midtown). Made in stage 1 (tools/levels, its README): both level files with
+  the designs' clutter as colliders and every gate of tools/levels/check_level.py passing or waived on record (falls
+  counted with the jump's apex, the approved names, explosives off the doorways, the sight-line rules, guidance from
+  every layer).
 - **Depends on:** E1 (to load), N1 (for the layer bake).
 
 ### E · Engine generalisation and the level loader
@@ -147,8 +150,12 @@ of the new sections, so the old code path runs.
 - **Inputs:** progression.md 8; chinatown.md 16; midtown.md 17.
 - **Outputs:** E1 `FMILevelData::ForLevel(Id)` (`Get()` stays the Block); E2 `el` optional; E3 boot gate from levels.json
   `map`/`greyMap`, `?level=`, `?enter=`; E4 times per loaded level; E5 text overlay with fallback; E6 per-level audio;
-  E7 per-level tuning (startPitch, rating, Buzzard ceiling, difficulty adds); E8 `excludePlayerRoom` and `overlooks`; E9
-  the per-level enemy-look rim boost (only if the readability check fails); E10 the extraction arrival (`afterAll`);
+  E7 per-level tuning (startPitch, rating, Buzzard ceiling, difficulty adds); E8 `excludePlayerRoom`, `overlooks` and
+  `enabled` (a spawn point marked `"enabled": false` is not loaded: Canal's roof points until N1; the patch is
+  docs/unreal/patches/maps-D/0002, and `check_level.py --release` fails while any point is still off); E9
+  the per-level enemy-look rim boost (only if the readability check fails); E10 the extraction arrival (`afterAll`;
+  the truck's colliders are not noNav, so the bake keeps its stop spot blocked on the nav from the start, while the box
+  world takes them only on arrival);
   E11 the screen director; E12 rooms with no doorway.
 - **Acceptance:** every Block golden and run test unchanged (Golden.World, Enemies, EnemyLogic, Blast, FlowRules,
   Directors, PlayerSim, Loadout.DataLoads); Levels.Overlay; Run.<Id>.StoryComplete, StoryDeath, Holdout headless.
@@ -203,8 +210,12 @@ of the new sections, so the old code path runs.
 ### G · Guidance (with the PLAY.md lane)
 
 - **Inputs:** the PLAY.md lane's ground path, hint and marker (built for the Block); chinatown.md 7; midtown.md 6.4.
-- **Outputs:** G1 the Block's guidance fed by Canal's data (single layer, no new code); G2 the route graph for levels with
-  layers (nearest unsecured reel, hysteresis, step marks); G3 hints keyed by objective id, the marker's height.
+- **Outputs:** G1 the Block's guidance fed by each level's data (on the street layer, no new code); G2 the route graph
+  for levels with layers, Canal's roof included (nearest unsecured reel, hysteresis, step marks: Canal's graph is the
+  yard stair and the kitchen-roof drop, so a player on the roof is drawn a way down); G3 hints keyed by objective id, the
+  marker's height; G4 path hysteresis (`guide.pathHysteresis` 0.10): between two routes to the same target the drawn
+  one is kept until another is 10 % shorter, so it never flips between near-equal ways out (Canal's leg 4: the
+  partition door and the roll-up are 6 % apart; its route-tie check is waived on G4).
 - **Acceptance:** Run.<Id>.StoryAnyOrder (the guide always targets an unsecured reel and never flips twice in 5 s); on
   every leg of both levels the drawn path lies on a walking surface; a player who did not build the level reaches every
   reel by the guidance alone.
@@ -215,7 +226,9 @@ of the new sections, so the old code path runs.
 - **Inputs:** chinatown.md 13; the level file's colliders (the art is fitted to them); ART_BIBLE.md.
 - **Outputs:** the `chinatown` family (about 60 meshes, generic shopfront modules, market kit, everyday clutter, the
   stair, the shed, the bulkhead), Chinatown facade tables beside the Block's, sign carriers, English-only sign
-  atlases (made: one 4096 x 4096 page holds all 45 faces; final after C1), placements, the manifest. Made in stage 1
+  atlases (made: one 4096 x 4096 page holds all 45 faces, each sign with its own lettering, final after the owner signs
+  names.md), the market and vendor goods atlas (CT_MarketGoods, 2K), the north row's far proxies, placements, the
+  manifest. Made in stage 1
   without the box: art/blender/assets/chinatown.py (66 meshes, the atlas, the north-row placements, art/previews/maps/ct_*).
 - **Acceptance:** triangle caps per asset and at most 300k per mesh; manifest bounds; previews; no real mark; facade.py
   and place_buildings.py give the Block's outputs byte for byte (A0 diff).
@@ -238,7 +251,9 @@ of the new sections, so the old code path runs.
 - **Inputs:** BOX.md; build_block.py; the art tars.
 - **Outputs:** A0 the L_Block dump (manifest, placements, a sorted actor list with name, class, mesh, transform and tags)
   taken before any refactor; B1 `build_level.py --level <id>`; B2 L_Chinatown and B3 L_Midtown with explicit Nanite
-  fallback settings; B4 2 to 3 picture rounds per map; send-art.sh patterns `SM_*_CT_*` and Midtown's.
+  fallback settings; B4 2 to 3 picture rounds per map; map art packs with `send-art.sh pack --maps <patterns>` (the
+  default pack leaves the chinatown and midtown families and their placements out, so a release's art pack never
+  carries them).
 - **Acceptance:** `--level block` reproduces the dump exactly; the picture rounds reviewed by someone else; the art's
   collision off (the data decides).
 - **Depends on:** A-CT, A-MT, L4. One box at a time (BOX.md discipline).
