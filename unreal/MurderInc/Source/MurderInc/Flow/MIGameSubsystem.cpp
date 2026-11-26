@@ -504,8 +504,28 @@ void UMIGameSubsystem::RebuildMenu()
 
 void UMIGameSubsystem::PatchCards()
 {
+	if (!FrontEnd || Menu.IndexOf(TEXT("changesetup")) != INDEX_NONE)
+	{
+		return;
+	}
+	if (Menu.Screen == EMIMenuScreen::Pause)
+	{
+		// The pause card gains Change set-up and Back to title after its own rows (SMOOTH.md B4): with the set-up screens
+		// a run can be left for another gun, mode or crew without dying first. The web game's card (src/menus.js
+		// paused()) has neither because it has no set-up screens to go back to. MenuConfirm ends the run as the death
+		// card's rows do.
+		FMIMenuItem Change;
+		Change.Id = TEXT("changesetup");
+		Change.Label = FrontEnd->GetRules().Text(TEXT("frontend.cards.changeSetup"));
+		Menu.Items.Add(Change);
+		FMIMenuItem Title;
+		Title.Id = TEXT("totitle");
+		Title.Label = Ui.Get(TEXT("cards.toTitle"));
+		Menu.Items.Add(Title);
+		return;
+	}
 	// The death and debrief cards gain Change set-up between Run it back and Back to title (LOADOUT.md 2.9).
-	if (!FrontEnd || (Menu.Screen != EMIMenuScreen::Dead && Menu.Screen != EMIMenuScreen::Debrief) || Menu.IndexOf(TEXT("changesetup")) != INDEX_NONE)
+	if (Menu.Screen != EMIMenuScreen::Dead && Menu.Screen != EMIMenuScreen::Debrief)
 	{
 		return;
 	}
@@ -743,6 +763,7 @@ void UMIGameSubsystem::MenuBack()
 	{
 		UiNote(TEXT("ui:click"), this);
 		Menu.Build(Menu.Return, Settings, Copy, Ui, Rules.Card(), Rules.GetMode());
+		PatchCards();  // back on the pause card: its set-up rows again
 		if (FrontEnd && Rules.GetState() == EMIGameState::Title)
 		{
 			FrontEnd->Show();  // back to Home
