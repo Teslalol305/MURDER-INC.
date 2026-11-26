@@ -5,6 +5,8 @@
 //                             camera), it comes to rest on the ground (not under it, not standing), is frozen, and a
 //                             round fired through where it lies is not stopped by it. The rules' unit is the same as
 //                             with the ragdoll switched off (mi.Goon.Ragdoll 0).
+//   MurderInc.Death.Retired   a body still falling when its unit is retired (run end, Run it back, Back to title: the
+//                             field cleared) is frozen at once, not left simulating hidden until its slot is reused.
 
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -220,6 +222,64 @@ bool FMIDeathRagdollTest::RunTest(const FString& Parameters)
 	const FVector A = Pelvis + FVector(-300, 0, 15), B = Pelvis + FVector(300, 0, 15);
 	const bool bHit = W.World->LineTraceSingleByChannel(Through, A, B, MIBulletChannel, R);
 	TestFalse(TEXT("a round through the body does not hit it"), bHit && Through.GetActor() == G);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIDeathRetiredTest, "MurderInc.Death.Retired", MITest::Flags)
+
+bool FMIDeathRetiredTest::RunTest(const FString& Parameters)
+{
+	using namespace MIDeathTestsPrivate;
+	IConsoleVariable* Switch = IConsoleManager::Get().FindConsoleVariable(TEXT("mi.Goon.Ragdoll"));
+	if (!TestNotNull(TEXT("mi.Goon.Ragdoll exists"), Switch))
+	{
+		return false;
+	}
+	const int32 Was = Switch->GetInt();
+	Switch->Set(1, ECVF_SetByCode);
+	FDeathWorld W;
+	if (!W.Boot(*this))
+	{
+		Switch->Set(Was, ECVF_SetByCode);
+		return false;
+	}
+	for (int32 I = 0; I < 30; ++I)
+	{
+		W.Step();
+	}
+	const int32 Slot = W.LiveGoon();
+	AMIGoon* G = Slot != INDEX_NONE ? Cast<AMIGoon>(W.Game->GetEnemyActor(Slot)) : nullptr;
+	if (!TestNotNull(TEXT("a living Goon to kill"), G))
+	{
+		Switch->Set(Was, ECVF_SetByCode);
+		return false;
+	}
+	TestTrue(TEXT("one round kills it"), W.Shoot(G).bKilled);
+	for (int32 F = 0; F < 6 && !G->IsRagdoll(); ++F)
+	{
+		W.Step();
+	}
+	USkeletalMeshComponent* M = G->GetMesh();
+	if (!M->GetPhysicsAsset())
+	{
+		Switch->Set(Was, ECVF_SetByCode);
+		AddWarning(TEXT("no physics asset in this project (a clean checkout): no ragdoll to retire"));
+		return true;
+	}
+	W.Step();
+	TestTrue(TEXT("the body is falling (a ragdoll, not yet at rest)"), G->IsRagdoll() && !G->IsBodySettled() && M->IsSimulatingPhysics());
+	// The run ends while it falls: every unit retired, as at run end, Run it back and Back to title.
+	W.Game->GetEnemies().Clear();
+	W.Step();
+	TestTrue(TEXT("the retired body is hidden"), G->IsHidden());
+	TestFalse(TEXT("and no longer simulates"), M->IsSimulatingPhysics());
+	TestEqual(TEXT("and has no collision left"), (int32)M->GetCollisionEnabled(), (int32)ECollisionEnabled::NoCollision);
+	for (int32 F = 0; F < 30; ++F)
+	{
+		W.Step();
+	}
+	TestFalse(TEXT("a second later it still does not simulate"), M->IsSimulatingPhysics() && G->IsHidden());
+	Switch->Set(Was, ECVF_SetByCode);
 	return true;
 }
 

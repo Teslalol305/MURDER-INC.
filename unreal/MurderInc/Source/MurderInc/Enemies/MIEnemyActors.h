@@ -42,6 +42,7 @@ struct MURDERINC_API FMIEnemyLook
 		double Bone = 330.0, BoneHead = 480.0, Carry = 110.0, CarryHead = 140.0, Blast = 650.0, BlastUp = 320.0, MaxSpeed = 900.0;
 		double SettleSpeed = 18.0, SettleFor = 0.5, MinSim = 1.2, MaxSim = 5.0, PoolFade = 2.5;
 		double LinearDamping = 0.15, AngularDamping = 0.6;
+		double MaxUp = 250.0;  // cm/s: no part of a falling body rises faster (a blast: 1.5 x BlastUp)
 		int32 StartsPerFrame = 2;  // ragdolls started in one frame at most; more deaths in the same frame fall a frame later
 	} GoonRagdoll;
 	FName HeadBone = TEXT("head");
@@ -192,6 +193,7 @@ private:
 	FName HeadBone = TEXT("head");
 	FVector MeshScale = FVector::OneVector;
 	double DeadFor = 0.0, StillFor = 0.0, RagdollStartCost = 0.0;
+	int32 Clamps = 0;  // body speeds held back while this body fell (UpdateRagdoll)
 	int32 PoolHandle = 0;
 	bool bRagdoll = false, bSettled = false, bStaged = false;
 	FRotator MeshRotation = FRotator::ZeroRotator;  // the mesh's rest rotation in the actor (presentation goon.meshYaw)

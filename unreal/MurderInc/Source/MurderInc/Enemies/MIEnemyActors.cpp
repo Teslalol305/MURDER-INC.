@@ -179,6 +179,7 @@ bool FMIEnemyLook::Load(FMIEnemyLook& Out, FString& OutError)
 		R->TryGetNumberField(TEXT("linearDamping"), D.LinearDamping);
 		R->TryGetNumberField(TEXT("angularDamping"), D.AngularDamping);
 		R->TryGetNumberField(TEXT("startsPerFrame"), D.StartsPerFrame);
+		R->TryGetNumberField(TEXT("maxUp"), D.MaxUp);
 	}
 	if (const TSharedPtr<FJsonObject> Bones = Obj(G, TEXT("bones")))
 	{
@@ -363,6 +364,18 @@ void AMIGoon::Show(bool bOn)
 		}
 		BodyHit->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		HeadHit->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		// A body still falling when its unit is retired (the run ends, Run it back, Back to title, a slot reused for the
+		// body cap) is frozen as it is, as at rest: hidden, it would otherwise go on simulating its 22 bodies until a new
+		// unit takes the slot (UpdateRagdoll runs only for a shown unit).
+		if (bRagdoll && !bSettled)
+		{
+			USkeletalMeshComponent* M = GetMesh();
+			M->SetSimulatePhysics(false);
+			M->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			M->bNoSkeletonUpdate = true;
+			M->SetComponentTickEnabled(false);
+			bSettled = true;
+		}
 	}
 }
 
@@ -476,6 +489,7 @@ void AMIGoon::StartDeath(const FMIEnemy& E)
 {
 	bDying = true;
 	DeadFor = StillFor = 0.0;
+	Clamps = 0;
 	// The killing shot's direction in model space (x right, z back): fall away from it.
 	const FVector D = E.DeathDir;
 	View.DeathDirection = FVector(-D.Z, D.X, 0.0).GetSafeNormal();
@@ -561,6 +575,26 @@ void AMIGoon::UpdateRagdoll(double Dt)
 {
 	USkeletalMeshComponent* M = GetMesh();
 	DeadFor += Dt;
+	// A body falls; it is never thrown. No part goes faster than maxSpeed or rises faster than maxUp (a blast: 1.5 x
+	// blastUp): a ragdoll that starts against a wall or a ledge is pushed out by the solver, which can fling it metres up
+	// (review: bodies over the pizza awning and up a shop front). Real kills on open ground never reach the caps.
+	const double UpMax = KillHit.bBlast ? RagTune.BlastUp * 1.5 : RagTune.MaxUp;
+	for (FBodyInstance* B : M->Bodies)
+	{
+		if (!B || !B->IsInstanceSimulatingPhysics())
+		{
+			continue;
+		}
+		const FVector Was = B->GetUnrealWorldVelocity();
+		FVector Held = Was;
+		Held.Z = FMath::Min(Held.Z, UpMax);
+		Held = Held.GetClampedToMaxSize(RagTune.MaxSpeed);
+		if (!Held.Equals(Was, 1.0))
+		{
+			B->SetLinearVelocity(Held, false);
+			++Clamps;
+		}
+	}
 	const FVector V = M->GetPhysicsLinearVelocity(TEXT("pelvis"));
 	StillFor = V.Size() < RagTune.SettleSpeed ? StillFor + Dt : 0.0;
 	if (!((DeadFor > RagTune.MinSim && StillFor > RagTune.SettleFor) || DeadFor > RagTune.MaxSim))
@@ -581,9 +615,9 @@ void AMIGoon::UpdateRagdoll(double Dt)
 			PoolHandle = Fx->BloodPool(Floor.ImpactPoint, Floor.ImpactNormal);
 		}
 	}
-	UE_LOG(LogMI, Log, TEXT("Goon %d at rest after %.2f s: hips %s, %.0f cm over the floor under them (%s), %.0f cm from where it died"), Slot, DeadFor,
+	UE_LOG(LogMI, Log, TEXT("Goon %d at rest after %.2f s: hips %s, %.0f cm over the floor under them (%s), %.0f cm from where it died, %d speeds held back"), Slot, DeadFor,
 		*Pelvis.ToCompactString(), Floor.bBlockingHit ? Pelvis.Z - Floor.ImpactPoint.Z : -1.0, Floor.bBlockingHit ? TEXT("found") : TEXT("none within 1.5 m"),
-		FVector::Dist2D(Pelvis, GetActorLocation()));
+		FVector::Dist2D(Pelvis, GetActorLocation()), Clamps);
 	M->SetComponentTickEnabled(false);
 	M->bNoSkeletonUpdate = true;
 	M->SetSimulatePhysics(false);
@@ -602,6 +636,7 @@ void AMIGoon::ResetBody()
 	KillHit = FKillHit();
 	bStaged = false;
 	DeadFor = StillFor = 0.0;
+	Clamps = 0;
 	if (!bRagdoll && !bSettled)
 	{
 		return;
