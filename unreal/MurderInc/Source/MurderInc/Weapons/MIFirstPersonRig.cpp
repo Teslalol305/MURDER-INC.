@@ -358,6 +358,7 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 		ShoulderAnchor = FVector(E->AsArray()[0]->AsNumber(), E->AsArray()[1]->AsNumber(), E->AsArray()[2]->AsNumber());
 		bShoulderAnchor = true;
 	}
+	bFiringShoulderAnchor = Vec3(Set, TEXT("firingShoulder"), FiringShoulderAnchor);
 	DrawRange = Num(Set, TEXT("drawRange"), 0.53);
 	MeleeRange = Num(Set, TEXT("meleeRange"), 1.0);
 	InspectAfter = Resolved ? Resolved->Def.InspectAfter : 24.0;
@@ -870,12 +871,37 @@ namespace MIFirstPersonRigPrivate
 	static TAutoConsoleVariable<FString> CVarElbowOut(TEXT("mi.FP.ElbowOut"), TEXT(""),
 		TEXT("HandIK guns: the support elbow's push from the clip's pole, camera space \"x y z\" cm, hip and aimed alike; ")
 		TEXT("empty or \"data\": the anim set's supportElbowOut / supportElbowOutAim"));
+	static TAutoConsoleVariable<int32> CVarFiringReach(TEXT("mi.FP.FiringReach"), 1,
+		TEXT("HandIK guns: 1 the arms move toward the pistol grip by what the firing arm lacks to reach it (HANDS_R4.md 13), ")
+		TEXT("0 they stay where the shoulders anchor puts them (the open firing hand of HANDS_R4.md 11, for comparison)"));
 	static TAutoConsoleVariable<int32> CVarReloadGrip(TEXT("mi.FP.ReloadGrip"), 1,
 		TEXT("HandIK guns, in a reload: 1 the support hand takes the grip solved round the magazine (grips.json magazines), ")
 		TEXT("0 the handguard's grip turned onto it (magazine.turn / squeeze: the earlier way, for comparison pictures)"));
 }
 
-bool UMIFirstPersonRig::GripShoulderTranslation(const FTransform& ArmsRel, FVector& Out) const
+double UMIFirstPersonRig::FiringReachShort(const FTransform& GunRel, const FTransform& ArmsRel, FVector* Dir) const
+{
+	const FVector* Wrist = GripPoints[1].Find(TEXT("hand_r"));
+	if (!Wrist || !Arms || !Arms->GetSkinnedAsset() || Arms->GetBoneIndex(TEXT("hand_r")) == INDEX_NONE)
+	{
+		return 0.0;
+	}
+	const FVector* WristAim = GripPointsAim[1].Find(TEXT("hand_r"));
+	const FVector W = GunRel.TransformPosition(WristAim ? FMath::Lerp(*Wrist, *WristAim, MIFirstPersonRigPrivate::Smooth(AdsNow)) : *Wrist);
+	const FVector U = Arms->GetBoneLocation(TEXT("upperarm_r"), EBoneSpaces::ComponentSpace);
+	const FVector L = Arms->GetBoneLocation(TEXT("lowerarm_r"), EBoneSpaces::ComponentSpace);
+	const FVector H = Arms->GetBoneLocation(TEXT("hand_r"), EBoneSpaces::ComponentSpace);
+	const double Reach = 0.97 * (ArmsRel.TransformVector(L - U).Size() + ArmsRel.TransformVector(H - L).Size());  // never quite straight
+	const FVector Sh = ArmsRel.TransformPosition(U);
+	const double D = FVector::Dist(Sh, W);
+	if (Dir)
+	{
+		*Dir = (W - Sh).GetSafeNormal();
+	}
+	return FMath::Max(0.0, D - Reach);
+}
+
+bool UMIFirstPersonRig::GripShoulderTranslation(const FTransform& GunRel, const FTransform& ArmsRel, FVector& Out) const
 {
 	// With or without a solved grip: the guns that have none yet (the rifles of round 4) are carried the same way, or the
 	// template rifle clip's left shoulder comes into the view as a cut upper arm in front of the eye (first pictures of
@@ -904,8 +930,22 @@ bool UMIFirstPersonRig::GripShoulderTranslation(const FTransform& ArmsRel, FVect
 	{
 		return false;
 	}
+	// HANDS_R4.md 13: the anchor is the firing shoulder when the set names one (the clip protracts the left shoulder far
+	// forward, so the midpoint put the right one 35 cm behind the eye and out of the firing hand's reach), else the midpoint.
 	const FVector Mid = (Arms->GetBoneLocation(TEXT("upperarm_l"), EBoneSpaces::ComponentSpace) + Arms->GetBoneLocation(TEXT("upperarm_r"), EBoneSpaces::ComponentSpace)) * 0.5;
-	Out = FMath::Lerp(ArmsRel.GetTranslation(), Anchor - ArmsRel.TransformVector(Mid), GripWeight);
+	const bool bFiring = bFiringShoulderAnchor && (C.IsEmpty() || C == TEXT("data"));
+	const FVector Pivot = bFiring ? Arms->GetBoneLocation(TEXT("upperarm_r"), EBoneSpaces::ComponentSpace) : Mid;
+	Out = FMath::Lerp(ArmsRel.GetTranslation(), (bFiring ? FiringShoulderAnchor : Anchor) - ArmsRel.TransformVector(Pivot), GripWeight);
+	// Whatever the anchor: the firing hand must reach the pistol grip. If the wrist the solved grip asks for lies beyond the
+	// firing arm, the arms move toward it by what is missing (the support arm stretches up to armStretch).
+	FTransform Placed = ArmsRel;
+	Placed.SetTranslation(Out);
+	FVector Dir;
+	const double Short = FiringReachShort(GunRel, Placed, &Dir);
+	if (Short > 0.0 && MIFirstPersonRigPrivate::CVarFiringReach.GetValueOnGameThread() != 0)
+	{
+		Out += Dir * Short * GripWeight;
+	}
 	return true;
 }
 
@@ -970,6 +1010,20 @@ bool UMIFirstPersonRig::SupportPalmTarget(FVector& Out) const
 		return false;
 	}
 	Out = Arms->GetComponentTransform().TransformPosition(HandPose.Hands[0].Target.GetLocation());
+	return true;
+}
+
+bool UMIFirstPersonRig::FiringPalmGap(double& Out) const
+{
+	const USkinnedMeshComponent* Gun = HandGun.Get();
+	const FVector* Palm = GripPoints[1].Find(TEXT("middle_metacarpal_r"));
+	if (Mode != EMIFPMode::HandIK || !Arms || !Gun || !Palm || Arms->GetBoneIndex(TEXT("middle_metacarpal_r")) == INDEX_NONE)
+	{
+		return false;
+	}
+	const FVector* Aimed = GripPointsAim[1].Find(TEXT("middle_metacarpal_r"));
+	const FVector P = Aimed ? FMath::Lerp(*Palm, *Aimed, MIFirstPersonRigPrivate::Smooth(AdsNow)) : *Palm;
+	Out = FVector::Dist(Arms->GetBoneLocation(TEXT("middle_metacarpal_r")), Gun->GetComponentTransform().TransformPosition(P));
 	return true;
 }
 
@@ -1442,6 +1496,24 @@ void UMIFirstPersonRig::UpdateHands(const USkinnedMeshComponent* Gun)
 	// frame, in the magazine mesh's frame against the mesh's bounding box (0 inside it; a finger bone lies about 0.8 cm under
 	// its skin, so a finger touching the magazine reads about 0.8 cm): the palm, and the middle and end joints of the four
 	// fingers (how many are within 1.5 cm). The box is a bound, not the surface: a curved magazine's box stands off its body.
+	// Development log of the firing hand (HANDS_R4.md 11.3 item 3, 13), every 2 s: the palm bone against its target, as drawn
+	// last frame. The support-arm lines never measured it, which is how the open firing hand went unseen.
+	if (const UWorld* W = GetWorld(); W && !RightSocket.IsNone() && Gun->DoesSocketExist(RightSocket))
+	{
+		const bool bTick = FMath::Fmod(W->GetTimeSeconds(), 2.0) < 1.0;
+		if (bTick && !bFiringLogged)
+		{
+			bFiringLogged = true;
+			const FVector* PalmSolved = GripPoints[1].Find(TEXT("middle_metacarpal_r"));
+			const FVector Want = PalmSolved ? GunWorld.TransformPosition(*PalmSolved) : Gun->GetSocketLocation(RightSocket);
+			UE_LOG(LogMI, Log, TEXT("First person: firing hand %s: palm %.1f cm from its place on the grip (aim %.2f, reload %d)"),
+				*GunId.ToString(), FVector::Dist(Arms->GetBoneLocation(TEXT("middle_metacarpal_r")), Want), AdsNow, bReloadingNow ? 1 : 0);
+		}
+		else if (!bTick)
+		{
+			bFiringLogged = false;
+		}
+	}
 	if (bReloadingNow && ReloadNowT > 1.0 && !bReloadLogged)
 	{
 		bReloadLogged = true;

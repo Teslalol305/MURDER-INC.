@@ -179,6 +179,11 @@ bool FMIReloadHoldTest::RunTest(const FString& Parameters)
 		TestEqual(Gun + TEXT(": on the handguard before the reload"), Rig->GetMagazineHold(), 0.0);
 		const FMIFPPose& Hip = Rig->GetHandPose();
 		TestTrue(Gun + TEXT(": the support elbow is pushed out at the hip"), Hip.Hands.Num() > 0 && !Hip.Hands[0].PoleShift.IsNearlyZero());
+		// HANDS_R4.md 13: the firing hand closes round the pistol grip (its palm where the solved grip puts it)
+		double FiringGap = -1.0;
+		const bool bFiringGap = Rig->FiringPalmGap(FiringGap);
+		TestTrue(FString::Printf(TEXT("%s: the firing hand is on the pistol grip at the hip (palm %.1f cm off)"), *Gun, FiringGap),
+			bFiringGap && FiringGap < 1.5);
 		// a few rounds, then the reload
 		P.Key(EKeys::LeftMouseButton, IE_Pressed);
 		for (int32 I = 0; I < 6; ++I) W.Step();
@@ -190,7 +195,7 @@ bool FMIReloadHoldTest::RunTest(const FString& Parameters)
 		}
 		P.Tap(EKeys::R);
 		TestEqual(Gun + TEXT(": reloading"), (int32)R.GetActivity(), (int32)EMIWeaponActivity::Reloading);
-		double Most = 0.0, Prev = Rig->GetMagazineHold(), Fastest = 0.0, WorstPalm = 0.0;
+		double Most = 0.0, Prev = Rig->GetMagazineHold(), Fastest = 0.0, WorstPalm = 0.0, WorstFiring = 0.0;
 		int32 Held = 0, ShapePoints = 0, InHand = 0;
 		bool bPoleLetGo = true;
 		for (int32 I = 0; I < 30 * 6 && R.GetActivity() == EMIWeaponActivity::Reloading; ++I)
@@ -212,8 +217,11 @@ bool FMIReloadHoldTest::RunTest(const FString& Parameters)
 				ShapePoints = Pose.Hands.Num() > 0 ? Pose.Hands[0].Shape.Num() : 0;
 				bPoleLetGo &= Pose.Hands.Num() > 0 && Pose.Hands[0].PoleShift.IsNearlyZero(0.01);
 				InHand += Rig->KeepsMagazineInHand() ? 1 : 0;
+				double Gap = 0.0;
+				WorstFiring = Rig->FiringPalmGap(Gap) ? FMath::Max(WorstFiring, Gap) : 99.0;
 			}
 		}
+		TestTrue(FString::Printf(TEXT("%s: the firing hand stays on the pistol grip through the reload (worst %.1f cm)"), *Gun, WorstFiring), WorstFiring < 1.5);
 		TestTrue(FString::Printf(TEXT("%s: the support hand gets onto the magazine (most %.3f)"), *Gun, Most), Most > 0.999);
 		TestTrue(FString::Printf(TEXT("%s: and holds it for a while (%d frames)"), *Gun, Held), Held >= 10);
 		TestTrue(FString::Printf(TEXT("%s: its palm goes to the magazine's palm point (worst %.2f cm)"), *Gun, WorstPalm), WorstPalm < 0.5);

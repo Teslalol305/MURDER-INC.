@@ -411,7 +411,7 @@ void UMIWeaponComponent::PoseView()
 		// the older way: the arms slid so the clip's firing hand sits on the solved wrist (that carried the template
 		// clip's left shoulder into the view, a cut upper arm in front of the eye).
 		FVector Slide, At;
-		if (FPRig->GripShoulderTranslation(ArmsRel, At))
+		if (FPRig->GripShoulderTranslation(Gun, ArmsRel, At))
 		{
 			ArmsRel.SetTranslation(At);
 		}

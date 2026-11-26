@@ -90,7 +90,11 @@ public:
 	 *  "x y z" overrides, "off" falls back to GripWristSlide): the arms' translation under the camera that puts the
 	 *  midpoint of upperarm_l / upperarm_r on the anchor, as a body would carry them. The two-bone IK then reaches both
 	 *  hands onto the solved grip from there (the wrist slide carried the template clip's shoulders into the view). */
-	bool GripShoulderTranslation(const FTransform& ArmsRel, FVector& Out) const;
+	bool GripShoulderTranslation(const FTransform& GunRel, const FTransform& ArmsRel, FVector& Out) const;
+	/** HandIK guns: how far the firing wrist the solved grip asks for lies beyond the firing arm's reach, with the arms
+	 *  placed by ArmsRel (cm, camera space; 0 when it reaches). HANDS_R4.md 12.3 / 13: the midpoint anchor left the rifles'
+	 *  firing shoulder 62 to 68 cm from the grip's wrist, an arm of 55 cm: the hand hung open below the receiver. */
+	double FiringReachShort(const FTransform& GunRel, const FTransform& ArmsRel, FVector* Dir = nullptr) const;
 	/** The shoulders' midpoint (upperarm_l / _r) in camera space, for calibration logs. */
 	bool ShouldersInCamera(FVector& Out) const;
 	/** A static part authored in the skeletal mesh's own space (origin and axes of the gun, as SM_Weapon_NineMagazine is
@@ -114,6 +118,9 @@ public:
 	bool MagazinePalmTarget(FVector& Out) const;
 	/** HandIK guns: where the last UpdateHands sent the support palm (world), false when it pulled no support hand. */
 	bool SupportPalmTarget(FVector& Out) const;
+	/** HandIK guns with a solved grip: the firing palm bone (middle_metacarpal_r) as drawn, from where the solved grip puts
+	 *  it on the pistol grip (cm; HANDS_R4.md 13: 8 to 17 cm on the rifles before the firing shoulder was anchored). */
+	bool FiringPalmGap(double& Out) const;
 
 private:
 	struct FClipSet
@@ -198,6 +205,11 @@ private:
 	TMap<FName, float> CurlHip[2], CurlAim[2];
 	FVector ShoulderAnchor = FVector::ZeroVector;  // anim set 'shoulders' (camera space, cm)
 	bool bShoulderAnchor = false;
+	/** anim set 'firingShoulder' (camera space, cm): when given, the arms are carried so that upperarm_r (the arm on the
+	 *  pistol grip) sits there instead of the shoulders' midpoint on 'shoulders' (HANDS_R4.md 13). */
+	FVector FiringShoulderAnchor = FVector::ZeroVector;
+	bool bFiringShoulderAnchor = false;
+	bool bFiringLogged = false;  // the development log of the firing hand, once a second
 	bool bReloadingNow = false;
 	double ReloadNowT = 0.0, ReloadNowLeft = 0.0;
 	/** HandIK guns: where the support palm goes on the magazine in a reload, in the magazine part's own frame (cm): anim set
