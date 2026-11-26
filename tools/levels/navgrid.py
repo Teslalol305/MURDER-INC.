@@ -250,13 +250,13 @@ class PlayerFlood:
     """Where the player's capsule can stand, on a 0.25 m heightfield over the bounds.
 
     State = (cell, floor height). A move to a 4-neighbour cell is allowed when no movement-blocking box (inflated by
-    the capsule radius) rises above the climb limit (0.42 walking, 1.42 with a jump) within the body's height at the
+    the capsule radius) rises above the climb limit (0.42 walking, 1.08 with a jump) within the body's height at the
     crossing, and the new cell is clear of boxes over its new floor; the new floor is the highest support top under the
-    cell's centre within the climb limit (or the ground plane). A new floor more than 4.024 m below the old one is a
+    cell's footprint (0.7 x radius, as ScanColumn) within the climb limit (or the ground plane). A new floor more than 4.024 m below the old one is a
     damaging fall (config.json player.fall: damage above a 13 m/s landing, gravity 21).
     """
 
-    def __init__(self, boxes, bounds, cell=0.25, radius=0.32, height=1.8, margin=0.4):
+    def __init__(self, boxes, bounds, cell=0.25, radius=0.32, height=1.8, margin=0.4, footprint=0.7):
         self.cell = cell
         self.h = height
         self.ox = bounds["minX"] + margin
@@ -269,7 +269,9 @@ class PlayerFlood:
         self.support = [[] for _ in range(self.cols * self.rows)]
         for k, b in enumerate(solid):
             (x0, y0, z0), (x1, y1, z1) = b["min"], b["max"]
-            for lst, pad in ((self.inflated, radius), (self.support, 0.0)):
+            # walls: within the capsule radius (MoveCapsule's push); floor: the footprint square of half-size 0.7 r
+            # (ScanColumn), so the floor rises onto a stair tread before the next riser becomes a wall
+            for lst, pad in ((self.inflated, radius), (self.support, footprint * radius)):
                 i0 = max(0, int(math.ceil((x0 - pad - self.ox) / cell - 0.5 - 1e-9)))
                 i1 = min(self.cols - 1, int(math.floor((x1 + pad - self.ox) / cell - 0.5 + 1e-9)))
                 j0 = max(0, int(math.ceil((z0 - pad - self.oz) / cell - 0.5 - 1e-9)))
@@ -309,7 +311,10 @@ class PlayerFlood:
         return True
 
     def flood(self, start, jump=False, max_states=2_000_000):
-        climb = 1.42 if jump else 0.42
+        # a jump lifts the feet 1.0 m (launch 6.48 m/s, gravity 21) and an airborne body lands on tops within AIR_STEP
+        # 0.08 of its feet, so a jump climbs 1.08 m; walking climbs STEP_HEIGHT 0.42. Chains (a crate, then a jump) come
+        # from the flood itself.
+        climb = 1.08 if jump else 0.42
         c0 = self.cell_at(start[0], start[2])
         f0 = self.floor_at(c0, start[1], 0.1)
         seen = {}
@@ -327,11 +332,30 @@ class PlayerFlood:
                 nb = c + d
                 if nb < 0 or nb >= n or (d == 1 and i == cols - 1) or (d == -1 and i == 0):
                     continue
-                if not self.crossing_ok(nb, h, climb):
-                    continue
                 f = self.floor_at(nb, h, climb)
-                if not self.can_stand(nb, f):
+                # the engine scans the floor under the 0.7 r footprint before the next riser comes within the radius
+                # (MoveCapsule then ScanColumn), so the wall test runs from the higher of the two floors
+                if not self.crossing_ok(nb, max(h, f), climb):
                     continue
+                if not self.can_stand(nb, f):
+                    if f >= h - climb:
+                        continue
+                    # stepping off an edge: the body falls past the wall it stood on and is pushed out from it while
+                    # falling, so it lands a cell or two further on
+                    ok = False
+                    for _ in range(2):
+                        nb2 = nb + d
+                        if nb2 < 0 or nb2 >= n or (d == 1 and nb % cols == cols - 1) or (d == -1 and nb % cols == 0):
+                            break
+                        if not self.crossing_ok(nb2, h, climb):
+                            break
+                        nb = nb2
+                        f = self.floor_at(nb, h, climb)
+                        if self.can_stand(nb, f):
+                            ok = True
+                            break
+                    if not ok:
+                        continue
                 key = (nb, round(f, 2))
                 if h - f > 4.024:
                     falls.append((c, h, nb, f))
