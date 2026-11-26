@@ -148,8 +148,42 @@ def check_outputs():
     pl = load(os.path.join(paths.out, "placements", "placements_chinatown.json"))
     unknown = sorted({e["mesh"] for e in pl["instances"] if e["mesh"] not in shared})
     noface = [e["mesh"] for e in pl["instances"] if e.get("face") and "atlas_uv" not in e]
+    check_fit(pl, shared)
     report(not unknown and not noface, "placements", "%d instances of %d meshes, unknown %s, faces without a cell %s"
            % (pl["count"], len({e["mesh"] for e in pl["instances"]}), unknown or 0, noface or 0))
+
+
+def check_fit(pl, shared):
+    """11 fit      every structure's vertices inside its lane D colliders (or a named allowed region), 0 unexplained; every
+                 structure placed at its colliders' min corner; every north-row alcove is the real recess
+       12 stretch  no instance anywhere is scaled (the review's rule)
+       13 signs    every shop front of every face has a sign on its face within 8 m (assets/_chinatown_streets.sign_coverage)
+       14 props    every prop of lane D that has a mesh stands on its colliders: the worst overhang"""
+    from assets import _chinatown_level as lv
+    fit = os.path.join(paths.out, "chinatown", "fit_chinatown.json")
+    if not os.path.exists(fit):
+        report(False, "fit", "no %s" % fit)
+        return
+    rep = load(fit)
+    bad = {k: v["outside_unexplained"] for k, v in rep["structures"].items() if v["outside_unexplained"]}
+    placed = {e["mesh"]: e for e in pl["instances"] if e["role"] == "structure"}
+    off = []
+    for name, piv, _cols in lv.struct_places():
+        e = placed.get(name)
+        if not e or max(abs(a - b) for a, b in zip(e["blender_m"], piv)) > 1e-3:
+            off.append(name)
+    report(not bad and not off and len(rep["structures"]) == len(lv.STRUCTS), "fit",
+           "%d structures fitted to %d colliders of %s: %d vertices outside, unexplained %s, misplaced %s"
+           % (len(rep["structures"]), sum(v["colliders"] for v in rep["structures"].values()), rep["level"],
+              sum(v["outside_colliders"] for v in rep["structures"].values()), bad or 0, off or 0))
+    scaled = [e["mesh"] for e in pl["instances"] if e.get("scale")]
+    report(not scaled, "stretch", "%d instances, %d scaled %s" % (pl["count"], len(scaled), sorted(set(scaled))[:5] or ""))
+    from assets import _chinatown_streets as st
+    nfr, miss = st.sign_coverage(pl["instances"])
+    report(not miss, "signs", "%d shop fronts, every one with a sign over it; without: %s" % (nfr, miss or 0))
+    worst = max((r["overhang_m"] for r in pl.get("propFit", [])), default=0.0)
+    report(worst <= 1.1, "props", "%d prop groups on their colliders, worst overhang %.2f m (jersey barriers 3 m on shorter boxes)"
+           % (len(pl.get("propFit", [])), worst))
 
 
 def check_views():
@@ -164,8 +198,11 @@ def check_views():
         return
     for b, r in rows.items():
         print("    %s: %s" % (b, r))
-    report(prox <= 550000, "views", "worst view 1, north row: %d triangles with every module at LOD0, %d with the far proxies past "
-           "%.0f m (budget 1.5 M, aim 1.1 M for the whole view; the north row's share at most 0.55 M)" % (full, prox, lod.LOD_SWITCH))
+    north = sum(r["trianglesDrawn"] for b, r in rows.items() if b in ("N1", "N2", "N3", "N4", "N5", "N6"))
+    report(prox <= 1500000 and north <= 550000, "views",
+           "worst view 1, every placed piece in the frustum: %d triangles with every module at LOD0, %d with the far proxies past "
+           "%.0f m (budget 1.5 M; aim 1.1 M: %s); the north row's share %d (at most 0.55 M)"
+           % (full, prox, lod.LOD_SWITCH, "met" if prox <= 1100000 else "over by %d, the props' LODs are the lever" % (prox - 1100000), north))
 
 
 def check_block():

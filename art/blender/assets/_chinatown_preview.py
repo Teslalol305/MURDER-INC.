@@ -125,7 +125,26 @@ def wash(col, p, colour, watts=120.0, size=(3.0, 0.6), facing=(0.0, -1.0, 0.0)):
 
 # ================================================================================================= pictures
 
-def canal_north(ctx, a):
+def level_ground(col):
+    """The level's walking surfaces as flat rectangles (level_chinatown.json `ground.surfaces`): asphalt at 0, the rest at the
+    kerb height 0.15 (a stand-in: the real street is the Block's street kit with wetness)."""
+    from assets import _chinatown_level as lv
+    asph = mat.flat("Prev_WetAsphalt", (0.035, 0.034, 0.033), 0.12)
+    walk = mat.flat("Prev_DampConcrete", (0.11, 0.105, 0.10), 0.32)
+    base = geo.box((100.0, 80.0, 0.02), bevel=0.0, name="PrevBase")
+    geo.transform(base, loc=(0.0, 0.0, -0.03))
+    base.data.materials.append(asph)
+    scene.link(base, col)
+    for sf in lv.level()["ground"]["surfaces"]:
+        w = sf["web"]
+        h = 0.02 if sf["surface"] == "asphalt" else 0.15
+        o = geo.box((w["maxX"] - w["minX"], w["maxZ"] - w["minZ"], h), bevel=0.0, name="PrevSurf")
+        geo.transform(o, loc=((w["minX"] + w["maxX"]) / 2, -(w["minZ"] + w["maxZ"]) / 2, h / 2 - (0.02 if h < 0.1 else 0.0)))
+        o.data.materials.append(asph if sf["surface"] == "asphalt" else walk)
+        scene.link(o, col)
+
+
+def canal_north(ctx, a, view=None):
     from assets import facade
     T0 = type(ctx)
     fctx = T0("facade", a)
@@ -154,25 +173,32 @@ def canal_north(ctx, a):
                 if sl.material and sl.material.name.startswith("MI_Interior_Dark"):
                     sl.link = "OBJECT"
                     sl.material = lit
-    ground(col, -60, 60, 10, 40, kerb_y=29.8, side=+1)
-    walk2 = geo.box((120, 5.0, 0.15), bevel=0.0, name="PrevWalkS")
-    geo.transform(walk2, loc=(0, 16.5, 0.0))
-    walk2.data.materials.append(bpy.data.materials["Prev_DampConcrete"])
-    scene.link(walk2, col)
-    for i, x in enumerate((-38.0, -34.0, -30.0, -26.0)):                        # the vendor table strip (web z -18.8..-17.8)
+    if view:
+        level_ground(col)
+    else:
+        ground(col, -60, 60, 10, 40, kerb_y=29.8, side=+1)
+        walk2 = geo.box((120, 5.0, 0.15), bevel=0.0, name="PrevWalkS")
+        geo.transform(walk2, loc=(0, 16.5, 0.0))
+        walk2.data.materials.append(bpy.data.materials["Prev_DampConcrete"])
+        scene.link(walk2, col)
+    for i, x in enumerate((-38.0, -34.0, -30.0, -26.0) if not view else ()):                        # the vendor table strip (web z -18.8..-17.8)
         put(ctx.K["SM_Prop_CT_VendorTable"], (x + 0.9, 18.3, 0.15), 0.0, 1.0, col)
         put(ctx.K["SM_Prop_CT_Goods_" + ("Bags", "Caps", "TShirts", "Discs")[i]], (x + 0.9, 18.3, 0.15 + 0.753), 0.0, 1.0, col)
         put(ctx.K["SM_Sign_CT_Placard"], (x + 0.4, 17.95, 0.15 + 0.753), 0.0, 1.0, col,
             ("PlacardBags", "PlacardThree", "PlacardThree", "PlacardCDs")[i])
-    put(ctx.K["SM_Prop_CT_MarketUmbrella"], (-31.0, 17.4, 0.15), 0.0, 1.0, col)
-    put(ctx.K["SM_Prop_CT_EBike"], (-22.5, 29.2, 0.15), 180.0, 1.0, col)
-    # the shops' goods on the sidewalk (the level's spill colliders): N4's dried goods and grocery produce, N3's crates
-    for x, key in ((-0.2, "DryGoods"), (8.2, "Produce_Citrus"), (9.8, "Produce_Mixed"), (11.4, "Produce_Greens"),
-                   (-13.0, "StyrofoamBoxes"), (14.6, "HandTruck")):
-        put(ctx.K["SM_Prop_CT_" + key], (x, 32.35, 0.15), 0.0, 1.0, col)
-    put(ctx.K["SM_Prop_CT_FruitStand"], (23.7, 32.3, 0.15), 0.0, 1.0, col)
-    render.rig_night(lamp=(-30.0, 21.0, 8.0), extra_lamps=[(-6.0, 21.0, 8.0), (18.0, 21.0, 8.0), (-36.0, 30.4, 8.0), (-12.0, 30.4, 8.0),
-                                                       (12.0, 30.4, 8.0)], lamp_watts=1800.0, sky=0.8)
+    if not view:
+        put(ctx.K["SM_Prop_CT_MarketUmbrella"], (-31.0, 17.4, 0.15), 0.0, 1.0, col)
+        put(ctx.K["SM_Prop_CT_EBike"], (-22.5, 29.2, 0.15), 180.0, 1.0, col)
+        # the shops' goods on the sidewalk (the level's spill colliders): N4's dried goods and grocery produce, N3's crates
+        for x, key in ((-0.2, "DryGoods"), (8.2, "Produce_Citrus"), (9.8, "Produce_Mixed"), (11.4, "Produce_Greens"),
+                       (-13.0, "StyrofoamBoxes"), (14.6, "HandTruck")):
+            put(ctx.K["SM_Prop_CT_" + key], (x, 32.35, 0.15), 0.0, 1.0, col)
+        put(ctx.K["SM_Prop_CT_FruitStand"], (23.7, 32.3, 0.15), 0.0, 1.0, col)
+    if view:
+        render.rig_night(lamp=view["lamps"][0], extra_lamps=view["lamps"][1:], lamp_watts=1800.0, sky=0.8)
+    else:
+        render.rig_night(lamp=(-30.0, 21.0, 8.0), extra_lamps=[(-6.0, 21.0, 8.0), (18.0, 21.0, 8.0), (-36.0, 30.4, 8.0), (-12.0, 30.4, 8.0),
+                                                           (12.0, 30.4, 8.0)], lamp_watts=1800.0, sky=0.8)
     sun = bpy.data.lights.new("PrevCityGlow", "SUN")                            # the rig's key: cool city glow, no shadow (11.1)
     sun.energy, sun.color, sun.use_shadow = 0.04, (0.56, 0.65, 0.84), False
     so = bpy.data.objects.new("PrevCityGlow", sun)
@@ -193,7 +219,10 @@ def canal_north(ctx, a):
                 else:
                     wash(rig, (x, y - 1.0, z + F["h"] / 2), F["glow"], 60.0, (0.6, F["h"]), (0, -1, -0.2))
     render.look(render.VIEW, render.LOOK_NIGHT, 0.2)
-    render.cam_look((-43.0, 14.8, 1.75), (-16.0, 33.0, 8.5), lens=20, name="Cam_CanalNorth")
+    if view:
+        render.cam_look(view["eye"], view["target"], lens=view.get("lens", 20), name="Cam_" + view["name"])
+    else:
+        render.cam_look((-43.0, 14.8, 1.75), (-16.0, 33.0, 8.5), lens=20, name="Cam_CanalNorth")
 
 
 def market(ctx, a):
@@ -307,7 +336,24 @@ def render_all(ctx):
         cells = json.load(open(os.path.join(paths.texture_set("Sign_CT_Atlas1"), "set.json")))["cells"]
         atlas.preview_sheet(os.path.join(PV, "ct_sign_atlas.jpg"), cells, 1280)
         ctx.log("preview ct_sign_atlas.jpg")
-    for name, fn in (("ct_market", market), ("ct_street", street), ("ct_canal_north", canal_north)):
+    import functools
+    # round 2: the finished streets from the player's eye (Blender metres; web z = -y)
+    VIEWS = {
+        "ct_canal_start": dict(name="Start", eye=(-41.0, 24.0, 1.7), target=(-12.0, 28.0, 3.5), lens=18,
+                               lamps=[(-34.0, 22.0, 8.0), (-14.0, 22.0, 8.0), (-34.0, 30.4, 8.0), (-12.0, 30.4, 8.0), (10.0, 22.0, 8.0)]),
+        "ct_canal_east": dict(name="East", eye=(-3.0, 23.0, 1.7), target=(24.0, 17.5, 3.5), lens=20,
+                              lamps=[(2.0, 22.0, 8.0), (22.0, 22.0, 8.0), (30.0, 22.0, 8.0), (14.0, 30.4, 8.0), (-6.0, 30.4, 8.0)]),
+        "ct_mott": dict(name="Mott", eye=(13.0, 18.0, 1.7), target=(13.0, -8.0, 3.0), lens=20,
+                        lamps=[(13.0, 12.0, 8.0), (13.0, 0.0, 8.0), (13.0, -10.0, 8.0), (9.5, 24.0, 8.0)]),
+        "ct_square": dict(name="Square", eye=(22.0, -3.5, 1.7), target=(38.0, -17.0, 3.0), lens=18,
+                          lamps=[(26.0, -6.0, 8.0), (36.0, -6.0, 8.0), (30.0, -12.0, 8.0), (40.0, -14.0, 8.0)]),
+        "ct_alley": dict(name="Alley", eye=(-28.0, 12.5, 1.7), target=(-28.0, -12.0, 3.5), lens=20,
+                         lamps=[(-28.0, 10.0, 8.0), (-28.0, 0.0, 8.0), (-28.0, -10.0, 8.0)]),
+        "ct_yard": dict(name="Yard", eye=(-4.0, -7.0, 1.7), target=(-16.0, -4.0, 3.0), lens=18,
+                        lamps=[(-8.0, -4.0, 8.0), (-18.0, -4.0, 8.0), (-2.0, -9.0, 8.0)]),
+    }
+    for name, fn in (("ct_market", market), ("ct_street", street), ("ct_canal_north", canal_north)) + tuple(
+            (n, functools.partial(canal_north, view=v)) for n, v in VIEWS.items()):
         if not want(name):
             continue
         for c in list(bpy.data.collections):

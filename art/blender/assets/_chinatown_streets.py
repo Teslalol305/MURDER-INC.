@@ -147,6 +147,8 @@ DEVIATIONS = {
                                        "alley wall at the same z and height"),
     "m.letters": dict(why="the frame stands on lane D's four legs (x -22 .. -2): the 12 m letters centre on the legs (x -12), "
                           "1 m east of lane D's point"),
+    "arcade.kiosk.3": dict(x=33.58, why="lane D's point (x 32.55) is 1.05 m out in the arcade's aisle: the board is mounted on the "
+                                         "east wall (x 33.6) at the same z and height, over the narrow front that has no other sign"),
     "lanterns": dict(y=6.25, why="lane D's point (y 4.3) is in front of the banquet band (3.95 .. 4.85): the cable is fixed at "
                                  "6.25 so the lanterns hang clear above the band, over the doors"),
 }
@@ -175,8 +177,10 @@ def ground(F, brick, segs, out):
     for seg in segs:
         k = seg[0]
         if k == "pier":
-            out.append(fe(F, pier_mesh(brick, seg[1]), s, 0.0, 0.0, "pier"))
-            s += seg[1]
+            parts = max(1, int(math.ceil(seg[1] / 4.2 - 1e-9)))              # a wide wall is made of piers of at most 4.2 m
+            for _i in range(parts):
+                out.append(fe(F, pier_mesh(brick, seg[1] / parts), s, 0.0, 0.0, "pier"))
+                s += seg[1] / parts
         elif k == "front":
             f, sign = seg[1], seg[2]
             c = FRONTS[f]
@@ -404,6 +408,9 @@ def data_signs(shops, out, report):
         x, y = F.at(s_c - ww / 2, -d)
         role = {"band": "sign band", "kiosk": "shop sign", "board": "board", "poster": "poster", "neon": "neon",
                 "arch": "arch sign"}[kind]
+        if kind == "neon":                                   # exposed neon is its own mesh: no atlas cell
+            extra["neon"] = fk
+            fk = None
         out.append(mk(carrier, x, y, zb, rot, bld, role, face=fk, faceKey=F.key, **extra))
 
 
@@ -411,7 +418,7 @@ def data_signs(shops, out, report):
 
 # catalogue name -> [(mesh, length along its X, width along its Y)] (tiled along the collider's long side), options
 PROPS = {
-    "stall_counter": ([("SM_Prop_CT_StallCounter_2m", 2.04, 1.876), ("SM_Prop_CT_StallCounter_2p5m", 2.54, 1.876)], {}),
+    "stall_counter": ([("SM_Prop_CT_StallCounter_2m", 2.04, 1.876)], {}),
     "fish_counter": ([("SM_Prop_CT_FishCounter", 2.0, 1.03)], {}),
     "pallet_stack": ([("SM_Furn_PalletStack_A", 1.23, 1.03)], {}),
     "pallet_single": ([("SM_Furn_Pallet", 1.2, 1.0)], {}),

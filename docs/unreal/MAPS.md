@@ -230,6 +230,11 @@ of the new sections, so the old code path runs.
   names.md), the market and vendor goods atlas (CT_MarketGoods, 2K), the north row's far proxies, placements, the
   manifest. Made in stage 1
   without the box: art/blender/assets/chinatown.py (66 meshes, the atlas, the north-row placements, art/previews/maps/ct_*).
+  Round 2 (2026-11-26, offline): W1, W3, S1 to S3, E1a/b, the arcade and the market placed on their faces with lane D's signs
+  and props, the real 1.0 m alcoves, eight structures fitted to the colliders (0 unexplained vertices), far proxies for
+  every facade building, 195 meshes, 1947 instances, none scaled, every shop front signed; worst view 1.18 M triangles with
+  the proxies (ceiling 1.5 M, aim 1.1 M, prop LODs open). Detail, checks and the open list:
+  [maps/chinatown_art.md](maps/chinatown_art.md); previews ct_canal_start, ct_canal_east, ct_mott, ct_square, ct_alley, ct_yard.
 - **Acceptance:** triangle caps per asset and at most 300k per mesh; manifest bounds; previews; no real mark; facade.py
   and place_buildings.py give the Block's outputs byte for byte (A0 diff).
 - **Depends on:** D3 colliders; C for the faces. Estimate: 3 days.

@@ -136,7 +136,8 @@ def ground(key, B, out):
             F = names.FACES[B["band"]]
             out.append(entry(F["carrier"], s + c / 2 - F["w"] / 2, 2.76, -0.075 - 0.20, x0, key, "sign band", face=B["band"]))
         elif sign in ("ForLease", "ForRent"):
-            out.append(entry(names.FACES[sign]["carrier"], s + 0.15, 1.35, -0.09, x0, key, "vacant sign", face=sign))
+            out.append(entry(names.FACES[sign]["carrier"], s + c / 2 - names.FACES[sign]["w"] / 2, 1.35, -0.09, x0, key, "vacant sign",
+                             face=sign))
         else:
             F = names.FACES[sign]
             z = 3.05 if F["kind"] == "kiosk" else 3.10

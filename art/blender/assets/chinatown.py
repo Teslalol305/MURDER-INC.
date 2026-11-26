@@ -48,7 +48,7 @@ BUDGET = {
     "SM_Prop_CT_EBike": 6000, "SM_Prop_CT_": 6000, "SM_Facade_CT_Far_": 12000, "SM_Struct_CT_MarketHall": 40000, "SM_Struct_CT_ColdRoom": 6000,
     "SM_Struct_CT_RoofBulkhead": 4000, "SM_Struct_CT_YardStair": 12000, "SM_Struct_CT_SidewalkShed": 10000,
     "SM_Struct_CT_BakeryKitchen": 12000, "SM_Struct_CT_Arcade": 8000, "SM_Struct_CT_BanquetFacade": 40000,
-    "SM_Facade_CT_Alcove_": 4000, "SM_Facade_CT_Ground": 4000, "SM_Facade_CT_Head_": 1500, "SM_Facade_CT_": 6000,
+    "SM_Facade_CT_Alcove_": 9000, "SM_Facade_CT_Ground": 4000, "SM_Facade_CT_": 6000,
 }
 
 
