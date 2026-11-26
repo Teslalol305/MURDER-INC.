@@ -70,14 +70,19 @@
 # MI_ZIP=<file> writes the zip there instead of /project/ue/cloud/MurderInc-E3DS.zip, and MI_PARTS=0 leaves out the
 # parts: a trial package that must not take the release's names (MI_ZIP=/project/ue/cloud/v6trial.zip MI_PARTS=0).
 # MI_JOBS: the most compile jobs at once (default 6: the box is shared). Start it with nice -n 19 on a shared box.
+# MI_REL=<folder> and MI_GP=<folder>: the release copy and the clone whose generated Content it takes, instead of
+# /project/ue/repo-release and /project/ue/repo-gameplay (a lane's own package beside the release engineer's).
+# The pipeline cache (docs/unreal/SMOOTH.md H3, H4): a commit with unreal/MurderInc/Build/Linux/PipelineCaches/*.spc
+# (tools/box/cloud/pso-cache.sh) has it cooked into both games; "package" and "zip" stop when it is not in the pak
+# list. "package Development" keeps the cook's stable shader keys in $C/pso-keys (what pso-cache.sh expand reads).
 #
 # The package holds pack, Epic and likeness content: it stays on the box and goes only to the owner's private
 # Higgsfield storage (docs/LAUNCH.md); it is never committed.
 
 C=${MI_CLOUD:-/project/ue/cloud}   # (another folder only to try a step on a copy)
-RELROOT=/project/ue/repo-release
+RELROOT=${MI_REL:-/project/ue/repo-release}   # (MI_REL / MI_GP: a lane's own release copy and content clone)
 REL=$RELROOT/unreal/MurderInc
-GP=/project/ue/repo-gameplay/unreal/MurderInc
+GP=${MI_GP:-/project/ue/repo-gameplay}/unreal/MurderInc
 ENGINE=/project/ue/UnrealEngine
 BRANCH=${MI_BRANCH:-claude/tender-albattani-5q78qr}
 COMMIT=${MI_COMMIT:-}              # this commit of the branch instead of its head
@@ -125,6 +130,12 @@ refresh() {
   cp -a "$S/Source" "$S/Config" "$S/MurderInc.uproject" "$REL/" || return 1
   # The data the game reads by path comes from the branch too.
   mkdir -p "$REL/Content" && cp -a "$S/Content/Data" "$S/Content/Python" "$REL/Content/" || return 1
+  # The recorded pipeline cache (Build/Linux/PipelineCaches/*.spc, tools/box/cloud/pso-cache.sh): the cook turns it into
+  # the package's Content/PipelineCaches/Linux/MurderInc_SF_VULKAN_SM5.stable.upipelinecache (SMOOTH.md H3, H4).
+  rm -rf "$REL/Build/Linux/PipelineCaches"
+  if [ -d "$S/Build/Linux/PipelineCaches" ]; then
+    mkdir -p "$REL/Build/Linux" && cp -a "$S/Build/Linux/PipelineCaches" "$REL/Build/Linux/" && chown -R ue4 "$REL/Build" || return 1
+  fi
   chown -R ue4 "$REL/Source" "$REL/Config" "$REL/MurderInc.uproject" "$REL/Content/Data" "$REL/Content/Python"
   # The box scripts of the same commit, so that build.sh, test.sh and the importers can be run in the release copy
   # (lib.sh takes the clone from the script's own place: /project/ue/repo-release, logs in /project/ue/logs/repo-release).
@@ -148,7 +159,7 @@ editor() {  # the release copy's editor target from its own Source: the module t
 
 content() {
   local busy
-  busy=$(ps -eo args | grep -E '^[^ ]*UnrealEditor[^ ]* .*repo-gameplay/' | grep -v grep | head -1)
+  busy=$(ps -eo args | grep -F -- "${GP%/unreal/MurderInc}/" | grep -E '^[^ ]*UnrealEditor' | head -1)
   if [ -n "$busy" ]; then
     say "CONTENT KEPT: an editor has the gameplay clone open; the release copy keeps its last Content ($(du -sh "$REL/Content" 2>/dev/null | cut -f1))"
     return 0
@@ -315,9 +326,28 @@ package() {
     '-AdditionalCookerOptions=-DDC=(ProjectPak,InstalledProjectPak,EnginePak=InstalledEnginePak,EnterprisePak,InstalledLocal) -NoDDCCleanup -ini:Engine:[Zen]:AutoLaunch=false -ini:Engine:[ConsoleVariables]:AssetRegistry.DisableDirectoryWatcher=1'" \
     || { say "PACKAGE $cfg FAILED"; return 1; }
   cp "$C/src.commit" "$C/build-$cfg.commit"  # the commit the game binaries were built from (BUILD.txt)
-  local snd gun; snd=$(python3 "$C/src/tools/box/cloud/pak_sounds.py" "$C/build-$cfg/Linux") || { say "PACKAGE $cfg FAILED: $snd"; return 1; }
+  local snd gun pso; snd=$(python3 "$C/src/tools/box/cloud/pak_sounds.py" "$C/build-$cfg/Linux") || { say "PACKAGE $cfg FAILED: $snd"; return 1; }
   gun=$(guncheck "$cfg") || { say "PACKAGE $cfg FAILED: $gun"; return 1; }
-  say "PACKAGE $cfg OK: $(du -sh "$C/build-$cfg/Linux" | cut -f1); $snd; $gun"
+  pso=$(psocheck "$cfg") || { say "PACKAGE $cfg FAILED: $pso"; return 1; }
+  # The stable shader keys of this cook (NeedsShaderStableKeys, Config/DefaultEngine.ini): what turns a recording of
+  # this package's pipeline states into a cache (pso-cache.sh expand). The next cook replaces them, so keep a copy.
+  local K=$REL/Saved/Cooked/Linux/MurderInc/Metadata/PipelineCaches
+  if [ "$cfg" = Development ] && ls "$K"/*SF_VULKAN_SM5* > /dev/null 2>&1; then
+    rm -rf "$C/pso-keys" && mkdir -p "$C/pso-keys" && cp -a "$K/." "$C/pso-keys/" && cp "$C/src.commit" "$C/pso-keys/commit.txt"
+  fi
+  say "PACKAGE $cfg OK: $(du -sh "$C/build-$cfg/Linux" | cut -f1); $snd; $gun; $pso"
+}
+
+psocheck() {  # <config>: the recorded pipeline cache of the commit (if it has one) is in the build's pak list
+  local spc n
+  spc=$(ls "$REL"/Build/Linux/PipelineCaches/*.spc 2>/dev/null | head -1)
+  if [ -z "$spc" ]; then echo "PSO CACHE: none in this commit (Build/Linux/PipelineCaches)"; return 0; fi
+  n=$(grep -a -c 'PipelineCaches/Linux/MurderInc_SF_VULKAN_SM5.stable.upipelinecache' "$C/build-$1/Linux/Manifest_UFSFiles_Linux.txt" 2>/dev/null)
+  if [ "${n:-0}" -lt 1 ]; then
+    echo "PSO CACHE MISSING: the commit has $(basename "$spc") but the pak list of build-$1 has no MurderInc_SF_VULKAN_SM5.stable.upipelinecache (the cook did not turn it into a cache: see 'UShaderPipelineCacheToolsCommandlet' in the cook log)"
+    return 1
+  fi
+  echo "PSO CACHE OK: $(basename "$spc") ($(stat -c %s "$spc") bytes) is in the pak list as MurderInc_SF_VULKAN_SM5.stable.upipelinecache"
 }
 
 sounds() {  # every Sound Wave the game's data names must be in the pak list of both builds
@@ -354,6 +384,10 @@ zipit() {
   sounds || { say "ZIP REFUSED: a sound the game plays is not in the package (lines above). No zip was made."; rm -f "$z" "$z.sha256"; return 1; }
   # Nor of a game whose guns or parts have no mesh.
   guns || { say "ZIP REFUSED: a gun, magazine or part the game's data names is not in the package (lines above). No zip was made."; rm -f "$z" "$z.sha256"; return 1; }
+  # Nor of a game whose recorded pipeline cache was left out (the cold-start freezes of SMOOTH.md H3 come back).
+  local pc; for pc in Shipping Development; do
+    psocheck "$pc" > /dev/null || { say "ZIP REFUSED: $(psocheck "$pc"). No zip was made."; rm -f "$z" "$z.sha256"; return 1; }
+  done
   local sha gsha; sha=$(cat "$C/src.commit"); gsha=$(cat "$C/build-Shipping.commit" 2>/dev/null || echo "$sha")
   # Our launcher in place of the engine's (which ran MurderInc-Linux-Shipping MurderInc -MICloud "$@" and kept no
   # log): it logs to MurderInc/Saved/Logs, passes stop signals on, never runs the game as root.

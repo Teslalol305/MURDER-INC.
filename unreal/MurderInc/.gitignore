@@ -3,7 +3,11 @@
 /Intermediate/
 /Saved/
 /DerivedDataCache/
-/Build/
+/Build/*
+# ...except the recorded pipeline cache the cook bundles (tools/box/cloud/pso-cache.sh; docs/unreal/SMOOTH.md H3, H4).
+!/Build/Linux/
+/Build/Linux/*
+!/Build/Linux/PipelineCaches/
 /Plugins/*/Binaries/
 /Plugins/*/Intermediate/
 *.sln

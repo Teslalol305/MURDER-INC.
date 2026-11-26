@@ -35,6 +35,7 @@
 #include "RenderTimer.h"
 #include "RenderUtils.h"
 #include "Scalability.h"
+#include "ShaderPipelineCache.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "Styling/CoreStyle.h"
@@ -2517,6 +2518,9 @@ void UMICloudSubsystem::Probe(float DeltaTime)
 	Out += FString::Printf(TEXT(" q=%d qSteps=%d qChanges=%d"), Ladder.Step(), QualitySteps.Num(), QualityChanges);
 	// The viewer's away signals (SMOOTH.md B5): received, and the runs they paused.
 	Out += FString::Printf(TEXT(" away=%d awayPaused=%d"), AwaySignals, AwayPauses);
+	// The bundled pipeline cache (SMOOTH.md H3, H4): pipeline states of the recorded cache still to be compiled (0 once
+	// done, and 0 in a package without a cache).
+	Out += FString::Printf(TEXT(" psoLeft=%u"), FShaderPipelineCache::NumPrecompilesRemaining());
 	MICloudPrivate::Line(Out);
 	ProbeFrames = ProbeTime = ProbeWorst = 0.0;
 	ProbeGameMs = ProbeRenderMs = ProbeRhiMs = 0.0;

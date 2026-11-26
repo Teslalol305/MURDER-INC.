@@ -101,7 +101,7 @@
 # notes once a second whether one appeared and how busy the GPU was; the summary says CLEAN or POLLUTED. Runs that
 # shared the GPU are thrown away (several games on one card produce the very stall this test is about).
 # Each run keeps its files in /project/ue/cloud/lag/<name>/: info.txt, game.log, view.log, others.log, the frames the
-# viewer saved, the CSV profile, summary.txt.
+# viewer saved, the CSV profile, a -logPSO run's *.rec.upipelinecache, summary.txt.
 C=/project/ue/cloud
 T=$(dirname "$(readlink -f "$0")")
 OUT=${LAG_OUT:-$C/lag}
@@ -261,6 +261,7 @@ run_fg() {
     for i in $(seq 1 $((secs + 60))); do [ -f "$R/result.txt" ] && break; sleep 1; done
     hogs stop "$O/hog.pids"
     cp "$R/game.log" "$O/game.log" 2>/dev/null; cp "$R/result.txt" "$O/result.txt" 2>/dev/null
+    cp "$build"/MurderInc/Saved/Profiling/CSV/*.csv "$build"/MurderInc/Saved/CollectedPSOs/*.upipelinecache "$O/" 2>/dev/null
     echo DONE > "$O/done"; wait
     python3 "$T/lag_sum.py" "$O" > "$O/summary.txt" 2>&1
     cat "$O/summary.txt"
@@ -300,6 +301,7 @@ run_fg() {
   hogs stop "$O/hog.pids"
   cp "$R/game.log" "$O/game.log" 2>/dev/null; cp "$R/result.txt" "$O/result.txt" 2>/dev/null
   cp "$build"/MurderInc/Saved/Profiling/CSV/*.csv "$O/" 2>/dev/null
+  cp "$build"/MurderInc/Saved/CollectedPSOs/*.upipelinecache "$O/" 2>/dev/null   # a -logPSO run's recording (pso-cache.sh)
   echo DONE > "$O/done"; wait
   python3 "$T/lag_sum.py" "$O" > "$O/summary.txt" 2>&1
   cat "$O/summary.txt"
