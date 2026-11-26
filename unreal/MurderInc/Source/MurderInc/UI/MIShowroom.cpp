@@ -5,6 +5,8 @@
 #include "Components/BoxComponent.h"
 #include "Components/PostProcessComponent.h"
 #include "Components/RectLightComponent.h"
+#include "Components/SceneCaptureComponent2D.h"
+#include "Engine/TextureRenderTarget2D.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/SpotLightComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -251,6 +253,33 @@ bool AMIShowroom::FindSlotLocal(FVector& Out) const
 		return true;
 	}
 	return false;
+}
+
+void AMIShowroom::DrawOnce()
+{
+	if (!WarmTarget)
+	{
+		WarmTarget = NewObject<UTextureRenderTarget2D>(this);
+		WarmTarget->RenderTargetFormat = RTF_RGBA8;
+		WarmTarget->InitAutoFormat(192, 108);
+		WarmTarget->UpdateResourceImmediate(true);
+	}
+	if (!WarmCapture)
+	{
+		WarmCapture = NewObject<USceneCaptureComponent2D>(this, TEXT("WarmCapture"));
+		WarmCapture->bCaptureEveryFrame = false;
+		WarmCapture->bCaptureOnMovement = false;
+		WarmCapture->CaptureSource = SCS_FinalColorLDR;
+		WarmCapture->TextureTarget = WarmTarget;
+		WarmCapture->SetupAttachment(Root);
+		WarmCapture->RegisterComponent();
+	}
+	if (const UCameraComponent* Cam = GetActiveCamera())
+	{
+		WarmCapture->SetWorldTransform(Cam->GetComponentTransform());
+		WarmCapture->FOVAngle = Cam->FieldOfView;
+	}
+	WarmCapture->CaptureScene();
 }
 
 void AMIShowroom::UseShot(EShot In)

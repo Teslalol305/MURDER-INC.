@@ -23,6 +23,19 @@ if os.path.dirname(HERE) not in sys.path:
 from mi import paths  # noqa: E402
 
 LOD_SWITCH = 30.0          # metres from the camera to a building's nearest point
+PROP_LOD_SWITCH = 12.0     # metres from the camera to a prop's nearest point: a prop past it draws its <name>_LOD1
+# Props that are heavy and placed many times: source mesh -> LOD1 triangle target (about a quarter; the thin-member floor
+# of the lane's check still holds because the collapse keeps the volume, not the hairlines). The LOD1 is a second mesh of
+# the same name + "_LOD1": in Unreal it is the static mesh's LOD1 (same slots), switched at PROP_LOD_SWITCH.
+PROP_LODS = {
+    "SM_Prop_TrashCan_Metal": 1600, "SM_Prop_CT_StallCounter_2m": 1200, "SM_Furn_PalletStack_A": 3000, "SM_Furn_MilkCrate": 450,
+    "SM_Prop_CT_VendorTable": 900, "SM_Prop_CardboardBoxes": 500, "SM_Prop_CT_FishCounter": 1500, "SM_Prop_CT_Produce_Citrus": 1200,
+    "SM_Prop_CT_ClothingRail": 800, "SM_Prop_CT_DryGoods": 900, "SM_Furn_Dumpster": 2000, "SM_Furn_TrafficCone": 400,
+}
+# Block meshes too heavy to place at all: a lighter Canal version (decimated from the Block's, same slots, same size and
+# pivot), which also gets a LOD1 below. source -> (name, triangle target)
+LIGHT_VARIANTS = {"SM_Prop_Hydrant": ("SM_Prop_CT_Hydrant", 4500)}
+LIGHT_LOD1 = {"SM_Prop_CT_Hydrant": 1100}
 FAR_TRIS = 10000           # proxy target (cap 12k)
 # worst view 1 (chinatown.md 14.0): the start (web (-40, 0, -24.5), eye 1.68) looking east, the stream's 16:9 at 90 deg
 VIEW1 = {"eye": (-40.0, 24.5, 1.68), "dir": (1.0, 0.0, 0.0), "hfov": 90.0, "vfov": 58.7, "far": 120.0}
@@ -78,8 +91,9 @@ def dist_to_box(p, box):
     return math.sqrt(dx * dx + dy * dy + dz * dz)
 
 
-def view_triangles(view=VIEW1, lod_switch=LOD_SWITCH):
-    """(north-row triangles drawn in the view with every module at LOD0, the same with the far proxies, per building)."""
+def view_triangles(view=VIEW1, lod_switch=LOD_SWITCH, prop_lods=True):
+    """(triangles drawn in the view with every module at LOD0, the same with the far proxies and the props' LOD1s, per
+    building). A prop past PROP_LOD_SWITCH draws its <name>_LOD1 when the manifest has one."""
     man = _manifest()
     inst = _placements()
     by_b = {}
@@ -91,10 +105,17 @@ def view_triangles(view=VIEW1, lod_switch=LOD_SWITCH):
         boxes = [(e, instance_box(e, man[e["mesh"]])) for e in es if e["mesh"] in man]
         seen = [(e, bx) for e, bx in boxes if in_view(bx, view)]
         t_full = sum(man[e["mesh"]]["triangles"] for e, _bx in seen)
+        t_mod = 0
+        for e, bx in seen:
+            lod1 = man.get(e["mesh"] + "_LOD1")
+            if prop_lods and lod1 and dist_to_box(view["eye"], bx) > PROP_LOD_SWITCH:
+                t_mod += lod1["triangles"]
+            else:
+                t_mod += man[e["mesh"]]["triangles"]
         near = min((dist_to_box(view["eye"], bx) for _e, bx in boxes), default=1e9)
         far_name = "SM_Facade_CT_Far_" + b
         use_proxy = near > lod_switch and far_name in man and seen
-        t_lod = man[far_name]["triangles"] if use_proxy else t_full
+        t_lod = man[far_name]["triangles"] if use_proxy else t_mod
         rows[b] = {"instancesInView": len(seen), "trianglesLOD0": t_full, "nearest_m": round(near, 1),
                    "drawn": "proxy" if use_proxy else "modules", "trianglesDrawn": t_lod}
         full += t_full
@@ -266,6 +287,94 @@ def build_far_proxies(ctx):
                         % (b, FAR_TRIS // 1000, LOD_SWITCH, W))
         ctx.K[ob.name] = ob
         made.append(ob)
+    for o in cache.values():
+        if o is not None:
+            bpy.data.objects.remove(o)
+    return made
+
+
+def _base_materials(ob):
+    """The GLB importer's ".001" copies of the kit's materials back under the kit's names."""
+    import re
+    import bpy
+    for i, m in enumerate(ob.data.materials):
+        if m is None:
+            continue
+        nm = re.sub(r"\.\d+$", "", m.name)
+        tgt = bpy.data.materials.get(nm)
+        if tgt is None:
+            m.name = nm
+        elif tgt is not m:
+            ob.data.materials[i] = tgt
+
+
+def _collapse(ob, target):
+    import bpy
+    tris = sum(len(p.vertices) - 2 for p in ob.data.polygons)
+    if tris > target:
+        dm = ob.modifiers.new("collapse", "DECIMATE")
+        dm.decimate_type = "COLLAPSE"
+        dm.ratio = target / float(tris)
+        dm.use_collapse_triangulate = True
+        bpy.context.view_layer.objects.active = ob
+        bpy.ops.object.modifier_apply(modifier=dm.name)
+
+
+def build_prop_lods(ctx):
+    """The props' LOD1s and the light Canal versions of the hydrant (see PROP_LODS, LIGHT_VARIANTS)."""
+    import bpy
+    man = _manifest()
+    cache = {}
+
+    def source(name):
+        if name in ctx.K:
+            return ctx.K[name]
+        if name in cache:
+            return cache[name]
+        rec = man.get(name)
+        if not rec:
+            return None
+        before = set(bpy.data.objects)
+        bpy.ops.import_scene.gltf(filepath=os.path.join(paths.out, rec["glb"]))
+        new = [o for o in bpy.data.objects if o not in before and o.type == "MESH"]
+        for o in bpy.data.objects:
+            if o not in before and o.type != "MESH":
+                bpy.data.objects.remove(o)
+        ob = new[0] if new else None
+        if ob is not None:
+            ob.hide_render = True
+            ob.hide_viewport = True
+        cache[name] = ob
+        return ob
+
+    def make(src_name, name, target, note):
+        src = source(src_name)
+        if src is None:
+            return None
+        ob = bpy.data.objects.new(name, src.data.copy())
+        ob.data.name = name
+        ctx.kit.objects.link(ob)
+        ob.matrix_world = src.matrix_world.copy()
+        ob.hide_viewport = False
+        _base_materials(ob)
+        _collapse(ob, target)
+        _base_materials(ob)
+        ctx.asset(ob, collision="none", notes=note)
+        ctx.K[name] = ob
+        return ob
+
+    made = []
+    for src_name, (name, target) in LIGHT_VARIANTS.items():
+        ob = make(src_name, name, target, "The Block's %s collapsed to about %.1fk triangles (same size, slots and pivot) so it can be placed "
+                                          "several times in the start view; collision is the placement's collider." % (src_name, target / 1000.0))
+        if ob is not None:
+            ctx.assets[name]["collision"] = "box"
+            made.append(ob)
+    for src_name, target in list(PROP_LODS.items()) + list(LIGHT_LOD1.items()):
+        ob = make(src_name, src_name + "_LOD1", target, "LOD1 of %s (about %.1fk triangles), drawn past %.0f m from the camera; same slots." %
+                  (src_name, target / 1000.0, PROP_LOD_SWITCH))
+        if ob is not None:
+            made.append(ob)
     for o in cache.values():
         if o is not None:
             bpy.data.objects.remove(o)

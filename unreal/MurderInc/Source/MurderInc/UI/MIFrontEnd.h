@@ -85,6 +85,9 @@ public:
 
 private:
 	void SyncStage(bool bForce);
+	/** Once, behind the title card: the Crew arms and the turntable drawn once so the first real draw is not a long frame. */
+	void WarmStage();
+	bool bWarmed = false;
 	void SyncViewTarget();
 	void Remember();
 	void StartRun();

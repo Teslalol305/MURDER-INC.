@@ -125,6 +125,7 @@ void UMIFrontEnd::Show()
 		return;
 	}
 	bShown = true;
+	WarmStage();
 	UWorld* World = Game.IsValid() ? Game->GetWorld() : nullptr;
 	if (UGameViewportClient* Viewport = World ? World->GetGameViewport() : nullptr; Viewport && Widget)
 	{
@@ -854,6 +855,33 @@ void UMIFrontEnd::SyncViewTarget()
 	{
 		PC->PlayerCameraManager->StartCameraFade(1.f, 0.f, 0.3f, FLinearColor::Black, false, false);
 	}
+}
+
+void UMIFrontEnd::WarmStage()
+{
+	if (bWarmed || !Showroom)
+	{
+		return;
+	}
+	bWarmed = true;
+	const FMIRunSetup& Set = Rules.GetSetup();
+	const FName Gun = Set.Guns.Num() > 0 ? Set.Guns[0] : NAME_None;
+	FMIGunBuild Build;
+	if (const FMIGunBuild* B = Set.BuildOf(Gun)) Build = *B;
+	FMIResolvedGun G;
+	if (Gun.IsNone() || !ResolveShown(Gun, &Build, G))
+	{
+		return;
+	}
+	if (Showroom->ShowArms(Rules.GetData().FindCrew(Set.Crew), G))
+	{
+		Showroom->UseShot(AMIShowroom::EShot::Arms);
+		Showroom->DrawOnce();
+	}
+	Showroom->UseShot(AMIShowroom::EShot::Turntable);
+	Showroom->ShowGun(G);
+	Showroom->DrawOnce();
+	StageKey.Reset();  // the screens set the stage as they are opened
 }
 
 void UMIFrontEnd::CutCamera()

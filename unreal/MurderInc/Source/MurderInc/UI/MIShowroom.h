@@ -10,6 +10,8 @@ class UCameraComponent;
 class UMIGunAssembly;
 class UPostProcessComponent;
 class USpotLightComponent;
+class USceneCaptureComponent2D;
+class UTextureRenderTarget2D;
 class USkeletalMeshComponent;
 class UStaticMeshComponent;
 struct FMICrewEntry;
@@ -67,6 +69,11 @@ public:
 	void Stick(const FVector2D& Value, float ZoomAxis);
 	void SetReducedMotion(bool bOn) { bReducedMotion = bOn; }
 
+	/** Draws the current shot once into a tiny target the screen never shows (v6 release pass, H3: the Crew screen's first
+	 *  draw was one 70 to 85 ms frame in every cold run; the first draw of the stage's meshes, lights and textures now
+	 *  happens behind the title card instead). */
+	void DrawOnce();
+
 	UCameraComponent* GetActiveCamera() const;
 	virtual void Tick(float DeltaSeconds) override;
 
@@ -85,6 +92,8 @@ private:
 	UPROPERTY(VisibleAnywhere) TObjectPtr<UMIGunAssembly> ArmsAssembly;
 	UPROPERTY(VisibleAnywhere) TObjectPtr<UPostProcessComponent> Post;
 	UPROPERTY(Transient) TObjectPtr<USpotLightComponent> SlotLight;
+	UPROPERTY(Transient) TObjectPtr<USceneCaptureComponent2D> WarmCapture;
+	UPROPERTY(Transient) TObjectPtr<UTextureRenderTarget2D> WarmTarget;
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> Set;
 
 	const FMIViewmodelData* ViewData = nullptr;
