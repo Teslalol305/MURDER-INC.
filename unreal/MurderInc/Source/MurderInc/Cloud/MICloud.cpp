@@ -1055,6 +1055,51 @@ void UMICloudSubsystem::ReleaseForLeave(UMIGameSubsystem* Game, AMIPlayerControl
 	}
 }
 
+bool UMICloudSubsystem::PauseForAway(UMIGameSubsystem* Game, AMIPlayerController* Controller)
+{
+	if (!Game)
+	{
+		return false;
+	}
+	const EMIGameState State = Game->GetRules().GetState();
+	if (State != EMIGameState::Playing && State != EMIGameState::Intro)
+	{
+		return false;  // a menu, a card or a run already paused: nothing runs behind the page
+	}
+	ReleaseForLeave(Game, Controller);
+	return true;
+}
+
+bool UMICloudSubsystem::IsAwayMessage(const TArray<uint8>& Message)
+{
+	const int32 Units = Message.Num() >= 2 ? (int32)(Message[0] | (Message[1] << 8)) : 0;
+	if (Units <= 0 || Units > 256 || Message.Num() < 2 + 2 * Units)
+	{
+		return false;  // empty, cut short, or too long to be the game's short word
+	}
+	FString Descriptor;
+	Descriptor.Reserve(Units);
+	for (int32 I = 0; I < Units; ++I)
+	{
+		Descriptor.AppendChar((TCHAR)(Message[2 + 2 * I] | (Message[3 + 2 * I] << 8)));
+	}
+	TSharedPtr<FJsonObject> Json;
+	FString Word;
+	return Descriptor.Contains(TEXT("murderinc")) && FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Descriptor), Json)
+		&& Json.IsValid() && Json->TryGetStringField(TEXT("murderinc"), Word) && Word.Equals(TEXT("away"), ESearchCase::IgnoreCase);
+}
+
+void UMICloudSubsystem::OnViewerAway(const TCHAR* Why)
+{
+	++AwaySignals;
+	const UGameInstance* GI = GetGameInstance();
+	if (PauseForAway(MICloudPrivate::Game(GI), GI ? Cast<AMIPlayerController>(GI->GetFirstLocalPlayerController()) : nullptr))
+	{
+		++AwayPauses;
+		MICloudPrivate::Line(FString::Printf(TEXT("Viewer away (%s): the run is paused and what the viewer held is let go (%s)"), Why, *MICloudPrivate::Stamp()));
+	}
+}
+
 void UMICloudSubsystem::Dismiss()
 {
 	if (bWaitingForClick)
@@ -1354,6 +1399,58 @@ void UMICloudSubsystem::GuardViewerInput()
 			++S->DoubleClicksDropped;
 		}
 	});
+	// A viewer who stops looking at the run (SMOOTH.md B5). The web game pauses on blur and on a hidden tab; a stream
+	// gave the game no such moment, so a player who pressed Esc or went to another window left the run going and was
+	// shot meanwhile. E3DS's player (e3dsCore.min_ns_dark.js, read 2026-11-26) sends MouseLeave when the pointer leaves
+	// the picture (the mouseleave of the video's parent; with the locked mouse that only happens once the lock has
+	// ended) and nothing else when the lock ends but a key-up for each held key. The page around it hears of the
+	// stream's focus (streamFocusLost) and of a hidden tab, and can tell the game with {cmd: 'sendToUe4', value:
+	// {murderinc: 'away'}}: E3DS's player passes the value on as a UIInteraction descriptor. Both handlers stay the
+	// plugin's (they run first, with the message as it came); ours only adds the pause. The MouseLeave that Pixel
+	// Streaming sends itself when a connection closes has no sender id: the connection's own end pauses the run then.
+	{
+		const IPixelStreaming2InputHandler::MessageHandlerFn PluginLeave = Handler->FindMessageHandler(TEXT("MouseLeave"));
+		Handler->RegisterMessageHandler(TEXT("MouseLeave"), [Weak, WeakHandler, PluginLeave](FString SourceId, FMemoryReader)
+		{
+			if (PluginLeave)
+			{
+				const TArray<uint8> None;
+				PluginLeave(SourceId, FMemoryReader(None));
+			}
+			const TSharedPtr<IPixelStreaming2InputHandler> H = WeakHandler.Pin();
+			UMICloudSubsystem* S = Weak.Get();
+			if (S && H.IsValid() && !SourceId.IsEmpty() && H->IsElevated(SourceId))
+			{
+				S->OnViewerAway(TEXT("the pointer left the picture"));
+			}
+		});
+		const IPixelStreaming2InputHandler::MessageHandlerFn PluginUi = Handler->FindMessageHandler(TEXT("UIInteraction"));
+		Handler->RegisterMessageHandler(TEXT("UIInteraction"), [Weak, WeakHandler, PluginUi](FString SourceId, FMemoryReader Ar)
+		{
+			// The message as it came, for the plugin's handler, then the descriptor as that handler reads it
+			// (RTCInputHandler.cpp HandleOnUIInteraction): a 16-bit count of UTF-16 code units, then the units.
+			TArray<uint8> Bytes;
+			Bytes.SetNumUninitialized((int32)FMath::Clamp<int64>(Ar.TotalSize(), 0, 1 << 20));
+			if (Bytes.Num() > 0)
+			{
+				Ar.Serialize(Bytes.GetData(), Bytes.Num());
+			}
+			if (PluginUi)
+			{
+				PluginUi(SourceId, FMemoryReader(Bytes));
+			}
+			if (!IsAwayMessage(Bytes))
+			{
+				return;
+			}
+			const TSharedPtr<IPixelStreaming2InputHandler> H = WeakHandler.Pin();
+			UMICloudSubsystem* S = Weak.Get();
+			if (S && H.IsValid() && H->IsElevated(SourceId))
+			{
+				S->OnViewerAway(TEXT("the page says the player is away"));
+			}
+		});
+	}
 	// The size request (FMICloudSize). Pixel Streaming's handler asks only whether the sender may control the stream
 	// (RTCInputHandler.cpp: no AllowPixelStreamingCommands there); ours asks the same.
 	Handler->SetCommandHandler(TEXT("Resolution.Width"), [Weak, WeakHandler](FString SourceId, FString Descriptor, FString Width)
@@ -1403,7 +1500,7 @@ void UMICloudSubsystem::GuardViewerInput()
 		});
 	}
 	MICloudPrivate::Line(FString::Printf(TEXT("Viewer console commands: only these variables can be read or set, anything else is refused: %s"), *MITuning::AllowedList()));
-	MICloudPrivate::Line(FString::Printf(TEXT("Viewer input: a size request is taken from %d x %d up and drawn within %d x %d; a double click counts as its two clicks"),
+	MICloudPrivate::Line(FString::Printf(TEXT("Viewer input: a size request is taken from %d x %d up and drawn within %d x %d; a double click counts as its two clicks; the pointer leaving the picture or the page's {\"murderinc\":\"away\"} pauses a run"),
 		FMICloudSize::MinWidth, FMICloudSize::MinHeight, FMICloudSize::MaxWidth, FMICloudSize::MaxHeight));
 #endif
 }
@@ -2418,6 +2515,8 @@ void UMICloudSubsystem::Probe(float DeltaTime)
 	}
 	// The quality ladder (release 3c): the step in force, how many steps the table has, how many changes so far.
 	Out += FString::Printf(TEXT(" q=%d qSteps=%d qChanges=%d"), Ladder.Step(), QualitySteps.Num(), QualityChanges);
+	// The viewer's away signals (SMOOTH.md B5): received, and the runs they paused.
+	Out += FString::Printf(TEXT(" away=%d awayPaused=%d"), AwaySignals, AwayPauses);
 	MICloudPrivate::Line(Out);
 	ProbeFrames = ProbeTime = ProbeWorst = 0.0;
 	ProbeGameMs = ProbeRenderMs = ProbeRhiMs = 0.0;

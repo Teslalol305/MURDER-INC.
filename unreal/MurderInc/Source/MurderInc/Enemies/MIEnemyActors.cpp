@@ -516,6 +516,8 @@ bool AMIGoon::StartRagdoll(const FVector& ShotDir)
 		return false;
 	}
 	M->SetSimulatePhysics(true);
+	// While it falls the pose follows the bodies even off screen, so the pose kept at rest is the one the physics made.
+	M->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
 	for (FBodyInstance* B : M->Bodies)
 	{
 		if (B)
@@ -567,7 +569,9 @@ void AMIGoon::UpdateRagdoll(double Dt)
 	}
 	// At rest: a pool spreads under the hips, and the body is frozen as it lies (no bodies, no pose updates: a body
 	// costs nothing more until the rules remove it).
-	const FVector Pelvis = M->GetBoneLocation(TEXT("pelvis"));
+	// The hips where the physics has them (a body nobody looks at gets no bone update from the animation tick).
+	const FBodyInstance* Hips = M->GetBodyInstance(TEXT("pelvis"));
+	const FVector Pelvis = Hips ? Hips->GetUnrealWorldTransform().GetLocation() : M->GetBoneLocation(TEXT("pelvis"));
 	FHitResult Floor;
 	FCollisionQueryParams Q(SCENE_QUERY_STAT(MIGoonPool), false, this);
 	if (GetWorld() && GetWorld()->LineTraceSingleByChannel(Floor, Pelvis + FVector(0, 0, 30), Pelvis - FVector(0, 0, 150), ECC_Visibility, Q))
@@ -577,6 +581,9 @@ void AMIGoon::UpdateRagdoll(double Dt)
 			PoolHandle = Fx->BloodPool(Floor.ImpactPoint, Floor.ImpactNormal);
 		}
 	}
+	UE_LOG(LogMI, Log, TEXT("Goon %d at rest after %.2f s: hips %s, %.0f cm over the floor under them (%s), %.0f cm from where it died"), Slot, DeadFor,
+		*Pelvis.ToCompactString(), Floor.bBlockingHit ? Pelvis.Z - Floor.ImpactPoint.Z : -1.0, Floor.bBlockingHit ? TEXT("found") : TEXT("none within 1.5 m"),
+		FVector::Dist2D(Pelvis, GetActorLocation()));
 	M->SetComponentTickEnabled(false);
 	M->bNoSkeletonUpdate = true;
 	M->SetSimulatePhysics(false);
@@ -603,6 +610,7 @@ void AMIGoon::ResetBody()
 	M->SetSimulatePhysics(false);
 	M->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	M->bNoSkeletonUpdate = false;
+	M->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered;
 	bRagdoll = bSettled = false;
 	M->SetComponentTickEnabled(bShown);
 	if (M->GetAttachParent() != GetCapsuleComponent())
