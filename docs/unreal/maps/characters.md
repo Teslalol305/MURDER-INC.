@@ -210,6 +210,11 @@ export, about 6 minutes for the previews on 3 threads. Steps:
    leg never takes an arm or the other leg; the torso never takes a forearm, hand, calf or foot); the torso may follow
    an upper arm only within 13 cm of that shoulder joint and a thigh only below the hip joint + 5 cm (a loose jacket's
    side panel must not swing with the arm). Masked before and after smoothing and after the 4-influence limit.
+   Added with canal_bomber (section 7; characters built before it keep their results): a limb label must connect to
+   its hand or foot over mesh edges between vertices of the same label, and islands that do not (a hip pouch beside
+   the hanging forearm) go to the torso; an arm vertex keeps upper-spine weight only within 18 cm of its shoulder
+   joint. The build also logs how far the reference pose stretches the generated surface (`rest_stretch` in the
+   check file): the posed check measures against that reference pose, so it cannot see it.
 6. **Pose check** (`vultures.pose_check`, written into the check file): the clips rifle_jog_fwd, rifle_idle_ads,
    rifle_reload, pistol_idle_ads, unarmed_attack and death_front every 6 frames, plus three held poses (`held_pose`):
    kneel on the right knee, crouch (thighs 70 degrees forward, knees 110, trunk 20), overhead swing. Per pose: the
@@ -408,3 +413,100 @@ Below the hand-built Goons at 1 m (fused layers, rigid gloves, the eye band).
 
 **Credits (this character):** 18 (one Tripo take, `tripo_h3_1_multiview_to_3d`, detailed, 110k); the sheet's 3.25
 is in section 5. No GPU box was rented or used.
+
+## 7. `SK_Vulture_CanalBomber` (Level 2 rank and file, built)
+
+Built 2026-11-26 from the first Tripo take, with two changes to the bind (3.4 step 5) that this character needed:
+`build.py build vultures --only canal_bomber --export --preview --samples 32` (36 s to the export, 2.3 min of previews
+on 3 threads). Outputs (git-ignored): `art/out/glb/SK_Vulture_CanalBomber.glb` (3.6 MB) with `.check.json`, the set
+`art/out/textures/VultureCanalBomber/`, the manifest record; sources in `art/out/characters/maps/canal_bomber/` (the
+sheet, the four views, `canal_bomber_tripo.glb`).
+
+![turnaround](../../../art/previews/characters/maps/vulture_canal_bomber_turnaround.jpg)
+
+`vulture_canal_bomber_turnaround.jpg`: the sheet made in the first pass (`sheet_v1.png`), used as it was. Checked
+before spending: four figures, view 2 faces the image's left and view 4 its right, the olive bomber with oxblood rib
+collar, cuffs and waistband, the charcoal hood up over a black beanie, a plain black bandana over nose and mouth
+(eyes and brows show, as the brief says), the crew V on the upper back, the sling from the right shoulder to the left
+hip, black jeans and chunky trainers with the oxblood heel tab; no brand or lettering. The sheet added a small black
+pouch on the sling at the right hip (not in the brief; kept, it is plain gear).
+
+| Measure | Result |
+|---|---|
+| Tripo take | first take kept (1 of at most 3): 104,450 triangles (budget 120k), one connected piece, 0 floaters, 0 edges of opposite winding, 4096 maps (Color, ORM, NormalGL), UVs inside 0..1, 31 % of a 512 grid's cells hit |
+| Clean-up | turned 90 degrees (arm span 0.49 m on Y against 0.17 on X) and 180 (facing +Y), as the others; no decimation |
+| Size | hood top 1.818 m over the floor in the reference pose (mannequin 1.805 x 1.007), the Goon's hood height; 0.98 in the game; 1.16 m across the A-pose hands, 0.46 m deep. Beside SK_Goon_Hoodie in clay: same height, a narrower woman's build in the shoulders and hips (`vulture_canal_bomber_wire.jpg`) |
+| Fit to the skeleton | arms 23.6 / 23.6 degrees below the mannequin's A-pose, lengths x 0.97 / 0.975 (her arms are a little shorter than the mannequin's bones); legs 3.2 / 3.1 degrees, x 1.00; weights from the mannequin surface median 3.0 cm away (99th percentile 12 cm) |
+| Weights by segment | torso 21,704 vertices, arms 4,978 / 5,064, legs 10,421 / 10,046; 62 right-arm vertices not connected to the hand (the hip pouch) moved to the torso; 3,345 cross-segment weights removed before smoothing, 3,966 after, 0 after the 4-influence limit; 0 unweighted |
+| Skeleton | 89 joints; round trip against SKM_Manny_Simple: largest change 0.0000005 m, 0.00013 degrees; re-import 104,450 of 104,450 triangles; **0 validation errors** |
+| Pose check | 99 poses, **99 pass** the capsule test; the worst vertex is 2.1 cm outside its capsules (the limit is 6) |
+| Edge stretch (edges over 2 x their rest length, share of about 156,700; 99.9th percentile; the worst frame of each clip) | jog 1.3 %, x 5.7; aim 0.9 %, x 3.9; reloads 1.0 %, x 4.6; melee 1.7 %, x 6.1; death fall 2.5 %, x 6.9; kneel 1.0 %, x 6.1; crouch 1.4 %, x 7.0; overhead swing 1.0 %, x 6.0 |
+| Against the Goons (same measure) | SK_Goon_Hoodie jog 1.05 %, x 9.6, aim 1.3 %, x 8.6, death 2.4 %, x 11.9; SK_Goon_Puffer jog 1.9 %, x 6.2, death 3.2 %, x 11.1. The worst stretch is below both Goons in every compared pose; the share of stretched edges is between the two Goons in the jog and the death fall and below the Hoodie in the aim. About canal_shell's figures (jog 1.1 %, death 2.8 %) |
+| Reference pose against the generated surface (new in the check file, `build.bind.rest_stretch`) | 99.9th percentile x 5.7, worst edge x 27, 496 edges over 2 x, 222 over 4 x, all under the arms (the mannequin's A-pose holds the arms 23.6 degrees higher than the generated figure). canal_shell as built: x 5.1, worst x 28, 554 and 239 |
+| Texture set | 4096, albedo mean linear 0.031 / 0.031 / 0.029 (a dark figure, under the 0.08 rule), roughness mean 0.71 after the remap, metallic 0 (no texel over 0.5), occlusion mean 0.998 (empty, as on the others) |
+
+**What this character found in the pipeline (fixed in `vultures.py`, commits 8d5fde1 and 34379e2)**
+
+1. The first bind failed 5 of 99 poses (a rifle reload frame, the melee, two death-fall frames and the overhead
+   swing; 5 to 8 vertices each, up to 12.5 cm out). All were on the inside of a forearm where it hangs beside the
+   jacket hem and the hip pouch: arm-labelled vertices that kept 0.3 to 0.45 of `spine_03` (the arm segment may take
+   the upper spine for the shoulder), so the forearm left them behind. Now an arm vertex keeps upper-spine weight
+   only within 18 cm of its shoulder joint: 0 of 99 fail, worst 2.1 cm, and the stretch went down too (death fall
+   p99.9 x 7.3 to x 6.9).
+2. The hero and clay previews then showed flat dark sheets sticking out beside the right hip. The raw Tripo mesh is
+   clean there (checked in clay from five sides): the pouch lies against the hanging forearm and 62 of its vertices
+   were labelled right arm, so the inverse skinning to the mannequin's higher A-pose tore it apart. Limb labels must
+   now connect to their hand or foot over the mesh; islands go to the torso. The sheets are gone, and the reference
+   pose's worst stretch fell from x 69 to x 27 (edges over 4 x from 306 to 222).
+3. The posed check measures stretch against the bound reference pose, so it cannot see damage done by the inverse
+   skinning itself (point 2 passed it). The build now logs and stores that stretch (`rest_stretch`).
+
+canal_shell (8 leg vertices would move under the island rule) and canal_lieutenant were built before these changes
+and were not rebuilt here; a rebuild of either picks them up.
+
+![hero](../../../art/previews/characters/maps/vulture_canal_bomber_hero.jpg)
+
+`vulture_canal_bomber_hero.jpg`: front and back three-quarter, studio and street night. The padded olive bomber with
+its sleeve pocket and the oxblood rib collar, cuffs and waistband, the charcoal hood up over the beanie, the bandana,
+the sling and buckle, the crew V on the back; at night a dark figure whose olive and oxblood separate her from the
+black canal_shell at the same distance.
+
+![detail](../../../art/previews/characters/maps/vulture_canal_bomber_detail.jpg)
+
+`vulture_canal_bomber_detail.jpg`: head at 1 m (the knit beanie, hood with drawcords, the bandana, rain beads on the
+nylon, quilting and the sleeve pocket's zip) and the legs at 1.3 m (straight black jeans, stacked hems over chunky
+trainers).
+
+![poses](../../../art/previews/characters/maps/vulture_canal_bomber_poses.jpg)
+
+`vulture_canal_bomber_poses.jpg`: jog, aim, crouch and the forward death fall on the bound mesh; no tearing at
+shoulders, elbows, hips or knees.
+
+![wire](../../../art/previews/characters/maps/vulture_canal_bomber_wire.jpg)
+
+`vulture_canal_bomber_wire.jpg`: clay beside SK_Goon_Hoodie, and the wireframe at 1.2 m (Tripo's even
+triangulation, no edge loops).
+
+**Known weaknesses (for the art review)**
+
+- **Fins under the arms in the reference pose.** Behind the upper arms the reference pose stretches the armpit into
+  thin fins (visible behind the arms in the hero and wire pictures; 222 edges over 4 x). canal_shell has the same in
+  about the same amount. The game never shows the reference pose and the clips hold the arms forward or down, where
+  the armpit closes again (none show in the jog, aim, crouch or death pictures), but a T-pose or arms-out frame would.
+  The fix belongs to the pipeline: bind with the mannequin's arms lowered to the generated figure's angle.
+- **The jeans read glossy at 1.3 m**, closer to coated denim or leather than to washed black denim: the roughness
+  remap (0.45 + 0.5 x) is shared by all Vultures and Tripo painted the jeans darker and smoother than the jacket. A
+  per-character roughness floor for denim would fix it.
+- **More face than the Goons.** The bandana leaves the eyes, brows and the bridge of the nose bare, as the brief
+  asks: an invented woman's face, mostly covered, but at 1 m it shows more skin than the Goons' r3 masks.
+- As the others: one fused surface (bomber, hoodie, sling, bandana, jeans), rigid one-piece gloves (no finger curl
+  round the SMG's grip), no edge loops, LODs or corrective shapes, occlusion map empty, not imported in Unreal yet (the
+  enemy lane's check: scale 0.98, materials, the SMG on `hand_r`, a readability frame on Canal Street).
+
+**Verdict.** Usable as Level 2 rank and file at 3 to 40 m: a realistic woman in believable wet-night New York
+streetwear, the Goons' height, on the same skeleton and clips, all 99 poses inside the capsules and less worst stretch
+than both Goons; she reads differently from canal_shell (olive and oxblood against black, bomber against rain shell).
+Below the hand-built Goons at 1 m (fused layers, rigid gloves, glossy jeans).
+
+**Credits (this character):** 18 (one Tripo take, `tripo_h3_1_multiview_to_3d`, detailed, 110k); the sheet's 3.25
+is in section 5. Diagnostic clay renders ran in Blender only. No GPU box was rented or used.
