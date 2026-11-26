@@ -575,3 +575,35 @@ roof's 0.35 although the sun reaches the street through the deck. Shade only ins
 chop shop, 0 to 6.3 m) or under a roof less than 4 m above (an awning): `C.bShade = InsideInterior(P) || (Nav.Raycast(...,
 40.0, Hit) && Hit.Distance < 4.0)`. Acceptance: `guide-shots.sh ONLY="el fight"` and `guide-orders.sh ONLY="b2 c2"`
 show the path under the El as clearly as in `start`.
+
+### Enemy deaths at full speed (runs `d1`, `d5`, `d6`; `tools/box/fp/death-shots.sh`)
+
+The kill comes with the world at full speed (`slomo 1`), the frames at about 0.05, 0.25, 0.6, 1.5 and 4 s after it with the
+world frozen. Two things in the script were found and changed on the way: the side camera (`cam`) cannot be spawned from
+Python in the play world in this engine (`GameplayStatics` has no `finish_spawning_actor`), so every "camera" frame of
+the earlier death runs was the player's own view from where the shot came; and a Story run has only three Goons to kill,
+so a run takes at most three sequences. `CLOSE=1` (`46fc9f2`, `05174a3`) now poses the player 2.5 m from the body on the
+side the shot came from, looking down at it, before each frame. `d1` (the player's view from 6 m, all sequences; CLEAN)
+killed the first three only; `d5` (front, back) and `d6` (wall, stairs, blast) are the close runs (frames CLEAN; one
+watcher sample in each, before the first frame, saw another lane's editor start while this run's editor restarted).
+Sheets: `shots/vis-deaths.jpg`, `shots/vis-deaths-blast-and-ball.jpg`.
+
+| Case | Seen | Verdict |
+|---|---|---|
+| Front, back, head (`d1` from 6 m; `d5` close) | the body folds forward at 0.25 s (a moment of the "crouch", then down), lies on its side at 0.6 s and flat on the sidewalk from 1.5 s; never thrown, never sinking; the back-shot body falls toward the pole and lies there | pass |
+| By a wall (`d6` `wall-*`) | a spatter of dark red drops on the wall behind the body at 0.25 to 4 s; the body falls behind the hot-dog cart (not framed) | spatter **pass**; the body's rest not seen |
+| On the shed's stair (`d6` `stairs-*`) | the body slides onto the steps, one arm over the rail, lying on the treads, not through them; blood drops on a tread | pass |
+| Blast (`d6` `blast-*`) | lifted about half a metre at 0.05 to 0.25 s, then down beside the dumpster by 1.5 s; not flung (the player, 3 m away, took 14 damage from the same blast: the red vignette) | pass |
+| Kill burst | not caught in any frame: at 0.05 s the body was behind the El column (`d5` front) or the cart (`d6` wall) from the player's side | **not seen** |
+| Pool under a body (`d5` `back-5`, the front-shot body about 8 s down) | a flat pool spreading from under the torso, an even bright red with a clean edge: in sun it read as red paint | colour changed (below); spread and placement **pass** |
+| Bodies blocking shots | not tested in pictures (the rules' units are removed; bodies collide with world geometry only, PLAY.md death lane) | |
+
+**Fixed here (data, `1b37c7b`):** `presentation.json` `effects.blood.color` from `[0.16, 0.012, 0.01]` to `[0.085, 0.006,
+0.005]` (half as bright; mist, spatter, drops and pool share it). Re-shot in `d6`, which ran with it: the spatter on the
+wall and the drops on the stair read as blood, not paint. The pool itself was not framed again with the new colour (the
+`d6` bodies came to rest behind the cart and on the stair).
+
+**Seen in these frames, for the hands' owner (HANDS_R4.md 11):** whenever the player stands close against something and
+looks down (beside the cart in `wall-2` to `wall-5`, at the stair in `stairs-1`, `-2`, `-5`), the support hand is drawn as
+a huge skin-coloured ball filling a third of the frame: READY.md W2's "brown ball", still present (the black ring of W2 is
+gone).

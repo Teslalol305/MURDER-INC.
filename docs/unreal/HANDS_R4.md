@@ -533,3 +533,11 @@ palm on the magazine's left face (`reload_grips.py`), the face the eye looks at 
 4. **Pictures from beside the player.** A console command on `AMIPlayerController` that sets the view target to a camera
    it spawns at an offset in the eye's frame (and back) would let a picture show the hands from the side; Python cannot
    spawn one in the play world here.
+5. **The support hand as a ball (READY.md W2's second half), still there.** In the death pictures (`/project/ue/logs/int-repo/vis/d6/`
+   `wall-2` to `wall-5`, `stairs-1`, `-2`, `-5`; `shots/vis-deaths-blast-and-ball.jpg`) the player stands against the hot-dog
+   cart or the stair rail looking down about 30 degrees, and the support hand fills a
+   third of the frame as a skin-coloured ball (a fist seen from its knuckles, at the eye). In the same runs, posed in the
+   open (`d5`), it does not happen. Reproduce with `guns-shots.sh` posed against a wall (`MIPose` beside the cart, pitch
+   -30) and check what the support arm's IK is asked to reach there (a guess, not proven: the gun's wall pose near an obstacle
+   brings the support palm target toward the eye, and an arm that cannot reach it folds into a fist at the lens); a
+   support hand that cannot reach its target in the wall pose should let go (IK weight 0).
