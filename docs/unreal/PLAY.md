@@ -619,3 +619,112 @@ replay reads them.
 
 Not done here: the whole story walked by the demo director (`guide-shots.sh PLAY=only`), the release package played
 through the stream with a pool under a body, the kill burst caught in a frame, the pool re-framed with the new colour.
+
+## The end-to-end play of the package (independent, 2026-11-26, 19:30 to 20:12 UTC)
+
+**Verdict: NOT ready to ship.** Every flow works end to end through the stream: no crash, no stuck state, no refused
+input, the whole Story by its guidance to the truck, Hold the Block over several waves, two deaths, Run it back, Restart,
+the pause card, Settings, Back to title, second runs, keyboard and mouse and the simulated pad, and every way of switching
+guns. What stops it is what a first-time player sees: the support arm drawn as a huge skin-coloured ball (on the Crew
+screen and against walls), the reload's open hand with no magazine, the SHORTY's aimed view filled by its receiver, and
+one 350 ms freeze in play under the E3DS-class load. Details and steps per finding below; the lead's list is in the
+"Findings" table.
+
+### What was played, and how
+
+| What | Value |
+|---|---|
+| Package | The smooth prover's package of `b665160` (`/project/ue/smooth/v6p/cloud/MurderInc-v6p.zip`, sha256 `e6a6799f...`; `PACKAGE Development OK`, `PACKAGE Shipping OK`, `PSO CACHE OK` for both games, `ZIP OK`), copied to `/tmp/e2e/pkg` on the box's local disk and owned by the fresh user. `git diff b665160 f861e43 -- unreal tools/box/cloud` is empty: it is the head's game |
+| Game | The Development game of the package (`-MIDev`): the same rules, flow and UI code as the Shipping game, plus the engine log and the demo director. Everything on the set-up screens, the cards and the switching was done by the viewer's own input through Pixel Streaming |
+| Limits | `lag-test.sh` with `load=1:0.05:0:1024` (`l20`, the E3DS-class GPU load), `cpus=0-7`, `-sm5`, 1920 x 1080, `runas=fresh clean=1` (a cold user, a fresh `Saved`: a first-time player), a CSV profile of every frame |
+| Viewer | `rtcinput.py` (a lane copy in `/project/ue/e2e/ct` with two verbs added: `waitlog`, wait for a game log line, and `framewait`, a frame every N s until a log line), sending keys, mouse, wheel and pad as the browser player does, saving 1920 x 1080 frames. Scripts: `/project/ue/e2e/in/view-*.txt`, `demo-*.txt` |
+| Walking | The viewer cannot see, so the Story's walking was done by the demo director's `guide` verb (it follows the route the guidance draws) and `grab`, with god mode on; Hold the Block's fighting by its `fight` verb. Every menu, card, switch, pause and setting came from the viewer |
+| GPU | Each run held the GPU claim (a placeholder named `MurderInc`, `e2e-claim`, as the prover's `gated.sh`), one run at a time, between the prover's runs; released at once. **All five runs CLEAN**: `others=0` and `build=0` in every watcher line during play (one `others=1` in `e2ea2` at 19:43:25, after its game had ended) |
+
+Runs (each folder in `/project/ue/e2e/runs/` has `game.log`, `view.log`, `others.log`, the frames and the CSV):
+
+| Run | What it played | Length |
+|---|---|---|
+| `e2ea` | Card, Home, Crew, Loadout (four guns), the Workbench on all six guns (two parts fitted, one taken off with Backspace), Block & Style, Briefing, Story: a 50 s stand (the hint), every key switch, then two reels | 5 min (stopped: the director's next `guide` read the old step after a `grab`, a tool fault) |
+| `e2ea2` | Quick front end, then the **whole Story** by the guidance: three reels and the truck, switching all the way; the debrief; Run it back | 3 min |
+| `e2eb` | Hold the Block, director fighting with god mode: wave 1 and wave 2 cleared, wave 3 started | 9 min (stopped: the director's `god 0` leaves the player invulnerable, a tool fault, so no death came) |
+| `e2eb2` | Hold the Block with no god mode: death, death card, Run it back by Enter, pause, Settings (look speed, field of view, Ground path off), Close, Resume, Restart run, second death, Change set-up, a run, Settings (Ground path on), pause, Back to title | 4.5 min |
+| `e2ec2` | **Pad only**: first press, Home, Crew, Loadout (carry two), Workbench (Y, fit, X factory, RB next gun, B done), Start through, Story: sticks, triggers, X reload, D-pad up and down, Y tap, Y held with the stick, View tap and hold, Start pause, Settings by D-pad, B back, Back to title, Start from Home for run 2 | 4.5 min |
+
+### Per-frame numbers (every CSV frame, `v6sum.py` of the prover; CLEAN in every run)
+
+| Run, part | Frames, s | fps | Frames over 25 / 50 / 100 ms (count) | Worst frame | 1 % low |
+|---|---|---|---|---|---|
+| `e2ea` front end (title to Briefing, six Workbench visits) | 6,538, 109.3 s | 59.82 | 11 / 2 / 0 | 78.1 ms at 9.42 s (the Crew screen's first draw, H3) | 46.4 |
+| `e2ea` Story play | 11,227, 187.2 s | 59.97 | 1 / 1 / 0 | 55.5 ms | 58.0 |
+| `e2ea2` Story to the truck (probe lines, 0.25 s; its CSV was lost with the early stop) | 167 lines, 43.1 s | 59.99 (min 59.2) | 0 lines with a frame over 25 ms | 19.8 ms | |
+| `e2eb` front end | 1,798, 30.0 s | 59.93 | 1 / 0 / 0 | 48.8 ms | 53.8 |
+| `e2eb` Hold, waves 1 and 2 | 9,887, 165.0 s | 59.92 | 10 / 0 / 0 | 41.1 ms | 53.3 |
+| `e2eb` Hold, wave 3 | 20,006, 333.9 s | 59.92 | 13 / 3 / 0 | 84.7 ms | 53.4 |
+| `e2eb2` front end | 1,677, 28.0 s | 59.87 | 1 / 1 / 0 | 72.6 ms at 9.00 s (Crew, H3) | 49.9 |
+| `e2eb2` play (deaths, cards, pause, Settings, runs) | 14,640, 244.5 s | 59.88 | 3 / 2 / **1** | **349.7 ms** at 196.34 s | 50.3 |
+| `e2ec2` whole run, pad | 16,144, 269.4 s | 59.93 | 10 / 2 / 0 | 71.3 ms at 6.71 s (front end) | 54.1 |
+
+No synchronous load (`FlushAsyncLoading 0` in every run), PSO hitch frames 0 except 3 in `e2ec2`, no frame-rate target
+drop line in any run.
+
+### Seen working (frames in the run folders; sheets below)
+
+- **Front end:** the card goes on the first click or the first pad press; Home's "Hit the block" opens Crew on a first
+  start; every screen by keys, mouse and pad, with the right glyphs for each (`e2ec2` shows START, B, Y, LB, RB).
+- **Workbench, all six guns:** a part fits (FITTED moves to it, the stat lines change), a second slot fits, Backspace and X
+  put the factory part back, Esc and B close; RB changes the carried gun on the pad (`[` and `]` were not tried); the rack keeps the carried tags
+  and slots (`a05-*`, `c06-*`). Every part fitted showed on its gun (red dot, 4x, suppressors, laser).
+- **Story by the guidance, start to truck:** step line, chevrons and the edge arrow lead out of the start, under the El to
+  Reel 1, into the chop shop for Reel 2, out of the bay and along the north sidewalk to the cage for Reel 3, across the
+  avenue into the lot and to the truck's doors; `game:state complete` 43 s after play began, debrief "The block is yours,
+  Gold, 0:43". The hint line came after the 45 s stand ("Reel 1's out on the avenue, under the El. Head east.";
+  `a12-hint`, and again in `e2ec2` while the pad player stood).
+- **Switching, every way** (each confirmed by an `event switch ... draw` line and the HUD): keys 1 to 4, number pad 1 and
+  2, wheel down and up, Q tap (last gun), Q held (the weapon wheel) with the mouse, a switch in the middle of a reload, B
+  fire mode, T inspect; pad D-pad up three times and down, Y tap, Y held with the right stick, View tap and hold.
+- **Hold the Block:** waves 1 and 2 cleared (16 kills), wave 3 started; damage vignette and the health bar; death, the
+  death card ("Lights out", time, waves, Vultures, score, best, "New best"), Run it back by Enter, Restart run from the
+  pause card, a second death.
+- **Pause card:** Resume, Restart run, Difficulty, Settings, Change set-up, Back to title, by keys and by pad; Settings
+  changes look speed (1.00 to 1.05x), field of view (74 to 75) and Ground path (On to Off and back) and Close returns to
+  the pause card; Back to title keeps the set-up on Home; Start on Home starts the next run at once with it.
+- **A viewer who leaves pauses the run** (`game:state paused` when each viewer left: `e2ea2` t 151, `e2eb` t 471).
+- **Every run quit cleanly** on the host's stop signal: `ENDED BY ITSELF: EXIT 0`.
+
+![workbench](shots/e2e-workbench.jpg)
+![story walk](shots/e2e-story-walk.jpg)
+![switching](shots/e2e-switching.jpg)
+![deaths and pause](shots/e2e-deaths-pause.jpg)
+![pad](shots/e2e-pad.jpg)
+
+### Findings (most severe first)
+
+![faults](shots/e2e-faults.jpg)
+
+| # | Severity | Finding | Steps | Evidence |
+|---|---|---|---|---|
+| E1 | **must-fix** | The support arm is drawn as a huge featureless skin-coloured ball or sausage: on the **Crew screen**, the first 3D thing a new player sees (no hand, no fingers, beside the CHOPPER), and in play whenever the gun is pulled back against a wall (half the frame) | First start: Home, Hit the block (Crew opens). In play: walk into the pizza shop's doorway at the start of Hold the Block | `e2ea/a03-crew-1.jpg` (and every `a03-*`, `c03-*`), `e2eb2/B26-run2-pathoff-b.jpg`; READY.md W2's ball, still in the package |
+| E2 | **must-fix** | The reload shows an open, fanned hand by the gun and no magazine (HANDS_R4 11.3 and 12), in the package as in the editor | Any gun, R or X with rounds spent | `e2ec2/c13-reload.jpg` (CHOPPER with the 4x, "RELOADING") |
+| E3 | **must-fix** | The SHORTY aimed on its factory irons: the receiver block fills the middle third of the screen with a tiny aperture, and its finish reads as grey mirror, not the olive of the Workbench | Carry the SHORTY, draw it (3), aim (right button) | `e2eb/b10-wave-06.jpg`, `b10-wave-09.jpg` against `e2ea/a05-shorty-*.jpg` |
+| E4 | **must-fix** (smooth play) | A **349.7 ms freeze in play**: the pacer waited its 250 ms limit (`pacerTimeOuts=1`, `waitMs=291.1`, `owed=2 held=3`) and Pixel Capture logged `Timed out waiting for fence` twice in the same frame. CLEAN run, E3DS-class load; one such frame in 244 s of `e2eb2` play; `e2eb` had one fence line and an 84.7 ms frame | Hold the Block under `l20`, `cpus=0-7`: walk forward (W) a few seconds into a run | `e2eb2` CSV frame at 196.34 s; probe line `20:01:40.530 ... fps=26.4 worstMs=349.7`; `game.log` 20:01:40.017 and 20:01:40.117 |
+| E5 | must-fix (known H3) | The Crew screen's first draw is still one long frame in every cold run: 78.1, 72.6 and 71.3 ms | Cold start, Home, Hit the block | CSVs of `e2ea` (9.42 s), `e2eb2` (9.00 s), `e2ec2` (6.71 s) |
+| E6 | must-fix (known B2, the owner decides) | Hold the Block wave 1 waits 77 s after its last Goon for one unhurt Buzzard, which the 60 s rule brings down | Hold the Block, kill the Goons | `e2eb/game.log`: last Goon killed t 59.4, last Buzzard t 136.1 with `Hold: 1 Buzzard(s) unhurt for 60 s ...`, wave 2 at t 145.1 |
+| E7 | should-fix | After a part is taken off (Backspace, or X on the pad) the stage still draws it: the focused row keeps previewing the removed part, and a resting mouse pointer previews the row under it whatever the keys do. The player sees no change when removing a part | Workbench, fit a suppressor, press Backspace (or X) | `e2ec2/c06-factory.jpg` (Factory FITTED, suppressor drawn), `e2ea/a05-chopper-5removed2.jpg`; the rack afterwards shows it gone (`a05-chopper-6back.jpg`) |
+| E8 | should-fix (known W9) | Workbench framing: the STRETCH's fitted suppressor is out of the frame, the STICK is small and dark, the NINE's muzzle is cut | Workbench on those guns | `e2ea/a05-stretch-4fit2.jpg`, `a05-stick-*.jpg`, `a05-nine-*.jpg` |
+| E9 | should-fix (known M8) | The pause card's bottom line shows the server's diagnostics (card name, frames, GPU ms, QP, bitrate) | Pause in any run | `e2eb2/B14-pause.jpg`, `e2ec2/c16-pause.jpg` (Development game; READY M8 says the Shipping game too, not checked here) |
+| E10 | nit | The key hints list Q twice with two meanings: "Q Swap" and "Q Last gun" | Briefing, Home | `e2ea/a09-briefing.jpg` |
+| E11 | nit | Standing still at the Story's start the first chevrons are under the gun; the path shows once the player moves | Story start, do not move | `e2ea/a12-stand-0.jpg` against `a13-sw-key1.jpg` |
+| E12 | nit | The Crew screen offers one member (RULE); Left / Right do nothing, so the screen reads as a step with no choice | Crew, Left / Right | `e2ea/a03-crew-1..5.jpg` (`crew.json` orders four) |
+
+Faults of the test tools, not of the game (for the director's owner): `god 0` leaves `bInvulnerable` set (the god-mode
+branch of `UMIDemoDirector::Tick` sets it and nothing clears it), and a `guide` straight after `grab` reads the step before
+the grab moved it and ends at once ("guide done: step over"); a `wait 1.5` between them works (`e2ea2`).
+
+### Not covered
+
+Change set-up from the **pause card** (it was used from the death card, where it opens the Briefing in edit mode); the pad's
+A on a death card (the pad player was not found by the Goons at the Story's start in 2 minutes, and the director could
+not be made mortal again); the Ground path off **in the Story** through the stream (off and on were set and shown in
+Settings; the run they applied to was Hold the Block, which has no path); the Shipping game itself (B5's pause on Esc, and
+the M8 line in Shipping); E3DS itself.
