@@ -541,3 +541,8 @@ palm on the magazine's left face (`reload_grips.py`), the face the eye looks at 
    -30) and check what the support arm's IK is asked to reach there (a guess, not proven: the gun's wall pose near an obstacle
    brings the support palm target toward the eye, and an arm that cannot reach it folds into a fist at the lens); a
    support hand that cannot reach its target in the wall pose should let go (IK weight 0).
+### 11.4 The suite
+
+222 passed, 0 failed, 0 skipped on the integration clone at `1b37c7b` (`unreal/` tree `edf7a547`, this pass's last
+`unreal/` change), golden replays included; PLAY.md, the visual pass. Nothing under `firstPerson` or `grips.json` was
+changed in this pass: every hands item of 11.1 is for the rig's owner (11.3).

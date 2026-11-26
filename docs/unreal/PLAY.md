@@ -524,7 +524,7 @@ test. The underlay assumes `/Engine/BasicShapes/BasicShapeMaterial` has a vector
 underlay draws in the material's own light grey: then set `look.underlay.material` to `""` (no underlay) or point it at a
 material that has one.
 
-**To see, once built** (none of it has been seen): `guide-shots.sh` again in the sun (avenue, the lot, the chop shop
+**To see, once built** (seen since in the visual pass at the end of this file, except the release package through the stream and the whole story walked by the demo director): `guide-shots.sh` again in the sun (avenue, the lot, the chop shop
 front) and in a fight; `death-shots.sh` with the wall, back and stairs cases (the bodies must stay down, and the rest
 lines' "speeds held back" says how often the caps bit); the whole story with `guide` legs in the demo director (it should
 now reach each reel) and with `goto` legs as the review planned (`r1-demo.txt`); Settings Ground path off: the [1] [2] [3]
@@ -607,3 +607,15 @@ wall and the drops on the stair read as blood, not paint. The pool itself was no
 looks down (beside the cart in `wall-2` to `wall-5`, at the stair in `stairs-1`, `-2`, `-5`), the support hand is drawn as
 a huge skin-coloured ball filling a third of the frame: READY.md W2's "brown ball", still present (the black ring of W2 is
 gone).
+
+### The suite, and what this pass left open
+
+`tools/box/test.sh MurderInc` on the integration clone synced to `1b37c7b` (its `unreal/` tree `edf7a547`, the same as this
+pass's last commit; the build took 50 s, the only C++ change since `0017a21` being another lane's `MICloud.cpp`): **222
+passed, 0 failed, 0 skipped** (59 s), golden replays included (`Golden.Blast`, `Directors`, `Enemies`, `EnemyLogic`,
+`FlowRules`, `PlayerPure`, `PlayerSim`, `Rng`, `Weapon`, `World`, `Loadout.ParityGolden`), `Guide.*` and `Death.*` among them.
+The data changes of this pass (`guide.json` look, `presentation.json` blood colour) are presentation: no rule, timing or
+replay reads them.
+
+Not done here: the whole story walked by the demo director (`guide-shots.sh PLAY=only`), the release package played
+through the stream with a pool under a body, the kill burst caught in a frame, the pool re-framed with the new colour.
