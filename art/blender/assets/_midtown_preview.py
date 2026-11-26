@@ -7,6 +7,11 @@ mt_roofs    from the start roof (V1's eye): A's deck, WT-A, the steel stair, C w
 mt_gantry   from D's roof: the gantry, the back of G1 (cabinets, posts, girts, outriggers), the service bulkhead, the scaffold head
 mt_square   from W 46 St: the scaffold stair tower with its netting and contractor board, G1's takeover slide, the C1 lightbox
 mt_faces    the screen atlases A and B, the sign atlas and the ticker strip, downscaled
+mt_stand    (round 2) from the plaza south of the Stand: the two wings, the front court, the Booth's broken window, the
+            amber risers, the kiosk, planters, the generator
+mt_plaza    (round 2) from the top of the Stand (V5's eye) south over the plaza: planters, kiosks, carts, cafe tables, the LED
+            poles, the barriers, W 46 St beyond
+mt_booth    (round 2) inside the Booth from its west door: the desk and monitors, the racks, the slot onto the front court
 Stand-ins (not this lane's art, flat and dark): the building masses below the roofs, the east and south facades and the towers
 the screens hang on, the street and the plaza. The real ones are the facade kit and the street kit, with the night rig in Unreal.
 """
@@ -108,7 +113,7 @@ def place_all(ctx, col):
     pl = json.load(open(os.path.join(paths.out, "placements", "placements_midtown.json")))
     n = 0
     for e in pl["instances"]:
-        src = ctx.K.get(e["mesh"])
+        src = ctx.K.get(e["mesh"]) or (reused(e["mesh"], ctx) if e.get("reused") else None)
         if src is None:
             continue
         ob = scene.duplicate(src, linked=True, col=col)
@@ -118,6 +123,8 @@ def place_all(ctx, col):
         ob["mi_placed"] = True
         if e.get("face"):
             set_slot(ob, "M_Sign_MT_Face", face_mat(e["face"]))
+        if e.get("slide"):
+            set_slot(ob, "M_MI_Screen", slide_mat(e["slide"], strength=1.2))
         if e.get("slides"):                                           # N1: one ad per face (the FaceIndex UV)
             ob.data = ob.data.copy()
             me = ob.data
@@ -244,6 +251,28 @@ def night_dome(strength=0.9):
             n.inputs["Strength"].default_value = strength
 
 
+def reused(name, ctx):
+    """A mesh of the Block's kits the square reuses (midtown.md 14.1): its GLB from art/out/glb, imported once, hidden."""
+    if name in ctx.K:
+        return ctx.K[name]
+    man = json.load(open(paths.manifest))["assets"].get(name)
+    if not man:
+        return None
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=os.path.join(paths.out, man["glb"]))
+    new = [o for o in bpy.data.objects if o not in before and o.type == "MESH"]
+    if not new:
+        return None
+    ob = new[0]
+    for o in bpy.data.objects:
+        if o not in before and o is not ob:
+            bpy.data.objects.remove(o, do_unlink=True)
+    ob.matrix_world = ob.matrix_world.Identity(4)
+    ob.hide_render = True
+    ctx.K[name] = ob
+    return ob
+
+
 def standins(col):
     wall = window_grid("Prev_Mass", (0.07, 0.055, 0.045), share=0.30)
     dark = window_grid("Prev_Tower", (0.035, 0.037, 0.045), share=0.45, cool=True)
@@ -308,12 +337,27 @@ def rig(col_rig):
     rect("PrevE3", web(30.0, 20.0, 21.5), (-1, 1, -0.1), (12.0, 18.0), (0.6, 0.6, 0.9), 2500.0)
     rect("PrevN1", web(12.0, 35.0, -47.0), (0, -1, -0.1), (14.0, 26.0), (0.85, 0.85, 0.9), 3000.0)
 
+    def point(name, pos, watts, temp):
+        L = bpy.data.lights.new(name, "POINT")
+        L.energy, L.use_temperature, L.temperature, L.shadow_soft_size = watts, True, temp, 0.1
+        o = bpy.data.objects.new(name, L)
+        o.location = pos
+        col_rig.objects.link(o)
+    point("PrevBooth1", web(13.0, 2.0, -32.0), 60.0, 3600.0)                                        # the booth's 2 points (11.1)
+    point("PrevBooth2", web(19.0, 2.0, -32.0), 60.0, 3600.0)
+    for i, (x, z) in enumerate(((15.0, -12.0), (15.0, 12.0), (20.0, 16.0), (10.5, 16.0))):         # the plaza poles' heads
+        for dx in (-0.9, 0.9):
+            spot("PrevPole%d%s" % (i, "ab"[dx > 0]), web(x + dx, 7.5, z), web(x + dx, 0.0, z), 900.0, 4000.0, 110.0)
+
 
 def view(name):
     eye, at, lens = {
         "mt_roofs": (web(-32.0, 23.6, -13.5), web(-12.0, 20.0, -27.0), 22.0),
         "mt_gantry": (web(-24.5, 16.0, 19.5), web(-6.0, 18.0, 4.0), 20.0),
         "mt_square": (web(6.0, 1.7, 31.0), web(-6.0, 11.0, 6.0), 20.0),
+        "mt_stand": (web(18.5, 1.75, -13.5), web(14.5, 2.2, -30.0), 24.0),
+        "mt_plaza": (web(16.0, 5.03, -33.0), web(13.0, 1.0, 0.0), 18.0),
+        "mt_booth": (web(10.9, 1.62, -31.8), web(19.5, 1.1, -32.0), 16.0),
     }[name]
     render.cam_look(eye, at, lens=lens, name="Cam_" + name)
 
@@ -326,10 +370,10 @@ def render_all(ctx):
     if want("mt_faces"):
         atlas.preview_sheet(os.path.join(PV, "mt_faces.jpg"), 1280)
         ctx.log("preview mt_faces.jpg")
-    shots = [n for n in ("mt_roofs", "mt_gantry", "mt_square") if want(n)]
+    shots = [n for n in ("mt_roofs", "mt_gantry", "mt_square", "mt_stand", "mt_plaza", "mt_booth") if want(n)]
     if not shots:
         return
-    for key, s in (("sodium", 6.0), ("led", 6.0)):
+    for key, s in (("sodium", 6.0), ("led", 6.0), ("riser", 0.35), ("warm", 1.2), ("indicator", 1.0)):
         mat.principled(ctx.M[key]).inputs["Emission Strength"].default_value = s
     ctx.kit.hide_render = True
     col = scene.collection("PrevMidtown")

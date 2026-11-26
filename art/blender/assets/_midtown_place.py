@@ -128,49 +128,262 @@ def P(out, mesh, group, role, wx, wy, wz, rot=0.0, **kw):
     out.append(entry(mesh, group, role, wx, wy, wz, rot, **kw))
 
 
+# ------------------------------------------------------------------------------------------------- the level data (round 2)
+
+LEVEL = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(HERE))), "tools", "levels", "data", "level_midtown.json")
+_DATA = {}
+
+
+def data():
+    if not _DATA:
+        with open(LEVEL) as f:
+            _DATA["d"] = json.load(f)
+    return _DATA["d"]
+
+
+def boxes(tag=None, part=None):
+    """The level's colliders with this tag (or part, or part prefix ending in '*'), in index order."""
+    out = []
+    for c in data()["colliders"]["boxes"]:
+        if tag is not None and c["tag"] != tag:
+            continue
+        if part is not None:
+            q = c.get("part") or ""
+            if not (q == part or (part.endswith("*") and q.startswith(part[:-1]))):
+                continue
+        out.append(c)
+    return out
+
+
+def rect(c):
+    mn, mx = c["web"]["min"], c["web"]["max"]
+    return mn["x"], mx["x"], mn["y"], mx["y"], mn["z"], mx["z"]
+
+
+def fit_parts(parts, mode):
+    """A fit record naming the colliders (by part) an instance dresses."""
+    idx = [c["index"] for p in parts for c in boxes(part=p)]
+    assert idx, parts
+    return {"colliders": idx, "mode": mode}
+
+
+def fitted(out, mesh, group, role, c, core, mode="scale", rots=(0.0, 90.0), prefer=None, y=None, chosen_facing=False, above=None, **kw):
+    """Place `mesh` on the collider c: its centre on the box's centre, its base on the box's bottom (or y), turned so the
+    mesh's core footprint (local X, local Y, height) lies along the box, scaled to the box in mode "scale" (mode "centre":
+    no scale, the residual recorded). prefer: the rotation to use among the equivalent ones (0 or 180, 90 or 270)."""
+    x0, x1, y0, y1, z0, z1 = rect(c)
+    ex, ey, ez = x1 - x0, y1 - y0, z1 - z0
+    best = None
+    for r in rots:
+        a, b_ = (ex, ez) if r % 180 == 0 else (ez, ex)
+        sc = (a / core[0], b_ / core[1], ey / core[2])
+        an = max(abs(math.log(v)) for v in sc[:2])
+        if best is None or an < best[0] - 1e-9:
+            best = (an, r, sc)
+    _an, r, sc = best
+    if prefer is not None and (prefer - r) % 180 == 0:
+        r = prefer
+    f = {"colliders": [c["index"]], "tag": c["tag"], "mode": mode}
+    if above:
+        f["above"] = above
+    if mode == "scale":
+        sc = tuple(round(v, 4) for v in sc)
+        kw["scale"] = sc if any(abs(v - 1.0) > 0.005 for v in sc) else None
+        f["scale"] = list(sc)
+    else:
+        f["residual_m"] = [round(core[0] * 1.0 - (ex if r % 180 == 0 else ez), 3), round(core[1] - (ez if r % 180 == 0 else ex), 3),
+                           round(core[2] - ey, 3)]
+    if chosen_facing:
+        kw["chosen"] = True
+        f["chosen"] = "the facing (the box is symmetric)"
+    P(out, mesh, group, role, (x0 + x1) / 2, y0 if y is None else y, (z0 + z1) / 2, r, fit=f, **kw)
+
+
+def along(out, mesh, group, role, c, L, core_w, core_h, y=None, **kw):
+    """A run of n modules L long along the box's long axis, stretched to fill it (jersey barriers, chimney rows)."""
+    x0, x1, y0, y1, z0, z1 = rect(c)
+    ex, ez = x1 - x0, z1 - z0
+    run, wid = (ex, ez) if ex >= ez else (ez, ex)
+    n = max(1, int(round(run / L)))
+    s = run / (n * L)
+    sc = (round(s, 4), round(wid / core_w, 4), round((y1 - y0) / core_h, 4))
+    for i in range(n):
+        t = -run / 2 + (i + 0.5) * run / n
+        wx, wz = ((x0 + x1) / 2 + t, (z0 + z1) / 2) if ex >= ez else ((x0 + x1) / 2, (z0 + z1) / 2 + t)
+        P(out, mesh, group, role + (" %d/%d" % (i + 1, n) if n > 1 else ""), wx, y0 if y is None else y, wz, 0.0 if ex >= ez else 90.0,
+          scale=sc if any(abs(v - 1.0) > 0.005 for v in sc) else None,
+          fit={"colliders": [c["index"]], "tag": c["tag"], "mode": "scale", "modules": n, "scale": list(sc)}, **kw)
+
+
+# ------------------------------------------------------------------------------------------------- roofs, fitted (round 2)
+
+def towers(out):
+    """WT-A, WT-B, WT-C: each stand and tank sized to its colliders (legs 0.45 square; the tank's box)."""
+    for t, grp, base in (("A", "A", R3), ("B", "B", R2), ("C", "C", 20.7)):
+        legs = boxes(part="WT%s.leg" % t)
+        tank = boxes(part="WT%s.tank" % t)[0]
+        x0, x1, y0, y1, z0, z1 = rect(tank)
+        cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
+        lc = [((rect(c)[0] + rect(c)[1]) / 2, (rect(c)[4] + rect(c)[5]) / 2) for c in legs]
+        assert abs(sum(p[0] for p in lc) / 4 - cx) < 0.01 and abs(sum(p[1] for p in lc) / 4 - cz) < 0.01
+        P(out, "SM_Roof_TankStand_%s" % t, grp, "WT-%s stand%s" % (t, " (on the tank house)" if t == "C" else ""), cx, base, cz,
+          fit={"colliders": [c["index"] for c in legs], "mode": "part", "legs_m": round(max(p[0] for p in lc) - min(p[0] for p in lc), 3)})
+        P(out, "SM_Roof_WaterTank_%s" % t, grp, "WT-%s" % t, cx, y0, cz, 0.0, chosen=True,
+          fit={"colliders": [tank["index"]], "mode": "part", "chosen": "the ladder's side (+X)"})
+
+
+# core footprints (local X, local Y, height) of the roof dressing: the part the level's box stands for
+CORE = {"SM_Roof_HVAC_RTU_L": (3.7, 1.9, 1.65), "SM_Roof_HVAC_RTU_M": (2.3, 1.4, 1.40), "SM_Roof_HVAC_RTU_S": (1.9, 1.9, 1.40),
+        "SM_Roof_Skylight_2x3": (3.1, 2.1, 1.095), "SM_Roof_Vent_Mushroom": (0.88, 0.88, 1.02), "SM_Roof_TarKettle": (1.0, 1.0, 1.14),
+        "SM_Roof_Dish": (1.5, 1.5, 2.02), "SM_Roof_Antenna": (2.12, 2.12, 4.3)}
+
+
+def roof_group(c):
+    x, z = (rect(c)[0] + rect(c)[1]) / 2, (rect(c)[4] + rect(c)[5]) / 2
+    for k, r in ROOFS.items():
+        if r["x"][0] <= x <= r["x"][1] and r["z"][0] <= z <= r["z"][1]:
+            return k
+    return "roof"
+
+
+def roof_dressing(out):
+    for c in boxes("hvac_rtu"):                     # the unit whose cabinet needs the least stretch
+        x0, x1, y0, y1, z0, z1 = rect(c)
+        best = None
+        for m in ("SM_Roof_HVAC_RTU_S", "SM_Roof_HVAC_RTU_M", "SM_Roof_HVAC_RTU_L"):
+            for a, b_ in (((x1 - x0), (z1 - z0)), ((z1 - z0), (x1 - x0))):
+                an = max(abs(math.log(a / CORE[m][0])), abs(math.log(b_ / CORE[m][1])))
+                if best is None or an < best[0]:
+                    best = (an, m)
+        fitted(out, best[1], roof_group(c), "HVAC", c, CORE[best[1]])
+    for c in boxes("skylight"):
+        fitted(out, "SM_Roof_Skylight_2x3", roof_group(c), "skylight", c, CORE["SM_Roof_Skylight_2x3"])
+    for c in boxes("chimney_stack"):
+        along(out, "SM_Roof_ChimneyStack", roof_group(c), "chimney row", c, 1.3, 0.8, 2.425)
+    for c in boxes("roof_vent"):
+        fitted(out, "SM_Roof_Vent_Mushroom", roof_group(c), "vent", c, CORE["SM_Roof_Vent_Mushroom"])
+    for c in boxes("tar_kettle"):
+        fitted(out, "SM_Roof_TarKettle", roof_group(c), "tar kettle (x0 beside it)", c, CORE["SM_Roof_TarKettle"], mode="centre")
+    for c in boxes("satellite_dish"):
+        fitted(out, "SM_Roof_Dish", roof_group(c), "dish", c, CORE["SM_Roof_Dish"], mode="centre")
+    for c in boxes("antenna_mast"):
+        fitted(out, "SM_Roof_Antenna", roof_group(c), "antenna", c, CORE["SM_Roof_Antenna"], mode="centre",
+               above="the mast and its panels over the cabinet box (shots pass)")
+
+
+# ------------------------------------------------------------------------------------------------- the square (round 2)
+
+SW = 0.15
+REUSED = {"SM_Street_Bench": "gaps", "SM_Street_TrashCan": "gaps", "SM_Furn_StreetLamp": "furniture"}
+
+
+def square(out):
+    """THE STAND and THE BOOTH from their colliders, then the plaza and the roadways' furniture, every piece on its box."""
+    for k in range(1, 9):
+        for side in (("west", "east") if k < 6 else ("",)):
+            part = "stand.tier%d%s" % (k, "." + side if side else "")
+            c = boxes(part=part)[0]
+            x0, x1, y0, y1, z0, z1 = rect(c)
+            P(out, "SM_Sq_Stand_Tier_%dm" % (3 if k < 6 else 12), "stand", "tier %d%s" % (k, " " + side if side else ""),
+              (x0 + x1) / 2, y1, (z0 + z1) / 2, 0.0, fit={"colliders": [c["index"]], "mode": "part", "tier": k})
+    wings = [c["index"] for c in boxes(part="stand.tier*") if c["part"].endswith(("west", "east"))]
+    for x, what in ((10.0, "west wing, outer"), (13.0, "west wing, court side"), (19.0, "east wing, court side"), (22.0, "east wing, outer")):
+        xi = x + (0.02 if x in (10.0, 19.0) else -0.02)
+        P(out, "SM_Sq_Stand_WingSide", "stand", "side cladding, " + what, xi, SW, -22.0, 0.0,
+          fit={"colliders": wings, "mode": "part"})
+    for side, x in (("west", 10.3), ("east", 21.7)):
+        P(out, "SM_Sq_Booth_WallSide", "booth", "booth %s wall (2.0 m Goon door)" % side, x, SW, -29.5, 0.0, face="Label_CrewOnly",
+          fit=fit_parts(["booth.wall." + side, "booth.wall.%s.lintel" % side], "part"))
+    P(out, "SM_Sq_Booth_FrontWall", "booth", "booth front wall and the shoot-through slot", 16.0, SW, -29.35, 0.0,
+      fit=fit_parts(["booth.wall.front", "booth.slot.sill", "booth.slot.head", "booth.slot.frame"], "part"))
+    P(out, "SM_Sq_Stand_Back", "stand", "booth back wall and the top tier's guard scrim", 16.0, SW, -34.0, 0.0,
+      fit=fit_parts(["booth.wall.back", "stand.guard.north", "stand.guard.west", "stand.guard.east"], "part"))
+    fitted(out, "SM_Sq_Booth_Desk", "booth", "broadcast desk", boxes("booth_desk")[0], (3.2, 0.6, 0.8), prefer=0.0)
+    fitted(out, "SM_Sq_Booth_Rack", "booth", "equipment racks", boxes("booth_rack")[0], (1.4, 0.8, 1.75), prefer=0.0)
+    fitted(out, "SM_Sq_Booth_MonitorCart", "booth", "monitor cart", boxes("monitor_cart")[0], (1.2, 0.5, 1.0), prefer=0.0,
+           slide="G1_Takeover")
+    d = boxes("booth_desk")[0]
+    dx0, dx1, _dy0, dy1, dz0, dz1 = rect(d)
+    for i, lx in enumerate((-0.9, -0.3, 0.9)):                                   # on the desk, behind the console
+        P(out, "SM_Sq_Booth_Monitor", "booth", "booth monitor %d (the program feed)" % (i + 1), (dx0 + dx1) / 2 + lx, dy1 - 0.02,
+          (dz0 + dz1) / 2 - 0.20, 0.0, chosen=True, slide="G1_Takeover" if i != 1 else "G1_StandBy", on=d["index"])
+    fitted(out, "SM_Sq_CableDrum", "stand", "cable drum (front court)", boxes("cable_drum")[0], (0.8, 0.8, 0.97))
+    # the plaza
+    for c in boxes("planter_granite"):
+        fitted(out, "SM_Sq_Planter_Granite_4m", "plaza", "granite planter", c, (4.04, 1.04, 0.90))
+    for c, facing in zip(boxes("kiosk_souvenir"), (0.0, 180.0)):
+        fitted(out, "SM_Sq_Kiosk_Souvenir", "plaza", "souvenir kiosk", c, (3.0, 2.0, 2.45), prefer=facing, chosen_facing=True,
+               face="Kiosk_SeventhAv")
+    for c, facing in zip(boxes("food_cart"), (180.0, 0.0)):
+        fitted(out, "SM_Sq_FoodCart", "plaza", "food cart (lit, steaming, umbrella half down)", c, (1.8, 1.0, 1.25), prefer=facing,
+               chosen_facing=True, face="Cart_Menu", above="the umbrella, half down, over the cart's box (shots pass)")
+    for c in boxes("cafe_table"):
+        fitted(out, "SM_Sq_CafeTable", "plaza", "cafe table", c, (0.8, 0.8, 0.75))
+        x0, x1, _y0, _y1, z0, z1 = rect(c)
+        for dx, rot in ((-0.62, 90.0), (0.62, 270.0)):
+            P(out, "SM_Sq_CafeChair", "plaza", "cafe chair (dressing, no collider)", (x0 + x1) / 2 + dx, SW, (z0 + z1) / 2, rot, chosen=True,
+              near=c["index"])
+    for c in boxes("cafe_chairs"):
+        fitted(out, "SM_Sq_CafeChair_Stack", "plaza", "cafe chairs, stacked two high", c, (0.5, 0.5, 0.9), mode="centre")
+    for c in boxes("light_pole"):
+        fitted(out, "SM_Sq_LightPole_LED", "plaza", "plaza LED pole (twin head)", c, (0.3, 0.3, 8.0), mode="centre")
+    for c in boxes("cable_ramp"):
+        fitted(out, "SM_Sq_CableRamp_1p2", "plaza", "cable ramp", c, (1.2, 0.5, 0.08))
+    fitted(out, "SM_Sq_Generator", "premiere", "the premiere's generator by the Stand", boxes("generator")[0], (1.6, 1.2, 1.15))
+    for c in boxes("road_cases"):
+        fitted(out, "SM_Sq_RoadCase_Stack", "premiere", "the crew's road cases", c, (2.0, 1.4, 1.9), face="Stencil_Brightwire")
+    # barriers
+    for c in boxes("jersey_barrier"):
+        along(out, "SM_Sq_Barrier_Jersey_1p8", "barriers", "concrete barrier", c, 1.8, 0.5, 0.81)
+    for c in boxes("water_barrier"):
+        x0, x1, y0, y1, z0, z1 = rect(c)
+        if (x1 - x0) >= (z1 - z0):
+            along(out, "SM_Sq_Barrier_Water_1p9", "barriers", "water barrier", c, 1.9, 0.6, 0.9)
+        else:                                                                  # a cluster: two side by side along z
+            n = max(1, int((x1 - x0) // 0.6))
+            for i in range(n):
+                wx = x0 + (i + 0.5) * (x1 - x0) / n
+                P(out, "SM_Sq_Barrier_Water_1p9", "barriers", "water barrier (pushed together)", wx, y0, (z0 + z1) / 2, 90.0,
+                  scale=(round((z1 - z0) / 1.9, 4), 1.0, 1.0), fit={"colliders": [c["index"]], "tag": c["tag"], "mode": "scale",
+                                                                     "modules": n})
+    for c in boxes("bike_barrier"):
+        fitted(out, "SM_Sq_Barrier_Bike_2p4", "barriers", "crowd-control barrier", c, (2.4, 0.5, 1.1))
+    # reused from the Block's kits (midtown.md 14.1)
+    for c, facing in zip(boxes("bench"), (0.0, 180.0, 180.0, 180.0)):
+        fitted(out, "SM_Street_Bench", "plaza", "bench (reused, gaps)", c, (1.76, 0.56, 0.84), mode="centre", prefer=facing,
+               chosen_facing=True, reused="gaps")
+    for c in boxes("trash_can"):
+        fitted(out, "SM_Street_TrashCan", "street", "litter basket (reused, gaps)", c, (0.60, 0.60, 0.99), mode="centre", reused="gaps")
+    for c in boxes("street_lamp"):
+        x0, x1 = rect(c)[:2]
+        rot = 90.0 if x0 < 10 else 270.0                                        # the davit arm (-Y) over the roadway
+        fitted(out, "SM_Furn_StreetLamp", "street", "avenue street lamp (reused, furniture; the arm over the roadway)", c,
+               (0.34, 0.34, 7.88), mode="centre", rots=(rot,), reused="furniture")
+
+
 def roof_items(out):
-    # A (R3): WT-A on the 4 m stand, bulkhead I1, HVAC, skylights, chimney row on the north party wall, tar kettle, antenna
-    P(out, "SM_Roof_TankStand_4m", "A", "WT-A stand", -38.0, R3, -25.0, chosen=True)
-    P(out, "SM_Roof_WaterTank_4p6", "A", "WT-A", -38.0, R3 + 4.30, -25.0, 0.0, chosen=True)
-    P(out, "SM_Roof_Bulkhead_4x4", "A", "I1 bulkhead (door east)", -46.0, R3, -35.0, 0.0)
-    P(out, "SM_Roof_HVAC_RTU_L", "A", "HVAC", -36.0, R3, -32.5, 0.0, chosen=True)
-    P(out, "SM_Roof_HVAC_RTU_M", "A", "HVAC", -45.5, R3, -19.5, 90.0, chosen=True)
-    P(out, "SM_Roof_Skylight_2x3", "A", "skylight", -41.5, R3, -28.0, 0.0, chosen=True)
-    P(out, "SM_Roof_Skylight_2x3", "A", "skylight", -34.5, R3, -15.0, 0.0, chosen=True)
-    for x in (-46.0, -40.5, -34.0):
-        P(out, "SM_Roof_ChimneyStack", "A", "chimney row", x, R3, -37.0, 0.0, chosen=True)
-    P(out, "SM_Roof_TarKettle", "A", "tar kettle (x0 beside it)", -35.2, R3, -18.6, 20.0)
-    P(out, "SM_Roof_Antenna", "A", "antenna", -47.5, R3, -14.5, 0.0, chosen=True)
-    P(out, "SM_Roof_Vent_Mushroom", "A", "vent (steam)", -44.0, R3, -27.0, chosen=True)
+    """The rooms, water towers and roof dressing, fitted to the level data's colliders (round 2): every position the first
+    round chose is now the collider's (lane D's colliders win); the art with no collider under it is gone."""
+    # A (R3): bulkhead I1, WT-A on its stand, the tar kettle's roof, the name panel
+    P(out, "SM_Roof_Bulkhead_4x4", "A", "I1 bulkhead (door east)", -46.0, R3, -35.0, 0.0,
+      fit=fit_parts(["bulkheadA.wall", "bulkheadA.wall.east", "bulkheadA.roof"], "part"))
+    towers(out)
     P(out, "SM_Roof_NamePanel_6m", "A", "name panel", -37.0, R3 - 0.75, -38.0, 180.0, face="Plaque_Halvorsen")
-    # B (R2): machine room I3, WT-B on the 2 m stand, bulkhead B, HVAC, vents
-    P(out, "SM_Roof_MachineRoom_6x6", "B", "I3 machine room (door south)", -37.0, R2, -5.0, 0.0)
-    P(out, "SM_Roof_TankStand_2m", "B", "WT-B stand", -45.0, R2, -5.0, chosen=True)
-    P(out, "SM_Roof_WaterTank_3p6", "B", "WT-B", -45.0, R2 + 2.30, -5.0, 0.0, chosen=True)
-    P(out, "SM_Roof_Bulkhead_4x4", "B", "bulkhead B (the wave door)", -44.0, R2, 3.5, 0.0, chosen=True)
-    P(out, "SM_Roof_HVAC_RTU_M", "B", "HVAC", -34.0, R2, 4.0, 0.0, chosen=True)
-    P(out, "SM_Roof_Vent_Mushroom", "B", "vent (steam)", -32.5, R2, -1.0, chosen=True)
-    # E (R1): HVAC, dish, vent
-    P(out, "SM_Roof_HVAC_RTU_M", "E", "HVAC", -44.0, R1, 15.0, 90.0, chosen=True)
-    P(out, "SM_Roof_Dish", "E", "dish", -47.0, R1, 19.5, 30.0, chosen=True)
-    P(out, "SM_Roof_Vent_Mushroom", "E", "vent", -38.0, R1, 19.0, chosen=True)
-    # C (R2): the tank house I2 with WT-C on it, the HVAC row, vents, the roof billboard C1 and its name panel
-    th_top = R2 + 2.8 + 0.35
-    P(out, "SM_Roof_TankHouse_6x6", "C", "I2 tank house, Reel 7 (door south)", -19.0, R2, -32.0, 0.0)
-    P(out, "SM_Roof_TankStand_2m", "C", "WT-C stand (on the tank house)", -19.0, th_top, -32.0)
-    P(out, "SM_Roof_WaterTank_3p6", "C", "WT-C", -19.0, th_top + 2.30, -32.0, 0.0)
+    # B (R2): machine room I3, bulkhead B (the wave door)
+    P(out, "SM_Roof_MachineRoom_6x6", "B", "I3 machine room (door south)", -37.0, R2, -5.0, 0.0,
+      fit=fit_parts(["machineroom.wall", "machineroom.wall.south", "machineroom.wall.south.lintel", "machineroom.roof"], "part"))
+    P(out, "SM_Roof_Bulkhead_4x4", "B", "bulkhead B (the wave door, east)", -46.0, R2, 2.0, 0.0, fit=fit_parts(["bulkheadB"], "part"))
+    # C (R2): the tank house I2 under WT-C (the tower is in towers()), the roof billboard C1 and its name panel
+    P(out, "SM_Roof_TankHouse_6x6", "C", "I2 tank house, Reel 7 (door south)", -19.0, R2, -32.0, 0.0,
+      fit=fit_parts(["tankhouse.wall.north", "tankhouse.wall.west", "tankhouse.wall.east", "tankhouse.wall.south", "tankhouse.wall.south.lintel", "tankhouse.roof"], "part"))
     P(out, "SM_Roof_WorkLight", "C", "tank house flood (shadowed sodium spot)", -19.0, R2 + 2.65, -28.75, 0.0)
-    for x in (-24.5, -19.5, -14.5):
-        P(out, "SM_Roof_HVAC_RTU_L", "C", "HVAC row", x, R2, -14.0, 0.0, chosen=True)
-    P(out, "SM_Roof_Vent_Mushroom", "C", "vent (steam)", -25.5, R2, -24.0, chosen=True)
-    P(out, "SM_Roof_Skylight_2x3", "C", "skylight", -14.0, R2, -8.0, 90.0, chosen=True)
     P(out, "SM_Roof_BillboardFrame_16x8", "C", "C1 roof billboard (faces east)", -8.8, R2, -20.0, 90.0, face="C1_MarloweFinch")
     P(out, "SM_Roof_NamePanel_6m", "C", "name panel (east cornice)", -8.0, R2 - 0.75, -27.0, 90.0, face="Plaque_Corvin")
-    # D (R1): the service-stair bulkhead I4, HVAC, vents, the gantry door flood
-    P(out, "SM_Roof_Bulkhead_5x6", "D", "I4 service stair bulkhead (door west)", -10.5, R1, 7.0, 0.0)
-    P(out, "SM_Roof_HVAC_RTU_M", "D", "HVAC", -25.0, R1, 19.0, 0.0, chosen=True)
-    P(out, "SM_Roof_Vent_Mushroom", "D", "vent (steam)", -16.0, R1, 15.0, chosen=True)
+    # D (R1): the service-stair bulkhead I4 and the gantry door flood
+    P(out, "SM_Roof_Bulkhead_5x6", "D", "I4 service stair bulkhead (door west)", -10.5, R1, 7.0, 0.0,
+      fit=fit_parts(["L6.bulkhead.west", "L6.bulkhead.east", "L6.bulkhead.roof"], "part"))
     P(out, "SM_Roof_WorkLight", "D", "gantry door flood on I4's north face (shadowed sodium spot)", -9.5, R1 + 2.4, 3.9, 180.0)
+    roof_dressing(out)
     # stairs and bridges (5.3)
     P(out, "SM_Roof_StairHead_2p4", "A-C", "L1 head bridge", -30.0, R3, -21.0, 0.0)
     P(out, "SM_Roof_SteelStair_3p6", "A-C", "L1 steel stair (descends east)", -27.6, R3, -21.0, 0.0)
@@ -275,7 +488,24 @@ def build_all():
     gantry(out)
     scaffold(out)
     screens(out)
+    square(out)
     return out
+
+
+def fit_summary(out):
+    """What the placements take from the level data (round 2): instances on a collider, the lane's own choices, the
+    colliders of the dressed tags left without art."""
+    fittedn = sum(1 for e in out if e.get("fit"))
+    chosen = sorted({e["role"].split(" %")[0] for e in out if e.get("chosen")})
+    dressed = {i for e in out if e.get("fit") for i in e["fit"]["colliders"]}
+    tags = ["stand", "stand-guard", "booth", "booth-slot", "booth_desk", "booth_rack", "monitor_cart", "cable_drum", "planter_granite",
+            "kiosk_souvenir", "food_cart", "cafe_table", "cafe_chairs", "light_pole", "street_lamp", "cable_ramp", "generator",
+            "road_cases", "jersey_barrier", "water_barrier", "bike_barrier", "bench", "trash_can", "water-tower", "hvac_rtu", "skylight",
+            "chimney_stack", "roof_vent", "tar_kettle", "satellite_dish", "antenna_mast", "tank-house", "machine-room"]
+    left = sorted(c["index"] for c in data()["colliders"]["boxes"] if c["tag"] in tags and c["index"] not in dressed)
+    return {"source": "tools/levels/data/level_midtown.json", "fitted_instances": fittedn, "chosen_instances": sum(1 for e in out if e.get("chosen")),
+            "chosen_roles": chosen, "dressed_tags": tags, "colliders_dressed": len(dressed), "colliders_of_dressed_tags_left": left,
+            "reused_meshes": REUSED}
 
 
 def write_placements(path):
@@ -287,7 +517,7 @@ def write_placements(path):
                     "(x, y, z), face (Sign_MT_Atlas1 cell) or screen (+ tile, tiles, first_slide). 'chosen': a position the design "
                     "leaves open, chosen by the art lane.",
            "count": len(out), "meshes": meshes, "levels": {"R1": R1, "R2": R2, "R3": R3, "scaffold": SCAF_LEVELS},
-           "instances": out}
+           "fit": fit_summary(out), "instances": out}
     with open(path, "w") as f:
         json.dump(doc, f, indent=1)
     return len(out)

@@ -19,6 +19,11 @@ Checks (each prints PASS or FAIL with the evidence; the script exits 1 on any FA
                  screen has all its tiles once
   9 emissive     large screen surfaces in the placements at most 9 (midtown.md 15), new texture memory at most 180 MB (BC1
                  estimate with mips), no new tiling set
+ 12 sq-emissive  (--build, round 2) the square's emissive slots (riser glass, strip and indicator lights, LED heads, lit faces,
+                 booth monitors) by area x luminance against the seven screens and the ticker: no screen-sized face, riser
+                 glass under 30 m2, the whole square under 5 % of the screens' light, nothing translucent
+ 11 fit          (round 2) every placement on a level collider sits on it and covers it (tools/levels/data/level_midtown.json);
+                 every collider of a dressed tag has art; the lane's own choices are marked "chosen"
  10 block        facade.py, signs.py, place_buildings.py and the Block's data files unchanged against the branch head; the
                  lane writes nothing under unreal/MurderInc
 """
@@ -137,6 +142,62 @@ def check_build():
     report(over == 0, "budgets", "%d assets, %d over budget" % (len(ctx.assets), over))
     report(not thin, "thin", "%d assets, members under 5.5 cm across and over 0.6 m long: %s"
            % (len(ctx.assets), {k: v[:3] for k, v in thin.items()} or "none"))
+    check_square_emissive(ctx)
+
+
+# the square's emissive slots and their night luminance (cd/m2): midtown.md 11.2, the kit's notes
+SQ_EMIT = {"MI_Stand_RiserGlass": 40, "MI_Lamp_KioskInterior": 120, "MI_Lamp_Indicator": 60, "MI_Lamp_LED": 300,
+           "M_Sign_MT_Face": 200, "M_MI_Screen": 300}
+SCREENS_M2 = {"G1": (144, 450), "E1": (432, 450), "E2a": (160, 300), "E2b": (160, 300), "E3": (240, 450), "N1": (336, 450),
+              "S1": (72, 300), "ticker": (19.2, 300)}
+
+
+def check_square_emissive(ctx):
+    """(--build) The square's emissive cost against the screens' (midtown.md 11.2, 12.3, 15): the area of every emissive
+    slot on the placed square meshes times its luminance, beside the seven big screens and the ticker. Passes when no
+    square surface is screen-sized (a monitor or a lightbox face under 2 m2 each), the riser glass stays under 30 m2, and
+    the whole square adds under 5 % of the screens' emitted light (area x nits); nothing translucent."""
+    pp = os.path.join(paths.out, "placements", "placements_midtown.json")
+    if not os.path.exists(pp):
+        report(False, "sq-emissive", "no placements: run build.py build midtown --export")
+        return
+    import numpy as np
+    count = {}
+    for e in load(pp)["instances"]:
+        if e["mesh"].startswith("SM_Sq_"):
+            sc = e.get("scale") or [1, 1, 1]
+            count.setdefault(e["mesh"], []).append(sc)
+    area, biggest = {}, (0.0, "")
+    for name, scs in count.items():
+        ob = ctx.assets[name]["ob"]
+        me = ob.data
+        for poly in me.polygons:
+            m = me.materials[poly.material_index]
+            if m is None or m.name not in SQ_EMIT:
+                continue
+            if m.name == "MI_Stand_RiserGlass" and poly.normal[1] > -0.5:
+                continue                                       # the glass box's front only (its back and edges are hidden)
+            for sc in scs:
+                a_ = poly.area * float(np.sqrt(sc[0] * sc[1]))
+                area[m.name] = area.get(m.name, 0.0) + a_
+        per = {}
+        for poly in me.polygons:
+            m = me.materials[poly.material_index]
+            if m is not None and m.name in ("M_MI_Screen", "M_Sign_MT_Face"):
+                per[m.name] = per.get(m.name, 0.0) + poly.area
+        for k, v in per.items():
+            if v > biggest[0]:
+                biggest = (v, "%s %s" % (name, k))
+    sq = sum(area[k] * SQ_EMIT[k] for k in area)
+    scr = sum(a_ * n_ for a_, n_ in SCREENS_M2.values())
+    from assets import _midtown_roof as R
+    transl = sorted({m.name for k, a in ctx.assets.items() if k.startswith("SM_Sq_") for m in a["ob"].data.materials
+                     if m and R.SLOT_META.get(m.name, {}).get("workflow") not in (None, "tiling", "flat", "emissive", "glass",
+                                                                                 "sign_atlas", "screen_atlas")})
+    ok = biggest[0] < 2.0 and area.get("MI_Stand_RiserGlass", 0) < 30.0 and sq < 0.05 * scr and not transl
+    report(ok, "sq-emissive", "the square's emissive slots: %s m2; largest single face %.2f m2 (%s); area x nits %.0f against the screens' "
+           "%.0f (%.1f %%, ceiling 5 %%); translucent slots %s"
+           % ({k: round(v, 1) for k, v in sorted(area.items())}, biggest[0], biggest[1], sq, scr, 100.0 * sq / scr, transl or "none"))
 
 
 def overlaps(rects):
@@ -197,7 +258,7 @@ def check_outputs():
     # placements
     pl = load(os.path.join(paths.out, "placements", "placements_midtown.json"))
     lane_meshes = {r["name"] for r in man["assets"]}
-    unknown = sorted({e["mesh"] for e in pl["instances"] if e["mesh"] not in lane_meshes})
+    unknown = sorted({e["mesh"] for e in pl["instances"] if e["mesh"] not in lane_meshes and not (e.get("reused") and e["mesh"] in shared)})
     badface = [e["face"] for e in pl["instances"] if e.get("face") and e["face"] not in fcells]
     badslide = [e["first_slide"] for e in pl["instances"] if e.get("first_slide") and e["first_slide"] not in slides]
     tiles = {}
@@ -209,6 +270,7 @@ def check_outputs():
            "%d instances of %d meshes; unknown meshes %s, faces without a cell %s, slides missing %s, tiled screens %s complete%s"
            % (pl["count"], len({e["mesh"] for e in pl["instances"]}), unknown or 0, badface or 0, badslide or 0,
               sorted(tiles), (", broken " + str(badtiles)) if badtiles else ""))
+    check_fit(pl, shared)
     # emissive and texture memory
     screens = sorted({e["screen"] for e in pl["instances"] if e.get("screen")})
     mb = 0.0
@@ -220,6 +282,58 @@ def check_outputs():
     report(len(screens) <= 9 and mb <= 180 and man["new_tiling_sets"] == 0, "emissive",
            "%d large screens %s (ceiling 9) + the ticker; new texture memory about %.0f MB (ceiling 180), new tiling sets %d"
            % (len(screens), screens, mb, man["new_tiling_sets"]))
+
+
+def check_fit(pl, shared):
+    """Round 2: the placements against the level data as it is on disk now (tools/levels/data/level_midtown.json). Every
+    fitted instance stands on its collider (pivot on the box's centre and bottom; for the parts of the Stand, the Booth
+    and the rooms, inside the boxes it names), its art footprint covers at least 60 % of the box and its height is 0.6 to
+    1.8 times the box's; every collider of a dressed tag has art; the chosen positions are listed."""
+    import math
+    repo = os.path.dirname(os.path.dirname(BLENDER_DIR))
+    lv = load(os.path.join(repo, "tools", "levels", "data", "level_midtown.json"))["colliders"]["boxes"]
+    bad, n, worst_cov = [], 0, 1.0
+    for e in pl["instances"]:
+        f = e.get("fit")
+        if not f:
+            continue
+        n += 1
+        cs = [lv[i] for i in f["colliders"]]
+        lo = [min(c["web"]["min"][k] for c in cs) for k in "xyz"]
+        hi = [max(c["web"]["max"][k] for c in cs) for k in "xyz"]
+        wx, wy, wz = e["web"]
+        if f["mode"] == "part":
+            if not (lo[0] - 0.5 <= wx <= hi[0] + 0.5 and lo[2] - 0.5 <= wz <= hi[2] + 0.5 and lo[1] - 0.5 <= wy <= hi[1] + 0.5):
+                bad.append((e["mesh"], e["role"], "pivot off its boxes"))
+            continue
+        cx, cz = (lo[0] + hi[0]) / 2, (lo[2] + hi[2]) / 2
+        if f.get("modules", 1) == 1 and (abs(wx - cx) > 0.02 or abs(wz - cz) > 0.02):
+            bad.append((e["mesh"], e["role"], "centre %.2f, %.2f off the box's %.2f, %.2f" % (wx, wz, cx, cz)))
+        if abs(wy - lo[1]) > 0.02:
+            bad.append((e["mesh"], e["role"], "base %.2f, box bottom %.2f" % (wy, lo[1])))
+        bmin, bmax = shared[e["mesh"]]["bounds_m"]["min"], shared[e["mesh"]]["bounds_m"]["max"]
+        sc = e.get("scale") or [1.0, 1.0, 1.0]
+        r = math.radians(e["rot_z_deg"])
+        pts = [(x * sc[0], y * sc[1]) for x in (bmin[0], bmax[0]) for y in (bmin[1], bmax[1])]
+        pts = [(e["blender_m"][0] + x * math.cos(r) - y * math.sin(r), e["blender_m"][1] + x * math.sin(r) + y * math.cos(r)) for x, y in pts]
+        ax0, ax1 = min(p[0] for p in pts), max(p[0] for p in pts)
+        az0, az1 = min(-p[1] for p in pts), max(-p[1] for p in pts)             # Blender y = -web z
+        if f.get("modules", 1) > 1:
+            continue
+        ix = max(0.0, min(ax1, hi[0]) - max(ax0, lo[0]))
+        iz = max(0.0, min(az1, hi[2]) - max(az0, lo[2]))
+        cov = ix * iz / max(1e-6, (hi[0] - lo[0]) * (hi[2] - lo[2]))
+        worst_cov = min(worst_cov, cov)
+        hr = (bmax[2] - bmin[2]) * sc[2] / max(1e-6, hi[1] - lo[1])
+        if cov < 0.6 or not 0.6 <= hr <= (3.0 if f.get("above") else 1.8):
+            bad.append((e["mesh"], e["role"], "covers %.0f %% of its box, height ratio %.2f" % (cov * 100, hr)))
+    fs = pl.get("fit", {})
+    left = fs.get("colliders_of_dressed_tags_left", ["no fit summary"])
+    chosen = sum(1 for e in pl["instances"] if e.get("chosen"))
+    report(not bad and not left, "fit", "%d instances fitted to level_midtown.json (worst footprint cover %.0f %%), %d colliders of %d "
+           "dressed tags, none left without art%s; %d chosen positions (%s)%s"
+           % (n, worst_cov * 100, fs.get("colliders_dressed", 0), len(fs.get("dressed_tags", [])), "" if not left else " BUT left: %s" % left,
+              chosen, ", ".join(sorted({r.split(" ")[0] for r in fs.get("chosen_roles", [])}))[:160], "" if not bad else "; off: %s" % bad[:6]))
 
 
 def check_block():
