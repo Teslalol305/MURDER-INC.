@@ -344,8 +344,10 @@ when the box stops.
 
 ## Bug fixes (lane `bug`, the fixer of the bug findings, 2026-11-26 00:35 to 03:00 UTC)
 
-**Verdict of this lane: the crash is gone from a package of the branch; two of the five other bugs are fixed, one waits
-for the owner, two wait for the page.** Every claim below comes from a run on the box named in the tables (per-frame CSV
+**Verdict of this lane: the crash is gone from a package of the branch** (the v6 trial crashed at 120.7 s in the CPU
+lane's script without a GPU; this lane's package ran the same script with and without the GPU, an 11-minute and a
+12-minute Hold the Block session with 13 and 4 switches, every one to its end); **B4 and B5 are fixed in the game, B5's
+page half, B2 and B6 are not fixed** (the page, the owner's word, the next release's page bridge). Every claim below comes from a run on the box named in the tables (per-frame CSV
 lines, probe lines every 0.25 to 1 s, the director's event log, the engine's crash handler).
 
 | # | Finding | Status | Commit |
@@ -381,14 +383,35 @@ reloads, switches to guns 2, 3, 4 and back to 1, then the fight):
 |---|---|---|---|
 | `cpu-nr-v6t` | v6 trial `fd8ce12` | CHOPPER to NINE 89.7 s, NINE to STICK 98.3 s, STICK to STRETCH 103.4 s, STRETCH to CHOPPER 108.3 s | **`Signal 11 caught ... SIGSEGV: invalid attempt to read memory at address 0x0` at t 120.7 s, exit code 139**; crash context `SkeletalMeshComponent='FirstPersonPackGun' SkeletalMesh='SK_TFA_AR_Default_Combined' AnimInstance='MIFPAnimInstance_...'` (the CPU lane's C1, here without a GPU) |
 | `cpu-nr-fix` | this lane's package | the same four at 89.7, 98.3, 103.4 and 108.4 s | no signal; the script played to its end (t 208 s, into the fight on the avenue that C1 never let any earlier run reach), the process was stopped by the run's own time limit |
+| `long-nr-fix` (the hitch lane's `sm-long.txt`: Hold the Block, 26 fights) | this lane's package | 13 switches between the CHOPPER and the NINE, from 77.7 s to 822.0 s | **exit code 0**, the director's `quit` at t 829 s after eight waves; no `Signal 11` line |
 | `n3-fix` (the bugs lane's 12-minute Hold the Block gate, `scripts/n3.txt`) | this lane's package | CHOPPER to NINE at 134.2 s (version 4 crashed about 49 s after this switch, `n3-v4`), and back and forth every 120 s to 614.4 s | **exit code 0** at t 858 s after seven waves, the director's own `quit`; no `Signal 11` line |
 
-The periodic collection runs every 61.1 s (CPU lane C8), so `n3-fix` passed about 14 collections and `cpu-nr-fix` three
-after the first switch.
+The periodic collection runs every 61.1 s (CPU lane C8), so `n3-fix` and `long-nr-fix` each passed about 13 collections
+after their first switch and `cpu-nr-fix` about two, the point where every earlier session died.
 
 **With the GPU, under E3DS-class limits** (this lane's copy of `lag-test.sh`, the GPU claim held, local disk): the CPU
-lane's line (`sb-cpu-full`) and the hitch lane's 11-minute holdout (`sb-long`) on this lane's package are queued behind
-the perf lane's GPU queue; their per-frame numbers follow in this section's next commit.
+lane's line (`sb-cpu-full`) and the hitch lane's 11-minute holdout (`sb-long`) on this lane's package ran once the perf
+lane's GPU queue had ended (02:17 UTC).
+
+| Run | Package | What happened | Per-frame (every CSV frame) |
+|---|---|---|---|
+| `cpu-full-csv-local` (CPU lane) | v6 trial | switches at 89.4, 98.0, 103.1, 108.2 s; CSV `GC` at 60.8 s; **SIGSEGV at about 122 s**, at the second periodic collection | 0 to 119 s: 59.8 fps, frames over 25 / 50 / 100 ms a minute 8.6 / 0 / 0, worst 48.4 ms, 1 % low 47.6 fps |
+| `sb-cpu-full` (the same line: `load=1:0.05:0.05:1024 cpus=0-5 -sm5`, viewer, `probe=1`; CLEAN) | this lane's package | the same four switches (`Cmd: MIInput weapon2` ... `weapon1` at 89.4, 98.0, 103.1, 108.2 s); CSV `GC` at 60.8, **121.9** and 183.0 s; no signal; alive at the 330 s limit, then `EXIT 0` on TERM | 0 to 121 s: 59.9 fps, 3.5 / 0.5 / 0 a minute, worst 92.7 ms, 1 % low 50.9 fps; 121 to 198 s (where no earlier run got): 59.9 fps, 0.8 / 0.8 / 0.8 a minute, worst 139.1 ms, 1 % low 50.8 fps. Play (the summary line): 60.0 fps, lowest second 59.3, GPU 8.1 ms (max 11.2) at render scale 0.75 |
+
+The two long frames are not the crash's and not this lane's fixes: 92.7 ms at 34.8 s is a set-up screen's synchronous
+loads (`FlushAsyncLoading` x2 in that frame, game thread 8.5 ms: the CPU lane's C2, which the perf lane's preload, pushed
+after this package's commit, addresses), 139.1 ms at 182.5 s has every thread idle (game 2.3, render 2.8, RHI 2.7, GPU
+7.3 ms: the hitch lane's H5).
+
+`sb-long` (the hitch lane's `v6-long` / `v4-long` line: `sm-long.txt`, `l12`, `cpus=0-7`, a fresh user and a clean
+`Saved`) on this lane's package: **ended by itself, exit code 0, after 838 s**, 818 s of play, eight waves, 13 switches
+between the CHOPPER and the NINE (78.2 s to 823.8 s), about 12 periodic collections after the first switch, no
+`Signal 11` line. Version 4 crashed in this script at 128 s (`v4-long`). The probe lines (one a second, not per frame:
+this run's CSV was not kept, the fresh-user copy of the build took it with it) read 59.3 fps in play, lowest second 44.9,
+worst frame 172 ms, GPU 8.5 ms (max 28.4), resident memory 3,114 MB five seconds in and 3,519 MB at the end, and the
+frame-rate target 60 -> 45 at 02:42:33, two minutes before the end, where it stayed: the hitch lane's H2, the other fixer's
+ground. The watcher counted `others=1` from 02:32:17 to 02:42:25: another lane's GPU-claim placeholder (a `sleep` named
+`MurderInc`, `weaponsfix-claim`), not a game: the card's memory stayed at 5.5 to 5.6 GB, one game and the load.
 
 ### B5: a run pauses when the player stops looking
 
@@ -415,7 +438,25 @@ short, an empty one). `rtcinput.py` gained the verbs `leave`, `enter` and `ui <t
 
 **Through the stream, before and after** (the Development game's director starts a Story run; the viewer `away-view.txt`
 sends a `MouseLeave` in play, presses P, sends the page's word in play, presses P, sends another word, pauses with P and
-sends a `MouseLeave` on the pause card, presses P): queued with the GPU runs above (`sb-away-v6t`, `sb-away-fix`).
+sends a `MouseLeave` on the pause card, presses P; no load, 8 CPUs, the GPU claim held; probe every 0.25 s; times are
+the viewer's own seconds, the game's state from the probe lines: 2 play, 3 paused):
+
+| Viewer's step | `sb-away-v6t` (v6 trial) | `sb-away-fix` (this lane's package) |
+|---|---|---|
+| `leave` in play (48.4 s) | nothing: `state=2` for the next 5 s | **paused at once**: `Viewer away (the pointer left the picture): the run is paused ...` (02:21:30.357), `state=3`, `away=1 awayPaused=1` |
+| P (53.4 s) | pauses (the key) | resumes (`state=2`) |
+| `ui {"murderinc": "away"}` in play (59.5 s) | (the old game was still paused by the P before, since its `leave` had paused nothing: this step says nothing there) | **paused at once**: `Viewer away (the page says the player is away)` (02:21:41.448), `away=2 awayPaused=2` |
+| P (64.5 s) | resumes | resumes |
+| `ui {"murderinc": "back"}` (70.6 s) | nothing | nothing (`away=2`: not the word) |
+| P (75.6 s), then `leave` on the pause card (78.7 s) | paused; nothing more | paused by the key; the leave is counted and changes nothing (`away=3 awayPaused=2`) |
+| P (82.7 s) | resumes | resumes |
+| the viewer goes (the run's end) | paused by the connection's end | the same |
+
+Both runs played at 59.8 and 59.9 frames a second (the summary lines): the wrapped handlers cost nothing a frame can show.
+A third run, the page's word alone in play on the v6 trial (`sb-away-v6t-ui`), was stopped unplayed: `lag-test.sh` waited
+for a free GPU behind another lane's claim placeholder, which was itself waiting for this lane's claim. The v6 trial has no
+handler for the word in its code (the plugin's own `UIInteraction` handler only passes it to `UPixelStreaming2Input`
+components, of which the game has none), so the after-run is the evidence that matters.
 
 ### B4: the pause card can leave the run
 
@@ -472,6 +513,12 @@ listeners); whether the player passes a game's response up to the page was not r
 3. **The release package** must be gated on the crash as `cpu-nr-fix` and `n3-fix` were: `nr.sh <unpacked package>
    scripts/full-csv.txt <name> 330` and `nr.sh <unpacked package> scripts/n3.txt <name> 900` (no GPU, about 6 and 15
    minutes, CPUs of their own), each without a `Signal 11` line; the v6 trial fails the first in two minutes.
+4. **Two lanes' GPU queues can wait for each other for ever**: a queue runner holds its claim (a `sleep` named `MurderInc`)
+   between its runs, and `lag-test.sh`'s own wait for a free GPU counts any other lane's claim as a game. Here this
+   lane's last run waited behind `weaponsfix-claim`, whose queue waited for this lane's claim (stopped by hand at 02:49).
+   The watcher's count already skips the run's own claim; the wait before a run should skip every claim placeholder
+   (a command line with `-claim` and no `-PixelStreamingID=` of a running game), or the runners should take one shared
+   lock file instead of a process name.
 
 ### Suite
 
