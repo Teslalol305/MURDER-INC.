@@ -46,6 +46,7 @@ X, Y, Z = np.eye(3)
 # ================================================================================================= fitting
 
 def inside(P, bxs, tol=TOL):
+    tol = tol + 2e-4                                # float32 slack: a vertex exactly on a box face is inside it
     ok = np.zeros(len(P), bool)
     for lo, hi in bxs:
         ok |= np.all((P >= np.asarray(lo) - tol) & (P <= np.asarray(hi) + tol), axis=1)
@@ -69,6 +70,9 @@ def fit_report(co, cols, allow):
         rep["max_outside_m"] = round(float(d.max()), 3)
         k = int(np.argmax(d))
         rep["worst_at_web"] = [round(float(P[k, 0]), 2), round(float(P[k, 2]), 2), round(float(-P[k, 1]), 2)]
+        W_ = np.round(np.column_stack([P[:, 0], P[:, 2], -P[:, 1]]), 1)
+        u, c = np.unique(W_, axis=0, return_counts=True)
+        rep["unexplained_at_web"] = [[float(v) for v in u[i]] + [int(c[i])] for i in np.argsort(-c)[:8]]
     return rep
 
 
@@ -214,7 +218,7 @@ def market_hall(ctx, M):
             wb(b, x0, x1, 5.39, 5.40, z0, z1, "tube")
             for (a0, a1, c0, c1) in ((x0 - 0.06, x0, z0, z1), (x1, x1 + 0.06, z0, z1), (x0, x1, z0 - 0.06, z0), (x0, x1, z1, z1 + 0.06)):
                 wb(b, a0, a1, 5.10, 5.40, c0, c1, "grey")
-    ex = next((s for s in level()["signage"]["items"] if s["id"] == "m.exit"), None)
+    ex = next((s for s in level()["signage"]["placements"] if s["id"] == "m.exit"), None)
     if ex:
         p = ex["web"]["pos"]
         wb(b, p["x"] - 0.25, p["x"] + 0.25, p["y"] - 0.10, p["y"] + 0.10, p["z"] - 0.08, p["z"], "trim")
@@ -477,7 +481,8 @@ def arcade(ctx, M):
 def banquet_facade(ctx, M):
     """E2's Square and Mott fronts, built in each face's wall frame and merged into the level frame."""
     b = B(508, step=1.0)
-    A = [("Square face: sills, trim bands and the cornice, 0.16 m proud above 2.4 m", W(17.84, 44.0, 2.4, 10.96, 17.83, 18.0)),
+    A = [("the galvanised cap on the parapets (50 mm over the walls' top)", W(17.97, 44.03, 10.88, 10.96, 17.97, 32.03)),
+         ("Square face: sills, trim bands and the cornice, 0.16 m proud above 2.4 m", W(17.84, 44.0, 2.4, 10.96, 17.83, 18.0)),
          ("Mott face: sills, trim bands and the cornice", W(17.83, 18.0, 2.4, 10.96, 18.0, 32.0)),
          ("banquet doors folded flat inside the hall", W(28.9, 37.1, 0.15, 3.80, 18.40, 18.52))]
     T = 0.40                                            # the walls' thickness, as their colliders
@@ -491,7 +496,11 @@ def banquet_facade(ctx, M):
             fc.bx(s, (a, 0.0, h), (c, T, 5.0), "stoneStucco", axis="x")
             xs.append(c)
         fc.bx(s, (xs[-1], 0.0, 0.0), (L, T, 5.0), "stoneStucco", axis="z")
-        fc.bx(s, (0.0, -0.012, 0.0), (L, 0.0, 0.45), "stone", axis="x")      # a cast plinth (12 mm proud)
+        xp = 0.0
+        for a, c, _h in cuts + [(L, L, 0.0)]:                                # a cast plinth (12 mm proud), not across the openings
+            if a - xp > 0.01:
+                fc.bx(s, (xp, -0.012, 0.0), (a, 0.0, 0.45), "stone", axis="x")
+            xp = c
         for zrow in (5.55, 8.05):                       # two upper rows, windows 1.24 x 1.55 at a 3.1 m pitch
             x = 0.0
             wl = sorted(w for w in windows if w is not None)

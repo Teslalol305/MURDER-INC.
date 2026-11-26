@@ -122,7 +122,7 @@ FACES = [
      [("pier", 0.40), ("front", "Wide", None), ("pier", 0.32), ("front", "Jewelry", None), ("pier", 0.68)], {}),
     ("E1a", "E1a.mott", 18.0, "-x", -13.7, 15.7, 0.15, 5, "Red", "front",
      [("pier", 3.20), ("front", "Restaurant", None, "awning"), ("pier", 0.32), ("front", "Grocery", "StallFruit"), ("pier", 1.18)],
-     {"escapes": (0,)}),
+     {"escapes": (0,), "n": 4}),
     ("E1a", "E1a.square", 2.0, "+z", 18.3, 11.1, 0.15, 5, "Red", "front",
      [("pier", 3.20), ("front", "Jewelry", None), ("pier", 0.32), ("front", "Narrow", "KioskKeys"), ("pier", 1.18)], {}),
     ("E1a", "E1a.squareArcade", 2.0, "+z", 29.4, 4.2, 0.15, 5, "Red", "front", [("gap", 4.2, 4.05, 2.70)], {"rows_from": 1}),
@@ -213,7 +213,7 @@ def ground(F, brick, segs, out):
 
 def uppers(F, storeys, brick, kind, opt, out):
     from assets import _chinatown_place as place
-    n = int(F.L // BAY + 1e-6)
+    n = opt.get("n", int(F.L // BAY + 1e-6))                  # "n": fewer bays than fit, when the end fills would be under 0.30 m
     p = (F.L - n * BAY) / 2
     rnd = place.rng_seq(F.key)
     ups = storeys - 1
