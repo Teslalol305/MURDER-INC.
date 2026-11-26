@@ -204,6 +204,10 @@ export, about 6 minutes for the previews on 3 threads. Steps:
    weights copied from the posed mannequin surface (median 3.3 cm away), finger weights folded into the hand (the
    generated gloves are one piece), smoothed, at most 4 influences, then inverse skinning back to the mannequin's
    reference pose; round trip exact (max 0.0000 m).
+   Added with roof_lieutenant (section 10): when the wrist search finds no cross-section near the skeleton's arm
+   line (fewer than 20 points: the arm is then left unfitted, exactly 0 degrees and length x 1.000), it is
+   restarted on the line from the shoulder to the mesh's fingertip (`vultures.arm_guess`); arms the default search
+   fits are unchanged.
 5. **Weights by body segment** (the lesson of SK_RuleArms round 3, extended to a whole body): each vertex is labelled
    torso / left arm / right arm / left leg / right leg by the nearest bone chain of the fitted skeleton (torso distances
    x 0.55: it is wide); a segment keeps only its own bones (an arm never takes a thigh, the pelvis or the other arm; a
@@ -679,3 +683,110 @@ eye band, the faint crew V).
 
 **Credits (this character):** 18 (one Tripo take, `tripo_h3_1_multiview_to_3d`, detailed, 110k); the sheet's 3.25
 is in section 5. No GPU box was rented or used.
+
+## 10. `SK_Vulture_RoofLieutenant` (Level 3 lieutenant, built)
+
+Built 2026-11-26 from the first Tripo take, with one change to the bind that this character needed (the arm fit's
+fallback, below and in 3.4 step 4, commit c604614): `build.py build vultures --only roof_lieutenant --export` (36 s)
+then `--preview --samples 32` (2.4 min on 3 threads). Outputs (git-ignored):
+`art/out/glb/SK_Vulture_RoofLieutenant.glb` (3.8 MB) with `.check.json`, the set
+`art/out/textures/VultureRoofLieutenant/`, the manifest record; sources in `art/out/characters/maps/roof_lieutenant/`
+(the sheet, the four views, `roof_lieutenant_tripo.glb`).
+
+![turnaround](../../../art/previews/characters/maps/vulture_roof_lieutenant_turnaround.jpg)
+
+`vulture_roof_lieutenant_turnaround.jpg`: the sheet made in the first pass (`sheet_v1.png`), used as it was, and the
+four views split from it in that pass, uploaded unchanged. Checked before spending: four figures, view 2 faces the
+image's left and view 4 its right; a broad, heavy man in a charcoal wool car coat to mid-thigh, single-breasted and
+open, collar up, dark buttons, flap pockets, a centre back vent; a black buttoned vest over a black roll-neck; a dark
+charcoal wool scarf with fringed ends hanging open; a black knit two-hole balaclava; the oxblood band on the LEFT upper
+arm (seen in the front, the left profile and the back, hidden in the right profile); a black leather sling with a
+metal buckle from the right shoulder to the left hip; the crew V high on the coat's back; charcoal wool trousers with
+a crease, black leather lace-up boots and gloves; no brand or lettering anywhere. The eyes and the skin round them
+show in the balaclava's openings (the sheet did not ask for "eyes in deep shadow").
+
+| Measure | Result |
+|---|---|
+| Tripo take | first take kept (1 of at most 3): 105,078 triangles (budget 120k), one connected piece, 0 floaters, 3 edges of opposite winding (canal_shell had 11), 4096 maps (Color, ORM, NormalGL), UVs inside 0..1, 31 % of a 512 grid's cells hit |
+| Clean-up | turned 90 degrees (arm span 0.54 m on Y against 0.23 on X) and 180 (facing +Y), as the others; no decimation |
+| Size | balaclava top 1.805 m over the floor (the roster's factor 1.0: a bare balaclava over the mannequin's head), 1.3 cm under SK_Goon_Hoodie's hood; 0.98 in the game; 1.12 m across the A-pose hands, 0.56 m deep (the open coat and the scarf). Beside SK_Goon_Hoodie in clay: the same stance, about the same height, broader and heavier in the shoulders and the coat (`vulture_roof_lieutenant_wire.jpg`) |
+| Fit to the skeleton | arms 21.6 / 20.2 degrees below the mannequin's A-pose, lengths x 1.020 / 1.028; legs 2.5 / 2.2 degrees, x 1.00; weights from the mannequin surface median 3.3 cm away (99th percentile 16 cm, the coat skirt) |
+| Weights by segment | torso 23,859 vertices, arms 5,772 / 5,506, legs 8,953 / 8,437; 17 left-arm and 7 right-arm vertices not connected to the hand moved to the torso; 4,781 cross-segment weights removed before smoothing, 6,503 after, 0 after the 4-influence limit; 0 unweighted |
+| Skeleton | 89 joints; round trip against SKM_Manny_Simple: largest change 0.0000005 m, 0.00013 degrees; re-import 105,078 of 105,078 triangles; one validation error, the 3 edges of opposite winding Tripo made (left as they are, as on canal_shell) |
+| Pose check | 99 poses, **99 pass** the capsule test; the worst vertex is 0.3 cm outside its capsules (the limit is 6) |
+| Edge stretch (edges over 2 x their rest length, share of about 157,600; 99.9th percentile; the worst frame of each clip) | jog 1.5 %, x 5.4; aim (rifle and pistol) 0.9 %, x 4.6; reloads 1.2 %, x 5.1; melee 2.6 %, x 9.2; death fall 3.4 %, x 8.9; kneel 1.4 %, x 9.8; crouch 1.9 %, x 7.5; overhead swing 1.0 %, x 5.7 |
+| Against the Goons (same measure) | SK_Goon_Hoodie jog 1.05 %, x 9.6, aim 1.3 %, x 8.6, death 2.4 %, x 11.9; SK_Goon_Puffer jog 1.9 %, x 6.2, death 3.2 %, x 11.1. The worst stretch is below both Goons in every compared pose; the share of stretched edges is between the two Goons in the jog, below the Hoodie in the aim, and **above both in the death fall** (3.4 %). It is the most stretched Vulture in the melee, death, kneel and crouch: the coat skirt to mid-thigh rides on the thighs and folds where they bend (seen in clay from front and back in the kneel, the melee, the death fall and the crouch: the skirt drapes and bunches, no tearing) |
+| Reference pose against the generated surface (`build.bind.rest_stretch`) | 99.9th percentile x 8.9, worst edge x 79, 406 edges over 2 x, 292 over 4 x: the under-arm fins of section 7 on both sides, at the coat's side panels (0.19 to 0.26 m out, 1.05 to 1.29 m up), more than on the others (roof_rigger x 6.7, 262 over 4 x) |
+| Texture set | 4096, albedo mean linear 0.027 / 0.026 / 0.026 (the darkest Vulture, under the 0.08 rule), roughness mean 0.80 after the remap, metallic 0 (no texel over 0.5), occlusion mean 0.998 (empty, as on the others) |
+
+**What this character found in the pipeline (fixed in `vultures.py` and `goon_generated.fit_pose`, commit c604614)**
+
+The first bind left the right arm unfitted: `fit upperarm_r 0.0 deg, length x1.000`. The wrist search
+(`goon_generated.mesh_joint`) slices the mesh near the skeleton's own arm line; this man's arms hang 20 degrees below
+the mannequin's A-pose and the coat sleeve is thick, so on the right the slice held 3 points (under the 20 it needs)
+and the search stopped at its start (the left arm, at 24 points, only just passed). With the arm bound at the wrong
+angle every pose still passed the capsule test, but the stretch did not: p99.9 x 27.8 in the kneel and 6,044 edges
+over 2 x in the worst frame. Now, only when the default search returns an unfitted arm, it is restarted on the line
+from the shoulder to the mesh's fingertip (the point of that side farthest from the shoulder among those 15 cm
+outside it and below it). The right arm then fits at 20.2 degrees, x 1.028; the left arm, refitted the same way in a
+test, gave 21.5 degrees, x 1.022 against the default's 21.6, x 1.020, so the two searches agree. Worst p99.9 stretch
+x 27.8 to x 9.8, worst edges over 2 x 6,044 to 5,383. Arms the default search fits keep their results, so the other
+five Vultures are unaffected by a rebuild.
+
+![hero](../../../art/previews/characters/maps/vulture_roof_lieutenant_hero.jpg)
+
+`vulture_roof_lieutenant_hero.jpg`: front and back three-quarter, studio and street night. The charcoal wool coat
+with its collar up, the open front over the buttoned vest and roll-neck, the fringed scarf, the black leather sling
+and buckle, the oxblood band on the left arm and the crew V under the collar; at night the darkest figure of the Roof
+crew, whose long coat gives it a silhouette apart from the rigger's work jacket and knee pads and the lookout's
+softshell.
+
+![detail](../../../art/previews/characters/maps/vulture_roof_lieutenant_detail.jpg)
+
+`vulture_roof_lieutenant_detail.jpg`: head at 1 m (the ribbed knit balaclava, the eyes and lids in its openings, the
+roll-neck, the wool texture of the coat and the scarf, the stitched leather sling and its buckle, the vest's buttons,
+the band's folds) and the legs at 1.3 m (the coat hem and scarf fringes, creased wool trousers, polished lace-up
+boots).
+
+![poses](../../../art/previews/characters/maps/vulture_roof_lieutenant_poses.jpg)
+
+`vulture_roof_lieutenant_poses.jpg`: jog, aim, crouch and the forward death fall on the bound mesh; no tearing at
+shoulders, elbows, hips or knees; in the crouch the coat skirt folds between the knees. (The held crouch bends the
+legs without moving the root, so the feet leave the ground in the picture, as for the others.)
+
+![wire](../../../art/previews/characters/maps/vulture_roof_lieutenant_wire.jpg)
+
+`vulture_roof_lieutenant_wire.jpg`: clay beside SK_Goon_Hoodie, and the wireframe at 1.2 m (Tripo's even
+triangulation, no edge loops; the scarf, vest buttons, sling and lapels are relief on the one surface). The under-arm
+fin shows as flat sheets behind the right arm.
+
+**Known weaknesses (for the art review)**
+
+- **The under-arm fins are the largest of the Vultures** (292 edges over 4 x, worst x 79): flat sheets behind the
+  arms in the reference pose, visible in the hero and wire pictures. As on the others, the clips hold the arms down
+  or forward and the fins close (none show in the jog, aim, crouch or death pictures), but a T-pose or arms-out frame
+  would show them. The fix is the pipeline's (section 7): bind with the mannequin's arms lowered to the generated
+  figure's angle.
+- **The eyes show warm at night.** The balaclava's openings show the eyes, lids and a band of skin, as for
+  canal_shell; under the street-night lights the lids catch the warm light and read at 5 m as two small warm points
+  (`vulture_roof_lieutenant_hero.jpg`, night half). If that reads as glowing eyes in the Midtown readability frame,
+  darken the eye-hole skin in `T_VultureRoofLieutenant_BC`, or redo the sheet with "eyes in deep shadow" (3.25 + 18
+  credits).
+- **The coat skirt is skinned to the thighs**, so it rides with each leg and folds between them instead of hanging:
+  believable in the clips at play distance (the clay checks above), but the death-fall stretch share is above both
+  Goons. A cloth simulation or skirt bones would be the next step; neither is in the pipeline.
+- Height 1.805 m, 1.3 cm under the Goons' hood (the roster's factor for a bare balaclava); the coat sleeves and the
+  sling have a soft sheen at 1 m (the shared roughness remap).
+- As the others: one fused surface (coat, scarf, vest, sling, balaclava, trousers), rigid one-piece gloves (no finger
+  curl round the SMG's grip), no edge loops, LODs or corrective shapes, occlusion map empty, not imported in Unreal yet
+  (the enemy lane's check: scale 0.98, materials, the SMG on `hand_r`, a readability frame on the Midtown roofs).
+
+**Verdict.** Usable as the Level 3 lieutenant at 3 to 40 m: a realistic, invented heavy man in a believable New York
+winter coat, scarf and balaclava, on the same skeleton and clips, all 99 poses inside the capsules with less worst
+stretch than both Goons, and the lieutenant's marks (the oxblood band, the leather sling, the long coat) readable
+against the rigger and the lookout. Below the hand-built Goons at 1 m (fused layers, rigid gloves, the eye openings)
+and the most stretched Vulture in the bending poses, because of the coat skirt.
+
+**Credits (this character):** 18 (one Tripo take, `tripo_h3_1_multiview_to_3d`, detailed, 110k; `get_cost` checked
+first); the sheet's 3.25 is in section 5. The diagnostic fit tests and clay pose renders ran in Blender only. No GPU
+box was rented or used.
