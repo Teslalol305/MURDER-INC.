@@ -380,3 +380,77 @@ then the same with `'p4|GUNS=rattler stretch|ONLY=rattler:hip-el rattler:aim rat
 3. **The SHORTY** aimed: its support arm is bent to 62 degrees by its own low shoulders and its forearm stands at 87 to 90
    degrees whatever the push (hidden below the picture in `p1`, so not seen as a post).
 4. The RATTLER's 20 cm palm gap in `t2` (slot 3 after the SHORTY) against 4.9 cm in `t1` (slot 1): unexplained.
+
+## 10. Fixer pass: the review of section 9, checked against the code and the frames (2026-11-25, 22:15 UTC on, box `603980d9`, clone `repo-guns`)
+
+### 10.1 The findings, checked
+
+| Finding (review of section 9) | Checked against | Verdict |
+|---|---|---|
+| Reload: an open, spread hand in front of the eye, no magazine in it (must-fix) | the `c1`, `d1`, `e1`, `f1`, `p1` reload frames as the review lists them, and `UpdateHands` | real. The turned handguard grip (`magazine.turn`, `squeeze`) wraps a 5 to 6 cm cylinder; a magazine is a 2.6 to 3.3 cm plank, so the fingers stood off it |
+| The CHOPPER palm target hangs in front of its magazine | `Equip`'s rule `B.Max.X + 2` against the magazine's own cross-sections (read from `SM_Weapon_ChopperMagazine.glb`: the front face runs from X 22.6 at the top to 30.2 near the base, a curved magazine whose bounds reach 31.15) | real: at 35 % up the front face is at about 29.9, the palm was put at 33.15. The log's "0.1 cm from its place" measured the IK against that target, not a touch |
+| With a fitted foregrip every reload shows the open V hand (`reloadCurl` 35 to 0) | `UpdateHands`: the shape is built only when `!(bLeftHand && bGrip)` | real (code): with a foregrip no shape was ever carried, and the curl was 0 |
+| A reload cut short snaps the hand and elbow in one frame | `MagK` computed from the reload clock alone, and 0 when `bReloadingNow` falls | real (code) |
+| The SupportHand test checks JSON only | the test | real |
+| The optics, the NINE, the final RATTLER and the STRETCH reload were never photographed; the 5.5 crash case not re-run | the `r4c` folders | real: no such frames existed |
+| The HUD hides the firing hand | `guns-shots.sh` had no switch | real |
+| Gun finishes read as mirror chrome | see 10.4 | |
+| SHORTY reload shows no hand and no magazine | see 10.4 | |
+| No suite on the pushed head | the clone was at `1b0cfed` | real; the suite has now run on the clone at this pass's commits (10.3) |
+
+### 10.2 What changed
+
+| Item | Code / data | What it does |
+|---|---|---|
+| 8.1 step 2: a grip solved round each magazine | `tools/data/reload_grips.py` (new, pure Python), `grips.json` `magazines.<static mesh>.l` | Reads each magazine's GLB (`art/out/glb`, in Unreal's convention, the magazine mesh's own frame: the frame the game reads it in; the CHOPPER bounds match the editor log to 0.01 cm) and cuts it into cross-sections every 0.5 cm. The hand (bone lengths and knuckle arc from the CHOPPER hip solve, the palm laid flat) goes palm-on the magazine's **left face** (palm bones 1.5 cm off it), the knuckle line **along the front edge** (a curved magazine's edge leans: the CHOPPER hand leans 31 degrees with it), the middle knuckle 40 % up from the base (45 % on the pistol magazines). Each finger then closes joint by joint (knuckle, middle, end; at most 90, 105, 80 degrees) until that phalanx (radius 0.8 cm) touches the cross-section at its height: the fingers wrap the front edge and lie on the right face. The thumb lies along the left face, rising 35 degrees toward the front, its tip 2 cm under the magazine's top at most. Solved for all eight magazines a hand-IK gun can hold (the five own, three magazine parts): no point sinks into a magazine (deepest point 0.8 cm outside, the finger radius); the index, middle and ring knuckles bend 68 to 90 degrees and their middle joints 18 to 104 (the pinky, below most magazines, 24 to 50 at the knuckle). `--check` re-solves and compares (0.000 cm) |
+| The rig takes it | `MIFirstPersonRig.cpp` `Equip` (loads `magazines.<HeldMag's mesh>.l`), `UpdateHands` | In a reload the support hand's shape moves from the hip/aimed solve to the magazine's solve, carried by the magazine's bone (so it holds the magazine all the way down and back up); the palm target is the solve's palm point, not the bounding-box rule. Without a solve for a magazine the earlier turned handguard grip stays (console `mi.FP.ReloadGrip 0` forces it, for comparison pictures) |
+| The foregrip regression | `UpdateHands` | With a fitted foregrip the reload grip now fades in with the hand's way to the magazine (`ShapeWeight = grip.weight x hold`) instead of leaving the clip's open hand; `foregripCurl` lets go as the hand leaves the part |
+| A reload cut short | `UpdateHands`, `Update` | The hold is a state moved at most `1 / magazine.blend` a second (`FInterpConstantTo` on the frame time), smoothstepped where used: a switch or sprint mid-reload lets the hand and the elbow push go over 0.25 s, not in one frame |
+| The reload log | `UpdateHands` | Now also: palm and finger middle/end joints against the **magazine's own bounding box** in its frame (a finger bone lies about 0.8 cm under the skin; the box is a bound, not the surface), and which grip is used. A warning once when a held magazine rides no bone (the hand would never hold it) |
+| Test of the C++ | `Tests/MIReloadHoldTests.cpp`, `MurderInc.FirstPerson.ReloadHold` (new) | The real player in the block with the four rifles, fired and reloaded through the keys (R), the rig read every frame: the hold reaches 1 mid-reload and stays at least 10 frames, the support palm target is the magazine's palm point (within 0.5 cm), the shape laid on it has every joint (25 points), the elbow push is let go there and pushed out again after, the magazine stays drawn while held (`magazine.inHand`), the hold never steps more than 1.5 x frame / 0.25 s, and it is back to 0 a second after the reload. Accessors `GetHandPose`, `GetMagazineHold`, `HasReloadSolve`, `MagazinePalmTarget`, `SupportPalmTarget` |
+| Data tests | `MurderInc.FirstPerson.SupportHand`, `check_guns_data.py` | Each rifle set's magazine has a reload grip in `grips.json` with the wrist and every joint (within 25 cm of its wrist); the checker wants one for every own magazine and magazine part |
+| `grip.note` of the NINE's set | `presentation.json` | No longer says the support grip lets go in a reload |
+| Pictures | `tools/box/fp/guns-shots.sh` | `HUD=0` (console `showhud` once the run plays), `RELOADS="0.5 1.2"` (frames at each time into the tactical reload), `SETTLE` |
+
+No fire, recoil, spread, damage or timing number was touched (`guns.json` and `rules.json` unchanged; every key above is presentation).
+
+### 10.3 The suite
+
+`tools/box/test.sh MurderInc` on `repo-guns` synced to `b9ee527` (this pass's last code commit; the branch's head then, with the other lanes' C++ of 00e4899, 9f21cd3, a3e57b0, 68ce52c, 9c409f7 built in): **207 passed, 0 failed** (76 s), golden replays included, `ReloadHold` among them: its log lines show all four rifles drawn with hand IK, the hold at 1.00, the solve round the magazine (25 points), the palm 0.8 to 1.9 cm from the magazine's box and 6 or 7 of 8 finger joints within 1.5 cm of it. The run before (at `8111ae4`) had 206 passed and 1 failed: this pass's own SupportHand bound (30 cm from the magazine's origin is wrong for the CHOPPER, whose magazine mesh is in the gun's frame), fixed in `b9ee527`. `check_guns_data.py`: 0 errors, 0 warnings.
+
+### 10.4 What was seen, and what was not
+
+**No new frame was taken in this pass.** The picture hold (`/project/ue/logs/repo-guns/r4d/hold.sh`, queue `r4d/queue.txt`: the
+runs `q1` hands with the HUD hidden at 0.5 and 1.2 s into the reload on the four rifles, `q2` the optics aimed, `q3` the STICK
+with its scope, the NINE and the RATTLER aimed after the STICK (the 5.5 crash case), `q4` the reloads with a foregrip on each
+of the three guns that take one) waited from 22:42 for the box's GPU rule (no game, no claim placeholder named `MurderInc`
+and no `lag-test.sh` run alive) and never got it: the smooth lane's hitch queues (claims of 2 hours, 22:28 to 23:45), the
+stream lane (claims of 3,000 to 3,600 s), the menu-fix lane's lag runs, the death lane's editor and claim (2,400 s, extended
+by 3,000 s) and the smooth lane's bug queue (3,600 s) followed each other or overlapped without a free second. An editor of
+this lane beside them would have broken the rule the task sets (never beside a measured game, one editor at a time). So:
+
+- **Seen only in the engine, not on screen:** the reload grip is laid on the hand and held (the `ReloadHold` test and its log:
+  hold 1.00, 25 points, palm 0.8 to 1.9 cm off the magazine's box, 6 or 7 of 8 finger joints within 1.5 cm of it). Whether it
+  now **reads** as a hand round a magazine is unknown until a frame shows it. The solve itself was checked in four views
+  drawn from its points over the magazine meshes (`docs/unreal/shots/hands-r4c-reload-solve-views.jpg`: a skeleton drawing,
+  not a render; thumb magenta, index red, middle green, ring blue, pinky orange; left side, front, below, and a view from
+  behind, above and left like the eye's): the palm flat on the left face, the index, middle and ring fingers round the front
+  edge onto the right face, the pinky curled under short magazines, nothing inside a magazine. Seen there too: the thumb
+  on the STRETCH and NINE reaches past the magazine's front edge (it is long for those short magazines), and the hand's
+  heel sits 3 to 4 cm behind the magazine's rear face; both may read wrong on screen.
+- **Read, not seen:** the optic housing fade (8.4: `AimFade` on `M_Part_Hardware`, set only for our own part optics in the
+  hand-IK branch; the STICK's pack scope has no fade), the NINE, the RATTLER on the final elbow push, the STRETCH reload, the
+  foregrip reloads, the HUD-off firing hands, the 5.5 crash case (STICK, then RATTLER aimed, then `HighResShot`).
+- **The chrome finish** (should-fix): not changed. The ORM textures the importer reads have roughness (green) 0.45 to 0.59
+  on the gun sets (`art/out/textures/*/T_*_ORM.png`, median of the used texels: STRETCH 0.45, SHORTY 0.59, RATTLER 0.51,
+  CHOPPER 0.50) and the importer makes them linear (`TC_MASKS`, sRGB off); a finish that mirrors a street sign is not what
+  those numbers give, so the cause is in the engine (the material as built on the box, or reflections on the first-person
+  meshes). `r4d/mat.py` (queued first) prints each gun's ORM texture flags and slot materials; it never ran.
+- **The SHORTY reload** (should-fix): not changed. Its magazine sits behind the grip (mesh X 17 to 23 cm, the grip's palm
+  socket at 29.5) under the eye; whether the new grip brings the hand into view, or `poses.reload` (`guns.json`, presentation)
+  must lift and roll the gun further, needs the frame.
+
+**The hold is left waiting** (started 23:19, `r4d/hold.log`): it takes the GPU only under the rule above, yields before each
+run to any `lag-test.sh` run that starts waiting, runs `queue.txt` to its `END` and stops this clone's editor. Pictures will
+land in `r4d/q1` to `r4d/q4`, the material check in `r4d/py-1.log`. If it has been stopped, start it again on the box as root:
+`cd /project/ue/logs/repo-guns/r4d && rm -f done.n && setsid nohup bash hold.sh > hold.log 2>&1 &`.
