@@ -45,7 +45,7 @@
    "the Stand's tiers 1 to 5 are two wings (x 10..13, 19..22) around a front court at plaza level (x 13..19, z -29.2..-22): as drawn, tier 5 (top 2.15) stands in front of the booth's slot (1.0 to 2.0 m) and would hide it; the court lets Goons and the player see and fire through the slot.",
    "Broadway's water barriers at z 17.6..18.2, south of the parked van (z 12..17.4).",
    "g23 at (25, 0, 18.8) instead of (25, 0, 18): still 'behind the water barriers', which stand at z 17.6..18.2.",
-   "ground.surfaces uses the design's surface words (granite, gravel, bitumen, grating, steel); the audio lane maps them onto audio.json's surface keys."
+   "surfaces use audio.json's keys: the design's granite, gravel, bitumen, grating and steel (16.3) are concrete, asphalt, asphalt, metal and metal, so footsteps and impacts resolve."
   ]
  },
  "bounds": {
@@ -403,7 +403,7 @@
     }
    },
    {
-    "surface": "granite",
+    "surface": "concrete",
     "web": {
      "minX": 8.0,
      "maxX": 22.0,
@@ -418,7 +418,7 @@
     }
    },
    {
-    "surface": "gravel",
+    "surface": "asphalt",
     "web": {
      "minX": -50.0,
      "maxX": -30.0,
@@ -433,7 +433,7 @@
     }
    },
    {
-    "surface": "bitumen",
+    "surface": "asphalt",
     "web": {
      "minX": -50.0,
      "maxX": -30.0,
@@ -448,7 +448,7 @@
     }
    },
    {
-    "surface": "gravel",
+    "surface": "asphalt",
     "web": {
      "minX": -28.0,
      "maxX": -8.0,
@@ -463,7 +463,7 @@
     }
    },
    {
-    "surface": "bitumen",
+    "surface": "asphalt",
     "web": {
      "minX": -28.0,
      "maxX": -8.0,
@@ -478,7 +478,7 @@
     }
    },
    {
-    "surface": "grating",
+    "surface": "metal",
     "web": {
      "minX": -8.0,
      "maxX": -4.5,
@@ -493,7 +493,7 @@
     }
    },
    {
-    "surface": "steel",
+    "surface": "metal",
     "web": {
      "minX": -8.0,
      "maxX": -3.0,
@@ -508,7 +508,7 @@
     }
    },
    {
-    "surface": "steel",
+    "surface": "metal",
     "web": {
      "minX": 10.0,
      "maxX": 22.0,
@@ -7040,9 +7040,8 @@
    "car": 15,
    "concrete": 111,
    "glass": 10,
-   "metal": 206,
+   "metal": 233,
    "rubber": 1,
-   "steel": 27,
    "wood": 13
   },
   "boxes": [
@@ -23757,7 +23756,7 @@
    {
     "index": 309,
     "tag": "stand",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -23811,7 +23810,7 @@
    {
     "index": 310,
     "tag": "stand",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -23865,7 +23864,7 @@
    {
     "index": 311,
     "tag": "stand",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -23919,7 +23918,7 @@
    {
     "index": 312,
     "tag": "stand",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -23973,7 +23972,7 @@
    {
     "index": 313,
     "tag": "stand",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24027,7 +24026,7 @@
    {
     "index": 314,
     "tag": "stand",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24081,7 +24080,7 @@
    {
     "index": 315,
     "tag": "stand",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24135,7 +24134,7 @@
    {
     "index": 316,
     "tag": "stand",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24189,7 +24188,7 @@
    {
     "index": 317,
     "tag": "stand",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24243,7 +24242,7 @@
    {
     "index": 318,
     "tag": "stand",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24297,7 +24296,7 @@
    {
     "index": 319,
     "tag": "stand",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24351,7 +24350,7 @@
    {
     "index": 320,
     "tag": "stand",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24405,7 +24404,7 @@
    {
     "index": 321,
     "tag": "stand",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24459,7 +24458,7 @@
    {
     "index": 322,
     "tag": "booth",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24513,7 +24512,7 @@
    {
     "index": 323,
     "tag": "booth",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24567,7 +24566,7 @@
    {
     "index": 324,
     "tag": "booth",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24621,7 +24620,7 @@
    {
     "index": 325,
     "tag": "booth",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24675,7 +24674,7 @@
    {
     "index": 326,
     "tag": "booth",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24729,7 +24728,7 @@
    {
     "index": 327,
     "tag": "booth",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24783,7 +24782,7 @@
    {
     "index": 328,
     "tag": "booth",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24837,7 +24836,7 @@
    {
     "index": 329,
     "tag": "booth",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24891,7 +24890,7 @@
    {
     "index": 330,
     "tag": "booth",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24945,7 +24944,7 @@
    {
     "index": 331,
     "tag": "booth",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -24999,7 +24998,7 @@
    {
     "index": 332,
     "tag": "booth",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -25053,7 +25052,7 @@
    {
     "index": 333,
     "tag": "booth",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -25107,7 +25106,7 @@
    {
     "index": 334,
     "tag": "booth-slot",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },
@@ -25161,7 +25160,7 @@
    {
     "index": 335,
     "tag": "booth",
-    "surface": "steel",
+    "surface": "metal",
     "owner": {
      "kind": "level"
     },

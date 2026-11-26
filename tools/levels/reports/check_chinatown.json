@@ -3,7 +3,7 @@
  "file": "tools/levels/data/level_chinatown.json",
  "tool": "tools/levels/check_level.py",
  "summary": {
-  "pass": 28,
+  "pass": 29,
   "warn": 1,
   "fail": 0
  },
@@ -68,6 +68,11 @@
    "check": "colliders.explosiveIndices",
    "result": "PASS",
    "detail": "every explosives.items[i].collider is owner {explosive: i} and sits under the item"
+  },
+  {
+   "check": "colliders.surfacesKnown",
+   "result": "PASS",
+   "detail": "every collider and ground surface is a key of audio.json surfaces (asphalt, brick, car, cloth, concrete, glass, metal, wood)"
   },
   {
    "check": "colliders.noThinMovementBoxes",
