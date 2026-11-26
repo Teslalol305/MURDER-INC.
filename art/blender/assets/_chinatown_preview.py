@@ -166,6 +166,11 @@ def canal_north(ctx, a):
             ("PlacardBags", "PlacardThree", "PlacardThree", "PlacardCDs")[i])
     put(ctx.K["SM_Prop_CT_MarketUmbrella"], (-31.0, 17.4, 0.15), 0.0, 1.0, col)
     put(ctx.K["SM_Prop_CT_EBike"], (-22.5, 29.2, 0.15), 180.0, 1.0, col)
+    # the shops' goods on the sidewalk (the level's spill colliders): N4's dried goods and grocery produce, N3's crates
+    for x, key in ((-0.2, "DryGoods"), (8.2, "Produce_Citrus"), (9.8, "Produce_Mixed"), (11.4, "Produce_Greens"),
+                   (-13.0, "StyrofoamBoxes"), (14.6, "HandTruck")):
+        put(ctx.K["SM_Prop_CT_" + key], (x, 32.35, 0.15), 0.0, 1.0, col)
+    put(ctx.K["SM_Prop_CT_FruitStand"], (23.7, 32.3, 0.15), 0.0, 1.0, col)
     render.rig_night(lamp=(-30.0, 21.0, 8.0), extra_lamps=[(-6.0, 21.0, 8.0), (18.0, 21.0, 8.0), (-36.0, 30.4, 8.0), (-12.0, 30.4, 8.0),
                                                        (12.0, 30.4, 8.0)], lamp_watts=1800.0, sky=0.8)
     sun = bpy.data.lights.new("PrevCityGlow", "SUN")                            # the rig's key: cool city glow, no shadow (11.1)
