@@ -510,3 +510,90 @@ Below the hand-built Goons at 1 m (fused layers, rigid gloves, glossy jeans).
 
 **Credits (this character):** 18 (one Tripo take, `tripo_h3_1_multiview_to_3d`, detailed, 110k); the sheet's 3.25
 is in section 5. Diagnostic clay renders ran in Blender only. No GPU box was rented or used.
+
+## 8. `SK_Vulture_RoofRigger` (Level 3 rank and file, built)
+
+Built 2026-11-26 from the first Tripo take, on the pipeline as committed after section 7 (with the bind fixes of
+8d5fde1 and 34379e2), with no change to it: `build.py build vultures --only roof_rigger --export` (40 s) then
+`--preview --samples 32` (2.5 min on 3 threads). Outputs (git-ignored): `art/out/glb/SK_Vulture_RoofRigger.glb`
+(3.7 MB) with `.check.json`, the set `art/out/textures/VultureRoofRigger/`, the manifest record; sources in
+`art/out/characters/maps/roof_rigger/` (the sheet, the four views, `roof_rigger_tripo.glb`).
+
+![turnaround](../../../art/previews/characters/maps/vulture_roof_rigger_turnaround.jpg)
+
+`vulture_roof_rigger_turnaround.jpg`: the sheet made in the first pass (`sheet_v1.png`), used as it was. Checked
+before spending: four figures, view 2 faces the image's left and view 4 its right; the dark navy duck jacket with the
+brown corduroy collar, two snapped chest flap pockets and quilted cuffs; the charcoal hoodie under it, hood down, with
+oxblood drawcords; the black watch cap with a small headlamp on a strap; the black fleece gaiter over nose and mouth;
+clear safety glasses; charcoal double-knee cargo work trousers with black knee pads; black lace-up work boots and
+gloves; the crew V on the upper back. One correction before upload: the headlamp's housing carried a tiny
+illegible light mark under the lens (about 15 x 5 pixels in the 2048 front view); it was painted out of
+`view_front.png` (the untouched view is kept as `view_front_orig.png`) so nothing that could read as a maker's mark
+went to Tripo. Deviation from the brief, kept: the sling runs from the LEFT shoulder to the right hip (the brief says
+right shoulder to left hip). It is relief on the jacket and the pipe is a separate mesh, so the
+game is unaffected.
+
+| Measure | Result |
+|---|---|
+| Tripo take | first take kept (1 of at most 3): 106,791 triangles (budget 120k), one connected piece, 0 floaters, 0 edges of opposite winding, 4096 maps (Color, ORM, NormalGL), UVs inside 0..1, 32 % of a 512 grid's cells hit |
+| Clean-up | turned 90 degrees (arm span 0.52 m on Y against 0.20 on X) and 180 (facing +Y), as the others; no decimation |
+| Size | cap top set to 1.815 m in the fitted pose (mannequin 1.805 x 1.006); 1.818 m over the floor in the reference pose (the headlamp sits on the cap's front); 0.98 in the game; 1.10 m across the A-pose hands, 0.47 m deep. Beside SK_Goon_Hoodie in clay: the same height and stance, a little bulkier in the jacket's shoulders (`vulture_roof_rigger_wire.jpg`) |
+| Fit to the skeleton | arms 19.6 / 19.8 degrees below the mannequin's A-pose, lengths x 1.05 (the long sleeves and gloves run past the mannequin's wrists; the others were x 0.97 to 0.99); legs 1.9 / 2.6 degrees, x 1.00; weights from the mannequin surface median 3.0 cm away (99th percentile 12 cm) |
+| Weights by segment | torso 23,885 vertices, arms 5,346 / 4,966, legs 9,935 / 9,244; 1 right-arm vertex not connected to the hand moved to the torso; 3,149 cross-segment weights removed before smoothing, 5,385 after, 0 after the 4-influence limit; 0 unweighted |
+| Skeleton | 89 joints; round trip against SKM_Manny_Simple exact (`rule.export_checks` True); re-import 106,791 of 106,791 triangles; **0 validation errors** |
+| Pose check | 99 poses, **99 pass** the capsule test; no vertex outside its capsules at all (the worst is 0.4 cm inside; the limit is 6 cm outside) |
+| Edge stretch (edges over 2 x their rest length, share of about 160,200; 99.9th percentile; the worst frame of each clip) | jog 1.1 %, x 4.9; aim 1.1 %, x 4.6; reloads 1.2 %, x 5.4; melee 2.0 %, x 7.2; death fall 2.7 %, x 7.2; kneel 0.8 %, x 6.8; crouch 1.0 %, x 6.0; overhead swing 0.9 %, x 6.0 |
+| Against the Goons (same measure) | SK_Goon_Hoodie jog 1.05 %, x 9.6, aim 1.3 %, x 8.6, death 2.4 %, x 11.9; SK_Goon_Puffer jog 1.9 %, x 6.2, death 3.2 %, x 11.1. The worst stretch is below both Goons in every compared pose; the share of stretched edges is the Hoodie's in the jog, below it in the aim and between the two Goons in the death fall. About canal_shell's figures (jog 1.1 %, death 2.8 %) |
+| Reference pose against the generated surface (`build.bind.rest_stretch`) | 99.9th percentile x 6.7, worst edge x 29, 424 edges over 2 x, 262 over 4 x: the under-arm fins of section 7 in about the same amount (the arms are held 19.7 degrees higher by the mannequin's A-pose) |
+| Texture set | 4096, albedo mean linear 0.035 / 0.033 / 0.037 (a dark figure, under the 0.08 rule), roughness mean 0.77 after the remap, metallic 0 (no texel over 0.5), occlusion mean 0.998 (empty, as on the others) |
+
+![hero](../../../art/previews/characters/maps/vulture_roof_rigger_hero.jpg)
+
+`vulture_roof_rigger_hero.jpg`: front and back three-quarter, studio and street night. The worn navy duck jacket
+with the brown corduroy collar, brass-tone zip and snaps, the oxblood hoodie drawcords, black knee pads on the
+charcoal work trousers, the sling and buckle, the crew V high on the back; at night a dark figure whose knee pads,
+cap and headlamp give it a workwear silhouette unlike the Canal crew's rainwear.
+
+![detail](../../../art/previews/characters/maps/vulture_roof_rigger_detail.jpg)
+
+`vulture_roof_rigger_detail.jpg`: head at 1 m (knit watch cap, the headlamp on its strap, safety glasses, the fleece
+gaiter, the hood and drawcords, the corduroy collar, pocket flaps with snaps, the sling buckle) and the legs at 1.3 m
+(cargo pockets, the double knees under hard knee pads, laced leather boots).
+
+![poses](../../../art/previews/characters/maps/vulture_roof_rigger_poses.jpg)
+
+`vulture_roof_rigger_poses.jpg`: jog, aim, crouch and the forward death fall on the bound mesh; no tearing at
+shoulders, elbows, hips or knees, and the knee pads stay on the knees. (The held crouch bends the legs without moving
+the root, so the feet leave the ground in the picture, as for the others; the game's crouch clips move the root.)
+
+![wire](../../../art/previews/characters/maps/vulture_roof_rigger_wire.jpg)
+
+`vulture_roof_rigger_wire.jpg`: clay beside SK_Goon_Hoodie, and the wireframe at 1.2 m (Tripo's even
+triangulation, no edge loops; the headlamp, drawcords, pocket flaps and sling are relief on the one surface).
+
+**Known weaknesses (for the art review)**
+
+- **More face than the Goons.** Clear safety glasses over bare eyes, as the brief asks: between the cap and the
+  gaiter the eyes, brows and the bridge of the nose show. An invented man's face, mostly covered, so the rules hold;
+  at 1 m it shows more skin than the Goons' r3 masks. The glasses are painted relief on the face, not a separate
+  clear lens.
+- **The headlamp lens is a light grey patch in the base colour**, not emissive: at night it catches the street light
+  as a small bright dot on the forehead (the hero's night half). Right for a lamp that is off; if it reads as lit in
+  the Midtown readability frame, darken that patch in `T_VultureRoofRigger_BC`.
+- **The duck canvas reads a little like worn leather at 1 m** (soft sheen on the sleeves and shoulders), the shared
+  roughness remap again (section 7, the jeans); and a faint teal tint at the edge of the left chest pocket from the
+  generated colour. Neither shows at play distance.
+- The sling runs from the left shoulder to the right hip, mirrored from the brief (above); cosmetic only.
+- As the others: one fused surface (jacket, hoodie, sling, gaiter, trousers, knee pads), rigid one-piece gloves (no
+  finger curl round the SMG's grip), the under-arm fins in the reference pose, no edge loops, LODs or corrective
+  shapes, occlusion map empty, not imported in Unreal yet (the enemy lane's check: scale 0.98, materials, the SMG on
+  `hand_r`, a readability frame on the Midtown roofs).
+
+**Verdict.** Usable as Level 3 rank and file at 3 to 40 m: a realistic, invented roof worker in believable winter
+New York workwear, the Goons' height, on the same skeleton and clips, all 99 poses inside the capsules with no vertex
+outside them, less worst stretch than both Goons, and the cleanest mesh of the four built so far (0 validation errors,
+0 opposite-winding edges). It reads apart from the Canal crew (navy canvas, knee pads, headlamp against black and olive
+rainwear). Below the hand-built Goons at 1 m (fused layers, rigid gloves, the eye band).
+
+**Credits (this character):** 18 (one Tripo take, `tripo_h3_1_multiview_to_3d`, detailed, 110k); the sheet's 3.25
+is in section 5. No GPU box was rented or used.
