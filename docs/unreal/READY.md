@@ -6,7 +6,8 @@ One section per lane of the readiness pass. Every finding names the evidence it 
 > also do the v6 shortlist of docs/unreal/POLISH.md (the cheap and safe polish items marked v6: the damage wedge timer, blast kills
 > without hit marker or kill tick, the invisible NEXT label, slider steps and repeat, HUD scale K = H/1080, plates and font for the
 > in-run warnings, prompt and location card), each built, in the suite and seen in a picture. Owner decisions in POLISH.md are not
-> to be made by the fixer.
+> to be made by the fixer; the three the owner made on 2026-11-26 ~22:45 (2x scope name, 90 degree default field of view,
+> STRETCH semi-automatic: DECISIONS.md) go into v6.
 
 ## Go / no-go for E3DS (verifier lane, 2026-11-26, 01:00 to 01:30 UTC)
 

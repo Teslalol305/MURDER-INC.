@@ -48,6 +48,8 @@ BUDGET = {
     "SM_Prop_CT_EBike": 6000, "SM_Prop_CT_": 6000, "SM_Facade_CT_Far_": 12000, "SM_Struct_CT_MarketHall": 40000, "SM_Struct_CT_ColdRoom": 6000,
     "SM_Struct_CT_RoofBulkhead": 4000, "SM_Struct_CT_YardStair": 12000, "SM_Struct_CT_SidewalkShed": 10000,
     "SM_Struct_CT_BakeryKitchen": 12000, "SM_Struct_CT_Arcade": 8000, "SM_Struct_CT_BanquetFacade": 40000,
+    "SM_Prop_CT_Hydrant": 6000, "SM_Furn_PalletStack_A_LOD1": 3500, "SM_Prop_TrashCan_Metal_LOD1": 2000,
+    "SM_Furn_": 4000, "SM_Prop_": 4000,
     "SM_Facade_CT_Alcove_": 9000, "SM_Facade_CT_Ground": 4000, "SM_Facade_CT_": 6000,
 }
 
@@ -75,6 +77,7 @@ def build(ctx):
     struct.build_structs(ctx, M)
     from assets import _chinatown_lod as lod
     lod.build_far_proxies(ctx)
+    lod.build_prop_lods(ctx)
     tris = {n: geo.stats(o)["triangles"] for n, o in ctx.K.items()}
     ctx.log("%d assets, %d triangles in all, largest %s (%d)" % (len(tris), sum(tris.values()), max(tris, key=tris.get), max(tris.values())))
     return [a["ob"] for a in ctx.assets.values()]

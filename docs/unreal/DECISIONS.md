@@ -625,3 +625,14 @@ The code's salt and CRC are in the public page script and in the game, so a vali
 Hold bests are accepted as sent. Accepted: progress is a single-player convenience and nothing is monetised (progression.md 4.3). Rule: no
 leaderboard, prize or ranking may read the Hold bests, the album bit or the code from this path; a keyed signature would need a server and is out
 of scope. The page script merges, never overwrites, stored progress; the game takes the page's message only from the controlling viewer.
+
+## 2026-11-26 ~22:45 UTC: the owner's polish decisions (POLISH.md owner list)
+
+1. **The "4x scope" is renamed "2x scope"** (it magnifies about 1.8x over the irons): its zoom stays as it is; every string, the
+   Workbench text, the part name the player reads and the docs say 2x. The part id in data may stay if renaming it would touch saves.
+2. **Default field of view 90 degrees** (was 106 horizontal at 16:9, 112 sprinting, which keeps its relative widening), with the
+   Settings slider kept so players can widen it.
+3. **The STRETCH is semi-automatic** (one shot per trigger pull), matching its marksman role and description. This is a deliberate
+   gameplay change by the owner for a gun that is not in the web game: tests that read the STRETCH's fire mode are updated to the new
+   value (that is not weakening a test); golden replays of the Block's original guns must stay byte for byte.
+These go into v6 with the fixer's POLISH.md shortlist.

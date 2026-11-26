@@ -450,12 +450,13 @@ PROPS = {
     "milk_crates": ([("SM_Furn_MilkCrate", 0.33, 0.33)], {"crates": True}),
     "sign_pole": ([("SM_Furn_SignPost", 0.08, 0.08)], {"overhead": True}),
     "muni_meter": ([("SM_Furn_ParkingMeter", 0.19, 0.16)], {}),
+    "hydrant": ([("SM_Prop_CT_Hydrant", 0.316, 0.428)], {}),
+    "fire_hydrant": ([("SM_Prop_CT_Hydrant", 0.316, 0.428)], {}),
 }
 # no mesh yet, or the only mesh is far from the collider's size, or too heavy without a LOD (listed in the report)
 UNMAPPED_WHY = {
     "trash_bags": "the Block's bag piles are 1.28 x 0.97 m against 0.6 x 0.8 colliders: a smaller pile is needed",
-    "hydrant": "SM_Prop_Hydrant is 46k triangles: needs its LOD before it is placed 4 times in a worst view",
-    "fire_hydrant": "as hydrant", "planter": "SM_Street_Planter is 42k triangles: needs a LOD",
+    "planter": "SM_Street_Planter is 42k triangles and 1.2 m against 0.8 x 0.6 and 1.0 colliders: a light, smaller planter is needed",
     "food_cart": "SM_Street_FoodCart is 2.4 x 1.3 m against 1.4 x 0.9: the dumpling cart is not built",
     "hotpot_cart": "not built", "fruit_stand": "SM_Prop_CT_FruitStand is 2.4 x 1.2 m against a 0.8 x 1.0 collider",
     "barricade": "SM_Furn_Barricade is 2.4 m against a 1.2 m collider",
