@@ -708,3 +708,34 @@ The offline frames have no animation layer: no idle breathing, sway, fire layer 
 not the clip; the reach bound of 12.3 does not use them. Fitted parts (foregrips, optics) were not drawn. Renders are Cycles on
 the CPU at 640 x 360, a grey sky and a sun (the finish test under a street HDRI), not the engine's lighting: they show where
 things are, not how the engine shades them.
+
+## 13. The fixes, proved offline (2026-11-26, this container; the box not used)
+
+Every change below was chosen and checked in the offline reconstruction of 12 (`tools/box/fp/offline`: `tune.py` chose the numbers, `fp_offline.py` rendered them, `fixsheets.py` made the sheets; `run-all.sh` step 5 reruns it). Before = the data of 12 (commit f861e43); after = this tree. Nothing under `src/` and no C++ in `Source/` changed.
+
+**13.1 What changed (data and import scripts only).**
+
+| Fault | Cause (12) | Fix |
+|---|---|---|
+| (2) firing-hand V, and the open hand in the rifles' reloads | the right shoulder lands 35 cm behind the eye, the 55 cm arm cannot reach the grip | `presentation.json`: `shoulders` [12, 12, -36] on chopper_ik, stretch_ik, rattler_ik (SHORTY [2, 2, -20]) so both arms reach in every state with no upper arm in the picture; `grips.json`: the firing hand's solve regenerated on the same views (`style base`, thumb rise 70 deg, `index_in` 0.6: the index along the trigger side, the thumb wrapped round the grip) |
+| (1) magazine hidden in reloads | the open firing hand and a pose that left the magazine behind the grip | the same shoulders; support hand solved from the magazine's far side (`reload_grips.py` solve, palm under and behind the magazine, fingers on its front); `poses.reload` of CHOPPER, STRETCH, RATTLER retuned |
+| (1) SHORTY reload shows nothing | its `poses.reload` was 7 cm right and 7 cm low, the magazine behind the grip | new `poses.reload` [0.115, 0.037, -0.3, 0.12, 0.42, -1.15]: the bullpup rolled about 66 degrees, magazine well toward the eye |
+| (4) SHORTY aimed box | `relief` 0.22 puts the eye behind the butt | `guns.json` `relief` 0.12 |
+| (3) STRETCH / SHORTY black mirror | textures not built or resident when the frame is taken | `mi_fp_import.finish_textures` after the arms' and every gun set's import and before each material; `pie.sh` waits before `HighResShot` (commit 7a79b51). Not provable offline; confirm on the box. |
+
+**13.2 Numbers (firing-hand gap to its place on the grip, cm; share of the magazine in sight from the eye).**
+
+| State | CHOPPER | STRETCH | RATTLER | SHORTY | NINE |
+|---|---|---|---|---|---|
+| hip | 10.3 / 40 % -> 0.0 / 94 % | 14.2 / 34 % -> 0.0 / 62 % | 16.7 / 34 % -> 0.0 / 49 % | 2.8 -> 0.0 | 0 / unchanged |
+| aimed | 0 -> 0 | 0 -> 0 | 4.4 -> 0.0 | 7.8 -> 0.0 | 0 -> 0 |
+| reload 0.5 s | 8.3 / 11 % -> 0.0 / 80 % | 8.9 / 7 % -> 0.0 / 34 % | 10.9 / 21 % -> 0.0 / 71 % | none in sight -> 54 % | 26 % -> 44 % |
+| reload 1.1 s | 8.3 / 12 % -> 0.0 / 80 % | 8.9 / 1 % -> 0.0 / 22 % | 10.9 / 2 % -> 0.0 / 44 % | none in sight -> 52 % | 0 % -> 84 % |
+
+**13.3 Pictures** (`docs/unreal/shots/`, each under 300 KB): `hands-offline-fix-{chopper,stretch,rattler,shorty,nine}.jpg` (per state: before and after from the eye, before and after from the right, after from above left) and `hands-offline-fix-grip.jpg` (the firing hand from the gun's left, before and after, hip and reload 0.5 s, every gun). In them: on all three rifles the fingers close round the pistol grip with the index forward on the trigger side and the thumb over, where before the thumb and index stood apart in a V; the open hand in front of the magazine in the reloads is gone; the SHORTY reload now shows both hands and its magazine; the SHORTY aimed picture no longer shows the butt's rear face.
+
+**13.4 Still open.**
+- Rig patch (C++, not applied, not compiled): `docs/unreal/patches/hands-offline/` (README inside). It anchors the firing shoulder and guards the reach so a different pack idle cannot bring the V back, and logs the firing hand. The data above reaches without it.
+- STRETCH reload: the support hand still covers much of the magazine (34 % in sight at 0.5 s, 22 % at 1.1 s); acceptable, not yet like the CHOPPER. A solve from the magazine's far face is the next step.
+- SHORTY aimed: with the eye over the receiver the carry handle's housing fills the lower half of the picture (see the shorty sheet): the sight picture needs the aperture and front sight raised 4 to 5 cm (art), not data.
+- Limits as in 12.7: no clip layer, Cycles not the engine's shading; none of this has been seen in an engine frame. Acceptance on the box: build, `MurderInc.FirstPerson.ReloadHold` and the suite, then `guns-shots.sh RELOADS="0.5 1.1" HUD=0` and compare with the sheets above.
