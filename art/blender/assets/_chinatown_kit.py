@@ -242,6 +242,7 @@ def crate(b, x0, y0, z0, L, W, H, slot, t=0.008):
 
 
 def fill_fruit(b, rng, x0, y0, z0, L, W, r, slot, layers=1, jit=0.15, seg=5):
+    """slot: one material, or a tuple to choose from per fruit (a crate of one colour reads as a flat slab)."""
     n = 0
     for k in range(layers):
         nx, ny = int(L / (2 * r)), int(W / (2 * r))
@@ -255,7 +256,8 @@ def fill_fruit(b, rng, x0, y0, z0, L, W, r, slot, layers=1, jit=0.15, seg=5):
                      z0 + rr + k * r * 1.55)
                 if c[0] + rr > x0 + L + 0.01 or c[1] + rr > y0 + W + 0.01:
                     continue
-                ball(b, rr, c, slot, seg=seg, rings=4, squash=(1.0, 1.0, rng.uniform(0.88, 0.98)))
+                sl = slot if isinstance(slot, str) else slot[int(rng.integers(0, len(slot)))]
+                ball(b, rr, c, sl, seg=seg, rings=4, squash=(1.0, 1.0, rng.uniform(0.88, 0.98)))
                 n += 1
     return n
 
@@ -362,9 +364,11 @@ def m_produce(ctx, M, kind):
                 bx(plat, (xx + 0.02, yy + 0.02, z0 + 0.012), (xx + 0.60, yy + 0.46, z0 + 0.10), "leaf", pin=False)
                 greens(plat, rng, xx + 0.02, yy + 0.02, z0 + 0.10, 0.58, 0.44, n=8)
             else:
-                fr = {"Citrus": ("orange", "yellow")[(i + j) % 2], "Greens": "apple", "Mixed": ("orange", "apple", "yellow", "orange")[i + 2 * j]}[kind]
-                bx(plat, (xx + 0.02, yy + 0.02, z0 + 0.012), (xx + 0.60, yy + 0.46, z0 + 0.09), fr, pin=False)
-                fill_fruit(plat, rng, xx + 0.02, yy + 0.02, z0 + 0.09, 0.58, 0.44, 0.045 if fr != "yellow" else 0.042, fr, layers=1, seg=5)
+                fr = {"Citrus": ("orange", "orange", "yellow"), "Greens": ("apple",), "Mixed": ("orange", "apple", "yellow", "orange")[i + 2 * j]}[kind]
+                fr = fr if isinstance(fr, tuple) and len(fr) > 1 else (fr if isinstance(fr, str) else fr[0])
+                # the false bottom is a dark liner (crate paper), never the fruit colour: one flat orange layer read as a slab
+                bx(plat, (xx + 0.02, yy + 0.02, z0 + 0.012), (xx + 0.60, yy + 0.46, z0 + 0.09), "black", pin=False)
+                fill_fruit(plat, rng, xx + 0.02, yy + 0.02, z0 + 0.09, 0.58, 0.44, 0.045 if fr != "yellow" else 0.042, fr, layers=1, seg=6)
     bx(b, (-L / 2, -W / 2 - 0.02, 0.06), (L / 2, -W / 2 + 0.02, 0.50), "timber", pin=False)
     fc.sub(b, plat, 0.0, (0, 0, 0))
     return done(ctx, b, "SM_Prop_CT_Produce_" + kind, M, expect_size=(L, None, None), cover_height=0.7,

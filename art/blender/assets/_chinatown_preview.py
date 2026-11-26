@@ -85,8 +85,8 @@ def night_on(M):
 
 def ground(col, x0, x1, y0, y1, kerb_y=None, side=+1):
     """Wet asphalt with a sidewalk strip: flat stand-ins."""
-    asph = mat.flat("Prev_WetAsphalt", (0.035, 0.034, 0.033), 0.12)
-    walk = mat.flat("Prev_DampConcrete", (0.11, 0.105, 0.10), 0.32)
+    from assets import _chinatown_street_look as look
+    asph, walk = look.asphalt(), look.sidewalk()
     a = geo.box((x1 - x0, y1 - y0, 0.02), bevel=0.0, name="PrevRoad")
     geo.transform(a, loc=((x0 + x1) / 2, (y0 + y1) / 2, -0.02))
     a.data.materials.append(asph)
@@ -129,8 +129,9 @@ def level_ground(col):
     """The level's walking surfaces as flat rectangles (level_chinatown.json `ground.surfaces`): asphalt at 0, the rest at the
     kerb height 0.15 (a stand-in: the real street is the Block's street kit with wetness)."""
     from assets import _chinatown_level as lv
-    asph = mat.flat("Prev_WetAsphalt", (0.035, 0.034, 0.033), 0.12)
-    walk = mat.flat("Prev_DampConcrete", (0.11, 0.105, 0.10), 0.32)
+    from assets import _chinatown_street_look as look
+    LM = look.materials()
+    asph, walk = LM["asphalt"], LM["walk"]
     base = geo.box((100.0, 80.0, 0.02), bevel=0.0, name="PrevBase")
     geo.transform(base, loc=(0.0, 0.0, -0.03))
     base.data.materials.append(asph)
@@ -142,6 +143,7 @@ def level_ground(col):
         geo.transform(o, loc=((w["minX"] + w["maxX"]) / 2, -(w["minZ"] + w["maxZ"]) / 2, h / 2 - (0.02 if h < 0.1 else 0.0)))
         o.data.materials.append(asph if sf["surface"] == "asphalt" else walk)
         scene.link(o, col)
+    look.build(col, LM)                                    # paint, gutters, patches, manholes, drains (review: the roadway was a mirror)
 
 
 def canal_north(ctx, a, view=None):

@@ -142,7 +142,7 @@ def materials(ctx, M):
     for k in ("brickRed", "brickBuff", "brickBrown", "brickPainted", "brickCommon"):
         Ms[k] = Mb[k]
     Ms["white"] = Mb["white"]
-    Ms["brickBlock"] = S(ctx, "TS_Block_ScanPainted", alpha="splash", dirt_color=soot, macro=0.14,
+    Ms["brickBlock"] = S(ctx, "TS_Block_ScanPainted", alpha="splash", dirt_color=soot, macro=0.22, normal_strength=0.5,
                          note="the market hall's painted block (a former garage)")
     Ms["corr"] = S(ctx, "TS_Corrugated_ScanWeathered", alpha="splash", dirt_color=soot,
                    note="the market's corrugated Canal fascia, the shut storeroom gate, the sheeting under the yard stair")

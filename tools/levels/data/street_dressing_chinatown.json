@@ -1,0 +1,535 @@
+{
+ "about": "Canal Street street dressing (assets/_chinatown_street_look.py): road paint, gutters, patches, manholes, drain inlets in the level's web coordinates (x, z). Paint, gutters and patches are decals on the asphalt; manholes and drains are cast-iron pieces 5 to 15 mm proud. Look-dev picture shows each; in Unreal a decal actor per row. Nothing the game loads reads this file.",
+ "paint": {
+  "yellow_rgb": [
+   0.62,
+   0.46,
+   0.06
+  ],
+  "white_rgb": [
+   0.62,
+   0.62,
+   0.58
+  ],
+  "wear": "noise mask, 35 percent lost"
+ },
+ "count": 43,
+ "items": [
+  {
+   "kind": "paint_yellow",
+   "web": {
+    "x": -20.2,
+    "z": -24.325
+   },
+   "size_m": [
+    47.6,
+    0.1
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_yellow",
+   "web": {
+    "x": -20.2,
+    "z": -24.475
+   },
+   "size_m": [
+    47.6,
+    0.1
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_yellow",
+   "web": {
+    "x": 31.2,
+    "z": -24.325
+   },
+   "size_m": [
+    25.6,
+    0.1
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_yellow",
+   "web": {
+    "x": 31.2,
+    "z": -24.475
+   },
+   "size_m": [
+    25.6,
+    0.1
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 6.4,
+    "z": -19.9
+   },
+   "size_m": [
+    2.6,
+    0.45
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 6.4,
+    "z": -20.8
+   },
+   "size_m": [
+    2.6,
+    0.45
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 6.4,
+    "z": -21.7
+   },
+   "size_m": [
+    2.6,
+    0.45
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 6.4,
+    "z": -22.6
+   },
+   "size_m": [
+    2.6,
+    0.45
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 6.4,
+    "z": -23.5
+   },
+   "size_m": [
+    2.6,
+    0.45
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 6.4,
+    "z": -24.4
+   },
+   "size_m": [
+    2.6,
+    0.45
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 6.4,
+    "z": -25.3
+   },
+   "size_m": [
+    2.6,
+    0.45
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 6.4,
+    "z": -26.2
+   },
+   "size_m": [
+    2.6,
+    0.45
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 6.4,
+    "z": -27.1
+   },
+   "size_m": [
+    2.6,
+    0.45
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 6.4,
+    "z": -28.0
+   },
+   "size_m": [
+    2.6,
+    0.45
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 6.4,
+    "z": -28.9
+   },
+   "size_m": [
+    2.6,
+    0.45
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 3.9,
+    "z": -21.9
+   },
+   "size_m": [
+    0.35,
+    5.2
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 8.9,
+    "z": -26.9
+   },
+   "size_m": [
+    0.35,
+    5.2
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 10.3,
+    "z": -16.6
+   },
+   "size_m": [
+    0.45,
+    2.6
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 11.2,
+    "z": -16.6
+   },
+   "size_m": [
+    0.45,
+    2.6
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 12.1,
+    "z": -16.6
+   },
+   "size_m": [
+    0.45,
+    2.6
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 13.0,
+    "z": -16.6
+   },
+   "size_m": [
+    0.45,
+    2.6
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 13.9,
+    "z": -16.6
+   },
+   "size_m": [
+    0.45,
+    2.6
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 14.8,
+    "z": -16.6
+   },
+   "size_m": [
+    0.45,
+    2.6
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 15.7,
+    "z": -16.6
+   },
+   "size_m": [
+    0.45,
+    2.6
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "paint_white",
+   "web": {
+    "x": 11.5,
+    "z": -18.1
+   },
+   "size_m": [
+    3.0,
+    0.35
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "gutter",
+   "web": {
+    "x": 0.0,
+    "z": -19.18
+   },
+   "size_m": [
+    88.0,
+    0.36
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "gutter",
+   "web": {
+    "x": 0.0,
+    "z": -29.62
+   },
+   "size_m": [
+    88.0,
+    0.36
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "patch_trench",
+   "web": {
+    "x": -12.0,
+    "z": -24.4
+   },
+   "size_m": [
+    0.9,
+    10.8
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "patch",
+   "web": {
+    "x": -27.0,
+    "z": -21.6
+   },
+   "size_m": [
+    3.4,
+    1.3
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "patch",
+   "web": {
+    "x": 21.0,
+    "z": -27.0
+   },
+   "size_m": [
+    1.2,
+    2.2
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "patch",
+   "web": {
+    "x": 33.0,
+    "z": -22.2
+   },
+   "size_m": [
+    0.8,
+    0.7
+   ],
+   "rot_z_deg": 12.0
+  },
+  {
+   "kind": "manhole",
+   "web": {
+    "x": -22.0,
+    "z": -22.6
+   },
+   "size_m": [
+    0.9,
+    0.9
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "manhole",
+   "web": {
+    "x": -3.0,
+    "z": -26.7
+   },
+   "size_m": [
+    0.9,
+    0.9
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "manhole",
+   "web": {
+    "x": 28.0,
+    "z": -22.9
+   },
+   "size_m": [
+    0.9,
+    0.9
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "manhole",
+   "web": {
+    "x": 12.8,
+    "z": -6.0
+   },
+   "size_m": [
+    0.9,
+    0.9
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "manhole",
+   "web": {
+    "x": 14.2,
+    "z": 14.0
+   },
+   "size_m": [
+    0.9,
+    0.9
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "drain",
+   "web": {
+    "x": -30.0,
+    "z": -19.35
+   },
+   "size_m": [
+    1.2,
+    0.5
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "drain",
+   "web": {
+    "x": -8.0,
+    "z": -19.35
+   },
+   "size_m": [
+    1.2,
+    0.5
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "drain",
+   "web": {
+    "x": 1.5,
+    "z": -19.35
+   },
+   "size_m": [
+    1.2,
+    0.5
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "drain",
+   "web": {
+    "x": -26.0,
+    "z": -29.45
+   },
+   "size_m": [
+    1.2,
+    0.5
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "drain",
+   "web": {
+    "x": 6.0,
+    "z": -29.45
+   },
+   "size_m": [
+    1.2,
+    0.5
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "drain",
+   "web": {
+    "x": 30.0,
+    "z": -29.45
+   },
+   "size_m": [
+    1.2,
+    0.5
+   ],
+   "rot_z_deg": 0.0
+  },
+  {
+   "kind": "seam",
+   "web": {
+    "x": -15.0,
+    "z": -31.6
+   },
+   "size_m": [
+    0.04,
+    4.2
+   ],
+   "rot_z_deg": 0.0
+  }
+ ]
+}

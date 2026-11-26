@@ -172,64 +172,147 @@ def box(col, name, x0, x1, y0, y1, z0, z1, m):
 
 
 def window_grid(name, base, lit=(1.0, 0.80, 0.55), share=0.35, cool=False):
-    """A stand-in facade with a window grid (1.5 x 3.1 m bays): dark wall, dark glass, about `share` of the windows lit
-    warm (or cool for office towers); object coordinates in metres, so every stand-in keeps the storey height."""
+    """A stand-in facade with a window grid (1.55 x 3.1 m bays), object coordinates in metres so every stand-in keeps the
+    storey height. Round-3 rewrite (review: "flat white window rectangles"): each window now has a frame and a recessed pane, a
+    mullion and a transom, a sill and a storey ledge, and its own lighting: about `share` of them lit, each lit one with its own
+    brightness (a long tail of dim ones), its own colour (tungsten, warm white, fluorescent, TV blue, a little green), a ceiling
+    gradient (brighter at the top of the pane), and blinds (slats), curtains (dark side drapes) or bare glass; unlit panes reflect
+    the sky. The wall has low-frequency tint drift and vertical grime. This is the look the Midtown facade material has to match
+    (docs/unreal/maps/midtown_art.md, "Facade windows")."""
     m = bpy.data.materials.new(name)
     m.use_nodes = True
     nt = m.node_tree
-    p = nt.nodes["Principled BSDF"]
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    p = nt.nodes.new("ShaderNodeBsdfPrincipled")
     tc = nt.nodes.new("ShaderNodeTexCoord")
-    br = nt.nodes.new("ShaderNodeTexBrick")
-    br.offset, br.squash = 0.0, 1.0
-    br.inputs["Scale"].default_value = 1.0
-    br.inputs["Mortar Size"].default_value = 0.35
-    br.inputs["Brick Width"].default_value = 1.55
-    br.inputs["Row Height"].default_value = 3.1
-    br.inputs["Color1"].default_value = (1.0, 1.0, 1.0, 1.0)
-    br.inputs["Color2"].default_value = (0.0, 0.0, 0.0, 1.0)
-    br.inputs["Mortar"].default_value = (0.0, 0.0, 0.0, 1.0)
-    mp = nt.nodes.new("ShaderNodeMapping")
-    nt.links.new(tc.outputs["Object"], mp.inputs["Vector"])
     sep = nt.nodes.new("ShaderNodeSeparateXYZ")
-    comb = nt.nodes.new("ShaderNodeCombineXYZ")
-    nt.links.new(mp.outputs[0], sep.inputs[0])
-    add = nt.nodes.new("ShaderNodeMath")
-    add.operation = "ADD"
-    nt.links.new(sep.outputs["X"], add.inputs[0])
-    nt.links.new(sep.outputs["Y"], add.inputs[1])                    # windows run round the corners
-    nt.links.new(add.outputs[0], comb.inputs["X"])
-    nt.links.new(sep.outputs["Z"], comb.inputs["Y"])
-    nt.links.new(comb.outputs[0], br.inputs["Vector"])
-    win = br.outputs["Fac"]
-    noise = nt.nodes.new("ShaderNodeTexWhiteNoise")
-    nt.links.new(comb.outputs[0], noise.inputs["Vector"])
+    nt.links.new(tc.outputs["Object"], sep.inputs[0])
+
+    def M(op, a_, b_=None, clamp=False):
+        n = nt.nodes.new("ShaderNodeMath")
+        n.operation, n.use_clamp = op, clamp
+        for i, v in enumerate((a_, b_)):
+            if v is None:
+                continue
+            if isinstance(v, (int, float)):
+                n.inputs[i].default_value = v
+            else:
+                nt.links.new(v, n.inputs[i])
+        return n.outputs[0]
+
+    X = M("ADD", sep.outputs["X"], sep.outputs["Y"])                    # windows run round the corners
+    Z = sep.outputs["Z"]
+    u = M("FRACT", M("DIVIDE", X, 1.55))
+    v = M("FRACT", M("DIVIDE", Z, 3.1))
+
+    def band(t, lo, hi):
+        return M("MULTIPLY", M("GREATER_THAN", t, lo), M("LESS_THAN", t, hi))
+
+    win = M("MULTIPLY", band(u, 0.17, 0.83), band(v, 0.14, 0.86))        # the window opening
+    pane = M("MULTIPLY", band(u, 0.23, 0.77), band(v, 0.20, 0.80))       # the glass inside the frame
+    mullion = M("LESS_THAN", M("ABSOLUTE", M("SUBTRACT", u, 0.5)), 0.018)
+    transom = M("LESS_THAN", M("ABSOLUTE", M("SUBTRACT", v, 0.64)), 0.012)
+    glass = M("MULTIPLY", pane, M("SUBTRACT", 1.0, M("MAXIMUM", mullion, transom)))
+    frame = M("SUBTRACT", win, glass, clamp=True)
+    sill = M("MULTIPLY", band(u, 0.13, 0.87), band(v, 0.115, 0.15))
+    ledge = band(v, 0.955, 1.0)                                          # the storey line
+
+    # one random number per window, from the snapped position (several channels by offsetting the vector)
     snap = nt.nodes.new("ShaderNodeVectorMath")
     snap.operation = "SNAP"
     snap.inputs[1].default_value = (1.55, 3.1, 1.0)
+    comb = nt.nodes.new("ShaderNodeCombineXYZ")
+    nt.links.new(X, comb.inputs["X"])
+    nt.links.new(Z, comb.inputs["Y"])
     nt.links.new(comb.outputs[0], snap.inputs[0])
-    nt.links.new(snap.outputs[0], noise.inputs["Vector"])
-    gt = nt.nodes.new("ShaderNodeMath")
-    gt.operation = "LESS_THAN"
-    gt.inputs[1].default_value = share
-    nt.links.new(noise.outputs["Value"], gt.inputs[0])
-    mul = nt.nodes.new("ShaderNodeMath")
-    mul.operation = "MULTIPLY"
-    nt.links.new(gt.outputs[0], mul.inputs[0])
-    nt.links.new(br.outputs["Color"], mul.inputs[1])
-    mix = nt.nodes.new("ShaderNodeMix")
-    mix.data_type = "RGBA"
-    mix.inputs[6].default_value = (*base, 1.0)
-    mix.inputs[7].default_value = (0.012, 0.014, 0.02, 1.0)               # dark glass
-    nt.links.new(br.outputs["Color"], mix.inputs[0])
-    nt.links.new(mix.outputs[2], p.inputs["Base Color"])
-    p.inputs["Roughness"].default_value = 0.6
-    p.inputs["Emission Color"].default_value = (*((0.62, 0.74, 1.0) if cool else lit), 1.0)
-    nt.links.new(mul.outputs[0], p.inputs["Emission Strength"])
-    sc = nt.nodes.new("ShaderNodeMath")
-    sc.operation = "MULTIPLY"
-    sc.inputs[1].default_value = 1.2
-    nt.links.new(mul.outputs[0], sc.inputs[0])
-    nt.links.new(sc.outputs[0], p.inputs["Emission Strength"])
+
+    def rnd(k):
+        a_ = nt.nodes.new("ShaderNodeVectorMath")
+        a_.operation = "ADD"
+        a_.inputs[1].default_value = (17.3 * k, 5.1 * k, 3.7 * k)
+        nt.links.new(snap.outputs[0], a_.inputs[0])
+        n = nt.nodes.new("ShaderNodeTexWhiteNoise")
+        n.noise_dimensions = "3D"
+        nt.links.new(a_.outputs[0], n.inputs["Vector"])
+        return n.outputs["Value"]
+
+    r_on, r_br, r_col, r_cov = rnd(1), rnd(2), rnd(3), rnd(4)
+    on = M("LESS_THAN", r_on, share)
+    bright = M("ADD", 0.12, M("MULTIPLY", M("POWER", r_br, 2.2), 0.95))     # a long tail of dim windows
+    tone = nt.nodes.new("ShaderNodeValToRGB")
+    els = tone.color_ramp.elements
+    while len(els) < 5:
+        els.new(0.5)
+    for e, (pos, c) in zip(els, ((0.0, (1.0, 0.46, 0.16)), (0.32, (1.0, 0.72, 0.42)), (0.58, (1.0, 0.90, 0.78)),
+                                 (0.80, (0.62, 0.80, 1.0)), (1.0, (0.30, 0.45, 1.0)))):
+        e.position, e.color = pos, (*c, 1.0)
+    if cool:                                                                 # office towers: fluorescent whites and blues
+        for e, (pos, c) in zip(els, ((0.0, (0.80, 0.90, 1.0)), (0.30, (0.70, 0.84, 1.0)), (0.6, (0.92, 0.96, 1.0)),
+                                     (0.85, (1.0, 0.86, 0.66)), (1.0, (0.45, 0.62, 1.0)))):
+            e.position, e.color = pos, (*c, 1.0)
+    nt.links.new(r_col, tone.inputs["Fac"])
+    grad = M("ADD", 0.45, M("MULTIPLY", M("SUBTRACT", v, 0.2), 1.1))          # ceiling light: brighter at the top of the pane
+    # coverings: 38 % venetian blinds (slats), 22 % curtains (dark drapes at the sides), the rest bare
+    slats = M("GREATER_THAN", M("FRACT", M("MULTIPLY", Z, 22.0)), 0.42)
+    blind_sel = M("LESS_THAN", r_cov, 0.38)
+    drape_sel = M("MULTIPLY", M("GREATER_THAN", r_cov, 0.38), M("LESS_THAN", r_cov, 0.60))
+    drapes = M("GREATER_THAN", M("ABSOLUTE", M("SUBTRACT", u, 0.5)), 0.17)
+    cover = M("MULTIPLY", M("SUBTRACT", 1.0, M("MULTIPLY", blind_sel, M("SUBTRACT", 1.0, M("ADD", 0.25, M("MULTIPLY", slats, 0.75)))))
+              , M("SUBTRACT", 1.0, M("MULTIPLY", drape_sel, M("MULTIPLY", drapes, 0.8))))
+    k = M("MULTIPLY", M("MULTIPLY", M("MULTIPLY", on, glass), M("MULTIPLY", bright, grad)), cover)
+    nt.links.new(M("MULTIPLY", k, 1.7), p.inputs["Emission Strength"])
+    nt.links.new(tone.outputs["Color"], p.inputs["Emission Color"])
+
+    # wall: tint drift, vertical grime streaks, a lighter stone frame, ledge and sill
+    noise = nt.nodes.new("ShaderNodeTexNoise")
+    noise.inputs["Scale"].default_value = 0.35
+    noise.inputs["Detail"].default_value = 5.0
+    nt.links.new(tc.outputs["Object"], noise.inputs["Vector"])
+    streak = nt.nodes.new("ShaderNodeTexNoise")
+    streak.inputs["Scale"].default_value = 4.0
+    streak.inputs["Detail"].default_value = 2.0
+    sc = nt.nodes.new("ShaderNodeCombineXYZ")
+    nt.links.new(M("MULTIPLY", X, 3.0), sc.inputs["X"])
+    nt.links.new(M("MULTIPLY", Z, 0.12), sc.inputs["Y"])
+    nt.links.new(sc.outputs[0], streak.inputs["Vector"])
+    tint = nt.nodes.new("ShaderNodeMix")
+    tint.data_type = "RGBA"
+    tint.inputs[6].default_value = (*base, 1.0)
+    tint.inputs[7].default_value = (base[0] * 1.9, base[1] * 1.6, base[2] * 1.4, 1.0)
+    nt.links.new(M("MULTIPLY", noise.outputs["Fac"], 1.4), tint.inputs[0])
+    grime = M("MULTIPLY", M("SUBTRACT", streak.outputs["Fac"], 0.35), 0.9, clamp=True)
+    wall = nt.nodes.new("ShaderNodeMix")
+    wall.data_type = "RGBA"
+    nt.links.new(grime, wall.inputs[0])
+    nt.links.new(tint.outputs[2], wall.inputs[6])
+    wall.inputs[7].default_value = (base[0] * 0.35, base[1] * 0.35, base[2] * 0.35, 1.0)
+    stone = nt.nodes.new("ShaderNodeMix")
+    stone.data_type = "RGBA"
+    nt.links.new(M("MAXIMUM", sill, ledge), stone.inputs[0])
+    nt.links.new(wall.outputs[2], stone.inputs[6])
+    stone.inputs[7].default_value = (base[0] * 2.4 + 0.02, base[1] * 2.4 + 0.02, base[2] * 2.4 + 0.02, 1.0)
+    fr = nt.nodes.new("ShaderNodeMix")                                       # the frame: dark painted metal
+    fr.data_type = "RGBA"
+    nt.links.new(M("MAXIMUM", frame, M("MULTIPLY", win, M("MAXIMUM", mullion, transom))), fr.inputs[0])
+    nt.links.new(stone.outputs[2], fr.inputs[6])
+    fr.inputs[7].default_value = (0.012, 0.012, 0.014, 1.0)
+    gl = nt.nodes.new("ShaderNodeMix")                                       # the glass: dark, reflective
+    gl.data_type = "RGBA"
+    nt.links.new(glass, gl.inputs[0])
+    nt.links.new(fr.outputs[2], gl.inputs[6])
+    gl.inputs[7].default_value = (0.008, 0.010, 0.016, 1.0)
+    nt.links.new(gl.outputs[2], p.inputs["Base Color"])
+    rough = M("ADD", M("MULTIPLY", glass, -0.5), 0.78)                       # glass 0.28, wall 0.78
+    nt.links.new(rough, p.inputs["Roughness"])
+    # relief: the pane sits 8 cm behind the frame, the frame 4 cm behind the wall, ledge and sill stand out
+    bump = nt.nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 1.0
+    bump.inputs["Distance"].default_value = 0.10
+    nt.links.new(M("ADD", M("SUBTRACT", 1.0, M("ADD", M("MULTIPLY", win, 0.4), M("MULTIPLY", glass, 0.6))), M("MULTIPLY", M("MAXIMUM", sill, ledge), 0.5)),
+                 bump.inputs["Height"])
+    nt.links.new(bump.outputs["Normal"], p.inputs["Normal"])
+    nt.links.new(p.outputs[0], out.inputs["Surface"])
     return m
 
 
@@ -241,7 +324,7 @@ def night_dome(strength=0.9):
             els = n.color_ramp.elements
             while len(els) > 2:
                 els.remove(els[-1])
-            els[0].position, els[0].color = 0.0, (0.010, 0.008, 0.010, 1.0)
+            els[0].position, els[0].color = 0.0, (0.105, 0.036, 0.078, 1.0)                       # below the horizon: the haze of the glow, no black line
             els[1].position, els[1].color = 1.0, (0.0033, 0.0040, 0.0090, 1.0)     # #0b0d18
             e = els.new(0.02)
             e.color = (0.144, 0.048, 0.102, 1.0)                                      # #6a3e5a
@@ -274,15 +357,15 @@ def reused(name, ctx):
 
 
 def standins(col):
-    wall = window_grid("Prev_Mass", (0.07, 0.055, 0.045), share=0.30)
-    dark = window_grid("Prev_Tower", (0.035, 0.037, 0.045), share=0.45, cool=True)
+    wall = window_grid("Prev_Mass", (0.07, 0.055, 0.045), share=0.24)
+    dark = window_grid("Prev_Tower", (0.035, 0.037, 0.045), share=0.34, cool=True)
     road = mat.flat("Prev_WetAsphalt", (0.03, 0.03, 0.032), 0.15)
     walk = mat.flat("Prev_Pavers", (0.10, 0.10, 0.105), 0.3)
     for k, (x0, x1, z0, z1, h) in {"A": (-50, -30, -38, -12, 21.2), "B": (-50, -30, -12, 8, 17.6), "E": (-50, -30, 8, 22, 14.0),
                                    "C": (-28, -8, -38, -4, 17.6), "D": (-28, -8, -4, 22, 14.0)}.items():
         box(col, "PrevMass" + k, x0 + 0.02, x1 - 0.02, 0.0, h - 0.1, z0 + 0.02, z1 - 0.02, wall)
     box(col, "PrevCourt", -30, -28, 0.0, 10.4, -38, 22, wall)
-    box(col, "PrevRoad", -60, 60, -0.05, 0.0, -60, 50, road)
+    box(col, "PrevRoad", -500, 500, -0.05, 0.0, -500, 500, road)
     box(col, "PrevPlaza", 8, 22, 0.0, 0.15, -38, 22, walk)
     box(col, "PrevWalkW", -8, -4, 0.0, 0.15, -38, 22, walk)
     box(col, "PrevWalkE", 28, 30, 0.0, 0.15, -38, 22, walk)

@@ -25,12 +25,13 @@ from mi import paths  # noqa: E402
 LOD_SWITCH = 30.0          # metres from the camera to a building's nearest point
 PROP_LOD_SWITCH = 12.0     # metres from the camera to a prop's nearest point: a prop past it draws its <name>_LOD1
 # Props that are heavy and placed many times: source mesh -> LOD1 triangle target (about a quarter; the thin-member floor
-# of the lane's check still holds because the collapse keeps the volume, not the hairlines). The LOD1 is a second mesh of
+# of the lane's check still holds because the collapse keeps the volume, not the hairlines; the pallet stack and the dumpster
+# are left out: their boards and sheets collapse to slivers under 34 mm). The LOD1 is a second mesh of
 # the same name + "_LOD1": in Unreal it is the static mesh's LOD1 (same slots), switched at PROP_LOD_SWITCH.
 PROP_LODS = {
-    "SM_Prop_TrashCan_Metal": 1600, "SM_Prop_CT_StallCounter_2m": 1200, "SM_Furn_PalletStack_A": 3000, "SM_Furn_MilkCrate": 450,
+    "SM_Prop_TrashCan_Metal": 1600, "SM_Prop_CT_StallCounter_2m": 1200, "SM_Furn_MilkCrate": 450,
     "SM_Prop_CT_VendorTable": 900, "SM_Prop_CardboardBoxes": 500, "SM_Prop_CT_FishCounter": 1500, "SM_Prop_CT_Produce_Citrus": 1200,
-    "SM_Prop_CT_ClothingRail": 800, "SM_Prop_CT_DryGoods": 900, "SM_Furn_Dumpster": 2000, "SM_Furn_TrafficCone": 400,
+    "SM_Prop_CT_ClothingRail": 800, "SM_Prop_CT_DryGoods": 900, "SM_Furn_TrafficCone": 400,
 }
 # Block meshes too heavy to place at all: a lighter Canal version (decimated from the Block's, same slots, same size and
 # pivot), which also gets a LOD1 below. source -> (name, triangle target)
@@ -318,6 +319,15 @@ def _collapse(ob, target):
         dm.use_collapse_triangulate = True
         bpy.context.view_layer.objects.active = ob
         bpy.ops.object.modifier_apply(modifier=dm.name)
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    loose = [v for v in bm.verts if not v.link_faces]          # the collapse leaves vertices of dropped faces behind
+    if loose:
+        bmesh.ops.delete(bm, geom=loose, context="VERTS")
+    bm.to_mesh(ob.data)
+    bm.free()
+    ob.data.validate()
 
 
 def build_prop_lods(ctx):
