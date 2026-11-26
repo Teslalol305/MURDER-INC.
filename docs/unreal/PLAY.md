@@ -197,6 +197,12 @@ The routes as the guide draws them (test `Routes`, from the step before):
 | Reel 3 → truck | 60.0 m | 52.2 m | Out of the cage gate, across the avenue, into the lot by its entry (x 28.6 to 35), south to the truck's rear doors |
 | The whole story | 187.7 m | | (the maps lane measured 193.7 m with its own A* from the start) |
 
+![The story's routes on the Block's nav grid](shots/play-guide-routes.jpg)
+
+`shots/play-guide-routes.jpg`: the four legs and their chevrons on the nav grid (grey walkable, dark blocked; north up), drawn
+by `tools/box/fp/guide_routes_map.py`, a Python replica of the game's search and chevron laying (its lengths: 37.4, 25.2,
+64.7 and 60.6 m, within 0.6 m of the game's). It is a plan, not a game picture.
+
 ### The end-to-end play
 
 `MurderInc.Guide.EndToEnd` plays the whole story in a world with the block's collision and the real player movement: a
