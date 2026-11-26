@@ -47,8 +47,8 @@ on the east wall over the one front without another sign). Fronts lane D gave no
 counters with tank and scale, vendor tables with goods, garment rails, crates, pallets, cones, drums, boxes, newspaper boxes,
 lamps (arm over the roadway), card tables with stools, benches, hoops, signposts, meters, skylights, condensers. Each tiles
 along its collider's long side; the worst overhang is 1.05 m (a 3 m jersey barrier on a shorter box). Not placed, with
-the reason in `unmappedProps` in the placements file: the vehicles (their lane), hydrants (46k triangles: needs a LOD),
-planters (42k), dumpling and hotpot carts, the bakery, kitchen, dub-room, workshop and banquet interior props (no meshes
+the reason in `unmappedProps` in the placements file: the vehicles (their lane), hydrants (placed since round 2b, see 4a),
+planters (42k and 1.2 m against 0.8 x 0.6 colliders), dumpling and hotpot carts, the bakery, kitchen, dub-room, workshop and banquet interior props (no meshes
 yet), the fruit stand (2.4 m against a 0.8 m collider), small trash bags, standpipes, bike racks, chair stacks, grease bins,
 roof vents and fans, antenna, dig fences, road plates, sandwich boards.
 
@@ -78,20 +78,46 @@ above), atlas, **fit** (0 unexplained), **stretch** (0 scaled), **signs** (32 of
 meshes, none unknown), **views**, block (Block files unchanged); with `--build`: validation (195 assets, 0 failing), budgets,
 thin members (none under 34 mm). `tools/levels/check_level.py --level chinatown`: 0 failures. The level data was not changed.
 
-**The worst view** (the start, looking east, every placed piece in the frustum): 3.09 M triangles at LOD0, **1.18 M with the
-far proxies** past 30 m: under the 1.5 M ceiling, 81k over the 1.1 M aim. The north row's share is 413k (at most 0.55 M).
-The largest part is the props: 14 trash cans (6.4k each, 90k), 4 pallet stacks (13k each), 12 stall counters, 24 milk
-crates. LODs for those four (about 60 percent of the overage) bring the view under the aim.
+**The worst view** (the start, looking east, every placed piece in the frustum): 3.11 M triangles at LOD0, **0.88 M with the
+far proxies** past 30 m and the props' LOD1s past 12 m: under the 1.5 M ceiling and **under the 1.1 M aim** (it was 1.18 M).
+The north row's share is 413k (at most 0.55 M).
+
+## 4a. Review fixes (2026-11-26, round 2b)
+
+- **Prop LODs** (`_chinatown_lod.py` PROP_LODS, built by `build_prop_lods`): `<name>_LOD1` for the trash can, stall counter,
+  milk crate, vendor table, cardboard boxes, fish counter, citrus display, clothing rail, dry goods and traffic cone, each
+  about a quarter of its triangles, switched at 12 m (Unreal: the static mesh's LOD1, same slots). The pallet stack and the
+  dumpster have none: their boards and sheets collapse to slivers under the 34 mm floor. `SM_Prop_CT_Hydrant` is the Block's
+  hydrant collapsed from 46k to 4.5k (same size and pivot, with a 1.1k LOD1) and is now placed on the 4 hydrant colliders.
+  The view counter (`view_triangles`) draws a prop's LOD1 past `PROP_LOD_SWITCH`.
+- **Street surface** (`_chinatown_street_look.py`): the roadway was a mirror. Asphalt and concrete are now procedural surfaces
+  with roughness variation (puddles, polished tyre tracks in the four wheel paths, cracks, grain bump, oil spots; slab
+  joints, damp patches and gum on the concrete), plus the dressing as thin shapes: double yellow centre line, two zebra
+  crossings and stop lines, gutters, a patched utility trench and three asphalt patches, five manholes and six drain
+  inlets, a heaved sidewalk seam. The same 43 rows in web coordinates are in `tools/levels/data/street_dressing_chinatown.json`
+  (paint, gutters and patches are decals, manholes and drains cast-iron pieces: the Unreal side is a decal actor per row;
+  nothing the game loads reads it). The look is in `ct_canal_start`, `ct_canal_east` and `ct_mott`. Not done: traffic. The
+  vehicles are another lane's (sedan, van, taxi, box truck stay in `unmappedProps`), as are tree pits and bollards (no
+  collider names them), steam (an effect) and the hotpot cart.
+- **The orange slab** was the back of the cap pegboard (`SM_Prop_CT_Goods_Caps`, a blank plywood board seen from the street
+  side). It now has a timber frame, a mid rail, braces and two tags on the back. The produce displays had one flat fruit
+  colour on a same-coloured false bottom: the bottom is now a dark crate liner and the fruit mixes two or three colours.
+- **The alley's block wall**: the scale is right (the catalogue sets the painted block at 16 x 8 in units, 406 x 203 mm; real
+  CMU is larger than brick, so it reads big beside the red brick). The moulded look was the scan's heavy relief: the market hall's
+  block now uses half the normal strength and more macro dirt, and the alley floor is the new surface instead of a mirror. Not
+  done: alley wall dressing (downpipes, cables, stains) has no collider or prop name in the level data; it is an art pass.
+- The checks after these changes: `_chinatown_check.py` all pass (207 assets, 0 GLBs missing, views 0.88 M), with `--build` 0
+  failing, budgets met and no thin members; `tools/levels/check_level.py --level chinatown` 0 failures.
 
 ## 5. Pictures
 
 `ct_canal_start`, `ct_canal_east`, `ct_mott`, `ct_square`, `ct_alley`, `ct_yard`: night, wet, from the player's eye, 1280 x 720,
-12 samples. The ground is a flat stand-in made from the level's `ground.surfaces`; props whose meshes belong to the Block's
-families (vehicles, hydrants) are not in the pictures.
+24 samples (round 2b). The ground is made from the level's `ground.surfaces` with the street surface of 4a; vehicles are not in
+the pictures.
 
 ## 6. Open
 
-- LODs for the trash can, pallet stack, stall counter and milk crate (the 1.1 M aim); the hydrant (46k) and planter (42k) LODs.
+- A light planter, the pallet stack's and the dumpster's LODs (they need a different reduction than a collapse).
 - The interior props (bakery, kitchen, dub room, workshop, banquet tables, stage), the carts, the stone lions, the vehicles.
 - The decals (graffiti, the alley stencil) and the near-ground wear on the new faces.
 - The Unreal side: import, the placement actors from `placements_chinatown.json`, the far proxies as LOD1 / HLOD, a look at the

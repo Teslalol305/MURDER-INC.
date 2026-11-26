@@ -205,6 +205,24 @@ south over the planters, kiosks, carts, cafe tables, LED poles and barriers), `m
 door: the desk with the program feed on its monitors, the racks, the slot onto the court), and `mt_roofs` re-rendered with
 the refitted towers and units.
 
+## 8. Review fixes (2026-11-26, round 2b): facade windows and the horizon
+
+The review found the square's buildings read as flat white window rectangles on near-black masses, and a hard black horizon
+under a flat magenta sky. Both are in the look-dev stand-ins (`_midtown_preview.py`), not in a built asset: the Midtown facade
+tables are still unbuilt (section 6), so this is the **specification the facade material must match**.
+
+- **Facade windows** (`window_grid`): a 1.55 x 3.1 m bay with a frame, a recessed pane, a mullion and a transom, a stone sill
+  and a storey ledge (a bump of 8 cm for the pane, 4 cm for the frame, ledge and sill out); each window has its own state
+  from its snapped position: lit or not (24 percent of the masses, 34 percent of the towers), a brightness with a long tail of
+  dim windows (0.12 to 1.0, squared), a colour from tungsten orange through warm white and fluorescent to TV blue (towers lean
+  fluorescent), a ceiling gradient (brighter at the top of the pane), and a covering (38 percent venetian blinds, 22 percent
+  curtains, the rest bare glass). Unlit panes are dark reflective glass (roughness 0.28). The wall drifts in tint and has
+  vertical grime. In Unreal the same is a master material with per-window id from the facade's world position.
+- **The horizon**: the stand-in ground is 1 km wide and the sky below the horizon is the haze colour of the glow instead of
+  near-black, so the edge disappears. The sky itself is still a gradient: a skyline of far towers and a light haze volume are
+  still to do (the far buildings are part of the unbuilt facade tables).
+- Pictures `mt_plaza` and `mt_roofs` re-rendered at 24 samples. `_midtown_check.py` all pass; no asset changed.
+
 ## 6. Hand-off and what is still open
 
 - Hand-off: `art/out/maps-midtown.tar` with its sha256 and file list in `art/out/midtown/ARCHIVE.json` (the GLBs, the five face
