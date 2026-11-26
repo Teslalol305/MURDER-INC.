@@ -27,3 +27,13 @@ done
 # 4. the sheets in the docs
 python3 $O/sheets.py "$OUT" $SHOTS
 python3 $O/figures.py "$OUT" $SHOTS
+# 5. HANDS_R4.md 13, before and after the fix: the data of 12 (commit f861e43, unpacked into OUT-before/data) against
+#    this tree's data; the tuning that chose the fix (tune.py; numbers only, no renders)
+BEFORE=$OUT-before
+mkdir -p "$BEFORE/data"
+for f in presentation.json guns.json grips.json config.json; do git show f861e43:unreal/MurderInc/Content/Data/$f > "$BEFORE/data/$f"; done
+MI_FP_DATA=$PWD/$BEFORE/data $PY $O/fp_offline.py --out "$BEFORE" --threads 4 --cams eye,side,grip 2>&1 | grep FRAME | cut -c1-120
+$PY $O/fp_offline.py --out "$OUT-fix" --threads 4 --cams eye,side,left,grip 2>&1 | grep FRAME | cut -c1-120
+$PY $O/tune.py report chopper,stretch,rattler,shorty,nine 2>&1 | grep REPORT | tee "$OUT-fix/tune-report.txt"
+$PY $O/tune.py robust chopper,stretch,rattler 2>&1 | grep ROBUST | tee "$OUT-fix/tune-robust.txt"
+python3 $O/fixsheets.py "$BEFORE" "$OUT-fix" $SHOTS

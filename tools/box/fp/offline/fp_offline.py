@@ -449,12 +449,16 @@ def main():
                     help="the clip's left shoulder from the midpoint, camera cm at the CHOPPER hip; 'rest' for the rest skeleton")
     ap.add_argument("--shoulders", default=None, help="what-if: the anim set's shoulders (camera cm) for every gun drawn")
     ap.add_argument("--relief", type=float, default=None, help="what-if: the gun's eye relief (m) for every gun drawn")
+    ap.add_argument("--patch-reach", action="store_true", help="what-if: the C++ patch's firing reach guard (docs/unreal/patches/hands-offline)")
+    ap.add_argument("--elbow-out", default=None, help="what-if: supportElbowOut (camera cm) for every gun drawn")
+    ap.add_argument("--elbow-out-aim", default=None, help="what-if: supportElbowOutAim (camera cm) for every gun drawn")
     ap.add_argument("--finish", default="textured", choices=("textured", "zero"),
                     help="what-if: 'zero' samples every gun texture as 0 (base colour black, roughness 0, metallic 0)")
     ap.add_argument("--tex-set", default=None, help="what-if: every gun material samples this texture set (art/out/textures/<set>)")
     ap.add_argument("--hdri", default=None, help="light by an equirectangular HDRI (art/out/hdri/...) instead of the grey sky")
     ap.add_argument("--tag", default="", help="appended to every file name and report key (what-if runs)")
     a = ap.parse_args(argv)
+    fm.FIRING_REACH_GUARD = a.patch_reach
     os.makedirs(a.out, exist_ok=True)
     OUT_TEX = os.path.join(a.out, "tex")
     os.makedirs(OUT_TEX, exist_ok=True)
@@ -471,6 +475,11 @@ def main():
             S.gun.shoulders = np.array([float(x) for x in a.shoulders.split(",")])
         if a.relief is not None:
             S.gun.relief = a.relief
+        if a.elbow_out:
+            S.gun.elbow_out = np.array([float(x) for x in a.elbow_out.split(",")])
+            S.gun.elbow_out_aim = S.gun.elbow_out.copy()
+        if a.elbow_out_aim:
+            S.gun.elbow_out_aim = np.array([float(x) for x in a.elbow_out_aim.split(",")])
         # the NINE plays the template pistol idle, not the pack's rifle idle: the rifle fit does not apply to it, so its
         # shoulders are the rest skeleton's (level, 38 cm apart) turned with the gun
         clip = fm.ClipModel(clip.blade_deg, clip.pole_l, clip.pole_r, 0.0, None) if S.gun.set.get("grip", {}).get("gun") == "nine" else rifle_clip
@@ -549,6 +558,17 @@ def main():
                         # beside the player on the right, level with the hands: the firing hand against the grip
                         S.place_side(look, look + np.array([-5.0, 75.0, 8.0]), 40.0)
                         S.render(S.cam_side, os.path.join(a.out, tag + "-side.jpg"), eye_marker=True)
+                    elif cam == "grip":
+                        # the firing hand on the pistol grip from the gun's left, level with it: thumb, index, closure
+                        pr = fm.xp(G, S.sockets.get("Palm_R", np.zeros(3)))
+                        S.place_side(pr, pr + G[:3, :3] @ np.array([4.0, -38.0, 6.0]), 30.0)
+                        S.render(S.cam_side, os.path.join(a.out, tag + "-grip.jpg"), eye_marker=False)
+                    elif cam in ("gripr", "gripu"):
+                        # the same from the gun's right, or from above and behind (the thumb over the web)
+                        pr = fm.xp(G, S.sockets.get("Palm_R", np.zeros(3)))
+                        off = np.array([4.0, 38.0, 6.0]) if cam == "gripr" else np.array([-22.0, 10.0, 30.0])
+                        S.place_side(pr, pr + G[:3, :3] @ off, 30.0)
+                        S.render(S.cam_side, os.path.join(a.out, tag + "-" + cam + ".jpg"), eye_marker=False)
                     elif cam == "left":
                         # above and left of the hands, over the support arm: the support hand against the magazine
                         S.place_side(look, look + np.array([5.0, -50.0, 55.0]), 40.0)

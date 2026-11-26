@@ -115,12 +115,12 @@ def pose_cost(rig, p, p0, target, verbose=False):
     return cost
 
 
-def tune_pose(gid, shoulders, target):
+def tune_pose(gid, shoulders, target, roll_min=-1.4):
     rig = Rig(gid)
     if shoulders is not None:
         rig.gun.shoulders = np.array(shoulders, float)
     p0 = np.array(rig.gun.poses["reload"], float)
-    lo = np.array([-0.05, -0.25, -0.40, -0.3, -0.4, -1.4])
+    lo = np.array([-0.05, -0.25, -0.40, -0.3, -0.4, roll_min])
     hi = np.array([0.20, 0.05, -0.15, 0.9, 0.9, 0.3])
     best = (pose_cost(rig, p0, p0, target), p0.copy())
     print("START", p0.round(3).tolist(), round(best[0], 3), json.dumps(pose_cost(rig, p0, p0, target, True)[1]))
@@ -183,20 +183,26 @@ def scan_shoulders(gids, around):
     found = []
     for x, y, z in itertools.product(range(-12, 15, 2), range(-16, 13, 2), range(-40, -3, 2)):
         a = np.array([x, y, z], float)
-        worst, bend_r, bend_l, seen = 0.0, 180.0, 180.0, -9.0
+        worst, bend_r, bend_l, seen, slope = 0.0, 180.0, 180.0, -9.0, 0.0
         for rig in rigs:
-            for st, gl, gr, br, bl, _, up in reach_rows(rig, a):
+            for st, gl, gr, br, bl, sl, up in reach_rows(rig, a):
                 worst = max(worst, gl, gr)
                 bend_r = min(bend_r, br)
                 bend_l = min(bend_l, bl)
                 seen = max(seen, up)
-        if worst < 0.05 and bend_r >= MIN_FIRING_BEND and seen <= 0.0:
-            found.append((float(np.linalg.norm(a - base)), a, bend_r, bend_l, seen))
+                if st == "hip":
+                    slope = max(slope, abs(sl - 52.0))
+                elif st == "aim":
+                    slope = max(slope, abs(sl - 60.0) * 0.5)
+        if worst < 0.05 and bend_r >= MIN_FIRING_BEND and seen <= -0.03:
+            found.append((slope, a, bend_r, bend_l, seen))
+    # the support forearm's slope on the screen nearest the 9.3 tuning (hip 52, aimed 60 degrees; aimed counts half: the
+    # aimed support hand is at the edge of the picture)
     found.sort(key=lambda r: r[0])
     print("SHOULDERS for %s: both arms reach in every state, the firing elbow bent %d degrees or more, no upper arm in the "
-          "picture; nearest %s first" % (",".join(gids), MIN_FIRING_BEND, base.tolist()))
-    for d, a, br, bl, up in found[:10]:
-        print("  %s  %.1f cm away  firing bend >= %.0f  support bend >= %.0f  upper arms %.2f frame outside" % (a.tolist(), d, br, bl, -up))
+          "picture (3 %% margin); the support forearm's slope nearest the 9.3 tuning first" % (",".join(gids), MIN_FIRING_BEND))
+    for d, a, br, bl, up in found[:12]:
+        print("  %s  slope off by %.1f deg  firing bend >= %.0f  support bend >= %.0f  upper arms %.2f frame outside" % (a.tolist(), d, br, bl, -up))
     return found[0][1].tolist() if found else None
 
 
@@ -226,19 +232,40 @@ def tune_elbow(gid, shoulders, want=(52.0, 60.0)):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("what", choices=("pose", "shoulders", "elbow", "report"))
+    ap.add_argument("what", choices=("pose", "shoulders", "elbow", "report", "robust"))
     ap.add_argument("guns")
     ap.add_argument("--shoulders", default=None)
     ap.add_argument("--around", default="-10,-14,-7")
     ap.add_argument("--target", default="0.42,0.68")
+    ap.add_argument("--patch-reach", action="store_true", help="the C++ patch's firing reach guard (docs/unreal/patches/hands-offline)")
+    ap.add_argument("--roll-min", type=float, default=-1.4, help="pose: the largest roll to the right (rad, negative)")
+    ap.add_argument("--clip-l", default=None, help="the clip model's left shoulder (camera cm from the midpoint), for a robustness check")
     a = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])
     sh = [float(x) for x in a.shoulders.split(",")] if a.shoulders else None
+    fm.FIRING_REACH_GUARD = a.patch_reach
+    if a.clip_l:
+        fo.CLIP_DEFAULT["shoulder_l"] = tuple(float(x) for x in a.clip_l.split(","))
     if a.what == "pose":
-        tune_pose(a.guns, sh, np.array([float(x) for x in a.target.split(",")]))
+        tune_pose(a.guns, sh, np.array([float(x) for x in a.target.split(",")]), a.roll_min)
     elif a.what == "shoulders":
         scan_shoulders(a.guns.split(","), [float(x) for x in a.around.split(",")])
     elif a.what == "elbow":
         tune_elbow(a.guns, sh)
+    elif a.what == "robust":
+        # the anchor against the clip model's uncertainty: the fitted left shoulder moved 5 cm along each axis
+        base = np.array(fo.CLIP_DEFAULT["shoulder_l"], float)
+        rigs = [Rig(g) for g in a.guns.split(",")]
+        anchors = {id(r): (sh if sh else r.gun.shoulders.tolist()) for r in rigs}   # the data's own anchor when none is given
+        for d in [np.zeros(3)] + [s_ * e for e in np.eye(3) * 5.0 for s_ in (1, -1)]:
+            for rig in rigs:
+                rig.clip.shoulder_l = base + d
+            gl = gr = 0.0
+            br, up = 180.0, -9.0
+            for rig in rigs:
+                for st, l_, r_, b_, _, _, u_ in reach_rows(rig, anchors[id(rig)]):
+                    gl, gr, br, up = max(gl, l_), max(gr, r_), min(br, b_), max(up, u_)
+            print("ROBUST clip left shoulder %s: worst gap support %.1f firing %.1f cm, firing bend >= %.0f, upper arm %.2f into the picture"
+                  % ((base + d).round(1).tolist(), gl, gr, br, up))
     else:
         for gid in a.guns.split(","):
             rig = Rig(gid)

@@ -34,7 +34,8 @@ import os
 import numpy as np
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
-DATA = os.path.join(ROOT, "unreal", "MurderInc", "Content", "Data")
+# MI_FP_DATA: another copy of Content/Data (run-all.sh puts the data of HANDS_R4.md 12 there for the before pictures of 13)
+DATA = os.environ.get("MI_FP_DATA") or os.path.join(ROOT, "unreal", "MurderInc", "Content", "Data")
 GLB = os.path.join(ROOT, "art", "out", "glb")
 
 
@@ -457,6 +458,9 @@ def shape_fingers(pose, side, shape):
 
 
 # ------------------------------------------------------------------------------------------------ one frame
+FIRING_REACH_GUARD = False   # what-if: the C++ patch's reach guard (docs/unreal/patches/hands-offline)
+
+
 def frame(gun, state, sk, sockets, clip, ref_hip_rot=None):
     """Everything the rig does for one frozen frame. sockets: gun mesh-space socket positions (cm). Returns a dict with
     the gun and magazine matrices (camera space), the arms' pose and the reports of both hands."""
@@ -472,11 +476,26 @@ def frame(gun, state, sk, sockets, clip, ref_hip_rot=None):
     Rarms = Rg @ Rref.T @ blade @ q_mat(ARMS_REST)
     mid = (sk.rest_world["upperarm_l"][:3, 3] + sk.rest_world["upperarm_r"][:3, 3]) * 0.5
     t = gun.shoulders - Rarms @ mid
+    half = Rg @ Rref.T @ clip.shoulder_l if clip.shoulder_l is not None else None
+    if FIRING_REACH_GUARD:
+        # docs/unreal/patches/hands-offline (HANDS_R4.md 13): the arms moved toward the pistol grip by what the firing arm
+        # (never stretched, 3 % short of straight) lacks to reach the wrist the solved grip asks for
+        aimk = smooth(gun.ads(state))
+        w = gun.grip_hip["r"]["hand_r"]
+        if "hand_r" in gun.grip_aim.get("r", {}):
+            w = w + (gun.grip_aim["r"]["hand_r"] - w) * aimk
+        W = xp(G, w)
+        R0 = (gun.shoulders - half) if half is not None else (t + Rarms @ sk.rest_world["upperarm_r"][:3, 3])
+        arm = 0.97 * (np.linalg.norm(sk.rest_world["lowerarm_r"][:3, 3] - sk.rest_world["upperarm_r"][:3, 3])
+                      + np.linalg.norm(sk.rest_world["hand_r"][:3, 3] - sk.rest_world["lowerarm_r"][:3, 3]))
+        dist = np.linalg.norm(W - R0)
+        if dist > arm:
+            t = t + (W - R0) / dist * (dist - arm)
     root = _bone_m(Rarms, t)
     pose = Pose(sk, root)
-    if clip.shoulder_l is not None:
-        half = Rg @ Rref.T @ clip.shoulder_l
-        for n, p in (("upperarm_l", gun.shoulders + half), ("upperarm_r", gun.shoulders - half)):
+    if half is not None:
+        moved = t - (gun.shoulders - Rarms @ mid)
+        for n, p in (("upperarm_l", gun.shoulders + half + moved), ("upperarm_r", gun.shoulders - half + moved)):
             Wn = pose.W(n)
             pose.set_world(n, _bone_m(Wn[:3, :3], p))
     reports = {}

@@ -111,6 +111,9 @@ SHOPFRONTS = {
     "Jewelry": (4.0, 1.375, "metal", "a jewellery front: two small display windows with security bars inside, door in the middle"),
     "Grocery": (6.0, None, "tile", "an open front (gate up, no glass): a stepped display shelf across the opening"),
     "Shut": (6.0, None, "metal", "a shuttered front, gate down and padlocked"),
+    # MOON GATE BAKERY's Canal front (W3, x 0.4..7.6): display windows both sides of the 2.0 m doorway at x 2..4 of the level
+    # (lane D's opening), the glazed leaves folded open inside so the Goon door stays clear
+    "Bakery": (7.2, 3.6, "tile", "the bakery's front: display windows either side of a 2.0 m doorway held open"),
 }
 
 
@@ -122,6 +125,25 @@ def m_shopfront(ctx, M, name):
     if name == "Shut":
         gate_down(b, 0.0, c, BAND0)
         coll = "box"
+    elif name == "Bakery":
+        gate_up(b, 0.0, c, BAND0)
+        dw, hd = 2.0, HEAD - 0.32
+        with thick_members():
+            fc.glazing(b, 0.0, d0, hd, bulk)
+            fc.glazing(b, d0 + dw, c, hd, bulk)
+        bx(b, (d0, -0.09, 0.0), (d0 + dw, 0.40, 0.02), "conc", ch=0.004, axis="x")                         # threshold
+        for xa in (d0, d0 + dw - 0.05):                                                                    # jambs and head
+            bx(b, (xa, -0.075, 0.02), (xa + 0.05, 0.40, hd), "trim", axis="z", pin=False)
+        bx(b, (d0, -0.075, hd), (d0 + dw, 0.40, hd + 0.08), "trim", axis="x", pin=False)
+        bx(b, (d0 + 0.05, -0.04, hd + 0.08), (d0 + dw - 0.05, -0.03, BAND0 - 0.30), "glass", axis="x")         # transom
+        bx(b, (0, -0.12, hd), (d0, 0.02, BAND0 - 0.30), "trim", ch=0.004, axis="x", pin=False)
+        bx(b, (d0 + dw, -0.12, hd), (c, 0.02, BAND0 - 0.30), "trim", ch=0.004, axis="x", pin=False)
+        for xa, sgn in ((d0 + 0.05, 1), (d0 + dw - 0.05, -1)):                                            # leaves folded in
+            x0_, x1_ = (xa, xa + 0.05) if sgn > 0 else (xa - 0.05, xa)
+            bx(b, (x0_, 0.40, 0.03), (x1_, 1.40, hd - 0.02), "alu", axis="y", pin=False)
+            bx(b, (x0_ + 0.01 * sgn, 0.46, 0.30), (x1_ + 0.01 * sgn, 1.34, hd - 0.10), "glass", axis="y")
+        bx(b, (0.40, 1.40, 0.0), (c - 0.40, 1.44, hd), "interior", pin=False)                               # the lit shop
+        coll = "complex"
     elif name == "Grocery":
         gate_up(b, 0.0, c, BAND0)
         bx(b, (0.10, -0.06, 0.0), (c - 0.10, 0.02, 0.06), "conc", ch=0.004, axis="x")                       # threshold
@@ -426,39 +448,58 @@ def m_neon(ctx, M, key, N):
     return ob
 
 
+def rooftop_legs():
+    """The rooftop frame's legs as lane D placed them (market.letters.leg colliders): (east end x, [leg centre x], face z)."""
+    from assets import _chinatown_struct as st
+    legs = [st.cbox(i) for i in st.parts("market.letters.leg")]
+    xs = sorted(float((lo[0] + hi[0]) / 2) for lo, hi in legs)
+    x_e = max(float(hi[0]) for lo, hi in legs)
+    yc = float(np.mean([(lo[1] + hi[1]) / 2 for lo, hi in legs]))
+    return x_e, xs, yc
+
+
 def m_rooftop_letters(ctx, M):
-    """GOLDEN TIDE MARKET in open-face pan letters with gold neon inside, on a steel frame on the market's north parapet."""
+    """GOLDEN TIDE MARKET in open-face pan letters with gold neon inside, on a steel frame standing on the four legs lane D
+    placed on the market's north parapet (market.letters.leg colliders): the frame runs the legs' full span, the letters
+    are centred on it, every leg of the art inside its collider, no kicker on the roof (the legs clamp to the parapet)."""
     w, h, Dl, t = 12.0, 1.5, 0.11, 0.004
     z0 = 1.6
-    b = B(395, step=0.6)      # coarse wear grid on the 12 m rails and the letter backs
+    x_e, xs, _yc = rooftop_legs()
+    Lf = x_e - (min(xs) - 0.15)                                  # the frame's length, east end to west end
+    legs = sorted(x_e - x for x in xs)                           # local x of each leg (the frame faces north: local x runs west)
+    x_l = Lf / 2 - w / 2
+    b = B(395, step=0.6)      # coarse wear grid on the long rails and the letter backs
     # outlines resampled every 0.10 m and a 4-sided tube: 12k triangles at most (chinatown.md 13.2, sign carriers 2-12k)
     loops, (FV, FF), ink_left, sc = sg.layout_line("GOLDEN TIDE MARKET", "heavy", 1.0, 0.84, 0.06, w, h, 0.5, w - 0.4, step=0.10)
-    lift = lambda P: P + np.array([0.0, z0])
+    lift = lambda P: P + np.array([x_l, z0])
     for P in loops:
         Ni = sg.ink_normals(P, ink_left)
-        Pin = P + Ni * t
         Nout = np.column_stack([-Ni[:, 0], np.zeros(len(P)), -Ni[:, 1]])
         sg.strip(b, sg.to3(lift(P), 0.0), sg.to3(lift(P), Dl), "trim", Nout)
         # (the return's 4 mm inner wall and lip are never seen from the street: not modelled)
         Q = lift(P + Ni * 0.03)
         sg.tube(b, sg.to3(Q, 0.05), 0.0065, "neonGold", seg=4)
-    FV2 = np.asarray(FV) + np.array([0.0, z0])
+    FV2 = np.asarray(FV) + np.array([x_l, z0])
     sg.fill(b, FV2, FF, Dl - t, "black", front=True)
     sg.fill(b, FV2, FF, Dl, "trim", front=False)
     D = Dl
-    for x in np.arange(0.4, w, 2.0):
-        bar(b, (x, D + 0.10, 0.0), (x, D + 0.10, z0 + h), 0.08, 0.08, "black", ch=0.004)
-        bar(b, (x, D + 0.10, 1.2), (x, D + 1.30, 0.0), 0.06, 0.06, "black", ch=0.004)
-        bx(b, (x - 0.15, D - 0.05, -0.02), (x + 0.15, D + 1.45, 0.0), "black", pin=False)
+    for x in legs:
+        bar(b, (x, D + 0.10, 0.0), (x, D + 0.10, z0 + h), 0.10, 0.10, "black", ch=0.004)
+        bx(b, (x - 0.14, D - 0.04, -0.012), (x + 0.14, D + 0.24, 0.0), "black", pin=False)                  # base plate
+        bx(b, (x - 0.08, D + 0.04, 0.70), (x + 0.08, D + 0.16, 1.10), "black", pin=False)                   # parapet clamp
     for z in (z0 - 0.05, z0 + h * 0.5, z0 + h - 0.05):
-        bar(b, (0.2, D + 0.10, z), (w - 0.2, D + 0.10, z), 0.06, 0.06, "black", ch=0.004)
+        bar(b, (0.05, D + 0.10, z), (Lf - 0.05, D + 0.10, z), 0.06, 0.06, "black", ch=0.004)
+    for x in np.arange(x_l + 1.0, x_l + w, 2.0):                                                            # letter hangers
+        bar(b, (x, D + 0.02, z0 - 0.05), (x, D + 0.02, z0 + h - 0.05), 0.04, 0.04, "black", ch=0.003)
     ob = b.finish("SM_Sign_CT_RooftopFrame", M, ctx.kit)
     fc.weather(ctx, b, ob, "SM_Sign_CT_RooftopFrame", ledges=[], ground=False)
     ctx.asset(ob, collision="none", slots=SLOT_META, cover_height=None,
               notes="The market's rooftop letters GOLDEN TIDE MARKET: open-face pan letters (1.0 m caps, 110 mm returns) with gold "
-                    "neon inside, on a steel frame (posts every 2 m, kickers, three rails) standing on the north parapet, letters from "
-                    "1.6 m to 3.1 m above the roof. The landmark seen from Canal. Pivot at the left end of the frame's front line on "
-                    "the roof (web y 5.7), letters face -Y. One stroke may flicker (chinatown.md 11.3).")
+                    "neon inside, 12 m long, centred on a %.2f m steel frame of three rails on the four 100 mm legs lane D placed "
+                    "(market.letters.leg: local x %s), each with a base plate and a clamp to the parapet, no kicker on the roof; "
+                    "letters from 1.6 to 3.1 m above the roof. The landmark seen from Canal. Pivot at the frame's east end on the "
+                    "letters' face line on the roof (web y 5.7); placed at yaw 180 the letters face north. One stroke may flicker "
+                    "(chinatown.md 11.3)." % (Lf, [round(v, 2) for v in legs]))
     ctx.K["SM_Sign_CT_RooftopFrame"] = ob
     return ob
 
@@ -511,6 +552,140 @@ def m_ct_widths(ctx, M):
     return out
 
 
+# ================================================================================================= round 2: the other buildings
+
+ALCOVE_W, ALCOVE_OPEN, ALCOVE_D, ALCOVE_HEAD = 2.8, 2.4, 1.0, 2.85   # module, opening, depth to the back wall, soffit (web 3.0)
+
+
+def m_alcove(ctx, Mb, k):
+    """A north-row shop alcove as lane D cut it (N*.front gaps 2.4 m, 1.0 m deep, lintel at web y 3.0): a real recess with
+    brick reveals, a concrete soffit at 2.85 m over the sidewalk, the residents' door in the back wall, a bell panel and
+    mailboxes on the reveals, a lamp in the soffit. 2.8 m wide (0.2 m piers each side), pivot at the bottom-left of the outer
+    face on the sidewalk, as the Block's ResEntry it replaces."""
+    b = fc.B(23 + len(k))
+    w, o, d, hd = ALCOVE_W, ALCOVE_OPEN, ALCOVE_D, ALCOVE_HEAD
+    x0, x1 = (w - o) / 2, (w + o) / 2
+    T = fc.T
+    fc.bx(b, (0.0, -fc.PIER_OUT, 0.0), (x0, d + T, fc.GROUND), "brick", axis="z")                       # reveals
+    fc.bx(b, (x1, -fc.PIER_OUT, 0.0), (w, d + T, fc.GROUND), "brick", axis="z")
+    fc.bx(b, (x0, -fc.PIER_OUT, hd), (x1, T, fc.GROUND), "brick", axis="x")                              # head over the recess
+    fc.bx(b, (x0 - 0.10, -fc.PIER_OUT - 0.02, hd), (x1 + 0.10, -fc.PIER_OUT, hd + 0.20), "stone", ch=0.006, axis="x")
+    fc.bx(b, (x0, T, hd), (x1, d, hd + 0.10), "conc", axis="x")                                         # soffit
+    dx0, dx1, dh = w / 2 - 0.50, w / 2 + 0.50, 2.30                                                     # the back wall and door
+    fc.bx(b, (x0, d, 0.0), (dx0, d + T, hd), "brick", axis="z")
+    fc.bx(b, (dx1, d, 0.0), (x1, d + T, hd), "brick", axis="z")
+    fc.bx(b, (dx0, d, dh + 0.06), (dx1, d + T, hd), "brick", axis="x")
+    kw = dict(ch=0.004, pin=False)
+    for xa in (dx0, dx1 - 0.06):
+        fc.bx(b, (xa, d + 0.02, 0.0), (xa + 0.06, d + 0.12, dh + 0.06), "door", axis="z", **kw)
+    fc.bx(b, (dx0 + 0.06, d + 0.02, dh), (dx1 - 0.06, d + 0.12, dh + 0.06), "door", axis="x", **kw)
+    fc.bx(b, (dx0 + 0.065, d + 0.08, 0.01), (dx1 - 0.065, d + 0.12, dh - 0.005), "door", axis="z", **kw)
+    for pz0, pz1 in ((0.30, 1.00), (1.15, 2.15)):
+        fc.bx(b, (dx0 + 0.16, d + 0.066, pz0), (dx1 - 0.16, d + 0.08, pz1), "door", ch=0.008, axis="z", pin=False)
+    fc.rod(b, (dx1 - 0.14, d + 0.08, 1.05), (dx1 - 0.14, d + 0.03, 1.05), 0.022, "chrome", n=10)
+    fc.bx(b, (dx0 + 0.06, d + 0.10, 2.42), (dx1 - 0.06, d + 0.11, hd - 0.05), "glasswin", axis="x")       # transom light
+    fc.bx(b, (x1 - 0.012, 0.42, 1.20), (x1, 0.56, 1.58), "alu", ch=0.002, axis="z", pin=False)          # bell panel
+    fc.bx(b, (x0, 0.30, 1.05), (x0 + 0.025, 0.86, 1.55), "chrome", ch=0.002, axis="y", pin=False)       # mailboxes
+    fc.bx(b, (x0, 0.0, -0.01), (x1, d, 0.0), "tile", axis="x")                                         # a tiled floor
+    fc.bx(b, (w / 2 - 0.12, d / 2 - 0.12, hd - 0.05), (w / 2 + 0.12, d / 2 + 0.12, hd), "alu", ch=0.004, pin=False)
+    fc.belt(b, 0.0, w, 3.51)
+    name = "SM_Facade_CT_Alcove_" + k
+    return fc.done(ctx, b, name, Mb, k, wear=dict(ground=True, ledges=[(0.0, w, 3.51, 0.8), (x0 - 0.1, x1 + 0.1, hd, 0.6)]),
+                   collision="complex", expect_size=(w, None, None),
+                   notes="Canal north-row shop alcove (chinatown.md 4.1; lane D's N*.front gap and lintel): a real 2.4 x 1.0 m "
+                         "recess, brick reveals, soffit at 2.85 m over the sidewalk (web y 3.0), the residents' door 1.0 m in the "
+                         "back wall with a transom, bell panel and mailboxes on the reveals, a soffit lamp, belt course. 2.8 m "
+                         "wide with 0.2 m piers; pivot bottom-left of the outer face on the sidewalk (replaces SM_Facade_ResEntry_Red).")
+
+
+GROUND_KINDS = ("GroundWall", "GroundDoor", "GroundWindow")
+
+
+def m_ground(ctx, Mb, kind, k):
+    """A 3.1 m ground-storey bay for a building's back or side wall (no shop): plain brick on a concrete base course, a
+    steel back door under a hooded lamp, or a small barred window high in the wall. Flush with the upper bays (wall plane
+    at y = 0, 0.30 thick behind)."""
+    b = fc.B(60 + GROUND_KINDS.index(kind) * 7 + len(k))
+    w, H, T = fc.BAY, fc.GROUND, fc.T
+    if kind == "GroundWall":
+        fc.bx(b, (0.0, 0.0, 0.30), (w, T, H), "brick", axis="z")
+    elif kind == "GroundDoor":
+        x0, x1, dh = 1.05, 2.05, 2.15
+        fc.wall_opening(b, w, H, x0, x1, 0.30, dh + 0.06)
+        fc.bx(b, (x0, 0.0, 0.0), (x1, T, 0.30), "conc", axis="x")
+        fc.bx(b, (x0 - 0.06, -0.012, 0.30), (x0, 0.06, dh + 0.06), "black", axis="z", pin=False)
+        fc.bx(b, (x1, -0.012, 0.30), (x1 + 0.06, 0.06, dh + 0.06), "black", axis="z", pin=False)
+        fc.bx(b, (x0 - 0.06, -0.012, dh + 0.06), (x1 + 0.06, 0.06, dh + 0.14), "black", axis="x", pin=False)
+        fc.bx(b, (x0, 0.06, 0.30), (x1, 0.10, dh + 0.06), "trim", axis="z", pin=False)                     # the steel leaf
+        fc.rod(b, (x1 - 0.12, 0.06, 1.25), (x1 - 0.12, 0.01, 1.25), 0.018, "chrome", n=8)
+        fc.bx(b, (w / 2 - 0.16, -0.20, dh + 0.30), (w / 2 + 0.16, 0.0, dh + 0.42), "black", ch=0.004, pin=False)   # hood lamp
+        fc.bx(b, (w / 2 - 0.10, -0.17, dh + 0.27), (w / 2 + 0.10, -0.03, dh + 0.30), "bulb", pin=False)
+        fc.bx(b, (2.35, -0.015, 2.45), (2.85, 0.0, 2.85), "galv", ch=0.002, pin=False)                       # vent grille
+    else:
+        x0, x1, z0, z1 = 1.10, 2.00, 1.95, 2.50
+        fc.wall_opening(b, w, H, x0, x1, z0, z1)
+        fc.bx(b, (0.0, 0.0, 0.0), (w, T, 0.30), "conc", axis="x")
+        fc.bx(b, (x0, T - 0.012, z0), (x1, T, z1), "interior", axis="z")
+        fc.bx(b, (x0, 0.10, z0), (x1, 0.11, z1), "glasswin", axis="z")
+        for xx in np.arange(x0 + 0.10, x1 - 0.05, 0.11):
+            fc.rod(b, (xx, 0.03, z0), (xx, 0.03, z1), 0.008, "black", n=6)
+        fc.sill(b, x0, x1, z0)
+    if kind == "GroundWall":
+        fc.bx(b, (0.0, -0.015, 0.0), (w, T, 0.30), "conc", axis="x")
+    name = "SM_Facade_CT_%s_%s" % (kind, k)
+    return fc.done(ctx, b, name, Mb, k, wear=dict(ground=True, fade=(w, H)), collision="box", expect_size=(w, None, H),
+                   notes="Back or side wall ground bay 3.1 x 3.65 m in %s brick for the alleys and side streets (no shop): %s." % (
+                       k, {"GroundWall": "plain brick on a concrete base course",
+                           "GroundDoor": "a 1.0 m steel back door in a frame under a hooded lamp, a vent grille",
+                           "GroundWindow": "a small barred window high in the wall"}[kind]))
+
+
+def m_ct_bay(ctx, Mb, k):
+    """The Block's upper bay with a window, in a brick the Block's kit has only as a blank bay (Common): the same parts."""
+    b = fc.B(41)
+    BAY, ST = fc.BAY, fc.STOREY
+    x0, x1, z0, z1, lint = (BAY - fc.WIN_W) / 2, (BAY + fc.WIN_W) / 2, fc.WIN_SILL, fc.WIN_SILL + fc.WIN_H, 0.203
+    fc.wall_opening(b, BAY, ST, x0, x1, z0 - 0.10, z1 + lint)
+    fc.sill(b, x0, x1, z0)
+    fc.bx(b, (x0 - 0.15, -0.012, z1), (x1 + 0.15, fc.T, z1 + lint), "stone", ch=0.006, axis="x")
+    fc.sash_window(b, x0, x1, z0, z1)
+    fc.bx(b, (x0 - 0.02, fc.T - 0.012, z0 - 0.02), (x1 + 0.02, fc.T - 0.002, z1 + 0.02), "interior", axis="z")
+    return fc.done(ctx, b, "SM_Facade_CT_BayWindow_" + k, Mb, k, wear=dict(ledges=[(x0 - 0.10, x1 + 0.10, z0 - 0.10, 1.0)], fade=(BAY, ST)),
+                   collision="box", expect_size=(BAY, None, ST),
+                   notes="Upper-storey bay 3.1 x 3.1 m in %s brick, the Block's window bay parts (backs and side walls of Canal "
+                         "Street's buildings)." % k)
+
+
+def m_head(ctx, Mb, k, w, h):
+    """A brick panel over an opening at its own size (no scaling): the head over the arcade mouths and the workshop door."""
+    b = fc.B(81)
+    fc.bx(b, (0.0, 0.0, 0.0), (w, fc.T, h), "brick", axis="x")
+    fc.bx(b, (-0.02, -0.03, 0.0), (w + 0.02, fc.T, 0.18), "stone", ch=0.006, axis="x")
+    from assets import _chinatown_place as place
+    name = "SM_Facade_CT_Head_%s_%sx%s" % (k, place.cm(w), place.cm(h))
+    return fc.done(ctx, b, name, Mb, k, wear=dict(ledges=[(0.0, w, h, 0.6)], fade=(w, h)), collision="box", expect_size=(w, None, h),
+                   notes="Brick head %.2f x %.2f m over an opening (cast-stone soffit band), built at its size." % (w, h))
+
+
+def build_round2(ctx, M):
+    """The modules the round-2 placements need (_chinatown_place.needed_round2())."""
+    from assets import _chinatown_place as place
+    need = place.needed_round2()
+    Mb = dict(fc.materials(ctx))
+    for key in ("bulb", "galv"):                       # the Canal kit's lamp and galvanised slots
+        Mb[key] = M[key]
+    out = []
+    for k in need["alcove"]:
+        out.append(m_alcove(ctx, Mb, k))
+    for kind, k in need["ground"]:
+        out.append(m_ground(ctx, Mb, kind, k))
+    for k in need["bay"]:
+        out.append(m_ct_bay(ctx, Mb, k))
+    for k, w, h in need["head"]:
+        out.append(m_head(ctx, Mb, k, w, h))
+    return out
+
+
 def build_front(ctx, M):
     from assets import _chinatown_names as names
     out = []
@@ -518,6 +693,7 @@ def build_front(ctx, M):
         out.append(m_shopfront(ctx, M, n))
     out.append(m_fascia(ctx, M))
     out += m_ct_widths(ctx, M)
+    out += build_round2(ctx, M)
     out.append(m_grille(ctx, M))
     out.append(m_sign_rail(ctx, M))
     for L, slot in ((3.0, "fabricGreen"), (4.0, "fabricGreen"), (6.0, "fabricGreen")):
