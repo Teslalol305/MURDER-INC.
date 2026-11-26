@@ -85,7 +85,7 @@ def main():
     p = os.path.join(tmp, "studio.png")
     render.render_png(p, samples, (1280, 400))
     shots.append(p)
-    render.rig_night(lamp=(0.0, -4.0, 6.0), lamp_target=(0.0, 0.0, 1.0), lamp_watts=2600.0, sign=(-4.0, -3.0, 3.0),
+    render.rig_night(lamp=(0.0, -4.0, 6.0), lamp_target=(0.0, 0.0, 1.0), lamp_watts=2600.0, sign=(0.0, -5.0, 3.0),
                      sign_color=(0.25, 0.85, 0.55), sign_watts=500.0, sign_target=(0.0, 0.0, 1.0))
     render.cam_look((0.0, -15.0, 1.6), (0.0, 0.0, 0.95), lens=62, name="Cam_Crews")
     p = os.path.join(tmp, "night.png")
@@ -116,7 +116,8 @@ def main():
     render.render_png(p, 8, (1280, 400))
     shots.append(p)
     for (_cid, roots, _m), x in zip(figs, X):
-        for r in roots:
+        for r in roots:                       # the glTF importer's roots rotate by quaternion
+            r.rotation_mode = "XYZ"
             r.rotation_euler.z += math.radians(90)
     bpy.context.view_layer.update()
     p = os.path.join(tmp, "sil_side.png")

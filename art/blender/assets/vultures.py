@@ -67,14 +67,15 @@ METAL_MIN = 0.5
 # generated value: denim, wool and canvas 0.6 or more, the nylon shell lowest; wetness is the Unreal material's
 # per-level parameter, not the texture), and the eye band: skin and eye whites inside the mask's opening are darkened
 # to a dark neutral (eyes in deep shadow, as the Goons' recessed eyes), keeping saturated colour (amber lenses,
-# the oxblood cuff) unless 'keep_sat' is None.
+# the oxblood cuff) unless 'keep_sat' is None (a plain mask opening: roof_lieutenant's pink lids are saturated and
+# were kept by the 0.65 limit, still a red slit at 1 m).
 STYLE = {
-    "canal_shell": {"rough_floor": 0.56, "keep_sat": 0.65},          # nylon rain shell, cotton twill joggers
-    "canal_bomber": {"rough_floor": 0.62, "keep_sat": 0.65},         # nylon bomber, fleece, denim
-    "canal_lieutenant": {"rough_floor": 0.60, "keep_sat": 0.65},     # waxed cotton (matte wax), fleece, twill
+    "canal_shell": {"rough_floor": 0.56, "keep_sat": None},          # nylon rain shell, cotton twill joggers
+    "canal_bomber": {"rough_floor": 0.62, "keep_sat": None},         # nylon bomber, fleece, denim
+    "canal_lieutenant": {"rough_floor": 0.60, "keep_sat": None},     # waxed cotton (matte wax), fleece, twill
     "roof_rigger": {"rough_floor": 0.68, "keep_sat": 0.65},          # duck canvas, corduroy
     "roof_lookout": {"rough_floor": 0.62, "keep_sat": 0.55},         # softshell; amber lenses kept
-    "roof_lieutenant": {"rough_floor": 0.70, "keep_sat": 0.65},      # wool melton, knit
+    "roof_lieutenant": {"rough_floor": 0.70, "keep_sat": None},      # wool melton, knit
 }
 # baked highlights: over 1.7 x the level within about 1 cm, over 2.2 x within about 5 cm, or over 0.15 linear
 DELIGHT = {"ratio": 1.7, "ratio2": 2.2, "cap": 0.15, "sat": 0.6}

@@ -1,7 +1,9 @@
 # The Vultures on Levels 2 and 3: crews, looks and the generated-character pipeline
 
-Status (2026-11-26): roster written, concept turnarounds made for all six, the pipeline proven end to end on the first
-character (`SK_Vulture_CanalShell`); the other five are not yet built. Owner's instruction (via the lead): "you can also
+Status (2026-11-26, review round): all six built, rigged, pose-checked and exported; the review's fixes are in
+section 11 (hands on the finger bones, the under-arm fins, the gate, the eye band, the fabrics, the crews' signature,
+the hooded second take of `SK_Vulture_CanalLieutenant`), and its numbers replace those of sections 4 and 6 to 10 where
+they differ. Not yet imported in Unreal (the enemy lane). Owner's instruction (via the lead): "you can also
 use trippo in higsfield to generate realistic charachters". This page is the character lead's plan for the next
 release's three-level story (docs/unreal/MAPS.md, [chinatown.md](chinatown.md), [midtown.md](midtown.md),
 [progression.md](progression.md)): the enemies on Level 2 (Canal Street, night, wet) and Level 3 (Midtown rooftops,
@@ -53,7 +55,7 @@ Level 1 keeps the three Goons.
 |---|---|---|---|---|---|---|
 | canal_shell | `SK_Vulture_CanalShell` | 2 | rank and file | man | lean; 1.822 m over the hood (built) | black rain shell, hood up |
 | canal_bomber | `SK_Vulture_CanalBomber` | 2 | rank and file | woman | athletic; 1.818 m over the hood | olive bomber, hood up, bandana |
-| canal_lieutenant | `SK_Vulture_CanalLieutenant` | 2 | lieutenant | man | broad, heavy; 1.815 m over the cap | open waxed parka over a vest, arm band |
+| canal_lieutenant | `SK_Vulture_CanalLieutenant` | 2 | lieutenant | man | broad, heavy; 1.818 m over the hood (second take, section 11) | open waxed parka over a vest, **hood up**, arm band |
 | roof_rigger | `SK_Vulture_RoofRigger` | 3 | rank and file | man | wiry; 1.815 m over the cap | navy duck work jacket, headlamp, knee pads |
 | roof_lookout | `SK_Vulture_RoofLookout` | 3 | rank and file | woman | lean; 1.815 m over the beanie | slate softshell, collar to the nose, amber glasses |
 | roof_lieutenant | `SK_Vulture_RoofLieutenant` | 3 | lieutenant | man | broad, heavy; 1.805 m | charcoal wool car coat, balaclava, arm band |
@@ -84,8 +86,9 @@ on the shoulders. Colours: bomber #2f3424, hoodie #34353a, bandana and jeans #14
 Materials: satin nylon (roughness 0.45), rib knit, fleece, denim, leather.
 
 **canal_lieutenant, `SK_Vulture_CanalLieutenant`.** Broad, heavy man. Dark charcoal waxed-cotton field parka to
-mid-thigh, worn open, four flap pockets, dark corduroy collar up, side vents; plain black low-profile vest with two flat
-pouches under it (no patches); black knit watch cap; black fleece neck gaiter over nose and mouth (eyes only); oxblood
+mid-thigh, worn open, four flap pockets, side vents, **the parka's own hood up over a black knit watch cap** (since
+the review round: the Canal crew's signature is the hood, section 11); plain black low-profile vest with two flat
+pouches under it (no patches); black fleece neck gaiter over nose and mouth, the eyes in deep shadow in the hood; oxblood
 cloth arm band on the left upper arm; dark grey cargo trousers darkened by rain; black leather lace-up boots; black
 leather gloves; sling; crew V; waxed sheen. Colours: parka #2b2a28, vest #0f1011, gaiter and cap #121214, trousers
 #3a3a3c, band #7c151d. Materials: waxed cotton (roughness 0.4-0.55, darker creases), nylon, fleece, twill, leather.
@@ -132,7 +135,9 @@ fuzz), knit, nylon, leather.
 
 ### 3.1 Turnaround sheet (Higgsfield `generate_image`)
 
-Model `gpt_image_2_6`, aspect 16:9, quality high, resolution 4k (3840 x 2160): **3.25 credits** a sheet. One sheet with
+The image generator (its exact id is kept out of the repository, in the git-ignored
+`art/out/characters/maps/generators.json`), aspect 16:9, quality high, resolution 4k (3840 x 2160): **3.25 credits** a
+sheet. One sheet with
 all four views keeps the person, clothes and colours consistent across the views (four separate images drift). The
 shared frame, then the character block from section 2 written as a description:
 
@@ -170,7 +175,8 @@ the If-None-Match header), then `media_confirm` type image.
 
 ### 3.3 Tripo (Higgsfield `generate_3d`)
 
-`tripo_h3_1_multiview_to_3d`, medias in the order **front, left, back, right** (role `image_references`), `texture`
+The multiview-to-3D generator (Tripo; exact id in the git-ignored `generators.json`), medias in the order **front,
+left, back, right** (role `image_references`), `texture`
 true, `pbr` true, `texture_quality` detailed, `geometry_quality` detailed, `face_limit` 110000, other settings default.
 **18 credits** (`get_cost` true first). About 3 minutes; `jobs_wait` with 15 s timeouts. Download with curl to
 `art/out/characters/maps/<id>/<id>_tripo.glb` (git-ignored).
@@ -201,9 +207,15 @@ export, about 6 minutes for the previews on 3 threads. Steps:
    (collapse) only when over the 120k cap.
 4. **Bind** (goon_generated's proven method): the mannequin's upper arms, forearms, thighs and calves posed onto the
    mesh's own limbs (canal_shell: arms 20.8 and 21.5 degrees lower than the mannequin's A-pose, legs 3 degrees),
-   weights copied from the posed mannequin surface (median 3.3 cm away), finger weights folded into the hand (the
-   generated gloves are one piece), smoothed, at most 4 influences, then inverse skinning back to the mannequin's
-   reference pose; round trip exact (max 0.0000 m).
+   weights copied from the posed mannequin surface (median 3.3 cm away), smoothed, at most 4 influences, then inverse
+   skinning back to the mannequin's reference pose; round trip exact (max 0.0000 m).
+   Changed in the review round (section 11): the mannequin's hands are also fitted to the gloves (`fit_hands`: turned
+   onto the glove's wrist-to-fingertip line, rolled so the knuckle line lies across the glove's widest direction,
+   scaled to its length), and the finger weights are KEPT (they used to fold into `hand_l` / `hand_r`, a rigid paddle
+   on the SMG grip). The hand chain used for the segment labels now runs to the middle fingertip. Then the under-arm
+   **fin band** (`fin_band`): edges the reference pose stretches past 1.6 x seed a band (6 cm, then 10 cm geodesic,
+   above the hips) whose weights are replaced by the harmonic blend of the weights round it, with a weak arm share
+   faded out more than 30 cm from the shoulder.
    Added with roof_lieutenant (section 10): when the wrist search finds no cross-section near the skeleton's arm
    line (fewer than 20 points: the arm is then left unfitted, exactly 0 degrees and length x 1.000), it is
    restarted on the line from the shoulder to the mesh's fingertip (`vultures.arm_guess`); arms the default search
@@ -221,13 +233,22 @@ export, about 6 minutes for the previews on 3 threads. Steps:
    check file): the posed check measures against that reference pose, so it cannot see it.
 6. **Pose check** (`vultures.pose_check`, written into the check file): the clips rifle_jog_fwd, rifle_idle_ads,
    rifle_reload, pistol_idle_ads, unarmed_attack and death_front every 6 frames, plus three held poses (`held_pose`):
-   kneel on the right knee, crouch (thighs 70 degrees forward, knees 110, trunk 20), overhead swing. Per pose: the
+   kneel on the right knee, crouch (thighs 70 degrees forward, knees 110, trunk 20), overhead swing; and since the
+   review round four extremes the ragdoll and the editor reach (`EXTREMES`): T-pose, both arms overhead, a ragdoll
+   thrown on its back (arms flung above the shoulders, legs apart) and one face down (an arm past the head, the other
+   under the chest, a knee up). 103 poses. **The gate is now part of the verdict**: the check file's top-level `ok` is
+   the export checks AND the pose check, a clip that cannot be loaded counts as a failure (it used to count as a pass),
+   and the manifest record carries `checks_ok` and the pose summary. Per pose: the
    `_rule_gate.Gate` capsule test (no vertex more than 6 cm outside the capsule of the bones that weight it) and the
    edge stretch (posed over rest edge length: 99.9th percentile, edges over 2 x). goon_generated's kneel
    (`hand_pose(arm, 1)`) bends the right knee backward through the joint (thigh 80 degrees back, shin rotated a
    further 95 the wrong way): it failed 491 vertices by 26 cm and is not a pose a body makes, so it is replaced.
-7. **Texture set** `Vulture<Name>` (written in the build, the previews read it as Unreal will): BC sRGB and N
-   (OpenGL) unchanged; ORM = the generated occlusion, roughness remapped to **0.45 + 0.5 x the generated value**
+7. **Texture set** `Vulture<Name>` (written in the build after the bind, the previews read it as Unreal will).
+   Since the review round: BC de-lit (`delight`: a texel over 1.7 x its 1 cm neighbourhood, over 2.2 x its 5 cm
+   neighbourhood or over 0.15 linear is brought down to that level, then a soft knee above twice the figure's median,
+   saturated colour and metal left), the eye band darkened (`eye_shadow`, section 11), roughness from a per-character
+   floor (`STYLE`: roughness' = floor + (0.95 - floor) x the generated value, half of its fine pattern blurred away).
+   Before it: ORM = the generated occlusion, roughness remapped to **0.45 + 0.5 x the generated value**
    (0.45-0.95) and metallic kept only where over 0.5 (zips, buckles). The raw generated roughness (canal_shell mean
    0.56, many texels at 0.2-0.4) made the joggers, hood and gloves read as glossy vinyl in the first previews: the
    generated Goon's main fault in 2026. The preview material is the Goons' `textured_material` graph (BC x AO, sheen =
@@ -237,15 +258,28 @@ export, about 6 minutes for the previews on 3 threads. Steps:
    record (`art/out/manifest.json`, family `vultures`). Everything is in `art/out/glb/SK_Vulture_<Name>.glb.check.json`.
 9. **Previews** (`art/previews/characters/maps/vulture_<id>_*.jpg`, at most 300 kB): hero (studio and street night),
    detail (head at 1 m, legs), poses (jog, aim, crouch, death), wire (clay beside SK_Goon_Hoodie for the size, and the
-   wireframe at 1.2 m); plus the turnaround sheet.
+   wireframe at 1.2 m), and since the review round hands (aim right and left, jog, reference) and extremes (reference
+   pose, T-pose, arms up, ragdoll, from behind); plus the turnaround sheet. Each run renders into its own temporary
+   folder (two lanes used to overwrite each other's `v_hero_day.png`). The two crews side by side:
+   `art/blender/assets/_vultures_lineup.py` writes `vultures_crews.jpg`.
 
 ### 3.5 Unreal (for the enemy lane; nothing imported in this pass)
 
 The import is the Goons' (`tools/box/chars/mi_chars.py`): Interchange on the existing `SK_Mannequin`, no new skeleton,
 `keep_exported_normals` (Recompute Normals off), the set's textures with the normal green channel flipped, `TC_MASKS`
-for ORM. Material: the Goons' `goon_material` graph works as is (Cloth shading model, cloth amount from roughness, fuzz
-= BC x 0.9 + 0.01, specular 0.30, two-sided off: the generated shell is closed); the wet sheen of the Canal crew is in
-the generated roughness and can be lifted by the level's `MPC_Weather` wetness like the street. In-game scale 0.98;
+for ORM. Material: the Goons' `goon_material` graph (Cloth shading model, cloth amount from roughness, fuzz = BC x 0.9 + 0.01,
+specular 0.30, two-sided off: the generated shell is closed) **with two changes for the Vultures** (review round):
+
+- **No UV-space fibre detail normal.** `goon_material` tiles `T_GoonFabric_Detail_N` per UV unit (25 mm tiles,
+  `tools/box/chars/mi_chars.py` line 444). The Vulture atlases are hundreds of small islands at arbitrary rotations
+  (texel density 12 to 26 px/cm, p10 to p90, against the Goon cloth's even 13.8), so a UV-space weave would change
+  direction and scale at every island border. Leave the detail normal out of the Vulture instance (a static switch
+  `UseDetailNormal` = false) or, if the cloth needs it at 1 m, sample it world-aligned (triplanar on the
+  reference-pose local position, about 25 mm tiles) instead of by UV.
+- **Wetness is a material parameter, not texture.** The baked wet sheen is taken out of the BC and the roughness in
+  the build; the Canal crew's wet look comes from a scalar `Wetness` (0 to 1) driven by the level's `MPC_Weather`
+  wetness, as the street: base colour x (1 - 0.35 x wet), roughness lerped to 0.30 x wet on the upper half of the body
+  (world-up facing normals, so the hood and shoulders take it first). Level 2 runs it at about 0.8, Level 3 at 0. In-game scale 0.98;
 the SMG on `hand_r` at the Goons' offset (presentation.json `weaponOffset`).
 
 ### 3.6 Cost per character
@@ -337,14 +371,14 @@ hand-built Goons at 1 m (fused layers, rigid gloves). Proceed with the five rema
 
 | What | Credits |
 |---|---|
-| canal_shell turnaround sheet (gpt_image_2_6, 4k high) | 3.25 |
-| canal_shell Tripo multiview (`tripo_h3_1_multiview_to_3d`, detailed, 110k) | 18 |
+| canal_shell turnaround sheet (the image generator, 4k high) | 3.25 |
+| canal_shell Tripo multiview (detailed, 110k) | 18 |
 | five more turnaround sheets (canal_bomber, canal_lieutenant, roof_rigger, roof_lookout, roof_lieutenant) | 16.25 |
 | **Total this pass** | **37.5** (cap 600) |
 
 No GPU box was rented or used.
 
-## 6. `SK_Vulture_CanalLieutenant` (Level 2 lieutenant, built)
+## 6. `SK_Vulture_CanalLieutenant`, first take (replaced: the hooded second take is in section 11)
 
 Built 2026-11-26 on the pipeline of section 3 as committed in 3119628, with no change to it, from the first Tripo
 take: `build.py build vultures --only canal_lieutenant --export` (42 s) then `--preview --samples 32` (2.7 min on 3
@@ -415,7 +449,7 @@ better-dressed silhouette than the rank and file with the rank band readable fro
 same skeleton and clips, 98 of 99 poses inside the capsules and a cleaner mesh than the proof (0 validation errors).
 Below the hand-built Goons at 1 m (fused layers, rigid gloves, the eye band).
 
-**Credits (this character):** 18 (one Tripo take, `tripo_h3_1_multiview_to_3d`, detailed, 110k); the sheet's 3.25
+**Credits (this character):** 18 (one Tripo take, detailed, 110k); the sheet's 3.25
 is in section 5. No GPU box was rented or used.
 
 ## 7. `SK_Vulture_CanalBomber` (Level 2 rank and file, built)
@@ -512,7 +546,7 @@ streetwear, the Goons' height, on the same skeleton and clips, all 99 poses insi
 than both Goons; she reads differently from canal_shell (olive and oxblood against black, bomber against rain shell).
 Below the hand-built Goons at 1 m (fused layers, rigid gloves, glossy jeans).
 
-**Credits (this character):** 18 (one Tripo take, `tripo_h3_1_multiview_to_3d`, detailed, 110k); the sheet's 3.25
+**Credits (this character):** 18 (one Tripo take, detailed, 110k); the sheet's 3.25
 is in section 5. Diagnostic clay renders ran in Blender only. No GPU box was rented or used.
 
 ## 8. `SK_Vulture_RoofRigger` (Level 3 rank and file, built)
@@ -599,7 +633,7 @@ outside them, less worst stretch than both Goons, and the cleanest mesh of the f
 0 opposite-winding edges). It reads apart from the Canal crew (navy canvas, knee pads, headlamp against black and olive
 rainwear). Below the hand-built Goons at 1 m (fused layers, rigid gloves, the eye band).
 
-**Credits (this character):** 18 (one Tripo take, `tripo_h3_1_multiview_to_3d`, detailed, 110k); the sheet's 3.25
+**Credits (this character):** 18 (one Tripo take, detailed, 110k); the sheet's 3.25
 is in section 5. No GPU box was rented or used.
 
 ## 9. `SK_Vulture_RoofLookout` (Level 3 rank and file, built)
@@ -681,7 +715,7 @@ reads apart from the Rigger on the same roofs (slim slate softshell, oxblood bea
 canvas and knee pads) and from the Canal crew. Below the hand-built Goons at 1 m (fused layers, rigid gloves, the
 eye band, the faint crew V).
 
-**Credits (this character):** 18 (one Tripo take, `tripo_h3_1_multiview_to_3d`, detailed, 110k); the sheet's 3.25
+**Credits (this character):** 18 (one Tripo take, detailed, 110k); the sheet's 3.25
 is in section 5. No GPU box was rented or used.
 
 ## 10. `SK_Vulture_RoofLieutenant` (Level 3 lieutenant, built)
@@ -787,6 +821,6 @@ stretch than both Goons, and the lieutenant's marks (the oxblood band, the leath
 against the rigger and the lookout. Below the hand-built Goons at 1 m (fused layers, rigid gloves, the eye openings)
 and the most stretched Vulture in the bending poses, because of the coat skirt.
 
-**Credits (this character):** 18 (one Tripo take, `tripo_h3_1_multiview_to_3d`, detailed, 110k; `get_cost` checked
+**Credits (this character):** 18 (one Tripo take, detailed, 110k; `get_cost` checked
 first); the sheet's 3.25 is in section 5. The diagnostic fit tests and clay pose renders ran in Blender only. No GPU
 box was rented or used.
