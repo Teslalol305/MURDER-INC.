@@ -538,3 +538,121 @@ and its claim), `lagtools/` (a copy of `tools/box` whose `lag-test.sh` does not 
 claim as another game, and whose `rtcinput.py` has the new verbs), `scripts/` (`b4.txt`, `away-demo.txt`,
 `away-view.txt`, and copies of `full-csv.txt`, `n3.txt`, `sm-long.txt`), `runs/` (the no-GPU runs), `lag/` (the GPU runs),
 `logs/`. The unpacked packages are in `/tmp/smooth-bug/` (lost when the box stops).
+
+## Perf fixes (lane `perf`, 2026-11-26, 00:35 to 02:30 UTC)
+
+**Verdict of this lane: the blocker is fixed and proven; two must-fix items are not closed.** The frame-rate target now
+comes back in live play (H2): with the hitch lane's own load and script, a minute of a shared card left the old game at
+30 frames a second for the rest of the run (60 of 60 play seconds after the load at 30), the fixed game was back at 60
+28 s after the load ended (59 of the last 86 play seconds at 60, the rest on the way up). The same change also undoes a
+drop this lane had not looked for: in two of this lane's four cold holdout runs the first seconds of play (render thread
+25 to 40 ms, GPU 12 ms) held the game back for a second and dropped the target to 45; the old rule keeps such a 45 to
+the end of the run, the new one had 60 back 10 s later. Graphics quality presses no longer freeze the picture (B3), the
+data's assets are loaded in the background before a set-up screen asks for them (C2), the HUD has named trace scopes
+(C4), and `lag-test.sh` says when a run comes from the box's network volume (C6). The cold-start pipeline-state hitches
+(H3) and the first fight's stutter (H4) are **not** fixed: they need a recorded pipeline cache in the package, which is
+the release engineer's packaging script (For the lead, below); the first-fight train did not come back in this lane's
+cold runs, and limiting the precompile pool made things worse. The set-up screens' frame per key press (H6) is **not**
+fixed either: READY.md's M1 moved the rebuild from the paint into the tick (measured), it costs the same frame. H5's single 126 to 156 ms frames are Pixel Streaming 2's
+capture waiting 100 ms for its fence; one capture setting was measured against it (below). No gameplay rule changed: the
+golden replays pass unchanged, and every change is pacing, loading, the moment a setting is written, or a trace name.
+
+### How it was measured
+
+| What | Value |
+|---|---|
+| Packages | The newest package on the box, `v6trial.zip` (game `fd8ce12`), unpacked to the box's local disk (`/tmp/smooth-perf/v6t-before`, copied from the hitch lane's local copy; C6 says why not from `/project`). **After** copies are the same folder with only the Development game binary replaced: `v6t-after` is `fd8ce12` plus this lane's pacing change (`MIPacing.*`, the cvar line of `MICloud.cpp`) and the Settings change (`MIGameSubsystem.*`), applied with `git apply -3` in a worktree of `fd8ce12` (`/project/ue/smooth/perf/fd8`, patches `p1-game.patch`, `p2-game.patch`) and built as `MurderInc Linux Development`; `v6t-c2` adds the preload (`Core/MIPreload.*`). Same cooked content, same Shipping binary, same launcher in all of them, so a before / after pair differs only in the code named |
+| E3DS emulation | The hitch lane's conventions: `lag-test.sh` (this lane's copy, `/project/ue/smooth/perf/tools/box/cloud`), `cpus=0-7` (7 task workers and the RHI's interrupt and submission threads, as E3DS's game log reads), `load=1:0.05:0:1024` (`l20`, the load that reproduces E3DS's own GPU readings: here 12.5 to 13.2 ms at render scale 0.50 in the holdout's calm, E3DS 10.6 to 13.2 ms at 0.50 to 0.75) or `l12` where named, `-sm5`, 1920 x 1080, a viewer through Pixel Streaming, `runas=fresh clean=1` (a new user with no driver shader cache, a fresh `Saved`: E3DS's cold machine), `-MICloudProbe=1`. Every run had the card to itself (`others=0` in every watcher line). **Not** like E3DS: the box's CPUs were shared with other lanes' compiles in most runs (watcher `cpu=` median 51 to 79 %, p90 81 to 96 %; the two runs of a pair within 21 points of each other) |
+| A shared card on purpose | `v6-long`'s stuck 45 came from another game on the card for two minutes, by accident. `spike=75:60:0.3:0` (this lane's copy of `lag-test.sh`) starts one more load process (`gpu_hog.py 0.3 0`, the `1:0.3:0` load: 33.8 ms a frame on the earlier box) 75 s after the run's load starts, for 60 s: in both runs 60 to 64 s into the play, while the holdout fights |
+| Scripts | The hitch lane's `sm-hold.txt` (Hold the Block from the start, god mode, seven fights, switches, reloads, a blast, about 3.5 minutes), the bugs lane's `g2-v6t.txt` without its `MIShot` lines (`q2.txt`: pause, Settings, Graphics quality Auto to Ultra by four presses, play, Ultra back to Auto by four presses), the CPU lane's `full-csv.txt` (20 s of home screen, every set-up screen, four guns focused and slotted, the Workbench, a Story run with all four guns) |
+| Per-frame data | Every frame of the CSV profile (`perf_sum.py`: fps, frames over 25 / 50 / 100 ms a minute, worst frame, 1 % low as `csvsum.py` defines it, per 30 s of play, and the game log's `Frame-rate target` lines; `b3frames.py`: the longest of the four frames after each menu press; `c2frames.py`: every frame with a `FlushAsyncLoading` event), all in `/project/ue/smooth/perf` |
+
+### The findings, one by one
+
+Each finding was checked again before anything changed. "Before" and "after" are the same package, script, load, CPUs and
+cold user, run back to back.
+
+| # | Finding | Checked | What was done | Before | After |
+|---|---|---|---|---|---|
+| H2 | **blocker**: the frame-rate target falls in play and rises only on a card, so Hold the Block keeps 45 or 30 to its end | **Right, reproduced on purpose.** `p-hs-before`: the extra load from 63 s of play drops 60, 45, 30 in two seconds (`at the smallest picture the game fell short ... the GPU took 26.8 ms`); the load ends at 123 s, the GPU is back at 12.9 ms (30-s medians), the target stays 30: **60 of the 60 play seconds after the load at 30, 30.0 fps**. Without the extra load (`p-hold-before`) the target held 60 all run: the drop needs a heavy second, as the hitch lane said | `FMIFrameRateGovernor` rises in live play too, with the rule it used on cards (GPU at the smallest picture under four fifths of the next rate's frame for 10 s, the doubling back-off when a rise does not hold for 30 s kept); a rise that held for 120 s gives the 10 s wait back; `MI.Cloud.FpsRiseInPlay 0` is the old rule. `MIPacing.h/.cpp`, `MICloud.cpp`, `DefaultGame.ini` (commit `de28380`), tests in `MurderInc.Cloud.FrameRate` (the holdout case, the shared-card case, the back-off and earn-back, the old rule) and `MurderInc.Cloud.QualityGuards` | `p-hs-before`: play 40.24 fps, last 60 s at 30.0 fps, 1 % low 18.4 | `p-hs-after`: the extra load from 64 s to 124 s drops 60, 45, 30 the same way; then `30 -> 45 ... for 10 s, in play` 10.8 s after the load ended and `45 -> 60` 28.2 s after it. **Play 47.61 fps, the last 60 s at 58.8 and 59.9 fps** (30-s buckets), 1 % low 24.3. Of the 86 play seconds after the load: 10 at 30, 17 at 45, 59 at 60 (probe lines) |
+| H2 (second way in) | A **cold start** can drop the target too: in `p-hold-after` and `p-hs-after` the first seconds of play (render thread 25 to 40 ms a frame while the GPU took 12.4 to 13.7 ms) held the game back for a second and the target fell to 45. The drop rule is unchanged by this lane; the same can happen in the old build (it did not in this lane's two before runs) | Read in the probe lines: `held=33 waitMs=364`, `held=41 waitMs=434` in the two seconds before the drop, `gpuMs` 12.1 and 12.7 | The same change | (old rule: 45 kept to the end of the run, as in the hitch lane's `v6-long`) | `p-hold-after`: `45 -> 60 ... in play` 10.2 s after the drop; the run played **58.87 fps**, 1 % low 34.0, against **59.58 fps** in `p-hold-before` (no drop there); from 30 s of play to the end both runs held 59.4 to 60.0 fps in every 30-s bucket |
+| B3 | should-fix: each Graphics quality press freezes the picture for 62 to 377 ms | **Right.** `p-q-before`, the longest of the 4 frames after each press: **359, 305, 339, 77 ms** going up, **88, 87, 51, 103 ms** going back (render thread 19 to 61 ms in them); the log writes `Graphics quality: 0, 1, 2, 3` and back, one line a press | In a stream the level waits while Settings is open and is written once when the card closes (`UMIGameSubsystem::ApplySettings`, `FlowFrame`; commit `4b621b7`). Not a rule: the card still shows the value at once, the picture changes when the card closes | 8 frames over 50 ms in the two Settings visits, worst 359.2 ms; capture 57.37 fps, 6.8 frames over 100 ms a minute | `p-q-after`: **no frame over 16.7 ms after any press or Back**; the log writes `Graphics quality: 3` once and `auto` once. Capture 59.03 fps, over 100 ms 2.2 a minute (the game's first second and one fight frame at 41 s); GPU medians 11.7 to 12.8 ms in each 15-s span (before 11.8 to 12.5) |
+| C2 | should-fix: synchronous asset loads on the game thread (set-up screens, Briefing, gun switches) | **Right.** `p-c2-off` (the preload switched off): **53 synchronous loads in 8 frames**, game thread median 11.2 ms, worst 19.6 ms in those frames: Gear up 18.7 ms, gun focus 10.3 / 6.8 / 9.6 ms, the Briefing 11.2 ms, gun 2 11.4 ms, gun 3 (33 loads) 19.6 ms, the same as the CPU lane's run | `UMIPreloadSubsystem` (new, `Core/MIPreload.*`, commits `36da424`, `2fa5273`): once the title screen is up it loads every asset that `presentation.json`, `attachments.json`, `guns.json` and `crew.json` name, in the background, and keeps them; off with `MI.Preload 0` or `-MINoPreload`, and in tests; test `MurderInc.Preload.Paths` | `p-c2-off`: 20 to 118 s 59.6 fps, game thread p99 6.16 ms, 2.5 frames over 50 ms a minute, 1 % low 36.2; gun switches (88 to 104 s) game thread worst 19.6 ms | `p-c2-on`: `Preload: 114 of 114 assets ... in memory, 0.2 s after the title screen came up` (15 more named in the data are not in this package); **0 synchronous loads in 191 s**; 20 to 118 s 59.8 fps, game thread p99 3.80 ms, 0.6 frames over 50 ms a minute, 1 % low 47.5; gun switches game thread worst 7.1 ms. Resident memory at most 3,206 MB against 3,180 MB (+26 MB) |
+| H3 | must-fix: cold-start pipeline-state (PSO) hitches of 110 to 250 ms on the title, home and Crew screens, no pipeline cache packaged | **Right.** The game log of every run: `Vulkan PSO Precaching = 1, PipelineFileCache = 0`; `LogPSOHitching: Encountered 150 PSO creation hitches so far (34 graphics, 116 compute). 0 of them were precached` in the first 7 s (`v6-hold`). The engine's precaching covers materials, not the global compute shaders (5.9's `r.ShaderPipelineCache.GlobalShadersOnlyWhenPSOPrecaching`: with precaching on, a bundled cache is what brings the global shaders) | **Not fixed here**: it needs a pipeline cache recorded from a package and cooked into the next one, which is the packaging script (For the lead, 1). The Crew screen's part that was loading (`FlushAsyncLoading` at Gear up, 18.7 ms) is gone with C2 | | |
+| H4 | must-fix: the first fight stutters (a train of 33 ms frames, 1 to 8 PSO misses each) | **Right, but the cause is the cold start's background compile, not the misses.** `v6-hold` started the fight 3 s after the process: 21, 24, 42 frames over 25 ms in its first three 10-s spans with about 1,060 PSO misses each, then 14, 3, 0 as the misses ran out; only the first 10 s had blocking hitches (10), the rest had none. `v6-story` went through the front end first and began its run 35.3 s after the process (`game:state playing`): **0 frames over 25 ms from 10 s on**, with 736, 232, 169 and 265 misses in 10-s spans of its play. So the misses themselves do not make the long frames (the engine counts no blocking PSO creation in them: `GraphicsPSOHitch` 0); the 33 ms frames come while the boot's precompile pool (75 % of the CPUs by default, `r.pso.PrecompileThreadPoolPercentOfHardwareThreads`) still competes with the render and RHI threads, the first 30 to 40 s after the process starts (BOX.md row 62 saw the same pool at 70 to 90 % a thread). A player who goes through the front end mostly misses that window; the scripts that start a fight 3 s after the process do not. The Story's fight is lighter than the holdout's, so this is the likelier reading, not a proof | **Not fixed.** One cheap remedy measured and **rejected**: the pool limited to 3 threads (`-dpcvars=r.pso.PrecompileThreadPoolSizeMax=3`, logged as set). The fix is the bundled cache of H3 (For the lead, 1) | **The train did not come back today.** `p-h12-base` (the hitch lane's `v6-hold` line again, `l12`, cold): first 30 s of play 6 frames over 25 ms (the hitch lane's run: 88), 59.7 fps; misses 1,224, 1,168, 1,027 in the first three 10-s spans, then 20, 3, 7. With `l20`, cold, the first 30 s of play had 25, 37, 38 and 91 frames over 25 ms (`p-hold-before`, `p-hs-before`, `p-hold-after`, `p-hs-after`, the last with the cold drop of row 2): it varies run to run with the box's CPU load, not with the misses | `p-h12-pso3`: first 30 s 8 frames over 25 ms (no better); the misses no longer run out: 456 to 759 in every 10-s span to the end of the run (with the engine's default `r.PSOPrecache.ProxyCreationStrategy 1` a component whose PSOs are still compiling is not drawn yet, so a longer compile is a longer window of missing or late meshes). Kept at the default |
+| H5 | should-fix: single 126 to 156 ms frames with every thread idle | **Explained.** 5 of the 7 frames over 120 ms in `v6-long`, `v6-hold` and `v6-hold-free` come in the same second as `UPixelCaptureMediaCapture::WaitForGPU: Timed out waiting for fence to be written!` (`v6-long` 23:02:40.8, 23:06:17.0, 23:11:27.7 against the frames logged at 23:02:41.2, 23:06:17.4, 23:11:28.4; `v6-hold` 22:50:26.7 against 155.9 ms at 22:50:26.8; `v6-hold-free` 23:35:24.9 against 146.3 ms). The engine's Pixel Capture polls its fence with `FRHIGPUFence::Poll` for up to 100 ms (`PixelCaptureCapturerMediaCapture.cpp:256-266`), the pattern the engine's own note warns against. The other two (`v6-long` 23:05:47 and 23:08:51) have no capture line: their cause is not known | **Not fixed.** The one switch the game can turn without changing the engine was measured and **rejected**: `-PixelStreamingUseMediaCapture=false` (Pixel Streaming's RHI capturer with its own fence) | `v6-long` (the hitch lane, default capturer, `sm-long.txt`, `l12`): play 681.6 s, **0.4 frames over 100 ms a minute**, 1.8 over 50 ms | `p-long-rhicap` (the same script and load, `v6t-after`, the RHI capturer): play 782.4 s at 59.50 fps (the target never moved), but **1.8 frames over 100 ms a minute** (worst 219.4 ms), 2.8 over 50 ms; the probe lines put them on the render thread (`renderMs=225.8`, `174.6` in seconds with a GPU of 8 ms). Four times as many freezes: the default stays |
+| H6 / C5 | should-fix: each front-end rebuild costs a frame of 28 to 34 ms (11 to 16 ms of UI on the game thread) | **Right, and READY.md's M1 fix moved the cost, it did not remove it.** M1 (`7bc34df`) rebuilds the set-up screens on the game thread before Slate's frame instead of inside the paint: that ended the flicker (READY.md), and the menu fixer's binary of it (`fd8ce12` + M1, `/project/ue/ready/menufix/pkg-after4`) was measured here against the trial with the hitch lane's `v6-menus` line (`game=ship -MIDev`, the viewer's `guns-keys.txt`, `l12`), 20 to 48 s (Crew, Loadout, the Workbench). The frames over 25 ms are the ones after the viewer's key presses (one every 1 to 2.5 s in the script) | Nothing in this lane's code (the front end is the menu fixer's: For the lead, 8) | `p-menus-before`: 15 frames over 25 ms (27 to 42 ms, one 69 ms), in them the game thread's exclusive `UI` 8.9 ms on average; game thread p99 9.1 ms | `p-menus-m1`: **14 frames over 25 ms** (27 to 39 ms, one 70 ms), in them `UI` 2.0 ms and **`TickActors` 7.6 ms** on average (game thread 10 to 14 ms in those frames): the same rebuild, now in the tick. `UI` p99 6.9 to 1.5 ms. Not fixed |
+| C4 | should-fix: HUD frames of 15 to 22 ms with nothing named inside | Not reproduced untraced (the CPU lane: the game thread never above 11.7 ms in play from local disk) | Named trace scopes in `AMIHUD::DrawHUD`, `DrawPlay`, `DrawHurt`, `DrawStepMarker`, `DrawFlow`, `DrawMenu`, `DrawWeaponBar`, `DrawWheel` and `UMIAudioSubsystem::DrawSubtitle` (commit `e618e90`). **No trace was taken with them** (the GPU time went to the runs above): the next traced run names the part | | |
+| C6 | must-fix for the measurements: packages run from `/project` (9p) get 100 to 280 ms freezes | Right (the CPU lane's two runs); every run of this lane ran from `/tmp` | `lag-test.sh local=1` (or `LAG_LOCAL=1`) copies a build that sits on `/project` to `/tmp/lag-local` once and runs it there; a run from `/project` without it writes `volume=warning: ...` into its `info.txt` (commit `541ed6a`). Default behaviour unchanged. **Not exercised in a run here** (all of this lane's builds were on `/tmp` already) | | |
+
+### For the lead
+
+1. **A bundled pipeline cache for H3 and H4** (`tools/box/cloud/package-cloud.sh`, the release engineer's). The steps are
+   Epic's recording workflow for bundled pipeline caches; the variables named were checked in 5.9's `ShaderPipelineCache.cpp`;
+   **none of it was run in this lane**:
+   - in `Config/DefaultGame.ini` `[/Script/UnrealEd.ProjectPackagingSettings]`: `bShareMaterialShaderCode=True` (the cook then
+     writes the stable shader keys, `.shk`, under `Saved/Cooked/Linux/MurderInc/Metadata/PipelineCaches`);
+   - record: run the packaged Development game with `-logPSO` on SM5 (`-sm5`, the E3DS path) through the front end, every
+     set-up screen, a Story run and two Hold the Block waves, under `runas=fresh clean=1`; it writes
+     `Saved/CollectedPSOs/*.rec.upipelinecache`;
+   - expand: `UnrealEditor-Cmd MurderInc.uproject -run=ShaderPipelineCacheTools expand <recordings> <.shk files>
+     MurderInc_SF_VULKAN_SM5.spc`, put the `.spc` in `unreal/MurderInc/Build/Linux/PipelineCaches/` and cook again;
+   - in the game: `r.ShaderPipelineCache.Enabled=1` (with PSO precaching on, 5.9 then precompiles the global shaders from
+     it, `r.ShaderPipelineCache.GlobalShadersOnlyWhenPSOPrecaching`), at start-up while the title waits for its viewer;
+   - prove: `pso_frames.py` (the hitch lane's) on a cold `sm-story.txt` run lists no PSO creation hitch after the title, and a
+     cold `sm-hold.txt` run (the fight 3 s after the process) has no train of 33 ms frames in its first 40 s.
+2. **Draw the Crew stage once behind the CLICK TO PLAY card** (front end, `UI/MIShowroom.cpp` / `SMIFrontEnd.cpp`, the menu
+   readiness fixer's): the Crew screen's first draw is a 108 to 160 ms frame of PSO creation (H3); C2's preload took its
+   loads away, not its shaders. Spawning the stage and its arms hidden-but-rendered for one frame while the click card
+   covers the picture moves that frame where nothing moves.
+3. **`grips.json` is parsed on every equip** (`Weapons/MIFirstPersonRig.cpp`, the hands engineer's; the CPU lane's C2): keep
+   the parsed `TSharedPtr<FJsonObject>` in a function-local static, filled on the first `Equip`, so a gun switch stops reading
+   and parsing 62 KB. With C2's preload the switch's asset loads are already gone (`p-c2-on`: game thread worst 7.1 ms at
+   the switches against 19.6 ms).
+4. **Pixel Streaming's capture wait** (H5): keep `PixelStreaming2.UseMediaCapture` at its default (the other capturer had four
+   times the frames over 100 ms, `p-long-rhicap`). What is left is in the engine's plugin: `UPixelCaptureMediaCapture::WaitForGPU`
+   polls its fence for up to 100 ms (`Engine/Plugins/Media/PixelCapture/.../PixelCaptureCapturerMediaCapture.cpp:256-266`); a
+   change there (flush to the RHI thread before polling, or a shorter wait) is an engine change and was not made. About one
+   such frame every two to three minutes of play on the box; whether E3DS's machine has them is for its probe lines to say
+   (`worstMs` over 100 with `gpuMs` under the frame).
+5. **The release package**: run `p-hs-before` / `p-hs-after`'s line (`sm-hold.txt`, `l20`, `spike=75:60:0.3:0`) on it with
+   this lane's copy of `lag-test.sh` (or add the `spike=` key to the branch's): the target must be back at 60 within
+   30 s of the extra load's end. And `q2.txt` (Graphics quality presses): no frame over 50 ms after a press.
+6. **Memory**: the preload keeps every gun, part and clip the data names in memory (at most 3,206 MB resident in `p-c2-on`
+   against 3,180 MB in `p-c2-off`: +26 MB for the trial's 114 assets). `MI.Preload 0` in the cloud profile switches it off if E3DS's
+   4 to 6 GB budget ever needs it.
+7. **A side effect to know about**: in `p-c2-on` the trial's game did **not** crash after its gun switches (exit 0 at 191 s),
+   where `p-c2-off`, the same binary with the preload off, crashed at the periodic collection after the switch to gun 1
+   (`Signal 11 caught`, exit 139: C1 / H1). The preload keeps the old gun's clips referenced, so the collector cannot free
+   what the anim instance still reads. One run each: not a proof, and not the fix (the fix is `HeldClips` in the branch).
+8. **The set-up screens' rebuild still costs a frame per key press** (H6, `UI/SMIFrontEnd.cpp` / `MIFrontEnd.cpp`, the menu
+   fixer's): after M1 the 8 to 12 ms are in `TickActors` instead of `UI` (`p-menus-m1`). A frame that has to fit a rebuild
+   and the game in 16.7 ms misses and shows as 27 to 30 ms. Ways out that change no screen: rebuild only the column that
+   changed (the focus moved within one list), or build the next screen's widgets in the frame after the key press and swap
+   them in when built.
+
+### The suite
+
+The whole suite (`tools/box/test.sh MurderInc`, golden replays included) in this lane's clone
+(`/project/ue/smooth/perf/repo-perf`: the branch, the twelve generated folders copied from `/project/ue/repo-guns` with the
+guns imported, `audio-import.sh` run once), built with `-MaxParallelActions=6`:
+
+| Commit | Result |
+|---|---|
+| `591ab43` (this lane's fixes merged with the branch at `04c66c8`) | `TESTS OK passed=218 failed=0 skipped=0`, 83 s |
+| `cdd5be3` (merged with `6192b07`) | `TESTS OK passed=218 failed=0 skipped=0`, 77 s |
+| `9032311` (merged with `1119352`: the bugs fixer's pause and focus changes in `MICloud.cpp` and `MIGameSubsystem.cpp`, merged without a conflict) | `TESTS OK passed=220 failed=0 skipped=0`, 78 s, 11 golden replays among them; pushed as `9248390` (the merge of two documentation commits on top) |
+
+No test was skipped, weakened or re-recorded. One test line changed meaning because the rule changed:
+`MurderInc.Cloud.FrameRate`'s "10 ms for a minute in live play: it does not rise in a fight" is now "it rises in play
+after 10 s", and the old assertion is kept, word for word, under `bRiseInPlay = false`. In `MurderInc.Cloud.QualityGuards`
+the case "the governor on its own drops to 45" runs with the old rule (with the new one the ladder's two steps bring 60
+back, which a new case asserts).
+
+### Files
+
+`/project/ue/smooth/perf/` on the box: `runs/<name>/` for every run named above (`game.log`, the CSV profile,
+`summary.txt`, `others.log`, `spike.log`), `q1.txt` (the queue), `gated.sh` (the queue runner and GPU claim, a copy of the
+hitch lane's), `tools/box/cloud/lag-test.sh` (the hitch lane's copy plus `spike=` and this lane's claim name), `hscripts/`
+(the scripts), `perf_sum.py`, `b3frames.py`, `c2frames.py`, `buckets.py`, `fd8/` (the worktree of `fd8ce12` with the
+patches), `p1-game.patch`, `p2-game.patch`. The packages are in `/tmp/smooth-perf/` (local disk: lost when the box stops).
