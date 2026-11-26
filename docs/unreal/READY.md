@@ -2,6 +2,12 @@
 
 One section per lane of the readiness pass. Every finding names the evidence it rests on (a picture, a log line, a number).
 
+> **For the v6 fixer (2026-11-26 ~22:40 UTC, the lead):** besides the items in this file, SMOOTH.md, PLAY.md and HANDS_R4.md 11 to 13,
+> also do the v6 shortlist of docs/unreal/POLISH.md (the cheap and safe polish items marked v6: the damage wedge timer, blast kills
+> without hit marker or kill tick, the invisible NEXT label, slider steps and repeat, HUD scale K = H/1080, plates and font for the
+> in-run warnings, prompt and location card), each built, in the suite and seen in a picture. Owner decisions in POLISH.md are not
+> to be made by the fixer.
+
 ## Go / no-go for E3DS (verifier lane, 2026-11-26, 01:00 to 01:30 UTC)
 
 **Verdict: GO WITH CAVEATS for version 6, packaged from `04c66c8cb4118c3ed13f858339ca99e949d3cef3`** (the branch head when
