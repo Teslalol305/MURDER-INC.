@@ -303,3 +303,164 @@ retune `e294785` on `04c66c8`: **217 passed, 0 failed** (83 s).
   READY.md M11).
 - Seen on the way, for the demo director's owner: its `goto` and `hunt` verbs search the simulation's own box world
   (dev only; the search is result-pure, it only reuses the search buffers).
+
+## Enemy deaths (the death lane)
+
+The owner, playing version 4: "enemies when killed crouch over they should have blood splatter and then fall to the floor".
+
+### Why a killed Goon crouched over
+
+The death itself worked as written: on the kill `AMIGoon::Sync` played one of the template's four death clips
+(`/Game/Characters/Mannequins/Anims/Death/MM_Death_{Front,Back,Left,Right}_01`, presentation.json `enemies.goon.death`) by
+the shot's direction, once, and held its last frame for the 45 s the rules keep a body. **Those clips never reach the
+floor.** Evaluated bone by bone in the editor (`/project/ue/play/death-run/py/clip.py`, its output `clip.txt`), the hips stay
+at standing height through every clip and the head comes down only part of the way:
+
+| Clip (length) | pelvis height over the root, start / 25 % / 50 % / 75 % / end | head height, start / end |
+|---|---|---|
+| Front (1.10 s) | 93 / 86 / 83 / 84 / 88 cm | 159 / 85 cm |
+| Back (1.10 s) | 93 / 85 / 93 / 85 / 85 cm | 159 / 121 cm |
+| Left (0.97 s) | 93 / 86 / 88 / 88 / 85 cm | 159 / 98 cm |
+| Right (1.10 s) | 93 / 86 / 88 / 87 / 83 cm | 159 / 74 cm |
+
+A man whose hips are 85 cm up and whose head is 74 to 121 cm up is bent double on his feet: "crouched over". The clips are
+the template's start of a fall that a ragdoll is meant to take over (they carry no root motion, the root slides 1.3 to 2.2
+m along the ground); played alone and held, they end in that pose. Nothing in the rules or the Goon's animation blueprint
+was wrong, and the hit volumes (off from the kill) were not involved.
+
+### What a death is now
+
+Presentation only: nothing below is read by the rules (`FMIEnemyField`), and the rules decide, as before, when a unit is
+dead, how long its body stays (`goon.bodyStay` 45 s, `goon.bodyFade` 3.2 s, the `poolBodies` cap) and when it is removed.
+
+- **The body falls from the killing hit as a ragdoll** (`AMIGoon::StartDeath`, `StartRagdoll`, `Enemies/MIEnemyActors.cpp`)
+  on the mannequin skeleton's own physics asset (`/Game/Characters/Mannequins/Rigs/PA_Mannequin`, 22 bodies; the Goons are
+  skinned on that skeleton bone for bone, CHARACTERS.md), set on the Goon's mesh at set-up (presentation.json
+  `enemies.goon.ragdoll.physicsAsset`; `/Game/Characters` is always cooked). The bodies are made from the pose of the frame
+  of the kill, so the fall starts from whatever the Goon was doing. The push is a change of speed (`enemies.goon.ragdoll`):
+  the whole body 110 cm/s along the shot (a head shot 140) and the bone that was hit 330 cm/s (the head 480: a head shot
+  snaps the head back); a blast throws the body 650 cm/s away from its centre and 320 cm/s up. The death clip still plays
+  underneath for the bones that have no body (fingers, twist bones), so the hands go slack; the support-hand IK lets go on
+  the frame of the kill.
+- **Bodies get in nobody's way.** The ragdoll's bodies are `PhysicsBody` objects that block world geometry (`WorldStatic`,
+  `WorldDynamic`) and ignore everything else: the player (`Pawn`), rounds (`Bullet`), sight lines (`Visibility`), the camera
+  and other bodies. The engine queries the rules make (rounds on `Bullet`, blast sight and wall probes on `WorldStatic` /
+  `WorldDynamic` objects, the player's sweeps on `Pawn`) cannot see them. The Goon's hit volumes are off from the kill on, as
+  before. Blood and bullet marks never land on a Goon (`bReceivesDecals` off on the body and its gun).
+- **At rest the body is frozen where it lies**: once the hips move under 18 cm/s for 0.5 s (after at least 1.2 s, at most
+  5 s) the simulation stops, the bodies are removed and the pose is kept (no pose update, no tick): a body on the floor
+  costs nothing until the rules remove it. A new unit in the slot gets its living mesh back (`AMIGoon::ResetBody`: physics
+  off, the mesh back on its place in the capsule, the animation blueprint).
+- **At most two ragdolls start in one frame** (`enemies.goon.ragdoll.startsPerFrame`): the deaths of a blast that kills a
+  wave fall one frame after another instead of in one long frame. The blood of every killing hit is out on the frame of the
+  hit.
+- **Blood** (`UMIEffects`, `Weapons/MIEffects.cpp`, presentation.json `fx.blood`). Every hit, as before: a short dark mist
+  out of the wound (3 puffs) and a spatter on the wall behind within 2.6 m. The killing hit adds (`UMIEffects::BloodKill`) a
+  heavier burst out along the shot (5 puffs; 7 and one back out of the entry for a head shot; 7 low and wide for a blast;
+  `fx.blood.color`, 0.35 to 0.65 s, falling as they slow), a spatter on the nearest surfaces behind the hit (up to two, within
+  3.2 m, larger on far walls) and drops on the ground just ahead. When the body comes to rest a **pool** spreads under the
+  hips (`UMIEffects::BloodPool`): about 1.1 m across over 6 s, glossy and nearly black-red (`MD_FX_Mark` kind 1.25, written
+  by `tools/box/fp/mi_fp_import.py fx`; a material made before this pass draws kind 1.25 as a spatter), faded out over 2.5 s
+  when the rules remove the body. Blood decals have a pool of their own (32: a body's pool is never taken by a bullet mark;
+  the marks keep their 72), the puffs 128 (were 96). Nothing is spawned or loaded at a death: decals, puffs and the physics
+  asset are made or loaded when the world begins play.
+- **Switch**: `mi.Goon.Ragdoll 0` (console, or the launch option `-MICVars=mi.Goon.Ragdoll=0`) gives the death clip back,
+  as before this pass.
+
+### The frames
+
+Play in editor on `L_Block`, a Story run, the world frozen for each picture (`tools/box/fp/death-shots.sh`, runs in
+`/project/ue/play/death-run/` on the box). Each sequence: the kill, then about 0.05, 0.25, 0.6 and 1.5 s after it.
+
+- **Before** (`mi.Goon.Ragdoll 0`, the death clip of version 4; run `old`): a Goon on the avenue by the burnt car, one round
+  to the chest. 1.5 s and 4.5 s after the kill (the two lower right pictures, from beside him) he is still on his feet, bent
+  double over his gun: exactly the owner's "crouch over", and he stays so until the rules remove him.
+  ![before](shots/play-death-before.jpg)
+- **After** (the ragdoll; run `s3`, the same spot): the round throws him back off his feet and he goes down beyond the
+  car. In this run the world was frozen when the kill came, and a ragdoll made in a frozen world is solved in steps of
+  microseconds: its joints throw it higher than they should (the second picture). The capture is fixed (the kill now comes
+  with the world at full speed, `death-shots.sh`); the pictures of the fixed capture are in `s4` on the box (below).
+  ![after](shots/play-death-after.jpg)
+- **Head shot** (a natural Goon on the cage's ledge, run `new`): he folds and drops off the ledge, limp.
+  ![head shot](shots/play-death-head.jpg)
+- Where the bodies come to rest, measured rather than pictured (the headless game, `/project/ue/play/death-run/null/staged.rest`,
+  the new log line `Goon <slot> at rest after ...`): staged on the avenue and shot from the front, from behind (turned
+  away), in the head, by a shop front (shot toward the wall) and on the shed's stair: at rest after 1.7 to 4.1 s, **1.0 to
+  1.6 m along the shot, hips 13 to 16 cm over the floor** (35 cm on the stair, hips 97 cm up its risers: lying on the
+  steps, not through them). The head-shot body staged under an awning fell the 4 m from it to the street and lay 16 cm over it.
+
+
+### Cost
+
+Measured headless first (the GPU was claimed by other lanes' gate runs for over an hour): the uncooked Development game on
+`L_Block`, `-NullRHI`, on CPUs 8 to 15 of the box (the other lanes' games were on 0 to 7), the death probe killing every
+living Goon in one frame through the weapon's damage path; the same run with `mi.Goon.Ragdoll 0` (the death clip of version
+4) for comparison. Runs `/project/ue/play/death-run/null/{hold,story}-{ragdoll,clip}.log`.
+
+| Deaths in one frame | Ragdoll starts (game thread) | Mean frame over the 3 s after (ragdoll / clip) | Note |
+|---|---|---|---|
+| 4 (Hold the Block, wave 1) | 2.29 ms in all, worst body 0.83 ms | 1.86 / 1.50 ms | |
+| 5 (Story, the avenue) | 3.36 ms, worst 1.35 ms | 1.72 / 1.37 ms | |
+| 5 (wave 2) | 2.80 ms, worst 0.66 ms | 2.01 / 1.38 ms | |
+| 7 (wave 3) | 3.67 ms, worst 0.63 ms | 2.02 / 1.57 ms | |
+| 8 (wave 4: the most Goons the game has alive at once, 8 of a wave of 13) | 4.09 ms, worst 0.59 ms | 1.90 / 1.56 ms | |
+
+So a ragdoll start costs **0.5 to 0.8 ms** of game thread (22 bodies and their joints; 0.6 ms on average over 29 bodies), and
+the bodies in flight add **0.35 to 0.6 ms a frame** for the second or two until they rest; at rest they cost nothing. With two
+starts a frame, the deaths add at most about 1.6 ms to any one frame. **Ten deaths at once** (more than the game ever fields:
+8 Goons is the most alive at once, Hold the Block wave 4) would start over five frames, about 1.2 to 1.6 ms each, and add
+about 0.7 ms a frame for two seconds. The worst single frames after a kill (4 to 14 ms) are the same with the clip (3.6 to
+10.5 ms): they are the kill's other work (the rules, the events, the HUD, the sound), not the fall. Headless, the bodies'
+pose updates are not drawn, so this understates the visible case slightly. In play in editor the numbers are not usable: the headless editor draws about 4 frames a second between
+pictures (frames of 240 to 450 ms whatever happens), so the editor runs under the gate's load were stopped.
+
+Seen on the way (not this lane's, for SMOOTH.md): the uncooked game logs `FlushAsyncLoading ... 1 QueuedPackages` about every
+two seconds in play, the same with and without the ragdoll (59 in each Hold the Block run), and one of them coincided with a
+133 ms frame in a wave-4 kill. Whether a cooked package does the same was not looked at here.
+
+### Tests
+
+`MurderInc.Death.Ragdoll` (`Tests/MIDeathTests.cpp`): a world with collision booted from level.json (as the run tests); one
+round kills the first living Goon. The rules' record of the killed unit (alive, active, mode, position, yaw, death direction,
+health) second by second for 6 s is identical with the ragdoll on and off; the body is a ragdoll answering to world geometry
+only (Pawn, Bullet, Visibility, Camera and PhysicsBody ignored), at rest and frozen within 6 s with its hips 16.7 cm and its
+head 4.5 cm over the ground (not under it, not crouched), its hit volumes off, and a round fired through where it lies is not
+stopped by it.
+
+The suite on the box (`tools/box/test.sh MurderInc`, the branch at `d469d73` with this lane's changes up to `2d2dc51`):
+**208 passed, 0 failed**, the golden replays among them, none changed or re-recorded.
+
+### Tools
+
+- `MI.Goon.Kill <count> [body|head|blast|drones] [max metres] [delay s] [x y [z]]` (development console,
+  `Enemies/MIDeathProbe.cpp`): kills the nearest living Goons through the weapon's damage path (one round from the eye, or a
+  blast beside them; `drones` the Buzzards, so a Hold the Block wave ends) and logs the frame times before and after, the
+  ragdoll start time and the bodies frozen; with `x y` the first body is staged there before it falls (presentation only: the
+  rules' unit stays where it was), for falls on stairs and by walls.
+- `tools/box/fp/death-shots.sh` (play in editor, the world frozen per picture, the kill at full speed, pictures from a
+  camera beside the body): front, head, back, the player's view, wall, stairs, blast; `OLD=1` with the ragdoll off for
+  the "before" frames. The headless runs: `/project/ue/play/death-run/null/run2.sh <label> "<console commands>" <script>`
+  (the uncooked game, `-NullRHI`, CPUs 8 to 15).
+- For the hands engineer: nothing needed from `MIFirstPersonRig.*`.
+
+### Still wrong
+
+- **The pictures of the fixed capture were not looked at**: the GPU was held by other lanes' gate runs for most of the pass
+  (about two hours of waiting in all); `run4.sh` on the box takes them when it gets the GPU (`/project/ue/play/death-run/s4/`:
+  front, head and back from a camera beside the body, the player's own view, the wall, the stair, a blast). Look at them
+  before the release; if the body still flies, the cause is not only the frozen capture.
+- **Blood is not proven in a picture.** The kill burst lives 0.35 to 0.65 s and the frozen pictures caught it small and far
+  (and under the gun); the spatters and the pool were not framed. The code paths ran (the probe counts the blood decals: 15
+  after the Story kills, 31 to 32 in the waves: the pool of 32 full), but nobody has seen the colour, size or the pool's
+  spread on screen. The pool needs `tools/box/fp/mi_fp_import.py fx` in the copy that packages (MD_FX_Mark kind 1.25);
+  without it a pool draws as a large spatter.
+- **Ten deaths at once were not reached**: the game never has more than 8 Goons alive (Hold the Block wave 4); 8 were
+  measured, 10 are extrapolated.
+- **The cost was measured headless and on the box's CPUs**, not under the gate's GPU load on 6 CPUs, and without drawing the
+  bodies; E3DS's 8 threads are slower. The per-frame start budget keeps the worst case at two ragdoll starts (about 1.6 ms).
+- **The gun stays in the dead hand** (it is attached to `hand_r`): it falls with the body rather than as a body of its own.
+- **Buzzards** keep their old death (not in this pass).
+- **Hit reactions** on non-lethal hits are the old 3-puff mist and spatter; no flinch animation was added.
+- A body staged onto a car or a ledge (the probe's staging) can start inside it and be thrown out; the rules never put a
+  living Goon inside a car, so this is the probe's, not the game's, but a Goon killed while overlapping a prop collider
+  would do the same.
