@@ -2,12 +2,13 @@
 // player's round or a blast does (through IMIDamageable, the same path as the weapon) and measures what the deaths cost
 // in the frames that follow. Not in the Shipping game.
 //
-//   MI.Goon.Kill <count> [body|head|blast|drones] [max metres] [delay s] [x y [z from]]
+//   MI.Goon.Kill <count> [body|head|blast|drones] [max metres] [delay s] [x y [z from [turn]]]
 //       kills the <count> nearest living Goons within the distance (0: any distance), each by one round from the
 //       player's eye at its body or head point (or one blast beside it on the player's side), after the delay (default
 //       1 s, 0: on the next frame), then logs, for the delay before and the 3 s after, the frame time, the game thread's time and the worst of each, the ragdoll start
 //       time of each body and how many bodies were frozen at the end. With x y (cm) the first body is staged there
-//       before it falls (on the ground under the point, traced down from z, default 400 cm), turned to the player:
+//       before it falls (on the ground under the point, traced down from z, default 400 cm), turned to the player and
+//       then by <turn> degrees (180: its back to the gun):
 //       a presentation test of a fall on stairs or against a wall; the rules' unit stays where it was. "drones" kills
 //       every living Buzzard at once instead (so that a Hold the Block wave ends and the next, larger one comes).
 
@@ -57,6 +58,7 @@ namespace MIDeathProbePrivate
 		FName Part = TEXT("body");
 		double MaxMetres = 0.0, Delay = 1.0;
 		TOptional<FVector> Stage;
+		double StageTurn = 0.0;
 		bool bFired = false;
 		FTSTicker::FDelegateHandle Handle;
 	};
@@ -119,9 +121,13 @@ namespace MIDeathProbePrivate
 				FHitResult Ground;
 				FCollisionQueryParams Q(SCENE_QUERY_STAT(MIDeathProbe), false, Me);
 				Q.AddIgnoredActor(Goon);
-				const FVector Feet = World->LineTraceSingleByChannel(Ground, S, S - FVector(0, 0, 2000.0), ECC_Visibility, Q) ? Ground.ImpactPoint : FVector(S.X, S.Y, 0.0);
+				// The ground under the point; where the art map has no collider there, the player's own floor height (a body
+				// staged into the ground would be thrown out of it by the solver).
+				const double MyFeet = Me->GetActorLocation().Z - Me->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+				const bool bGround = World->LineTraceSingleByChannel(Ground, S, S - FVector(0, 0, 2000.0), ECC_Visibility, Q);
+				const FVector Feet = bGround ? Ground.ImpactPoint : FVector(S.X, S.Y, MyFeet);
 				const FVector ToMe = Eye - Feet;
-				Goon->StageBodyAt(Feet, FMath::RadiansToDegrees(FMath::Atan2(ToMe.Y, ToMe.X)));
+				Goon->StageBodyAt(Feet, FMath::RadiansToDegrees(FMath::Atan2(ToMe.Y, ToMe.X)) + P.StageTurn);
 				UE_LOG(LogMI, Display, TEXT("MI.Goon.Kill: %s staged at %s"), *Goon->GetName(), *Feet.ToCompactString());
 			}
 			FMIDamage D;
@@ -259,6 +265,7 @@ namespace MIDeathProbePrivate
 			if (Args.Num() > 5)
 			{
 				Active->Stage = FVector(FCString::Atod(*Args[4]), FCString::Atod(*Args[5]), Args.Num() > 6 ? FCString::Atod(*Args[6]) : 400.0);
+				Active->StageTurn = Args.Num() > 7 ? FCString::Atod(*Args[7]) : 0.0;
 			}
 			Active->Handle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&Tick));
 			UE_LOG(LogMI, Display, TEXT("MI.Goon.Kill: %d %s in %.1f s"), Active->Count, *Active->Part.ToString(), Active->Delay);

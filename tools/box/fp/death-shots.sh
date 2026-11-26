@@ -43,9 +43,34 @@ unreal.SystemLibrary.execute_console_command(w, "MIPose %.0f %.0f %.0f %.1f %.1f
 PY
   pie_mcp py "$PIE_PY/_obs.py"
 }
-# seq <name> <MI.Goon.Kill arguments>: one kill and its frames
-seq() {
-  local n=$1; shift
+# cam <x> <y> <z> <pitch> <yaw>: the pictures from a camera there (the view target), not the player's eye; cam off: back
+cam() {
+  if [ "$1" = off ]; then
+    printf 'import unreal\nw = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world()\npc = unreal.GameplayStatics.get_player_controller(w, 0)\npc.set_view_target_with_blend(pc.get_controlled_pawn(), 0.0)\n"cam off"\n' > "$PIE_PY/_cam.py"
+  else
+    cat > "$PIE_PY/_cam.py" <<PY
+import unreal
+w = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world()
+pc = unreal.GameplayStatics.get_player_controller(w, 0)
+cams = [a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.CameraActor) if a.get_name().startswith("DeathCam")]
+if cams:
+    c = cams[0]
+else:
+    c = w.spawn_actor(unreal.CameraActor, unreal.Vector(0, 0, 0), unreal.Rotator()) if hasattr(w, "spawn_actor") else unreal.GameplayStatics.finish_spawning_actor(unreal.GameplayStatics.begin_deferred_actor_spawn_from_class(w, unreal.CameraActor, unreal.Transform()), unreal.Transform())
+    c.rename("DeathCam")
+c.set_actor_location_and_rotation(unreal.Vector($1, $2, $3), unreal.Rotator(roll=0.0, pitch=$4, yaw=$5), False, True)
+c.camera_component.set_field_of_view(50.0)
+pc.set_view_target_with_blend(c, 0.0)
+"cam at %.0f %.0f %.0f" % ($1, $2, $3)
+PY
+  fi
+  pie_mcp py "$PIE_PY/_cam.py"
+}
+
+# kseq <name> <side metres> <side degrees> <MI.Goon.Kill arguments>: one kill and its frames (named kseq: a function
+# called seq would hide the seq command that settle and the waits use)
+kseq() {
+  local n=$1 om=$2 od=$3; shift 3
   want "$n" || return 0
   m=$(wc -l < "$log")
   c "MI.Goon.Kill $*"
@@ -54,9 +79,9 @@ seq() {
   run 0.35; shot "$n-3"
   run 0.9; shot "$n-4"
   echo "$n: $(killed "$m")"
-  obs 3.2 70; run 0.05; shot "$n-5"
-  run 2.5; shot "$n-6"
-  tail -n +"$m" "$log" | grep -E "MI.Goon.Kill (result|before|first|after)" | cut -c1-260
+  if [ "$om" != 0 ]; then obs "$om" "$od"; run 0.05; fi
+  run 3.0; shot "$n-5"
+  tail -n +"$m" "$log" | grep -E "MI.Goon.Kill (staged|result)" | cut -c1-200
 }
 
 pie_start > /dev/null
@@ -70,49 +95,32 @@ printf 'god 1\n' > "$PIE_PY/_god.txt"; c "MIDemo.Run $PIE_PY/_god.txt"
 [ "${OLD:-0}" = 1 ] && c "mi.Goon.Ragdoll 0"
 run 1.0
 
-# front: a Goon in front at 7 m, one round to the chest
-c "MIFaceEnemy 7"; run 0.4
-seq front 1 body 12 0
-# head: the next one, a head shot
-c "MIFaceEnemy 6"; run 0.4
-seq head 1 head 12 0
-# back: the player behind the next Goon (its back to the gun)
-if want back; then
-  c "MIFaceEnemy 7"; run 0.3
-  cat > "$PIE_PY/_behind.py" <<'PY'
-import math, unreal
-w = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world()
-pawn = unreal.GameplayStatics.get_player_pawn(w, 0)
-me = pawn.get_actor_location()
-best = None
-for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor):
-    if a.get_class().get_name() == 'MIGoon' and a.get_actor_location().z > -50000:
-        l = a.get_actor_location()
-        d = math.hypot(l.x - me.x, l.y - me.y)
-        if best is None or d < best[0]:
-            best = (d, a)
-g = best[1]
-l, f = g.get_actor_location(), g.get_actor_forward_vector()
-x, y = l.x - f.x * 600, l.y - f.y * 600
-unreal.SystemLibrary.execute_console_command(w, "MIPose %.0f %.0f %.0f %.1f -4" % (x, y, l.z - 90, math.degrees(math.atan2(f.y, f.x))))
-"behind %s" % g.get_name()
-PY
-  pie_mcp py "$PIE_PY/_behind.py"; run 0.02
-  seq back 1 body 12 0
-fi
-# blast: a blast between the player and the next Goon
+# Staged bodies (MI.Goon.Kill ... x y z [turn]: the body stands there before it falls; the rules' unit stays where it was)
+# on the open street where a Story run starts, the player 6 m west of the body, the pictures from a camera 4.5 m to the side
+# (the player's own view: the -fp pictures). Then the stairs and a wall, and a natural blast kill seen from beside.
+c "MIPose -3740 815 0 0 -4"; run 0.3
+cam -3140 380 175 -18 90
+kseq front 0 0 1 body 0 0 -3140 815 400
+c "MIPose -3740 815 0 0 -4"; run 0.3
+kseq head 0 0 1 head 0 0 -3140 815 400
+c "MIPose -3740 815 0 0 -4"; run 0.3
+kseq back 0 0 1 body 0 0 -3140 815 400 180
+cam off
+# the same, through the player's eyes
+c "MIPose -3740 815 0 0 -4"; run 0.3
+kseq frontfp 0 0 1 body 0 0 -3140 815 400
+# wall: the body 60 cm in front of the shop fronts on the south side, shot toward the wall, the camera along the wall
+c "MIPose -570 -390 0 -90 -4"; run 0.3
+cam -170 -760 170 -18 -157
+kseq wall 0 0 1 body 0 0 -570 -930 400
+# stairs: on the shed's stair (12 risers, X -260 to 100, Y 900 to 1090), shot from the street, the camera beside the stair
+c "MIPose -560 640 0 40 8"; run 0.3
+cam -360 700 320 -22 45
+kseq stairs 0 0 1 body 0 0 -60 1000 600
+cam off
+# blast: a blast beside the nearest living Goon, wherever it is, seen from beside the body
 c "MIFaceEnemy 8"; run 0.4
-seq blast 1 blast 12 0
-# stairs: staged on the shed's stair (12 risers, X -260 to 100, Y 900 to 1090), shot from the street below
-if want stairs; then
-  c "MIPose -560 640 0 40 8"; run 0.3
-  seq stairs 1 body 0 0 -60 1000 600
-fi
-# wall: staged 70 cm in front of the shop front on the north lane, shot toward the wall
-if want wall; then
-  c "MIPose 170 -380 0 -90 -2"; run 0.3
-  seq wall 1 body 0 0 170 -900 400
-fi
+kseq blast 3.5 90 1 blast 0 0
 # ten at once (the cost probe's frames)
 if want ten; then
   c "MIPose -2900 80 0 0 -3"; run 0.3
