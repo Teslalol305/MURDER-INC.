@@ -92,9 +92,11 @@ def load(path, name, col=None, merge=True):
             nm = n.image.name.lower()
             if "normal" in nm:
                 tex["normal"] = _image_array(n.image, False, cache)
-            elif "rough" in nm or "metal" in nm:
-                a = _image_array(n.image, False, cache)
+            elif "rough" in nm or "metal" in nm or nm.startswith("orm") or "_orm" in nm:
+                a = _image_array(n.image, False, cache)      # glTF packing: R occlusion (Tripo's ORM), G rough, B metal
                 tex["rough"], tex["metal"] = a[..., 1].copy(), a[..., 2].copy()
+                if nm.startswith("orm") or "_orm" in nm:
+                    tex["ao"] = a[..., 0].copy()
             else:
                 tex["bc"] = _image_array(n.image, True, cache)
         if "bc" in tex:
