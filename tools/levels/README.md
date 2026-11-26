@@ -20,6 +20,7 @@ MAPS.md E2's fallback (see `el` below). The build is deterministic: the same tab
 | `navgrid.py` | The checker's mirror of the engine's rules: FMIBoxWorld::RebuildNav for the street plane, the "boxes" layer rule of midtown.md 17.3 for roofs, A* (8 neighbours, no corner cutting), the box ray cast, and a 0.25 m flood of the player's capsule that follows MoveCapsule and ScanColumn (radius 0.32, footprint 0.7 r, step 0.42, a jump climbs 1.0 + 0.08 m) |
 | `check_level.py` | The checks (below) |
 | `plot_level.py` | The plan pictures |
+| `data/level_<id>.json`, `data/audio_<id>.json` | The level files and their audio zones (D3, D4) |
 | `reports/check_<id>.json` | Every check's result and numbers, the guide paths of all six reel orders, the falls found (none) |
 
 ## What the files hold
@@ -113,12 +114,15 @@ Midtown:
 - **Midtown legs vs the design (WARN).** Start -> Reel 7 42.2 m (design 37) and Reel 8 -> Reel 9 128.9 m (design 108):
   the scaffold's eight flights and landings walked as a polyline are about 45 m, longer than the design counted. The
   rating times (330 s / 480 s) should be re-checked in the grey box.
-- The engine bake (D2), nav step A (N1 to N4) and the loader's `el`/`ForLevel` (E1, E2) are C++: nothing here
-  replaces them. The checks above are design checks; Levels.<Id>.Loads / .Nav / .Reach / .Edges / .ReelRooms in the
+- Nav step A (N1 to N4) and the loader's `el`/`ForLevel` (E1, E2) are C++ for lanes N and E: nothing here replaces
+  them. The checks above are design checks; Levels.<Id>.Loads / .Nav / .Reach / .Edges / .ReelRooms in the
   engine stay the authority.
 - Collider counts are 336 (Canal) and 422 (Midtown), well under the caps: the designs' planned street clutter (about
   230 small colliders on Canal) is left for the art lanes to add with their placements, inside the caps.
 - Cover points: 150 (Canal, design about 112) and 138 (Midtown, design 110, only 2 on W 46 St against 10 planned:
   the street has few solids yet). The bake re-filters them.
-- props_<id>.json, atmos_<id>.json and audio_<id>.json (D3, D4) are not written yet; the level files carry what they
-  need (propPlacements, the lights' positions are the art lanes', the audio zones are in the designs' tables).
+- `audio_<id>.json` (zones in audio.json's schema, the beds and one-shots as names for the audio lane) is written next
+  to each level file. props_<id>.json and atmos_<id>.json are not: the level files carry `propPlacements` and the
+  sign faces, and the night rigs and lights are lane L's.
+- The engine bake is a patch, not built: docs/unreal/patches/maps-D (the street grids with FMIBoxWorld's code now; the
+  roof grids when nav step A exists).

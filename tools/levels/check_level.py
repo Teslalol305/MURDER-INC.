@@ -175,6 +175,12 @@ def check_colliders(doc, boxes, rep, exp):
             bad.append(("pos", i))
     rep.add("colliders.explosiveIndices", not bad, bad or "every explosives.items[i].collider is owner {explosive: i} and sits under the item")
     thin = [b["index"] for b in boxes if not b["flags"]["bulletOnly"] and min(b["max"][k] - b["min"][k] for k in range(3)) < 0.05]
+    try:
+        akeys = set(json.load(open(os.path.join(ROOT, "unreal", "MurderInc", "Content", "Data", "audio.json")))["surfaces"]) - {"about"}
+        used = {b["surface"] for b in doc["colliders"]["boxes"]} | {s["surface"] for s in doc["ground"]["surfaces"]}
+        rep.add("colliders.surfacesKnown", used <= akeys, sorted(used - akeys) or "every collider and ground surface is a key of audio.json surfaces (%s)" % ", ".join(sorted(used)))
+    except OSError:
+        pass
     rep.add("colliders.noThinMovementBoxes", not thin, thin or "no movement-blocking collider thinner than 0.05 m")
     # explosives keep 4 m from reels, the extraction and doorway centres (chinatown.md 9)
     reels = [W(o["web"]["pos"]) for o in doc["objectives"]]

@@ -161,6 +161,11 @@ def build(level_id, out_dir, el_fallback=False):
     doc = L.to_json(facings, covers, "tools/levels/build_level.py (layout table tools/levels/layouts/%s.py)" % level_id,
                     el_fallback=el_fallback)
     os.makedirs(out_dir, exist_ok=True)
+    audio = doc.pop("_audio", None)
+    if audio:
+        with open(os.path.join(out_dir, "audio_%s.json" % level_id), "w", encoding="utf-8") as f:
+            json.dump(audio, f, indent=1, ensure_ascii=False)
+            f.write("\n")
     path = os.path.join(out_dir, "level_%s.json" % level_id)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(doc, f, indent=1, ensure_ascii=False)

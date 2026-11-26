@@ -309,23 +309,23 @@ def build():
     for k in range(1, 6):
         z0, z1 = -22 - 1.5 * k, -22 - 1.5 * (k - 1)
         t = round(SW + 0.4 * k, 3)
-        L.box("stand", 10, 13, SW, t, z0, z1, surface="steel", part="stand.tier%d.west" % k)
-        L.box("stand", 19, 22, SW, t, z0, z1, surface="steel", part="stand.tier%d.east" % k)
+        L.box("stand", 10, 13, SW, t, z0, z1, surface="metal", part="stand.tier%d.west" % k)
+        L.box("stand", 19, 22, SW, t, z0, z1, surface="metal", part="stand.tier%d.east" % k)
     for k in range(6, 9):
         z0, z1 = -22 - 1.5 * k, -22 - 1.5 * (k - 1)
         t = round(SW + 0.4 * k, 3)
-        L.box("stand", 10, 22, t - 0.3, t, z0, z1, surface="steel", part="stand.tier%d" % k)
+        L.box("stand", 10, 22, t - 0.3, t, z0, z1, surface="metal", part="stand.tier%d" % k)
     for x0, x1, side in ((10, 10.6, "west"), (21.4, 22, "east")):
-        L.box("booth", x0, x1, SW, 3.05, -34, -33, surface="steel", part="booth.wall." + side)
-        L.box("booth", x0, x1, 2.15, 3.05, -33, -32.5, surface="steel", part="booth.wall.%s.lintel" % side)
-        L.box("booth", x0, x1, 2.15, 2.65, -32.5, -31, surface="steel", part="booth.wall.%s.lintel" % side)
-        L.box("booth", x0, x1, SW, 2.25, -31, -29.5, surface="steel", part="booth.wall." + side)
-    L.box("booth", 10, 22, SW, 3.35, -34.3, -34, surface="steel", part="booth.wall.back")
-    L.box("booth", 10.6, 13, SW, 2.25, -29.5, -29.2, surface="steel", part="booth.wall.front")
-    L.box("booth", 19, 21.4, SW, 2.25, -29.5, -29.2, surface="steel", part="booth.wall.front")
-    L.box("booth", 13, 19, SW, 1.0, -29.5, -29.2, surface="steel", part="booth.slot.sill")
-    slot = L.guard("booth-slot", 13, 19, 1.0, 2.0, -29.5, -29.2, part="booth.slot.frame", surface="steel")
-    L.box("booth", 13, 19, 2.0, 2.25, -29.5, -29.2, surface="steel", part="booth.slot.head")
+        L.box("booth", x0, x1, SW, 3.05, -34, -33, surface="metal", part="booth.wall." + side)
+        L.box("booth", x0, x1, 2.15, 3.05, -33, -32.5, surface="metal", part="booth.wall.%s.lintel" % side)
+        L.box("booth", x0, x1, 2.15, 2.65, -32.5, -31, surface="metal", part="booth.wall.%s.lintel" % side)
+        L.box("booth", x0, x1, SW, 2.25, -31, -29.5, surface="metal", part="booth.wall." + side)
+    L.box("booth", 10, 22, SW, 3.35, -34.3, -34, surface="metal", part="booth.wall.back")
+    L.box("booth", 10.6, 13, SW, 2.25, -29.5, -29.2, surface="metal", part="booth.wall.front")
+    L.box("booth", 19, 21.4, SW, 2.25, -29.5, -29.2, surface="metal", part="booth.wall.front")
+    L.box("booth", 13, 19, SW, 1.0, -29.5, -29.2, surface="metal", part="booth.slot.sill")
+    slot = L.guard("booth-slot", 13, 19, 1.0, 2.0, -29.5, -29.2, part="booth.slot.frame", surface="metal")
+    L.box("booth", 13, 19, 2.0, 2.25, -29.5, -29.2, surface="metal", part="booth.slot.head")
     L.prop("booth_desk", [(14.4, 17.6, SW, 0.95, -34.0, -33.4, "metal")], extra={"what": "the premiere desk, monitors without a brand"})
     L.prop("booth_rack", [(19.8, 21.2, SW, 1.9, -34.0, -33.2, "metal")])
 
@@ -515,6 +515,30 @@ def build():
                "designLegs": [{"from": "start", "to": "reel7", "m": 37}, {"from": "reel7", "to": "reel8", "m": 47},
                               {"from": "reel8", "to": "reel9", "m": 108}, {"from": "reel9", "to": "extraction", "m": 75}]}
     L.drops = drops
+    L.extra["_audio"] = {
+        "meta": {"file": "audio_midtown.json", "about": "Midtown's audio zones and beds (midtown.md 13), audio.json's zone schema, "
+                 "named by levels.json data.audio; no El and no train here (MAPS.md E6).", "generator": "tools/levels/build_level.py"},
+        "zones": {
+            "about": "web units; each zone has a fade margin; the strongest wins (audio.json zones). There is no roof preset "
+                     "yet: the roofs use street with their own bed",
+            "street": {"preset": "street", "default": True},
+            "roofs": {"preset": "street", "box": [[-50, 12, -38], [-3, 40, 22]], "fade": 3.0, "bed": "bed_roofs_wind"},
+            "square": {"preset": "street", "box": [[-8, 0, -38], [31, 12, 22]], "fade": 3.0, "bed": "bed_square_premiere"},
+            "w46": {"preset": "street", "box": [[-50, 0, 22], [31, 12, 37]], "fade": 3.0, "bed": "bed_w46_traffic"},
+            "bulkheadA": {"preset": "shop", "box": [[-48, 21.2, -37], [-44, 24.0, -33]], "fade": 1.5, "interior": True},
+            "tankHouse": {"preset": "shop", "box": [[-22, 17.6, -35], [-16, 20.4, -29]], "fade": 1.5, "interior": True},
+            "machineRoom": {"preset": "shop", "box": [[-40, 17.6, -8], [-34, 20.6, -2]], "fade": 1.5, "interior": True},
+            "serviceStair": {"preset": "shop", "box": [[-13, 0, 4], [-8, 16.8, 10]], "fade": 1.5, "interior": True},
+            "booth": {"preset": "shop", "box": [[10.6, 0.15, -34], [21.4, 2.25, -29.5]], "fade": 1.5, "interior": True},
+        },
+        "ambience": {"beds": {"night": "bed_night_midtown"}, "train": None,
+                     "oneShots": {"about": "midtown.md 13: new sounds for the audio lane (none exist yet)",
+                                  "hvac_hum": {"points": [[-35.5, 22.7, -16], [-44.7, 22.7, -30], [-40, 19.0, 4.5], [-43, 15.4, 13], [-15.2, 19.0, -13.7], [-11.2, 19.0, -13.7]], "range": 6.0},
+                                  "premiere_loop": {"from": "the screens' speakers", "note": "invented instrumental, no real song"},
+                                  "crowd_murmur": {"place": "behind the north barricades"}, "generator_hum": {"pos": [20.0, 0.8, -20.6]},
+                                  "truck_arrival": {"on": "all reels secured", "note": "engine and air brakes, then idle"},
+                                  "g1_glitch": {"on": "objective:secured reel8"}, "ipx_takeover": {"on": "all reels secured"}}},
+    }
     L.tuning = {"source": "midtown.md 7.1, 16.3: the level's adds over config.json (absent for the Block)",
                 "buzzard": {"maxAltitude": 36},
                 "difficulty": {"waveAdd": {"buzzard": 1}, "waveAddOn": ["boss", "kingpin"], "pursuitBudgetAdd": 2},
@@ -545,12 +569,12 @@ def build():
     L.puddles = [(-3.2, -20, 1.0), (7.4, -14, 0.8), (-3.2, 10, 0.9), (23.0, 20, 1.2), (5.0, 33.0, 1.4), (-20.0, 25.0, 1.0)]
     for name, r in (("asphalt", rect(-4, 8, -38, 24.5)), ("asphalt", rect(22, 28, -38, 24.5)), ("asphalt", rect(-50, 31, 24.5, 33.5)),
                     ("concrete", rect(-8, -4, -38, 22)), ("concrete", rect(28, 30, -38, 22)), ("concrete", rect(-50, 31, 22, 24.5)),
-                    ("concrete", rect(-50, 31, 33.5, 36)), ("granite", rect(8, 22, -38, 22)), ("gravel", rect(-50, -30, -38, -12)),
-                    ("bitumen", rect(-50, -30, -12, 22)), ("gravel", rect(-28, -8, -38, -4)), ("bitumen", rect(-28, -8, -4, 22)),
-                    ("grating", rect(-8, -4.5, -2, 14)), ("steel", rect(-8, -3, 14, 20)), ("steel", rect(10, 22, -34, -22))):
+                    ("concrete", rect(-50, 31, 33.5, 36)), ("concrete", rect(8, 22, -38, 22)), ("asphalt", rect(-50, -30, -38, -12)),
+                    ("asphalt", rect(-50, -30, -12, 22)), ("asphalt", rect(-28, -8, -38, -4)), ("asphalt", rect(-28, -8, -4, 22)),
+                    ("metal", rect(-8, -4.5, -2, 14)), ("metal", rect(-8, -3, 14, 20)), ("metal", rect(10, 22, -34, -22))):
         L.surfaces.append({"surface": name, "rect": r})
-    L.deviations.append("ground.surfaces uses the design's surface words (granite, gravel, bitumen, grating, steel); the audio "
-                        "lane maps them onto audio.json's surface keys.")
+    L.deviations.append("surfaces use audio.json's keys: the design's granite, gravel, bitumen, grating and steel (16.3) are "
+                        "concrete, asphalt, asphalt, metal and metal, so footsteps and impacts resolve.")
     for h, r, what in ((0.0, rect(-4, 8, -38, 24.5), "Seventh Av roadway"), (0.0, rect(22, 28, -38, 24.5), "Broadway roadway"),
                        (0.0, rect(-50, 31, 24.5, 33.5), "W 46 St roadway"), (SW, rect(-8, -4, -38, 22), "west sidewalk"),
                        (SW, rect(8, 22, -38, 22), "the plaza"), (SW, rect(28, 30, -38, 22), "east sidewalk"),

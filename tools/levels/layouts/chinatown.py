@@ -429,6 +429,29 @@ def build():
             (33.8, -7, "neon workshop door"), (33, 18.2, "banquet main doors"), (18.2, 25.5, "dub room roll-up"),
             (26.15, 27, "dub room partition door"), (39, 27.1, "banquet kitchen door"))],
     }
+    L.extra["_audio"] = {
+        "meta": {"file": "audio_chinatown.json", "about": "Canal Street's audio zones and beds (chinatown.md 12), audio.json's zone "
+                 "schema, named by levels.json data.audio; read only when the loaded level is chinatown (MAPS.md E6). The "
+                 "Block's underEl and chop-shop boxes must not apply here.", "generator": "tools/levels/build_level.py"},
+        "zones": {
+            "about": "web units; each zone has a fade margin; the strongest wins (audio.json zones)",
+            "street": {"preset": "street", "default": True},
+            "market": {"preset": "shop", "box": [[-25.6, 0, -13.6], [-0.4, 5.4, 5.6]], "fade": 1.5, "interior": True},
+            "bakery": {"preset": "shop", "box": [[0.4, 0, -13.6], [7.6, 5.4, 9.6]], "fade": 1.0, "interior": True},
+            "arcade": {"preset": "underEl", "box": [[29.4, 0, -14], [33.6, 4.2, 2]], "fade": 1.5},
+            "banquet": {"preset": "shop", "box": [[26.3, 0, 18.4], [43.6, 5.0, 31.6]], "fade": 1.5, "interior": True},
+            "dubRoom": {"preset": "shop", "box": [[18.4, 0, 18.4], [26.0, 4.2, 31.6]], "fade": 1.0, "interior": True},
+            "alleyA": {"preset": "underEl", "box": [[-30, 0, -14], [-26, 18, 14]], "fade": 2.0},
+            "alleyB": {"preset": "underEl", "box": [[-30, 0, 10], [8, 18, 14]], "fade": 2.0},
+        },
+        "ambience": {"beds": {"night": "bed_night_canal"}, "train": None,
+                     "oneShots": {"about": "chinatown.md 12: new sounds for the audio lane (none exist yet)",
+                                  "bridge_rumble": {"every": [90, 150], "place": "far east"},
+                                  "mahjong_tiles": {"pos": [20, 6.0, -33.2], "loop": True},
+                                  "talk_radio": {"pos": [8.2, 2.0, 18.0], "loop": True, "note": "invented content, from the grocery"},
+                                  "transformer_hum": {"near": "every lit sign", "range": 4.0},
+                                  "kitchen_fans": {"near": "alley A and B back doors"}, "fish_tank_pumps": {"pos": [-1.0, 1.0, -6.0]}}},
+    }
     L.tuning = {"source": "chinatown.md 8.1, 15: the level's adds over config.json (absent for the Block)",
                 "difficulty": {"maxAliveAdd": 1}, "spawn": {"excludePlayerRoom": True}, "startPitch": 4}
     L.vantage = {"source": "the yard stair's foot and a point on the market roof", "web": {"stairsFoot": {"x": -9.4, "y": 0, "z": 7.7}, "deck": {"x": -12, "y": ROOF, "z": -4}},
