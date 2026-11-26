@@ -605,3 +605,16 @@ setting". Asked, the owner chose Level 1 = the Block (the street under the El, a
 Midtown rooftops / Times Square, and "Ship fixes, then maps": the guns-and-fixes release (v6, the GO criteria of 20:40 to 21:20) goes
 out as soon as it passes every check, with one map; the three-level story is the next release and meets the same bar. Design and
 build plan: docs/unreal/MAPS.md and docs/unreal/maps/ (workflow mi-maps-design). Invented names only on signs and billboards.
+
+## 2026-11-26 ~02:00 UTC: the owner's answers on the three-map plan (docs/unreal/MAPS.md)
+
+1. Session limit 30 minutes (the whole three-level story in one sitting; at most 10 full sessions on 300 minutes a month).
+2. Levels 2 and 3 locked in order: clearing a level's story on any difficulty opens the next.
+3. Progress: the 8-character progress code on every results screen AND the browser save through a small message handler on the IPX page.
+4. Canal Street signs in English only: no Chinese characters (no outside reader needed); Chinatown reads through architecture, lanterns,
+   the market and English shop names (invented, as everywhere).
+Not yet answered (defaults of MAPS.md stand until the owner says otherwise): the nine-masters story with an unnamed buyer, night for both
+new maps, the invented sign and billboard names (to be shown to the owner before the sign art is final), the Hold mode names, the far
+bridge silhouette behind Canal Street.
+Readiness pass verdict (READY.md): go with caveats for v6 from 04c66c8 (suite 217/217), stream at 1920x1080 only (2560x1440 does not
+hold 60 at the viewer; 3840x2160 kills the encoder, now clamped in code), E3DS settings in LAUNCH.md 9.5.
