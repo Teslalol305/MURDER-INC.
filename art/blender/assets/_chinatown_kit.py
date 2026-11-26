@@ -531,6 +531,14 @@ def m_goods(ctx, M, kind):
         what = "ten unbranded handbags in two rows (no logo, monogram or pattern)"
     elif kind == "Caps":                                                                        # a pegboard of caps
         bx(b, (-0.45, -0.03, 0.0), (0.45, 0.03, 0.90), "ply", ch=0.004)
+        # the back (seen from the street side): a timber frame with a mid rail and a diagonal brace, not a blank plywood slab
+        for x0, x1, z0, z1 in ((-0.45, -0.40, 0.0, 0.90), (0.40, 0.45, 0.0, 0.90), (-0.45, 0.45, 0.0, 0.05), (-0.45, 0.45, 0.85, 0.90),
+                               (-0.45, 0.45, 0.43, 0.48)):
+            bx(b, (x0, 0.03, z0), (x1, 0.07, z1), "timber", ch=0.003, pin=False)
+        rod(b, (-0.40, 0.07, 0.05), (0.40, 0.07, 0.43), 0.022, "timber", n=6)
+        rod(b, (0.40, 0.07, 0.48), (-0.40, 0.07, 0.85), 0.022, "timber", n=6)
+        for sx in (-0.28, 0.28):                                                              # two clipped price tags on the back
+            bx(b, (sx - 0.05, 0.07, 0.60), (sx + 0.05, 0.075, 0.68), "clothLight", pin=False)
         for i in range(12):
             x, z = -0.33 + (i % 4) * 0.22, 0.18 + (i // 4) * 0.26
             cap = geo.sphere(0.085, 10, 5)
