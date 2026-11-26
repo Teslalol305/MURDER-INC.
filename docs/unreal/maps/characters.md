@@ -824,3 +824,183 @@ and the most stretched Vulture in the bending poses, because of the coat skirt.
 **Credits (this character):** 18 (one Tripo take, detailed, 110k; `get_cost` checked
 first); the sheet's 3.25 is in section 5. The diagnostic fit tests and clay pose renders ran in Blender only. No GPU
 box was rented or used.
+
+## 11. Review round: what the art review found and what changed
+
+The art review of the six builds raised ten items (F1 to F10). Each is fixed in the shared pipeline
+(`art/blender/assets/vultures.py`), so one build command per character rebuilds it with all of them:
+
+    venv/bin/python art/blender/build.py build vultures --only <id> --export --preview --samples 32
+    venv/bin/python art/blender/assets/_vultures_lineup.py --samples 32        # the two crews side by side
+
+All six were rebuilt this way (about 60 s to the export, 4 to 5 minutes of previews each). The numbers in 11.9
+replace those of sections 4 and 6 to 10 where they differ.
+
+### 11.1 Hands on the finger bones (F3)
+
+Before: every Vulture weighted 36 of the 89 joints and none of the 38 finger bones (their weights folded into
+`hand_l` / `hand_r`), so the SMG was held by a flat paddle; SK_Goon_Hoodie weights 74 joints. Now `fit_hands` fits
+the mannequin's hand to the glove before the weights are copied: it turns the hand about the wrist onto the glove's
+wrist-to-fingertip line (1 to 20 degrees), rolls it so the knuckle line (index to pinky) lies across the glove's widest
+direction (70 to 82 degrees on five figures: their hands hang palm-in, the mannequin's palm-down; 1 to 4 degrees on the
+lookout), and scales it to the glove's length (x 1.18 to 1.25, the gloves are longer than the mannequin's bare hand). The finger weights are kept,
+the segment labels' hand chain runs to the middle fingertip, and the same fit is put back for the round trip (still
+exact). Result: 63 to 69 joints weighted, 1,570 to 2,890 vertices per figure on finger bones, the fingers close round
+the grip in the aim and the jog (`vulture_<id>_hands.jpg`: aim right and left hand, jog, reference pose).
+
+### 11.2 Under-arm fins and the poses the ragdoll reaches (F2)
+
+The reference pose holds the arms about 21 degrees higher than the generated figures, and the surface fused between
+the inner sleeve and the side of the coat was torn into flat sheets between an arm-weighted strip and a torso-weighted
+one (the `rest_stretch` of the check file: up to 292 edges over 4 x). The reviewer's proposal, binding to a mannequin
+with lowered arms, would change the exported reference pose and break the skeleton round trip against SKM_Manny_Simple
+that the import onto the shared `SK_Mannequin` relies on, so the fix is in the weights instead (`fin_band`):
+
+- the edges the reference pose stretches past 1.6 x their generated length (above the hips) seed a band, 6 cm and then
+  10 cm of geodesic radius; inside it the weights are replaced by the harmonic blend of the weights round it (Jacobi,
+  600 steps on the band only), so the opening spreads over the band instead of one row of edges;
+- more than 30 cm from the shoulder a weak arm share (under 0.5) fades out (canal_lieutenant: pelvis 0.66 + upper arm
+  0.25 on the coat's side at hip height dragged the hem after a raised arm, 9 vertices 7.9 cm out);
+- above the hips the torso share of a blended vertex hangs from the chest (spine_03, spine_04), not the pelvis
+  (roof_lieutenant: two clip frames 7.3 cm out).
+
+The pose check now also holds four extremes (`EXTREMES`): a T-pose, both arms overhead, a ragdoll thrown on its back
+(arms flung above the shoulders, legs apart) and one face down (an arm past the head, the other under the chest, a
+knee up): 103 poses in all. `vulture_<id>_extremes.jpg` shows the reference pose, the T-pose, arms up and the flung
+ragdoll from behind.
+
+### 11.3 The gate (F5) and the stale builds (F4)
+
+The pose check is now part of the verdict: the check file's top-level `ok` is the export checks (kept as `export_ok`)
+AND the pose check; a clip that cannot be loaded is a failure (it used to be recorded as a pass); the build logs
+`GATE FAILED` with the reason, and the manifest record carries `checks_ok` and the pose summary. The gate caught two
+regressions of this round's own first attempts (canal_lieutenant's hem, roof_lieutenant's coat side, 11.2) before
+they were committed. canal_shell and the first canal_lieutenant had been built before the earlier bind fixes; all six
+are now built from the same code.
+
+### 11.4 The eye band (F1, F8)
+
+roof_lieutenant's pink lids read as a red bar ("demon eyes") at 6 m, and five of six showed a photographic band of
+brows, lids and nose bridge, more than the Goons' r3 masks. Fixed in the texture, no credits: `eye_shadow` finds, on
+the bound mesh, the faces of the front of the head between 2 and 17 cm above the head joint, draws their UV triangles
+into a mask (grown 4 px), and turns every texel in it that is brighter than the mask's cloth into a dark neutral
+(luminance 0.010 linear, desaturated 70 %): the eyes in deep shadow inside the opening, as the Goons' recessed eyes.
+Where the head gear has saturated colour by the eyes (the lookout's amber lenses, the rigger's gear) strongly
+saturated texels are kept; on the four plain openings (shell, bomber, both lieutenants) warm saturated texels are
+darkened however dark they are (roof_lieutenant's red lids were only about 0.02 linear, so a first pass that went by
+brightness alone left a red slit at 1 m). The relief stays in the normal map. With the skin gone, no skin tone is readable on any Vulture: the crews are told apart by clothes and gear
+only, as section 1 asks. canal_shell's brief said "eyes only": its open band now reads as a dark opening. The new
+canal_lieutenant sheet asked for the eyes in deep shadow in the first place.
+
+### 11.5 Fabrics (F7)
+
+Wet speckle on canal_shell's hood read as frost, the waxed parka's white crackle as cracked leather, denim, canvas,
+softshell and corduroy as leather or suede. Three changes in the texture set:
+
+- `delight`: a texel over 1.7 x its 1 cm neighbourhood, over 2.2 x its 5 cm neighbourhood or over 0.15 linear is
+  brought down to that level, then a soft knee above twice the figure's median (L' = k (L / k)^0.5); saturated colour
+  and metal are left. Texels over 0.2 linear: 0.3 to 1.3 % before, 0 to 0.03 % after.
+- Per-character roughness floors (`STYLE`): roughness' = floor + (0.95 - floor) x the generated value, floors 0.56
+  (the nylon shell), 0.60 (waxed cotton), 0.62 (bomber and denim, softshell), 0.68 (duck canvas), 0.70 (wool), instead
+  of the shared 0.45 + 0.5 x; half of the generated roughness' fine pattern (droplets, glints) is blurred away.
+- Wetness is now a material parameter, not texture (3.5): the Canal crew's wet look comes from the level's wetness.
+
+### 11.6 Telling the two crews apart (F6)
+
+The colour cues (olive, navy, oxblood cuff) do not survive the night grade, so the signature is the head's silhouette:
+**the Canal crew all wear their hoods up; the Roof crew all wear close caps, a beanie or a bare balaclava, with high
+collars and no hood.** canal_shell and canal_bomber already did; canal_lieutenant wore a watch cap, so he was
+generated again (one new sheet and one take, 21.25 credits): the same waxed parka with its own large hood up over the
+cap and the gaiter, the eyes in deep shadow (`vulture_canal_lieutenant_turnaround.jpg`; the first take is kept in
+`art/out/characters/maps/canal_lieutenant/take1/`). On top of the silhouette, Level 2 runs the material's wetness and
+Level 3 stays dry and matte (3.5). `vultures_crews.jpg` shows the six in studio light, at night at about 15 m, and as
+black silhouettes from the front and in profile; `art/out/characters/maps/vultures_crews.json` has the head-gear
+numbers. The check in the real Level 2 and Level 3 readability frames (chinatown.md 17 check 11) is the enemy lane's,
+in Unreal.
+
+### 11.7 Unreal material notes (F9) and generator names (F10)
+
+Section 3.5 now says to leave the Goons' UV-space fibre detail normal out of the Vulture material (or sample it
+world-aligned), because the generated atlases are hundreds of small islands at arbitrary rotations, and describes the
+wetness parameter. The exact generator ids are out of this page and the README row: the page says "the image
+generator" and "the multiview-to-3D generator (Tripo, the tool the owner named)", and the ids, settings and prices
+are in the git-ignored `art/out/characters/maps/generators.json`. Earlier commit subjects that name the tool cannot
+be rewritten without a force push, which this repository does not allow; other lanes' files (the vehicles family,
+PROGRESS.md) still name their generators and are left to those lanes.
+
+### 11.8 Hands, extremes and crews: the new pictures
+
+![crews](../../../art/previews/characters/maps/vultures_crews.jpg)
+
+`vultures_crews.jpg`: the Canal crew (left) and the Roof crew (right) in studio light, at night at about 15 m, and as
+silhouettes from the front and in profile. The hoods (peaked, standing off the head) against the close caps, beanie
+and balaclava read in both silhouettes. Head gear over the top 18 cm (`vultures_crews.json`): Canal 0.218 to 0.267 m
+wide and 0.278 to 0.300 m deep, Roof 0.194 to 0.208 m wide and 0.246 to 0.264 m deep, so no Roof head is as wide or
+as deep as any Canal hood.
+
+![lieutenant](../../../art/previews/characters/maps/vulture_canal_lieutenant_hero.jpg)
+
+`vulture_canal_lieutenant_hero.jpg`: the second take, hood up. Per character, `vulture_<id>_hands.jpg` (aim right and
+left hand, jog, reference pose) and `vulture_<id>_extremes.jpg` (reference pose, T-pose, arms up, ragdoll, from
+behind) are new; hero, detail, poses and wire were rendered again.
+
+### 11.9 Results, all six (build of the review round)
+
+Edge stretch is given as the share of edges stretched past 2 x their rest length (the worst frame of the clip) and
+the 99.9th-percentile stretch, the measure of section 4. The hand-built Goons by the same measure: SK_Goon_Hoodie jog
+1.05 %, x 9.6, aim 1.3 %, x 8.6, death 2.4 %, x 11.9; SK_Goon_Puffer jog 1.9 %, x 6.2, death 3.2 %, x 11.1.
+
+| Measure | CanalShell | CanalBomber | CanalLieutenant (take 2) | RoofRigger | RoofLookout | RoofLieutenant |
+|---|---|---|---|---|---|---|
+| Triangles (cap 120k) | 105,477 | 104,450 | 104,462 | 106,791 | 104,306 | 105,078 |
+| Top of the head gear | 1.822 m | 1.822 m | 1.821 m | 1.818 m | 1.816 m | 1.807 m |
+| Gate (check file `ok`) | pass | pass | pass | pass | pass | pass |
+| Poses passing the capsule test | 103 / 103 | 103 / 103 | 103 / 103 | 103 / 103 | 103 / 103 | 103 / 103 |
+| Worst vertex outside its capsules (limit 6 cm) | 3.6 cm | 2.6 cm | 3.6 cm | 3.5 cm | 1.5 cm | 3.1 cm |
+| Reference-pose edges over 4 x, without the band -> with it | 308 -> 21 | 228 -> 8 | 497 -> 78 | 286 -> 45 | 37 -> 2 | 414 -> 117 |
+| Reference-pose p99.9 stretch | x 2.3 | x 2.0 | x 3.0 | x 2.6 | x 1.6 | x 3.6 |
+| Joints weighted (vertices on finger bones) | 63 (2,763) | 63 (1,970) | 66 (1,745) | 64 (1,573) | 69 (2,005) | 64 (2,892) |
+| Jog | 1.1 %, x 5.2 | 1.0 %, x 5.1 | 1.5 %, x 5.7 | 1.0 %, x 4.7 | 0.6 %, x 3.4 | 1.5 %, x 5.8 |
+| Aim | 0.5 %, x 3.3 | 0.4 %, x 2.9 | 0.9 %, x 4.0 | 0.8 %, x 4.2 | 0.4 %, x 2.8 | 0.9 %, x 4.0 |
+| Death fall | 2.6 %, x 8.8 | 2.1 %, x 7.2 | 3.7 %, x 10.9 | 2.4 %, x 9.3 | 1.7 %, x 5.0 | 3.5 %, x 11.2 |
+| T-pose | 0.3 %, x 3.1 | 0.3 %, x 2.8 | 0.5 %, x 3.5 | 0.5 %, x 3.7 | 0.3 %, x 2.5 | 0.6 %, x 3.8 |
+| Arms up | 0.8 %, x 5.1 | 0.7 %, x 4.5 | 1.0 %, x 6.0 | 0.9 %, x 6.2 | 0.6 %, x 3.6 | 1.2 %, x 6.3 |
+| Ragdoll on the back | 0.8 %, x 4.5 | 0.6 %, x 3.9 | 1.3 %, x 5.6 | 1.0 %, x 5.5 | 0.5 %, x 3.2 | 1.4 %, x 6.6 |
+| Ragdoll face down | 1.3 %, x 6.3 | 1.2 %, x 5.7 | 2.1 %, x 7.9 | 1.5 %, x 7.3 | 0.8 %, x 4.0 | 2.0 %, x 9.3 |
+| Albedo mean (linear, G) | 0.029 | 0.024 | 0.028 | 0.029 | 0.035 | 0.022 |
+| Roughness mean (floor) | 0.78 (0.56) | 0.79 (0.62) | 0.79 (0.60) | 0.86 (0.68) | 0.85 (0.62) | 0.88 (0.70) |
+| Albedo texels over 0.2 linear, before -> after | 1.21 % -> 0 | 0.71 % -> 0 | 1.30 % -> 0 | 0.53 % -> 0 | 0.77 % -> 0.03 % | 0.28 % -> 0 |
+
+Every skeleton round trip against SKM_Manny_Simple is within 0.0000005 m, every re-import keeps all its triangles
+with 0 unweighted vertices; the only validation errors are Tripo's few edges of opposite winding (canal_shell 11,
+roof_lieutenant 3). The worst stretch stays at or below both Goons in the jog, the aim and the death fall
+(roof_lieutenant's x 11.2 in the death fall against the Puffer's x 11.1 and the Hoodie's x 11.9). The share of
+stretched edges in the death fall is above both Goons for the two long-coated lieutenants (3.7 and 3.5 %): their coat
+skirts are skinned to the thighs.
+
+### 11.10 Credits
+
+| What | Credits |
+|---|---|
+| Before this round (section 5, the five first takes) | 37.5 + 5 x 18 = 127.5 |
+| canal_lieutenant, hood-up sheet (the image generator, 4k high) | 3.25 |
+| canal_lieutenant, second Tripo take (detailed, 110k) | 18 |
+| **Workflow total** | **148.75** of the 600 cap (the account's transaction list matches) |
+
+Everything else in this round (hands, fins, gate, eye band, fabrics, the other five rebuilds, all previews) cost no
+credits. No GPU box was rented or used.
+
+### 11.11 Still open
+
+- **Fused surface, no layers.** Clothes, sling, mask and gloves are one surface; the gloves now bend on the finger
+  bones, but the fingers are fused relief with webbing between them, so a close look at the grip shows soft, blobby
+  fingers (`vulture_<id>_hands.jpg`). Good at 3 m and beyond; below the Goons' modelled gloves at 1 m.
+- **The fin band is a blend, not a fix of the geometry.** Edges over 4 x in the reference pose fell by 72 to 96 %;
+  roof_lieutenant keeps the most (117, under the coat's arms) and canal_lieutenant 78. In arms-up and ragdoll poses the
+  side of the coat now stretches with the arm over 6 to 10 cm instead of tearing in one row.
+- **Long coats** (both lieutenants): the most stretched in the death fall, melee and kneel (skirt on the thighs); a skirt
+  bone chain or cloth simulation would be the next step.
+- **Eyes**: the eye band is now a dark neutral, so at 1 m the openings read as eyes in shadow; there are still no
+  eyeballs or lids as geometry (the relief is in the normal map).
+- **Not yet in Unreal**: import, scale 0.98, the material changes of 3.5 (no UV detail normal, the wetness parameter),
+  the SMG on `hand_r`, and the Level 2 and Level 3 readability frames are the enemy lane's.
