@@ -458,11 +458,10 @@ screens can arrive at QP 42 until the estimate grows. With `-MIQpExact` the star
 fight. The numbers line of the pause card must read **60 frames a second (lowest 58 or more)**, **QP 34** and **stream
 60 a second** (55 to 60 is the encoder's normal loss, 9.2). Take a screenshot of it.
 
-**Optional, after that check:** if the fire escapes of the first street shimmer at the viewer, add
-`r.DynamicRes.MinScreenPercentage=60` to the `-MICVars=` list (a comma, no space:
-`-MICVars=r.Streaming.PoolSize=1000,r.DynamicRes.MinScreenPercentage=60`). The picture is then never drawn below 60 %
-of 1080p (E3DS's card sits at the 50 % floor); READY.md gives its measured cost. From the build after `f65cd7c`
-`r.TSR.History.ScreenPercentage=200` may be added the same way.
+**Not for the meeting:** `r.DynamicRes.MinScreenPercentage=60` (a floor of 60 % against the fire escapes' shimmer at 50 %)
+cut that shimmer by about 40 % in the game's own frames, but under E3DS's load the stream then sent fast turns at 50 to 55
+frames a second instead of 57 to 58 (READY.md, render and stream fixes, R3). `r.TSR.History.ScreenPercentage=200` (tunable
+from the build after `f65cd7c`) did not help it.
 
 ## 10. What the cloud settings change
 
