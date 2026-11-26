@@ -264,6 +264,19 @@ public:
 	static void ReleaseForLeave(UMIGameSubsystem* Game, AMIPlayerController* Controller);
 
 	/**
+	 * The viewer stopped looking at the run (SMOOTH.md B5): as ReleaseForLeave, but only for a run in play or in its
+	 * intro; anywhere else (menus, cards, a run already paused) nothing changes. True when it paused the run. Static,
+	 * for the tests.
+	 */
+	static bool PauseForAway(UMIGameSubsystem* Game, AMIPlayerController* Controller);
+
+	/**
+	 * Is this UIInteraction message (as Pixel Streaming hands it over: a 16-bit count of UTF-16 code units, then the
+	 * units, little-endian) the page's away word, the JSON object {"murderinc": "away"}? Static, for the tests.
+	 */
+	static bool IsAwayMessage(const TArray<uint8>& Message);
+
+	/**
 	 * What this game does about its session, from the console variables and launch options as they are now (the numbers
 	 * of the class comment). Static, for the tests and the probe.
 	 */
@@ -325,11 +338,19 @@ private:
 	void EnsureStartSize();
 	/**
 	 * Once the streamer is there, three of Pixel Streaming's handlers get ours in their place: the console command
-	 * (the allowlist), the size request (FMICloudSize) and the double click (dropped).
+	 * (the allowlist), the size request (FMICloudSize) and the double click (dropped). Two more are wrapped (the
+	 * plugin's own handler still runs first): MouseLeave and UIInteraction, for OnViewerAway.
 	 */
 	void GuardViewerInput();
 	void OnViewerCommand(const FString& Command);
 	void OnViewerSize(int32 Width, int32 Height);
+	/**
+	 * The viewer is no longer looking at the run (SMOOTH.md B5): the pointer left the picture (Pixel Streaming's
+	 * MouseLeave; with the locked mouse only after the lock has ended) or the page said so (a UIInteraction descriptor
+	 * {"murderinc":"away"}). A run in play or in its intro pauses and what the viewer held is let go, as when the
+	 * connection ends; anywhere else (menus, cards, a run already paused) nothing changes.
+	 */
+	void OnViewerAway(const TCHAR* Why);
 	/** Takes the viewer's size request once it has settled (FMICloudSizeWait): r.SetRes and the mouse scale. */
 	void TickViewerSize();
 	void OnViewerJoined();
@@ -394,6 +415,7 @@ private:
 	bool bRefusalLogged = false;
 	int32 CommandsRun = 0, CommandsRefused = 0;
 	int32 DoubleClicksDropped = 0, SizeRequests = 0, SizeRequestsIgnored = 0;
+	int32 AwaySignals = 0, AwayPauses = 0;  // OnViewerAway: signals received, runs it paused (probe: away=, awayPaused=)
 	bool bStartSizeChecked = false;
 	FMICloudSizeWait SizeWait;
 	FMICloudViewers Viewers;

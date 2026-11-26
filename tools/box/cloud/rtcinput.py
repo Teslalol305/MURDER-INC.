@@ -41,6 +41,9 @@
 #                                       notch up (away from the player), -120 for one notch down; events default 1, 16 ms apart
 #   cmd <console command>               {"ConsoleCommand": "..."}, what a page's emitConsoleCommand sends
 #   res <width> <height>                {"Resolution.Width": w, "Resolution.Height": h}, the page's size request
+#   leave / enter                       "MouseLeave" (id 71) / "MouseEnter" (id 70): the pointer leaves / comes back onto
+#                                       the picture (E3DS's player sends them on the video parent's mouseleave and mouseenter)
+#   ui <text>                           a UIInteraction descriptor (id 50), what E3DS's sendToUe4 passes on: ui {"murderinc": "away"}
 #   pad connect                         a gamepad appears (the game answers with its id)
 #   pad axis <n> <value> [seconds]      n: 1 left X, 2 left Y, 3 right X, 4 right Y (up is +), 5 left trigger, 6 right trigger;
 #                                       sent 60 times a second for that long (default one message), as a browser does
@@ -280,6 +283,12 @@ async def play(lines, send, player):
                     await asyncio.sleep(gap)
         elif verb == 'cmd':
             send(descriptor(51, json.dumps({'ConsoleCommand': line.split(None, 1)[1]})))
+        elif verb == 'leave':
+            send(bytes([71]))  # MouseLeave: the pointer left the picture (E3DS's player: mouseleave of the video's parent)
+        elif verb == 'enter':
+            send(bytes([70]))  # MouseEnter
+        elif verb == 'ui':
+            send(descriptor(50, line.split(None, 1)[1]))  # UIInteraction: what E3DS's sendToUe4 passes on (emitUIInteraction)
         elif verb == 'res':
             send(descriptor(51, json.dumps({'Resolution.Width': int(a[0]), 'Resolution.Height': int(a[1])})))
         elif verb == 'pad' and a[0] == 'connect':
