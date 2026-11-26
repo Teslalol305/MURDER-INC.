@@ -35,6 +35,9 @@ PY
 pie_shot() {
   local dir=$MI_PROJECT_DIR/Saved/Screenshots f="" i
   rm -rf "$dir"
+  # no frame while a texture is still building: the editor draws a building texture as a placeholder whose samples read
+  # about 0 (the guns' black-mirror finish of HANDS_R4.md 11 and 12.5, in sessions right after a fresh import; 13)
+  pie_con "Editor.AsyncTextureCompilationFinishAll" > /dev/null
   pie_con "HighResShot 1920x1080" > /dev/null
   for i in 1 2 3 4 5 6 7 8; do
     pie_mcp tool SceneCaptureToolset.SceneCaptureToolset.CaptureEditorViewport '{}' > /dev/null 2>&1

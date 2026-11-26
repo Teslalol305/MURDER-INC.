@@ -133,6 +133,7 @@ def _import_set(set_name, dest):
         log("no texture set %s" % folder)
         return False
     C.import_textures(folder, dest + "/Textures")
+    F.finish_textures()     # built before the material and the save (HANDS_R4.md 13: the black-mirror finish)
     return True
 
 

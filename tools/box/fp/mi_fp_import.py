@@ -89,6 +89,14 @@ def _finish(m, path):
     return path
 
 
+def finish_textures():
+    """Wait until every texture the editor is still building is built (HANDS_R4.md 13). Textures imported or re-set
+    (compression, sRGB, LOD group) build asynchronously; a material compiled, a package saved or a frame taken before
+    they finish uses the placeholder, which samples as about 0: base colour black, roughness 0, metallic 0, the black
+    mirror the STRETCH and SHORTY showed in some editor sessions (11.1, 12.5). Harmless when nothing is building."""
+    unreal.SystemLibrary.execute_console_command(None, "Editor.AsyncTextureCompilationFinishAll")
+
+
 def _tex(m, path, x, y, kind):
     n = _expr(m, unreal.MaterialExpressionTextureSample, x, y)
     n.texture = unreal.load_asset(path)
@@ -102,6 +110,7 @@ def _surface(path, tex, set_name, skeletal=True, emissive=False, aim_fade=False)
     """BC / ORM / N (OpenGL sets: green flipped on import) [+ E] on the default lit model. With aim_fade the material is
     masked, its opacity a screen-door dither of AimFade (scalar parameter, 0 = solid, 1 = gone): the first-person rig fades a fitted
     optic's housing out as the sight comes up, so the aimed picture is not a dark tunnel (LOADOUT.md 3.3)."""
+    finish_textures()
     m = _material(path)
     bc = _tex(m, "%s/T_%s_BC" % (tex, set_name), -600, -200, "color")
     orm = _tex(m, "%s/T_%s_ORM" % (tex, set_name), -600, 100, "masks")
@@ -204,6 +213,7 @@ def arms_textures(folder, dest=ARMS + "/Textures"):
     """mi_chars.import_textures (sRGB BC, flip-green normals, linear ORM), then every arms texture never streamed,
     full resolution (no LOD bias), mips kept for filtering."""
     names = C.import_textures(folder, dest)
+    finish_textures()
     rep = {}
     for n in ARMS_TEX:
         t = unreal.load_asset(dest + "/" + n)
