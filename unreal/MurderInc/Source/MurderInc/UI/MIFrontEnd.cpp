@@ -1,6 +1,7 @@
 #include "UI/MIFrontEnd.h"
 
 #include "Camera/CameraActor.h"
+#include "HAL/IConsoleManager.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Core/Data/MIDataSubsystem.h"
 #include "Engine/Engine.h"
@@ -22,6 +23,11 @@
 
 namespace MIFrontEndObjPrivate
 {
+	/** The Crew screen's arms at the eye (v6 release pass): the pack's idle gives the support arm a fist round nothing, a
+	 *  skin-coloured stump beside the gun on the first 3D screen a player sees (e2e review), so the turntable shows the first
+	 *  carried gun until the arms are posed with the first-person rig. 1 brings the arms back for pictures. */
+	static TAutoConsoleVariable<int32> CVarCrewArms(TEXT("mi.FE.CrewArms"), 0, TEXT("1: the Crew screen shows the crew's arms at the eye; 0 (default): the turntable"));
+
 	FVector StageOrigin(const TSharedPtr<FJsonObject>& Frontend)
 	{
 		const TSharedPtr<FJsonValue> V = MIJson::Get(Frontend, TEXT("stage.origin"));
@@ -873,7 +879,7 @@ void UMIFrontEnd::WarmStage()
 	{
 		return;
 	}
-	if (Showroom->ShowArms(Rules.GetData().FindCrew(Set.Crew), G))
+	if (MIFrontEndObjPrivate::CVarCrewArms.GetValueOnGameThread() != 0 && Showroom->ShowArms(Rules.GetData().FindCrew(Set.Crew), G))
 	{
 		Showroom->UseShot(AMIShowroom::EShot::Arms);
 		Showroom->DrawOnce();
@@ -943,7 +949,7 @@ void UMIFrontEnd::SyncStage(bool bForce)
 	}
 	// Crew: the member's arms at the eye when they exist; until then the turntable shows the first carried gun, never
 	// a gun floating at the eye with no hands (LOADOUT.md 2.4).
-	if (S == EMIFrontScreen::Crew && Showroom->ShowArms(Rules.GetData().FindCrew(Set.Crew), G))
+	if (S == EMIFrontScreen::Crew && MIFrontEndObjPrivate::CVarCrewArms.GetValueOnGameThread() != 0 && Showroom->ShowArms(Rules.GetData().FindCrew(Set.Crew), G))
 	{
 		Showroom->UseShot(AMIShowroom::EShot::Arms);
 		return;
