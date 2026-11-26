@@ -794,7 +794,7 @@ def eye_shadow(ob, arm, tex, keep_sat, log):
     n = np.cross(co[tv[:, 1]] - co[tv[:, 0]], co[tv[:, 2]] - co[tv[:, 0]])
     n /= np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-12)
     sel = ((c[:, 2] > H[2] + 0.02) & (c[:, 2] < H[2] + 0.17) & (np.abs(c[:, 0] - H[0]) < 0.085)
-           & (c[:, 1] < H[1] - 0.02) & (n[:, 1] < -0.15))
+           & (c[:, 1] < H[1] - 0.02) & (n[:, 1] < 0.1))      # the opening's side walls face sideways
     uv = np.empty(len(me.loops) * 2)
     me.uv_layers.active.data.foreach_get("uv", uv)
     uv = uv.reshape(-1, 2)
@@ -814,6 +814,11 @@ def eye_shadow(ob, arm, tex, keep_sat, log):
     f = np.clip((L - lo) / 0.02, 0, 1) * mask
     if keep_sat is not None:
         f *= np.clip((keep_sat - sat) / 0.1 + 0.5, 0, 1)
+    else:
+        # a plain mask opening: warm, saturated texels are skin however dark (roof_lieutenant's lids, about 0.02
+        # linear but red, were only a third darkened by the luminance ramp and still read as a red slit)
+        warm = (bc[..., 0] > bc[..., 2] * 1.15) & (bc[..., 0] > bc[..., 1])
+        f = np.maximum(f, np.clip((sat - 0.25) / 0.2, 0, 1) * warm * mask)
     grey = L[..., None] * np.ones(3)
     tgt = 0.3 * bc + 0.7 * grey
     tgt = tgt * (EYE_L / np.maximum(_lum(tgt), 1e-6))[..., None]
