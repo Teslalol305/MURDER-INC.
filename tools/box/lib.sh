@@ -13,6 +13,8 @@ MI_BOX_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # project file, never to a bare process name, so one clone never stops another clone's editor or test run.
 MI_REPO=$(cd "$MI_BOX_DIR/../.." && pwd)
 MI_CLONE=$(basename "$MI_REPO")
+# A clone named repo anywhere else (the integration clone /project/ue/int/repo) keeps logs of its own: <parent>-repo.
+if [ "$MI_CLONE" = repo ] && [ "$MI_REPO" != "$MI_UE/repo" ]; then MI_CLONE=$(basename "$(dirname "$MI_REPO")")-repo; fi
 MI_PROJECT_DIR=$MI_REPO/unreal/MurderInc
 MI_UPROJECT=$MI_PROJECT_DIR/MurderInc.uproject
 if [ "$MI_CLONE" = repo ]; then
