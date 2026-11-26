@@ -546,3 +546,165 @@ palm on the magazine's left face (`reload_grips.py`), the face the eye looks at 
 222 passed, 0 failed, 0 skipped on the integration clone at `1b37c7b` (`unreal/` tree `edf7a547`, this pass's last
 `unreal/` change), golden replays included; PLAY.md, the visual pass. Nothing under `firstPerson` or `grips.json` was
 changed in this pass: every hands item of 11.1 is for the rig's owner (11.3).
+
+## 12. Offline reconstruction: the first-person view rebuilt in Blender from the game's own data (2026-11-26, this container; the box not used)
+
+The box's GPU was busy with the release's checks, so this pass rebuilt the first-person view offline from what the game
+reads and computes, and looked at it from the eye and from beside the player. Nothing under `unreal/`, `src/` or the game's
+data was changed: every finding below is for the owners of the rig (C++) and of the data.
+
+### 12.1 What was built (`tools/box/fp/offline/`)
+
+| File | What it does |
+|---|---|
+| `fp_math.py` | Pure Python and numpy. The rig's maths as the C++ has it: the gun in camera space (`MIViewmodel.cpp`: `views[0]`, the aimed pose with the rear sight on the axis `relief` ahead of the eye, `poses.reload` weighted by `min(Ease(t / 0.24), Ease((total - t) / 0.3))`, `WebToUE`, `EulerYXZ`, `MeshOffset * GunTransform`); the magazine bone's drop (`UpdateParts`: `out` / `show` / `in` marks); the arms carried so the shoulders' midpoint sits on the set's `shoulders` (`PoseView`, `GripShoulderTranslation`); the IK targets, the solved grips (hip and aimed by smoothstep(aim) for `grip.aimSides`), the reload hold (the support shape taken from `grips.json magazines.<mesh>.l`, carried by the magazine bone), the elbow push let go in the reload (`UpdateHands`); two-bone IK with the pole `L + (L - (U + E)/2) * 2 + PoleShift`, `ShapeHand` (the hand turned so wrist, middle_01, index_01, pinky_01 match the shape's frame) and `ShapeFingers` (each finger bone swung onto its child's point, the `_03` along its parent segment's reference direction) (`MIFirstPersonAnim.cpp`). The `$ref`s and the `real` block are resolved as `MILoadoutResolver` does. |
+| `fp_offline.py` | Blender as a Python module (`/home/user/mi-venv`, bpy 5.3.0): imports `SK_RuleArms.glb`, the gun's `SK_*.glb` and its `SM_Weapon_*Magazine.glb` from `art/out/glb`, poses them by `fp_math`, renders from the eye (the first-person vertical field of view: 54 at the hip, 38 aimed on irons; near plane 1 cm / `firstPerson.scale` 0.6), from the right and from above left, and an ID render of the eye's view (gun blue, magazine red, support arm green, firing arm yellow) from which `report.json` counts what each hand covers and how much of the magazine the hands hide (against a render of the gun and magazine alone). Base colour and ORM (G roughness, B metallic) from `art/out/textures`, wired as `mi_fp_import._surface` wires them. What-if flags change data for the run only: `--shoulders`, `--relief`, `--finish zero`, `--tex-set`. |
+| `calibrate.py` | Fits the one thing the repository does not hold (below) to the game's development log; `--reach` bounds the firing arm's reach from the log alone; `--scan` looks for a `shoulders` anchor both arms reach from. |
+| `validate.py`, `figures.py`, `sheets.py`, `run-all.sh` | The overlays on the game's frames, the evidence sheets, the per-gun contact sheets; `run-all.sh` reruns everything (about 10 minutes on 4 CPUs, one Blender process at a time, output in `art/out/fp-offline`, git-ignored). |
+
+**What is not the game's: the arms' pre-IK pose.** The rifle sets play the pack's idle (`A_TFA_FP_AR_Idle_Loop_Standing`), which is
+not in the repository. It enters the result twice: where the clip puts each shoulder about their midpoint (the code anchors
+only the midpoint), and the elbow the IK pole starts from. Both were fitted to the development log of 9.3 (`calibrate.py`): the
+clip's left shoulder **25.5 cm ahead of, 3 cm right of and 9 cm below** the midpoint (camera space at the CHOPPER's hip, turned
+with the gun as the arms component is), which gives the eight logged support-elbow bends within **4.4 degrees rms** (CHOPPER hip
+103.3 / log 103, aimed 115.7 / 114; RATTLER 86.6 / 87, 106.1 / 104 to 133; STRETCH 98.4 / 99, 126.6 / 125; SHORTY 116.8 / 116,
+64.5 / 62); the pole fits the sixteen logged forearm slopes within 9.5 degrees rms. A level shoulder line (the rest skeleton
+turned in any way) cannot give those bends: the support arm does not reach. The NINE plays another clip (the template
+pistol idle) and keeps the rest skeleton's shoulders. Everything else in the frames is the game's data and maths.
+
+### 12.2 Checked against the game's frames
+
+`hands-offline-validation.jpg`: nine frames the game took (sections 9 and 11) with the offline outlines drawn over them. The
+gun's outline lies on the game's gun in all nine (CHOPPER, STRETCH, RATTLER hip; STRETCH and RATTLER reloads; SHORTY aimed
+and reload; NINE reload), the rear sight and the receiver's end within about 1 % of the frame's width and the muzzle within
+about 2 % (the idle's breathing and sway frozen in the game's frame; the offline frame has none). The hands' outlines lie on
+the game's hands too, which is how the reload fault was read (12.4). The framing (eye, field of view, gun placement) is
+therefore the game's; the hand shapes are the game's solve laid by the game's maths.
+
+### 12.3 Fault (2): the firing hand of the rifles stands in a V under the receiver: **it does not reach the grip**
+
+`PoseView` places the arms so the **midpoint** of `upperarm_l` and `upperarm_r` sits on `shoulders` ([-10, -14, -7] on the
+CHOPPER, STRETCH and RATTLER); the IK then reaches each hand from its own shoulder, and the firing arm never stretches
+(`IK.Stretch` 1 for the right hand). The clip puts the left shoulder far forward (12.1), so the right one sits far back: offline
+at **(-35.5, -17, 2) cm**, 35 cm behind and 17 cm left of the eye. From there the firing arm (27.8 + 27.3 = 55.0 cm to the wrist)
+cannot reach the solved wrist on the grip, the IK leaves it straight and short, and the hand keeps its solved shape (fingers
+closed round a grip that is not there, thumb along a receiver side that is not there) **8 to 17 cm behind and below the pistol
+grip, 21 to 24 cm from the eye**: the V of 11.1.
+
+This does not rest on the fitted clip. `calibrate.py --reach` bounds it from the game's own numbers only: the logged support
+bend fixes the left shoulder's distance from the support wrist; the right shoulder is the left one mirrored through the
+anchored midpoint; so it can come no nearer to the firing wrist than:
+
+| Gun, state (log of 9.3) | Support shoulder to wrist (from the bend) | Firing shoulder to firing wrist, at least | Firing arm (55.0 cm) |
+|---|---|---|---|
+| CHOPPER hip (bend 103) | 34.3 cm | 62.0 cm | **short by 7.0 cm or more** |
+| STRETCH hip (99) | 35.7 cm | 65.9 cm | **short by 10.9 cm or more** |
+| RATTLER hip (87) | 39.9 cm | 67.8 cm | **short by 12.7 cm or more** |
+| RATTLER aimed (118) | 28.3 cm | 57.6 cm | **short by 2.6 cm or more** |
+| CHOPPER, STRETCH aimed; SHORTY | | | can reach |
+
+With the fitted clip the gaps are (wrist to its target): CHOPPER **10.3 cm** at the hip and **8.3** in the reloads (0 aimed), STRETCH **14.2** and **8.9** (0 aimed), RATTLER **16.7**, **10.9** and 4.4 aimed; the SHORTY 2.8 at the hip, 7.8 aimed, 0.4 in the reloads (its own anchor [-6, 0, -24]). The NINE reaches (0 cm at the hip): its anchor
+[-6, 0, -24] and its clip keep the right shoulder under the eye, which is why its firing hand reads right in the game.
+
+The development log never said so: the support-arm line (`UpdateHands`) measures the left arm only, and the tests
+(`SupportHand`, `ReloadHold`) check the support hand. **What-if** (`hands-offline-reach.jpg`): with the anchor at
+**[2, 0, -16]** (`calibrate.py --scan`: the nearest anchor from which both arms reach on the CHOPPER, STRETCH and RATTLER at
+the hip, aimed and at both reload times, the firing elbow bent at least 27 degrees) the firing hand closes round the pistol
+grip in every frame, from the eye and from the side. From the eye the magazine shows far more once the firing hand is out of the way (the share of the magazine the gun leaves in sight that the hands do not hide, `report.json`): CHOPPER hip 40 % to 94 %, reload 0.5 s 11 % to 61 %, 1.1 s 12 % to 63 %; RATTLER reload 0.5 s 21 % to 91 %; STRETCH reload 0.5 s 7 % to 13 %, 1.1 s 1 % to 5 % (12.7 item 2).
+
+### 12.4 Fault (1): in the reloads the open hand close to the eye is **the firing hand**, not the support hand
+
+Read in 11.1 to 11.3 as the support hand lying on the magazine's face toward the eye. The overlays settle it: in the
+game's STRETCH reload at 0.5 s and the RATTLER's at 0.5 and 1.1 s the open, fanned hand in front of the eye lies inside the
+offline **firing** hand's outline (yellow), and the support hand's outline (green) is at the bottom left edge
+(`hands-offline-validation.jpg`). In the reload pose (`poses.reload` cants the gun up and to the right) the firing hand that
+does not reach the grip (12.3: still 8 to 11 cm short) hangs in front of the magazine well, palm toward the eye, its fingers
+fanned round nothing. From the side (`hands-offline-chopper.jpg`, `-stretch`, `-rattler`, the reload rows) the support hand
+**does** hold the magazine under the well, as the engine's log said (palm 1.9 cm from the magazine's box, 6 of 8 finger joints
+within 1.5 cm): the log was right, the picture was the other hand.
+
+From the eye, with the data as it is: | Frame | Magazine in sight (of what the gun leaves) | Firing hand / support hand, share of the picture |
+|---|---|---|
+| CHOPPER reload 0.5 s, 1.1 s | 11 %, 12 % | 4.4 % / 1.0 % |
+| STRETCH reload 0.5 s, 1.1 s | 7 %, 1 % | 4.5 % / 0.6 % |
+| RATTLER reload 0.5 s, 1.1 s (seated again by 1.1 s) | 21 %, 2 % | 5.4 % / 0 to 0.8 % |
+| NINE reload 0.5 s (the reference) | 26 % | 2.2 % / 0.9 % |
+| SHORTY reload 0.5 s, 1.1 s | outside the picture | 0 / 0 |
+
+**The SHORTY**: no hand and no magazine in either reload frame, offline as in the game. Its reload pose (`poses.reload`
+[0.12, -0.15, -0.24, 0.12, 0.22, -0.6]: 7 cm further right and 7 cm lower than the CHOPPER's) and its bullpup layout (the
+magazine behind the grip, mesh X 17 to 23 cm, the grip's `Palm_R` at 29.5) put the magazine's centre at **1.8 to 2.0 frame
+heights from the top** (the bottom edge is 1.0), the support palm at 2.2 to 2.5 and the gun's own pistol grip at 1.28: the whole
+lower half of the gun is below the picture. The CHOPPER's magazine sits at 0.90, the STRETCH's at 0.92. Translation alone
+would have to lift the gun 22 cm (its receiver across the middle of the view): its reload needs its own pose, turned (muzzle up,
+the well rolled toward the eye), which is presentation data for its owner.
+
+### 12.5 Fault (3): the STRETCH's finish between walnut and black mirror: **not the textures, not the material**
+
+- The STRETCH's and SHORTY's own textures wired as the importer wires them (`mi_fp_import._surface`: base colour from `_BC`,
+  AO / roughness / metallic from `_ORM` R / G / B, `TC_MASKS`, linear) give walnut and painted steel (STRETCH) and olive paint
+  (SHORTY) offline (`hands-offline-finish.jpg`, first column; every per-gun sheet). The ORM's roughness is 0.45 to 0.59 (10.4).
+- **Every texture read as 0** (base colour black, roughness 0, metallic 0) gives the game's look: a black mirror with the sky
+  and street in it (second column against the game's third). The game's SHORTY aimed frame (white and black with a "wood"
+  band on top) is the same mirror: the top face reflects the rusty underside of the El; the STRETCH's walnut drawn on the
+  SHORTY (`--tex-set Stretch`) does not give it.
+- **It follows single textures, not sessions**: in `h1b` the STRETCH was right and the SHORTY a mirror in the same editor
+  session; in `h4` the STRETCH was a mirror; in `s2` right again. The material is one function for every gun.
+- **Residency**: the only first-person textures the importer keeps resident are the arms' (`mi_fp_import.ARMS_TEX`:
+  `never_stream`, no LOD bias, about 55 MB, CHARACTERS.md: the streamer had kept them at a few hundred pixels). The guns' sets
+  stream in `TEXTUREGROUP_CHARACTER` / `_CHARACTER_SPECULAR` / `_CHARACTER_NORMAL_MAP` like any level texture, 4096 squared
+  each, and the editor sessions on the integration clone ran right after a fresh import of the guns (11: "the guns imported
+  fresh"), with a pool that is over budget in the opening street even in the package (READY.md R4: 717 to 865 MB wanted
+  against 600, now 1000 under `[MICloud]` only; the editor's own pool is the engine's). Which value the engine samples for a
+  texture that is not (yet) built or resident cannot be told from here; the look says the three samples read as about 0.
+
+What decides it (on the box, when it is free): `ListTextures` and `stat streaming` in the session that shows the mirror, and
+whether the guns' textures were still compiling (the editor log) when the frame was taken; and **a frame from the package**
+(cooked textures) before any change. If it is streaming, the cheapest fix is to keep the five guns' first-person sets
+resident as the arms' are (`never_stream` in `mi_guns_r4.py` / `mi_fp_import._surface`'s texture import): about 416 MB at
+4096 (BC1 base colour and ORM 10.7 MB each with mips, BC5 normals 21.3 MB, emissives 10.7, magazines at 2048), or half the
+normals' and emissives' size at 2048. `guns-shots.sh` should also wait for compilation and streaming before a picture
+(`FlushRenderingCommands` after the textures report built, `r.Streaming.FullyLoadUsedTextures 1` for the shot).
+
+### 12.6 Fault (4): the SHORTY aimed through its irons shows a box: **the eye is behind the bullpup's butt**
+
+The SHORTY's view (`relief` 0.22 m, `sightRear` 12.1 cm behind its gun origin, `meshOffset` putting the butt face 25.5 cm
+behind it) puts the rear sight 22 cm ahead of the eye and the butt face **8.6 cm ahead of the eye** (offline: the gun's rearmost
+point at camera X +8.6 cm). The eye floats behind a bullpup and looks at its rear face end-on: the dark rubber butt pad framed
+by the olive receiver fills the lower half of the picture (`hands-offline-shorty-aim.jpg`; the game's frame in the same sheet).
+The other guns put the eye over the stock (STRETCH: relief 0.12, rearmost point 16.3 cm behind the eye, the comb 0.8 cm
+under it) or have no stock behind the receiver (CHOPPER, RATTLER: rear 13 and 16 cm ahead, short receivers seen from above).
+
+The SHORTY's art makes the relief alone a half fix: its sight line (`SightRear` and `SightFront` 6.0 cm over the bore) is only
+**0.4 to 0.8 cm over the top of its receiver** behind the rear sight (the receiver's top 5.2 cm at the butt, 5.6 cm 4 to 8 cm
+ahead of it). With the eye over the receiver (what-if relief 0.12 m: the butt 1.4 cm behind the eye) the box is gone, the rear
+aperture is a large ring with the front post in it, and the receiver's top runs across the lower 40 % of the picture at a
+grazing angle (the cheek weld's view, as the STRETCH's comb); nearer (0.10 m) the receiver crosses the near plane. A real
+carry-handle bullpup has its sight line 5 to 7 cm over the receiver. So: `relief` about 0.12 m (data) now, and the carry
+handle's aperture and the front sight raised 4 to 5 cm (art, `weapons_shorty.py`) for a clean sight picture.
+
+### 12.7 For the owners (nothing here was changed)
+
+1. **The firing hand on the rifles (faults 1 and 2), C++ owner of `MIFirstPersonRig` / `MIWeaponComponent::PoseView`.** Anchor
+   the firing shoulder, not the midpoint: `GripShoulderTranslation` should put `upperarm_r` (the arm that holds the grip) on
+   a camera-space point (the NINE's and the pack STICK's right shoulder sit under the eye), or choose the translation so that
+   both palms are within reach of their shoulders. Add the firing arm to the development log (`palm N cm off Palm_R`, the
+   gap of 12.3) and to `ReloadHold` / a new test (the right palm within 1 cm of `Palm_R` at the hip, aimed and at 0.5 / 1.1 s).
+   As data alone, today: `shoulders` [2, 0, -16] on `chopper_ik`, `stretch_ik`, `rattler_ik` (offline: both hands reach in
+   every state; the supportElbowOut tuning of 9.3 must be redone with it, and the reloads looked at for an upper arm in the
+   picture, which the offline eye frames do not show). Acceptance: `guns-shots.sh RELOADS="0.5 1.1" HUD=0` frames with the
+   firing hand round the pistol grip and the magazine in sight on the CHOPPER and RATTLER.
+2. **The STRETCH reload** after 1: the support hand on the magazine's left face still hides most of it from the eye
+   (with the what-if anchor 13 % of the magazine in sight at 0.5 s and 5 % at 1.1 s, the support hand over the rest): 11.3 item 1 stands for the STRETCH (lay `reload_grips.py`'s solve from the far face).
+3. **The SHORTY reload**: a reload pose of its own (`guns.json shorty.presentation.poses.reload`) that brings the magazine well
+   into the picture (its magazine centre now 1.8 to 2.0 frame heights down).
+4. **The finish**: decide on the box as 12.5 says, then keep the guns' sets resident or fix the shot script.
+5. **The SHORTY aimed**: `relief` about 0.12 (data) and a taller sight line (art).
+
+### 12.8 Limits
+
+The offline frames have no animation layer: no idle breathing, sway, fire layer or the pack idle's finger and wrist twists
+(the solved shape sets every finger's direction, the clip only each bone's roll). The clip's shoulders and pole are a fit (12.1),
+not the clip; the reach bound of 12.3 does not use them. Fitted parts (foregrips, optics) were not drawn. Renders are Cycles on
+the CPU at 640 x 360, a grey sky and a sun (the finish test under a street HDRI), not the engine's lighting: they show where
+things are, not how the engine shades them.

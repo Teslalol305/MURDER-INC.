@@ -100,14 +100,14 @@ def main():
     cells = []
     for g in ("chopper", "stretch", "rattler"):
         for st in ("hip", "r05"):
-            for suf, lab in (("", "data [-10, -14, -7]"), ("-sh2", "what-if [2, 0, -16]")):
+            for suf, lab in (("", "data"), ("-sh2", "what-if")):
                 for cam in ("eye", "side"):
                     k = "%s-%s" % (g, st.replace("r05", "r0.5")) + suf
                     gap = rep.get(k, {}).get("r", {}).get("wrist_gap_cm")
                     cells.append((load(out_dir, "%s-%s%s-%s.jpg" % (g, st, suf, cam)),
-                                  "%s %s %s, %s: firing hand %s" % (g.upper(), "hip" if st == "hip" else "reload 0.5 s", lab, cam,
-                                                                    "on the grip" if gap == 0 else "%.1f cm short" % gap if gap is not None else "")))
-    im = grid(cells, 4, w=360, title="Shoulders anchor: as the data has it, and a what-if from which both arms reach (fp_math, calibrated clip)")
+                                  "%s %s, %s, %s: %s" % (g.upper(), "hip" if st == "hip" else "reload 0.5", lab, cam,
+                                                         "on the grip" if gap == 0 else "%.1f cm short" % gap if gap is not None else "")))
+    im = grid(cells, 4, w=360, title="Firing hand: shoulders [-10, -14, -7] (data) and the what-if [2, 0, -16] from which both arms reach (fp_math, calibrated clip)")
     print("SHEET reach", save_small(im, os.path.join(dest, "hands-offline-reach.jpg")))
     # finish
     cells = [(load(out_dir, "shorty-aim-fin-textured-eye.jpg"), "offline SHORTY aimed: its own textures"),
