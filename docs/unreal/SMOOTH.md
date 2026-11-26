@@ -5,7 +5,89 @@ weapons and gameplay). DECISIONS.md (2026-11-25, ~21:00) makes this file's verdi
 lane; every number names the run it comes from. Severities: blocker (a freeze, a crash, a stuck state, or under 50 fps
 sustained on E3DS-class limits), must-fix (a player would feel or see it), should-fix, nit.
 
-## Independent verdict (prover lane, 2026-11-26, 02:50 to 03:33 UTC)
+## v6 prover verdict (2026-11-26, runs 19:29 to 21:05 UTC; supersedes the 02:50 section below)
+
+**Verdict: NOT-YET.** There is no freeze left in play and no crash, and 60 is held for 15 minutes. But "every number better
+than or equal to version 4's" is not met on two counts, so DECISIONS.md criterion 4 (21:00) is not closed:
+
+1. **Viewer-driven play of the front end and all four guns has more missed refreshes than version 4**:
+   **14.0 and 7.9** frames over 25 ms a minute against version 4's **4.3 and 4.8** (30 and 17 frames against 9 and 10).
+2. **The engine takes 3.4 to 4.1 s longer to its first frame** (6.0 and 6.7 s against 2.8 and 2.6 s). The pipeline cache
+   removed the shader freezes at the price of a longer start.
+
+What is better: version 4 crashed at 126 s of Hold the Block (SIGSEGV; its third crash in three sessions); the head ran
+**15.9 minutes** with 0 frames over 50 ms. The Story to the extraction has 0 frames over 25 ms. The front end's worst frames
+are 2 to 3 times shorter. The target never left 60 in any run.
+
+### The package measured, and why it is not rebuilt for the newest head
+
+| What | Value |
+|---|---|
+| Package | `MurderInc-v6p.zip` (box `/project/ue/smooth/v6p/cloud`, built by `package-cloud.sh` of `b665160`, Shipping and Development games, pipeline cache in: the logs show `FPipelineCacheFile ... with 405 entries` and `PipelineFileCache = 1`). Version 4 is `6c4d810` (`/project/ue/cloud/v3a-fix/out/MurderInc.zip`) |
+| Against the head (`675e5c2`) | `git diff b665160 675e5c2 -- unreal` is three data files: `grips.json` (hand anchors, from the offline hands lane), `guns.json` (8 lines), `presentation.json` (blood colour). No C++, no art, no shader, no asset. The hands data changes only where a solve puts the hand, not what is drawn or loaded, so it cannot move a frame time by a refresh. I did not rebuild: a rebuild would cost a cook and a zip, and every run below would need repeating for the same result. **A package of the final head needs one run of `n-menus` and `n-story` after the fixes below, not a new proof** |
+| Conditions (every run) | `lag-test.sh` with `load=1:0.05:0:1024` (l20), `cpus=0-7`, `-sm5`, 1920 x 1080, cold user (`fresh`, fresh `Saved`), package copied to the box's local disk (`/tmp/v6p`), the GPU claim held (`gated.sh` queue), CSV profile of every frame. Viewer through Pixel Streaming (join after 3 s) unless the run is marked `nv`. **Every run CLEAN**: `others=0` and `build=0` in every watcher line (263 to 1,060 lines a run), no other game or compiler. GPU 11.8 to 12.3 ms a frame at picture 0.50 to 0.75 (E3DS read 10.6 to 13.2 ms) |
+| Why version 4's Story and holdout have no viewer | Version 4's Development game was run with `viewer=0`; the new package has both with and without. Compare `nv` with `nv` |
+| Numbers | `scripts/v6sum.py`, `over25.py`, `tgt.py` in `/project/ue/smooth/v6p/scripts` (every CSV frame; never one-second averages). Runs in `/project/ue/smooth/v6p/runs` |
+
+### Per-frame numbers
+
+| Run | Frames, length | fps | Frames over 25 / 50 / 100 ms a minute | Worst frame | 1 % low | Steady (median 10-s) | Target |
+|---|---|---|---|---|---|---|---|
+| **Front end by script, 0 to 33 s** | | | | | | | |
+| new, viewer (`n-story`) | 1,975, 33.0 s | 59.84 | 3.6 / 1.8 / 0.0 | 84.2 ms (the first Crew draw, 6.06 s) | 47.8 | 59.9 | 60 |
+| new, no viewer (`n-story-nv`) | 1,971, 33.0 s | 59.71 | 9.1 / 3.6 / 0.0 | 68.9 ms (6.05 s) | 41.0 | 60.0 | 60 |
+| **version 4**, no viewer (`v4-story-nv`) | 1,951, 33.0 s | 59.11 | 12.7 / 5.5 / **3.6** | **190.8 ms** (0.82 s); 151.9 ms at the Crew draw | 24.4 | 60.0 | 60 |
+| **Story run, 35.5 to 87 s (the demo director to the truck, four guns, reloads, blast)** | | | | | | | |
+| new, viewer | 3,090, 51.5 s | 59.99 | 0 / 0 / 0 | 19.3 ms | 59.5 | 60.0 | 60 |
+| new, no viewer | 3,089, 51.5 s | 59.99 | 0 / 0 / 0 | 18.5 ms | 59.5 | 60.0 | 60 |
+| version 4, no viewer | 3,090, 51.5 s | 59.99 | 0 / 0 / 0 | 16.8 ms | 59.9 | 60.0 | 60 |
+| **Viewer-driven front end and all guns through the stream (Shipping, `guns-keys.txt`, 8 s to the end, about 128 s)** | | | | | | | |
+| new `n-menus` | 7,706 | 59.89 | **14.0** / 1.4 / 0.0 | 76.3 ms | 38.7 | 60.0 | 60 |
+| new `n-menus2` | 7,752 | 59.93 | **7.9** / 0.9 / 0.5 | 100.9 ms | 43.4 | 60.0 | 60 |
+| version 4 `v4-menus` | 7,582 | 59.84 | **4.3** / 1.4 / 0.9 | 158.1 ms | 41.1 | 60.0 | 60 |
+| version 4 `v4-menus2` | 7,568 | 59.92 | **4.8** / 0.5 / 0.5 | 149.4 ms | 44.7 | 60.0 | 60 |
+| **15-minute holdout (Hold the Block, `sm-long15.txt`, viewer, 8 s to the end)** | | | | | | | |
+| new `n-long15` | 57,352, 956 s | 59.98 | 0.4 / **0.0** / 0.0 (7 frames over 25 ms) | 36.0 ms (797 s) | 58.6 | 60.0; slowest 10 s: 59.9; seconds under 57 fps: 0 | 60 all run |
+| new `n-long` (earlier, shorter script) | 45,495, 759 s | 59.94 | 1.4 / 0.6 / 0.0 (8 over 50 ms: 70.2 at 190 s, 87.4 at 366 s, 94.1 at 765 s, five of 50 to 53) | 94.1 ms | 55.4 | 60.0; seconds under 57: 3 | 60 all run |
+| version 4 `v4-long-nv` | **crashed at 126.4 s**: `SIGSEGV`, `Unhandled Exception`, exit 139 | | | | | | |
+
+Other facts, from the same runs:
+- **Crashes**: none in the head's 12 runs (about 55 minutes of play). Version 4: 1 of 1 today, 2 of 2 in the hitch lane.
+- **Target drops**: none in any run. No spell under 60 (`tgt.py`: 0 seconds at 45 or 30 in 2,900 probe lines of the head). So there
+  was nothing to recover from; the drop and recovery rules were not exercised by these loads.
+- **Synchronous loads** (`FlushAsyncLoading` events in play): 0 in the head's runs, 40 in version 4's Story.
+- **PSO creation hitch frames**: version 4 5 in its 99-s Story run and 10 to 12 in the menus runs; the head 0 in the Story and 4
+  in the menus runs, 3 of them inside the first 8 s.
+- **Graphics quality press** (`n-q`, new only): 1 frame of 99.3 ms at 9.8 s, 2.9 / 1.5 / 0.0 a minute over 41 s.
+- **Memory** in the holdout: no growth; 15 garbage collections, none over a frame budget.
+
+### What is left (all for the game's owner; no game code was edited here)
+
+1. **Frames at 27 ms in viewer-driven play with all four guns.** A frame in these runs has a median 27 ms: one refresh missed,
+   with the game thread 3.7 ms, the render thread 6.9, the RHI 2.4 and the GPU 12.1: the same figures as version 4's
+   (3.1 / 7.3 / 2.6 / 12.1), so the lateness is in how the shared card hands the frame over, not in a thread. They cluster:
+   13 of `n-menus`'s 30 are between 70 and 90 s (guns being drawn). The stream carries twice the data (17.4 and 13.6 Mbit/s
+   against version 4's 7.8 and 6.6), so the new guns and screens are heavier to encode and to draw. **The cause is not
+   proven**; a GPU trace of the guns phase on this load would show it. The Story, where the same guns are used, has none, so
+   it is the draw of a gun for the first time after a switch (a texture or mesh streaming in), not the gun itself.
+2. **The start is 3.4 to 4.1 s longer.** From `Opened FPipelineCacheFile` to `Game Engine Initialized` the log spans 4.4 s in the
+   head (20:40:02.176 to 20:40:06.601) against 0.5 s in version 4 (the engine's cache open and the save of the device
+   pipeline cache sit in that span). The 405 PSOs compile in 0.12 s, so the time is the cache's own set-up. It happens
+   before any picture, so it is a longer black wait on a cold start, not a hitch in play; still it is a number that is worse.
+   Moving it behind CLICK TO PLAY (the first title frame) or into the launcher's preload would remove it.
+3. **Isolated frames of 50 to 100 ms remain** (8 in 12.6 minutes of Hold the Block; the first Crew draw at 6 s with 84 ms; the
+   Graphics press). One of them is the RHI thread (56.4 ms at 190 s). None reached 100 ms in the Story or the holdout.
+   They are much fewer than version 4's, but "no freezes" is read as none over 50 ms, which is not yet true.
+4. **Not measured**: E3DS's own A4000 (this emulation shares the card in time slices and is harsher than E3DS's sample of
+   version 4, whose worst frame averaged 16.8 ms); a package of the final head; B5's pause when the viewer leaves was run
+   (`n-away`: worst 42 ms, no freeze) but its pause state was not read here, so the bug lane's check stands; B3 on version 4.
+
+To close: fix items 1 and 2 in the game, build the head's package (`package-cloud.sh`), and run `n-menus`, `n-menus2`, `v4-menus`
+and `n-story` once more from `/project/ue/smooth/v6p/queue.txt` (the queue and `gated.sh` are kept there). A verdict of "smooth"
+then needs frames over 25 ms a minute at or under version 4's (4.3 and 4.8) in the menus runs, a start no longer than
+version 4's, and no frame over 50 ms in the holdout.
+
+## Earlier independent verdict (superseded by the section above) (prover lane, 2026-11-26, 02:50 to 03:33 UTC)
 
 **Verdict: NOT SMOOTH, and the proof is incomplete.** DECISIONS.md criterion 4 (21:00) is **not met**:
 
