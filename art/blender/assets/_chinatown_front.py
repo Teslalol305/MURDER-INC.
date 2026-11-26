@@ -17,8 +17,8 @@ import numpy as np
 
 from assets import facade as fc
 from assets import signs as sg
-from assets._chinatown_kit import SLOT_META, absorb, done, lathe, rod
-from assets.facade import BAND0, BULK, DOOR_W, HEAD, B, bar, bx, sheet
+from assets._chinatown_kit import SLOT_META, absorb, bar, done, lathe, rod
+from assets.facade import BAND0, BULK, DOOR_W, HEAD, B, bx, sheet
 from mi import geo
 
 X, Y, Z = np.eye(3)
@@ -57,12 +57,33 @@ def done_sign(ctx, b, name, M, **asset):
 
 # ================================================================================================= shop fronts
 
+def gate_down(b, x0, x1, z1, hood=0.30):
+    """A roll gate shut, light enough for a whole street of them: a corrugated curtain (three points a slat, flat along the run),
+    guide rails, the hood box, a bottom bar with two padlocked hasps."""
+    zc = z1 - hood + 0.03
+    n = int(round(zc / 0.075))
+    pitch = zc / n
+    prof = [(0.045, 0.0)]
+    for i in range(n):
+        prof += [(0.058, (i + 0.0) * pitch), (0.078, (i + 0.5) * pitch)]
+    prof += [(0.058, zc), (0.045, zc)]
+    for px in (x0, x1 - 0.10):
+        bx(b, (px, -0.115, 0), (px + 0.10, 0, zc), "trim", ch=0.004, axis="z", pin=False)
+    b.prism(prof, (x0 + 0.06, 0, 0), -Y, Z, (x1 - x0 - 0.12, 0, 0), "grey", step=2.0, pstep=9.0)
+    bx(b, (x0 + 0.10, -0.125, 0.004), (x1 - 0.10, -0.045, 0.016), "grey", ch=0.003, axis="x", pin=False)
+    for hx in (x0 + 0.42, x1 - 0.42):
+        bx(b, (hx - 0.06, -0.090, 0.087), (hx + 0.06, -0.078, 0.143), "trim", ch=0.002, axis="x", pin=False)
+        bx(b, (hx - 0.024, -0.124, 0.053), (hx + 0.024, -0.100, 0.101), "chrome", ch=0.004, axis="x", pin=False)
+        b.leaks.append((hx, -0.09, 0.115))
+    bx(b, (x0, -0.27, z1 - hood), (x1, 0, z1), "grey", ch=0.006, axis="x", pin=False)
+    b.leaks += [(x0 + 0.04, -0.27, z1 - hood), (x1 - 0.04, -0.27, z1 - hood)]
+
+
 def gate_up(b, x0, x1, z1, hood=0.30):
     """A roll gate rolled up: the hood box over the opening and the two guide rails."""
     for px in (x0, x1 - 0.10):
         bx(b, (px, -0.115, 0), (px + 0.10, 0, z1 - hood + 0.03), "trim", ch=0.004, axis="z", pin=False)
     bx(b, (x0, -0.27, z1 - hood), (x1, 0, z1), "grey", ch=0.006, axis="x", pin=False)
-    b.rivets([(xx, -0.27, z1 - hood + 0.03) for xx in np.arange(x0 + 0.08, x1 - 0.05, 0.32)], -Y, "grey", d=0.02, h=0.008, leak=0.15)
     bx(b, (x0 + 0.12, -0.10, z1 - hood - 0.02), (x1 - 0.12, -0.06, z1 - hood + 0.01), "grey", pin=False)      # the curtain's bottom bar
     b.leaks += [(x0 + 0.04, -0.27, z1 - hood), (x1 - 0.04, -0.27, z1 - hood)]
 
@@ -80,11 +101,11 @@ SHOPFRONTS = {
 
 def m_shopfront(ctx, M, name):
     c, d0, bulk, what = SHOPFRONTS[name]
-    b = B(300 + len(name))
+    b = B(300 + len(name), step=0.25)
     rng = ctx.rng("ctshop", name)
     lit = dict(M, interior=M["interiorLit"])
     if name == "Shut":
-        fc.gate(b, 0.0, c, BAND0, rng)
+        gate_down(b, 0.0, c, BAND0)
         coll = "box"
     elif name == "Grocery":
         gate_up(b, 0.0, c, BAND0)
@@ -109,8 +130,8 @@ def m_shopfront(ctx, M, name):
                 rod(b, (xx, 0.25, 1.95), (xx, 0.25, 1.80), 0.003, "chrome", n=4)
         if name == "Jewelry":                                                                                # bars inside the glass
             for a, e in ((0.0, d0), (d0 + DOOR_W, c)):
-                for xx in np.arange(a + 0.10, e - 0.05, 0.11):
-                    rod(b, (xx, 0.05, BULK + 0.02), (xx, 0.05, HEAD - 0.34), 0.006, "chrome", n=5)
+                for xx in np.arange(a + 0.10, e - 0.05, 0.14):
+                    rod(b, (xx, 0.05, BULK + 0.02), (xx, 0.05, HEAD - 0.34), 0.008, "chrome", n=4)
         coll = "complex"
     return done(ctx, b, "SM_Facade_Shopfront_CT_" + name, lit, ground=True, collision=coll, expect_size=(c, None, BAND0),
                 notes="Canal Street shop front %.2f m between the piers, 2.77 m high: %s. Generic module: the shop's sign is a separate "
@@ -154,7 +175,7 @@ def m_grille(ctx, M):
 
 def m_sign_rail(ctx, M):
     """Steel rail projecting off the wall that carries signs stacked one over another."""
-    b = B(321)
+    b = B(321, step=0.4)
     out, H = 1.30, 3.2
     for x in (0.0, 0.9):
         bx(b, (x, -0.02, 0.0), (x + 0.10, 0.0, H), "black", ch=0.004, pin=False)                       # wall plates
@@ -205,8 +226,8 @@ def m_box_awning(ctx, M, length, slot):
     return done(ctx, b, "SM_Facade_CT_Awning_Box_%dm" % int(round(length)) + ("_" + slot[6:] if slot != "fabricGreen" else ""), M,
                 ground=False, collision="none", expect_size=(length, None, None),
                 notes="Box awning %.1f m: cloth top sloping 0.55 m over 1.10 m, a 0.40 m vertical valance (plain: no words, the shop's "
-                      "name is on its sign), closed ends, welded frame. Pivot at the left end of the fixing line, 2.75 m above the "
-                      "sidewalk. Slot %s (the cloth tint is per shop in Unreal)." % (length, slot, M[slot].name))
+                      "name is on its sign), closed ends, welded frame. Pivot at the left end of the fixing line on the wall; on Canal it "
+                      "is fixed at 2.35 m so its top clears the sign band (placements). Slot %s; the cloth tint is per shop in its MI." % (length, M[slot].name))
 
 
 # ================================================================================================= sign carriers
@@ -338,49 +359,88 @@ def m_arch(ctx, M):
 
 # ================================================================================================= neon and rooftop letters
 
-NEON_HEX = {"#ff3d9a": "Pink", "#55ff8a": "Green", "#35e0ff": "Cyan", "#f6c21a": "Gold", "#ff3030": "Red"}
+NEON_HEX = {"#ff3d9a": "Pink", "#55ff8a": "Green", "#35e0ff": "Cyan", "#f6c21a": "Gold", "#ff3030": "Red", "#f4f8ff": "White"}
+
+
+def neon_text(b, text, font, cap, w, h, cy, slot, r, y, max_w, step=None, seg=6, stand=0.5, back=0.0, inset=0.0):
+    """Glass tube along the letter outlines of one line (lighter than signs.neon_line: a coarser resample, 6-sided tube,
+    a standoff every `stand` metres). Returns (loops, fill, ink_left)."""
+    loops, fillm, ink_left, sc = sg.layout_line(text, font, cap, 0.88, 0.04, w, h, cy, max_w, step=step or max(0.02, cap * 0.12))
+    for P in loops:
+        Q = P + sg.ink_normals(P, ink_left) * inset if inset else P
+        sg.tube(b, sg.to3(Q, y), r, slot, seg=seg)
+        L = np.sum(np.linalg.norm(np.diff(np.vstack([Q, Q[:1]]), axis=0), axis=1))
+        for i in np.linspace(0, len(Q), max(2, int(L / stand)), endpoint=False).astype(int):
+            sg.cyl(b, (Q[i, 0], y + r * 0.8, Q[i, 1]), (Q[i, 0], back, Q[i, 1]), 0.0045, "standoff", seg=4)
+        i0 = int(np.argmin(Q[:, 1] + 0.001 * Q[:, 0]))
+        q = Q[(i0 + 2) % len(Q)]
+        sg.cyl(b, (q[0], y, q[1]), (q[0], back, q[1]), r * 1.55, "rubber", seg=6)
+    return loops, fillm, ink_left
 
 
 def m_neon(ctx, M, key, N):
-    S = dict(w=N["w"], h=N["h"], tube=N["colour"], text=N["text"], font="heavy", cond=0.88, age=1.0)
+    """Exposed neon on a painted pan: tube letters, a border tube, transformer box on top."""
+    w, h = N["w"], N["h"]
+    b = B(400 + len(key), step=0.5)
+    col = "neon" + NEON_HEX[N["colour"]]
+    bx(b, (0, 0.003, 0), (w, 0.07, h), "black", ch=0.004, axis="x")
+    r, yt = 0.0065, -0.0415
+    mx = w - 0.32 * h
     if N.get("sub"):
-        S.update(cap=0.36 * N["h"], cy=0.34, sub=N["sub"], subcap=0.20 * N["h"], subcy=0.76)
+        neon_text(b, N["text"], "heavy", 0.36 * h, w, h, 0.34, col, r, yt, mx)
+        neon_text(b, N["sub"], "medium", 0.20 * h, w, h, 0.76, col, 0.0045, yt + 0.002, mx)
     else:
-        S.update(cap=0.52 * N["h"], cy=0.50)
-    MM = dict(M)
-    MM["sign" + key] = M["black"]
-    b, D, _note = sg.neon_on_pan(ctx, MM, key, S, "neon")
-    ob = b.finish(N["mesh"], MM, ctx.kit)
+        neon_text(b, N["text"], "heavy", 0.52 * h, w, h, 0.50, col, r, yt, mx)
+    bt = sg.rounded_rect(0.09 * h, 0.09 * h, w - 0.09 * h, h - 0.09 * h, 0.14 * h, 0.05)
+    sg.tube(b, sg.to3(bt, yt), r, col, seg=6)
+    for i in np.linspace(0, len(bt), 10, endpoint=False).astype(int):
+        sg.cyl(b, (bt[i, 0], yt + r * 0.8, bt[i, 1]), (bt[i, 0], 0.0, bt[i, 1]), 0.0045, "standoff", seg=4)
+    bx(b, (w - 0.62, 0.01, h + 0.002), (w - 0.30, 0.13, h + 0.11), "grey", ch=0.004)
+    sg.whip(b, [(w - 0.46, 0.07, h + 0.11), (w - 0.46, 0.08, h + 0.20), (w - 0.40, 0.09, h + 0.24), (w - 0.36, 0.12, h + 0.20)],
+            "rubber", 0.008)
+    ob = b.finish(N["mesh"], M, ctx.kit)
     fc.weather(ctx, b, ob, N["mesh"], ledges=[], ground=False)
     ctx.asset(ob, collision="none", slots=SLOT_META,
-              notes="Exposed glass neon \"%s%s\" (%s tube MI_Neon_%s, 13 mm on 35 mm glass standoffs, electrode boots, a border tube) "
-                    "on a painted steel pan %.1f x %.2f m, transformer on top. %s. Pivot bottom-left of the pan's face, face -Y. English "
-                    "only." % (N["text"], (" / " + N["sub"]) if N.get("sub") else "", NEON_HEX[N["colour"]], NEON_HEX[N["colour"]],
-                               N["w"], N["h"], N["where"]))
+              notes="Exposed glass neon \"%s%s\" (MI_Neon_%s: 13 mm tube on glass standoffs, electrode boots, a border tube) on a "
+                    "painted steel pan %.1f x %.2f m, transformer on top. %s. Pivot bottom-left of the pan's face, face -Y. English "
+                    "only." % (N["text"], (" / " + N["sub"]) if N.get("sub") else "", NEON_HEX[N["colour"]], w, h, N["where"]))
     ctx.K[N["mesh"]] = ob
     return ob
 
 
 def m_rooftop_letters(ctx, M):
-    """GOLDEN TIDE MARKET in open-face pan letters with gold neon, on a steel frame standing on the market's north parapet."""
-    w, h = 12.0, 1.5
-    S = dict(w=w, h=h, tube="#f6c21a", text="GOLDEN TIDE MARKET", font="heavy", cap=1.0, cy=0.5, cond=0.84, age=1.0)
-    lb, D, _n = sg.pan_letters(ctx, M, "RooftopLetters", S)
+    """GOLDEN TIDE MARKET in open-face pan letters with gold neon inside, on a steel frame on the market's north parapet."""
+    w, h, Dl, t = 12.0, 1.5, 0.11, 0.004
+    z0 = 1.6
     b = B(395)
-    fc.sub(b, lb, 0.0, (0.0, 0.0, 1.6))
+    loops, (FV, FF), ink_left, sc = sg.layout_line("GOLDEN TIDE MARKET", "heavy", 1.0, 0.84, 0.06, w, h, 0.5, w - 0.4, step=0.045)
+    lift = lambda P: P + np.array([0.0, z0])
+    for P in loops:
+        Ni = sg.ink_normals(P, ink_left)
+        Pin = P + Ni * t
+        Nout = np.column_stack([-Ni[:, 0], np.zeros(len(P)), -Ni[:, 1]])
+        sg.strip(b, sg.to3(lift(P), 0.0), sg.to3(lift(P), Dl), "trim", Nout)
+        sg.strip(b, sg.to3(lift(Pin), 0.0), sg.to3(lift(Pin), Dl - t), "trim", -Nout)
+        sg.strip(b, sg.to3(lift(P), 0.0), sg.to3(lift(Pin), 0.0), "trim", np.tile([0, -1.0, 0], (len(P), 1)))
+        Q = lift(P + Ni * 0.03)
+        sg.tube(b, sg.to3(Q, 0.05), 0.0065, "neonGold", seg=5)
+    FV2 = np.asarray(FV) + np.array([0.0, z0])
+    sg.fill(b, FV2, FF, Dl - t, "black", front=True)
+    sg.fill(b, FV2, FF, Dl, "trim", front=False)
+    D = Dl
     for x in np.arange(0.4, w, 2.0):
-        bar(b, (x, D + 0.10, 0.0), (x, D + 0.10, 1.6 + h), 0.08, 0.08, "black", ch=0.004)
+        bar(b, (x, D + 0.10, 0.0), (x, D + 0.10, z0 + h), 0.08, 0.08, "black", ch=0.004)
         bar(b, (x, D + 0.10, 1.2), (x, D + 1.30, 0.0), 0.06, 0.06, "black", ch=0.004)
         bx(b, (x - 0.15, D - 0.05, -0.02), (x + 0.15, D + 1.45, 0.0), "black", pin=False)
-    for z in (1.55, 1.6 + h * 0.5, 1.6 + h - 0.05):
+    for z in (z0 - 0.05, z0 + h * 0.5, z0 + h - 0.05):
         bar(b, (0.2, D + 0.10, z), (w - 0.2, D + 0.10, z), 0.06, 0.06, "black", ch=0.004)
     ob = b.finish("SM_Sign_CT_RooftopFrame", M, ctx.kit)
     fc.weather(ctx, b, ob, "SM_Sign_CT_RooftopFrame", ledges=[], ground=False)
     ctx.asset(ob, collision="none", slots=SLOT_META, cover_height=None,
-              notes="The market's rooftop letters GOLDEN TIDE MARKET: open-face pan letters 1.0 m caps with gold neon inside, on a "
-                    "steel frame (posts every 2 m, kickers, rails) standing on the north parapet, letters from 1.6 m to 3.1 m above "
-                    "the roof. The landmark seen from Canal. Pivot at the left end of the frame's front line on the roof (y 5.7 web), "
-                    "letters face -Y. The frame legs are cover on the roof (the level's colliders). One stroke may flicker.")
+              notes="The market's rooftop letters GOLDEN TIDE MARKET: open-face pan letters (1.0 m caps, 110 mm returns) with gold "
+                    "neon inside, on a steel frame (posts every 2 m, kickers, three rails) standing on the north parapet, letters from "
+                    "1.6 m to 3.1 m above the roof. The landmark seen from Canal. Pivot at the left end of the frame's front line on "
+                    "the roof (web y 5.7), letters face -Y. One stroke may flicker (chinatown.md 11.3).")
     ctx.K["SM_Sign_CT_RooftopFrame"] = ob
     return ob
 

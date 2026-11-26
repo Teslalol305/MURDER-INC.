@@ -12,7 +12,7 @@ import numpy as np
 
 from assets import facade as fc
 from assets import signs as sg
-from assets.facade import B, bar, bx, rod, sheet
+from assets.facade import B, bx, rod, sheet
 from mi import geo, mat, paths, scene
 
 X, Y, Z = np.eye(3)
@@ -141,6 +141,14 @@ def materials(ctx):
 
 # ================================================================================================= helpers
 
+def bar(b, p0, p1, w, t, slot, up=Z, **kw):
+    """facade.bar, with the `up` vector swapped when the bar runs along it (a vertical bar would be degenerate)."""
+    d = np.asarray(p1, float) - np.asarray(p0, float)
+    if abs(float(np.dot(d / np.linalg.norm(d), up))) > 0.98:
+        up = Y if abs(d[1]) < abs(d[0]) or abs(d[2]) > 0 else X
+    return fc.bar(b, p0, p1, w, t, slot, up=up, **kw)
+
+
 def absorb(b, ob, slot, loc=(0, 0, 0), rot=0.0, scale=(1, 1, 1)):
     geo.transform(ob, loc=loc, rot=(0, 0, rot), scale=scale)
     return b.absorb(ob, slot)
@@ -179,7 +187,7 @@ def crate(b, x0, y0, z0, L, W, H, slot, t=0.008):
             bx(b, (xx, yy, z0), (xx + 0.03, yy + 0.03, z0 + H), slot, pin=False)
 
 
-def fill_fruit(b, rng, x0, y0, z0, L, W, r, slot, layers=2, jit=0.15, seg=8):
+def fill_fruit(b, rng, x0, y0, z0, L, W, r, slot, layers=2, jit=0.15, seg=6):
     n = 0
     for k in range(layers):
         nx, ny = int(L / (2 * r)), int(W / (2 * r))
@@ -253,8 +261,8 @@ def m_fish_counter(ctx, M):
     for s in (-1, 1):                                                                                      # tub walls
         bx(b, (-L / 2, s * W / 2 - (0.02 if s > 0 else 0), 0.76), (L / 2, s * W / 2 + (0 if s > 0 else 0.02), 0.84 if s < 0 else H + 0.10), "stainless", pin=False)
         bx(b, (s * L / 2 - (0.02 if s > 0 else 0), -W / 2 + 0.02, 0.76), (s * L / 2 + (0 if s > 0 else 0.02), W / 2 - 0.02, H + 0.10), "stainless", pin=False)
-    xs = np.linspace(-L / 2 + 0.02, L / 2 - 0.02, 33)
-    ys = np.linspace(-W / 2 + 0.02, W / 2 - 0.02, 17)
+    xs = np.linspace(-L / 2 + 0.02, L / 2 - 0.02, 25)
+    ys = np.linspace(-W / 2 + 0.02, W / 2 - 0.02, 13)
     n = sg.vnoise(rng, len(ys), len(xs), 3, 2)
     Fv = np.zeros((len(ys), len(xs), 3))
     Fv[..., 0], Fv[..., 1] = xs[None, :], ys[:, None]
@@ -266,7 +274,7 @@ def m_fish_counter(ctx, M):
             x = -L / 2 + 0.16 + i * 0.26 + rng.uniform(-0.03, 0.03)
             z = 0.80 + 0.12 * (y + W / 2) / W + 0.04
             ln = rng.uniform(0.30, 0.40)
-            body = geo.sphere(1.0, 10, 6)
+            body = geo.sphere(1.0, 8, 5)
             geo.transform(body, loc=(x, y, z), rot=(0, 0, 90 + rng.uniform(-12, 12)), scale=(ln / 2, 0.055, 0.035))
             b.absorb(body, "fish")
             tail = geo.cylinder(0.04, 0.01, 4, name="tail", axis="Y")
@@ -295,7 +303,7 @@ def m_produce(ctx, M, kind):
                 greens(plat, rng, xx + 0.02, yy + 0.02, z0 + 0.02, 0.58, 0.44)
             else:
                 fr = {"Citrus": ("orange", "yellow")[(i + j) % 2], "Greens": "apple", "Mixed": ("orange", "apple", "yellow", "orange")[i + 2 * j]}[kind]
-                fill_fruit(plat, rng, xx + 0.02, yy + 0.02, z0 + 0.012, 0.58, 0.44, 0.04 if fr != "yellow" else 0.035, fr, layers=2, seg=7)
+                fill_fruit(plat, rng, xx + 0.02, yy + 0.02, z0 + 0.012, 0.58, 0.44, 0.042 if fr != "yellow" else 0.038, fr, layers=2, seg=6)
     bx(b, (-L / 2, -W / 2 - 0.02, 0.06), (L / 2, -W / 2 + 0.02, 0.50), "timber", pin=False)
     fc.sub(b, plat, 0.0, (0, 0, 0))
     return done(ctx, b, "SM_Prop_CT_Produce_" + kind, M, expect_size=(L, None, None), cover_height=0.7,
@@ -727,7 +735,7 @@ def m_fruit_stand(ctx, M):
             if fr == "leaf":
                 greens(b, rng, x0, yy + 0.04, z + 0.012, 0.55, 0.32, n=6)
             else:
-                fill_fruit(b, rng, x0 + 0.01, yy + 0.045, z + 0.012, 0.53, 0.31, 0.038, fr, layers=1, seg=6)
+                fill_fruit(b, rng, x0 + 0.01, yy + 0.045, z + 0.012, 0.53, 0.31, 0.042, fr, layers=1, seg=6)
     return done(ctx, b, "SM_Prop_CT_FruitStand", M, cover_height=1.0,
                 notes="Sidewalk fruit stand 2.4 x 1.2 m, three steps of cardboard trays with fruit and greens (under the Mott shed's "
                       "south end, chinatown.md 4.6; S3's grocery front).")
