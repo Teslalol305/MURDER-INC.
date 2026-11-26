@@ -1,5 +1,5 @@
 diff --git a/unreal/MurderInc/Source/MurderInc/Cloud/MICloud.cpp b/unreal/MurderInc/Source/MurderInc/Cloud/MICloud.cpp
-index 8851f1f..10353f8 100644
+index 8851f1f..cc40083 100644
 --- a/unreal/MurderInc/Source/MurderInc/Cloud/MICloud.cpp
 +++ b/unreal/MurderInc/Source/MurderInc/Cloud/MICloud.cpp
 @@ -1,4 +1,5 @@
@@ -8,23 +8,42 @@ index 8851f1f..10353f8 100644
  
  #include "Audio/MIAudioSubsystem.h"
  
-@@ -941,7 +942,7 @@ void UMICloudSubsystem::Initialize(FSubsystemCollectionBase& Collection)
+@@ -940,8 +941,8 @@ void UMICloudSubsystem::Initialize(FSubsystemCollectionBase& Collection)
+ 		// A viewer event is counted here, on whatever thread the stream reports it, before the game thread has it: the idle
  		// game sleeps in small steps and wakes when the count moves (SleepIdle), and does not go back to sleep until the game
  		// thread has handled the event (ViewerEventsHandled).
- 		StreamHandles.Add(D->OnNewConnectionNative.AddLambda([OnGame](FString, FString)
+-		StreamHandles.Add(D->OnNewConnectionNative.AddLambda([OnGame](FString, FString)
 -			{ ++MICloudPrivate::GViewerEvents; OnGame([](UMICloudSubsystem& S) { S.OnViewerJoined(); }); }));
-+			{ ++MICloudPrivate::GViewerEvents; OnGame([](UMICloudSubsystem& S) { S.OnViewerJoined(); FMIProgressBridge::ScheduleHello(); }); }));
++		StreamHandles.Add(D->OnNewConnectionNative.AddLambda([OnGame](FString, FString PlayerId)
++			{ ++MICloudPrivate::GViewerEvents; OnGame([PlayerId](UMICloudSubsystem& S) { S.OnViewerJoined(); FMIProgressBridge::ScheduleHello(PlayerId); }); }));
  		StreamHandles.Add(D->OnAllConnectionsClosedNative.AddLambda([OnGame](FString)
  			{ ++MICloudPrivate::GViewerEvents; OnGame([](UMICloudSubsystem& S) { S.OnAllViewersLeft(); }); }));
  		// The sender's own statistics (frames captured, encoded and sent a second, bitrate, QP, round trip): broadcast on
-@@ -1440,6 +1441,11 @@ void UMICloudSubsystem::GuardViewerInput()
+@@ -1425,6 +1426,12 @@ void UMICloudSubsystem::GuardViewerInput()
+ 				S->OnViewerAway(TEXT("the pointer left the picture"));
+ 			}
+ 		});
++		// Who may receive the player's progress: the controlling viewer only (used by the hello and by every send).
++		FMIProgressBridge::SetControllerCheck([WeakHandler](const FString& PlayerId)
++		{
++			const TSharedPtr<IPixelStreaming2InputHandler> H = WeakHandler.Pin();
++			return H.IsValid() && !PlayerId.IsEmpty() && H->IsElevated(PlayerId);
++		});
+ 		const IPixelStreaming2InputHandler::MessageHandlerFn PluginUi = Handler->FindMessageHandler(TEXT("UIInteraction"));
+ 		Handler->RegisterMessageHandler(TEXT("UIInteraction"), [Weak, WeakHandler, PluginUi](FString SourceId, FMemoryReader Ar)
+ 		{
+@@ -1440,6 +1447,15 @@ void UMICloudSubsystem::GuardViewerInput()
  			{
  				PluginUi(SourceId, FMemoryReader(Bytes));
  			}
-+			// The IPX page's progress message (progression.md 4.4): read strictly, handed to the progress store.
-+			if (FMIProgressBridge::OnPageMessage(Bytes))
++			// The IPX page's progress message (progression.md 4.4): read strictly, and taken only from the viewer who
++			// controls the stream (the same IsElevated test as the away word). It is handed to the game thread inside.
 +			{
-+				return;
++				const TSharedPtr<IPixelStreaming2InputHandler> ProgressHandler = WeakHandler.Pin();
++				if (FMIProgressBridge::OnPageMessage(SourceId, Bytes, ProgressHandler.IsValid() && ProgressHandler->IsElevated(SourceId)))
++				{
++					return;
++				}
 +			}
  			if (!IsAwayMessage(Bytes))
  			{

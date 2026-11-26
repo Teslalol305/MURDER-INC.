@@ -507,7 +507,8 @@ Page rules:
 
 - Store only a message with `mi === "progress"`, `v === 1`, a `code` matching
   `/^[0-9A-HJKMNP-TV-Z]{4}-?[0-9A-HJKMNP-TV-Z]{4}$/`, and `hold` values that are integers from 0 to 99,999,999.
-- Overwrite what is stored with the game's latest message: the game has already merged it.
+- Merge what is stored with the game's message (4.5), never overwrite it: a second tab, a stale tab or a fresh game's hello must not lower a player. If the game's message is lower than what is stored, send the merged value to the game again. Send the stored value on every channel open, retry until the game's answer holds it, and warn on the console when no open event arrives within 30 s.
+- Post to the frame with the stream's verified origin as target, never `'*'`; hear only the iframe's own window.
 - Wrap every localStorage access in try/catch. A private window simply has no bridge.
 
 Game rules:
@@ -515,6 +516,7 @@ Game rules:
 - Accept only the `progress` message type, at most 256 bytes. The code is decoded with the same decoder as typed codes
   (an invalid one is ignored and logged once), and each `hold` value is clamped to 0..99,999,999.
 - Merge, never replace (4.5).
+- Take it only from the controlling (elevated) viewer, on the game thread; answer to that viewer only.
 - The message handler sits beside the existing command handlers in Cloud/MICloud.cpp, and it does not open the console
   allowlist.
 

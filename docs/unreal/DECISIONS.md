@@ -618,3 +618,10 @@ new maps, the invented sign and billboard names (to be shown to the owner before
 bridge silhouette behind Canal Street.
 Readiness pass verdict (READY.md): go with caveats for v6 from 04c66c8 (suite 217/217), stream at 1920x1080 only (2560x1440 does not
 hold 60 at the viewer; 3840x2160 kills the encoder, now clamped in code), E3DS settings in LAUNCH.md 9.5.
+
+## 2026-11-26: the progress code is a checksum, not a secret (page bridge)
+
+The code's salt and CRC are in the public page script and in the game, so a valid code for every level and the album can be made by anyone, and
+Hold bests are accepted as sent. Accepted: progress is a single-player convenience and nothing is monetised (progression.md 4.3). Rule: no
+leaderboard, prize or ranking may read the Hold bests, the album bit or the code from this path; a keyed signature would need a server and is out
+of scope. The page script merges, never overwrites, stored progress; the game takes the page's message only from the controlling viewer.

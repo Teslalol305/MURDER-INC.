@@ -575,7 +575,7 @@ player and E3DS's public iframe demo by the launch pre-flight (`docs/unreal/PREF
 >
 > 4. Messages from the stream (window 'message' events)
 > - Use a message only if new URL(event.origin).hostname matches /(^|\.)eagle3dstreaming\.com$/, or if it is the wrapper of section 1 from the Game OS page's own origin. event.data is usually an object. If it is a string, JSON.parse it inside try/catch. Ignore anything else.
-> - What we send to the frame must be a JSON string: frame.contentWindow.postMessage(JSON.stringify({...}), '*').
+> - What we send to the frame must be a JSON string: frame.contentWindow.postMessage(JSON.stringify({...}), streamOrigin), with streamOrigin the verified origin of the stream (the origin of the message you are answering, or the origin of MURDERINC_STREAM_URL); never '*', which would hand the message to whatever page the frame has navigated to.
 > - E3DS's Linux player sends only the older event names (checked in its live code). The dotted names in E3DS's documentation and in its demo may never arrive. Handle every name below; each line is one moment. Treat a repeat of the same moment within 3 seconds as one event, except the three moments marked "repeats": each copy carries a new value and must be shown. Each line reads: moment: old Linux names / documented names.
 >   - waiting in line (repeats): stage1_inqueued (positionInQueue), QueueNumberUpdated (queuePosition) / session.queued, session.queuePositionChanged (queuePosition)
 >   - server found: stage2_deQueued, stage3_slotOccupied / session.hostFound, session.hostReserved, session.machineAssigned, session.machineReserved
