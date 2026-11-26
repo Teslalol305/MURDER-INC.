@@ -108,6 +108,10 @@ and the weapons fixer's queue had been waiting since 00:30), so I started no gam
    Scripts: `/project/ue/ready/weaponsfix/gen_f.py` and `/project/ue/ready/weapons/gen_w.py`.
 4. One E3DS session with the settings above, as LAUNCH.md 9.5 describes: the pause card's line must read 60 frames a second
    (lowest 58 or more), QP 34 and a stream of 55 to 60 a second.
+5. The bundled pipeline cache (SMOOTH.md, lane `pso`): `package.log` has `PSO CACHE OK` for both games, and the package's
+   game log has `Opened FPipelineCacheFile: ../../../MurderInc/Content/PipelineCaches/Linux/MurderInc_SF_VULKAN_SM5.stable.upipelinecache`
+   with about 405 entries; on the gate's cold run `pso_frames.py` lists no PSO creation hitch after the viewer joins
+   except the Crew screen's (SMOOTH.md, still open).
 
 If v6 cannot pass these before the meeting, show version 4 (already on E3DS, 60 fps at 1920 x 1080), not the trial.
 

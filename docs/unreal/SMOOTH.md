@@ -747,3 +747,171 @@ back, which a new case asserts).
 hitch lane's), `tools/box/cloud/lag-test.sh` (the hitch lane's copy plus `spike=` and this lane's claim name), `hscripts/`
 (the scripts), `perf_sum.py`, `b3frames.py`, `c2frames.py`, `buckets.py`, `fd8/` (the worktree of `fd8ce12` with the
 patches), `p1-game.patch`, `p2-game.patch`. The packages are in `/tmp/smooth-perf/` (local disk: lost when the box stops).
+
+## Pipeline cache (lane `pso`, 2026-11-26, 16:20 to 19:00 UTC): H3, H4, H6
+
+**Verdict of this lane: H4 is fixed and H3 is fixed on the title and home screens but not yet on the Crew screen, by a
+bundled pipeline cache, measured on a package of the branch against the same package without it; H6 is not fixed
+(measured again, cause narrowed).** H3's own proof line ("no PSO hitch after the title, the Crew frame under 50 ms on a
+cold user") is met for the hitches in the Story run and not for the Crew frame: 79.8 ms there (no PSO in it), 84.7 ms
+with one compute PSO on the Shipping path. Under the hitch lane's conditions (`l20`,
+`cpus=0-7`, `-sm5`, a cold user, the package on the local disk, a viewer) the cache took every pipeline-state (PSO)
+creation hitch out of the Story's title, home and Crew screens and out of the holdout's start and first minute of
+fighting: the engine's own counters (`PSO/GraphicsPSOHitch`, `PSO/ComputePSOHitch`) read 0 in those runs, against 40 (Story) and
+36 (holdout) without it. The title's 169 ms frame and the holdout's 180 ms first frames are gone (worst frames 22 ms and
+17 ms). The Crew screen's first draw is better (116 to 80 ms) but still one long frame: what is left is a render-thread
+stall with no PSO created in it (below). The price is paid before any viewer sees a frame: the game's first frame comes
+about 3.5 s later (the cache's 405 PSOs are compiled while the engine starts). No gameplay rule changed: the game code
+changed by one field of the probe line (`psoLeft`); the rest is configuration, the recorded cache and the box tools.
+
+### What was wrong, from the engine's source (5.9, on the box)
+
+- `VulkanRHI.cpp`: with PSO precaching on (`r.PSOPrecaching=1`, the default) Vulkan sets `GRHISupportsPipelineFileCache = 0`
+  unless `r.Vulkan.EnablePSOFileCacheWhenPrecachingActive` is set (read only, default false). That is the "Vulkan PSO
+  Precaching = 1, PipelineFileCache = 0" line every earlier lane quoted: no pipeline cache could be recorded or opened at
+  all, whatever `r.ShaderPipelineCache.Enabled` said (it is already 1 in a packaged game: `PIPELINE_CACHE_DEFAULT_ENABLED`
+  is `!WITH_EDITOR`).
+- `ShaderLibraryCooking.cpp`: the cook writes the stable shader keys (`ShaderStableInfo-*.shk`) only with
+  `[DevOptions.Shaders] NeedsShaderStableKeys=true`; without them a recording cannot be turned into a bundled cache
+  (the prover's and the release copies' `Metadata/PipelineCaches` folders were empty). At the end of the cook it looks for
+  `Build/Linux/PipelineCaches/*MurderInc_SF_VULKAN_SM5.spc` and builds `Content/PipelineCaches/Linux/MurderInc_SF_VULKAN_SM5.stable.upipelinecache`,
+  which the stage puts in the pak (`CopyBuildToStagingDirectory.Automation.cs`).
+- `PipelineFileCache.cpp`: a `-logPSO` run records only the PSOs the precacher did not have, unless
+  `r.ShaderPipelineCache.IncludeAllPrecachedPSOs=1` (read only): the first recording of the whole Story held 117 PSOs.
+  With it, and the bound-PSO save, a recording holds every PSO that was drawn (316 to 397 a run).
+- `ShaderPipelineCache.cpp`: `r.ShaderPipelineCache.PSOPrecacheIncludeMode` (read only, default 2) compiles only the
+  recorded PSOs the recording run had *not* precached in time; on a slower host the precacher is later, so this lane sets 0
+  (compile every recorded PSO). `StartupMode` 1 (the default) compiles in the Fast mode from the start, on the PSO
+  precaching thread pool (`UsePrecachingThreadPool` 1): that is the "precompile behind the CLICK TO PLAY card"; nothing
+  in the game had to change for it.
+
+### What changed
+
+| Commit | Change |
+|---|---|
+| `7862e3e` | `Config/DefaultEngine.ini`: `[ConsoleVariables] r.Vulkan.EnablePSOFileCacheWhenPrecachingActive=1`, `r.ShaderPipelineCache.PSOPrecacheIncludeMode=0`; `[DevOptions.Shaders] NeedsShaderStableKeys=true`. The editor never opens a pipeline cache (it has no shader code library: `FShaderPipelineCache::Initialize` returns at once), so the editor and the suite are unchanged. `.gitignore` keeps `Build/Linux/PipelineCaches/`. The probe line ends with `psoLeft=` (`FShaderPipelineCache::NumPrecompilesRemaining()`: the cache's compile tasks still to run). `package-cloud.sh`: `MI_REL` / `MI_GP` (a lane's own release copy), the commit's `.spc` copied into the release copy, the cook's stable keys kept in `<cloud>/pso-keys`, and a `PSO CACHE` check after each package and before the zip (a commit with a `.spc` and a pak list without `MurderInc_SF_VULKAN_SM5.stable.upipelinecache` fails). `lag-test.sh` keeps a `-logPSO` run's recording |
+| `9409cf9`, `e17401d` | `unreal/MurderInc/Build/Linux/PipelineCaches/MurderInc_SF_VULKAN_SM5.spc` (recordings A to C: 408 PSOs, 757 stable PSOs; the cook keeps 405: 192 graphics, 213 compute); `tools/box/cloud/pso-cache.sh` (record, expand, dump; its header has the whole procedure); `tools/box/cloud/pso/rec-a.txt` to `rec-c.txt`; `lag-test.sh` finds the CSV and the recording under a fresh user's home too |
+| this commit | `pso/rec-d.txt` (recording D: the viewer-driven path; it added no PSO, so no `.spc` of its own), `pso-cache.sh` reads a script's `# view:` and `# secs:` lines; this section, BOX.md rows, READY.md's check, `docs/unreal/shots/pso-frames.jpg`, `pso-before-after-frames.jpg` |
+
+### How it was recorded
+
+The Development game of the package of `09d3343` (the branch with `7862e3e`, before any `.spc`), `lag-test.sh` with
+`game=dev demo=<script> join=3 load=1:0.05:0:1024 cpus=0-7 runas=fresh clean=1 -- -sm5 -logPSO
+-ini:Engine:[ConsoleVariables]:r.ShaderPipelineCache.IncludeAllPrecachedPSOs=1`, each run under this lane's GPU claim
+(`pso-cache.sh record`). The game saves the bound-PSO recording on every `r.ShaderPipelineCache.Save` of the script.
+
+| Run | Script | What it drew | PSOs recorded |
+|---|---|---|---|
+| A | `pso/rec-a.txt` | Home (and its controls list), Settings, Gear up, all four crew, the six guns on the rack, every slot of every gun with every part previewed on the Workbench (37 parts), a loadout (CHOPPER red dot + suppressor, NINE laser + suppressor, SHORTY 4x scope + laser + angled grip, STRETCH red dot + vertical grip) fitted, the Story: each gun drawn, fired from the hip, aimed and fired, reloaded, inspected; the route under the El with fights (kills, blood), aimed fights, the propane blast, a reel, the pause card, the truck, the results | 316 |
+| B | `pso/rec-b.txt` | Hold the Block through the front end with CHOPPER 4x scope + compensator + wood grip, STICK scope + silencer + grip + laser + clear magazine + folded stock, STRETCH 4x scope + suppressor + angled grip + long magazine, RATTLER red dot + compensator + long magazine; each drawn, fired, aimed, reloaded; six waves of Goons and Buzzards with switches, aimed fights, a blast, the pause card | 318 |
+| C | `pso/rec-c.txt` | The Story with SHORTY red dot + compensator + vertical grip + long magazine, NINE long magazine, STICK irons + standard magazine + open stock + angled grip, CHOPPER factory; Graphics quality Low, Medium, High and Ultra in play (a fight on each, `Graphics quality: 0` to `3` in the log), back to Auto, a fight, a blast | 397 |
+| D | `pso/rec-d.txt` (on the after package, `game=dev view=guns-keys.txt`) | The Shipping path as a player drives it through the stream: the CLICK TO PLAY card, the home screen, every set-up screen by keys, the rack, the Workbench with parts, every gun drawn, aimed, fired and reloaded | 295, none new |
+
+The union of A to C is 408 PSOs (A and B are nearly the same set, 319 together; C adds the quality levels'). The engine's
+precacher compiled about 4,400 PSOs in each run (1,452 graphics and 2,887 compute in run A by the log's "Encountered a
+new ... PSO" lines), of which only those 300 to 400 were ever drawn.
+
+### How it was measured
+
+The same package twice: **before** is the package of `09d3343` (no `.spc`), **after** the package of `e17401d`, whose
+`unreal/` tree differs from it only by `Build/Linux/PipelineCaches/MurderInc_SF_VULKAN_SM5.spc` (`git diff --stat
+09d3343 e17401d -- unreal/`). Both unzipped as the fresh user to the box's local disk (`/tmp/pso-pkg/before`, `after`).
+The hitch lane's conditions: `lag-test.sh` with `load=1:0.05:0:1024` (`l20`), `cpus=0-7`, `-sm5`, `runas=fresh clean=1`,
+`join=3`, a viewer through Pixel Streaming, a CSV profile of every frame. Runs under this lane's claim (`gated.sh`, which
+also waits for any rendering editor), one game at a time. **Every run CLEAN**: `others=0` in every watcher line, `build=0`
+(no compiler, cook or editor process) in every watcher line, the GPU to itself. Scripts: the hitch lane's `sm-story.txt`
+(front end, then the Story) and `sm-hold.txt` (Hold the Block from the start, the fight 13 s after the process), and
+the prover's `p-new-menus` line (the Shipping path driven by the viewer's `guns-keys.txt`, `-csvCaptureFrames` from the
+process start). Numbers from every frame of the CSV (`pso_seg.py`, `pso_frames.py`, `frame_at.py` in this lane's folder).
+
+### Per-frame numbers, before and after
+
+**Story** (`m-before-story`, `m-after-story`; segments by the script's own events in the CSV):
+
+| Segment | Before | After |
+|---|---|---|
+| Title, 0 to 3 s | worst **168.9 ms** (0.88 s), 4 frames over 25 ms, 2 over 50, 1 over 100; 1 % low 5.9 fps; PSO hitches 11 graphics + 18 compute | worst **22.2 ms**, **0** over 25 ms; 1 % low 45.1 fps; **0** PSO hitches |
+| Home, 3 to 6 s | worst 16.7 ms, 0 over 25 ms, 0 hitches | worst 16.7 ms, 0 over 25 ms, 0 hitches |
+| Crew, first draw (Gear up, 6 to 10 s) | worst **115.9 ms** (6.05 s), 1 frame over 25 ms; PSO hitches 5 graphics + 6 compute (in the frame before, render thread 92.8 ms) | worst **79.8 ms** (6.06 s), 1 frame over 25 ms; **0** PSO hitches; the frame before has `RenderThreadOther` 76.8 ms with no PSO created |
+| The other set-up screens, 10 to 32 s | 0 over 25 ms, worst 17.3 ms | 0 over 25 ms, worst 19.7 ms |
+| First 60 s of the run (intro, fights, switches, reloads) | 0 over 25 ms, worst 20.0 ms, 1 % low 58.7 fps, 0 hitches | 0 over 25 ms, worst 19.3 ms, 1 % low 59.0 fps, 0 hitches |
+
+**Hold the Block** (`m-before-hold`, `m-after-hold`; the fight starts 10.4 s after `MIStart holdout`):
+
+| Segment | Before | After |
+|---|---|---|
+| Start, 0 to 3 s | worst **179.5 ms** (0.87 s), 5 over 25 ms, 1 over 100; 1 % low 5.6 fps; 6 hitch frames, 14 graphics + 19 compute | worst **16.8 ms**, **0** over 25 ms; 1 % low 59.6 fps; **0** hitches |
+| Intro to the fight, 3 to 13.4 s | worst 47.8 ms, 3 over 25 ms; 1 graphics + 2 compute hitches | worst 23.8 ms, **0** over 25 ms; 0 hitches |
+| Fight, first 30 s | worst 29.1 ms, 1 over 25 ms; 1 % low 56.2 fps | worst 29.3 ms, 1 over 25 ms; 1 % low 55.5 fps |
+| Fight, 30 to 60 s | worst 33.2 ms, 1 over 25 ms; 1 % low 55.6 fps | worst **18.0 ms**, **0** over 25 ms; 1 % low 59.1 fps |
+| The rest of the run | worst 50.8 ms, 5 over 25 ms, 1 over 50 | worst 27.2 ms, 1 over 25 ms |
+| Whole capture | 207 s: **15** over 25 ms, 2 over 50, 1 over 100, worst 179.5 ms, 1 % low **48.3** fps, **36** PSO hitches | 190 s: **2** over 25 ms, 0 over 50, 0 over 100, worst 29.3 ms, 1 % low **58.0** fps, **0** PSO hitches |
+
+**The Shipping path through the stream** (`m-before-menus`, `m-after-menus`; times from the process start; the viewer
+joins about 3 s after the first probe line):
+
+| Moment | Before | After |
+|---|---|---|
+| Engine start, before any viewer (the stream does not run yet) | first frames 2,802.5 and 1,265.7 ms (29 graphics + 97 compute PSO hitches in the second), 93.3 ms at 4.20 s, **213.3 ms at 5.48 s** (11 + 19 hitches: the title's first frames) | first frames 5,869.4 and 637.5 ms (10 + 34 hitches), 54.4 ms at 7.17 s (6 graphics), 29.6 ms at 7.31 s (3 graphics); `LogPSOHitching` counts them at frame 41, before the cache's own log of new PSOs starts (see Still open) |
+| Title and home with the viewer (8 to 14 s; 9 to 16 s after) | 0 frames over 25 ms, worst 20.2 ms | 1 frame over 25 ms (29.4 ms at 8.31 s, before the viewer's first key); 0 hitches |
+| Crew, first draw | **124.8 ms** at 14.40 s, 3 graphics + 6 compute hitches | **84.7 ms** at 16.54 s, **1** compute hitch (76 ms) |
+| Loadout, Workbench, every gun drawn, aimed, fired, reloaded (16 to 60 s) | 15 frames over 25 ms (H6, below), worst 31.1 ms, 0 hitches | 13 frames over 25 ms, worst 84.7 ms (the Crew frame above falls in this window after the 2 s later start), 0 other hitches |
+| Whole capture (7,800 frames) | 35 over 25 ms, 7 over 50, 4 over 100; **176** PSO hitches (47 graphics, 129 compute) | 23 over 25 ms, 4 over 50, 2 over 100 (both the start, before any viewer); **54** PSO hitches (19 graphics, 35 compute), all but one before the viewer |
+
+Recording D (`pso/rec-d.txt`, this path driven by the viewer's keys with `-logPSO`, on the after package) logged 295 PSOs,
+all of them already among the 408 of A to C (`exp3/all.expand.log`: 408 PSOs, 757 stable PSOs, the same as without D), and
+its game log reads `Encountered 50 PSO creation hitches so far (9 graphics, 41 compute). 0 of them were precached` at frame 0:
+the remaining start-up hitches are PSOs created before the cache's logging starts, which a recording cannot catch.
+The frames the viewer saved (`docs/unreal/shots/pso-before-after-frames.jpg`: the CLICK TO PLAY card, the rack, the
+Workbench with the red dot, the NINE aimed; before above, after below; and 8 more frames of play looked at the same way)
+are the same picture before and after: the cache changes when a PSO is compiled, not what is drawn.
+
+The H4 train of 33 ms frames did not come back in the before runs on this box either (as the perf lane found: it needs the
+box's CPUs busy), so H4 is proven here by its cause: the holdout's first minute had no PSO created at draw time after the
+cache, and its frames over 25 ms went from 15 to 2. `PSO/PSOMisses` stays about the same (1,450 and 1,055 in the first 30 s
+of the fight): it counts first look-ups in the runtime PSO cache (`PipelineStateCache.cpp`: `GraphicsPipelineCacheMisses++`
+for every runtime state not from the file cache), not draws that waited, so it is not a stutter measure.
+
+### What the cache costs
+
+- **Start-up**: the first probe line comes 8 to 9 s after the launcher instead of 5 to 6 s (`firstline=` in the six
+  runs' `info.txt`: before 5, 5, 6; after 9, 9, 8). The game log shows where: the 405 tasks are enqueued at once, then
+  2.2 s to "Saved device pipeline cache file" and 1.7 s to "BeginNextPrecompileCacheTask() - Finished" before the first
+  frame. A viewer never sees it (the stream starts after it); on E3DS it lengthens the loading page by about 3.5 s.
+- **The engine's compile backlog**: `psoLeft` on the probe line counts down from 2,968 at 7 s to 0 at 29 s after the
+  start (`m-after-story`): the precacher's own work is not smaller, it is no longer paid at draw time.
+- Memory: not higher (highest resident 3,318 against 3,363 MB in the Story, 3,259 against 3,311 MB in the holdout;
+  `summary.txt` of the four runs).
+
+### H6: each set-up screen rebuild still costs a frame (not fixed)
+
+Measured again (`m-before-menus`, 16 to 60 s, the viewer's key presses on Crew, Loadout, Workbench): 15 frames over 25 ms
+(25 to 31 ms), in them the game thread 9 to 15 ms, of which `TickActors` 6.3 to 10.3 ms and `UI` 2.3 to 4.6 ms, the GPU
+11 to 13 ms; the after run has the same pattern (13 frames over 25 ms). That is the rebuild in `UMIFrontEnd::Tick` (the
+perf lane's `p-menus-m1`). It is not a shader cost, so the cache does not touch it. The fix is in the front end (rebuild
+only the column that changed, or build the next screen in the frame after the key press): a change to the screens that
+needs the menu fixer's tests and stream frames, not made here.
+
+### Still open
+
+- **The Crew screen's first draw**: 79.8 ms in `m-after-story` with no PSO created in it: the render thread's
+  `RenderThreadOther` is 76.8 ms in the frame before. The perf lane's suggestion stands: draw the Crew stage once behind
+  the CLICK TO PLAY card (front end, the menu fixer's).
+- **Start-up 3.5 s longer** (above): the trade for no hitches; if E3DS's loading page has a limit, it is still far inside it.
+- **Hitches at the engine's start** (before any viewer; 54 PSOs in `m-after-menus`, 50 counted by frame 41) and **one compute
+  PSO at the Crew screen's first draw on the Shipping path** (76 ms): recording D did not catch them, so they are created
+  before or outside the pipeline cache's logging. Not visible in a stream that starts after them; the Crew one is.
+- **Record again** whenever materials, shaders, the guns or the engine change (`pso-cache.sh` header, steps 1 to 4): a PSO
+  whose shaders left the cook is dropped (the cache degrades, it does not break), a new one is not in it. Levels 2 and 3
+  need their own recordings.
+- The release engineer's package: `package-cloud.sh` now prints `PSO CACHE OK` for both games and refuses the zip without
+  it; READY.md "Before upload" has the check.
+
+### Files
+
+On the box, `/project/ue/smooth/pso/`: `repo` (this lane's clone, built, the suite), `rel` (the release copy), `cloud`
+(the packages, `pso-keys`), `rec`, `rec2`, `rec3` (the recording runs A and B, C, D with their game logs and recordings),
+`exp1`, `exp2`, `exp3` (the expanded caches and the commandlet's logs), `runs/m-before-*`, `runs/m-after-*` (CSV,
+`game.log`, `others.log`, `summary.txt`), `q-before.txt`, `q-after.txt`, `gated.sh`, `chain.sh`, `pso_seg.py`,
+`frame_at.py`, `plot_pso.py`, `rec0` (the first recording, without `IncludeAllPrecachedPSOs`). The unzipped packages are in `/tmp/pso-pkg/` (local disk: lost when the box stops). In the
+repository: `docs/unreal/shots/pso-frames.jpg` (every frame of the Story and holdout runs, before and after).

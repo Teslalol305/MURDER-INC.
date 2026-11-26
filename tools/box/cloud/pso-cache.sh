@@ -3,7 +3,7 @@
 # cook bundles. Run as root on the box.
 #
 #   pso-cache.sh record <build folder> <runs folder> [script ...]   detached: one -logPSO run of the Development game per
-#                     recording script (default: pso/rec-a.txt, rec-b.txt, rec-c.txt beside this file) under the
+#                     recording script (default: pso/rec-*.txt beside this file) under the
 #                     hitch lane's conditions (lag-test.sh: l20 load, cpus=0-7, -sm5, a fresh user, a clean Saved, a
 #                     viewer), one at a time under the GPU claim; each run's recording lands in <runs folder>/<run>/
 #   pso-cache.sh status <runs folder>                     how far the recording got
@@ -62,8 +62,12 @@ record_fg() {
     n=rec-$(basename "$s" .txt | sed 's/^rec-//')
     # Long enough for the script: about 0.9 s of game per line, at least 4 minutes, at most 14 (the GPU-run limit).
     local secs; secs=$(( $(grep -c . "$s") * 9 / 10 + 60 )); [ $secs -lt 240 ] && secs=240; [ $secs -gt 840 ] && secs=840
+    # A script may name its viewer and its length ("# view: guns-keys.txt", "# secs: 170"): rec-d.txt is driven by the
+    # viewer's keys, as a player drives the game, and only saves the recording itself.
+    local view; view=$(sed -n 's/^# view: *//p' "$s" | head -1); [ -n "$view" ] || view=sound-watch.txt
+    local own; own=$(sed -n 's/^# secs: *//p' "$s" | head -1); [ -n "$own" ] && secs=$own
     echo "$(date -u +%T) start $n ($s, secs=$secs)"
-    (cd "$T" && LAG_OUT=$out LAG_RUNAS=fresh LAG_CLEAN=1 bash lag-test.sh run-fg "$n" game=dev "build=$build" "demo=$s" view=sound-watch.txt \
+    (cd "$T" && LAG_OUT=$out LAG_RUNAS=fresh LAG_CLEAN=1 bash lag-test.sh run-fg "$n" game=dev "build=$build" "demo=$s" "view=$view" \
       join=3 "secs=$secs" load=1:0.05:0:1024 cpus=0-7 -- -sm5 -logPSO "-ini:Engine:[ConsoleVariables]:r.ShaderPipelineCache.IncludeAllPrecachedPSOs=1" \
       < /dev/null > "$out/$n.out" 2>&1)
     echo "$(date -u +%T) done $n: $(ls "$out/$n"/*.upipelinecache 2>/dev/null | wc -l) recording(s), $(du -ch "$out/$n"/*.upipelinecache 2>/dev/null | tail -1 | cut -f1); $(tail -1 "$out/$n/summary.txt" 2>/dev/null | cut -c1-160)"

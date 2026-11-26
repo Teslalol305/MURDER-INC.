@@ -1,0 +1,38 @@
+# The pipeline-cache recording (D): the viewer drives the game (guns-keys.txt: the CLICK TO PLAY card, the home screen,
+# every set-up screen by keys, the rack, the Workbench with parts, every gun drawn, aimed, fired and reloaded), as a
+# player does through the stream; this script only saves the recording every 10 s.
+# docs/unreal/SMOOTH.md H3: the card and the viewer's own path drew pipeline states the scripted runs A to C never did.
+# view: guns-keys.txt
+# secs: 170
+wait 10
+con r.ShaderPipelineCache.Save
+wait 10
+con r.ShaderPipelineCache.Save
+wait 10
+con r.ShaderPipelineCache.Save
+wait 10
+con r.ShaderPipelineCache.Save
+wait 10
+con r.ShaderPipelineCache.Save
+wait 10
+con r.ShaderPipelineCache.Save
+wait 10
+con r.ShaderPipelineCache.Save
+wait 10
+con r.ShaderPipelineCache.Save
+wait 10
+con r.ShaderPipelineCache.Save
+wait 10
+con r.ShaderPipelineCache.Save
+wait 10
+con r.ShaderPipelineCache.Save
+wait 10
+con r.ShaderPipelineCache.Save
+wait 10
+con r.ShaderPipelineCache.Save
+wait 10
+con r.ShaderPipelineCache.Save
+wait 10
+con r.ShaderPipelineCache.Save
+wait 10
+con r.ShaderPipelineCache.Save
