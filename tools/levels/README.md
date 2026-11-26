@@ -52,7 +52,9 @@ optional and absent from the Block's file, so the Block's code path is unchanged
   (every deck test is a point-in-rectangle check, so it never applies), for a loader test before E2 lands.
 
 **Signs are English only** (the owner, DECISIONS 2026-11-26 ~02:00): no Chinese characters anywhere in either file
-(a check). Canal Street reads as Chinatown through the market, the produce, the stall boards, the lantern string, the
+(a check). Canal's `signage` takes every word from the art lane's list (art/blender/assets/_chinatown_names.py, run with
+its own English check): each placement names its `face` key, text and carrier there, so a renamed shop is one line in
+that list and a rebuild here. Canal Street reads as Chinatown through the market, the produce, the stall boards, the lantern string, the
 bakery's pink neon, the arcade and the English shop names of chinatown.md 13.3. Every name is invented and still
 needs the C1 search before its face is drawn; IPX is the only real mark.
 

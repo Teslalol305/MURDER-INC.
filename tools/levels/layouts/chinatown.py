@@ -505,72 +505,116 @@ def build():
     return L
 
 
+def _names():
+    """The art lane's name list (art/blender/assets/_chinatown_names.py) is the one source of every word on a Canal
+    sign; the placements here only say where each face hangs."""
+    import importlib.util
+    import os
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "art", "blender", "assets", "_chinatown_names.py")
+    spec = importlib.util.spec_from_file_location("_chinatown_names", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    mod.check_english()
+    return mod
+
+
 def _signs(L):
-    """Sign faces (art-side), English only. kind: band (lightbox band), blade (projecting), neon (exposed neon),
-    letters (rooftop pan letters), board (painted), window (vinyl or neon in a window), arch, kiosk, poster, stencil,
-    graffiti, street (street-name blade). normal is the side it shows. Colours follow chinatown.md 11.3 (no red behind a
-    fight from the critical path)."""
+    """Sign faces (art-side), English only, one entry per placement: `face` is the key in the art lane's list
+    (FACES, NEON, OTHER_TEXT or DECAL_TEXT of art/blender/assets/_chinatown_names.py), `text` its words, `carrier`
+    its mesh. normal is the side it shows. Colours follow chinatown.md 11.3 (no red behind a fight from the critical
+    path)."""
+    N = _names()
     S = L.signage
 
-    def add(sid, text, kind, x, y, z, nx, nz, w, h, colour, night="on", building=None, note=None, lit=True):
-        e = {"id": sid, "text": text, "kind": kind, "building": building, "lit": lit, "night": night, "colour": colour,
+    def add(sid, face, x, y, z, nx, nz, building=None, note=None, text=None, kind=None, w=None, h=None, colour=None, night=None, lit=None):
+        src, f = None, None
+        if face in N.FACES:
+            src, f = "FACES", N.FACES[face]
+            text = text or " / ".join(ln[0] for ln in f["lines"])
+            kind = kind or f["kind"]
+            w = w or f["w"]
+            h = h or f["h"]
+            colour = colour or f.get("glow") or f.get("ink")
+            lit = f.get("lit", False) if lit is None else lit
+            carrier = f.get("carrier")
+        elif face in N.NEON:
+            src, f = "NEON", N.NEON[face]
+            text = text or " / ".join(t for t in (f["text"], f.get("sub")) if t)
+            kind, w, h, colour, lit, carrier = "neon", w or f["w"], h or f["h"], colour or f["colour"], True, f.get("mesh")
+        elif face in N.OTHER_TEXT:
+            src, f = "OTHER_TEXT", N.OTHER_TEXT[face]
+            text = text or f["text"]
+            kind, lit, carrier = kind or "letters", True, f.get("mesh")
+        elif face in N.DECAL_TEXT:
+            src = "DECAL_TEXT"
+            kind, lit, carrier = kind or "decal", False, None
+        else:
+            carrier = None
+        if night is None:
+            night = "on" if lit else "unlit"
+        e = {"id": sid, "face": face, "faceList": src, "text": text, "kind": kind, "building": building, "lit": bool(lit),
+             "night": night, "colour": colour, "carrier": carrier,
              "web": {"pos": {"x": x, "y": y, "z": z}, "normal": {"x": nx, "y": 0, "z": nz}, "width": w, "height": h},
-             "ue": {"pos": {"X": round(x * 100, 2), "Y": round(z * 100, 2), "Z": round(y * 100, 2)}, "width": w * 100, "height": h * 100}}
+             "ue": {"pos": {"X": round(x * 100, 2), "Y": round(z * 100, 2), "Z": round(y * 100, 2)},
+                    "width": round(w * 100, 2) if w else None, "height": round(h * 100, 2) if h else None}}
         if note:
             e["note"] = note
         S.append(e)
 
     # north row (faces south, z -33)
-    add("n1.band", "GOLD HITS RECORDS", "band", -38.5, 3.7, -32.95, 0, 1, 6, 1.0, "warm white", building="N1", note="CDs and VINYL in the window")
-    add("n1.blade", "JADE TEAPOT DIM SUM", "blade", -31.5, 8.0, -32.4, 1, 0, 1.0, 6, "jade green and white, red outline", building="N1", note="red only above 4 m on the north row")
-    add("n2.band", "TWIN CARP JEWELRY", "band", -25.5, 3.7, -32.95, 0, 1, 6, 1.0, "gold on red", building="N2", note="the one red-ground lightbox, 3.2 to 4.2 m")
-    add("n2.window", "SEA BREEZE TRAVEL", "window", -18.0, 10.6, -32.98, 0, 1, 4, 0.8, "white vinyl", building="N2", lit=False)
-    add("n3.band", "EIGHT TREASURE BBQ", "band", -11.5, 3.7, -32.95, 0, 1, 6, 1.0, "amber", building="N3", note="roast-duck window below")
-    add("n4.band", "SPRING PINE HERBS & GINSENG", "band", 8.5, 3.7, -32.95, 0, 1, 8, 1.0, "cool white on green", building="N4")
-    add("n5.band", "LONG LIFE NOODLE HOUSE", "band", 16.5, 3.7, -32.95, 0, 1, 6, 1.0, "amber with a neon bowl outline", building="N5")
-    add("n5.window", "MAHJONG", "window", 23.0, 6.0, -32.98, 0, 1, 2.4, 0.8, "green neon", night="flickers", building="N5")
-    add("n6.band", "SUNNY DAY LAUNDROMAT", "band", 36.0, 3.7, -32.95, 0, 1, 7, 1.0, "cold white", building="N6")
-    add("n6.blade", "BRIGHT MOON HOTEL", "blade", 40.5, 10.0, -32.4, -1, 0, 1.2, 12, "white and blue neon", building="N6", note="the east landmark over the truck")
-    # market
-    add("m.letters", "GOLDEN TIDE MARKET", "letters", -13.0, 7.8, -13.55, 0, -1, 14, 2.2, "warm white and gold neon", night="one stroke flickers", building="M", note="on the steel frame over the Canal parapet")
-    add("m.band", "GOLDEN TIDE MARKET", "band", -13.0, 4.4, -14.05, 0, -1, 10, 0.9, "warm white", building="M")
-    add("m.blade.w", "MARKET", "blade", -24.0, 4.8, -14.6, 1, 0, 0.8, 2.4, "warm white", building="M")
-    add("m.blade.e", "MARKET", "blade", -2.0, 4.8, -14.6, 1, 0, 0.8, 2.4, "warm white", building="M")
-    for i, (t, x) in enumerate((("FRESH FISH", -2.0), ("FRUIT", -20.7), ("VEGETABLES", -15.5), ("DRY GOODS", -10.3), ("TOFU", -5.1), ("ROAST MEAT", -20.7))):
-        z = -8.0 if i < 5 else -1.8
-        add("m.stall.%d" % i, t, "board", x, 2.6, z, 0, -1, 1.6, 0.4, "painted, lit by bulbs", building="M", lit=False)
-    add("m.coldroom", "COLD ROOM", "band", -20.0, 2.55, 1.45, 0, -1, 1.4, 0.35, "cold white", building="M", note="visible down the west aisle")
-    add("m.exit", "EXIT", "band", -5.0, 3.6, 5.55, 0, -1, 0.5, 0.2, "green", building="M", note="over the rear roll-up the guide takes")
+    add("n1.band", "GoldHits", -38.5, 3.7, -32.95, 0, 1, "N1")
+    add("n1.blade", "JadeTeapot", -31.5, 8.0, -32.4, 1, 0, "N1", note="red outline only above 4 m on the north row")
+    add("n2.band", "TwinCarp", -25.5, 3.7, -32.95, 0, 1, "N2", note="the one red-ground lightbox, 3.2 to 4.2 m")
+    add("n2.window", "SeaBreeze", -18.0, 10.6, -32.98, 0, 1, "N2")
+    add("n3.band", "EightTreasure", -11.5, 3.7, -32.95, 0, 1, "N3", note="roast-duck window below")
+    add("n4.band", "SpringPine", 8.5, 3.7, -32.95, 0, 1, "N4")
+    add("n5.band", "LongLife", 16.5, 3.7, -32.95, 0, 1, "N5")
+    add("n5.window", "MahjongNeon", 23.0, 6.0, -32.98, 0, 1, "N5", night="flickers")
+    add("n6.band", "SunnyDay", 36.0, 3.7, -32.95, 0, 1, "N6")
+    add("n6.blade", "BrightMoon", 40.5, 10.0, -32.4, -1, 0, "N6", note="the east landmark over the truck")
+    # the market
+    add("m.letters", "RooftopLetters", -13.0, 7.8, -13.55, 0, -1, "M", w=14, h=2.2, colour="warm white and gold neon",
+        night="one stroke flickers", note="on the steel frame over the Canal parapet")
+    add("m.band", "GoldenTide", -13.0, 4.4, -14.05, 0, -1, "M")
+    add("m.blade.w", "GoldenTideBlade", -24.0, 4.8, -14.6, 1, 0, "M")
+    add("m.blade.e", "GoldenTideBlade", -2.0, 4.8, -14.6, 1, 0, "M")
+    for i, (key, x, z) in enumerate((("StallFish", -2.0, -8.0), ("StallFruit", -20.7, -8.0), ("StallVeg", -15.5, -8.0),
+                                     ("StallDry", -10.3, -8.0), ("StallTofu", -5.1, -8.0), ("StallRoast", -20.7, -1.8))):
+        add("m.stall.%d" % i, key, x, 2.6, z, 0, -1, "M", note="hung above 2.4 m, art only")
+    add("m.coldroom", "ColdRoom", -20.0, 2.55, 1.45, 0, -1, "M", note="visible down the west aisle")
+    add("m.exit", None, -5.0, 3.6, 5.55, 0, -1, "M", text="EXIT", kind="exitbox", w=0.5, h=0.2, colour="green", lit=True,
+        note="a plain green exit box over the rear roll-up the guide takes (not a shop sign; not in the name list)")
     # bakery, alleys, Mott
-    add("w3.neon", "MOON GATE BAKERY", "neon", 4.0, 4.4, -14.05, 0, -1, 6, 1.2, "pink exposed neon", building="W3")
-    add("w1.band", "WEST CITY HARDWARE", "band", -37.0, 3.7, -14.05, 0, -1, 7, 1.0, "lightbox, off", night="off", building="W1", note="shut, gate down")
-    add("alley.board", "LANTERN ALLEY", "board", -28.0, 3.4, -14.2, 0, -1, 2.6, 0.6, "painted wood, lit by a bulkhead lamp", building="W1",
-        note="the party-goods wholesaler's board over the alley mouth, not a city sign", lit=False)
-    add("alley.stencil", "MOTT ST →", "stencil", -26.05, 1.4, 12.0, -1, 0, 1.4, 0.4, "white stencil", building="B0", lit=False, note="at the dog-leg")
-    add("e1a.band", "GOLDEN LUCK ELECTRONICS", "band", 23.5, 3.7, -14.05, 0, -1, 9, 1.0, "LED flex outline, cool white", building="E1a")
-    add("e1a.lily", "LILY CAFE", "band", 17.95, 3.6, -8.0, -1, 0, 5, 0.9, "warm white", building="E1a", note="its glow lights the kitchen roof gap opposite")
-    add("e1a.tailor", "CLEVER HANDS TAILOR", "band", 23.5, 3.2, 2.05, 0, 1, 4, 0.7, "warm white", building="E1a")
-    add("arcade.n", "PLUM BLOSSOM ARCADE", "arch", 31.5, 4.6, -14.05, 0, -1, 4.2, 0.8, "jade green and white channel letters", building="Arcade")
-    add("arcade.s", "PLUM BLOSSOM ARCADE", "arch", 31.5, 4.6, 2.05, 0, 1, 4.2, 0.8, "jade green and white channel letters", building="Arcade", note="the brightest object on the Square")
-    for i, (t, z) in enumerate((("WATCH REPAIR", -6.0), ("KEYS CUT", -3.0), ("PHONES", -11.0), ("NEON SIGNS", -12.9))):
-        add("arcade.kiosk.%d" % i, t, "kiosk", 29.45 if i < 3 else 32.55, 2.6, z, 1 if i < 3 else -1, 0, 1.2, 0.3, "cool white", building="Arcade")
-    add("e1b.band", "CLEAR VIEW OPTICAL", "band", 39.0, 3.7, -14.05, 0, -1, 6, 1.0, "cool white", building="E1b")
-    add("e1b.workshop", "BIG LIGHT SIGNS", "neon", 37.55, 2.2, -7.0, -1, 0, 2.6, 0.9, "blue, half finished", building="E1b", note="on the workshop's back wall")
-    add("e2.band", "CRANE PAVILION BANQUET HALL", "band", 33.0, 4.4, 17.95, 0, -1, 12, 1.0, "gold and cream", building="E2", note="red only on the lacquered doors and the one lantern string")
-    add("e2.dub", "SILVER WAVE VIDEO", "neon", 17.95, 3.9, 25.5, -1, 0, 4.5, 0.6, "white, half dead", night="flickers", building="E2", note="over the only raised shutter on Mott")
-    add("s3.grocery", "GOOD WISHES GROCERY", "band", 8.05, 3.6, 18.0, 1, 0, 5, 0.9, "amber", building="S3", note="fruit boxes on the sidewalk")
-    add("s3.coach", "SEVEN STARS COACH", "band", 8.05, 3.6, 24.0, 1, 0, 4, 0.9, "blue and white", building="S3", note="timetable posters with invented towns, no real routes or prices")
-    add("s3.wire", "QUICK WIRE PHONES", "band", 8.05, 3.6, 28.5, 1, 0, 3.4, 0.9, "cool white", building="S3", note="window stickers: generic phone shapes, no makes")
-    for i, (t, x, z, nx, nz) in enumerate((("CANAL ST", 9.8, -19.3, 0, 1), ("MOTT ST", 16.2, -19.3, 0, 1), ("CANAL ST", 16.2, -13.7, 0, -1))):
-        add("street.%d" % i, t, "street", x, 3.0, z, nx, nz, 0.9, 0.2, "plain green blade, no agency mark", lit=False)
-    for i, (t, x, z, nx, nz) in enumerate((("CDs $5 · USB $10", -9.1, -18.85, 0, -1), ("BAGS $20", -21.1, -18.85, 0, -1),
-                                           ("SUNGLASSES $5", -33.1, -18.85, 0, -1), ("3 FOR $10", 6.9, -18.85, 0, -1))):
-        add("placard.%d" % i, t, "board", x, 1.1, z, nx, nz, 0.5, 0.3, "card and marker", lit=False)
-    for i, (t, x, z, nx, nz) in enumerate((("FOR LEASE", -20.0, -33.0, 0, 1), ("SHOP FOR RENT", 2.0, 13.95, 0, -1), ("FOR LEASE", 24.0, -32.98, 0, 1))):
-        add("vacant.%d" % i, t, "window", x, 7.4, z, nx, nz, 0.6, 0.4, "paper, no numbers", lit=False)
-    add("poster.opera", "SPRING SUNSHINE OPERA TROUPE · GALA NIGHT", "poster", -27.95, 1.8, -6.0, 1, 0, 0.8, 1.1, "wheat-paste, no faces", building="M", lit=False)
+    add("w3.band", "MoonGate", 4.0, 3.5, -14.05, 0, -1, "W3")
+    add("w3.neon", "MoonGateNeon", 4.0, 4.6, -14.1, 0, -1, "W3")
+    add("w1.band", "WestCity", -37.0, 3.7, -14.05, 0, -1, "W1", night="off", note="shut, gate down")
+    add("alley.board", "LanternAlley", -28.0, 3.4, -14.2, 0, -1, "W1", note="the party-goods wholesaler's board over the alley mouth, not a city sign")
+    add("alley.stencil", "Stencil", -26.05, 1.4, 12.0, -1, 0, "B0", text="MOTT ST \u2192", w=1.4, h=0.4, colour="white stencil", note="at the dog-leg")
+    add("e1a.band", "GoldenLuck", 23.5, 3.7, -14.05, 0, -1, "E1a")
+    add("e1a.lily", "LilyCafe", 17.95, 3.6, -8.0, -1, 0, "E1a", note="its glow lights the kitchen roof gap opposite")
+    add("e1a.tailor", "CleverHands", 23.5, 3.2, 2.05, 0, 1, "E1a")
+    add("arcade.n", "PlumBlossom", 31.5, 4.6, -14.05, 0, -1, "Arcade")
+    add("arcade.s", "PlumBlossom", 31.5, 4.6, 2.05, 0, 1, "Arcade", note="the brightest object on the Square")
+    for i, (key, x, z, nx) in enumerate((("KioskWatch", 29.45, -6.0, 1), ("KioskKeys", 29.45, -3.0, 1), ("KioskPhones", 29.45, -11.0, 1),
+                                         ("KioskNeon", 32.55, -12.9, -1))):
+        add("arcade.kiosk.%d" % i, key, x, 2.6, z, nx, 0, "Arcade")
+    add("e1b.band", "ClearView", 39.0, 3.7, -14.05, 0, -1, "E1b")
+    add("e1b.door", "BigLight", 33.55, 2.6, -7.0, -1, 0, "E1b", note="the workshop's door board off the arcade")
+    add("e1b.workshop", "BigLightNeon", 37.55, 2.2, -7.0, -1, 0, "E1b", note="the half-finished sign on the workshop's back wall")
+    add("e2.band", "CranePavilion", 33.0, 4.4, 17.95, 0, -1, "E2", note="red only on the lacquered doors and the one lantern string")
+    add("e2.dub", "SilverWaveNeon", 17.95, 3.9, 25.5, -1, 0, "E2", night="flickers", note="over the only raised shutter on Mott")
+    add("s3.grocery", "GoodWishes", 8.05, 3.6, 18.0, 1, 0, "S3", note="fruit boxes on the sidewalk")
+    add("s3.coach", "SevenStars", 8.05, 3.6, 24.0, 1, 0, "S3")
+    add("s3.wire", "QuickWire", 8.05, 3.6, 28.5, 1, 0, "S3")
+    for i, (key, x, z, nx, nz) in enumerate((("StreetCanal", 9.8, -19.3, 0, 1), ("StreetMott", 16.2, -19.3, 0, 1), ("StreetCanal", 16.2, -13.7, 0, -1))):
+        add("street.%d" % i, key, x, 3.0, z, nx, nz)
+    for i, (key, x) in enumerate((("PlacardCDs", -9.6), ("PlacardUSB", -8.6), ("PlacardBags", -21.1), ("PlacardShades", -33.1), ("PlacardThree", 6.9))):
+        add("placard.%d" % i, key, x, 1.1, -18.85, 0, -1)
+    for i, (key, x, z, nx, nz) in enumerate((("ForLease", -20.0, -33.0, 0, 1), ("ForRent", 2.0, 13.95, 0, -1), ("ForRent", 24.0, -32.98, 0, 1))):
+        add("vacant.%d" % i, key, x, 7.4, z, nx, nz)
+    add("poster.opera", "OperaGala", -27.95, 1.8, -6.0, 1, 0, "M")
     for i, (t, x, y, z, nx, nz, col) in enumerate((("VULTURES", -29.95, 1.6, 2.0, 1, 0, "oxblood"), ("VLTR", -18.0, 1.2, 13.95, 0, -1, "oxblood"),
                                                    ("RULE", -5.0, 1.4, 13.95, 0, -1, "gold"), ("INC", 17.95, 1.0, 26.0, -1, 0, "gold"))):
-        add("graffiti.%d" % i, t, "graffiti", x, y, z, nx, nz, 1.6, 0.6, col, lit=False)
-    add("lanterns", "(no text) one string of 16 red paper lanterns", "lanterns", 33.0, 4.3, 17.6, 0, -1, 6, 0.6, "red, 40 to 80 nits", building="E2",
-        note="the level's only lantern string, over the banquet doors")
+        add("graffiti.%d" % i, "Graffiti", x, y, z, nx, nz, text=t, kind="graffiti", w=1.6, h=0.6, colour=col)
+    add("lanterns", None, 33.0, 4.3, 17.6, 0, -1, "E2", text="", kind="lanterns", w=6, h=0.6, colour="red, 40 to 80 nits", lit=True,
+        note="the level's only lantern string (16 red paper lanterns, no characters), over the banquet doors")
