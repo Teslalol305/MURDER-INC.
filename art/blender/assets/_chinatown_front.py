@@ -376,10 +376,16 @@ def m_street_blade(ctx, M):
     bx(b, (-w / 2, -0.003, -h / 2), (w / 2, 0.003, h / 2), "alu", pin=False)
     sg.card(b, (-w / 2, -0.004, -h / 2), (w, 0, 0), (0, 0, h), "face", 2, 1)
     sg.card(b, (w / 2, 0.004, -h / 2), (-w, 0, 0), (0, 0, h), "face", 2, 1)
-    lathe(b, [(0.0, -h / 2 - 0.04), (0.045, -h / 2 - 0.04), (0.045, h / 2 + 0.04), (0.0, h / 2 + 0.04)], "alu", seg=10)
+    # round 3: the post used to be a clamp cylinder through the middle of the blade and crossed the lettering. The blade now hangs on a
+    # bracket arm above its top edge (two hangers) that reaches back to a wall plate beyond its left end; nothing crosses a face.
+    rod(b, (-w / 2 - 0.30, 0.0, h / 2 + 0.035), (w / 2 - 0.05, 0.0, h / 2 + 0.035), 0.019, "alu", n=8)
+    for x in (-w / 2 + 0.12, w / 2 - 0.12):
+        rod(b, (x, 0.0, h / 2 + 0.035), (x, 0.0, h / 2 - 0.004), 0.012, "alu", n=6)
+    bx(b, (-w / 2 - 0.34, -0.035, h / 2 - 0.04), (-w / 2 - 0.30, 0.035, h / 2 + 0.10), "alu", pin=False)
     return done_sign(ctx, b, "SM_Sign_CT_StreetBlade", M,
-                     notes="Street name blade 0.90 x 0.20 m, two faces (green, retroreflective, plain: no agency mark), on a post clamp. "
-                           "Pivot at the clamp centre, faces +-Y; mount on a SignPost or lamp post at 3.0 m.")
+                     notes="Street name blade 0.90 x 0.20 m, two faces (green, retroreflective, plain: no agency mark), hung from a bracket arm "
+                           "over its top edge that ends in a wall plate 0.32 m beyond the left end (round 3: the old post clamp crossed the "
+                           "lettering). Pivot at the blade's centre, faces +-Y; the wall plate is at local -X.")
 
 
 def m_arch(ctx, M):

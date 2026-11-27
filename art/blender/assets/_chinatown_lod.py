@@ -24,6 +24,7 @@ from mi import paths  # noqa: E402
 
 LOD_SWITCH = 30.0          # metres from the camera to a building's nearest point
 PROP_LOD_SWITCH = 12.0     # metres from the camera to a prop's nearest point: a prop past it draws its <name>_LOD1
+PROP_LOD2_SWITCH = 30.0    # past this it draws its <name>_LOD2 (when it has one)
 # Props that are heavy and placed many times: source mesh -> LOD1 triangle target (about a quarter; the thin-member floor
 # of the lane's check still holds because the collapse keeps the volume, not the hairlines; the pallet stack and the dumpster
 # are left out: their boards and sheets collapse to slivers under 34 mm). The LOD1 is a second mesh of
@@ -32,6 +33,24 @@ PROP_LODS = {
     "SM_Prop_TrashCan_Metal": 1600, "SM_Prop_CT_StallCounter_2m": 1200, "SM_Furn_MilkCrate": 450,
     "SM_Prop_CT_VendorTable": 900, "SM_Prop_CardboardBoxes": 500, "SM_Prop_CT_FishCounter": 1500, "SM_Prop_CT_Produce_Citrus": 1200,
     "SM_Prop_CT_ClothingRail": 800, "SM_Prop_CT_DryGoods": 900, "SM_Furn_TrafficCone": 400,
+    # round 3: the rest of what the start view draws many of, and the new props with more than 1.5k triangles
+    "SM_Prop_CT_Produce_Greens": 1200, "SM_Prop_CT_StyrofoamBoxes": 420, "SM_Prop_CT_Tarp": 600,
+    "SM_Furn_ParkingMeter": 220, "SM_Furn_NewspaperBox": 380, "SM_Prop_CT_Skylight": 800,
+    "SM_Prop_CT_Condenser": 800, "SM_Prop_CT_Goods_Caps": 700, "SM_Prop_CT_Lantern": 150, "SM_Furn_TrafficBarrel": 900,
+    "SM_Prop_CT_DumplingCart": 900, "SM_Prop_CT_NutCart": 900, "SM_Prop_CT_HotpotCart": 800, "SM_Prop_CT_StoneLion_L": 600,
+    "SM_Prop_CT_StoneLion_R": 600, "SM_Prop_CT_FruitStand_Small": 520, "SM_Prop_CT_BikeRack": 500, "SM_Prop_CT_ChairStack": 600,
+    "SM_Prop_CT_CDRack": 700, "SM_Prop_CT_BakeryCounter": 900, "SM_Prop_CT_TrayRack": 1400, "SM_Prop_CT_TapeRack": 700,
+    "SM_Prop_CT_BanquetTable": 420, "SM_Prop_CT_DiscBurners": 450, "SM_Prop_CT_BakeryOven": 420, "SM_Prop_CT_Planter_L": 420,
+}
+# (a signpost's and a street lamp's poles collapse to slivers under the lane's 34 mm floor: they have no LODs)
+# LOD2: drawn past PROP_LOD2_SWITCH, about a tenth of LOD0 (the props that stand in rows or are placed many times)
+PROP_LOD2 = {
+    "SM_Prop_TrashCan_Metal": 420, "SM_Prop_CT_StallCounter_2m": 320, "SM_Furn_MilkCrate": 130, "SM_Prop_CT_VendorTable": 300,
+    "SM_Prop_CardboardBoxes": 160, "SM_Prop_CT_Produce_Citrus": 360, "SM_Prop_CT_Produce_Greens": 360, "SM_Prop_CT_StyrofoamBoxes": 130,
+    "SM_Furn_ParkingMeter": 80, "SM_Furn_NewspaperBox": 120, "SM_Furn_TrafficCone": 120,
+    "SM_Prop_CT_DumplingCart": 300, "SM_Prop_CT_NutCart": 300, "SM_Prop_CT_StoneLion_L": 200, "SM_Prop_CT_StoneLion_R": 200,
+    "SM_Prop_CT_BikeRack": 160, "SM_Prop_CT_ChairStack": 200, "SM_Prop_CT_BanquetTable": 150, "SM_Prop_CT_TrayRack": 300,
+    "SM_Prop_CT_BakeryCounter": 300, "SM_Prop_CT_TapeRack": 420,
 }
 # Block meshes too heavy to place at all: a lighter Canal version (decimated from the Block's, same slots, same size and
 # pivot), which also gets a LOD1 below. source -> (name, triangle target)
@@ -108,8 +127,11 @@ def view_triangles(view=VIEW1, lod_switch=LOD_SWITCH, prop_lods=True):
         t_full = sum(man[e["mesh"]]["triangles"] for e, _bx in seen)
         t_mod = 0
         for e, bx in seen:
-            lod1 = man.get(e["mesh"] + "_LOD1")
-            if prop_lods and lod1 and dist_to_box(view["eye"], bx) > PROP_LOD_SWITCH:
+            lod1, lod2 = man.get(e["mesh"] + "_LOD1"), man.get(e["mesh"] + "_LOD2")
+            d = dist_to_box(view["eye"], bx)
+            if prop_lods and lod2 and d > PROP_LOD2_SWITCH:
+                t_mod += lod2["triangles"]
+            elif prop_lods and lod1 and d > PROP_LOD_SWITCH:
                 t_mod += lod1["triangles"]
             else:
                 t_mod += man[e["mesh"]]["triangles"]
@@ -383,6 +405,11 @@ def build_prop_lods(ctx):
     for src_name, target in list(PROP_LODS.items()) + list(LIGHT_LOD1.items()):
         ob = make(src_name, src_name + "_LOD1", target, "LOD1 of %s (about %.1fk triangles), drawn past %.0f m from the camera; same slots." %
                   (src_name, target / 1000.0, PROP_LOD_SWITCH))
+        if ob is not None:
+            made.append(ob)
+    for src_name, target in PROP_LOD2.items():
+        ob = make(src_name, src_name + "_LOD2", target, "LOD2 of %s (about %d triangles), drawn past %.0f m from the camera; same slots." %
+                  (src_name, target, PROP_LOD2_SWITCH))
         if ob is not None:
             made.append(ob)
     for o in cache.values():

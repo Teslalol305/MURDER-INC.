@@ -149,6 +149,7 @@ def check_outputs():
     unknown = sorted({e["mesh"] for e in pl["instances"] if e["mesh"] not in shared})
     noface = [e["mesh"] for e in pl["instances"] if e.get("face") and "atlas_uv" not in e]
     check_fit(pl, shared)
+    check_round3(pl, shared)
     report(not unknown and not noface, "placements", "%d instances of %d meshes, unknown %s, faces without a cell %s"
            % (pl["count"], len({e["mesh"] for e in pl["instances"]}), unknown or 0, noface or 0))
 
@@ -184,6 +185,63 @@ def check_fit(pl, shared):
     worst = max((r["overhang_m"] for r in pl.get("propFit", [])), default=0.0)
     report(worst <= 1.1, "props", "%d prop groups on their colliders, worst overhang %.2f m (jersey barriers 3 m on shorter boxes)"
            % (len(pl.get("propFit", [])), worst))
+
+
+PLANNED = ("food_cart", "hotpot_cart", "stone_lion", "trash_bags", "fruit_stand", "standpipe", "bike_rack", "chair_stack", "grease_bin",
+           "roof_vent", "exhaust_fan", "exhaust_stack", "bakery_counter", "bakery_ovens", "tray_racks", "flour_sacks", "kitchen_table",
+           "kitchen_range", "kitchen_counter", "kitchen_rack", "tape_racks", "cutting_table", "disc_burners", "kiosk_counter", "tube_bundles",
+           "bending_bench", "banquet_table", "banquet_stage", "planter", "bucket_stack", "sandwich_board", "cd_rack", "road_plates", "dig_fence")
+
+
+def check_round3(pl, shared):
+    from assets import _chinatown_lod as lod
+    from assets import _chinatown_level as lv
+    from assets import _chinatown_names as nm
+    # 14 lods
+    inst = pl["instances"]
+    seen = {}
+    for e in inst:
+        if e["mesh"] in shared and lod.in_view(lod.instance_box(e, shared[e["mesh"]]), lod.VIEW1):
+            seen[e["mesh"]] = seen.get(e["mesh"], 0) + 1
+    need = sorted(m for m, n in seen.items() if n >= 3 and shared[m]["triangles"] > 1500 and m.startswith(("SM_Prop", "SM_Furn")) and "Pallet" not in m
+                  and not m.endswith("_Hydrant"))
+    nolod = [m for m in need if m + "_LOD1" not in shared]
+    bad = []
+    for m in sorted(shared):
+        for k in ("_LOD1", "_LOD2"):
+            if m.endswith(k) and m[:-len(k)] in shared:
+                a, b = shared[m[:-len(k)]], shared[m]
+                if [x["slot"] for x in a["material_slots"]] != [x["slot"] for x in b["material_slots"]] and "Decal" not in m:
+                    bad.append((m, "slots"))
+                if max(abs(x - y) for x, y in zip(a["bounds_m"]["size"], b["bounds_m"]["size"])) > 0.05 * max(a["bounds_m"]["size"]) + 0.02:
+                    bad.append((m, "size"))
+                if b["triangles"] >= a["triangles"] and a["triangles"] > 500:
+                    bad.append((m, "not lighter"))
+    order = [m for m in shared if m.endswith("_LOD2") and m[:-5] + "_LOD1" in shared and shared[m]["triangles"] >= shared[m[:-5] + "_LOD1"]["triangles"]]
+    n1 = sum(1 for m in shared if m.endswith("_LOD1") and "_CT_" in m or m.endswith("_LOD1") and m[:-5] in shared)
+    n2 = sum(1 for m in shared if m.endswith("_LOD2"))
+    report(not nolod and not bad and not order, "lods", "%d LOD1 and %d LOD2 meshes; heavy props placed 3 times or more in the worst view without a LOD1: %s; mismatches %s; LOD2 not lighter %s"
+           % (n1, n2, nolod or 0, bad[:4] or 0, order or 0))
+    # 15 decals
+    decals = [e for e in inst if e["role"] == "decal"]
+    approved = {t.replace("\u2192", "").strip() for ws in nm.DECAL_TEXT.values() for t in ws}
+    cells = load(os.path.join(paths.texture_set("CT_Decals"), "set.json"))["cells"]
+    texts = {t for c in cells.values() for t in c["text"]}
+    ids = sorted(e.get("dataSign") for e in decals)
+    wear = [e for e in inst if e["role"] == "wear decal"]
+    grounds = {F.key for F, _s, _b, _k, _g, o in __import__("assets._chinatown_streets", fromlist=["x"]).faces() if o.get("ground", True)}
+    covered = {e.get("faceKey") for e in wear}
+    scaled = [e["mesh"] for e in decals + wear if e.get("scale")]
+    ok = (ids == ["alley.stencil", "graffiti.0", "graffiti.1", "graffiti.2", "graffiti.3"] and texts <= approved and not scaled
+          and covered == grounds and all(e["mesh"] in shared for e in decals + wear))
+    report(ok, "decals", "%d decal rows placed %s (texts %s, all on the approved list); the wear pass: %d pieces on %d of %d ground walls; scaled %d"
+           % (len(decals), ids, sorted(texts), len(wear), len(covered & grounds), len(grounds), len(scaled)))
+    # 16 props3
+    placed = {e.get("prop") for e in inst if e["role"] == "prop"}
+    unmapped = pl.get("unmappedProps", {})
+    missing = [n for n in PLANNED if n not in placed or n in unmapped]
+    report(not missing, "props3", "%d planned prop kinds, all placed from the colliders (not placed: %s); still unmapped: %s"
+           % (len(PLANNED), missing or 0, sorted(unmapped)))
 
 
 def check_views():

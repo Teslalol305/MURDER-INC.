@@ -49,7 +49,8 @@ BUDGET = {
     "SM_Struct_CT_RoofBulkhead": 4000, "SM_Struct_CT_YardStair": 12000, "SM_Struct_CT_SidewalkShed": 10000,
     "SM_Struct_CT_BakeryKitchen": 12000, "SM_Struct_CT_Arcade": 8000, "SM_Struct_CT_BanquetFacade": 40000,
     "SM_Prop_CT_Hydrant": 6000, "SM_Prop_TrashCan_Metal_LOD1": 2000,
-    "SM_Furn_": 4000, "SM_Prop_": 4000,
+    "SM_Furn_": 4000, "SM_Prop_": 4000, "SM_Decal_CT_": 100,
+    "SM_Prop_CT_BanquetStage": 6000, "SM_Prop_CT_Standpipe": 1500, "SM_Prop_CT_BikeRack": 3000,
     "SM_Facade_CT_Alcove_": 9000, "SM_Facade_CT_Ground": 4000, "SM_Facade_CT_": 6000,
 }
 
@@ -72,7 +73,13 @@ def build(ctx):
     ctx.M = M
     for f in kit.PROPS:
         f(ctx, M)
+    from assets import _chinatown_props3 as props3
+    from assets import _chinatown_props3b as props3b
+    for f in props3.PROPS3 + props3b.PROPS3B:                                          # round 3: carts, lions, fittings, interiors
+        f(ctx, M)
     front.build_front(ctx, M)
+    from assets import _chinatown_decals as decals
+    decals.build_decals(ctx)                                                           # round 3: graffiti, stencil, the near-ground wear pass
     from assets import _chinatown_struct as struct
     struct.build_structs(ctx, M)
     from assets import _chinatown_lod as lod
@@ -106,7 +113,7 @@ def write_lane_files(ctx, entries):
                     "this file lists what the lane made and how it measures against chinatown.md 13 and 14.",
            "updated": time.strftime("%Y-%m-%dT%H:%M:%S"), "family": "chinatown", "count": len(rows),
            "triangles_total": sum(r["triangles"] for r in rows), "assets": rows,
-           "texture_sets_new": ["Sign_CT_Atlas1"], "texture_sets_reused": sorted(s for s in ctx.sets if s.startswith("TS_")),
+           "texture_sets_new": ["Sign_CT_Atlas1", "CT_Decals"], "texture_sets_reused": sorted(s for s in ctx.sets if s.startswith("TS_")),
            "atlas": {"name": "Sign_CT_Atlas1", "resolution": atlas["resolution"], "faces": len(atlas["cells"]), "fill": atlas["fill"]},
            "rules": {"english_only": True, "strings_checked": names.check_english(), "real_marks": "none (IPX is not on this level's signs)",
                      "names_searched": "2026-11-26 (docs/unreal/maps/names.md); owner sign-off pending"}}

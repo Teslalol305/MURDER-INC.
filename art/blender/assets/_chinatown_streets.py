@@ -22,6 +22,8 @@ import math
 import os
 import sys
 
+import numpy as np
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 if os.path.dirname(HERE) not in sys.path:
     sys.path.insert(0, os.path.dirname(HERE))
@@ -149,9 +151,18 @@ DEVIATIONS = {
                           "1 m east of lane D's point"),
     "arcade.kiosk.3": dict(x=33.58, why="lane D's point (x 32.55) is 1.05 m out in the arcade's aisle: the board is mounted on the "
                                          "east wall (x 33.6) at the same z and height, over the narrow front that has no other sign"),
+    # round 3: the graffiti tags stood on doors and in the dub room's raised roll-up; each is moved along its wall onto the nearest plain wall bay
+    "graffiti.0": dict(z=-1.4, why="lane D's point (z 2.0) is on a back door of W1's alley wall: the tag is moved to the plain wall bay at z -1.4"),
+    "graffiti.1": dict(x=-15.8, why="lane D's point (x -18.0) is over S1's back door: the tag is moved to the plain wall bay at x -15.8"),
+    "graffiti.2": dict(x=-8.55, why="lane D's point (x -5.0) is over S2's back door: the tag is moved to the plain wall bay at x -8.55"),
+    "graffiti.3": dict(z=22.6, why="lane D's point (z 26.0) is inside the dub room's roll-up opening (z 24 to 27, raised in play): the tag is moved to the "
+                                   "plain Mott wall beside it at z 22.6"),
     "lanterns": dict(y=6.25, why="lane D's point (y 4.3) is in front of the banquet band (3.95 .. 4.85): the cable is fixed at "
                                  "6.25 so the lanterns hang clear above the band, over the doors"),
 }
+# the decals' quads (assets/_chinatown_decals.py), by lane D's signage ids: graffiti in invented tags only, the alley stencil
+DECAL_MESH = {"graffiti.0": "SM_Decal_CT_Graffiti_Vultures", "graffiti.1": "SM_Decal_CT_Graffiti_Vltr", "graffiti.2": "SM_Decal_CT_Graffiti_Rule",
+              "graffiti.3": "SM_Decal_CT_Graffiti_Inc", "alley.stencil": "SM_Decal_CT_Stencil_Mott"}
 NORTH_ROW = ("N1", "N2", "N3", "N4", "N5", "N6")
 SKIP_IDS = ("vacant.0", "vacant.2")          # papers on north-row windows: the north row has its own one vacancy paper
 
@@ -329,11 +340,10 @@ def data_signs(shops, out, report):
         if dev:
             extra["deviation"] = dev["why"]
         bld = sg.get("building") or "street"
-        if kind in ("decal", "graffiti", "exitbox"):
-            report["notPlaced"].append((sid, kind, "decals are not built yet" if kind != "exitbox" else
-                                        "drawn in SM_Struct_CT_MarketHall (the green exit box)"))
+        if kind == "exitbox":
+            report["notPlaced"].append((sid, kind, "drawn in SM_Struct_CT_MarketHall (the green exit box)"))
             continue
-        carrier = sg.get("carrier")
+        carrier = sg.get("carrier") or DECAL_MESH.get(sid)
         if kind == "letters":
             x_e, _xs, yc = fp.rooftop_legs()
             out.append(mk("SM_Sign_CT_RooftopFrame", x_e, yc + 0.21, 5.70, 180.0, "M", "rooftop letters", face=None, **extra))
@@ -396,7 +406,7 @@ def data_signs(shops, out, report):
             for f, s0, c, _sign in shops[F.key][1]:
                 if s0 - 0.6 <= s_c <= s0 + c + 0.6 and p["y"] - F.base < 5.5:
                     over = (f, s0, c)
-        depth = {"band": 0.20, "kiosk": 0.12, "board": 0.02, "poster": 0.002, "neon": 0.02, "arch": 0.22}[kind]
+        depth = {"band": 0.20, "kiosk": 0.12, "board": 0.02, "poster": 0.002, "neon": 0.02, "arch": 0.22, "decal": 0.004, "graffiti": 0.004}[kind]
         if over and kind in ("band", "kiosk", "board") and sid not in DEVIATIONS:
             zb = F.base + {"band": 2.76, "kiosk": 3.05, "board": 3.10}[kind]
             d = {"band": 0.275, "kiosk": 0.12, "board": 0.12}[kind]
@@ -404,10 +414,13 @@ def data_signs(shops, out, report):
                 extra["heightFromData_m"] = round(zb - (p["y"] - hh / 2), 2)
         else:
             zb = p["y"] - hh / 2
-            d = depth + (0.0 if kind in ("poster", "neon") else 0.01) + off
+            d = depth + (0.0 if kind in ("poster", "neon", "decal", "graffiti") else 0.01) + off
         x, y = F.at(s_c - ww / 2, -d)
         role = {"band": "sign band", "kiosk": "shop sign", "board": "board", "poster": "poster", "neon": "neon",
-                "arch": "arch sign"}[kind]
+                "arch": "arch sign", "decal": "decal", "graffiti": "decal"}[kind]
+        if kind in ("decal", "graffiti"):                    # a decal quad has its own cell in CT_Decals, not a sign face
+            extra["decal"] = fk
+            fk = None
         if kind == "neon":                                   # exposed neon is its own mesh: no atlas cell
             extra["neon"] = fk
             fk = None
@@ -452,14 +465,47 @@ PROPS = {
     "muni_meter": ([("SM_Furn_ParkingMeter", 0.19, 0.16)], {}),
     "hydrant": ([("SM_Prop_CT_Hydrant", 0.316, 0.428)], {}),
     "fire_hydrant": ([("SM_Prop_CT_Hydrant", 0.316, 0.428)], {}),
+    # round 3 (chinatown_art.md 6): the carts, lions, bags, standpipes and the interiors; every mesh at its collider's size
+    "food_cart": ([("SM_Prop_CT_DumplingCart", 1.4, 0.9)], {"by_index": {117: ("SM_Prop_CT_NutCart", 1.5, 0.9)}}),
+    "hotpot_cart": ([("SM_Prop_CT_HotpotCart", 1.2, 0.9)], {}),
+    "stone_lion": ([("SM_Prop_CT_StoneLion_L", 0.8, 0.8)], {"rot": 90.0, "by_index": {50: ("SM_Prop_CT_StoneLion_R", 0.8, 0.8)}}),
+    "trash_bags": ([("SM_Prop_CT_TrashBags_L", 0.9, 0.6), ("SM_Prop_CT_TrashBags_S", 0.58, 0.6)], {}),
+    "fruit_stand": ([("SM_Prop_CT_FruitStand_Small", 1.0, 0.8)], {}),
+    "standpipe": ([("SM_Prop_CT_Standpipe", 0.25, 0.30)], {"wall": True}),
+    "exhaust_fan": ([("SM_Prop_CT_ExhaustFan", 0.6, 0.8)], {"wall": True}),
+    "cd_rack": ([("SM_Prop_CT_CDRack", 0.58, 1.0)], {"wall": True}),
+    "bike_rack": ([("SM_Prop_CT_BikeRack", 2.0, 0.1)], {}),
+    "chair_stack": ([("SM_Prop_CT_ChairStack", 0.5, 0.5)], {}),
+    "grease_bin": ([("SM_Prop_CT_GreaseBin", 0.9, 0.58)], {}),
+    "planter": ([("SM_Prop_CT_Planter_S", 0.8, 0.6), ("SM_Prop_CT_Planter_L", 1.0, 1.0)], {}),
+    "bucket_stack": ([("SM_Prop_CT_BucketStack", 0.6, 0.53)], {}),
+    "sandwich_board": ([("SM_Prop_CT_SandwichBoard", 0.6, 0.56)], {}),
+    "road_plates": ([("SM_Prop_CT_RoadPlates", 1.2, 0.7)], {"long_y": True}),
+    "dig_fence": ([("SM_Prop_CT_DigFence", 2.55, 0.25)], {"long_y": True, "face_centre": True}),
+    "roof_vent": ([("SM_Prop_CT_RoofVent", 0.6, 0.6)], {}),
+    "exhaust_stack": ([("SM_Prop_CT_ExhaustStack", 0.6, 0.6)], {}),
+    "antenna_mast": ([("SM_Prop_CT_AntennaMast", 1.2, 0.5)], {"long_y": True}),
+    "box_pile": ([("SM_Prop_CardboardBoxes", 0.96, 0.81)], {}),
+    "bakery_counter": ([("SM_Prop_CT_BakeryCounter", 2.3, 0.9)], {"rot": 180.0}),
+    "bakery_ovens": ([("SM_Prop_CT_BakeryOven", 1.6, 1.2)], {"rot": -90.0}),
+    "tray_racks": ([("SM_Prop_CT_TrayRack", 0.8, 0.8)], {}),
+    "flour_sacks": ([("SM_Prop_CT_FlourSacks", 0.7, 0.6)], {}),
+    "kitchen_table": ([("SM_Prop_CT_KitchenTable", 1.9, 1.4)], {}),
+    "kitchen_range": ([("SM_Prop_CT_KitchenRange", 1.5, 0.8)], {"rot": 180.0}),
+    "kitchen_counter": ([("SM_Prop_CT_KitchenCounter", 2.0, 0.8)], {"rot": -90.0}),
+    "kitchen_rack": ([("SM_Prop_CT_KitchenRack", 0.8, 0.6)], {}),
+    "tape_racks": ([("SM_Prop_CT_TapeRack", 1.7, 1.0)], {"rot": 90.0}),
+    "cutting_table": ([("SM_Prop_CT_CuttingTable", 2.0, 1.6)], {}),
+    "disc_burners": ([("SM_Prop_CT_DiscBurners", 0.8, 0.8)], {}),
+    "kiosk_counter": ([("SM_Prop_CT_KioskCounter", 1.0, 1.0)], {}),
+    "tube_bundles": ([("SM_Prop_CT_TubeBundles", 0.8, 0.8)], {}),
+    "bending_bench": ([("SM_Prop_CT_BendingBench", 2.0, 0.8)], {}),
+    "banquet_table": ([("SM_Prop_CT_BanquetTable", 1.7, 1.7)], {}),
 }
 # no mesh yet, or the only mesh is far from the collider's size, or too heavy without a LOD (listed in the report)
 UNMAPPED_WHY = {
-    "trash_bags": "the Block's bag piles are 1.28 x 0.97 m against 0.6 x 0.8 colliders: a smaller pile is needed",
-    "planter": "SM_Street_Planter is 42k triangles and 1.2 m against 0.8 x 0.6 and 1.0 colliders: a light, smaller planter is needed",
-    "food_cart": "SM_Street_FoodCart is 2.4 x 1.3 m against 1.4 x 0.9: the dumpling cart is not built",
-    "hotpot_cart": "not built", "fruit_stand": "SM_Prop_CT_FruitStand is 2.4 x 1.2 m against a 0.8 x 1.0 collider",
     "barricade": "SM_Furn_Barricade is 2.4 m against a 1.2 m collider",
+    "ac_unit": "the ground air conditioner (0.7 x 1.2 and 0.8 x 0.6) has no mesh: the Canal condenser is 1.1 x 0.9 x 1.26",
 }
 GOODS = ["SM_Prop_CT_Goods_Caps", "SM_Prop_CT_Goods_TShirts", "SM_Prop_CT_Goods_Shades", "SM_Prop_CT_Goods_Discs"]
 # market dressing on the stall rows (rows R1..R4 from lane D's stall_counter items): goods on the counters, a tarp and two
@@ -493,6 +539,8 @@ def props(out, report):
             report["unmapped"][name] = report["unmapped"].get(name, 0) + 1
             continue
         cands, opt = PROPS[name]
+        if opt.get("by_index") and p["index"] in opt["by_index"]:
+            cands = [opt["by_index"][p["index"]]]
         cols = p.get("colliders") or []
         if not cols:
             continue
@@ -501,10 +549,16 @@ def props(out, report):
         cx, cy, z0 = (lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, lo[2]
         along_x = ex >= ey
         L, Wd = (ex, ey) if along_x else (ey, ex)
-        mesh, ln, wd, n = _tile(L, cands) if not opt.get("lamp") and not opt.get("overhead") else (cands[0][0], cands[0][1], cands[0][2], 1)
+        mesh, ln, wd, n = _tile(L, cands) if not opt.get("lamp") and not opt.get("overhead") and not opt.get("wall") else (cands[0][0], cands[0][1], cands[0][2], 1)
         rot = 0.0 if along_x else 90.0
+        if opt.get("long_y"):                                          # the mesh's long side is its local Y
+            rot = 90.0 if along_x else 0.0
+            if opt.get("face_centre"):                                 # a fence's face toward the level's middle
+                rot += 0.0 if cx < 0 else 180.0
         if opt.get("rot") is not None:
             rot = opt["rot"]
+        if opt.get("wall"):
+            rot = wall_rot(lo, hi, cols, rot)
         if opt.get("lamp"):
             rot = _lamp_rot(cx, cy)
         over_l = max(0.0, (n * ln - L) / 2)
@@ -543,6 +597,55 @@ def props(out, report):
             out.append(mk("SM_Prop_CT_HangingScale", cx - 0.1, cy, 1.25, 0.0, "M", "scale", prop=name, propIndex=p["index"]))
 
 
+def wall_rot(lo, hi, own, default):
+    """Rotation (about Z, degrees) that turns a wall piece's +X (its front) away from the wall its collider stands against: the
+    nearest tall collider box touching one of the four sides within 8 cm."""
+    cy = (lo[1] + hi[1]) / 2
+    if 13.0 < cy < 35.0:                       # on Canal: toward the street's centre line (y 24.4) when no wall box touches
+        default = 90.0 if cy < 24.4 else -90.0
+    best = (0.09, default)
+    for c in lv.boxes():
+        if c["index"] in own:
+            continue
+        wlo, whi = lv.cbox(c["index"])
+        if max(whi[0] - wlo[0], whi[1] - wlo[1]) < 1.5 or whi[2] < lo[2] + 0.3 or wlo[2] > hi[2] - 0.1:
+            continue
+        ox = min(hi[0], whi[0]) - max(lo[0], wlo[0])
+        oy = min(hi[1], whi[1]) - max(lo[1], wlo[1])
+        for gap, ov, r in ((abs(whi[0] - lo[0]), oy, 0.0), (abs(wlo[0] - hi[0]), oy, 180.0),
+                           (abs(whi[1] - lo[1]), ox, 90.0), (abs(wlo[1] - hi[1]), ox, -90.0)):
+            if ov > 0.1 and gap < best[0]:
+                best = (gap, r)
+    return best[1]
+
+
+def wear_decals(out):
+    """The near-ground wear pass on the round-2 faces: a grime band along every ground wall's foot (3 m pieces, two variants), scuffs
+    at door height about every 7 m, and rain and rust streaks on the back walls about every 10 m (never over a shop front)."""
+    n = 0
+    for F, _st, _b, kind, _sg, opt in faces():
+        if not opt.get("ground", True):
+            continue
+        L = F.L
+        k = int(L // 3.0)
+        for i in range(k):
+            s = i * L / k + (L / k - 3.0) / 2
+            out.append(fe(F, "SM_Decal_CT_Wear_Grime_" + "AB"[(i + len(F.key)) % 2], s, 0.0, -0.004, "wear decal"))
+            n += 1
+        for i in range(max(1, int(L // 7.0))):
+            s = (i + 0.5) * L / max(1, int(L // 7.0)) - 0.6 + 0.9 * math.sin(i * 2.3 + len(F.key))
+            s = min(max(s, 0.0), L - 1.2)
+            out.append(fe(F, "SM_Decal_CT_Wear_Scuffs", s, 0.12, -0.004, "wear decal"))
+            n += 1
+        if kind == "back":
+            for i in range(max(1, int(L // 10.0))):
+                s = (i + 0.5) * L / max(1, int(L // 10.0)) - 0.45 + 1.1 * math.sin(i * 1.7 + len(F.key))
+                s = min(max(s, 0.0), L - 0.9)
+                out.append(fe(F, "SM_Decal_CT_Wear_Streaks", s, 1.3, -0.004, "wear decal"))
+                n += 1
+    return n
+
+
 def _lamp_rot(x, y):
     """The street lamp's arm (local -Y) over the roadway: Canal's south sidewalk lamps reach north, the north sidewalk's
     south, Mott's lamps across Mott."""
@@ -558,6 +661,13 @@ def _lamp_rot(x, y):
 
 # ================================================================================================= structures
 
+def stage(out):
+    """The banquet hall's stage (SM_Prop_CT_BanquetStage), at the min corner of its collider (part banquet.stage)."""
+    cols = lv.parts("banquet.stage")
+    lo = np.min([lv.cbox(i)[0] for i in cols], axis=0)
+    out.append(mk("SM_Prop_CT_BanquetStage", float(lo[0]), float(lo[1]), float(lo[2]), 0.0, "E2", "prop", prop="banquet_stage", colliders=cols))
+
+
 def structures(out):
     for mesh, piv, cols in lv.struct_places():
         out.append(mk(mesh, piv[0], piv[1], piv[2], 0.0, mesh.split("_CT_")[1].split("_")[0], "structure", colliders=cols))
@@ -571,6 +681,8 @@ def assemble():
     data_signs(shops, out, report)
     props(out, report)
     structures(out)
+    stage(out)
+    wear_decals(out)
     for k, why in UNMAPPED_WHY.items():
         if k in report["unmapped"]:
             report["unmapped"][k] = "%d placement(s): %s" % (report["unmapped"][k], why)

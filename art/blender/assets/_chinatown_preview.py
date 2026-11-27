@@ -327,6 +327,42 @@ def street(ctx, a):
     render.cam_look((-1.0, -14.5, 2.6), (0.0, 2.0, 2.6), lens=22, name="Cam_Street")
 
 
+def props3(ctx, a, which="a"):
+    """Round 3's street props on the damp sidewalk in front of a brick wall: view a, the carts, lions, bags and the fruit stand;
+    view b, the bike rack, chairs, planters, buckets, board and the roof pieces, with the standpipe, the exhaust fan and the CD rack
+    on the wall."""
+    ctx.kit.hide_render = True
+    col = scene.collection("PrevProps3")
+    ground(col, -9, 9, -5, 7, None)
+    wall = geo.box((20, 0.3, 4.5), bevel=0.0, name="PrevWall")
+    geo.transform(wall, loc=(0, 6.5, 0))
+    wall.data.materials.append(mat.flat("Prev_Brick", (0.10, 0.05, 0.04), 0.85))
+    scene.link(wall, col)
+    K = ctx.K
+    if which == "a":
+        row = [("DumplingCart", -4.4, -90.0), ("NutCart", -2.2, -90.0), ("HotpotCart", -0.2, -90.0), ("StoneLion_L", 1.5, 90.0),
+               ("StoneLion_R", 2.7, 90.0), ("TrashBags_L", 4.2, 0.0), ("TrashBags_S", 5.4, 0.0)]
+        for key, x, r in row:
+            put(K["SM_Prop_CT_" + key], (x, 0.0, 0.0), r, 1.0, col)
+        put(K["SM_Prop_CT_FruitStand_Small"], (-5.8, 2.6, 0.0), 90.0, 1.0, col)
+        put(K["SM_Prop_CT_GreaseBin"], (6.4, 2.6, 0.0), 90.0, 1.0, col)
+        cam = ((-1.0, -5.2, 2.0), (0.4, 0.0, 0.8), 26)
+    else:
+        for key, x in (("BikeRack", -6.0), ("ChairStack", -4.0), ("Planter_L", -2.8), ("Planter_S", -1.4), ("BucketStack", -0.2), ("SandwichBoard", 1.0),
+                       ("RoofVent", 2.2), ("ExhaustStack", 3.4)):
+            put(K["SM_Prop_CT_" + key], (x, 0.0, 0.0), 0.0, 1.0, col)
+        put(K["SM_Prop_CT_AntennaMast"], (5.0, 0.0, 0.0), 0.0, 1.0, col)
+        for key, x, z, dep in (("Standpipe", 2.0, 0.2, 0.25), ("ExhaustFan", 3.6, 1.2, 0.6), ("CDRack", 5.6, 0.0, 0.58), ("Standpipe", 0.0, 0.3, 0.25)):
+            put(K["SM_Prop_CT_" + key], (x, 6.35 - dep / 2, z), 270.0, 1.0, col)
+        cam = ((-1.0, -5.0, 2.0), (0.0, 1.5, 0.9), 26)
+    render.rig_night(lamp=(-2.0, -3.0, 6.0), extra_lamps=[(5.0, -3.0, 6.0), (0.0, 3.0, 6.0)], lamp_watts=2600.0, sky=0.7)
+    for o in bpy.data.objects:
+        if o.type == "LIGHT" and o.name.startswith("Sodium"):
+            o.data.temperature = 4000.0
+    render.look(render.VIEW, render.LOOK_NIGHT, 0.0)
+    render.cam_look(cam[0], cam[1], lens=cam[2], name="Cam_Props3")
+
+
 def render_all(ctx):
     a = ctx.args
     os.makedirs(PV, exist_ok=True)
@@ -351,10 +387,21 @@ def render_all(ctx):
                           lamps=[(26.0, -6.0, 8.0), (36.0, -6.0, 8.0), (30.0, -12.0, 8.0), (40.0, -14.0, 8.0)]),
         "ct_alley": dict(name="Alley", eye=(-28.0, 12.5, 1.7), target=(-28.0, -12.0, 3.5), lens=20,
                          lamps=[(-28.0, 10.0, 8.0), (-28.0, 0.0, 8.0), (-28.0, -10.0, 8.0)]),
+        # round 3: the interiors (the walls and floors are the placed structures; the lights are the rooms' own)
+        "ct_graffiti": dict(name="Graffiti", eye=(-27.0, 1.4, 1.5), target=(-30.0, 3.0, 1.2), lens=24,
+                            lamps=[(-27.5, 1.0, 3.2), (-27.5, -6.0, 3.2), (-27.5, 8.0, 3.2)]),
+        "ct_bakery": dict(name="Bakery", eye=(5.6, 11.3, 1.65), target=(2.2, 7.0, 1.1), lens=18,
+                          lamps=[(3.0, 10.0, 3.0), (3.0, 5.5, 3.0), (6.0, 6.0, 3.0), (2.0, -2.0, 3.6), (5.0, -6.0, 3.6)]),
+        "ct_kitchen": dict(name="Kitchen", eye=(1.2, 2.5, 1.65), target=(5.5, -5.0, 1.0), lens=18,
+                           lamps=[(3.0, 0.0, 4.0), (4.0, -4.0, 4.0), (5.5, -7.0, 4.0), (2.0, 5.5, 3.0)]),
+        "ct_banquet": dict(name="Banquet", eye=(27.3, -19.4, 1.65), target=(40.0, -25.0, 1.1), lens=18,
+                           lamps=[(30.0, -23.0, 4.4), (35.0, -23.0, 4.4), (40.0, -23.0, 4.4), (33.0, -29.0, 4.4)]),
+        "ct_dub": dict(name="Dub", eye=(25.6, -20.0, 1.65), target=(19.2, -27.0, 1.1), lens=18,
+                       lamps=[(21.0, -22.0, 3.6), (22.0, -27.0, 3.6), (24.0, -30.0, 3.6)]),
         "ct_yard": dict(name="Yard", eye=(-4.0, -7.0, 1.7), target=(-16.0, -4.0, 3.0), lens=18,
                         lamps=[(-8.0, -4.0, 8.0), (-18.0, -4.0, 8.0), (-2.0, -9.0, 8.0)]),
     }
-    for name, fn in (("ct_market", market), ("ct_street", street), ("ct_canal_north", canal_north)) + tuple(
+    for name, fn in (("ct_market", market), ("ct_street", street), ("ct_props3", props3), ("ct_props3b", functools.partial(props3, which="b")), ("ct_canal_north", canal_north)) + tuple(
             (n, functools.partial(canal_north, view=v)) for n, v in VIEWS.items()):
         if not want(name):
             continue
