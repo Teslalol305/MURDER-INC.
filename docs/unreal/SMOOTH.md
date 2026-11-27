@@ -5,7 +5,119 @@ weapons and gameplay). DECISIONS.md (2026-11-25, ~21:00) makes this file's verdi
 lane; every number names the run it comes from. Severities: blocker (a freeze, a crash, a stuck state, or under 50 fps
 sustained on E3DS-class limits), must-fix (a player would feel or see it), should-fix, nit.
 
-## Closer re-measure (2026-11-27, 05:36 to 06:05 UTC, package of `77b02f3`): still NOT-YET
+## v8 performance engineer (2026-11-27, 06:08 to 09:40 UTC, code of `66bfb3d`): the verdict
+
+**Verdict: NOT-YET, by one rule of the bar: the final package was not measured, because the rented box ended (runtime failed, about 09:40 UTC) while the
+last queue (`m-*`, package of `66bfb3d`) was starting.** What is proved, and on which commit:
+
+- The cause the closer asked for is named and fixed (below). The full suite passes on `66bfb3d`: `TESTS OK passed=228 failed=0 skipped=0` (golden replays included,
+  nothing weakened, skipped or re-recorded; `/project/ue/int/repo`, `MI_MCP_PORT=8020`). The package of `66bfb3d` is built (`ALL OK`), zip sha256
+  `479aae71bc101462882c1e39952213390a4932678c71385d5ab7dec450e9f082`, `/project/ue/int/pkg/` (if the volume survived the box; the zip is rebuilt by
+  `package-cloud.sh all` with `MI_COMMIT=66bfb3da5c3268cafb2002b43bfcce094b84ec6d`).
+- The engine start went from 4.3 to 1.6 s to `Game Engine Initialized` and from 5.7 to 3.4 to 3.9 s to the game's first line (version 4: 3.2 to 3.5 s), and the 20 s and
+  longer cold starts (a first frame at **26.4 s** in `y-l1`; the closer's 28 s starts) are gone. **The price is that the first frames create pipeline states at draw time again
+  (as version 4's do); read "The engine start" below and decide.** The game's first line is still 0.15 s later than version 4's on average.
+- The per-frame numbers below are of the packages of `1ba19b3` and `948c9a8` (two commits before the last three small fixes), three to five runs each against version 4's seven,
+  under the closer's conditions (`gated.sh`, l20 load, `cpus=0-7`, `-sm5`, 1920 x 1080, cold user, viewer at 3 s, `guns-keys.txt`). They do **not** show "better than or equal to
+  version 4's" for frames over 25 ms a minute: the head's runs overlap version 4's and are not better (below). The three later fixes (grips, Briefing, WarmStage) were
+  traced (`k1`, `g1`) but their packages not re-run for the table.
+
+| Number (menus with guns, per run, from 8 s) | head `948c9a8`, 5 runs | head `1ba19b3`, 5 runs | version 4, 7 runs | Better or equal? |
+|---|---|---|---|---|
+| frames over 25 ms a minute | 2.9, 3.3, 1.0, 1.9, 2.9 (mean 2.4) | 1.4, 7.4, 1.0, 1.9, 2.4 (mean 2.8; the 7.4 is a start that was 2.5 s slower, so the viewer's join fell inside the counted window: from 12 s it is 1.9) | 1.9, 1.0, 1.9, 2.9, 1.9, 8.1, 3.3 (mean 3.0; its first five: 1.9) | **equal within noise, not proved better** |
+| over 50 ms a minute | 0.3 | 0.3 | 0.7 | better |
+| over 100 ms a minute | 0.1 (one frame) | 0 | 0.5 (one 115 to 123 ms frame, at 13.4 s, in every run) | better |
+| worst frame | 36 to 93 ms, and **one 293 ms** (`f-menus5`, 77.5 s, render thread, no PSO, not explained) | 29 to 99 ms | 116 to 123 ms | better in 9 of 10, **worse in one** |
+| the game's first line after the first log line | 3.35 to 3.85 s (mean 3.53) | 3.58 to 3.91 s (one 6.13 s: `vkCreateDevice` took 1.98 s instead of 0.67 s) | 3.20 to 3.52 s (mean 3.38) | **worse by 0.15 s** |
+| first line, whole seconds (`firstline=`) | 5, 5, 5, 6, 6 | 5, 8, 5, 6, 5 | 5 in every run | equal or worse by 1 s |
+
+Story (`sm-story.txt`, viewer): head `n-story` 0 / 0 / 0 frames over 25 / 50 / 100 ms from 8 s, worst 22.0 ms; `f-story` 0 / 1 / 0 (one 80.8 ms frame with no thread busy, the stream), worst
+80.8 ms; version 4 `v4-story` 0 / 0 / 0, worst 24.3 ms. PSO-creation hitch frames in the first 10 s of the process: 2, 3 (version 4: 5); after 10 s: 0, 0 (0).
+First fight (`sm-hold.txt`, Hold the Block, first 100 s, `l12`): `n-hold` 3 PSO-hitch frames in the first 10 s, after them 0, one 50 ms frame; `f-hold1` 3 / 0, worst after 10 s 17.8 ms;
+`f-hold2` 5 / 0, one 60.7 ms frame; version 4 `v4-hold` 5 / 0, one 50.3 ms frame; the same package with the driver cache on (`r.Vulkan.PipelineCacheLoad=1`: `nl1-hold`, `f-nl1hold`): 0 and 2 / 0,
+worst 22.3 and 18.5 ms. So the first fight stays free of PSO hitches and of the old 33 ms trains, and its early frames are the same as version 4's, not better.
+
+**What a GO still needs from this lane:** (1) the three-runs-each table repeated on the package of `66bfb3d` (queue `m-*` in `/project/ue/smooth/v8/queue8.txt`: five head runs,
+two version 4, Story, two first fights, the cache-on first fight, a trace), clean, on a new box; (2) the owner's or the lead's decision on the start's price (the cold start's
+pipeline-state creations return as in version 4; the old behaviour is one console variable); (3) the 293 ms frame at 77 s, seen once in ten, found with a trace of the guns phase.
+
+
+### What the closer's guess got wrong, and what the traces show
+
+The closer (above) and the v7 prover read the 6 to 10 ms in the Loadout as the Showroom's actor tick (`AMIShowroom::Tick` assembling a gun). It is not. Every tick of the
+game now carries a named trace scope (`TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/<class>::Tick")`, commit `2508bab`: free with tracing off), and the traces name the cost
+(`tools/box/cloud/smooth-v8/ins.sh` exports a trace, `mi.py` lists the game's scopes, `gt2.py` of smooth-v7 the late frames, `near.py`-style windows the rest).
+The same `guns-keys.txt` run, `-trace=cpu,gpu,frame,bookmark,log -statnamedevents`, three packages:
+
+| Named scope on the game thread (one 144 s run) | `2508bab` (the closer's `77b02f3` plus scopes) | after the fixes below (`92d351f`) |
+|---|---|---|
+| `AMIShowroom::Tick`, every call | 8,619 calls, 407.8 ms; **295.6 ms once** (the first gun's synchronous loads in the first frame), every other call 1.3 ms or less | 8,723 calls, 116.8 ms; largest 0.37 ms (the first-frame load moved, below) |
+| `UMIFrontEnd::Tick` (the front end's frame, inside `Tick_Engine`) | 2,837 calls, 135.7 ms, **largest 9.54 ms; 23 calls of 2.5 to 9.5 ms, each on a key press** | 2,816 calls, 111.5 ms, largest 8.4 ms (the Briefing's entry, below) |
+| `SMIFrontEnd::Rebuild` (the screen's whole widget tree, built again on every key that changes a screen) | not scoped | 28 calls, 87 ms, 3.1 ms a call, largest 5.4 ms (was inside the 9.5) |
+| `UMIWeaponComponent::EquipMesh`, the viewmodel's gun switch (in a post-physics tick of the player) | not scoped; `Tick_Engine` +6.9 to +7.3 ms at 68.3, 75.8, 83.1 s | 5 calls, 21.5 ms; **`FPRig->Equip` 5.1 ms of its 5.45**; those three frames are gone |
+| every other tick (`AMIGuide`, `UMICloudSubsystem`, `UMIAudioSubsystem`, `UMIEffects`, `UMICombatSubsystem`, `UMIGunAssembly::TickComponent`, `SMIFrontEnd::Tick`, `UMIDemoDirector`, `UMIPreloadSubsystem`) | 0.5 ms or less (the preload's first call 1.7 ms) | 0.5 ms or less (`UMICloudSubsystem` 3.3 ms once) |
+
+So: **no actor's tick assembles a mesh or builds a material in the Loadout any more** (the staged swap of `77b02f3` had already taken that out: the Showroom's
+largest call besides the first load is 1.3 ms). The 6 to 10 ms in a frame of the Loadout is **the screen's Slate tree built again on the game thread**
+(`UMIFrontEnd::Tick` > `Widget->Sync()` > `SMIFrontEnd::Rebuild`: about 40 widgets a gun card, six cards, the slots, the tabs; 1,900 text blocks in the run),
+plus, at the Briefing and at the start of a run and at each gun switch in play, **`UMIFirstPersonRig::Equip`**.
+
+**Fix 1 (`1ba19b3`): the helpers a rebuild calls several hundred times are paid once** (`UI/MIStyle.cpp`, `UI/SMIFrontEnd.cpp`). `MIStyle::Body()` and `Display()` asked the
+file system for the font file on every call (`IFileManager::FileExists`); every colour (`Gold()`, `Ink()` ...) parsed its hex string on every call; `Box()`, the brush cache,
+built its key with two `FLinearColor::ToString()` and a `Printf` on every call. Now the font file is found once per name (a locked map), the colours are function
+statics, and the brush key is a struct of numbers (compared and hashed as numbers; the same brushes, so the same pictures). The attribution of the 3 to 4 ms to these three is from
+reading the code and the measured result, not from a scope on each: `UMIFrontEnd::Tick` went from 135.7 to 110.1 ms in all, its largest 9.54 to 5.40 ms, and the
+late frames' `Tick_Engine` excess from +5.5 to +10.2 ms to +4.4 to +5.7 ms (traces `t1` and `n1`). What is left of a rebuild is the widget construction itself (a gun card 0.55 ms,
+`SMIFrontEnd GunCard`, 66 calls 36.8 ms; a text block 8.6 us) and Slate's layout of the new tree (`Slate::Tick` +2 ms).
+
+**Fix 2 (`92d351f`): a gun's equip no longer parses `grips.json`** (`Weapons/MIFirstPersonRig.cpp`). `UMIFirstPersonRig::Equip` read and parsed the 78 KB file of every gun's
+solved finger points on each call (`MI/FP LoadGrips`: 2.35 ms the first time, nothing after); it is parsed once and found again by its time stamp. `Equip` 5.9 ms a call to 4.0 ms,
+and the three 23 ms frames of the gun switches in play at 68, 76 and 83 s are gone from the trace's late frames. The rest of `Equip` (3 to 5 ms: the rig's clips, the seated and
+reserve magazines, the hands' curl tables) was not taken apart.
+
+**Fix 3 (`66bfb3d`): the Briefing's first-person gun is set up in the frame the view changes and first stepped in the next one.** The entry to the Briefing was one frame of
+8.4 ms (`SyncViewTarget` 1.4 ms of set-up + the weapon's first `Step`, which equips the gun, 5.6 ms): a 28 ms frame. It is now two frames of 2.8 and 5.6 ms. The
+screen is fading in from black (0.3 s), so the one frame's delay is not seen.
+
+**Fix 4 (`948c9a8`): the stage's first loads are not in the first frames.** `WarmStage` (the Crew arms and the first gun, loaded and drawn once behind the title card) ran
+in `Show()`, so the first gun's 173 to 295 ms of synchronous loads were in the second frame. It now runs 30 frames after the title is up (a first screen that is not the
+title keeps the old order). The game's first line is 0.18 s earlier for it.
+
+### The engine start: the Vulkan driver-cache save (3 s of a cold start, up to 26 s on this box) is not done any more
+
+Evidence, all from cold users (every E3DS session is one: a fresh machine has no `VulkanProgramBinaryCache` file):
+
+- The log of `c-menus4` between `Opened FPipelineCacheFile` (05:53:57.274) and `Game Engine Initialized` (05:54:01.058): 3.8 s, and no work on the game
+  thread in that span; its lines show `Saved device pipeline cache file` at 05:53:59.714 and `Finished, no jobs remaining` at 05:54:01.036.
+- The trace `t1` (`ins.sh`, `thr.py`, `busy.py`): the **render thread's `HeartbeatTickTickables` runs 1,791 ms** at trace 1.869 s (no scope in it above 25 ms), and the game thread's
+  `FlushRenderingCommands` waits for it three times: in `OnPostEngineInit` (1,794 ms), in `WaitForMovieToFinish` (488 ms) and in the first Slate frame's
+  `Slate_FlushFontCache` (677 ms), 2.96 s of `FEngineLoop::Init` and the first frame. The six `PSOPrecompilePool` threads are busy the whole time (4.97 s each of the first 6.5 s).
+- The engine (5.9 on the box, `VulkanRHI/Private/VulkanPipeline.cpp`): when the bundled cache's task completes (`FShaderPipelineCache::Tick`, render thread) the Vulkan RHI's
+  `OnShaderPipelineCachePrecompilationComplete` calls `SavePSOCache` if the driver's file was not loaded (`!bPrecompilingCacheLoadedFromFile`: every cold start):
+  `vkGetPipelineCacheData` returns when the driver has finished the pipelines asked of it, the 7.9 MB is written to disk, then merged (`vkMergePipelineCaches`).
+  `r.Vulkan.EnablePSOFileCacheWhenPrecachingActive=1` (`7862e3e`, the bundled cache) is what puts this path in the game. It is the cold start's whole extra cost, and it is **not constant**:
+  `y-l1`, the same package with the file cache on, again cold, had its first frame **26.4 s** after the start (its save came 4.3 s after the open and its file was 13.3 MB, not 7.9);
+  the closer's "28 s starts" (`c-menus1`, `c-menus3`) are the same thing.
+
+The variants, the same package, cold, no viewer (`s-*`, `x-*`, `y-*`; seconds from the log's first line; "probe" is the game's first `MICloudProbe` line):
+
+| Variant | `Game Engine Initialized` | first probe line | first frame |
+|---|---|---|---|
+| as shipped (`s-base`; `y-l1`) | 4.27 s; 1.72 s | 5.67 s; **26.39 s** | 6.5 s and **26.4 s** after the process (CSV frame 0) |
+| `r.Vulkan.PipelineCacheLoad=0` (`s-nol`, `y-l0`, every run of the final package) | **1.61 to 1.92 s** | **3.42 to 3.91 s** | 2.5 to 3.1 s |
+| `r.ShaderPipelineCache.Enabled=0` (`s-nocache`: no bundled cache at all) | 1.69 s | 3.60 s | |
+| `r.ShaderPipelineCache.PSOPrecacheIncludeMode=2` or `=1` (a smaller cache: `y-l1m2`, `y-l1m1`) | 5.37 s; 5.00 s | 6.54 s; 6.16 s | 6.3 s; 5.9 s: not helped |
+| precache pool at 50 % of the threads (`s-pct50`) | 1.62 s | 5.81 s | the save moved to 3.9 s: the same stall, later |
+
+`r.Vulkan.PipelineCacheLoad=0` (a plain console variable, set in `DefaultEngine.ini`'s `[ConsoleVariables]` beside the two lines of the pipeline cache; commit `1ba19b3`) keeps
+the engine from registering the two cache callbacks (`InitAndLoad`, the "Not loading pipeline cache" branch), so nothing is saved or merged, and a start is the same 1.6 to 1.9 s every time.
+**The price, measured:** the recorded PSOs are still queued, but their compile no longer reaches a cache the game's later pipeline creation can hit, so the first frames create pipeline
+states at draw time again, as version 4's do. The first frame is 1,024 to 1,047 ms with 19 to 26 graphics and 83 to 84 compute PSO creations in it (`y-l0`, `f-menus1`, `f-menus5`; version 4:
+1,053 ms, 19 + 82), then a few frames of 47 to 270 ms in the next 2.5 s, before any viewer in these runs (the viewer joins 3 s after the first line). The earlier head had none of those (its first frame
+came 6.5 s in, with the cache's work done) except the loads of the stage's first gun. After 10 s there is **no** PSO-hitch frame in any of the runs below, with the cache on or off. Setting
+`r.Vulkan.PipelineCacheLoad=1` (or `-ini:Engine:[ConsoleVariables]:r.Vulkan.PipelineCacheLoad=1` on the command line) restores the old behaviour.
+
+## Closer re-measure (2026-11-27, 05:36 to 06:05 UTC, package of `77b02f3`): still NOT-YET (its cause is named and fixed in the v8 section above)
 
 The v7 prover's verdict stands. The package of `77b02f3` (the Loadout's gun swap built a part a frame, the optics solid, the other
 v6 finish items) was run as the prover ran its menus runs (same queue line, `gated.sh`, `/project/ue/smooth/v7p/runs/c-menus1..4`,

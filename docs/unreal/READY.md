@@ -2,6 +2,13 @@
 
 One section per lane of the readiness pass. Every finding names the evidence it rests on (a picture, a log line, a number).
 
+## Smoothness update (performance engineer, 2026-11-27, 06:08 to 09:40 UTC)
+
+The 6 to 10 ms Loadout frames were the screen's Slate rebuild (font, colour and brush-key helpers paid on every call), not the Showroom's tick; the Briefing and each gun switch paid a
+`grips.json` parse and a one-frame equip; the engine start's extra 2.7 s (and the 26 s cold starts) was the Vulkan driver-cache save, now off (`r.Vulkan.PipelineCacheLoad=0`), at the
+price that the first frames create pipeline states at draw time like version 4's. Suite on `66bfb3d`: 228 of 228. The package of `66bfb3d` was built but its per-frame runs were not
+made (the box ended): the SMOOTH.md verdict stays NOT-YET until they are. Details and every number: `SMOOTH.md`, "v8 performance engineer".
+
 ## v6 GO readiness (closer, 2026-11-27, 04:30 to about 06:30 UTC; supersedes the sections below)
 
 **Proposed commit to package: `77b02f3` (code; the packaged one, below). Verdict: NO-GO.** Every must-fix of the two proofs that a
