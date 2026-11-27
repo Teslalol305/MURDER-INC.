@@ -693,3 +693,15 @@ The Buzzards no longer spawn in the Story or in Hold the Block; a wave ends when
 they can come back later. Golden replays and tests that pin the drones: keep them passing by running them with the drones switched
 on in the test set-up where that is how they were recorded; where a test asserts the shipped game's behaviour, update it to "no
 drones" (an owner-made rule change, not a weakened test). No HUD text, objective, voice line or menu may mention drones afterwards.
+
+## 2026-11-27 ~22:20 UTC: the game's goal, in the owner's words
+
+"The goal is for the player to have fun, lock onto the targets as they shoot, and progress from one level or map to the next."
+Consequences for the plan:
+1. **Aim assist ("lock onto the targets as they shoot")** is a v6 feature, right after the drone removal: soft target lock for
+   mouse and pad (stronger on the pad): aim slow-down over a Goon, gentle pull toward the nearest Goon in a small cone while firing,
+   and a snap to the nearest visible Goon when aiming down sights; a Settings toggle and strength; no lock through walls; tuned so it
+   helps over the stream's latency without playing the game for the player. It changes how play feels, not the rules: the golden
+   replays (scripted input) run with it off.
+2. **Progression across maps** is the core of the game: after v6 ships, the three-map release (docs/unreal/MAPS.md) comes before
+   multiplayer unless the owner says otherwise.
