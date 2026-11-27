@@ -134,8 +134,8 @@ LOD2 past `PROP_LOD2_SWITCH`. The trash can is now 6.4k / 1.6k / 0.4k, the stall
 1.8k / 0.45k / 0.13k; LOD1s were added for the produce greens, styrofoam boxes, tarp, newspaper box, parking meter, skylight,
 condenser, caps board, lantern, traffic barrel and every new prop above 1.5k triangles; LOD2s for the props that stand in rows.
 The **pallet stack** (13.3k) now has hand-built LODs (`SM_Furn_PalletStack_A_LOD1` 1.1k, `_LOD2` 0.4k: eight pallets of boxes, same
-slot, size and pivot): the collapse left slivers. A signpost's and a street lamp's poles still collapse to slivers under the 34 mm
-floor, so they have no LODs. Every LOD has its LOD0's slots and size (a check).
+slot, size and pivot): the collapse left slivers. A signpost's and a street lamp's poles collapse to slivers under the 34 mm
+floor, so their LODs are hand-built (below). Every LOD has its LOD0's slots and size (a check).
 
 **Decals** (`SM_Decal_CT_*`, one 2K page `T_CT_Decals` BC with alpha, N, ORM, and a quad per cell with its UVs on its cell, one material
 `M_CT_Decals`; in Unreal a decal-domain MI on a decal actor of the quad's size). Graffiti in the level's four invented tags only
@@ -148,12 +148,15 @@ inside in the first picture; each reason is in the instance's `deviation`). The 
 **The street blade.** `SM_Sign_CT_StreetBlade` hung from a clamp cylinder through the middle of its face; it now hangs from a bracket
 arm over its top edge (two hangers) ending in a wall plate beyond its left end: nothing crosses a face (`ct_mott`).
 
+**Pole LODs.** The sign post (35 placed) and the street lamp (9) were the last props with no LOD: rebuilt as solid members
+(`m_pole_lods` in `_chinatown_props3.py`). Worst view 1 is now 0.79 M drawn (was 0.82 M).
+
 **Worst view 1** (the start looking east, every placed piece in the frustum, none hidden by walls): 3.23 M triangles at LOD0,
 **0.82 M drawn** (far proxies past 30 m, LOD1 past 12 m, LOD2 past 30 m), under the 1.5 M ceiling and the 1.1 M aim. Round 2b had
 0.88 M with 207 assets; the round-3 props add 44k to the count (the interiors are counted although the walls hide them) and
 the LODs take 1.33 M (no prop LODs) to 0.82 M. The north row's share is unchanged at 413k.
 
-**Checks.** `_chinatown_check.py` all pass (new: **lods**, **decals**, **props3**; 304 assets, 0 GLBs missing); `--build`: 304 assets, 0
+**Checks.** `_chinatown_check.py` all pass (new: **lods**, **decals**, **props3**; 307 assets, 0 GLBs missing); `--build`: 307 assets, 0
 failing validation, 0 over budget, no thin member; `tools/levels/check_level.py --level chinatown` 0 failures; `tools/names/check_names.py`
 passes (decal text is on the list). The level data was not changed.
 
@@ -162,7 +165,7 @@ passes (decal text is on the list). The level data was not changed.
 `ct_canal_start`, `ct_canal_east`, `ct_mott`, `ct_square`, `ct_alley`, `ct_yard`: night, wet, from the player's eye, 1280 x 720,
 24 samples (round 2b; `ct_canal_start`, `ct_square`, `ct_mott` and `ct_alley` redone in round 3 at 14 to 16 samples). Round 3 adds
 `ct_props3` and `ct_props3b` (the new street and wall props on a damp sidewalk), `ct_bakery`, `ct_kitchen`, `ct_banquet`, `ct_dub` (the
-interiors from inside) and `ct_graffiti` (a tag, the grime band and scuffs on W1's alley wall). The ground is made from the level's `ground.surfaces` with the street surface of 4a; vehicles are not in
+interiors from inside) and `ct_graffiti` (the VULTURES tag and the grime band on W1's alley wall, reframed so the whole tag shows). The ground is made from the level's `ground.surfaces` with the street surface of 4a; vehicles are not in
 the pictures.
 
 ## 6. Open
@@ -172,7 +175,8 @@ the pictures.
 - The bike rack has one bicycle (the level's collider is 0.1 m deep, a row of hoops); the interiors have banquet tables but no chairs
   around them (the chairs are the stacks), and the stone lions and the dumpling cart are the first modelling pass (readable at street
   distance, not hero close-ups).
-- A signpost's and a street lamp's LODs (the poles need a hand-built reduction like the pallet stack's); the Block's dumpster LOD.
+- (Done in the end of round 3: `SM_Furn_SignPost_LOD1` 26 triangles of 562, `SM_Furn_StreetLamp_LOD1` 256 and `_LOD2` 148 of 1128, hand-built like the
+  pallet stack's, same slots, size and pivot. The dumpster already has the Block's LOD1, 2.0k of 7.0k; it is placed 4 times and has no LOD2.)
 - The decal page is 2K at 256 to 640 px per metre; the wear pass covers the round-2 ground walls and not the north row, the market
   hall's walls or the structures' fronts.
 - The Unreal side: import, the placement actors from `placements_chinatown.json`, the decals as decal actors, the far proxies as LOD1 /

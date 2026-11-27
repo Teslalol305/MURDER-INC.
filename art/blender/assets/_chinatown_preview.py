@@ -388,7 +388,7 @@ def render_all(ctx):
         "ct_alley": dict(name="Alley", eye=(-28.0, 12.5, 1.7), target=(-28.0, -12.0, 3.5), lens=20,
                          lamps=[(-28.0, 10.0, 8.0), (-28.0, 0.0, 8.0), (-28.0, -10.0, 8.0)]),
         # round 3: the interiors (the walls and floors are the placed structures; the lights are the rooms' own)
-        "ct_graffiti": dict(name="Graffiti", eye=(-27.0, 1.4, 1.5), target=(-30.0, 3.0, 1.2), lens=24,
+        "ct_graffiti": dict(name="Graffiti", eye=(-26.5, 3.5, 1.5), target=(-30.0, -1.0, 1.5), lens=22,
                             lamps=[(-27.5, 1.0, 3.2), (-27.5, -6.0, 3.2), (-27.5, 8.0, 3.2)]),
         "ct_bakery": dict(name="Bakery", eye=(5.6, 11.3, 1.65), target=(2.2, 7.0, 1.1), lens=18,
                           lamps=[(3.0, 10.0, 3.0), (3.0, 5.5, 3.0), (6.0, 6.0, 3.0), (2.0, -2.0, 3.6), (5.0, -6.0, 3.6)]),

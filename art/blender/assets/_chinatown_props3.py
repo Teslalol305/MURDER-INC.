@@ -518,9 +518,56 @@ def m_pallet_stack_lods(ctx, M):
     return out
 
 
+def _pole_mats(M):
+    """The slots of the Block's sign post and street lamp that the Canal kit did not have yet (the same names)."""
+    from mi import mat
+    if "lens" not in M:
+        M["lens"] = kit.F("MI_Lamp_Lens", (0.80, 0.78, 0.72), 0.15)
+    if "signSignPost" not in M:
+        M["signSignPost"] = mat.sign_face("SignPost", (0.3, 0.3, 0.3), 0.45)
+        M["signSignPost"]["mi_tile_m"] = (0.32, 0.44)
+
+
+def m_pole_lods(ctx, M):
+    """Hand-built LODs of the Block's SM_Furn_SignPost (562 triangles: LOD1 about 30) and SM_Furn_StreetLamp (1128: LOD1 about 330,
+    LOD2 about 110): their poles are 40 to 120 mm across and collapse to slivers, so the pole is rebuilt as a few solid members. Same slots
+    in the same order, size and pivot as the Block's."""
+    from assets.furniture import card
+    _pole_mats(M)
+    out = []
+    b = B(390, step=4.0)
+    bx(b, (-0.025, -0.0255, 0.0), (0.025, 0.0065, 2.8), "galv", pin=False)
+    bx(b, (-0.16, -0.019, 2.18), (0.16, -0.016, 2.62), "galv", pin=False)
+    card(b, (-0.16, -0.0195, 2.18), (0.32, 0, 0), (0, 0, 0.44), "signSignPost", sign=True)
+    out.append(done(ctx, b, "SM_Furn_SignPost_LOD1", M, collision="none", cover_height=None, expect_size=None,
+                    notes="LOD1 of the Block's SM_Furn_SignPost (562 triangles): the channel post as a solid box, the plate and its face; same slots, size and "
+                          "pivot. Drawn past 12 m."))
+    for lod, (seg, hseg, hr) in (("LOD1", (8, 10, 5)), ("LOD2", (4, 6, 3))):
+        b = B(391 + len(lod) + seg, step=4.0)
+        bx(b, (-0.17, -0.17, 0.0), (0.17, 0.17, 0.04), "galv", pin=False)                                  # the base: a 45-degree 4-sided lathe in the Block's
+        bx(b, (-0.15, -0.15, 0.04), (0.15, 0.15, 0.60), "galv", pin=False)
+        lathe(b, [(0.13, 0.60), (0.10, 2.5), (0.07, 5.5), (0.06, 7.2), (0.0, 7.2)], "galv", seg=seg)
+        for p0, p1 in (((0, 0, 7.0), (0, 0, 7.40)), ((0, 0, 7.40), (0, -0.70, 7.76)), ((0, -0.70, 7.76), (0, -1.86, 7.80))):
+            rod(b, p0, p1, 0.04, "galv", n=6 if lod == "LOD1" else 4)
+        rod(b, (0, -0.02, 6.60), (0, -1.15, 7.70), 0.022, "galv", n=4)
+        head = geo.sphere(0.5, hseg, hr)
+        co, _ = geo.arrays(head)
+        co *= (0.30, 0.74, 0.16)
+        co[:, 2] = np.maximum(co[:, 2], -0.035)
+        geo.set_verts(head, co)
+        geo.transform(head, loc=(0, -2.16, 7.80))
+        b.absorb(head, "galv")
+        bx(b, (-0.10, -2.42, 7.755), (0.10, -1.98, 7.766), "lens", pin=False)
+        bx(b, (-0.06, 0.205, 0.15), (0.06, 0.212, 0.40), "galv", pin=False)
+        out.append(done(ctx, b, "SM_Furn_StreetLamp_" + lod, M, collision="none", cover_height=None, expect_size=None,
+                        notes="%s of the Block's SM_Furn_StreetLamp (1128 triangles): the tapered pole, the transformer base, the davit arm and the cobra head "
+                              "with fewer sides; same slots, size and pivot. Drawn past %d m." % (lod, 12 if lod == "LOD1" else 30)))
+    return out
+
+
 PROPS3 = [m_dumpling_cart, m_nut_cart, m_hotpot_cart, lambda c, M: m_stone_lion(c, M, "L"), lambda c, M: m_stone_lion(c, M, "R"),
           lambda c, M: m_trash_bags(c, M, "L", 0.90, 0.60, 6), lambda c, M: m_trash_bags(c, M, "S", 0.58, 0.60, 3),
           m_fruit_stand_small, m_standpipe, m_bike_rack, m_chair_stack, m_grease_bin,
           lambda c, M: m_planter(c, M, "S", 0.8, 0.6, 0.8), lambda c, M: m_planter(c, M, "L", 1.0, 1.0, 0.9),
           m_bucket_stack, m_sandwich_board, m_cd_rack, m_road_plates, m_dig_fence,
-          m_roof_vent, m_exhaust_fan, m_exhaust_stack, m_antenna_mast, m_pallet_stack_lods]
+          m_roof_vent, m_exhaust_fan, m_exhaust_stack, m_antenna_mast, m_pallet_stack_lods, m_pole_lods]
