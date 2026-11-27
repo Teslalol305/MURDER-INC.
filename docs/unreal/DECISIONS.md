@@ -643,3 +643,11 @@ The owner, on Hold the Block's wait for the last enemies (up to 77 s for an unhu
 20 seconds with only unhurt Buzzards left in a wave, they fly straight at the player so the fight ends quickly; the marker on the last
 enemies stays. This is a deliberate rule change by the owner for Hold the Block's wave end only: the director's behaviour for the last
 drones changes, tests that read it get the new value, and every golden replay that does not reach that state stays byte for byte.
+
+## 2026-11-27 ~16:00 UTC: keep r.Vulkan.PipelineCacheLoad=0 (the lead)
+
+The performance lane traced the slow and erratic engine start (5.7 s to the first probe line, once 26 s) to the render thread saving
+the Vulkan driver's pipeline cache while the game thread waited. With r.Vulkan.PipelineCacheLoad=0 the first probe line comes at 3.4
+to 3.9 s (version 4: 3.2 to 3.5 s). The cost is version-4-like pipeline creation in the first 3 s of a process, before any viewer
+joins on E3DS; after 10 s no run had a PSO hitch and the first fight stays clean. Kept. Setting it back to 1 restores the old behaviour.
+The GPU box 8496fd8c ended at 09:40 UTC (runtime_failed, the provider's side); the replacement is 1e0f3eeb, same spec.
