@@ -8,6 +8,7 @@
 #include "Components/AudioComponent.h"
 #include "Core/MIEvents.h"
 #include "Enemies/MIEnemyActors.h"
+#include "Flow/MIGameSubsystem.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Stats/Stats.h"
@@ -618,6 +619,16 @@ void UMIAudioSubsystem::DrawSubtitle(AHUD* HUD, UCanvas* Canvas)
 	if (S.Text.IsEmpty())
 	{
 		return;
+	}
+	// The death, debrief and pause cards keep their hint line where the subtitle goes (e2e review: "RULE I-N-C!" printed over
+	// "Up/Down choose - Enter select"): no subtitle while one is up.
+	if (UMIGameSubsystem* Game = UMIGameSubsystem::Get(GetWorld()))
+	{
+		const EMIGameState State = Game->GetRules().GetState();
+		if (State == EMIGameState::Dead || State == EMIGameState::Complete || State == EMIGameState::Paused)
+		{
+			return;
+		}
 	}
 	UFont* Font = GEngine ? GEngine->GetLargeFont() : nullptr;
 	if (!Font)

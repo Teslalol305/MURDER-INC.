@@ -35,6 +35,12 @@ public:
 	bool MarkerTransform(FName Marker, FTransform& Out) const;
 	/** The laser's beam origin and direction in world space (the Beam socket, else the muzzle line); false without one. */
 	bool BeamWorld(FVector& OutStart, FVector& OutDir) const;
+	/** The same assembly in steps (the Loadout's gun swap did a gun's worth of component work in one 6 to 10 ms tick, SMOOTH.md v7):
+	 *  BeginStaged does the base mesh, StepStaged adds up to PartsPerStep parts a call and the factory magazine last, and returns
+	 *  true once the gun is complete. Assemble is the three in one go. */
+	void BeginStaged(USkinnedMeshComponent* InBase, const FMIResolvedGun& Gun, bool bSetBase, double Slide = 0.0);
+	bool StepStaged(int32 PartsPerStep);
+	bool IsStaging() const { return bStaging; }
 	int32 NumParts() const { return Parts.Num(); }
 	/** The fitted part's mesh in a slot (the magazine the first-person rig shows and hides), or null. */
 	UStaticMeshComponent* PartMesh(FName Slot) const;
@@ -69,6 +75,16 @@ private:
 	TArray<TObjectPtr<UStaticMeshComponent>> Owned;
 
 	void AddTopRound(UStaticMeshComponent* Magazine, const FString& Path);
+	bool AssembleBegin(USkinnedMeshComponent* InBase, const FMIResolvedGun& Gun, bool bSetBase);
+	void AssemblePart(const FMIResolvedPart& R, const TSet<FName>& Before, double Slide);
+	void AssembleEnd(const FMIResolvedGun& Gun, bool bSetBase);
+
+	FMIResolvedGun StagedGun;
+	TSet<FName> StagedBefore;
+	int32 StagedIndex = 0;
+	double StagedSlide = 0.0;
+	bool bStagedSetBase = false;
+	bool bStaging = false;
 
 	TArray<FPart> Parts;
 	TArray<FName> Hidden;

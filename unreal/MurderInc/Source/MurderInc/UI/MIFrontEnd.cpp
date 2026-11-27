@@ -422,7 +422,7 @@ bool UMIFrontEnd::HoverBlocked()
 	{
 		return false;
 	}
-	if (FVector2D(FSlateApplication::Get().GetCursorPos()).Equals(FitCursor, 0.5))
+	if (FVector2D(FSlateApplication::Get().GetCursorPos()).Equals(FitCursor, 3.0))
 	{
 		return true;
 	}

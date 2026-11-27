@@ -145,20 +145,14 @@ void UMIGunAssembly::Clear()
 	LaserSlot = NAME_None;
 }
 
-void UMIGunAssembly::Assemble(USkinnedMeshComponent* InBase, const FMIResolvedGun& Gun, bool bSetBase, double Slide)
+bool UMIGunAssembly::AssembleBegin(USkinnedMeshComponent* InBase, const FMIResolvedGun& Gun, bool bSetBase)
 {
 	using namespace MIGunAssemblyPrivate;
-	// Parts that stay fitted keep their place; new ones slide in.
-	TSet<FName> Before;
-	for (const FPart& P : Parts)
-	{
-		Before.Add(P.Data.Part);
-	}
 	Clear();
 	Base = InBase;
 	if (!Base)
 	{
-		return;
+		return false;
 	}
 	if (bSetBase && BaseMesh != Gun.BaseMesh)
 	{
@@ -188,65 +182,73 @@ void UMIGunAssembly::Assemble(USkinnedMeshComponent* InBase, const FMIResolvedGu
 	{
 		MarkerFallback.Add(M.Key, Gun.View.MeshOffset.InverseTransformPosition(FMIViewmodelRig::WebToUE(M.Value)));
 	}
-	for (const FMIResolvedPart& R : Gun.Parts)
+	return true;
+}
+
+void UMIGunAssembly::AssemblePart(const FMIResolvedPart& R, const TSet<FName>& Before, double Slide)
+{
+	using namespace MIGunAssemblyPrivate;
+	for (const FName Bone : R.Hide)
 	{
-		for (const FName Bone : R.Hide)
+		if (Base->GetBoneIndex(Bone) != INDEX_NONE)
 		{
-			if (Base->GetBoneIndex(Bone) != INDEX_NONE)
-			{
-				HideGunBone(Base, Bone);
-				Hidden.Add(Bone);
-			}
-		}
-		UStaticMesh* Mesh = R.Mesh.IsEmpty() ? nullptr : Cast<UStaticMesh>(FSoftObjectPath(R.Mesh).TryLoad());
-		if (!Mesh)
-		{
-			UE_LOG(LogMI, Warning, TEXT("Gun assembly: %s has no mesh at '%s' (not offered until it exists)"), *R.Part.ToString(), *R.Mesh);
-			continue;
-		}
-		UStaticMeshComponent* C = MakePartComponent(GetOwner(), Base, Mesh);
-		FTransform Rest = FTransform::Identity;
-		if (!R.Socket.IsNone() && Base->DoesSocketExist(R.Socket))
-		{
-			C->AttachToComponent(Base, FAttachmentTransformRules::SnapToTargetIncludingScale, R.Socket);  // the part takes the gun's scale (a swap can be mid scale-out)
-			FTransform SocketRest, RideRest;
-			if (IsBoneSocket(Base, R.Socket) && BoneRestInMesh(Base, R.Socket, SocketRest))
-			{
-				// A socket that is a bone of the exported skeleton carries the importer's turn of the glTF axes; the part
-				// was modelled in the gun's own frame (X along the bore, Z up), so it is turned back (position unchanged).
-				C->SetRelativeRotation(SocketRest.GetRotation().Inverse());
-				if (!R.RideBone.IsNone() && BoneRestInMesh(Base, R.RideBone, RideRest))
-				{
-					// A part that moves with a gun part (a magazine: it drops and hides with the 'magazine' bone in a
-					// reload) is carried by that bone from where it sits at rest (the socket's place in the mesh's frame).
-					const FTransform At(FQuat::Identity, SocketRest.GetLocation());
-					C->AttachToComponent(Base, FAttachmentTransformRules::SnapToTargetIncludingScale, R.RideBone);
-					C->SetRelativeTransform(At.GetRelativeTransform(RideRest));
-				}
-			}
-		}
-		else
-		{
-			// No socket on the mesh yet: the slot's marker from the data (provisional until the socket pass).
-			C->AttachToComponent(Base, FAttachmentTransformRules::SnapToTargetIncludingScale);
-			const FVector* At = MarkerFallback.Find(FallbackMarker(R.Slot));
-			Rest.SetLocation(At ? *At : FVector::ZeroVector);
-			C->SetRelativeTransform(Rest);
-		}
-		Rest = C->GetRelativeTransform();
-		Owned.Add(C);
-		AddTopRound(C, R.TopRoundMesh);
-		FPart& P = Parts.AddDefaulted_GetRef();
-		P.Data = R;
-		P.Mesh = C;
-		P.Rest = Rest;
-		P.Slide = Before.Contains(R.Part) ? 0.0 : Slide;
-		P.Age = P.Slide > 0.0 ? 0.0 : 1e9;
-		if (R.Markers.Contains(TEXT("beam")))
-		{
-			LaserSlot = R.Slot;
+			HideGunBone(Base, Bone);
+			Hidden.Add(Bone);
 		}
 	}
+	UStaticMesh* Mesh = R.Mesh.IsEmpty() ? nullptr : Cast<UStaticMesh>(FSoftObjectPath(R.Mesh).TryLoad());
+	if (!Mesh)
+	{
+		UE_LOG(LogMI, Warning, TEXT("Gun assembly: %s has no mesh at '%s' (not offered until it exists)"), *R.Part.ToString(), *R.Mesh);
+		return;
+	}
+	UStaticMeshComponent* C = MakePartComponent(GetOwner(), Base, Mesh);
+	FTransform Rest = FTransform::Identity;
+	if (!R.Socket.IsNone() && Base->DoesSocketExist(R.Socket))
+	{
+		C->AttachToComponent(Base, FAttachmentTransformRules::SnapToTargetIncludingScale, R.Socket);  // the part takes the gun's scale (a swap can be mid scale-out)
+		FTransform SocketRest, RideRest;
+		if (IsBoneSocket(Base, R.Socket) && BoneRestInMesh(Base, R.Socket, SocketRest))
+		{
+			// A socket that is a bone of the exported skeleton carries the importer's turn of the glTF axes; the part
+			// was modelled in the gun's own frame (X along the bore, Z up), so it is turned back (position unchanged).
+			C->SetRelativeRotation(SocketRest.GetRotation().Inverse());
+			if (!R.RideBone.IsNone() && BoneRestInMesh(Base, R.RideBone, RideRest))
+			{
+				// A part that moves with a gun part (a magazine: it drops and hides with the 'magazine' bone in a
+				// reload) is carried by that bone from where it sits at rest (the socket's place in the mesh's frame).
+				const FTransform At(FQuat::Identity, SocketRest.GetLocation());
+				C->AttachToComponent(Base, FAttachmentTransformRules::SnapToTargetIncludingScale, R.RideBone);
+				C->SetRelativeTransform(At.GetRelativeTransform(RideRest));
+			}
+		}
+	}
+	else
+	{
+		// No socket on the mesh yet: the slot's marker from the data (provisional until the socket pass).
+		C->AttachToComponent(Base, FAttachmentTransformRules::SnapToTargetIncludingScale);
+		const FVector* At = MarkerFallback.Find(FallbackMarker(R.Slot));
+		Rest.SetLocation(At ? *At : FVector::ZeroVector);
+		C->SetRelativeTransform(Rest);
+	}
+	Rest = C->GetRelativeTransform();
+	Owned.Add(C);
+	AddTopRound(C, R.TopRoundMesh);
+	FPart& P = Parts.AddDefaulted_GetRef();
+	P.Data = R;
+	P.Mesh = C;
+	P.Rest = Rest;
+	P.Slide = Before.Contains(R.Part) ? 0.0 : Slide;
+	P.Age = P.Slide > 0.0 ? 0.0 : 1e9;
+	if (R.Markers.Contains(TEXT("beam")))
+	{
+		LaserSlot = R.Slot;
+	}
+}
+
+void UMIGunAssembly::AssembleEnd(const FMIResolvedGun& Gun, bool bSetBase)
+{
+	using namespace MIGunAssemblyPrivate;
 	// The factory magazine (the stage and the crew screen: the first-person rig draws its own): in the well whenever no
 	// magazine part is fitted, so a longer one reads as a change. Our guns' magazines are authored in the gun's own space
 	// and ride their 'magazine' bone; the pack's sit on a socket of the mesh (MagHinge).
@@ -275,6 +277,59 @@ void UMIGunAssembly::Assemble(USkinnedMeshComponent* InBase, const FMIResolvedGu
 		}
 	}
 	SetComponentTickEnabled(Parts.ContainsByPredicate([](const FPart& P) { return P.Age < P.Slide; }));
+}
+
+void UMIGunAssembly::Assemble(USkinnedMeshComponent* InBase, const FMIResolvedGun& Gun, bool bSetBase, double Slide)
+{
+	// Parts that stay fitted keep their place; new ones slide in.
+	TSet<FName> Before;
+	for (const FPart& P : Parts)
+	{
+		Before.Add(P.Data.Part);
+	}
+	bStaging = false;
+	if (!AssembleBegin(InBase, Gun, bSetBase))
+	{
+		return;
+	}
+	for (const FMIResolvedPart& R : Gun.Parts)
+	{
+		AssemblePart(R, Before, Slide);
+	}
+	AssembleEnd(Gun, bSetBase);
+}
+
+void UMIGunAssembly::BeginStaged(USkinnedMeshComponent* InBase, const FMIResolvedGun& Gun, bool bSetBase, double Slide)
+{
+	StagedBefore.Reset();
+	for (const FPart& P : Parts)
+	{
+		StagedBefore.Add(P.Data.Part);
+	}
+	StagedGun = Gun;
+	bStagedSetBase = bSetBase;
+	StagedSlide = Slide;
+	StagedIndex = 0;
+	bStaging = AssembleBegin(InBase, Gun, bSetBase);
+}
+
+bool UMIGunAssembly::StepStaged(int32 PartsPerStep)
+{
+	if (!bStaging)
+	{
+		return true;
+	}
+	for (int32 N = 0; N < PartsPerStep && StagedIndex < StagedGun.Parts.Num(); ++N)
+	{
+		AssemblePart(StagedGun.Parts[StagedIndex++], StagedBefore, StagedSlide);
+	}
+	if (StagedIndex < StagedGun.Parts.Num())
+	{
+		return false;
+	}
+	AssembleEnd(StagedGun, bStagedSetBase);
+	bStaging = false;
+	return true;
 }
 
 void UMIGunAssembly::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)

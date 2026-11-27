@@ -102,6 +102,8 @@ private:
 	FName ShownCrew;
 	FMIResolvedGun Pending;
 	bool bPendingSwap = false;
+	bool bAssembling = false;   // the swap is building the new gun, a part a frame
+	bool bReassemble = false;   // a part changed meanwhile
 	double SwapT = 1.0;
 	double ArmsDip = 1.0;
 	double Yaw = -30.0, Pitch = 0.0, ZoomK = 1.0;

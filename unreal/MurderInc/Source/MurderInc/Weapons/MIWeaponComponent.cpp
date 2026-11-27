@@ -301,6 +301,10 @@ void UMIWeaponComponent::EquipMesh(FName Gun)
 	// after the CHOPPER the STRETCH (or the SHORTY) drew its slot 0 in the CHOPPER's material on its own UVs, the white and black
 	// marbled stock of the package frames (HANDS_R4.md 15). A new mesh starts from its own materials.
 	GunMesh->EmptyOverrideMaterials();
+	// The same goes for the bone transforms this poseable component keeps by bone index (the bolt, barrel, trigger and magazine
+	// the rig drives): a mesh with as many bones as the last gun's took them over, and after the SHORTY the RATTLER's sights and
+	// bolt hung in the air above the receiver in its reload (e2e review of the v6 package, rv-s1 and rv-r1).
+	GunMesh->ResetAllBoneTransforms();
 	GunMesh->SetVisibility(Mesh != nullptr, true);  // with its children (the fitted parts, the seated magazine)
 
 	// Real art brings its own markers as sockets; the data keeps the web values for meshes without them.

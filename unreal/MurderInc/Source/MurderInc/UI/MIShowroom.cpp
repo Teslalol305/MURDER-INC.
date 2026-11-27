@@ -377,6 +377,7 @@ void AMIShowroom::ShowGun(const FMIResolvedGun& InGun)
 	else
 	{
 		Pending = InGun;
+		bReassemble = bAssembling;
 	}
 }
 
@@ -510,25 +511,36 @@ void AMIShowroom::Tick(float DeltaSeconds)
 	{
 		Yaw += Spin * Dt;  // spins by itself until touched, and again 3 s after the last touch; never on a slot focus
 	}
-	// Gun swap: 0.1 s out, swap, 0.1 s in.
+	// Gun swap: 0.1 s out, swap, 0.1 s in. The swap builds the new gun a part a frame (SMOOTH.md v7: all of it in one tick was
+	// 6 to 10 ms, the long frames of the Loadout); bPendingSwap holds until it is whole, so nothing frames a half-built gun.
 	double Scale = 1.0;
+	bool bSwapNow = false;
 	if (SwapT < 0.2)
 	{
 		const double Before = SwapT;
 		SwapT += Dt;
-		if (bPendingSwap && Before < 0.1 && SwapT >= 0.1)
-		{
-			bPendingSwap = false;
-			Assembly->Clear();
-			Assembly->Assemble(Gun, Pending, true);
-			PlaceGunOnPivot();
-		}
+		bSwapNow = bPendingSwap && !bAssembling && Before < 0.1 && SwapT >= 0.1;
 		Scale = SwapT < 0.1 ? 1.0 - SwapT / 0.1 : (SwapT - 0.1) / 0.1;
 	}
-	else if (bPendingSwap)
+	else
 	{
+		bSwapNow = bPendingSwap && !bAssembling;
+	}
+	if (bSwapNow)
+	{
+		bAssembling = true;
+		bReassemble = false;
+		Assembly->BeginStaged(Gun, Pending, true);
+	}
+	if (bAssembling && Assembly->StepStaged(1))
+	{
+		bAssembling = false;
 		bPendingSwap = false;
-		Assembly->Assemble(Gun, Pending, true);
+		if (bReassemble)
+		{
+			bReassemble = false;
+			Assembly->Assemble(Gun, Pending, true);  // a part changed while the gun was being built
+		}
 		PlaceGunOnPivot();
 	}
 	Pivot->SetRelativeScale3D(FVector(FMath::Max(0.01, Ease(Scale))));
