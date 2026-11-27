@@ -251,8 +251,11 @@ of the new sections, so the old code path runs.
   and THE BOOTH as the level data has them, planters, kiosks, carts, cafe furniture, LED poles, barriers, the generator,
   road cases), four new English-only faces, every placement fitted to tools/levels/data/level_midtown.json (159 instances on
   186 colliders; the water towers, bulkhead B and the roof dressing moved onto the data's boxes), the square's emissive cost
-  checked at 0.5 % of the screens', previews mt_stand, mt_plaza, mt_booth (midtown_art.md 7). Still to make: THE LOFTLARK,
-  the bus, the facade tables, the premiere's trucks and towers, the rest of the roof boxes.
+  checked at 0.5 % of the screens', previews mt_stand, mt_plaza, mt_booth (midtown_art.md 7). Round 3 (2026-11-27, offline): THE LOFTLARK
+  (bar, loungers, deck, umbrellas, planters, the neon), the roof boxes, the city bus, the premiere's trucks, trailers, towers, press
+  walls, tents and booths, the plaza's small dressing, the Midtown facade tables and the east podium (the marquee, the hotel canopy), the
+  storefront carriers: 96 meshes with LOD1s, 1,677 placements, 16 new faces, checks all pass, previews mt_bar, mt_set, mt_bus, mt_facade,
+  mt_street (midtown_art.md 9). Still to make: the parked cars (light variants of the Block's vehicles), the sawhorse's collider, the decals.
 - **Acceptance:** as A-CT; members at least 6 cm within 25 m of the path (flicker); netting opaque.
 - **Depends on:** D4 colliders; C for the names. Estimate: 3 days.
 

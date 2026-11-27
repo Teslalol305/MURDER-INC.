@@ -636,3 +636,10 @@ of scope. The page script merges, never overwrites, stored progress; the game ta
    gameplay change by the owner for a gun that is not in the web game: tests that read the STRETCH's fire mode are updated to the new
    value (that is not weakening a test); golden replays of the Block's original guns must stay byte for byte.
 These go into v6 with the fixer's POLISH.md shortlist.
+
+## 2026-11-27 ~00:10 UTC: the last unhurt drones come to the player (B2)
+
+The owner, on Hold the Block's wait for the last enemies (up to 77 s for an unhurt Buzzard): "Drones come to the player". After
+20 seconds with only unhurt Buzzards left in a wave, they fly straight at the player so the fight ends quickly; the marker on the last
+enemies stays. This is a deliberate rule change by the owner for Hold the Block's wave end only: the director's behaviour for the last
+drones changes, tests that read it get the new value, and every golden replay that does not reach that state stays byte for byte.

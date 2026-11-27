@@ -1,4 +1,4 @@
-# Midtown art: the roofs, the screens' backs, the scaffold and the square (lane A-MT, stage 1 and round 2)
+# Midtown art: the roofs, the screens' backs, the scaffold, the square, the set and the facades (lane A-MT, stage 1 and rounds 2 and 3)
 
 What MAPS.md lane A-MT made without Unreal and without the box (2026-11-26), how it measures against
 [midtown.md](midtown.md) 11, 12, 14 and 15, every invented name it uses, and what is still open. The code is
@@ -234,15 +234,100 @@ tables are still unbuilt (section 6), so this is the **specification the facade 
   the night rig and the picture rounds at V1 to V6; flicker.py at V2 to V4 (the bike barriers' pickets and the scrim truss
   are new thin-ish steel in V5's view).
 - **Lane D (round 2 done here):** the placements now follow the level file; if the layout moves a collider, re-run
-  `_midtown_place.py` and the fit check names what moved. The roof boxes with no art yet: duct boxes (6), vent boxes (2),
-  conduit boxes and run, pipe sleepers (4), the fan housing, the E dunnage deck, THE LOFTLARK's deck, bar, loungers,
-  umbrellas and planter boxes.
-- **Lane A-MT, still to make:** THE LOFTLARK's furniture and neon, the roof boxes above, the city bus, the Midtown facade
-  tables and the east podium modules (theatre marquee, hotel canopy), the storefront carriers for the bands in
-  Sign_MT_Atlas1, the premiere's big pieces the data blocks out (broadcast, satellite, catering, cable, staging and
-  generator trucks, trailers, light and truss towers, press walls, tents and booths, the info and security booths, the
-  speaker stack and sound tower), the plaza's small dressing with colliders (bollard planters, newspaper boxes, newsstands,
-  phone kiosks, wayfinding pylons, hydrants, sign poles), and the crowd's leftovers (12.4).
+  `_midtown_place.py` and the fit check names what moved. The roof boxes that had no art are done in round 3 (section 9).
+- **Lane A-MT:** round 3 (section 9) made the rest: THE LOFTLARK's furniture and neon, the roof boxes, the bus, the facade tables and the east podium, the storefront carriers, the premiere's set and the plaza's small dressing. What is still open is section 9.5 (the parked cars, the sawhorse, the decals).
 - **Design to confirm (lane D's deviation):** the Stand's wings and front court; the art follows the data.
 - **Lane C:** done (names.md); the owner's sign-off on the list, and the US trademark-register search names.md asks for
   before release, are still to come.
+
+## 9. Round 3 (2026-11-27): THE LOFTLARK, the roof boxes, the bus, the premiere's set, the facades
+
+Round 3 makes everything section 6 listed as still to make, except the parked cars (below). 96 new meshes, 173,887 triangles
+(70 meshes and 26 LOD1s; the lane is now 164 meshes, 366,989 triangles, every one under its cap), 1,677 placements of 144 meshes
+(was 1,003 of 70). Code: `_midtown_dress.py` (the roof and the plaza's small dressing), `_midtown_set.py` (the premiere's set and the
+bus), `_midtown_facade.py` (the facade tables' modules, the carriers, the east podium), `_midtown_place.py` (`dressing`, `facades`),
+`midtown.py` (`LOD1`, `build_lods`), `_midtown_check.py` (`views`, `fac-emissive`). Names: every string is a generic word or an
+approved name (names.md): no new business name, `check_names.py` PASS.
+
+### 9.1 What is built
+
+| Group | Meshes (triangles) |
+|---|---|
+| THE LOFTLARK (D) | `SM_Roof_Lounge_Bar` (4.8k: a guest counter with a foot rail and six stools, a back bar of bottle shelves, the island inside the data's 1.0 m box), `SM_Roof_Lounger` (0.4k), `SM_Roof_Lounger_Stack` (2.1k), `SM_Roof_Umbrella_Folded` (0.5k), `SM_Roof_PlanterBox` (1.0k), `SM_Roof_LoungeDeck_9x7` (11.3k: the raised timber deck, 0.6 m, a 0.30 m step on its open sides), `SM_Roof_Loftlark_Neon_4m` (7.2k: THE LOFTLARK in 13 mm neon tubes on a black pan, a cyan border tube; on D's east parapet coping facing the square, unlit: the lounge is closed) |
+| Roof boxes with no art | `SM_Roof_DuctBox_1p6` (6 placed), `SM_Roof_VentBox_1x1` (2), `SM_Roof_ConduitBox_1p4` (2, Label_HighVoltage), `SM_Roof_ConduitRun_4m`, `SM_Roof_PipeSleepers_1p6` (4), `SM_Roof_FanHousing_1p6`, `SM_Roof_DunnageDeck_6x6` (4.4k: E's steel dunnage platform): 0.6 to 1.0k each |
+| The bus | `SM_Vehicle_CityBus` (9.1k of the design's 90k cap, LOD1 2.4k): 12 m, white with a blue skirt and window band, eleven tinted bays, two doors on the kerb side, a lit destination sign (Panel_CityCrosstown) and Bus_Side on each flank, six wheels, mirrors, lamps, a roof pod, an interior silhouette behind the glass. CITY CROSSTOWN, no real livery. Placed nose south with the doors on the east kerb |
+| Trucks and trailers | `SM_Sq_Truck_Production` (BRIGHTWIRE EVENTS, nose north, tail lift stowed), `SM_Sq_Van_Broadcast_6p8` (two), `SM_Sq_Truck_Satellite`, `_Catering`, `_Generator`, `_Cable`, `_Staging`, `SM_Sq_Trailer_Production_6m` / `_6p4`, `SM_Sq_ScreenTrailer` (parked and dark): 1.8k to 7.4k, each with a LOD1 of 0.8k to 2k |
+| Towers, walls, tents, booths | `SM_Sq_LightTower` (7: the mast raised to 5.6 m), `SM_Sq_TrussTower` (6: 6 cm chords), `SM_Sq_PressWall_3p4` (3), `SM_Sq_VipTent_3x3`, `SM_Sq_MerchBooth`, `_CoatCheck`, `_SecurityBooth`, `_InfoBooth`, `_PhotoBooth`, `SM_Sq_PortableToilets`, `SM_Sq_CameraRiser`, `SM_Sq_SpeakerStack`, `SM_Sq_SoundTower` |
+| Plaza small dressing | `SM_Sq_BollardPlanter`, `SM_Sq_Newsstand` (3), `SM_Sq_PhoneKiosk` (2), `SM_Sq_WayfindingPylon` (2, the real street names), `SM_Sq_ATM_Kiosk`, `SM_Sq_Standpipe` (2), `SM_Sq_ValetStand`, `SM_Sq_LuggageCart`, `SM_Sq_Crates_Stack`, `SM_Sq_Hoarding_6m`, `SM_Sq_FanSign` (8 dropped on the plaza), `SM_Sq_TrashCan` (20: replaces the Block's 17k-triangle wire basket, which put 307k triangles in the start view; this one is 0.8k), `SM_Sq_Sawhorse` (built, not placed: a 1.0 m object needs a collider from lane D) |
+| Reused, placed | the Canal kit's `SM_Prop_CT_Hydrant` (9), `SM_Street_SignPost` (24), `SM_Furn_NewspaperBox` (6), `SM_Furn_TrashBags_A/_B` (3), `SM_Furn_BusShelter` (stretched to its box) |
+| Facade modules | `SM_Facade_MT_Bay_{Red,Buff,Stone}_3p1` (0.7k, LOD1 0.2k: one storey of one bay, the wall in the brick or stone slot, a recessed window, the pane in the window-grid slot `M_MT_WindowGrid`), `SM_Facade_MT_Cornice_3p1`, `SM_Facade_MT_Ground_Blank_3p1`, six shopfronts `SM_Facade_MT_Shop_{Souvenir,Slice,Camera,Bank,Chop,Pharmacy}` (1.5k to 3.0k; the bank is shuttered and dark), `SM_Sign_MT_Band_{6,7,8,10}m` (the storefront carriers: a lit face 0.9 high, one per band of the atlas) |
+| East podium | `SM_Facade_MT_TheatreFront_8m` (THE MERIDALE THEATRE's six-leaf brass door and poster cases), `SM_Facade_MT_HotelFront_8m` (HOTEL CASTELLANE's revolving door), `SM_Facade_Marquee_A` (4.9k: THE MERIDALE THEATRE over LAMPLIGHT AVENUE, A NEW MUSICAL, three rows of bulbs, on I-beam brackets), `SM_Facade_Marquee_B` (1.2k: the hotel's canopy with its lit fascia) |
+
+Faces: 16 new in `Sign_MT_Atlas1` (now 38 faces, 70 % of the page; the packer is first-fit, the small labels are a new 640 px/m kind):
+the info, security, coat check, merch, photo booth, VIP, valet, phone kiosk and cash machine labels, the newsstand header, the
+street-name pylon face, the marquee's show board, the press wall (WORLD PREMIERE and MIDNIGHT repeated, a small oxblood VLTR),
+the catering, broadcast and bus panels. The sign atlas is the only texture that changed (same 4096 page: new texture memory still
+46 MB); no new tiling set (the vehicle paints, tents, brass, hoarding and cushions are tints of the clean paint, canvas, plank
+and flat slots). No translucent slot anywhere (the glass is the opaque M_MI_Glass).
+
+### 9.2 The facade tables (midtown.md 2.1, 12.4, 14.2, 17.13)
+
+The Block's facade kit and `place_buildings.py` are untouched (the block check); the per-level table is in `_midtown_place.FRONTAGES`.
+Each frontage is a run along a facade collider's outer plane, in the Block's module frame (the face toward -Y, running +X):
+
+| Frontage | Run | Ground storey (4.70) | Upper storeys |
+|---|---|---|---|
+| East (x 30) | z -38..22, 60 m | base, THE MERIDALE THEATRE's two front modules (z -22..-6) with the marquee over the doors at z -14, base, HOTEL CASTELLANE's front (z 2..10) with the canopy over the doors at z 6, base | 8 x 3.16, stone (buff over the hotel) |
+| South (z 36) | x 31..-50, 81 m | BRANNIGAN'S CHOP HOUSE (x 22..14), ASHBY & CROSS PHARMACY (x 6..-1), bases | 5 x 3.06, buff and stone |
+| West C (x -8, CORVIN HALL) | z -4..-38, 34 m | SEVENTH AV SOUVENIRS (z -6..-14), the hoarding's closed shop (z -14..-20, bases), SLICE OF SEVENTH (z -20..-26), bases | 4 x 3.225, red |
+| West D (x -8) | z 22..-4, 26 m | BELLHAVEN SAVINGS closed (z 22..14, behind the scaffold), SHUTTERBOX CAMERA & ELECTRONICS (z 12..2), bases | 3 x 3.10, red |
+| W 46 St north (z 22) | x -50..-30 (E) and -28..-8 (D), the light court left open | bases | 3 x 3.10, red |
+
+535 placements: bays at the building tables' storey heights (a z scale of 0.93 to 1.0 on the 3.30 module), a cornice at each roof line (the
+west blocks' parapets are the roofs' own art), the carriers 3.6 up. The window pane is the slot `M_MT_WindowGrid`: the look-dev
+stand-in of section 8 (24 percent of the masses lit, 34 percent of the towers, a long tail of dim windows, tungsten to TV blue, blinds
+and curtains) is its specification, and the previews now draw the real bays with it. Brick UVs are metres from the module pivot, so the
+placed instance's position along the run offsets them (or the material goes world-aligned).
+
+### 9.3 Fit and budgets
+
+- **Fit.** `fit` passes for 824 instances on 328 colliders of 84 dressed tags (was 159 on 186 of 33): none left without art. The
+  vehicles are authored at their boxes' sizes (nose +X; south, the avenues' direction, except the production truck: north); the light
+  towers' raised masts and the bar's back bar are over their boxes (`above`: shots pass). Not dressed on purpose: the parked cars
+  (sedan, taxi, SUV, van: the Block's vehicles are 170k triangles each, 14 of them would be 2.4 M: they need light variants first, as
+  Canal made for the hydrant), the arriving IPX truck, G1's cabinet (part of the gantry mesh). 492 chosen positions are marked.
+- **Triangles.** The new pieces are light: the bus 9k, a truck 4.7k, a bay 0.7k. LOD1s (a quarter of the triangles, same slots and pivot):
+  the facade modules and the east podium at 25 m, the vehicles, decks and bar at 12 m (`_LOD1` meshes, the static mesh's LOD1 in Unreal).
+  The new check `views` counts the lane's placed art in the six shot views: **V1 1.10 M at LOD0, 0.83 M with the LOD1s** (the worst), V2 0.60,
+  V3 0.20, V4 0.31, V5 0.68, V6 0.52. The street, the backdrop and the Block's vehicles are not in it: the target is 1.3 M for the whole view.
+- **Emissive.** `fac-emissive`: the facades', vehicles' and neon's slots are 57.6 m2 of lit faces (the largest the marquee's 8 x 1.4 board,
+  11.2 m2, a lightbox: no screen slot), 3.2 m2 of marquee bulbs at 350 nits; with the square's, **2.4 % of the screens' light** (ceiling 5 %).
+  The unlit printed faces (the trucks, the bus flanks) are not counted; the neon is off. Still 7 large screens and the ticker.
+- **Thin.** No member over 0.6 m long under 5.5 cm across in any of the 164 meshes (the checks fixed the vehicles' door lines, grille
+  slats, the booths' strip lights and the marquee's brass trims).
+
+### 9.4 Checks and pictures (2026-11-27)
+
+`_midtown_check.py`: english, names, files (164), budgets, atlases (38 faces), placements (1,677), fit, **views**, emissive: ALL CHECKS PASS;
+`--build`: validation 164 of 164, budgets, thin, sq-emissive, **fac-emissive**: ALL CHECKS PASS. `tools/levels/check_level.py --level
+midtown`: 36 pass, 1 waived, 0 fail (the level data is unchanged); `tools/names/check_names.py` PASS (the three new modules are in its
+scan); `_chinatown_check.py`: ALL CHECKS PASS. The archive `art/out/maps-midtown.tar` is re-packed (`art/out/midtown/ARCHIVE.json`).
+
+Previews (art/previews/maps, 1280 x 720, 12 samples, each under 300 kB): `mt_bar` (THE LOFTLARK from the south: the bar, its stools and back
+bar, the raised deck, the folded umbrellas), `mt_set` (up the plaza from W 46 St: the toilets, the press wall, truss towers, trailers, the
+marquee and the hotel beyond), `mt_bus` (the bus's nose and kerb flank, the hotel front and its canopy, the newsstand, a speaker stack
+and truss towers), `mt_facade` (THE MERIDALE THEATRE's marquee from the plaza: the name and the show board, the bulbs, the soffit
+lights), `mt_street` (Seventh Av: SEVENTH AV SOUVENIRS under its band, the phone kiosk, the crates, the bays); `mt_roofs`, `mt_gantry`,
+`mt_square`, `mt_plaza`, `mt_stand` are re-rendered with the facades and the set in. The look-dev lights of each picture (the lounge's glow, the
+light towers' heads, the marquee) are the picture's, in `_midtown_preview.rig_extra`; the neon is shown nearly dark, as designed.
+
+### 9.5 Still open
+
+- **Parked cars** (14 colliders of sedan, taxi, SUV, van): light variants of the Block's vehicles, with LODs, then placed on their sliced boxes.
+- **The sawhorse and the crowd's smaller leftovers** (caps, flyers, a pile of spent barriers): the sawhorse is built; it and any piece over
+  0.5 m need a collider from lane D. The VLTR spray over the production truck and the graffiti are decals (the Block's decal kit).
+- **Facade colour work**: the window master's per-window look is a specification until the box has `M_MT_WindowGrid`; the far buildings
+  (the bow-tie, the towers the screens hang on) are still the backdrop kit's (midtown.md 14.1) and the stand-ins in the previews.
+- **Box and engine** as section 6: the import (`send-art.sh pack --maps ... 'SM_Facade_MT_*' 'SM_Facade_Marquee_*' 'SM_Sign_MT_Band_*'
+  'SM_Vehicle_CityBus*'` as well), the night rig and picture rounds, the marquee's bulb chase and the neon's night strength, the owner's
+  sign-off on the names list.
