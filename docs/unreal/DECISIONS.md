@@ -694,6 +694,15 @@ they can come back later. Golden replays and tests that pin the drones: keep the
 on in the test set-up where that is how they were recorded; where a test asserts the shipped game's behaviour, update it to "no
 drones" (an owner-made rule change, not a weakened test). No HUD text, objective, voice line or menu may mention drones afterwards.
 
+### How it was done (v6 closer, drones removal)
+`config.json` `flow.drones` is `false`: `MIEnemy::DronesOn(Config)` reads it. Off, `FMIFlowTune::Parse` reads every Buzzard count as 0
+(patrol, Story waves, the pursuit share) and `HoldoutWave` has no Buzzards, and `FMIEnemyTune::Parse` sets the Buzzard pool to 0, so no
+Buzzard actor is pooled and `Spawn(Buzzard)` finds no slot. The air spawn points stay in the level data, unused. The rest of the Buzzard
+code and its data stay: set `flow.drones` to `true` and they are back. Tests that pin the drones (Golden.FlowRules, Golden.Directors,
+Golden.EnemyLogic, Golden.Enemies, V6.LastDrone, V6.LastDroneSweep) run inside `MIEnemy::FMIDronesScope`, which forces them on; the new
+`MurderInc.V6.NoDrones` asserts the shipped data has none. The radio line "They made you" no longer names them ("Goons on foot, and more on
+the way", the same length so the radio pacing of the recorded replays holds; the golden's text was updated, an owner-made rule change).
+
 ## 2026-11-27 ~22:20 UTC: the game's goal, in the owner's words
 
 "The goal is for the player to have fun, lock onto the targets as they shoot, and progress from one level or map to the next."
