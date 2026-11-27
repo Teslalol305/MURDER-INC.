@@ -1761,6 +1761,17 @@ void FMIEnemyField::BuzzardSpawn(FMIEnemy& E, const FVector& At, const FMIEnemyS
 double FMIEnemyField::Target(FMIEnemy& E, double Dt)
 {
 	const FMIBuzzardTune& T = Tune.Buzzard;
+	if (E.bCharge)
+	{
+		// Straight at the player at full speed (the last unhurt drones of a Hold the Block wave); the flight code still keeps it
+		// off the walls. It stops 3 m short of the player's eye so it does not sit inside the capsule.
+		const FVector At(Player.Pos.X, Player.Pos.Y + T.AimHeight, Player.Pos.Z);
+		const FVector Away = FVector(E.Pos.X - At.X, 0.0, E.Pos.Z - At.Z);
+		const double Flat = FMath::Sqrt(Away.X * Away.X + Away.Z * Away.Z);
+		const double Back = Flat > 3.0 ? 3.0 : Flat;
+		Want = Flat > 1e-3 ? FVector(At.X + Away.X / Flat * Back, At.Y, At.Z + Away.Z / Flat * Back) : At;
+		return T.MaxSpeed;
+	}
 	if (E.Mode == EMIEnemyMode::Engage)
 	{
 		if (E.SinceSeen > T.OrbitLostAfter)

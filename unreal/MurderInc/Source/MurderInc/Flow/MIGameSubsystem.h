@@ -52,6 +52,9 @@ struct FMIBootOptions
 	bool bSkipIntro = false;
 	/** Read and write the save-game slot (off in tests). */
 	bool bPersist = true;
+	/** Hold the Block: the last unhurt drones fly at the player after 20 s (DECISIONS.md 2026-11-27). On with the save slot (the
+	 *  game); off in tests and replays, so the golden runs are untouched; a test may switch it on by itself. */
+	bool bLastDrones = false;
 	/** Draw the block's boxes; unset: only when the map has no art. */
 	TOptional<bool> bDrawGrey;
 };
@@ -123,7 +126,8 @@ public:
 	 */
 	static void UiNote(const TCHAR* Name, const UObject* WorldContext);
 	void MenuMove(int32 Dy);
-	void MenuAdjust(int32 Dx);
+	/** One step of an adjustable row; Mult takes several at once (a held key's fast repeat). A pad press steps further than a key. */
+	void MenuAdjust(int32 Dx, int32 Mult = 1);
 	void MenuConfirm();
 	void MenuBack();
 	/** The mouse on a card, Point in canvas pixels (the HUD stored where it drew the rows, FMIMenu::Layout). A click
@@ -253,8 +257,14 @@ private:
 	TSet<int32> RemovedOwners;
 	/** The hold wave's last enemies (GetLastEnemies) and how long they have stood unhurt (UpdateLastEnemies). */
 	void UpdateLastEnemies(double Dt);
+	/** A held Left or Right on a slider repeats (POLISH.md 4); runs in the flow frame, which also runs while paused. */
+	void MenuRepeat(double Dt);
+	int32 RepeatDir = 0;
+	double RepeatHeld = 0, RepeatIn = 0;
 	TArray<int32> LastEnemies;
 	double LastStandFor = 0, LastStandHp = -1;
+	/** Seconds the last Buzzards of a Hold wave may stay unhurt before they charge the player. */
+	static constexpr double LastStandLimit = 20.0;
 	double RegenDelay = 0, RegenRate = 0;
 	double ShotTargetRadius = 0.38, ShotTargetStand = 1.8, ShotTargetCrouch = 1.15;
 	double TitleSpeed = 1.15, TitleFadeIn = 1.8, TitleT = 0;

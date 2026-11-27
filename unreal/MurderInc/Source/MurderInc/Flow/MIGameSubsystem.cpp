@@ -650,7 +650,7 @@ void UMIGameSubsystem::MenuMove(int32 Dy)
 	UiNote(TEXT("ui:hover"), this);
 }
 
-void UMIGameSubsystem::MenuAdjust(int32 Dx)
+void UMIGameSubsystem::MenuAdjust(int32 Dx, int32 Mult)
 {
 	const FMIMenuItem* Item = Menu.Current();
 	if (!Item || !Item->bAdjust || Dx == 0)
@@ -660,6 +660,8 @@ void UMIGameSubsystem::MenuAdjust(int32 Dx)
 	UiNote(TEXT("ui:click"), this);
 	const FName Id = Item->Id;
 	const FMISettings::FRules& R = Settings.Rules;
+	const AMIPlayerController* StepPC = Cast<AMIPlayerController>(UGameplayStatics::GetPlayerController(this, 0));
+	const bool bPadStep = StepPC && StepPC->IsPadActive();
 	bool bChanged = false;
 	if (Id == TEXT("mode")) bChanged = Settings.SetMode(FMISettings::Next(Settings.Mode, R.Modes, Dx));
 	else if (Id == TEXT("difficulty"))
@@ -669,9 +671,9 @@ void UMIGameSubsystem::MenuAdjust(int32 Dx)
 	}
 	else if (Id == TEXT("time")) bChanged = Settings.SetTime(FMISettings::Next(Settings.Time, R.Times, Dx));
 	else if (Id == TEXT("quality")) bChanged = Settings.SetQuality(FMISettings::Next(Settings.Quality, R.Qualities, Dx));
-	else if (Id == TEXT("sens")) bChanged = Settings.SetSens(Settings.Sens + Dx * R.SensStep);
-	else if (Id == TEXT("volume")) bChanged = Settings.SetVolume(Settings.Volume + Dx * R.VolumeStep);
-	else if (Id == TEXT("fov")) bChanged = Settings.SetFov(Settings.Fov + Dx * R.FovStep);
+	else if (Id == TEXT("sens")) bChanged = Settings.SetSens(Settings.Sens + Dx * Mult * (bPadStep ? R.PadSensStep : R.SensStep));
+	else if (Id == TEXT("volume")) bChanged = Settings.SetVolume(Settings.Volume + Dx * Mult * (bPadStep ? R.PadVolumeStep : R.VolumeStep));
+	else if (Id == TEXT("fov")) bChanged = Settings.SetFov(Settings.Fov + Dx * Mult * (bPadStep ? R.PadFovStep : R.FovStep));
 	else if (Id == TEXT("invert")) bChanged = Settings.SetInvertY(!Settings.bInvertY);
 	else if (Id == TEXT("padnames")) bChanged = Settings.SetPadPlayStation(!Settings.bPadPlayStation);
 	else if (Id == TEXT("guide")) bChanged = Settings.SetGuide(!Settings.bGuide);
@@ -805,7 +807,7 @@ void UMIGameSubsystem::ApplySettings()
 {
 	if (AMIPlayerCharacter* P = GetPlayer())
 	{
-		P->GetPlayerRules().SetFov(Settings.Fov);
+		P->GetPlayerRules().SetFov(Settings.VerticalFov());
 		if (AMIPlayerController* PC = Cast<AMIPlayerController>(P->GetController()))
 		{
 			PC->Sensitivity = Settings.Sens;
@@ -993,8 +995,36 @@ void UMIGameSubsystem::FlowFrame(double Dt)
 	ForwardFlow();
 	DrainEnemies();
 	UpdateLastEnemies(Dt);
+	MenuRepeat(Dt);
 	ApplyState();
 	SyncView(Dt);
+}
+
+void UMIGameSubsystem::MenuRepeat(double Dt)
+{
+	const FMIMenuItem* Item = Menu.Screen != EMIMenuScreen::None ? Menu.Current() : nullptr;
+	const APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
+	int32 Dir = 0;
+	if (Item && Item->bAdjust && PC)
+	{
+		const bool bLeft = PC->IsInputKeyDown(EKeys::Left) || PC->IsInputKeyDown(EKeys::Gamepad_DPad_Left) || PC->IsInputKeyDown(EKeys::Gamepad_LeftStick_Left);
+		const bool bRight = PC->IsInputKeyDown(EKeys::Right) || PC->IsInputKeyDown(EKeys::Gamepad_DPad_Right) || PC->IsInputKeyDown(EKeys::Gamepad_LeftStick_Right);
+		Dir = bRight && !bLeft ? 1 : (bLeft && !bRight ? -1 : 0);
+	}
+	if (Dir == 0 || Dir != RepeatDir)
+	{
+		RepeatDir = Dir;
+		RepeatHeld = 0;
+		RepeatIn = Settings.Rules.RepeatAfter;
+		return;
+	}
+	RepeatHeld += Dt;
+	RepeatIn -= Dt;
+	while (RepeatIn <= 0.0)
+	{
+		RepeatIn += Settings.Rules.RepeatEvery;
+		MenuAdjust(Dir, RepeatHeld >= Settings.Rules.FastAfter ? FMath::Max(1, FMath::RoundToInt32(Settings.Rules.FastMult)) : 1);
+	}
 }
 
 void UMIGameSubsystem::UpdateLastEnemies(double Dt)
@@ -1022,29 +1052,28 @@ void UMIGameSubsystem::UpdateLastEnemies(double Dt)
 		Hp += E.Hp;
 		bAllAir &= !E.IsGoon();
 	}
-	// A wave that can never end: only Buzzards left, none hurt for 60 s. They are
-	// brought down and the wave counts as cleared (not to the player's tally). Off in tests and replays (no save slot), so the
-	// web game's rules and the golden runs are untouched.
+	// A wave that can never end: only Buzzards left, none hurt for 20 s (the owner, DECISIONS.md 2026-11-27: "Drones come to
+	// the player"). They fly straight at the player so the fight ends; the marker on the last enemies stays. Off in tests and
+	// replays (no save slot), so the web game's rules and the golden runs are untouched.
 	if (Hp != LastStandHp)
 	{
 		LastStandHp = Hp;
 		LastStandFor = 0;
 	}
 	LastStandFor += Dt;
-	const double Limit = 60.0;
-	if (Boots.bPersist && bAllAir && LastStandFor > Limit)
+	if ((Boots.bPersist || Boots.bLastDrones) && bAllAir && LastStandFor > LastStandLimit)
 	{
-		UE_LOG(LogMI, Log, TEXT("Hold: %d Buzzard(s) unhurt for %.0f s as the wave's last enemies: brought down, the wave counts as cleared"), LastEnemies.Num(), LastStandFor);
 		for (const int32 Id : LastEnemies)
 		{
-			if (FMIEnemy* E = Field.Find(Id))
+			FMIEnemy* E = Field.Find(Id);
+			if (E && !E->bCharge)
 			{
-				Field.Damage(*E, E->Hp + E->MaxHp + 1.0, TEXT("body"), TOptional<FVector>(), false, NAME_None);
+				UE_LOG(LogMI, Log, TEXT("Hold: Buzzard %d unhurt for %.0f s as the wave's last enemy: it flies at the player"), Id, LastStandFor);
+				E->bCharge = true;
+				E->Mode = EMIEnemyMode::Engage;
+				E->SinceSeen = 0;
 			}
 		}
-		LastStandFor = 0;
-		LastStandHp = -1;
-		DrainEnemies();
 	}
 }
 
@@ -1344,7 +1373,7 @@ void UMIGameSubsystem::ResetPlayer(const FVector& Pos, double Yaw)
 		R.Pitch = MIGameSubsystemPrivate::StartPitch();
 		R.RegenDelay = RegenDelay;
 		R.RegenRate = RegenRate;
-		R.SetFov(Settings.Fov);
+		R.SetFov(Settings.VerticalFov());
 	}
 }
 
