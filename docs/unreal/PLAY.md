@@ -728,3 +728,62 @@ A on a death card (the pad player was not found by the Goons at the Story's star
 not be made mortal again); the Ground path off **in the Story** through the stream (off and on were set and shown in
 Settings; the run they applied to was Hold the Block, which has no path); the Shipping game itself (B5's pause on Esc, and
 the M8 line in Shipping); E3DS itself.
+
+## v6 independent play (prover, package of daa4f48, 2026-11-27 19:07 to 19:36 UTC)
+
+**Verdict: NOT PROVEN. This play did not reach the GO bar.** The Story was not finished, Hold the Block never got past wave 1, no
+wave 2 or 3, no last-drone rule, no pad, no second run. It is a first look through the stream, not a play-through.
+
+**How.** The package `MurderInc-E3DS.zip` (sha256 `1c0f574b...`, `BUILD.txt` names daa4f48) unpacked fresh on the box, run by
+`lag-test.sh` (`game=ship viewer=0 runas=fresh clean=1 local`-less /tmp copy, `cpus=0-7`, `-sm5`, `load=1:0.05:0:1024`, 1920 x 1080, GPU free
+of other games: `others=0` on every watcher line). The viewer was `tools/box/cloud/playd.py` (new: `rtcinput.py` fed from a growing command
+file, so a tester can look at a frame and then send input), every input as a browser page sends it. Frames were copied out as tars and
+looked at with the Read tool, full size for the menus and in 3 x 3 sheets of 640 x 360 tiles for play. Time between looking and acting was
+60 to 90 s, and the game does not wait: that is why the fights below were lost, not a statement about the game's difficulty.
+
+**Seen and fine (full-size frames).** Click to play card; Home (live 3D street behind it); Crew (one card, RULE); Loadout (six guns, focus ring,
+stage shows each gun, NEW tags, slots 1 to 4 fill on Enter); Block & Style; Briefing (controls strip now lists `1 2 3 4 Weapons` and `Q Last gun`
+once guns are carried); Story start card ("HOLLIS, QUEENS . JAMAICA AVE . 4:15 PM") and the objective text and distance markers [1] 38m [2] 41m
+[3] 79m; the cyan ground chevrons ("GROUND PATH On" in Settings); HUD (health, weapon bar, bag); CHOPPER fire (muzzle flash) and reload (both
+hands, magazine pulled and seated, "RELOADING", mag 0 shows "RELOAD"); damage vignette and red direction arrows; death card "LIGHTS OUT"
+(time, reels or waves, vultures, score) with RUN IT BACK / CHANGE SET-UP / BACK TO TITLE, and RUN IT BACK restarts at once; pause card
+(RESUME, RESTART RUN, DIFFICULTY < Boss >, SETTINGS, CHANGE SET-UP, BACK TO TITLE; Down and Up move, Left on Difficulty gave Hustler);
+Settings (LOOK SENSITIVITY 1.00x, INVERT Y Off, MASTER VOLUME 80 %, **FIELD OF VIEW 90 degrees**, WEAPON POSITION Close, GRAPHICS QUALITY Auto,
+DIFFICULTY, CONTROLLER Xbox, GROUND PATH On); Back to title; Home with MODE Hold the Block; the Hold the Block start ("WAVE 1 - EAST",
+"Stand by"); Goons seen (puffer jackets) and a Buzzard far up; the game quit by itself at 1,500 s with exit code 0 (no crash in 1,507 s, no
+"Signal 11", no ensure in `game.log`).
+
+**Per-frame times (probe lines, 2,953 half-second probes over 1,476 s, menus, Story, Hold the Block, pause, deaths).** fps mean 59.8; GPU 12.2 ms
+(dynamic resolution 0.50 to 0.75 under the l20 load); game thread 2.1 ms, render thread 8.6 ms on average; 27 probes had a frame over 25 ms
+(15 over 50 ms, 5 over 100 ms): the worst, 1,059.8 ms, 258.7 ms and 153.3 ms, are the first 6 s of the process (state 0, `held 3 to 9`,
+render thread 514.8 ms: pipeline states and the click-to-play card); after that the worst frames are 138.8 ms (421.8 s, state 2), 100.2 and 83.4 ms
+(893 s, state 2), 67.7 ms, and about 50 to 60 ms on 9 other probes (render thread 56 to 83 ms each). One pacer time-out. This is one session, not a rate.
+
+**Bugs and findings, with steps.**
+1. **Story: the ground path (cyan chevrons) leads into a pocket the player cannot pass.** New Story run, sprint straight along the avenue
+   (W, Shift): chevrons run along the sidewalk, past the PHONE kiosk, to a white van (plate TKV-9907) and the DANGER STEAM barrier with the blue
+   and red crates. The player stops against the van, 26 m from reel 1 (marker "[1] 26m"), and strafing left (A) or forward (W) for 8 s moves
+   nothing (8 identical frames). Backing out S, a taxi (5K83) is behind, an El pillar to the left: a second pocket. Frames: `s6`, `s7`, `s8`, `s9` in
+   `/tmp/claude-0/.../v6pics`, not committed. Not proven that no route exists (the first run, before dying, got to "[1] 14m" and "[1] 7m"
+   along the road side, left of the trucks), but the drawn path does not take it. Should-fix: a first-time player who follows the chevrons is stuck.
+2. **A gun held against a wall or fence is drawn pointing straight up** (muzzle at the top of the picture, both hands under it), at the chain-link
+   gate and the box truck's side; it comes back when the player backs off. May be the intended wall pull-back; it reads as a glitch. Nit.
+3. **Loadout: after Esc, Esc from Block & Style back to the Loadout, Left then Enter did not carry the card to the left** (slot 4 stayed empty).
+   Not reproduced twice; may be my timing (the screen had been open 2 s). Nit, unproven.
+4. **Menus have black bars (about 46 px) above and below at 1920 x 1080; the play and the death card do not.** Cosmetic, probably the 16:9 safe area.
+5. **The STICK's stage framing is far smaller than the others** (c8 against c5): cosmetic.
+6. **Boss Hold the Block, standing still: dead at 0:23 and 0:36 into wave 1, 0 kills, no enemy in any frame** (a Buzzard arrow at the top of the
+   picture, "They made you Goons on foot, Buzzards in the air"). Hustler: 31 HP at 40 s. With 60 to 90 s between a look and the next input this
+   says nothing about the balance; a first-time player who does not look up is hit about 10 every 1 to 2 s. Only the owner's play can say whether
+   that is too hard.
+7. Enter during play fires the gun (3 Enter presses took the mag from 30 to 27). Expected if Enter is bound to fire; not checked in the data.
+8. Reload-cancel ammo: the bag fell 7 per cycle while the mag stayed at 23 in my macro; read against `MIWeaponRules.cpp` (rounds move at the
+   "magin" mark) this is 7 rounds fired between reloads, **not a bug** (withdrawn).
+
+**Not done (needs a viewer who sees in real time, or a longer script with an aim bot).** Workbench on every gun (one visit seen in b3, not
+looked at beyond the Briefing); Block & Style choices; the Story to the truck; Hold the Block waves 1, 2 and 3 with kills; the last-drone rule;
+deaths over several waves; the simulated pad; gun switching in every way (keys 1 to 4 were not pressed in this play: the weapon bar showed
+three guns and the HUD kept CHOPPER); second run after Back to title (the title and the Hold the Block start were reached once). No E3DS
+measurement (box GPU is an RTX PRO 6000 Blackwell, not the A4000).
+
+`tools/box/cloud/playd.py` is the interactive viewer; the counting one-liner for the probe lines is in the text above.
