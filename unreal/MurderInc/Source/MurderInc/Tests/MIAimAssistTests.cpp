@@ -315,8 +315,9 @@ namespace MIAssistTestsPrivate
 					D.Amount = 100000.0;
 					D.Kind = EMIDamageKind::Bullet;
 					D.Source = EMIDamageSource::Player;
-					D.From = C + FVector(600, 0, 0);
-					D.Direction = (C - D.From).GetSafeNormal();
+					const FVector From = C + FVector(600, 0, 0);
+					D.From = From;
+					D.Direction = (C - From).GetSafeNormal();
 					D.Point = C;
 					D.Part = TEXT("body");
 					It->ApplyMIDamage(D);
