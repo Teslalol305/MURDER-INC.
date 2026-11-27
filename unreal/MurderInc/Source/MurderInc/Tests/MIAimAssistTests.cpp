@@ -369,23 +369,27 @@ bool FMIAssistWorldTest::RunTest(const FString& Parameters)
 	// Off the target by 20 degrees: nothing.
 	W.AimOff(20.0, 0.0);
 	for (int32 I = 0; I < 12; ++I) W.Step();
-	TestEqual(TEXT("far off the Goon: no slow-down"), W.PC->GetAssistSlow(), 1.0);
+	TestTrue(TEXT("far off the Goon: no slow-down (eased back to 1)"), W.PC->GetAssistSlow() > 0.99);
 
-	// Magnetism: firing 2 degrees off pulls the view toward the chest by about the capped step; not firing leaves it.
+	// Magnetism: firing 4 degrees off turns the view toward the chest by at most the capped step; not firing leaves it. The view's own
+	// yaw is read (the Goon moves a little each frame).
 	W.PC->SetDeviceFromMenu(true);
+	const double Cap = W.PC->GetAimAssist().Data.Pad.MagRate * Dt;
 	W.AimOff(4.0, 0.0);
-	const double Before = FMath::Abs(W.Error().X);
+	double YawWas = W.Player->GetPlayerRules().Yaw;
 	W.Step();
-	TestTrue(TEXT("not firing: the view is not pulled"), FMath::Abs(FMath::Abs(W.Error().X) - Before) < 0.05);
+	TestTrue(TEXT("not firing: the view is not pulled"), FMath::Abs(MI::WrapDegrees(W.Player->GetPlayerRules().Yaw - YawWas)) < 1e-6);
 	W.AimOff(4.0, 0.0);
+	YawWas = W.Player->GetPlayerRules().Yaw;
+	const double Side = W.Error().X;  // right of the crosshair is positive: the pull should go that way
 	In.bFire = true;
-	const double Start = FMath::Abs(W.Error().X);
 	W.World->Tick(LEVELTICK_All, (float)Dt);
 	GFrameCounter++;
 	In.bFire = false;
-	const double After = FMath::Abs(W.Error().X);
-	AddInfo(FString::Printf(TEXT("pull: %.3f -> %.3f degrees"), Start, After));
-	TestTrue(TEXT("firing: the view is pulled toward the Goon, and gently"), After < Start - 0.01 && Start - After < 1.0);
+	const double Moved = MI::WrapDegrees(W.Player->GetPlayerRules().Yaw - YawWas);
+	AddInfo(FString::Printf(TEXT("pull: the Goon %.3f degrees to the right, the view turned %.3f (cap %.3f)"), Side, Moved, Cap));
+	TestTrue(TEXT("firing: the view is pulled toward the Goon"), Moved * Side > 0.0);
+	TestTrue(TEXT("and gently: within the cap per frame"), FMath::Abs(Moved) <= Cap + 1e-6 && FMath::Abs(Moved) > 0.01);
 
 	// ADS snap: 7 degrees off with the pad (inside 10), the aim ends on the chest within a few frames.
 	W.PC->SetDeviceFromMenu(true);
@@ -401,13 +405,13 @@ bool FMIAssistWorldTest::RunTest(const FString& Parameters)
 	AActor* Wall = W.Wall();
 	W.AimOff(2.0, 0.0);
 	for (int32 I = 0; I < 12; ++I) W.Step();
-	TestEqual(TEXT("behind a wall: no slow-down"), W.PC->GetAssistSlow(), 1.0);
+	TestTrue(TEXT("behind a wall: no slow-down"), W.PC->GetAssistSlow() > 0.99);
 	W.AimOff(2.0, 0.0);
 	In.bFire = true;
-	const double WallStart = W.Error().X;
+	const double WallYaw = W.Player->GetPlayerRules().Yaw;
 	W.World->Tick(LEVELTICK_All, (float)Dt);
 	In.bFire = false;
-	TestTrue(TEXT("behind a wall: no pull"), FMath::Abs(W.Error().X - WallStart) < 0.01);
+	TestTrue(TEXT("behind a wall: no pull"), FMath::Abs(MI::WrapDegrees(W.Player->GetPlayerRules().Yaw - WallYaw)) < 1e-6);
 	W.AimOff(7.0, 0.0);
 	In.bAds = true;
 	for (int32 I = 0; I < 8; ++I) W.Step();
