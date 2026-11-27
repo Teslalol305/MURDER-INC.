@@ -143,6 +143,7 @@ def check_build():
     report(not thin, "thin", "%d assets, members under 5.5 cm across and over 0.6 m long: %s"
            % (len(ctx.assets), {k: v[:3] for k, v in thin.items()} or "none"))
     check_square_emissive(ctx)
+    check_facade_emissive(ctx)
 
 
 # the square's emissive slots and their night luminance (cd/m2): midtown.md 11.2, the kit's notes
@@ -162,11 +163,14 @@ def check_square_emissive(ctx):
         report(False, "sq-emissive", "no placements: run build.py build midtown --export")
         return
     import numpy as np
+    cells = load(os.path.join(paths.texture_set("Sign_MT_Atlas1"), "set.json"))["cells"]
     count = {}
     for e in load(pp)["instances"]:
         if e["mesh"].startswith("SM_Sq_"):
             sc = e.get("scale") or [1, 1, 1]
-            count.setdefault(e["mesh"], []).append(sc)
+            names_ = e.get("faces") or ([e["face"]] if e.get("face") else [])
+            lit = sum(1 for n_ in names_ if cells[n_]["lit"]) / float(len(names_)) if names_ else 1.0     # an unlit printed face emits nothing
+            count.setdefault(e["mesh"], []).append((sc, lit))
     area, biggest = {}, (0.0, "")
     for name, scs in count.items():
         ob = ctx.assets[name]["ob"]
@@ -177,14 +181,15 @@ def check_square_emissive(ctx):
                 continue
             if m.name == "MI_Stand_RiserGlass" and poly.normal[1] > -0.5:
                 continue                                       # the glass box's front only (its back and edges are hidden)
-            for sc in scs:
-                a_ = poly.area * float(np.sqrt(sc[0] * sc[1]))
+            for sc, lit in scs:
+                a_ = poly.area * float(np.sqrt(sc[0] * sc[1])) * (lit if m.name == "M_Sign_MT_Face" else 1.0)
                 area[m.name] = area.get(m.name, 0.0) + a_
         per = {}
+        lit_m = max(l_ for _s, l_ in scs)
         for poly in me.polygons:
             m = me.materials[poly.material_index]
             if m is not None and m.name in ("M_MI_Screen", "M_Sign_MT_Face"):
-                per[m.name] = per.get(m.name, 0.0) + poly.area
+                per[m.name] = per.get(m.name, 0.0) + poly.area * (lit_m if m.name == "M_Sign_MT_Face" else 1.0)
         for k, v in per.items():
             if v > biggest[0]:
                 biggest = (v, "%s %s" % (name, k))
@@ -198,6 +203,53 @@ def check_square_emissive(ctx):
     report(ok, "sq-emissive", "the square's emissive slots: %s m2; largest single face %.2f m2 (%s); area x nits %.0f against the screens' "
            "%.0f (%.1f %%, ceiling 5 %%); translucent slots %s"
            % ({k: round(v, 1) for k, v in sorted(area.items())}, biggest[0], biggest[1], sq, scr, 100.0 * sq / scr, transl or "none"))
+
+
+FAC_PREFIX = ("SM_Facade_MT_", "SM_Facade_Marquee_", "SM_Sign_MT_Band_", "SM_Vehicle_CityBus", "SM_Roof_Loftlark")
+
+
+def check_facade_emissive(ctx):
+    """(--build, round 3) The facades' lit faces (the storefront bands, the marquee's boards, the bus's destination sign), the
+    bulbs and the shop glow, by area x luminance against the seven screens and the ticker: every lit printed face a lightbox (under
+    12 m2, none is M_MI_Screen), the whole of it, with the square's, under 5 % of the screens' light, nothing translucent."""
+    import numpy as np
+    pp = os.path.join(paths.out, "placements", "placements_midtown.json")
+    cells = load(os.path.join(paths.texture_set("Sign_MT_Atlas1"), "set.json"))["cells"]
+    emit = dict(SQ_EMIT, MI_Lamp_MarqueeBulb=350, MI_Lamp_Tail=60, MI_Neon_Pink=0, MI_Neon_Cyan=0)
+    count = {}
+    for e in load(pp)["instances"]:
+        if e["mesh"].startswith(FAC_PREFIX):
+            sc = e.get("scale") or [1, 1, 1]
+            names_ = e.get("faces") or ([e["face"]] if e.get("face") else [])
+            lit = sum(1 for n_ in names_ if cells[n_]["lit"]) / float(len(names_)) if names_ else 0.0
+            count.setdefault(e["mesh"], []).append((sc, lit))
+    area, biggest, screens_slot = {}, (0.0, ""), []
+    for name, scs in count.items():
+        me = ctx.assets[name]["ob"].data
+        per = 0.0
+        for poly in me.polygons:
+            m = me.materials[poly.material_index]
+            if m is None or m.name not in emit:
+                continue
+            if m.name == "M_MI_Screen":
+                screens_slot.append(name)
+            front = poly.normal[1] < -0.5 or m.name in ("MI_Lamp_MarqueeBulb", "MI_Lamp_Tail")
+            if not front:
+                continue
+            for sc, lit in scs:
+                f_ = lit if m.name == "M_Sign_MT_Face" else 1.0
+                area[m.name] = area.get(m.name, 0.0) + poly.area * float(np.sqrt(sc[0] * sc[1])) * f_
+            if m.name == "M_Sign_MT_Face":
+                per = max(per, poly.area)
+        if per > biggest[0]:
+            biggest = (per, name)
+    tot = sum(area[k] * emit[k] for k in area)
+    sq = sum(v * SQ_EMIT.get(k, 0) for k, v in {"MI_Stand_RiserGlass": 26.4, "M_Sign_MT_Face": 5.1}.items())
+    scr = sum(a_ * n_ for a_, n_ in SCREENS_M2.values())
+    ok = biggest[0] < 12.0 and not screens_slot and (tot + sq) < 0.05 * scr
+    report(ok, "fac-emissive", "the facades', vehicles' and neon's emissive slots: %s m2; largest single lit face %.2f m2 (%s, a lightbox: under 12); "
+           "area x nits %.0f (with the square's %.0f: %.1f %% of the screens' %.0f, ceiling 5 %%); screen slots %s"
+           % ({k: round(v, 1) for k, v in sorted(area.items())}, biggest[0], biggest[1], tot, sq, 100.0 * (tot + sq) / scr, scr, screens_slot or "none"))
 
 
 def overlaps(rects):
@@ -260,6 +312,7 @@ def check_outputs():
     lane_meshes = {r["name"] for r in man["assets"]}
     unknown = sorted({e["mesh"] for e in pl["instances"] if e["mesh"] not in lane_meshes and not (e.get("reused") and e["mesh"] in shared)})
     badface = [e["face"] for e in pl["instances"] if e.get("face") and e["face"] not in fcells]
+    badface += [f_ for e in pl["instances"] for f_ in (e.get("faces") or []) if f_ not in fcells]
     badslide = [e["first_slide"] for e in pl["instances"] if e.get("first_slide") and e["first_slide"] not in slides]
     tiles = {}
     for e in pl["instances"]:
@@ -271,6 +324,7 @@ def check_outputs():
            % (pl["count"], len({e["mesh"] for e in pl["instances"]}), unknown or 0, badface or 0, badslide or 0,
               sorted(tiles), (", broken " + str(badtiles)) if badtiles else ""))
     check_fit(pl, shared)
+    check_views(pl, shared)
     # emissive and texture memory
     screens = sorted({e["screen"] for e in pl["instances"] if e.get("screen")})
     mb = 0.0
@@ -282,6 +336,48 @@ def check_outputs():
     report(len(screens) <= 9 and mb <= 180 and man["new_tiling_sets"] == 0, "emissive",
            "%d large screens %s (ceiling 9) + the ticker; new texture memory about %.0f MB (ceiling 180), new tiling sets %d"
            % (len(screens), screens, mb, man["new_tiling_sets"]))
+
+
+# midtown.md 15's shot views (eye, look-at, in web coordinates); every placed piece in the frustum (yaw only, 90 degree horizontal
+# field as the stream's 16:9, 120 m far) at LOD0, and with the LOD1s (facade modules past 25 m, props and vehicles past 12 m)
+VIEWS = {"V1 start": ((-43.2, 22.88, -35.0), (10, 10, -10)), "V2 tank house door": ((-19.3, 19.28, -27.0), (-5, 22, -10)),
+         "V3 gantry letterbox": ((-6.2, 15.68, 6.0), (20, 3, 6)), "V4 scaffold mid landing": ((-5.0, 8.6, 17.0), (15, 3, 0)),
+         "V5 top of the Stand": ((16.0, 5.03, -33.0), (10, 2, 20)), "V6 at the truck": ((0.0, 1.68, 26.0), (12, 6, -20))}
+
+
+def check_views(pl, shared):
+    """The art the lane places, counted per shot view: triangles drawn with every module at LOD0 and with the LOD1s (the Block's
+    vehicles and the street and backdrop kits are not in this count: the ceiling is the whole view, 1.3 M target and 1.5 M ceiling,
+    midtown.md 15; this lane's art must leave room: at most 0.9 M in any view)."""
+    import math
+    from assets import _chinatown_lod as cl
+    worst = (0, "")
+    rows = []
+    for name, (eye, at) in VIEWS.items():
+        e3 = (eye[0], -eye[2], eye[1])
+        dx, dy = at[0] - eye[0], -(at[2] - eye[2])
+        n = math.hypot(dx, dy) or 1.0
+        view = {"eye": e3, "dir": (dx / n, dy / n), "hfov": 90.0, "vfov": 58.7, "far": 120.0}
+        t0 = t1 = 0
+        for e in pl["instances"]:
+            rec = shared.get(e["mesh"])
+            if not rec:
+                continue
+            bx_ = cl.instance_box(e, rec)
+            if not cl.in_view(bx_, view):
+                continue
+            tr = rec["triangles"]
+            t0 += tr
+            lod = shared.get(e["mesh"] + "_LOD1")
+            d = cl.dist_to_box(view["eye"], bx_)
+            sw = 25.0 if e["mesh"].startswith(("SM_Facade_MT_", "SM_Facade_Marquee_")) else 12.0
+            t1 += lod["triangles"] if lod and d > sw else tr
+        rows.append((name, t0, t1))
+        if t1 > worst[0]:
+            worst = (t1, name)
+    print("    " + "; ".join("%s %.2f M -> %.2f M" % (n_, a / 1e6, b_ / 1e6) for n_, a, b_ in rows))
+    report(worst[0] <= 900000, "views", "the lane's placed art in the six shot views, LOD0 -> with the LOD1s: worst %s, %.2f M triangles (this "
+           "lane's share of the 1.3 M target: at most 0.9 M)" % (worst[1], worst[0] / 1e6))
 
 
 def check_fit(pl, shared):

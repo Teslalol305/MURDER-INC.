@@ -12,6 +12,13 @@ mt_stand    (round 2) from the plaza south of the Stand: the two wings, the fron
 mt_plaza    (round 2) from the top of the Stand (V5's eye) south over the plaza: planters, kiosks, carts, cafe tables, the LED
             poles, the barriers, W 46 St beyond
 mt_booth    (round 2) inside the Booth from its west door: the desk and monitors, the racks, the slot onto the front court
+mt_bar      (round 3) from D's roof toward THE LOFTLARK: the raised deck, the bar, the loungers, planters and folded umbrellas, the
+            unlit neon on the east parapet, the duct and vent boxes
+mt_set      (round 3) from W 46 St up the plaza: the premiere's trucks, trailers, light and truss towers, press walls, tents, booths,
+            the sound tower and the speaker stack
+mt_bus      (round 3) from the south end of Broadway: the stalled city bus, the hotel front and its canopy, the theatre's marquee beyond
+mt_facade   (round 3) from the plaza: the theatre front and its marquee, the bays and cornice of the east facade, the ticker
+mt_street   (round 3) from Seventh Av: C's shopfronts and bands, the hoarding, the bays, the west sidewalk's dressing
 Stand-ins (not this lane's art, flat and dark): the building masses below the roofs, the east and south facades and the towers
 the screens hang on, the street and the plaza. The real ones are the facade kit and the street kit, with the night rig in Unreal.
 """
@@ -123,6 +130,17 @@ def place_all(ctx, col):
         ob["mi_placed"] = True
         if e.get("face"):
             set_slot(ob, "M_Sign_MT_Face", face_mat(e["face"]))
+        if e.get("faces"):                                            # several printed faces in one slot: one cell each, in the order they were made
+            ob.data = ob.data.copy()
+            me = ob.data
+            si = [i for i, m in enumerate(me.materials) if m and m.name.startswith("M_Sign_MT_Face")]
+            if si:
+                base = len(me.materials)
+                for key in e["faces"]:
+                    me.materials.append(face_mat(key))
+                polys = [p for p in me.polygons if p.material_index == si[0]]
+                for i, p in enumerate(polys):
+                    p.material_index = base + min(i, len(e["faces"]) - 1)
         if e.get("slide"):
             set_slot(ob, "M_MI_Screen", slide_mat(e["slide"], strength=1.2))
         if e.get("slides"):                                           # N1: one ad per face (the FaceIndex UV)
@@ -155,7 +173,7 @@ def place_all(ctx, col):
         key = {"SM_Roof_Bulkhead_4x4": "Label_RoofDoor", "SM_Roof_Bulkhead_5x6": "Label_RoofDoor",
                "SM_Roof_MachineRoom_6x6": "Label_MachineRoom", "SM_Roof_TankHouse_6x6": "Label_HighVoltage",
                "SM_Roof_HVAC_RTU_L": "Label_HighVoltage", "SM_Roof_HVAC_RTU_M": "Label_HighVoltage",
-               "SM_Roof_Gantry_16m": "Label_HighVoltage"}.get(nm)
+               "SM_Roof_Gantry_16m": "Label_HighVoltage", "SM_Roof_ConduitBox_1p4": "Label_HighVoltage"}.get(nm)
         if key:
             set_slot(o, "M_Sign_MT_Face", face_mat(key))
     ctx.log("placed %d instances" % n)
@@ -363,16 +381,16 @@ def standins(col):
     walk = mat.flat("Prev_Pavers", (0.10, 0.10, 0.105), 0.3)
     for k, (x0, x1, z0, z1, h) in {"A": (-50, -30, -38, -12, 21.2), "B": (-50, -30, -12, 8, 17.6), "E": (-50, -30, 8, 22, 14.0),
                                    "C": (-28, -8, -38, -4, 17.6), "D": (-28, -8, -4, 22, 14.0)}.items():
-        box(col, "PrevMass" + k, x0 + 0.02, x1 - 0.02, 0.0, h - 0.1, z0 + 0.02, z1 - 0.02, wall)
+        box(col, "PrevMass" + k, x0 + 0.02, x1 - 0.34 if k in ("C", "D") else x1 - 0.02, 0.0, h - 0.1, z0 + 0.02, z1 - 0.34 if k in ("D", "E") else z1 - 0.02, wall)
     box(col, "PrevCourt", -30, -28, 0.0, 10.4, -38, 22, wall)
     box(col, "PrevRoad", -500, 500, -0.05, 0.0, -500, 500, road)
     box(col, "PrevPlaza", 8, 22, 0.0, 0.15, -38, 22, walk)
     box(col, "PrevWalkW", -8, -4, 0.0, 0.15, -38, 22, walk)
     box(col, "PrevWalkE", 28, 30, 0.0, 0.15, -38, 22, walk)
     box(col, "PrevW46S", -50, 31, 0.0, 0.15, 33.5, 36, walk)
-    box(col, "PrevEastFacade", 30, 33, 0.0, 30.0, -38, 22, dark)                        # the east facades the screens hang on
+    box(col, "PrevEastFacade", 30.34, 33, 0.0, 30.0, -38, 22, dark)                        # the east facades the screens hang on
     box(col, "PrevEastTower", 33.2, 48, 0.0, 70.0, -32, 16, dark)
-    box(col, "PrevSouthFacade", -50, 31, 0.0, 24.0, 36.5, 40, dark)
+    box(col, "PrevSouthFacade", -50, 31, 0.0, 24.0, 36.34, 40, dark)
     box(col, "PrevCornerTower", 26, 48, 0.0, 34.0, 22.5, 36, dark)
     box(col, "PrevNorthTower", 0, 24, 0.0, 60.0, -60, -48.6, dark)
     box(col, "PrevWestTowers", -80, -52, 0.0, 45.0, -60, 40, dark)
@@ -433,14 +451,48 @@ def rig(col_rig):
             spot("PrevPole%d%s" % (i, "ab"[dx > 0]), web(x + dx, 7.5, z), web(x + dx, 0.0, z), 900.0, 4000.0, 110.0)
 
 
+def rig_extra(col, name):
+    """Look-dev lights for one picture only (the real rig's lights are lane L's): the lounge's glow, the light towers' heads, the
+    bus's lamps. They stand where the design puts a light and are the picture's, not the art's."""
+    from mathutils import Vector
+
+    def spot(nm, pos, target, watts, temp, size=80.0):
+        L = bpy.data.lights.new(nm, "SPOT")
+        L.energy, L.use_temperature, L.temperature = watts, True, temp
+        L.spot_size, L.spot_blend, L.shadow_soft_size = math.radians(size), 0.6, 0.2
+        o = bpy.data.objects.new(nm, L)
+        o.location = pos
+        o.rotation_euler = (Vector(target) - Vector(pos)).to_track_quat("-Z", "Y").to_euler()
+        col.objects.link(o)
+    if name == "mt_bar":
+        spot("PrevLounge1", web(-21.5, 19.0, 9.0), web(-22.0, 14.6, 5.0), 1400.0, 2700.0, 95.0)
+        spot("PrevLounge2", web(-26.0, 19.0, 0.0), web(-24.0, 14.6, 0.0), 800.0, 3200.0, 95.0)
+    if name == "mt_set":
+        for (x, z) in ((2.7, 14.3), (-0.9, -25.5), (25.0, -11.0), (21.2, -17.7)):
+            spot("PrevLT%d" % int(x * 10), web(x, 6.2, z), web(x + 3.0, 0.15, z + 4.0), 1100.0, 4000.0, 110.0)
+    if name == "mt_bus":
+        spot("PrevMarquee", web(29.0, 3.4, 6.0), web(26.0, 0.15, 6.0), 900.0, 2800.0, 110.0)
+        spot("PrevBusLamp", web(24.0, 6.0, 8.0), web(24.0, 1.0, 4.0), 800.0, 4000.0, 100.0)
+    if name == "mt_facade":
+        spot("PrevMarqueeA", web(29.0, 3.4, -14.0), web(27.5, 0.15, -14.0), 900.0, 2800.0, 120.0)
+    if name == "mt_street":
+        spot("PrevShop1", web(-6.0, 4.4, -10.0), web(-5.0, 0.15, -10.0), 700.0, 3200.0, 120.0)
+        spot("PrevShop2", web(-6.0, 4.4, -23.0), web(-5.0, 0.15, -23.0), 700.0, 3600.0, 120.0)
+
+
 def view(name):
     eye, at, lens = {
         "mt_roofs": (web(-32.0, 23.6, -13.5), web(-12.0, 20.0, -27.0), 22.0),
         "mt_gantry": (web(-24.5, 16.0, 19.5), web(-6.0, 18.0, 4.0), 20.0),
         "mt_square": (web(6.0, 1.7, 31.0), web(-6.0, 11.0, 6.0), 20.0),
-        "mt_stand": (web(18.5, 1.75, -13.5), web(14.5, 2.2, -30.0), 24.0),
+        "mt_stand": (web(8.4, 1.75, -24.6), web(16.0, 1.9, -29.5), 21.0),
         "mt_plaza": (web(16.0, 5.03, -33.0), web(13.0, 1.0, 0.0), 18.0),
         "mt_booth": (web(10.9, 1.62, -31.8), web(19.5, 1.1, -32.0), 16.0),
+        "mt_bar": (web(-19.0, 15.75, 12.0), web(-23.5, 15.0, 4.0), 19.0),
+        "mt_set": (web(12.0, 2.7, 23.0), web(10.5, 1.8, -12.0), 18.0),
+        "mt_bus": (web(21.0, 1.7, 11.5), web(25.0, 1.7, 2.0), 18.0),
+        "mt_facade": (web(26.3, 2.3, -6.6), web(30.0, 5.0, -15.0), 17.0),
+        "mt_street": (web(-4.2, 1.7, -1.0), web(-8.0, 3.0, -17.0), 20.0),
     }[name]
     render.cam_look(eye, at, lens=lens, name="Cam_" + name)
 
@@ -453,10 +505,12 @@ def render_all(ctx):
     if want("mt_faces"):
         atlas.preview_sheet(os.path.join(PV, "mt_faces.jpg"), 1280)
         ctx.log("preview mt_faces.jpg")
-    shots = [n for n in ("mt_roofs", "mt_gantry", "mt_square", "mt_stand", "mt_plaza", "mt_booth") if want(n)]
+    shots = [n for n in ("mt_roofs", "mt_gantry", "mt_square", "mt_stand", "mt_plaza", "mt_booth", "mt_bar", "mt_set", "mt_bus", "mt_facade",
+                         "mt_street") if want(n)]
     if not shots:
         return
-    for key, s in (("sodium", 6.0), ("led", 6.0), ("riser", 0.35), ("warm", 1.2), ("indicator", 1.0)):
+    for key, s in (("sodium", 6.0), ("led", 6.0), ("riser", 0.35), ("warm", 1.2), ("indicator", 1.0), ("bulb", 5.0), ("tail", 3.0),
+                   ("neonPink", 0.25), ("neonCyan", 0.25)):
         mat.principled(ctx.M[key]).inputs["Emission Strength"].default_value = s
     ctx.kit.hide_render = True
     col = scene.collection("PrevMidtown")
@@ -467,5 +521,8 @@ def render_all(ctx):
         render.setup(samples=a.samples, res=(1280, 720))
         render.look(render.VIEW, render.LOOK_NIGHT, getattr(a, "exposure", None) or 0.7)
         view(name)
+        cx = scene.collection("RigExtra_" + name)
+        rig_extra(cx, name)
         _p, sec = render.render_jpeg(os.path.join(PV, name + ".jpg"), a.samples)
+        cx.hide_render = True
         ctx.log("preview %s.jpg %.0fs" % (name, sec))

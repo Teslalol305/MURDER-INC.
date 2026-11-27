@@ -274,7 +274,9 @@ def roof_dressing(out):
 # ------------------------------------------------------------------------------------------------- the square (round 2)
 
 SW = 0.15
-REUSED = {"SM_Street_Bench": "gaps", "SM_Street_TrashCan": "gaps", "SM_Furn_StreetLamp": "furniture"}
+REUSED = {"SM_Street_Bench": "gaps", "SM_Furn_StreetLamp": "furniture", "SM_Prop_CT_Hydrant": "canal",
+          "SM_Street_SignPost": "gaps", "SM_Furn_NewspaperBox": "furniture", "SM_Furn_TrashBags_A": "furniture", "SM_Furn_TrashBags_B": "furniture",
+          "SM_Furn_BusShelter": "gaps"}
 
 
 def square(out):
@@ -353,7 +355,7 @@ def square(out):
         fitted(out, "SM_Street_Bench", "plaza", "bench (reused, gaps)", c, (1.76, 0.56, 0.84), mode="centre", prefer=facing,
                chosen_facing=True, reused="gaps")
     for c in boxes("trash_can"):
-        fitted(out, "SM_Street_TrashCan", "street", "litter basket (reused, gaps)", c, (0.60, 0.60, 0.99), mode="centre", reused="gaps")
+        fitted(out, "SM_Sq_TrashCan", "street", "litter basket (the lane's light one: the Block's wire basket is 17k triangles)", c, (0.60, 0.60, 0.99), mode="centre")
     for c in boxes("street_lamp"):
         x0, x1 = rect(c)[:2]
         rot = 90.0 if x0 < 10 else 270.0                                        # the davit arm (-Y) over the roadway
@@ -480,6 +482,240 @@ def screens(out):
         P(out, "SM_Sign_Ticker_4m", "screens", "ticker module %d" % i, 30.0, 8.0, -30.0 + 4.0 * i, -90.0, module=i)
 
 
+# ------------------------------------------------------------------------------------------------- round 3: dressing, the premiere's set, the facades
+
+CORE3 = {"SM_Roof_Lounge_Bar": (4.0, 1.0, 1.1), "SM_Roof_Lounger": (1.4, 1.0, 0.5), "SM_Roof_Lounger_Stack": (1.5, 2.0, 0.9),
+         "SM_Roof_Umbrella_Folded": (0.4, 1.0, 2.2), "SM_Roof_PlanterBox": (1.0, 2.0, 0.9), "SM_Roof_DuctBox_1p6": (1.6, 1.6, 1.1),
+         "SM_Roof_VentBox_1x1": (1.0, 1.0, 1.2), "SM_Roof_ConduitBox_1p4": (1.4, 0.8, 0.7), "SM_Roof_ConduitRun_4m": (0.4, 4.0, 0.7),
+         "SM_Roof_PipeSleepers_1p6": (1.6, 0.8, 0.35), "SM_Roof_FanHousing_1p6": (1.6, 1.6, 1.0),
+         "SM_Sq_BollardPlanter": (0.7, 0.7, 0.9), "SM_Sq_Newsstand": (2.0, 1.4, 2.6), "SM_Sq_PhoneKiosk": (1.2, 0.5, 2.5),
+         "SM_Sq_WayfindingPylon": (0.6, 1.0, 2.4), "SM_Sq_ATM_Kiosk": (0.7, 0.8, 1.4), "SM_Sq_Standpipe": (0.3, 0.3, 0.9),
+         "SM_Sq_ValetStand": (1.6, 1.0, 1.1), "SM_Sq_LuggageCart": (1.5, 0.6, 1.2), "SM_Sq_Crates_Stack": (1.3, 1.4, 1.0),
+         "SM_Sq_Hoarding_6m": (0.35, 6.0, 2.4), "SM_Sq_Van_Broadcast_6p8": (6.8, 2.2, 3.4), "SM_Sq_Truck_Satellite": (7.0, 2.2, 3.4),
+         "SM_Sq_Truck_Catering": (6.8, 2.2, 3.0), "SM_Sq_Truck_Generator": (4.2, 2.2, 3.2), "SM_Sq_Truck_Cable": (7.0, 2.6, 3.3),
+         "SM_Sq_Truck_Staging": (8.0, 2.4, 3.3), "SM_Sq_Trailer_Production_6m": (6.0, 2.1, 3.0), "SM_Sq_Trailer_Production_6p4": (6.4, 2.4, 3.0),
+         "SM_Sq_ScreenTrailer": (4.0, 0.6, 4.0), "SM_Sq_LightTower": (3.0, 1.4, 2.6), "SM_Sq_TrussTower": (0.6, 0.6, 4.2),
+         "SM_Sq_PressWall_3p4": (3.4, 0.3, 2.4), "SM_Sq_VipTent_3x3": (3.0, 3.0, 2.8), "SM_Sq_MerchBooth": (1.6, 1.2, 2.5),
+         "SM_Sq_CoatCheck": (1.4, 1.0, 2.2), "SM_Sq_SecurityBooth": (1.4, 1.4, 2.6), "SM_Sq_InfoBooth": (2.6, 1.2, 2.4),
+         "SM_Sq_PhotoBooth": (1.4, 1.4, 2.3), "SM_Sq_PortableToilets": (2.4, 1.2, 2.45), "SM_Sq_CameraRiser": (1.6, 0.8, 2.6),
+         "SM_Sq_SpeakerStack": (1.4, 0.8, 2.75), "SM_Sq_SoundTower": (1.2, 1.2, 4.0), "SM_Vehicle_CityBus": (12.0, 2.6, 3.3)}
+ROOF_ABOVE = {"SM_Roof_Lounge_Bar": "the back bar's shelves over the island's box (shots pass)",
+              "SM_Roof_Lounger": "the back cushion over the seat's box", "SM_Sq_LightTower": "the mast raised to 5.6 over the trailer's box (shots pass)",
+              "SM_Sq_TrussTower": "the lamp bar over the tower's box"}
+NOSE_SOUTH = 270.0                       # the vehicles' nose (+X) toward +z web (south), as the southbound avenues run
+FRONT_FACES = {"newsstand": {460: 270.0, 461: 270.0, 477: 90.0}}
+
+
+def tag_fit(out, mesh, group, role, tag, prefer=None, **kw):
+    for c in boxes(tag):
+        fitted(out, mesh, group, role, c, CORE3[mesh], prefer=prefer, **kw)
+
+
+def dressing(out):
+    """Round 3: THE LOFTLARK, the roof boxes, the plaza's small dressing and the premiere's set, each on its collider."""
+    # THE LOFTLARK (D): the raised deck, the bar, loungers, folded umbrellas, planter boxes, the neon
+    deck = [c["index"] for c in boxes("deck") if c.get("part", "").startswith("D.lounge")]
+    d0 = boxes(part="D.lounge.deck")[0]
+    x0, x1, y0, y1, z0, z1 = rect(d0)
+    P(out, "SM_Roof_LoungeDeck_9x7", "D", "THE LOFTLARK's raised timber deck (0.6 m, a 0.3 m step on its open sides)", (x0 + x1) / 2, y0, (z0 + z1) / 2, 0.0,
+      fit={"colliders": deck, "mode": "part"})
+    tag_fit(out, "SM_Roof_Lounge_Bar", "D", "THE LOFTLARK's bar (guests' side west)", "lounge_bar", prefer=0.0, above=ROOF_ABOVE["SM_Roof_Lounge_Bar"])
+    tag_fit(out, "SM_Roof_Lounger", "D", "lounge sofa", "lounger", above=ROOF_ABOVE["SM_Roof_Lounger"])
+    tag_fit(out, "SM_Roof_Lounger_Stack", "D", "folded sun loungers", "lounger_stack")
+    tag_fit(out, "SM_Roof_Umbrella_Folded", "D", "folded umbrella", "umbrella_folded")
+    tag_fit(out, "SM_Roof_PlanterBox", "D", "planter box", "planter_box")
+    P(out, "SM_Roof_Loftlark_Neon_4m", "D", "THE LOFTLARK neon (unlit, on D's east parapet coping, faces the square)", -8.0, R1 + 1.1 + 0.4, 0.4, 90.0, chosen=True,
+      neon="THE LOFTLARK")
+    # E's dunnage platform and the roof boxes
+    e0 = boxes(part="E.dunnage.deck")[0]
+    x0, x1, y0, y1, z0, z1 = rect(e0)
+    P(out, "SM_Roof_DunnageDeck_6x6", "E", "E's steel dunnage platform (D2's landing; 0.6 m, a 0.3 m step east and south)", (x0 + x1) / 2, y0, (z0 + z1) / 2, 0.0,
+      fit={"colliders": [c["index"] for c in boxes("deck") if c.get("part", "").startswith("E.dunnage")], "mode": "part"})
+    for c in boxes("duct_box"):
+        fitted(out, "SM_Roof_DuctBox_1p6", roof_group(c), "duct plenum", c, CORE3["SM_Roof_DuctBox_1p6"])
+    for c in boxes("vent_box"):
+        fitted(out, "SM_Roof_VentBox_1x1", roof_group(c), "louvred vent housing", c, CORE3["SM_Roof_VentBox_1x1"])
+    for c in boxes("conduit_box"):
+        fitted(out, "SM_Roof_ConduitBox_1p4", roof_group(c), "junction cabinet", c, CORE3["SM_Roof_ConduitBox_1p4"], prefer=0.0)
+    for c in boxes("conduit_run"):
+        fitted(out, "SM_Roof_ConduitRun_4m", roof_group(c), "conduit run", c, CORE3["SM_Roof_ConduitRun_4m"])
+    for c in boxes("pipe_sleepers"):
+        fitted(out, "SM_Roof_PipeSleepers_1p6", roof_group(c), "pipe sleepers", c, CORE3["SM_Roof_PipeSleepers_1p6"])
+    for c in boxes("fan_housing"):
+        fitted(out, "SM_Roof_FanHousing_1p6", "E", "roof exhaust fan (on the dunnage deck)", c, CORE3["SM_Roof_FanHousing_1p6"])
+    # the plaza's small dressing
+    for c in boxes("bollard_planter"):
+        fitted(out, "SM_Sq_BollardPlanter", "plaza", "bollard planter", c, CORE3["SM_Sq_BollardPlanter"])
+    for c, f in zip(boxes("newsstand"), (270.0, 270.0, 90.0)):
+        fitted(out, "SM_Sq_Newsstand", "street", "newsstand (the sales window toward the street)", c, CORE3["SM_Sq_Newsstand"], prefer=f, chosen_facing=True, face="Label_Newsstand")
+    for c in boxes("phone_kiosk"):
+        fitted(out, "SM_Sq_PhoneKiosk", "street", "phone and charging kiosk", c, CORE3["SM_Sq_PhoneKiosk"], prefer=90.0, chosen_facing=True, face="Label_PhoneKiosk")
+    for c in boxes("wayfinding_pylon"):
+        fitted(out, "SM_Sq_WayfindingPylon", "plaza", "wayfinding pylon", c, CORE3["SM_Sq_WayfindingPylon"], face="Pylon_Streets")
+    for c in boxes("atm_kiosk"):
+        fitted(out, "SM_Sq_ATM_Kiosk", "street", "cash machine (the closed bank lobby)", c, CORE3["SM_Sq_ATM_Kiosk"], chosen_facing=True, face="Label_ATM")
+    for c, f in zip(boxes("standpipe"), (90.0, 270.0)):
+        fitted(out, "SM_Sq_Standpipe", "street", "siamese standpipe (back to the facade)", c, CORE3["SM_Sq_Standpipe"], mode="centre", prefer=f, chosen_facing=True)
+    for c in boxes("valet_stand"):
+        fitted(out, "SM_Sq_ValetStand", "street", "hotel valet stand", c, CORE3["SM_Sq_ValetStand"], face="Label_Valet")
+    for c in boxes("luggage_cart"):
+        fitted(out, "SM_Sq_LuggageCart", "street", "luggage cart", c, CORE3["SM_Sq_LuggageCart"])
+    for c in boxes("crate_stack"):
+        fitted(out, "SM_Sq_Crates_Stack", "street", "stacked crates", c, CORE3["SM_Sq_Crates_Stack"])
+    for c in boxes("hoarding"):
+        fitted(out, "SM_Sq_Hoarding_6m", "street", "hoarding (the closed shop being fitted out)", c, CORE3["SM_Sq_Hoarding_6m"])
+    for c in boxes("hydrant"):
+        fitted(out, "SM_Prop_CT_Hydrant", "street", "hydrant (reused, the Canal kit's light one)", c, (0.32, 0.43, 0.84), mode="centre", reused="canal",
+               chosen_facing=True)
+    for c in boxes("sign_pole"):
+        fitted(out, "SM_Street_SignPost", "street", "sign pole (reused, gaps)", c, (0.60, 0.06, 2.80), mode="centre", reused="gaps")
+    for c in boxes("newspaper_box"):
+        fitted(out, "SM_Furn_NewspaperBox", "street", "newspaper box (reused, furniture)", c, (0.48, 0.46, 1.08), mode="centre", reused="furniture")
+    for c, m in zip(boxes("trash_bags"), ("SM_Furn_TrashBags_A", "SM_Furn_TrashBags_B", "SM_Furn_TrashBags_A")):
+        fitted(out, m, "street", "trash bags (reused, furniture)", c, (1.28, 0.97, 0.63), mode="centre", reused="furniture")
+    for c in boxes("bus_shelter"):
+        fitted(out, "SM_Furn_BusShelter", "street", "bus shelter (reused, gaps; stretched to its box)", c, (3.62, 1.52, 2.48), prefer=90.0, reused="gaps",
+               chosen_facing=True)
+    # what the crowd left (midtown.md 12.4): fan signs on the plaza and the roadways (flat, under the 0.5 m clutter rule: no collider).
+    # SM_Sq_Sawhorse is built but not placed: a 1.0 m sawhorse needs a collider from lane D.
+    for i, (x, y, z, r) in enumerate(((9.6, SW, -17.4, 20.0), (14.2, SW, -6.6, 200.0), (17.9, SW, 2.2, 80.0), (12.7, SW, 10.4, 310.0),
+                                      (19.3, SW, 16.9, 140.0), (4.8, 0.0, -2.2, 250.0), (-1.2, 0.0, 14.5, 30.0), (26.4, 0.0, 10.6, 170.0))):
+        P(out, "SM_Sq_FanSign", "plaza", "a fan's cardboard sign, dropped (dressing, no collider)", x, y, z, r, chosen=True)
+    # the premiere's set
+    box_c = boxes("box_truck")
+    x0, x1, y0, y1, z0, z1 = [min(rect(c)[i] for c in box_c) if i % 2 == 0 else max(rect(c)[i] for c in box_c) for i in range(6)]
+    P(out, "SM_Sq_Truck_Production", "premiere", "the production company's truck (BRIGHTWIRE EVENTS), nose north, the tail lift stowed", (x0 + x1) / 2, y0,
+      (z0 + z1) / 2, 90.0, face="Panel_Brightwire", fit={"colliders": [c["index"] for c in box_c], "mode": "part"})
+    for i, c in enumerate(boxes("broadcast_van")):
+        fitted(out, "SM_Sq_Van_Broadcast_6p8", "premiere", "broadcast van %d" % (i + 1), c, CORE3["SM_Sq_Van_Broadcast_6p8"], prefer=NOSE_SOUTH,
+               chosen_facing=True, face="Panel_Broadcast")
+    for c in boxes("satellite_truck"):
+        fitted(out, "SM_Sq_Truck_Satellite", "premiere", "satellite truck", c, CORE3["SM_Sq_Truck_Satellite"], prefer=NOSE_SOUTH, chosen_facing=True,
+               face="Panel_Broadcast")
+    for c in boxes("catering_truck"):
+        fitted(out, "SM_Sq_Truck_Catering", "premiere", "catering truck", c, CORE3["SM_Sq_Truck_Catering"], prefer=NOSE_SOUTH, chosen_facing=True,
+               face="Panel_Catering")
+    for c in boxes("generator_truck"):
+        fitted(out, "SM_Sq_Truck_Generator", "premiere", "generator truck", c, CORE3["SM_Sq_Truck_Generator"], prefer=NOSE_SOUTH, chosen_facing=True)
+    for c in boxes("cable_truck"):
+        fitted(out, "SM_Sq_Truck_Cable", "premiere", "cable truck", c, CORE3["SM_Sq_Truck_Cable"], prefer=NOSE_SOUTH, chosen_facing=True)
+    for c in boxes("staging_truck"):
+        fitted(out, "SM_Sq_Truck_Staging", "premiere", "staging truck", c, CORE3["SM_Sq_Truck_Staging"], prefer=NOSE_SOUTH, chosen_facing=True)
+    for c, m in zip(boxes("production_trailer"), ("SM_Sq_Trailer_Production_6m", "SM_Sq_Trailer_Production_6p4")):
+        fitted(out, m, "premiere", "site office trailer (hitch south)", c, CORE3[m], prefer=NOSE_SOUTH, chosen_facing=True)
+    for c in boxes("screen_trailer"):
+        fitted(out, "SM_Sq_ScreenTrailer", "premiere", "mobile screen trailer (parked, dark)", c, CORE3["SM_Sq_ScreenTrailer"], chosen_facing=True, face="Panel_Brightwire")
+    for c in boxes("light_tower"):
+        fitted(out, "SM_Sq_LightTower", "premiere", "light tower", c, CORE3["SM_Sq_LightTower"], chosen_facing=True, above=ROOF_ABOVE["SM_Sq_LightTower"])
+    for c in boxes("truss_tower"):
+        fitted(out, "SM_Sq_TrussTower", "premiere", "truss tower", c, CORE3["SM_Sq_TrussTower"], above=ROOF_ABOVE["SM_Sq_TrussTower"])
+    for c in boxes("press_wall"):
+        fitted(out, "SM_Sq_PressWall_3p4", "premiere", "press wall (faces south)", c, CORE3["SM_Sq_PressWall_3p4"], face="Press_Wall", chosen_facing=True)
+    for c in boxes("vip_tent"):
+        fitted(out, "SM_Sq_VipTent_3x3", "premiere", "VIP tent", c, CORE3["SM_Sq_VipTent_3x3"], face="Label_VIP", chosen_facing=True)
+    for c in boxes("merch_booth"):
+        fitted(out, "SM_Sq_MerchBooth", "premiere", "merch booth", c, CORE3["SM_Sq_MerchBooth"], face="Label_Merch", chosen_facing=True)
+    for c in boxes("coat_check"):
+        fitted(out, "SM_Sq_CoatCheck", "premiere", "coat check", c, CORE3["SM_Sq_CoatCheck"], face="Label_CoatCheck", chosen_facing=True)
+    for c in boxes("security_booth"):
+        fitted(out, "SM_Sq_SecurityBooth", "premiere", "security booth", c, CORE3["SM_Sq_SecurityBooth"], face="Label_Security", chosen_facing=True)
+    for c in boxes("info_booth"):
+        fitted(out, "SM_Sq_InfoBooth", "premiere", "information booth", c, CORE3["SM_Sq_InfoBooth"], prefer=90.0, face="Label_Info", chosen_facing=True)
+    for c in boxes("photo_booth"):
+        fitted(out, "SM_Sq_PhotoBooth", "premiere", "photo booth", c, CORE3["SM_Sq_PhotoBooth"], face="Label_PhotoBooth", chosen_facing=True)
+    for c in boxes("portable_toilets"):
+        fitted(out, "SM_Sq_PortableToilets", "premiere", "portable toilets", c, CORE3["SM_Sq_PortableToilets"], chosen_facing=True)
+    for c in boxes("camera_riser"):
+        fitted(out, "SM_Sq_CameraRiser", "premiere", "camera riser", c, CORE3["SM_Sq_CameraRiser"], chosen_facing=True)
+    for c in boxes("speaker_stack"):
+        fitted(out, "SM_Sq_SpeakerStack", "premiere", "speaker stack", c, CORE3["SM_Sq_SpeakerStack"], chosen_facing=True)
+    for c in boxes("sound_tower"):
+        fitted(out, "SM_Sq_SoundTower", "premiere", "sound tower", c, CORE3["SM_Sq_SoundTower"])
+    for c in boxes("bus"):
+        fitted(out, "SM_Vehicle_CityBus", "street", "the stalled city bus (CITY CROSSTOWN), nose south, doors on the kerb (east) side", c, CORE3["SM_Vehicle_CityBus"],
+               prefer=NOSE_SOUTH, chosen_facing=True, faces=["Panel_CityCrosstown", "Bus_Side", "Bus_Side"])
+
+
+# The facade tables (midtown.md 2.1, 12.4, 14.2): each frontage is a run along a facade collider's outer plane, the modules
+# placed in the Block's module frame (bottom-left of the outer face, running +X, the face toward -Y). rot: turn about Blender Z;
+# the run goes along the module's +X = (cos rot, -sin rot) in web (x, z). Heights are from y = 0 (the 0.15 sidewalk slab hides
+# the module bases): the ground storey 4.70 m, then the storeys of the building tables (3.30 / 3.225 / 3.10 for the west blocks).
+GROUND = 4.70
+FRONTAGES = [
+    dict(id="East (theatre, hotel)", at=(30.0, -38.0), rot=270.0, length=60.0, storeys=(8, 3.1625), top=30.0, cols=dict(part="east.facade"),
+         walls=lambda x, z: "Stone" if z < -4.0 else "Buff",
+         ground=[("blank", 16.0), ("theatre", 16.0), ("blank", 8.0), ("hotel", 8.0), ("blank", 12.0)]),
+    dict(id="South (W 46 St row)", at=(31.0, 36.0), rot=180.0, length=81.0, storeys=(5, 3.06), top=20.0, cols=dict(part="w46.south.facade"),
+         walls=lambda x, z: "Buff" if x > -10.0 else "Stone",
+         ground=[("blank", 9.0), ("Chop", 8.0), ("blank", 8.0), ("Pharmacy", 7.0), ("blank", 49.0)]),
+    dict(id="West C (Seventh Av, Corvin Hall)", at=(-8.0, -4.0), rot=90.0, length=34.0, storeys=(4, 3.225), top=17.6, cols=dict(tag="C"),
+         walls=lambda x, z: "Red", ground=[("blank", 2.0), ("Souvenir", 8.0), ("blank", 6.0), ("Slice", 6.0), ("blank", 12.0)]),
+    dict(id="West D (Seventh Av, the gantry side)", at=(-8.0, 22.0), rot=90.0, length=26.0, storeys=(3, 3.10), top=14.0, cols=dict(tag="D"),
+         walls=lambda x, z: "Red", ground=[("Bank", 8.0), ("blank", 2.0), ("Camera", 10.0), ("blank", 6.0)]),
+    dict(id="W 46 St north row, E", at=(-50.0, 22.0), rot=0.0, length=20.0, storeys=(3, 3.10), top=14.0, cols=dict(tag="E"),
+         walls=lambda x, z: "Red", ground=[("blank", 20.0)]),
+    dict(id="W 46 St north row, D", at=(-28.0, 22.0), rot=0.0, length=20.0, storeys=(3, 3.10), top=14.0, cols=dict(tag="D"),
+         walls=lambda x, z: "Red", ground=[("blank", 20.0)]),
+]
+SHOP_MESH = {"Souvenir": ("SM_Facade_MT_Shop_Souvenir", 8, "Band_SeventhAvSouvenirs"), "Slice": ("SM_Facade_MT_Shop_Slice", 6, "Band_SliceOfSeventh"),
+             "Camera": ("SM_Facade_MT_Shop_Camera", 10, "Band_Shutterbox"), "Bank": ("SM_Facade_MT_Shop_Bank", 8, "Band_Bellhaven"),
+             "Chop": ("SM_Facade_MT_Shop_Chop", 8, "Band_BranniganChopHouse"), "Pharmacy": ("SM_Facade_MT_Shop_Pharmacy", 7, "Band_AshbyCross")}
+
+
+def run_pos(f, s):
+    """Web (x, z) of the point s metres along a frontage's run."""
+    r = math.radians(f["rot"])
+    return f["at"][0] + s * math.cos(r), f["at"][1] - s * math.sin(r)
+
+
+def facades(out):
+    """The facade tables as placements: the ground storey (shopfronts under their bands, blank bases, the east podium's theatre and
+    hotel fronts with the marquee and the canopy), the storeys of bays at the buildings' storey heights, and the cornice at the
+    roof line (the west blocks' parapets are the roofs' own art)."""
+    for f in FRONTAGES:
+        rot = f["rot"]
+        cols = [c["index"] for c in (boxes(**f["cols"]))]
+        fit = {"colliders": cols, "mode": "part", "frontage": f["id"]}
+        n_up, sh = f["storeys"]
+        group = f["id"].split(" (")[0]
+        s = 0.0
+        for kind, ln in f["ground"]:
+            if kind == "blank":
+                n = max(1, int(round(ln / 3.1)))
+                for i in range(n):
+                    wx, wz = run_pos(f, s + i * ln / n)
+                    P(out, "SM_Facade_MT_Ground_Blank_3p1", group, "ground base", wx, 0.0, wz, rot, scale=(round(ln / n / 3.1, 4), 1.0, 1.0), fit=fit)
+            elif kind in SHOP_MESH:
+                mesh, w, face = SHOP_MESH[kind]
+                wx, wz = run_pos(f, s)
+                P(out, mesh, group, "shopfront (%s)" % kind, wx, 0.0, wz, rot, fit=fit)
+                P(out, "SM_Sign_MT_Band_%dm" % w, group, "storefront band (%s)" % kind, wx, 3.6, wz, rot, face=face, fit=fit)
+            else:
+                mesh = "SM_Facade_MT_TheatreFront_8m" if kind == "theatre" else "SM_Facade_MT_HotelFront_8m"
+                for i in range(int(ln // 8)):
+                    wx, wz = run_pos(f, s + i * 8.0)
+                    P(out, mesh, group, "%s front" % kind, wx, 0.0, wz, rot, fit=fit)
+                if kind == "theatre":
+                    wx, wz = run_pos(f, s + 4.0)                                            # centred on the doors at z -14
+                    P(out, "SM_Facade_Marquee_A", group, "THE MERIDALE THEATRE marquee (over the doors, 3.6 up)", wx, 3.6, wz, rot, fit=fit,
+                      faces=["Band_MeridaleTheatre", "Marquee_Lamplight"])
+                else:
+                    wx, wz = run_pos(f, s + 1.0)                                            # centred on the doors at z 6
+                    P(out, "SM_Facade_Marquee_B", group, "HOTEL CASTELLANE canopy (over the doors, 3.0 up)", wx, 3.0, wz, rot, fit=fit,
+                      faces=["Band_HotelCastellane"])
+            s += ln
+        nb = max(1, int(round(f["length"] / 3.1)))
+        bw = f["length"] / nb
+        for i in range(nb):
+            wx, wz = run_pos(f, i * bw)
+            cx, cz = run_pos(f, (i + 0.5) * bw)
+            wall = f["walls"](cx, cz)
+            for k in range(n_up):
+                P(out, "SM_Facade_MT_Bay_%s_3p1" % wall, group, "bay, storey %d" % (k + 1), wx, GROUND + k * sh, wz, rot,
+                  scale=(round(bw / 3.1, 4), 1.0, round(sh / 3.3, 4)), fit=fit)
+            P(out, "SM_Facade_MT_Cornice_3p1", group, "cornice", wx, f["top"] - 0.55, wz, rot, scale=(round(bw / 3.1, 4), 1.0, 1.0), fit=fit)
+
+
 def build_all():
     out = []
     decks(out)
@@ -489,6 +725,8 @@ def build_all():
     scaffold(out)
     screens(out)
     square(out)
+    dressing(out)
+    facades(out)
     return out
 
 
@@ -501,11 +739,18 @@ def fit_summary(out):
     tags = ["stand", "stand-guard", "booth", "booth-slot", "booth_desk", "booth_rack", "monitor_cart", "cable_drum", "planter_granite",
             "kiosk_souvenir", "food_cart", "cafe_table", "cafe_chairs", "light_pole", "street_lamp", "cable_ramp", "generator",
             "road_cases", "jersey_barrier", "water_barrier", "bike_barrier", "bench", "trash_can", "water-tower", "hvac_rtu", "skylight",
-            "chimney_stack", "roof_vent", "tar_kettle", "satellite_dish", "antenna_mast", "tank-house", "machine-room"]
+            "chimney_stack", "roof_vent", "tar_kettle", "satellite_dish", "antenna_mast", "tank-house", "machine-room",
+            # round 3
+            "lounge_bar", "lounger", "lounger_stack", "umbrella_folded", "planter_box", "duct_box", "vent_box", "conduit_box", "conduit_run",
+            "pipe_sleepers", "fan_housing", "deck", "bollard_planter", "newsstand", "phone_kiosk", "wayfinding_pylon", "atm_kiosk", "standpipe",
+            "valet_stand", "luggage_cart", "crate_stack", "hoarding", "hydrant", "sign_pole", "newspaper_box", "trash_bags", "bus_shelter",
+            "box_truck", "broadcast_van", "satellite_truck", "catering_truck", "generator_truck", "cable_truck", "staging_truck",
+            "production_trailer", "screen_trailer", "light_tower", "truss_tower", "press_wall", "vip_tent", "merch_booth", "coat_check",
+            "security_booth", "info_booth", "photo_booth", "portable_toilets", "camera_riser", "speaker_stack", "sound_tower", "bus", "facade"]
     left = sorted(c["index"] for c in data()["colliders"]["boxes"] if c["tag"] in tags and c["index"] not in dressed)
     return {"source": "tools/levels/data/level_midtown.json", "fitted_instances": fittedn, "chosen_instances": sum(1 for e in out if e.get("chosen")),
             "chosen_roles": chosen, "dressed_tags": tags, "colliders_dressed": len(dressed), "colliders_of_dressed_tags_left": left,
-            "reused_meshes": REUSED}
+            "reused_meshes": REUSED, "not_dressed": ["sedan, taxi, suv, van (parked cars: the Block's vehicles are 170k triangles each, they need light variants first)", "ipx_truck (the existing SM_Vehicle_IPXTruck arrives after the last reel)", "cabinet (G1.cabinet, part of the gantry mesh)"]}
 
 
 def write_placements(path):
