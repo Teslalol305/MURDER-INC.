@@ -371,33 +371,13 @@ bool FMIAssistWorldTest::RunTest(const FString& Parameters)
 	for (int32 I = 0; I < 12; ++I) W.Step();
 	TestTrue(TEXT("far off the Goon: no slow-down (eased back to 1)"), W.PC->GetAssistSlow() > 0.99);
 
-	// Magnetism: firing 4 degrees off turns the view toward the chest by at most the capped step; not firing leaves it. The view's own
-	// yaw is read (the Goon moves a little each frame).
-	W.PC->SetDeviceFromMenu(true);
-	const double Cap = W.PC->GetAimAssist().Data.Pad.MagRate * Dt;
-	W.AimOff(4.0, 0.0);
-	double YawWas = W.Player->GetPlayerRules().Yaw;
-	W.Step();
-	TestTrue(TEXT("not firing: the view is not pulled"), FMath::Abs(MI::WrapDegrees(W.Player->GetPlayerRules().Yaw - YawWas)) < 1e-6);
-	W.AimOff(4.0, 0.0);
-	YawWas = W.Player->GetPlayerRules().Yaw;
-	const double Side = W.Error().X;  // right of the crosshair is positive: the pull should go that way
-	In.bFire = true;
-	W.World->Tick(LEVELTICK_All, (float)Dt);
-	GFrameCounter++;
-	In.bFire = false;
-	const double Moved = MI::WrapDegrees(W.Player->GetPlayerRules().Yaw - YawWas);
-	AddInfo(FString::Printf(TEXT("pull: the Goon %.3f degrees to the right, the view turned %.3f (cap %.3f)"), Side, Moved, Cap));
-	TestTrue(TEXT("firing: the view is pulled toward the Goon"), Moved * Side > 0.0);
-	TestTrue(TEXT("and gently: within the cap per frame"), FMath::Abs(Moved) <= Cap + 1e-6 && FMath::Abs(Moved) > 0.01);
-
 	// ADS snap: 7 degrees off with the pad (inside 10), the aim ends on the chest within a few frames.
 	W.PC->SetDeviceFromMenu(true);
 	W.AimOff(7.0, 1.0);
 	In.bAds = true;
 	for (int32 I = 0; I < 8; ++I) W.Step();
 	AddInfo(FString::Printf(TEXT("snap: error now %s"), *W.Error().ToString()));
-	TestTrue(TEXT("ADS: snapped onto the Goon"), W.Error().Size() < 0.6);
+	TestTrue(*FString::Printf(TEXT("ADS: snapped onto the Goon (error now %s, alive %d)"), *W.Error().ToString(), W.Goon->IsMIDamageableAlive() ? 1 : 0), W.Error().Size() < 0.6);
 	In.bAds = false;
 	for (int32 I = 0; I < 4; ++I) W.Step();
 
@@ -413,14 +393,35 @@ bool FMIAssistWorldTest::RunTest(const FString& Parameters)
 	In.bFire = false;
 	TestTrue(TEXT("behind a wall: no pull"), FMath::Abs(MI::WrapDegrees(W.Player->GetPlayerRules().Yaw - WallYaw)) < 1e-6);
 	W.AimOff(7.0, 0.0);
+	const double WallSnapYaw = W.Player->GetPlayerRules().Yaw;
 	In.bAds = true;
 	for (int32 I = 0; I < 8; ++I) W.Step();
 	In.bAds = false;
-	TestTrue(TEXT("behind a wall: no snap"), FMath::Abs(W.Error().X - 7.0) < 0.1);
+	TestTrue(TEXT("behind a wall: no snap (the view did not turn)"), FMath::Abs(MI::WrapDegrees(W.Player->GetPlayerRules().Yaw - WallSnapYaw)) < 1e-6);
 	Wall->Destroy();
 	W.AimOff(2.0, 0.0);
 	for (int32 I = 0; I < 12; ++I) W.Step();
 	TestTrue(TEXT("the wall gone: it engages again"), W.PC->GetAssistSlow() < 0.5);
+
+	// Magnetism: firing 5.5 degrees off (a round that misses: the Goon stays alive) turns the view toward the chest by at most the capped step; not firing leaves it. The view's own
+	// yaw is read (the Goon moves a little each frame).
+	W.PC->SetDeviceFromMenu(true);
+	const double Cap = W.PC->GetAimAssist().Data.Pad.MagRate * Dt;
+	W.AimOff(5.5, 0.0);
+	double YawWas = W.Player->GetPlayerRules().Yaw;
+	W.Step();
+	TestTrue(TEXT("not firing: the view is not pulled"), FMath::Abs(MI::WrapDegrees(W.Player->GetPlayerRules().Yaw - YawWas)) < 1e-6);
+	W.AimOff(5.5, 0.0);
+	YawWas = W.Player->GetPlayerRules().Yaw;
+	const double Side = W.Error().X;  // right of the crosshair is positive: the pull should go that way
+	In.bFire = true;
+	W.World->Tick(LEVELTICK_All, (float)Dt);
+	GFrameCounter++;
+	In.bFire = false;
+	const double Moved = MI::WrapDegrees(W.Player->GetPlayerRules().Yaw - YawWas);
+	AddInfo(FString::Printf(TEXT("pull: the Goon %.3f degrees to the right, the view turned %.3f (cap %.3f)"), Side, Moved, Cap));
+	TestTrue(TEXT("firing: the view is pulled toward the Goon"), Moved * Side > 0.0);
+	TestTrue(TEXT("and gently: within the cap per frame"), FMath::Abs(Moved) <= Cap + 1e-6 && FMath::Abs(Moved) > 0.01);
 
 	// Switched off (the Settings row): nothing of it.
 	W.PC->SetAimAssist(false, TEXT("normal"));
@@ -428,10 +429,11 @@ bool FMIAssistWorldTest::RunTest(const FString& Parameters)
 	for (int32 I = 0; I < 12; ++I) W.Step();
 	TestEqual(TEXT("off: no slow-down"), W.PC->GetAssistSlow(), 1.0);
 	W.AimOff(7.0, 0.0);
+	const double OffYaw = W.Player->GetPlayerRules().Yaw;
 	In.bAds = true;
 	for (int32 I = 0; I < 8; ++I) W.Step();
 	In.bAds = false;
-	TestTrue(TEXT("off: no snap"), FMath::Abs(W.Error().X - 7.0) < 0.1);
+	TestTrue(TEXT("off: no snap (the view did not turn)"), FMath::Abs(MI::WrapDegrees(W.Player->GetPlayerRules().Yaw - OffYaw)) < 1e-6);
 	return true;
 }
 
