@@ -684,3 +684,12 @@ The owner asked for a Multiplayer button for players signed in to the IPX websit
 "lets get single player pushed and finalized before working on multiplayer". The design workflow (mi-multiplayer-design) was stopped
 at its research step; it resumes after v6 is live on E3DS. Order: v6 single player to E3DS, then multiplayer design, then the
 three-map release as planned (or as the owner reorders it).
+
+## 2026-11-27 ~22:15 UTC: the drones (Buzzards) are removed from the game
+
+The owner: "Forget about the drones. Remove them from the game. They are inconsequential. I don't want us to waste time on drones."
+The Buzzards no longer spawn in the Story or in Hold the Block; a wave ends when its Goons are down. The last-drone rule (2026-11-27
+~00:10) is moot. Prefer a data switch that turns them off (spawn weights, wave tables, air spawn points unused) over deleting code, so
+they can come back later. Golden replays and tests that pin the drones: keep them passing by running them with the drones switched
+on in the test set-up where that is how they were recorded; where a test asserts the shipped game's behaviour, update it to "no
+drones" (an owner-made rule change, not a weakened test). No HUD text, objective, voice line or menu may mention drones afterwards.
