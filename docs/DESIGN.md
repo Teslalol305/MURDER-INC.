@@ -68,7 +68,7 @@ Radio (`IPX VAULT`):
 | Trigger | Line | Hold s |
 |---|---|---|
 | Intro (first start only) | "Rule, it's the Vault. Vultures stashed your three masters on this block — the avenue, the chop shop, the cage. Bring them home." | 4.4 |
-| First time an enemy engages | "They made you. The whole crew is coming. Handle it." | 3.2 |
+| First time an enemy engages | "They made you. Goons on foot, and more on the way. Handle it." | 3.2 |
 | Reel 1 of 3 secured | "One reel back in your hands. They felt that — more coming." | 3.6 |
 | Reel 2 of 3 | "Two reels. They're throwing the whole crew at you now." | 3.6 |
 | Reel 3 of 3 | "That's all three. The IPX truck is idling at the south end of the lot. Move." | 4.5 |

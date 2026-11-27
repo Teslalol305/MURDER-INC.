@@ -294,7 +294,7 @@ Radio lines (`src/config/text.js:131-149`). "On screen" = typing time (character
 |---|---|---|---|---|
 | Story, first start only, 0.9 s into the intro | "Rule, it's the Vault. Vultures stashed your three masters on this block — the avenue, the chop shop, the cage. Bring them home." | 127 | 4.4 | 6.59 |
 | Hold the Block, first start only | "Rule, it's the Vault. The Vultures want the whole block back. Hold it down as long as you can." | 94 | 4.0 | 5.62 |
-| First enemy alert of a run | "They made you. The whole crew is coming. Handle it." | 61 | 3.2 | 4.25 |
+| First enemy alert of a run | "They made you. Goons on foot, and more on the way. Handle it." | 61 | 3.2 | 4.25 |
 | Reel 1 of 3 secured | "One reel back in your hands. They felt that — more coming." | 58 | 3.6 | 4.60 |
 | Reel 2 of 3 | "Two reels. They're throwing the whole crew at you now." | 54 | 3.6 | 4.53 |
 | Reel 3 of 3 | "That's all three. The IPX truck is idling at the south end of the lot. Move." | 76 | 4.5 | 5.81 |
