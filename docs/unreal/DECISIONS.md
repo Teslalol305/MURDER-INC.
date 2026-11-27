@@ -662,3 +662,18 @@ The GPU box 8496fd8c ended at 09:40 UTC (runtime_failed, the provider's side); t
 Still required for the GO: the SHORTY reload hands, the Story ground path trap, a full-size look at the guide path and the HUD
 changes, and an independent end-to-end play (Story to the truck, Hold the Block waves 1 to 3 with the last-drone rule, the pad, gun
 switching).
+
+## 2026-11-27 ~21:15 UTC: the release bar, trimmed to what protects players (the lead, at the owner's word)
+
+The owner: "make sure your rules arent holding back the game unnecessarily". Version 4 is live and crashes in Hold the Block; v6
+beats it on every measure that matters. From now on a v6 GO needs only:
+1. **No blocker:** no crash, no stuck state (a player can always finish the Story and leave any place the guidance leads), weapon
+   switching and every attachment working, the stream at 1920x1080 clean.
+2. **The full suite passes on the commit packaged** (golden replays included: they protect the game's rules, and they are cheap).
+3. **One end-to-end check** of that package covering Story to the truck and Hold the Block waves 1 to 3. A focused check that
+   finishes counts; it does not have to be repeated after a small, safe fix the fixer re-checked on the package himself.
+Dropped as GO gates (they become release notes and next-release items, still worked on): "every smoothness number better than or
+equal to v4", a second independent review after every small fix, cosmetic hand poses on one gun (the SHORTY's and the STICK's reload
+hands), faint guide path in some sun frames if the marker and step line still lead, and the trimmed polish nits.
+The release gate after the GO is cut to one sanity run of the package under the E3DS-class load (the smoothness lanes measured it
+at length already), then the upload and one session on E3DS's own page before the owner switches the pin.
