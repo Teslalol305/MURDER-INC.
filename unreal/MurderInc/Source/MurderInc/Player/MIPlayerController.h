@@ -144,6 +144,8 @@ public:
 	void SetAimAssist(bool bOn, FName Strength);
 	bool IsAimAssistOn() const { return bAimAssist; }
 	const FMIAimAssist& GetAimAssist() const { return Assist; }
+	/** The turn the assist added to the view in the last frame (degrees, X right, Y up): zero when it did nothing. */
+	FVector2D GetAssistTurn() const { return AssistTurn; }
 	/** The look rate's factor the assist gives right now (1 when it is off or nothing is under the crosshair). */
 	double GetAssistSlow() const { return bAimAssist ? Assist.GetSlow() : 1.0; }
 
@@ -196,6 +198,7 @@ private:
 	bool bAimAssist = false;
 	double AssistStrength = 1.0;
 	double AssistSlow = 1.0;
+	FVector2D AssistTurn = FVector2D::ZeroVector;
 	TArray<FVector2D> AssistErrors;  // scratch, kept to avoid an allocation a frame
 
 	// The gamepad.

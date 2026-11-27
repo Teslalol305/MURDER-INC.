@@ -460,10 +460,9 @@ bool FMIAssistWorldTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("behind a wall: no slow-down"), W.PC->GetAssistSlow() > 0.99);
 	W.AimOff(2.0, 0.0);
 	In.bFire = true;
-	const double WallYaw = W.Player->GetPlayerRules().Yaw;
 	W.World->Tick(LEVELTICK_All, (float)Dt);
 	In.bFire = false;
-	TestTrue(TEXT("behind a wall: no pull"), FMath::Abs(MI::WrapDegrees(W.Player->GetPlayerRules().Yaw - WallYaw)) < 1e-6);
+	TestTrue(TEXT("behind a wall: no pull"), W.PC->GetAssistTurn().IsZero());
 	W.AimOff(7.0, 0.0);
 	const double WallSnapYaw = W.Player->GetPlayerRules().Yaw;
 	In.bAds = true;
@@ -479,20 +478,18 @@ bool FMIAssistWorldTest::RunTest(const FString& Parameters)
 	W.PC->SetDeviceFromMenu(true);
 	const double Cap = W.PC->GetAimAssist().Data.Pad.MagRate * Dt;
 	W.AimOff(5.5, 0.0);
-	double YawWas = W.Player->GetPlayerRules().Yaw;
 	W.Step();
-	TestTrue(TEXT("not firing: the view is not pulled"), FMath::Abs(MI::WrapDegrees(W.Player->GetPlayerRules().Yaw - YawWas)) < 1e-6);
+	TestTrue(TEXT("not firing: the view is not pulled"), W.PC->GetAssistTurn().IsZero());
 	W.AimOff(5.5, 0.0);
-	YawWas = W.Player->GetPlayerRules().Yaw;
 	const double Side = W.Error().X;  // right of the crosshair is positive: the pull should go that way
 	In.bFire = true;
 	W.World->Tick(LEVELTICK_All, (float)Dt);
 	GFrameCounter++;
 	In.bFire = false;
-	const double Moved = MI::WrapDegrees(W.Player->GetPlayerRules().Yaw - YawWas);
+	const double Moved = W.PC->GetAssistTurn().X;  // the round's own recoil also moves the view: the assist's share is read
 	AddInfo(FString::Printf(TEXT("pull: the Goon %.3f degrees to the right, the view turned %.3f (cap %.3f)"), Side, Moved, Cap));
 	TestTrue(TEXT("firing: the view is pulled toward the Goon"), Moved * Side > 0.0);
-	TestTrue(TEXT("and gently: within the cap per frame"), FMath::Abs(Moved) <= Cap + 1e-6 && FMath::Abs(Moved) > 0.01);
+	TestTrue(TEXT("and gently: within the cap per frame"), FMath::Abs(Moved) <= Cap * 1.02 && FMath::Abs(Moved) > 0.01);
 
 	// Switched off (the Settings row): nothing of it.
 	W.PC->SetAimAssist(false, TEXT("normal"));

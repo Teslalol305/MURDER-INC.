@@ -656,6 +656,7 @@ double AMIPlayerController::UpdateAimAssist(double Dt, bool bLive)
 {
 	AMIPlayerCharacter* C = GetMICharacter();
 	UWorld* World = GetWorld();
+	AssistTurn = FVector2D::ZeroVector;
 	if (!bAimAssist || !bLive || !C || !World || Switch.BlocksLook() || !C->GetPlayerRules().bAlive)
 	{
 		Assist.Reset();
@@ -723,6 +724,7 @@ double AMIPlayerController::UpdateAimAssist(double Dt, bool bLive)
 		F.PlayerTurn += MILook::Deadzone(RightStick, PadLook.Config.Deadzone);  // the stick's direction (the pad's turn is worked out after this)
 	}
 	FMIAssistResult Out = Assist.Step(F, AssistErrors);
+	AssistTurn = Out.Turn;
 	if (!Out.Turn.IsZero())
 	{
 		C->GetInput().AssistDegrees += Out.Turn;
