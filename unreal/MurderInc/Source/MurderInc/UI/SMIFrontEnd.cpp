@@ -786,7 +786,24 @@ TSharedRef<SWidget> SMIFrontEnd::GunCard(FName Gun, bool bFocused)
 	if (bSemiOnly) Info += TEXT("  ") + R.Text(TEXT("frontend.loadout.stats.semi"));
 	const FString SlotsLine = Slots.Num() > 0 ? R.GetData().Format(TEXT("frontend.loadout.slots"), {{TEXT("n"), FString::FromInt(Slots.Num())}}) : R.Text(TEXT("frontend.loadout.noSlots"));
 	const bool bDev = !R.GetReadiness().IsGunReady(Gun);
-	return Ring(SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Card, Slot != INDEX_NONE)).ContentPadding(FMargin(12.f, 10.f))
+	// Everything the card draws, as one string: the same inputs give the card built before (kept, its text shaped and its
+	// layout measured), a changed one builds it again.
+	const FString GunLabel = R.GunName(Gun);
+	const FString ClassLine = G ? R.Text(TEXT("frontend.loadout.classes.") + G->Class.ToString()).ToUpper() : FString();
+	const FString TagLine = bDev ? R.Text(TEXT("frontend.loadout.devTag")) : R.IsNew(Gun) ? R.Text(TEXT("frontend.loadout.new")) : FString();
+	const FMIGunBars BarValues = R.Bars(Gun, Build);
+	const FString BenchGlyph = Owner->Glyph(TEXT("bench"));
+	const FString Sig = FString::Printf(TEXT("%d|%d|%d|%s|%s|%s|%s|%s|%s|%s|%s|%.5f,%.5f,%.5f,%.5f,%.5f,%.5f"), bFocused ? 1 : 0, Slot != INDEX_NONE ? 1 : 0, Slots.Num() > 0 ? 1 : 0,
+		*GunLabel, *ClassLine, *TagLine, *Info, *SlotsLine, *Tags, *BenchGlyph, bDev ? TEXT("d") : TEXT("r"),
+		BarValues.Damage, BarValues.Kill, BarValues.Control, BarValues.Handling, BarValues.Aimed, BarValues.Hip);
+	if (const TPair<FString, TSharedPtr<SWidget>>* Have = CardCache.Find(Gun))
+	{
+		if (Have->Value.IsValid() && Have->Key == Sig)
+		{
+			return Have->Value.ToSharedRef();
+		}
+	}
+	TSharedRef<SWidget> Card = Ring(SNew(SButton).ClickMethod(EButtonClickMethod::MouseDown).ButtonStyle(ButtonStyle(EBtn::Card, Slot != INDEX_NONE)).ContentPadding(FMargin(12.f, 10.f))
 		.OnClicked_Lambda([O, Gun]() { if (O.IsValid()) O->Act(TEXT("carry"), Gun.ToString()); return FReply::Handled(); })
 		[
 			SNew(SBox).WidthOverride(176.f)
@@ -824,6 +841,8 @@ TSharedRef<SWidget> SMIFrontEnd::GunCard(FName Gun, bool bFocused)
 				]
 			]
 		], bFocused);
+	CardCache.Add(Gun, TPair<FString, TSharedPtr<SWidget>>(Sig, Card));
+	return Card;
 }
 
 TSharedRef<SWidget> SMIFrontEnd::Loadout()

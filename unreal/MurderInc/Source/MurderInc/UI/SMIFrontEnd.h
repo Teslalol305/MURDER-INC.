@@ -77,6 +77,9 @@ private:
 	bool bHoverOn = false;
 	FString HoverArg;
 	TMap<FString, TWeakPtr<SWidget>> OptionButtons;
+	/** The rack's gun cards by gun: a card is built again only when what it shows changed (its signature), not on every
+	 *  rebuild of the screen (a Loadout rebuild built six cards of about 40 widgets each for every key press). */
+	TMap<FName, TPair<FString, TSharedPtr<SWidget>>> CardCache;
 	int32 TicksSinceBuild = 0;
 	int32 HoverOutside = 0;
 	bool bDragging = false;
