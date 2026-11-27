@@ -1,6 +1,10 @@
 #include "Weapons/MIFirstPersonRig.h"
 
+#include "HAL/FileManager.h"
 #include "HAL/IConsoleManager.h"
+#include "Misc/DateTime.h"
+#include "Misc/Paths.h"
+#include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include "Animation/AnimSequenceBase.h"
 #include "AnimationRuntime.h"
@@ -42,6 +46,31 @@ namespace MIFirstPersonRigPrivate
 	T* LoadAs(const FString& Path)
 	{
 		return Path.IsEmpty() ? nullptr : Cast<T>(FSoftObjectPath(Path).TryLoad());
+	}
+
+	/** grips.json (78 KB, every gun's solved finger points) parsed once and found again by its time stamp: every gun equip read and
+	 *  parsed it, 3 to 5 ms of the 6 ms a gun switch took on the game thread (SMOOTH.md, v8). The callers only read it. */
+	bool LoadGripsCached(TSharedPtr<FJsonObject>& Out, FString& Error)
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/FP LoadGrips");
+		static TSharedPtr<FJsonObject> Cached;
+		static FString CachedPath;
+		static FDateTime CachedStamp;
+		const FString Path = FPaths::Combine(UMIDataSubsystem::GetDataDir(), TEXT("grips.json"));
+		const FDateTime Stamp = IFileManager::Get().GetTimeStamp(*Path);
+		if (Cached.IsValid() && Path == CachedPath && Stamp == CachedStamp)
+		{
+			Out = Cached;
+			return true;
+		}
+		if (!UMIDataSubsystem::LoadJsonFile(TEXT("grips.json"), Out, Error))
+		{
+			return false;
+		}
+		Cached = Out;
+		CachedPath = Path;
+		CachedStamp = Stamp;
+		return true;
 	}
 
 	double Damp(double From, double To, double Rate, double Dt)
@@ -409,7 +438,7 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 		const FString GripKey = MIJson::StringOr(Set, TEXT("grip.gun"));
 		TSharedPtr<FJsonObject> Grips;
 		FString GripError;
-		if (!GripKey.IsEmpty() && UMIDataSubsystem::LoadJsonFile(TEXT("grips.json"), Grips, GripError))
+		if (!GripKey.IsEmpty() && LoadGripsCached(Grips, GripError))
 		{
 			// The hip solve (grip.pose) and the aimed one (grip.aimPose, "aim" by default) of the hands grip.aimSides names ("l":
 			// the support hand only, the default; the RATTLER's aimed firing solve has the index straight off the trigger):
