@@ -2,6 +2,33 @@
 
 One section per lane of the readiness pass. Every finding names the evidence it rests on (a picture, a log line, a number).
 
+## v6 GO readiness (final closer, 2026-11-27, 09:45 UTC; supersedes every section below)
+
+**Commit to package: `66bfb3d` (code; `f393ba1` and this commit are documentation only). Verdict: NO-GO.**
+
+The GPU box ended at about 09:40 UTC with end reason `runtime_failed` (a call to it at 09:44 UTC returns "This GPU box has ended"). Nothing can be built, run, played or looked at until the lead re-rents one. The closer rented nothing (the rules forbid it) and changed no code or data: the two proofs found no code defect, only that nothing could be run.
+
+| GO criterion | Pass or fail | Evidence |
+|---|---|---|
+| Full suite on what is pushed | PASS | `TESTS OK passed=228 failed=0 skipped=0` on `66bfb3d` (golden replays included, nothing weakened, skipped or re-recorded); later commits are documentation only |
+| JSON valid, braces balanced, `check_guns_data.py` 0 errors | PASS as of `77b02f3`; not re-run since, no data file changed after it |  |
+| Package of the commit built | FAIL (not provable) | `66bfb3d` built to ALL OK, zip sha256 `479aae71bc101462882c1e39952213390a4932678c71385d5ab7dec450e9f082`, but it lived on the ended box; it must be rebuilt (`package-cloud.sh all`, `MI_COMMIT=66bfb3da5c3268cafb2002b43bfcce094b84ec6d`) and the sha256 compared |
+| Smoothness: frames over 25 ms a minute no worse than v4 | FAIL (unmeasured on the package) | Earlier packages: head 2.4 average against v4 3.0, equal within noise, not better; the `66bfb3d` runs were never made. See `SMOOTH.md`, "v8 performance engineer" |
+| Engine start no later than v4 | FAIL (close) | `r.Vulkan.PipelineCacheLoad=0`: first probe line 3.4 to 3.9 s against v4 3.2 to 3.5 s. The lead must decide whether to keep it (first frames create pipeline states at draw time, as v4's do) |
+| Independent look at the pictures at full size (hands on every gun, optics aimed, SHORTY, RATTLER reload after SHORTY, deaths, guide path, finishes, Workbench, HUD, subtitles) | FAIL (not done) | No frame exists for this package; every item is unreviewed, not passed |
+| Independent end-to-end play (front end to Story to Hold waves 1 to 3, death, pause, settings, second run, keyboard-mouse and pad) | FAIL (not done) | Not played, box ended |
+| Known open items | OPEN | STICK reload shows one hand (art lane, HANDS_R4.md 16); one unexplained 293 ms render-thread frame; subtitle-over-cards and Workbench removed-part fixes never seen in a picture |
+
+### What is needed for a GO
+
+1. The lead re-rents a box (the integration clone and `/project` may be gone; if so rebuild and re-run `tools/box/test.sh MurderInc`, expecting 228 of 228).
+2. Rebuild the package of `66bfb3d`, compare the sha256.
+3. Run `queue8.txt` of `/project/ue/smooth/v8` (menus x5 plus v4 x2, Story, two first fights, a cache-on first fight) under the GPU lock.
+4. One independent full-size picture review and one independent play (script in the proofs: `rtcinput.py`, `-MICloudProbe=0.25`, frames copied to the scratchpad `v6pics/`).
+5. Decide `PipelineCacheLoad`.
+
+Until all five are done: NO-GO. Nothing changed by this closer, so no re-check of changes is owed.
+
 ## Smoothness update (performance engineer, 2026-11-27, 06:08 to 09:40 UTC)
 
 The 6 to 10 ms Loadout frames were the screen's Slate rebuild (font, colour and brush-key helpers paid on every call), not the Showroom's tick; the Briefing and each gun switch paid a
