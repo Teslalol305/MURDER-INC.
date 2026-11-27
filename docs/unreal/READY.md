@@ -8,6 +8,8 @@ One section per lane of the readiness pass. Every finding names the evidence it 
 
 The GPU box ended at 2026-11-27 20:08 UTC (end reason runtime_failed, the provider's side), about 20 hours before the expected end. No live box exists and a box may not be rented from this lane, so the fixer and all four checks (story, hold, pad, pictures) stopped at once. No code, data or package changed; nothing was played, packaged or looked at in this pass.
 
+Re-confirmed by the closer pass after the fixer and four checks: a fresh exec on the assigned box again returned "ended, runtime_failed", so nothing changed and the verdict stands.
+
 Against DECISIONS.md (entries 2026-11-27 ~21:00 and ~21:15, with the owner's passes):
 
 | Criterion | State | Evidence |
