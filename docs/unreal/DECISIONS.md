@@ -714,3 +714,25 @@ Consequences for the plan:
    replays (scripted input) run with it off.
 2. **Progression across maps** is the core of the game: after v6 ships, the three-map release (docs/unreal/MAPS.md) comes before
    multiplayer unless the owner says otherwise.
+
+### How it was done (v6 closer, aim assist)
+`Player/MIAimAssist.{h,cpp}` is the assist without the engine (`FMIAimAssist::Step`); `AMIPlayerController::UpdateAimAssist` gathers its
+input each frame: every live `AMIGoon` within `assist.range` whose chest point (`chestFraction` of the body capsule's half height above its
+centre) lies within the widest reach of the three parts, the nearest four by angle each tested with a line trace on the bullets' own channel
+from the eye to the chest (a wall, cover or another body in the way means no help of any kind). The three parts, all numbers in
+`config.json` `player.input.assist` (`pad` and `mouse` blocks, `strengths`, `range`, `slowRate`, `magFalloff`, `minSlow`):
+1. Slow-down: inside `slowRadius` (pad 2.5 deg, mouse 2 deg) of a visible Goon the look rate is scaled by `slow` (pad 0.45, mouse 0.8), eased
+   at `slowRate`. For the pad it replaces the weapon rules' older 0.55 ray test while the assist is on (the deeper of the two applies);
+   the mouse's counts are scaled the same way. Off, the old pad behaviour is unchanged.
+2. Magnetism: while the fire button is held, the nearest visible Goon inside `magCone` (pad 6, mouse 3 deg) pulls the view toward its chest,
+   at most `magRate` deg/s (pad 22, mouse 10), fading to nothing over the last `magFalloff` degrees. The pull is cut by the cosine of the
+   player's own turn against it (gone at 120 degrees away): his input direction always wins. The turn is added to the rules' yaw and pitch
+   directly (`FMIPlayerInputState::AssistDegrees`), outside the look rate, and is zero with the assist off, so the rules and the golden
+   replays are untouched.
+3. ADS snap: on the press of aim (not while it is held), the nearest visible Goon within `snapAngle` (pad 10, mouse 5 deg) is turned onto
+   over `snapTime` (0.12 s), landing exactly on the chest; it follows the target up to 1.5 x the angle and ends when aim is released.
+Settings (`Settings` card, saved with the others): "Aim assist" On/Off (default On, `config.json` `settings.defaults.aimAssist`) and "Assist
+strength" Low / Normal / High (`aimAssistStrength`; the factors 0.6 / 1 / 1.4 scale every radius, cone, angle, cap and the slow-down's depth).
+Tests and replays: `Boot` with no save slot turns the assist off (`FMIBootOptions::bAimAssist` asks for it), and a bare controller starts with
+it off until the game flow applies the settings. `MurderInc.Assist.Data`, `.Math` and `.World` pin the data, the arithmetic and the engagement
+(slow-down, pull, snap, a wall in between, switched off).
