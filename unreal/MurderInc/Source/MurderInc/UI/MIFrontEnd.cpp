@@ -132,7 +132,18 @@ void UMIFrontEnd::Show()
 		return;
 	}
 	bShown = true;
-	WarmStage();
+	// Behind the title card, but not in its first frames: the stage's first gun and arms are loaded and drawn once the title
+	// has been up for half a second (30 frames), so the game's first frame is not 175 ms late. A first screen that is not
+	// the title sets the stage at once (SyncStage below): the warm-up then goes first, as it always did.
+	const EMIFrontScreen First = Rules.GetScreen();
+	if (First == EMIFrontScreen::Home || First == EMIFrontScreen::Where)
+	{
+		WarmFramesLeft = bWarmed ? -1 : 30;
+	}
+	else
+	{
+		WarmStage();
+	}
 	UWorld* World = Game.IsValid() ? Game->GetWorld() : nullptr;
 	if (UGameViewportClient* Viewport = World ? World->GetGameViewport() : nullptr; Viewport && Widget)
 	{
@@ -815,6 +826,16 @@ void UMIFrontEnd::Tick(double Dt)
 		else if (Before != Rules.GetResetHold())
 		{
 			Changed();
+		}
+	}
+	if (WarmFramesLeft > 0 && --WarmFramesLeft == 0)
+	{
+		WarmFramesLeft = -1;
+		const EMIFrontScreen Now = Rules.GetScreen();
+		if (Now == EMIFrontScreen::Home || Now == EMIFrontScreen::Where)  // a screen with its own stage has set it already
+		{
+			TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/FrontEnd WarmStage");
+			WarmStage();
 		}
 	}
 	{

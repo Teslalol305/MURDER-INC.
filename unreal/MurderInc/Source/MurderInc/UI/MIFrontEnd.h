@@ -95,6 +95,9 @@ private:
 	/** Once, behind the title card: the Crew arms and the turntable drawn once so the first real draw is not a long frame. */
 	void WarmStage();
 	bool bWarmed = false;
+	/** The warm-up waits this many frames after the first screen is up (SMOOTH.md, engine start: its loads were 175 ms inside
+	 *  the first frames, which is time before the game's first line); -1 once it has run or is not wanted. */
+	int32 WarmFramesLeft = -1;
 	void SyncViewTarget();
 	void Remember();
 	void StartRun();
