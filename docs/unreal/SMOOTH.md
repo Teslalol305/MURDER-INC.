@@ -5,6 +5,18 @@ weapons and gameplay). DECISIONS.md (2026-11-25, ~21:00) makes this file's verdi
 lane; every number names the run it comes from. Severities: blocker (a freeze, a crash, a stuck state, or under 50 fps
 sustained on E3DS-class limits), must-fix (a player would feel or see it), should-fix, nit.
 
+## Closer re-measure (2026-11-27, 05:36 to 06:05 UTC, package of `77b02f3`): still NOT-YET
+
+The v7 prover's verdict stands. The package of `77b02f3` (the Loadout's gun swap built a part a frame, the optics solid, the other
+v6 finish items) was run as the prover ran its menus runs (same queue line, `gated.sh`, `/project/ue/smooth/v7p/runs/c-menus1..4`,
+all CLEAN; counted by `tools/box/cloud/smooth-v7/rate.py`, which gives the prover's own numbers for `p-menus1..3`). Over 25 / 50 / 100 ms
+a minute: `c-menus1` 4.5 / 1.0 / 1.0, `c-menus2` 7.0 / 1.9 / 0.9, `c-menus3` 4.0 / 1.5 / 1.0, `c-menus4` 3.7 / 0.5 / 0.0: mean 4.8, the same as
+the head the prover measured (4.8) and above version 4 (2.8); frames over 100 ms are back (2 in each of three runs; the prover's head had
+none). Of the long frames of `c-menus2`, none is game-thread bound (12 of 15 "wait", 3 render): the swap's component work was not what
+the 25 ms count measures here. Two runs (`c-menus1`, `c-menus3`) started the game 28 s after the launcher, `c-menus2` after 7 s and `c-menus4`
+after 8 s (the prover: 7 to 9 s in every run; version 4: 5 s); the 28 s starts are unexplained, a cold copy being the guess. Engine start
+is unchanged. Next step for whoever takes this: `p-trace` on a package of this commit (queue line in `/project/ue/smooth/v7p/queue.txt`).
+
 ## v7 prover verdict (2026-11-27, runs 02:00 to 04:05 UTC, package of `3f58199`; supersedes the v6 section below)
 
 **Verdict: NOT-YET.** The release package has no freeze, no crash, and holds 60 in every run, but two numbers are still worse than version 4's,

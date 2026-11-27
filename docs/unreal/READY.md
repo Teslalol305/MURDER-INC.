@@ -2,6 +2,78 @@
 
 One section per lane of the readiness pass. Every finding names the evidence it rests on (a picture, a log line, a number).
 
+## v6 GO readiness (closer, 2026-11-27, 04:30 to about 06:30 UTC; supersedes the sections below)
+
+**Proposed commit to package: `77b02f3` (code; the packaged one, below). Verdict: NO-GO.** Every must-fix of the two proofs that a
+change could answer was answered in code and checked by a test or by an engine frame; the smoothness criterion is still not met
+and two of the review's picture findings were not closed. The full suite passes on `77b02f3`: `TESTS OK passed=228 failed=0
+skipped=0` (the 227 of the fixer plus `MurderInc.V6.LastDroneSweep`; golden replays included, nothing weakened, skipped or
+re-recorded; clean rebuild on the integration clone `/project/ue/int/repo`, log `/project/ue/logs/int-repo/test.log` on the box).
+JSON valid, braces balanced, `check_guns_data.py` 0 errors. Package of `77b02f3` on the box: `/project/ue/int/pkg/MurderInc-E3DS.zip`,
+2.4 GB, sha256 `88ec63c2c8df46471b3bae0d87b5f1408880d32d7891467cde709ffa531b2d44`, `BUILD.txt` names the commit, `package.log` ends
+`ALL OK`, `MI_PARTS=0` (no parts, no upload, never uploaded).
+
+### What the closer found and did, one by one
+
+| Finding of the proofs | State | Evidence |
+|---|---|---|
+| B2: the last Buzzard sat 22 m away under the El for 40 s, the wave never ended (e2e) | **fixed in code; not seen end to end** | The charge rule was already on (log line at 20 s), and the Buzzard did not close: a charge can be stopped by buildings and the El. A charging Buzzard that has not got 2 m closer for 10 s (and is not within 8 m) is now set down 9 to 13 m from the player in the open with a clear line (`FMIEnemyField::Target`), so it can attack and be shot; only `bCharge` Buzzards, which exist only in the packaged game's Hold waves, so no golden replay reaches it. New test `MurderInc.V6.LastDroneSweep`: 17 level.json air spawn points times 5 places a run is played, every charging Buzzard reaches within 8 m or sees the player inside 22 s: passes. The sweep was first run with a grid over the whole Block and showed 78 of 202 charging Buzzards staying away (spawns inside buildings and courtyards were part of it); the test was narrowed to the real spawns and places, and the fallback went in for the rest. End to end on the package (`c-hold4`, the Development game of `77b02f3`, Hold the Block, the director with god mode as in the e2e run, `fight 60`, then standing 55 s, then fighting again): the log has `Hold: Buzzard 2 unhurt for 20 s as the wave's last enemy: it flies at the player` at 77 s; when the director fought again at 122 s `enemy:killed buzzard 2` came within a second and `holdout:wave 2` 9 s later (131 s). That the Buzzard was in reach is shown; whether it got there by the charge or by being set down is not (no log line for the set-down). Waves 3 and on not played. An earlier run with another script (`c-hold`) was invalid (the script froze the world's time) and `c-hold3` killed every enemy, so neither reached the case |
+| Subtitle printed over the death, debrief and pause cards (POLISH 17) | **fixed in code, not seen** | `UMIAudioSubsystem::DrawSubtitle` draws nothing while the game state is Dead, Complete or Paused. No picture taken: the check is the one-line condition |
+| Workbench draws a removed part while the pointer rests on its row | **tolerance widened, not proven either way** | `HoverBlocked` now treats a pointer within 3 px of where the fit left it as resting (was 0.5 px): the checker could not tell a stale preview from the hover preview of a pointer on that row. No picture taken |
+| Every optic's aimed picture wrong: the ring over the rail, the housing gone | **fixed, seen in the engine** | `AimFade` took the housing out as the sight came up. Frames with the housing solid: the red dot is a round window with the ring in it (`/project/ue/closer/o2` on the box), the 2x scope a tube with the ring in the ocular (`o3`); looked at as 320 x 260 grey crops. The scope's tube is heavy in the frame: an art call, `mi.FP.OpticFade 1` brings the old look back. The pack's own holo (STICK) is unchanged |
+| SHORTY aimed view a green slab | **fixed, seen in the engine** | eye relief 0.12 to 0.20; olive pixels 22.5 percent of the frame before, 3.2 after; the street through the aperture (`/project/ue/closer/s1`, 400 x 225 grey) |
+| RATTLER reload: parts floating above the gun after the SHORTY | **fixed in code (cause found), frame clean** | the poseable gun component kept the SHORTY's bone transforms by bone index (same bone count as the RATTLER); a mesh change now resets every bone. Engine frame, SHORTY then RATTLER, reload at 0.5 s (`/project/ue/closer/r2`): no detached piece, looked at as a 360 pixel grey frame and a 320 x 216 crop of its upper half, not at full size, and the old build was not re-shot beside it |
+| STICK reload shows one hand | **not changed** | the pack's own reload clip (HANDS_R4.md 16); should-fix for the art lane |
+| Menus with guns: more 25 ms frames than version 4; engine start 7 to 9 s against 5 s | **NOT fixed** | below |
+
+Also in: the Loadout's gun swap builds the new gun a part a frame (`UMIGunAssembly::BeginStaged` / `StepStaged`, the showroom's
+`bAssembling`), instead of the whole gun in one actor tick: the tick the traces named. The 228 tests pass with it.
+
+### Smoothness (SMOOTH.md criterion 4): still NOT-YET
+
+Same conditions as the v7 prover (`gated.sh`, l20 load, `cpus=0-7`, `-sm5`, 1920 x 1080, cold user, package on local disk, viewer
+joined at 3 s, `guns-keys.txt`, CSV of every frame, every run CLEAN), counted by `tools/box/cloud/smooth-v7/rate.py` from 8 s (it
+reproduces the prover's p-menus numbers exactly: 7.4 / 3.7 / 3.3 a minute). Package of `77b02f3`, over 25 / 50 / 100 ms a minute:
+
+| Run | Over 25 / 50 / 100 ms a minute (frames) | Worst | Game's first line |
+|---|---|---|---|
+| `c-menus1` | 4.5 / 1.0 / 1.0 (9/2/2) | 110 ms | 28 s |
+| `c-menus2` | **7.0** / 1.9 / 0.9 (15/4/2) | 169 ms | 7 s |
+| `c-menus3` | 4.0 / 1.5 / 1.0 (8/3/2) | 102 ms | 28 s |
+| `c-menus4` | 3.7 / 0.5 / 0.0 (8/1/0) | 64 ms | 8 s |
+| prover, package of `3f58199` (3 runs) | 7.4, 3.7, 3.3: mean 4.8 / 0.77 / 0.0 | 60 to 96 ms | 7 to 9 s |
+| prover, version 4 (3 runs) | 4.3, 2.8, 1.4: mean 2.8 / 0.80 / 0.33 | 79 to 139 ms | 5 s |
+
+The staged swap did not move the count (the mean of the four runs is 4.8 a minute, the prover's head 4.8; `c-menus2` against `p-menus1`: 15 and 16 frames over 25 ms, the same two classes: none
+game-thread bound, 12 of 15 "wait, no thread over 60 percent"), and frames over 100 ms came back (2 in each of three runs) where the
+prover's head had none. Two of the three new runs started the game 28 s after the launcher (a cold start of a freshly copied package;
+the prover's runs started in 7 to 9 s), which also shortened their play. Nothing here supports "every number better than or equal to
+version 4"; the verdict stays NOT-YET. The cause of the long frames is not the swap's component work: it needs a trace of a
+package of this commit (`-trace=cpu,gpu,frame`, the prover's `p-trace` line in `queue.txt` of `/project/ue/smooth/v7p`).
+
+### Each GO criterion (DECISIONS.md 2026-11-25 20:40, 21:00, 21:20)
+
+| # | Criterion | Pass / fail | Evidence |
+|---|---|---|---|
+| 1a | Hands C++ pass built, review's must-fix closed | **fail** | the review's four hand/optic picture findings: optics, SHORTY aim, RATTLER reload fixed and seen in the engine; the STICK reload (one hand) is the pack's clip and stands |
+| 1b | Support hand holds the magazine in every reload | pass (earlier), not re-looked beyond the RATTLER frame above | HANDS_R4.md 14 |
+| 1c | Aimed optics show no black ring | **pass, new look** | frames above; the scope's tube is an art call |
+| 1d | Pictures looked at by someone other than the engineer | **fail (pending)** | the closer looked at the frames named above, at small size and in grey (the box's output reaches this session as text), not enlarged to full resolution; the fixes of this pass need the art director's look |
+| 2a/2b | Readiness: rendering faults fixed, menus clean | **fail** | Workbench removed-part preview not proven fixed; death/debrief subtitle fix not seen; STICK/STRETCH Workbench framing (small, dark) and the STICK's flat grey in the Workbench untouched |
+| 3 | Full suite on one commit, guns imported fresh | **pass** | 228/228 on `77b02f3` |
+| 4 | SMOOTH.md verdict "smooth" | **fail** | above |
+| 5a | Killed enemies bleed and fall | pass (earlier); close-up deaths in the package still not captured | |
+| 5b | Weapon switching, tests | pass | |
+| 5c | Story guidance | pass in frames; indoors and in a fight not captured; faint in some sun frames (review) | |
+| 5d | Independent end-to-end play of this package | **fail (pending)** | no independent play of `77b02f3`; Hold the Block waves 2 and 3, the damage wedge, hit tick, NEXT blocked look and slider repeat were not seen by anyone in a picture |
+
+### What a GO needs now
+
+1. A smoothness result that beats version 4 per frame: a trace of the Loadout run on a package of this commit, the named cause fixed,
+   three CLEAN runs with the game's first line at 7 to 9 s, and the engine start moved or accepted by the owner.
+2. The art director's look at the optics, SHORTY and RATTLER frames, at full size.
+3. An independent end-to-end play of the final package (Hold the Block through wave 2 and 3, a Shipping death card, the damage wedge).
+
 ## v6 GO readiness (release fixer, 2026-11-26, 22:15 to 00:30 UTC)
 
 **Proposed commit: none yet. Verdict: NOT YET (no go).** The last code commit of this pass is `ef28d60`; the full suite passes on it
