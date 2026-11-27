@@ -663,9 +663,10 @@ double AMIPlayerController::UpdateAimAssist(double Dt, bool bLive)
 	}
 	const FMIPlayerRules& R = C->GetPlayerRules();
 	const FVector Eye = R.Eye;
-	const FVector Aim = R.Forward.GetSafeNormal();
-	const double AimYaw = FMath::Atan2(Aim.Y, Aim.X);
-	const double AimPitch = FMath::Asin(FMath::Clamp(Aim.Z, -1.0, 1.0));
+	// Where the crosshair points now (the view's own angles, recoil included): Forward is only set by the late half of the frame,
+	// so it is a frame behind here and the turns would be worked out from where the view was.
+	const double AimYaw = MI::DegToRad(R.GetAimYaw());
+	const double AimPitch = MI::DegToRad(R.GetAimPitch());
 	const bool bPad = bPadActive;
 	const double Reach = Assist.Reach(bPad, AssistStrength);
 

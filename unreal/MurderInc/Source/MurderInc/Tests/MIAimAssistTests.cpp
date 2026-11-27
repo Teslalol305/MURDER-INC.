@@ -312,9 +312,8 @@ namespace MIAssistTestsPrivate
 		{
 			const FMIPlayerRules& R = Player->GetPlayerRules();
 			const FVector To = (Chest() - R.Eye).GetSafeNormal();
-			const FVector F = R.Forward.GetSafeNormal();
-			return FVector2D(MI::WrapDegrees(MI::RadToDeg(FMath::Atan2(To.Y, To.X) - FMath::Atan2(F.Y, F.X))),
-				MI::RadToDeg(FMath::Asin(To.Z) - FMath::Asin(F.Z)));
+			return FVector2D(MI::WrapDegrees(MI::RadToDeg(FMath::Atan2(To.Y, To.X)) - R.GetAimYaw()),
+				MI::RadToDeg(FMath::Asin(To.Z)) - R.GetAimPitch());
 		}
 		/** Aims Yaw/Pitch degrees off the chest (right, up). */
 		void AimOff(double Yaw, double Pitch)
