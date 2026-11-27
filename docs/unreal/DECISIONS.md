@@ -677,3 +677,10 @@ equal to v4", a second independent review after every small fix, cosmetic hand p
 hands), faint guide path in some sun frames if the marker and step line still lead, and the trimmed polish nits.
 The release gate after the GO is cut to one sanity run of the package under the E3DS-class load (the smoothness lanes measured it
 at length already), then the upload and one session on E3DS's own page before the owner switches the pin.
+
+## 2026-11-27 ~20:30 UTC: multiplayer waits until single player is shipped
+
+The owner asked for a Multiplayer button for players signed in to the IPX website (a lobby, play together in one session), then:
+"lets get single player pushed and finalized before working on multiplayer". The design workflow (mi-multiplayer-design) was stopped
+at its research step; it resumes after v6 is live on E3DS. Order: v6 single player to E3DS, then multiplayer design, then the
+three-map release as planned (or as the owner reorders it).
