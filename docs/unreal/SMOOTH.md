@@ -5,6 +5,105 @@ weapons and gameplay). DECISIONS.md (2026-11-25, ~21:00) makes this file's verdi
 lane; every number names the run it comes from. Severities: blocker (a freeze, a crash, a stuck state, or under 50 fps
 sustained on E3DS-class limits), must-fix (a player would feel or see it), should-fix, nit.
 
+## v7 prover verdict (2026-11-27, runs 02:00 to 04:05 UTC, package of `3f58199`; supersedes the v6 section below)
+
+**Verdict: NOT-YET.** The release package has no freeze, no crash, and holds 60 in every run, but two numbers are still worse than version 4's,
+so "every number better than or equal to version 4" (DECISIONS.md 2026-11-25 ~21:00, criterion 4) is not met:
+
+1. **Viewer-driven front end with all guns: more frames over 25 ms than version 4.** Three runs each: **4.8 a minute** (10.3 frames a run) against
+   version 4's **2.8 a minute** (6.0 frames a run). The head's runs overlap version 4's (3.3 to 7.4 against 1.4 to 4.3) but its mean is 70 % higher.
+   The cause is named below (a game-thread tick of 5 to 10 ms in the Loadout, about once a second).
+2. **The engine still takes longer to its first line:** 7 to 9 s after the launcher started (8, 8, 8 s menus runs; 7 s Story; 9, 9 s holdouts) against
+   **5 s** for version 4 (every run). The pipeline cache's start-up work is not moved (READY.md says the same).
+
+Better than or equal to version 4: the worst frames, every frame over 100 ms, the PSO hitch frames, the Story front end and Story run, and the holdout
+(version 4 crashes at 126 s, again). The head had 0 frames over 100 ms in all 8 runs.
+
+### Conditions (identical for both packages, every run)
+
+`lag-test.sh` through `gated.sh` (GPU claim, one run at a time, other lanes' games waited for): l20 load (`load=1:0.05:0:1024`), `cpus=0-7`, `-sm5`,
+1920 x 1080, cold user (`runas=fresh`, fresh `Saved`), package copied to the box's local disk (`/tmp/v7p/new` = `/project/ue/int/pkg/build-Shipping/Linux`,
+`BUILD.txt`: commit `3f58199`; `/tmp/v6p/v4` = `6c4d810`), a streaming viewer joined at 3 s, CSV profile of every frame. Numbers are per frame
+(`tools/box/cloud/smooth-v7/f25.py`, `top.py`; `scripts/v6sum.py` of the v6 prover for the segments), never one-second lines. Every run **CLEAN**
+(watcher: `others=0`, `build=0` through the whole play; `p-long15`'s watcher saw another lane's game only after its game had exited, 03:00:23 against exit
+02:59:59). GPU 11.7 to 11.9 ms a frame, picture 0.50 to 0.75. Runs are in `/project/ue/smooth/v7p/runs` on the box.
+
+### Per-frame numbers
+
+| Run (viewer, window) | Frames, s | fps | Over 25 / 50 / 100 ms a minute (frames) | Worst frame | 1 % low | Seconds under 57 fps | PSO hitch frames |
+|---|---|---|---|---|---|---|---|
+| **Front end and all guns by keys (`guns-keys.txt`), 8 s to the end** | | | | | | | |
+| head `p-menus1` | 7,742, 129.1 | 59.96 | **7.4** / 0.9 / 0.0 (16/2/0) | 60.6 ms | 44.9 | 0 | 0 |
+| head `p-menus2` | 7,711, 128.6 | 59.97 | **3.7** / 0.5 / 0.0 (8/1/0) | 67.6 ms | 46.4 | 0 | 0 |
+| head `p-menus3` | 7,727, 128.9 | 59.94 | **3.3** / 0.9 / 0.0 (7/2/0) | 95.8 ms | 45.6 | 1 | 0 |
+| version 4 `v4-menus1` | 7,574, 126.4 | 59.94 | **4.3** / 0.5 / 0.5 (9/1/1) | 112.8 ms | 46.1 | 1 | 1 |
+| version 4 `v4-menus2` | 7,568, 126.4 | 59.90 | **2.8** / 1.4 / 0.5 (6/3/1) | 138.9 ms | 44.6 | 1 | 1 |
+| version 4 `v4-menus3` | 7,553, 126.0 | 59.96 | **1.4** / 0.5 / 0.0 (3/1/0) | 79.1 ms | 49.3 | 1 | 1 |
+| **Mean of three: head / version 4** | | 59.96 / 59.93 | **4.8** / **2.8** ; 0.77 / 0.80 ; 0.0 / 0.33 | | | | |
+| **Story by the demo director (viewer), front end 0 to 33 s** | | | | | | | |
+| head `p-story` | 1,976, 33.0 | 59.87 | 3.6 / 1.8 / 0.0 (2/1/0) | 71.6 ms (6.06 s, the first Crew draw, `MIMenu fe gearup`) | 50.0 | 1 | 0 |
+| version 4 `v4-story` | 1,963, 33.0 | 59.47 | 9.1 / 5.5 / 1.8 (5/3/1) | 157.0 ms (0.70 s) | 32.1 | 2 | 4 |
+| **Story run, 35.5 to 87 s (four guns, reloads, blast, to the extraction)** | | | | | | | |
+| head `p-story` (state `complete` at 87.2 s) | 3,090, 51.5 | 59.99 | **0 / 0 / 0** | 20.7 ms | 59.4 | 0 | 0 |
+| version 4 `v4-story` (`complete` at 95.8 s) | 3,084, 51.5 | 59.87 | 2.3 / 2.3 / 0 (2/2/0) | 78.9 ms | 49.9 | 1 | 0 |
+| **Holdout, Hold the Block, viewer, 8 s to the end** | | | | | | | |
+| head `p-long15b` (**18.6 minutes of play**, ended by itself, exit 0) | 66,765, 1113.6 | 59.96 | 0.9 / 0.5 / 0.0 (16/10/0) | 91.4 ms (16.3 s) | 56.3 | 1 of 1,114 | 0 |
+| head `p-long15` (one pass of the script, 9.4 minutes, exit 0) | 33,841, 564.2 | 59.98 | 0.1 / 0.1 / 0.0 (1/1/0) | 66.7 ms (495 s) | 58.9 | 1 | 0 |
+| version 4 `v4-long15` | **SIGSEGV at 126.4 s** (`invalid attempt to read memory at address 0x0`, exit 139), no holdout | | | | | | |
+
+- The head's holdout script ends sooner than the v6 head's (585 s against 956 s for 34 fights: the fights now end sooner), so `p-long15b` is the same
+  fight section played twice (`sm-long15b.txt` = lines 1 to 10 of `sm-long15.txt`, lines 11 to 186 twice, lines 187 to 189; 68 fights). Its 10 frames
+  over 50 ms are all of one kind: no thread busy (game 2 to 3 ms, render 4 to 9, RHI 2 to 4, GPU 11 to 14) and a frame of 45 to 91 ms; the pacer log
+  says `held 213 frames (worst wait 88.6 ms, time-outs 0)`. That is the stream waiting, not the game working. None is over 100 ms. Not one of the head's
+  runs has a crash, a GC or PSO hitch, or a load inside a long frame (the only loads are 391 `FlushAsyncLoading` in the first 10 s of the front end).
+- **Version 4 has no holdout number to compare**: it crashes at 126.4 s in the same place as at the v6 prover's run (`v4-long15` today, with a viewer; the v6
+  `v4-long-nv`, without). I did not repeat it with the longer script.
+- Version 4's front end of the Story run has 4 PSO hitch frames and 40 `FlushAsyncLoading`; the head has 0 and 0 in play.
+
+### Why the head has more frames over 25 ms in the menus: a game-thread tick in the Loadout
+
+All 25 ms frames of `p-menus1` (16) and the later `p-menus` runs: `top.py` / `f25.py` classes: **12 of 16 are "no thread busy over 60 %"**
+(game 5 to 14 ms, render 4 to 5, RHI 1 to 2, GPU 11 to 16: a game-thread spike on top of the pacer's wait) and 4 are a render-thread stall
+(`RDG_CollectResources` +21 to 35 ms, `FetchVisibilityForPrimitives` +18 to 49 ms; version 4 has the same kind, 3 of 9). The GPU is not the cause: its time in the long
+frames is the run's median plus 0 to 5 ms (11.3 to 16.4 ms), and the render thread waits (`RenderThread/EventWait` +6 to 11 ms) for the game thread.
+
+A trace of both packages in the same script (`p-trace`, `v4-trace`: `-trace=cpu,gpu,frame,bookmark -statnamedevents`; 380 MB each; exported with
+`UnrealInsights -OpenTraceFile=... -NoUI -AutoQuit -ExecOnAnalysisCompleteCmd="TimingInsights.ExportTimingEvents ..."`; `gt2.py`, `win.py`) shows the cause. The
+traced runs reproduce the counts (head 16 frame periods over 25 ms, version 4 6; 26 and 20 over 22 ms):
+
+| Frames over 22 ms, excess over the run's median | Head (26 frames) | Version 4 (20 frames) |
+|---|---|---|
+| `Tick_Engine` (the world's actor ticks) | **+5.5 to +10.2 ms in 19 frames** (117 ms in all) | +2.6 to +11.3 ms in 4 frames (25 ms) |
+| `Slate::Tick` (widgets) | +1.5 to +4.1 ms in 13 frames | **+5.9 to +8.4 ms in 10 frames** (61 ms) |
+| `FCoreDelegates::OnSamplingInput` (the stream's input sampling) | 16 to 37 ms in 5 frames (and 250 ms at 78 s of the traced run) | 8 to 12 ms in 3 frames (and 139 ms at 11 s) |
+| `Sync_RenderingThread` (waits for the render thread) | 8.7 ms in 1 frame (470 ms in the traced run's 738 ms frame at 78 s, which is not in any run without a trace) | 5 to 57 ms in 3 frames |
+
+So the head spends **a different 6 ms in the same frames**: version 4's UI tick (Slate) cost 6 to 8 ms in the 10 frames where it was long; the head's Slate
+tick is down to 2 ms, but the actors' tick now takes 6 to 10 ms in 19 frames, and they come in the Loadout phase (trace 13 to 48 s: 12.96, 15.64, 20.54, 22.13,
+27.90, 29.48, 30.36, 36.33, 37.92, 39.10, 40.18, 41.35 s, every 1.1 to 1.6 s: the script's key presses, one a second). One of those frames in detail
+(trace 36.84 s, 25.7 ms): the game thread's `Tick_Engine` 7.5 ms is `UWorld_Tick` > `TG_PrePhysics` > `ReleaseTickGroup Block` > `ProcessUntilTasksComplete`, running
+**one `FTickFunctionTask` for 6.5 ms inline with no scope of 0.3 ms or more inside it**: one actor's `Tick` function doing its work in its own body. It is a
+tick of the front end (nothing else in the Loadout ticks with work once a key press), and the only actor there whose tick does work on a key press is
+`AMIShowroom::Tick` (`unreal/MurderInc/Source/MurderInc/UI/MIShowroom.cpp`: the gun swap's `Assembly->Clear(); Assembly->Assemble(Gun, Pending, true); PlaceGunOnPivot();`
+runs inside that tick, 0.1 s after a Workbench key or a gun change, and with six guns and their parts it builds components and materials in one frame). **That
+last step is my reading of the code and of the timing (6.5 ms, once per key, only in the Loadout), not a profile of the function: the trace names the tick
+function's slot, not its class.** To close it, a trace with named actor ticks (`stat namedevents` does not name them in this build) or one `TRACE_CPUPROFILER_EVENT_SCOPE`
+inside `AssembleGun` would be needed; I did not edit game code.
+
+### What would close the two numbers (for the fixer; not done here)
+
+1. Spread the Showroom's swap over frames (create the next gun's components in a first frame and show them in a second, or assemble the part previews a
+   frame apart) so no frame carries 6 to 10 ms; the head would then show 25 ms frames only from the stream's input sampling and the render thread, both of which
+   version 4 has too.
+2. The engine start (7 to 9 s against 5 s): move the pipeline cache's start-up work behind CLICK TO PLAY, then repeat `p-menus` and the first-line time.
+
+### What was not done
+
+- No 15-minute run of version 4 (it crashes at 126 s), so "holdout numbers better than version 4's" is true by default, not by comparison.
+- The runs are one box, one viewer script and an l20 load; the menus counts vary 3.3 to 7.4 between runs of the same package, so three runs each is the least
+  that shows a difference; a fourth run of each would narrow it.
+- No E3DS run of the package.
+
 ## v6 prover verdict (2026-11-26, runs 19:29 to 21:05 UTC; supersedes the 02:50 section below)
 
 **Verdict: NOT-YET.** There is no freeze left in play and no crash, and 60 is held for 15 minutes. But "every number better
