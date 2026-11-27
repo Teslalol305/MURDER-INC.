@@ -849,9 +849,11 @@ void UMIFrontEnd::Tick(double Dt)
 	// The Briefing's first-person view: the arms hold the first carried gun, as the intro starts from this view.
 	if (Rules.GetScreen() == EMIFrontScreen::Briefing && Game.IsValid())
 	{
+		const bool bSkip = bSkipBriefingStep;
+		bSkipBriefingStep = false;
 		if (AMIPlayerCharacter* P = Game->GetPlayer())
 		{
-			if (P->GetWeapon())
+			if (P->GetWeapon() && !bSkip)
 			{
 				TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/FrontEnd BriefingWeaponStep");
 				P->GetWeapon()->Step(Dt, FMIWeaponInput(), FVector2D::ZeroVector);
@@ -904,6 +906,7 @@ void UMIFrontEnd::SyncViewTarget()
 		if (Want == 2)
 		{
 			TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/FrontEnd PreviewSetup");
+			bSkipBriefingStep = true;
 			Game->PreviewSetup(Rules.GetSetup());  // the chosen arms and guns in the player's own hands
 		}
 	}

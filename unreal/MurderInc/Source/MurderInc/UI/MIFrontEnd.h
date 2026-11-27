@@ -98,6 +98,9 @@ private:
 	/** The warm-up waits this many frames after the first screen is up (SMOOTH.md, engine start: its loads were 175 ms inside
 	 *  the first frames, which is time before the game's first line); -1 once it has run or is not wanted. */
 	int32 WarmFramesLeft = -1;
+	/** The Briefing's first-person gun is set up in the frame the view changes (SyncViewTarget) and first stepped in the next one: its
+	 *  equip (the rig's clips, the magazine) is 5 to 6 ms, and with the set-up in the same frame the frame was 28 ms (SMOOTH.md, v8). */
+	bool bSkipBriefingStep = false;
 	void SyncViewTarget();
 	void Remember();
 	void StartRun();
