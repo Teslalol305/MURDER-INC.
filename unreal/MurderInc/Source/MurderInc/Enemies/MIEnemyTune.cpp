@@ -85,6 +85,27 @@ FMIFlightK FMIEnemyTune::Flight() const
 	return K;
 }
 
+namespace MIEnemy
+{
+	static int32 GDronesOverride = -1;  // -1: the data decides
+	bool DronesOn(const TSharedPtr<FJsonObject>& Config)
+	{
+		if (GDronesOverride >= 0)
+		{
+			return GDronesOverride == 1;
+		}
+		const TSharedPtr<FJsonObject>* Flow;
+		bool bOn = true;
+		if (Config.IsValid() && Config->TryGetObjectField(TEXT("flow"), Flow))
+		{
+			(*Flow)->TryGetBoolField(TEXT("drones"), bOn);
+		}
+		return bOn;
+	}
+	FMIDronesScope::FMIDronesScope(bool bOn) : Saved(GDronesOverride) { GDronesOverride = bOn ? 1 : 0; }
+	FMIDronesScope::~FMIDronesScope() { GDronesOverride = Saved; }
+}
+
 bool FMIEnemyTune::Parse(const TSharedPtr<FJsonObject>& Config, FName Difficulty, FMIEnemyTune& Out, FString& OutError)
 {
 	const TSharedPtr<FJsonObject>* Resolved;
@@ -313,6 +334,10 @@ bool FMIEnemyTune::Parse(const TSharedPtr<FJsonObject>& Config, FName Difficulty
 	FReader E{Config};
 	E.Num(TEXT("enemies.pool.goon"), Out.PoolGoon);
 	E.Num(TEXT("enemies.pool.buzzard"), Out.PoolBuzzard);
+	if (!MIEnemy::DronesOn(Config))
+	{
+		Out.PoolBuzzard = 0;  // no Buzzard actor, no slot: nothing can spawn one
+	}
 	E.Num(TEXT("enemies.pool.bodies"), Out.PoolBodies);
 	E.Num(TEXT("enemies.pool.bolts"), Out.PoolBolts);
 	double Seed = 9001;

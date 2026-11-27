@@ -4,6 +4,7 @@
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
 #include "Enemies/MIEnemyLogic.h"
+#include "Enemies/MIEnemyTune.h"
 
 // ------------------------------------------------------------------------------------------------- formulas
 
@@ -198,6 +199,7 @@ const FMIFlowDifficulty& FMIFlowTune::Difficulty(FName Name) const
 bool FMIFlowTune::Parse(const TSharedPtr<FJsonObject>& Config, FMIFlowTune& O, FString& OutError)
 {
 	FReader R{Config};
+	O.bDrones = MIEnemy::DronesOn(Config);
 	O.Intro = R.N(TEXT("flow.timing.intro"));
 	O.IntroQuick = R.N(TEXT("flow.timing.introQuick"));
 	O.IntroFadeA = R.N(TEXT("flow.timing.introFade.0"));
@@ -253,7 +255,7 @@ bool FMIFlowTune::Parse(const TSharedPtr<FJsonObject>& Config, FMIFlowTune& O, F
 	O.PursuitFirstDelay = R.N(TEXT("flow.pursuit.firstDelay"));
 	O.PursuitMinAlive = R.I(TEXT("flow.pursuit.minAlive"));
 	O.PursuitSpawnDelay = R.N(TEXT("flow.pursuit.spawnDelay"));
-	O.PursuitBuzzardShare = R.N(TEXT("flow.pursuit.buzzardShare"));
+	O.PursuitBuzzardShare = O.bDrones ? R.N(TEXT("flow.pursuit.buzzardShare")) : 0.0;
 	O.PursuitRealertEvery = R.N(TEXT("flow.pursuit.realertEvery"));
 	O.PursuitRealertRadius = R.N(TEXT("flow.pursuit.realertRadius"));
 	O.HoldFirstDelay = R.N(TEXT("flow.holdout.firstDelay"));
@@ -314,11 +316,11 @@ bool FMIFlowTune::Parse(const TSharedPtr<FJsonObject>& Config, FMIFlowTune& O, F
 			const FString P = TEXT("flow.difficulty.") + Key;
 			D.RegenDelay = R.N(P + TEXT(".regen.delay"));
 			D.RegenRate = R.N(P + TEXT(".regen.rate"));
-			D.PatrolBuzzard = R.I(P + TEXT(".patrol.buzzard"));
+			D.PatrolBuzzard = O.bDrones ? R.I(P + TEXT(".patrol.buzzard")) : 0;
 			D.PatrolGoon = R.I(P + TEXT(".patrol.goon"));
 			for (const TSharedPtr<FJsonValue>& W : R.Find(P + TEXT(".waves"))->AsArray())
 			{
-				D.Waves.Add({static_cast<int32>(W->AsObject()->GetNumberField(TEXT("buzzard"))), static_cast<int32>(W->AsObject()->GetNumberField(TEXT("goon")))});
+				D.Waves.Add({O.bDrones ? static_cast<int32>(W->AsObject()->GetNumberField(TEXT("buzzard"))) : 0, static_cast<int32>(W->AsObject()->GetNumberField(TEXT("goon")))});
 			}
 			D.MaxAlive = R.I(P + TEXT(".maxAlive"));
 			D.PursuitEvery = R.N(P + TEXT(".pursuitEvery"));
@@ -475,7 +477,7 @@ namespace MIFlow
 		FHoldoutWave W;
 		W.Wave = FMath::Max(1, N);
 		W.Total = static_cast<int32>(T.Total.Eval(W.Wave));
-		W.Buzzards = FMath::Min(W.Total, static_cast<int32>(FMath::FloorToDouble(W.Total * T.BuzzardShare.Eval(W.Wave) + 0.5)));
+		W.Buzzards = T.bDrones ? FMath::Min(W.Total, static_cast<int32>(FMath::FloorToDouble(W.Total * T.BuzzardShare.Eval(W.Wave) + 0.5))) : 0;
 		W.Goons = W.Total - W.Buzzards;
 		W.Order = HoldoutOrder(W.Total, W.Buzzards);
 		W.Stagger = T.StaggerOf.Eval(W.Wave);

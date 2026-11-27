@@ -493,7 +493,7 @@ listed with the level, except the storefront names, which come from the copy dec
 | `radio.speaker` | `IPX VAULT` | Label over every radio line | `:132` |
 | `radio.intro` | `Rule, it's the Vault. Vultures stashed your three masters on this block — the avenue, the chop shop, the cage. Bring them home.` | 3.15 | `:134` |
 | `radio.introHoldout` | `Rule, it's the Vault. The Vultures want the whole block back. Hold it down as long as you can.` | 3.15 | `:138` |
-| `radio.contact` | `They made you. Goons on foot, Buzzards in the air. Handle it.` | 3.15 | `:139` |
+| `radio.contact` | `They made you. The whole crew is coming. Handle it.` | 3.15 | `:139` |
 | `radio.reel[0]` | `One reel back in your hands. They felt that — more coming.` | 3.15 | `:142` |
 | `radio.reel[1]` | `Two reels. They're throwing the whole crew at you now.` | 3.15 | `:143` |
 | `radio.reel[2]` | `That's all three. The IPX truck is idling at the south end of the lot. Move.` | 3.15 | `:144` |

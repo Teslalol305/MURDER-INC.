@@ -4,6 +4,7 @@
 // golden/directors.json: a whole Story run to the IPX truck, a Story run that dies, four waves of Hold the Block (Boss),
 // a Story run on Hustler and Hold the Block on Kingpin.
 
+#include "Enemies/MIEnemyTune.h"
 #include "Flow/MIGameRules.h"
 #include "Tests/MITestUtil.h"
 
@@ -65,6 +66,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIGoldenFlowRulesTest, "MurderInc.Golden.FlowR
 
 bool FMIGoldenFlowRulesTest::RunTest(const FString& Parameters)
 {
+	// Recorded with the drones in the game; the shipped data has them off (DECISIONS.md 2026-11-27 ~22:15).
+	const MIEnemy::FMIDronesScope DronesOn(true);
 	using namespace MIGoldenFlowPrivate;
 	FMIFlowTune Flow;
 	FMIText Text;
@@ -206,6 +209,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIGoldenDirectorsTest, "MurderInc.Golden.Direc
 
 bool FMIGoldenDirectorsTest::RunTest(const FString& Parameters)
 {
+	// Recorded with the drones in the game; the shipped data has them off (DECISIONS.md 2026-11-27 ~22:15).
+	const MIEnemy::FMIDronesScope DronesOn(true);
 	using namespace MIGoldenFlowPrivate;
 	FMIFlowTune Flow;
 	FMIText Text;

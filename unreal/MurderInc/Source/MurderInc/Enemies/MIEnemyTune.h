@@ -4,6 +4,20 @@
 
 class FJsonObject;
 
+namespace MIEnemy
+{
+	/** Whether the drones (Buzzards) are in the game: config.json `flow.drones` (false in the shipped game, DECISIONS.md 2026-11-27 ~22:15).
+	 *  Off: no Buzzard is pooled, patrolled, waved or pursued. The code stays; flip the data (or a test's MIDronesScope) to bring them back. */
+	bool DronesOn(const TSharedPtr<FJsonObject>& Config);
+	/** Tests that pin the drones' behaviour: while one lives, DronesOn answers bOn whatever config.json says. */
+	struct MURDERINC_API FMIDronesScope
+	{
+		explicit FMIDronesScope(bool bOn = true);
+		~FMIDronesScope();
+		int32 Saved;
+	};
+}
+
 /**
  * The enemies' tuning as the AI reads it: config.json `enemiesResolved.<difficulty>` (the base tables of
  * src/config/enemies.js with that difficulty's overlay laid over them), plus `enemies.pool` and `enemies.seed`.

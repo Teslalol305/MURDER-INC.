@@ -47,6 +47,8 @@ struct MURDERINC_API FMIFlowTune
 	// pursuit
 	double PursuitFirstDelay = 0;
 	int32 PursuitMinAlive = 0;
+	/** False in the shipped game (config.json flow.drones): every Buzzard count below reads 0. */
+	bool bDrones = true;
 	double PursuitSpawnDelay = 0, PursuitBuzzardShare = 0, PursuitRealertEvery = 0, PursuitRealertRadius = 0;
 	// holdout
 	double HoldFirstDelay = 0, Breather = 0;

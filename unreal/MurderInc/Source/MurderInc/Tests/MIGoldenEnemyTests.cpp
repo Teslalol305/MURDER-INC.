@@ -3,6 +3,7 @@
 // engage step, position, heading, health, exposure and sight accumulator, and every event in order (spawns, alerts,
 // telegraphs, rounds and bolts with their directions, melee phases, hits, kills, the player's damage, crash bursts).
 
+#include "Enemies/MIEnemyTune.h"
 #include "Enemies/MIEnemies.h"
 #include "Tests/MITestUtil.h"
 
@@ -101,6 +102,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIGoldenEnemiesTest, "MurderInc.Golden.Enemies
 
 bool FMIGoldenEnemiesTest::RunTest(const FString& Parameters)
 {
+	// Recorded with the drones in the game; the shipped data has them off (DECISIONS.md 2026-11-27 ~22:15).
+	const MIEnemy::FMIDronesScope DronesOn(true);
 	using namespace MIGoldenEnemyPrivate;
 	const TSharedPtr<FJsonObject> G = LoadGolden(*this, TEXT("enemies.json"));
 	const FMILevelData* Level = FMILevelData::Get();

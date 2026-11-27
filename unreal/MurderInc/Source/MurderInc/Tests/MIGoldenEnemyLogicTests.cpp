@@ -1,5 +1,6 @@
 // MurderInc.Golden.EnemyLogic: Enemies/MIEnemyLogic (the port of src/enemies/logic.js) against golden/enemy_logic.json.
 
+#include "Enemies/MIEnemyTune.h"
 #include "Enemies/MIEnemyLogic.h"
 #include "Tests/MITestUtil.h"
 
@@ -11,6 +12,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIGoldenEnemyLogicTest, "MurderInc.Golden.Enem
 
 bool FMIGoldenEnemyLogicTest::RunTest(const FString& Parameters)
 {
+	// Recorded with the drones in the game; the shipped data has them off (DECISIONS.md 2026-11-27 ~22:15).
+	const MIEnemy::FMIDronesScope DronesOn(true);
 	const TSharedPtr<FJsonObject> G = LoadGolden(*this, TEXT("enemy_logic.json"));
 	FMIEnemyTune Tune;
 	FString Error;

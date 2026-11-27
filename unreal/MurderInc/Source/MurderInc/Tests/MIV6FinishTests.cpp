@@ -3,10 +3,14 @@
 //                             vertical equivalent), a pad press steps further than a key, a held key repeats (data)
 //   MurderInc.V6.StretchSemi  the STRETCH is semi-automatic only (one round per trigger pull); the CHOPPER keeps both modes
 //   MurderInc.V6.ScopeName    the optic the player read as "4x scope" reads "2x scope" (the part id keeps its name)
+//   MurderInc.V6.NoDrones     the shipped data has no drones: no pool, patrol, wave or pursuit Buzzard, no drone in the radio line (DECISIONS 22:15)
 //   MurderInc.V6.LastDrone    a Buzzard sent at the player flies straight at it (Hold the Block's last unhurt drones)
 //   MurderInc.V6.LastDroneSweep  charging Buzzards from a grid over the Block all reach the player
 //   MurderInc.V6.BlastTick    a blast that kills an enemy raises the hit event a round raises, once per victim
 
+#include "Enemies/MIEnemyTune.h"
+#include "Flow/MIFlowRules.h"
+#include "Core/Data/MIDataSubsystem.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/SphereComponent.h"
@@ -147,10 +151,57 @@ bool FMIV6ScopeNameTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIV6NoDronesTest, "MurderInc.V6.NoDrones", MITest::Flags)
+
+bool FMIV6NoDronesTest::RunTest(const FString& Parameters)
+{
+	// The shipped game: the data switch is off (an owner-made rule, DECISIONS.md 2026-11-27 ~22:15). The code still brings drones back
+	// when flow.drones is true (the golden tests run that way).
+	TSharedPtr<FJsonObject> Config;
+	FString Error;
+	if (!TestTrue(TEXT("config.json loads"), UMIDataSubsystem::LoadJsonFile(TEXT("config.json"), Config, Error)))
+	{
+		return false;
+	}
+	TestFalse(TEXT("flow.drones is off in the shipped data"), MIEnemy::DronesOn(Config));
+	FMIFlowTune Flow;
+	TestTrue(TEXT("flow parses"), FMIFlowTune::Parse(Config, Flow, Error));
+	TestEqual(TEXT("no Buzzard in the pursuit mix"), Flow.PursuitBuzzardShare, 0.0);
+	for (const auto& Pair : Flow.Difficulties)
+	{
+		TestEqual(FString::Printf(TEXT("%s: no patrol Buzzard"), *Pair.Key.ToString()), Pair.Value.PatrolBuzzard, 0);
+		for (const TPair<int32, int32>& W : Pair.Value.Waves)
+		{
+			TestEqual(FString::Printf(TEXT("%s: no Buzzard in a Story wave"), *Pair.Key.ToString()), W.Key, 0);
+		}
+	}
+	for (int32 N = 1; N <= 30; ++N)
+	{
+		const MIFlow::FHoldoutWave H = MIFlow::HoldoutWave(N, Flow);
+		TestEqual(FString::Printf(TEXT("Hold wave %d has no Buzzard"), N), H.Buzzards, 0);
+		TestEqual(FString::Printf(TEXT("Hold wave %d is all Goons"), N), H.Goons, H.Total);
+		for (const FName Type : H.Order)
+		{
+			TestEqual(TEXT("every Hold slot is a Goon"), Type.ToString(), FString(TEXT("goon")));
+		}
+	}
+	FMIEnemyTune Enemies;
+	TestTrue(TEXT("enemy tune loads"), FMIEnemyTune::Parse(Config, TEXT("boss"), Enemies, Error));
+	TestEqual(TEXT("no Buzzard in the enemy pool"), Enemies.PoolBuzzard, 0);
+	FMIText T;
+	if (TestTrue(TEXT("text loads"), FMIText::Load(T, Error)))
+	{
+		TestFalse(TEXT("the contact radio line names no drone"), T.Get(TEXT("radio.contact.text")).Contains(TEXT("Buzzard")));
+	}
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIV6LastDroneTest, "MurderInc.V6.LastDrone", MITest::Flags)
 
 bool FMIV6LastDroneTest::RunTest(const FString& Parameters)
 {
+	// Recorded with the drones in the game; the shipped data has them off (DECISIONS.md 2026-11-27 ~22:15).
+	const MIEnemy::FMIDronesScope DronesOn(true);
 	using namespace MIV6Private;
 	FWorld W;
 	if (!W.Boot(*this))
@@ -189,6 +240,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIV6LastDroneSweepTest, "MurderInc.V6.LastDron
 
 bool FMIV6LastDroneSweepTest::RunTest(const FString& Parameters)
 {
+	// Recorded with the drones in the game; the shipped data has them off (DECISIONS.md 2026-11-27 ~22:15).
+	const MIEnemy::FMIDronesScope DronesOn(true);
 	using namespace MIV6Private;
 	// A charging Buzzard must reach the player wherever the holdout can leave it (e2e finding: one sat 22 m away under the El for
 	// 40 s). every one must come within 8 m or see the player within 22 s (10 s of no progress, then set down in the open).
