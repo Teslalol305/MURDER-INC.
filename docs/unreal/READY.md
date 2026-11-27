@@ -2,6 +2,13 @@
 
 One section per lane of the readiness pass. Every finding names the evidence it rests on (a picture, a log line, a number).
 
+## Smoothness measurement (measurer, 2026-11-27, 17:41 to 19:05 UTC, package of `daa4f48`): NOT PROVEN, the perf engineer's "smooth" does not hold on ten runs each
+
+Ten clean runs of the head against ten of version 4 (menus with guns), Story, two first fights each, same box and conditions, 26 runs, all `others=0 build=0`. Frames over 25 ms a minute: head mean 13.3 (median 7.85) against
+version 4's 8.2 (5.7): **worse**, from stalls with every thread idle in episodes of 10 to 60 s while the stream pacer holds frames (head 4 runs of 10, version 4 2 of 10; cause not found). Better: over 100 ms (0.10 against
+0.63), worst frame (77 against 154 ms), game-thread-bound slow frames (1.0 against 1.6 a run), first fight (version 4 crashed in 1 of 2 here, the head in none). Worse: engine start +0.3 s, first line +0.5 s, one Story run
+with a 320 ms stall. The criterion "every number better than or equal to version 4's" is **not met**. `SMOOTH.md`, "v9 measurer".
+
 ## Smoothness update (performance engineer, 2026-11-27, 15:58 to 17:40 UTC, on the replacement box): code `daa4f48`
 
 The Loadout's 6 to 10 ms game-thread frames were the screen's six gun cards built again on every key press (`UMIFrontEnd::Tick` > `SMIFrontEnd::Rebuild` > `Loadout` > six `GunCard` calls, 3.7 ms), not an actor tick;

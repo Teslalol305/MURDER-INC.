@@ -5,6 +5,68 @@ weapons and gameplay). DECISIONS.md (2026-11-25, ~21:00) makes this file's verdi
 lane; every number names the run it comes from. Severities: blocker (a freeze, a crash, a stuck state, or under 50 fps
 sustained on E3DS-class limits), must-fix (a player would feel or see it), should-fix, nit.
 
+## v9 measurer (2026-11-27, 17:41 to 19:05 UTC, package of `daa4f48`, the same box): ten head runs against ten version 4 runs, Story, two first fights
+
+**Verdict: NOT PROVEN. By the bar of DECISIONS.md criterion 4 ("every number better than or equal to version 4's") the head FAILS on one number, frames over 25 ms a minute, and the
+perf engineer's "smooth" verdict above does not hold on ten runs each.** The head is better on three numbers, equal on two, worse on three (table). The frames over 25 ms the head has in excess are not
+the game's threads: they are stalls with every thread idle that arrive in episodes of 10 to 60 s, in which the game's own stream pacer holds frames; version 4 has the same kind of episode, less often. The cause of the
+episodes is not found. This lane did not edit game code and made no change.
+
+**What was run.** The package on the box was already `daa4f48` (`/project/ue/int/pkg/BUILD.txt` names it; sha256 `1c0f574bc9f2e4ce648a6da47b06da70c29e6d8b696b02bbf58ed764f44418f0`
+recomputed and equal); the head `04acada` is documentation only on top, so no rebuild. `/project` survived on this box. Queues `queue12.txt` (17:41 to 18:31) and `queue13.txt`
+(18:34 to 19:05) in `/project/ue/smooth/v8/`, run by the closer's `gated.sh` / `lag-test.sh` unchanged: GPU claim, one run at a time, `load=1:0.05:0:1024`, `cpus=0-7`, `-sm5`, 1920 x 1080,
+fresh user and `Saved`, local copy of the package (`/tmp/v8/m2` head, `/tmp/v6p/v4` version 4 = `6c4d810`), viewer joined at 3 s, CSV profile of every frame, `guns-keys.txt`, window from 8 s. Runs alternate head and
+version 4 (the order flips each pair in `queue13`). **All 26 runs CLEAN: `others=0` and `build=0` on every line of every `others.log` (0 lines otherwise, about 3,500 lines).**
+Runs are `p-*` and `q-*` in `/project/ue/smooth/v8/runs/` on the box. Counting: `tools/box/cloud/smooth-v7/rate.py` rules, `smooth-v9/rate2.py` (also lists where in the run the frames fall), `thr3.py`, `avg.py`.
+
+### Menus with guns, ten runs each (126 s counted)
+
+| Number | head `daa4f48`, 10 runs (`p-menus1` to `5`, `q-menus1` to `5`) | version 4, 10 runs | Better or equal? |
+|---|---|---|---|
+| frames over 25 ms a minute | 7.6, 12.7, 2.8, **53.1**, 8.1, 6.1, 2.4, 1.9, **23.7**, **14.7**: mean 13.3, median 7.85 | 6.2, 5.2, **34.2**, 2.9, 2.9, 4.7, 8.2, 6.7, 7.6, 3.8: mean 8.2, median 5.7 | **WORSE** (mean and median; 4 of 10 head runs over 12, 1 of 10 for version 4) |
+| over 50 ms a minute | 1.9, 7.5, 1.4, 5.1, 0.5, 1.4, 0.5, 0.0, 0.5, 2.8: mean 2.2, median 1.4 | 1.9, 1.9, 4.6, 0.5, 1.4, 0.5, 3.6, 0.0, 1.9, 1.0: mean 1.7, median 1.65 | equal within noise (mean worse by 0.4, median better) |
+| over 100 ms a minute | 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0.5: mean 0.10 | 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 2.3, 0, 0.5, 0.5: mean 0.63 | **better** |
+| worst frame (ms) | 65, 98, 67, 64, 81, 135, 50, 30, 69, 111: mean 77, max 135 | 129, 132, 136, 145, 140, 126, 425, 43, 125, 135: mean 154, max 425 | **better** (the 130 to 145 ms frame at 14 s that version 4 has in 8 of 10 runs, the level's first frames, is in 1 head run of 10) |
+| 1 % low (fps) | 41.2, 29.5, 45.4, 25.3, 42.6, 40.4, 48.2, 48.6, 34.9, 33.1: median 40.8 | 42.4, 42.7, 23.5, 45.9, 43.3, 45.2, 21.2, 43.3, 39.2, 45.1: median 43.0 | equal to slightly worse (follows the 25 ms row) |
+| over-25 ms frames with the game thread busy (>= 10 ms), per run | 1, 2, 0, 1, 1, 1, 1, 1, 1, 1 (mean 1.0) | 2, 2, 2, 2, 2, 1, 3, 0, 1, 1 (mean 1.6) | **better** (the Loadout fix works: the head has about one game-thread-bound frame a run, version 4 two) |
+| engine start to first frame (log time stamps, `start8.py`), s | 2.49, 2.68, 2.87, 3.97, 2.37, 2.84, 2.69, 2.66, 2.38, 2.51: mean 2.75, median 2.67 | 2.47, 2.26, 2.21, 2.24, 2.33, 2.83, 2.57, 2.35, 2.67, 2.30: mean 2.42, median 2.34 | **worse by 0.3 s** (the perf engineer's three-run 2.37 against 2.45 was noise) |
+| the game's first line (`firstline=`, s) | 5, 6, 5, 7, 5, 6, 5, 5, 5, 6: mean 5.5 | 5 in all ten | **worse by 0.5 s** (5 s in 6 of 10 head runs) |
+| mean cost of a frame (`avg.py`, ms) | game thread 2.29 to 2.50 (mean 2.38), render thread 6.3 to 6.8 (6.5), GPU 11.5 to 11.7 | game 2.07 to 2.43 (2.22), render 5.7 to 6.4 (6.0), GPU 11.2 to 11.7 | head dearer by 0.16 ms game thread and 0.5 ms render thread (more on screen: the new guns and parts); the GPU is equal |
+
+### What the extra frames over 25 ms are
+
+`thr3.py` splits the frames over 25 ms of each run by which thread was busy in them. In the head's three bad runs (`p-menus4` 114 frames, `q-menus4` 50, `q-menus5` 31) and in version 4's two
+(`p-v4menus3` 74, `q-v4menus2` 18 with one 425 ms frame at 82 s) **almost none has a busy game thread**: game thread 2 to 4 ms, render thread 5 to 7 ms, GPU 11 to 12 ms in a frame period of 26 to 30 ms
+(`p-menus4`: 93 of 114 frames with no thread over its limit, 20 render-thread-bound; game-bound 1). They come in episodes (`p-menus4` 10 to 70 s, `q-menus4` 60 to 130 s, `q-menus5` 50 to 60 s; version 4's
+`p-v4menus3` 90 to 130 s). **In every such episode the game's own stream pacer holds frames**: "held" frames of the run's summary: head `p-menus4` 170, `q-menus4` 271, `q-menus5` 150, against 7 to 32 in the other
+head runs; version 4 `p-v4menus3` 65, `q-v4menus2` 35 (and 3 pacer time-outs, the 425 ms frame), against 2 to 14 in its other runs. So the frame period is spent waiting on the stream's capture side (the fake viewer's
+encoder here, the host's on E3DS), not computing; the head's picture is a little dearer to draw (above) and the head has the episodes in 4 of 10 runs against 2 of 10 for version 4 (the last three of five head runs
+in `queue12`'s time and the last two of `queue13`; no trend with time of day: `p-menus3`, `q-menus2` and `q-menus3` at 2 to 3 per minute are among the best of the 26). Whether the head's slightly larger frame makes the
+episodes likelier, or ten runs each is too few to tell 4 of 10 from 2 of 10, **was not proved**: a Mann-Whitney test on the two rows of ten is not significant, and it is also not shown that they are the same. A larger
+sample, or a trace of an episode (`-trace=cpu,gpu,frame` with the pacer's wait scopes named) from a head run that has one, would decide it. Neither was made here (the episodes cannot be asked for; `n2-trace`
+of the perf engineer was a good run).
+
+### Story and first fight
+
+Story (`sm-story.txt`, dev game, from 8 s; the CSV holds 88 s of the 105 s run): head `p-story` 3.4 / 2.1 / 1.4 frames over 25 / 50 / 100 ms a minute, worst **320.9 ms at 85 s**, 5 frames over 25 ms, none with a busy
+thread, 1 % low 37.3 fps, start to first frame 2.41 s; version 4 `p-v4story` 0 / 0 / 0, worst 17.9 ms, 1 % low 59.7 fps (start 3.18 s). **The head is worse in this run** (one stall of 320 ms, no thread busy in it); the perf
+engineer's `n2-story` earlier on this box was 1.3 / 0.7 / 0.0, worst 50.8 ms. One run each: not a measurement of a rate.
+
+First fight (`sm-hold.txt`, Hold the Block, 100 s asked, 85 s of frames): head `p-hold1` 0 / 0 / 0, worst 18.4 ms, 1 % low 59.6; `p-hold2` 6.4 / 0.7 / 0.0, worst 68.7 ms (9 frames over 25 ms, 8 of them at 80 to 90 s, 6 with no
+thread busy), 1 % low 45.2; both quit normally on the stop (exit 0, 102 and 103 s). Version 4 `p-v4hold1` 0.7 / 0.7 / 0.0, worst 70.9 ms (one frame at 73 s), 1 % low 55.7, exit 0; **`p-v4hold2` crashed: SIGSEGV, exit
+code 139, 65 s into the run, 49 s of frames**, 0 / 0 / 0 to there. Version 4 crashed in the first fight in 1 of 2 runs here (and in the perf engineer's `n2-v4hold`); the head did not crash in any of its 4 fights
+(`n2-hold`, `p-hold1`, `p-hold2` and the 101 s one). Waves are not counted in this section.
+
+### Where this leaves the GO bar
+
+- **Fails, measured:** frames over 25 ms a minute (head mean 13.3, median 7.85, against 8.2 and 5.7; ten runs each, all clean), the engine start (+0.3 s), the game's first line (+0.5 s), and one Story run with a 320 ms stall.
+- **Passes, measured:** frames over 100 ms (0.10 against 0.63), worst frame (77 against 154 mean), game-thread-bound slow frames (1.0 against 1.6 a run), the first fight (no crash in four, version 4 crashed in two of
+  three), and the cause the closer named, the Loadout's game-thread frames, is fixed (the head's game-thread-bound frames are about half version 4's).
+- **Not decided by this lane:** the cause of the pacer episodes (above), and so whether the fail on the 25 ms number is the head's doing or a property of this box and its viewer that version 4 also has at a
+  lower rate. The perf engineer's three-run table (3.0 against 6.0) and the ten-run table here disagree because the 25 ms count is dominated by one to three runs with an episode; **neither sample is
+  enough to call it, and the honest statement is "equal within a noise that is larger than the difference, with the head's tail heavier".**
+- Not done: the E3DS stream itself (a real host's CPU and network; this box's GPU is an RTX PRO 6000 Blackwell, not the A4000), the picture-level review, an 18-minute holdout.
+
 ## v9 performance engineer (2026-11-27, 15:58 to 17:40 UTC, code of `daa4f48`, new GPU box): the cost named, fixed, and the package measured against version 4
 
 **Verdict (this lane's, on the numbers below): smooth by the bar of DECISIONS.md criterion 4: every number is better than or equal to version 4's, three clean runs of each, with the
