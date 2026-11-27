@@ -305,6 +305,14 @@ namespace MIAssistTestsPrivate
 			{
 				return false;
 			}
+			// It stands still (a passive unit: no patrol, no pursuit), so the numbers below are the assist's and not a Goon's walking.
+			{
+				const TArray<FMIEnemy>& Slots = Game->GetEnemies().GetSlots();
+				if (Slots.IsValidIndex(Goon->GetSlot()))
+				{
+					if (FMIEnemy* E = Game->GetEnemies().Find(Slots[Goon->GetSlot()].Id)) E->bPassive = true;
+				}
+			}
 			// Alone in the world: the others are put down, so that what the assist does is the one Goon's doing.
 			for (TActorIterator<AMIGoon> It(World); It; ++It)
 			{
