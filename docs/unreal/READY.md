@@ -52,6 +52,69 @@ of a package built from the fixed commit. Each criterion of DECISIONS.md (2026-1
 3. A second reviewer's look at the pictures named above, and the independent end-to-end play of that package.
 4. The lead's word on the three owner decisions and the POLISH.md shortlist; the owner's on B2.
 
+### Independent check of the fixer's head (checker, 2026-11-27, 23:35 to 00:10 UTC): **NO-GO**
+
+**Verdict: NO-GO for v6.** The hands, the Crew screen, the guide and the fixer's other changes hold up in a package of the fixer's
+head. Three things block a GO: the STRETCH's finish is wrong in the package (must-fix), the smoothness criterion is still not met or
+re-measured (the prover's NOT-YET stands), and the deaths were not seen close in the package. Nothing here weakens the fixer's
+own list; the checker found no new blocker.
+
+**What was checked, on what.** A package of `914d350` (the fixer's head: code as `ef28d60`, then docs) was built on the box with
+`package-cloud.sh all` (`MI_COMMIT=914d350...`, `MI_GP=/project/ue/int/repo`, own output folder `/project/ue/chk6/c`): editor build OK,
+weapons import 16 texture sets OK, `PACKAGE Development OK`, `PACKAGE Shipping OK`, 405 PSOs in the cache, `ALL OK`, 13 minutes
+(`v6c.zip`, sha256 `3cfbfc0c...`). Unzipped to local disk, run by `lag-test.sh` as the cold user (`runas=fresh clean=1`, `cpus=0-7`,
+`-sm5`, `load=1:0.05:0.05:1024`, qp 34:34) with the viewer's real keys through the stream. Runs: `c-g1` (`guns-keys.txt`: card,
+Home, Crew, Loadout, three Workbench visits, briefing, Story, guns 1 to 4 drawn, aimed, fired, reloaded), `c-g2`
+(`guns-keys-b.txt`: STICK and STRETCH the same way), `c-p3` (Development game, demo director: Story start, `hunt` three kills with
+god mode, `guide` along the chevrons, viewer frames every 0.3 s). **Clean in every run**: `others=0` and `build=0` in every watcher
+line (141, 122 and 71 lines). Each game quit by itself on the stop signal, exit 0, no crash, no `Fatal`, no pacer time-out, no
+`WaitForGPU` fence line. Every frame below was opened one at a time at 1920 x 1080.
+
+| Item the fixer marks fixed | Checker's finding on the package | Evidence |
+|---|---|---|
+| Firing hand on the grip, CHOPPER, RATTLER, SHORTY, STRETCH | **Confirmed** at the hip. The hand is on the grip in the idle and fired frames of the four rifles; it reads as a heavy, thick-fingered hand (the CHOPPER's thumb is a large brown sausage beside the receiver), correct but not refined | `c-g1/g-gun1.jpg`, `g-gun4*`; `c-g2/gb-gun4.jpg` (`shots/v6c-pkg-stretch-hip.jpg`) |
+| Support hand holds a magazine in every reload | **Confirmed** on CHOPPER, RATTLER (best frame: both hands, magazine, bracelet), NINE, STICK and STRETCH (a hand with a dark block). **SHORTY: should-fix.** The receiver is a slab across the top right, the support forearm and a very large hand fill the middle, the crosshair is behind the hand: it reads as a reload but is the worst frame of the set | `shots/v6c-pkg-rattler-reload.jpg`, `v6c-pkg-shorty-reload.jpg`, `v6c-pkg-stretch-reload.jpg` |
+| SHORTY olive finish | **Confirmed** (frame of the aimed and hip views is olive green, not mirror) | `c-g1/g-gun3.jpg` |
+| **STRETCH finish** (the fixer: still open) | **Confirmed wrong, must-fix.** In the package the stock and the rear of the receiver draw as a marbled white-and-black blotch (like dalmatian camouflage) in the hip, fired and reload frames, where the art has walnut and a clean finish. It is the first thing seen on the gun. The STICK, CHOPPER, RATTLER and SHORTY do not show it | `shots/v6c-pkg-stretch-hip.jpg`, `v6c-pkg-stretch-reload.jpg` |
+| Aimed views | Seen, same as the prover's pass: the red-dot housing is faded, the rear of the gun sits in the lower third with the game's reticle above it (CHOPPER, SHORTY). Not a regression; the aim frames are 0.8 s after the press, so the blend is finished | `c-g1/g-gun1-aim.jpg`, `g-gun3-aim.jpg` |
+| Crew screen shows the turntable gun | **Confirmed** by the fixer's frame (`v6-crew-guide-blast.jpg`, top left: a clean gun on its turntable, no stump); the package's Crew screen was passed by key in `c-g1` and `g-rack.jpg` shows the rack. The first-frame cost of `WarmStage` was **not measured** (no per-frame profile was possible in the Shipping game; see below) | |
+| Guide path brighter and wider | **Confirmed in the package.** In `c-p3` the cyan chevrons are plainly visible from the first frames under the El, on the sidewalk in sun, and along the whole alley; the step arrow at the screen edge follows the route to the case (`guide done: at the case, 3.5 m left`). The two full-sun frames the fixer called faint were not reproduced | `c-p3` frames 1 to 32 (sheet of 32), log `MIDemo ... guide done` |
+| Falling bodies on the ground by 0.25 s | **Not seen in the package.** The director killed three targets (`event killed ... Head`, `Body` at game time 21.9, 28.7, 29.8 s; ammo 30 to 23), but they were far away in the alley and no body is in a frame. The fixer's editor frames (`v6-deaths-back.jpg`, `v6-deaths-stairs.jpg`, read enlarged by the checker) show the body flat by 0.25 s and no raised arm on the stairs; the blast frame still shows a Goon sitting on a pallet stack at 0.6 s (acceptable, not perfect) | log of `c-p3`; fixer's shots |
+| Weapon switching, gun strip, reload, kill, HUD | **Works end to end** through the stream: keys 1 to 4, each gun's draw, aim, burst and reload, ammo counts change (30 to 25 CHOPPER, 15 NINE, 30 SHORTY, 32 RATTLER; STICK 25, STRETCH 26), HUD strip follows the gun in hand, the rack and the three Workbench visits fit parts on the CHOPPER, NINE and SHORTY | `c-g1`, `c-g2` frames |
+
+**Smoothness (criterion 4): not met, not re-measured here.** No per-frame CSV exists for a Shipping game, so only one-second probe
+lines (`worstMs` is the worst frame of each second) are available; they are not a replacement for the prover's per-frame counts and
+do not close the verdict. What they show, with the load on: in play (`state 2`) `c-g1` and `c-g2` hold 60 fps with every second's
+worst frame under 25 ms; `c-p3` (Development game, no load) has three seconds with a worst frame over 25 ms in 45 s of play (51.3,
+29.5, 31.0 ms). In the front end (`state 0`) there are single 75 to 92 ms frames (76.6 ms in the first Workbench visit of `c-g1`, 91.5 and
+85.4 ms in `c-g2`) and, in the first second of the engine's life, one long frame (108.7 ms Shipping `c-g1`; 824 ms Shipping `c-g2`; 1,074 ms
+Development `c-p3`, all before any picture, which is the engine-start cost the prover measured at 6.0 to 6.7 s). `FlushAsyncLoading`:
+0 in the Shipping runs, two lines in the Development run's first second. So the prover's two numbers (menus with guns 14.0 and 7.9
+frames over 25 ms a minute, engine start 3.4 to 4.1 s longer than version 4) were **not** shown to be fixed; neither
+`WarmStage` nor never-stream gun textures was measured with the lag harness. SMOOTH.md's NOT-YET stands.
+
+**Remaining list before a GO.**
+
+1. **Must-fix: the STRETCH finish** (marbled white and black where the art has walnut), in the package. One right picture.
+2. **Must-fix (criterion 4): smoothness** re-measured on a package of the final commit with the prover's harness (viewer-driven
+   front end with all four guns; engine start; Story; holdout) and a new SMOOTH.md verdict that says smooth. This package
+   (`/project/ue/chk6/v6c.zip`) can be that package if nothing else changes in `unreal/`.
+3. **Should-fix: SHORTY reload** (receiver slab and a giant hand cover the middle of the screen).
+4. **Should-fix: bodies seen close in a package**: one run with a kill at 5 to 10 m and frames every 0.1 s (the checker's demo
+   killed at range and showed none).
+5. The fixer's own open items: Workbench keeps previewing a removed part, framing hides STRETCH/STICK/NINE muzzle fits, pause
+   card diagnostics line, the 349.7 ms freeze (one event, cause in the capture's fence time-out), B2 (the 77 s Buzzard wait,
+   an owner decision), and the owner's three polish decisions plus the POLISH.md v6 shortlist (not applied; they change gameplay
+   data and need the lead's go).
+6. A second-reviewer end-to-end play was done here only briefly (front end, a gun switch, a reload on every rifle, kills, the
+   guidance); the long play (Hold the Block deaths, pause, Settings, pad) was not repeated on this package. It showed no
+   blocker.
+
+![STRETCH hip: marbled stock](shots/v6c-pkg-stretch-hip.jpg)
+![STRETCH reload](shots/v6c-pkg-stretch-reload.jpg)
+![SHORTY reload](shots/v6c-pkg-shorty-reload.jpg)
+![RATTLER reload](shots/v6c-pkg-rattler-reload.jpg)
+
 > **For the v6 fixer (2026-11-26 ~22:40 UTC, the lead):** besides the items in this file, SMOOTH.md, PLAY.md and HANDS_R4.md 11 to 13,
 > also do the v6 shortlist of docs/unreal/POLISH.md (the cheap and safe polish items marked v6: the damage wedge timer, blast kills
 > without hit marker or kill tick, the invisible NEXT label, slider steps and repeat, HUD scale K = H/1080, plates and font for the
