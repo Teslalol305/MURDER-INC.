@@ -1766,6 +1766,39 @@ double FMIEnemyField::Target(FMIEnemy& E, double Dt)
 		// Straight at the player at full speed (the last unhurt drones of a Hold the Block wave); the flight code still keeps it
 		// off the walls. It stops 3 m short of the player's eye so it does not sit inside the capsule.
 		const FVector At(Player.Pos.X, Player.Pos.Y + T.AimHeight, Player.Pos.Z);
+		// A charge the buildings stop (e2e hold run: the last Buzzard sat 18 m away behind them for 40 s and the wave never
+		// ended): after 10 s with the player neither within 8 m nor in its sight, it is set down 9 to 13 m from the player
+		// with a clear line to them, so it can attack and be shot.
+		const double Near = FVector::Dist(E.Pos, At);
+		if (Near < 8.0 || E.SinceSeen < 2.0)
+		{
+			E.ChargeStuck = 0;
+		}
+		else if ((E.ChargeStuck += Dt) > 10.0)
+		{
+			E.ChargeStuck = 0;
+			for (int32 K = 0; K < 24; ++K)
+			{
+				const double A = Random() * UE_DOUBLE_PI * 2.0;
+				const double R = 9.0 + Random() * 4.0;
+				FVector C(Player.Pos.X + FMath::Cos(A) * R, Player.Pos.Y + 3.0 + Random() * 3.0, Player.Pos.Z + FMath::Sin(A) * R);
+				Solids.Refresh(*World, Level ? &Level->Deck : nullptr);
+				FVector V = FVector::ZeroVector;
+				const FVector C0 = C;
+				PushOut(Solids, C, V, Tune.Flight(), &World->GetBounds());
+				if (FVector::DistSquared(C, C0) < 0.01 && World->LineOfSight(C, At, true))
+				{
+					E.Pos = C;
+					E.Vel = FVector::ZeroVector;
+					E.Push = FVector::ZeroVector;
+					E.StuckX = C.X;
+					E.StuckY = C.Y;
+					E.StuckZ = C.Z;
+					E.StuckT = E.DetourIn = 0;
+					break;
+				}
+			}
+		}
 		const FVector Away = FVector(E.Pos.X - At.X, 0.0, E.Pos.Z - At.Z);
 		const double Flat = FMath::Sqrt(Away.X * Away.X + Away.Z * Away.Z);
 		const double Back = Flat > 3.0 ? 3.0 : Flat;

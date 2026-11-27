@@ -192,7 +192,7 @@ bool FMIV6LastDroneSweepTest::RunTest(const FString& Parameters)
 	using namespace MIV6Private;
 	// A charging Buzzard must reach the player wherever the player stands and wherever the holdout can leave the Buzzard (e2e
 	// finding: one sat 18 m away for 40 s). The player stands at points over the whole Block (it falls to the ground there);
-	// at each, a ring of charging Buzzards 18 m out; every one must come within 8 m or see the player within 12 s.
+	// at each, a ring of charging Buzzards 18 m out; every one must come within 8 m or see the player within 18 s (10 s of being walled off, then set down in the open).
 	FWorld W;
 	if (!W.Boot(*this))
 	{
@@ -223,7 +223,7 @@ bool FMIV6LastDroneSweepTest::RunTest(const FString& Parameters)
 					Probes.Add({B->Id, B->Pos, 1e9, false});
 				}
 			}
-			for (int32 F = 0; F < 30 * 12; ++F)
+			for (int32 F = 0; F < 30 * 18; ++F)
 			{
 				W.Step();
 				const FVector P = MI::Web::FromUnreal(W.Player->GetPlayerRules().Feet);

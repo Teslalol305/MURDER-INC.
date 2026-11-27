@@ -125,6 +125,8 @@ struct FMIEnemy
 	// ---- Buzzard ----
 	/** Hold the Block's last-drone rule (DECISIONS.md 2026-11-27): after 20 s unhurt as the wave's last enemies the Buzzard flies straight at the player. */
 	bool bCharge = false;
+	/** Seconds this Buzzard has charged without coming within 8 m or seeing the player (walled off): at 10 s it is set down in the open near the player. */
+	double ChargeStuck = 0;
 	double Altitude = 6, OrbitRadius = 18, OrbitAngle = 0, OrbitDir = 1, PatrolRadius = 6, RethinkIn = 5, FlipIn = 0;
 	FVector Push = FVector::ZeroVector;
 	double StuckX = 0, StuckY = 0, StuckZ = 0, StuckT = 0, DetourIn = 0, DetourX = 0, DetourY = 0, DetourZ = 0;
