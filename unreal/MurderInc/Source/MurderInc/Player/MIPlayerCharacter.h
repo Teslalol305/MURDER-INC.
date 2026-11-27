@@ -49,6 +49,8 @@ struct FMIPlayerInputState
 	bool bJumpPressed = false, bFirePressed = false, bReloadPressed = false, bSwapPressed = false;
 	bool bWeapon1Pressed = false, bWeapon2Pressed = false, bMeleePressed = false;
 	bool bPad = false;
+	/** The aim assist's turn this frame (degrees: X right, Y up), added to the view straight, outside the look rate (MIAimAssist). */
+	FVector2D AssistDegrees = FVector2D::ZeroVector;
 	// LOADOUT.md 4.2: four guns, the wheel and the selector (written by the controller's FMISwitchInput).
 	bool bWeapon3Pressed = false, bWeapon4Pressed = false, bNextPressed = false, bPreviousPressed = false;
 	bool bFireModePressed = false, bInspectPressed = false;

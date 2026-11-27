@@ -57,6 +57,8 @@ struct FMIBootOptions
 	bool bLastDrones = false;
 	/** Draw the block's boxes; unset: only when the map has no art. */
 	TOptional<bool> bDrawGrey;
+	/** The aim assist stays on without the save slot (a test of it); off otherwise in tests, where input is scripted. */
+	bool bAimAssist = false;
 };
 
 /** combat.stats: counted where the facts happen (spec 04 3.14). */

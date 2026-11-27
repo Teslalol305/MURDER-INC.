@@ -113,6 +113,42 @@ struct FMIPadLookData
 	double NavRepeat = 0.0;      // s between repeats
 };
 
+/** One device's aim assist numbers (config.json player.input.assist.pad / .mouse), at strength 1 (Normal). */
+struct FMIAssistSideData
+{
+	double Slow = 1.0;         // turn-rate factor while the crosshair is within SlowRadius of a visible Goon (1 = no slow-down)
+	double SlowRadius = 0.0;   // degrees
+	double MagCone = 0.0;      // degrees: while firing, a gentle pull toward the nearest visible Goon inside this cone
+	double MagRate = 0.0;      // degrees per second at most (the cap)
+	double SnapAngle = 0.0;    // degrees: starting to aim down sights turns onto the nearest visible Goon inside this
+	double SnapTime = 0.0;     // s the snap takes
+};
+
+/** One strength of the Settings row: the factor on every assist number's reach and depth. */
+struct FMIAssistStrengthData
+{
+	FName Id;
+	double Scale = 1.0;
+};
+
+/** config.json "player.input.assist": the aim assist, tuned in data (docs/unreal/DECISIONS.md 2026-11-27 ~22:20). */
+struct FMIAimAssistData
+{
+	FMIAssistSideData Pad, Mouse;
+	double Range = 0.0;         // cm: no Goon beyond this is helped
+	double ChestFraction = 0.0; // the aim point: this share of the body capsule's half height above its centre
+	double SlowRate = 0.0;      // 1/s: how fast the slow-down eases in and out
+	double MagFalloff = 0.0;    // degrees: the pull fades to nothing over the last bit before the crosshair is on the aim point
+	double MinSlow = 0.0;       // the slow-down never goes below this, at any strength
+	FName DefaultStrength;
+	TArray<FMIAssistStrengthData> Strengths;  // in the order the Settings row cycles
+	double ScaleOf(FName Id) const
+	{
+		for (const FMIAssistStrengthData& S : Strengths) if (S.Id == Id) return S.Scale;
+		return 1.0;
+	}
+};
+
 /** config.json "player.look" and "player.input" */
 struct FMIPlayerLookData
 {
@@ -124,6 +160,7 @@ struct FMIPlayerLookData
 	double MouseWake = 0.0;             // counts of mouse travel in one frame that take the device back from a gamepad
 	double WheelDebounce = 0.0;         // s: at most one weapon swap from the mouse wheel per this long
 	FMIPadLookData Pad;
+	FMIAimAssistData Assist;
 };
 
 /** config.json "player.health" */

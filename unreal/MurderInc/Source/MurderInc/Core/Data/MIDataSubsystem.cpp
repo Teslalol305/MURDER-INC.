@@ -666,6 +666,48 @@ bool UMIDataSubsystem::ParseConfig(const TSharedPtr<FJsonObject>& Root, FMIConfi
 	P.Look.MouseDegreesPerCount = In.Number(TEXT("player.input.mouse"), RadToDeg);
 	P.Look.WheelDebounce = In.Number(TEXT("player.input.wheelDebounce"));
 	P.Look.MouseWake = In.Number(TEXT("player.input.mouseWake"));
+
+	// Aim assist: every number is data (player.input.assist), so it can be tuned without code.
+	{
+		FMIAimAssistData& A = P.Look.Assist;
+		const auto Side = [&In](const TCHAR* Name, FMIAssistSideData& Out)
+		{
+			const auto At = [Name](const TCHAR* Leaf) { return FString::Printf(TEXT("player.input.assist.%s.%s"), Name, Leaf); };
+			Out.Slow = In.Number(*At(TEXT("slow")));
+			Out.SlowRadius = In.Number(*At(TEXT("slowRadius")));
+			Out.MagCone = In.Number(*At(TEXT("magCone")));
+			Out.MagRate = In.Number(*At(TEXT("magRate")));
+			Out.SnapAngle = In.Number(*At(TEXT("snapAngle")));
+			Out.SnapTime = In.Number(*At(TEXT("snapTime")));
+		};
+		Side(TEXT("pad"), A.Pad);
+		Side(TEXT("mouse"), A.Mouse);
+		A.Range = In.Number(TEXT("player.input.assist.range"), MetresToCm);
+		A.ChestFraction = In.Number(TEXT("player.input.assist.chestFraction"));
+		A.SlowRate = In.Number(TEXT("player.input.assist.slowRate"));
+		A.MagFalloff = In.Number(TEXT("player.input.assist.magFalloff"));
+		A.MinSlow = In.Number(TEXT("player.input.assist.minSlow"));
+		A.DefaultStrength = FName(*In.String(TEXT("player.input.assist.defaultStrength")));
+		const TSharedPtr<FJsonObject> AssistObj = In.Object(TEXT("player.input.assist"));
+		const TArray<TSharedPtr<FJsonValue>>* List = nullptr;
+		if (AssistObj.IsValid() && AssistObj->TryGetArrayField(TEXT("strengths"), List))
+		{
+			for (const TSharedPtr<FJsonValue>& V : *List)
+			{
+				const TSharedPtr<FJsonObject>* O = nullptr;
+				FString Id;
+				double Scale = 1.0;
+				if (V->TryGetObject(O) && (*O)->TryGetStringField(TEXT("id"), Id) && (*O)->TryGetNumberField(TEXT("scale"), Scale))
+				{
+					A.Strengths.Add({FName(*Id), Scale});
+				}
+			}
+		}
+		if (A.Strengths.Num() == 0)
+		{
+			In.Missing.Add(TEXT("player.input.assist.strengths"));
+		}
+	}
 	FMIPadLookData& Pad = P.Look.Pad;
 	Pad.Deadzone = In.Number(TEXT("player.input.pad.deadzone"));
 	Pad.Trigger = In.Number(TEXT("player.input.pad.trigger"));

@@ -32,7 +32,9 @@
       "difficulty": "boss",
       "mode": "mission",
       "view": 1,
-      "time": "day"
+      "time": "day",
+      "aimAssist": true,
+      "aimAssistStrength": "normal"
     }
   },
   "brand": {
@@ -209,6 +211,21 @@
       "lockTimeout": 1.2,
       "lockRetries": 3,
       "wheelDebounce": 0.28,
+      "assist": {
+        "pad": { "slow": 0.45, "slowRadius": 2.5, "magCone": 6, "magRate": 22, "snapAngle": 10, "snapTime": 0.12 },
+        "mouse": { "slow": 0.8, "slowRadius": 2, "magCone": 3, "magRate": 10, "snapAngle": 5, "snapTime": 0.12 },
+        "range": 60,
+        "chestFraction": 0.35,
+        "slowRate": 14,
+        "magFalloff": 0.5,
+        "minSlow": 0.3,
+        "defaultStrength": "normal",
+        "strengths": [
+          { "id": "low", "scale": 0.6 },
+          { "id": "normal", "scale": 1 },
+          { "id": "high", "scale": 1.4 }
+        ]
+      },
       "pad": {
         "deadzone": 0.14,
         "trigger": 0.35,

@@ -211,6 +211,10 @@ bool UMIGameSubsystem::Boot(const FMIBootOptions& Options)
 	{
 		Settings.FromSave(*Save);
 	}
+	if (!Options.bPersist && !Options.bAimAssist)
+	{
+		Settings.bAimAssist = false;  // tests and replays run with scripted input: the assist (which turns the view) stays off unless a test asks
+	}
 	if (!Options.Mode.IsNone())
 	{
 		Settings.SetMode(Options.Mode);
@@ -692,6 +696,8 @@ void UMIGameSubsystem::MenuAdjust(int32 Dx, int32 Mult)
 	else if (Id == TEXT("invert")) bChanged = Settings.SetInvertY(!Settings.bInvertY);
 	else if (Id == TEXT("padnames")) bChanged = Settings.SetPadPlayStation(!Settings.bPadPlayStation);
 	else if (Id == TEXT("guide")) bChanged = Settings.SetGuide(!Settings.bGuide);
+	else if (Id == TEXT("aimassist")) bChanged = Settings.SetAimAssist(!Settings.bAimAssist);
+	else if (Id == TEXT("aimstrength")) bChanged = Settings.SetAimAssistStrength(FMISettings::Next(Settings.AimAssistStrength, R.AssistStrengths, Dx));
 	else if (Id == TEXT("view")) bChanged = Settings.SetView((Settings.View - R.ViewMin + Dx + (R.ViewMax - R.ViewMin + 1)) % (R.ViewMax - R.ViewMin + 1) + R.ViewMin);
 	if (bChanged)
 	{
@@ -827,6 +833,7 @@ void UMIGameSubsystem::ApplySettings()
 		{
 			PC->Sensitivity = Settings.Sens;
 			PC->bInvertY = Settings.bInvertY;
+			PC->SetAimAssist(Settings.bAimAssist, Settings.AimAssistStrength);
 		}
 	}
 	if (!Boots.bPersist)

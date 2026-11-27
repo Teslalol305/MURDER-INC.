@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "Player/MIAimAssist.h"
 #include "Player/MILookInput.h"
 #include "Player/MISwitchInput.h"
 #include "MIPlayerController.generated.h"
@@ -136,6 +137,16 @@ public:
 	const FMISwitchInput& GetSwitch() const { return Switch; }
 	FMISwitchInput& GetSwitch() { return Switch; }
 
+	/**
+	 * The aim assist (Player/MIAimAssist.h, docs/unreal/DECISIONS.md 2026-11-27 ~22:20): the Settings switch and its
+	 * strength id (low, normal, high). Off until the game flow applies the settings (a bare controller in a test has none).
+	 */
+	void SetAimAssist(bool bOn, FName Strength);
+	bool IsAimAssistOn() const { return bAimAssist; }
+	const FMIAimAssist& GetAimAssist() const { return Assist; }
+	/** The look rate's factor the assist gives right now (1 when it is off or nothing is under the crosshair). */
+	double GetAssistSlow() const { return bAimAssist ? Assist.GetSlow() : 1.0; }
+
 	/** User settings (spec 01 4.8). */
 	double Sensitivity = 1.0;
 	bool bInvertY = false;
@@ -157,6 +168,9 @@ private:
 	double Now() const;
 	/** Mouse travel of one frame or event, in the web game's pixels (X right, Y up): the look, or the weapon wheel. */
 	void MouseLook(const FVector2D& Pixels);
+	/** Gathers the Goons the assist may help (live, within reach, a clear line to the chest) and runs it; writes the
+	 *  turn it asks for into the pawn's input. Returns the look rate's factor. */
+	double UpdateAimAssist(double Dt, bool bLive);
 	/** Which device an event came from (spec 01 3.16). */
 	void NoteDevice(const FKey& Key, EInputEvent Event, float Value);
 	void UsePad(bool bPad);
@@ -176,6 +190,13 @@ private:
 	double MouseDegreesPerCount = 0.0;
 	double WheelDebounce = 0.0;
 	double MouseWake = 0.0;
+
+	// The aim assist.
+	FMIAimAssist Assist;
+	bool bAimAssist = false;
+	double AssistStrength = 1.0;
+	double AssistSlow = 1.0;
+	TArray<FVector2D> AssistErrors;  // scratch, kept to avoid an allocation a frame
 
 	// The gamepad.
 	FMIPadLook PadLook;

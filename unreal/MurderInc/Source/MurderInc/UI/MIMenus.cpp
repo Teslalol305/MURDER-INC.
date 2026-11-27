@@ -91,6 +91,13 @@ void FMIMenu::Build(EMIMenuScreen InScreen, const FMISettings& S, const FMIText&
 		// The Unreal build's own row too: the story's ground path and the next step's guide marker (docs/unreal/PLAY.md,
 		// guide lane); off, the objectives keep their plain markers.
 		Items.Add(Item(TEXT("guide"), TEXT("Ground path"), S.bGuide ? Ui.Get(TEXT("panel.on")) : Ui.Get(TEXT("panel.off")), true));
+		// The aim assist's two rows (docs/unreal/DECISIONS.md 2026-11-27 ~22:20): off or on, and how strong.
+		Items.Add(Item(TEXT("aimassist"), TEXT("Aim assist"), S.bAimAssist ? Ui.Get(TEXT("panel.on")) : Ui.Get(TEXT("panel.off")), true));
+		{
+			FString Level = S.AimAssistStrength.ToString();
+			if (Level.Len() > 0) Level[0] = FChar::ToUpper(Level[0]);
+			Items.Add(Item(TEXT("aimstrength"), TEXT("Assist strength"), Level, true));
+		}
 		Items.Add(Item(TEXT("back"), Ui.Get(TEXT("panel.close"))));
 		break;
 	case EMIMenuScreen::Dead:

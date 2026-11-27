@@ -12,6 +12,10 @@
 #include "World/MIExplosive.h"
 #include "Core/MIEvents.h"
 #include "Enemies/MIEnemies.h"
+#include "Weapons/MICombatSubsystem.h"
+#include "Enemies/MIEnemyActors.h"
+#include "Components/CapsuleComponent.h"
+#include "Core/MIMath.h"
 
 #include "Core/Data/MIDataSubsystem.h"
 #include "EnhancedInputComponent.h"
@@ -145,6 +149,8 @@ void AMIPlayerController::BeginPlay()
 	MouseDegreesPerCount = Config.Player.Look.MouseDegreesPerCount;
 	MouseWake = Config.Player.Look.MouseWake;
 	PadLook.Config = Config.Player.Look.Pad;
+	Assist.Data = Config.Player.Look.Assist;
+	AssistStrength = Assist.Data.ScaleOf(Assist.Data.DefaultStrength);
 	WheelDebounce = Config.Player.Look.WheelDebounce;
 	Switch.Config.WheelDebounce = WheelDebounce;
 	if (const UMIDataSubsystem* Data = UMIDataSubsystem::Get(this); Data && Data->IsLoadoutLoaded())
@@ -529,7 +535,8 @@ void AMIPlayerController::MouseLook(const FVector2D& Pixels)
 		Switch.MouseMove(Pixels);  // the weapon wheel takes the mouse while it is open
 		return;
 	}
-	const double K = MouseDegreesPerCount * Sensitivity;
+	// Over a target the aim assist slows the mouse too (the last frame's factor: the events come before the tick).
+	const double K = MouseDegreesPerCount * Sensitivity * (IsPadActive() ? 1.0 : AssistSlow);
 	// Mouse up is +Y here; the rules look down for +Y.
 	C->GetInput().LookDegrees += FVector2D(Pixels.X * K, -Pixels.Y * K * (bInvertY ? -1.0 : 1.0));
 }
@@ -601,7 +608,10 @@ void AMIPlayerController::PlayerTick(float DeltaTime)
 	const bool bLive = C && C->TakesLook();
 	// The right stick turns the view, slowed over an enemy while the pad is the device in use (the weapon rules work
 	// the slow-down out; it is 1 otherwise). The boost follows the stick whether or not the look is taken.
-	const double AimSlow = C && C->GetWeapon() && C->GetWeapon()->IsReady() ? C->GetWeapon()->GetRules().GetAimSlow() : 1.0;
+	// The assist's slow-down (pad 0.45 over a Goon) replaces the weapon's old 0.55 while the assist is on: the deeper wins.
+	AssistSlow = UpdateAimAssist(DeltaTime, bLive);
+	const double WeaponSlow = C && C->GetWeapon() && C->GetWeapon()->IsReady() ? C->GetWeapon()->GetRules().GetAimSlow() : 1.0;
+	const double AimSlow = bAimAssist ? FMath::Min(WeaponSlow, AssistSlow) : WeaponSlow;
 	const FVector2D Turn = PadLook.Step(RightStick, DeltaTime, Sensitivity, AimSlow, bInvertY);
 	if (bLive && !Switch.BlocksLook())
 	{
@@ -629,6 +639,94 @@ void AMIPlayerController::PlayerTick(float DeltaTime)
 	{
 		--SwallowTicks;
 	}
+}
+
+void AMIPlayerController::SetAimAssist(bool bOn, FName Strength)
+{
+	bAimAssist = bOn;
+	AssistStrength = Assist.Data.ScaleOf(Strength);
+	if (!bOn)
+	{
+		Assist.Reset();
+		AssistSlow = 1.0;
+	}
+}
+
+double AMIPlayerController::UpdateAimAssist(double Dt, bool bLive)
+{
+	AMIPlayerCharacter* C = GetMICharacter();
+	UWorld* World = GetWorld();
+	if (!bAimAssist || !bLive || !C || !World || Switch.BlocksLook() || !C->GetPlayerRules().bAlive)
+	{
+		Assist.Reset();
+		return 1.0;
+	}
+	const FMIPlayerRules& R = C->GetPlayerRules();
+	const FVector Eye = R.Eye;
+	const FVector Aim = R.Forward.GetSafeNormal();
+	const double AimYaw = FMath::Atan2(Aim.Y, Aim.X);
+	const double AimPitch = FMath::Asin(FMath::Clamp(Aim.Z, -1.0, 1.0));
+	const bool bPad = bPadActive;
+	const double Reach = Assist.Reach(bPad, AssistStrength);
+
+	struct FCandidate { double Angle; FVector2D Error; const AMIGoon* Goon; FVector Point; };
+	TArray<FCandidate, TInlineAllocator<8>> Near;
+	for (TActorIterator<AMIGoon> It(World); It; ++It)
+	{
+		const AMIGoon* G = *It;
+		if (!G->IsMIDamageableAlive() || !G->GetBodyHit())
+		{
+			continue;
+		}
+		const UCapsuleComponent* Body = G->GetBodyHit();
+		const FVector Point = Body->GetComponentLocation() + FVector::UpVector * (Body->GetScaledCapsuleHalfHeight() * Assist.Data.ChestFraction);
+		const FVector To = Point - Eye;
+		const double Dist = To.Size();
+		if (Dist < 1.0 || Dist > Assist.Data.Range)
+		{
+			continue;
+		}
+		const FVector Dir = To / Dist;
+		const FVector2D Error(MI::WrapDegrees(MI::RadToDeg(FMath::Atan2(Dir.Y, Dir.X) - AimYaw)),
+			MI::RadToDeg(FMath::Asin(FMath::Clamp(Dir.Z, -1.0, 1.0)) - AimPitch));
+		const double Angle = Error.Size();
+		if (Angle <= Reach)
+		{
+			Near.Add({Angle, Error, G, Point});
+		}
+	}
+	// A line of sight for the nearest few in angle only: the bullets' own channel, so cover and walls stop it as they stop a round.
+	Near.Sort([](const FCandidate& A, const FCandidate& B) { return A.Angle < B.Angle; });
+	AssistErrors.Reset();
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(MIAssistSight), false, C);
+	for (int32 I = 0; I < Near.Num() && I < 4; ++I)
+	{
+		FHitResult Hit;
+		if (World->LineTraceSingleByChannel(Hit, Eye, Near[I].Point, MIBulletChannel, Params) && Hit.GetActor() == Near[I].Goon)
+		{
+			AssistErrors.Add(Near[I].Error);
+		}
+	}
+
+	FMIAssistFrame F;
+	F.bOn = true;
+	F.bPad = bPad;
+	F.Strength = AssistStrength;
+	F.bFire = C->GetInput().bFire;
+	F.bAds = C->GetInput().bAds;
+	F.Dt = Dt;
+	// The player's own turn this frame, as the look gathered it (X right, Y up).
+	F.PlayerTurn = FVector2D(C->GetInput().LookDegrees.X, -C->GetInput().LookDegrees.Y);
+	if (bPad)
+	{
+		F.PlayerTurn += MILook::Deadzone(RightStick, PadLook.Config.Deadzone);  // the stick's direction (the pad's turn is worked out after this)
+	}
+	FMIAssistResult Out = Assist.Step(F, AssistErrors);
+	if (!Out.Turn.IsZero())
+	{
+		C->GetInput().AssistDegrees += Out.Turn;
+	}
+	return Out.Slow;
 }
 
 void AMIPlayerController::MIInput(const FString& Action, float Value)

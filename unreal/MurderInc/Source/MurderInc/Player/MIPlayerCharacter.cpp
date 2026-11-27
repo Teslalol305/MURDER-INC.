@@ -1,5 +1,7 @@
 #include "Player/MIPlayerCharacter.h"
 
+#include "Core/MIMath.h"
+
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/PoseableMeshComponent.h"
@@ -444,6 +446,15 @@ void AMIPlayerCharacter::EarlyTick(float DeltaSeconds)
 	}
 	// The rules' view of the body is the capsule's.
 	Rules.Feet = GetFeet();
+
+	// The aim assist's turn: the view moves by exactly that, whatever the aimed look rate (zero unless the assist is on).
+	if (!Input.AssistDegrees.IsZero())
+	{
+		const double Limit = Tuning.Player.Look.PitchLimit;
+		Rules.Yaw = MI::WrapDegrees(Rules.Yaw + Input.AssistDegrees.X);
+		Rules.Pitch = FMath::Clamp(Rules.Pitch + Input.AssistDegrees.Y, -Limit, Limit);
+		Input.AssistDegrees = FVector2D::ZeroVector;
+	}
 
 	FMIPlayerInputFrame Frame;
 	Frame.Move = Input.Move;

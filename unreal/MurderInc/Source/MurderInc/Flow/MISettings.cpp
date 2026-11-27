@@ -92,6 +92,27 @@ bool FMISettings::LoadDefaults(FMISettings& Out, FString& OutError)
 	Out.Volume = Def->GetNumberField(TEXT("volume"));
 	Out.Fov = Def->GetNumberField(TEXT("fov"));
 	Out.View = static_cast<int32>(Def->GetNumberField(TEXT("view")));
+	// The aim assist: on and Normal unless the data says otherwise; the strengths are the ones the assist block names.
+	Def->TryGetBoolField(TEXT("aimAssist"), Out.bAimAssist);
+	if (const TSharedPtr<FJsonObject>* Input = nullptr; Config->TryGetObjectField(TEXT("player"), Input)
+		&& (*Input)->TryGetObjectField(TEXT("input"), Input) && (*Input)->TryGetObjectField(TEXT("assist"), Input))
+	{
+		const TArray<TSharedPtr<FJsonValue>>* List = nullptr;
+		if ((*Input)->TryGetArrayField(TEXT("strengths"), List))
+		{
+			for (const TSharedPtr<FJsonValue>& V : *List)
+			{
+				const TSharedPtr<FJsonObject>* O = nullptr;
+				FString Id;
+				if (V->TryGetObject(O) && (*O)->TryGetStringField(TEXT("id"), Id)) Out.Rules.AssistStrengths.Add(FName(*Id));
+			}
+		}
+	}
+	FString Strength;
+	if (Def->TryGetStringField(TEXT("aimAssistStrength"), Strength) && Out.Rules.AssistStrengths.Contains(FName(*Strength)))
+	{
+		Out.AimAssistStrength = FName(*Strength);
+	}
 	return true;
 }
 
@@ -205,6 +226,16 @@ bool FMISettings::SetGuide(bool V)
 	return true;
 }
 
+bool FMISettings::SetAimAssist(bool V)
+{
+	if (V == bAimAssist)
+	{
+		return false;
+	}
+	bAimAssist = V;
+	return true;
+}
+
 bool FMISettings::SetBest(double Score)
 {
 	const int32 N = static_cast<int32>(FMath::FloorToDouble(Score + 0.5));
@@ -227,6 +258,8 @@ void FMISettings::ToSave(UMISaveGame& Save) const
 	Save.bInvertY = bInvertY;
 	Save.bPadPlayStation = bPadPlayStation;
 	Save.bGuide = bGuide;
+	Save.bAimAssist = bAimAssist;
+	Save.AimAssistStrength = AimAssistStrength.ToString();
 	Save.Volume = Volume;
 	Save.Fov = VerticalFov();   // the old field, kept as the vertical equivalent for a build that still reads it
 	Save.FovWide = Fov;
@@ -244,6 +277,8 @@ void FMISettings::FromSave(const UMISaveGame& Save)
 	SetInvertY(Save.bInvertY);
 	SetPadPlayStation(Save.bPadPlayStation);
 	SetGuide(Save.bGuide);
+	SetAimAssist(Save.bAimAssist);
+	SetAimAssistStrength(FName(Save.AimAssistStrength));
 	SetVolume(Save.Volume);
 	SetFov(Save.FovWide);
 	SetView(Save.View);

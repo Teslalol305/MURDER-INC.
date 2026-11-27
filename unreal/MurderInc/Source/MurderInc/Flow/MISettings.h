@@ -44,6 +44,9 @@ public:
 	UPROPERTY() bool bPadPlayStation = false;
 	/** Story guidance: the ground path and the objective markers (docs/unreal/PLAY.md, guide lane). On by default. */
 	UPROPERTY() bool bGuide = true;
+	/** Aim assist (DECISIONS.md 2026-11-27 ~22:20): on by default; the strength is a data id (low, normal, high). */
+	UPROPERTY() bool bAimAssist = true;
+	UPROPERTY() FString AimAssistStrength = TEXT("normal");
 	UPROPERTY() double Volume = 0.8;
 	UPROPERTY() double Fov = 74.0;               // the old vertical field (v5 and earlier saves): not read any more
 	/** The field of view the Settings slider shows: horizontal degrees at 16:9 (the owner, DECISIONS.md 2026-11-26: default 90). */
@@ -71,6 +74,9 @@ struct MURDERINC_API FMISettings
 	bool bPadPlayStation = false;
 	/** The Unreal build's own setting: the story's ground path and objective markers (on by default). */
 	bool bGuide = true;
+	/** The Unreal build's own settings: the aim assist (docs/unreal/DECISIONS.md 2026-11-27 ~22:20), on by default, and how strong. */
+	bool bAimAssist = true;
+	FName AimAssistStrength = TEXT("normal");
 	int32 View = 1;
 	int32 Best = 0;       // stored best
 	int32 SessionBest = 0;
@@ -84,6 +90,7 @@ struct MURDERINC_API FMISettings
 		double RepeatAfter = 0.38, RepeatEvery = 0.17, FastAfter = 1.2, FastMult = 5;
 		int32 ViewMin = 1, ViewMax = 3;
 		TArray<FName> Qualities, Modes, Difficulties, Times;
+		TArray<FName> AssistStrengths;  // config.json player.input.assist.strengths, in cycling order
 	} Rules;
 
 	/** Defaults (config.json) and the validation table (rules.json). */
@@ -104,6 +111,9 @@ struct MURDERINC_API FMISettings
 	bool SetInvertY(bool V);
 	bool SetPadPlayStation(bool V);
 	bool SetGuide(bool V);
+	bool SetAimAssist(bool V);
+	/** One of Rules.AssistStrengths; anything else changes nothing. */
+	bool SetAimAssistStrength(FName V) { return SetName(AimAssistStrength, V, Rules.AssistStrengths); }
 	/** Cycles a named setting through its accepted values. */
 	static FName Next(FName Current, const TArray<FName>& Values, int32 Step);
 
