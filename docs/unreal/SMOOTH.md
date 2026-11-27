@@ -17,7 +17,7 @@ so "every number better than or equal to version 4" (DECISIONS.md 2026-11-25 ~21
    **5 s** for version 4 (every run). The pipeline cache's start-up work is not moved (READY.md says the same).
 
 Better than or equal to version 4: the worst frames, every frame over 100 ms, the PSO hitch frames, the Story front end and Story run, and the holdout
-(version 4 crashes at 126 s, again). The head had 0 frames over 100 ms in all 8 runs.
+(version 4 crashes at 126 s, again). The head had 0 frames over 100 ms in all 6 measured runs (menus x3, Story, both holdouts).
 
 ### Conditions (identical for both packages, every run)
 
@@ -55,7 +55,7 @@ Better than or equal to version 4: the worst frames, every frame over 100 ms, th
   fight section played twice (`sm-long15b.txt` = lines 1 to 10 of `sm-long15.txt`, lines 11 to 186 twice, lines 187 to 189; 68 fights). Its 10 frames
   over 50 ms are all of one kind: no thread busy (game 2 to 3 ms, render 4 to 9, RHI 2 to 4, GPU 11 to 14) and a frame of 45 to 91 ms; the pacer log
   says `held 213 frames (worst wait 88.6 ms, time-outs 0)`. That is the stream waiting, not the game working. None is over 100 ms. Not one of the head's
-  runs has a crash, a GC or PSO hitch, or a load inside a long frame (the only loads are 391 `FlushAsyncLoading` in the first 10 s of the front end).
+  runs has a crash, and no long frame of any head run carries a GC, a PSO hitch or a load (the only loads are 391 `FlushAsyncLoading` in the first 10 s of the front end).
 - **Version 4 has no holdout number to compare**: it crashes at 126.4 s in the same place as at the v6 prover's run (`v4-long15` today, with a viewer; the v6
   `v4-long-nv`, without). I did not repeat it with the longer script.
 - Version 4's front end of the Story run has 4 PSO hitch frames and 40 `FlushAsyncLoading`; the head has 0 and 0 in play.
@@ -75,7 +75,7 @@ traced runs reproduce the counts (head 16 frame periods over 25 ms, version 4 6;
 |---|---|---|
 | `Tick_Engine` (the world's actor ticks) | **+5.5 to +10.2 ms in 19 frames** (117 ms in all) | +2.6 to +11.3 ms in 4 frames (25 ms) |
 | `Slate::Tick` (widgets) | +1.5 to +4.1 ms in 13 frames | **+5.9 to +8.4 ms in 10 frames** (61 ms) |
-| `FCoreDelegates::OnSamplingInput` (the stream's input sampling) | 16 to 37 ms in 5 frames (and 250 ms at 78 s of the traced run) | 8 to 12 ms in 3 frames (and 139 ms at 11 s) |
+| `FCoreDelegates::OnSamplingInput` (the stream's input sampling) | 16 to 37 ms in 6 frames (and 250 ms at 78 s of the traced run) | 8 to 12 ms in 3 frames (and 139 ms at 10.9 s) |
 | `Sync_RenderingThread` (waits for the render thread) | 8.7 ms in 1 frame (470 ms in the traced run's 738 ms frame at 78 s, which is not in any run without a trace) | 5 to 57 ms in 3 frames |
 
 So the head spends **a different 6 ms in the same frames**: version 4's UI tick (Slate) cost 6 to 8 ms in the 10 frames where it was long; the head's Slate
