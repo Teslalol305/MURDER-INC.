@@ -165,8 +165,8 @@ passes (decal text is on the list). The level data was not changed.
 From the review of round 3 (every item re-checked; the checks and the previews were re-run and looked at).
 
 - **Vehicles.** The Block's sedan, taxi, van, box truck and IPX truck are 168k to 179k triangles each; `_chinatown_lod.VEHICLES` makes a Canal
-  version of each (`SM_Vehicle_CT_{Sedan,Taxi,Van,BoxTruck,IPXTruck}`: flat faces dissolved, then collapsed to 16k / 16k / 16k / 18k / 18k, same
-  slots, size and pivot) with a LOD1 of 3.8k to 4.5k drawn past 12 m. The thin door-line and grille ribbons of the Block's meshes are dropped
+  version of each (`SM_Vehicle_CT_{Sedan,Taxi,Van,BoxTruck,IPXTruck}`: flat faces dissolved, then collapsed to 26k / 26k / 26k / 28k / 28k and smooth-shaded, same
+  slots, size and pivot; at 16k the hoods were lumpy, at 26k the grille, hood and door lines read) with a LOD1 of 4.5k to 5.5k drawn past 12 m. The thin door-line and grille ribbons of the Block's meshes are dropped
   (the lane's 34 mm floor). The slots keep the Block's textures and `paint_default`; the paint is a tint mask, so every placement carries its own
   `paint` colour (linear RGB, from `_chinatown_streets.PAINT`): silver, white, navy, maroon, green and charcoal sedans, yellow taxis, white, grey,
   blue and red vans and trucks, the IPX truck black. In Unreal the MI parameter is set from that field. 14 colliders (sedan 29, 78, 80, 82, taxi 31, 79,
@@ -191,11 +191,11 @@ From the review of round 3 (every item re-checked; the checks and the previews w
   stand. Both are nearer to hero grade; neither is a scan-quality asset.
 - **Wear.** The grime band and scuffs now also run along the north row N1..N6 (3 m pieces and scuffs: 38 more decals, `wear_north`); the market
   hall's walls and the structures' fronts are still without (they are Unreal materials' job: vertex-painted grime), and the decal page is still 2K.
-- **The budget is an estimate.** Worst view 1 is **0.90 M triangles drawn** (3.54 M at LOD0; the vehicles add about 0.11 M). That number assumes
+- **The budget is an estimate.** Worst view 1 is **0.93 M triangles drawn** (3.68 M at LOD0; the vehicles add about 0.14 M). That number assumes
   the far proxies switch in at 30 m, the props' LOD1 at 12 m and LOD2 at 30 m: all Unreal steps nobody has done. With **no proxies at all** (the
   HLOD late) the same view is **2.81 M**, over the 1.5 M ceiling, and the facades' modules have no LOD of their own. The check prints both; measure on
   the box (`stat SceneRendering`, A4000, no Nanite) before trusting either.
-- Checks: `_chinatown_check.py` ALL CHECKS PASS (330 assets, 0 GLBs missing, 2264 placements, 0 scaled, lods 80 LOD1 / 22 LOD2 and 0 mismatches);
+- Checks: `_chinatown_check.py` ALL CHECKS PASS (330 assets (838k triangles), 0 GLBs missing, 2264 placements, 0 scaled, lods 80 LOD1 / 22 LOD2 and 0 mismatches);
   `--build`: 330 assets, 0 failing, 0 over budget, no thin member; `tools/levels/check_level.py --level chinatown` and `tools/names/check_names.py`
   pass. Nothing the game loads changed.
 
@@ -218,7 +218,7 @@ interiors from inside) and `ct_graffiti` (the VULTURES tag and the grime band on
 - The decal page is 2K at 256 to 640 px per metre; the wear pass covers the round-2 ground walls and the north row (4c) and not the market
   hall's walls or the structures' fronts.
 - **Every budget number here is an estimate.** The far proxies, the LOD switch distances and the HLOD are an Unreal step nobody has done; with
-  no proxies worst view 1 is 2.81 M triangles against the 1.5 M ceiling (0.90 M with them). Measure on the box before trusting either.
+  no proxies worst view 1 is 2.8 M triangles against the 1.5 M ceiling (0.93 M with them). Measure on the box before trusting either.
 - The Unreal side, not done: import, the placement actors from `placements_chinatown.json` (with each vehicle's `paint` set on its MI), the decals
   as decal actors, the far proxies as LOD1 / HLOD, the LOD1/LOD2 switch distances, a look at the stair, the market, the interiors, the vehicles
   and the graffiti under the real light on the box. Nothing here has been seen in the engine.
