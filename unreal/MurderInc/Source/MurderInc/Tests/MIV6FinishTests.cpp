@@ -190,9 +190,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIV6LastDroneSweepTest, "MurderInc.V6.LastDron
 bool FMIV6LastDroneSweepTest::RunTest(const FString& Parameters)
 {
 	using namespace MIV6Private;
-	// A charging Buzzard must reach the player wherever the player stands and wherever the holdout can leave the Buzzard (e2e
-	// finding: one sat 18 m away for 40 s). The player stands at points over the whole Block (it falls to the ground there);
-	// at each, a ring of charging Buzzards 18 m out; every one must come within 8 m or see the player within 18 s (10 s of being walled off, then set down in the open).
+	// A charging Buzzard must reach the player wherever the holdout can leave it (e2e finding: one sat 22 m away under the El for
+	// 40 s). every one must come within 8 m or see the player within 22 s (10 s of no progress, then set down in the open).
 	FWorld W;
 	if (!W.Boot(*this))
 	{
@@ -202,49 +201,49 @@ bool FMIV6LastDroneSweepTest::RunTest(const FString& Parameters)
 	for (int32 I = 0; I < 30; ++I) W.Step();
 	FMIEnemySpawnOptions Opts;
 	Opts.bAlerted = true;
+	// The player where a run is played (the start, the reels, the truck) and the level.json air spawn points a Buzzard comes from.
+	const FVector2D Stands[] = {{-37.4, 8.15}, {-4.0, 1.0}, {35.25, -22.5}, {35.9, 29.7}, {0.0, 0.0}};
+	const FVector Air[] = {{-17, 9.6, -21}, {-3, 9.3, -17}, {8.5, 9.6, -24}, {16.5, 13.6, -21}, {-13, 8.8, -8.8}, {10, 9.4, 8.9}, {-10, 9.6, 20}, {8, 10.8, 18.5}, {-23, 16.2, 22},
+		{4, 8.6, 28.5}, {30, 9.2, -27}, {40, 9.6, -18}, {35, 9, -8.9}, {31, 10, 20}, {41.5, 12.6, 16}, {43, 9.2, 26.5}, {40.5, 9.4, 9}};
 	int32 Total = 0, Stuck = 0;
-	for (double PX = -60.0; PX <= 60.0; PX += 20.0)
+	for (const FVector2D& Stand : Stands)
 	{
-		for (double PZ = -60.0; PZ <= 60.0; PZ += 20.0)
+		W.Game->GetEnemies().Clear();
+		W.Player->SetActorLocation(MI::Web::ToUnreal(FVector(Stand.X, 1.0, Stand.Y)), false, nullptr, ETeleportType::TeleportPhysics);
+		for (int32 I = 0; I < 15; ++I) W.Step();
+		const FVector Me = MI::Web::FromUnreal(W.Player->GetPlayerRules().Feet);
+		struct FProbe { int32 Id; FVector From; double Nearest; bool bSees; };
+		TArray<FProbe> Probes;
+		for (const FVector& From : Air)
 		{
-			W.Game->GetEnemies().Clear();
-			W.Player->SetActorLocation(MI::Web::ToUnreal(FVector(PX, 1.0, PZ)), false, nullptr, ETeleportType::TeleportPhysics);
-			for (int32 I = 0; I < 15; ++I) W.Step();
-			const FVector Me = MI::Web::FromUnreal(W.Player->GetPlayerRules().Feet);
-			struct FProbe { int32 Id; FVector From; double Nearest; bool bSees; };
-			TArray<FProbe> Probes;
-			for (int32 K = 0; K < 6; ++K)
+			FMIEnemy* B = W.Game->GetEnemies().Spawn(MIEnemy::EType::Buzzard, From, Opts);
+			if (B)
 			{
-				const double A = K * UE_DOUBLE_PI / 3.0;
-				FMIEnemy* B = W.Game->GetEnemies().Spawn(MIEnemy::EType::Buzzard, FVector(Me.X + 18.0 * FMath::Cos(A), 6.0, Me.Z + 18.0 * FMath::Sin(A)), Opts);
-				if (B && B->Pos.Y < 6.5)  // a spawn the solids pushed up onto a roof is not a place the holdout leaves a Buzzard
+				B->bCharge = true;
+				Probes.Add({B->Id, B->Pos, 1e9, false});
+			}
+		}
+		for (int32 F = 0; F < 30 * 22; ++F)
+		{
+			W.Step();
+			const FVector P = MI::Web::FromUnreal(W.Player->GetPlayerRules().Feet);
+			for (FProbe& Pr : Probes)
+			{
+				if (const FMIEnemy* E = W.Game->GetEnemies().Find(Pr.Id))
 				{
-					B->bCharge = true;
-					Probes.Add({B->Id, B->Pos, 1e9, false});
+					Pr.Nearest = FMath::Min(Pr.Nearest, FVector::Dist(E->Pos, P + FVector(0, 1.0, 0)));
+					Pr.bSees = E->SinceSeen < 2.0;
 				}
 			}
-			for (int32 F = 0; F < 30 * 18; ++F)
+		}
+		for (const FProbe& Pr : Probes)
+		{
+			Total++;
+			// It came within 8 m, or it ends the wave the other way: it sees the player, so it fires and can be shot.
+			if (Pr.Nearest >= 8.0 && !Pr.bSees)
 			{
-				W.Step();
-				const FVector P = MI::Web::FromUnreal(W.Player->GetPlayerRules().Feet);
-				for (FProbe& Pr : Probes)
-				{
-					if (const FMIEnemy* E = W.Game->GetEnemies().Find(Pr.Id))
-					{
-						Pr.Nearest = FMath::Min(Pr.Nearest, FVector::Dist(E->Pos, P + FVector(0, 1.0, 0)));
-						Pr.bSees = E->SinceSeen < 2.0;
-					}
-				}
-			}
-			for (const FProbe& Pr : Probes)
-			{
-				Total++;
-				// It came within 8 m, or it ends the wave the other way: it sees the player, so it fires and can be shot.
-				if (Pr.Nearest >= 8.0 && !Pr.bSees)
-				{
-					Stuck++;
-					AddInfo(FString::Printf(TEXT("player at (%.0f, %.0f): charging Buzzard from (%.0f, %.1f, %.0f) stayed %.1f m away and does not see the player"), Me.X, Me.Z, Pr.From.X, Pr.From.Y, Pr.From.Z, Pr.Nearest));
-				}
+				Stuck++;
+				AddInfo(FString::Printf(TEXT("player at (%.1f, %.1f): charging Buzzard from (%.1f, %.1f, %.1f) stayed %.1f m away and does not see the player"), Me.X, Me.Z, Pr.From.X, Pr.From.Y, Pr.From.Z, Pr.Nearest));
 			}
 		}
 	}

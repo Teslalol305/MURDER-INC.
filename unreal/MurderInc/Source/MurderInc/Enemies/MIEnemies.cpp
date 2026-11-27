@@ -1766,12 +1766,13 @@ double FMIEnemyField::Target(FMIEnemy& E, double Dt)
 		// Straight at the player at full speed (the last unhurt drones of a Hold the Block wave); the flight code still keeps it
 		// off the walls. It stops 3 m short of the player's eye so it does not sit inside the capsule.
 		const FVector At(Player.Pos.X, Player.Pos.Y + T.AimHeight, Player.Pos.Z);
-		// A charge the buildings stop (e2e hold run: the last Buzzard sat 18 m away behind them for 40 s and the wave never
-		// ended): after 10 s with the player neither within 8 m nor in its sight, it is set down 9 to 13 m from the player
+		// A charge the buildings stop (e2e hold run: the last Buzzard sat 22 m away under the El for 40 s and the wave never
+		// ended): after 10 s without getting 2 m closer (and not within 8 m), it is set down 9 to 13 m from the player
 		// with a clear line to them, so it can attack and be shot.
 		const double Near = FVector::Dist(E.Pos, At);
-		if (Near < 8.0 || E.SinceSeen < 2.0)
+		if (Near < 8.0 || Near < E.ChargeBest - 2.0)
 		{
+			E.ChargeBest = Near;
 			E.ChargeStuck = 0;
 		}
 		else if ((E.ChargeStuck += Dt) > 10.0)
