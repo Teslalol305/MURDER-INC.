@@ -5,6 +5,94 @@ weapons and gameplay). DECISIONS.md (2026-11-25, ~21:00) makes this file's verdi
 lane; every number names the run it comes from. Severities: blocker (a freeze, a crash, a stuck state, or under 50 fps
 sustained on E3DS-class limits), must-fix (a player would feel or see it), should-fix, nit.
 
+## v9 performance engineer (2026-11-27, 15:58 to 17:40 UTC, code of `daa4f48`, new GPU box): the cost named, fixed, and the package measured against version 4
+
+**Verdict (this lane's, on the numbers below): smooth by the bar of DECISIONS.md criterion 4: every number is better than or equal to version 4's, three clean runs of each, with the
+exceptions stated in "Where the head is not better" (the worst frame, equal within the noise both builds share). The independent prover's confirmation is still owed (this lane is not
+the independent check).** Commit `daa4f48` = `66bfb3d` plus one change (the card cache, below). Full suite on it: `TESTS OK passed=228 failed=0 skipped=0` (`MurderInc`, 207 s, golden
+replays included, nothing weakened, skipped or re-recorded; `/project/ue/int/repo`, `MI_MCP_PORT=8020`, log `/project/ue/logs/int-repo/test.log` on the box). Package of `daa4f48` built
+(`package-cloud.sh all`, `ALL OK` 17:00:42, `MI_PARTS=0`, never uploaded): `/project/ue/int/pkg/MurderInc-E3DS.zip` 2.4 GB, sha256
+`1c0f574bc9f2e4ce648a6da47b06da70c29e6d8b696b02bbf58ed764f44418f0`, `/project/ue/int/pkg/BUILD.txt` names the commit. (The box was replaced after the earlier one ended; `/project` survived,
+the package of `66bfb3d` was found intact and its sha256 matched before this work began.)
+
+### 1. Which tick costs 6 to 10 ms in the Loadout: proven, and fixed
+
+Not an actor's tick that assembles a gun (the v8 section above shows `AMIShowroom::Tick` at most 0.49 ms a call, here again: 8,639 calls, 122 ms, max 0.49 ms in trace `m1`).
+Trace `m1` (the package of `66bfb3d`, `-trace=cpu,gpu,frame,bookmark,log -statnamedevents`, the same `guns-keys.txt` run, game-thread export, `tools/box/cloud/smooth-v8/ins.sh`, `mi.py`):
+every game-thread frame of 7 to 8 ms in the menus (`GameEngine Tick` 7.3, 7.9 ms at 25.1 s and 26.7 s; 11 such frames, one per key that changes the Loadout) is
+`UMIFrontEnd::Tick` > `FrontEnd WidgetSync` > `SMIFrontEnd::Rebuild` > `SMIFrontEnd Loadout` (4.6 to 4.8 ms) with **six `SMIFrontEnd GunCard` calls of 0.57 to 0.81 ms each (3.7 ms)** and
+`ChildSlot` 0.6 to 1.5 ms (the old tree's destruction). So the 6 to 10 ms is the screen rebuilt on the game thread on every key press, six rack cards of about 40 widgets each built again though
+only the focus ring of two had changed. No mesh assembly or material work happens in any tick (`GunAssembly AssembleBegin/Part/End`: 22 + 10 + 22 calls, each 0.27 ms or less).
+
+**Fix (`daa4f48`, `UI/SMIFrontEnd.cpp` and `.h`): a gun card is built again only when what it shows changed.** `GunCard` forms one signature string of everything the card draws (focus, carried
+slot, name, class line, tag, the stat line, the slots line, the carried tag, the bench key glyph, the six bar values) and keeps the built widget per gun (`CardCache`); the same signature gives
+the widget built before (re-parented into the new tree: `SWidget::AssignParentWidget` supports it, the old slot detaches only if still the parent). Visuals identical: the same widgets, the
+same text. Pixel comparison, `m-menus1` (before) against `n2-menus1` (after), same script, 1920 x 1080 frames: left control column pixels differing by more than 40 of 255: 32 to 231
+pixels of 897,000 (0.004 to 0.027 %), all in one 31 x 11 px box at (147 to 178, 352 to 363) in every frame whatever the screen (not card content); mean absolute difference 0.5 to 1.0
+of 255 (JPEG noise) in the column; the stage differs only where the gun animates (`g-rack`: 1.4 % of the stage's pixels). **I did not look at these frames at full size with the Read tool**:
+carrying 1920 x 1080 JPEGs from the box as text is 70 KB of base64 a crop, which I did not do; the comparison above is numeric. The independent picture review of READY.md still stands.
+
+Trace `n2` (package of `daa4f48`, same run) against `m1`: `SMIFrontEnd::Rebuild` 28 calls 101.8 to 81.4 ms total; `SMIFrontEnd Loadout` 51.3 to 39.5 ms (a key press's 4.6 to 4.8 ms is now 3.1 to 3.9 ms:
+a hit costs 0.21 to 0.23 ms for the data lookups that make the signature, a miss 0.7 to 1.1 ms, two a key press); **game-thread frames busy over 7 ms 298 to 70; frame periods over 25 ms 73 to 13** in the
+traced 147 s (the traced runs are slower than untraced, so the counts are for comparing the two traces only). What is left of the Loadout's 3.1 to 3.9 ms is the tabs, the four slot cards and the
+frame (about 1.5 ms) and the 2 cards that changed (about 1.6 ms); the 3 to 6 ms of `UMIFrontEnd::Tick` at the Briefing and a gun equip (`Equip` 5 calls 22.7 ms, `FPRig` 5.7 ms the first) is unchanged.
+
+### 2. The engine start
+
+The pipeline-cache set-up (the Vulkan driver-cache save) is the cause the v8 section names and `r.Vulkan.PipelineCacheLoad=0` removes it (the lead's DECISIONS entry of 2026-11-27 ~16:00 keeps it).
+Engine source read on the box was not repeated: the v8 evidence (trace `t1`, `VulkanPipeline.cpp` `SavePSOCache` after the bundled cache's compile) stands, and the alternatives it tried (smaller cache,
+pool at 50 %, cache off) were not better. This lane did not find a way to keep the driver cache and avoid its 1.8 to 3 s render-thread save; I did not try a pre-built driver cache because the
+file is bound to the GPU and driver it was written on (a host's differ), so one shipped in the package would be rejected. Measured start, the same `lag-test.sh` queue, seconds from the first log line
+(`/tmp/start8.py`: the log's own time stamps): `Game Engine Initialized` and "Engine is initialized. Leaving FEngineLoop::Init()" (the first frame follows):
+
+| Run | Game Engine Initialized | Init done |
+|---|---|---|
+| head `n2-menus1`, `n2-menus2`, `n2-menus3` (also `n2-trace`) | 1.65, 1.62, 1.43 (1.74) | 2.38, 2.44, 2.29 (2.55); mean of three 2.37 |
+| version 4 `n2-v4menus1`, `2`, `3` | 1.79, 1.59, 1.80 | 2.58, 2.29, 2.49; mean 2.45 |
+| the launcher's `firstline=` (whole seconds, game's first line after the launcher started) | 5, 5, 5 | version 4: 5, 5, 5 |
+
+(Of the package of `66bfb3d` run earlier on this box: init done 2.59, 2.71, 2.18 and v4 2.30, 2.37, 2.53; the engine start of the head is the same as version 4's within 0.1 s either way.)
+After `Game Engine Initialized` the head spends 0.73 to 0.86 s (CUDA context 0.12 s, `LoadMap` 0.5 s, sounds 55 ms) against version 4's 0.67 to 0.80 s: not worth a change.
+
+### 3. The measurement: package of `daa4f48` against version 4, three runs each, identical clean conditions
+
+`gated.sh` / `lag-test.sh` (the closer's): GPU claim, one run at a time, `load=1:0.05:0:1024`, `cpus=0-7`, `-sm5`, 1920 x 1080, fresh user and `Saved`, copy of the package on the local disk
+(`/tmp/v8/m2` = `build-Shipping/Linux` of `daa4f48`; `/tmp/v6p/v4` = `6c4d810`), a viewer joined at 3 s, CSV profile of every frame, `guns-keys.txt`; window from 8 s; counted by
+`tools/box/cloud/smooth-v7/rate.py`. Runs alternate head and version 4 (`n2-menus1`, `n2-v4menus1`, ...). **Every run CLEAN: `others=0`, `build=0` on every line of every `others.log`
+(0 lines otherwise in 11 runs).** The GPU is the RTX PRO 6000 of this box (the E3DS A4000 is slower; the comparison is between builds on one box). Runs are in `/project/ue/smooth/v8/runs/n2-*` on the box.
+
+| Menus with guns, from 8 s (126 s each) | head `daa4f48`, 3 runs | version 4, 3 runs (same queue) | version 4, 3 more runs earlier the same hour | Better or equal? |
+|---|---|---|---|---|
+| frames over 25 ms a minute | 1.4, 1.4, 6.1 (mean **3.0**) | 2.8, 1.9, 13.2 (mean 6.0) | 4.8, 5.7, 10.4 (mean 7.0) | **better** (every head run but one under every v4 run; the 6.1 and v4's 13.2 each hold one 270 to 360 ms stall) |
+| over 50 ms a minute | 0.5, 0.5, 1.9 (0.97) | 0.5, 0.5, 3.3 (1.43) | 1.0, 0.5, 1.4 | better or equal |
+| over 100 ms a minute | 0.5, 0.0, 1.4 (0.63) | 0.5, 0.5, 1.9 (0.97) | 0.5, 0.5, 0.5 | better or equal |
+| 1 % low (fps) | 44.9, 49.1, 29.2 | 46.1, 47.4, 26.9 | 42.9, 44.1, 38.0 | equal (the lowest in each build is the run with the stall) |
+| worst frame (ms) | 150.8, 87.4, 356.2 | 131.1, 115.5, 367.0 | 130.9, 119.4, 144.7 | **not better in every run; equal on average (head 198, v4 204)**: see below |
+| game's first line (`firstline=`, s) | 5, 5, 5 | 5, 5, 5 | 5, 5, 5 | equal |
+| engine start to first frame (above) | 2.37 mean | 2.45 mean | | equal (within noise) |
+
+The package of `66bfb3d` (before the card cache), three runs on this box earlier the same hour: 7.6, 7.6, 3.3 frames over 25 ms a minute (mean 6.2): the change took the mean from 6.2 to 3.0,
+and the frames over 25 ms that are game-thread bound at key presses (8 to 12 ms of game thread, frame 25 to 27 ms: `m-menus1` had them at 16.9, 24.4, 31.8, 34.3, 40.2, 41.8, 45.3, 51.7 s; `m-menus3` at 16.5, 24.1, 33.1, 39.9, 45.0, 51.5 s) are
+gone from `n2-menus1` and `n2-menus2` except two a run, which are still game-thread bound: **16.3 to 16.5 s (the first build of the Loadout, cold: `SMIFrontEnd Loadout` 5.4 ms, game thread 8.3 to 10.5 ms) and 51 to 52 s (the Briefing's
+entry: game thread 11.4 to 13.0 ms; `Equip` 5.7 ms plus the view change)**; `n2-menus3` has those two and the stalls below. Version 4 has one game-thread-bound frame a run (14.9 ms of game thread at 48.7 s in `m-v4menus1`).
+
+Story (`sm-story.txt`, viewer, from 8 s; dev game): head `n2-story` **1.3 / 0.7 / 0.0** frames over 25 / 50 / 100 ms a minute, worst 50.8 ms, 1 % low 55.5 fps, "play 52 s: 60.0 fps min 59.7, worst frame 21 ms";
+version 4 `n2-v4story` 1.3 / 0.7 / 0.7, worst 126.0 ms, 1 % low 51.4 fps. PSO-creation hitch frames (`pso_frames.py`): first 10 s of the process 5 and 5, after 10 s **0 and 0**.
+
+First fight (`sm-hold.txt`, Hold the Block, 100 s, `l12`): head `n2-hold` 84 s of frames, 1.4 / 0.7 / 0.0, worst 62.8 ms, 1 % low 54.4 fps, waves 1 to 3 reached, the game quit normally on the stop; PSO-hitch
+frames first 10 s 6, **after 10 s 0**. Version 4 `n2-v4hold` crashed (exit code 139) 48 s into the frames (the known version-4 crash in the holdout), 7.5 / 0.0 / 0.0 to there, worst 49.0 ms, PSO frames 6 and 0.
+The first fight is free of PSO hitches and of the old 33 ms trains with `r.Vulkan.PipelineCacheLoad=0`, as v8 measured.
+
+### Where the head is not better
+
+- **The worst frame.** Each build has about one long stall per run or two: head 150.8, 87.4, 356.2 ms; version 4 131.1, 115.5, 367.0 ms (and 130.9, 119.4, 144.7 earlier). They are not game code: in the
+  traces the game thread is 1 to 4 ms in them; the 150 ms one at 13 s is the moment of "Hit the block" (the level's first frames) and is **158 ms inside `FCoreDelegates::OnSamplingInput`** (the
+  platform's input sampling, before the game's tick) in trace `m1`, the same moment as version 4's 131 to 147 ms frame at 13.5 s (`n2-v4menus1`, `n2-v4menus3`: game thread 2.8 to 3.6 ms, render thread 92 to 100 ms in its CSV; no trace of version 4 was taken); the 313 to 367 ms ones (head `n2-menus3` 56.7 s
+  and 79.0 s, version 4 `n2-v4menus3` 56.9 s, 37.5 s) have a render thread or nothing busy and are in both builds at the same rate. This lane did not find their cause and did not fix them.
+  The v8 section's "293 ms frame at 77 s" is one of these (render thread, no PSO); it is not explained either.
+- **The first frames of a process create pipeline states at draw time** (`PipelineCacheLoad=0`): 5 or 6 PSO-hitch frames in the first 10 s, as version 4 has; none after.
+- **Not done:** the E3DS stream itself (a real host's CPU and network) was not measured; the picture-level review; a 18-minute holdout (version 4 crashes before it ends; the head's longest here is 101 s).
+
 ## v8 performance engineer (2026-11-27, 06:08 to 09:40 UTC, code of `66bfb3d`): the verdict
 
 **Verdict: NOT-YET, by one rule of the bar: the final package was not measured, because the rented box ended (runtime failed, about 09:40 UTC) while the

@@ -2,6 +2,15 @@
 
 One section per lane of the readiness pass. Every finding names the evidence it rests on (a picture, a log line, a number).
 
+## Smoothness update (performance engineer, 2026-11-27, 15:58 to 17:40 UTC, on the replacement box): code `daa4f48`
+
+The Loadout's 6 to 10 ms game-thread frames were the screen's six gun cards built again on every key press (`UMIFrontEnd::Tick` > `SMIFrontEnd::Rebuild` > `Loadout` > six `GunCard` calls, 3.7 ms), not an actor tick;
+`daa4f48` keeps a built card until what it shows changes. Full suite on it: `TESTS OK passed=228 failed=0 skipped=0`. Package of `daa4f48` built (`ALL OK`), `/project/ue/int/pkg/MurderInc-E3DS.zip`, sha256
+`1c0f574bc9f2e4ce648a6da47b06da70c29e6d8b696b02bbf58ed764f44418f0`, `BUILD.txt` beside it. Three clean runs each against version 4 (menus with guns, same box, same conditions): frames over 25 ms a minute **3.0 against 6.0**
+(and 7.0 for three more v4 runs earlier), over 100 ms 0.63 against 0.97, first line 5 s in all, engine start to first frame 2.37 against 2.45 s; Story 1.3 / 0.7 / 0.0 against 1.3 / 0.7 / 0.7; the first fight has 0 PSO-hitch
+frames after 10 s (version 4 crashes in it, the head plays 101 s). Not better in every run: the worst frame (head 150.8, 87.4, 356.2 ms; v4 131.1, 115.5, 367.0), which is a stall with no game-thread work in both builds. The
+independent picture review and play of this package are still owed, and the frames of this package were compared with the previous package's by pixel difference only, not looked at. Numbers and method: `SMOOTH.md`, "v9 performance engineer".
+
 ## v6 GO readiness (final closer, 2026-11-27, 09:45 UTC; supersedes every section below)
 
 **Commit to package: `66bfb3d` (code; `f393ba1` and this commit are documentation only). Verdict: NO-GO.**
