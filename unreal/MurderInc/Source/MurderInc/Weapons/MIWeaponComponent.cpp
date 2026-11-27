@@ -296,6 +296,11 @@ void UMIWeaponComponent::EquipMesh(FName Gun)
 		UE_LOG(LogMI, Warning, TEXT("Weapons: no mesh at %s for %s (tools/box/seed-content.sh installs the placeholders)"), *D->Mesh.ToString(), *Gun.ToString());
 	}
 	GunMesh->SetSkinnedAssetAndUpdate(Mesh, true);
+	// The previous gun's material overrides stay on the component by slot index. Every frame the clear magazine's fill is set
+	// with SetScalarParameterValueOnMaterials, which puts a dynamic instance (an override) on each slot that has the parameter:
+	// after the CHOPPER the STRETCH (or the SHORTY) drew its slot 0 in the CHOPPER's material on its own UVs, the white and black
+	// marbled stock of the package frames (HANDS_R4.md 15). A new mesh starts from its own materials.
+	GunMesh->EmptyOverrideMaterials();
 	GunMesh->SetVisibility(Mesh != nullptr, true);  // with its children (the fitted parts, the seated magazine)
 
 	// Real art brings its own markers as sockets; the data keeps the web values for meshes without them.

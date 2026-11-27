@@ -572,9 +572,8 @@ EMIFPMode UMIFirstPersonRig::Equip(FName Gun, const FMIGunViewData* View, const 
 	// The mesh first, so the parts find their sockets (the assembly already holds this base mesh's name from the
 	// placeholder gun and would not load it again).
 	PackGun->SetSkinnedAssetAndUpdate(GunMesh, true);
-	// The previous gun's finish stays on the component by slot index: the pack rifles carry the CHOPPER's dark earth over their
-	// slot 0, and the next gun's mesh (the STRETCH, one slot) drew in it with its own UVs on the pack's texture, the marbled
-	// white and black stock of the package frames (HANDS_R4.md 15). Every draw starts from the mesh's own materials.
+	// Material overrides stay on a component by slot index when its mesh changes (the cause of the STRETCH's marbled stock, see
+	// UMIWeaponComponent::EquipMesh): every draw of the pack gun starts from the mesh's own materials too (HANDS_R4.md 15).
 	PackGun->EmptyOverrideMaterials();
 	if (Assembly)
 	{
