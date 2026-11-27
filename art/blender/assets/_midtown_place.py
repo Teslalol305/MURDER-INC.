@@ -498,7 +498,10 @@ CORE3 = {"SM_Roof_Lounge_Bar": (4.0, 1.0, 1.1), "SM_Roof_Lounger": (1.4, 1.0, 0.
          "SM_Sq_PressWall_3p4": (3.4, 0.3, 2.4), "SM_Sq_VipTent_3x3": (3.0, 3.0, 2.8), "SM_Sq_MerchBooth": (1.6, 1.2, 2.5),
          "SM_Sq_CoatCheck": (1.4, 1.0, 2.2), "SM_Sq_SecurityBooth": (1.4, 1.4, 2.6), "SM_Sq_InfoBooth": (2.6, 1.2, 2.4),
          "SM_Sq_PhotoBooth": (1.4, 1.4, 2.3), "SM_Sq_PortableToilets": (2.4, 1.2, 2.45), "SM_Sq_CameraRiser": (1.6, 0.8, 2.6),
-         "SM_Sq_SpeakerStack": (1.4, 0.8, 2.75), "SM_Sq_SoundTower": (1.2, 1.2, 4.0), "SM_Vehicle_CityBus": (12.0, 2.6, 3.3)}
+         "SM_Sq_SpeakerStack": (1.4, 0.8, 2.75), "SM_Sq_SoundTower": (1.2, 1.2, 4.0), "SM_Vehicle_CityBus": (12.0, 2.6, 3.3),
+         "SM_Vehicle_MT_Sedan": (4.61, 1.85, 1.45), "SM_Vehicle_MT_Taxi": (4.61, 1.85, 1.55), "SM_Vehicle_MT_SUV": (4.91, 1.99, 1.82),
+         "SM_Vehicle_MT_Van": (5.21, 1.95, 2.19)}
+PARKED = {"sedan": "SM_Vehicle_MT_Sedan", "taxi": "SM_Vehicle_MT_Taxi", "suv": "SM_Vehicle_MT_SUV", "van": "SM_Vehicle_MT_Van"}
 ROOF_ABOVE = {"SM_Roof_Lounge_Bar": "the back bar's shelves over the island's box (shots pass)",
               "SM_Roof_Lounger": "the back cushion over the seat's box", "SM_Sq_LightTower": "the mast raised to 5.6 over the trailer's box (shots pass)",
               "SM_Sq_TrussTower": "the lamp bar over the tower's box"}
@@ -634,6 +637,25 @@ def dressing(out):
     for c in boxes("bus"):
         fitted(out, "SM_Vehicle_CityBus", "street", "the stalled city bus (CITY CROSSTOWN), nose south, doors on the kerb (east) side", c, CORE3["SM_Vehicle_CityBus"],
                prefer=NOSE_SOUTH, chosen_facing=True, faces=["Panel_CityCrosstown", "Bus_Side", "Bus_Side"])
+    parked_cars(out)
+
+
+def parked_cars(out):
+    """The 14 parked cars: each on its body box, the glass box above it (the cabin) giving the car its height. The avenues run
+    southbound, so a car along z points its nose south; W 46 St's row points west."""
+    for tag, mesh in PARKED.items():
+        glass = [g for g in boxes(tag) if g.get("surface") == "glass"]
+        for c in (b for b in boxes(tag) if b.get("surface") == "car"):
+            x0, x1, y0, y1, z0, z1 = rect(c)
+            top = y1
+            for g in glass:
+                gx0, gx1, _gy0, gy1, gz0, gz1 = rect(g)
+                if gx0 >= x0 - 0.01 and gx1 <= x1 + 0.01 and gz0 >= z0 - 0.01 and gz1 <= z1 + 0.01 and abs(g["web"]["min"]["y"] - y1) < 0.01:
+                    top = max(top, gy1)
+            merged = dict(c, web={"min": c["web"]["min"], "max": dict(c["web"]["max"], y=top)})
+            along_z = (z1 - z0) >= (x1 - x0)
+            fitted(out, mesh, "street", "parked %s (body box plus the cabin's glass box)" % tag, merged, CORE3[mesh],
+                   prefer=NOSE_SOUTH if along_z else 180.0, chosen_facing=True)
 
 
 # The facade tables (midtown.md 2.1, 12.4, 14.2): each frontage is a run along a facade collider's outer plane, the modules
@@ -750,7 +772,7 @@ def fit_summary(out):
     left = sorted(c["index"] for c in data()["colliders"]["boxes"] if c["tag"] in tags and c["index"] not in dressed)
     return {"source": "tools/levels/data/level_midtown.json", "fitted_instances": fittedn, "chosen_instances": sum(1 for e in out if e.get("chosen")),
             "chosen_roles": chosen, "dressed_tags": tags, "colliders_dressed": len(dressed), "colliders_of_dressed_tags_left": left,
-            "reused_meshes": REUSED, "not_dressed": ["sedan, taxi, suv, van (parked cars: the Block's vehicles are 170k triangles each, they need light variants first)", "ipx_truck (the existing SM_Vehicle_IPXTruck arrives after the last reel)", "cabinet (G1.cabinet, part of the gantry mesh)"]}
+            "reused_meshes": REUSED, "not_dressed": ["ipx_truck (the existing SM_Vehicle_IPXTruck arrives after the last reel)", "cabinet (G1.cabinet, part of the gantry mesh)"]}
 
 
 def write_placements(path):

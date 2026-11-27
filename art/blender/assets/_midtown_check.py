@@ -205,7 +205,7 @@ def check_square_emissive(ctx):
            % ({k: round(v, 1) for k, v in sorted(area.items())}, biggest[0], biggest[1], sq, scr, 100.0 * sq / scr, transl or "none"))
 
 
-FAC_PREFIX = ("SM_Facade_MT_", "SM_Facade_Marquee_", "SM_Sign_MT_Band_", "SM_Vehicle_CityBus", "SM_Roof_Loftlark")
+FAC_PREFIX = ("SM_Facade_MT_", "SM_Facade_Marquee_", "SM_Sign_MT_Band_", "SM_Vehicle_CityBus", "SM_Vehicle_MT_", "SM_Roof_Loftlark")
 
 
 def check_facade_emissive(ctx):

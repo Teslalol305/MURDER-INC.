@@ -492,6 +492,7 @@ def view(name):
         "mt_set": (web(12.0, 2.7, 23.0), web(10.5, 1.8, -12.0), 18.0),
         "mt_bus": (web(21.0, 1.7, 11.5), web(25.0, 1.7, 2.0), 18.0),
         "mt_facade": (web(26.3, 2.3, -6.6), web(30.0, 5.0, -15.0), 17.0),
+        "mt_cars": (web(25.2, 1.7, -19.5), web(25.0, 0.9, -32.0), 24.0),
         "mt_street": (web(-4.2, 1.7, -1.0), web(-8.0, 3.0, -17.0), 20.0),
     }[name]
     render.cam_look(eye, at, lens=lens, name="Cam_" + name)
@@ -506,7 +507,7 @@ def render_all(ctx):
         atlas.preview_sheet(os.path.join(PV, "mt_faces.jpg"), 1280)
         ctx.log("preview mt_faces.jpg")
     shots = [n for n in ("mt_roofs", "mt_gantry", "mt_square", "mt_stand", "mt_plaza", "mt_booth", "mt_bar", "mt_set", "mt_bus", "mt_facade",
-                         "mt_street") if want(n)]
+                         "mt_street", "mt_cars") if want(n)]
     if not shots:
         return
     for key, s in (("sodium", 6.0), ("led", 6.0), ("riser", 0.35), ("warm", 1.2), ("indicator", 1.0), ("bulb", 5.0), ("tail", 3.0),

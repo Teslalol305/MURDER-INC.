@@ -65,7 +65,7 @@ BUDGET = {
     "SM_Sq_Truck_": 30000, "SM_Sq_Van_Broadcast": 25000, "SM_Sq_Trailer_": 15000, "SM_Sq_ScreenTrailer": 8000, "SM_Sq_LightTower": 10000,
     "SM_Sq_TrussTower": 8000, "SM_Sq_PressWall": 3000, "SM_Sq_VipTent": 6000, "SM_Sq_MerchBooth": 6000, "SM_Sq_CoatCheck": 5000,
     "SM_Sq_SecurityBooth": 5000, "SM_Sq_InfoBooth": 5000, "SM_Sq_PhotoBooth": 5000, "SM_Sq_PortableToilets": 8000,
-    "SM_Sq_CameraRiser": 6000, "SM_Sq_SpeakerStack": 8000, "SM_Sq_SoundTower": 8000, "SM_Vehicle_CityBus": 90000,
+    "SM_Sq_CameraRiser": 6000, "SM_Sq_SpeakerStack": 8000, "SM_Sq_SoundTower": 8000, "SM_Vehicle_CityBus": 90000, "SM_Vehicle_MT_": 20000,
     "SM_Facade_MT_Bay_": 2000, "SM_Facade_MT_Cornice": 2000, "SM_Facade_MT_Ground_Blank": 2000, "SM_Facade_MT_Shop_": 12000,
     "SM_Sign_MT_Band_": 1000, "SM_Facade_MT_TheatreFront": 12000, "SM_Facade_MT_HotelFront": 12000, "SM_Facade_Marquee_": 30000,
     # the square (midtown.md 14.2 where it names the asset; the rest by kind)
@@ -173,6 +173,8 @@ def build(ctx):
     kits += dress.PROPS + premiere.PROPS + facade_mt.PROPS
     for f in kits:
         f(ctx, M)
+    from assets import _midtown_cars as cars
+    cars.build(ctx)
     build_lods(ctx)
     tris = {n: geo.stats(o)["triangles"] for n, o in ctx.K.items()}
     ctx.log("%d assets, %d triangles in all, largest %s (%d)" % (len(tris), sum(tris.values()), max(tris, key=tris.get), max(tris.values())))
