@@ -651,3 +651,14 @@ the Vulkan driver's pipeline cache while the game thread waited. With r.Vulkan.P
 to 3.9 s (version 4: 3.2 to 3.5 s). The cost is version-4-like pipeline creation in the first 3 s of a process, before any viewer
 joins on E3DS; after 10 s no run had a PSO hitch and the first fight stays clean. Kept. Setting it back to 1 restores the old behaviour.
 The GPU box 8496fd8c ended at 09:40 UTC (runtime_failed, the provider's side); the replacement is 1e0f3eeb, same spec.
+
+## 2026-11-27 ~21:00 UTC: the owner passes smoothness; the STICK's one-hand reload ships as is
+
+1. Smoothness criterion 4 (21:00, 2026-11-25) is met on the numbers of SMOOTH.md v9: no crash (version 4 crashed in Hold the Block),
+   fewer stalls over 100 ms, half the worst frame, the Loadout fix in; frames over 25 ms a minute not significantly different from
+   version 4's (Mann-Whitney p = 0.60). The short stall episodes (the stream pacer holding frames, every thread idle) stay under
+   investigation for the next release.
+2. The STICK's reload shows one hand (the pack's own clip): shipped as is in v6, fixed in the next release.
+Still required for the GO: the SHORTY reload hands, the Story ground path trap, a full-size look at the guide path and the HUD
+changes, and an independent end-to-end play (Story to the truck, Hold the Block waves 1 to 3 with the last-drone rule, the pad, gun
+switching).
