@@ -14,6 +14,7 @@
 #include "Weapons/MIWeaponComponent.h"
 #include "World/MIBoxWorld.h"
 #include "Core/MIEvents.h"
+#include "Cloud/MICloud.h"
 #include "Camera/PlayerCameraManager.h"
 #include "World/MIGuide.h"
 #include "World/MILevelData.h"
@@ -31,6 +32,23 @@ void AMIHUD::Centered(const FString& Text, double Y, const FLinearColor& Colour,
 	float TW = 0.f, TH = 0.f;
 	GetTextSize(Text, TW, TH, Font, Scale);
 	DrawText(Text, Colour, Canvas->ClipX * 0.5 - TW * 0.5, Y, Font, Scale);
+}
+
+void AMIHUD::CenteredPlate(const FString& Text, double Y, const FLinearColor& Colour, UFont* Font, float Scale, bool bRule)
+{
+	// The in-run lines (warning, prompt, message, location card) on the same dark band as the objective and the radio, in
+	// the front end's faces, with every offset scaled with the frame's height (POLISH.md 5 and 6).
+	const double K = Canvas->ClipY / 1080.0;
+	float TW = 0.f, TH = 0.f;
+	GetTextSize(Text, TW, TH, Font, Scale);
+	const double Pad = 12.0 * K;
+	const double X0 = Canvas->ClipX * 0.5 - TW * 0.5;
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), X0 - Pad * 1.4, Y - Pad * 0.6, TW + Pad * 2.8, TH + Pad * 1.2);
+	if (bRule)
+	{
+		DrawRect(MIStyle::Gold(), X0 - Pad * 1.4, Y - Pad * 0.6, 3.0 * K, TH + Pad * 1.2);
+	}
+	DrawText(Text, Colour, X0, Y, Font, Scale);
 }
 
 void AMIHUD::BeginPlay()
@@ -103,9 +121,17 @@ void AMIHUD::DrawPlay(UFont* Font)
 		const float Alpha = static_cast<float>(1.0 - FMath::SmoothStep(0.05, 0.55, View.Ads));
 		if (Alpha > 0.01f)
 		{
+			// A dark underlay under each white arm (0.45 alpha, 2 px wider all round) so the cross reads on snow, sky and
+			// sunlit brick; thickness and length scale with the frame (POLISH.md 16).
+			const double UiK = H / 1080.0;
 			const FLinearColor Hair(1.f, 1.f, 1.f, 0.85f * Alpha);
-			const float T = 2.f, A = static_cast<float>(Arm), G = static_cast<float>(Gap);
+			const FLinearColor Under(0.f, 0.f, 0.f, 0.45f * Alpha);
+			const float T = static_cast<float>(FMath::Max(2.0, 2.0 * UiK)), U = static_cast<float>(FMath::Max(1.5, 1.5 * UiK)), A = static_cast<float>(Arm), G = static_cast<float>(Gap);
 			const float X = static_cast<float>(CX), Y = static_cast<float>(CY);
+			DrawRect(Under, X + G - U, Y - T * 0.5f - U, A + 2.f * U, T + 2.f * U);
+			DrawRect(Under, X - G - A - U, Y - T * 0.5f - U, A + 2.f * U, T + 2.f * U);
+			DrawRect(Under, X - T * 0.5f - U, Y + G - U, T + 2.f * U, A + 2.f * U);
+			DrawRect(Under, X - T * 0.5f - U, Y - G - A - U, T + 2.f * U, A + 2.f * U);
 			DrawRect(Hair, X + G, Y - T * 0.5f, A, T);
 			DrawRect(Hair, X - G - A, Y - T * 0.5f, A, T);
 			DrawRect(Hair, X - T * 0.5f, Y + G, T, A);
@@ -113,15 +139,25 @@ void AMIHUD::DrawPlay(UFont* Font)
 		}
 	}
 
-	// Hit marker for a quarter of a second.
-	if (Weapon->GetSinceHit() < 0.25)
+	// Hit marker: a quarter of a second for a body hit; a headshot is larger and stays 0.35 s, a kill is red and heavier,
+	// each popping in over 60 ms (POLISH.md 13).
 	{
-		const FLinearColor Mark = Weapon->WasLastHitKill() ? FLinearColor(1.f, 0.2f, 0.15f, 1.f) : White;
-		const double A = H * 0.008, B = H * 0.02;
-		DrawLine(CX - B, CY - B, CX - A, CY - A, Mark, 2.f);
-		DrawLine(CX + B, CY - B, CX + A, CY - A, Mark, 2.f);
-		DrawLine(CX - B, CY + B, CX - A, CY + A, Mark, 2.f);
-		DrawLine(CX + B, CY + B, CX + A, CY + A, Mark, 2.f);
+		const bool bKill = Weapon->WasLastHitKill();
+		const bool bHead = Weapon->WasLastHitHead();
+		const double Hold = bHead || bKill ? 0.35 : 0.25;
+		const double Since = Weapon->GetSinceHit();
+		if (Since < Hold)
+		{
+			const FLinearColor Mark = bKill ? FLinearColor(1.f, 0.2f, 0.15f, 1.f) : (bHead ? FLinearColor(1.f, 0.85f, 0.35f, 1.f) : White);
+			const double Pop = 0.7 + 0.3 * FMath::Clamp(Since / 0.06, 0.0, 1.0);
+			const double Size = (bHead ? 1.35 : 1.0) * (bKill ? 1.15 : 1.0) * Pop;
+			const double A = H * 0.008 * Size, B = H * 0.02 * Size;
+			const float LineW = static_cast<float>((bKill ? 3.0 : 2.0) * FMath::Max(1.0, H / 1080.0));
+			DrawLine(CX - B, CY - B, CX - A, CY - A, Mark, LineW);
+			DrawLine(CX + B, CY - B, CX + A, CY - A, Mark, LineW);
+			DrawLine(CX - B, CY + B, CX - A, CY + A, Mark, LineW);
+			DrawLine(CX + B, CY + B, CX + A, CY + A, Mark, LineW);
+		}
 	}
 
 	DrawWeaponBar(*Player, UMIGameSubsystem::Get(this));
@@ -181,52 +217,79 @@ void AMIHUD::DrawHurt(const AMIPlayerCharacter& Player, double Hurt)
 		{
 			HitHandle = Events->PlayerHit.AddWeakLambda(this, [this](const FMIPlayerHitEvent& E)
 			{
-				HitFrom = E.From;
-				HitTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
+				if (!E.From.IsSet())
+				{
+					return;
+				}
+				// One wedge per attacker: a hit from the same bearing (within 12 degrees) renews that wedge, any other
+				// bearing adds one (up to four are kept; the oldest goes).
+				const double Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
+				for (FWedge& Old : Wedges)
+				{
+					if (Now - Old.Time <= WedgeHold && (Old.From - E.From.GetValue()).Size2D() < 60.0)
+					{
+						Old.From = E.From.GetValue();
+						Old.Time = Now;
+						return;
+					}
+				}
+				if (Wedges.Num() >= 4)
+				{
+					Wedges.RemoveAt(0);
+				}
+				Wedges.Add({E.From.GetValue(), Now});
 			});
 		}
 	}
-	if (Hurt <= 0.0)
-	{
-		return;
-	}
 	const double W = Canvas->ClipX;
 	const double H = Canvas->ClipY;
-	const float K = static_cast<float>(FMath::Clamp(Hurt, 0.0, 1.0));
-	// A faint wash (at most 15 % in the centre) and a vignette: bands thickening to the frame's edge.
-	DrawRect(FLinearColor(0.55f, 0.f, 0.f, 0.15f * K * 0.6f), 0.f, 0.f, W, H);
-	constexpr int32 Bands = 12;
-	const double Depth = FMath::Min(W, H) * 0.16;
-	for (int32 I = 0; I < Bands; ++I)
+	if (Hurt > 0.0)
 	{
-		const double T = Depth * (1.0 - static_cast<double>(I) / Bands);  // outer bands first, each one inside the last
-		const float A = 0.075f * K;
-		const FLinearColor C(0.5f, 0.f, 0.f, A);
-		DrawRect(C, 0.f, 0.f, W, T);
-		DrawRect(C, 0.f, H - T, W, T);
-		DrawRect(C, 0.f, T, T, H - 2.0 * T);
-		DrawRect(C, W - T, T, T, H - 2.0 * T);
+		const float K = static_cast<float>(FMath::Clamp(Hurt, 0.0, 1.0));
+		// A faint wash (at most 15 % in the centre) and a vignette: bands thickening to the frame's edge.
+		DrawRect(FLinearColor(0.55f, 0.f, 0.f, 0.15f * K * 0.6f), 0.f, 0.f, W, H);
+		constexpr int32 Bands = 12;
+		const double Depth = FMath::Min(W, H) * 0.16;
+		for (int32 I = 0; I < Bands; ++I)
+		{
+			const double T = Depth * (1.0 - static_cast<double>(I) / Bands);  // outer bands first, each one inside the last
+			const float A = 0.075f * K;
+			const FLinearColor C(0.5f, 0.f, 0.f, A);
+			DrawRect(C, 0.f, 0.f, W, T);
+			DrawRect(C, 0.f, H - T, W, T);
+			DrawRect(C, 0.f, T, T, H - 2.0 * T);
+			DrawRect(C, W - T, T, T, H - 2.0 * T);
+		}
 	}
-	// Where it came from: a red wedge on a ring round the crosshair, for 1.5 s after the hit.
+	// Where it came from: a red wedge on a ring round the crosshair, WedgeHold seconds after the hit on its own timer (the
+	// wash above is gone in a quarter of a second for a light hit; POLISH.md 1: the wedge was drawn only while it lasted).
 	const APlayerController* PC = GetOwningPlayerController();
-	if (!HitFrom.IsSet() || !PC || !PC->PlayerCameraManager || !World || World->GetTimeSeconds() - HitTime > 1.5)
+	if (Wedges.IsEmpty() || !PC || !PC->PlayerCameraManager || !World)
 	{
 		return;
 	}
-	const FVector To = (HitFrom.GetValue() - PC->PlayerCameraManager->GetCameraLocation()).GetSafeNormal2D();
-	const FRotator View = PC->PlayerCameraManager->GetCameraRotation();
-	const double Rel = FMath::DegreesToRadians(FRotator::NormalizeAxis(To.Rotation().Yaw - View.Yaw));
-	const float Fade = static_cast<float>(1.0 - FMath::Clamp((World->GetTimeSeconds() - HitTime) / 1.5, 0.0, 1.0));
-	const double R = H * 0.16;
-	const FVector2D C(W * 0.5, H * 0.5);
-	const FVector2D Dir(FMath::Sin(Rel), -FMath::Cos(Rel));  // 0 = ahead = up the screen, +90 = right
-	const FVector2D Side(-Dir.Y, Dir.X);
-	const FVector2D Tip = C + Dir * (R + H * 0.035);
-	const FLinearColor Mark(0.85f, 0.06f, 0.04f, 0.9f * Fade);
-	for (int32 I = -6; I <= 6; ++I)
+	const double Now = World->GetTimeSeconds();
+	Wedges.RemoveAll([Now, this](const FWedge& Wd) { return Now - Wd.Time > WedgeHold || Now < Wd.Time; });
+	const double UiK = H / 1080.0;
+	for (const FWedge& Wd : Wedges)
 	{
-		const FVector2D Base = C + Dir * R + Side * (H * 0.006 * I);
-		DrawLine(Base.X, Base.Y, Tip.X, Tip.Y, Mark, 2.f);
+		const FVector To = (Wd.From - PC->PlayerCameraManager->GetCameraLocation()).GetSafeNormal2D();
+		const FRotator View = PC->PlayerCameraManager->GetCameraRotation();
+		const double Rel = FMath::DegreesToRadians(FRotator::NormalizeAxis(To.Rotation().Yaw - View.Yaw));
+		const double Age = (Now - Wd.Time) / WedgeHold;
+		const float Fade = static_cast<float>(FMath::Clamp(1.0 - FMath::Max(0.0, Age - 0.5) * 2.0, 0.0, 1.0));  // full for the first half, then out
+		const double R = H * 0.16;
+		const FVector2D C(W * 0.5, H * 0.5);
+		const FVector2D Dir(FMath::Sin(Rel), -FMath::Cos(Rel));  // 0 = ahead = up the screen, +90 = right
+		const FVector2D Side(-Dir.Y, Dir.X);
+		const FVector2D Tip = C + Dir * (R + H * 0.035);
+		const FLinearColor Mark(0.85f, 0.06f, 0.04f, 0.9f * Fade);
+		const float LineW = static_cast<float>(FMath::Max(2.0, 2.0 * UiK));
+		for (int32 I = -6; I <= 6; ++I)
+		{
+			const FVector2D Base = C + Dir * R + Side * (H * 0.006 * I);
+			DrawLine(Base.X, Base.Y, Tip.X, Tip.Y, Mark, LineW);
+		}
 	}
 }
 
@@ -318,6 +381,7 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 	const EMIGameState S = Rules.GetState();
 	const double W = Canvas->ClipX;
 	const double H = Canvas->ClipY;
+	const double K = H / 1080.0;  // every size and offset below is for a 1080-line frame (POLISH.md 5)
 	if (S == EMIGameState::Intro || S == EMIGameState::Playing)
 	{
 		// Objective and tally, top left, on a soft dark band (fix pass: over brick, sky or a water tank the thin counter
@@ -330,7 +394,6 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 			Guide = G = AMIGuide::Find(GetWorld());
 		}
 		{
-			const double K = H / 1080.0;
 			const FString Title = V.Objective.ToUpper();
 			const bool bStory = Rules.GetMode() == TEXT("mission");
 			const FString Tally = bStory ? FString::Printf(TEXT("%d / %d"), V.Reels, V.ReelsTotal) : V.Tally;
@@ -443,7 +506,8 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 			const double Metres = P ? FVector::Dist(P->GetActorLocation(), At) / 100.0 : 0.0;
 			const FString Label = FString::Printf(TEXT("[%s] %dm"), *M.Code, FMath::RoundToInt32(Metres));
 			float TW = 0.f, TH = 0.f;
-			GetTextSize(Label, TW, TH, Font, 1.1f);
+			const float MarkScale = static_cast<float>(1.1 * K);
+			GetTextSize(Label, TW, TH, Font, MarkScale);
 			// Never on the crosshair (fix pass: "[1] 24m" sat on the point of aim): a marker inside the centre ring is
 			// pushed out along its own direction (straight up when it is dead centre).
 			FVector2D C(Screen.X, Screen.Y);
@@ -456,9 +520,9 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 				C = Mid + Dir * Ring;
 			}
 			// On a dark backing, so it reads over the truck, the sky or sunlit brick.
-			const double Pad = 5.0;
+			const double Pad = 5.0 * K;
 			DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), C.X - TW * 0.5 - Pad, C.Y - TH * 0.5 - Pad * 0.5, TW + Pad * 2.0, TH + Pad);
-			DrawText(Label, M.bExit ? FLinearColor(0.5f, 1.f, 0.6f, 1.f) : Amber, C.X - TW * 0.5, C.Y - TH * 0.5, Font, 1.1f);
+			DrawText(Label, M.bExit ? FLinearColor(0.5f, 1.f, 0.6f, 1.f) : Amber, C.X - TW * 0.5, C.Y - TH * 0.5, Font, MarkScale);
 		}
 		// Hold the Block: the wave's last one or two enemies, marked in red where they are, or as an arrow on the
 		// screen's edge when they are off it (review 2026-11-24: nothing showed where the last enemy was).
@@ -469,7 +533,6 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 			{
 				continue;
 			}
-			const double K = H / 1080.0;
 			const FVector At = MI::Web::ToUnreal(E->Pos) + FVector(0, 0, E->IsGoon() ? 200.0 : 40.0);
 			FVector Screen = Project(At, true);
 			const FVector2D Mid(W * 0.5, H * 0.5);
@@ -502,29 +565,41 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 			GetTextSize(Label, TW, TH, MIStyle::CanvasBody(), static_cast<float>(K * 0.8));
 			DrawText(Label, Mark, C.X - TW * 0.5, C.Y + R + 6.0 * K, MIStyle::CanvasBody(), static_cast<float>(K * 0.8));
 		}
-		// The hold prompt with its fill.
+		// The hold prompt with its fill, the warning, the message and the location card: on a band, in the front end's faces.
+		UFont* Display = MIStyle::CanvasDisplay() ? MIStyle::CanvasDisplay() : Font;
+		UFont* Body = MIStyle::CanvasBody() ? MIStyle::CanvasBody() : Font;
 		if (!V.Prompt.IsEmpty())
 		{
-			Centered(V.Prompt, H * 0.66, White, Font, 1.3f);
+			const double PromptY = H * 0.66;
+			CenteredPlate(V.Prompt, PromptY, White, Body, static_cast<float>(1.3 * K), false);
 			if (V.PromptProgress > 0.0)
 			{
-				const double BW = W * 0.18;
-				DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), W * 0.5 - BW * 0.5, H * 0.66 + 34.0, BW, 6.0);
-				DrawRect(Amber, W * 0.5 - BW * 0.5, H * 0.66 + 34.0, BW * FMath::Clamp(V.PromptProgress, 0.0, 1.0), 6.0);
+				float PW = 0.f, PH = 0.f;
+				GetTextSize(V.Prompt, PW, PH, Body, static_cast<float>(1.3 * K));
+				const double BW = W * 0.18, BarY = PromptY + PH + 18.0 * K, BarH = 6.0 * K;
+				DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), W * 0.5 - BW * 0.5, BarY, BW, BarH);
+				DrawRect(Amber, W * 0.5 - BW * 0.5, BarY, BW * FMath::Clamp(V.PromptProgress, 0.0, 1.0), BarH);
 			}
 		}
 		if (V.WarnLeft > 0.0 && !V.Warn.IsEmpty())
 		{
-			Centered(V.Warn.ToUpper(), H * 0.16, Red, Font, 1.6f);
+			CenteredPlate(V.Warn.ToUpper(), H * 0.16, Red, Display, static_cast<float>(1.5 * K), true);
 		}
 		if (V.MessageLeft > 0.0 && !V.Message.IsEmpty())
 		{
-			Centered(V.Message, H * 0.22, White, Font, 1.2f);
+			CenteredPlate(V.Message, H * 0.22, White, Body, static_cast<float>(1.2 * K), false);
 		}
 		if (V.bLocationCard)
 		{
-			Centered(Game.GetCopy().Get(TEXT("location.place")).ToUpper(), H * 0.40, White, Font, 1.6f);
-			Centered(Game.GetCopy().Get(Rules.GetMode() == TEXT("mission") ? TEXT("location.tagline") : TEXT("location.taglineHoldout")), H * 0.40 + 40.0, Dim, Font, 1.2f);
+			const FString Place = Game.GetCopy().Get(TEXT("location.place")).ToUpper();
+			const FString Tag = Game.GetCopy().Get(Rules.GetMode() == TEXT("mission") ? TEXT("location.tagline") : TEXT("location.taglineHoldout"));
+			const float PlaceScale = static_cast<float>(1.7 * K), TagScale = static_cast<float>(1.1 * K);
+			float PW = 0.f, PH = 0.f;
+			GetTextSize(Place, PW, PH, Display, PlaceScale);
+			const double PlaceY = H * 0.40;
+			CenteredPlate(Place, PlaceY, White, Display, PlaceScale, true);
+			// the tagline sits one text height under the title, its offset taken from the measured height, not a literal
+			CenteredPlate(Tag, PlaceY + PH + 18.0 * K, Dim, Body, TagScale, false);
 		}
 	}
 	// The radio strip stays in every state but the title and the pause card; typed at the radio's rate.
@@ -537,12 +612,13 @@ void AMIHUD::DrawFlow(UMIGameSubsystem& Game, UFont* Font)
 		// hip, where light text on sunlit skin did not read. Placed and sized by the full line, so it neither grows
 		// nor slides as the line types.
 		float TW = 0.f, TH = 0.f;
-		GetTextSize(Speaker + Radio.Current, TW, TH, Font, 1.1f);
+		const float RadioScale = static_cast<float>(1.1 * K);
+		GetTextSize(Speaker + Radio.Current, TW, TH, Font, RadioScale);
 		const double X0 = Canvas->ClipX * 0.5 - TW * 0.5;
 		// At 0.815 of the height (fix pass: at 0.84 its band touched the weapon strip's band, which now has a tag row).
 		const double RY = H * 0.815;
-		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.42f), X0 - 14.0, RY - 6.0, TW + 28.0, TH + 12.0);
-		DrawText(Speaker + Radio.Current.Left(Shown), FLinearColor(0.75f, 0.9f, 1.f, 1.f), X0, RY, Font, 1.1f);
+		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.42f), X0 - 14.0 * K, RY - 6.0 * K, TW + 28.0 * K, TH + 12.0 * K);
+		DrawText(Speaker + Radio.Current.Left(Shown), FLinearColor(0.75f, 0.9f, 1.f, 1.f), X0, RY, Font, RadioScale);
 	}
 }
 
@@ -617,6 +693,16 @@ void AMIHUD::DrawMenu(UMIGameSubsystem& Game, UFont* Font)
 	if (!bPad)
 	{
 		Hint += TEXT("  ·  or click");
+	}
+	// In the stream the pause card names the key that resumes it (the stream's overlay used to say so on a second line).
+	if (M.Screen == EMIMenuScreen::Pause)
+	{
+		const UMICloudSubsystem* Cloud = GetGameInstance() ? GetGameInstance()->GetSubsystem<UMICloudSubsystem>() : nullptr;
+		if (Cloud && Cloud->IsStreamed())
+		{
+			const FString Key = Game.ControlName(TEXT("pause"), bPad);
+			Hint += TEXT("  ·  ") + (Key.IsEmpty() ? FString(bPad ? TEXT("START") : TEXT("P")) : Key) + TEXT(" resumes");
+		}
 	}
 	float HintS = static_cast<float>(K * 0.8), HW = 0.f, HH = 0.f;
 	GetTextSize(Hint, HW, HH, Body, HintS);

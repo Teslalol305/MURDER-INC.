@@ -159,6 +159,14 @@ void UMIWeaponComponent::BindEvents()
 	Handles.Add(Events->WeaponReload.AddLambda([this](const FMIReloadEvent& E) { Rig.OnReloadPhase(E.Phase, E.bEmpty); }));
 	Handles.Add(Events->PlayerJump.AddLambda([this]() { Rig.OnJump(); if (FPRig) FPRig->OnJump(); }));
 	Handles.Add(Events->PlayerLand.AddLambda([this](const FMIPlayerLandEvent& E) { Rig.OnLand(E.Speed); if (FPRig) FPRig->OnLand(E.Speed); }));
+	// A blast that hurt or killed an enemy raises the hit marker like a round (POLISH.md 2); rounds and blows note their own hits.
+	Handles.Add(Events->PlayerHitEnemy.AddLambda([this](const FMIHitEnemyEvent& E)
+	{
+		if (E.Weapon == TEXT("blast"))
+		{
+			NoteHit(E.bKilled, false);
+		}
+	}));
 }
 
 void UMIWeaponComponent::EndPlay(const EEndPlayReason::Type Reason)
@@ -171,6 +179,7 @@ void UMIWeaponComponent::EndPlay(const EEndPlayReason::Type Reason)
 		Events->WeaponReload.Remove(Handles.IsValidIndex(2) ? Handles[2] : FDelegateHandle());
 		Events->PlayerJump.Remove(Handles.IsValidIndex(3) ? Handles[3] : FDelegateHandle());
 		Events->PlayerLand.Remove(Handles.IsValidIndex(4) ? Handles[4] : FDelegateHandle());
+		Events->PlayerHitEnemy.Remove(Handles.IsValidIndex(5) ? Handles[5] : FDelegateHandle());
 	}
 	Handles.Reset();
 	Super::EndPlay(Reason);

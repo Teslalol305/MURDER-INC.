@@ -162,7 +162,16 @@ void UMICombatSubsystem::Explode(const FVector& Centre, double Radius, double Da
 		Hit.Point = Point;
 		Hit.Direction = (Point - Centre).GetSafeNormal();
 		Hit.Weapon = TEXT("blast");
-		Target->ApplyMIDamage(Hit);
+		const FMIDamageResult Dealt = Target->ApplyMIDamage(Hit);
+		// A blast that hurts or kills an enemy is confirmed like a round (POLISH.md 2): once per victim per blast, so the hit
+		// marker, the hit tick and the kill tick come from the same event as a shot's (weapon "blast": not counted as a hit).
+		if (Dealt.bAccepted && Target->GetMIDamageableKind() == TEXT("enemy"))
+		{
+			if (FMIGameEvents* BlastEvents = UMIEventSubsystem::Get(this))
+			{
+				BlastEvents->PlayerHitEnemy.Broadcast({Actor, TEXT("body"), Dealt.bKilled, Hit.Amount, TEXT("blast")});
+			}
+		}
 	}
 }
 

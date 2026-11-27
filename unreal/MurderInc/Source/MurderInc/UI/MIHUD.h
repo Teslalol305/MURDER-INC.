@@ -35,6 +35,8 @@ private:
 	void DrawFlow(UMIGameSubsystem& Game, UFont* Font);
 	void DrawMenu(UMIGameSubsystem& Game, UFont* Font);
 	void Centered(const FString& Text, double Y, const FLinearColor& Colour, UFont* Font, float Scale);
+	/** The same on a dark band (optionally with the gold rule on its left edge): the in-run warnings and the location card. */
+	void CenteredPlate(const FString& Text, double Y, const FLinearColor& Colour, UFont* Font, float Scale, bool bRule);
 	/** Damage at the edges (a red vignette, at most 15 % in the centre) and a marker toward where the hit came from. */
 	void DrawHurt(const class AMIPlayerCharacter& Player, double Hurt);
 
@@ -44,8 +46,14 @@ private:
 
 	FDelegateHandle HitHandle;
 	TWeakObjectPtr<class AMIGuide> Guide;
-	TOptional<FVector> HitFrom;  // world (cm)
-	double HitTime = -1.0;        // world seconds of the last hit
+	/** A wedge on the damage ring: where the hit came from (world, cm) and the world second it landed. */
+	struct FWedge
+	{
+		FVector From = FVector::ZeroVector;
+		double Time = 0.0;
+	};
+	TArray<FWedge> Wedges;
+	static constexpr double WedgeHold = 1.5;  // seconds a wedge stays (full for the first half, then fading)
 	/** The card the cursor was last seen on and where: the cursor selects a row only once it has moved on that card. */
 	EMIMenuScreen HoverScreen = EMIMenuScreen::None;
 	FVector2D HoverCursor = FVector2D::ZeroVector;

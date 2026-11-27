@@ -124,7 +124,16 @@ namespace MIFrontEndUI
 		S.SetNormal(*Box(Normal, Radius, Edge, EdgeW));
 		S.SetHovered(*Box(Hover, Radius, Kind == EBtn::Card ? Gold() : Edge, Kind == EBtn::Card ? 2.f : EdgeW));
 		S.SetPressed(*Box(Press, Radius, Edge, EdgeW));
-		S.SetDisabled(*Box(WithAlpha(Plate(), 0.4f), Radius, WithAlpha(PlateEdge(), 0.4f), EdgeW));
+		// A disabled primary (NEXT with nothing to go on with) keeps a readable button: a faint gold fill and a gold edge, its label in
+		// the dim ink (POLISH.md 3: the label was the page colour on a 40 % plate and could not be seen).
+		if (Kind == EBtn::Primary)
+		{
+			S.SetDisabled(*Box(WithAlpha(Gold(), 0.22f), Radius, WithAlpha(Gold(), 0.55f), 1.f));
+		}
+		else
+		{
+			S.SetDisabled(*Box(WithAlpha(Plate(), 0.4f), Radius, WithAlpha(PlateEdge(), 0.4f), EdgeW));
+		}
 		S.SetNormalPadding(FMargin(0));
 		S.SetPressedPadding(FMargin(0));
 		return Cache.Add(Key, MakeUnique<FButtonStyle>(S)).Get();
@@ -333,6 +342,10 @@ TSharedRef<SWidget> SMIFrontEnd::Focusable(TSharedRef<SWidget> W, bool bFocused)
 
 void SMIFrontEnd::OptionHovered(const FString& Arg, int32 Gen)
 {
+	if (Owner.IsValid() && Owner->HoverBlocked())
+	{
+		return;  // the rebuild after a fit re-announces the hover of a pointer that has not moved (PLAY.md E7)
+	}
 	bHoverOn = true;
 	HoverArg = Arg;
 	HoverOutside = 0;
@@ -487,8 +500,8 @@ TSharedRef<SWidget> SMIFrontEnd::BottomBar()
 				.OnClicked_Lambda([O]() { if (O.IsValid()) O->Act(TEXT("next")); return FReply::Handled(); })
 				[
 					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Txt(NextLabel.ToUpper(), Display(24.f), Bg())]
-					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(12.f, 0.f, 0.f, 0.f)[Key(Owner->Glyph(TEXT("next")), Bg(), WithAlpha(Bg(), 0.16f))]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Txt(NextLabel.ToUpper(), Display(24.f), Blocked.IsEmpty() ? Bg() : InkDim())]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(12.f, 0.f, 0.f, 0.f)[Key(Owner->Glyph(TEXT("next")), Blocked.IsEmpty() ? Bg() : InkDim(), WithAlpha(Blocked.IsEmpty() ? Bg() : InkDim(), 0.16f))]
 				], bNextFocused, 6.f, 3.f)
 			]
 		];
