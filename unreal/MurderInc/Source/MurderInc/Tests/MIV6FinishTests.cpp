@@ -190,53 +190,63 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIV6LastDroneSweepTest, "MurderInc.V6.LastDron
 bool FMIV6LastDroneSweepTest::RunTest(const FString& Parameters)
 {
 	using namespace MIV6Private;
-	// A charging Buzzard must reach the player from wherever the Block's holdout can leave it (e2e finding: one sat 18 m away for
-	// 40 s). Charging Buzzards on a grid over the whole Block; every one must come within 8 m of the player within 25 s.
+	// A charging Buzzard must reach the player wherever the player stands and wherever the holdout can leave the Buzzard (e2e
+	// finding: one sat 18 m away for 40 s). The player stands at points over the whole Block (it falls to the ground there);
+	// at each, a ring of charging Buzzards 18 m out; every one must come within 8 m within 12 s.
 	FWorld W;
 	if (!W.Boot(*this))
 	{
 		return false;
 	}
+	W.Player->GetPlayerRules().bInvulnerable = true;
 	for (int32 I = 0; I < 30; ++I) W.Step();
-	const FVector Me = MI::Web::FromUnreal(W.Player->GetPlayerRules().Feet);
-	struct FProbe { int32 Id; FVector From; double Nearest; };
-	TArray<FProbe> Probes;
 	FMIEnemySpawnOptions Opts;
 	Opts.bAlerted = true;
-	for (double X = -70.0; X <= 70.0; X += 14.0)
+	int32 Total = 0, Stuck = 0;
+	for (double PX = -60.0; PX <= 60.0; PX += 20.0)
 	{
-		for (double Z = -70.0; Z <= 70.0; Z += 14.0)
+		for (double PZ = -60.0; PZ <= 60.0; PZ += 20.0)
 		{
-			FMIEnemy* B = W.Game->GetEnemies().Spawn(MIEnemy::EType::Buzzard, FVector(X, 6.0, Z), Opts);
-			if (B)
+			W.Game->GetEnemies().Clear();
+			W.Player->SetActorLocation(MI::Web::ToUnreal(FVector(PX, 1.0, PZ)), false, nullptr, ETeleportType::TeleportPhysics);
+			for (int32 I = 0; I < 15; ++I) W.Step();
+			const FVector Me = MI::Web::FromUnreal(W.Player->GetPlayerRules().Feet);
+			struct FProbe { int32 Id; FVector From; double Nearest; };
+			TArray<FProbe> Probes;
+			for (int32 K = 0; K < 6; ++K)
 			{
-				B->bCharge = true;
-				Probes.Add({B->Id, B->Pos, 1e9});
+				const double A = K * UE_DOUBLE_PI / 3.0;
+				FMIEnemy* B = W.Game->GetEnemies().Spawn(MIEnemy::EType::Buzzard, FVector(Me.X + 18.0 * FMath::Cos(A), 6.0, Me.Z + 18.0 * FMath::Sin(A)), Opts);
+				if (B)
+				{
+					B->bCharge = true;
+					Probes.Add({B->Id, B->Pos, 1e9});
+				}
+			}
+			for (int32 F = 0; F < 30 * 12; ++F)
+			{
+				W.Step();
+				const FVector P = MI::Web::FromUnreal(W.Player->GetPlayerRules().Feet);
+				for (FProbe& Pr : Probes)
+				{
+					if (const FMIEnemy* E = W.Game->GetEnemies().Find(Pr.Id))
+					{
+						Pr.Nearest = FMath::Min(Pr.Nearest, FVector::Dist(E->Pos, P + FVector(0, 1.0, 0)));
+					}
+				}
+			}
+			for (const FProbe& Pr : Probes)
+			{
+				Total++;
+				if (Pr.Nearest >= 8.0)
+				{
+					Stuck++;
+					AddInfo(FString::Printf(TEXT("player at (%.0f, %.0f): charging Buzzard from (%.0f, %.1f, %.0f) stayed %.1f m away"), Me.X, Me.Z, Pr.From.X, Pr.From.Y, Pr.From.Z, Pr.Nearest));
+				}
 			}
 		}
 	}
-	for (int32 F = 0; F < 30 * 25; ++F)
-	{
-		W.Step();
-		const FVector P = MI::Web::FromUnreal(W.Player->GetPlayerRules().Feet);
-		for (FProbe& Pr : Probes)
-		{
-			if (const FMIEnemy* E = W.Game->GetEnemies().Find(Pr.Id))
-			{
-				Pr.Nearest = E->bAlive ? FMath::Min(Pr.Nearest, FVector::Dist(E->Pos, P + FVector(0, 1.0, 0))) : 0.0;
-			}
-		}
-	}
-	int32 Stuck = 0;
-	for (const FProbe& Pr : Probes)
-	{
-		if (Pr.Nearest >= 8.0)
-		{
-			Stuck++;
-			AddInfo(FString::Printf(TEXT("charging Buzzard from (%.0f, %.1f, %.0f) stayed %.1f m away (player at %.0f, %.0f)"), Pr.From.X, Pr.From.Y, Pr.From.Z, Pr.Nearest, Me.X, Me.Z));
-		}
-	}
-	TestEqual(FString::Printf(TEXT("every charging Buzzard of %d reaches the player"), Probes.Num()), Stuck, 0);
+	TestEqual(FString::Printf(TEXT("every charging Buzzard of %d reaches the player"), Total), Stuck, 0);
 	return true;
 }
 
