@@ -21,6 +21,8 @@ Against DECISIONS.md (2026-11-27 ~21:00 and ~21:15, with the owner's passes):
 | Gate 3: one end-to-end check, Story to the truck and Hold waves 1 to 3 | NOT MET | Hold waves 1 to 3 completed once (take 4, in god mode, drones killed by the director); Story to the truck never played |
 | Full-size look: guide path, damage wedge, hit marker, kill marker, NEXT blocked | NOT MET | guide path looked at in sun and indoors (pass, 480 x 270); wedge and markers not captured; NEXT rendered solid gold with no red note after four `fe empty` commands (either the capture is wrong or the blocked look is not drawn) |
 
+**Update (DECISIONS.md ~22:15, the owner):** the drones are removed from the game, so the Hold last-drone finding is moot, but the package above still spawns them: a data or code change is now required and the package must be rebuilt, the suite re-run (drone-pinning tests updated as the entry says) and the Hold waves 1 to 3 played again without drones. The sha256 above is therefore stale for release.
+
 Gates 1 and 3 of the trimmed bar are not shown met, and the Hold stuck-drone and the NEXT frame are two possible defects, so **NO-GO**. No required item was shown to fail for a real player; the missing thing is a viewer that can see 1920 x 1080 frames (every lane here moves pictures as base64 text, and copies over about 8,000 characters corrupt).
 
 ### Needed for the GO (a lane that can copy image files, on the package above)
