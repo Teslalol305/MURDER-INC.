@@ -790,3 +790,19 @@ support hand and in view; the far-face solve stays an improvement for later.
 **SHORTY aimed:** the irons now show the carry handle's ribs across the lower middle of the picture and nothing in front of the target
 (`v6-hands-wall.jpg` is not it; see the SHORTY aim frame in `v6-hands-shorty-after.jpg`, top right): the butt's rear face is gone, the
 target is clear, there is no aperture ring to look through (art: a taller sight line, 12.6).
+
+## 15. The STRETCH's marbled stock: found and fixed (2026-11-27, box `8496fd8c`, clone `/project/ue/int/repo`)
+
+**Cause (not the UVs, not the textures, not the importer).** `UMeshComponent::SetScalarParameterValueOnMaterials` (the clear
+magazine's per-frame fill) creates a per-slot material instance override on the gun component. Overrides are kept by slot index
+across `SetSkinnedAssetAndUpdate`. So after the CHOPPER (or any gun whose magazine writes a parameter) a STRETCH or SHORTY equipped on
+the same component kept the CHOPPER's override on slot 0 and drew its own UVs with the CHOPPER's material: the marbled white and
+black stock. A fresh start (STRETCH first) never showed it, which is why the earlier single-gun shots were clean.
+
+**Fix.** `UMIWeaponComponent::EquipMesh` calls `GunMesh->EmptyOverrideMaterials()` straight after the mesh change, so every gun
+starts from its own mesh's materials; the same call after the mesh change in `MIFirstPersonRig.cpp` for the pack gun. (A roughness
+floor tried first in the importer was removed again: net unchanged.)
+
+**Evidence.** Editor play (CHOPPER, SHORTY, STRETCH, RATTLER in sequence), stock-region metric: good 0.29 to 0.33 saturation and 0.00
+white fraction, bad build 0.12 to 0.14 and 0.21 to 0.28. The Workbench and run pictures of the finish pass
+(`v6f-shots.sh`) show the walnut stock on the STRETCH, with the CHOPPER carried first.

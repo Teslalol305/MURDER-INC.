@@ -656,3 +656,24 @@ re-recorded; no gameplay rule was touched (W6 below shows why the factor change 
   with each extended magazine (W4) and a suppressor's line (W6, "−85% muzzle flash"). The scripts are
   `/project/ue/ready/weaponsfix/gen_f.py` (`flash`, `mags`) and the audit's `/project/ue/ready/weapons/gen_w.py` (`wb`, `w2`) with
   `go.sh` (set `BUILD=` to the unpacked package).
+
+## v6 finish (2026-11-27, fixer lane; box `8496fd8c`, integration clone `/project/ue/int/repo`)
+
+**Done.** (1) The STRETCH finish: cause and fix in HANDS_R4.md section 15. (2) Owner decisions: "4x scope" is "2x scope" in all
+the text the player reads (part id and zoom unchanged); the default field of view is 90 degrees, horizontal at 16:9, slider 70 to 120
+(the rules keep their vertical value, so every golden replay is untouched); the STRETCH is semi-automatic only; B2 (after 20 s with
+only unhurt Buzzards left in a Hold the Block wave they fly straight at the player; the marker stays; only for waves that persist or
+leave last drones, so recorded replays are byte for byte). (3) POLISH v6 shortlist: 1, 2 (damage wedge on its own 1.5 s timer, one
+per attacker), 3 (NEXT label when blocked), 5 and 6 (plates and display font for the in-run warning, prompt, location card), 13, 15,
+16, 18, 23, 24, 25 (slider steps for pad and key, held-key repeat; hit marker for a blast kill; HUD scale H/1080). (4) Workbench: a
+removed part is no longer previewed again until the pointer moves; the framing grows to hold fitted muzzle parts; the pause card in
+a Shipping build shows no diagnostics line. New tests: `MurderInc.V6.*` (5). Full suite on the final head: see the report.
+
+**Not done.** POLISH 11 (focus skip), 12 (gun sound pitch), 17 (death-card overprint, needs a clean Shipping capture), 21, 22.
+The damage wedge, the hit marker and the slider repeat were not seen in a picture (code and tests only). The NEXT button's blocked
+look was not seen: the pictures script's empty-slot calls left two guns carried, so the button showed enabled. B2 has a charge
+behaviour test, not an end-to-end Hold the Block test. Smoothness was not re-measured.
+
+**The 4.4 s set-up (pipeline cache).** Not moved. It is engine start-up work that has to finish before the first frame can draw,
+so putting it behind CLICK TO PLAY would need a change of the pipeline cache start-up mode in the engine's settings, a package and a
+lag-harness measurement to know it does not cause hitches in the first seconds of play; not safe to do without that measurement.

@@ -51,6 +51,8 @@ Effort: S under 1 h, M half a day, L a day or more. Slot: v6 = cheap and safe, n
 Items 1, 2, 3, 5, 6, 13, 15, 16, 18, 21, 22, 23, 24, 25, the data-only parts of 4 and 12, and the focus-skip part of 11. Items 1, 2 and 3 matter most.
 Before touching 17, get one clean Shipping capture to see whether the overprint is real.
 
+Status after the v6 finish (READY.md): done 1, 2, 3, 5, 6, 13, 15, 16, 18, 23, 24, 25, 4 (steps and repeat); open 11, 12, 17, 21, 22.
+
 ## Owner decisions needed
 
 1. Scope power: rename to "2x scope" or lower adsFov to ~18-20 for a true 3-4x (#8).
