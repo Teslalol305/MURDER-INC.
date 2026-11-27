@@ -57,6 +57,19 @@ bool FMISettings::LoadDefaults(FMISettings& Out, FString& OutError)
 	(*R)->TryGetNumberField(TEXT("sensStep"), T.SensStep);
 	(*R)->TryGetNumberField(TEXT("fovStep"), T.FovStep);
 	(*R)->TryGetNumberField(TEXT("volumeStep"), T.VolumeStep);
+	if (const TSharedPtr<FJsonObject>* Pad = nullptr; (*R)->TryGetObjectField(TEXT("padStep"), Pad))
+	{
+		(*Pad)->TryGetNumberField(TEXT("sens"), T.PadSensStep);
+		(*Pad)->TryGetNumberField(TEXT("volume"), T.PadVolumeStep);
+		(*Pad)->TryGetNumberField(TEXT("fov"), T.PadFovStep);
+	}
+	if (const TSharedPtr<FJsonObject>* Rep = nullptr; (*R)->TryGetObjectField(TEXT("repeat"), Rep))
+	{
+		(*Rep)->TryGetNumberField(TEXT("after"), T.RepeatAfter);
+		(*Rep)->TryGetNumberField(TEXT("every"), T.RepeatEvery);
+		(*Rep)->TryGetNumberField(TEXT("fastAfter"), T.FastAfter);
+		(*Rep)->TryGetNumberField(TEXT("fastMult"), T.FastMult);
+	}
 	Names(*R, TEXT("quality"), T.Qualities);
 	Names(*R, TEXT("mode"), T.Modes);
 	Names(*R, TEXT("difficulty"), T.Difficulties);
@@ -147,6 +160,11 @@ bool FMISettings::SetFov(double V)
 	return true;
 }
 
+double FMISettings::VerticalFromWide(double WideDegrees)
+{
+	return FMath::RadiansToDegrees(2.0 * FMath::Atan(FMath::Tan(FMath::DegreesToRadians(WideDegrees) * 0.5) * 9.0 / 16.0));
+}
+
 bool FMISettings::SetView(int32 V)
 {
 	if (V < Rules.ViewMin || V > Rules.ViewMax || V == View)
@@ -210,7 +228,8 @@ void FMISettings::ToSave(UMISaveGame& Save) const
 	Save.bPadPlayStation = bPadPlayStation;
 	Save.bGuide = bGuide;
 	Save.Volume = Volume;
-	Save.Fov = Fov;
+	Save.Fov = VerticalFov();   // the old field, kept as the vertical equivalent for a build that still reads it
+	Save.FovWide = Fov;
 	Save.View = View;
 	Save.Best = Best;
 }
@@ -226,7 +245,7 @@ void FMISettings::FromSave(const UMISaveGame& Save)
 	SetPadPlayStation(Save.bPadPlayStation);
 	SetGuide(Save.bGuide);
 	SetVolume(Save.Volume);
-	SetFov(Save.Fov);
+	SetFov(Save.FovWide);
 	SetView(Save.View);
 	Best = FMath::Max(0, Save.Best);
 }

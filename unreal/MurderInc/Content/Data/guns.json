@@ -636,7 +636,7 @@
         "id": "stretch",
         "name": "STRETCH",
         "slot": 5,
-        "auto": true,
+        "auto": false,
         "damage": 25,
         "rpm": 700,
         "magSize": 30,
@@ -708,7 +708,7 @@
           [0.12, -0.085, -0.25, 0.05, 0.24, -0.3]
         ]
       },
-      "extra": {"fireModes": ["auto", "semi"], "modeSwitch": 0.35, "holster": 0.3, "draw": 0.35},
+      "extra": {"fireModes": ["semi"], "modeSwitch": 0.35, "holster": 0.3, "draw": 0.35, "notes": "Semi-automatic by the owner's decision (DECISIONS.md 2026-11-26): one shot per trigger pull, a marksman rifle. Its numbers did not change."},
       "presentation": {
         "fallbackMesh": "/Game/Weapons/Rifle/Meshes/SKM_Rifle.SKM_Rifle",
         "animSet": "stretch_ik",

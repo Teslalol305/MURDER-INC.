@@ -28,7 +28,7 @@
       "sens": 1,
       "invertY": false,
       "volume": 0.8,
-      "fov": 74,
+      "fov": 90,
       "difficulty": "boss",
       "mode": "mission",
       "view": 1,
@@ -119,7 +119,7 @@
     },
     "fov": {
       "base": 74,
-      "min": 55,
+      "min": 40,
       "max": 100,
       "sprintAdd": 6,
       "ads": 52,

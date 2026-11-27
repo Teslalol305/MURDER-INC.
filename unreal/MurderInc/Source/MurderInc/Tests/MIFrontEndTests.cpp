@@ -202,7 +202,9 @@ bool FMIFrontendWalkTest::RunTest(const FString& Parameters)
 		Rules.Init(Run.Weapons, 1, nullptr);
 		TestEqual(TEXT("one bag of 150"), Rules.GetBag(), 150.0);
 		TestEqual(TEXT("three slots"), Rules.NumGuns(), 3);
-		TestFalse(TEXT("every gun starts in fireModes[0] (auto)"), Rules.IsSemi(0) || Rules.IsSemi(1) || Rules.IsSemi(2));
+		// Every gun starts in fireModes[0]: the STRETCH's is semi since the owner's decision (DECISIONS.md 2026-11-26), the others' auto.
+		TestTrue(TEXT("the STRETCH starts semi-automatic (fireModes[0] = semi)"), Rules.IsSemi(0));
+		TestFalse(TEXT("the other guns start in auto"), Rules.IsSemi(1) || Rules.IsSemi(2));
 	}
 
 	// 8. After a death: Change set-up opens the Briefing; Back to title: Home with Night in the summary; Hit the

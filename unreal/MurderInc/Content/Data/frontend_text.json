@@ -131,19 +131,19 @@
       "items": {
         "irons": {"name": "Folding irons", "blurb": "Flip-up sights. Fold down under a scope."},
         "scope": {"name": "Scope", "blurb": "Reach across the block. Slow to come up."},
-        "silencer": {"name": "Silencer", "blurb": "Keeps it quiet. Loses a little bite at range."},
+        "silencer": {"name": "Suppressor", "blurb": "Keeps it quiet. Loses a little bite at range."},
         "gripVertical": {"name": "Vertical grip", "blurb": "Holds the muzzle down. Heavier in the hands."},
         "gripAngled": {"name": "Angled grip", "blurb": "Quick to the eye. Wanders more sideways."},
         "laser": {
           "name": "Laser",
-          "blurb": "Tightens hip fire. The dot shows where it goes, and pulls your eye off the sight."
+          "blurb": "Tightens hip fire, a little looser when aimed. The dot shows where it goes, and pulls your eye off the sight."
         },
         "magStandard": {"name": "Standard mag", "blurb": "Thirty rounds, steel."},
-        "magClear": {"name": "Clear mag", "blurb": "See what's left. Lighter, so it kicks a touch more."},
+        "magClear": {"name": "Clear mag", "blurb": "See what's left. Reloads a little quicker, kicks a touch more."},
         "stockOpen": {"name": "Stock open", "blurb": "On the shoulder."},
         "stockFolded": {"name": "Stock folded", "blurb": "Quick hands, wild kick."},
-        "redDot": {"name": "Red dot", "blurb": "Gets on target fast. The dot covers the small stuff."},
-        "scope4x": {"name": "4x scope", "blurb": "Four times the reach. Slow to come up, shaky on the move."},
+        "redDot": {"name": "Red dot", "blurb": "Gets on target fast, a little looser when aimed. The dot covers the small stuff."},
+        "scope4x": {"name": "2x scope", "blurb": "Twice the reach. Slow to come up, shaky on the move."},
         "suppressor": {"name": "Suppressor", "blurb": "Long and quiet. Loses a little bite at range."},
         "suppressorPistol": {"name": "Pistol suppressor", "blurb": "Quiet in the hand. Loses a little bite at range."},
         "compensator": {"name": "Compensator", "blurb": "Keeps the muzzle down. Louder, with a bigger flash."},
@@ -349,7 +349,7 @@
     "weapons": {
       "shorty": {"name": "SHORTY", "blurb": "Bullpup carbine, 30 rounds, quick in tight spots"},
       "stick": {"name": "STICK", "blurb": "Rail carbine, 30 rounds, takes every attachment"},
-      "stretch": {"name": "STRETCH", "blurb": "Marksman rifle, 30 rounds, hits harder, steady at range"},
+      "stretch": {"name": "STRETCH", "blurb": "Semi-automatic marksman rifle, 30 rounds, longer reach, steady at range"},
       "rattler": {"name": "RATTLER", "blurb": "Taken off a Vulture, 32 rounds, quick hands, short reach"},
       "melee": {"shorty": "Stock bash", "stick": "Stock bash", "stretch": "Stock bash", "rattler": "Stock bash"}
     },
@@ -416,6 +416,6 @@
         ["Inspect", ["Hold View"]]
       ]
     },
-    "where": {"kicker": "Where and how", "title": "Block and style"}
+    "where": {"kicker": "Where and how", "title": "Block & Style"}
   }
 }

@@ -461,7 +461,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIRunMenusTest, "MurderInc.Run.Menus", MITest:
 bool FMIRunMenusTest::RunTest(const FString& Parameters)
 {
 	using namespace MIRunTestsPrivate;
-	// The web game's validation (spec 04 2.16, verified there): fov 200 -> 95, 74.6 -> 75, sens 0.01 -> 0.2, volume 2 -> 1, quality 'test' rejected.
+	// The web game's validation (spec 04 2.16, verified there): fov 200 -> 120, 90.6 -> 91 (the slider is horizontal degrees at 16:9 since the v6 finish, DECISIONS.md 2026-11-26), sens 0.01 -> 0.2, volume 2 -> 1, quality 'test' rejected.
 	FMISettings S;
 	FString Error;
 	if (!TestTrue(TEXT("settings defaults load: ") + Error, FMISettings::LoadDefaults(S, Error)))
@@ -469,11 +469,11 @@ bool FMIRunMenusTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestEqual(TEXT("default mode"), S.Mode, FName(TEXT("mission")));
-	TestEqual(TEXT("default fov"), S.Fov, 74.0);
+	TestEqual(TEXT("default fov"), S.Fov, 90.0);
 	S.SetFov(200);
-	TestEqual(TEXT("fov 200 -> 95"), S.Fov, 95.0);
-	S.SetFov(74.6);
-	TestEqual(TEXT("fov 74.6 -> 75"), S.Fov, 75.0);
+	TestEqual(TEXT("fov 200 -> 120"), S.Fov, 120.0);
+	S.SetFov(90.6);
+	TestEqual(TEXT("fov 90.6 -> 91"), S.Fov, 91.0);
 	S.SetSens(0.01);
 	TestEqual(TEXT("sens 0.01 -> 0.2"), S.Sens, 0.2);
 	S.SetVolume(2);
@@ -521,7 +521,7 @@ bool FMIRunMenusTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("settings from the pause card"), (int32)M.Screen, (int32)EMIMenuScreen::Settings);
 	M.Selected = M.IndexOf(TEXT("fov"));
 	W.Game->MenuAdjust(1);
-	TestEqual(TEXT("field of view one degree up"), W.Game->GetSettings().Fov, 75.0);
+	TestEqual(TEXT("field of view one degree up"), W.Game->GetSettings().Fov, 91.0);
 	W.Game->MenuBack();
 	TestEqual(TEXT("back to the pause card"), (int32)M.Screen, (int32)EMIMenuScreen::Pause);
 	M.Selected = M.IndexOf(TEXT("resume"));

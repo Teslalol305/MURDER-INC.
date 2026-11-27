@@ -45,7 +45,9 @@ public:
 	/** Story guidance: the ground path and the objective markers (docs/unreal/PLAY.md, guide lane). On by default. */
 	UPROPERTY() bool bGuide = true;
 	UPROPERTY() double Volume = 0.8;
-	UPROPERTY() double Fov = 74.0;
+	UPROPERTY() double Fov = 74.0;               // the old vertical field (v5 and earlier saves): not read any more
+	/** The field of view the Settings slider shows: horizontal degrees at 16:9 (the owner, DECISIONS.md 2026-11-26: default 90). */
+	UPROPERTY() double FovWide = 90.0;
 	UPROPERTY() int32 View = 1;
 	UPROPERTY() int32 Best = 0;
 	UPROPERTY() FMISetupSave Setup;
@@ -59,7 +61,8 @@ public:
 struct MURDERINC_API FMISettings
 {
 	FName Mode, Difficulty, Time, Quality;
-	double Sens = 1.0, Volume = 0.8, Fov = 74.0;
+	/** Fov is HORIZONTAL degrees at 16:9 (default 90); the rules take its vertical equivalent (VerticalFov). */
+	double Sens = 1.0, Volume = 0.8, Fov = 90.0;
 	bool bInvertY = false;
 	/**
 	 * What a controller's buttons are called on screen: Xbox names (the web game's), or the PlayStation names for the
@@ -75,7 +78,10 @@ struct MURDERINC_API FMISettings
 	struct FRules
 	{
 		FString Slot = TEXT("murderinc.settings.v1");
-		double SensMin = 0.2, SensMax = 3.0, SensStep = 0.05, FovMin = 60, FovMax = 95, FovStep = 1, VolumeMin = 0, VolumeMax = 1, VolumeStep = 0.01;
+		double SensMin = 0.2, SensMax = 3.0, SensStep = 0.05, FovMin = 70, FovMax = 120, FovStep = 1, VolumeMin = 0, VolumeMax = 1, VolumeStep = 0.01;
+		/** A pad press steps further than a key (POLISH.md 4; the stream drops a held pad button's repeats), and a held Left/Right repeats. */
+		double PadSensStep = 0.1, PadFovStep = 5, PadVolumeStep = 0.05;
+		double RepeatAfter = 0.38, RepeatEvery = 0.17, FastAfter = 1.2, FastMult = 5;
 		int32 ViewMin = 1, ViewMax = 3;
 		TArray<FName> Qualities, Modes, Difficulties, Times;
 	} Rules;
@@ -89,8 +95,11 @@ struct MURDERINC_API FMISettings
 	bool SetQuality(FName V) { return SetName(Quality, V, Rules.Qualities); }
 	bool SetSens(double V);
 	bool SetVolume(double V);
-	/** Clamped and rounded to a whole degree (vertical field of view). */
+	/** Clamped and rounded to a whole degree (horizontal field of view at 16:9). */
 	bool SetFov(double V);
+	/** The vertical field the rules use for a horizontal one at 16:9 (90 gives 58.7). */
+	static double VerticalFromWide(double WideDegrees);
+	double VerticalFov() const { return VerticalFromWide(Fov); }
 	bool SetView(int32 V);
 	bool SetInvertY(bool V);
 	bool SetPadPlayStation(bool V);
