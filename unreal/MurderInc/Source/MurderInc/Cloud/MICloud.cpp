@@ -532,7 +532,7 @@ public:
 		if (O->IsWaitingForClick())
 		{
 			FSlateDrawElement::MakeBox(Out, Layer, Geo.ToPaintGeometry(), White, ESlateDrawEffect::None,
-				MIStyle::WithAlpha(MIStyle::Bg(), 0.82f));
+				MIStyle::WithAlpha(MIStyle::Bg(), 0.97f));  // near opaque: the title behind it no longer shows a second wordmark (POLISH.md 18)
 			const double Mid = Size.Y * 0.5;
 			Text(Out, Layer + 1, Geo, TEXT("MURDER INC."), MIStyle::Display(64 * S), MIStyle::Ink(), Mid - 150 * S);
 			// A plate behind the call to action, so it reads as the thing to click.
@@ -552,7 +552,7 @@ public:
 				MIStyle::Body(20 * S, true), MIStyle::Ink(), Mid + 104 * S);
 			// E3DS starts a stream muted when the browser refuses sound before a click on the page, and then only its
 			// own speaker button (bottom right of the player) turns the sound on.
-			Text(Out, Layer + 1, Geo, TEXT("No sound? Click the speaker at the bottom right."), MIStyle::Body(18 * S), Dim, Mid + 138 * S);
+			Text(Out, Layer + 1, Geo, TEXT("No sound? Click the speaker at the bottom right."), MIStyle::Body(20 * S), Dim, Mid + 138 * S);
 			return Layer + 3;
 		}
 
@@ -564,13 +564,18 @@ public:
 		{
 			// The pause card says nothing about keys; in a browser Esc may never reach the game, so name P. With a
 			// controller in the hand, its own button.
-			const FString Pause = G ? G->ControlName(TEXT("pause"), true) : FString();
-			Text(Out, Layer, Geo, bPad ? (Pause.IsEmpty() ? FString(TEXT("START")) : Pause) + TEXT(" to resume")
-					: FString(TEXT("P to resume  ·  Esc gives the mouse back to the browser; click the game to take it again")),
-				MIStyle::Body(18 * S, true), MIStyle::Ink(), Size.Y - 64 * S);
+			// One hint, not two: the card's own line (AMIHUD::DrawMenu) now names the stream key to resume ("P resumes" or the
+			// pad's button), so what is left here is only what the browser needs (POLISH.md 15).
+			if (!bPad)
+			{
+				Text(Out, Layer, Geo, TEXT("Esc gives the mouse back to the browser; click the game to take it again"),
+					MIStyle::Body(18 * S, true), MIStyle::Ink(), Size.Y - 64 * S);
+			}
 			// The game's own numbers, small and dim: a screenshot of the pause card answers what the server's log would
 			// (which GPU, how fast, how large the picture, how the stream is doing).
-			if (!O->GetNumbersLine().IsEmpty())
+			// A player does not read GPU names and QP: the Shipping game shows this line only with -MINumbers (READY.md M8; the
+			// pre-meeting check of LAUNCH.md 9.5 adds that launch option).
+			if (!O->GetNumbersLine().IsEmpty() && (!UE_BUILD_SHIPPING || FParse::Param(FCommandLine::Get(), TEXT("MINumbers"))))
 			{
 				Text(Out, Layer, Geo, O->GetNumbersLine(), MIStyle::Body(13 * S), MIStyle::InkDim(), Size.Y - 30 * S);
 			}

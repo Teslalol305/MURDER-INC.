@@ -36,6 +36,11 @@ public:
 	AMIShowroom* GetShowroom() const { return Showroom; }
 	int32 GetVersion() const { return Version; }
 	void Changed() { ++Version; }
+	/** A fit or a removal (Backspace, X) was just made: the pointer resting on the option it came from is told it is hovered
+	 *  again by the rebuild, and its preview put the removed part back on the stage (PLAY.md E7). Until the pointer moves,
+	 *  that hover is ignored (HoverBlocked). */
+	void NoteFit();
+	bool HoverBlocked();
 
 	/** One action by name (the console twin of every control): see the .cpp for the list. */
 	bool Act(const FString& Action, const FString& Arg = FString());
@@ -66,6 +71,8 @@ public:
 	FName RackFilter = TEXT("all");
 	/** Home: the full controls list is open (the CONTROLS button, focus 9). */
 	bool bShowControls = false;
+	bool bFitCursor = false;
+	FVector2D FitCursor = FVector2D::ZeroVector;
 	/** Home: the summary line's links and the pickers; Briefing: the four lines and Go. */
 	int32 NumFocusable() const;
 

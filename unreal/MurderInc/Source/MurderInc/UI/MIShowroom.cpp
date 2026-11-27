@@ -308,6 +308,7 @@ void AMIShowroom::PlaceGunOnPivot()
 		const FVector Centre = Pending.View.MeshOffset.TransformPosition(B.Origin);
 		Gun->AddRelativeLocation(-Centre);
 		GunRadius = FMath::Clamp(B.BoxExtent.Size(), 10.0, 120.0);  // the box's own sphere: the whole gun at any turn
+		FramedRadius = 0.0;                                         // a new gun: the frame is taken again from its parts
 	}
 	GunCentre = FVector::ZeroVector;
 	StandLift = 0.0;
@@ -582,7 +583,26 @@ void AMIShowroom::Tick(float DeltaSeconds)
 	const double X0 = (FreeLeft + FreeRight) * 0.5;
 	const FVector O = Centre - AimPoint;
 	const double Ox = O | Right, Oy = O | Up, Oz = O | Fwd;
-	const double Depth = FMath::Max3((GunRadius - Ox) / ((X0 - FreeLeft) * TanH), (GunRadius + Ox) / ((FreeRight - X0) * TanH), (FMath::Abs(Oy) + GunRadius) / (FreeHalfHeight * TanV));
+	// The frame holds the gun with every part on it: a muzzle device (the STRETCH's suppressor, the NINE's) reaches past the
+	// mesh's own sphere (PLAY.md E8), so the sphere grows to the farthest part, and eases when a part comes or goes.
+	double Wanted = GunRadius;
+	{
+		const FTransform PivotT = Pivot->GetComponentTransform();
+		TArray<USceneComponent*> Pieces;
+		Gun->GetChildrenComponents(true, Pieces);
+		for (const USceneComponent* C : Pieces)
+		{
+			const UStaticMeshComponent* P = Cast<UStaticMeshComponent>(C);
+			if (P && P->IsVisible() && P->GetStaticMesh())
+			{
+				const FBoxSphereBounds PB = P->GetStaticMesh()->GetBounds().TransformBy(P->GetComponentTransform().GetRelativeTransform(PivotT));
+				Wanted = FMath::Max(Wanted, (PB.Origin - GunCentre).Size() + PB.SphereRadius);
+			}
+		}
+		Wanted = FMath::Clamp(Wanted, 10.0, 160.0);
+	}
+	FramedRadius = FramedRadius > 0.0 ? FMath::FInterpTo(FramedRadius, Wanted, static_cast<float>(Dt), 8.f) : Wanted;
+	const double Depth = FMath::Max3((FramedRadius - Ox) / ((X0 - FreeLeft) * TanH), (FramedRadius + Ox) / ((FreeRight - X0) * TanH), (FMath::Abs(Oy) + FramedRadius) / (FreeHalfHeight * TanV));
 	const double Distance = FMath::Max(60.0, Depth - Oz) / (ZoomK * FocusZoom);
 	const FVector Camera = AimPoint - Fwd * Distance - Right * (X0 * Distance * TanH);
 	TurntableCamera->SetRelativeLocation(Camera);

@@ -122,6 +122,7 @@ private:
 	void PlaceArmsOnGrip();
 	FVector GunCentre = FVector::ZeroVector;
 	double GunRadius = 40.0;  // cm, the shown gun's bounding sphere: the camera stands off to frame it
+	double FramedRadius = 0.0;  // cm, GunRadius grown to the farthest fitted part (eased); 0 = take it again
 	/** The lowest point (cm, z in the turntable's frame without its spin or swap scale) of the gun and every visible
 	 *  part on it. */
 	double LowestInPivot() const;

@@ -372,7 +372,7 @@ bool UMIFrontEnd::Act(const FString& Action, const FString& Arg)
 		}
 		Rules.PreviewPart(Part);
 	}
-	else if (A == TEXT("fit")) Rules.Fit(Arg == TEXT("factory") ? NAME_None : N);
+	else if (A == TEXT("fit")) { Rules.Fit(Arg == TEXT("factory") ? NAME_None : N); NoteFit(); }
 	else if (A == TEXT("reset")) { bool bDone = false; for (int32 I = 0; I < 120 && !bDone; ++I) bDone = Rules.HoldReset(1.0 / 60.0, true); }
 	else if (A == TEXT("level")) Rules.SetLevel(N);
 	else if (A == TEXT("time") || A == TEXT("mode") || A == TEXT("difficulty")) WriteSetting(FName(*A), N);
@@ -405,6 +405,29 @@ bool UMIFrontEnd::Act(const FString& Action, const FString& Arg)
 		else UMIGameSubsystem::UiNote(TEXT("ui:click"), Game.Get());
 	}
 	return bOk;
+}
+
+void UMIFrontEnd::NoteFit()
+{
+	bFitCursor = FSlateApplication::IsInitialized();
+	if (bFitCursor)
+	{
+		FitCursor = FVector2D(FSlateApplication::Get().GetCursorPos());
+	}
+}
+
+bool UMIFrontEnd::HoverBlocked()
+{
+	if (!bFitCursor || !FSlateApplication::IsInitialized())
+	{
+		return false;
+	}
+	if (FVector2D(FSlateApplication::Get().GetCursorPos()).Equals(FitCursor, 0.5))
+	{
+		return true;
+	}
+	bFitCursor = false;  // the pointer has moved: hovers preview again
+	return false;
 }
 
 void UMIFrontEnd::Move(int32 Dx, int32 Dy)
