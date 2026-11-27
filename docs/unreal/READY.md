@@ -4,7 +4,7 @@ One section per lane of the readiness pass. Every finding names the evidence it 
 
 ## v6 fixer pass (2026-11-27, 20:14 to 21:30 UTC, box `85fbcf94`, clone `/project/ue/int/repo`): SHORTY hands, the Story pocket, the package of the head
 
-**Head `452f617` (code identical to `daa4f48`; the tree equals `30056ef` plus nothing). Full suite on it: `TESTS OK passed=228 failed=0 skipped=0` (golden replays included, nothing weakened). Shipping package of it: see the last line of this section.**
+**Head `452f617` (code identical to `daa4f48`; the tree equals `30056ef` plus nothing). Full suite on it: `TESTS OK passed=228 failed=0 skipped=0` (golden replays included, nothing weakened). Shipping package of it: `/project/ue/int/pkg/MurderInc-E3DS.zip` (2.3 GB, `package-cloud.sh all` steps to `zip`, parts not made), sha256 `4190986d4e5e9e0157f02aef5db96975ca9d7f90b0f9fb2592d84f76b6de2e9e`, `BUILD.txt` names `452f617` (game and launcher), `unzip -t` clean, sound and gun asset checks passed; packaged 21:22 UTC.** Later commits are documentation only.
 
 | Item | State | Evidence |
 |---|---|---|
