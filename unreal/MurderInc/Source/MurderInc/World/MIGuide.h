@@ -24,7 +24,7 @@ struct MURDERINC_API FMIGuideTune
 {
 	// path
 	double Repath = 1.0, MinRepath = 0.25, Stray = 2.5, Keep = 0.95;
-	double Spacing = 1.5, Ahead = 1.4, Reach = 30.0, StopShort = 1.2, ClearCost = 1.5, FadeIn = 2.5, Elevated = 1.0, StepUp = 0.45;
+	double Spacing = 1.5, Ahead = 1.4, Reach = 30.0, StopShort = 1.2, FadeIn = 2.5, Elevated = 1.0, StepUp = 0.45;
 	int32 MaxChevrons = 24;
 	// look
 	FString Mesh = TEXT("/Engine/BasicShapes/Plane.Plane");

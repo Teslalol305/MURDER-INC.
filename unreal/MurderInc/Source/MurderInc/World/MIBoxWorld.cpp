@@ -449,7 +449,6 @@ void FMIBoxWorld::RebuildNav()
 	Rows = FMath::Max(3, static_cast<int32>(FMath::CeilToDouble((Bounds.MaxZ - Bounds.MinZ) / NavCell - 1e-9)));
 	const int32 N = Cols * Rows;
 	Blocked.Init(0, N);
-	Tight.Reset();
 	Region.Init(0, N);
 	GCost.SetNumZeroed(N);
 	FCost.SetNumZeroed(N);
@@ -740,11 +739,7 @@ int32 FMIBoxWorld::Search(int32 Start, int32 Goal)
 			{
 				continue;
 			}
-			double Ng = G + (D < 4 ? 1.0 : UE_DOUBLE_SQRT_2);
-			if (TightCost > 0.0)
-			{
-				Ng += TightCost * Tight[Nb];
-			}
+			const double Ng = G + (D < 4 ? 1.0 : UE_DOUBLE_SQRT_2);
 			if (Seen[Nb] == SearchId)
 			{
 				if (Ng >= GCost[Nb])
@@ -772,44 +767,10 @@ int32 FMIBoxWorld::Search(int32 Start, int32 Goal)
 	return 0;
 }
 
-void FMIBoxWorld::BuildTight()
-{
-	// 2 on a free cell next to a blocked one (a gap of two cells or less has only such cells), 1 on a cell two away
-	Tight.Init(0, Cols * Rows);
-	for (int32 J = 2; J < Rows - 2; ++J)
-	{
-		for (int32 I = 2; I < Cols - 2; ++I)
-		{
-			if (Blocked[J * Cols + I])
-			{
-				continue;
-			}
-			uint8 T = 0;
-			for (int32 Dz = -2; Dz <= 2 && T < 2; ++Dz)
-			{
-				for (int32 Dx = -2; Dx <= 2; ++Dx)
-				{
-					if (Blocked[(J + Dz) * Cols + I + Dx])
-					{
-						T = FMath::Max<uint8>(T, (FMath::Abs(Dx) <= 1 && FMath::Abs(Dz) <= 1) ? 2 : 1);
-					}
-				}
-			}
-			Tight[J * Cols + I] = T;
-		}
-	}
-}
-
-bool FMIBoxWorld::FindPath(const FVector& A, const FVector& B, TArray<FVector>& Out, double ClearCost)
+bool FMIBoxWorld::FindPath(const FVector& A, const FVector& B, TArray<FVector>& Out)
 {
 	EnsureNav();
 	Out.Reset();
-	if (ClearCost > 0.0 && Tight.Num() != Cols * Rows)
-	{
-		BuildTight();
-	}
-	TightCost = ClearCost;
-	struct FReset { double& C; ~FReset() { C = 0.0; } } ResetCost{TightCost};
 	const int32 Start = NearestFree(A.X, A.Z, NavSnapRings, 0);
 	if (Start < 0)
 	{

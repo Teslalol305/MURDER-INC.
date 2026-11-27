@@ -101,11 +101,7 @@ public:
 	FMIMoveResult MoveCapsule(FVector& Pos, FVector& Vel, double Dt, double Radius, double Height, bool bAllowStep) const;
 
 	// ---- nav (0.5 m cells, A* with string pulling) ----
-	/** ClearCost > 0 (the Story guide's private copy only): every step onto a cell within 1 m of a blocked cell costs that much
-	 *  more (twice for the next ring in), so the route keeps to open ground and takes a gap of one or two cells (a van and a
-	 *  hoarding a body's width apart, with the art wider than the colliders) only when nothing roomier leads there. The Goons
-	 *  never pass it: their path, and so every golden replay, is the plain search. */
-	bool FindPath(const FVector& A, const FVector& B, TArray<FVector>& Out, double ClearCost = 0.0);
+	bool FindPath(const FVector& A, const FVector& B, TArray<FVector>& Out);
 	bool IsWalkable(double X, double Z);
 	bool ClearLine(const FVector& A, const FVector& B);
 	/** A random walkable point within Radius of Center in the same connected area. */
@@ -167,7 +163,4 @@ private:
 	uint32 SearchId = 0;
 	int32 ExpansionCap = NavMinExpansions;
 	int32 Offsets[8] = {};
-	TArray<uint8> Tight;
-	double TightCost = 0.0;
-	void BuildTight();
 };

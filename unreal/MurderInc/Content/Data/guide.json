@@ -14,12 +14,11 @@
     "ahead": 1.4,
     "reach": 30.0,
     "stopShort": 1.2,
-    "clearCost": 1.5,
     "fadeIn": 2.5,
     "elevated": 1.0,
     "stepUp": 0.45,
     "maxChevrons": 24,
-    "note": "repath: seconds between path searches (A* on the nav grid the Goons use, on a private copy); minRepath: the soonest a new search follows a stray; stray: metres off the drawn path that ask for a new search at once; keep: a new route replaces the drawn one only when it is shorter than keep x what is left of it (no flip between two routes of equal length); spacing: metres between chevrons, laid from the goal backwards so they stay put while the player walks; ahead / reach: the first and last metres of the path drawn, measured from the player; stopShort: metres before the goal where the chevrons stop; clearCost: extra cost of a step onto a cell within 1 m of a blocked cell (twice on the cell next to one), so the route keeps to roomy ground and takes a one or two cell gap only when nothing else leads there (the avenue's sidewalk between the white van and the DANGER STEAM hoarding is 1.7 m of grid and less in the engine: a pocket a player stopped in; 0 is the plain search); fadeIn: metres over which the chevrons grow at both ends; elevated: feet this far above the ground mean an upper floor (the path then goes down the nearest stair in waysDown first); stepUp: the highest kerb the chevrons climb; maxChevrons: the pool (a multiple of look.phases)"
+    "note": "repath: seconds between path searches (A* on the nav grid the Goons use, on a private copy); minRepath: the soonest a new search follows a stray; stray: metres off the drawn path that ask for a new search at once; keep: a new route replaces the drawn one only when it is shorter than keep x what is left of it (no flip between two routes of equal length); spacing: metres between chevrons, laid from the goal backwards so they stay put while the player walks; ahead / reach: the first and last metres of the path drawn, measured from the player; stopShort: metres before the goal where the chevrons stop; fadeIn: metres over which the chevrons grow at both ends; elevated: feet this far above the ground mean an upper floor (the path then goes down the nearest stair in waysDown first); stepUp: the highest kerb the chevrons climb; maxChevrons: the pool (a multiple of look.phases)"
   },
   "look": {
     "mesh": "/Engine/BasicShapes/Plane.Plane",
