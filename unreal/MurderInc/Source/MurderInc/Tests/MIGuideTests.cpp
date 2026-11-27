@@ -160,6 +160,20 @@ bool FMIGuideRoutesTest::RunTest(const FString& Parameters)
 			}
 			const double Straight = Flat(Froms[F], Goal);
 			TestTrue(What + FString::Printf(TEXT(": no long way round (%.1f m for %.1f m straight)"), Len, Straight), Len < Straight * 1.8 + 6.0);
+			if (Step == 0 && F == 0)
+			{
+				// the avenue's sidewalk between the white van (z 5.0 to 6.9) and the DANGER STEAM hoarding (z 8.6 to 11.0) is a
+				// 1.7 m gap of grid and less in the engine (the art is wider than the colliders): a player led into it stopped
+				// there (PLAY.md, v6 independent play, finding 1). No leg of the route may run through it.
+				for (int32 I = 1; I < P.Num(); ++I)
+				{
+					for (int32 K = 0; K <= 10; ++K)
+					{
+						const FVector Q = FMath::Lerp(P[I - 1], P[I], K / 10.0);
+						TestFalse(What + FString::Printf(TEXT(": leg %d stays out of the van gap (%.1f, %.1f)"), I, Q.X, Q.Z), Q.X > -21.0 && Q.X < -14.0 && Q.Z > 7.2 && Q.Z < 8.4);
+					}
+				}
+			}
 			const double Reach = Want == FMIGuidePlan::ExtractionStep ? B.Level->ExtractionRadius : 2.2;
 			TestTrue(What + FString::Printf(TEXT(": ends where the game answers (%.2f m from the goal)"), Flat(P.Last(), Goal)), Flat(P.Last(), Goal) < Reach - 0.2);
 			// The chevrons: on the floor under them, pointing along the route, never more than the pool.

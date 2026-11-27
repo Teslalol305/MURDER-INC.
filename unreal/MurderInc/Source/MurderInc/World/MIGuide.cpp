@@ -118,6 +118,7 @@ bool FMIGuideTune::Parse(const TSharedPtr<FJsonObject>& Root, FName Level, FMIGu
 	N(TEXT("path.ahead"), Out.Ahead);
 	N(TEXT("path.reach"), Out.Reach);
 	N(TEXT("path.stopShort"), Out.StopShort);
+	N(TEXT("path.clearCost"), Out.ClearCost);
 	N(TEXT("path.fadeIn"), Out.FadeIn);
 	N(TEXT("path.elevated"), Out.Elevated);
 	N(TEXT("path.stepUp"), Out.StepUp);
@@ -306,7 +307,7 @@ bool FMIGuidePlan::Search(const FVector& Feet, FMIBoxWorld& Nav, TArray<FVector>
 		}
 	}
 	TArray<FVector>& Pts = SearchBuf;
-	if (!Nav.FindPath(FVector(Start.X, 0.0, Start.Z), FVector(Goal.X, 0.0, Goal.Z), Pts) || Pts.Num() == 0)
+	if (!Nav.FindPath(FVector(Start.X, 0.0, Start.Z), FVector(Goal.X, 0.0, Goal.Z), Pts, Tune.ClearCost) || Pts.Num() == 0)
 	{
 		Out.Reset();
 		return false;
