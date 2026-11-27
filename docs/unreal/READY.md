@@ -1,5 +1,35 @@
 # Deployment readiness (release v6)
 
+## v6 GO readiness (closer, 2026-11-27 ~22:50 UTC; supersedes every section below)
+
+**Commit: `452f617` (code identical to `daa4f48`; later commits are documentation only). Package: `MurderInc-E3DS.zip` of `452f617`, sha256 `4190986d4e5e9e0157f02aef5db96975ca9d7f90b0f9fb2592d84f76b6de2e9e`. Verdict: NO-GO.**
+
+The closer changed no code and no data: nothing in the findings was both small and verifiable from a lane that can only read pictures as base64 text. Box `85fbcf94` was alive (checked 22:51 UTC).
+
+Against DECISIONS.md (2026-11-27 ~21:00 and ~21:15, with the owner's passes):
+
+| Criterion | State | Evidence |
+|---|---|---|
+| Smoothness | PASSED by the owner | ~21:00 item 1 |
+| STICK one-hand reload | ACCEPTED for v6 by the owner | ~21:00 item 2 |
+| SHORTY reload hands | OPEN, not a gate | engine frame shows a large forearm mass and no support hand (skin 15 to 22 %), the offline model disagrees, so no blind change shipped; release note and next-release item |
+| Gate 2: full suite on the commit packaged | PASS | `TESTS OK passed=228 failed=0 skipped=0` on `452f617`, goldens included |
+| Package of the commit built | PASS | sha256 above, `unzip -t` clean |
+| Pad and gun switching | PASS with limits | two clean runs, every switch confirmed by log lines, no failure; no frame seen |
+| Gate 1: no stuck state, Story pocket | OPEN | pocket not reproduced for the drawn route (director took Reel 1 in 3 of 3 runs, `Guide.EndToEnd` passes), but never walked with real keys through the 1.7 m sidewalk gap |
+| Gate 1: Hold the Block last-drone rule | OPEN, possible blocker | rule fired in every wave it applied (about 20 s after the last hurt or kill); drones then hover within about 3 m and the wave ends only when shot. One wave (take 5, wave 2, Buzzard 9) did not end in over 165 s after the charge line; the cause is unknown (stuck outside view, or the director not seeing it). A stuck wave is a stuck state |
+| Gate 3: one end-to-end check, Story to the truck and Hold waves 1 to 3 | NOT MET | Hold waves 1 to 3 completed once (take 4, in god mode, drones killed by the director); Story to the truck never played |
+| Full-size look: guide path, damage wedge, hit marker, kill marker, NEXT blocked | NOT MET | guide path looked at in sun and indoors (pass, 480 x 270); wedge and markers not captured; NEXT rendered solid gold with no red note after four `fe empty` commands (either the capture is wrong or the blocked look is not drawn) |
+
+Gates 1 and 3 of the trimmed bar are not shown met, and the Hold stuck-drone and the NEXT frame are two possible defects, so **NO-GO**. No required item was shown to fail for a real player; the missing thing is a viewer that can see 1920 x 1080 frames (every lane here moves pictures as base64 text, and copies over about 8,000 characters corrupt).
+
+### Needed for the GO (a lane that can copy image files, on the package above)
+1. Hold the Block: find where Buzzard 9 was in take 5 (log the charging drone's position), fix if it is stuck on geometry; repackage only if code changes.
+2. NEXT blocked: look at the Loadout with no gun carried by eye; if solid gold, fix the draw.
+3. Walk the Story from the start to the truck with real keys (the sidewalk gap), with a look at each reel's guide path.
+4. Full-size frames: damage wedge, hit marker, kill marker.
+5. Optional: SHORTY reload hands (look at the engine frame, tune, re-look).
+
 One section per lane of the readiness pass. Every finding names the evidence it rests on (a picture, a log line, a number).
 
 ## v6 fixer pass (2026-11-27, 20:14 to 21:30 UTC, box `85fbcf94`, clone `/project/ue/int/repo`): SHORTY hands, the Story pocket, the package of the head
