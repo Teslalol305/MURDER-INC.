@@ -40,9 +40,8 @@ Runs are `p-*` and `q-*` in `/project/ue/smooth/v8/runs/` on the box. Counting: 
 (`p-menus4`: 93 of 114 frames with no thread over its limit, 20 render-thread-bound; game-bound 1). They come in episodes (`p-menus4` 10 to 70 s, `q-menus4` 60 to 130 s, `q-menus5` 50 to 60 s; version 4's
 `p-v4menus3` 90 to 130 s). **In every such episode the game's own stream pacer holds frames**: "held" frames of the run's summary: head `p-menus4` 170, `q-menus4` 271, `q-menus5` 150, against 7 to 32 in the other
 head runs; version 4 `p-v4menus3` 65, `q-v4menus2` 35 (and 3 pacer time-outs, the 425 ms frame), against 2 to 14 in its other runs. So the frame period is spent waiting on the stream's capture side (the fake viewer's
-encoder here, the host's on E3DS), not computing; the head's picture is a little dearer to draw (above) and the head has the episodes in 4 of 10 runs against 2 of 10 for version 4 (the last three of five head runs
-in `queue12`'s time and the last two of `queue13`; no trend with time of day: `p-menus3`, `q-menus2` and `q-menus3` at 2 to 3 per minute are among the best of the 26). Whether the head's slightly larger frame makes the
-episodes likelier, or ten runs each is too few to tell 4 of 10 from 2 of 10, **was not proved**: a Mann-Whitney test on the two rows of ten is not significant, and it is also not shown that they are the same. A larger
+encoder here, the host's on E3DS), not computing; the head's picture is a little dearer to draw (above) and the head has the episodes in 4 of 10 runs against 2 of 10 for version 4 (the episodes are spread over the whole 17:41 to 19:05 window with no trend: `p-menus3`, `q-menus2` and `q-menus3` at 2 to 3 per minute are among the best of the 26). Whether the head's slightly larger frame makes the
+episodes likelier, or ten runs each is too few to tell 4 of 10 from 2 of 10, **was not proved**: a Mann-Whitney test on the two rows of ten gives p = 0.60 (U = 57.5), so the difference is not significant, and it is also not shown that the builds are the same. A larger
 sample, or a trace of an episode (`-trace=cpu,gpu,frame` with the pacer's wait scopes named) from a head run that has one, would decide it. Neither was made here (the episodes cannot be asked for; `n2-trace`
 of the perf engineer was a good run).
 
