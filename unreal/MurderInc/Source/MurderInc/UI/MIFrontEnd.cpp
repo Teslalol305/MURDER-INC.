@@ -817,8 +817,14 @@ void UMIFrontEnd::Tick(double Dt)
 			Changed();
 		}
 	}
-	SyncViewTarget();
-	SyncStage(false);
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/FrontEnd SyncViewTarget");
+		SyncViewTarget();
+	}
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/FrontEnd SyncStage");
+		SyncStage(false);
+	}
 	// The Briefing's first-person view: the arms hold the first carried gun, as the intro starts from this view.
 	if (Rules.GetScreen() == EMIFrontScreen::Briefing && Game.IsValid())
 	{
@@ -834,6 +840,7 @@ void UMIFrontEnd::Tick(double Dt)
 	// thread before Slate's frame, so Slate measures the new screen before it draws it (READY.md M1).
 	if (Widget.IsValid())
 	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/FrontEnd WidgetSync");
 		Widget->Sync();
 	}
 }

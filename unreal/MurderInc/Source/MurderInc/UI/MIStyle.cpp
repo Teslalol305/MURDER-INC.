@@ -11,14 +11,22 @@ namespace MIStylePrivate
 {
 	FLinearColor Hex(const TCHAR* H) { return FLinearColor::FromSRGBColor(FColor::FromHex(H)); }
 
+	/** The face file for a name: the project's own, else the engine's. Found once per name and kept: a screen rebuild asks for
+	 *  a font several hundred times, and each ask was a file-system check (SMOOTH.md: 3 to 9 ms of the game thread on every
+	 *  key press of the front end). */
 	FString FontFile(const TCHAR* Name, const TCHAR* EngineFallback)
 	{
-		const FString Own = FPaths::Combine(FPaths::ProjectContentDir(), TEXT("Fonts"), Name);
-		if (IFileManager::Get().FileExists(*Own))
+		static FCriticalSection Lock;
+		static TMap<FString, FString> Found;
+		FScopeLock Guard(&Lock);
+		if (const FString* Have = Found.Find(Name))
 		{
-			return Own;
+			return *Have;
 		}
-		return FPaths::Combine(FPaths::EngineContentDir(), TEXT("Slate/Fonts"), EngineFallback);
+		const FString Own = FPaths::Combine(FPaths::ProjectContentDir(), TEXT("Fonts"), Name);
+		FString Path = IFileManager::Get().FileExists(*Own) ? Own : FPaths::Combine(FPaths::EngineContentDir(), TEXT("Slate/Fonts"), EngineFallback);
+		Found.Add(Name, Path);
+		return Path;
 	}
 
 	UFont* MakeCanvasFont(const FString& File, int32 Size, UFont*& Holder)
@@ -37,21 +45,23 @@ namespace MIStylePrivate
 	}
 }
 
-FLinearColor MIStyle::Bg() { return MIStylePrivate::Hex(TEXT("07080a")); }
-FLinearColor MIStyle::Plate() { return MIStylePrivate::Hex(TEXT("0f1114")); }
-FLinearColor MIStyle::PlateEdge() { return MIStylePrivate::Hex(TEXT("2a2e35")); }
-FLinearColor MIStyle::Ink() { return MIStylePrivate::Hex(TEXT("f4f2ec")); }
-FLinearColor MIStyle::InkDim() { return MIStylePrivate::Hex(TEXT("b4b2ab")); }
-FLinearColor MIStyle::InkFaint() { return MIStylePrivate::Hex(TEXT("8b8983")); }
-FLinearColor MIStyle::Gold() { return MIStylePrivate::Hex(TEXT("f6c21a")); }
-FLinearColor MIStyle::Red() { return MIStylePrivate::Hex(TEXT("e2222b")); }
-FLinearColor MIStyle::Oxblood() { return MIStylePrivate::Hex(TEXT("6b1218")); }
-FLinearColor MIStyle::Cyan() { return MIStylePrivate::Hex(TEXT("39d0e0")); }
+FLinearColor MIStyle::Bg() { static const FLinearColor C = MIStylePrivate::Hex(TEXT("07080a")); return C; }
+FLinearColor MIStyle::Plate() { static const FLinearColor C = MIStylePrivate::Hex(TEXT("0f1114")); return C; }
+FLinearColor MIStyle::PlateEdge() { static const FLinearColor C = MIStylePrivate::Hex(TEXT("2a2e35")); return C; }
+FLinearColor MIStyle::Ink() { static const FLinearColor C = MIStylePrivate::Hex(TEXT("f4f2ec")); return C; }
+FLinearColor MIStyle::InkDim() { static const FLinearColor C = MIStylePrivate::Hex(TEXT("b4b2ab")); return C; }
+FLinearColor MIStyle::InkFaint() { static const FLinearColor C = MIStylePrivate::Hex(TEXT("8b8983")); return C; }
+FLinearColor MIStyle::Gold() { static const FLinearColor C = MIStylePrivate::Hex(TEXT("f6c21a")); return C; }
+FLinearColor MIStyle::Red() { static const FLinearColor C = MIStylePrivate::Hex(TEXT("e2222b")); return C; }
+FLinearColor MIStyle::Oxblood() { static const FLinearColor C = MIStylePrivate::Hex(TEXT("6b1218")); return C; }
+FLinearColor MIStyle::Cyan() { static const FLinearColor C = MIStylePrivate::Hex(TEXT("39d0e0")); return C; }
 
 FLinearColor MIStyle::Line(int32 Index)
 {
-	static const TCHAR* Lines[] = {TEXT("f2762e"), TEXT("1fa463"), TEXT("3b82f0"), TEXT("f6c21a"), TEXT("e2222b")};
-	return MIStylePrivate::Hex(Lines[FMath::Clamp(Index, 0, 4)]);
+	static const FLinearColor Lines[] = {
+		MIStylePrivate::Hex(TEXT("f2762e")), MIStylePrivate::Hex(TEXT("1fa463")), MIStylePrivate::Hex(TEXT("3b82f0")),
+		MIStylePrivate::Hex(TEXT("f6c21a")), MIStylePrivate::Hex(TEXT("e2222b"))};
+	return Lines[FMath::Clamp(Index, 0, 4)];
 }
 
 FLinearColor MIStyle::WithAlpha(const FLinearColor& C, float A)

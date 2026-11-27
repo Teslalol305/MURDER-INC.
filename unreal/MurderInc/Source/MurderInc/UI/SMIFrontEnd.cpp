@@ -72,11 +72,26 @@ namespace MIFrontEndUI
 		return Brush.Get();
 	}
 
+	/** What a brush is made of: compared and hashed as numbers (the key was a formatted string of both colours, built on every
+	 *  one of the several hundred calls of a screen rebuild). */
+	struct FBoxKey
+	{
+		FLinearColor Fill;
+		FLinearColor Edge;
+		float Radius = 0.f;
+		float EdgeWidth = 0.f;
+		bool operator==(const FBoxKey& O) const { return Fill == O.Fill && Edge == O.Edge && Radius == O.Radius && EdgeWidth == O.EdgeWidth; }
+		friend uint32 GetTypeHash(const FBoxKey& K)
+		{
+			return HashCombine(HashCombine(GetTypeHash(K.Fill), GetTypeHash(K.Edge)), HashCombine(GetTypeHash(K.Radius), GetTypeHash(K.EdgeWidth)));
+		}
+	};
+
 	/** Brushes live as long as the process (Slate holds raw pointers to them). */
 	const FSlateBrush* Box(const FLinearColor& Fill, float Radius = 6.f, const FLinearColor& Edge = FLinearColor::Transparent, float EdgeWidth = 0.f)
 	{
-		static TMap<FString, TSharedPtr<FSlateBrush>> Cache;
-		const FString Key = FString::Printf(TEXT("%s|%.1f|%s|%.1f"), *Fill.ToString(), Radius, *Edge.ToString(), EdgeWidth);
+		static TMap<FBoxKey, TSharedPtr<FSlateBrush>> Cache;
+		const FBoxKey Key{Fill, Edge, Radius, EdgeWidth};
 		if (const TSharedPtr<FSlateBrush>* Have = Cache.Find(Key))
 		{
 			return Have->Get();
@@ -293,6 +308,7 @@ bool SMIFrontEnd::Sync()
 
 void SMIFrontEnd::Rebuild()
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/SMIFrontEnd::Rebuild");
 	if (!Owner.IsValid())
 	{
 		return;
@@ -313,6 +329,7 @@ void SMIFrontEnd::Rebuild()
 	Scroller.Reset();
 	FocusedWidget.Reset();
 	TSharedRef<SWidget> Body = SNullWidget::NullWidget;
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/SMIFrontEnd screen body");
 	switch (Screen)
 	{
 	case EMIFrontScreen::Home: Body = Home(); break;
@@ -322,7 +339,10 @@ void SMIFrontEnd::Rebuild()
 	case EMIFrontScreen::Where: Body = Where(); break;
 	case EMIFrontScreen::Briefing: Body = Briefing(); break;
 	}
-	ChildSlot[Body];
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/SMIFrontEnd ChildSlot");
+		ChildSlot[Body];
+	}
 	if (Scroller.IsValid())
 	{
 		Scroller->SetScrollOffset(Offset);
@@ -387,6 +407,7 @@ void SMIFrontEnd::EndHover()
 
 TSharedRef<SWidget> SMIFrontEnd::Frame(TSharedRef<SWidget> Body, bool bScroll)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/SMIFrontEnd Frame");
 	// The veil: the left 40 % holds the controls, the rest shows the stage; a soft edge as one smooth gradient.
 	TSharedRef<SHorizontalBox> Veil = SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot().FillWidth(Column)[SNew(SImage).Image(Box(WithAlpha(Bg(), 0.88f), 0.f))];
@@ -746,6 +767,7 @@ TSharedRef<SWidget> SMIFrontEnd::Bars(FName Gun, const FMIGunBuild* Build, const
 
 TSharedRef<SWidget> SMIFrontEnd::GunCard(FName Gun, bool bFocused)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/SMIFrontEnd GunCard");
 	const FMIFrontEndRules& R = Owner->GetRules();
 	const FMIGunEntry* G = R.GetData().FindGun(Gun);
 	TWeakObjectPtr<UMIFrontEnd> O = Owner;
