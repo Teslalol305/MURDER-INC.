@@ -1070,8 +1070,8 @@ void UMIFirstPersonRig::Update(double Dt, const FMIWeaponView& W, const FMIViewm
 		}
 		// The fitted optic's housing out of the picture as the sight comes up (about 0.45 to 0.75 of the aim): the glass and
 		// the reticle stay. Without the importer's "AimFade" parameter on the material this does nothing.
-		static TAutoConsoleVariable<float> CVarOpticFade(TEXT("mi.FP.OpticFade"), 1.0f,
-			TEXT("How far a fitted optic's housing fades out when aimed: 1 gone, 0 stays solid (the aimed picture of the red dot and the scopes)."), ECVF_Default);
+		static TAutoConsoleVariable<float> CVarOpticFade(TEXT("mi.FP.OpticFade"), 0.0f,
+			TEXT("How far a fitted optic's housing fades out when aimed: 0 stays solid (the default: the player looks through the optic), 1 gone (v6 package: the reticle ring floated over the rail, review 2026-11-27)."), ECVF_Default);
 		const float Fade = static_cast<float>(Smooth((W.Ads - 0.45) / 0.30)) * FMath::Clamp(CVarOpticFade.GetValueOnGameThread(), 0.f, 1.f);
 		for (const TWeakObjectPtr<UMaterialInstanceDynamic>& D : OpticHardware)
 		{
