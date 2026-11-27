@@ -390,8 +390,14 @@ bool FMIAssistWorldTest::RunTest(const FString& Parameters)
 	// ADS snap: 7 degrees off with the pad (inside 10), the aim ends on the chest within a few frames.
 	W.PC->SetDeviceFromMenu(true);
 	W.AimOff(7.0, 1.0);
+	AddInfo(FString::Printf(TEXT("snap start: error %s nearest %s"), *W.Error().ToString(), *W.NearestError().ToString()));
 	In.bAds = true;
-	for (int32 I = 0; I < 8; ++I) W.Step();
+	for (int32 I = 0; I < 8; ++I)
+	{
+		W.Step();
+		AddInfo(FString::Printf(TEXT("snap frame %d: yaw %.3f nearest %s snapping %d slow %.3f ads %d"), I, W.Player->GetPlayerRules().GetAimYaw(), *W.NearestError().ToString(),
+			W.PC->GetAimAssist().IsSnapping() ? 1 : 0, W.PC->GetAssistSlow(), In.bAds ? 1 : 0));
+	}
 	AddInfo(FString::Printf(TEXT("snap: error now %s"), *W.NearestError().ToString()));
 	TestTrue(*FString::Printf(TEXT("ADS: snapped onto a Goon (error now %s)"), *W.NearestError().ToString()), W.NearestError().Size() < 1.5);
 	In.bAds = false;
@@ -399,6 +405,12 @@ bool FMIAssistWorldTest::RunTest(const FString& Parameters)
 
 	// A wall between: no slow-down, no pull, no snap.
 	AActor* Wall = W.Wall();
+	{
+		FHitResult H;
+		FCollisionQueryParams P(SCENE_QUERY_STAT(MIAssistTestSight), false, W.Player);
+		const bool bHit = W.World->LineTraceSingleByChannel(H, W.Player->GetPlayerRules().Eye, W.Chest(), MIBulletChannel, P);
+		AddInfo(FString::Printf(TEXT("wall: eye %s chest %s wall at %s: trace hit %d actor %s"), *W.Player->GetPlayerRules().Eye.ToCompactString(), *W.Chest().ToCompactString(), *Wall->GetActorLocation().ToCompactString(), bHit ? 1 : 0, H.GetActor() ? *H.GetActor()->GetName() : TEXT("none")));
+	}
 	W.HoldOff(2.0, 0.0, 14);
 	TestTrue(TEXT("behind a wall: no slow-down"), W.PC->GetAssistSlow() > 0.99);
 	W.AimOff(2.0, 0.0);
