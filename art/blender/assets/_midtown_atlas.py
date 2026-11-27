@@ -51,7 +51,7 @@ FONT_FILES = {
     "mt_passion": os.path.join(FD, "PassionOne-Bold.ttf"),
 }
 sg.FONTS.update(FONT_FILES)           # in-memory only: signs.Canvas.text looks fonts up by key
-DENS = {"billboard": 128, "band": 256, "plaque": 384, "label": 1024}
+DENS = {"billboard": 128, "band": 256, "plaque": 384, "label": 1024, "tag": 640, "wall": 192}
 
 # Screen atlas layout: (atlas, x, y, w, h) in px from the top-left.
 H_CELL, V_CELL = (2048, 1024), (1024, 2048)
@@ -364,18 +364,23 @@ def cell_px(F):
 
 
 def pack(sizes):
-    """Shelf packing, tallest first, into one ATLAS x ATLAS page. Returns {key: (x, y)} from the top-left."""
+    """First-fit shelf packing, tallest first, into one ATLAS x ATLAS page: a face goes on the first shelf (row) it fits on, a new
+    shelf is opened only when none does. Returns {key: (x, y)} from the top-left."""
     order = sorted(sizes, key=lambda k: (-sizes[k][1], -sizes[k][0], k))
-    out, x, y, shelf = {}, 0, 0, 0
+    out, shelves, y_next = {}, [], 0                                    # shelves: [y, height, x used]
     for k in order:
         w, h = sizes[k][0] + 2 * PAD, sizes[k][1] + 2 * PAD
-        if x + w > ATLAS:
-            x, y, shelf = 0, y + shelf, 0
-        if y + h > ATLAS:
-            raise ValueError("Sign_MT_Atlas1 is full at %s" % k)
-        out[k] = (x + PAD, y + PAD)
-        x += w
-        shelf = max(shelf, h)
+        for sh in shelves:
+            if h <= sh[1] and sh[2] + w <= ATLAS:
+                out[k] = (sh[2] + PAD, sh[0] + PAD)
+                sh[2] += w
+                break
+        else:
+            if y_next + h > ATLAS:
+                raise ValueError("Sign_MT_Atlas1 is full at %s" % k)
+            shelves.append([y_next, h, w])
+            out[k] = (PAD, y_next + PAD)
+            y_next += h
     return out
 
 
@@ -436,6 +441,20 @@ def draw_face(key, F, rng):
                 cv.put(m, ink)
                 letters = np.maximum(letters, m)
             rough = 0.55 + sg.weather_face(cv, rng, 1.3, top_fade=0.1, grime=0.5)
+    elif kind == "wall":                                                 # a step-and-repeat press wall: the two lines, staggered
+        for r in range(8):
+            for c in range(4):
+                tx = (c + (0.5 if r % 2 else 0.0) + 0.5) * W / 4.0
+                if tx > W:
+                    tx -= W
+                m, _w, _s = cv.text(L[(r + c) % 2], "mt_heavy", H * 0.034, tx, H * (0.065 + r * 0.108), cond=0.9, track=0.06, max_w=W * 0.22)
+                cv.put(m, ink, 0.92)
+                letters = np.maximum(letters, m)
+        cv.put(cv.rect(0.0, H - 0.20, W, H, outline=None), rgb("#0c0d10"))
+        m, _w, _s = cv.text("VLTR", "mt_heavy", 0.11, W - 0.34, H - 0.10, track=0.1, max_w=0.5)         # the small oxblood mark
+        cv.put(m, rgb("#8a2020"))
+        letters = np.maximum(letters, m)
+        rough = 0.62 + sg.weather_face(cv, rng, 0.8, top_fade=0.1, grime=0.3)
     else:                                                                # small labels
         cv.put(cv.rect(0.008, 0.008, W - 0.008, H - 0.008, r=0.01, outline=0.006), ink)
         m, _w, _s = cv.text(L[0], "mt_heavy", H * 0.24, W / 2, H * 0.34, cond=0.9, max_w=W * 0.86)

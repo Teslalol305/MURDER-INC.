@@ -55,6 +55,19 @@ BUDGET = {
     "SM_Sign_LEDWall_Tile_2m": 2000, "SM_Sign_LEDWall_Edge_": 200, "SM_Sign_Ticker_4m": 2000, "SM_Sign_TowerStack": 40000,
     "SM_Scaf_Flight_2p4": 8000, "SM_Scaf_Landing_2p4": 4000, "SM_Scaf_Bay_Frame": 6000, "SM_Scaf_Netting_Panel": 500,
     "SM_Scaf_Sign": 1000, "SM_Roof_HVAC_RTU_S": 6000,
+    # round 3: the rooftop bar, the roof boxes, the plaza's small dressing, the premiere's set, the bus, the facades
+    "SM_Roof_Lounge_Bar": 8000, "SM_Roof_Lounger": 4000, "SM_Roof_Umbrella_Folded": 3000, "SM_Roof_PlanterBox": 3000,
+    "SM_Roof_Loftlark_Neon_4m": 12000, "SM_Roof_LoungeDeck_9x7": 12000, "SM_Roof_DunnageDeck_6x6": 8000, "SM_Roof_DuctBox": 4000,
+    "SM_Roof_VentBox": 4000, "SM_Roof_ConduitBox": 3000, "SM_Roof_ConduitRun": 3000, "SM_Roof_PipeSleepers": 2000,
+    "SM_Roof_FanHousing": 4000, "SM_Sq_BollardPlanter": 4000, "SM_Sq_Newsstand": 12000, "SM_Sq_PhoneKiosk": 6000,
+    "SM_Sq_WayfindingPylon": 3000, "SM_Sq_ATM_Kiosk": 3000, "SM_Sq_Standpipe": 1500, "SM_Sq_ValetStand": 3000,
+    "SM_Sq_LuggageCart": 5000, "SM_Sq_Crates_Stack": 4000, "SM_Sq_Hoarding_6m": 4000, "SM_Sq_Sawhorse": 2000, "SM_Sq_FanSign": 500, "SM_Sq_TrashCan": 3000,
+    "SM_Sq_Truck_": 30000, "SM_Sq_Van_Broadcast": 25000, "SM_Sq_Trailer_": 15000, "SM_Sq_ScreenTrailer": 8000, "SM_Sq_LightTower": 10000,
+    "SM_Sq_TrussTower": 8000, "SM_Sq_PressWall": 3000, "SM_Sq_VipTent": 6000, "SM_Sq_MerchBooth": 6000, "SM_Sq_CoatCheck": 5000,
+    "SM_Sq_SecurityBooth": 5000, "SM_Sq_InfoBooth": 5000, "SM_Sq_PhotoBooth": 5000, "SM_Sq_PortableToilets": 8000,
+    "SM_Sq_CameraRiser": 6000, "SM_Sq_SpeakerStack": 8000, "SM_Sq_SoundTower": 8000, "SM_Vehicle_CityBus": 90000,
+    "SM_Facade_MT_Bay_": 2000, "SM_Facade_MT_Cornice": 2000, "SM_Facade_MT_Ground_Blank": 2000, "SM_Facade_MT_Shop_": 12000,
+    "SM_Sign_MT_Band_": 1000, "SM_Facade_MT_TheatreFront": 12000, "SM_Facade_MT_HotelFront": 12000, "SM_Facade_Marquee_": 30000,
     # the square (midtown.md 14.2 where it names the asset; the rest by kind)
     "SM_Sq_Stand_Tier_12m": 12000, "SM_Sq_Stand_Tier_3m": 4000, "SM_Sq_Stand_WingSide": 6000, "SM_Sq_Stand_Back": 8000,
     "SM_Sq_Booth_WallSide": 6000, "SM_Sq_Booth_FrontWall": 6000, "SM_Sq_Booth_Desk": 8000, "SM_Sq_Booth_Rack": 4000,
@@ -96,6 +109,35 @@ def budget(name):
     return BUDGET[best]
 
 
+# Round 3: LOD1s (about a quarter of the triangles, the same slots, size and pivot) for the pieces the views draw many times or from
+# afar: the facade modules switch at 25 m, the props and vehicles at 12 m (in Unreal the static mesh's LOD1, same slots).
+LOD1 = {"SM_Facade_MT_Bay_Red_3p1": 220, "SM_Facade_MT_Bay_Buff_3p1": 220, "SM_Facade_MT_Bay_Stone_3p1": 220, "SM_Facade_MT_Ground_Blank_3p1": 300,
+        "SM_Facade_MT_Shop_Souvenir": 700, "SM_Facade_MT_Shop_Slice": 450, "SM_Facade_MT_Shop_Camera": 800, "SM_Facade_MT_Shop_Bank": 800,
+        "SM_Facade_MT_Shop_Chop": 600, "SM_Facade_MT_Shop_Pharmacy": 600, "SM_Facade_MT_TheatreFront_8m": 600, "SM_Facade_MT_HotelFront_8m": 700,
+        "SM_Facade_Marquee_A": 1500, "SM_Roof_LoungeDeck_9x7": 3000, "SM_Roof_DunnageDeck_6x6": 1500, "SM_Roof_Lounge_Bar": 1800,
+        "SM_Vehicle_CityBus": 2400, "SM_Sq_Truck_Production": 1400, "SM_Sq_Truck_Satellite": 1400, "SM_Sq_Truck_Catering": 1300,
+        "SM_Sq_Truck_Generator": 1100, "SM_Sq_Truck_Cable": 1600, "SM_Sq_Truck_Staging": 2000, "SM_Sq_Van_Broadcast_6p8": 900,
+        "SM_Sq_Trailer_Production_6m": 800, "SM_Sq_Trailer_Production_6p4": 800}
+FACADE_LOD_SWITCH_M, PROP_LOD_SWITCH_M = 25.0, 12.0
+
+
+def build_lods(ctx):
+    """<name>_LOD1 of each mesh in LOD1 (the collapse of assets/_chinatown_lod, material slots and pivot kept)."""
+    import bpy
+    from assets import _chinatown_lod as cl
+    for src_name, target in LOD1.items():
+        src = ctx.K[src_name]
+        name = src_name + "_LOD1"
+        ob = bpy.data.objects.new(name, src.data.copy())
+        ob.data.name = name
+        ctx.kit.objects.link(ob)
+        ob.matrix_world = src.matrix_world.copy()
+        cl._collapse(ob, target)
+        ctx.asset(ob, collision="none", slots=roof.SLOT_META, notes="LOD1 of %s: the same slots, size and pivot, collapsed to about %d triangles; "
+                  "drawn past %.0f m (the static mesh's LOD1 in Unreal)." % (src_name, target, FACADE_LOD_SWITCH_M if "Facade" in src_name else PROP_LOD_SWITCH_M))
+        ctx.K[name] = ob
+
+
 def build(ctx):
     names.check_english()
     ctx.K = {}
@@ -124,8 +166,14 @@ def build(ctx):
     from assets import _midtown_square as square
     square.materials(ctx, M)
     kits += square.PROPS
+    from assets import _midtown_dress as dress
+    from assets import _midtown_facade as facade_mt
+    from assets import _midtown_set as premiere
+    dress.materials(ctx, M)
+    kits += dress.PROPS + premiere.PROPS + facade_mt.PROPS
     for f in kits:
         f(ctx, M)
+    build_lods(ctx)
     tris = {n: geo.stats(o)["triangles"] for n, o in ctx.K.items()}
     ctx.log("%d assets, %d triangles in all, largest %s (%d)" % (len(tris), sum(tris.values()), max(tris, key=tris.get), max(tris.values())))
     for n_, t_ in sorted(tris.items()):
