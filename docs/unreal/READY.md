@@ -2,6 +2,42 @@
 
 One section per lane of the readiness pass. Every finding names the evidence it rests on (a picture, a log line, a number).
 
+## v6 GO readiness (final closer, 2026-11-27, 20:00 to 20:30 UTC; supersedes every section below)
+
+**Commit to package: `daa4f48` (code; every later commit is documentation or a tool only; package sha256 `1c0f574b...` recomputed and matching). Verdict: NO-GO.**
+
+The closer changed no code and no data. The box was alive; the work was to verify each must-fix, try the one that a data change could answer, and decide. The picture path from the box is text only
+(a full-size frame is about 90,000 characters of base64), so a re-look at a changed frame is possible only as a small thumbnail; that is why nothing was shipped that could not be seen.
+
+| GO criterion | Pass or fail | Evidence |
+|---|---|---|
+| Full suite on what is pushed | PASS | `TESTS OK passed=228 failed=0 skipped=0` on `daa4f48` (perf engineer); nothing changed since in code or data |
+| JSON valid, `check_guns_data.py` 0 errors | PASS (unchanged) | no data file changed after `77b02f3`; the closer's experiment edited only an unpacked copy on the box and restored it (`guns.json` parsed after the restore) |
+| Package of the commit built | PASS | `daa4f48`, `MurderInc-E3DS.zip` sha256 `1c0f574bc9f2e4ce648a6da47b06da70c29e6d8b696b02bbf58ed764f44418f0` |
+| Smoothness: every number no worse than v4 | FAIL (not proven) | ten runs each: frames over 25 ms a minute head 13.3 mean (7.85 median) against 8.2 (5.7), pacer-hold episodes in 4 of 10 head runs against 2 of 10; cause not found. SMOOTH.md "v9 measurer" |
+| Engine start no later than v4 | FAIL (close) | init +0.3 s, first line +0.5 s (5.5 against 5 s) |
+| Independent look at the pictures at full size | FAIL (defects confirmed) | below |
+| Independent end-to-end play | FAIL (not done) | Hold wave 1 only, no waves 2 and 3, no pad, no second run (PLAY.md "v6 independent play") |
+
+**Must-fix items of the proofs, each checked by the closer against the prover's own frames at full size (`v6pics/g1`, `g2`):**
+
+1. STICK reload shows one hand: **confirmed** (`g1/stick-3-reload11.jpg`: the gun raised muzzle-up with only the left hand on the magazine; at 0.5 s no hand at all in the picture, `stick-3-reload05`). The STICK is the only gun on the pack's reload clip (`animSets.rifle`, `Reload_Quick`); the five hand-IK guns have solved reload grips, the STICK has none. Not fixed: a fix is either a solved reload grip for the STICK (a `grips.json` entry and its `reload_grips.py` run, then frames) or a different pack clip; neither can be done and seen at full size from this session. Open, art lane.
+2. SHORTY reload hands malformed: **confirmed** (`g2/shorty-1-reload11.jpg`: the support hand fills a third of the picture, a cluster of finger stubs on the receiver, the forearm a flat slab). Tried once in data: the SHORTY's `poses.reload` pushed forward (`[0.115, -0.10, -0.30, ...]` and two more variants, runs `a1` to `a3`, unpacked package copy, restored). Seen as a thumbnail of `a1` at the 1.1 s mark: the gun is a large green slab low right and **no hand is in the picture at all**, which is worse. Rejected, not shipped. Open.
+3. CHOPPER support hand reads as one finger at the hip (should-fix): **not confirmed** at half size (`g1/chopper-1-hip`, `reload05` show a hand and fingers under the handguard and both hands on the magazine in the reload); the prover's crops were not re-opened.
+4. Optics aimed are heavy black rings and tubes: **confirmed as a look**, and as designed since `77b02f3` (`mi.FP.OpticFade 0`, HANDS_R4.md 16). The RATTLER's and SHORTY's iron-sight aimed views are also a black slab with a round window (`g2/rattler-2-aim`, `shorty-1-aim`), about 40 % of the picture height. Readable, not finished. Look decision for the art director.
+5. Frames not seen: **partly seen by the closer**, at half size (960 x 540), whole picture: CHOPPER hip, aim, aim-fire, reload 0.5 s; NINE the same; STRETCH the same; SHORTY the same; RATTLER the same; STICK all four. NINE, STRETCH, CHOPPER and RATTLER reloads show both hands on the magazine and the gun; no detached part. Aimed-fire frames show the aimed view without a hand. Optic-fitted frames (`g3`, `g4`) and the Workbench of the STICK and STRETCH were not opened by the closer.
+6. Guide path: **not identified** and not re-checked (a play script that stands where it is drawn is still needed). Story pocket: **not reproduced**; the prover sprinted straight at a van and the player stopped against it, which is the collision, not proof the drawn path leads there; the drawn route was not walked. Should-fix, open.
+7. Hit marker and kill tick: not seen by anyone. Open.
+
+### What is needed for a GO
+
+1. A solved reload grip for the STICK (or another clip) and a SHORTY reload that shows a hand of normal size on the magazine, each seen at full size on a package frame (a text-only link to the box makes this a job for a session that can copy files).
+2. The pacer-hold stalls explained or shown no worse than v4 on a larger sample (a trace of a head run that has an episode).
+3. One independent play that reaches Hold waves 1 to 3, a death, pause, settings, second run, pad: with a viewer that sees in real time or a scripted run.
+4. Full-size look at the optic-fitted frames, guide path, hit marker, kill tick.
+
+Until then: **NO-GO**. Nothing in code or data changed in this pass, so no re-check of changes is owed.
+
 ## Smoothness measurement (measurer, 2026-11-27, 17:41 to 19:05 UTC, package of `daa4f48`): NOT PROVEN, the perf engineer's "smooth" does not hold on ten runs each
 
 Ten clean runs of the head against ten of version 4 (menus with guns), Story, two first fights each, same box and conditions, 26 runs, all `others=0 build=0`. Frames over 25 ms a minute: head mean 13.3 (median 7.85) against
