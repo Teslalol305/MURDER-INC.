@@ -2,6 +2,21 @@
 
 One section per lane of the readiness pass. Every finding names the evidence it rests on (a picture, a log line, a number).
 
+## v6 fixer pass (2026-11-27, 20:14 to 21:30 UTC, box `85fbcf94`, clone `/project/ue/int/repo`): SHORTY hands, the Story pocket, the package of the head
+
+**Head `452f617` (code identical to `daa4f48`; the tree equals `30056ef` plus nothing). Full suite on it: `TESTS OK passed=228 failed=0 skipped=0` (golden replays included, nothing weakened). Shipping package of it: see the last line of this section.**
+
+| Item | State | Evidence |
+|---|---|---|
+| SHORTY reload hands | **NOT FIXED** (cosmetic, not a gate) | The engine frame of the head's data (`guns-shots.sh`, `GUNS=shorty HUD=0 RELOADS="0.5 1.1"`, 1920 x 1080, run `a1`, box `/project/ue/logs/int-repo/v6/a1`) was read from the box as a 128 x 72 sixteen-colour copy and a 96 x 36 skin map (the link is text only: a 640 x 360 JPEG is 31,000 characters). It shows the firing forearm as a large mass across the bottom centre and right (skin 17 % of the picture at 0.5 s, 22 % at 1.1 s) and no support hand on the magazine. The offline reconstruction of the same data (`fp_offline.py --guns shorty --states r0.5,r1.1`) shows both hands and 9 % skin: **the offline model and the engine disagree for the SHORTY's reload**, so a pose tuned offline (`tune.py pose`) cannot be trusted and a data change tried blind was not shipped. Needs a viewer that sees the engine frame at full size. |
+| Story ground path into a pocket | **NOT REPRODUCED; no change shipped** | See below. |
+| Build, suite, package of the head | built (`BUILD OK`), suite 228 of 228, package below | `build.sh` 158 s, `test.sh MurderInc` 73 s warm |
+
+**The Story pocket.** What the prover's frames (`s6` to `s9`) show is the player standing in the notch between the taxi (`level.json` colliders 591, 592: x -26.9 to -22.3, z 5.1 to 6.9) and the white van (593: x -21.5 to -16.3, z 5.0 to 6.9) after a straight sprint from the start (the start looks along +x with a slight turn toward the road, so the line from (-37.4, 8.15) runs into the taxi's north face): street furniture on its north side (trash can 711, newspaper boxes 712, 713, z 7.4 to 8.0), the van ahead. `S` backs out of it. The drawn route is not there: A* from the start runs on the sidewalk at z 8.8 to (-20.2, 8.8), then (-17.2, 7.8), (-15.8, 7.8) through the 1.7 m gap between the van and the shanty (568: x -17.4 to -14.6, z 8.6 to 11.0, the DANGER STEAM hoarding), then out to the road. The simulation's collision is the box world's own (the same colliders as the nav grid; the art does not collide), so a gap the grid passes is passable for the player capsule.
+- The demo director, which walks the drawn route with the real player movement (`guide-shots.sh PLAY=only`, god mode), took Reel 1 on the unchanged route in 3 of 3 runs (`w0`, `w0b`: "guide done: at the case" at 5.5 s and 12 s of play, "grab: reel taken") and Reel 2 on the one run that went on (`w0b`, 29 s). `MurderInc.Guide.EndToEnd` (the whole story, real movement, along the drawn routes) passes in the suite.
+- One change was tried and **reverted** (`d3feb01`, reverted by `452f617`): a clearance cost on the guide's private nav copy (a step onto a cell within 1 m of a blocked cell costs extra, so the route leaves the 1.7 m gap for the road; start to Reel 1 went from 37.4 to 44.2 m). It passed the suite, but the director then failed to secure Reel 1 on 2 of 3 runs (`w1` took it after 6.9 s of the 8 s grab limit, `w2a` and `w2b` timed out twice and `w2b` took it on the third try) where the unchanged route took it in 3.8 to 4.6 s every time. The new route was not shown to be better and was shown not to be safer, so it was not kept.
+- Not done: a human or scripted walk from the start with real key input along the sidewalk gap, and the review's "second pocket" (the taxi 5K83 behind the player): both are dead ends of the parked-car line that a player leaves by backing out, not places with no exit.
+
 ## v6 GO readiness (final closer, 2026-11-27 ~20:10 UTC; supersedes every section below)
 
 **Commit: `48ebbb2` (head; code unchanged since `daa4f48`, later commits are documentation or tools). Package sha256 `1c0f574bc9f2e4ce648a6da47b06da70c29e6d8b696b02bbf58ed764f44418f0` (`MurderInc-E3DS.zip` of `daa4f48`). Verdict: NO-GO (not finished: no GPU box).**
