@@ -1,4 +1,5 @@
 #include "Flow/MIGameSubsystem.h"
+#include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include "AudioDevice.h"
 #include "Camera/CameraActor.h"
@@ -582,14 +583,28 @@ bool UMIGameSubsystem::ApplySetup(const FMIRunSetup& Setup)
 	Ready.Validate(S);
 	FMIResolvedRun Run;
 	FString Error;
-	if (!FMILoadoutResolver(*Data, ResolverConfig, ResolverPresentation).Resolve(S, &Ready, Run, Error))
+	bool bResolved = false;
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/ApplySetup Resolve");
+		bResolved = FMILoadoutResolver(*Data, ResolverConfig, ResolverPresentation).Resolve(S, &Ready, Run, Error);
+	}
+	if (!bResolved)
 	{
 		UE_LOG(LogMI, Error, TEXT("Set-up: %s (the run keeps the guns it had)"), *Error);
 		return false;
 	}
-	P->GetWeapon()->ApplyRun(Run);
-	P->ApplyCrewLook(Data->FindCrew(S.Crew));
-	ApplyCrewLines(S.Crew);
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/ApplySetup ApplyRun");
+		P->GetWeapon()->ApplyRun(Run);
+	}
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/ApplySetup ApplyCrewLook");
+		P->ApplyCrewLook(Data->FindCrew(S.Crew));
+	}
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/ApplySetup ApplyCrewLines");
+		ApplyCrewLines(S.Crew);
+	}
 	// The audio agent's hooks (docs/unreal/AUDIO.md 1): the crew member's voice set and the silencers.
 	if (UMIAudioSubsystem* Audio = UMIAudioSubsystem::Get(this))
 	{

@@ -853,6 +853,7 @@ void UMIFrontEnd::Tick(double Dt)
 		{
 			if (P->GetWeapon())
 			{
+				TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/FrontEnd BriefingWeaponStep");
 				P->GetWeapon()->Step(Dt, FMIWeaponInput(), FVector2D::ZeroVector);
 			}
 		}
@@ -897,15 +898,18 @@ void UMIFrontEnd::SyncViewTarget()
 		// The Briefing's first-person view holds the first carried gun. The arms in play are still the template body,
 		// whose open upper arm fills the lower left this close (LOADOUT.md 6.6, owned by the characters work): they stay
 		// hidden here until the crew's own first-person arms are in.
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/FrontEnd ArmsVisibility");
 		P->SetArmsHidden(Want == 2);
 		P->SetViewmodelVisible(Want == 2);
 		if (Want == 2)
 		{
+			TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/FrontEnd PreviewSetup");
 			Game->PreviewSetup(Rules.GetSetup());  // the chosen arms and guns in the player's own hands
 		}
 	}
 	if (Target)
 	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/FrontEnd SetViewTarget");
 		PC->SetViewTarget(Target);
 		CutCamera();
 	}

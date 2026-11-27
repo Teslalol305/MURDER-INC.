@@ -158,6 +158,7 @@ namespace MIFrontEndUI
 	/** Text: wrapped to the space it gets, or cut with an ellipsis; never below MinText. */
 	TSharedRef<STextBlock> Txt(const FString& T, FSlateFontInfo Font, const FLinearColor& Colour, bool bWrap = false)
 	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/FE Txt");
 		Font.Size = FMath::Max(Font.Size, MinText);
 		return SNew(STextBlock).Text(FText::FromString(T)).Font(Font).ColorAndOpacity(FSlateColor(Colour)).AutoWrapText(bWrap)
 			.OverflowPolicy(bWrap ? ETextOverflowPolicy::Clip : ETextOverflowPolicy::Ellipsis);
@@ -534,6 +535,7 @@ TSharedRef<SWidget> SMIFrontEnd::BottomBar()
 
 TSharedRef<SWidget> SMIFrontEnd::Home()
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/SMIFrontEnd Home");
 	const FMIFrontEndRules& R = Owner->GetRules();
 	const FMIRunSetup& S = R.GetSetup();
 	TWeakObjectPtr<UMIFrontEnd> O = Owner;
@@ -705,6 +707,7 @@ TSharedRef<SWidget> SMIFrontEnd::ControlsGlance()
 
 TSharedRef<SWidget> SMIFrontEnd::Crew()
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/SMIFrontEnd Crew");
 	const FMIFrontEndRules& R = Owner->GetRules();
 	TWeakObjectPtr<UMIFrontEnd> O = Owner;
 	TSharedRef<SWrapBox> Cards = Wrap(10.f);
@@ -825,6 +828,7 @@ TSharedRef<SWidget> SMIFrontEnd::GunCard(FName Gun, bool bFocused)
 
 TSharedRef<SWidget> SMIFrontEnd::Loadout()
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/SMIFrontEnd Loadout");
 	const FMIFrontEndRules& R = Owner->GetRules();
 	TWeakObjectPtr<UMIFrontEnd> O = Owner;
 	const int32 F = Owner->FocusShown();
@@ -910,6 +914,7 @@ TSharedRef<SWidget> SMIFrontEnd::Loadout()
 
 TSharedRef<SWidget> SMIFrontEnd::Workbench()
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/SMIFrontEnd Workbench");
 	const FMIFrontEndRules& R = Owner->GetRules();
 	TWeakObjectPtr<UMIFrontEnd> O = Owner;
 	const FName Gun = R.GetBenchGun();
@@ -1046,6 +1051,7 @@ TSharedRef<SWidget> SMIFrontEnd::Workbench()
 
 TSharedRef<SWidget> SMIFrontEnd::Where()
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/SMIFrontEnd Where");
 	const FMIFrontEndRules& R = Owner->GetRules();
 	const FMIRunSetup& S = R.GetSetup();
 	TWeakObjectPtr<UMIFrontEnd> O = Owner;
@@ -1133,6 +1139,7 @@ TSharedRef<SWidget> SMIFrontEnd::Where()
 
 TSharedRef<SWidget> SMIFrontEnd::Briefing()
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/SMIFrontEnd Briefing");
 	const FMIFrontEndRules& R = Owner->GetRules();
 	const FMIRunSetup& S = R.GetSetup();
 	TWeakObjectPtr<UMIFrontEnd> O = Owner;
