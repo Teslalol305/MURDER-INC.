@@ -57,4 +57,5 @@ private:
 	bool bWasAds = false;
 	bool bSnapping = false;
 	double SnapLeft = 0.0;
+	FVector2D SnapTrack = FVector2D::ZeroVector;  // the snap's target, as an error from the crosshair: the snap sticks to one target
 };

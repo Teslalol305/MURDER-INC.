@@ -181,6 +181,20 @@ bool FMIAssistMathTest::RunTest(const FString& Parameters)
 		// The mouse's snap is 5 degrees: 7 is out, 4 is in.
 		TestTrue(TEXT("mouse: 7 degrees is beyond its snap"), FMIAimAssist(A).Step(Frame(false, false, true), {FVector2D(7, 0)}).Turn.IsZero());
 		TestFalse(TEXT("mouse: 4 degrees snaps"), FMIAimAssist(A).Step(Frame(false, false, true), {FVector2D(4, 0)}).Turn.IsZero());
+		// A snap keeps to the Goon it began on, even when another becomes nearer the crosshair on the way; and lets go when that one is gone.
+		FMIAimAssist T = A;
+		const FVector2D First(-4.0, 0.0);
+		const FVector2D OtherAt[3] = {FVector2D(5.0, 0.0), FVector2D(0.4, 0.0), FVector2D(0.4, 0.0)};  // comes nearer the crosshair than the first
+		FVector2D Sum2 = FVector2D::ZeroVector;
+		for (int32 I = 0; I < 3; ++I)
+		{
+			const FMIAssistResult R = T.Step(Frame(true, false, true), {First - Sum2, OtherAt[I]});
+			Sum2 += R.Turn;
+		}
+		TestTrue(TEXT("the snap stayed on the first Goon (turned left, not toward the other that came nearer)"), Sum2.X < -3.0);
+		FMIAimAssist G = A;
+		G.Step(Frame(true, false, true), {First});
+		TestTrue(TEXT("its Goon gone, a snap does not jump to another one"), G.Step(Frame(true, false, true), {FVector2D(8, 0)}).Turn.IsZero());
 		// Holding ADS later does not snap again; releasing and aiming again does.
 		FMIAimAssist H = A;
 		for (int32 I = 0; I < 10; ++I) H.Step(Frame(true, false, true), {});
@@ -287,7 +301,29 @@ namespace MIAssistTestsPrivate
 				for (int32 S = 0; S < 2; ++S) Step();
 				Goon = NearestGoon();
 			}
-			return T.TestNotNull(TEXT("a Goon to aim at"), Goon);
+			if (!T.TestNotNull(TEXT("a Goon to aim at"), Goon))
+			{
+				return false;
+			}
+			// Alone in the world: the others are put down, so that what the assist does is the one Goon's doing.
+			for (TActorIterator<AMIGoon> It(World); It; ++It)
+			{
+				if (*It != Goon && It->IsMIDamageableAlive() && It->GetBodyHit())
+				{
+					const FVector C = It->GetBodyHit()->GetComponentLocation();
+					FMIDamage D;
+					D.Amount = 100000.0;
+					D.Kind = EMIDamageKind::Bullet;
+					D.Source = EMIDamageSource::Player;
+					D.From = C + FVector(600, 0, 0);
+					D.Direction = (C - D.From).GetSafeNormal();
+					D.Point = C;
+					D.Part = TEXT("body");
+					It->ApplyMIDamage(D);
+				}
+			}
+			for (int32 I = 0; I < 3; ++I) Step();
+			return true;
 		}
 		AMIGoon* NearestGoon() const
 		{

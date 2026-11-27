@@ -4,14 +4,19 @@
 
 namespace
 {
-	int32 Nearest(const TArray<FVector2D>& Errors, double Within)
+	int32 Nearest(const TArray<FVector2D>& Errors, double Within, const FVector2D* Near = nullptr)
 	{
 		int32 Best = INDEX_NONE;
-		double BestLen = Within;
+		double BestLen = 0.0;
 		for (int32 I = 0; I < Errors.Num(); ++I)
 		{
-			const double L = Errors[I].Size();
-			if (L <= BestLen)
+			if (Errors[I].Size() > Within)
+			{
+				continue;
+			}
+			// Nearest the crosshair, or (a snap that has begun) nearest the target it was turning onto.
+			const double L = Near ? (Errors[I] - *Near).Size() : Errors[I].Size();
+			if (Best == INDEX_NONE || L < BestLen)
 			{
 				BestLen = L;
 				Best = I;
@@ -61,10 +66,11 @@ FMIAssistResult FMIAimAssist::Step(const FMIAssistFrame& F, const TArray<FVector
 	// 3. ADS snap: begins on the press, over the target nearest the crosshair inside the angle.
 	if (F.bAds && !bWasAds)
 	{
-		if (Nearest(Errors, S.SnapAngle * K) != INDEX_NONE)
+		if (const int32 I = Nearest(Errors, S.SnapAngle * K); I != INDEX_NONE)
 		{
 			bSnapping = true;
 			SnapLeft = S.SnapTime;
+			SnapTrack = Errors[I];
 		}
 	}
 	bWasAds = F.bAds;
@@ -75,7 +81,11 @@ FMIAssistResult FMIAimAssist::Step(const FMIAssistFrame& F, const TArray<FVector
 	if (bSnapping)
 	{
 		// Follows its target a little beyond the angle it began in (the crosshair or the target may move meanwhile).
-		const int32 I = Nearest(Errors, S.SnapAngle * K * 1.5);
+		int32 I = Nearest(Errors, S.SnapAngle * K * 1.5, &SnapTrack);
+		if (I != INDEX_NONE && (Errors[I] - SnapTrack).Size() > S.SnapAngle * K * 0.5)
+		{
+			I = INDEX_NONE;  // its target is gone (no line of sight any more): not another Goon instead
+		}
 		if (I == INDEX_NONE)
 		{
 			bSnapping = false;
@@ -84,6 +94,7 @@ FMIAssistResult FMIAimAssist::Step(const FMIAssistFrame& F, const TArray<FVector
 		{
 			const double Share = SnapLeft <= F.Dt ? 1.0 : F.Dt / SnapLeft;
 			Out.Turn = Errors[I] * Share;
+			SnapTrack = Errors[I] - Out.Turn;  // where that target will be, from the crosshair, once this frame's turn is done
 			SnapLeft -= F.Dt;
 			Out.bSnapping = true;
 			if (SnapLeft <= 0.0)
