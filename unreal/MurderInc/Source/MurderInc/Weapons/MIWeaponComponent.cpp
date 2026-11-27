@@ -1,4 +1,5 @@
 #include "Weapons/MIWeaponComponent.h"
+#include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include "Animation/AnimSequence.h"
 #include "Camera/CameraComponent.h"
@@ -284,18 +285,26 @@ void UMIWeaponComponent::DrawLaser()
 
 void UMIWeaponComponent::EquipMesh(FName Gun)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/Equip total");
 	MeshFor = Gun;
 	const FMIGunViewData* D = ViewData.Find(Gun);
 	if (!bHaveView || !D || !GunMesh)
 	{
 		return;
 	}
-	USkeletalMesh* Mesh = Cast<USkeletalMesh>(D->Mesh.TryLoad());
+	USkeletalMesh* Mesh = nullptr;
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/Equip TryLoad");
+		Mesh = Cast<USkeletalMesh>(D->Mesh.TryLoad());
+	}
 	if (!Mesh)
 	{
 		UE_LOG(LogMI, Warning, TEXT("Weapons: no mesh at %s for %s (tools/box/seed-content.sh installs the placeholders)"), *D->Mesh.ToString(), *Gun.ToString());
 	}
-	GunMesh->SetSkinnedAssetAndUpdate(Mesh, true);
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/Equip SetSkinnedAsset");
+		GunMesh->SetSkinnedAssetAndUpdate(Mesh, true);
+	}
 	// The previous gun's material overrides stay on the component by slot index. Every frame the clear magazine's fill is set
 	// with SetScalarParameterValueOnMaterials, which puts a dynamic instance (an override) on each slot that has the parameter:
 	// after the CHOPPER the STRETCH (or the SHORTY) drew its slot 0 in the CHOPPER's material on its own UVs, the white and black
@@ -304,9 +313,12 @@ void UMIWeaponComponent::EquipMesh(FName Gun)
 	// The same goes for the bone transforms this poseable component keeps by bone index (the bolt, barrel, trigger and magazine
 	// the rig drives): a mesh with as many bones as the last gun's took them over, and after the SHORTY the RATTLER's sights and
 	// bolt hung in the air above the receiver in its reload (e2e review of the v6 package, rv-s1 and rv-r1).
-	for (int32 BoneIndex = 0; BoneIndex < GunMesh->GetNumBones(); ++BoneIndex)
 	{
-		GunMesh->ResetBoneTransformByName(GunMesh->GetBoneName(BoneIndex));
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/Equip ResetBones");
+		for (int32 BoneIndex = 0; BoneIndex < GunMesh->GetNumBones(); ++BoneIndex)
+		{
+			GunMesh->ResetBoneTransformByName(GunMesh->GetBoneName(BoneIndex));
+		}
 	}
 	GunMesh->SetVisibility(Mesh != nullptr, true);  // with its children (the fitted parts, the seated magazine)
 
@@ -325,7 +337,10 @@ void UMIWeaponComponent::EquipMesh(FName Gun)
 	{
 		if (const FMIResolvedGun* G = ResolvedOf(Gun))
 		{
-			Assembly->Assemble(GunMesh, *G, false);
+			{
+				TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/Equip Assemble");
+				Assembly->Assemble(GunMesh, *G, false);
+			}
 			for (const TPair<FName, FVector>& M : Assembly->MarkerOverrides())
 			{
 				Rig.OverrideMarker(M.Key, FMIViewmodelRig::UEToWeb(D->MeshOffset.TransformPosition(M.Value)));
@@ -356,6 +371,7 @@ void UMIWeaponComponent::EquipMesh(FName Gun)
 	EMIFPMode Mode = EMIFPMode::Template;
 	if (FPRig)
 	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/Equip FPRig");
 		Mode = FPRig->Equip(Gun, D, ResolvedOf(Gun), Assembly, GunMesh);
 	}
 	if (FPRig)
