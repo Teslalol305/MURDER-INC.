@@ -4,6 +4,7 @@
 //   MurderInc.V6.StretchSemi  the STRETCH is semi-automatic only (one round per trigger pull); the CHOPPER keeps both modes
 //   MurderInc.V6.ScopeName    the optic the player read as "4x scope" reads "2x scope" (the part id keeps its name)
 //   MurderInc.V6.LastDrone    a Buzzard sent at the player flies straight at it (Hold the Block's last unhurt drones)
+//   MurderInc.V6.LastDroneSweep  charging Buzzards from a grid over the Block all reach the player
 //   MurderInc.V6.BlastTick    a blast that kills an enemy raises the hit event a round raises, once per victim
 
 #include "Components/CapsuleComponent.h"
@@ -181,6 +182,61 @@ bool FMIV6LastDroneTest::RunTest(const FString& Parameters)
 		Nearest = FMath::Min(Nearest, FVector::Dist(E->Pos, P + FVector(0, 1.0, 0)));
 	}
 	TestTrue(FString::Printf(TEXT("a charging Buzzard comes within 8 m of the player (nearest %.1f m; its orbit keeps it 12 m or more away)"), Nearest), Nearest < 8.0);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMIV6LastDroneSweepTest, "MurderInc.V6.LastDroneSweep", MITest::Flags)
+
+bool FMIV6LastDroneSweepTest::RunTest(const FString& Parameters)
+{
+	using namespace MIV6Private;
+	// A charging Buzzard must reach the player from wherever the Block's holdout can leave it (e2e finding: one sat 18 m away for
+	// 40 s). Charging Buzzards on a grid over the whole Block; every one must come within 8 m of the player within 25 s.
+	FWorld W;
+	if (!W.Boot(*this))
+	{
+		return false;
+	}
+	for (int32 I = 0; I < 30; ++I) W.Step();
+	const FVector Me = MI::Web::FromUnreal(W.Player->GetPlayerRules().Feet);
+	struct FProbe { int32 Id; FVector From; double Nearest; };
+	TArray<FProbe> Probes;
+	FMIEnemySpawnOptions Opts;
+	Opts.bAlerted = true;
+	for (double X = -70.0; X <= 70.0; X += 14.0)
+	{
+		for (double Z = -70.0; Z <= 70.0; Z += 14.0)
+		{
+			FMIEnemy* B = W.Game->GetEnemies().Spawn(MIEnemy::EType::Buzzard, FVector(X, 6.0, Z), Opts);
+			if (B)
+			{
+				B->bCharge = true;
+				Probes.Add({B->Id, B->Pos, 1e9});
+			}
+		}
+	}
+	for (int32 F = 0; F < 30 * 25; ++F)
+	{
+		W.Step();
+		const FVector P = MI::Web::FromUnreal(W.Player->GetPlayerRules().Feet);
+		for (FProbe& Pr : Probes)
+		{
+			if (const FMIEnemy* E = W.Game->GetEnemies().Find(Pr.Id))
+			{
+				Pr.Nearest = E->bAlive ? FMath::Min(Pr.Nearest, FVector::Dist(E->Pos, P + FVector(0, 1.0, 0))) : 0.0;
+			}
+		}
+	}
+	int32 Stuck = 0;
+	for (const FProbe& Pr : Probes)
+	{
+		if (Pr.Nearest >= 8.0)
+		{
+			Stuck++;
+			AddInfo(FString::Printf(TEXT("charging Buzzard from (%.0f, %.1f, %.0f) stayed %.1f m away (player at %.0f, %.0f)"), Pr.From.X, Pr.From.Y, Pr.From.Z, Pr.Nearest, Me.X, Me.Z));
+		}
+	}
+	TestEqual(FString::Printf(TEXT("every charging Buzzard of %d reaches the player"), Probes.Num()), Stuck, 0);
 	return true;
 }
 
