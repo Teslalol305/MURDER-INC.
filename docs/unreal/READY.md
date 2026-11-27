@@ -677,3 +677,10 @@ behaviour test, not an end-to-end Hold the Block test. Smoothness was not re-mea
 **The 4.4 s set-up (pipeline cache).** Not moved. It is engine start-up work that has to finish before the first frame can draw,
 so putting it behind CLICK TO PLAY would need a change of the pipeline cache start-up mode in the engine's settings, a package and a
 lag-harness measurement to know it does not cause hitches in the first seconds of play; not safe to do without that measurement.
+
+**The package of the finish (2026-11-27).** Shipping and Development games from commit `3f581992c1437505e0495ddfe1506e2e609e1c87`
+(BUILD.txt names it), zip 2.3 GB, sha256 `9edaf77d0a383de2c93f24a36feb1648007bb5b6cd0e243e723f050532ddd090`, in `/project/ue/int/pkg/`
+on the box (not uploaded, no parts). Full suite on that commit: 227 of 227. Through the stream (lag-test run `v6stretch`, Shipping,
+viewer `stretch-keys.txt`): the STRETCH carried third, drawn after the CHOPPER and after the NINE, twice, shows its walnut stock; the
+hand badge shows no AUTO for it (semi). That run's frame rate (60.0, worst frame 17 ms over 25 s of play) is a frame check, not the
+smoothness measurement of SMOOTH.md.
