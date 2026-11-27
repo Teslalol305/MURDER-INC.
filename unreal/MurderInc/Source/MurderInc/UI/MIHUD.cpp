@@ -1,4 +1,5 @@
 #include "UI/MIHUD.h"
+#include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
@@ -60,6 +61,7 @@ void AMIHUD::BeginPlay()
 
 void AMIHUD::DrawHUD()
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/AMIHUD::DrawHUD");
 	SCOPED_NAMED_EVENT(MIHUD_DrawHUD, FColor::Emerald);  // a named scope in traces (SMOOTH.md C4: HUD frames of 15 to 22 ms with nothing named inside)
 	Super::DrawHUD();
 	if (!Canvas)

@@ -1,4 +1,5 @@
 #include "Cloud/MICloud.h"
+#include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include "Audio/MIAudioSubsystem.h"
 
@@ -1850,6 +1851,7 @@ void UMICloudSubsystem::ApplyEncoderRange(const TCHAR* Source)
 
 bool UMICloudSubsystem::Tick(float DeltaTime)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/UMICloudSubsystem::Tick");
 #if !UE_BUILD_SHIPPING
 	if (CrashTestAt > 0.0 && FPlatformTime::Seconds() >= CrashTestAt)
 	{

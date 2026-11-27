@@ -1,4 +1,5 @@
 #include "World/MIGuide.h"
+#include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include "Components/StaticMeshComponent.h"
 #include "Core/Data/MIDataSubsystem.h"
@@ -667,6 +668,7 @@ bool AMIGuide::SyncNav(const FMIBoxWorld& Source)
 
 void AMIGuide::Tick(float DeltaSeconds)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/AMIGuide::Tick");
 	Super::Tick(DeltaSeconds);
 	Step(DeltaSeconds);
 }

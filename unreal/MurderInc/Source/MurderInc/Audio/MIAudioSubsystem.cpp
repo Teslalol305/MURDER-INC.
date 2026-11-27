@@ -1,4 +1,5 @@
 #include "Audio/MIAudioSubsystem.h"
+#include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include "Audio/MIAudioMaster.h"
 #include "Sound/SoundEffectSubmix.h"
@@ -531,6 +532,7 @@ void UMIAudioSubsystem::Observe()
 
 void UMIAudioSubsystem::Tick(float DeltaTime)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/UMIAudioSubsystem::Tick");
 	if (!bReady || !GetWorld() || !GetWorld()->HasBegunPlay())
 	{
 		return;

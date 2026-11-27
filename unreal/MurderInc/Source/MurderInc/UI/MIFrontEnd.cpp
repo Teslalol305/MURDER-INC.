@@ -1,4 +1,5 @@
 #include "UI/MIFrontEnd.h"
+#include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include "Camera/CameraActor.h"
 #include "HAL/IConsoleManager.h"
@@ -784,6 +785,7 @@ bool UMIFrontEnd::PressKey(const FKey& K, bool bCtrl, bool bShift)
 
 void UMIFrontEnd::Tick(double Dt)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/UMIFrontEnd::Tick");
 	if (!bShown)
 	{
 		return;

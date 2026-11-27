@@ -1,4 +1,5 @@
 #include "Weapons/MIGunAssembly.h"
+#include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include "AnimationRuntime.h"
 #include "Components/PoseableMeshComponent.h"
@@ -147,6 +148,7 @@ void UMIGunAssembly::Clear()
 
 bool UMIGunAssembly::AssembleBegin(USkinnedMeshComponent* InBase, const FMIResolvedGun& Gun, bool bSetBase)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/GunAssembly AssembleBegin");
 	using namespace MIGunAssemblyPrivate;
 	Clear();
 	Base = InBase;
@@ -187,6 +189,7 @@ bool UMIGunAssembly::AssembleBegin(USkinnedMeshComponent* InBase, const FMIResol
 
 void UMIGunAssembly::AssemblePart(const FMIResolvedPart& R, const TSet<FName>& Before, double Slide)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/GunAssembly AssemblePart");
 	using namespace MIGunAssemblyPrivate;
 	for (const FName Bone : R.Hide)
 	{
@@ -248,6 +251,7 @@ void UMIGunAssembly::AssemblePart(const FMIResolvedPart& R, const TSet<FName>& B
 
 void UMIGunAssembly::AssembleEnd(const FMIResolvedGun& Gun, bool bSetBase)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/GunAssembly AssembleEnd");
 	using namespace MIGunAssemblyPrivate;
 	// The factory magazine (the stage and the crew screen: the first-person rig draws its own): in the well whenever no
 	// magazine part is fitted, so a longer one reads as a change. Our guns' magazines are authored in the gun's own space
@@ -334,6 +338,7 @@ bool UMIGunAssembly::StepStaged(int32 PartsPerStep)
 
 void UMIGunAssembly::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/UMIGunAssembly::TickComponent");
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	bool bAny = false;
 	for (FPart& P : Parts)

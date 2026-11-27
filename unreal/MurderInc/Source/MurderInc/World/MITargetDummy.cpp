@@ -1,4 +1,5 @@
 #include "World/MITargetDummy.h"
+#include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include "Components/CapsuleComponent.h"
 #include "Components/SphereComponent.h"
@@ -129,6 +130,7 @@ FVector AMITargetDummy::GetMIBlastTarget() const
 
 void AMITargetDummy::Tick(float DeltaSeconds)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/AMITargetDummy::Tick");
 	Super::Tick(DeltaSeconds);
 	if (Health > 0.0 || StandUpAfter <= 0.f)
 	{

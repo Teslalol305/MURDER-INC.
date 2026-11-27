@@ -1,4 +1,5 @@
 #include "Flow/MIDemoDirector.h"
+#include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include "Components/CapsuleComponent.h"
 #include "Components/SphereComponent.h"
@@ -282,6 +283,7 @@ void UMIDemoDirector::ReleaseTrigger()
 
 void UMIDemoDirector::Tick(float DeltaTime)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/UMIDemoDirector::Tick");
 	if (!bRunning)
 	{
 		return;

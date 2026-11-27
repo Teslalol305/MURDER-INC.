@@ -1,4 +1,5 @@
 #include "UI/SMIFrontEnd.h"
+#include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include "Brushes/SlateColorBrush.h"
 #include "Brushes/SlateImageBrush.h"
@@ -250,6 +251,7 @@ void SMIFrontEnd::Construct(const FArguments& InArgs)
 
 void SMIFrontEnd::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/SMIFrontEnd::Tick");
 	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 	++TicksSinceBuild;
 	// A pointer that left a Workbench option while the screen was being rebuilt never sends a leave (the button it

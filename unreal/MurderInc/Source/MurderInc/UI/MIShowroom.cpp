@@ -1,4 +1,5 @@
 #include "UI/MIShowroom.h"
+#include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include "Animation/AnimSequence.h"
 #include "Camera/CameraComponent.h"
@@ -503,6 +504,7 @@ void AMIShowroom::Stick(const FVector2D& Value, float ZoomAxis)
 
 void AMIShowroom::Tick(float DeltaSeconds)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/AMIShowroom::Tick");
 	using namespace MIShowroomPrivate;
 	Super::Tick(DeltaSeconds);
 	const double Dt = DeltaSeconds;
@@ -530,9 +532,16 @@ void AMIShowroom::Tick(float DeltaSeconds)
 	{
 		bAssembling = true;
 		bReassemble = false;
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/Showroom BeginStaged");
 		Assembly->BeginStaged(Gun, Pending, true);
 	}
-	if (bAssembling && Assembly->StepStaged(1))
+	bool bStepDone = false;
+	if (bAssembling)
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/Showroom StepStaged");
+		bStepDone = Assembly->StepStaged(1);
+	}
+	if (bStepDone)
 	{
 		bAssembling = false;
 		bPendingSwap = false;
@@ -541,6 +550,7 @@ void AMIShowroom::Tick(float DeltaSeconds)
 			bReassemble = false;
 			Assembly->Assemble(Gun, Pending, true);  // a part changed while the gun was being built
 		}
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/Showroom PlaceGunOnPivot");
 		PlaceGunOnPivot();
 	}
 	Pivot->SetRelativeScale3D(FVector(FMath::Max(0.01, Ease(Scale))));
@@ -548,6 +558,7 @@ void AMIShowroom::Tick(float DeltaSeconds)
 	// The same gun with a part changed (a longer magazine slides in): the stand rises or settles with it, eased.
 	if (!bPendingSwap && Shot == EShot::Turntable)
 	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/Showroom Lift");
 		const double Want = WantedLift();
 		if (!FMath::IsNearlyEqual(Want, StandLift, 0.01))
 		{
@@ -599,6 +610,7 @@ void AMIShowroom::Tick(float DeltaSeconds)
 	// mesh's own sphere (PLAY.md E8), so the sphere grows to the farthest part, and eases when a part comes or goes.
 	double Wanted = GunRadius;
 	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/Showroom Frame");
 		const FTransform PivotT = Pivot->GetComponentTransform();
 		TArray<USceneComponent*> Pieces;
 		Gun->GetChildrenComponents(true, Pieces);

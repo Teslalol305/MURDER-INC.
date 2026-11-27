@@ -1,4 +1,5 @@
 #include "Weapons/MIEffects.h"
+#include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include "Camera/PlayerCameraManager.h"
 #include "Components/DecalComponent.h"
@@ -797,6 +798,7 @@ void UMIEffects::OnExplosion(const FMIExplosionEvent& E)
 
 void UMIEffects::Tick(float DeltaTime)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/UMIEffects::Tick");
 	UWorld* World = GetWorld();
 	if (!World || World->IsPaused())
 	{

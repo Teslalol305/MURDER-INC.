@@ -1,4 +1,5 @@
 #include "Core/MIPreload.h"
+#include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include "Core/Data/MIDataSubsystem.h"
 #include "Engine/GameInstance.h"
@@ -88,6 +89,7 @@ void UMIPreloadSubsystem::Deinitialize()
 
 bool UMIPreloadSubsystem::Tick(float DeltaTime)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/UMIPreloadSubsystem::Tick");
 	if (!bStarted)
 	{
 		const UGameInstance* GI = GetGameInstance();

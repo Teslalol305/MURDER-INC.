@@ -1,4 +1,5 @@
 #include "Weapons/MICombatSubsystem.h"
+#include "ProfilingDebugging/CpuProfilerTrace.h"
 
 #include "Core/Data/MIDataSubsystem.h"
 #include "Engine/World.h"
@@ -191,6 +192,7 @@ void UMICombatSubsystem::Blow(int32 Index)
 
 void UMICombatSubsystem::Tick(float DeltaTime)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MI/UMICombatSubsystem::Tick");
 	Super::Tick(DeltaTime);
 	if (Field.GetItems().Num() == 0)
 	{
