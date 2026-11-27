@@ -8,8 +8,8 @@ cabin kept as the glass shows it) and once more to a LOD1 drawn past 12 m. Colli
 import os
 
 # Block mesh -> (Midtown mesh, LOD0 triangles, LOD1 triangles)
-CARS = {"SM_Vehicle_Sedan": ("SM_Vehicle_MT_Sedan", 14000, 3600), "SM_Vehicle_Taxi": ("SM_Vehicle_MT_Taxi", 14000, 3600),
-        "SM_Vehicle_SUV": ("SM_Vehicle_MT_SUV", 15000, 3900), "SM_Vehicle_Van": ("SM_Vehicle_MT_Van", 14000, 3600)}
+CARS = {"SM_Vehicle_Sedan": ("SM_Vehicle_MT_Sedan", 24000, 4200), "SM_Vehicle_Taxi": ("SM_Vehicle_MT_Taxi", 24000, 4200),
+        "SM_Vehicle_SUV": ("SM_Vehicle_MT_SUV", 25000, 4400), "SM_Vehicle_Van": ("SM_Vehicle_MT_Van", 24000, 4200)}
 
 
 def build(ctx):
@@ -28,6 +28,8 @@ def build(ctx):
             if o.type != "MESH":
                 bpy.data.objects.remove(o)
         assert len(meshes) == 1, (src_name, len(meshes))
+        keep = {s_["slot"]: {k: v for k, v in s_.items() if k not in ("slot", "workflow")} for s_ in rec["material_slots"]
+                if s_["slot"].startswith("M_Vehicle_")}                                    # the Block's textures and paint_default stay on the slots
         src = meshes[0]
         for nm, target in ((name, t0), (name + "_LOD1", t1)):
             ob = bpy.data.objects.new(nm, src.data.copy())
@@ -35,11 +37,15 @@ def build(ctx):
             ctx.kit.objects.link(ob)
             ob.matrix_world = src.matrix_world.copy()
             cl._base_materials(ob)
-            cl._collapse(ob, target)
+            cl._drop_thin_parts(ob, min_w=0.034)
+            cl._collapse(ob, target, flat_first=True)
+            cl._drop_thin_parts(ob, min_w=0.034)
+            ob.data.polygons.foreach_set("use_smooth", [True] * len(ob.data.polygons))       # smooth shading after the collapse (lumpy hoods)
+            ob.data.update()
             cl._base_materials(ob)
             note = ("The Block's %s collapsed to about %.1fk triangles (same size, slots and pivot) for the parked cars on the avenues; "
                     "collision is the level data's body and glass boxes." % (src_name, target / 1000.0)) if nm == name else \
                    "LOD1 of %s (about %.1fk triangles), drawn past 12 m; same slots." % (name, target / 1000.0)
-            ctx.asset(ob, collision="none", notes=note)
+            ctx.asset(ob, collision="none", notes=note, slots=keep)
             ctx.K[nm] = ob
         bpy.data.objects.remove(src)

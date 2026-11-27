@@ -505,6 +505,11 @@ PARKED = {"sedan": "SM_Vehicle_MT_Sedan", "taxi": "SM_Vehicle_MT_Taxi", "suv": "
 ROOF_ABOVE = {"SM_Roof_Lounge_Bar": "the back bar's shelves over the island's box (shots pass)",
               "SM_Roof_Lounger": "the back cushion over the seat's box", "SM_Sq_LightTower": "the mast raised to 5.6 over the trailer's box (shots pass)",
               "SM_Sq_TrussTower": "the lamp bar over the tower's box"}
+# the parked cars' paint, linear RGB (the paint slot is a tint mask; the Block's paint_default is one colour per model): picked by the collider's index
+PAINT = {"sedan": [(0.52, 0.52, 0.54), (0.78, 0.78, 0.76), (0.020, 0.030, 0.075), (0.30, 0.030, 0.030), (0.035, 0.12, 0.06), (0.11, 0.11, 0.12)],
+         "taxi": [(0.8879, 0.5395, 0.0103)],
+         "suv": [(0.11, 0.11, 0.12), (0.78, 0.78, 0.76), (0.020, 0.030, 0.075), (0.40, 0.42, 0.45), (0.007, 0.008, 0.0103)],
+         "van": [(0.6939, 0.6795, 0.6308), (0.40, 0.42, 0.45), (0.030, 0.10, 0.34), (0.78, 0.78, 0.76)]}
 NOSE_SOUTH = 270.0                       # the vehicles' nose (+X) toward +z web (south), as the southbound avenues run
 FRONT_FACES = {"newsstand": {460: 270.0, 461: 270.0, 477: 90.0}}
 
@@ -654,8 +659,12 @@ def parked_cars(out):
                     top = max(top, gy1)
             merged = dict(c, web={"min": c["web"]["min"], "max": dict(c["web"]["max"], y=top)})
             along_z = (z1 - z0) >= (x1 - x0)
+            n0 = len(out)
             fitted(out, mesh, "street", "parked %s (body box plus the cabin's glass box)" % tag, merged, CORE3[mesh],
                    prefer=NOSE_SOUTH if along_z else 180.0, chosen_facing=True)
+            pal = PAINT[tag]
+            for e in out[n0:]:
+                e["paint"] = list(pal[c["index"] % len(pal)])
 
 
 # The facade tables (midtown.md 2.1, 12.4, 14.2): each frontage is a run along a facade collider's outer plane, the modules

@@ -324,7 +324,11 @@ light towers' heads, the marquee) are the picture's, in `_midtown_preview.rig_ex
 
 ### 9.5 Still open
 
-- **Parked cars** (14 colliders of sedan, taxi, SUV, van): light variants of the Block's vehicles, with LODs, then placed on their sliced boxes.
+- **Parked cars**: done (light `SM_Vehicle_MT_*` with LOD1s, ten placed). Fixer pass (2026-11-27): the collapse now dissolves flat faces first (a hood
+  stays a hood) and drops the Block's thin door-line ribbons; the slots keep the Block's textures and `paint_default`; and **every placement carries a
+  `paint` colour** (linear RGB, `_midtown_place.PAINT`: silver, white, navy, maroon, green and charcoal sedans, yellow taxis, black, white, navy
+  and grey SUVs, white, grey, blue vans) so the ten are no longer one dark paint (the Unreal MI sets its paint parameter from the field; the
+  previews do the same). Still for the box: the hood's shading under the real light and the cars' reflections.
 - **The sawhorse and the crowd's smaller leftovers** (caps, flyers, a pile of spent barriers): the sawhorse is built; it and any piece over
   0.5 m need a collider from lane D. The VLTR spray over the production truck and the graffiti are decals (the Block's decal kit).
 - **Facade colour work**: the window master's per-window look is a specification until the box has `M_MT_WindowGrid`; the far buildings

@@ -61,7 +61,28 @@ def set_face(ob, key, strength=3.0):
             sl.material = face_material(key, strength)
 
 
-def put(src, loc, rot=0.0, scale=1.0, col=None, face=None):
+def paint_mat(rgb):
+    """A clear-coat car paint in a placement's `paint` colour (linear RGB): what the MI does with the paint slot's tint mask in Unreal."""
+    name = "Prev_Paint_%02d%02d%02d" % tuple(int(round(c * 99)) for c in rgb)
+    if name in bpy.data.materials:
+        return bpy.data.materials[name]
+    m = mat.flat(name, tuple(rgb), 0.30, 0.25)
+    p_ = mat.principled(m)
+    for k, v in (("Coat Weight", 0.9), ("Coat Roughness", 0.06)):
+        if k in p_.inputs:
+            p_.inputs[k].default_value = v
+    return m
+
+
+def set_paint(ob, rgb):
+    for sl in ob.material_slots:
+        nm = sl.material.name if sl.material else ""
+        if nm.startswith("M_Vehicle_") and "_Paint" in nm:
+            sl.link = "OBJECT"
+            sl.material = paint_mat(rgb)
+
+
+def put(src, loc, rot=0.0, scale=1.0, col=None, face=None, paint=None):
     ob = scene.duplicate(src, linked=True, col=col)
     scene.place(ob, loc, rot)
     ob.scale = (scale, 1.0, 1.0)
@@ -69,6 +90,8 @@ def put(src, loc, rot=0.0, scale=1.0, col=None, face=None):
     ob["mi_uv"] = (float(loc[0]), float(loc[2]) - 0.15, 0.0)
     if face:
         set_face(ob, face)
+    if paint:
+        set_paint(ob, paint)
     return ob
 
 
@@ -161,7 +184,7 @@ def canal_north(ctx, a, view=None):
         if src is None:
             continue
         sc = e.get("scale", [1.0])[0]
-        put(src, e["blender_m"], e["rot_z_deg"], sc, col, e.get("face"))
+        put(src, e["blender_m"], e["rot_z_deg"], sc, col, e.get("face"), e.get("paint"))
         n += 1
     ctx.log("canal north: %d instances" % n)
     lit = mat.flat("Prev_RoomLit", (0.2, 0.18, 0.15), 0.8)                     # about 35 % of the upper windows lit (11.3)
@@ -340,8 +363,8 @@ def props3(ctx, a, which="a"):
     scene.link(wall, col)
     K = ctx.K
     if which == "a":
-        row = [("DumplingCart", -4.4, -90.0), ("NutCart", -2.2, -90.0), ("HotpotCart", -0.2, -90.0), ("StoneLion_L", 1.5, 90.0),
-               ("StoneLion_R", 2.7, 90.0), ("TrashBags_L", 4.2, 0.0), ("TrashBags_S", 5.4, 0.0)]
+        row = [("DumplingCart", -4.4, -90.0), ("NutCart", -2.2, -90.0), ("HotpotCart", -0.2, -90.0), ("StoneLion_L", 1.5, -90.0),
+               ("StoneLion_R", 2.7, -90.0), ("TrashBags_L", 4.2, 0.0), ("TrashBags_S", 5.4, 0.0)]
         for key, x, r in row:
             put(K["SM_Prop_CT_" + key], (x, 0.0, 0.0), r, 1.0, col)
         put(K["SM_Prop_CT_FruitStand_Small"], (-5.8, 2.6, 0.0), 90.0, 1.0, col)
@@ -361,6 +384,49 @@ def props3(ctx, a, which="a"):
             o.data.temperature = 4000.0
     render.look(render.VIEW, render.LOOK_NIGHT, 0.0)
     render.cam_look(cam[0], cam[1], lens=cam[2], name="Cam_Props3")
+
+
+def props4(ctx, a):
+    """The fixer pass's street pieces on the damp sidewalk in front of a brick wall: the newsstand, phone kiosk, shop display, laundry cart,
+    steam chimney, shed post, scale stand, alarm pedestal, arcade pillar and the Canal dumpster beside the Block's toy-green one's replacement."""
+    ctx.kit.hide_render = True
+    col = scene.collection("PrevProps4")
+    ground(col, -9, 9, -5, 7, None)
+    wall = geo.box((20, 0.3, 4.5), bevel=0.0, name="PrevWall")
+    geo.transform(wall, loc=(0, 6.5, 0))
+    wall.data.materials.append(mat.flat("Prev_Brick", (0.10, 0.05, 0.04), 0.85))
+    scene.link(wall, col)
+    K = ctx.K
+    row = [("Newsstand", -6.2, -90.0), ("ShopDisplay", -3.7, 0.0), ("LaundryCart", -2.0, 0.0), ("ScaleStand", -0.9, 0.0), ("AlarmPedestal", 0.0, -90.0),
+           ("SteamChimney", 0.9, 0.0), ("ShedPost", 1.7, 0.0), ("ArcadePillar", 2.5, 0.0), ("Dumpster", 5.2, -90.0)]
+    for key, x, r in row:
+        put(K["SM_Prop_CT_" + key], (x, 1.5, 0.0), r, 1.0, col)
+    put(K["SM_Prop_CT_PhoneKiosk"], (3.7, 6.35 - 0.175, 0.0), 270.0, 1.0, col)
+    render.rig_night(lamp=(-2.0, -3.0, 6.0), extra_lamps=[(5.0, -3.0, 6.0), (0.0, 3.0, 6.0)], lamp_watts=2600.0, sky=0.7)
+    for o in bpy.data.objects:
+        if o.type == "LIGHT" and o.name.startswith("Sodium"):
+            o.data.temperature = 4000.0
+    render.look(render.VIEW, render.LOOK_NIGHT, 0.0)
+    render.cam_look((-1.6, -6.5, 2.2), (-0.6, 1.5, 1.2), lens=22, name="Cam_Props4")
+
+
+def vehicles(ctx, a):
+    """The Canal vehicles on wet asphalt, each in the paint its placement carries: a sedan, a taxi, a van, the box truck and the IPX truck."""
+    ctx.kit.hide_render = True
+    col = scene.collection("PrevVehicles")
+    ground(col, -16, 16, -10, 6, None)
+    K = ctx.K
+    row = [("Sedan", -9.5, -3.0, 15.0, (0.52, 0.52, 0.54)), ("Sedan", -9.5, 2.3, 0.0, (0.78, 0.78, 0.76)), ("Taxi", -4.2, -3.2, 10.0, (0.8879, 0.5395, 0.0103)),
+           ("Sedan", -4.2, 2.4, 345.0, (0.30, 0.03, 0.03)), ("Van", 1.8, -3.0, 5.0, (0.030, 0.10, 0.34)), ("BoxTruck", 8.4, 1.6, 0.0, (0.80, 0.80, 0.78)),
+           ("IPXTruck", 8.4, -3.6, 355.0, (0.0086, 0.0097, 0.0123))]
+    for key, x, y, r, paint in row:
+        put(K["SM_Vehicle_CT_" + key], (x, y, 0.0), r, 1.0, col, None, paint)
+    render.rig_night(lamp=(-6.0, -1.0, 7.5), extra_lamps=[(2.0, 0.0, 7.5), (9.0, -1.0, 7.5)], lamp_watts=2600.0, sky=0.7)
+    for o in bpy.data.objects:
+        if o.type == "LIGHT" and o.name.startswith("Sodium"):
+            o.data.temperature = 4000.0
+    render.look(render.VIEW, render.LOOK_NIGHT, 0.0)
+    render.cam_look((-14.0, -8.5, 2.4), (0.5, 0.0, 1.2), lens=24, name="Cam_Vehicles")
 
 
 def render_all(ctx):
@@ -388,7 +454,7 @@ def render_all(ctx):
         "ct_alley": dict(name="Alley", eye=(-28.0, 12.5, 1.7), target=(-28.0, -12.0, 3.5), lens=20,
                          lamps=[(-28.0, 10.0, 8.0), (-28.0, 0.0, 8.0), (-28.0, -10.0, 8.0)]),
         # round 3: the interiors (the walls and floors are the placed structures; the lights are the rooms' own)
-        "ct_graffiti": dict(name="Graffiti", eye=(-26.5, 3.5, 1.5), target=(-30.0, -1.0, 1.5), lens=22,
+        "ct_graffiti": dict(name="Graffiti", eye=(-27.2, 0.2, 1.5), target=(-30.0, 1.6, 1.6), lens=30,
                             lamps=[(-27.5, 1.0, 3.2), (-27.5, -6.0, 3.2), (-27.5, 8.0, 3.2)]),
         "ct_bakery": dict(name="Bakery", eye=(5.6, 11.3, 1.65), target=(2.2, 7.0, 1.1), lens=18,
                           lamps=[(3.0, 10.0, 3.0), (3.0, 5.5, 3.0), (6.0, 6.0, 3.0), (2.0, -2.0, 3.6), (5.0, -6.0, 3.6)]),
@@ -401,7 +467,7 @@ def render_all(ctx):
         "ct_yard": dict(name="Yard", eye=(-4.0, -7.0, 1.7), target=(-16.0, -4.0, 3.0), lens=18,
                         lamps=[(-8.0, -4.0, 8.0), (-18.0, -4.0, 8.0), (-2.0, -9.0, 8.0)]),
     }
-    for name, fn in (("ct_market", market), ("ct_street", street), ("ct_props3", props3), ("ct_props3b", functools.partial(props3, which="b")), ("ct_canal_north", canal_north)) + tuple(
+    for name, fn in (("ct_market", market), ("ct_street", street), ("ct_props3", props3), ("ct_props3b", functools.partial(props3, which="b")), ("ct_props4", props4), ("ct_vehicles", vehicles), ("ct_canal_north", canal_north)) + tuple(
             (n, functools.partial(canal_north, view=v)) for n, v in VIEWS.items()):
         if not want(name):
             continue

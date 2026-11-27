@@ -47,11 +47,11 @@ on the east wall over the one front without another sign). Fronts lane D gave no
 counters with tank and scale, vendor tables with goods, garment rails, crates, pallets, cones, drums, boxes, newspaper boxes,
 lamps (arm over the roadway), card tables with stools, benches, hoops, signposts, meters, skylights, condensers. Each tiles
 along its collider's long side; the worst overhang is 1.05 m (a 3 m jersey barrier on a shorter box). Round 3 (4b) placed the carts, lions, bags, fruit stand, standpipes, bike racks, chair stacks, grease bins, vents and fans,
-the planters, the interiors and the stage. Not placed, with the reason in `unmappedProps` in the placements file: the
-vehicles (their lane), the ground air conditioners (no mesh), the barricade (2.4 m against a 1.2 m collider), and the pieces
-that have no collider in the level data (laundry cart, newsstands, shop displays, goods cartons, vendor stools, the steam
-chimneys, which are an effect, the alarm pedestals, the phone kiosk, the raised beds, the chess tables, the tape shelf, the
-shed posts, the scale stand, the gas cage frame).
+the planters, the interiors and the stage. The fixer pass (4c) placed the vehicles and every piece that had a collider and no mesh
+(newsstands, shop displays, laundry carts, vendor stools, goods cartons, steam chimneys, alarm pedestals, the phone kiosk, raised beds,
+chess tables, shed posts, the scale stand, the arcade pillar). Still not placed, with the reason in `unmappedProps` in the placements
+file: the ground air conditioners (no mesh), the barricade (2.4 m against a 1.2 m collider), the tape shelf (0.65 x 2.4 x 2.0 m), the
+gas cage frame and the newsstand bundle (small, no mesh).
 
 ## 2. Far proxies
 
@@ -98,7 +98,7 @@ The north row's share is 413k (at most 0.55 M).
   inlets, a heaved sidewalk seam. The same 43 rows in web coordinates are in `tools/levels/data/street_dressing_chinatown.json`
   (paint, gutters and patches are decals, manholes and drains cast-iron pieces: the Unreal side is a decal actor per row;
   nothing the game loads reads it). The look is in `ct_canal_start`, `ct_canal_east` and `ct_mott`. Not done: traffic. The
-  vehicles are another lane's (sedan, van, taxi, box truck stay in `unmappedProps`), as are tree pits and bollards (no
+  vehicles were another lane's then (4c made them); tree pits and bollards (no
   collider names them), steam (an effect) and the hotpot cart.
 - **The orange slab** was the back of the cap pegboard (`SM_Prop_CT_Goods_Caps`, a blank plywood board seen from the street
   side). It now has a timber frame, a mid rail, braces and two tags on the back. The produce displays had one flat fruit
@@ -121,8 +121,8 @@ The lane now has 304 meshes, 638k triangles in all, all within budget, and 2165 
 
 | Group | Meshes (`SM_Prop_CT_*`) | Triangles (LOD0) | Placed |
 |---|---|---|---|
-| Carts | DumplingCart 3.0k, NutCart 2.9k, HotpotCart 2.5k | steel or glass cabinets, wheels, steamers, roaster drum, burner and pot | 3 food carts, 1 hotpot cart |
-| Stone lions | StoneLion_L, _R 2.0k | stepped plinth, seated body, broad head with brows and mouth, mane curls, ball under one paw | 2 at the banquet door |
+| Carts | DumplingCart 5.3k (redone in 4c: canopy, menu frame, bowls, lacquer), NutCart 2.9k, HotpotCart 2.5k | steel or glass cabinets, wheels, steamers, roaster drum, burner and pot | 3 food carts, 1 hotpot cart |
+| Stone lions | StoneLion_L, _R 7.4k (redone in 4c; were 2.0k) | stepped plinth, haunches with hind paws, straight forelegs with toes, bulging eyes under heavy brows, open mouth with fangs, five rows of spiral curls, tail fan, ball under one paw (a cub for _R) | 2 at the banquet door |
 | Street | TrashBags_L 0.8k, _S 0.4k, FruitStand_Small 1.6k (0.8 x 1.0 m, its collider), Standpipe 0.3k, BikeRack 1.6k (2 hoops and a bicycle), ChairStack 1.8k, GreaseBin 0.5k, Planter_S 0.6k, _L 1.1k (replace the 42k Block planter), BucketStack, SandwichBoard, CDRack 2.7k, RoadPlates, DigFence (2.55 m run) | | 12 bag heaps, 9 standpipes, 5 racks, 9 chair stacks, 3 grease bins, planters, fence runs |
 | Roof and wall | RoofVent 0.6k, ExhaustFan 0.8k, ExhaustStack, AntennaMast | | 6 vents, 6 fans, stack, mast |
 | Bakery and kitchen | BakeryCounter 2.9k (2.3 m, two make the 4.6 m case), BakeryOven 1.2k (1.6 m deck oven), TrayRack 3.4k, FlourSacks, KitchenTable 0.6k, KitchenRange 0.9k, KitchenCounter, KitchenRack | | the whole bakery and the banquet kitchen |
@@ -160,25 +160,65 @@ the LODs take 1.33 M (no prop LODs) to 0.82 M. The north row's share is unchange
 failing validation, 0 over budget, no thin member; `tools/levels/check_level.py --level chinatown` 0 failures; `tools/names/check_names.py`
 passes (decal text is on the list). The level data was not changed.
 
+## 4c. Fixer pass (2026-11-27): vehicles, the collider-only pieces, graffiti, dumpster, lions, cart
+
+From the review of round 3 (every item re-checked; the checks and the previews were re-run and looked at).
+
+- **Vehicles.** The Block's sedan, taxi, van, box truck and IPX truck are 168k to 179k triangles each; `_chinatown_lod.VEHICLES` makes a Canal
+  version of each (`SM_Vehicle_CT_{Sedan,Taxi,Van,BoxTruck,IPXTruck}`: flat faces dissolved, then collapsed to 16k / 16k / 16k / 18k / 18k, same
+  slots, size and pivot) with a LOD1 of 3.8k to 4.5k drawn past 12 m. The thin door-line and grille ribbons of the Block's meshes are dropped
+  (the lane's 34 mm floor). The slots keep the Block's textures and `paint_default`; the paint is a tint mask, so every placement carries its own
+  `paint` colour (linear RGB, from `_chinatown_streets.PAINT`): silver, white, navy, maroon, green and charcoal sedans, yellow taxis, white, grey,
+  blue and red vans and trucks, the IPX truck black. In Unreal the MI parameter is set from that field. 14 colliders (sedan 29, 78, 80, 82, taxi 31, 79,
+  van 30, 81, 83, box truck 32, 84, 85, 91, delivery truck 87, IPX truck 86) are dressed; nose with the traffic on Canal (north kerb west, south
+  kerb east), alternating on Mott. No instance is scaled; the worst overhang of a body over its box is 0.2 m (a van on a 4.8 m box).
+- **The collider-only pieces** (`_chinatown_props4.py`, 9 new meshes, 0.7k to 6.2k triangles): `SM_Prop_CT_{Newsstand, PhoneKiosk, ShopDisplay,
+  LaundryCart, SteamChimney, ShedPost, ScaleStand, AlarmPedestal, ArcadePillar}`, each at its collider's size (the check `props3` now lists all 54
+  planned kinds); goods cartons, chess tables, vendor stools and the raised beds reuse the cardboard boxes, card table, stool and planter, tiled
+  along their boxes. LOD1s for the newsstand, shop display and shed post. Left: `ac_unit`, `barricade`, `gas_cage_frame`, `newsstand_bundle`,
+  `tape_shelf` (no mesh or the wrong size, reason in the placements file).
+- **Graffiti** (`_chinatown_decals.graffiti`, redone): ragged hand-sprayed edges (a warp of the glyph mask), a denser core and a softer rim, a thin dark
+  shadow outline offset down and right and a pale highlight along the upper left, fine overspray mist, 26 drips with beads, faded and flaked top coat, a
+  roller-buffed patch of an older cover-up behind it and the ghost of another of the four invented tags, paint thinner on the mortar joints and varied per
+  brick, and the brick relief in the normal map. The cell is unchanged (1.6 x 0.6 m, so the placements are too); the tag fills 80 % of it. Text is the
+  same approved four names (the ghost is another approved tag). `ct_graffiti` redone.
+- **The dumpster** was the Block's: flat toy green, a blank label, one LOD. `SM_Prop_CT_Dumpster` (5.1k, LOD1 2.6k, LOD2 2.1k, hand-built levels
+  with the same four slots) is a dark, greyed green steel (`MI_Steel_PaintDumpster`, the green paint scan darkened, more rust showing), ribbed
+  sides, dented panels, fork pockets, black lids (one propped open), a hauler plate of stencil bars (no words), a cardboard flap, a bag over the
+  rim. The 4 dumpster placements use it.
+- **Lions and the dumpling cart** were first-pass: the lions are rebuilt in the temple pose (see the table), the cart has a red-lacquered cabinet,
+  a canopy on four poles with a bare bulb, a blank menu frame (the words are a decal), bowls on a serving ledge, a strapped gas bottle and a prop
+  stand. Both are nearer to hero grade; neither is a scan-quality asset.
+- **Wear.** The grime band and scuffs now also run along the north row N1..N6 (3 m pieces and scuffs: 38 more decals, `wear_north`); the market
+  hall's walls and the structures' fronts are still without (they are Unreal materials' job: vertex-painted grime), and the decal page is still 2K.
+- **The budget is an estimate.** Worst view 1 is **0.90 M triangles drawn** (3.54 M at LOD0; the vehicles add about 0.11 M). That number assumes
+  the far proxies switch in at 30 m, the props' LOD1 at 12 m and LOD2 at 30 m: all Unreal steps nobody has done. With **no proxies at all** (the
+  HLOD late) the same view is **2.81 M**, over the 1.5 M ceiling, and the facades' modules have no LOD of their own. The check prints both; measure on
+  the box (`stat SceneRendering`, A4000, no Nanite) before trusting either.
+- Checks: `_chinatown_check.py` ALL CHECKS PASS (330 assets, 0 GLBs missing, 2264 placements, 0 scaled, lods 80 LOD1 / 22 LOD2 and 0 mismatches);
+  `--build`: 330 assets, 0 failing, 0 over budget, no thin member; `tools/levels/check_level.py --level chinatown` and `tools/names/check_names.py`
+  pass. Nothing the game loads changed.
+
 ## 5. Pictures
 
 `ct_canal_start`, `ct_canal_east`, `ct_mott`, `ct_square`, `ct_alley`, `ct_yard`: night, wet, from the player's eye, 1280 x 720,
 24 samples (round 2b; `ct_canal_start`, `ct_square`, `ct_mott` and `ct_alley` redone in round 3 at 14 to 16 samples). Round 3 adds
 `ct_props3` and `ct_props3b` (the new street and wall props on a damp sidewalk), `ct_bakery`, `ct_kitchen`, `ct_banquet`, `ct_dub` (the
-interiors from inside) and `ct_graffiti` (the VULTURES tag and the grime band on W1's alley wall, reframed so the whole tag shows). The ground is made from the level's `ground.surfaces` with the street surface of 4a; vehicles are not in
-the pictures.
+interiors from inside) and `ct_graffiti` (the VULTURES tag and the grime band on W1's alley wall, reframed so the whole tag shows). The ground is made from the level's `ground.surfaces` with the street surface of 4a; vehicles are in `ct_vehicles` (a row of the Canal vehicles in their placement paints) and, since the fixer pass, in the street views;
+`ct_props4` shows the collider-only pieces and the dumpster.
 
 ## 6. Open
 
-- The vehicles (sedan, van, taxi, box truck: their lane), the ground air conditioners (0.7 x 1.2 m, no mesh), the barricade, and the
-  collider-less pieces named in section 1.
-- The bike rack has one bicycle (the level's collider is 0.1 m deep, a row of hoops); the interiors have banquet tables but no chairs
-  around them (the chairs are the stacks), and the stone lions and the dumpling cart are the first modelling pass (readable at street
-  distance, not hero close-ups).
-- (Done in the end of round 3: `SM_Furn_SignPost_LOD1` 26 triangles of 562, `SM_Furn_StreetLamp_LOD1` 256 and `_LOD2` 148 of 1128, hand-built like the
-  pallet stack's, same slots, size and pivot. The dumpster already has the Block's LOD1, 2.0k of 7.0k; it is placed 4 times and has no LOD2.)
-- The decal page is 2K at 256 to 640 px per metre; the wear pass covers the round-2 ground walls and not the north row, the market
+- The ground air conditioners (0.7 x 1.2 m, no mesh), the barricade (2.4 m mesh on a 1.2 m collider), the tape shelf, the gas cage frame and the
+  newsstand bundle (4c).
+- The bike rack has one bicycle (the level's collider is 0.1 m deep, a row of hoops); the interiors have banquet tables but no chairs around
+  them (the chairs are the stacks). The lions, dumpling cart and dumpster were redone in 4c and are street-distance to mid-range art, not scan
+  quality; the vehicles are the Block's models collapsed to 16k to 18k (the hood and glass read at street distance; not close-up cars).
+- (Done: pole LODs, `SM_Furn_SignPost_LOD1` and `SM_Furn_StreetLamp_LOD1/2`; the Canal dumpster with its own LOD1/LOD2, 4c.)
+- The decal page is 2K at 256 to 640 px per metre; the wear pass covers the round-2 ground walls and the north row (4c) and not the market
   hall's walls or the structures' fronts.
-- The Unreal side: import, the placement actors from `placements_chinatown.json`, the decals as decal actors, the far proxies as LOD1 /
-  HLOD, the LOD1/LOD2 switch distances, a look at the stair, the market, the interiors and the graffiti under the real light on the
-  box. Nothing here has been seen in the engine.
+- **Every budget number here is an estimate.** The far proxies, the LOD switch distances and the HLOD are an Unreal step nobody has done; with
+  no proxies worst view 1 is 2.81 M triangles against the 1.5 M ceiling (0.90 M with them). Measure on the box before trusting either.
+- The Unreal side, not done: import, the placement actors from `placements_chinatown.json` (with each vehicle's `paint` set on its MI), the decals
+  as decal actors, the far proxies as LOD1 / HLOD, the LOD1/LOD2 switch distances, a look at the stair, the market, the interiors, the vehicles
+  and the graffiti under the real light on the box. Nothing here has been seen in the engine.

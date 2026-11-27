@@ -40,7 +40,7 @@ PROP_LODS = {
     "SM_Prop_CT_DumplingCart": 900, "SM_Prop_CT_NutCart": 900, "SM_Prop_CT_HotpotCart": 800, "SM_Prop_CT_StoneLion_L": 600,
     "SM_Prop_CT_StoneLion_R": 600, "SM_Prop_CT_FruitStand_Small": 520, "SM_Prop_CT_BikeRack": 500, "SM_Prop_CT_ChairStack": 600,
     "SM_Prop_CT_CDRack": 700, "SM_Prop_CT_BakeryCounter": 900, "SM_Prop_CT_TrayRack": 1400, "SM_Prop_CT_TapeRack": 700,
-    "SM_Prop_CT_BanquetTable": 420, "SM_Prop_CT_DiscBurners": 450, "SM_Prop_CT_BakeryOven": 420, "SM_Prop_CT_Planter_L": 420,
+    "SM_Prop_CT_BanquetTable": 420, "SM_Prop_CT_DiscBurners": 450, "SM_Prop_CT_ShopDisplay": 1300, "SM_Prop_CT_Newsstand": 1500, "SM_Prop_CT_ShedPost": 300, "SM_Prop_CT_BakeryOven": 420, "SM_Prop_CT_Planter_L": 420,
 }
 # (a signpost's and a street lamp's poles collapse to slivers under the lane's 34 mm floor: they have no LODs)
 # LOD2: drawn past PROP_LOD2_SWITCH, about a tenth of LOD0 (the props that stand in rows or are placed many times)
@@ -48,7 +48,7 @@ PROP_LOD2 = {
     "SM_Prop_TrashCan_Metal": 420, "SM_Prop_CT_StallCounter_2m": 320, "SM_Furn_MilkCrate": 130, "SM_Prop_CT_VendorTable": 300,
     "SM_Prop_CardboardBoxes": 160, "SM_Prop_CT_Produce_Citrus": 360, "SM_Prop_CT_Produce_Greens": 360, "SM_Prop_CT_StyrofoamBoxes": 130,
     "SM_Furn_ParkingMeter": 80, "SM_Furn_NewspaperBox": 120, "SM_Furn_TrafficCone": 120,
-    "SM_Prop_CT_DumplingCart": 300, "SM_Prop_CT_NutCart": 300, "SM_Prop_CT_StoneLion_L": 200, "SM_Prop_CT_StoneLion_R": 200,
+    "SM_Prop_CT_DumplingCart": 300, "SM_Prop_CT_NutCart": 300, 
     "SM_Prop_CT_BikeRack": 160, "SM_Prop_CT_ChairStack": 200, "SM_Prop_CT_BanquetTable": 150, "SM_Prop_CT_TrayRack": 300,
     "SM_Prop_CT_BakeryCounter": 300, "SM_Prop_CT_TapeRack": 420,
 }
@@ -56,6 +56,13 @@ PROP_LOD2 = {
 # pivot), which also gets a LOD1 below. source -> (name, triangle target)
 LIGHT_VARIANTS = {"SM_Prop_Hydrant": ("SM_Prop_CT_Hydrant", 4500)}
 LIGHT_LOD1 = {"SM_Prop_CT_Hydrant": 1100}
+# The Block's vehicles are 168k to 179k triangles each (the gun-range cars of the first map): a Canal version of each, collapsed once
+# (planar faces dissolved first so a hood stays flat) and once more for its LOD1 (drawn past PROP_LOD_SWITCH). Same slots, size and
+# pivot; the slots keep the Block's textures and paint_default (the paint is a tint mask: the placement's `paint` colour tints it).
+# source -> (Canal name, LOD0 target, LOD1 target)
+VEHICLES = {"SM_Vehicle_Sedan": ("SM_Vehicle_CT_Sedan", 26000, 4500), "SM_Vehicle_Taxi": ("SM_Vehicle_CT_Taxi", 26000, 4500),
+            "SM_Vehicle_Van": ("SM_Vehicle_CT_Van", 26000, 4500), "SM_Vehicle_BoxTruck": ("SM_Vehicle_CT_BoxTruck", 28000, 5500),
+            "SM_Vehicle_IPXTruck": ("SM_Vehicle_CT_IPXTruck", 28000, 5500)}
 FAR_TRIS = 10000           # proxy target (cap 12k)
 # worst view 1 (chinatown.md 14.0): the start (web (-40, 0, -24.5), eye 1.68) looking east, the stream's 16:9 at 90 deg
 VIEW1 = {"eye": (-40.0, 24.5, 1.68), "dir": (1.0, 0.0, 0.0), "hfov": 90.0, "vfov": 58.7, "far": 120.0}
@@ -331,9 +338,17 @@ def _base_materials(ob):
             ob.data.materials[i] = tgt
 
 
-def _collapse(ob, target):
+def _collapse(ob, target, flat_first=False):
     import bpy
     tris = sum(len(p.vertices) - 2 for p in ob.data.polygons)
+    if flat_first and tris > target:                    # a hood, a roof or a box side is flat: dissolve it before the collapse eats its curves
+        import math
+        dd = ob.modifiers.new("flat", "DECIMATE")
+        dd.decimate_type = "DISSOLVE"
+        dd.angle_limit = math.radians(1.2)
+        bpy.context.view_layer.objects.active = ob
+        bpy.ops.object.modifier_apply(modifier=dd.name)
+        tris = sum(len(p.vertices) - 2 for p in ob.data.polygons)
     if tris > target:
         dm = ob.modifiers.new("collapse", "DECIMATE")
         dm.decimate_type = "COLLAPSE"
@@ -395,7 +410,39 @@ def build_prop_lods(ctx):
         ctx.K[name] = ob
         return ob
 
+    def vehicle(src_name, name, t0, t1):
+        """A Canal vehicle and its LOD1 from the Block's: slots (textures, paint_default) copied from the source's manifest record."""
+        src = source(src_name)
+        if src is None:
+            return []
+        keep = {s_["slot"]: {k: v for k, v in s_.items() if k not in ("slot", "workflow")} for s_ in man[src_name]["material_slots"]
+                if s_["slot"].startswith("M_Vehicle_")}
+        out = []
+        for nm, target in ((name, t0), (name + "_LOD1", t1)):
+            ob = bpy.data.objects.new(nm, src.data.copy())
+            ob.data.name = nm
+            ctx.kit.objects.link(ob)
+            ob.matrix_world = src.matrix_world.copy()
+            ob.hide_viewport = False
+            _base_materials(ob)
+            _drop_thin_parts(ob)                                  # the Block's door lines, grille slats and trim ribbons: loose strips under 34 mm flicker
+            _collapse(ob, target, flat_first=True)
+            _drop_thin_parts(ob)
+            ob.data.polygons.foreach_set("use_smooth", [True] * len(ob.data.polygons))       # the collapse leaves flat-shaded triangles: lumpy hoods
+            ob.data.update()
+            _base_materials(ob)
+            note = ("The Block's %s collapsed to about %.0fk triangles (same size, slots and pivot) for the vehicles on Canal Street and Mott; "
+                    "collision is the level data's boxes. The paint slot is a tint mask: the placement's `paint` colour (linear RGB) is the "
+                    "paint, so no two parked cars are one colour." % (src_name, target / 1000.0)) if nm == name else \
+                   "LOD1 of %s (about %.1fk triangles), drawn past %.0f m; same slots." % (name, target / 1000.0, PROP_LOD_SWITCH)
+            ctx.asset(ob, collision="none", notes=note, slots=keep)
+            ctx.K[nm] = ob
+            out.append(ob)
+        return out
+
     made = []
+    for src_name, (name, t0, t1) in VEHICLES.items():
+        made += vehicle(src_name, name, t0, t1)
     for src_name, (name, target) in LIGHT_VARIANTS.items():
         ob = make(src_name, name, target, "The Block's %s collapsed to about %.1fk triangles (same size, slots and pivot) so it can be placed "
                                           "several times in the start view; collision is the placement's collider." % (src_name, target / 1000.0))

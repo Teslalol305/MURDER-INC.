@@ -48,6 +48,18 @@ def blob(b, c, r, slot, seg=8, rings=5, squash=(1, 1, 1), rot=0.0):
     return b.absorb(ob, slot)
 
 
+def tilted(b, lo, hi, slot, rot=(0, 0, 0), pivot=None):
+    """A box turned by Euler degrees about `pivot` (default its centre): a dented patch, a flap."""
+    lo, hi = np.minimum(lo, hi).astype(float), np.maximum(lo, hi).astype(float)
+    ob = geo.box(tuple(hi - lo), bevel=0.0, name="t")
+    c = (lo + hi) / 2
+    pv = c if pivot is None else np.asarray(pivot, float)
+    geo.transform(ob, loc=tuple(c - pv), rot=(0, 0, 0))
+    geo.transform(ob, loc=(0, 0, 0), rot=rot)
+    geo.transform(ob, loc=tuple(pv))
+    return b.absorb(ob, slot)
+
+
 def fin(ctx, b, name, M, notes, size=None, cover=None, collision="box", **kw):
     return done(ctx, b, name, M, collision=collision, cover_height=cover, expect_size=size, notes=notes, **kw)
 
@@ -62,35 +74,55 @@ def cart_wheels(b, x, y, z0, r, M_slot="rubber"):
 
 
 def m_dumpling_cart(ctx, M):
-    """Dumpling cart 1.4 x 1.0 x 1.25: a stainless cart on two wheels, a gas ring under a stack of three bamboo steamers."""
+    """Dumpling cart 1.4 x 0.9 x 1.9: a red-lacquered street cart on two pneumatic wheels with a stainless top, a stack of three bamboo steamers
+    on a gas ring, a serving ledge with bowls, a menu board frame (blank: the words are a decal), a striped canopy on four poles with a bare bulb,
+    a gas bottle in a cradle, a bin hook, handle bars and a prop stand."""
     b = B(310)
     L, W = 1.4, 0.9
     cart_wheels(b, -0.15, 0.0, 0.0, 0.26)
-    bx(b, (-L / 2, -W / 2 + 0.05, 0.28), (L / 2 - 0.30, W / 2 - 0.05, 0.84), "stainless", ch=0.006)           # cabinet
+    bx(b, (-L / 2, -W / 2 + 0.05, 0.28), (L / 2 - 0.30, W / 2 - 0.05, 0.84), "redlac", ch=0.008)               # the lacquered cabinet
     for s in (-1, 1):
-        bx(b, (-L / 2 + 0.06, s * (W / 2 - 0.05) - 0.006, 0.34), (L / 2 - 0.36, s * (W / 2 - 0.05) + 0.006, 0.78), "black", pin=False)  # doors
-    bx(b, (-L / 2 - 0.02, -W / 2, 0.84), (L / 2 - 0.28, W / 2, 0.88), "stainless", ch=0.004)               # top
-    bx(b, (-L / 2 - 0.02, -W / 2, 0.88), (-L / 2, W / 2, 0.93), "stainless", pin=False)                    # splash lip
+        bx(b, (-L / 2 + 0.06, s * (W / 2 - 0.05) - 0.008, 0.34), (L / 2 - 0.36, s * (W / 2 - 0.05) + 0.008, 0.78), "black", pin=False)  # door panels
+        bx(b, (-0.10, s * (W / 2 - 0.05) - 0.014, 0.52), (0.02, s * (W / 2 - 0.05) + 0.014, 0.56), "chrome", pin=False)               # a pull
+    bx(b, (-L / 2 - 0.02, -W / 2, 0.84), (L / 2 - 0.28, W / 2, 0.88), "stainless", ch=0.004)                  # top
+    bx(b, (-L / 2 - 0.02, -W / 2, 0.88), (-L / 2, W / 2, 0.93), "stainless", pin=False)                       # splash lip
     for s in (-1, 1):
         bx(b, (-L / 2 - 0.02, s * W / 2 - 0.01, 0.88), (L / 2 - 0.28, s * W / 2 + 0.01, 0.92), "stainless", pin=False)
+    bx(b, (L / 2 - 0.30, -W / 2 - 0.06, 0.78), (L / 2 + 0.02, W / 2 + 0.06, 0.82), "stainless", ch=0.004)    # the front serving ledge
+    for i, x in enumerate((0.40, 0.55, 0.64)):                                                              # bowls on the ledge
+        lathe(b, [(0.0, 0.82), (0.055, 0.82), (0.085, 0.89), (0.075, 0.89), (0.05, 0.84), (0.0, 0.84)], "fabricWhite", loc=(x, -0.22 + 0.2 * i, 0.0), seg=10)
     for i in range(3):                                                                                     # the steamer stack
         z = 0.88 + i * 0.12
         lathe(b, [(0.19, z), (0.215, z), (0.215, z + 0.11), (0.19, z + 0.11)], "timber", loc=(-0.28, 0.0, 0.0), seg=14)
         ring(b, (-0.28, 0.0, z + 0.055), 0.215, 0.011, "stem", "Z", seg=14, sm=4)
     lathe(b, [(0.0, 1.22), (0.21, 1.22), (0.235, 1.10), (0.20, 1.10), (0.0, 1.10)], "timber", loc=(-0.28, 0.0, 0.0), seg=14)
     ball(b, 0.035, (-0.28, 0.0, 1.255), "timber", seg=8, rings=4)
-    lathe(b, [(0.0, 0.88), (0.10, 0.88), (0.12, 0.92), (0.0, 0.92)], "black", loc=(0.28, 0.0, 0.0), seg=12)  # a wok ring beside it
+    lathe(b, [(0.0, 0.88), (0.10, 0.88), (0.12, 0.92), (0.0, 0.92)], "black", loc=(0.28, 0.0, 0.0), seg=12)    # a wok ring beside it
     lathe(b, [(0.0, 0.92), (0.15, 0.96), (0.19, 1.04), (0.17, 1.04), (0.12, 0.98), (0.0, 0.97)], "alu", loc=(0.28, 0.0, 0.0), seg=14)
-    cyl(b, (L / 2 - 0.50, -0.25, 0.28), 0.14, 0.55, "plasticGreen", seg=12)                                # gas bottle under the lip
+    cyl(b, (L / 2 - 0.50, -0.25, 0.28), 0.14, 0.55, "plasticGreen", seg=12)                                  # gas bottle under the lip
+    ring(b, (L / 2 - 0.50, -0.25, 0.50), 0.145, 0.012, "black", "Z", seg=12, sm=4)                           # its strap
     for s in (-1, 1):                                                                                      # handle bars
         rod(b, (L / 2 - 0.30, s * 0.34, 0.80), (L / 2 + 0.0, s * 0.36, 0.95), 0.019, "chrome", n=6)
     rod(b, (L / 2, -0.36, 0.95), (L / 2, 0.36, 0.95), 0.019, "chrome", n=6)
+    rod(b, (-L / 2 + 0.05, W / 2 - 0.05, 0.30), (-L / 2 - 0.10, W / 2 - 0.05, 0.12), 0.016, "chrome", n=6)  # the prop stand
+    for sx, sy in ((-0.62, -0.38), (-0.62, 0.38), (0.30, -0.38), (0.30, 0.38)):                             # four canopy poles
+        rod(b, (sx, sy, 0.93), (sx, sy, 1.88), 0.014, "chrome", n=6)
+    for i in range(6):                                                                                     # the striped canopy: red and white strips on a sag
+        sl = "fabricRed" if i % 2 == 0 else "fabricWhite"
+        y0 = -0.46 + i * 0.153
+        bx(b, (-0.70, y0, 1.84), (0.36, y0 + 0.153, 1.87), sl, ch=0.003, pin=False)
+        bx(b, (0.36, y0, 1.78), (0.40, y0 + 0.153, 1.87), sl, ch=0.003, pin=False)                          # the front valance
+    bx(b, (0.30, -0.30, 1.20), (0.34, 0.30, 1.72), "black", ch=0.006)                                       # the menu board frame, blank
+    bx(b, (0.34, -0.26, 1.24), (0.345, 0.26, 1.68), "fabricWhite", pin=False)
+    rod(b, (-0.2, 0.0, 1.84), (-0.2, 0.0, 1.70), 0.008, "black", n=5)                                      # a bare bulb on its flex
+    ball(b, 0.035, (-0.2, 0.0, 1.66), "bulb", seg=8, rings=5)
     bx(b, (-0.60, -0.12, 0.93), (-0.40, 0.12, 0.945), "ply", ch=0.002, pin=False)                          # tray of dumplings
     for i in range(3):
         blob(b, (0.0 + i * 0.1, 0.0, 0.95), 0.04, "fabricWhite", seg=6, rings=4, squash=(1.2, 1.0, 0.8))
-    return fin(ctx, b, "SM_Prop_CT_DumplingCart", M, "Dumpling cart 1.4 x 0.9 x 1.25 m (three on Canal and the market's corner pier: chinatown.md 4.3 and "
-               "4.8): a stainless cabinet on two pneumatic wheels, a stack of three bamboo steamers on the gas, a wok ring, a gas bottle, handle bars. "
-               "Pivot at the cart's centre, handle toward +X.", cover=1.0)
+    return fin(ctx, b, "SM_Prop_CT_DumplingCart", M, "Dumpling cart 1.4 x 0.9 x 1.9 m (three on Canal and the market's corner pier: chinatown.md 4.3 and "
+               "4.8): a red-lacquered cabinet on two pneumatic wheels with a stainless top, a stack of three bamboo steamers on the gas, a wok ring, a serving ledge with "
+               "bowls, a gas bottle on a strap, handle bars, a prop stand, a striped canopy on four poles with a bare bulb and a blank menu board frame (the words are "
+               "a decal). Pivot at the cart's centre, handle toward +X.", cover=1.0)
 
 
 def m_nut_cart(ctx, M):
@@ -152,36 +184,65 @@ def m_hotpot_cart(ctx, M):
 # ------------------------------------------------------------------------------------------------------ stone lions
 
 def m_stone_lion(ctx, M, side):
-    """Guardian lion 0.8 x 0.8 x 1.1 on a stepped plinth, facing +X: a seated body, a broad head with a muzzle and a mane of curls round its
-    back half, the ball under the left paw (L) or the right (R)."""
+    """Guardian lion 0.8 x 0.8 x 1.1 on a stepped plinth, facing +X: the temple pose, seated on its haunches with the forelegs straight, the chest
+    pushed out, a broad head with bulging eyes under heavy brows, a flat nose, an open mouth with fangs and a lolling tongue, ears, a mane of
+    spiral curls in rows down the neck and shoulders, a tail fan up the back and a ball under the left paw (L) or a cub under the right (R)."""
     s = 1.0 if side == "L" else -1.0
     b = B(320 + (side == "R"))
-    bx(b, (-0.40, -0.40, 0.0), (0.40, 0.40, 0.28), "stone", ch=0.012)                                      # plinth
-    bx(b, (-0.36, -0.36, 0.28), (0.36, 0.36, 0.34), "stone", ch=0.010)
-    blob(b, (-0.04, 0.0, 0.54), 0.27, "stone", seg=12, rings=8, squash=(1.05, 0.72, 0.82))                  # haunch and body
-    blob(b, (0.10, 0.0, 0.68), 0.23, "stone", seg=12, rings=8, squash=(0.85, 0.80, 1.05))                   # chest
-    for sy in (-1, 1):                                                                                     # forelegs and paws
-        rod(b, (0.20, sy * 0.12, 0.36), (0.18, sy * 0.12, 0.62), 0.05, "stone", n=8)
-        blob(b, (0.25, sy * 0.12, 0.37), 0.065, "stone", seg=8, rings=5, squash=(1.4, 0.9, 0.5))
-    ball(b, 0.09, (0.27, -s * 0.12, 0.45), "stone", seg=10, rings=7)                                       # the ball under one paw
-    blob(b, (0.14, 0.0, 0.97), 0.17, "stone", seg=12, rings=8, squash=(1.0, 1.05, 0.95))                    # head
-    blob(b, (0.29, 0.0, 0.92), 0.09, "stone", seg=10, rings=6, squash=(1.2, 1.1, 0.8))                      # muzzle
-    bx(b, (0.34, -0.07, 0.875), (0.38, 0.07, 0.895), "black", pin=False)                                   # the mouth
-    blob(b, (0.375, 0.0, 0.955), 0.03, "black", seg=6, rings=4, squash=(1, 1.3, 0.8))                        # nose
+    bx(b, (-0.40, -0.40, 0.0), (0.40, 0.40, 0.20), "stone", ch=0.014)                                      # plinth: a plain block with two steps
+    bx(b, (-0.37, -0.37, 0.20), (0.37, 0.37, 0.27), "stone", ch=0.012)
+    bx(b, (-0.33, -0.33, 0.27), (0.33, 0.33, 0.31), "stone", ch=0.010)
+    for sy in (-1, 1):                                                                                     # hind legs: thigh, folded shin, long hind paw
+        blob(b, (-0.12, sy * 0.17, 0.46), 0.17, "stone", seg=10, rings=7, squash=(1.15, 0.75, 1.0))
+        rod(b, (-0.02, sy * 0.19, 0.38), (0.12, sy * 0.19, 0.33), 0.05, "stone", n=8)
+        blob(b, (0.15, sy * 0.19, 0.335), 0.065, "stone", seg=8, rings=5, squash=(1.7, 0.9, 0.5))
+        for k in (-1, 0, 1):                                                                               # toes
+            ball(b, 0.017, (0.225, sy * 0.19 + k * 0.03, 0.325), "stone", seg=5, rings=4)
+    blob(b, (-0.10, 0.0, 0.58), 0.22, "stone", seg=12, rings=8, squash=(1.1, 0.95, 1.05))                   # the seated trunk
+    blob(b, (0.06, 0.0, 0.78), 0.22, "stone", seg=12, rings=8, squash=(0.95, 1.0, 1.15))                    # the chest, pushed out and up
+    blob(b, (0.13, 0.0, 0.70), 0.14, "stone", seg=10, rings=6, squash=(0.8, 1.15, 1.0))
+    for sy in (-1, 1):                                                                                     # forelegs: shoulder, a straight shaft, an elbow knob, a paw with toes
+        blob(b, (0.04, sy * 0.19, 0.70), 0.11, "stone", seg=8, rings=5, squash=(1.0, 0.7, 1.2))
+        rod(b, (0.14, sy * 0.15, 0.64), (0.20, sy * 0.14, 0.33), 0.05, "stone", n=8)
+        blob(b, (0.22, sy * 0.14, 0.335), 0.065, "stone", seg=8, rings=5, squash=(1.3, 0.95, 0.55))
+        for k in (-1, 0, 1):
+            ball(b, 0.016, (0.285, sy * 0.14 + k * 0.03, 0.325), "stone", seg=5, rings=4)
+    ball(b, 0.085, (0.26, -s * 0.14, 0.40), "stone", seg=10, rings=7)                                      # the ball under the paw (a cub for _R)
+    if side == "R":
+        blob(b, (0.30, s * 0.14 + 0.0, 0.40), 0.06, "stone", seg=7, rings=5, squash=(1.2, 0.9, 0.9))
+    blob(b, (0.20, 0.0, 1.00), 0.19, "stone", seg=14, rings=9, squash=(0.95, 1.05, 0.95))                   # the head, a broad blocky skull
+    blob(b, (0.33, 0.0, 0.95), 0.11, "stone", seg=10, rings=7, squash=(1.1, 1.2, 0.8))                      # the upper muzzle
+    blob(b, (0.395, 0.0, 0.985), 0.045, "stone", seg=8, rings=5, squash=(0.8, 1.6, 0.9))                    # the flat wide nose
+    bx(b, (0.36, -0.085, 0.875), (0.40, 0.085, 0.895), "black", pin=False)                                 # the mouth line
+    blob(b, (0.345, 0.0, 0.855), 0.07, "stone", seg=8, rings=5, squash=(1.2, 1.15, 0.55))                   # the lower jaw
+    blob(b, (0.355, 0.0, 0.875), 0.03, "stone", seg=6, rings=4, squash=(1.1, 1.2, 0.5), rot=0)              # the tongue
     for sy in (-1, 1):
-        blob(b, (0.255, sy * 0.09, 1.045), 0.05, "stone", seg=8, rings=5, squash=(1.4, 1.0, 0.6))          # brows
-        blob(b, (0.295, sy * 0.085, 1.00), 0.02, "black", seg=5, rings=4)                                  # eyes
-        blob(b, (0.10, sy * 0.15, 1.10), 0.045, "stone", seg=6, rings=4, squash=(0.8, 1.0, 1.0))           # ears
-    for k in range(13):                                                                                    # the mane: curls round the head's back half
-        t = math.radians(60 + k * 20)                                                                      # 60 .. 300 degrees, 0 = facing +X
-        blob(b, (0.14 + 0.19 * math.cos(t) * 0.9, 0.2 * math.sin(t), 0.97 + 0.025 * (k % 3 - 1)), 0.075, "stone", seg=7, rings=5, squash=(0.9, 0.9, 1.25))
-    for k in range(5):
-        blob(b, (0.06 + 0.02 * (k % 2), (k - 2) * 0.08, 0.78 - 0.03 * abs(k - 2)), 0.07, "stone", seg=6, rings=4, squash=(0.9, 0.9, 1.1))
-    rod(b, (-0.28, 0.0, 0.46), (-0.38, s * 0.10, 0.74), 0.035, "stone", n=6)                                # tail curling up
-    blob(b, (-0.38, s * 0.10, 0.80), 0.06, "stone", seg=7, rings=5)
-    return fin(ctx, b, "SM_Prop_CT_StoneLion_" + side, M, "Stone guardian lion 0.8 x 0.8 x 1.1 m on a stepped plinth, facing +X (the banquet hall's door, x 29.1 and 36.1, "
-               "chinatown.md 4.7): a seated body, a broad head with brows, muzzle and mouth, curls round its back half, a ball under one paw; _L has the ball under "
-               "the left paw (+Y), _R mirrored. Generic, no real hall's lion.", cover=0.7)
+        for k in (0, 1):
+            ball(b, 0.012, (0.388, sy * (0.035 + 0.04 * k), 0.895), "chrome" if False else "stone", seg=5, rings=4, squash=(1, 1, 1.5))   # fangs
+        blob(b, (0.30, sy * 0.085, 1.045), 0.055, "stone", seg=8, rings=5, squash=(1.6, 1.0, 0.5))          # heavy brows
+        ball(b, 0.032, (0.318, sy * 0.082, 1.012), "stone", seg=8, rings=6)                                 # the bulging eyeballs
+        ball(b, 0.016, (0.345, sy * 0.082, 1.012), "black", seg=6, rings=4)
+        blob(b, (0.13, sy * 0.16, 1.11), 0.05, "stone", seg=7, rings=5, squash=(0.6, 0.9, 1.2))            # ears
+        blob(b, (0.36, sy * 0.10, 0.935), 0.03, "stone", seg=6, rings=4, squash=(1.0, 1.0, 0.7))            # cheek pads
+    for r, (z, rad, cols) in enumerate(((1.12, 0.21, 9), (1.04, 0.255, 11), (0.95, 0.28, 12), (0.86, 0.30, 12), (0.76, 0.31, 11))):   # the mane: rows of curls
+        for k in range(cols):
+            t = math.radians(52 + k * (256.0 / (cols - 1)))
+            x, y = 0.18 + rad * 0.95 * math.cos(t) * (0.95 if r > 1 else 0.9), rad * math.sin(t)
+            if r >= 3:
+                x = 0.08 + (rad * 0.95) * math.cos(t)
+            blob(b, (x, y, z), 0.057, "stone", seg=6, rings=4, squash=(0.9, 0.9, 1.15), rot=k * 31)
+            if r <= 1:
+                ring(b, (x, y, z), 0.035, 0.012, "stone", "Y" if k % 2 else "X", seg=7, sm=3)                # the curl's coil on the head and neck rows
+    for k in range(5):                                                                                     # the tail: a fan of five leaves up the back
+        t = math.radians(-34 + k * 17)
+        blob(b, (-0.31 - 0.04 * math.cos(t), s * 0.04 * (k - 2), 0.60 + 0.12 * math.sin(t) + 0.04 * k), 0.065, "stone", seg=7, rings=5, squash=(0.6, 0.6, 1.8), rot=k * 20)
+    rod(b, (-0.27, 0.0, 0.40), (-0.33, s * 0.05, 0.58), 0.032, "stone", n=6)
+    for k in range(6):                                                                                     # a spine of small tufts down the back
+        blob(b, (-0.12 - 0.04 * k, 0.0, 0.88 - 0.08 * k), 0.05, "stone", seg=6, rings=4, squash=(0.9, 0.8, 1.0))
+    return fin(ctx, b, "SM_Prop_CT_StoneLion_" + side, M, "Stone guardian lion 0.8 x 0.8 x 1.15 m on a stepped plinth, facing +X (the banquet hall's door, x 29.1 and 36.1, "
+               "chinatown.md 4.7), the temple pose: seated on its haunches, straight forelegs with toes, the chest pushed out, a broad head with bulging eyes under heavy brows, "
+               "a flat nose, an open mouth with fangs, ears, a mane of spiral curls in five rows and a tail fan; _L has the ball under the left paw (+Y), _R mirrored with a cub. "
+               "Generic, no real hall's lion.", cover=0.7)
 
 
 # ------------------------------------------------------------------------------------------------------ trash
@@ -308,22 +369,28 @@ def m_chair_stack(ctx, M):
 
 
 def m_grease_bin(ctx, M):
-    """Wheeled grease bin 0.9 x 0.58 x 1.0: a green tote with a sloped lid, handle bar, two wheels, a greasy lip."""
+    """Wheeled grease bin 0.9 x 0.58 x 1.0: a dark, faded-green tote (the Canal dumpster's paint, not a bright toy green) with a sloped
+    lid and handle, two wheels with hubs, a back handle, dented side, a hauler plate of stencil bars (no words) and a greasy lip."""
     b = B(353, step=0.3)
     L, W = 0.9, 0.58
-    bx(b, (-L / 2, -W / 2, 0.10), (L / 2, W / 2, 0.80), "plasticGreen", ch=0.02)
-    bx(b, (-L / 2 - 0.01, -W / 2 - 0.01, 0.80), (L / 2 + 0.01, W / 2 + 0.01, 0.86), "plasticGreen", ch=0.02)
-    bx(b, (-L / 2 + 0.01, -W / 2 + 0.03, 0.86), (L / 2 - 0.01, W / 2 - 0.03, 0.92), "plasticGreen", ch=0.02)
+    bx(b, (-L / 2, -W / 2, 0.10), (L / 2, W / 2, 0.80), "dumpster", ch=0.02)
+    bx(b, (-L / 2 - 0.01, -W / 2 - 0.01, 0.80), (L / 2 + 0.01, W / 2 + 0.01, 0.86), "dumpster", ch=0.02)
+    bx(b, (-L / 2 + 0.01, -W / 2 + 0.03, 0.86), (L / 2 - 0.01, W / 2 - 0.03, 0.92), "black", ch=0.02)          # the lid is black plastic
     bx(b, (L / 2 - 0.15, -0.12, 0.92), (L / 2 - 0.02, 0.12, 0.98), "black", ch=0.01)                        # the lid's handle
     for s in (-1, 1):
-        cyl(b, (-L / 2 + 0.08, s * (W / 2 + 0.01) - 0.02, 0.09), 0.09, 0.04, "rubber", seg=12, axis="Y")
+        cyl(b, (-L / 2 + 0.08, s * (W / 2 + 0.01) - 0.02, 0.09), 0.09, 0.04, "rubber", seg=12, axis="Y")     # the wheel
+        cyl(b, (-L / 2 + 0.08, s * (W / 2 + 0.01) - 0.02 + s * 0.01, 0.09), 0.04, 0.05, "chrome", seg=8, axis="Y")   # its hub cap
         bx(b, (-L / 2 + 0.02, s * W / 2 - 0.02, 0.10), (-L / 2 + 0.14, s * W / 2 + 0.02, 0.22), "black", pin=False)
     bx(b, (-L / 2 - 0.05, -0.20, 0.55), (-L / 2, 0.20, 0.60), "black", ch=0.006)                            # the back handle
     for s in (-1, 1):
         bx(b, (-L / 2 - 0.05, s * 0.18 - 0.015, 0.40), (-L / 2, s * 0.18 + 0.015, 0.58), "black", pin=False)
-    bx(b, (-0.2, -W / 2 - 0.003, 0.45), (0.2, -W / 2 + 0.003, 0.70), "clothLight", pin=False)               # a plain blank label
-    return fin(ctx, b, "SM_Prop_CT_GreaseBin", M, "Wheeled grease bin 0.9 x 0.58 x 1.0 m (three in the alleys): green plastic tote, a stepped lid with a handle, two wheels, "
-               "a back handle, a blank label.", cover=0.9)
+    bx(b, (-0.22, -W / 2 - 0.008, 0.52), (0.22, -W / 2 + 0.002, 0.68), "yellow", pin=False)                  # the hauler plate: faded bars, not words
+    for j in range(5):
+        bx(b, (-0.19 + j * 0.08, -W / 2 - 0.012, 0.54), (-0.19 + j * 0.08 + 0.035, -W / 2 - 0.006, 0.66), "black", pin=False)
+    tilted(b, (-0.30, W / 2 + 0.005, 0.30), (0.10, W / 2 + 0.03, 0.62), "dumpster")                          # a dented, proud patch on the other side
+    bx(b, (L / 2 - 0.02, -0.22, 0.30), (L / 2 + 0.004, 0.22, 0.34), "black", pin=False)                     # grease streak below the lip
+    return fin(ctx, b, "SM_Prop_CT_GreaseBin", M, "Wheeled grease bin 0.9 x 0.58 x 1.0 m (three in the alleys): a dark faded-green tote (not a bright toy green), a black stepped lid with a handle, "
+               "two wheels with hubs, a back handle, a hauler plate of bars (no words), a dented side. Fixer pass: was a bright green plastic tote with a blank white label.", cover=0.9)
 
 
 def m_planter(ctx, M, tag, L, W, H):

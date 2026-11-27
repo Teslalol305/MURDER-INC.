@@ -438,7 +438,7 @@ PROPS = {
     "skylight": ([("SM_Prop_CT_Skylight", 3.0, 2.0)], {}),
     "condenser": ([("SM_Prop_CT_Condenser", 1.1, 0.9)], {}),
     "roof_ac": ([("SM_Prop_CT_Condenser", 1.1, 0.9)], {}),
-    "dumpster": ([("SM_Furn_Dumpster", 1.9, 1.17)], {}),
+    "dumpster": ([("SM_Prop_CT_Dumpster", 1.9, 1.17)], {}),
     "crate_stack": ([("SM_Prop_CardboardBoxes", 0.96, 0.81)], {}),
     "produce_crates": ([("SM_Prop_CardboardBoxes", 0.96, 0.81)], {}),
     "trash_can": ([("SM_Prop_TrashCan_Metal", 0.78, 0.56)], {}),
@@ -501,7 +501,34 @@ PROPS = {
     "tube_bundles": ([("SM_Prop_CT_TubeBundles", 0.8, 0.8)], {}),
     "bending_bench": ([("SM_Prop_CT_BendingBench", 2.0, 0.8)], {}),
     "banquet_table": ([("SM_Prop_CT_BanquetTable", 1.7, 1.7)], {}),
+    # fixer pass: the pieces that had a collider and no mesh, and the vehicles (the Block's, collapsed: _chinatown_lod.VEHICLES)
+    "sedan": ([("SM_Vehicle_CT_Sedan", 4.61, 1.85)], {"car": True}),
+    "taxi": ([("SM_Vehicle_CT_Taxi", 4.61, 1.85)], {"car": True}),
+    "van": ([("SM_Vehicle_CT_Van", 5.21, 1.95)], {"car": True}),
+    "box_truck": ([("SM_Vehicle_CT_BoxTruck", 7.41, 2.49)], {"car": True}),
+    "delivery_truck": ([("SM_Vehicle_CT_BoxTruck", 7.41, 2.49)], {"car": True}),
+    "ipx_truck": ([("SM_Vehicle_CT_IPXTruck", 6.81, 2.50)], {"car": True}),
+    "newsstand": ([("SM_Prop_CT_Newsstand", 1.9, 1.4)], {"rot": -90.0}),
+    "phone_kiosk": ([("SM_Prop_CT_PhoneKiosk", 0.95, 0.35)], {"wall": True}),
+    "shop_display": ([("SM_Prop_CT_ShopDisplay", 1.2, 1.45)], {"rot": 0.0}),
+    "laundry_cart": ([("SM_Prop_CT_LaundryCart", 0.9, 0.6)], {}),
+    "steam_chimney": ([("SM_Prop_CT_SteamChimney", 0.5, 0.5)], {}),
+    "shed_post": ([("SM_Prop_CT_ShedPost", 0.2, 0.2)], {}),
+    "scale_stand": ([("SM_Prop_CT_ScaleStand", 0.6, 0.45)], {}),
+    "alarm_pedestal": ([("SM_Prop_CT_AlarmPedestal", 0.4, 0.4)], {"rot": -90.0}),
+    "arcade_pillar": ([("SM_Prop_CT_ArcadePillar", 0.6, 0.6)], {}),
+    "raised_bed": ([("SM_Prop_CT_Planter_L", 1.0, 1.0)], {}),
+    "goods_carton": ([("SM_Prop_CardboardBoxes", 0.96, 0.81)], {}),
+    "chess_table": ([("SM_Prop_CT_CardTable", 0.86, 0.86)], {}),
+    "vendor_stool": ([("SM_Prop_CT_Stool", 0.4, 0.4)], {}),
 }
+# The parked cars' paint (linear RGB: the paint slot is a tint mask, `paint_default` of the Block's records). One entry per placement,
+# picked by the collider's index, so no two neighbours are the same colour.
+PAINT = {"SM_Vehicle_CT_Sedan": [(0.52, 0.52, 0.54), (0.78, 0.78, 0.76), (0.020, 0.030, 0.075), (0.30, 0.030, 0.030), (0.035, 0.12, 0.06), (0.11, 0.11, 0.12)],
+         "SM_Vehicle_CT_Taxi": [(0.8879, 0.5395, 0.0103)],
+         "SM_Vehicle_CT_Van": [(0.6939, 0.6795, 0.6308), (0.40, 0.42, 0.45), (0.030, 0.10, 0.34), (0.55, 0.06, 0.05)],
+         "SM_Vehicle_CT_BoxTruck": [(0.80, 0.80, 0.78), (0.5841, 0.3613, 0.0423), (0.030, 0.10, 0.34), (0.50, 0.08, 0.06)],
+         "SM_Vehicle_CT_IPXTruck": [(0.0086, 0.0097, 0.0123)]}
 # no mesh yet, or the only mesh is far from the collider's size, or too heavy without a LOD (listed in the report)
 UNMAPPED_WHY = {
     "barricade": "SM_Furn_Barricade is 2.4 m against a 1.2 m collider",
@@ -557,6 +584,11 @@ def props(out, report):
                 rot += 0.0 if cx < 0 else 180.0
         if opt.get("rot") is not None:
             rot = opt["rot"]
+        extra = {}
+        if opt.get("car"):                                             # nose +X; Canal's lanes run with the traffic (north kerb west, south kerb east)
+            rot = (0.0 if cy < 24.4 else 180.0) if along_x else (90.0 if p["index"] % 2 == 0 else 270.0)
+            pal = PAINT[mesh]
+            extra["paint"] = [round(c, 4) for c in pal[p["index"] % len(pal)]]
         if opt.get("wall"):
             rot = wall_rot(lo, hi, cols, rot)
         if opt.get("lamp"):
@@ -575,7 +607,7 @@ def props(out, report):
                 for dx, dy, dz in ((-0.17, 0.0, 0.0), (0.17, 0.0, 0.0), (-0.17, 0.0, 0.28), (0.17, 0.0, 0.28)):
                     out.append(mk(mesh, x + dx, y + dy, z0 + dz, rot, group, "prop", prop=name, propIndex=p["index"]))
                 continue
-            out.append(mk(mesh, x, y, z0, rot, group, "prop", prop=name, propIndex=p["index"]))
+            out.append(mk(mesh, x, y, z0, rot, group, "prop", prop=name, propIndex=p["index"], **extra))
             if opt.get("goods"):
                 g = "SM_Prop_CT_Goods_Bags" if p.get("goods") == "rack" else GOODS[p["index"] % len(GOODS)]
                 out.append(mk(g, x, y, z0 + 0.753, rot, group, "vendor goods", prop=name, propIndex=p["index"]))
@@ -646,6 +678,30 @@ def wear_decals(out):
     return n
 
 
+def wear_north(out):
+    """The same grime band along the foot of the north row's frontage (N1..N6), in 3 m pieces on the piers and fronts' base: the row the player
+    walks beside first. The shop fronts' glass starts above 0.3 m, so the band (under 0.6 m) reads as splash on the pier bases and the sill rails.
+    Scuffs at door height about every 7 m."""
+    from assets import _chinatown_place as place
+    n = 0
+    for key, B in place.ROW.items():
+        x0, x1 = B["x"]
+        W = x1 - x0
+        k = int(W // 3.0)
+        for i in range(k):
+            s = i * W / k + (W / k - 3.0) / 2
+            out.append(place.entry("SM_Decal_CT_Wear_Grime_" + "AB"[(i + len(key)) % 2], s, 0.0, -0.01, x0, key, "wear decal", rot=0.0))
+            out[-1]["faceKey"] = key + ".north"
+            n += 1
+        for i in range(max(1, int(W // 7.0))):
+            s = (i + 0.5) * W / max(1, int(W // 7.0)) - 0.6 + 0.9 * math.sin(i * 2.3 + len(key))
+            s = min(max(s, 0.0), W - 1.2)
+            out.append(place.entry("SM_Decal_CT_Wear_Scuffs", s, 0.12, -0.01, x0, key, "wear decal"))
+            out[-1]["faceKey"] = key + ".north"
+            n += 1
+    return n
+
+
 def _lamp_rot(x, y):
     """The street lamp's arm (local -Y) over the roadway: Canal's south sidewalk lamps reach north, the north sidewalk's
     south, Mott's lamps across Mott."""
@@ -683,6 +739,7 @@ def assemble():
     structures(out)
     stage(out)
     wear_decals(out)
+    wear_north(out)
     for k, why in UNMAPPED_WHY.items():
         if k in report["unmapped"]:
             report["unmapped"][k] = "%d placement(s): %s" % (report["unmapped"][k], why)

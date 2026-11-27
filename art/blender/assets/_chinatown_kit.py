@@ -71,6 +71,8 @@ def materials(ctx):
     M["trim"] = S(ctx, "TS_Steel_ScanPaintGrey", "MI_Steel_PaintDark", tint=(0.16, 0.16, 0.17), blend_start=0.55, macro=0.10, **rust)
     M["black"] = S(ctx, "TS_Steel_ScanPaintGrey", "MI_Steel_PaintBlack", tint=(0.07, 0.07, 0.075), blend_start=0.45, **rust)
     M["grey"] = S(ctx, "TS_Steel_ScanPaintGrey", blend_start=0.40, macro=0.12, **rust)
+    M["dumpster"] = S(ctx, "TS_Steel_ScanPaintGreen", "MI_Steel_PaintDumpster", tint=(0.34, 0.42, 0.36), blend_start=0.30, macro=0.18,
+                      note="Canal dumpster: the green paint scan darkened and greyed, more rust showing than the plain jade", **rust)
     M["jade"] = S(ctx, "TS_Steel_ScanPaintGreen", blend_start=0.45, **rust)
     M["redlac"] = S(ctx, "TS_Steel_ScanPaintWhite", "MI_Paint_RedLacquer", tint=(0.42, 0.035, 0.03), alpha="splash", dirt_color=SOOT,
                     note="red lacquer (banquet doors, lantern caps' rods): the white paint scan multiplied by the tint")

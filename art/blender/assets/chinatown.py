@@ -49,6 +49,7 @@ BUDGET = {
     "SM_Struct_CT_RoofBulkhead": 4000, "SM_Struct_CT_YardStair": 12000, "SM_Struct_CT_SidewalkShed": 10000,
     "SM_Struct_CT_BakeryKitchen": 12000, "SM_Struct_CT_Arcade": 8000, "SM_Struct_CT_BanquetFacade": 40000,
     "SM_Prop_CT_Hydrant": 6000, "SM_Prop_TrashCan_Metal_LOD1": 2000,
+    "SM_Vehicle_CT_": 30000, "SM_Prop_CT_Dumpster": 6000, "SM_Prop_CT_StoneLion": 7000,
     "SM_Furn_": 4000, "SM_Prop_": 4000, "SM_Decal_CT_": 100,
     "SM_Prop_CT_BanquetStage": 6000, "SM_Prop_CT_Standpipe": 1500, "SM_Prop_CT_BikeRack": 3000,
     "SM_Facade_CT_Alcove_": 9000, "SM_Facade_CT_Ground": 4000, "SM_Facade_CT_": 6000,
@@ -76,6 +77,9 @@ def build(ctx):
     from assets import _chinatown_props3 as props3
     from assets import _chinatown_props3b as props3b
     for f in props3.PROPS3 + props3b.PROPS3B:                                          # round 3: carts, lions, fittings, interiors
+        f(ctx, M)
+    from assets import _chinatown_props4 as props4
+    for f in props4.PROPS4:                                                            # fixer pass: the collider-only pieces and the Canal dumpster
         f(ctx, M)
     front.build_front(ctx, M)
     from assets import _chinatown_decals as decals

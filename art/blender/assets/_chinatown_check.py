@@ -190,7 +190,11 @@ def check_fit(pl, shared):
 PLANNED = ("food_cart", "hotpot_cart", "stone_lion", "trash_bags", "fruit_stand", "standpipe", "bike_rack", "chair_stack", "grease_bin",
            "roof_vent", "exhaust_fan", "exhaust_stack", "bakery_counter", "bakery_ovens", "tray_racks", "flour_sacks", "kitchen_table",
            "kitchen_range", "kitchen_counter", "kitchen_rack", "tape_racks", "cutting_table", "disc_burners", "kiosk_counter", "tube_bundles",
-           "bending_bench", "banquet_table", "banquet_stage", "planter", "bucket_stack", "sandwich_board", "cd_rack", "road_plates", "dig_fence")
+           "bending_bench", "banquet_table", "banquet_stage", "planter", "bucket_stack", "sandwich_board", "cd_rack", "road_plates", "dig_fence",
+           # fixer pass: the vehicles and every piece that had a collider and no mesh
+           "sedan", "taxi", "van", "box_truck", "delivery_truck", "ipx_truck", "newsstand", "phone_kiosk", "shop_display", "laundry_cart",
+           "steam_chimney", "shed_post", "scale_stand", "alarm_pedestal", "arcade_pillar", "raised_bed", "goods_carton", "chess_table",
+           "vendor_stool", "dumpster")
 
 
 def check_round3(pl, shared):
@@ -230,12 +234,14 @@ def check_round3(pl, shared):
     ids = sorted(e.get("dataSign") for e in decals)
     wear = [e for e in inst if e["role"] == "wear decal"]
     grounds = {F.key for F, _s, _b, _k, _g, o in __import__("assets._chinatown_streets", fromlist=["x"]).faces() if o.get("ground", True)}
-    covered = {e.get("faceKey") for e in wear}
+    covered_all = {e.get("faceKey") for e in wear}
+    north = {k for k in covered_all if k and k.endswith(".north")}                                   # the north row's own pass (N1..N6)
+    covered = covered_all - north
     scaled = [e["mesh"] for e in decals + wear if e.get("scale")]
     ok = (ids == ["alley.stencil", "graffiti.0", "graffiti.1", "graffiti.2", "graffiti.3"] and texts <= approved and not scaled
-          and covered == grounds and all(e["mesh"] in shared for e in decals + wear))
-    report(ok, "decals", "%d decal rows placed %s (texts %s, all on the approved list); the wear pass: %d pieces on %d of %d ground walls; scaled %d"
-           % (len(decals), ids, sorted(texts), len(wear), len(covered & grounds), len(grounds), len(scaled)))
+          and covered == grounds and len(north) == 6 and all(e["mesh"] in shared for e in decals + wear))
+    report(ok, "decals", "%d decal rows placed %s (texts %s, all on the approved list); the wear pass: %d pieces on %d of %d ground walls and %d north-row buildings; scaled %d"
+           % (len(decals), ids, sorted(texts), len(wear), len(covered & grounds), len(grounds), len(north), len(scaled)))
     # 16 props3
     placed = {e.get("prop") for e in inst if e["role"] == "prop"}
     unmapped = pl.get("unmappedProps", {})
@@ -256,11 +262,17 @@ def check_views():
         return
     for b, r in rows.items():
         print("    %s: %s" % (b, r))
+    try:
+        _f, no_hlod, _r = lod.view_triangles(lod_switch=1e9)                      # the far proxies never switch in (no HLOD yet): modules at their LODs only
+    except (OSError, KeyError):
+        no_hlod = -1
     north = sum(r["trianglesDrawn"] for b, r in rows.items() if b in ("N1", "N2", "N3", "N4", "N5", "N6"))
     report(prox <= 1500000 and north <= 550000, "views",
            "worst view 1, every placed piece in the frustum: %d triangles with every module at LOD0, %d with the far proxies past "
-           "%.0f m (budget 1.5 M; aim 1.1 M: %s); the north row's share %d (at most 0.55 M)"
-           % (full, prox, lod.LOD_SWITCH, "met" if prox <= 1100000 else "over by %d, the props' LODs are the lever" % (prox - 1100000), north))
+           "%.0f m (budget 1.5 M; aim 1.1 M: %s); the north row's share %d (at most 0.55 M). ESTIMATE, not a measurement: the proxies, the LOD "
+           "switch distances and the HLOD are an Unreal step; the same view with no proxies at all (props at LOD1/LOD2 only) is %d, the number to expect "
+           "if the HLOD is late. Measure on the box (stat SceneRendering, A4000 without Nanite)."
+           % (full, prox, lod.LOD_SWITCH, "met" if prox <= 1100000 else "over by %d, the props' LODs are the lever" % (prox - 1100000), north, no_hlod))
 
 
 def check_block():

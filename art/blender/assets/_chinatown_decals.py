@@ -99,34 +99,122 @@ def _text_mask(text, font_file, size, w, h, rng, jitter=True, bold=0):
     return out
 
 
+def _warp(img, rng, amp, scale):
+    """The image sampled through a smooth random displacement field: ragged, hand-sprayed edges instead of font outlines."""
+    h, w = img.shape
+    dx = (_noise(rng, (h, w), scale) - 0.5) * 2 * amp
+    dy = (_noise(rng, (h, w), scale) - 0.5) * 2 * amp
+    yy, xx = np.mgrid[0:h, 0:w]
+    sx = np.clip((xx + dx).round().astype(int), 0, w - 1)
+    sy = np.clip((yy + dy).round().astype(int), 0, h - 1)
+    return img[sy, sx]
+
+
+def _blur(a, r):
+    return np.asarray(Image.fromarray((np.clip(a, 0, 1) * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(r)), np.float32) / 255.0
+
+
+def _brick(h, w, ppm, rng):
+    """(relief 0..1, mortar mask 0..1) of a running-bond wall at the cell's scale: 215 x 65 mm bricks, 10 mm joints."""
+    bh, bw, mj = int(round(0.075 * ppm)), int(round(0.225 * ppm)), max(2, int(round(0.010 * ppm)))
+    yy, xx = np.mgrid[0:h, 0:w]
+    row = yy // bh
+    xo = xx + (row % 2) * (bw // 2)
+    ly, lx = yy % bh, xo % bw
+    mortar = ((ly < mj) | (lx < mj)).astype(np.float32)
+    edge = np.minimum.reduce([ly, bh - 1 - ly, lx, bw - 1 - lx]).astype(np.float32)
+    relief = np.clip(edge / (mj * 2.5), 0, 1) * (1 - mortar)
+    brick_id = (row * 97 + xo // bw * 31) % 251
+    per = 0.88 + 0.12 * (brick_id / 251.0)
+    return relief, mortar, per.astype(np.float32)
+
+
 def graffiti(name, rng):
+    """A spray tag that reads as paint on brick: ragged hand edges, a lighter core with a softer rim, a thin dark shadow outline and a bright
+    highlight, a fine overspray mist, drips with beads, a faded and flaked top coat, a roller-buffed patch of an older cover-up behind it and a
+    ghost of another tag, and the brick relief breaking the paint at the joints (the normal carries the bricks)."""
+    ppm = CELLS[name][2]
     w, h = [int(round(v * CELLS[name][2])) for v in CELLS[name][:2]]
     ink, edge, font = INK[name]
-    m = _text_mask(TEXT[name], font, 300, w, h, rng)
-    base = np.asarray(m, np.float32) / 255.0
-    outline = np.asarray(m.filter(ImageFilter.MaxFilter(15)).filter(ImageFilter.GaussianBlur(1.6)), np.float32) / 255.0
-    fill = np.asarray(m.filter(ImageFilter.GaussianBlur(1.3)), np.float32) / 255.0
-    halo = np.asarray(m.filter(ImageFilter.MaxFilter(31)).filter(ImageFilter.GaussianBlur(9)), np.float32) / 255.0 * 0.22
-    # drips from the lowest filled pixel of some columns
+    m = _text_mask(TEXT[name], font, 300, int(w * 0.80), int(h * 0.84), rng)             # the tag's mask at 80 % of the cell
+    full = Image.new("L", (w, h), 0)
+    full.paste(m, ((w - m.width) // 2, (h - m.height) // 2))
+    base = np.asarray(full, np.float32) / 255.0
+    base = _warp(base, rng, 3.2, 14)                                                    # hand-wobbled edges
+    base = _warp(base, rng, 1.1, 4)
+    core = _blur(base, 2.4)
+    mask = np.clip((core - 0.30) * 2.6, 0, 1)                                           # a hard-ish spray edge
+    rim = np.clip(_blur(base, 5.0) - mask * 0.9, 0, 1)                                    # the softer spray at the stroke's rim
+    # the stroke's density: heavier in the middle of a line (distance from the edge ~ a heavier blur), lighter at the rim
+    dens = np.clip(_blur(base, 7.0) * 1.35, 0.55, 1.0)
+    # overspray mist: random fine dots, thinning with distance from the letters
+    halo = _blur(base, 22.0)
+    mist = (rng.random((h, w)) < (halo * 0.20)).astype(np.float32)
+    mist = _blur(mist, 0.8) * 1.6 * (1 - mask)
+    # drop shadow outline: the dark second pass, offset down-right and a little heavier
+    sh = np.roll(np.roll(base, int(0.012 * ppm), axis=0), int(0.010 * ppm), axis=1)
+    shadow = np.clip(_blur(_warp(sh, rng, 2.4, 12), 2.0) * 1.5 - 0.3, 0, 1) * (1 - mask)
+    # the highlight: a thin pale stroke along the upper left edge of the letters
+    up = np.roll(np.roll(base, -int(0.006 * ppm), axis=0), -int(0.005 * ppm), axis=1)
+    hl = np.clip(mask - np.clip(_blur(up, 1.6) * 1.4 - 0.2, 0, 1), 0, 1) * (rng.random() * 0 + 1.0)
+    hl *= (_noise(rng, (h, w), 40) > 0.38)
+    # drips: from the lowest filled pixel of a good share of the columns, uneven length and width, with a bead at the end
     drips = np.zeros((h, w), np.float32)
-    cols = np.where(base.max(axis=0) > 0.5)[0]
-    for x in rng.choice(cols, size=min(14, len(cols)), replace=False):
-        ys = np.where(base[:, x] > 0.5)[0]
-        y0 = ys.max()
-        ln = int(rng.integers(h // 14, h // 4))
-        wd = int(rng.integers(2, 4))
-        for yy in range(y0, min(h - 2, y0 + ln)):
-            drips[yy, max(0, x - wd // 2):x + wd // 2 + 1] = max(0.0, 1.0 - (yy - y0) / (ln * 1.6)) * 0.95
-        drips[min(h - 3, y0 + ln):min(h - 1, y0 + ln + 5), max(0, x - 2):x + 3] = 0.85
-    paint = np.clip(fill + drips * 0.9, 0, 1)
-    flake = _noise(rng, (h, w), 5) * 0.6 + _noise(rng, (h, w), 22) * 0.4
-    paint *= np.clip(1.08 - 0.50 * (flake > 0.90) - 0.18 * _noise(rng, (h, w), 40), 0.35, 1.0)
-    a = np.clip(np.maximum.reduce([paint * 0.92, np.maximum(outline - fill, 0) * 0.85, halo * 0.5]), 0, 1)
-    ink_a = np.clip(paint, 0, 1)[..., None]
-    col = np.where(outline[..., None] > fill[..., None] + 0.05, np.array(edge)[None, None], np.array(ink)[None, None])
-    col = col * (0.85 + 0.3 * _noise(rng, (h, w), 12)[..., None])
-    col = np.where((ink_a > 0.1) | (outline[..., None] > 0.2), col, np.array(ink)[None, None] * 0.5)
-    return col, a, np.maximum(paint, outline * 0.6)
+    cols = np.where(mask.max(axis=0) > 0.6)[0]
+    for x in rng.choice(cols, size=min(26, len(cols)), replace=False):
+        ys = np.where(mask[:, x] > 0.6)[0]
+        y0 = int(ys.max())
+        ln = int(rng.integers(int(0.015 * ppm), int(0.22 * ppm)))
+        wd = int(rng.integers(2, 6))
+        wob = (_noise(rng, (1, max(ln, 2)), 18)[0] - 0.5) * 3.0
+        for k in range(ln):
+            yy = y0 + k
+            if yy >= h - 3:
+                break
+            xx = int(x + wob[k])
+            wk = max(1, int(round(wd * (1.0 - 0.45 * k / ln))))
+            drips[yy, max(0, xx - wk // 2):xx + wk // 2 + 1] = max(0.25, 1.0 - 0.6 * k / ln)
+        yb = min(h - 4, y0 + ln)
+        drips[yb:yb + 6, max(0, x - 2):x + 3] = 0.9                                      # the bead
+    drips = _blur(drips, 0.7)
+    paint = np.clip(mask * dens + drips * 0.85, 0, 1)
+    # fading and flaking of the top coat: patches of the sun and rain, then flakes of paint gone to the brick
+    fade = 0.80 + 0.20 * np.clip(_noise(rng, (h, w), 70) * 1.6, 0, 1)
+    flake = _noise(rng, (h, w), 5) * 0.55 + _noise(rng, (h, w), 20) * 0.45
+    paint *= fade * (1.0 - 0.70 * (flake > 0.93))
+    # brick: the paint is thinner on the joints and varies per brick; the relief goes into the normal map
+    relief, mortar, per = _brick(h, w, ppm, rng)
+    paint *= (1.0 - 0.22 * mortar) * per
+    shadow *= (1.0 - 0.3 * mortar)
+    # the older layers behind: a roller-buffed patch (grey-brown, ragged) and the ghost of an earlier tag in another colour
+    buff = np.zeros((h, w), np.float32)
+    bx0, bx1 = int(w * rng.uniform(0.03, 0.14)), int(w * rng.uniform(0.52, 0.70))
+    by0, by1 = int(h * rng.uniform(0.40, 0.60)), int(h * rng.uniform(0.92, 1.0))
+    buff[by0:by1, bx0:bx1] = 1.0
+    buff = np.clip(_blur(_warp(buff, rng, 5.0, 20), 3.0) * 1.8 - 0.4, 0, 1) * (0.55 + 0.45 * _noise(rng, (h, w), 30)) * (1.0 - 0.25 * mortar) * 0.9
+    other = "Graffiti_Rule" if name != "Graffiti_Rule" else "Graffiti_Inc"
+    gm = _text_mask(TEXT[other], INK[other][2], 300, int(w * 0.42), int(h * 0.50), rng)
+    gfull = Image.new("L", (w, h), 0)
+    gfull.paste(gm, (int(w * 0.52), int(h * 0.06)))
+    ghost = _blur(_warp(np.asarray(gfull, np.float32) / 255.0, rng, 3.0, 14), 2.2)
+    ghost = np.clip((ghost - 0.3) * 2.0, 0, 1) * (0.25 + 0.30 * _noise(rng, (h, w), 40)) * (1.0 - 0.4 * mortar)
+    # compose: ghost, buff patch, then shadow, tag, highlight, mist
+    ghost_col, buff_col = np.array((0.16, 0.18, 0.20)), np.array((0.20, 0.17, 0.14))
+    tint = 0.80 + 0.30 * _noise(rng, (h, w), 26)[..., None] + 0.10 * (rim[..., None] * 0.0)
+    ink_col = np.array(ink)[None, None] * tint * (0.78 + 0.30 * dens[..., None])
+    ink_col = np.where(drips[..., None] > 0.2, ink_col * 0.85, ink_col)
+    edge_col = np.array(edge)[None, None] * (0.8 + 0.4 * _noise(rng, (h, w), 10)[..., None])
+    hl_col = np.clip(np.array(ink) * 2.4 + 0.12, 0, 1)[None, None]
+    layers = [(ghost, ghost_col[None, None]), (buff * 0.8, buff_col[None, None]), (shadow * 0.92, edge_col), (paint, ink_col),
+              (hl * 0.55 * paint, hl_col), (mist * 0.38, np.array(ink)[None, None] * 0.85)]
+    col = np.zeros((h, w, 3), np.float32)
+    a = np.zeros((h, w), np.float32)
+    for al, c in layers:
+        al = np.clip(al, 0, 1)
+        col = col * (1 - al[..., None]) + c * al[..., None]
+        a = a + al * (1 - a)
+    height = np.clip(0.55 * paint + 0.30 * shadow + 0.2 * buff + 0.45 * relief, 0, 1)
+    return col, np.clip(a, 0, 1), height
 
 
 def stencil(name, rng):

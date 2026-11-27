@@ -108,6 +108,19 @@ def set_slot(ob, slot_name, m):
             sl.material = m
 
 
+def paint_mat(rgb):
+    """A clear-coat car paint in the placement's `paint` colour (linear RGB): what the MI does with the paint slot's tint mask in Unreal."""
+    name = "Prev_Paint_%02d%02d%02d" % tuple(int(round(c * 99)) for c in rgb)
+    if name in bpy.data.materials:
+        return bpy.data.materials[name]
+    m = mat.flat(name, tuple(rgb), 0.30, 0.25)
+    p_ = mat.principled(m)
+    for k, v in (("Coat Weight", 0.9), ("Coat Roughness", 0.06)):
+        if k in p_.inputs:
+            p_.inputs[k].default_value = v
+    return m
+
+
 def ticker_mat(i):
     d = paths.texture_set("MT_Ticker")
     info = json.load(open(os.path.join(d, "set.json")))
@@ -128,6 +141,11 @@ def place_all(ctx, col):
         if e.get("scale"):
             ob.scale = e["scale"]
         ob["mi_placed"] = True
+        if e.get("paint"):
+            for sl in ob.material_slots:                                  # only the paint slot: the trim and lamps are other M_Vehicle_ slots
+                if sl.material and sl.material.name.startswith("M_Vehicle_") and ".Paint" not in sl.material.name and "_Paint" in sl.material.name:
+                    sl.link = "OBJECT"
+                    sl.material = paint_mat(e["paint"])
         if e.get("face"):
             set_slot(ob, "M_Sign_MT_Face", face_mat(e["face"]))
         if e.get("faces"):                                            # several printed faces in one slot: one cell each, in the order they were made
