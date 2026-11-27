@@ -806,3 +806,30 @@ floor tried first in the importer was removed again: net unchanged.)
 **Evidence.** Editor play (CHOPPER, SHORTY, STRETCH, RATTLER in sequence), stock-region metric: good 0.29 to 0.33 saturation and 0.00
 white fraction, bad build 0.12 to 0.14 and 0.21 to 0.28. The Workbench and run pictures of the finish pass
 (`v6f-shots.sh`) show the walnut stock on the STRETCH, with the CHOPPER carried first.
+
+## 16. The closer's pass over the picture reviews of the v6 package (2026-11-27, box `8496fd8c`, clone `/project/ue/int/repo`)
+
+The review of the package of `3f58199` failed four pictures: the aimed view of every optic, the RATTLER's reload after the SHORTY,
+the SHORTY's aimed view, and the STICK's reload. What was found and done (commits `4a79359`..`77b02f3`, suite 228 of 228):
+
+**Optics (aimed).** The housing of a fitted optic (`M_Part_Hardware`, scalar `AimFade`) was faded out as the sight came up, so the
+player saw the reticle ring over the receiver's rail: the "ribbed ladder" under a floating ring. The engine frames with the housing
+kept solid (new console variable `mi.FP.OpticFade`, default 0 now; 1 is the old fade): the red dot reads as a red dot (a round
+window, the ring in it, the body round it), the 2x scope as a scope (a tube with the ring in its ocular). The scope's tube is
+heavy in the frame: a real scope's view. This is a look decision the art director has to confirm (set `mi.FP.OpticFade 1` to take
+the old look back; nothing else depends on it). Frames: `/project/ue/closer/o2`, `o3` (box).
+
+**SHORTY aimed view.** The eye relief was 0.12 (the eye nearly on the receiver): the green slab. Raised to 0.20 in `guns.json`
+(`guns.shorty.presentation.relief`). Frame `/project/ue/closer/s1`: the street through the aperture, the receiver's lower edge at the
+bottom; olive pixels in the frame 22.5 percent before, 3.2 after (same metric on both frames).
+
+**RATTLER reload after the SHORTY (parts floating above the gun).** Cause found in code, not proven in a picture of the old build:
+`UMIWeaponComponent::EquipMesh` puts the new gun's mesh on the one poseable component (`GunMesh`) and the bolt, barrel, trigger and
+magazine bones are driven by `SetBoneTransformByName`; a poseable component keeps those transforms by bone index, and the RATTLER has as
+many bones as the SHORTY, so the SHORTY's transforms went on its bones (the review's frames after the NINE, whose mesh has another
+bone count, were clean). A mesh change now resets every bone of the component. Frame after the fix, SHORTY then RATTLER, reload at
+0.5 s: `/project/ue/closer/r2` (looked at as a 360 pixel grey frame and a crop of its upper half: no detached piece; not at full size).
+
+**STICK reload (one hand).** Not changed. The STICK is the pack's rifle with the pack's own reload clip (the gun raised, one hand
+off the frame); the Development frames of the review show it, the package frame shows the left hand under the magazine. It
+is a clip, not a fault of the rig: left as a should-fix for the art lane.
