@@ -2,7 +2,34 @@
 
 One section per lane of the readiness pass. Every finding names the evidence it rests on (a picture, a log line, a number).
 
-## v6 GO readiness (final closer, 2026-11-27, 20:00 to 20:30 UTC; supersedes every section below)
+## v6 GO readiness (final closer, 2026-11-27 ~20:10 UTC; supersedes every section below)
+
+**Commit: `48ebbb2` (head; code unchanged since `daa4f48`, later commits are documentation or tools). Package sha256 `1c0f574bc9f2e4ce648a6da47b06da70c29e6d8b696b02bbf58ed764f44418f0` (`MurderInc-E3DS.zip` of `daa4f48`). Verdict: NO-GO (not finished: no GPU box).**
+
+The GPU box ended at 2026-11-27 20:08 UTC (end reason runtime_failed, the provider's side), about 20 hours before the expected end. No live box exists and a box may not be rented from this lane, so the fixer and all four checks (story, hold, pad, pictures) stopped at once. No code, data or package changed; nothing was played, packaged or looked at in this pass.
+
+Against DECISIONS.md (entries 2026-11-27 ~21:00 and ~21:15, with the owner's passes):
+
+| Criterion | State | Evidence |
+|---|---|---|
+| Smoothness | PASSED by the owner | DECISIONS.md ~21:00, item 1 |
+| STICK one-hand reload | ACCEPTED for v6 by the owner | DECISIONS.md ~21:00, item 2 |
+| Full suite on the commit packaged | PASS (last run) | `TESTS OK passed=228 failed=0 skipped=0` on `daa4f48`; no code or data changed since |
+| Package of the commit built | PASS | sha256 above |
+| SHORTY reload hands | OPEN | malformed (support hand fills a third of the picture); one data try made it worse and was rejected; needs a box. Cosmetic: dropped as a GO gate by the ~21:15 entry |
+| Story ground path into a pocket the player cannot leave | OPEN, blocker class | "can always finish the Story and leave any place the guidance leads" is gate 1 of the trimmed bar; not reproduced, drawn route never walked |
+| Full-size look: guide path, damage wedge, hit marker, kill tick, NEXT blocked | OPEN | never seen at full size by anyone |
+| Independent end-to-end play (Story to the truck, Hold waves 1 to 3 with the last-drone rule, pad, gun switching) | OPEN | Hold wave 1 only so far; the one end-to-end check is gate 3 of the trimmed bar |
+
+Gates 1 (no blocker) and 3 (one end-to-end check) of the trimmed bar are not shown met, so this is **NO-GO**. It is a lack of evidence, not a found defect.
+
+### What is needed for the GO (one new GPU box id from the owner)
+1. Walk the Story guide path to the truck (find and, if real, fix the pocket trap), then Hold the Block waves 1 to 3 with the last-drone rule, the pad and every gun switch, on the package of the head commit.
+2. Full-size frames of the guide path and the HUD changes.
+3. Optional, not a gate: the SHORTY reload hand.
+4. Rebuild and re-run the suite only if code or data change; then record the new commit and sha256 here.
+
+## Previous closer, v6 GO readiness (final closer, 2026-11-27, 20:00 to 20:30 UTC; supersedes every section below)
 
 **Commit to package: `daa4f48` (code; every later commit is documentation or a tool only; package sha256 `1c0f574b...` recomputed and matching). Verdict: NO-GO.**
 
