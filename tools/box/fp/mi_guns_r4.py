@@ -48,6 +48,9 @@ GUNS = {
     "Rattler": ("Rattler", ["Rattler"]),
 }
 PARTS = W + "/Parts"
+# Texture sets whose non-metal roughness is lifted to this floor in the material (mi_fp_import._surface): the STRETCH's walnut
+# straddles the cloud game's Lumen reflection limit (roughness 0.4) and drew marbled in the package (HANDS_R4.md 15).
+ROUGH_FLOOR = {"Stretch": 0.5}
 
 
 def log(msg):
@@ -165,7 +168,8 @@ def _gun(name, sets):
     by_slot = {}
     for s in sets:
         if _import_set(s, d):
-            by_slot["M_" + s] = F._surface(d + "/M_" + s, d + "/Textures", s, skeletal=True, emissive=True)
+            by_slot["M_" + s] = F._surface(d + "/M_" + s, d + "/Textures", s, skeletal=True, emissive=True,
+                                           rough_floor=ROUGH_FLOOR.get(s))
     rep["slots"] = F._assign_all(rep["mesh"], by_slot)
     # the magazine, authored in the gun's own space (origin = the gun's origin), and its top round
     mset = "Weapon_%sMagazine" % name

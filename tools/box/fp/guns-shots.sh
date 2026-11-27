@@ -22,6 +22,7 @@
 #   RELOADS="0.5 1.2"                          the reload frames, seconds into the tactical reload (default 1.2): each is
 #                                              r4-fp-<gun>-reload.jpg at 1.2 and r4-fp-<gun>-reload-<t>.jpg otherwise
 #   WALL=1                                     also three pictures against a wall: wall-a, wall-b (looking down), wall-c
+#   PRE="cvar value;cvar value"              console commands before the pictures (the cloud game's CVars, set only when streamed)
 #   SETTLE=30                                  redraws before each picture (Lumen, exposure and TSR settle)
 out=${1:-}
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
@@ -70,6 +71,8 @@ done
 fe next; fe time day; fe next; fe mode mission; fe difficulty hustler; fe hit
 sleep 10; settle 10
 [ "${HUD:-1}" = 0 ] && c "showhud"
+# PRE="cvar value;cvar value": console commands before the pictures (the cloud game's graphics CVars, which only a streamed game sets)
+if [ -n "${PRE:-}" ]; then IFS=';' read -ra _pre <<< "$PRE"; for _p in "${_pre[@]}"; do c "$_p"; done; fi
 tail -n +"$mark" "$log" | grep -E "Set-up:|First person:" | tail -8 | cut -c1-260
 
 slot=1

@@ -106,7 +106,7 @@ def _tex(m, path, x, y, kind):
     return n
 
 
-def _surface(path, tex, set_name, skeletal=True, emissive=False, aim_fade=False):
+def _surface(path, tex, set_name, skeletal=True, emissive=False, aim_fade=False, rough_floor=None):
     """BC / ORM / N (OpenGL sets: green flipped on import) [+ E] on the default lit model. With aim_fade the material is
     masked, its opacity a screen-door dither of AimFade (scalar parameter, 0 = solid, 1 = gone): the first-person rig fades a fitted
     optic's housing out as the sight comes up, so the aimed picture is not a dark tunnel (LOADOUT.md 3.3)."""
@@ -117,7 +117,22 @@ def _surface(path, tex, set_name, skeletal=True, emissive=False, aim_fade=False)
     nm = _tex(m, "%s/T_%s_N" % (tex, set_name), -600, 400, "normal")
     MEL.connect_material_property(bc, "RGB", unreal.MaterialProperty.MP_BASE_COLOR)
     MEL.connect_material_property(orm, "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION)
-    MEL.connect_material_property(orm, "G", unreal.MaterialProperty.MP_ROUGHNESS)
+    if rough_floor:
+        # Non-metal texels are never glossier than rough_floor (parameter RoughFloor): the cloud game traces Lumen reflections
+        # only below roughness 0.4 (DefaultGame.ini r.Lumen.Reflections.MaxRoughnessToTrace), and the STRETCH's walnut grain
+        # (roughness 0.34 to 0.52) straddles that line: its traced texels draw the surface cache's patchy reflection, the
+        # rest do not, which is the white and black marbling of the package's stock (HANDS_R4.md 15). Metal keeps its own.
+        floor = _scalar(m, "RoughFloor", rough_floor, -600, 220)
+        mx = _expr(m, unreal.MaterialExpressionMax, -350, 120)
+        MEL.connect_material_expressions(orm, "G", mx, "A")
+        MEL.connect_material_expressions(floor, "", mx, "B")
+        lp = _expr(m, unreal.MaterialExpressionLinearInterpolate, -150, 120)
+        MEL.connect_material_expressions(mx, "", lp, "A")
+        MEL.connect_material_expressions(orm, "G", lp, "B")
+        MEL.connect_material_expressions(orm, "B", lp, "Alpha")
+        MEL.connect_material_property(lp, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    else:
+        MEL.connect_material_property(orm, "G", unreal.MaterialProperty.MP_ROUGHNESS)
     MEL.connect_material_property(orm, "B", unreal.MaterialProperty.MP_METALLIC)
     MEL.connect_material_property(nm, "RGB", unreal.MaterialProperty.MP_NORMAL)
     if emissive and ASSETS.does_asset_exist("%s/T_%s_E" % (tex, set_name)):
