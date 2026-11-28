@@ -457,3 +457,41 @@ from empty content took 455 s on the box. The generated map and assets are not c
   is dark and damp only by its material; the Block's cube-map interiors are not baked for Canal, so shop windows are
   dark glass with the Block's room cubes where they exist; no decal actors for the street dressing, no steam, no LED
   animation (emissive only).
+
+## Fast build 2026-11-28 (integration, one tree)
+
+One clone, one tree: the pushed branch head (engine and nav lanes together) plus the changes below, built and run on the
+GPU box. Nothing here touches the Block: its `level.json`, `text.json`, `props.json`, `atmos.json` and `rules.json`
+show no diff against v6, and `Campaign.BlockUnchanged` passes.
+
+- **Build note.** A clone made by copying another clone's folder keeps the other clone's absolute paths in
+  `Intermediate/`, and the build then compiles and links the *other* clone. It looked like a good build and was not (the
+  first test pass ran the old library). The cure is `build.sh clean` once in the new folder; a build that really took
+  the changes shows a new library file date and, here, one more test.
+- **Debrief rows.** With `flow.drones` false (the shipped data) the cards leave out the "Vultures dropped" row, in the
+  debrief and in the two Lights-out layouts. `FMIRunCard::bDrones` carries the flag; `text.json` is untouched, so the
+  row returns when drones are switched on by data.
+- **Truck roll-in (Midtown, `arrival: afterAll`).** When the last reel is in, the truck is shown 30 m back along its
+  heading and rolls in over 5 s (eased); its doors open and its colliders join the box world when it has stopped, not
+  before. Levels whose truck is there from the start are unchanged.
+- **Progress bridge, game half.** `docs/unreal/patches/maps-progress-bridge` applied (the three patches; the first
+  needed its include line merged by hand). `UMIGameSubsystem::BindProgressBridge` connects it: a page message is checked,
+  decoded, merged into the campaign progress (maximum of every field; the Block's Hold best stays in the settings) and
+  saved; the provider answers with the code and the three Hold bests; a send follows every debrief and every new Hold
+  best. `MurderInc.Cloud.ProgressBridge` runs in the suite. Not run: the stream (`SendPlayerMessage` is written from the
+  documented interface and compiled, not exercised) and the E3DS relay.
+- **Dev commands** (not in Shipping): `MICampaign reels` (every reel taken, the player stays), `MICampaign truck` (14 m
+  from the truck, facing it), `MICampaign at X Y Z` (web metres, facing the truck), `MICampaign goons` (every live enemy:
+  layer, position, mode, sees). Scripts: `tools/box/merged-shots.sh` and `tools/box/roof-shots.sh` (PIE, detached).
+- **What was run.** Full suite `tools/box/test.sh MurderInc` on the final tree: 241 passed, 0 failed, 0 skipped (240 before the bridge test). PIE on the
+  grey-box maps, typed code, travel Block-set-up to Canal, `MICampaign finish`, Next to Midtown, `finish` again, with the
+  pictures read: both debriefs (no Vultures row; Canal has Next: Midtown), a fight on each level, the truck rolling in.
+  Midtown's Goons were seen on layers 2 and 3 (r2 and r3 roofs) from the loader's own nav layers; with the player on r1
+  they stayed on r2 and did not walk off. Canal's street Goons all stayed on layer 0.
+- **Seen and not liked.** With the player parked in the middle of Canal's roof (-12, 5.7, 0) in a mission run, the three
+  street Goons went from 3 alive to 0 within 30 s: they have no way to fight, so the stranded rule returns them to the
+  pool, and a mission run has no refill. A player who hides in the middle of the roof is left alone. That is the rule
+  as written (N4), not a fault of the merge; it wants a decision (refill in mission mode, or a smaller stranded window
+  on Canal).
+- **Not done.** Art maps (`L_Chinatown`, `L_Midtown`) were not on this box, so the boot never drew an art map and a grey
+  map together. Night lighting, the Hold-mode album card, packaged or E3DS travel, frame rate and hitching on travel.

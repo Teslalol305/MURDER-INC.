@@ -844,6 +844,50 @@ void AMIPlayerController::MICampaign(const FString& Command)
 		G->TeleportPlayerWeb(FVector(L->Extraction.Pos.X, L->Extraction.Pos.Y, L->Extraction.Pos.Z));
 		UE_LOG(LogMI, Log, TEXT("MICampaign finish: every reel taken, the player at the truck of %s"), *G->GetLevelId().ToString());
 	}
+	else if (G && L && Command == TEXT("reels"))
+	{
+		// Dev: every reel taken, the player where he is (the afterAll truck then rolls in).
+		for (int32 I = 0; I < L->Objectives.Num(); ++I)
+		{
+			G->GetRules().DevSecureQuietly(I);
+		}
+		UE_LOG(LogMI, Log, TEXT("MICampaign reels: every reel taken on %s"), *G->GetLevelId().ToString());
+	}
+	else if (G && L && (Command == TEXT("truck") || Command.StartsWith(TEXT("at "))))
+	{
+		// Dev: "truck" stands the player 14 m from the truck looking at it; "at X Y Z" puts him there (web metres), facing the truck.
+		FVector At = FVector(L->Extraction.Pos.X + 14.0, L->Extraction.Pos.Y, L->Extraction.Pos.Z);
+		if (Command.StartsWith(TEXT("at ")))
+		{
+			TArray<FString> P;
+			Command.ParseIntoArray(P, TEXT(" "), true);
+			if (P.Num() >= 4)
+			{
+				At = FVector(FCString::Atod(*P[1]), FCString::Atod(*P[2]), FCString::Atod(*P[3]));
+			}
+		}
+		G->TeleportPlayerWeb(At);
+		if (AMIPlayerCharacter* C = GetMICharacter())
+		{
+			C->GetPlayerRules().Yaw = FMath::RadiansToDegrees(FMath::Atan2(L->Extraction.Pos.Z - At.Z, L->Extraction.Pos.X - At.X));
+			C->GetPlayerRules().Pitch = 0.0;
+		}
+		UE_LOG(LogMI, Log, TEXT("MICampaign %s: the player at (%.1f, %.1f, %.1f) on %s"), *Command, At.X, At.Y, At.Z, *G->GetLevelId().ToString());
+	}
+	else if (G && L && Command == TEXT("goons"))
+	{
+		// Dev: every live Goon, where he is (web metres), his nav layer, what he is doing and whether he sees the player.
+		int32 N = 0;
+		for (const FMIEnemy& E : G->GetEnemies().GetSlots())
+		{
+			if (E.bActive && E.bAlive)
+			{
+				UE_LOG(LogMI, Log, TEXT("MICampaign goons: id %d %s layer %d at (%.1f, %.1f, %.1f) mode %d sees %d"), E.Id, E.Type == MIEnemy::EType::Goon ? TEXT("goon") : TEXT("buzzard"), E.Layer, E.Pos.X, E.Pos.Y, E.Pos.Z, static_cast<int32>(E.Mode), E.bSees ? 1 : 0);
+				++N;
+			}
+		}
+		UE_LOG(LogMI, Log, TEXT("MICampaign goons: %d live on %s"), N, *G->GetLevelId().ToString());
+	}
 #endif
 }
 

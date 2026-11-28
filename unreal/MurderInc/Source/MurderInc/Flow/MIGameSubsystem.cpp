@@ -7,6 +7,7 @@
 #include "Camera/PlayerCameraManager.h"
 #include "Audio/MIAudioSubsystem.h"
 #include "Cloud/MICloud.h"
+#include "Cloud/MIProgressBridge.h"
 #include "Core/Data/MIDataSubsystem.h"
 #include "Flow/MIRunSetupSubsystem.h"
 #include "UI/MIFrontEnd.h"
@@ -100,6 +101,12 @@ void UMIGameSubsystem::Deinitialize()
 {
 	FlowTick.UnRegisterTickFunction();
 	EnemyTick.UnRegisterTickFunction();
+	if (ProgressBridgeHandle.IsValid())
+	{
+		FMIProgressBridge::OnReceived().Remove(ProgressBridgeHandle);
+		ProgressBridgeHandle.Reset();
+		FMIProgressBridge::Provider().Unbind();
+	}
 	Super::Deinitialize();
 }
 
@@ -309,6 +316,8 @@ bool UMIGameSubsystem::Boot(const FMIBootOptions& Options)
 	}
 	Truck = World->SpawnActor<AMITruck>(ToUnreal(Level->TruckPos), FRotator(0, YawToUnreal(Level->TruckYaw), 0), Params);
 	Truck->Setup(!bArt);
+	TruckHome = FVector::ZeroVector;
+	TruckRoll = 0.0;
 	TitleCamera = World->SpawnActor<ACameraActor>(FVector::ZeroVector, FRotator::ZeroRotator, Params);
 	if (TitleCamera && TitleCamera->GetCameraComponent())
 	{
@@ -336,6 +345,7 @@ bool UMIGameSubsystem::Boot(const FMIBootOptions& Options)
 	if (UMIRunSetupSubsystem* RunSetup = UMIRunSetupSubsystem::Get(this))
 	{
 		RunSetup->Load(Save, Settings);
+		BindProgressBridge();
 	}
 	FString RootsError;
 	FMILoadoutResolver::LoadRoots(ResolverConfig, ResolverPresentation, RootsError);
@@ -1353,13 +1363,21 @@ void UMIGameSubsystem::SyncView(double Dt)
 	}
 	if (Truck)
 	{
-		Truck->Sync(Rules.AllSecured(), Dt);
 		if (Level && Level->bTruckAfterAll)
 		{
-			// E10: the truck is not there, and not in the box world, until every reel is secured.
+			// E10: the truck is not there, and not in the box world, until every reel is secured; then it rolls in over
+			// 5 s along its heading (30 m, eased), its doors open and its colliders join the world when it has stopped.
 			const bool bIn = Rules.AllSecured();
+			if (TruckHome.IsZero())
+			{
+				TruckHome = Truck->GetActorLocation();
+			}
+			TruckRoll = bIn ? FMath::Min(1.0, TruckRoll + Dt / 5.0) : 0.0;
+			const double E = 1.0 - (1.0 - TruckRoll) * (1.0 - TruckRoll);
+			Truck->SetActorLocation(TruckHome - Truck->GetActorForwardVector() * (3000.0 * (1.0 - E)));
 			Truck->SetActorHiddenInGame(!bIn);
-			if (bIn && !bTruckIn)
+			Truck->Sync(bIn && TruckRoll >= 1.0, Dt);
+			if (bIn && TruckRoll >= 1.0 && !bTruckIn)
 			{
 				for (const FMIBox& B : Level->Colliders)
 				{
@@ -1372,6 +1390,10 @@ void UMIGameSubsystem::SyncView(double Dt)
 				Box.RemoveIds(Level->TruckColliders);
 				bTruckIn = false;
 			}
+		}
+		else
+		{
+			Truck->Sync(Rules.AllSecured(), Dt);
 		}
 	}
 	// The title fly-through: along the level's cinematic keys at the title camera's speed, then round again.
@@ -1575,6 +1597,52 @@ FName UMIGameSubsystem::NextLevel() const
 	return Data ? RunSetup->GetProgress().NextAfter(LevelId, Data->LevelOrder) : NAME_None;
 }
 
+void UMIGameSubsystem::BindProgressBridge()
+{
+	if (ProgressBridgeHandle.IsValid())
+	{
+		FMIProgressBridge::OnReceived().Remove(ProgressBridgeHandle);
+	}
+	// Page -> game: merge, never replace (progression.md 4.5): the cleared levels and ratings of the code, the maximum of each Hold best.
+	ProgressBridgeHandle = FMIProgressBridge::OnReceived().AddWeakLambda(this, [this](const FMIProgressMessage& M)
+	{
+		UMIRunSetupSubsystem* RunSetup = UMIRunSetupSubsystem::Get(this);
+		FMIProgress In;
+		if (!RunSetup || !FMIProgress::DecodeCode(M.Code, In))
+		{
+			return;
+		}
+		const TArray<FName>& Order = FMIProgress::CodeOrder();
+		for (int32 I = 0; I < 3 && I < Order.Num(); ++I)
+		{
+			In.Levels.FindOrAdd(Order[I]).HoldBest = FMath::Max(In.Levels.FindOrAdd(Order[I]).HoldBest, M.Hold[I]);
+		}
+		RunSetup->EditProgress().Merge(In);
+		Settings.SetBest(M.Hold[0]);  // the Block's Hold best lives in the settings
+		SaveSettings();
+		FMIProgressBridge::SendCurrent();
+	});
+	// Game -> page: the current code and Hold bests (the hello, and the acknowledgment of every message).
+	FMIProgressBridge::Provider().BindWeakLambda(this, [this](FMIProgressMessage& Out)
+	{
+		const UMIRunSetupSubsystem* RunSetup = UMIRunSetupSubsystem::Get(this);
+		if (!RunSetup)
+		{
+			return false;
+		}
+		const FMIProgress& P = RunSetup->GetProgress();
+		Out.Code = P.EncodeCode();
+		const TArray<FName>& Order = FMIProgress::CodeOrder();
+		for (int32 I = 0; I < 3 && I < Order.Num(); ++I)
+		{
+			const FMILevelRecord* R = P.Levels.Find(Order[I]);
+			Out.Hold[I] = R ? R->HoldBest : 0;
+		}
+		Out.Hold[0] = FMath::Max(Out.Hold[0], Settings.GetBest());
+		return !Out.Code.IsEmpty();
+	});
+}
+
 void UMIGameSubsystem::RecordDebrief()
 {
 	// A Story complete is recorded once, in the game only (progression.md 2.4); a test or a replay never writes progress.
@@ -1586,6 +1654,7 @@ void UMIGameSubsystem::RecordDebrief()
 	}
 	RunSetup->EditProgress().RecordStory(LevelId, Card->Rating, Card->Difficulty);
 	SaveSettings();
+	FMIProgressBridge::SendCurrent();
 	UE_LOG(LogMI, Log, TEXT("Campaign: %s cleared (rating %d, %s), progress code %s"), *LevelId.ToString(), Card->Rating, *Card->Difficulty.ToString(), *ProgressCode());
 }
 
@@ -1656,12 +1725,14 @@ bool UMIGameSubsystem::SetBest(int32 Score)
 		}
 		RunSetup->EditProgress().RecordHold(LevelId, Score);
 		SaveSettings();
+		FMIProgressBridge::SendCurrent();
 		return true;
 	}
 	const bool bNew = Settings.SetBest(Score);
 	if (bNew)
 	{
 		SaveSettings();
+		FMIProgressBridge::SendCurrent();
 	}
 	return bNew;
 }

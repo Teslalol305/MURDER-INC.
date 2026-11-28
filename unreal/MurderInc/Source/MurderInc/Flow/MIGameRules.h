@@ -47,6 +47,8 @@ struct FMIRunCard
 	double Time = 0;
 	int32 Reels = 0, Total = 0, Wave = 0, Kills = 0, Headshots = 0, Shots = 0, Hits = 0, Score = 0, Best = 0;
 	bool bNewBest = false;
+	/** flow.drones: with the drones out of the game, the cards leave out the "Vultures dropped" row (the text is untouched). */
+	bool bDrones = true;
 	double Accuracy = -1;
 	int32 Retries = 0, Rating = 0;
 	FString RatingName;

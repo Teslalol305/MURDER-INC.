@@ -110,14 +110,20 @@ void FMIMenu::Build(EMIMenuScreen InScreen, const FMISettings& S, const FMIText&
 			if (C.Mode == TEXT("holdout"))
 			{
 				Stats.Add({Copy.Get(TEXT("cards.dead.stats.waves")), FString::FromInt(C.Wave)});  // cardData: wave = waves cleared
-				Stats.Add({Copy.Get(TEXT("cards.dead.stats.kills")), FString::FromInt(C.Kills)});
+				if (C.bDrones)
+				{
+					Stats.Add({Copy.Get(TEXT("cards.dead.stats.kills")), FString::FromInt(C.Kills)});
+				}
 				Stats.Add({Copy.Get(TEXT("cards.dead.stats.score")), FMIText::Grouped(C.Score)});
 				Stats.Add({Copy.Get(TEXT("cards.dead.stats.best")), FMIText::Grouped(C.Best) + (C.bNewBest ? TEXT("  ") + Ui.Get(TEXT("cards.newBest")) : FString())});
 			}
 			else
 			{
 				Stats.Add({Copy.Get(TEXT("cards.dead.stats.reels")), FString::Printf(TEXT("%d / %d"), C.Reels, C.Total)});
-				Stats.Add({Copy.Get(TEXT("cards.dead.stats.kills")), FString::FromInt(C.Kills)});
+				if (C.bDrones)
+				{
+					Stats.Add({Copy.Get(TEXT("cards.dead.stats.kills")), FString::FromInt(C.Kills)});
+				}
 			}
 		}
 		Items.Add(Item(TEXT("retry"), Copy.Get(TEXT("cards.dead.retry"))));
@@ -132,7 +138,10 @@ void FMIMenu::Build(EMIMenuScreen InScreen, const FMISettings& S, const FMIText&
 			Stats.Add({Copy.Get(TEXT("cards.debrief.stats.rating")), C.RatingName});
 			Stats.Add({Copy.Get(TEXT("cards.debrief.stats.time")), Clock(C.Time)});
 			Stats.Add({Copy.Get(TEXT("cards.debrief.stats.accuracy")), C.Accuracy < 0.0 ? FString(TEXT("—")) : FString::Printf(TEXT("%d%%"), FMath::RoundToInt32(C.Accuracy * 100.0))});
-			Stats.Add({Copy.Get(TEXT("cards.debrief.stats.kills")), FString::FromInt(C.Kills)});
+			if (C.bDrones)
+			{
+				Stats.Add({Copy.Get(TEXT("cards.debrief.stats.kills")), FString::FromInt(C.Kills)});
+			}
 			Stats.Add({Copy.Get(TEXT("cards.debrief.stats.retries")), FString::FromInt(C.Retries)});
 		}
 		Items.Add(Item(TEXT("again"), Copy.Get(TEXT("cards.debrief.again"))));

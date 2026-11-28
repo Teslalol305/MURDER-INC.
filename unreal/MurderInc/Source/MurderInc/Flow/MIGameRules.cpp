@@ -879,6 +879,7 @@ void FMIGameRules::ShowCard(FName Screen)
 	C.Total = Run.Total;
 	C.Wave = Cleared;
 	C.Kills = Run.Kills;
+	C.bDrones = Tune.bDrones;
 	C.Headshots = Headshots;
 	C.Shots = Run.Shots;
 	C.Hits = Run.Hits;

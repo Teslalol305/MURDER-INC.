@@ -238,7 +238,12 @@ private:
 	const FMILevelData* Level = nullptr;
 	FName LevelId = TEXT("block");
 	void RecordDebrief();
+	/** The page bridge's game half (docs/unreal/patches/maps-progress-bridge): a message from the page merges into the progress; the provider answers with the code and the Hold bests. */
+	void BindProgressBridge();
+	FDelegateHandle ProgressBridgeHandle;
 	bool bTruckIn = false;  // the afterAll truck's colliders are in the box world
+	double TruckRoll = 0.0;  // 0..1: the afterAll truck rolling in along its heading (5 s); its doors and colliders wait for 1
+	FVector TruckHome = FVector::ZeroVector;
 	FMIBoxWorld Box;
 	FMIEnemyField Field;
 	FMIGameRules Rules;
