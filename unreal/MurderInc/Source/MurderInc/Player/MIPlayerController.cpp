@@ -27,6 +27,7 @@
 #include "InputModifiers.h"
 #include "MurderInc.h"
 #include "Flow/MIGameSubsystem.h"
+#include "World/MILevelData.h"
 #include "Player/MIPlayerCharacter.h"
 #include "Flow/MIRunSetupSubsystem.h"
 #include "Engine/GameViewportClient.h"
@@ -825,6 +826,23 @@ void AMIPlayerController::MIFreezeOn(const FString& Event, float Delay)
 		Events->Explosion.AddWeakLambda(this, [Arm](const FMIExplosionEvent&) { Arm(TEXT("explosion")); });
 		Events->WeaponFire.AddWeakLambda(this, [Arm](const FMIShotFiredEvent&) { Arm(TEXT("fire")); });
 		Events->WeaponReload.AddWeakLambda(this, [Arm](const FMIReloadEvent& E) { if (E.Phase == TEXT("start")) Arm(TEXT("reload")); });
+	}
+#endif
+}
+
+void AMIPlayerController::MICampaign(const FString& Command)
+{
+#if !UE_BUILD_SHIPPING
+	UMIGameSubsystem* G = UMIGameSubsystem::Get(this);
+	const FMILevelData* L = G ? G->GetLevel() : nullptr;
+	if (G && L && Command == TEXT("finish"))
+	{
+		for (int32 I = 0; I < L->Objectives.Num(); ++I)
+		{
+			G->GetRules().DevSecureQuietly(I);
+		}
+		G->TeleportPlayerWeb(FVector(L->Extraction.Pos.X, L->Extraction.Pos.Y, L->Extraction.Pos.Z));
+		UE_LOG(LogMI, Log, TEXT("MICampaign finish: every reel taken, the player at the truck of %s"), *G->GetLevelId().ToString());
 	}
 #endif
 }

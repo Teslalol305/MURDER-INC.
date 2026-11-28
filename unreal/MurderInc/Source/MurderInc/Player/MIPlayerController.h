@@ -124,6 +124,9 @@ public:
 	UFUNCTION(Exec)
 	void MIFreezeOn(const FString& Event, float Delay);
 	/** Dev: MIPose <x> <y> <feet z> <yaw> <pitch>: the player's feet there (Unreal cm) looking that way (degrees). */
+	/** Dev, not in shipping: MICampaign finish (every reel taken, the player at the truck: the run completes and the debrief shows Next). */
+	UFUNCTION(Exec)
+	void MICampaign(const FString& Command);
 	UFUNCTION(Exec)
 	void MIPose(float X, float Y, float Z, float Yaw, float Pitch);
 	/** Dev: MIBlowNearest: the nearest live explosive in front of the player takes a lethal round from him. */
