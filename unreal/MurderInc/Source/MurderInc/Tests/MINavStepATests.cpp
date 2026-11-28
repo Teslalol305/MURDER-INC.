@@ -260,12 +260,12 @@ bool FMINavMidtownTest::RunTest(const FString& Parameters)
 		const FString Want[4] = {TEXT("street r1"), TEXT("r1 r2 street"), TEXT("r1 r2 r3"), TEXT("r2 r3")};
 		for (int32 P = 0; P < 4; ++P)
 		{
-			const int32 PI = M.Spec.IndexOf(FName(Names[P]));
+			const int32 PlayerIdx = M.Spec.IndexOf(FName(Names[P]));
 			FString Got;
 			TArray<FString> Allowed;
 			for (int32 S = 0; S < 4; ++S)
 			{
-				if (M.Spec.Allows(PI, M.Spec.IndexOf(FName(Names[S]))))
+				if (M.Spec.Allows(PlayerIdx, M.Spec.IndexOf(FName(Names[S]))))
 				{
 					Allowed.Add(Names[S]);
 				}

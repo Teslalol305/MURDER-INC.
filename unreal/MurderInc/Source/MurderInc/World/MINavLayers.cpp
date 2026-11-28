@@ -49,7 +49,7 @@ bool FMINavSpec::Parse(const TSharedPtr<FJsonObject>& Nav, FMINavSpec& Out)
 	const TSharedPtr<FJsonObject>* Reach;
 	if (Nav->TryGetObjectField(TEXT("spawnReach"), Reach))
 	{
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& P : (*Reach)->Values)
+		for (const auto& P : (*Reach)->Values)
 		{
 			const int32 From = Out.IndexOf(FName(P.Key));
 			if (From == INDEX_NONE)
