@@ -337,3 +337,46 @@ of the new sections, so the old code path runs.
 | Name searches late | Sign art cannot be final | Started in stage 0; the sign atlases are the last art step |
 | Shader precompiles on a fresh machine every session | Stalls during play | Scoped per map, behind the title, debrief and loading card; measured with SMOOTH.md's metrics |
 | The box is the bottleneck | Stages 3 and 4 take longer | Plan about 100 box hours; batch imports; one picture round less if the first is clean |
+
+---
+
+## Fast build 2026-11-28 (engine, campaign and front end lane)
+
+What the lane built, in the order the owner's goal needs it: play Canal Street and Midtown from their data and go from
+the Block to Canal Street to Midtown.
+
+- **Loader.** `FMILevelData::ForLevel(id)` reads `Content/Data/level_<id>.json` (copied from `tools/levels/data`), one
+  cached object per id; `Get()` is still the Block's `level.json` and `ForLevel("block")` returns that same object.
+  `Current()` is the level the running game plays (set by the game mode's `InitGame` from `?level=<id>` or from the map,
+  before any actor begins). A missing `el` is a deck far outside the bounds (`bHasDeck` false); `interior.doorways` is
+  optional; spawn points carry `layer`, `enabled` and `overlooks` (a disabled point is never chosen; a point with
+  `overlooks` is a candidate only while the player stands in one of those zones); `tuning.spawn.excludePlayerRoom` drops
+  the points in the interior room the player is in; `tuning.difficulty.maxAliveAdd` / `pursuitBudgetAdd` and
+  `tuning.rating.time` are merged over the flow tune in `Boot` for that level only; the `nav` object is kept as the
+  contract gives it (`NavJson`, `NavLayerIds`) for the nav lane.
+- **Per-level text, audio, guide.** `text_<id>.json` (the level's `frontend.story.<id>` overlay of progression.md 7.2,
+  `{name}` written as Rule) is merged over text.json by `FMIText::Load(..., id)`; `audio_<id>.json` replaces the audio
+  zones; `guide.json` has `levels.chinatown` and `levels.midtown` hint lines; `story.json` holds the loading card text.
+- **Extraction arrival.** Midtown's truck is hidden and its two colliders stay out of the box world until every reel is
+  secured (`FMILevelData::TruckColliders`, `FMIBoxWorld::RemoveIds`); Canal's is there from the start. No refusal line
+  is said at a truck that has not arrived. The 5 s roll-in is not built: the truck appears with its doors opening.
+- **Travel.** Hard travel (`UMIGameSubsystem::TravelTo`): the set-up lives in the game instance and the save slot, a
+  full-screen loading card (`UI/MILoadingCard`) is a viewport widget so it stays on the stream while the old world goes
+  and the new one loads, then `OpenLevel(<map>?level=<id>?block=1?travelled)`. The map is levels.json `map` when its
+  package exists, else `/Game/Maps/L_GreyBlock` with the level's boxes drawn at run time (the art maps of the other
+  lane drop in by name: `L_Chinatown`, `L_Midtown`). The game mode boots any map named in levels.json, applies the
+  carried set-up, starts the run and takes the card away. For tests and shots: open any grey map with `?block=1?level=chinatown?autostart`.
+- **Campaign.** `Flow/MIProgress` (`FMIProgress`): cleared, clears, best rating (points, difficulty), Hold best, the album
+  flag, `Merge`, `IsOpen`, `FurthestOpen`, `NextAfter`, the 8-character code of progression.md Appendix A (checked
+  against the Python oracle, examples and all). Stored in `UMIRunSetupSubsystem` (game instance), written to the save
+  slot as `UMISaveGame::Progress` (a new field: old saves load with nothing cleared and the Block open); a remembered
+  level that is not open falls back to the furthest open one. A Story complete is recorded when the debrief card shows
+  (game only: `FMIBootOptions::bCampaign`, which tests and replays leave false, so no golden event changes). Hold bests of
+  Canal and Midtown are kept in the progress; the Block's stays in `Best`.
+- **Front end.** The existing Block & Style screen lists the three levels (levels.json `order`): a card that is locked
+  reads "Locked · Finish <level> to open" and cannot be chosen, an open one reads "Not cleared yet", a cleared one
+  "Cleared · <rating> · <difficulty>". The progress code is shown under the cards with a box to type a code. The debrief
+  of a cleared level has `Next: <level>` as its first item and the progress code as a stat line. `-MIUnlockAll` opens
+  every level on a desktop. Hold is offered where the level has ground spawns (no air spawns are needed: the drones are out).
+- **Not built here:** the art maps, lighting rigs and thumbnails (the cards show text only), the page bridge's game half
+  (`docs/unreal/patches/maps-progress-bridge`), per-level shader caches, the truck's roll-in, the Hold-mode album card.
