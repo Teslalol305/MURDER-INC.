@@ -24,7 +24,7 @@ import build_block as B
 
 ART = os.environ.get("MI_ART_IN", "/project/ue/maps/canal-art-in")
 B.ART_IN = ART
-B.TAG = "MICanal"
+B.TAG = "MIBlock"  # the game finds the art map by this tag (presentation.json block.artTag)
 MAP = "/Game/Maps/L_Chinatown"
 FOLDER = "Canal"
 ACTORS, ASSETS, LEVELS = B.ACTORS, B.ASSETS, B.LEVELS
