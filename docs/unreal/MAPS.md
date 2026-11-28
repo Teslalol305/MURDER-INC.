@@ -569,8 +569,9 @@ the Development game of the package, `-sm5`, 1920 x 1080, the Python viewer that
     URL (`-- "/Game/Maps/L_Midtown?level=midtown?block=1?travelled"`) boots the level directly, which is what the demo
     director needs (its script ends with a hard travel, because the director is a world subsystem).
 - **Package.** `tools/box/cloud/package-cloud.sh all` with `MI_CLOUD=/project/ue/maps/pkg`, its own release copy
-  (`MI_REL`) and content clone (`MI_GP`), `MI_COMMIT` the pushed head, `MI_TAG=v7`. Zip 2.44 GB in 11 parts (v6: 2.42
-  GB: the art of both maps was already under `DirectoriesToAlwaysCook`, so the two maps add about 14 MB).
+  (`MI_REL`) and content clone (`MI_GP`), `MI_COMMIT` the pushed head, `MI_TAG=v7`. Zip 2,565,147,352 bytes (2.39 GiB) in 11 parts,
+  141 MB over v6 (2,423,628,418): the art of both maps was already under `DirectoriesToAlwaysCook`, so the growth is the
+  two cooked maps and their data, not new art.
 - **Suite.** `tools/box/test.sh MurderInc`: 245 passed, 0 failed, 0 skipped on the packaged head. The Block's
   `level.json`, `text.json`, `props.json`, `atmos.json`, `rules.json` and the goldens have no diff against v6 (5bde868).
 - **Played and looked at (Development game of the package, `-sm5`, about 60 fps, GPU 2.6 to 2.9 ms of a 16.7 ms frame
