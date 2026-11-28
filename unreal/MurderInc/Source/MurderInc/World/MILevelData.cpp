@@ -1,4 +1,5 @@
 #include "World/MILevelData.h"
+#include "World/MINavLayers.h"
 
 #include "Core/Data/MIDataSubsystem.h"
 #include "Dom/JsonObject.h"
@@ -91,6 +92,12 @@ void FMILevelData::FillWorld(FMIBoxWorld& World, const FMIRng& Root) const
 			continue;  // the truck rolls in after the last reel (SyncTruckColliders)
 		}
 		World.AddBox(B);
+	}
+	// Nav step A: a level with nav layers gets one grid per layer (World/MINavLayers.h); the Block has none.
+	FMINavSpec Spec;
+	if (NavJson.IsValid() && FMINavSpec::Parse(NavJson, Spec))
+	{
+		World.SetNavSpec(Spec);
 	}
 }
 
