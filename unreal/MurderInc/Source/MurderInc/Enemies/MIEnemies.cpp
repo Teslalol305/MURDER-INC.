@@ -1049,27 +1049,22 @@ int32 FMIEnemyField::AddFiringCells(int32 N, const FMIEnemy& E, const FVector& T
 	{
 		return N;
 	}
-	// The first cells are close to the seed (a parapet over the player); the rest are spread over the whole disc around the
-	// target, because a shot at a body many metres up or down needs room to stand back from the wall that hides it.
+	// Where he stands, then a 2 m grid around the seed (a parapet over the player), then random cells over the whole disc
+	// around the target: a shot at a body many metres up or down needs room to stand back from the wall that hides it.
 	const double Spread = FMath::Min(Range, T.ShotRange) * 0.85;
-	for (int32 I = 0; I < 30 && N < MaxCandidates; ++I)
+	auto TryCell = [&](const FVector& P)
 	{
-		FVector P = Seed;
-		if (I > 0 && !World->RandomPoint(I < 8 ? Seed : FVector(TargetPos.X, 0, TargetPos.Z), I < 8 ? 9.0 : Spread, P, E.Layer))
+		if (N >= MaxCandidates || Hypot(P.X - E.Pos.X, P.Z - E.Pos.Z) > Range || Hypot(P.X - TargetPos.X, P.Z - TargetPos.Z) > T.ShotRange)
 		{
-			continue;
-		}
-		if (Hypot(P.X - E.Pos.X, P.Z - E.Pos.Z) > Range + 12.0 || Hypot(P.X - TargetPos.X, P.Z - TargetPos.Z) > T.ShotRange)
-		{
-			continue;
+			return;
 		}
 		if (E.bPickAway && Hypot(P.X - E.Pos.X, P.Z - E.Pos.Z) < T.RepickMinMove)
 		{
-			continue;
+			return;
 		}
 		if (!World->LineOfSight(FVector(P.X, E.Pos.Y + T.GunHeight, P.Z), TargetEye) || !World->SameRegion(E.Layer, E.Pos, FVector(P.X, E.Pos.Y, P.Z)))
 		{
-			continue;
+			return;
 		}
 		FCandidate& C = Candidates[N++];
 		C.X = P.X;
@@ -1077,6 +1072,28 @@ int32 FMIEnemyField::AddFiringCells(int32 N, const FMIEnemy& E, const FVector& T
 		C.Kind = ECandidate::Random;
 		C.bCover = false;
 		C.bSight = true;
+	};
+	if (World->IsWalkable(E.Pos.X, E.Pos.Z, E.Layer))
+	{
+		TryCell(FVector(E.Pos.X, 0, E.Pos.Z));
+	}
+	for (double Dx = -12.0; Dx <= 12.0; Dx += 2.0)
+	{
+		for (double Dz = -12.0; Dz <= 12.0; Dz += 2.0)
+		{
+			if (World->IsWalkable(Seed.X + Dx, Seed.Z + Dz, E.Layer))
+			{
+				TryCell(FVector(Seed.X + Dx, 0, Seed.Z + Dz));
+			}
+		}
+	}
+	for (int32 I = 0; I < 14; ++I)
+	{
+		FVector P;
+		if (World->RandomPoint(FVector(TargetPos.X, 0, TargetPos.Z), Spread, P, E.Layer))
+		{
+			TryCell(P);
+		}
 	}
 	return N;
 }
