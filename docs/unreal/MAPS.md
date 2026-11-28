@@ -380,3 +380,42 @@ the Block to Canal Street to Midtown.
   every level on a desktop. Hold is offered where the level has ground spawns (no air spawns are needed: the drones are out).
 - **Not built here:** the art maps, lighting rigs and thumbnails (the cards show text only), the page bridge's game half
   (`docs/unreal/patches/maps-progress-bridge`), per-level shader caches, the truck's roll-in, the Hold-mode album card.
+
+## Fast build 2026-11-28 (nav lane, step A)
+
+Multi-layer nav, step A only (no stair links: Goons stay on their own layer). Code: `World/MINavLayers.*` (the `nav`
+object: layers, spawn reach, `firingCellRange`, `strandedAfter`), `World/MIBoxWorld.*`, `Enemies/MIEnemies.*`,
+`Flow/MIGameRules.cpp`; `FMILevelData::FillWorld` hands the level's `nav` to the box world. A level without
+`nav.layers` (the Block) has one plane layer and every call takes the old path: Golden.World, Golden.Enemies and
+Golden.Directors are untouched.
+
+- **N1 grids.** One grid per layer, built when the world's nav is built (the engine does it at run time; the bake step
+  writes nothing for this, the grids are cheap). Layer 0 is today's plane rule. A `boxes` layer cell is walkable when
+  a collider top lies within 0.45 m of the layer's y at the cell centre, the cell is inside the layer's rect, and no
+  nav-blocking collider spans [y + 0.47, y + 1.5] within 0.5 m. `FindPath`, `IsWalkable`, `ClearLine`, `RandomPoint`,
+  `NearestWalkable`, `NavBlocked` take a layer (default 0). `LayerForY` (a spawn or cover point) and `LayerAt` (a body: the
+  highest layer with y <= feet + 0.5 and a walkable cell under it). A Goon is snapped to and paths within his layer.
+- **N2 reach.** `ChoosePosition` only uses a ground spawn whose layer is in `spawnReach` of the player's layer; on a roof
+  with nothing allowed it takes the nearest authored ground point instead of the 26 m ring. The layer of a spawn or
+  cover point is read from its y (the files carry the same layer id).
+- **N3 firing cells.** A Goon whose target is on another layer adds firing cells to his candidates: his own cell, a 1 m
+  grid (+-12 m) around the own-layer cell nearest the target, and random cells over the disc around the target; a cell
+  counts when it is within `firingCellRange` of the Goon and sight range of the target, the Goon can walk to it, and a
+  ray from the gun reaches the target's eye. The existing cost function chooses (travel, crowding, bearing). With the
+  target on another layer and no cell, he holds where he stands and fires when he sees the player: he never walks
+  toward the player's x and z (a roof Goon would walk off the parapet, a street Goon under a building). Investigating
+  a point on another layer uses the same cells as his stand.
+- **N4 stranded.** Each second a Goon who cannot see the player asks whether he has a way to fight (a firing cell, or the
+  player's own cell in his region); after `strandedAfter` seconds without one and without sight he is returned to the
+  pool: no kill, no score, no event; the flow queues one new Goon for each (`TakeRecycled`).
+- **Honest edges.** A roof Goon cannot see a street player closer than about 12 m to the building (the parapet hides him), so
+  Midtown's r2 and r3 Goons get no cell over a street player (they are out of spawn reach then, and are returned when
+  they are already there). The tests use a player placed where the cells exist (`SpotSeenFrom`). Link walking (step B)
+  is not built: nobody changes layer.
+- **Tests (headless, the maps' level files from tools/levels/data, a standing player, 30 Hz).**
+  `MurderInc.Levels.Midtown.NavStepA`: roof grids, every enabled spawn on its layer's grid, the spawn reach table, a
+  Goon on r1, r2 and r3 stays on his layer's floor, walks to a cell and keeps firing at a player one layer below
+  (>= 30 rounds in 45 s, never recycled), a street Goon with the player on r1 stays on the plane and on free street
+  cells, a Goon with no cell is returned after about 10 s, once. `MurderInc.Levels.Chinatown.RoofHold`: three roof
+  Goons and street Goons fight a player on the roof edge and a player in the street: both sides fire, nobody is
+  recycled, nobody leaves his layer. `MurderInc.Levels.Block.OneLayer`: the Block has no layers.
