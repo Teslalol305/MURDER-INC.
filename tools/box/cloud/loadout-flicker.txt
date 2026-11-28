@@ -1,0 +1,61 @@
+# The Loadout through the stream, to find the picture that jumps when parts are fitted (the owner: "the screen flickers
+# when adding attachments to weapons"). Played by rtcinput.py with --trace (one CSV line per received frame: seconds,
+# mean level, change from the frame before) and --thumbs (a small picture every 0.25 s):
+#   lag-test.sh run flick game=ship view=loadout-flicker.txt join=3 probe=0.25 secs=100 vopts=--trace,flick/trace.csv,--thumbs,flick/thumbs
+# (vopts paths are relative to the run's folder.) Every CHECK line below is a step; the log prints its time, the trace's
+# first column is the same clock (seconds since the viewer started). Each step is followed by a calm wait, so a jump
+# in the trace is the step's own: the old build jumped at the bench (E), at each part fitted or previewed, at Esc.
+# First-time player as guns-keys.txt: card, Home, Crew by keyboard (Tab to Next, Enter), then the Loadout.
+wait 3
+click
+wait 2.5
+click 0.106 0.448
+wait 2.5
+key 9
+wait 0.4
+key 13
+wait 4
+say CHECK calm-loadout
+wait 4
+say CHECK bench-open-chopper
+key 69
+wait 4
+say CHECK calm-bench
+wait 3
+say CHECK preview-next-option
+key 40
+wait 3
+say CHECK fit-option
+key 13
+wait 3
+say CHECK preview-next-option-2
+key 40
+wait 3
+say CHECK fit-option-2
+key 13
+wait 3
+say CHECK next-slot
+key 39
+wait 3
+say CHECK remove-part
+key 8
+wait 3
+say CHECK bench-done
+key 27
+wait 4
+say CHECK switch-gun-right
+key 39
+wait 4
+say CHECK bench-open-nine
+key 69
+wait 4
+say CHECK nine-preview
+key 40
+wait 3
+say CHECK nine-fit
+key 13
+wait 3
+say CHECK nine-done
+key 27
+wait 4
+say CHECK end
