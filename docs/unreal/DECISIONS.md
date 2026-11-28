@@ -736,3 +736,15 @@ strength" Low / Normal / High (`aimAssistStrength`; the factors 0.6 / 1 / 1.4 sc
 Tests and replays: `Boot` with no save slot turns the assist off (`FMIBootOptions::bAimAssist` asks for it), and a bare controller starts with
 it off until the game flow applies the settings. `MurderInc.Assist.Data`, `.Math` and `.World` pin the data, the arithmetic and the engagement
 (slow-down, pull, snap, a wall in between, switched off).
+
+## 2026-11-28 ~02:00 UTC: v6 GO, and E3DS storage
+
+- **v6 is GO** under the trimmed bar. The packaged commit is 1095726 (aim assist), with zip sha256 `7bbb3f14e4fc555129c3d4225b91ccfc52c8a9fe742676fd700cf6a4938ae6df`.
+  - The full suite passes 232 of 232.
+  - The check passes: Story to the truck, Hold waves 1–3, the aim-assist settings toggle, and no lock through walls.
+  - Aim assist raises hits per magazine (pad hip 73%→97%, mouse hip 53%→78%), but does not shorten the time to put the crosshair on a Goon. To make acquisition faster, tune the pad's slow-down radius or the snap angle in `player.input.assist`.
+- **E3DS storage** (10 GB on the plan) held 4 versions of MurderInc at 2.1 GB each, leaving 1.6 GB free.
+  - The owner chose to delete Versions 2 and 3 and keep 4 as the rollback and 5 as live.
+  - Legacy links pinned to those versions break; the project link always streams the newest version.
+  - Each upload adds about 2.1–2.4 GB, so delete an old version before every release.
+- **Upload path:** the owner signs in (Google) in the plain owner browser on the box, and it is then driven with xdotool plus screenshots. Do not restart it under remote control: the Google sign-in does not survive a restart, which was tried twice on 2026-11-28.
