@@ -78,6 +78,9 @@ ap.add_argument('--delay-ms', type=float, default=0.0)
 ap.add_argument('--link-kbps', type=float, default=0.0)
 ap.add_argument('--link-queue-ms', type=float, default=150.0)
 ap.add_argument('--remb-kbps', type=float, default=0.0)
+ap.add_argument('--trace', default='', help='write one CSV line per received video frame: seconds, mean level, change from the frame before, size')
+ap.add_argument('--thumbs', default='', help='save a small picture every --thumbs-every seconds into this folder (named by seconds)')
+ap.add_argument('--thumbs-every', type=float, default=0.25)
 A = ap.parse_args()
 
 link = {'dropped': 0, 'passed': 0, 'bytes': 0, 'maxq': 0.0}
@@ -161,6 +164,10 @@ if A.nodecode:
 t0 = time.time()
 st = {'video': 0, 'audio': 0, 'size': None, 'channel': None, 'pad': None, 'want_frame': None, 'messages': 0, 'repeats': 0, 'sig': None}
 hooks = {'audio': None, 'action': None}
+trace = []  # --trace: one line per received video frame
+if A.thumbs:
+    import os as _os
+    _os.makedirs(A.thumbs, exist_ok=True)
 
 
 def log(*a):
@@ -355,6 +362,20 @@ async def main():
                 st['sig'] = sig
             except Exception:  # the count is a help, not the test
                 pass
+            if A.trace or A.thumbs:
+                try:
+                    now = time.time() - t0
+                    mean = sum(plane[::max(1, len(plane) // 2000)]) / max(1, len(sig))
+                    diff = sum(abs(a - b) for a, b in zip(sig, st.get('tsig') or sig)) / max(1, len(sig))
+                    st['tsig'] = sig
+                    trace.append('%.3f,%.2f,%.2f,%dx%d' % (now, mean, diff, fr.width, fr.height))
+                    if A.thumbs and now - st.get('thumb_t', -99) >= A.thumbs_every:
+                        st['thumb_t'] = now
+                        img = fr.to_image()
+                        img.thumbnail((320, 180))
+                        img.save('%s/t%08.3f.jpg' % (A.thumbs, now), quality=70)
+                except Exception as e:  # the trace is a help, not the test
+                    log('trace error', e)
             if st['size'] != [fr.width, fr.height]:
                 st['size'] = [fr.width, fr.height]
                 log('video', st['size'])
@@ -458,6 +479,9 @@ async def main():
         await play(lines, send, Player(w, h))
         await asyncio.sleep(0.3)
         log('END', json.dumps({k: st[k] for k in ('video', 'audio', 'size', 'pad', 'messages', 'repeats')}))
+        if A.trace:
+            with open(A.trace, 'w') as f:
+                f.write('# t0=%.3f\nseconds,mean,change,size\n' % t0  + '\n'.join(trace) + '\n')
         for t in tasks:
             t.cancel()
     await pc.close()

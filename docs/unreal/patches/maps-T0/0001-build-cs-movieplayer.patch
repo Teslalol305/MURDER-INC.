@@ -1,0 +1,17 @@
+diff --git a/unreal/MurderInc/Source/MurderInc/MurderInc.Build.cs b/unreal/MurderInc/Source/MurderInc/MurderInc.Build.cs
+index 0e93e04..201a5a9 100644
+--- a/unreal/MurderInc/Source/MurderInc/MurderInc.Build.cs
++++ b/unreal/MurderInc/Source/MurderInc/MurderInc.Build.cs
+@@ -34,6 +34,12 @@ public class MurderInc : ModuleRules
+ 		// Startup report: shader platform, ray tracing, Nanite and Lumen support (RenderCore RenderUtils.h).
+ 		PrivateDependencyModuleNames.AddRange(new string[] { "RHI", "RenderCore" });
+ 
++		// The map-travel stream probe (Cloud/MITravelProbe.cpp, not in the Shipping game) sets up a loading screen.
++		if (Target.Configuration != UnrealTargetConfiguration.Shipping)
++		{
++			PrivateDependencyModuleNames.Add("MoviePlayer");
++		}
++
+ 		// Pixel Streaming 2 is enabled for the game target only (MurderInc.uproject: TargetAllowList Game), so the
+ 		// editor and the automation tests never load it. The game reads its connection events and replaces its
+ 		// console-command handler with an allowlist (Cloud/MICloud.cpp; the input handler's interface is in

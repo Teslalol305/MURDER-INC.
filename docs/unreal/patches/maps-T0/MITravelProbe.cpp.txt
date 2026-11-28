@@ -1,0 +1,204 @@
+// The map-travel stream probe (docs/unreal/maps/progression.md 6.3, MAPS.md stage 0, lane T0).
+//
+// Question: when the game calls OpenLevel while a Pixel Streaming 2 viewer watches, does the stream go black or freeze
+// (the game thread blocks inside LoadMap), with and without a MoviePlayer loading screen? This file travels between maps
+// on a timer, so a viewer (tools/box/cloud/rtcinput.py --trace) can look at what it receives.
+//
+// Not in the Shipping game, and it does nothing unless the launch line says so:
+//   -MITravelMaps=L_Block,L_GreyBlock   the maps, visited in turn (first travel goes to the second)
+//   -MITravelCount=10                   how many travels
+//   -MITravelStart=40                   seconds after the process started that the first travel is asked for
+//   -MITravelGap=20                     seconds between the end of one travel (map loaded and held) and the next
+//   -MITravelMovie=0|1                  1: a MoviePlayer loading screen is set up before every travel
+//   -MITravelHold=1.0                   seconds the loading screen stays after the load (MinimumLoadingScreenDisplayTime)
+// Every step prints a "MITravelProbe" line with the process time and the wall clock, so the viewer's trace lines up.
+// Production travel (T1) will not use this file: it is the measurement.
+
+#include "CoreMinimal.h"
+
+#if !UE_BUILD_SHIPPING
+
+#include "MurderInc.h"
+#include "Containers/Ticker.h"
+#include "Misc/CommandLine.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/DateTime.h"
+#include "Misc/Parse.h"
+#include "HAL/PlatformTime.h"
+#include "UObject/UObjectGlobals.h"
+#include "Engine/Engine.h"
+#include "Engine/World.h"
+#include "Kismet/GameplayStatics.h"
+#include "MoviePlayer.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Widgets/Images/SThrobber.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Styling/CoreStyle.h"
+
+namespace MITravelProbe
+{
+	struct FState
+	{
+		TArray<FString> Maps;
+		int32 Count = 0;
+		int32 Done = 0;
+		double Start = 40.0;
+		double Gap = 20.0;
+		double Hold = 1.0;
+		bool bMovie = false;
+		double NextAt = 0.0;
+		double AskedAt = 0.0;
+		double LoadedAt = 0.0;
+		bool bTravelling = false;
+		bool bStopPending = false;
+		double StopAt = 0.0;
+		FTSTicker::FDelegateHandle Ticker;
+	};
+	FState S;
+
+	void Say(const FString& Text)
+	{
+		UE_LOG(LogMI, Display, TEXT("MITravelProbe t=%.3f wall=%.3f %s"), FPlatformTime::Seconds() - GStartTime, FDateTime::UtcNow().ToUnixTimestamp() + FDateTime::UtcNow().GetMillisecond() / 1000.0, *Text);
+	}
+
+	// A screen that is neither black nor still: a mid-grey panel, a title, and a throbber that Slate animates by itself.
+	TSharedRef<SWidget> MakeScreen()
+	{
+		return SNew(SBorder)
+			.BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
+			.BorderBackgroundColor(FLinearColor(0.12f, 0.12f, 0.16f, 1.f))
+			.Padding(0.f)
+			[
+				SNew(SOverlay)
+				+ SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)
+				[
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+					[
+						SNew(STextBlock).Text(FText::FromString(TEXT("LOADING"))).ColorAndOpacity(FLinearColor::White)
+							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 64))
+					]
+					+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0.f, 30.f)
+					[
+						SNew(SBox).WidthOverride(160.f).HeightOverride(160.f)
+						[
+							SNew(SThrobber).NumPieces(8).Animate(SThrobber::VerticalAndOpacity | SThrobber::Horizontal)
+						]
+					]
+				]
+			];
+	}
+
+	void SetupScreen()
+	{
+		if (!GetMoviePlayer())
+		{
+			Say(TEXT("no MoviePlayer in this build"));
+			return;
+		}
+		FLoadingScreenAttributes Attr;
+		Attr.bAutoCompleteWhenLoadingCompletes = false;
+		Attr.bMoviesAreSkippable = false;
+		Attr.bWaitForManualStop = true;
+		Attr.bAllowEngineTick = true;
+		Attr.MinimumLoadingScreenDisplayTime = static_cast<float>(S.Hold);
+		Attr.WidgetLoadingScreen = MakeScreen();
+		GetMoviePlayer()->SetupLoadingScreen(Attr);
+		Say(FString::Printf(TEXT("loading screen set up: IsMovieCurrentlyPlaying=%d LoadingScreenIsPrepared=%d"), GetMoviePlayer()->IsMovieCurrentlyPlaying() ? 1 : 0, GetMoviePlayer()->LoadingScreenIsPrepared() ? 1 : 0));
+	}
+
+	void OnPreLoad(const FWorldContext&, const FString& Name)
+	{
+		Say(FString::Printf(TEXT("PreLoadMap %s (movie playing %d)"), *Name, GetMoviePlayer() && GetMoviePlayer()->IsMovieCurrentlyPlaying() ? 1 : 0));
+	}
+
+	void OnPostLoad(UWorld* World)
+	{
+		if (!World || !S.bTravelling)
+		{
+			return;
+		}
+		S.LoadedAt = FPlatformTime::Seconds();
+		Say(FString::Printf(TEXT("PostLoadMap %s: %.3f s after the request"), *World->GetMapName(), S.LoadedAt - S.AskedAt));
+		if (S.bMovie)
+		{
+			S.bStopPending = true;
+			S.StopAt = S.LoadedAt + S.Hold;
+		}
+		else
+		{
+			S.bTravelling = false;
+			S.Done++;
+			S.NextAt = S.LoadedAt + S.Gap;
+		}
+	}
+
+	bool Tick(float)
+	{
+		const double Now = FPlatformTime::Seconds();
+		if (S.bStopPending && Now >= S.StopAt)
+		{
+			S.bStopPending = false;
+			if (GetMoviePlayer())
+			{
+				GetMoviePlayer()->StopMovie();
+			}
+			S.bTravelling = false;
+			S.Done++;
+			S.NextAt = Now + S.Gap;
+			Say(FString::Printf(TEXT("travel %d finished: screen released, %.3f s after the request"), S.Done, Now - S.AskedAt));
+		}
+		if (S.bTravelling || S.Done >= S.Count || Now - GStartTime < S.NextAt)
+		{
+			return true;
+		}
+		UWorld* World = GEngine && GEngine->GetWorldContexts().Num() ? GEngine->GetWorldContexts()[0].World() : nullptr;
+		if (!World)
+		{
+			return true;
+		}
+		const FString& To = S.Maps[(S.Done + 1) % S.Maps.Num()];
+		S.bTravelling = true;
+		S.AskedAt = Now;
+		Say(FString::Printf(TEXT("travel %d of %d to %s (movie=%d)"), S.Done + 1, S.Count, *To, S.bMovie ? 1 : 0));
+		if (S.bMovie)
+		{
+			SetupScreen();
+		}
+		UGameplayStatics::OpenLevel(World, FName(*To));
+		return true;
+	}
+
+	void Start()
+	{
+		FString MapsArg;
+		if (!FParse::Value(FCommandLine::Get(), TEXT("-MITravelMaps="), MapsArg) || MapsArg.IsEmpty())
+		{
+			return;
+		}
+		MapsArg.ParseIntoArray(S.Maps, TEXT(","));
+		if (S.Maps.Num() < 2)
+		{
+			return;
+		}
+		int32 MovieArg = 0;
+		FParse::Value(FCommandLine::Get(), TEXT("-MITravelCount="), S.Count);
+		FParse::Value(FCommandLine::Get(), TEXT("-MITravelStart="), S.Start);
+		FParse::Value(FCommandLine::Get(), TEXT("-MITravelGap="), S.Gap);
+		FParse::Value(FCommandLine::Get(), TEXT("-MITravelHold="), S.Hold);
+		FParse::Value(FCommandLine::Get(), TEXT("-MITravelMovie="), MovieArg);
+		S.bMovie = MovieArg != 0;
+		S.NextAt = S.Start;
+		FCoreUObjectDelegates::PreLoadMapWithContext.AddStatic(&OnPreLoad);
+		FCoreUObjectDelegates::PostLoadMapWithWorld.AddStatic(&OnPostLoad);
+		S.Ticker = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&Tick), 0.f);
+		Say(FString::Printf(TEXT("armed: %d travels between %s, first at %.0f s, gap %.0f s, movie=%d, hold %.1f s, MoviePlayer %s"), S.Count, *MapsArg, S.Start, S.Gap, S.bMovie ? 1 : 0, S.Hold, GetMoviePlayer() ? TEXT("present") : TEXT("absent")));
+	}
+
+	FDelayedAutoRegisterHelper Register(EDelayedRegisterRunPhase::EndOfEngineInit, []() { Start(); });
+}
+
+#endif // !UE_BUILD_SHIPPING

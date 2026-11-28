@@ -1,0 +1,1 @@
+Stage-0 travel probe from a stopped run, not compiled yet. Kept out of Source so the lanes building now are not broken by an unbuilt file. To use: copy MITravelProbe.cpp.txt to Source/MurderInc/Cloud/MITravelProbe.cpp and apply 0001-build-cs-movieplayer.patch.
